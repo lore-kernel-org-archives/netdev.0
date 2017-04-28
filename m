@@ -1,78 +1,114 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next] rtnetlink: Remove NETDEV_CHANGEINFODATA
-Date: Fri, 28 Apr 2017 11:06:25 -0700
-Message-ID: <1493402785-18844-1-git-send-email-dsa@cumulusnetworks.com>
-Cc: jiri@resnulli.us, David Ahern <dsa@cumulusnetworks.com>
-To: netdev@vger.kernel.org
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: prog ID and next steps. Was: [RFC net-next 0/2] Introduce bpf_prog
+ ID and iteration
+Date: Fri, 28 Apr 2017 20:24:02 +0200
+Message-ID: <590388C2.7080000@iogearbox.net>
+References: <20170427062449.80290-1-kafai@fb.com> <e81805c8-0499-a0a5-b788-0168947d9b8c@stressinduktion.org> <40cf6893-4702-4773-1aaa-7dfdc51c6212@fb.com> <44cdb2d2-9f5c-5d28-2966-3e43e6d2a2ef@stressinduktion.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: kernel-team@fb.com, "David S. Miller" <davem@davemloft.net>,
+        Jesper Dangaard Brouer <brouer@redhat.com>,
+        John Fastabend <john.fastabend@gmail.com>,
+        Thomas Graf <tgraf@suug.ch>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        Alexei Starovoitov <ast@fb.com>,
+        Martin KaFai Lau <kafai@fb.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f47.google.com ([74.125.83.47]:34919 "EHLO
-        mail-pg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S642262AbdD1SGf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 28 Apr 2017 14:06:35 -0400
-Received: by mail-pg0-f47.google.com with SMTP id o3so13153319pgn.2
-        for <netdev@vger.kernel.org>; Fri, 28 Apr 2017 11:06:35 -0700 (PDT)
+Received: from www62.your-server.de ([213.133.104.62]:49222 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1163128AbdD1SYJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 28 Apr 2017 14:24:09 -0400
+In-Reply-To: <44cdb2d2-9f5c-5d28-2966-3e43e6d2a2ef@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-NETDEV_CHANGEINFODATA was added by d4261e5650004 ("bonding: create
-netlink event when bonding option is changed"). RTM_NEWLINK
-messages are already created on changelink events, so this event
-is just a duplicate. Remove it.
+On 04/28/2017 01:50 PM, Hannes Frederic Sowa wrote:
+> On 28.04.2017 03:11, Alexei Starovoitov wrote:
+[...]
+>> i disagree re: kallsyms. The goal of prog_tag is to let program writers
+>> understand which program is running in a stable way.
+>
+> But exactly it doesn't let program writers do that, it just confuses them:
+>
+> ---
+>
+> jit on:
+>
+> perf record -e bpf_redirect -agR
+>
+> The unwinder walks the stack, extracts address of upper function and
+> sends it to user space (perf) or handles it inside the kernel/kallsyms
+> (ftrace).
+>
+> User takes tag of bpf program and wants to inspect related maps to the
+> program. Unfortunately the tag is not unique and thus we need to expand
+> the tag back to all possible programs with the same tag and expand that
+> to the union of all possible maps that those programs reference again.
+>
+> That is what we present to the application developer. I would seriously
+> be very confused.
+>
+> If application developer doesn't trust perf and uses instruction pointer
+> value from the stack directly he can't find out which program there is,
+> because fdinfo e.g. doesn't show the actual address of where the program
+> is allocated. I would use /dev/kmem now.
 
-Cc: Jiri Pirko <jiri@resnulli.us>
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
----
- drivers/net/bonding/bond_options.c |  2 --
- include/linux/netdevice.h          | 11 +++++------
- net/core/rtnetlink.c               |  1 -
- 3 files changed, 5 insertions(+), 9 deletions(-)
+I don't think it would be reasonable to let fdinfo unconditionally
+dump the address of the program including unprivileged progs. We
+probably could add a run-time check into bpf_prog_show_fdinfo() and
+show it dynamically when user has cap_sys_admin.
 
-diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
-index 1bcbb8913e17..533518a64496 100644
---- a/drivers/net/bonding/bond_options.c
-+++ b/drivers/net/bonding/bond_options.c
-@@ -673,8 +673,6 @@ int __bond_opt_set(struct bonding *bond,
- out:
- 	if (ret)
- 		bond_opt_error_interpret(bond, opt, ret, val);
--	else if (bond->dev->reg_state == NETREG_REGISTERED)
--		call_netdevice_notifiers(NETDEV_CHANGEINFODATA, bond->dev);
- 
- 	return ret;
- }
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index cc07c3be2705..c49a7a901710 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -2279,12 +2279,11 @@ struct netdev_lag_lower_state_info {
- #define NETDEV_CHANGEUPPER	0x0015
- #define NETDEV_RESEND_IGMP	0x0016
- #define NETDEV_PRECHANGEMTU	0x0017 /* notify before mtu change happened */
--#define NETDEV_CHANGEINFODATA	0x0018
--#define NETDEV_BONDING_INFO	0x0019
--#define NETDEV_PRECHANGEUPPER	0x001A
--#define NETDEV_CHANGELOWERSTATE	0x001B
--#define NETDEV_UDP_TUNNEL_PUSH_INFO	0x001C
--#define NETDEV_CHANGE_TX_QUEUE_LEN	0x001E
-+#define NETDEV_BONDING_INFO	0x0018
-+#define NETDEV_PRECHANGEUPPER	0x0019
-+#define NETDEV_CHANGELOWERSTATE	0x001A
-+#define NETDEV_UDP_TUNNEL_PUSH_INFO	0x001B
-+#define NETDEV_CHANGE_TX_QUEUE_LEN	0x001C
- 
- int register_netdevice_notifier(struct notifier_block *nb);
- int unregister_netdevice_notifier(struct notifier_block *nb);
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 58419da7961b..1072b88e5845 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -4127,7 +4127,6 @@ static int rtnetlink_event(struct notifier_block *this, unsigned long event, voi
- 	case NETDEV_CHANGEUPPER:
- 	case NETDEV_RESEND_IGMP:
- 	case NETDEV_PRECHANGEMTU:
--	case NETDEV_CHANGEINFODATA:
- 	case NETDEV_PRECHANGEUPPER:
- 	case NETDEV_CHANGELOWERSTATE:
- 	case NETDEV_UDP_TUNNEL_PUSH_INFO:
--- 
-2.1.4
+> ---
+>
+> jit off:
+>
+> perf probe -a '__bpf_prog_run ctx insn'
+> perf probe -a 'bpf_redirect flags ifindex'
+> perf record -e bpf_redirect -agR
+>
+> Situation doesn't change. We do get the insn pointer thus have a unique
+> id for the program. That's it, no further introspection. I can read
+> /dev/kmem now.
+>
+> ---
+>
+> Personally I wouldn't rely on such infrastructure.
+>
+> My proposal would be to maybe hash a map id into the program, so instead
+> of replacing the user space file descriptor with zero, take a map id
+> (like discussed below) or an inode number of the map into the register
+> and hash with that, so that those program have unique identifiers.
+
+I don't think that proposal would work, f.e. placing dev + inode number
+(inode itself wouldn't be sufficient either; map would also have to be
+pinned as anonymous inode from fd wouldn't work) or map id into insn
+won't give you out of a sudden a unique prog id, since maps can be shared
+among multiple progs, but also the same prog can be attached to, say,
+multiple attachment points.
+
+> Otherwise construct kallsym entries with prog id instead of tag.
+>
+> I think that the hash should try to reassemble some kind of identity
+> function and mapping two programs to the same tag, that do something
+> completely differently is not good (based on we don't include the map).
+>
+> Also I do think in future the difference between non-jit and jit
+> operation in regards to tracing should also be lifted. We could add a
+> manual tracing point into the interpreter for reporting the same event
+> as if the program was jitted.
+>
+> Debugging should not be that different based on the sysctl flags.
+
+With regards to tracing it's quite useful to see whether a program was
+JITed or not JITed (aka __bpf_prog_run()), so I don't think it makes
+sense to e.g. have everything named __bpf_prog_run(), at least the other
+way around wouldn't work for interpreter as far as I see.
+
+But lets assume JIT is off for a moment, and you only see __bpf_prog_run().
+Then, in the stack trace you'll also see related functions that call this
+in the first place, for example, mlx4_en_poll_rx_cq() / mlx4_en_process_rx_cq()
+in case of XDP, meaning, you get the call path context as well, for which
+you later on (with the proposed infrastructure for getting fds from
+attachment points + dumping them) can return the attached prog fd and
+with that also dump the code or map data.
