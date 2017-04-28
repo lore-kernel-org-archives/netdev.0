@@ -1,43 +1,125 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH net-next 17/18] net: dsa: mv88e6xxx: support the VTU Page bit
-Date: Fri, 28 Apr 2017 10:25:15 -0400
-Message-ID: <87vapo38z8.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
-References: <20170426155336.5937-1-vivien.didelot@savoirfairelinux.com> <20170426155336.5937-18-vivien.didelot@savoirfairelinux.com> <20170428125353.GK13231@lunn.ch>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170428125353.GK13231@lunn.ch>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Romain Perier <romain.perier@collabora.com>
+Subject: [PATCH v8 00/15] Replace PCI pool by DMA pool API
+Date: Fri, 28 Apr 2017 16:27:07 +0200
+Message-ID: <20170428142722.1282-1-romain.perier@collabora.com>
+Cc: linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
+        linux-usb@vger.kernel.org, linux-scsi@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        Romain Perier <romain.perier@collabora.com>,
+        Peter Senna Tschudin <peter.senna@collabora.co.uk>
+To: Dan Williams <dan.j.williams@intel.com>,
+        Doug Ledford <dledford@redhat.com>,
+        Sean Hefty <sean.hefty@intel.com>,
+        Hal Rosenstock <hal.rosenstock@gmail.com>,
+        jeffrey.t.kirsher@intel.com,
+        "David S. Miller" <davem@davemloft.net>, stas.yakovlev@gmail.com,
+        "James E.J. Bottomley" <jejb@linux.vnet.ibm.com>,
+        "Martin K. Petersen" <martin.petersen@oracle.com>,
+        Felipe Balbi <balbi@kernel.org>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bhuna.collabora.co.uk ([46.235.227.227]:52427 "EHLO
+        bhuna.collabora.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S938127AbdD1O1c (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 28 Apr 2017 10:27:32 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Andrew,
+The current PCI pool API are simple macro functions direct expanded to
+the appropriate dma pool functions. The prototypes are almost the same
+and semantically, they are very similar. I propose to use the DMA pool
+API directly and get rid of the old API.
 
-Andrew Lunn <andrew@lunn.ch> writes:
+This set of patches, replaces the old API by the dma pool API
+and remove the defines.
 
->> +	if (val & GLOBAL_VTU_VID_PAGE)
->> +		entry->vid |= 0x1000;
->
-> I'm undecided myself, so i will just bring it up for discussion.
->
-> Maybe it would be more readable to say:
->
-> 		entry->vid += 4096;
->
-> ???
+Changes in v8:
+- Rebased series onto next-20170428
 
-VID values are usually 12-bit. Marvell uses 13-bit VID values for the
-88E6390 family. Because Marvell is Marvell, the 13th bit of the VID is
-the 14th bit of the VID register.
+Changes in v7:
+- Rebased series onto next-20170416
+- Added Acked-by, Tested-by and Reviwed-by tags
 
-It feels natural to me to stay bitwise here when handling VID values.
+Changes in v6:
+- Fixed an issue reported by kbuild test robot about changes in DAC960
+- Removed patches 15/19,16/19,17/19,18/19. They have been merged by Greg
+- Added Acked-by Tags
 
-That's not a big deal though, one can make it clearer later if needed.
+Changes in v5:
+- Re-worded the cover letter (remove sentence about checkpatch.pl)
+- Rebased series onto next-20170308
+- Fix typos in commit message
+- Added Acked-by Tags
 
-Thanks,
+Changes in v4:
+- Rebased series onto next-20170301
+- Removed patch 20/20: checks done by checkpath.pl, no longer required.
+  Thanks to Peter and Joe for their feedbacks.
+- Added Reviewed-by tags
 
-        Vivien
+Changes in v3:
+- Rebased series onto next-20170224
+- Fix checkpath.pl reports for patch 11/20 and patch 12/20
+- Remove prefix RFC
+Changes in v2:
+- Introduced patch 18/20
+- Fixed cosmetic changes: spaces before brace, live over 80 characters
+- Removed some of the check for NULL pointers before calling dma_pool_destroy
+- Improved the regexp in checkpatch for pci_pool, thanks to Joe Perches
+- Added Tested-by and Acked-by tags
+
+Romain Perier (15):
+  block: DAC960: Replace PCI pool old API
+  dmaengine: pch_dma: Replace PCI pool old API
+  IB/mthca: Replace PCI pool old API
+  net: e100: Replace PCI pool old API
+  mlx4: Replace PCI pool old API
+  mlx5: Replace PCI pool old API
+  wireless: ipw2200: Replace PCI pool old API
+  scsi: be2iscsi: Replace PCI pool old API
+  scsi: csiostor: Replace PCI pool old API
+  scsi: lpfc: Replace PCI pool old API
+  scsi: megaraid: Replace PCI pool old API
+  scsi: mpt3sas: Replace PCI pool old API
+  scsi: mvsas: Replace PCI pool old API
+  scsi: pmcraid: Replace PCI pool old API
+  PCI: Remove PCI pool macro functions
+
+ drivers/block/DAC960.c                        |  38 +++++----
+ drivers/block/DAC960.h                        |   4 +-
+ drivers/dma/pch_dma.c                         |  12 +--
+ drivers/infiniband/hw/mthca/mthca_av.c        |  10 +--
+ drivers/infiniband/hw/mthca/mthca_cmd.c       |   8 +-
+ drivers/infiniband/hw/mthca/mthca_dev.h       |   4 +-
+ drivers/net/ethernet/intel/e100.c             |  12 +--
+ drivers/net/ethernet/mellanox/mlx4/cmd.c      |  10 +--
+ drivers/net/ethernet/mellanox/mlx4/mlx4.h     |   2 +-
+ drivers/net/ethernet/mellanox/mlx5/core/cmd.c |  11 +--
+ drivers/net/wireless/intel/ipw2x00/ipw2200.c  |  13 ++--
+ drivers/scsi/be2iscsi/be_iscsi.c              |   6 +-
+ drivers/scsi/be2iscsi/be_main.c               |   6 +-
+ drivers/scsi/be2iscsi/be_main.h               |   2 +-
+ drivers/scsi/csiostor/csio_hw.h               |   2 +-
+ drivers/scsi/csiostor/csio_init.c             |  11 +--
+ drivers/scsi/csiostor/csio_scsi.c             |   6 +-
+ drivers/scsi/lpfc/lpfc.h                      |  14 ++--
+ drivers/scsi/lpfc/lpfc_init.c                 |  16 ++--
+ drivers/scsi/lpfc/lpfc_mem.c                  | 106 +++++++++++++-------------
+ drivers/scsi/lpfc/lpfc_nvme.c                 |   6 +-
+ drivers/scsi/lpfc/lpfc_nvmet.c                |   4 +-
+ drivers/scsi/lpfc/lpfc_scsi.c                 |  12 +--
+ drivers/scsi/megaraid/megaraid_mbox.c         |  33 ++++----
+ drivers/scsi/megaraid/megaraid_mm.c           |  32 ++++----
+ drivers/scsi/megaraid/megaraid_sas_base.c     |  29 +++----
+ drivers/scsi/megaraid/megaraid_sas_fusion.c   |  66 ++++++++--------
+ drivers/scsi/mpt3sas/mpt3sas_base.c           |  73 +++++++++---------
+ drivers/scsi/mvsas/mv_init.c                  |   6 +-
+ drivers/scsi/mvsas/mv_sas.c                   |   6 +-
+ drivers/scsi/pmcraid.c                        |  10 +--
+ drivers/scsi/pmcraid.h                        |   2 +-
+ include/linux/mlx5/driver.h                   |   2 +-
+ include/linux/pci.h                           |   9 ---
+ 34 files changed, 280 insertions(+), 303 deletions(-)
+
+-- 
+2.11.0
