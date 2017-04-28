@@ -1,34 +1,28 @@
-From: Michal Kubecek <mkubecek@suse.cz>
-Subject: Re: [PATCH iproute2] routel: fix infinite loop in line parser
-Date: Fri, 28 Apr 2017 18:21:32 +0200
-Message-ID: <20170428162132.GC12806@unicorn.suse.cz>
-References: <20170427094347.3EB63A0F1C@unicorn.suse.cz>
- <20170427164647.3f0e09bf@xeon-e3>
+From: Alexei Starovoitov <ast@fb.com>
+Subject: Re: llvm-objdump...
+Date: Fri, 28 Apr 2017 09:22:32 -0700
+Message-ID: <c9e9eaa7-0fa8-440a-dc75-2d4020b8c429@fb.com>
+References: <20170425.131337.2175176102097155053.davem@davemloft.net>
+ <612f0df6-711c-b6b1-4bd7-596a7f329737@fb.com>
+ <20170428.121710.1780087759147659481.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <daniel@iogearbox.net>, <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:43439 "EHLO mx1.suse.de"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S939743AbdD1QVe (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 28 Apr 2017 12:21:34 -0400
-Content-Disposition: inline
-In-Reply-To: <20170427164647.3f0e09bf@xeon-e3>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:41805 "EHLO
+        mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1756176AbdD1QWx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 28 Apr 2017 12:22:53 -0400
+In-Reply-To: <20170428.121710.1780087759147659481.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 27, 2017 at 04:46:47PM -0700, Stephen Hemminger wrote:
-> 
-> Appled, but this really needs to be done better.
-> Either as a simplified output of route command. See ip -br link
-> Or ip route should have a json output option and use python/perl/xss
-> to reformat.
+On 4/28/17 9:17 AM, David Miller wrote:
+> Even if I give it -triple=bpfeb it emits immediates incorrectly.
+>
+> The bug is certainly in the insn field fetcher of the disassembler.
 
-Agreed, parsing the output of ip command is certainly not the right way.
-
-I must admit that I had no idea this script exists until the bug report
-landed on my table (and I had to use "rpm -qf" to learn that it's part
-of iproute2 package). And I suspect I may not be the only one.
-
-Michal Kubecek
+got it. so the binary looks correct, but disasm output is wrong?
+Thanks! Looks like there is a bug there indeed.
