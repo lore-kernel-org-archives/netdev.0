@@ -1,60 +1,50 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH net] bonding: avoid defaulting hard_header_len to
- ETH_HLEN on slave removal
-Date: Fri, 28 Apr 2017 16:04:33 -0400 (EDT)
-Message-ID: <20170428.160433.78077372682012222.davem@davemloft.net>
-References: <733d454d3c36e99b55de5374c7664364975b171d.1493313626.git.pabeni@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] tcp: do not underestimate skb->truesize in
+ tcp_trim_head()
+Date: Fri, 28 Apr 2017 16:05:56 -0400 (EDT)
+Message-ID: <20170428.160556.2072008893563794166.davem@davemloft.net>
+References: <1493222866.6453.75.camel@edumazet-glaptop3.roam.corp.google.com>
+        <1493252140.6453.96.camel@edumazet-glaptop3.roam.corp.google.com>
+        <CAAeHK+xWDnPu05g4Hqt3wkHEsuW=Ry7p7rLnxL3ct1MuSLBXLw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, j.vosburgh-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, honli-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <733d454d3c36e99b55de5374c7664364975b171d.1493313626.git.pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: andreyknvl@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:58616 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S642453AbdD1UF6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 28 Apr 2017 16:05:58 -0400
+In-Reply-To: <CAAeHK+xWDnPu05g4Hqt3wkHEsuW=Ry7p7rLnxL3ct1MuSLBXLw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Paolo Abeni <pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Date: Thu, 27 Apr 2017 19:29:34 +0200
+From: Andrey Konovalov <andreyknvl@google.com>
+Date: Thu, 27 Apr 2017 13:49:57 +0200
 
-> On slave list updates, the bonding driver computes its hard_header_len
-> as the maximum of all enslaved devices's hard_header_len.
-> If the slave list is empty, e.g. on last enslaved device removal,
-> ETH_HLEN is used.
+> On Thu, Apr 27, 2017 at 2:15 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>> From: Eric Dumazet <edumazet@google.com>
+>>
+>> Andrey found a way to trigger the WARN_ON_ONCE(delta < len) in
+>> skb_try_coalesce() using syzkaller and a filter attached to a TCP
+>> socket over loopback interface.
+>>
+>> I believe one issue with looped skbs is that tcp_trim_head() can end up
+>> producing skb with under estimated truesize.
+>>
+>> It hardly matters for normal conditions, since packets sent over
+>> loopback are never truncated.
+>>
+>> Bytes trimmed from skb->head should not change skb truesize, since
+>> skb->head is not reallocated.
 > 
-> Since the bonding header_ops are set only when the first enslaved
-> device is attached, the above can lead to header_ops->create()
-> being called with the wrong skb headroom in place.
+> Hi Eric,
 > 
-> If bond0 is configured on top of ipoib devices, with the
-> following commands:
+> With all 3 of your patches applied to net-next I don't see the warning any more.
 > 
-> ifup bond0
-> for slave in $BOND_SLAVES_LIST; do
-> 	ip link set dev $slave nomaster
-> done
-> ping -c 1 <ip on bond0 subnet>
+> Thanks!
 > 
-> we will obtain a skb_under_panic() with a similar call trace:
- ...
-> This change addresses the issue avoiding updating the bonding device
-> hard_header_len when the slaves list become empty, forbidding to
-> shrink it below the value used by header_ops->create().
-> 
-> The bug is there since commit 54ef31371407 ("[PATCH] bonding: Handle large
-> hard_header_len") but the panic can be triggered only since
-> commit fc791b633515 ("IB/ipoib: move back IB LL address into the hard
-> header").
-> 
-> Reported-by: Norbert P <noe-PRwTpj6vllL463JZfw7VRw@public.gmane.org>
-> Fixes: 54ef31371407 ("[PATCH] bonding: Handle large hard_header_len")
-> Fixes: fc791b633515 ("IB/ipoib: move back IB LL address into the hard header")
-> Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> Signed-off-by: Paolo Abeni <pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+> Tested-by: Andrey Konovalov <andreyknvl@google.com>
 
-Applied, thanks.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied and queued up for -stable, thanks Eric.
