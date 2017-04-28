@@ -1,31 +1,46 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next] rtnetlink: Remove NETDEV_CHANGEINFODATA
-Date: Sat, 29 Apr 2017 00:36:02 +0200
-Message-ID: <20170428223602.GC1905@nanopsycho.orion>
-References: <1493402785-18844-1-git-send-email-dsa@cumulusnetworks.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2 net-next v2] bpf: add support for generic xdp
+Date: Fri, 28 Apr 2017 15:43:06 -0700
+Message-ID: <20170428154306.02864aae@xeon-e3>
+References: <e2ca217f7b95b4dd0b5fa8650e8fcf783de73967.1493386943.git.daniel@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: David Ahern <dsa@cumulusnetworks.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: alexei.starovoitov@gmail.com, davem@davemloft.net,
+        netdev@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f49.google.com ([74.125.82.49]:38260 "EHLO
-        mail-wm0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S2997449AbdD1WgF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 28 Apr 2017 18:36:05 -0400
-Received: by mail-wm0-f49.google.com with SMTP id r190so58730147wme.1
-        for <netdev@vger.kernel.org>; Fri, 28 Apr 2017 15:36:04 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1493402785-18844-1-git-send-email-dsa@cumulusnetworks.com>
+Received: from mail-pg0-f42.google.com ([74.125.83.42]:34086 "EHLO
+        mail-pg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S967170AbdD1WnT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 28 Apr 2017 18:43:19 -0400
+Received: by mail-pg0-f42.google.com with SMTP id v1so21148411pgv.1
+        for <netdev@vger.kernel.org>; Fri, 28 Apr 2017 15:43:19 -0700 (PDT)
+In-Reply-To: <e2ca217f7b95b4dd0b5fa8650e8fcf783de73967.1493386943.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fri, Apr 28, 2017 at 08:06:25PM CEST, dsa@cumulusnetworks.com wrote:
->NETDEV_CHANGEINFODATA was added by d4261e5650004 ("bonding: create
->netlink event when bonding option is changed"). RTM_NEWLINK
->messages are already created on changelink events, so this event
->is just a duplicate. Remove it.
->
->Cc: Jiri Pirko <jiri@resnulli.us>
->Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+On Fri, 28 Apr 2017 15:44:29 +0200
+Daniel Borkmann <daniel@iogearbox.net> wrote:
 
-Acked-by: Jiri Pirko <jiri@mellanox.com>
+> diff --git a/ip/iplink.c b/ip/iplink.c
+> index 866ad72..96b0da3 100644
+> --- a/ip/iplink.c
+> +++ b/ip/iplink.c
+> @@ -606,9 +606,12 @@ int iplink_parse(int argc, char **argv, struct iplink_req *req,
+>  			if (get_integer(&mtu, *argv, 0))
+>  				invarg("Invalid \"mtu\" value\n", *argv);
+>  			addattr_l(&req->n, sizeof(*req), IFLA_MTU, &mtu, 4);
+> -		} else if (strcmp(*argv, "xdp") == 0) {
+> +		} else if (strcmp(*argv, "xdpgeneric") == 0 ||
+> +			   strcmp(*argv, "xdp") == 0) {
+> +			bool generic = strcmp(*argv, "xdpgeneric") == 0;
+> +
+>  			NEXT_ARG();
+> -			if (xdp_parse(&argc, &argv, req))
+> +			if (xdp_parse(&argc, &argv, req, generic))
+>  				exit(-1);
+>  		} else if (strcmp(*argv, "netns") == 0) {
+
+On a slightly related note, there really ought to be bash completion
+scripts for ip command.  There is a slightly out of date one for tc already.
