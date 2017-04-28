@@ -1,45 +1,45 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH net-next] Fix inaccurate helper function description
-Date: Thu, 27 Apr 2017 20:55:42 -0700
-Message-ID: <20170428035540.p34f5en63dfqsnam@ast-mbp>
-References: <1493250083-1954-1-git-send-email-chenbofeng.kernel@gmail.com>
- <5901D1A3.9090207@iogearbox.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Chenbo Feng <chenbofeng.kernel@gmail.com>, netdev@vger.kernel.org,
-        mic@digikod.net, Chenbo Feng <fengc@google.com>
-To: Daniel Borkmann <daniel@iogearbox.net>
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Subject: [PATCH net-next 0/6] nfp: optimize XDP TX and small fixes
+Date: Thu, 27 Apr 2017 21:06:14 -0700
+Message-ID: <20170428040620.8256-1-jakub.kicinski@netronome.com>
+Cc: oss-drivers@netronome.com, kubakici@wp.pl,
+        Jakub Kicinski <jakub.kicinski@netronome.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:33657 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1423753AbdD1Dzq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 27 Apr 2017 23:55:46 -0400
-Received: by mail-pf0-f195.google.com with SMTP id 194so1745567pfv.0
-        for <netdev@vger.kernel.org>; Thu, 27 Apr 2017 20:55:45 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <5901D1A3.9090207@iogearbox.net>
+Received: from mail-pg0-f48.google.com ([74.125.83.48]:35625 "EHLO
+        mail-pg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751178AbdD1EG5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 28 Apr 2017 00:06:57 -0400
+Received: by mail-pg0-f48.google.com with SMTP id o3so3017646pgn.2
+        for <netdev@vger.kernel.org>; Thu, 27 Apr 2017 21:06:57 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 27, 2017 at 01:10:27PM +0200, Daniel Borkmann wrote:
-> On 04/27/2017 01:41 AM, Chenbo Feng wrote:
-> > From: Chenbo Feng <fengc@google.com>
-> > 
-> > The description inside uapi/linux/bpf.h about bpf_get_socket_uid
-> > helper function is no longer valid. It returns overflowuid rather
-> > than 0 when failed.
-> > 
-> > Signed-off-by: Chenbo Feng <fengc@google.com>
-> 
-> "bpf: " prefix in patch subject line would have been good.
+Hi!
 
-+1
+This series optimizes the nfp XDP TX performance a little bit.  
+I run quick tests on an Intel(R) Xeon(R) CPU E5-2630 v4 @ 2.20GHz.  
+Single core/queue performance for both touch and drop and touch and
+forward is above 20Mpps @64B packets, drop being 2Mpps faster.  
+I think this is max for a single queue on the low power NFPs.
 
-last time missing 'bpf:' prefix caused me headaches during backporting,
-so please always use it.
-Also please use scripts/get_maintainer.pl to make sure
-maintainers cc-ed on patches.
-gmail delivers netdev list emails to my mailbox with 10+ hour delay
-for some reason.
+There are also a few minor fixes included for code in net-next.
 
-Acked-by: Alexei Starovoitov <ast@kernel.org>
+Jakub Kicinski (6):
+  nfp: replace -ENOTSUPP with -EOPNOTSUPP
+  nfp: drop rx_ring param from buffer allocation
+  nfp: do simple XDP TX buffer recycling
+  nfp: avoid reading TX queue indexes from the device
+  nfp: don't completely refuse to work with old flashes
+  nfp: provide 256 bytes of XDP headroom in all configurations
+
+ drivers/net/ethernet/netronome/nfp/nfp_bpf_jit.c   |  24 +--
+ drivers/net/ethernet/netronome/nfp/nfp_net.h       |   6 +-
+ .../net/ethernet/netronome/nfp/nfp_net_common.c    | 171 +++++++++++----------
+ .../net/ethernet/netronome/nfp/nfp_net_ethtool.c   |   2 +-
+ .../net/ethernet/netronome/nfp/nfp_net_offload.c   |  12 +-
+ .../net/ethernet/netronome/nfp/nfpcore/nfp_nsp.c   |   4 +-
+ 6 files changed, 118 insertions(+), 101 deletions(-)
+
+-- 
+2.11.0
