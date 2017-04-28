@@ -1,26 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v1 0/3] tipc: fix hanging socket connections
-Date: Fri, 28 Apr 2017 12:20:58 -0400 (EDT)
-Message-ID: <20170428.122058.284885103265045821.davem@davemloft.net>
-References: <1493193902-18332-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
+From: Michal Kubecek <mkubecek@suse.cz>
+Subject: Re: [PATCH iproute2] routel: fix infinite loop in line parser
+Date: Fri, 28 Apr 2017 18:21:32 +0200
+Message-ID: <20170428162132.GC12806@unicorn.suse.cz>
+References: <20170427094347.3EB63A0F1C@unicorn.suse.cz>
+ <20170427164647.3f0e09bf@xeon-e3>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tipc-discussion@lists.sourceforge.net
-To: parthasarathy.bhuvaragan@ericsson.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:56054 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S938859AbdD1QVA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 28 Apr 2017 12:21:00 -0400
-In-Reply-To: <1493193902-18332-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
+Received: from mx2.suse.de ([195.135.220.15]:43439 "EHLO mx1.suse.de"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S939743AbdD1QVe (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 28 Apr 2017 12:21:34 -0400
+Content-Disposition: inline
+In-Reply-To: <20170427164647.3f0e09bf@xeon-e3>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
-Date: Wed, 26 Apr 2017 10:04:59 +0200
+On Thu, Apr 27, 2017 at 04:46:47PM -0700, Stephen Hemminger wrote:
+> 
+> Appled, but this really needs to be done better.
+> Either as a simplified output of route command. See ip -br link
+> Or ip route should have a json output option and use python/perl/xss
+> to reformat.
 
-> This patch series contains fixes for the socket layer to
-> prevent hanging / stale connections.
+Agreed, parsing the output of ip command is certainly not the right way.
 
-Series applied, thank you.
+I must admit that I had no idea this script exists until the bug report
+landed on my table (and I had to use "rpm -qf" to learn that it's part
+of iproute2 package). And I suspect I may not be the only one.
+
+Michal Kubecek
