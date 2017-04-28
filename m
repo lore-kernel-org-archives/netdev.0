@@ -1,55 +1,36 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH net-next v8 2/3] net sched actions: dump more than
- TCA_ACT_MAX_PRIO actions per batch
-Date: Fri, 28 Apr 2017 08:55:40 -0400
-Message-ID: <9dbd92e4-506d-5267-9542-ae92a0511a4c@mojatatu.com>
-References: <20170426110241.GA28251@vergenet.net>
- <2e09d117-60f9-97ed-9f63-c94130ddbb0c@mojatatu.com>
- <20170426130506.GF1867@nanopsycho.orion>
- <20170426.104658.547156121898948265.davem@davemloft.net>
- <20170428122131.GC19353@vergenet.net>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [PATCH net] qed: Unlock on error in qed_vf_pf_acquire()
+Date: Fri, 28 Apr 2017 15:56:09 +0300
+Message-ID: <20170428125608.djln5r7h4d53it5s@mwanda>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: jiri@resnulli.us, xiyou.wangcong@gmail.com, eric.dumazet@gmail.com,
-        netdev@vger.kernel.org
-To: Simon Horman <simon.horman@netronome.com>,
-        David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f196.google.com ([209.85.223.196]:34529 "EHLO
-        mail-io0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S2993823AbdD1Mzs (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 28 Apr 2017 08:55:48 -0400
-Received: by mail-io0-f196.google.com with SMTP id h41so10916731ioi.1
-        for <netdev@vger.kernel.org>; Fri, 28 Apr 2017 05:55:48 -0700 (PDT)
-In-Reply-To: <20170428122131.GC19353@vergenet.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Ariel Elior <Ariel.Elior@cavium.com>, everest-linux-l2@cavium.com,
+        netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Yuval Mintz <Yuval.Mintz@cavium.com>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 17-04-28 08:21 AM, Simon Horman wrote:
-> On Wed, Apr 26, 2017 at 10:46:58AM -0400, David Miller wrote:
->> From: Jiri Pirko <jiri@resnulli.us>
->> Date: Wed, 26 Apr 2017 15:05:06 +0200
->>
+My static checker complains that we're holding a mutex on this error
+path.  Let's goto exit instead of returning directly.
 
-[..]
->>> Should be part of UAPI as well
->>> I see that include/uapi/rdma/vmw_pvrdma-abi.h is using BIT macro.
->>> I don't see BIT macro defined in UAPI (I thought it is). So either
->>> define it there (not sure where) or just use "<<"
->>
->> "BIT" is a pretty crazy small simple name to pollute into the global
->> namespace, IMHO.
->
-> It sounds to me that it would be best to just use "<<" rather than
-> spending cycles posturing on how to add it to the UAPI. Existing users
-> of BIT in the UAPI could also be updated to use "<<" to avoid having
-> a misleading precedence in-tree.
->
+Fixes: b0bccb69eba3 ("qed: Change locking scheme for VF channel")
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+---
+Yuval, could you review this one a bit carefully and also check that my
+Fixes tag is correct because I'm not certain.
 
-We need to convince Jiri ;-> He has plans to do a lot of cleanups and
-I feel like I am pioneering (A lot of new things on my patchset).
-Jiri, could this come in your cleanups later?
-
-cheers,
-jamal
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_vf.c b/drivers/net/ethernet/qlogic/qed/qed_vf.c
+index c4c4a408b40b..11d71e5eea14 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_vf.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_vf.c
+@@ -234,7 +234,7 @@ static int qed_vf_pf_acquire(struct qed_hwfn *p_hwfn)
+ 		/* send acquire request */
+ 		rc = qed_send_msg2pf(p_hwfn, &resp->hdr.status, sizeof(*resp));
+ 		if (rc)
+-			return rc;
++			goto exit;
+ 
+ 		/* copy acquire response from buffer to p_hwfn */
+ 		memcpy(&p_iov->acquire_resp, resp, sizeof(p_iov->acquire_resp));
