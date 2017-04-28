@@ -1,109 +1,98 @@
-From: Yankejian <yankejian@huawei.com>
-Subject: [PATCH net-next v5 1/2] net: hns: support deferred probe when can not obtain irq
-Date: Fri, 28 Apr 2017 14:49:46 +0800
-Message-ID: <1493362187-51671-2-git-send-email-yankejian@huawei.com>
-References: <1493362187-51671-1-git-send-email-yankejian@huawei.com>
+From: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Subject: Re: [PATCH v2 07/21] crypto: shash, caam: Make use of the new sg_map
+ helper function
+Date: Fri, 28 Apr 2017 14:30:39 +0800
+Message-ID: <20170428063039.GB6817@gondor.apana.org.au>
+References: <1493144468-22493-1-git-send-email-logang@deltatee.com>
+ <1493144468-22493-8-git-send-email-logang@deltatee.com>
+ <20170427035603.GA32212@gondor.apana.org.au>
+ <94123cbf-3287-f05e-7267-0bcf08ab0a8b@deltatee.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <linuxarm@huawei.com>
-To: <davem@davemloft.net>, <salil.mehta@huawei.com>,
-        <yisen.zhuang@huawei.com>, <matthias.bgg@gmail.com>,
-        <yankejian@huawei.com>, <lipeng321@huawei.com>,
-        <zhouhuiru@huawei.com>, <huangdaode@hisilicon.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([45.249.212.188]:5834 "EHLO
-        dggrg02-dlp.huawei.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1423917AbdD1GaE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 28 Apr 2017 02:30:04 -0400
-In-Reply-To: <1493362187-51671-1-git-send-email-yankejian@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: dri-devel-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org, dm-devel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+ target-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>,
+ devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org, "James E.J. Bottomley" <jejb-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
+ linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-nvdimm-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org,
+ linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Sumit Semwal <sumit.semwal-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+ open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org, linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ intel-gfx-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org, sparmaintainer-GLv8BlqOqDDQT0dZR+AlfA@public.gmane.org,
+ linux-raid-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, megaraidlinux.pdl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org,
+ Jens Axboe <axboe-tSWWG44O7X1aa/9Udqfwiw@public.gmane.org>,
+ "Martin K. Petersen" <martin.petersen-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ Matthew Wilcox <mawilcox-0li6OtcxBFHby3iVrkZq2A@public.gmane.org>, linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-crypto-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+ "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Logan Gunthorpe <logang-OTvnGxWRz7hWk0Htik3J/w@public.gmane.org>
+Return-path: <linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <94123cbf-3287-f05e-7267-0bcf08ab0a8b-OTvnGxWRz7hWk0Htik3J/w@public.gmane.org>
+List-Unsubscribe: <https://lists.01.org/mailman/options/linux-nvdimm>,
+ <mailto:linux-nvdimm-request-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.01.org/pipermail/linux-nvdimm/>
+List-Post: <mailto:linux-nvdimm-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org>
+List-Help: <mailto:linux-nvdimm-request-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.01.org/mailman/listinfo/linux-nvdimm>,
+ <mailto:linux-nvdimm-request-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org?subject=subscribe>
+Errors-To: linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org
+Sender: "Linux-nvdimm" <linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-From: lipeng <lipeng321@huawei.com>
+On Thu, Apr 27, 2017 at 09:45:57AM -0600, Logan Gunthorpe wrote:
+> 
+> 
+> On 26/04/17 09:56 PM, Herbert Xu wrote:
+> > On Tue, Apr 25, 2017 at 12:20:54PM -0600, Logan Gunthorpe wrote:
+> >> Very straightforward conversion to the new function in the caam driver
+> >> and shash library.
+> >>
+> >> Signed-off-by: Logan Gunthorpe <logang-OTvnGxWRz7hWk0Htik3J/w@public.gmane.org>
+> >> Cc: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+> >> Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+> >> ---
+> >>  crypto/shash.c                | 9 ++++++---
+> >>  drivers/crypto/caam/caamalg.c | 8 +++-----
+> >>  2 files changed, 9 insertions(+), 8 deletions(-)
+> >>
+> >> diff --git a/crypto/shash.c b/crypto/shash.c
+> >> index 5e31c8d..5914881 100644
+> >> --- a/crypto/shash.c
+> >> +++ b/crypto/shash.c
+> >> @@ -283,10 +283,13 @@ int shash_ahash_digest(struct ahash_request *req, struct shash_desc *desc)
+> >>  	if (nbytes < min(sg->length, ((unsigned int)(PAGE_SIZE)) - offset)) {
+> >>  		void *data;
+> >>  
+> >> -		data = kmap_atomic(sg_page(sg));
+> >> -		err = crypto_shash_digest(desc, data + offset, nbytes,
+> >> +		data = sg_map(sg, 0, SG_KMAP_ATOMIC);
+> >> +		if (IS_ERR(data))
+> >> +			return PTR_ERR(data);
+> >> +
+> >> +		err = crypto_shash_digest(desc, data, nbytes,
+> >>  					  req->result);
+> >> -		kunmap_atomic(data);
+> >> +		sg_unmap(sg, data, 0, SG_KMAP_ATOMIC);
+> >>  		crypto_yield(desc->flags);
+> >>  	} else
+> >>  		err = crypto_shash_init(desc) ?:
+> > 
+> > Nack.  This is an optimisation for the special case of a single
+> > SG list entry.  In fact in the common case the kmap_atomic should
+> > disappear altogether in the no-highmem case.  So replacing it
+> > with sg_map is not acceptable.
+> 
+> What you seem to have missed is that sg_map is just a thin wrapper
+> around kmap_atomic. Perhaps with a future check for a mappable page.
+> This change should have zero impact on performance.
 
-In the hip06 and hip07 SoCs, the interrupt lines from the
-DSAF controllers are connected to mbigen hw module.
-The mbigen module is probed with module_init, and, as such,
-is not guaranteed to probe before the HNS driver. So we need
-to support deferred probe.
+You are right.  Indeed the existing code looks buggy as they
+don't take sg->offset into account when doing the kmap.  Could
+you send me some patches that fix these problems first so that
+they can be easily backported?
 
-Signed-off-by: lipeng <lipeng321@huawei.com>
-Reviewed-by: Yisen Zhuang <yisen.zhuang@huawei.com>
-Reviewed-by: Matthias Brugger <mbrugger@suse.com>
----
-change log:
-V4 -> V5:
-1. Float on net-next;
-
-V3 -> V4:
-1. Delete redundant commit message;
-2. add Reviewed-by: Matthias Brugger <mbrugger@suse.com>;
-
-V2 -> V3:
-1. Check return value when  platform_get_irq in hns_rcb_get_cfg;
----
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c | 4 +++-
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c | 8 +++++++-
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.h | 2 +-
- 3 files changed, 11 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c
-index eba406b..93e71e2 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c
-@@ -510,7 +510,9 @@ int hns_ppe_init(struct dsaf_device *dsaf_dev)
- 
- 		hns_ppe_get_cfg(dsaf_dev->ppe_common[i]);
- 
--		hns_rcb_get_cfg(dsaf_dev->rcb_common[i]);
-+		ret = hns_rcb_get_cfg(dsaf_dev->rcb_common[i]);
-+		if (ret)
-+			goto get_cfg_fail;
- 	}
- 
- 	for (i = 0; i < HNS_PPE_COM_NUM; i++)
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c
-index c20a0f4..e2e2853 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c
-@@ -492,7 +492,7 @@ static int hns_rcb_get_base_irq_idx(struct rcb_common_cb *rcb_common)
-  *hns_rcb_get_cfg - get rcb config
-  *@rcb_common: rcb common device
-  */
--void hns_rcb_get_cfg(struct rcb_common_cb *rcb_common)
-+int hns_rcb_get_cfg(struct rcb_common_cb *rcb_common)
- {
- 	struct ring_pair_cb *ring_pair_cb;
- 	u32 i;
-@@ -517,10 +517,16 @@ void hns_rcb_get_cfg(struct rcb_common_cb *rcb_common)
- 		ring_pair_cb->virq[HNS_RCB_IRQ_IDX_RX] =
- 		is_ver1 ? platform_get_irq(pdev, base_irq_idx + i * 2 + 1) :
- 			  platform_get_irq(pdev, base_irq_idx + i * 3);
-+		if ((ring_pair_cb->virq[HNS_RCB_IRQ_IDX_TX] == -EPROBE_DEFER) ||
-+		    (ring_pair_cb->virq[HNS_RCB_IRQ_IDX_RX] == -EPROBE_DEFER))
-+			return -EPROBE_DEFER;
-+
- 		ring_pair_cb->q.phy_base =
- 			RCB_COMM_BASE_TO_RING_BASE(rcb_common->phy_base, i);
- 		hns_rcb_ring_pair_get_cfg(ring_pair_cb);
- 	}
-+
-+	return 0;
- }
- 
- /**
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.h b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.h
-index a664ee8..6028164 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.h
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.h
-@@ -121,7 +121,7 @@ struct rcb_common_cb {
- void hns_rcb_common_free_cfg(struct dsaf_device *dsaf_dev, u32 comm_index);
- int hns_rcb_common_init_hw(struct rcb_common_cb *rcb_common);
- void hns_rcb_start(struct hnae_queue *q, u32 val);
--void hns_rcb_get_cfg(struct rcb_common_cb *rcb_common);
-+int hns_rcb_get_cfg(struct rcb_common_cb *rcb_common);
- void hns_rcb_get_queue_mode(enum dsaf_mode dsaf_mode,
- 			    u16 *max_vfn, u16 *max_q_per_vf);
- 
+Thanks,
 -- 
-1.9.1
+Email: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
