@@ -1,48 +1,67 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH/RFC net-next 0/4] net/sched: cls_flower: avoid false
- matching of truncated packets
-Date: Fri, 28 Apr 2017 08:52:56 -0400
-Message-ID: <422d55da-f861-1bc6-983d-199fc383c113@mojatatu.com>
-References: <20170428120035.15984-1-simon.horman@netronome.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next 17/18] net: dsa: mv88e6xxx: support the VTU Page
+ bit
+Date: Fri, 28 Apr 2017 14:53:53 +0200
+Message-ID: <20170428125353.GK13231@lunn.ch>
+References: <20170426155336.5937-1-vivien.didelot@savoirfairelinux.com>
+ <20170426155336.5937-18-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Dinan Gunawardena <dinan.gunawardena@netronome.com>,
-        netdev@vger.kernel.org, oss-drivers@netronome.com
-To: Simon Horman <simon.horman@netronome.com>,
-        Jiri Pirko <jiri@mellanox.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f52.google.com ([209.85.214.52]:37149 "EHLO
-        mail-it0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1425870AbdD1Mw7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 28 Apr 2017 08:52:59 -0400
-Received: by mail-it0-f52.google.com with SMTP id x188so36179340itb.0
-        for <netdev@vger.kernel.org>; Fri, 28 Apr 2017 05:52:59 -0700 (PDT)
-In-Reply-To: <20170428120035.15984-1-simon.horman@netronome.com>
+Received: from vps0.lunn.ch ([178.209.37.122]:44414 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S2993681AbdD1Mx5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 28 Apr 2017 08:53:57 -0400
+Content-Disposition: inline
+In-Reply-To: <20170426155336.5937-18-vivien.didelot@savoirfairelinux.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 17-04-28 08:00 AM, Simon Horman wrote:
-> Hi,
->
-> this series is intended to avoid false-positives which match
-> truncated packets against flower classifiers which match on:
-> * zero L4 ports or;
-> * zero ICMP code or type
->
-> This requires updating the flow dissector to return an error in such cases
-> and updating flower to not match on the result of a failed dissection.
->
-> In the case of UDP this results in a behavioural change to users of
-> flow_keys_dissector_keys[] and flow_keys_dissector_symmetric_keys[] -
-> dissection will fail on truncated packets where the IP protocol of the
-> packets indicates ports should be present (according to skb_flow_get_ports()).
+On Wed, Apr 26, 2017 at 11:53:35AM -0400, Vivien Didelot wrote:
+> Newer chips such as the 88E6390 have a VTU Page bit in the VTU VID
+> register to specify a 13th bit for the VID. This can be used to support
+> 8K VLANs.
 
-I think i understand the use case/need.
-But would it be fair to say that the truncated vs non-truncated are two
-different filter rules? Example what would offloading of 
-header_parse_err_action mean?
+Hi Vivien
 
-cheers,
-jamal
+At the moment, this code appears to be generic to all chips. Do we
+need checks to ensure we don't look at this bit on older devices where
+it is not valid? Particularly on read. On write, we already verify the
+vid is less than info->max_vids, so i don't think that is a problem.
+
+> When dumping the whole VTU, all VID bits must be set to one, including
+> this VTU Page bit. Add support for VID greater than 4095.
+> 
+> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+> ---
+>  drivers/net/dsa/mv88e6xxx/global1_vtu.c | 7 +++++++
+>  drivers/net/dsa/mv88e6xxx/mv88e6xxx.h   | 1 +
+>  2 files changed, 8 insertions(+)
+> 
+> diff --git a/drivers/net/dsa/mv88e6xxx/global1_vtu.c b/drivers/net/dsa/mv88e6xxx/global1_vtu.c
+> index cb0f3359d60b..2ad080291208 100644
+> --- a/drivers/net/dsa/mv88e6xxx/global1_vtu.c
+> +++ b/drivers/net/dsa/mv88e6xxx/global1_vtu.c
+> @@ -95,6 +95,10 @@ static int mv88e6xxx_g1_vtu_vid_read(struct mv88e6xxx_chip *chip,
+>  		return err;
+>  
+>  	entry->vid = val & 0xfff;
+> +
+> +	if (val & GLOBAL_VTU_VID_PAGE)
+> +		entry->vid |= 0x1000;
+> +
+
+I'm undecided myself, so i will just bring it up for discussion.
+
+Maybe it would be more readable to say:
+
+		entry->vid += 4096;
+
+???
+
+	Andrew
