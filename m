@@ -1,54 +1,56 @@
-From: Logan Gunthorpe <logang-OTvnGxWRz7hWk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH v2 07/21] crypto: shash, caam: Make use of the new sg_map
- helper function
-Date: Fri, 28 Apr 2017 10:53:45 -0600
-Message-ID: <5a08708b-c3b8-41fe-96de-607a109eacbd@deltatee.com>
-References: <1493144468-22493-1-git-send-email-logang@deltatee.com>
- <1493144468-22493-8-git-send-email-logang@deltatee.com>
- <20170427035603.GA32212@gondor.apana.org.au>
- <94123cbf-3287-f05e-7267-0bcf08ab0a8b@deltatee.com>
- <20170428063039.GB6817@gondor.apana.org.au>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [Patch net-next] ipv4: get rid of ip_ra_lock
+Date: Fri, 28 Apr 2017 09:54:58 -0700
+Message-ID: <CAM_iQpXWvw+v7wFnSr=BMOfFPwEYAyfO26ZGspXeUaGsWAPCKQ@mail.gmail.com>
+References: <1493240115-779-1-git-send-email-xiyou.wangcong@gmail.com>
+ <1493297179.6453.105.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAM_iQpXexP9OzzqyPJ-yHmyq-ZF=cNboaG8566yaxZKbn0+TTg@mail.gmail.com> <1493337257.31837.7.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: dri-devel-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org, dm-devel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
- target-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>,
- devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org, "James E.J. Bottomley" <jejb-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
- linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-nvdimm-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org,
- linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Sumit Semwal <sumit.semwal-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
- open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org, linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- intel-gfx-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org, sparmaintainer-GLv8BlqOqDDQT0dZR+AlfA@public.gmane.org,
- linux-raid-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, megaraidlinux.pdl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org,
- Jens Axboe <axboe-tSWWG44O7X1aa/9Udqfwiw@public.gmane.org>,
- "Martin K. Petersen" <martin.petersen-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- Matthew Wilcox <mawilcox-0li6OtcxBFHby3iVrkZq2A@public.gmane.org>, linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-crypto-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
- "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
-Return-path: <linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org>
-In-Reply-To: <20170428063039.GB6817-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
-List-Unsubscribe: <https://lists.01.org/mailman/options/linux-nvdimm>,
- <mailto:linux-nvdimm-request-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.01.org/pipermail/linux-nvdimm/>
-List-Post: <mailto:linux-nvdimm-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org>
-List-Help: <mailto:linux-nvdimm-request-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.01.org/mailman/listinfo/linux-nvdimm>,
- <mailto:linux-nvdimm-request-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org?subject=subscribe>
-Errors-To: linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org
-Sender: "Linux-nvdimm" <linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:36109 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S638297AbdD1QzU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 28 Apr 2017 12:55:20 -0400
+Received: by mail-wm0-f67.google.com with SMTP id u65so12047463wmu.3
+        for <netdev@vger.kernel.org>; Fri, 28 Apr 2017 09:55:19 -0700 (PDT)
+In-Reply-To: <1493337257.31837.7.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Thu, Apr 27, 2017 at 4:54 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Thu, 2017-04-27 at 16:46 -0700, Cong Wang wrote:
+>> On Thu, Apr 27, 2017 at 5:46 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>> > On Wed, 2017-04-26 at 13:55 -0700, Cong Wang wrote:
+>> >> After commit 1215e51edad1 ("ipv4: fix a deadlock in ip_ra_control")
+>> >> we always take RTNL lock for ip_ra_control() which is the only place
+>> >> we update the list ip_ra_chain, so the ip_ra_lock is no longer needed,
+>> >> we just need to disable BH there.
+>> >>
+>> >> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+>> >> ---
+>> >
+>> > Looks great, but reading again this code, I believe we do not need to
+>> > disable BH at all ?
+>> >
+>>
+>> Hmm, if we don't disable BH here, a reader in BH could jump in and
+>> break this critical section? Or that is fine for RCU?
+>
+> It should be fine for RCU.
+>
+> The spinlock (or mutex if this is RTNL) is protecting writers among
+> themselves. Here it should run in process context, with no specific
+> rules to disable preemption, hard or soft irqs.
+>
+> The reader(s) do not care of how writer(s) enforce their mutual
+> protection, and if writer(s) disable hard or soft irqs.
 
+Fair enough! This refreshes my understanding of RCU.
 
-On 28/04/17 12:30 AM, Herbert Xu wrote:
-> You are right.  Indeed the existing code looks buggy as they
-> don't take sg->offset into account when doing the kmap.  Could
-> you send me some patches that fix these problems first so that
-> they can be easily backported?
+I will send V2. The ASSERT_RTNL() is unnecessary too, as
+we already have one in rcu_dereference_protected().
 
-Ok, I think the only buggy one in crypto is hifn_795x. Shash and caam
-both do have the sg->offset accounted for. I'll send a patch for the
-buggy one shortly.
-
-Logan
+Thanks!
