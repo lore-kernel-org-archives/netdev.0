@@ -1,152 +1,150 @@
-From: Sricharan R <sricharan@codeaurora.org>
-Subject: Re: [REGRESSION next-20170426] Commit 09515ef5ddad ("of/acpi:
- Configure dma operations at probe time for platform/amba/pci bus devices")
- causes oops in mvneta
-Date: Fri, 28 Apr 2017 17:26:41 +0530
-Message-ID: <bcdcc1cc-181c-8396-dd3c-dd40d0c7efc1@codeaurora.org>
-References: <20170426181508.687b52af@gmail.com>
- <2fb57b9b-3944-d9cc-1fac-8dcccaa0c37a@codeaurora.org>
- <20170427164014.422a124c@gmail.com>
- <524b7fc8-1eca-a7d8-7bc7-6743be17c208@codeaurora.org>
- <20170428081919.21bb569d@gmail.com>
-Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------70DED1DF94E9EA11BD3E2B91"
-Cc: "Rafael J. Wysocki" <rjw@rjwysocki.net>,
-        Joerg Roedel <jroedel@suse.de>,
-        Bjorn Helgaas <bhelgaas@google.com>,
-        linux-acpi@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linux-pci@vger.kernel.org,
-        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-        netdev@vger.kernel.org
-To: Ralph Sennhauser <ralph.sennhauser@gmail.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <20170428081919.21bb569d@gmail.com>
-Content-Language: en-US
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Simon Horman <simon.horman@netronome.com>
+Subject: [PATCH/RFC net-next 2/4] flow dissector: return error on icmp dissection under-run
+Date: Fri, 28 Apr 2017 14:00:33 +0200
+Message-ID: <20170428120035.15984-3-simon.horman@netronome.com>
+References: <20170428120035.15984-1-simon.horman@netronome.com>
+Cc: Dinan Gunawardena <dinan.gunawardena@netronome.com>,
+        netdev@vger.kernel.org, oss-drivers@netronome.com,
+        Simon Horman <simon.horman@netronome.com>
+To: Jiri Pirko <jiri@mellanox.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f50.google.com ([74.125.82.50]:38253 "EHLO
+        mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1165219AbdD1MB1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 28 Apr 2017 08:01:27 -0400
+Received: by mail-wm0-f50.google.com with SMTP id r190so44764219wme.1
+        for <netdev@vger.kernel.org>; Fri, 28 Apr 2017 05:01:27 -0700 (PDT)
+In-Reply-To: <20170428120035.15984-1-simon.horman@netronome.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------70DED1DF94E9EA11BD3E2B91
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
+Return an error from __skb_flow_dissect() if insufficient packet data is
+present when dissecting icmp type and code.
 
-Hi Ralph,
+Without this change the absence of the ICMP type and code in truncated
+ICMPv4 or IPVPv6 packets is treated the same as the presence of a code and
+type of value of zero.  As a result the flower classifier is unable to
+differentiate between these two cases which may lead to unexpected matching
+of truncated packets.
 
-<snip..>
+The approach taken here is to return an error if the IP protocol indicates
+ICMP, and the type and code data is not present in the packet - an error
+return value from __skb_header_pointer().
 
->>>>>
->>>>> Commit 09515ef5ddad ("of/acpi: Configure dma operations at probe
->>>>> time for platform/amba/pci bus devices") causes a kernel panic as
->>>>> in the log below on an armada-385. Reverting the commit fixes the
->>>>> issue.
->>>>>
->>>>> Regards
->>>>> Ralph    
->>>>
->>>> Somehow not getting a obvious clue on whats going wrong with the
->>>> logs below. From the log and looking in to dts, the drivers seems
->>>> to the one for "marvell,armada-370-neta".  
->>>
->>> Correct.
->>>   
->>>> Issue looks the data from the dma
->>>> has gone bad and subsequently referring the wrong data has resulted
->>>> in the crash. Looks like the dma_masks is the one going wrong.
->>>> Can i get some logs from mvneta_probe, about dev->dma_mask,
->>>> dev->coherent_dma_mask and dev->dma_ops with and without the patch
->>>> to see whats the difference ?  
->>>
->>> Not sure I understood what exactly you are after. Might be faster to
->>> just send me a patch with all debug print statements you like to
->>> see. 
->>
->> Attached the patch with debug prints.
->>
->> Regards,
->>  Sricharan
->>
-> 
-> Hi Sricharan
-> 
-> With commit 09515ef5ddad
-> 
-> [    1.288962] mvneta f1070000.ethernet: dev->dma_mask 0xffffffff
-> [    1.294827] mvneta f1070000.ethernet: dev->coherent_dma_mask 0xffffffff
-> [    1.301472] mvneta f1070000.ethernet: dev->dma_ops 0x40b00c0601460
-> 
-> [    1.322047] mvneta f1034000.ethernet: dev->dma_mask 0xffffffff
-> [    1.327904] mvneta f1034000.ethernet: dev->coherent_dma_mask 0xffffffff
-> [    1.334549] mvneta f1034000.ethernet: dev->dma_ops 0x40b00c0601460
-> 
-> 
-> With the patch reverted, the build that works
-> 
-> [    1.289001] mvneta f1070000.ethernet: dev->dma_mask 0xffffffff
-> [    1.294866] mvneta f1070000.ethernet: dev->coherent_dma_mask 0xffffffff
-> [    1.301511] mvneta f1070000.ethernet: dev->dma_ops 0x40b00c06014a8
-> 
-> [    1.317005] mvneta f1034000.ethernet: dev->dma_mask 0xffffffff
-> [    1.322867] mvneta f1034000.ethernet: dev->coherent_dma_mask 0xffffffff
-> [    1.329508] mvneta f1034000.ethernet: dev->dma_ops 0x40b00c06014a8
-> 
+This should only effect the flower classifier as it is the only user of
+W_DISSECTOR_KEY_ICMP.  The behavioural update for flower only takes effect
+with a separate patch to have it refuse to match if dissection fails.
 
-My bad, i think it is this patch missing [1], attached it as well.
-Infact, this was in the series initially and got acked to get merged
-separately well before the series. I should have sent this to Russell.
-I will do this now. If this fixes up the issue,
-i will take this patch separately, while this series gets tested
-on -next.
+Signed-off-by: Simon Horman <simon.horman@netronome.com>
+---
+ net/core/flow_dissector.c | 65 +++++++++++++++++++++++++----------------------
+ 1 file changed, 34 insertions(+), 31 deletions(-)
 
-[1] https://patchwork.kernel.org/patch/9362113/
-
+diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
+index b3bf4886f71f..496afd7b3051 100644
+--- a/net/core/flow_dissector.c
++++ b/net/core/flow_dissector.c
+@@ -58,28 +58,6 @@ void skb_flow_dissector_init(struct flow_dissector *flow_dissector,
+ EXPORT_SYMBOL(skb_flow_dissector_init);
+ 
+ /**
+- * skb_flow_get_be16 - extract be16 entity
+- * @skb: sk_buff to extract from
+- * @poff: offset to extract at
+- * @data: raw buffer pointer to the packet
+- * @hlen: packet header length
+- *
+- * The function will try to retrieve a be32 entity at
+- * offset poff
+- */
+-static __be16 skb_flow_get_be16(const struct sk_buff *skb, int poff,
+-				void *data, int hlen)
+-{
+-	__be16 *u, _u;
+-
+-	u = __skb_header_pointer(skb, poff, sizeof(_u), data, hlen, &_u);
+-	if (u)
+-		return *u;
+-
+-	return 0;
+-}
+-
+-/**
+  * __skb_flow_get_ports - extract the upper layer ports and return them
+  * @skb: sk_buff to extract the ports from
+  * @thoff: transport header offset
+@@ -353,6 +331,29 @@ __skb_flow_dissect_gre(const struct sk_buff *skb,
+ 	return FLOW_DISSECT_RET_OUT_PROTO_AGAIN;
+ }
+ 
++static enum flow_dissect_ret
++__skb_flow_dissect_icmp(const struct sk_buff *skb,
++			struct flow_dissector *flow_dissector,
++			void *target_container, void *data, int nhoff, int hlen)
++{
++	struct flow_dissector_key_icmp *key_icmp;
++	__be16 *u, _u;
++
++	if (!dissector_uses_key(flow_dissector, FLOW_DISSECTOR_KEY_ICMP))
++		return FLOW_DISSECT_RET_OUT_GOOD;
++
++	u = __skb_header_pointer(skb, nhoff, sizeof(_u), data, hlen, &_u);
++	if (!u)
++		return FLOW_DISSECT_RET_OUT_BAD;
++
++	key_icmp = skb_flow_dissector_target(flow_dissector,
++					     FLOW_DISSECTOR_KEY_ICMP,
++					     target_container);
++	key_icmp->icmp = *u;
++
++	return FLOW_DISSECT_RET_OUT_GOOD;
++}
++
+ /**
+  * __skb_flow_dissect - extract the flow_keys struct and return it
+  * @skb: sk_buff to extract the flow from, can be NULL if the rest are specified
+@@ -379,7 +380,6 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
+ 	struct flow_dissector_key_basic *key_basic;
+ 	struct flow_dissector_key_addrs *key_addrs;
+ 	struct flow_dissector_key_ports *key_ports;
+-	struct flow_dissector_key_icmp *key_icmp;
+ 	struct flow_dissector_key_tags *key_tags;
+ 	struct flow_dissector_key_vlan *key_vlan;
+ 	bool skip_vlan = false;
+@@ -694,6 +694,17 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
+ 	case IPPROTO_MPLS:
+ 		proto = htons(ETH_P_MPLS_UC);
+ 		goto mpls;
++	case IPPROTO_ICMP:
++	case NEXTHDR_ICMP:
++		switch (__skb_flow_dissect_icmp(skb, flow_dissector,
++						target_container, data,
++						nhoff, hlen)) {
++		case FLOW_DISSECT_RET_OUT_GOOD:
++			goto out_good;
++		case FLOW_DISSECT_RET_OUT_BAD:
++		default:
++			goto out_bad;
++		}
+ 	default:
+ 		break;
+ 	}
+@@ -708,14 +719,6 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
+ 			goto out_bad;
+ 	}
+ 
+-	if (dissector_uses_key(flow_dissector,
+-			       FLOW_DISSECTOR_KEY_ICMP)) {
+-		key_icmp = skb_flow_dissector_target(flow_dissector,
+-						     FLOW_DISSECTOR_KEY_ICMP,
+-						     target_container);
+-		key_icmp->icmp = skb_flow_get_be16(skb, nhoff, data, hlen);
+-	}
+-
+ out_good:
+ 	ret = true;
+ 
 -- 
-"QUALCOMM INDIA, on behalf of Qualcomm Innovation Center, Inc. is a member of Code Aurora Forum, hosted by The Linux Foundation
-
---------------70DED1DF94E9EA11BD3E2B91
-Content-Type: text/plain; charset=UTF-8;
- name="0001-arm-dma-mapping-Don-t-override-dma_ops-in-arch_setup.patch"
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment;
- filename*0="0001-arm-dma-mapping-Don-t-override-dma_ops-in-arch_setup.pa";
- filename*1="tch"
-
-RnJvbSBiZTM2ZWE1ZjJjN2QxYzI4ZGM4ZjgyOWI1ZDJjODE3ODI2NDgxMDg2IE1vbiBTZXAg
-MTcgMDA6MDA6MDAgMjAwMQpGcm9tOiBMYXVyZW50IFBpbmNoYXJ0IDxsYXVyZW50LnBpbmNo
-YXJ0K3JlbmVzYXNAaWRlYXNvbmJvYXJkLmNvbT4KRGF0ZTogRnJpLCAxNSBNYXkgMjAxNSAw
-MjowMDowMiArMDMwMApTdWJqZWN0OiBbUEFUQ0hdIGFybTogZG1hLW1hcHBpbmc6IERvbid0
-IG92ZXJyaWRlIGRtYV9vcHMgaW4KIGFyY2hfc2V0dXBfZG1hX29wcygpCgpUaGUgYXJjaF9z
-ZXR1cF9kbWFfb3BzKCkgZnVuY3Rpb24gaXMgaW4gY2hhcmdlIG9mIHNldHRpbmcgZG1hX29w
-cyB3aXRoIGEKY2FsbCB0byBzZXRfZG1hX29wcygpLiBzZXRfZG1hX29wcygpIGlzIGFsc28g
-Y2FsbGVkIGZyb20KCi0gaGlnaGJhbmsgYW5kIG12ZWJ1IGJ1cyBub3RpZmllcnMKLSBkbWFi
-b3VuY2UgKHRvIGJlIHJlcGxhY2VkIHdpdGggc3dpb3RsYikKLSBhcm1faW9tbXVfYXR0YWNo
-X2RldmljZQoKKGFybV9pb21tdV9hdHRhY2hfZGV2aWNlIGlzIGl0c2VsZiBjYWxsZWQgZnJv
-bSBJT01NVSBhbmQgYnVzIG1hc3RlcgpkZXZpY2UgZHJpdmVycykKClRvIGFsbG93IHRoZSBh
-cmNoX3NldHVwX2RtYV9vcHMoKSBjYWxsIHRvIGJlIG1vdmVkIGZyb20gZGV2aWNlIGFkZCB0
-aW1lCnRvIGRldmljZSBwcm9iZSB0aW1lIHdlIG11c3QgZW5zdXJlIHRoYXQgZG1hX29wcyBh
-bHJlYWR5IHNldHVwIGJ5IGFueSBvZgp0aGUgYWJvdmUgY2FsbGVycyB3aWxsIG5vdCBiZSBv
-dmVycmlkZW4uCgpBZnRlcmluZyByZXBsYWNpbmcgZG1hYm91bmNlIHdpdGggc3dpb3RsYiwg
-Y29udmVydGluZyBJT01NVSBkcml2ZXJzIHRvCm9mX3hsYXRlIGFuZCB0YWtpbmcgY2FyZSBv
-ZiBoaWdoYmFuayBhbmQgbXZlYnUsIHRoZSB3b3JrYXJvdW5kIHNob3VsZCBiZQpyZW1vdmVk
-LgoKW1JlYmFzZWQgb24gdG9wIG9mIDQuMTEtcmM4XQpTaWduZWQtb2ZmLWJ5OiBTcmljaGFy
-YW4gUiA8c3JpY2hhcmFuQGNvZGVhdXJvcmEub3JnPgpTaWduZWQtb2ZmLWJ5OiBMYXVyZW50
-IFBpbmNoYXJ0IDxsYXVyZW50LnBpbmNoYXJ0K3JlbmVzYXNAaWRlYXNvbmJvYXJkLmNvbT4K
-LS0tCiBhcmNoL2FybS9tbS9kbWEtbWFwcGluZy5jIHwgOSArKysrKysrKysKIDEgZmlsZSBj
-aGFuZ2VkLCA5IGluc2VydGlvbnMoKykKCmRpZmYgLS1naXQgYS9hcmNoL2FybS9tbS9kbWEt
-bWFwcGluZy5jIGIvYXJjaC9hcm0vbW0vZG1hLW1hcHBpbmcuYwppbmRleCAwMjY4NTg0Li5j
-NzQyZGZkIDEwMDY0NAotLS0gYS9hcmNoL2FybS9tbS9kbWEtbWFwcGluZy5jCisrKyBiL2Fy
-Y2gvYXJtL21tL2RtYS1tYXBwaW5nLmMKQEAgLTI0MDgsNiArMjQwOCwxNSBAQCB2b2lkIGFy
-Y2hfc2V0dXBfZG1hX29wcyhzdHJ1Y3QgZGV2aWNlICpkZXYsIHU2NCBkbWFfYmFzZSwgdTY0
-IHNpemUsCiAJY29uc3Qgc3RydWN0IGRtYV9tYXBfb3BzICpkbWFfb3BzOwogCiAJZGV2LT5h
-cmNoZGF0YS5kbWFfY29oZXJlbnQgPSBjb2hlcmVudDsKKworCS8qCisJICogRG9uJ3Qgb3Zl
-cnJpZGUgdGhlIGRtYV9vcHMgaWYgdGhleSBoYXZlIGFscmVhZHkgYmVlbiBzZXQuIElkZWFs
-bHkKKwkgKiB0aGlzIHNob3VsZCBiZSB0aGUgb25seSBsb2NhdGlvbiB3aGVyZSBkbWFfb3Bz
-IGFyZSBzZXQsIHJlbW92ZSB0aGlzCisJICogY2hlY2sgd2hlbiBhbGwgb3RoZXIgY2FsbGVy
-cyBvZiBzZXRfZG1hX29wcyB3aWxsIGhhdmUgZGlzYXBwZWFyZWQuCisJICovCisJaWYgKGRl
-di0+ZG1hX29wcykKKwkJcmV0dXJuOworCiAJaWYgKGFybV9zZXR1cF9pb21tdV9kbWFfb3Bz
-KGRldiwgZG1hX2Jhc2UsIHNpemUsIGlvbW11KSkKIAkJZG1hX29wcyA9IGFybV9nZXRfaW9t
-bXVfZG1hX21hcF9vcHMoY29oZXJlbnQpOwogCWVsc2UKLS0gClFVQUxDT01NIElORElBLCBv
-biBiZWhhbGYgb2YgUXVhbGNvbW0gSW5ub3ZhdGlvbiBDZW50ZXIsIEluYy4gaXMgYSBtZW1i
-ZXIgb2YgQ29kZSBBdXJvcmEgRm9ydW0sIGhvc3RlZCBieSBUaGUgTGludXggRm91bmRhdGlv
-bgoK
---------------70DED1DF94E9EA11BD3E2B91--
+2.12.2.816.g2cccc81164
