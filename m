@@ -1,91 +1,65 @@
-From: Lucas Stach <l.stach@pengutronix.de>
-Subject: Re: [PATCH net-next 1/4] ixgbe: sparc: rename the
- ARCH_WANT_RELAX_ORDER to IXGBE_ALLOW_RELAXED_ORDER
-Date: Fri, 28 Apr 2017 10:51:11 +0200
-Message-ID: <1493369471.13947.11.camel@pengutronix.de>
-References: <20170401.112603.1991545644693496714.davem@davemloft.net>
-         <42428725-89f1-1508-4e3d-723e087b3bbb@huawei.com>
-         <EE11001F9E5DDD47B7634E2F8A612F2E205199C0@FRAEML521-MBX.china.huawei.com>
-         <063D6719AE5E284EB5DD2968C1650D6DCFFD3C52@AcuExch.aculab.com>
-         <DB5PR05MB138288172B04713EB0C1DB55D3190@DB5PR05MB1382.eurprd05.prod.outlook.com>
-         <a2239141-a185-1bb8-0abd-7a05b9fde015@huawei.com>
-         <CAKgT0Uc4L=GgYbpO-Fm9OfN+_fLypbDP1c+X4T_ta90ecQiyGQ@mail.gmail.com>
-         <20170427171938.GA10705@bhelgaas-glaptop.roam.corp.google.com>
+From: Miroslav Lichvar <mlichvar@redhat.com>
+Subject: Re: [PATCH v1 net-next 5/6] net: allow simultaneous SW and HW
+ transmit timestamping
+Date: Fri, 28 Apr 2017 10:54:22 +0200
+Message-ID: <20170428085422.GD3401@localhost>
+References: <20170426145035.25846-1-mlichvar@redhat.com>
+ <20170426145035.25846-6-mlichvar@redhat.com>
+ <CAF=yD-+GSK491AWQx8=6yd3=-HHwxdWq677ubwdjbV5AXzRbog@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Alexander Duyck <alexander.duyck@gmail.com>,
-        Ding Tianhong <dingtianhong@huawei.com>,
-        Mark Rutland <mark.rutland@arm.com>,
-        Amir Ancel <amira@mellanox.com>,
-        Gabriele Paoloni <gabriele.paoloni@huawei.com>,
-        "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
-        Catalin Marinas <catalin.marinas@arm.com>,
-        Will Deacon <will.deacon@arm.com>,
-        LinuxArm <linuxarm@huawei.com>,
-        David Laight <David.Laight@aculab.com>,
-        "jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Robin Murphy <robin.murphy@arm.com>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "linux-arm-kernel@lists.infradead.org"
-        <linux-arm-kernel@lists.infradead.org>,
-        Casey Leedom <leedom@chelsio.com>
-To: Bjorn Helgaas <helgaas@kernel.org>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <20170427171938.GA10705@bhelgaas-glaptop.roam.corp.google.com>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Network Development <netdev@vger.kernel.org>,
+        Richard Cochran <richardcochran@gmail.com>,
+        Willem de Bruijn <willemb@google.com>,
+        Soheil Hassas Yeganeh <soheil@google.com>,
+        "Keller, Jacob E" <jacob.e.keller@intel.com>,
+        Denny Page <dennypage@me.com>, Jiri Benc <jbenc@redhat.com>
+To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:47504 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754645AbdD1IyZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 28 Apr 2017 04:54:25 -0400
+Content-Disposition: inline
+In-Reply-To: <CAF=yD-+GSK491AWQx8=6yd3=-HHwxdWq677ubwdjbV5AXzRbog@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Am Donnerstag, den 27.04.2017, 12:19 -0500 schrieb Bjorn Helgaas:
-> [+cc Casey]
+On Wed, Apr 26, 2017 at 08:00:02PM -0400, Willem de Bruijn wrote:
+> > diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+> > index 81ef53f..42bff22 100644
+> > --- a/include/linux/skbuff.h
+> > +++ b/include/linux/skbuff.h
+> > @@ -3300,8 +3300,7 @@ void skb_tstamp_tx(struct sk_buff *orig_skb,
+> >
+> >  static inline void sw_tx_timestamp(struct sk_buff *skb)
+> >  {
+> > -       if (skb_shinfo(skb)->tx_flags & SKBTX_SW_TSTAMP &&
+> > -           !(skb_shinfo(skb)->tx_flags & SKBTX_IN_PROGRESS))
+> > +       if (skb_shinfo(skb)->tx_flags & SKBTX_SW_TSTAMP)
+> >                 skb_tstamp_tx(skb, NULL);
+> >  }
+
+> > +++ b/net/core/skbuff.c
+> > @@ -3874,6 +3874,10 @@ void __skb_tstamp_tx(struct sk_buff *orig_skb,
+> >         if (!sk)
+> >                 return;
+> >
+> > +       if (!hwtstamps && !(sk->sk_tsflags & SOF_TIMESTAMPING_OPT_TX_SWHW) &&
+> > +           skb_shinfo(orig_skb)->tx_flags & SKBTX_IN_PROGRESS)
+> > +               return;
+> > +
 > 
-> On Wed, Apr 26, 2017 at 09:18:33AM -0700, Alexander Duyck wrote:
-> > On Wed, Apr 26, 2017 at 2:26 AM, Ding Tianhong <dingtianhong@huawei.com> wrote:
-> > > Hi Amir:
-> > >
-> > > It is really glad to hear that the mlx5 will support RO mode this year, if so, do you agree that enable it dynamic by ethtool -s xxx,
-> > > we have try it several month ago but there was only one drivers would use it at that time so the maintainer against it, it mlx5 would support RO,
-> > > we could try to restart this solution, what do you think about it. :)
-> > >
-> > > Thanks
-> > > Ding
-> > 
-> > Hi Ding,
-> > 
-> > Enabing relaxed ordering really doesn't have any place in ethtool. It
-> > is a PCIe attribute that you are essentially wanting to enable.
-> > 
-> > It might be worth while to take a look at updating the PCIe code path
-> > to handle this. Really what we should probably do is guarantee that
-> > the architectures that need relaxed ordering are setting it in the
-> > PCIe Device Control register and that the ones that don't are clearing
-> > the bit. It's possible that this is already occurring, but I don't
-> > know the state of handling those bits is in the kernel. Once we can
-> > guarantee that we could use that to have the drivers determine their
-> > behavior in regards to relaxed ordering. For example in the case of
-> > igb/ixgbe we could probably change the behavior so that it will bey
-> > default try to use relaxed ordering but if it is not enabled in PCIe
-> > Device Control register the hardware should not request to use it. It
-> > would simplify things in the drivers and allow for each architecture
-> > to control things as needed in their PCIe code.
+> This check should only happen for software transmit timestamps, so simpler to
+> revise the check in sw_tx_timestamp above to
 > 
-> I thought Relaxed Ordering was an optimization.  Are there cases where
-> it is actually required for correct behavior?
+>   if (skb_shinfo(skb)->tx_flags & SKBTX_SW_TSTAMP &&
+> -        !(skb_shinfo(skb)->tx_flags & SKBTX_IN_PROGRESS))
+> +      (!(skb_shinfo(orig_skb)->tx_flags & SKBTX_IN_PROGRESS)) ||
+> +      (skb->sk && skb->sk->sk_tsflags & SOF_TIMESTAMPING_OPT_TX_SWHW)
 
-Yes, at least the Tegra 2 TRM claims that RO needs to be enabled on the
-device side for correct operation with the following language:
+I'm not sure if this can work. sk_buff.h would need to include sock.h
+in order to get the definition of struct sock. Any suggestions?
 
-"Tegra 2 requires relaxed ordering for responses to downstream requests
-(responses can pass writes). It is possible in some circumstances for
-PCIe transfers from an external bus masters (i.e. upstream transfers) to
-become blocked by a downstream read or non-posted write. The responses
-to these downstream requests are blocked by upstream posted writes only
-when PCIe strict ordering is imposed. It is therefore necessary to never
-impose strict ordering that would block a response to a downstream
-NPW/read request and always set the relaxed ordering bit to 1. Only
-devices that are capable of relaxed ordering may be used with Tegra 2
-devices."
-
-Regards,
-Lucas
+-- 
+Miroslav Lichvar
