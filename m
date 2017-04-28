@@ -1,72 +1,97 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH net-next] rhashtable: Do not lower max_elems when max_size is
- zero
-Date: Fri, 28 Apr 2017 14:10:48 +0800
-Message-ID: <20170428061048.GA6817@gondor.apana.org.au>
-References: <56843a86-9a09-16e8-acec-05a80396f282@gmail.com>
- <20170427223024.32657-1-f.fainelli@gmail.com>
+From: Ralph Sennhauser <ralph.sennhauser@gmail.com>
+Subject: Re: [REGRESSION next-20170426] Commit 09515ef5ddad ("of/acpi:
+ Configure dma operations at probe time for platform/amba/pci bus devices")
+ causes oops in mvneta
+Date: Fri, 28 Apr 2017 08:19:19 +0200
+Message-ID: <20170428081919.21bb569d@gmail.com>
+References: <20170426181508.687b52af@gmail.com>
+        <2fb57b9b-3944-d9cc-1fac-8dcccaa0c37a@codeaurora.org>
+        <20170427164014.422a124c@gmail.com>
+        <524b7fc8-1eca-a7d8-7bc7-6743be17c208@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, fw@strlen.de,
-        tgraf@suug.ch
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from [198.176.57.175] ([198.176.57.175]:50360 "EHLO
-        deadmen.hmeau.com" rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1161851AbdD1GLp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 28 Apr 2017 02:11:45 -0400
-Content-Disposition: inline
-In-Reply-To: <20170427223024.32657-1-f.fainelli@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "Rafael J. Wysocki" <rjw@rjwysocki.net>,
+        Joerg Roedel <jroedel@suse.de>,
+        Bjorn Helgaas <bhelgaas@google.com>,
+        linux-acpi@vger.kernel.org, linux-kernel@vger.kernel.org,
+        linux-pci@vger.kernel.org,
+        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+        netdev@vger.kernel.org
+To: Sricharan R <sricharan@codeaurora.org>
+Return-path: <linux-acpi-owner@vger.kernel.org>
+In-Reply-To: <524b7fc8-1eca-a7d8-7bc7-6743be17c208@codeaurora.org>
+Sender: linux-acpi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Apr 27, 2017 at 03:30:24PM -0700, Florian Fainelli wrote:
-> After commit 6d684e54690c ("rhashtable: Cap total number of
-> entries to 2^31"), we would be hitting a panic() in net/core/rtnetlink.c
-> during initialization. The call stack would look like this:
+On Fri, 28 Apr 2017 11:13:33 +0530
+Sricharan R <sricharan@codeaurora.org> wrote:
 
-Thanks for the patch.  I think we could just fold it into the
-previous if clause, like this:
+> Hi Ralph,
+> 
+> On 4/27/2017 8:10 PM, Ralph Sennhauser wrote:
+> > On Thu, 27 Apr 2017 19:05:09 +0530
+> > Sricharan R <sricharan@codeaurora.org> wrote:
+> >   
+> >> Hi,
+> >>
+> >> On 4/26/2017 9:45 PM, Ralph Sennhauser wrote:  
+> >>> Hi Sricharan R,
+> >>>
+> >>> Commit 09515ef5ddad ("of/acpi: Configure dma operations at probe
+> >>> time for platform/amba/pci bus devices") causes a kernel panic as
+> >>> in the log below on an armada-385. Reverting the commit fixes the
+> >>> issue.
+> >>>
+> >>> Regards
+> >>> Ralph    
+> >>
+> >> Somehow not getting a obvious clue on whats going wrong with the
+> >> logs below. From the log and looking in to dts, the drivers seems
+> >> to the one for "marvell,armada-370-neta".  
+> > 
+> > Correct.
+> >   
+> >> Issue looks the data from the dma
+> >> has gone bad and subsequently referring the wrong data has resulted
+> >> in the crash. Looks like the dma_masks is the one going wrong.
+> >> Can i get some logs from mvneta_probe, about dev->dma_mask,
+> >> dev->coherent_dma_mask and dev->dma_ops with and without the patch
+> >> to see whats the difference ?  
+> > 
+> > Not sure I understood what exactly you are after. Might be faster to
+> > just send me a patch with all debug print statements you like to
+> > see. 
+> 
+> Attached the patch with debug prints.
+> 
+> Regards,
+>  Sricharan
+> 
 
----8<---
-The commit 6d684e54690c ("rhashtable: Cap total number of entries
-to 2^31") breaks rhashtable users that do not set max_size.  This
-is because when max_size is zero max_elems is also incorrectly set
-to zero instead of 2^31.
+Hi Sricharan
 
-This patch fixes it by only lowering max_elems when max_size is not
-zero.
+With commit 09515ef5ddad
 
-Fixes: 6d684e54690c ("rhashtable: Cap total number of entries to 2^31")
-Reported-by: Florian Fainelli <f.fainelli@gmail.com>
-Reported-by: kernel test robot <fengguang.wu@intel.com>
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+[    1.288962] mvneta f1070000.ethernet: dev->dma_mask 0xffffffff
+[    1.294827] mvneta f1070000.ethernet: dev->coherent_dma_mask 0xffffffff
+[    1.301472] mvneta f1070000.ethernet: dev->dma_ops 0x40b00c0601460
 
-diff --git a/lib/rhashtable.c b/lib/rhashtable.c
-index 751630b..3895486 100644
---- a/lib/rhashtable.c
-+++ b/lib/rhashtable.c
-@@ -958,13 +958,14 @@ int rhashtable_init(struct rhashtable *ht,
- 	if (params->min_size)
- 		ht->p.min_size = roundup_pow_of_two(params->min_size);
- 
--	if (params->max_size)
--		ht->p.max_size = rounddown_pow_of_two(params->max_size);
--
- 	/* Cap total entries at 2^31 to avoid nelems overflow. */
- 	ht->max_elems = 1u << 31;
--	if (ht->p.max_size < ht->max_elems / 2)
--		ht->max_elems = ht->p.max_size * 2;
-+
-+	if (params->max_size) {
-+		ht->p.max_size = rounddown_pow_of_two(params->max_size);
-+		if (ht->p.max_size < ht->max_elems / 2)
-+			ht->max_elems = ht->p.max_size * 2;
-+	}
- 
- 	ht->p.min_size = max(ht->p.min_size, HASH_MIN_SIZE);
- 
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+[    1.322047] mvneta f1034000.ethernet: dev->dma_mask 0xffffffff
+[    1.327904] mvneta f1034000.ethernet: dev->coherent_dma_mask 0xffffffff
+[    1.334549] mvneta f1034000.ethernet: dev->dma_ops 0x40b00c0601460
+
+
+With the patch reverted, the build that works
+
+[    1.289001] mvneta f1070000.ethernet: dev->dma_mask 0xffffffff
+[    1.294866] mvneta f1070000.ethernet: dev->coherent_dma_mask 0xffffffff
+[    1.301511] mvneta f1070000.ethernet: dev->dma_ops 0x40b00c06014a8
+
+[    1.317005] mvneta f1034000.ethernet: dev->dma_mask 0xffffffff
+[    1.322867] mvneta f1034000.ethernet: dev->coherent_dma_mask 0xffffffff
+[    1.329508] mvneta f1034000.ethernet: dev->dma_ops 0x40b00c06014a8
+
+
+Regards
+Ralph
