@@ -1,54 +1,86 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [GIT 0/1] IPVS Fixes for v4.11
-Date: Fri, 28 Apr 2017 12:03:27 +0200
-Message-ID: <20170428100326.GC13359@verge.net.au>
-References: <20170428095816.6588-1-horms@verge.net.au>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: [PATCH] esp: Fix misplaced spin_unlock_bh.
+Date: Fri, 28 Apr 2017 10:42:38 +0200
+Message-ID: <1493368958-29609-2-git-send-email-steffen.klassert@secunet.com>
+References: <1493368958-29609-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-        netfilter-devel@vger.kernel.org,
-        Wensong Zhang <wensong@linux-vs.org>,
-        Julian Anastasov <ja@ssi.bg>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170428095816.6588-1-horms@verge.net.au>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+        Steffen Klassert <steffen.klassert@secunet.com>,
+        <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([62.96.220.36]:59570 "EHLO a.mx.secunet.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1164141AbdD1KFQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 28 Apr 2017 06:05:16 -0400
+In-Reply-To: <1493368958-29609-1-git-send-email-steffen.klassert@secunet.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Sorry, I messed this up.
-I will repost.
+A recent commit moved esp_alloc_tmp() out of a lock
+protected region, but forgot to remove the unlock from
+the error path. This patch removes the forgotten unlock.
+While at it, remove some unneeded error assignments too.
 
-On Fri, Apr 28, 2017 at 11:58:15AM +0200, Simon Horman wrote:
-> Hi Pablo,
-> 
-> please consider this fix to IPVS for v4.11.
-> Or if it is too late for v4.11 please consider it for v4.12.
-> I would also like it considered for stable.
-> 
-> * Explicitly forbid ipv6 service/dest creation if ipv6 mod is disabled
->   to avoid oops caused by IPVS accesing IPv6 routing code in such
->   circumstances.
-> 
-> The following changes since commit 1debdc8f9ebd07daf140e417b3841596911e0066:
-> 
->   sh_eth: unmap DMA buffers when freeing rings (2017-04-18 22:04:32 -0400)
-> 
-> are available in the git repository at:
-> 
->   http://git.kernel.org/pub/scm/linux/kernel/git/horms/ipvs-next.git ipvs-fixes-for-v4.11
-> 
-> for you to fetch changes up to 8f8688b0d483ff06236808ab5fc8bc83c5eaa8d9:
-> 
->   ipvs: explicitly forbid ipv6 service/dest creation if ipv6 mod is disabled (2017-04-24 11:53:55 +0200)
-> 
-> ----------------------------------------------------------------
-> Paolo Abeni (1):
->       ipvs: explicitly forbid ipv6 service/dest creation if ipv6 mod is disabled
-> 
->  net/netfilter/ipvs/ip_vs_ctl.c | 22 +++++++++++++++++-----
->  1 file changed, 17 insertions(+), 5 deletions(-)
-> 
-> -- 
-> 2.12.2.816.g2cccc81164
-> 
+Fixes: fca11ebde3f0 ("esp4: Reorganize esp_output")
+Fixes: 383d0350f2cc ("esp6: Reorganize esp_output")
+Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
+Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+---
+ net/ipv4/esp4.c | 6 +-----
+ net/ipv6/esp6.c | 6 +-----
+ 2 files changed, 2 insertions(+), 10 deletions(-)
+
+diff --git a/net/ipv4/esp4.c b/net/ipv4/esp4.c
+index 7e501ad..7f2caf7 100644
+--- a/net/ipv4/esp4.c
++++ b/net/ipv4/esp4.c
+@@ -356,11 +356,8 @@ int esp_output_tail(struct xfrm_state *x, struct sk_buff *skb, struct esp_info *
+ 	ivlen = crypto_aead_ivsize(aead);
+ 
+ 	tmp = esp_alloc_tmp(aead, esp->nfrags + 2, extralen);
+-	if (!tmp) {
+-		spin_unlock_bh(&x->lock);
+-		err = -ENOMEM;
++	if (!tmp)
+ 		goto error;
+-	}
+ 
+ 	extra = esp_tmp_extra(tmp);
+ 	iv = esp_tmp_iv(aead, tmp, extralen);
+@@ -389,7 +386,6 @@ int esp_output_tail(struct xfrm_state *x, struct sk_buff *skb, struct esp_info *
+ 		spin_lock_bh(&x->lock);
+ 		if (unlikely(!skb_page_frag_refill(allocsize, pfrag, GFP_ATOMIC))) {
+ 			spin_unlock_bh(&x->lock);
+-			err = -ENOMEM;
+ 			goto error;
+ 		}
+ 
+diff --git a/net/ipv6/esp6.c b/net/ipv6/esp6.c
+index 8b55abf..1fe99ba 100644
+--- a/net/ipv6/esp6.c
++++ b/net/ipv6/esp6.c
+@@ -330,11 +330,8 @@ int esp6_output_tail(struct xfrm_state *x, struct sk_buff *skb, struct esp_info
+ 	ivlen = crypto_aead_ivsize(aead);
+ 
+ 	tmp = esp_alloc_tmp(aead, esp->nfrags + 2, seqhilen);
+-	if (!tmp) {
+-		spin_unlock_bh(&x->lock);
+-		err = -ENOMEM;
++	if (!tmp)
+ 		goto error;
+-	}
+ 
+ 	seqhi = esp_tmp_seqhi(tmp);
+ 	iv = esp_tmp_iv(aead, tmp, seqhilen);
+@@ -362,7 +359,6 @@ int esp6_output_tail(struct xfrm_state *x, struct sk_buff *skb, struct esp_info
+ 		spin_lock_bh(&x->lock);
+ 		if (unlikely(!skb_page_frag_refill(allocsize, pfrag, GFP_ATOMIC))) {
+ 			spin_unlock_bh(&x->lock);
+-			err = -ENOMEM;
+ 			goto error;
+ 		}
+ 
+-- 
+2.7.4
