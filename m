@@ -1,43 +1,54 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: ipsec doesn't route TCP with 4.11 kernel
-Date: Fri, 28 Apr 2017 09:46:42 -0700
-Message-ID: <1493398002.31837.12.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <CADJev78Cs0VBdagtfU-71pv3HHC5Vq41UXQee856aVbUqEqAYg@mail.gmail.com>
-         <CAM_iQpWT5tF5+LpoTP98JNJ=440jEkxHFkn8=jtAsZgondN49A@mail.gmail.com>
-         <20170427084238.GX2649@secunet.com>
-         <CADJev7_=YEHmijGweqZvdATMQVuzwywEbBKweYvPurJfTEQRjQ@mail.gmail.com>
-         <20170428071337.GG2649@secunet.com>
+From: Logan Gunthorpe <logang-OTvnGxWRz7hWk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH v2 07/21] crypto: shash, caam: Make use of the new sg_map
+ helper function
+Date: Fri, 28 Apr 2017 10:53:45 -0600
+Message-ID: <5a08708b-c3b8-41fe-96de-607a109eacbd@deltatee.com>
+References: <1493144468-22493-1-git-send-email-logang@deltatee.com>
+ <1493144468-22493-8-git-send-email-logang@deltatee.com>
+ <20170427035603.GA32212@gondor.apana.org.au>
+ <94123cbf-3287-f05e-7267-0bcf08ab0a8b@deltatee.com>
+ <20170428063039.GB6817@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Don Bowman <db@donbowman.ca>, Cong Wang <xiyou.wangcong@gmail.com>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        Herbert Xu <herbert@gondor.apana.org.au>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Steffen Klassert <steffen.klassert@secunet.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170428071337.GG2649@secunet.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: dri-devel-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org, dm-devel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+ target-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>,
+ devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org, "James E.J. Bottomley" <jejb-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
+ linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-nvdimm-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org,
+ linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Sumit Semwal <sumit.semwal-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+ open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org, linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ intel-gfx-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org, sparmaintainer-GLv8BlqOqDDQT0dZR+AlfA@public.gmane.org,
+ linux-raid-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, megaraidlinux.pdl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org,
+ Jens Axboe <axboe-tSWWG44O7X1aa/9Udqfwiw@public.gmane.org>,
+ "Martin K. Petersen" <martin.petersen-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ Matthew Wilcox <mawilcox-0li6OtcxBFHby3iVrkZq2A@public.gmane.org>, linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-crypto-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+ "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Return-path: <linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org>
+In-Reply-To: <20170428063039.GB6817-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+List-Unsubscribe: <https://lists.01.org/mailman/options/linux-nvdimm>,
+ <mailto:linux-nvdimm-request-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.01.org/pipermail/linux-nvdimm/>
+List-Post: <mailto:linux-nvdimm-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org>
+List-Help: <mailto:linux-nvdimm-request-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.01.org/mailman/listinfo/linux-nvdimm>,
+ <mailto:linux-nvdimm-request-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org?subject=subscribe>
+Errors-To: linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org
+Sender: "Linux-nvdimm" <linux-nvdimm-bounces-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2017-04-28 at 09:13 +0200, Steffen Klassert wrote:
->          encap type espinudp sport 4500 dport 4500 addr 0.0.0.0
-> 
-> Ok, this is espinudp. This information was important.
-
-> This is not a GRO issue as I thought, the TX side is already broken.
-> 
-> Could you please try the patch below?
-> 
-> Subject: [PATCH] esp4: Fix udpencap for local TCP packets.
-> 
-> Locally generated TCP packets are usually cloned, so we
-> do skb_cow_data() on this packets. After that we need to
-> reload the pointer to the esp header. On udpencap this
-> header has an offset to skb_transport_header, so take this
-> offset into account.
 
 
-It looks like locally generated TCP packets could avoid the
-skb_cow_data(), if you were using skb_header_cloned() instead of
-skb_cloned()  ?
+On 28/04/17 12:30 AM, Herbert Xu wrote:
+> You are right.  Indeed the existing code looks buggy as they
+> don't take sg->offset into account when doing the kmap.  Could
+> you send me some patches that fix these problems first so that
+> they can be easily backported?
+
+Ok, I think the only buggy one in crypto is hifn_795x. Shash and caam
+both do have the sg->offset accounted for. I'll send a patch for the
+buggy one shortly.
+
+Logan
