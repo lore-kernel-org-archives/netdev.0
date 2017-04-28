@@ -1,72 +1,31 @@
-From: Arkadi Sharshevsky <arkadis@mellanox.com>
-Subject: [PATCH net-next v3] net: bridge: Fix improper taking over
-	HW learned FDB
-Date: Fri, 28 Apr 2017 22:39:07 +0300
-Message-ID: <1493408347-44779-1-git-send-email-arkadis@mellanox.com>
-Cc: Ido Schimmel <idosch@mellanox.com>,
-	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-	bridge@lists.linux-foundation.org,
-	Arkadi Sharshevsky <arkadis@mellanox.com>, davem@davemloft.net
-To: netdev@vger.kernel.org
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: pull request (net): ipsec 2017-04-28
+Date: Fri, 28 Apr 2017 15:42:26 -0400 (EDT)
+Message-ID: <20170428.154226.1750030287665309093.davem@davemloft.net>
+References: <1493370873-30836-1-git-send-email-steffen.klassert@secunet.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
+To: steffen.klassert@secunet.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:58316 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1426623AbdD1Tm2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 28 Apr 2017 15:42:28 -0400
+In-Reply-To: <1493370873-30836-1-git-send-email-steffen.klassert@secunet.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Commit 7e26bf45e4cb ("net: bridge: allow SW learn to take over HW fdb
-entries") added the ability to "take over an entry which was previously
-learned via HW when it shows up from a SW port".
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Date: Fri, 28 Apr 2017 11:14:31 +0200
 
-However, if an entry was learned via HW and then a control packet
-(e.g., ARP request) was trapped to the CPU, the bridge driver will
-update the entry and remove the externally learned flag, although the
-entry is still present in HW. Instead, only clear the externally learned
-flag in case of roaming.
+> 1) Do garbage collecting after a policy flush to remove old
+>    bundles immediately. From Xin Long.
+> 
+> 2) Fix GRO if netfilter is not defined.
+>    From Sabrina Dubroca.
+> 
+> Please pull or let me know if there are problems.
 
-Fixes: 7e26bf45e4cb ("net: bridge: allow SW learn to take over HW fdb entries")
-Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-Signed-off-by: Arkadi Sharashevsky <arkadis@mellanox.com>
-Cc: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
----
-v1->v2
-- net-next rebase.
-
-v2->v3
-- remove redundant line.
----
- net/bridge/br_fdb.c | 8 +++-----
- 1 file changed, 3 insertions(+), 5 deletions(-)
-
-diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
-index de7988b..ab0c7cc 100644
---- a/net/bridge/br_fdb.c
-+++ b/net/bridge/br_fdb.c
-@@ -589,16 +589,14 @@ void br_fdb_update(struct net_bridge *br, struct net_bridge_port *source,
- 			if (unlikely(source != fdb->dst)) {
- 				fdb->dst = source;
- 				fdb_modified = true;
-+				/* Take over HW learned entry */
-+				if (unlikely(fdb->added_by_external_learn))
-+					fdb->added_by_external_learn = 0;
- 			}
- 			if (now != fdb->updated)
- 				fdb->updated = now;
- 			if (unlikely(added_by_user))
- 				fdb->added_by_user = 1;
--			/* Take over HW learned entry */
--			if (unlikely(fdb->added_by_external_learn)) {
--				fdb->added_by_external_learn = 0;
--				fdb_modified = true;
--			}
- 			if (unlikely(fdb_modified))
- 				fdb_notify(br, fdb, RTM_NEWNEIGH);
- 		}
--- 
-2.4.11
+Pulled, thanks!
