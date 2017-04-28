@@ -1,69 +1,76 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next] net: sched: add helpers to handle extended actions
-Date: Fri, 28 Apr 2017 18:13:26 +0200
-Message-ID: <1493396006-11084-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
-        mlxsw@mellanox.com
+From: Sabrina Dubroca <sd@queasysnail.net>
+Subject: [PATCH 4/7] crypto: aesni: make AVX AES-GCM work with all valid auth_tag_len
+Date: Fri, 28 Apr 2017 18:11:59 +0200
+Message-ID: <341c406e29e71369bc1fa6f614ae6904c58cfee4.1493395785.git.sd@queasysnail.net>
+References: <cover.1493395785.git.sd@queasysnail.net>
+Cc: Sabrina Dubroca <sd@queasysnail.net>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        Herbert Xu <herbert@gondor.apana.org.au>,
+        "David S. Miller" <davem@davemloft.net>,
+        Thomas Gleixner <tglx@linutronix.de>,
+        Ingo Molnar <mingo@redhat.com>,
+        "H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org,
+        linux-crypto@vger.kernel.org, linux-kernel@vger.kernel.org
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f195.google.com ([209.85.128.195]:35692 "EHLO
-        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S2999261AbdD1QN3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 28 Apr 2017 12:13:29 -0400
-Received: by mail-wr0-f195.google.com with SMTP id g12so7595364wrg.2
-        for <netdev@vger.kernel.org>; Fri, 28 Apr 2017 09:13:29 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1493395785.git.sd@queasysnail.net>
+In-Reply-To: <cover.1493395785.git.sd@queasysnail.net>
+References: <cover.1493395785.git.sd@queasysnail.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jiri Pirko <jiri@mellanox.com>
-
-Jump is now the only one using value action opcode. This is going to
-change soon. So introduce helpers to work with this. Convert TC_ACT_JUMP.
-
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
 ---
- include/uapi/linux/pkt_cls.h | 15 ++++++++++++++-
- net/sched/act_api.c          |  2 +-
- 2 files changed, 15 insertions(+), 2 deletions(-)
+ arch/x86/crypto/aesni-intel_avx-x86_64.S | 31 ++++++++++++++++++++++++-------
+ 1 file changed, 24 insertions(+), 7 deletions(-)
 
-diff --git a/include/uapi/linux/pkt_cls.h b/include/uapi/linux/pkt_cls.h
-index f1129e3..d613be3 100644
---- a/include/uapi/linux/pkt_cls.h
-+++ b/include/uapi/linux/pkt_cls.h
-@@ -37,7 +37,20 @@ enum {
- #define TC_ACT_QUEUED		5
- #define TC_ACT_REPEAT		6
- #define TC_ACT_REDIRECT		7
--#define TC_ACT_JUMP		0x10000000
-+
-+/* There is a special kind of actions called "extended actions",
-+ * which need a value parameter. These have a local opcode located in
-+ * the highest nibble, starting from 1. The rest of the bits
-+ * are used to carry the value. These two parts together make
-+ * a combined opcode.
-+ */
-+#define __TC_ACT_EXT_SHIFT 28
-+#define __TC_ACT_EXT(local) ((local) << __TC_ACT_EXT_SHIFT)
-+#define TC_ACT_EXT_VAL_MASK ((1 << __TC_ACT_EXT_SHIFT) - 1)
-+#define TC_ACT_EXT_CMP(combined, opcode) \
-+	(((combined) & (~TC_ACT_EXT_VAL_MASK)) == opcode)
-+
-+#define TC_ACT_JUMP __TC_ACT_EXT(1)
+diff --git a/arch/x86/crypto/aesni-intel_avx-x86_64.S b/arch/x86/crypto/aesni-intel_avx-x86_64.S
+index a73117c84904..ee6283120f83 100644
+--- a/arch/x86/crypto/aesni-intel_avx-x86_64.S
++++ b/arch/x86/crypto/aesni-intel_avx-x86_64.S
+@@ -1481,19 +1481,36 @@ VARIABLE_OFFSET = 16*8
+         cmp     $16, %r11
+         je      _T_16\@
  
- /* Action type identifiers*/
- enum {
-diff --git a/net/sched/act_api.c b/net/sched/act_api.c
-index 7f2cd70..a90e8f3 100644
---- a/net/sched/act_api.c
-+++ b/net/sched/act_api.c
-@@ -453,7 +453,7 @@ int tcf_action_exec(struct sk_buff *skb, struct tc_action **actions,
- 		if (ret == TC_ACT_REPEAT)
- 			goto repeat;	/* we need a ttl - JHS */
+-        cmp     $12, %r11
+-        je      _T_12\@
++        cmp     $8, %r11
++        jl      _T_4\@
  
--		if (ret & TC_ACT_JUMP) {
-+		if (TC_ACT_EXT_CMP(ret, TC_ACT_JUMP)) {
- 			jmp_prgcnt = ret & TCA_ACT_MAX_PRIO_MASK;
- 			if (!jmp_prgcnt || (jmp_prgcnt > nr_actions)) {
- 				/* faulty opcode, stop pipeline */
+ _T_8\@:
+         vmovq   %xmm9, %rax
+         mov     %rax, (%r10)
+-        jmp     _return_T_done\@
+-_T_12\@:
+-        vmovq   %xmm9, %rax
+-        mov     %rax, (%r10)
++        add     $8, %r10
++        sub     $8, %r11
+         vpsrldq $8, %xmm9, %xmm9
++        cmp     $0, %r11
++        je     _return_T_done\@
++_T_4\@:
+         vmovd   %xmm9, %eax
+-        mov     %eax, 8(%r10)
++        mov     %eax, (%r10)
++        add     $4, %r10
++        sub     $4, %r11
++        vpsrldq     $4, %xmm9, %xmm9
++        cmp     $0, %r11
++        je     _return_T_done\@
++_T_123\@:
++        vmovd     %xmm9, %eax
++        cmp     $2, %r11
++        jl     _T_1\@
++        mov     %ax, (%r10)
++        cmp     $2, %r11
++        je     _return_T_done\@
++        add     $2, %r10
++        sar     $16, %eax
++_T_1\@:
++        mov     %al, (%r10)
+         jmp     _return_T_done\@
+ 
+ _T_16\@:
 -- 
-2.7.4
+2.12.2
