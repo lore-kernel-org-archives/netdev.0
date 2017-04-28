@@ -1,89 +1,48 @@
-From: Sricharan R <sricharan@codeaurora.org>
-Subject: Re: [REGRESSION next-20170426] Commit 09515ef5ddad ("of/acpi:
- Configure dma operations at probe time for platform/amba/pci bus devices")
- causes oops in mvneta
-Date: Fri, 28 Apr 2017 09:59:32 +0530
-Message-ID: <0a3e7a85-babb-8ae7-2c19-480c5203a8e5@codeaurora.org>
-References: <20170426181508.687b52af@gmail.com>
- <2fb57b9b-3944-d9cc-1fac-8dcccaa0c37a@codeaurora.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: EINVAL when using connect() for udp sockets
+Date: Thu, 27 Apr 2017 21:48:52 -0700
+Message-ID: <1493354932.31837.9.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <CAEnbY+cYpX8naDpRkXgwCP=i64AwWgK9=_7AacmYip-ykot7mQ@mail.gmail.com>
+         <CAEnbY+fPLamzXF8nOF-SEFE8LaE88XAyKNt81zs6bM866R4oGg@mail.gmail.com>
+         <1490246287.16816.201.camel@edumazet-glaptop3.roam.corp.google.com>
+         <CAM_iQpVVBfwd7P0-dY08Bw7QNr_w77va4AEMFj5xMuOddQoq2g@mail.gmail.com>
+         <1490397560.24891.0.camel@edumazet-glaptop3.roam.corp.google.com>
+         <CAM_iQpUQ52aiKQntMsrm2aMQ56G=tHCpN93A0+mffss+6m39jw@mail.gmail.com>
+         <1490742712.24891.25.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1490748756.24891.27.camel@edumazet-glaptop3.roam.corp.google.com>
+         <CAM_iQpWyQJ+XN_4mSarzHRYX4eio81G49i=wyE5MHS+AUFWU8g@mail.gmail.com>
+         <1490918579.24891.82.camel@edumazet-glaptop3.roam.corp.google.com>
+         <CAM_iQpXmx1GN3zvnuB6SAp9fBo_yf8G3nubGeec6tMYs4BTt2A@mail.gmail.com>
+         <CAEnbY+cu_b1NddDcKMumK2npmxh4yh4kEoeeY1db2Ct3JntG9g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------147DF2B73712B6B592606189"
-Cc: "Rafael J. Wysocki" <rjw@rjwysocki.net>,
-        Joerg Roedel <jroedel@suse.de>,
-        Bjorn Helgaas <bhelgaas@google.com>,
-        linux-acpi@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linux-pci@vger.kernel.org,
-        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-        netdev@vger.kernel.org
-To: Ralph Sennhauser <ralph.sennhauser@gmail.com>
-Return-path: <linux-acpi-owner@vger.kernel.org>
-In-Reply-To: <2fb57b9b-3944-d9cc-1fac-8dcccaa0c37a@codeaurora.org>
-Content-Language: en-US
-Sender: linux-acpi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-This is a multi-part message in MIME format.
---------------147DF2B73712B6B592606189
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        William Ahern <william@25thandclement.com>,
+        "Santi T." <santitm99@gmail.com>,
+        Michael Kerrisk-manpages <mtk.manpages@gmail.com>
+To: Daurnimator <quae@daurnimator.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:36041 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S969028AbdD1EtB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 28 Apr 2017 00:49:01 -0400
+Received: by mail-pf0-f193.google.com with SMTP id v14so15599339pfd.3
+        for <netdev@vger.kernel.org>; Thu, 27 Apr 2017 21:49:00 -0700 (PDT)
+In-Reply-To: <CAEnbY+cu_b1NddDcKMumK2npmxh4yh4kEoeeY1db2Ct3JntG9g@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Ralph,
-
-On 4/27/2017 7:05 PM, Sricharan R wrote:
-> Hi,
+On Fri, 2017-04-28 at 12:55 +1000, Daurnimator wrote:
+> On 1 April 2017 at 03:52, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+> > Please submit your patch formally and with a man page patch too.
 > 
-> On 4/26/2017 9:45 PM, Ralph Sennhauser wrote:
->> Hi Sricharan R,
->>
->> Commit 09515ef5ddad ("of/acpi: Configure dma operations at probe time
->> for platform/amba/pci bus devices") causes a kernel panic as in the log
->> below on an armada-385. Reverting the commit fixes the issue.
->>
->> Regards
->> Ralph
-> 
-> Somehow not getting a obvious clue on whats going wrong with the logs
-> below. From the log and looking in to dts, the drivers seems to the one for
-> "marvell,armada-370-neta". Issue looks the data from the dma has gone bad
-> and subsequently referring the wrong data has resulted in the crash.
-> Looks like the dma_masks is the one going wrong.
-> Can i get some logs from mvneta_probe, about dev->dma_mask,
-> dev->coherent_dma_mask and dev->dma_ops with and without the patch
-> to see whats the difference ?
-> 
+> Did a patch get submitted? I had a look but couldn't see it.
 
-Attached the patch with debug prints.
+Not yet.
 
-Regards,
- Sricharan
+I will probably wait for next cycle (linux-4.13), I have been busy on
+other work lately.
 
---------------147DF2B73712B6B592606189
-Content-Type: text/plain; charset=UTF-8;
- name="0001-Debug-prints.patch"
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment;
- filename="0001-Debug-prints.patch"
-
-RnJvbSBmZTc3ZDM5NjhkNmJjMzViNDZlNWYzMGQ1YzY3Yzc2MDNhYTEwNTk3IE1vbiBTZXAg
-MTcgMDA6MDA6MDAgMjAwMQpGcm9tOiBTcmljaGFyYW4gUiA8c3JpY2hhcmFuQGNvZGVhdXJv
-cmEub3JnPgpEYXRlOiBGcmksIDI4IEFwciAyMDE3IDA5OjQzOjI2ICswNTMwClN1YmplY3Q6
-IFtQQVRDSF0gRGVidWcgcHJpbnRzCgpTaWduZWQtb2ZmLWJ5OiBTcmljaGFyYW4gUiA8c3Jp
-Y2hhcmFuQGNvZGVhdXJvcmEub3JnPgotLS0KIGRyaXZlcnMvbmV0L2V0aGVybmV0L21hcnZl
-bGwvbXZuZXRhLmMgfCA2ICsrKysrKwogMSBmaWxlIGNoYW5nZWQsIDYgaW5zZXJ0aW9ucygr
-KQoKZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L21hcnZlbGwvbXZuZXRhLmMg
-Yi9kcml2ZXJzL25ldC9ldGhlcm5ldC9tYXJ2ZWxsL212bmV0YS5jCmluZGV4IGQyOTcwMTEu
-LjI1MGYwYjIgMTAwNjQ0Ci0tLSBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L21hcnZlbGwvbXZu
-ZXRhLmMKKysrIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvbWFydmVsbC9tdm5ldGEuYwpAQCAt
-NDE0Niw2ICs0MTQ2LDEyIEBAIHN0YXRpYyBpbnQgbXZuZXRhX3Byb2JlKHN0cnVjdCBwbGF0
-Zm9ybV9kZXZpY2UgKnBkZXYpCiAJaW50IHBoeV9tb2RlOwogCWludCBlcnI7CiAJaW50IGNw
-dTsKKwlzdHJ1Y3QgZGV2aWNlICpkZGV2ID0gJnBkZXYtPmRldjsKKworCisJZGV2X2Vycihk
-ZGV2LCAiZGV2LT5kbWFfbWFzayAweCVsbHhcbiIsICooZGRldi0+ZG1hX21hc2spKTsKKwlk
-ZXZfZXJyKGRkZXYsICJkZXYtPmNvaGVyZW50X2RtYV9tYXNrIDB4JWxseFxuIiwgZGRldi0+
-Y29oZXJlbnRfZG1hX21hc2spOworCWRldl9lcnIoZGRldiwgImRldi0+ZG1hX29wcyAweCVs
-bHhcbiIsIGRkZXYtPmRtYV9vcHMpOwogCiAJZGV2ID0gYWxsb2NfZXRoZXJkZXZfbXFzKHNp
-emVvZihzdHJ1Y3QgbXZuZXRhX3BvcnQpLCB0eHFfbnVtYmVyLCByeHFfbnVtYmVyKTsKIAlp
-ZiAoIWRldikKLS0gClFVQUxDT01NIElORElBLCBvbiBiZWhhbGYgb2YgUXVhbGNvbW0gSW5u
-b3ZhdGlvbiBDZW50ZXIsIEluYy4gaXMgYSBtZW1iZXIgb2YgQ29kZSBBdXJvcmEgRm9ydW0s
-IGhvc3RlZCBieSBUaGUgTGludXggRm91bmRhdGlvbgoK
---------------147DF2B73712B6B592606189--
+Thanks.
