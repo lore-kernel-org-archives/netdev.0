@@ -1,62 +1,71 @@
-From: Miroslav Lichvar <mlichvar@redhat.com>
-Subject: Re: [PATCH v1 net-next 5/6] net: allow simultaneous SW and HW
- transmit timestamping
-Date: Fri, 28 Apr 2017 18:23:25 +0200
-Message-ID: <20170428162325.GA2932@localhost>
-References: <20170426145035.25846-1-mlichvar@redhat.com>
- <20170426145035.25846-6-mlichvar@redhat.com>
- <CAF=yD-+GSK491AWQx8=6yd3=-HHwxdWq677ubwdjbV5AXzRbog@mail.gmail.com>
- <20170428085422.GD3401@localhost>
- <CAF=yD-+DYwBbhU0fOMOj4XO+diG4-GLn6Ruh9ZMoXVv5ZS4PgQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Network Development <netdev@vger.kernel.org>,
-        Richard Cochran <richardcochran@gmail.com>,
-        Willem de Bruijn <willemb@google.com>,
-        Soheil Hassas Yeganeh <soheil@google.com>,
-        "Keller, Jacob E" <jacob.e.keller@intel.com>,
-        Denny Page <dennypage@me.com>, Jiri Benc <jbenc@redhat.com>
-To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:49568 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S939073AbdD1QX3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 28 Apr 2017 12:23:29 -0400
-Content-Disposition: inline
-In-Reply-To: <CAF=yD-+DYwBbhU0fOMOj4XO+diG4-GLn6Ruh9ZMoXVv5ZS4PgQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Arkadi Sharshevsky <arkadis@mellanox.com>
+Subject: [PATCH net-next v2] net: bridge: Fix improper taking over
+	HW learned FDB
+Date: Fri, 28 Apr 2017 19:31:38 +0300
+Message-ID: <1493397098-38756-1-git-send-email-arkadis@mellanox.com>
+Cc: Ido Schimmel <idosch@mellanox.com>,
+	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+	bridge@lists.linux-foundation.org,
+	Arkadi Sharshevsky <arkadis@mellanox.com>, davem@davemloft.net
+To: netdev@vger.kernel.org
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Apr 28, 2017 at 11:50:28AM -0400, Willem de Bruijn wrote:
-> On Fri, Apr 28, 2017 at 4:54 AM, Miroslav Lichvar <mlichvar@redhat.com> wrote:
-> >>   if (skb_shinfo(skb)->tx_flags & SKBTX_SW_TSTAMP &&
-> >> -        !(skb_shinfo(skb)->tx_flags & SKBTX_IN_PROGRESS))
-> >> +      (!(skb_shinfo(orig_skb)->tx_flags & SKBTX_IN_PROGRESS)) ||
-> >> +      (skb->sk && skb->sk->sk_tsflags & SOF_TIMESTAMPING_OPT_TX_SWHW)
-> >
-> > I'm not sure if this can work. sk_buff.h would need to include sock.h
-> > in order to get the definition of struct sock. Any suggestions?
-> 
-> A more elegant solution would be to not set SKBTX_IN_PROGRESS
-> at all if SOF_TIMESTAMPING_OPT_TX_SWHW is set on the socket.
-> But the patch to do so is not elegant, having to update callsites in many
-> device drivers.
+Commit 7e26bf45e4cb ("net: bridge: allow SW learn to take over HW fdb
+entries") added the ability to "take over an entry which was previously
+learned via HW when it shows up from a SW port".
 
-Also, it would change the meaning of the flag as it seems some drivers
-actually use the SKBTX_IN_PROGRESS flag to check if they expect a
-timestamp.
+However, if an entry was learned via HW and then a control packet
+(e.g., ARP request) was trapped to the CPU, the bridge driver will
+update the entry and remove the externally learned flag, although the
+entry is still present in HW. Instead, only clear the externally learned
+flag in case of roaming.
 
-How about allocating the last bit of tx_flags for SKBTX_SWHW_TSTAMP?
+Fixes: 7e26bf45e4cb ("net: bridge: allow SW learn to take over HW fdb entries")
+Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+Signed-off-by: Arkadi Sharashevsky <arkadis@mellanox.com>
+Cc: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+---
+v1->v2
+- net-next rebase.
+---
+ net/bridge/br_fdb.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
 
-> Otherwise you may indeed have to call skb_tstamp_tx for every packet
-> that has SKBTX_SW_TSTAMP set, as you do. We can at least move
-> the skb->sk != NULL check into skb_tx_timestamp in skbuff.h.
-> 
-> By the way, if changing this code, I think that it's time to get rid of
-> sw_tx_timestamp. It is only called from skb_tx_timestamp. Let's
-> just move the condition in there.
-
-Ok. I assume that should be a separate patch.
-
+diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
+index de7988b..5905eb7 100644
+--- a/net/bridge/br_fdb.c
++++ b/net/bridge/br_fdb.c
+@@ -589,16 +589,16 @@ void br_fdb_update(struct net_bridge *br, struct net_bridge_port *source,
+ 			if (unlikely(source != fdb->dst)) {
+ 				fdb->dst = source;
+ 				fdb_modified = true;
++				/* Take over HW learned entry */
++				if (unlikely(fdb->added_by_external_learn)) {
++					fdb->added_by_external_learn = 0;
++					fdb_modified = true;
++				}
+ 			}
+ 			if (now != fdb->updated)
+ 				fdb->updated = now;
+ 			if (unlikely(added_by_user))
+ 				fdb->added_by_user = 1;
+-			/* Take over HW learned entry */
+-			if (unlikely(fdb->added_by_external_learn)) {
+-				fdb->added_by_external_learn = 0;
+-				fdb_modified = true;
+-			}
+ 			if (unlikely(fdb_modified))
+ 				fdb_notify(br, fdb, RTM_NEWNEIGH);
+ 		}
 -- 
-Miroslav Lichvar
+2.4.11
