@@ -1,109 +1,57 @@
-From: Andreas Kemnade <andreas-cLv4Z9ELZ06ZuzBka8ofvg@public.gmane.org>
-Subject: Re: [PATCH] net: hso: register netdev later to avoid a race
- condition
-Date: Fri, 28 Apr 2017 19:36:29 +0200
-Message-ID: <20170428193629.4f72caed@aktux>
-References: <1493227600-10102-1-git-send-email-andreas@kemnade.info>
-        <20170427084401.GP2823@localhost>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [patch net-next 00/10] net: sched: introduce multichain support
+ for filters
+Date: Fri, 28 Apr 2017 10:40:24 -0700
+Message-ID: <CAM_iQpXU0nKUMg3CqE=UOZ5R=mkxSAEFANObGt6+vKEeyXXXZg@mail.gmail.com>
+References: <1493291540-2119-1-git-send-email-jiri@resnulli.us>
+ <CAM_iQpXUs1301-OR1_bsO-0bU8sSBVo2BWRHy4qNhzdHxvJWaQ@mail.gmail.com> <20170428065349.GB1886@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
- boundary="Sig_/=Sum=iC/oeYlV7_gTKxaNU="; protocol="application/pgp-signature"
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org, gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org,
-        peter-WaGBZJeGNqdsbIuE7sb01tBPR1lH4CV8@public.gmane.org, hns-xXXSsgcRVICgSpxsJD1C4w@public.gmane.org,
-        linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Johan Hovold <johan-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170427084401.GP2823@localhost>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        David Ahern <dsa@cumulusnetworks.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Stephen Hemminger <stephen@networkplumber.org>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Alexander Duyck <alexander.h.duyck@intel.com>,
+        mlxsw@mellanox.com, Simon Horman <simon.horman@netronome.com>
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:33894 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S642175AbdD1Rkq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 28 Apr 2017 13:40:46 -0400
+Received: by mail-wm0-f67.google.com with SMTP id z129so12322405wmb.1
+        for <netdev@vger.kernel.org>; Fri, 28 Apr 2017 10:40:45 -0700 (PDT)
+In-Reply-To: <20170428065349.GB1886@nanopsycho.orion>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Sig_/=Sum=iC/oeYlV7_gTKxaNU=
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: quoted-printable
+On Thu, Apr 27, 2017 at 11:53 PM, Jiri Pirko <jiri@resnulli.us> wrote:
+> Thu, Apr 27, 2017 at 07:46:03PM CEST, xiyou.wangcong@gmail.com wrote:
+>>On Thu, Apr 27, 2017 at 4:12 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+>>> Simple example:
+>>> $ tc qdisc add dev eth0 ingress
+>>> $ tc filter add dev eth0 parent ffff: protocol ip pref 33 flower dst_mac 52:54:00:3d:c7:6d action goto chain 11
+>>> $ tc filter add dev eth0 parent ffff: protocol ip pref 22 chain 11 flower dst_ip 192.168.40.1 action drop
+>>> $ tc filter show dev eth0 root
+>>
+>>Interesting.
+>>
+>>I don't look into the code yet. If I understand the concepts correctly,
+>>so with your patchset we can mark either filter with a chain No. to
+>>choose which chain it belongs to _logically_ even though
+>>_physically_ it is still in the old-fashion chain (prio, proto)?
+>
+> You have to see the code :)
 
-On Thu, 27 Apr 2017 10:44:01 +0200
-Johan Hovold <johan-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org> wrote:
+I don't understand why I have to, these are high-level concepts
+and should be put in your cover letter (aka. design doc). You miss
+a lot of information about the ordering here.
 
-> On Wed, Apr 26, 2017 at 07:26:40PM +0200, Andreas Kemnade wrote:
-> > If the netdev is accessed before the urbs are initialized,
-> > there will be NULL pointer dereferences. That is avoided by
-> > registering it when it is fully initialized.
->=20
-> > Reported-by: H. Nikolaus Schaller <hns-xXXSsgcRVICgSpxsJD1C4w@public.gmane.org>
-> > Signed-off-by: Andreas Kemnade <andreas-cLv4Z9ELZ06ZuzBka8ofvg@public.gmane.org>
-> > ---
-> >  drivers/net/usb/hso.c | 14 +++++++-------
-> >  1 file changed, 7 insertions(+), 7 deletions(-)
-> >=20
-> > diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
-> > index 93411a3..00067a0 100644
-> > --- a/drivers/net/usb/hso.c
-> > +++ b/drivers/net/usb/hso.c
-> > @@ -2534,13 +2534,6 @@ static struct hso_device *hso_create_net_device(=
-struct usb_interface *interface,
-> >  	SET_NETDEV_DEV(net, &interface->dev);
-> >  	SET_NETDEV_DEVTYPE(net, &hso_type);
-> > =20
-> > -	/* registering our net device */
-> > -	result =3D register_netdev(net);
-> > -	if (result) {
-> > -		dev_err(&interface->dev, "Failed to register device\n");
-> > -		goto exit;
-> > -	}
-> > -
-> >  	/* start allocating */
-> >  	for (i =3D 0; i < MUX_BULK_RX_BUF_COUNT; i++) {
-> >  		hso_net->mux_bulk_rx_urb_pool[i] =3D usb_alloc_urb(0, GFP_KERNEL);
-> > @@ -2560,6 +2553,13 @@ static struct hso_device *hso_create_net_device(=
-struct usb_interface *interface,
-> > =20
-> >  	add_net_device(hso_dev);
-> > =20
-> > +	/* registering our net device */
-> > +	result =3D register_netdev(net);
-> > +	if (result) {
-> > +		dev_err(&interface->dev, "Failed to register device\n");
-> > +		goto exit;
->=20
-> This all looks good, but you should consider cleaning up the error
-> handling of this function as a follow-up as we should not be
-> deregistering netdevs that have never been registered (e.g. if a
-> required endpoint is missing or if registration fails for some reason).
->=20
-> But just to be clear, this problem existed also before this change.
->=20
-Just to check wether I am understanding this correctly. In your opinion
-this patch is good for now. And later when it is applied, there should
-be an additional error handling cleanup patch.
-
-Regards,
-Andreas
-
---Sig_/=Sum=iC/oeYlV7_gTKxaNU=
-Content-Type: application/pgp-signature
-Content-Description: OpenPGP digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAEBCAAGBQJZA32gAAoJEInxNTv1CwY0bLYQAJLY0YNqpJ0lzRE4XFkdfMSS
-ceYIQtWy12HFCeatES0yruYtK/7rvcTnp6HlD2yD+SiDAPtP97Crvua1r1zXMWEF
-9b+BCUsS0VkACIQ2k4uDlOOLwXSMnOSGi3goWyHf+Vgf37ykvTne5Cbh5UKGKxFo
-ZKz98XEGAxcKCmyGiXBdOJz71k5wNsROOjhasm71NwEKqDDPwLuR/q4TJtsMyawt
-quKkfko/lA9+T5mSbZ2GNwl4NVyKEtRe+fVIh4YhXWfiv4FOZHl31hIftU3PfC6M
-WLhJ7HRsK2kIb7Cy4hOVUsoGmwBneg0N8dKMSKcyw3GfkYjb79e8zZd7HJGBiV1n
-DIaKoaOC+ue7z5FCj/JiJDnNmf6KUIj2AQPFvvx5Uk/ZTJ1EuOatfEag+5DGG30E
-EuBRWJQCv7tFu+O5Jb2RyVRN7+/VD7a1oRe69F0PkovcjZGZplMOcsmwMrAXtwzo
-qJnfPMRTJDokQP5HKqr4jddJ6lXSRFRPT6eyHJrgTFAtAyzVQT1GNwTcLVxrMvXc
-KnWRQaq38YmGZO+RoHvtCPpRjClRUtGJe07DxcV646c1mub/AmKrj0Ses+0GMMOw
-lzyvobJaM3t0FOS4iP/KI4q8kKFWWjDEtbI3XgrAlBdC1YEajzbCs4wU5RenCle0
-8iWYyqDfAktNH5sjvNhH
-=MLpa
------END PGP SIGNATURE-----
-
---Sig_/=Sum=iC/oeYlV7_gTKxaNU=--
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Also the terms you use are confusing too, without your patchset
+we have chains too, struct tcf_proto is a chain, each kind of filter
+defines their own way to store their filters into this chain (tp->root),
+and of course tp is chained in a singly-linked list too which turns
+into multiple-chains.
