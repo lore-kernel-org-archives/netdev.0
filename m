@@ -1,70 +1,39 @@
-From: <kindergartenchaos2@gmail.com>
-Subject: 54179 netdev
-Date: Sat, 29 Apr 2017 12:02:58 -0000
-Message-ID: <149346737850.22262.15681746066695585751@vnpt.vn>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next] lwtunnel: fix error path in
+ lwtunnel_fill_encap()
+Date: Sat, 29 Apr 2017 07:03:07 -0600
+Message-ID: <8e97609b-732b-9a84-b088-ba7f4384a1eb@cumulusnetworks.com>
+References: <20170428130347.53hagk77wh6scmcs@mwanda>
 Mime-Version: 1.0
-Content-Type: application/zip; name="93791932238.zip"
-Content-Transfer-Encoding: base64
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Roopa Prabhu <roopa@cumulusnetworks.com>,
+        Robert Shearman <rshearma@brocade.com>,
+        Tom Herbert <tom@herbertland.com>,
+        David Lebrun <david.lebrun@uclouvain.be>,
+        netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Dan Carpenter <dan.carpenter@oracle.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Pan Bian <bianpan2016@163.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static.vnpt.vn ([14.226.35.89]:60810 "HELO vnpt.vn"
-        rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with SMTP
-        id S1164082AbdD2MDD (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 29 Apr 2017 08:03:03 -0400
-Content-Disposition: attachment
+Received: from mail-it0-f51.google.com ([209.85.214.51]:36730 "EHLO
+        mail-it0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1166777AbdD2NDM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 29 Apr 2017 09:03:12 -0400
+Received: by mail-it0-f51.google.com with SMTP id r185so9096449itd.1
+        for <netdev@vger.kernel.org>; Sat, 29 Apr 2017 06:03:12 -0700 (PDT)
+In-Reply-To: <20170428130347.53hagk77wh6scmcs@mwanda>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-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
-TKQZwdIBUEsFBgAAAAABAAEAWwAAAD8LAAAAAA==
+On 4/28/17 7:03 AM, Dan Carpenter wrote:
+> We recently added a check to see if nla_nest_start() fails.  There are
+> two issues with that.  First, if it fails then I don't think we should
+> call nla_nest_cancel().  Second, it's slightly convoluted but the
+> current code returns success but we should return -EMSGSIZE instead.
+> 
+> Fixes: a50fe0ffd76f ("lwtunnel: check return value of nla_nest_start")
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> 
+
+Acked-by: David Ahern <dsa@cumulusnetworks.com>
