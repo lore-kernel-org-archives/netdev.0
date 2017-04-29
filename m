@@ -1,50 +1,79 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [net-next PATCH V1] samples/bpf: bpf_load.c detect and abort if
- ELF maps section size is wrong
-Date: Fri, 28 Apr 2017 20:35:21 -0700
-Message-ID: <20170429033519.2iyv7zjm7z43liuw@ast-mbp>
-References: <20170428082816.20a34395@redhat.com>
- <149338948065.27354.8568861008673180957.stgit@firesoul>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kafai@fb.com, netdev@vger.kernel.org, eric@regit.org,
-        Daniel Borkmann <borkmann@iogearbox.net>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+From: gfree.wind@foxmail.com
+Subject: [PATCH net v3] driver: dummy: Fix one possbile memleak when fail to register_netdevice
+Date: Sat, 29 Apr 2017 11:39:46 +0800
+Message-ID: <1493437186-26727-1-git-send-email-gfree.wind@foxmail.com>
+Cc: Gao Feng <gfree.wind@foxmail.com>
+To: davem@davemloft.net, sd@queasysnail.net, phil@nwl.cc,
+        stephen@networkplumber.org, zhangshengju@cmss.chinamobile.com,
+        netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:33885 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1163585AbdD2DfZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 28 Apr 2017 23:35:25 -0400
-Received: by mail-pf0-f194.google.com with SMTP id g23so19985093pfj.1
-        for <netdev@vger.kernel.org>; Fri, 28 Apr 2017 20:35:24 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <149338948065.27354.8568861008673180957.stgit@firesoul>
+Received: from smtpbg202.qq.com ([184.105.206.29]:52817 "EHLO smtpbg202.qq.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1163585AbdD2DkO (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 28 Apr 2017 23:40:14 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 28, 2017 at 04:25:04PM +0200, Jesper Dangaard Brouer wrote:
-> The struct bpf_map_def was extended in commit fb30d4b71214 ("bpf: Add tests
-> for map-in-map") with member unsigned int inner_map_idx.  This changed the size
-> of the maps section in the generated ELF _kern.o files.
-> 
-> Unfortunately the loader in bpf_load.c does not detect or handle this.  Thus,
-> older _kern.o files became incompatible, and caused hard-to-debug errors
-> where the syscall validation rejected BPF_MAP_CREATE request.
-> 
-> This patch only detect the situation and aborts load_bpf_file(). It also
-> add code comments warning people that read this loader for inspiration
-> for these pitfalls.
-> 
-> Fixes: fb30d4b71214 ("bpf: Add tests for map-in-map")
-> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+From: Gao Feng <gfree.wind@foxmail.com>
 
-Thanks!
-Acked-by: Alexei Starovoitov <ast@kernel.org>
+The dummy driver allocates dev->dstats and priv->vfinfo in its
+ndo_init func dummy_dev_init, free the dev->dstats in the ndo_uninit
+and free the priv->vfinfo in its destructor func. Then there is one
+memleak that some errors happen after register_netdevice invokes the
+ndo_init callback. Because only the ndo_uninit callback is invoked in
+the error handler of register_netdevice, but destructor not.
 
-> Is it worth to implement proper backward-compat loading of older ELF objects
-> with this bpf-loader?
+Now create one new func dummy_destructor_free to free the mem in the
+destructor, and the ndo_uninit func also invokes it when fail to
+register the dummy device.
 
-probably yes, since it looks like a bunch of code in samples/bpf/ still
-depend on it and some features are missing in tools/lib/bpf,
-so unless we actively work on improving libbpf.a 
-we won't be able to get rid of this 'sample' loader for some time.
+It's not only free all resources, but also follow the original desgin
+that the priv->vfinfo is freed in the destructor normally after
+register the device successfully.
+
+Signed-off-by: Gao Feng <gfree.wind@foxmail.com>
+---
+ v3: Split one patch to multiple commits, per David Ahern
+ v2: Move the free in ndo_uninit when fail to register, per Herbert Xu
+ v1: initial version
+
+ drivers/net/dummy.c | 14 +++++++++++---
+ 1 file changed, 11 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/dummy.c b/drivers/net/dummy.c
+index 2c80611..0b3c1cc 100644
+--- a/drivers/net/dummy.c
++++ b/drivers/net/dummy.c
+@@ -153,9 +153,19 @@ static int dummy_dev_init(struct net_device *dev)
+ 	return 0;
+ }
+ 
++static void dummy_destructor_free(struct net_device *dev)
++{
++	struct dummy_priv *priv = netdev_priv(dev);
++
++	kfree(priv->vfinfo);
++}
++
+ static void dummy_dev_uninit(struct net_device *dev)
+ {
+ 	free_percpu(dev->dstats);
++	/* dev is not registered, perform the free instead of destructor */
++	if (dev->reg_state == NETREG_UNINITIALIZED)
++		dummy_destructor_free(dev);
+ }
+ 
+ static int dummy_change_carrier(struct net_device *dev, bool new_carrier)
+@@ -310,9 +320,7 @@ static const struct ethtool_ops dummy_ethtool_ops = {
+ 
+ static void dummy_free_netdev(struct net_device *dev)
+ {
+-	struct dummy_priv *priv = netdev_priv(dev);
+-
+-	kfree(priv->vfinfo);
++	dummy_destructor_free(dev);
+ 	free_netdev(dev);
+ }
+ 
+-- 
+2.7.4
