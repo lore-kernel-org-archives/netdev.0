@@ -1,10 +1,9 @@
 From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH RFC net-next v4 4/7] net: use skb->csum_not_inet to
- identify packets needing crc32c
-Date: Sat, 29 Apr 2017 13:18:34 -0700
-Message-ID: <CALx6S34uHFTBSaTN1ojOzhsG_6Lg3ZL2wSeJ5MnYSXg1sgx3TQ@mail.gmail.com>
+Subject: Re: [PATCH RFC net-next v4 7/7] sk_buff.h: improve description of CHECKSUM_{COMPLETE,UNNECESSARY}
+Date: Sat, 29 Apr 2017 13:20:04 -0700
+Message-ID: <CALx6S36DWL0ChGozD+4zBJ=xCQCtSrUEez11q1Rwbk9QPVmmoA@mail.gmail.com>
 References: <cover.1492692976.git.dcaratti@redhat.com> <CALx6S36rem=OuN_At6qYA=se5cpuYM1N2R8efoaszvo8b8Tz5A@mail.gmail.com>
- <4f3a01b66bc46d3a2169a8ef2b4d4285e03f5894.1492692976.git.dcaratti@redhat.com>
+ <a6f87efa3d7a00deaaddd080cd41be8a5b34387e.1492692976.git.dcaratti@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Cc: Alexander Duyck <alexander.duyck@gmail.com>,
@@ -15,125 +14,54 @@ Cc: Alexander Duyck <alexander.duyck@gmail.com>,
         "linux-sctp @ vger . kernel . org" <linux-sctp@vger.kernel.org>
 To: Davide Caratti <dcaratti@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f196.google.com ([209.85.220.196]:36028 "EHLO
+Received: from mail-qk0-f196.google.com ([209.85.220.196]:32805 "EHLO
         mail-qk0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S2998438AbdD2USg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 29 Apr 2017 16:18:36 -0400
-Received: by mail-qk0-f196.google.com with SMTP id y63so13212823qkd.3
-        for <netdev@vger.kernel.org>; Sat, 29 Apr 2017 13:18:35 -0700 (PDT)
-In-Reply-To: <4f3a01b66bc46d3a2169a8ef2b4d4285e03f5894.1492692976.git.dcaratti@redhat.com>
+        with ESMTP id S1162098AbdD2UUF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 29 Apr 2017 16:20:05 -0400
+Received: by mail-qk0-f196.google.com with SMTP id o85so13194937qkh.0
+        for <netdev@vger.kernel.org>; Sat, 29 Apr 2017 13:20:05 -0700 (PDT)
+In-Reply-To: <a6f87efa3d7a00deaaddd080cd41be8a5b34387e.1492692976.git.dcaratti@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 On Thu, Apr 20, 2017 at 6:38 AM, Davide Caratti <dcaratti@redhat.com> wrote:
-> skb->csum_not_inet carries the indication on which algorithm is needed to
-> compute checksum on skb in the transmit path, when skb->ip_summed is equal
-> to CHECKSUM_PARTIAL. If skb carries a SCTP packet and crc32c hasn't been
-> yet written in L4 header, skb->csum_not_inet is assigned to 1; otherwise,
-> assume Internet Checksum is needed and thus set skb->csum_not_inet to 0.
+> Add FCoE to the list of protocols that can set CHECKSUM_UNNECESSARY; add a
+> note to CHECKSUM_COMPLETE section to specify that it does not apply to SCTP
+> and FCoE protocols.
 >
 > Suggested-by: Tom Herbert <tom@herbertland.com>
 > Signed-off-by: Davide Caratti <dcaratti@redhat.com>
 > ---
->  include/linux/skbuff.h | 16 +++++++++-------
->  net/core/dev.c         |  1 +
->  net/sched/act_csum.c   |  1 +
->  net/sctp/offload.c     |  1 +
->  net/sctp/output.c      |  1 +
->  5 files changed, 13 insertions(+), 7 deletions(-)
+>  include/linux/skbuff.h | 7 +++++--
+>  1 file changed, 5 insertions(+), 2 deletions(-)
 >
 > diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-> index 927309e..419f4c8 100644
+> index 4002c11..c902b77 100644
 > --- a/include/linux/skbuff.h
 > +++ b/include/linux/skbuff.h
-> @@ -189,12 +189,13 @@
+> @@ -109,6 +109,7 @@
+>   *       may perform further validation in this case.
+>   *     GRE: only if the checksum is present in the header.
+>   *     SCTP: indicates the CRC in SCTP header has been validated.
+> + *     FCOE: indicates the CRC in FC frame has been validated.
 >   *
->   *   NETIF_F_SCTP_CRC - This feature indicates that a device is capable of
->   *     offloading the SCTP CRC in a packet. To perform this offload the stack
-> - *     will set ip_summed to CHECKSUM_PARTIAL and set csum_start and csum_offset
-> - *     accordingly. Note the there is no indication in the skbuff that the
-> - *     CHECKSUM_PARTIAL refers to an SCTP checksum, a driver that supports
-> - *     both IP checksum offload and SCTP CRC offload must verify which offload
-> - *     is configured for a packet presumably by inspecting packet headers; in
-> - *     case, skb_crc32c_csum_help is provided to compute CRC on SCTP packets.
-> + *     will set set csum_start and csum_offset accordingly, set ip_summed to
-> + *     CHECKSUM_PARTIAL and set csum_not_inet to 1, to provide an indication in
-> + *     the skbuff that the CHECKSUM_PARTIAL refers to CRC32c.
-> + *     A driver that supports both IP checksum offload and SCTP CRC32c offload
-> + *     must verify which offload is configured for a packet by testing the
-> + *     value of skb->csum_not_inet; skb_crc32c_csum_help is provided to resolve
-> + *     CHECKSUM_PARTIAL on skbs where csum_not_inet is set to 1.
+>   *   skb->csum_level indicates the number of consecutive checksums found in
+>   *   the packet minus one that have been verified as CHECKSUM_UNNECESSARY.
+> @@ -126,8 +127,10 @@
+>   *   packet as seen by netif_rx() and fills out in skb->csum. Meaning, the
+>   *   hardware doesn't need to parse L3/L4 headers to implement this.
 >   *
->   *   NETIF_F_FCOE_CRC - This feature indicates that a device is capable of
->   *     offloading the FCOE CRC in a packet. To perform this offload the stack
-> @@ -615,6 +616,7 @@ static inline bool skb_mstamp_after(const struct skb_mstamp *t1,
->   *     @wifi_acked_valid: wifi_acked was set
->   *     @wifi_acked: whether frame was acked on wifi or not
->   *     @no_fcs:  Request NIC to treat last 4 bytes as Ethernet FCS
-> + *     @csum_not_inet: use CRC32c to resolve CHECKSUM_PARTIAL
->   *     @dst_pending_confirm: need to confirm neighbour
->    *    @napi_id: id of the NAPI struct this skb came from
->   *     @secmark: security marking
-> @@ -743,7 +745,7 @@ struct sk_buff {
->         __u8                    csum_valid:1;
->         __u8                    csum_complete_sw:1;
->         __u8                    csum_level:2;
-> -       __u8                    __csum_bad_unused:1; /* one bit hole */
-> +       __u8                    csum_not_inet:1;
->
->         __u8                    dst_pending_confirm:1;
->  #ifdef CONFIG_IPV6_NDISC_NODETYPE
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index 77a2d73..9f56f87 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -2642,6 +2642,7 @@ int skb_crc32c_csum_help(struct sk_buff *skb)
->         }
->         *(__le32 *)(skb->data + offset) = crc32c_csum;
->         skb->ip_summed = CHECKSUM_NONE;
-> +       skb->csum_not_inet = 0;
->  out:
->         return ret;
->  }
-> diff --git a/net/sched/act_csum.c b/net/sched/act_csum.c
-> index ab6fdbd..3317a2f 100644
-> --- a/net/sched/act_csum.c
-> +++ b/net/sched/act_csum.c
-> @@ -350,6 +350,7 @@ static int tcf_csum_sctp(struct sk_buff *skb, unsigned int ihl,
->         sctph->checksum = sctp_compute_cksum(skb,
->                                              skb_network_offset(skb) + ihl);
->         skb->ip_summed = CHECKSUM_NONE;
-> +       skb->csum_not_inet = 0;
->
->         return 1;
->  }
-> diff --git a/net/sctp/offload.c b/net/sctp/offload.c
-> index 378f462..ef156ac 100644
-> --- a/net/sctp/offload.c
-> +++ b/net/sctp/offload.c
-> @@ -35,6 +35,7 @@
->  static __le32 sctp_gso_make_checksum(struct sk_buff *skb)
->  {
->         skb->ip_summed = CHECKSUM_NONE;
-> +       skb->csum_not_inet = 0;
->         return sctp_compute_cksum(skb, skb_transport_offset(skb));
->  }
->
-> diff --git a/net/sctp/output.c b/net/sctp/output.c
-> index 1409a87..e2edf2e 100644
-> --- a/net/sctp/output.c
-> +++ b/net/sctp/output.c
-> @@ -538,6 +538,7 @@ static int sctp_packet_pack(struct sctp_packet *packet,
->         } else {
->  chksum:
->                 head->ip_summed = CHECKSUM_PARTIAL;
-> +               head->csum_not_inet = 1;
->                 head->csum_start = skb_transport_header(head) - head->head;
->                 head->csum_offset = offsetof(struct sctphdr, checksum);
->         }
+> - *   Note: Even if device supports only some protocols, but is able to produce
+> - *   skb->csum, it MUST use CHECKSUM_COMPLETE, not CHECKSUM_UNNECESSARY.
+> + *   Notes:
+> + *   - Even if device supports only some protocols, but is able to produce
+> + *     skb->csum, it MUST use CHECKSUM_COMPLETE, not CHECKSUM_UNNECESSARY.
+> + *   - CHECKSUM_COMPLETE is not applicable to SCTP and FCoE protocols.
+>   *
+>   * CHECKSUM_PARTIAL:
+>   *
 > --
 > 2.7.4
 >
-Looks great!
 
 Acked-by: Tom Herbert <tom@herbertland.com>
