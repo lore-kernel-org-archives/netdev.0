@@ -1,34 +1,50 @@
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: Re: [PATCH v2] iov_iter: don't revert iov buffer if csum error
-Date: Sat, 29 Apr 2017 03:46:47 +0100
-Message-ID: <20170429024647.GO29622@ZenIV.linux.org.uk>
-References: <d1ef9185-0956-aed9-e44b-84458cf28764@huawei.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [net-next PATCH V1] samples/bpf: bpf_load.c detect and abort if
+ ELF maps section size is wrong
+Date: Fri, 28 Apr 2017 20:35:21 -0700
+Message-ID: <20170429033519.2iyv7zjm7z43liuw@ast-mbp>
+References: <20170428082816.20a34395@redhat.com>
+ <149338948065.27354.8568861008673180957.stgit@firesoul>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, pabeni@redhat.com,
-        edumazet@google.com, hannes@stressinduktion.org,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        LinuxArm <linuxarm@huawei.com>,
-        "weiyongjun (A)" <weiyongjun1@huawei.com>
-To: Ding Tianhong <dingtianhong@huawei.com>
+Cc: kafai@fb.com, netdev@vger.kernel.org, eric@regit.org,
+        Daniel Borkmann <borkmann@iogearbox.net>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeniv.linux.org.uk ([195.92.253.2]:56290 "EHLO
-        ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S936258AbdD2CrI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 28 Apr 2017 22:47:08 -0400
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:33885 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1163585AbdD2DfZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 28 Apr 2017 23:35:25 -0400
+Received: by mail-pf0-f194.google.com with SMTP id g23so19985093pfj.1
+        for <netdev@vger.kernel.org>; Fri, 28 Apr 2017 20:35:24 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <d1ef9185-0956-aed9-e44b-84458cf28764@huawei.com>
+In-Reply-To: <149338948065.27354.8568861008673180957.stgit@firesoul>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Apr 29, 2017 at 10:38:48AM +0800, Ding Tianhong wrote:
-> The patch 327868212381 (make skb_copy_datagram_msg() et.al. preserve
-> ->msg_iter on error) will revert the iov buffer if copy to iter
-> failed, but it didn't copy any datagram if the skb_checksum_complete
-> error, so no need to revert any data at this place.
+On Fri, Apr 28, 2017 at 04:25:04PM +0200, Jesper Dangaard Brouer wrote:
+> The struct bpf_map_def was extended in commit fb30d4b71214 ("bpf: Add tests
+> for map-in-map") with member unsigned int inner_map_idx.  This changed the size
+> of the maps section in the generated ELF _kern.o files.
+> 
+> Unfortunately the loader in bpf_load.c does not detect or handle this.  Thus,
+> older _kern.o files became incompatible, and caused hard-to-debug errors
+> where the syscall validation rejected BPF_MAP_CREATE request.
+> 
+> This patch only detect the situation and aborts load_bpf_file(). It also
+> add code comments warning people that read this loader for inspiration
+> for these pitfalls.
+> 
+> Fixes: fb30d4b71214 ("bpf: Add tests for map-in-map")
+> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
 
-The bug is real, but I would suggest a simpler fix:
-                if (__skb_checksum_complete(skb))
-                        return -EINVAL;
-leaving the rest as-is.
+Thanks!
+Acked-by: Alexei Starovoitov <ast@kernel.org>
+
+> Is it worth to implement proper backward-compat loading of older ELF objects
+> with this bpf-loader?
+
+probably yes, since it looks like a bunch of code in samples/bpf/ still
+depend on it and some features are missing in tools/lib/bpf,
+so unless we actively work on improving libbpf.a 
+we won't be able to get rid of this 'sample' loader for some time.
