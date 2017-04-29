@@ -1,131 +1,139 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: assembler mnenomics for call/tailcall plus maps...
-Date: Sat, 29 Apr 2017 14:38:35 -0400 (EDT)
-Message-ID: <20170429.143835.270339931242716768.davem@davemloft.net>
-References: <20170427.164245.1980485298195850482.davem@davemloft.net>
-        <398986a4-ef4b-6631-c6eb-96505e0a5849@fb.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH RFC net-next v4 4/7] net: use skb->csum_not_inet to
+ identify packets needing crc32c
+Date: Sat, 29 Apr 2017 13:18:34 -0700
+Message-ID: <CALx6S34uHFTBSaTN1ojOzhsG_6Lg3ZL2wSeJ5MnYSXg1sgx3TQ@mail.gmail.com>
+References: <cover.1492692976.git.dcaratti@redhat.com> <CALx6S36rem=OuN_At6qYA=se5cpuYM1N2R8efoaszvo8b8Tz5A@mail.gmail.com>
+ <4f3a01b66bc46d3a2169a8ef2b4d4285e03f5894.1492692976.git.dcaratti@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: daniel@iogearbox.net, netdev@vger.kernel.org,
-        xdp-newbies@vger.kernel.org
-To: ast@fb.com
+Content-Type: text/plain; charset=UTF-8
+Cc: Alexander Duyck <alexander.duyck@gmail.com>,
+        David Laight <David.Laight@aculab.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        "linux-sctp @ vger . kernel . org" <linux-sctp@vger.kernel.org>
+To: Davide Caratti <dcaratti@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:40996 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S376820AbdD2Sii (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 29 Apr 2017 14:38:38 -0400
-In-Reply-To: <398986a4-ef4b-6631-c6eb-96505e0a5849@fb.com>
+Received: from mail-qk0-f196.google.com ([209.85.220.196]:36028 "EHLO
+        mail-qk0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S2998438AbdD2USg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 29 Apr 2017 16:18:36 -0400
+Received: by mail-qk0-f196.google.com with SMTP id y63so13212823qkd.3
+        for <netdev@vger.kernel.org>; Sat, 29 Apr 2017 13:18:35 -0700 (PDT)
+In-Reply-To: <4f3a01b66bc46d3a2169a8ef2b4d4285e03f5894.1492692976.git.dcaratti@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexei Starovoitov <ast@fb.com>
-Date: Thu, 27 Apr 2017 19:06:14 -0700
+On Thu, Apr 20, 2017 at 6:38 AM, Davide Caratti <dcaratti@redhat.com> wrote:
+> skb->csum_not_inet carries the indication on which algorithm is needed to
+> compute checksum on skb in the transmit path, when skb->ip_summed is equal
+> to CHECKSUM_PARTIAL. If skb carries a SCTP packet and crc32c hasn't been
+> yet written in L4 header, skb->csum_not_inet is assigned to 1; otherwise,
+> assume Internet Checksum is needed and thus set skb->csum_not_inet to 0.
+>
+> Suggested-by: Tom Herbert <tom@herbertland.com>
+> Signed-off-by: Davide Caratti <dcaratti@redhat.com>
+> ---
+>  include/linux/skbuff.h | 16 +++++++++-------
+>  net/core/dev.c         |  1 +
+>  net/sched/act_csum.c   |  1 +
+>  net/sctp/offload.c     |  1 +
+>  net/sctp/output.c      |  1 +
+>  5 files changed, 13 insertions(+), 7 deletions(-)
+>
+> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+> index 927309e..419f4c8 100644
+> --- a/include/linux/skbuff.h
+> +++ b/include/linux/skbuff.h
+> @@ -189,12 +189,13 @@
+>   *
+>   *   NETIF_F_SCTP_CRC - This feature indicates that a device is capable of
+>   *     offloading the SCTP CRC in a packet. To perform this offload the stack
+> - *     will set ip_summed to CHECKSUM_PARTIAL and set csum_start and csum_offset
+> - *     accordingly. Note the there is no indication in the skbuff that the
+> - *     CHECKSUM_PARTIAL refers to an SCTP checksum, a driver that supports
+> - *     both IP checksum offload and SCTP CRC offload must verify which offload
+> - *     is configured for a packet presumably by inspecting packet headers; in
+> - *     case, skb_crc32c_csum_help is provided to compute CRC on SCTP packets.
+> + *     will set set csum_start and csum_offset accordingly, set ip_summed to
+> + *     CHECKSUM_PARTIAL and set csum_not_inet to 1, to provide an indication in
+> + *     the skbuff that the CHECKSUM_PARTIAL refers to CRC32c.
+> + *     A driver that supports both IP checksum offload and SCTP CRC32c offload
+> + *     must verify which offload is configured for a packet by testing the
+> + *     value of skb->csum_not_inet; skb_crc32c_csum_help is provided to resolve
+> + *     CHECKSUM_PARTIAL on skbs where csum_not_inet is set to 1.
+>   *
+>   *   NETIF_F_FCOE_CRC - This feature indicates that a device is capable of
+>   *     offloading the FCOE CRC in a packet. To perform this offload the stack
+> @@ -615,6 +616,7 @@ static inline bool skb_mstamp_after(const struct skb_mstamp *t1,
+>   *     @wifi_acked_valid: wifi_acked was set
+>   *     @wifi_acked: whether frame was acked on wifi or not
+>   *     @no_fcs:  Request NIC to treat last 4 bytes as Ethernet FCS
+> + *     @csum_not_inet: use CRC32c to resolve CHECKSUM_PARTIAL
+>   *     @dst_pending_confirm: need to confirm neighbour
+>    *    @napi_id: id of the NAPI struct this skb came from
+>   *     @secmark: security marking
+> @@ -743,7 +745,7 @@ struct sk_buff {
+>         __u8                    csum_valid:1;
+>         __u8                    csum_complete_sw:1;
+>         __u8                    csum_level:2;
+> -       __u8                    __csum_bad_unused:1; /* one bit hole */
+> +       __u8                    csum_not_inet:1;
+>
+>         __u8                    dst_pending_confirm:1;
+>  #ifdef CONFIG_IPV6_NDISC_NODETYPE
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index 77a2d73..9f56f87 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -2642,6 +2642,7 @@ int skb_crc32c_csum_help(struct sk_buff *skb)
+>         }
+>         *(__le32 *)(skb->data + offset) = crc32c_csum;
+>         skb->ip_summed = CHECKSUM_NONE;
+> +       skb->csum_not_inet = 0;
+>  out:
+>         return ret;
+>  }
+> diff --git a/net/sched/act_csum.c b/net/sched/act_csum.c
+> index ab6fdbd..3317a2f 100644
+> --- a/net/sched/act_csum.c
+> +++ b/net/sched/act_csum.c
+> @@ -350,6 +350,7 @@ static int tcf_csum_sctp(struct sk_buff *skb, unsigned int ihl,
+>         sctph->checksum = sctp_compute_cksum(skb,
+>                                              skb_network_offset(skb) + ihl);
+>         skb->ip_summed = CHECKSUM_NONE;
+> +       skb->csum_not_inet = 0;
+>
+>         return 1;
+>  }
+> diff --git a/net/sctp/offload.c b/net/sctp/offload.c
+> index 378f462..ef156ac 100644
+> --- a/net/sctp/offload.c
+> +++ b/net/sctp/offload.c
+> @@ -35,6 +35,7 @@
+>  static __le32 sctp_gso_make_checksum(struct sk_buff *skb)
+>  {
+>         skb->ip_summed = CHECKSUM_NONE;
+> +       skb->csum_not_inet = 0;
+>         return sctp_compute_cksum(skb, skb_transport_offset(skb));
+>  }
+>
+> diff --git a/net/sctp/output.c b/net/sctp/output.c
+> index 1409a87..e2edf2e 100644
+> --- a/net/sctp/output.c
+> +++ b/net/sctp/output.c
+> @@ -538,6 +538,7 @@ static int sctp_packet_pack(struct sctp_packet *packet,
+>         } else {
+>  chksum:
+>                 head->ip_summed = CHECKSUM_PARTIAL;
+> +               head->csum_not_inet = 1;
+>                 head->csum_start = skb_transport_header(head) - head->head;
+>                 head->csum_offset = offsetof(struct sctphdr, checksum);
+>         }
+> --
+> 2.7.4
+>
+Looks great!
 
-> So in asm the map lookup will look like:
-> 	.section        maps,"aw",@progbits
->         .globl  hashmap_def
-> hashmap_def:
->         .long   1  # type
->         .long   24 # key_size
->         .long   40 # value_size
->         .long   256 # max_entries
-> 
->         .text
->         .section        xdp_tx_iptunnel,"ax",@progbits
->         .globl  _xdp_prog
-> _xdp_prog:
->          ldimm64 r1, hashmap_def
->          mov r2, r10
->          add r2, -8
->          call bpf_map_lookup_elem
-> 
-> this is 64-bit relo for ldimm64 insn
-> 
-> This is how it's defined in llvm:
-> ELF_RELOC(R_BPF_NONE,        0)
-> ELF_RELOC(R_BPF_64_64,       1)
-> ELF_RELOC(R_BPF_64_32,      10)
-> 
-> The R_BPF_64_64 is the only relocation against .text
-> The other one is used for relo into dwarf sections.
-
-There is another missing element here, we don't use the relocation to
-write the actual address of "&hashmap_def" into the ldimm64
-instruction.
-
-Instead, we use the relocation to write the file descriptor number for
-that map into the instruction.  The only parts of the relocation that
-are used are the offset (to find the BPF instruction) and the symbol
-reference (to find out which map we are referencing).
-
-The BPF loader also doesn't even check the relocation number to make
-sure it's of the correct type.  It just assumes that any relocation it
-sees is exactly this kind used for maps.
-
-My relocations in binutils currently look like this:
-
-START_RELOC_NUMBERS (elf_bpf_reloc_type)
-  RELOC_NUMBER (R_BPF_NONE, 0)
-  RELOC_NUMBER (R_BPF_INSN_16, 1)
-  RELOC_NUMBER (R_BPF_INSN_32, 2)
-  RELOC_NUMBER (R_BPF_INSN_64, 3)
-  RELOC_NUMBER (R_BPF_WDISP16, 4)
-  RELOC_NUMBER (R_BPF_DATA_8,  5)
-  RELOC_NUMBER (R_BPF_DATA_16, 6)
-  RELOC_NUMBER (R_BPF_DATA_32, 7)
-  RELOC_NUMBER (R_BPF_DATA_64, 8)
-END_RELOC_NUMBERS (R_BPF_max)
-
-There is of course R_BPF_NONE, and then we have 4 relocations for
-instructions.  One for the 16-bit offset field (non-pc-relative), one
-for the 32-bit immediate field (again, non-pc-relative), one for
-ldimm64's immediate field, and finally R_BPF_WDISP16 for doing a
-pc-relative relocation to the offset field of a jump instruction.
-
-Then we have the usual data relocations, for 8, 16, 32, and 64-bit.
-
-I guess LLVM's R_BPF_64_64 is the one used for the ldimm64 reference
-to a map, and is equivalent to R_BPF_INSN_64 above.
-
-We just need to sort out how we want this semantically to interconnect
-etc.
-
-In binutils we can make the MAP reference special and explicit, so we
-would for example add:
-
-	RELOC_NUMBER (R_BPF_MAP, 9)
-
-or whatever.  And then for assembler syntax, use something like:
-
-	%map(SYMBOL)
-
-So you would go:
-
-	ldimm64	r1, %map(hash_map)
-
-or, taking it one step further, do the following since we know this
-maps to a 32-bit FD:
-
-	mov32	r1, %map(hash_map)
-
-and this way avoid eating up a 16-byte opcode just for this.
-
-In GCC it will be simple to get the backend to emit this, various
-options exist.  We can make it a special "__attribute__((map))", or
-use address spaces to annotate the map object.  And then when the
-ldimm64 or whatever instruction is emitted, and it sees the symbol
-referenced has this special type, it will emit "%%map(%s)" instead of
-just "%s" for the symbol name in the asembler output.
-
-That in turn will lead to the correct relocation.
-
-But I guess for now what I could do is just make R_BPF_INSN_64 have
-the same number as LLVM's R_BPF_64_64 and it should "just work" using
-tooling.
-
-I think we should spend serious time properly designing the
-relocations and thinking ahead about people perhaps wanting to link
-multiple objects together, call functions in other objects, and
-perhaps even doing dynamic relocations.  Nothing fundamentally in
-eBPF prevents this.
+Acked-by: Tom Herbert <tom@herbertland.com>
