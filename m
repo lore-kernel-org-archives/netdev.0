@@ -1,65 +1,23 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH v2] iov_iter: don't revert iov buffer if csum error
-Date: Sat, 29 Apr 2017 17:37:38 +0800
-Message-ID: <0cc7c1d2-87d0-6cc4-624b-1cf96678bfd7@huawei.com>
-References: <d1ef9185-0956-aed9-e44b-84458cf28764@huawei.com>
- <20170429024647.GO29622@ZenIV.linux.org.uk>
+From: KATIE HIGGINS <nellyhelms53@gmail.com>
+Subject: URGENT
+Date: Sat, 29 Apr 2017 04:12:43 -0700
+Message-ID: <CAO12UupgVU2sz+GD_c3O8eF5MdQFaUr9t5VUbKBy9vS2W4BMMg@mail.gmail.com>
+Reply-To: katiehigginsdirect@usa.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, <pabeni@redhat.com>,
-        <edumazet@google.com>, <hannes@stressinduktion.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        LinuxArm <linuxarm@huawei.com>,
-        "weiyongjun (A)" <weiyongjun1@huawei.com>
-To: Al Viro <viro@ZenIV.linux.org.uk>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: base64
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([45.249.212.189]:5902 "EHLO
-        dggrg03-dlp.huawei.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1425976AbdD2JjH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 29 Apr 2017 05:39:07 -0400
-In-Reply-To: <20170429024647.GO29622@ZenIV.linux.org.uk>
+Received: from mail-oi0-f65.google.com ([209.85.218.65]:34746 "EHLO
+        mail-oi0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1166589AbdD2LMo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 29 Apr 2017 07:12:44 -0400
+Received: by mail-oi0-f65.google.com with SMTP id y11so9533389oie.1
+        for <netdev@vger.kernel.org>; Sat, 29 Apr 2017 04:12:44 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-
-On 2017/4/29 10:46, Al Viro wrote:
-> On Sat, Apr 29, 2017 at 10:38:48AM +0800, Ding Tianhong wrote:
->> The patch 327868212381 (make skb_copy_datagram_msg() et.al. preserve
->> ->msg_iter on error) will revert the iov buffer if copy to iter
->> failed, but it didn't copy any datagram if the skb_checksum_complete
->> error, so no need to revert any data at this place.
-> 
-> The bug is real, but I would suggest a simpler fix:
->                 if (__skb_checksum_complete(skb))
->                         return -EINVAL;
-> leaving the rest as-is.
-> 
-Looks good, if so, we don't need the csum_error any more,
-
--		if (csum_fold(csum))
-+
-+		if (csum_fold(csum)) {
-+			iov_iter_revert(&msg->msg_iter, chunk);
-+ 			return -EINVAL;
-+		}
-+
- 		if (unlikely(skb->ip_summed == CHECKSUM_COMPLETE))
- 			netdev_rx_csum_fault(skb->dev);
- 	}
- 	return 0;
-- csum_error:
--	iov_iter_revert(&msg->msg_iter, chunk);
-- 	return -EINVAL;
- fault:
- 	return -EFAULT;
-
-DO you agree this way? :)
-
-Thanks
-Ding
-
-> .
-> 
+QWhvaiB6bGF0bywgSm1lbnVqaSBzZSBLYXRpZSBIaWdnaW5zb3bDoSwgWiBTcG9qZW7DqSBzdMOh
+dHkgYW1lcmlja8OpLCBtw6FtDQpvIHRlYmUgesOhamVtLCBwxZllZHN0YXbDrW0gc2kgbcOpIGzD
+qXBlLCBqYWttaWxlIG9iZHLFvsOtbSBzdm91IHBvxaF0dSwNCmRvdWbDoW0sIMW+ZSBzbHnFocOt
+bSBvZCB2w6FzLiBEw61reSBhIHBvbGlia8WvbS4gS2F0aWUgSGlnZ2luc292w6EuDQo=
