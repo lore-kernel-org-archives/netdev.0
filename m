@@ -1,7 +1,7 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [net-next 10/15] net/mlx5e: Act on delay probe time updates
-Date: Sun, 30 Apr 2017 16:20:11 +0300
-Message-ID: <20170430132016.27012-11-saeedm@mellanox.com>
+Subject: [net-next 05/15] net/mlx5e: Use flag to properly monitor a flow rule offloading state
+Date: Sun, 30 Apr 2017 16:20:06 +0300
+Message-ID: <20170430132016.27012-6-saeedm@mellanox.com>
 References: <20170430132016.27012-1-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
         Hadar Hen-Zion <hadarh@mellanox.com>,
@@ -10,94 +10,75 @@ Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:46780 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:46745 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S932472AbdD3NU3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 30 Apr 2017 09:20:29 -0400
+        with ESMTP id S1756563AbdD3NU1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 30 Apr 2017 09:20:27 -0400
 In-Reply-To: <20170430132016.27012-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Hadar Hen Zion <hadarh@mellanox.com>
 
-The user can change delay_first_probe_time parameter through sysctl.
-Listen to NETEVENT_DELAY_PROBE_TIME_UPDATE notifications and update the
-intervals for updating the neighbours 'used' value periodic task and
-for flow HW counters query periodic task.
-Both of the intervals will be update only in case the new delay prob
-time value is lower the current interval.
+Instead of relaying on the 'flow->rule' pointer value which can be
+valid or invalid (in case the FW returns an error while trying to offload
+the rule), monitor the rule state using a flag.
 
-Since the driver saves only one min interval value and not per device,
-the users will be able to set lower interval value for updating
-neighbour 'used' value periodic task but they won't be able to schedule
-a higher interval for this periodic task.
-The used interval for scheduling neighbour 'used' value periodic task is
-the minimal delay prob time parameter ever seen by the driver.
+In downstream patch which adds support to IP tunneling neigh update
+flow, a TC rule could be cached in the driver and not offloaded into the
+HW. In this case, the flow handle pointer stays NULL.
+
+Check the offloaded flag to properly deal with rules which are currently
+not offloaded when querying rule statistics.
+
+This patch doesn't add any new functionality.
 
 Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
 Reviewed-by: Or Gerlitz <ogerlitz@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en_rep.c | 39 ++++++++++++++++++++++++
- 1 file changed, 39 insertions(+)
+ drivers/net/ethernet/mellanox/mlx5/core/en_tc.c | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
-index af61b10b85bf..79462c0368a0 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
-@@ -358,7 +358,9 @@ static int mlx5e_rep_netevent_event(struct notifier_block *nb,
- 	struct mlx5e_priv *priv = netdev_priv(netdev);
- 	struct mlx5e_neigh_hash_entry *nhe = NULL;
- 	struct mlx5e_neigh m_neigh = {};
-+	struct neigh_parms *p;
- 	struct neighbour *n;
-+	bool found = false;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+index 25ecffa1a3df..2a9289b8a33b 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+@@ -59,6 +59,7 @@ struct mlx5_nic_flow_attr {
+ enum {
+ 	MLX5E_TC_FLOW_ESWITCH	= BIT(0),
+ 	MLX5E_TC_FLOW_NIC	= BIT(1),
++	MLX5E_TC_FLOW_OFFLOADED	= BIT(2),
+ };
  
- 	switch (event) {
- 	case NETEVENT_NEIGH_UPDATE:
-@@ -403,6 +405,43 @@ static int mlx5e_rep_netevent_event(struct notifier_block *nb,
- 		}
- 		spin_unlock_bh(&neigh_update->encap_lock);
- 		break;
-+
-+	case NETEVENT_DELAY_PROBE_TIME_UPDATE:
-+		p = ptr;
-+
-+		/* We check the device is present since we don't care about
-+		 * changes in the default table, we only care about changes
-+		 * done per device delay prob time parameter.
-+		 */
-+#if IS_ENABLED(CONFIG_IPV6)
-+		if (!p->dev || (p->tbl != ipv6_stub->nd_tbl && p->tbl != &arp_tbl))
-+#else
-+		if (!p->dev || p->tbl != &arp_tbl)
-+#endif
-+			return NOTIFY_DONE;
-+
-+		/* We are in atomic context and can't take RTNL mutex,
-+		 * so use spin_lock_bh to walk the neigh list and look for
-+		 * the relevant device. bh is used since netevent can be
-+		 * called from a softirq context.
-+		 */
-+		spin_lock_bh(&neigh_update->encap_lock);
-+		list_for_each_entry(nhe, &neigh_update->neigh_list, neigh_list) {
-+			if (p->dev == nhe->m_neigh.dev) {
-+				found = true;
-+				break;
-+			}
-+		}
-+		spin_unlock_bh(&neigh_update->encap_lock);
-+		if (!found)
-+			return NOTIFY_DONE;
-+
-+		neigh_update->min_interval = min_t(unsigned long,
-+						   NEIGH_VAR(p, DELAY_PROBE_TIME),
-+						   neigh_update->min_interval);
-+		mlx5_fc_update_sampling_interval(priv->mdev,
-+						 neigh_update->min_interval);
-+		break;
+ struct mlx5e_tc_flow {
+@@ -245,7 +246,8 @@ static void mlx5e_tc_del_fdb_flow(struct mlx5e_priv *priv,
+ 	struct mlx5_eswitch *esw = priv->mdev->priv.eswitch;
+ 	struct mlx5_esw_flow_attr *attr = flow->esw_attr;
+ 
+-	mlx5_eswitch_del_offloaded_rule(esw, flow->rule, flow->esw_attr);
++	if (flow->flags & MLX5E_TC_FLOW_OFFLOADED)
++		mlx5_eswitch_del_offloaded_rule(esw, flow->rule, flow->esw_attr);
+ 
+ 	mlx5_eswitch_del_vlan_action(esw, flow->esw_attr);
+ 
+@@ -1591,6 +1593,7 @@ int mlx5e_configure_flower(struct mlx5e_priv *priv, __be16 protocol,
+ 		goto err_free;
  	}
- 	return NOTIFY_DONE;
- }
+ 
++	flow->flags |= MLX5E_TC_FLOW_OFFLOADED;
+ 	err = rhashtable_insert_fast(&tc->ht, &flow->node,
+ 				     tc->ht_params);
+ 	if (err)
+@@ -1646,6 +1649,9 @@ int mlx5e_stats_flower(struct mlx5e_priv *priv,
+ 	if (!flow)
+ 		return -EINVAL;
+ 
++	if (!(flow->flags & MLX5E_TC_FLOW_OFFLOADED))
++		return 0;
++
+ 	counter = mlx5_flow_rule_counter(flow->rule);
+ 	if (!counter)
+ 		return 0;
 -- 
 2.11.0
