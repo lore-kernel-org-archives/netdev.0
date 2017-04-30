@@ -1,76 +1,141 @@
-From: Alexei Starovoitov <ast@fb.com>
-Subject: Re: [PATCH v3 binutils] Add BPF support to binutils...
-Date: Sat, 29 Apr 2017 19:24:07 -0700
-Message-ID: <eecee68f-c273-804a-ce85-bad19f51fd66@fb.com>
-References: <20170428.163355.2067951664875385680.davem@davemloft.net>
- <9d5e3a87-15d0-01d7-6272-fa8d2bf0d076@fb.com>
- <20170429.221315.1605574480939856975.davem@davemloft.net>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: prog ID and next steps. Was: [RFC net-next 0/2] Introduce bpf_prog
+ ID and iteration
+Date: Sun, 30 Apr 2017 04:36:41 +0200
+Message-ID: <1493519801.4128467.960663496.16C1F5A1@webmail.messagingengine.com>
+References: <20170427062449.80290-1-kafai@fb.com>
+ <e81805c8-0499-a0a5-b788-0168947d9b8c@stressinduktion.org>
+ <40cf6893-4702-4773-1aaa-7dfdc51c6212@fb.com>
+ <44cdb2d2-9f5c-5d28-2966-3e43e6d2a2ef@stressinduktion.org>
+ <7f7e86bb-6475-3971-42a6-6f8f6b74979f@fb.com>
+ <cc962035-4374-b6c1-b350-c4dda9bf095c@stressinduktion.org>
+ <b3dbda71-df4c-7e92-76aa-2c2252266cbc@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: <daniel@iogearbox.net>, <aconole@bytheb.org>,
-        <netdev@vger.kernel.org>, <xdp-newbies@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: Daniel Borkmann <daniel@iogearbox.net>, kernel-team@fb.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Jesper Dangaard Brouer <brouer@redhat.com>,
+        John Fastabend <john.fastabend@gmail.com>,
+        Thomas Graf <tgraf@suug.ch>
+To: Alexei Starovoitov <ast@fb.com>, Martin KaFai Lau <kafai@fb.com>,
+        netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:33470 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1162894AbdD3CYt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 29 Apr 2017 22:24:49 -0400
-In-Reply-To: <20170429.221315.1605574480939856975.davem@davemloft.net>
+Received: from out4-smtp.messagingengine.com ([66.111.4.28]:42435 "EHLO
+        out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S969675AbdD3Cgm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 29 Apr 2017 22:36:42 -0400
+In-Reply-To: <b3dbda71-df4c-7e92-76aa-2c2252266cbc@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 4/29/17 7:13 PM, David Miller wrote:
-> From: Alexei Starovoitov <ast@fb.com>
-> Date: Sat, 29 Apr 2017 17:48:43 -0700
->
->> /w/binutils-gdb/bld/binutils/objdump: invalid relocation type 10
->> /w/binutils-gdb/bld/binutils/objdump: Dwarf Error: found address size
->
-> I discussed this in another email, the relocation numbers I used in
-> binutils do not match what is in LLVM currently.
->
-> In fact, I thought you guys weren't using relocations in any capacity
-> at all so just picked things from scratch :-)
+Hi,
 
-yeah :) will reply in the other thread.
-Too many public and internal discussions in the last week.
-Weekend is the only time to reduce the backlog :)
+just quickly, because I am on a run:
 
- > Please use "--target=bpf-elf"
+On Sun, Apr 30, 2017, at 04:06, Alexei Starovoitov wrote:
+> On 4/28/17 2:13 PM, Hannes Frederic Sowa wrote:
+> >
+> > Let's assume the following program with a constant key lookup and
+> > different tables:
+> >
+> > action = bpf_map_lookup_elem(&actions, 0);
+> > if (!*action)
+> > 	return XDP_DROP;
+> > else
+> > 	return bpf_redirect(skb->ifindex, 0);
+> >
+> > It does something completely different depending on the map being used.
+> > That is the reason why I see it makes sense to be specific which program
+> > gets used if you try to analyze a program interactively.
+> 
+> Instead of two exactly the same programs accessing different
+> maps it could have been one program accessing one map.
+> The end result is the same.
+> Depending on contents of the map and the input bytes of the packet
+> the program will do arbitrary decisions. I still don't see how printing
+> prog ID can help debugging.
 
-Thanks. That worked. Built the whole thing :)
+Because during live inspection/debugging you get the relationship chain
+in order:
 
-objdump behaves the same way.
-When compiled by clang with '-g'
-(gdb) x/10i bpf_prog1
-    0x0 <clang version 5.0.0 (trunk 301652) (llvm/trunk 301662)>: 
-ldimm64	r0, 590618314553
-    0x10 <clang version 5.0.0 (trunk 301652) (llvm/trunk 301662)+16>: 
-stdw	[r1+65528], r10
-    0x18 <clang version 5.0.0 (trunk 301652) (llvm/trunk 301662)+24>: 
-lddw	r10, [r1+65528]
-    0x20 <clang version 5.0.0 (trunk 301652) (llvm/trunk 301662)+32>: 
-add	r0, -1879113726
-    0x28 <clang version 5.0.0 (trunk 301652) (llvm/trunk 301662)+40>: 
-lddw	r1, [r0+0]
-    0x30 <clang version 5.0.0 (trunk 301652) (llvm/trunk 301662)+48>:	exit
-    0x38:	Cannot access memory at address 0x38
+n bpf-programs with same tag : loaded at m hooks : using z maps
 
-Even without -g the last line 'Cannot access' is printed.
-It seems gdb miscalculates the total func size?
-The printing of 'clang version...' is due to '-g'.
-Without -g it looks good:
-(gdb) x/10i bpf_prog1
-    0x0 <bpf_prog1>:	ldimm64	r1, 590618314553
-    0x10 <bpf_prog1+16>:	stdw	[r10+65528], r1
+You trace bpf_redirect and get back only the bpf tag.
 
-Btw, I'm using this C file for testing:
-int bpf_prog1(void *ign)
-{
-   volatile unsigned long t = 0x8983984739ull;
-   return *(unsigned long *)((0xffffffff8fff0002ull) + t);
-}
+You inspect all hooks and get back a bpf program identified by either or
+all of filedescriptor, tag or prog_id. This doesn't solve the ambiguity
+which program just actually was traced. Thus you have to consider all of
+the programs. Each program can reference different maps.
 
-There was a bug in llvm backend with imm overflow which
-was recently fixed.
+So you extract all bpf programs and attributes and take the union of all
+referenced maps, which you actually would have to inspect. If you had
+the prog_id available, you could clearly figure out which maps are
+referenced by the traced program.
+
+I do see this as a prolem, because lot's of policy scripts might be
+absolutely the same (thus also same tag) but might use different maps in
+the end. We might not be able to correlate traces back to the maps.
+Imagine a lot of bpf-lwt programs loaded, all the same, doing decisions
+based on labels in the maps. It would be nice to see which specific map
+also caused the behavior and to trace it back to user space and where
+and why it was generated.
+
+> >> The programs gets unloaded too and this 'perf record' and stack
+> >> traces come from the past, hence the need for stable prog_tag.
+> >
+> > perf only stores addresses in perf.data. That said, if the program isn't
+> > loaded, it won't give you any tag. If another program is reusing the
+> > same address, if will give you any other random name for the function in
+> > the calltrace.
+> 
+> This issue is well understood. We discussed it with Arnaldo and
+> the plan is to emit PERF_RECORD_MMAP that will contain the address
+> of JITed bpf program, so perf.data will contain all the info necessary
+> for later analysis.
+
+I think you meant to say "will contain the *name*" of the JITed bpf
+program?
+
+If so, that is cool.
+
+> > If you store the perf script output or have kallsyms handy, certainly, yes.
+> 
+> right now 'perf script' doesn't work for short lived programs either.
+> The stack trace IPs may be already gone from kallsyms.
+> PERF_RECORD_MMAP is the right solution to that as well.
+
+Absolutely ack.
+
+> > Most of the time I was debugging interactively. Developers would
+> > probably also enjoy to have a way to trace the program to the exact
+> > identity. I have no problem keeping the tag in place and append just the
+> > prog_id for the specific reason that the program might be loaded
+> > multiple times with different tags in place. I was concerned about the
+> > space for function names in kallsyms.
+> 
+> developers enjoy 'exact identity of the program' with program tag.
+> Dynamic prog ID doesn't provide additional info to the user.
+> Like when you write brand new kernel module, do you care what
+> order it's loaded in lsmod ?
+> Or if system crashed, do you care that veth0 had ifindex 10 or 20?
+> Or PID of segfaulted program was 3256 ?
+
+I do care which data structures my kernel module or program used,
+because I might want to reference exactly those for debugging. ;)
+
+> > I have to think more about it. Maybe there is a way to achieve both
+> > without too much hassle.
+> 
+> It seems we agree on 80+% of topics discussed in this thread, so
+> I suggest we implement, review and land these key pieces and later
+> resolve the contentious points. By that time we will likely
+> see each other arguments in different light :)
+
+I agree with that. Maybe better ideas come up.
+
+I was a bit pushy here, because I fear that kallsym name changes could
+have uapi impact.
+
+Thanks,
+Hannes
