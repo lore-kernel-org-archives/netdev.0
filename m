@@ -1,161 +1,157 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 05/11] ixgbe: clean macvlan MAC filter table on VF reset
-Date: Sat, 29 Apr 2017 20:08:04 -0700
-Message-ID: <20170430030810.56415-6-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 09/11] ixgbe: Check for RSS key before setting value
+Date: Sat, 29 Apr 2017 20:08:08 -0700
+Message-ID: <20170430030810.56415-10-jeffrey.t.kirsher@intel.com>
 References: <20170430030810.56415-1-jeffrey.t.kirsher@intel.com>
-Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
+Cc: Tony Nguyen <anthony.l.nguyen@intel.com>, netdev@vger.kernel.org,
         nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:55639 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:28512 "EHLO mga11.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S969706AbdD3DIT (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 29 Apr 2017 23:08:19 -0400
+        id S969718AbdD3DIY (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 29 Apr 2017 23:08:24 -0400
 In-Reply-To: <20170430030810.56415-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Emil Tantilov <emil.s.tantilov@intel.com>
+From: Tony Nguyen <anthony.l.nguyen@intel.com>
 
-Flush the macvlan filters on VF reset to avoid conflict with other VFs that
-may end up using the same MAC address.
+The RSS key is being repopulated every time the interface is brought up
+regardless of whether there is an existing value. If the user sets the RSS
+key and the interface is brought up (e.g. reset), the user specified RSS
+key will be overwritten.
 
-The main change here is the call to ixgbe_set_vf_macvlan() with index 0.
+This patch changes the rss_key to a pointer so we can check to see if the
+key has been populated and preserve it accordingly.
 
-Moved ixgbe_set_vf_macvlan() in front of ixgbe_vf_reset_event() to avoid
-adding a prototype.
-
-Reported-by: Sritej Kanakadandi Sritej Rama <skanakad@cisco.com>
-Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
+Signed-off-by: Tony Nguyen <anthony.l.nguyen@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c | 105 +++++++++++++------------
- 1 file changed, 53 insertions(+), 52 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h         |  2 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c |  4 +---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    | 30 ++++++++++++++++++++++--
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c   |  2 +-
+ 4 files changed, 31 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-index 102ca937ddb4..c45de53300aa 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-@@ -677,58 +677,6 @@ static void ixgbe_clear_vf_vlans(struct ixgbe_adapter *adapter, u32 vf)
- 	}
- }
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+index 85b1afb345e3..76263762bea1 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+@@ -769,7 +769,7 @@ struct ixgbe_adapter {
+ 	u8 rss_indir_tbl[IXGBE_MAX_RETA_ENTRIES];
  
--static inline void ixgbe_vf_reset_event(struct ixgbe_adapter *adapter, u32 vf)
--{
--	struct ixgbe_hw *hw = &adapter->hw;
--	struct vf_data_storage *vfinfo = &adapter->vfinfo[vf];
--	u8 num_tcs = netdev_get_num_tc(adapter->netdev);
--
--	/* remove VLAN filters beloning to this VF */
--	ixgbe_clear_vf_vlans(adapter, vf);
--
--	/* add back PF assigned VLAN or VLAN 0 */
--	ixgbe_set_vf_vlan(adapter, true, vfinfo->pf_vlan, vf);
--
--	/* reset offloads to defaults */
--	ixgbe_set_vmolr(hw, vf, !vfinfo->pf_vlan);
--
--	/* set outgoing tags for VFs */
--	if (!vfinfo->pf_vlan && !vfinfo->pf_qos && !num_tcs) {
--		ixgbe_clear_vmvir(adapter, vf);
--	} else {
--		if (vfinfo->pf_qos || !num_tcs)
--			ixgbe_set_vmvir(adapter, vfinfo->pf_vlan,
--					vfinfo->pf_qos, vf);
--		else
--			ixgbe_set_vmvir(adapter, vfinfo->pf_vlan,
--					adapter->default_up, vf);
--
--		if (vfinfo->spoofchk_enabled)
--			hw->mac.ops.set_vlan_anti_spoofing(hw, true, vf);
--	}
--
--	/* reset multicast table array for vf */
--	adapter->vfinfo[vf].num_vf_mc_hashes = 0;
--
--	/* Flush and reset the mta with the new values */
--	ixgbe_set_rx_mode(adapter->netdev);
--
--	ixgbe_del_mac_filter(adapter, adapter->vfinfo[vf].vf_mac_addresses, vf);
--
--	/* reset VF api back to unknown */
--	adapter->vfinfo[vf].vf_api = ixgbe_mbox_api_10;
--}
--
--static int ixgbe_set_vf_mac(struct ixgbe_adapter *adapter,
--			    int vf, unsigned char *mac_addr)
--{
--	ixgbe_del_mac_filter(adapter, adapter->vfinfo[vf].vf_mac_addresses, vf);
--	memcpy(adapter->vfinfo[vf].vf_mac_addresses, mac_addr, ETH_ALEN);
--	ixgbe_add_mac_filter(adapter, adapter->vfinfo[vf].vf_mac_addresses, vf);
--
--	return 0;
--}
--
- static int ixgbe_set_vf_macvlan(struct ixgbe_adapter *adapter,
- 				int vf, int index, unsigned char *mac_addr)
+ #define IXGBE_RSS_KEY_SIZE     40  /* size of RSS Hash Key in bytes */
+-	u32 rss_key[IXGBE_RSS_KEY_SIZE / sizeof(u32)];
++	u32 *rss_key;
+ };
+ 
+ static inline u8 ixgbe_max_rss_indices(struct ixgbe_adapter *adapter)
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+index b0fd2f58a69c..7e5e336d7dcc 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+@@ -2967,9 +2967,7 @@ static int ixgbe_rss_indir_tbl_max(struct ixgbe_adapter *adapter)
+ 
+ static u32 ixgbe_get_rxfh_key_size(struct net_device *netdev)
  {
-@@ -784,6 +732,59 @@ static int ixgbe_set_vf_macvlan(struct ixgbe_adapter *adapter,
- 	return 0;
+-	struct ixgbe_adapter *adapter = netdev_priv(netdev);
+-
+-	return sizeof(adapter->rss_key);
++	return IXGBE_RSS_KEY_SIZE;
  }
  
-+static inline void ixgbe_vf_reset_event(struct ixgbe_adapter *adapter, u32 vf)
+ static u32 ixgbe_rss_indir_size(struct net_device *netdev)
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index f765a2a0ed4b..22a29df1d29e 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -3639,6 +3639,28 @@ void ixgbe_store_key(struct ixgbe_adapter *adapter)
+ }
+ 
+ /**
++ * ixgbe_init_rss_key - Initialize adapter RSS key
++ * @adapter: device handle
++ *
++ * Allocates and initializes the RSS key if it is not allocated.
++ **/
++static inline int ixgbe_init_rss_key(struct ixgbe_adapter *adapter)
 +{
-+	struct ixgbe_hw *hw = &adapter->hw;
-+	struct vf_data_storage *vfinfo = &adapter->vfinfo[vf];
-+	u8 num_tcs = netdev_get_num_tc(adapter->netdev);
++	u32 *rss_key;
 +
-+	/* remove VLAN filters beloning to this VF */
-+	ixgbe_clear_vf_vlans(adapter, vf);
++	if (!adapter->rss_key) {
++		rss_key = kzalloc(IXGBE_RSS_KEY_SIZE, GFP_KERNEL);
++		if (unlikely(!rss_key))
++			return -ENOMEM;
 +
-+	/* add back PF assigned VLAN or VLAN 0 */
-+	ixgbe_set_vf_vlan(adapter, true, vfinfo->pf_vlan, vf);
-+
-+	/* reset offloads to defaults */
-+	ixgbe_set_vmolr(hw, vf, !vfinfo->pf_vlan);
-+
-+	/* set outgoing tags for VFs */
-+	if (!vfinfo->pf_vlan && !vfinfo->pf_qos && !num_tcs) {
-+		ixgbe_clear_vmvir(adapter, vf);
-+	} else {
-+		if (vfinfo->pf_qos || !num_tcs)
-+			ixgbe_set_vmvir(adapter, vfinfo->pf_vlan,
-+					vfinfo->pf_qos, vf);
-+		else
-+			ixgbe_set_vmvir(adapter, vfinfo->pf_vlan,
-+					adapter->default_up, vf);
-+
-+		if (vfinfo->spoofchk_enabled)
-+			hw->mac.ops.set_vlan_anti_spoofing(hw, true, vf);
++		netdev_rss_key_fill(rss_key, IXGBE_RSS_KEY_SIZE);
++		adapter->rss_key = rss_key;
 +	}
-+
-+	/* reset multicast table array for vf */
-+	adapter->vfinfo[vf].num_vf_mc_hashes = 0;
-+
-+	/* Flush and reset the mta with the new values */
-+	ixgbe_set_rx_mode(adapter->netdev);
-+
-+	ixgbe_del_mac_filter(adapter, adapter->vfinfo[vf].vf_mac_addresses, vf);
-+	ixgbe_set_vf_macvlan(adapter, vf, 0, NULL);
-+
-+	/* reset VF api back to unknown */
-+	adapter->vfinfo[vf].vf_api = ixgbe_mbox_api_10;
-+}
-+
-+static int ixgbe_set_vf_mac(struct ixgbe_adapter *adapter,
-+			    int vf, unsigned char *mac_addr)
-+{
-+	ixgbe_del_mac_filter(adapter, adapter->vfinfo[vf].vf_mac_addresses, vf);
-+	memcpy(adapter->vfinfo[vf].vf_mac_addresses, mac_addr, ETH_ALEN);
-+	ixgbe_add_mac_filter(adapter, adapter->vfinfo[vf].vf_mac_addresses, vf);
 +
 +	return 0;
 +}
 +
- int ixgbe_vf_configuration(struct pci_dev *pdev, unsigned int event_mask)
- {
- 	struct ixgbe_adapter *adapter = pci_get_drvdata(pdev);
++/**
+  * ixgbe_store_reta - Write the RETA table to HW
+  * @adapter: device handle
+  *
+@@ -3740,7 +3762,7 @@ static void ixgbe_setup_vfreta(struct ixgbe_adapter *adapter)
+ 	/* Fill out hash function seeds */
+ 	for (i = 0; i < 10; i++)
+ 		IXGBE_WRITE_REG(hw, IXGBE_PFVFRSSRK(i, pf_pool),
+-				adapter->rss_key[i]);
++				*(adapter->rss_key + i));
+ 
+ 	/* Fill out the redirection table */
+ 	for (i = 0, j = 0; i < 64; i++, j++) {
+@@ -3801,7 +3823,6 @@ static void ixgbe_setup_mrqc(struct ixgbe_adapter *adapter)
+ 	if (adapter->flags2 & IXGBE_FLAG2_RSS_FIELD_IPV6_UDP)
+ 		rss_field |= IXGBE_MRQC_RSS_FIELD_IPV6_UDP;
+ 
+-	netdev_rss_key_fill(adapter->rss_key, sizeof(adapter->rss_key));
+ 	if ((hw->mac.type >= ixgbe_mac_X550) &&
+ 	    (adapter->flags & IXGBE_FLAG_SRIOV_ENABLED)) {
+ 		unsigned int pf_pool = adapter->num_vfs;
+@@ -6015,6 +6036,9 @@ static int ixgbe_sw_init(struct ixgbe_adapter *adapter,
+ 	if (!adapter->mac_table)
+ 		return -ENOMEM;
+ 
++	if (ixgbe_init_rss_key(adapter))
++		return -ENOMEM;
++
+ 	/* Set MAC specific capability flags and exceptions */
+ 	switch (hw->mac.type) {
+ 	case ixgbe_mac_82598EB:
+@@ -10391,6 +10415,7 @@ static int ixgbe_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	iounmap(adapter->io_addr);
+ 	kfree(adapter->jump_tables[0]);
+ 	kfree(adapter->mac_table);
++	kfree(adapter->rss_key);
+ err_ioremap:
+ 	disable_dev = !test_and_set_bit(__IXGBE_DISABLED, &adapter->state);
+ 	free_netdev(netdev);
+@@ -10475,6 +10500,7 @@ static void ixgbe_remove(struct pci_dev *pdev)
+ 	}
+ 
+ 	kfree(adapter->mac_table);
++	kfree(adapter->rss_key);
+ 	disable_dev = !test_and_set_bit(__IXGBE_DISABLED, &adapter->state);
+ 	free_netdev(netdev);
+ 
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+index 58897d97412e..8baf298a8516 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+@@ -1113,7 +1113,7 @@ static int ixgbe_get_vf_rss_key(struct ixgbe_adapter *adapter,
+ 		return -EOPNOTSUPP;
+ 	}
+ 
+-	memcpy(rss_key, adapter->rss_key, sizeof(adapter->rss_key));
++	memcpy(rss_key, adapter->rss_key, IXGBE_RSS_KEY_SIZE);
+ 
+ 	return 0;
+ }
 -- 
 2.12.2
