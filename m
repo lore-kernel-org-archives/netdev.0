@@ -1,8 +1,7 @@
 From: kys@exchange.microsoft.com
-Subject: [PATCH 6/6] HV: properly delay KVP packets when negotiation is in
- progress
-Date: Sun, 30 Apr 2017 16:21:19 -0700
-Message-ID: <1493594479-25329-6-git-send-email-kys@exchange.microsoft.com>
+Subject: [PATCH 2/6] tools: hv: properly handle long paths
+Date: Sun, 30 Apr 2017 16:21:15 -0700
+Message-ID: <1493594479-25329-2-git-send-email-kys@exchange.microsoft.com>
 References: <1493594420-25214-1-git-send-email-kys@exchange.microsoft.com>
 Reply-To: kys@microsoft.com
 Mime-Version: 1.0
@@ -25,81 +24,133 @@ Errors-To: driverdev-devel-bounces@linuxdriverproject.org
 Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-From: Long Li <longli@microsoft.com>
+From: Vitaly Kuznetsov <vkuznets@redhat.com>
 
-The host may send multiple negotiation packets
-(due to timeout) before the KVP user-mode daemon
-is connected. KVP user-mode daemon is connected.
-We need to defer processing those packets
-until the daemon is negotiated and connected.
-It's okay for guest to respond
-to all negotiation packets.
+Paths can be up to PATH_MAX long and PATH_MAX is usually greater than 256.
+While on it, simplify path reconstruction to a simple snprintf(), define
+and reuse KVP_NET_DIR.
 
-In addition, the host may send multiple staged
-KVP requests as soon as negotiation is done.
-We need to properly process those packets using one
-tasklet for exclusive access to ring buffer.
-
-This patch is based on the work of
-Nick Meier <Nick.Meier@microsoft.com>.
-
-Signed-off-by: Long Li <longli@microsoft.com>
+Suggested-by: Tomas Hozza <thozza@redhat.com>
+Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
 Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
 ---
- drivers/hv/hv_kvp.c |   14 ++++++++------
- 1 files changed, 8 insertions(+), 6 deletions(-)
+ tools/hv/hv_kvp_daemon.c |   44 ++++++++++++++++++--------------------------
+ 1 files changed, 18 insertions(+), 26 deletions(-)
 
-diff --git a/drivers/hv/hv_kvp.c b/drivers/hv/hv_kvp.c
-index e99ff2d..9a90b91 100644
---- a/drivers/hv/hv_kvp.c
-+++ b/drivers/hv/hv_kvp.c
-@@ -112,7 +112,7 @@ static void kvp_poll_wrapper(void *channel)
- {
- 	/* Transaction is finished, reset the state here to avoid races. */
- 	kvp_transaction.state = HVUTIL_READY;
--	hv_kvp_onchannelcallback(channel);
-+	tasklet_schedule(&((struct vmbus_channel *)channel)->callback_event);
- }
+diff --git a/tools/hv/hv_kvp_daemon.c b/tools/hv/hv_kvp_daemon.c
+index f1758fc..88b20e0 100644
+--- a/tools/hv/hv_kvp_daemon.c
++++ b/tools/hv/hv_kvp_daemon.c
+@@ -39,6 +39,7 @@
+ #include <fcntl.h>
+ #include <dirent.h>
+ #include <net/if.h>
++#include <limits.h>
+ #include <getopt.h>
  
- static void kvp_register_done(void)
-@@ -159,7 +159,7 @@ static void kvp_timeout_func(struct work_struct *dummy)
+ /*
+@@ -97,6 +98,8 @@ enum {
+ #define KVP_SCRIPTS_PATH "/usr/libexec/hypervkvpd/"
+ #endif
  
- static void kvp_host_handshake_func(struct work_struct *dummy)
- {
--	hv_poll_channel(kvp_transaction.recv_channel, hv_kvp_onchannelcallback);
-+	tasklet_schedule(&kvp_transaction.recv_channel->callback_event);
- }
++#define KVP_NET_DIR "/sys/class/net/"
++
+ #define MAX_FILE_NAME 100
+ #define ENTRIES_PER_BLOCK 50
  
- static int kvp_handle_handshake(struct hv_kvp_msg *msg)
-@@ -625,16 +625,17 @@ void hv_kvp_onchannelcallback(void *context)
- 		     NEGO_IN_PROGRESS,
- 		     NEGO_FINISHED} host_negotiatied = NEGO_NOT_STARTED;
+@@ -596,26 +599,21 @@ void kvp_get_os_info(void)
+ 	DIR *dir;
+ 	struct dirent *entry;
+ 	FILE    *file;
+-	char    *p, *q, *x;
++	char    *p, *x;
+ 	char    *if_name = NULL;
+ 	char    buf[256];
+-	char *kvp_net_dir = "/sys/class/net/";
+-	char dev_id[256];
++	char dev_id[PATH_MAX];
  
--	if (host_negotiatied == NEGO_NOT_STARTED &&
--	    kvp_transaction.state < HVUTIL_READY) {
-+	if (kvp_transaction.state < HVUTIL_READY) {
+-	dir = opendir(kvp_net_dir);
++	dir = opendir(KVP_NET_DIR);
+ 	if (dir == NULL)
+ 		return NULL;
+ 
+-	snprintf(dev_id, sizeof(dev_id), "%s", kvp_net_dir);
+-	q = dev_id + strlen(kvp_net_dir);
+-
+ 	while ((entry = readdir(dir)) != NULL) {
  		/*
- 		 * If userspace daemon is not connected and host is asking
- 		 * us to negotiate we need to delay to not lose messages.
- 		 * This is important for Failover IP setting.
+ 		 * Set the state for the next pass.
  		 */
--		host_negotiatied = NEGO_IN_PROGRESS;
--		schedule_delayed_work(&kvp_host_handshake_work,
-+		if (host_negotiatied == NEGO_NOT_STARTED) {
-+			host_negotiatied = NEGO_IN_PROGRESS;
-+			schedule_delayed_work(&kvp_host_handshake_work,
- 				      HV_UTIL_NEGO_TIMEOUT * HZ);
-+		}
- 		return;
- 	}
- 	if (kvp_transaction.state > HVUTIL_READY)
-@@ -702,6 +703,7 @@ void hv_kvp_onchannelcallback(void *context)
- 				       VM_PKT_DATA_INBAND, 0);
+-		*q = '\0';
+-		strcat(dev_id, entry->d_name);
+-		strcat(dev_id, "/device/device_id");
++		snprintf(dev_id, sizeof(dev_id), "%s%s/device/device_id",
++			 KVP_NET_DIR, entry->d_name);
  
- 		host_negotiatied = NEGO_FINISHED;
-+		hv_poll_channel(kvp_transaction.recv_channel, kvp_poll_wrapper);
- 	}
+ 		file = fopen(dev_id, "r");
+ 		if (file == NULL)
+@@ -653,12 +651,12 @@ void kvp_get_os_info(void)
+ 	FILE    *file;
+ 	char    *p, *x;
+ 	char    buf[256];
+-	char addr_file[256];
++	char addr_file[PATH_MAX];
+ 	unsigned int i;
+ 	char *mac_addr = NULL;
  
- }
+-	snprintf(addr_file, sizeof(addr_file), "%s%s%s", "/sys/class/net/",
+-		if_name, "/address");
++	snprintf(addr_file, sizeof(addr_file), "%s%s%s", KVP_NET_DIR,
++		 if_name, "/address");
+ 
+ 	file = fopen(addr_file, "r");
+ 	if (file == NULL)
+@@ -688,28 +686,22 @@ void kvp_get_os_info(void)
+ 	DIR *dir;
+ 	struct dirent *entry;
+ 	FILE    *file;
+-	char    *p, *q, *x;
++	char    *p, *x;
+ 	char    *if_name = NULL;
+ 	char    buf[256];
+-	char *kvp_net_dir = "/sys/class/net/";
+-	char dev_id[256];
++	char dev_id[PATH_MAX];
+ 	unsigned int i;
+ 
+-	dir = opendir(kvp_net_dir);
++	dir = opendir(KVP_NET_DIR);
+ 	if (dir == NULL)
+ 		return NULL;
+ 
+-	snprintf(dev_id, sizeof(dev_id), "%s", kvp_net_dir);
+-	q = dev_id + strlen(kvp_net_dir);
+-
+ 	while ((entry = readdir(dir)) != NULL) {
+ 		/*
+ 		 * Set the state for the next pass.
+ 		 */
+-		*q = '\0';
+-
+-		strcat(dev_id, entry->d_name);
+-		strcat(dev_id, "/address");
++		snprintf(dev_id, sizeof(dev_id), "%s%s/address", KVP_NET_DIR,
++			 entry->d_name);
+ 
+ 		file = fopen(dev_id, "r");
+ 		if (file == NULL)
+@@ -1218,9 +1210,9 @@ static int process_ip_string(FILE *f, char *ip_string, int type)
+ static int kvp_set_ip_info(char *if_name, struct hv_kvp_ipaddr_value *new_val)
+ {
+ 	int error = 0;
+-	char if_file[128];
++	char if_file[PATH_MAX];
+ 	FILE *file;
+-	char cmd[512];
++	char cmd[PATH_MAX];
+ 	char *mac_addr;
+ 
+ 	/*
 -- 
 1.7.1
