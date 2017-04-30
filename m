@@ -1,103 +1,49 @@
-From: <scooter_308@hotmail.com>
-Subject: 25188 netdev
-Date: Sun, 30 Apr 2017 08:36:19 -0000
-Message-ID: <149354137961.20798.12303953394284013211@aircel.co.in>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [net-next v2 10/11] ixgbevf: Fix errors in retrieving RETA and
+ RSS from PF
+Date: Sun, 30 Apr 2017 11:49:09 +0300
+Message-ID: <b5230e20-145f-5446-eeb6-67d0e9939dd0@cogentembedded.com>
+References: <20170430030810.56415-1-jeffrey.t.kirsher@intel.com>
+ <20170430030810.56415-11-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: application/zip; name="3780.zip"
-Content-Transfer-Encoding: base64
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Tony Nguyen <anthony.l.nguyen@intel.com>, netdev@vger.kernel.org,
+        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from abs-static-76.27.251.27.aircel.co.in ([27.251.27.76]:35736 "HELO
-        aircel.co.in" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-        with SMTP id S969777AbdD3IgY (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 30 Apr 2017 04:36:24 -0400
-Content-Disposition: attachment
+Received: from mail-lf0-f49.google.com ([209.85.215.49]:34176 "EHLO
+        mail-lf0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S969789AbdD3ItL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 30 Apr 2017 04:49:11 -0400
+Received: by mail-lf0-f49.google.com with SMTP id t144so50813499lff.1
+        for <netdev@vger.kernel.org>; Sun, 30 Apr 2017 01:49:10 -0700 (PDT)
+In-Reply-To: <20170430030810.56415-11-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-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
-xcHSAVBLBQYAAAAAAQABAFoAAACXEgAAAAA=
+Hello!
+
+On 4/30/2017 6:08 AM, Jeff Kirsher wrote:
+
+> From: Tony Nguyen <anthony.l.nguyen@intel.com>
+>
+> Mailbox support for getting RETA and RSS is available for only 82599 and
+> x540; a previous patch reversed the logic and these adapters were
+> returning not supported.
+>
+> Also, the NACK check in ixgbevf_get_rss_key_locked() was checking for the
+> command IXGBE_VF_GET_RETA instead of IXGBE_VF_GET_RSS_KEY.
+
+    "Also" is usually an indicator that you need one more patch. Don't do 2 
+things in one patch, please.
+
+> This patch corrects both issues by correcting the logic and checking for
+> the right command.
+>
+> Signed-off-by: Tony Nguyen <anthony.l.nguyen@intel.com>
+> Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+[...]
+
+MBR, Sergei
