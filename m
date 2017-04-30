@@ -1,32 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 00/13][pull request] 40GbE Intel Wired LAN Driver
- Updates 2017-04-30
-Date: Sun, 30 Apr 2017 11:36:05 -0400 (EDT)
-Message-ID: <20170430.113605.336834289437640075.davem@davemloft.net>
-References: <20170430132451.68494-1-jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH v3 binutils] Add BPF support to binutils...
+Date: Sun, 30 Apr 2017 11:40:24 -0400 (EDT)
+Message-ID: <20170430.114024.1304052185817716163.davem@davemloft.net>
+References: <20170429.222450.1300920007783667009.davem@davemloft.net>
+        <20170429.223759.1262491011130998405.davem@davemloft.net>
+        <76ed19a7-add3-0642-4298-9402c7ff0be8@fb.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-        jogreene@redhat.com
-To: jeffrey.t.kirsher@intel.com
+Cc: daniel@iogearbox.net, aconole@bytheb.org, netdev@vger.kernel.org,
+        xdp-newbies@vger.kernel.org
+To: ast@fb.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:49820 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:49852 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756953AbdD3PgG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 30 Apr 2017 11:36:06 -0400
-In-Reply-To: <20170430132451.68494-1-jeffrey.t.kirsher@intel.com>
+        with ESMTP id S1751211AbdD3Pk0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 30 Apr 2017 11:40:26 -0400
+In-Reply-To: <76ed19a7-add3-0642-4298-9402c7ff0be8@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Sun, 30 Apr 2017 06:24:38 -0700
+From: Alexei Starovoitov <ast@fb.com>
+Date: Sat, 29 Apr 2017 23:44:59 -0700
 
-> This series contains updates to i40e and i40evf only.
-...
-> The following are changes since commit c08bac03d2894113bdb114e66e6ada009defb120:
->   Merge branch '10GbE' of git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue
-> and are available in the git repository at:
->   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue 40GbE
+> On 4/29/17 7:37 PM, David Miller wrote:
+>> BTW, should I just remove tailcall from the opcode table altogether?
+> 
+> yeah. tailcall is not a special opcode from user space point of view.
+> Only after normal call with func_id=bpf_tail_call passes verifier
+> then verifier will change insn->code into CALL|X
+> It's done only to have two 'case' statement in the interpreter,
+> so that normal calls and tailcalls don't interfere.
+> From user space pov CALL|X opcode is reserved and we can use it
+> for something in the future. Just need to change interpeter and JITs.
 
-Also pulled, thanks Jeff.
+Ok, I've removed it from my tree.
+
+Thanks.
