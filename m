@@ -1,94 +1,79 @@
-From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [net-next 14/15] net/mlx5e: Disable HW LRO when PCI is slower than link on striding RQ
-Date: Sun, 30 Apr 2017 16:20:15 +0300
-Message-ID: <20170430132016.27012-15-saeedm@mellanox.com>
-References: <20170430132016.27012-1-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
-        Hadar Hen-Zion <hadarh@mellanox.com>,
-        Ilya Lesokhin <ilyal@mellanox.com>,
-        Roi Dayan <roid@mellanox.com>,
-        Eran Ben Elisha <eranbe@mellanox.com>, kernel-team@fb.com,
-        Saeed Mahameed <saeedm@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 00/13][pull request] 40GbE Intel Wired LAN Driver Updates 2017-04-30
+Date: Sun, 30 Apr 2017 06:24:38 -0700
+Message-ID: <20170430132451.68494-1-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:46848 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1756887AbdD3NUi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 30 Apr 2017 09:20:38 -0400
-In-Reply-To: <20170430132016.27012-1-saeedm@mellanox.com>
+Received: from mga01.intel.com ([192.55.52.88]:19886 "EHLO mga01.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1163082AbdD3NY4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 30 Apr 2017 09:24:56 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eran Ben Elisha <eranbe@mellanox.com>
+This series contains updates to i40e and i40evf only.
 
-We will activate the HW LRO only on servers with PCI BW > MAX LINK BW,
-or when PCI BW > 16Gbps. On other cases we do not want LRO by default as
-LRO sessions might get timeout and add redundant software overhead.
+Jake provides majority of the changes in this series, starting with the
+renaming of a flag to avoid confusion.  Then renamed a variable to a
+more meaningful name to clarify what is actually being done and to
+reduce confusion.  Amortizes the wait time when initializing or disabling
+lots of VFs by using i40e_reset_all_vfs() and
+i40e_vsi_stop_rings_no_wait().  Cleaned up a unnecessary delay since
+pci_disable_sriov() already has its own delay, so need to add a additional
+delay when removing VFs.  Avoid using the same name flags for both
+vsi->state and pf->state, to make code review easier and assist future
+work to use the correct state field when checking bits.  Use
+DECLARE_BITMAP() to ensure that we always allocate enough space for flags.
+Replace hw_disabled_flags with the new _AUTO_DISABLED flags, which are
+more readable because we are not setting an *_ENABLED flag to
+disable the feature.
 
-Tested:
-	ethtool -k <ifs-name> | grep large-receive-offload
-	On systems with and without the limitations.
+Alex corrects a oversight where we were not reprogramming the ports
+after a reset, which was causing us to lose all of the receive tunnel
+offloads.
 
-Signed-off-by: Eran Ben Elisha <eranbe@mellanox.com>
-Cc: kernel-team@fb.com
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 21 ++++++++++++++-------
- 1 file changed, 14 insertions(+), 7 deletions(-)
+Arnd Bergmann moves the declaration of a local variable to avoid a
+warning seen on architectures with larger pages about an unused variable.
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index 1afaca96a30d..a61b71b6fff3 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -3785,6 +3785,12 @@ static bool cqe_compress_heuristic(u32 link_speed, u32 pci_bw)
- 		(pci_bw < 40000) && (pci_bw < link_speed));
- }
- 
-+static bool hw_lro_heuristic(u32 link_speed, u32 pci_bw)
-+{
-+	return !(link_speed && pci_bw &&
-+		 (pci_bw <= 16000) && (pci_bw < link_speed));
-+}
-+
- void mlx5e_set_rx_cq_mode_params(struct mlx5e_params *params, u8 cq_period_mode)
- {
- 	params->rx_cq_period_mode = cq_period_mode;
-@@ -3829,6 +3835,11 @@ void mlx5e_build_nic_params(struct mlx5_core_dev *mdev,
- 	params->num_channels = max_channels;
- 	params->num_tc       = 1;
- 
-+	mlx5e_get_max_linkspeed(mdev, &link_speed);
-+	mlx5e_get_pci_bw(mdev, &pci_bw);
-+	mlx5_core_dbg(mdev, "Max link speed = %d, PCI BW = %d\n",
-+		      link_speed, pci_bw);
-+
- 	/* SQ */
- 	params->log_sq_size = is_kdump_kernel() ?
- 		MLX5E_PARAMS_MINIMUM_LOG_SQ_SIZE :
-@@ -3837,13 +3848,9 @@ void mlx5e_build_nic_params(struct mlx5_core_dev *mdev,
- 	/* set CQE compression */
- 	params->rx_cqe_compress_def = false;
- 	if (MLX5_CAP_GEN(mdev, cqe_compression) &&
--	     MLX5_CAP_GEN(mdev, vport_group_manager)) {
--		mlx5e_get_max_linkspeed(mdev, &link_speed);
--		mlx5e_get_pci_bw(mdev, &pci_bw);
--		mlx5_core_dbg(mdev, "Max link speed = %d, PCI BW = %d\n",
--			       link_speed, pci_bw);
-+	     MLX5_CAP_GEN(mdev, vport_group_manager))
- 		params->rx_cqe_compress_def = cqe_compress_heuristic(link_speed, pci_bw);
--	}
-+
- 	MLX5E_SET_PFLAG(params, MLX5E_PFLAG_RX_CQE_COMPRESS, params->rx_cqe_compress_def);
- 
- 	/* RQ */
-@@ -3852,7 +3859,7 @@ void mlx5e_build_nic_params(struct mlx5_core_dev *mdev,
- 	/* HW LRO */
- 	/* TODO: && MLX5_CAP_ETH(mdev, lro_cap) */
- 	if (params->rq_wq_type == MLX5_WQ_TYPE_LINKED_LIST_STRIDING_RQ)
--		params->lro_en = true;
-+		params->lro_en = hw_lro_heuristic(link_speed, pci_bw);
- 	params->lro_timeout = mlx5e_choose_lro_timeout(mdev, MLX5E_DEFAULT_LRO_TIMEOUT);
- 
- 	/* CQ moderation params */
+The following are changes since commit c08bac03d2894113bdb114e66e6ada009defb120:
+  Merge branch '10GbE' of git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue 40GbE
+
+Alexander Duyck (1):
+  i40e: Reprogram port offloads after reset
+
+Arnd Bergmann (1):
+  i40evf: hide unused variable
+
+Jacob Keller (11):
+  i40e: properly spell I40E_VF_STATE_* flags
+  i40e: make use of i40e_reset_all_vfs when initializing new VFs
+  i40e: rename index to port to avoid confusion
+  i40e: amortize wait time when disabling lots of VFs
+  i40e: remove unnecessary msleep() delay in i40e_free_vfs
+  i40e: separate PF and VSI state flags
+  i40e: use DECLARE_BITMAP for state fields
+  i40evf: remove needless min_t() on num_online_cpus()*2
+  i40e: remove hw_disabled_flags in favor of using separate flag bits
+  i40evf: remove I40E_FLAG_FDIR_ATR_ENABLED
+  i40evf: allocate queues before we setup the interrupts and q_vectors
+
+ drivers/net/ethernet/intel/i40e/i40e.h             |  31 +-
+ drivers/net/ethernet/intel/i40e/i40e_client.c      |  16 +-
+ drivers/net/ethernet/intel/i40e/i40e_debugfs.c     |  13 +-
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c     |  50 ++--
+ drivers/net/ethernet/intel/i40e/i40e_main.c        | 332 +++++++++++----------
+ drivers/net/ethernet/intel/i40e/i40e_ptp.c         |   4 +-
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c        |  36 +--
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 144 +++++----
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h |  15 +-
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.c      |   8 +-
+ drivers/net/ethernet/intel/i40evf/i40evf.h         |  12 +-
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c    |  45 +--
+ 12 files changed, 372 insertions(+), 334 deletions(-)
+
 -- 
-2.11.0
+2.12.2
