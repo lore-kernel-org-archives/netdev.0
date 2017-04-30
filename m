@@ -1,14 +1,13 @@
 From: kys@exchange.microsoft.com
-Subject: [PATCH 1/6] Tools: hv: vss: Thaw the filesystem and continue if
- freeze call has timed out
-Date: Sun, 30 Apr 2017 16:21:14 -0700
-Message-ID: <1493594479-25329-1-git-send-email-kys@exchange.microsoft.com>
+Subject: [PATCH 3/6] Drivers: hv: vmbus: Fix error code returned by
+ vmbus_post_msg()
+Date: Sun, 30 Apr 2017 16:21:16 -0700
+Message-ID: <1493594479-25329-3-git-send-email-kys@exchange.microsoft.com>
 References: <1493594420-25214-1-git-send-email-kys@exchange.microsoft.com>
 Reply-To: kys@microsoft.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Alex Ng <alexng@messages.microsoft.com>, Michael Gissing <mg@faulpeltz.net>
 To: davem@davemloft.net, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
  devel@linuxdriverproject.org, olaf@aepfle.de, apw@canonical.com,
  jasowang@redhat.com, leann.ogasawara@canonical.comi,
@@ -26,36 +25,29 @@ Errors-To: driverdev-devel-bounces@linuxdriverproject.org
 Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-From: Alex Ng <alexng@messages.microsoft.com>
+From: K. Y. Srinivasan <kys@microsoft.com>
 
-If a FREEZE operation takes too long, the driver may time out and move on
-to another  operation. The daemon is unaware of this and attempts to
-notify the driver that the FREEZE succeeded. This results in an error from
-the driver and the daemon leaves the filesystem in frozen state.
+ENOBUFS is a more approrpiate error code to be returned
+when the hypervisor cannot post the message because of
+insufficient buffers. Make the adjustment.
 
-Fix this by thawing the filesystem and continuing.
-
-Signed-off-by: Michael Gissing <mg@faulpeltz.net>
-Signed-off-by: Alex Ng <alexng@messages.microsoft.com>
 Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
 ---
- tools/hv/hv_vss_daemon.c |    4 +++-
- 1 files changed, 3 insertions(+), 1 deletions(-)
+ drivers/hv/connection.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/tools/hv/hv_vss_daemon.c b/tools/hv/hv_vss_daemon.c
-index e082980..7ba5419 100644
---- a/tools/hv/hv_vss_daemon.c
-+++ b/tools/hv/hv_vss_daemon.c
-@@ -261,7 +261,9 @@ int main(int argc, char *argv[])
- 		if (len != sizeof(struct hv_vss_msg)) {
- 			syslog(LOG_ERR, "write failed; error: %d %s", errno,
- 			       strerror(errno));
--			exit(EXIT_FAILURE);
-+
-+			if (op == VSS_OP_FREEZE)
-+				vss_operate(VSS_OP_THAW);
- 		}
- 	}
- 
+diff --git a/drivers/hv/connection.c b/drivers/hv/connection.c
+index fce27fb..a938fcf 100644
+--- a/drivers/hv/connection.c
++++ b/drivers/hv/connection.c
+@@ -370,7 +370,7 @@ int vmbus_post_msg(void *buffer, size_t buflen, bool can_sleep)
+ 			break;
+ 		case HV_STATUS_INSUFFICIENT_MEMORY:
+ 		case HV_STATUS_INSUFFICIENT_BUFFERS:
+-			ret = -ENOMEM;
++			ret = -ENOBUFS;
+ 			break;
+ 		case HV_STATUS_SUCCESS:
+ 			return ret;
 -- 
 1.7.1
