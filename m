@@ -1,81 +1,105 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 00/11][pull request] 10GbE Intel Wired LAN Driver Updates 2017-04-29
-Date: Sat, 29 Apr 2017 20:07:59 -0700
-Message-ID: <20170430030810.56415-1-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
+Subject: [net-next v2 04/11] ixgbe: delay tail write to every 'n' packets
+Date: Sat, 29 Apr 2017 20:08:03 -0700
+Message-ID: <20170430030810.56415-5-jeffrey.t.kirsher@intel.com>
+References: <20170430030810.56415-1-jeffrey.t.kirsher@intel.com>
+Cc: John Fastabend <john.r.fastabend@intel.com>,
+        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+        jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga11.intel.com ([192.55.52.93]:34650 "EHLO mga11.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S969694AbdD3DIP (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 29 Apr 2017 23:08:15 -0400
+        id S969705AbdD3DIR (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 29 Apr 2017 23:08:17 -0400
+In-Reply-To: <20170430030810.56415-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to ixgbe and ixgbevf only, most notable is
-the addition of XDP support to our 10GbE drivers.
+From: John Fastabend <john.r.fastabend@intel.com>
 
-Paul fixes ixgbe to acquire the PHY semaphore before accessing PHY
-registers when issuing a device reset.
+Current XDP implementation hits the tail on every XDP_TX return
+code. This patch changes driver behavior to only hit the tail after
+packet processing is complete.
 
-John adds XDP support (yeah!) for ixgbe.
+With this patch I can run XDP drop programs @ 14+Mpps and XDP_TX
+programs are at ~13.5Mpps.
 
-Emil fixes an issue by flushing the MACVLAN filters on VF reset to avoid
-conflicts with other VFs that may end up using the same MAC address.  Also
-fixed a bug where ethtool -S displayed some empty fields for ixgbevf
-because it was using ixgbe_stats instead ixgbevf_stats for
-IXGBEVF_QUEUE_STATS_LEN.
+Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 28 ++++++++++++++++-----------
+ 1 file changed, 17 insertions(+), 11 deletions(-)
 
-Tony adds the ability to specify a zero MAC address in order to clear the
-VF's MAC address from the RAR table.  Also adds support for a new
-1000Base-T device based on x550EM_X MAC type.  Fixed an issue where the
-RSS key specified by the user would be over-written with a pre-existing
-value, so change the rss_key to a pointer so we can check to see if the
-key has a value set before attempting to set it.  Fixed the logic for
-mailbox support for getting RETA and RSS values, which are only supported
-by 82599 and x540 devices.
-
-v2: fixed up patches #2 and #3 based on feedback from Jakub and to
-    address build issues when page sizes are larger than 4k
-
-The following are changes since commit 4c042a80c1776477d8f13d0b214809a2eaedf01d:
-  Merge branch 'bpf-misc-next'
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue 10GbE
-
-Emil Tantilov (2):
-  ixgbe: clean macvlan MAC filter table on VF reset
-  ixgbevf: fix size of queue stats length
-
-John Fastabend (3):
-  ixgbe: add XDP support for pass and drop actions
-  ixgbe: add support for XDP_TX action
-  ixgbe: delay tail write to every 'n' packets
-
-Paul Greenwalt (2):
-  ixgbe: Acquire PHY semaphore before device reset
-  ixgbe: Add 1000Base-T device based on X550EM_X MAC
-
-Tony Nguyen (4):
-  ixgbe: Allow setting zero MAC address for VF
-  ixgbe: Check for RSS key before setting value
-  ixgbevf: Fix errors in retrieving RETA and RSS from PF
-  ixgbevf: Check for RSS key before setting value
-
- drivers/net/ethernet/intel/ixgbe/ixgbe.h          |  27 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c  |  33 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c      |  75 +++-
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c     | 477 +++++++++++++++++++---
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c    | 135 +++---
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h     |   1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c     |   8 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c     |  53 ++-
- drivers/net/ethernet/intel/ixgbevf/ethtool.c      |   5 +-
- drivers/net/ethernet/intel/ixgbevf/ixgbevf.h      |   2 +-
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |  33 +-
- drivers/net/ethernet/intel/ixgbevf/vf.c           |   6 +-
- 12 files changed, 701 insertions(+), 154 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index cb5be7de2c91..3d7b09100945 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -2283,6 +2283,7 @@ static int ixgbe_clean_rx_irq(struct ixgbe_q_vector *q_vector,
+ 	unsigned int mss = 0;
+ #endif /* IXGBE_FCOE */
+ 	u16 cleaned_count = ixgbe_desc_unused(rx_ring);
++	bool xdp_xmit = false;
+ 
+ 	while (likely(total_rx_packets < budget)) {
+ 		union ixgbe_adv_rx_desc *rx_desc;
+@@ -2322,10 +2323,12 @@ static int ixgbe_clean_rx_irq(struct ixgbe_q_vector *q_vector,
+ 		}
+ 
+ 		if (IS_ERR(skb)) {
+-			if (PTR_ERR(skb) == -IXGBE_XDP_TX)
++			if (PTR_ERR(skb) == -IXGBE_XDP_TX) {
++				xdp_xmit = true;
+ 				ixgbe_rx_buffer_flip(rx_ring, rx_buffer, size);
+-			else
++			} else {
+ 				rx_buffer->pagecnt_bias++;
++			}
+ 			total_rx_packets++;
+ 			total_rx_bytes += size;
+ 		} else if (skb) {
+@@ -2393,6 +2396,16 @@ static int ixgbe_clean_rx_irq(struct ixgbe_q_vector *q_vector,
+ 		total_rx_packets++;
+ 	}
+ 
++	if (xdp_xmit) {
++		struct ixgbe_ring *ring = adapter->xdp_ring[smp_processor_id()];
++
++		/* Force memory writes to complete before letting h/w
++		 * know there are new descriptors to fetch.
++		 */
++		wmb();
++		writel(ring->next_to_use, ring->tail);
++	}
++
+ 	u64_stats_update_begin(&rx_ring->syncp);
+ 	rx_ring->stats.packets += total_rx_packets;
+ 	rx_ring->stats.bytes += total_rx_bytes;
+@@ -8238,14 +8251,8 @@ static int ixgbe_xmit_xdp_ring(struct ixgbe_adapter *adapter,
+ 	tx_desc->read.olinfo_status =
+ 		cpu_to_le32(len << IXGBE_ADVTXD_PAYLEN_SHIFT);
+ 
+-	/* Force memory writes to complete before letting h/w know there
+-	 * are new descriptors to fetch.  (Only applicable for weak-ordered
+-	 * memory model archs, such as IA-64).
+-	 *
+-	 * We also need this memory barrier to make certain all of the
+-	 * status bits have been updated before next_to_watch is written.
+-	 */
+-	wmb();
++	/* Avoid any potential race with xdp_xmit and cleanup */
++	smp_wmb();
+ 
+ 	/* set next_to_watch value indicating a packet is present */
+ 	i++;
+@@ -8255,7 +8262,6 @@ static int ixgbe_xmit_xdp_ring(struct ixgbe_adapter *adapter,
+ 	tx_buffer->next_to_watch = tx_desc;
+ 	ring->next_to_use = i;
+ 
+-	writel(i, ring->tail);
+ 	return IXGBE_XDP_TX;
+ }
+ 
 -- 
 2.12.2
