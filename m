@@ -1,7 +1,7 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [net-next 07/15] net/mlx5e: Add neighbour hash table to the representors
-Date: Sun, 30 Apr 2017 16:20:08 +0300
-Message-ID: <20170430132016.27012-8-saeedm@mellanox.com>
+Subject: [net-next 03/15] net/mlx5e: Move the encap entry structure from the eswitch header
+Date: Sun, 30 Apr 2017 16:20:04 +0300
+Message-ID: <20170430132016.27012-4-saeedm@mellanox.com>
 References: <20170430132016.27012-1-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
         Hadar Hen-Zion <hadarh@mellanox.com>,
@@ -10,245 +10,137 @@ Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:46757 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:46742 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1756812AbdD3NU1 (ORCPT
+        with ESMTP id S1756103AbdD3NU1 (ORCPT
         <rfc822;netdev@vger.kernel.org>); Sun, 30 Apr 2017 09:20:27 -0400
 In-Reply-To: <20170430132016.27012-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hadar Hen Zion <hadarh@mellanox.com>
+From: Or Gerlitz <ogerlitz@mellanox.com>
 
-Add hash table to the representors which is to be used by the next patch
-to save neighbours information in the driver.
+The encap entry structure isn't manipulated by the eswitch code,
+hence it can/needs to be removed from the eswitch header.
 
-In order to offload IP tunnel encapsulation rules, the driver must find
-the tunnel dst neighbour according to the output device and the
-destination address given by the user. The next patch will cache the
-neighbors information in the driver to allow support in neigh update
-flow for tunnel encap rules.
+Do that, and change it to have mlx5e_ prefix.
 
-The neighbour entries are also saved in a list so we easily iterate over
-them when querying statistics in order to provide 'used' feedback to the
-kernel neighbour NUD core.
+This patch doesn't change any functionality.
 
-Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
-Reviewed-by: Or Gerlitz <ogerlitz@mellanox.com>
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en_rep.c | 107 +++++++++++++++++++++--
- drivers/net/ethernet/mellanox/mlx5/core/en_rep.h |  30 +++++++
- 2 files changed, 129 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en_rep.h  | 13 +++++++++++++
+ drivers/net/ethernet/mellanox/mlx5/core/en_tc.c   | 11 +++++------
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch.h | 13 -------------
+ 3 files changed, 18 insertions(+), 19 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
-index 8e82b11afd99..52ea7f1c0973 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
-@@ -224,6 +224,68 @@ void mlx5e_remove_sqs_fwd_rules(struct mlx5e_priv *priv)
- 	mlx5_eswitch_sqs2vport_stop(esw, rep);
- }
- 
-+static const struct rhashtable_params mlx5e_neigh_ht_params = {
-+	.head_offset = offsetof(struct mlx5e_neigh_hash_entry, rhash_node),
-+	.key_offset = offsetof(struct mlx5e_neigh_hash_entry, m_neigh),
-+	.key_len = sizeof(struct mlx5e_neigh),
-+	.automatic_shrinking = true,
-+};
-+
-+static int mlx5e_rep_neigh_init(struct mlx5e_rep_priv *rpriv)
-+{
-+	struct mlx5e_neigh_update_table *neigh_update = &rpriv->neigh_update;
-+
-+	INIT_LIST_HEAD(&neigh_update->neigh_list);
-+	return rhashtable_init(&neigh_update->neigh_ht, &mlx5e_neigh_ht_params);
-+}
-+
-+static void mlx5e_rep_neigh_cleanup(struct mlx5e_rep_priv *rpriv)
-+{
-+	struct mlx5e_neigh_update_table *neigh_update = &rpriv->neigh_update;
-+
-+	rhashtable_destroy(&neigh_update->neigh_ht);
-+}
-+
-+static int mlx5e_rep_neigh_entry_insert(struct mlx5e_priv *priv,
-+					struct mlx5e_neigh_hash_entry *nhe)
-+{
-+	struct mlx5e_rep_priv *rpriv = priv->ppriv;
-+	int err;
-+
-+	err = rhashtable_insert_fast(&rpriv->neigh_update.neigh_ht,
-+				     &nhe->rhash_node,
-+				     mlx5e_neigh_ht_params);
-+	if (err)
-+		return err;
-+
-+	list_add(&nhe->neigh_list, &rpriv->neigh_update.neigh_list);
-+
-+	return err;
-+}
-+
-+static void mlx5e_rep_neigh_entry_remove(struct mlx5e_priv *priv,
-+					 struct mlx5e_neigh_hash_entry *nhe)
-+{
-+	struct mlx5e_rep_priv *rpriv = priv->ppriv;
-+
-+	list_del(&nhe->neigh_list);
-+
-+	rhashtable_remove_fast(&rpriv->neigh_update.neigh_ht,
-+			       &nhe->rhash_node,
-+			       mlx5e_neigh_ht_params);
-+}
-+
-+static struct mlx5e_neigh_hash_entry *
-+mlx5e_rep_neigh_entry_lookup(struct mlx5e_priv *priv,
-+			     struct mlx5e_neigh *m_neigh)
-+{
-+	struct mlx5e_rep_priv *rpriv = priv->ppriv;
-+	struct mlx5e_neigh_update_table *neigh_update = &rpriv->neigh_update;
-+
-+	return rhashtable_lookup_fast(&neigh_update->neigh_ht, m_neigh,
-+				      mlx5e_neigh_ht_params);
-+}
-+
- static int mlx5e_rep_open(struct net_device *dev)
- {
- 	struct mlx5e_priv *priv = netdev_priv(dev);
-@@ -540,19 +602,33 @@ static struct mlx5e_profile mlx5e_rep_profile = {
- static int
- mlx5e_nic_rep_load(struct mlx5_eswitch *esw, struct mlx5_eswitch_rep *rep)
- {
--	struct net_device *netdev = rep->netdev;
--	struct mlx5e_priv *priv = netdev_priv(netdev);
-+	struct mlx5e_priv *priv = netdev_priv(rep->netdev);
-+	struct mlx5e_rep_priv *rpriv = priv->ppriv;
-+
-+	int err;
-+
-+	if (test_bit(MLX5E_STATE_OPENED, &priv->state)) {
-+		err = mlx5e_add_sqs_fwd_rules(priv);
-+		if (err)
-+			return err;
-+	}
-+
-+	err = mlx5e_rep_neigh_init(rpriv);
-+	if (err)
-+		goto err_remove_sqs;
- 
--	if (test_bit(MLX5E_STATE_OPENED, &priv->state))
--		return mlx5e_add_sqs_fwd_rules(priv);
- 	return 0;
-+
-+err_remove_sqs:
-+	mlx5e_remove_sqs_fwd_rules(priv);
-+	return err;
- }
- 
- static void
- mlx5e_nic_rep_unload(struct mlx5_eswitch *esw, struct mlx5_eswitch_rep *rep)
- {
--	struct net_device *netdev = rep->netdev;
--	struct mlx5e_priv *priv = netdev_priv(netdev);
-+	struct mlx5e_priv *priv = netdev_priv(rep->netdev);
-+	struct mlx5e_rep_priv *rpriv = priv->ppriv;
- 
- 	if (test_bit(MLX5E_STATE_OPENED, &priv->state))
- 		mlx5e_remove_sqs_fwd_rules(priv);
-@@ -560,6 +636,8 @@ mlx5e_nic_rep_unload(struct mlx5_eswitch *esw, struct mlx5_eswitch_rep *rep)
- 	/* clean (and re-init) existing uplink offloaded TC rules */
- 	mlx5e_tc_cleanup(priv);
- 	mlx5e_tc_init(priv);
-+
-+	mlx5e_rep_neigh_cleanup(rpriv);
- }
- 
- static int
-@@ -591,15 +669,25 @@ mlx5e_vport_rep_load(struct mlx5_eswitch *esw, struct mlx5_eswitch_rep *rep)
- 		goto err_destroy_netdev;
- 	}
- 
-+	err = mlx5e_rep_neigh_init(rpriv);
-+	if (err) {
-+		pr_warn("Failed to initialized neighbours handling for vport %d\n",
-+			rep->vport);
-+		goto err_detach_netdev;
-+	}
-+
- 	err = register_netdev(netdev);
- 	if (err) {
- 		pr_warn("Failed to register representor netdev for vport %d\n",
- 			rep->vport);
--		goto err_detach_netdev;
-+		goto err_neigh_cleanup;
- 	}
- 
- 	return 0;
- 
-+err_neigh_cleanup:
-+	mlx5e_rep_neigh_cleanup(rpriv);
-+
- err_detach_netdev:
- 	mlx5e_detach_netdev(netdev_priv(netdev));
- 
-@@ -615,9 +703,12 @@ mlx5e_vport_rep_unload(struct mlx5_eswitch *esw, struct mlx5_eswitch_rep *rep)
- {
- 	struct net_device *netdev = rep->netdev;
- 	struct mlx5e_priv *priv = netdev_priv(netdev);
-+	struct mlx5e_rep_priv *rpriv = priv->ppriv;
- 	void *ppriv = priv->ppriv;
- 
--	unregister_netdev(netdev);
-+	unregister_netdev(rep->netdev);
-+
-+	mlx5e_rep_neigh_cleanup(rpriv);
- 	mlx5e_detach_netdev(priv);
- 	mlx5e_destroy_netdev(priv);
- 	kfree(ppriv); /* mlx5e_rep_priv */
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.h b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.h
-index 425cb1b0bf02..99f6b5f41070 100644
+index b6595a699dc1..425cb1b0bf02 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.h
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.h
-@@ -34,11 +34,41 @@
+@@ -33,6 +33,7 @@
+ #ifndef __MLX5E_REP_H__
  #define __MLX5E_REP_H__
  
- #include <net/ip_tunnels.h>
-+#include <linux/rhashtable.h>
++#include <net/ip_tunnels.h>
  #include "eswitch.h"
  #include "en.h"
  
-+struct mlx5e_neigh_update_table {
-+	struct rhashtable       neigh_ht;
-+	/* Save the neigh hash entries in a list in addition to the hash table
-+	 * (neigh_ht). In order to iterate easily over the neigh entries.
-+	 * Used for stats query.
-+	 */
-+	struct list_head	neigh_list;
-+};
-+
- struct mlx5e_rep_priv {
+@@ -40,6 +41,18 @@ struct mlx5e_rep_priv {
  	struct mlx5_eswitch_rep *rep;
-+	struct mlx5e_neigh_update_table neigh_update;
-+};
-+
-+struct mlx5e_neigh {
-+	struct net_device *dev;
-+	union {
-+		__be32	v4;
-+		struct in6_addr v6;
-+	} dst_ip;
-+};
-+
-+struct mlx5e_neigh_hash_entry {
-+	struct rhash_head rhash_node;
-+	struct mlx5e_neigh m_neigh;
-+
-+	/* Save the neigh hash entry in a list on the representor in
-+	 * addition to the hash table. In order to iterate easily over the
-+	 * neighbour entries. Used for stats query.
-+	 */
-+	struct list_head neigh_list;
  };
  
- struct mlx5e_encap_entry {
++struct mlx5e_encap_entry {
++	struct hlist_node encap_hlist;
++	struct list_head flows;
++	u32 encap_id;
++	struct neighbour *n;
++	struct ip_tunnel_info tun_info;
++	unsigned char h_dest[ETH_ALEN];	/* destination eth addr	*/
++
++	struct net_device *out_dev;
++	int tunnel_type;
++};
++
+ void mlx5e_register_vport_reps(struct mlx5e_priv *priv);
+ void mlx5e_unregister_vport_reps(struct mlx5e_priv *priv);
+ bool mlx5e_is_uplink_rep(struct mlx5e_priv *priv);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+index c7b034eeb149..3582ebcd4173 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+@@ -264,9 +264,9 @@ static void mlx5e_detach_encap(struct mlx5e_priv *priv,
+ 
+ 	list_del(&flow->encap);
+ 	if (list_empty(next)) {
+-		struct mlx5_encap_entry *e;
++		struct mlx5e_encap_entry *e;
+ 
+-		e = list_entry(next, struct mlx5_encap_entry, flows);
++		e = list_entry(next, struct mlx5e_encap_entry, flows);
+ 		if (e->n) {
+ 			mlx5_encap_dealloc(priv->mdev, e->encap_id);
+ 			neigh_release(e->n);
+@@ -1211,7 +1211,7 @@ static void gen_vxlan_header_ipv6(struct net_device *out_dev,
+ 
+ static int mlx5e_create_encap_header_ipv4(struct mlx5e_priv *priv,
+ 					  struct net_device *mirred_dev,
+-					  struct mlx5_encap_entry *e,
++					  struct mlx5e_encap_entry *e,
+ 					  struct net_device **out_dev)
+ {
+ 	int max_encap_size = MLX5_CAP_ESW(priv->mdev, max_encap_header_size);
+@@ -1285,9 +1285,8 @@ static int mlx5e_create_encap_header_ipv4(struct mlx5e_priv *priv,
+ 
+ static int mlx5e_create_encap_header_ipv6(struct mlx5e_priv *priv,
+ 					  struct net_device *mirred_dev,
+-					  struct mlx5_encap_entry *e,
++					  struct mlx5e_encap_entry *e,
+ 					  struct net_device **out_dev)
+-
+ {
+ 	int max_encap_size = MLX5_CAP_ESW(priv->mdev, max_encap_header_size);
+ 	int ipv6_encap_size = ETH_HLEN + sizeof(struct ipv6hdr) + VXLAN_HLEN;
+@@ -1371,7 +1370,7 @@ static int mlx5e_attach_encap(struct mlx5e_priv *priv,
+ 	struct mlx5e_priv *up_priv = netdev_priv(up_dev);
+ 	struct mlx5_esw_flow_attr *attr = flow->esw_attr;
+ 	struct ip_tunnel_key *key = &tun_info->key;
+-	struct mlx5_encap_entry *e;
++	struct mlx5e_encap_entry *e;
+ 	struct net_device *out_dev;
+ 	int tunnel_type, err = 0;
+ 	uintptr_t hash_key;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
+index 9056961689fa..751a673de97a 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
+@@ -36,7 +36,6 @@
+ #include <linux/if_ether.h>
+ #include <linux/if_link.h>
+ #include <net/devlink.h>
+-#include <net/ip_tunnels.h>
+ #include <linux/mlx5/device.h>
+ 
+ #define MLX5_MAX_UC_PER_VPORT(dev) \
+@@ -289,18 +288,6 @@ enum {
+ #define MLX5_FLOW_CONTEXT_ACTION_VLAN_POP  0x4000
+ #define MLX5_FLOW_CONTEXT_ACTION_VLAN_PUSH 0x8000
+ 
+-struct mlx5_encap_entry {
+-	struct hlist_node encap_hlist;
+-	struct list_head flows;
+-	u32 encap_id;
+-	struct neighbour *n;
+-	struct ip_tunnel_info tun_info;
+-	unsigned char h_dest[ETH_ALEN];	/* destination eth addr	*/
+-
+-	struct net_device *out_dev;
+-	int tunnel_type;
+-};
+-
+ struct mlx5_esw_flow_attr {
+ 	struct mlx5_eswitch_rep *in_rep;
+ 	struct mlx5_eswitch_rep *out_rep;
 -- 
 2.11.0
