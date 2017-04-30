@@ -1,98 +1,64 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 02/13] i40e: make use of i40e_reset_all_vfs when initializing new VFs
-Date: Sun, 30 Apr 2017 06:24:40 -0700
-Message-ID: <20170430132451.68494-3-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 05/13] i40e: amortize wait time when disabling lots of VFs
+Date: Sun, 30 Apr 2017 06:24:43 -0700
+Message-ID: <20170430132451.68494-6-jeffrey.t.kirsher@intel.com>
 References: <20170430132451.68494-1-jeffrey.t.kirsher@intel.com>
 Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
         nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:4938 "EHLO mga01.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:57823 "EHLO mga09.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1163495AbdD3NY5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 30 Apr 2017 09:24:57 -0400
+        id S1163518AbdD3NY6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 30 Apr 2017 09:24:58 -0400
 In-Reply-To: <20170430132451.68494-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jacob Keller <jacob.e.keller@intel.com>
 
-When allocating a large number of VFs, the driver previously used
-i40e_reset_vf in a sequence. Just as when performing a normal reset,
-this accumulates a large amount of delay for handling all of the VFs in
-sequence. This delay is mainly due to a hardware requirement to wait
-after initiating a reset on the VF.
+Just as we do in i40e_reset_all_vfs, save some time when freeing VFs by
+amortizing the wait time for stopping queues. We can use
+i40e_vsi_stop_rings_no_wait() to begin the process of stopping all the
+VF rings at once. Then, once we've started the process on each VF we can
+begin waiting for the VFs to stop. This helps reduce the total wait time
+by a large factor.
 
-We recently added a new function, i40e_reset_all_vfs() which can be used
-to amortize the delay time, by first triggering all VF resets, then
-waiting once, and finally cleaning up and allocating the VFs. This is
-almost as good as truly running the resets in parallel.
-
-In order to avoid sending a spurious reset message to a client
-interface, we have a check to see whether we've assigned
-pf->num_alloc_vfs yet. This was originally intended as a way to
-distinguish the "initialization" case from the regular reset case.
-
-Unfortunately, this means that we can't directly use i40e_reset_all_vfs
-yet. Lets avoid this check of pf->num_alloc_vfs by replacing it with
-a proper VSI state bit which we can use instead. This makes the
-intention much clearer and allows us to re-use the i40e_reset_all_vfs
-function directly.
-
-Change-ID: I694279b37eb6b5a91b6670182d0c15d10244fd6e
 Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
-Reviewed-by: Mitch Williams <mitch.a.williams@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 10 +++++++---
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h |  1 +
- 2 files changed, 8 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 16 ++++++++++++++--
+ 1 file changed, 14 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-index a46c07799384..74977a295987 100644
+index 74977a295987..2a47a6474366 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-@@ -1007,7 +1007,8 @@ static void i40e_cleanup_reset_vf(struct i40e_vf *vf)
- 		set_bit(I40E_VF_STATE_ACTIVE, &vf->vf_states);
- 		clear_bit(I40E_VF_STATE_DISABLED, &vf->vf_states);
- 		/* Do not notify the client during VF init */
--		if (vf->pf->num_alloc_vfs)
-+		if (test_and_clear_bit(I40E_VF_STATE_PRE_ENABLE,
-+				       &vf->vf_states))
- 			i40e_notify_client_of_vf_reset(pf, abs_vf_id);
- 		vf->num_vlan = 0;
- 	}
-@@ -1280,12 +1281,15 @@ int i40e_alloc_vfs(struct i40e_pf *pf, u16 num_alloc_vfs)
- 		/* assign default capabilities */
- 		set_bit(I40E_VIRTCHNL_VF_CAP_L2, &vfs[i].vf_caps);
- 		vfs[i].spoofchk = true;
--		/* VF resources get allocated during reset */
--		i40e_reset_vf(&vfs[i], false);
+@@ -1194,9 +1194,21 @@ void i40e_free_vfs(struct i40e_pf *pf)
+ 		usleep_range(1000, 2000);
+ 
+ 	i40e_notify_client_of_vf_enable(pf, 0);
+-	for (i = 0; i < pf->num_alloc_vfs; i++)
 +
-+		set_bit(I40E_VF_STATE_PRE_ENABLE, &vfs[i].vf_states);
- 
- 	}
- 	pf->num_alloc_vfs = num_alloc_vfs;
- 
-+	/* VF resources get allocated during reset */
-+	i40e_reset_all_vfs(pf, false);
++	/* Amortize wait time by stopping all VFs at the same time */
++	for (i = 0; i < pf->num_alloc_vfs; i++) {
++		if (test_bit(I40E_VF_STATE_INIT, &pf->vf[i].vf_states))
++			continue;
 +
- 	i40e_notify_client_of_vf_enable(pf, num_alloc_vfs);
++		i40e_vsi_stop_rings_no_wait(pf->vsi[pf->vf[i].lan_vsi_idx]);
++	}
++
++	for (i = 0; i < pf->num_alloc_vfs; i++) {
+ 		if (test_bit(I40E_VF_STATE_INIT, &pf->vf[i].vf_states))
+-			i40e_vsi_stop_rings(pf->vsi[pf->vf[i].lan_vsi_idx]);
++			continue;
++
++		i40e_vsi_wait_queues_disabled(pf->vsi[pf->vf[i].lan_vsi_idx]);
++	}
  
- err_alloc:
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h
-index 8c7c08489612..20d7c8160e9e 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h
-@@ -63,6 +63,7 @@ enum i40e_vf_states {
- 	I40E_VF_STATE_DISABLED,
- 	I40E_VF_STATE_MC_PROMISC,
- 	I40E_VF_STATE_UC_PROMISC,
-+	I40E_VF_STATE_PRE_ENABLE,
- };
- 
- /* VF capabilities */
+ 	/* Disable IOV before freeing resources. This lets any VF drivers
+ 	 * running in the host get themselves cleaned up before we yank
 -- 
 2.12.2
