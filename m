@@ -1,79 +1,72 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: assembler mnenomics for call/tailcall plus maps...
-Date: Sun, 30 Apr 2017 11:27:27 -0400 (EDT)
-Message-ID: <20170430.112727.832791813264677235.davem@davemloft.net>
-References: <398986a4-ef4b-6631-c6eb-96505e0a5849@fb.com>
-        <20170429.143835.270339931242716768.davem@davemloft.net>
-        <c9ff0d0c-b91b-c3dc-654e-8b1c1a4c92f0@fb.com>
+Subject: Re: [PATCH v3 binutils] Add BPF support to binutils...
+Date: Sun, 30 Apr 2017 11:28:50 -0400 (EDT)
+Message-ID: <20170430.112850.863051989089519000.davem@davemloft.net>
+References: <20170429.222450.1300920007783667009.davem@davemloft.net>
+        <20170429.223759.1262491011130998405.davem@davemloft.net>
+        <76ed19a7-add3-0642-4298-9402c7ff0be8@fb.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: daniel@iogearbox.net, netdev@vger.kernel.org,
+Cc: daniel@iogearbox.net, aconole@bytheb.org, netdev@vger.kernel.org,
         xdp-newbies@vger.kernel.org
 To: ast@fb.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:49716 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:49728 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753525AbdD3P1c (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 30 Apr 2017 11:27:32 -0400
-In-Reply-To: <c9ff0d0c-b91b-c3dc-654e-8b1c1a4c92f0@fb.com>
+        with ESMTP id S1753525AbdD3P2v (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 30 Apr 2017 11:28:51 -0400
+In-Reply-To: <76ed19a7-add3-0642-4298-9402c7ff0be8@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexei Starovoitov <ast@fb.com>
-Date: Sat, 29 Apr 2017 23:35:30 -0700
+Date: Sat, 29 Apr 2017 23:44:59 -0700
 
-> On 4/29/17 11:38 AM, David Miller wrote:
->> or, taking it one step further, do the following since we know this
->> maps to a 32-bit FD:
+> On 4/29/17 7:37 PM, David Miller wrote:
+>> From: David Miller <davem@davemloft.net>
+>> Date: Sat, 29 Apr 2017 22:24:50 -0400 (EDT)
 >>
->> 	mov32	r1, %map(hash_map)
+>>> Some of your bugs should be fixed by this patch below, I'll add
+>>> test cases soon:
+>>
+>> Ok, here are all the local changes in my tree.  I made the relocs
+>> match LLVM and I fixed some dwarf debugging stuff.
+>>
+>> With this we are also down to one test case failure under binutils/
+>> and it's something weird with merging 64-bit notes which I should be
+>> able to fix soon.
+>>
+>> I can fix these bugs fast, keep reporting.
+>>
+>> BTW, should I just remove tailcall from the opcode table altogether?
 > 
-> hence this approach won't work without serious elf loader hacks.
-> The kernel needs to see ldimm64 because after it validated map_fd,
-> it will store real 'struct bpf_map *' pointer into this ldimm64
-> instruction and it will clear 'src_reg' markings.
-
-I didn't see this part, now it all makes sense why ldimm64 is used
-and I therefore think we should keep it this way.
-
-> So from interpreter and from JITs point of view there are no
-> special ldimm64 instructions. All ldimm64 are moving 64-bit
-> constant into a register. It's only verifier that knows that
-> some of these constants are real pointers.
+> yeah. tailcall is not a special opcode from user space point of view.
+> Only after normal call with func_id=bpf_tail_call passes verifier
+> then verifier will change insn->code into CALL|X
+> It's done only to have two 'case' statement in the interpreter,
+> so that normal calls and tailcalls don't interfere.
+> From user space pov CALL|X opcode is reserved and we can use it
+> for something in the future. Just need to change interpeter and JITs.
 > 
->> In GCC it will be simple to get the backend to emit this, various
->> options exist.  We can make it a special "__attribute__((map))", or
->> use address spaces to annotate the map object.  And then when the
->> ldimm64 or whatever instruction is emitted, and it sees the symbol
->> referenced has this special type, it will emit "%%map(%s)" instead of
->> just "%s" for the symbol name in the asembler output.
+>>  	    case 'O':
+>> -	      (*info->fprintf_func) (stream, "%d", off);
+>> +	      (*info->fprintf_func) (stream, "%d", (int) off);
 > 
-> I like the %map(symbol) idea.
-> I think it fits the whole thing quite well.
-> Not sure though how gcc will know that it needs to emit %map(..)
+> tried this diff. It looks better
+>   10:	7b 1a f8 ff 00 00 00 00 	stdw	[r1+-8], r10
+>   18:	79 a1 f8 ff 00 00 00 00 	lddw	r10, [r1+-8]
+> I wonder if '+' can be removed as well.
 
-I just explained it in that paragraph above :-)
+All disassemblers in binutils print it this way, sparc, x86, etc.
 
-struct bpf_map_def SEC("maps") jmp_table __attribute__((map)) = {
+> '-g' still doesn't seem to work:
+> /w/binutils-gdb/bld/binutils/objdump: invalid relocation type 10
+> /w/binutils-gdb/bld/binutils/objdump: BFD (GNU Binutils)
+> 2.28.51.20170429 assertion fail ../../bfd/elf64-bpf.c:139
+>    0:	18 01 00 00 39 47 98 83 	ldimm64	r0, 590618314553
 
-And when referenced by an instruction the bpf gcc backend can see that
-the "map" attribute is set and emit the appropriate %map() string into
-the assembler.
+Hmm, I defined a relocation type 10 in the patch, make sure BFD got
+rebuilt properly...
 
-We can even make the special map attribute do the SEC("") part too.
-
-> I take all the blame for not documenting this thing properly.
-> The elf loader in samples/bpf/bpf_load.c should have been temporary.
-> Its only purpose was to have minimal demo to parse elf and load it.
-> I didn't expect the .o approach to come that far.
-> My bet was on iovisor/bcc approach where elf file is never generated.
-> C->bpf is compiled in memory and loaded into the kernel completely
-> without elf and without relocations.
-
-I think it is better to have real objects for introspection (even
-after session is complete) and for testing under simulators (one of
-which I plan to write).
-
-And if we linked a real final static object, elf header would be all
-that would be needed to find execution entry point.
+I'll double check here too.
