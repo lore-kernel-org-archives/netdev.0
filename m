@@ -1,86 +1,46 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Fw: [Bug 195617] New: TCP may send small segments limited to
- initial window size
-Date: Sat, 29 Apr 2017 23:01:15 -0700
-Message-ID: <20170429230115.6b30ef13@xeon-e3>
+Subject: Re: [PATCH net-next iproute2] ip: increase number of MPLS labels
+Date: Sat, 29 Apr 2017 23:04:30 -0700
+Message-ID: <20170429230430.702c6b72@xeon-e3>
+References: <1493524130-10220-1-git-send-email-dsa@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: David Ahern <dsa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f178.google.com ([209.85.192.178]:36850 "EHLO
-        mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S969718AbdD3GBS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 30 Apr 2017 02:01:18 -0400
-Received: by mail-pf0-f178.google.com with SMTP id q66so20195689pfi.3
-        for <netdev@vger.kernel.org>; Sat, 29 Apr 2017 23:01:18 -0700 (PDT)
-Received: from xeon-e3 (76-14-206-252.or.wavecable.com. [76.14.206.252])
-        by smtp.gmail.com with ESMTPSA id v85sm19685996pfk.5.2017.04.29.23.01.17
-        for <netdev@vger.kernel.org>
-        (version=TLS1_2 cipher=ECDHE-RSA-CHACHA20-POLY1305 bits=256/256);
-        Sat, 29 Apr 2017 23:01:17 -0700 (PDT)
+Received: from mail-pf0-f177.google.com ([209.85.192.177]:33179 "EHLO
+        mail-pf0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S936332AbdD3GEc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 30 Apr 2017 02:04:32 -0400
+Received: by mail-pf0-f177.google.com with SMTP id q20so10696182pfg.0
+        for <netdev@vger.kernel.org>; Sat, 29 Apr 2017 23:04:32 -0700 (PDT)
+In-Reply-To: <1493524130-10220-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Sat, 29 Apr 2017 20:48:50 -0700
+David Ahern <dsa@cumulusnetworks.com> wrote:
 
+> Kernel now supports more than 2 labels. Increase ip to
+> handle up to 16 labels.
+> 
+> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+> ---
+>  include/utils.h | 8 ++++----
+>  lib/utils.c     | 2 +-
+>  2 files changed, 5 insertions(+), 5 deletions(-)
+> 
+> diff --git a/include/utils.h b/include/utils.h
+> index 8c12e1e2a60c..a69e176c260d 100644
+> --- a/include/utils.h
+> +++ b/include/utils.h
+> @@ -54,6 +54,9 @@ void incomplete_command(void) __attribute__((noreturn));
+>  #define NEXT_ARG_FWD() do { argv++; argc--; } while(0)
+>  #define PREV_ARG() do { argv--; argc++; } while(0)
+>  
+> +/* Maximum number of labels the mpls helpers support */
+> +#define MPLS_MAX_LABELS 16
+> +
 
-Begin forwarded message:
-
-Date: Sun, 30 Apr 2017 00:50:22 +0000
-From: bugzilla-daemon@bugzilla.kernel.org
-To: stephen@networkplumber.org
-Subject: [Bug 195617] New: TCP may send small segments limited to initial window size
-
-
-https://bugzilla.kernel.org/show_bug.cgi?id=195617
-
-            Bug ID: 195617
-           Summary: TCP may send small segments limited to initial window
-                    size
-           Product: Networking
-           Version: 2.5
-    Kernel Version: 4.9.24
-          Hardware: All
-                OS: Linux
-              Tree: Mainline
-            Status: NEW
-          Severity: normal
-          Priority: P1
-         Component: IPV4
-          Assignee: stephen@networkplumber.org
-          Reporter: ambrop7@gmail.com
-        Regression: No
-
-Created attachment 256141
-  --> https://bugzilla.kernel.org/attachment.cgi?id=256141&action=edit  
-packet trace
-
-I am seeing what I believe is faulty behavior when a Linux client connects to a
-TCP/IPv4 server which advertises a very small initial window. After the client
-sends a small segment limited to this small window, the server ACKs the data
-and extends the window considerably, but the client proceeds to send very small
-segments.
-
-Here is a summary of the packets:
-- Client: SYN
-- Server: SYN,ACK,Win=1
-- Client: ACK
-- Client: ACK,Data=1B
-- Server: ACK,Win=49984
-- Client: ACK,Data=47B
-- Client: ACK,Data=48B
-- Client: ACK,Data=48B
-- Client: ACK,Data=48B
-...
-
-This example was with initially advertised window (WIN) equal to 1, but
-generally it appears that Linux will limit outgoing segments to no more than
-max(48,WIN).
-
-I have tested the server with a Windows 10 client which does not have this
-problem, the client starts sending fully sized segments when the window is
-extended.
-
--- 
-You are receiving this mail because:
-You are the assignee for the bug.
+Why is the kernel limit not in include/uapi/ header file?
