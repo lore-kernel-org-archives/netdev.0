@@ -1,12 +1,14 @@
 From: kys@exchange.microsoft.com
-Subject: [PATCH 2/6] tools: hv: properly handle long paths
-Date: Sun, 30 Apr 2017 16:21:15 -0700
-Message-ID: <1493594479-25329-2-git-send-email-kys@exchange.microsoft.com>
+Subject: [PATCH 1/6] Tools: hv: vss: Thaw the filesystem and continue if
+ freeze call has timed out
+Date: Sun, 30 Apr 2017 16:21:14 -0700
+Message-ID: <1493594479-25329-1-git-send-email-kys@exchange.microsoft.com>
 References: <1493594420-25214-1-git-send-email-kys@exchange.microsoft.com>
 Reply-To: kys@microsoft.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
+Cc: Alex Ng <alexng@messages.microsoft.com>, Michael Gissing <mg@faulpeltz.net>
 To: davem@davemloft.net, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
  devel@linuxdriverproject.org, olaf@aepfle.de, apw@canonical.com,
  jasowang@redhat.com, leann.ogasawara@canonical.comi,
@@ -24,133 +26,36 @@ Errors-To: driverdev-devel-bounces@linuxdriverproject.org
 Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-From: Vitaly Kuznetsov <vkuznets@redhat.com>
+From: Alex Ng <alexng@messages.microsoft.com>
 
-Paths can be up to PATH_MAX long and PATH_MAX is usually greater than 256.
-While on it, simplify path reconstruction to a simple snprintf(), define
-and reuse KVP_NET_DIR.
+If a FREEZE operation takes too long, the driver may time out and move on
+to another  operation. The daemon is unaware of this and attempts to
+notify the driver that the FREEZE succeeded. This results in an error from
+the driver and the daemon leaves the filesystem in frozen state.
 
-Suggested-by: Tomas Hozza <thozza@redhat.com>
-Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
+Fix this by thawing the filesystem and continuing.
+
+Signed-off-by: Michael Gissing <mg@faulpeltz.net>
+Signed-off-by: Alex Ng <alexng@messages.microsoft.com>
 Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
 ---
- tools/hv/hv_kvp_daemon.c |   44 ++++++++++++++++++--------------------------
- 1 files changed, 18 insertions(+), 26 deletions(-)
+ tools/hv/hv_vss_daemon.c |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletions(-)
 
-diff --git a/tools/hv/hv_kvp_daemon.c b/tools/hv/hv_kvp_daemon.c
-index f1758fc..88b20e0 100644
---- a/tools/hv/hv_kvp_daemon.c
-+++ b/tools/hv/hv_kvp_daemon.c
-@@ -39,6 +39,7 @@
- #include <fcntl.h>
- #include <dirent.h>
- #include <net/if.h>
-+#include <limits.h>
- #include <getopt.h>
- 
- /*
-@@ -97,6 +98,8 @@ enum {
- #define KVP_SCRIPTS_PATH "/usr/libexec/hypervkvpd/"
- #endif
- 
-+#define KVP_NET_DIR "/sys/class/net/"
+diff --git a/tools/hv/hv_vss_daemon.c b/tools/hv/hv_vss_daemon.c
+index e082980..7ba5419 100644
+--- a/tools/hv/hv_vss_daemon.c
++++ b/tools/hv/hv_vss_daemon.c
+@@ -261,7 +261,9 @@ int main(int argc, char *argv[])
+ 		if (len != sizeof(struct hv_vss_msg)) {
+ 			syslog(LOG_ERR, "write failed; error: %d %s", errno,
+ 			       strerror(errno));
+-			exit(EXIT_FAILURE);
 +
- #define MAX_FILE_NAME 100
- #define ENTRIES_PER_BLOCK 50
++			if (op == VSS_OP_FREEZE)
++				vss_operate(VSS_OP_THAW);
+ 		}
+ 	}
  
-@@ -596,26 +599,21 @@ void kvp_get_os_info(void)
- 	DIR *dir;
- 	struct dirent *entry;
- 	FILE    *file;
--	char    *p, *q, *x;
-+	char    *p, *x;
- 	char    *if_name = NULL;
- 	char    buf[256];
--	char *kvp_net_dir = "/sys/class/net/";
--	char dev_id[256];
-+	char dev_id[PATH_MAX];
- 
--	dir = opendir(kvp_net_dir);
-+	dir = opendir(KVP_NET_DIR);
- 	if (dir == NULL)
- 		return NULL;
- 
--	snprintf(dev_id, sizeof(dev_id), "%s", kvp_net_dir);
--	q = dev_id + strlen(kvp_net_dir);
--
- 	while ((entry = readdir(dir)) != NULL) {
- 		/*
- 		 * Set the state for the next pass.
- 		 */
--		*q = '\0';
--		strcat(dev_id, entry->d_name);
--		strcat(dev_id, "/device/device_id");
-+		snprintf(dev_id, sizeof(dev_id), "%s%s/device/device_id",
-+			 KVP_NET_DIR, entry->d_name);
- 
- 		file = fopen(dev_id, "r");
- 		if (file == NULL)
-@@ -653,12 +651,12 @@ void kvp_get_os_info(void)
- 	FILE    *file;
- 	char    *p, *x;
- 	char    buf[256];
--	char addr_file[256];
-+	char addr_file[PATH_MAX];
- 	unsigned int i;
- 	char *mac_addr = NULL;
- 
--	snprintf(addr_file, sizeof(addr_file), "%s%s%s", "/sys/class/net/",
--		if_name, "/address");
-+	snprintf(addr_file, sizeof(addr_file), "%s%s%s", KVP_NET_DIR,
-+		 if_name, "/address");
- 
- 	file = fopen(addr_file, "r");
- 	if (file == NULL)
-@@ -688,28 +686,22 @@ void kvp_get_os_info(void)
- 	DIR *dir;
- 	struct dirent *entry;
- 	FILE    *file;
--	char    *p, *q, *x;
-+	char    *p, *x;
- 	char    *if_name = NULL;
- 	char    buf[256];
--	char *kvp_net_dir = "/sys/class/net/";
--	char dev_id[256];
-+	char dev_id[PATH_MAX];
- 	unsigned int i;
- 
--	dir = opendir(kvp_net_dir);
-+	dir = opendir(KVP_NET_DIR);
- 	if (dir == NULL)
- 		return NULL;
- 
--	snprintf(dev_id, sizeof(dev_id), "%s", kvp_net_dir);
--	q = dev_id + strlen(kvp_net_dir);
--
- 	while ((entry = readdir(dir)) != NULL) {
- 		/*
- 		 * Set the state for the next pass.
- 		 */
--		*q = '\0';
--
--		strcat(dev_id, entry->d_name);
--		strcat(dev_id, "/address");
-+		snprintf(dev_id, sizeof(dev_id), "%s%s/address", KVP_NET_DIR,
-+			 entry->d_name);
- 
- 		file = fopen(dev_id, "r");
- 		if (file == NULL)
-@@ -1218,9 +1210,9 @@ static int process_ip_string(FILE *f, char *ip_string, int type)
- static int kvp_set_ip_info(char *if_name, struct hv_kvp_ipaddr_value *new_val)
- {
- 	int error = 0;
--	char if_file[128];
-+	char if_file[PATH_MAX];
- 	FILE *file;
--	char cmd[512];
-+	char cmd[PATH_MAX];
- 	char *mac_addr;
- 
- 	/*
 -- 
 1.7.1
