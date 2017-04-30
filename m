@@ -1,49 +1,42 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [net-next v2 10/11] ixgbevf: Fix errors in retrieving RETA and
- RSS from PF
-Date: Sun, 30 Apr 2017 11:49:09 +0300
-Message-ID: <b5230e20-145f-5446-eeb6-67d0e9939dd0@cogentembedded.com>
-References: <20170430030810.56415-1-jeffrey.t.kirsher@intel.com>
- <20170430030810.56415-11-jeffrey.t.kirsher@intel.com>
+From: Yuval Mintz <Yuval.Mintz@cavium.com>
+Subject: [PATCH net-next 1/6] qed: configure the RoCE max message size
+Date: Sun, 30 Apr 2017 11:49:05 +0300
+Message-ID: <1493542150-21826-2-git-send-email-Yuval.Mintz@cavium.com>
+References: <1493542150-21826-1-git-send-email-Yuval.Mintz@cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Tony Nguyen <anthony.l.nguyen@intel.com>, netdev@vger.kernel.org,
-        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net
+Content-Type: text/plain
+Cc: <Ram.Amrani@cavium.com>, Yuval Mintz <Yuval.Mintz@cavium.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f49.google.com ([209.85.215.49]:34176 "EHLO
-        mail-lf0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S969789AbdD3ItL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 30 Apr 2017 04:49:11 -0400
-Received: by mail-lf0-f49.google.com with SMTP id t144so50813499lff.1
-        for <netdev@vger.kernel.org>; Sun, 30 Apr 2017 01:49:10 -0700 (PDT)
-In-Reply-To: <20170430030810.56415-11-jeffrey.t.kirsher@intel.com>
+Received: from mail-by2nam01on0077.outbound.protection.outlook.com ([104.47.34.77]:22282
+        "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S2998981AbdD3It3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 30 Apr 2017 04:49:29 -0400
+In-Reply-To: <1493542150-21826-1-git-send-email-Yuval.Mintz@cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello!
+From: Ram Amrani <Ram.Amrani@cavium.com>
 
-On 4/30/2017 6:08 AM, Jeff Kirsher wrote:
+Signed-off-by: Ram Amrani <Ram.Amrani@cavium.com>
+Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
+---
+ drivers/net/ethernet/qlogic/qed/qed_roce.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-> From: Tony Nguyen <anthony.l.nguyen@intel.com>
->
-> Mailbox support for getting RETA and RSS is available for only 82599 and
-> x540; a previous patch reversed the logic and these adapters were
-> returning not supported.
->
-> Also, the NACK check in ixgbevf_get_rss_key_locked() was checking for the
-> command IXGBE_VF_GET_RETA instead of IXGBE_VF_GET_RSS_KEY.
-
-    "Also" is usually an indicator that you need one more patch. Don't do 2 
-things in one patch, please.
-
-> This patch corrects both issues by correcting the logic and checking for
-> the right command.
->
-> Signed-off-by: Tony Nguyen <anthony.l.nguyen@intel.com>
-> Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-[...]
-
-MBR, Sergei
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_roce.c b/drivers/net/ethernet/qlogic/qed/qed_roce.c
+index b8c811f..5d40615 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_roce.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_roce.c
+@@ -750,6 +750,8 @@ static struct qed_rdma_port *qed_rdma_query_port(void *rdma_cxt)
+ 
+ 	p_port->link_speed = p_hwfn->mcp_info->link_output.speed;
+ 
++	p_port->max_msg_size = RDMA_MAX_DATA_SIZE_IN_WQE;
++
+ 	return p_port;
+ }
+ 
+-- 
+1.9.3
