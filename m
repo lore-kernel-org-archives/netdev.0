@@ -1,50 +1,55 @@
 From: <ilant@mellanox.com>
-Subject: [PATCH net-next] net/esp4: Fix invalid esph pointer crash
-Date: Sun, 30 Apr 2017 16:34:38 +0300
-Message-ID: <20170430133438.31962-1-ilant@mellanox.com>
+Subject: [PATCH net-next] xfrm: Indicate xfrm_state offload errors
+Date: Sun, 30 Apr 2017 16:51:19 +0300
+Message-ID: <20170430135119.11159-1-ilant@mellanox.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>, Ilan Tayari <ilant@mellanox.com>
 To: Steffen Klassert <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db5eur01on0061.outbound.protection.outlook.com ([104.47.2.61]:25265
-        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
+Received: from mail-ve1eur01on0057.outbound.protection.outlook.com ([104.47.1.57]:54471
+        "EHLO EUR01-VE1-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1035146AbdD3Nes (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 30 Apr 2017 09:34:48 -0400
+        id S1751290AbdD3Nv3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 30 Apr 2017 09:51:29 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ilan Tayari <ilant@mellanox.com>
 
-Both esp_output and esp_xmit take a pointer to the ESP header
-and place it in esp_info struct prior to calling esp_output_head.
+Current code silently ignores driver errors when configuring
+IPSec offload xfrm_state, and falls back to host-based crypto.
 
-Inside esp_output_head, the call to esp_output_udp_encap
-makes sure to update the pointer if it gets invalid.
-However, if esp_output_head itself calls skb_cow_data, the
-pointer is not updated and stays invalid, causing a crash
-after esp_output_head returns.
+Fail the xfrm_state creation if the driver has an error, because
+the NIC offloading was explicitly requested by the user program.
 
-Update the pointer if it becomes invalid in esp_output_head
+This will communicate back to the user that there was an error.
 
-Fixes: fca11ebde3f0 ("esp4: Reorganize esp_output")
+Fixes: d77e38e612a0 ("xfrm: Add an IPsec hardware offloading API")
 Signed-off-by: Ilan Tayari <ilant@mellanox.com>
 ---
- net/ipv4/esp4.c | 1 +
- 1 file changed, 1 insertion(+)
+ net/xfrm/xfrm_user.c | 9 ++++++---
+ 1 file changed, 6 insertions(+), 3 deletions(-)
 
-diff --git a/net/ipv4/esp4.c b/net/ipv4/esp4.c
-index 7f2caf71212b..65cc02bd82bc 100644
---- a/net/ipv4/esp4.c
-+++ b/net/ipv4/esp4.c
-@@ -317,6 +317,7 @@ int esp_output_head(struct xfrm_state *x, struct sk_buff *skb, struct esp_info *
- 	if (nfrags < 0)
- 		goto out;
- 	tail = skb_tail_pointer(trailer);
-+	esp->esph = ip_esp_hdr(skb);
+diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
+index ba74e5eeeeef..c4cceddac9db 100644
+--- a/net/xfrm/xfrm_user.c
++++ b/net/xfrm/xfrm_user.c
+@@ -595,9 +595,12 @@ static struct xfrm_state *xfrm_state_construct(struct net *net,
+ 			goto error;
+ 	}
  
- skip_cow:
- 	esp_output_fill_trailer(tail, esp->tfclen, esp->plen, esp->proto);
+-	if (attrs[XFRMA_OFFLOAD_DEV] &&
+-	    xfrm_dev_state_add(net, x, nla_data(attrs[XFRMA_OFFLOAD_DEV])))
+-		goto error;
++	if (attrs[XFRMA_OFFLOAD_DEV]) {
++		err = xfrm_dev_state_add(net, x,
++					 nla_data(attrs[XFRMA_OFFLOAD_DEV]));
++		if (err)
++			goto error;
++	}
+ 
+ 	if ((err = xfrm_alloc_replay_state_esn(&x->replay_esn, &x->preplay_esn,
+ 					       attrs[XFRMA_REPLAY_ESN_VAL])))
 -- 
 2.11.0
