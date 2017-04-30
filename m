@@ -1,163 +1,203 @@
-From: <ilant@mellanox.com>
-Subject: [PATCH iproute2 net-next] ip xfrm: Add xfrm state crypto offload
-Date: Sun, 30 Apr 2017 17:16:02 +0300
-Message-ID: <20170430141602.30995-1-ilant@mellanox.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Steffen Klassert <steffen.klassert@secunet.com>,
-        <netdev@vger.kernel.org>, Boris Pismenny <borisp@mellanox.com>,
-        Ilan Tayari <ilant@mellanox.com>
-To: Stephen Hemminger <stephen@networkplumber.org>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: [PATCH net-next RFC 1/1] net netlink: Add new type NLA_FLAG_BITS
+Date: Sun, 30 Apr 2017 10:28:39 -0400
+Message-ID: <1493562519-15563-1-git-send-email-jhs@emojatatu.com>
+Cc: netdev@vger.kernel.org, jiri@resnulli.us, xiyou.wangcong@gmail.com,
+        Jamal Hadi Salim <jhs@mojatatu.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-eopbgr40052.outbound.protection.outlook.com ([40.107.4.52]:14630
-        "EHLO EUR03-DB5-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1163684AbdD3OQ3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 30 Apr 2017 10:16:29 -0400
+Received: from mail-io0-f196.google.com ([209.85.223.196]:35191 "EHLO
+        mail-io0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752633AbdD3O25 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 30 Apr 2017 10:28:57 -0400
+Received: by mail-io0-f196.google.com with SMTP id d203so17263347iof.2
+        for <netdev@vger.kernel.org>; Sun, 30 Apr 2017 07:28:56 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Boris Pismenny <borisp@mellanox.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
 
-syntax:
-ip xfrm state .... offload dev <if-name> dir <in or out>
+Generic bitflags attribute content sent to the kernel by user.
+With this type the user can either set or unset a flag in the
+kernel.
 
-Example to add inbound offload:
-  ip xfrm state .... offload dev mlx0 dir in
-Example to add outbound offload:
-  ip xfrm state .... offload dev mlx0 dir out
+The nla_flag_values is a bitmap that defines the values being set
+The nla_flag_selector is a bitmask that defines which value is legit
 
-Signed-off-by: Boris Pismenny <borisp@mellanox.com>
-Signed-off-by: Ilan Tayari <ilant@mellanox.com>
+A check is made to ensure the rules that a kernel subsystem always
+conforms to bitflags the kernel already knows about. Example
+if the user tries to set a bit flag that is not understood then
+the _it will be rejected_.
+The user specifies the attribute policy as:
+[ATTR_GOO] = { .type = NLA_FLAG_BITS, .validation_data = &myvalidflags },
+
+where myvalidflags is the bit mask of the flags the kernel understands.
+
+If the user _does not_ provide myvalidflags then the attribute will
+also be rejected.
+
+Examples:
+nla_flag_values = 0x0, and nla_flag_selector = 0x1
+implies we are selecting bit 1 and we want to set its value to 0.
+
+nla_flag_values = 0x2, and nla_flag_selector = 0x2
+implies we are selecting bit 2 and we want to set its value to 1.
+
+This patch also provides an extra feature (which should be a separate
+pach): a validation callback that could be speaciliazed for other types.
+
+So a kernel subsystem could specify validation rules of the following
+nature:
+
+[ATTR_GOO] = { .type = MYTYPE,
+	       .validation_data = &myvalidation_data,
+               .validate_content = mycontent_validator },
+
+With validator callback looking like:
+
+int mycontent_validator(const struct nlattr *nla, void *valid_data)
+{
+       const struct myattribute *user_data = nla_data(nla);
+       struct myvalidation_struct *valid_data_constraint = valid_data;
+
+      ... validate user_data against valid_data_constraint ...
+      ... return appropriate error code etc ...
+}
+
+Only compile tested to float the idea.
+
+Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
 ---
- ip/ipxfrm.c     | 19 +++++++++++++++++++
- ip/xfrm_state.c | 49 +++++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 68 insertions(+)
+ include/net/netlink.h          | 11 +++++++++++
+ include/uapi/linux/rtnetlink.h | 17 +++++++++++++++++
+ lib/nlattr.c                   | 25 +++++++++++++++++++++++++
+ 3 files changed, 53 insertions(+)
 
-diff --git a/ip/ipxfrm.c b/ip/ipxfrm.c
-index b0cfac17..d5eb22e2 100644
---- a/ip/ipxfrm.c
-+++ b/ip/ipxfrm.c
-@@ -862,6 +862,25 @@ void xfrm_xfrma_print(struct rtattr *tb[], __u16 family,
- 		}
- 		fprintf(fp, "%s", _SL_);
- 	}
-+	if (tb[XFRMA_OFFLOAD_DEV]) {
-+		struct xfrm_user_offload *xuo;
-+
-+		if (prefix)
-+			fputs(prefix, fp);
-+		fprintf(fp, "crypto offload parameters: ");
-+
-+		if (RTA_PAYLOAD(tb[XFRMA_OFFLOAD_DEV]) < sizeof(*xuo)) {
-+			fprintf(fp, "(ERROR truncated)");
-+			fprintf(fp, "%s", _SL_);
-+			return;
-+		}
-+
-+		xuo = (struct xfrm_user_offload *)
-+			RTA_DATA(tb[XFRMA_OFFLOAD_DEV]);
-+		fprintf(fp, "dev %s dir %s", ll_index_to_name(xuo->ifindex),
-+			(xuo->flags & XFRM_OFFLOAD_INBOUND) ? "in" : "out");
-+		fprintf(fp, "%s", _SL_);
-+	}
- }
+diff --git a/include/net/netlink.h b/include/net/netlink.h
+index 0170917..8ab9784 100644
+--- a/include/net/netlink.h
++++ b/include/net/netlink.h
+@@ -6,6 +6,11 @@
+ #include <linux/jiffies.h>
+ #include <linux/in6.h>
  
- static int xfrm_selector_iszero(struct xfrm_selector *s)
-diff --git a/ip/xfrm_state.c b/ip/xfrm_state.c
-index ea7d4f34..e11c93bf 100644
---- a/ip/xfrm_state.c
-+++ b/ip/xfrm_state.c
-@@ -60,6 +60,7 @@ static void usage(void)
- 	fprintf(stderr, "        [ replay-seq-hi SEQ ] [ replay-oseq-hi SEQ ]\n");
- 	fprintf(stderr, "        [ flag FLAG-LIST ] [ sel SELECTOR ] [ LIMIT-LIST ] [ encap ENCAP ]\n");
- 	fprintf(stderr, "        [ coa ADDR[/PLEN] ] [ ctx CTX ] [ extra-flag EXTRA-FLAG-LIST ]\n");
-+	fprintf(stderr, "        [ offload [dev DEV] dir DIR ]\n");
- 	fprintf(stderr, "Usage: ip xfrm state allocspi ID [ mode MODE ] [ mark MARK [ mask MASK ] ]\n");
- 	fprintf(stderr, "        [ reqid REQID ] [ seq SEQ ] [ min SPI max SPI ]\n");
- 	fprintf(stderr, "Usage: ip xfrm state { delete | get } ID [ mark MARK [ mask MASK ] ]\n");
-@@ -108,6 +109,7 @@ static void usage(void)
- 	fprintf(stderr, "LIMIT := { time-soft | time-hard | time-use-soft | time-use-hard } SECONDS |\n");
- 	fprintf(stderr, "         { byte-soft | byte-hard } SIZE | { packet-soft | packet-hard } COUNT\n");
- 	fprintf(stderr, "ENCAP := { espinudp | espinudp-nonike } SPORT DPORT OADDR\n");
-+	fprintf(stderr, "DIR := in | out\n");
++struct nla_bit_flags {
++	u32 nla_flag_values;
++	u32 nla_flag_selector;
++};
++
+ /* ========================================================================
+  *         Netlink Messages and Attributes Interface (As Seen On TV)
+  * ------------------------------------------------------------------------
+@@ -178,6 +183,7 @@ enum {
+ 	NLA_S16,
+ 	NLA_S32,
+ 	NLA_S64,
++	NLA_FLAG_BITS,
+ 	__NLA_TYPE_MAX,
+ };
  
- 	exit(-1);
- }
-@@ -264,6 +266,24 @@ static int xfrm_state_extra_flag_parse(__u32 *extra_flags, int *argcp, char ***a
- 	return 0;
- }
+@@ -206,6 +212,7 @@ enum {
+  *    NLA_MSECS            Leaving the length field zero will verify the
+  *                         given type fits, using it verifies minimum length
+  *                         just like "All other"
++ *    NLA_FLAG_BITS        A bitmap/bitselector attribute
+  *    All other            Minimum length of attribute payload
+  *
+  * Example:
+@@ -213,11 +220,15 @@ enum {
+  * 	[ATTR_FOO] = { .type = NLA_U16 },
+  *	[ATTR_BAR] = { .type = NLA_STRING, .len = BARSIZ },
+  *	[ATTR_BAZ] = { .len = sizeof(struct mystruct) },
++ *	[ATTR_GOO] = { .type = NLA_FLAG_BITS, .validation_data = &myvalidflags },
+  * };
+  */
+ struct nla_policy {
+ 	u16		type;
+ 	u16		len;
++	void            *validation_data;
++	int             (*validate_content)(const struct nlattr *nla,
++					    const void *validation_data);
+ };
  
-+static int xfrm_offload_dir_parse(__u8 *dir, int *argcp, char ***argvp)
+ /**
+diff --git a/include/uapi/linux/rtnetlink.h b/include/uapi/linux/rtnetlink.h
+index cce0613..3691d8d 100644
+--- a/include/uapi/linux/rtnetlink.h
++++ b/include/uapi/linux/rtnetlink.h
+@@ -179,6 +179,23 @@ struct rtattr {
+ #define RTA_DATA(rta)   ((void*)(((char*)(rta)) + RTA_LENGTH(0)))
+ #define RTA_PAYLOAD(rta) ((int)((rta)->rta_len) - RTA_LENGTH(0))
+ 
++/* Generic bitflags attribute content sent to the kernel.
++ *
++ * The nla_flag_values is a bitmap that defines the values being set
++ * The nla_flag_selector is a bitmask that defines which value is legit
++ *
++ * Examples:
++ *  nla_flag_values = 0x0, and nla_flag_selector = 0x1
++ *  implies we are selecting bit 1 and we want to set its value to 0.
++ *
++ *  nla_flag_values = 0x2, and nla_flag_selector = 0x2
++ *  implies we are selecting bit 2 and we want to set its value to 1.
++ *
++ */
++struct __nla_bit_flags {
++	__u32 nla_flag_values;
++	__u32 nla_flag_selector;
++};
+ 
+ 
+ 
+diff --git a/lib/nlattr.c b/lib/nlattr.c
+index a7e0b16..78fed43 100644
+--- a/lib/nlattr.c
++++ b/lib/nlattr.c
+@@ -27,6 +27,21 @@
+ 	[NLA_S64]	= sizeof(s64),
+ };
+ 
++static int validate_nla_bit_flags(const struct nlattr *nla, void *valid_data)
 +{
-+	int argc = *argcp;
-+	char **argv = *argvp;
++	const struct nla_bit_flags *nbf = nla_data(nla);
++	u32 *valid_flags_mask = valid_data;
 +
-+	if (strcmp(*argv, "in") == 0)
-+		*dir = XFRM_OFFLOAD_INBOUND;
-+	else if (strcmp(*argv, "out") == 0)
-+		*dir = 0;
-+	else
-+		invarg("DIR value is invalid", *argv);
++	if (!valid_data)
++		return -EINVAL;
 +
-+	*argcp = argc;
-+	*argvp = argv;
++
++	if (nbf->nla_flag_values & ~*valid_flags_mask)
++		return -EINVAL;
 +
 +	return 0;
 +}
 +
- static int xfrm_state_modify(int cmd, unsigned int flags, int argc, char **argv)
+ static int validate_nla(const struct nlattr *nla, int maxtype,
+ 			const struct nla_policy *policy)
  {
- 	struct rtnl_handle rth;
-@@ -283,6 +303,10 @@ static int xfrm_state_modify(int cmd, unsigned int flags, int argc, char **argv)
- 	};
- 	struct xfrm_replay_state replay = {};
- 	struct xfrm_replay_state_esn replay_esn = {};
-+	struct xfrm_user_offload xuo = {};
-+	unsigned int ifindex = 0;
-+	__u8 dir = 0;
-+	bool is_offload = false;
- 	__u32 replay_window = 0;
- 	__u32 seq = 0, oseq = 0, seq_hi = 0, oseq_hi = 0;
- 	char *idp = NULL;
-@@ -394,6 +418,25 @@ static int xfrm_state_modify(int cmd, unsigned int flags, int argc, char **argv)
- 			xfrm_sctx_parse((char *)&ctx.str, context, &ctx.sctx);
- 			addattr_l(&req.n, sizeof(req.buf), XFRMA_SEC_CTX,
- 				  (void *)&ctx, ctx.sctx.len);
-+		} else if (strcmp(*argv, "offload") == 0) {
-+			is_offload = true;
-+			NEXT_ARG();
-+			if (strcmp(*argv, "dev") == 0) {
-+				NEXT_ARG();
-+				ifindex = ll_name_to_index(*argv);
-+				if (!ifindex) {
-+					invarg("value after \"offload dev\" is invalid", *argv);
-+					is_offload = false;
-+				}
-+				NEXT_ARG();
-+			}
-+			if (strcmp(*argv, "dir") == 0) {
-+				NEXT_ARG();
-+				xfrm_offload_dir_parse(&dir, &argc, &argv);
-+			} else {
-+				invarg("value after \"offload dir\" is invalid", *argv);
-+				is_offload = false;
-+			}
- 		} else {
- 			/* try to assume ALGO */
- 			int type = xfrm_algotype_getbyname(*argv);
-@@ -531,6 +574,12 @@ static int xfrm_state_modify(int cmd, unsigned int flags, int argc, char **argv)
- 		exit(-1);
+@@ -46,6 +61,13 @@ static int validate_nla(const struct nlattr *nla, int maxtype,
+ 			return -ERANGE;
+ 		break;
+ 
++	case NLA_FLAG_BITS:
++		if (attrlen != 8) /* 2 x 32 bits */
++			return -ERANGE;
++
++		return validate_nla_bit_flags(nla, pt->validation_data);
++		break;
++
+ 	case NLA_NUL_STRING:
+ 		if (pt->len)
+ 			minlen = min_t(int, attrlen, pt->len + 1);
+@@ -103,6 +125,9 @@ static int validate_nla(const struct nlattr *nla, int maxtype,
+ 			return -ERANGE;
  	}
  
-+	if (is_offload) {
-+		xuo.ifindex = ifindex;
-+		xuo.flags = dir;
-+		addattr_l(&req.n, sizeof(req.buf), XFRMA_OFFLOAD_DEV, &xuo,
-+			  sizeof(xuo));
-+	}
- 	if (req.xsinfo.flags & XFRM_STATE_ESN ||
- 	    replay_window > (sizeof(replay.bitmap) * 8)) {
- 		replay_esn.seq = seq;
++	if (pt->validate_content)
++		return pt->validate_content(nla, pt->validation_data);
++
+ 	return 0;
+ }
+ 
 -- 
-2.11.0
+1.9.1
