@@ -1,267 +1,114 @@
 From: Yuval Mintz <Yuval.Mintz@cavium.com>
-Subject: [PATCH net-next 4/6] qed: verify RoCE resource bitmaps are released
-Date: Sun, 30 Apr 2017 11:49:08 +0300
-Message-ID: <1493542150-21826-5-git-send-email-Yuval.Mintz@cavium.com>
+Subject: [PATCH net-next 6/6] qed: output the DPM status and WID count
+Date: Sun, 30 Apr 2017 11:49:10 +0300
+Message-ID: <1493542150-21826-7-git-send-email-Yuval.Mintz@cavium.com>
 References: <1493542150-21826-1-git-send-email-Yuval.Mintz@cavium.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <Ram.Amrani@cavium.com>, Yuval Mintz <Yuval.Mintz@cavium.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn3nam01on0055.outbound.protection.outlook.com ([104.47.33.55]:21120
-        "EHLO NAM01-BN3-obe.outbound.protection.outlook.com"
+Received: from mail-cys01nam02on0053.outbound.protection.outlook.com ([104.47.37.53]:23510
+        "EHLO NAM02-CY1-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S2999110AbdD3Itr (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 30 Apr 2017 04:49:47 -0400
+        id S3000579AbdD3IuC (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 30 Apr 2017 04:50:02 -0400
 In-Reply-To: <1493542150-21826-1-git-send-email-Yuval.Mintz@cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ram Amrani <Ram.Amrani@cavium.com>
 
-Add mechanism to verify RoCE resources are released prior to freeing the
-bitmaps. If this is not the case, print what resources were not released.
+Output to the RDMA driver whether DPM mode is enabled or disabled in
+the HW and if so what is the number of WIDs it supports
 
 Signed-off-by: Ram Amrani <Ram.Amrani@cavium.com>
 Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
 ---
- drivers/net/ethernet/qlogic/qed/qed_roce.c | 105 +++++++++++++++++++++--------
- drivers/net/ethernet/qlogic/qed/qed_roce.h |   2 +
- 2 files changed, 80 insertions(+), 27 deletions(-)
+ drivers/net/ethernet/qlogic/qed/qed.h      | 1 +
+ drivers/net/ethernet/qlogic/qed/qed_dev.c  | 4 +++-
+ drivers/net/ethernet/qlogic/qed/qed_roce.c | 4 ++++
+ include/linux/qed/qed_roce_if.h            | 2 ++
+ 4 files changed, 10 insertions(+), 1 deletion(-)
 
+diff --git a/drivers/net/ethernet/qlogic/qed/qed.h b/drivers/net/ethernet/qlogic/qed/qed.h
+index edf3b68..2ab1aab 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed.h
++++ b/drivers/net/ethernet/qlogic/qed/qed.h
+@@ -526,6 +526,7 @@ struct qed_hwfn {
+ 	struct dbg_tools_data		dbg_info;
+ 
+ 	/* PWM region specific data */
++	u16				wid_count;
+ 	u32				dpi_size;
+ 	u32				dpi_count;
+ 
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_dev.c b/drivers/net/ethernet/qlogic/qed/qed_dev.c
+index c478e07..5f31140 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_dev.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_dev.c
+@@ -1354,7 +1354,7 @@ enum QED_ROCE_EDPM_MODE {
+ {
+ 	u32 pwm_regsize, norm_regsize;
+ 	u32 non_pwm_conn, min_addr_reg1;
+-	u32 db_bar_size, n_cpus;
++	u32 db_bar_size, n_cpus = 1;
+ 	u32 roce_edpm_mode;
+ 	u32 pf_dems_shift;
+ 	int rc = 0;
+@@ -1415,6 +1415,8 @@ enum QED_ROCE_EDPM_MODE {
+ 			qed_rdma_dpm_bar(p_hwfn, p_ptt);
+ 	}
+ 
++	p_hwfn->wid_count = (u16) n_cpus;
++
+ 	DP_INFO(p_hwfn,
+ 		"doorbell bar: normal_region_size=%d, pwm_region_size=%d, dpi_size=%d, dpi_count=%d, roce_edpm=%s\n",
+ 		norm_regsize,
 diff --git a/drivers/net/ethernet/qlogic/qed/qed_roce.c b/drivers/net/ethernet/qlogic/qed/qed_roce.c
-index 0c449dd..f36e3c3 100644
+index f36e3c3..8d6ad87 100644
 --- a/drivers/net/ethernet/qlogic/qed/qed_roce.c
 +++ b/drivers/net/ethernet/qlogic/qed/qed_roce.c
-@@ -90,7 +90,7 @@ void qed_roce_async_event(struct qed_hwfn *p_hwfn,
- }
+@@ -784,6 +784,7 @@ static int qed_rdma_add_user(void *rdma_cxt,
+ 				    ((out_params->dpi) * p_hwfn->dpi_size);
  
- static int qed_rdma_bmap_alloc(struct qed_hwfn *p_hwfn,
--			       struct qed_bmap *bmap, u32 max_count)
-+			       struct qed_bmap *bmap, u32 max_count, char *name)
- {
- 	DP_VERBOSE(p_hwfn, QED_MSG_RDMA, "max_count = %08x\n", max_count);
+ 	out_params->dpi_size = p_hwfn->dpi_size;
++	out_params->wid_count = p_hwfn->wid_count;
  
-@@ -104,26 +104,24 @@ static int qed_rdma_bmap_alloc(struct qed_hwfn *p_hwfn,
- 		return -ENOMEM;
- 	}
- 
--	DP_VERBOSE(p_hwfn, QED_MSG_RDMA, "Allocated bitmap %p\n",
--		   bmap->bitmap);
-+	snprintf(bmap->name, QED_RDMA_MAX_BMAP_NAME, "%s", name);
-+
-+	DP_VERBOSE(p_hwfn, QED_MSG_RDMA, "0\n");
- 	return 0;
- }
- 
- static int qed_rdma_bmap_alloc_id(struct qed_hwfn *p_hwfn,
- 				  struct qed_bmap *bmap, u32 *id_num)
- {
--	DP_VERBOSE(p_hwfn, QED_MSG_RDMA, "bmap = %p\n", bmap);
--
- 	*id_num = find_first_zero_bit(bmap->bitmap, bmap->max_count);
--
--	if (*id_num >= bmap->max_count) {
--		DP_NOTICE(p_hwfn, "no id available max_count=%d\n",
--			  bmap->max_count);
-+	if (*id_num >= bmap->max_count)
- 		return -EINVAL;
--	}
- 
- 	__set_bit(*id_num, bmap->bitmap);
- 
-+	DP_VERBOSE(p_hwfn, QED_MSG_RDMA, "%s bitmap: allocated id %d\n",
-+		   bmap->name, *id_num);
-+
- 	return 0;
- }
- 
-@@ -141,15 +139,18 @@ static void qed_bmap_release_id(struct qed_hwfn *p_hwfn,
- {
- 	bool b_acquired;
- 
--	DP_VERBOSE(p_hwfn, QED_MSG_RDMA, "id_num = %08x", id_num);
- 	if (id_num >= bmap->max_count)
- 		return;
- 
- 	b_acquired = test_and_clear_bit(id_num, bmap->bitmap);
- 	if (!b_acquired) {
--		DP_NOTICE(p_hwfn, "ID %d already released\n", id_num);
-+		DP_NOTICE(p_hwfn, "%s bitmap: id %d already released\n",
-+			  bmap->name, id_num);
- 		return;
- 	}
-+
-+	DP_VERBOSE(p_hwfn, QED_MSG_RDMA, "%s bitmap: released id %d\n",
-+		   bmap->name, id_num);
- }
- 
- static int qed_bmap_test_id(struct qed_hwfn *p_hwfn,
-@@ -224,7 +225,8 @@ static int qed_rdma_alloc(struct qed_hwfn *p_hwfn,
- 	}
- 
- 	/* Allocate bit map for pd's */
--	rc = qed_rdma_bmap_alloc(p_hwfn, &p_rdma_info->pd_map, RDMA_MAX_PDS);
-+	rc = qed_rdma_bmap_alloc(p_hwfn, &p_rdma_info->pd_map, RDMA_MAX_PDS,
-+				 "PD");
- 	if (rc) {
- 		DP_VERBOSE(p_hwfn, QED_MSG_RDMA,
- 			   "Failed to allocate pd_map, rc = %d\n",
-@@ -234,7 +236,7 @@ static int qed_rdma_alloc(struct qed_hwfn *p_hwfn,
- 
- 	/* Allocate DPI bitmap */
- 	rc = qed_rdma_bmap_alloc(p_hwfn, &p_rdma_info->dpi_map,
--				 p_hwfn->dpi_count);
-+				 p_hwfn->dpi_count, "DPI");
- 	if (rc) {
- 		DP_VERBOSE(p_hwfn, QED_MSG_RDMA,
- 			   "Failed to allocate DPI bitmap, rc = %d\n", rc);
-@@ -245,7 +247,7 @@ static int qed_rdma_alloc(struct qed_hwfn *p_hwfn,
- 	 * twice the number of QPs.
- 	 */
- 	rc = qed_rdma_bmap_alloc(p_hwfn, &p_rdma_info->cq_map,
--				 p_rdma_info->num_qps * 2);
-+				 p_rdma_info->num_qps * 2, "CQ");
- 	if (rc) {
- 		DP_VERBOSE(p_hwfn, QED_MSG_RDMA,
- 			   "Failed to allocate cq bitmap, rc = %d\n", rc);
-@@ -257,7 +259,7 @@ static int qed_rdma_alloc(struct qed_hwfn *p_hwfn,
- 	 * The maximum number of CQs is bounded to  twice the number of QPs.
- 	 */
- 	rc = qed_rdma_bmap_alloc(p_hwfn, &p_rdma_info->toggle_bits,
--				 p_rdma_info->num_qps * 2);
-+				 p_rdma_info->num_qps * 2, "Toggle");
- 	if (rc) {
- 		DP_VERBOSE(p_hwfn, QED_MSG_RDMA,
- 			   "Failed to allocate toogle bits, rc = %d\n", rc);
-@@ -266,7 +268,7 @@ static int qed_rdma_alloc(struct qed_hwfn *p_hwfn,
- 
- 	/* Allocate bitmap for itids */
- 	rc = qed_rdma_bmap_alloc(p_hwfn, &p_rdma_info->tid_map,
--				 p_rdma_info->num_mrs);
-+				 p_rdma_info->num_mrs, "MR");
- 	if (rc) {
- 		DP_VERBOSE(p_hwfn, QED_MSG_RDMA,
- 			   "Failed to allocate itids bitmaps, rc = %d\n", rc);
-@@ -274,7 +276,8 @@ static int qed_rdma_alloc(struct qed_hwfn *p_hwfn,
- 	}
- 
- 	/* Allocate bitmap for cids used for qps. */
--	rc = qed_rdma_bmap_alloc(p_hwfn, &p_rdma_info->cid_map, num_cons);
-+	rc = qed_rdma_bmap_alloc(p_hwfn, &p_rdma_info->cid_map, num_cons,
-+				 "CID");
- 	if (rc) {
- 		DP_VERBOSE(p_hwfn, QED_MSG_RDMA,
- 			   "Failed to allocate cid bitmap, rc = %d\n", rc);
-@@ -282,7 +285,8 @@ static int qed_rdma_alloc(struct qed_hwfn *p_hwfn,
- 	}
- 
- 	/* Allocate bitmap for cids used for responders/requesters. */
--	rc = qed_rdma_bmap_alloc(p_hwfn, &p_rdma_info->real_cid_map, num_cons);
-+	rc = qed_rdma_bmap_alloc(p_hwfn, &p_rdma_info->real_cid_map, num_cons,
-+				 "REAL_CID");
- 	if (rc) {
- 		DP_VERBOSE(p_hwfn, QED_MSG_RDMA,
- 			   "Failed to allocate real cid bitmap, rc = %d\n", rc);
-@@ -313,6 +317,54 @@ static int qed_rdma_alloc(struct qed_hwfn *p_hwfn,
+ 	DP_VERBOSE(p_hwfn, QED_MSG_RDMA, "Adding user - done, rc = %d\n", rc);
  	return rc;
- }
- 
-+static void qed_rdma_bmap_free(struct qed_hwfn *p_hwfn,
-+			       struct qed_bmap *bmap, bool check)
-+{
-+	int weight = bitmap_weight(bmap->bitmap, bmap->max_count);
-+	int last_line = bmap->max_count / (64 * 8);
-+	int last_item = last_line * 8 +
-+	    DIV_ROUND_UP(bmap->max_count % (64 * 8), 64);
-+	u64 *pmap = (u64 *)bmap->bitmap;
-+	int line, item, offset;
-+	u8 str_last_line[200] = { 0 };
-+
-+	if (!weight || !check)
-+		goto end;
-+
-+	DP_NOTICE(p_hwfn,
-+		  "%s bitmap not free - size=%d, weight=%d, 512 bits per line\n",
-+		  bmap->name, bmap->max_count, weight);
-+
-+	/* print aligned non-zero lines, if any */
-+	for (item = 0, line = 0; line < last_line; line++, item += 8)
-+		if (bitmap_weight((unsigned long *)&pmap[item], 64 * 8))
-+			DP_NOTICE(p_hwfn,
-+				  "line 0x%04x: 0x%016llx 0x%016llx 0x%016llx 0x%016llx 0x%016llx 0x%016llx 0x%016llx 0x%016llx\n",
-+				  line,
-+				  pmap[item],
-+				  pmap[item + 1],
-+				  pmap[item + 2],
-+				  pmap[item + 3],
-+				  pmap[item + 4],
-+				  pmap[item + 5],
-+				  pmap[item + 6], pmap[item + 7]);
-+
-+	/* print last unaligned non-zero line, if any */
-+	if ((bmap->max_count % (64 * 8)) &&
-+	    (bitmap_weight((unsigned long *)&pmap[item],
-+			   bmap->max_count - item * 64))) {
-+		offset = sprintf(str_last_line, "line 0x%04x: ", line);
-+		for (; item < last_item; item++)
-+			offset += sprintf(str_last_line + offset,
-+					  "0x%016llx ", pmap[item]);
-+		DP_NOTICE(p_hwfn, "%s\n", str_last_line);
-+	}
-+
-+end:
-+	kfree(bmap->bitmap);
-+	bmap->bitmap = NULL;
-+}
-+
- static void qed_rdma_resc_free(struct qed_hwfn *p_hwfn)
+@@ -856,9 +857,12 @@ static void qed_rdma_cnq_prod_update(void *rdma_cxt, u8 qz_offset, u16 prod)
+ static int qed_fill_rdma_dev_info(struct qed_dev *cdev,
+ 				  struct qed_dev_rdma_info *info)
  {
- 	struct qed_bmap *rcid_map = &p_hwfn->p_rdma_info->real_cid_map;
-@@ -332,12 +384,12 @@ static void qed_rdma_resc_free(struct qed_hwfn *p_hwfn)
- 		}
- 	}
++	struct qed_hwfn *p_hwfn = QED_LEADING_HWFN(cdev);
++
+ 	memset(info, 0, sizeof(*info));
  
--	kfree(p_rdma_info->cid_map.bitmap);
--	kfree(p_rdma_info->tid_map.bitmap);
--	kfree(p_rdma_info->toggle_bits.bitmap);
--	kfree(p_rdma_info->cq_map.bitmap);
--	kfree(p_rdma_info->dpi_map.bitmap);
--	kfree(p_rdma_info->pd_map.bitmap);
-+	qed_rdma_bmap_free(p_hwfn, &p_hwfn->p_rdma_info->cid_map, 1);
-+	qed_rdma_bmap_free(p_hwfn, &p_hwfn->p_rdma_info->pd_map, 1);
-+	qed_rdma_bmap_free(p_hwfn, &p_hwfn->p_rdma_info->dpi_map, 1);
-+	qed_rdma_bmap_free(p_hwfn, &p_hwfn->p_rdma_info->cq_map, 1);
-+	qed_rdma_bmap_free(p_hwfn, &p_hwfn->p_rdma_info->toggle_bits, 0);
-+	qed_rdma_bmap_free(p_hwfn, &p_hwfn->p_rdma_info->tid_map, 1);
+ 	info->rdma_type = QED_RDMA_TYPE_ROCE;
++	info->user_dpm_enabled = (p_hwfn->db_bar_no_edpm == 0);
  
- 	kfree(p_rdma_info->port);
- 	kfree(p_rdma_info->dev);
-@@ -954,8 +1006,7 @@ static int qed_rdma_create_cq(void *rdma_cxt,
+ 	qed_fill_dev_info(cdev, &info->common);
  
- 	/* Allocate icid */
- 	spin_lock_bh(&p_info->lock);
--	rc = qed_rdma_bmap_alloc_id(p_hwfn,
--				    &p_info->cq_map, &returned_id);
-+	rc = qed_rdma_bmap_alloc_id(p_hwfn, &p_info->cq_map, &returned_id);
- 	spin_unlock_bh(&p_info->lock);
- 
- 	if (rc) {
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_roce.h b/drivers/net/ethernet/qlogic/qed/qed_roce.h
-index 3ccc08a..9742af5 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_roce.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed_roce.h
-@@ -67,9 +67,11 @@ enum qed_rdma_toggle_bit {
- 	QED_RDMA_TOGGLE_BIT_SET = 1
+diff --git a/include/linux/qed/qed_roce_if.h b/include/linux/qed/qed_roce_if.h
+index f742d43..cbb2ff0 100644
+--- a/include/linux/qed/qed_roce_if.h
++++ b/include/linux/qed/qed_roce_if.h
+@@ -240,6 +240,7 @@ struct qed_rdma_add_user_out_params {
+ 	u64 dpi_addr;
+ 	u64 dpi_phys_addr;
+ 	u32 dpi_size;
++	u16 wid_count;
  };
  
-+#define QED_RDMA_MAX_BMAP_NAME	(10)
- struct qed_bmap {
- 	unsigned long *bitmap;
- 	u32 max_count;
-+	char name[QED_RDMA_MAX_BMAP_NAME];
+ enum roce_mode {
+@@ -533,6 +534,7 @@ enum qed_rdma_type {
+ struct qed_dev_rdma_info {
+ 	struct qed_dev_info common;
+ 	enum qed_rdma_type rdma_type;
++	u8 user_dpm_enabled;
  };
  
- struct qed_rdma_info {
+ struct qed_rdma_ops {
 -- 
 1.9.3
