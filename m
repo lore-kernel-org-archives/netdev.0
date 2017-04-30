@@ -1,73 +1,146 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next iproute2] ip: increase number of MPLS labels
-Date: Sat, 29 Apr 2017 20:48:50 -0700
-Message-ID: <1493524130-10220-1-git-send-email-dsa@cumulusnetworks.com>
-Cc: David Ahern <dsa@cumulusnetworks.com>
-To: netdev@vger.kernel.org, stephen@networkplumber.org
+From: Abhishek Shah <abhishek.shah@broadcom.com>
+Subject: [PATCH] net: phy: Allow BCM5481x PHYs to setup internal TX/RX clock delay
+Date: Sun, 30 Apr 2017 11:04:21 +0530
+Message-ID: <1493530461-11935-1-git-send-email-abhishek.shah@broadcom.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        linux-arm-kernel@lists.infradead.org,
+        bcm-kernel-feedback-list@broadcom.com,
+        Abhishek Shah <abhishek.shah@broadcom.com>
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f172.google.com ([209.85.192.172]:35604 "EHLO
-        mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1164562AbdD3Dsy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 29 Apr 2017 23:48:54 -0400
-Received: by mail-pf0-f172.google.com with SMTP id v14so63758521pfd.2
-        for <netdev@vger.kernel.org>; Sat, 29 Apr 2017 20:48:54 -0700 (PDT)
+Received: from mail-wr0-f181.google.com ([209.85.128.181]:36703 "EHLO
+        mail-wr0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S939444AbdD3Fe7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 30 Apr 2017 01:34:59 -0400
+Received: by mail-wr0-f181.google.com with SMTP id l50so50877471wrc.3
+        for <netdev@vger.kernel.org>; Sat, 29 Apr 2017 22:34:58 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Kernel now supports more than 2 labels. Increase ip to
-handle up to 16 labels.
+This patch allows users to enable/disable internal TX and/or RX
+clock delay for BCM5481x series PHYs so as to satisfy RGMII timing
+specifications.
 
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+On a particular platform, whether TX and/or RX clock delay is required
+depends on how PHY connected to the MAC IP. This requirement can be
+specified through "phy-mode" property in the platform device tree.
+
+Signed-off-by: Abhishek Shah <abhishek.shah@broadcom.com>
 ---
- include/utils.h | 8 ++++----
- lib/utils.c     | 2 +-
- 2 files changed, 5 insertions(+), 5 deletions(-)
+ drivers/net/phy/broadcom.c | 69 ++++++++++++++++++++++------------------------
+ 1 file changed, 33 insertions(+), 36 deletions(-)
 
-diff --git a/include/utils.h b/include/utils.h
-index 8c12e1e2a60c..a69e176c260d 100644
---- a/include/utils.h
-+++ b/include/utils.h
-@@ -54,6 +54,9 @@ void incomplete_command(void) __attribute__((noreturn));
- #define NEXT_ARG_FWD() do { argv++; argc--; } while(0)
- #define PREV_ARG() do { argv--; argc++; } while(0)
+diff --git a/drivers/net/phy/broadcom.c b/drivers/net/phy/broadcom.c
+index 9cd8b27..a32dc5d 100644
+--- a/drivers/net/phy/broadcom.c
++++ b/drivers/net/phy/broadcom.c
+@@ -74,27 +74,40 @@ static int bcm54612e_config_init(struct phy_device *phydev)
+ 	return 0;
+ }
  
-+/* Maximum number of labels the mpls helpers support */
-+#define MPLS_MAX_LABELS 16
-+
- typedef struct
+-static int bcm54810_config(struct phy_device *phydev)
++static int bcm5481x_config(struct phy_device *phydev)
  {
- 	__u16 flags;
-@@ -61,7 +64,7 @@ typedef struct
- 	__s16 bitlen;
- 	/* These next two fields match rtvia */
- 	__u16 family;
--	__u32 data[8];
-+	__u32 data[MPLS_MAX_LABELS];
- } inet_prefix;
+ 	int rc, val;
  
- #define PREFIXLEN_SPECIFIED 1
-@@ -88,9 +91,6 @@ struct ipx_addr {
- # define AF_MPLS 28
- #endif
- 
--/* Maximum number of labels the mpls helpers support */
--#define MPLS_MAX_LABELS 8
+-	val = bcm_phy_read_exp(phydev, BCM54810_EXP_BROADREACH_LRE_MISC_CTL);
+-	val &= ~BCM54810_EXP_BROADREACH_LRE_MISC_CTL_EN;
+-	rc = bcm_phy_write_exp(phydev, BCM54810_EXP_BROADREACH_LRE_MISC_CTL,
+-			       val);
+-	if (rc < 0)
+-		return rc;
 -
- __u32 get_addr32(const char *name);
- int get_addr_1(inet_prefix *dst, const char *arg, int family);
- int get_prefix_1(inet_prefix *dst, char *arg, int family);
-diff --git a/lib/utils.c b/lib/utils.c
-index 6d5642f4f1f3..c23251067180 100644
---- a/lib/utils.c
-+++ b/lib/utils.c
-@@ -526,7 +526,7 @@ int get_addr_1(inet_prefix *addr, const char *name, int family)
- 		addr->bytelen = 4;
- 		addr->bitlen = 20;
- 		/* How many bytes do I need? */
--		for (i = 0; i < 8; i++) {
-+		for (i = 0; i < MPLS_MAX_LABELS; i++) {
- 			if (ntohl(addr->data[i]) & MPLS_LS_S_MASK) {
- 				addr->bytelen = (i + 1)*4;
- 				break;
++	/* handling PHY's internal RX clock delay */
+ 	val = bcm54xx_auxctl_read(phydev, MII_BCM54XX_AUXCTL_SHDWSEL_MISC);
+-	val &= ~MII_BCM54XX_AUXCTL_SHDWSEL_MISC_RGMII_SKEW_EN;
+ 	val |= MII_BCM54XX_AUXCTL_MISC_WREN;
++	if (phydev->interface == PHY_INTERFACE_MODE_RGMII ||
++	    phydev->interface == PHY_INTERFACE_MODE_RGMII_TXID) {
++		/* Disable RGMII RXC-RXD skew */
++		val &= ~MII_BCM54XX_AUXCTL_SHDWSEL_MISC_RGMII_SKEW_EN;
++	}
++	if (phydev->interface == PHY_INTERFACE_MODE_RGMII_ID ||
++	    phydev->interface == PHY_INTERFACE_MODE_RGMII_RXID) {
++		/* Enable RGMII RXC-RXD skew */
++		val |= MII_BCM54XX_AUXCTL_SHDWSEL_MISC_RGMII_SKEW_EN;
++	}
+ 	rc = bcm54xx_auxctl_write(phydev, MII_BCM54XX_AUXCTL_SHDWSEL_MISC,
+ 				  val);
+ 	if (rc < 0)
+ 		return rc;
+ 
++	/* handling PHY's internal TX clock delay */
+ 	val = bcm_phy_read_shadow(phydev, BCM54810_SHD_CLK_CTL);
+-	val &= ~BCM54810_SHD_CLK_CTL_GTXCLK_EN;
++	if (phydev->interface == PHY_INTERFACE_MODE_RGMII ||
++	    phydev->interface == PHY_INTERFACE_MODE_RGMII_RXID) {
++		/* Disable internal TX clock delay */
++		val &= ~BCM54810_SHD_CLK_CTL_GTXCLK_EN;
++	}
++	if (phydev->interface == PHY_INTERFACE_MODE_RGMII_ID ||
++	    phydev->interface == PHY_INTERFACE_MODE_RGMII_TXID) {
++		/* Enable internal TX clock delay */
++		val |= BCM54810_SHD_CLK_CTL_GTXCLK_EN;
++	}
+ 	rc = bcm_phy_write_shadow(phydev, BCM54810_SHD_CLK_CTL, val);
+ 	if (rc < 0)
+ 		return rc;
+@@ -244,7 +257,7 @@ static void bcm54xx_adjust_rxrefclk(struct phy_device *phydev)
+ 
+ static int bcm54xx_config_init(struct phy_device *phydev)
+ {
+-	int reg, err;
++	int reg, err, val;
+ 
+ 	reg = phy_read(phydev, MII_BCM54XX_ECR);
+ 	if (reg < 0)
+@@ -283,8 +296,14 @@ static int bcm54xx_config_init(struct phy_device *phydev)
+ 		if (err)
+ 			return err;
+ 	} else if (BRCM_PHY_MODEL(phydev) == PHY_ID_BCM54810) {
+-		err = bcm54810_config(phydev);
+-		if (err)
++		/* For BCM54810, we need to disable BroadR-Reach function */
++		val = bcm_phy_read_exp(phydev,
++				       BCM54810_EXP_BROADREACH_LRE_MISC_CTL);
++		val &= ~BCM54810_EXP_BROADREACH_LRE_MISC_CTL_EN;
++		err = bcm_phy_write_exp(phydev,
++					BCM54810_EXP_BROADREACH_LRE_MISC_CTL,
++					val);
++		if (err < 0)
+ 			return err;
+ 	}
+ 
+@@ -392,29 +411,7 @@ static int bcm5481_config_aneg(struct phy_device *phydev)
+ 	ret = genphy_config_aneg(phydev);
+ 
+ 	/* Then we can set up the delay. */
+-	if (phydev->interface == PHY_INTERFACE_MODE_RGMII_RXID) {
+-		u16 reg;
+-
+-		/*
+-		 * There is no BCM5481 specification available, so down
+-		 * here is everything we know about "register 0x18". This
+-		 * at least helps BCM5481 to successfully receive packets
+-		 * on MPC8360E-RDK board. Peter Barada <peterb@logicpd.com>
+-		 * says: "This sets delay between the RXD and RXC signals
+-		 * instead of using trace lengths to achieve timing".
+-		 */
+-
+-		/* Set RDX clk delay. */
+-		reg = 0x7 | (0x7 << 12);
+-		phy_write(phydev, 0x18, reg);
+-
+-		reg = phy_read(phydev, 0x18);
+-		/* Set RDX-RXC skew. */
+-		reg |= (1 << 8);
+-		/* Write bits 14:0. */
+-		reg |= (1 << 15);
+-		phy_write(phydev, 0x18, reg);
+-	}
++	bcm5481x_config(phydev);
+ 
+ 	if (of_property_read_bool(np, "enet-phy-lane-swap")) {
+ 		/* Lane Swap - Undocumented register...magic! */
 -- 
-2.1.4
+2.7.4
