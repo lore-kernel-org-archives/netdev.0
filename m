@@ -1,146 +1,119 @@
-From: Abhishek Shah <abhishek.shah@broadcom.com>
-Subject: [PATCH] net: phy: Allow BCM5481x PHYs to setup internal TX/RX clock delay
-Date: Sun, 30 Apr 2017 11:04:21 +0530
-Message-ID: <1493530461-11935-1-git-send-email-abhishek.shah@broadcom.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linux-arm-kernel@lists.infradead.org,
-        bcm-kernel-feedback-list@broadcom.com,
-        Abhishek Shah <abhishek.shah@broadcom.com>
-To: Florian Fainelli <f.fainelli@gmail.com>
+From: Alexei Starovoitov <ast@fb.com>
+Subject: [PATCH net-next] bpf: enhance verifier to understand stack pointer arithmetic
+Date: Sat, 29 Apr 2017 22:52:42 -0700
+Message-ID: <20170430055242.2536070-1-ast@fb.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: Daniel Borkmann <daniel@iogearbox.net>, <netdev@vger.kernel.org>,
+        <kernel-team@fb.com>
+To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f181.google.com ([209.85.128.181]:36703 "EHLO
-        mail-wr0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S939444AbdD3Fe7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 30 Apr 2017 01:34:59 -0400
-Received: by mail-wr0-f181.google.com with SMTP id l50so50877471wrc.3
-        for <netdev@vger.kernel.org>; Sat, 29 Apr 2017 22:34:58 -0700 (PDT)
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:60432 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1427167AbdD3Fwq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 30 Apr 2017 01:52:46 -0400
+Received: from pps.filterd (m0044012.ppops.net [127.0.0.1])
+        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v3U5ZQnm029702
+        for <netdev@vger.kernel.org>; Sat, 29 Apr 2017 22:52:45 -0700
+Received: from mail.thefacebook.com ([199.201.64.23])
+        by mx0a-00082601.pphosted.com with ESMTP id 2a4rh8t5tu-1
+        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Sat, 29 Apr 2017 22:52:45 -0700
+Received: from facebook.com (2401:db00:11:d082:face:0:5:0)      by
+ mx-out.facebook.com (10.212.236.87) with ESMTP id
+ 3a25d6c22d6911e7aedd0002c9521c9e-331c46e0 for <netdev@vger.kernel.org>;        Sat,
+ 29 Apr 2017 22:52:43 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch allows users to enable/disable internal TX and/or RX
-clock delay for BCM5481x series PHYs so as to satisfy RGMII timing
-specifications.
+From: Yonghong Song <yhs@fb.com>
 
-On a particular platform, whether TX and/or RX clock delay is required
-depends on how PHY connected to the MAC IP. This requirement can be
-specified through "phy-mode" property in the platform device tree.
+llvm 4.0 and above generates the code like below:
+....
+440: (b7) r1 = 15
+441: (05) goto pc+73
+515: (79) r6 = *(u64 *)(r10 -152)
+516: (bf) r7 = r10
+517: (07) r7 += -112
+518: (bf) r2 = r7
+519: (0f) r2 += r1
+520: (71) r1 = *(u8 *)(r8 +0)
+521: (73) *(u8 *)(r2 +45) = r1
+....
+and the verifier complains "R2 invalid mem access 'inv'" for insn #521.
+This is because verifier marks register r2 as unknown value after #519
+where r2 is a stack pointer and r1 holds a constant value.
 
-Signed-off-by: Abhishek Shah <abhishek.shah@broadcom.com>
+Teach verifier to recognize "stack_ptr + imm" and
+"stack_ptr + reg with const val" as valid stack_ptr with new offset.
+
+Signed-off-by: Yonghong Song <yhs@fb.com>
+Acked-by: Martin KaFai Lau <kafai@fb.com>
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+Signed-off-by: Alexei Starovoitov <ast@kernel.org>
 ---
- drivers/net/phy/broadcom.c | 69 ++++++++++++++++++++++------------------------
- 1 file changed, 33 insertions(+), 36 deletions(-)
+technically it's 'net' material, but it's too late for 'net',
+hence 'net-next' tag.
+No 'Fixes' tag, since it's only seen with newer llvm.
+---
+ kernel/bpf/verifier.c                       | 11 +++++++++++
+ tools/testing/selftests/bpf/test_verifier.c | 18 ++++++++++++------
+ 2 files changed, 23 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/phy/broadcom.c b/drivers/net/phy/broadcom.c
-index 9cd8b27..a32dc5d 100644
---- a/drivers/net/phy/broadcom.c
-+++ b/drivers/net/phy/broadcom.c
-@@ -74,27 +74,40 @@ static int bcm54612e_config_init(struct phy_device *phydev)
- 	return 0;
- }
- 
--static int bcm54810_config(struct phy_device *phydev)
-+static int bcm5481x_config(struct phy_device *phydev)
- {
- 	int rc, val;
- 
--	val = bcm_phy_read_exp(phydev, BCM54810_EXP_BROADREACH_LRE_MISC_CTL);
--	val &= ~BCM54810_EXP_BROADREACH_LRE_MISC_CTL_EN;
--	rc = bcm_phy_write_exp(phydev, BCM54810_EXP_BROADREACH_LRE_MISC_CTL,
--			       val);
--	if (rc < 0)
--		return rc;
--
-+	/* handling PHY's internal RX clock delay */
- 	val = bcm54xx_auxctl_read(phydev, MII_BCM54XX_AUXCTL_SHDWSEL_MISC);
--	val &= ~MII_BCM54XX_AUXCTL_SHDWSEL_MISC_RGMII_SKEW_EN;
- 	val |= MII_BCM54XX_AUXCTL_MISC_WREN;
-+	if (phydev->interface == PHY_INTERFACE_MODE_RGMII ||
-+	    phydev->interface == PHY_INTERFACE_MODE_RGMII_TXID) {
-+		/* Disable RGMII RXC-RXD skew */
-+		val &= ~MII_BCM54XX_AUXCTL_SHDWSEL_MISC_RGMII_SKEW_EN;
-+	}
-+	if (phydev->interface == PHY_INTERFACE_MODE_RGMII_ID ||
-+	    phydev->interface == PHY_INTERFACE_MODE_RGMII_RXID) {
-+		/* Enable RGMII RXC-RXD skew */
-+		val |= MII_BCM54XX_AUXCTL_SHDWSEL_MISC_RGMII_SKEW_EN;
-+	}
- 	rc = bcm54xx_auxctl_write(phydev, MII_BCM54XX_AUXCTL_SHDWSEL_MISC,
- 				  val);
- 	if (rc < 0)
- 		return rc;
- 
-+	/* handling PHY's internal TX clock delay */
- 	val = bcm_phy_read_shadow(phydev, BCM54810_SHD_CLK_CTL);
--	val &= ~BCM54810_SHD_CLK_CTL_GTXCLK_EN;
-+	if (phydev->interface == PHY_INTERFACE_MODE_RGMII ||
-+	    phydev->interface == PHY_INTERFACE_MODE_RGMII_RXID) {
-+		/* Disable internal TX clock delay */
-+		val &= ~BCM54810_SHD_CLK_CTL_GTXCLK_EN;
-+	}
-+	if (phydev->interface == PHY_INTERFACE_MODE_RGMII_ID ||
-+	    phydev->interface == PHY_INTERFACE_MODE_RGMII_TXID) {
-+		/* Enable internal TX clock delay */
-+		val |= BCM54810_SHD_CLK_CTL_GTXCLK_EN;
-+	}
- 	rc = bcm_phy_write_shadow(phydev, BCM54810_SHD_CLK_CTL, val);
- 	if (rc < 0)
- 		return rc;
-@@ -244,7 +257,7 @@ static void bcm54xx_adjust_rxrefclk(struct phy_device *phydev)
- 
- static int bcm54xx_config_init(struct phy_device *phydev)
- {
--	int reg, err;
-+	int reg, err, val;
- 
- 	reg = phy_read(phydev, MII_BCM54XX_ECR);
- 	if (reg < 0)
-@@ -283,8 +296,14 @@ static int bcm54xx_config_init(struct phy_device *phydev)
- 		if (err)
- 			return err;
- 	} else if (BRCM_PHY_MODEL(phydev) == PHY_ID_BCM54810) {
--		err = bcm54810_config(phydev);
--		if (err)
-+		/* For BCM54810, we need to disable BroadR-Reach function */
-+		val = bcm_phy_read_exp(phydev,
-+				       BCM54810_EXP_BROADREACH_LRE_MISC_CTL);
-+		val &= ~BCM54810_EXP_BROADREACH_LRE_MISC_CTL_EN;
-+		err = bcm_phy_write_exp(phydev,
-+					BCM54810_EXP_BROADREACH_LRE_MISC_CTL,
-+					val);
-+		if (err < 0)
- 			return err;
- 	}
- 
-@@ -392,29 +411,7 @@ static int bcm5481_config_aneg(struct phy_device *phydev)
- 	ret = genphy_config_aneg(phydev);
- 
- 	/* Then we can set up the delay. */
--	if (phydev->interface == PHY_INTERFACE_MODE_RGMII_RXID) {
--		u16 reg;
--
--		/*
--		 * There is no BCM5481 specification available, so down
--		 * here is everything we know about "register 0x18". This
--		 * at least helps BCM5481 to successfully receive packets
--		 * on MPC8360E-RDK board. Peter Barada <peterb@logicpd.com>
--		 * says: "This sets delay between the RXD and RXC signals
--		 * instead of using trace lengths to achieve timing".
--		 */
--
--		/* Set RDX clk delay. */
--		reg = 0x7 | (0x7 << 12);
--		phy_write(phydev, 0x18, reg);
--
--		reg = phy_read(phydev, 0x18);
--		/* Set RDX-RXC skew. */
--		reg |= (1 << 8);
--		/* Write bits 14:0. */
--		reg |= (1 << 15);
--		phy_write(phydev, 0x18, reg);
--	}
-+	bcm5481x_config(phydev);
- 
- 	if (of_property_read_bool(np, "enet-phy-lane-swap")) {
- 		/* Lane Swap - Undocumented register...magic! */
+diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+index 6f8b6ed690be..c2ff608c1984 100644
+--- a/kernel/bpf/verifier.c
++++ b/kernel/bpf/verifier.c
+@@ -1924,6 +1924,17 @@ static int check_alu_op(struct bpf_verifier_env *env, struct bpf_insn *insn)
+ 			return 0;
+ 		} else if (opcode == BPF_ADD &&
+ 			   BPF_CLASS(insn->code) == BPF_ALU64 &&
++			   dst_reg->type == PTR_TO_STACK &&
++			   ((BPF_SRC(insn->code) == BPF_X &&
++			     regs[insn->src_reg].type == CONST_IMM) ||
++			    BPF_SRC(insn->code) == BPF_K)) {
++			if (BPF_SRC(insn->code) == BPF_X)
++				dst_reg->imm += regs[insn->src_reg].imm;
++			else
++				dst_reg->imm += insn->imm;
++			return 0;
++		} else if (opcode == BPF_ADD &&
++			   BPF_CLASS(insn->code) == BPF_ALU64 &&
+ 			   (dst_reg->type == PTR_TO_PACKET ||
+ 			    (BPF_SRC(insn->code) == BPF_X &&
+ 			     regs[insn->src_reg].type == PTR_TO_PACKET))) {
+diff --git a/tools/testing/selftests/bpf/test_verifier.c b/tools/testing/selftests/bpf/test_verifier.c
+index 95a8d5f3ab80..0ea89456d478 100644
+--- a/tools/testing/selftests/bpf/test_verifier.c
++++ b/tools/testing/selftests/bpf/test_verifier.c
+@@ -1814,16 +1814,22 @@ static struct bpf_test tests[] = {
+ 		.result = ACCEPT,
+ 	},
+ 	{
+-		"unpriv: obfuscate stack pointer",
++		"stack pointer arithmetic",
+ 		.insns = {
+-			BPF_MOV64_REG(BPF_REG_2, BPF_REG_10),
+-			BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -8),
+-			BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -8),
++			BPF_MOV64_IMM(BPF_REG_1, 4),
++			BPF_JMP_IMM(BPF_JA, 0, 0, 0),
++			BPF_MOV64_REG(BPF_REG_7, BPF_REG_10),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_7, -10),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_7, -10),
++			BPF_MOV64_REG(BPF_REG_2, BPF_REG_7),
++			BPF_ALU64_REG(BPF_ADD, BPF_REG_2, BPF_REG_1),
++			BPF_ST_MEM(0, BPF_REG_2, 4, 0),
++			BPF_MOV64_REG(BPF_REG_2, BPF_REG_7),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, 8),
++			BPF_ST_MEM(0, BPF_REG_2, 4, 0),
+ 			BPF_MOV64_IMM(BPF_REG_0, 0),
+ 			BPF_EXIT_INSN(),
+ 		},
+-		.errstr_unpriv = "R2 pointer arithmetic",
+-		.result_unpriv = REJECT,
+ 		.result = ACCEPT,
+ 	},
+ 	{
 -- 
-2.7.4
+2.9.3
