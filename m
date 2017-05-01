@@ -1,32 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] tcp: fix access to sk->sk_state in tcp_poll()
-Date: Sun, 30 Apr 2017 22:25:11 -0400 (EDT)
-Message-ID: <20170430.222511.1580121304843279513.davem@davemloft.net>
-References: <0a1710138c3e55c388a52dba817b2d1b1996c899.1493226034.git.dcaratti@redhat.com>
+Subject: Re: [PATCH net-next] Fix inaccurate helper function description
+Date: Sun, 30 Apr 2017 22:25:32 -0400 (EDT)
+Message-ID: <20170430.222532.1945595185772507111.davem@davemloft.net>
+References: <1493250083-1954-1-git-send-email-chenbofeng.kernel@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-        kaber@trash.net, weiwan@google.com, netdev@vger.kernel.org
-To: dcaratti@redhat.com
+Cc: netdev@vger.kernel.org, mic@digikod.net, fengc@google.com
+To: chenbofeng.kernel@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:54136 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:54150 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S642288AbdEACZO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 30 Apr 2017 22:25:14 -0400
-In-Reply-To: <0a1710138c3e55c388a52dba817b2d1b1996c899.1493226034.git.dcaratti@redhat.com>
+        with ESMTP id S642297AbdEACZf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 30 Apr 2017 22:25:35 -0400
+In-Reply-To: <1493250083-1954-1-git-send-email-chenbofeng.kernel@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Davide Caratti <dcaratti@redhat.com>
-Date: Wed, 26 Apr 2017 19:07:35 +0200
+From: Chenbo Feng <chenbofeng.kernel@gmail.com>
+Date: Wed, 26 Apr 2017 16:41:23 -0700
 
-> avoid direct access to sk->sk_state when tcp_poll() is called on a socket
-> using active TCP fastopen with deferred connect. Use local variable
-> 'state', which stores the result of sk_state_load(), like it was done in
-> commit 00fd38d938db ("tcp: ensure proper barriers in lockless contexts").
+> From: Chenbo Feng <fengc@google.com>
 > 
-> Fixes: 19f6d3f3c842 ("net/tcp-fastopen: Add new API support")
-> Signed-off-by: Davide Caratti <dcaratti@redhat.com>
+> The description inside uapi/linux/bpf.h about bpf_get_socket_uid
+> helper function is no longer valid. It returns overflowuid rather
+> than 0 when failed.
+> 
+> Signed-off-by: Chenbo Feng <fengc@google.com>
 
 Applied.
