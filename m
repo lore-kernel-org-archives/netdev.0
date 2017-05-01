@@ -1,29 +1,29 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: How does vlan driver pass vlan info to the h/w ethernet driver
-Date: Mon, 1 May 2017 16:37:03 +0200
-Message-ID: <20170501143703.GA1285@lunn.ch>
-References: <CABM+yxkwQ1Oiw9p0tehLYyNgh6Qj=+1KKNk4hy35vz00DveyGA@mail.gmail.com>
- <CABM+yxkiOpOs5b5MM6MD4woz5R2-4_gf=t=8THXb3p=wuwTtXg@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next PATCH 0/2] samples/bpf: two bug fixes to
+ XDP_FLAGS_SKB_MODE attaching
+Date: Mon, 01 May 2017 10:42:54 -0400 (EDT)
+Message-ID: <20170501.104254.1309394134995732895.davem@davemloft.net>
+References: <5607e461-b74f-f8b7-8d47-a5341259ddff@cumulusnetworks.com>
+        <149363073213.17600.4480290736818479957.stgit@firesoul>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: carl h <heyen2000@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: dsa@cumulusnetworks.com, netdev@vger.kernel.org,
+        borkmann@iogearbox.net, alexei.starovoitov@gmail.com
+To: brouer@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:46746 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752959AbdEAOhF (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 1 May 2017 10:37:05 -0400
-Content-Disposition: inline
-In-Reply-To: <CABM+yxkiOpOs5b5MM6MD4woz5R2-4_gf=t=8THXb3p=wuwTtXg@mail.gmail.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:33148 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756873AbdEAOm4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 1 May 2017 10:42:56 -0400
+In-Reply-To: <149363073213.17600.4480290736818479957.stgit@firesoul>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> > By what mechanism does the vlan driver (8021q.ko) tell the Ethernet
-> > hardware about a vlan?
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Date: Mon, 01 May 2017 11:26:10 +0200
 
-Why would the Ethernet hardware need to know?
+> Two small bugfixes for:
+>  commit 3993f2cb983b ("samples/bpf: Add support for SKB_MODE to xdp1 and xdp_tx_iptunnel")
 
-An Ethernet Switch might need to know. If so, then switchdev would be
-used, include/net/switchdev.h
-
-    Andrew
+Series applied.
