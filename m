@@ -1,7 +1,7 @@
 From: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH v5 19/20] arm: multi_v7: Enable dwmac-sun8i driver on multi_v7_defconfig
-Date: Mon,  1 May 2017 14:45:19 +0200
-Message-ID: <20170501124520.3769-20-clabbe.montjoie@gmail.com>
+Subject: [PATCH v5 18/20] arm: sunxi: Enable dwmac-sun8i driver on sunxi_defconfig
+Date: Mon,  1 May 2017 14:45:18 +0200
+Message-ID: <20170501124520.3769-19-clabbe.montjoie@gmail.com>
 References: <20170501124520.3769-1-clabbe.montjoie@gmail.com>
 Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
         netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
@@ -16,25 +16,25 @@ In-Reply-To: <20170501124520.3769-1-clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@publi
 Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Enable the dwmac-sun8i driver in the multi_v7 default configuration
+Enable the dwmac-sun8i driver in the sunxi default configuration
 
 Signed-off-by: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- arch/arm/configs/multi_v7_defconfig | 1 +
+ arch/arm/configs/sunxi_defconfig | 1 +
  1 file changed, 1 insertion(+)
 
-diff --git a/arch/arm/configs/multi_v7_defconfig b/arch/arm/configs/multi_v7_defconfig
-index 2685e03..6da6af8 100644
---- a/arch/arm/configs/multi_v7_defconfig
-+++ b/arch/arm/configs/multi_v7_defconfig
-@@ -257,6 +257,7 @@ CONFIG_SMSC911X=y
- CONFIG_STMMAC_ETH=y
- CONFIG_STMMAC_PLATFORM=y
- CONFIG_DWMAC_DWC_QOS_ETH=y
+diff --git a/arch/arm/configs/sunxi_defconfig b/arch/arm/configs/sunxi_defconfig
+index 5cd5dd70..504e022 100644
+--- a/arch/arm/configs/sunxi_defconfig
++++ b/arch/arm/configs/sunxi_defconfig
+@@ -40,6 +40,7 @@ CONFIG_ATA=y
+ CONFIG_AHCI_SUNXI=y
+ CONFIG_NETDEVICES=y
+ CONFIG_SUN4I_EMAC=y
 +CONFIG_DWMAC_SUN8I=y
- CONFIG_TI_CPSW=y
- CONFIG_XILINX_EMACLITE=y
- CONFIG_AT803X_PHY=y
+ # CONFIG_NET_VENDOR_ARC is not set
+ # CONFIG_NET_CADENCE is not set
+ # CONFIG_NET_VENDOR_BROADCOM is not set
 -- 
 2.10.2
 
