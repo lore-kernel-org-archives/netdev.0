@@ -1,81 +1,65 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: [PATCH 3/3] sctp: Replace four seq_printf() calls by seq_puts()
-Date: Mon, 1 May 2017 15:33:29 +0200
-Message-ID: <e1c75816-be5a-2ddb-101e-4abf08e140f1@users.sourceforge.net>
-References: <ea9206ca-2a2f-095e-d764-3f819610d5e8@users.sourceforge.net>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [PATCH net-next V3 2/2] rtnl: Add support for netdev event
+ attribute to link messages
+Date: Mon, 1 May 2017 09:35:21 -0400
+Message-ID: <00ddfbb9-9cf7-026d-562b-1b7a4a7129d3@redhat.com>
+References: <1492795881-11914-1-git-send-email-vyasevic@redhat.com>
+ <1492795881-11914-3-git-send-email-vyasevic@redhat.com>
+ <877efb54-2aef-4d1e-c0b4-2ce6aa6562df@cumulusnetworks.com>
+ <7b5396ae-0cf3-2a1e-9c49-5d6f031adf58@redhat.com>
+ <760db30a-859a-a365-e0f3-69a4433ef9bf@cumulusnetworks.com>
+ <20170428163804.GH1886@nanopsycho.orion>
+Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-        kernel-janitors@vger.kernel.org
-To: linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-        "David S. Miller" <davem@davemloft.net>,
-        Neil Horman <nhorman@tuxdriver.com>,
-        Vlad Yasevich <vyasevich@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <ea9206ca-2a2f-095e-d764-3f819610d5e8@users.sourceforge.net>
-Content-Language: en-GB
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Vladislav Yasevich <vyasevich@gmail.com>, netdev@vger.kernel.org,
+        roopa <roopa@cumulusnetworks.com>
+To: Jiri Pirko <jiri@resnulli.us>,
+        David Ahern <dsa@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:35464 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1424272AbdEANfY (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 1 May 2017 09:35:24 -0400
+In-Reply-To: <20170428163804.GH1886@nanopsycho.orion>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Mon, 1 May 2017 14:54:18 +0200
+On 04/28/2017 12:38 PM, Jiri Pirko wrote:
+> Thu, Apr 27, 2017 at 09:59:38PM CEST, dsa@cumulusnetworks.com wrote:
+>> On 4/27/17 1:43 PM, Vlad Yasevich wrote:
+>>>> For example, NETDEV_CHANGEINFODATA is only for bonds though nothing
+>>>> about the name suggests it is a bonding notification. This one was added
+>>>> specifically to notify userspace (d4261e5650004), yet seems to happen
+>>>> only during a changelink and that already generates a RTM_NEWLINK
+>>>> message via do_setlink. Since the rtnetlink_event message does not
+>>>> contain anything "NETDEV_CHANGEINFODATA" related what purpose does it
+>>>> really serve besides duplicating netlink messages to userspace.
+>>>>
+>>>
+>>> I am not sure about this one, but if you have an app trying to monitor
+>>> for this event, it can't really since there is no info in the netlink message.
+>>
+>> I cc'ed Jiri on this thread hoping he would explain the intent.
+>>
+>> I propose it gets removed.
+> 
+> Hmm, I don't really recall. But looking at it now, I agree it is
+> redundant.
+> 
 
-Strings which did not contain data format specifications should be put
-into a sequence. Thus use the corresponding function "seq_puts".
+So, it looks like the notifier might be there to account for the ioctl/sysfs
+interfaces.
 
-This issue was detected by using the Coccinelle software.
+Additionally, the message is not generated from do_setlink() if the devices is
+down, so notifier accounts for that as well.
 
-Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
----
- net/sctp/proc.c | 16 +++++++---------
- 1 file changed, 7 insertions(+), 9 deletions(-)
+I guess, basic question is whether data carried in NETDEV_CHANGEINFODATA is useful
+to user space?  If yes (I can possibly see some managements apps that might be interested
+in it), then we shouldn't just remove it.  Possible solutions to eliminate duplicates
+would be to move the notifier call into non-rtnl code paths...
 
-diff --git a/net/sctp/proc.c b/net/sctp/proc.c
-index 458087681490..a9dc4538db44 100644
---- a/net/sctp/proc.c
-+++ b/net/sctp/proc.c
-@@ -184,7 +184,8 @@ static void *sctp_eps_seq_start(struct seq_file *seq, loff_t *pos)
- 		*pos = 0;
- 
- 	if (*pos == 0)
--		seq_printf(seq, " ENDPT     SOCK   STY SST HBKT LPORT   UID INODE LADDRS\n");
-+		seq_puts(seq,
-+			 " ENDPT     SOCK   STY SST HBKT LPORT   UID INODE LADDRS\n");
- 
- 	return (void *)pos;
- }
-@@ -326,11 +327,8 @@ static int sctp_assocs_seq_show(struct seq_file *seq, void *v)
- 	struct sock *sk;
- 
- 	if (v == SEQ_START_TOKEN) {
--		seq_printf(seq, " ASSOC     SOCK   STY SST ST HBKT "
--				"ASSOC-ID TX_QUEUE RX_QUEUE UID INODE LPORT "
--				"RPORT LADDRS <-> RADDRS "
--				"HBINT INS OUTS MAXRT T1X T2X RTXC "
--				"wmema wmemq sndbuf rcvbuf\n");
-+		seq_puts(seq,
-+			 " ASSOC     SOCK   STY SST ST HBKT ASSOC-ID TX_QUEUE RX_QUEUE UID INODE LPORT RPORT LADDRS <-> RADDRS HBINT INS OUTS MAXRT T1X T2X RTXC wmema wmemq sndbuf rcvbuf\n");
- 		return 0;
- 	}
- 
-@@ -357,5 +355,5 @@ static int sctp_assocs_seq_show(struct seq_file *seq, void *v)
- 	sctp_seq_dump_local_addrs(seq, epb);
--	seq_printf(seq, "<-> ");
-+	seq_puts(seq, "<-> ");
- 	sctp_seq_dump_remote_addrs(seq, assoc);
- 	seq_printf(seq, "\t%8lu %5d %5d %4d %4d %4d %8d "
- 		   "%8d %8d %8d %8d",
-@@ -419,8 +417,8 @@ static int sctp_remaddr_seq_show(struct seq_file *seq, void *v)
- 	struct sctp_transport *transport, *tsp;
- 
- 	if (v == SEQ_START_TOKEN) {
--		seq_printf(seq, "ADDR ASSOC_ID HB_ACT RTO MAX_PATH_RTX "
--				"REM_ADDR_RTX START STATE\n");
-+		seq_puts(seq,
-+			 "ADDR ASSOC_ID HB_ACT RTO MAX_PATH_RTX REM_ADDR_RTX START STATE\n");
- 		return 0;
- 	}
- 
--- 
-2.12.2
+Also, may be netdev_state_change() should call rtmsg_ifinfo() unconditionally?
+
+-vlad
