@@ -1,30 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] qed: Prevent warning without CONFIG_RFS_ACCEL
-Date: Sun, 30 Apr 2017 23:01:03 -0400 (EDT)
-Message-ID: <20170430.230103.53209164967311276.davem@davemloft.net>
-References: <1493543684-7038-1-git-send-email-Yuval.Mintz@cavium.com>
+Subject: Re: [pull request][net-next 00/15] Mellanox, mlx5 updates
+ 2017-04-30
+Date: Sun, 30 Apr 2017 23:02:11 -0400 (EDT)
+Message-ID: <20170430.230211.93191923706568330.davem@davemloft.net>
+References: <20170430132016.27012-1-saeedm@mellanox.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Sudarsana.Kalluru@cavium.com
-To: Yuval.Mintz@cavium.com
+Cc: netdev@vger.kernel.org, ogerlitz@mellanox.com, hadarh@mellanox.com,
+        ilyal@mellanox.com, roid@mellanox.com
+To: saeedm@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:54790 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:54814 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750731AbdEADBF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 30 Apr 2017 23:01:05 -0400
-In-Reply-To: <1493543684-7038-1-git-send-email-Yuval.Mintz@cavium.com>
+        with ESMTP id S1164713AbdEADCN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 30 Apr 2017 23:02:13 -0400
+In-Reply-To: <20170430132016.27012-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yuval Mintz <Yuval.Mintz@cavium.com>
-Date: Sun, 30 Apr 2017 12:14:44 +0300
+From: Saeed Mahameed <saeedm@mellanox.com>
+Date: Sun, 30 Apr 2017 16:20:01 +0300
 
-> After removing the PTP related initialization from slowpath start,
-> the remaining PTT entry is required only in case CONFIG_RFS_ACCEL is set.
-> Otherwise, it leads to a warning due to it being unused.
+> This series contains two sets of patches to the mlx5 driver,
+> 1. Nine patches (mostly from Hadar) to add 'mlx5 neigh update' feature.
+> 2. Six misc patches.
 > 
-> Fixes: d179bd1699fc ("qed: Acquire/release ptt_ptp lock when enabling/disabling PTP")
-> Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
+> For more details please see below.
+> 
+> Sorry for the last minute submission, originally I planned to submit before
+> weekend, but in order to provide clean patches, we had to deal with some
+> auto build issues first.
+> 
+> Please pull and let me know if there's any problem.
 
-Also applied, thanks.
+Pulled, thanks.
