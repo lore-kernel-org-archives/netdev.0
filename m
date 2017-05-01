@@ -1,57 +1,66 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 34/53] netfilter: ipvs: fix incorrect conflict resolution
-Date: Mon,  1 May 2017 12:47:01 +0200
-Message-ID: <1493635640-24325-35-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 17/53] netfilter: nat: remove rcu_read_lock in __nf_nat_decode_session.
+Date: Mon,  1 May 2017 12:46:44 +0200
+Message-ID: <1493635640-24325-18-git-send-email-pablo@netfilter.org>
 References: <1493635640-24325-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:49772 "EHLO mail.us.es"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S378880AbdEAKsE (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 1 May 2017 06:48:04 -0400
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+        by mail.us.es (Postfix) with ESMTP id 5BA331F4B9D
+        for <netdev@vger.kernel.org>; Mon,  1 May 2017 12:47:43 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 4CDFFFF2D1
+        for <netdev@vger.kernel.org>; Mon,  1 May 2017 12:47:43 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 336F3DA870
+        for <netdev@vger.kernel.org>; Mon,  1 May 2017 12:47:41 +0200 (CEST)
 In-Reply-To: <1493635640-24325-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Florian Westphal <fw@strlen.de>
+From: Taehee Yoo <ap420073@gmail.com>
 
-The commit ab8bc7ed864b9c4f1fcb00a22bbe4e0f66ce8003
-("netfilter: remove nf_ct_is_untracked")
-changed the line
-   if (ct && !nf_ct_is_untracked(ct) && nfct_nat(ct)) {
-	   to
-   if (ct && nfct_nat(ct)) {
+__nf_nat_decode_session is called from nf_nat_decode_session as decodefn.
+before calling decodefn, it already set rcu_read_lock. so rcu_read_lock in
+__nf_nat_decode_session can be removed.
 
-meanwhile, the commit 41390895e50bc4f28abe384c6b35ac27464a20ec
-("netfilter: ipvs: don't check for presence of nat extension")
-from ipvs-next had changed the same line to
-
-  if (ct && !nf_ct_is_untracked(ct) && (ct->status & IPS_NAT_MASK)) {
-
-When ipvs-next got merged into nf-next, the merge resolution took
-the first version, dropping the conversion of nfct_nat().
-
-While this doesn't cause a problem at the moment, it will once we stop
-adding the nat extension by default.
-
-Signed-off-by: Florian Westphal <fw@strlen.de>
+Signed-off-by: Taehee Yoo <ap420073@gmail.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/ipvs/ip_vs_ftp.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ net/netfilter/nf_nat_core.c | 7 ++-----
+ 1 file changed, 2 insertions(+), 5 deletions(-)
 
-diff --git a/net/netfilter/ipvs/ip_vs_ftp.c b/net/netfilter/ipvs/ip_vs_ftp.c
-index af3a9bbdf2ae..fb780be76d15 100644
---- a/net/netfilter/ipvs/ip_vs_ftp.c
-+++ b/net/netfilter/ipvs/ip_vs_ftp.c
-@@ -260,8 +260,9 @@ static int ip_vs_ftp_out(struct ip_vs_app *app, struct ip_vs_conn *cp,
- 		buf_len = strlen(buf);
+diff --git a/net/netfilter/nf_nat_core.c b/net/netfilter/nf_nat_core.c
+index 376c1b36f222..fb0e65411785 100644
+--- a/net/netfilter/nf_nat_core.c
++++ b/net/netfilter/nf_nat_core.c
+@@ -71,11 +71,10 @@ static void __nf_nat_decode_session(struct sk_buff *skb, struct flowi *fl)
+ 	if (ct == NULL)
+ 		return;
  
- 		ct = nf_ct_get(skb, &ctinfo);
--		if (ct && nfct_nat(ct)) {
-+		if (ct && (ct->status & IPS_NAT_MASK)) {
- 			bool mangled;
-+
- 			/* If mangling fails this function will return 0
- 			 * which will cause the packet to be dropped.
- 			 * Mangling can only fail under memory pressure,
+-	family = ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple.src.l3num;
+-	rcu_read_lock();
++	family = nf_ct_l3num(ct);
+ 	l3proto = __nf_nat_l3proto_find(family);
+ 	if (l3proto == NULL)
+-		goto out;
++		return;
+ 
+ 	dir = CTINFO2DIR(ctinfo);
+ 	if (dir == IP_CT_DIR_ORIGINAL)
+@@ -84,8 +83,6 @@ static void __nf_nat_decode_session(struct sk_buff *skb, struct flowi *fl)
+ 		statusbit = IPS_SRC_NAT;
+ 
+ 	l3proto->decode_session(skb, ct, dir, statusbit, fl);
+-out:
+-	rcu_read_unlock();
+ }
+ 
+ int nf_xfrm_me_harder(struct net *net, struct sk_buff *skb, unsigned int family)
 -- 
 2.1.4
-
