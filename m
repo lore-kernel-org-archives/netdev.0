@@ -1,50 +1,37 @@
 From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [PATCH net-next] samples/bpf: Add support for SKB_MODE to xdp1
- and xdp_tx_iptunnel
-Date: Mon, 1 May 2017 11:09:56 +0200
-Message-ID: <20170501110956.3e82545a@redhat.com>
-References: <1493309473-27384-1-git-send-email-dsa@cumulusnetworks.com>
-        <20170428234035.5f0beec6@redhat.com>
-        <5607e461-b74f-f8b7-8d47-a5341259ddff@cumulusnetworks.com>
+Subject: [net-next PATCH 0/2] samples/bpf: two bug fixes to
+ XDP_FLAGS_SKB_MODE attaching
+Date: Mon, 01 May 2017 11:26:10 +0200
+Message-ID: <149363073213.17600.4480290736818479957.stgit@firesoul>
+References: <5607e461-b74f-f8b7-8d47-a5341259ddff@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ast@fb.com, daniel@iogearbox.net,
-        brouer@redhat.com
-To: David Ahern <dsa@cumulusnetworks.com>
+Cc: Daniel Borkmann <borkmann@iogearbox.net>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Jesper Dangaard Brouer <brouer@redhat.com>
+To: dsa@cumulusnetworks.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:52350 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:59200 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S642825AbdEAJKD (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 1 May 2017 05:10:03 -0400
+        id S376520AbdEAJ0P (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 1 May 2017 05:26:15 -0400
 In-Reply-To: <5607e461-b74f-f8b7-8d47-a5341259ddff@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 30 Apr 2017 17:46:13 -0600
-David Ahern <dsa@cumulusnetworks.com> wrote:
+Two small bugfixes for:
+ commit 3993f2cb983b ("samples/bpf: Add support for SKB_MODE to xdp1 and xdp_tx_iptunnel")
 
-> On 4/28/17 3:40 PM, Jesper Dangaard Brouer wrote:
-> > [...]  
-> >> diff --git a/samples/bpf/bpf_load.c b/samples/bpf/bpf_load.c
-> >> index 0d449d8032d1..d4433a47e6c3 100644
-> >> --- a/samples/bpf/bpf_load.c
-> >> +++ b/samples/bpf/bpf_load.c
-> >> @@ -563,7 +563,7 @@ struct ksym *ksym_search(long key)
-> >>  	return &syms[0];
-> >>  }
-> >>  
-> >> -int set_link_xdp_fd(int ifindex, int fd)
-> >> +int set_link_xdp_fd(int ifindex, int fd, int flags)  
-> > Shouldn't the flags be a unsigned int, actually a __u32 ?
-> >   
-> 
-> sure. I'll send a patch
+---
 
-I found another bug in xdp_tx_iptunnel ... I'll send a patch for both issues.
+Jesper Dangaard Brouer (2):
+      samples/bpf: fix SKB_MODE flag to be a 32-bit unsigned int
+      samples/bpf: fix XDP_FLAGS_SKB_MODE detach for xdp_tx_iptunnel
 
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  LinkedIn: http://www.linkedin.com/in/brouer
+
+ samples/bpf/bpf_load.c             |    3 ++-
+ samples/bpf/bpf_load.h             |    2 +-
+ samples/bpf/xdp1_user.c            |    8 ++++----
+ samples/bpf/xdp_tx_iptunnel_user.c |   10 +++++-----
+ 4 files changed, 12 insertions(+), 11 deletions(-)
