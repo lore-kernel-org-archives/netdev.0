@@ -1,88 +1,84 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 44/53] netfilter: masquerade: attach nat extension if not present
-Date: Mon,  1 May 2017 12:47:11 +0200
-Message-ID: <1493635640-24325-45-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 47/53] ipvs: remove unused function ip_vs_set_state_timeout
+Date: Mon,  1 May 2017 12:47:14 +0200
+Message-ID: <1493635640-24325-48-git-send-email-pablo@netfilter.org>
 References: <1493635640-24325-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:49712 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:49670 "EHLO mail.us.es"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S378835AbdEAKtD (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 1 May 2017 06:49:03 -0400
+        id S379022AbdEAKtH (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 1 May 2017 06:49:07 -0400
 Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id D9E66210589
+        by mail.us.es (Postfix) with ESMTP id 42655210586
         for <netdev@vger.kernel.org>; Mon,  1 May 2017 12:48:07 +0200 (CEST)
 Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id CB844A6D6
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 3280DFF2D0
         for <netdev@vger.kernel.org>; Mon,  1 May 2017 12:48:07 +0200 (CEST)
 Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 9F7C0FF124
-        for <netdev@vger.kernel.org>; Mon,  1 May 2017 12:48:02 +0200 (CEST)
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 17839FF2CF
+        for <netdev@vger.kernel.org>; Mon,  1 May 2017 12:48:05 +0200 (CEST)
 In-Reply-To: <1493635640-24325-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Westphal <fw@strlen.de>
+From: Aaron Conole <aconole@bytheb.org>
 
-Currently the nat extension is always attached as soon as nat module is
-loaded.  However, most NAT uses do not need the nat extension anymore.
+There are no in-tree callers of this function and it isn't exported.
 
-Prepare to remove the add-nat-by-default by making those places that need
-it attach it if its not present yet.
-
-Signed-off-by: Florian Westphal <fw@strlen.de>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+Signed-off-by: Aaron Conole <aconole@bytheb.org>
+Signed-off-by: Simon Horman <horms@verge.net.au>
 ---
- net/ipv4/netfilter/nf_nat_masquerade_ipv4.c | 5 +++--
- net/ipv6/netfilter/nf_nat_masquerade_ipv6.c | 5 ++++-
- 2 files changed, 7 insertions(+), 3 deletions(-)
+ include/net/ip_vs.h              |  2 --
+ net/netfilter/ipvs/ip_vs_proto.c | 22 ----------------------
+ 2 files changed, 24 deletions(-)
 
-diff --git a/net/ipv4/netfilter/nf_nat_masquerade_ipv4.c b/net/ipv4/netfilter/nf_nat_masquerade_ipv4.c
-index ea91058b5f6f..dc1dea15c1b4 100644
---- a/net/ipv4/netfilter/nf_nat_masquerade_ipv4.c
-+++ b/net/ipv4/netfilter/nf_nat_masquerade_ipv4.c
-@@ -37,7 +37,6 @@ nf_nat_masquerade_ipv4(struct sk_buff *skb, unsigned int hooknum,
- 	NF_CT_ASSERT(hooknum == NF_INET_POST_ROUTING);
+diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
+index 632082300e77..4f4f786255ef 100644
+--- a/include/net/ip_vs.h
++++ b/include/net/ip_vs.h
+@@ -1349,8 +1349,6 @@ int ip_vs_protocol_init(void);
+ void ip_vs_protocol_cleanup(void);
+ void ip_vs_protocol_timeout_change(struct netns_ipvs *ipvs, int flags);
+ int *ip_vs_create_timeout_table(int *table, int size);
+-int ip_vs_set_state_timeout(int *table, int num, const char *const *names,
+-			    const char *name, int to);
+ void ip_vs_tcpudp_debug_packet(int af, struct ip_vs_protocol *pp,
+ 			       const struct sk_buff *skb, int offset,
+ 			       const char *msg);
+diff --git a/net/netfilter/ipvs/ip_vs_proto.c b/net/netfilter/ipvs/ip_vs_proto.c
+index 8ae480715cea..ca880a3ad033 100644
+--- a/net/netfilter/ipvs/ip_vs_proto.c
++++ b/net/netfilter/ipvs/ip_vs_proto.c
+@@ -193,28 +193,6 @@ ip_vs_create_timeout_table(int *table, int size)
+ }
  
- 	ct = nf_ct_get(skb, &ctinfo);
--	nat = nfct_nat(ct);
  
- 	NF_CT_ASSERT(ct && (ctinfo == IP_CT_NEW || ctinfo == IP_CT_RELATED ||
- 			    ctinfo == IP_CT_RELATED_REPLY));
-@@ -56,7 +55,9 @@ nf_nat_masquerade_ipv4(struct sk_buff *skb, unsigned int hooknum,
- 		return NF_DROP;
- 	}
- 
--	nat->masq_index = out->ifindex;
-+	nat = nf_ct_nat_ext_add(ct);
-+	if (nat)
-+		nat->masq_index = out->ifindex;
- 
- 	/* Transfer from original range. */
- 	memset(&newrange.min_addr, 0, sizeof(newrange.min_addr));
-diff --git a/net/ipv6/netfilter/nf_nat_masquerade_ipv6.c b/net/ipv6/netfilter/nf_nat_masquerade_ipv6.c
-index 051b6a6bfff6..2297c9f073ba 100644
---- a/net/ipv6/netfilter/nf_nat_masquerade_ipv6.c
-+++ b/net/ipv6/netfilter/nf_nat_masquerade_ipv6.c
-@@ -30,6 +30,7 @@ nf_nat_masquerade_ipv6(struct sk_buff *skb, const struct nf_nat_range *range,
- 		       const struct net_device *out)
+-/*
+- *	Set timeout value for state specified by name
+- */
+-int
+-ip_vs_set_state_timeout(int *table, int num, const char *const *names,
+-			const char *name, int to)
+-{
+-	int i;
+-
+-	if (!table || !name || !to)
+-		return -EINVAL;
+-
+-	for (i = 0; i < num; i++) {
+-		if (strcmp(names[i], name))
+-			continue;
+-		table[i] = to * HZ;
+-		return 0;
+-	}
+-	return -ENOENT;
+-}
+-
+-
+ const char * ip_vs_state_name(__u16 proto, int state)
  {
- 	enum ip_conntrack_info ctinfo;
-+	struct nf_conn_nat *nat;
- 	struct in6_addr src;
- 	struct nf_conn *ct;
- 	struct nf_nat_range newrange;
-@@ -42,7 +43,9 @@ nf_nat_masquerade_ipv6(struct sk_buff *skb, const struct nf_nat_range *range,
- 			       &ipv6_hdr(skb)->daddr, 0, &src) < 0)
- 		return NF_DROP;
- 
--	nfct_nat(ct)->masq_index = out->ifindex;
-+	nat = nf_ct_nat_ext_add(ct);
-+	if (nat)
-+		nat->masq_index = out->ifindex;
- 
- 	newrange.flags		= range->flags | NF_NAT_RANGE_MAP_IPS;
- 	newrange.min_addr.in6	= src;
+ 	struct ip_vs_protocol *pp = ip_vs_proto_get(proto);
 -- 
 2.1.4
