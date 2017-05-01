@@ -1,31 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/6] nfp: optimize XDP TX and small fixes
-Date: Sun, 30 Apr 2017 22:37:44 -0400 (EDT)
-Message-ID: <20170430.223744.1021414586941800017.davem@davemloft.net>
-References: <20170428040620.8256-1-jakub.kicinski@netronome.com>
+Subject: Re: [PATCH net-next v5 0/2] net: hns: bug fix for HNS driver
+Date: Sun, 30 Apr 2017 22:39:41 -0400 (EDT)
+Message-ID: <20170430.223941.473664198488663673.davem@davemloft.net>
+References: <1493362187-51671-1-git-send-email-yankejian@huawei.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, oss-drivers@netronome.com, kubakici@wp.pl
-To: jakub.kicinski@netronome.com
+Cc: salil.mehta@huawei.com, yisen.zhuang@huawei.com,
+        matthias.bgg@gmail.com, lipeng321@huawei.com, zhouhuiru@huawei.com,
+        huangdaode@hisilicon.com, netdev@vger.kernel.org,
+        linuxarm@huawei.com
+To: yankejian@huawei.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:54318 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:54336 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1425169AbdEAChq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 30 Apr 2017 22:37:46 -0400
-In-Reply-To: <20170428040620.8256-1-jakub.kicinski@netronome.com>
+        with ESMTP id S1164565AbdEACjo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 30 Apr 2017 22:39:44 -0400
+In-Reply-To: <1493362187-51671-1-git-send-email-yankejian@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Date: Thu, 27 Apr 2017 21:06:14 -0700
+From: Yankejian <yankejian@huawei.com>
+Date: Fri, 28 Apr 2017 14:49:45 +0800
 
-> This series optimizes the nfp XDP TX performance a little bit.  
-> I run quick tests on an Intel(R) Xeon(R) CPU E5-2630 v4 @ 2.20GHz.  
-> Single core/queue performance for both touch and drop and touch and
-> forward is above 20Mpps @64B packets, drop being 2Mpps faster.  
-> I think this is max for a single queue on the low power NFPs.
+> From: lipeng <lipeng321@huawei.com>
 > 
-> There are also a few minor fixes included for code in net-next.
+> This patchset add support defered dsaf probe when mdio and
+> mbigen module is not insmod.
+> 
+> For more details, please refer to individual patch.
 
 Series applied, thanks.
