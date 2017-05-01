@@ -1,37 +1,46 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: How does vlan driver pass vlan info to the h/w ethernet driver
-Date: Mon, 1 May 2017 17:02:05 +0200
-Message-ID: <20170501150205.GC1285@lunn.ch>
-References: <CABM+yxkwQ1Oiw9p0tehLYyNgh6Qj=+1KKNk4hy35vz00DveyGA@mail.gmail.com>
- <CABM+yxkiOpOs5b5MM6MD4woz5R2-4_gf=t=8THXb3p=wuwTtXg@mail.gmail.com>
- <20170501143703.GA1285@lunn.ch>
- <CABM+yxmdJD2k1kA+fY9Yva24oB8BuDDhS-FQdY2EJM1ghf6xWw@mail.gmail.com>
+Subject: Re: [PATCH] net: dsa: mv88e6xxx: fix mdio bus name when using
+ devicetree
+Date: Mon, 1 May 2017 17:20:54 +0200
+Message-ID: <20170501152054.GD1285@lunn.ch>
+References: <20170501145404.18581-1-slemieux.tyco@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: carl h <heyen2000@gmail.com>
+Cc: vivien.didelot@savoirfairelinux.com, netdev@vger.kernel.org
+To: Sylvain Lemieux <slemieux.tyco@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from vps0.lunn.ch ([178.209.37.122]:46791 "EHLO vps0.lunn.ch"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S940197AbdEAPj4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 1 May 2017 11:39:56 -0400
+        id S940314AbdEAPkA (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 1 May 2017 11:40:00 -0400
 Content-Disposition: inline
-In-Reply-To: <CABM+yxmdJD2k1kA+fY9Yva24oB8BuDDhS-FQdY2EJM1ghf6xWw@mail.gmail.com>
+In-Reply-To: <20170501145404.18581-1-slemieux.tyco@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 01, 2017 at 10:52:17AM -0400, carl h wrote:
-> The Ethernet hardware *is* a 2 port switch in a phone which does support
-> vlan tag insertion in the switch and driver. The driver is third party which
-> I'm trying to get working with vlans.
+On Mon, May 01, 2017 at 10:54:04AM -0400, Sylvain Lemieux wrote:
+> From: Liam Beguin <lbeguin@tycoint.com>
+> 
+> mv88e6xxx_mdio_register automatically generates mdio buses for each switch
+> discovered in the devicetree. When switch nodes are embedded in other nodes,
+> this can cause sysfs naming collisions since full_name may be truncated.
+> 
+> Only use devicetree node name instead of the full devicetree path
+> as the mdio bus name.
 
-> But i can't see how the vlan info propagates down to the switch driver.
+Hi Sylvain
 
-How are you adding the vlan?
+I'm not sure this is a good idea. It probably breaks my boards:
 
-bridge vlan add dev port0 vid 42 self
+:/sys/class/mdio_bus# ls
+!mdio-mux!mdio@1!switch@0!mdio	0.1  0.4  400d0000.ethernet-1  fixed-0
+!mdio-mux!mdio@2!switch@0!mdio	0.2  0.8  400d1000.ethernet-2  mv88e6xxx-0
 
-That should call __vlan_add(), which calls __vlan_vid_add() which uses
-switchdev to push the VLAN down into the hardware.
+np->name is not unique, where as np->full_name is unique.
 
-       Andrew
+However, i can understand your problem with truncation. Maybe a better
+solution is to detect if truncation is going to happen. If so, use a
+concatenation of a hash of np->full_name, and the right hand part of
+np->full_name?
+
+	Andrew
