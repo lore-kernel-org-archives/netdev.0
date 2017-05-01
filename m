@@ -1,40 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3] net: bridge: Fix improper taking over HW
- learned FDB
-Date: Sun, 30 Apr 2017 22:46:52 -0400 (EDT)
-Message-ID: <20170430.224652.1616918504779575655.davem@davemloft.net>
-References: <1493408347-44779-1-git-send-email-arkadis@mellanox.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH v3 1/2] net: dsa: b53: Add compatible strings for the
+ Cygnus-family BCM11360.
+Date: Sun, 30 Apr 2017 22:48:52 -0400 (EDT)
+Message-ID: <20170430.224852.172293736555378453.davem@davemloft.net>
+References: <20170428222204.7103-1-eric@anholt.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, stephen@networkplumber.org,
-        bridge@lists.linux-foundation.org, idosch@mellanox.com,
-        nikolay@cumulusnetworks.com
-To: arkadis@mellanox.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:54586 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1951781AbdEACqy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 30 Apr 2017 22:46:54 -0400
-In-Reply-To: <1493408347-44779-1-git-send-email-arkadis@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, vivien.didelot-4ysUXcep3aM1wj+D4I0NRVaTQe2KTcn/@public.gmane.org,
+        andrew-g2DYL2Zd6BY@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
+        mark.rutland-5wv7dgnIgG8@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        bcm-kernel-feedback-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, rjui-dY08KVG/lbpWk0Htik3J/w@public.gmane.org,
+        sbranden-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, jonmason-dY08KVG/lbpWk0Htik3J/w@public.gmane.org
+To: eric-WhKQ6XTQaPysTnJN9+BGXg@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170428222204.7103-1-eric-WhKQ6XTQaPysTnJN9+BGXg@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Arkadi Sharshevsky <arkadis@mellanox.com>
-Date: Fri, 28 Apr 2017 22:39:07 +0300
+From: Eric Anholt <eric-WhKQ6XTQaPysTnJN9+BGXg@public.gmane.org>
+Date: Fri, 28 Apr 2017 15:22:03 -0700
 
-> Commit 7e26bf45e4cb ("net: bridge: allow SW learn to take over HW fdb
-> entries") added the ability to "take over an entry which was previously
-> learned via HW when it shows up from a SW port".
+> Cygnus is a small family of SoCs, of which we currently have
+> devicetree for BCM11360 and BCM58300.  The 11360's B53 is mostly the
+> same as 58xx, just requiring a tiny bit of setup that was previously
+> missing.
 > 
-> However, if an entry was learned via HW and then a control packet
-> (e.g., ARP request) was trapped to the CPU, the bridge driver will
-> update the entry and remove the externally learned flag, although the
-> entry is still present in HW. Instead, only clear the externally learned
-> flag in case of roaming.
+> v2: Reorder the entry in the docs (suggestion by Scott Branden), add
+>     missing '"'
 > 
-> Fixes: 7e26bf45e4cb ("net: bridge: allow SW learn to take over HW fdb entries")
-> Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-> Signed-off-by: Arkadi Sharashevsky <arkadis@mellanox.com>
+> Signed-off-by: Eric Anholt <eric-WhKQ6XTQaPysTnJN9+BGXg@public.gmane.org>
+> Reviewed-by: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> Acked-by: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
 
-Applied, thanks.
+The second patch with the DTS file update doesn't apply cleanly
+at all to net-next.
+
+So I'm dropping this series.
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
