@@ -1,49 +1,90 @@
-From: Corentin Labbe <clabbe.montjoie@gmail.com>
-Subject: [PATCH v5 12/20] arm: sun8i: orangepi-pc-plus: Set EMAC activity LEDs to active high
-Date: Mon,  1 May 2017 14:45:12 +0200
-Message-ID: <20170501124520.3769-13-clabbe.montjoie@gmail.com>
+From: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH v5 14/20] arm64: allwinner: sun50i-a64: add dwmac-sun8i Ethernet driver
+Date: Mon,  1 May 2017 14:45:14 +0200
+Message-ID: <20170501124520.3769-15-clabbe.montjoie@gmail.com>
 References: <20170501124520.3769-1-clabbe.montjoie@gmail.com>
-Cc: devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
-        netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-        Corentin Labbe <clabbe.montjoie@gmail.com>
-To: robh+dt@kernel.org, mark.rutland@arm.com,
-        maxime.ripard@free-electrons.com, wens@csie.org,
-        linux@armlinux.org.uk, catalin.marinas@arm.com,
-        will.deacon@arm.com, peppe.cavallaro@st.com,
-        alexandre.torgue@st.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:36055 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1424764AbdEAMsU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 1 May 2017 08:48:20 -0400
-In-Reply-To: <20170501124520.3769-1-clabbe.montjoie@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+        Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
+        maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org, wens-jdAy2FN1RRM@public.gmane.org,
+        linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, catalin.marinas-5wv7dgnIgG8@public.gmane.org,
+        will.deacon-5wv7dgnIgG8@public.gmane.org, peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
+        alexandre.torgue-qxv4g6HH51o@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170501124520.3769-1-clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On the Orange Pi PC Plus, the polarity of the LEDs on the RJ45 Ethernet
-port were changed from active low to active high.
+The dwmac-sun8i is an Ethernet MAC that supports 10/100/1000 Mbit
+connections. It is very similar to the device found in the Allwinner
+H3, but lacks the internal 100 Mbit PHY and its associated control
+bits.
+This adds the necessary bits to the Allwinner A64 SoC .dtsi, but keeps
+it disabled at this level.
 
-Signed-off-by: Chen-Yu Tsai <wens@csie.org>
-Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
+Signed-off-by: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- arch/arm/boot/dts/sun8i-h3-orangepi-pc-plus.dts | 5 +++++
- 1 file changed, 5 insertions(+)
+ arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi | 35 +++++++++++++++++++++++++++
+ 1 file changed, 35 insertions(+)
 
-diff --git a/arch/arm/boot/dts/sun8i-h3-orangepi-pc-plus.dts b/arch/arm/boot/dts/sun8i-h3-orangepi-pc-plus.dts
-index 8b93f5c..a10281b 100644
---- a/arch/arm/boot/dts/sun8i-h3-orangepi-pc-plus.dts
-+++ b/arch/arm/boot/dts/sun8i-h3-orangepi-pc-plus.dts
-@@ -53,6 +53,11 @@
- 	};
- };
+diff --git a/arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi b/arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi
+index d7341ba..18b3642 100644
+--- a/arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi
++++ b/arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi
+@@ -287,6 +287,21 @@
+ 				bias-pull-up;
+ 			};
  
-+&emac {
-+	/* LEDs changed to active high on the plus */
-+	/delete-property/ allwinner,leds-active-low;
-+};
++			rmii_pins: rmii_pins {
++				pins = "PD10", "PD11", "PD13", "PD14", "PD17",
++				       "PD18", "PD19", "PD20", "PD22", "PD23";
++				function = "emac";
++				drive-strength = <40>;
++			};
 +
- &mmc1 {
- 	pinctrl-names = "default";
- 	pinctrl-0 = <&mmc1_pins_a>;
++			rgmii_pins: rgmii_pins {
++				pins = "PD8", "PD9", "PD10", "PD11", "PD12",
++				       "PD13", "PD15", "PD16", "PD17", "PD18",
++				       "PD19", "PD20", "PD21", "PD22", "PD23";
++				function = "emac";
++				drive-strength = <40>;
++			};
++
+ 			uart0_pins_a: uart0@0 {
+ 				pins = "PB8", "PB9";
+ 				function = "uart0";
+@@ -391,6 +406,26 @@
+ 			#size-cells = <0>;
+ 		};
+ 
++		emac: ethernet@1c30000 {
++			compatible = "allwinner,sun50i-a64-emac";
++			syscon = <&syscon>;
++			reg = <0x01c30000 0x100>;
++			interrupts = <GIC_SPI 82 IRQ_TYPE_LEVEL_HIGH>;
++			interrupt-names = "macirq";
++			resets = <&ccu RST_BUS_EMAC>;
++			reset-names = "stmmaceth";
++			clocks = <&ccu CLK_BUS_EMAC>;
++			clock-names = "stmmaceth";
++			status = "disabled";
++			#address-cells = <1>;
++			#size-cells = <0>;
++
++			mdio: mdio {
++				#address-cells = <1>;
++				#size-cells = <0>;
++			};
++		};
++
+ 		gic: interrupt-controller@1c81000 {
+ 			compatible = "arm,gic-400";
+ 			reg = <0x01c81000 0x1000>,
 -- 
 2.10.2
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
