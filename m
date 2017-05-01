@@ -1,41 +1,25 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2 net-next] ip xfrm: Add xfrm state crypto
- offload
-Date: Mon, 1 May 2017 09:31:21 -0700
-Message-ID: <20170501093121.5ace5e54@xeon-e3>
-References: <20170430141602.30995-1-ilant@mellanox.com>
+From: Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>
+Subject: net/smc and the RDMA core
+Date: Mon, 1 May 2017 18:33:11 +0200
+Message-ID: <20170501163311.GA22209@lst.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Steffen Klassert <steffen.klassert@secunet.com>,
-        <netdev@vger.kernel.org>, Boris Pismenny <borisp@mellanox.com>
-To: <ilant@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f54.google.com ([74.125.83.54]:34866 "EHLO
-        mail-pg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1762566AbdEAQbY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 1 May 2017 12:31:24 -0400
-Received: by mail-pg0-f54.google.com with SMTP id o3so41786023pgn.2
-        for <netdev@vger.kernel.org>; Mon, 01 May 2017 09:31:24 -0700 (PDT)
-In-Reply-To: <20170430141602.30995-1-ilant@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Ursula Braun <ubraun-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
+        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, 30 Apr 2017 17:16:02 +0300
-<ilant@mellanox.com> wrote:
+Hi Ursual, hi netdev reviewers,
 
-> From: Boris Pismenny <borisp@mellanox.com>
-> 
-> syntax:
-> ip xfrm state .... offload dev <if-name> dir <in or out>
-> 
-> Example to add inbound offload:
->   ip xfrm state .... offload dev mlx0 dir in
-> Example to add outbound offload:
->   ip xfrm state .... offload dev mlx0 dir out
-> 
-> Signed-off-by: Boris Pismenny <borisp@mellanox.com>
-> Signed-off-by: Ilan Tayari <ilant@mellanox.com>
-
-
-Applied to net-next
+how did the smc protocol manage to get merged without any review 
+on linux-rdma at all?  As the results it seems it's very substandard
+in terms of RDMA API usage, e.g. it neither uses the proper CQ API
+nor the RDMA R/W API, and other will probably find additional issues
+as well.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
