@@ -1,46 +1,171 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH] net: dsa: mv88e6xxx: fix mdio bus name when using
- devicetree
-Date: Mon, 1 May 2017 17:20:54 +0200
-Message-ID: <20170501152054.GD1285@lunn.ch>
-References: <20170501145404.18581-1-slemieux.tyco@gmail.com>
+From: <David.Cai@microchip.com>
+Subject: [PATCH v5 net-next]smsc911x: Adding support for Micochip LAN9250
+ Ethernet controller
+Date: Mon, 1 May 2017 15:46:56 +0000
+Message-ID: <C3C28FB10418274EB7FD7C2B85C796A4412480F1@CHN-SV-EXMX02.mchp-main.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: vivien.didelot@savoirfairelinux.com, netdev@vger.kernel.org
-To: Sylvain Lemieux <slemieux.tyco@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <UNGLinuxDriver@microchip.com>, <steve.glendinning@shawell.net>
+To: <netdev@vger.kernel.org>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:46791 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S940314AbdEAPkA (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 1 May 2017 11:40:00 -0400
-Content-Disposition: inline
-In-Reply-To: <20170501145404.18581-1-slemieux.tyco@gmail.com>
+Received: from esa4.microchip.iphmx.com ([68.232.154.123]:21110 "EHLO
+        esa4.microchip.iphmx.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751255AbdEAPq6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 1 May 2017 11:46:58 -0400
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 01, 2017 at 10:54:04AM -0400, Sylvain Lemieux wrote:
-> From: Liam Beguin <lbeguin@tycoint.com>
-> 
-> mv88e6xxx_mdio_register automatically generates mdio buses for each switch
-> discovered in the devicetree. When switch nodes are embedded in other nodes,
-> this can cause sysfs naming collisions since full_name may be truncated.
-> 
-> Only use devicetree node name instead of the full devicetree path
-> as the mdio bus name.
+From: David Cai <david.cai@microchip.com>
 
-Hi Sylvain
+Adding support for Microchip LAN9250 Ethernet controller.
 
-I'm not sure this is a good idea. It probably breaks my boards:
+Signed-off-by: David Cai <david.cai@microchip.com>
+---
+Changes
+V2
+ - email format changed
+ - remove unnecessary text in commit log Changes
+V3
+ - defined all supported Ethernet controller chip ID.
+V4
+ - changed 'if (pdata->generation == 4 && pdata->sub_generation)' to
+   'if ((pdata->idrev & 0xFFFF0000) == LAN9250)' for more readable
+V5
+ - removed the variable 'sub_generation'.
 
-:/sys/class/mdio_bus# ls
-!mdio-mux!mdio@1!switch@0!mdio	0.1  0.4  400d0000.ethernet-1  fixed-0
-!mdio-mux!mdio@2!switch@0!mdio	0.2  0.8  400d1000.ethernet-2  mv88e6xxx-0
+ drivers/net/ethernet/smsc/smsc911x.c | 49 ++++++++++++++++++++++--------------
+ drivers/net/ethernet/smsc/smsc911x.h | 19 ++++++++++++++
+ 2 files changed, 49 insertions(+), 19 deletions(-)
 
-np->name is not unique, where as np->full_name is unique.
-
-However, i can understand your problem with truncation. Maybe a better
-solution is to detect if truncation is going to happen. If so, use a
-concatenation of a hash of np->full_name, and the right hand part of
-np->full_name?
-
-	Andrew
+diff --git a/drivers/net/ethernet/smsc/smsc911x.c b/drivers/net/ethernet/smsc/smsc911x.c
+index fa5ca09..ea1bbc3 100644
+--- a/drivers/net/ethernet/smsc/smsc911x.c
++++ b/drivers/net/ethernet/smsc/smsc911x.c
+@@ -25,7 +25,7 @@
+  *   LAN9215, LAN9216, LAN9217, LAN9218
+  *   LAN9210, LAN9211
+  *   LAN9220, LAN9221
+- *   LAN89218
++ *   LAN89218,LAN9250
+  *
+  */
+ 
+@@ -1450,6 +1450,8 @@ static int smsc911x_soft_reset(struct smsc911x_data *pdata)
+ 	unsigned int timeout;
+ 	unsigned int temp;
+ 	int ret;
++	unsigned int reset_offset = HW_CFG;
++	unsigned int reset_mask = HW_CFG_SRST_;
+ 
+ 	/*
+ 	 * Make sure to power-up the PHY chip before doing a reset, otherwise @@ -1476,15 +1478,23 @@ static int smsc911x_soft_reset(struct smsc911x_data *pdata)
+ 		}
+ 	}
+ 
++	if ((pdata->idrev & 0xFFFF0000) == LAN9250) {
++		/* special reset for  LAN9250 */
++		reset_offset = RESET_CTL;
++		reset_mask = RESET_CTL_DIGITAL_RST_;
++	}
++
+ 	/* Reset the LAN911x */
+-	smsc911x_reg_write(pdata, HW_CFG, HW_CFG_SRST_);
++	smsc911x_reg_write(pdata, reset_offset, reset_mask);
++
++	/* verify reset bit is cleared */
+ 	timeout = 10;
+ 	do {
+ 		udelay(10);
+-		temp = smsc911x_reg_read(pdata, HW_CFG);
+-	} while ((--timeout) && (temp & HW_CFG_SRST_));
++		temp = smsc911x_reg_read(pdata, reset_offset);
++	} while ((--timeout) && (temp & reset_mask));
+ 
+-	if (unlikely(temp & HW_CFG_SRST_)) {
++	if (unlikely(temp & reset_mask)) {
+ 		SMSC_WARN(pdata, drv, "Failed to complete reset");
+ 		return -EIO;
+ 	}
+@@ -2253,28 +2263,29 @@ static int smsc911x_init(struct net_device *dev)
+ 
+ 	pdata->idrev = smsc911x_reg_read(pdata, ID_REV);
+ 	switch (pdata->idrev & 0xFFFF0000) {
+-	case 0x01180000:
+-	case 0x01170000:
+-	case 0x01160000:
+-	case 0x01150000:
+-	case 0x218A0000:
++	case LAN9118:
++	case LAN9117:
++	case LAN9116:
++	case LAN9115:
++	case LAN89218:
+ 		/* LAN911[5678] family */
+ 		pdata->generation = pdata->idrev & 0x0000FFFF;
+ 		break;
+ 
+-	case 0x118A0000:
+-	case 0x117A0000:
+-	case 0x116A0000:
+-	case 0x115A0000:
++	case LAN9218:
++	case LAN9217:
++	case LAN9216:
++	case LAN9215:
+ 		/* LAN921[5678] family */
+ 		pdata->generation = 3;
+ 		break;
+ 
+-	case 0x92100000:
+-	case 0x92110000:
+-	case 0x92200000:
+-	case 0x92210000:
+-		/* LAN9210/LAN9211/LAN9220/LAN9221 */
++	case LAN9210:
++	case LAN9211:
++	case LAN9220:
++	case LAN9221:
++	case LAN9250:
++		/* LAN9210/LAN9211/LAN9220/LAN9221/LAN9250 */
+ 		pdata->generation = 4;
+ 		break;
+ 
+diff --git a/drivers/net/ethernet/smsc/smsc911x.h b/drivers/net/ethernet/smsc/smsc911x.h
+index 54d6489..8d75508 100644
+--- a/drivers/net/ethernet/smsc/smsc911x.h
++++ b/drivers/net/ethernet/smsc/smsc911x.h
+@@ -20,6 +20,22 @@
+ #ifndef __SMSC911X_H__
+ #define __SMSC911X_H__
+ 
++/*Chip ID*/
++#define LAN9115	0x01150000
++#define LAN9116	0x01160000
++#define LAN9117	0x01170000
++#define LAN9118	0x01180000
++#define LAN9215	0x115A0000
++#define LAN9216	0x116A0000
++#define LAN9217	0x117A0000
++#define LAN9218	0x118A0000
++#define LAN9210	0x92100000
++#define LAN9211	0x92110000
++#define LAN9220	0x92200000
++#define LAN9221	0x92210000
++#define LAN9250	0x92500000
++#define LAN89218	0x218A0000
++
+ #define TX_FIFO_LOW_THRESHOLD	((u32)1600)
+ #define SMSC911X_EEPROM_SIZE	((u32)128)
+ #define USE_DEBUG		0
+@@ -303,6 +319,9 @@
+ #define E2P_DATA_EEPROM_DATA_		0x000000FF
+ #define LAN_REGISTER_EXTENT		0x00000100
+ 
++#define RESET_CTL			0x1F8
++#define RESET_CTL_DIGITAL_RST_		0x00000001
++
+ /*
+  * MAC Control and Status Register (Indirect Address)
+  * Offset (through the MAC_CSR CMD and DATA port)
