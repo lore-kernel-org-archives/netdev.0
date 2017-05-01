@@ -1,7 +1,7 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 28/53] netfilter: nfnetlink_cthelper: reject too large userspace allocation requests
-Date: Mon,  1 May 2017 12:46:55 +0200
-Message-ID: <1493635640-24325-29-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 26/53] netfilter: conntrack: move helper struct to nf_conntrack_helper.h
+Date: Mon,  1 May 2017 12:46:53 +0200
+Message-ID: <1493635640-24325-27-git-send-email-pablo@netfilter.org>
 References: <1493635640-24325-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
@@ -12,49 +12,72 @@ List-Id: netdev.vger.kernel.org
 
 From: Florian Westphal <fw@strlen.de>
 
-Userspace should not abuse the kernel to store large amounts of data,
-reject requests larger than the private area can accommodate.
+its definition is not needed in nf_conntrack.h.
 
 Signed-off-by: Florian Westphal <fw@strlen.de>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/nfnetlink_cthelper.c | 10 ++++++++--
- 1 file changed, 8 insertions(+), 2 deletions(-)
+ include/net/netfilter/nf_conntrack.h        | 19 -------------------
+ include/net/netfilter/nf_conntrack_helper.h | 17 +++++++++++++++++
+ 2 files changed, 17 insertions(+), 19 deletions(-)
 
-diff --git a/net/netfilter/nfnetlink_cthelper.c b/net/netfilter/nfnetlink_cthelper.c
-index 9a50bf93dd16..eef7120e1f74 100644
---- a/net/netfilter/nfnetlink_cthelper.c
-+++ b/net/netfilter/nfnetlink_cthelper.c
-@@ -104,7 +104,7 @@ nfnl_cthelper_from_nlattr(struct nlattr *attr, struct nf_conn *ct)
- 	if (help->helper->data_len == 0)
- 		return -EINVAL;
+diff --git a/include/net/netfilter/nf_conntrack.h b/include/net/netfilter/nf_conntrack.h
+index 4978a82b75fa..8ece3612d0cd 100644
+--- a/include/net/netfilter/nf_conntrack.h
++++ b/include/net/netfilter/nf_conntrack.h
+@@ -50,25 +50,6 @@ union nf_conntrack_expect_proto {
+ #define NF_CT_ASSERT(x)
+ #endif
  
--	memcpy(help->data, nla_data(attr), help->helper->data_len);
-+	nla_memcpy(help->data, nla_data(attr), sizeof(help->data));
- 	return 0;
- }
+-struct nf_conntrack_helper;
+-
+-/* Must be kept in sync with the classes defined by helpers */
+-#define NF_CT_MAX_EXPECT_CLASSES	4
+-
+-/* nf_conn feature for connections that have a helper */
+-struct nf_conn_help {
+-	/* Helper. if any */
+-	struct nf_conntrack_helper __rcu *helper;
+-
+-	struct hlist_head expectations;
+-
+-	/* Current number of expected connections */
+-	u8 expecting[NF_CT_MAX_EXPECT_CLASSES];
+-
+-	/* private helper information. */
+-	char data[];
+-};
+-
+ #include <net/netfilter/ipv4/nf_conntrack_ipv4.h>
+ #include <net/netfilter/ipv6/nf_conntrack_ipv6.h>
  
-@@ -216,6 +216,7 @@ nfnl_cthelper_create(const struct nlattr * const tb[],
- {
- 	struct nf_conntrack_helper *helper;
- 	struct nfnl_cthelper *nfcth;
-+	unsigned int size;
- 	int ret;
+diff --git a/include/net/netfilter/nf_conntrack_helper.h b/include/net/netfilter/nf_conntrack_helper.h
+index 1eaac1f4cd6a..15d746558665 100644
+--- a/include/net/netfilter/nf_conntrack_helper.h
++++ b/include/net/netfilter/nf_conntrack_helper.h
+@@ -52,6 +52,23 @@ struct nf_conntrack_helper {
+ 	unsigned int queue_num;		/* For user-space helpers. */
+ };
  
- 	if (!tb[NFCTH_TUPLE] || !tb[NFCTH_POLICY] || !tb[NFCTH_PRIV_DATA_LEN])
-@@ -231,7 +232,12 @@ nfnl_cthelper_create(const struct nlattr * const tb[],
- 		goto err1;
- 
- 	strncpy(helper->name, nla_data(tb[NFCTH_NAME]), NF_CT_HELPER_NAME_LEN);
--	helper->data_len = ntohl(nla_get_be32(tb[NFCTH_PRIV_DATA_LEN]));
-+	size = ntohl(nla_get_be32(tb[NFCTH_PRIV_DATA_LEN]));
-+	if (size > FIELD_SIZEOF(struct nf_conn_help, data)) {
-+		ret = -ENOMEM;
-+		goto err2;
-+	}
++/* Must be kept in sync with the classes defined by helpers */
++#define NF_CT_MAX_EXPECT_CLASSES	4
 +
- 	helper->flags |= NF_CT_HELPER_F_USERSPACE;
- 	memcpy(&helper->tuple, tuple, sizeof(struct nf_conntrack_tuple));
++/* nf_conn feature for connections that have a helper */
++struct nf_conn_help {
++	/* Helper. if any */
++	struct nf_conntrack_helper __rcu *helper;
++
++	struct hlist_head expectations;
++
++	/* Current number of expected connections */
++	u8 expecting[NF_CT_MAX_EXPECT_CLASSES];
++
++	/* private helper information. */
++	char data[];
++};
++
+ struct nf_conntrack_helper *__nf_conntrack_helper_find(const char *name,
+ 						       u16 l3num, u8 protonum);
  
 -- 
 2.1.4
