@@ -1,31 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] Fix inaccurate helper function description
-Date: Sun, 30 Apr 2017 22:25:32 -0400 (EDT)
-Message-ID: <20170430.222532.1945595185772507111.davem@davemloft.net>
-References: <1493250083-1954-1-git-send-email-chenbofeng.kernel@gmail.com>
+Subject: Re: pull-request: can-next 2017-04-25,pull-request: can-next
+ 2017-04-25
+Date: Sun, 30 Apr 2017 22:26:30 -0400 (EDT)
+Message-ID: <20170430.222630.62402532357684596.davem@davemloft.net>
+References: <17d73df9-8f7a-1458-c4f8-e8153be206d5@pengutronix.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mic@digikod.net, fengc@google.com
-To: chenbofeng.kernel@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:54150 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S642297AbdEACZf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 30 Apr 2017 22:25:35 -0400
-In-Reply-To: <1493250083-1954-1-git-send-email-chenbofeng.kernel@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, kernel@pengutronix.de,
+        linux-can@vger.kernel.org
+To: mkl@pengutronix.de
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <17d73df9-8f7a-1458-c4f8-e8153be206d5@pengutronix.de>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Chenbo Feng <chenbofeng.kernel@gmail.com>
-Date: Wed, 26 Apr 2017 16:41:23 -0700
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Date: Thu, 27 Apr 2017 09:54:33 +0200
 
-> From: Chenbo Feng <fengc@google.com>
+> this is a pull request of 1 patch for net-next/master.
 > 
-> The description inside uapi/linux/bpf.h about bpf_get_socket_uid
-> helper function is no longer valid. It returns overflowuid rather
-> than 0 when failed.
-> 
-> Signed-off-by: Chenbo Feng <fengc@google.com>
+> This patch by Oliver Hartkopp fixes the build of the broad cast manager
+> with CONFIG_PROC_FS disabled.
 
-Applied.
+Pulled, thanks!
