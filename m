@@ -1,60 +1,69 @@
-From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
-Subject: Re: [PATCH v5 00/20] net-next: stmmac: add dwmac-sun8i ethernet
- driver
-Date: Mon, 1 May 2017 18:10:30 +0200
-Message-ID: <20170501161030.GF1285@lunn.ch>
-References: <20170501124520.3769-1-clabbe.montjoie@gmail.com>
- <20170501140133.GD31281@lunn.ch>
- <CAGb2v67qGqswdz_JcDaD5jTkcvtBuzqqP8KZh=S_5pkp=o6cUQ@mail.gmail.com>
- <20170501144541.GB1285@lunn.ch>
- <20170501155856.GA1957@Red>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH net v3] driver: veth: Fix one possbile memleak when fail
+ to register_netdevice
+Date: Mon, 1 May 2017 09:08:17 -0600
+Message-ID: <92eab1fc-cd70-1561-1f94-665e77725750@cumulusnetworks.com>
+References: <1493437911-27167-1-git-send-email-gfree.wind@foxmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>, Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-        Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
-        Russell King <linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>,
-        Catalin Marinas <catalin.marinas-5wv7dgnIgG8@public.gmane.org>,
-        Will Deacon <will.deacon-5wv7dgnIgG8@public.gmane.org>,
-        Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
-        alexandre.torgue-qxv4g6HH51o@public.gmane.org, devicetree <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        linux-arm-kernel <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-        netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20170501155856.GA1957@Red>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+To: gfree.wind@foxmail.com, davem@davemloft.net, jarod@redhat.com,
+        lucien.xin@gmail.com, stephen@networkplumber.org,
+        netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f41.google.com ([74.125.83.41]:36617 "EHLO
+        mail-pg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1763628AbdEAQN6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 1 May 2017 12:13:58 -0400
+Received: by mail-pg0-f41.google.com with SMTP id t7so46808157pgt.3
+        for <netdev@vger.kernel.org>; Mon, 01 May 2017 09:13:58 -0700 (PDT)
+In-Reply-To: <1493437911-27167-1-git-send-email-gfree.wind@foxmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> > > > Does the internal PHY have a phy driver? It seems like
-> > > > tx-delay-ps/rx-delay-ps are properties of this internal PHY, and so
-> > > > should be in the phy driver, if it has one.
-> > > 
-> > > Nope. These affect the delay lines for the external PHY interface.
+On 4/28/17 9:51 PM, gfree.wind@foxmail.com wrote:
+> diff --git a/drivers/net/veth.c b/drivers/net/veth.c
+> index 8c39d6d..418376a 100644
+> --- a/drivers/net/veth.c
+> +++ b/drivers/net/veth.c
+> @@ -224,9 +224,21 @@ static int veth_dev_init(struct net_device *dev)
+>  	return 0;
+>  }
+>  
+> -static void veth_dev_free(struct net_device *dev)
+> +static void veth_destructor_free(struct net_device *dev)
+
+_destructor in the name is confusing since veth_dev_free is the
+dev->destructor. Perhaps that should be veth_free_stats.
+
+
+>  {
+>  	free_percpu(dev->vstats);
+> +}
+> +
+> +static void veth_dev_uninit(struct net_device *dev)
+> +{
+> +	/* dev is not registered, perform the free instead of destructor */
+> +	if (dev->reg_state == NETREG_UNINITIALIZED)
+> +		veth_destructor_free(dev);
+> +}
+> +
+> +static void veth_dev_free(struct net_device *dev)
+> +{
+> +	veth_destructor_free(dev);
+>  	free_netdev(dev);
+>  }
+>  
+> @@ -284,6 +296,7 @@ static void veth_set_rx_headroom(struct net_device *dev, int new_hr)
+>  
+>  static const struct net_device_ops veth_netdev_ops = {
+>  	.ndo_init            = veth_dev_init,
+> +	.ndo_uninit          = veth_dev_uninit,
+>  	.ndo_open            = veth_open,
+>  	.ndo_stop            = veth_close,
+>  	.ndo_start_xmit      = veth_xmit,
 > 
-> I will add some sentences in the documentation to be more clear about that.
 
-Thanks
+Functionally, it looks good to me.
 
-> 
-> > 
-> > Oh, yes. I understood the patch wrong.
-> > 
-> > None of the patches actually use these properties. Are they actually
-> > needed? We should avoid adding vendor specific properties, if they are
-> > not used.
-> > 
-> 
-> The board that use it is the BananaPi M3, but the SoC A83T still lack clocks support.
-> So theses properties is already used out of tree, and will be used in tree soon.
-
-Fair enough.
-
-Thanks
-	Andrew
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Acked-by: David Ahern <dsa@cumulusnetworks.com>
