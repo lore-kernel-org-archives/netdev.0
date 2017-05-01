@@ -1,52 +1,73 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] tcp: fix wraparound issue in tcp_lp
-Date: Mon, 01 May 2017 15:29:48 -0700
-Message-ID: <1493677788.31837.25.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH net-next] bpf, samples: fix build warning in cookie_uid_helper_example
+Date: Tue,  2 May 2017 00:47:09 +0200
+Message-ID: <43325f50d66abec6b35439422b6c9b0211bd30e9.1493678555.git.daniel@iogearbox.net>
+Cc: alexei.starovoitov@gmail.com, netdev@vger.kernel.org,
+        Daniel Borkmann <daniel@iogearbox.net>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:34000 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750811AbdEAW3v (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 1 May 2017 18:29:51 -0400
-Received: by mail-pg0-f66.google.com with SMTP id t7so17952119pgt.1
-        for <netdev@vger.kernel.org>; Mon, 01 May 2017 15:29:51 -0700 (PDT)
+Received: from www62.your-server.de ([213.133.104.62]:42290 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751128AbdEAWri (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 1 May 2017 18:47:38 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+Fix the following warnings triggered by 51570a5ab2b7 ("A Sample of
+using socket cookie and uid for traffic monitoring"):
 
-Be careful when comparing tcp_time_stamp to some u32 quantity,
-otherwise result can be surprising.
+  In file included from /home/foo/net-next/samples/bpf/cookie_uid_helper_example.c:54:0:
+  /home/foo/net-next/samples/bpf/cookie_uid_helper_example.c: In function 'prog_load':
+  /home/foo/net-next/samples/bpf/cookie_uid_helper_example.c:119:27: warning: overflow in implicit constant conversion [-Woverflow]
+     -32 + offsetof(struct stats, uid)),
+                           ^
+  /home/foo/net-next/samples/bpf/libbpf.h:135:12: note: in definition of macro 'BPF_STX_MEM'
+   .off   = OFF,     \
+            ^
+  /home/foo/net-next/samples/bpf/cookie_uid_helper_example.c:121:27: warning: overflow in implicit constant conversion [-Woverflow]
+     -32 + offsetof(struct stats, packets), 1),
+                           ^
+  /home/foo/net-next/samples/bpf/libbpf.h:155:12: note: in definition of macro 'BPF_ST_MEM'
+   .off   = OFF,     \
+            ^
+  /home/foo/net-next/samples/bpf/cookie_uid_helper_example.c:129:27: warning: overflow in implicit constant conversion [-Woverflow]
+     -32 + offsetof(struct stats, bytes)),
+                           ^
+  /home/foo/net-next/samples/bpf/libbpf.h:135:12: note: in definition of macro 'BPF_STX_MEM'
+   .off   = OFF,     \
+            ^
+  HOSTLD  /home/foo/net-next/samples/bpf/per_socket_stats_example
 
-Fixes: 7c106d7e782b ("[TCP]: TCP Low Priority congestion control")
-Signed-off-by: Eric Dumazet <edumazet@google.com>
+Fixes: 51570a5ab2b7 ("A Sample of using socket cookie and uid for traffic monitoring")
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
 ---
- net/ipv4/tcp_lp.c |    6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
+ samples/bpf/cookie_uid_helper_example.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/net/ipv4/tcp_lp.c b/net/ipv4/tcp_lp.c
-index 046fd3910873306d74207615d6997e1c847ea361..d6fb6c067af4641f232b94e7c590c212648e8173 100644
---- a/net/ipv4/tcp_lp.c
-+++ b/net/ipv4/tcp_lp.c
-@@ -264,13 +264,15 @@ static void tcp_lp_pkts_acked(struct sock *sk, const struct ack_sample *sample)
- {
- 	struct tcp_sock *tp = tcp_sk(sk);
- 	struct lp *lp = inet_csk_ca(sk);
-+	u32 delta;
- 
- 	if (sample->rtt_us > 0)
- 		tcp_lp_rtt_sample(sk, sample->rtt_us);
- 
- 	/* calc inference */
--	if (tcp_time_stamp > tp->rx_opt.rcv_tsecr)
--		lp->inference = 3 * (tcp_time_stamp - tp->rx_opt.rcv_tsecr);
-+	delta = tcp_time_stamp - tp->rx_opt.rcv_tsecr;
-+	if ((s32)delta > 0)
-+		lp->inference = 3 * delta;
- 
- 	/* test if within inference */
- 	if (lp->last_drop && (tcp_time_stamp - lp->last_drop < lp->inference))
+diff --git a/samples/bpf/cookie_uid_helper_example.c b/samples/bpf/cookie_uid_helper_example.c
+index 9ce5584..b08ab4e 100644
+--- a/samples/bpf/cookie_uid_helper_example.c
++++ b/samples/bpf/cookie_uid_helper_example.c
+@@ -116,9 +116,9 @@ static void prog_load(void)
+ 		 * is set by directly place a IMM value 1 into the stack.
+ 		 */
+ 		BPF_STX_MEM(BPF_DW, BPF_REG_10, BPF_REG_0,
+-				-32 + offsetof(struct stats, uid)),
++			    -32 + (__s16)offsetof(struct stats, uid)),
+ 		BPF_ST_MEM(BPF_DW, BPF_REG_10,
+-				-32 + offsetof(struct stats, packets), 1),
++			   -32 + (__s16)offsetof(struct stats, packets), 1),
+ 		/*
+ 		 * __sk_buff is a special struct used for eBPF program to
+ 		 * directly access some sk_buff field.
+@@ -126,7 +126,7 @@ static void prog_load(void)
+ 		BPF_LDX_MEM(BPF_W, BPF_REG_1, BPF_REG_6,
+ 				offsetof(struct __sk_buff, len)),
+ 		BPF_STX_MEM(BPF_DW, BPF_REG_10, BPF_REG_1,
+-				-32 + offsetof(struct stats, bytes)),
++			    -32 + (__s16)offsetof(struct stats, bytes)),
+ 		/*
+ 		 * add new map entry using BPF_FUNC_map_update_elem, it takes
+ 		 * 4 parameters (R1: map_fd, R2: &socket_cookie, R3: &stats,
+-- 
+1.9.3
