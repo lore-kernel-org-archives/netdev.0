@@ -1,81 +1,48 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2 net 0/8] tc/act_pedit: Support offset relative
- to conventional header
-Date: Mon, 1 May 2017 09:26:25 -0700
-Message-ID: <20170501092625.30274bee@xeon-e3>
-References: <20170423125356.1298-1-amir@vadai.me>
+Subject: Re: [PATCH iproute2 net-next v2] bpf: add support for generic xdp
+Date: Mon, 1 May 2017 09:29:15 -0700
+Message-ID: <20170501092915.5c19395c@xeon-e3>
+References: <e2ca217f7b95b4dd0b5fa8650e8fcf783de73967.1493386943.git.daniel@iogearbox.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
-        Jamal Hadi Salim <jhs@mojatatu.com>
-To: Amir Vadai <amir@vadai.me>
+Cc: alexei.starovoitov@gmail.com, davem@davemloft.net,
+        netdev@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f171.google.com ([209.85.192.171]:35315 "EHLO
-        mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751463AbdEAQ02 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 1 May 2017 12:26:28 -0400
-Received: by mail-pf0-f171.google.com with SMTP id v14so76481714pfd.2
-        for <netdev@vger.kernel.org>; Mon, 01 May 2017 09:26:28 -0700 (PDT)
-In-Reply-To: <20170423125356.1298-1-amir@vadai.me>
+Received: from mail-pg0-f49.google.com ([74.125.83.49]:35993 "EHLO
+        mail-pg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752643AbdEAQ3S (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 1 May 2017 12:29:18 -0400
+Received: by mail-pg0-f49.google.com with SMTP id t7so46980394pgt.3
+        for <netdev@vger.kernel.org>; Mon, 01 May 2017 09:29:17 -0700 (PDT)
+In-Reply-To: <e2ca217f7b95b4dd0b5fa8650e8fcf783de73967.1493386943.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 23 Apr 2017 15:53:48 +0300
-Amir Vadai <amir@vadai.me> wrote:
+On Fri, 28 Apr 2017 15:44:29 +0200
+Daniel Borkmann <daniel@iogearbox.net> wrote:
 
-> Hi Stephen,
+> Follow-up to commit c7272ca72009 ("bpf: add initial support for
+> attaching xdp progs") to also support generic XDP. This adds an
+> indicator for loaded generic XDP programs when programs are loaded
+> as shown in c7272ca72009, but the driver still lacks native XDP
+> support.
 > 
-> This patchset extends pedit to support modifying a field in an offset relative
-> to the conventional network headers (kenrel support was added [1] in 4.11 rc1).
-> Without the extended pedit, user could specify fields in TCP and ICMP headers,
-> but the kernel code was using an offset relative to the begining of the IP
-> header. This will break if IP header length is greater than the minimal value
-> of 20, or if L3 is not IPv4.
+>   # ip link
+>   [...]
+>   3: eno1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 xdpgeneric qdisc [...]
+>       link/ether 0c:c4:7a:03:f9:25 brd ff:ff:ff:ff:ff:ff
+>   [...]
 > 
-> It also introduces support in manipulating ETH, TCP, UDP and IP.ttl fields and
-> a new command to increase/decrease the value of a field (current use case is IP.ttl).
+> In case the driver does support native XDP, but the user wants
+> to load the program as generic XDP (e.g. for testing purposes),
+> then this can be done with the same semantics as in c7272ca72009,
+> but with 'xdpgeneric' instead of 'xdp' command for loading:
 > 
-> Since there might be deployments already using pedit, special consideration was
-> taken, not to break those scripts - only by specifying the special keyword
-> 'ex', the extended capabilities are available, thus there should be no impact
-> on existing scripts.
-> Also, the new code can live together with rules added by the old code. It
-> supports both the old netlink and the new one.
+>   # ip -force link set dev eno1 xdpgeneric obj xdp.o
 > 
-> This patchset is against the master and not net-next as the functionality was
-> added in 4.11
-> 
-> Thanks,
-> Amir
-> 
-> [1] - 71d0ed7079df ("net/act_pedit: Support using offset relative to the
->                      conventional network headers")
-> 
-> Amir Vadai (7):
->   tc/pedit: Fix a typo in pedit usage message
->   tc/pedit: Extend pedit to specify offset relative to mac/transport
->     headers
->   tc/pedit: Introduce 'add' operation
->   tc/pedit: p_ip: introduce editing ttl header
->   tc/pedit: Support fields bigger than 32 bits
->   tc/pedit: p_eth: ETH header editor
->   tc/pedit: p_tcp: introduce pedit tcp support
-> 
-> Or Gerlitz (1):
->   tc/pedit: p_udp: introduce pedit udp support
-> 
->  man/man8/tc-pedit.8 | 126 +++++++++++++++++++++--
->  tc/Makefile         |   1 +
->  tc/m_pedit.c        | 290 ++++++++++++++++++++++++++++++++++++++++++++++------
->  tc/m_pedit.h        |  44 ++++++--
->  tc/p_eth.c          |  72 +++++++++++++
->  tc/p_icmp.c         |   3 +-
->  tc/p_ip.c           |  21 +++-
->  tc/p_tcp.c          |  40 +++++++-
->  tc/p_udp.c          |  30 +++++-
->  9 files changed, 572 insertions(+), 55 deletions(-)
->  create mode 100644 tc/p_eth.c
-> 
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
 
-Applied. Then I cleaned up long lines
+Applied, thanks for remembering to update man page.
+Does bash-completion need update?
