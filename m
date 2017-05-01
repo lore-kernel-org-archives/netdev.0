@@ -1,70 +1,132 @@
-From: Nathan Fontenot <nfont@linux.vnet.ibm.com>
-Subject: [PATCH v2 net-next 08/11] ibmvnic: Check for driver reset first in
- ibmvnic_xmit
-Date: Mon, 01 May 2017 17:57:25 -0400
-Message-ID: <20170501215725.27224.21638.stgit@ltcalpine2-lp23.aus.stglabs.ibm.com>
-References: <20170501215424.27224.53918.stgit@ltcalpine2-lp23.aus.stglabs.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: brking@linux.vnet.ibm.com, jallen@linux.vnet.ibm.com,
-        muvic@linux.vnet.ibm.com, tlfalcon@linux.vnet.ibm.com
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next v2 16/18] net: dsa: mv88e6xxx: simplify VTU entry getter
+Date: Mon,  1 May 2017 14:05:25 -0400
+Message-ID: <20170501180527.11756-17-vivien.didelot@savoirfairelinux.com>
+References: <20170501180527.11756-1-vivien.didelot@savoirfairelinux.com>
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:48435 "EHLO
-        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1751184AbdEASJA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 1 May 2017 14:09:00 -0400
-Received: from pps.filterd (m0098414.ppops.net [127.0.0.1])
-        by mx0b-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v41I4EGd117110
-        for <netdev@vger.kernel.org>; Mon, 1 May 2017 14:08:45 -0400
-Received: from e12.ny.us.ibm.com (e12.ny.us.ibm.com [129.33.205.202])
-        by mx0b-001b2d01.pphosted.com with ESMTP id 2a68vvb2mb-1
-        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Mon, 01 May 2017 14:08:41 -0400
-Received: from localhost
-        by e12.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-        for <netdev@vger.kernel.org> from <nfont@linux.vnet.ibm.com>;
-        Mon, 1 May 2017 14:08:40 -0400
-In-Reply-To: <20170501215424.27224.53918.stgit@ltcalpine2-lp23.aus.stglabs.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170501180527.11756-1-vivien.didelot@savoirfairelinux.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Move the check for the driver resetting to the first thing
-in ibmvnic_xmit().
+Make the code which fetches or initializes a new VTU entry more concise.
+This allows us the get rid of the old underscore prefix naming.
 
-Signed-off-by: Nathan Fontenot <nfont@linux.vnet.ibm.com>
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 ---
- drivers/net/ethernet/ibm/ibmvnic.c |   12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
+ drivers/net/dsa/mv88e6xxx/chip.c | 64 ++++++++++++++++------------------------
+ 1 file changed, 25 insertions(+), 39 deletions(-)
 
-diff --git a/drivers/net/ethernet/ibm/ibmvnic.c b/drivers/net/ethernet/ibm/ibmvnic.c
-index 4da7080..2cf1b64 100644
---- a/drivers/net/ethernet/ibm/ibmvnic.c
-+++ b/drivers/net/ethernet/ibm/ibmvnic.c
-@@ -985,12 +985,6 @@ static int ibmvnic_xmit(struct sk_buff *skb, struct net_device *netdev)
- 	int index = 0;
- 	int ret = 0;
+diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
+index 51c8b2ff9760..aede0194e341 100644
+--- a/drivers/net/dsa/mv88e6xxx/chip.c
++++ b/drivers/net/dsa/mv88e6xxx/chip.c
+@@ -1359,33 +1359,8 @@ static int mv88e6xxx_atu_new(struct mv88e6xxx_chip *chip, u16 *fid)
+ 	return mv88e6xxx_g1_atu_flush(chip, *fid, true);
+ }
  
--	tx_pool = &adapter->tx_pool[queue_num];
--	tx_scrq = adapter->tx_scrq[queue_num];
--	txq = netdev_get_tx_queue(netdev, skb_get_queue_mapping(skb));
--	handle_array = (u64 *)((u8 *)(adapter->login_rsp_buf) +
--				   be32_to_cpu(adapter->login_rsp_buf->
--					       off_txsubm_subcrqs));
- 	if (adapter->resetting) {
- 		if (!netif_subqueue_stopped(netdev, skb))
- 			netif_stop_subqueue(netdev, queue_num);
-@@ -1002,6 +996,12 @@ static int ibmvnic_xmit(struct sk_buff *skb, struct net_device *netdev)
- 		goto out;
+-static int _mv88e6xxx_vtu_new(struct mv88e6xxx_chip *chip, u16 vid,
+-			      struct mv88e6xxx_vtu_entry *entry)
+-{
+-	struct dsa_switch *ds = chip->ds;
+-	struct mv88e6xxx_vtu_entry vlan = {
+-		.valid = true,
+-		.vid = vid,
+-	};
+-	int i, err;
+-
+-	err = mv88e6xxx_atu_new(chip, &vlan.fid);
+-	if (err)
+-		return err;
+-
+-	/* exclude all ports except the CPU and DSA ports */
+-	for (i = 0; i < mv88e6xxx_num_ports(chip); ++i)
+-		vlan.member[i] = dsa_is_cpu_port(ds, i) ||
+-			dsa_is_dsa_port(ds, i)
+-			? GLOBAL_VTU_DATA_MEMBER_TAG_UNMODIFIED
+-			: GLOBAL_VTU_DATA_MEMBER_TAG_NON_MEMBER;
+-
+-	*entry = vlan;
+-	return 0;
+-}
+-
+-static int _mv88e6xxx_vtu_get(struct mv88e6xxx_chip *chip, u16 vid,
+-			      struct mv88e6xxx_vtu_entry *entry, bool creat)
++static int mv88e6xxx_vtu_get(struct mv88e6xxx_chip *chip, u16 vid,
++			     struct mv88e6xxx_vtu_entry *entry, bool new)
+ {
+ 	int err;
+ 
+@@ -1399,17 +1374,28 @@ static int _mv88e6xxx_vtu_get(struct mv88e6xxx_chip *chip, u16 vid,
+ 	if (err)
+ 		return err;
+ 
+-	if (entry->vid != vid || !entry->valid) {
+-		if (!creat)
+-			return -EOPNOTSUPP;
+-		/* -ENOENT would've been more appropriate, but switchdev expects
+-		 * -EOPNOTSUPP to inform bridge about an eventual software VLAN.
+-		 */
+-
+-		err = _mv88e6xxx_vtu_new(chip, vid, entry);
++	if (entry->vid == vid && entry->valid)
++		return 0;
++
++	if (new) {
++		int i;
++
++		/* Initialize a fresh VLAN entry */
++		memset(entry, 0, sizeof(*entry));
++		entry->valid = true;
++		entry->vid = vid;
++
++		/* Include only CPU and DSA ports */
++		for (i = 0; i < mv88e6xxx_num_ports(chip); ++i)
++			entry->member[i] = dsa_is_normal_port(chip->ds, i) ?
++				GLOBAL_VTU_DATA_MEMBER_TAG_NON_MEMBER :
++				GLOBAL_VTU_DATA_MEMBER_TAG_UNMODIFIED;
++
++		return mv88e6xxx_atu_new(chip, &entry->fid);
  	}
  
-+	tx_pool = &adapter->tx_pool[queue_num];
-+	tx_scrq = adapter->tx_scrq[queue_num];
-+	txq = netdev_get_tx_queue(netdev, skb_get_queue_mapping(skb));
-+	handle_array = (u64 *)((u8 *)(adapter->login_rsp_buf) +
-+		be32_to_cpu(adapter->login_rsp_buf->off_txsubm_subcrqs));
-+
- 	index = tx_pool->free_map[tx_pool->consumer_index];
- 	offset = index * adapter->req_mtu;
- 	dst = tx_pool->long_term_buff.buff + offset;
+-	return err;
++	/* switchdev expects -EOPNOTSUPP to honor software VLANs */
++	return -EOPNOTSUPP;
+ }
+ 
+ static int mv88e6xxx_port_check_hw_vlan(struct dsa_switch *ds, int port,
+@@ -1519,7 +1505,7 @@ static int _mv88e6xxx_port_vlan_add(struct mv88e6xxx_chip *chip, int port,
+ 	struct mv88e6xxx_vtu_entry vlan;
+ 	int err;
+ 
+-	err = _mv88e6xxx_vtu_get(chip, vid, &vlan, true);
++	err = mv88e6xxx_vtu_get(chip, vid, &vlan, true);
+ 	if (err)
+ 		return err;
+ 
+@@ -1564,7 +1550,7 @@ static int _mv88e6xxx_port_vlan_del(struct mv88e6xxx_chip *chip,
+ 	struct mv88e6xxx_vtu_entry vlan;
+ 	int i, err;
+ 
+-	err = _mv88e6xxx_vtu_get(chip, vid, &vlan, false);
++	err = mv88e6xxx_vtu_get(chip, vid, &vlan, false);
+ 	if (err)
+ 		return err;
+ 
+@@ -1639,7 +1625,7 @@ static int mv88e6xxx_port_db_load_purge(struct mv88e6xxx_chip *chip, int port,
+ 	if (vid == 0)
+ 		err = mv88e6xxx_port_get_fid(chip, port, &vlan.fid);
+ 	else
+-		err = _mv88e6xxx_vtu_get(chip, vid, &vlan, false);
++		err = mv88e6xxx_vtu_get(chip, vid, &vlan, false);
+ 	if (err)
+ 		return err;
+ 
+-- 
+2.12.2
