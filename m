@@ -1,31 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v5 net-next]smsc911x: Adding support for Micochip
- LAN9250 Ethernet controller
-Date: Mon, 01 May 2017 15:01:53 -0400 (EDT)
-Message-ID: <20170501.150153.1150633317673012467.davem@davemloft.net>
-References: <C3C28FB10418274EB7FD7C2B85C796A4412480F1@CHN-SV-EXMX02.mchp-main.com>
+Subject: Re: [PATCH net-next v2 00/18] net: dsa: mv88e6xxx: 802.1s and
+ 88E6390 VTU
+Date: Mon, 01 May 2017 15:03:31 -0400 (EDT)
+Message-ID: <20170501.150331.482828978106025762.davem@davemloft.net>
+References: <20170501180527.11756-1-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, UNGLinuxDriver@microchip.com,
-        steve.glendinning@shawell.net
-To: David.Cai@microchip.com
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@savoirfairelinux.com, f.fainelli@gmail.com, andrew@lunn.ch
+To: vivien.didelot@savoirfairelinux.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:36094 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:36140 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750725AbdEATBy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 1 May 2017 15:01:54 -0400
-In-Reply-To: <C3C28FB10418274EB7FD7C2B85C796A4412480F1@CHN-SV-EXMX02.mchp-main.com>
+        with ESMTP id S1750730AbdEATDd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 1 May 2017 15:03:33 -0400
+In-Reply-To: <20170501180527.11756-1-vivien.didelot@savoirfairelinux.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: <David.Cai@microchip.com>
-Date: Mon, 1 May 2017 15:46:56 +0000
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Date: Mon,  1 May 2017 14:05:09 -0400
 
-> From: David Cai <david.cai@microchip.com>
-> 
-> Adding support for Microchip LAN9250 Ethernet controller.
-> 
-> Signed-off-by: David Cai <david.cai@microchip.com>
+> This patch series adds support for the VLAN Table Unit (a.k.a. the VTU)
+> to the 88E6390 family of Marvell Ethernet switch chips. The plumbing for
+> the per VLAN Spanning Tree support is added as a side effect of the
+> necessary refactoring.
 
-This doesn't apply cleanly to net-next, please respin.
+Series applied, thanks.
