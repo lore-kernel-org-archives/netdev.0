@@ -1,124 +1,104 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 49/53] netfilter: batch synchronize_net calls during hook unregister
-Date: Mon,  1 May 2017 12:47:16 +0200
-Message-ID: <1493635640-24325-50-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 46/53] netfilter: don't attach a nat extension by default
+Date: Mon,  1 May 2017 12:47:13 +0200
+Message-ID: <1493635640-24325-47-git-send-email-pablo@netfilter.org>
 References: <1493635640-24325-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:49638 "EHLO mail.us.es"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S379021AbdEAKtH (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 1 May 2017 06:49:07 -0400
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+        by mail.us.es (Postfix) with ESMTP id 7D5F6210579
+        for <netdev@vger.kernel.org>; Mon,  1 May 2017 12:48:06 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 6B9C9FF14F
+        for <netdev@vger.kernel.org>; Mon,  1 May 2017 12:48:06 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 517D8FF2C1
+        for <netdev@vger.kernel.org>; Mon,  1 May 2017 12:48:04 +0200 (CEST)
 In-Reply-To: <1493635640-24325-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Florian Westphal <fw@strlen.de>
 
-synchronize_net is expensive and slows down netns cleanup a lot.
+nowadays the NAT extension only stores the interface index
+(used to purge connections that got masqueraded when interface goes down)
+and pptp nat information.
 
-We have two APIs to unregister a hook:
-nf_unregister_net_hook (which calls synchronize_net())
-and
-nf_unregister_net_hooks (calls nf_unregister_net_hook in a loop)
-
-Make nf_unregister_net_hook a wapper around new helper
-__nf_unregister_net_hook, which unlinks the hook but does not free it.
-
-Then, we can call that helper in nf_unregister_net_hooks and then
-call synchronize_net() only once.
-
-Andrey Konovalov reports this change improves syzkaller fuzzing speed at
-least twice.
+Previous patches moved nf_ct_nat_ext_add to those places that need it.
 
 Signed-off-by: Florian Westphal <fw@strlen.de>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/core.c | 46 ++++++++++++++++++++++++++++++++++++++++------
- 1 file changed, 40 insertions(+), 6 deletions(-)
+ include/net/netfilter/nf_nat.h           | 2 +-
+ net/ipv4/netfilter/nf_nat_l3proto_ipv4.c | 4 +---
+ net/ipv6/netfilter/nf_nat_l3proto_ipv6.c | 4 +---
+ net/netfilter/nf_nat_core.c              | 6 ------
+ 4 files changed, 3 insertions(+), 13 deletions(-)
 
-diff --git a/net/netfilter/core.c b/net/netfilter/core.c
-index a87a6f8a74d8..b5d908851cc8 100644
---- a/net/netfilter/core.c
-+++ b/net/netfilter/core.c
-@@ -126,14 +126,15 @@ int nf_register_net_hook(struct net *net, const struct nf_hook_ops *reg)
- }
- EXPORT_SYMBOL(nf_register_net_hook);
- 
--void nf_unregister_net_hook(struct net *net, const struct nf_hook_ops *reg)
-+static struct nf_hook_entry *
-+__nf_unregister_net_hook(struct net *net, const struct nf_hook_ops *reg)
+diff --git a/include/net/netfilter/nf_nat.h b/include/net/netfilter/nf_nat.h
+index c327a431a6f3..05c82a1a4267 100644
+--- a/include/net/netfilter/nf_nat.h
++++ b/include/net/netfilter/nf_nat.h
+@@ -67,7 +67,7 @@ static inline bool nf_nat_oif_changed(unsigned int hooknum,
  {
- 	struct nf_hook_entry __rcu **pp;
- 	struct nf_hook_entry *p;
+ #if IS_ENABLED(CONFIG_NF_NAT_MASQUERADE_IPV4) || \
+     IS_ENABLED(CONFIG_NF_NAT_MASQUERADE_IPV6)
+-	return nat->masq_index && hooknum == NF_INET_POST_ROUTING &&
++	return nat && nat->masq_index && hooknum == NF_INET_POST_ROUTING &&
+ 	       CTINFO2DIR(ctinfo) == IP_CT_DIR_ORIGINAL &&
+ 	       nat->masq_index != out->ifindex;
+ #else
+diff --git a/net/ipv4/netfilter/nf_nat_l3proto_ipv4.c b/net/ipv4/netfilter/nf_nat_l3proto_ipv4.c
+index e3bfa6a169f0..feedd759ca80 100644
+--- a/net/ipv4/netfilter/nf_nat_l3proto_ipv4.c
++++ b/net/ipv4/netfilter/nf_nat_l3proto_ipv4.c
+@@ -264,9 +264,7 @@ nf_nat_ipv4_fn(void *priv, struct sk_buff *skb,
+ 	if (!ct)
+ 		return NF_ACCEPT;
  
- 	pp = nf_hook_entry_head(net, reg);
- 	if (WARN_ON_ONCE(!pp))
--		return;
-+		return NULL;
+-	nat = nf_ct_nat_ext_add(ct);
+-	if (nat == NULL)
+-		return NF_ACCEPT;
++	nat = nfct_nat(ct);
  
- 	mutex_lock(&nf_hook_mutex);
- 	for (; (p = nf_entry_dereference(*pp)) != NULL; pp = &p->next) {
-@@ -145,7 +146,7 @@ void nf_unregister_net_hook(struct net *net, const struct nf_hook_ops *reg)
- 	mutex_unlock(&nf_hook_mutex);
- 	if (!p) {
- 		WARN(1, "nf_unregister_net_hook: hook not found!\n");
--		return;
-+		return NULL;
- 	}
- #ifdef CONFIG_NETFILTER_INGRESS
- 	if (reg->pf == NFPROTO_NETDEV && reg->hooknum == NF_NETDEV_INGRESS)
-@@ -154,6 +155,17 @@ void nf_unregister_net_hook(struct net *net, const struct nf_hook_ops *reg)
- #ifdef HAVE_JUMP_LABEL
- 	static_key_slow_dec(&nf_hooks_needed[reg->pf][reg->hooknum]);
- #endif
-+
-+	return p;
-+}
-+
-+void nf_unregister_net_hook(struct net *net, const struct nf_hook_ops *reg)
-+{
-+	struct nf_hook_entry *p = __nf_unregister_net_hook(net, reg);
-+
-+	if (!p)
-+		return;
-+
- 	synchronize_net();
- 	nf_queue_nf_hook_drop(net, p);
- 	/* other cpu might still process nfqueue verdict that used reg */
-@@ -183,10 +195,32 @@ int nf_register_net_hooks(struct net *net, const struct nf_hook_ops *reg,
- EXPORT_SYMBOL(nf_register_net_hooks);
+ 	switch (ctinfo) {
+ 	case IP_CT_RELATED:
+diff --git a/net/ipv6/netfilter/nf_nat_l3proto_ipv6.c b/net/ipv6/netfilter/nf_nat_l3proto_ipv6.c
+index 922b5aef273c..bf3ad3e7b647 100644
+--- a/net/ipv6/netfilter/nf_nat_l3proto_ipv6.c
++++ b/net/ipv6/netfilter/nf_nat_l3proto_ipv6.c
+@@ -273,9 +273,7 @@ nf_nat_ipv6_fn(void *priv, struct sk_buff *skb,
+ 	if (!ct)
+ 		return NF_ACCEPT;
  
- void nf_unregister_net_hooks(struct net *net, const struct nf_hook_ops *reg,
--			     unsigned int n)
-+			     unsigned int hookcount)
+-	nat = nf_ct_nat_ext_add(ct);
+-	if (nat == NULL)
+-		return NF_ACCEPT;
++	nat = nfct_nat(ct);
+ 
+ 	switch (ctinfo) {
+ 	case IP_CT_RELATED:
+diff --git a/net/netfilter/nf_nat_core.c b/net/netfilter/nf_nat_core.c
+index 86eeacbb4793..ec9e6d8101b9 100644
+--- a/net/netfilter/nf_nat_core.c
++++ b/net/netfilter/nf_nat_core.c
+@@ -408,12 +408,6 @@ nf_nat_setup_info(struct nf_conn *ct,
+ 		  enum nf_nat_manip_type maniptype)
  {
--	while (n-- > 0)
--		nf_unregister_net_hook(net, &reg[n]);
-+	struct nf_hook_entry *to_free[16];
-+	unsigned int i, n;
-+
-+	do {
-+		n = min_t(unsigned int, hookcount, ARRAY_SIZE(to_free));
-+
-+		for (i = 0; i < n; i++)
-+			to_free[i] = __nf_unregister_net_hook(net, &reg[i]);
-+
-+		synchronize_net();
-+
-+		for (i = 0; i < n; i++) {
-+			if (to_free[i])
-+				nf_queue_nf_hook_drop(net, to_free[i]);
-+		}
-+
-+		synchronize_net();
-+
-+		for (i = 0; i < n; i++)
-+			kfree(to_free[i]);
-+
-+		reg += n;
-+		hookcount -= n;
-+	} while (hookcount > 0);
- }
- EXPORT_SYMBOL(nf_unregister_net_hooks);
+ 	struct nf_conntrack_tuple curr_tuple, new_tuple;
+-	struct nf_conn_nat *nat;
+-
+-	/* nat helper or nfctnetlink also setup binding */
+-	nat = nf_ct_nat_ext_add(ct);
+-	if (nat == NULL)
+-		return NF_ACCEPT;
  
+ 	NF_CT_ASSERT(maniptype == NF_NAT_MANIP_SRC ||
+ 		     maniptype == NF_NAT_MANIP_DST);
 -- 
 2.1.4
-
