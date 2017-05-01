@@ -1,41 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH V1] samples/bpf: bpf_load.c detect and abort
- if ELF maps section size is wrong
-Date: Sun, 30 Apr 2017 22:43:06 -0400 (EDT)
-Message-ID: <20170430.224306.1606724319950001833.davem@davemloft.net>
-References: <20170428082816.20a34395@redhat.com>
-        <149338948065.27354.8568861008673180957.stgit@firesoul>
+Subject: Re: [Patch net-next v2] ipv4: get rid of ip_ra_lock
+Date: Sun, 30 Apr 2017 22:44:26 -0400 (EDT)
+Message-ID: <20170430.224426.1735697418710301007.davem@davemloft.net>
+References: <1493399069-31743-1-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kafai@fb.com, netdev@vger.kernel.org, eric@regit.org,
-        borkmann@iogearbox.net, alexei.starovoitov@gmail.com
-To: brouer@redhat.com
+Cc: netdev@vger.kernel.org
+To: xiyou.wangcong@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:54546 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:54566 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1425674AbdEACnI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 30 Apr 2017 22:43:08 -0400
-In-Reply-To: <149338948065.27354.8568861008673180957.stgit@firesoul>
+        with ESMTP id S1946486AbdEACo2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 30 Apr 2017 22:44:28 -0400
+In-Reply-To: <1493399069-31743-1-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Date: Fri, 28 Apr 2017 16:25:04 +0200
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Date: Fri, 28 Apr 2017 10:04:29 -0700
 
-> The struct bpf_map_def was extended in commit fb30d4b71214 ("bpf: Add tests
-> for map-in-map") with member unsigned int inner_map_idx.  This changed the size
-> of the maps section in the generated ELF _kern.o files.
+> After commit 1215e51edad1 ("ipv4: fix a deadlock in ip_ra_control")
+> we always take RTNL lock for ip_ra_control() which is the only place
+> we update the list ip_ra_chain, so the ip_ra_lock is no longer needed.
 > 
-> Unfortunately the loader in bpf_load.c does not detect or handle this.  Thus,
-> older _kern.o files became incompatible, and caused hard-to-debug errors
-> where the syscall validation rejected BPF_MAP_CREATE request.
+> As Eric points out, BH does not need to disable either, RCU readers
+> don't care.
 > 
-> This patch only detect the situation and aborts load_bpf_file(). It also
-> add code comments warning people that read this loader for inspiration
-> for these pitfalls.
-> 
-> Fixes: fb30d4b71214 ("bpf: Add tests for map-in-map")
-> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 
 Applied.
