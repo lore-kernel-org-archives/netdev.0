@@ -1,101 +1,50 @@
-From: Benjamin LaHaise <benjamin.lahaise@netronome.com>
-Subject: [PATCH] flower: check unused bits in MPLS fields
-Date: Mon,  1 May 2017 09:58:40 -0400
-Message-ID: <1493647120-17406-1-git-send-email-benjamin.lahaise@netronome.com>
-Cc: Benjamin LaHaise <benjamin.lahaise@netronome.com>,
-        David Miller <davem@davemloft.net>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Simon Horman <simon.horman@netronome.com>,
-        Jakub Kicinski <kubakici@wp.pl>, Jiri Pirko <jiri@resnulli.us>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f175.google.com ([209.85.223.175]:36458 "EHLO
-        mail-io0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S969191AbdEAN7C (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 1 May 2017 09:59:02 -0400
-Received: by mail-io0-f175.google.com with SMTP id p80so118732049iop.3
-        for <netdev@vger.kernel.org>; Mon, 01 May 2017 06:59:02 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
+Subject: Re: [PATCH v5 00/20] net-next: stmmac: add dwmac-sun8i ethernet
+ driver
+Date: Mon, 1 May 2017 16:01:33 +0200
+Message-ID: <20170501140133.GD31281@lunn.ch>
+References: <20170501124520.3769-1-clabbe.montjoie@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
+        maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org, wens-jdAy2FN1RRM@public.gmane.org,
+        linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, catalin.marinas-5wv7dgnIgG8@public.gmane.org,
+        will.deacon-5wv7dgnIgG8@public.gmane.org, peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
+        alexandre.torgue-qxv4g6HH51o@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20170501124520.3769-1-clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Since several of the the netlink attributes used to configure the flower
-classifier's MPLS TC, BOS and Label fields have additional bits which are
-unused, check those bits to ensure that they are actually 0 as suggested
-by Jamal.
+On Mon, May 01, 2017 at 02:45:00PM +0200, Corentin Labbe wrote:
+> Hello
+> 
+> This patch series add the driver for dwmac-sun8i which handle the Ethernet MAC
+> present on Allwinner H3/H5/A83T/A64 SoCs.
+> 
+> This driver is the continuation of the sun8i-emac driver.
+> During the development, it appeared that in fact the hardware was a modified
+> version of some dwmac.
+> So the driver is now written as a glue driver for stmmac.
+> 
+> It supports 10/100/1000 Mbit/s speed with half/full duplex.
+> It can use an internal PHY (MII 10/100) or an external PHY
+> via RGMII/RMII.
 
-Signed-off-by: Benjamin LaHaise <benjamin.lahaise@netronome.com>
-Cc: David Miller <davem@davemloft.net>
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-Cc: Simon Horman <simon.horman@netronome.com>
-Cc: Jakub Kicinski <kubakici@wp.pl>
-Cc: Jiri Pirko <jiri@resnulli.us>
----
- net/sched/cls_flower.c | 32 ++++++++++++++++++++++----------
- 1 file changed, 22 insertions(+), 10 deletions(-)
+Hi Corentin
 
-diff --git a/net/sched/cls_flower.c b/net/sched/cls_flower.c
-index 3ecf076..ca526c0 100644
---- a/net/sched/cls_flower.c
-+++ b/net/sched/cls_flower.c
-@@ -439,29 +439,39 @@ static void fl_set_key_val(struct nlattr **tb,
- 		memcpy(mask, nla_data(tb[mask_type]), len);
- }
- 
--static void fl_set_key_mpls(struct nlattr **tb,
--			    struct flow_dissector_key_mpls *key_val,
--			    struct flow_dissector_key_mpls *key_mask)
-+static int fl_set_key_mpls(struct nlattr **tb,
-+			   struct flow_dissector_key_mpls *key_val,
-+			   struct flow_dissector_key_mpls *key_mask)
- {
- 	if (tb[TCA_FLOWER_KEY_MPLS_TTL]) {
- 		key_val->mpls_ttl = nla_get_u8(tb[TCA_FLOWER_KEY_MPLS_TTL]);
- 		key_mask->mpls_ttl = MPLS_TTL_MASK;
- 	}
- 	if (tb[TCA_FLOWER_KEY_MPLS_BOS]) {
--		key_val->mpls_bos = nla_get_u8(tb[TCA_FLOWER_KEY_MPLS_BOS]);
-+		u8 bos = nla_get_u8(tb[TCA_FLOWER_KEY_MPLS_BOS]);
-+
-+		if (bos & ~MPLS_BOS_MASK)
-+			return -EINVAL;
-+		key_val->mpls_bos = bos;
- 		key_mask->mpls_bos = MPLS_BOS_MASK;
- 	}
- 	if (tb[TCA_FLOWER_KEY_MPLS_TC]) {
--		key_val->mpls_tc =
--			nla_get_u8(tb[TCA_FLOWER_KEY_MPLS_TC]) & MPLS_TC_MASK;
-+		u8 tc = nla_get_u8(tb[TCA_FLOWER_KEY_MPLS_TC]);
-+
-+		if (tc & ~MPLS_TC_MASK)
-+			return -EINVAL;
-+		key_val->mpls_tc = tc;
- 		key_mask->mpls_tc = MPLS_TC_MASK;
- 	}
- 	if (tb[TCA_FLOWER_KEY_MPLS_LABEL]) {
--		key_val->mpls_label =
--			nla_get_u32(tb[TCA_FLOWER_KEY_MPLS_LABEL]) &
--			MPLS_LABEL_MASK;
-+		u32 label = nla_get_u32(tb[TCA_FLOWER_KEY_MPLS_LABEL]);
-+
-+		if (label & ~MPLS_LABEL_MASK)
-+			return -EINVAL;
-+		key_val->mpls_label = label;
- 		key_mask->mpls_label = MPLS_LABEL_MASK;
- 	}
-+	return 0;
- }
- 
- static void fl_set_key_vlan(struct nlattr **tb,
-@@ -622,7 +632,9 @@ static int fl_set_key(struct net *net, struct nlattr **tb,
- 			       sizeof(key->icmp.code));
- 	} else if (key->basic.n_proto == htons(ETH_P_MPLS_UC) ||
- 		   key->basic.n_proto == htons(ETH_P_MPLS_MC)) {
--		fl_set_key_mpls(tb, &key->mpls, &mask->mpls);
-+		ret = fl_set_key_mpls(tb, &key->mpls, &mask->mpls);
-+		if (ret)
-+			return ret;
- 	} else if (key->basic.n_proto == htons(ETH_P_ARP) ||
- 		   key->basic.n_proto == htons(ETH_P_RARP)) {
- 		fl_set_key_val(tb, &key->arp.sip, TCA_FLOWER_KEY_ARP_SIP,
--- 
-2.7.4
+Sorry if this has been asked before....
+
+Does the internal PHY have a phy driver? It seems like
+tx-delay-ps/rx-delay-ps are properties of this internal PHY, and so
+should be in the phy driver, if it has one.
+
+       Andrew
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
