@@ -1,68 +1,60 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 00/18] net: dsa: mv88e6xxx: 802.1s and 88E6390
- VTU
-Date: Mon, 01 May 2017 12:08:00 -0400 (EDT)
-Message-ID: <20170501.120800.1973590139715167836.davem@davemloft.net>
-References: <20170426155336.5937-1-vivien.didelot@savoirfairelinux.com>
-        <871ss8bmom.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
+Subject: Re: [PATCH v5 00/20] net-next: stmmac: add dwmac-sun8i ethernet
+ driver
+Date: Mon, 1 May 2017 18:10:30 +0200
+Message-ID: <20170501161030.GF1285@lunn.ch>
+References: <20170501124520.3769-1-clabbe.montjoie@gmail.com>
+ <20170501140133.GD31281@lunn.ch>
+ <CAGb2v67qGqswdz_JcDaD5jTkcvtBuzqqP8KZh=S_5pkp=o6cUQ@mail.gmail.com>
+ <20170501144541.GB1285@lunn.ch>
+ <20170501155856.GA1957@Red>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel@savoirfairelinux.com, f.fainelli@gmail.com, andrew@lunn.ch
-To: vivien.didelot@savoirfairelinux.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:34048 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755027AbdEAQIE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 1 May 2017 12:08:04 -0400
-In-Reply-To: <871ss8bmom.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>, Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+        Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
+        Russell King <linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>,
+        Catalin Marinas <catalin.marinas-5wv7dgnIgG8@public.gmane.org>,
+        Will Deacon <will.deacon-5wv7dgnIgG8@public.gmane.org>,
+        Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
+        alexandre.torgue-qxv4g6HH51o@public.gmane.org, devicetree <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        linux-arm-kernel <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+        netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20170501155856.GA1957@Red>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Date: Mon, 01 May 2017 11:51:05 -0400
-
-> Hi David,
+> > > > Does the internal PHY have a phy driver? It seems like
+> > > > tx-delay-ps/rx-delay-ps are properties of this internal PHY, and so
+> > > > should be in the phy driver, if it has one.
+> > > 
+> > > Nope. These affect the delay lines for the external PHY interface.
 > 
-> Vivien Didelot <vivien.didelot@savoirfairelinux.com> writes:
+> I will add some sentences in the documentation to be more clear about that.
+
+Thanks
+
 > 
->> Vivien Didelot (18):
->>   net: dsa: mv88e6xxx: add max VID to info
->>   net: dsa: mv88e6xxx: split VTU entry data member
->>   net: dsa: mv88e6xxx: move VTU Operation accessors
->>   net: dsa: mv88e6xxx: move VTU flush
->>   net: dsa: mv88e6xxx: move VTU FID accessors
->>   net: dsa: mv88e6xxx: move VTU SID accessors
->>   net: dsa: mv88e6xxx: move VTU VID accessors
->>   net: dsa: mv88e6xxx: move generic VTU GetNext
->>   net: dsa: mv88e6xxx: move VTU Data accessors
->>   net: dsa: mv88e6xxx: move STU GetNext operation
->>   net: dsa: mv88e6xxx: get STU entry on VTU GetNext
->>   net: dsa: mv88e6xxx: load STU entry with VTU entry
->>   net: dsa: mv88e6xxx: add VTU GetNext operation
->>   net: dsa: mv88e6xxx: add VTU Load/Purge operation
->>   net: dsa: mv88e6xxx: make VTU helpers static
->>   net: dsa: mv88e6xxx: simplify VTU entry getter
->>   net: dsa: mv88e6xxx: support the VTU Page bit
->>   net: dsa: mv88e6xxx: add VTU support for 88E6390
->>
->>  drivers/net/dsa/mv88e6xxx/Makefile      |   1 +
->>  drivers/net/dsa/mv88e6xxx/chip.c        | 568 +++++++++-----------------------
->>  drivers/net/dsa/mv88e6xxx/global1.h     |  14 +
->>  drivers/net/dsa/mv88e6xxx/global1_vtu.c | 505 ++++++++++++++++++++++++++++
->>  drivers/net/dsa/mv88e6xxx/mv88e6xxx.h   |  31 +-
->>  5 files changed, 684 insertions(+), 435 deletions(-)
->>  create mode 100644 drivers/net/dsa/mv88e6xxx/global1_vtu.c
+> > 
+> > Oh, yes. I understood the patch wrong.
+> > 
+> > None of the patches actually use these properties. Are they actually
+> > needed? We should avoid adding vendor specific properties, if they are
+> > not used.
+> > 
 > 
-> I don't see the patchset in net-next. Can you pick it?
+> The board that use it is the BananaPi M3, but the SoC A83T still lack clocks support.
+> So theses properties is already used out of tree, and will be used in tree soon.
 
-This had feedback which you must address, therefore the state in
-patchwork is "changes requested" which you could have checked before
-asking me this.
+Fair enough.
 
-If the patch set is fine and you got ACKs for all of your patches
-then please resubmit.
-
-Otherwise, make the changes you were asked to make or explain to
-the person who asked for them why they are not appropriate.
+Thanks
+	Andrew
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
