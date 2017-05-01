@@ -1,45 +1,131 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH 00/53] Netfilter/IPVS updates for net-next
-Date: Mon, 1 May 2017 12:53:53 +0200
-Message-ID: <20170501105353.GA24620@salvia>
-References: <1493635640-24325-1-git-send-email-pablo@netfilter.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:51628 "EHLO mail.us.es"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1426915AbdEAKyC (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 1 May 2017 06:54:02 -0400
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id 49DAB210575
-        for <netdev@vger.kernel.org>; Mon,  1 May 2017 12:53:55 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 38A67FF2CE
-        for <netdev@vger.kernel.org>; Mon,  1 May 2017 12:53:55 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 227EC18500
-        for <netdev@vger.kernel.org>; Mon,  1 May 2017 12:53:53 +0200 (CEST)
-Content-Disposition: inline
-In-Reply-To: <1493635640-24325-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH v5 00/20] net-next: stmmac: add dwmac-sun8i ethernet driver
+Date: Mon,  1 May 2017 14:45:00 +0200
+Message-ID: <20170501124520.3769-1-clabbe.montjoie@gmail.com>
+Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+        Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
+        maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org, wens-jdAy2FN1RRM@public.gmane.org,
+        linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, catalin.marinas-5wv7dgnIgG8@public.gmane.org,
+        will.deacon-5wv7dgnIgG8@public.gmane.org, peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
+        alexandre.torgue-qxv4g6HH51o@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, May 01, 2017 at 12:46:27PM +0200, Pablo Neira Ayuso wrote:
-> Hi David,
-> 
-> The following patchset contains Netfilter updates for your net-next
-> tree. A large bunch of code cleanups, XXX they are:
+Hello
 
-Oh well, it case you can amend XXX thing there, David. This should be
-instead...
+This patch series add the driver for dwmac-sun8i which handle the Ethernet MAC
+present on Allwinner H3/H5/A83T/A64 SoCs.
 
-The following patchset contains Netfilter updates for your net-next
-tree. A large bunch of code cleanups, simplify the conntrack extension
-codebase, get rid of the fake conntrack object, speed up netns by
-selective synchronize_net() calls. More specifically, they are:
+This driver is the continuation of the sun8i-emac driver.
+During the development, it appeared that in fact the hardware was a modified
+version of some dwmac.
+So the driver is now written as a glue driver for stmmac.
 
-...
+It supports 10/100/1000 Mbit/s speed with half/full duplex.
+It can use an internal PHY (MII 10/100) or an external PHY
+via RGMII/RMII.
 
-Sorry, it seems my robot took some incomplete draft.
+This patch series enable the driver only for the H3/A64/H5 SoC since A83T
+doesn't have the necessary clocks present in mainline.
+
+The driver have been tested on the following boards:
+- H3 Orange PI PC, BananaPI-M2+
+- A64 Pine64, BananaPi-M64
+- A83T BananaPI-M3
+
+The first two patchs are some mandatory changes for letting dwmac-sun8i be used.
+The following three patchs add the driver and its documentation.
+The remaining are DT patch enabling it.
+
+Regards
+Corentin Labbe
+
+Changes since v4:
+- Re-ordered by alphabetical order some DT nodes
+- Fixed arm64 patch prefix
+- Simplified power/unpower_phy functions by testing the use of internal_phy
+- Added a patch for adding dwmac-sun8i to arm64 defconfig
+- Fix a typo in sun50i-a64-system-controller (wrongly used sun8i)
+- Reworked uc/mc filter address setting
+
+Changes since v3:
+- Renamed tx-delay/rx-delay to tx-delay-ps/rx-delay-ps
+- fix syscon compatible example
+- Changed parameter type for setup() function
+- Dropped some DT patchs for boards which I could not test further
+
+Changes since v2:
+- corrected order of syscon compatible
+- added compatible = "ethernet-phy-ieee802.3-c22 to PHY
+- added set_mac function
+
+Changes since v1:
+- added TX/RX delay units
+- splitted syscon documentation in its own patch
+- regulator is now disabled after clk_prepare_enable(gmac->tx_clk) error
+- Fixed a memory leak on mac_device_info
+- Use now generic pin config for all DT stuff
+- CONFIG_DWMAC_SUN8I is now set to y in defconfigs
+
+Corentin Labbe (20):
+  net: stmmac: export stmmac_set_mac_addr/stmmac_get_mac_addr
+  net: stmmac: add optional setup function
+  dt-bindings: net: Add DT bindings documentation for Allwinner
+    dwmac-sun8i
+  dt-bindings: syscon: Add DT bindings documentation for Allwinner
+    syscon
+  net: stmmac: Add dwmac-sun8i
+  arm: sun8i: sunxi-h3-h5: Add dt node for the syscon control module
+  arm: sun8i: sunxi-h3-h5: add dwmac-sun8i ethernet driver
+  arm: sun8i: orangepi-pc: Enable dwmac-sun8i
+  arm: sun8i: orangepi-zero: Enable dwmac-sun8i
+  arm: sun8i: orangepi-one: Enable dwmac-sun8i
+  arm: sun8i: orangepi-2: Enable dwmac-sun8i
+  arm: sun8i: orangepi-pc-plus: Set EMAC activity LEDs to active high
+  arm64: allwinner: sun50i-a64: Add dt node for the syscon control
+    module
+  arm64: allwinner: sun50i-a64: add dwmac-sun8i Ethernet driver
+  arm64: allwinner: pine64: Enable dwmac-sun8i
+  arm64: allwinner: pine64-plus: Enable dwmac-sun8i
+  arm64: allwinner: bananapi-m64: Enable dwmac-sun8i
+  arm: sunxi: Enable dwmac-sun8i driver on sunxi_defconfig
+  arm: multi_v7: Enable dwmac-sun8i driver on multi_v7_defconfig
+  arm64: defconfig: Enable dwmac-sun8i driver on defconfig
+
+ .../devicetree/bindings/misc/allwinner,syscon.txt  |  19 +
+ .../devicetree/bindings/net/dwmac-sun8i.txt        |  77 ++
+ arch/arm/boot/dts/sun8i-h2-plus-orangepi-zero.dts  |   8 +
+ arch/arm/boot/dts/sun8i-h3-orangepi-2.dts          |   8 +
+ arch/arm/boot/dts/sun8i-h3-orangepi-one.dts        |   8 +
+ arch/arm/boot/dts/sun8i-h3-orangepi-pc-plus.dts    |   5 +
+ arch/arm/boot/dts/sun8i-h3-orangepi-pc.dts         |   8 +
+ arch/arm/boot/dts/sunxi-h3-h5.dtsi                 |  40 +
+ arch/arm/configs/multi_v7_defconfig                |   1 +
+ arch/arm/configs/sunxi_defconfig                   |   1 +
+ .../boot/dts/allwinner/sun50i-a64-bananapi-m64.dts |  15 +
+ .../boot/dts/allwinner/sun50i-a64-pine64-plus.dts  |  17 +-
+ .../arm64/boot/dts/allwinner/sun50i-a64-pine64.dts |  16 +
+ arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi      |  41 +
+ arch/arm64/configs/defconfig                       |   1 +
+ drivers/net/ethernet/stmicro/stmmac/Kconfig        |  11 +
+ drivers/net/ethernet/stmicro/stmmac/Makefile       |   1 +
+ drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c  | 973 +++++++++++++++++++++
+ drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c    |   3 +-
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |  33 +-
+ .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |   9 +-
+ include/linux/stmmac.h                             |   2 +
+ 22 files changed, 1292 insertions(+), 5 deletions(-)
+ create mode 100644 Documentation/devicetree/bindings/misc/allwinner,syscon.txt
+ create mode 100644 Documentation/devicetree/bindings/net/dwmac-sun8i.txt
+ create mode 100644 drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c
+
+-- 
+2.10.2
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
