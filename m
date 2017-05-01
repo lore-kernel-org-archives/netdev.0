@@ -1,121 +1,70 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next v2 04/18] net: dsa: mv88e6xxx: move VTU flush
-Date: Mon,  1 May 2017 14:05:13 -0400
-Message-ID: <20170501180527.11756-5-vivien.didelot@savoirfairelinux.com>
-References: <20170501180527.11756-1-vivien.didelot@savoirfairelinux.com>
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+From: Nathan Fontenot <nfont@linux.vnet.ibm.com>
+Subject: [PATCH v2 net-next 08/11] ibmvnic: Check for driver reset first in
+ ibmvnic_xmit
+Date: Mon, 01 May 2017 17:57:25 -0400
+Message-ID: <20170501215725.27224.21638.stgit@ltcalpine2-lp23.aus.stglabs.ibm.com>
+References: <20170501215424.27224.53918.stgit@ltcalpine2-lp23.aus.stglabs.ibm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: brking@linux.vnet.ibm.com, jallen@linux.vnet.ibm.com,
+        muvic@linux.vnet.ibm.com, tlfalcon@linux.vnet.ibm.com
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170501180527.11756-1-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:48435 "EHLO
+        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1751184AbdEASJA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 1 May 2017 14:09:00 -0400
+Received: from pps.filterd (m0098414.ppops.net [127.0.0.1])
+        by mx0b-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v41I4EGd117110
+        for <netdev@vger.kernel.org>; Mon, 1 May 2017 14:08:45 -0400
+Received: from e12.ny.us.ibm.com (e12.ny.us.ibm.com [129.33.205.202])
+        by mx0b-001b2d01.pphosted.com with ESMTP id 2a68vvb2mb-1
+        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Mon, 01 May 2017 14:08:41 -0400
+Received: from localhost
+        by e12.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        for <netdev@vger.kernel.org> from <nfont@linux.vnet.ibm.com>;
+        Mon, 1 May 2017 14:08:40 -0400
+In-Reply-To: <20170501215424.27224.53918.stgit@ltcalpine2-lp23.aus.stglabs.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Move the VTU flush operation to global1_vtu.c and call it from a
-mv88e6xxx_vtu_setup helper, similarly to the ATU and PVT setup.
+Move the check for the driver resetting to the first thing
+in ibmvnic_xmit().
 
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+Signed-off-by: Nathan Fontenot <nfont@linux.vnet.ibm.com>
 ---
- drivers/net/dsa/mv88e6xxx/chip.c        | 28 ++++++++++++----------------
- drivers/net/dsa/mv88e6xxx/global1.h     |  1 +
- drivers/net/dsa/mv88e6xxx/global1_vtu.c | 13 +++++++++++++
- 3 files changed, 26 insertions(+), 16 deletions(-)
+ drivers/net/ethernet/ibm/ibmvnic.c |   12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-index bf0350432337..d244c2283138 100644
---- a/drivers/net/dsa/mv88e6xxx/chip.c
-+++ b/drivers/net/dsa/mv88e6xxx/chip.c
-@@ -1263,17 +1263,6 @@ static void mv88e6xxx_port_fast_age(struct dsa_switch *ds, int port)
- 		netdev_err(ds->ports[port].netdev, "failed to flush ATU\n");
- }
+diff --git a/drivers/net/ethernet/ibm/ibmvnic.c b/drivers/net/ethernet/ibm/ibmvnic.c
+index 4da7080..2cf1b64 100644
+--- a/drivers/net/ethernet/ibm/ibmvnic.c
++++ b/drivers/net/ethernet/ibm/ibmvnic.c
+@@ -985,12 +985,6 @@ static int ibmvnic_xmit(struct sk_buff *skb, struct net_device *netdev)
+ 	int index = 0;
+ 	int ret = 0;
  
--static int _mv88e6xxx_vtu_stu_flush(struct mv88e6xxx_chip *chip)
--{
--	int ret;
--
--	ret = mv88e6xxx_g1_vtu_op_wait(chip);
--	if (ret < 0)
--		return ret;
--
--	return mv88e6xxx_g1_vtu_op(chip, GLOBAL_VTU_OP_FLUSH_ALL);
--}
--
- static int _mv88e6xxx_vtu_stu_data_read(struct mv88e6xxx_chip *chip,
- 					struct mv88e6xxx_vtu_entry *entry,
- 					unsigned int nibble_offset)
-@@ -1412,6 +1401,14 @@ static int _mv88e6xxx_vtu_getnext(struct mv88e6xxx_chip *chip,
- 	return 0;
- }
- 
-+static int mv88e6xxx_vtu_setup(struct mv88e6xxx_chip *chip)
-+{
-+	if (!chip->info->max_vid)
-+		return 0;
-+
-+	return mv88e6xxx_g1_vtu_flush(chip);
-+}
-+
- static int mv88e6xxx_port_vlan_dump(struct dsa_switch *ds, int port,
- 				    struct switchdev_obj_port_vlan *vlan,
- 				    int (*cb)(struct switchdev_obj *obj))
-@@ -2599,11 +2596,6 @@ static int mv88e6xxx_g1_setup(struct mv88e6xxx_chip *chip)
- 	if (err)
- 		return err;
- 
--	/* Clear all the VTU and STU entries */
--	err = _mv88e6xxx_vtu_stu_flush(chip);
--	if (err < 0)
--		return err;
--
- 	/* Configure the IP ToS mapping registers. */
- 	err = mv88e6xxx_g1_write(chip, GLOBAL_IP_PRI_0, 0x0000);
- 	if (err)
-@@ -2684,6 +2676,10 @@ static int mv88e6xxx_setup(struct dsa_switch *ds)
- 			goto unlock;
+-	tx_pool = &adapter->tx_pool[queue_num];
+-	tx_scrq = adapter->tx_scrq[queue_num];
+-	txq = netdev_get_tx_queue(netdev, skb_get_queue_mapping(skb));
+-	handle_array = (u64 *)((u8 *)(adapter->login_rsp_buf) +
+-				   be32_to_cpu(adapter->login_rsp_buf->
+-					       off_txsubm_subcrqs));
+ 	if (adapter->resetting) {
+ 		if (!netif_subqueue_stopped(netdev, skb))
+ 			netif_stop_subqueue(netdev, queue_num);
+@@ -1002,6 +996,12 @@ static int ibmvnic_xmit(struct sk_buff *skb, struct net_device *netdev)
+ 		goto out;
  	}
  
-+	err = mv88e6xxx_vtu_setup(chip);
-+	if (err)
-+		goto unlock;
++	tx_pool = &adapter->tx_pool[queue_num];
++	tx_scrq = adapter->tx_scrq[queue_num];
++	txq = netdev_get_tx_queue(netdev, skb_get_queue_mapping(skb));
++	handle_array = (u64 *)((u8 *)(adapter->login_rsp_buf) +
++		be32_to_cpu(adapter->login_rsp_buf->off_txsubm_subcrqs));
 +
- 	err = mv88e6xxx_pvt_setup(chip);
- 	if (err)
- 		goto unlock;
-diff --git a/drivers/net/dsa/mv88e6xxx/global1.h b/drivers/net/dsa/mv88e6xxx/global1.h
-index c153d07d2065..ed40e5557bbc 100644
---- a/drivers/net/dsa/mv88e6xxx/global1.h
-+++ b/drivers/net/dsa/mv88e6xxx/global1.h
-@@ -52,5 +52,6 @@ int mv88e6xxx_g1_atu_remove(struct mv88e6xxx_chip *chip, u16 fid, int port,
- 
- int mv88e6xxx_g1_vtu_op_wait(struct mv88e6xxx_chip *chip);
- int mv88e6xxx_g1_vtu_op(struct mv88e6xxx_chip *chip, u16 op);
-+int mv88e6xxx_g1_vtu_flush(struct mv88e6xxx_chip *chip);
- 
- #endif /* _MV88E6XXX_GLOBAL1_H */
-diff --git a/drivers/net/dsa/mv88e6xxx/global1_vtu.c b/drivers/net/dsa/mv88e6xxx/global1_vtu.c
-index 20dfdcbda238..c41ca28da084 100644
---- a/drivers/net/dsa/mv88e6xxx/global1_vtu.c
-+++ b/drivers/net/dsa/mv88e6xxx/global1_vtu.c
-@@ -31,3 +31,16 @@ int mv88e6xxx_g1_vtu_op(struct mv88e6xxx_chip *chip, u16 op)
- 
- 	return mv88e6xxx_g1_vtu_op_wait(chip);
- }
-+
-+/* VLAN Translation Unit Operations */
-+
-+int mv88e6xxx_g1_vtu_flush(struct mv88e6xxx_chip *chip)
-+{
-+	int err;
-+
-+	err = mv88e6xxx_g1_vtu_op_wait(chip);
-+	if (err)
-+		return err;
-+
-+	return mv88e6xxx_g1_vtu_op(chip, GLOBAL_VTU_OP_FLUSH_ALL);
-+}
--- 
-2.12.2
+ 	index = tx_pool->free_map[tx_pool->consumer_index];
+ 	offset = index * adapter->req_mtu;
+ 	dst = tx_pool->long_term_buff.buff + offset;
