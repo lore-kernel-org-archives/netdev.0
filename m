@@ -1,44 +1,41 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH v3 1/2] net: dsa: b53: Add compatible strings for the
- Cygnus-family BCM11360.
-Date: Sun, 30 Apr 2017 22:48:52 -0400 (EDT)
-Message-ID: <20170430.224852.172293736555378453.davem@davemloft.net>
-References: <20170428222204.7103-1-eric@anholt.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] bnx2x: Align RX buffers
+Date: Sun, 30 Apr 2017 22:50:56 -0400 (EDT)
+Message-ID: <20170430.225056.522551868142970014.davem@davemloft.net>
+References: <20170429001741.14563-1-swood@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, vivien.didelot-4ysUXcep3aM1wj+D4I0NRVaTQe2KTcn/@public.gmane.org,
-        andrew-g2DYL2Zd6BY@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
-        mark.rutland-5wv7dgnIgG8@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        bcm-kernel-feedback-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, rjui-dY08KVG/lbpWk0Htik3J/w@public.gmane.org,
-        sbranden-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, jonmason-dY08KVG/lbpWk0Htik3J/w@public.gmane.org
-To: eric-WhKQ6XTQaPysTnJN9+BGXg@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170428222204.7103-1-eric-WhKQ6XTQaPysTnJN9+BGXg@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Yuval.Mintz@cavium.com, ariel.elior@cavium.com,
+        everest-linux-l2@cavium.com, netdev@vger.kernel.org,
+        edumazet@google.com, mschmidt@redhat.com,
+        linuxppc-dev@lists.ozlabs.org
+To: swood@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:54650 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S637843AbdEACu7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 30 Apr 2017 22:50:59 -0400
+In-Reply-To: <20170429001741.14563-1-swood@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Eric Anholt <eric-WhKQ6XTQaPysTnJN9+BGXg@public.gmane.org>
-Date: Fri, 28 Apr 2017 15:22:03 -0700
+From: Scott Wood <swood@redhat.com>
+Date: Fri, 28 Apr 2017 19:17:41 -0500
 
-> Cygnus is a small family of SoCs, of which we currently have
-> devicetree for BCM11360 and BCM58300.  The 11360's B53 is mostly the
-> same as 58xx, just requiring a tiny bit of setup that was previously
-> missing.
+> The bnx2x driver is not providing proper alignment on the receive buffers it
+> passes to build_skb(), causing skb_shared_info to be misaligned.
+> skb_shared_info contains an atomic, and while PPC normally supports
+> unaligned accesses, it does not support unaligned atomics.
 > 
-> v2: Reorder the entry in the docs (suggestion by Scott Branden), add
->     missing '"'
+> Aligning the size of rx buffers will ensure that page_frag_alloc() returns
+> aligned addresses.
 > 
-> Signed-off-by: Eric Anholt <eric-WhKQ6XTQaPysTnJN9+BGXg@public.gmane.org>
-> Reviewed-by: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> Acked-by: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+> This can be reproduced on PPC by setting the network MTU to 1450 (or other
+> non-multiple-of-4) and then generating sufficient inbound network traffic
+> (one or two large "wget"s usually does it), producing the following oops:
+ ...
+> Fixes: d46d132cc021 ("bnx2x: use netdev_alloc_frag()")
+> Signed-off-by: Scott Wood <swood@redhat.com>
 
-The second patch with the DTS file update doesn't apply cleanly
-at all to net-next.
-
-So I'm dropping this series.
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied, thanks.
