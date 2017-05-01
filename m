@@ -1,187 +1,442 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 41/53] netfilter: conntrack: remove prealloc support
-Date: Mon,  1 May 2017 12:47:08 +0200
-Message-ID: <1493635640-24325-42-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 23/53] netfilter: kill the fake untracked conntrack objects
+Date: Mon,  1 May 2017 12:46:50 +0200
+Message-ID: <1493635640-24325-24-git-send-email-pablo@netfilter.org>
 References: <1493635640-24325-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:49646 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:49702 "EHLO mail.us.es"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S378993AbdEAKs6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 1 May 2017 06:48:58 -0400
+        id S378882AbdEAKsF (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 1 May 2017 06:48:05 -0400
 Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id 6E6A7210574
-        for <netdev@vger.kernel.org>; Mon,  1 May 2017 12:48:02 +0200 (CEST)
+        by mail.us.es (Postfix) with ESMTP id A45BD209921
+        for <netdev@vger.kernel.org>; Mon,  1 May 2017 12:47:48 +0200 (CEST)
 Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 5BFE0468
-        for <netdev@vger.kernel.org>; Mon,  1 May 2017 12:48:02 +0200 (CEST)
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 92395FF2D1
+        for <netdev@vger.kernel.org>; Mon,  1 May 2017 12:47:48 +0200 (CEST)
 Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 2F895FF2C8
-        for <netdev@vger.kernel.org>; Mon,  1 May 2017 12:48:00 +0200 (CEST)
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 10D16DA90B
+        for <netdev@vger.kernel.org>; Mon,  1 May 2017 12:47:46 +0200 (CEST)
 In-Reply-To: <1493635640-24325-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Florian Westphal <fw@strlen.de>
 
-It was used by the nat extension, but since commit
-7c9664351980 ("netfilter: move nat hlist_head to nf_conn") its only needed
-for connections that use MASQUERADE target or a nat helper.
+resurrect an old patch from Pablo Neira to remove the untracked objects.
 
-Also it seems a lot easier to preallocate a fixed size instead.
+Currently, there are four possible states of an skb wrt. conntrack.
 
-With default settings, conntrack first adds ecache extension (sysctl
-defaults to 1), so we get 40(ct extension header) + 24 (ecache) == 64 byte
-on x86_64 for initial allocation.
+1. No conntrack attached, ct is NULL.
+2. Normal (kmem cache allocated) ct attached.
+3. a template (kmalloc'd), not in any hash tables at any point in time
+4. the 'untracked' conntrack, a percpu nf_conn object, tagged via
+   IPS_UNTRACKED_BIT in ct->status.
 
-Followup patches can constify the extension structs and avoid
-the initial zeroing of the entire extension area.
+Untracked is supposed to be identical to case 1.  It exists only
+so users can check
+
+-m conntrack --ctstate UNTRACKED vs.
+-m conntrack --ctstate INVALID
+
+e.g. attempts to set connmark on INVALID or UNTRACKED conntracks is
+supposed to be a no-op.
+
+Thus currently we need to check
+ ct == NULL || nf_ct_is_untracked(ct)
+
+in a lot of places in order to avoid altering untracked objects.
+
+The other consequence of the percpu untracked object is that all
+-j NOTRACK (and, later, kfree_skb of such skbs) result in an atomic op
+(inc/dec the untracked conntracks refcount).
+
+This adds a new kernel-private ctinfo state, IP_CT_UNTRACKED, to
+make the distinction instead.
+
+The (few) places that care about packet invalid (ct is NULL) vs.
+packet untracked now need to test ct == NULL vs. ctinfo == IP_CT_UNTRACKED,
+but all other places can omit the nf_ct_is_untracked() check.
 
 Signed-off-by: Florian Westphal <fw@strlen.de>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/net/netfilter/nf_conntrack_extend.h |  6 ----
- net/netfilter/nf_conntrack_extend.c         | 49 +++--------------------------
- net/netfilter/nf_nat_core.c                 |  1 -
- 3 files changed, 4 insertions(+), 52 deletions(-)
+ include/net/ip_vs.h                                |  6 +--
+ include/net/netfilter/nf_conntrack.h               | 10 +----
+ include/uapi/linux/netfilter/nf_conntrack_common.h |  6 ++-
+ net/ipv4/netfilter/nf_dup_ipv4.c                   |  3 +-
+ net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c     |  3 +-
+ net/ipv6/netfilter/nf_dup_ipv6.c                   |  3 +-
+ net/netfilter/nf_conntrack_core.c                  | 48 +++-------------------
+ net/netfilter/nf_nat_core.c                        |  3 --
+ net/netfilter/nft_ct.c                             | 14 +++----
+ net/netfilter/xt_CT.c                              | 16 ++++----
+ net/netfilter/xt_conntrack.c                       | 11 +++--
+ net/netfilter/xt_state.c                           | 13 +++---
+ 12 files changed, 39 insertions(+), 97 deletions(-)
 
-diff --git a/include/net/netfilter/nf_conntrack_extend.h b/include/net/netfilter/nf_conntrack_extend.h
-index 5fc908dc9f32..dd776bf9e2fa 100644
---- a/include/net/netfilter/nf_conntrack_extend.h
-+++ b/include/net/netfilter/nf_conntrack_extend.h
-@@ -88,21 +88,15 @@ static inline void nf_ct_ext_free(struct nf_conn *ct)
- /* Add this type, returns pointer to data or NULL. */
- void *nf_ct_ext_add(struct nf_conn *ct, enum nf_ct_ext_id id, gfp_t gfp);
+diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
+index 8a4a57b887fb..9a75d9933e63 100644
+--- a/include/net/ip_vs.h
++++ b/include/net/ip_vs.h
+@@ -1556,12 +1556,8 @@ static inline void ip_vs_notrack(struct sk_buff *skb)
+ 	struct nf_conn *ct = nf_ct_get(skb, &ctinfo);
  
--#define NF_CT_EXT_F_PREALLOC	0x0001
+ 	if (!ct || !nf_ct_is_untracked(ct)) {
+-		struct nf_conn *untracked;
 -
- struct nf_ct_ext_type {
- 	/* Destroys relationships (can be NULL). */
- 	void (*destroy)(struct nf_conn *ct);
+ 		nf_conntrack_put(&ct->ct_general);
+-		untracked = nf_ct_untracked_get();
+-		nf_conntrack_get(&untracked->ct_general);
+-		nf_ct_set(skb, untracked, IP_CT_NEW);
++		nf_ct_set(skb, NULL, IP_CT_UNTRACKED);
+ 	}
+ #endif
+ }
+diff --git a/include/net/netfilter/nf_conntrack.h b/include/net/netfilter/nf_conntrack.h
+index 19605878da47..012b99f563e5 100644
+--- a/include/net/netfilter/nf_conntrack.h
++++ b/include/net/netfilter/nf_conntrack.h
+@@ -243,14 +243,6 @@ extern s32 (*nf_ct_nat_offset)(const struct nf_conn *ct,
+ 			       enum ip_conntrack_dir dir,
+ 			       u32 seq);
  
- 	enum nf_ct_ext_id id;
- 
--	unsigned int flags;
+-/* Fake conntrack entry for untracked connections */
+-DECLARE_PER_CPU_ALIGNED(struct nf_conn, nf_conntrack_untracked);
+-static inline struct nf_conn *nf_ct_untracked_get(void)
+-{
+-	return raw_cpu_ptr(&nf_conntrack_untracked);
+-}
+-void nf_ct_untracked_status_or(unsigned long bits);
 -
- 	/* Length and min alignment. */
- 	u8 len;
- 	u8 align;
--	/* initial size of nf_ct_ext. */
--	u8 alloc_size;
+ /* Iterate over all conntracks: if iter returns true, it's deleted. */
+ void nf_ct_iterate_cleanup(struct net *net,
+ 			   int (*iter)(struct nf_conn *i, void *data),
+@@ -283,7 +275,7 @@ static inline int nf_ct_is_dying(const struct nf_conn *ct)
+ 
+ static inline int nf_ct_is_untracked(const struct nf_conn *ct)
+ {
+-	return test_bit(IPS_UNTRACKED_BIT, &ct->status);
++	return false;
+ }
+ 
+ /* Packet is received from loopback */
+diff --git a/include/uapi/linux/netfilter/nf_conntrack_common.h b/include/uapi/linux/netfilter/nf_conntrack_common.h
+index 6a8e33dd4ecb..b4a0a1940118 100644
+--- a/include/uapi/linux/netfilter/nf_conntrack_common.h
++++ b/include/uapi/linux/netfilter/nf_conntrack_common.h
+@@ -28,12 +28,14 @@ enum ip_conntrack_info {
+ 	/* only for userspace compatibility */
+ #ifndef __KERNEL__
+ 	IP_CT_NEW_REPLY = IP_CT_NUMBER,
++#else
++	IP_CT_UNTRACKED = 7,
+ #endif
  };
  
- int nf_ct_extend_register(struct nf_ct_ext_type *type);
-diff --git a/net/netfilter/nf_conntrack_extend.c b/net/netfilter/nf_conntrack_extend.c
-index b5879a9c748d..2e4b41bc67a0 100644
---- a/net/netfilter/nf_conntrack_extend.c
-+++ b/net/netfilter/nf_conntrack_extend.c
-@@ -18,6 +18,7 @@
+ #define NF_CT_STATE_INVALID_BIT			(1 << 0)
+ #define NF_CT_STATE_BIT(ctinfo)			(1 << ((ctinfo) % IP_CT_IS_REPLY + 1))
+-#define NF_CT_STATE_UNTRACKED_BIT		(1 << (IP_CT_NUMBER + 1))
++#define NF_CT_STATE_UNTRACKED_BIT		(1 << (IP_CT_UNTRACKED + 1))
  
- static struct nf_ct_ext_type __rcu *nf_ct_ext_types[NF_CT_EXT_NUM];
- static DEFINE_MUTEX(nf_ct_ext_type_mutex);
-+#define NF_CT_EXT_PREALLOC	128u /* conntrack events are on by default */
+ /* Bitset representing status of connection. */
+ enum ip_conntrack_status {
+@@ -94,7 +96,7 @@ enum ip_conntrack_status {
+ 	IPS_TEMPLATE_BIT = 11,
+ 	IPS_TEMPLATE = (1 << IPS_TEMPLATE_BIT),
  
- void __nf_ct_ext_destroy(struct nf_conn *ct)
- {
-@@ -46,9 +47,8 @@ EXPORT_SYMBOL(__nf_ct_ext_destroy);
- static void *
- nf_ct_ext_create(struct nf_ct_ext **ext, enum nf_ct_ext_id id, gfp_t gfp)
- {
--	unsigned int off, len;
-+	unsigned int off, len, alloc;
- 	struct nf_ct_ext_type *t;
--	size_t alloc_size;
+-	/* Conntrack is a fake untracked entry */
++	/* Conntrack is a fake untracked entry.  Obsolete and not used anymore */
+ 	IPS_UNTRACKED_BIT = 12,
+ 	IPS_UNTRACKED = (1 << IPS_UNTRACKED_BIT),
  
- 	rcu_read_lock();
- 	t = rcu_dereference(nf_ct_ext_types[id]);
-@@ -59,10 +59,10 @@ nf_ct_ext_create(struct nf_ct_ext **ext, enum nf_ct_ext_id id, gfp_t gfp)
- 
- 	off = ALIGN(sizeof(struct nf_ct_ext), t->align);
- 	len = off + t->len;
--	alloc_size = t->alloc_size;
- 	rcu_read_unlock();
- 
--	*ext = kzalloc(alloc_size, gfp);
-+	alloc = max(len, NF_CT_EXT_PREALLOC);
-+	*ext = kzalloc(alloc, gfp);
- 	if (!*ext)
- 		return NULL;
- 
-@@ -115,41 +115,6 @@ void *nf_ct_ext_add(struct nf_conn *ct, enum nf_ct_ext_id id, gfp_t gfp)
- }
- EXPORT_SYMBOL(nf_ct_ext_add);
- 
--static void update_alloc_size(struct nf_ct_ext_type *type)
--{
--	int i, j;
--	struct nf_ct_ext_type *t1, *t2;
--	enum nf_ct_ext_id min = 0, max = NF_CT_EXT_NUM - 1;
--
--	/* unnecessary to update all types */
--	if ((type->flags & NF_CT_EXT_F_PREALLOC) == 0) {
--		min = type->id;
--		max = type->id;
--	}
--
--	/* This assumes that extended areas in conntrack for the types
--	   whose NF_CT_EXT_F_PREALLOC bit set are allocated in order */
--	for (i = min; i <= max; i++) {
--		t1 = rcu_dereference_protected(nf_ct_ext_types[i],
--				lockdep_is_held(&nf_ct_ext_type_mutex));
--		if (!t1)
--			continue;
--
--		t1->alloc_size = ALIGN(sizeof(struct nf_ct_ext), t1->align) +
--				 t1->len;
--		for (j = 0; j < NF_CT_EXT_NUM; j++) {
--			t2 = rcu_dereference_protected(nf_ct_ext_types[j],
--				lockdep_is_held(&nf_ct_ext_type_mutex));
--			if (t2 == NULL || t2 == t1 ||
--			    (t2->flags & NF_CT_EXT_F_PREALLOC) == 0)
--				continue;
--
--			t1->alloc_size = ALIGN(t1->alloc_size, t2->align)
--					 + t2->len;
--		}
--	}
--}
--
- /* This MUST be called in process context. */
- int nf_ct_extend_register(struct nf_ct_ext_type *type)
- {
-@@ -161,12 +126,7 @@ int nf_ct_extend_register(struct nf_ct_ext_type *type)
- 		goto out;
+diff --git a/net/ipv4/netfilter/nf_dup_ipv4.c b/net/ipv4/netfilter/nf_dup_ipv4.c
+index f0dbff05fc28..39895b9ddeb9 100644
+--- a/net/ipv4/netfilter/nf_dup_ipv4.c
++++ b/net/ipv4/netfilter/nf_dup_ipv4.c
+@@ -69,8 +69,7 @@ void nf_dup_ipv4(struct net *net, struct sk_buff *skb, unsigned int hooknum,
+ #if IS_ENABLED(CONFIG_NF_CONNTRACK)
+ 	/* Avoid counting cloned packets towards the original connection. */
+ 	nf_reset(skb);
+-	nf_ct_set(skb, nf_ct_untracked_get(), IP_CT_NEW);
+-	nf_conntrack_get(skb_nfct(skb));
++	nf_ct_set(skb, NULL, IP_CT_UNTRACKED);
+ #endif
+ 	/*
+ 	 * If we are in PREROUTING/INPUT, decrease the TTL to mitigate potential
+diff --git a/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c b/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c
+index d2c2ccbfbe72..d5f028e33f65 100644
+--- a/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c
++++ b/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c
+@@ -221,8 +221,7 @@ icmpv6_error(struct net *net, struct nf_conn *tmpl,
+ 	type = icmp6h->icmp6_type - 130;
+ 	if (type >= 0 && type < sizeof(noct_valid_new) &&
+ 	    noct_valid_new[type]) {
+-		nf_ct_set(skb, nf_ct_untracked_get(), IP_CT_NEW);
+-		nf_conntrack_get(skb_nfct(skb));
++		nf_ct_set(skb, NULL, IP_CT_UNTRACKED);
+ 		return NF_ACCEPT;
  	}
  
--	/* This ensures that nf_ct_ext_create() can allocate enough area
--	   before updating alloc_size */
--	type->alloc_size = ALIGN(sizeof(struct nf_ct_ext), type->align)
--			   + type->len;
- 	rcu_assign_pointer(nf_ct_ext_types[type->id], type);
--	update_alloc_size(type);
- out:
- 	mutex_unlock(&nf_ct_ext_type_mutex);
- 	return ret;
-@@ -178,7 +138,6 @@ void nf_ct_extend_unregister(struct nf_ct_ext_type *type)
- {
- 	mutex_lock(&nf_ct_ext_type_mutex);
- 	RCU_INIT_POINTER(nf_ct_ext_types[type->id], NULL);
--	update_alloc_size(type);
- 	mutex_unlock(&nf_ct_ext_type_mutex);
- 	synchronize_rcu();
+diff --git a/net/ipv6/netfilter/nf_dup_ipv6.c b/net/ipv6/netfilter/nf_dup_ipv6.c
+index 888ecd106e5f..4a7ddeddbaab 100644
+--- a/net/ipv6/netfilter/nf_dup_ipv6.c
++++ b/net/ipv6/netfilter/nf_dup_ipv6.c
+@@ -58,8 +58,7 @@ void nf_dup_ipv6(struct net *net, struct sk_buff *skb, unsigned int hooknum,
+ 
+ #if IS_ENABLED(CONFIG_NF_CONNTRACK)
+ 	nf_reset(skb);
+-	nf_ct_set(skb, nf_ct_untracked_get(), IP_CT_NEW);
+-	nf_conntrack_get(skb_nfct(skb));
++	nf_ct_set(skb, NULL, IP_CT_UNTRACKED);
+ #endif
+ 	if (hooknum == NF_INET_PRE_ROUTING ||
+ 	    hooknum == NF_INET_LOCAL_IN) {
+diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+index bcf1d2a6539e..03150f60714d 100644
+--- a/net/netfilter/nf_conntrack_core.c
++++ b/net/netfilter/nf_conntrack_core.c
+@@ -180,14 +180,6 @@ EXPORT_SYMBOL_GPL(nf_conntrack_htable_size);
+ 
+ unsigned int nf_conntrack_max __read_mostly;
+ seqcount_t nf_conntrack_generation __read_mostly;
+-
+-/* nf_conn must be 8 bytes aligned, as the 3 LSB bits are used
+- * for the nfctinfo. We cheat by (ab)using the PER CPU cache line
+- * alignment to enforce this.
+- */
+-DEFINE_PER_CPU_ALIGNED(struct nf_conn, nf_conntrack_untracked);
+-EXPORT_PER_CPU_SYMBOL(nf_conntrack_untracked);
+-
+ static unsigned int nf_conntrack_hash_rnd __read_mostly;
+ 
+ static u32 hash_conntrack_raw(const struct nf_conntrack_tuple *tuple,
+@@ -1314,9 +1306,10 @@ nf_conntrack_in(struct net *net, u_int8_t pf, unsigned int hooknum,
+ 	int ret;
+ 
+ 	tmpl = nf_ct_get(skb, &ctinfo);
+-	if (tmpl) {
++	if (tmpl || ctinfo == IP_CT_UNTRACKED) {
+ 		/* Previously seen (loopback or untracked)?  Ignore. */
+-		if (!nf_ct_is_template(tmpl)) {
++		if ((tmpl && !nf_ct_is_template(tmpl)) ||
++		     ctinfo == IP_CT_UNTRACKED) {
+ 			NF_CT_STAT_INC_ATOMIC(net, ignore);
+ 			return NF_ACCEPT;
+ 		}
+@@ -1629,18 +1622,6 @@ void nf_ct_free_hashtable(void *hash, unsigned int size)
  }
+ EXPORT_SYMBOL_GPL(nf_ct_free_hashtable);
+ 
+-static int untrack_refs(void)
+-{
+-	int cnt = 0, cpu;
+-
+-	for_each_possible_cpu(cpu) {
+-		struct nf_conn *ct = &per_cpu(nf_conntrack_untracked, cpu);
+-
+-		cnt += atomic_read(&ct->ct_general.use) - 1;
+-	}
+-	return cnt;
+-}
+-
+ void nf_conntrack_cleanup_start(void)
+ {
+ 	conntrack_gc_work.exiting = true;
+@@ -1650,8 +1631,6 @@ void nf_conntrack_cleanup_start(void)
+ void nf_conntrack_cleanup_end(void)
+ {
+ 	RCU_INIT_POINTER(nf_ct_destroy, NULL);
+-	while (untrack_refs() > 0)
+-		schedule();
+ 
+ 	cancel_delayed_work_sync(&conntrack_gc_work.dwork);
+ 	nf_ct_free_hashtable(nf_conntrack_hash, nf_conntrack_htable_size);
+@@ -1825,20 +1804,11 @@ EXPORT_SYMBOL_GPL(nf_conntrack_set_hashsize);
+ module_param_call(hashsize, nf_conntrack_set_hashsize, param_get_uint,
+ 		  &nf_conntrack_htable_size, 0600);
+ 
+-void nf_ct_untracked_status_or(unsigned long bits)
+-{
+-	int cpu;
+-
+-	for_each_possible_cpu(cpu)
+-		per_cpu(nf_conntrack_untracked, cpu).status |= bits;
+-}
+-EXPORT_SYMBOL_GPL(nf_ct_untracked_status_or);
+-
+ int nf_conntrack_init_start(void)
+ {
+ 	int max_factor = 8;
+ 	int ret = -ENOMEM;
+-	int i, cpu;
++	int i;
+ 
+ 	seqcount_init(&nf_conntrack_generation);
+ 
+@@ -1921,15 +1891,6 @@ int nf_conntrack_init_start(void)
+ 	if (ret < 0)
+ 		goto err_proto;
+ 
+-	/* Set up fake conntrack: to never be deleted, not in any hashes */
+-	for_each_possible_cpu(cpu) {
+-		struct nf_conn *ct = &per_cpu(nf_conntrack_untracked, cpu);
+-		write_pnet(&ct->ct_net, &init_net);
+-		atomic_set(&ct->ct_general.use, 1);
+-	}
+-	/*  - and look it like as a confirmed connection */
+-	nf_ct_untracked_status_or(IPS_CONFIRMED | IPS_UNTRACKED);
+-
+ 	conntrack_gc_work_init(&conntrack_gc_work);
+ 	queue_delayed_work(system_long_wq, &conntrack_gc_work.dwork, HZ);
+ 
+@@ -1977,6 +1938,7 @@ int nf_conntrack_init_net(struct net *net)
+ 	int ret = -ENOMEM;
+ 	int cpu;
+ 
++	BUILD_BUG_ON(IP_CT_UNTRACKED == IP_CT_NUMBER);
+ 	atomic_set(&net->ct.count, 0);
+ 
+ 	net->ct.pcpu_lists = alloc_percpu(struct ct_pcpu);
 diff --git a/net/netfilter/nf_nat_core.c b/net/netfilter/nf_nat_core.c
-index 9cbf49f9c1b7..86eeacbb4793 100644
+index 5e35643da650..9cbf49f9c1b7 100644
 --- a/net/netfilter/nf_nat_core.c
 +++ b/net/netfilter/nf_nat_core.c
-@@ -717,7 +717,6 @@ static struct nf_ct_ext_type nat_extend __read_mostly = {
- 	.align		= __alignof__(struct nf_conn_nat),
- 	.destroy	= nf_nat_cleanup_conntrack,
- 	.id		= NF_CT_EXT_NAT,
--	.flags		= NF_CT_EXT_F_PREALLOC,
- };
+@@ -861,9 +861,6 @@ static int __init nf_nat_init(void)
  
- #if IS_ENABLED(CONFIG_NF_CT_NETLINK)
+ 	nf_ct_helper_expectfn_register(&follow_master_nat);
+ 
+-	/* Initialize fake conntrack so that NAT will skip it */
+-	nf_ct_untracked_status_or(IPS_NAT_DONE_MASK);
+-
+ 	BUG_ON(nfnetlink_parse_nat_setup_hook != NULL);
+ 	RCU_INIT_POINTER(nfnetlink_parse_nat_setup_hook,
+ 			   nfnetlink_parse_nat_setup);
+diff --git a/net/netfilter/nft_ct.c b/net/netfilter/nft_ct.c
+index 6e23dbbedd7f..6c6fd48b024c 100644
+--- a/net/netfilter/nft_ct.c
++++ b/net/netfilter/nft_ct.c
+@@ -72,12 +72,12 @@ static void nft_ct_get_eval(const struct nft_expr *expr,
+ 
+ 	switch (priv->key) {
+ 	case NFT_CT_STATE:
+-		if (ct == NULL)
+-			state = NF_CT_STATE_INVALID_BIT;
+-		else if (nf_ct_is_untracked(ct))
++		if (ct)
++			state = NF_CT_STATE_BIT(ctinfo);
++		else if (ctinfo == IP_CT_UNTRACKED)
+ 			state = NF_CT_STATE_UNTRACKED_BIT;
+ 		else
+-			state = NF_CT_STATE_BIT(ctinfo);
++			state = NF_CT_STATE_INVALID_BIT;
+ 		*dest = state;
+ 		return;
+ 	default:
+@@ -718,12 +718,10 @@ static void nft_notrack_eval(const struct nft_expr *expr,
+ 
+ 	ct = nf_ct_get(pkt->skb, &ctinfo);
+ 	/* Previously seen (loopback or untracked)?  Ignore. */
+-	if (ct)
++	if (ct || ctinfo == IP_CT_UNTRACKED)
+ 		return;
+ 
+-	ct = nf_ct_untracked_get();
+-	atomic_inc(&ct->ct_general.use);
+-	nf_ct_set(skb, ct, IP_CT_NEW);
++	nf_ct_set(skb, ct, IP_CT_UNTRACKED);
+ }
+ 
+ static struct nft_expr_type nft_notrack_type;
+diff --git a/net/netfilter/xt_CT.c b/net/netfilter/xt_CT.c
+index b008db0184b8..3cbe1bcf6a74 100644
+--- a/net/netfilter/xt_CT.c
++++ b/net/netfilter/xt_CT.c
+@@ -26,11 +26,12 @@ static inline int xt_ct_target(struct sk_buff *skb, struct nf_conn *ct)
+ 	if (skb->_nfct != 0)
+ 		return XT_CONTINUE;
+ 
+-	/* special case the untracked ct : we want the percpu object */
+-	if (!ct)
+-		ct = nf_ct_untracked_get();
+-	atomic_inc(&ct->ct_general.use);
+-	nf_ct_set(skb, ct, IP_CT_NEW);
++	if (ct) {
++		atomic_inc(&ct->ct_general.use);
++		nf_ct_set(skb, ct, IP_CT_NEW);
++	} else {
++		nf_ct_set(skb, ct, IP_CT_UNTRACKED);
++	}
+ 
+ 	return XT_CONTINUE;
+ }
+@@ -335,7 +336,7 @@ static void xt_ct_tg_destroy(const struct xt_tgdtor_param *par,
+ 	struct nf_conn *ct = info->ct;
+ 	struct nf_conn_help *help;
+ 
+-	if (ct && !nf_ct_is_untracked(ct)) {
++	if (ct) {
+ 		help = nfct_help(ct);
+ 		if (help)
+ 			module_put(help->helper->me);
+@@ -412,8 +413,7 @@ notrack_tg(struct sk_buff *skb, const struct xt_action_param *par)
+ 	if (skb->_nfct != 0)
+ 		return XT_CONTINUE;
+ 
+-	nf_ct_set(skb, nf_ct_untracked_get(), IP_CT_NEW);
+-	nf_conntrack_get(skb_nfct(skb));
++	nf_ct_set(skb, NULL, IP_CT_UNTRACKED);
+ 
+ 	return XT_CONTINUE;
+ }
+diff --git a/net/netfilter/xt_conntrack.c b/net/netfilter/xt_conntrack.c
+index c0fb217bc649..39cf1d019240 100644
+--- a/net/netfilter/xt_conntrack.c
++++ b/net/netfilter/xt_conntrack.c
+@@ -172,12 +172,11 @@ conntrack_mt(const struct sk_buff *skb, struct xt_action_param *par,
+ 
+ 	ct = nf_ct_get(skb, &ctinfo);
+ 
+-	if (ct) {
+-		if (nf_ct_is_untracked(ct))
+-			statebit = XT_CONNTRACK_STATE_UNTRACKED;
+-		else
+-			statebit = XT_CONNTRACK_STATE_BIT(ctinfo);
+-	} else
++	if (ct)
++		statebit = XT_CONNTRACK_STATE_BIT(ctinfo);
++	else if (ctinfo == IP_CT_UNTRACKED)
++		statebit = XT_CONNTRACK_STATE_UNTRACKED;
++	else
+ 		statebit = XT_CONNTRACK_STATE_INVALID;
+ 
+ 	if (info->match_flags & XT_CONNTRACK_STATE) {
+diff --git a/net/netfilter/xt_state.c b/net/netfilter/xt_state.c
+index 5746a33789a5..5fbd79194d21 100644
+--- a/net/netfilter/xt_state.c
++++ b/net/netfilter/xt_state.c
+@@ -28,14 +28,13 @@ state_mt(const struct sk_buff *skb, struct xt_action_param *par)
+ 	unsigned int statebit;
+ 	struct nf_conn *ct = nf_ct_get(skb, &ctinfo);
+ 
+-	if (!ct)
++	if (ct)
++		statebit = XT_STATE_BIT(ctinfo);
++	else if (ctinfo == IP_CT_UNTRACKED)
++		statebit = XT_STATE_UNTRACKED;
++	else
+ 		statebit = XT_STATE_INVALID;
+-	else {
+-		if (nf_ct_is_untracked(ct))
+-			statebit = XT_STATE_UNTRACKED;
+-		else
+-			statebit = XT_STATE_BIT(ctinfo);
+-	}
++
+ 	return (sinfo->statemask & statebit);
+ }
+ 
 -- 
 2.1.4
