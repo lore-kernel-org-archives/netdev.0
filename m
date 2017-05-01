@@ -1,37 +1,32 @@
-From: Craig Gallek <kraigatgoog@gmail.com>
-Subject: Re: [PATCH] ipv6: Need to export ipv6_push_frag_opts for tunneling now.
-Date: Mon, 1 May 2017 15:31:02 -0400
-Message-ID: <CAEfhGixdYn3Pui9Ft=aXsGpqG8JKV9yv2f9kxiHrkCu-0ie9ng@mail.gmail.com>
-References: <20170501.151109.1682060890683033268.davem@davemloft.net>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: How does vlan driver pass vlan info to the h/w ethernet driver
+Date: Mon, 1 May 2017 21:29:57 +0200
+Message-ID: <20170501192957.GA18265@lunn.ch>
+References: <CABM+yxkiOpOs5b5MM6MD4woz5R2-4_gf=t=8THXb3p=wuwTtXg@mail.gmail.com>
+ <20170501143703.GA1285@lunn.ch>
+ <CABM+yxmdJD2k1kA+fY9Yva24oB8BuDDhS-FQdY2EJM1ghf6xWw@mail.gmail.com>
+ <20170501.105736.157375316602250235.davem@davemloft.net>
+ <CABM+yxnbLPjoq4E2Z3d2Jc5qUvN_TWUb6rQpjDWCTs=9j0ce3A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: carl h <heyen2000@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f180.google.com ([209.85.216.180]:34990 "EHLO
-        mail-qt0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751768AbdEATbF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 1 May 2017 15:31:05 -0400
-Received: by mail-qt0-f180.google.com with SMTP id y33so96111650qta.2
-        for <netdev@vger.kernel.org>; Mon, 01 May 2017 12:31:04 -0700 (PDT)
-Received: from mail-qt0-f172.google.com (mail-qt0-f172.google.com. [209.85.216.172])
-        by smtp.gmail.com with ESMTPSA id z33sm11696146qta.48.2017.05.01.12.31.03
-        for <netdev@vger.kernel.org>
-        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
-        Mon, 01 May 2017 12:31:03 -0700 (PDT)
-Received: by mail-qt0-f172.google.com with SMTP id y33so96111354qta.2
-        for <netdev@vger.kernel.org>; Mon, 01 May 2017 12:31:03 -0700 (PDT)
-In-Reply-To: <20170501.151109.1682060890683033268.davem@davemloft.net>
+Received: from vps0.lunn.ch ([178.209.37.122]:47428 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751769AbdEATaA (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 1 May 2017 15:30:00 -0400
+Content-Disposition: inline
+In-Reply-To: <CABM+yxnbLPjoq4E2Z3d2Jc5qUvN_TWUb6rQpjDWCTs=9j0ce3A@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 1, 2017 at 3:11 PM, David Miller <davem@davemloft.net> wrote:
->
-> Since that change also made the nfrag function not necessary
-> for exports, remove it.
->
-> Fixes: 89a23c8b528b ("ip6_tunnel: Fix missing tunnel encapsulation limit option")
-> Signed-off-by: David S. Miller <davem@davemloft.net>
-Woops, sorry I missed this.  Thanks for the fix!
+On Mon, May 01, 2017 at 02:26:52PM -0400, carl h wrote:
+> It appears that the switchdev driver model was introduced after 2.6.39
+> which is the
+> kernel version that I'm using unfortunately.
 
-Acked-by: Craig Gallek <kraig@google.com>
+We cannot help you much is you are using an ancient kernel. Please
+upgrade.
+
+	Andrew
