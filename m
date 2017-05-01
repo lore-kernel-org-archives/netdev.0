@@ -1,93 +1,53 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
+From: David Ahern <dsa@cumulusnetworks.com>
 Subject: Re: [PATCH net-next iproute2] ip: increase number of MPLS labels
-Date: Mon, 01 May 2017 16:03:17 -0500
-Message-ID: <8737convca.fsf@xmission.com>
+Date: Mon, 1 May 2017 15:22:06 -0600
+Message-ID: <70667d3a-5cbc-4900-3c41-bce508a057ac@cumulusnetworks.com>
 References: <1493524130-10220-1-git-send-email-dsa@cumulusnetworks.com>
-        <20170429230430.702c6b72@xeon-e3>
-        <ddb54ca8-d7df-3446-3929-5f0116286c80@cumulusnetworks.com>
-        <20170501091540.13f57676@xeon-e3>
+ <20170429230430.702c6b72@xeon-e3>
+ <ddb54ca8-d7df-3446-3929-5f0116286c80@cumulusnetworks.com>
+ <20170501091540.13f57676@xeon-e3> <8737convca.fsf@xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: David Ahern <dsa@cumulusnetworks.com>, netdev@vger.kernel.org,
-        roopa <roopa@cumulusnetworks.com>
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, roopa <roopa@cumulusnetworks.com>
+To: "Eric W. Biederman" <ebiederm@xmission.com>,
+        Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out03.mta.xmission.com ([166.70.13.233]:34889 "EHLO
-        out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750807AbdEAVJj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 1 May 2017 17:09:39 -0400
-In-Reply-To: <20170501091540.13f57676@xeon-e3> (Stephen Hemminger's message of
-        "Mon, 1 May 2017 09:15:40 -0700")
+Received: from mail-pf0-f177.google.com ([209.85.192.177]:34455 "EHLO
+        mail-pf0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750762AbdEAVWJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 1 May 2017 17:22:09 -0400
+Received: by mail-pf0-f177.google.com with SMTP id e64so42004850pfd.1
+        for <netdev@vger.kernel.org>; Mon, 01 May 2017 14:22:08 -0700 (PDT)
+In-Reply-To: <8737convca.fsf@xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger <stephen@networkplumber.org> writes:
+On 5/1/17 3:03 PM, Eric W. Biederman wrote:
+> Basically the kernel maximum is how large we can make struct mpls_route
+> without while being < 4096 aka PAGE_SIZE.  Which also happens to be
+> larger than the largest known consumer.
 
-> On Sun, 30 Apr 2017 17:42:15 -0600
-> David Ahern <dsa@cumulusnetworks.com> wrote:
->
->> On 4/30/17 12:04 AM, Stephen Hemminger wrote:
->> > On Sat, 29 Apr 2017 20:48:50 -0700
->> > David Ahern <dsa@cumulusnetworks.com> wrote:
->> >   
->> >> Kernel now supports more than 2 labels. Increase ip to
->> >> handle up to 16 labels.
->> >>
->> >> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
->> >> ---
->> >>  include/utils.h | 8 ++++----
->> >>  lib/utils.c     | 2 +-
->> >>  2 files changed, 5 insertions(+), 5 deletions(-)
->> >>
->> >> diff --git a/include/utils.h b/include/utils.h
->> >> index 8c12e1e2a60c..a69e176c260d 100644
->> >> --- a/include/utils.h
->> >> +++ b/include/utils.h
->> >> @@ -54,6 +54,9 @@ void incomplete_command(void) __attribute__((noreturn));
->> >>  #define NEXT_ARG_FWD() do { argv++; argc--; } while(0)
->> >>  #define PREV_ARG() do { argv--; argc++; } while(0)
->> >>  
->> >> +/* Maximum number of labels the mpls helpers support */
->> >> +#define MPLS_MAX_LABELS 16
->> >> +  
->> > 
->> > Why is the kernel limit not in include/uapi/ header file?
->> >   
->> 
->> I believe Eric had reasons, but not sure why.
->
-> I just don't want iproute2 utilities chasing kernel values.
-> Would prefer either make utilities take any size, or inherit maximum
-> from kernel headers.
+2 limits in the kernel:
+1. max allocation for mpls_route of 4096
+2. max number of labels of 30.
 
-Basically the kernel maximum is how large we can make struct mpls_route
-without while being < 4096 aka PAGE_SIZE.  Which also happens to be
-larger than the largest known consumer.
+The latter was necessitated by the LWT path. I wanted a cap on it and
+for the cap to be consistent for both ingress and LSP. To that end I
+went with a maximum of 30 labels in the kernel: 4k max allocation = ~30
+labels per nexthop with ~30 nexthops. For both 30 is excessive, overkill
+number. (though someone did ask me recently why not 512 labels. seriously)
 
-Which basically makes the limit meaningless for userspace.  MPLS does
-not actually have a maximum (other than packet size) in the protocol.
+I can't say it makes sense for iproute2 to support 30 labels.
+Argumentative that even 16 is too high, but some folks have argued for it.
 
-So we need a number large enough that people don't care or something
-completely arbitrary in iproute.
 
-At 8 labels we are the same size as an ipv6 address which is where
-the limitation of 8 came from in the code.  It was easy and it allowed
-for future growth.
+> Dave is there a practical reason that is motivating increasing the size
+> in iproute?  Or is the desire to ensure that iproute can take full
+> advantage of the kernel?
 
-Taking a quick look at the code iproure uses inet_prefix for an address
-in any protocol family and it is used fairly widely in the code.
-Further addresses are placed in what appear to be fixed sized
-preallocated netlink packets.  Hmmmmm....
-
-So a completely arbitrary number of labels seems like over-enginnerring.
-It looks like what is more interesting is using as a limit the remaining
-space in the rtnetlink buffer.  Perhaps a function that combines
-the efforts of get_addr and addattr_l/rta_addattr_l is the way to go.
-
-That would appear to make it easier to add new address families in the future.
-
-Dave is there a practical reason that is motivating increasing the size
-in iproute?  Or is the desire to ensure that iproute can take full
-advantage of the kernel?
-
-Eric
+I suspect only routing daemons would inject a high label stack. It would
+be nice for iproute2 to 1. be able to print that route properly
+(currently does not if the label count exceeds what it can handle), 2.
+be able to reinject the route. Even with scripting creating a route
+using ip with a lot of labels is a PITA.
