@@ -1,73 +1,41 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net-next] bpf, samples: fix build warning in cookie_uid_helper_example
-Date: Tue,  2 May 2017 00:47:09 +0200
-Message-ID: <43325f50d66abec6b35439422b6c9b0211bd30e9.1493678555.git.daniel@iogearbox.net>
-Cc: alexei.starovoitov@gmail.com, netdev@vger.kernel.org,
-        Daniel Borkmann <daniel@iogearbox.net>
-To: davem@davemloft.net
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Subject: [PATCH net-next] xdp: fix parameter kdoc for extack
+Date: Mon,  1 May 2017 15:53:43 -0700
+Message-ID: <20170501225343.22157-1-jakub.kicinski@netronome.com>
+References: <201705020535.2FQBLyjE%fengguang.wu@intel.com>
+Cc: kbuild-all@01.org, fengguang.wu@intel.com,
+        Jakub Kicinski <jakub.kicinski@netronome.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:42290 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751128AbdEAWri (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 1 May 2017 18:47:38 -0400
+Received: from mail-pf0-f173.google.com ([209.85.192.173]:33280 "EHLO
+        mail-pf0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750899AbdEAWyX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 1 May 2017 18:54:23 -0400
+Received: by mail-pf0-f173.google.com with SMTP id q20so26508742pfg.0
+        for <netdev@vger.kernel.org>; Mon, 01 May 2017 15:54:23 -0700 (PDT)
+In-Reply-To: <201705020535.2FQBLyjE%fengguang.wu@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix the following warnings triggered by 51570a5ab2b7 ("A Sample of
-using socket cookie and uid for traffic monitoring"):
+Fix kdoc parameter spelling from extact to extack.
 
-  In file included from /home/foo/net-next/samples/bpf/cookie_uid_helper_example.c:54:0:
-  /home/foo/net-next/samples/bpf/cookie_uid_helper_example.c: In function 'prog_load':
-  /home/foo/net-next/samples/bpf/cookie_uid_helper_example.c:119:27: warning: overflow in implicit constant conversion [-Woverflow]
-     -32 + offsetof(struct stats, uid)),
-                           ^
-  /home/foo/net-next/samples/bpf/libbpf.h:135:12: note: in definition of macro 'BPF_STX_MEM'
-   .off   = OFF,     \
-            ^
-  /home/foo/net-next/samples/bpf/cookie_uid_helper_example.c:121:27: warning: overflow in implicit constant conversion [-Woverflow]
-     -32 + offsetof(struct stats, packets), 1),
-                           ^
-  /home/foo/net-next/samples/bpf/libbpf.h:155:12: note: in definition of macro 'BPF_ST_MEM'
-   .off   = OFF,     \
-            ^
-  /home/foo/net-next/samples/bpf/cookie_uid_helper_example.c:129:27: warning: overflow in implicit constant conversion [-Woverflow]
-     -32 + offsetof(struct stats, bytes)),
-                           ^
-  /home/foo/net-next/samples/bpf/libbpf.h:135:12: note: in definition of macro 'BPF_STX_MEM'
-   .off   = OFF,     \
-            ^
-  HOSTLD  /home/foo/net-next/samples/bpf/per_socket_stats_example
-
-Fixes: 51570a5ab2b7 ("A Sample of using socket cookie and uid for traffic monitoring")
-Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 ---
- samples/bpf/cookie_uid_helper_example.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ net/core/dev.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/samples/bpf/cookie_uid_helper_example.c b/samples/bpf/cookie_uid_helper_example.c
-index 9ce5584..b08ab4e 100644
---- a/samples/bpf/cookie_uid_helper_example.c
-+++ b/samples/bpf/cookie_uid_helper_example.c
-@@ -116,9 +116,9 @@ static void prog_load(void)
- 		 * is set by directly place a IMM value 1 into the stack.
- 		 */
- 		BPF_STX_MEM(BPF_DW, BPF_REG_10, BPF_REG_0,
--				-32 + offsetof(struct stats, uid)),
-+			    -32 + (__s16)offsetof(struct stats, uid)),
- 		BPF_ST_MEM(BPF_DW, BPF_REG_10,
--				-32 + offsetof(struct stats, packets), 1),
-+			   -32 + (__s16)offsetof(struct stats, packets), 1),
- 		/*
- 		 * __sk_buff is a special struct used for eBPF program to
- 		 * directly access some sk_buff field.
-@@ -126,7 +126,7 @@ static void prog_load(void)
- 		BPF_LDX_MEM(BPF_W, BPF_REG_1, BPF_REG_6,
- 				offsetof(struct __sk_buff, len)),
- 		BPF_STX_MEM(BPF_DW, BPF_REG_10, BPF_REG_1,
--				-32 + offsetof(struct stats, bytes)),
-+			    -32 + (__s16)offsetof(struct stats, bytes)),
- 		/*
- 		 * add new map entry using BPF_FUNC_map_update_elem, it takes
- 		 * 4 parameters (R1: map_fd, R2: &socket_cookie, R3: &stats,
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 35a06cebb282..0b2876e00834 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -6854,7 +6854,7 @@ EXPORT_SYMBOL(dev_change_proto_down);
+ /**
+  *	dev_change_xdp_fd - set or clear a bpf program for a device rx path
+  *	@dev: device
+- *	@extact: netlink extended ack
++ *	@extack: netlink extended ack
+  *	@fd: new program fd or negative value to clear
+  *	@flags: xdp-related flags
+  *
 -- 
-1.9.3
+2.11.0
