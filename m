@@ -1,26 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 0/2] vxlan: do not error out on disabled IPv6
-Date: Sun, 30 Apr 2017 22:30:27 -0400 (EDT)
-Message-ID: <20170430.223027.761459633304610982.davem@davemloft.net>
-References: <cover.1493320999.git.jbenc@redhat.com>
+Subject: Re: [PATCH net-next] net: Initialise init_net.count to 1
+Date: Sun, 30 Apr 2017 22:32:30 -0400 (EDT)
+Message-ID: <20170430.223230.1494589195975312075.davem@davemloft.net>
+References: <149332922378.28919.11614036268701178135.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mleitner@redhat.com
-To: jbenc@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:54228 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S642351AbdEACa3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 30 Apr 2017 22:30:29 -0400
-In-Reply-To: <cover.1493320999.git.jbenc@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-afs@lists.infradead.org,
+        linux-kernel@vger.kernel.org
+To: dhowells@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <149332922378.28919.11614036268701178135.stgit@warthog.procyon.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jiri Benc <jbenc@redhat.com>
-Date: Thu, 27 Apr 2017 21:24:34 +0200
+From: David Howells <dhowells@redhat.com>
+Date: Thu, 27 Apr 2017 22:40:23 +0100
 
-> This patchset fixes a bug with metadata based tunnels when booted with
-> ipv6.disable=1.
+> Initialise init_net.count to 1 for its pointer from init_nsproxy lest
+> someone tries to do a get_net() and a put_net() in a process in which
+> current->ns_proxy->net_ns points to the initial network namespace.
+> 
+> Signed-off-by: David Howells <dhowells@redhat.com>
 
-Series applied, thanks.
+Applied.
