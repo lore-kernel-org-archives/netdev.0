@@ -1,47 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: more bpf samples build breakage...
-Date: Mon, 01 May 2017 16:45:26 -0400 (EDT)
-Message-ID: <20170501.164526.2280829777190467409.davem@davemloft.net>
-References: <20170501.153005.983887567095122966.davem@davemloft.net>
-        <59079CE2.6010305@iogearbox.net>
+From: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH 1/1] IB/mlx5: Add port_xmit_wait to counter registers
+ read
+Date: Mon, 01 May 2017 16:56:35 -0400
+Message-ID: <1493672195.3041.188.camel@redhat.com>
+References: <20170501163008.27043-1-tim@binbash.co.uk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org
-To: daniel@iogearbox.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:37476 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750977AbdEAUpc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 1 May 2017 16:45:32 -0400
-In-Reply-To: <59079CE2.6010305@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Tim Wright <tim-r/Uwd3QrhQcqdlJmJB21zg@public.gmane.org>, matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+        leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+        hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170501163008.27043-1-tim-r/Uwd3QrhQcqdlJmJB21zg@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-RnJvbTogRGFuaWVsIEJvcmttYW5uIDxkYW5pZWxAaW9nZWFyYm94Lm5ldD4NCkRhdGU6IE1vbiwg
-MDEgTWF5IDIwMTcgMjI6Mzg6NTggKzAyMDANCg0KPiBCUEYgc2FtcGxlczoNCj4gDQo+IFtyb290
-QGFwb2MgYnBmXSMgbWFrZSA+IC9kZXYvbnVsbA0KPiBJbiBmaWxlIGluY2x1ZGVkIGZyb20NCj4g
-L3Jvb3QvY2lsaXVtL25ldC1uZXh0L3NhbXBsZXMvYnBmL2Nvb2tpZV91aWRfaGVscGVyX2V4YW1w
-bGUuYzo1NDowOg0KPiAvcm9vdC9jaWxpdW0vbmV0LW5leHQvc2FtcGxlcy9icGYvY29va2llX3Vp
-ZF9oZWxwZXJfZXhhbXBsZS5jOiBJbg0KPiBmdW5jdGlvbiChcHJvZ19sb2FkojoNCj4gL3Jvb3Qv
-Y2lsaXVtL25ldC1uZXh0L3NhbXBsZXMvYnBmL2Nvb2tpZV91aWRfaGVscGVyX2V4YW1wbGUuYzox
-MTk6NToNCj4gd2FybmluZzogb3ZlcmZsb3cgaW4gaW1wbGljaXQgY29uc3RhbnQgY29udmVyc2lv
-biBbLVdvdmVyZmxvd10NCj4gICAgICAtMzIgKyBvZmZzZXRvZihzdHJ1Y3Qgc3RhdHMsIHVpZCkp
-LA0KPiAgICAgIF4NCj4gL3Jvb3QvY2lsaXVtL25ldC1uZXh0L3NhbXBsZXMvYnBmL2xpYmJwZi5o
-OjEzNToxMjogbm90ZTogaW4gZGVmaW5pdGlvbg0KPiBvZiBtYWNybyChQlBGX1NUWF9NRU2iDQo+
-ICAgIC5vZmYgICA9IE9GRiwgICAgIFwNCj4gICAgICAgICAgICAgXg0KPiAvcm9vdC9jaWxpdW0v
-bmV0LW5leHQvc2FtcGxlcy9icGYvY29va2llX3VpZF9oZWxwZXJfZXhhbXBsZS5jOjEyMTo1Og0K
-PiB3YXJuaW5nOiBvdmVyZmxvdyBpbiBpbXBsaWNpdCBjb25zdGFudCBjb252ZXJzaW9uIFstV292
-ZXJmbG93XQ0KPiAgICAgIC0zMiArIG9mZnNldG9mKHN0cnVjdCBzdGF0cywgcGFja2V0cyksIDEp
-LA0KPiAgICAgIF4NCj4gL3Jvb3QvY2lsaXVtL25ldC1uZXh0L3NhbXBsZXMvYnBmL2xpYmJwZi5o
-OjE1NToxMjogbm90ZTogaW4gZGVmaW5pdGlvbg0KPiBvZiBtYWNybyChQlBGX1NUX01FTaINCj4g
-ICAgLm9mZiAgID0gT0ZGLCAgICAgXA0KPiAgICAgICAgICAgICBeDQo+IC9yb290L2NpbGl1bS9u
-ZXQtbmV4dC9zYW1wbGVzL2JwZi9jb29raWVfdWlkX2hlbHBlcl9leGFtcGxlLmM6MTI5OjU6DQo+
-IHdhcm5pbmc6IG92ZXJmbG93IGluIGltcGxpY2l0IGNvbnN0YW50IGNvbnZlcnNpb24gWy1Xb3Zl
-cmZsb3ddDQo+ICAgICAgLTMyICsgb2Zmc2V0b2Yoc3RydWN0IHN0YXRzLCBieXRlcykpLA0KPiAg
-ICAgIF4NCj4gL3Jvb3QvY2lsaXVtL25ldC1uZXh0L3NhbXBsZXMvYnBmL2xpYmJwZi5oOjEzNTox
-Mjogbm90ZTogaW4gZGVmaW5pdGlvbg0KPiBvZiBtYWNybyChQlBGX1NUWF9NRU2iDQo+ICAgIC5v
-ZmYgICA9IE9GRiwgICAgIFwNCj4gICAgICAgICAgICAgXg0KPiBbcm9vdEBhcG9jIGJwZl0jDQo+
-IA0KPiBBYm92ZSB3YXJuaW5nIGlzIGZyb20gNTE1NzBhNWFiMmI3ICgiQSBTYW1wbGUgb2YgdXNp
-bmcgc29ja2V0DQo+IGNvb2tpZSBhbmQgdWlkIGZvciB0cmFmZmljIG1vbml0b3JpbmciKS4gSSBj
-YW4gc2VlIHRvIHNlbmQgYQ0KPiBmaXggZm9yIGl0Lg0KDQpQbGVhc2UgZG8sIHRoYW5rcy4NCg==
+On Mon, 2017-05-01 at 17:30 +0100, Tim Wright wrote:
+> Add port_xmit_wait to the error counters read by mlx5_ib_process_mad
+> to
+> ensure sysfs port counter provides correct value for PortXmitWait.
+> Otherwise the sysfs port_xmit_wait file always contains zero.
+> 
+> The previous MAD_IFC implementation populated this counter, but it
+> was
+> removed during the migration to PPCNT for error counters (32-bit
+> only).
+> 
+> Signed-off-by: Tim Wright <tim-r/Uwd3QrhQcqdlJmJB21zg@public.gmane.org>
+
+Thanks, applied.
+
+-- 
+Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+    GPG KeyID: B826A3330E572FDD
+   
+Key fingerprint = AE6B 1BDA 122B 23B4 265B  1274 B826 A333 0E57 2FDD
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
