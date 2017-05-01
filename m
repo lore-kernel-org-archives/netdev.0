@@ -1,42 +1,56 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: bluetooth-next 2017-04-30
-Date: Mon, 01 May 2017 14:50:19 -0400 (EDT)
-Message-ID: <20170501.145019.1619484787513762409.davem@davemloft.net>
-References: <20170430140928.GA2753@x1c>
-        <20170430.230336.142225761153252889.davem@davemloft.net>
-        <20170501184221.GA2093@x1c>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v4 binutils] Add BPF support to binutils...
+Date: Mon, 01 May 2017 14:50:11 -0400 (EDT)
+Message-ID: <20170501.145011.2010615531122694032.davem@davemloft.net>
+References: <f7ttw541ohz.fsf@redhat.com>
+        <20170501.135202.2175412915689459473.davem@davemloft.net>
+        <f7t37coxvys.fsf@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170501184221.GA2093@x1c>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: ast@fb.com, daniel@iogearbox.net, netdev@vger.kernel.org,
+        xdp-newbies@vger.kernel.org
+To: aconole@bytheb.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:35942 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750816AbdEASuN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 1 May 2017 14:50:13 -0400
+In-Reply-To: <f7t37coxvys.fsf@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date: Mon, 1 May 2017 21:42:21 +0300
+From: Aaron Conole <aconole@bytheb.org>
+Date: Mon, 01 May 2017 14:39:39 -0400
 
-> Hi Dave,
+> David Miller <davem@davemloft.net> writes:
 > 
-> On Sun, Apr 30, 2017, David Miller wrote:
->> From: Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
->> Date: Sun, 30 Apr 2017 17:09:28 +0300
->> 
->> > Here's one last batch of Bluetooth patches in the bluetooth-next tree
->> > targeting the 4.12 kernel.
->> > 
->> >  - Remove custom ECDH implementation and use new KPP API instead
->> >  - Add protocol checks to hci_ldisc
->> >  - Add module license to HCI UART Nokia H4+ driver
->> >  - Minor fix for 32bit user space - 64 bit kernel combination
->> > 
->> > Please let me know if there are any issues pulling. Thanks.
->> 
->> Pulled, thanks Johan.
+>> From: Aaron Conole <aconole@bytheb.org>
+>> Date: Mon, 01 May 2017 13:22:00 -0400
+>>
+>>> x86-64:
+>>>   Running /home/aconole/git/binutils-gdb/gas/testsuite/gas/bpf/bpf.exp ...
+>>>   FAIL: jump
+>>>   FAIL: call
+>>>   FAIL: imm64a
+>>>   Running /home/aconole/git/binutils-gdb/gas/testsuite/gas/cfi/cfi.exp ...
+>>
+>> I cannot reproduce this, can you show what it says in the:
+>>
+>> 	/home/aconole/git/binutils-gdb/gas/testsuite/gas.log
+>>
+>> file near the "FAIL" cases?
 > 
-> Thanks, however I don't see the patches in net-next yet. I have seen
-> other patches go in there since your response though. Cause for concern?
+> Executing on host: sh -c {/home/aconole/git/binutils-gdb/gas/testsuite/../../binutils/objdump  -dr dump.o >dump.out 2>gas.stderr}  /dev/null  (timeout = 300)
+> spawn [open ...]
+> regexp_diff match failure
+> regexp "^ 108:	95 00 00 00 00 00 00 00 	exit$"
+> line   " 108:	95 00 00 00 00 00 00 00 	exit	"
+> FAIL: jump
+> 
+> 
+> Same style of error for call and imm64a.  After reverting and then
+> re-applying your patch, the FAILs all go away, so I must have broken
+> these files somehow.  Sorry for the false alarm.
 
-Shuld be there now.
+Great, thanks for checking.
