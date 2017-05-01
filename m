@@ -1,41 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] bnx2x: Align RX buffers
-Date: Sun, 30 Apr 2017 22:50:56 -0400 (EDT)
-Message-ID: <20170430.225056.522551868142970014.davem@davemloft.net>
-References: <20170429001741.14563-1-swood@redhat.com>
+Subject: Re: [PATCH v2] iov_iter: don't revert iov buffer if csum error
+Date: Sun, 30 Apr 2017 22:52:30 -0400 (EDT)
+Message-ID: <20170430.225230.1328600416499311759.davem@davemloft.net>
+References: <20170429024647.GO29622@ZenIV.linux.org.uk>
+        <0cc7c1d2-87d0-6cc4-624b-1cf96678bfd7@huawei.com>
+        <20170429204822.GS29622@ZenIV.linux.org.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Yuval.Mintz@cavium.com, ariel.elior@cavium.com,
-        everest-linux-l2@cavium.com, netdev@vger.kernel.org,
-        edumazet@google.com, mschmidt@redhat.com,
-        linuxppc-dev@lists.ozlabs.org
-To: swood@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:54650 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S637843AbdEACu7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 30 Apr 2017 22:50:59 -0400
-In-Reply-To: <20170429001741.14563-1-swood@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: dingtianhong@huawei.com, pabeni@redhat.com, edumazet@google.com,
+        hannes@stressinduktion.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, linuxarm@huawei.com,
+        weiyongjun1@huawei.com
+To: viro@ZenIV.linux.org.uk
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170429204822.GS29622@ZenIV.linux.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Scott Wood <swood@redhat.com>
-Date: Fri, 28 Apr 2017 19:17:41 -0500
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Date: Sat, 29 Apr 2017 21:48:23 +0100
 
-> The bnx2x driver is not providing proper alignment on the receive buffers it
-> passes to build_skb(), causing skb_shared_info to be misaligned.
-> skb_shared_info contains an atomic, and while PPC normally supports
-> unaligned accesses, it does not support unaligned atomics.
+> On Sat, Apr 29, 2017 at 05:37:38PM +0800, Ding Tianhong wrote:
 > 
-> Aligning the size of rx buffers will ensure that page_frag_alloc() returns
-> aligned addresses.
+>> Looks good, if so, we don't need the csum_error any more,
 > 
-> This can be reproduced on PPC by setting the network MTU to 1450 (or other
-> non-multiple-of-4) and then generating sufficient inbound network traffic
-> (one or two large "wget"s usually does it), producing the following oops:
- ...
-> Fixes: d46d132cc021 ("bnx2x: use netdev_alloc_frag()")
-> Signed-off-by: Scott Wood <swood@redhat.com>
+> Acked-by: Al Viro <viro@zeniv.linux.org.uk>
+> 
+> Dave, I could put that through my tree, but I think it would be better off
+> in net.git; either way, it needs to go into mainline before -final...
 
-Applied, thanks.
+Please just send it directly to Linus, thanks.
