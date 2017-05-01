@@ -1,48 +1,47 @@
-From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
-Subject: Re: [PATCH v5 03/20] dt-bindings: net: Add DT bindings documentation
- for Allwinner dwmac-sun8i
-Date: Mon, 1 May 2017 15:45:58 +0200
-Message-ID: <20170501134558.GC31281@lunn.ch>
-References: <20170501124520.3769-1-clabbe.montjoie@gmail.com>
- <20170501124520.3769-4-clabbe.montjoie@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
-        maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org, wens-jdAy2FN1RRM@public.gmane.org,
-        linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, catalin.marinas-5wv7dgnIgG8@public.gmane.org,
-        will.deacon-5wv7dgnIgG8@public.gmane.org, peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
-        alexandre.torgue-qxv4g6HH51o@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20170501124520.3769-4-clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Karim Eshapa <karim.eshapa@gmail.com>
+Subject: [PATCH] benet: Use time_before_eq for time comparison
+Date: Mon,  1 May 2017 15:58:08 +0200
+Message-ID: <1493647088-4394-1-git-send-email-karim.eshapa@gmail.com>
+References: <1493344139-6678-1-git-send-email-karim.eshapa@gmail.com>
+Cc: ajit.khaparde@broadcom.com, sriharsha.basavapatna@broadcom.com,
+        somnath.kotur@broadcom.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, Karim Eshapa <karim.eshapa@gmail.com>
+To: sathya.perla@broadcom.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1493344139-6678-1-git-send-email-karim.eshapa@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, May 01, 2017 at 02:45:03PM +0200, Corentin Labbe wrote:
-> +emac: ethernet@1c0b000 {
-> +	compatible = "allwinner,sun8i-h3-emac";
-> +	syscon = <&syscon>;
-> +	reg = <0x01c0b000 0x104>;
-> +	interrupts = <GIC_SPI 82 IRQ_TYPE_LEVEL_HIGH>;
-> +	interrupt-names = "macirq";
-> +	resets = <&ccu RST_BUS_EMAC>;
-> +	reset-names = "stmmaceth";
-> +	clocks = <&ccu CLK_BUS_EMAC>;
-> +	clock-names = "stmmaceth";
-> +	#address-cells = <1>;
-> +	#size-cells = <0>;
-> +
-> +	phy = <&int_mii_phy>;
+Use time_before_eq for time comparison more safe and dealing
+with timer wrapping to be future-proof.
 
-Hi Corentin
+Signed-off-by: Karim Eshapa <karim.eshapa@gmail.com>
+---
+ drivers/net/ethernet/emulex/benet/be_main.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-Should this be phy-handle?
-
-       Andrew
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index 6be3b9a..56d2368 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -5217,15 +5217,15 @@ static bool be_err_is_recoverable(struct be_adapter *adapter)
+ 	dev_err(&adapter->pdev->dev, "Recoverable HW error code: 0x%x\n",
+ 		ue_err_code);
+ 
+-	if (jiffies - err_rec->probe_time <= initial_idle_time) {
++	if (time_before_eq(jiffies - err_rec->probe_time, initial_idle_time)) {
+ 		dev_err(&adapter->pdev->dev,
+ 			"Cannot recover within %lu sec from driver load\n",
+ 			jiffies_to_msecs(initial_idle_time) / MSEC_PER_SEC);
+ 		return false;
+ 	}
+ 
+-	if (err_rec->last_recovery_time &&
+-	    (jiffies - err_rec->last_recovery_time <= recovery_interval)) {
++	if (err_rec->last_recovery_time && time_before_eq(
++		jiffies - err_rec->last_recovery_time, recovery_interval)) {
+ 		dev_err(&adapter->pdev->dev,
+ 			"Cannot recover within %lu sec from last recovery\n",
+ 			jiffies_to_msecs(recovery_interval) / MSEC_PER_SEC);
+-- 
+2.7.4
