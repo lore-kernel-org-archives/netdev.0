@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next v2 10/18] net: dsa: mv88e6xxx: move STU GetNext operation
-Date: Mon,  1 May 2017 14:05:19 -0400
-Message-ID: <20170501180527.11756-11-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next v2 11/18] net: dsa: mv88e6xxx: get STU entry on VTU GetNext
+Date: Mon,  1 May 2017 14:05:20 -0400
+Message-ID: <20170501180527.11756-12-vivien.didelot@savoirfairelinux.com>
 References: <20170501180527.11756-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
@@ -14,81 +14,74 @@ In-Reply-To: <20170501180527.11756-1-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Extract the generic portion of code to issue an STU GetNext operation,
-which will be used in other implementations.
+Now that the code reads both VTU and STU data on VTU GetNext operation,
+fetch the STU entry data of a VTU entry at the same time.
+
+The STU data bits are masked with the VTU data bits and they are now all
+read at the same time a VTU GetNext operation is issued.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 ---
- drivers/net/dsa/mv88e6xxx/chip.c        | 14 +-------------
+ drivers/net/dsa/mv88e6xxx/chip.c        |  2 +-
  drivers/net/dsa/mv88e6xxx/global1.h     |  2 ++
- drivers/net/dsa/mv88e6xxx/global1_vtu.c | 20 ++++++++++++++++++++
- 3 files changed, 23 insertions(+), 13 deletions(-)
+ drivers/net/dsa/mv88e6xxx/global1_vtu.c | 22 ++++++++++++++++++++++
+ 3 files changed, 25 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-index b163e40bf42e..5441b05f519b 100644
+index 5441b05f519b..38c3e047fbf9 100644
 --- a/drivers/net/dsa/mv88e6xxx/chip.c
 +++ b/drivers/net/dsa/mv88e6xxx/chip.c
-@@ -1422,19 +1422,7 @@ static int _mv88e6xxx_stu_getnext(struct mv88e6xxx_chip *chip, u8 sid,
- 	if (err)
- 		return err;
+@@ -1292,7 +1292,7 @@ static int _mv88e6xxx_vtu_getnext(struct mv88e6xxx_chip *chip,
+ 		}
  
--	err = mv88e6xxx_g1_vtu_sid_write(chip, &next);
--	if (err)
--		return err;
--
--	err = mv88e6xxx_g1_vtu_op(chip, GLOBAL_VTU_OP_STU_GET_NEXT);
--	if (err)
--		return err;
--
--	err = mv88e6xxx_g1_vtu_sid_read(chip, &next);
--	if (err)
--		return err;
--
--	err = mv88e6xxx_g1_vtu_vid_read(chip, &next);
-+	err = mv88e6xxx_g1_vtu_stu_getnext(chip, &next);
- 	if (err)
- 		return err;
- 
+ 		if (mv88e6xxx_has(chip, MV88E6XXX_FLAG_STU)) {
+-			err = mv88e6xxx_g1_vtu_sid_read(chip, &next);
++			err = mv88e6xxx_g1_vtu_stu_get(chip, &next);
+ 			if (err)
+ 				return err;
+ 		}
 diff --git a/drivers/net/dsa/mv88e6xxx/global1.h b/drivers/net/dsa/mv88e6xxx/global1.h
-index 9644ca649838..5d276cc4262b 100644
+index 5d276cc4262b..76b49a3a4701 100644
 --- a/drivers/net/dsa/mv88e6xxx/global1.h
 +++ b/drivers/net/dsa/mv88e6xxx/global1.h
-@@ -70,6 +70,8 @@ int mv88e6xxx_g1_vtu_op_wait(struct mv88e6xxx_chip *chip);
- int mv88e6xxx_g1_vtu_op(struct mv88e6xxx_chip *chip, u16 op);
- int mv88e6xxx_g1_vtu_getnext(struct mv88e6xxx_chip *chip,
+@@ -72,6 +72,8 @@ int mv88e6xxx_g1_vtu_getnext(struct mv88e6xxx_chip *chip,
  			     struct mv88e6xxx_vtu_entry *entry);
-+int mv88e6xxx_g1_vtu_stu_getnext(struct mv88e6xxx_chip *chip,
-+				 struct mv88e6xxx_vtu_entry *vtu);
+ int mv88e6xxx_g1_vtu_stu_getnext(struct mv88e6xxx_chip *chip,
+ 				 struct mv88e6xxx_vtu_entry *vtu);
++int mv88e6xxx_g1_vtu_stu_get(struct mv88e6xxx_chip *chip,
++			     struct mv88e6xxx_vtu_entry *vtu);
  int mv88e6xxx_g1_vtu_flush(struct mv88e6xxx_chip *chip);
  
  #endif /* _MV88E6XXX_GLOBAL1_H */
 diff --git a/drivers/net/dsa/mv88e6xxx/global1_vtu.c b/drivers/net/dsa/mv88e6xxx/global1_vtu.c
-index 060c4a5a802d..cf572ba76195 100644
+index cf572ba76195..710f86fa3b4e 100644
 --- a/drivers/net/dsa/mv88e6xxx/global1_vtu.c
 +++ b/drivers/net/dsa/mv88e6xxx/global1_vtu.c
-@@ -174,6 +174,26 @@ int mv88e6185_g1_vtu_data_write(struct mv88e6xxx_chip *chip,
+@@ -194,6 +194,28 @@ int mv88e6xxx_g1_vtu_stu_getnext(struct mv88e6xxx_chip *chip,
+ 	return mv88e6xxx_g1_vtu_vid_read(chip, entry);
+ }
  
- /* VLAN Translation Unit Operations */
- 
-+int mv88e6xxx_g1_vtu_stu_getnext(struct mv88e6xxx_chip *chip,
-+				 struct mv88e6xxx_vtu_entry *entry)
++int mv88e6xxx_g1_vtu_stu_get(struct mv88e6xxx_chip *chip,
++			     struct mv88e6xxx_vtu_entry *vtu)
 +{
++	struct mv88e6xxx_vtu_entry stu;
 +	int err;
 +
-+	err = mv88e6xxx_g1_vtu_sid_write(chip, entry);
++	err = mv88e6xxx_g1_vtu_sid_read(chip, vtu);
 +	if (err)
 +		return err;
 +
-+	err = mv88e6xxx_g1_vtu_op(chip, GLOBAL_VTU_OP_STU_GET_NEXT);
++	stu.sid = vtu->sid - 1;
++
++	err = mv88e6xxx_g1_vtu_stu_getnext(chip, &stu);
 +	if (err)
 +		return err;
 +
-+	err = mv88e6xxx_g1_vtu_sid_read(chip, entry);
-+	if (err)
-+		return err;
++	if (stu.sid != vtu->sid || !stu.valid)
++		return -EINVAL;
 +
-+	return mv88e6xxx_g1_vtu_vid_read(chip, entry);
++	return 0;
 +}
 +
  int mv88e6xxx_g1_vtu_getnext(struct mv88e6xxx_chip *chip,
