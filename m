@@ -1,39 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net/esp4: Fix invalid esph pointer crash
-Date: Mon, 01 May 2017 14:59:15 -0400 (EDT)
-Message-ID: <20170501.145915.1070402354847439894.davem@davemloft.net>
-References: <20170430133438.31962-1-ilant@mellanox.com>
+Subject: Re: [PATCH net-next] xfrm: Indicate xfrm_state offload errors
+Date: Mon, 01 May 2017 15:00:20 -0400 (EDT)
+Message-ID: <20170501.150020.1978917857189385793.davem@davemloft.net>
+References: <20170430135119.11159-1-ilant@mellanox.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: steffen.klassert@secunet.com, netdev@vger.kernel.org
 To: ilant@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:36048 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:36058 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750770AbdEAS7R (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 1 May 2017 14:59:17 -0400
-In-Reply-To: <20170430133438.31962-1-ilant@mellanox.com>
+        with ESMTP id S1750759AbdEATA1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 1 May 2017 15:00:27 -0400
+In-Reply-To: <20170430135119.11159-1-ilant@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: <ilant@mellanox.com>
-Date: Sun, 30 Apr 2017 16:34:38 +0300
+Date: Sun, 30 Apr 2017 16:51:19 +0300
 
 > From: Ilan Tayari <ilant@mellanox.com>
 > 
-> Both esp_output and esp_xmit take a pointer to the ESP header
-> and place it in esp_info struct prior to calling esp_output_head.
+> Current code silently ignores driver errors when configuring
+> IPSec offload xfrm_state, and falls back to host-based crypto.
 > 
-> Inside esp_output_head, the call to esp_output_udp_encap
-> makes sure to update the pointer if it gets invalid.
-> However, if esp_output_head itself calls skb_cow_data, the
-> pointer is not updated and stays invalid, causing a crash
-> after esp_output_head returns.
+> Fail the xfrm_state creation if the driver has an error, because
+> the NIC offloading was explicitly requested by the user program.
 > 
-> Update the pointer if it becomes invalid in esp_output_head
+> This will communicate back to the user that there was an error.
 > 
-> Fixes: fca11ebde3f0 ("esp4: Reorganize esp_output")
+> Fixes: d77e38e612a0 ("xfrm: Add an IPsec hardware offloading API")
 > Signed-off-by: Ilan Tayari <ilant@mellanox.com>
 
-Looks good, applied, thanks.
+Also applied.
+
+Steffen, I apologize for taking these directly but I really wanted to
+make sure these fixes made it into the pull request I plan to send to
+Linus for the merge window soon.
+
+Thanks.
