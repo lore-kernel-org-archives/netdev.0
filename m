@@ -1,32 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net-next v2] ipv4: get rid of ip_ra_lock
-Date: Sun, 30 Apr 2017 22:44:26 -0400 (EDT)
-Message-ID: <20170430.224426.1735697418710301007.davem@davemloft.net>
-References: <1493399069-31743-1-git-send-email-xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net-next] rtnetlink: Remove NETDEV_CHANGEINFODATA
+Date: Sun, 30 Apr 2017 22:46:07 -0400 (EDT)
+Message-ID: <20170430.224607.204194421266945226.davem@davemloft.net>
+References: <1493402785-18844-1-git-send-email-dsa@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: xiyou.wangcong@gmail.com
+Cc: netdev@vger.kernel.org, jiri@resnulli.us
+To: dsa@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:54566 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:54576 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1946486AbdEACo2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 30 Apr 2017 22:44:28 -0400
-In-Reply-To: <1493399069-31743-1-git-send-email-xiyou.wangcong@gmail.com>
+        with ESMTP id S1165129AbdEACqJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 30 Apr 2017 22:46:09 -0400
+In-Reply-To: <1493402785-18844-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Date: Fri, 28 Apr 2017 10:04:29 -0700
+From: David Ahern <dsa@cumulusnetworks.com>
+Date: Fri, 28 Apr 2017 11:06:25 -0700
 
-> After commit 1215e51edad1 ("ipv4: fix a deadlock in ip_ra_control")
-> we always take RTNL lock for ip_ra_control() which is the only place
-> we update the list ip_ra_chain, so the ip_ra_lock is no longer needed.
+> NETDEV_CHANGEINFODATA was added by d4261e5650004 ("bonding: create
+> netlink event when bonding option is changed"). RTM_NEWLINK
+> messages are already created on changelink events, so this event
+> is just a duplicate. Remove it.
 > 
-> As Eric points out, BH does not need to disable either, RCU readers
-> don't care.
-> 
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> Cc: Jiri Pirko <jiri@resnulli.us>
+> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 
-Applied.
+I think you need to respin this, I get rejects when I try to
+apply this to net-next.
