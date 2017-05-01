@@ -1,54 +1,114 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH net-next 00/18] net: dsa: mv88e6xxx: 802.1s and 88E6390 VTU
-Date: Mon, 01 May 2017 11:51:05 -0400
-Message-ID: <871ss8bmom.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
-References: <20170426155336.5937-1-vivien.didelot@savoirfairelinux.com>
+From: Sylvain Lemieux <slemieux.tyco@gmail.com>
+Subject: [PATCH] switchdev: documentation: fix whitespace issues
+Date: Mon,  1 May 2017 11:02:01 -0400
+Message-ID: <20170501150201.18959-1-slemieux.tyco@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170426155336.5937-1-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org
+To: jiri@resnulli.us, ivecera@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-it0-f67.google.com ([209.85.214.67]:36221 "EHLO
+        mail-it0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1758355AbdEAPzN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 1 May 2017 11:55:13 -0400
+Received: by mail-it0-f67.google.com with SMTP id x188so12537017itb.3
+        for <netdev@vger.kernel.org>; Mon, 01 May 2017 08:55:13 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+From: Liam Beguin <lbeguin@tycoint.com>
 
-Vivien Didelot <vivien.didelot@savoirfairelinux.com> writes:
+Figure 1 is full of whitespaces; fix it
 
-> Vivien Didelot (18):
->   net: dsa: mv88e6xxx: add max VID to info
->   net: dsa: mv88e6xxx: split VTU entry data member
->   net: dsa: mv88e6xxx: move VTU Operation accessors
->   net: dsa: mv88e6xxx: move VTU flush
->   net: dsa: mv88e6xxx: move VTU FID accessors
->   net: dsa: mv88e6xxx: move VTU SID accessors
->   net: dsa: mv88e6xxx: move VTU VID accessors
->   net: dsa: mv88e6xxx: move generic VTU GetNext
->   net: dsa: mv88e6xxx: move VTU Data accessors
->   net: dsa: mv88e6xxx: move STU GetNext operation
->   net: dsa: mv88e6xxx: get STU entry on VTU GetNext
->   net: dsa: mv88e6xxx: load STU entry with VTU entry
->   net: dsa: mv88e6xxx: add VTU GetNext operation
->   net: dsa: mv88e6xxx: add VTU Load/Purge operation
->   net: dsa: mv88e6xxx: make VTU helpers static
->   net: dsa: mv88e6xxx: simplify VTU entry getter
->   net: dsa: mv88e6xxx: support the VTU Page bit
->   net: dsa: mv88e6xxx: add VTU support for 88E6390
->
->  drivers/net/dsa/mv88e6xxx/Makefile      |   1 +
->  drivers/net/dsa/mv88e6xxx/chip.c        | 568 +++++++++-----------------------
->  drivers/net/dsa/mv88e6xxx/global1.h     |  14 +
->  drivers/net/dsa/mv88e6xxx/global1_vtu.c | 505 ++++++++++++++++++++++++++++
->  drivers/net/dsa/mv88e6xxx/mv88e6xxx.h   |  31 +-
->  5 files changed, 684 insertions(+), 435 deletions(-)
->  create mode 100644 drivers/net/dsa/mv88e6xxx/global1_vtu.c
+Signed-off-by: Liam Beguin <lbeguin@tycoint.com>
+Signed-off-by: Sylvain Lemieux <slemieux@tycoint.com>
+---
+ Documentation/networking/switchdev.txt | 70 +++++++++++++++++-----------------
+ 1 file changed, 35 insertions(+), 35 deletions(-)
 
-I don't see the patchset in net-next. Can you pick it?
-
-Thanks,
-
-        Vivien
+diff --git a/Documentation/networking/switchdev.txt b/Documentation/networking/switchdev.txt
+index 2bbac05ab9e2..3e7b946dea27 100644
+--- a/Documentation/networking/switchdev.txt
++++ b/Documentation/networking/switchdev.txt
+@@ -13,43 +13,43 @@ an example setup using a data-center-class switch ASIC chip.  Other setups
+ with SR-IOV or soft switches, such as OVS, are possible.
+ 
+ 
+-                             User-space tools                                 
+-                                                                              
+-       user space                   |                                         
+-      +-------------------------------------------------------------------+   
+-       kernel                       | Netlink                                 
+-                                    |                                         
+-                     +--------------+-------------------------------+         
+-                     |         Network stack                        |         
+-                     |           (Linux)                            |         
+-                     |                                              |         
+-                     +----------------------------------------------+         
+-                                                                              
++                             User-space tools
++
++       user space                   |
++      +-------------------------------------------------------------------+
++       kernel                       | Netlink
++                                    |
++                     +--------------+-------------------------------+
++                     |         Network stack                        |
++                     |           (Linux)                            |
++                     |                                              |
++                     +----------------------------------------------+
++
+                            sw1p2     sw1p4     sw1p6
+-                      sw1p1  +  sw1p3  +  sw1p5  +          eth1             
+-                        +    |    +    |    +    |            +               
+-                        |    |    |    |    |    |            |               
+-                     +--+----+----+----+-+--+----+---+  +-----+-----+         
+-                     |         Switch driver         |  |    mgmt   |         
+-                     |        (this document)        |  |   driver  |         
+-                     |                               |  |           |         
+-                     +--------------+----------------+  +-----------+         
+-                                    |                                         
+-       kernel                       | HW bus (eg PCI)                         
+-      +-------------------------------------------------------------------+   
+-       hardware                     |                                         
+-                     +--------------+---+------------+                        
+-                     |         Switch device (sw1)   |                        
+-                     |  +----+                       +--------+               
+-                     |  |    v offloaded data path   | mgmt port              
+-                     |  |    |                       |                        
+-                     +--|----|----+----+----+----+---+                        
+-                        |    |    |    |    |    |                            
+-                        +    +    +    +    +    +                            
++                      sw1p1  +  sw1p3  +  sw1p5  +          eth1
++                        +    |    +    |    +    |            +
++                        |    |    |    |    |    |            |
++                     +--+----+----+----+-+--+----+---+  +-----+-----+
++                     |         Switch driver         |  |    mgmt   |
++                     |        (this document)        |  |   driver  |
++                     |                               |  |           |
++                     +--------------+----------------+  +-----------+
++                                    |
++       kernel                       | HW bus (eg PCI)
++      +-------------------------------------------------------------------+
++       hardware                     |
++                     +--------------+---+------------+
++                     |         Switch device (sw1)   |
++                     |  +----+                       +--------+
++                     |  |    v offloaded data path   | mgmt port
++                     |  |    |                       |
++                     +--|----|----+----+----+----+---+
++                        |    |    |    |    |    |
++                        +    +    +    +    +    +
+                        p1   p2   p3   p4   p5   p6
+-                                       
+-                             front-panel ports                                
+-                                                                              
++
++                             front-panel ports
++
+ 
+                                     Fig 1.
+ 
+-- 
+2.11.0
