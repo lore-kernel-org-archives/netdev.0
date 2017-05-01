@@ -1,7 +1,7 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 51/53] netfilter: nf_queue: only call synchronize_net twice if nf_queue is active
-Date: Mon,  1 May 2017 12:47:18 +0200
-Message-ID: <1493635640-24325-52-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 53/53] netfilter: nf_ct_ext: invoke destroy even when ext is not attached
+Date: Mon,  1 May 2017 12:47:20 +0200
+Message-ID: <1493635640-24325-54-git-send-email-pablo@netfilter.org>
 References: <1493635640-24325-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
@@ -10,173 +10,76 @@ In-Reply-To: <1493635640-24325-1-git-send-email-pablo@netfilter.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Florian Westphal <fw@strlen.de>
+From: Liping Zhang <zlpnobody@gmail.com>
 
-nf_unregister_net_hook(s) can avoid a second call to synchronize_net,
-provided there is no nfqueue active in that net namespace (which is
-the common case).
+For NF_NAT_MANIP_SRC, we will insert the ct to the nat_bysource_table,
+then remove it from the nat_bysource_table via nat_extend->destroy.
 
-This also gets rid of the extra arg to nf_queue_nf_hook_drop(), normally
-this gets called during netns cleanup so no packets should be queued.
+But now, the nat extension is attached on demand, so if the nat extension
+is not attached, we will not be notified when the ct is destroyed, i.e.
+we may fail to remove ct from the nat_bysource_table.
 
-For the rare case of base chain being unregistered or module removal
-while nfqueue is in use the extra hiccup due to the packet drops isn't
-a big deal.
+So just keep it simple, even if the extension is not attached, we will
+still invoke the related ext->destroy. And this will also preserve the
+flexibility for the future extension.
 
-Signed-off-by: Florian Westphal <fw@strlen.de>
+Fixes: 9a08ecfe74d7 ("netfilter: don't attach a nat extension by default")
+Signed-off-by: Liping Zhang <zlpnobody@gmail.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/net/netfilter/nf_queue.h |  3 +--
- net/netfilter/core.c             | 21 ++++++++++++---------
- net/netfilter/nf_internals.h     |  2 +-
- net/netfilter/nf_queue.c         |  7 +++++--
- net/netfilter/nfnetlink_queue.c  | 18 ++++++++----------
- 5 files changed, 27 insertions(+), 24 deletions(-)
+ include/net/netfilter/nf_conntrack_extend.h | 7 +------
+ net/netfilter/nf_conntrack_extend.c         | 8 ++------
+ 2 files changed, 3 insertions(+), 12 deletions(-)
 
-diff --git a/include/net/netfilter/nf_queue.h b/include/net/netfilter/nf_queue.h
-index 09948d10e38e..4454719ff849 100644
---- a/include/net/netfilter/nf_queue.h
-+++ b/include/net/netfilter/nf_queue.h
-@@ -24,8 +24,7 @@ struct nf_queue_entry {
- struct nf_queue_handler {
- 	int		(*outfn)(struct nf_queue_entry *entry,
- 				 unsigned int queuenum);
--	void		(*nf_hook_drop)(struct net *net,
--					const struct nf_hook_entry *hooks);
-+	unsigned int	(*nf_hook_drop)(struct net *net);
- };
+diff --git a/include/net/netfilter/nf_conntrack_extend.h b/include/net/netfilter/nf_conntrack_extend.h
+index b01f73fb4dcb..4944bc9153cf 100644
+--- a/include/net/netfilter/nf_conntrack_extend.h
++++ b/include/net/netfilter/nf_conntrack_extend.h
+@@ -69,12 +69,7 @@ static inline void *__nf_ct_ext_find(const struct nf_conn *ct, u8 id)
+ 	((id##_TYPE *)__nf_ct_ext_find((ext), (id)))
  
- void nf_register_queue_handler(struct net *net, const struct nf_queue_handler *qh);
-diff --git a/net/netfilter/core.c b/net/netfilter/core.c
-index b5d908851cc8..552d606e57ca 100644
---- a/net/netfilter/core.c
-+++ b/net/netfilter/core.c
-@@ -162,14 +162,17 @@ __nf_unregister_net_hook(struct net *net, const struct nf_hook_ops *reg)
- void nf_unregister_net_hook(struct net *net, const struct nf_hook_ops *reg)
- {
- 	struct nf_hook_entry *p = __nf_unregister_net_hook(net, reg);
-+	unsigned int nfq;
- 
- 	if (!p)
- 		return;
- 
- 	synchronize_net();
--	nf_queue_nf_hook_drop(net, p);
-+
- 	/* other cpu might still process nfqueue verdict that used reg */
--	synchronize_net();
-+	nfq = nf_queue_nf_hook_drop(net);
-+	if (nfq)
-+		synchronize_net();
- 	kfree(p);
- }
- EXPORT_SYMBOL(nf_unregister_net_hook);
-@@ -198,7 +201,7 @@ void nf_unregister_net_hooks(struct net *net, const struct nf_hook_ops *reg,
- 			     unsigned int hookcount)
- {
- 	struct nf_hook_entry *to_free[16];
--	unsigned int i, n;
-+	unsigned int i, n, nfq;
- 
- 	do {
- 		n = min_t(unsigned int, hookcount, ARRAY_SIZE(to_free));
-@@ -208,12 +211,12 @@ void nf_unregister_net_hooks(struct net *net, const struct nf_hook_ops *reg,
- 
- 		synchronize_net();
- 
--		for (i = 0; i < n; i++) {
--			if (to_free[i])
--				nf_queue_nf_hook_drop(net, to_free[i]);
--		}
--
--		synchronize_net();
-+		/* need 2nd synchronize_net() if nfqueue is used, skb
-+		 * can get reinjected right before nf_queue_hook_drop()
-+		 */
-+		nfq = nf_queue_nf_hook_drop(net);
-+		if (nfq)
-+			synchronize_net();
- 
- 		for (i = 0; i < n; i++)
- 			kfree(to_free[i]);
-diff --git a/net/netfilter/nf_internals.h b/net/netfilter/nf_internals.h
-index c46d214d5323..bfa742da83af 100644
---- a/net/netfilter/nf_internals.h
-+++ b/net/netfilter/nf_internals.h
-@@ -14,7 +14,7 @@
- /* nf_queue.c */
- int nf_queue(struct sk_buff *skb, struct nf_hook_state *state,
- 	     struct nf_hook_entry **entryp, unsigned int verdict);
--void nf_queue_nf_hook_drop(struct net *net, const struct nf_hook_entry *entry);
-+unsigned int nf_queue_nf_hook_drop(struct net *net);
- int __init netfilter_queue_init(void);
- 
- /* nf_log.c */
-diff --git a/net/netfilter/nf_queue.c b/net/netfilter/nf_queue.c
-index 4a7662486f44..043850c9d154 100644
---- a/net/netfilter/nf_queue.c
-+++ b/net/netfilter/nf_queue.c
-@@ -96,15 +96,18 @@ void nf_queue_entry_get_refs(struct nf_queue_entry *entry)
- }
- EXPORT_SYMBOL_GPL(nf_queue_entry_get_refs);
- 
--void nf_queue_nf_hook_drop(struct net *net, const struct nf_hook_entry *entry)
-+unsigned int nf_queue_nf_hook_drop(struct net *net)
- {
- 	const struct nf_queue_handler *qh;
-+	unsigned int count = 0;
- 
- 	rcu_read_lock();
- 	qh = rcu_dereference(net->nf.queue_handler);
- 	if (qh)
--		qh->nf_hook_drop(net, entry);
-+		count = qh->nf_hook_drop(net);
- 	rcu_read_unlock();
-+
-+	return count;
- }
- 
- static int __nf_queue(struct sk_buff *skb, const struct nf_hook_state *state,
-diff --git a/net/netfilter/nfnetlink_queue.c b/net/netfilter/nfnetlink_queue.c
-index d09ab49e102a..dd8ec5b0fcd9 100644
---- a/net/netfilter/nfnetlink_queue.c
-+++ b/net/netfilter/nfnetlink_queue.c
-@@ -922,16 +922,10 @@ static struct notifier_block nfqnl_dev_notifier = {
- 	.notifier_call	= nfqnl_rcv_dev_event,
- };
- 
--static int nf_hook_cmp(struct nf_queue_entry *entry, unsigned long entry_ptr)
+ /* Destroy all relationships */
+-void __nf_ct_ext_destroy(struct nf_conn *ct);
+-static inline void nf_ct_ext_destroy(struct nf_conn *ct)
 -{
--	return rcu_access_pointer(entry->hook) ==
--		(struct nf_hook_entry *)entry_ptr;
+-	if (ct->ext)
+-		__nf_ct_ext_destroy(ct);
 -}
--
--static void nfqnl_nf_hook_drop(struct net *net,
--			       const struct nf_hook_entry *hook)
-+static unsigned int nfqnl_nf_hook_drop(struct net *net)
++void nf_ct_ext_destroy(struct nf_conn *ct);
+ 
+ /* Free operation. If you want to free a object referred from private area,
+  * please implement __nf_ct_ext_free() and call it.
+diff --git a/net/netfilter/nf_conntrack_extend.c b/net/netfilter/nf_conntrack_extend.c
+index 68ae1be08ed8..6c605e88ebae 100644
+--- a/net/netfilter/nf_conntrack_extend.c
++++ b/net/netfilter/nf_conntrack_extend.c
+@@ -20,16 +20,12 @@ static struct nf_ct_ext_type __rcu *nf_ct_ext_types[NF_CT_EXT_NUM];
+ static DEFINE_MUTEX(nf_ct_ext_type_mutex);
+ #define NF_CT_EXT_PREALLOC	128u /* conntrack events are on by default */
+ 
+-void __nf_ct_ext_destroy(struct nf_conn *ct)
++void nf_ct_ext_destroy(struct nf_conn *ct)
  {
- 	struct nfnl_queue_net *q = nfnl_queue_pernet(net);
-+	unsigned int instances = 0;
- 	int i;
+ 	unsigned int i;
+ 	struct nf_ct_ext_type *t;
+-	struct nf_ct_ext *ext = ct->ext;
  
- 	rcu_read_lock();
-@@ -939,10 +933,14 @@ static void nfqnl_nf_hook_drop(struct net *net,
- 		struct nfqnl_instance *inst;
- 		struct hlist_head *head = &q->instance_table[i];
+ 	for (i = 0; i < NF_CT_EXT_NUM; i++) {
+-		if (!__nf_ct_ext_exist(ext, i))
+-			continue;
+-
+ 		rcu_read_lock();
+ 		t = rcu_dereference(nf_ct_ext_types[i]);
  
--		hlist_for_each_entry_rcu(inst, head, hlist)
--			nfqnl_flush(inst, nf_hook_cmp, (unsigned long)hook);
-+		hlist_for_each_entry_rcu(inst, head, hlist) {
-+			nfqnl_flush(inst, NULL, 0);
-+			instances++;
-+		}
+@@ -42,7 +38,7 @@ void __nf_ct_ext_destroy(struct nf_conn *ct)
+ 		rcu_read_unlock();
  	}
- 	rcu_read_unlock();
-+
-+	return instances;
  }
+-EXPORT_SYMBOL(__nf_ct_ext_destroy);
++EXPORT_SYMBOL(nf_ct_ext_destroy);
  
- static int
+ void *nf_ct_ext_add(struct nf_conn *ct, enum nf_ct_ext_id id, gfp_t gfp)
+ {
 -- 
 2.1.4
 
