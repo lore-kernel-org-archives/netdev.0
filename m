@@ -1,32 +1,55 @@
-From: <Woojung.Huh@microchip.com>
-Subject: RE: [PATCH v4 net-next]smsc911x: Adding support for Micochip
- LAN9250 Ethernet controller
-Date: Mon, 1 May 2017 14:23:50 +0000
-Message-ID: <9235D6609DB808459E95D78E17F2E43D40A55E3C@CHN-SV-EXMX02.mchp-main.com>
-References: <C3C28FB10418274EB7FD7C2B85C796A441247C58@CHN-SV-EXMX02.mchp-main.com>
- <20170429015855.GA32471@lunn.ch>
+From: Chen-Yu Tsai <wens@csie.org>
+Subject: Re: [PATCH v5 00/20] net-next: stmmac: add dwmac-sun8i ethernet driver
+Date: Mon, 1 May 2017 22:28:46 +0800
+Message-ID: <CAGb2v67qGqswdz_JcDaD5jTkcvtBuzqqP8KZh=S_5pkp=o6cUQ@mail.gmail.com>
+References: <20170501124520.3769-1-clabbe.montjoie@gmail.com> <20170501140133.GD31281@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>,
-        <UNGLinuxDriver@microchip.com>, <steve.glendinning@shawell.net>
-To: <andrew@lunn.ch>, <David.Cai@microchip.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from esa2.microchip.iphmx.com ([68.232.149.84]:55310 "EHLO
-        esa2.microchip.iphmx.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1165217AbdEAOXw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 1 May 2017 10:23:52 -0400
-In-Reply-To: <20170429015855.GA32471@lunn.ch>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Corentin Labbe <clabbe.montjoie@gmail.com>,
+        Rob Herring <robh+dt@kernel.org>,
+        Mark Rutland <mark.rutland@arm.com>,
+        Maxime Ripard <maxime.ripard@free-electrons.com>,
+        Chen-Yu Tsai <wens@csie.org>,
+        Russell King <linux@armlinux.org.uk>,
+        Catalin Marinas <catalin.marinas@arm.com>,
+        Will Deacon <will.deacon@arm.com>,
+        Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+        alexandre.torgue@st.com, devicetree <devicetree@vger.kernel.org>,
+        linux-kernel <linux-kernel@vger.kernel.org>,
+        linux-arm-kernel <linux-arm-kernel@lists.infradead.org>,
+        netdev <netdev@vger.kernel.org>
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170501140133.GD31281@lunn.ch>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> Isn't this now pointless? If it is not used anywhere, you should not
-> add it.
-> 
-Andrew,
+On Mon, May 1, 2017 at 10:01 PM, Andrew Lunn <andrew@lunn.ch> wrote:
+> On Mon, May 01, 2017 at 02:45:00PM +0200, Corentin Labbe wrote:
+>> Hello
+>>
+>> This patch series add the driver for dwmac-sun8i which handle the Ethernet MAC
+>> present on Allwinner H3/H5/A83T/A64 SoCs.
+>>
+>> This driver is the continuation of the sun8i-emac driver.
+>> During the development, it appeared that in fact the hardware was a modified
+>> version of some dwmac.
+>> So the driver is now written as a glue driver for stmmac.
+>>
+>> It supports 10/100/1000 Mbit/s speed with half/full duplex.
+>> It can use an internal PHY (MII 10/100) or an external PHY
+>> via RGMII/RMII.
+>
+> Hi Corentin
+>
+> Sorry if this has been asked before....
+>
+> Does the internal PHY have a phy driver? It seems like
+> tx-delay-ps/rx-delay-ps are properties of this internal PHY, and so
+> should be in the phy driver, if it has one.
 
-David is going to submit another patch.
-(He already sent discard request email right after v4 patch.)
+Nope. These affect the delay lines for the external PHY interface.
+These have existed since the A20, when the GMAC hardware block and
+glue layer controls were introduced.
 
-- Woojung
+ChenYu
