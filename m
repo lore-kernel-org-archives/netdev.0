@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next v2 16/18] net: dsa: mv88e6xxx: simplify VTU entry getter
-Date: Mon,  1 May 2017 14:05:25 -0400
-Message-ID: <20170501180527.11756-17-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next v2 17/18] net: dsa: mv88e6xxx: support the VTU Page bit
+Date: Mon,  1 May 2017 14:05:26 -0400
+Message-ID: <20170501180527.11756-18-vivien.didelot@savoirfairelinux.com>
 References: <20170501180527.11756-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
@@ -14,119 +14,55 @@ In-Reply-To: <20170501180527.11756-1-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Make the code which fetches or initializes a new VTU entry more concise.
-This allows us the get rid of the old underscore prefix naming.
+Newer chips such as the 88E6390 have a VTU Page bit in the VTU VID
+register to specify a 13th bit for the VID. This can be used to support
+8K VLANs.
+
+When dumping the whole VTU, all VID bits must be set to one, including
+this VTU Page bit. Add support for VID greater than 4095.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 ---
- drivers/net/dsa/mv88e6xxx/chip.c | 64 ++++++++++++++++------------------------
- 1 file changed, 25 insertions(+), 39 deletions(-)
+ drivers/net/dsa/mv88e6xxx/global1_vtu.c | 7 +++++++
+ drivers/net/dsa/mv88e6xxx/mv88e6xxx.h   | 1 +
+ 2 files changed, 8 insertions(+)
 
-diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-index 51c8b2ff9760..aede0194e341 100644
---- a/drivers/net/dsa/mv88e6xxx/chip.c
-+++ b/drivers/net/dsa/mv88e6xxx/chip.c
-@@ -1359,33 +1359,8 @@ static int mv88e6xxx_atu_new(struct mv88e6xxx_chip *chip, u16 *fid)
- 	return mv88e6xxx_g1_atu_flush(chip, *fid, true);
- }
+diff --git a/drivers/net/dsa/mv88e6xxx/global1_vtu.c b/drivers/net/dsa/mv88e6xxx/global1_vtu.c
+index 469056d0b421..8e77974fb2f8 100644
+--- a/drivers/net/dsa/mv88e6xxx/global1_vtu.c
++++ b/drivers/net/dsa/mv88e6xxx/global1_vtu.c
+@@ -95,6 +95,10 @@ static int mv88e6xxx_g1_vtu_vid_read(struct mv88e6xxx_chip *chip,
+ 		return err;
  
--static int _mv88e6xxx_vtu_new(struct mv88e6xxx_chip *chip, u16 vid,
--			      struct mv88e6xxx_vtu_entry *entry)
--{
--	struct dsa_switch *ds = chip->ds;
--	struct mv88e6xxx_vtu_entry vlan = {
--		.valid = true,
--		.vid = vid,
--	};
--	int i, err;
--
--	err = mv88e6xxx_atu_new(chip, &vlan.fid);
--	if (err)
--		return err;
--
--	/* exclude all ports except the CPU and DSA ports */
--	for (i = 0; i < mv88e6xxx_num_ports(chip); ++i)
--		vlan.member[i] = dsa_is_cpu_port(ds, i) ||
--			dsa_is_dsa_port(ds, i)
--			? GLOBAL_VTU_DATA_MEMBER_TAG_UNMODIFIED
--			: GLOBAL_VTU_DATA_MEMBER_TAG_NON_MEMBER;
--
--	*entry = vlan;
--	return 0;
--}
--
--static int _mv88e6xxx_vtu_get(struct mv88e6xxx_chip *chip, u16 vid,
--			      struct mv88e6xxx_vtu_entry *entry, bool creat)
-+static int mv88e6xxx_vtu_get(struct mv88e6xxx_chip *chip, u16 vid,
-+			     struct mv88e6xxx_vtu_entry *entry, bool new)
+ 	entry->vid = val & 0xfff;
++
++	if (val & GLOBAL_VTU_VID_PAGE)
++		entry->vid |= 0x1000;
++
+ 	entry->valid = !!(val & GLOBAL_VTU_VID_VALID);
+ 
+ 	return 0;
+@@ -105,6 +109,9 @@ static int mv88e6xxx_g1_vtu_vid_write(struct mv88e6xxx_chip *chip,
  {
- 	int err;
+ 	u16 val = entry->vid & 0xfff;
  
-@@ -1399,17 +1374,28 @@ static int _mv88e6xxx_vtu_get(struct mv88e6xxx_chip *chip, u16 vid,
- 	if (err)
- 		return err;
- 
--	if (entry->vid != vid || !entry->valid) {
--		if (!creat)
--			return -EOPNOTSUPP;
--		/* -ENOENT would've been more appropriate, but switchdev expects
--		 * -EOPNOTSUPP to inform bridge about an eventual software VLAN.
--		 */
--
--		err = _mv88e6xxx_vtu_new(chip, vid, entry);
-+	if (entry->vid == vid && entry->valid)
-+		return 0;
++	if (entry->vid & 0x1000)
++		val |= GLOBAL_VTU_VID_PAGE;
 +
-+	if (new) {
-+		int i;
-+
-+		/* Initialize a fresh VLAN entry */
-+		memset(entry, 0, sizeof(*entry));
-+		entry->valid = true;
-+		entry->vid = vid;
-+
-+		/* Include only CPU and DSA ports */
-+		for (i = 0; i < mv88e6xxx_num_ports(chip); ++i)
-+			entry->member[i] = dsa_is_normal_port(chip->ds, i) ?
-+				GLOBAL_VTU_DATA_MEMBER_TAG_NON_MEMBER :
-+				GLOBAL_VTU_DATA_MEMBER_TAG_UNMODIFIED;
-+
-+		return mv88e6xxx_atu_new(chip, &entry->fid);
- 	}
+ 	if (entry->valid)
+ 		val |= GLOBAL_VTU_VID_VALID;
  
--	return err;
-+	/* switchdev expects -EOPNOTSUPP to honor software VLANs */
-+	return -EOPNOTSUPP;
- }
- 
- static int mv88e6xxx_port_check_hw_vlan(struct dsa_switch *ds, int port,
-@@ -1519,7 +1505,7 @@ static int _mv88e6xxx_port_vlan_add(struct mv88e6xxx_chip *chip, int port,
- 	struct mv88e6xxx_vtu_entry vlan;
- 	int err;
- 
--	err = _mv88e6xxx_vtu_get(chip, vid, &vlan, true);
-+	err = mv88e6xxx_vtu_get(chip, vid, &vlan, true);
- 	if (err)
- 		return err;
- 
-@@ -1564,7 +1550,7 @@ static int _mv88e6xxx_port_vlan_del(struct mv88e6xxx_chip *chip,
- 	struct mv88e6xxx_vtu_entry vlan;
- 	int i, err;
- 
--	err = _mv88e6xxx_vtu_get(chip, vid, &vlan, false);
-+	err = mv88e6xxx_vtu_get(chip, vid, &vlan, false);
- 	if (err)
- 		return err;
- 
-@@ -1639,7 +1625,7 @@ static int mv88e6xxx_port_db_load_purge(struct mv88e6xxx_chip *chip, int port,
- 	if (vid == 0)
- 		err = mv88e6xxx_port_get_fid(chip, port, &vlan.fid);
- 	else
--		err = _mv88e6xxx_vtu_get(chip, vid, &vlan, false);
-+		err = mv88e6xxx_vtu_get(chip, vid, &vlan, false);
- 	if (err)
- 		return err;
- 
+diff --git a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
+index a0d57b10acfe..77236cd72df2 100644
+--- a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
++++ b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
+@@ -249,6 +249,7 @@
+ #define GLOBAL_VTU_OP_STU_GET_NEXT	((0x06 << 12) | GLOBAL_VTU_OP_BUSY)
+ #define GLOBAL_VTU_VID		0x06
+ #define GLOBAL_VTU_VID_MASK	0xfff
++#define GLOBAL_VTU_VID_PAGE	BIT(13)
+ #define GLOBAL_VTU_VID_VALID	BIT(12)
+ #define GLOBAL_VTU_DATA_0_3	0x07
+ #define GLOBAL_VTU_DATA_4_7	0x08
 -- 
 2.12.2
