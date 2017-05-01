@@ -1,7 +1,7 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 35/53] netfilter: tcp: Use TCP_MAX_WSCALE instead of literal 14
-Date: Mon,  1 May 2017 12:47:02 +0200
-Message-ID: <1493635640-24325-36-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 33/53] nefilter: eache: reduce struct size from 32 to 24 byte
+Date: Mon,  1 May 2017 12:47:00 +0200
+Message-ID: <1493635640-24325-34-git-send-email-pablo@netfilter.org>
 References: <1493635640-24325-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
@@ -10,54 +10,65 @@ In-Reply-To: <1493635640-24325-1-git-send-email-pablo@netfilter.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Gao Feng <fgao@ikuai8.com>
+From: Florian Westphal <fw@strlen.de>
 
-The window scale may be enlarged from 14 to 15 according to the itef
-draft https://tools.ietf.org/html/draft-nishida-tcpm-maxwin-03.
+Only "cache" needs to use ulong (its used with set_bit()), missed can use
+u16.  Also add build-time assertion to ensure event bits fit.
 
-Use the macro TCP_MAX_WSCALE to support it easily with TCP stack in
-the future.
-
-Signed-off-by: Gao Feng <fgao@ikuai8.com>
+Signed-off-by: Florian Westphal <fw@strlen.de>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/nf_conntrack_proto_tcp.c | 7 +++----
- net/netfilter/nf_synproxy_core.c       | 4 ++--
- 2 files changed, 5 insertions(+), 6 deletions(-)
+ include/net/netfilter/nf_conntrack_ecache.h        | 4 ++--
+ include/uapi/linux/netfilter/nf_conntrack_common.h | 3 +++
+ net/netfilter/nf_conntrack_ecache.c                | 3 +++
+ 3 files changed, 8 insertions(+), 2 deletions(-)
 
-diff --git a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack_proto_tcp.c
-index d0c0a31dfe74..d61a68759dea 100644
---- a/net/netfilter/nf_conntrack_proto_tcp.c
-+++ b/net/netfilter/nf_conntrack_proto_tcp.c
-@@ -419,10 +419,9 @@ static void tcp_options(const struct sk_buff *skb,
- 				 && opsize == TCPOLEN_WINDOW) {
- 				state->td_scale = *(u_int8_t *)ptr;
+diff --git a/include/net/netfilter/nf_conntrack_ecache.h b/include/net/netfilter/nf_conntrack_ecache.h
+index 12d967b58726..2a10c6570fcc 100644
+--- a/include/net/netfilter/nf_conntrack_ecache.h
++++ b/include/net/netfilter/nf_conntrack_ecache.h
+@@ -20,11 +20,11 @@ enum nf_ct_ecache_state {
  
--				if (state->td_scale > 14) {
--					/* See RFC1323 */
--					state->td_scale = 14;
--				}
-+				if (state->td_scale > TCP_MAX_WSCALE)
-+					state->td_scale = TCP_MAX_WSCALE;
+ struct nf_conntrack_ecache {
+ 	unsigned long cache;		/* bitops want long */
+-	unsigned long missed;		/* missed events */
++	u16 missed;			/* missed events */
+ 	u16 ctmask;			/* bitmask of ct events to be delivered */
+ 	u16 expmask;			/* bitmask of expect events to be delivered */
++	enum nf_ct_ecache_state state:8;/* ecache state */
+ 	u32 portid;			/* netlink portid of destroyer */
+-	enum nf_ct_ecache_state state;	/* ecache state */
+ };
+ 
+ static inline struct nf_conntrack_ecache *
+diff --git a/include/uapi/linux/netfilter/nf_conntrack_common.h b/include/uapi/linux/netfilter/nf_conntrack_common.h
+index b4a0a1940118..a8072cc7fa0b 100644
+--- a/include/uapi/linux/netfilter/nf_conntrack_common.h
++++ b/include/uapi/linux/netfilter/nf_conntrack_common.h
+@@ -119,6 +119,9 @@ enum ip_conntrack_events {
+ 	IPCT_NATSEQADJ = IPCT_SEQADJ,
+ 	IPCT_SECMARK,		/* new security mark has been set */
+ 	IPCT_LABEL,		/* new connlabel has been set */
++#ifdef __KERNEL__
++	__IPCT_MAX
++#endif
+ };
+ 
+ enum ip_conntrack_expect_events {
+diff --git a/net/netfilter/nf_conntrack_ecache.c b/net/netfilter/nf_conntrack_ecache.c
+index 6161e92d2980..515212948125 100644
+--- a/net/netfilter/nf_conntrack_ecache.c
++++ b/net/netfilter/nf_conntrack_ecache.c
+@@ -420,6 +420,9 @@ int nf_conntrack_ecache_init(void)
+ 	int ret = nf_ct_extend_register(&event_extend);
+ 	if (ret < 0)
+ 		pr_err("nf_ct_event: Unable to register event extension.\n");
 +
- 				state->flags |=
- 					IP_CT_TCP_FLAG_WINDOW_SCALE;
- 			}
-diff --git a/net/netfilter/nf_synproxy_core.c b/net/netfilter/nf_synproxy_core.c
-index abe03e869f7b..a504e87c6ddf 100644
---- a/net/netfilter/nf_synproxy_core.c
-+++ b/net/netfilter/nf_synproxy_core.c
-@@ -66,8 +66,8 @@ synproxy_parse_options(const struct sk_buff *skb, unsigned int doff,
- 			case TCPOPT_WINDOW:
- 				if (opsize == TCPOLEN_WINDOW) {
- 					opts->wscale = *ptr;
--					if (opts->wscale > 14)
--						opts->wscale = 14;
-+					if (opts->wscale > TCP_MAX_WSCALE)
-+						opts->wscale = TCP_MAX_WSCALE;
- 					opts->options |= XT_SYNPROXY_OPT_WSCALE;
- 				}
- 				break;
++	BUILD_BUG_ON(__IPCT_MAX >= 16);	/* ctmask, missed use u16 */
++
+ 	return ret;
+ }
+ 
 -- 
 2.1.4
 
