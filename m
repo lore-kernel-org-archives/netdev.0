@@ -1,63 +1,155 @@
-From: Nathan Fontenot <nfont@linux.vnet.ibm.com>
-Subject: [PATCH v2 net-next 00/11] ibmvnic: Updated reset handler and code
- fixes
-Date: Mon, 01 May 2017 17:56:38 -0400
-Message-ID: <20170501215424.27224.53918.stgit@ltcalpine2-lp23.aus.stglabs.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: brking@linux.vnet.ibm.com, jallen@linux.vnet.ibm.com,
-        muvic@linux.vnet.ibm.com, tlfalcon@linux.vnet.ibm.com
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next v2 06/18] net: dsa: mv88e6xxx: move VTU SID accessors
+Date: Mon,  1 May 2017 14:05:15 -0400
+Message-ID: <20170501180527.11756-7-vivien.didelot@savoirfairelinux.com>
+References: <20170501180527.11756-1-vivien.didelot@savoirfairelinux.com>
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:50586 "EHLO
-        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1750805AbdEASIA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 1 May 2017 14:08:00 -0400
-Received: from pps.filterd (m0098419.ppops.net [127.0.0.1])
-        by mx0b-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v41I4DO7039504
-        for <netdev@vger.kernel.org>; Mon, 1 May 2017 14:07:54 -0400
-Received: from e19.ny.us.ibm.com (e19.ny.us.ibm.com [129.33.205.209])
-        by mx0b-001b2d01.pphosted.com with ESMTP id 2a68vvu22g-1
-        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Mon, 01 May 2017 14:07:54 -0400
-Received: from localhost
-        by e19.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-        for <netdev@vger.kernel.org> from <nfont@linux.vnet.ibm.com>;
-        Mon, 1 May 2017 14:07:54 -0400
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:48246 "EHLO
+        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751099AbdEASHw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 1 May 2017 14:07:52 -0400
+In-Reply-To: <20170501180527.11756-1-vivien.didelot@savoirfairelinux.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This set of patches multiple code fixes and a new rest handler
-for the ibmvnic driver. In order to implement the new reset handler
-for the ibmvnic driver resource initialization needed to be moved to
-its own routine, a state variable is introduced to replace the
-various is_* flags in the driver, and a new routine to handle the
-assorted reasons the driver can be reset.
+Add helpers to access the VTU SID register in the global1_vtu.c file.
 
-v2 updates:
-
-Patch 11/11: Use __netif_subqueue_stopped() instead of
-netif_subqueue_stopped() to avoid possible use of an un-initialized
-skb variable.
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 ---
+ drivers/net/dsa/mv88e6xxx/chip.c        | 21 ++++++++-------------
+ drivers/net/dsa/mv88e6xxx/global1.h     |  4 ++++
+ drivers/net/dsa/mv88e6xxx/global1_vtu.c | 25 +++++++++++++++++++++++++
+ 3 files changed, 37 insertions(+), 13 deletions(-)
 
-Nathan Fontenot (10):
-      ibmvnic: Move resource initialization to its own routine
-      ibmvnic: Replace is_closed with state field
-      ibmvnic: Updated reset handling
-      ibmvnic: Delete napi's when releasing driver resources
-      ibmvnic: Whitespace correction in release_rx_pools
-      ibmvnic: Clean up tx pools when closing
-      ibmvnic: Wait for any pending scrqs entries at driver close
-      ibmvnic: Check for driver reset first in ibmvnic_xmit
-      ibmvnic: Continue skb processing after skb completion error
-      ibmvnic: Move queue restarting in ibmvnic_tx_complete
-
-Thomas Falcon (1):
-      From: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
-
-
- drivers/net/ethernet/ibm/ibmvnic.c |  563 +++++++++++++++++++++++-------------
- drivers/net/ethernet/ibm/ibmvnic.h |   31 ++
- 2 files changed, 389 insertions(+), 205 deletions(-)
+diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
+index 0452543a2463..ec621879439d 100644
+--- a/drivers/net/dsa/mv88e6xxx/chip.c
++++ b/drivers/net/dsa/mv88e6xxx/chip.c
+@@ -1387,11 +1387,9 @@ static int _mv88e6xxx_vtu_getnext(struct mv88e6xxx_chip *chip,
+ 		}
+ 
+ 		if (mv88e6xxx_has(chip, MV88E6XXX_FLAG_STU)) {
+-			err = mv88e6xxx_g1_read(chip, GLOBAL_VTU_SID, &val);
++			err = mv88e6xxx_g1_vtu_sid_read(chip, &next);
+ 			if (err)
+ 				return err;
+-
+-			next.sid = val & GLOBAL_VTU_SID_MASK;
+ 		}
+ 	}
+ 
+@@ -1482,8 +1480,7 @@ static int _mv88e6xxx_vtu_loadpurge(struct mv88e6xxx_chip *chip,
+ 		return err;
+ 
+ 	if (mv88e6xxx_has(chip, MV88E6XXX_FLAG_STU)) {
+-		reg = entry->sid & GLOBAL_VTU_SID_MASK;
+-		err = mv88e6xxx_g1_write(chip, GLOBAL_VTU_SID, reg);
++		err = mv88e6xxx_g1_vtu_sid_write(chip, entry);
+ 		if (err)
+ 			return err;
+ 	}
+@@ -1513,7 +1510,9 @@ static int _mv88e6xxx_vtu_loadpurge(struct mv88e6xxx_chip *chip,
+ static int _mv88e6xxx_stu_getnext(struct mv88e6xxx_chip *chip, u8 sid,
+ 				  struct mv88e6xxx_vtu_entry *entry)
+ {
+-	struct mv88e6xxx_vtu_entry next = { 0 };
++	struct mv88e6xxx_vtu_entry next = {
++		.sid = sid,
++	};
+ 	u16 val;
+ 	int err;
+ 
+@@ -1521,8 +1520,7 @@ static int _mv88e6xxx_stu_getnext(struct mv88e6xxx_chip *chip, u8 sid,
+ 	if (err)
+ 		return err;
+ 
+-	err = mv88e6xxx_g1_write(chip, GLOBAL_VTU_SID,
+-				 sid & GLOBAL_VTU_SID_MASK);
++	err = mv88e6xxx_g1_vtu_sid_write(chip, &next);
+ 	if (err)
+ 		return err;
+ 
+@@ -1530,12 +1528,10 @@ static int _mv88e6xxx_stu_getnext(struct mv88e6xxx_chip *chip, u8 sid,
+ 	if (err)
+ 		return err;
+ 
+-	err = mv88e6xxx_g1_read(chip, GLOBAL_VTU_SID, &val);
++	err = mv88e6xxx_g1_vtu_sid_read(chip, &next);
+ 	if (err)
+ 		return err;
+ 
+-	next.sid = val & GLOBAL_VTU_SID_MASK;
+-
+ 	err = mv88e6xxx_g1_read(chip, GLOBAL_VTU_VID, &val);
+ 	if (err)
+ 		return err;
+@@ -1576,8 +1572,7 @@ static int _mv88e6xxx_stu_loadpurge(struct mv88e6xxx_chip *chip,
+ 	if (err)
+ 		return err;
+ 
+-	reg = entry->sid & GLOBAL_VTU_SID_MASK;
+-	err = mv88e6xxx_g1_write(chip, GLOBAL_VTU_SID, reg);
++	err = mv88e6xxx_g1_vtu_sid_write(chip, entry);
+ 	if (err)
+ 		return err;
+ 
+diff --git a/drivers/net/dsa/mv88e6xxx/global1.h b/drivers/net/dsa/mv88e6xxx/global1.h
+index 353de283362f..1bf235085215 100644
+--- a/drivers/net/dsa/mv88e6xxx/global1.h
++++ b/drivers/net/dsa/mv88e6xxx/global1.h
+@@ -54,6 +54,10 @@ int mv88e6xxx_g1_vtu_fid_read(struct mv88e6xxx_chip *chip,
+ 			      struct mv88e6xxx_vtu_entry *entry);
+ int mv88e6xxx_g1_vtu_fid_write(struct mv88e6xxx_chip *chip,
+ 			       struct mv88e6xxx_vtu_entry *entry);
++int mv88e6xxx_g1_vtu_sid_read(struct mv88e6xxx_chip *chip,
++			      struct mv88e6xxx_vtu_entry *entry);
++int mv88e6xxx_g1_vtu_sid_write(struct mv88e6xxx_chip *chip,
++			       struct mv88e6xxx_vtu_entry *entry);
+ int mv88e6xxx_g1_vtu_op_wait(struct mv88e6xxx_chip *chip);
+ int mv88e6xxx_g1_vtu_op(struct mv88e6xxx_chip *chip, u16 op);
+ int mv88e6xxx_g1_vtu_flush(struct mv88e6xxx_chip *chip);
+diff --git a/drivers/net/dsa/mv88e6xxx/global1_vtu.c b/drivers/net/dsa/mv88e6xxx/global1_vtu.c
+index 81d6f9f3c84a..201c063d15f2 100644
+--- a/drivers/net/dsa/mv88e6xxx/global1_vtu.c
++++ b/drivers/net/dsa/mv88e6xxx/global1_vtu.c
+@@ -39,6 +39,31 @@ int mv88e6xxx_g1_vtu_fid_write(struct mv88e6xxx_chip *chip,
+ 	return mv88e6xxx_g1_write(chip, GLOBAL_VTU_FID, val);
+ }
+ 
++/* Offset 0x03: VTU SID Register */
++
++int mv88e6xxx_g1_vtu_sid_read(struct mv88e6xxx_chip *chip,
++			      struct mv88e6xxx_vtu_entry *entry)
++{
++	u16 val;
++	int err;
++
++	err = mv88e6xxx_g1_read(chip, GLOBAL_VTU_SID, &val);
++	if (err)
++		return err;
++
++	entry->sid = val & GLOBAL_VTU_SID_MASK;
++
++	return 0;
++}
++
++int mv88e6xxx_g1_vtu_sid_write(struct mv88e6xxx_chip *chip,
++			       struct mv88e6xxx_vtu_entry *entry)
++{
++	u16 val = entry->sid & GLOBAL_VTU_SID_MASK;
++
++	return mv88e6xxx_g1_write(chip, GLOBAL_VTU_SID, val);
++}
++
+ /* Offset 0x05: VTU Operation Register */
+ 
+ int mv88e6xxx_g1_vtu_op_wait(struct mv88e6xxx_chip *chip)
+-- 
+2.12.2
