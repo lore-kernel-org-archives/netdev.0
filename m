@@ -1,37 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next 10/11] From: Thomas Falcon
- <tlfalcon@linux.vnet.ibm.com>
-Date: Mon, 01 May 2017 14:27:49 -0400 (EDT)
-Message-ID: <20170501.142749.70498074494376481.davem@davemloft.net>
-References: <20170501215424.27224.53918.stgit@ltcalpine2-lp23.aus.stglabs.ibm.com>
-        <20170501215737.27224.47900.stgit@ltcalpine2-lp23.aus.stglabs.ibm.com>
+From: Aaron Conole <aconole@bytheb.org>
+Subject: Re: [PATCH v4 binutils] Add BPF support to binutils...
+Date: Mon, 01 May 2017 14:39:39 -0400
+Message-ID: <f7t37coxvys.fsf@redhat.com>
+References: <20170430.120750.651845251226226775.davem@davemloft.net>
+        <f7ttw541ohz.fsf@redhat.com>
+        <20170501.135202.2175412915689459473.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, brking@linux.vnet.ibm.com,
-        jallen@linux.vnet.ibm.com, muvic@linux.vnet.ibm.com,
-        tlfalcon@linux.vnet.ibm.com
-To: nfont@linux.vnet.ibm.com
+Content-Type: text/plain
+Cc: ast@fb.com, daniel@iogearbox.net, netdev@vger.kernel.org,
+        xdp-newbies@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:35716 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750743AbdEAS1x (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 1 May 2017 14:27:53 -0400
-In-Reply-To: <20170501215737.27224.47900.stgit@ltcalpine2-lp23.aus.stglabs.ibm.com>
+Received: from mail-qt0-f195.google.com ([209.85.216.195]:35943 "EHLO
+        mail-qt0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750866AbdEASjn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 1 May 2017 14:39:43 -0400
+Received: by mail-qt0-f195.google.com with SMTP id t52so17373886qtb.3
+        for <netdev@vger.kernel.org>; Mon, 01 May 2017 11:39:43 -0700 (PDT)
+In-Reply-To: <20170501.135202.2175412915689459473.davem@davemloft.net> (David
+        Miller's message of "Mon, 01 May 2017 13:52:02 -0400 (EDT)")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nathan Fontenot <nfont@linux.vnet.ibm.com>
-Date: Mon, 01 May 2017 17:57:37 -0400
+David Miller <davem@davemloft.net> writes:
 
-> From: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
-> 
-> ibmvnic: Record SKB RX queue during poll
-> 
-> Map each RX SKB to the RX queue associated with the driver's RX SCRQ.
-> This should improve the RX CPU load balancing issues seen by the
-> performance team.
-> 
-> Signed-off-by: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
+> From: Aaron Conole <aconole@bytheb.org>
+> Date: Mon, 01 May 2017 13:22:00 -0400
+>
+>> x86-64:
+>>   Running /home/aconole/git/binutils-gdb/gas/testsuite/gas/bpf/bpf.exp ...
+>>   FAIL: jump
+>>   FAIL: call
+>>   FAIL: imm64a
+>>   Running /home/aconole/git/binutils-gdb/gas/testsuite/gas/cfi/cfi.exp ...
+>
+> I cannot reproduce this, can you show what it says in the:
+>
+> 	/home/aconole/git/binutils-gdb/gas/testsuite/gas.log
+>
+> file near the "FAIL" cases?
 
-Please resend this series, this subject line is not correct.
+Executing on host: sh -c {/home/aconole/git/binutils-gdb/gas/testsuite/../../binutils/objdump  -dr dump.o >dump.out 2>gas.stderr}  /dev/null  (timeout = 300)
+spawn [open ...]
+regexp_diff match failure
+regexp "^ 108:	95 00 00 00 00 00 00 00 	exit$"
+line   " 108:	95 00 00 00 00 00 00 00 	exit	"
+FAIL: jump
+
+
+Same style of error for call and imm64a.  After reverting and then
+re-applying your patch, the FAILs all go away, so I must have broken
+these files somehow.  Sorry for the false alarm.
+
+-Aaron
