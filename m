@@ -1,56 +1,56 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v4 binutils] Add BPF support to binutils...
-Date: Mon, 01 May 2017 14:50:11 -0400 (EDT)
-Message-ID: <20170501.145011.2010615531122694032.davem@davemloft.net>
-References: <f7ttw541ohz.fsf@redhat.com>
-        <20170501.135202.2175412915689459473.davem@davemloft.net>
-        <f7t37coxvys.fsf@redhat.com>
+Subject: Re: [PATCH v2 net-next] ip6_tunnel: Fix missing tunnel
+ encapsulation limit option
+Date: Mon, 01 May 2017 14:53:26 -0400 (EDT)
+Message-ID: <20170501.145326.816943861769200840.davem@davemloft.net>
+References: <20170426170707.165201-1-kraigatgoog@gmail.com>
+        <20170426183745.194717-1-kraigatgoog@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ast@fb.com, daniel@iogearbox.net, netdev@vger.kernel.org,
-        xdp-newbies@vger.kernel.org
-To: aconole@bytheb.org
+Cc: yoshfuji@linux-ipv6.org, kuznet@ms2.inr.ac.ru,
+        netdev@vger.kernel.org
+To: kraigatgoog@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:35942 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:35994 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750816AbdEASuN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 1 May 2017 14:50:13 -0400
-In-Reply-To: <f7t37coxvys.fsf@redhat.com>
+        with ESMTP id S1750730AbdEASx2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 1 May 2017 14:53:28 -0400
+In-Reply-To: <20170426183745.194717-1-kraigatgoog@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Aaron Conole <aconole@bytheb.org>
-Date: Mon, 01 May 2017 14:39:39 -0400
+From: Craig Gallek <kraigatgoog@gmail.com>
+Date: Wed, 26 Apr 2017 14:37:45 -0400
 
-> David Miller <davem@davemloft.net> writes:
+> From: Craig Gallek <cgallek@google.com>
 > 
->> From: Aaron Conole <aconole@bytheb.org>
->> Date: Mon, 01 May 2017 13:22:00 -0400
->>
->>> x86-64:
->>>   Running /home/aconole/git/binutils-gdb/gas/testsuite/gas/bpf/bpf.exp ...
->>>   FAIL: jump
->>>   FAIL: call
->>>   FAIL: imm64a
->>>   Running /home/aconole/git/binutils-gdb/gas/testsuite/gas/cfi/cfi.exp ...
->>
->> I cannot reproduce this, can you show what it says in the:
->>
->> 	/home/aconole/git/binutils-gdb/gas/testsuite/gas.log
->>
->> file near the "FAIL" cases?
+> The IPv6 tunneling code tries to insert IPV6_TLV_TNL_ENCAP_LIMIT and
+> IPV6_TLV_PADN options when an encapsulation limit is defined (the
+> default is a limit of 4).  An MTU adjustment is done to account for
+> these options as well.  However, the options are never present in the
+> generated packets.
 > 
-> Executing on host: sh -c {/home/aconole/git/binutils-gdb/gas/testsuite/../../binutils/objdump  -dr dump.o >dump.out 2>gas.stderr}  /dev/null  (timeout = 300)
-> spawn [open ...]
-> regexp_diff match failure
-> regexp "^ 108:	95 00 00 00 00 00 00 00 	exit$"
-> line   " 108:	95 00 00 00 00 00 00 00 	exit	"
-> FAIL: jump
+> The issue appears to be a subtlety between IPV6_DSTOPTS and
+> IPV6_RTHDRDSTOPTS defined in RFC 3542.  When the IPIP tunnel driver was
+> written, the encap limit options were included as IPV6_RTHDRDSTOPTS in
+> dst0opt of struct ipv6_txoptions.  Later, ipv6_push_nfrags_opts was
+> (correctly) updated to require IPV6_RTHDR options when IPV6_RTHDRDSTOPTS
+> are to be used.  This caused the options to no longer be included in v6
+> encapsulated packets.
 > 
+> The fix is to use IPV6_DSTOPTS (in dst1opt of struct ipv6_txoptions)
+> instead.  IPV6_DSTOPTS do not have the additional IPV6_RTHDR requirement.
 > 
-> Same style of error for call and imm64a.  After reverting and then
-> re-applying your patch, the FAILs all go away, so I must have broken
-> these files somehow.  Sorry for the false alarm.
+> Fixes: 1df64a8569c7: ("[IPV6]: Add ip6ip6 tunnel driver.")
+> Fixes: 333fad5364d6: ("[IPV6]: Support several new sockopt / ancillary data in Advanced API (RFC3542)")
+> Signed-off-by: Craig Gallek <kraig@google.com>
+> ---
+> 
+> v2: Change tunnel code to use dst1opt rather than making the checks for
+>     dst0opt more permissive.
 
-Great, thanks for checking.
+Thanks for the detailed analysis in the commit message, this made reviewing
+your patch a lot easier.
+
+Applied, thank you.
