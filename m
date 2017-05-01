@@ -1,33 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: bluetooth-next 2017-04-30
-Date: Sun, 30 Apr 2017 23:03:36 -0400 (EDT)
-Message-ID: <20170430.230336.142225761153252889.davem@davemloft.net>
-References: <20170430140928.GA2753@x1c>
+Subject: Re: [PATCH net-next] mlxsw: spectrum_router: Simplify VRF
+ enslavement
+Date: Sun, 30 Apr 2017 23:04:48 -0400 (EDT)
+Message-ID: <20170430.230448.383130211524258207.davem@davemloft.net>
+References: <20170430164714.7303-1-idosch@mellanox.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org
-To: johan.hedberg@gmail.com
+Cc: netdev@vger.kernel.org, jiri@mellanox.com, mlxsw@mellanox.com
+To: idosch@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:54844 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:54852 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756784AbdEADDi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 30 Apr 2017 23:03:38 -0400
-In-Reply-To: <20170430140928.GA2753@x1c>
+        with ESMTP id S968750AbdEADEt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 30 Apr 2017 23:04:49 -0400
+In-Reply-To: <20170430164714.7303-1-idosch@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Johan Hedberg <johan.hedberg@gmail.com>
-Date: Sun, 30 Apr 2017 17:09:28 +0300
+From: <idosch@mellanox.com>
+Date: Sun, 30 Apr 2017 19:47:14 +0300
 
-> Here's one last batch of Bluetooth patches in the bluetooth-next tree
-> targeting the 4.12 kernel.
+> From: Ido Schimmel <idosch@mellanox.com>
 > 
->  - Remove custom ECDH implementation and use new KPP API instead
->  - Add protocol checks to hci_ldisc
->  - Add module license to HCI UART Nokia H4+ driver
->  - Minor fix for 32bit user space - 64 bit kernel combination
+> When a netdev is enslaved to a VRF master, its router interface (RIF)
+> needs to be destroyed (if exists) and a new one created using the
+> corresponding virtual router (VR).
 > 
-> Please let me know if there are any issues pulling. Thanks.
+> From the driver's perspective, the above is equivalent to an inetaddr
+> event sent for this netdev. Therefore, when a port netdev (or its
+> uppers) are enslaved to a VRF master, call the same function that
+> would've been called had a NETDEV_UP was sent for this netdev in the
+> inetaddr notification chain.
+> 
+> This patch also fixes a bug when a LAG netdev with an existing RIF is
+> enslaved to a VRF. Before this patch, each LAG port would drop the
+> reference on the RIF, but would re-join the same one (in the wrong VR)
+> soon after. With this patch, the corresponding RIF is first destroyed
+> and a new one is created using the correct VR.
+> 
+> Fixes: 7179eb5acd59 ("mlxsw: spectrum_router: Add support for VRFs")
+> Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+> Reviewed-by: Jiri Pirko <jiri@mellanox.com>
 
-Pulled, thanks Johan.
+Applied, thanks.
