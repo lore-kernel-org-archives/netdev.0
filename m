@@ -1,321 +1,418 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 10/53] netfilter: Add nfnl_msg_type() helper function
-Date: Mon,  1 May 2017 12:46:37 +0200
-Message-ID: <1493635640-24325-11-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 11/53] netfilter: Remove unnecessary cast on void pointer
+Date: Mon,  1 May 2017 12:46:38 +0200
+Message-ID: <1493635640-24325-12-git-send-email-pablo@netfilter.org>
 References: <1493635640-24325-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:49648 "EHLO mail.us.es"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S378837AbdEAKrp (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 1 May 2017 06:47:45 -0400
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+        by mail.us.es (Postfix) with ESMTP id 25BD71F4B8A
+        for <netdev@vger.kernel.org>; Mon,  1 May 2017 12:47:39 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 147D7FF2D7
+        for <netdev@vger.kernel.org>; Mon,  1 May 2017 12:47:39 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 9C50FFC3DB
+        for <netdev@vger.kernel.org>; Mon,  1 May 2017 12:47:36 +0200 (CEST)
 In-Reply-To: <1493635640-24325-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add and use nfnl_msg_type() function to replace opencoded nfnetlink
-message type. I suggested this change, Arushi Singhal made an initial
-patch to address this but was missing several spots.
+From: simran singhal <singhalsimran0@gmail.com>
 
+The following Coccinelle script was used to detect this:
+@r@
+expression x;
+void* e;
+type T;
+identifier f;
+@@
+(
+  *((T *)e)
+|
+  ((T *)x)[...]
+|
+  ((T*)x)->f
+|
+
+- (T*)
+  e
+)
+
+Unnecessary parantheses are also remove.
+
+Signed-off-by: simran singhal <singhalsimran0@gmail.com>
+Reviewed-by: Stephen Hemminger <stephen@networkplumber.org>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/linux/netfilter/nfnetlink.h  |  5 +++++
- net/netfilter/ipset/ip_set_core.c    |  2 +-
- net/netfilter/nf_conntrack_netlink.c | 16 +++++++++-------
- net/netfilter/nf_tables_api.c        | 20 +++++++++-----------
- net/netfilter/nf_tables_trace.c      |  3 ++-
- net/netfilter/nfnetlink_acct.c       |  2 +-
- net/netfilter/nfnetlink_cthelper.c   |  2 +-
- net/netfilter/nfnetlink_cttimeout.c  |  4 ++--
- net/netfilter/nfnetlink_log.c        |  2 +-
- net/netfilter/nfnetlink_queue.c      |  2 +-
- net/netfilter/nft_compat.c           |  2 +-
- 11 files changed, 33 insertions(+), 27 deletions(-)
+ net/bridge/netfilter/ebtables.c         |  2 +-
+ net/ipv4/netfilter/arp_tables.c         | 21 ++++++++-------------
+ net/ipv4/netfilter/ip_tables.c          | 20 ++++++++------------
+ net/ipv6/netfilter/ip6_tables.c         | 20 ++++++++------------
+ net/netfilter/ipset/ip_set_bitmap_gen.h |  5 ++---
+ net/netfilter/ipset/ip_set_core.c       |  2 +-
+ net/netfilter/nf_conntrack_proto.c      |  2 +-
+ net/netfilter/nft_set_hash.c            |  2 +-
+ net/netfilter/xt_hashlimit.c            | 10 +++++-----
+ 9 files changed, 35 insertions(+), 49 deletions(-)
 
-diff --git a/include/linux/netfilter/nfnetlink.h b/include/linux/netfilter/nfnetlink.h
-index 1b49209dd5c7..996711d8a7b4 100644
---- a/include/linux/netfilter/nfnetlink.h
-+++ b/include/linux/netfilter/nfnetlink.h
-@@ -41,6 +41,11 @@ int nfnetlink_set_err(struct net *net, u32 portid, u32 group, int error);
- int nfnetlink_unicast(struct sk_buff *skb, struct net *net, u32 portid,
- 		      int flags);
+diff --git a/net/bridge/netfilter/ebtables.c b/net/bridge/netfilter/ebtables.c
+index 79b69917f521..bdc629eb0207 100644
+--- a/net/bridge/netfilter/ebtables.c
++++ b/net/bridge/netfilter/ebtables.c
+@@ -1713,7 +1713,7 @@ static int compat_copy_entry_to_user(struct ebt_entry *e, void __user **dstptr,
+ 	if (*size < sizeof(*ce))
+ 		return -EINVAL;
  
-+static inline u16 nfnl_msg_type(u8 subsys, u8 msg_type)
-+{
-+	return subsys << 8 | msg_type;
-+}
-+
- void nfnl_lock(__u8 subsys_id);
- void nfnl_unlock(__u8 subsys_id);
- #ifdef CONFIG_PROVE_LOCKING
+-	ce = (struct ebt_entry __user *)*dstptr;
++	ce = *dstptr;
+ 	if (copy_to_user(ce, e, sizeof(*ce)))
+ 		return -EFAULT;
+ 
+diff --git a/net/ipv4/netfilter/arp_tables.c b/net/ipv4/netfilter/arp_tables.c
+index f17dab1dee6e..0bc3c3d73e61 100644
+--- a/net/ipv4/netfilter/arp_tables.c
++++ b/net/ipv4/netfilter/arp_tables.c
+@@ -309,8 +309,7 @@ static int mark_source_chains(const struct xt_table_info *newinfo,
+ 	 */
+ 	for (hook = 0; hook < NF_ARP_NUMHOOKS; hook++) {
+ 		unsigned int pos = newinfo->hook_entry[hook];
+-		struct arpt_entry *e
+-			= (struct arpt_entry *)(entry0 + pos);
++		struct arpt_entry *e = entry0 + pos;
+ 
+ 		if (!(valid_hooks & (1 << hook)))
+ 			continue;
+@@ -354,14 +353,12 @@ static int mark_source_chains(const struct xt_table_info *newinfo,
+ 					if (pos == oldpos)
+ 						goto next;
+ 
+-					e = (struct arpt_entry *)
+-						(entry0 + pos);
++					e = entry0 + pos;
+ 				} while (oldpos == pos + e->next_offset);
+ 
+ 				/* Move along one */
+ 				size = e->next_offset;
+-				e = (struct arpt_entry *)
+-					(entry0 + pos + size);
++				e = entry0 + pos + size;
+ 				if (pos + size >= newinfo->size)
+ 					return 0;
+ 				e->counters.pcnt = pos;
+@@ -376,16 +373,14 @@ static int mark_source_chains(const struct xt_table_info *newinfo,
+ 					if (!xt_find_jump_offset(offsets, newpos,
+ 								 newinfo->number))
+ 						return 0;
+-					e = (struct arpt_entry *)
+-						(entry0 + newpos);
++					e = entry0 + newpos;
+ 				} else {
+ 					/* ... this is a fallthru */
+ 					newpos = pos + e->next_offset;
+ 					if (newpos >= newinfo->size)
+ 						return 0;
+ 				}
+-				e = (struct arpt_entry *)
+-					(entry0 + newpos);
++				e = entry0 + newpos;
+ 				e->counters.pcnt = pos;
+ 				pos = newpos;
+ 			}
+@@ -681,7 +676,7 @@ static int copy_entries_to_user(unsigned int total_size,
+ 	for (off = 0, num = 0; off < total_size; off += e->next_offset, num++){
+ 		const struct xt_entry_target *t;
+ 
+-		e = (struct arpt_entry *)(loc_cpu_entry + off);
++		e = loc_cpu_entry + off;
+ 		if (copy_to_user(userptr + off, e, sizeof(*e))) {
+ 			ret = -EFAULT;
+ 			goto free_counters;
+@@ -1128,7 +1123,7 @@ compat_copy_entry_from_user(struct compat_arpt_entry *e, void **dstptr,
+ 	int h;
+ 
+ 	origsize = *size;
+-	de = (struct arpt_entry *)*dstptr;
++	de = *dstptr;
+ 	memcpy(de, e, sizeof(struct arpt_entry));
+ 	memcpy(&de->counters, &e->counters, sizeof(e->counters));
+ 
+@@ -1322,7 +1317,7 @@ static int compat_copy_entry_to_user(struct arpt_entry *e, void __user **dstptr,
+ 	int ret;
+ 
+ 	origsize = *size;
+-	ce = (struct compat_arpt_entry __user *)*dstptr;
++	ce = *dstptr;
+ 	if (copy_to_user(ce, e, sizeof(struct arpt_entry)) != 0 ||
+ 	    copy_to_user(&ce->counters, &counters[i],
+ 	    sizeof(counters[i])) != 0)
+diff --git a/net/ipv4/netfilter/ip_tables.c b/net/ipv4/netfilter/ip_tables.c
+index 384b85713e06..2a55a40211cb 100644
+--- a/net/ipv4/netfilter/ip_tables.c
++++ b/net/ipv4/netfilter/ip_tables.c
+@@ -382,7 +382,7 @@ mark_source_chains(const struct xt_table_info *newinfo,
+ 	   to 0 as we leave), and comefrom to save source hook bitmask */
+ 	for (hook = 0; hook < NF_INET_NUMHOOKS; hook++) {
+ 		unsigned int pos = newinfo->hook_entry[hook];
+-		struct ipt_entry *e = (struct ipt_entry *)(entry0 + pos);
++		struct ipt_entry *e = entry0 + pos;
+ 
+ 		if (!(valid_hooks & (1 << hook)))
+ 			continue;
+@@ -424,14 +424,12 @@ mark_source_chains(const struct xt_table_info *newinfo,
+ 					if (pos == oldpos)
+ 						goto next;
+ 
+-					e = (struct ipt_entry *)
+-						(entry0 + pos);
++					e = entry0 + pos;
+ 				} while (oldpos == pos + e->next_offset);
+ 
+ 				/* Move along one */
+ 				size = e->next_offset;
+-				e = (struct ipt_entry *)
+-					(entry0 + pos + size);
++				e = entry0 + pos + size;
+ 				if (pos + size >= newinfo->size)
+ 					return 0;
+ 				e->counters.pcnt = pos;
+@@ -446,16 +444,14 @@ mark_source_chains(const struct xt_table_info *newinfo,
+ 					if (!xt_find_jump_offset(offsets, newpos,
+ 								 newinfo->number))
+ 						return 0;
+-					e = (struct ipt_entry *)
+-						(entry0 + newpos);
++					e = entry0 + newpos;
+ 				} else {
+ 					/* ... this is a fallthru */
+ 					newpos = pos + e->next_offset;
+ 					if (newpos >= newinfo->size)
+ 						return 0;
+ 				}
+-				e = (struct ipt_entry *)
+-					(entry0 + newpos);
++				e = entry0 + newpos;
+ 				e->counters.pcnt = pos;
+ 				pos = newpos;
+ 			}
+@@ -834,7 +830,7 @@ copy_entries_to_user(unsigned int total_size,
+ 		const struct xt_entry_match *m;
+ 		const struct xt_entry_target *t;
+ 
+-		e = (struct ipt_entry *)(loc_cpu_entry + off);
++		e = loc_cpu_entry + off;
+ 		if (copy_to_user(userptr + off, e, sizeof(*e))) {
+ 			ret = -EFAULT;
+ 			goto free_counters;
+@@ -1229,7 +1225,7 @@ compat_copy_entry_to_user(struct ipt_entry *e, void __user **dstptr,
+ 	int ret = 0;
+ 
+ 	origsize = *size;
+-	ce = (struct compat_ipt_entry __user *)*dstptr;
++	ce = *dstptr;
+ 	if (copy_to_user(ce, e, sizeof(struct ipt_entry)) != 0 ||
+ 	    copy_to_user(&ce->counters, &counters[i],
+ 	    sizeof(counters[i])) != 0)
+@@ -1366,7 +1362,7 @@ compat_copy_entry_from_user(struct compat_ipt_entry *e, void **dstptr,
+ 	struct xt_entry_match *ematch;
+ 
+ 	origsize = *size;
+-	de = (struct ipt_entry *)*dstptr;
++	de = *dstptr;
+ 	memcpy(de, e, sizeof(struct ipt_entry));
+ 	memcpy(&de->counters, &e->counters, sizeof(e->counters));
+ 
+diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
+index 1e15c54fd5e2..d862e3471935 100644
+--- a/net/ipv6/netfilter/ip6_tables.c
++++ b/net/ipv6/netfilter/ip6_tables.c
+@@ -411,7 +411,7 @@ mark_source_chains(const struct xt_table_info *newinfo,
+ 	   to 0 as we leave), and comefrom to save source hook bitmask */
+ 	for (hook = 0; hook < NF_INET_NUMHOOKS; hook++) {
+ 		unsigned int pos = newinfo->hook_entry[hook];
+-		struct ip6t_entry *e = (struct ip6t_entry *)(entry0 + pos);
++		struct ip6t_entry *e = entry0 + pos;
+ 
+ 		if (!(valid_hooks & (1 << hook)))
+ 			continue;
+@@ -453,14 +453,12 @@ mark_source_chains(const struct xt_table_info *newinfo,
+ 					if (pos == oldpos)
+ 						goto next;
+ 
+-					e = (struct ip6t_entry *)
+-						(entry0 + pos);
++					e = entry0 + pos;
+ 				} while (oldpos == pos + e->next_offset);
+ 
+ 				/* Move along one */
+ 				size = e->next_offset;
+-				e = (struct ip6t_entry *)
+-					(entry0 + pos + size);
++				e = entry0 + pos + size;
+ 				if (pos + size >= newinfo->size)
+ 					return 0;
+ 				e->counters.pcnt = pos;
+@@ -475,16 +473,14 @@ mark_source_chains(const struct xt_table_info *newinfo,
+ 					if (!xt_find_jump_offset(offsets, newpos,
+ 								 newinfo->number))
+ 						return 0;
+-					e = (struct ip6t_entry *)
+-						(entry0 + newpos);
++					e = entry0 + newpos;
+ 				} else {
+ 					/* ... this is a fallthru */
+ 					newpos = pos + e->next_offset;
+ 					if (newpos >= newinfo->size)
+ 						return 0;
+ 				}
+-				e = (struct ip6t_entry *)
+-					(entry0 + newpos);
++				e = entry0 + newpos;
+ 				e->counters.pcnt = pos;
+ 				pos = newpos;
+ 			}
+@@ -863,7 +859,7 @@ copy_entries_to_user(unsigned int total_size,
+ 		const struct xt_entry_match *m;
+ 		const struct xt_entry_target *t;
+ 
+-		e = (struct ip6t_entry *)(loc_cpu_entry + off);
++		e = loc_cpu_entry + off;
+ 		if (copy_to_user(userptr + off, e, sizeof(*e))) {
+ 			ret = -EFAULT;
+ 			goto free_counters;
+@@ -1258,7 +1254,7 @@ compat_copy_entry_to_user(struct ip6t_entry *e, void __user **dstptr,
+ 	int ret = 0;
+ 
+ 	origsize = *size;
+-	ce = (struct compat_ip6t_entry __user *)*dstptr;
++	ce = *dstptr;
+ 	if (copy_to_user(ce, e, sizeof(struct ip6t_entry)) != 0 ||
+ 	    copy_to_user(&ce->counters, &counters[i],
+ 	    sizeof(counters[i])) != 0)
+@@ -1394,7 +1390,7 @@ compat_copy_entry_from_user(struct compat_ip6t_entry *e, void **dstptr,
+ 	struct xt_entry_match *ematch;
+ 
+ 	origsize = *size;
+-	de = (struct ip6t_entry *)*dstptr;
++	de = *dstptr;
+ 	memcpy(de, e, sizeof(struct ip6t_entry));
+ 	memcpy(&de->counters, &e->counters, sizeof(e->counters));
+ 
+diff --git a/net/netfilter/ipset/ip_set_bitmap_gen.h b/net/netfilter/ipset/ip_set_bitmap_gen.h
+index 6f09a99298cd..8ad2b52a0b32 100644
+--- a/net/netfilter/ipset/ip_set_bitmap_gen.h
++++ b/net/netfilter/ipset/ip_set_bitmap_gen.h
+@@ -232,7 +232,7 @@ mtype_list(const struct ip_set *set,
+ 		if (!test_bit(id, map->members) ||
+ 		    (SET_WITH_TIMEOUT(set) &&
+ #ifdef IP_SET_BITMAP_STORED_TIMEOUT
+-		     mtype_is_filled((const struct mtype_elem *)x) &&
++		     mtype_is_filled(x) &&
+ #endif
+ 		     ip_set_timeout_expired(ext_timeout(x, set))))
+ 			continue;
+@@ -248,8 +248,7 @@ mtype_list(const struct ip_set *set,
+ 		}
+ 		if (mtype_do_list(skb, map, id, set->dsize))
+ 			goto nla_put_failure;
+-		if (ip_set_put_extensions(skb, set, x,
+-		    mtype_is_filled((const struct mtype_elem *)x)))
++		if (ip_set_put_extensions(skb, set, x, mtype_is_filled(x)))
+ 			goto nla_put_failure;
+ 		ipset_nest_end(skb, nested);
+ 	}
 diff --git a/net/netfilter/ipset/ip_set_core.c b/net/netfilter/ipset/ip_set_core.c
-index c296f9b606d4..731ba9c0cf9b 100644
+index 731ba9c0cf9b..c637710d861c 100644
 --- a/net/netfilter/ipset/ip_set_core.c
 +++ b/net/netfilter/ipset/ip_set_core.c
-@@ -769,7 +769,7 @@ start_msg(struct sk_buff *skb, u32 portid, u32 seq, unsigned int flags,
- 	struct nlmsghdr *nlh;
- 	struct nfgenmsg *nfmsg;
- 
--	nlh = nlmsg_put(skb, portid, seq, cmd | (NFNL_SUBSYS_IPSET << 8),
-+	nlh = nlmsg_put(skb, portid, seq, nfnl_msg_type(NFNL_SUBSYS_IPSET, cmd),
- 			sizeof(*nfmsg), flags);
- 	if (!nlh)
- 		return NULL;
-diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
-index cd0a6d270ebe..773d2187a5ea 100644
---- a/net/netfilter/nf_conntrack_netlink.c
-+++ b/net/netfilter/nf_conntrack_netlink.c
-@@ -467,7 +467,7 @@ ctnetlink_fill_info(struct sk_buff *skb, u32 portid, u32 seq, u32 type,
- 	struct nlattr *nest_parms;
- 	unsigned int flags = portid ? NLM_F_MULTI : 0, event;
- 
--	event = (NFNL_SUBSYS_CTNETLINK << 8 | IPCTNL_MSG_CT_NEW);
-+	event = nfnl_msg_type(NFNL_SUBSYS_CTNETLINK, IPCTNL_MSG_CT_NEW);
- 	nlh = nlmsg_put(skb, portid, seq, event, sizeof(*nfmsg), flags);
- 	if (nlh == NULL)
- 		goto nlmsg_failure;
-@@ -652,7 +652,7 @@ ctnetlink_conntrack_event(unsigned int events, struct nf_ct_event *item)
- 	if (skb == NULL)
- 		goto errout;
- 
--	type |= NFNL_SUBSYS_CTNETLINK << 8;
-+	type = nfnl_msg_type(NFNL_SUBSYS_CTNETLINK, type);
- 	nlh = nlmsg_put(skb, item->portid, 0, type, sizeof(*nfmsg), flags);
- 	if (nlh == NULL)
- 		goto nlmsg_failure;
-@@ -1983,7 +1983,8 @@ ctnetlink_ct_stat_cpu_fill_info(struct sk_buff *skb, u32 portid, u32 seq,
- 	struct nfgenmsg *nfmsg;
- 	unsigned int flags = portid ? NLM_F_MULTI : 0, event;
- 
--	event = (NFNL_SUBSYS_CTNETLINK << 8 | IPCTNL_MSG_CT_GET_STATS_CPU);
-+	event = nfnl_msg_type(NFNL_SUBSYS_CTNETLINK,
-+			      IPCTNL_MSG_CT_GET_STATS_CPU);
- 	nlh = nlmsg_put(skb, portid, seq, event, sizeof(*nfmsg), flags);
- 	if (nlh == NULL)
- 		goto nlmsg_failure;
-@@ -2066,7 +2067,7 @@ ctnetlink_stat_ct_fill_info(struct sk_buff *skb, u32 portid, u32 seq, u32 type,
- 	unsigned int flags = portid ? NLM_F_MULTI : 0, event;
- 	unsigned int nr_conntracks = atomic_read(&net->ct.count);
- 
--	event = (NFNL_SUBSYS_CTNETLINK << 8 | IPCTNL_MSG_CT_GET_STATS);
-+	event = nfnl_msg_type(NFNL_SUBSYS_CTNETLINK, IPCTNL_MSG_CT_GET_STATS);
- 	nlh = nlmsg_put(skb, portid, seq, event, sizeof(*nfmsg), flags);
- 	if (nlh == NULL)
- 		goto nlmsg_failure;
-@@ -2576,7 +2577,7 @@ ctnetlink_exp_fill_info(struct sk_buff *skb, u32 portid, u32 seq,
- 	struct nfgenmsg *nfmsg;
- 	unsigned int flags = portid ? NLM_F_MULTI : 0;
- 
--	event |= NFNL_SUBSYS_CTNETLINK_EXP << 8;
-+	event = nfnl_msg_type(NFNL_SUBSYS_CTNETLINK_EXP, event);
- 	nlh = nlmsg_put(skb, portid, seq, event, sizeof(*nfmsg), flags);
- 	if (nlh == NULL)
- 		goto nlmsg_failure;
-@@ -2627,7 +2628,7 @@ ctnetlink_expect_event(unsigned int events, struct nf_exp_event *item)
- 	if (skb == NULL)
- 		goto errout;
- 
--	type |= NFNL_SUBSYS_CTNETLINK_EXP << 8;
-+	type = nfnl_msg_type(NFNL_SUBSYS_CTNETLINK_EXP, type);
- 	nlh = nlmsg_put(skb, item->portid, 0, type, sizeof(*nfmsg), flags);
- 	if (nlh == NULL)
- 		goto nlmsg_failure;
-@@ -3212,7 +3213,8 @@ ctnetlink_exp_stat_fill_info(struct sk_buff *skb, u32 portid, u32 seq, int cpu,
- 	struct nfgenmsg *nfmsg;
- 	unsigned int flags = portid ? NLM_F_MULTI : 0, event;
- 
--	event = (NFNL_SUBSYS_CTNETLINK << 8 | IPCTNL_MSG_EXP_GET_STATS_CPU);
-+	event = nfnl_msg_type(NFNL_SUBSYS_CTNETLINK,
-+			      IPCTNL_MSG_EXP_GET_STATS_CPU);
- 	nlh = nlmsg_put(skb, portid, seq, event, sizeof(*nfmsg), flags);
- 	if (nlh == NULL)
- 		goto nlmsg_failure;
-diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
-index bf52acfe4eff..7ba76da96cc2 100644
---- a/net/netfilter/nf_tables_api.c
-+++ b/net/netfilter/nf_tables_api.c
-@@ -438,7 +438,7 @@ static int nf_tables_fill_table_info(struct sk_buff *skb, struct net *net,
- 	struct nlmsghdr *nlh;
- 	struct nfgenmsg *nfmsg;
- 
--	event |= NFNL_SUBSYS_NFTABLES << 8;
-+	event = nfnl_msg_type(NFNL_SUBSYS_NFTABLES, event);
- 	nlh = nlmsg_put(skb, portid, seq, event, sizeof(struct nfgenmsg), flags);
- 	if (nlh == NULL)
- 		goto nla_put_failure;
-@@ -989,7 +989,7 @@ static int nf_tables_fill_chain_info(struct sk_buff *skb, struct net *net,
- 	struct nlmsghdr *nlh;
- 	struct nfgenmsg *nfmsg;
- 
--	event |= NFNL_SUBSYS_NFTABLES << 8;
-+	event = nfnl_msg_type(NFNL_SUBSYS_NFTABLES, event);
- 	nlh = nlmsg_put(skb, portid, seq, event, sizeof(struct nfgenmsg), flags);
- 	if (nlh == NULL)
- 		goto nla_put_failure;
-@@ -1885,10 +1885,9 @@ static int nf_tables_fill_rule_info(struct sk_buff *skb, struct net *net,
- 	const struct nft_expr *expr, *next;
- 	struct nlattr *list;
- 	const struct nft_rule *prule;
--	int type = event | NFNL_SUBSYS_NFTABLES << 8;
-+	u16 type = nfnl_msg_type(NFNL_SUBSYS_NFTABLES, event);
- 
--	nlh = nlmsg_put(skb, portid, seq, type, sizeof(struct nfgenmsg),
--			flags);
-+	nlh = nlmsg_put(skb, portid, seq, type, sizeof(struct nfgenmsg), flags);
- 	if (nlh == NULL)
- 		goto nla_put_failure;
- 
-@@ -2645,7 +2644,7 @@ static int nf_tables_fill_set(struct sk_buff *skb, const struct nft_ctx *ctx,
- 	u32 portid = ctx->portid;
- 	u32 seq = ctx->seq;
- 
--	event |= NFNL_SUBSYS_NFTABLES << 8;
-+	event = nfnl_msg_type(NFNL_SUBSYS_NFTABLES, event);
- 	nlh = nlmsg_put(skb, portid, seq, event, sizeof(struct nfgenmsg),
- 			flags);
- 	if (nlh == NULL)
-@@ -3395,8 +3394,7 @@ static int nf_tables_dump_set(struct sk_buff *skb, struct netlink_callback *cb)
- 	if (IS_ERR(set))
- 		return PTR_ERR(set);
- 
--	event  = NFT_MSG_NEWSETELEM;
--	event |= NFNL_SUBSYS_NFTABLES << 8;
-+	event  = nfnl_msg_type(NFNL_SUBSYS_NFTABLES, NFT_MSG_NEWSETELEM);
- 	portid = NETLINK_CB(cb->skb).portid;
- 	seq    = cb->nlh->nlmsg_seq;
- 
-@@ -3481,7 +3479,7 @@ static int nf_tables_fill_setelem_info(struct sk_buff *skb,
- 	struct nlattr *nest;
- 	int err;
- 
--	event |= NFNL_SUBSYS_NFTABLES << 8;
-+	event = nfnl_msg_type(NFNL_SUBSYS_NFTABLES, event);
- 	nlh = nlmsg_put(skb, portid, seq, event, sizeof(struct nfgenmsg),
- 			flags);
- 	if (nlh == NULL)
-@@ -4253,7 +4251,7 @@ static int nf_tables_fill_obj_info(struct sk_buff *skb, struct net *net,
- 	struct nfgenmsg *nfmsg;
- 	struct nlmsghdr *nlh;
- 
--	event |= NFNL_SUBSYS_NFTABLES << 8;
-+	event = nfnl_msg_type(NFNL_SUBSYS_NFTABLES, event);
- 	nlh = nlmsg_put(skb, portid, seq, event, sizeof(struct nfgenmsg), flags);
- 	if (nlh == NULL)
- 		goto nla_put_failure;
-@@ -4526,7 +4524,7 @@ static int nf_tables_fill_gen_info(struct sk_buff *skb, struct net *net,
- {
- 	struct nlmsghdr *nlh;
- 	struct nfgenmsg *nfmsg;
--	int event = (NFNL_SUBSYS_NFTABLES << 8) | NFT_MSG_NEWGEN;
-+	int event = nfnl_msg_type(NFNL_SUBSYS_NFTABLES, NFT_MSG_NEWGEN);
- 
- 	nlh = nlmsg_put(skb, portid, seq, event, sizeof(struct nfgenmsg), 0);
- 	if (nlh == NULL)
-diff --git a/net/netfilter/nf_tables_trace.c b/net/netfilter/nf_tables_trace.c
-index 12eb9041dca2..e1b15e7a5793 100644
---- a/net/netfilter/nf_tables_trace.c
-+++ b/net/netfilter/nf_tables_trace.c
-@@ -169,7 +169,7 @@ void nft_trace_notify(struct nft_traceinfo *info)
- 	struct nlmsghdr *nlh;
- 	struct sk_buff *skb;
- 	unsigned int size;
--	int event = (NFNL_SUBSYS_NFTABLES << 8) | NFT_MSG_TRACE;
-+	u16 event;
- 
- 	if (!nfnetlink_has_listeners(nft_net(pkt), NFNLGRP_NFTRACE))
- 		return;
-@@ -198,6 +198,7 @@ void nft_trace_notify(struct nft_traceinfo *info)
- 	if (!skb)
- 		return;
- 
-+	event = nfnl_msg_type(NFNL_SUBSYS_NFTABLES, NFT_MSG_TRACE);
- 	nlh = nlmsg_put(skb, 0, 0, event, sizeof(struct nfgenmsg), 0);
- 	if (!nlh)
- 		goto nla_put_failure;
-diff --git a/net/netfilter/nfnetlink_acct.c b/net/netfilter/nfnetlink_acct.c
-index c86da174a5fc..1b9a5d6099dc 100644
---- a/net/netfilter/nfnetlink_acct.c
-+++ b/net/netfilter/nfnetlink_acct.c
-@@ -139,7 +139,7 @@ nfnl_acct_fill_info(struct sk_buff *skb, u32 portid, u32 seq, u32 type,
- 	u64 pkts, bytes;
- 	u32 old_flags;
- 
--	event |= NFNL_SUBSYS_ACCT << 8;
-+	event = nfnl_msg_type(NFNL_SUBSYS_ACCT, event);
- 	nlh = nlmsg_put(skb, portid, seq, event, sizeof(*nfmsg), flags);
- 	if (nlh == NULL)
- 		goto nlmsg_failure;
-diff --git a/net/netfilter/nfnetlink_cthelper.c b/net/netfilter/nfnetlink_cthelper.c
-index d5025cc25df3..9a50bf93dd16 100644
---- a/net/netfilter/nfnetlink_cthelper.c
-+++ b/net/netfilter/nfnetlink_cthelper.c
-@@ -507,7 +507,7 @@ nfnl_cthelper_fill_info(struct sk_buff *skb, u32 portid, u32 seq, u32 type,
- 	unsigned int flags = portid ? NLM_F_MULTI : 0;
- 	int status;
- 
--	event |= NFNL_SUBSYS_CTHELPER << 8;
-+	event = nfnl_msg_type(NFNL_SUBSYS_CTHELPER, event);
- 	nlh = nlmsg_put(skb, portid, seq, event, sizeof(*nfmsg), flags);
- 	if (nlh == NULL)
- 		goto nlmsg_failure;
-diff --git a/net/netfilter/nfnetlink_cttimeout.c b/net/netfilter/nfnetlink_cttimeout.c
-index 57c2cdf7b691..0927a6ae6177 100644
---- a/net/netfilter/nfnetlink_cttimeout.c
-+++ b/net/netfilter/nfnetlink_cttimeout.c
-@@ -158,7 +158,7 @@ ctnl_timeout_fill_info(struct sk_buff *skb, u32 portid, u32 seq, u32 type,
- 	unsigned int flags = portid ? NLM_F_MULTI : 0;
- 	struct nf_conntrack_l4proto *l4proto = timeout->l4proto;
- 
--	event |= NFNL_SUBSYS_CTNETLINK_TIMEOUT << 8;
-+	event = nfnl_msg_type(NFNL_SUBSYS_CTNETLINK_TIMEOUT, event);
- 	nlh = nlmsg_put(skb, portid, seq, event, sizeof(*nfmsg), flags);
- 	if (nlh == NULL)
- 		goto nlmsg_failure;
-@@ -431,7 +431,7 @@ cttimeout_default_fill_info(struct net *net, struct sk_buff *skb, u32 portid,
- 	struct nfgenmsg *nfmsg;
- 	unsigned int flags = portid ? NLM_F_MULTI : 0;
- 
--	event |= NFNL_SUBSYS_CTNETLINK_TIMEOUT << 8;
-+	event = nfnl_msg_type(NFNL_SUBSYS_CTNETLINK_TIMEOUT, event);
- 	nlh = nlmsg_put(skb, portid, seq, event, sizeof(*nfmsg), flags);
- 	if (nlh == NULL)
- 		goto nlmsg_failure;
-diff --git a/net/netfilter/nfnetlink_log.c b/net/netfilter/nfnetlink_log.c
-index ecd857b75ffe..e7648e90d162 100644
---- a/net/netfilter/nfnetlink_log.c
-+++ b/net/netfilter/nfnetlink_log.c
-@@ -411,7 +411,7 @@ __build_packet_message(struct nfnl_log_net *log,
- 	const unsigned char *hwhdrp;
- 
- 	nlh = nlmsg_put(inst->skb, 0, 0,
--			NFNL_SUBSYS_ULOG << 8 | NFULNL_MSG_PACKET,
-+			nfnl_msg_type(NFNL_SUBSYS_ULOG, NFULNL_MSG_PACKET),
- 			sizeof(struct nfgenmsg), 0);
- 	if (!nlh)
- 		return -1;
-diff --git a/net/netfilter/nfnetlink_queue.c b/net/netfilter/nfnetlink_queue.c
-index 933509ebf3d3..05e82004ab62 100644
---- a/net/netfilter/nfnetlink_queue.c
-+++ b/net/netfilter/nfnetlink_queue.c
-@@ -447,7 +447,7 @@ nfqnl_build_packet_message(struct net *net, struct nfqnl_instance *queue,
+@@ -1915,7 +1915,7 @@ ip_set_sockfn_get(struct sock *sk, int optval, void __user *user, int *len)
+ 		ret = -EFAULT;
+ 		goto done;
  	}
+-	op = (unsigned int *)data;
++	op = data;
  
- 	nlh = nlmsg_put(skb, 0, 0,
--			NFNL_SUBSYS_QUEUE << 8 | NFQNL_MSG_PACKET,
-+			nfnl_msg_type(NFNL_SUBSYS_QUEUE, NFQNL_MSG_PACKET),
- 			sizeof(struct nfgenmsg), 0);
- 	if (!nlh) {
- 		skb_tx_error(entskb);
-diff --git a/net/netfilter/nft_compat.c b/net/netfilter/nft_compat.c
-index f443f9d22faf..ed969caf01be 100644
---- a/net/netfilter/nft_compat.c
-+++ b/net/netfilter/nft_compat.c
-@@ -504,7 +504,7 @@ nfnl_compat_fill_info(struct sk_buff *skb, u32 portid, u32 seq, u32 type,
- 	struct nfgenmsg *nfmsg;
- 	unsigned int flags = portid ? NLM_F_MULTI : 0;
+ 	if (*op < IP_SET_OP_VERSION) {
+ 		/* Check the version at the beginning of operations */
+diff --git a/net/netfilter/nf_conntrack_proto.c b/net/netfilter/nf_conntrack_proto.c
+index 2d6ee1803415..1329e090fd5e 100644
+--- a/net/netfilter/nf_conntrack_proto.c
++++ b/net/netfilter/nf_conntrack_proto.c
+@@ -202,7 +202,7 @@ static int kill_l3proto(struct nf_conn *i, void *data)
+ static int kill_l4proto(struct nf_conn *i, void *data)
+ {
+ 	struct nf_conntrack_l4proto *l4proto;
+-	l4proto = (struct nf_conntrack_l4proto *)data;
++	l4proto = data;
+ 	return nf_ct_protonum(i) == l4proto->l4proto &&
+ 	       nf_ct_l3num(i) == l4proto->l3proto;
+ }
+diff --git a/net/netfilter/nft_set_hash.c b/net/netfilter/nft_set_hash.c
+index 5f652720fc78..8ec086b6b56b 100644
+--- a/net/netfilter/nft_set_hash.c
++++ b/net/netfilter/nft_set_hash.c
+@@ -352,7 +352,7 @@ static int nft_hash_init(const struct nft_set *set,
  
--	event |= NFNL_SUBSYS_NFT_COMPAT << 8;
-+	event = nfnl_msg_type(NFNL_SUBSYS_NFT_COMPAT, event);
- 	nlh = nlmsg_put(skb, portid, seq, event, sizeof(*nfmsg), flags);
- 	if (nlh == NULL)
- 		goto nlmsg_failure;
+ static void nft_hash_elem_destroy(void *ptr, void *arg)
+ {
+-	nft_set_elem_destroy((const struct nft_set *)arg, ptr, true);
++	nft_set_elem_destroy(arg, ptr, true);
+ }
+ 
+ static void nft_hash_destroy(const struct nft_set *set)
+diff --git a/net/netfilter/xt_hashlimit.c b/net/netfilter/xt_hashlimit.c
+index 2a6dfe8b74d3..762e1874f28b 100644
+--- a/net/netfilter/xt_hashlimit.c
++++ b/net/netfilter/xt_hashlimit.c
+@@ -119,7 +119,7 @@ static int
+ cfg_copy(struct hashlimit_cfg2 *to, void *from, int revision)
+ {
+ 	if (revision == 1) {
+-		struct hashlimit_cfg1 *cfg = (struct hashlimit_cfg1 *)from;
++		struct hashlimit_cfg1 *cfg = from;
+ 
+ 		to->mode = cfg->mode;
+ 		to->avg = cfg->avg;
+@@ -895,7 +895,7 @@ static void *dl_seq_start(struct seq_file *s, loff_t *pos)
+ static void *dl_seq_next(struct seq_file *s, void *v, loff_t *pos)
+ {
+ 	struct xt_hashlimit_htable *htable = s->private;
+-	unsigned int *bucket = (unsigned int *)v;
++	unsigned int *bucket = v;
+ 
+ 	*pos = ++(*bucket);
+ 	if (*pos >= htable->cfg.size) {
+@@ -909,7 +909,7 @@ static void dl_seq_stop(struct seq_file *s, void *v)
+ 	__releases(htable->lock)
+ {
+ 	struct xt_hashlimit_htable *htable = s->private;
+-	unsigned int *bucket = (unsigned int *)v;
++	unsigned int *bucket = v;
+ 
+ 	if (!IS_ERR(bucket))
+ 		kfree(bucket);
+@@ -980,7 +980,7 @@ static int dl_seq_real_show(struct dsthash_ent *ent, u_int8_t family,
+ static int dl_seq_show_v1(struct seq_file *s, void *v)
+ {
+ 	struct xt_hashlimit_htable *htable = s->private;
+-	unsigned int *bucket = (unsigned int *)v;
++	unsigned int *bucket = v;
+ 	struct dsthash_ent *ent;
+ 
+ 	if (!hlist_empty(&htable->hash[*bucket])) {
+@@ -994,7 +994,7 @@ static int dl_seq_show_v1(struct seq_file *s, void *v)
+ static int dl_seq_show(struct seq_file *s, void *v)
+ {
+ 	struct xt_hashlimit_htable *htable = s->private;
+-	unsigned int *bucket = (unsigned int *)v;
++	unsigned int *bucket = v;
+ 	struct dsthash_ent *ent;
+ 
+ 	if (!hlist_empty(&htable->hash[*bucket])) {
 -- 
 2.1.4
-
