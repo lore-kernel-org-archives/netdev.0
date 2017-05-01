@@ -1,58 +1,61 @@
-From: Corentin Labbe <clabbe.montjoie@gmail.com>
-Subject: [PATCH v5 04/20] dt-bindings: syscon: Add DT bindings documentation for Allwinner syscon
-Date: Mon,  1 May 2017 14:45:04 +0200
-Message-ID: <20170501124520.3769-5-clabbe.montjoie@gmail.com>
+From: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH v5 08/20] arm: sun8i: orangepi-pc: Enable dwmac-sun8i
+Date: Mon,  1 May 2017 14:45:08 +0200
+Message-ID: <20170501124520.3769-9-clabbe.montjoie@gmail.com>
 References: <20170501124520.3769-1-clabbe.montjoie@gmail.com>
-Cc: devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
-        netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-        Corentin Labbe <clabbe.montjoie@gmail.com>
-To: robh+dt@kernel.org, mark.rutland@arm.com,
-        maxime.ripard@free-electrons.com, wens@csie.org,
-        linux@armlinux.org.uk, catalin.marinas@arm.com,
-        will.deacon@arm.com, peppe.cavallaro@st.com,
-        alexandre.torgue@st.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f193.google.com ([209.85.128.193]:36000 "EHLO
-        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1424612AbdEAMsM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 1 May 2017 08:48:12 -0400
-In-Reply-To: <20170501124520.3769-1-clabbe.montjoie@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+        Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
+        maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org, wens-jdAy2FN1RRM@public.gmane.org,
+        linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, catalin.marinas-5wv7dgnIgG8@public.gmane.org,
+        will.deacon-5wv7dgnIgG8@public.gmane.org, peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
+        alexandre.torgue-qxv4g6HH51o@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170501124520.3769-1-clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-This patch adds documentation for Device-Tree bindings for the
-syscon present in allwinner devices.
+The dwmac-sun8i hardware is present on the Orange PI PC.
+It uses the internal PHY.
 
-Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
+This patch create the needed emac node.
+
+Signed-off-by: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- .../devicetree/bindings/misc/allwinner,syscon.txt     | 19 +++++++++++++++++++
- 1 file changed, 19 insertions(+)
- create mode 100644 Documentation/devicetree/bindings/misc/allwinner,syscon.txt
+ arch/arm/boot/dts/sun8i-h3-orangepi-pc.dts | 8 ++++++++
+ 1 file changed, 8 insertions(+)
 
-diff --git a/Documentation/devicetree/bindings/misc/allwinner,syscon.txt b/Documentation/devicetree/bindings/misc/allwinner,syscon.txt
-new file mode 100644
-index 0000000..cb57691
---- /dev/null
-+++ b/Documentation/devicetree/bindings/misc/allwinner,syscon.txt
-@@ -0,0 +1,19 @@
-+* Allwinner sun8i system controller
-+
-+This file describes the bindings for the system controller present in
-+Allwinner SoC H3, A83T and A64.
-+The principal function of this syscon is to control EMAC PHY choice and
-+config.
-+
-+Required properties for the system controller:
-+- reg: address and length of the register for the device.
-+- compatible: should be "syscon" and one of the following string:
-+		"allwinner,sun8i-h3-system-controller"
-+		"allwinner,sun50i-a64-system-controller"
-+		"allwinner,sun8i-a83t-system-controller"
-+
-+Example:
-+syscon: syscon@1c00000 {
-+	compatible = "allwinner,sun8i-h3-system-controller", "syscon";
-+	reg = <0x01c00000 0x1000>;
+diff --git a/arch/arm/boot/dts/sun8i-h3-orangepi-pc.dts b/arch/arm/boot/dts/sun8i-h3-orangepi-pc.dts
+index f148111..52e6575 100644
+--- a/arch/arm/boot/dts/sun8i-h3-orangepi-pc.dts
++++ b/arch/arm/boot/dts/sun8i-h3-orangepi-pc.dts
+@@ -52,6 +52,7 @@
+ 	compatible = "xunlong,orangepi-pc", "allwinner,sun8i-h3";
+ 
+ 	aliases {
++		ethernet0 = &emac;
+ 		serial0 = &uart0;
+ 	};
+ 
+@@ -109,6 +110,13 @@
+ 	status = "okay";
+ };
+ 
++&emac {
++	phy-handle = <&int_mii_phy>;
++	phy-mode = "mii";
++	allwinner,leds-active-low;
++	status = "okay";
 +};
++
+ &ir {
+ 	pinctrl-names = "default";
+ 	pinctrl-0 = <&ir_pins_a>;
 -- 
 2.10.2
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
