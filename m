@@ -1,87 +1,45 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 08/53] netfilter: nat: avoid use of nf_conn_nat extension
-Date: Mon,  1 May 2017 12:46:35 +0200
-Message-ID: <1493635640-24325-9-git-send-email-pablo@netfilter.org>
+Subject: Re: [PATCH 00/53] Netfilter/IPVS updates for net-next
+Date: Mon, 1 May 2017 12:53:53 +0200
+Message-ID: <20170501105353.GA24620@salvia>
 References: <1493635640-24325-1-git-send-email-pablo@netfilter.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:51628 "EHLO mail.us.es"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1426915AbdEAKyC (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 1 May 2017 06:54:02 -0400
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+        by mail.us.es (Postfix) with ESMTP id 49DAB210575
+        for <netdev@vger.kernel.org>; Mon,  1 May 2017 12:53:55 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 38A67FF2CE
+        for <netdev@vger.kernel.org>; Mon,  1 May 2017 12:53:55 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 227EC18500
+        for <netdev@vger.kernel.org>; Mon,  1 May 2017 12:53:53 +0200 (CEST)
+Content-Disposition: inline
 In-Reply-To: <1493635640-24325-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Florian Westphal <fw@strlen.de>
+On Mon, May 01, 2017 at 12:46:27PM +0200, Pablo Neira Ayuso wrote:
+> Hi David,
+> 
+> The following patchset contains Netfilter updates for your net-next
+> tree. A large bunch of code cleanups, XXX they are:
 
-successful insert into the bysource hash sets IPS_SRC_NAT_DONE status bit
-so we can check that instead of presence of nat extension which requires
-extra deref.
+Oh well, it case you can amend XXX thing there, David. This should be
+instead...
 
-Signed-off-by: Florian Westphal <fw@strlen.de>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- net/netfilter/nf_conntrack_core.c |  2 +-
- net/netfilter/nf_nat_core.c       | 18 ++++--------------
- 2 files changed, 5 insertions(+), 15 deletions(-)
+The following patchset contains Netfilter updates for your net-next
+tree. A large bunch of code cleanups, simplify the conntrack extension
+codebase, get rid of the fake conntrack object, speed up netns by
+selective synchronize_net() calls. More specifically, they are:
 
-diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-index 3d621b8d7b8a..bcf1d2a6539e 100644
---- a/net/netfilter/nf_conntrack_core.c
-+++ b/net/netfilter/nf_conntrack_core.c
-@@ -706,7 +706,7 @@ static int nf_ct_resolve_clash(struct net *net, struct sk_buff *skb,
- 
- 	l4proto = __nf_ct_l4proto_find(nf_ct_l3num(ct), nf_ct_protonum(ct));
- 	if (l4proto->allow_clash &&
--	    !nfct_nat(ct) &&
-+	    ((ct->status & IPS_NAT_DONE_MASK) == 0) &&
- 	    !nf_ct_is_dying(ct) &&
- 	    atomic_inc_not_zero(&ct->ct_general.use)) {
- 		enum ip_conntrack_info oldinfo;
-diff --git a/net/netfilter/nf_nat_core.c b/net/netfilter/nf_nat_core.c
-index 82802e4a6640..376c1b36f222 100644
---- a/net/netfilter/nf_nat_core.c
-+++ b/net/netfilter/nf_nat_core.c
-@@ -549,10 +549,6 @@ struct nf_nat_proto_clean {
- static int nf_nat_proto_remove(struct nf_conn *i, void *data)
- {
- 	const struct nf_nat_proto_clean *clean = data;
--	struct nf_conn_nat *nat = nfct_nat(i);
--
--	if (!nat)
--		return 0;
- 
- 	if ((clean->l3proto && nf_ct_l3num(i) != clean->l3proto) ||
- 	    (clean->l4proto && nf_ct_protonum(i) != clean->l4proto))
-@@ -563,12 +559,10 @@ static int nf_nat_proto_remove(struct nf_conn *i, void *data)
- 
- static int nf_nat_proto_clean(struct nf_conn *ct, void *data)
- {
--	struct nf_conn_nat *nat = nfct_nat(ct);
--
- 	if (nf_nat_proto_remove(ct, data))
- 		return 1;
- 
--	if (!nat)
-+	if ((ct->status & IPS_SRC_NAT_DONE) == 0)
- 		return 0;
- 
- 	/* This netns is being destroyed, and conntrack has nat null binding.
-@@ -716,13 +710,9 @@ EXPORT_SYMBOL_GPL(nf_nat_l3proto_unregister);
- /* No one using conntrack by the time this called. */
- static void nf_nat_cleanup_conntrack(struct nf_conn *ct)
- {
--	struct nf_conn_nat *nat = nf_ct_ext_find(ct, NF_CT_EXT_NAT);
--
--	if (!nat)
--		return;
--
--	rhltable_remove(&nf_nat_bysource_table, &ct->nat_bysource,
--			nf_nat_bysource_params);
-+	if (ct->status & IPS_SRC_NAT_DONE)
-+		rhltable_remove(&nf_nat_bysource_table, &ct->nat_bysource,
-+				nf_nat_bysource_params);
- }
- 
- static struct nf_ct_ext_type nat_extend __read_mostly = {
--- 
-2.1.4
+...
 
+Sorry, it seems my robot took some incomplete draft.
