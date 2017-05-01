@@ -1,155 +1,170 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next v2 06/18] net: dsa: mv88e6xxx: move VTU SID accessors
-Date: Mon,  1 May 2017 14:05:15 -0400
-Message-ID: <20170501180527.11756-7-vivien.didelot@savoirfairelinux.com>
-References: <20170501180527.11756-1-vivien.didelot@savoirfairelinux.com>
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+From: Nathan Fontenot <nfont@linux.vnet.ibm.com>
+Subject: [PATCH v2 net-next 02/11] ibmvnic: Replace is_closed with state
+ field
+Date: Mon, 01 May 2017 17:56:50 -0400
+Message-ID: <20170501215650.27224.49837.stgit@ltcalpine2-lp23.aus.stglabs.ibm.com>
+References: <20170501215424.27224.53918.stgit@ltcalpine2-lp23.aus.stglabs.ibm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: brking@linux.vnet.ibm.com, jallen@linux.vnet.ibm.com,
+        muvic@linux.vnet.ibm.com, tlfalcon@linux.vnet.ibm.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:48246 "EHLO
-        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751099AbdEASHw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 1 May 2017 14:07:52 -0400
-In-Reply-To: <20170501180527.11756-1-vivien.didelot@savoirfairelinux.com>
+Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:45698 "EHLO
+        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751150AbdEASIS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 1 May 2017 14:08:18 -0400
+Received: from pps.filterd (m0098410.ppops.net [127.0.0.1])
+        by mx0a-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v41I4F9d116054
+        for <netdev@vger.kernel.org>; Mon, 1 May 2017 14:08:07 -0400
+Received: from e15.ny.us.ibm.com (e15.ny.us.ibm.com [129.33.205.205])
+        by mx0a-001b2d01.pphosted.com with ESMTP id 2a68vvu1r0-1
+        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Mon, 01 May 2017 14:08:07 -0400
+Received: from localhost
+        by e15.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        for <netdev@vger.kernel.org> from <nfont@linux.vnet.ibm.com>;
+        Mon, 1 May 2017 14:08:05 -0400
+In-Reply-To: <20170501215424.27224.53918.stgit@ltcalpine2-lp23.aus.stglabs.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add helpers to access the VTU SID register in the global1_vtu.c file.
+Replace the is_closed flag in the ibmvnic adapter strcut with a
+more comprehensive state field that tracks the current state of
+the driver.
 
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+Signed-off-by: Nathan Fontenot <nfont@linux.vnet.ibm.com>
 ---
- drivers/net/dsa/mv88e6xxx/chip.c        | 21 ++++++++-------------
- drivers/net/dsa/mv88e6xxx/global1.h     |  4 ++++
- drivers/net/dsa/mv88e6xxx/global1_vtu.c | 25 +++++++++++++++++++++++++
- 3 files changed, 37 insertions(+), 13 deletions(-)
+ drivers/net/ethernet/ibm/ibmvnic.c |   20 +++++++++++++-------
+ drivers/net/ethernet/ibm/ibmvnic.h |   12 ++++++++++--
+ 2 files changed, 23 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-index 0452543a2463..ec621879439d 100644
---- a/drivers/net/dsa/mv88e6xxx/chip.c
-+++ b/drivers/net/dsa/mv88e6xxx/chip.c
-@@ -1387,11 +1387,9 @@ static int _mv88e6xxx_vtu_getnext(struct mv88e6xxx_chip *chip,
- 		}
+diff --git a/drivers/net/ethernet/ibm/ibmvnic.c b/drivers/net/ethernet/ibm/ibmvnic.c
+index c67f1d6..40a8ba0 100644
+--- a/drivers/net/ethernet/ibm/ibmvnic.c
++++ b/drivers/net/ethernet/ibm/ibmvnic.c
+@@ -669,7 +669,9 @@ static int ibmvnic_open(struct net_device *netdev)
+ 	struct ibmvnic_adapter *adapter = netdev_priv(netdev);
+ 	int i, rc;
  
- 		if (mv88e6xxx_has(chip, MV88E6XXX_FLAG_STU)) {
--			err = mv88e6xxx_g1_read(chip, GLOBAL_VTU_SID, &val);
-+			err = mv88e6xxx_g1_vtu_sid_read(chip, &next);
- 			if (err)
- 				return err;
--
--			next.sid = val & GLOBAL_VTU_SID_MASK;
- 		}
+-	if (adapter->is_closed) {
++	adapter->state = VNIC_OPENING;
++
++	if (adapter->state == VNIC_CLOSED) {
+ 		rc = ibmvnic_init(adapter);
+ 		if (rc)
+ 			return rc;
+@@ -704,7 +706,7 @@ static int ibmvnic_open(struct net_device *netdev)
+ 		release_resources(adapter);
+ 	} else {
+ 		netif_tx_start_all_queues(netdev);
+-		adapter->is_closed = false;
++		adapter->state = VNIC_OPEN;
  	}
  
-@@ -1482,8 +1480,7 @@ static int _mv88e6xxx_vtu_loadpurge(struct mv88e6xxx_chip *chip,
- 		return err;
+ 	return rc;
+@@ -733,7 +735,7 @@ static int ibmvnic_close(struct net_device *netdev)
+ 	int rc = 0;
+ 	int i;
  
- 	if (mv88e6xxx_has(chip, MV88E6XXX_FLAG_STU)) {
--		reg = entry->sid & GLOBAL_VTU_SID_MASK;
--		err = mv88e6xxx_g1_write(chip, GLOBAL_VTU_SID, reg);
-+		err = mv88e6xxx_g1_vtu_sid_write(chip, entry);
- 		if (err)
- 			return err;
- 	}
-@@ -1513,7 +1510,9 @@ static int _mv88e6xxx_vtu_loadpurge(struct mv88e6xxx_chip *chip,
- static int _mv88e6xxx_stu_getnext(struct mv88e6xxx_chip *chip, u8 sid,
- 				  struct mv88e6xxx_vtu_entry *entry)
- {
--	struct mv88e6xxx_vtu_entry next = { 0 };
-+	struct mv88e6xxx_vtu_entry next = {
-+		.sid = sid,
-+	};
- 	u16 val;
- 	int err;
+-	adapter->closing = true;
++	adapter->state = VNIC_CLOSING;
+ 	disable_sub_crqs(adapter);
  
-@@ -1521,8 +1520,7 @@ static int _mv88e6xxx_stu_getnext(struct mv88e6xxx_chip *chip, u8 sid,
- 	if (err)
- 		return err;
+ 	if (adapter->napi) {
+@@ -748,8 +750,7 @@ static int ibmvnic_close(struct net_device *netdev)
  
--	err = mv88e6xxx_g1_write(chip, GLOBAL_VTU_SID,
--				 sid & GLOBAL_VTU_SID_MASK);
-+	err = mv88e6xxx_g1_vtu_sid_write(chip, &next);
- 	if (err)
- 		return err;
+ 	release_resources(adapter);
  
-@@ -1530,12 +1528,10 @@ static int _mv88e6xxx_stu_getnext(struct mv88e6xxx_chip *chip, u8 sid,
- 	if (err)
- 		return err;
- 
--	err = mv88e6xxx_g1_read(chip, GLOBAL_VTU_SID, &val);
-+	err = mv88e6xxx_g1_vtu_sid_read(chip, &next);
- 	if (err)
- 		return err;
- 
--	next.sid = val & GLOBAL_VTU_SID_MASK;
--
- 	err = mv88e6xxx_g1_read(chip, GLOBAL_VTU_VID, &val);
- 	if (err)
- 		return err;
-@@ -1576,8 +1572,7 @@ static int _mv88e6xxx_stu_loadpurge(struct mv88e6xxx_chip *chip,
- 	if (err)
- 		return err;
- 
--	reg = entry->sid & GLOBAL_VTU_SID_MASK;
--	err = mv88e6xxx_g1_write(chip, GLOBAL_VTU_SID, reg);
-+	err = mv88e6xxx_g1_vtu_sid_write(chip, entry);
- 	if (err)
- 		return err;
- 
-diff --git a/drivers/net/dsa/mv88e6xxx/global1.h b/drivers/net/dsa/mv88e6xxx/global1.h
-index 353de283362f..1bf235085215 100644
---- a/drivers/net/dsa/mv88e6xxx/global1.h
-+++ b/drivers/net/dsa/mv88e6xxx/global1.h
-@@ -54,6 +54,10 @@ int mv88e6xxx_g1_vtu_fid_read(struct mv88e6xxx_chip *chip,
- 			      struct mv88e6xxx_vtu_entry *entry);
- int mv88e6xxx_g1_vtu_fid_write(struct mv88e6xxx_chip *chip,
- 			       struct mv88e6xxx_vtu_entry *entry);
-+int mv88e6xxx_g1_vtu_sid_read(struct mv88e6xxx_chip *chip,
-+			      struct mv88e6xxx_vtu_entry *entry);
-+int mv88e6xxx_g1_vtu_sid_write(struct mv88e6xxx_chip *chip,
-+			       struct mv88e6xxx_vtu_entry *entry);
- int mv88e6xxx_g1_vtu_op_wait(struct mv88e6xxx_chip *chip);
- int mv88e6xxx_g1_vtu_op(struct mv88e6xxx_chip *chip, u16 op);
- int mv88e6xxx_g1_vtu_flush(struct mv88e6xxx_chip *chip);
-diff --git a/drivers/net/dsa/mv88e6xxx/global1_vtu.c b/drivers/net/dsa/mv88e6xxx/global1_vtu.c
-index 81d6f9f3c84a..201c063d15f2 100644
---- a/drivers/net/dsa/mv88e6xxx/global1_vtu.c
-+++ b/drivers/net/dsa/mv88e6xxx/global1_vtu.c
-@@ -39,6 +39,31 @@ int mv88e6xxx_g1_vtu_fid_write(struct mv88e6xxx_chip *chip,
- 	return mv88e6xxx_g1_write(chip, GLOBAL_VTU_FID, val);
+-	adapter->is_closed = true;
+-	adapter->closing = false;
++	adapter->state = VNIC_CLOSED;
+ 	return rc;
  }
  
-+/* Offset 0x03: VTU SID Register */
-+
-+int mv88e6xxx_g1_vtu_sid_read(struct mv88e6xxx_chip *chip,
-+			      struct mv88e6xxx_vtu_entry *entry)
-+{
-+	u16 val;
-+	int err;
-+
-+	err = mv88e6xxx_g1_read(chip, GLOBAL_VTU_SID, &val);
-+	if (err)
-+		return err;
-+
-+	entry->sid = val & GLOBAL_VTU_SID_MASK;
-+
-+	return 0;
-+}
-+
-+int mv88e6xxx_g1_vtu_sid_write(struct mv88e6xxx_chip *chip,
-+			       struct mv88e6xxx_vtu_entry *entry)
-+{
-+	u16 val = entry->sid & GLOBAL_VTU_SID_MASK;
-+
-+	return mv88e6xxx_g1_write(chip, GLOBAL_VTU_SID, val);
-+}
-+
- /* Offset 0x05: VTU Operation Register */
+@@ -1860,7 +1861,8 @@ static int pending_scrq(struct ibmvnic_adapter *adapter,
+ {
+ 	union sub_crq *entry = &scrq->msgs[scrq->cur];
  
- int mv88e6xxx_g1_vtu_op_wait(struct mv88e6xxx_chip *chip)
--- 
-2.12.2
+-	if (entry->generic.first & IBMVNIC_CRQ_CMD_RSP || adapter->closing)
++	if (entry->generic.first & IBMVNIC_CRQ_CMD_RSP ||
++	    adapter->state == VNIC_CLOSING)
+ 		return 1;
+ 	else
+ 		return 0;
+@@ -3353,6 +3355,7 @@ static int ibmvnic_probe(struct vio_dev *dev, const struct vio_device_id *id)
+ 		return -ENOMEM;
+ 
+ 	adapter = netdev_priv(netdev);
++	adapter->state = VNIC_PROBING;
+ 	dev_set_drvdata(&dev->dev, netdev);
+ 	adapter->vdev = dev;
+ 	adapter->netdev = netdev;
+@@ -3380,7 +3383,6 @@ static int ibmvnic_probe(struct vio_dev *dev, const struct vio_device_id *id)
+ 	}
+ 
+ 	netdev->mtu = adapter->req_mtu - ETH_HLEN;
+-	adapter->is_closed = false;
+ 
+ 	rc = register_netdev(netdev);
+ 	if (rc) {
+@@ -3390,6 +3392,7 @@ static int ibmvnic_probe(struct vio_dev *dev, const struct vio_device_id *id)
+ 	}
+ 	dev_info(&dev->dev, "ibmvnic registered\n");
+ 
++	adapter->state = VNIC_PROBED;
+ 	return 0;
+ }
+ 
+@@ -3398,12 +3401,15 @@ static int ibmvnic_remove(struct vio_dev *dev)
+ 	struct net_device *netdev = dev_get_drvdata(&dev->dev);
+ 	struct ibmvnic_adapter *adapter = netdev_priv(netdev);
+ 
++	adapter->state = VNIC_REMOVING;
+ 	unregister_netdev(netdev);
+ 
+ 	release_resources(adapter);
+ 	release_sub_crqs(adapter);
+ 	release_crq_queue(adapter);
+ 
++	adapter->state = VNIC_REMOVED;
++
+ 	free_netdev(netdev);
+ 	dev_set_drvdata(&dev->dev, NULL);
+ 
+diff --git a/drivers/net/ethernet/ibm/ibmvnic.h b/drivers/net/ethernet/ibm/ibmvnic.h
+index a69979f..03a866f 100644
+--- a/drivers/net/ethernet/ibm/ibmvnic.h
++++ b/drivers/net/ethernet/ibm/ibmvnic.h
+@@ -913,6 +913,15 @@ struct ibmvnic_error_buff {
+ 	__be32 error_id;
+ };
+ 
++enum vnic_state {VNIC_PROBING = 1,
++		 VNIC_PROBED,
++		 VNIC_OPENING,
++		 VNIC_OPEN,
++		 VNIC_CLOSING,
++		 VNIC_CLOSED,
++		 VNIC_REMOVING,
++		 VNIC_REMOVED};
++
+ struct ibmvnic_adapter {
+ 	struct vio_dev *vdev;
+ 	struct net_device *netdev;
+@@ -962,7 +971,6 @@ struct ibmvnic_adapter {
+ 	u64 promisc;
+ 
+ 	struct ibmvnic_tx_pool *tx_pool;
+-	bool closing;
+ 	struct completion init_done;
+ 	int init_done_rc;
+ 
+@@ -1011,5 +1019,5 @@ struct ibmvnic_adapter {
+ 	struct work_struct ibmvnic_xport;
+ 	struct tasklet_struct tasklet;
+ 	bool failover;
+-	bool is_closed;
++	enum vnic_state state;
+ };
