@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next v2 17/18] net: dsa: mv88e6xxx: support the VTU Page bit
-Date: Mon,  1 May 2017 14:05:26 -0400
-Message-ID: <20170501180527.11756-18-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next v2 10/18] net: dsa: mv88e6xxx: move STU GetNext operation
+Date: Mon,  1 May 2017 14:05:19 -0400
+Message-ID: <20170501180527.11756-11-vivien.didelot@savoirfairelinux.com>
 References: <20170501180527.11756-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
@@ -14,55 +14,85 @@ In-Reply-To: <20170501180527.11756-1-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Newer chips such as the 88E6390 have a VTU Page bit in the VTU VID
-register to specify a 13th bit for the VID. This can be used to support
-8K VLANs.
-
-When dumping the whole VTU, all VID bits must be set to one, including
-this VTU Page bit. Add support for VID greater than 4095.
+Extract the generic portion of code to issue an STU GetNext operation,
+which will be used in other implementations.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 ---
- drivers/net/dsa/mv88e6xxx/global1_vtu.c | 7 +++++++
- drivers/net/dsa/mv88e6xxx/mv88e6xxx.h   | 1 +
- 2 files changed, 8 insertions(+)
+ drivers/net/dsa/mv88e6xxx/chip.c        | 14 +-------------
+ drivers/net/dsa/mv88e6xxx/global1.h     |  2 ++
+ drivers/net/dsa/mv88e6xxx/global1_vtu.c | 20 ++++++++++++++++++++
+ 3 files changed, 23 insertions(+), 13 deletions(-)
 
-diff --git a/drivers/net/dsa/mv88e6xxx/global1_vtu.c b/drivers/net/dsa/mv88e6xxx/global1_vtu.c
-index 469056d0b421..8e77974fb2f8 100644
---- a/drivers/net/dsa/mv88e6xxx/global1_vtu.c
-+++ b/drivers/net/dsa/mv88e6xxx/global1_vtu.c
-@@ -95,6 +95,10 @@ static int mv88e6xxx_g1_vtu_vid_read(struct mv88e6xxx_chip *chip,
+diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
+index b163e40bf42e..5441b05f519b 100644
+--- a/drivers/net/dsa/mv88e6xxx/chip.c
++++ b/drivers/net/dsa/mv88e6xxx/chip.c
+@@ -1422,19 +1422,7 @@ static int _mv88e6xxx_stu_getnext(struct mv88e6xxx_chip *chip, u8 sid,
+ 	if (err)
  		return err;
  
- 	entry->vid = val & 0xfff;
-+
-+	if (val & GLOBAL_VTU_VID_PAGE)
-+		entry->vid |= 0x1000;
-+
- 	entry->valid = !!(val & GLOBAL_VTU_VID_VALID);
+-	err = mv88e6xxx_g1_vtu_sid_write(chip, &next);
+-	if (err)
+-		return err;
+-
+-	err = mv88e6xxx_g1_vtu_op(chip, GLOBAL_VTU_OP_STU_GET_NEXT);
+-	if (err)
+-		return err;
+-
+-	err = mv88e6xxx_g1_vtu_sid_read(chip, &next);
+-	if (err)
+-		return err;
+-
+-	err = mv88e6xxx_g1_vtu_vid_read(chip, &next);
++	err = mv88e6xxx_g1_vtu_stu_getnext(chip, &next);
+ 	if (err)
+ 		return err;
  
- 	return 0;
-@@ -105,6 +109,9 @@ static int mv88e6xxx_g1_vtu_vid_write(struct mv88e6xxx_chip *chip,
+diff --git a/drivers/net/dsa/mv88e6xxx/global1.h b/drivers/net/dsa/mv88e6xxx/global1.h
+index 9644ca649838..5d276cc4262b 100644
+--- a/drivers/net/dsa/mv88e6xxx/global1.h
++++ b/drivers/net/dsa/mv88e6xxx/global1.h
+@@ -70,6 +70,8 @@ int mv88e6xxx_g1_vtu_op_wait(struct mv88e6xxx_chip *chip);
+ int mv88e6xxx_g1_vtu_op(struct mv88e6xxx_chip *chip, u16 op);
+ int mv88e6xxx_g1_vtu_getnext(struct mv88e6xxx_chip *chip,
+ 			     struct mv88e6xxx_vtu_entry *entry);
++int mv88e6xxx_g1_vtu_stu_getnext(struct mv88e6xxx_chip *chip,
++				 struct mv88e6xxx_vtu_entry *vtu);
+ int mv88e6xxx_g1_vtu_flush(struct mv88e6xxx_chip *chip);
+ 
+ #endif /* _MV88E6XXX_GLOBAL1_H */
+diff --git a/drivers/net/dsa/mv88e6xxx/global1_vtu.c b/drivers/net/dsa/mv88e6xxx/global1_vtu.c
+index 060c4a5a802d..cf572ba76195 100644
+--- a/drivers/net/dsa/mv88e6xxx/global1_vtu.c
++++ b/drivers/net/dsa/mv88e6xxx/global1_vtu.c
+@@ -174,6 +174,26 @@ int mv88e6185_g1_vtu_data_write(struct mv88e6xxx_chip *chip,
+ 
+ /* VLAN Translation Unit Operations */
+ 
++int mv88e6xxx_g1_vtu_stu_getnext(struct mv88e6xxx_chip *chip,
++				 struct mv88e6xxx_vtu_entry *entry)
++{
++	int err;
++
++	err = mv88e6xxx_g1_vtu_sid_write(chip, entry);
++	if (err)
++		return err;
++
++	err = mv88e6xxx_g1_vtu_op(chip, GLOBAL_VTU_OP_STU_GET_NEXT);
++	if (err)
++		return err;
++
++	err = mv88e6xxx_g1_vtu_sid_read(chip, entry);
++	if (err)
++		return err;
++
++	return mv88e6xxx_g1_vtu_vid_read(chip, entry);
++}
++
+ int mv88e6xxx_g1_vtu_getnext(struct mv88e6xxx_chip *chip,
+ 			     struct mv88e6xxx_vtu_entry *entry)
  {
- 	u16 val = entry->vid & 0xfff;
- 
-+	if (entry->vid & 0x1000)
-+		val |= GLOBAL_VTU_VID_PAGE;
-+
- 	if (entry->valid)
- 		val |= GLOBAL_VTU_VID_VALID;
- 
-diff --git a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-index a0d57b10acfe..77236cd72df2 100644
---- a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-+++ b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-@@ -249,6 +249,7 @@
- #define GLOBAL_VTU_OP_STU_GET_NEXT	((0x06 << 12) | GLOBAL_VTU_OP_BUSY)
- #define GLOBAL_VTU_VID		0x06
- #define GLOBAL_VTU_VID_MASK	0xfff
-+#define GLOBAL_VTU_VID_PAGE	BIT(13)
- #define GLOBAL_VTU_VID_VALID	BIT(12)
- #define GLOBAL_VTU_DATA_0_3	0x07
- #define GLOBAL_VTU_DATA_4_7	0x08
 -- 
 2.12.2
