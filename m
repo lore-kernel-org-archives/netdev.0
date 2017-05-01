@@ -1,86 +1,47 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
+From: David Miller <davem@davemloft.net>
 Subject: Re: more bpf samples build breakage...
-Date: Mon, 01 May 2017 22:38:58 +0200
-Message-ID: <59079CE2.6010305@iogearbox.net>
+Date: Mon, 01 May 2017 16:45:26 -0400 (EDT)
+Message-ID: <20170501.164526.2280829777190467409.davem@davemloft.net>
 References: <20170501.153005.983887567095122966.davem@davemloft.net>
+        <59079CE2.6010305@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 8bit
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
 Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: daniel@iogearbox.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:52495 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750774AbdEAUjC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 1 May 2017 16:39:02 -0400
-In-Reply-To: <20170501.153005.983887567095122966.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([184.105.139.130]:37476 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750977AbdEAUpc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 1 May 2017 16:45:32 -0400
+In-Reply-To: <59079CE2.6010305@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/01/2017 09:30 PM, David Miller wrote:
->
-> Inlcuding bpf_util.h into test_pkt_access.c et al. broke the build even
-> more so than it already is on sparc.
->
-> The problem is we end up including all the stdio.h bits and eventually
-> hit things like:
->
-> In file included from /usr/include/stdio.h:933:
-> /usr/include/bits/stdio-ldbl.h:28:20: error: cannot apply asm label to function after its first use
-> __LDBL_REDIR_DECL (vfprintf)
-> ~~~~~~~~~~~~~~~~~~~^~~~~~~~~
-> /usr/include/sys/cdefs.h:373:26: note: expanded from macro '__LDBL_REDIR_DECL'
->    extern __typeof (name) name __asm (__ASMNAME ("__nldbl_" #name));
->
-> So please let's put CLANG compiled helpers into header files
-> specifically meant to be included by CLANG compiled BPF programs
-> rather than the host build environment.
-
-Argh, sorry for that and thanks for the quick fix. When I tested
-this on x86_64, I didn't hit a compilation issue.
-
-BPF selftests:
-
-[root@apoc bpf]# make > /dev/null
-Warning: tools/include/uapi/linux/bpf.h differs from kernel
-[root@apoc bpf]# ./test_progs
-test_pkt_access:PASS:ipv4 401 nsec
-test_pkt_access:PASS:ipv6 271 nsec
-test_xdp:PASS:ipv4 4617 nsec
-test_xdp:PASS:ipv6 2979 nsec
-test_l4lb:PASS:ipv4 921 nsec
-test_l4lb:PASS:ipv6 717 nsec
-Summary: 6 PASSED, 0 FAILED
-[root@apoc bpf]#
-
-BPF samples:
-
-[root@apoc bpf]# make > /dev/null
-In file included from /root/cilium/net-next/samples/bpf/cookie_uid_helper_example.c:54:0:
-/root/cilium/net-next/samples/bpf/cookie_uid_helper_example.c: In function ‘prog_load’:
-/root/cilium/net-next/samples/bpf/cookie_uid_helper_example.c:119:5: warning: overflow in implicit constant conversion [-Woverflow]
-      -32 + offsetof(struct stats, uid)),
-      ^
-/root/cilium/net-next/samples/bpf/libbpf.h:135:12: note: in definition of macro ‘BPF_STX_MEM’
-    .off   = OFF,     \
-             ^
-/root/cilium/net-next/samples/bpf/cookie_uid_helper_example.c:121:5: warning: overflow in implicit constant conversion [-Woverflow]
-      -32 + offsetof(struct stats, packets), 1),
-      ^
-/root/cilium/net-next/samples/bpf/libbpf.h:155:12: note: in definition of macro ‘BPF_ST_MEM’
-    .off   = OFF,     \
-             ^
-/root/cilium/net-next/samples/bpf/cookie_uid_helper_example.c:129:5: warning: overflow in implicit constant conversion [-Woverflow]
-      -32 + offsetof(struct stats, bytes)),
-      ^
-/root/cilium/net-next/samples/bpf/libbpf.h:135:12: note: in definition of macro ‘BPF_STX_MEM’
-    .off   = OFF,     \
-             ^
-[root@apoc bpf]#
-
-Above warning is from 51570a5ab2b7 ("A Sample of using socket
-cookie and uid for traffic monitoring"). I can see to send a
-fix for it.
-
-Thanks,
-Daniel
+RnJvbTogRGFuaWVsIEJvcmttYW5uIDxkYW5pZWxAaW9nZWFyYm94Lm5ldD4NCkRhdGU6IE1vbiwg
+MDEgTWF5IDIwMTcgMjI6Mzg6NTggKzAyMDANCg0KPiBCUEYgc2FtcGxlczoNCj4gDQo+IFtyb290
+QGFwb2MgYnBmXSMgbWFrZSA+IC9kZXYvbnVsbA0KPiBJbiBmaWxlIGluY2x1ZGVkIGZyb20NCj4g
+L3Jvb3QvY2lsaXVtL25ldC1uZXh0L3NhbXBsZXMvYnBmL2Nvb2tpZV91aWRfaGVscGVyX2V4YW1w
+bGUuYzo1NDowOg0KPiAvcm9vdC9jaWxpdW0vbmV0LW5leHQvc2FtcGxlcy9icGYvY29va2llX3Vp
+ZF9oZWxwZXJfZXhhbXBsZS5jOiBJbg0KPiBmdW5jdGlvbiChcHJvZ19sb2FkojoNCj4gL3Jvb3Qv
+Y2lsaXVtL25ldC1uZXh0L3NhbXBsZXMvYnBmL2Nvb2tpZV91aWRfaGVscGVyX2V4YW1wbGUuYzox
+MTk6NToNCj4gd2FybmluZzogb3ZlcmZsb3cgaW4gaW1wbGljaXQgY29uc3RhbnQgY29udmVyc2lv
+biBbLVdvdmVyZmxvd10NCj4gICAgICAtMzIgKyBvZmZzZXRvZihzdHJ1Y3Qgc3RhdHMsIHVpZCkp
+LA0KPiAgICAgIF4NCj4gL3Jvb3QvY2lsaXVtL25ldC1uZXh0L3NhbXBsZXMvYnBmL2xpYmJwZi5o
+OjEzNToxMjogbm90ZTogaW4gZGVmaW5pdGlvbg0KPiBvZiBtYWNybyChQlBGX1NUWF9NRU2iDQo+
+ICAgIC5vZmYgICA9IE9GRiwgICAgIFwNCj4gICAgICAgICAgICAgXg0KPiAvcm9vdC9jaWxpdW0v
+bmV0LW5leHQvc2FtcGxlcy9icGYvY29va2llX3VpZF9oZWxwZXJfZXhhbXBsZS5jOjEyMTo1Og0K
+PiB3YXJuaW5nOiBvdmVyZmxvdyBpbiBpbXBsaWNpdCBjb25zdGFudCBjb252ZXJzaW9uIFstV292
+ZXJmbG93XQ0KPiAgICAgIC0zMiArIG9mZnNldG9mKHN0cnVjdCBzdGF0cywgcGFja2V0cyksIDEp
+LA0KPiAgICAgIF4NCj4gL3Jvb3QvY2lsaXVtL25ldC1uZXh0L3NhbXBsZXMvYnBmL2xpYmJwZi5o
+OjE1NToxMjogbm90ZTogaW4gZGVmaW5pdGlvbg0KPiBvZiBtYWNybyChQlBGX1NUX01FTaINCj4g
+ICAgLm9mZiAgID0gT0ZGLCAgICAgXA0KPiAgICAgICAgICAgICBeDQo+IC9yb290L2NpbGl1bS9u
+ZXQtbmV4dC9zYW1wbGVzL2JwZi9jb29raWVfdWlkX2hlbHBlcl9leGFtcGxlLmM6MTI5OjU6DQo+
+IHdhcm5pbmc6IG92ZXJmbG93IGluIGltcGxpY2l0IGNvbnN0YW50IGNvbnZlcnNpb24gWy1Xb3Zl
+cmZsb3ddDQo+ICAgICAgLTMyICsgb2Zmc2V0b2Yoc3RydWN0IHN0YXRzLCBieXRlcykpLA0KPiAg
+ICAgIF4NCj4gL3Jvb3QvY2lsaXVtL25ldC1uZXh0L3NhbXBsZXMvYnBmL2xpYmJwZi5oOjEzNTox
+Mjogbm90ZTogaW4gZGVmaW5pdGlvbg0KPiBvZiBtYWNybyChQlBGX1NUWF9NRU2iDQo+ICAgIC5v
+ZmYgICA9IE9GRiwgICAgIFwNCj4gICAgICAgICAgICAgXg0KPiBbcm9vdEBhcG9jIGJwZl0jDQo+
+IA0KPiBBYm92ZSB3YXJuaW5nIGlzIGZyb20gNTE1NzBhNWFiMmI3ICgiQSBTYW1wbGUgb2YgdXNp
+bmcgc29ja2V0DQo+IGNvb2tpZSBhbmQgdWlkIGZvciB0cmFmZmljIG1vbml0b3JpbmciKS4gSSBj
+YW4gc2VlIHRvIHNlbmQgYQ0KPiBmaXggZm9yIGl0Lg0KDQpQbGVhc2UgZG8sIHRoYW5rcy4NCg==
