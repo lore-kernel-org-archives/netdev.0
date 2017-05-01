@@ -1,59 +1,32 @@
-From: Tim Wright <tim@binbash.co.uk>
-Subject: [PATCH 1/1] IB/mlx5: Add port_xmit_wait to counter registers read
-Date: Mon,  1 May 2017 17:30:08 +0100
-Message-ID: <20170501163008.27043-1-tim@binbash.co.uk>
-Cc: Tim Wright <tim@binbash.co.uk>, linux-rdma@vger.kernel.org,
-        netdev@vger.kernel.org
-To: matanb@mellanox.com, leonro@mellanox.com, dledford@redhat.com,
-        sean.hefty@intel.com, hal.rosenstock@gmail.com, saeedm@mellanox.com
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next 00/18] net: dsa: mv88e6xxx: 802.1s and 88E6390 VTU
+Date: Mon, 01 May 2017 12:36:06 -0400
+Message-ID: <87fugofsax.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+References: <871ss8bmom.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me> <20170501.120800.1973590139715167836.davem@davemloft.net> <87shko7dkk.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me> <20170501.122618.1787371573631638101.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@savoirfairelinux.com, f.fainelli@gmail.com, andrew@lunn.ch
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rgout0101.bt.lon5.cpcloud.co.uk ([65.20.0.121]:5504 "EHLO
-        rgout01.bt.lon5.cpcloud.co.uk" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1752464AbdEAQh1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 1 May 2017 12:37:27 -0400
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:41066 "EHLO
+        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756554AbdEAQhu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 1 May 2017 12:37:50 -0400
+In-Reply-To: <20170501.122618.1787371573631638101.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add port_xmit_wait to the error counters read by mlx5_ib_process_mad to
-ensure sysfs port counter provides correct value for PortXmitWait.
-Otherwise the sysfs port_xmit_wait file always contains zero.
+Hi David,
 
-The previous MAD_IFC implementation populated this counter, but it was
-removed during the migration to PPCNT for error counters (32-bit only).
+David Miller <davem@davemloft.net> writes:
 
-Signed-off-by: Tim Wright <tim@binbash.co.uk>
----
- drivers/infiniband/hw/mlx5/mad.c | 2 ++
- include/linux/mlx5/mlx5_ifc.h    | 4 +++-
- 2 files changed, 5 insertions(+), 1 deletion(-)
+> Once I set the state to "changes requested", that's basically permanent.
+>
+> Please simply resubmit your patch series, ACKs added if necessary.
 
-diff --git a/drivers/infiniband/hw/mlx5/mad.c b/drivers/infiniband/hw/mlx5/mad.c
-index 8dacb49..f1b56de6 100644
---- a/drivers/infiniband/hw/mlx5/mad.c
-+++ b/drivers/infiniband/hw/mlx5/mad.c
-@@ -187,6 +187,8 @@ static void pma_cnt_assign(struct ib_pma_portcounters *pma_cnt,
- 			     port_xmit_discards);
- 	MLX5_ASSIGN_PMA_CNTR(pma_cnt->port_xmit_constraint_errors,
- 			     port_xmit_constraint_errors);
-+	MLX5_ASSIGN_PMA_CNTR(pma_cnt->port_xmit_wait,
-+			     port_xmit_wait);
- 	MLX5_ASSIGN_PMA_CNTR(pma_cnt->port_rcv_constraint_errors,
- 			     port_rcv_constraint_errors);
- 	MLX5_ASSIGN_PMA_CNTR(pma_cnt->link_overrun_errors,
-diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
-index 8382426..e641bc3 100644
---- a/include/linux/mlx5/mlx5_ifc.h
-+++ b/include/linux/mlx5/mlx5_ifc.h
-@@ -1452,7 +1452,9 @@ struct mlx5_ifc_ib_port_cntrs_grp_data_layout_bits {
- 
- 	u8         vl_15_dropped[0x10];
- 
--	u8	   reserved_at_a0[0xa0];
-+	u8	   reserved_at_a0[0x80];
-+
-+	u8         port_xmit_wait[0x20];
- };
- 
- struct mlx5_ifc_eth_per_traffic_grp_data_layout_bits {
--- 
-1.8.3.1
+OK good to know, I respin this series in a few minutes.
+
+Thanks,
+
+        Vivien
