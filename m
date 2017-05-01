@@ -1,86 +1,81 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 00/18] net: dsa: mv88e6xxx: 802.1s and 88E6390
- VTU
-Date: Mon, 01 May 2017 12:26:18 -0400 (EDT)
-Message-ID: <20170501.122618.1787371573631638101.davem@davemloft.net>
-References: <871ss8bmom.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
-        <20170501.120800.1973590139715167836.davem@davemloft.net>
-        <87shko7dkk.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2 net 0/8] tc/act_pedit: Support offset relative
+ to conventional header
+Date: Mon, 1 May 2017 09:26:25 -0700
+Message-ID: <20170501092625.30274bee@xeon-e3>
+References: <20170423125356.1298-1-amir@vadai.me>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel@savoirfairelinux.com, f.fainelli@gmail.com, andrew@lunn.ch
-To: vivien.didelot@savoirfairelinux.com
+Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>
+To: Amir Vadai <amir@vadai.me>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:34232 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751463AbdEAQ0U (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 1 May 2017 12:26:20 -0400
-In-Reply-To: <87shko7dkk.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+Received: from mail-pf0-f171.google.com ([209.85.192.171]:35315 "EHLO
+        mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751463AbdEAQ02 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 1 May 2017 12:26:28 -0400
+Received: by mail-pf0-f171.google.com with SMTP id v14so76481714pfd.2
+        for <netdev@vger.kernel.org>; Mon, 01 May 2017 09:26:28 -0700 (PDT)
+In-Reply-To: <20170423125356.1298-1-amir@vadai.me>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Date: Mon, 01 May 2017 12:21:31 -0400
+On Sun, 23 Apr 2017 15:53:48 +0300
+Amir Vadai <amir@vadai.me> wrote:
 
-> Hi David,
+> Hi Stephen,
 > 
-> David Miller <davem@davemloft.net> writes:
+> This patchset extends pedit to support modifying a field in an offset relative
+> to the conventional network headers (kenrel support was added [1] in 4.11 rc1).
+> Without the extended pedit, user could specify fields in TCP and ICMP headers,
+> but the kernel code was using an offset relative to the begining of the IP
+> header. This will break if IP header length is greater than the minimal value
+> of 20, or if L3 is not IPv4.
 > 
->> From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
->> Date: Mon, 01 May 2017 11:51:05 -0400
->>
->>> Hi David,
->>> 
->>> Vivien Didelot <vivien.didelot@savoirfairelinux.com> writes:
->>> 
->>>> Vivien Didelot (18):
->>>>   net: dsa: mv88e6xxx: add max VID to info
->>>>   net: dsa: mv88e6xxx: split VTU entry data member
->>>>   net: dsa: mv88e6xxx: move VTU Operation accessors
->>>>   net: dsa: mv88e6xxx: move VTU flush
->>>>   net: dsa: mv88e6xxx: move VTU FID accessors
->>>>   net: dsa: mv88e6xxx: move VTU SID accessors
->>>>   net: dsa: mv88e6xxx: move VTU VID accessors
->>>>   net: dsa: mv88e6xxx: move generic VTU GetNext
->>>>   net: dsa: mv88e6xxx: move VTU Data accessors
->>>>   net: dsa: mv88e6xxx: move STU GetNext operation
->>>>   net: dsa: mv88e6xxx: get STU entry on VTU GetNext
->>>>   net: dsa: mv88e6xxx: load STU entry with VTU entry
->>>>   net: dsa: mv88e6xxx: add VTU GetNext operation
->>>>   net: dsa: mv88e6xxx: add VTU Load/Purge operation
->>>>   net: dsa: mv88e6xxx: make VTU helpers static
->>>>   net: dsa: mv88e6xxx: simplify VTU entry getter
->>>>   net: dsa: mv88e6xxx: support the VTU Page bit
->>>>   net: dsa: mv88e6xxx: add VTU support for 88E6390
->>>>
->>>>  drivers/net/dsa/mv88e6xxx/Makefile      |   1 +
->>>>  drivers/net/dsa/mv88e6xxx/chip.c        | 568 +++++++++-----------------------
->>>>  drivers/net/dsa/mv88e6xxx/global1.h     |  14 +
->>>>  drivers/net/dsa/mv88e6xxx/global1_vtu.c | 505 ++++++++++++++++++++++++++++
->>>>  drivers/net/dsa/mv88e6xxx/mv88e6xxx.h   |  31 +-
->>>>  5 files changed, 684 insertions(+), 435 deletions(-)
->>>>  create mode 100644 drivers/net/dsa/mv88e6xxx/global1_vtu.c
->>> 
->>> I don't see the patchset in net-next. Can you pick it?
->>
->> This had feedback which you must address, therefore the state in
->> patchwork is "changes requested" which you could have checked before
->> asking me this.
->>
->> If the patch set is fine and you got ACKs for all of your patches
->> then please resubmit.
->>
->> Otherwise, make the changes you were asked to make or explain to
->> the person who asked for them why they are not appropriate.
+> It also introduces support in manipulating ETH, TCP, UDP and IP.ttl fields and
+> a new command to increase/decrease the value of a field (current use case is IP.ttl).
 > 
-> We did discuss the patchset and everything is good as is. Can someone
-> change the state in patchwork afterwards? It feels weird to resend the
-> patch with no changes.
+> Since there might be deployments already using pedit, special consideration was
+> taken, not to break those scripts - only by specifying the special keyword
+> 'ex', the extended capabilities are available, thus there should be no impact
+> on existing scripts.
+> Also, the new code can live together with rules added by the old code. It
+> supports both the old netlink and the new one.
+> 
+> This patchset is against the master and not net-next as the functionality was
+> added in 4.11
+> 
+> Thanks,
+> Amir
+> 
+> [1] - 71d0ed7079df ("net/act_pedit: Support using offset relative to the
+>                      conventional network headers")
+> 
+> Amir Vadai (7):
+>   tc/pedit: Fix a typo in pedit usage message
+>   tc/pedit: Extend pedit to specify offset relative to mac/transport
+>     headers
+>   tc/pedit: Introduce 'add' operation
+>   tc/pedit: p_ip: introduce editing ttl header
+>   tc/pedit: Support fields bigger than 32 bits
+>   tc/pedit: p_eth: ETH header editor
+>   tc/pedit: p_tcp: introduce pedit tcp support
+> 
+> Or Gerlitz (1):
+>   tc/pedit: p_udp: introduce pedit udp support
+> 
+>  man/man8/tc-pedit.8 | 126 +++++++++++++++++++++--
+>  tc/Makefile         |   1 +
+>  tc/m_pedit.c        | 290 ++++++++++++++++++++++++++++++++++++++++++++++------
+>  tc/m_pedit.h        |  44 ++++++--
+>  tc/p_eth.c          |  72 +++++++++++++
+>  tc/p_icmp.c         |   3 +-
+>  tc/p_ip.c           |  21 +++-
+>  tc/p_tcp.c          |  40 +++++++-
+>  tc/p_udp.c          |  30 +++++-
+>  9 files changed, 572 insertions(+), 55 deletions(-)
+>  create mode 100644 tc/p_eth.c
+> 
 
-Once I set the state to "changes requested", that's basically permanent.
-
-Please simply resubmit your patch series, ACKs added if necessary.
-
-Thanks.
+Applied. Then I cleaned up long lines
