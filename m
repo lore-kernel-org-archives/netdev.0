@@ -1,110 +1,108 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 31/53] netfilter: conntrack: use u8 for extension sizes again
-Date: Mon,  1 May 2017 12:46:58 +0200
-Message-ID: <1493635640-24325-32-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 30/53] netfilter: remove last traces of variable-sized extensions
+Date: Mon,  1 May 2017 12:46:57 +0200
+Message-ID: <1493635640-24325-31-git-send-email-pablo@netfilter.org>
 References: <1493635640-24325-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:49646 "EHLO mail.us.es"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S378832AbdEAKs2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 1 May 2017 06:48:28 -0400
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id 563EB209930
-        for <netdev@vger.kernel.org>; Mon,  1 May 2017 12:47:54 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 45DA4FF137
-        for <netdev@vger.kernel.org>; Mon,  1 May 2017 12:47:54 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 3661DFF2CF
-        for <netdev@vger.kernel.org>; Mon,  1 May 2017 12:47:52 +0200 (CEST)
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1493635640-24325-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Florian Westphal <fw@strlen.de>
 
-commit 223b02d923ecd7c84cf9780bb3686f455d279279
-("netfilter: nf_conntrack: reserve two bytes for nf_ct_ext->len")
-had to increase size of the extension offsets because total size of the
-extensions had increased to a point where u8 did overflow.
-
-3 years later we've managed to diet extensions a bit and we no longer
-need u16.  Furthermore we can now add a compile-time assertion for this
-problem.
+get rid of the (now unused) nf_ct_ext_add_length define and also
+rename the function to plain nf_ct_ext_add().
 
 Signed-off-by: Florian Westphal <fw@strlen.de>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/net/netfilter/nf_conntrack_extend.h |  4 ++--
- net/netfilter/nf_conntrack_core.c           | 33 +++++++++++++++++++++++++++++
- 2 files changed, 35 insertions(+), 2 deletions(-)
+ include/net/netfilter/nf_conntrack_extend.h |  8 +-------
+ net/netfilter/nf_conntrack_extend.c         | 16 +++++++---------
+ 2 files changed, 8 insertions(+), 16 deletions(-)
 
 diff --git a/include/net/netfilter/nf_conntrack_extend.h b/include/net/netfilter/nf_conntrack_extend.h
-index 4ec645c8b647..5fc908dc9f32 100644
+index 1c3035dda31f..4ec645c8b647 100644
 --- a/include/net/netfilter/nf_conntrack_extend.h
 +++ b/include/net/netfilter/nf_conntrack_extend.h
-@@ -43,8 +43,8 @@ enum nf_ct_ext_id {
- /* Extensions: optional stuff which isn't permanently in struct. */
- struct nf_ct_ext {
- 	struct rcu_head rcu;
--	u16 offset[NF_CT_EXT_NUM];
--	u16 len;
-+	u8 offset[NF_CT_EXT_NUM];
-+	u8 len;
- 	char data[0];
- };
+@@ -86,13 +86,7 @@ static inline void nf_ct_ext_free(struct nf_conn *ct)
+ }
  
-diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-index 03150f60714d..62368b05cef5 100644
---- a/net/netfilter/nf_conntrack_core.c
-+++ b/net/netfilter/nf_conntrack_core.c
-@@ -1804,12 +1804,45 @@ EXPORT_SYMBOL_GPL(nf_conntrack_set_hashsize);
- module_param_call(hashsize, nf_conntrack_set_hashsize, param_get_uint,
- 		  &nf_conntrack_htable_size, 0600);
+ /* Add this type, returns pointer to data or NULL. */
+-void *__nf_ct_ext_add_length(struct nf_conn *ct, enum nf_ct_ext_id id,
+-			     size_t var_alloc_len, gfp_t gfp);
+-
+-#define nf_ct_ext_add(ct, id, gfp) \
+-	((id##_TYPE *)__nf_ct_ext_add_length((ct), (id), 0, (gfp)))
+-#define nf_ct_ext_add_length(ct, id, len, gfp) \
+-	((id##_TYPE *)__nf_ct_ext_add_length((ct), (id), (len), (gfp)))
++void *nf_ct_ext_add(struct nf_conn *ct, enum nf_ct_ext_id id, gfp_t gfp);
  
-+static unsigned int total_extension_size(void)
-+{
-+	/* remember to add new extensions below */
-+	BUILD_BUG_ON(NF_CT_EXT_NUM > 9);
-+
-+	return sizeof(struct nf_ct_ext) +
-+	       sizeof(struct nf_conn_help)
-+#if IS_ENABLED(CONFIG_NF_NAT)
-+		+ sizeof(struct nf_conn_nat)
-+#endif
-+		+ sizeof(struct nf_conn_seqadj)
-+		+ sizeof(struct nf_conn_acct)
-+#ifdef CONFIG_NF_CONNTRACK_EVENTS
-+		+ sizeof(struct nf_conntrack_ecache)
-+#endif
-+#ifdef CONFIG_NF_CONNTRACK_TIMESTAMP
-+		+ sizeof(struct nf_conn_tstamp)
-+#endif
-+#ifdef CONFIG_NF_CONNTRACK_TIMEOUT
-+		+ sizeof(struct nf_conn_timeout)
-+#endif
-+#ifdef CONFIG_NF_CONNTRACK_LABELS
-+		+ sizeof(struct nf_conn_labels)
-+#endif
-+#if IS_ENABLED(CONFIG_NETFILTER_SYNPROXY)
-+		+ sizeof(struct nf_conn_synproxy)
-+#endif
-+	;
-+};
-+
- int nf_conntrack_init_start(void)
+ #define NF_CT_EXT_F_PREALLOC	0x0001
+ 
+diff --git a/net/netfilter/nf_conntrack_extend.c b/net/netfilter/nf_conntrack_extend.c
+index 008299b7f78f..b5879a9c748d 100644
+--- a/net/netfilter/nf_conntrack_extend.c
++++ b/net/netfilter/nf_conntrack_extend.c
+@@ -44,8 +44,7 @@ void __nf_ct_ext_destroy(struct nf_conn *ct)
+ EXPORT_SYMBOL(__nf_ct_ext_destroy);
+ 
+ static void *
+-nf_ct_ext_create(struct nf_ct_ext **ext, enum nf_ct_ext_id id,
+-		 size_t var_alloc_len, gfp_t gfp)
++nf_ct_ext_create(struct nf_ct_ext **ext, enum nf_ct_ext_id id, gfp_t gfp)
  {
- 	int max_factor = 8;
- 	int ret = -ENOMEM;
- 	int i;
+ 	unsigned int off, len;
+ 	struct nf_ct_ext_type *t;
+@@ -59,8 +58,8 @@ nf_ct_ext_create(struct nf_ct_ext **ext, enum nf_ct_ext_id id,
+ 	}
  
-+	/* struct nf_ct_ext uses u8 to store offsets/size */
-+	BUILD_BUG_ON(total_extension_size() > 255u);
-+
- 	seqcount_init(&nf_conntrack_generation);
+ 	off = ALIGN(sizeof(struct nf_ct_ext), t->align);
+-	len = off + t->len + var_alloc_len;
+-	alloc_size = t->alloc_size + var_alloc_len;
++	len = off + t->len;
++	alloc_size = t->alloc_size;
+ 	rcu_read_unlock();
  
- 	for (i = 0; i < CONNTRACK_LOCKS; i++)
+ 	*ext = kzalloc(alloc_size, gfp);
+@@ -73,8 +72,7 @@ nf_ct_ext_create(struct nf_ct_ext **ext, enum nf_ct_ext_id id,
+ 	return (void *)(*ext) + off;
+ }
+ 
+-void *__nf_ct_ext_add_length(struct nf_conn *ct, enum nf_ct_ext_id id,
+-			     size_t var_alloc_len, gfp_t gfp)
++void *nf_ct_ext_add(struct nf_conn *ct, enum nf_ct_ext_id id, gfp_t gfp)
+ {
+ 	struct nf_ct_ext *old, *new;
+ 	int newlen, newoff;
+@@ -85,7 +83,7 @@ void *__nf_ct_ext_add_length(struct nf_conn *ct, enum nf_ct_ext_id id,
+ 
+ 	old = ct->ext;
+ 	if (!old)
+-		return nf_ct_ext_create(&ct->ext, id, var_alloc_len, gfp);
++		return nf_ct_ext_create(&ct->ext, id, gfp);
+ 
+ 	if (__nf_ct_ext_exist(old, id))
+ 		return NULL;
+@@ -98,7 +96,7 @@ void *__nf_ct_ext_add_length(struct nf_conn *ct, enum nf_ct_ext_id id,
+ 	}
+ 
+ 	newoff = ALIGN(old->len, t->align);
+-	newlen = newoff + t->len + var_alloc_len;
++	newlen = newoff + t->len;
+ 	rcu_read_unlock();
+ 
+ 	new = __krealloc(old, newlen, gfp);
+@@ -115,7 +113,7 @@ void *__nf_ct_ext_add_length(struct nf_conn *ct, enum nf_ct_ext_id id,
+ 	memset((void *)new + newoff, 0, newlen - newoff);
+ 	return (void *)new + newoff;
+ }
+-EXPORT_SYMBOL(__nf_ct_ext_add_length);
++EXPORT_SYMBOL(nf_ct_ext_add);
+ 
+ static void update_alloc_size(struct nf_ct_ext_type *type)
+ {
 -- 
 2.1.4
+
