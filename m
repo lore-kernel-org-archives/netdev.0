@@ -1,28 +1,31 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [GIT PULL 0/2] Third Round of IPVS Updates for v4.12
-Date: Mon, 1 May 2017 11:47:41 +0200
-Message-ID: <20170501094741.GA3895@salvia>
-References: <20170428101159.9810-1-horms@verge.net.au>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [net-next PATCH 1/2] samples/bpf: fix SKB_MODE flag to be a 32-bit
+ unsigned int
+Date: Mon, 01 May 2017 11:55:38 +0200
+Message-ID: <5907061A.9070409@iogearbox.net>
+References: <149363073213.17600.4480290736818479957.stgit@firesoul> <149363077553.17600.5609466598508053296.stgit@firesoul>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-        netfilter-devel@vger.kernel.org,
-        Wensong Zhang <wensong@linux-vs.org>,
-        Julian Anastasov <ja@ssi.bg>
-To: Simon Horman <horms@verge.net.au>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170428101159.9810-1-horms@verge.net.au>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Daniel Borkmann <borkmann@iogearbox.net>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>
+To: Jesper Dangaard Brouer <brouer@redhat.com>,
+        dsa@cumulusnetworks.com, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:35333 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1426142AbdEAJzn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 1 May 2017 05:55:43 -0400
+In-Reply-To: <149363077553.17600.5609466598508053296.stgit@firesoul>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 28, 2017 at 12:11:57PM +0200, Simon Horman wrote:
-> Hi Pablo,
-> 
-> please consider these enhancements to IPVS for v4.12.
-> If it is too late for v4.12 then please consider them for v4.13.
-> 
-> * Remove unused function
-> * Correct comparison of unsigned value
+On 05/01/2017 11:26 AM, Jesper Dangaard Brouer wrote:
+> The kernel side of XDP_FLAGS_SKB_MODE is unsigned, and the rtnetlink
+> IFLA_XDP_FLAGS is defined as NLA_U32. Thus, userspace programs under
+> samples/bpf/ should use the correct type.
+>
+> Fixes: 3993f2cb983b ("samples/bpf: Add support for SKB_MODE to xdp1 and xdp_tx_iptunnel")
+> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
 
-Pulled, thanks Simon.
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
