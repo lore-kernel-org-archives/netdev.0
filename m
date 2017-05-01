@@ -1,46 +1,57 @@
-From: Tushar Dave <tushar.n.dave@oracle.com>
-Subject: [PATCH] i40evf: Use le32_to_cpu before evaluating HW desc fields.
-Date: Mon,  1 May 2017 16:15:59 -0700
-Message-ID: <1493680559-6728-1-git-send-email-tushar.n.dave@oracle.com>
-To: jeffrey.t.kirsher@intel.com, intel-wired-lan@lists.osuosl.org,
-        netdev@vger.kernel.org
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH net] tcp: fix wraparound issue in tcp_lp
+Date: Mon, 1 May 2017 16:56:43 -0700
+Message-ID: <20170501165643.698aa0b5@xeon-e3>
+References: <1493677788.31837.25.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:36425 "EHLO
-        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750749AbdEAXRX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 1 May 2017 19:17:23 -0400
+Received: from mail-pg0-f45.google.com ([74.125.83.45]:33752 "EHLO
+        mail-pg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750712AbdEAX4q (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 1 May 2017 19:56:46 -0400
+Received: by mail-pg0-f45.google.com with SMTP id y4so46359039pge.0
+        for <netdev@vger.kernel.org>; Mon, 01 May 2017 16:56:46 -0700 (PDT)
+In-Reply-To: <1493677788.31837.25.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-i40e hardware descriptor fields are in little-endian format. Driver
-must use le32_to_cpu while evaluating these fields otherwise on
-big-endian arch we end up evaluating incorrect values, cause errors
-like:
+On Mon, 01 May 2017 15:29:48 -0700
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-i40evf 0001:04:02.0: Expected response 0 from PF, received 285212672
-i40evf 0001:04:02.1: Expected response 0 from PF, received 285212672
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> Be careful when comparing tcp_time_stamp to some u32 quantity,
+> otherwise result can be surprising.
+> 
+> Fixes: 7c106d7e782b ("[TCP]: TCP Low Priority congestion control")
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> ---
+>  net/ipv4/tcp_lp.c |    6 ++++--
+>  1 file changed, 4 insertions(+), 2 deletions(-)
+> 
+> diff --git a/net/ipv4/tcp_lp.c b/net/ipv4/tcp_lp.c
+> index 046fd3910873306d74207615d6997e1c847ea361..d6fb6c067af4641f232b94e7c590c212648e8173 100644
+> --- a/net/ipv4/tcp_lp.c
+> +++ b/net/ipv4/tcp_lp.c
+> @@ -264,13 +264,15 @@ static void tcp_lp_pkts_acked(struct sock *sk, const struct ack_sample *sample)
+>  {
+>  	struct tcp_sock *tp = tcp_sk(sk);
+>  	struct lp *lp = inet_csk_ca(sk);
+> +	u32 delta;
+>  
+>  	if (sample->rtt_us > 0)
+>  		tcp_lp_rtt_sample(sk, sample->rtt_us);
+>  
+>  	/* calc inference */
+> -	if (tcp_time_stamp > tp->rx_opt.rcv_tsecr)
+> -		lp->inference = 3 * (tcp_time_stamp - tp->rx_opt.rcv_tsecr);
+> +	delta = tcp_time_stamp - tp->rx_opt.rcv_tsecr;
+> +	if ((s32)delta > 0)
+> +		lp->inference = 3 * delta;
 
-Signed-off-by: Tushar Dave <tushar.n.dave@oracle.com>
----
- drivers/net/ethernet/intel/i40evf/i40evf_main.c | 6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-index f35dcaa..2c1dfaf 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-@@ -1923,8 +1923,10 @@ static void i40evf_adminq_task(struct work_struct *work)
- 		if (ret || !v_msg->v_opcode)
- 			break; /* No event to process or error cleaning ARQ */
- 
--		i40evf_virtchnl_completion(adapter, v_msg->v_opcode,
--					   v_msg->v_retval, event.msg_buf,
-+		i40evf_virtchnl_completion(adapter,
-+					   le32_to_cpu(v_msg->v_opcode),
-+					   le32_to_cpu(v_msg->v_retval),
-+					   event.msg_buf,
- 					   event.msg_len);
- 		if (pending != 0)
- 			memset(event.msg_buf, 0, I40EVF_MAX_AQ_BUF_SIZE);
--- 
-1.9.1
+Agreed time wraparound would cause problems.
+But why not use existing time_after() macro here?
