@@ -1,47 +1,50 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [patch net-next repost] net: sched: add helpers to handle
- extended actions
-Date: Tue, 2 May 2017 07:59:20 -0400
-Message-ID: <35328c1b-4571-f115-50c6-5f0c46ced3cc@mojatatu.com>
-References: <1493712720-1501-1-git-send-email-jiri@resnulli.us>
+From: Simon Horman <simon.horman@netronome.com>
+Subject: Re: [oss-drivers] Re: [PATCH/RFC net-next 0/4] net/sched:
+ cls_flower: avoid false matching of truncated packets
+Date: Tue, 2 May 2017 14:04:29 +0200
+Message-ID: <20170502120428.GC24820@vergenet.net>
+References: <20170428120035.15984-1-simon.horman@netronome.com>
+ <422d55da-f861-1bc6-983d-199fc383c113@mojatatu.com>
+ <20170428131155.GA30329@vergenet.net>
+ <2c14754a-f3f5-cece-2cd7-361948a00c22@mojatatu.com>
+ <20170428141414.GA11256@vergenet.net>
+ <0e993860-4dfd-3562-5ccb-c5ad24e5f970@mojatatu.com>
+ <20170501103645.GC24399@vergenet.net>
+ <c88b57d8-81a5-78e5-add6-33941f912d73@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, xiyou.wangcong@gmail.com, mlxsw@mellanox.com
-To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Jiri Pirko <jiri@mellanox.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        Dinan Gunawardena <dinan.gunawardena@netronome.com>,
+        netdev@vger.kernel.org, oss-drivers@netronome.com
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f67.google.com ([209.85.214.67]:35883 "EHLO
-        mail-it0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751077AbdEBL7W (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 2 May 2017 07:59:22 -0400
-Received: by mail-it0-f67.google.com with SMTP id x188so1835150itb.3
-        for <netdev@vger.kernel.org>; Tue, 02 May 2017 04:59:22 -0700 (PDT)
-In-Reply-To: <1493712720-1501-1-git-send-email-jiri@resnulli.us>
+Received: from mail-wm0-f51.google.com ([74.125.82.51]:35404 "EHLO
+        mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750960AbdEBMEe (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 2 May 2017 08:04:34 -0400
+Received: by mail-wm0-f51.google.com with SMTP id w64so110204796wma.0
+        for <netdev@vger.kernel.org>; Tue, 02 May 2017 05:04:33 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <c88b57d8-81a5-78e5-add6-33941f912d73@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 17-05-02 04:12 AM, Jiri Pirko wrote:
-> From: Jiri Pirko <jiri@mellanox.com>
->
-> Jump is now the only one using value action opcode. This is going to
-> change soon. So introduce helpers to work with this. Convert TC_ACT_JUMP.
->
-> This also fixes the TC_ACT_JUMP check, which is incorrectly done as a
-> bit check, not a value check.
->
-> Fixes: e0ee84ded796 ("net sched actions: Complete the JUMPX opcode")
-> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
-> ---
-> Dave, I'm sending this for -net-next although I know it is closed. But
-> the mentioned commit is not yet in -net. Feel free to take this either
-> to -net-next or -net, whatever suits you better. Thanks.
+On Mon, May 01, 2017 at 09:35:47PM -0400, Jamal Hadi Salim wrote:
+> On 17-05-01 06:36 AM, Simon Horman wrote:
+> >On Sun, Apr 30, 2017 at 09:51:30AM -0400, Jamal Hadi Salim wrote:
+> >>On 17-04-28 10:14 AM, Simon Horman wrote:
+> 
+> [..]
+> 
+> >>minimal some flag should qualify it as "truncated".
+> >
+> >Would changing TCA_FLOWER_HEADER_PARSE_ERR_ACT to
+> >TCA_FLOWER_META_TRUNCATED help?
+> >
+> 
+> I think so - as long as you are able to recognize the truncated
+> vs real 0 port/type etc.
 
-I think you are pushing the boundary a little calling it a bug fix
-and this could go with your patch series instead.
-The name TC_ACT_EXT_CMP should be TC_ACT_EXT_CMP_OPCODE
-Other than that:
-
-Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
-
-cheers,
-jamal
+That is the intention of the patchset.
+I will make the change and repost.
