@@ -1,7 +1,7 @@
 From: Miroslav Lichvar <mlichvar@redhat.com>
-Subject: [PATCH v2 net-next 6/7] net: allow simultaneous SW and HW transmit timestamping
-Date: Tue,  2 May 2017 12:11:02 +0200
-Message-ID: <20170502101103.30444-7-mlichvar@redhat.com>
+Subject: [PATCH v2 net-next 3/7] net: add function to retrieve original skb device using NAPI ID
+Date: Tue,  2 May 2017 12:10:59 +0200
+Message-ID: <20170502101103.30444-4-mlichvar@redhat.com>
 References: <20170502101103.30444-1-mlichvar@redhat.com>
 Cc: Richard Cochran <richardcochran@gmail.com>,
         Willem de Bruijn <willemb@google.com>,
@@ -10,159 +10,109 @@ Cc: Richard Cochran <richardcochran@gmail.com>,
         Denny Page <dennypage@me.com>, Jiri Benc <jbenc@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:44204 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:51958 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751184AbdEBKLb (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 2 May 2017 06:11:31 -0400
+        id S1750995AbdEBKL1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 2 May 2017 06:11:27 -0400
 In-Reply-To: <20170502101103.30444-1-mlichvar@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add SOF_TIMESTAMPING_OPT_TX_SWHW option to allow an outgoing packet to
-be looped to the socket's error queue with a software timestamp even
-when a hardware transmit timestamp is expected to be provided by the
-driver.
+Since commit b68581778cd0 ("net: Make skb->skb_iif always track
+skb->dev") skbs don't have the original index of the interface which
+received the packet. This information is now needed for a new control
+message related to hardware timestamping.
 
-Applications using this option will receive two separate messages from
-the error queue, one with a software timestamp and the other with a
-hardware timestamp. As the hardware timestamp is saved to the shared skb
-info, which may happen before the first message with software timestamp
-is received by the application, the hardware timestamp is copied to the
-SCM_TIMESTAMPING control message only when the skb has no software
-timestamp or it is an incoming packet.
-
-While changing sw_tx_timestamp(), inline it in skb_tx_timestamp() as
-there are no other users.
+Instead of adding a new field to skb, we can find the device by the NAPI
+ID if it is available, i.e. CONFIG_NET_RX_BUSY_POLL is enabled and the
+driver is using NAPI. Add dev_get_by_napi_id() and also skb_napi_id() to
+hide the CONFIG_NET_RX_BUSY_POLL ifdef.
 
 CC: Richard Cochran <richardcochran@gmail.com>
 CC: Willem de Bruijn <willemb@google.com>
+Suggested-by: Willem de Bruijn <willemb@google.com>
 Signed-off-by: Miroslav Lichvar <mlichvar@redhat.com>
 ---
- Documentation/networking/timestamping.txt | 14 ++++++++++++--
- include/linux/skbuff.h                    | 10 ++--------
- include/uapi/linux/net_tstamp.h           |  3 ++-
- net/core/skbuff.c                         |  4 ++++
- net/socket.c                              | 11 +++++++++++
- 5 files changed, 31 insertions(+), 11 deletions(-)
+ include/linux/netdevice.h |  1 +
+ include/linux/skbuff.h    |  9 +++++++++
+ net/core/dev.c            | 26 ++++++++++++++++++++++++++
+ 3 files changed, 36 insertions(+)
 
-diff --git a/Documentation/networking/timestamping.txt b/Documentation/networking/timestamping.txt
-index 6c07e7c..ab29a6e 100644
---- a/Documentation/networking/timestamping.txt
-+++ b/Documentation/networking/timestamping.txt
-@@ -201,6 +201,14 @@ SOF_TIMESTAMPING_OPT_PKTINFO:
-   which received the packet and its length at layer 2. This option
-   works only if CONFIG_NET_RX_BUSY_POLL is enabled.
- 
-+SOF_TIMESTAMPING_OPT_TX_SWHW:
-+
-+  Request both hardware and software timestamps for outgoing packets
-+  when SOF_TIMESTAMPING_TX_HARDWARE and SOF_TIMESTAMPING_TX_SOFTWARE
-+  are enabled at the same time. If both timestamps are generated,
-+  two separate messages will be looped to the socket's error queue,
-+  each containing just one timestamp.
-+
- New applications are encouraged to pass SOF_TIMESTAMPING_OPT_ID to
- disambiguate timestamps and SOF_TIMESTAMPING_OPT_TSONLY to operate
- regardless of the setting of sysctl net.core.tstamp_allow_data.
-@@ -320,8 +328,10 @@ struct scm_timestamping {
- };
- 
- The structure can return up to three timestamps. This is a legacy
--feature. Only one field is non-zero at any time. Most timestamps
--are passed in ts[0]. Hardware timestamps are passed in ts[2].
-+feature. Most timestamps are passed in ts[0]. Hardware timestamps
-+are passed in ts[2]. Incoming packets may have timestamps in both
-+ts[0] and ts[2], but for outgoing packets only one field is non-zero
-+at any time.
- 
- ts[1] used to hold hardware timestamps converted to system time.
- Instead, expose the hardware clock device on the NIC directly as
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 9c23bd2..4ca2a16 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -2456,6 +2456,7 @@ static inline int dev_recursion_level(void)
+ struct net_device *dev_get_by_index(struct net *net, int ifindex);
+ struct net_device *__dev_get_by_index(struct net *net, int ifindex);
+ struct net_device *dev_get_by_index_rcu(struct net *net, int ifindex);
++struct net_device *dev_get_by_napi_id(unsigned int napi_id);
+ int netdev_get_name(struct net *net, char *name, int ifindex);
+ int dev_restart(struct net_device *dev);
+ int skb_gro_receive(struct sk_buff **head, struct sk_buff *skb);
 diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index bfe6ec3..3be2241 100644
+index 81ef53f..bfe6ec3 100644
 --- a/include/linux/skbuff.h
 +++ b/include/linux/skbuff.h
-@@ -3307,13 +3307,6 @@ void __skb_tstamp_tx(struct sk_buff *orig_skb,
- void skb_tstamp_tx(struct sk_buff *orig_skb,
- 		   struct skb_shared_hwtstamps *hwtstamps);
- 
--static inline void sw_tx_timestamp(struct sk_buff *skb)
--{
--	if (skb_shinfo(skb)->tx_flags & SKBTX_SW_TSTAMP &&
--	    !(skb_shinfo(skb)->tx_flags & SKBTX_IN_PROGRESS))
--		skb_tstamp_tx(skb, NULL);
--}
--
- /**
-  * skb_tx_timestamp() - Driver hook for transmit timestamping
-  *
-@@ -3329,7 +3322,8 @@ static inline void sw_tx_timestamp(struct sk_buff *skb)
- static inline void skb_tx_timestamp(struct sk_buff *skb)
- {
- 	skb_clone_tx_timestamp(skb);
--	sw_tx_timestamp(skb);
-+	if (skb_shinfo(skb)->tx_flags & SKBTX_SW_TSTAMP)
-+		skb_tstamp_tx(skb, NULL);
+@@ -915,6 +915,15 @@ static inline bool skb_pkt_type_ok(u32 ptype)
+ 	return ptype <= PACKET_OTHERHOST;
  }
  
- /**
-diff --git a/include/uapi/linux/net_tstamp.h b/include/uapi/linux/net_tstamp.h
-index 8fcae35..d251972 100644
---- a/include/uapi/linux/net_tstamp.h
-+++ b/include/uapi/linux/net_tstamp.h
-@@ -27,8 +27,9 @@ enum {
- 	SOF_TIMESTAMPING_OPT_TSONLY = (1<<11),
- 	SOF_TIMESTAMPING_OPT_STATS = (1<<12),
- 	SOF_TIMESTAMPING_OPT_PKTINFO = (1<<13),
-+	SOF_TIMESTAMPING_OPT_TX_SWHW = (1<<14),
- 
--	SOF_TIMESTAMPING_LAST = SOF_TIMESTAMPING_OPT_PKTINFO,
-+	SOF_TIMESTAMPING_LAST = SOF_TIMESTAMPING_OPT_TX_SWHW,
- 	SOF_TIMESTAMPING_MASK = (SOF_TIMESTAMPING_LAST - 1) |
- 				 SOF_TIMESTAMPING_LAST
- };
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 58604c1..db5aa19 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -3874,6 +3874,10 @@ void __skb_tstamp_tx(struct sk_buff *orig_skb,
- 	if (!sk)
- 		return;
- 
-+	if (!hwtstamps && !(sk->sk_tsflags & SOF_TIMESTAMPING_OPT_TX_SWHW) &&
-+	    skb_shinfo(orig_skb)->tx_flags & SKBTX_IN_PROGRESS)
-+		return;
-+
- 	tsonly = sk->sk_tsflags & SOF_TIMESTAMPING_OPT_TSONLY;
- 	if (!skb_may_tx_timestamp(sk, tsonly))
- 		return;
-diff --git a/net/socket.c b/net/socket.c
-index fe7e5bc..33827c4 100644
---- a/net/socket.c
-+++ b/net/socket.c
-@@ -662,6 +662,16 @@ static bool skb_is_err_queue(const struct sk_buff *skb)
- 	return skb->pkt_type == PACKET_OUTGOING;
- }
- 
-+/* On transmit, software and hardware timestamps are returned independently.
-+ * As the two skb clones share the hardware timestamp, which may be updated
-+ * before the software timestamp is received, a hardware TX timestamp may be
-+ * returned only if there is no software TX timestamp.
-+ */
-+static bool skb_is_swtx_tstamp(const struct sk_buff *skb)
++static inline unsigned int skb_napi_id(const struct sk_buff *skb)
 +{
-+	return skb->tstamp && skb_is_err_queue(skb);
++#ifdef CONFIG_NET_RX_BUSY_POLL
++	return skb->napi_id;
++#else
++	return 0;
++#endif
 +}
 +
- static void put_ts_pktinfo(struct msghdr *msg, struct sk_buff *skb)
- {
- 	struct scm_ts_pktinfo ts_pktinfo;
-@@ -724,6 +734,7 @@ void __sock_recv_timestamp(struct msghdr *msg, struct sock *sk,
- 		empty = 0;
- 	if (shhwtstamps &&
- 	    (sk->sk_tsflags & SOF_TIMESTAMPING_RAW_HARDWARE) &&
-+	    !skb_is_swtx_tstamp(skb) &&
- 	    ktime_to_timespec_cond(shhwtstamps->hwtstamp, tss.ts + 2)) {
- 		empty = 0;
- 		if ((sk->sk_tsflags & SOF_TIMESTAMPING_OPT_PKTINFO) &&
+ void kfree_skb(struct sk_buff *skb);
+ void kfree_skb_list(struct sk_buff *segs);
+ void skb_tx_error(struct sk_buff *skb);
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 35a06ce..fe079b2 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -160,6 +160,7 @@ static int netif_rx_internal(struct sk_buff *skb);
+ static int call_netdevice_notifiers_info(unsigned long val,
+ 					 struct net_device *dev,
+ 					 struct netdev_notifier_info *info);
++static struct napi_struct *napi_by_id(unsigned int napi_id);
+ 
+ /*
+  * The @dev_base_head list is protected by @dev_base_lock and the rtnl
+@@ -864,6 +865,31 @@ struct net_device *dev_get_by_index(struct net *net, int ifindex)
+ EXPORT_SYMBOL(dev_get_by_index);
+ 
+ /**
++ *	dev_get_by_napi_id - find a device by napi_id
++ *	@napi_id: ID of the NAPI struct
++ *
++ *	Search for an interface by NAPI ID. Returns %NULL if the device
++ *	is not found or a pointer to the device. The device has not had
++ *	its reference counter increased so the caller must be careful
++ *	about locking. The caller must hold RCU lock.
++ */
++
++struct net_device *dev_get_by_napi_id(unsigned int napi_id)
++{
++	struct napi_struct *napi;
++
++	if (napi_id < MIN_NAPI_ID)
++		return NULL;
++
++	napi = napi_by_id(napi_id);
++	if (napi)
++		return napi->dev;
++
++	return NULL;
++}
++EXPORT_SYMBOL(dev_get_by_napi_id);
++
++/**
+  *	netdev_get_name - get a netdevice name, knowing its ifindex.
+  *	@net: network namespace
+  *	@name: a pointer to the buffer where the name will be stored.
 -- 
 2.9.3
