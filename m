@@ -1,33 +1,41 @@
-From: Miroslav Lichvar <mlichvar@redhat.com>
-Subject: Re: [PATCH v2 net-next 0/7] Extend socket timestamping API
-Date: Tue, 2 May 2017 14:55:01 +0200
-Message-ID: <20170502125501.GC4610@localhost>
-References: <20170502101103.30444-1-mlichvar@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Richard Cochran <richardcochran@gmail.com>,
-        Willem de Bruijn <willemb@google.com>
+From: sunil.kovvuri@gmail.com
+Subject: [PATCH 0/9] net: thunderx: Adds XDP support
+Date: Tue,  2 May 2017 18:36:49 +0530
+Message-ID: <1493730418-24606-1-git-send-email-sunil.kovvuri@gmail.com>
+Cc: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+        Sunil Goutham <sgoutham@cavium.com>
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:31677 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750934AbdEBMzE (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 2 May 2017 08:55:04 -0400
-Content-Disposition: inline
-In-Reply-To: <20170502101103.30444-1-mlichvar@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hm, I see that net-next was closed. I missed the annoucement. Sorry
-for the spam.
+From: Sunil Goutham <sgoutham@cavium.com>
 
-On Tue, May 02, 2017 at 02:46:02PM +0200, Miroslav Lichvar wrote:
-> Changes v1->v2:
-> - added separate patch for new NAPI functions 
-> - split code from __sock_recv_timestamp() for better readability
-> - fixed RCU locking
-> - fixed compiler warning (missing case in switch in first patch)
-> - inline sw_tx_timestamp() in its only user
+This patch series adds support for XDP to ThunderX NIC driver
+which is used on CN88xx, CN81xx and CN83xx platforms. 
+
+Patches 1-4 are performance improvement and cleanup patches
+which are done keeping XDP performance bottlenecks in view.
+Rest of the patches adds actual XDP support.
+
+Sunil Goutham (9):
+  net: thunderx: Support for page recycling
+  net: thunderx: Optimize RBDR descriptor handling
+  net: thunderx: Optimize CQE_TX handling
+  net: thunderx: Cleanup receive buffer allocation
+  net: thunderx: Add basic XDP support
+  net: thunderx: Add support for XDP_DROP
+  net: thunderx: Add support for XDP_TX
+  net: thunderx: Support for XDP header adjustment
+  net: thunderx: Optimize page recycling for XDP
+
+ drivers/net/ethernet/cavium/thunder/nic.h          |  10 +-
+ .../net/ethernet/cavium/thunder/nicvf_ethtool.c    |  29 +-
+ drivers/net/ethernet/cavium/thunder/nicvf_main.c   | 313 +++++++++++++++--
+ drivers/net/ethernet/cavium/thunder/nicvf_queues.c | 387 +++++++++++++++++----
+ drivers/net/ethernet/cavium/thunder/nicvf_queues.h |  32 +-
+ drivers/net/ethernet/cavium/thunder/q_struct.h     |  10 +-
+ 6 files changed, 657 insertions(+), 124 deletions(-)
 
 -- 
-Miroslav Lichvar
+2.7.4
