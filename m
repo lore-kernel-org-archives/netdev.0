@@ -1,7 +1,7 @@
 From: Miroslav Lichvar <mlichvar@redhat.com>
-Subject: [PATCH v2 net-next 7/7] net: ethernet: update drivers to make both SW and HW TX timestamps
-Date: Tue,  2 May 2017 12:11:03 +0200
-Message-ID: <20170502101103.30444-8-mlichvar@redhat.com>
+Subject: [PATCH v2 net-next 5/7] net: don't make false software transmit timestamps
+Date: Tue,  2 May 2017 12:11:01 +0200
+Message-ID: <20170502101103.30444-6-mlichvar@redhat.com>
 References: <20170502101103.30444-1-mlichvar@redhat.com>
 Cc: Richard Cochran <richardcochran@gmail.com>,
         Willem de Bruijn <willemb@google.com>,
@@ -10,98 +10,47 @@ Cc: Richard Cochran <richardcochran@gmail.com>,
         Denny Page <dennypage@me.com>, Jiri Benc <jbenc@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:46002 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:46588 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752194AbdEBKLd (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 2 May 2017 06:11:33 -0400
+        id S1751399AbdEBKLe (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 2 May 2017 06:11:34 -0400
 In-Reply-To: <20170502101103.30444-1-mlichvar@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Some drivers were calling the skb_tx_timestamp() function only when
-a hardware timestamp was not requested. Now that applications can use
-the SOF_TIMESTAMPING_OPT_TX_SWHW option to request both software and
-hardware timestamps, the drivers need to be modified to unconditionally
-call skb_tx_timestamp().
+If software timestamping is enabled by the SO_TIMESTAMP(NS) option
+when a message without timestamp is already waiting in the queue, the
+__sock_recv_timestamp() function will read the current time to make a
+timestamp in order to always have something for the application.
+
+However, this applies also to outgoing packets looped back to the error
+queue when hardware timestamping is enabled by the SO_TIMESTAMPING
+option. A software transmit timestamp made after the actual transmission
+is added to messages with hardware timestamps.
+
+Modify the function to save the current time as a software timestamp
+only if it's for a received packet (i.e. it's not in the error queue).
 
 CC: Richard Cochran <richardcochran@gmail.com>
 CC: Willem de Bruijn <willemb@google.com>
 Signed-off-by: Miroslav Lichvar <mlichvar@redhat.com>
 ---
- drivers/net/ethernet/amd/xgbe/xgbe-drv.c          | 3 +--
- drivers/net/ethernet/intel/e1000e/netdev.c        | 4 ++--
- drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c   | 3 +--
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 6 ++----
- 4 files changed, 6 insertions(+), 10 deletions(-)
+ net/socket.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
-index 89b21d7..5a2ad9c 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
-@@ -1391,8 +1391,7 @@ static void xgbe_prep_tx_tstamp(struct xgbe_prv_data *pdata,
- 		spin_unlock_irqrestore(&pdata->tstamp_lock, flags);
- 	}
- 
--	if (!XGMAC_GET_BITS(packet->attributes, TX_PACKET_ATTRIBUTES, PTP))
--		skb_tx_timestamp(skb);
-+	skb_tx_timestamp(skb);
- }
- 
- static void xgbe_prep_vlan(struct sk_buff *skb, struct xgbe_packet_data *packet)
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index 0ff9295..6ed3bc4 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -5868,10 +5868,10 @@ static netdev_tx_t e1000_xmit_frame(struct sk_buff *skb,
- 			adapter->tx_hwtstamp_skb = skb_get(skb);
- 			adapter->tx_hwtstamp_start = jiffies;
- 			schedule_work(&adapter->tx_hwtstamp_work);
--		} else {
--			skb_tx_timestamp(skb);
- 		}
- 
-+		skb_tx_timestamp(skb);
-+
- 		netdev_sent_queue(netdev, skb->len);
- 		e1000_tx_queue(tx_ring, tx_flags, count);
- 		/* Make sure there is space in the ring for the next send. */
-diff --git a/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c b/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c
-index d54490d..50c182c 100644
---- a/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c
-+++ b/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c
-@@ -1418,8 +1418,7 @@ static netdev_tx_t sxgbe_xmit(struct sk_buff *skb, struct net_device *dev)
- 		priv->hw->desc->tx_enable_tstamp(first_desc);
- 	}
- 
--	if (!tqueue->hwts_tx_en)
--		skb_tx_timestamp(skb);
-+	skb_tx_timestamp(skb);
- 
- 	priv->hw->dma->enable_dma_transmission(priv->ioaddr, txq_index);
- 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 3115700..7f857ee 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -2880,8 +2880,7 @@ static netdev_tx_t stmmac_tso_xmit(struct sk_buff *skb, struct net_device *dev)
- 		priv->xstats.tx_set_ic_bit++;
- 	}
- 
--	if (!priv->hwts_tx_en)
--		skb_tx_timestamp(skb);
-+	skb_tx_timestamp(skb);
- 
- 	if (unlikely((skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP) &&
- 		     priv->hwts_tx_en)) {
-@@ -3084,8 +3083,7 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
- 		priv->xstats.tx_set_ic_bit++;
- 	}
- 
--	if (!priv->hwts_tx_en)
--		skb_tx_timestamp(skb);
-+	skb_tx_timestamp(skb);
- 
- 	/* Ready to fill the first descriptor and set the OWN bit w/o any
- 	 * problems because all the descriptors are actually ready to be
+diff --git a/net/socket.c b/net/socket.c
+index da4d4ab..fe7e5bc 100644
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -692,7 +692,8 @@ static void put_ts_pktinfo(struct msghdr *msg, struct sk_buff *skb)
+ void __sock_recv_timestamp(struct msghdr *msg, struct sock *sk,
+ 	struct sk_buff *skb)
+ {
+-	int need_software_tstamp = sock_flag(sk, SOCK_RCVTSTAMP);
++	int need_software_tstamp = sock_flag(sk, SOCK_RCVTSTAMP) &&
++				   !skb_is_err_queue(skb);
+ 	struct scm_timestamping tss;
+ 	int empty = 1;
+ 	struct skb_shared_hwtstamps *shhwtstamps =
 -- 
 2.9.3
