@@ -1,30 +1,36 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH 2/2] bpf: Align packet data properly in program testing
- framework.
-Date: Tue, 02 May 2017 17:41:56 +0200
-Message-ID: <5908A8C4.2040804@iogearbox.net>
-References: <20170502.113645.551424261592586390.davem@davemloft.net>
+From: Alexei Starovoitov <ast@fb.com>
+Subject: Re: [PATCH 0/2] Fix some bpf program testing framework bugs
+Date: Tue, 2 May 2017 08:44:41 -0700
+Message-ID: <c2182110-f65a-9347-7df9-980f0018229e@fb.com>
+References: <20170502.113616.583190751944798030.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="windows-1252"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>, ast@fb.com
+Cc: <daniel@iogearbox.net>, <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:36428 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750786AbdEBPmF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 2 May 2017 11:42:05 -0400
-In-Reply-To: <20170502.113645.551424261592586390.davem@davemloft.net>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:55681 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1750725AbdEBPpJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 2 May 2017 11:45:09 -0400
+In-Reply-To: <20170502.113616.583190751944798030.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/02/2017 05:36 PM, David Miller wrote:
+On 5/2/17 8:36 AM, David Miller wrote:
 >
-> Make sure we apply NET_IP_ALIGN when reserving headroom for SKB
-> and XDP test runs, just like a real driver would.
+> This series fixes two issue:
+>
+> 1) Accidental user pointer dereference in bpf_test_finish()
+>
+> 2) The packet data given to the test programs is not aligned correctly
+>
+> The first issue is fixed simply because we have a kernel side copy
+> of the datastructure in question already.  And the second bug is
+> a simple matter of applying NET_IP_ALIGN where needed.
 >
 > Signed-off-by: David S. Miller <davem@davemloft.net>
 
-Thanks for fixing!
+thanks a lot for the fixes.
 
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+Acked-by: Alexei Starovoitov <ast@kernel.org>
