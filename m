@@ -1,59 +1,41 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next repost] net: sched: add helpers to handle
- extended actions
-Date: Tue, 2 May 2017 14:07:54 +0200
-Message-ID: <20170502120754.GD1877@nanopsycho.orion>
-References: <1493712720-1501-1-git-send-email-jiri@resnulli.us>
- <35328c1b-4571-f115-50c6-5f0c46ced3cc@mojatatu.com>
+From: Ursula Braun <ubraun-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
+Subject: Re: net/smc and the RDMA core
+Date: Tue, 2 May 2017 14:25:59 +0200
+Message-ID: <d9214af6-1c6f-9f95-fc00-3e4a316b4f81@linux.vnet.ibm.com>
+References: <20170501163311.GA22209@lst.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-        xiyou.wangcong@gmail.com, mlxsw@mellanox.com
-To: Jamal Hadi Salim <jhs@mojatatu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f194.google.com ([209.85.128.194]:34067 "EHLO
-        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750886AbdEBMH5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 2 May 2017 08:07:57 -0400
-Received: by mail-wr0-f194.google.com with SMTP id 6so17002781wrb.1
-        for <netdev@vger.kernel.org>; Tue, 02 May 2017 05:07:57 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <35328c1b-4571-f115-50c6-5f0c46ced3cc@mojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>,
+        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170501163311.GA22209-jcswGhMUV9g@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Tue, May 02, 2017 at 01:59:20PM CEST, jhs@mojatatu.com wrote:
->On 17-05-02 04:12 AM, Jiri Pirko wrote:
->> From: Jiri Pirko <jiri@mellanox.com>
->> 
->> Jump is now the only one using value action opcode. This is going to
->> change soon. So introduce helpers to work with this. Convert TC_ACT_JUMP.
->> 
->> This also fixes the TC_ACT_JUMP check, which is incorrectly done as a
->> bit check, not a value check.
->> 
->> Fixes: e0ee84ded796 ("net sched actions: Complete the JUMPX opcode")
->> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
->> ---
->> Dave, I'm sending this for -net-next although I know it is closed. But
->> the mentioned commit is not yet in -net. Feel free to take this either
->> to -net-next or -net, whatever suits you better. Thanks.
+
+On 05/01/2017 06:33 PM, Christoph Hellwig wrote:
+> Hi Ursual, hi netdev reviewers,
+> 
+> how did the smc protocol manage to get merged without any review 
+> on linux-rdma at all?  As the results it seems it's very substandard
+> in terms of RDMA API usage, e.g. it neither uses the proper CQ API
+> nor the RDMA R/W API, and other will probably find additional issues
+> as well.
 >
->I think you are pushing the boundary a little calling it a bug fix
+Hi Christoph,
 
-Well, it is a bugfix. Otherwise we could not use bit 1 for anything else
-then jump in the future. This is also UAPI. That's why I'm pushing it as
-a fix.
-
->and this could go with your patch series instead.
->The name TC_ACT_EXT_CMP should be TC_ACT_EXT_CMP_OPCODE
-
-I was thinking about it as well, I would like to keep it shorter. The
-current name is quite appropriate and it is clear what the macro does.
-
-
->Other than that:
->
->Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
+We have been posting SMC-R patches on netdev since 2015, there was never 
+any secrecy about it. Still sorry for omitting linux-rdma, will include 
+with future postings from now on. 
+Of course, we are open to any further code reviews, so if you can point 
+out specific issues, we will be happy to work with you to get them 
+addressed!
  
-Thanks.
+Regards, Ursula
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
