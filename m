@@ -1,67 +1,93 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [patch net-next 00/10] net: sched: introduce multichain support
- for filters
-Date: Mon, 1 May 2017 22:26:07 -0700
-Message-ID: <CAM_iQpX8i5-YZRkKN9DyvjCeE8W4M33wiUUTHizsyGsnsE=0KQ@mail.gmail.com>
-References: <1493291540-2119-1-git-send-email-jiri@resnulli.us>
- <CAM_iQpXUs1301-OR1_bsO-0bU8sSBVo2BWRHy4qNhzdHxvJWaQ@mail.gmail.com>
- <20170428065349.GB1886@nanopsycho.orion> <CAM_iQpXU0nKUMg3CqE=UOZ5R=mkxSAEFANObGt6+vKEeyXXXZg@mail.gmail.com>
- <20170428223446.GB1905@nanopsycho.orion>
+From: <gestu@tuwien.ac.at>
+Subject: 10921 netdev
+Date: Tue, 02 May 2017 05:38:19 -0000
+Message-ID: <149370349924.8650.14824633089534598547@opticom.com.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        David Ahern <dsa@cumulusnetworks.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Stephen Hemminger <stephen@networkplumber.org>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Alexander Duyck <alexander.h.duyck@intel.com>,
-        mlxsw@mellanox.com, Simon Horman <simon.horman@netronome.com>
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: application/zip; name="801737.zip"
+Content-Transfer-Encoding: base64
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:36759 "EHLO
-        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751719AbdEBF03 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 2 May 2017 01:26:29 -0400
-Received: by mail-wm0-f68.google.com with SMTP id u65so1570420wmu.3
-        for <netdev@vger.kernel.org>; Mon, 01 May 2017 22:26:28 -0700 (PDT)
-In-Reply-To: <20170428223446.GB1905@nanopsycho.orion>
+Received: from komp-185-78-75.67.opticom.com.pl ([185.78.75.67]:53542 "HELO
+        opticom.com.pl" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+        with SMTP id S1750884AbdEBFic (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 2 May 2017 01:38:32 -0400
+Content-Disposition: attachment
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 28, 2017 at 3:34 PM, Jiri Pirko <jiri@resnulli.us> wrote:
-> Fri, Apr 28, 2017 at 07:40:24PM CEST, xiyou.wangcong@gmail.com wrote:
->>On Thu, Apr 27, 2017 at 11:53 PM, Jiri Pirko <jiri@resnulli.us> wrote:
->>> Thu, Apr 27, 2017 at 07:46:03PM CEST, xiyou.wangcong@gmail.com wrote:
->>>>On Thu, Apr 27, 2017 at 4:12 AM, Jiri Pirko <jiri@resnulli.us> wrote:
->>>>> Simple example:
->>>>> $ tc qdisc add dev eth0 ingress
->>>>> $ tc filter add dev eth0 parent ffff: protocol ip pref 33 flower dst_mac 52:54:00:3d:c7:6d action goto chain 11
->>>>> $ tc filter add dev eth0 parent ffff: protocol ip pref 22 chain 11 flower dst_ip 192.168.40.1 action drop
->>>>> $ tc filter show dev eth0 root
->>>>
->>>>Interesting.
->>>>
->>>>I don't look into the code yet. If I understand the concepts correctly,
->>>>so with your patchset we can mark either filter with a chain No. to
->>>>choose which chain it belongs to _logically_ even though
->>>>_physically_ it is still in the old-fashion chain (prio, proto)?
->>>
->>> You have to see the code :)
->>
->>I don't understand why I have to, these are high-level concepts
->>and should be put in your cover letter (aka. design doc). You miss
->>a lot of information about the ordering here.
->
-> Well, the description is one thing, but seeing the actual code should
-> put the whole view. But if you are missing something, I can add it. What
-> do you mean by "information about the ordering"?
->
-
-By ordering, I mean:
-
-1) before your patch, filters are ordered by prio and categorized by proto
-
-2) after your patch, we can jump from one filter to a specified one, how
-does this work or not work with the prio/proto?
+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
+AAA=
