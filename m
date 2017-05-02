@@ -1,35 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] stmmac: Add support for SIMATIC IOT2000 platform
-Date: Tue, 02 May 2017 15:31:38 -0400 (EDT)
-Message-ID: <20170502.153138.2195637581927929977.davem@davemloft.net>
-References: <aa7a7f82-7933-1a97-12c4-b51efab498c9@siemens.com>
+Subject: Re: [PATCH net 0/2] qed*: PTP bug fixes.
+Date: Tue, 02 May 2017 15:33:15 -0400 (EDT)
+Message-ID: <20170502.153315.1635200851666375416.davem@davemloft.net>
+References: <20170502081103.4252-1-sudarsana.kalluru@cavium.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        sascha.weisenberger@siemens.com, andy.shevchenko@gmail.com
-To: jan.kiszka@siemens.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <aa7a7f82-7933-1a97-12c4-b51efab498c9@siemens.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: richardcochran@gmail.com, netdev@vger.kernel.org,
+        Yuval.Mintz@cavium.com
+To: sudarsana.kalluru@cavium.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:53348 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751308AbdEBTdR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 2 May 2017 15:33:17 -0400
+In-Reply-To: <20170502081103.4252-1-sudarsana.kalluru@cavium.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jan Kiszka <jan.kiszka@siemens.com>
-Date: Tue, 2 May 2017 09:58:00 +0200
+From: Sudarsana Reddy Kalluru <sudarsana.kalluru@cavium.com>
+Date: Tue, 2 May 2017 01:11:01 -0700
 
-> The IOT2000 is industrial controller platform, derived from the Intel
-> Galileo Gen2 board. The variant IOT2020 comes with one LAN port, the
-> IOT2040 has two of them. They can be told apart based on the board asset
-> tag in the DMI table.
-> 
-> Based on patch by Sascha Weisenberger.
-> 
-> Signed-off-by: Jan Kiszka <jan.kiszka@siemens.com>
-> Signed-off-by: Sascha Weisenberger <sascha.weisenberger@siemens.com>
-> ---
-> 
-> Changes in v2:
-> - reformatted match conditions [Andy]
+> The series addresses couple of issues in the PTP implementation.
 
-Applied, thanks.
+Series applied.
