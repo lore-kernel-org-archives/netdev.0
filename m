@@ -1,41 +1,36 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH] flower: check unused bits in MPLS fields
-Date: Mon, 1 May 2017 21:37:00 -0400
-Message-ID: <af1de251-299e-a037-f4b1-21cb22051bf9@mojatatu.com>
-References: <1493647120-17406-1-git-send-email-benjamin.lahaise@netronome.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: linux-next: build failure after merge of the block tree
+Date: Tue, 2 May 2017 11:37:20 +1000
+Message-ID: <20170502113720.0e5a6ab4@canb.auug.org.au>
+References: <20170418130229.04289bd6@canb.auug.org.au>
+        <20170502110704.79bb7760@canb.auug.org.au>
+        <5CC6C5A2-B648-45F4-ACD4-AB27CE9AF9BF@kernel.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: David Miller <davem@davemloft.net>,
-        Simon Horman <simon.horman@netronome.com>,
-        Jakub Kicinski <kubakici@wp.pl>, Jiri Pirko <jiri@resnulli.us>
-To: Benjamin LaHaise <benjamin.lahaise@netronome.com>,
-        netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f47.google.com ([209.85.214.47]:35860 "EHLO
-        mail-it0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750788AbdEBBhC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 1 May 2017 21:37:02 -0400
-Received: by mail-it0-f47.google.com with SMTP id r185so40648623itd.1
-        for <netdev@vger.kernel.org>; Mon, 01 May 2017 18:37:02 -0700 (PDT)
-In-Reply-To: <1493647120-17406-1-git-send-email-benjamin.lahaise@netronome.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+        Networking <netdev@vger.kernel.org>,
+        Linux-Next Mailing List <linux-next@vger.kernel.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        Josef Bacik <josef@toxicpanda.com>,
+        Johannes Berg <johannes.berg@intel.com>,
+        Linus <torvalds@linux-foundation.org>
+To: Jens Axboe <axboe@kernel.dk>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <5CC6C5A2-B648-45F4-ACD4-AB27CE9AF9BF@kernel.dk>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 17-05-01 09:58 AM, Benjamin LaHaise wrote:
-> Since several of the the netlink attributes used to configure the flower
-> classifier's MPLS TC, BOS and Label fields have additional bits which are
-> unused, check those bits to ensure that they are actually 0 as suggested
-> by Jamal.
+Hi Jens,
+
+On Mon, 1 May 2017 19:09:34 -0600 Jens Axboe <axboe@kernel.dk> wrote:
 >
-> Signed-off-by: Benjamin LaHaise <benjamin.lahaise@netronome.com>
-> Cc: David Miller <davem@davemloft.net>
-> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-> Cc: Simon Horman <simon.horman@netronome.com>
-> Cc: Jakub Kicinski <kubakici@wp.pl>
-> Cc: Jiri Pirko <jiri@resnulli.us>
+> Indeed, I have warned Linus about it. Thanks Stephen. 
 
-Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
+Thanks.
 
-cheers,
-jamal
+BTW, (unusually) I did not see your pull request(s) ...
+
+-- 
+Cheers,
+Stephen Rothwell
