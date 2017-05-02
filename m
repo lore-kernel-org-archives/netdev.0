@@ -1,60 +1,41 @@
-From: "Gao Feng" <gfree.wind@vip.163.com>
-Subject: RE: [PATCH net v4 00/12] Fix possbile memleaks when fail to register_netdevice
-Date: Tue, 2 May 2017 19:10:29 +0800
-Message-ID: <000b01d2c334$b6ccda80$24668f80$@vip.163.com>
-References: <cover.1493699451.git.gfree.wind@foxmail.com>
+From: Simon Horman <simon.horman@netronome.com>
+Subject: Re: [PATCH] flower: check unused bits in MPLS fields
+Date: Tue, 2 May 2017 13:44:49 +0200
+Message-ID: <20170502114448.GA24820@vergenet.net>
+References: <1493647120-17406-1-git-send-email-benjamin.lahaise@netronome.com>
+ <af1de251-299e-a037-f4b1-21cb22051bf9@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-        charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: <davem@davemloft.net>, <jiri@resnulli.us>,
-        <mareklindner@neomailbox.ch>, <sw@simonwunderlich.de>,
-        <a@unstable.cc>, <kuznet@ms2.inr.ac.ru>, <jmorris@namei.org>,
-        <yoshfuji@linux-ipv6.org>, <kaber@trash.net>,
-        <steffen.klassert@secunet.com>, <herbert@gondor.apana.org.au>,
-        <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Benjamin LaHaise <benjamin.lahaise@netronome.com>,
+        netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+        Jakub Kicinski <kubakici@wp.pl>, Jiri Pirko <jiri@resnulli.us>
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-177180.vip.163.com ([123.58.177.180]:53913 "EHLO
-        mail-177180.vip.163.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751018AbdEBLMw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 2 May 2017 07:12:52 -0400
-In-Reply-To: <cover.1493699451.git.gfree.wind@foxmail.com>
-Content-Language: zh-cn
+Received: from mail-wm0-f44.google.com ([74.125.82.44]:36924 "EHLO
+        mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750945AbdEBLo4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 2 May 2017 07:44:56 -0400
+Received: by mail-wm0-f44.google.com with SMTP id m123so16467913wma.0
+        for <netdev@vger.kernel.org>; Tue, 02 May 2017 04:44:55 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <af1de251-299e-a037-f4b1-21cb22051bf9@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi all,
-
-> From: gfree.wind@foxmail.com [mailto:gfree.wind@foxmail.com]
-> Sent: Tuesday, May 2, 2017 1:59 PM
->  drivers/net/dummy.c             | 14 +++++++++++---
->  drivers/net/ifb.c               | 33 +++++++++++++++++++++++----------
->  drivers/net/loopback.c          | 15 ++++++++++++++-
->  drivers/net/team/team.c         | 15 ++++++++++++---
->  drivers/net/veth.c              | 15 ++++++++++++++-
->  net/8021q/vlan_dev.c            | 17 +++++++++++++----
->  net/batman-adv/soft-interface.c | 18 +++++++++++++++---
->  net/ipv4/ip_tunnel.c            | 11 ++++++++++-
->  net/ipv6/ip6_gre.c              | 17 +++++++++++++----
->  net/ipv6/ip6_tunnel.c           | 11 ++++++++++-
->  net/ipv6/ip6_vti.c              | 11 ++++++++++-
->  net/ipv6/sit.c                  | 17 +++++++++++++----
->  12 files changed, 158 insertions(+), 36 deletions(-)
+On Mon, May 01, 2017 at 09:37:00PM -0400, Jamal Hadi Salim wrote:
+> On 17-05-01 09:58 AM, Benjamin LaHaise wrote:
+> >Since several of the the netlink attributes used to configure the flower
+> >classifier's MPLS TC, BOS and Label fields have additional bits which are
+> >unused, check those bits to ensure that they are actually 0 as suggested
+> >by Jamal.
+> >
+> >Signed-off-by: Benjamin LaHaise <benjamin.lahaise@netronome.com>
+> >Cc: David Miller <davem@davemloft.net>
+> >Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+> >Cc: Simon Horman <simon.horman@netronome.com>
+> >Cc: Jakub Kicinski <kubakici@wp.pl>
+> >Cc: Jiri Pirko <jiri@resnulli.us>
 > 
-> --
->  v4: Make patches as one sery of patches, per David Miler
->  v3: Split one patch to multiple commits, per David Ahern
->  v2: Move the free in ndo_uninit when fail to register, per Herbert Xu
->  v1: initial version
-> 
-> 
+> Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
 
-Because I sent these patches too fast today, so that my email server blocks
-my account today.
-The left patches (08~12) would be sent after my account is unlocked. 
-
-Maybe tomorrow.
-I am very sorry about this, and try to change another mail server next time.
-
-Best Regards
-Feng
+Reviewed-by: Simon Horman <simon.horman@netronome.com>
