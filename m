@@ -1,7 +1,7 @@
 From: John Fastabend <john.fastabend@gmail.com>
-Subject: [RFC PATCH 10/17] net: sched: qdisc_qlen for per cpu logic
-Date: Tue, 02 May 2017 08:27:57 -0700
-Message-ID: <20170502152757.8871.6543.stgit@john-Precision-Tower-5810>
+Subject: [RFC PATCH 11/17] net: sched: helper to sum qlen
+Date: Tue, 02 May 2017 08:28:17 -0700
+Message-ID: <20170502152817.8871.15660.stgit@john-Precision-Tower-5810>
 References: <20170502151445.8871.43089.stgit@john-Precision-Tower-5810>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -9,45 +9,62 @@ Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, john.fastabend@gmail.com
 To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:36504 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750818AbdEBP2M (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 2 May 2017 11:28:12 -0400
-Received: by mail-pf0-f193.google.com with SMTP id v14so33731405pfd.3
-        for <netdev@vger.kernel.org>; Tue, 02 May 2017 08:28:12 -0700 (PDT)
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:35807 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750787AbdEBP2b (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 2 May 2017 11:28:31 -0400
+Received: by mail-pg0-f68.google.com with SMTP id i63so3505403pgd.2
+        for <netdev@vger.kernel.org>; Tue, 02 May 2017 08:28:31 -0700 (PDT)
 In-Reply-To: <20170502151445.8871.43089.stgit@john-Precision-Tower-5810>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add qdisc qlen helper routines for lockless qdiscs to use.
-
-The qdisc qlen is no longer used in the hotpath but it is reported
-via stats query on the qdisc so it still needs to be tracked. This
-adds the per cpu operations needed.
+Reporting qlen when qlen is per cpu requires aggregating the per
+cpu counters. This adds a helper routine for this.
 
 Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
 ---
- include/net/sch_generic.h |    8 ++++++++
- 1 file changed, 8 insertions(+)
+ include/net/sch_generic.h |   15 +++++++++++++++
+ net/sched/sch_api.c       |    3 ++-
+ 2 files changed, 17 insertions(+), 1 deletion(-)
 
 diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
-index 4288222..4c446fe 100644
+index 4c446fe..5ae07dd 100644
 --- a/include/net/sch_generic.h
 +++ b/include/net/sch_generic.h
-@@ -257,8 +257,16 @@ static inline void qdisc_cb_private_validate(const struct sk_buff *skb, int sz)
- 	BUILD_BUG_ON(sizeof(qcb->data) < sz);
- }
- 
-+static inline int qdisc_qlen_cpu(const struct Qdisc *q)
-+{
-+	return this_cpu_ptr(q->cpu_qstats)->qlen;
-+}
-+
- static inline int qdisc_qlen(const struct Qdisc *q)
- {
-+	if (q->flags & TCQ_F_NOLOCK)
-+		return qdisc_qlen_cpu(q);
-+
+@@ -270,6 +270,21 @@ static inline int qdisc_qlen(const struct Qdisc *q)
  	return q->q.qlen;
  }
  
++static inline int qdisc_qlen_sum(const struct Qdisc *q)
++{
++	__u32 qlen = 0;
++	int i;
++
++	if (q->flags & TCQ_F_NOLOCK) {
++		for_each_possible_cpu(i)
++			qlen += per_cpu_ptr(q->cpu_qstats, i)->qlen;
++	} else {
++		qlen = q->q.qlen;
++	}
++
++	return qlen;
++}
++
+ static inline struct qdisc_skb_cb *qdisc_skb_cb(const struct sk_buff *skb)
+ {
+ 	return (struct qdisc_skb_cb *)skb->cb;
+diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
+index bbe57d5..1bb9c89 100644
+--- a/net/sched/sch_api.c
++++ b/net/sched/sch_api.c
+@@ -1378,7 +1378,8 @@ static int tc_fill_qdisc(struct sk_buff *skb, struct Qdisc *q, u32 clid,
+ 		goto nla_put_failure;
+ 	if (q->ops->dump && q->ops->dump(q, skb) < 0)
+ 		goto nla_put_failure;
+-	qlen = q->q.qlen;
++
++	qlen = qdisc_qlen_sum(q);
+ 
+ 	stab = rtnl_dereference(q->stab);
+ 	if (stab && qdisc_dump_stab(skb, stab) < 0)
