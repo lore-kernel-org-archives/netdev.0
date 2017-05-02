@@ -1,7 +1,7 @@
 From: sunil.kovvuri@gmail.com
-Subject: [PATCH 7/9] net: thunderx: Add support for XDP_TX
-Date: Tue,  2 May 2017 18:36:56 +0530
-Message-ID: <1493730418-24606-8-git-send-email-sunil.kovvuri@gmail.com>
+Subject: [PATCH 8/9] net: thunderx: Support for XDP header adjustment
+Date: Tue,  2 May 2017 18:36:57 +0530
+Message-ID: <1493730418-24606-9-git-send-email-sunil.kovvuri@gmail.com>
 References: <1493730418-24606-1-git-send-email-sunil.kovvuri@gmail.com>
 Cc: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
         Sunil Goutham <sgoutham@cavium.com>
@@ -13,411 +13,182 @@ List-Id: netdev.vger.kernel.org
 
 From: Sunil Goutham <sgoutham@cavium.com>
 
-Adds support for XDP_TX i.e transmits packet out of
-the XDP TX queue mapped to the corresponding Rx queue
-on which packet is received.
-
-Since SQ for XDP TX will be used only on a single cpu i.e
-SQ description creation and freeing, using atomic free count
-is not necessary and will become a bottleneck. Hence added
-a separate 'xdp_free_cnt' used for SQs designated for XDP
-to track descriptor free count.
-
-Changes also include
-- A new entry 'xdp_page' is added to save transmitted packet's
-  page pointer for later cleanup.
-- XDP Tx SQ's doorbell is ringed once per NAPI instance.
-- Retrieving designated SQ for packets being sent out by stack
-  via 'nicvf_xmit'.
+When in XDP mode reserve XDP_PACKET_HEADROOM bytes at the start
+of receive buffer for XDP program to modify headers and adjust
+packet start. Additional code changes done to handle such packets.
 
 Signed-off-by: Sunil Goutham <sgoutham@cavium.com>
 ---
- drivers/net/ethernet/cavium/thunder/nicvf_main.c   |  63 ++++++++---
- drivers/net/ethernet/cavium/thunder/nicvf_queues.c | 117 ++++++++++++++++++---
- drivers/net/ethernet/cavium/thunder/nicvf_queues.h |   7 ++
- 3 files changed, 160 insertions(+), 27 deletions(-)
+ drivers/net/ethernet/cavium/thunder/nicvf_main.c   | 63 ++++++++++++++++------
+ drivers/net/ethernet/cavium/thunder/nicvf_queues.c |  9 +++-
+ 2 files changed, 55 insertions(+), 17 deletions(-)
 
 diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_main.c b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
-index a58cc1e..bb13dee 100644
+index bb13dee..d6477af 100644
 --- a/drivers/net/ethernet/cavium/thunder/nicvf_main.c
 +++ b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
-@@ -501,9 +501,8 @@ static int nicvf_init_resources(struct nicvf *nic)
- 	return 0;
+@@ -502,13 +502,15 @@ static int nicvf_init_resources(struct nicvf *nic)
  }
  
--static inline bool nicvf_xdp_rx(struct nicvf *nic,
--				struct bpf_prog *prog,
--				struct cqe_rx_t *cqe_rx)
-+static inline bool nicvf_xdp_rx(struct nicvf *nic, struct bpf_prog *prog,
-+				struct cqe_rx_t *cqe_rx, struct snd_queue *sq)
+ static inline bool nicvf_xdp_rx(struct nicvf *nic, struct bpf_prog *prog,
+-				struct cqe_rx_t *cqe_rx, struct snd_queue *sq)
++				struct cqe_rx_t *cqe_rx, struct snd_queue *sq,
++				struct sk_buff **skb)
  {
  	struct xdp_buff xdp;
  	struct page *page;
-@@ -528,9 +527,11 @@ static inline bool nicvf_xdp_rx(struct nicvf *nic,
+ 	u32 action;
+-	u16 len;
++	u16 len, offset = 0;
+ 	u64 dma_addr, cpu_addr;
++	void *orig_data;
  
+ 	/* Retrieve packet buffer's DMA address and length */
+ 	len = *((u16 *)((void *)cqe_rx + (3 * sizeof(u64))));
+@@ -517,17 +519,47 @@ static inline bool nicvf_xdp_rx(struct nicvf *nic, struct bpf_prog *prog,
+ 	cpu_addr = nicvf_iova_to_phys(nic, dma_addr);
+ 	if (!cpu_addr)
+ 		return false;
++	cpu_addr = (u64)phys_to_virt(cpu_addr);
++	page = virt_to_page((void *)cpu_addr);
+ 
+-	xdp.data = phys_to_virt(cpu_addr);
++	xdp.data_hard_start = page_address(page);
++	xdp.data = (void *)cpu_addr;
+ 	xdp.data_end = xdp.data + len;
++	orig_data = xdp.data;
+ 
+ 	rcu_read_lock();
+ 	action = bpf_prog_run_xdp(prog, &xdp);
+ 	rcu_read_unlock();
+ 
++	/* Check if XDP program has changed headers */
++	if (orig_data != xdp.data) {
++		len = xdp.data_end - xdp.data;
++		offset = orig_data - xdp.data;
++		dma_addr -= offset;
++	}
++
  	switch (action) {
  	case XDP_PASS:
--	case XDP_TX:
--		/* Pass on all packets to network stack */
-+		/* Pass on packet to network stack */
- 		return false;
-+	case XDP_TX:
-+		nicvf_xdp_sq_append_pkt(nic, sq, (u64)xdp.data, dma_addr, len);
-+		return true;
- 	default:
- 		bpf_warn_invalid_xdp_action(action);
- 	case XDP_ABORTED:
-@@ -560,6 +561,7 @@ static void nicvf_snd_pkt_handler(struct net_device *netdev,
- 				  unsigned int *tx_pkts, unsigned int *tx_bytes)
- {
- 	struct sk_buff *skb = NULL;
-+	struct page *page;
- 	struct nicvf *nic = netdev_priv(netdev);
- 	struct snd_queue *sq;
- 	struct sq_hdr_subdesc *hdr;
-@@ -575,6 +577,22 @@ static void nicvf_snd_pkt_handler(struct net_device *netdev,
- 	if (cqe_tx->send_status)
- 		nicvf_check_cqe_tx_errs(nic->pnicvf, cqe_tx);
- 
-+	/* Is this a XDP designated Tx queue */
-+	if (sq->is_xdp) {
-+		page = (struct page *)sq->xdp_page[cqe_tx->sqe_ptr];
-+		/* Check if it's recycled page or else unmap DMA mapping */
-+		if (page && (page_ref_count(page) == 1))
-+			nicvf_unmap_sndq_buffers(nic, sq, cqe_tx->sqe_ptr,
-+						 hdr->subdesc_cnt);
+-		/* Pass on packet to network stack */
++		/* Check if it's a recycled page, if not
++		 * unmap the DMA mapping.
++		 *
++		 * Recycled page holds an extra reference.
++		 */
++		if (page_ref_count(page) == 1) {
++			dma_addr &= PAGE_MASK;
++			dma_unmap_page_attrs(&nic->pdev->dev, dma_addr,
++					     RCV_FRAG_LEN + XDP_PACKET_HEADROOM,
++					     DMA_FROM_DEVICE,
++					     DMA_ATTR_SKIP_CPU_SYNC);
++		}
 +
-+		/* Release page reference for recycling */
-+		if (page)
++		/* Build SKB and pass on packet to network stack */
++		*skb = build_skb(xdp.data,
++				 RCV_FRAG_LEN - cqe_rx->align_pad + offset);
++		if (!*skb)
 +			put_page(page);
-+		sq->xdp_page[cqe_tx->sqe_ptr] = (u64)NULL;
-+		*subdesc_cnt += hdr->subdesc_cnt + 1;
-+		return;
-+	}
-+
- 	skb = (struct sk_buff *)sq->skbuff[cqe_tx->sqe_ptr];
- 	if (skb) {
- 		/* Check for dummy descriptor used for HW TSO offload on 88xx */
-@@ -634,7 +652,7 @@ static inline void nicvf_set_rxhash(struct net_device *netdev,
- 
- static void nicvf_rcv_pkt_handler(struct net_device *netdev,
++		else
++			skb_put(*skb, len);
+ 		return false;
+ 	case XDP_TX:
+ 		nicvf_xdp_sq_append_pkt(nic, sq, (u64)xdp.data, dma_addr, len);
+@@ -537,7 +569,6 @@ static inline bool nicvf_xdp_rx(struct nicvf *nic, struct bpf_prog *prog,
+ 	case XDP_ABORTED:
+ 		trace_xdp_exception(nic->netdev, prog, action);
+ 	case XDP_DROP:
+-		page = virt_to_page(xdp.data);
+ 		/* Check if it's a recycled page, if not
+ 		 * unmap the DMA mapping.
+ 		 *
+@@ -546,7 +577,8 @@ static inline bool nicvf_xdp_rx(struct nicvf *nic, struct bpf_prog *prog,
+ 		if (page_ref_count(page) == 1) {
+ 			dma_addr &= PAGE_MASK;
+ 			dma_unmap_page_attrs(&nic->pdev->dev, dma_addr,
+-					     RCV_FRAG_LEN, DMA_FROM_DEVICE,
++					     RCV_FRAG_LEN + XDP_PACKET_HEADROOM,
++					     DMA_FROM_DEVICE,
+ 					     DMA_ATTR_SKIP_CPU_SYNC);
+ 		}
+ 		put_page(page);
+@@ -654,7 +686,7 @@ static void nicvf_rcv_pkt_handler(struct net_device *netdev,
  				  struct napi_struct *napi,
--				  struct cqe_rx_t *cqe_rx)
-+				  struct cqe_rx_t *cqe_rx, struct snd_queue *sq)
+ 				  struct cqe_rx_t *cqe_rx, struct snd_queue *sq)
  {
- 	struct sk_buff *skb;
+-	struct sk_buff *skb;
++	struct sk_buff *skb = NULL;
  	struct nicvf *nic = netdev_priv(netdev);
-@@ -659,7 +677,7 @@ static void nicvf_rcv_pkt_handler(struct net_device *netdev,
+ 	struct nicvf *snic = nic;
+ 	int err = 0;
+@@ -676,15 +708,17 @@ static void nicvf_rcv_pkt_handler(struct net_device *netdev,
+ 	}
  
  	/* For XDP, ignore pkts spanning multiple pages */
- 	if (nic->xdp_prog && (cqe_rx->rb_cnt == 1))
--		if (nicvf_xdp_rx(snic, nic->xdp_prog, cqe_rx))
-+		if (nicvf_xdp_rx(snic, nic->xdp_prog, cqe_rx, sq))
+-	if (nic->xdp_prog && (cqe_rx->rb_cnt == 1))
+-		if (nicvf_xdp_rx(snic, nic->xdp_prog, cqe_rx, sq))
++	if (nic->xdp_prog && (cqe_rx->rb_cnt == 1)) {
++		/* Packet consumed by XDP */
++		if (nicvf_xdp_rx(snic, nic->xdp_prog, cqe_rx, sq, &skb))
  			return;
- 
- 	skb = nicvf_get_rcv_skb(snic, cqe_rx, nic->xdp_prog ? true : false);
-@@ -715,8 +733,8 @@ static int nicvf_cq_intr_handler(struct net_device *netdev, u8 cq_idx,
- 	struct cmp_queue *cq = &qs->cq[cq_idx];
- 	struct cqe_rx_t *cq_desc;
- 	struct netdev_queue *txq;
--	struct snd_queue *sq;
--	unsigned int tx_pkts = 0, tx_bytes = 0;
-+	struct snd_queue *sq = &qs->sq[cq_idx];
-+	unsigned int tx_pkts = 0, tx_bytes = 0, txq_idx;
- 
- 	spin_lock_bh(&cq->lock);
- loop:
-@@ -746,7 +764,7 @@ static int nicvf_cq_intr_handler(struct net_device *netdev, u8 cq_idx,
- 
- 		switch (cq_desc->cqe_type) {
- 		case CQE_TYPE_RX:
--			nicvf_rcv_pkt_handler(netdev, napi, cq_desc);
-+			nicvf_rcv_pkt_handler(netdev, napi, cq_desc, sq);
- 			work_done++;
- 		break;
- 		case CQE_TYPE_SEND:
-@@ -773,17 +791,26 @@ static int nicvf_cq_intr_handler(struct net_device *netdev, u8 cq_idx,
- 		goto loop;
- 
- done:
--	sq = &nic->qs->sq[cq_idx];
- 	/* Update SQ's descriptor free count */
- 	if (subdesc_cnt)
- 		nicvf_put_sq_desc(sq, subdesc_cnt);
- 
-+	txq_idx = nicvf_netdev_qidx(nic, cq_idx);
-+	/* Handle XDP TX queues */
-+	if (nic->pnicvf->xdp_prog) {
-+		if (txq_idx < nic->pnicvf->xdp_tx_queues) {
-+			nicvf_xdp_sq_doorbell(nic, sq, cq_idx);
-+			goto out;
-+		}
-+		nic = nic->pnicvf;
-+		txq_idx -= nic->pnicvf->xdp_tx_queues;
++	} else {
++		skb = nicvf_get_rcv_skb(snic, cqe_rx,
++					nic->xdp_prog ? true : false);
 +	}
-+
- 	/* Wakeup TXQ if its stopped earlier due to SQ full */
- 	if (tx_done ||
- 	    (atomic_read(&sq->free_cnt) >= MIN_SQ_DESC_PER_PKT_XMIT)) {
- 		netdev = nic->pnicvf->netdev;
--		txq = netdev_get_tx_queue(netdev,
--					  nicvf_netdev_qidx(nic, cq_idx));
-+		txq = netdev_get_tx_queue(netdev, txq_idx);
- 		if (tx_pkts)
- 			netdev_tx_completed_queue(txq, tx_pkts, tx_bytes);
  
-@@ -796,10 +823,11 @@ static int nicvf_cq_intr_handler(struct net_device *netdev, u8 cq_idx,
- 			if (netif_msg_tx_err(nic))
- 				netdev_warn(netdev,
- 					    "%s: Transmit queue wakeup SQ%d\n",
--					    netdev->name, cq_idx);
-+					    netdev->name, txq_idx);
- 		}
+-	skb = nicvf_get_rcv_skb(snic, cqe_rx, nic->xdp_prog ? true : false);
+-	if (!skb) {
+-		netdev_dbg(nic->netdev, "Packet not received\n");
++	if (!skb)
+ 		return;
+-	}
+ 
+ 	if (netif_msg_pktdata(nic)) {
+ 		netdev_info(nic->netdev, "%s: skb 0x%p, len=%d\n", netdev->name,
+@@ -1672,9 +1706,6 @@ static int nicvf_xdp_setup(struct nicvf *nic, struct bpf_prog *prog)
+ 		return -EOPNOTSUPP;
  	}
  
-+out:
- 	spin_unlock_bh(&cq->lock);
- 	return work_done;
- }
-@@ -1115,6 +1143,13 @@ static netdev_tx_t nicvf_xmit(struct sk_buff *skb, struct net_device *netdev)
- 		return NETDEV_TX_OK;
- 	}
- 
-+	/* In XDP case, initial HW tx queues are used for XDP,
-+	 * but stack's queue mapping starts at '0', so skip the
-+	 * Tx queues attached to Rx queues for XDP.
-+	 */
-+	if (nic->xdp_prog)
-+		qid += nic->xdp_tx_queues;
-+
- 	snic = nic;
- 	/* Get secondary Qset's SQ structure */
- 	if (qid >= MAX_SND_QUEUES_PER_QS) {
+-	if (prog && prog->xdp_adjust_head)
+-		return -EOPNOTSUPP;
+-
+ 	/* ALL SQs attached to CQs i.e same as RQs, are treated as
+ 	 * XDP Tx queues and more Tx queues are allocated for
+ 	 * network stack to send pkts out.
 diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
-index 5009f49..ec234b6 100644
+index ec234b6..43428ce 100644
 --- a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
 +++ b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
-@@ -19,6 +19,8 @@
- #include "q_struct.h"
- #include "nicvf_queues.h"
+@@ -164,6 +164,11 @@ static inline int nicvf_alloc_rcv_buffer(struct nicvf *nic, struct rbdr *rbdr,
+ 	}
  
-+static inline void nicvf_sq_add_gather_subdesc(struct snd_queue *sq, int qentry,
-+					       int size, u64 data);
- static void nicvf_get_page(struct nicvf *nic)
- {
- 	if (!nic->rb_pageref || !nic->rb_page)
-@@ -456,7 +458,7 @@ static void nicvf_free_cmp_queue(struct nicvf *nic, struct cmp_queue *cq)
- 
- /* Initialize transmit queue */
- static int nicvf_init_snd_queue(struct nicvf *nic,
--				struct snd_queue *sq, int q_len)
-+				struct snd_queue *sq, int q_len, int qidx)
- {
- 	int err;
- 
-@@ -469,17 +471,38 @@ static int nicvf_init_snd_queue(struct nicvf *nic,
- 	sq->skbuff = kcalloc(q_len, sizeof(u64), GFP_KERNEL);
- 	if (!sq->skbuff)
- 		return -ENOMEM;
+ 	nic->rb_page_offset = 0;
 +
- 	sq->head = 0;
- 	sq->tail = 0;
--	atomic_set(&sq->free_cnt, q_len - 1);
- 	sq->thresh = SND_QUEUE_THRESH;
- 
--	/* Preallocate memory for TSO segment's header */
--	sq->tso_hdrs = dma_alloc_coherent(&nic->pdev->dev,
--					  q_len * TSO_HEADER_SIZE,
--					  &sq->tso_hdrs_phys, GFP_KERNEL);
--	if (!sq->tso_hdrs)
--		return -ENOMEM;
-+	/* Check if this SQ is a XDP TX queue */
-+	if (nic->sqs_mode)
-+		qidx += ((nic->sqs_id + 1) * MAX_SND_QUEUES_PER_QS);
-+	if (qidx < nic->pnicvf->xdp_tx_queues) {
-+		/* Alloc memory to save page pointers for XDP_TX */
-+		sq->xdp_page = kcalloc(q_len, sizeof(u64), GFP_KERNEL);
-+		if (!sq->xdp_page)
-+			return -ENOMEM;
-+		sq->xdp_desc_cnt = 0;
-+		sq->xdp_free_cnt = q_len - 1;
-+		sq->is_xdp = true;
-+	} else {
-+		sq->xdp_page = NULL;
-+		sq->xdp_desc_cnt = 0;
-+		sq->xdp_free_cnt = 0;
-+		sq->is_xdp = false;
++	/* Reserve space for header modifications by BPF program */
++	if (rbdr->is_xdp)
++		buf_len += XDP_PACKET_HEADROOM;
 +
-+		atomic_set(&sq->free_cnt, q_len - 1);
-+
-+		/* Preallocate memory for TSO segment's header */
-+		sq->tso_hdrs = dma_alloc_coherent(&nic->pdev->dev,
-+						  q_len * TSO_HEADER_SIZE,
-+						  &sq->tso_hdrs_phys,
-+						  GFP_KERNEL);
-+		if (!sq->tso_hdrs)
-+			return -ENOMEM;
-+	}
- 
- 	return 0;
- }
-@@ -505,6 +528,7 @@ void nicvf_unmap_sndq_buffers(struct nicvf *nic, struct snd_queue *sq,
- static void nicvf_free_snd_queue(struct nicvf *nic, struct snd_queue *sq)
- {
- 	struct sk_buff *skb;
-+	struct page *page;
- 	struct sq_hdr_subdesc *hdr;
- 	struct sq_hdr_subdesc *tso_sqe;
- 
-@@ -522,8 +546,15 @@ static void nicvf_free_snd_queue(struct nicvf *nic, struct snd_queue *sq)
- 	smp_rmb();
- 	while (sq->head != sq->tail) {
- 		skb = (struct sk_buff *)sq->skbuff[sq->head];
--		if (!skb)
-+		if (!skb || !sq->xdp_page)
-+			goto next;
-+
-+		page = (struct page *)sq->xdp_page[sq->head];
-+		if (!page)
- 			goto next;
-+		else
-+			put_page(page);
-+
- 		hdr = (struct sq_hdr_subdesc *)GET_SQ_DESC(sq, sq->head);
- 		/* Check for dummy descriptor used for HW TSO offload on 88xx */
- 		if (hdr->dont_send) {
-@@ -536,12 +567,14 @@ static void nicvf_free_snd_queue(struct nicvf *nic, struct snd_queue *sq)
- 			nicvf_unmap_sndq_buffers(nic, sq, sq->head,
- 						 hdr->subdesc_cnt);
+ 	/* Check if it's recycled */
+ 	if (pgcache)
+ 		nic->rb_page = pgcache->page;
+@@ -183,7 +188,7 @@ static inline int nicvf_alloc_rcv_buffer(struct nicvf *nic, struct rbdr *rbdr,
+ 			return -ENOMEM;
  		}
--		dev_kfree_skb_any(skb);
-+		if (skb)
-+			dev_kfree_skb_any(skb);
- next:
- 		sq->head++;
- 		sq->head &= (sq->dmem.q_len - 1);
- 	}
- 	kfree(sq->skbuff);
-+	kfree(sq->xdp_page);
- 	nicvf_free_q_desc_mem(nic, &sq->dmem);
- }
- 
-@@ -932,7 +965,7 @@ static int nicvf_alloc_resources(struct nicvf *nic)
- 
- 	/* Alloc send queue */
- 	for (qidx = 0; qidx < qs->sq_cnt; qidx++) {
--		if (nicvf_init_snd_queue(nic, &qs->sq[qidx], qs->sq_len))
-+		if (nicvf_init_snd_queue(nic, &qs->sq[qidx], qs->sq_len, qidx))
- 			goto alloc_fail;
+ 		if (pgcache)
+-			pgcache->dma_addr = *rbuf;
++			pgcache->dma_addr = *rbuf + XDP_PACKET_HEADROOM;
+ 		nic->rb_page_offset += buf_len;
  	}
  
-@@ -1035,7 +1068,10 @@ static inline int nicvf_get_sq_desc(struct snd_queue *sq, int desc_cnt)
- 	int qentry;
- 
- 	qentry = sq->tail;
--	atomic_sub(desc_cnt, &sq->free_cnt);
-+	if (!sq->is_xdp)
-+		atomic_sub(desc_cnt, &sq->free_cnt);
-+	else
-+		sq->xdp_free_cnt -= desc_cnt;
- 	sq->tail += desc_cnt;
- 	sq->tail &= (sq->dmem.q_len - 1);
- 
-@@ -1053,7 +1089,10 @@ static inline void nicvf_rollback_sq_desc(struct snd_queue *sq,
- /* Free descriptor back to SQ for future use */
- void nicvf_put_sq_desc(struct snd_queue *sq, int desc_cnt)
- {
--	atomic_add(desc_cnt, &sq->free_cnt);
-+	if (!sq->is_xdp)
-+		atomic_add(desc_cnt, &sq->free_cnt);
-+	else
-+		sq->xdp_free_cnt += desc_cnt;
- 	sq->head += desc_cnt;
- 	sq->head &= (sq->dmem.q_len - 1);
- }
-@@ -1111,6 +1150,58 @@ void nicvf_sq_free_used_descs(struct net_device *netdev, struct snd_queue *sq,
+@@ -1575,6 +1580,8 @@ static void nicvf_unmap_rcv_buffer(struct nicvf *nic, u64 dma_addr,
+ 		 */
+ 		if (page_ref_count(page) != 1)
+ 			return;
++
++		len += XDP_PACKET_HEADROOM;
+ 		/* Receive buffers in XDP mode are mapped from page start */
+ 		dma_addr &= PAGE_MASK;
  	}
- }
- 
-+/* XDP Transmit APIs */
-+void nicvf_xdp_sq_doorbell(struct nicvf *nic,
-+			   struct snd_queue *sq, int sq_num)
-+{
-+	if (!sq->xdp_desc_cnt)
-+		return;
-+
-+	/* make sure all memory stores are done before ringing doorbell */
-+	wmb();
-+
-+	/* Inform HW to xmit all TSO segments */
-+	nicvf_queue_reg_write(nic, NIC_QSET_SQ_0_7_DOOR,
-+			      sq_num, sq->xdp_desc_cnt);
-+	sq->xdp_desc_cnt = 0;
-+}
-+
-+static inline void
-+nicvf_xdp_sq_add_hdr_subdesc(struct snd_queue *sq, int qentry,
-+			     int subdesc_cnt, u64 data, int len)
-+{
-+	struct sq_hdr_subdesc *hdr;
-+
-+	hdr = (struct sq_hdr_subdesc *)GET_SQ_DESC(sq, qentry);
-+	memset(hdr, 0, SND_QUEUE_DESC_SIZE);
-+	hdr->subdesc_type = SQ_DESC_TYPE_HEADER;
-+	hdr->subdesc_cnt = subdesc_cnt;
-+	hdr->tot_len = len;
-+	hdr->post_cqe = 1;
-+	sq->xdp_page[qentry] = (u64)virt_to_page((void *)data);
-+}
-+
-+int nicvf_xdp_sq_append_pkt(struct nicvf *nic, struct snd_queue *sq,
-+			    u64 bufaddr, u64 dma_addr, u16 len)
-+{
-+	int subdesc_cnt = MIN_SQ_DESC_PER_PKT_XMIT;
-+	int qentry;
-+
-+	if (subdesc_cnt > sq->xdp_free_cnt)
-+		return 0;
-+
-+	qentry = nicvf_get_sq_desc(sq, subdesc_cnt);
-+
-+	nicvf_xdp_sq_add_hdr_subdesc(sq, qentry, subdesc_cnt - 1, bufaddr, len);
-+
-+	qentry = nicvf_get_nxt_sqentry(sq, qentry);
-+	nicvf_sq_add_gather_subdesc(sq, qentry, len, dma_addr);
-+
-+	sq->xdp_desc_cnt += subdesc_cnt;
-+
-+	return 1;
-+}
-+
- /* Calculate no of SQ subdescriptors needed to transmit all
-  * segments of this TSO packet.
-  * Taken from 'Tilera network driver' with a minor modification.
-diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_queues.h b/drivers/net/ethernet/cavium/thunder/nicvf_queues.h
-index db04c0e..a07d5b4 100644
---- a/drivers/net/ethernet/cavium/thunder/nicvf_queues.h
-+++ b/drivers/net/ethernet/cavium/thunder/nicvf_queues.h
-@@ -271,6 +271,10 @@ struct snd_queue {
- 	u32		tail;
- 	u64		*skbuff;
- 	void		*desc;
-+	u64		*xdp_page;
-+	u16		xdp_desc_cnt;
-+	u16		xdp_free_cnt;
-+	bool		is_xdp;
- 
- #define	TSO_HEADER_SIZE	128
- 	/* For TSO segment's header */
-@@ -339,6 +343,9 @@ void nicvf_sq_free_used_descs(struct net_device *netdev,
- 			      struct snd_queue *sq, int qidx);
- int nicvf_sq_append_skb(struct nicvf *nic, struct snd_queue *sq,
- 			struct sk_buff *skb, u8 sq_num);
-+int nicvf_xdp_sq_append_pkt(struct nicvf *nic, struct snd_queue *sq,
-+			    u64 bufaddr, u64 dma_addr, u16 len);
-+void nicvf_xdp_sq_doorbell(struct nicvf *nic, struct snd_queue *sq, int sq_num);
- 
- struct sk_buff *nicvf_get_rcv_skb(struct nicvf *nic,
- 				  struct cqe_rx_t *cqe_rx, bool xdp);
 -- 
 2.7.4
