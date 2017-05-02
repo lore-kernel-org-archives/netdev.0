@@ -1,73 +1,77 @@
-From: Sudarsana Reddy Kalluru <sudarsana.kalluru@cavium.com>
-Subject: [PATCH net 1/2] qede: Fix concurrency issue in PTP Tx path processing.
-Date: Tue, 2 May 2017 01:11:02 -0700
-Message-ID: <20170502081103.4252-2-sudarsana.kalluru@cavium.com>
-References: <20170502081103.4252-1-sudarsana.kalluru@cavium.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <richardcochran@gmail.com>, <netdev@vger.kernel.org>,
-        <Yuval.Mintz@cavium.com>
-To: <davem@davemloft.net>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next repost] net: sched: add helpers to handle extended actions
+Date: Tue,  2 May 2017 10:12:00 +0200
+Message-ID: <1493712720-1501-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
+        mlxsw@mellanox.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2nam02on0075.outbound.protection.outlook.com ([104.47.38.75]:63856
-        "EHLO NAM02-BL2-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751279AbdEBILb (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 2 May 2017 04:11:31 -0400
-In-Reply-To: <20170502081103.4252-1-sudarsana.kalluru@cavium.com>
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:34247 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751343AbdEBIMD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 2 May 2017 04:12:03 -0400
+Received: by mail-wm0-f65.google.com with SMTP id z129so2343717wmb.1
+        for <netdev@vger.kernel.org>; Tue, 02 May 2017 01:12:02 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PTP Tx timestamping data structures are not protected against the
-concurrent access in the Tx paths. Protecting the same using atomic
-bit locks.
+From: Jiri Pirko <jiri@mellanox.com>
 
-Signed-off-by: Sudarsana Reddy Kalluru <Sudarsana.Kalluru@cavium.com>
-Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
+Jump is now the only one using value action opcode. This is going to
+change soon. So introduce helpers to work with this. Convert TC_ACT_JUMP.
+
+This also fixes the TC_ACT_JUMP check, which is incorrectly done as a
+bit check, not a value check.
+
+Fixes: e0ee84ded796 ("net sched actions: Complete the JUMPX opcode")
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/qlogic/qede/qede.h     | 5 +++--
- drivers/net/ethernet/qlogic/qede/qede_ptp.c | 4 ++++
- 2 files changed, 7 insertions(+), 2 deletions(-)
+Dave, I'm sending this for -net-next although I know it is closed. But
+the mentioned commit is not yet in -net. Feel free to take this either
+to -net-next or -net, whatever suits you better. Thanks.
+---
+ include/uapi/linux/pkt_cls.h | 15 ++++++++++++++-
+ net/sched/act_api.c          |  2 +-
+ 2 files changed, 15 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qede/qede.h b/drivers/net/ethernet/qlogic/qede/qede.h
-index f2aaef2..378b654 100644
---- a/drivers/net/ethernet/qlogic/qede/qede.h
-+++ b/drivers/net/ethernet/qlogic/qede/qede.h
-@@ -147,10 +147,11 @@ struct qede_dev {
- 	u32				dp_module;
- 	u8				dp_level;
- 
--	u32 flags;
--#define QEDE_FLAG_IS_VF	BIT(0)
-+	unsigned long flags;
-+#define QEDE_FLAG_IS_VF			BIT(0)
- #define IS_VF(edev)	(!!((edev)->flags & QEDE_FLAG_IS_VF))
- #define QEDE_TX_TIMESTAMPING_EN		BIT(1)
-+#define QEDE_FLAGS_PTP_TX_IN_PRORGESS	BIT(2)
- 
- 	const struct qed_eth_ops	*ops;
- 	struct qede_ptp			*ptp;
-diff --git a/drivers/net/ethernet/qlogic/qede/qede_ptp.c b/drivers/net/ethernet/qlogic/qede/qede_ptp.c
-index 2e62dec..f5f743f 100644
---- a/drivers/net/ethernet/qlogic/qede/qede_ptp.c
-+++ b/drivers/net/ethernet/qlogic/qede/qede_ptp.c
-@@ -181,6 +181,7 @@ static void qede_ptp_task(struct work_struct *work)
- 	skb_tstamp_tx(ptp->tx_skb, &shhwtstamps);
- 	dev_kfree_skb_any(ptp->tx_skb);
- 	ptp->tx_skb = NULL;
-+	clear_bit_unlock(QEDE_FLAGS_PTP_TX_IN_PRORGESS, &edev->flags);
- 
- 	DP_VERBOSE(edev, QED_MSG_DEBUG,
- 		   "Tx timestamp, timestamp cycles = %llu, ns = %llu\n",
-@@ -495,6 +496,9 @@ void qede_ptp_tx_ts(struct qede_dev *edev, struct sk_buff *skb)
- 	if (!ptp)
- 		return;
- 
-+	if (test_and_set_bit_lock(QEDE_FLAGS_PTP_TX_IN_PRORGESS, &edev->flags))
-+		return;
+diff --git a/include/uapi/linux/pkt_cls.h b/include/uapi/linux/pkt_cls.h
+index f1129e3..d613be3 100644
+--- a/include/uapi/linux/pkt_cls.h
++++ b/include/uapi/linux/pkt_cls.h
+@@ -37,7 +37,20 @@ enum {
+ #define TC_ACT_QUEUED		5
+ #define TC_ACT_REPEAT		6
+ #define TC_ACT_REDIRECT		7
+-#define TC_ACT_JUMP		0x10000000
 +
- 	if (unlikely(!(edev->flags & QEDE_TX_TIMESTAMPING_EN))) {
- 		DP_NOTICE(edev,
- 			  "Tx timestamping was not enabled, this packet will not be timestamped\n");
++/* There is a special kind of actions called "extended actions",
++ * which need a value parameter. These have a local opcode located in
++ * the highest nibble, starting from 1. The rest of the bits
++ * are used to carry the value. These two parts together make
++ * a combined opcode.
++ */
++#define __TC_ACT_EXT_SHIFT 28
++#define __TC_ACT_EXT(local) ((local) << __TC_ACT_EXT_SHIFT)
++#define TC_ACT_EXT_VAL_MASK ((1 << __TC_ACT_EXT_SHIFT) - 1)
++#define TC_ACT_EXT_CMP(combined, opcode) \
++	(((combined) & (~TC_ACT_EXT_VAL_MASK)) == opcode)
++
++#define TC_ACT_JUMP __TC_ACT_EXT(1)
+ 
+ /* Action type identifiers*/
+ enum {
+diff --git a/net/sched/act_api.c b/net/sched/act_api.c
+index 7f2cd70..a90e8f3 100644
+--- a/net/sched/act_api.c
++++ b/net/sched/act_api.c
+@@ -453,7 +453,7 @@ int tcf_action_exec(struct sk_buff *skb, struct tc_action **actions,
+ 		if (ret == TC_ACT_REPEAT)
+ 			goto repeat;	/* we need a ttl - JHS */
+ 
+-		if (ret & TC_ACT_JUMP) {
++		if (TC_ACT_EXT_CMP(ret, TC_ACT_JUMP)) {
+ 			jmp_prgcnt = ret & TCA_ACT_MAX_PRIO_MASK;
+ 			if (!jmp_prgcnt || (jmp_prgcnt > nr_actions)) {
+ 				/* faulty opcode, stop pipeline */
 -- 
-1.8.3.1
+2.7.4
