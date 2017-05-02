@@ -1,51 +1,85 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: Re: IPsec PFP support on linux
-Date: Tue, 2 May 2017 10:05:26 -0400
-Message-ID: <20170502140526.GF5843@oracle.com>
-References: <20170502123238.GE5843@oracle.com>
- <B4EE88ED-B403-42C3-A6D8-1A2526F1DA67@nohats.ca>
+From: Mike Manning <mmanning@brocade.com>
+Subject: Re: net/ipv6: warning in inet6_ifa_finish_destroy
+Date: Tue, 2 May 2017 15:04:50 +0100
+Message-ID: <3f99a46a-1d5d-bd29-486a-135614f1b689@brocade.com>
+References: <CAAeHK+y7z7PyCSqfdbRsEFS3wQ-Wwa8eQ7T=AexDZUSVrisVDA@mail.gmail.com>
+ <CAM_iQpUTx_nDtZ63TRVGnqu5L33NzTE8XFMjaxSD_i4ghGFQ7g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: steffen.klassert@secunet.com, borisp@mellanox.com, swan@lists.libreswan.org,
- netdev@vger.kernel.org, ilant@mellanox.com, linux-crypto@vger.kernel.org,
- herbert@gondor.apana.org.au
-To: Paul Wouters <paul@nohats.ca>
-Return-path: <swan-bounces@lists.libreswan.org>
-Content-Disposition: inline
-In-Reply-To: <B4EE88ED-B403-42C3-A6D8-1A2526F1DA67@nohats.ca>
-List-Unsubscribe: <https://lists.libreswan.org/mailman/options/swan>,
- <mailto:swan-request@lists.libreswan.org?subject=unsubscribe>
-List-Archive: <https://lists.libreswan.org/pipermail/swan/>
-List-Post: <mailto:swan@lists.libreswan.org>
-List-Help: <mailto:swan-request@lists.libreswan.org?subject=help>
-List-Subscribe: <https://lists.libreswan.org/mailman/listinfo/swan>,
- <mailto:swan-request@lists.libreswan.org?subject=subscribe>
-Errors-To: swan-bounces@lists.libreswan.org
-Sender: "Swan" <swan-bounces@lists.libreswan.org>
-List-Id: netdev.vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Eric Dumazet <edumazet@google.com>,
+        David Ahern <dsa@cumulusnetworks.com>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        Kostya Serebryany <kcc@google.com>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>,
+        Andrey Konovalov <andreyknvl@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:58708 "EHLO
+        mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1750952AbdEBOF7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 2 May 2017 10:05:59 -0400
+In-Reply-To: <CAM_iQpUTx_nDtZ63TRVGnqu5L33NzTE8XFMjaxSD_i4ghGFQ7g@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On (05/02/17 09:58), Paul Wouters wrote:
->    I think you want to use Opportunistic IPsec, eg see 
->    https://libreswan.org/wiki/HOWTO:_Opportunistic_IPsec
+On 28/04/17 21:39, Cong Wang wrote:
+> On Fri, Apr 28, 2017 at 6:08 AM, Andrey Konovalov <andreyknvl@google.com> wrote:
+>> Hi,
+>>
+>> I've got the following error report while fuzzing the kernel with syzkaller.
+>>
+>> On commit 5a7ad1146caa895ad718a534399e38bd2ba721b7 (4.11-rc8).
+>>
+>> C reproducer and .config are attached.
+>> It takes 1-2 minutes of running the reproducer to trigger the issue.
+>>
+>> ------------[ cut here ]------------
+>> WARNING: CPU: 0 PID: 21 at net/ipv6/addrconf.c:894
+>> inet6_ifa_finish_destroy+0x12e/0x190
+>> Modules linked in:
+>> CPU: 0 PID: 21 Comm: kworker/0:1 Not tainted 4.11.0-rc8+ #296
+>> Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+>> Workqueue: ipv6_addrconf addrconf_dad_work
+>> Call Trace:
+>>  __dump_stack lib/dump_stack.c:16
+>>  dump_stack+0x292/0x398 lib/dump_stack.c:52
+>>  __warn+0x19f/0x1e0 kernel/panic.c:549
+>>  warn_slowpath_null+0x2c/0x40 kernel/panic.c:584
+>>  inet6_ifa_finish_destroy+0x12e/0x190 c:894
+>>  in6_ifa_put ./include/net/addrconf.h:330
+>>  addrconf_dad_work+0x4e9/0x1040 net/ipv6/addrconf.c:3963
+> 
+> 
+> I don't look too much, but a quick glance shows in the following
+> path:
+> 
+>         } else if (action == DAD_ABORT) {
+>                 in6_ifa_hold(ifp);
+>                 addrconf_dad_stop(ifp, 1);
+>                 if (disable_ipv6)
+>                         addrconf_ifdown(idev->dev, 0);
+>                 goto out;
+>         }
+> 
+> the inet6_addr could be removed from hash table in
+> addrconf_ifdown() before calling in6_ifa_put(). which causes
+> this warning.
+> 
 
-I dont think that what I want is opportunistic ipsec..
+git describe 85b51b12115c79cce7ea1ced6c0bd0339a165d3f --contains
+v4.8-rc5~34^2~32
 
-taking an extreme example, I can set up the ipsec tunnels with 
-esp-null for *.5001 and 5001.* (and that's how I'm able to
-trigger quick mode in my experiment).
+This fix was introduced in 4.8, so it is interesting that this problem is only showing up now for 4.11. Also, it is not reproducible manually, i.e. DAD failure with disable_ipv6 works just fine without triggering this warning, with or without keeping IPv6 addresses on admin down.
 
-But I want each 5-tuple to/from 5001 to get its own SPI. That
-is not happening in my case. 
+I will go ahead with putting out a fix so that in6_ifa_put() precedes the call to addrconf_ifdown() in this case.
 
-If I used OE, I would *never* get a per-5-tuple SPI, right?
-(I can give this a try later today but the rfc definition of OE is
-not what I have in mind- I really want PFP, not OE).
-
->    Note that IKEv2 also allows you to define one connection and instantiate
->     a connection based on the trigger packet whose src/dst proto/port are
->    included in the IKEv2 packet as traffic selectors. See RFC7296 and
->    "narrowing".
-
-yes, the rfc's permit this, I'm not sure how to set up my 
-SPD for this though.
+Thanks for the heads up on this,
+Mike
