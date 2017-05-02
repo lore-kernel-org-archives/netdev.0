@@ -1,55 +1,74 @@
-From: jake Briggs <nexussix@gmail.com>
-Subject: [PATCH] Fix for new version of realtek r8153
-Date: Wed,  3 May 2017 11:20:48 +1200
-Message-ID: <20170502232048.9153-1-nexussix@gmail.com>
-Cc: jake <jake@rabidtech.co.nz>
-To: hayeswang@realtek.com, mario_limonciello@dell.com,
-        linux-usb@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Kees Cook <keescook@chromium.org>
+Subject: Re: [PATCH] ipx: call ipxitf_put() in ioctl error path
+Date: Tue, 2 May 2017 16:42:33 -0700
+Message-ID: <CAGXu5j+sqS_LfuS5Jy2-AfYmRyKWhsyBo9bqHrnnyQ+ONA4nMA@mail.gmail.com>
+References: <143C0AFC63FC204CB0C55BB88F3A8ABB33419ED1@EX02.corp.qihoo.net> <20170502105853.yz3ny6lyso6isdvx@mwanda>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Network Development <netdev@vger.kernel.org>,
+        "security@kernel.org" <security@kernel.org>,
+        "secalert@redhat.com" <secalert@redhat.com>
+To: Dan Carpenter <dan.carpenter@oracle.com>,
+        "kernel-hardening@lists.openwall.com"
+        <kernel-hardening@lists.openwall.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f171.google.com ([209.85.223.171]:34153 "EHLO
+        mail-io0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751148AbdEBXmf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 2 May 2017 19:42:35 -0400
+Received: by mail-io0-f171.google.com with SMTP id k91so3179588ioi.1
+        for <netdev@vger.kernel.org>; Tue, 02 May 2017 16:42:35 -0700 (PDT)
+In-Reply-To: <20170502105853.yz3ny6lyso6isdvx@mwanda>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: jake <jake@rabidtech.co.nz>
+On Tue, May 2, 2017 at 3:58 AM, Dan Carpenter <dan.carpenter@oracle.com> wr=
+ote:
+> We should call ipxitf_put() if the copy_to_user() fails.
+>
+> Reported-by: =E6=9D=8E=E5=BC=BA <liqiang6-s@360.cn>
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+>
+> diff --git a/net/ipx/af_ipx.c b/net/ipx/af_ipx.c
+> index 8a9219ff2e77..fa31ef29e3fa 100644
+> --- a/net/ipx/af_ipx.c
+> +++ b/net/ipx/af_ipx.c
+> @@ -1168,11 +1168,10 @@ static int ipxitf_ioctl(unsigned int cmd, void __=
+user *arg)
+>                 sipx->sipx_network      =3D ipxif->if_netnum;
+>                 memcpy(sipx->sipx_node, ipxif->if_node,
+>                         sizeof(sipx->sipx_node));
+> -               rc =3D -EFAULT;
+> +               rc =3D 0;
+>                 if (copy_to_user(arg, &ifr, sizeof(ifr)))
+> -                       break;
+> +                       rc =3D -EFAULT;
+>                 ipxitf_put(ipxif);
+> -               rc =3D 0;
+>                 break;
+>         }
+>         case SIOCAIPXITFCRT:
 
-Fix for new version of realtek r8153 not being recognised by the r8152
-driver. The new version of the device with idVendor=0bda, idProduct=8153 is 6010 and treating it as if it was a 5c30 allow it to work.
+This refcount overflow flaw (and resulting use-after-free) appears to
+be reachable from unprivileged userspace, though I think it requires
+an interface already be configured, so this is likely not much risk to
+most users. Someone more familiar with IPX should double-check...
 
-Error log:
+And, of course, I should point out this flaw would have been blocked
+entirely by using refcount_t:
+https://lkml.org/lkml/2017/3/17/193
 
-Apr 19 09:55:13 devotron kernel: [  330.167074] usb 2-2.2: New USB
-device found, idVendor=0bda, idProduct=8153
-Apr 19 09:55:13 devotron kernel: [  330.167078] usb 2-2.2: New USB
-device strings: Mfr=1, Product=2, SerialNumber=6
-Apr 19 09:55:13 devotron kernel: [  330.167080] usb 2-2.2: Product: USB
-10/100/1000 LAN
-Apr 19 09:55:13 devotron kernel: [  330.167081] usb 2-2.2: Manufacturer:
-Realtek
-Apr 19 09:55:13 devotron kernel: [  330.167083] usb 2-2.2: SerialNumber:
-001000001
-Apr 19 09:55:13 devotron kernel: [  330.258781] usb 2-2.2: reset
-SuperSpeed USB device number 5 using xhci_hcd
-Apr 19 09:55:13 devotron kernel: [  330.279430] r8152 2-2.2:1.0 (unnamed
-net_device) (uninitialized): Unknown version 0x6010
-Apr 19 09:55:13 devotron kernel: [  330.279434] r8152 2-2.2:1.0 (unnamed
-net_device) (uninitialized): Unknown Device
+And if it didn't require a configured interface, it would be mitigated
+with module autoload blocking:
+https://lkml.org/lkml/2017/4/19/1088
 
-Signed-off-by: jake <jake@rabidtech.co.nz>
----
- drivers/net/usb/r8152.c | 1 +
- 1 file changed, 1 insertion(+)
+(Yes, yes, I know both are still being worked on, but this is a good
+example to show another case where they'd have been useful.)
 
-diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index 07f788c49d57..2a55459fdfac 100644
---- a/drivers/net/usb/r8152.c
-+++ b/drivers/net/usb/r8152.c
-@@ -4277,6 +4277,7 @@ static void r8152b_get_version(struct r8152 *tp)
- 		tp->mii.supports_gmii = 1;
- 		break;
- 	case 0x5c30:
-+	case 0x6010:	
- 		tp->version = RTL_VER_06;
- 		tp->mii.supports_gmii = 1;
- 		break;
--- 
-2.11.0
+-Kees
+
+--=20
+Kees Cook
+Pixel Security
