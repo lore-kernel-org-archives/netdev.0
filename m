@@ -1,56 +1,68 @@
-From: Quentin Monnet <quentin.monnet@6wind.com>
-Subject: Re: [PATCH iproute2 net-next v2] bpf: add support for generic xdp
-Date: Tue, 2 May 2017 11:47:47 +0200
-Message-ID: <5220cb6f-b7ee-a5a3-6858-7d51097d0ee2@6wind.com>
-References: <e2ca217f7b95b4dd0b5fa8650e8fcf783de73967.1493386943.git.daniel@iogearbox.net>
- <20170501092915.5c19395c@xeon-e3> <5907717B.3060608@iogearbox.net>
+From: Miroslav Lichvar <mlichvar@redhat.com>
+Subject: Re: [PATCH v1 net-next 5/6] net: allow simultaneous SW and HW
+ transmit timestamping
+Date: Tue, 2 May 2017 11:56:53 +0200
+Message-ID: <20170502095653.GB4610@localhost>
+References: <20170426145035.25846-1-mlichvar@redhat.com>
+ <20170426145035.25846-6-mlichvar@redhat.com>
+ <CAF=yD-+GSK491AWQx8=6yd3=-HHwxdWq677ubwdjbV5AXzRbog@mail.gmail.com>
+ <20170428085422.GD3401@localhost>
+ <CAF=yD-+DYwBbhU0fOMOj4XO+diG4-GLn6Ruh9ZMoXVv5ZS4PgQ@mail.gmail.com>
+ <20170428162325.GA2932@localhost>
+ <CAF=yD-Ku30zqECeK-68o5Vuk+u4BaU8U3TZR32ZY4mq1y8f6jw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: alexei.starovoitov@gmail.com, davem@davemloft.net,
-        netdev@vger.kernel.org
-To: Daniel Borkmann <daniel@iogearbox.net>,
-        Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Network Development <netdev@vger.kernel.org>,
+        Richard Cochran <richardcochran@gmail.com>,
+        Willem de Bruijn <willemb@google.com>,
+        Soheil Hassas Yeganeh <soheil@google.com>,
+        "Keller, Jacob E" <jacob.e.keller@intel.com>,
+        Denny Page <dennypage@me.com>, Jiri Benc <jbenc@redhat.com>
+To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f53.google.com ([74.125.82.53]:34852 "EHLO
-        mail-wm0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751217AbdEBJry (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 2 May 2017 05:47:54 -0400
-Received: by mail-wm0-f53.google.com with SMTP id w64so106445911wma.0
-        for <netdev@vger.kernel.org>; Tue, 02 May 2017 02:47:53 -0700 (PDT)
-In-Reply-To: <5907717B.3060608@iogearbox.net>
+Received: from mx1.redhat.com ([209.132.183.28]:60468 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750934AbdEBJ45 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 2 May 2017 05:56:57 -0400
+Content-Disposition: inline
+In-Reply-To: <CAF=yD-Ku30zqECeK-68o5Vuk+u4BaU8U3TZR32ZY4mq1y8f6jw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Daniel, Stephen,
-
-2017-05-01 (19:33 +0200) ~ Daniel Borkmann <daniel@iogearbox.net>
-> [ +Quentin ]
+On Fri, Apr 28, 2017 at 04:07:29PM -0400, Willem de Bruijn wrote:
+> On Fri, Apr 28, 2017 at 12:23 PM, Miroslav Lichvar <mlichvar@redhat.com> wrote:
+> > On Fri, Apr 28, 2017 at 11:50:28AM -0400, Willem de Bruijn wrote:
+> >> A more elegant solution would be to not set SKBTX_IN_PROGRESS
+> >> at all if SOF_TIMESTAMPING_OPT_TX_SWHW is set on the socket.
+> >> But the patch to do so is not elegant, having to update callsites in many
+> >> device drivers.
+> >
+> > Also, it would change the meaning of the flag as it seems some drivers
+> > actually use the SKBTX_IN_PROGRESS flag to check if they expect a
+> > timestamp.
+> >
+> > How about allocating the last bit of tx_flags for SKBTX_SWHW_TSTAMP?
 > 
-> On 05/01/2017 06:29 PM, Stephen Hemminger wrote:
->> On Fri, 28 Apr 2017 15:44:29 +0200
->> Daniel Borkmann <daniel@iogearbox.net> wrote:
->>
+> That is such a scarce resource that I really would prefer to avoid using
+> that if we can.
 
-[…]
+Ok. I think it won't really matter. We should keep in mind that the
+reason for adding the OPT_TX_SWHW option was to not break old
+applications which enabled both SW and HW TX timestamping, even though
+they could get only one timestamp. I think most applications in future
+will either enable only SW or HW TX timestamping, or enable both
+together with the OPT_TX_SWHW option in order to get a SW timestamp
+when HW timestamp was requested but missing.
 
->> Does bash-completion need update?
-> 
-> Yeah, so far there's only a bash completion for the tc tool
-> in the tree, but nothing else. Is there anything in the works
-> for covering other tools, Quentin?
-> 
-> Thanks again,
-> Daniel
+> >> Otherwise you may indeed have to call skb_tstamp_tx for every packet
+> >> that has SKBTX_SW_TSTAMP set, as you do. We can at least move
+> >> the skb->sk != NULL check into skb_tx_timestamp in skbuff.h.
 
-I am not working on bash completion for other tools at the moment, but
-it appears that several of them are already covered. Not in iproute2,
-but in bash-completions repository [1]. There is at least some support
-for ip (last updated 4 months ago, it seems) [2], for ss and for tipc.
-It would be nice to have everything in the iproute2 tree, though.
+There are other callers of skb_tx_timestamp() and it's not obvious to
+me they are all safe (i.e. cannot pass skb will sk==NULL), so I think
+this should rather be a separate patch if necessary.
 
-Best,
-Quentin
+I'll resend the series with the other changes you have suggested.
 
-[1] https://github.com/scop/bash-completion
-[1] https://github.com/scop/bash-completion/blob/master/completions/ip
+-- 
+Miroslav Lichvar
