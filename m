@@ -1,44 +1,56 @@
-From: Andy Shevchenko <andy.shevchenko@gmail.com>
-Subject: Re: [PATCH v1 1/3] bnx2x: Replace custom scnprintf()
-Date: Tue, 2 May 2017 11:45:50 +0300
-Message-ID: <CAHp75VfX71nmjzr23WWUO6ycGcvyw1sNkdTLhX-L=Pbk2jDPLg@mail.gmail.com>
-References: <20170427133701.72701-1-andriy.shevchenko@linux.intel.com>
- <BLUPR0701MB2004B5244F758FC95EE1B5E88D150@BLUPR0701MB2004.namprd07.prod.outlook.com>
- <CAHp75VcitfXWzUsUDthAXp97yjQQnEGND7eqSH-AFRVjH6pYDg@mail.gmail.com> <20170430.113218.1767277817865308181.davem@davemloft.net>
+From: Quentin Monnet <quentin.monnet@6wind.com>
+Subject: Re: [PATCH iproute2 net-next v2] bpf: add support for generic xdp
+Date: Tue, 2 May 2017 11:47:47 +0200
+Message-ID: <5220cb6f-b7ee-a5a3-6858-7d51097d0ee2@6wind.com>
+References: <e2ca217f7b95b4dd0b5fa8650e8fcf783de73967.1493386943.git.daniel@iogearbox.net>
+ <20170501092915.5c19395c@xeon-e3> <5907717B.3060608@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "Mintz, Yuval" <Yuval.Mintz@cavium.com>,
-        Andy Shevchenko <andriy.shevchenko@linux.intel.com>,
-        netdev <netdev@vger.kernel.org>,
-        "Elior, Ariel" <Ariel.Elior@cavium.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: alexei.starovoitov@gmail.com, davem@davemloft.net,
+        netdev@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>,
+        Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f170.google.com ([209.85.216.170]:33249 "EHLO
-        mail-qt0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750767AbdEBIpw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 2 May 2017 04:45:52 -0400
-Received: by mail-qt0-f170.google.com with SMTP id m36so106160967qtb.0
-        for <netdev@vger.kernel.org>; Tue, 02 May 2017 01:45:51 -0700 (PDT)
-In-Reply-To: <20170430.113218.1767277817865308181.davem@davemloft.net>
+Received: from mail-wm0-f53.google.com ([74.125.82.53]:34852 "EHLO
+        mail-wm0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751217AbdEBJry (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 2 May 2017 05:47:54 -0400
+Received: by mail-wm0-f53.google.com with SMTP id w64so106445911wma.0
+        for <netdev@vger.kernel.org>; Tue, 02 May 2017 02:47:53 -0700 (PDT)
+In-Reply-To: <5907717B.3060608@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Apr 30, 2017 at 6:32 PM, David Miller <davem@davemloft.net> wrote:
-> From: Andy Shevchenko <andy.shevchenko@gmail.com>
+Hi Daniel, Stephen,
 
->>> Was there a cover-letter for your series? I've failed to find it.
+2017-05-01 (19:33 +0200) ~ Daniel Borkmann <daniel@iogearbox.net>
+> [ +Quentin ]
+> 
+> On 05/01/2017 06:29 PM, Stephen Hemminger wrote:
+>> On Fri, 28 Apr 2017 15:44:29 +0200
+>> Daniel Borkmann <daniel@iogearbox.net> wrote:
 >>
->> There was none since patches are quite straight forward.
->
-> All patch series, regardless of how simple, should provide
-> a proper cover letter.
 
-Got it. Will try to not forget it.
+[…]
 
-> It is an essential part of all patch series.
+>> Does bash-completion need update?
+> 
+> Yeah, so far there's only a bash completion for the tc tool
+> in the tree, but nothing else. Is there anything in the works
+> for covering other tools, Quentin?
+> 
+> Thanks again,
+> Daniel
 
-I hope it doesn't apply for the single patch(es).
+I am not working on bash completion for other tools at the moment, but
+it appears that several of them are already covered. Not in iproute2,
+but in bash-completions repository [1]. There is at least some support
+for ip (last updated 4 months ago, it seems) [2], for ss and for tipc.
+It would be nice to have everything in the iproute2 tree, though.
 
--- 
-With Best Regards,
-Andy Shevchenko
+Best,
+Quentin
+
+[1] https://github.com/scop/bash-completion
+[1] https://github.com/scop/bash-completion/blob/master/completions/ip
