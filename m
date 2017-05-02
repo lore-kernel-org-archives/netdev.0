@@ -1,150 +1,92 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next ] tcp: add new parameter tcp_inherit_buffsize
- to control the initial buffer size for new passive connetion
-Date: Tue, 02 May 2017 08:05:15 -0700
-Message-ID: <1493737515.31837.42.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <CAPYxyxJYXA_maME_qnshnFdzwDUkU1PvgDBQMfH32EerfQJZxA@mail.gmail.com>
+From: "Chiappero, Marco" <marco.chiappero@intel.com>
+Subject: RE: [PATCH net-next 9/9] ipvlan: introduce individual MAC addresses
+Date: Tue, 2 May 2017 15:08:28 +0000
+Message-ID: <695CDAEB5A6CE2498DE413F2A9AA82960915DF0C@IRSMSX101.ger.corp.intel.com>
+References: <20170427145142.15830-1-marco.chiappero@intel.com>
+         <20170427145142.15830-10-marco.chiappero@intel.com>
+         <1493310033.27948.3.camel@redhat.com> <1493310219.27948.5.camel@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
-To: =?UTF-8?Q?=E5=8D=95=E5=8D=AB?= <shanwei88@gmail.com>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: 8BIT
+Cc: "David S . Miller" <davem@davemloft.net>,
+        "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+        "Duyck, Alexander H" <alexander.h.duyck@intel.com>,
+        "Grandhi, Sainath" <sainath.grandhi@intel.com>,
+        Mahesh Bandewar <maheshb@google.com>
+To: 'Dan Williams' <dcbw@redhat.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:33744 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750740AbdEBPFS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 2 May 2017 11:05:18 -0400
-Received: by mail-pf0-f193.google.com with SMTP id b23so17775309pfc.0
-        for <netdev@vger.kernel.org>; Tue, 02 May 2017 08:05:18 -0700 (PDT)
-In-Reply-To: <CAPYxyxJYXA_maME_qnshnFdzwDUkU1PvgDBQMfH32EerfQJZxA@mail.gmail.com>
+Received: from mga06.intel.com ([134.134.136.31]:39256 "EHLO mga06.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750769AbdEBPIr (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 2 May 2017 11:08:47 -0400
+In-Reply-To: <1493310219.27948.5.camel@redhat.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2017-05-02 at 12:57 +0800, å•å« wrote:
-> Current sndbuff/rcvbuff value of new passive connetion inherit from
-> listen socket.
-> After then, tcp_init_buffer_space() initial them with init_cwnd and 
-> tcp_should_expand_sndbuf() adjust them according the new cwnd.
-> 
-> 
-> But, For Operation & Maintenance engineer, can't control
-> sndbuff/rcvbuff with 
-> tcp_wmem/tcp_rmem sysctl parameter online. They need to migrate flows
-> out 
-> and migrate them in after restart services and turn sndbuff/rcvfuff
-> up.
-> 
-> 
-> This patch is useful for online servcie setting tcp_inherit_buffsize
-> with 0.
-> By default, keep be consistent whth before.
-> 
-> 
-> Signed-off-by: Shan Wei <shanwei88@gmail.com>
-> ---
->  Documentation/networking/ip-sysctl.txt |    8 ++++++++
->  include/net/netns/ipv4.h               |    1 +
->  net/ipv4/sysctl_net_ipv4.c             |    7 +++++++
->  net/ipv4/tcp_ipv4.c                    |    1 +
->  net/ipv4/tcp_minisocks.c               |    6 ++++++
->  5 files changed, 23 insertions(+), 0 deletions(-)
-> 
-> 
-> diff --git a/Documentation/networking/ip-sysctl.txt
-> b/Documentation/networking/ip-sysctl.txt
-> index 974ab47..3292bbf 100644
-> --- a/Documentation/networking/ip-sysctl.txt
-> +++ b/Documentation/networking/ip-sysctl.txt
-> @@ -308,6 +308,14 @@ tcp_frto - INTEGER
->  
->   By default it's enabled with a non-zero value. 0 disables F-RTO.
->  
-> +tcp_inherit_buffsize - BOOLEAN
-> + For a new passive TCP connection, can use current tcp_wmem/tcp_rmem
-> + parameter to set initial snd/rcv buffer size. This is useful for
-> online
-> + services which no need to be restarted just set it with 0. By
-> default,
-> + new passive connection inherits snd/rcv buffer size from lister
-> socket.
-> +
-> + Default: 1
-> +
->  tcp_invalid_ratelimit - INTEGER
->   Limit the maximal rate for sending duplicate acknowledgments
->   in response to incoming TCP packets that are for an existing
-> diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
-> index cd686c4..1fc85bd 100644
-> --- a/include/net/netns/ipv4.h
-> +++ b/include/net/netns/ipv4.h
-> @@ -124,6 +124,7 @@ struct netns_ipv4 {
->   int sysctl_tcp_tw_reuse;
->   struct inet_timewait_death_row tcp_death_row;
->   int sysctl_max_syn_backlog;
-> + int sysctl_tcp_inherit_buffsize;
->  
->  #ifdef CONFIG_NET_L3_MASTER_DEV
->   int sysctl_udp_l3mdev_accept;
-> diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
-> index 86957e9..58a8bec 100644
-> --- a/net/ipv4/sysctl_net_ipv4.c
-> +++ b/net/ipv4/sysctl_net_ipv4.c
-> @@ -1078,6 +1078,13 @@ static int
-> proc_tfo_blackhole_detect_timeout(struct ctl_table *table,
->   .mode = 0644,
->   .proc_handler = proc_dointvec
->   },
-> + {
-> + .procname = "tcp_inherit_buffsize",
-> + .data = &init_net.ipv4.sysctl_tcp_inherit_buffsize,
-> + .maxlen = sizeof(int),
-> + .mode = 0644,
-> + .proc_handler = proc_dointvec
-> + },
->  #ifdef CONFIG_IP_ROUTE_MULTIPATH
->   {
->   .procname = "fib_multipath_use_neigh",
-> diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-> index cbbafe5..7a8a2bb 100644
-> --- a/net/ipv4/tcp_ipv4.c
-> +++ b/net/ipv4/tcp_ipv4.c
-> @@ -2457,6 +2457,7 @@ static int __net_init tcp_sk_init(struct net
-> *net)
->   net->ipv4.tcp_death_row.hashinfo = &tcp_hashinfo;
->  
->   net->ipv4.sysctl_max_syn_backlog = max(128, cnt / 256);
-> + net->ipv4.sysctl_tcp_inherit_buffsize = 1;
->  
->   return 0;
->  fail:
-> diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
-> index 8f6373b..6090d7e 100644
-> --- a/net/ipv4/tcp_minisocks.c
-> +++ b/net/ipv4/tcp_minisocks.c
-> @@ -474,6 +474,12 @@ struct sock *tcp_create_openreq_child(const
-> struct sock *sk,
->   tcp_init_xmit_timers(newsk);
->   newtp->write_seq = newtp->pushed_seq = treq->snt_isn + 1;
->  
-> + if (!(sock_net(newsk)->ipv4.sysctl_tcp_inherit_buffsize) &&
-> + !(sk->sk_userlocks & SOCK_SNDBUF_LOCK)) {
-> + newsk->sk_sndbuf = sock_net(sk)->ipv4.sysctl_tcp_wmem[1];
-> + newsk->sk_rcvbuf = sock_net(sk)->ipv4.sysctl_tcp_rmem[1];
-> + }
-> +
 
-Hi Shan
+> -----Original Message-----
+> From: Dan Williams [mailto:dcbw@redhat.com]
+> On Thu, 2017-04-27 at 11:20 -0500, Dan Williams wrote:
+> > On Thu, 2017-04-27 at 15:51 +0100, Marco Chiappero wrote:
+> > > Currently all the slave devices belonging to the same port inherit
+> > > their MAC address from its master device. This patch removes this
+> > > limitation and allows every slave device to obtain a unique MAC
+> > > address, by default randomly generated at creation time.
+> > >
+> > > Moreover it is now possible to correctly modify the MAC address at
+> > > any time, fixing an existing bug as MAC address changes on the
+> > > master were not reflected on the slaves. It also avoids multiple
+> > > interfaces sharing the same IPv6 link-local address.
+> >
+> > How is this different than macvlan now?
 
-1) Your patch never reached netdev, because it was sent in HTML format.
+The same way it was before. The purpose of the patch is to make possible to change the MAC address on slaves, not to change the external behavior of ipvlan: ipvlan will still behave as ipvlan, macvlan will still behave as macvlan.
 
-2) During Linus merge window, net-next is closed
+>>  Why would you use unique
+> > addressed ipvlan instances instead of macvlan?  Wouldn't the same
+> > problems around external switches not expecting multiple MACs from the
+> > same switch port apply now to ipvlan?
 
-I am not really convinced that we need this with TCP autotuning anyway.
-Initial value of sk_sndbuf and sk_rcvbuf is really a hint.
+No. I'm willing to rework the commit messages if this point is not clear.
+The idea is to effectively NAT communications, which is more or less the whole concept behind ipvlan.
 
-How often do you really tweak /proc/sys/net/ipv4 files in production.
+> > The whole point of ipvlan AIUI was to get around macvlan problems
+> > related to multiple MACs on the same port.
+> 
+> Another issue is the unicast MAC limits on cards.  ipvlan is now much more likely
+> to hit the unicast MAC limit of the NIC and thus trigger promiscuous mode and
+> the resulting performance drop, where before it would not.
 
-Please provide more information, like what actual values you change back
-and forth.
+The outside world will still see and use only one unicast MAC address, belonging to the master interface. No need to store any other unicast MAC in the filter.
 
-Thanks.
+Multicast filters will work as before, the only difference is that now slaves have different IPv6 link-local addresses, with an associated L2 multicast address). If this turns out to be an issue it's possible to keep the same MAC address by default but still allow it change. Or maybe force the same default link-local address somehow.
+ 
+However, if the MAC filter is really the issue, I strongly encourage you to start working with HW vendors in order to better support modern data center workloads as a long term solution.
+
+> > Also, I think the IPv6 thing you mention is incorrect and has long
+> > since been solved.  Originally, ipvlan did not include a "dev_id"
+> > property that differened between child interfaces, and thus the IID of
+> > the each interface was the same.  That has now been fixed, and each
+> > ipvlan slave should now have a different IID and thus a different
+> > link-
+> > local address.
+
+Yes, thank you for pointing it out. I started this change a few months ago when such fix not present and simply rebased lately without noticing it.
+
+Please let me know if you have further questions.
+
+Thank you,
+Marco
+--------------------------------------------------------------
+Intel Research and Development Ireland Limited
+Registered in Ireland
+Registered Office: Collinstown Industrial Park, Leixlip, County Kildare
+Registered Number: 308263
+
+
+This e-mail and any attachments may contain confidential material for the sole
+use of the intended recipient(s). Any review or distribution by others is
+strictly prohibited. If you are not the intended recipient, please contact the
+sender and delete all copies.
