@@ -1,136 +1,124 @@
-From: "Raj, Ashok" <ashok.raj@intel.com>
-Subject: Re: [PATCH 1/2] PCI: Add new PCIe Fabric End Node flag,
- PCI_DEV_FLAGS_NO_RELAXED_ORDERING
-Date: Tue, 2 May 2017 09:53:29 -0700
-Message-ID: <20170502165329.GB26406@linux.intel.com>
-References: <cover.1493678834.git.leedom@chelsio.com>
- <758d0e431c732fe133e7b0e660bde5fc1beccdba.1493678834.git.leedom@chelsio.com>
- <CAKgT0UeuW88AHBX14H8xHteeG7vR0AH3apbjOeEDx_6p46x7tA@mail.gmail.com>
+From: Andrey Konovalov <andreyknvl@google.com>
+Subject: Re: net/ipv6: use-after-free in __call_rcu/in6_dev_finish_destroy_rcu
+Date: Tue, 2 May 2017 18:58:41 +0200
+Message-ID: <CAAeHK+z-LFc1mbg3FKtSnMqLGQf2kr432a-MSeMx8Q7epfnVaw@mail.gmail.com>
+References: <CAAeHK+y=YqG0Kb2chQ=_2E8aPttMetQjZPCxFibHKCfktQS2PQ@mail.gmail.com>
+ <20170426135950.GO3956@linux.vnet.ibm.com> <CAAeHK+yzuh7mAmLR9DgHsLYBykqD8YhFcv=Nx6Az_f+PV_YMzw@mail.gmail.com>
+ <e133f72f-89ab-bf45-67f5-4ad0c502adc4@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Casey Leedom <leedom@chelsio.com>,
-        Bjorn Helgaas <helgaas@kernel.org>, leedom@gmail.com,
-        Michael Werner <werner@chelsio.com>,
-        Ganesh Goudar <ganeshgr@chelsio.com>,
-        Arjun V <arjun@chelsio.com>,
-        David Miller <davem@davemloft.com>,
-        Asit K Mallick <asit.k.mallick@intel.com>,
-        Patrick J Cramer <patrick.j.cramer@intel.com>,
-        Suravee Suthikulpanit <Suravee.Suthikulpanit@amd.com>,
-        Bob Shaw <Bob.Shaw@amd.com>, h <l.stach@pengutronix.de>,
-        Ding Tianhong <dingtianhong@huawei.com>,
-        Mark Rutland <mark.rutland@arm.com>,
-        Amir Ancel <amira@mellanox.com>,
-        Gabriele Paoloni <gabriele.paoloni@huawei.com>,
-        Catalin Marinas <catalin.marinas@arm.com>,
-        Will Deacon <will.deacon@arm.com>,
-        LinuxArm <linuxarm@huawei.com>,
-        David Laight <David.Laight@aculab.com>,
-        Jeff Kirsher
-To: Alexander Duyck <alexander.duyck@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:49424 "EHLO mga03.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751146AbdEBQxa (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 2 May 2017 12:53:30 -0400
-Content-Disposition: inline
-In-Reply-To: <CAKgT0UeuW88AHBX14H8xHteeG7vR0AH3apbjOeEDx_6p46x7tA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Josh Triplett <josh@joshtriplett.org>,
+        Steven Rostedt <rostedt@goodmis.org>,
+        Mathieu Desnoyers <mathieu.desnoyers@efficios.com>,
+        Lai Jiangshan <jiangshanlai@gmail.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        Kostya Serebryany <kcc@google.com>,
+        syzkaller <syzkaller@googlegroups.com>
+To: David Ahern <dsa@cumulusnetworks.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <e133f72f-89ab-bf45-67f5-4ad0c502adc4@cumulusnetworks.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, May 02, 2017 at 09:39:34AM -0700, Alexander Duyck wrote:
-> On Mon, May 1, 2017 at 4:13 PM, Casey Leedom <leedom@chelsio.com> wrote:
-> > The new flag PCI_DEV_FLAGS_NO_RELAXED_ORDERING indicates that the Relaxed
-> > Ordering Attribute should not be used on Transaction Layer Packets destined
-> > for the PCIe End Node so flagged.  Initially flagged this way are Intel
-> > E5-26xx Root Complex Ports which suffer from a Flow Control Credit
-> > Performance Problem and AMD A1100 ARM ("SEATTLE") Root Complex Ports which
-> > don't obey PCIe 3.0 ordering rules which can lead to Data Corruption.
-> 
-> So this is a good first step though might I suggest one other change.
-> 
-> We may want to add logic to the core PCIe code that clears the "Enable
-> Relaxed Ordering" bit in the device control register for all devices
-> hanging off of this root complex. Assuming the devices conform to the
-> PCIe spec doing that should disable relaxed ordering in a device
-> agnostic way that then enables us at a driver level to just enable the
-> feature always without having to perform any checks for your flag. We
-> could probably do that as a part of probing the PCIe interfaces
-> hanging off of these devices.
+On Tue, May 2, 2017 at 4:44 AM, David Ahern <dsa@cumulusnetworks.com> wrote:
+> On 4/26/17 9:15 AM, Andrey Konovalov wrote:
+>> +David
+>>
+>> I've enabled CONFIG_DEBUG_OBJECTS_RCU_HEAD and this is what I get.
+>>
+>> Apparently the rcu warning is related to the fib6_del_route bug I've
+>> been trying to reproduce:
+>> https://groups.google.com/forum/#!msg/syzkaller/3SS80JbVPKA/2tfIAcW7DwAJ
+>>
+>> Adding David, who provided the fix:
+>> https://patchwork.ozlabs.org/patch/754913/
+>>
+>> I've managed to extract a reproducer, attached together with the
+>> .config that I used.
+>>
+>> On commit 5a7ad1146caa895ad718a534399e38bd2ba721b7 (4.11-rc8) with
+>> David's patch applied.
+>>
+>> ------------[ cut here ]------------
+>> WARNING: CPU: 1 PID: 5911 at lib/debugobjects.c:289
+>> debug_print_object+0x175/0x210
+>> ODEBUG: activate active (active state 1) object type: rcu_head hint:
+>>         (null)
+>> Modules linked in:
+>> CPU: 1 PID: 5911 Comm: a.out Not tainted 4.11.0-rc8+ #271
+>> Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+>> Call Trace:
+>>  __dump_stack lib/dump_stack.c:16
+>>  dump_stack+0x192/0x22d lib/dump_stack.c:52
+>>  __warn+0x19f/0x1e0 kernel/panic.c:549
+>>  warn_slowpath_fmt+0xe0/0x120 kernel/panic.c:564
+>>  debug_print_object+0x175/0x210 lib/debugobjects.c:286
+>>  debug_object_activate+0x574/0x7e0 lib/debugobjects.c:442
+>>  debug_rcu_head_queue kernel/rcu/rcu.h:75
+>>  __call_rcu.constprop.76+0xff/0x9c0 kernel/rcu/tree.c:3229
+>>  call_rcu_sched+0x12/0x20 kernel/rcu/tree.c:3288
+>>  rt6_rcu_free net/ipv6/ip6_fib.c:158
+>>  rt6_release+0x1ea/0x290 net/ipv6/ip6_fib.c:188
+>>  fib6_del_route net/ipv6/ip6_fib.c:1461
+>
+> I think I got to the bottom of this one.
+>
+> With your config, ip6_tunnel is compiled in.
+>
+> The program runs in a very tight loop, calling 'unshare -n' and then
+> spawns 2 sets of 14 threads running random ioctl calls. The networking
+> sequence:
+>
+> 1. New network namespace created via unshare -n
+> - ip6tnl0 device is created in down state
+>
+> 2. address added to ip6tnl0 (equivalent to ip -6 addr add dev ip6tnl0
+> fd00::bb/1)
+> - the host route is created and inserted into FIB
+>
+> 3. ip6tnl0 is brought up - starts DAD on the address
+>
+> 4. exit namespace
+> - teardown / cleanup sequence starts
+> - lo teardown appears to happen BEFORE teardown of ip6tunl0
+>   + removes host route from FIB
+>   + host route added to rcu callback list: call_rcu(&rt->dst.rcu_head,
+> dst_rcu_free);
+>   + rcu callback has not run yet, so rt is NOT on the gc list so it has
+>     NOT been marked obsolete
+>
+> 5. worker_thread runs addrconf_dad_completed
+> - calls ipv6_ifa_notify which inserts the host route
+>
+> All of that happens very quickly. The result is that a route that has
+> been deleted and added to the RCU list is re-inserted into the FIB. What
+> happens next depends on order -- in this case the exit namespace
+> eventually gets to cleaning up ip6tnl0 which removes the host route from
+> the FIB, calls the rcu function for cleanup -- and triggers the double
+> rcu trace.
+>
+> I have a hack that flags this sequence and prevents the re-insertion
+> following DAD. That allows the command to run until it consumes all 2G
+> of memory the VM has -- about 600+ iterations without triggering any
+> stack traces.
 
-I suppose you don't want to turn off RO completely on the device. When
-traffic is targetted to mmio for peer to peer reasons RO has performance
-upside. The specific issue with these root ports indicate limitation using 
-RO for traffic targetting coherent memory.
+Hi David,
 
-> 
-> > ---
-> >  drivers/pci/quirks.c | 38 ++++++++++++++++++++++++++++++++++++++
-> >  include/linux/pci.h  |  2 ++
-> >  2 files changed, 40 insertions(+)
-> >
-> > diff --git a/drivers/pci/quirks.c b/drivers/pci/quirks.c
-> > index f754453..4ae78b3 100644
-> > --- a/drivers/pci/quirks.c
-> > +++ b/drivers/pci/quirks.c
-> > @@ -3979,6 +3979,44 @@ static void quirk_tw686x_class(struct pci_dev *pdev)
-> >                               quirk_tw686x_class);
-> >
-> >  /*
-> > + * Some devices have problems with Transaction Layer Packets with the Relaxed
-> > + * Ordering Attribute set.  Such devices should mark themselves and other
-> > + * Device Drivers should check before sending TLPs with RO set.
-> > + */
-> > +static void quirk_relaxedordering_disable(struct pci_dev *dev)
-> > +{
-> > +       dev->dev_flags |= PCI_DEV_FLAGS_NO_RELAXED_ORDERING;
-> > +}
-> > +
-> > +/*
-> > + * Intel E5-26xx Root Complex has a Flow Control Credit issue which can
-> > + * cause performance problems with Upstream Transaction Layer Packets with
-> > + * Relaxed Ordering set.
-> > + */
-> > +DECLARE_PCI_FIXUP_CLASS_EARLY(0x8086, 0x6f02, PCI_CLASS_NOT_DEFINED, 8,
-> > +                             quirk_relaxedordering_disable);
-> > +DECLARE_PCI_FIXUP_CLASS_EARLY(0x8086, 0x6f04, PCI_CLASS_NOT_DEFINED, 8,
-> > +                             quirk_relaxedordering_disable);
-> > +DECLARE_PCI_FIXUP_CLASS_EARLY(0x8086, 0x6f08, PCI_CLASS_NOT_DEFINED, 8,
-> > +                             quirk_relaxedordering_disable);
-> > +
-> > +/*
-> > + * The AMD ARM A1100 (AKA "SEATTLE") SoC has a bug in its PCIe Root Complex
-> > + * where Upstream Transaction Layer Packets with the Relaxed Ordering
-> > + * Attribute clear are allowed to bypass earlier TLPs with Relaxed Ordering
-> > + * set.  This is a violation of the PCIe 3.0 Transaction Ordering Rules
-> > + * outlined in Section 2.4.1 (PCI Express(r) Base Specification Revision 3.0
-> > + * November 10, 2010).  As a result, on this platform we can't use Relaxed
-> > + * Ordering for Upstream TLPs.
-> > + */
-> > +DECLARE_PCI_FIXUP_CLASS_EARLY(0x1022, 0x1a00, PCI_CLASS_NOT_DEFINED, 8,
-> > +                             quirk_relaxedordering_disable);
-> > +DECLARE_PCI_FIXUP_CLASS_EARLY(0x1022, 0x1a01, PCI_CLASS_NOT_DEFINED, 8,
-> > +                             quirk_relaxedordering_disable);
-> > +DECLARE_PCI_FIXUP_CLASS_EARLY(0x1022, 0x1a02, PCI_CLASS_NOT_DEFINED, 8,
-> > +                             quirk_relaxedordering_disable);
-> > +
-> > +/*
-> >   * Per PCIe r3.0, sec 2.2.9, "Completion headers must supply the same
-> >   * values for the Attribute as were supplied in the header of the
-> >   * corresponding Request, except as explicitly allowed when IDO is used."
-> > diff --git a/include/linux/pci.h b/include/linux/pci.h
-> > index eb3da1a..6764f66 100644
-> > --- a/include/linux/pci.h
-> > +++ b/include/linux/pci.h
-> > @@ -178,6 +178,8 @@ enum pci_dev_flags {
-> >         PCI_DEV_FLAGS_NO_PM_RESET = (__force pci_dev_flags_t) (1 << 7),
-> >         /* Get VPD from function 0 VPD */
-> >         PCI_DEV_FLAGS_VPD_REF_F0 = (__force pci_dev_flags_t) (1 << 8),
-> > +       /* Don't use Relaxed Ordering for TLPs directed at this device */
-> > +       PCI_DEV_FLAGS_NO_RELAXED_ORDERING = (__force pci_dev_flags_t) (1 << 9),
-> >  };
-> >
-> >  enum pci_irq_reroute_variant {
-> > --
-> > 1.9.1
-> >
+Thanks for looking into this!
+
+Do you have a patch that I could test?
+
+I also reported another issue recently, that might also be related to this one:
+https://groups.google.com/forum/#!topic/syzkaller/Rt0pgY4wfiw
+
+Thanks!
