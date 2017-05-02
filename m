@@ -1,8 +1,7 @@
 From: John Fastabend <john.fastabend@gmail.com>
-Subject: [RFC PATCH 09/17] net: sched: check for frozen queue before
- skb_bad_txq check
-Date: Tue, 02 May 2017 08:27:39 -0700
-Message-ID: <20170502152739.8871.29058.stgit@john-Precision-Tower-5810>
+Subject: [RFC PATCH 10/17] net: sched: qdisc_qlen for per cpu logic
+Date: Tue, 02 May 2017 08:27:57 -0700
+Message-ID: <20170502152757.8871.6543.stgit@john-Precision-Tower-5810>
 References: <20170502151445.8871.43089.stgit@john-Precision-Tower-5810>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,55 +9,45 @@ Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, john.fastabend@gmail.com
 To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:33021 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750733AbdEBP1w (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 2 May 2017 11:27:52 -0400
-Received: by mail-pf0-f194.google.com with SMTP id b23so17867364pfc.0
-        for <netdev@vger.kernel.org>; Tue, 02 May 2017 08:27:52 -0700 (PDT)
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:36504 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750818AbdEBP2M (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 2 May 2017 11:28:12 -0400
+Received: by mail-pf0-f193.google.com with SMTP id v14so33731405pfd.3
+        for <netdev@vger.kernel.org>; Tue, 02 May 2017 08:28:12 -0700 (PDT)
 In-Reply-To: <20170502151445.8871.43089.stgit@john-Precision-Tower-5810>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I can not think of any good reason to pull the bad txq skb off the
-qdisc if the txq we plan to send this on is still frozen. So check
-for frozen queue first and abort before dequeuing either skb_bad_txq
-skb or normal qdisc dequeue() skb.
+Add qdisc qlen helper routines for lockless qdiscs to use.
+
+The qdisc qlen is no longer used in the hotpath but it is reported
+via stats query on the qdisc so it still needs to be tracked. This
+adds the per cpu operations needed.
 
 Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
 ---
- net/sched/sch_generic.c |   11 +++++++----
- 1 file changed, 7 insertions(+), 4 deletions(-)
+ include/net/sch_generic.h |    8 ++++++++
+ 1 file changed, 8 insertions(+)
 
-diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-index d4194c2..db5f7a0 100644
---- a/net/sched/sch_generic.c
-+++ b/net/sched/sch_generic.c
-@@ -203,7 +203,7 @@ static struct sk_buff *dequeue_skb(struct Qdisc *q, bool *validate,
- 				   int *packets)
- {
- 	const struct netdev_queue *txq = q->dev_queue;
--	struct sk_buff *skb;
-+	struct sk_buff *skb = NULL;
+diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
+index 4288222..4c446fe 100644
+--- a/include/net/sch_generic.h
++++ b/include/net/sch_generic.h
+@@ -257,8 +257,16 @@ static inline void qdisc_cb_private_validate(const struct sk_buff *skb, int sz)
+ 	BUILD_BUG_ON(sizeof(qcb->data) < sz);
+ }
  
- 	*packets = 1;
- 	if (unlikely(!skb_queue_empty(&q->gso_skb))) {
-@@ -247,12 +247,15 @@ static struct sk_buff *dequeue_skb(struct Qdisc *q, bool *validate,
- 	}
- validate:
- 	*validate = true;
++static inline int qdisc_qlen_cpu(const struct Qdisc *q)
++{
++	return this_cpu_ptr(q->cpu_qstats)->qlen;
++}
 +
-+	if ((q->flags & TCQ_F_ONETXQUEUE) &&
-+	    netif_xmit_frozen_or_stopped(txq))
-+		return skb;
+ static inline int qdisc_qlen(const struct Qdisc *q)
+ {
++	if (q->flags & TCQ_F_NOLOCK)
++		return qdisc_qlen_cpu(q);
 +
- 	skb = qdisc_dequeue_skb_bad_txq(q);
- 	if (unlikely(skb))
- 		goto bulk;
--	if (!(q->flags & TCQ_F_ONETXQUEUE) ||
--	    !netif_xmit_frozen_or_stopped(txq))
--		skb = q->dequeue(q);
-+	skb = q->dequeue(q);
- 	if (skb) {
- bulk:
- 		if (qdisc_may_bulk(q))
+ 	return q->q.qlen;
+ }
+ 
