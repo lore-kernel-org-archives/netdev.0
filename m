@@ -1,47 +1,49 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [RFC PATCH v2 07/17] net: sched: drop qdisc_reset from
- dev_graft_qdisc
-Date: Tue, 2 May 2017 22:00:53 +0200
-Message-ID: <20170502220053.0b460e38@redhat.com>
-References: <20170502153518.9304.17904.stgit@john-Precision-Tower-5810>
-        <20170502153819.9304.39271.stgit@john-Precision-Tower-5810>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [net-next PATCH 0/4] Improve bpf ELF-loader under samples/bpf
+Date: Tue, 02 May 2017 22:30:55 +0200
+Message-ID: <5908EC7F.5070208@iogearbox.net>
+References: <149372826543.22268.3617359219409721129.stgit@firesoul> <20170502.154014.2024927301583088718.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: brouer@redhat.com, eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: John Fastabend <john.fastabend@gmail.com>
+Cc: kafai@fb.com, netdev@vger.kernel.org, eric@regit.org,
+        borkmann@iogearbox.net, alexei.starovoitov@gmail.com
+To: David Miller <davem@davemloft.net>, brouer@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:42082 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751074AbdEBUBA (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 2 May 2017 16:01:00 -0400
-In-Reply-To: <20170502153819.9304.39271.stgit@john-Precision-Tower-5810>
+Received: from www62.your-server.de ([213.133.104.62]:56901 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751005AbdEBUbE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 2 May 2017 16:31:04 -0400
+In-Reply-To: <20170502.154014.2024927301583088718.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 02 May 2017 08:38:19 -0700
-John Fastabend <john.fastabend@gmail.com> wrote:
+On 05/02/2017 09:40 PM, David Miller wrote:
+> From: Jesper Dangaard Brouer <brouer@redhat.com>
+> Date: Tue, 02 May 2017 14:31:45 +0200
+>
+>> This series improves and fixes bpf ELF loader and programs under
+>> samples/bpf.  The bpf_load.c created some hard to debug issues when
+>> the struct (bpf_map_def) used in the ELF maps section format changed
+>> in commit fb30d4b71214 ("bpf: Add tests for map-in-map").
+>>
+>> This was hotfixed in commit 409526bea3c3 ("samples/bpf: bpf_load.c
+>> detect and abort if ELF maps section size is wrong") by detecting the
+>> issue and aborting the program.
+>>
+>> In most situations the bpf-loader should be able to handle these kind
+>> of changes to the struct size.  This patch series aim to do proper
+>> backward and forward compabilility handling when loading ELF files.
+>>
+>> This series also adjust the callback that was introduced in commit
+>> 9fd63d05f3e8 ("bpf: Allow bpf sample programs (*_user.c) to change
+>> bpf_map_def") to use the new bpf_map_data structure, before more users
+>> start to use this callback.
+>>
+>> Hoping these changes can make the merge window, as above mentioned
+>> commits have not been merged yet, and it would be good to avoid users
+>> hitting these issues.
+>
+> Alexei and Daniel, please review.
 
-> @@ -991,20 +996,25 @@ void dev_deactivate_many(struct list_head *head)
->  					     &noop_qdisc);
->  
->  		dev_watchdog_down(dev);
-> -		sync_needed |= !dev->dismantle;
->  	}
->  
->  	/* Wait for outstanding qdisc-less dev_queue_xmit calls.
->  	 * This is avoided if all devices are in dismantle phase :
->  	 * Caller will call synchronize_net() for us
->  	 */
-
-Is the comment still correct after this change?
-
-> -	if (sync_needed)
-> -		synchronize_net();
-> +	synchronize_net();
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  LinkedIn: http://www.linkedin.com/in/brouer
+I'm on it.
