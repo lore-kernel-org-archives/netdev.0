@@ -1,68 +1,105 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] tcp: fix wraparound issue in tcp_lp
-Date: Mon, 01 May 2017 18:04:47 -0700
-Message-ID: <1493687087.31837.30.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1493677788.31837.25.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20170501165643.698aa0b5@xeon-e3>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: linux-next: build failure after merge of the block tree
+Date: Tue, 2 May 2017 11:07:04 +1000
+Message-ID: <20170502110704.79bb7760@canb.auug.org.au>
+References: <20170418130229.04289bd6@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:33725 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750839AbdEBBEv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 1 May 2017 21:04:51 -0400
-Received: by mail-pg0-f65.google.com with SMTP id s62so6733625pgc.0
-        for <netdev@vger.kernel.org>; Mon, 01 May 2017 18:04:51 -0700 (PDT)
-In-Reply-To: <20170501165643.698aa0b5@xeon-e3>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Linux-Next Mailing List <linux-next@vger.kernel.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        Josef Bacik <josef@toxicpanda.com>,
+        Johannes Berg <johannes.berg@intel.com>,
+        Linus <torvalds@linux-foundation.org>
+To: Jens Axboe <axboe@kernel.dk>, David Miller <davem@davemloft.net>,
+        Networking <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20170418130229.04289bd6@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2017-05-01 at 16:56 -0700, Stephen Hemminger wrote:
-> On Mon, 01 May 2017 15:29:48 -0700
-> Eric Dumazet <eric.dumazet@gmail.com> wrote:
+Hi all,
+
+On Tue, 18 Apr 2017 13:02:29 +1000 Stephen Rothwell <sfr@canb.auug.org.au> wrote:
+>
+> After merging the block tree, today's linux-next build (powerpc
+> ppc64_defconfig) failed like this:
 > 
-> > From: Eric Dumazet <edumazet@google.com>
-> > 
-> > Be careful when comparing tcp_time_stamp to some u32 quantity,
-> > otherwise result can be surprising.
-> > 
-> > Fixes: 7c106d7e782b ("[TCP]: TCP Low Priority congestion control")
-> > Signed-off-by: Eric Dumazet <edumazet@google.com>
-> > ---
-> >  net/ipv4/tcp_lp.c |    6 ++++--
-> >  1 file changed, 4 insertions(+), 2 deletions(-)
-> > 
-> > diff --git a/net/ipv4/tcp_lp.c b/net/ipv4/tcp_lp.c
-> > index 046fd3910873306d74207615d6997e1c847ea361..d6fb6c067af4641f232b94e7c590c212648e8173 100644
-> > --- a/net/ipv4/tcp_lp.c
-> > +++ b/net/ipv4/tcp_lp.c
-> > @@ -264,13 +264,15 @@ static void tcp_lp_pkts_acked(struct sock *sk, const struct ack_sample *sample)
-> >  {
-> >  	struct tcp_sock *tp = tcp_sk(sk);
-> >  	struct lp *lp = inet_csk_ca(sk);
-> > +	u32 delta;
-> >  
-> >  	if (sample->rtt_us > 0)
-> >  		tcp_lp_rtt_sample(sk, sample->rtt_us);
-> >  
-> >  	/* calc inference */
-> > -	if (tcp_time_stamp > tp->rx_opt.rcv_tsecr)
-> > -		lp->inference = 3 * (tcp_time_stamp - tp->rx_opt.rcv_tsecr);
-> > +	delta = tcp_time_stamp - tp->rx_opt.rcv_tsecr;
-> > +	if ((s32)delta > 0)
-> > +		lp->inference = 3 * delta;
+> drivers/block/nbd.c: In function 'nbd_genl_connect':
+> drivers/block/nbd.c:1662:10: error: too few arguments to function 'nla_parse_nested'
+>     ret = nla_parse_nested(socks, NBD_SOCK_MAX, attr,
+>           ^
+> In file included from include/net/rtnetlink.h:5:0,
+>                  from include/net/sch_generic.h:12,
+>                  from include/linux/filter.h:20,
+>                  from include/net/sock.h:64,
+>                  from drivers/block/nbd.c:32:
+> include/net/netlink.h:754:19: note: declared here
+>  static inline int nla_parse_nested(struct nlattr *tb[], int maxtype,
+>                    ^
+> drivers/block/nbd.c: In function 'nbd_genl_reconfigure':
+> drivers/block/nbd.c:1818:10: error: too few arguments to function 'nla_parse_nested'
+>     ret = nla_parse_nested(socks, NBD_SOCK_MAX, attr,
+>           ^
+> In file included from include/net/rtnetlink.h:5:0,
+>                  from include/net/sch_generic.h:12,
+>                  from include/linux/filter.h:20,
+>                  from include/net/sock.h:64,
+>                  from drivers/block/nbd.c:32:
+> include/net/netlink.h:754:19: note: declared here
+>  static inline int nla_parse_nested(struct nlattr *tb[], int maxtype,
+>                    ^
 > 
-> Agreed time wraparound would cause problems.
-> But why not use existing time_after() macro here?
+> Caused by commits
 > 
+>   e46c7287b1c2 ("nbd: add a basic netlink interface")
+>   b7aa3d39385d ("nbd: add a reconfigure netlink command")
+> 
+> interacting with commit
+> 
+>   fceb6435e852 ("netlink: pass extended ACK struct to parsing functions")
+> 
+> from the net-next tree.
+> 
+> I have applied the following merge fix patch:
+> 
+> From: Stephen Rothwell <sfr@canb.auug.org.au>
+> Date: Tue, 18 Apr 2017 12:59:05 +1000
+> Subject: [PATCH] nbd: fix up for nla_parse_nested() API change
+> 
+> Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
+> ---
+>  drivers/block/nbd.c | 4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/block/nbd.c b/drivers/block/nbd.c
+> index b78f23ce2395..5049d19f3940 100644
+> --- a/drivers/block/nbd.c
+> +++ b/drivers/block/nbd.c
+> @@ -1660,7 +1660,7 @@ static int nbd_genl_connect(struct sk_buff *skb, struct genl_info *info)
+>  				goto out;
+>  			}
+>  			ret = nla_parse_nested(socks, NBD_SOCK_MAX, attr,
+> -					       nbd_sock_policy);
+> +					       nbd_sock_policy, NULL);
+>  			if (ret != 0) {
+>  				printk(KERN_ERR "nbd: error processing sock list\n");
+>  				ret = -EINVAL;
+> @@ -1816,7 +1816,7 @@ static int nbd_genl_reconfigure(struct sk_buff *skb, struct genl_info *info)
+>  				goto out;
+>  			}
+>  			ret = nla_parse_nested(socks, NBD_SOCK_MAX, attr,
+> -					       nbd_sock_policy);
+> +					       nbd_sock_policy, NULL);
+>  			if (ret != 0) {
+>  				printk(KERN_ERR "nbd: error processing sock list\n");
+>  				ret = -EINVAL;
+> -- 
+> 2.11.0
 
-Simply to not perform (tcp_time_stamp - tp->rx_opt.rcv_tsecr) twice.
+So, this merge fix is now needed when the net-next tree is merged (as
+Linus has merged the block tree).
 
-jiffies being volatile, this can not be optimized by the compiler.
-
-I have a patch series (for linux-4.13) that will switch TCP stack to 1ms
-TS options, regardless of CONFIG_HZ value, and when cooking it I found
-this bug.
+-- 
+Cheers,
+Stephen Rothwell
