@@ -1,85 +1,137 @@
-From: gfree.wind@foxmail.com
-Subject: [PATCH net v4 11/12] net: vlan: Fix one possbile memleak when fail to register_netdevice
-Date: Tue,  2 May 2017 21:41:44 +0800
-Message-ID: <7ba8926009ed518d3758972a48b8b7b67ec52171.1493699451.git.gfree.wind@foxmail.com>
-References: <cover.1493699451.git.gfree.wind@foxmail.com>
-Cc: Gao Feng <gfree.wind@foxmail.com>
-To: davem@davemloft.net, jiri@resnulli.us, mareklindner@neomailbox.ch,
-        sw@simonwunderlich.de, a@unstable.cc, kuznet@ms2.inr.ac.ru,
-        jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-        steffen.klassert@secunet.com, herbert@gondor.apana.org.au,
-        netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpproxy19.qq.com ([184.105.206.84]:43452 "EHLO
-        smtpproxy19.qq.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750744AbdEBNl4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 2 May 2017 09:41:56 -0400
-In-Reply-To: <cover.1493699451.git.gfree.wind@foxmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Rafal Ozieblo <rafalo@cadence.com>
+Subject: RE: [PATCH 3/4] net: macb: Add hardware PTP support
+Date: Tue, 2 May 2017 13:57:15 +0000
+Message-ID: <BN3PR07MB2516757CB4EA7367F6623C06C9170@BN3PR07MB2516.namprd07.prod.outlook.com>
+References: <1492090439-11793-1-git-send-email-rafalo@cadence.com>
+ <1492090763-15686-1-git-send-email-rafalo@cadence.com>
+ <20170414182850.GB7751@localhost.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: David Miller <davem@davemloft.net>,
+        "nicolas.ferre@atmel.com" <nicolas.ferre@atmel.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+        "linux-arm-kernel@lists.infradead.org"
+        <linux-arm-kernel@lists.infradead.org>,
+        "harinikatakamlinux@gmail.com" <harinikatakamlinux@gmail.com>,
+        "harini.katakam@xilinx.com" <harini.katakam@xilinx.com>,
+        "Andrei.Pistirica@microchip.com" <Andrei.Pistirica@microchip.com>
+To: Richard Cochran <richardcochran@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170414182850.GB7751@localhost.localdomain>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Gao Feng <gfree.wind@foxmail.com>
-
-The vlan driver allocates some resources in its ndo_init func, and
-free some of them in its destructor func. Then there is one memleak
-that some errors happen after register_netdevice invokes the ndo_init
-callback. Because only the ndo_uninit callback is invoked in the error
-handler of register_netdevice, but destructor not.
-
-Now create one new func vlan_destructor_free to free the mem in the
-destructor, and ndo_uninit func also invokes it when fail to register
-the vlan device.
-
-It's not only free all resources, but also follow the original desgin
-that the resources are freed in the destructor normally after
-register the device successfully.
-
-Signed-off-by: Gao Feng <gfree.wind@foxmail.com>
----
- net/8021q/vlan_dev.c | 17 +++++++++++++----
- 1 file changed, 13 insertions(+), 4 deletions(-)
-
-diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
-index e97ab82..adcaa39 100644
---- a/net/8021q/vlan_dev.c
-+++ b/net/8021q/vlan_dev.c
-@@ -608,6 +608,14 @@ static int vlan_dev_init(struct net_device *dev)
- 	return 0;
- }
- 
-+static void vlan_destructor_free(struct net_device *dev)
-+{
-+	struct vlan_dev_priv *vlan = vlan_dev_priv(dev);
-+
-+	free_percpu(vlan->vlan_pcpu_stats);
-+	vlan->vlan_pcpu_stats = NULL;
-+}
-+
- static void vlan_dev_uninit(struct net_device *dev)
- {
- 	struct vlan_priority_tci_mapping *pm;
-@@ -620,6 +628,10 @@ static void vlan_dev_uninit(struct net_device *dev)
- 			kfree(pm);
- 		}
- 	}
-+
-+	/* dev is not registered, perform the free instead of destructor */
-+	if (dev->reg_state == NETREG_UNINITIALIZED)
-+		vlan_destructor_free(dev);
- }
- 
- static netdev_features_t vlan_dev_fix_features(struct net_device *dev,
-@@ -803,10 +815,7 @@ static int vlan_dev_get_iflink(const struct net_device *dev)
- 
- static void vlan_dev_free(struct net_device *dev)
- {
--	struct vlan_dev_priv *vlan = vlan_dev_priv(dev);
--
--	free_percpu(vlan->vlan_pcpu_stats);
--	vlan->vlan_pcpu_stats = NULL;
-+	vlan_destructor_free(dev);
- 	free_netdev(dev);
- }
- 
--- 
-1.9.1
+> From: Richard Cochran [mailto:richardcochran@gmail.com]
+> Sent: 14 kwietnia 2017 20:29
+> To: Rafal Ozieblo <rafalo@cadence.com>
+> Cc: David Miller <davem@davemloft.net>; nicolas.ferre@atmel.com;
+> netdev@vger.kernel.org; linux-kernel@vger.kernel.org;
+> devicetree@vger.kernel.org; linux-arm-kernel@lists.infradead.org;
+> harinikatakamlinux@gmail.com; harini.katakam@xilinx.com;
+> Andrei.Pistirica@microchip.com
+> Subject: Re: [PATCH 3/4] net: macb: Add hardware PTP support
+>=20
+> On Thu, Apr 13, 2017 at 02:39:23PM +0100, Rafal Ozieblo wrote:
+(...)
+> > +static int gem_tsu_get_time(struct macb *bp, struct timespec64 *ts)
+> > +{
+> > +	long first, second;
+> > +	u32 secl, sech;
+> > +	unsigned long flags;
+> > +
+> > +	if (!bp || !ts)
+> > +		return -EINVAL;
+>=20
+> Useless test.
+Sorry for me being too carefulness, I'll remove all tests.
+>=20
+(...)
+> > +static int gem_ptp_gettime(struct ptp_clock_info *ptp, struct timespec=
+64
+> *ts)
+> > +{
+> > +	struct macb *bp =3D container_of(ptp, struct macb, ptp_clock_info);
+> > +
+> > +	if (!ptp || !ts)
+> > +		return -EINVAL;
+>=20
+> Useles test.
+>=20
+> What is the point of this wrapper function anyhow?  Please remove it.
+gem_ptp_gettime() is assigned in ptp_clock_info and it has to have=20
+ptp_clock_info pointer as first parameter. gem_tsu_get_time() is used in
+the source code but with macb pointer.
+Do you want me to do something like:
+gem_ptp_gettime(macb->ptp, ts);
+and first would be getting macb pointer from ptp ?
+struct macb *bp =3D container_of(ptp, struct macb, ptp_clock_info);
+>=20
+> > +
+> > +	gem_tsu_get_time(bp, ts);
+> > +	return 0;
+> > +}
+> > +
+> > +static int gem_ptp_settime(struct ptp_clock_info *ptp,
+> > +		const struct timespec64 *ts)
+> > +{
+> > +	struct macb *bp =3D container_of(ptp, struct macb, ptp_clock_info);
+> > +
+> > +	if (!ptp || !ts)
+> > +		return -EINVAL;
+>=20
+> Another useless function.
+ditto
+>=20
+> > +	gem_tsu_set_time(bp, ts);
+> > +	return 0;
+> > +}
+> > +
+> > +static int gem_ptp_enable(struct ptp_clock_info *ptp,
+> > +			  struct ptp_clock_request *rq, int on)
+> > +{
+> > +	struct macb *bp =3D container_of(ptp, struct macb, ptp_clock_info);
+> > +
+> > +	if (!ptp || !rq)
+> > +		return -EINVAL;
+>=20
+> Sigh.
+>=20
+> > +
+> > +	switch (rq->type) {
+> > +	case PTP_CLK_REQ_EXTTS:	/* Toggle TSU match interrupt */
+> > +		if (on)
+> > +			macb_writel(bp, IER, MACB_BIT(TCI));
+>=20
+> No locking to protect IER and IDE?
+There is no need.
+>=20
+> > +		else
+> > +			macb_writel(bp, IDR, MACB_BIT(TCI));
+> > +		break;
+> > +	case PTP_CLK_REQ_PEROUT: /* Toggle Periodic output */
+> > +		return -EOPNOTSUPP;
+> > +		/* break; */
+> > +	case PTP_CLK_REQ_PPS:	/* Toggle TSU periodic (second)
+> interrupt */
+> > +		if (on)
+> > +			macb_writel(bp, IER, MACB_BIT(SRI));
+> > +		else
+> > +			macb_writel(bp, IDR, MACB_BIT(SRI));
+> > +		break;
+> > +	default:
+> > +		break;
+> > +	}
+> > +	return 0;
+> > +}
+> > +
+(...)
+> > --
+> > 2.4.5
+> >
+>=20
+> Thanks,
+> Richard
