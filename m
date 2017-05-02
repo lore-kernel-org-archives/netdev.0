@@ -1,52 +1,47 @@
-From: <David.Cai@microchip.com>
-Subject: RE: [PATCH v6 net-next]smsc911x: Adding support for Micochip
- LAN9250 Ethernet controller
-Date: Tue, 2 May 2017 21:47:21 +0000
-Message-ID: <C3C28FB10418274EB7FD7C2B85C796A44124874C@CHN-SV-EXMX02.mchp-main.com>
-References: <C3C28FB10418274EB7FD7C2B85C796A44124871C@CHN-SV-EXMX02.mchp-main.com>
- <20170502213843.GA14768@lunn.ch>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next V3 2/2] rtnl: Add support for netdev event
+ attribute to link messages
+Date: Tue, 2 May 2017 15:57:48 -0600
+Message-ID: <4b94bb74-a4cf-e491-7636-483a1849aea6@cumulusnetworks.com>
+References: <1492795881-11914-1-git-send-email-vyasevic@redhat.com>
+ <1492795881-11914-3-git-send-email-vyasevic@redhat.com>
+ <877efb54-2aef-4d1e-c0b4-2ce6aa6562df@cumulusnetworks.com>
+ <7b5396ae-0cf3-2a1e-9c49-5d6f031adf58@redhat.com>
+ <760db30a-859a-a365-e0f3-69a4433ef9bf@cumulusnetworks.com>
+ <20170428163804.GH1886@nanopsycho.orion>
+ <00ddfbb9-9cf7-026d-562b-1b7a4a7129d3@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>,
-        <UNGLinuxDriver@microchip.com>, <steve.glendinning@shawell.net>
-To: <andrew@lunn.ch>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Vladislav Yasevich <vyasevich@gmail.com>, netdev@vger.kernel.org,
+        roopa <roopa@cumulusnetworks.com>
+To: vyasevic@redhat.com, Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [216.71.150.166] ([216.71.150.166]:22171 "EHLO
-        esa5.microchip.iphmx.com" rhost-flags-FAIL-FAIL-OK-OK)
-        by vger.kernel.org with ESMTP id S1751270AbdEBV47 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 2 May 2017 17:56:59 -0400
-In-Reply-To: <20170502213843.GA14768@lunn.ch>
-Content-Language: en-US
+Received: from mail-pf0-f176.google.com ([209.85.192.176]:35772 "EHLO
+        mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751274AbdEBV5v (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 2 May 2017 17:57:51 -0400
+Received: by mail-pf0-f176.google.com with SMTP id v14so3240472pfd.2
+        for <netdev@vger.kernel.org>; Tue, 02 May 2017 14:57:51 -0700 (PDT)
+In-Reply-To: <00ddfbb9-9cf7-026d-562b-1b7a4a7129d3@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andrew:
+On 5/1/17 7:35 AM, Vlad Yasevich wrote:
+> So, it looks like the notifier might be there to account for the ioctl/sysfs
+> interfaces.
 
-Got it, Thanks!
+hmmm... I guess we have to leave it then.
 
-David Cai
-
------Original Message-----
-From: Andrew Lunn [mailto:andrew@lunn.ch] 
-Sent: Tuesday, May 02, 2017 2:39 PM
-To: David Cai - C24226
-Cc: netdev@vger.kernel.org; davem@davemloft.net; UNGLinuxDriver; steve.glendinning@shawell.net
-Subject: Re: [PATCH v6 net-next]smsc911x: Adding support for Micochip LAN9250 Ethernet controller
-
-On Tue, May 02, 2017 at 08:59:14PM +0000, David.Cai@microchip.com wrote:
-> From: David Cai <david.cai@microchip.com>
 > 
-> Adding support for Microchip LAN9250 Ethernet controller.
+> Additionally, the message is not generated from do_setlink() if the devices is
+> down, so notifier accounts for that as well.
 > 
-> Signed-off-by: David Cai <david.cai@microchip.com>
+> I guess, basic question is whether data carried in NETDEV_CHANGEINFODATA is useful
+> to user space?  If yes (I can possibly see some managements apps that might be interested
+> in it), then we shouldn't just remove it.  Possible solutions to eliminate duplicates
+> would be to move the notifier call into non-rtnl code paths...
+> 
+> Also, may be netdev_state_change() should call rtmsg_ifinfo() unconditionally?
 
-Hi David
-
-FYI: It is normal to add here any Reviewed-by: or Tested-by, etc you
-received from previous versions of the patch, so long as you don't
-make major changes.
-
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
-
-    Andrew
+Link up will generate a message, so userspace gets notified at some point.
