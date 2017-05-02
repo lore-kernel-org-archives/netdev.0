@@ -1,51 +1,57 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v2] net: hns: fix ethtool_get_strings overflow in
- hns driver
-Date: Tue, 02 May 2017 15:08:32 -0400 (EDT)
-Message-ID: <20170502.150832.1539345702174708842.davem@davemloft.net>
-References: <20170502024652.39536-1-lixiaoping3@huawei.com>
+Subject: Re: [PATCH net v4 00/12] Fix possbile memleaks when fail to
+ register_netdevice
+Date: Tue, 02 May 2017 15:30:29 -0400 (EDT)
+Message-ID: <20170502.153029.1605231216574026914.davem@davemloft.net>
+References: <cover.1493699451.git.gfree.wind@foxmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: huangdaode@hisilicon.com, lipeng321@huawei.com,
-        yisen.zhuang@huawei.com, salil.mehta@huawei.com,
-        yankejian@huawei.com, mbrugger@suse.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, linuxarm@huawei.com
-To: lixiaoping3@huawei.com
+Cc: jiri@resnulli.us, mareklindner@neomailbox.ch,
+        sw@simonwunderlich.de, a@unstable.cc, kuznet@ms2.inr.ac.ru,
+        jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
+        steffen.klassert@secunet.com, herbert@gondor.apana.org.au,
+        netdev@vger.kernel.org
+To: gfree.wind@foxmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:52814 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:53294 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750770AbdEBTIe (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 2 May 2017 15:08:34 -0400
-In-Reply-To: <20170502024652.39536-1-lixiaoping3@huawei.com>
+        with ESMTP id S1750888AbdEBTac (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 2 May 2017 15:30:32 -0400
+In-Reply-To: <cover.1493699451.git.gfree.wind@foxmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Timmy Li <lixiaoping3@huawei.com>
-Date: Tue, 2 May 2017 10:46:52 +0800
+From: gfree.wind@foxmail.com
+Date: Tue,  2 May 2017 13:58:42 +0800
 
-> hns_get_sset_count() returns HNS_NET_STATS_CNT and the data space allocated
-> is not enough for ethtool_get_strings(), which will cause random memory
-> corruption.
+> These following drivers allocate kinds of resources in its ndo_init
+> func, free some of them or all in the destructor func. Then there is
+> one memleak that some errors happen after register_netdevice invokes
+> the ndo_init callback. Because only the ndo_uninit callback is invoked
+> in the error handler of register_netdevice, but destructor not.
 > 
-> When SLAB and DEBUG_SLAB are both enabled, memory corruptions like the
-> the following can be observed without this patch:
-> [   43.115200] Slab corruption (Not tainted): Acpi-ParseExt start=ffff801fb0b69030, len=80
-> [   43.115206] Redzone: 0x9f911029d006462/0x5f78745f31657070.
-> [   43.115208] Last user: [<5f7272655f746b70>](0x5f7272655f746b70)
-> [   43.115214] 010: 70 70 65 31 5f 74 78 5f 70 6b 74 00 6b 6b 6b 6b  ppe1_tx_pkt.kkkk
-> [   43.115217] 030: 70 70 65 31 5f 74 78 5f 70 6b 74 5f 6f 6b 00 6b  ppe1_tx_pkt_ok.k
-> [   43.115218] Next obj: start=ffff801fb0b69098, len=80
-> [   43.115220] Redzone: 0x706d655f6f666966/0x9f911029d74e35b.
-> [   43.115229] Last user: [<ffff0000084b11b0>](acpi_os_release_object+0x28/0x38)
-> [   43.115231] 000: 74 79 00 6b 6b 6b 6b 6b 70 70 65 31 5f 74 78 5f  ty.kkkkkppe1_tx_
-> [   43.115232] 010: 70 6b 74 5f 65 72 72 5f 63 73 75 6d 5f 66 61 69  pkt_err_csum_fai
+> In my original approach, I tried to free the resources in the newlink
+> func when fail to register_netdevice, like destructor did except not
+> free the net_dev. This method is not good when destructor is changed,
+> and the memleak could be not fixed when there is no newlink callback.
 > 
-> Signed-off-by: Timmy Li <lixiaoping3@huawei.com>
-> ---
-> Changelog:
+> Now create one new func used to free the resources in the destructor,
+> and the ndo_uninit func also could invokes it when fail to register
+> the net_device by comparing the dev->reg_state with NETREG_UNINITIALIZED.
+> If there is no existing ndo_uninit, just add one.
 > 
-> v1 -> v2:
->     * Remove unnecessary parenthesis
+> This solution doesn't only make sure free all resources in any case,
+> but also follows the original desgin that some resources could be kept
+> until the destructor executes normally after register the device
+> successfully.
 
-Applied, thank you.
+I want to think about this some more.
+
+It is really unfortunate that resources are allocated strictly from
+the ndo_init() yet released in two different callbacks which are
+invoked only in certain (different) situations.
+
+Just the fact that we have to make an internal netdev state test
+in the ndo_uninit callback to get this right is a big red flag
+to me.
