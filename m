@@ -1,90 +1,71 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: [RFC PATCH v2 01/17] net: sched: cleanup qdisc_run and __qdisc_run
- semantics
-Date: Tue, 02 May 2017 08:36:23 -0700
-Message-ID: <20170502153623.9304.42848.stgit@john-Precision-Tower-5810>
-References: <20170502153518.9304.17904.stgit@john-Precision-Tower-5810>
+From: David Miller <davem@davemloft.net>
+Subject: [PATCH 2/2] bpf: Align packet data properly in program testing
+ framework.
+Date: Tue, 02 May 2017 11:36:45 -0400 (EDT)
+Message-ID: <20170502.113645.551424261592586390.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, john.fastabend@gmail.com
-To: eric.dumazet@gmail.com
+Cc: daniel@iogearbox.net, netdev@vger.kernel.org
+To: ast@fb.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:36598 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750733AbdEBPgm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 2 May 2017 11:36:42 -0400
-Received: by mail-pg0-f65.google.com with SMTP id v1so23009146pgv.3
-        for <netdev@vger.kernel.org>; Tue, 02 May 2017 08:36:42 -0700 (PDT)
-In-Reply-To: <20170502153518.9304.17904.stgit@john-Precision-Tower-5810>
+Received: from shards.monkeyblade.net ([184.105.139.130]:50098 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750942AbdEBPgr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 2 May 2017 11:36:47 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently __qdisc_run calls qdisc_run_end() but does not call
-qdisc_run_begin(). This makes it hard to track pairs of
-qdisc_run_{begin,end} across function calls.
 
-To simplify reading these code paths and simpler code this
-patch moves begin/end calls into qdisc_run().
+Make sure we apply NET_IP_ALIGN when reserving headroom for SKB
+and XDP test runs, just like a real driver would.
 
-Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
-Acked-by: Eric Dumazet <edumazet@google.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- include/net/pkt_sched.h |    4 +++-
- net/core/dev.c          |    5 +++--
- net/sched/sch_generic.c |    2 --
- 3 files changed, 6 insertions(+), 5 deletions(-)
+ net/bpf/test_run.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/include/net/pkt_sched.h b/include/net/pkt_sched.h
-index bec46f6..b7f5776 100644
---- a/include/net/pkt_sched.h
-+++ b/include/net/pkt_sched.h
-@@ -109,8 +109,10 @@ int sch_direct_xmit(struct sk_buff *skb, struct Qdisc *q,
+diff --git a/net/bpf/test_run.c b/net/bpf/test_run.c
+index f946912..6be41a4 100644
+--- a/net/bpf/test_run.c
++++ b/net/bpf/test_run.c
+@@ -100,7 +100,7 @@ int bpf_prog_test_run_skb(struct bpf_prog *prog, const union bpf_attr *kattr,
+ 	void *data;
+ 	int ret;
  
- static inline void qdisc_run(struct Qdisc *q)
- {
--	if (qdisc_run_begin(q))
-+	if (qdisc_run_begin(q)) {
- 		__qdisc_run(q);
-+		qdisc_run_end(q);
-+	}
- }
- 
- int tc_classify(struct sk_buff *skb, const struct tcf_proto *tp,
-diff --git a/net/core/dev.c b/net/core/dev.c
-index db6e315..3169074 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -3099,9 +3099,9 @@ static inline int __dev_xmit_skb(struct sk_buff *skb, struct Qdisc *q,
- 				contended = false;
- 			}
- 			__qdisc_run(q);
--		} else
--			qdisc_run_end(q);
-+		}
- 
-+		qdisc_run_end(q);
- 		rc = NET_XMIT_SUCCESS;
- 	} else {
- 		rc = q->enqueue(skb, q, &to_free) & NET_XMIT_MASK;
-@@ -3111,6 +3111,7 @@ static inline int __dev_xmit_skb(struct sk_buff *skb, struct Qdisc *q,
- 				contended = false;
- 			}
- 			__qdisc_run(q);
-+			qdisc_run_end(q);
- 		}
+-	data = bpf_test_init(kattr, size, NET_SKB_PAD,
++	data = bpf_test_init(kattr, size, NET_SKB_PAD + NET_IP_ALIGN,
+ 			     SKB_DATA_ALIGN(sizeof(struct skb_shared_info)));
+ 	if (IS_ERR(data))
+ 		return PTR_ERR(data);
+@@ -125,7 +125,7 @@ int bpf_prog_test_run_skb(struct bpf_prog *prog, const union bpf_attr *kattr,
+ 		return -ENOMEM;
  	}
- 	spin_unlock(root_lock);
-diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-index 52a2c55..ef33bf8 100644
---- a/net/sched/sch_generic.c
-+++ b/net/sched/sch_generic.c
-@@ -262,8 +262,6 @@ void __qdisc_run(struct Qdisc *q)
- 			break;
- 		}
- 	}
--
--	qdisc_run_end(q);
- }
  
- unsigned long dev_trans_start(struct net_device *dev)
+-	skb_reserve(skb, NET_SKB_PAD);
++	skb_reserve(skb, NET_SKB_PAD + NET_IP_ALIGN);
+ 	__skb_put(skb, size);
+ 	skb->protocol = eth_type_trans(skb, current->nsproxy->net_ns->loopback_dev);
+ 	skb_reset_network_header(skb);
+@@ -156,16 +156,16 @@ int bpf_prog_test_run_xdp(struct bpf_prog *prog, const union bpf_attr *kattr,
+ 	void *data;
+ 	int ret;
+ 
+-	data = bpf_test_init(kattr, size, XDP_PACKET_HEADROOM, 0);
++	data = bpf_test_init(kattr, size, XDP_PACKET_HEADROOM + NET_IP_ALIGN, 0);
+ 	if (IS_ERR(data))
+ 		return PTR_ERR(data);
+ 
+ 	xdp.data_hard_start = data;
+-	xdp.data = data + XDP_PACKET_HEADROOM;
++	xdp.data = data + XDP_PACKET_HEADROOM + NET_IP_ALIGN;
+ 	xdp.data_end = xdp.data + size;
+ 
+ 	retval = bpf_test_run(prog, &xdp, repeat, &duration);
+-	if (xdp.data != data + XDP_PACKET_HEADROOM)
++	if (xdp.data != data + XDP_PACKET_HEADROOM + NET_IP_ALIGN)
+ 		size = xdp.data_end - xdp.data;
+ 	ret = bpf_test_finish(kattr, uattr, xdp.data, size, retval, duration);
+ 	kfree(data);
+-- 
+2.1.2.532.g19b5d50
