@@ -1,303 +1,246 @@
 From: sunil.kovvuri@gmail.com
-Subject: [PATCH 1/9] net: thunderx: Support for page recycling
-Date: Tue,  2 May 2017 18:36:50 +0530
-Message-ID: <1493730418-24606-2-git-send-email-sunil.kovvuri@gmail.com>
+Subject: [PATCH 6/9] net: thunderx: Add support for XDP_DROP
+Date: Tue,  2 May 2017 18:36:55 +0530
+Message-ID: <1493730418-24606-7-git-send-email-sunil.kovvuri@gmail.com>
 References: <1493730418-24606-1-git-send-email-sunil.kovvuri@gmail.com>
 Cc: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
         Sunil Goutham <sgoutham@cavium.com>
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:34902 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751574AbdEBNHt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 2 May 2017 09:07:49 -0400
 In-Reply-To: <1493730418-24606-1-git-send-email-sunil.kovvuri@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Sunil Goutham <sgoutham@cavium.com>
 
-Adds support for page recycling for allocating receive buffers
-to reduce cost of refilling RBDR ring. Also got rid of using
-compound pages when pagesize is 4K, only order-0 pages now.
-
-Only page is recycled, DMA mappings still needs to be done for
-every receive buffer allocated due to following constraints
-- Cannot have just one receive buffer per 64KB page.
-- There is just one buffer ring shared across 8 Rx queues, so
-  buffers of same page can go to any Rx queue.
-- HW gives buffer address where packet has been DMA'ed and not
-  the index into buffer ring.
-This makes it not possible to resue DMA mapping info. So unfortunately
-have to go through costly mapping route for every buffer.
+Adds support for XDP_DROP.
+Also since in XDP mode there is just a single buffer per page,
+made changes to recycle DMA mapping info as well along with pages.
 
 Signed-off-by: Sunil Goutham <sgoutham@cavium.com>
 ---
- drivers/net/ethernet/cavium/thunder/nic.h          |   4 +-
- .../net/ethernet/cavium/thunder/nicvf_ethtool.c    |   3 +-
- drivers/net/ethernet/cavium/thunder/nicvf_queues.c | 121 ++++++++++++++++++---
- drivers/net/ethernet/cavium/thunder/nicvf_queues.h |  11 ++
- 4 files changed, 119 insertions(+), 20 deletions(-)
+ drivers/net/ethernet/cavium/thunder/nicvf_main.c   | 23 ++++++-
+ drivers/net/ethernet/cavium/thunder/nicvf_queues.c | 77 ++++++++++++++++------
+ drivers/net/ethernet/cavium/thunder/nicvf_queues.h |  4 +-
+ 3 files changed, 79 insertions(+), 25 deletions(-)
 
-diff --git a/drivers/net/ethernet/cavium/thunder/nic.h b/drivers/net/ethernet/cavium/thunder/nic.h
-index 6fb4421..dca6aed 100644
---- a/drivers/net/ethernet/cavium/thunder/nic.h
-+++ b/drivers/net/ethernet/cavium/thunder/nic.h
-@@ -252,12 +252,14 @@ struct nicvf_drv_stats {
- 	u64 tx_csum_overflow;
+diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_main.c b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
+index 9c48873..a58cc1e 100644
+--- a/drivers/net/ethernet/cavium/thunder/nicvf_main.c
++++ b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
+@@ -18,6 +18,7 @@
+ #include <linux/irq.h>
+ #include <linux/iommu.h>
+ #include <linux/bpf.h>
++#include <linux/bpf_trace.h>
+ #include <linux/filter.h>
  
- 	/* driver debug stats */
--	u64 rcv_buffer_alloc_failures;
- 	u64 tx_tso;
- 	u64 tx_timeout;
- 	u64 txq_stop;
- 	u64 txq_wake;
+ #include "nic_reg.h"
+@@ -505,6 +506,7 @@ static inline bool nicvf_xdp_rx(struct nicvf *nic,
+ 				struct cqe_rx_t *cqe_rx)
+ {
+ 	struct xdp_buff xdp;
++	struct page *page;
+ 	u32 action;
+ 	u16 len;
+ 	u64 dma_addr, cpu_addr;
+@@ -527,12 +529,27 @@ static inline bool nicvf_xdp_rx(struct nicvf *nic,
+ 	switch (action) {
+ 	case XDP_PASS:
+ 	case XDP_TX:
+-	case XDP_ABORTED:
+-	case XDP_DROP:
+ 		/* Pass on all packets to network stack */
+ 		return false;
+ 	default:
+ 		bpf_warn_invalid_xdp_action(action);
++	case XDP_ABORTED:
++		trace_xdp_exception(nic->netdev, prog, action);
++	case XDP_DROP:
++		page = virt_to_page(xdp.data);
++		/* Check if it's a recycled page, if not
++		 * unmap the DMA mapping.
++		 *
++		 * Recycled page holds an extra reference.
++		 */
++		if (page_ref_count(page) == 1) {
++			dma_addr &= PAGE_MASK;
++			dma_unmap_page_attrs(&nic->pdev->dev, dma_addr,
++					     RCV_FRAG_LEN, DMA_FROM_DEVICE,
++					     DMA_ATTR_SKIP_CPU_SYNC);
++		}
++		put_page(page);
++		return true;
+ 	}
+ 	return false;
+ }
+@@ -645,7 +662,7 @@ static void nicvf_rcv_pkt_handler(struct net_device *netdev,
+ 		if (nicvf_xdp_rx(snic, nic->xdp_prog, cqe_rx))
+ 			return;
  
-+	u64 rcv_buffer_alloc_failures;
-+	u64 page_alloc;
-+
- 	struct u64_stats_sync   syncp;
- };
- 
-diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_ethtool.c b/drivers/net/ethernet/cavium/thunder/nicvf_ethtool.c
-index 02a986c..a89db5f 100644
---- a/drivers/net/ethernet/cavium/thunder/nicvf_ethtool.c
-+++ b/drivers/net/ethernet/cavium/thunder/nicvf_ethtool.c
-@@ -100,11 +100,12 @@ static const struct nicvf_stat nicvf_drv_stats[] = {
- 	NICVF_DRV_STAT(tx_csum_overlap),
- 	NICVF_DRV_STAT(tx_csum_overflow),
- 
--	NICVF_DRV_STAT(rcv_buffer_alloc_failures),
- 	NICVF_DRV_STAT(tx_tso),
- 	NICVF_DRV_STAT(tx_timeout),
- 	NICVF_DRV_STAT(txq_stop),
- 	NICVF_DRV_STAT(txq_wake),
-+	NICVF_DRV_STAT(rcv_buffer_alloc_failures),
-+	NICVF_DRV_STAT(page_alloc),
- };
- 
- static const struct nicvf_stat nicvf_queue_stats[] = {
+-	skb = nicvf_get_rcv_skb(snic, cqe_rx);
++	skb = nicvf_get_rcv_skb(snic, cqe_rx, nic->xdp_prog ? true : false);
+ 	if (!skb) {
+ 		netdev_dbg(nic->netdev, "Packet not received\n");
+ 		return;
 diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
-index 7b0fd8d..12f9709 100644
+index 8c3c571..5009f49 100644
 --- a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
 +++ b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
-@@ -19,8 +19,6 @@
- #include "q_struct.h"
- #include "nicvf_queues.h"
+@@ -117,6 +117,7 @@ static struct pgcache *nicvf_alloc_page(struct nicvf *nic,
  
--#define NICVF_PAGE_ORDER ((PAGE_SIZE <= 4096) ?  PAGE_ALLOC_COSTLY_ORDER : 0)
--
- static inline u64 nicvf_iova_to_phys(struct nicvf *nic, dma_addr_t dma_addr)
- {
- 	/* Translation is installed only when IOMMU is present */
-@@ -90,33 +88,88 @@ static void nicvf_free_q_desc_mem(struct nicvf *nic, struct q_desc_mem *dmem)
- 	dmem->base = NULL;
- }
+ 		/* Save the page in page cache */
+ 		pgcache->page = page;
++		pgcache->dma_addr = 0;
+ 		rbdr->pgalloc++;
+ 	}
  
--/* Allocate buffer for packet reception
-- * HW returns memory address where packet is DMA'ed but not a pointer
-- * into RBDR ring, so save buffer address at the start of fragment and
-- * align the start address to a cache aligned address
-+/* Allocate a new page or recycle one if possible
-+ *
-+ * We cannot optimize dma mapping here, since
-+ * 1. It's only one RBDR ring for 8 Rx queues.
-+ * 2. CQE_RX gives address of the buffer where pkt has been DMA'ed
-+ *    and not idx into RBDR ring, so can't refer to saved info.
-+ * 3. There are multiple receive buffers per page
-  */
--static inline int nicvf_alloc_rcv_buffer(struct nicvf *nic, gfp_t gfp,
--					 u32 buf_len, u64 **rbuf)
-+static struct pgcache *nicvf_alloc_page(struct nicvf *nic,
-+					struct rbdr *rbdr, gfp_t gfp)
- {
--	int order = NICVF_PAGE_ORDER;
-+	struct page *page = NULL;
-+	struct pgcache *pgcache, *next;
-+
-+	/* Check if page is already allocated */
-+	pgcache = &rbdr->pgcache[rbdr->pgidx];
-+	page = pgcache->page;
-+	/* Check if page can be recycled */
-+	if (page && (page_ref_count(page) != 1))
-+		page = NULL;
-+
-+	if (!page) {
-+		page = alloc_pages(gfp | __GFP_COMP | __GFP_NOWARN, 0);
-+		if (!page)
-+			return NULL;
-+
-+		this_cpu_inc(nic->pnicvf->drv_stats->page_alloc);
-+
-+		/* Check for space */
-+		if (rbdr->pgalloc >= rbdr->pgcnt) {
-+			/* Page can still be used */
-+			nic->rb_page = page;
-+			return NULL;
-+		}
-+
-+		/* Save the page in page cache */
-+		pgcache->page = page;
-+		rbdr->pgalloc++;
-+	}
-+
-+	/* Take extra page reference for recycling */
-+	page_ref_add(page, 1);
-+
-+	rbdr->pgidx++;
-+	rbdr->pgidx &= (rbdr->pgcnt - 1);
-+
-+	/* Prefetch refcount of next page in page cache */
-+	next = &rbdr->pgcache[rbdr->pgidx];
-+	page = next->page;
-+	if (page)
-+		prefetch(&page->_refcount);
-+
-+	return pgcache;
-+}
-+
-+/* Allocate buffer for packet reception */
-+static inline int nicvf_alloc_rcv_buffer(struct nicvf *nic, struct rbdr *rbdr,
-+					 gfp_t gfp, u32 buf_len, u64 **rbuf)
-+{
-+	struct pgcache *pgcache = NULL;
- 
- 	/* Check if request can be accomodated in previous allocated page */
- 	if (nic->rb_page &&
--	    ((nic->rb_page_offset + buf_len) < (PAGE_SIZE << order))) {
-+	    ((nic->rb_page_offset + buf_len) <= PAGE_SIZE)) {
+@@ -144,7 +145,7 @@ static inline int nicvf_alloc_rcv_buffer(struct nicvf *nic, struct rbdr *rbdr,
+ 	/* Check if request can be accomodated in previous allocated page.
+ 	 * But in XDP mode only one buffer per page is permitted.
+ 	 */
+-	if (!nic->pnicvf->xdp_prog && nic->rb_page &&
++	if (!rbdr->is_xdp && nic->rb_page &&
+ 	    ((nic->rb_page_offset + buf_len) <= PAGE_SIZE)) {
  		nic->rb_pageref++;
  		goto ret;
- 	}
- 
- 	nicvf_get_page(nic);
-+	nic->rb_page = NULL;
- 
--	/* Allocate a new page */
--	nic->rb_page = alloc_pages(gfp | __GFP_COMP | __GFP_NOWARN,
--				   order);
--	if (!nic->rb_page) {
-+	/* Get new page, either recycled or new one */
-+	pgcache = nicvf_alloc_page(nic, rbdr, gfp);
-+	if (!pgcache && !nic->rb_page) {
- 		this_cpu_inc(nic->pnicvf->drv_stats->rcv_buffer_alloc_failures);
- 		return -ENOMEM;
- 	}
-+
- 	nic->rb_page_offset = 0;
-+	/* Check if it's recycled */
-+	if (pgcache)
-+		nic->rb_page = pgcache->page;
+@@ -165,18 +166,24 @@ static inline int nicvf_alloc_rcv_buffer(struct nicvf *nic, struct rbdr *rbdr,
+ 	if (pgcache)
+ 		nic->rb_page = pgcache->page;
  ret:
- 	/* HW will ensure data coherency, CPU sync not required */
- 	*rbuf = (u64 *)((u64)dma_map_page_attrs(&nic->pdev->dev, nic->rb_page,
-@@ -125,7 +178,7 @@ static inline int nicvf_alloc_rcv_buffer(struct nicvf *nic, gfp_t gfp,
- 						DMA_ATTR_SKIP_CPU_SYNC));
- 	if (dma_mapping_error(&nic->pdev->dev, (dma_addr_t)*rbuf)) {
- 		if (!nic->rb_page_offset)
--			__free_pages(nic->rb_page, order);
-+			__free_pages(nic->rb_page, 0);
- 		nic->rb_page = NULL;
- 		return -ENOMEM;
+-	/* HW will ensure data coherency, CPU sync not required */
+-	*rbuf = (u64)dma_map_page_attrs(&nic->pdev->dev, nic->rb_page,
+-					nic->rb_page_offset, buf_len,
+-					DMA_FROM_DEVICE,
+-					DMA_ATTR_SKIP_CPU_SYNC);
+-	if (dma_mapping_error(&nic->pdev->dev, (dma_addr_t)*rbuf)) {
+-		if (!nic->rb_page_offset)
+-			__free_pages(nic->rb_page, 0);
+-		nic->rb_page = NULL;
+-		return -ENOMEM;
++	if (rbdr->is_xdp && pgcache && pgcache->dma_addr) {
++		*rbuf = pgcache->dma_addr;
++	} else {
++		/* HW will ensure data coherency, CPU sync not required */
++		*rbuf = (u64)dma_map_page_attrs(&nic->pdev->dev, nic->rb_page,
++						nic->rb_page_offset, buf_len,
++						DMA_FROM_DEVICE,
++						DMA_ATTR_SKIP_CPU_SYNC);
++		if (dma_mapping_error(&nic->pdev->dev, (dma_addr_t)*rbuf)) {
++			if (!nic->rb_page_offset)
++				__free_pages(nic->rb_page, 0);
++			nic->rb_page = NULL;
++			return -ENOMEM;
++		}
++		if (pgcache)
++			pgcache->dma_addr = *rbuf;
++		nic->rb_page_offset += buf_len;
  	}
-@@ -177,10 +230,26 @@ static int  nicvf_init_rbdr(struct nicvf *nic, struct rbdr *rbdr,
- 	rbdr->head = 0;
- 	rbdr->tail = 0;
+-	nic->rb_page_offset += buf_len;
  
-+	/* Initialize page recycling stuff.
-+	 *
-+	 * Can't use single buffer per page especially with 64K pages.
-+	 * On embedded platforms i.e 81xx/83xx available memory itself
-+	 * is low and minimum ring size of RBDR is 8K, that takes away
-+	 * lots of memory.
-+	 */
-+	rbdr->pgcnt = ring_len / (PAGE_SIZE / buf_size);
-+	rbdr->pgcnt = roundup_pow_of_two(rbdr->pgcnt);
-+	rbdr->pgcache = kzalloc(sizeof(*rbdr->pgcache) *
-+				rbdr->pgcnt, GFP_KERNEL);
-+	if (!rbdr->pgcache)
-+		return -ENOMEM;
-+	rbdr->pgidx = 0;
-+	rbdr->pgalloc = 0;
-+
- 	nic->rb_page = NULL;
- 	for (idx = 0; idx < ring_len; idx++) {
--		err = nicvf_alloc_rcv_buffer(nic, GFP_KERNEL, RCV_FRAG_LEN,
--					     &rbuf);
-+		err = nicvf_alloc_rcv_buffer(nic, rbdr, GFP_KERNEL,
-+					     RCV_FRAG_LEN, &rbuf);
- 		if (err) {
- 			/* To free already allocated and mapped ones */
- 			rbdr->tail = idx - 1;
-@@ -201,6 +270,7 @@ static void nicvf_free_rbdr(struct nicvf *nic, struct rbdr *rbdr)
- {
- 	int head, tail;
- 	u64 buf_addr, phys_addr;
-+	struct pgcache *pgcache;
- 	struct rbdr_entry_t *desc;
- 
- 	if (!rbdr)
-@@ -234,6 +304,18 @@ static void nicvf_free_rbdr(struct nicvf *nic, struct rbdr *rbdr)
- 	if (phys_addr)
- 		put_page(virt_to_page(phys_to_virt(phys_addr)));
- 
-+	/* Sync page cache info */
-+	smp_rmb();
-+
-+	/* Release additional page references held for recycling */
-+	head = 0;
-+	while (head < rbdr->pgcnt) {
-+		pgcache = &rbdr->pgcache[head];
-+		if (pgcache->page && page_ref_count(pgcache->page) != 0)
-+			put_page(pgcache->page);
-+		head++;
-+	}
-+
- 	/* Free RBDR ring */
- 	nicvf_free_q_desc_mem(nic, &rbdr->dmem);
+ 	return 0;
  }
-@@ -269,13 +351,16 @@ static void nicvf_refill_rbdr(struct nicvf *nic, gfp_t gfp)
- 	else
- 		refill_rb_cnt = qs->rbdr_len - qcount - 1;
+@@ -230,8 +237,16 @@ static int  nicvf_init_rbdr(struct nicvf *nic, struct rbdr *rbdr,
+ 	 * On embedded platforms i.e 81xx/83xx available memory itself
+ 	 * is low and minimum ring size of RBDR is 8K, that takes away
+ 	 * lots of memory.
++	 *
++	 * But for XDP it has to be a single buffer per page.
+ 	 */
+-	rbdr->pgcnt = ring_len / (PAGE_SIZE / buf_size);
++	if (!nic->pnicvf->xdp_prog) {
++		rbdr->pgcnt = ring_len / (PAGE_SIZE / buf_size);
++		rbdr->is_xdp = false;
++	} else {
++		rbdr->pgcnt = ring_len;
++		rbdr->is_xdp = true;
++	}
+ 	rbdr->pgcnt = roundup_pow_of_two(rbdr->pgcnt);
+ 	rbdr->pgcache = kzalloc(sizeof(*rbdr->pgcache) *
+ 				rbdr->pgcnt, GFP_KERNEL);
+@@ -1454,8 +1469,31 @@ static inline unsigned frag_num(unsigned i)
+ #endif
+ }
  
-+	/* Sync page cache info */
-+	smp_rmb();
++static void nicvf_unmap_rcv_buffer(struct nicvf *nic, u64 dma_addr,
++				   u64 buf_addr, bool xdp)
++{
++	struct page *page = NULL;
++	int len = RCV_FRAG_LEN;
 +
- 	/* Start filling descs from tail */
- 	tail = nicvf_queue_reg_read(nic, NIC_QSET_RBDR_0_1_TAIL, rbdr_idx) >> 3;
- 	while (refill_rb_cnt) {
- 		tail++;
- 		tail &= (rbdr->dmem.q_len - 1);
++	if (xdp) {
++		page = virt_to_page(phys_to_virt(buf_addr));
++		/* Check if it's a recycled page, if not
++		 * unmap the DMA mapping.
++		 *
++		 * Recycled page holds an extra reference.
++		 */
++		if (page_ref_count(page) != 1)
++			return;
++		/* Receive buffers in XDP mode are mapped from page start */
++		dma_addr &= PAGE_MASK;
++	}
++	dma_unmap_page_attrs(&nic->pdev->dev, dma_addr, len,
++			     DMA_FROM_DEVICE, DMA_ATTR_SKIP_CPU_SYNC);
++}
++
+ /* Returns SKB for a received packet */
+-struct sk_buff *nicvf_get_rcv_skb(struct nicvf *nic, struct cqe_rx_t *cqe_rx)
++struct sk_buff *nicvf_get_rcv_skb(struct nicvf *nic,
++				  struct cqe_rx_t *cqe_rx, bool xdp)
+ {
+ 	int frag;
+ 	int payload_len = 0;
+@@ -1490,10 +1528,9 @@ struct sk_buff *nicvf_get_rcv_skb(struct nicvf *nic, struct cqe_rx_t *cqe_rx)
  
--		if (nicvf_alloc_rcv_buffer(nic, gfp, RCV_FRAG_LEN, &rbuf))
-+		if (nicvf_alloc_rcv_buffer(nic, rbdr, gfp, RCV_FRAG_LEN, &rbuf))
- 			break;
- 
- 		desc = GET_RBDR_DESC(rbdr, tail);
+ 		if (!frag) {
+ 			/* First fragment */
+-			dma_unmap_page_attrs(&nic->pdev->dev,
+-					     *rb_ptrs - cqe_rx->align_pad,
+-					     RCV_FRAG_LEN, DMA_FROM_DEVICE,
+-					     DMA_ATTR_SKIP_CPU_SYNC);
++			nicvf_unmap_rcv_buffer(nic,
++					       *rb_ptrs - cqe_rx->align_pad,
++					       phys_addr, xdp);
+ 			skb = nicvf_rb_ptr_to_skb(nic,
+ 						  phys_addr - cqe_rx->align_pad,
+ 						  payload_len);
+@@ -1503,9 +1540,7 @@ struct sk_buff *nicvf_get_rcv_skb(struct nicvf *nic, struct cqe_rx_t *cqe_rx)
+ 			skb_put(skb, payload_len);
+ 		} else {
+ 			/* Add fragments */
+-			dma_unmap_page_attrs(&nic->pdev->dev, *rb_ptrs,
+-					     RCV_FRAG_LEN, DMA_FROM_DEVICE,
+-					     DMA_ATTR_SKIP_CPU_SYNC);
++			nicvf_unmap_rcv_buffer(nic, *rb_ptrs, phys_addr, xdp);
+ 			page = virt_to_page(phys_to_virt(phys_addr));
+ 			offset = phys_to_virt(phys_addr) - page_address(page);
+ 			skb_add_rx_frag(skb, skb_shinfo(skb)->nr_frags, page,
 diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_queues.h b/drivers/net/ethernet/cavium/thunder/nicvf_queues.h
-index 10cb4b8..da48366 100644
+index 07136a2..db04c0e 100644
 --- a/drivers/net/ethernet/cavium/thunder/nicvf_queues.h
 +++ b/drivers/net/ethernet/cavium/thunder/nicvf_queues.h
-@@ -213,6 +213,11 @@ struct q_desc_mem {
- 	void		*unalign_base;
- };
- 
-+struct pgcache {
-+	struct page	*page;
-+	u64		dma_addr;
-+};
-+
- struct rbdr {
- 	bool		enable;
- 	u32		dma_size;
-@@ -222,6 +227,12 @@ struct rbdr {
+@@ -228,6 +228,7 @@ struct rbdr {
  	u32		head;
  	u32		tail;
  	struct q_desc_mem   dmem;
-+
-+	/* For page recycling */
-+	int		pgidx;
-+	int		pgcnt;
-+	int		pgalloc;
-+	struct pgcache	*pgcache;
- } ____cacheline_aligned_in_smp;
++	bool		is_xdp;
  
- struct rcv_queue {
+ 	/* For page recycling */
+ 	int		pgidx;
+@@ -339,7 +340,8 @@ void nicvf_sq_free_used_descs(struct net_device *netdev,
+ int nicvf_sq_append_skb(struct nicvf *nic, struct snd_queue *sq,
+ 			struct sk_buff *skb, u8 sq_num);
+ 
+-struct sk_buff *nicvf_get_rcv_skb(struct nicvf *nic, struct cqe_rx_t *cqe_rx);
++struct sk_buff *nicvf_get_rcv_skb(struct nicvf *nic,
++				  struct cqe_rx_t *cqe_rx, bool xdp);
+ void nicvf_rbdr_task(unsigned long data);
+ void nicvf_rbdr_work(struct work_struct *work);
+ 
 -- 
 2.7.4
