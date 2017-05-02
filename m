@@ -1,25 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipx: call ipxitf_put() in ioctl error path
-Date: Tue, 02 May 2017 15:35:11 -0400 (EDT)
-Message-ID: <20170502.153511.1670530060500505666.davem@davemloft.net>
-References: <143C0AFC63FC204CB0C55BB88F3A8ABB33419ED1@EX02.corp.qihoo.net>
-        <20170502105853.yz3ny6lyso6isdvx@mwanda>
+Subject: Re: [net-next PATCH 0/4] Improve bpf ELF-loader under samples/bpf
+Date: Tue, 02 May 2017 15:40:14 -0400 (EDT)
+Message-ID: <20170502.154014.2024927301583088718.davem@davemloft.net>
+References: <149372826543.22268.3617359219409721129.stgit@firesoul>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, security@kernel.org, secalert@redhat.com
-To: dan.carpenter@oracle.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: kafai@fb.com, netdev@vger.kernel.org, eric@regit.org,
+        borkmann@iogearbox.net, alexei.starovoitov@gmail.com
+To: brouer@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:53376 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:53460 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750888AbdEBTfN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 2 May 2017 15:35:13 -0400
-In-Reply-To: <20170502105853.yz3ny6lyso6isdvx@mwanda>
+        with ESMTP id S1750710AbdEBTkU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 2 May 2017 15:40:20 -0400
+In-Reply-To: <149372826543.22268.3617359219409721129.stgit@firesoul>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRGFuIENhcnBlbnRlciA8ZGFuLmNhcnBlbnRlckBvcmFjbGUuY29tPg0KRGF0ZTogVHVl
-LCAyIE1heSAyMDE3IDEzOjU4OjUzICswMzAwDQoNCj4gV2Ugc2hvdWxkIGNhbGwgaXB4aXRmX3B1
-dCgpIGlmIHRoZSBjb3B5X3RvX3VzZXIoKSBmYWlscy4NCj4gDQo+IFJlcG9ydGVkLWJ5OiDmnY7l
-vLogPGxpcWlhbmc2LXNAMzYwLmNuPg0KPiBTaWduZWQtb2ZmLWJ5OiBEYW4gQ2FycGVudGVyIDxk
-YW4uY2FycGVudGVyQG9yYWNsZS5jb20+DQoNCkFwcGxpZWQsIHRoYW5rcyBEYW4uDQo=
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Date: Tue, 02 May 2017 14:31:45 +0200
+
+> This series improves and fixes bpf ELF loader and programs under
+> samples/bpf.  The bpf_load.c created some hard to debug issues when
+> the struct (bpf_map_def) used in the ELF maps section format changed
+> in commit fb30d4b71214 ("bpf: Add tests for map-in-map").
+> 
+> This was hotfixed in commit 409526bea3c3 ("samples/bpf: bpf_load.c
+> detect and abort if ELF maps section size is wrong") by detecting the
+> issue and aborting the program.
+> 
+> In most situations the bpf-loader should be able to handle these kind
+> of changes to the struct size.  This patch series aim to do proper
+> backward and forward compabilility handling when loading ELF files.
+> 
+> This series also adjust the callback that was introduced in commit
+> 9fd63d05f3e8 ("bpf: Allow bpf sample programs (*_user.c) to change
+> bpf_map_def") to use the new bpf_map_data structure, before more users
+> start to use this callback.
+> 
+> Hoping these changes can make the merge window, as above mentioned
+> commits have not been merged yet, and it would be good to avoid users
+> hitting these issues.
+
+Alexei and Daniel, please review.
