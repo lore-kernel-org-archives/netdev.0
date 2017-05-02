@@ -1,124 +1,97 @@
-From: Andrey Konovalov <andreyknvl@google.com>
-Subject: Re: net/ipv6: use-after-free in __call_rcu/in6_dev_finish_destroy_rcu
-Date: Tue, 2 May 2017 18:58:41 +0200
-Message-ID: <CAAeHK+z-LFc1mbg3FKtSnMqLGQf2kr432a-MSeMx8Q7epfnVaw@mail.gmail.com>
-References: <CAAeHK+y=YqG0Kb2chQ=_2E8aPttMetQjZPCxFibHKCfktQS2PQ@mail.gmail.com>
- <20170426135950.GO3956@linux.vnet.ibm.com> <CAAeHK+yzuh7mAmLR9DgHsLYBykqD8YhFcv=Nx6Az_f+PV_YMzw@mail.gmail.com>
- <e133f72f-89ab-bf45-67f5-4ad0c502adc4@cumulusnetworks.com>
+From: Xin Long <lucien.xin@gmail.com>
+Subject: Re: [PATCH net v3] driver: veth: Fix one possbile memleak when fail
+ to register_netdevice
+Date: Wed, 3 May 2017 00:59:19 +0800
+Message-ID: <CADvbK_cVS=M3tuz0QQT18D32UzLkdL0RMHuFxqcBgtfq_w7+9Q@mail.gmail.com>
+References: <1493437911-27167-1-git-send-email-gfree.wind@foxmail.com>
+ <CADvbK_cEHXTSXx5Qa17TfeUXnYiBq8ptR+=5e-fbzPF0r4DNhQ@mail.gmail.com> <000601d2c333$abb526d0$031f7470$@vip.163.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Josh Triplett <josh@joshtriplett.org>,
-        Steven Rostedt <rostedt@goodmis.org>,
-        Mathieu Desnoyers <mathieu.desnoyers@efficios.com>,
-        Lai Jiangshan <jiangshanlai@gmail.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        Dmitry Vyukov <dvyukov@google.com>,
-        Kostya Serebryany <kcc@google.com>,
-        syzkaller <syzkaller@googlegroups.com>
-To: David Ahern <dsa@cumulusnetworks.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <e133f72f-89ab-bf45-67f5-4ad0c502adc4@cumulusnetworks.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: davem <davem@davemloft.net>, jarod@redhat.com,
+        Stephen Hemminger <stephen@networkplumber.org>,
+        dsa@cumulusnetworks.com, network dev <netdev@vger.kernel.org>
+To: Gao Feng <gfree.wind@vip.163.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qt0-f196.google.com ([209.85.216.196]:36039 "EHLO
+        mail-qt0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750815AbdEBQ7U (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 2 May 2017 12:59:20 -0400
+Received: by mail-qt0-f196.google.com with SMTP id t52so21145767qtb.3
+        for <netdev@vger.kernel.org>; Tue, 02 May 2017 09:59:20 -0700 (PDT)
+In-Reply-To: <000601d2c333$abb526d0$031f7470$@vip.163.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 2, 2017 at 4:44 AM, David Ahern <dsa@cumulusnetworks.com> wrote:
-> On 4/26/17 9:15 AM, Andrey Konovalov wrote:
->> +David
+On Tue, May 2, 2017 at 7:03 PM, Gao Feng <gfree.wind@vip.163.com> wrote:
+>> From: Xin Long [mailto:lucien.xin@gmail.com]
+>> Sent: Tuesday, May 2, 2017 3:56 PM
+>> On Sat, Apr 29, 2017 at 11:51 AM,  <gfree.wind@foxmail.com> wrote:
+>> > From: Gao Feng <gfree.wind@foxmail.com>
+> [...]
+>> > -static void veth_dev_free(struct net_device *dev)
+>> > +static void veth_destructor_free(struct net_device *dev)
+>> >  {
+>> >         free_percpu(dev->vstats);
+>> > +}
+>> not sure why you needed to add this function.
+>> to use free_percpu() directly may be clearer.
+>
+> Because both of ndo_uninit and destructor need to perform same free statements.
+> It is good at maintain the codes with the common function.
 >>
->> I've enabled CONFIG_DEBUG_OBJECTS_RCU_HEAD and this is what I get.
->>
->> Apparently the rcu warning is related to the fib6_del_route bug I've
->> been trying to reproduce:
->> https://groups.google.com/forum/#!msg/syzkaller/3SS80JbVPKA/2tfIAcW7DwAJ
->>
->> Adding David, who provided the fix:
->> https://patchwork.ozlabs.org/patch/754913/
->>
->> I've managed to extract a reproducer, attached together with the
->> .config that I used.
->>
->> On commit 5a7ad1146caa895ad718a534399e38bd2ba721b7 (4.11-rc8) with
->> David's patch applied.
->>
->> ------------[ cut here ]------------
->> WARNING: CPU: 1 PID: 5911 at lib/debugobjects.c:289
->> debug_print_object+0x175/0x210
->> ODEBUG: activate active (active state 1) object type: rcu_head hint:
->>         (null)
->> Modules linked in:
->> CPU: 1 PID: 5911 Comm: a.out Not tainted 4.11.0-rc8+ #271
->> Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
->> Call Trace:
->>  __dump_stack lib/dump_stack.c:16
->>  dump_stack+0x192/0x22d lib/dump_stack.c:52
->>  __warn+0x19f/0x1e0 kernel/panic.c:549
->>  warn_slowpath_fmt+0xe0/0x120 kernel/panic.c:564
->>  debug_print_object+0x175/0x210 lib/debugobjects.c:286
->>  debug_object_activate+0x574/0x7e0 lib/debugobjects.c:442
->>  debug_rcu_head_queue kernel/rcu/rcu.h:75
->>  __call_rcu.constprop.76+0xff/0x9c0 kernel/rcu/tree.c:3229
->>  call_rcu_sched+0x12/0x20 kernel/rcu/tree.c:3288
->>  rt6_rcu_free net/ipv6/ip6_fib.c:158
->>  rt6_release+0x1ea/0x290 net/ipv6/ip6_fib.c:188
->>  fib6_del_route net/ipv6/ip6_fib.c:1461
+>> > +
+>> > +static void veth_dev_uninit(struct net_device *dev) {
+>> call free_percpu() here, no need to check dev->reg_state.
+>> free_percpu will just return if dev->vstats is NULL.
 >
-> I think I got to the bottom of this one.
->
-> With your config, ip6_tunnel is compiled in.
->
-> The program runs in a very tight loop, calling 'unshare -n' and then
-> spawns 2 sets of 14 threads running random ioctl calls. The networking
-> sequence:
->
-> 1. New network namespace created via unshare -n
-> - ip6tnl0 device is created in down state
->
-> 2. address added to ip6tnl0 (equivalent to ip -6 addr add dev ip6tnl0
-> fd00::bb/1)
-> - the host route is created and inserted into FIB
->
-> 3. ip6tnl0 is brought up - starts DAD on the address
->
-> 4. exit namespace
-> - teardown / cleanup sequence starts
-> - lo teardown appears to happen BEFORE teardown of ip6tunl0
->   + removes host route from FIB
->   + host route added to rcu callback list: call_rcu(&rt->dst.rcu_head,
-> dst_rcu_free);
->   + rcu callback has not run yet, so rt is NOT on the gc list so it has
->     NOT been marked obsolete
->
-> 5. worker_thread runs addrconf_dad_completed
-> - calls ipv6_ifa_notify which inserts the host route
->
-> All of that happens very quickly. The result is that a route that has
-> been deleted and added to the RCU list is re-inserted into the FIB. What
-> happens next depends on order -- in this case the exit namespace
-> eventually gets to cleaning up ip6tnl0 which removes the host route from
-> the FIB, calls the rcu function for cleanup -- and triggers the double
-> rcu trace.
->
-> I have a hack that flags this sequence and prevents the re-insertion
-> following DAD. That allows the command to run until it consumes all 2G
-> of memory the VM has -- about 600+ iterations without triggering any
-> stack traces.
+> It would break the original design if don't check the reg_state.
+> The original logic is that free the resources in the destructor, not in ndo_init.
+I got what you're doing now, can you pls try to fix this with:
 
-Hi David,
+--- a/drivers/net/veth.c
++++ b/drivers/net/veth.c
+@@ -219,10 +219,9 @@ static int veth_dev_init(struct net_device *dev)
+        return 0;
+ }
 
-Thanks for looking into this!
+-static void veth_dev_free(struct net_device *dev)
++static void veth_dev_uninit(struct net_device *dev)
+ {
+        free_percpu(dev->vstats);
+-       free_netdev(dev);
+ }
 
-Do you have a patch that I could test?
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+@@ -279,6 +278,7 @@ static void veth_set_rx_headroom(struct net_device
+*dev, int new_hr)
 
-I also reported another issue recently, that might also be related to this one:
-https://groups.google.com/forum/#!topic/syzkaller/Rt0pgY4wfiw
+ static const struct net_device_ops veth_netdev_ops = {
+        .ndo_init            = veth_dev_init,
++       .ndo_uninit          = veth_dev_uninit,
+        .ndo_open            = veth_open,
+        .ndo_stop            = veth_close,
+        .ndo_start_xmit      = veth_xmit,
+@@ -317,7 +317,7 @@ static void veth_setup(struct net_device *dev)
+                               NETIF_F_HW_VLAN_STAG_TX |
+                               NETIF_F_HW_VLAN_CTAG_RX |
+                               NETIF_F_HW_VLAN_STAG_RX);
+-       dev->destructor = veth_dev_free;
++       dev->destructor = free_netdev;
+        dev->max_mtu = ETH_MAX_MTU;
 
-Thanks!
+        dev->hw_features = VETH_FEATURES;
+
+
+just as what other virtual nic drivers do (vxlan, geneve, macsec, bridge ....)
+
+>
+> BTW, because I send multiple patches too fast today, the email server blocks my account.
+> So I have to reply you with a different email account. Sorry.
+>
+> Best Regards
+> Feng
+>
+>>
+> [...]
+>
+>
