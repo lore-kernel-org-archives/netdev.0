@@ -1,41 +1,42 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: Re: [PATCH] flower: check unused bits in MPLS fields
-Date: Tue, 2 May 2017 13:44:49 +0200
-Message-ID: <20170502114448.GA24820@vergenet.net>
-References: <1493647120-17406-1-git-send-email-benjamin.lahaise@netronome.com>
- <af1de251-299e-a037-f4b1-21cb22051bf9@mojatatu.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [patch net-next] net: sched: add helpers to handle extended
+ actions
+Date: Tue, 2 May 2017 07:57:52 -0400
+Message-ID: <39bdfccb-0d2f-bbbb-6faf-8ba1db303e10@mojatatu.com>
+References: <1493396006-11084-1-git-send-email-jiri@resnulli.us>
+ <6450af04-a6d4-866e-82ee-424ff54b2ef3@mojatatu.com>
+ <20170502055134.GB1877@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Benjamin LaHaise <benjamin.lahaise@netronome.com>,
-        netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-        Jakub Kicinski <kubakici@wp.pl>, Jiri Pirko <jiri@resnulli.us>
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+        xiyou.wangcong@gmail.com, mlxsw@mellanox.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f44.google.com ([74.125.82.44]:36924 "EHLO
-        mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750945AbdEBLo4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 2 May 2017 07:44:56 -0400
-Received: by mail-wm0-f44.google.com with SMTP id m123so16467913wma.0
-        for <netdev@vger.kernel.org>; Tue, 02 May 2017 04:44:55 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <af1de251-299e-a037-f4b1-21cb22051bf9@mojatatu.com>
+Received: from mail-io0-f194.google.com ([209.85.223.194]:36106 "EHLO
+        mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750892AbdEBL5z (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 2 May 2017 07:57:55 -0400
+Received: by mail-io0-f194.google.com with SMTP id x86so29355686ioe.3
+        for <netdev@vger.kernel.org>; Tue, 02 May 2017 04:57:55 -0700 (PDT)
+In-Reply-To: <20170502055134.GB1877@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 01, 2017 at 09:37:00PM -0400, Jamal Hadi Salim wrote:
-> On 17-05-01 09:58 AM, Benjamin LaHaise wrote:
-> >Since several of the the netlink attributes used to configure the flower
-> >classifier's MPLS TC, BOS and Label fields have additional bits which are
-> >unused, check those bits to ensure that they are actually 0 as suggested
-> >by Jamal.
-> >
-> >Signed-off-by: Benjamin LaHaise <benjamin.lahaise@netronome.com>
-> >Cc: David Miller <davem@davemloft.net>
-> >Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-> >Cc: Simon Horman <simon.horman@netronome.com>
-> >Cc: Jakub Kicinski <kubakici@wp.pl>
-> >Cc: Jiri Pirko <jiri@resnulli.us>
-> 
-> Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
+On 17-05-02 01:51 AM, Jiri Pirko wrote:
+> Sun, Apr 30, 2017 at 04:08:15PM CEST, jhs@mojatatu.com wrote:
+>> Jiri,
+>>
+>> With "goto chain X" this will have to be more generalized. Maybe
+>> we have 0xAXXXXXXX Where "A" recognizes the extension with
+>> current values ACT_JUMP(0x1) and GOTO_CHAIN(maybe 0x2)
+>> and the rest "XXXXXXX" is a free floating parameter values
+>> which carry the goto count for ACT_JUMP and GOTO_CHAIN chain-id.
+>
+> That is exactly what this patch is doing.
+>
 
-Reviewed-by: Simon Horman <simon.horman@netronome.com>
+You are right, sorry ;->
+
+cheers,
+jamal
