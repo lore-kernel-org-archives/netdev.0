@@ -1,92 +1,78 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: [PATCH 3/3] net/atm: Add some spaces for better code readability
-Date: Tue, 2 May 2017 19:49:12 +0200
-Message-ID: <4b0d808e-e579-771c-c3ac-a85c88c48316@users.sourceforge.net>
-References: <d9577c1f-07d1-b43a-df16-8626acfb1043@users.sourceforge.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-        kernel-janitors@vger.kernel.org
-To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <d9577c1f-07d1-b43a-df16-8626acfb1043@users.sourceforge.net>
-Content-Language: en-GB
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Guy Harris <guy@alum.mit.edu>
+Subject: Re: TPACKET_V3 timeout bug?
+Date: Tue, 2 May 2017 10:54:52 -0700
+Message-ID: <C289F9B5-A8DE-45B1-9485-AE322850B462@alum.mit.edu>
+References: <20170415194042.GA5936@lunn.ch>
+ <20170415224530.GA21010@oracle.com> <20170416021050.GA16418@lunn.ch>
+ <251BA382-D82C-4931-A98F-A23AD88F9811@alum.mit.edu>
+ <CAAsGZS5ir2Ha1swhdGCg7ibgYRORZykZcu089=oJ51NT4GKDuA@mail.gmail.com>
+Mime-Version: 1.0 (Mac OS X Mail 10.3 \(3273\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: Andrew Lunn <andrew@lunn.ch>,
+        Sowmini Varadhan <sowmini.varadhan@oracle.com>,
+        netdev <netdev@vger.kernel.org>,
+        tcpdump-workers <tcpdump-workers@lists.tcpdump.org>
+To: chetan loke <loke.chetan@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from c.mail.sonic.net ([64.142.111.80]:32908 "EHLO c.mail.sonic.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750896AbdEBRzE (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 2 May 2017 13:55:04 -0400
+In-Reply-To: <CAAsGZS5ir2Ha1swhdGCg7ibgYRORZykZcu089=oJ51NT4GKDuA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Tue, 2 May 2017 19:19:14 +0200
+On May 2, 2017, at 8:04 AM, chetan loke <loke.chetan@gmail.com> wrote:
 
-Use space characters at some source code places according to
-the Linux coding style convention.
+> On Sat, Apr 15, 2017 at 7:41 PM, Guy Harris <guy@alum.mit.edu> wrote:
+>> On Apr 15, 2017, at 7:10 PM, Andrew Lunn <andrew@lunn.ch> wrote:
+>> 
+>>> Do you think this is a kernel problem, libpcap problem, or an
+>>> application problem?
+>> 
+> 
+> Its clearly a kernel regression.
+> 
+> If you look at if_packet.h, I have explicitly called out all the cases
+> for the return/status codes. When I first merged the functionality in
+> 3.11(or 3.12 I think) I had the logic in place to retire the block
+> with or without packets in it. I think there was one case where we
+> wouldn't wake up userspace. Someone checked in a fix for that. Now I
+> am not sure the regression happened as part of that bug fix or
+> sometime later. If you diff 3.12 against the latest you will find the
+> regression. Look for prb_retire_rx_blk_timer_expired().
 
-Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
----
- net/atm/mpoa_proc.c | 23 +++++++++++++----------
- 1 file changed, 13 insertions(+), 10 deletions(-)
+Yes, there's a case where user space wasn't being woken up.
 
-diff --git a/net/atm/mpoa_proc.c b/net/atm/mpoa_proc.c
-index 324c4f95f4bf..6a52606557f0 100644
---- a/net/atm/mpoa_proc.c
-+++ b/net/atm/mpoa_proc.c
-@@ -154,8 +154,8 @@ static int mpc_show(struct seq_file *m, void *v)
- 		seq_printf(m, "%-16s%s%-14lu%-12u",
- 			   ip_string,
- 			   ingress_state_string(in_entry->entry_state),
--			   in_entry->ctrl_info.holding_time -
--			   (now.tv_sec-in_entry->tv.tv_sec),
-+			   in_entry->ctrl_info.holding_time
-+			   - (now.tv_sec - in_entry->tv.tv_sec),
- 			   in_entry->packets_fwded);
- 		if (in_entry->shortcut)
- 			seq_printf(m, "   %-3d  %-3d",
-@@ -173,8 +173,8 @@ static int mpc_show(struct seq_file *m, void *v)
- 		seq_printf(m, "\n%-16lu%s%-14lu%-15u",
- 			   (unsigned long)ntohl(eg_entry->ctrl_info.cache_id),
- 			   egress_state_string(eg_entry->entry_state),
--			   (eg_entry->ctrl_info.holding_time -
--			    (now.tv_sec-eg_entry->tv.tv_sec)),
-+			   eg_entry->ctrl_info.holding_time
-+			   - (now.tv_sec - eg_entry->tv.tv_sec),
- 			   eg_entry->packets_rcvd);
- 
- 		/* latest IP address */
-@@ -213,7 +213,7 @@ static ssize_t proc_mpc_write(struct file *file, const char __user *buff,
- 		return 0;
- 
- 	if (nbytes >= PAGE_SIZE)
--		nbytes = PAGE_SIZE-1;
-+		nbytes = PAGE_SIZE - 1;
- 
- 	page = (char *)__get_free_page(GFP_KERNEL);
- 	if (!page)
-@@ -251,18 +251,21 @@ static int parse_qos(const char *buff)
- 	memset(&qos, 0, sizeof(struct atm_qos));
- 
- 	if (sscanf(buff, "del %hhu.%hhu.%hhu.%hhu",
--			ip, ip+1, ip+2, ip+3) == 4) {
-+		   ip, ip + 1, ip + 2, ip + 3) == 4) {
- 		ipaddr = *(__be32 *)ip;
- 		return atm_mpoa_delete_qos(atm_mpoa_search_qos(ipaddr));
- 	}
- 
- 	if (sscanf(buff, "add %hhu.%hhu.%hhu.%hhu tx=%d,%d rx=tx",
--			ip, ip+1, ip+2, ip+3, &tx_pcr, &tx_sdu) == 6) {
-+		   ip, ip + 1, ip + 2, ip + 3, &tx_pcr, &tx_sdu) == 6) {
- 		rx_pcr = tx_pcr;
- 		rx_sdu = tx_sdu;
--	} else if (sscanf(buff, "add %hhu.%hhu.%hhu.%hhu tx=%d,%d rx=%d,%d",
--		ip, ip+1, ip+2, ip+3, &tx_pcr, &tx_sdu, &rx_pcr, &rx_sdu) != 8)
--		return 0;
-+	} else {
-+		if (sscanf(buff, "add %hhu.%hhu.%hhu.%hhu tx=%d,%d rx=%d,%d",
-+			   ip, ip + 1, ip + 2, ip + 3,
-+			   &tx_pcr, &tx_sdu, &rx_pcr, &rx_sdu) != 8)
-+			return 0;
-+	}
- 
- 	ipaddr = *(__be32 *)ip;
- 	qos.txtp.traffic_class = ATM_CBR;
--- 
-2.12.2
+As I said in
+
+	https://github.com/the-tcpdump-group/libpcap/issues/335#issuecomment-30280794
+
+It appeared, at the time, that PF_PACKET sockets delivered a wakeup when a packet is put in a buffer block or dropped due to no buffer blocks being empty, but not when a buffer block is handed to userland.
+
+This means that if the kernel's timer expires, and there are no packets in the current buffer block being filled by the kernel, that buffer block will be handed to userland, but userland won't be woken up to tell it to consume that block.
+
+Thus, libpcap will consume that block only if either:
+
+	* a packet is put in a buffer block, meaning it must pass the filter and there must be a current buffer block, belonging to the kernel, into which to put it;
+	* a packet arrives and passes the filter, but there are no current buffer blocks belonging to the kernel, so it's dropped;
+	* the poll() times out.
+
+So, with a low packet acceptance rate (either because there isn't much network traffic or because there is but most of it is rejected by the packet filter), and with a poll() timeout of -1, meaning "block forever", 1) will happen infrequently, and 3) will never happen. With an in-kernel timeout rate significantly lower than the rate of packet acceptance, the timeout will often occur when there are no packets in the current buffer block, in which case the kernel will hand an empty buffer block to userland and not tell userland about it.
+
+If that happens often enough in sequence to cause all buffer blocks to be handed to userland before any wakeups occur, the kernel now has no buffer blocks into which to put packets, and the next time a packet arrives, it will be dropped, and a wakeup will finally occur. libpcap will drain the ring, handing all buffer blocks to the kernel, but it won't have any packets to process!
+
+So this is ultimately a problem with the TPACKET_V3 code in the kernel. I personally think that it should not deliver empty buffer blocks to userland, and that it also should not deliver a wakeup when a packet is accepted, and should deliver a wakeup whenever a buffer block is handed to userland. I'll report this to somebody and let them decide which of those changes should be done.
+
+If you want to deliver empty buffer blocks to userland, that's fine, but make sure you wake up userland so that it can process those packets rather than leaving them there taking up space in the ring buffer.
+
+And if you insist on delivering a wakeup when a packet is accepted - a wakeup that libpcap, at least, won't do anything with, as there's nothing useful for it to do with that wakeup - also make sure you deliver a wakeup when a buffer block is handed to userland, which is what libpcap cares about.
+
+> I cannot speak on behalf of user-space wrappers developed around
+> tpacket_v3 but the intention(from the kernel POV) of the block_timer
+> *is* to unblock the capture/user process/thread so that it does NOT
+> stay blocked for an indefinite period of time. The header explicitly
+> specifies that contract.
+
+That's not part of the contract for libpcap, as it's a question of what the underlying capture mechanism does, and we don't necessarily have any control over that; if a particular capture mechanism used by libpcap has that as part of its contract, that's OK, but libpcap-based applications shouldn't depend on it.
