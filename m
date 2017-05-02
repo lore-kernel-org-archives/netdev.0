@@ -1,92 +1,132 @@
 From: "Chiappero, Marco" <marco.chiappero@intel.com>
-Subject: RE: [PATCH net-next 9/9] ipvlan: introduce individual MAC addresses
-Date: Tue, 2 May 2017 15:08:28 +0000
-Message-ID: <695CDAEB5A6CE2498DE413F2A9AA82960915DF0C@IRSMSX101.ger.corp.intel.com>
+Subject: RE: [PATCH net-next 0/9] support unique MAC addresses for slave
+ devices
+Date: Tue, 2 May 2017 15:12:49 +0000
+Message-ID: <695CDAEB5A6CE2498DE413F2A9AA82960915DF55@IRSMSX101.ger.corp.intel.com>
 References: <20170427145142.15830-1-marco.chiappero@intel.com>
-         <20170427145142.15830-10-marco.chiappero@intel.com>
-         <1493310033.27948.3.camel@redhat.com> <1493310219.27948.5.camel@redhat.com>
+ <CAF2d9jjJ9J1B3fN3Ojkq=T5CVT-360-uY+-kpedTGr_XRcv0kw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: 8BIT
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
 Cc: "David S . Miller" <davem@davemloft.net>,
         "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
         "Duyck, Alexander H" <alexander.h.duyck@intel.com>,
-        "Grandhi, Sainath" <sainath.grandhi@intel.com>,
-        Mahesh Bandewar <maheshb@google.com>
-To: 'Dan Williams' <dcbw@redhat.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+        "Grandhi, Sainath" <sainath.grandhi@intel.com>
+To: "maheshb@google.com" <maheshb@google.com>,
+        linux-netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga06.intel.com ([134.134.136.31]:39256 "EHLO mga06.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:51295 "EHLO mga11.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750769AbdEBPIr (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 2 May 2017 11:08:47 -0400
-In-Reply-To: <1493310219.27948.5.camel@redhat.com>
+        id S1750727AbdEBPMw (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 2 May 2017 11:12:52 -0400
+In-Reply-To: <CAF2d9jjJ9J1B3fN3Ojkq=T5CVT-360-uY+-kpedTGr_XRcv0kw@mail.gmail.com>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-> -----Original Message-----
-> From: Dan Williams [mailto:dcbw@redhat.com]
-> On Thu, 2017-04-27 at 11:20 -0500, Dan Williams wrote:
-> > On Thu, 2017-04-27 at 15:51 +0100, Marco Chiappero wrote:
-> > > Currently all the slave devices belonging to the same port inherit
-> > > their MAC address from its master device. This patch removes this
-> > > limitation and allows every slave device to obtain a unique MAC
-> > > address, by default randomly generated at creation time.
-> > >
-> > > Moreover it is now possible to correctly modify the MAC address at
-> > > any time, fixing an existing bug as MAC address changes on the
-> > > master were not reflected on the slaves. It also avoids multiple
-> > > interfaces sharing the same IPv6 link-local address.
-> >
-> > How is this different than macvlan now?
-
-The same way it was before. The purpose of the patch is to make possible to change the MAC address on slaves, not to change the external behavior of ipvlan: ipvlan will still behave as ipvlan, macvlan will still behave as macvlan.
-
->>  Why would you use unique
-> > addressed ipvlan instances instead of macvlan?  Wouldn't the same
-> > problems around external switches not expecting multiple MACs from the
-> > same switch port apply now to ipvlan?
-
-No. I'm willing to rework the commit messages if this point is not clear.
-The idea is to effectively NAT communications, which is more or less the whole concept behind ipvlan.
-
-> > The whole point of ipvlan AIUI was to get around macvlan problems
-> > related to multiple MACs on the same port.
-> 
-> Another issue is the unicast MAC limits on cards.  ipvlan is now much more likely
-> to hit the unicast MAC limit of the NIC and thus trigger promiscuous mode and
-> the resulting performance drop, where before it would not.
-
-The outside world will still see and use only one unicast MAC address, belonging to the master interface. No need to store any other unicast MAC in the filter.
-
-Multicast filters will work as before, the only difference is that now slaves have different IPv6 link-local addresses, with an associated L2 multicast address). If this turns out to be an issue it's possible to keep the same MAC address by default but still allow it change. Or maybe force the same default link-local address somehow.
- 
-However, if the MAC filter is really the issue, I strongly encourage you to start working with HW vendors in order to better support modern data center workloads as a long term solution.
-
-> > Also, I think the IPv6 thing you mention is incorrect and has long
-> > since been solved.  Originally, ipvlan did not include a "dev_id"
-> > property that differened between child interfaces, and thus the IID of
-> > the each interface was the same.  That has now been fixed, and each
-> > ipvlan slave should now have a different IID and thus a different
-> > link-
-> > local address.
-
-Yes, thank you for pointing it out. I started this change a few months ago when such fix not present and simply rebased lately without noticing it.
-
-Please let me know if you have further questions.
-
-Thank you,
-Marco
---------------------------------------------------------------
-Intel Research and Development Ireland Limited
-Registered in Ireland
-Registered Office: Collinstown Industrial Park, Leixlip, County Kildare
-Registered Number: 308263
-
-
-This e-mail and any attachments may contain confidential material for the sole
-use of the intended recipient(s). Any review or distribution by others is
-strictly prohibited. If you are not the intended recipient, please contact the
-sender and delete all copies.
+DQo+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+IEZyb206IE1haGVzaCBCYW5kZXdhciAo
+4KSu4KS54KWH4KS2IOCkrOCkguCkoeClh+CkteCkvuCksCkNCj4gDQo+IE9uIFRodSwgQXByIDI3
+LCAyMDE3IGF0IDc6NTEgQU0sIE1hcmNvIENoaWFwcGVybw0KPiA8bWFyY28uY2hpYXBwZXJvQGlu
+dGVsLmNvbT4gd3JvdGU6DQo+ID4gQ3VycmVudGx5IGV2ZXJ5IHNsYXZlIGRldmljZSBnZXRzIGFz
+c2lnbmVkIHRoZSBzYW1lIE1BQyBhZGRyZXNzLCBieQ0KPiA+IGhhdmluZyBpdCBjb3BpZWQgZnJv
+bSB0aGUgbWFzdGVyIGludGVyZmFjZS4gU2luY2Ugc29tZSBjb2RlIHBhdGhzDQo+ID4gZGVwZW5k
+IG9uIHRoaXMgaWRlbnRpdHksIGNoYW5naW5nIHRoZSBNQUMgYWRkcmVzcyBvbiBzbGF2ZSBpbnRl
+cmZhY2VzDQo+ID4gaXMgbm90IHN1cHBvcnRlZC4gSG93ZXZlciBpZGVudGljYWwgTUFDIGFkZHJl
+c3NlcyBjYW4gcG9zZSBwcm9ibGVtcyB0bw0KPiA+IG1hbmFnZW1lbnQgYW5kIG9yY2hlc3RyYXRp
+b24gc29mdHdhcmUgdGhhdCBjb3JyZWN0bHkgZXhwZWN0IG5ldHdvcmsNCj4gPiBpbnRlcmZhY2Vz
+IG9uIHRoZSBzYW1lIHNlZ21lbnQgdG8gaGF2ZSB1bmlxdWUgYWRkcmVzc2VzLg0KPiA+DQo+IFBs
+ZWFzZSB1bmRlcnN0YW5kIHRoYXQgdGhlcmUgYXJlIHR3byBkaXN0aW5jdCBkcml2ZXJzIElQdmxh
+biBhbmQgTUFDdmxhbi4gVGhleQ0KPiBib3RoIGV4aXN0IHRvZ2V0aGVyIGZvciBnb29kIHJlYXNv
+bnMgYW5kIGFyZSB0cnlpbmcgdG8gY2F0ZXIgZm9yIGRpZmZlcmVudCBuZWVkcy4gSQ0KPiB3b3Vs
+ZCBsb3ZlIHRvIGNvbWJpbmUgdGhlbSB0b2dldGhlciBpZiB3ZSBkb24ndCBtZXNzIC8gbWlzcyB0
+aGUgZ29vZGllcyBlYWNoDQo+IG9mIHRoZW0gaGF2ZSB0byBvZmZlci4uLiBvdGhlcndpc2UgKk5P
+KiEgSGF2aW5nIHNhaWQgdGhhdCBpZiBtYW5hZ2VtZW50IC8NCj4gb3JjaGVzdHJhdGlvbiBzb2Z0
+d2FyZSBoYXMgcHJvYmxlbXMgdGhlbiBjbGVhcmx5IHlvdSBzaG91bGQgbm90IHVzZSBJUHZsYW4g
+Zm9yDQo+IHRoYXQgdXNlIGNhc2UuDQoNCkkgZG9uJ3Qgd2FudCB0byBzdGFydCBhIGNvbnZlcnNh
+dGlvbiBvbiB3aGV0aGVyIHRoYXQgc29mdHdhcmUgaXMgdGhlIHByb2JsZW0gb3Igbm90LCB3aGlj
+aCBpcyBwcm9iYWJseSBhcmd1YWJsZSBhbnl3YXksIGJ1dCB0aGVpciBjb21iaW5hdGlvbiB3aXRo
+IGlwdmxhbiBpcyBhIHBlcmZlY3RseSB2YWxpZCB1c2UgY2FzZSwgdGhlIHNhbWUgd2F5IG1hY3Zs
+YW4gaXMuDQpHZW5lcmFsbHkgc3BlYWtpbmcsIGl0J3MgdmVyeSByZWFzb25hYmxlIGFuZCBpbmRl
+ZWQgY29tbW9uIHRvIGxvb2sgdXAgaW50ZXJmYWNlcyBieSB0aGVpciBNQUMgYWRkcmVzcy4gQmVp
+bmcgYWJsZSB0byBjaGFuZ2UgdGhlIE1BQyBhZGRyZXNzIGlzIGFsc28gYSByZWFzb25hYmxlIGV4
+cGVjdGF0aW9uLCBlc3BlY2lhbGx5IGZvciBhIHNvZnQgaW50ZXJmYWNlIHdoaWNoIGRvZXMgbm90
+IGV2ZW4gdXNlIHVuaWNhc3QgTDIgYWRkcmVzc2VzIGZvciBmb3J3YXJkaW5nIGRlY2lzaW9ucy4N
+Cg0KPiA+IFBhdGNoZXMgMS04IGluY2x1ZGUgc3R5bGUgZml4ZXMgYW5kIHJlZmFjdG9yaW5nIChw
+YXRjaCA5IGRlcGVuZHMgdXBvbikNCj4gPiB0aGF0IGltcHJvdmUgdGhlIG92ZXJhbCBxdWFsaXR5
+IGFuZCBtYWtlIHRoZSBpbnRydWR1Y3Rpb24gb2YgdGhlDQo+ID4gZmVhdHVyZSBzdHJhaWdodGZv
+cndhcmQuDQo+ID4NCj4gTG90cyBvZiB0aGlzIGZhbGwgaW50byBJLXNheS1wb3RhdG8teW91LXNh
+eS0uLi4gY2F0ZWdvcnkuIE15IHdheSBvZiB0aGlua2luZyAvDQo+IG9yZ2FuaXppbmcgY29kZSBp
+cyBkaWZmZXJlbnQgdGhhbiB5b3VycyBhbmQgeW91IGRvbid0IGhhdmUgdG8gbGlrZSBtaW5lIGFu
+ZCBJDQo+IGRvbid0IGhhdmUgdG8gbGlrZSB5b3Vycy4NCg0KQSBmZXcgcGF0Y2hlcyBhcmUgZGVm
+aW5pdGVseSBzdWJqZWN0IHRvIHBlcnNvbmFsIHRhc3RlLCBJIGhhdmUgbm8gcHJvYmxlbSBkcm9w
+cGluZyB0aGVtIGFsdGhvdWdoIEkgc3RpbGwgc2VlIGltcHJvdmVtZW50cyBpbiByZWFkYWJpbGl0
+eS4gSGF2aW5nIHRoYXQgc2FpZDoNCi0gcGF0Y2ggMSBpcyBiYXNlZCBvbiBjaGVja3BhdGNoLnBs
+LCBzbyBpdCdzIHN1YnN0YW50aWFsbHkgb2JqZWN0aXZlLg0KLSBwYXRjaGVzIDMgYW5kIDQgYXJl
+IHdlbGwgbW90aXZhdGVkIGFuZCBkcml2ZW4gYnkgdmVyeSBzcGVjaWZpYyByZWFzb25zOiBib3Ro
+IGltcHJvdmUgcmVhZGFiaWxpdHksIHJlbW92ZSB1bm5lY2Vzc2FyeSBqdW1wcyBhbmQgNCBpbiBw
+YXJ0aWN1bGFyIHJlbW92ZXMgYSBnb29kIGFtb3VudCBvZiBkdXBsaWNhdGVkIGNvZGUgKDUyIGlu
+c2VydGlvbnMsIDEzNSBkZWxldGlvbnMpLg0KDQo+ID4gUGF0Y2ggOSBlbmFibGVzIHNsYXZlIGRl
+dmljZXMgdG8gb3duIHVuaXF1ZSBNQUMgYWRkcmVzc2VzIGFuZCBjaGFuZ2UNCj4gPiBzdWNoIGFk
+ZHJlc3NlcyBsaXZlLCBmaXhpbmcgbGFjayBvZiBzdXBwb3J0IGFuZCBhIHJlbGF0ZWQgYnVnLCBh
+cyBNQUMNCj4gPiBhZGRyZXNzIGNoYW5nZXMgb24gbWFzdGVyIHdlcmUgbm90IHByb3BhZ2F0ZWQg
+dG8gc2xhdmUgZGV2aWNlcy4NCj4gPiBJbiBvcmRlciB0byBwcmVzZXJ2ZSB0aGUgbWFpbiBwZWN1
+bGlhcml0eSBvZiB0aGlzIGRyaXZlciwgdGhhdCBpcw0KPiA+IGV4cG9zaW5nIG9ubHkgYSBzaW5n
+bGUgTUFDIGFkZHJlc3MgZm9yIG91dGJvdW5kIHRyYWZmaWMsIGZyYW1lcw0KPiA+IGVncmVzc2lu
+ZyBmcm9tIG1hc3RlciBhcmUgbm93IGVmZmVjdGl2ZWx5IG1hc3F1ZXJhdGVkIHdoZW4gd29ya2lu
+ZyBpbg0KPiA+IEwyIG1vZGUuDQo+ID4NCj4gVGhpcyBlbmhhbmNlbWVudCBpcywgaG93ZXZlciwg
+Y29taW5nIHZpYSBwYWNrZXQtaGVhZGVyIHJld3JpdGUgZm9yIGV2ZXJ5DQo+IFR4L1J4IHBhY2tl
+dCB3aGljaCBkZWZlYXRzIHRoZSBwdXJwb3NlLiANCg0KVGhpcyBvbmx5IGFwcGxpZXMgdG8gTi1T
+IHRyYWZmaWMgaW4gTDIgbW9kZSwgYnV0IG5vdGhpbmcgcHJldmVudHMgeW91IGZyb20gcmV2ZXJz
+aW5nIHRoZSBsb2dpYyBieSBtb2RpZnlpbmcgaXB2bGFuX2hhcmRfaGVhZGVyIGFuZCBtb3Zpbmcg
+dGhlIHJld3JpdGUgdG8gRS1XIHRyYWZmaWMgaW5zdGVhZC4gSSd2ZSBtYWRlIHRoaXMgZGVjaXNp
+b24gaW4gb3JkZXIgdG8gZnVsbHkgZW11bGF0ZSBhbiBMMiBuZXR3b3JrIGZvciBzbGF2ZXMgYW5k
+IG1ha2UgdGhlIG1hc3RlciBpbnRlcmZhY2UgYXBwZWFyIGFzIGEgc29ydCBvZiBMMiBOQVQuIEFs
+dGVybmF0aXZlbHkgeW91IGNhbiBsaW1pdCB5b3Vyc2VsZiB0byB0aGUgbWFuZ2xpbmcgZG9uZSB1
+cGZyb250IGluIGlwdmxhbl9oYXJkX2hlYWRlciwgYWx0aG91Z2ggd2hlbiBzbmlmZmluZyBmcm9t
+IGEgc2xhdmUgdGhpbmdzIHdpbGwgYXBwZWFyIGNvbmZ1c2luZy4NCg0KTm93LCBpZiBieSAicHVy
+cG9zZSIgeW91IG1lYW4gcGVyZm9ybWFuY2UgaW1wbGljYXRpb25zIGluIEwyIG1vZGUsIEkgZG91
+YnQgYSBzbWFsbCBtZW1jcHkgZG9uZSB3aGlsZSBoYW5kbGluZyB0aGUgc2tiIGhhcyBhIG1ham9y
+IGltcGFjdC4gSW4gZmFjdCBmcm9tIHRoZSBmZXcgcGVyZm9ybWFuY2UgdGVzdHMgSSBydW4gSSBj
+b3VsZCBub3Qgc2VlIGFueSBub3RpY2VhYmxlIGRpZmZlcmVuY2UuIEknZCBiZSBoYXBweSB0byBp
+bnZlc3RpZ2F0ZSB0aGlzIGZ1cnRoZXIgd2l0aCBhZGRpdGlvbmFsIGJlbmNobWFya3MgaW4gb3Jk
+ZXIgdG8gbWFrZSBhIG1vcmUgaW5mb3JtZWQgZGVjaXNpb24uDQoNCkwzIGFuZCBMM3MgbW9kZXMg
+YXJlIG5vdCBhZmZlY3RlZCBhdCBhbGwgKGFjdHVhbGx5IHRoZXkgYXJlIG9uIHRoZSByZWNlcHRp
+b24gc2lkZSBidXQgdGhpcyBjYW4gYmUgbW9kaWZpZWQpLCBzbyB0aGlzIGNoYW5nZSBjYW4gYmUg
+aW50cm9kdWNlZCBhdCBubyBjb3N0IGhlcmUuDQoNCj4gVGhlIG9ubHkgZ29vZCB0aGluZyB0aGF0
+IGNhbWUgaW4gbGlnaHQNCj4gaXMgdGhlIG1hYy1hZGRyIGNoYW5nZSBwcm9wYWdhdGlvbiBmcm9t
+IG1hc3RlciBpc3N1ZTsgYnV0IGlmIHRoZSBmaXggaXMgY29taW5nIGFzDQo+IGEgc2lkZS1lZmZl
+Y3Qgb2YgaGVhZGVyIHJld3JpdGUgdGhlbiBpdCdzIG5vdCBhbiBhY2NlcHRhYmxlIGZpeCBlaXRo
+ZXIuIA0KDQpJdCdzIG5vdCBhdCBhbGwgYSBzaWRlLWVmZmVjdCBvZiB0aGUgaGVhZGVyIHJld3Jp
+dGUsIGl0J3MgcmF0aGVyIHRoZSBvcHBvc2l0ZS4gRWl0aGVyIHlvdSBmb3JjZSBNQUMgYWRkcmVz
+c2VzIHRvIHN0YXkgaW4gc3luYyBvciBsZXQgdGhlbSB2YXJ5IGluZGl2aWR1YWxseSwgd2hpY2gg
+aXMgd2hhdCBJJ20gcHJvcG9zaW5nIGZvciB0aGUgcmVhc29ucyBtZW50aW9uZWQgZWFybGllci4g
+SG93IHlvdSBhY2hpZXZlIHRoaXMgaXMgYSBkaWZmZXJlbnQgc3RvcnkuDQoNCk9mIGNvdXJzZSwg
+dGhlIGZvcm1lciBjYXNlIGNhbiBiZSBmaXhlZCBieSBzaW1wbHkgZG9pbmcgd2hhdCBtYWN2bGFu
+IGRvZXMgaW4gcGFzc3RocnUgbW9kZSwgdGhhdCBpcywgc3luYyB1cCB0aGUgc2xhdmUocykgdXBv
+biBhZGRyZXNzIGNoYW5nZSBvbiB0aGUgbWFzdGVyIHZpYSBvYnNlcnZlci4gVGhlIGxhdHRlciBj
+YXNlIGNhbiBiZSBhZGRyZXNzZWQgaW4gb25lIG9mIHRoZSBhYm92ZSB3YXlzLiBJIHdvdWxkIGxp
+a2UgdG8gaGF2ZSBzdWNoIGNvbnZlcnNhdGlvbiBlc3BlY2lhbGx5IGluIGxpZ2h0IG9mIHRoZSBm
+b2xsb3dpbmcgY29tbWVudHMgZnJvbSB5b3U6DQoNCjM5MiAgICAgICAgIC8qIFRPRE8gUHJvYmFi
+bHkgdXNlIGEgZGlmZmVyZW50IGZpZWxkIHRoYW4gZGV2X2FkZHIgc28gdGhhdCB0aGUNCjM5MyAg
+ICAgICAgICAqIG1hYy1hZGRyZXNzIG9uIHRoZSB2aXJ0dWFsIGRldmljZSBpcyBwb3J0YWJsZSBh
+bmQgY2FuIGJlIGNhcnJpZWQNCjM5NCAgICAgICAgICAqIHdoaWxlIHRoZSBwYWNrZXRzIHVzZSB0
+aGUgbWFjLWFkZHIgb24gdGhlIHBoeXNpY2FsIGRldmljZS4NCjM5NSAgICAgICAgICAqLw0KDQo1
+MzYgICAgICAgICAvKiBUT0RPIFByb2JhYmx5IHB1dCByYW5kb20gYWRkcmVzcyBoZXJlIHRvIGJl
+IHByZXNlbnRlZCB0byB0aGUNCjUzNyAgICAgICAgICAqIHdvcmxkIGJ1dCBrZWVwIHVzaW5nIHRo
+ZSBwaHlzaWNhbC1kZXYgYWRkcmVzcyBmb3IgdGhlIG91dGdvaW5nDQo1MzggICAgICAgICAgKiBw
+YWNrZXRzLg0KNTM5ICAgICAgICAgICovDQoNCj4gVGhpcyBjYW4gYmUNCj4gc2ltcGx5IGZpeGVk
+IGJ5IGNoYW5naW5nIGEgbGluZSBpbiBpcHZsYW5faGFyZF9oZWFkZXIoKS4NCg0KVGhpcyBpcyBj
+b25jZXB0dWFsbHkgdGhlIHNhbWUgYXBwcm9hY2ggYXMgYWJvdmUsIHlvdSB3b3VsZCBzdGlsbCBu
+ZWVkIHRvIG1hbmdsZSBBUlAgYW5kIE5EIGZyYW1lcyBmb3IgTi1TIHRyYWZmaWMgdG8gbWFrZSBp
+dCB3b3JrIHRob3VnaCwgd2hpY2ggaXMgdGhlIGJpZ2dlc3QgcGFydCBvZiBwYXRjaCA5LiANCg0K
+UGxlYXNlLCByZXZpZXcgdGhlIHBhdGNoIGFuZCBlbGFib3JhdGUgc3BlY2lmaWMgY29uY2VybnMu
+DQoNClRoYW5rIHlvdSwNCk1hcmNvDQotLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQpJbnRlbCBSZXNlYXJjaCBhbmQgRGV2ZWxvcG1l
+bnQgSXJlbGFuZCBMaW1pdGVkClJlZ2lzdGVyZWQgaW4gSXJlbGFuZApSZWdpc3RlcmVkIE9mZmlj
+ZTogQ29sbGluc3Rvd24gSW5kdXN0cmlhbCBQYXJrLCBMZWl4bGlwLCBDb3VudHkgS2lsZGFyZQpS
+ZWdpc3RlcmVkIE51bWJlcjogMzA4MjYzCgoKVGhpcyBlLW1haWwgYW5kIGFueSBhdHRhY2htZW50
+cyBtYXkgY29udGFpbiBjb25maWRlbnRpYWwgbWF0ZXJpYWwgZm9yIHRoZSBzb2xlCnVzZSBvZiB0
+aGUgaW50ZW5kZWQgcmVjaXBpZW50KHMpLiBBbnkgcmV2aWV3IG9yIGRpc3RyaWJ1dGlvbiBieSBv
+dGhlcnMgaXMKc3RyaWN0bHkgcHJvaGliaXRlZC4gSWYgeW91IGFyZSBub3QgdGhlIGludGVuZGVk
+IHJlY2lwaWVudCwgcGxlYXNlIGNvbnRhY3QgdGhlCnNlbmRlciBhbmQgZGVsZXRlIGFsbCBjb3Bp
+ZXMuCg==
