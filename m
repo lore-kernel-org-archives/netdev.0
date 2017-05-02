@@ -1,57 +1,59 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next iproute2 1/3] netlink: import netlink message
- parsing from kernel
-Date: Tue, 02 May 2017 14:51:02 -0400 (EDT)
-Message-ID: <20170502.145102.1235504926303235504.davem@davemloft.net>
-References: <20170502.130032.1854491688518080191.davem@davemloft.net>
-        <20170502110314.66d9ee89@xeon-e3>
-        <3acddce9-5421-637e-8b2b-ae8dd5c7b29a@cumulusnetworks.com>
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Subject: [PATCH] bonding: Use seq_putc() in bond_info_show_master()
+Date: Tue, 2 May 2017 20:52:55 +0200
+Message-ID: <9395231f-2ebb-dae9-4ef0-514d933fa387@users.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: stephen@networkplumber.org, netdev@vger.kernel.org,
-        jakub.kicinski@netronome.com
-To: dsa@cumulusnetworks.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:52544 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751251AbdEBSvG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 2 May 2017 14:51:06 -0400
-In-Reply-To: <3acddce9-5421-637e-8b2b-ae8dd5c7b29a@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: LKML <linux-kernel@vger.kernel.org>,
+        kernel-janitors@vger.kernel.org
+To: netdev@vger.kernel.org, Andy Gospodarek <andy@greyhouse.net>,
+        Jay Vosburgh <j.vosburgh@gmail.com>,
+        Veaceslav Falico <vfalico@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Language: en-GB
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: David Ahern <dsa@cumulusnetworks.com>
-Date: Tue, 2 May 2017 12:39:51 -0600
+From: Markus Elfring <elfring@users.sourceforge.net>
+Date: Tue, 2 May 2017 20:48:36 +0200
 
-> On 5/2/17 12:03 PM, Stephen Hemminger wrote:
->> Then use libmnl it is already used in several other places in iproute2.
->> Eventually, I would like to use it everywhere and get rid of old netlink parser.
->> 
-> 
-> Why? libmnl is not going to simplify the iproute2 code.
+A few single characters should be put into a sequence.
+Thus use the corresponding function "seq_putc".
 
-Agreed.
+This issue was detected by using the Coccinelle software.
 
-> Look at attribute validation. Importing the kernel code into iproute2,
-> the API is very familiar to anyone hacking on the kernel side:
-> 
-> +       if (nla_parse(tb, NLMSGERR_ATTR_MAX, attr, alen, extack_policy)
-> != 0) {
-> +               fprintf(stderr,
-> +                       "Failed to parse extended error attributes\n");
-> +               return 0;
-> +       }
-> +
-> 
-> ie., you pass a policy to the parse routine and the checking is part of
-> nla_parse. The implementation of nla_parse and validate_nla are quite
-> easy to read.
-> 
-> Now take a look at what devlink has for validation - attr_cb. IMO very
-> unreadable and puts the burden on the app using the libmnl API.
+Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+---
+ drivers/net/bonding/bond_procfs.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-Also agreed.
-
-Stephen I totally agree with David, asking him to use libmnl for this is
-not reasonable nor is it even a good idea given the above.
+diff --git a/drivers/net/bonding/bond_procfs.c b/drivers/net/bonding/bond_procfs.c
+index d8d4ada034b7..bdc4db184d94 100644
+--- a/drivers/net/bonding/bond_procfs.c
++++ b/drivers/net/bonding/bond_procfs.c
+@@ -72,7 +72,7 @@ static void bond_info_show_master(struct seq_file *seq)
+ 		seq_printf(seq, " (fail_over_mac %s)", optval->string);
+ 	}
+ 
+-	seq_printf(seq, "\n");
++	seq_putc(seq, '\n');
+ 
+ 	if (bond_mode_uses_xmit_hash(bond)) {
+ 		optval = bond_opt_get_val(BOND_OPT_XMIT_HASH,
+@@ -117,11 +117,11 @@ static void bond_info_show_master(struct seq_file *seq)
+ 			if (!bond->params.arp_targets[i])
+ 				break;
+ 			if (printed)
+-				seq_printf(seq, ",");
++				seq_putc(seq, ',');
+ 			seq_printf(seq, " %pI4", &bond->params.arp_targets[i]);
+ 			printed = 1;
+ 		}
+-		seq_printf(seq, "\n");
++		seq_putc(seq, '\n');
+ 	}
+ 
+ 	if (BOND_MODE(bond) == BOND_MODE_8023AD) {
+-- 
+2.12.2
