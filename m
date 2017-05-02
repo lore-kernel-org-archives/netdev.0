@@ -1,120 +1,101 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH] xdp: use common helper for netlink extended ack reporting
-Date: Wed,  3 May 2017 00:39:17 +0200
-Message-ID: <9dc20d2c3cca095b42e730655c8fd9f5d59a4568.1493763990.git.daniel@iogearbox.net>
-Cc: jakub.kicinski@netronome.com, alexei.starovoitov@gmail.com,
-        netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>
-To: davem@davemloft.net
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH 1/2] PCI: Add new PCIe Fabric End Node flag, PCI_DEV_FLAGS_NO_RELAXED_ORDERING
+Date: Tue, 2 May 2017 15:41:02 -0700
+Message-ID: <CAKgT0Udeo=K-TZTDR7zZv9bDW0wKTunFo6zyk703R_HaCyZJaw@mail.gmail.com>
+References: <cover.1493678834.git.leedom@chelsio.com> <758d0e431c732fe133e7b0e660bde5fc1beccdba.1493678834.git.leedom@chelsio.com>
+ <CAKgT0UeuW88AHBX14H8xHteeG7vR0AH3apbjOeEDx_6p46x7tA@mail.gmail.com>
+ <20170502165329.GB26406@linux.intel.com> <CAKgT0UcxjGCZu_QV-eF7_yWkDBbQpLpdaPqBf1gji8XXM5Cc=w@mail.gmail.com>
+ <20170502193425.GA28805@araj-mobl1.jf.intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Casey Leedom <leedom@chelsio.com>,
+        Bjorn Helgaas <helgaas@kernel.org>,
+        Casey Leedom <leedom@gmail.com>,
+        Michael Werner <werner@chelsio.com>,
+        Ganesh Goudar <ganeshgr@chelsio.com>,
+        Arjun V <arjun@chelsio.com>,
+        David Miller <davem@davemloft.com>,
+        Asit K Mallick <asit.k.mallick@intel.com>,
+        Patrick J Cramer <patrick.j.cramer@intel.com>,
+        Suravee Suthikulpanit <Suravee.Suthikulpanit@amd.com>,
+        Bob Shaw <Bob.Shaw@amd.com>, h <l.stach@pengutronix.de>,
+        Ding Tianhong <dingtianhong@huawei.com>,
+        Mark Rutland <mark.rutland@arm.com>,
+        Amir Ancel <amira@mellanox.com>,
+        Gabriele Paoloni <gabriele.paoloni@huawei.com>,
+        Catalin Marinas <catalin.marinas@arm.com>,
+        Will Deacon <will.deacon@arm.com>,
+        LinuxArm <linuxarm@huawei.com>,
+        David Laight <David.Laight@aculab.com
+To: "Raj, Ashok" <ashok.raj@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:43164 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751327AbdEBWji (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 2 May 2017 18:39:38 -0400
+Received: from mail-io0-f173.google.com ([209.85.223.173]:33336 "EHLO
+        mail-io0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751183AbdEBWlD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 2 May 2017 18:41:03 -0400
+Received: by mail-io0-f173.google.com with SMTP id o22so45047746iod.0
+        for <netdev@vger.kernel.org>; Tue, 02 May 2017 15:41:03 -0700 (PDT)
+In-Reply-To: <20170502193425.GA28805@araj-mobl1.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Small follow-up to d74a32acd59a ("xdp: use netlink extended ACK reporting")
-in order to let drivers all use the same NL_SET_ERR_MSG_MOD() helper macro
-for reporting. This also ensures that we consistently add the driver's
-prefix for dumping the report in user space to indicate that the error
-message is driver specific and not coming from core code. Furthermore,
-NL_SET_ERR_MSG_MOD() now reuses NL_SET_ERR_MSG() and thus makes all macros
-check the pointer as suggested.
+On Tue, May 2, 2017 at 12:34 PM, Raj, Ashok <ashok.raj@intel.com> wrote:
+> On Tue, May 02, 2017 at 11:10:22AM -0700, Alexander Duyck wrote:
+>> On Tue, May 2, 2017 at 9:53 AM, Raj, Ashok <ashok.raj@intel.com> wrote:
+>> > On Tue, May 02, 2017 at 09:39:34AM -0700, Alexander Duyck wrote:
+>> >> On Mon, May 1, 2017 at 4:13 PM, Casey Leedom <leedom@chelsio.com> wrote:
+>> >> > The new flag PCI_DEV_FLAGS_NO_RELAXED_ORDERING indicates that the Relaxed
+>> >> > Ordering Attribute should not be used on Transaction Layer Packets destined
+>> >> > for the PCIe End Node so flagged.  Initially flagged this way are Intel
+>> >> > E5-26xx Root Complex Ports which suffer from a Flow Control Credit
+>> >> > Performance Problem and AMD A1100 ARM ("SEATTLE") Root Complex Ports which
+>> >> > don't obey PCIe 3.0 ordering rules which can lead to Data Corruption.
+>> >>
+>> >> So this is a good first step though might I suggest one other change.
+>> >>
+>> >> We may want to add logic to the core PCIe code that clears the "Enable
+>> >> Relaxed Ordering" bit in the device control register for all devices
+>> >> hanging off of this root complex. Assuming the devices conform to the
+>> >> PCIe spec doing that should disable relaxed ordering in a device
+>> >> agnostic way that then enables us at a driver level to just enable the
+>> >> feature always without having to perform any checks for your flag. We
+>> >> could probably do that as a part of probing the PCIe interfaces
+>> >> hanging off of these devices.
+>> >
+>> > I suppose you don't want to turn off RO completely on the device. When
+>> > traffic is targetted to mmio for peer to peer reasons RO has performance
+>> > upside. The specific issue with these root ports indicate limitation using
+>> > RO for traffic targetting coherent memory.
+>>
+>> Actually my main concern here is virtualization. If I take the PCIe
+>> function and direct assign it I have no way of seeing the root complex
+>> flag as it is now virtualized away. In the meantime the guest now has
+>> the ability to enable the function and sees nothing that says you
+>> can't enable relaxed ordering which in turn ends up potentially
+>> causing data corruption on the system. I want relaxed ordering
+>> disabled before I even consider assigning it to the guest on the
+>> systems where this would be an issue.
+>>
+>> I prefer to err on the side of caution with this. Enabling Relaxed
+>> Ordering is technically a performance enhancement, so we function but
+>> not as well as we would like, while having it enabled when there are
+>> issues can lead to data corruption. I would weigh the risk of data
+>> corruption the thing to be avoided and of much higher priority than
+>> enabling improved performance. As such I say we should default the
+>> relaxed ordering attribute to off in general and look at
+>> "white-listing" it in for various architectures and/or chipsets that
+>> support/need it rather than having it enabled by default and trying to
+>> switch it off after the fact when we find some new issue.
+>
+> I agree, after thinking about it a bit more.. even for transactions going to
+> p2p, i'm just reading the pcie spec and some sections aren't super clear
+> about completion redirect and ACS rules for p2p.
+>
+> Also it appears the device control default value is 1 for enabling
+> Relaxed Ordering. This means we should probably save these states across
+> resets/FLR for e.g. To ensure perf isn't affected after a FLR.
 
-References: https://www.spinics.net/lists/netdev/msg433267.html
-Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
----
- ( Would still be good to have this so that also virtio_net sets the
-   prefix for user error messages. Thanks! )
+Right. That should happen automatically with the PCIe configuration
+being saved/restored.
 
- drivers/net/ethernet/netronome/nfp/nfp_net_common.c |  4 ++--
- drivers/net/virtio_net.c                            |  8 ++++----
- include/linux/netlink.h                             | 19 ++++++++-----------
- 3 files changed, 14 insertions(+), 17 deletions(-)
-
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-index db20376..82bd6b0 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-@@ -2532,11 +2532,11 @@ struct nfp_net_dp *nfp_net_clone_dp(struct nfp_net *nn)
- 	if (!dp->xdp_prog)
- 		return 0;
- 	if (dp->fl_bufsz > PAGE_SIZE) {
--		NL_MOD_TRY_SET_ERR_MSG(extack, "MTU too large w/ XDP enabled");
-+		NL_SET_ERR_MSG_MOD(extack, "MTU too large w/ XDP enabled");
- 		return -EINVAL;
- 	}
- 	if (dp->num_tx_rings > nn->max_tx_rings) {
--		NL_MOD_TRY_SET_ERR_MSG(extack, "Insufficient number of TX rings w/ XDP enabled");
-+		NL_SET_ERR_MSG_MOD(extack, "Insufficient number of TX rings w/ XDP enabled");
- 		return -EINVAL;
- 	}
- 
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index 3d0bc48..1c6d392 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -1891,17 +1891,17 @@ static int virtnet_xdp_set(struct net_device *dev, struct bpf_prog *prog,
- 	    virtio_has_feature(vi->vdev, VIRTIO_NET_F_GUEST_TSO6) ||
- 	    virtio_has_feature(vi->vdev, VIRTIO_NET_F_GUEST_ECN) ||
- 	    virtio_has_feature(vi->vdev, VIRTIO_NET_F_GUEST_UFO)) {
--		NL_SET_ERR_MSG(extack, "can't set XDP while host is implementing LRO, disable LRO first");
-+		NL_SET_ERR_MSG_MOD(extack, "Can't set XDP while host is implementing LRO, disable LRO first");
- 		return -EOPNOTSUPP;
- 	}
- 
- 	if (vi->mergeable_rx_bufs && !vi->any_header_sg) {
--		NL_SET_ERR_MSG(extack, "XDP expects header/data in single page, any_header_sg required");
-+		NL_SET_ERR_MSG_MOD(extack, "XDP expects header/data in single page, any_header_sg required");
- 		return -EINVAL;
- 	}
- 
- 	if (dev->mtu > max_sz) {
--		NL_SET_ERR_MSG(extack, "MTU too large to enable XDP");
-+		NL_SET_ERR_MSG_MOD(extack, "MTU too large to enable XDP");
- 		netdev_warn(dev, "XDP requires MTU less than %lu\n", max_sz);
- 		return -EINVAL;
- 	}
-@@ -1912,7 +1912,7 @@ static int virtnet_xdp_set(struct net_device *dev, struct bpf_prog *prog,
- 
- 	/* XDP requires extra queues for XDP_TX */
- 	if (curr_qp + xdp_qp > vi->max_queue_pairs) {
--		NL_SET_ERR_MSG(extack, "Too few free TX rings available");
-+		NL_SET_ERR_MSG_MOD(extack, "Too few free TX rings available");
- 		netdev_warn(dev, "request %i queues but max is %i\n",
- 			    curr_qp + xdp_qp, vi->max_queue_pairs);
- 		return -ENOMEM;
-diff --git a/include/linux/netlink.h b/include/linux/netlink.h
-index c20395e..5fff5ba 100644
---- a/include/linux/netlink.h
-+++ b/include/linux/netlink.h
-@@ -86,19 +86,16 @@ struct netlink_ext_ack {
-  * Currently string formatting is not supported (due
-  * to the lack of an output buffer.)
-  */
--#define NL_SET_ERR_MSG(extack, msg) do {	\
--	static const char _msg[] = (msg);	\
--						\
--	(extack)->_msg = _msg;			\
-+#define NL_SET_ERR_MSG(extack, msg) do {		\
-+	static const char __msg[] = (msg);		\
-+	struct netlink_ext_ack *__extack = (extack);	\
-+							\
-+	if (__extack)					\
-+		__extack->_msg = __msg;			\
- } while (0)
- 
--#define NL_MOD_TRY_SET_ERR_MSG(extack, msg) do {		\
--	static const char _msg[] = KBUILD_MODNAME ": " msg;	\
--	struct netlink_ext_ack *_extack = (extack);		\
--								\
--	if (_extack)						\
--		_extack->_msg = _msg;				\
--} while (0)
-+#define NL_SET_ERR_MSG_MOD(extack, msg)			\
-+	NL_SET_ERR_MSG((extack), KBUILD_MODNAME ": " msg)
- 
- extern void netlink_kernel_release(struct sock *sk);
- extern int __netlink_change_ngroups(struct sock *sk, unsigned int groups);
--- 
-1.9.3
+- Alex
