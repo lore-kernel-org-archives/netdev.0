@@ -1,40 +1,67 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: [PATCH net] tcp: fix wraparound issue in tcp_lp
-Date: Mon, 1 May 2017 20:31:35 -0400
-Message-ID: <CADVnQy=iurcb+Ce3MKaB_szq-JOPerrPFvTxdy556O90qg1gWg@mail.gmail.com>
-References: <1493677788.31837.25.camel@edumazet-glaptop3.roam.corp.google.com> <20170501165643.698aa0b5@xeon-e3>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: [PATCH 0/2] Add new PCI_DEV_FLAGS_NO_RELAXED_ORDERING flag
+Date: Tue, 2 May 2017 08:56:41 +0800
+Message-ID: <187e33fe-2c61-076f-7ce8-53b6e900414e@huawei.com>
+References: <cover.1493678834.git.leedom@chelsio.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-        David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: Michael Werner <werner@chelsio.com>,
+        Ganesh Goudar <ganeshgr@chelsio.com>,
+        Arjun V <arjun@chelsio.com>,
+        David Miller <davem@davemloft.com>,
+        "Asit K Mallick" <asit.k.mallick@intel.com>,
+        Patrick J Cramer <patrick.j.cramer@intel.com>,
+        Ashok Raj <ashok.raj@intel.com>,
+        "Suravee Suthikulpanit" <Suravee.Suthikulpanit@amd.com>,
+        Bob Shaw <Bob.Shaw@amd.com>, h <l.stach@pengutronix.de>,
+        Alexander Duyck <alexander.duyck@gmail.com>,
+        "Mark Rutland" <mark.rutland@arm.com>,
+        Amir Ancel <amira@mellanox.com>,
+        "Gabriele Paoloni" <gabriele.paoloni@huawei.com>,
+        Catalin Marinas <catalin.marinas@arm.com>,
+        Will Deacon <will.deacon@arm.com>,
+        LinuxArm <linuxarm@huawei.com>,
+        David Laight <David.Laight@aculab.com>,
+        <jeffrey.t.kirsher@intel.com>, <netdev@vger.kernel.org>,
+To: Casey Leedom <leedom@chelsio.com>,
+        Bjorn Helgaas <helgaas@kernel.org>, <leedom@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f175.google.com ([209.85.223.175]:34198 "EHLO
-        mail-io0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750712AbdEBAcG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 1 May 2017 20:32:06 -0400
-Received: by mail-io0-f175.google.com with SMTP id a103so135846383ioj.1
-        for <netdev@vger.kernel.org>; Mon, 01 May 2017 17:32:06 -0700 (PDT)
-In-Reply-To: <20170501165643.698aa0b5@xeon-e3>
+Received: from szxga03-in.huawei.com ([45.249.212.189]:5903 "EHLO
+        szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750954AbdEBA5e (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 1 May 2017 20:57:34 -0400
+In-Reply-To: <cover.1493678834.git.leedom@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 1, 2017 at 7:56 PM, Stephen Hemminger
-<stephen@networkplumber.org> wrote:
-> On Mon, 01 May 2017 15:29:48 -0700
-> Agreed time wraparound would cause problems.
-> But why not use existing time_after() macro here?
->
+Hi Casey:
 
-I suspect this is because time_after() asserts that it is being used
-on unsigned long (64 bits), and tcp_time_stamp is 32 bits.
+This solution looks good to me, I will test this for ixgbe.:)
 
-I suppose for tcp_time_stamp comparisons we could re-use the u32 TCP
-sequence macros for before() and after()? Even the comment for
-before()/after() is already generic enough to apply to tcp_time_stamp:
-"The next routines deal with comparing 32 bit unsigned ints and worry
-about wraparound (automatic with unsigned arithmetic)." That might be
-nice.
+Thanks
+Ding
 
-neal
+On 2017/5/2 7:13, Casey Leedom wrote:
+> Some devices have problems with Transaction Layer Packets with the Relaxed
+> Ordering Attribute set.  This patch set adds a new PCIe Device Flag,
+> PCI_DEV_FLAGS_NO_RELAXED_ORDERING, a set of PCI Quirks to catch some known
+> devices with Relaxed Ordering issues, and a use of this new flag by the
+> cxgb4 driver to avoid using Relaxed Ordering with problematic Root Complex
+> Ports.
+> 
+> It's been years since I've submitted kernel.org patches, I appolgise for the
+> almost certain submission errors.
+> 
+> Casey Leedom (2):
+>   PCI: Add new PCIe Fabric End Node flag,
+>     PCI_DEV_FLAGS_NO_RELAXED_ORDERING
+>   net/cxgb4: Use new PCI_DEV_FLAGS_NO_RELAXED_ORDERING flag
+> 
+>  drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |  1 +
+>  drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 17 +++++++++++
+>  drivers/net/ethernet/chelsio/cxgb4/sge.c        |  5 ++--
+>  drivers/pci/quirks.c                            | 38 +++++++++++++++++++++++++
+>  include/linux/pci.h                             |  2 ++
+>  5 files changed, 61 insertions(+), 2 deletions(-)
+> 
