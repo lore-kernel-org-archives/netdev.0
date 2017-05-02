@@ -1,71 +1,176 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next iproute2 1/3] netlink: import netlink message
- parsing from kernel
-Date: Tue, 2 May 2017 14:39:40 -0600
-Message-ID: <91687d1a-0187-9e30-911b-f752af1c3be6@cumulusnetworks.com>
-References: <1493695105-9418-1-git-send-email-dsa@cumulusnetworks.com>
- <1493695105-9418-2-git-send-email-dsa@cumulusnetworks.com>
- <20170502124925.5276665e@xeon-e3>
+From: <David.Cai@microchip.com>
+Subject: [PATCH v6 net-next]smsc911x: Adding support for Micochip LAN9250
+ Ethernet controller
+Date: Tue, 2 May 2017 20:59:14 +0000
+Message-ID: <C3C28FB10418274EB7FD7C2B85C796A44124871C@CHN-SV-EXMX02.mchp-main.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jakub.kicinski@netronome.com
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <UNGLinuxDriver@microchip.com>, <steve.glendinning@shawell.net>
+To: <netdev@vger.kernel.org>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f173.google.com ([209.85.192.173]:33791 "EHLO
-        mail-pf0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750919AbdEBUjn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 2 May 2017 16:39:43 -0400
-Received: by mail-pf0-f173.google.com with SMTP id q20so2518569pfg.0
-        for <netdev@vger.kernel.org>; Tue, 02 May 2017 13:39:43 -0700 (PDT)
-In-Reply-To: <20170502124925.5276665e@xeon-e3>
+Received: from esa2.microchip.iphmx.com ([68.232.149.84]:7651 "EHLO
+        esa2.microchip.iphmx.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751074AbdEBU7Q (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 2 May 2017 16:59:16 -0400
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 5/2/17 1:49 PM, Stephen Hemminger wrote:
-> I am not disagreeing that iproute2 should handle the extended
-> error format. Just want the solution to be as small as possible;
-> ie do no more than is absolutely necessary. And future proof
-> for the inevitable growth in new area.
+From: David Cai <david.cai@microchip.com>
 
-Understood. I was trying to not reinvent a wheel. nla_parse and
-nla_validate have not really been touched in 10 years, and both are well
-written with a good API to the rest of the code base.
+Adding support for Microchip LAN9250 Ethernet controller.
 
->From there, I grabbed whole snippets as opposed to just taking what is
-needed for the ext-ack feature. I left the name as nlattr.c for easy
-diff if future code is wanted. The header file was renamed to nlattr.h
-to avoid confusion with other netlink.h files. Not adding it to
-libnetlink.h facilitates pulling more code via diff as needed.
+Signed-off-by: David Cai <david.cai@microchip.com>
+---
+Changes
+V2
+ - email format changed
+ - remove unnecessary text in commit log Changes
+V3
+ - defined all supported Ethernet controller chip ID.
+V4
+ - changed 'if (pdata->generation == 4 && pdata->sub_generation)' to
+   'if ((pdata->idrev & 0xFFFF0000) == LAN9250)' for more readable
+V5
+ - removed the variable 'sub_generation'.
+V6
+ - correct email format error. 
 
-In short, I think it is good to re-use code from the kernel (lib and
-tools/lib) where possible and doing so in a way that makes updates as
-easy as header files.
+ drivers/net/ethernet/smsc/smsc911x.c | 49 ++++++++++++++++++++++--------------
+ drivers/net/ethernet/smsc/smsc911x.h | 19 ++++++++++++++
+ 2 files changed, 49 insertions(+), 19 deletions(-)
 
-> 
->> +
->> +static const __u8 nla_attr_minlen[NLA_TYPE_MAX+1] = {
->> +	[NLA_U8]	= sizeof(__u8),
->> +	[NLA_U16]	= sizeof(__u16),
->> +	[NLA_U32]	= sizeof(__u32),
->> +	[NLA_U64]	= sizeof(__u64),
->> +	[NLA_MSECS]	= sizeof(__u64),
->> +	[NLA_NESTED]	= NLA_HDRLEN,
->> +	[NLA_S8]	= sizeof(__s8),
->> +	[NLA_S16]	= sizeof(__s16),
->> +	[NLA_S32]	= sizeof(__s32),
->> +	[NLA_S64]	= sizeof(__s64),
->> +};
->> +
-> 
-> This patch makes iproute2 now doing validation of netlink attributes
-> coming back from the kernel. What is the point, userspace should be
-> trusting the kernel.
-
-The kernel has bugs too; userspace should verify what it sends. In this
-case the policy validation is just data types -- a string was expected
-and a string was returned, or an attribute should be a u32 and it is.
-You can argue it is overkill for iproute2, but it is good coding practice.
-
-And for many netlink based features iproute2 tends to be the model that
-is copied into other code bases.
+diff --git a/drivers/net/ethernet/smsc/smsc911x.c b/drivers/net/ethernet/smsc/smsc911x.c
+index fa5ca09..ea1bbc3 100644
+--- a/drivers/net/ethernet/smsc/smsc911x.c
++++ b/drivers/net/ethernet/smsc/smsc911x.c
+@@ -25,7 +25,7 @@
+  *   LAN9215, LAN9216, LAN9217, LAN9218
+  *   LAN9210, LAN9211
+  *   LAN9220, LAN9221
+- *   LAN89218
++ *   LAN89218,LAN9250
+  *
+  */
+ 
+@@ -1450,6 +1450,8 @@ static int smsc911x_soft_reset(struct smsc911x_data *pdata)
+ 	unsigned int timeout;
+ 	unsigned int temp;
+ 	int ret;
++	unsigned int reset_offset = HW_CFG;
++	unsigned int reset_mask = HW_CFG_SRST_;
+ 
+ 	/*
+ 	 * Make sure to power-up the PHY chip before doing a reset, otherwise
+@@ -1476,15 +1478,23 @@ static int smsc911x_soft_reset(struct smsc911x_data *pdata)
+ 		}
+ 	}
+ 
++	if ((pdata->idrev & 0xFFFF0000) == LAN9250) {
++		/* special reset for  LAN9250 */
++		reset_offset = RESET_CTL;
++		reset_mask = RESET_CTL_DIGITAL_RST_;
++	}
++
+ 	/* Reset the LAN911x */
+-	smsc911x_reg_write(pdata, HW_CFG, HW_CFG_SRST_);
++	smsc911x_reg_write(pdata, reset_offset, reset_mask);
++
++	/* verify reset bit is cleared */
+ 	timeout = 10;
+ 	do {
+ 		udelay(10);
+-		temp = smsc911x_reg_read(pdata, HW_CFG);
+-	} while ((--timeout) && (temp & HW_CFG_SRST_));
++		temp = smsc911x_reg_read(pdata, reset_offset);
++	} while ((--timeout) && (temp & reset_mask));
+ 
+-	if (unlikely(temp & HW_CFG_SRST_)) {
++	if (unlikely(temp & reset_mask)) {
+ 		SMSC_WARN(pdata, drv, "Failed to complete reset");
+ 		return -EIO;
+ 	}
+@@ -2253,28 +2263,29 @@ static int smsc911x_init(struct net_device *dev)
+ 
+ 	pdata->idrev = smsc911x_reg_read(pdata, ID_REV);
+ 	switch (pdata->idrev & 0xFFFF0000) {
+-	case 0x01180000:
+-	case 0x01170000:
+-	case 0x01160000:
+-	case 0x01150000:
+-	case 0x218A0000:
++	case LAN9118:
++	case LAN9117:
++	case LAN9116:
++	case LAN9115:
++	case LAN89218:
+ 		/* LAN911[5678] family */
+ 		pdata->generation = pdata->idrev & 0x0000FFFF;
+ 		break;
+ 
+-	case 0x118A0000:
+-	case 0x117A0000:
+-	case 0x116A0000:
+-	case 0x115A0000:
++	case LAN9218:
++	case LAN9217:
++	case LAN9216:
++	case LAN9215:
+ 		/* LAN921[5678] family */
+ 		pdata->generation = 3;
+ 		break;
+ 
+-	case 0x92100000:
+-	case 0x92110000:
+-	case 0x92200000:
+-	case 0x92210000:
+-		/* LAN9210/LAN9211/LAN9220/LAN9221 */
++	case LAN9210:
++	case LAN9211:
++	case LAN9220:
++	case LAN9221:
++	case LAN9250:
++		/* LAN9210/LAN9211/LAN9220/LAN9221/LAN9250 */
+ 		pdata->generation = 4;
+ 		break;
+ 
+diff --git a/drivers/net/ethernet/smsc/smsc911x.h b/drivers/net/ethernet/smsc/smsc911x.h
+index 54d6489..8d75508 100644
+--- a/drivers/net/ethernet/smsc/smsc911x.h
++++ b/drivers/net/ethernet/smsc/smsc911x.h
+@@ -20,6 +20,22 @@
+ #ifndef __SMSC911X_H__
+ #define __SMSC911X_H__
+ 
++/*Chip ID*/
++#define LAN9115	0x01150000
++#define LAN9116	0x01160000
++#define LAN9117	0x01170000
++#define LAN9118	0x01180000
++#define LAN9215	0x115A0000
++#define LAN9216	0x116A0000
++#define LAN9217	0x117A0000
++#define LAN9218	0x118A0000
++#define LAN9210	0x92100000
++#define LAN9211	0x92110000
++#define LAN9220	0x92200000
++#define LAN9221	0x92210000
++#define LAN9250	0x92500000
++#define LAN89218	0x218A0000
++
+ #define TX_FIFO_LOW_THRESHOLD	((u32)1600)
+ #define SMSC911X_EEPROM_SIZE	((u32)128)
+ #define USE_DEBUG		0
+@@ -303,6 +319,9 @@
+ #define E2P_DATA_EEPROM_DATA_		0x000000FF
+ #define LAN_REGISTER_EXTENT		0x00000100
+ 
++#define RESET_CTL			0x1F8
++#define RESET_CTL_DIGITAL_RST_		0x00000001
++
+ /*
+  * MAC Control and Status Register (Indirect Address)
+  * Offset (through the MAC_CSR CMD and DATA port)
+-- 
+2.7.4
