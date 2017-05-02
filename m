@@ -1,176 +1,57 @@
-From: <David.Cai@microchip.com>
-Subject: [PATCH v6 net-next]smsc911x: Adding support for Micochip LAN9250
- Ethernet controller
-Date: Tue, 2 May 2017 20:59:14 +0000
-Message-ID: <C3C28FB10418274EB7FD7C2B85C796A44124871C@CHN-SV-EXMX02.mchp-main.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [net-next PATCH 0/4] Improve bpf ELF-loader under samples/bpf
+Date: Tue, 02 May 2017 23:10:04 +0200
+Message-ID: <5908F5AC.6000703@iogearbox.net>
+References: <149372826543.22268.3617359219409721129.stgit@firesoul>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <UNGLinuxDriver@microchip.com>, <steve.glendinning@shawell.net>
-To: <netdev@vger.kernel.org>, <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, eric@regit.org,
+        Daniel Borkmann <borkmann@iogearbox.net>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>
+To: Jesper Dangaard Brouer <brouer@redhat.com>, kafai@fb.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from esa2.microchip.iphmx.com ([68.232.149.84]:7651 "EHLO
-        esa2.microchip.iphmx.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751074AbdEBU7Q (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 2 May 2017 16:59:16 -0400
-Content-Language: en-US
+Received: from www62.your-server.de ([213.133.104.62]:34039 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750929AbdEBVKJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 2 May 2017 17:10:09 -0400
+In-Reply-To: <149372826543.22268.3617359219409721129.stgit@firesoul>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Cai <david.cai@microchip.com>
+On 05/02/2017 02:31 PM, Jesper Dangaard Brouer wrote:
+> This series improves and fixes bpf ELF loader and programs under
+> samples/bpf.  The bpf_load.c created some hard to debug issues when
+> the struct (bpf_map_def) used in the ELF maps section format changed
+> in commit fb30d4b71214 ("bpf: Add tests for map-in-map").
+>
+> This was hotfixed in commit 409526bea3c3 ("samples/bpf: bpf_load.c
+> detect and abort if ELF maps section size is wrong") by detecting the
+> issue and aborting the program.
+>
+> In most situations the bpf-loader should be able to handle these kind
+> of changes to the struct size.  This patch series aim to do proper
+> backward and forward compabilility handling when loading ELF files.
+>
+> This series also adjust the callback that was introduced in commit
+> 9fd63d05f3e8 ("bpf: Allow bpf sample programs (*_user.c) to change
+> bpf_map_def") to use the new bpf_map_data structure, before more users
+> start to use this callback.
+>
+> Hoping these changes can make the merge window, as above mentioned
+> commits have not been merged yet, and it would be good to avoid users
+> hitting these issues.
 
-Adding support for Microchip LAN9250 Ethernet controller.
+Overall, set looks good to me. The last patch doesn't have a
+user yet, so probably better to drop it until there is an actual
+user in the tree.
 
-Signed-off-by: David Cai <david.cai@microchip.com>
----
-Changes
-V2
- - email format changed
- - remove unnecessary text in commit log Changes
-V3
- - defined all supported Ethernet controller chip ID.
-V4
- - changed 'if (pdata->generation == 4 && pdata->sub_generation)' to
-   'if ((pdata->idrev & 0xFFFF0000) == LAN9250)' for more readable
-V5
- - removed the variable 'sub_generation'.
-V6
- - correct email format error. 
+Long term, I'd like to see the samples being migrated to use the
+tools/lib/bpf/ library from the tree, so that we can avoid duplicating
+effort with having two libs in the tree (f.e. elf map validation is
+performed to a certain degree in the other one, but w/o compat
+support last time I looked).
 
- drivers/net/ethernet/smsc/smsc911x.c | 49 ++++++++++++++++++++++--------------
- drivers/net/ethernet/smsc/smsc911x.h | 19 ++++++++++++++
- 2 files changed, 49 insertions(+), 19 deletions(-)
+Anyway, other than that:
 
-diff --git a/drivers/net/ethernet/smsc/smsc911x.c b/drivers/net/ethernet/smsc/smsc911x.c
-index fa5ca09..ea1bbc3 100644
---- a/drivers/net/ethernet/smsc/smsc911x.c
-+++ b/drivers/net/ethernet/smsc/smsc911x.c
-@@ -25,7 +25,7 @@
-  *   LAN9215, LAN9216, LAN9217, LAN9218
-  *   LAN9210, LAN9211
-  *   LAN9220, LAN9221
-- *   LAN89218
-+ *   LAN89218,LAN9250
-  *
-  */
- 
-@@ -1450,6 +1450,8 @@ static int smsc911x_soft_reset(struct smsc911x_data *pdata)
- 	unsigned int timeout;
- 	unsigned int temp;
- 	int ret;
-+	unsigned int reset_offset = HW_CFG;
-+	unsigned int reset_mask = HW_CFG_SRST_;
- 
- 	/*
- 	 * Make sure to power-up the PHY chip before doing a reset, otherwise
-@@ -1476,15 +1478,23 @@ static int smsc911x_soft_reset(struct smsc911x_data *pdata)
- 		}
- 	}
- 
-+	if ((pdata->idrev & 0xFFFF0000) == LAN9250) {
-+		/* special reset for  LAN9250 */
-+		reset_offset = RESET_CTL;
-+		reset_mask = RESET_CTL_DIGITAL_RST_;
-+	}
-+
- 	/* Reset the LAN911x */
--	smsc911x_reg_write(pdata, HW_CFG, HW_CFG_SRST_);
-+	smsc911x_reg_write(pdata, reset_offset, reset_mask);
-+
-+	/* verify reset bit is cleared */
- 	timeout = 10;
- 	do {
- 		udelay(10);
--		temp = smsc911x_reg_read(pdata, HW_CFG);
--	} while ((--timeout) && (temp & HW_CFG_SRST_));
-+		temp = smsc911x_reg_read(pdata, reset_offset);
-+	} while ((--timeout) && (temp & reset_mask));
- 
--	if (unlikely(temp & HW_CFG_SRST_)) {
-+	if (unlikely(temp & reset_mask)) {
- 		SMSC_WARN(pdata, drv, "Failed to complete reset");
- 		return -EIO;
- 	}
-@@ -2253,28 +2263,29 @@ static int smsc911x_init(struct net_device *dev)
- 
- 	pdata->idrev = smsc911x_reg_read(pdata, ID_REV);
- 	switch (pdata->idrev & 0xFFFF0000) {
--	case 0x01180000:
--	case 0x01170000:
--	case 0x01160000:
--	case 0x01150000:
--	case 0x218A0000:
-+	case LAN9118:
-+	case LAN9117:
-+	case LAN9116:
-+	case LAN9115:
-+	case LAN89218:
- 		/* LAN911[5678] family */
- 		pdata->generation = pdata->idrev & 0x0000FFFF;
- 		break;
- 
--	case 0x118A0000:
--	case 0x117A0000:
--	case 0x116A0000:
--	case 0x115A0000:
-+	case LAN9218:
-+	case LAN9217:
-+	case LAN9216:
-+	case LAN9215:
- 		/* LAN921[5678] family */
- 		pdata->generation = 3;
- 		break;
- 
--	case 0x92100000:
--	case 0x92110000:
--	case 0x92200000:
--	case 0x92210000:
--		/* LAN9210/LAN9211/LAN9220/LAN9221 */
-+	case LAN9210:
-+	case LAN9211:
-+	case LAN9220:
-+	case LAN9221:
-+	case LAN9250:
-+		/* LAN9210/LAN9211/LAN9220/LAN9221/LAN9250 */
- 		pdata->generation = 4;
- 		break;
- 
-diff --git a/drivers/net/ethernet/smsc/smsc911x.h b/drivers/net/ethernet/smsc/smsc911x.h
-index 54d6489..8d75508 100644
---- a/drivers/net/ethernet/smsc/smsc911x.h
-+++ b/drivers/net/ethernet/smsc/smsc911x.h
-@@ -20,6 +20,22 @@
- #ifndef __SMSC911X_H__
- #define __SMSC911X_H__
- 
-+/*Chip ID*/
-+#define LAN9115	0x01150000
-+#define LAN9116	0x01160000
-+#define LAN9117	0x01170000
-+#define LAN9118	0x01180000
-+#define LAN9215	0x115A0000
-+#define LAN9216	0x116A0000
-+#define LAN9217	0x117A0000
-+#define LAN9218	0x118A0000
-+#define LAN9210	0x92100000
-+#define LAN9211	0x92110000
-+#define LAN9220	0x92200000
-+#define LAN9221	0x92210000
-+#define LAN9250	0x92500000
-+#define LAN89218	0x218A0000
-+
- #define TX_FIFO_LOW_THRESHOLD	((u32)1600)
- #define SMSC911X_EEPROM_SIZE	((u32)128)
- #define USE_DEBUG		0
-@@ -303,6 +319,9 @@
- #define E2P_DATA_EEPROM_DATA_		0x000000FF
- #define LAN_REGISTER_EXTENT		0x00000100
- 
-+#define RESET_CTL			0x1F8
-+#define RESET_CTL_DIGITAL_RST_		0x00000001
-+
- /*
-  * MAC Control and Status Register (Indirect Address)
-  * Offset (through the MAC_CSR CMD and DATA port)
--- 
-2.7.4
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
