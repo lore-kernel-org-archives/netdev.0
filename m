@@ -1,101 +1,68 @@
-From: David Miller <davem@davemloft.net>
-Subject: [PATCH] selftests: bpf: Use bpf_endian.h in test_xdp.c
-Date: Tue, 02 May 2017 10:54:13 -0400 (EDT)
-Message-ID: <20170502.105413.1648914947505904393.davem@davemloft.net>
+From: Nathan Fontenot <nfont@linux.vnet.ibm.com>
+Subject: [PATCH v3 net-next 00/11] ibmvnic: Updated reset handler and code
+ fixes
+Date: Tue, 02 May 2017 14:52:11 -0400
+Message-ID: <20170502185006.28214.89072.stgit@ltcalpine2-lp23.aus.stglabs.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: ast@fb.com, daniel@iogearbox.net
+Cc: brking@linux.vnet.ibm.com, jallen@linux.vnet.ibm.com,
+        muvic@linux.vnet.ibm.com, tlfalcon@linux.vnet.ibm.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:49422 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751181AbdEBOyP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 2 May 2017 10:54:15 -0400
+Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:52927 "EHLO
+        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1750740AbdEBPD3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 2 May 2017 11:03:29 -0400
+Received: from pps.filterd (m0098409.ppops.net [127.0.0.1])
+        by mx0a-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v42Erhxl114173
+        for <netdev@vger.kernel.org>; Tue, 2 May 2017 11:03:29 -0400
+Received: from e16.ny.us.ibm.com (e16.ny.us.ibm.com [129.33.205.206])
+        by mx0a-001b2d01.pphosted.com with ESMTP id 2a6v8t0kb5-1
+        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Tue, 02 May 2017 11:03:28 -0400
+Received: from localhost
+        by e16.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        for <netdev@vger.kernel.org> from <nfont@linux.vnet.ibm.com>;
+        Tue, 2 May 2017 11:03:27 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This set of patches multiple code fixes and a new rest handler
+for the ibmvnic driver. In order to implement the new reset handler
+for the ibmvnic driver resource initialization needed to be moved to
+its own routine, a state variable is introduced to replace the
+various is_* flags in the driver, and a new routine to handle the
+assorted reasons the driver can be reset.
 
-This fixes the testcase on big-endian.
+v3 updates:
 
-Signed-off-by: David S. Miller <davem@davemloft.net>
+Patch 10/11: Correct patch subject line to be a description of the patch.
+
+v2 updates:
+
+Patch 11/11: Use __netif_subqueue_stopped() instead of
+netif_subqueue_stopped() to avoid possible use of an un-initialized
+skb variable.
+
 ---
 
-Committed to net-next, I almost have test_progs working fully
-on sparc with a small verifier hack...
+Nathan Fontenot (10):
+      ibmvnic: Move resource initialization to its own routine
+      ibmvnic: Replace is_closed with state field
+      ibmvnic: Updated reset handling
+      ibmvnic: Delete napi's when releasing driver resources
+      ibmvnic: Whitespace correction in release_rx_pools
+      ibmvnic: Clean up tx pools when closing
+      ibmvnic: Wait for any pending scrqs entries at driver close
+      ibmvnic: Check for driver reset first in ibmvnic_xmit
+      ibmvnic: Continue skb processing after skb completion error
+      ibmvnic: Move queue restarting in ibmvnic_tx_complete
 
- tools/testing/selftests/bpf/test_xdp.c | 17 ++++++++---------
- 1 file changed, 8 insertions(+), 9 deletions(-)
+Thomas Falcon (1):
+      ibmvnic: Record SKB RX queue during poll
 
-diff --git a/tools/testing/selftests/bpf/test_xdp.c b/tools/testing/selftests/bpf/test_xdp.c
-index 9a33b03..5e7df8b 100644
---- a/tools/testing/selftests/bpf/test_xdp.c
-+++ b/tools/testing/selftests/bpf/test_xdp.c
-@@ -17,10 +17,9 @@
- #include <linux/pkt_cls.h>
- #include <sys/socket.h>
- #include "bpf_helpers.h"
-+#include "bpf_endian.h"
- #include "test_iptunnel_common.h"
- 
--#define htons __builtin_bswap16
--#define ntohs __builtin_bswap16
- int _version SEC("version") = 1;
- 
- struct bpf_map_def SEC("maps") rxcnt = {
-@@ -104,7 +103,7 @@ static __always_inline int handle_ipv4(struct xdp_md *xdp)
- 	vip.family = AF_INET;
- 	vip.daddr.v4 = iph->daddr;
- 	vip.dport = dport;
--	payload_len = ntohs(iph->tot_len);
-+	payload_len = bpf_ntohs(iph->tot_len);
- 
- 	tnl = bpf_map_lookup_elem(&vip2tnl, &vip);
- 	/* It only does v4-in-v4 */
-@@ -126,7 +125,7 @@ static __always_inline int handle_ipv4(struct xdp_md *xdp)
- 	    iph + 1 > data_end)
- 		return XDP_DROP;
- 
--	set_ethhdr(new_eth, old_eth, tnl, htons(ETH_P_IP));
-+	set_ethhdr(new_eth, old_eth, tnl, bpf_htons(ETH_P_IP));
- 
- 	iph->version = 4;
- 	iph->ihl = sizeof(*iph) >> 2;
-@@ -134,7 +133,7 @@ static __always_inline int handle_ipv4(struct xdp_md *xdp)
- 	iph->protocol = IPPROTO_IPIP;
- 	iph->check = 0;
- 	iph->tos = 0;
--	iph->tot_len = htons(payload_len + sizeof(*iph));
-+	iph->tot_len = bpf_htons(payload_len + sizeof(*iph));
- 	iph->daddr = tnl->daddr.v4;
- 	iph->saddr = tnl->saddr.v4;
- 	iph->ttl = 8;
-@@ -195,12 +194,12 @@ static __always_inline int handle_ipv6(struct xdp_md *xdp)
- 	    ip6h + 1 > data_end)
- 		return XDP_DROP;
- 
--	set_ethhdr(new_eth, old_eth, tnl, htons(ETH_P_IPV6));
-+	set_ethhdr(new_eth, old_eth, tnl, bpf_htons(ETH_P_IPV6));
- 
- 	ip6h->version = 6;
- 	ip6h->priority = 0;
- 	memset(ip6h->flow_lbl, 0, sizeof(ip6h->flow_lbl));
--	ip6h->payload_len = htons(ntohs(payload_len) + sizeof(*ip6h));
-+	ip6h->payload_len = bpf_htons(bpf_ntohs(payload_len) + sizeof(*ip6h));
- 	ip6h->nexthdr = IPPROTO_IPV6;
- 	ip6h->hop_limit = 8;
- 	memcpy(ip6h->saddr.s6_addr32, tnl->saddr.v6, sizeof(tnl->saddr.v6));
-@@ -224,9 +223,9 @@ int _xdp_tx_iptunnel(struct xdp_md *xdp)
- 
- 	h_proto = eth->h_proto;
- 
--	if (h_proto == htons(ETH_P_IP))
-+	if (h_proto == bpf_htons(ETH_P_IP))
- 		return handle_ipv4(xdp);
--	else if (h_proto == htons(ETH_P_IPV6))
-+	else if (h_proto == bpf_htons(ETH_P_IPV6))
- 
- 		return handle_ipv6(xdp);
- 	else
--- 
-2.1.2.532.g19b5d50
+
+ drivers/net/ethernet/ibm/ibmvnic.c |  563 +++++++++++++++++++++++-------------
+ drivers/net/ethernet/ibm/ibmvnic.h |   31 ++
+ 2 files changed, 389 insertions(+), 205 deletions(-)
