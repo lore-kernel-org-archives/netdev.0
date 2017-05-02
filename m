@@ -1,7 +1,8 @@
 From: Miroslav Lichvar <mlichvar@redhat.com>
-Subject: [PATCH v2 net-next 0/7] Extend socket timestamping API
-Date: Tue,  2 May 2017 12:10:56 +0200
-Message-ID: <20170502101103.30444-1-mlichvar@redhat.com>
+Subject: [PATCH v2 net-next 4/7] net: add new control message for incoming HW-timestamped packets
+Date: Tue,  2 May 2017 12:11:00 +0200
+Message-ID: <20170502101103.30444-5-mlichvar@redhat.com>
+References: <20170502101103.30444-1-mlichvar@redhat.com>
 Cc: Richard Cochran <richardcochran@gmail.com>,
         Willem de Bruijn <willemb@google.com>,
         Soheil Hassas Yeganeh <soheil@google.com>,
@@ -9,92 +10,149 @@ Cc: Richard Cochran <richardcochran@gmail.com>,
         Denny Page <dennypage@me.com>, Jiri Benc <jbenc@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:43762 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:35688 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750825AbdEBKLI (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 2 May 2017 06:11:08 -0400
+        id S1752187AbdEBKLc (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 2 May 2017 06:11:32 -0400
+In-Reply-To: <20170502101103.30444-1-mlichvar@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Changes v1->v2:
-- added separate patch for new NAPI functions 
-- split code from __sock_recv_timestamp() for better readability
-- fixed RCU locking
-- fixed compiler warning (missing case in switch in first patch)
-- inline sw_tx_timestamp() in its only user
+Add SOF_TIMESTAMPING_OPT_PKTINFO option to request a new control message
+for incoming packets with hardware timestamps. It contains the index of
+the real interface which received the packet and the length of the
+packet at layer 2.
 
-Changes RFC->v1:
-- reworked SOF_TIMESTAMPING_OPT_PKTINFO patch to not add new fields to
-  skb shared info (net device is now looked up by napi_id), not require
-  any changes in drivers, and restrict the cmsg to incoming packets
-- renamed SOF_TIMESTAMPING_OPT_MULTIMSG to SOF_TIMESTAMPING_OPT_TX_SWHW
-  and fixed its description
-- moved struct scm_ts_pktinfo from errqueue.h to net_tstamp.h as it
-  can't be received from the error queue anymore
-- improved commit descriptions and removed incorrect comment
+The index is useful with bonding, bridges and other interfaces, where
+IP_PKTINFO doesn't allow applications to determine which PHC made the
+timestamp. With the L2 length (and link speed) it is possible to
+transpose preamble timestamps to trailer timestamps, which are used in
+the NTP protocol.
 
-This patchset adds new options to the timestamping API that will be
-useful for NTP implementations and possibly other applications.
-
-The first patch specifies a timestamp filter for NTP packets. The second
-patch updates drivers that can timestamp all packets, or need to list
-the filter as unsupported. There is no attempt to add the support to the
-phyter driver.
-
-The third patch adds two helper functions working with NAPI ID, which is
-needed by the next patch. The fourth patch adds a new option to get a
-new control message with the L2 length and interface index for incoming
-packets with hardware timestamps.
-
-The fifth patch fixes the code to not make a false software TX timestamp
-when hardware timestamping is enabled. The sixth patch depends on this
-fix.
-
-The sixth patch adds a new option to request both software and hardware
-timestamps for outgoing packets. The seventh patch updates drivers that
-assumed software timestamping cannot be used together with hardware
+While this information could be provided by two new socket options
+independently from timestamping, it doesn't look like it would be very
+useful. With this option any performance impact is limited to hardware
 timestamping.
 
-The patches have been tested on x86_64 machines with igb and e1000e
-drivers.
+Use dev_get_by_napi_id() to look up the device and its index. This
+limits the option to kernels with enabled CONFIG_NET_RX_BUSY_POLL and
+drivers using napi, but it should cover all current MAC drivers that
+support hardware timestamping.
 
-Miroslav Lichvar (7):
-  net: define receive timestamp filter for NTP
-  net: ethernet: update drivers to handle HWTSTAMP_FILTER_NTP_ALL
-  net: add function to retrieve original skb device using NAPI ID
-  net: add new control message for incoming HW-timestamped packets
-  net: don't make false software transmit timestamps
-  net: allow simultaneous SW and HW transmit timestamping
-  net: ethernet: update drivers to make both SW and HW TX timestamps
+CC: Richard Cochran <richardcochran@gmail.com>
+CC: Willem de Bruijn <willemb@google.com>
+Signed-off-by: Miroslav Lichvar <mlichvar@redhat.com>
+---
+ Documentation/networking/timestamping.txt |  8 ++++++++
+ include/uapi/asm-generic/socket.h         |  2 ++
+ include/uapi/linux/net_tstamp.h           |  9 ++++++++-
+ net/socket.c                              | 30 +++++++++++++++++++++++++++++-
+ 4 files changed, 47 insertions(+), 2 deletions(-)
 
- Documentation/networking/timestamping.txt          | 22 ++++++++++-
- drivers/net/ethernet/amd/xgbe/xgbe-drv.c           |  4 +-
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c   |  1 +
- drivers/net/ethernet/cavium/liquidio/lio_main.c    |  1 +
- drivers/net/ethernet/cavium/liquidio/lio_vf_main.c |  1 +
- drivers/net/ethernet/cavium/octeon/octeon_mgmt.c   |  1 +
- drivers/net/ethernet/intel/e1000e/netdev.c         |  5 ++-
- drivers/net/ethernet/intel/i40e/i40e_ptp.c         |  1 +
- drivers/net/ethernet/intel/igb/igb_ptp.c           |  1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c       |  1 +
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c     |  1 +
- drivers/net/ethernet/mellanox/mlx5/core/en_clock.c |  1 +
- drivers/net/ethernet/neterion/vxge/vxge-main.c     |  1 +
- drivers/net/ethernet/qlogic/qede/qede_ptp.c        |  1 +
- drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c    |  3 +-
- drivers/net/ethernet/sfc/ef10.c                    |  1 +
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |  7 ++--
- drivers/net/ethernet/ti/cpsw.c                     |  1 +
- drivers/net/ethernet/tile/tilegx.c                 |  1 +
- include/linux/netdevice.h                          |  1 +
- include/linux/skbuff.h                             | 19 ++++++----
- include/uapi/asm-generic/socket.h                  |  2 +
- include/uapi/linux/net_tstamp.h                    | 13 ++++++-
- net/core/dev.c                                     | 26 +++++++++++++
- net/core/dev_ioctl.c                               |  1 +
- net/core/skbuff.c                                  |  4 ++
- net/socket.c                                       | 44 +++++++++++++++++++++-
- 27 files changed, 142 insertions(+), 23 deletions(-)
-
+diff --git a/Documentation/networking/timestamping.txt b/Documentation/networking/timestamping.txt
+index 96f5069..6c07e7c 100644
+--- a/Documentation/networking/timestamping.txt
++++ b/Documentation/networking/timestamping.txt
+@@ -193,6 +193,14 @@ SOF_TIMESTAMPING_OPT_STATS:
+   the transmit timestamps, such as how long a certain block of
+   data was limited by peer's receiver window.
+ 
++SOF_TIMESTAMPING_OPT_PKTINFO:
++
++  Enable the SCM_TIMESTAMPING_PKTINFO control message for incoming
++  packets with hardware timestamps. The message contains struct
++  scm_ts_pktinfo, which supplies the index of the real interface
++  which received the packet and its length at layer 2. This option
++  works only if CONFIG_NET_RX_BUSY_POLL is enabled.
++
+ New applications are encouraged to pass SOF_TIMESTAMPING_OPT_ID to
+ disambiguate timestamps and SOF_TIMESTAMPING_OPT_TSONLY to operate
+ regardless of the setting of sysctl net.core.tstamp_allow_data.
+diff --git a/include/uapi/asm-generic/socket.h b/include/uapi/asm-generic/socket.h
+index 2b48856..a5f6e81 100644
+--- a/include/uapi/asm-generic/socket.h
++++ b/include/uapi/asm-generic/socket.h
+@@ -100,4 +100,6 @@
+ 
+ #define SO_COOKIE		57
+ 
++#define SCM_TIMESTAMPING_PKTINFO	58
++
+ #endif /* __ASM_GENERIC_SOCKET_H */
+diff --git a/include/uapi/linux/net_tstamp.h b/include/uapi/linux/net_tstamp.h
+index 0749fb1..8fcae35 100644
+--- a/include/uapi/linux/net_tstamp.h
++++ b/include/uapi/linux/net_tstamp.h
+@@ -26,8 +26,9 @@ enum {
+ 	SOF_TIMESTAMPING_OPT_CMSG = (1<<10),
+ 	SOF_TIMESTAMPING_OPT_TSONLY = (1<<11),
+ 	SOF_TIMESTAMPING_OPT_STATS = (1<<12),
++	SOF_TIMESTAMPING_OPT_PKTINFO = (1<<13),
+ 
+-	SOF_TIMESTAMPING_LAST = SOF_TIMESTAMPING_OPT_STATS,
++	SOF_TIMESTAMPING_LAST = SOF_TIMESTAMPING_OPT_PKTINFO,
+ 	SOF_TIMESTAMPING_MASK = (SOF_TIMESTAMPING_LAST - 1) |
+ 				 SOF_TIMESTAMPING_LAST
+ };
+@@ -130,4 +131,10 @@ enum hwtstamp_rx_filters {
+ 	HWTSTAMP_FILTER_NTP_ALL,
+ };
+ 
++/* SCM_TIMESTAMPING_PKTINFO control message */
++struct scm_ts_pktinfo {
++	int if_index;
++	int pkt_length;
++};
++
+ #endif /* _NET_TIMESTAMPING_H */
+diff --git a/net/socket.c b/net/socket.c
+index c2564eb..da4d4ab 100644
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -662,6 +662,30 @@ static bool skb_is_err_queue(const struct sk_buff *skb)
+ 	return skb->pkt_type == PACKET_OUTGOING;
+ }
+ 
++static void put_ts_pktinfo(struct msghdr *msg, struct sk_buff *skb)
++{
++	struct scm_ts_pktinfo ts_pktinfo;
++	struct net_device *orig_dev;
++	int ifindex = 0;
++
++	if (!skb_mac_header_was_set(skb))
++		return;
++
++	rcu_read_lock();
++	orig_dev = dev_get_by_napi_id(skb_napi_id(skb));
++	if (orig_dev)
++		ifindex = orig_dev->ifindex;
++	rcu_read_unlock();
++
++	if (ifindex == 0)
++		return;
++
++	ts_pktinfo.if_index = ifindex;
++	ts_pktinfo.pkt_length = skb->len - skb_mac_offset(skb);
++	put_cmsg(msg, SOL_SOCKET, SCM_TIMESTAMPING_PKTINFO,
++		 sizeof(ts_pktinfo), &ts_pktinfo);
++}
++
+ /*
+  * called from sock_recv_timestamp() if sock_flag(sk, SOCK_RCVTSTAMP)
+  */
+@@ -699,8 +723,12 @@ void __sock_recv_timestamp(struct msghdr *msg, struct sock *sk,
+ 		empty = 0;
+ 	if (shhwtstamps &&
+ 	    (sk->sk_tsflags & SOF_TIMESTAMPING_RAW_HARDWARE) &&
+-	    ktime_to_timespec_cond(shhwtstamps->hwtstamp, tss.ts + 2))
++	    ktime_to_timespec_cond(shhwtstamps->hwtstamp, tss.ts + 2)) {
+ 		empty = 0;
++		if ((sk->sk_tsflags & SOF_TIMESTAMPING_OPT_PKTINFO) &&
++		    !skb_is_err_queue(skb))
++			put_ts_pktinfo(msg, skb);
++	}
+ 	if (!empty) {
+ 		put_cmsg(msg, SOL_SOCKET,
+ 			 SCM_TIMESTAMPING, sizeof(tss), &tss);
 -- 
 2.9.3
