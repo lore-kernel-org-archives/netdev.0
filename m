@@ -1,93 +1,72 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next] net: sched: add helpers to handle extended
- actions
-Date: Tue, 2 May 2017 07:51:34 +0200
-Message-ID: <20170502055134.GB1877@nanopsycho.orion>
-References: <1493396006-11084-1-git-send-email-jiri@resnulli.us>
- <6450af04-a6d4-866e-82ee-424ff54b2ef3@mojatatu.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-        xiyou.wangcong@gmail.com, mlxsw@mellanox.com
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+From: gfree.wind@foxmail.com
+Subject: [PATCH net v4 00/12] Fix possbile memleaks when fail to register_netdevice
+Date: Tue,  2 May 2017 13:58:42 +0800
+Message-ID: <cover.1493699451.git.gfree.wind@foxmail.com>
+Cc: Gao Feng <gfree.wind@foxmail.com>
+To: davem@davemloft.net, jiri@resnulli.us, mareklindner@neomailbox.ch,
+        sw@simonwunderlich.de, a@unstable.cc, kuznet@ms2.inr.ac.ru,
+        jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
+        steffen.klassert@secunet.com, herbert@gondor.apana.org.au,
+        netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:34180 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751013AbdEBFvh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 2 May 2017 01:51:37 -0400
-Received: by mail-wm0-f67.google.com with SMTP id z129so1661312wmb.1
-        for <netdev@vger.kernel.org>; Mon, 01 May 2017 22:51:36 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <6450af04-a6d4-866e-82ee-424ff54b2ef3@mojatatu.com>
+Received: from smtpbg65.qq.com ([103.7.28.233]:36285 "EHLO smtpbg65.qq.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750854AbdEBF7T (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 2 May 2017 01:59:19 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sun, Apr 30, 2017 at 04:08:15PM CEST, jhs@mojatatu.com wrote:
->Jiri,
->
->With "goto chain X" this will have to be more generalized. Maybe
->we have 0xAXXXXXXX Where "A" recognizes the extension with
->current values ACT_JUMP(0x1) and GOTO_CHAIN(maybe 0x2)
->and the rest "XXXXXXX" is a free floating parameter values
->which carry the goto count for ACT_JUMP and GOTO_CHAIN chain-id.
+From: Gao Feng <gfree.wind@foxmail.com>
 
-That is exactly what this patch is doing.
+These following drivers allocate kinds of resources in its ndo_init
+func, free some of them or all in the destructor func. Then there is
+one memleak that some errors happen after register_netdevice invokes
+the ndo_init callback. Because only the ndo_uninit callback is invoked
+in the error handler of register_netdevice, but destructor not.
 
+In my original approach, I tried to free the resources in the newlink
+func when fail to register_netdevice, like destructor did except not
+free the net_dev. This method is not good when destructor is changed,
+and the memleak could be not fixed when there is no newlink callback.
 
->
->cheers,
->jamal
->
->On 17-04-28 12:13 PM, Jiri Pirko wrote:
->> From: Jiri Pirko <jiri@mellanox.com>
->> 
->> Jump is now the only one using value action opcode. This is going to
->> change soon. So introduce helpers to work with this. Convert TC_ACT_JUMP.
->> 
->> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
->> ---
->>  include/uapi/linux/pkt_cls.h | 15 ++++++++++++++-
->>  net/sched/act_api.c          |  2 +-
->>  2 files changed, 15 insertions(+), 2 deletions(-)
->> 
->> diff --git a/include/uapi/linux/pkt_cls.h b/include/uapi/linux/pkt_cls.h
->> index f1129e3..d613be3 100644
->> --- a/include/uapi/linux/pkt_cls.h
->> +++ b/include/uapi/linux/pkt_cls.h
->> @@ -37,7 +37,20 @@ enum {
->>  #define TC_ACT_QUEUED		5
->>  #define TC_ACT_REPEAT		6
->>  #define TC_ACT_REDIRECT		7
->> -#define TC_ACT_JUMP		0x10000000
->> +
->> +/* There is a special kind of actions called "extended actions",
->> + * which need a value parameter. These have a local opcode located in
->> + * the highest nibble, starting from 1. The rest of the bits
->> + * are used to carry the value. These two parts together make
->> + * a combined opcode.
->> + */
->> +#define __TC_ACT_EXT_SHIFT 28
->> +#define __TC_ACT_EXT(local) ((local) << __TC_ACT_EXT_SHIFT)
->> +#define TC_ACT_EXT_VAL_MASK ((1 << __TC_ACT_EXT_SHIFT) - 1)
->> +#define TC_ACT_EXT_CMP(combined, opcode) \
->> +	(((combined) & (~TC_ACT_EXT_VAL_MASK)) == opcode)
->> +
->> +#define TC_ACT_JUMP __TC_ACT_EXT(1)
->> 
->>  /* Action type identifiers*/
->>  enum {
->> diff --git a/net/sched/act_api.c b/net/sched/act_api.c
->> index 7f2cd70..a90e8f3 100644
->> --- a/net/sched/act_api.c
->> +++ b/net/sched/act_api.c
->> @@ -453,7 +453,7 @@ int tcf_action_exec(struct sk_buff *skb, struct tc_action **actions,
->>  		if (ret == TC_ACT_REPEAT)
->>  			goto repeat;	/* we need a ttl - JHS */
->> 
->> -		if (ret & TC_ACT_JUMP) {
->> +		if (TC_ACT_EXT_CMP(ret, TC_ACT_JUMP)) {
->>  			jmp_prgcnt = ret & TCA_ACT_MAX_PRIO_MASK;
->>  			if (!jmp_prgcnt || (jmp_prgcnt > nr_actions)) {
->>  				/* faulty opcode, stop pipeline */
->> 
->
+Now create one new func used to free the resources in the destructor,
+and the ndo_uninit func also could invokes it when fail to register
+the net_device by comparing the dev->reg_state with NETREG_UNINITIALIZED.
+If there is no existing ndo_uninit, just add one.
+
+This solution doesn't only make sure free all resources in any case,
+but also follows the original desgin that some resources could be kept
+until the destructor executes normally after register the device
+successfully.
+
+Gao Feng (12):
+  driver: dummy: Fix one possbile memleak when fail to
+    register_netdevice
+  driver: ifb: Fix one possbile memleak when fail to register_netdevice
+  driver: loopback: Fix one possbile memleak when fail to
+    register_netdevice
+  driver: team: Fix one possbile memleak when fail to register_netdevice
+  driver: veth: Fix one possbile memleak when fail to register_netdevice
+  net: ip6_gre: Fix one possbile memleak when fail to register_netdevice
+  ip6_tunnel: Fix one possbile memleak when fail to register_netdevice
+  net: ip6_vti: Fix one possbile memleak when fail to register_netdevice
+  net: ip_tunnel: Fix one possbile memleak when fail to
+    register_netdevice
+  net: sit: Fix one possbile memleak when fail to register_netdevice
+  net: vlan: Fix one possbile memleak when fail to register_netdevice
+  net: batman-adv: Fix one possbile memleak when fail to
+    register_netdevice
+
+ drivers/net/dummy.c             | 14 +++++++++++---
+ drivers/net/ifb.c               | 33 +++++++++++++++++++++++----------
+ drivers/net/loopback.c          | 15 ++++++++++++++-
+ drivers/net/team/team.c         | 15 ++++++++++++---
+ drivers/net/veth.c              | 15 ++++++++++++++-
+ net/8021q/vlan_dev.c            | 17 +++++++++++++----
+ net/batman-adv/soft-interface.c | 18 +++++++++++++++---
+ net/ipv4/ip_tunnel.c            | 11 ++++++++++-
+ net/ipv6/ip6_gre.c              | 17 +++++++++++++----
+ net/ipv6/ip6_tunnel.c           | 11 ++++++++++-
+ net/ipv6/ip6_vti.c              | 11 ++++++++++-
+ net/ipv6/sit.c                  | 17 +++++++++++++----
+ 12 files changed, 158 insertions(+), 36 deletions(-)
