@@ -1,7 +1,8 @@
 From: John Fastabend <john.fastabend@gmail.com>
-Subject: [RFC PATCH 04/17] net: sched: provide per cpu qstat helpers
-Date: Tue, 02 May 2017 08:26:06 -0700
-Message-ID: <20170502152606.8871.69610.stgit@john-Precision-Tower-5810>
+Subject: [RFC PATCH 05/17] net: sched: a dflt qdisc may be used with per cpu
+ stats
+Date: Tue, 02 May 2017 08:26:26 -0700
+Message-ID: <20170502152626.8871.44632.stgit@john-Precision-Tower-5810>
 References: <20170502151445.8871.43089.stgit@john-Precision-Tower-5810>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -9,81 +10,80 @@ Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, john.fastabend@gmail.com
 To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:36121 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750791AbdEBP0V (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 2 May 2017 11:26:21 -0400
-Received: by mail-pf0-f194.google.com with SMTP id v14so33723925pfd.3
-        for <netdev@vger.kernel.org>; Tue, 02 May 2017 08:26:21 -0700 (PDT)
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:36455 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750791AbdEBP0i (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 2 May 2017 11:26:38 -0400
+Received: by mail-pg0-f65.google.com with SMTP id v1so22959588pgv.3
+        for <netdev@vger.kernel.org>; Tue, 02 May 2017 08:26:38 -0700 (PDT)
 In-Reply-To: <20170502151445.8871.43089.stgit@john-Precision-Tower-5810>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The per cpu qstats support was added with per cpu bstat support which
-is currently used by the ingress qdisc. This patch adds a set of
-helpers needed to make other qdiscs that use qstats per cpu as well.
+Enable dflt qdisc support for per cpu stats before this patch a dflt
+qdisc was required to use the global statistics qstats and bstats.
+
+This adds a static flags field to qdisc_ops that is propagated
+into qdisc->flags in qdisc allocate call. This allows the allocation
+block to completely allocate the qdisc object so we don't have
+dangling allocations after qdisc init.
 
 Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
 ---
- include/net/sch_generic.h |   35 +++++++++++++++++++++++++++++++++++
- 1 file changed, 35 insertions(+)
+ include/net/sch_generic.h |    1 +
+ net/sched/sch_generic.c   |   16 ++++++++++++++++
+ 2 files changed, 17 insertions(+)
 
 diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
-index f5c8613..9531b81 100644
+index 9531b81..83952af 100644
 --- a/include/net/sch_generic.h
 +++ b/include/net/sch_generic.h
-@@ -590,12 +590,39 @@ static inline void qdisc_qstats_backlog_dec(struct Qdisc *sch,
- 	sch->qstats.backlog -= qdisc_pkt_len(skb);
+@@ -172,6 +172,7 @@ struct Qdisc_ops {
+ 	const struct Qdisc_class_ops	*cl_ops;
+ 	char			id[IFNAMSIZ];
+ 	int			priv_size;
++	unsigned int		static_flags;
+ 
+ 	int 			(*enqueue)(struct sk_buff *skb,
+ 					   struct Qdisc *sch,
+diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+index 2f66b1f..8a03738 100644
+--- a/net/sched/sch_generic.c
++++ b/net/sched/sch_generic.c
+@@ -625,6 +625,19 @@ struct Qdisc *qdisc_alloc(struct netdev_queue *dev_queue,
+ 	qdisc_skb_head_init(&sch->q);
+ 	spin_lock_init(&sch->q.lock);
+ 
++	if (ops->static_flags & TCQ_F_CPUSTATS) {
++		sch->cpu_bstats =
++			netdev_alloc_pcpu_stats(struct gnet_stats_basic_cpu);
++		if (!sch->cpu_bstats)
++			goto errout1;
++
++		sch->cpu_qstats = alloc_percpu(struct gnet_stats_queue);
++		if (!sch->cpu_qstats) {
++			free_percpu(sch->cpu_bstats);
++			goto errout1;
++		}
++	}
++
+ 	spin_lock_init(&sch->busylock);
+ 	lockdep_set_class(&sch->busylock,
+ 			  dev->qdisc_tx_busylock ?: &qdisc_tx_busylock);
+@@ -634,6 +647,7 @@ struct Qdisc *qdisc_alloc(struct netdev_queue *dev_queue,
+ 			  dev->qdisc_running_key ?: &qdisc_running_key);
+ 
+ 	sch->ops = ops;
++	sch->flags = ops->static_flags;
+ 	sch->enqueue = ops->enqueue;
+ 	sch->dequeue = ops->dequeue;
+ 	sch->dev_queue = dev_queue;
+@@ -641,6 +655,8 @@ struct Qdisc *qdisc_alloc(struct netdev_queue *dev_queue,
+ 	atomic_set(&sch->refcnt, 1);
+ 
+ 	return sch;
++errout1:
++	kfree(p);
+ errout:
+ 	return ERR_PTR(err);
  }
- 
-+static inline void qdisc_qstats_cpu_backlog_dec(struct Qdisc *sch,
-+						const struct sk_buff *skb)
-+{
-+	this_cpu_sub(sch->cpu_qstats->backlog, qdisc_pkt_len(skb));
-+}
-+
- static inline void qdisc_qstats_backlog_inc(struct Qdisc *sch,
- 					    const struct sk_buff *skb)
- {
- 	sch->qstats.backlog += qdisc_pkt_len(skb);
- }
- 
-+static inline void qdisc_qstats_cpu_backlog_inc(struct Qdisc *sch,
-+						const struct sk_buff *skb)
-+{
-+	this_cpu_add(sch->cpu_qstats->backlog, qdisc_pkt_len(skb));
-+}
-+
-+static inline void qdisc_qstats_cpu_qlen_inc(struct Qdisc *sch)
-+{
-+	this_cpu_inc(sch->cpu_qstats->qlen);
-+}
-+
-+static inline void qdisc_qstats_cpu_qlen_dec(struct Qdisc *sch)
-+{
-+	this_cpu_dec(sch->cpu_qstats->qlen);
-+}
-+
-+static inline void qdisc_qstats_cpu_requeues_inc(struct Qdisc *sch)
-+{
-+	this_cpu_inc(sch->cpu_qstats->requeues);
-+}
-+
- static inline void __qdisc_qstats_drop(struct Qdisc *sch, int count)
- {
- 	sch->qstats.drops += count;
-@@ -800,6 +827,14 @@ static inline void rtnl_qdisc_drop(struct sk_buff *skb, struct Qdisc *sch)
- 	qdisc_qstats_drop(sch);
- }
- 
-+static inline int qdisc_drop_cpu(struct sk_buff *skb, struct Qdisc *sch,
-+				 struct sk_buff **to_free)
-+{
-+	__qdisc_drop(skb, to_free);
-+	qdisc_qstats_cpu_drop(sch);
-+
-+	return NET_XMIT_DROP;
-+}
- 
- static inline int qdisc_drop(struct sk_buff *skb, struct Qdisc *sch,
- 			     struct sk_buff **to_free)
