@@ -1,94 +1,61 @@
-From: Nathan Fontenot <nfont@linux.vnet.ibm.com>
-Subject: [PATCH v3 net-next 06/11] ibmvnic: Clean up tx pools when closing
-Date: Tue, 02 May 2017 14:52:47 -0400
-Message-ID: <20170502185247.28214.70469.stgit@ltcalpine2-lp23.aus.stglabs.ibm.com>
-References: <20170502185006.28214.89072.stgit@ltcalpine2-lp23.aus.stglabs.ibm.com>
+From: chetan loke <loke.chetan@gmail.com>
+Subject: Re: TPACKET_V3 timeout bug?
+Date: Tue, 2 May 2017 08:04:12 -0700
+Message-ID: <CAAsGZS5ir2Ha1swhdGCg7ibgYRORZykZcu089=oJ51NT4GKDuA@mail.gmail.com>
+References: <20170415194042.GA5936@lunn.ch> <20170415224530.GA21010@oracle.com>
+ <20170416021050.GA16418@lunn.ch> <251BA382-D82C-4931-A98F-A23AD88F9811@alum.mit.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: brking@linux.vnet.ibm.com, jallen@linux.vnet.ibm.com,
-        muvic@linux.vnet.ibm.com, tlfalcon@linux.vnet.ibm.com
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: Andrew Lunn <andrew@lunn.ch>,
+        Sowmini Varadhan <sowmini.varadhan@oracle.com>,
+        netdev <netdev@vger.kernel.org>,
+        tcpdump-workers@lists.tcpdump.org
+To: Guy Harris <guy@alum.mit.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:51319 "EHLO
-        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751434AbdEBPEF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 2 May 2017 11:04:05 -0400
-Received: from pps.filterd (m0098394.ppops.net [127.0.0.1])
-        by mx0a-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v42F3ukY022421
-        for <netdev@vger.kernel.org>; Tue, 2 May 2017 11:04:05 -0400
-Received: from e15.ny.us.ibm.com (e15.ny.us.ibm.com [129.33.205.205])
-        by mx0a-001b2d01.pphosted.com with ESMTP id 2a6um5308t-1
-        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Tue, 02 May 2017 11:04:04 -0400
-Received: from localhost
-        by e15.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-        for <netdev@vger.kernel.org> from <nfont@linux.vnet.ibm.com>;
-        Tue, 2 May 2017 11:04:03 -0400
-In-Reply-To: <20170502185006.28214.89072.stgit@ltcalpine2-lp23.aus.stglabs.ibm.com>
+Received: from mail-ua0-f176.google.com ([209.85.217.176]:35241 "EHLO
+        mail-ua0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751409AbdEBPEN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 2 May 2017 11:04:13 -0400
+Received: by mail-ua0-f176.google.com with SMTP id e55so54570241uaa.2
+        for <netdev@vger.kernel.org>; Tue, 02 May 2017 08:04:13 -0700 (PDT)
+In-Reply-To: <251BA382-D82C-4931-A98F-A23AD88F9811@alum.mit.edu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When closing the ibmvnic driver, most notably during the reset
-path, the tx pools need to be cleaned to ensure there are no
-hanging skbs that need to be free'ed.
+On Sat, Apr 15, 2017 at 7:41 PM, Guy Harris <guy@alum.mit.edu> wrote:
+> On Apr 15, 2017, at 7:10 PM, Andrew Lunn <andrew@lunn.ch> wrote:
+>
+>> Do you think this is a kernel problem, libpcap problem, or an
+>> application problem?
+>
 
-The need for this was found during debugging a loss of network
-traffic after handling a driver reset. The underlying cause was
-some skbs in the tx pool that were never free'ed. As a
-result the upper network layers never tried a re-send since it
-believed the driver still had the skb.
+Its clearly a kernel regression.
 
-Signed-off-by: Nathan Fontenot <nfont@linux.vnet.ibm.com>
----
- drivers/net/ethernet/ibm/ibmvnic.c |   30 ++++++++++++++++++++++++++++++
- 1 file changed, 30 insertions(+)
+If you look at if_packet.h, I have explicitly called out all the cases
+for the return/status codes. When I first merged the functionality in
+3.11(or 3.12 I think) I had the logic in place to retire the block
+with or without packets in it. I think there was one case where we
+wouldn't wake up userspace. Someone checked in a fix for that. Now I
+am not sure the regression happened as part of that bug fix or
+sometime later. If you diff 3.12 against the latest you will find the
+regression. Look for prb_retire_rx_blk_timer_expired().
 
-diff --git a/drivers/net/ethernet/ibm/ibmvnic.c b/drivers/net/ethernet/ibm/ibmvnic.c
-index d20d884..0400ae7 100644
---- a/drivers/net/ethernet/ibm/ibmvnic.c
-+++ b/drivers/net/ethernet/ibm/ibmvnic.c
-@@ -760,6 +760,34 @@ static void disable_sub_crqs(struct ibmvnic_adapter *adapter)
- 	}
- }
- 
-+static void clean_tx_pools(struct ibmvnic_adapter *adapter)
-+{
-+	struct ibmvnic_tx_pool *tx_pool;
-+	u64 tx_entries;
-+	int tx_scrqs;
-+	int i, j;
-+
-+	if (!adapter->tx_pool)
-+		return;
-+
-+	tx_scrqs = be32_to_cpu(adapter->login_rsp_buf->num_txsubm_subcrqs);
-+	tx_entries = adapter->req_tx_entries_per_subcrq;
-+
-+	/* Free any remaining skbs in the tx buffer pools */
-+	for (i = 0; i < tx_scrqs; i++) {
-+		tx_pool = &adapter->tx_pool[i];
-+		if (!tx_pool)
-+			continue;
-+
-+		for (j = 0; j < tx_entries; j++) {
-+			if (tx_pool->tx_buff[j].skb) {
-+				dev_kfree_skb_any(tx_pool->tx_buff[j].skb);
-+				tx_pool->tx_buff[j].skb = NULL;
-+			}
-+		}
-+	}
-+}
-+
- static int __ibmvnic_close(struct net_device *netdev)
- {
- 	struct ibmvnic_adapter *adapter = netdev_priv(netdev);
-@@ -768,6 +796,8 @@ static int __ibmvnic_close(struct net_device *netdev)
- 
- 	adapter->state = VNIC_CLOSING;
- 	netif_tx_stop_all_queues(netdev);
-+
-+	clean_tx_pools(adapter);
- 	disable_sub_crqs(adapter);
- 
- 	if (adapter->napi) {
+
+> An application problem.  See my response on netdev; the timeout (which is=
+ provided by the kernel's capture mechanism, in most cases) is to make sure=
+ packets don't stay stuck in the kernel's packet buffer for an indefinite p=
+eriod of time, it's *not* to make sure a thread capturing packets doesn't s=
+tay blocked for an indefinite period of time.  Whether the timer goes off e=
+ven if no
+
+I cannot speak on behalf of user-space wrappers developed around
+tpacket_v3 but the intention(from the kernel POV) of the block_timer
+*is* to unblock the capture/user process/thread so that it does NOT
+stay blocked for an indefinite period of time. The header explicitly
+specifies that contract.
+
+I'm tied up for the next 3 weeks. However I can work on it after
+that(unless someone else has cycles for it now).
+
+Chetan
