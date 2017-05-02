@@ -1,67 +1,158 @@
-From: Mike Manning <mmanning@brocade.com>
-Subject: [PATCH] net: ipv6: Fix warning of freeing alive inet6 address
-Date: Tue, 2 May 2017 19:30:57 +0100
-Message-ID: <1493749857-18032-1-git-send-email-mmanning@brocade.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-To: <netdev@vger.kernel.org>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH net] bpf, arm64: fix jit branch offset related to ldimm64
+Date: Tue,  2 May 2017 20:34:54 +0200
+Message-ID: <5f7d105a1830ed789f1b416dc17b02fce0bd070e.1493749880.git.daniel@iogearbox.net>
+Cc: ast@fb.com, netdev@vger.kernel.org, xi.wang@gmail.com,
+        catalin.marinas@arm.com, zlim.lnx@gmail.com,
+        linux-arm-kernel@lists.infradead.org,
+        Daniel Borkmann <daniel@iogearbox.net>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:39346 "EHLO
-        mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1750896AbdEBSbN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 2 May 2017 14:31:13 -0400
-Received: from pps.filterd (m0000542.ppops.net [127.0.0.1])
-        by mx0a-000f0801.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v42ITm7u009651
-        for <netdev@vger.kernel.org>; Tue, 2 May 2017 11:31:12 -0700
-Received: from brmwp-exmb11.corp.brocade.com ([208.47.132.227])
-        by mx0a-000f0801.pphosted.com with ESMTP id 2a4t805jvy-1
-        (version=TLSv1.2 cipher=ECDHE-RSA-AES256-SHA384 bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Tue, 02 May 2017 11:31:12 -0700
+Received: from www62.your-server.de ([213.133.104.62]:37544 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750896AbdEBSfH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 2 May 2017 14:35:07 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-While this is not reproducible manually, Andrey's syzkaller program hit
-the warning "IPv6: Freeing alive inet6 address" with this part trace:
+When the instruction right before the branch destination is
+a 64 bit load immediate, we currently calculate the wrong
+jump offset in the ctx->offset[] array as we only account
+one instruction slot for the 64 bit load immediate although
+it uses two BPF instructions. Fix it up by setting the offset
+into the right slot after we incremented the index.
 
-inet6_ifa_finish_destroy+0x12e/0x190 c:894
-in6_ifa_put ./include/net/addrconf.h:330
-addrconf_dad_work+0x4e9/0x1040 net/ipv6/addrconf.c:3963
+Before (ldimm64 test 1):
 
-The fix is to call in6_ifa_put() for the inet6_ifaddr before rather
-than after calling addrconf_ifdown(), as the latter may remove it from
-the address hash table.
+  [...]
+  00000020:  52800007  mov w7, #0x0 // #0
+  00000024:  d2800060  mov x0, #0x3 // #3
+  00000028:  d2800041  mov x1, #0x2 // #2
+  0000002c:  eb01001f  cmp x0, x1
+  00000030:  54ffff82  b.cs 0x00000020
+  00000034:  d29fffe7  mov x7, #0xffff // #65535
+  00000038:  f2bfffe7  movk x7, #0xffff, lsl #16
+  0000003c:  f2dfffe7  movk x7, #0xffff, lsl #32
+  00000040:  f2ffffe7  movk x7, #0xffff, lsl #48
+  00000044:  d29dddc7  mov x7, #0xeeee // #61166
+  00000048:  f2bdddc7  movk x7, #0xeeee, lsl #16
+  0000004c:  f2ddddc7  movk x7, #0xeeee, lsl #32
+  00000050:  f2fdddc7  movk x7, #0xeeee, lsl #48
+  [...]
 
-Fixes: 85b51b12115c ("net: ipv6: Remove addresses for failures with strict DAD")
-Reported-by: Andrey Konovalov <andreyknvl@google.com>
-Signed-off-by: Mike Manning <mmanning@brocade.com>
+After (ldimm64 test 1):
+
+  [...]
+  00000020:  52800007  mov w7, #0x0 // #0
+  00000024:  d2800060  mov x0, #0x3 // #3
+  00000028:  d2800041  mov x1, #0x2 // #2
+  0000002c:  eb01001f  cmp x0, x1
+  00000030:  540000a2  b.cs 0x00000044
+  00000034:  d29fffe7  mov x7, #0xffff // #65535
+  00000038:  f2bfffe7  movk x7, #0xffff, lsl #16
+  0000003c:  f2dfffe7  movk x7, #0xffff, lsl #32
+  00000040:  f2ffffe7  movk x7, #0xffff, lsl #48
+  00000044:  d29dddc7  mov x7, #0xeeee // #61166
+  00000048:  f2bdddc7  movk x7, #0xeeee, lsl #16
+  0000004c:  f2ddddc7  movk x7, #0xeeee, lsl #32
+  00000050:  f2fdddc7  movk x7, #0xeeee, lsl #48
+  [...]
+
+Also, add a couple of test cases to make sure JITs pass
+this test. Tested on Cavium ThunderX ARMv8. The added
+test cases all pass after the fix.
+
+Fixes: 8eee539ddea0 ("arm64: bpf: fix out-of-bounds read in bpf2a64_offset()")
+Reported-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+Acked-by: Alexei Starovoitov <ast@kernel.org>
+Cc: Xi Wang <xi.wang@gmail.com>
 ---
- net/ipv6/addrconf.c | 6 +++++-
- 1 file changed, 5 insertions(+), 1 deletion(-)
+ ( Based against net-next where BPF related patches are usually
+   routed, if something else is preferred please let me know. )
 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 80ce478..361993a 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -3902,8 +3902,11 @@ static void addrconf_dad_work(struct work_struct *w)
- 	} else if (action == DAD_ABORT) {
- 		in6_ifa_hold(ifp);
- 		addrconf_dad_stop(ifp, 1);
--		if (disable_ipv6)
-+		if (disable_ipv6) {
-+			in6_ifa_put(ifp);
- 			addrconf_ifdown(idev->dev, 0);
-+			goto unlock;
-+		}
- 		goto out;
+ arch/arm64/net/bpf_jit_comp.c |  8 ++++----
+ lib/test_bpf.c                | 45 +++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 49 insertions(+), 4 deletions(-)
+
+diff --git a/arch/arm64/net/bpf_jit_comp.c b/arch/arm64/net/bpf_jit_comp.c
+index a785554..ce8ab04 100644
+--- a/arch/arm64/net/bpf_jit_comp.c
++++ b/arch/arm64/net/bpf_jit_comp.c
+@@ -779,14 +779,14 @@ static int build_body(struct jit_ctx *ctx)
+ 		int ret;
+ 
+ 		ret = build_insn(insn, ctx);
+-
+-		if (ctx->image == NULL)
+-			ctx->offset[i] = ctx->idx;
+-
+ 		if (ret > 0) {
+ 			i++;
++			if (ctx->image == NULL)
++				ctx->offset[i] = ctx->idx;
+ 			continue;
+ 		}
++		if (ctx->image == NULL)
++			ctx->offset[i] = ctx->idx;
+ 		if (ret)
+ 			return ret;
  	}
- 
-@@ -3950,6 +3953,7 @@ static void addrconf_dad_work(struct work_struct *w)
- 		      ifp->dad_nonce);
- out:
- 	in6_ifa_put(ifp);
-+unlock:
- 	rtnl_unlock();
- }
- 
+diff --git a/lib/test_bpf.c b/lib/test_bpf.c
+index 0362da0..2e38502 100644
+--- a/lib/test_bpf.c
++++ b/lib/test_bpf.c
+@@ -4656,6 +4656,51 @@ static int bpf_fill_ld_abs_vlan_push_pop(struct bpf_test *self)
+ 		{ },
+ 		{ { 0, 1 } },
+ 	},
++	{
++		/* Mainly testing JIT + imm64 here. */
++		"JMP_JGE_X: ldimm64 test 1",
++		.u.insns_int = {
++			BPF_ALU32_IMM(BPF_MOV, R0, 0),
++			BPF_LD_IMM64(R1, 3),
++			BPF_LD_IMM64(R2, 2),
++			BPF_JMP_REG(BPF_JGE, R1, R2, 2),
++			BPF_LD_IMM64(R0, 0xffffffffffffffffUL),
++			BPF_LD_IMM64(R0, 0xeeeeeeeeeeeeeeeeUL),
++			BPF_EXIT_INSN(),
++		},
++		INTERNAL,
++		{ },
++		{ { 0, 0xeeeeeeeeU } },
++	},
++	{
++		"JMP_JGE_X: ldimm64 test 2",
++		.u.insns_int = {
++			BPF_ALU32_IMM(BPF_MOV, R0, 0),
++			BPF_LD_IMM64(R1, 3),
++			BPF_LD_IMM64(R2, 2),
++			BPF_JMP_REG(BPF_JGE, R1, R2, 0),
++			BPF_LD_IMM64(R0, 0xffffffffffffffffUL),
++			BPF_EXIT_INSN(),
++		},
++		INTERNAL,
++		{ },
++		{ { 0, 0xffffffffU } },
++	},
++	{
++		"JMP_JGE_X: ldimm64 test 3",
++		.u.insns_int = {
++			BPF_ALU32_IMM(BPF_MOV, R0, 1),
++			BPF_LD_IMM64(R1, 3),
++			BPF_LD_IMM64(R2, 2),
++			BPF_JMP_REG(BPF_JGE, R1, R2, 4),
++			BPF_LD_IMM64(R0, 0xffffffffffffffffUL),
++			BPF_LD_IMM64(R0, 0xeeeeeeeeeeeeeeeeUL),
++			BPF_EXIT_INSN(),
++		},
++		INTERNAL,
++		{ },
++		{ { 0, 1 } },
++	},
+ 	/* BPF_JMP | BPF_JNE | BPF_X */
+ 	{
+ 		"JMP_JNE_X: if (3 != 2) return 1",
 -- 
-2.1.4
+1.9.3
