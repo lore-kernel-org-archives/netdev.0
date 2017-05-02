@@ -1,41 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next iproute2 1/3] netlink: import netlink message
- parsing from kernel
-Date: Tue, 02 May 2017 13:00:32 -0400 (EDT)
-Message-ID: <20170502.130032.1854491688518080191.davem@davemloft.net>
-References: <1493695105-9418-2-git-send-email-dsa@cumulusnetworks.com>
-        <20170502082531.43b32e05@xeon-e3>
-        <7fa44ec5-9a3a-55d1-b058-540d37ef01bd@cumulusnetworks.com>
+From: chetan loke <loke.chetan@gmail.com>
+Subject: Re: TPACKET_V3 timeout bug?
+Date: Tue, 2 May 2017 10:16:08 -0700
+Message-ID: <CAAsGZS4e6XuDxprJUo+ZBY5x0AiWWL4z9Gw7nwe-vcFcrADfzQ@mail.gmail.com>
+References: <20170415194042.GA5936@lunn.ch> <20170415224530.GA21010@oracle.com>
+ <20170416021050.GA16418@lunn.ch> <251BA382-D82C-4931-A98F-A23AD88F9811@alum.mit.edu>
+ <CAAsGZS5ir2Ha1swhdGCg7ibgYRORZykZcu089=oJ51NT4GKDuA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: stephen@networkplumber.org, netdev@vger.kernel.org,
-        jakub.kicinski@netronome.com
-To: dsa@cumulusnetworks.com
+Content-Type: text/plain; charset=UTF-8
+Cc: Andrew Lunn <andrew@lunn.ch>,
+        Sowmini Varadhan <sowmini.varadhan@oracle.com>,
+        netdev <netdev@vger.kernel.org>,
+        tcpdump-workers@lists.tcpdump.org
+To: Guy Harris <guy@alum.mit.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:51130 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751021AbdEBRAg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 2 May 2017 13:00:36 -0400
-In-Reply-To: <7fa44ec5-9a3a-55d1-b058-540d37ef01bd@cumulusnetworks.com>
+Received: from mail-vk0-f47.google.com ([209.85.213.47]:34695 "EHLO
+        mail-vk0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751239AbdEBRQK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 2 May 2017 13:16:10 -0400
+Received: by mail-vk0-f47.google.com with SMTP id s85so13805122vka.1
+        for <netdev@vger.kernel.org>; Tue, 02 May 2017 10:16:09 -0700 (PDT)
+In-Reply-To: <CAAsGZS5ir2Ha1swhdGCg7ibgYRORZykZcu089=oJ51NT4GKDuA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Ahern <dsa@cumulusnetworks.com>
-Date: Tue, 2 May 2017 10:51:23 -0600
+On Tue, May 2, 2017 at 8:04 AM, chetan loke <loke.chetan@gmail.com> wrote:
+> On Sat, Apr 15, 2017 at 7:41 PM, Guy Harris <guy@alum.mit.edu> wrote:
+>> On Apr 15, 2017, at 7:10 PM, Andrew Lunn <andrew@lunn.ch> wrote:
+>>
+>>> Do you think this is a kernel problem, libpcap problem, or an
+>>> application problem?
+>>
+>
+> Its clearly a kernel regression.
+>
 
-> On 5/2/17 9:25 AM, Stephen Hemminger wrote:
->> Please either use existing netlink attribute code in libnetlink.h
->> (rta_getattr_u32 etc) or use libmnl like devlink.
-> 
-> All of the existing rta_ functions take a struct rta_attr; netlink
-> messages use struct nlattr. It's just wrong to use rta functions for
-> netlink messages.
+Commit that caused it:
 
-Agreed.
+https://github.com/torvalds/linux/commit/41a50d621a321b4c15273cc1b5ed41437f4acdfb
 
-> There is no existing parse function for nlattr. There is no existing
-> validate function - for nlattr or rta_attr. So I do not see any overlap
-> with existing code.
+Reverting that change is what we need.
 
-Also agreed.
+When monitoring aggregated links (example: request going out on one
+link and response coming in on another) you have to know when to start
+mining packets for time-interval[s] to report anomalies etc. And the
+block-retirement was designed such that the kernel would fill those
+values for the app in the ts_first[/last]_pkt.
+
+We have already amortized the cost by doing a bulk wakeup. And if
+user-space holds on to the block even when it is empty (instead of
+just using/copying the start/end time interval and releasing the
+block) then its a bug in your app.
+
+And if user-space is lagging behind then you will always run out of
+buffer space. So I don't buy the entire commit argument of the patch.
