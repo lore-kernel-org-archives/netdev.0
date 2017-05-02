@@ -1,69 +1,39 @@
-From: Alexei Starovoitov <ast@fb.com>
-Subject: Re: [PATCH v3 binutils] Add BPF support to binutils...
-Date: Mon, 1 May 2017 20:14:57 -0700
-Message-ID: <1004b0e6-eecf-75bd-d215-aac903ba8da6@fb.com>
-References: <76ed19a7-add3-0642-4298-9402c7ff0be8@fb.com>
- <20170430.142104.1845572453793505873.davem@davemloft.net>
- <b96ef138-9862-5091-9041-76516f852e48@fb.com>
- <20170501.230323.816591707269395321.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <daniel@iogearbox.net>, <aconole@bytheb.org>,
-        <netdev@vger.kernel.org>, <xdp-newbies@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: [PATCH net-next iproute2 0/3] ip: Initial support for extack errors
+Date: Mon,  1 May 2017 20:18:22 -0700
+Message-ID: <1493695105-9418-1-git-send-email-dsa@cumulusnetworks.com>
+Cc: jakub.kicinski@netronome.com, David Ahern <dsa@cumulusnetworks.com>
+To: netdev@vger.kernel.org, stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:56029 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1750902AbdEBDPZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 1 May 2017 23:15:25 -0400
-In-Reply-To: <20170501.230323.816591707269395321.davem@davemloft.net>
+Received: from mail-pf0-f182.google.com ([209.85.192.182]:35099 "EHLO
+        mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750921AbdEBDSa (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 1 May 2017 23:18:30 -0400
+Received: by mail-pf0-f182.google.com with SMTP id v14so82507184pfd.2
+        for <netdev@vger.kernel.org>; Mon, 01 May 2017 20:18:29 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 5/1/17 8:03 PM, David Miller wrote:
-> From: Alexei Starovoitov <ast@fb.com>
-> Date: Mon, 1 May 2017 19:49:21 -0700
->
->> On 4/30/17 11:21 AM, David Miller wrote:
->>> built with:
->>>
->>> 	clang -O2 -target bpfel -g -c x.c -o x.o
->>>
->>> readelf can see it just fine:
->>>
->>> [davem@localhost binutils]$ ./readelf --debug-dump=loc ./xel.o
->>> Contents of the .debug_loc section:
->>>
->>>     Offset   Begin            End              Expression
->>>     00000000 0000000000000000 0000000000000010 (DW_OP_reg1 (r1))
->>>     00000013 <End of list>
->>>     00000023 0000000000000010 0000000000000020 (DW_OP_constu:
->>>     590618314553; DW_OP_stack_value)
->>>     0000003d 0000000000000020 0000000000000030 (DW_OP_reg1 (r1))
->>>     00000050 <End of list>
->>>
->>> But with big-endian:
->>>
->>> [davem@localhost binutils]$ ./readelf --debug-dump=loc ./xeb.o
->>> readelf: Warning: Invalid pointer size (0) in compunit header, using 4
->>> instead
->>> readelf: Warning: Bogus end-of-siblings marker detected at offset 27
->>> in .debug_info section
->>> readelf: Warning: Bogus end-of-siblings marker detected at offset 28
->>> in .debug_info section
->>> readelf: Warning: DIE at offset 0x29 refers to abbreviation number 48
->>> which does not exist
->>> readelf: Warning: Unable to load/parse the .debug_info section, so
->>> cannot interpret the .debug_loc section.
->>
->> yeah. clang emitted dwarf for big-endian is broken.
->> This dwarf stuff is too complicated for normal human beings.
->> The tight packing making debugging it quite painful.
->
-> But doesn't the CLANG DWARF2 emission code look at the target
-> endianness?
+Introduce a new function, rtnl_ack_extack, to allow commands to flip
+to the new error reporting over time.
 
-it certainly does and on bpf backend side I'm not doing
-anything special comparing to what other bi-endian architectures
-like ppc and mips are doing. Obviously I missed something.
+Convert iplink_modify to use the new function to display error strings
+returned from ip link set commands.
+
+David Ahern (3):
+  netlink: import netlink message parsing from kernel
+  netlink: Add support for extended ack to rtnl_talk
+  ip link: Add extack handling for setlink
+
+ include/libnetlink.h |  14 +++++
+ include/nlattr.h     | 162 +++++++++++++++++++++++++++++++++++++++++++++++++++
+ ip/iplink.c          |  18 +++++-
+ lib/Makefile         |   2 +-
+ lib/libnetlink.c     |  96 ++++++++++++++++++++++++++----
+ lib/nlattr.c         | 145 +++++++++++++++++++++++++++++++++++++++++++++
+ 6 files changed, 423 insertions(+), 14 deletions(-)
+ create mode 100644 include/nlattr.h
+ create mode 100644 lib/nlattr.c
+
+-- 
+2.1.4
