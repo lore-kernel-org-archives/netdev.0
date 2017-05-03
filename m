@@ -1,143 +1,103 @@
-From: Andrey Konovalov <andreyknvl@google.com>
-Subject: Re: [PATCH net] net: ipv6: Do not duplicate DAD on link up
-Date: Wed, 3 May 2017 15:09:49 +0200
-Message-ID: <CAAeHK+wKbZb7SOOA5qRgUOS02CYnMg-nx68N5JYt6fy0n4eK5g@mail.gmail.com>
-References: <1493761424-17407-1-git-send-email-dsahern@gmail.com>
+From: "Gao Feng" <gfree.wind@foxmail.com>
+Subject: RE: [PATCH net v3] driver: veth: Fix one possbile memleak when fail to register_netdevice
+Date: Wed, 3 May 2017 21:17:14 +0800
+Message-ID: <002101d2c40f$958a7b80$c09f7280$@foxmail.com>
+References: <1493437911-27167-1-git-send-email-gfree.wind@foxmail.com> <CADvbK_cEHXTSXx5Qa17TfeUXnYiBq8ptR+=5e-fbzPF0r4DNhQ@mail.gmail.com> <000601d2c333$abb526d0$031f7470$@vip.163.com> <CADvbK_cVS=M3tuz0QQT18D32UzLkdL0RMHuFxqcBgtfq_w7+9Q@mail.gmail.com> <000c01d2c3b2$0925e880$1b71b980$@foxmail.com> <CADvbK_c32g2t-Azgf10da8qke5B+wgG4dw3jLTE2L+R2qR3xPA@mail.gmail.com> <006101d2c3d7$bf814230$3e83c690$@foxmail.com> <CADvbK_dqU7wDQoU2nHBwPkQjzSuiVGXStYBD9iZSvz=j8SGt-w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>, Dmitry Vyukov <dvyukov@google.com>
-To: David Ahern <dsahern@gmail.com>
+Content-Type: text/plain;
+        charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+Cc: "'Gao Feng'" <gfree.wind@vip.163.com>,
+        "'davem'" <davem@davemloft.net>, <jarod@redhat.com>,
+        "'Stephen Hemminger'" <stephen@networkplumber.org>,
+        <dsa@cumulusnetworks.com>, "'network dev'" <netdev@vger.kernel.org>
+To: "'Xin Long'" <lucien.xin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f45.google.com ([74.125.82.45]:35727 "EHLO
-        mail-wm0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751991AbdECNJw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 3 May 2017 09:09:52 -0400
-Received: by mail-wm0-f45.google.com with SMTP id w64so146386232wma.0
-        for <netdev@vger.kernel.org>; Wed, 03 May 2017 06:09:51 -0700 (PDT)
-In-Reply-To: <1493761424-17407-1-git-send-email-dsahern@gmail.com>
+Received: from smtpbg303.qq.com ([184.105.206.26]:35595 "EHLO smtpbg303.qq.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751176AbdECNRe (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 3 May 2017 09:17:34 -0400
+In-Reply-To: <CADvbK_dqU7wDQoU2nHBwPkQjzSuiVGXStYBD9iZSvz=j8SGt-w@mail.gmail.com>
+Content-Language: zh-cn
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 2, 2017 at 11:43 PM, David Ahern <dsahern@gmail.com> wrote:
-> Andrey reported a warning triggered by the rcu code:
->
-> ------------[ cut here ]------------
-> WARNING: CPU: 1 PID: 5911 at lib/debugobjects.c:289
-> debug_print_object+0x175/0x210
-> ODEBUG: activate active (active state 1) object type: rcu_head hint:
->         (null)
-> Modules linked in:
-> CPU: 1 PID: 5911 Comm: a.out Not tainted 4.11.0-rc8+ #271
-> Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
-> Call Trace:
->  __dump_stack lib/dump_stack.c:16
->  dump_stack+0x192/0x22d lib/dump_stack.c:52
->  __warn+0x19f/0x1e0 kernel/panic.c:549
->  warn_slowpath_fmt+0xe0/0x120 kernel/panic.c:564
->  debug_print_object+0x175/0x210 lib/debugobjects.c:286
->  debug_object_activate+0x574/0x7e0 lib/debugobjects.c:442
->  debug_rcu_head_queue kernel/rcu/rcu.h:75
->  __call_rcu.constprop.76+0xff/0x9c0 kernel/rcu/tree.c:3229
->  call_rcu_sched+0x12/0x20 kernel/rcu/tree.c:3288
->  rt6_rcu_free net/ipv6/ip6_fib.c:158
->  rt6_release+0x1ea/0x290 net/ipv6/ip6_fib.c:188
->  fib6_del_route net/ipv6/ip6_fib.c:1461
->  fib6_del+0xa42/0xdc0 net/ipv6/ip6_fib.c:1500
->  __ip6_del_rt+0x100/0x160 net/ipv6/route.c:2174
->  ip6_del_rt+0x140/0x1b0 net/ipv6/route.c:2187
->  __ipv6_ifa_notify+0x269/0x780 net/ipv6/addrconf.c:5520
->  addrconf_ifdown+0xe60/0x1a20 net/ipv6/addrconf.c:3672
-> ...
->
-> Andrey's reproducer program runs in a very tight loop, calling
-> 'unshare -n' and then spawning 2 sets of 14 threads running random ioctl
-> calls. The relevant networking sequence:
->
-> 1. New network namespace created via unshare -n
-> - ip6tnl0 device is created in down state
->
-> 2. address added to ip6tnl0
-> - equivalent to ip -6 addr add dev ip6tnl0 fd00::bb/1
-> - DAD is started on the address and when it completes the host
->   route is inserted into the FIB
->
-> 3. ip6tnl0 is brought up
-> - the new fixup_permanent_addr function restarts DAD on the address
->
-> 4. exit namespace
-> - teardown / cleanup sequence starts
-> - once in a blue moon, lo teardown appears to happen BEFORE teardown
->   of ip6tunl0
->   + down on 'lo' removes the host route from the FIB since the dst->dev
->     for the route is loobback
->   + host route added to rcu callback list
->     * rcu callback has not run yet, so rt is NOT on the gc list so it has
->       NOT been marked obsolete
->
-> 5. in parallel to 4. worker_thread runs addrconf_dad_completed
-> - DAD on the address on ip6tnl0 completes
-> - calls ipv6_ifa_notify which inserts the host route
->
-> All of that happens very quickly. The result is that a host route that
-> has been deleted from the IPv6 FIB and added to the RCU list is re-inserted
-> into the FIB.
->
-> The exit namespace eventually gets to cleaning up ip6tnl0 which removes the
-> host route from the FIB again, calls the rcu function for cleanup -- and
-> triggers the double rcu trace.
->
-> The root cause is duplicate DAD on the address -- steps 2 and 3. Arguably,
-> DAD should not be started in step 2. The interface is in the down state,
-> so it can not really send out requests for the address which makes starting
-> DAD pointless.
->
-> Since the second DAD was introduced by a recent change, seems appropriate
-> to use it for the Fixes tag and have the fixup function only start DAD for
-> addresses in the PREDAD state which occurs in addrconf_ifdown if the
-> address is retained.
+> From: Xin Long [mailto:lucien.xin@gmail.com]
+> Sent: Wednesday, May 3, 2017 7:26 PM
+> On Wed, May 3, 2017 at 2:37 PM, Gao Feng <gfree.wind@foxmail.com> =
+wrote:
+> >> From: Xin Long [mailto:lucien.xin@gmail.com]
+> >> Sent: Wednesday, May 3, 2017 1:38 PM
+> >> On Wed, May 3, 2017 at 10:07 AM, Gao Feng <gfree.wind@foxmail.com>
+> >> wrote:
+> >> >> From: netdev-owner@vger.kernel.org
+> >> >> [mailto:netdev-owner@vger.kernel.org]
+> >> >> On Behalf Of Xin Long
+> >> >> Sent: Wednesday, May 3, 2017 12:59 AM On Tue, May 2, 2017 at =
+7:03
+> >> >> PM, Gao Feng <gfree.wind@vip.163.com> wrote:
+> >> >> >> From: Xin Long [mailto:lucien.xin@gmail.com]
+> >> >> >> Sent: Tuesday, May 2, 2017 3:56 PM On Sat, Apr 29, 2017 at
+> >> >> >> 11:51 AM,  <gfree.wind@foxmail.com> wrote:
+> >> >> >> > From: Gao Feng <gfree.wind@foxmail.com>
+> > [...]
+> >> > The fix you mentioned change the original logic.
+> >> > The dev->vstats is freed in advance in the ndo_uninit, not =
+destructor.
+> >> > It may break the backward.
+> >> Sorry, I didn't get your "backward"
+> >> I can't see there will be any problem caused by it.
+> >> can you say this patch also break the 'backward' ?
+> >> https://patchwork.ozlabs.org/patch/748964/
+> >>
+> >> It's really weird to do dev->reg_state check in ndo_unint ndo_unint
+> >> is supposed to free the memory alloced in ndo_init.
+> >>
+> >
+> > I am not sure if it would break the backward, so I said it MAY =
+break.
+> > I assumed there may be someone would access the dev->vstats after
+> > ndo_uninit, because current veth driver free the mem in the =
+destructor.
+> > I selected this approach because I don't want to bring new bugs =
+during fix
+> bug.
+> >
+> > If you're sure it is safe to free dev->vstats in ndo_uninit, I would =
+like to
+> update it.
+> yes, stats are accessed in .ndo_start_xmit waited by synchronize_net() =
+and
+> .ndo_get_stats64 protected by rtnl_lock().
 
-Hi David,
+Thanks, I would update the series later with your advice.
+I need to wait for a while to collect more comments.
+=20
+> >
+> > BTW there are too many drivers which have possible memleak.
+> > You could find the list by
+> https://www.mail-archive.com/netdev@vger.kernel.org/msg166629.html.
+> ah, cool.
+> I'm not sure about other dev's stuff, have to check them for sure =
+later.
 
-Your patch fixes the issue for me.
+Expect and thanks your reviews:)
 
-I'll keep testing to see if all the reports related to fib6 are gone.
+Best Regards
+Feng
 
-Tested-by: Andrey Konovalov <andreyknvl@google.com>
-
-Thanks!
-
->
-> Big thanks to Andrey for isolating a reliable reproducer for this problem.
-> Fixes: f1705ec197e7 ("net: ipv6: Make address flushing on ifdown optional")
-> Reported-by: Andrey Konovalov <andreyknvl@google.com>
-> Signed-off-by: David Ahern <dsahern@gmail.com>
-> ---
->  net/ipv6/addrconf.c | 5 +++--
->  1 file changed, 3 insertions(+), 2 deletions(-)
->
-> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-> index 67ec87ea5fb6..4fc4e8634e65 100644
-> --- a/net/ipv6/addrconf.c
-> +++ b/net/ipv6/addrconf.c
-> @@ -3306,7 +3306,8 @@ static int fixup_permanent_addr(struct inet6_dev *idev,
->                                       idev->dev, 0, 0);
->         }
->
-> -       addrconf_dad_start(ifp);
-> +       if (ifp->state == INET6_IFADDR_STATE_PREDAD)
-> +               addrconf_dad_start(ifp);
->
->         return 0;
->  }
-> @@ -3656,7 +3657,7 @@ static int addrconf_ifdown(struct net_device *dev, int how)
->                     !addr_is_local(&ifa->addr)) {
->                         /* set state to skip the notifier below */
->                         state = INET6_IFADDR_STATE_DEAD;
-> -                       ifa->state = 0;
-> +                       ifa->state = INET6_IFADDR_STATE_PREDAD;
->                         if (!(ifa->flags & IFA_F_NODAD))
->                                 ifa->flags |= IFA_F_TENTATIVE;
->
-> --
-> 2.1.4
->
+>=20
+> >
+> > Some drivers allocate the resources in ndo_init, free some in =
+ndo_uninit and
+> free left in destructor.
+> > I think there are some reasons.
+> > We could not move all free in the ndo_uninit from destructor. What's =
+your
+> opinion?
+> >
+> > Best Regards
+> > Feng
+> >
+> >
+> >
