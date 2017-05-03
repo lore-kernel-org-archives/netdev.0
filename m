@@ -1,56 +1,38 @@
-From: Donatas Abraitis <donatas.abraitis@gmail.com>
-Subject: Re: [PATCH net-next v2] net: ipv6: make sure multicast packets are
- not forwarded beyond the different scopes
-Date: Wed, 3 May 2017 10:53:56 +0300
-Message-ID: <CAPF+HwWJz7kkjzW2g5pzTCnBebeOWh22mqPi8enH6Dcmt6PGKQ@mail.gmail.com>
-References: <20170427071202.84403-1-donatas.abraitis@gmail.com> <20170502.145923.66844914584656456.davem@davemloft.net>
+From: Arend van Spriel <arend.vanspriel-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH] brcmfmac: btcoex: replace init_timer with setup_timer
+Date: Wed, 3 May 2017 10:05:52 +0200
+Message-ID: <2f49e699-b9f7-b55f-0afc-7ac03631de28@broadcom.com>
+References: <20170503073555.3922-1-cheerx1994@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, stable@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f195.google.com ([209.85.223.195]:35702 "EHLO
-        mail-io0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751621AbdECHx5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 3 May 2017 03:53:57 -0400
-In-Reply-To: <20170502.145923.66844914584656456.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        brcm80211-dev-list.pdl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Piotr Haber <phaber-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+To: Xie Qirong <cheerx1994-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Franky Lin <franky.lin-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+        Hante Meuleman <hante.meuleman-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+        Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170503073555.3922-1-cheerx1994-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Content-Language: en-GB
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Looks like there is this test already:
+On 5/3/2017 9:35 AM, Xie Qirong wrote:
+> Signed-off-by: Xie Qirong <cheerx1994-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> ---
+> 
+>   setup_timer.cocci suggested the following improvement:
+>   drivers/net/wireless/broadcom/brcm80211/brcmfmac/btcoex.c:383:1-11: Use
+>   setup_timer function for function on line 384.
 
-                if (IPV6_ADDR_MC_SCOPE(&ipv6_hdr(skb)->daddr) <=
-                    IPV6_ADDR_SCOPE_NODELOCAL &&
-                    !(dev->flags & IFF_LOOPBACK)) {
-                        kfree_skb(skb);
-                        return 0;
-                }
+Move the text above before your sign-off so it will end up in the git 
+commit message.
 
-On Tue, May 2, 2017 at 9:59 PM, David Miller <davem@davemloft.net> wrote:
-> From: Donatas Abraitis <donatas.abraitis@gmail.com>
-> Date: Thu, 27 Apr 2017 10:12:02 +0300
->
->>           RFC4291 2.7 Routers must not forward any multicast packets
->>           beyond of the scope indicated by the scop field in the
->>           destination multicast address.
->>
->> Signed-off-by: Donatas Abraitis <donatas.abraitis@gmail.com>
->
-> I think it's a ">=" test which is needed here, not pure equality.
-> Scopes are subsets of other scopes and are therefore allowed within
-> eachother.
->
-> Did you actually see misbehavior due to this issue, or see a real
-> bonafide conformance test fail?
->
-> If you're just reading the RFC and sticking tests here and there based
-> upon what you read, without any testing or real life verification of
-> the issue, this is _strongly_ discouraged.
->
-> It would even be ok if you merely showed how another open source
-> networking stack makes this test.
+When done you may also add my acknowledgement, ie.:
 
+Acked-by: Arend van Spriel <arend.vanspriel-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
 
-
--- 
-Donatas
+Regards,
+Arend
