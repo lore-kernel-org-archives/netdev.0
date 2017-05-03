@@ -1,127 +1,76 @@
-From: Alexander Potapenko <glider@google.com>
-Subject: [PATCH] ipv4, ipv6: ensure raw socket message is big enough to hold an IP header
-Date: Wed,  3 May 2017 17:06:58 +0200
-Message-ID: <20170503150658.44421-1-glider@google.com>
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: dvyukov@google.com, kcc@google.com, edumazet@google.com,
-        davem@davemloft.net, kuznet@ms2.inr.ac.ru
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f46.google.com ([74.125.82.46]:38604 "EHLO
-        mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751851AbdECPHE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 3 May 2017 11:07:04 -0400
-Received: by mail-wm0-f46.google.com with SMTP id r190so62046763wme.1
-        for <netdev@vger.kernel.org>; Wed, 03 May 2017 08:07:03 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Subject: Re: [PATCH] net: ethernet: stmmac: properly set PS bit in MII
+ configurations during reset
+Date: Wed, 3 May 2017 17:11:51 +0200
+Message-ID: <20170503171151.154c0dc0@free-electrons.com>
+References: <1493286329-24448-1-git-send-email-thomas.petazzoni@free-electrons.com>
+        <deea272a-f0a9-ad0b-4ad6-387723938314@st.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Alexandre Torgue <alexandre.torgue@st.com>,
+        <netdev@vger.kernel.org>, <stable@vger.kernel.org>
+To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <deea272a-f0a9-ad0b-4ad6-387723938314@st.com>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-raw_send_hdrinc() and rawv6_send_hdrinc() expect that the buffer copied
-from the userspace contains the IPv4/IPv6 header, so if too few bytes are
-copied, parts of the header may remain uninitialized.
+Hello Giuseppe,
 
-This bug has been detected with KMSAN.
+On Wed, 3 May 2017 10:13:56 +0200, Giuseppe CAVALLARO wrote:
 
-Signed-off-by: Alexander Potapenko <glider@google.com>
----
-The previous version of this patch was called "ipv6: ensure message length
-for raw socket is at least sizeof(ipv6hdr)"
+> this was initially set by using the hw->link.port; both the core_init 
+> and adjust callback
+> should invoke the hook and tuning the PS bit according to the speed and 
+> mode.
 
-For the record, the KMSAN report:
+But this doesn't work: core_init and adjust callbacks are called too
+late / not at the appropriate time.
 
-==================================================================
-BUG: KMSAN: use of unitialized memory in nf_ct_frag6_gather+0xf5a/0x44a0
-inter: 0
-CPU: 0 PID: 1036 Comm: probe Not tainted 4.11.0-rc5+ #2455
-Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
-Call Trace:
- __dump_stack lib/dump_stack.c:16
- dump_stack+0x143/0x1b0 lib/dump_stack.c:52
- kmsan_report+0x16b/0x1e0 mm/kmsan/kmsan.c:1078
- __kmsan_warning_32+0x5c/0xa0 mm/kmsan/kmsan_instr.c:510
- nf_ct_frag6_gather+0xf5a/0x44a0 net/ipv6/netfilter/nf_conntrack_reasm.c:577
- ipv6_defrag+0x1d9/0x280 net/ipv6/netfilter/nf_defrag_ipv6_hooks.c:68
- nf_hook_entry_hookfn ./include/linux/netfilter.h:102
- nf_hook_slow+0x13f/0x3c0 net/netfilter/core.c:310
- nf_hook ./include/linux/netfilter.h:212
- NF_HOOK ./include/linux/netfilter.h:255
- rawv6_send_hdrinc net/ipv6/raw.c:673
- rawv6_sendmsg+0x2fcb/0x41a0 net/ipv6/raw.c:919
- inet_sendmsg+0x3f8/0x6d0 net/ipv4/af_inet.c:762
- sock_sendmsg_nosec net/socket.c:633
- sock_sendmsg net/socket.c:643
- SYSC_sendto+0x6a5/0x7c0 net/socket.c:1696
- SyS_sendto+0xbc/0xe0 net/socket.c:1664
- do_syscall_64+0x72/0xa0 arch/x86/entry/common.c:285
- entry_SYSCALL64_slow_path+0x25/0x25 arch/x86/entry/entry_64.S:246
-RIP: 0033:0x436e03
-RSP: 002b:00007ffce48baf38 EFLAGS: 00000246 ORIG_RAX: 000000000000002c
-RAX: ffffffffffffffda RBX: 00000000004002b0 RCX: 0000000000436e03
-RDX: 0000000000000000 RSI: 0000000000000000 RDI: 0000000000000003
-RBP: 00007ffce48baf90 R08: 00007ffce48baf50 R09: 000000000000001c
-R10: 0000000000000000 R11: 0000000000000246 R12: 0000000000000000
-R13: 0000000000401790 R14: 0000000000401820 R15: 0000000000000000
-origin: 00000000d9400053
- save_stack_trace+0x16/0x20 arch/x86/kernel/stacktrace.c:59
- kmsan_save_stack_with_flags mm/kmsan/kmsan.c:362
- kmsan_internal_poison_shadow+0xb1/0x1a0 mm/kmsan/kmsan.c:257
- kmsan_poison_shadow+0x6d/0xc0 mm/kmsan/kmsan.c:270
- slab_alloc_node mm/slub.c:2735
- __kmalloc_node_track_caller+0x1f4/0x390 mm/slub.c:4341
- __kmalloc_reserve net/core/skbuff.c:138
- __alloc_skb+0x2cd/0x740 net/core/skbuff.c:231
- alloc_skb ./include/linux/skbuff.h:933
- alloc_skb_with_frags+0x209/0xbc0 net/core/skbuff.c:4678
- sock_alloc_send_pskb+0x9ff/0xe00 net/core/sock.c:1903
- sock_alloc_send_skb+0xe4/0x100 net/core/sock.c:1920
- rawv6_send_hdrinc net/ipv6/raw.c:638
- rawv6_sendmsg+0x2918/0x41a0 net/ipv6/raw.c:919
- inet_sendmsg+0x3f8/0x6d0 net/ipv4/af_inet.c:762
- sock_sendmsg_nosec net/socket.c:633
- sock_sendmsg net/socket.c:643
- SYSC_sendto+0x6a5/0x7c0 net/socket.c:1696
- SyS_sendto+0xbc/0xe0 net/socket.c:1664
- do_syscall_64+0x72/0xa0 arch/x86/entry/common.c:285
- return_from_SYSCALL_64+0x0/0x6a arch/x86/entry/entry_64.S:246
-==================================================================
+Here, I need the PS to be set after asserting the DMA reset bit but
+*before* polling for the DMA reset bit to clear.
 
-, triggered by the following syscalls:
-  socket(PF_INET6, SOCK_RAW, IPPROTO_RAW) = 3
-  sendto(3, NULL, 0, 0, {sa_family=AF_INET6, sin6_port=htons(0), inet_pton(AF_INET6, "ff00::", &sin6_addr), sin6_flowinfo=0, sin6_scope_id=0}, 28) = -1 EPERM
+I.e, I need:
 
-A similar report is triggered in net/ipv4/raw.c if we use a PF_INET socket
-instead of a PF_INET6 one.
----
+int dwmac_dma_reset(void __iomem *ioaddr, struct mac_device_info *hw,
+                    phy_interface_t interface)
+{
+        u32 value = readl(ioaddr + DMA_BUS_MODE);
+        int limit;
 
- net/ipv4/raw.c | 3 +++
- net/ipv6/raw.c | 2 ++
- 2 files changed, 5 insertions(+)
+        /* DMA SW reset */
+        value |= DMA_BUS_MODE_SFT_RESET;
+        writel(value, ioaddr + DMA_BUS_MODE);
 
-diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
-index 9d943974de2b..bdffad875691 100644
---- a/net/ipv4/raw.c
-+++ b/net/ipv4/raw.c
-@@ -358,6 +358,9 @@ static int raw_send_hdrinc(struct sock *sk, struct flowi4 *fl4,
- 			       rt->dst.dev->mtu);
- 		return -EMSGSIZE;
- 	}
-+	if (length < sizeof(struct iphdr))
-+		return -EINVAL;
-+
- 	if (flags&MSG_PROBE)
- 		goto out;
- 
-diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
-index f174e76e6505..805464668bd8 100644
---- a/net/ipv6/raw.c
-+++ b/net/ipv6/raw.c
-@@ -632,6 +632,8 @@ static int rawv6_send_hdrinc(struct sock *sk, struct msghdr *msg, int length,
- 		ipv6_local_error(sk, EMSGSIZE, fl6, rt->dst.dev->mtu);
- 		return -EMSGSIZE;
- 	}
-+	if (length < sizeof(struct ipv6hdr))
-+		return -EINVAL;
- 	if (flags&MSG_PROBE)
- 		goto out;
- 
+        /* ===> PS must be set here when the PHY interface is MII */
+
+        limit = 10;
+        while (limit--) {
+                if (!(readl(ioaddr + DMA_BUS_MODE) & DMA_BUS_MODE_SFT_RESET))
+                        break;
+                mdelay(10);
+        }
+
+        if (limit < 0)
+                return -EBUSY;
+
+        return 0;
+}
+
+Setting PS *before* asserting the DMA reset bit doesn't work, because
+asserting the DMA reset bit clears all bits in all registers.
+
+Setting PS *after* waiting for the DMA reset bit to clear doesn't work,
+because this bit never clears if the PS configuration is not correct
+with the regard to the PHY being used (which was my original problem).
+
+Am I missing something here?
+
+Best regards,
+
+Thomas Petazzoni
 -- 
-2.13.0.rc1.294.g07d810a77f-goog
+Thomas Petazzoni, CTO, Free Electrons
+Embedded Linux and Kernel engineering
+http://free-electrons.com
