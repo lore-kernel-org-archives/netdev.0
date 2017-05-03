@@ -1,60 +1,48 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Miss it//Re: [PATCH v3] iov_iter: don't revert iov buffer if csum
- error
-Date: Wed, 3 May 2017 15:15:51 +0800
-Message-ID: <33b65653-6b83-6db2-4393-b306caae7d92@huawei.com>
-References: <12d4d81f-40c7-c83d-11d6-290acc084695@huawei.com>
+From: Sunil Kovvuri <sunil.kovvuri@gmail.com>
+Subject: Re: [PATCH 0/9] net: thunderx: Adds XDP support
+Date: Wed, 3 May 2017 12:58:25 +0530
+Message-ID: <CA+sq2CfW89EbiZmp6byc3y3cbATmmyVB=avzrUXG51-x3yxckg@mail.gmail.com>
+References: <1493730418-24606-1-git-send-email-sunil.kovvuri@gmail.com> <20170502.154744.1762061314370744901.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-To: David Miller <davem@davemloft.net>, <pabeni@redhat.com>,
-        <edumazet@google.com>, <hannes@stressinduktion.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        LinuxArm <linuxarm@huawei.com>,
-        "weiyongjun (A)" <weiyongjun1@huawei.com>,
-        Al Viro <viro@ZenIV.linux.org.uk>
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        LAKML <linux-arm-kernel@lists.infradead.org>,
+        Sunil Goutham <sgoutham@cavium.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([45.249.212.188]:5853 "EHLO
-        szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751014AbdECHVX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 3 May 2017 03:21:23 -0400
-In-Reply-To: <12d4d81f-40c7-c83d-11d6-290acc084695@huawei.com>
+Received: from mail-wr0-f193.google.com ([209.85.128.193]:33717 "EHLO
+        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751042AbdECH21 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 3 May 2017 03:28:27 -0400
+In-Reply-To: <20170502.154744.1762061314370744901.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Miss it, it is already in the kernel tree, sorry for the noisy.
+On Wed, May 3, 2017 at 1:17 AM, David Miller <davem@davemloft.net> wrote:
+> From: sunil.kovvuri@gmail.com
+> Date: Tue,  2 May 2017 18:36:49 +0530
+>
+>> From: Sunil Goutham <sgoutham@cavium.com>
+>>
+>> This patch series adds support for XDP to ThunderX NIC driver
+>> which is used on CN88xx, CN81xx and CN83xx platforms.
+>>
+>> Patches 1-4 are performance improvement and cleanup patches
+>> which are done keeping XDP performance bottlenecks in view.
+>> Rest of the patches adds actual XDP support.
+>
+> Series applied, thanks for doing this work.
 
-On 2017/5/3 15:02, Ding Tianhong wrote:
-> The patch 327868212381 (make skb_copy_datagram_msg() et.al. preserve
-> ->msg_iter on error) will revert the iov buffer if copy to iter
-> failed, but it didn't copy any datagram if the skb_checksum_complete
-> error, so no need to revert any data at this place.
-> 
-> v2: Sabrina notice that return -EFAULT when checksum error is not correct
->     here, it would confuse the caller about the return value, so fix it.
-> 
-> v3: According AI's suggestion, directly return -EINVAL when __skb_checksum_complete()
->     return error is a more simple solution.
-> 
-> Fixes: 327868212381 ("make skb_copy_datagram_msg() et.al. preserve->msg_iter on error")
-> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
-> Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
-> ---
->  net/core/datagram.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/net/core/datagram.c b/net/core/datagram.c
-> index 0306543..726bf8a 100644
-> --- a/net/core/datagram.c
-> +++ b/net/core/datagram.c
-> @@ -719,7 +719,7 @@ int skb_copy_and_csum_datagram_msg(struct sk_buff *skb,
-> 
->  	if (msg_data_left(msg) < chunk) {
->  		if (__skb_checksum_complete(skb))
-> -			goto csum_error;
-> +			return -EINVAL;
->  		if (skb_copy_datagram_msg(skb, hlen, msg, chunk))
->  			goto fault;
->  	} else {
-> 
+Thanks.
+
+>
+> Do you have any performance numbers?
+
+Below are the forwarding numbers on a single core.
+with network stack: 0.32 Mpps
+with XDP (XDP_TX): 3 Mpps
+and XDP_DROP: 3.8 Mpps
+
+Thanks,
+Sunil.
