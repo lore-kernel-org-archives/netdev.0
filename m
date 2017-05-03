@@ -1,52 +1,51 @@
-From: Guy Harris <guy@alum.mit.edu>
-Subject: Re: TPACKET_V3 timeout bug?
-Date: Tue, 2 May 2017 20:15:38 -0700
-Message-ID: <52D4A836-1F12-4DD8-84AB-A6655C577391@alum.mit.edu>
-References: <20170415194042.GA5936@lunn.ch>
- <20170415224530.GA21010@oracle.com> <20170416021050.GA16418@lunn.ch>
- <251BA382-D82C-4931-A98F-A23AD88F9811@alum.mit.edu>
- <CAAsGZS5ir2Ha1swhdGCg7ibgYRORZykZcu089=oJ51NT4GKDuA@mail.gmail.com>
- <CAAsGZS4e6XuDxprJUo+ZBY5x0AiWWL4z9Gw7nwe-vcFcrADfzQ@mail.gmail.com>
-Mime-Version: 1.0 (Mac OS X Mail 10.3 \(3273\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: Andrew Lunn <andrew@lunn.ch>,
-        Sowmini Varadhan <sowmini.varadhan@oracle.com>,
-        netdev <netdev@vger.kernel.org>,
-        tcpdump-workers <tcpdump-workers@lists.tcpdump.org>
-To: chetan loke <loke.chetan@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from d.mail.sonic.net ([64.142.111.50]:60260 "EHLO d.mail.sonic.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751144AbdECDPw (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 2 May 2017 23:15:52 -0400
-In-Reply-To: <CAAsGZS4e6XuDxprJUo+ZBY5x0AiWWL4z9Gw7nwe-vcFcrADfzQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: linux-next: manual merge of the net-next tree with Linus' tree
+Date: Wed, 03 May 2017 00:08:56 -0400 (EDT)
+Message-ID: <20170503.000856.253462815755050143.davem@davemloft.net>
+References: <20170503110703.0945929d@canb.auug.org.au>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
+        linux-kernel@vger.kernel.org, egtvedt@samfundet.no,
+        hskinnemoen@gmail.com, nicolas.ferre@microchip.com,
+        johunt@akamai.com, sridhar.samudrala@intel.com,
+        alexander.h.duyck@intel.com
+To: sfr@canb.auug.org.au
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20170503110703.0945929d@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On May 2, 2017, at 10:16 AM, chetan loke <loke.chetan@gmail.com> wrote:
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Wed, 3 May 2017 11:07:03 +1000
 
-> Commit that caused it:
+> Hi all,
 > 
-> https://github.com/torvalds/linux/commit/41a50d621a321b4c15273cc1b5ed41437f4acdfb
+> Today's linux-next merge of the net-next tree got a conflict in:
 > 
-> Reverting that change is what we need.
+>   arch/avr32/include/uapi/asm/socket.h
+> 
+> between commit:
+> 
+>   26202873bb51 ("avr32: remove support for AVR32 architecture")
+> 
+> from Linus' tree and commits:
+> 
+>   a2d133b1d465 ("sock: introduce SO_MEMINFO getsockopt")
+>   6d4339028b35 ("net: Introduce SO_INCOMING_NAPI_ID"
+>   5daab9db7b65 ("New getsockopt option to get socket cookie")
+> 
+> from the net-next tree.
+> 
+> I fixed it up (I removed the file) and can carry the fix as
+> necessary. This is now fixed as far as linux-next is concerned, but any
+> non trivial conflicts should be mentioned to your upstream maintainer
+> when your tree is submitted for merging.  You may also want to consider
+> cooperating with the maintainer of the conflicting tree to minimise any
+> particularly complex conflicts.
 
-As long as you do *not* revert
+Duly noted in the pull request I sent to Linus, and now that he took
+net-next in it is resolved in his tree.
 
-	https://github.com/torvalds/linux/commit/da413eec729dae5dcb150e2eb34c5e7e5e4e1b49
-
-"packet: Fixed TPACKET V3 to signal poll when block is closed rather than every packet
-
-Make TPACKET_V3 signal poll when block is closed rather than for every
-packet. Side effect is that poll will be signaled when block retire
-timer expires which didn't previously happen. Issue was visible when
-sending packets at a very low frequency such that all blocks are retired
-before packets are received by TPACKET_V3. This caused avoidable packet
-loss. The fix ensures that the signal is sent when blocks are closed
-which covers the normal path where the block is filled as well as the
-path where the timer expires. The case where a block is filled without
-moving to the next block (ie. all blocks are full) will still cause poll
-to be signaled."
-
-The behavior in the commit message exactly what libpcap (and probably at least some other users of TPACKET_V3) need.  libpcap doesn't care whether empty blocks are passed up (as indicated, "you get woken up when the packet buffer timeout expires" is *not* part of libpcap's contract, and code shouldn't depend on that), so, as long as you preserve the "signal poll when a block is closed, even if it's an empty block" behavior, libpcap will work fine.
+Thanks!
