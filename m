@@ -1,77 +1,101 @@
-From: Quentin Schulz <quentin.schulz@free-electrons.com>
-Subject: Re: [PATCH v2 2/2] can: m_can: add deep Suspend/Resume support
-Date: Wed, 3 May 2017 14:40:12 +0200
-Message-ID: <6a6f521c-c551-703b-d5e2-d47999ae454b@free-electrons.com>
-References: <20170503123750.26134-1-quentin.schulz@free-electrons.com>
- <20170503123750.26134-2-quentin.schulz@free-electrons.com>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH 2/2] can: m_can: add deep Suspend/Resume support
+Date: Wed, 3 May 2017 14:44:32 +0200
+Message-ID: <b340a104-9974-d575-670d-5b360dddb266@pengutronix.de>
+References: <20170503121143.25090-1-quentin.schulz@free-electrons.com>
+ <20170503121143.25090-2-quentin.schulz@free-electrons.com>
+ <39fcd931-eca6-2e89-ff8b-14a54e9342fc@pengutronix.de>
+ <c45cc113-6072-a514-f956-1c2c61484a13@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
+Content-Type: multipart/signed; micalg=pgp-sha512;
+ protocol="application/pgp-signature";
+ boundary="A27OwiMNROUWvWwtvFEke1G0E2MqWb5KW"
 Cc: linux-can@vger.kernel.org, netdev@vger.kernel.org,
         linux-kernel@vger.kernel.org, alexandre.belloni@free-electrons.com,
         thomas.petazzoni@free-electrons.com
-To: wg@grandegger.com, mkl@pengutronix.de, mario.huettel@gmx.net,
-        socketcan@hartkopp.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170503123750.26134-2-quentin.schulz@free-electrons.com>
-Sender: linux-kernel-owner@vger.kernel.org
+To: Quentin Schulz <quentin.schulz@free-electrons.com>,
+        wg@grandegger.com, mario.huettel@gmx.net, socketcan@hartkopp.net
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <c45cc113-6072-a514-f956-1c2c61484a13@free-electrons.com>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hum, forgot the changelog.
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--A27OwiMNROUWvWwtvFEke1G0E2MqWb5KW
+Content-Type: multipart/mixed; boundary="nBonBgbvO3ghwGw7aEsftulsmdDmVxmgW";
+ protected-headers="v1"
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+To: Quentin Schulz <quentin.schulz@free-electrons.com>, wg@grandegger.com,
+ mario.huettel@gmx.net, socketcan@hartkopp.net
+Cc: linux-can@vger.kernel.org, netdev@vger.kernel.org,
+ linux-kernel@vger.kernel.org, alexandre.belloni@free-electrons.com,
+ thomas.petazzoni@free-electrons.com
+Message-ID: <b340a104-9974-d575-670d-5b360dddb266@pengutronix.de>
+Subject: Re: [PATCH 2/2] can: m_can: add deep Suspend/Resume support
+References: <20170503121143.25090-1-quentin.schulz@free-electrons.com>
+ <20170503121143.25090-2-quentin.schulz@free-electrons.com>
+ <39fcd931-eca6-2e89-ff8b-14a54e9342fc@pengutronix.de>
+ <c45cc113-6072-a514-f956-1c2c61484a13@free-electrons.com>
+In-Reply-To: <c45cc113-6072-a514-f956-1c2c61484a13@free-electrons.com>
 
-On 03/05/2017 14:37, Quentin Schulz wrote:
-> This adds Power Management deep Suspend/Resume support for Bosch M_CAN
-> chip.
-> 
-> When the system resumes from deep sleep, the chip needs to be fully
-> reinitialized (RAM, chip, clocks, irq, candev, ...) to be functional.
-> 
-> Signed-off-by: Quentin Schulz <quentin.schulz@free-electrons.com>
-> ---
+--nBonBgbvO3ghwGw7aEsftulsmdDmVxmgW
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
 
-v2:
- - fix erroneous commit log,
+On 05/03/2017 02:28 PM, Quentin Schulz wrote:
+> Hi Marc,
+>=20
+> On 03/05/2017 14:16, Marc Kleine-Budde wrote:
+>> On 05/03/2017 02:11 PM, Quentin Schulz wrote:
+>>> This adds Power Management deep Suspend/Resume support for Bosch M_CA=
+N
+>>> chip.
+>>>
+>>> When the chip resumes from deep sleep, the RAM needs to be initialize=
+d
+>>> as it is done when the driver probes. The net interface also needs to=
+ be
+>>> closed and reopened to be fully functional.
+>>
+>> Are you sure it's the closing and opening of the net interface. Maybe
+>> it's the m_can_start() and/or the subsequent m_can_chip_config()?
+>>
+>=20
+> You're right. The chip needs to be completely reinitialized (clocks,
+> chip itself) and it also closes and reopens the interface if I'm correc=
+t
+> with close_candev and open_candev.
+> I'm sending a v2 right away to fix the commit log.
 
->  drivers/net/can/m_can/m_can.c | 8 +++-----
->  1 file changed, 3 insertions(+), 5 deletions(-)
-> 
-> diff --git a/drivers/net/can/m_can/m_can.c b/drivers/net/can/m_can/m_can.c
-> index 3f0445440146..9e0143b528f1 100644
-> --- a/drivers/net/can/m_can/m_can.c
-> +++ b/drivers/net/can/m_can/m_can.c
-> @@ -1670,12 +1670,10 @@ static __maybe_unused int m_can_suspend(struct device *dev)
->  	struct m_can_priv *priv = netdev_priv(ndev);
->  
->  	if (netif_running(ndev)) {
-> -		netif_stop_queue(ndev);
->  		netif_device_detach(ndev);
-> +		m_can_close(ndev);
->  	}
->  
-> -	/* TODO: enter low power */
-> -
->  	priv->can.state = CAN_STATE_SLEEPING;
->  
->  	return 0;
-> @@ -1686,13 +1684,13 @@ static __maybe_unused int m_can_resume(struct device *dev)
->  	struct net_device *ndev = dev_get_drvdata(dev);
->  	struct m_can_priv *priv = netdev_priv(ndev);
->  
-> -	/* TODO: exit low power */
-> +	m_can_init_ram(priv);
->  
->  	priv->can.state = CAN_STATE_ERROR_ACTIVE;
->  
->  	if (netif_running(ndev)) {
-> +		m_can_open(ndev);
->  		netif_device_attach(ndev);
-> -		netif_start_queue(ndev);
->  	}
->  
->  	return 0;
-> 
+:) I mean to fix the call to the proper function and _not_ calling
+close() open().
 
--- 
-Quentin Schulz, Free Electrons
-Embedded Linux and Kernel engineering
-http://free-electrons.com
+Marc
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--nBonBgbvO3ghwGw7aEsftulsmdDmVxmgW--
+
+--A27OwiMNROUWvWwtvFEke1G0E2MqWb5KW
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQEzBAEBCgAdFiEE4bay/IylYqM/npjQHv7KIOw4HPYFAlkJ0LAACgkQHv7KIOw4
+HPa5TggAvEpKjeJpjvUCrHDj5jc1ocnas+wQGkWhsa8XU+xJsbD/GzAUv6exiBDI
+5q5/8UzEL5BJ54G45tl/Y5g9v3+63PkQj8zYzkrOW3p4tnA+MpLywquY8dbZo45o
+G7BkxH0pGvY0p5uiu/J6TvJulEUbkmfL6Yzw8r9TTfn6I1N4eQ7f//avdbDR+3Zj
+fjfcnyS4//i3l7bofwkScSkqLPK5s7Iik/wCDCosBsshNxVToT1FMKaQOfp5Pg4f
+yh9/yhFqUnV3sgXdYGNDL9S0Lx/e1AQc1hkJS+yNy6/qrFX7aMr+Pzr9pBpbgAfi
+gWXVQ8M13Vg77ZzGnmBVjaTNnsvgog==
+=cxi4
+-----END PGP SIGNATURE-----
+
+--A27OwiMNROUWvWwtvFEke1G0E2MqWb5KW--
