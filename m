@@ -1,76 +1,64 @@
-From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: Re: [PATCH] net: ethernet: stmmac: properly set PS bit in MII
- configurations during reset
-Date: Wed, 3 May 2017 17:11:51 +0200
-Message-ID: <20170503171151.154c0dc0@free-electrons.com>
-References: <1493286329-24448-1-git-send-email-thomas.petazzoni@free-electrons.com>
-        <deea272a-f0a9-ad0b-4ad6-387723938314@st.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH] net/sched: remove redundant null check on head
+Date: Wed, 3 May 2017 17:12:12 +0200
+Message-ID: <20170503151212.GD2077@nanopsycho.orion>
+References: <20170503135040.32023-1-colin.king@canonical.com>
+ <5909E75B.30305@bfs.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Alexandre Torgue <alexandre.torgue@st.com>,
-        <netdev@vger.kernel.org>, <stable@vger.kernel.org>
-To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <deea272a-f0a9-ad0b-4ad6-387723938314@st.com>
-Sender: stable-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Colin King <colin.king@canonical.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org,
+        kernel-janitors@vger.kernel.org
+To: walter harms <wharms@bfs.de>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <5909E75B.30305@bfs.de>
+Sender: kernel-janitors-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello Giuseppe,
+Wed, May 03, 2017 at 04:21:15PM CEST, wharms@bfs.de wrote:
+>
+>
+>Am 03.05.2017 15:50, schrieb Colin King:
+>> From: Colin Ian King <colin.king@canonical.com>
+>> 
+>> head is previously null checked and so the 2nd null check on head
+>> is redundant and therefore can be removed.
+>> 
+>> Detected by CoverityScan, CID#1399505 ("Logically dead code")
+>> 
+>> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+>> ---
+>>  net/sched/cls_matchall.c | 3 +--
+>>  1 file changed, 1 insertion(+), 2 deletions(-)
+>> 
+>> diff --git a/net/sched/cls_matchall.c b/net/sched/cls_matchall.c
+>> index 2efb36c08f2a..dee469fed967 100644
+>> --- a/net/sched/cls_matchall.c
+>> +++ b/net/sched/cls_matchall.c
+>> @@ -203,8 +203,7 @@ static int mall_change(struct net *net, struct sk_buff *in_skb,
+>>  
+>>  	*arg = (unsigned long) head;
+>>  	rcu_assign_pointer(tp->root, new);
+>> -	if (head)
+>> -		call_rcu(&head->rcu, mall_destroy_rcu);
+>> +	call_rcu(&head->rcu, mall_destroy_rcu);
+>>  	return 0;
+>>  
+>>  err_replace_hw_filter:
+>
+>
+>if someone cares .. the err=0 in the the line above the patch is also useless
+>because err is never used again. Merging both if will save 1 indent level.
+>
+> err = mall_replace_hw_filter(tp, new, (unsigned long) new);
+> if (err && tc_skip_sw(flags) )
+>	goto errout;
 
-On Wed, 3 May 2017 10:13:56 +0200, Giuseppe CAVALLARO wrote:
 
-> this was initially set by using the hw->link.port; both the core_init 
-> and adjust callback
-> should invoke the hook and tuning the PS bit according to the speed and 
-> mode.
+true, however unrelated to this patch :)
 
-But this doesn't work: core_init and adjust callbacks are called too
-late / not at the appropriate time.
+Please submit as a separate patch.
 
-Here, I need the PS to be set after asserting the DMA reset bit but
-*before* polling for the DMA reset bit to clear.
-
-I.e, I need:
-
-int dwmac_dma_reset(void __iomem *ioaddr, struct mac_device_info *hw,
-                    phy_interface_t interface)
-{
-        u32 value = readl(ioaddr + DMA_BUS_MODE);
-        int limit;
-
-        /* DMA SW reset */
-        value |= DMA_BUS_MODE_SFT_RESET;
-        writel(value, ioaddr + DMA_BUS_MODE);
-
-        /* ===> PS must be set here when the PHY interface is MII */
-
-        limit = 10;
-        while (limit--) {
-                if (!(readl(ioaddr + DMA_BUS_MODE) & DMA_BUS_MODE_SFT_RESET))
-                        break;
-                mdelay(10);
-        }
-
-        if (limit < 0)
-                return -EBUSY;
-
-        return 0;
-}
-
-Setting PS *before* asserting the DMA reset bit doesn't work, because
-asserting the DMA reset bit clears all bits in all registers.
-
-Setting PS *after* waiting for the DMA reset bit to clear doesn't work,
-because this bit never clears if the PS configuration is not correct
-with the regard to the PHY being used (which was my original problem).
-
-Am I missing something here?
-
-Best regards,
-
-Thomas Petazzoni
--- 
-Thomas Petazzoni, CTO, Free Electrons
-Embedded Linux and Kernel engineering
-http://free-electrons.com
+Thanks.
