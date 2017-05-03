@@ -1,58 +1,44 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: Re: Maximum MPLS labels on Linux network stack
-Date: Wed, 3 May 2017 12:14:09 -0600
-Message-ID: <5a408c23-d3e2-aa3e-4574-82521b2255b0@gmail.com>
-References: <149211493832787@web33j.yandex.ru>
+From: Pavel Belous <Pavel.Belous@aquantia.com>
+Subject: [PATCH v2] aquantia: Fix driver name reported by ethtool
+Date: Wed,  3 May 2017 21:17:44 +0300
+Message-ID: <2082aed4d8196250542cf9a73f3d9a49eb96af21.1493835234.git.pavel.belous@aquantia.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-To: =?UTF-8?B?0JDQu9C10LrRgdC10Lkg0JHQvtC70LTRi9GA0LXQsg==?=
-        <devel-net-ne-vlezay80@yandex.ru>, netdev@vger.kernel.org
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, David Arcari <darcari@redhat.com>
+To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f182.google.com ([209.85.192.182]:36666 "EHLO
-        mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752660AbdECSOO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 3 May 2017 14:14:14 -0400
-Received: by mail-pf0-f182.google.com with SMTP id q66so16266893pfi.3
-        for <netdev@vger.kernel.org>; Wed, 03 May 2017 11:14:13 -0700 (PDT)
-In-Reply-To: <149211493832787@web33j.yandex.ru>
+Received: from mail-bl2nam02on0085.outbound.protection.outlook.com ([104.47.38.85]:30659
+        "EHLO NAM02-BL2-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1750737AbdECSSR (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 3 May 2017 14:18:17 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 5/3/17 11:33 AM, Алексей Болдырев wrote:
-> I watched one forum, there is listed in the properties of one license for Cisco, it says:
-> 
-> Layer 3 VPN • Multi-VRF CE (VRF-lite); requires IP Services Feature license
-> • MPLS VPN; requires Advanced IP Feature license
-> • 26 VRFs
+From: Pavel Belous <pavel.belous@aquantia.com>
 
-There is no direct limit on the number of VRFs the kernel allows you to
-create. There are indirect ones -- total memory in the system and limits
-such as /proc/sys/net/ipv6/route/max_size. By increasing the latter I
-have created 4k VRFs in a system.
+V2: using "aquantia" subsystem tag.
 
+The command "ethtool -i ethX" should display driver name (driver: atlantic)
+instead vendor name (driver: aquantia).
 
-> • 8192 MPLS labels 
-> 
-> Especially interested in the figure 8192 MPLS Labels.
+Signed-off-by: Pavel Belous <pavel.belous@aquantia.com>
+---
+ drivers/net/ethernet/aquantia/atlantic/aq_cfg.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-8192 labels added in one pass is absurd. There is no reason to support
-such a number. With the latest version of the MPLS stack in the kernel
-you can add up to 30 labels in a single route. If you want more you have
-to either recirculate the packet using routes or recompile the kernel
-and increase the memory limit and the number of labels limit.
-
-> 
-> As I understand it, is it either a limit on the number of labels on the stack or the total number of labels?
-> 
-> In Linux, for example, you can specify a common col- lection of labels through /proc/sys/net/mpls/platforms_labels
-
-that just allocates the size of an array which dictates the max label
-number for that namespace. The array needs to be converted to a hash
-table at some point.
-
-> 
-> Also I would like to know if the openvswitch has a limit of 3 tags in the stack or the total number of MPLS labels that can send?
-> 
-
-someone familiar with OVS needs to answer that.
+diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_cfg.h b/drivers/net/ethernet/aquantia/atlantic/aq_cfg.h
+index 5f99237..2149864 100644
+--- a/drivers/net/ethernet/aquantia/atlantic/aq_cfg.h
++++ b/drivers/net/ethernet/aquantia/atlantic/aq_cfg.h
+@@ -68,7 +68,7 @@
+ 
+ #define AQ_CFG_DRV_AUTHOR      "aQuantia"
+ #define AQ_CFG_DRV_DESC        "aQuantia Corporation(R) Network Driver"
+-#define AQ_CFG_DRV_NAME        "aquantia"
++#define AQ_CFG_DRV_NAME        "atlantic"
+ #define AQ_CFG_DRV_VERSION	__stringify(NIC_MAJOR_DRIVER_VERSION)"."\
+ 				__stringify(NIC_MINOR_DRIVER_VERSION)"."\
+ 				__stringify(NIC_BUILD_DRIVER_VERSION)"."\
+-- 
+2.7.4
