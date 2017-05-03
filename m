@@ -1,7 +1,8 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] tcp: do not inherit fastopen_req from parent
-Date: Wed, 03 May 2017 06:36:35 -0700
-Message-ID: <1493818595.7796.11.camel@edumazet-glaptop3.roam.corp.google.com>
+Subject: [PATCH v2 net] tcp: do not inherit fastopen_req from parent
+Date: Wed, 03 May 2017 06:39:31 -0700
+Message-ID: <1493818771.7796.13.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1493818595.7796.11.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -9,12 +10,13 @@ Cc: netdev <netdev@vger.kernel.org>, Wei Wang <weiwan@google.com>,
         Andrey Konovalov <andreyknvl@google.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:36148 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751176AbdECNgj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 3 May 2017 09:36:39 -0400
-Received: by mail-pg0-f68.google.com with SMTP id v1so28417105pgv.3
-        for <netdev@vger.kernel.org>; Wed, 03 May 2017 06:36:38 -0700 (PDT)
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:35546 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751176AbdECNjd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 3 May 2017 09:39:33 -0400
+Received: by mail-pf0-f195.google.com with SMTP id o68so4393878pfj.2
+        for <netdev@vger.kernel.org>; Wed, 03 May 2017 06:39:33 -0700 (PDT)
+In-Reply-To: <1493818595.7796.11.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -27,7 +29,6 @@ morphs from listener to active session.
 We need to make sure this can not happen, by clearing the field after
 socket cloning.
 
-==================================================================
 BUG: Double free or freeing an invalid pointer
 Unexpected shadow byte: 0xFB
 CPU: 3 PID: 20933 Comm: syz-executor3 Not tainted 4.11.0+ #306
@@ -138,7 +139,6 @@ PID = 20909
  SYSC_sendto+0x660/0x810 net/socket.c:1696
  SyS_sendto+0x40/0x50 net/socket.c:1664
  entry_SYSCALL_64_fastpath+0x1f/0xbe
-==================================================================
 
 
 Fixes: e994b2f0fb92 ("tcp: do not lock listener to process SYN packets")
