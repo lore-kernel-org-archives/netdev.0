@@ -1,75 +1,160 @@
-From: <nmckenna@prospercanada.org>
-Subject: 55214 netdev
-Date: Wed, 03 May 2017 19:24:18 -0000
-Message-ID: <149383945831.27002.16865397352386318207@hinet.net>
+From: =?UTF-8?Q?Lars_Erik_Storbuk=C3=A5s?= <storbukas.dev@gmail.com>
+Subject: Re: Get amount of fast retransmissions from TCP info
+Date: Wed, 3 May 2017 21:47:55 +0200
+Message-ID: <CAF0XkCD_US9yVxsU8GDpEqoH3y3LLOGQF0K8fu5cNbjTewXuNw@mail.gmail.com>
+References: <CAF0XkCCFwxuyJ5bc4SUHjdDJb_E-CqYC-3k3nzi+0i3H9D2zPA@mail.gmail.com>
+ <CADVnQyk9-OGKBKBvQ76itP5JwbVBPt40S8KJ+6oY506hVpMEYA@mail.gmail.com>
+ <CAF0XkCDTexCTxPmGvM4+FZtVhQg13Ggsbm0QSbcKCSR5LGbs9w@mail.gmail.com>
+ <CADVnQyn=6wYbVP0m3mepGU23LcEn_BK_TKoSNxVf=TUz9Q+f8g@mail.gmail.com>
+ <CAF0XkCAZJd7adZf6VHdDc2yesyKQ8DqQnDOv_uk8o8mOVGMRyA@mail.gmail.com> <8D257A7F-6045-46C5-AEED-A4630D10CD5A@simula.no>
 Mime-Version: 1.0
-Content-Type: application/zip; name="770.zip"
-Content-Transfer-Encoding: base64
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: Neal Cardwell <ncardwell@google.com>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Netdev <netdev@vger.kernel.org>
+To: Andreas Petlund <apetlund@simula.no>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 114-37-49-67.dynamic-ip.hinet.net ([114.37.49.67]:56895 "HELO
-        hinet.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-        id S1756527AbdECTY2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 3 May 2017 15:24:28 -0400
-Content-Disposition: attachment
+Received: from mail-it0-f48.google.com ([209.85.214.48]:38273 "EHLO
+        mail-it0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754402AbdECTr5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 3 May 2017 15:47:57 -0400
+In-Reply-To: <8D257A7F-6045-46C5-AEED-A4630D10CD5A@simula.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-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
-AABIDAAAAAA=
+2017-04-25 0:20 GMT+02:00 Andreas Petlund <apetlund@simula.no>:
+>
+>> On 24 Apr 2017, at 23:31, Lars Erik Storbuk=C3=A5s <storbukas.dev@gmail.=
+com> wrote:
+>>
+>> 2017-04-24 23:00 GMT+02:00 Neal Cardwell <ncardwell@google.com>:
+>>> On Mon, Apr 24, 2017 at 4:20 PM, Lars Erik Storbuk=C3=A5s
+>>> <storbukas.dev@gmail.com> wrote:
+>>>> 2017-04-24 21:42 GMT+02:00 Neal Cardwell <ncardwell@google.com>:
+>>>>> On Mon, Apr 24, 2017 at 3:11 PM, Lars Erik Storbuk=C3=A5s
+>>>>> <storbukas.dev@gmail.com> wrote:
+>>>>>> I'm trying to get amount of congestion events in TCP caused by
+>>>>>> DUPACK's (fast retransmissions), and can't seem to find any variable
+>>>>>> in the TCP info struct which hold that value. There are three
+>>>>>> variables in the TCP info struct that seem to hold similar congestio=
+n
+>>>>>> values: __u8 tcpi_retransmits;__u32 tcpi_retrans; __u32
+>>>>>> tcpi_total_retrans;
+>>>>>>
+>>>>>> Does anyone have any pointers on how to find this value in the TCP c=
+ode?
+>>>>>>
+>>>>>> Please CC me personally if answering this question. Any help is
+>>>>>> greatly appreciated.
+>>>>>
+>>>>> [I'm cc-ing the netdev list.]
+>>>>>
+>>>>> Do you need this per-socket? On a per-socket basis, I do not think
+>>>>> there are separate totals for fast retransmits and timeout
+>>>>> retransmits.
+>>>>>
+>>>>> If a global number is good enough, then you can get that number from
+>>>>> the global network statistics. In "nstat" output they look like:
+>>>>>
+>>>>>  TcpExtTCPFastRetrans =3D packets sent in fast retransmit / fast reco=
+very
+>>>>>
+>>>>>  TcpExtTCPSlowStartRetrans =3D packets sent in timeout recovery
+>>>>>
+>>>>> It sounds like TcpExtTCPFastRetrans is what you are after.
+>>>>>
+>>>>> Hope that helps,
+>>>>> neal
+>>>>
+>>>> Thanks for your answer Neal.
+>>>>
+>>>> Yes, I need this information per-socket. What would be the most
+>>>> appropriate place to update this value?
+>>>
+>>> Is this for a custom kernel you are building? Or are you proposing
+>>> this for upstream?
+>>
+>> This is currently for a custom kernel.
+>>
+>>> IMHO the best place to add this for your custom kernel would be in
+>>> _tcp_retransmit_skb() around the spot with the comment "Update global
+>>> and local TCP statistics". Something like:
+>>>
+>>>  /* Update global and local TCP statistics. */
+>>> ...
+>>>  tp->total_retrans +=3D segs;
+>>>  if (icsk->icsk_ca_state =3D=3D TCP_CA_Loss)
+>>>    tp->slow_retrans +=3D segs;
+>>>  else
+>>>    tp->fast_retrans +=3D segs;
+>>>
+>>
+>> Excellent. That seems like a logical place.
+>>
+>>>> If none of the variables (mentioned above) contain any value in
+>>>> regards to fast retransmits, what does the different values represent?
+>>>
+>>> tcpi_retransmits: consecutive retransmits of lowest-sequence outstandin=
+g packet
+>>>
+>>> tcpi_retrans: retransmitted packets estimated to be in-flight in the ne=
+twork now
+>>>
+>>> tcpi_total_retrans: total number of retransmitted packets over the
+>>> life of the connection
+>>>
+>>> Can you sketch out why you need to have separate counts for fast
+>>> retransmits and timeout/slow-start retransmits?
+>>>
+>>> neal
+>>
+>> I'm working on the implementation of a Deadline Aware, Less than Best
+>> Effort framework proposed by David A. Hayes, David Ros, Andreas
+>> Petlund. A framework for adding both LBE behaviour and awareness of
+>> =E2=80=9Csoft=E2=80=9D delivery deadlines to any congestion control (CC)=
+ algorithm,
+>> whether loss-based, delay- based or explicit signaling-based. This
+>> effectively allows it to turn an arbitrary CC protocol into a
+>> scavenger protocol that dynamically adapts its sending rate to network
+>> conditions and remaining time before the deadline, to balance
+>> timeliness and transmission aggressiveness.
+>>
+>
+> Just for the record, the paper is not publicly available yet, so it=E2=80=
+=99s a bit hard to find:)
+> It will be published in IFIP Networking in June.
+> We will make it available as  soon as the conference regulations allows.
+> You can find the abstract here:
+> https://www.simula.no/publications/framework-less-best-effort-congestion-=
+control-soft-deadlines
+>
+> Cheers,
+> Andreas Petlund
+
+I also want to count the amount of ECN signals received. Do anyone
+have any input on where to place an ECN signal count?
+
+Is any of these locations a logical place to increase the ECN counter
+(which I've created in tcp_sock)? Both locations are in the
+tcp_input.c.
+
+/* In tcp_fastretrans_alert() */
+if (flag & FLAG_ECE) {
+    tp->prior_ssthresh =3D 0;
+    tp->ecn_count +=3D 1; // ECN counter
+}
+
+or
+
+/* In tcp_enter_recovery() */
+if (!tcp_in_cwnd_reduction(sk)) {
+    if (!ece_ack)
+        tp->prior_ssthresh =3D tcp_current_ssthresh(sk);
+    else
+       tp->ecn_count +=3D 1; // ECN counter
+    tcp_init_cwnd_reduction(sk);
+}
+tcp_set_ca_state(sk, TCP_CA_Recovery);
+
+/Lars Erik
