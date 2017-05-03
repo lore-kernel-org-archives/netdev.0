@@ -1,166 +1,116 @@
-From: Greg Rose <gvrose8192@gmail.com>
-Subject: Re: [patch iproute2 v2 1/2] devlink: Change netlink attribute validation
-Date: Wed, 3 May 2017 08:43:40 -0700
-Message-ID: <CALgkqUqcdy47KiW8=NdTaPj7fCHQgDh2tE9sV=86TR+PM9uZBA@mail.gmail.com>
-References: <1493810723-2536-1-git-send-email-jiri@resnulli.us> <1493810723-2536-2-git-send-email-jiri@resnulli.us>
+From: Andrey Konovalov <andreyknvl@google.com>
+Subject: Re: x86: warning: kernel stack regs has bad 'bp' value
+Date: Wed, 3 May 2017 17:50:28 +0200
+Message-ID: <CAAeHK+x_ka0XqQiAg5jrqQUSk2Ri0Ab-A62NTKYWj=i0TXQqZQ@mail.gmail.com>
+References: <CAAeHK+zapAtjKaTMG7RSxn2P1K=+BK32sfroPToppXHMLD-wpA@mail.gmail.com>
+ <20170503133006.7jv4qhnnbsv7ueam@treble>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        arkadis@mellanox.com,
-        Stephen Hemminger <stephen@networkplumber.org>,
-        "David S. Miller" <davem@davemloft.net>, mlxsw@mellanox.com,
-        David Ahern <dsa@cumulusnetworks.com>
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:35292 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751509AbdECPnm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 3 May 2017 11:43:42 -0400
-Received: by mail-wm0-f67.google.com with SMTP id d79so13809297wmi.2
-        for <netdev@vger.kernel.org>; Wed, 03 May 2017 08:43:41 -0700 (PDT)
-In-Reply-To: <1493810723-2536-2-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Thomas Gleixner <tglx@linutronix.de>,
+        Ingo Molnar <mingo@redhat.com>,
+        "H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org,
+        LKML <linux-kernel@vger.kernel.org>,
+        Vlad Yasevich <vyasevich@gmail.com>,
+        Neil Horman <nhorman@tuxdriver.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        linux-sctp@vger.kernel.org, netdev <netdev@vger.kernel.org>,
+        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        Kostya Serebryany <kcc@google.com>,
+        syzkaller <syzkaller@googlegroups.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>
+To: Josh Poimboeuf <jpoimboe@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170503133006.7jv4qhnnbsv7ueam@treble>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, May 3, 2017 at 4:25 AM, Jiri Pirko <jiri@resnulli.us> wrote:
-> From: Arkadi Sharshevsky <arkadis@mellanox.com>
+On Wed, May 3, 2017 at 3:30 PM, Josh Poimboeuf <jpoimboe@redhat.com> wrote:
+> On Wed, May 03, 2017 at 02:48:28PM +0200, Andrey Konovalov wrote:
+>> Hi,
+>>
+>> I've got the following error report while fuzzing the kernel with syzkaller.
+>>
+>> On commit 89c9fea3c8034cdb2fd745f551cde0b507fd6893 (4.11.0+).
+>>
+>> A reproducer and .config are attached.
+>>
+>> The reproducer open SCTP sockets and sends data to it in a loop.
+>> I'm not sure whether this is an issue with SCTP or with something else.
+>>
+>> WARNING: kernel stack regs at ffff8800686869f8 in a.out:4933 has bad
+>> 'bp' value c3fc855a10167ec0
 >
-> Currently the netlink attribute resolving is done by a sequence of
-> if's. Change the attribute resolving to table lookup.
+> Hi Andrey,
 >
-> Signed-off-by: Arkadi Sharshevsky <arkadis@mellanox.com>
-> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
-> ---
->  devlink/devlink.c | 103 ++++++++++++++++--------------------------------------
->  1 file changed, 30 insertions(+), 73 deletions(-)
->
-> diff --git a/devlink/devlink.c b/devlink/devlink.c
-> index e90226e..35220d8 100644
-> --- a/devlink/devlink.c
-> +++ b/devlink/devlink.c
-> @@ -232,88 +232,45 @@ static bool dl_no_arg(struct dl *dl)
->         return dl_argc(dl) == 0;
->  }
->
-> +static const enum mnl_attr_data_type devlink_policy[DEVLINK_ATTR_MAX + 1] = {
-> +       [DEVLINK_ATTR_BUS_NAME] = MNL_TYPE_NUL_STRING,
-> +       [DEVLINK_ATTR_DEV_NAME] = MNL_TYPE_NUL_STRING,
-> +       [DEVLINK_ATTR_PORT_INDEX] = MNL_TYPE_U32,
-> +       [DEVLINK_ATTR_PORT_TYPE] = MNL_TYPE_U16,
-> +       [DEVLINK_ATTR_PORT_DESIRED_TYPE] = MNL_TYPE_U16,
-> +       [DEVLINK_ATTR_PORT_NETDEV_IFINDEX] = MNL_TYPE_U32,
-> +       [DEVLINK_ATTR_PORT_NETDEV_NAME] = MNL_TYPE_NUL_STRING,
-> +       [DEVLINK_ATTR_PORT_IBDEV_NAME] = MNL_TYPE_NUL_STRING,
-> +       [DEVLINK_ATTR_SB_INDEX] = MNL_TYPE_U32,
-> +       [DEVLINK_ATTR_SB_SIZE] = MNL_TYPE_U32,
-> +       [DEVLINK_ATTR_SB_INGRESS_POOL_COUNT] = MNL_TYPE_U16,
-> +       [DEVLINK_ATTR_SB_EGRESS_POOL_COUNT] = MNL_TYPE_U16,
-> +       [DEVLINK_ATTR_SB_INGRESS_TC_COUNT] = MNL_TYPE_U16,
-> +       [DEVLINK_ATTR_SB_EGRESS_TC_COUNT] = MNL_TYPE_U16,
-> +       [DEVLINK_ATTR_SB_POOL_INDEX] = MNL_TYPE_U16,
-> +       [DEVLINK_ATTR_SB_POOL_TYPE] = MNL_TYPE_U8,
-> +       [DEVLINK_ATTR_SB_POOL_SIZE] = MNL_TYPE_U32,
-> +       [DEVLINK_ATTR_SB_POOL_THRESHOLD_TYPE] = MNL_TYPE_U8,
-> +       [DEVLINK_ATTR_SB_THRESHOLD] = MNL_TYPE_U32,
-> +       [DEVLINK_ATTR_SB_TC_INDEX] = MNL_TYPE_U16,
-> +       [DEVLINK_ATTR_SB_OCC_CUR] = MNL_TYPE_U32,
-> +       [DEVLINK_ATTR_SB_OCC_MAX] = MNL_TYPE_U32,
-> +       [DEVLINK_ATTR_ESWITCH_MODE] = MNL_TYPE_U16,
-> +       [DEVLINK_ATTR_ESWITCH_INLINE_MODE] = MNL_TYPE_U8,
-> +};
-> +
->  static int attr_cb(const struct nlattr *attr, void *data)
->  {
->         const struct nlattr **tb = data;
->         int type;
->
-> -       type = mnl_attr_get_type(attr);
-> -
->         if (mnl_attr_type_valid(attr, DEVLINK_ATTR_MAX) < 0)
->                 return MNL_CB_ERROR;
->
-> -       if (type == DEVLINK_ATTR_BUS_NAME &&
-> -           mnl_attr_validate(attr, MNL_TYPE_NUL_STRING) < 0)
-> -               return MNL_CB_ERROR;
-> -       if (type == DEVLINK_ATTR_DEV_NAME &&
-> -           mnl_attr_validate(attr, MNL_TYPE_NUL_STRING) < 0)
-> -               return MNL_CB_ERROR;
-> -       if (type == DEVLINK_ATTR_PORT_INDEX &&
-> -           mnl_attr_validate(attr, MNL_TYPE_U32) < 0)
-> -               return MNL_CB_ERROR;
-> -       if (type == DEVLINK_ATTR_PORT_TYPE &&
-> -           mnl_attr_validate(attr, MNL_TYPE_U16) < 0)
-> -               return MNL_CB_ERROR;
-> -       if (type == DEVLINK_ATTR_PORT_DESIRED_TYPE &&
-> -           mnl_attr_validate(attr, MNL_TYPE_U16) < 0)
-> -               return MNL_CB_ERROR;
-> -       if (type == DEVLINK_ATTR_PORT_NETDEV_IFINDEX &&
-> -           mnl_attr_validate(attr, MNL_TYPE_U32) < 0)
-> -               return MNL_CB_ERROR;
-> -       if (type == DEVLINK_ATTR_PORT_NETDEV_NAME &&
-> -           mnl_attr_validate(attr, MNL_TYPE_NUL_STRING) < 0)
-> -               return MNL_CB_ERROR;
-> -       if (type == DEVLINK_ATTR_PORT_IBDEV_NAME &&
-> -           mnl_attr_validate(attr, MNL_TYPE_NUL_STRING) < 0)
-> -               return MNL_CB_ERROR;
-> -       if (type == DEVLINK_ATTR_SB_INDEX &&
-> -           mnl_attr_validate(attr, MNL_TYPE_U32) < 0)
-> -               return MNL_CB_ERROR;
-> -       if (type == DEVLINK_ATTR_SB_SIZE &&
-> -           mnl_attr_validate(attr, MNL_TYPE_U32) < 0)
-> -               return MNL_CB_ERROR;
-> -       if (type == DEVLINK_ATTR_SB_INGRESS_POOL_COUNT &&
-> -           mnl_attr_validate(attr, MNL_TYPE_U16) < 0)
-> -               return MNL_CB_ERROR;
-> -       if (type == DEVLINK_ATTR_SB_EGRESS_POOL_COUNT &&
-> -           mnl_attr_validate(attr, MNL_TYPE_U16) < 0)
-> -               return MNL_CB_ERROR;
-> -       if (type == DEVLINK_ATTR_SB_INGRESS_TC_COUNT &&
-> -           mnl_attr_validate(attr, MNL_TYPE_U16) < 0)
-> -               return MNL_CB_ERROR;
-> -       if (type == DEVLINK_ATTR_SB_EGRESS_TC_COUNT &&
-> -           mnl_attr_validate(attr, MNL_TYPE_U16) < 0)
-> -               return MNL_CB_ERROR;
-> -       if (type == DEVLINK_ATTR_SB_POOL_INDEX &&
-> -           mnl_attr_validate(attr, MNL_TYPE_U16) < 0)
-> -               return MNL_CB_ERROR;
-> -       if (type == DEVLINK_ATTR_SB_POOL_TYPE &&
-> -           mnl_attr_validate(attr, MNL_TYPE_U8) < 0)
-> -               return MNL_CB_ERROR;
-> -       if (type == DEVLINK_ATTR_SB_POOL_SIZE &&
-> -           mnl_attr_validate(attr, MNL_TYPE_U32) < 0)
-> -               return MNL_CB_ERROR;
-> -       if (type == DEVLINK_ATTR_SB_POOL_THRESHOLD_TYPE &&
-> -           mnl_attr_validate(attr, MNL_TYPE_U8) < 0)
-> -               return MNL_CB_ERROR;
-> -       if (type == DEVLINK_ATTR_SB_THRESHOLD &&
-> -           mnl_attr_validate(attr, MNL_TYPE_U32) < 0)
-> -               return MNL_CB_ERROR;
-> -       if (type == DEVLINK_ATTR_SB_TC_INDEX &&
-> -           mnl_attr_validate(attr, MNL_TYPE_U16) < 0)
-> -               return MNL_CB_ERROR;
-> -       if (type == DEVLINK_ATTR_SB_OCC_CUR &&
-> -           mnl_attr_validate(attr, MNL_TYPE_U32) < 0)
-> -               return MNL_CB_ERROR;
-> -       if (type == DEVLINK_ATTR_SB_OCC_MAX &&
-> -           mnl_attr_validate(attr, MNL_TYPE_U32) < 0)
-> -               return MNL_CB_ERROR;
-> -       if (type == DEVLINK_ATTR_ESWITCH_MODE &&
-> -           mnl_attr_validate(attr, MNL_TYPE_U16) < 0)
-> -               return MNL_CB_ERROR;
-> -       if (type == DEVLINK_ATTR_ESWITCH_INLINE_MODE &&
-> -           mnl_attr_validate(attr, MNL_TYPE_U8) < 0)
-> +       type = mnl_attr_get_type(attr);
-> +       if (mnl_attr_validate(attr, devlink_policy[type]) < 0)
->                 return MNL_CB_ERROR;
-> +
->         tb[type] = attr;
->         return MNL_CB_OK;
->  }
-> --
-> 2.7.4
->
+> Can you test this patch?
 
-Much better!!!  LGTM.
+Hi Josh,
 
-Reviewed-by: Greg Rose <gvrose8192@gmail.com>
+This seems to be fixing the reports caused by the reproducers.
+
+I'll keep fuzzing though with syzkaller to make sure.
+
+Thanks!
+
+>
+>
+> diff --git a/arch/x86/lib/csum-copy_64.S b/arch/x86/lib/csum-copy_64.S
+> index 7e48807..45a53df 100644
+> --- a/arch/x86/lib/csum-copy_64.S
+> +++ b/arch/x86/lib/csum-copy_64.S
+> @@ -55,7 +55,7 @@ ENTRY(csum_partial_copy_generic)
+>         movq  %r12, 3*8(%rsp)
+>         movq  %r14, 4*8(%rsp)
+>         movq  %r13, 5*8(%rsp)
+> -       movq  %rbp, 6*8(%rsp)
+> +       movq  %r15, 6*8(%rsp)
+>
+>         movq  %r8, (%rsp)
+>         movq  %r9, 1*8(%rsp)
+> @@ -74,7 +74,7 @@ ENTRY(csum_partial_copy_generic)
+>         /* main loop. clear in 64 byte blocks */
+>         /* r9: zero, r8: temp2, rbx: temp1, rax: sum, rcx: saved length */
+>         /* r11: temp3, rdx: temp4, r12 loopcnt */
+> -       /* r10: temp5, rbp: temp6, r14 temp7, r13 temp8 */
+> +       /* r10: temp5, r15: temp6, r14 temp7, r13 temp8 */
+>         .p2align 4
+>  .Lloop:
+>         source
+> @@ -89,7 +89,7 @@ ENTRY(csum_partial_copy_generic)
+>         source
+>         movq  32(%rdi), %r10
+>         source
+> -       movq  40(%rdi), %rbp
+> +       movq  40(%rdi), %r15
+>         source
+>         movq  48(%rdi), %r14
+>         source
+> @@ -103,7 +103,7 @@ ENTRY(csum_partial_copy_generic)
+>         adcq  %r11, %rax
+>         adcq  %rdx, %rax
+>         adcq  %r10, %rax
+> -       adcq  %rbp, %rax
+> +       adcq  %r15, %rax
+>         adcq  %r14, %rax
+>         adcq  %r13, %rax
+>
+> @@ -121,7 +121,7 @@ ENTRY(csum_partial_copy_generic)
+>         dest
+>         movq %r10, 32(%rsi)
+>         dest
+> -       movq %rbp, 40(%rsi)
+> +       movq %r15, 40(%rsi)
+>         dest
+>         movq %r14, 48(%rsi)
+>         dest
+> @@ -203,7 +203,7 @@ ENTRY(csum_partial_copy_generic)
+>         movq 3*8(%rsp), %r12
+>         movq 4*8(%rsp), %r14
+>         movq 5*8(%rsp), %r13
+> -       movq 6*8(%rsp), %rbp
+> +       movq 6*8(%rsp), %r15
+>         addq $7*8, %rsp
+>         ret
+>
