@@ -1,42 +1,52 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
 Subject: Re: ipsec doesn't route TCP with 4.11 kernel
-Date: Wed, 3 May 2017 10:14:21 +0200
-Message-ID: <20170503081421.GL2649@secunet.com>
+Date: Wed, 3 May 2017 10:21:29 +0200
+Message-ID: <20170503082129.GM2649@secunet.com>
 References: <CADJev78Cs0VBdagtfU-71pv3HHC5Vq41UXQee856aVbUqEqAYg@mail.gmail.com>
  <CAM_iQpWT5tF5+LpoTP98JNJ=440jEkxHFkn8=jtAsZgondN49A@mail.gmail.com>
  <20170427084238.GX2649@secunet.com>
  <CADJev7_=YEHmijGweqZvdATMQVuzwywEbBKweYvPurJfTEQRjQ@mail.gmail.com>
  <20170428071337.GG2649@secunet.com>
- <CADJev7_Tc0aRsPs0Q7Wijd-YBM39ZshitJpSo2yEqPVwag2X_Q@mail.gmail.com>
+ <1493398002.31837.12.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+Cc: Don Bowman <db@donbowman.ca>, Cong Wang <xiyou.wangcong@gmail.com>,
         "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
         Herbert Xu <herbert@gondor.apana.org.au>,
         Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Don Bowman <db@donbowman.ca>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <CADJev7_Tc0aRsPs0Q7Wijd-YBM39ZshitJpSo2yEqPVwag2X_Q@mail.gmail.com>
+In-Reply-To: <1493398002.31837.12.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Apr 29, 2017 at 08:39:34PM -0400, Don Bowman wrote:
-> On 28 April 2017 at 03:13, Steffen Klassert
-> <steffen.klassert@secunet.com> wrote:
-> > On Thu, Apr 27, 2017 at 06:13:38PM -0400, Don Bowman wrote:
-> >> On 27 April 2017 at 04:42, Steffen Klassert <steffen.klassert@secunet.com>
-> >> wrote:
-> >> > On Wed, Apr 26, 2017 at 10:01:34PM -0700, Cong Wang wrote:
-> >> >> (Cc'ing netdev and IPSec maintainers)
-> >> >>
-> >> >> On Tue, Apr 25, 2017 at 6:08 PM, Don Bowman <db@donbowman.ca> wrote:
-> >>
+On Fri, Apr 28, 2017 at 09:46:42AM -0700, Eric Dumazet wrote:
+> On Fri, 2017-04-28 at 09:13 +0200, Steffen Klassert wrote:
+> >          encap type espinudp sport 4500 dport 4500 addr 0.0.0.0
+> > 
+> > Ok, this is espinudp. This information was important.
 > 
-> <snip>
+> > This is not a GRO issue as I thought, the TX side is already broken.
+> > 
+> > Could you please try the patch below?
+> > 
+> > Subject: [PATCH] esp4: Fix udpencap for local TCP packets.
+> > 
+> > Locally generated TCP packets are usually cloned, so we
+> > do skb_cow_data() on this packets. After that we need to
+> > reload the pointer to the esp header. On udpencap this
+> > header has an offset to skb_transport_header, so take this
+> > offset into account.
 > 
-> confirmed, with this patch in place that the tcp functions properly.
+> 
+> It looks like locally generated TCP packets could avoid the
+> skb_cow_data(), if you were using skb_header_cloned() instead of
+> skb_cloned()  ?
 
-Thanks for testing!
+Yes, should be possible in the codepath where we do crypto
+with separate src and dst buffers. Would require some
+rearrangements to make sure we don't do inplace crypto
+in this case.
 
-I'll make sure to get this fix into the mainline soon.
+Thanks for the hint!
