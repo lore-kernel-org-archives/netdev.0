@@ -1,64 +1,42 @@
-From: Quentin Schulz <quentin.schulz@free-electrons.com>
-Subject: [PATCH v2 2/2] can: m_can: add deep Suspend/Resume support
-Date: Wed,  3 May 2017 14:37:50 +0200
-Message-ID: <20170503123750.26134-2-quentin.schulz@free-electrons.com>
-References: <20170503123750.26134-1-quentin.schulz@free-electrons.com>
-Cc: Quentin Schulz <quentin.schulz@free-electrons.com>,
-        linux-can@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, alexandre.belloni@free-electrons.com,
-        thomas.petazzoni@free-electrons.com
-To: wg@grandegger.com, mkl@pengutronix.de, mario.huettel@gmx.net,
-        socketcan@hartkopp.net
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <20170503123750.26134-1-quentin.schulz@free-electrons.com>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH] netfilter: conntrack: Force inlining of build check to
+ prevent build failure
+Date: Wed, 3 May 2017 14:38:32 +0200
+Message-ID: <20170503123832.GB27809@breakpoint.cc>
+References: <1493813923-5441-1-git-send-email-geert@linux-m68k.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S . Miller" <davem@davemloft.net>,
+        Florian Westphal <fw@strlen.de>,
+        Pablo Neira Ayuso <pablo@netfilter.org>,
+        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+        Arnd Bergmann <arnd@arndb.de>, netfilter-devel@vger.kernel.org,
+        coreteam@netfilter.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Geert Uytterhoeven <geert@linux-m68k.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:51864 "EHLO
+        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1750966AbdECMiz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 3 May 2017 08:38:55 -0400
+Content-Disposition: inline
+In-Reply-To: <1493813923-5441-1-git-send-email-geert@linux-m68k.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This adds Power Management deep Suspend/Resume support for Bosch M_CAN
-chip.
+Geert Uytterhoeven <geert@linux-m68k.org> wrote:
+> If gcc (e.g. 4.1.2) decides not to inline total_extension_size(), the
+> build will fail with:
+> 
+>     net/built-in.o: In function `nf_conntrack_init_start':
+>     (.text+0x9baf6): undefined reference to `__compiletime_assert_1893'
+> 
+> or
+> 
+>     ERROR: "__compiletime_assert_1893" [net/netfilter/nf_conntrack.ko] undefined!
+> 
+> Fix this by forcing inlining of total_extension_size().
 
-When the system resumes from deep sleep, the chip needs to be fully
-reinitialized (RAM, chip, clocks, irq, candev, ...) to be functional.
+Sorry about that, thanks for the fix Geert.
 
-Signed-off-by: Quentin Schulz <quentin.schulz@free-electrons.com>
----
- drivers/net/can/m_can/m_can.c | 8 +++-----
- 1 file changed, 3 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/net/can/m_can/m_can.c b/drivers/net/can/m_can/m_can.c
-index 3f0445440146..9e0143b528f1 100644
---- a/drivers/net/can/m_can/m_can.c
-+++ b/drivers/net/can/m_can/m_can.c
-@@ -1670,12 +1670,10 @@ static __maybe_unused int m_can_suspend(struct device *dev)
- 	struct m_can_priv *priv = netdev_priv(ndev);
- 
- 	if (netif_running(ndev)) {
--		netif_stop_queue(ndev);
- 		netif_device_detach(ndev);
-+		m_can_close(ndev);
- 	}
- 
--	/* TODO: enter low power */
--
- 	priv->can.state = CAN_STATE_SLEEPING;
- 
- 	return 0;
-@@ -1686,13 +1684,13 @@ static __maybe_unused int m_can_resume(struct device *dev)
- 	struct net_device *ndev = dev_get_drvdata(dev);
- 	struct m_can_priv *priv = netdev_priv(ndev);
- 
--	/* TODO: exit low power */
-+	m_can_init_ram(priv);
- 
- 	priv->can.state = CAN_STATE_ERROR_ACTIVE;
- 
- 	if (netif_running(ndev)) {
-+		m_can_open(ndev);
- 		netif_device_attach(ndev);
--		netif_start_queue(ndev);
- 	}
- 
- 	return 0;
--- 
-2.11.0
-
+Acked-by: Florian Westphal <fw@strlen.de>
