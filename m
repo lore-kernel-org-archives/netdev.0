@@ -1,49 +1,48 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the net-next tree with Linus' tree
-Date: Wed, 3 May 2017 11:07:03 +1000
-Message-ID: <20170503110703.0945929d@canb.auug.org.au>
+From: "Brown, Aaron F" <aaron.f.brown@intel.com>
+Subject: RE: [Intel-wired-lan] [PATCH net-next] igb: mark PM functions as
+        __maybe_unused
+Date: Wed, 3 May 2017 01:36:49 +0000
+Message-ID: <309B89C4C689E141A5FF6A0C5FB2118B8C5F2BEB@ORSMSX101.amr.corp.intel.com>
+References: <20170427191007.1990964-1-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Linux-Next Mailing List <linux-next@vger.kernel.org>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        Hans-Christian Noren Egtvedt <egtvedt@samfundet.no>,
-        =?UTF-8?B?SMOldmFyZA==?= Skinnemoen <hskinnemoen@gmail.com>,
-        Nicolas Ferre <nicolas.ferre@microchip.com>,
-        Josh Hunt <johunt@akamai.com>,
-        Sridhar Samudrala <sridhar.samudrala@intel.com>,
-        Alexander Duyck <alexander.h.duyck@intel.com>
-To: David Miller <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+        "David S. Miller" <davem@davemloft.net>
+To: Arnd Bergmann <arnd@arndb.de>,
+        "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170427191007.1990964-1-arnd@arndb.de>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi all,
+> From: Intel-wired-lan [mailto:intel-wired-lan-bounces@lists.osuosl.org] On
+> Behalf Of Arnd Bergmann
+> Sent: Thursday, April 27, 2017 12:10 PM
+> To: Kirsher, Jeffrey T <jeffrey.t.kirsher@intel.com>
+> Cc: Arnd Bergmann <arnd@arndb.de>; netdev@vger.kernel.org; linux-
+> kernel@vger.kernel.org; intel-wired-lan@lists.osuosl.org; David S. Miller
+> <davem@davemloft.net>
+> Subject: [Intel-wired-lan] [PATCH net-next] igb: mark PM functions as
+> __maybe_unused
+> 
+> The new wake function is only used by the suspend/resume handlers that
+> are defined in inside of an #ifdef, which can cause this harmless
+> warning:
+> 
+> drivers/net/ethernet/intel/igb/igb_main.c:7988:13: warning:
+> 'igb_deliver_wake_packet' defined but not used [-Wunused-function]
+> 
+> Removing the #ifdef, instead using a __maybe_unused annotation
+> simplifies the code and avoids the warning.
+> 
+> Fixes: b90fa8763560 ("igb: Enable reading of wake up packet")
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> ---
+>  drivers/net/ethernet/intel/igb/igb_main.c | 18 +++++-------------
+>  1 file changed, 5 insertions(+), 13 deletions(-)
 
-Today's linux-next merge of the net-next tree got a conflict in:
-
-  arch/avr32/include/uapi/asm/socket.h
-
-between commit:
-
-  26202873bb51 ("avr32: remove support for AVR32 architecture")
-
-from Linus' tree and commits:
-
-  a2d133b1d465 ("sock: introduce SO_MEMINFO getsockopt")
-  6d4339028b35 ("net: Introduce SO_INCOMING_NAPI_ID"
-  5daab9db7b65 ("New getsockopt option to get socket cookie")
-
-from the net-next tree.
-
-I fixed it up (I removed the file) and can carry the fix as
-necessary. This is now fixed as far as linux-next is concerned, but any
-non trivial conflicts should be mentioned to your upstream maintainer
-when your tree is submitted for merging.  You may also want to consider
-cooperating with the maintainer of the conflicting tree to minimise any
-particularly complex conflicts.
-
--- 
-Cheers,
-Stephen Rothwell
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
