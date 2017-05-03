@@ -1,64 +1,33 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH] net/sched: remove redundant null check on head
-Date: Wed, 3 May 2017 17:12:12 +0200
-Message-ID: <20170503151212.GD2077@nanopsycho.orion>
-References: <20170503135040.32023-1-colin.king@canonical.com>
- <5909E75B.30305@bfs.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v4 net-next 00/11] ibmvnic: Updated reset handler and
+ code fixes
+Date: Wed, 03 May 2017 11:33:22 -0400 (EDT)
+Message-ID: <20170503.113322.1558570812477364285.davem@davemloft.net>
+References: <20170503180246.29742.64039.stgit@ltcalpine2-lp23.aus.stglabs.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Colin King <colin.king@canonical.com>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org,
-        kernel-janitors@vger.kernel.org
-To: walter harms <wharms@bfs.de>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <5909E75B.30305@bfs.de>
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, brking@linux.vnet.ibm.com,
+        jallen@linux.vnet.ibm.com, muvic@linux.vnet.ibm.com,
+        tlfalcon@linux.vnet.ibm.com
+To: nfont@linux.vnet.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:38408 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751795AbdECPdY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 3 May 2017 11:33:24 -0400
+In-Reply-To: <20170503180246.29742.64039.stgit@ltcalpine2-lp23.aus.stglabs.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Wed, May 03, 2017 at 04:21:15PM CEST, wharms@bfs.de wrote:
->
->
->Am 03.05.2017 15:50, schrieb Colin King:
->> From: Colin Ian King <colin.king@canonical.com>
->> 
->> head is previously null checked and so the 2nd null check on head
->> is redundant and therefore can be removed.
->> 
->> Detected by CoverityScan, CID#1399505 ("Logically dead code")
->> 
->> Signed-off-by: Colin Ian King <colin.king@canonical.com>
->> ---
->>  net/sched/cls_matchall.c | 3 +--
->>  1 file changed, 1 insertion(+), 2 deletions(-)
->> 
->> diff --git a/net/sched/cls_matchall.c b/net/sched/cls_matchall.c
->> index 2efb36c08f2a..dee469fed967 100644
->> --- a/net/sched/cls_matchall.c
->> +++ b/net/sched/cls_matchall.c
->> @@ -203,8 +203,7 @@ static int mall_change(struct net *net, struct sk_buff *in_skb,
->>  
->>  	*arg = (unsigned long) head;
->>  	rcu_assign_pointer(tp->root, new);
->> -	if (head)
->> -		call_rcu(&head->rcu, mall_destroy_rcu);
->> +	call_rcu(&head->rcu, mall_destroy_rcu);
->>  	return 0;
->>  
->>  err_replace_hw_filter:
->
->
->if someone cares .. the err=0 in the the line above the patch is also useless
->because err is never used again. Merging both if will save 1 indent level.
->
-> err = mall_replace_hw_filter(tp, new, (unsigned long) new);
-> if (err && tc_skip_sw(flags) )
->	goto errout;
+From: Nathan Fontenot <nfont@linux.vnet.ibm.com>
+Date: Wed, 03 May 2017 14:04:20 -0400
 
+> This set of patches multiple code fixes and a new rest handler
+> for the ibmvnic driver. In order to implement the new reset handler
+> for the ibmvnic driver resource initialization needed to be moved to
+> its own routine, a state variable is introduced to replace the
+> various is_* flags in the driver, and a new routine to handle the
+> assorted reasons the driver can be reset.
 
-true, however unrelated to this patch :)
-
-Please submit as a separate patch.
-
-Thanks.
+Series applied, thank you.
