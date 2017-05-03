@@ -1,46 +1,206 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH net-next 00/15] netvsc: misc patches
-Date: Wed,  3 May 2017 16:01:02 -0700
-Message-ID: <20170503230117.20070-1-sthemmin@microsoft.com>
+Subject: [PATCH net-next 01/15] vmbus: simplify hv_ringbuffer_read
+Date: Wed,  3 May 2017 16:01:03 -0700
+Message-ID: <20170503230117.20070-2-sthemmin@microsoft.com>
+References: <20170503230117.20070-1-sthemmin@microsoft.com>
 Cc: netdev@vger.kernel.org, Stephen Hemminger <sthemmin@microsoft.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f45.google.com ([74.125.83.45]:33762 "EHLO
-        mail-pg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751198AbdECXBV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 3 May 2017 19:01:21 -0400
-Received: by mail-pg0-f45.google.com with SMTP id y4so1996038pge.0
-        for <netdev@vger.kernel.org>; Wed, 03 May 2017 16:01:20 -0700 (PDT)
+Received: from mail-pf0-f175.google.com ([209.85.192.175]:35104 "EHLO
+        mail-pf0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751491AbdECXBW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 3 May 2017 19:01:22 -0400
+Received: by mail-pf0-f175.google.com with SMTP id v14so1748686pfd.2
+        for <netdev@vger.kernel.org>; Wed, 03 May 2017 16:01:21 -0700 (PDT)
+In-Reply-To: <20170503230117.20070-1-sthemmin@microsoft.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mostly these are performance related. There is also one bug fix for
-incorrect handling of NAPI on device removal
+With new iterator functions (and the double mapping) the ring buffer
+read function can be greatly simplified.
 
-Stephen Hemminger (15):
-  vmbus: simplify hv_ringbuffer_read
-  vmbus: fix unnecessary signal events as result of NAPI
-  netvsc: make sure napi enabled before vmbus_open
-  netvsc: don't reacquire rtnl on device removal
-  netvsc: optimize avail percent calculation
-  netvsc: prefetch the first incoming ring element
-  netvsc: convert ring_size to unsigned
-  netvsc: allow overriding send/recv buffer size
-  netvsc: optimize netvsc_send_pkt
-  netvsc: replace modulus with mask for alignment
-  netvsc: reduce unnecessary memset
-  netvsc: size receive completion ring based on receive area
-  netvsc: convert open count from atomic to refcount
-  netvsc: optimize receive completions
-  netvsc: use vzalloc_node for receive completion data
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+---
+ drivers/hv/ring_buffer.c | 122 +++++++----------------------------------------
+ 1 file changed, 18 insertions(+), 104 deletions(-)
 
- drivers/hv/ring_buffer.c          | 179 +++++++++---------------
- drivers/net/hyperv/hyperv_net.h   |  32 +++--
- drivers/net/hyperv/netvsc.c       | 282 +++++++++++++++++---------------------
- drivers/net/hyperv/netvsc_drv.c   |  56 ++++++--
- drivers/net/hyperv/rndis_filter.c |  20 +--
- include/linux/hyperv.h            |  70 +---------
- 6 files changed, 266 insertions(+), 373 deletions(-)
-
+diff --git a/drivers/hv/ring_buffer.c b/drivers/hv/ring_buffer.c
+index c3f1a9e33cef..4bffeae6990b 100644
+--- a/drivers/hv/ring_buffer.c
++++ b/drivers/hv/ring_buffer.c
+@@ -96,30 +96,6 @@ hv_set_next_write_location(struct hv_ring_buffer_info *ring_info,
+ 	ring_info->ring_buffer->write_index = next_write_location;
+ }
+ 
+-/* Get the next read location for the specified ring buffer. */
+-static inline u32
+-hv_get_next_read_location(const struct hv_ring_buffer_info *ring_info)
+-{
+-	return ring_info->ring_buffer->read_index;
+-}
+-
+-/*
+- * Get the next read location + offset for the specified ring buffer.
+- * This allows the caller to skip.
+- */
+-static inline u32
+-hv_get_next_readlocation_withoffset(const struct hv_ring_buffer_info *ring_info,
+-				    u32 offset)
+-{
+-	u32 next = ring_info->ring_buffer->read_index;
+-
+-	next += offset;
+-	if (next >= ring_info->ring_datasize)
+-		next -= ring_info->ring_datasize;
+-
+-	return next;
+-}
+-
+ /* Set the next read location for the specified ring buffer. */
+ static inline void
+ hv_set_next_read_location(struct hv_ring_buffer_info *ring_info,
+@@ -144,29 +120,6 @@ hv_get_ring_bufferindices(struct hv_ring_buffer_info *ring_info)
+ }
+ 
+ /*
+- * Helper routine to copy to source from ring buffer.
+- * Assume there is enough room. Handles wrap-around in src case only!!
+- */
+-static u32 hv_copyfrom_ringbuffer(
+-	const struct hv_ring_buffer_info *ring_info,
+-	void				*dest,
+-	u32				destlen,
+-	u32				start_read_offset)
+-{
+-	void *ring_buffer = hv_get_ring_buffer(ring_info);
+-	u32 ring_buffer_size = hv_get_ring_buffersize(ring_info);
+-
+-	memcpy(dest, ring_buffer + start_read_offset, destlen);
+-
+-	start_read_offset += destlen;
+-	if (start_read_offset >= ring_buffer_size)
+-		start_read_offset -= ring_buffer_size;
+-
+-	return start_read_offset;
+-}
+-
+-
+-/*
+  * Helper routine to copy from source to ring buffer.
+  * Assume there is enough room. Handles wrap-around in dest case only!!
+  */
+@@ -338,86 +291,47 @@ int hv_ringbuffer_write(struct vmbus_channel *channel,
+ 	return 0;
+ }
+ 
+-static inline void
+-init_cached_read_index(struct hv_ring_buffer_info *rbi)
+-{
+-	rbi->cached_read_index = rbi->ring_buffer->read_index;
+-}
+-
+ int hv_ringbuffer_read(struct vmbus_channel *channel,
+ 		       void *buffer, u32 buflen, u32 *buffer_actual_len,
+ 		       u64 *requestid, bool raw)
+ {
+-	u32 bytes_avail_toread;
+-	u32 next_read_location = 0;
+-	u64 prev_indices = 0;
+-	struct vmpacket_descriptor desc;
+-	u32 offset;
+-	u32 packetlen;
+-	int ret = 0;
+-	struct hv_ring_buffer_info *inring_info = &channel->inbound;
++	struct vmpacket_descriptor *desc;
++	u32 packetlen, offset;
+ 
+-	if (buflen <= 0)
++	if (unlikely(buflen == 0))
+ 		return -EINVAL;
+ 
+-
+ 	*buffer_actual_len = 0;
+ 	*requestid = 0;
+ 
+-	bytes_avail_toread = hv_get_bytes_to_read(inring_info);
+ 	/* Make sure there is something to read */
+-	if (bytes_avail_toread < sizeof(desc)) {
++	desc = hv_pkt_iter_first(channel);
++	if (desc == NULL) {
+ 		/*
+ 		 * No error is set when there is even no header, drivers are
+ 		 * supposed to analyze buffer_actual_len.
+ 		 */
+-		return ret;
++		return 0;
+ 	}
+ 
+-	init_cached_read_index(inring_info);
+-
+-	next_read_location = hv_get_next_read_location(inring_info);
+-	next_read_location = hv_copyfrom_ringbuffer(inring_info, &desc,
+-						    sizeof(desc),
+-						    next_read_location);
+-
+-	offset = raw ? 0 : (desc.offset8 << 3);
+-	packetlen = (desc.len8 << 3) - offset;
++	offset = raw ? 0 : (desc->offset8 << 3);
++	packetlen = (desc->len8 << 3) - offset;
+ 	*buffer_actual_len = packetlen;
+-	*requestid = desc.trans_id;
+-
+-	if (bytes_avail_toread < packetlen + offset)
+-		return -EAGAIN;
++	*requestid = desc->trans_id;
+ 
+-	if (packetlen > buflen)
++	if (unlikely(packetlen > buflen))
+ 		return -ENOBUFS;
+ 
+-	next_read_location =
+-		hv_get_next_readlocation_withoffset(inring_info, offset);
++	/* since ring is double mapped, only one copy is necessary */
++	memcpy(buffer, (const char *)desc + offset, packetlen);
+ 
+-	next_read_location = hv_copyfrom_ringbuffer(inring_info,
+-						buffer,
+-						packetlen,
+-						next_read_location);
++	/* Advance ring index to next packet descriptor */
++	__hv_pkt_iter_next(channel, desc);
+ 
+-	next_read_location = hv_copyfrom_ringbuffer(inring_info,
+-						&prev_indices,
+-						sizeof(u64),
+-						next_read_location);
++	/* Notify host of update */
++	hv_pkt_iter_close(channel);
+ 
+-	/*
+-	 * Make sure all reads are done before we update the read index since
+-	 * the writer may start writing to the read area once the read index
+-	 * is updated.
+-	 */
+-	virt_mb();
+-
+-	/* Update the read index */
+-	hv_set_next_read_location(inring_info, next_read_location);
+-
+-	hv_signal_on_read(channel);
+-
+-	return ret;
++	return 0;
+ }
+ 
+ /*
+@@ -448,7 +362,7 @@ struct vmpacket_descriptor *hv_pkt_iter_first(struct vmbus_channel *channel)
+ 	struct hv_ring_buffer_info *rbi = &channel->inbound;
+ 
+ 	/* set state for later hv_signal_on_read() */
+-	init_cached_read_index(rbi);
++	rbi->cached_read_index = rbi->ring_buffer->read_index;
+ 
+ 	if (hv_pkt_iter_avail(rbi) < sizeof(struct vmpacket_descriptor))
+ 		return NULL;
 -- 
 2.11.0
