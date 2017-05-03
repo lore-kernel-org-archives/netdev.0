@@ -1,400 +1,417 @@
 From: Gavin Shan <gwshan@linux.vnet.ibm.com>
-Subject: [PATCH v4 net-next 06/10] net/ncsi: Ethtool operation to get NCSI hw statistics
-Date: Wed,  3 May 2017 14:44:37 +1000
-Message-ID: <1493786681-27468-7-git-send-email-gwshan@linux.vnet.ibm.com>
+Subject: [PATCH v4 net-next 05/10] net/ncsi: Ethtool operation to get NCSI channel info
+Date: Wed,  3 May 2017 14:44:36 +1000
+Message-ID: <1493786681-27468-6-git-send-email-gwshan@linux.vnet.ibm.com>
 References: <1493786681-27468-1-git-send-email-gwshan@linux.vnet.ibm.com>
 Cc: joe@perches.com, kubakici@wp.pl, f.fainelli@gmail.com,
         davem@davemloft.net, Gavin Shan <gwshan@linux.vnet.ibm.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:55021 "EHLO
+Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:55027 "EHLO
         mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1751601AbdECEqR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 3 May 2017 00:46:17 -0400
+        by vger.kernel.org with ESMTP id S1751606AbdECEqS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 3 May 2017 00:46:18 -0400
 Received: from pps.filterd (m0098417.ppops.net [127.0.0.1])
-        by mx0a-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v434iB5n044977
+        by mx0a-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v434iGZW045396
         for <netdev@vger.kernel.org>; Wed, 3 May 2017 00:46:12 -0400
-Received: from e23smtp05.au.ibm.com (e23smtp05.au.ibm.com [202.81.31.147])
-        by mx0a-001b2d01.pphosted.com with ESMTP id 2a77pg1hhd-1
+Received: from e23smtp02.au.ibm.com (e23smtp02.au.ibm.com [202.81.31.144])
+        by mx0a-001b2d01.pphosted.com with ESMTP id 2a77pg1hhk-1
         (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Wed, 03 May 2017 00:46:11 -0400
+        for <netdev@vger.kernel.org>; Wed, 03 May 2017 00:46:12 -0400
 Received: from localhost
-        by e23smtp05.au.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        by e23smtp02.au.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
         for <netdev@vger.kernel.org> from <gwshan@linux.vnet.ibm.com>;
-        Wed, 3 May 2017 14:46:08 +1000
+        Wed, 3 May 2017 14:46:09 +1000
 Received: from d23av06.au.ibm.com (d23av06.au.ibm.com [9.190.235.151])
-        by d23relay06.au.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id v434jwgM57147512
+        by d23relay09.au.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id v434jw7d46334020
         for <netdev@vger.kernel.org>; Wed, 3 May 2017 14:46:06 +1000
 Received: from d23av06.au.ibm.com (localhost [127.0.0.1])
-        by d23av06.au.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id v434jXX8024738
+        by d23av06.au.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id v434jXef024748
         for <netdev@vger.kernel.org>; Wed, 3 May 2017 14:45:33 +1000
 In-Reply-To: <1493786681-27468-1-git-send-email-gwshan@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This adds ethtool command (ETHTOOL_GNCSISTATS) to retrieve the
-NCSI hardware statistics. The simplified output of this command is
-shown as follows from the modified (private) ethtool. It's obvious
-the HW statistics isn't fetched from hardware yet, which is to be
-sorted out later.
+This adds ethtool command (ETHTOOL_GNCSICINFO) to retrieve the
+NCSI channel information for the specified one. The simplified
+output of this command is shown as follows from the modified
+(private) ethtool:
 
- # ethtool --ncsi eth0 stats
- NCSI statistics as below
+ # ethtool --ncsi eth0 info
+ NCSI channel 0:0 version:
+   version:        00000000
+   alpha2:         00000000
+   f/w name:
+   f/w version:    00000000
+   PCI IDs:        0000 0000 0000 0000
+   Manufacture ID: 00000000
 
-   hnc_cnt_hi:           0
-   hnc_cnt_lo:           0
-   hnc_rx_bytes:         0
-   hnc_tx_bytes:         0
-   hnc_rx_uc_pkts:       0
-   hnc_rx_mc_pkts:       0
-   hnc_rx_bc_pkts:       0
-   hnc_tx_uc_pkts:       0
-   hnc_tx_mc_pkts:       0
-   hnc_tx_bc_pkts:       0
-   hnc_fcs_err:          0
-   hnc_align_err:        0
-   hnc_false_carrier:    0
-   hnc_runt_pkts:        0
-   hnc_jabber_pkts:      0
-   hnc_rx_pause_xon:     0
-   hnc_rx_pause_xoff:    0
-   hnc_tx_pause_xon:     0
-   hnc_tx_pause_xoff:    0
-   hnc_tx_s_collision:   0
-   hnc_tx_m_collision:   0
-   hnc_l_collision:      0
-   hnc_e_collision:      0
-   hnc_rx_ctl_frames:    0
-   hnc_rx_64_frames:     0
-   hnc_rx_127_frames:    0
-   hnc_rx_255_frames:    0
-   hnc_rx_511_frames:    0
-   hnc_rx_1023_frames:   0
-   hnc_rx_1522_frames:   0
-   hnc_rx_9022_frames:   0
-   hnc_tx_64_frames:     0
-   hnc_tx_127_frames:    0
-   hnc_tx_255_frames:    0
-   hnc_tx_511_frames:    0
-   hnc_tx_1023_frames:   0
-   hnc_tx_1522_frames:   0
-   hnc_tx_9022_frames:   0
-   hnc_rx_valid_bytes:   0
-   hnc_rx_runt_pkts:     0
-   hnc_rx_jabber_pkts:   0
-   ncsi_rx_cmds:         0
-   ncsi_dropped_cmds:    0
-   ncsi_cmd_type_errs:   0
-   ncsi_cmd_csum_errs:   0
-   ncsi_rx_pkts:         0
-   ncsi_tx_pkts:         0
-   ncsi_tx_aen_pkts:     0
-   pt_tx_pkts:           0
-   pt_tx_dropped:        0
-   pt_tx_channel_err:    0
-   pt_tx_us_err:         0
-   pt_rx_pkts:           0
-   pt_rx_dropped:        0
-   pt_rx_channel_err:    0
-   pt_rx_us_err:         0
-   pt_rx_os_err:         0
+   Generic capability:   0000000f (0000000f)
+   Multicast capability: 00000007 (00000000)
+   Buffer capability:    00004000
+   AEN capability:       00000007 (00000000)
+   VLAN capability:      00000007 (00000000)
+   Filters:              VLAN (2), Mixed (0), MC (2), UC (4)
+
+   Link status:             000ff66b 00000000 00000000
+   MAC filter entries:
+   00:00:00:00:00:00
+   48:c4:b6:f0:a6:d4
+   b6:fa:8f:70:00:00
+   00:00:00:01:07:34
+   VLAN filter entries:
+   0004
+   bc84
 
 Signed-off-by: Gavin Shan <gwshan@linux.vnet.ibm.com>
 ---
  include/linux/ethtool.h      |   2 +
- include/uapi/linux/ethtool.h | 124 +++++++++++++++++++++++++++++++++++++++++++
- net/core/ethtool.c           |  29 ++++++++++
- net/ncsi/ncsi-ethtool.c      |  87 ++++++++++++++++++++++++++++++
- 4 files changed, 242 insertions(+)
+ include/uapi/linux/ethtool.h | 151 +++++++++++++++++++++++++++++++++++++++++++
+ net/core/ethtool.c           |  22 +++++++
+ net/ncsi/ncsi-ethtool.c      | 120 ++++++++++++++++++++++++++++++++++
+ 4 files changed, 295 insertions(+)
 
 diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
-index 5704b8b..6d712ca 100644
+index 720bb4d..5704b8b 100644
 --- a/include/linux/ethtool.h
 +++ b/include/linux/ethtool.h
-@@ -378,5 +378,7 @@ struct ethtool_ops {
+@@ -376,5 +376,7 @@ struct ethtool_ops {
+ 				      const struct ethtool_link_ksettings *);
+ 	int	(*get_ncsi_channels)(struct net_device *,
  				     struct ethtool_ncsi_channels *);
- 	int	(*get_ncsi_channel_info)(struct net_device *,
- 					 struct ethtool_ncsi_channel_info *);
-+	int	(*get_ncsi_stats)(struct net_device *,
-+				  struct ethtool_ncsi_stats *);
++	int	(*get_ncsi_channel_info)(struct net_device *,
++					 struct ethtool_ncsi_channel_info *);
  };
  #endif /* _LINUX_ETHTOOL_H */
 diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
-index 81fbd51..472773c 100644
+index e43aacf..81fbd51 100644
 --- a/include/uapi/linux/ethtool.h
 +++ b/include/uapi/linux/ethtool.h
-@@ -1333,6 +1333,7 @@ struct ethtool_per_queue_op {
+@@ -1332,6 +1332,7 @@ struct ethtool_per_queue_op {
+ #define ETHTOOL_PHY_STUNABLE	0x0000004f /* Set PHY tunable configuration */
  
  #define ETHTOOL_GNCSICHANNELS	0x00000050 /* Get NCSI channels */
- #define ETHTOOL_GNCSICINFO	0x00000051 /* Get NCSI channel information */
-+#define ETHTOOL_GNCSISTATS	0x00000052 /* Get NCSI HW statistics */
++#define ETHTOOL_GNCSICINFO	0x00000051 /* Get NCSI channel information */
  
  /* compatibility with older code */
  #define SPARC_ETH_GSET		ETHTOOL_GSET
-@@ -1931,4 +1932,127 @@ struct ethtool_ncsi_channel_info {
- 	__u32	vlan_valid_bits;
- 	__u16	vlan[16];
+@@ -1780,4 +1781,154 @@ struct ethtool_ncsi_channels {
+ #define ETHTOOL_NCSI_CHANNEL_ACTIVE	(1 << 8)
+ #define ETHTOOL_NCSI_CHANNEL_FLAGS	0x100
  };
 +
 +/**
-+ * struct ethtool_ncsi_stats - NCSI hardware statistics
++ * struct ethtool_ncsi_channel_info - NCSI channel information
 + *
-+ * @cmd: Command number = %ETHTOOL_GNCSISTATS
-+ * @hnc_cnt_hi: Counter cleared
-+ * @hnc_cnt_lo: Counter cleared
-+ * @hnc_rx_bytes: Rx bytes
-+ * @hnc_tx_bytes: Tx bytes
-+ * @hnc_rx_uc_pkts: Rx UC packets
-+ * @hnc_rx_mc_pkts: Rx MC packets
-+ * @hnc_rx_bc_pkts: Rx BC packets
-+ * @hnc_tx_uc_pkts: Tx UC packets
-+ * @hnc_tx_mc_pkts: Tx MC packets
-+ * @hnc_tx_bc_pkts: Tx BC packets
-+ * @hnc_fcs_err: FCS errors
-+ * @hnc_align_err: Alignment errors
-+ * @hnc_false_carrier: False carrier detection
-+ * @hnc_runt_pkts: Rx runt packets
-+ * @hnc_jabber_pkts: Rx jabber packets
-+ * @hnc_rx_pause_xon: Rx pause XON frames
-+ * @hnc_rx_pause_xoff: Rx XOFF frames
-+ * @hnc_tx_pause_xon: Tx XON frames
-+ * @hnc_tx_pause_xoff: Tx XOFF frames
-+ * @hnc_tx_s_collision: Single collision frames
-+ * @hnc_tx_m_collision: Multiple collision frames
-+ * @hnc_l_collision: Late collision frames
-+ * @hnc_e_collision: Excessive collision frames
-+ * @hnc_rx_ctl_frames: Rx control frames
-+ * @hnc_rx_64_frames: Rx 64-bytes frames
-+ * @hnc_rx_127_frames: Rx 65-127 bytes frames
-+ * @hnc_rx_255_frames: Rx 128-255 bytes frames
-+ * @hnc_rx_511_frames: Rx 256-511 bytes frames
-+ * @hnc_rx_1023_frames: Rx 512-1023 bytes frames
-+ * @hnc_rx_1522_frames: Rx 1024-1522 bytes frames
-+ * @hnc_rx_9022_frames: Rx 1523-9022 bytes frames
-+ * @hnc_tx_64_frames: Tx 64-bytes frames
-+ * @hnc_tx_127_frames: Tx 65-127 bytes frames
-+ * @hnc_tx_255_frames: Tx 128-255 bytes frames
-+ * @hnc_tx_511_frames: Tx 256-511 bytes frames
-+ * @hnc_tx_1023_frames: Tx 512-1023 bytes frames
-+ * @hnc_tx_1522_frames: Tx 1024-1522 bytes frames
-+ * @hnc_tx_9022_frames: Tx 1523-9022 bytes frames
-+ * @hnc_rx_valid_bytes: Rx valid bytes
-+ * @hnc_rx_runt_pkts: Rx error runt packets
-+ * @hnc_rx_jabber_pkts: Rx error jabber packets
-+ * @ncsi_rx_cmds: Rx NCSI commands
-+ * @ncsi_dropped_cmds: Dropped commands
-+ * @ncsi_cmd_type_errs: Command type errors
-+ * @ncsi_cmd_csum_errs: Command checksum errors
-+ * @ncsi_rx_pkts: Rx NCSI packets
-+ * @ncsi_tx_pkts: Tx NCSI packets
-+ * @ncsi_tx_aen_pkts: Tx AEN packets
-+ * @pt_tx_pkts: Tx packets
-+ * @pt_tx_dropped: Tx dropped packets
-+ * @pt_tx_channel_err: Tx channel errors
-+ * @pt_tx_us_err: Tx undersize errors
-+ * @pt_rx_pkts: Rx packets
-+ * @pt_rx_dropped: Rx dropped packets
-+ * @pt_rx_channel_err: Rx channel errors
-+ * @pt_rx_us_err: Rx undersize errors
-+ * @pt_rx_os_err: Rx oversize errors
++ * @cmd: Command number = %ETHTOOL_GNCSICINFO
++ * @id:  NCSI channel identifier
++ * @version: BCD encoded NCSI version
++ * @alpha2: BCD encoded NCSI version
++ * @fw_name: Firmware name string
++ * @fw_version: Firmware version
++ * @pci_ids: PCI identifier
++ * @mf_id: Manufacture identifier
++ * @cap_generic: Generic capability list
++ * @cap_bc: Broadcast capability list
++ * @setting_bc: Broadcast filtering setting
++ * @cap_mc: Multicast capability list
++ * @setting_mc: Multicast filtering setting
++ * @cap_buf: Length of receive buffer
++ * @cap_aen: AEN capability list
++ * @setting_aen: AEN setting
++ * @cap_vlan: VLAN filtering capability list
++ * @setting_vlan: VLAN filltering setting
++ * @cap_vlan_filter: Number of VLAN filtering entries
++ * @cap_mixed_filter: Number of mixed filtering entries
++ * @cap_mc_filter: Number of multicast filtering entries
++ * @cap_uc_filter: Number of unicast filtering entries
++ * @link_status: Link status
++ * @link_other_ind: Link other indication
++ * @link_oem: Link OEM information
++ * @mac_valid_bits: Bitmap for valid MAC filtering entries
++ * @mac: MAC filtering entries
++ * @vlan_valid_bits: Bitmap for valid VLAN filtering entries
++ * @vlan: VLAN filtering entries
 + */
-+struct ethtool_ncsi_stats {
++struct ethtool_ncsi_channel_info {
 +	__u32	cmd;
-+	__u64	hnc_cnt_hi;
-+	__u64	hnc_cnt_lo;
-+	__u64	hnc_rx_bytes;
-+	__u64	hnc_tx_bytes;
-+	__u64	hnc_rx_uc_pkts;
-+	__u64	hnc_rx_mc_pkts;
-+	__u64	hnc_rx_bc_pkts;
-+	__u64	hnc_tx_uc_pkts;
-+	__u64	hnc_tx_mc_pkts;
-+	__u64	hnc_tx_bc_pkts;
-+	__u64	hnc_fcs_err;
-+	__u64	hnc_align_err;
-+	__u64	hnc_false_carrier;
-+	__u64	hnc_runt_pkts;
-+	__u64	hnc_jabber_pkts;
-+	__u64	hnc_rx_pause_xon;
-+	__u64	hnc_rx_pause_xoff;
-+	__u64	hnc_tx_pause_xon;
-+	__u64	hnc_tx_pause_xoff;
-+	__u64	hnc_tx_s_collision;
-+	__u64	hnc_tx_m_collision;
-+	__u64	hnc_l_collision;
-+	__u64	hnc_e_collision;
-+	__u64	hnc_rx_ctl_frames;
-+	__u64	hnc_rx_64_frames;
-+	__u64	hnc_rx_127_frames;
-+	__u64	hnc_rx_255_frames;
-+	__u64	hnc_rx_511_frames;
-+	__u64	hnc_rx_1023_frames;
-+	__u64	hnc_rx_1522_frames;
-+	__u64	hnc_rx_9022_frames;
-+	__u64	hnc_tx_64_frames;
-+	__u64	hnc_tx_127_frames;
-+	__u64	hnc_tx_255_frames;
-+	__u64	hnc_tx_511_frames;
-+	__u64	hnc_tx_1023_frames;
-+	__u64	hnc_tx_1522_frames;
-+	__u64	hnc_tx_9022_frames;
-+	__u64	hnc_rx_valid_bytes;
-+	__u64	hnc_rx_runt_pkts;
-+	__u64	hnc_rx_jabber_pkts;
-+	__u64	ncsi_rx_cmds;
-+	__u64	ncsi_dropped_cmds;
-+	__u64	ncsi_cmd_type_errs;
-+	__u64	ncsi_cmd_csum_errs;
-+	__u64	ncsi_rx_pkts;
-+	__u64	ncsi_tx_pkts;
-+	__u64	ncsi_tx_aen_pkts;
-+	__u64	pt_tx_pkts;
-+	__u64	pt_tx_dropped;
-+	__u64	pt_tx_channel_err;
-+	__u64	pt_tx_us_err;
-+	__u64	pt_rx_pkts;
-+	__u64	pt_rx_dropped;
-+	__u64	pt_rx_channel_err;
-+	__u64	pt_rx_us_err;
-+	__u64	pt_rx_os_err;
++	__u32	id;
++	__u32	version;
++	__u32	alpha2;
++	__u8	fw_name[12];
++	__u32	fw_version;
++	__u16	pci_ids[4];
++	__u32	mf_id;
++	__u32	cap_generic;
++#define ETHTOOL_NCSI_G_HWA             (1 << 0) /* HW arbitration           */
++#define ETHTOOL_NCSI_G_HDS             (1 << 1) /* HNC driver status change */
++#define ETHTOOL_NCSI_G_FC              (1 << 2) /* HNC to MC flow control   */
++#define ETHTOOL_NCSI_G_FC1             (1 << 3) /* MC to HNC flow control   */
++#define ETHTOOL_NCSI_G_MC              (1 << 4) /* Global MC filtering      */
++#define ETHTOOL_NCSI_G_HWA_MASK        0x60
++#define ETHTOOL_NCSI_G_HWA_UNKNOWN     0x00     /* Unknown HW arbitration   */
++#define ETHTOOL_NCSI_G_HWA_SUPPORT     0x20     /* Supported HW arbitration */
++#define ETHTOOL_NCSI_G_HWA_NOT_SUPPORT 0x40     /* No HW arbitration        */
++#define ETHTOOL_NCSI_G_HWA_RESERVED    0x60     /* Reserved HW arbitration  */
++#define ETHTOOL_NCSI_G_MASK            0x7f
++	__u32	cap_bc;
++	__u32	setting_bc;
++#define ETHTOOL_NCSI_BC_ARP            (1 << 0) /* ARP packet filtering     */
++#define ETHTOOL_NCSI_BC_DHCPC          (1 << 1) /* DHCP client filtering    */
++#define ETHTOOL_NCSI_BC_DHCPS          (1 << 2) /* DHCP server filtering    */
++#define ETHTOOL_NCSI_BC_NETBIOS        (1 << 3) /* NetBIOS packet filtering */
++#define ETHTOOL_NCSI_BC_MASK           0xf
++	__u32	cap_mc;
++	__u32	setting_mc;
++#define ETHTOOL_NCSI_MC_IPV6_NEIGHBOR     (1 << 0) /* IPv6 neighbor filter  */
++#define ETHTOOL_NCSI_MC_IPV6_ROUTER       (1 << 1) /* IPv6 router filter    */
++#define ETHTOOL_NCSI_MC_DHCPV6_RELAY      (1 << 2) /* DHCPv6 relay/server   */
++#define ETHTOOL_NCSI_MC_DHCPV6_WELL_KNOWN (1 << 3) /* DHCPv6 well-known MC  */
++#define ETHTOOL_NCSI_MC_IPV6_MLD          (1 << 4) /* IPv6 MLD filtering    */
++#define ETHTOOL_NCSI_MC_IPV6_NEIGHBOR_S   (1 << 5) /* IPv6 neighbour filter */
++#define ETHTOOL_NCSI_MC_MASK              0x3f
++	__u32	cap_buf;
++	__u32	cap_aen;
++	__u32	setting_aen;
++#define ETHTOOL_NCSI_AEN_LSC           (1 << 0) /* Link status change       */
++#define ETHTOOL_NCSI_AEN_CR            (1 << 1) /* Configuration required   */
++#define ETHTOOL_NCSI_AEN_HDS           (1 << 2) /* HNC driver status        */
++#define ETHTOOL_NCSI_AEN_MASK          0x07
++	__u32	cap_vlan;
++	__u32	setting_vlan;
++#define ETHTOOL_NCSI_VLAN_ONLY         (1 << 0) /* Filter VLAN packet only  */
++#define ETHTOOL_NCSI_VLAN_NO           (1 << 1) /* Filter VLAN and non-VLAN */
++#define ETHTOOL_NCSI_VLAN_ANY          (1 << 2) /* Filter Any-and-non-VLAN  */
++#define ETHTOOL_NCSI_VLAN_MASK         0x07
++	__u8	cap_vlan_filter;
++	__u8	cap_mixed_filter;
++	__u8	cap_mc_filter;
++	__u8	cap_uc_filter;
++	__u32	link_status;
++#define ETHTOOL_NCSI_LINK_UP               (1 << 0)  /* Link up or down       */
++#define ETHTOOL_NCSI_LINK_SPEED_MASK       0x1e      /* Link speed            */
++#define ETHTOOL_NCSI_LINK_SPEED_INVALID         0x0
++#define ETHTOOL_NCSI_LINK_SPEED_10BASE_T_H      0x2
++#define ETHTOOL_NCSI_LINK_SPEED_10BASE_T_F      0x4
++#define ETHTOOL_NCSI_LINK_SPEED_100BASE_TX_H    0x6
++#define ETHTOOL_NCSI_LINK_SPEED_100BASE_T4      0x8
++#define ETHTOOL_NCSI_LINK_SPEED_100BASE_TX_F    0xa
++#define ETHTOOL_NCSI_LINK_SPEED_1000BASE_T_H    0xc
++#define ETHTOOL_NCSI_LINK_SPEED_1000BASE_T_F    0xe
++#define ETHTOOL_NCSI_LINK_SPEED_10GBASE_T       0x10
++#define ETHTOOL_NCSI_LINK_SPEED_20G             0x12
++#define ETHTOOL_NCSI_LINK_SPEED_25G             0x14
++#define ETHTOOL_NCSI_LINK_SPEED_40G             0x16
++#define ETHTOOL_NCSI_LINK_SPEED_50G             0x18
++#define ETHTOOL_NCSI_LINK_SPEED_100G            0x1a
++#define ETHTOOL_NCSI_LINK_SPEED_2_5G            0x1c
++#define ETHTOOL_NCSI_LINK_SPEED_OPTIONAL        0x1e
++#define ETHTOOL_NCSI_LINK_AUTONEG_ENABLED  (1 << 5)  /* Enabled auto-neg      */
++#define ETHTOOL_NCSI_LINK_AUTONEG_DONE     (1 << 6)  /* Auto-neg is done      */
++#define ETHTOOL_NCSI_LINK_PARALLEL         (1 << 7)  /* Parallel detection    */
++#define ETHTOOL_NCSI_LINK_LPA_1000BASE_T_F (1 << 9)  /* LPA: 1000BASE_T_Full  */
++#define ETHTOOL_NCSI_LINK_LPA_1000BASE_T_H (1 << 10) /* LPA: 1000BASE_T_Half  */
++#define ETHTOOL_NCSI_LINK_LPA_100_T4       (1 << 11) /* LPA: 100T4            */
++#define ETHTOOL_NCSI_LINK_LPA_100BASE_TX_F (1 << 12) /* LPA: 100BASE_TX_Full  */
++#define ETHTOOL_NCSI_LINK_LPA_100BASE_TX_H (1 << 13) /* LPA: 100BASE_TX_Half  */
++#define ETHTOOL_NCSI_LINK_LPA_10BASE_T_F   (1 << 14) /* LPA: 10BASE_T_Full    */
++#define ETHTOOL_NCSI_LINK_LPA_10BASE_T_H   (1 << 15) /* LPA: 10BASE_T_Half    */
++#define ETHTOOL_NCSI_LINK_TX_FC            (1 << 16) /* Tx flow control       */
++#define ETHTOOL_NCSI_LINK_RX_FC            (1 << 17) /* Rx flow control       */
++#define ETHTOOL_NCSI_LINK_LPA_FC_MASK      0xc0000
++#define ETHTOOL_NCSI_LINK_LPA_FC_NONE      0x0
++#define ETHTOOL_NCSI_LINK_LPA_FC_SYNC      0x40000
++#define ETHTOOL_NCSI_LINK_LPA_FC_ASYNC     0x80000
++#define ETHTOOL_NCSI_LINK_SERDES           (1 << 20) /* SerDes used or not    */
++#define ETHTOOL_NCSI_LINK_OEM_VALID        (1 << 21)
++#define ETHTOOL_NCSI_LINK_ESPEED_MASK      0xff000000
++#define ETHTOOL_NCSI_LINK_ESPEED_INVALID          0x0
++#define ETHTOOL_NCSI_LINK_ESPEED_10BASE_T_H       0x01000000
++#define ETHTOOL_NCSI_LINK_ESPEED_10BASE_T_F       0x02000000
++#define ETHTOOL_NCSI_LINK_ESPEED_100BASE_TX_H     0x03000000
++#define ETHTOOL_NCSI_LINK_ESPEED_100BASE_T4       0x04000000
++#define ETHTOOL_NCSI_LINK_ESPEED_100BASE_TX_F     0x05000000
++#define ETHTOOL_NCSI_LINK_ESPEED_1000BASE_T_H     0x06000000
++#define ETHTOOL_NCSI_LINK_ESPEED_1000BASE_T_F     0x07000000
++#define ETHTOOL_NCSI_LINK_ESPEED_10GBASE_T        0x08000000
++#define ETHTOOL_NCSI_LINK_ESPEED_20G              0x09000000
++#define ETHTOOL_NCSI_LINK_ESPEED_25G              0x0a000000
++#define ETHTOOL_NCSI_LINK_ESPEED_40G              0x0b000000
++#define ETHTOOL_NCSI_LINK_ESPEED_50G              0x0c000000
++#define ETHTOOL_NCSI_LINK_ESPEED_100G             0x0d000000
++#define ETHTOOL_NCSI_LINK_ESPEED_2_5G             0x0e000000
++#define ETHTOOL_NCSI_LINK_ESPEED_OPTIONAL         0x0f000000
++	__u32	link_other_ind;
++#define ETHTOOL_NCSI_LINK_HNC_DRV_STATUS   (1 << 0)
++	__u32	link_oem;
++	__u32	mac_valid_bits;
++	__u8	mac[8][6];
++	__u32	vlan_valid_bits;
++	__u16	vlan[16];
 +};
  #endif /* _UAPI_LINUX_ETHTOOL_H */
 diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-index 116ef10..f26aa36 100644
+index 7644765..116ef10 100644
 --- a/net/core/ethtool.c
 +++ b/net/core/ethtool.c
-@@ -812,6 +812,32 @@ static int ethtool_get_ncsi_channel_info(struct net_device *dev,
+@@ -793,6 +793,25 @@ static int ethtool_get_ncsi_channels(struct net_device *dev,
  	return ret;
  }
  
-+static int ethtool_get_ncsi_stats(struct net_device *dev,
-+				  void __user *useraddr)
++static int ethtool_get_ncsi_channel_info(struct net_device *dev,
++					 void __user *useraddr)
 +{
-+	struct ethtool_ncsi_stats *ens;
++	struct ethtool_ncsi_channel_info enci;
 +	int ret;
 +
-+	if (!dev->ethtool_ops->get_ncsi_stats)
++	if (!dev->ethtool_ops->get_ncsi_channel_info)
 +		return -EOPNOTSUPP;
 +
-+	ens = kzalloc(sizeof(*ens), GFP_KERNEL);
-+	if (!ens)
-+		return -ENOMEM;
++	if (copy_from_user(&enci, useraddr, sizeof(enci)))
++		return -EFAULT;
 +
-+	if (copy_from_user(ens, useraddr, sizeof(*ens))) {
-+		ret = -EFAULT;
-+		goto out;
-+	}
++	ret = dev->ethtool_ops->get_ncsi_channel_info(dev, &enci);
++	if (!ret && copy_to_user(useraddr, &enci, sizeof(enci)))
++		return -EFAULT;
 +
-+	ret = dev->ethtool_ops->get_ncsi_stats(dev, ens);
-+	if (!ret && copy_to_user(useraddr, ens, sizeof(*ens)))
-+		ret = -EFAULT;
-+out:
-+	kfree(ens);
 +	return ret;
 +}
 +
  static void
  warn_incomplete_ethtool_legacy_settings_conversion(const char *details)
  {
-@@ -2855,6 +2881,9 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
- 	case ETHTOOL_GNCSICINFO:
- 		rc = ethtool_get_ncsi_channel_info(dev, useraddr);
+@@ -2833,6 +2852,9 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
+ 	case ETHTOOL_GNCSICHANNELS:
+ 		rc = ethtool_get_ncsi_channels(dev, useraddr);
  		break;
-+	case ETHTOOL_GNCSISTATS:
-+		rc = ethtool_get_ncsi_stats(dev, useraddr);
++	case ETHTOOL_GNCSICINFO:
++		rc = ethtool_get_ncsi_channel_info(dev, useraddr);
 +		break;
  	default:
  		rc = -EOPNOTSUPP;
  	}
 diff --git a/net/ncsi/ncsi-ethtool.c b/net/ncsi/ncsi-ethtool.c
-index 9eee5fb..1ccdb50 100644
+index 747aab6..9eee5fb 100644
 --- a/net/ncsi/ncsi-ethtool.c
 +++ b/net/ncsi/ncsi-ethtool.c
-@@ -175,6 +175,91 @@ static int ncsi_get_channel_info(struct net_device *dev,
+@@ -57,6 +57,124 @@ static int ncsi_get_channels(struct net_device *dev,
  	return 0;
  }
  
-+static int ncsi_get_stats(struct net_device *dev,
-+			  struct ethtool_ncsi_stats *ens)
++static int ncsi_get_channel_info(struct net_device *dev,
++				 struct ethtool_ncsi_channel_info *enci)
 +{
 +	struct ncsi_dev *nd;
 +	struct ncsi_dev_priv *ndp;
-+	struct ncsi_package *np;
 +	struct ncsi_channel *nc;
-+	struct ncsi_channel_stats *ncs;
 +	unsigned long flags;
++	int i;
 +
 +	nd = ncsi_find_dev(dev);
 +	if (!nd)
 +		return -ENXIO;
 +
 +	ndp = TO_NCSI_DEV_PRIV(nd);
-+	NCSI_FOR_EACH_PACKAGE(ndp, np) {
-+		NCSI_FOR_EACH_CHANNEL(np, nc) {
-+			spin_lock_irqsave(&nc->lock, flags);
++	ncsi_find_package_and_channel(ndp, enci->id, NULL, &nc);
++	if (!nc)
++		return -ENXIO;
 +
-+			ncs = &nc->stats;
-+			ens->hnc_cnt_hi += ncs->hnc_cnt_hi;
-+			ens->hnc_cnt_lo += ncs->hnc_cnt_lo;
-+			ens->hnc_rx_bytes += ncs->hnc_rx_bytes;
-+			ens->hnc_tx_bytes += ncs->hnc_tx_bytes;
-+			ens->hnc_rx_uc_pkts += ncs->hnc_rx_uc_pkts;
-+			ens->hnc_rx_mc_pkts += ncs->hnc_rx_mc_pkts;
-+			ens->hnc_rx_bc_pkts += ncs->hnc_rx_bc_pkts;
-+			ens->hnc_tx_uc_pkts += ncs->hnc_tx_uc_pkts;
-+			ens->hnc_tx_mc_pkts += ncs->hnc_tx_mc_pkts;
-+			ens->hnc_tx_bc_pkts += ncs->hnc_tx_bc_pkts;
-+			ens->hnc_fcs_err += ncs->hnc_fcs_err;
-+			ens->hnc_align_err += ncs->hnc_align_err;
-+			ens->hnc_false_carrier += ncs->hnc_false_carrier;
-+			ens->hnc_runt_pkts += ncs->hnc_runt_pkts;
-+			ens->hnc_jabber_pkts += ncs->hnc_jabber_pkts;
-+			ens->hnc_rx_pause_xon += ncs->hnc_rx_pause_xon;
-+			ens->hnc_rx_pause_xoff += ncs->hnc_rx_pause_xoff;
-+			ens->hnc_tx_pause_xon += ncs->hnc_tx_pause_xon;
-+			ens->hnc_tx_pause_xoff += ncs->hnc_tx_pause_xoff;
-+			ens->hnc_tx_s_collision += ncs->hnc_tx_s_collision;
-+			ens->hnc_tx_m_collision += ncs->hnc_tx_m_collision;
-+			ens->hnc_l_collision += ncs->hnc_l_collision;
-+			ens->hnc_e_collision += ncs->hnc_e_collision;
-+			ens->hnc_rx_ctl_frames += ncs->hnc_rx_ctl_frames;
-+			ens->hnc_rx_64_frames += ncs->hnc_rx_64_frames;
-+			ens->hnc_rx_127_frames += ncs->hnc_rx_127_frames;
-+			ens->hnc_rx_255_frames += ncs->hnc_rx_255_frames;
-+			ens->hnc_rx_511_frames += ncs->hnc_rx_511_frames;
-+			ens->hnc_rx_1023_frames += ncs->hnc_rx_1023_frames;
-+			ens->hnc_rx_1522_frames += ncs->hnc_rx_1522_frames;
-+			ens->hnc_rx_9022_frames += ncs->hnc_rx_9022_frames;
-+			ens->hnc_tx_64_frames += ncs->hnc_tx_64_frames;
-+			ens->hnc_tx_127_frames += ncs->hnc_tx_127_frames;
-+			ens->hnc_tx_255_frames += ncs->hnc_tx_255_frames;
-+			ens->hnc_tx_511_frames += ncs->hnc_tx_511_frames;
-+			ens->hnc_tx_1023_frames += ncs->hnc_tx_1023_frames;
-+			ens->hnc_tx_1522_frames += ncs->hnc_tx_1522_frames;
-+			ens->hnc_tx_9022_frames += ncs->hnc_tx_9022_frames;
-+			ens->hnc_rx_valid_bytes += ncs->hnc_rx_valid_bytes;
-+			ens->hnc_rx_runt_pkts += ncs->hnc_rx_runt_pkts;
-+			ens->hnc_rx_jabber_pkts += ncs->hnc_rx_jabber_pkts;
-+			ens->ncsi_rx_cmds += ncs->ncsi_rx_cmds;
-+			ens->ncsi_dropped_cmds += ncs->ncsi_dropped_cmds;
-+			ens->ncsi_cmd_type_errs += ncs->ncsi_cmd_type_errs;
-+			ens->ncsi_cmd_csum_errs += ncs->ncsi_cmd_csum_errs;
-+			ens->ncsi_rx_pkts += ncs->ncsi_rx_pkts;
-+			ens->ncsi_tx_pkts += ncs->ncsi_tx_pkts;
-+			ens->ncsi_tx_aen_pkts += ncs->ncsi_tx_aen_pkts;
-+			ens->pt_tx_pkts += ncs->pt_tx_pkts;
-+			ens->pt_tx_dropped += ncs->pt_tx_dropped;
-+			ens->pt_tx_channel_err += ncs->pt_tx_channel_err;
-+			ens->pt_tx_us_err += ncs->pt_tx_us_err;
-+			ens->pt_rx_pkts += ncs->pt_rx_pkts;
-+			ens->pt_rx_dropped += ncs->pt_rx_dropped;
-+			ens->pt_rx_channel_err += ncs->pt_rx_channel_err;
-+			ens->pt_rx_us_err += ncs->pt_rx_us_err;
-+			ens->pt_rx_os_err += ncs->pt_rx_os_err;
++	spin_lock_irqsave(&nc->lock, flags);
 +
-+			spin_unlock_irqrestore(&nc->lock, flags);
++	/* NCSI channel's version */
++	enci->version = nc->version.version;
++	enci->alpha2 = nc->version.alpha2;
++	memcpy(enci->fw_name, nc->version.fw_name, 12);
++	enci->fw_version = nc->version.fw_version;
++	memcpy(enci->pci_ids, nc->version.pci_ids,
++	       4 * sizeof(enci->pci_ids[0]));
++	enci->mf_id = nc->version.mf_id;
++
++	/* NCSI channel's capabilities */
++	enci->cap_generic = (nc->caps[NCSI_CAP_GENERIC].cap &
++			     ETHTOOL_NCSI_G_MASK);
++	enci->cap_bc = (nc->caps[NCSI_CAP_BC].cap &
++			ETHTOOL_NCSI_BC_MASK);
++	enci->cap_mc = (nc->caps[NCSI_CAP_MC].cap &
++			ETHTOOL_NCSI_MC_MASK);
++	enci->cap_buf = nc->caps[NCSI_CAP_BUFFER].cap;
++	enci->cap_aen = (nc->caps[NCSI_CAP_AEN].cap &
++			 ETHTOOL_NCSI_AEN_MASK);
++	enci->cap_vlan = (nc->caps[NCSI_CAP_VLAN].cap &
++			  ETHTOOL_NCSI_VLAN_MASK);
++	for (i = NCSI_FILTER_BASE; i < NCSI_FILTER_MAX; i++) {
++		struct ncsi_channel_filter *ncf;
++		unsigned char *p_cap_filter;
++		unsigned int *p_valid_bits;
++		int entry_size, s_idx, d_idx;
++		void *dest;
++
++		switch (i) {
++		case NCSI_FILTER_VLAN:
++			p_cap_filter = &enci->cap_vlan_filter;
++			entry_size = 2;
++			p_valid_bits = &enci->vlan_valid_bits;
++			dest = enci->vlan;
++			d_idx = 0;
++			break;
++		case NCSI_FILTER_UC:
++			p_cap_filter = &enci->cap_uc_filter;
++			entry_size = 6;
++			p_valid_bits = &enci->mac_valid_bits;
++			dest = enci->mac;
++			d_idx = 0;
++			break;
++		case NCSI_FILTER_MC:
++			p_cap_filter = &enci->cap_mc_filter;
++			entry_size = 6;
++			break;
++		case NCSI_FILTER_MIXED:
++			p_cap_filter = &enci->cap_mixed_filter;
++			entry_size = 6;
++			break;
++		default:
++			continue;
++		}
++
++		*p_cap_filter = 0;
++		ncf = nc->filters[i];
++		if (!ncf)
++			continue;
++
++		*p_cap_filter = ncf->total;
++		s_idx = -1;
++		while ((s_idx = find_next_bit((void *)&ncf->bitmap,
++					      ncf->total, s_idx + 1))
++			< ncf->total) {
++			memcpy(dest + (d_idx * entry_size),
++			       ((void *)(ncf->data)) + (s_idx * entry_size),
++			       entry_size);
++			*p_valid_bits |= (1 << d_idx);
++
++			d_idx++;
 +		}
 +	}
++
++	/* NCSI channel's settings */
++	enci->setting_bc = nc->modes[NCSI_MODE_BC].enable ?
++			   nc->modes[NCSI_MODE_BC].data[0] : 0;
++	enci->setting_bc &= ETHTOOL_NCSI_BC_MASK;
++	enci->setting_mc = nc->modes[NCSI_MODE_MC].enable ?
++			   nc->modes[NCSI_MODE_MC].data[0] : 0;
++	enci->setting_mc &= ETHTOOL_NCSI_MC_MASK;
++	enci->setting_aen = nc->modes[NCSI_MODE_AEN].enable ?
++			    nc->modes[NCSI_MODE_AEN].data[0] : 0;
++	enci->setting_aen &= ETHTOOL_NCSI_AEN_MASK;
++	enci->setting_vlan = nc->modes[NCSI_MODE_VLAN].enable ?
++			     nc->modes[NCSI_MODE_VLAN].data[0] : 0;
++	enci->setting_vlan &= ETHTOOL_NCSI_VLAN_MASK;
++
++	/* NCSI channel's link status */
++	enci->link_status = nc->modes[NCSI_MODE_LINK].data[2];
++	enci->link_other_ind = nc->modes[NCSI_MODE_LINK].data[3];
++	enci->link_oem = nc->modes[NCSI_MODE_LINK].data[4];
++
++	spin_unlock_irqrestore(&nc->lock, flags);
 +
 +	return 0;
 +}
@@ -402,19 +419,19 @@ index 9eee5fb..1ccdb50 100644
  void ncsi_ethtool_register_dev(struct net_device *dev)
  {
  	struct ethtool_ops *ops;
-@@ -185,6 +270,7 @@ void ncsi_ethtool_register_dev(struct net_device *dev)
+@@ -66,6 +184,7 @@ void ncsi_ethtool_register_dev(struct net_device *dev)
+ 		return;
  
  	ops->get_ncsi_channels = ncsi_get_channels;
- 	ops->get_ncsi_channel_info = ncsi_get_channel_info;
-+	ops->get_ncsi_stats = ncsi_get_stats;
++	ops->get_ncsi_channel_info = ncsi_get_channel_info;
  }
  
  void ncsi_ethtool_unregister_dev(struct net_device *dev)
-@@ -197,4 +283,5 @@ void ncsi_ethtool_unregister_dev(struct net_device *dev)
+@@ -77,4 +196,5 @@ void ncsi_ethtool_unregister_dev(struct net_device *dev)
+ 		return;
  
  	ops->get_ncsi_channels = NULL;
- 	ops->get_ncsi_channel_info = NULL;
-+	ops->get_ncsi_stats = NULL;
++	ops->get_ncsi_channel_info = NULL;
  }
 -- 
 2.7.4
