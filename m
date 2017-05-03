@@ -1,62 +1,107 @@
-From: Alexei Starovoitov <ast@fb.com>
-Subject: [PATCH net-next] selftests/bpf: get rid of -D__x86_64__
-Date: Tue, 2 May 2017 21:14:43 -0700
-Message-ID: <20170503041443.3125777-1-ast@fb.com>
+From: Casey Leedom <leedom@chelsio.com>
+Subject: Re: [PATCH 1/2] PCI: Add new PCIe Fabric End Node flag,
+ PCI_DEV_FLAGS_NO_RELAXED_ORDERING
+Date: Wed, 3 May 2017 04:30:24 +0000
+Message-ID: <MWHPR12MB160095DF53CE981C923FE65DC8160@MWHPR12MB1600.namprd12.prod.outlook.com>
+References: <cover.1493678834.git.leedom@chelsio.com>
+ <758d0e431c732fe133e7b0e660bde5fc1beccdba.1493678834.git.leedom@chelsio.com>
+ <CAKgT0UeuW88AHBX14H8xHteeG7vR0AH3apbjOeEDx_6p46x7tA@mail.gmail.com>
+ <20170502165329.GB26406@linux.intel.com>,
+ <CAKgT0UcxjGCZu_QV-eF7_yWkDBbQpLpdaPqBf1gji8XXM5Cc=w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Daniel Borkmann <daniel@iogearbox.net>, <netdev@vger.kernel.org>
-To: "David S . Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:57060 "EHLO
-        mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1750737AbdECEOq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 3 May 2017 00:14:46 -0400
-Received: from pps.filterd (m0109331.ppops.net [127.0.0.1])
-        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v43483vY019808
-        for <netdev@vger.kernel.org>; Tue, 2 May 2017 21:14:46 -0700
-Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0a-00082601.pphosted.com with ESMTP id 2a72ng8q0f-1
-        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Tue, 02 May 2017 21:14:46 -0700
-Received: from facebook.com (2401:db00:11:d082:face:0:5:0)      by
- mx-out.facebook.com (10.212.236.89) with ESMTP id
- 098c4e102fb711e787480002c95209d8-d41f79a0 for <netdev@vger.kernel.org>;        Tue,
- 02 May 2017 21:14:44 -0700
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Mark Rutland <mark.rutland@arm.com>, Gabriele
+ Paoloni <gabriele.paoloni@huawei.com>,
+ Asit K Mallick <asit.k.mallick@intel.com>,
+ Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will.deacon@arm.com>,
+ LinuxArm <linuxarm@huawei.com>, Amir Ancel <amira@mellanox.com>,
+ Bjorn Helgaas <helgaas@kernel.org>, Ganesh GR <ganeshgr@chelsio.com>,
+ Ding Tianhong <dingtianhong@huawei.com>,
+ Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+ "leedom@gmail.com" <leedom@gmail.com>, Bob Shaw <Bob.Shaw@amd.com>, Patrick
+ J Cramer <patrick.j.cramer@intel.com>, "Arjun
+ V." <arjun@chelsio.com>, Michael Werner <werner@chelsio.com>,
+ "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>,
+ Netdev <netdev@vger.kernel.org>, David Laight <David.Laight@aculab.com>,
+ Suravee Suthikulpanit <Suravee.Suthikulpanit@amd.com>,
+ Robin Murphy <robin.murphy@arm.com>, David Miller <davem@davemlof
+To: Alexander Duyck <alexander.duyck@gmail.com>, "Raj, Ashok"
+ <ashok.raj@intel.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <CAKgT0UcxjGCZu_QV-eF7_yWkDBbQpLpdaPqBf1gji8XXM5Cc=w@mail.gmail.com>
+Content-Language: en-US
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
--D__x86_64__ workaround was used to make /usr/include/features.h
-to follow expected path through the system include headers.
-This is not portable.
-Instead define dummy stubs.h which is used by 'clang -target bpf'
+| From: Alexander Duyck <alexander.duyck@gmail.com>
+| Date: Tuesday, May 2, 2017 11:10 AM
+| ...
+| So for example, in the case of x86 it seems like there are multiple
+| root complexes that have issues, and the gains for enabling it with
+| standard DMA to host memory are small. As such we may want to default
+| it to off via the architecture specific PCIe code and then look at
+| having "white-list" cases where we enable it for things like
+| peer-to-peer accesses. In the case of SPARC we could look at
+| defaulting it to on, and only "black-list" any cases where there might
+| be issues since SPARC relies on this in a significant way for
+| performance. In the case of ARM and other architectures it is a bit of
+| a toss-up. I would say we could just default it to on for now and
+| "black-list" anything that doesn't work, or we could go the other way
+| like I suggested for x86. It all depends on what the ARM community
+| would want to agree on for this. I would say unless it makes a
+| significant difference like it does in the case of SPARC we are
+| probably better off just defaulting it to off.
 
-Fixes: 6882804c916b ("selftests/bpf: add a test for overlapping packet range checks")
-Signed-off-by: Alexei Starovoitov <ast@kernel.org>
----
- tools/testing/selftests/bpf/Makefile    | 4 ++--
- tools/testing/selftests/bpf/gnu/stubs.h | 1 +
- 2 files changed, 3 insertions(+), 2 deletions(-)
- create mode 100644 tools/testing/selftests/bpf/gnu/stubs.h
+  Sorry, I forgot to respond to this earlier when someone was rushing me out
+to a customer dinner.
 
-diff --git a/tools/testing/selftests/bpf/Makefile b/tools/testing/selftests/bpf/Makefile
-index f4341e160de6..91edd0566237 100644
---- a/tools/testing/selftests/bpf/Makefile
-+++ b/tools/testing/selftests/bpf/Makefile
-@@ -34,6 +34,6 @@ $(BPFOBJ): force
- CLANG ?= clang
- 
- %.o: %.c
--	$(CLANG) -I../../../include/uapi -I../../../../samples/bpf/ \
--		-D__x86_64__ -Wno-compare-distinct-pointer-types \
-+	$(CLANG) -I. -I../../../include/uapi -I../../../../samples/bpf/ \
-+		-Wno-compare-distinct-pointer-types \
- 		-O2 -target bpf -c $< -o $@
-diff --git a/tools/testing/selftests/bpf/gnu/stubs.h b/tools/testing/selftests/bpf/gnu/stubs.h
-new file mode 100644
-index 000000000000..719225b16626
---- /dev/null
-+++ b/tools/testing/selftests/bpf/gnu/stubs.h
-@@ -0,0 +1 @@
-+/* dummy .h to trick /usr/include/features.h to work with 'clang -target bpf' */
--- 
-2.9.3
+  I'm unaware of any other x86 Root Complex Port that has a problem with
+Relaxed Ordering other than the performance issue with the current Intel
+implementation.  Ashok tells me that Intel is in the final stages of putting
+together a technical notice on this issue but I don't know when that will
+come out.  Hopefully that will shed much more light on the cause and actual
+use of Relaxed Ordering when directed to Coherent Memory on current and past
+Intel platforms.  (Note that the performance bug seems to limit us to
+~75-85Gb/s DMA Write speed to Coherent Host Memory.)
+
+  The only other Device that I currently know of which has issues with
+Relaxed Ordering TLPs directed at it, is also a Root Complex Port on the new
+AMD A1100 ARM SoC ("SEATTLE").  There we have an actual bug which could lead
+to Data Corruption.
+
+  But I don't know anything about other x86 Root Complex Ports having issues
+with this -- we've been using it ever since commit ef306b50b from December
+2010.
+
+  Also, I'm not aware of any performance data which has been gathered on the
+use of Relaxed Ordering when directed at Host Memory.  From your note, it
+sounds like it's important on SPARC architectures.  But it could conceivably
+be important on any architecture or Root Complex/Memory Controller
+implementation.  We use it to direct Ingress Packet Data to Free List
+Buffers, followed by a TLP without Relaxed Ordering directed at a Host
+Memory Message Queue.  The idea here is to give the Root Complex options on
+which DMA Memory Write TLPs to process in order to optimize data placement
+in memory.  And with the next Ethernet speed bump to 200Gb/s this may be
+even more important.
+
+  Basically, I'd hate to come up with a solution where we write off the use
+of Relaxed Ordering for DMA Writes to Host Memory.  I don't think you're
+suggesting that, but there are a number of x86 Root Complex implementations
+out there -- and some like the new AMD Ryzen have yet to be tested -- as
+well as other architectures.
+
+  And, as Ashok and I have both nothed, any solution we come up with needs
+to cope with a heterogeneous situation where, on the same PCIe Fabric, it
+may be necessesary/desireable to support Relaxed Ordering TLPs directed at
+some End Nodes but not others.
+
+Casey
