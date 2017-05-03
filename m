@@ -1,75 +1,104 @@
-From: "Gao Feng" <gfree.wind@foxmail.com>
-Subject: RE: [PATCH net v3] driver: veth: Fix one possbile memleak when fail to register_netdevice
-Date: Wed, 3 May 2017 14:37:33 +0800
-Message-ID: <006101d2c3d7$bf814230$3e83c690$@foxmail.com>
-References: <1493437911-27167-1-git-send-email-gfree.wind@foxmail.com> <CADvbK_cEHXTSXx5Qa17TfeUXnYiBq8ptR+=5e-fbzPF0r4DNhQ@mail.gmail.com> <000601d2c333$abb526d0$031f7470$@vip.163.com> <CADvbK_cVS=M3tuz0QQT18D32UzLkdL0RMHuFxqcBgtfq_w7+9Q@mail.gmail.com> <000c01d2c3b2$0925e880$1b71b980$@foxmail.com> <CADvbK_c32g2t-Azgf10da8qke5B+wgG4dw3jLTE2L+R2qR3xPA@mail.gmail.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH net-next] net/esp4: Fix invalid esph pointer crash
+Date: Wed, 3 May 2017 09:02:28 +0200
+Message-ID: <20170503070228.GK2649@secunet.com>
+References: <20170430133438.31962-1-ilant@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-        charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-Cc: "'Gao Feng'" <gfree.wind@vip.163.com>,
-        "'davem'" <davem@davemloft.net>, <jarod@redhat.com>,
-        "'Stephen Hemminger'" <stephen@networkplumber.org>,
-        <dsa@cumulusnetworks.com>, "'network dev'" <netdev@vger.kernel.org>
-To: "'Xin Long'" <lucien.xin@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>
+To: <ilant@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpbg62.qq.com ([103.7.29.139]:16234 "EHLO smtpbg64.qq.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1750966AbdECGhp (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 3 May 2017 02:37:45 -0400
-In-Reply-To: <CADvbK_c32g2t-Azgf10da8qke5B+wgG4dw3jLTE2L+R2qR3xPA@mail.gmail.com>
-Content-Language: zh-cn
+Received: from a.mx.secunet.com ([62.96.220.36]:50294 "EHLO a.mx.secunet.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751014AbdECHCc (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 3 May 2017 03:02:32 -0400
+Content-Disposition: inline
+In-Reply-To: <20170430133438.31962-1-ilant@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> From: Xin Long [mailto:lucien.xin@gmail.com]
-> Sent: Wednesday, May 3, 2017 1:38 PM
-> On Wed, May 3, 2017 at 10:07 AM, Gao Feng <gfree.wind@foxmail.com>
-> wrote:
-> >> From: netdev-owner@vger.kernel.org
-> >> [mailto:netdev-owner@vger.kernel.org]
-> >> On Behalf Of Xin Long
-> >> Sent: Wednesday, May 3, 2017 12:59 AM On Tue, May 2, 2017 at 7:03 =
-PM,
-> >> Gao Feng <gfree.wind@vip.163.com> wrote:
-> >> >> From: Xin Long [mailto:lucien.xin@gmail.com]
-> >> >> Sent: Tuesday, May 2, 2017 3:56 PM On Sat, Apr 29, 2017 at 11:51
-> >> >> AM,  <gfree.wind@foxmail.com> wrote:
-> >> >> > From: Gao Feng <gfree.wind@foxmail.com>
-[...]
-> > The fix you mentioned change the original logic.
-> > The dev->vstats is freed in advance in the ndo_uninit, not =
-destructor.
-> > It may break the backward.
-> Sorry, I didn't get your "backward"
-> I can't see there will be any problem caused by it.
-> can you say this patch also break the 'backward' ?
-> https://patchwork.ozlabs.org/patch/748964/
->=20
-> It's really weird to do dev->reg_state check in ndo_unint ndo_unint is =
-supposed
-> to free the memory alloced in ndo_init.
->=20
+On Sun, Apr 30, 2017 at 04:34:38PM +0300, ilant@mellanox.com wrote:
+> From: Ilan Tayari <ilant@mellanox.com>
+> 
+> Both esp_output and esp_xmit take a pointer to the ESP header
+> and place it in esp_info struct prior to calling esp_output_head.
+> 
+> Inside esp_output_head, the call to esp_output_udp_encap
+> makes sure to update the pointer if it gets invalid.
+> However, if esp_output_head itself calls skb_cow_data, the
+> pointer is not updated and stays invalid, causing a crash
+> after esp_output_head returns.
+> 
+> Update the pointer if it becomes invalid in esp_output_head
+> 
+> Fixes: fca11ebde3f0 ("esp4: Reorganize esp_output")
+> Signed-off-by: Ilan Tayari <ilant@mellanox.com>
+> ---
+>  net/ipv4/esp4.c | 1 +
+>  1 file changed, 1 insertion(+)
+> 
+> diff --git a/net/ipv4/esp4.c b/net/ipv4/esp4.c
+> index 7f2caf71212b..65cc02bd82bc 100644
+> --- a/net/ipv4/esp4.c
+> +++ b/net/ipv4/esp4.c
+> @@ -317,6 +317,7 @@ int esp_output_head(struct xfrm_state *x, struct sk_buff *skb, struct esp_info *
+>  	if (nfrags < 0)
+>  		goto out;
+>  	tail = skb_tail_pointer(trailer);
+> +	esp->esph = ip_esp_hdr(skb);
 
-I am not sure if it would break the backward, so I said it MAY break.
-I assumed there may be someone would access the dev->vstats after =
-ndo_uninit,
-because current veth driver free the mem in the destructor.
-I selected this approach because I don't want to bring new bugs during =
-fix bug.
+This is not quite right for udpencap. It fixes the crash,
+but introduces a bug that we already have in v4.11.
 
-If you're sure it is safe to free dev->vstats in ndo_uninit, I would =
-like to update it.
+On udpencap the esp header has an offset to skb_transport_header,
+the problem was discussed last week here:
 
-BTW there are too many drivers which have possible memleak.
-You could find the list by =
-https://www.mail-archive.com/netdev@vger.kernel.org/msg166629.html.
+https://lkml.org/lkml/2017/4/25/937
 
-Some drivers allocate the resources in ndo_init, free some in ndo_uninit =
-and free left in destructor.
-I think there are some reasons.=20
-We could not move all free in the ndo_uninit from destructor. What's =
-your opinion?
+I plan to fix this with the patch below:
 
-Best Regards
-Feng
+Subject: [PATCH RFC] esp4: Fix udpencap for local TCP packets.
+
+Locally generated TCP packets are usually cloned, so we
+do skb_cow_data() on this packets. After that we need to
+reload the pointer to the esp header. On udpencap this
+header has an offset to skb_transport_header, so take this
+offset into account.
+
+Fixes: 67d349ed603 ("net/esp4: Fix invalid esph pointer crash")
+Fixes: fca11ebde3f0 ("esp4: Reorganize esp_output")
+Reported-by: Don Bowman <db@donbowman.ca>
+Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+---
+ net/ipv4/esp4.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/net/ipv4/esp4.c b/net/ipv4/esp4.c
+index 65cc02b..93322f8 100644
+--- a/net/ipv4/esp4.c
++++ b/net/ipv4/esp4.c
+@@ -248,6 +248,7 @@ int esp_output_head(struct xfrm_state *x, struct sk_buff *skb, struct esp_info *
+ 	u8 *tail;
+ 	u8 *vaddr;
+ 	int nfrags;
++	int esph_offset;
+ 	struct page *page;
+ 	struct sk_buff *trailer;
+ 	int tailen = esp->tailen;
+@@ -313,11 +314,13 @@ int esp_output_head(struct xfrm_state *x, struct sk_buff *skb, struct esp_info *
+ 	}
+ 
+ cow:
++	esph_offset = (unsigned char *)esp->esph - skb_transport_header(skb);
++
+ 	nfrags = skb_cow_data(skb, tailen, &trailer);
+ 	if (nfrags < 0)
+ 		goto out;
+ 	tail = skb_tail_pointer(trailer);
+-	esp->esph = ip_esp_hdr(skb);
++	esp->esph = (struct ip_esp_hdr *)(skb_transport_header(skb) + esph_offset);
+ 
+ skip_cow:
+ 	esp_output_fill_trailer(tail, esp->tfclen, esp->plen, esp->proto);
+-- 
+2.7.4
