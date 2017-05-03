@@ -1,85 +1,127 @@
-From: Andrey Konovalov <andreyknvl@google.com>
-Subject: Re: [PATCH] net: ipv6: Fix warning of freeing alive inet6 address
-Date: Wed, 3 May 2017 16:58:36 +0200
-Message-ID: <CAAeHK+zMXGp+TYru3bJuTYoN0YUJciHY9o=mVoOV+R+-61B-Sw@mail.gmail.com>
-References: <1493749857-18032-1-git-send-email-mmanning@brocade.com> <1fb7b6de-ddb8-0207-0567-91d1ed0aad83@brocade.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>
-To: Mike Manning <mmanning@brocade.com>
+From: Alexander Potapenko <glider@google.com>
+Subject: [PATCH] ipv4, ipv6: ensure raw socket message is big enough to hold an IP header
+Date: Wed,  3 May 2017 17:06:58 +0200
+Message-ID: <20170503150658.44421-1-glider@google.com>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: dvyukov@google.com, kcc@google.com, edumazet@google.com,
+        davem@davemloft.net, kuznet@ms2.inr.ac.ru
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f180.google.com ([209.85.161.180]:35646 "EHLO
-        mail-yw0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751275AbdECO6i (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 3 May 2017 10:58:38 -0400
-Received: by mail-yw0-f180.google.com with SMTP id u70so86288590ywe.2
-        for <netdev@vger.kernel.org>; Wed, 03 May 2017 07:58:37 -0700 (PDT)
-In-Reply-To: <1fb7b6de-ddb8-0207-0567-91d1ed0aad83@brocade.com>
+Received: from mail-wm0-f46.google.com ([74.125.82.46]:38604 "EHLO
+        mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751851AbdECPHE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 3 May 2017 11:07:04 -0400
+Received: by mail-wm0-f46.google.com with SMTP id r190so62046763wme.1
+        for <netdev@vger.kernel.org>; Wed, 03 May 2017 08:07:03 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 3, 2017 at 4:16 PM, Mike Manning <mmanning@brocade.com> wrote:
-> On reflection, please put this on hold subject to testing with syzkaller. I have not had a repro of the issue and so the fix even though harmless may not be effective.
+raw_send_hdrinc() and rawv6_send_hdrinc() expect that the buffer copied
+from the userspace contains the IPv4/IPv6 header, so if too few bytes are
+copied, parts of the header may remain uninitialized.
 
-Hi Mike,
+This bug has been detected with KMSAN.
 
-I didn't see your patch, you think you might have forgotten to add me
-to recipients.
+Signed-off-by: Alexander Potapenko <glider@google.com>
+---
+The previous version of this patch was called "ipv6: ensure message length
+for raw socket is at least sizeof(ipv6hdr)"
 
-Did you try building the kernel with the provided config and then
-running the reproducer?
+For the record, the KMSAN report:
 
-Would you like me to test if this patch fixes the warning?
+==================================================================
+BUG: KMSAN: use of unitialized memory in nf_ct_frag6_gather+0xf5a/0x44a0
+inter: 0
+CPU: 0 PID: 1036 Comm: probe Not tainted 4.11.0-rc5+ #2455
+Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+Call Trace:
+ __dump_stack lib/dump_stack.c:16
+ dump_stack+0x143/0x1b0 lib/dump_stack.c:52
+ kmsan_report+0x16b/0x1e0 mm/kmsan/kmsan.c:1078
+ __kmsan_warning_32+0x5c/0xa0 mm/kmsan/kmsan_instr.c:510
+ nf_ct_frag6_gather+0xf5a/0x44a0 net/ipv6/netfilter/nf_conntrack_reasm.c:577
+ ipv6_defrag+0x1d9/0x280 net/ipv6/netfilter/nf_defrag_ipv6_hooks.c:68
+ nf_hook_entry_hookfn ./include/linux/netfilter.h:102
+ nf_hook_slow+0x13f/0x3c0 net/netfilter/core.c:310
+ nf_hook ./include/linux/netfilter.h:212
+ NF_HOOK ./include/linux/netfilter.h:255
+ rawv6_send_hdrinc net/ipv6/raw.c:673
+ rawv6_sendmsg+0x2fcb/0x41a0 net/ipv6/raw.c:919
+ inet_sendmsg+0x3f8/0x6d0 net/ipv4/af_inet.c:762
+ sock_sendmsg_nosec net/socket.c:633
+ sock_sendmsg net/socket.c:643
+ SYSC_sendto+0x6a5/0x7c0 net/socket.c:1696
+ SyS_sendto+0xbc/0xe0 net/socket.c:1664
+ do_syscall_64+0x72/0xa0 arch/x86/entry/common.c:285
+ entry_SYSCALL64_slow_path+0x25/0x25 arch/x86/entry/entry_64.S:246
+RIP: 0033:0x436e03
+RSP: 002b:00007ffce48baf38 EFLAGS: 00000246 ORIG_RAX: 000000000000002c
+RAX: ffffffffffffffda RBX: 00000000004002b0 RCX: 0000000000436e03
+RDX: 0000000000000000 RSI: 0000000000000000 RDI: 0000000000000003
+RBP: 00007ffce48baf90 R08: 00007ffce48baf50 R09: 000000000000001c
+R10: 0000000000000000 R11: 0000000000000246 R12: 0000000000000000
+R13: 0000000000401790 R14: 0000000000401820 R15: 0000000000000000
+origin: 00000000d9400053
+ save_stack_trace+0x16/0x20 arch/x86/kernel/stacktrace.c:59
+ kmsan_save_stack_with_flags mm/kmsan/kmsan.c:362
+ kmsan_internal_poison_shadow+0xb1/0x1a0 mm/kmsan/kmsan.c:257
+ kmsan_poison_shadow+0x6d/0xc0 mm/kmsan/kmsan.c:270
+ slab_alloc_node mm/slub.c:2735
+ __kmalloc_node_track_caller+0x1f4/0x390 mm/slub.c:4341
+ __kmalloc_reserve net/core/skbuff.c:138
+ __alloc_skb+0x2cd/0x740 net/core/skbuff.c:231
+ alloc_skb ./include/linux/skbuff.h:933
+ alloc_skb_with_frags+0x209/0xbc0 net/core/skbuff.c:4678
+ sock_alloc_send_pskb+0x9ff/0xe00 net/core/sock.c:1903
+ sock_alloc_send_skb+0xe4/0x100 net/core/sock.c:1920
+ rawv6_send_hdrinc net/ipv6/raw.c:638
+ rawv6_sendmsg+0x2918/0x41a0 net/ipv6/raw.c:919
+ inet_sendmsg+0x3f8/0x6d0 net/ipv4/af_inet.c:762
+ sock_sendmsg_nosec net/socket.c:633
+ sock_sendmsg net/socket.c:643
+ SYSC_sendto+0x6a5/0x7c0 net/socket.c:1696
+ SyS_sendto+0xbc/0xe0 net/socket.c:1664
+ do_syscall_64+0x72/0xa0 arch/x86/entry/common.c:285
+ return_from_SYSCALL_64+0x0/0x6a arch/x86/entry/entry_64.S:246
+==================================================================
 
-Thanks!
+, triggered by the following syscalls:
+  socket(PF_INET6, SOCK_RAW, IPPROTO_RAW) = 3
+  sendto(3, NULL, 0, 0, {sa_family=AF_INET6, sin6_port=htons(0), inet_pton(AF_INET6, "ff00::", &sin6_addr), sin6_flowinfo=0, sin6_scope_id=0}, 28) = -1 EPERM
 
->
-> Thanks
-> Mike
->
-> On 02/05/17 19:30, Mike Manning wrote:
->> While this is not reproducible manually, Andrey's syzkaller program hit
->> the warning "IPv6: Freeing alive inet6 address" with this part trace:
->>
->> inet6_ifa_finish_destroy+0x12e/0x190 c:894
->> in6_ifa_put ./include/net/addrconf.h:330
->> addrconf_dad_work+0x4e9/0x1040 net/ipv6/addrconf.c:3963
->>
->> The fix is to call in6_ifa_put() for the inet6_ifaddr before rather
->> than after calling addrconf_ifdown(), as the latter may remove it from
->> the address hash table.
->>
->> Fixes: 85b51b12115c ("net: ipv6: Remove addresses for failures with strict DAD")
->> Reported-by: Andrey Konovalov <andreyknvl@google.com>
->> Signed-off-by: Mike Manning <mmanning@brocade.com>
->> ---
->>  net/ipv6/addrconf.c | 6 +++++-
->>  1 file changed, 5 insertions(+), 1 deletion(-)
->>
->> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
->> index 80ce478..361993a 100644
->> --- a/net/ipv6/addrconf.c
->> +++ b/net/ipv6/addrconf.c
->> @@ -3902,8 +3902,11 @@ static void addrconf_dad_work(struct work_struct *w)
->>       } else if (action == DAD_ABORT) {
->>               in6_ifa_hold(ifp);
->>               addrconf_dad_stop(ifp, 1);
->> -             if (disable_ipv6)
->> +             if (disable_ipv6) {
->> +                     in6_ifa_put(ifp);
->>                       addrconf_ifdown(idev->dev, 0);
->> +                     goto unlock;
->> +             }
->>               goto out;
->>       }
->>
->> @@ -3950,6 +3953,7 @@ static void addrconf_dad_work(struct work_struct *w)
->>                     ifp->dad_nonce);
->>  out:
->>       in6_ifa_put(ifp);
->> +unlock:
->>       rtnl_unlock();
->>  }
->>
->>
->
+A similar report is triggered in net/ipv4/raw.c if we use a PF_INET socket
+instead of a PF_INET6 one.
+---
+
+ net/ipv4/raw.c | 3 +++
+ net/ipv6/raw.c | 2 ++
+ 2 files changed, 5 insertions(+)
+
+diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
+index 9d943974de2b..bdffad875691 100644
+--- a/net/ipv4/raw.c
++++ b/net/ipv4/raw.c
+@@ -358,6 +358,9 @@ static int raw_send_hdrinc(struct sock *sk, struct flowi4 *fl4,
+ 			       rt->dst.dev->mtu);
+ 		return -EMSGSIZE;
+ 	}
++	if (length < sizeof(struct iphdr))
++		return -EINVAL;
++
+ 	if (flags&MSG_PROBE)
+ 		goto out;
+ 
+diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
+index f174e76e6505..805464668bd8 100644
+--- a/net/ipv6/raw.c
++++ b/net/ipv6/raw.c
+@@ -632,6 +632,8 @@ static int rawv6_send_hdrinc(struct sock *sk, struct msghdr *msg, int length,
+ 		ipv6_local_error(sk, EMSGSIZE, fl6, rt->dst.dev->mtu);
+ 		return -EMSGSIZE;
+ 	}
++	if (length < sizeof(struct ipv6hdr))
++		return -EINVAL;
+ 	if (flags&MSG_PROBE)
+ 		goto out;
+ 
+-- 
+2.13.0.rc1.294.g07d810a77f-goog
