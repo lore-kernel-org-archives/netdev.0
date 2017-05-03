@@ -1,90 +1,122 @@
 From: Gavin Shan <gwshan@linux.vnet.ibm.com>
-Subject: [PATCH v4 net-next 03/10] net/ncsi: Enforce failover on link monitor timeout
-Date: Wed,  3 May 2017 14:44:34 +1000
-Message-ID: <1493786681-27468-4-git-send-email-gwshan@linux.vnet.ibm.com>
+Subject: [PATCH v4 net-next 02/10] net/ncsi: Properly track channel monitor timer state
+Date: Wed,  3 May 2017 14:44:33 +1000
+Message-ID: <1493786681-27468-3-git-send-email-gwshan@linux.vnet.ibm.com>
 References: <1493786681-27468-1-git-send-email-gwshan@linux.vnet.ibm.com>
 Cc: joe@perches.com, kubakici@wp.pl, f.fainelli@gmail.com,
         davem@davemloft.net, Gavin Shan <gwshan@linux.vnet.ibm.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:47042 "EHLO
-        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1751217AbdECEpt (ORCPT
+Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:35842 "EHLO
+        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751247AbdECEpt (ORCPT
         <rfc822;netdev@vger.kernel.org>); Wed, 3 May 2017 00:45:49 -0400
-Received: from pps.filterd (m0098414.ppops.net [127.0.0.1])
-        by mx0b-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v434hvhc003325
+Received: from pps.filterd (m0098409.ppops.net [127.0.0.1])
+        by mx0a-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v434htJk063373
         for <netdev@vger.kernel.org>; Wed, 3 May 2017 00:45:48 -0400
-Received: from e23smtp01.au.ibm.com (e23smtp01.au.ibm.com [202.81.31.143])
-        by mx0b-001b2d01.pphosted.com with ESMTP id 2a77fht07d-1
+Received: from e23smtp03.au.ibm.com (e23smtp03.au.ibm.com [202.81.31.145])
+        by mx0a-001b2d01.pphosted.com with ESMTP id 2a73gvt591-1
         (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Wed, 03 May 2017 00:45:48 -0400
+        for <netdev@vger.kernel.org>; Wed, 03 May 2017 00:45:47 -0400
 Received: from localhost
-        by e23smtp01.au.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        by e23smtp03.au.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
         for <netdev@vger.kernel.org> from <gwshan@linux.vnet.ibm.com>;
         Wed, 3 May 2017 14:45:45 +1000
-Received: from d23av03.au.ibm.com (d23av03.au.ibm.com [9.190.234.97])
-        by d23relay07.au.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id v434jYE61704202
+Received: from d23av05.au.ibm.com (d23av05.au.ibm.com [9.190.234.119])
+        by d23relay07.au.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id v434jYF142991748
         for <netdev@vger.kernel.org>; Wed, 3 May 2017 14:45:42 +1000
-Received: from d23av03.au.ibm.com (localhost [127.0.0.1])
-        by d23av03.au.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id v434j4sg004714
-        for <netdev@vger.kernel.org>; Wed, 3 May 2017 14:45:05 +1000
+Received: from d23av05.au.ibm.com (localhost [127.0.0.1])
+        by d23av05.au.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id v434j9wx018185
+        for <netdev@vger.kernel.org>; Wed, 3 May 2017 14:45:10 +1000
 In-Reply-To: <1493786681-27468-1-git-send-email-gwshan@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The NCSI channel has been configured to provide service if its link
-monitor timer is enabled, regardless of its state (inactive or active).
-So the timeout event on the link monitor indicates the out-of-service
-on that channel, for which a failover is needed.
+The field @monitor.enabled in the NCSI channel descriptor is used
+to track the state of channel monitor timer. It indicates the timer's
+state (pending or not). We could not start the timer again in its
+handler. In that case, We missed to update @monitor.enabled to false.
+It leads to below warning printed by WARN_ON_ONCE() when the monitor
+is restarted afterwards.
 
-This sets NCSI_DEV_RESHUFFLE flag to enforce failover on link monitor
-timeout, regardless the channel's original state (inactive or active).
-Also, the link is put into "down" state to give the failing channel
-lowest priority when selecting for the active channel. The state of
-failing channel should be set to active in order for deinitialization
-and failover to be done.
+   ------------[ cut here ]------------
+   WARNING: CPU: 0 PID: 411 at /var/lib/jenkins/workspace/openbmc-build \
+   /distro/ubuntu/target/palmetto/openbmc/build/tmp/work-shared/palmetto \
+   net/ncsi/ncsi-manage.c:240 ncsi_start_channel_monitor+0x44/0x7c
+   CPU: 0 PID: 411 Comm: kworker/0:3 Not tainted \
+   4.7.10-f26558191540830589fe03932d05577957670b8d #1
+   Hardware name: ASpeed SoC
+   Workqueue: events ncsi_dev_work
+   [<c0106cbc>] (unwind_backtrace) from [<c0104f04>] (show_stack+0x10/0x14)
+   [<c0104f04>] (show_stack) from [<c010eef8>] (__warn+0xc4/0xf0)
+   [<c010eef8>] (__warn) from [<c010f018>] (warn_slowpath_null+0x1c/0x24)
+   [<c010f018>] (warn_slowpath_null) from [<c03e1d10>] (ncsi_start_channel_monitor+0x44/0x7c)
+   [<c03e1d10>] (ncsi_start_channel_monitor) from [<c03e29c4>] (ncsi_configure_channel+0x27c/0x2dc)
+   [<c03e29c4>] (ncsi_configure_channel) from [<c03e31d0>] (ncsi_dev_work+0x39c/0x3e8)
+   [<c03e31d0>] (ncsi_dev_work) from [<c0120288>] (process_one_work+0x1b8/0x2fc)
+   [<c0120288>] (process_one_work) from [<c01206bc>] (worker_thread+0x2c0/0x3f8)
+   [<c01206bc>] (worker_thread) from [<c0124b10>] (kthread+0xd0/0xe8)
+   [<c0124b10>] (kthread) from [<c0102250>] (ret_from_fork+0x14/0x24)
+   ---[ end trace 110cccf2b038c44d ]---
 
+This fixes the issue by updating @monitor.enabled to false if needed.
+
+Reported-by: Sridevi Ramesh <sridevra@in.ibm.com>
 Signed-off-by: Gavin Shan <gwshan@linux.vnet.ibm.com>
 ---
- net/ncsi/ncsi-manage.c | 8 +++++---
- 1 file changed, 5 insertions(+), 3 deletions(-)
+ net/ncsi/ncsi-manage.c | 16 ++++++++++++++--
+ 1 file changed, 14 insertions(+), 2 deletions(-)
 
 diff --git a/net/ncsi/ncsi-manage.c b/net/ncsi/ncsi-manage.c
-index c71a3a5..13ad1f26 100644
+index 5073e15..c71a3a5 100644
 --- a/net/ncsi/ncsi-manage.c
 +++ b/net/ncsi/ncsi-manage.c
-@@ -170,6 +170,7 @@ static void ncsi_channel_monitor(unsigned long data)
- 	struct ncsi_channel *nc = (struct ncsi_channel *)data;
- 	struct ncsi_package *np = nc->package;
- 	struct ncsi_dev_priv *ndp = np->ndp;
-+	struct ncsi_channel_mode *ncm;
- 	struct ncsi_cmd_arg nca;
- 	bool enabled, chained;
- 	unsigned int monitor_state;
-@@ -214,20 +215,21 @@ static void ncsi_channel_monitor(unsigned long data)
- 	case NCSI_CHANNEL_MONITOR_WAIT ... NCSI_CHANNEL_MONITOR_WAIT_MAX:
- 		break;
- 	default:
--		if (!(ndp->flags & NCSI_DEV_HWA) &&
--		    state == NCSI_CHANNEL_ACTIVE) {
-+		if (!(ndp->flags & NCSI_DEV_HWA)) {
- 			ncsi_report_link(ndp, true);
- 			ndp->flags |= NCSI_DEV_RESHUFFLE;
- 		}
+@@ -183,11 +183,16 @@ static void ncsi_channel_monitor(unsigned long data)
+ 	monitor_state = nc->monitor.state;
+ 	spin_unlock_irqrestore(&nc->lock, flags);
  
-+		ncm = &nc->modes[NCSI_MODE_LINK];
- 		spin_lock_irqsave(&nc->lock, flags);
+-	if (!enabled || chained)
++	if (!enabled || chained) {
++		ncsi_stop_channel_monitor(nc);
+ 		return;
++	}
++
+ 	if (state != NCSI_CHANNEL_INACTIVE &&
+-	    state != NCSI_CHANNEL_ACTIVE)
++	    state != NCSI_CHANNEL_ACTIVE) {
++		ncsi_stop_channel_monitor(nc);
+ 		return;
++	}
+ 
+ 	switch (monitor_state) {
+ 	case NCSI_CHANNEL_MONITOR_START:
+@@ -199,6 +204,7 @@ static void ncsi_channel_monitor(unsigned long data)
+ 		nca.req_flags = 0;
+ 		ret = ncsi_xmit_cmd(&nca);
+ 		if (ret) {
++			ncsi_stop_channel_monitor(nc);
+ 			netdev_err(ndp->ndev.dev, "Error %d sending GLS\n",
+ 				   ret);
+ 			return;
+@@ -218,6 +224,8 @@ static void ncsi_channel_monitor(unsigned long data)
  		nc->state = NCSI_CHANNEL_INVISIBLE;
-+		ncm->data[2] &= ~0x1;
  		spin_unlock_irqrestore(&nc->lock, flags);
  
- 		ncsi_stop_channel_monitor(nc);
- 
++		ncsi_stop_channel_monitor(nc);
++
  		spin_lock_irqsave(&ndp->lock, flags);
--		nc->state = NCSI_CHANNEL_INACTIVE;
-+		nc->state = NCSI_CHANNEL_ACTIVE;
+ 		nc->state = NCSI_CHANNEL_INACTIVE;
  		list_add_tail_rcu(&nc->link, &ndp->channel_queue);
- 		spin_unlock_irqrestore(&ndp->lock, flags);
- 		ncsi_process_next_channel(ndp);
+@@ -257,6 +265,10 @@ void ncsi_stop_channel_monitor(struct ncsi_channel *nc)
+ 	nc->monitor.enabled = false;
+ 	spin_unlock_irqrestore(&nc->lock, flags);
+ 
++	/* The timer isn't in pending state if we're deleting the timer
++	 * in its handler. del_timer_sync() can detect it and just does
++	 * nothing.
++	 */
+ 	del_timer_sync(&nc->monitor.timer);
+ }
+ 
 -- 
 2.7.4
