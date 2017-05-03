@@ -1,45 +1,36 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH] net/sched: remove redundant null check on head
-Date: Wed,  3 May 2017 14:50:40 +0100
-Message-ID: <20170503135040.32023-1-colin.king@canonical.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] xdp: use common helper for netlink extended ack
+ reporting
+Date: Wed, 03 May 2017 09:51:50 -0400 (EDT)
+Message-ID: <20170503.095150.1638542471861793284.davem@davemloft.net>
+References: <9dc20d2c3cca095b42e730655c8fd9f5d59a4568.1493763990.git.daniel@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: kernel-janitors@vger.kernel.org,
-        "David S . Miller" <davem@davemloft.net>,
-        linux-kernel@vger.kernel.org
-To: Jamal Hadi Salim <jhs@mojatatu.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jakub.kicinski@netronome.com, alexei.starovoitov@gmail.com,
+        netdev@vger.kernel.org
+To: daniel@iogearbox.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:37034 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752410AbdECNvw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 3 May 2017 09:51:52 -0400
+In-Reply-To: <9dc20d2c3cca095b42e730655c8fd9f5d59a4568.1493763990.git.daniel@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Colin Ian King <colin.king@canonical.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Date: Wed,  3 May 2017 00:39:17 +0200
 
-head is previously null checked and so the 2nd null check on head
-is redundant and therefore can be removed.
+> Small follow-up to d74a32acd59a ("xdp: use netlink extended ACK reporting")
+> in order to let drivers all use the same NL_SET_ERR_MSG_MOD() helper macro
+> for reporting. This also ensures that we consistently add the driver's
+> prefix for dumping the report in user space to indicate that the error
+> message is driver specific and not coming from core code. Furthermore,
+> NL_SET_ERR_MSG_MOD() now reuses NL_SET_ERR_MSG() and thus makes all macros
+> check the pointer as suggested.
+> 
+> References: https://www.spinics.net/lists/netdev/msg433267.html
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
 
-Detected by CoverityScan, CID#1399505 ("Logically dead code")
-
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
----
- net/sched/cls_matchall.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
-
-diff --git a/net/sched/cls_matchall.c b/net/sched/cls_matchall.c
-index 2efb36c08f2a..dee469fed967 100644
---- a/net/sched/cls_matchall.c
-+++ b/net/sched/cls_matchall.c
-@@ -203,8 +203,7 @@ static int mall_change(struct net *net, struct sk_buff *in_skb,
- 
- 	*arg = (unsigned long) head;
- 	rcu_assign_pointer(tp->root, new);
--	if (head)
--		call_rcu(&head->rcu, mall_destroy_rcu);
-+	call_rcu(&head->rcu, mall_destroy_rcu);
- 	return 0;
- 
- err_replace_hw_filter:
--- 
-2.11.0
+Applied.
