@@ -1,8 +1,8 @@
 From: Nathan Fontenot <nfont@linux.vnet.ibm.com>
-Subject: [PATCH v4 net-next 01/11] ibmvnic: Move resource initialization to
- its own routine
-Date: Wed, 03 May 2017 14:04:26 -0400
-Message-ID: <20170503180426.29742.74240.stgit@ltcalpine2-lp23.aus.stglabs.ibm.com>
+Subject: [PATCH v4 net-next 02/11] ibmvnic: Replace is_closed with state
+ field
+Date: Wed, 03 May 2017 14:04:32 -0400
+Message-ID: <20170503180432.29742.91131.stgit@ltcalpine2-lp23.aus.stglabs.ibm.com>
 References: <20170503180246.29742.64039.stgit@ltcalpine2-lp23.aus.stglabs.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -11,150 +11,160 @@ Cc: brking@linux.vnet.ibm.com, jallen@linux.vnet.ibm.com,
         muvic@linux.vnet.ibm.com, tlfalcon@linux.vnet.ibm.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:59895 "EHLO
+Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:38845 "EHLO
         mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751417AbdECOPq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 3 May 2017 10:15:46 -0400
-Received: from pps.filterd (m0098410.ppops.net [127.0.0.1])
-        by mx0a-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v43EDoIR087197
-        for <netdev@vger.kernel.org>; Wed, 3 May 2017 10:15:45 -0400
-Received: from e13.ny.us.ibm.com (e13.ny.us.ibm.com [129.33.205.203])
-        by mx0a-001b2d01.pphosted.com with ESMTP id 2a7eqey3t1-1
+        by vger.kernel.org with ESMTP id S1752594AbdECOPx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 3 May 2017 10:15:53 -0400
+Received: from pps.filterd (m0098404.ppops.net [127.0.0.1])
+        by mx0a-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v43EDZS3125354
+        for <netdev@vger.kernel.org>; Wed, 3 May 2017 10:15:52 -0400
+Received: from e14.ny.us.ibm.com (e14.ny.us.ibm.com [129.33.205.204])
+        by mx0a-001b2d01.pphosted.com with ESMTP id 2a7dbhjd68-1
         (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Wed, 03 May 2017 10:15:45 -0400
+        for <netdev@vger.kernel.org>; Wed, 03 May 2017 10:15:52 -0400
 Received: from localhost
-        by e13.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        by e14.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
         for <netdev@vger.kernel.org> from <nfont@linux.vnet.ibm.com>;
-        Wed, 3 May 2017 10:15:44 -0400
+        Wed, 3 May 2017 10:15:50 -0400
 In-Reply-To: <20170503180246.29742.64039.stgit@ltcalpine2-lp23.aus.stglabs.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move all of the calls to initialize resources for the driver to
-a separate routine.
+Replace the is_closed flag in the ibmvnic adapter strcut with a
+more comprehensive state field that tracks the current state of
+the driver.
 
 Signed-off-by: Nathan Fontenot <nfont@linux.vnet.ibm.com>
 ---
- drivers/net/ethernet/ibm/ibmvnic.c |   71 ++++++++++++++++++++----------------
- 1 file changed, 39 insertions(+), 32 deletions(-)
+ drivers/net/ethernet/ibm/ibmvnic.c |   20 +++++++++++++-------
+ drivers/net/ethernet/ibm/ibmvnic.h |   12 ++++++++++--
+ 2 files changed, 23 insertions(+), 9 deletions(-)
 
 diff --git a/drivers/net/ethernet/ibm/ibmvnic.c b/drivers/net/ethernet/ibm/ibmvnic.c
-index 4fcd2f0..c67f1d6 100644
+index c67f1d6..40a8ba0 100644
 --- a/drivers/net/ethernet/ibm/ibmvnic.c
 +++ b/drivers/net/ethernet/ibm/ibmvnic.c
-@@ -624,22 +624,10 @@ static int set_real_num_queues(struct net_device *netdev)
+@@ -669,7 +669,9 @@ static int ibmvnic_open(struct net_device *netdev)
+ 	struct ibmvnic_adapter *adapter = netdev_priv(netdev);
+ 	int i, rc;
+ 
+-	if (adapter->is_closed) {
++	adapter->state = VNIC_OPENING;
++
++	if (adapter->state == VNIC_CLOSED) {
+ 		rc = ibmvnic_init(adapter);
+ 		if (rc)
+ 			return rc;
+@@ -704,7 +706,7 @@ static int ibmvnic_open(struct net_device *netdev)
+ 		release_resources(adapter);
+ 	} else {
+ 		netif_tx_start_all_queues(netdev);
+-		adapter->is_closed = false;
++		adapter->state = VNIC_OPEN;
+ 	}
+ 
+ 	return rc;
+@@ -733,7 +735,7 @@ static int ibmvnic_close(struct net_device *netdev)
+ 	int rc = 0;
+ 	int i;
+ 
+-	adapter->closing = true;
++	adapter->state = VNIC_CLOSING;
+ 	disable_sub_crqs(adapter);
+ 
+ 	if (adapter->napi) {
+@@ -748,8 +750,7 @@ static int ibmvnic_close(struct net_device *netdev)
+ 
+ 	release_resources(adapter);
+ 
+-	adapter->is_closed = true;
+-	adapter->closing = false;
++	adapter->state = VNIC_CLOSED;
  	return rc;
  }
  
--static int ibmvnic_open(struct net_device *netdev)
-+static int init_resources(struct ibmvnic_adapter *adapter)
+@@ -1860,7 +1861,8 @@ static int pending_scrq(struct ibmvnic_adapter *adapter,
  {
--	struct ibmvnic_adapter *adapter = netdev_priv(netdev);
--	struct device *dev = &adapter->vdev->dev;
--	int rc = 0;
--	int i;
--
--	if (adapter->is_closed) {
--		rc = ibmvnic_init(adapter);
--		if (rc)
--			return rc;
--	}
--
--	rc = ibmvnic_login(netdev);
--	if (rc)
--		return rc;
-+	struct net_device *netdev = adapter->netdev;
-+	int i, rc;
+ 	union sub_crq *entry = &scrq->msgs[scrq->cur];
  
- 	rc = set_real_num_queues(netdev);
- 	if (rc)
-@@ -647,7 +635,7 @@ static int ibmvnic_open(struct net_device *netdev)
+-	if (entry->generic.first & IBMVNIC_CRQ_CMD_RSP || adapter->closing)
++	if (entry->generic.first & IBMVNIC_CRQ_CMD_RSP ||
++	    adapter->state == VNIC_CLOSING)
+ 		return 1;
+ 	else
+ 		return 0;
+@@ -3353,6 +3355,7 @@ static int ibmvnic_probe(struct vio_dev *dev, const struct vio_device_id *id)
+ 		return -ENOMEM;
  
- 	rc = init_sub_crq_irqs(adapter);
- 	if (rc) {
--		dev_err(dev, "failed to initialize sub crq irqs\n");
-+		netdev_err(netdev, "failed to initialize sub crq irqs\n");
- 		return -1;
+ 	adapter = netdev_priv(netdev);
++	adapter->state = VNIC_PROBING;
+ 	dev_set_drvdata(&dev->dev, netdev);
+ 	adapter->vdev = dev;
+ 	adapter->netdev = netdev;
+@@ -3380,7 +3383,6 @@ static int ibmvnic_probe(struct vio_dev *dev, const struct vio_device_id *id)
  	}
  
-@@ -659,25 +647,47 @@ static int ibmvnic_open(struct net_device *netdev)
- 	adapter->napi = kcalloc(adapter->req_rx_queues,
- 				sizeof(struct napi_struct), GFP_KERNEL);
- 	if (!adapter->napi)
--		goto ibmvnic_open_fail;
-+		return -ENOMEM;
-+
- 	for (i = 0; i < adapter->req_rx_queues; i++) {
- 		netif_napi_add(netdev, &adapter->napi[i], ibmvnic_poll,
- 			       NAPI_POLL_WEIGHT);
--		napi_enable(&adapter->napi[i]);
- 	}
- 
- 	send_map_query(adapter);
- 
- 	rc = init_rx_pools(netdev);
- 	if (rc)
--		goto ibmvnic_open_fail;
-+		return rc;
- 
- 	rc = init_tx_pools(netdev);
-+	return rc;
-+}
-+
-+static int ibmvnic_open(struct net_device *netdev)
-+{
-+	struct ibmvnic_adapter *adapter = netdev_priv(netdev);
-+	int i, rc;
-+
-+	if (adapter->is_closed) {
-+		rc = ibmvnic_init(adapter);
-+		if (rc)
-+			return rc;
-+	}
-+
-+	rc = ibmvnic_login(netdev);
- 	if (rc)
--		goto ibmvnic_open_fail;
-+		return rc;
-+
-+	rc = init_resources(adapter);
-+	if (rc)
-+		return rc;
- 
- 	replenish_pools(adapter);
- 
-+	for (i = 0; i < adapter->req_rx_queues; i++)
-+		napi_enable(&adapter->napi[i]);
-+
- 	/* We're ready to receive frames, enable the sub-crq interrupts and
- 	 * set the logical link state to up
- 	 */
-@@ -688,19 +698,16 @@ static int ibmvnic_open(struct net_device *netdev)
- 		enable_scrq_irq(adapter, adapter->tx_scrq[i]);
- 
- 	rc = set_link_state(adapter, IBMVNIC_LOGICAL_LNK_UP);
--	if (rc)
--		goto ibmvnic_open_fail;
--
--	netif_tx_start_all_queues(netdev);
+ 	netdev->mtu = adapter->req_mtu - ETH_HLEN;
 -	adapter->is_closed = false;
--
--	return 0;
-+	if (rc) {
-+		for (i = 0; i < adapter->req_rx_queues; i++)
-+			napi_disable(&adapter->napi[i]);
-+		release_resources(adapter);
-+	} else {
-+		netif_tx_start_all_queues(netdev);
-+		adapter->is_closed = false;
-+	}
  
--ibmvnic_open_fail:
--	for (i = 0; i < adapter->req_rx_queues; i++)
--		napi_disable(&adapter->napi[i]);
--	release_resources(adapter);
--	return -ENOMEM;
-+	return rc;
+ 	rc = register_netdev(netdev);
+ 	if (rc) {
+@@ -3390,6 +3392,7 @@ static int ibmvnic_probe(struct vio_dev *dev, const struct vio_device_id *id)
+ 	}
+ 	dev_info(&dev->dev, "ibmvnic registered\n");
+ 
++	adapter->state = VNIC_PROBED;
+ 	return 0;
  }
  
- static void disable_sub_crqs(struct ibmvnic_adapter *adapter)
+@@ -3398,12 +3401,15 @@ static int ibmvnic_remove(struct vio_dev *dev)
+ 	struct net_device *netdev = dev_get_drvdata(&dev->dev);
+ 	struct ibmvnic_adapter *adapter = netdev_priv(netdev);
+ 
++	adapter->state = VNIC_REMOVING;
+ 	unregister_netdev(netdev);
+ 
+ 	release_resources(adapter);
+ 	release_sub_crqs(adapter);
+ 	release_crq_queue(adapter);
+ 
++	adapter->state = VNIC_REMOVED;
++
+ 	free_netdev(netdev);
+ 	dev_set_drvdata(&dev->dev, NULL);
+ 
+diff --git a/drivers/net/ethernet/ibm/ibmvnic.h b/drivers/net/ethernet/ibm/ibmvnic.h
+index a69979f..03a866f 100644
+--- a/drivers/net/ethernet/ibm/ibmvnic.h
++++ b/drivers/net/ethernet/ibm/ibmvnic.h
+@@ -913,6 +913,15 @@ struct ibmvnic_error_buff {
+ 	__be32 error_id;
+ };
+ 
++enum vnic_state {VNIC_PROBING = 1,
++		 VNIC_PROBED,
++		 VNIC_OPENING,
++		 VNIC_OPEN,
++		 VNIC_CLOSING,
++		 VNIC_CLOSED,
++		 VNIC_REMOVING,
++		 VNIC_REMOVED};
++
+ struct ibmvnic_adapter {
+ 	struct vio_dev *vdev;
+ 	struct net_device *netdev;
+@@ -962,7 +971,6 @@ struct ibmvnic_adapter {
+ 	u64 promisc;
+ 
+ 	struct ibmvnic_tx_pool *tx_pool;
+-	bool closing;
+ 	struct completion init_done;
+ 	int init_done_rc;
+ 
+@@ -1011,5 +1019,5 @@ struct ibmvnic_adapter {
+ 	struct work_struct ibmvnic_xport;
+ 	struct tasklet_struct tasklet;
+ 	bool failover;
+-	bool is_closed;
++	enum vnic_state state;
+ };
