@@ -1,101 +1,34 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH 2/2] can: m_can: add deep Suspend/Resume support
-Date: Wed, 3 May 2017 14:44:32 +0200
-Message-ID: <b340a104-9974-d575-670d-5b360dddb266@pengutronix.de>
-References: <20170503121143.25090-1-quentin.schulz@free-electrons.com>
- <20170503121143.25090-2-quentin.schulz@free-electrons.com>
- <39fcd931-eca6-2e89-ff8b-14a54e9342fc@pengutronix.de>
- <c45cc113-6072-a514-f956-1c2c61484a13@free-electrons.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH v4 net-next 06/10] net/ncsi: Ethtool operation to get
+ NCSI hw statistics
+Date: Wed, 3 May 2017 14:47:22 +0200
+Message-ID: <20170503124722.GE8029@lunn.ch>
+References: <1493786681-27468-1-git-send-email-gwshan@linux.vnet.ibm.com>
+ <1493786681-27468-7-git-send-email-gwshan@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="A27OwiMNROUWvWwtvFEke1G0E2MqWb5KW"
-Cc: linux-can@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, alexandre.belloni@free-electrons.com,
-        thomas.petazzoni@free-electrons.com
-To: Quentin Schulz <quentin.schulz@free-electrons.com>,
-        wg@grandegger.com, mario.huettel@gmx.net, socketcan@hartkopp.net
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <c45cc113-6072-a514-f956-1c2c61484a13@free-electrons.com>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, joe@perches.com, kubakici@wp.pl,
+        f.fainelli@gmail.com, davem@davemloft.net
+To: Gavin Shan <gwshan@linux.vnet.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:49006 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751488AbdECMr2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 3 May 2017 08:47:28 -0400
+Content-Disposition: inline
+In-Reply-To: <1493786681-27468-7-git-send-email-gwshan@linux.vnet.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---A27OwiMNROUWvWwtvFEke1G0E2MqWb5KW
-Content-Type: multipart/mixed; boundary="nBonBgbvO3ghwGw7aEsftulsmdDmVxmgW";
- protected-headers="v1"
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-To: Quentin Schulz <quentin.schulz@free-electrons.com>, wg@grandegger.com,
- mario.huettel@gmx.net, socketcan@hartkopp.net
-Cc: linux-can@vger.kernel.org, netdev@vger.kernel.org,
- linux-kernel@vger.kernel.org, alexandre.belloni@free-electrons.com,
- thomas.petazzoni@free-electrons.com
-Message-ID: <b340a104-9974-d575-670d-5b360dddb266@pengutronix.de>
-Subject: Re: [PATCH 2/2] can: m_can: add deep Suspend/Resume support
-References: <20170503121143.25090-1-quentin.schulz@free-electrons.com>
- <20170503121143.25090-2-quentin.schulz@free-electrons.com>
- <39fcd931-eca6-2e89-ff8b-14a54e9342fc@pengutronix.de>
- <c45cc113-6072-a514-f956-1c2c61484a13@free-electrons.com>
-In-Reply-To: <c45cc113-6072-a514-f956-1c2c61484a13@free-electrons.com>
+On Wed, May 03, 2017 at 02:44:37PM +1000, Gavin Shan wrote:
+> This adds ethtool command (ETHTOOL_GNCSISTATS) to retrieve the
+> NCSI hardware statistics.
 
---nBonBgbvO3ghwGw7aEsftulsmdDmVxmgW
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
+Hi Gavin
 
-On 05/03/2017 02:28 PM, Quentin Schulz wrote:
-> Hi Marc,
->=20
-> On 03/05/2017 14:16, Marc Kleine-Budde wrote:
->> On 05/03/2017 02:11 PM, Quentin Schulz wrote:
->>> This adds Power Management deep Suspend/Resume support for Bosch M_CA=
-N
->>> chip.
->>>
->>> When the chip resumes from deep sleep, the RAM needs to be initialize=
-d
->>> as it is done when the driver probes. The net interface also needs to=
- be
->>> closed and reopened to be fully functional.
->>
->> Are you sure it's the closing and opening of the net interface. Maybe
->> it's the m_can_start() and/or the subsequent m_can_chip_config()?
->>
->=20
-> You're right. The chip needs to be completely reinitialized (clocks,
-> chip itself) and it also closes and reopens the interface if I'm correc=
-t
-> with close_candev and open_candev.
-> I'm sending a v2 right away to fix the commit log.
+I've not been following this patchset, so maybe i'm about to ask a
+question which has already been asked and answered.
 
-:) I mean to fix the call to the proper function and _not_ calling
-close() open().
+Why cannot use just use ethtool -S for this?
 
-Marc
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---nBonBgbvO3ghwGw7aEsftulsmdDmVxmgW--
-
---A27OwiMNROUWvWwtvFEke1G0E2MqWb5KW
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQEzBAEBCgAdFiEE4bay/IylYqM/npjQHv7KIOw4HPYFAlkJ0LAACgkQHv7KIOw4
-HPa5TggAvEpKjeJpjvUCrHDj5jc1ocnas+wQGkWhsa8XU+xJsbD/GzAUv6exiBDI
-5q5/8UzEL5BJ54G45tl/Y5g9v3+63PkQj8zYzkrOW3p4tnA+MpLywquY8dbZo45o
-G7BkxH0pGvY0p5uiu/J6TvJulEUbkmfL6Yzw8r9TTfn6I1N4eQ7f//avdbDR+3Zj
-fjfcnyS4//i3l7bofwkScSkqLPK5s7Iik/wCDCosBsshNxVToT1FMKaQOfp5Pg4f
-yh9/yhFqUnV3sgXdYGNDL9S0Lx/e1AQc1hkJS+yNy6/qrFX7aMr+Pzr9pBpbgAfi
-gWXVQ8M13Vg77ZzGnmBVjaTNnsvgog==
-=cxi4
------END PGP SIGNATURE-----
-
---A27OwiMNROUWvWwtvFEke1G0E2MqWb5KW--
+    Andrew
