@@ -1,63 +1,59 @@
-From: "Gao Feng" <gfree.wind@foxmail.com>
-Subject: RE: [PATCH net v4 00/12] Fix possbile memleaks when fail to register_netdevice
-Date: Wed, 3 May 2017 08:33:02 +0800
-Message-ID: <000b01d2c3a4$d3b91260$7b2b3720$@foxmail.com>
-References: <cover.1493699451.git.gfree.wind@foxmail.com> <20170502.153029.1605231216574026914.davem@davemloft.net>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [net-next PATCH 1/4] samples/bpf: adjust rlimit RLIMIT_MEMLOCK
+ for traceex2, tracex3 and tracex4
+Date: Tue, 2 May 2017 17:53:16 -0700
+Message-ID: <20170503005314.7oovr764r3e4elzd@ast-mbp>
+References: <149372826543.22268.3617359219409721129.stgit@firesoul>
+ <149372831091.22268.12527267276516941574.stgit@firesoul>
 Mime-Version: 1.0
-Content-Type: text/plain;
-        charset="US-ASCII"
-Content-Transfer-Encoding: 7bit
-Cc: <jiri@resnulli.us>, <mareklindner@neomailbox.ch>,
-        <sw@simonwunderlich.de>, <a@unstable.cc>, <kuznet@ms2.inr.ac.ru>,
-        <jmorris@namei.org>, <yoshfuji@linux-ipv6.org>, <kaber@trash.net>,
-        <steffen.klassert@secunet.com>, <herbert@gondor.apana.org.au>,
-        <netdev@vger.kernel.org>
-To: "'David Miller'" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: kafai@fb.com, netdev@vger.kernel.org, eric@regit.org,
+        Daniel Borkmann <borkmann@iogearbox.net>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpbg65.qq.com ([103.7.28.233]:56776 "EHLO smtpbg65.qq.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750815AbdECAdO (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 2 May 2017 20:33:14 -0400
-In-Reply-To: <20170502.153029.1605231216574026914.davem@davemloft.net>
-Content-Language: zh-cn
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:35111 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750950AbdECAxU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 2 May 2017 20:53:20 -0400
+Received: by mail-pf0-f196.google.com with SMTP id o68so1700161pfj.2
+        for <netdev@vger.kernel.org>; Tue, 02 May 2017 17:53:19 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <149372831091.22268.12527267276516941574.stgit@firesoul>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David
-
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Wednesday, May 3, 2017 3:30 AM
-> From: gfree.wind@foxmail.com
-> Date: Tue,  2 May 2017 13:58:42 +0800
+On Tue, May 02, 2017 at 02:31:50PM +0200, Jesper Dangaard Brouer wrote:
+> Needed to adjust max locked memory RLIMIT_MEMLOCK for testing these bpf samples
+> as these are using more and larger maps than can fit in distro default 64Kbytes limit.
 > 
-[...]
-> >
-> > This solution doesn't only make sure free all resources in any case,
-> > but also follows the original desgin that some resources could be kept
-> > until the destructor executes normally after register the device
-> > successfully.
-> 
-> I want to think about this some more.
-> 
-> It is really unfortunate that resources are allocated strictly from the
-ndo_init()
-> yet released in two different callbacks which are invoked only in certain
-> (different) situations.
-> 
-> Just the fact that we have to make an internal netdev state test in the
-> ndo_uninit callback to get this right is a big red flag to me.
+> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+...
+> +	struct rlimit r = {1024*1024, RLIM_INFINITY};
+...
+> +	struct rlimit r = {1024*1024, RLIM_INFINITY};
 
-Yes, I am very agree with you.
-This fix is just like a workaround under current framework.
+why magic numbers?
+All other samples do
+struct rlimit r = {RLIM_INFINITY, RLIM_INFINITY};
+ 
+> +	if (setrlimit(RLIMIT_MEMLOCK, &r)) {
+> +		perror("setrlimit(RLIMIT_MEMLOCK)");
 
-The root is that allocate in one spot, but free them at two spots.
-It means all ndo_uninit need to handle this case if allocate some resource
-and free them in the destructor.
-It should be done by the framework.
+ip_tunnel.c test does:
+perror("setrlimit(RLIMIT_MEMLOCK, RLIM_INFINITY)");
+Few others do:
+assert(!setrlimit(RLIMIT_MEMLOCK, &r));
+and the rest just:
+setrlimit(RLIMIT_MEMLOCK, &r);
 
-I thought about if there was a better solution to fix it.
-But I think it need to modify the framework of net_device, it seems not good
-as a bug fix to net.git.
+We probalby need to move this to a helper.
 
-Best Regards
-Feng
+> +	struct rlimit r = {RLIM_INFINITY, RLIM_INFINITY};
+
+here it's consistent :)
+
+> +	if (setrlimit(RLIMIT_MEMLOCK, &r)) {
+> +		perror("setrlimit(RLIMIT_MEMLOCK, RLIM_INFINITY)");
+
+but with different perror ?
+Let's do a common helper for all?
