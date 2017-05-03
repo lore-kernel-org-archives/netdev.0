@@ -1,42 +1,38 @@
-From: Pavel Belous <Pavel.Belous@aquantia.com>
-Subject: [PATCH] net:ethernet:aquantia:atlantic: Fix driver name reported by ethtool
-Date: Wed,  3 May 2017 21:06:04 +0300
-Message-ID: <06ae22333f8b032e21628389a0c5e33075e5082e.1493829200.git.pavel.belous@aquantia.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net:ethernet:aquantia:atlantic: Fix driver name
+ reported by ethtool
+Date: Wed, 03 May 2017 14:10:21 -0400 (EDT)
+Message-ID: <20170503.141021.1943670302532328453.davem@davemloft.net>
+References: <06ae22333f8b032e21628389a0c5e33075e5082e.1493829200.git.pavel.belous@aquantia.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org, David Arcari <darcari@redhat.com>
-To: "David S . Miller" <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, darcari@redhat.com
+To: Pavel.Belous@aquantia.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-co1nam03on0064.outbound.protection.outlook.com ([104.47.40.64]:54640
-        "EHLO NAM03-CO1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1750737AbdECSGZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 3 May 2017 14:06:25 -0400
+Received: from shards.monkeyblade.net ([184.105.139.130]:40424 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751159AbdECSKX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 3 May 2017 14:10:23 -0400
+In-Reply-To: <06ae22333f8b032e21628389a0c5e33075e5082e.1493829200.git.pavel.belous@aquantia.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pavel Belous <pavel.belous@aquantia.com>
+From: Pavel Belous <Pavel.Belous@aquantia.com>
+Date: Wed,  3 May 2017 21:06:04 +0300
 
-The command "ethtool -i ethX" should display driver name (driver: atlantic)
-instead vendor name (driver: aquantia).
+> From: Pavel Belous <pavel.belous@aquantia.com>
+> 
+> The command "ethtool -i ethX" should display driver name (driver: atlantic)
+> instead vendor name (driver: aquantia).
+> 
+> Signed-off-by: Pavel Belous <pavel.belous@aquantia.com>
 
-Signed-off-by: Pavel Belous <pavel.belous@aquantia.com>
----
- drivers/net/ethernet/aquantia/atlantic/aq_cfg.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+I'd like to ask you to please use a more appropriate subsystem prefix
+in your patches.
 
-diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_cfg.h b/drivers/net/ethernet/aquantia/atlantic/aq_cfg.h
-index 5f99237..2149864 100644
---- a/drivers/net/ethernet/aquantia/atlantic/aq_cfg.h
-+++ b/drivers/net/ethernet/aquantia/atlantic/aq_cfg.h
-@@ -68,7 +68,7 @@
- 
- #define AQ_CFG_DRV_AUTHOR      "aQuantia"
- #define AQ_CFG_DRV_DESC        "aQuantia Corporation(R) Network Driver"
--#define AQ_CFG_DRV_NAME        "aquantia"
-+#define AQ_CFG_DRV_NAME        "atlantic"
- #define AQ_CFG_DRV_VERSION	__stringify(NIC_MAJOR_DRIVER_VERSION)"."\
- 				__stringify(NIC_MINOR_DRIVER_VERSION)"."\
- 				__stringify(NIC_BUILD_DRIVER_VERSION)"."\
--- 
-2.7.4
+First of all, if there are mutliple subsystem tags, separate them with spaces.
+
+But in this case, purely "aquantia: " is sufficient.
+
+Please resubmit this with that fixed up, thank you.
