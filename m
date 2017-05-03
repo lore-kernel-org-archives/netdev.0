@@ -1,54 +1,71 @@
-From: Ilan Tayari <ilant@mellanox.com>
-Subject: RE: [PATCH net-next] net/esp4: Fix invalid esph pointer crash
-Date: Wed, 3 May 2017 11:45:04 +0000
-Message-ID: <AM4PR0501MB1940F79651D521A7D4DAA512DB160@AM4PR0501MB1940.eurprd05.prod.outlook.com>
-References: <20170430133438.31962-1-ilant@mellanox.com>
- <20170503070228.GK2649@secunet.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [net-next PATCH 0/4] Improve bpf ELF-loader under samples/bpf
+Date: Wed, 03 May 2017 13:48:04 +0200
+Message-ID: <5909C374.3050602@iogearbox.net>
+References: <149372826543.22268.3617359219409721129.stgit@firesoul>     <5908F5AC.6000703@iogearbox.net> <20170503081621.41a141d0@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Steffen Klassert <steffen.klassert@secunet.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: kafai@fb.com, netdev@vger.kernel.org, eric@regit.org,
+        Daniel Borkmann <borkmann@iogearbox.net>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-he1eur01on0085.outbound.protection.outlook.com ([104.47.0.85]:64640
-        "EHLO EUR01-HE1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751923AbdECLpH (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 3 May 2017 07:45:07 -0400
-In-Reply-To: <20170503070228.GK2649@secunet.com>
-Content-Language: en-US
+Received: from www62.your-server.de ([213.133.104.62]:38366 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751354AbdECLsJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 3 May 2017 07:48:09 -0400
+In-Reply-To: <20170503081621.41a141d0@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogU3RlZmZlbiBLbGFzc2Vy
-dCBbbWFpbHRvOnN0ZWZmZW4ua2xhc3NlcnRAc2VjdW5ldC5jb21dDQo+IA0KPiBPbiBTdW4sIEFw
-ciAzMCwgMjAxNyBhdCAwNDozNDozOFBNICswMzAwLCBpbGFudEBtZWxsYW5veC5jb20gd3JvdGU6
-DQo+ID4gRnJvbTogSWxhbiBUYXlhcmkgPGlsYW50QG1lbGxhbm94LmNvbT4NCj4gPg0KPiA+IEJv
-dGggZXNwX291dHB1dCBhbmQgZXNwX3htaXQgdGFrZSBhIHBvaW50ZXIgdG8gdGhlIEVTUCBoZWFk
-ZXINCj4gPiBhbmQgcGxhY2UgaXQgaW4gZXNwX2luZm8gc3RydWN0IHByaW9yIHRvIGNhbGxpbmcg
-ZXNwX291dHB1dF9oZWFkLg0KPiA+DQo+ID4gSW5zaWRlIGVzcF9vdXRwdXRfaGVhZCwgdGhlIGNh
-bGwgdG8gZXNwX291dHB1dF91ZHBfZW5jYXANCj4gPiBtYWtlcyBzdXJlIHRvIHVwZGF0ZSB0aGUg
-cG9pbnRlciBpZiBpdCBnZXRzIGludmFsaWQuDQo+ID4gSG93ZXZlciwgaWYgZXNwX291dHB1dF9o
-ZWFkIGl0c2VsZiBjYWxscyBza2JfY293X2RhdGEsIHRoZQ0KPiA+IHBvaW50ZXIgaXMgbm90IHVw
-ZGF0ZWQgYW5kIHN0YXlzIGludmFsaWQsIGNhdXNpbmcgYSBjcmFzaA0KPiA+IGFmdGVyIGVzcF9v
-dXRwdXRfaGVhZCByZXR1cm5zLg0KPiA+DQo+ID4gVXBkYXRlIHRoZSBwb2ludGVyIGlmIGl0IGJl
-Y29tZXMgaW52YWxpZCBpbiBlc3Bfb3V0cHV0X2hlYWQNCj4gPg0KPiA+IEZpeGVzOiBmY2ExMWVi
-ZGUzZjAgKCJlc3A0OiBSZW9yZ2FuaXplIGVzcF9vdXRwdXQiKQ0KPiA+IFNpZ25lZC1vZmYtYnk6
-IElsYW4gVGF5YXJpIDxpbGFudEBtZWxsYW5veC5jb20+DQo+ID4gLS0tDQo+ID4gIG5ldC9pcHY0
-L2VzcDQuYyB8IDEgKw0KPiA+ICAxIGZpbGUgY2hhbmdlZCwgMSBpbnNlcnRpb24oKykNCj4gPg0K
-PiA+IGRpZmYgLS1naXQgYS9uZXQvaXB2NC9lc3A0LmMgYi9uZXQvaXB2NC9lc3A0LmMNCj4gPiBp
-bmRleCA3ZjJjYWY3MTIxMmIuLjY1Y2MwMmJkODJiYyAxMDA2NDQNCj4gPiAtLS0gYS9uZXQvaXB2
-NC9lc3A0LmMNCj4gPiArKysgYi9uZXQvaXB2NC9lc3A0LmMNCj4gPiBAQCAtMzE3LDYgKzMxNyw3
-IEBAIGludCBlc3Bfb3V0cHV0X2hlYWQoc3RydWN0IHhmcm1fc3RhdGUgKngsIHN0cnVjdA0KPiBz
-a19idWZmICpza2IsIHN0cnVjdCBlc3BfaW5mbyAqDQo+ID4gIAlpZiAobmZyYWdzIDwgMCkNCj4g
-PiAgCQlnb3RvIG91dDsNCj4gPiAgCXRhaWwgPSBza2JfdGFpbF9wb2ludGVyKHRyYWlsZXIpOw0K
-PiA+ICsJZXNwLT5lc3BoID0gaXBfZXNwX2hkcihza2IpOw0KPiANCj4gVGhpcyBpcyBub3QgcXVp
-dGUgcmlnaHQgZm9yIHVkcGVuY2FwLiBJdCBmaXhlcyB0aGUgY3Jhc2gsDQo+IGJ1dCBpbnRyb2R1
-Y2VzIGEgYnVnIHRoYXQgd2UgYWxyZWFkeSBoYXZlIGluIHY0LjExLg0KPiANCj4gT24gdWRwZW5j
-YXAgdGhlIGVzcCBoZWFkZXIgaGFzIGFuIG9mZnNldCB0byBza2JfdHJhbnNwb3J0X2hlYWRlciwN
-Cj4gdGhlIHByb2JsZW0gd2FzIGRpc2N1c3NlZCBsYXN0IHdlZWsgaGVyZToNCj4gDQo+IGh0dHBz
-Oi8vbGttbC5vcmcvbGttbC8yMDE3LzQvMjUvOTM3DQo+IA0KPiBJIHBsYW4gdG8gZml4IHRoaXMg
-d2l0aCB0aGUgcGF0Y2ggYmVsb3c6DQo+IA0KPiBTdWJqZWN0OiBbUEFUQ0ggUkZDXSBlc3A0OiBG
-aXggdWRwZW5jYXAgZm9yIGxvY2FsIFRDUCBwYWNrZXRzLg0KPiANCg0KVGhpcyBwYXRjaCB3b3Jr
-cyBmb3IgbWUuDQpJIGRvbid0IGhhdmUgdWRwLWVuY2FwIHRlc3QgZmFjaWxpdGllcywgdGhvdWdo
-ICh5ZXQhKS4NCg0KSWxhbi4NCg==
+On 05/03/2017 08:16 AM, Jesper Dangaard Brouer wrote:
+> On Tue, 02 May 2017 23:10:04 +0200
+> Daniel Borkmann <daniel@iogearbox.net> wrote:
+>
+>> On 05/02/2017 02:31 PM, Jesper Dangaard Brouer wrote:
+>>> This series improves and fixes bpf ELF loader and programs under
+>>> samples/bpf.  The bpf_load.c created some hard to debug issues when
+>>> the struct (bpf_map_def) used in the ELF maps section format changed
+>>> in commit fb30d4b71214 ("bpf: Add tests for map-in-map").
+>>>
+>>> This was hotfixed in commit 409526bea3c3 ("samples/bpf: bpf_load.c
+>>> detect and abort if ELF maps section size is wrong") by detecting the
+>>> issue and aborting the program.
+>>>
+>>> In most situations the bpf-loader should be able to handle these kind
+>>> of changes to the struct size.  This patch series aim to do proper
+>>> backward and forward compabilility handling when loading ELF files.
+>>>
+>>> This series also adjust the callback that was introduced in commit
+>>> 9fd63d05f3e8 ("bpf: Allow bpf sample programs (*_user.c) to change
+>>> bpf_map_def") to use the new bpf_map_data structure, before more users
+>>> start to use this callback.
+>>>
+>>> Hoping these changes can make the merge window, as above mentioned
+>>> commits have not been merged yet, and it would be good to avoid users
+>>> hitting these issues.
+>>
+>> Overall, set looks good to me. The last patch doesn't have a
+>> user yet, so probably better to drop it until there is an actual
+>> user in the tree.
+>
+> The reason for simply exporting map_data[] was that in patch 3, the
+> data-struct (bpf_map_data) is already exposed, thus users can already
+> grab and store those into a separate data structure.  Thus, it seemed
+> natural to simply export/expose the map_data[] array directly.  Guess,
+> I could have combined patch 4 and 3.  As patch-3 uses the data struct,
+> but in an indirect way.
+>
+> To Daniel, if you still feel we should drop patch 4, then let me know.
+> It is only the other patches that are time critical, as patch 4 is
+> trivial to introduce once the first sample program uses this directly
+> (instead of indirectly through the callback).
+
+Ah, if there's still code coming from your side that will make use
+of it, I'm fine with this, though it's usually best to add it with
+an actual user. Given it's sample code, I don't mind too much if that
+happens at a later point in time.
+
+Thanks,
+Daniel
