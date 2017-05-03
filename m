@@ -1,85 +1,65 @@
-From: Nathan Fontenot <nfont@linux.vnet.ibm.com>
-Subject: [PATCH v4 net-next 11/11] ibmvnic: Move queue restarting in
- ibmvnic_tx_complete
-Date: Wed, 03 May 2017 14:05:25 -0400
-Message-ID: <20170503180525.29742.42057.stgit@ltcalpine2-lp23.aus.stglabs.ibm.com>
-References: <20170503180246.29742.64039.stgit@ltcalpine2-lp23.aus.stglabs.ibm.com>
+From: walter harms <wharms@bfs.de>
+Subject: Re: [PATCH] net/sched: remove redundant null check on head
+Date: Wed, 03 May 2017 16:21:15 +0200
+Message-ID: <5909E75B.30305@bfs.de>
+References: <20170503135040.32023-1-colin.king@canonical.com>
+Reply-To: wharms@bfs.de
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: brking@linux.vnet.ibm.com, jallen@linux.vnet.ibm.com,
-        muvic@linux.vnet.ibm.com, tlfalcon@linux.vnet.ibm.com
-To: netdev@vger.kernel.org
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
+        kernel-janitors@vger.kernel.org
+To: Colin King <colin.king@canonical.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:54005 "EHLO
-        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1753495AbdECOQs (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 3 May 2017 10:16:48 -0400
-Received: from pps.filterd (m0098393.ppops.net [127.0.0.1])
-        by mx0a-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v43EElcQ037999
-        for <netdev@vger.kernel.org>; Wed, 3 May 2017 10:16:43 -0400
-Received: from e11.ny.us.ibm.com (e11.ny.us.ibm.com [129.33.205.201])
-        by mx0a-001b2d01.pphosted.com with ESMTP id 2a79vtc3e6-1
-        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Wed, 03 May 2017 10:16:42 -0400
-Received: from localhost
-        by e11.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-        for <netdev@vger.kernel.org> from <nfont@linux.vnet.ibm.com>;
-        Wed, 3 May 2017 10:16:41 -0400
-In-Reply-To: <20170503180246.29742.64039.stgit@ltcalpine2-lp23.aus.stglabs.ibm.com>
+Received: from mx02-sz.bfs.de ([194.94.69.103]:57696 "EHLO mx02-sz.bfs.de"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752582AbdECOVU (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 3 May 2017 10:21:20 -0400
+In-Reply-To: <20170503135040.32023-1-colin.king@canonical.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Restart of the subqueue should occur outside of the loop processing
-any tx buffers instead of doing this in the middle of the loop.
 
-Signed-off-by: Nathan Fontenot <nfont@linux.vnet.ibm.com>
----
 
-v2: Use __netif_subqueue_stopped() instead of netif_subqueue_stopped()
-to avoid possible using un-initialized skb variable.
----
- drivers/net/ethernet/ibm/ibmvnic.c |   22 ++++++++++------------
- 1 file changed, 10 insertions(+), 12 deletions(-)
+Am 03.05.2017 15:50, schrieb Colin King:
+> From: Colin Ian King <colin.king@canonical.com>
+> 
+> head is previously null checked and so the 2nd null check on head
+> is redundant and therefore can be removed.
+> 
+> Detected by CoverityScan, CID#1399505 ("Logically dead code")
+> 
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+> ---
+>  net/sched/cls_matchall.c | 3 +--
+>  1 file changed, 1 insertion(+), 2 deletions(-)
+> 
+> diff --git a/net/sched/cls_matchall.c b/net/sched/cls_matchall.c
+> index 2efb36c08f2a..dee469fed967 100644
+> --- a/net/sched/cls_matchall.c
+> +++ b/net/sched/cls_matchall.c
+> @@ -203,8 +203,7 @@ static int mall_change(struct net *net, struct sk_buff *in_skb,
+>  
+>  	*arg = (unsigned long) head;
+>  	rcu_assign_pointer(tp->root, new);
+> -	if (head)
+> -		call_rcu(&head->rcu, mall_destroy_rcu);
+> +	call_rcu(&head->rcu, mall_destroy_rcu);
+>  	return 0;
+>  
+>  err_replace_hw_filter:
 
-diff --git a/drivers/net/ethernet/ibm/ibmvnic.c b/drivers/net/ethernet/ibm/ibmvnic.c
-index 1b6268c..4f2d329 100644
---- a/drivers/net/ethernet/ibm/ibmvnic.c
-+++ b/drivers/net/ethernet/ibm/ibmvnic.c
-@@ -1809,19 +1809,8 @@ static int ibmvnic_complete_tx(struct ibmvnic_adapter *adapter,
- 			}
- 
- 			if (txbuff->last_frag) {
--				if (atomic_sub_return(next->tx_comp.num_comps,
--						      &scrq->used) <=
--				    (adapter->req_tx_entries_per_subcrq / 2) &&
--				    netif_subqueue_stopped(adapter->netdev,
--							   txbuff->skb)) {
--					netif_wake_subqueue(adapter->netdev,
--							    scrq->pool_index);
--					netdev_dbg(adapter->netdev,
--						   "Started queue %d\n",
--						   scrq->pool_index);
--				}
--
- 				dev_kfree_skb_any(txbuff->skb);
-+				txbuff->skb = NULL;
- 			}
- 
- 			adapter->tx_pool[pool].free_map[adapter->tx_pool[pool].
-@@ -1832,6 +1821,15 @@ static int ibmvnic_complete_tx(struct ibmvnic_adapter *adapter,
- 		}
- 		/* remove tx_comp scrq*/
- 		next->tx_comp.first = 0;
-+
-+		if (atomic_sub_return(next->tx_comp.num_comps, &scrq->used) <=
-+		    (adapter->req_tx_entries_per_subcrq / 2) &&
-+		    __netif_subqueue_stopped(adapter->netdev,
-+					     scrq->pool_index)) {
-+			netif_wake_subqueue(adapter->netdev, scrq->pool_index);
-+			netdev_info(adapter->netdev, "Started queue %d\n",
-+				    scrq->pool_index);
-+		}
- 	}
- 
- 	enable_scrq_irq(adapter, scrq);
+
+if someone cares .. the err=0 in the the line above the patch is also useless
+because err is never used again. Merging both if will save 1 indent level.
+
+ err = mall_replace_hw_filter(tp, new, (unsigned long) new);
+ if (err && tc_skip_sw(flags) )
+	goto errout;
+
+
+just my impression,
+re
+ wh
