@@ -1,77 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: ipv6: Do not duplicate DAD on link up
-Date: Wed, 03 May 2017 09:46:57 -0400 (EDT)
-Message-ID: <20170503.094657.2281913213391375194.davem@davemloft.net>
-References: <1493761424-17407-1-git-send-email-dsahern@gmail.com>
+From: Colin King <colin.king@canonical.com>
+Subject: [PATCH] net/sched: remove redundant null check on head
+Date: Wed,  3 May 2017 14:50:40 +0100
+Message-ID: <20170503135040.32023-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dvyukov@google.com, andreyknvl@google.com
-To: dsahern@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:36968 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751176AbdECNq7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 3 May 2017 09:46:59 -0400
-In-Reply-To: <1493761424-17407-1-git-send-email-dsahern@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: kernel-janitors@vger.kernel.org,
+        "David S . Miller" <davem@davemloft.net>,
+        linux-kernel@vger.kernel.org
+To: Jamal Hadi Salim <jhs@mojatatu.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: David Ahern <dsahern@gmail.com>
-Date: Tue,  2 May 2017 14:43:44 -0700
+From: Colin Ian King <colin.king@canonical.com>
 
-> Andrey reported a warning triggered by the rcu code:
- ...
-> Andrey's reproducer program runs in a very tight loop, calling
-> 'unshare -n' and then spawning 2 sets of 14 threads running random ioctl
-> calls. The relevant networking sequence:
-> 
-> 1. New network namespace created via unshare -n
-> - ip6tnl0 device is created in down state
-> 
-> 2. address added to ip6tnl0
-> - equivalent to ip -6 addr add dev ip6tnl0 fd00::bb/1
-> - DAD is started on the address and when it completes the host
->   route is inserted into the FIB
-> 
-> 3. ip6tnl0 is brought up
-> - the new fixup_permanent_addr function restarts DAD on the address
-> 
-> 4. exit namespace
-> - teardown / cleanup sequence starts
-> - once in a blue moon, lo teardown appears to happen BEFORE teardown
->   of ip6tunl0
->   + down on 'lo' removes the host route from the FIB since the dst->dev
->     for the route is loobback
->   + host route added to rcu callback list
->     * rcu callback has not run yet, so rt is NOT on the gc list so it has
->       NOT been marked obsolete
-> 
-> 5. in parallel to 4. worker_thread runs addrconf_dad_completed
-> - DAD on the address on ip6tnl0 completes
-> - calls ipv6_ifa_notify which inserts the host route
-> 
-> All of that happens very quickly. The result is that a host route that
-> has been deleted from the IPv6 FIB and added to the RCU list is re-inserted
-> into the FIB.
-> 
-> The exit namespace eventually gets to cleaning up ip6tnl0 which removes the
-> host route from the FIB again, calls the rcu function for cleanup -- and
-> triggers the double rcu trace.
-> 
-> The root cause is duplicate DAD on the address -- steps 2 and 3. Arguably,
-> DAD should not be started in step 2. The interface is in the down state,
-> so it can not really send out requests for the address which makes starting
-> DAD pointless.
-> 
-> Since the second DAD was introduced by a recent change, seems appropriate
-> to use it for the Fixes tag and have the fixup function only start DAD for
-> addresses in the PREDAD state which occurs in addrconf_ifdown if the
-> address is retained.
-> 
-> Big thanks to Andrey for isolating a reliable reproducer for this problem.
-> Fixes: f1705ec197e7 ("net: ipv6: Make address flushing on ifdown optional")
-> Reported-by: Andrey Konovalov <andreyknvl@google.com>
-> Signed-off-by: David Ahern <dsahern@gmail.com>
+head is previously null checked and so the 2nd null check on head
+is redundant and therefore can be removed.
 
-Applied and queued up for -stable, thanks!
+Detected by CoverityScan, CID#1399505 ("Logically dead code")
+
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+---
+ net/sched/cls_matchall.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/net/sched/cls_matchall.c b/net/sched/cls_matchall.c
+index 2efb36c08f2a..dee469fed967 100644
+--- a/net/sched/cls_matchall.c
++++ b/net/sched/cls_matchall.c
+@@ -203,8 +203,7 @@ static int mall_change(struct net *net, struct sk_buff *in_skb,
+ 
+ 	*arg = (unsigned long) head;
+ 	rcu_assign_pointer(tp->root, new);
+-	if (head)
+-		call_rcu(&head->rcu, mall_destroy_rcu);
++	call_rcu(&head->rcu, mall_destroy_rcu);
+ 	return 0;
+ 
+ err_replace_hw_filter:
+-- 
+2.11.0
