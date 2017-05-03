@@ -1,30 +1,73 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH] net/sched: remove redundant null check on head
-Date: Wed, 3 May 2017 16:15:33 +0200
-Message-ID: <20170503141533.GC2077@nanopsycho.orion>
-References: <20170503135040.32023-1-colin.king@canonical.com>
+From: Nathan Fontenot <nfont@linux.vnet.ibm.com>
+Subject: [PATCH v4 net-next 00/11] ibmvnic: Updated reset handler and code
+ fixes
+Date: Wed, 03 May 2017 14:04:20 -0400
+Message-ID: <20170503180246.29742.64039.stgit@ltcalpine2-lp23.aus.stglabs.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org,
-        kernel-janitors@vger.kernel.org,
-        "David S . Miller" <davem@davemloft.net>,
-        linux-kernel@vger.kernel.org
-To: Colin King <colin.king@canonical.com>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170503135040.32023-1-colin.king@canonical.com>
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: brking@linux.vnet.ibm.com, jallen@linux.vnet.ibm.com,
+        muvic@linux.vnet.ibm.com, tlfalcon@linux.vnet.ibm.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:53141 "EHLO
+        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1752594AbdECOPk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 3 May 2017 10:15:40 -0400
+Received: from pps.filterd (m0098396.ppops.net [127.0.0.1])
+        by mx0a-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v43EDXfv095054
+        for <netdev@vger.kernel.org>; Wed, 3 May 2017 10:15:39 -0400
+Received: from e14.ny.us.ibm.com (e14.ny.us.ibm.com [129.33.205.204])
+        by mx0a-001b2d01.pphosted.com with ESMTP id 2a7g25jg0x-1
+        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Wed, 03 May 2017 10:15:39 -0400
+Received: from localhost
+        by e14.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        for <netdev@vger.kernel.org> from <nfont@linux.vnet.ibm.com>;
+        Wed, 3 May 2017 10:15:37 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Wed, May 03, 2017 at 03:50:40PM CEST, colin.king@canonical.com wrote:
->From: Colin Ian King <colin.king@canonical.com>
->
->head is previously null checked and so the 2nd null check on head
->is redundant and therefore can be removed.
->
->Detected by CoverityScan, CID#1399505 ("Logically dead code")
->
->Signed-off-by: Colin Ian King <colin.king@canonical.com>
+This set of patches multiple code fixes and a new rest handler
+for the ibmvnic driver. In order to implement the new reset handler
+for the ibmvnic driver resource initialization needed to be moved to
+its own routine, a state variable is introduced to replace the
+various is_* flags in the driver, and a new routine to handle the
+assorted reasons the driver can be reset.
 
-Acked-by: Jiri Pirko <jiri@mellanox.com>
+v4 updates:
+
+Patch 3/11: Corrected trailing whitespace
+Patch 7/11: Corrected trailing whitespace
+
+v3 updates:
+
+Patch 10/11: Correct patch subject line to be a description of the patch.
+
+v2 updates:
+
+Patch 11/11: Use __netif_subqueue_stopped() instead of
+netif_subqueue_stopped() to avoid possible use of an un-initialized
+skb variable.
+
+---
+
+Nathan Fontenot (10):
+      ibmvnic: Move resource initialization to its own routine
+      ibmvnic: Replace is_closed with state field
+      ibmvnic: Updated reset handling
+      ibmvnic: Delete napi's when releasing driver resources
+      ibmvnic: Whitespace correction in release_rx_pools
+      ibmvnic: Clean up tx pools when closing
+      ibmvnic: Wait for any pending scrqs entries at driver close
+      ibmvnic: Check for driver reset first in ibmvnic_xmit
+      ibmvnic: Continue skb processing after skb completion error
+      ibmvnic: Move queue restarting in ibmvnic_tx_complete
+
+Thomas Falcon (1):
+      ibmvnic: Record SKB RX queue during poll
+
+
+ drivers/net/ethernet/ibm/ibmvnic.c |  561 +++++++++++++++++++++++-------------
+ drivers/net/ethernet/ibm/ibmvnic.h |   31 ++
+ 2 files changed, 388 insertions(+), 204 deletions(-)
