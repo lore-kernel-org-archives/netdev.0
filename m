@@ -1,31 +1,30 @@
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: Re: [PATCH v3] iov_iter: don't revert iov buffer if csum error
-Date: Wed, 3 May 2017 08:07:26 +0100
-Message-ID: <20170503070726.GG29622@ZenIV.linux.org.uk>
-References: <12d4d81f-40c7-c83d-11d6-290acc084695@huawei.com>
+From: "H.A" <mioara@viata-libera.ro>
+Subject: Re:
+Date: Wed, 03 May 2017 08:00:00 +0100
+Message-ID: <20170503070041.802C484F27@mail.viata-libera.ro>
+Reply-To: helenaroberts99@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, pabeni@redhat.com,
-        edumazet@google.com, hannes@stressinduktion.org,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        LinuxArm <linuxarm@huawei.com>,
-        "weiyongjun (A)" <weiyongjun1@huawei.com>
-To: Ding Tianhong <dingtianhong@huawei.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8BIT
+To: Recipients <mioara@viata-libera.ro>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeniv.linux.org.uk ([195.92.253.2]:39776 "EHLO
-        ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751014AbdECHHk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 3 May 2017 03:07:40 -0400
-Content-Disposition: inline
-In-Reply-To: <12d4d81f-40c7-c83d-11d6-290acc084695@huawei.com>
+Received: from mail.viata-libera.ro ([81.12.239.110]:41680 "EHLO
+        mail.viata-libera.ro" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751014AbdECHIm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 3 May 2017 03:08:42 -0400
+Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 03, 2017 at 03:02:32PM +0800, Ding Tianhong wrote:
-> The patch 327868212381 (make skb_copy_datagram_msg() et.al. preserve
-> ->msg_iter on error) will revert the iov buffer if copy to iter
-> failed, but it didn't copy any datagram if the skb_checksum_complete
-> error, so no need to revert any data at this place.
+With profound love in my heart, I Kindly Oblige your interest to very important proposal.. It is Truly Divine and require your utmost attention..........
 
-See a6a5993243550b09f620941dea741b7421fdf79c in mainline...
+S hlubokou láskou v mém srdci, Laskave jsem prinutit svuj zájem k návrhu .. Je velmi duležité, skutecne Divine a vyžadují vaši nejvyšší pozornost.
+
+  Kontaktujte me prímo pres: helenaroberts99@gmail.com pro úplné podrobnosti.complete.
+
+
+HELINA .A ROBERTS
+
+---
+This email has been checked for viruses by Avast antivirus software.
+https://www.avast.com/antivirus
