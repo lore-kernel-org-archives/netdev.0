@@ -1,91 +1,80 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 01/16] netfilter: xt_CT: fix refcnt leak on error path
-Date: Wed,  3 May 2017 11:31:56 +0200
-Message-ID: <1493803931-2837-2-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 10/16] bridge: ebtables: fix reception of frames DNAT-ed to bridge device/port
+Date: Wed,  3 May 2017 11:32:05 +0200
+Message-ID: <1493803931-2837-11-git-send-email-pablo@netfilter.org>
 References: <1493803931-2837-1-git-send-email-pablo@netfilter.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:45644 "EHLO mail.us.es"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752850AbdECJc3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 3 May 2017 05:32:29 -0400
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id E41481C4438
-        for <netdev@vger.kernel.org>; Wed,  3 May 2017 11:32:21 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id CAF186E7AB
-        for <netdev@vger.kernel.org>; Wed,  3 May 2017 11:32:21 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id B2FC9FF2D2
-        for <netdev@vger.kernel.org>; Wed,  3 May 2017 11:32:17 +0200 (CEST)
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1493803931-2837-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Gao Feng <fgao@ikuai8.com>
+From: Linus Lüssing <linus.luessing@c0d3.blue>
 
-There are two cases which causes refcnt leak.
+When trying to redirect bridged frames to the bridge device itself or
+a bridge port (brouting) via the dnat target then this currently fails:
 
-1. When nf_ct_timeout_ext_add failed in xt_ct_set_timeout, it should
-free the timeout refcnt.
-Now goto the err_put_timeout error handler instead of going ahead.
+The ethernet destination of the frame is dnat'ed to the MAC address of
+the bridge device or port just fine. However, the IP code drops it in
+the beginning of ip_input.c/ip_rcv() as the dnat target left
+the skb->pkt_type as PACKET_OTHERHOST.
 
-2. When the time policy is not found, we should call module_put.
-Otherwise, the related cthelper module cannot be removed anymore.
-It is easy to reproduce by typing the following command:
-  # iptables -t raw -A OUTPUT -p tcp -j CT --helper ftp --timeout xxx
+Fixing this by resetting skb->pkt_type to an appropriate type after
+dnat'ing.
 
-Signed-off-by: Gao Feng <fgao@ikuai8.com>
-Signed-off-by: Liping Zhang <zlpnobody@gmail.com>
+Signed-off-by: Linus Lüssing <linus.luessing@c0d3.blue>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/xt_CT.c | 11 +++++++++--
- 1 file changed, 9 insertions(+), 2 deletions(-)
+ net/bridge/netfilter/ebt_dnat.c | 20 ++++++++++++++++++++
+ 1 file changed, 20 insertions(+)
 
-diff --git a/net/netfilter/xt_CT.c b/net/netfilter/xt_CT.c
-index b008db0184b8..81fdcdca7457 100644
---- a/net/netfilter/xt_CT.c
-+++ b/net/netfilter/xt_CT.c
-@@ -167,8 +167,10 @@ xt_ct_set_timeout(struct nf_conn *ct, const struct xt_tgchk_param *par,
- 		goto err_put_timeout;
- 	}
- 	timeout_ext = nf_ct_timeout_ext_add(ct, timeout, GFP_ATOMIC);
--	if (timeout_ext == NULL)
-+	if (!timeout_ext) {
- 		ret = -ENOMEM;
-+		goto err_put_timeout;
-+	}
- 
- 	rcu_read_unlock();
- 	return ret;
-@@ -200,6 +202,7 @@ static int xt_ct_tg_check(const struct xt_tgchk_param *par,
- 			  struct xt_ct_target_info_v1 *info)
+diff --git a/net/bridge/netfilter/ebt_dnat.c b/net/bridge/netfilter/ebt_dnat.c
+index 4e0b0c359325..e0bb624c3845 100644
+--- a/net/bridge/netfilter/ebt_dnat.c
++++ b/net/bridge/netfilter/ebt_dnat.c
+@@ -9,6 +9,7 @@
+  */
+ #include <linux/module.h>
+ #include <net/sock.h>
++#include "../br_private.h"
+ #include <linux/netfilter.h>
+ #include <linux/netfilter/x_tables.h>
+ #include <linux/netfilter_bridge/ebtables.h>
+@@ -18,11 +19,30 @@ static unsigned int
+ ebt_dnat_tg(struct sk_buff *skb, const struct xt_action_param *par)
  {
- 	struct nf_conntrack_zone zone;
-+	struct nf_conn_help *help;
- 	struct nf_conn *ct;
- 	int ret = -EOPNOTSUPP;
+ 	const struct ebt_nat_info *info = par->targinfo;
++	struct net_device *dev;
  
-@@ -248,7 +251,7 @@ static int xt_ct_tg_check(const struct xt_tgchk_param *par,
- 	if (info->timeout[0]) {
- 		ret = xt_ct_set_timeout(ct, par, info->timeout);
- 		if (ret < 0)
--			goto err3;
-+			goto err4;
- 	}
- 	__set_bit(IPS_CONFIRMED_BIT, &ct->status);
- 	nf_conntrack_get(&ct->ct_general);
-@@ -256,6 +259,10 @@ static int xt_ct_tg_check(const struct xt_tgchk_param *par,
- 	info->ct = ct;
- 	return 0;
+ 	if (!skb_make_writable(skb, 0))
+ 		return EBT_DROP;
  
-+err4:
-+	help = nfct_help(ct);
-+	if (help)
-+		module_put(help->helper->me);
- err3:
- 	nf_ct_tmpl_free(ct);
- err2:
+ 	ether_addr_copy(eth_hdr(skb)->h_dest, info->mac);
++
++	if (is_multicast_ether_addr(info->mac)) {
++		if (is_broadcast_ether_addr(info->mac))
++			skb->pkt_type = PACKET_BROADCAST;
++		else
++			skb->pkt_type = PACKET_MULTICAST;
++	} else {
++		if (xt_hooknum(par) != NF_BR_BROUTING)
++			dev = br_port_get_rcu(xt_in(par))->br->dev;
++		else
++			dev = xt_in(par);
++
++		if (ether_addr_equal(info->mac, dev->dev_addr))
++			skb->pkt_type = PACKET_HOST;
++		else
++			skb->pkt_type = PACKET_OTHERHOST;
++	}
++
+ 	return info->target;
+ }
+ 
 -- 
 2.1.4
+
