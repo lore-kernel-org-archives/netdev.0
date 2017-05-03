@@ -1,45 +1,49 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [net-next PATCH 2/4] samples/bpf: make bpf_load.c code
- compatible with ELF maps section changes
-Date: Tue, 2 May 2017 17:54:51 -0700
-Message-ID: <20170503005449.urnux43sril3ganq@ast-mbp>
-References: <149372826543.22268.3617359219409721129.stgit@firesoul>
- <149372831600.22268.4042215094788332751.stgit@firesoul>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with Linus' tree
+Date: Wed, 3 May 2017 11:07:03 +1000
+Message-ID: <20170503110703.0945929d@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kafai@fb.com, netdev@vger.kernel.org, eric@regit.org,
-        Daniel Borkmann <borkmann@iogearbox.net>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:35835 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750950AbdECAyy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 2 May 2017 20:54:54 -0400
-Received: by mail-pf0-f195.google.com with SMTP id o68so1704930pfj.2
-        for <netdev@vger.kernel.org>; Tue, 02 May 2017 17:54:53 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <149372831600.22268.4042215094788332751.stgit@firesoul>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Linux-Next Mailing List <linux-next@vger.kernel.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        Hans-Christian Noren Egtvedt <egtvedt@samfundet.no>,
+        =?UTF-8?B?SMOldmFyZA==?= Skinnemoen <hskinnemoen@gmail.com>,
+        Nicolas Ferre <nicolas.ferre@microchip.com>,
+        Josh Hunt <johunt@akamai.com>,
+        Sridhar Samudrala <sridhar.samudrala@intel.com>,
+        Alexander Duyck <alexander.h.duyck@intel.com>
+To: David Miller <davem@davemloft.net>,
+        Networking <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, May 02, 2017 at 02:31:56PM +0200, Jesper Dangaard Brouer wrote:
-> This patch does proper parsing of the ELF "maps" section, in-order to
-> be both backwards and forwards compatible with changes to the map
-> definition struct bpf_map_def, which gets compiled into the ELF file.
-> 
-> The assumption is that new features with value zero, means that they
-> are not in-use.  For backward compatibility where loading an ELF file
-> with a smaller struct bpf_map_def, only copy objects ELF size, leaving
-> rest of loaders struct zero.  For forward compatibility where ELF file
-> have a larger struct bpf_map_def, only copy loaders own struct size
-> and verify that rest of the larger struct is zero, assuming this means
-> the newer feature was not activated, thus it should be safe for this
-> older loader to load this newer ELF file.
-> 
-> Fixes: fb30d4b71214 ("bpf: Add tests for map-in-map")
-> Fixes: 409526bea3c3 ("samples/bpf: bpf_load.c detect and abort if ELF maps section size is wrong")
-> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+Hi all,
 
-I would just merge patches 2 and 3 to reduce churn,
-but it looks like great improvement already.
-Acked-by: Alexei Starovoitov <ast@kernel.org>
+Today's linux-next merge of the net-next tree got a conflict in:
+
+  arch/avr32/include/uapi/asm/socket.h
+
+between commit:
+
+  26202873bb51 ("avr32: remove support for AVR32 architecture")
+
+from Linus' tree and commits:
+
+  a2d133b1d465 ("sock: introduce SO_MEMINFO getsockopt")
+  6d4339028b35 ("net: Introduce SO_INCOMING_NAPI_ID"
+  5daab9db7b65 ("New getsockopt option to get socket cookie")
+
+from the net-next tree.
+
+I fixed it up (I removed the file) and can carry the fix as
+necessary. This is now fixed as far as linux-next is concerned, but any
+non trivial conflicts should be mentioned to your upstream maintainer
+when your tree is submitted for merging.  You may also want to consider
+cooperating with the maintainer of the conflicting tree to minimise any
+particularly complex conflicts.
+
+-- 
+Cheers,
+Stephen Rothwell
