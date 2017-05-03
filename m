@@ -1,149 +1,75 @@
-From: Wei Wang <weiwan@google.com>
-Subject: Re: [PATCH v2 net] tcp: do not inherit fastopen_req from parent
-Date: Wed, 3 May 2017 09:48:51 -0700
-Message-ID: <CAEA6p_CKx-cx+OJiDj1+gYHN8r=jWLWUVxDZWc_r=mW6B5J64g@mail.gmail.com>
-References: <1493818595.7796.11.camel@edumazet-glaptop3.roam.corp.google.com> <1493818771.7796.13.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Alexei Starovoitov <ast@fb.com>
+Subject: Re: [PATCH net-next] selftests/bpf: get rid of -D__x86_64__
+Date: Wed, 3 May 2017 09:54:42 -0700
+Message-ID: <6a5fa930-cb76-8eee-94c7-7c5fe8fb8cdc@fb.com>
+References: <20170503041443.3125777-1-ast@fb.com>
+ <20170503.095251.353611409224180200.davem@davemloft.net>
+ <20170503.120634.1673036085707133455.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Andrey Konovalov <andreyknvl@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <daniel@iogearbox.net>, <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f41.google.com ([209.85.213.41]:32909 "EHLO
-        mail-vk0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751287AbdECQsx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 3 May 2017 12:48:53 -0400
-Received: by mail-vk0-f41.google.com with SMTP id i65so54166283vkh.0
-        for <netdev@vger.kernel.org>; Wed, 03 May 2017 09:48:53 -0700 (PDT)
-In-Reply-To: <1493818771.7796.13.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:56702 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1751394AbdECQzG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 3 May 2017 12:55:06 -0400
+In-Reply-To: <20170503.120634.1673036085707133455.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> From: Eric Dumazet <edumazet@google.com>
+On 5/3/17 9:06 AM, David Miller wrote:
+> From: David Miller <davem@davemloft.net>
+> Date: Wed, 03 May 2017 09:52:51 -0400 (EDT)
 >
-> Under fuzzer stress, it is possible that a child gets a non NULL
-> fastopen_req pointer from its parent at accept() time, when/if parent
-> morphs from listener to active session.
+>> From: Alexei Starovoitov <ast@fb.com>
+>> Date: Tue, 2 May 2017 21:14:43 -0700
+>>
+>>> -D__x86_64__ workaround was used to make /usr/include/features.h
+>>> to follow expected path through the system include headers.
+>>> This is not portable.
+>>> Instead define dummy stubs.h which is used by 'clang -target bpf'
+>>>
+>>> Fixes: 6882804c916b ("selftests/bpf: add a test for overlapping packet range checks")
+>>> Signed-off-by: Alexei Starovoitov <ast@kernel.org>
+>>
+>> Applied, thanks for getting rid of this wart.
 >
-> We need to make sure this can not happen, by clearing the field after
-> socket cloning.
+> Actually, we're now back to the orignal problem I had on sparc.
 >
-> BUG: Double free or freeing an invalid pointer
-> Unexpected shadow byte: 0xFB
-> CPU: 3 PID: 20933 Comm: syz-executor3 Not tainted 4.11.0+ #306
-> Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs
-> 01/01/2011
-> Call Trace:
->  <IRQ>
->  __dump_stack lib/dump_stack.c:16 [inline]
->  dump_stack+0x292/0x395 lib/dump_stack.c:52
->  kasan_object_err+0x1c/0x70 mm/kasan/report.c:164
->  kasan_report_double_free+0x5c/0x70 mm/kasan/report.c:185
->  kasan_slab_free+0x9d/0xc0 mm/kasan/kasan.c:580
->  slab_free_hook mm/slub.c:1357 [inline]
->  slab_free_freelist_hook mm/slub.c:1379 [inline]
->  slab_free mm/slub.c:2961 [inline]
->  kfree+0xe8/0x2b0 mm/slub.c:3882
->  tcp_free_fastopen_req net/ipv4/tcp.c:1077 [inline]
->  tcp_disconnect+0xc15/0x13e0 net/ipv4/tcp.c:2328
->  inet_child_forget+0xb8/0x600 net/ipv4/inet_connection_sock.c:898
->  inet_csk_reqsk_queue_add+0x1e7/0x250
-> net/ipv4/inet_connection_sock.c:928
->  tcp_get_cookie_sock+0x21a/0x510 net/ipv4/syncookies.c:217
->  cookie_v4_check+0x1a19/0x28b0 net/ipv4/syncookies.c:384
->  tcp_v4_cookie_check net/ipv4/tcp_ipv4.c:1384 [inline]
->  tcp_v4_do_rcv+0x731/0x940 net/ipv4/tcp_ipv4.c:1421
->  tcp_v4_rcv+0x2dc0/0x31c0 net/ipv4/tcp_ipv4.c:1715
->  ip_local_deliver_finish+0x4cc/0xc20 net/ipv4/ip_input.c:216
->  NF_HOOK include/linux/netfilter.h:257 [inline]
->  ip_local_deliver+0x1ce/0x700 net/ipv4/ip_input.c:257
->  dst_input include/net/dst.h:492 [inline]
->  ip_rcv_finish+0xb1d/0x20b0 net/ipv4/ip_input.c:396
->  NF_HOOK include/linux/netfilter.h:257 [inline]
->  ip_rcv+0xd8c/0x19c0 net/ipv4/ip_input.c:487
->  __netif_receive_skb_core+0x1ad1/0x3400 net/core/dev.c:4210
->  __netif_receive_skb+0x2a/0x1a0 net/core/dev.c:4248
->  process_backlog+0xe5/0x6c0 net/core/dev.c:4868
->  napi_poll net/core/dev.c:5270 [inline]
->  net_rx_action+0xe70/0x18e0 net/core/dev.c:5335
->  __do_softirq+0x2fb/0xb99 kernel/softirq.c:284
->  do_softirq_own_stack+0x1c/0x30 arch/x86/entry/entry_64.S:899
->  </IRQ>
->  do_softirq.part.17+0x1e8/0x230 kernel/softirq.c:328
->  do_softirq kernel/softirq.c:176 [inline]
->  __local_bh_enable_ip+0x1cf/0x1e0 kernel/softirq.c:181
->  local_bh_enable include/linux/bottom_half.h:31 [inline]
->  rcu_read_unlock_bh include/linux/rcupdate.h:931 [inline]
->  ip_finish_output2+0x9ab/0x15e0 net/ipv4/ip_output.c:230
->  ip_finish_output+0xa35/0xdf0 net/ipv4/ip_output.c:316
->  NF_HOOK_COND include/linux/netfilter.h:246 [inline]
->  ip_output+0x1f6/0x7b0 net/ipv4/ip_output.c:404
->  dst_output include/net/dst.h:486 [inline]
->  ip_local_out+0x95/0x160 net/ipv4/ip_output.c:124
->  ip_queue_xmit+0x9a8/0x1a10 net/ipv4/ip_output.c:503
->  tcp_transmit_skb+0x1ade/0x3470 net/ipv4/tcp_output.c:1057
->  tcp_write_xmit+0x79e/0x55b0 net/ipv4/tcp_output.c:2265
->  __tcp_push_pending_frames+0xfa/0x3a0 net/ipv4/tcp_output.c:2450
->  tcp_push+0x4ee/0x780 net/ipv4/tcp.c:683
->  tcp_sendmsg+0x128d/0x39b0 net/ipv4/tcp.c:1342
->  inet_sendmsg+0x164/0x5b0 net/ipv4/af_inet.c:762
->  sock_sendmsg_nosec net/socket.c:633 [inline]
->  sock_sendmsg+0xca/0x110 net/socket.c:643
->  SYSC_sendto+0x660/0x810 net/socket.c:1696
->  SyS_sendto+0x40/0x50 net/socket.c:1664
->  entry_SYSCALL_64_fastpath+0x1f/0xbe
-> RIP: 0033:0x446059
-> RSP: 002b:00007faa6761fb58 EFLAGS: 00000282 ORIG_RAX: 000000000000002c
-> RAX: ffffffffffffffda RBX: 0000000000000017 RCX: 0000000000446059
-> RDX: 0000000000000001 RSI: 0000000020ba3fcd RDI: 0000000000000017
-> RBP: 00000000006e40a0 R08: 0000000020ba4ff0 R09: 0000000000000010
-> R10: 0000000020000000 R11: 0000000000000282 R12: 0000000000708150
-> R13: 0000000000000000 R14: 00007faa676209c0 R15: 00007faa67620700
-> Object at ffff88003b5bbcb8, in cache kmalloc-64 size: 64
-> Allocated:
-> PID = 20909
->  save_stack_trace+0x16/0x20 arch/x86/kernel/stacktrace.c:59
->  save_stack+0x43/0xd0 mm/kasan/kasan.c:513
->  set_track mm/kasan/kasan.c:525 [inline]
->  kasan_kmalloc+0xad/0xe0 mm/kasan/kasan.c:616
->  kmem_cache_alloc_trace+0x82/0x270 mm/slub.c:2745
->  kmalloc include/linux/slab.h:490 [inline]
->  kzalloc include/linux/slab.h:663 [inline]
->  tcp_sendmsg_fastopen net/ipv4/tcp.c:1094 [inline]
->  tcp_sendmsg+0x221a/0x39b0 net/ipv4/tcp.c:1139
->  inet_sendmsg+0x164/0x5b0 net/ipv4/af_inet.c:762
->  sock_sendmsg_nosec net/socket.c:633 [inline]
->  sock_sendmsg+0xca/0x110 net/socket.c:643
->  SYSC_sendto+0x660/0x810 net/socket.c:1696
->  SyS_sendto+0x40/0x50 net/socket.c:1664
->  entry_SYSCALL_64_fastpath+0x1f/0xbe
-> Freed:
-> PID = 20909
->  save_stack_trace+0x16/0x20 arch/x86/kernel/stacktrace.c:59
->  save_stack+0x43/0xd0 mm/kasan/kasan.c:513
->  set_track mm/kasan/kasan.c:525 [inline]
->  kasan_slab_free+0x73/0xc0 mm/kasan/kasan.c:589
->  slab_free_hook mm/slub.c:1357 [inline]
->  slab_free_freelist_hook mm/slub.c:1379 [inline]
->  slab_free mm/slub.c:2961 [inline]
->  kfree+0xe8/0x2b0 mm/slub.c:3882
->  tcp_free_fastopen_req net/ipv4/tcp.c:1077 [inline]
->  tcp_disconnect+0xc15/0x13e0 net/ipv4/tcp.c:2328
->  __inet_stream_connect+0x20c/0xf90 net/ipv4/af_inet.c:593
->  tcp_sendmsg_fastopen net/ipv4/tcp.c:1111 [inline]
->  tcp_sendmsg+0x23a8/0x39b0 net/ipv4/tcp.c:1139
->  inet_sendmsg+0x164/0x5b0 net/ipv4/af_inet.c:762
->  sock_sendmsg_nosec net/socket.c:633 [inline]
->  sock_sendmsg+0xca/0x110 net/socket.c:643
->  SYSC_sendto+0x660/0x810 net/socket.c:1696
->  SyS_sendto+0x40/0x50 net/socket.c:1664
->  entry_SYSCALL_64_fastpath+0x1f/0xbe
+> The issue is that you cannot resolve the core kernel __u?? types
+> unless __sparc__ is properly defined.
 >
+> In file included from /home/davem/src/GIT/net/tools/testing/selftests/bpf/test_pkt_access.c:8:
+> In file included from ../../../include/uapi/linux/bpf.h:10:
+> /usr/include/linux/types.h:27:9: error: unknown type name '__u16'
+> typedef __u16 __bitwise __le16;
+>         ^
 >
-> Fixes: e994b2f0fb92 ("tcp: do not lock listener to process SYN packets")
-> Fixes: 7db92362d2fe ("tcp: fix potential double free issue for fastopen_req")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Reported-by: Andrey Konovalov <andreyknvl@google.com>
+> We really have to do the change I mentioned the first time I brought
+> up this issue, which is to get this via a variable set in the
+> per-arch top-level Makefile
 
-Acked-by: Wei Wang <weiwan@google.com>
+I'd really like to avoid depending on kernel configuration.
+This bit:
+GENDIR := ../../../../include/generated
+GENHDR := $(GENDIR)/autoconf.h
+is already ugly, since it doesn't work in setups that build 
+out-of-source like ours.
+
+As far as I can see
+test_pkt_access.c:8 ->
+tools/include/uapi/linux/bpf.h:10 ->
+tools/include/linux/types.h:9 ->
+/usr/include/asm/types.h -> asm-generic/int-ll64.h
+as far as I can see that should be the same on most archs.
+Why doesn't it work for sparc?
+
+We can also copy paste include/uapi/asm-generic/int-ll64.h to
+bpf/asm/types.h or something.
+Since here we're compiling for bpf architecture adding
+__x86_64__ or __sparc__ or __whatever_native_arch_here__ is incorrect.
+It really should be bpf's arch types.h
+Inside of it we can use '#ifdef __BPF__' to be more accurate which
+is builtin macro for clang.
