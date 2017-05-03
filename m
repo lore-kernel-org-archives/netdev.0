@@ -1,88 +1,62 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [net-next PATCH 0/4] Improve bpf ELF-loader under samples/bpf
-Date: Wed, 3 May 2017 08:16:21 +0200
-Message-ID: <20170503081621.41a141d0@redhat.com>
-References: <149372826543.22268.3617359219409721129.stgit@firesoul>
-        <5908F5AC.6000703@iogearbox.net>
+From: Amir Vadai <amir@vadai.me>
+Subject: Re: [PATCH iproute2 net 0/8] tc/act_pedit: Support offset relative
+ to conventional header
+Date: Wed, 3 May 2017 09:27:31 +0300
+Message-ID: <20170503062731.GA28834@office.localdomain>
+References: <20170423125356.1298-1-amir@vadai.me>
+ <20170501092625.30274bee@xeon-e3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: kafai@fb.com, netdev@vger.kernel.org, eric@regit.org,
-        Daniel Borkmann <borkmann@iogearbox.net>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        brouer@redhat.com
-To: Daniel Borkmann <daniel@iogearbox.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:57336 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751461AbdECGQ2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 3 May 2017 02:16:28 -0400
-In-Reply-To: <5908F5AC.6000703@iogearbox.net>
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:34851 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751014AbdECG1g (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 3 May 2017 02:27:36 -0400
+Received: by mail-wm0-f65.google.com with SMTP id d79so10157951wmi.2
+        for <netdev@vger.kernel.org>; Tue, 02 May 2017 23:27:36 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20170501092625.30274bee@xeon-e3>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 02 May 2017 23:10:04 +0200
-Daniel Borkmann <daniel@iogearbox.net> wrote:
-
-> On 05/02/2017 02:31 PM, Jesper Dangaard Brouer wrote:
-> > This series improves and fixes bpf ELF loader and programs under
-> > samples/bpf.  The bpf_load.c created some hard to debug issues when
-> > the struct (bpf_map_def) used in the ELF maps section format changed
-> > in commit fb30d4b71214 ("bpf: Add tests for map-in-map").
-> >
-> > This was hotfixed in commit 409526bea3c3 ("samples/bpf: bpf_load.c
-> > detect and abort if ELF maps section size is wrong") by detecting the
-> > issue and aborting the program.
-> >
-> > In most situations the bpf-loader should be able to handle these kind
-> > of changes to the struct size.  This patch series aim to do proper
-> > backward and forward compabilility handling when loading ELF files.
-> >
-> > This series also adjust the callback that was introduced in commit
-> > 9fd63d05f3e8 ("bpf: Allow bpf sample programs (*_user.c) to change
-> > bpf_map_def") to use the new bpf_map_data structure, before more users
-> > start to use this callback.
-> >
-> > Hoping these changes can make the merge window, as above mentioned
-> > commits have not been merged yet, and it would be good to avoid users
-> > hitting these issues.  
+On Mon, May 01, 2017 at 09:26:25AM -0700, Stephen Hemminger wrote:
+> On Sun, 23 Apr 2017 15:53:48 +0300
+> Amir Vadai <amir@vadai.me> wrote:
 > 
-> Overall, set looks good to me. The last patch doesn't have a
-> user yet, so probably better to drop it until there is an actual
-> user in the tree.
+> > Hi Stephen,
+> > 
+> > This patchset extends pedit to support modifying a field in an offset relative
+> > to the conventional network headers (kenrel support was added [1] in 4.11 rc1).
+> > Without the extended pedit, user could specify fields in TCP and ICMP headers,
+> > but the kernel code was using an offset relative to the begining of the IP
+> > header. This will break if IP header length is greater than the minimal value
+> > of 20, or if L3 is not IPv4.
+> > 
+> > It also introduces support in manipulating ETH, TCP, UDP and IP.ttl fields and
+> > a new command to increase/decrease the value of a field (current use case is IP.ttl).
+> > 
+> > Since there might be deployments already using pedit, special consideration was
+> > taken, not to break those scripts - only by specifying the special keyword
+> > 'ex', the extended capabilities are available, thus there should be no impact
+> > on existing scripts.
+> > Also, the new code can live together with rules added by the old code. It
+> > supports both the old netlink and the new one.
+> > 
+> > This patchset is against the master and not net-next as the functionality was
+> > added in 4.11
+> > 
+> > Thanks,
+> > Amir
+> > 
+> > [1] - 71d0ed7079df ("net/act_pedit: Support using offset relative to the
+> >                      conventional network headers")
 
-The reason for simply exporting map_data[] was that in patch 3, the
-data-struct (bpf_map_data) is already exposed, thus users can already
-grab and store those into a separate data structure.  Thus, it seemed
-natural to simply export/expose the map_data[] array directly.  Guess,
-I could have combined patch 4 and 3.  As patch-3 uses the data struct,
-but in an indirect way.
+[...]
 
-To Daniel, if you still feel we should drop patch 4, then let me know.
-It is only the other patches that are time critical, as patch 4 is
-trivial to introduce once the first sample program uses this directly
-(instead of indirectly through the callback).
-
-
-> Long term, I'd like to see the samples being migrated to use the
-> tools/lib/bpf/ library from the tree, so that we can avoid duplicating
-> effort with having two libs in the tree (f.e. elf map validation is
-> performed to a certain degree in the other one, but w/o compat
-> support last time I looked).
-
-Yes, I agree that we should migrate to use the tools/lib/bpf/ library.
-But as you also say, it actually have similar compat loader issues,
-although it does more validation.  Once we start this migration, I'll
-also fix the compat loader issues in this lib.
- 
-> Anyway, other than that:
 > 
-> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+> Applied. Then I cleaned up long lines
 
-Thanks
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  LinkedIn: http://www.linkedin.com/in/brouer
+Thanks. Will make sure to clean up long lines in future patches.
