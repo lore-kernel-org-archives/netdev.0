@@ -1,122 +1,71 @@
 From: Gavin Shan <gwshan@linux.vnet.ibm.com>
-Subject: [PATCH v4 net-next 02/10] net/ncsi: Properly track channel monitor timer state
-Date: Wed,  3 May 2017 14:44:33 +1000
-Message-ID: <1493786681-27468-3-git-send-email-gwshan@linux.vnet.ibm.com>
+Subject: [PATCH v4 net-next 10/10] net/ncsi: Fix length of GVI response packet
+Date: Wed,  3 May 2017 14:44:41 +1000
+Message-ID: <1493786681-27468-11-git-send-email-gwshan@linux.vnet.ibm.com>
 References: <1493786681-27468-1-git-send-email-gwshan@linux.vnet.ibm.com>
 Cc: joe@perches.com, kubakici@wp.pl, f.fainelli@gmail.com,
         davem@davemloft.net, Gavin Shan <gwshan@linux.vnet.ibm.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:35842 "EHLO
-        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751247AbdECEpt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 3 May 2017 00:45:49 -0400
-Received: from pps.filterd (m0098409.ppops.net [127.0.0.1])
-        by mx0a-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v434htJk063373
-        for <netdev@vger.kernel.org>; Wed, 3 May 2017 00:45:48 -0400
-Received: from e23smtp03.au.ibm.com (e23smtp03.au.ibm.com [202.81.31.145])
-        by mx0a-001b2d01.pphosted.com with ESMTP id 2a73gvt591-1
+Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:41583 "EHLO
+        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1751247AbdECEqN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 3 May 2017 00:46:13 -0400
+Received: from pps.filterd (m0098420.ppops.net [127.0.0.1])
+        by mx0b-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v434htBN074806
+        for <netdev@vger.kernel.org>; Wed, 3 May 2017 00:46:12 -0400
+Received: from e23smtp01.au.ibm.com (e23smtp01.au.ibm.com [202.81.31.143])
+        by mx0b-001b2d01.pphosted.com with ESMTP id 2a752a6y0j-1
         (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Wed, 03 May 2017 00:45:47 -0400
+        for <netdev@vger.kernel.org>; Wed, 03 May 2017 00:46:12 -0400
 Received: from localhost
-        by e23smtp03.au.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        by e23smtp01.au.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
         for <netdev@vger.kernel.org> from <gwshan@linux.vnet.ibm.com>;
-        Wed, 3 May 2017 14:45:45 +1000
+        Wed, 3 May 2017 14:46:09 +1000
 Received: from d23av05.au.ibm.com (d23av05.au.ibm.com [9.190.234.119])
-        by d23relay07.au.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id v434jYF142991748
-        for <netdev@vger.kernel.org>; Wed, 3 May 2017 14:45:42 +1000
+        by d23relay09.au.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id v434jwUa34341098
+        for <netdev@vger.kernel.org>; Wed, 3 May 2017 14:46:06 +1000
 Received: from d23av05.au.ibm.com (localhost [127.0.0.1])
-        by d23av05.au.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id v434j9wx018185
-        for <netdev@vger.kernel.org>; Wed, 3 May 2017 14:45:10 +1000
+        by d23av05.au.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id v434jXSR019073
+        for <netdev@vger.kernel.org>; Wed, 3 May 2017 14:45:34 +1000
 In-Reply-To: <1493786681-27468-1-git-send-email-gwshan@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The field @monitor.enabled in the NCSI channel descriptor is used
-to track the state of channel monitor timer. It indicates the timer's
-state (pending or not). We could not start the timer again in its
-handler. In that case, We missed to update @monitor.enabled to false.
-It leads to below warning printed by WARN_ON_ONCE() when the monitor
-is restarted afterwards.
+The length of GVI (GetVersionInfo) response packet should be 40 instead
+of 36. This issue was found from /sys/kernel/debug/ncsi/eth0/stats.
 
-   ------------[ cut here ]------------
-   WARNING: CPU: 0 PID: 411 at /var/lib/jenkins/workspace/openbmc-build \
-   /distro/ubuntu/target/palmetto/openbmc/build/tmp/work-shared/palmetto \
-   net/ncsi/ncsi-manage.c:240 ncsi_start_channel_monitor+0x44/0x7c
-   CPU: 0 PID: 411 Comm: kworker/0:3 Not tainted \
-   4.7.10-f26558191540830589fe03932d05577957670b8d #1
-   Hardware name: ASpeed SoC
-   Workqueue: events ncsi_dev_work
-   [<c0106cbc>] (unwind_backtrace) from [<c0104f04>] (show_stack+0x10/0x14)
-   [<c0104f04>] (show_stack) from [<c010eef8>] (__warn+0xc4/0xf0)
-   [<c010eef8>] (__warn) from [<c010f018>] (warn_slowpath_null+0x1c/0x24)
-   [<c010f018>] (warn_slowpath_null) from [<c03e1d10>] (ncsi_start_channel_monitor+0x44/0x7c)
-   [<c03e1d10>] (ncsi_start_channel_monitor) from [<c03e29c4>] (ncsi_configure_channel+0x27c/0x2dc)
-   [<c03e29c4>] (ncsi_configure_channel) from [<c03e31d0>] (ncsi_dev_work+0x39c/0x3e8)
-   [<c03e31d0>] (ncsi_dev_work) from [<c0120288>] (process_one_work+0x1b8/0x2fc)
-   [<c0120288>] (process_one_work) from [<c01206bc>] (worker_thread+0x2c0/0x3f8)
-   [<c01206bc>] (worker_thread) from [<c0124b10>] (kthread+0xd0/0xe8)
-   [<c0124b10>] (kthread) from [<c0102250>] (ret_from_fork+0x14/0x24)
-   ---[ end trace 110cccf2b038c44d ]---
+ # ethtool --ncsi eth0 swstats
+     :
+ RESPONSE     OK       TIMEOUT  ERROR
+ =======================================
+ GVI          0        0        2
 
-This fixes the issue by updating @monitor.enabled to false if needed.
+With this applied, no error reported on GVI response packets:
 
-Reported-by: Sridevi Ramesh <sridevra@in.ibm.com>
+ # ethtool --ncsi eth0 swstats
+     :
+ RESPONSE     OK       TIMEOUT  ERROR
+ =======================================
+ GVI          2        0        0
+
 Signed-off-by: Gavin Shan <gwshan@linux.vnet.ibm.com>
 ---
- net/ncsi/ncsi-manage.c | 16 ++++++++++++++--
- 1 file changed, 14 insertions(+), 2 deletions(-)
+ net/ncsi/ncsi-rsp.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/ncsi/ncsi-manage.c b/net/ncsi/ncsi-manage.c
-index 5073e15..c71a3a5 100644
---- a/net/ncsi/ncsi-manage.c
-+++ b/net/ncsi/ncsi-manage.c
-@@ -183,11 +183,16 @@ static void ncsi_channel_monitor(unsigned long data)
- 	monitor_state = nc->monitor.state;
- 	spin_unlock_irqrestore(&nc->lock, flags);
- 
--	if (!enabled || chained)
-+	if (!enabled || chained) {
-+		ncsi_stop_channel_monitor(nc);
- 		return;
-+	}
-+
- 	if (state != NCSI_CHANNEL_INACTIVE &&
--	    state != NCSI_CHANNEL_ACTIVE)
-+	    state != NCSI_CHANNEL_ACTIVE) {
-+		ncsi_stop_channel_monitor(nc);
- 		return;
-+	}
- 
- 	switch (monitor_state) {
- 	case NCSI_CHANNEL_MONITOR_START:
-@@ -199,6 +204,7 @@ static void ncsi_channel_monitor(unsigned long data)
- 		nca.req_flags = 0;
- 		ret = ncsi_xmit_cmd(&nca);
- 		if (ret) {
-+			ncsi_stop_channel_monitor(nc);
- 			netdev_err(ndp->ndev.dev, "Error %d sending GLS\n",
- 				   ret);
- 			return;
-@@ -218,6 +224,8 @@ static void ncsi_channel_monitor(unsigned long data)
- 		nc->state = NCSI_CHANNEL_INVISIBLE;
- 		spin_unlock_irqrestore(&nc->lock, flags);
- 
-+		ncsi_stop_channel_monitor(nc);
-+
- 		spin_lock_irqsave(&ndp->lock, flags);
- 		nc->state = NCSI_CHANNEL_INACTIVE;
- 		list_add_tail_rcu(&nc->link, &ndp->channel_queue);
-@@ -257,6 +265,10 @@ void ncsi_stop_channel_monitor(struct ncsi_channel *nc)
- 	nc->monitor.enabled = false;
- 	spin_unlock_irqrestore(&nc->lock, flags);
- 
-+	/* The timer isn't in pending state if we're deleting the timer
-+	 * in its handler. del_timer_sync() can detect it and just does
-+	 * nothing.
-+	 */
- 	del_timer_sync(&nc->monitor.timer);
- }
- 
+diff --git a/net/ncsi/ncsi-rsp.c b/net/ncsi/ncsi-rsp.c
+index 5097d86..a3e0f4f 100644
+--- a/net/ncsi/ncsi-rsp.c
++++ b/net/ncsi/ncsi-rsp.c
+@@ -951,7 +951,7 @@ static struct ncsi_rsp_handler {
+ 	{ NCSI_PKT_RSP_EGMF,    4, ncsi_rsp_handler_egmf    },
+ 	{ NCSI_PKT_RSP_DGMF,    4, ncsi_rsp_handler_dgmf    },
+ 	{ NCSI_PKT_RSP_SNFC,    4, ncsi_rsp_handler_snfc    },
+-	{ NCSI_PKT_RSP_GVI,    36, ncsi_rsp_handler_gvi     },
++	{ NCSI_PKT_RSP_GVI,    40, ncsi_rsp_handler_gvi     },
+ 	{ NCSI_PKT_RSP_GC,     32, ncsi_rsp_handler_gc      },
+ 	{ NCSI_PKT_RSP_GP,     -1, ncsi_rsp_handler_gp      },
+ 	{ NCSI_PKT_RSP_GCPS,  172, ncsi_rsp_handler_gcps    },
 -- 
 2.7.4
