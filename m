@@ -1,116 +1,156 @@
-From: Andrey Konovalov <andreyknvl@google.com>
-Subject: Re: x86: warning: kernel stack regs has bad 'bp' value
-Date: Wed, 3 May 2017 17:50:28 +0200
-Message-ID: <CAAeHK+x_ka0XqQiAg5jrqQUSk2Ri0Ab-A62NTKYWj=i0TXQqZQ@mail.gmail.com>
-References: <CAAeHK+zapAtjKaTMG7RSxn2P1K=+BK32sfroPToppXHMLD-wpA@mail.gmail.com>
- <20170503133006.7jv4qhnnbsv7ueam@treble>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH 1/2] PCI: Add new PCIe Fabric End Node flag, PCI_DEV_FLAGS_NO_RELAXED_ORDERING
+Date: Wed, 3 May 2017 09:02:12 -0700
+Message-ID: <CAKgT0UdJ17DGAphuP5Y9co6ky-GBFdq2s-1nqctY_Tz_iz5__g@mail.gmail.com>
+References: <cover.1493678834.git.leedom@chelsio.com> <758d0e431c732fe133e7b0e660bde5fc1beccdba.1493678834.git.leedom@chelsio.com>
+ <CAKgT0UeuW88AHBX14H8xHteeG7vR0AH3apbjOeEDx_6p46x7tA@mail.gmail.com>
+ <20170502165329.GB26406@linux.intel.com> <CAKgT0UcxjGCZu_QV-eF7_yWkDBbQpLpdaPqBf1gji8XXM5Cc=w@mail.gmail.com>
+ <MWHPR12MB160095DF53CE981C923FE65DC8160@MWHPR12MB1600.namprd12.prod.outlook.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Thomas Gleixner <tglx@linutronix.de>,
-        Ingo Molnar <mingo@redhat.com>,
-        "H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org,
-        LKML <linux-kernel@vger.kernel.org>,
-        Vlad Yasevich <vyasevich@gmail.com>,
-        Neil Horman <nhorman@tuxdriver.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        linux-sctp@vger.kernel.org, netdev <netdev@vger.kernel.org>,
-        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-        Dmitry Vyukov <dvyukov@google.com>,
-        Kostya Serebryany <kcc@google.com>,
-        syzkaller <syzkaller@googlegroups.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>
-To: Josh Poimboeuf <jpoimboe@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170503133006.7jv4qhnnbsv7ueam@treble>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "Raj, Ashok" <ashok.raj@intel.com>,
+        Bjorn Helgaas <helgaas@kernel.org>,
+        "leedom@gmail.com" <leedom@gmail.com>,
+        Michael Werner <werner@chelsio.com>,
+        Ganesh GR <ganeshgr@chelsio.com>,
+        "Arjun V." <arjun@chelsio.com>,
+        Asit K Mallick <asit.k.mallick@intel.com>,
+        Patrick J Cramer <patrick.j.cramer@intel.com>,
+        Suravee Suthikulpanit <Suravee.Suthikulpanit@amd.com>,
+        Bob Shaw <Bob.Shaw@amd.com>, h <l.stach@pengutronix.de>,
+        Ding Tianhong <dingtianhong@huawei.com>,
+        Mark Rutland <mark.rutland@arm.com>,
+        Amir Ancel <amira@mellanox.com>,
+        Gabriele Paoloni <gabriele.paoloni@huawei.com>,
+        Catalin Marinas <catalin.marinas@arm.com>,
+        Will Deacon <will.deacon@arm.com>,
+        LinuxArm <linuxarm@huawei.com>,
+        David Laight <David.Laight@aculab.com>,
+        Jeff Kirsher <jeffrey.t.kir
+To: Casey Leedom <leedom@chelsio.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f173.google.com ([209.85.223.173]:34984 "EHLO
+        mail-io0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752282AbdECQCS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 3 May 2017 12:02:18 -0400
+Received: by mail-io0-f173.google.com with SMTP id r16so188810322ioi.2
+        for <netdev@vger.kernel.org>; Wed, 03 May 2017 09:02:18 -0700 (PDT)
+In-Reply-To: <MWHPR12MB160095DF53CE981C923FE65DC8160@MWHPR12MB1600.namprd12.prod.outlook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 3, 2017 at 3:30 PM, Josh Poimboeuf <jpoimboe@redhat.com> wrote:
-> On Wed, May 03, 2017 at 02:48:28PM +0200, Andrey Konovalov wrote:
->> Hi,
->>
->> I've got the following error report while fuzzing the kernel with syzkaller.
->>
->> On commit 89c9fea3c8034cdb2fd745f551cde0b507fd6893 (4.11.0+).
->>
->> A reproducer and .config are attached.
->>
->> The reproducer open SCTP sockets and sends data to it in a loop.
->> I'm not sure whether this is an issue with SCTP or with something else.
->>
->> WARNING: kernel stack regs at ffff8800686869f8 in a.out:4933 has bad
->> 'bp' value c3fc855a10167ec0
+On Tue, May 2, 2017 at 9:30 PM, Casey Leedom <leedom@chelsio.com> wrote:
+> | From: Alexander Duyck <alexander.duyck@gmail.com>
+> | Date: Tuesday, May 2, 2017 11:10 AM
+> | ...
+> | So for example, in the case of x86 it seems like there are multiple
+> | root complexes that have issues, and the gains for enabling it with
+> | standard DMA to host memory are small. As such we may want to default
+> | it to off via the architecture specific PCIe code and then look at
+> | having "white-list" cases where we enable it for things like
+> | peer-to-peer accesses. In the case of SPARC we could look at
+> | defaulting it to on, and only "black-list" any cases where there might
+> | be issues since SPARC relies on this in a significant way for
+> | performance. In the case of ARM and other architectures it is a bit of
+> | a toss-up. I would say we could just default it to on for now and
+> | "black-list" anything that doesn't work, or we could go the other way
+> | like I suggested for x86. It all depends on what the ARM community
+> | would want to agree on for this. I would say unless it makes a
+> | significant difference like it does in the case of SPARC we are
+> | probably better off just defaulting it to off.
 >
-> Hi Andrey,
+>   Sorry, I forgot to respond to this earlier when someone was rushing me out
+> to a customer dinner.
 >
-> Can you test this patch?
+>   I'm unaware of any other x86 Root Complex Port that has a problem with
+> Relaxed Ordering other than the performance issue with the current Intel
+> implementation.  Ashok tells me that Intel is in the final stages of putting
+> together a technical notice on this issue but I don't know when that will
+> come out.  Hopefully that will shed much more light on the cause and actual
+> use of Relaxed Ordering when directed to Coherent Memory on current and past
+> Intel platforms.  (Note that the performance bug seems to limit us to
+> ~75-85Gb/s DMA Write speed to Coherent Host Memory.)
 
-Hi Josh,
+So my concern isn't so much about existing issues as it is about where
+is the advantage in enabling it. We have had support in the Intel
+hardware for enabling relaxed ordering for about 10 years. In all that
+time I have yet to see an x86 platform that sees any real benefit from
+enabling it for standard DMA. That is why my preference would be to
+leave it disabled by default on x86 and we white list it in at some
+point when hardware shows that there is a benefit to be had for
+enabling it.
 
-This seems to be fixing the reports caused by the reproducers.
+>   The only other Device that I currently know of which has issues with
+> Relaxed Ordering TLPs directed at it, is also a Root Complex Port on the new
+> AMD A1100 ARM SoC ("SEATTLE").  There we have an actual bug which could lead
+> to Data Corruption.
+>
+>   But I don't know anything about other x86 Root Complex Ports having issues
+> with this -- we've been using it ever since commit ef306b50b from December
+> 2010.
 
-I'll keep fuzzing though with syzkaller to make sure.
+So the question I would have for you then, is what benefits have you
+seen from enabling it on x86? In our case we haven't seen any for
+transactions that go through the root complex. If you are seeing
+benefits would I be correct in assuming it is for your peer-to-peer
+case or were there some x86 platforms that showed gains?
 
-Thanks!
+>   Also, I'm not aware of any performance data which has been gathered on the
+> use of Relaxed Ordering when directed at Host Memory.  From your note, it
+> sounds like it's important on SPARC architectures.  But it could conceivably
+> be important on any architecture or Root Complex/Memory Controller
+> implementation.  We use it to direct Ingress Packet Data to Free List
+> Buffers, followed by a TLP without Relaxed Ordering directed at a Host
+> Memory Message Queue.  The idea here is to give the Root Complex options on
+> which DMA Memory Write TLPs to process in order to optimize data placement
+> in memory.  And with the next Ethernet speed bump to 200Gb/s this may be
+> even more important.
 
+The operative term here is "may be". That is my concern. We are
+leaving this enabled by default and there are known hardware that have
+issues that can be pretty serious. I'm not saying we have to disable
+it and keep it disabled, but I would like to see us intelligently
+enable this feature so that it is enabled on the platforms that show
+benefit and disabled on the ones that don't.
+
+My biggest concern with all this is introducing regressions as drivers
+like igb and ixgbe are used on a wide range of platforms beyond even
+what is covered by x86 and I would prefer not to suddenly have a
+deluge of bugs to sort out triggered by us enabling relaxed ordering
+on platforms that historically have not had it enabled on them.
+
+>   Basically, I'd hate to come up with a solution where we write off the use
+> of Relaxed Ordering for DMA Writes to Host Memory.  I don't think you're
+> suggesting that, but there are a number of x86 Root Complex implementations
+> out there -- and some like the new AMD Ryzen have yet to be tested -- as
+> well as other architectures.
+
+I'm not saying that we have to write off the use of Relaxed Ordering,
+what I am saying is that we should probably be more judicious about
+how we go about enabling it. If a platform and/or architecture has no
+benefit to enabling it what is the point in adding the possible risk?
+
+Hopefully the AMD Ryzen platform has already been tested and doesn't
+need a quirk to disable relaxed ordering. Really it shouldn't fall on
+the likes of us to be testing for those kind of things.
+
+>   And, as Ashok and I have both nothed, any solution we come up with needs
+> to cope with a heterogeneous situation where, on the same PCIe Fabric, it
+> may be necessesary/desireable to support Relaxed Ordering TLPs directed at
+> some End Nodes but not others.
 >
->
-> diff --git a/arch/x86/lib/csum-copy_64.S b/arch/x86/lib/csum-copy_64.S
-> index 7e48807..45a53df 100644
-> --- a/arch/x86/lib/csum-copy_64.S
-> +++ b/arch/x86/lib/csum-copy_64.S
-> @@ -55,7 +55,7 @@ ENTRY(csum_partial_copy_generic)
->         movq  %r12, 3*8(%rsp)
->         movq  %r14, 4*8(%rsp)
->         movq  %r13, 5*8(%rsp)
-> -       movq  %rbp, 6*8(%rsp)
-> +       movq  %r15, 6*8(%rsp)
->
->         movq  %r8, (%rsp)
->         movq  %r9, 1*8(%rsp)
-> @@ -74,7 +74,7 @@ ENTRY(csum_partial_copy_generic)
->         /* main loop. clear in 64 byte blocks */
->         /* r9: zero, r8: temp2, rbx: temp1, rax: sum, rcx: saved length */
->         /* r11: temp3, rdx: temp4, r12 loopcnt */
-> -       /* r10: temp5, rbp: temp6, r14 temp7, r13 temp8 */
-> +       /* r10: temp5, r15: temp6, r14 temp7, r13 temp8 */
->         .p2align 4
->  .Lloop:
->         source
-> @@ -89,7 +89,7 @@ ENTRY(csum_partial_copy_generic)
->         source
->         movq  32(%rdi), %r10
->         source
-> -       movq  40(%rdi), %rbp
-> +       movq  40(%rdi), %r15
->         source
->         movq  48(%rdi), %r14
->         source
-> @@ -103,7 +103,7 @@ ENTRY(csum_partial_copy_generic)
->         adcq  %r11, %rax
->         adcq  %rdx, %rax
->         adcq  %r10, %rax
-> -       adcq  %rbp, %rax
-> +       adcq  %r15, %rax
->         adcq  %r14, %rax
->         adcq  %r13, %rax
->
-> @@ -121,7 +121,7 @@ ENTRY(csum_partial_copy_generic)
->         dest
->         movq %r10, 32(%rsi)
->         dest
-> -       movq %rbp, 40(%rsi)
-> +       movq %r15, 40(%rsi)
->         dest
->         movq %r14, 48(%rsi)
->         dest
-> @@ -203,7 +203,7 @@ ENTRY(csum_partial_copy_generic)
->         movq 3*8(%rsp), %r12
->         movq 4*8(%rsp), %r14
->         movq 5*8(%rsp), %r13
-> -       movq 6*8(%rsp), %rbp
-> +       movq 6*8(%rsp), %r15
->         addq $7*8, %rsp
->         ret
->
+> Casey
+
+It sounds like we are more or less in agreement. My only concern is
+really what we default this to. On x86 I would say we could probably
+default this to disabled for existing platforms since my understanding
+is that relaxed ordering doesn't provide much benefit on what is out
+there right now when performing DMA through the root complex. As far
+as peer-to-peer I would say we should probably look at enabling the
+ability to have Relaxed Ordering enabled for some channels but not
+others. In those cases the hardware needs to be smart enough to allow
+for you to indicate you want it disabled by default for most of your
+DMA channels, and then enabled for the select channels that are
+handling the peer-to-peer traffic.
+
+- Alex
