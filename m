@@ -1,106 +1,54 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: sock_create_kern() and (lack of) get_net()
-Date: Wed, 3 May 2017 11:39:30 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DCFFE4805@AcuExch.aculab.com>
+From: Ilan Tayari <ilant@mellanox.com>
+Subject: RE: [PATCH net-next] net/esp4: Fix invalid esph pointer crash
+Date: Wed, 3 May 2017 11:45:04 +0000
+Message-ID: <AM4PR0501MB1940F79651D521A7D4DAA512DB160@AM4PR0501MB1940.eurprd05.prod.outlook.com>
+References: <20170430133438.31962-1-ilant@mellanox.com>
+ <20170503070228.GK2649@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: 8BIT
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Steffen Klassert <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out6.electric.net ([192.162.217.182]:53635 "EHLO
-        smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751354AbdECLjg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 3 May 2017 07:39:36 -0400
-Received: from 1d5sd3-00009g-UV by out6c.electric.net with emc1-ok (Exim 4.87)
-        (envelope-from <David.Laight@ACULAB.COM>)
-        id 1d5sd3-0000BY-Va
-        for netdev@vger.kernel.org; Wed, 03 May 2017 04:39:33 -0700
-Received: from [213.249.233.130] (helo=AcuExch.aculab.com)
-        by out6c.electric.net with esmtps (TLSv1:AES128-SHA:128)
-        (Exim 4.87)
-        (envelope-from <David.Laight@ACULAB.COM>)
-        id 1d5sd3-00009g-UV
-        for netdev@vger.kernel.org; Wed, 03 May 2017 04:39:33 -0700
+Received: from mail-he1eur01on0085.outbound.protection.outlook.com ([104.47.0.85]:64640
+        "EHLO EUR01-HE1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751923AbdECLpH (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 3 May 2017 07:45:07 -0400
+In-Reply-To: <20170503070228.GK2649@secunet.com>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-sock_create_kern() passes 'kern=1' to __sock_create().
-sock_create() passes 'kern=0' and uses current->nsproxy->ns_net.
-
-The 'kern' parameter is passed to security_socket_create() and
-security_socket_post_create() - I think this is just checking
-whether the call is allowed.
-
-The 'kern' parameter is also passed through to sk_alloc() and
-controls whether the socket holds a reference count to the namespace.
-
-The latter 'feature' is there because some sockets are used within
-the protocol stack itself and the network namespace needs to be
-deleteable while those sockets exits.
-Prior to 4.2 get_get() was called when all sockets were created and
-a 'dance' was done is a few places to drop the reference.
-These sockets are still inside the namespace - so must be deleted
-by the code that deletes the namespace.
-
-I suspect that many of the sockets created with 'kern=1' are not 'special'
-and should hold a reference to the namespace.
-
-In particular code that calls sock_create_kern() and then uses the
-kernel_xxx() socket functions at the bottom of net/socket.c probably
-want to hold a reference to the network namespace.
-I'm pretty sure the socket can still exist (eg draining data) after
-sock_release() is called - so the driver can't hold the namespace
-reference on behalf of the socket.
-
-A quick audit shows calls to __sock_create(..., 1) at:
-  ./fs/cifs/connect.c:3176
-  ./net/wireless/nl80211.c:10022
-  ./net/sunrpc/svcsock.c:1516
-  ./net/sunrpc/clnt.c:1247
-  ./net/sunrpc/xprtsock.c:1952
-  ./net/sunrpc/xprtsock.c:2019
-  ./net/9p/trans_fd.c:948
-  ./net/9p/trans_fd.c:996
-and calls to sock_create_kern() at:
-  ./drivers/infiniband/sw/rxe/rxe_qp.c:233
-  ./drivers/block/drbd/drbd_receiver.c:631
-  ./drivers/block/drbd/drbd_receiver.c:726
-  ./fs/dlm/lowcomms.c:732
-  ./fs/dlm/lowcomms.c:1053
-  ./fs/dlm/lowcomms.c:1134
-  ./fs/dlm/lowcomms.c:1221
-  ./fs/dlm/lowcomms.c:1303
-  ./fs/afs/rxrpc.c:68
-  ./net/ceph/messenger.c:480
-  ./net/rds/tcp_connect.c
-  ./net/rds/tcp_connect.c:108
-  ./net/rds/tcp_listen.c:128
-  ./net/rds/tcp_listen.c:247
-  ./net/rxrpc/local_object.c:117
-  ./net/smc/af_smc.c:1317
-  ./net/l2tp/l2tp_core.c:1506
-  ./net/l2tp/l2tp_core.c:1534
-All of which look to me like code that is using IP connections and
-would need to be shut down before any namespace could be deleted.
-
-There are also calls to sock_create_kern() in:
-  ./net/tipc/server.c:330
-  ./net/ipv6/ip6_udp_tunnel.c:22
-  ./net/ipv4/udp_tunnel.c:19
-  ./net/ipv4/af_inet.c:1529
-  ./net/bluetooth/rfcomm/core.c:203
-  ./net/netfilter/ipvs/ip_vs_sync.c:1503
-  ./net/netfilter/ipvs/ip_vs_sync.c:1560
-These might all be internal to the protocol stack.
-
-I suspect that the 'kern' parameter to __sock_create() needs changing
-to 'flags' with:
-  1 - traditional 'kernel' socket, pass '1' to security_socket_create().
-  2 - 'protocol internal' socket, don't hold a net_ns reference count.
-The call sites would then need auditing to see which value they should
-pass.
-
-As usual I've probably missed something obvious...
-
-	David
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogU3RlZmZlbiBLbGFzc2Vy
+dCBbbWFpbHRvOnN0ZWZmZW4ua2xhc3NlcnRAc2VjdW5ldC5jb21dDQo+IA0KPiBPbiBTdW4sIEFw
+ciAzMCwgMjAxNyBhdCAwNDozNDozOFBNICswMzAwLCBpbGFudEBtZWxsYW5veC5jb20gd3JvdGU6
+DQo+ID4gRnJvbTogSWxhbiBUYXlhcmkgPGlsYW50QG1lbGxhbm94LmNvbT4NCj4gPg0KPiA+IEJv
+dGggZXNwX291dHB1dCBhbmQgZXNwX3htaXQgdGFrZSBhIHBvaW50ZXIgdG8gdGhlIEVTUCBoZWFk
+ZXINCj4gPiBhbmQgcGxhY2UgaXQgaW4gZXNwX2luZm8gc3RydWN0IHByaW9yIHRvIGNhbGxpbmcg
+ZXNwX291dHB1dF9oZWFkLg0KPiA+DQo+ID4gSW5zaWRlIGVzcF9vdXRwdXRfaGVhZCwgdGhlIGNh
+bGwgdG8gZXNwX291dHB1dF91ZHBfZW5jYXANCj4gPiBtYWtlcyBzdXJlIHRvIHVwZGF0ZSB0aGUg
+cG9pbnRlciBpZiBpdCBnZXRzIGludmFsaWQuDQo+ID4gSG93ZXZlciwgaWYgZXNwX291dHB1dF9o
+ZWFkIGl0c2VsZiBjYWxscyBza2JfY293X2RhdGEsIHRoZQ0KPiA+IHBvaW50ZXIgaXMgbm90IHVw
+ZGF0ZWQgYW5kIHN0YXlzIGludmFsaWQsIGNhdXNpbmcgYSBjcmFzaA0KPiA+IGFmdGVyIGVzcF9v
+dXRwdXRfaGVhZCByZXR1cm5zLg0KPiA+DQo+ID4gVXBkYXRlIHRoZSBwb2ludGVyIGlmIGl0IGJl
+Y29tZXMgaW52YWxpZCBpbiBlc3Bfb3V0cHV0X2hlYWQNCj4gPg0KPiA+IEZpeGVzOiBmY2ExMWVi
+ZGUzZjAgKCJlc3A0OiBSZW9yZ2FuaXplIGVzcF9vdXRwdXQiKQ0KPiA+IFNpZ25lZC1vZmYtYnk6
+IElsYW4gVGF5YXJpIDxpbGFudEBtZWxsYW5veC5jb20+DQo+ID4gLS0tDQo+ID4gIG5ldC9pcHY0
+L2VzcDQuYyB8IDEgKw0KPiA+ICAxIGZpbGUgY2hhbmdlZCwgMSBpbnNlcnRpb24oKykNCj4gPg0K
+PiA+IGRpZmYgLS1naXQgYS9uZXQvaXB2NC9lc3A0LmMgYi9uZXQvaXB2NC9lc3A0LmMNCj4gPiBp
+bmRleCA3ZjJjYWY3MTIxMmIuLjY1Y2MwMmJkODJiYyAxMDA2NDQNCj4gPiAtLS0gYS9uZXQvaXB2
+NC9lc3A0LmMNCj4gPiArKysgYi9uZXQvaXB2NC9lc3A0LmMNCj4gPiBAQCAtMzE3LDYgKzMxNyw3
+IEBAIGludCBlc3Bfb3V0cHV0X2hlYWQoc3RydWN0IHhmcm1fc3RhdGUgKngsIHN0cnVjdA0KPiBz
+a19idWZmICpza2IsIHN0cnVjdCBlc3BfaW5mbyAqDQo+ID4gIAlpZiAobmZyYWdzIDwgMCkNCj4g
+PiAgCQlnb3RvIG91dDsNCj4gPiAgCXRhaWwgPSBza2JfdGFpbF9wb2ludGVyKHRyYWlsZXIpOw0K
+PiA+ICsJZXNwLT5lc3BoID0gaXBfZXNwX2hkcihza2IpOw0KPiANCj4gVGhpcyBpcyBub3QgcXVp
+dGUgcmlnaHQgZm9yIHVkcGVuY2FwLiBJdCBmaXhlcyB0aGUgY3Jhc2gsDQo+IGJ1dCBpbnRyb2R1
+Y2VzIGEgYnVnIHRoYXQgd2UgYWxyZWFkeSBoYXZlIGluIHY0LjExLg0KPiANCj4gT24gdWRwZW5j
+YXAgdGhlIGVzcCBoZWFkZXIgaGFzIGFuIG9mZnNldCB0byBza2JfdHJhbnNwb3J0X2hlYWRlciwN
+Cj4gdGhlIHByb2JsZW0gd2FzIGRpc2N1c3NlZCBsYXN0IHdlZWsgaGVyZToNCj4gDQo+IGh0dHBz
+Oi8vbGttbC5vcmcvbGttbC8yMDE3LzQvMjUvOTM3DQo+IA0KPiBJIHBsYW4gdG8gZml4IHRoaXMg
+d2l0aCB0aGUgcGF0Y2ggYmVsb3c6DQo+IA0KPiBTdWJqZWN0OiBbUEFUQ0ggUkZDXSBlc3A0OiBG
+aXggdWRwZW5jYXAgZm9yIGxvY2FsIFRDUCBwYWNrZXRzLg0KPiANCg0KVGhpcyBwYXRjaCB3b3Jr
+cyBmb3IgbWUuDQpJIGRvbid0IGhhdmUgdWRwLWVuY2FwIHRlc3QgZmFjaWxpdGllcywgdGhvdWdo
+ICh5ZXQhKS4NCg0KSWxhbi4NCg==
