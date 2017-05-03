@@ -1,62 +1,75 @@
-From: Amir Vadai <amir@vadai.me>
-Subject: Re: [PATCH iproute2 net 0/8] tc/act_pedit: Support offset relative
- to conventional header
-Date: Wed, 3 May 2017 09:27:31 +0300
-Message-ID: <20170503062731.GA28834@office.localdomain>
-References: <20170423125356.1298-1-amir@vadai.me>
- <20170501092625.30274bee@xeon-e3>
+From: "Gao Feng" <gfree.wind@foxmail.com>
+Subject: RE: [PATCH net v3] driver: veth: Fix one possbile memleak when fail to register_netdevice
+Date: Wed, 3 May 2017 14:37:33 +0800
+Message-ID: <006101d2c3d7$bf814230$3e83c690$@foxmail.com>
+References: <1493437911-27167-1-git-send-email-gfree.wind@foxmail.com> <CADvbK_cEHXTSXx5Qa17TfeUXnYiBq8ptR+=5e-fbzPF0r4DNhQ@mail.gmail.com> <000601d2c333$abb526d0$031f7470$@vip.163.com> <CADvbK_cVS=M3tuz0QQT18D32UzLkdL0RMHuFxqcBgtfq_w7+9Q@mail.gmail.com> <000c01d2c3b2$0925e880$1b71b980$@foxmail.com> <CADvbK_c32g2t-Azgf10da8qke5B+wgG4dw3jLTE2L+R2qR3xPA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
-        Jamal Hadi Salim <jhs@mojatatu.com>
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain;
+        charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+Cc: "'Gao Feng'" <gfree.wind@vip.163.com>,
+        "'davem'" <davem@davemloft.net>, <jarod@redhat.com>,
+        "'Stephen Hemminger'" <stephen@networkplumber.org>,
+        <dsa@cumulusnetworks.com>, "'network dev'" <netdev@vger.kernel.org>
+To: "'Xin Long'" <lucien.xin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:34851 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751014AbdECG1g (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 3 May 2017 02:27:36 -0400
-Received: by mail-wm0-f65.google.com with SMTP id d79so10157951wmi.2
-        for <netdev@vger.kernel.org>; Tue, 02 May 2017 23:27:36 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20170501092625.30274bee@xeon-e3>
+Received: from smtpbg62.qq.com ([103.7.29.139]:16234 "EHLO smtpbg64.qq.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1750966AbdECGhp (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 3 May 2017 02:37:45 -0400
+In-Reply-To: <CADvbK_c32g2t-Azgf10da8qke5B+wgG4dw3jLTE2L+R2qR3xPA@mail.gmail.com>
+Content-Language: zh-cn
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 01, 2017 at 09:26:25AM -0700, Stephen Hemminger wrote:
-> On Sun, 23 Apr 2017 15:53:48 +0300
-> Amir Vadai <amir@vadai.me> wrote:
-> 
-> > Hi Stephen,
-> > 
-> > This patchset extends pedit to support modifying a field in an offset relative
-> > to the conventional network headers (kenrel support was added [1] in 4.11 rc1).
-> > Without the extended pedit, user could specify fields in TCP and ICMP headers,
-> > but the kernel code was using an offset relative to the begining of the IP
-> > header. This will break if IP header length is greater than the minimal value
-> > of 20, or if L3 is not IPv4.
-> > 
-> > It also introduces support in manipulating ETH, TCP, UDP and IP.ttl fields and
-> > a new command to increase/decrease the value of a field (current use case is IP.ttl).
-> > 
-> > Since there might be deployments already using pedit, special consideration was
-> > taken, not to break those scripts - only by specifying the special keyword
-> > 'ex', the extended capabilities are available, thus there should be no impact
-> > on existing scripts.
-> > Also, the new code can live together with rules added by the old code. It
-> > supports both the old netlink and the new one.
-> > 
-> > This patchset is against the master and not net-next as the functionality was
-> > added in 4.11
-> > 
-> > Thanks,
-> > Amir
-> > 
-> > [1] - 71d0ed7079df ("net/act_pedit: Support using offset relative to the
-> >                      conventional network headers")
-
+> From: Xin Long [mailto:lucien.xin@gmail.com]
+> Sent: Wednesday, May 3, 2017 1:38 PM
+> On Wed, May 3, 2017 at 10:07 AM, Gao Feng <gfree.wind@foxmail.com>
+> wrote:
+> >> From: netdev-owner@vger.kernel.org
+> >> [mailto:netdev-owner@vger.kernel.org]
+> >> On Behalf Of Xin Long
+> >> Sent: Wednesday, May 3, 2017 12:59 AM On Tue, May 2, 2017 at 7:03 =
+PM,
+> >> Gao Feng <gfree.wind@vip.163.com> wrote:
+> >> >> From: Xin Long [mailto:lucien.xin@gmail.com]
+> >> >> Sent: Tuesday, May 2, 2017 3:56 PM On Sat, Apr 29, 2017 at 11:51
+> >> >> AM,  <gfree.wind@foxmail.com> wrote:
+> >> >> > From: Gao Feng <gfree.wind@foxmail.com>
 [...]
+> > The fix you mentioned change the original logic.
+> > The dev->vstats is freed in advance in the ndo_uninit, not =
+destructor.
+> > It may break the backward.
+> Sorry, I didn't get your "backward"
+> I can't see there will be any problem caused by it.
+> can you say this patch also break the 'backward' ?
+> https://patchwork.ozlabs.org/patch/748964/
+>=20
+> It's really weird to do dev->reg_state check in ndo_unint ndo_unint is =
+supposed
+> to free the memory alloced in ndo_init.
+>=20
 
-> 
-> Applied. Then I cleaned up long lines
+I am not sure if it would break the backward, so I said it MAY break.
+I assumed there may be someone would access the dev->vstats after =
+ndo_uninit,
+because current veth driver free the mem in the destructor.
+I selected this approach because I don't want to bring new bugs during =
+fix bug.
 
-Thanks. Will make sure to clean up long lines in future patches.
+If you're sure it is safe to free dev->vstats in ndo_uninit, I would =
+like to update it.
+
+BTW there are too many drivers which have possible memleak.
+You could find the list by =
+https://www.mail-archive.com/netdev@vger.kernel.org/msg166629.html.
+
+Some drivers allocate the resources in ndo_init, free some in ndo_uninit =
+and free left in destructor.
+I think there are some reasons.=20
+We could not move all free in the ndo_uninit from destructor. What's =
+your opinion?
+
+Best Regards
+Feng
