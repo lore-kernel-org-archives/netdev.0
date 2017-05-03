@@ -1,74 +1,63 @@
-From: Kees Cook <keescook@chromium.org>
-Subject: Re: [PATCH] ipx: call ipxitf_put() in ioctl error path
-Date: Tue, 2 May 2017 16:42:33 -0700
-Message-ID: <CAGXu5j+sqS_LfuS5Jy2-AfYmRyKWhsyBo9bqHrnnyQ+ONA4nMA@mail.gmail.com>
-References: <143C0AFC63FC204CB0C55BB88F3A8ABB33419ED1@EX02.corp.qihoo.net> <20170502105853.yz3ny6lyso6isdvx@mwanda>
+From: "Gao Feng" <gfree.wind@foxmail.com>
+Subject: RE: [PATCH net v4 00/12] Fix possbile memleaks when fail to register_netdevice
+Date: Wed, 3 May 2017 08:33:02 +0800
+Message-ID: <000b01d2c3a4$d3b91260$7b2b3720$@foxmail.com>
+References: <cover.1493699451.git.gfree.wind@foxmail.com> <20170502.153029.1605231216574026914.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Network Development <netdev@vger.kernel.org>,
-        "security@kernel.org" <security@kernel.org>,
-        "secalert@redhat.com" <secalert@redhat.com>
-To: Dan Carpenter <dan.carpenter@oracle.com>,
-        "kernel-hardening@lists.openwall.com"
-        <kernel-hardening@lists.openwall.com>
+Content-Type: text/plain;
+        charset="US-ASCII"
+Content-Transfer-Encoding: 7bit
+Cc: <jiri@resnulli.us>, <mareklindner@neomailbox.ch>,
+        <sw@simonwunderlich.de>, <a@unstable.cc>, <kuznet@ms2.inr.ac.ru>,
+        <jmorris@namei.org>, <yoshfuji@linux-ipv6.org>, <kaber@trash.net>,
+        <steffen.klassert@secunet.com>, <herbert@gondor.apana.org.au>,
+        <netdev@vger.kernel.org>
+To: "'David Miller'" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f171.google.com ([209.85.223.171]:34153 "EHLO
-        mail-io0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751148AbdEBXmf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 2 May 2017 19:42:35 -0400
-Received: by mail-io0-f171.google.com with SMTP id k91so3179588ioi.1
-        for <netdev@vger.kernel.org>; Tue, 02 May 2017 16:42:35 -0700 (PDT)
-In-Reply-To: <20170502105853.yz3ny6lyso6isdvx@mwanda>
+Received: from smtpbg65.qq.com ([103.7.28.233]:56776 "EHLO smtpbg65.qq.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750815AbdECAdO (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 2 May 2017 20:33:14 -0400
+In-Reply-To: <20170502.153029.1605231216574026914.davem@davemloft.net>
+Content-Language: zh-cn
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 2, 2017 at 3:58 AM, Dan Carpenter <dan.carpenter@oracle.com> wr=
-ote:
-> We should call ipxitf_put() if the copy_to_user() fails.
->
-> Reported-by: =E6=9D=8E=E5=BC=BA <liqiang6-s@360.cn>
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
->
-> diff --git a/net/ipx/af_ipx.c b/net/ipx/af_ipx.c
-> index 8a9219ff2e77..fa31ef29e3fa 100644
-> --- a/net/ipx/af_ipx.c
-> +++ b/net/ipx/af_ipx.c
-> @@ -1168,11 +1168,10 @@ static int ipxitf_ioctl(unsigned int cmd, void __=
-user *arg)
->                 sipx->sipx_network      =3D ipxif->if_netnum;
->                 memcpy(sipx->sipx_node, ipxif->if_node,
->                         sizeof(sipx->sipx_node));
-> -               rc =3D -EFAULT;
-> +               rc =3D 0;
->                 if (copy_to_user(arg, &ifr, sizeof(ifr)))
-> -                       break;
-> +                       rc =3D -EFAULT;
->                 ipxitf_put(ipxif);
-> -               rc =3D 0;
->                 break;
->         }
->         case SIOCAIPXITFCRT:
+Hi David
 
-This refcount overflow flaw (and resulting use-after-free) appears to
-be reachable from unprivileged userspace, though I think it requires
-an interface already be configured, so this is likely not much risk to
-most users. Someone more familiar with IPX should double-check...
+> From: David Miller [mailto:davem@davemloft.net]
+> Sent: Wednesday, May 3, 2017 3:30 AM
+> From: gfree.wind@foxmail.com
+> Date: Tue,  2 May 2017 13:58:42 +0800
+> 
+[...]
+> >
+> > This solution doesn't only make sure free all resources in any case,
+> > but also follows the original desgin that some resources could be kept
+> > until the destructor executes normally after register the device
+> > successfully.
+> 
+> I want to think about this some more.
+> 
+> It is really unfortunate that resources are allocated strictly from the
+ndo_init()
+> yet released in two different callbacks which are invoked only in certain
+> (different) situations.
+> 
+> Just the fact that we have to make an internal netdev state test in the
+> ndo_uninit callback to get this right is a big red flag to me.
 
-And, of course, I should point out this flaw would have been blocked
-entirely by using refcount_t:
-https://lkml.org/lkml/2017/3/17/193
+Yes, I am very agree with you.
+This fix is just like a workaround under current framework.
 
-And if it didn't require a configured interface, it would be mitigated
-with module autoload blocking:
-https://lkml.org/lkml/2017/4/19/1088
+The root is that allocate in one spot, but free them at two spots.
+It means all ndo_uninit need to handle this case if allocate some resource
+and free them in the destructor.
+It should be done by the framework.
 
-(Yes, yes, I know both are still being worked on, but this is a good
-example to show another case where they'd have been useful.)
+I thought about if there was a better solution to fix it.
+But I think it need to modify the framework of net_device, it seems not good
+as a bug fix to net.git.
 
--Kees
-
---=20
-Kees Cook
-Pixel Security
+Best Regards
+Feng
