@@ -1,51 +1,76 @@
-From: Xie Qirong <cheerx1994-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH] brcmfmac: btcoex: replace init_timer with setup_timer
-Date: Wed,  3 May 2017 19:27:23 +0800
-Message-ID: <20170503112723.14397-1-cheerx1994@gmail.com>
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        brcm80211-dev-list.pdl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Piotr Haber <phaber-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-        Xie Qirong <cheerx1994-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: Arend van Spriel <arend.vanspriel-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-        Franky Lin <franky.lin-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-        Hante Meuleman <hante.meuleman-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-        Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: [PATCH] test_bpf: Use ULL suffix for 64-bit constants
+Date: Wed,  3 May 2017 13:31:04 +0200
+Message-ID: <1493811064-24542-1-git-send-email-geert@linux-m68k.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, --cc@ramsan.of.borg,
+        linux-kernel@vger.kernel.org,
+        Geert Uytterhoeven <geert@linux-m68k.org>
+To: "David S . Miller" <davem@davemloft.net>,
+        Alexei Starovoitov <ast@kernel.org>,
+        Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-setup_timer.cocci suggested the following improvement:
-drivers/net/wireless/broadcom/brcm80211/brcmfmac/btcoex.c:383:1-11: Use
-setup_timer function for function on line 384.
+On 32-bit:
 
-Signed-off-by: Xie Qirong <cheerx1994-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+    lib/test_bpf.c:4772: warning: integer constant is too large for ‘unsigned long’ type
+    lib/test_bpf.c:4772: warning: integer constant is too large for ‘unsigned long’ type
+    lib/test_bpf.c:4773: warning: integer constant is too large for ‘unsigned long’ type
+    lib/test_bpf.c:4773: warning: integer constant is too large for ‘unsigned long’ type
+    lib/test_bpf.c:4787: warning: integer constant is too large for ‘unsigned long’ type
+    lib/test_bpf.c:4787: warning: integer constant is too large for ‘unsigned long’ type
+    lib/test_bpf.c:4801: warning: integer constant is too large for ‘unsigned long’ type
+    lib/test_bpf.c:4801: warning: integer constant is too large for ‘unsigned long’ type
+    lib/test_bpf.c:4802: warning: integer constant is too large for ‘unsigned long’ type
+    lib/test_bpf.c:4802: warning: integer constant is too large for ‘unsigned long’ type
+
+On 32-bit systems, "long" is only 32-bit.
+Replace the "UL" suffix by "ULL" to fix this.
+
+Fixes: 85f68fe898320575 ("bpf, arm64: implement jiting of BPF_XADD")
+Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
 ---
+ lib/test_bpf.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
 
- Patch was compile checked with: x86_64_defconfig + CONFIG_BRCMFMAC=y +
- CONFIG_BRCMFMAC_USB=y + CONFIG_BRCMFMAC_PCIE=y + CONFIG_BRCM_TRACING=y +
- CONFIG_BRCMDBG=y
- 
- Kernel version: next-20170502 (localversion-next is next-20170502)
-
- Thanks for Arend's advice
-
- drivers/net/wireless/broadcom/brcm80211/brcmfmac/btcoex.c | 4 +---
- 1 file changed, 1 insertion(+), 3 deletions(-)
-
-diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/btcoex.c b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/btcoex.c
-index 14a70d4..3559fb5 100644
---- a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/btcoex.c
-+++ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/btcoex.c
-@@ -380,9 +380,7 @@ int brcmf_btcoex_attach(struct brcmf_cfg80211_info *cfg)
- 	/* Set up timer for BT  */
- 	btci->timer_on = false;
- 	btci->timeout = BRCMF_BTCOEX_OPPR_WIN_TIME;
--	init_timer(&btci->timer);
--	btci->timer.data = (ulong)btci;
--	btci->timer.function = brcmf_btcoex_timerfunc;
-+	setup_timer(&btci->timer, brcmf_btcoex_timerfunc, (ulong)btci);
- 	btci->cfg = cfg;
- 	btci->saved_regs_part1 = false;
- 	btci->saved_regs_part2 = false;
+diff --git a/lib/test_bpf.c b/lib/test_bpf.c
+index a0f66280ea502e63..889bc31785bee579 100644
+--- a/lib/test_bpf.c
++++ b/lib/test_bpf.c
+@@ -4769,8 +4769,8 @@ static struct bpf_test tests[] = {
+ 			BPF_LD_IMM64(R1, 3),
+ 			BPF_LD_IMM64(R2, 2),
+ 			BPF_JMP_REG(BPF_JGE, R1, R2, 2),
+-			BPF_LD_IMM64(R0, 0xffffffffffffffffUL),
+-			BPF_LD_IMM64(R0, 0xeeeeeeeeeeeeeeeeUL),
++			BPF_LD_IMM64(R0, 0xffffffffffffffffULL),
++			BPF_LD_IMM64(R0, 0xeeeeeeeeeeeeeeeeULL),
+ 			BPF_EXIT_INSN(),
+ 		},
+ 		INTERNAL,
+@@ -4784,7 +4784,7 @@ static struct bpf_test tests[] = {
+ 			BPF_LD_IMM64(R1, 3),
+ 			BPF_LD_IMM64(R2, 2),
+ 			BPF_JMP_REG(BPF_JGE, R1, R2, 0),
+-			BPF_LD_IMM64(R0, 0xffffffffffffffffUL),
++			BPF_LD_IMM64(R0, 0xffffffffffffffffULL),
+ 			BPF_EXIT_INSN(),
+ 		},
+ 		INTERNAL,
+@@ -4798,8 +4798,8 @@ static struct bpf_test tests[] = {
+ 			BPF_LD_IMM64(R1, 3),
+ 			BPF_LD_IMM64(R2, 2),
+ 			BPF_JMP_REG(BPF_JGE, R1, R2, 4),
+-			BPF_LD_IMM64(R0, 0xffffffffffffffffUL),
+-			BPF_LD_IMM64(R0, 0xeeeeeeeeeeeeeeeeUL),
++			BPF_LD_IMM64(R0, 0xffffffffffffffffULL),
++			BPF_LD_IMM64(R0, 0xeeeeeeeeeeeeeeeeULL),
+ 			BPF_EXIT_INSN(),
+ 		},
+ 		INTERNAL,
 -- 
-2.9.3
+2.7.4
