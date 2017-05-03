@@ -1,52 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] selftests/bpf: get rid of -D__x86_64__
-Date: Wed, 03 May 2017 12:06:34 -0400 (EDT)
-Message-ID: <20170503.120634.1673036085707133455.davem@davemloft.net>
-References: <20170503041443.3125777-1-ast@fb.com>
-        <20170503.095251.353611409224180200.davem@davemloft.net>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [patch iproute2 v2 0/2] devlink: Add support for pipeline
+Date: Wed, 3 May 2017 09:32:59 -0700
+Message-ID: <20170503093259.2a1f1a75@xeon-e3>
+References: <1493810723-2536-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: daniel@iogearbox.net, netdev@vger.kernel.org
-To: ast@fb.com
+Cc: netdev@vger.kernel.org, arkadis@mellanox.com, davem@davemloft.net,
+        mlxsw@mellanox.com, dsa@cumulusnetworks.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:38862 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753815AbdECQGs (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 3 May 2017 12:06:48 -0400
-In-Reply-To: <20170503.095251.353611409224180200.davem@davemloft.net>
+Received: from mail-pf0-f181.google.com ([209.85.192.181]:35507 "EHLO
+        mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750824AbdECQdE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 3 May 2017 12:33:04 -0400
+Received: by mail-pf0-f181.google.com with SMTP id v14so15076381pfd.2
+        for <netdev@vger.kernel.org>; Wed, 03 May 2017 09:33:04 -0700 (PDT)
+In-Reply-To: <1493810723-2536-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Wed, 03 May 2017 09:52:51 -0400 (EDT)
+On Wed,  3 May 2017 13:25:21 +0200
+Jiri Pirko <jiri@resnulli.us> wrote:
 
-> From: Alexei Starovoitov <ast@fb.com>
-> Date: Tue, 2 May 2017 21:14:43 -0700
+> From: Jiri Pirko <jiri@mellanox.com>
 > 
->> -D__x86_64__ workaround was used to make /usr/include/features.h
->> to follow expected path through the system include headers.
->> This is not portable.
->> Instead define dummy stubs.h which is used by 'clang -target bpf'
->> 
->> Fixes: 6882804c916b ("selftests/bpf: add a test for overlapping packet range checks")
->> Signed-off-by: Alexei Starovoitov <ast@kernel.org>
+> Arkadi says:
 > 
-> Applied, thanks for getting rid of this wart.
+> Add support for pipeline debug (dpipe). As a preparation step the netlink
+> attribute validation was changed before adding new dpipe attributes.
+> ---
+> v1->v2
+> - Change netlink attribute validation. 
+> - Fix commit message typos
+> 
+> Arkadi Sharshevsky (2):
+>   devlink: Change netlink attribute validation
+>   devlink: Add support for pipeline debug (dpipe)
+> 
+>  devlink/devlink.c | 1450 ++++++++++++++++++++++++++++++++++++++++++++++-------
+>  1 file changed, 1281 insertions(+), 169 deletions(-)
+> 
 
-Actually, we're now back to the orignal problem I had on sparc.
-
-The issue is that you cannot resolve the core kernel __u?? types
-unless __sparc__ is properly defined.
-
-In file included from /home/davem/src/GIT/net/tools/testing/selftests/bpf/test_pkt_access.c:8:
-In file included from ../../../include/uapi/linux/bpf.h:10:
-/usr/include/linux/types.h:27:9: error: unknown type name '__u16'
-typedef __u16 __bitwise __le16;
-        ^
-
-We really have to do the change I mentioned the first time I brought
-up this issue, which is to get this via a variable set in the
-per-arch top-level Makefile
-
-Thanks.
+Looks good applied.
