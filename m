@@ -1,92 +1,91 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 02/16] openvswitch: Delete conntrack entry clashing with an expectation.
-Date: Wed,  3 May 2017 11:31:57 +0200
-Message-ID: <1493803931-2837-3-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 01/16] netfilter: xt_CT: fix refcnt leak on error path
+Date: Wed,  3 May 2017 11:31:56 +0200
+Message-ID: <1493803931-2837-2-git-send-email-pablo@netfilter.org>
 References: <1493803931-2837-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:45644 "EHLO mail.us.es"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752850AbdECJc3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 3 May 2017 05:32:29 -0400
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+        by mail.us.es (Postfix) with ESMTP id E41481C4438
+        for <netdev@vger.kernel.org>; Wed,  3 May 2017 11:32:21 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id CAF186E7AB
+        for <netdev@vger.kernel.org>; Wed,  3 May 2017 11:32:21 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id B2FC9FF2D2
+        for <netdev@vger.kernel.org>; Wed,  3 May 2017 11:32:17 +0200 (CEST)
 In-Reply-To: <1493803931-2837-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jarno Rajahalme <jarno@ovn.org>
+From: Gao Feng <fgao@ikuai8.com>
 
-Conntrack helpers do not check for a potentially clashing conntrack
-entry when creating a new expectation.  Also, nf_conntrack_in() will
-check expectations (via init_conntrack()) only if a conntrack entry
-can not be found.  The expectation for a packet which also matches an
-existing conntrack entry will not be removed by conntrack, and is
-currently handled inconsistently by OVS, as OVS expects the
-expectation to be removed when the connection tracking entry matching
-that expectation is confirmed.
+There are two cases which causes refcnt leak.
 
-It should be noted that normally an IP stack would not allow reuse of
-a 5-tuple of an old (possibly lingering) connection for a new data
-connection, so this is somewhat unlikely corner case.  However, it is
-possible that a misbehaving source could cause conntrack entries be
-created that could then interfere with new related connections.
+1. When nf_ct_timeout_ext_add failed in xt_ct_set_timeout, it should
+free the timeout refcnt.
+Now goto the err_put_timeout error handler instead of going ahead.
 
-Fix this in the OVS module by deleting the clashing conntrack entry
-after an expectation has been matched.  This causes the following
-nf_conntrack_in() call also find the expectation and remove it when
-creating the new conntrack entry, as well as the forthcoming reply
-direction packets to match the new related connection instead of the
-old clashing conntrack entry.
+2. When the time policy is not found, we should call module_put.
+Otherwise, the related cthelper module cannot be removed anymore.
+It is easy to reproduce by typing the following command:
+  # iptables -t raw -A OUTPUT -p tcp -j CT --helper ftp --timeout xxx
 
-Fixes: 7f8a436eaa2c ("openvswitch: Add conntrack action")
-Reported-by: Yang Song <yangsong@vmware.com>
-Signed-off-by: Jarno Rajahalme <jarno@ovn.org>
-Acked-by: Joe Stringer <joe@ovn.org>
+Signed-off-by: Gao Feng <fgao@ikuai8.com>
+Signed-off-by: Liping Zhang <zlpnobody@gmail.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/openvswitch/conntrack.c | 30 +++++++++++++++++++++++++++++-
- 1 file changed, 29 insertions(+), 1 deletion(-)
+ net/netfilter/xt_CT.c | 11 +++++++++--
+ 1 file changed, 9 insertions(+), 2 deletions(-)
 
-diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
-index 7b2c2fce408a..c92a5795dcda 100644
---- a/net/openvswitch/conntrack.c
-+++ b/net/openvswitch/conntrack.c
-@@ -514,10 +514,38 @@ ovs_ct_expect_find(struct net *net, const struct nf_conntrack_zone *zone,
- 		   u16 proto, const struct sk_buff *skb)
- {
- 	struct nf_conntrack_tuple tuple;
-+	struct nf_conntrack_expect *exp;
- 
- 	if (!nf_ct_get_tuplepr(skb, skb_network_offset(skb), proto, net, &tuple))
- 		return NULL;
--	return __nf_ct_expect_find(net, zone, &tuple);
-+
-+	exp = __nf_ct_expect_find(net, zone, &tuple);
-+	if (exp) {
-+		struct nf_conntrack_tuple_hash *h;
-+
-+		/* Delete existing conntrack entry, if it clashes with the
-+		 * expectation.  This can happen since conntrack ALGs do not
-+		 * check for clashes between (new) expectations and existing
-+		 * conntrack entries.  nf_conntrack_in() will check the
-+		 * expectations only if a conntrack entry can not be found,
-+		 * which can lead to OVS finding the expectation (here) in the
-+		 * init direction, but which will not be removed by the
-+		 * nf_conntrack_in() call, if a matching conntrack entry is
-+		 * found instead.  In this case all init direction packets
-+		 * would be reported as new related packets, while reply
-+		 * direction packets would be reported as un-related
-+		 * established packets.
-+		 */
-+		h = nf_conntrack_find_get(net, zone, &tuple);
-+		if (h) {
-+			struct nf_conn *ct = nf_ct_tuplehash_to_ctrack(h);
-+
-+			nf_ct_delete(ct, 0, 0);
-+			nf_conntrack_put(&ct->ct_general);
-+		}
+diff --git a/net/netfilter/xt_CT.c b/net/netfilter/xt_CT.c
+index b008db0184b8..81fdcdca7457 100644
+--- a/net/netfilter/xt_CT.c
++++ b/net/netfilter/xt_CT.c
+@@ -167,8 +167,10 @@ xt_ct_set_timeout(struct nf_conn *ct, const struct xt_tgchk_param *par,
+ 		goto err_put_timeout;
+ 	}
+ 	timeout_ext = nf_ct_timeout_ext_add(ct, timeout, GFP_ATOMIC);
+-	if (timeout_ext == NULL)
++	if (!timeout_ext) {
+ 		ret = -ENOMEM;
++		goto err_put_timeout;
 +	}
-+
-+	return exp;
- }
  
- /* This replicates logic from nf_conntrack_core.c that is not exported. */
+ 	rcu_read_unlock();
+ 	return ret;
+@@ -200,6 +202,7 @@ static int xt_ct_tg_check(const struct xt_tgchk_param *par,
+ 			  struct xt_ct_target_info_v1 *info)
+ {
+ 	struct nf_conntrack_zone zone;
++	struct nf_conn_help *help;
+ 	struct nf_conn *ct;
+ 	int ret = -EOPNOTSUPP;
+ 
+@@ -248,7 +251,7 @@ static int xt_ct_tg_check(const struct xt_tgchk_param *par,
+ 	if (info->timeout[0]) {
+ 		ret = xt_ct_set_timeout(ct, par, info->timeout);
+ 		if (ret < 0)
+-			goto err3;
++			goto err4;
+ 	}
+ 	__set_bit(IPS_CONFIRMED_BIT, &ct->status);
+ 	nf_conntrack_get(&ct->ct_general);
+@@ -256,6 +259,10 @@ static int xt_ct_tg_check(const struct xt_tgchk_param *par,
+ 	info->ct = ct;
+ 	return 0;
+ 
++err4:
++	help = nfct_help(ct);
++	if (help)
++		module_put(help->helper->me);
+ err3:
+ 	nf_ct_tmpl_free(ct);
+ err2:
 -- 
 2.1.4
-
