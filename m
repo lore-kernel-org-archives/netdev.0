@@ -1,50 +1,43 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH] man: ip.8: Document -brief flag
-Date: Wed,  3 May 2017 11:07:58 +0200
-Message-ID: <20170503090758.24179-1-phil@nwl.cc>
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:38895 "EHLO mail.nwl.cc"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751751AbdECJIM (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 3 May 2017 05:08:12 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
+Subject: RE: [PATCH] Fix for new version of realtek r8153
+Date: Wed, 3 May 2017 09:18:38 +0000
+Message-ID: <0835B3720019904CB8F7AA43166CEEB201A4BB27@RTITMBSV06.realtek.com.tw>
+References: <20170502232048.9153-1-nexussix@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: jake <jake-398iGDqTtD9+pU9mqzGVBQ@public.gmane.org>, nic_swsd <nic_swsd-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
+To: jake Briggs <nexussix-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        "mario_limonciello-8PEkshWhKlo@public.gmane.org" <mario_limonciello-8PEkshWhKlo@public.gmane.org>,
+        "linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170502232048.9153-1-nexussix-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Content-Language: zh-TW
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Brief output is especially useful for new users, so at least mention
-it's existence in ip man page.
+jake Briggs [mailto:nexussix-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org]
+> Sent: Wednesday, May 03, 2017 7:21 AM
+[...]
+> diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
+> index 07f788c49d57..2a55459fdfac 100644
+> --- a/drivers/net/usb/r8152.c
+> +++ b/drivers/net/usb/r8152.c
+> @@ -4277,6 +4277,7 @@ static void r8152b_get_version(struct r8152 *tp)
+>  		tp->mii.supports_gmii = 1;
+>  		break;
+>  	case 0x5c30:
+> +	case 0x6010:
 
-Signed-off-by: Phil Sutter <phil@nwl.cc>
----
- man/man8/ip.8 | 8 +++++++-
- 1 file changed, 7 insertions(+), 1 deletion(-)
+The two chips are different. I don't think it is a good idea.
+Maybe you could use the driver from the Realtek website first.
 
-diff --git a/man/man8/ip.8 b/man/man8/ip.8
-index 1c5a7419e4fc2..ae018fdf11ac9 100644
---- a/man/man8/ip.8
-+++ b/man/man8/ip.8
-@@ -48,7 +48,8 @@ ip \- show / manipulate routing, devices, policy routing and tunnels
- \fB\-ts\fR[\fIhort\fR] |
- \fB\-n\fR[\fIetns\fR] name |
- \fB\-a\fR[\fIll\fR] |
--\fB\-c\fR[\fIolor\fR] }
-+\fB\-c\fR[\fIolor\fR]
-+\fB\-br\fR[\fIief\fR] }
- 
- 
- .SH OPTIONS
-@@ -206,6 +207,11 @@ Set the netlink socket receive buffer size, defaults to 1MB.
- .BR "\-iec"
- print human readable rates in IEC units (e.g. 1Ki = 1024).
- 
-+.TP
-+.BR "\-br" , "\-brief"
-+Print only basic information in a tabular format for better readability. This option is currently only supported by
-+.BR "ip addr show " and " ip link show " commands.
-+
- .SH IP - COMMAND SYNTAX
- 
- .SS
--- 
-2.11.0
+>  		tp->version = RTL_VER_06;
+>  		tp->mii.supports_gmii = 1;
+>  		break;
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
