@@ -1,78 +1,118 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH net-next 13/15] netvsc: convert open count from atomic to refcount
-Date: Wed,  3 May 2017 16:01:15 -0700
-Message-ID: <20170503230117.20070-14-sthemmin@microsoft.com>
+Subject: [PATCH 15/15] netvsc: use vzalloc_node for receive completion data
+Date: Wed,  3 May 2017 16:01:17 -0700
+Message-ID: <20170503230117.20070-16-sthemmin@microsoft.com>
 References: <20170503230117.20070-1-sthemmin@microsoft.com>
 Cc: netdev@vger.kernel.org, Stephen Hemminger <sthemmin@microsoft.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f47.google.com ([74.125.83.47]:33885 "EHLO
-        mail-pg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752476AbdECXBk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 3 May 2017 19:01:40 -0400
-Received: by mail-pg0-f47.google.com with SMTP id v1so1977758pgv.1
-        for <netdev@vger.kernel.org>; Wed, 03 May 2017 16:01:39 -0700 (PDT)
+Received: from mail-pf0-f182.google.com ([209.85.192.182]:36072 "EHLO
+        mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752707AbdECXBm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 3 May 2017 19:01:42 -0400
+Received: by mail-pf0-f182.google.com with SMTP id q66so1732175pfi.3
+        for <netdev@vger.kernel.org>; Wed, 03 May 2017 16:01:41 -0700 (PDT)
 In-Reply-To: <20170503230117.20070-1-sthemmin@microsoft.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Refcount provides wraparond protection.
+Put the receive completion ring on the NUMA node of the CPU
+assigned to the channel.
 
 Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
 ---
- drivers/net/hyperv/hyperv_net.h   | 2 +-
- drivers/net/hyperv/netvsc.c       | 3 ++-
- drivers/net/hyperv/rndis_filter.c | 4 ++--
- 3 files changed, 5 insertions(+), 4 deletions(-)
+ drivers/net/hyperv/hyperv_net.h   |  3 +++
+ drivers/net/hyperv/netvsc.c       | 30 +++++++++++++++++++++++-------
+ drivers/net/hyperv/rndis_filter.c |  8 ++++----
+ 3 files changed, 30 insertions(+), 11 deletions(-)
 
 diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
-index 5627003bd8b6..29555317ca05 100644
+index a4417100a040..779c77a1638b 100644
 --- a/drivers/net/hyperv/hyperv_net.h
 +++ b/drivers/net/hyperv/hyperv_net.h
-@@ -772,7 +772,7 @@ struct netvsc_device {
+@@ -668,6 +668,9 @@ static inline bool recv_complete_ring_empty(const struct multi_recv_comp *mrc)
+ 	return mrc->read == mrc->write;
+ }
  
- 	atomic_t num_outstanding_recvs;
- 
--	atomic_t open_cnt;
-+	refcount_t open_cnt;
- 
- 	struct netvsc_channel chan_table[VRSS_CHANNEL_MAX];
- 
++int netvsc_recv_comp_alloc(const struct vmbus_channel *chan,
++			   struct multi_recv_comp *mrc, u32 recv_slots);
++
+ struct netvsc_stats {
+ 	u64 packets;
+ 	u64 bytes;
 diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
-index 56e0721f703c..eb9f3e517fa5 100644
+index 2938f1a2b765..ee42aa56460c 100644
 --- a/drivers/net/hyperv/netvsc.c
 +++ b/drivers/net/hyperv/netvsc.c
-@@ -80,7 +80,8 @@ static struct netvsc_device *alloc_net_device(u32 recvslot_max)
+@@ -61,19 +61,33 @@ void netvsc_switch_datapath(struct net_device *ndev, bool vf)
+ 			       VM_PKT_DATA_INBAND, 0);
+ }
  
- 	init_waitqueue_head(&net_device->wait_drain);
- 	net_device->destroy = false;
--	atomic_set(&net_device->open_cnt, 0);
+-static struct netvsc_device *alloc_net_device(u32 recvslot_max)
++int netvsc_recv_comp_alloc(const struct vmbus_channel *channel,
++			   struct multi_recv_comp *mrc, u32 recv_slots)
++{
++	int node = cpu_to_node(channel->target_cpu);
++	size_t size = recv_slots * sizeof(struct recv_comp_data);
 +
-+	refcount_set(&net_device->open_cnt, 0);
- 	net_device->max_pkt = RNDIS_MAX_PKT_DEFAULT;
- 	net_device->pkt_align = RNDIS_PKT_ALIGN_DEFAULT;
- 	init_completion(&net_device->channel_init_wait);
++	mrc->ring = vzalloc_node(size, node);
++	if (!mrc->ring)
++		mrc->ring = vzalloc(size);
++	if (!mrc->ring)
++		return -ENOMEM;
++
++	mrc->size = recv_slots;
++	return 0;
++}
++
++static struct netvsc_device *alloc_net_device(const struct vmbus_channel *chan,
++					      u32 recvslot_max)
+ {
+ 	struct netvsc_device *net_device;
+-	struct multi_recv_comp *mrc;
+ 
+ 	net_device = kzalloc(sizeof(struct netvsc_device), GFP_KERNEL);
+ 	if (!net_device)
+ 		return NULL;
+ 
+-	mrc = &net_device->chan_table[0].mrc;
+-	mrc->size = recvslot_max;
+-	mrc->ring = vzalloc(recvslot_max * sizeof(struct recv_comp_data));
+-	if (!mrc->ring) {
++	if (netvsc_recv_comp_alloc(chan, &net_device->chan_table[0].mrc,
++				   recvslot_max) != 0) {
+ 		kfree(net_device);
+ 		return NULL;
+ 	}
+@@ -1246,7 +1260,9 @@ int netvsc_device_add(struct hv_device *device,
+ 	struct net_device *ndev = hv_get_drvdata(device);
+ 	struct net_device_context *net_device_ctx = netdev_priv(ndev);
+ 
+-	net_device = alloc_net_device(device_info->recv_buf_size / ETH_DATA_LEN + 1);
++	net_device = alloc_net_device(device->channel,
++				      device_info->recv_buf_size
++				      / ETH_DATA_LEN + 1);
+ 	if (!net_device)
+ 		return -ENOMEM;
+ 
 diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
-index bfeaa0549f7f..2a89bbd6e42b 100644
+index 1b8ce9bc0ce7..da4992b26397 100644
 --- a/drivers/net/hyperv/rndis_filter.c
 +++ b/drivers/net/hyperv/rndis_filter.c
-@@ -1259,7 +1259,7 @@ int rndis_filter_open(struct netvsc_device *nvdev)
- 	if (!nvdev)
- 		return -EINVAL;
+@@ -996,10 +996,10 @@ static void netvsc_sc_open(struct vmbus_channel *new_sc)
+ 		return;
  
--	if (atomic_inc_return(&nvdev->open_cnt) != 1)
-+	if (refcount_inc_not_zero(&nvdev->open_cnt))
- 		return 0;
+ 	nvchan = nvscdev->chan_table + chn_index;
+-	nvchan->mrc.size = nvscdev->recv_buf_size / ETH_DATA_LEN + 1;
+-	nvchan->mrc.ring = vzalloc(nvchan->mrc.size
+-				   * sizeof(struct recv_comp_data));
+-	if (!nvchan->mrc.ring)
++	ret = netvsc_recv_comp_alloc(new_sc,
++				     &nvchan->mrc,
++				     nvscdev->recv_buf_size / ETH_DATA_LEN + 1);
++	if (ret)
+ 		return;
  
- 	return rndis_filter_open_device(nvdev->extension);
-@@ -1270,7 +1270,7 @@ int rndis_filter_close(struct netvsc_device *nvdev)
- 	if (!nvdev)
- 		return -EINVAL;
- 
--	if (atomic_dec_return(&nvdev->open_cnt) != 0)
-+	if (refcount_dec_not_one(&nvdev->open_cnt))
- 		return 0;
- 
- 	return rndis_filter_close_device(nvdev->extension);
+ 	/* Because the device uses NAPI, all the interrupt batching and
 -- 
 2.11.0
