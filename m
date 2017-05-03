@@ -1,42 +1,143 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH v4 net-next 00/10] net/ncsi: Add debugging functionality
-Date: Wed, 3 May 2017 14:58:02 +0200
-Message-ID: <20170503125802.GG8029@lunn.ch>
-References: <1493786681-27468-1-git-send-email-gwshan@linux.vnet.ibm.com>
+From: Andrey Konovalov <andreyknvl@google.com>
+Subject: Re: [PATCH net] net: ipv6: Do not duplicate DAD on link up
+Date: Wed, 3 May 2017 15:09:49 +0200
+Message-ID: <CAAeHK+wKbZb7SOOA5qRgUOS02CYnMg-nx68N5JYt6fy0n4eK5g@mail.gmail.com>
+References: <1493761424-17407-1-git-send-email-dsahern@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, joe@perches.com, kubakici@wp.pl,
-        f.fainelli@gmail.com, davem@davemloft.net
-To: Gavin Shan <gwshan@linux.vnet.ibm.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>, Dmitry Vyukov <dvyukov@google.com>
+To: David Ahern <dsahern@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:49038 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751176AbdECM6E (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 3 May 2017 08:58:04 -0400
-Content-Disposition: inline
-In-Reply-To: <1493786681-27468-1-git-send-email-gwshan@linux.vnet.ibm.com>
+Received: from mail-wm0-f45.google.com ([74.125.82.45]:35727 "EHLO
+        mail-wm0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751991AbdECNJw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 3 May 2017 09:09:52 -0400
+Received: by mail-wm0-f45.google.com with SMTP id w64so146386232wma.0
+        for <netdev@vger.kernel.org>; Wed, 03 May 2017 06:09:51 -0700 (PDT)
+In-Reply-To: <1493761424-17407-1-git-send-email-dsahern@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 03, 2017 at 02:44:31PM +1000, Gavin Shan wrote:
-> This series supports NCSI debugging infrastructure by adding several
-> ethtool commands and one debugfs file. It was inspired by the reported
-> issues: No available package and channel are probed successfully.
-> Obviously, we don't have a debugging infrastructure for NCSI stack yet.
-> 
-> The first 3 patches, fixing some issues, aren't relevant to the
-> subject. 
+On Tue, May 2, 2017 at 11:43 PM, David Ahern <dsahern@gmail.com> wrote:
+> Andrey reported a warning triggered by the rcu code:
+>
+> ------------[ cut here ]------------
+> WARNING: CPU: 1 PID: 5911 at lib/debugobjects.c:289
+> debug_print_object+0x175/0x210
+> ODEBUG: activate active (active state 1) object type: rcu_head hint:
+>         (null)
+> Modules linked in:
+> CPU: 1 PID: 5911 Comm: a.out Not tainted 4.11.0-rc8+ #271
+> Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+> Call Trace:
+>  __dump_stack lib/dump_stack.c:16
+>  dump_stack+0x192/0x22d lib/dump_stack.c:52
+>  __warn+0x19f/0x1e0 kernel/panic.c:549
+>  warn_slowpath_fmt+0xe0/0x120 kernel/panic.c:564
+>  debug_print_object+0x175/0x210 lib/debugobjects.c:286
+>  debug_object_activate+0x574/0x7e0 lib/debugobjects.c:442
+>  debug_rcu_head_queue kernel/rcu/rcu.h:75
+>  __call_rcu.constprop.76+0xff/0x9c0 kernel/rcu/tree.c:3229
+>  call_rcu_sched+0x12/0x20 kernel/rcu/tree.c:3288
+>  rt6_rcu_free net/ipv6/ip6_fib.c:158
+>  rt6_release+0x1ea/0x290 net/ipv6/ip6_fib.c:188
+>  fib6_del_route net/ipv6/ip6_fib.c:1461
+>  fib6_del+0xa42/0xdc0 net/ipv6/ip6_fib.c:1500
+>  __ip6_del_rt+0x100/0x160 net/ipv6/route.c:2174
+>  ip6_del_rt+0x140/0x1b0 net/ipv6/route.c:2187
+>  __ipv6_ifa_notify+0x269/0x780 net/ipv6/addrconf.c:5520
+>  addrconf_ifdown+0xe60/0x1a20 net/ipv6/addrconf.c:3672
+> ...
+>
+> Andrey's reproducer program runs in a very tight loop, calling
+> 'unshare -n' and then spawning 2 sets of 14 threads running random ioctl
+> calls. The relevant networking sequence:
+>
+> 1. New network namespace created via unshare -n
+> - ip6tnl0 device is created in down state
+>
+> 2. address added to ip6tnl0
+> - equivalent to ip -6 addr add dev ip6tnl0 fd00::bb/1
+> - DAD is started on the address and when it completes the host
+>   route is inserted into the FIB
+>
+> 3. ip6tnl0 is brought up
+> - the new fixup_permanent_addr function restarts DAD on the address
+>
+> 4. exit namespace
+> - teardown / cleanup sequence starts
+> - once in a blue moon, lo teardown appears to happen BEFORE teardown
+>   of ip6tunl0
+>   + down on 'lo' removes the host route from the FIB since the dst->dev
+>     for the route is loobback
+>   + host route added to rcu callback list
+>     * rcu callback has not run yet, so rt is NOT on the gc list so it has
+>       NOT been marked obsolete
+>
+> 5. in parallel to 4. worker_thread runs addrconf_dad_completed
+> - DAD on the address on ip6tnl0 completes
+> - calls ipv6_ifa_notify which inserts the host route
+>
+> All of that happens very quickly. The result is that a host route that
+> has been deleted from the IPv6 FIB and added to the RCU list is re-inserted
+> into the FIB.
+>
+> The exit namespace eventually gets to cleaning up ip6tnl0 which removes the
+> host route from the FIB again, calls the rcu function for cleanup -- and
+> triggers the double rcu trace.
+>
+> The root cause is duplicate DAD on the address -- steps 2 and 3. Arguably,
+> DAD should not be started in step 2. The interface is in the down state,
+> so it can not really send out requests for the address which makes starting
+> DAD pointless.
+>
+> Since the second DAD was introduced by a recent change, seems appropriate
+> to use it for the Fixes tag and have the fixup function only start DAD for
+> addresses in the PREDAD state which occurs in addrconf_ifdown if the
+> address is retained.
 
-...
+Hi David,
 
-> PATCH[9,10] fix two issues found by the debugging functionality.
+Your patch fixes the issue for me.
 
-Hi Gavin
+I'll keep testing to see if all the reports related to fib6 are gone.
 
-If they are real fixes, you should submit them separately. Please
-include Fixes: tags, and indicate if they need to be included in
--stable.
+Tested-by: Andrey Konovalov <andreyknvl@google.com>
 
-David will probably accept fixes while the merge window is closed.
+Thanks!
 
-	Andrew
+>
+> Big thanks to Andrey for isolating a reliable reproducer for this problem.
+> Fixes: f1705ec197e7 ("net: ipv6: Make address flushing on ifdown optional")
+> Reported-by: Andrey Konovalov <andreyknvl@google.com>
+> Signed-off-by: David Ahern <dsahern@gmail.com>
+> ---
+>  net/ipv6/addrconf.c | 5 +++--
+>  1 file changed, 3 insertions(+), 2 deletions(-)
+>
+> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+> index 67ec87ea5fb6..4fc4e8634e65 100644
+> --- a/net/ipv6/addrconf.c
+> +++ b/net/ipv6/addrconf.c
+> @@ -3306,7 +3306,8 @@ static int fixup_permanent_addr(struct inet6_dev *idev,
+>                                       idev->dev, 0, 0);
+>         }
+>
+> -       addrconf_dad_start(ifp);
+> +       if (ifp->state == INET6_IFADDR_STATE_PREDAD)
+> +               addrconf_dad_start(ifp);
+>
+>         return 0;
+>  }
+> @@ -3656,7 +3657,7 @@ static int addrconf_ifdown(struct net_device *dev, int how)
+>                     !addr_is_local(&ifa->addr)) {
+>                         /* set state to skip the notifier below */
+>                         state = INET6_IFADDR_STATE_DEAD;
+> -                       ifa->state = 0;
+> +                       ifa->state = INET6_IFADDR_STATE_PREDAD;
+>                         if (!(ifa->flags & IFA_F_NODAD))
+>                                 ifa->flags |= IFA_F_TENTATIVE;
+>
+> --
+> 2.1.4
+>
