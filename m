@@ -1,51 +1,72 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH] netfilter: conntrack: Force inlining of build check to
- prevent build failure
-Date: Wed, 3 May 2017 14:32:31 +0200
-Message-ID: <CAK8P3a23oEo1zYdFD2nSFzvEc6SF_hoW+4OBig_SY3C1oHJA+g@mail.gmail.com>
-References: <1493813923-5441-1-git-send-email-geert@linux-m68k.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S . Miller" <davem@davemloft.net>,
-        Florian Westphal <fw@strlen.de>,
-        Pablo Neira Ayuso <pablo@netfilter.org>,
-        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-        Networking <netdev@vger.kernel.org>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Geert Uytterhoeven <geert@linux-m68k.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f68.google.com ([209.85.218.68]:33759 "EHLO
-        mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751297AbdECMcc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 3 May 2017 08:32:32 -0400
-In-Reply-To: <1493813923-5441-1-git-send-email-geert@linux-m68k.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Quentin Schulz <quentin.schulz@free-electrons.com>
+Subject: [PATCH v2 1/2] can: m_can: move Message RAM initialization to function
+Date: Wed,  3 May 2017 14:37:49 +0200
+Message-ID: <20170503123750.26134-1-quentin.schulz@free-electrons.com>
+Cc: Quentin Schulz <quentin.schulz@free-electrons.com>,
+        linux-can@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, alexandre.belloni@free-electrons.com,
+        thomas.petazzoni@free-electrons.com
+To: wg@grandegger.com, mkl@pengutronix.de, mario.huettel@gmx.net,
+        socketcan@hartkopp.net
+Return-path: <linux-can-owner@vger.kernel.org>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, May 3, 2017 at 2:18 PM, Geert Uytterhoeven <geert@linux-m68k.org> wrote:
-> If gcc (e.g. 4.1.2) decides not to inline total_extension_size(), the
-> build will fail with:
->
->     net/built-in.o: In function `nf_conntrack_init_start':
->     (.text+0x9baf6): undefined reference to `__compiletime_assert_1893'
->
-> or
->
->     ERROR: "__compiletime_assert_1893" [net/netfilter/nf_conntrack.ko] undefined!
->
-> Fix this by forcing inlining of total_extension_size().
->
-> Fixes: b3a5db109e0670d6 ("netfilter: conntrack: use u8 for extension sizes again")
-> Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
+To avoid possible ECC/parity checksum errors when reading an
+uninitialized buffer, the entire Message RAM is initialized when probing
+the driver. This initialization is done in the same function reading the
+Device Tree properties.
 
-I saw this as well when I tried building with "gcc-7 -Og", and came to the same
-conclusion.
+This patch moves the RAM initialization to a separate function so it can
+be called separately from device initialization from Device Tree.
 
-Acked-by: Arnd Bergmann <arnd@arndb.de>
+Signed-off-by: Quentin Schulz <quentin.schulz@free-electrons.com>
+---
+ drivers/net/can/m_can/m_can.c | 24 +++++++++++++++---------
+ 1 file changed, 15 insertions(+), 9 deletions(-)
 
-With -Og, there were a couple of other instances of BUILD_BUG_ON() failing
-to see a compile-time constant, presumably as it fails to inline any functions
-that are not explicitly marked inline.
+diff --git a/drivers/net/can/m_can/m_can.c b/drivers/net/can/m_can/m_can.c
+index bf8fdaeb955e..3f0445440146 100644
+--- a/drivers/net/can/m_can/m_can.c
++++ b/drivers/net/can/m_can/m_can.c
+@@ -1489,6 +1489,20 @@ static int register_m_can_dev(struct net_device *dev)
+ 	return register_candev(dev);
+ }
+ 
++static void m_can_init_ram(struct m_can_priv *priv)
++{
++	int end, i, start;
++
++	/* initialize the entire Message RAM in use to avoid possible
++	 * ECC/parity checksum errors when reading an uninitialized buffer
++	 */
++	start = priv->mcfg[MRAM_SIDF].off;
++	end = priv->mcfg[MRAM_TXB].off +
++		priv->mcfg[MRAM_TXB].num * TXB_ELEMENT_SIZE;
++	for (i = start; i < end; i += 4)
++		writel(0x0, priv->mram_base + i);
++}
++
+ static void m_can_of_parse_mram(struct m_can_priv *priv,
+ 				const u32 *mram_config_vals)
+ {
+@@ -1529,15 +1543,7 @@ static void m_can_of_parse_mram(struct m_can_priv *priv,
+ 		priv->mcfg[MRAM_TXE].off, priv->mcfg[MRAM_TXE].num,
+ 		priv->mcfg[MRAM_TXB].off, priv->mcfg[MRAM_TXB].num);
+ 
+-	/* initialize the entire Message RAM in use to avoid possible
+-	 * ECC/parity checksum errors when reading an uninitialized buffer
+-	 */
+-	start = priv->mcfg[MRAM_SIDF].off;
+-	end = priv->mcfg[MRAM_TXB].off +
+-		priv->mcfg[MRAM_TXB].num * TXB_ELEMENT_SIZE;
+-	for (i = start; i < end; i += 4)
+-		writel(0x0, priv->mram_base + i);
+-
++	m_can_init_ram(priv);
+ }
+ 
+ static int m_can_plat_probe(struct platform_device *pdev)
+-- 
+2.11.0
 
-       Arnd
