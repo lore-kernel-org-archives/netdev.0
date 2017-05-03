@@ -1,29 +1,30 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 00/16] Netfilter/IPVS/OVS fixes for net
-Date: Wed, 03 May 2017 10:11:51 -0400 (EDT)
-Message-ID: <20170503.101151.768453544352481727.davem@davemloft.net>
-References: <1493803931-2837-1-git-send-email-pablo@netfilter.org>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH] net/sched: remove redundant null check on head
+Date: Wed, 3 May 2017 16:15:33 +0200
+Message-ID: <20170503141533.GC2077@nanopsycho.orion>
+References: <20170503135040.32023-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: pablo@netfilter.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1493803931-2837-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org,
+        kernel-janitors@vger.kernel.org,
+        "David S . Miller" <davem@davemloft.net>,
+        linux-kernel@vger.kernel.org
+To: Colin King <colin.king@canonical.com>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170503135040.32023-1-colin.king@canonical.com>
+Sender: kernel-janitors-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Wed,  3 May 2017 11:31:55 +0200
+Wed, May 03, 2017 at 03:50:40PM CEST, colin.king@canonical.com wrote:
+>From: Colin Ian King <colin.king@canonical.com>
+>
+>head is previously null checked and so the 2nd null check on head
+>is redundant and therefore can be removed.
+>
+>Detected by CoverityScan, CID#1399505 ("Logically dead code")
+>
+>Signed-off-by: Colin Ian King <colin.king@canonical.com>
 
-> The following patchset contains a rather large batch of Netfilter, IPVS
-> and OVS fixes for your net tree. This includes fixes for ctnetlink, the
-> userspace conntrack helper infrastructure, conntrack OVS support,
-> ebtables DNAT target, several leaks in error path among other. More
-> specifically, they are:
- ...
-> You can pull these changes from:
-> 
->   git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git
-
-Pulled, thanks Pablo.
+Acked-by: Jiri Pirko <jiri@mellanox.com>
