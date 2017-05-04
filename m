@@ -1,62 +1,35 @@
-From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
-Subject: Re: [PATCH] aquantia: Fix "ethtool -S" crash when adapter down.
-Date: Thu, 4 May 2017 18:48:12 +0200
-Message-ID: <0babf800-080c-96e0-4dbb-8d3fca3fb784@gmx.de>
-References: <90666578f043b366313ddd90ffad86de42d890f2.1493914743.git.pavel.belous@aquantia.com>
+From: Oleg <lego12239@yandex.ru>
+Subject: struct ip vs struct iphdr
+Date: Thu, 4 May 2017 19:42:19 +0300
+Message-ID: <20170504164219.GA25287@legohost>
+Reply-To: Oleg <lego12239@yandex.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Arcari <darcari@redhat.com>
-To: Pavel Belous <Pavel.Belous@aquantia.com>,
-        "David S . Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.net ([212.227.17.21]:50640 "EHLO mout.gmx.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752400AbdEDQsg (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 4 May 2017 12:48:36 -0400
-In-Reply-To: <90666578f043b366313ddd90ffad86de42d890f2.1493914743.git.pavel.belous@aquantia.com>
+Received: from forward6h.cmail.yandex.net ([87.250.230.217]:46831 "EHLO
+        forward6h.cmail.yandex.net" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1752384AbdEDQtH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 4 May 2017 12:49:07 -0400
+Received: from smtp3h.mail.yandex.net (smtp3h.mail.yandex.net [84.201.186.20])
+        by forward6h.cmail.yandex.net (Yandex) with ESMTP id 7B2B421A31
+        for <netdev@vger.kernel.org>; Thu,  4 May 2017 19:41:30 +0300 (MSK)
+Received: from smtp3h.mail.yandex.net (localhost.localdomain [127.0.0.1])
+        by smtp3h.mail.yandex.net (Yandex) with ESMTP id 4DF1A440DCD
+        for <netdev@vger.kernel.org>; Thu,  4 May 2017 19:41:29 +0300 (MSK)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Pavel,
+  Hi, all.
 
-On 04.05.2017 18:33, Pavel Belous wrote:
-> From: Pavel Belous <pavel.belous@aquantia.com>
-> 
-> This patch fixes the crash that happens when driver tries to collect statistics
-> from already released "aq_vec" object.
-> 
-> Fixes: 97bde5c4f909 ("net: ethernet: aquantia: Support for NIC-specific code")
-> Signed-off-by: Pavel Belous <pavel.belous@aquantia.com>
-> ---
->  drivers/net/ethernet/aquantia/atlantic/aq_nic.c | 3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_nic.c b/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
-> index cdb0299..3a32573 100644
-> --- a/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
-> +++ b/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
-> @@ -755,7 +755,7 @@ void aq_nic_get_stats(struct aq_nic_s *self, u64 *data)
->  	count = 0U;
->  
->  	for (i = 0U, aq_vec = self->aq_vec[0];
-> -		self->aq_vecs > i; ++i, aq_vec = self->aq_vec[i]) {
-> +		aq_vec && self->aq_vecs > i; ++i, aq_vec = self->aq_vec[i]) {
->  		data += count;
->  		aq_vec_get_sw_stats(aq_vec, data, &count);
->  	}
-> @@ -961,6 +961,7 @@ void aq_nic_free_hot_resources(struct aq_nic_s *self)
->  	for (i = AQ_DIMOF(self->aq_vec); i--;) {
->  		if (self->aq_vec[i])
->  			aq_vec_free(self->aq_vec[i]);
-> +			self->aq_vec[i] = NULL;
->  	}
->  
->  err_exit:;
-> 
+It seems struct ip and struct iphdr are similar: struct ip, despite of
+it name, doesn't contain anything but ip header.
 
-if the driver does not support statistics when the interface is down, would not it be clearer
-to check if netif_running() in get_stats() instead?
+So, my noob question, what is the difference between them?
 
-Regards,
-Lino
+Thanks.
+
+-- 
+Олег Неманов (Oleg Nemanov)
