@@ -1,36 +1,74 @@
-From: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
-Subject: [net-next] net: remove duplicate add_device_randomness() call
-Date: Thu,  4 May 2017 11:40:42 +0800
-Message-ID: <1493869242-65468-1-git-send-email-zhangshengju@cmss.chinamobile.com>
-To: davem@davemloft.net, netdev@vger.kernel.org, edumazet@google.com
+From: <kelley@colfaxcommunitynetwork.org>
+Subject: 58960 netdev
+Date: Thu, 04 May 2017 05:11:14 -0000
+Message-ID: <149387467463.23200.15769763385848115077@ses-broadband.net>
+Mime-Version: 1.0
+Content-Type: application/zip; name="374278179.zip"
+Content-Transfer-Encoding: base64
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmccmta1.chinamobile.com ([221.176.66.79]:18010 "EHLO
-        cmccmta1.chinamobile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754524AbdEDFIt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 4 May 2017 01:08:49 -0400
+Received: from 19.sbbs-109-120-117.ses-broadband.net ([109.120.117.19]:1255
+        "HELO ses-broadband.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with SMTP id S932085AbdEDFL1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 4 May 2017 01:11:27 -0400
+Content-Disposition: attachment
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since register_netdevice() already call add_device_randomness() and
-dev_set_mac_address() will call it after mac address change.
-It's not necessary to call at device UP.
-
-Signed-off-by: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
----
- net/core/dev.c | 1 -
- 1 file changed, 1 deletion(-)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 35a06ce..cb48e40 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -1347,7 +1347,6 @@ static int __dev_open(struct net_device *dev)
- 		dev->flags |= IFF_UP;
- 		dev_set_rx_mode(dev);
- 		dev_activate(dev);
--		add_device_randomness(dev->dev_addr, dev->addr_len);
- 	}
- 
- 	return ret;
--- 
-1.8.3.1
+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
