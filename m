@@ -1,83 +1,112 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: Re: [Patch net] ipv6: reorder ip6_route_dev_notifier after
- ipv6_dev_notf
-Date: Thu, 4 May 2017 08:00:20 -0600
-Message-ID: <06a0c19e-1450-6a97-3bfc-35237d784507@gmail.com>
-References: <1493874452-3050-2-git-send-email-xiyou.wangcong@gmail.com>
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: Re: net: possible deadlock in skb_queue_tail
+Date: Thu, 04 May 2017 16:05:29 +0200
+Message-ID: <1493906729.2274.6.camel@redhat.com>
+References: <CAAeHK+yCwsZE9iv+OLHJaU+7FEka8UHy_t5vMqFUBpQ8srBbsQ@mail.gmail.com>
+         <20170224025650.GA16439@breakpoint.cc>
+         <CAAeHK+wNPLWKy7q-mpPFrgK6pvnGYA9aPc_rs5d4sSvpvtoxDA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: andreyknvl@google.com
-To: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:33196 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752850AbdEDOAX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 4 May 2017 10:00:23 -0400
-Received: by mail-pf0-f195.google.com with SMTP id b23so2222750pfc.0
-        for <netdev@vger.kernel.org>; Thu, 04 May 2017 07:00:23 -0700 (PDT)
-In-Reply-To: <1493874452-3050-2-git-send-email-xiyou.wangcong@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+        "David S. Miller" <davem@davemloft.net>,
+        netfilter-devel@vger.kernel.org, netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        Kostya Serebryany <kcc@google.com>,
+        Eric Dumazet <edumazet@google.com>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Andrey Konovalov <andreyknvl@google.com>,
+        Florian Westphal <fw@strlen.de>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <CAAeHK+wNPLWKy7q-mpPFrgK6pvnGYA9aPc_rs5d4sSvpvtoxDA@mail.gmail.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 5/3/17 11:07 PM, Cong Wang wrote:
-> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-> index 2f11366..4dbf7e2 100644
-> --- a/net/ipv6/route.c
-> +++ b/net/ipv6/route.c
-> @@ -4024,7 +4024,7 @@ static struct pernet_operations ip6_route_net_late_ops = {
->  
->  static struct notifier_block ip6_route_dev_notifier = {
->  	.notifier_call = ip6_route_dev_notify,
-> -	.priority = 0,
-> +	.priority = -10, /* Must be called after addrconf_notify!! */
->  };
->  
->  void __init ip6_route_init_special_entries(void)
+On Thu, 2017-05-04 at 15:49 +0200, Andrey Konovalov wrote:
+> On Fri, Feb 24, 2017 at 3:56 AM, Florian Westphal <fw@strlen.de> wrote:
+> > Andrey Konovalov <andreyknvl@google.com> wrote:
+> > 
+> > [ CC Paolo ]
+> > 
+> > > I've got the following error report while fuzzing the kernel with syzkaller.
+> > > 
+> > > On commit c470abd4fde40ea6a0846a2beab642a578c0b8cd (4.10).
+> > > 
+> > > Unfortunately I can't reproduce it.
+> > 
+> > This needs NETLINK_BROADCAST_ERROR enabled on a netlink socket
+> > that then subscribes to netfilter conntrack (ctnetlink) events.
+> > probably syzkaller did this by accident -- impressive.
+> > 
+> > (one task is the ctnetlink event redelivery worker
+> >  which won't be scheduled otherwise).
+> > 
+> > > ======================================================
+> > > [ INFO: possible circular locking dependency detected ]
+> > > 4.10.0-rc8+ #201 Not tainted
+> > > -------------------------------------------------------
+> > > kworker/0:2/1404 is trying to acquire lock:
+> > >  (&(&list->lock)->rlock#3){+.-...}, at: [<ffffffff8335b23f>]
+> > > skb_queue_tail+0xcf/0x2f0 net/core/skbuff.c:2478
+> > > 
+> > > but task is already holding lock:
+> > >  (&(&pcpu->lock)->rlock){+.-...}, at: [<ffffffff8366b55f>] spin_lock
+> > > include/linux/spinlock.h:302 [inline]
+> > >  (&(&pcpu->lock)->rlock){+.-...}, at: [<ffffffff8366b55f>]
+> > > ecache_work_evict_list+0xaf/0x590
+> > > net/netfilter/nf_conntrack_ecache.c:48
+> > > 
+> > > which lock already depends on the new lock.
+> > 
+> > Cong is correct, this is a false positive.
+> > 
+> > However we should fix this splat.
+> > 
+> > Paolo, this happens since 7c13f97ffde63cc792c49ec1513f3974f2f05229
+> > ('udp: do fwd memory scheduling on dequeue'), before this
+> > commit kfree_skb() was invoked outside of the locked section in
+> > first_packet_length().
+> > 
+> > cpu 0 call chain:
+> > - first_packet_length (hold udp sk_receive_queue lock)
+> >    - kfree_skb
+> >       - nf_conntrack_destroy
+> >          - spin_lock(net->ct.pcpu->lock)
+> > 
+> > cpu 1 call chain:
+> > - ecache_work_evict_list
+> >   - spin_lock( net->ct.pcpu->lock)
+> >   - nf_conntrack_event
+> >      - aquire netlink socket sk_receive_queue
+> > 
+> > So this could only ever deadlock if a netlink socket
+> > calls kfree_skb while holding its sk_receive_queue lock, but afaics
+> > this is never the case.
+> > 
+> > There are two ways to avoid this splat (other than lockdep annotation):
+> > 
+> > 1. re-add the list to first_packet_length() and free the
+> > skbs outside of locked section.
+> > 
+> > 2. change ecache_work_evict_list to not call nf_conntrack_event()
+> > while holding the pcpu lock.
+> > 
+> > doing #2 might be a good idea anyway to avoid potential deadlock
+> > when kfree_skb gets invoked while other cpu holds its sk_receive_queue
+> > lock, I'll have a look if this is feasible.
 > 
+> Hi!
+> 
+> Any updates on this?
+> 
+> I might have missed the patch if there was one.
+> 
+> Thanks!
 
-That should be codified such that if someone changes the priority of the
-addrconf notifier, it fixes up the route notifier as well. e.g.,
+That has should be fixed via lockdep annotation with
+581319c58600b54612c417aff32ae9bbd79f4cdb
 
-diff --git a/include/net/addrconf.h b/include/net/addrconf.h
-index 1aeb25dd42a7..6c0ee3ccbe0f 100644
---- a/include/net/addrconf.h
-+++ b/include/net/addrconf.h
-@@ -20,6 +20,8 @@
- #define ADDRCONF_TIMER_FUZZ            (HZ / 4)
- #define ADDRCONF_TIMER_FUZZ_MAX                (HZ)
-+#define ADDRCONF_NOTIFY_PRIORITY       0
-+
- #include <linux/in.h>
- #include <linux/in6.h>
+Paolo
 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index a2a370b71249..7a4e6b2996a1 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -3548,6 +3548,7 @@ static int addrconf_notify(struct notifier_block
-*this, unsigned long event,
-  */
- static struct notifier_block ipv6_dev_notf = {
-        .notifier_call = addrconf_notify,
-+       .priority      = ADDRCONF_NOTIFY_PRIORITY,
- };
-
- static void addrconf_type_change(struct net_device *dev, unsigned long
-event)
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index a1bf426c959b..e0d83f8bc01a 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -4024,7 +4024,7 @@ static struct pernet_operations
-ip6_route_net_late_ops = {
-
- static struct notifier_block ip6_route_dev_notifier = {
-        .notifier_call = ip6_route_dev_notify,
--       .priority = 0,
-+       .priority = ADDRCONF_NOTIFY_PRIORITY - 10,
- };
-
-
-And you marked this as a patch for net; I think this should go into
-net-next.
