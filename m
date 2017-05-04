@@ -1,70 +1,52 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] iproute2: hide devices starting with period by default
-Date: Thu, 4 May 2017 12:10:09 -0700
-Message-ID: <26442035-25fd-ff9a-2804-ed21ec6198cf@gmail.com>
-References: <027775d1-ef98-deda-1f8d-bb058d1e4c2f@cumulusnetworks.com>
- <20170223163035.0a49f04d@xeon-e3>
- <13cec1c2-88f4-e61d-02ee-dc01ccee7281@cumulusnetworks.com>
- <20170223.221257.795227595252531962.davem@redhat.com>
- <0a8e1cf0-9f30-2356-5168-a97abb86d5c2@cumulusnetworks.com>
- <0635d3bb-0d8d-7ab6-fb53-4d84f979a023@6wind.com>
- <4bbb7a19-1b0b-8c9a-7e74-82ee146cf48c@gmail.com>
+From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+Subject: Re: [net-ipv4] question about arguments position
+Date: Thu, 04 May 2017 14:15:48 -0500
+Message-ID: <20170504141548.Horde.VjUEZJdTZiLesC8PBMAO8QM@gator4166.hostgator.com>
+References: <20170504110755.Horde.9md-X4baf8TwOEKjGrXkelZ@gator4166.hostgator.com>
+ <20170504.124600.627647229351638856.davem@davemloft.net>
+ <1493920071.22125.37.camel@perches.com>
+ <20170504140015.Horde.iqqsROVYuFdJnC6P1dMPyBa@gator4166.hostgator.com>
+ <1493924538.22125.43.camel@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: David Miller <davem@redhat.com>, stephen@networkplumber.org,
-        netdev@vger.kernel.org
-To: David Ahern <dsahern@gmail.com>, nicolas.dichtel@6wind.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:35200 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756343AbdEDTKO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 4 May 2017 15:10:14 -0400
-Received: by mail-wm0-f67.google.com with SMTP id d79so5391805wmi.2
-        for <netdev@vger.kernel.org>; Thu, 04 May 2017 12:10:14 -0700 (PDT)
-In-Reply-To: <4bbb7a19-1b0b-8c9a-7e74-82ee146cf48c@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8; format=flowed; DelSp=Yes
+Cc: David Miller <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
+        jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1493924538.22125.43.camel@perches.com>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 05/04/2017 09:37 AM, David Ahern wrote:
-> On 5/4/17 9:15 AM, Nicolas Dichtel wrote:
->> Le 24/02/2017 à 16:52, David Ahern a écrit :
->>> On 2/23/17 8:12 PM, David Miller wrote:
->>>> This really need to be a fundamental facility, so that it transparently
->>>> works for NetworkManager, router daemons, everything.  Not just iproute2
->>>> and "ls".
->>>
->>> I'll rebase my patch and send out as RFC.
->>>
->> David, did you finally send those patches?
+
+Quoting Joe Perches <joe@perches.com>:
+
+> On Thu, 2017-05-04 at 14:00 -0500, Gustavo A. R. Silva wrote:
+>> Regarding the code comments, what about the following patch:
+> []
+>> diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
+> []
+>> @@ -389,6 +389,12 @@ static int sk_diag_fill(struct sock *sk, struct
+>> sk_buff *skb,
+>>                                    nlmsg_flags, unlh, net_admin);
+>>   }
 >>
-> 
-> No, but for a few reasons.
-> 
-> It is easy to hide devices in a dump:
-> 
-> https://github.com/dsahern/linux/commit/48a80a00eac284e58bae04af10a5a932dd7aee00
-> 
-> 
-> But I think those devices should also not exist in sysfs or procfs which
-> overlaps what I would like to see for lightweight netdevices:
-> 
-> https://github.com/dsahern/linux/commit/70574be699cf252e77f71e3df11192438689f976
+>> +/*
+>> + * Ignore the position of the arguments req->id.idiag_dport and
+>> + * req->id.idiag_sport in both calls to inet_lookup() and inet6_lookup()
+>> + * functions, once this is a locked in behavior exposed to user space.
+>> + * Changing this will break things for people.
+>> + */
+>>   struct sock *inet_diag_find_one_icsk(struct net *net,
+>>                                       struct inet_hashinfo *hashinfo,
+>>                                       const struct inet_diag_req_v2 *req)
+>>
+>
+> Seems sensible.  Thanks.
 
-Interesting that does indeed solve the same problems as the L2 only
-patch set intended. I am not exactly sure if hiding the devices from
-procfs/sysfs would be appropriate in my case (dumb L2 only switch that
-only does 802.1q for instance), but why not.
+Should I resend it in a full and proper format or it can taken from here?
 
-
-> 
-> 
-> and to be complete, hidden devices should not be allowed to have a
-> network address or transmit packets which is the L2 only intent from
-> Florian:
->     https://www.spinics.net/lists/netdev/msg340808.html
-> 
-
-Do you plan on submitting the LWT patch set at some point?
--- 
-Florian
+Thanks
+--
+Gustavo A. R. Silva
