@@ -1,29 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 2/3] qed: Fix overriding of supported autoneg value.
-Date: Thu, 04 May 2017 09:40:09 -0400 (EDT)
-Message-ID: <20170504.094009.338943601867128308.davem@davemloft.net>
-References: <20170504065209.26106-3-sudarsana.kalluru@cavium.com>
-        <20170504072051.GP22833@mtr-leonro.local>
-        <CY4PR07MB3048164CC90E3486981CDA5F8AEA0@CY4PR07MB3048.namprd07.prod.outlook.com>
+From: Sabrina Dubroca <sd@queasysnail.net>
+Subject: Re: [PATCH net] ah: use crypto_memneq to check the ICV
+Date: Thu, 4 May 2017 15:43:57 +0200
+Message-ID: <20170504134357.GA25251@bistromath.localdomain>
+References: <c53afb48648b2727f6272053f6100c8db3ec6486.1493741168.git.sd@queasysnail.net>
+ <20170504104124.GV2649@secunet.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: leon@kernel.org, netdev@vger.kernel.org, Yuval.Mintz@cavium.com
-To: Sudarsana.Kalluru@cavium.com
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org, Herbert Xu <herbert@gondor.apana.org.au>
+To: Steffen Klassert <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:54524 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751654AbdEDNkL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 4 May 2017 09:40:11 -0400
-In-Reply-To: <CY4PR07MB3048164CC90E3486981CDA5F8AEA0@CY4PR07MB3048.namprd07.prod.outlook.com>
+Received: from mx1.redhat.com ([209.132.183.28]:3730 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752216AbdEDNoA (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 4 May 2017 09:44:00 -0400
+Content-Disposition: inline
+In-Reply-To: <20170504104124.GV2649@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Kalluru, Sudarsana" <Sudarsana.Kalluru@cavium.com>
-Date: Thu, 4 May 2017 08:02:52 +0000
+2017-05-04, 12:41:24 +0200, Steffen Klassert wrote:
+> On Wed, May 03, 2017 at 04:57:57PM +0200, Sabrina Dubroca wrote:
+> > Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
+> > ---
+> >  net/ipv4/ah4.c | 5 +++--
+> >  net/ipv6/ah6.c | 5 +++--
+> >  2 files changed, 6 insertions(+), 4 deletions(-)
+> 
+> Is this a fix for something? If so, please describe what it fixes.
+> If not, it can wait until after the merge window and merged into
+> ipsec-next then.
 
-> Dave, please let us know if re-spin is required for this. If not required, will plan to clean it up in the next series.
+Yeah, not really. I suppose you could see it as a fix for the commit
+that introduced crypto_memneq and did some conversions (6bf37e5aa90f
+("crypto: crypto_memneq - add equality testing of memory regions w/o
+timing leaks")), but that may be a bit of a stretch.
 
-Please fix this now.
+I can repost that for ipsec-next in a couple of weeks.
 
-Thanks.
+
+Thanks,
+
+-- 
+Sabrina
