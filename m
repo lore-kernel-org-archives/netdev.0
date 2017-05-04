@@ -1,88 +1,70 @@
-From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
-Subject: Re: [PATCH] aquantia: Fix "ethtool -S" crash when adapter down.
-Date: Thu, 4 May 2017 21:08:06 +0200
-Message-ID: <37304a98-c122-c360-882b-31db3f62c1bf@gmx.de>
-References: <90666578f043b366313ddd90ffad86de42d890f2.1493914743.git.pavel.belous@aquantia.com>
- <0babf800-080c-96e0-4dbb-8d3fca3fb784@gmx.de>
- <20170504.125113.569969253752966231.davem@davemloft.net>
- <d20deac6-7010-c0e8-e4d8-7faa591e7306@aquantia.com>
- <0efef5aa-c73d-ff16-a2ec-e63ad298ffa2@redhat.com>
- <b039f869-2b3a-416f-2f52-f3efdf7b385a@aquantia.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH] iproute2: hide devices starting with period by default
+Date: Thu, 4 May 2017 12:10:09 -0700
+Message-ID: <26442035-25fd-ff9a-2804-ed21ec6198cf@gmail.com>
+References: <027775d1-ef98-deda-1f8d-bb058d1e4c2f@cumulusnetworks.com>
+ <20170223163035.0a49f04d@xeon-e3>
+ <13cec1c2-88f4-e61d-02ee-dc01ccee7281@cumulusnetworks.com>
+ <20170223.221257.795227595252531962.davem@redhat.com>
+ <0a8e1cf0-9f30-2356-5168-a97abb86d5c2@cumulusnetworks.com>
+ <0635d3bb-0d8d-7ab6-fb53-4d84f979a023@6wind.com>
+ <4bbb7a19-1b0b-8c9a-7e74-82ee146cf48c@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Pavel Belous <pavel.belous@aquantia.com>,
-        David Arcari <darcari@redhat.com>,
-        David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: David Miller <davem@redhat.com>, stephen@networkplumber.org,
+        netdev@vger.kernel.org
+To: David Ahern <dsahern@gmail.com>, nicolas.dichtel@6wind.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.net ([212.227.17.20]:59916 "EHLO mout.gmx.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754514AbdEDTI2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 4 May 2017 15:08:28 -0400
-In-Reply-To: <b039f869-2b3a-416f-2f52-f3efdf7b385a@aquantia.com>
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:35200 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756343AbdEDTKO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 4 May 2017 15:10:14 -0400
+Received: by mail-wm0-f67.google.com with SMTP id d79so5391805wmi.2
+        for <netdev@vger.kernel.org>; Thu, 04 May 2017 12:10:14 -0700 (PDT)
+In-Reply-To: <4bbb7a19-1b0b-8c9a-7e74-82ee146cf48c@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04.05.2017 20:37, Pavel Belous wrote:
+On 05/04/2017 09:37 AM, David Ahern wrote:
+> On 5/4/17 9:15 AM, Nicolas Dichtel wrote:
+>> Le 24/02/2017 à 16:52, David Ahern a écrit :
+>>> On 2/23/17 8:12 PM, David Miller wrote:
+>>>> This really need to be a fundamental facility, so that it transparently
+>>>> works for NetworkManager, router daemons, everything.  Not just iproute2
+>>>> and "ls".
+>>>
+>>> I'll rebase my patch and send out as RFC.
+>>>
+>> David, did you finally send those patches?
+>>
+> 
+> No, but for a few reasons.
+> 
+> It is easy to hide devices in a dump:
+> 
+> https://github.com/dsahern/linux/commit/48a80a00eac284e58bae04af10a5a932dd7aee00
+> 
+> 
+> But I think those devices should also not exist in sysfs or procfs which
+> overlaps what I would like to see for lightweight netdevices:
+> 
+> https://github.com/dsahern/linux/commit/70574be699cf252e77f71e3df11192438689f976
+
+Interesting that does indeed solve the same problems as the L2 only
+patch set intended. I am not exactly sure if hiding the devices from
+procfs/sysfs would be appropriate in my case (dumb L2 only switch that
+only does 802.1q for instance), but why not.
+
 
 > 
-> Yes, even adapter is in the down state user can still see statistics from the HW.
-> For example (adapter is down):
 > 
-> $ ethtool -S enp2s0
-> NIC statistics:
->      InPackets: 3237727
->      InUCast: 3237214
->      InMCast: 391
->      InBCast: 122
->      InErrors: 0
->      OutPackets: 14157898
->      OutUCast: 14157089
->      OutMCast: 304
->      OutBCast: 505
->      InUCastOctects: 226714406
->      OutUCastOctects: 10463156
->      InMCastOctects: 58046
->      OutMCastOctects: 44817
->      InBCastOctects: 12857
->      OutBCastOctects: 41626
->      InOctects: 226785309
->      OutOctects: 10549599
->      InPacketsDma: 0
->      OutPacketsDma: 16
->      InOctetsDma: 0
->      OutOctetsDma: 2396
->      InDroppedDma: 0
->      Queue[0] InPackets: 0
->      Queue[0] OutPackets: 0
->      Queue[0] InJumboPackets: 0
->      Queue[0] InLroPackets: 0
->      Queue[0] InErrors: 0
->      Queue[1] InPackets: 0
->      Queue[1] OutPackets: 0
->      Queue[1] InJumboPackets: 0
->      Queue[1] InLroPackets: 0
->      Queue[1] InErrors: 0
->      Queue[2] InPackets: 0
->      Queue[2] OutPackets: 0
->      Queue[2] InJumboPackets: 0
->      Queue[2] InLroPackets: 0
->      Queue[2] InErrors: 0
->      Queue[3] InPackets: 0
->      Queue[3] OutPackets: 0
->      Queue[3] InJumboPackets: 0
->      Queue[3] InLroPackets: 0
->      Queue[3] InErrors: 0
-> 
-> Lino, David what do you think?
-> If you agree I can re-submit the patch (with fixed braces).
+> and to be complete, hidden devices should not be allowed to have a
+> network address or transmit packets which is the L2 only intent from
+> Florian:
+>     https://www.spinics.net/lists/netdev/msg340808.html
 > 
 
-Well my objection was related to how the bug is fixed. If in the end we have a solution
-as suggested by David it would be even better, of course. I dont think that this is too
-hard to realize since it is only the queues stats that are missing. But if you prefer to 
-solve it in two steps, sure, no objections from my side :)
-
-Regards,
-Lino 
+Do you plan on submitting the LWT patch set at some point?
+-- 
+Florian
