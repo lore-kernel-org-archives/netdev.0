@@ -1,105 +1,105 @@
-From: Stefan Agner <stefan@agner.ch>
-Subject: Re: FEC on i.MX 7 transmit queue timeout
-Date: Thu, 04 May 2017 14:36:10 -0700
-Message-ID: <e044b850a90e7112028cc12977d15cf2@agner.ch>
-References: <c6b66956c48f981a952048da6b2ddd54@agner.ch>
- <ed24e51d-499f-597b-0c9f-7f180e257acb@nxp.com>
- <e99d7c93b7819507c6448842015bf836@agner.ch>
- <AM4PR0401MB2260EBCD552219D3402B68FEFF180@AM4PR0401MB2260.eurprd04.prod.outlook.com>
- <86b63ee28acfff3426c4a0bf72d848c1@agner.ch>
- <2bdd64ab-5644-e0a0-9bfe-b8dd2fca7abb@nxp.com>
- <80191e7c9df5871cd450f13b9ea47a10@agner.ch>
- <ab1fc814-4a81-9eb0-b20b-2cd325158ba8@nxp.com>
- <e366479239b66ba80415b5594def2369@agner.ch>
- <AM4PR0401MB2260F011313883C522EA7684FFEA0@AM4PR0401MB2260.eurprd04.prod.outlook.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: festevam@gmail.com, netdev@vger.kernel.org,
-        netdev-owner@vger.kernel.org
-To: Andy Duan <fugang.duan@nxp.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: [Patch net] ipv4: restore rt->fi for reference counting
+Date: Thu,  4 May 2017 14:54:17 -0700
+Message-ID: <1493934857-6693-1-git-send-email-xiyou.wangcong@gmail.com>
+Cc: andreyknvl@google.com, edumazet@google.com,
+        Cong Wang <xiyou.wangcong@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kmu-office.ch ([178.209.48.109]:40732 "EHLO
-        mail.kmu-office.ch" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751814AbdEDVgi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 4 May 2017 17:36:38 -0400
-In-Reply-To: <AM4PR0401MB2260F011313883C522EA7684FFEA0@AM4PR0401MB2260.eurprd04.prod.outlook.com>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:35894 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751814AbdEDVy2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 4 May 2017 17:54:28 -0400
+Received: by mail-pf0-f193.google.com with SMTP id v14so3618217pfd.3
+        for <netdev@vger.kernel.org>; Thu, 04 May 2017 14:54:28 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2017-05-03 20:08, Andy Duan wrote:
-> From: Stefan Agner <stefan@agner.ch> Sent: Thursday, May 04, 2017 9:22 AM
->>To: Andy Duan <fugang.duan@nxp.com>
->>Cc: fugang.duan@freescale.com; festevam@gmail.com;
->>netdev@vger.kernel.org; netdev-owner@vger.kernel.org
->>Subject: Re: FEC on i.MX 7 transmit queue timeout
->>
->>Hi Andy,
->>
->>On 2017-04-20 19:48, Andy Duan wrote:
->>> On 2017年04月20日 07:15, Stefan Agner wrote:
->>>> I tested again with imx6sx-fec compatible string. I could reproduce
->>>> it on a Colibri with i.MX 7Dual. But not always: It really depends
->>>> whether queue 2 is counting up or not. Just after boot, I check
->>>> /proc/interrupts twice, if queue 2 is counting it will happen!
->>>>
->>>> But if only queue 0 is mostly in use, then it seems to work just fine.
->>> If your case is only running best effort like tcp/udp, you can re-set
->>> the "fsl,num-tx-queues" and "fsl,num-rx-queues" to 1 in board dts file.
->>> Other two queues are for AVB audio/video queues, they have high
->>> priority than queue 0. If running iperf tcp test on the three queues,
->>> then the tcp segment may be out-of-order that cause net watchdog
->>timeout.
->>>>
->>>> I also tried i.MX 7Dual SabreSD here, and the same thing. I had to
->>>> reboot 3 times, then queue 2 was counting:
->>>>   57:          8     GIC-0 150 Level     30be0000.ethernet
->>>>   58:      20137     GIC-0 151 Level     30be0000.ethernet
->>>>   59:       9269     GIC-0 152 Level     30be0000.ethernet
->>>>
->>>> It took me about 40 minutes on Sabre until it happened, and I had to
->>>> force it using iperf, but then I got the ring dumps:
->>> My board had ran more than 47 hours with nfs rootfs in 4.11.0-rc6, but
->>> not running iperf.
->>> I am testing with iperf.
->>
->>Any update on this issue?
->>
->>When using iperf (server) on the board with Linux 4.11 the issue appears
->>within a few iperf iterations on a Sabre (TO 1.2, Board Rev C, if that matters)...
->>
-> I don’t know whether you received my last mail. (maybe failed due to I
-> received some rejection mails)
+IPv4 dst could use fi->fib_metrics to store metrics but fib_info
+itself is refcnt'ed, so without taking a refcnt fi and
+fi->fib_metrics could be freed while dst metrics still points to
+it. This triggers use-after-free as reported by Andrey twice.
 
-I think I did not... The last email I received was Fri, 21 Apr 2017
-02:48:23 UTC.
+This patch reverts commit 2860583fe840 ("ipv4: Kill rt->fi") to
+restore this reference counting. It is a quick fix for -net and
+-stable, for -net-next, as Eric suggested, we can consider doing
+reference counting for metrics itself instead of relying on fib_info.
 
+IPv6 is very different, it copies or steals the metrics from mx6_config
+in fib6_commit_metrics() so probably doesn't need a refcnt.
+
+Decnet has already done the refcnt'ing, see dn_fib_semantic_match().
+
+Fixes: 2860583fe840 ("ipv4: Kill rt->fi")
+Reported-by: Andrey Konovalov <andreyknvl@google.com>
+Tested-by: Andrey Konovalov <andreyknvl@google.com>
+Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+---
+ include/net/route.h |  1 +
+ net/ipv4/route.c    | 18 +++++++++++++++++-
+ 2 files changed, 18 insertions(+), 1 deletion(-)
+
+diff --git a/include/net/route.h b/include/net/route.h
+index 2cc0e14..4335eb7 100644
+--- a/include/net/route.h
++++ b/include/net/route.h
+@@ -69,6 +69,7 @@ struct rtable {
  
-> If your case is only running best effort like tcp/udp, you can re-set
-> the "fsl,num-tx-queues" and "fsl,num-rx-queues" to 1 in board dts
-> file.
-
-I did test that, and it seems to work fine with those properties set to
-1.
-
-> Other two queues are for AVB audio/video queues, they have high
-> priority than queue 0. If running iperf tcp test on the three queues,
-> then the tcp segment may be out-of-order that cause net watchdog
-> timeout.
-
-Okay. A single event would be understandable, but it seems to enter some
-kind of loop after that (continuously printing "fec 30be0000.ethernet
-eth0: TX ring dump ...").
-
-In a quick test I commented out the fec_dump call, with that it seems to
-print only once and continues working afterwards (although, speed starts
-to decrease, so something is not good at that point).
-
-> In fsl kernel tree, there have one patch that only select the queue0
-> for best effort like tcp/udp. Pls test again in your board, if no
-> problem I will upstream the patch.
-
-That sounds like a reasonable fix.
-
-IP, no matter whether TCP/UDP, is the most common use case, so IMHO this
-should "just work" by default.
+ 	struct list_head	rt_uncached;
+ 	struct uncached_list	*rt_uncached_list;
++	struct fib_info		*fi; /* for refcnt to shared metrics */
+ };
+ 
+ static inline bool rt_is_input_route(const struct rtable *rt)
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 655d9ee..f647310 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -1387,6 +1387,11 @@ static void ipv4_dst_destroy(struct dst_entry *dst)
+ {
+ 	struct rtable *rt = (struct rtable *) dst;
+ 
++	if (rt->fi) {
++		fib_info_put(rt->fi);
++		rt->fi = NULL;
++	}
++
+ 	if (!list_empty(&rt->rt_uncached)) {
+ 		struct uncached_list *ul = rt->rt_uncached_list;
+ 
+@@ -1424,6 +1429,16 @@ static bool rt_cache_valid(const struct rtable *rt)
+ 		!rt_is_expired(rt);
+ }
+ 
++static void rt_init_metrics(struct rtable *rt, struct fib_info *fi)
++{
++	if (fi->fib_metrics != (u32 *)dst_default_metrics) {
++		fib_info_hold(fi);
++		rt->fi = fi;
++	}
++
++	dst_init_metrics(&rt->dst, fi->fib_metrics, true);
++}
++
+ static void rt_set_nexthop(struct rtable *rt, __be32 daddr,
+ 			   const struct fib_result *res,
+ 			   struct fib_nh_exception *fnhe,
+@@ -1438,7 +1453,7 @@ static void rt_set_nexthop(struct rtable *rt, __be32 daddr,
+ 			rt->rt_gateway = nh->nh_gw;
+ 			rt->rt_uses_gateway = 1;
+ 		}
+-		dst_init_metrics(&rt->dst, fi->fib_metrics, true);
++		rt_init_metrics(rt, fi);
+ #ifdef CONFIG_IP_ROUTE_CLASSID
+ 		rt->dst.tclassid = nh->nh_tclassid;
+ #endif
+@@ -1490,6 +1505,7 @@ struct rtable *rt_dst_alloc(struct net_device *dev,
+ 		rt->rt_gateway = 0;
+ 		rt->rt_uses_gateway = 0;
+ 		rt->rt_table_id = 0;
++		rt->fi = NULL;
+ 		INIT_LIST_HEAD(&rt->rt_uncached);
+ 
+ 		rt->dst.output = ip_output;
+-- 
+2.5.5
