@@ -1,66 +1,66 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: [PATCH 6/6] cxgb4: Combine substrings for two messages
-Date: Thu, 4 May 2017 22:36:11 +0200
-Message-ID: <5e89d06b-3f3b-2c78-ab7c-40cce15e7f74@users.sourceforge.net>
-References: <a3216042-2461-b397-dfa1-1de178d58513@users.sourceforge.net>
+From: David Arcari <darcari@redhat.com>
+Subject: Re: [PATCH] aquantia: Fix "ethtool -S" crash when adapter down.
+Date: Thu, 4 May 2017 16:39:25 -0400
+Message-ID: <fc1105a3-5d97-9d2f-f3c4-db8e65b69db2@redhat.com>
+References: <9ea5a2ba21b4f8b22a63acf39135a41e2f1da23c.1493928470.git.pavel.belous@aquantia.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-        kernel-janitors@vger.kernel.org
-To: netdev@vger.kernel.org, Casey Leedom <leedom@chelsio.com>,
-        Ganesh Goudar <ganeshgr@chelsio.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <a3216042-2461-b397-dfa1-1de178d58513@users.sourceforge.net>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Lino Sanfilippo <LinoSanfilippo@gmx.de>,
+        Simon Edelhaus <simon.edelhaus@aquantia.com>
+To: Pavel Belous <Pavel.Belous@aquantia.com>,
+        "David S . Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:44190 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751228AbdEDUj0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 4 May 2017 16:39:26 -0400
+In-Reply-To: <9ea5a2ba21b4f8b22a63acf39135a41e2f1da23c.1493928470.git.pavel.belous@aquantia.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Thu, 4 May 2017 22:16:57 +0200
+On 05/04/2017 04:10 PM, Pavel Belous wrote:
+> From: Pavel Belous <pavel.belous@aquantia.com>
+> 
+> This patch fixes the crash that happens when driver tries to collect statistics
+> from already released "aq_vec" object.
+> If adapter is in "down" state we still allow user to see statistics from HW.
+> 
+> V2: fixed braces around "aq_vec_free".
+> 
+> Fixes: 97bde5c4f909 ("net: ethernet: aquantia: Support for NIC-specific code")
+> Signed-off-by: Pavel Belous <pavel.belous@aquantia.com>
+> ---
+>  drivers/net/ethernet/aquantia/atlantic/aq_nic.c | 6 ++++--
+>  1 file changed, 4 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_nic.c b/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
+> index cdb0299..9ee1c50 100644
+> --- a/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
+> +++ b/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
+> @@ -755,7 +755,7 @@ void aq_nic_get_stats(struct aq_nic_s *self, u64 *data)
+>  	count = 0U;
+>  
+>  	for (i = 0U, aq_vec = self->aq_vec[0];
+> -		self->aq_vecs > i; ++i, aq_vec = self->aq_vec[i]) {
+> +		aq_vec && self->aq_vecs > i; ++i, aq_vec = self->aq_vec[i]) {
+>  		data += count;
+>  		aq_vec_get_sw_stats(aq_vec, data, &count);
+>  	}
+> @@ -959,8 +959,10 @@ void aq_nic_free_hot_resources(struct aq_nic_s *self)
+>  		goto err_exit;
+>  
+>  	for (i = AQ_DIMOF(self->aq_vec); i--;) {
+> -		if (self->aq_vec[i])
+> +		if (self->aq_vec[i]) {
+>  			aq_vec_free(self->aq_vec[i]);
+> +			self->aq_vec[i] = NULL;
+> +		}
+>  	}
+>  
+>  err_exit:;
+> 
 
-The script "checkpatch.pl" pointed information out like the following.
+Resolves the ethtool crash.
 
-WARNING: quoted string split across lines
-
-Thus fix two source code places.
-
-Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
----
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c | 13 +++++++------
- 1 file changed, 7 insertions(+), 6 deletions(-)
-
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c
-index 32add8dfc253..f9384d8b680d 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c
-@@ -1353,8 +1353,9 @@ static int mps_trc_show(struct seq_file *seq, void *v)
- 	if (tp.port < 8) {
- 		i = adap->chan_map[tp.port & 3];
- 		if (i >= MAX_NPORTS) {
--			dev_err(adap->pdev_dev, "tracer %u is assigned "
--				"to non-existing port\n", trcidx);
-+			dev_err(adap->pdev_dev,
-+				"tracer %u is assigned to non-existing port\n",
-+				trcidx);
- 			return -EINVAL;
- 		}
- 		seq_printf(seq, "tracer is capturing %s %s, ",
-@@ -1798,11 +1799,11 @@ static int mps_tcam_show(struct seq_file *seq, void *v)
- 				      FW_LDST_CMD_IDX_V(idx));
- 			ret = t4_wr_mbox(adap, adap->mbox, &ldst_cmd,
- 					 sizeof(ldst_cmd), &ldst_cmd);
--			if (ret)
--				dev_warn(adap->pdev_dev, "Can't read MPS "
--					 "replication map for idx %d: %d\n",
-+			if (ret) {
-+				dev_warn(adap->pdev_dev,
-+					 "Can't read MPS replication map for idx %d: %d\n",
- 					 idx, -ret);
--			else {
-+			} else {
- 				mps_rplc = ldst_cmd.u.mps.rplc;
- 				rplc[0] = ntohl(mps_rplc.rplc31_0);
- 				rplc[1] = ntohl(mps_rplc.rplc63_32);
--- 
-2.12.2
+Tested-by: David Arcari <darcari@redhat.com>
