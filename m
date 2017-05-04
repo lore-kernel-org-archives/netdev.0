@@ -1,73 +1,111 @@
-From: Vitaly Kuznetsov <vkuznets@redhat.com>
-Subject: [PATCH] xen-netfront: avoid crashing on resume after a failure in talk_to_netback()
-Date: Thu,  4 May 2017 14:23:04 +0200
-Message-ID: <20170504122304.11735-1-vkuznets@redhat.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Boris Ostrovsky <boris.ostrovsky@oracle.com>,
-        Juergen Gross <jgross@suse.com>
-To: xen-devel@lists.xenproject.org
+From: Stefan Schmidt <stefan@osg.samsung.com>
+Subject: Re: [[NET-NEXT]] Added dump function to recognise rpl extension
+ header option(63)
+Date: Thu, 4 May 2017 14:27:23 +0200
+Message-ID: <af9727bf-9987-1046-c2aa-2a8695447fde@osg.samsung.com>
+References: <a712ff423471e02a533650ce6d64dc85@ceid.upatras.gr>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Michael Richardson <mcr@sandelman.ca>,
+        "linux-wpan@vger.kernel.org" <linux-wpan@vger.kernel.org>
+To: Andreas Bardoutsos <bardoutsos@ceid.upatras.gr>,
+        netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:34690 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750710AbdEDMXH (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 4 May 2017 08:23:07 -0400
+Received: from ec2-52-27-115-49.us-west-2.compute.amazonaws.com ([52.27.115.49]:52722
+        "EHLO osg.samsung.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1751353AbdEDM12 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 4 May 2017 08:27:28 -0400
+In-Reply-To: <a712ff423471e02a533650ce6d64dc85@ceid.upatras.gr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Unavoidable crashes in netfront_resume() and netback_changed() after a
-previous fail in talk_to_netback() (e.g. when we fail to read MAC from
-xenstore) were discovered. The failure path in talk_to_netback() does
-unregister/free for netdev but we don't reset drvdata and we try accessing
-it again after resume.
+Hello.
 
-Reset drvdata in netback_changed() the same way we reset it in
-netfront_probe() and check for NULL in both netfront_resume() and
-netback_changed() to properly handle the situation.
+Lets do the review here on netdev.
 
-Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
----
-I apologize for sending this during the merge window, I'm not sure if this
-needs to go through xen or netdev tree. I think the fix is simple enough
-and it would make sense to squeeze it in 4.12 if possible. Thanks.
----
- drivers/net/xen-netfront.c | 11 ++++++++++-
- 1 file changed, 10 insertions(+), 1 deletion(-)
+Some general things first. You might want to use git send-email to make 
+sure the formatting does not get screwed up from your mailer. Another 
+thing to keep in mind is that net-next is closed right now (we are in 
+the 4.12 merge window right now) and Dave will most likely as you to 
+re-submit once it opens up again. On the other hand I would go as far as 
+calling this a fix as it makes sure the needed packet does not get 
+dropped in kernel space and unstrung as RPL daemon can work with it. It 
+also fixes the RPL communication with Contiki.
 
-diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
-index 6ffc482..92f746c 100644
---- a/drivers/net/xen-netfront.c
-+++ b/drivers/net/xen-netfront.c
-@@ -1426,6 +1426,9 @@ static int netfront_resume(struct xenbus_device *dev)
- {
- 	struct netfront_info *info = dev_get_drvdata(&dev->dev);
- 
-+	if (!info)
-+		return 0;
-+
- 	dev_dbg(&dev->dev, "%s\n", dev->nodename);
- 
- 	xennet_disconnect_backend(info);
-@@ -1936,6 +1939,7 @@ static int talk_to_netback(struct xenbus_device *dev,
-  out:
- 	unregister_netdev(info->netdev);
- 	xennet_free_netdev(info->netdev);
-+	dev_set_drvdata(&dev->dev, NULL);
- 	return err;
- }
- 
-@@ -1997,7 +2001,12 @@ static void netback_changed(struct xenbus_device *dev,
- 			    enum xenbus_state backend_state)
- {
- 	struct netfront_info *np = dev_get_drvdata(&dev->dev);
--	struct net_device *netdev = np->netdev;
-+	struct net_device *netdev;
-+
-+	if (!np)
-+		return;
-+
-+	netdev = np->netdev;
- 
- 	dev_dbg(&dev->dev, "%s\n", xenbus_strstate(backend_state));
- 
--- 
-2.9.3
+Your subject line also needs a prefix like "ipv6: ext_header:". Maybe 
+something like this is better:
+
+ipv6: ext_header: add function to handle RPL option 0x63
+
+On 05/04/2017 02:06 PM, Andreas Bardoutsos wrote:
+> Signed-off-by: Andreas Bardoutsos <bardoutsos@ceid.upatras.gr>
+> ---
+> I have added a dump function(always return true) to recognise RPL
+> extension header(RFC6553)
+> Otherwise packet was dropped by kernel resulting in impossible
+> communication in RPL DAG's between
+> linux running border routers and devices in the graph,which may run
+> different OS(contiki os for example)
+
+Please put this useful information in the commit message.
+
+>  include/uapi/linux/in6.h |  1 +
+>  net/ipv6/exthdrs.c       | 13 +++++++++++++
+>  2 files changed, 14 insertions(+)
+>
+> diff --git a/include/uapi/linux/in6.h b/include/uapi/linux/in6.h
+> index 46444f8fbee4..5cc12d309dfe 100644
+> --- a/include/uapi/linux/in6.h
+> +++ b/include/uapi/linux/in6.h
+> @@ -146,6 +146,7 @@ struct in6_flowlabel_req {
+>  #define IPV6_TLV_CALIPSO    7    /* RFC 5570 */
+>  #define IPV6_TLV_JUMBO        194
+>  #define IPV6_TLV_HAO        201    /* home address option */
+> +#define IPV6_TLV_RPL    99    /* RFC 6553 */
+>
+>  /*
+>   *    IPV6 socket options
+> diff --git a/net/ipv6/exthdrs.c b/net/ipv6/exthdrs.c
+> index b636f1da9aec..82ed60d3180e 100644
+> --- a/net/ipv6/exthdrs.c
+> +++ b/net/ipv6/exthdrs.c
+> @@ -785,6 +785,15 @@ static bool ipv6_hop_calipso(struct sk_buff *skb,
+> int optoff)
+>      return false;
+>  }
+>
+> +/* RPL RFC 6553 */
+> +
+> +static bool ipv6_hop_rpl(struct sk_buff *skb, int optoff)
+> +{
+> +    /*Dump function which always return true
+> +    *when rpl option is detected*/
+> +    return true;
+
+We might need to do some more processing later here. For now it should 
+be good as a fix to get the RPL communication between Linux and Contiki 
+working again. Michael, what extra checks would you need in the kernel here?
+
+> +}
+> +
+>  static const struct tlvtype_proc tlvprochopopt_lst[] = {
+>      {
+>          .type    = IPV6_TLV_ROUTERALERT,
+> @@ -798,6 +807,10 @@ static const struct tlvtype_proc
+> tlvprochopopt_lst[] = {
+>          .type    = IPV6_TLV_CALIPSO,
+>          .func    = ipv6_hop_calipso,
+>      },
+> +    {
+> +        .type    = IPV6_TLV_RPL,
+> +        .func    = ipv6_hop_rpl,
+> +    },
+>      { -1, }
+>  };
+
+
+Reviewed-by: Stefan Schmidt <stefan@osg.samsung.com>
+
+regards
+Stefan Schmidt
