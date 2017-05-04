@@ -1,52 +1,60 @@
-From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-Subject: [PATCH] net: ipv4: add code comment for clarification
-Date: Thu, 4 May 2017 14:44:16 -0500
-Message-ID: <20170504194415.GA29391@embeddedgus>
-References: <20170504142432.Horde.g9y26Ryxbtg1EIl_cnsdbbw@gator4166.hostgator.com>
+From: Pavel Belous <Pavel.Belous@aquantia.com>
+Subject: [PATCH] aquantia: Fix "ethtool -S" crash when adapter down.
+Date: Thu,  4 May 2017 23:10:56 +0300
+Message-ID: <9ea5a2ba21b4f8b22a63acf39135a41e2f1da23c.1493928470.git.pavel.belous@aquantia.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        "Gustavo A. R. Silva" <garsilva@embeddedor.com>,
-        Joe Perches <joe@perches.com>
-To: "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170504142432.Horde.g9y26Ryxbtg1EIl_cnsdbbw@gator4166.hostgator.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, David Arcari <darcari@redhat.com>,
+        Lino Sanfilippo <LinoSanfilippo@gmx.de>,
+        Simon Edelhaus <simon.edelhaus@aquantia.com>
+To: "David S . Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bn3nam01on0043.outbound.protection.outlook.com ([104.47.33.43]:40688
+        "EHLO NAM01-BN3-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751472AbdEDULt (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 4 May 2017 16:11:49 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add code comment to make it clear that the position of the arguments
-req->id.idiag_dport and req->id.idiag_sport is a locked in behavior
-and it should not be changed.
+From: Pavel Belous <pavel.belous@aquantia.com>
 
-Addresses-Coverity-ID: 1357474
-Cc: David Miller <davem@davemloft.net>
-Cc: Joe Perches <joe@perches.com>
-Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
+This patch fixes the crash that happens when driver tries to collect statistics
+from already released "aq_vec" object.
+If adapter is in "down" state we still allow user to see statistics from HW.
+
+V2: fixed braces around "aq_vec_free".
+
+Fixes: 97bde5c4f909 ("net: ethernet: aquantia: Support for NIC-specific code")
+Signed-off-by: Pavel Belous <pavel.belous@aquantia.com>
 ---
- net/ipv4/inet_diag.c | 6 ++++++
- 1 file changed, 6 insertions(+)
+ drivers/net/ethernet/aquantia/atlantic/aq_nic.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
-diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
-index 3828b3a..841800b 100644
---- a/net/ipv4/inet_diag.c
-+++ b/net/ipv4/inet_diag.c
-@@ -389,6 +389,12 @@ static int sk_diag_fill(struct sock *sk, struct sk_buff *skb,
- 				  nlmsg_flags, unlh, net_admin);
- }
+diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_nic.c b/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
+index cdb0299..9ee1c50 100644
+--- a/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
++++ b/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
+@@ -755,7 +755,7 @@ void aq_nic_get_stats(struct aq_nic_s *self, u64 *data)
+ 	count = 0U;
  
-+/*
-+ * Ignore the position of the arguments req->id.idiag_dport and
-+ * req->id.idiag_sport in both calls to inet_lookup() and inet6_lookup()
-+ * functions, once this is a locked in behavior exposed to user space.
-+ * Changing this will break things for people.
-+ */
- struct sock *inet_diag_find_one_icsk(struct net *net,
- 				     struct inet_hashinfo *hashinfo,
- 				     const struct inet_diag_req_v2 *req)
+ 	for (i = 0U, aq_vec = self->aq_vec[0];
+-		self->aq_vecs > i; ++i, aq_vec = self->aq_vec[i]) {
++		aq_vec && self->aq_vecs > i; ++i, aq_vec = self->aq_vec[i]) {
+ 		data += count;
+ 		aq_vec_get_sw_stats(aq_vec, data, &count);
+ 	}
+@@ -959,8 +959,10 @@ void aq_nic_free_hot_resources(struct aq_nic_s *self)
+ 		goto err_exit;
+ 
+ 	for (i = AQ_DIMOF(self->aq_vec); i--;) {
+-		if (self->aq_vec[i])
++		if (self->aq_vec[i]) {
+ 			aq_vec_free(self->aq_vec[i]);
++			self->aq_vec[i] = NULL;
++		}
+ 	}
+ 
+ err_exit:;
 -- 
-2.5.0
+2.7.4
