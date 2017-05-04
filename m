@@ -1,110 +1,191 @@
-From: Leon Romanovsky <leon@kernel.org>
-Subject: Re: [RFC] iproute: Add support for extended ack to rtnl_talk
-Date: Thu, 4 May 2017 20:55:56 +0300
-Message-ID: <20170504175556.GZ22833@mtr-leonro.local>
-References: <20170503235638.31116-1-stephen@networkplumber.org>
- <590AF624.6090808@iogearbox.net>
- <20170504143738.GY22833@mtr-leonro.local>
- <20170504094558.78933e60@xeon-e3>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-        protocol="application/pgp-signature"; boundary="9zecZT88ylESpiZX"
-Cc: Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.136]:57296 "EHLO mail.kernel.org"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752938AbdEDRzw (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 4 May 2017 13:55:52 -0400
-Content-Disposition: inline
-In-Reply-To: <20170504094558.78933e60@xeon-e3>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: [RFC iproute2 0/8] RDMA tool
+Date: Thu,  4 May 2017 21:02:08 +0300
+Message-ID: <20170504180216.7665-1-leon@kernel.org>
+Cc: Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Jiri Pirko <jiri-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Ariel Almog <ariela-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Dennis Dalessandro <dennis.dalessandro-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+        Ram Amrani <ram.amrani-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>,
+        Bart Van Assche <Bart.VanAssche-XdAiOPVOjttBDgjK7y7TUQ@public.gmane.org>,
+        Sagi Grimberg <sagi-NQWnxTmZq1alnMjI0IkVqw@public.gmane.org>,
+        Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>,
+        Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>,
+        Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Linux RDMA <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Linux Netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>,
+        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+From: Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
 
---9zecZT88ylESpiZX
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+----
+This is initial phase to understand if user experience for this tool fits
+RDMA and netdev communities exepectations. Also I would like to get feedback
+if it is really worth to provide legacy sysfs for old kernels, or maybe I should
+implement netlink from the beginning and abandon sysfs completely.
+-----
 
-On Thu, May 04, 2017 at 09:45:58AM -0700, Stephen Hemminger wrote:
-> On Thu, 4 May 2017 17:37:38 +0300
-> Leon Romanovsky <leon@kernel.org> wrote:
->
-> > On Thu, May 04, 2017 at 11:36:36AM +0200, Daniel Borkmann wrote:
-> > > On 05/04/2017 01:56 AM, Stephen Hemminger wrote:
-> > > > Add support for extended ack error reporting via libmnl. This
-> > > > is a better alternative to use existing library and not copy/paste
-> > > > code from the kernel. Also make arguments const where possible.
-> > > >
-> > > > Add a new function rtnl_talk_extack that takes a callback as an input
-> > > > arg. If a netlink response contains extack attributes, the callback is
-> > > > is invoked with the the err string, offset in the message and a pointer
-> > > > to the message returned by the kernel.
-> > > >
-> > > > Adding a new function allows commands to be moved over to the
-> > > > extended error reporting over time.
-> > > >
-> > > > For feedback, compile tested only.
-> > >
-> > > Just out of curiosity, what is the plan regarding converting iproute2
-> > > over to libmnl (ip, tc, ss, ...)? In 2015, tipc tool was the first
-> > > user merged that requires libmnl, the only other user today in the
-> > > tree is devlink, which even seems to define its own libmnl library
-> > > helpers. What is the clear benefit/rationale of outsourcing this to
-> > > libmnl? I always was the impression we should strive for as little
-> > > dependencies as possible?
-> >
-> > And I would like to get direction for the RDMA tool [1] which I'm
-> > working on it now.
-> >
-> > The overall decision was to use netlink and put it under iproute2
-> > umbrella. Currently, I have working RFC which is based on
-> > legacy sysfs interface to ensure that we are converging on
-> > user-experience even before moving to actual netlink defines.
-> >
-> > An I would like to continue to work on netlink interface, but which lib interface
-> > should I need to base rdmatool's netlink code?
-> >
-> > [1] https://www.mail-archive.com/netdev@vger.kernel.org/msg148523.html
-> >
-> > >
-> > > I don't really like that we make extended ack reporting now dependent
-> > > on libmnl, which further diverts from iproute's native nl library vs
-> > > requiring to install another nl library, making the current status
-> > > quo even worse ... :/
-> > >
-> > > Thanks,
-> > > Daniel
->
-> I would prefer new code use libmnl, but using libnetlink would also be ok.
-> Any later conversion to libmnl would be mostly automated anyway.
+Hi,
 
-Thanks, I'm copy/pasting devlink variation of libmnl :)
+Please find below, the patch set with initial implementation of configuration
+tool for RDMA subsystem, which will be supplementary tool to already existed
+tools in netdev community (ip, devlink, ethtool, ..).
 
->
-> The real objection was copy/pasting in the kernel netlink parser.
-> That was unnecessary bloat.
+In opposite to netdev community, where standard tools exist to configure and
+present different devices abilities, RDMA subsystem historically lacked it.
 
+Following our discussion both in mailing list [1] and at the LPC 2016 [2],
+we would like to propose this RDMA tool to be part of iproute2 package
+and finally improve this situation.
 
+The development of tool was influenced by ip and devlink tools. This implies
+to the object->command interface and naming convention.
 
---9zecZT88ylESpiZX
-Content-Type: application/pgp-signature; name="signature.asc"
+In order to close object model, ensure reuse of existing code and make this
+tool usable from day one, we decided to implement wrappers over legacy sysfs
+prior to implementing netlink functionality. As a nice bonus, it will allow
+to use this tool with old kernels too.
 
------BEGIN PGP SIGNATURE-----
+It is important to mention that any future extension will be required to be
+done with netlink, so for already existing objects small conversion to netlink
+will be unavoidable.
 
-iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAlkLaywACgkQ5GN7iDZy
-WKdvIg//X8TGlNltK6mgRLUVRyq3GLw4q5f/4EvNT6+IKfjG1lZwDmOTzeNmPs9H
-9WLAfyJb8ryl46P/tGdibPiOS3UL/XIchiR2yhXuq/ZBkLhes09jElp6BygnLYrU
-iwOVHQDOttkjbcJ8efOI6cK2HQrB3zTRxuu7erxwjGDh54sbwpPpjpqyAeIOwOzv
-Mq27pf6bvJOlzWT+df/eYJ2zWIAilkVM4ASZEKowmFvAeewj+7qyghWHrJ5MgVs/
-ClRa/GMcrHsZmDOn0jrWLzwFoLbdFKrFTf+TuDba/b9M4WTGhSoGwpBPi4ue6kuV
-r4sjQFz8sl5pOCKTH/xwaQNx5F0ps/ZKYfeXZnGCb1TQF1NyfsV37gFesrde5k0A
-k7AQ4STeHeTG4b+48u9O4FkTOlJnvZpc40b8Vo74XYn6gz3DKGDDISHZV7mq3sXV
-XPQQJy+ZW7Mzn/sUFX6wl5OIgvNbraJvNua/2JPeze9WMuJcq/F6JNq8IL3u4kqu
-Ow4YxRsWkK5QrI1TeLt/Jd5HhDy85ma17ypW9fE4z5izf10VwFH7vbyGcXZO/YKM
-D43vY0z84+MIcjh0PVfoHPJ6RDIQQOBNjRE4e5y6d8p6/JGoeRApsCGPqWleKqlQ
-rULk8EHXP1d1SLPGZrWGdHp0Dmi79qlQ5E/W6f9okLG8dSzKZW4=
-=fCzo
------END PGP SIGNATURE-----
+  # rdma -h
+  Usage: rdma [ OPTIONS ] OBJECT { COMMAND | help }
+  where  OBJECT := { dev | link | ipoib | memory | stats | protocols | providers | monitor }
+  OPTIONS := { -V[ersion] }
 
---9zecZT88ylESpiZX--
+* DEV object equals to CA in IBTA specification and will provide
+  a way to configure/present settings relevant to specific struct ib_device.
+
+* LINK object represents port in IBTA specification and will give access to
+  struct ib_port_immutable. From the day one, It prints netdev name of
+  the corresponding IB port that makes ibdev2netdev script redundant.
+
+* IPoIB object is supposed to be specific for IP-over-Infiniband upper
+  layer protocol [3]. This ULP was mainly configured by combination
+  of various sysfs knobs together with ethtool. Such situation adds
+  challenges to add new and expose old configuration settings due to
+  the mix between different subsystems.
+
+* MEMORY object will be used to configure memory related settings,
+  e.g. on-demand-paging (ODP), force-mr (force usage of MRs for
+  RDMA READ/WRITE operation).
+
+* STATS object is needed for everything related to statistics
+  (per-PID, per-QP, per-device etc.). Despite the fact that RDMA
+  devices provide extensive set of counters, the decision was to
+  implement it in netlink directly, because there is a need to add
+  filter mechanism to them, which doesn't exist now.
+
+* PROTOCOLS object is going to be used for device special treatment
+  of global to protocol settings (e.g. set device in RoCEv2 mode as
+  a default, instead of RoCEv1, instead of configfs).
+
+* PROVIDERS objects gives ability to get specific to the device
+  information, like supported kABI objects [4].
+
+* MONITOR object is needed to debug netlink communication and will
+  follow standard functionality, which exists in ip and devlink tools.
+
+There are number of ULPs which are not covered by this tool yet:
+ * HFI-VNIC - I have no access to the HW and believe that Intel
+   will add native object support for it.
+ * Other storage related ULPs (iSER and SRP) were not introduced too,
+   because they have special tools (scci-target-utils) to configure them.
+   However it will be pretty straightforward to introduce new object,
+   if there is demand for it.
+
+At the initial stage, we implemented infrastructure to read legacy
+sysfs entries (Patch #1), initial man pages (Patch #7) and provided
+future object examples (Patch #2-6) to allow parallel development.
+
+Following patches will focus on cleaning user interface, parsing other
+relevant entries in similar fashion to the link capability mask (Patch #8)
+and providing netlink interface.
+
+These patches were tested with two following setups:
+ * Setup A:
+   - Two Mellanox ConnectX-4 devices (one port)
+   - One Mellanox Connect-IB device (two ports)
+ * Setup B:
+   - One Mellanox ConnectX-4 device (one port)
+   - One Mellanox ConnectX-3 Pro device (two ports)
+
+Please consider the inclusion of the RDMA tool into iproute2 package,
+so other participants will be able to speed up development.
+
+[1] https://www.mail-archive.com/netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org/msg148523.html
+[2] http://www.medkio.com/talks/lpc_debug.pdf
+[3] https://tools.ietf.org/html/rfc4392
+[4] http://marc.info/?l=linux-rdma&m=149261526916544&w=2
+
+TODO: Add json output
+
+Cc: Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>
+Cc: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Cc: Jiri Pirko <jiri-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Cc: Ariel Almog <ariela-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Cc: Dennis Dalessandro <dennis.dalessandro-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Cc: Ram Amrani <ram.amrani-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+Cc: Bart Van Assche <Bart.VanAssche-XdAiOPVOjttBDgjK7y7TUQ@public.gmane.org>
+Cc: Sagi Grimberg <sagi-NQWnxTmZq1alnMjI0IkVqw@public.gmane.org>
+Cc: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Cc: Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>
+Cc: Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Cc: Linux RDMA <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: Linux Netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+
+Leon Romanovsky (8):
+  rdma: Add basic infrastructure for RDMA tool
+  rdma: Add dev object
+  rdma: Add link object
+  rdma: Add IPoIB object
+  rdma: Add memory object
+  rdma: add stubs for future objects
+  man: rdma.8: Document objects and commands
+  rdma: Add link capability parsing
+
+ Makefile          |   2 +-
+ man/man8/Makefile |   3 +-
+ man/man8/rdma.8   | 109 +++++++++++++++++++
+ rdma/.gitignore   |   1 +
+ rdma/Makefile     |  15 +++
+ rdma/dev.c        | 101 ++++++++++++++++++
+ rdma/ipoib.c      |  54 ++++++++++
+ rdma/link.c       | 160 ++++++++++++++++++++++++++++
+ rdma/memory.c     |  30 ++++++
+ rdma/monitor.c    |  22 ++++
+ rdma/protocols.c  |  22 ++++
+ rdma/providers.c  |  28 +++++
+ rdma/rdma.c       | 104 ++++++++++++++++++
+ rdma/rdma.h       |  93 ++++++++++++++++
+ rdma/stats.c      |  22 ++++
+ rdma/utils.c      | 313 ++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 16 files changed, 1077 insertions(+), 2 deletions(-)
+ create mode 100644 man/man8/rdma.8
+ create mode 100644 rdma/.gitignore
+ create mode 100644 rdma/Makefile
+ create mode 100644 rdma/dev.c
+ create mode 100644 rdma/ipoib.c
+ create mode 100644 rdma/link.c
+ create mode 100644 rdma/memory.c
+ create mode 100644 rdma/monitor.c
+ create mode 100644 rdma/protocols.c
+ create mode 100644 rdma/providers.c
+ create mode 100644 rdma/rdma.c
+ create mode 100644 rdma/rdma.h
+ create mode 100644 rdma/stats.c
+ create mode 100644 rdma/utils.c
+
+--
+2.12.2
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
