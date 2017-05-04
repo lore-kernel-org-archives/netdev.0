@@ -1,44 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net:ethernet:aquantia:atlantic: Switch to use
- napi_gro_receive
-Date: Thu, 04 May 2017 10:42:57 -0400 (EDT)
-Message-ID: <20170504.104257.1536182180703411206.davem@davemloft.net>
-References: <16bc94e6bb9cc977a9a9e0cac48ae91ff7198f05.1493829200.git.pavel.belous@aquantia.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, darcari@redhat.com
-To: Pavel.Belous@aquantia.com
+From: Michal Schmidt <mschmidt@redhat.com>
+Subject: [PATCH net] rtnetlink: NUL-terminate IFLA_PHYS_PORT_NAME string
+Date: Thu,  4 May 2017 16:48:58 +0200
+Message-ID: <20170504144858.1905-1-mschmidt@redhat.com>
+Cc: Thomas Haller <thaller@redhat.com>, David Ahern <dsahern@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:55396 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751565AbdEDOm6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 4 May 2017 10:42:58 -0400
-In-Reply-To: <16bc94e6bb9cc977a9a9e0cac48ae91ff7198f05.1493829200.git.pavel.belous@aquantia.com>
+Received: from mx1.redhat.com ([209.132.183.28]:56942 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752126AbdEDOtU (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 4 May 2017 10:49:20 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pavel Belous <Pavel.Belous@aquantia.com>
-Date: Wed,  3 May 2017 19:57:10 +0300
+IFLA_PHYS_PORT_NAME is a string attribute, so terminate it with \0.
+Otherwise libnl3 fails to validate netlink messages with this attribute.
+"ip -detail a" assumes too that the attribute is NUL-terminated when
+printing it. It often was, due to padding.
 
-> From: Pavel Belous <pavel.belous@aquantia.com>
-> 
-> Add support for GRO (generic receive offload) for aQuantia Atlantic driver.
-> This results in a perfomance improvement when GRO is enabled.
-> 
-> Signed-off-by: Pavel Belous <pavel.belous@aquantia.com>
+I noticed this as libvirtd failing to start on a system with sfc driver
+after upgrading it to Linux 4.11, i.e. when sfc added support for
+phys_port_name.
 
-Please format your Subject line properly.
+Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
+---
+ net/core/rtnetlink.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-You have _way_ too many subsystem prefixes, and when there are more
-than one they should be separated by spaces like "a: b: c:"
-
-In this case an appropriate Subject line would be:
-
-[PATCH net-next] aquantia: Switch to use napi_gro_receive().
-
-But since this is a new feature, and the net-next tree is currently
-closed, you will have to resubmit this when the net-next tree
-opens.
-
-Thank you.
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index c4e84c5582..69daf393cb 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -1056,7 +1056,7 @@ static int rtnl_phys_port_name_fill(struct sk_buff *skb, struct net_device *dev)
+ 		return err;
+ 	}
+ 
+-	if (nla_put(skb, IFLA_PHYS_PORT_NAME, strlen(name), name))
++	if (nla_put_string(skb, IFLA_PHYS_PORT_NAME, name))
+ 		return -EMSGSIZE;
+ 
+ 	return 0;
+-- 
+2.12.2
