@@ -1,52 +1,90 @@
-From: Josh Poimboeuf <jpoimboe@redhat.com>
-Subject: Re: [PATCH] x86/asm: Don't use rbp as temp register in
- csum_partial_copy_generic()
-Date: Thu, 4 May 2017 11:11:29 -0500
-Message-ID: <20170504161129.syz46qyxge3nupki@treble>
-References: <4b03a961efda5ec9bfe46b7b9c9ad72d1efad343.1493909486.git.jpoimboe@redhat.com>
- <063D6719AE5E284EB5DD2968C1650D6DCFFE581C@AcuExch.aculab.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [RFC net-next] ipv6: ext_header: add function to handle RPL
+ extension header option 0x63
+Date: Thu, 4 May 2017 18:00:42 +0200
+Message-ID: <20170504160042.GB2385@nanopsycho>
+References: <dca567582f1979384fb1f3c3d1411349@ceid.upatras.gr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: "x86@kernel.org" <x86@kernel.org>,
-        Andrey Konovalov <andreyknvl@google.com>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        Vlad Yasevich <vyasevich@gmail.com>,
-        Neil Horman <nhorman@tuxdriver.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        "linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
-        netdev <netdev@vger.kernel.org>,
-        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-        Dmitry Vyukov <dvyukov@google.com>,
-        Kostya Serebryany <kcc@google.com>,
-        syzkaller <syzkaller@googlegroups.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>
-To: David Laight <David.Laight@ACULAB.COM>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>, linux-wpan@vger.kernel.org,
+        Michael Richardson <mcr@sandelman.ca>,
+        Unstrung Hackers <unstrung-hackers@lists.sandelman.ca>,
+        netdev-owner@vger.kernel.org, linux-bluetooth@vger.kernel.org
+To: Andreas Bardoutsos <bardoutsos@ceid.upatras.gr>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wr0-f194.google.com ([209.85.128.194]:35482 "EHLO
+        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754649AbdEDQAq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 4 May 2017 12:00:46 -0400
+Received: by mail-wr0-f194.google.com with SMTP id g12so1891890wrg.2
+        for <netdev@vger.kernel.org>; Thu, 04 May 2017 09:00:45 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DCFFE581C@AcuExch.aculab.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <dca567582f1979384fb1f3c3d1411349@ceid.upatras.gr>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 04, 2017 at 03:56:49PM +0000, David Laight wrote:
-> From: Josh Poimboeuf
-> > Sent: 04 May 2017 15:52
-> > Andrey Konovalov reported the following warning while fuzzing the kernel
-> > with syzkaller:
-> > 
-> >   WARNING: kernel stack regs at ffff8800686869f8 in a.out:4933 has bad 'bp' value c3fc855a10167ec0
-> > 
-> > The unwinder dump revealed that rbp had a bad value when an interrupt
-> > occurred in csum_partial_copy_generic().
-> > 
-> > That function saves rbp on the stack and then overwrites it, using it as
-> > a scratch register.  That's problematic because it breaks stack traces
-> > if an interrupt occurs in the middle of the function.
-> 
-> Does gcc guarantee not to use bp as a scratch register in leaf functions?
+Thu, May 04, 2017 at 05:17:18PM CEST, bardoutsos@ceid.upatras.gr wrote:
+>Signed-off-by: Andreas Bardoutsos <bardoutsos@ceid.upatras.gr>
+>---
+>Hi all!
+>
+>I have added a dump function(always return true) to recognise RPL extension
+>header(RFC6553)
+>Otherwise packet was dropped by kernel resulting in failing communication in
+>RPL DAG's between
+>linux running border routers and devices in the graph.For example
+>communication
+>with contiki OS running devices was previously impossible.
+>
+> include/uapi/linux/in6.h |  1 +
+> net/ipv6/exthdrs.c       | 13 +++++++++++++
+> 2 files changed, 14 insertions(+)
+>
+>diff --git a/include/uapi/linux/in6.h b/include/uapi/linux/in6.h
+>index 46444f8fbee4..5cc12d309dfe 100644
+>--- a/include/uapi/linux/in6.h
+>+++ b/include/uapi/linux/in6.h
+>@@ -146,6 +146,7 @@ struct in6_flowlabel_req {
+> #define IPV6_TLV_CALIPSO	7	/* RFC 5570 */
+> #define IPV6_TLV_JUMBO		194
+> #define IPV6_TLV_HAO		201	/* home address option */
+>+#define IPV6_TLV_RPL	99	/* RFC 6553 */
+>
+> /*
+>  *	IPV6 socket options
+>diff --git a/net/ipv6/exthdrs.c b/net/ipv6/exthdrs.c
+>index b636f1da9aec..82ed60d3180e 100644
+>--- a/net/ipv6/exthdrs.c
+>+++ b/net/ipv6/exthdrs.c
+>@@ -785,6 +785,15 @@ static bool ipv6_hop_calipso(struct sk_buff *skb, int
+>optoff)
+> 	return false;
+> }
+>
+>+/* RPL RFC 6553 */
+>+
+>+static bool ipv6_hop_rpl(struct sk_buff *skb, int optoff)
+>+{
+>+	/*Dump function which always return true
+>+	*when rpl option is detected*/
 
-At least in practice, gcc doesn't touch rbp in leaf functions.  (I don't
-know about guarantees.)
+This is definitelly wrong formatting of comment. Did you run checkpatch?
 
--- 
-Josh
+
+>+	return true;
+>+}
+>+
+> static const struct tlvtype_proc tlvprochopopt_lst[] = {
+> 	{
+> 		.type	= IPV6_TLV_ROUTERALERT,
+>@@ -798,6 +807,10 @@ static const struct tlvtype_proc tlvprochopopt_lst[] = {
+> 		.type	= IPV6_TLV_CALIPSO,
+> 		.func	= ipv6_hop_calipso,
+> 	},
+>+	{
+>+		.type	= IPV6_TLV_RPL,
+>+		.func	= ipv6_hop_rpl,
+>+	},
+> 	{ -1, }
+> };
+>
