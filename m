@@ -1,126 +1,99 @@
-From: Leon Romanovsky <leon@kernel.org>
-Subject: [RFC iproute2 5/8] rdma: Add memory object
-Date: Thu,  4 May 2017 21:02:13 +0300
-Message-ID: <20170504180216.7665-6-leon@kernel.org>
-References: <20170504180216.7665-1-leon@kernel.org>
-Cc: Leon Romanovsky <leonro@mellanox.com>,
-        Jiri Pirko <jiri@mellanox.com>,
-        Ariel Almog <ariela@mellanox.com>,
-        Dennis Dalessandro <dennis.dalessandro@intel.com>,
-        Ram Amrani <ram.amrani@cavium.com>,
-        Bart Van Assche <Bart.VanAssche@sandisk.com>,
-        Sagi Grimberg <sagi@grimberg.me>,
-        Jason Gunthorpe <jgunthorpe@obsidianresearch.com>,
-        Christoph Hellwig <hch@lst.de>,
-        Or Gerlitz <ogerlitz@mellanox.com>,
-        Linux RDMA <linux-rdma@vger.kernel.org>,
-        Linux Netdev <netdev@vger.kernel.org>
-To: Stephen Hemminger <stephen@networkplumber.org>,
-        Doug Ledford <dledford@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.136]:58738 "EHLO mail.kernel.org"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932291AbdEDSCe (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 4 May 2017 14:02:34 -0400
-In-Reply-To: <20170504180216.7665-1-leon@kernel.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: icenowy-h8G6r0blFSE@public.gmane.org
+Subject: Re: [PATCH 2/4] dt-bindings: add binding for RTL8211E
+ Ethernet PHY
+Date: Fri, 05 May 2017 02:10:50 +0800
+Message-ID: <edf26d7de605a93bfce258de0353df6d@aosc.io>
+References: <20170421232436.10924-1-icenowy@aosc.io>
+ <20170421232436.10924-3-icenowy@aosc.io>
+ <c7aa9d7a-5e97-0e7f-2b1c-584a4de00837@gmail.com>
+Reply-To: icenowy-h8G6r0blFSE@public.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: quoted-printable
+Cc: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>, Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+ netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org, Icenowy Zheng <icenowy-ymACFijhrKM@public.gmane.org>
+To: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-sunxi+bncBDS6XAN6ZADRBK65VXEAKGQELB2QJ3Q-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+In-Reply-To: <c7aa9d7a-5e97-0e7f-2b1c-584a4de00837-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Help: <https://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Archive: <https://groups.google.com/group/linux-sunxi
+List-Subscribe: <https://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
+ <https://groups.google.com/group/linux-sunxi/subscribe>
+List-Id: netdev.vger.kernel.org
 
-From: Leon Romanovsky <leonro@mellanox.com>
+=E5=9C=A8 2017-04-22 08:22=EF=BC=8CFlorian Fainelli =E5=86=99=E9=81=93=EF=
+=BC=9A
+> On 04/21/2017 04:24 PM, Icenowy Zheng wrote:
+>> From: Icenowy Zheng <icenowy-ymACFijhrKM@public.gmane.org>
+>>=20
+>> Some RTL8211E Ethernet PHY have an issue that needs a workaround
+>> indicated with device tree.
+>>=20
+>> Add the binding for a property that indicates this workaround.
+>>=20
+>> Signed-off-by: Icenowy Zheng <icenowy-ymACFijhrKM@public.gmane.org>
+>> ---
+>>  .../devicetree/bindings/net/realtek,rtl8211e.txt   | 22=20
+>> ++++++++++++++++++++++
+>>  1 file changed, 22 insertions(+)
+>>  create mode 100644=20
+>> Documentation/devicetree/bindings/net/realtek,rtl8211e.txt
+>>=20
+>> diff --git=20
+>> a/Documentation/devicetree/bindings/net/realtek,rtl8211e.txt=20
+>> b/Documentation/devicetree/bindings/net/realtek,rtl8211e.txt
+>> new file mode 100644
+>> index 000000000000..c1913301bfe8
+>> --- /dev/null
+>> +++ b/Documentation/devicetree/bindings/net/realtek,rtl8211e.txt
+>> @@ -0,0 +1,22 @@
+>> +Realtek RTL8211E Ethernet PHY
+>> +
+>> +One batch of RTL8211E is slight broken, that needs some special (and
+>> +full of magic numbers) tweaking in order to make GbE to operate=20
+>> properly.
+>> +The only well-known board that used the broken batch is Pine64+.
+>> +Configure it through an Ethernet OF device node.
+>> +
+>> +Optional properties:
+>> +
+>> +- realtek,disable-rx-delay:
+>> +  If set, RX delay will be completely disabled (according to=20
+>> Realtek). This
+>> +  will affect the performance on non-broken boards.
+>> +  default: do not disable RX delay.
+>=20
+> Please don't introduce custom properties to do that, instead correct
+> specify the "phy-mode" such that it is e.g: "rgmii-txid" which=20
+> indicates
+> that there should be no RX internal delay, but a TX internal delay=20
+> added
+> by the PHY.
 
-Memory object gives to the user ability to manipulate over general
-properties of memory for the specific devices. The memory properties
-have broader usage than dev object can provide.
+Checked the document, the meaning of "rgmii-txid" is not correct here.
 
-For example, on-demand-paging (ODP) configurations are mostly software related.
+This doesn't effect the MAC, and the MAC should still add TX delay.
 
-Signed-off-by: Leon Romanovsky <leonro@mellanox.com>
----
- rdma/Makefile |  2 +-
- rdma/memory.c | 30 ++++++++++++++++++++++++++++++
- rdma/rdma.c   |  3 ++-
- rdma/rdma.h   |  1 +
- 4 files changed, 34 insertions(+), 2 deletions(-)
- create mode 100644 rdma/memory.c
+The definition of "rgmii-txid" in
+Documentation/devicetree/binding/net/ethernet.txt is "RGMII with
+internal TX delay provided by the PHY, the MAC should not add an TX=20
+delay
+in this case". However, this do not indicate that the MAC doesn't add TX
+delay; in fact that just totally disabled the PHY to provide the RX=20
+delay.
+MAC still should to add delay on both TX/RX, which is the semantic of
+standard "rgmii".
 
-diff --git a/rdma/Makefile b/rdma/Makefile
-index dd702b9f..5cf0d29f 100644
---- a/rdma/Makefile
-+++ b/rdma/Makefile
-@@ -1,6 +1,6 @@
- include ../Config
+So I cannot used "rgmii-txid" here, but should continue to use this
+custom property.
 
--RDMA_OBJ = rdma.o utils.o dev.o link.o ipoib.o
-+RDMA_OBJ = rdma.o utils.o dev.o link.o ipoib.o memory.o
- TARGETS=rdma
-
- all:	$(TARGETS) $(LIBS)
-diff --git a/rdma/memory.c b/rdma/memory.c
-new file mode 100644
-index 00000000..68fd5dd3
---- /dev/null
-+++ b/rdma/memory.c
-@@ -0,0 +1,30 @@
-+/*
-+ * memory.c	RDMA tool
-+ *
-+ *              This program is free software; you can redistribute it and/or
-+ *              modify it under the terms of the GNU General Public License
-+ *              as published by the Free Software Foundation; either version
-+ *              2 of the License, or (at your option) any later version.
-+ *
-+ * Authors:     Leon Romanovsky <leonro@mellanox.com>
-+ */
-+
-+#include "rdma.h"
-+
-+static void memory_help(char *filename)
-+{
-+	pr_out("Usage: %s memory show [ DEV ]\n", filename);
-+	pr_out("       %s memory set DEV { odp { off | on } |\n", filename);
-+	pr_out("       %s                  memic SIZE }\n", filename);
-+}
-+
-+int obj_memory(struct rdma *rd)
-+{
-+	if (dev_map_init(rd)) {
-+		pr_err("There are no RDMA devices\n");
-+		return -ENOENT;
-+	}
-+
-+	memory_help(rd->filename);
-+	return 0;
-+}
-diff --git a/rdma/rdma.c b/rdma/rdma.c
-index ffd70899..094d490d 100644
---- a/rdma/rdma.c
-+++ b/rdma/rdma.c
-@@ -17,7 +17,7 @@
- static void help(char *name)
- {
- 	pr_out("Usage: %s [ OPTIONS ] OBJECT { COMMAND | help }\n"
--	       "where  OBJECT := { dev | link | ipoib }\n"
-+	       "where  OBJECT := { dev | link | ipoib | memory }\n"
- 	       "       OPTIONS := { -V[ersion] }\n", name);
- }
-
-@@ -34,6 +34,7 @@ static int rd_cmd(struct rdma *rd)
- 		{ "dev",	obj_dev },
- 		{ "link",	obj_link },
- 		{ "ipoib",	obj_ipoib },
-+		{ "memory",	obj_memory },
- 		{ "help",	obj_help },
- 		{ 0 }
- 	};
-diff --git a/rdma/rdma.h b/rdma/rdma.h
-index 1fef4eb8..dcff066f 100644
---- a/rdma/rdma.h
-+++ b/rdma/rdma.h
-@@ -65,6 +65,7 @@ struct rdma_obj {
- int obj_dev(struct rdma *rd);
- int obj_link(struct rdma *rd);
- int obj_ipoib(struct rdma *rd);
-+int obj_memory(struct rdma *rd);
-
- /*
-  * Parser interface
+--=20
+You received this message because you are subscribed to the Google Groups "=
+linux-sunxi" group.
+To unsubscribe from this group and stop receiving emails from it, send an e=
+mail to linux-sunxi+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0@public.gmane.org
+For more options, visit https://groups.google.com/d/optout.
