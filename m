@@ -1,73 +1,58 @@
-From: David Lebrun <david.lebrun@uclouvain.be>
-Subject: Re: iproute2 build error due to sr-ipv6 lwtunnel
-Date: Thu, 4 May 2017 11:28:03 +0200
-Message-ID: <3c0c0584-338d-47d0-76d4-e4408decc2c1@uclouvain.be>
-References: <590AF0C3.6070006@iogearbox.net>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH v4 net-next 04/10] net/ncsi: Ethtool operation to get
+ NCSI topology
+Date: Thu, 4 May 2017 09:31:20 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DCFFE535E@AcuExch.aculab.com>
+References: <1493786681-27468-1-git-send-email-gwshan@linux.vnet.ibm.com>
+ <1493786681-27468-5-git-send-email-gwshan@linux.vnet.ibm.com>
+ <20170503221944.1dd0d576@xeon-e3> <20170504061559.GA2162@gwshan>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-        protocol="application/pgp-signature";
-        boundary="cj8labB5QqSAbDbqV7e6P4MwHmPQ1m7MS"
-Cc: <netdev@vger.kernel.org>, <stephen@networkplumber.org>
-To: Daniel Borkmann <daniel@iogearbox.net>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "joe@perches.com" <joe@perches.com>,
+        "kubakici@wp.pl" <kubakici@wp.pl>,
+        "f.fainelli@gmail.com" <f.fainelli@gmail.com>,
+        "davem@davemloft.net" <davem@davemloft.net>
+To: 'Gavin Shan' <gwshan@linux.vnet.ibm.com>,
+        Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:33333 "EHLO
-        smtp1.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754818AbdEDJ1l (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 4 May 2017 05:27:41 -0400
-In-Reply-To: <590AF0C3.6070006@iogearbox.net>
+Received: from smtp-out6.electric.net ([192.162.217.184]:59517 "EHLO
+        smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751407AbdEDJb3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 4 May 2017 05:31:29 -0400
+In-Reply-To: <20170504061559.GA2162@gwshan>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---cj8labB5QqSAbDbqV7e6P4MwHmPQ1m7MS
-Content-Type: multipart/mixed; boundary="4NBlOCt6oEtnuHvpGWsNb0BDNvod6jHHA"
-From: David Lebrun <david.lebrun@uclouvain.be>
-To: Daniel Borkmann <daniel@iogearbox.net>
-Cc: netdev@vger.kernel.org, stephen@networkplumber.org
-Message-ID: <3c0c0584-338d-47d0-76d4-e4408decc2c1@uclouvain.be>
-Subject: Re: iproute2 build error due to sr-ipv6 lwtunnel
-References: <590AF0C3.6070006@iogearbox.net>
-In-Reply-To: <590AF0C3.6070006@iogearbox.net>
+From: Gavin Shan
+> Sent: 04 May 2017 07:16
+> On Wed, May 03, 2017 at 10:19:44PM -0700, Stephen Hemminger wrote:
+> >On Wed,  3 May 2017 14:44:35 +1000
+> >Gavin Shan <gwshan@linux.vnet.ibm.com> wrote:
+...
+> >> +{
+> >> +	struct ethtool_ncsi_channels *enc;
+> >> +	short nr_channels;
+> >Should be __u16 or unsigned not short.
+> >
+> 
+> Nope, It's for signed number. User expects to get number of available
+> channels when negative number is passed in. When it's positive, it's
+> going to get the channels' information.
 
---4NBlOCt6oEtnuHvpGWsNb0BDNvod6jHHA
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
+Why 16 bits?
+You are just making life hard for the compiler and possibly generating
+random padding.
 
-On 05/04/2017 11:13 AM, Daniel Borkmann wrote:
-> Hi David,
->=20
-> I'm getting the following build error from e8493916a8ed ("iproute:
-> add support for SR-IPv6 lwtunnel encapsulation"). Reverting your
-> commit makes iproute2 build again for me. Please take a look.
+I guess the user is expected to pass -1 first to get the number of
+channels, then allocate an appropriate sized array and call again
+specifying the number of channels?
 
-Hi Daniel,
+What happens if the number of channels changes between the two requests?
 
-This is because linux/seg6.h does an include of linux/in6.h (cf kernel
-commit ea3ebc73b46fbdb049dafd47543bb22efaa09c8e "uapi: fix linux/seg6.h
-and linux/seg6_iptunnel.h userspace compilation errors"), and iproute2's
-include/utils.h requires the system /usr/include/resolv.h, which itself
-includes /usr/include/netinet/in.h, re-defining struct in6_addr.
+I'd also suggest passing the size of each entry (in at least one direction).
+That way additional channel information can be added.
 
-However, netinet/in.h protects some struct definitions with #ifndef
-__USE_KERNEL_IPV6_DEFS, which is explicitly defined in
-iproute_lwtunnel.c, thus avoiding this specific issue.
-
-What is your glibc version ?
-
-David
-
-
---4NBlOCt6oEtnuHvpGWsNb0BDNvod6jHHA--
-
---cj8labB5QqSAbDbqV7e6P4MwHmPQ1m7MS
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iF0EARECAB0WIQT8nTbQ2eQR5sQwCJ+NvOfruxnoAwUCWQr0JgAKCRCNvOfruxno
-A9LAAJ99/sObUkbVhd9Fxxe+X40r1kuj6QCfXdeRMfiNXxTKFqZghL2zP5rV7wQ=
-=vHJ2
------END PGP SIGNATURE-----
-
---cj8labB5QqSAbDbqV7e6P4MwHmPQ1m7MS--
+	David
