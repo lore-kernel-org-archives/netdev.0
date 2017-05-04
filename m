@@ -1,77 +1,79 @@
-From: Andy Duan <fugang.duan@nxp.com>
-Subject: RE: FEC on i.MX 7 transmit queue timeout
-Date: Thu, 4 May 2017 03:08:46 +0000
-Message-ID: <AM4PR0401MB2260F011313883C522EA7684FFEA0@AM4PR0401MB2260.eurprd04.prod.outlook.com>
-References: <c6b66956c48f981a952048da6b2ddd54@agner.ch>
- <ed24e51d-499f-597b-0c9f-7f180e257acb@nxp.com>
- <e99d7c93b7819507c6448842015bf836@agner.ch>
- <AM4PR0401MB2260EBCD552219D3402B68FEFF180@AM4PR0401MB2260.eurprd04.prod.outlook.com>
- <86b63ee28acfff3426c4a0bf72d848c1@agner.ch>
- <2bdd64ab-5644-e0a0-9bfe-b8dd2fca7abb@nxp.com>
- <80191e7c9df5871cd450f13b9ea47a10@agner.ch>
- <ab1fc814-4a81-9eb0-b20b-2cd325158ba8@nxp.com>
- <e366479239b66ba80415b5594def2369@agner.ch>
+From: Alexei Starovoitov <ast@fb.com>
+Subject: Re: [PATCH net-next] selftests/bpf: get rid of -D__x86_64__
+Date: Wed, 3 May 2017 20:30:22 -0700
+Message-ID: <d809baa4-c864-af99-38af-fbcb6637ca2b@fb.com>
+References: <20170503.095251.353611409224180200.davem@davemloft.net>
+ <20170503.120634.1673036085707133455.davem@davemloft.net>
+ <6a5fa930-cb76-8eee-94c7-7c5fe8fb8cdc@fb.com>
+ <20170503.133512.310640909764585408.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "fugang.duan@freescale.com" <fugang.duan@freescale.com>,
-        "festevam@gmail.com" <festevam@gmail.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "netdev-owner@vger.kernel.org" <netdev-owner@vger.kernel.org>
-To: Stefan Agner <stefan@agner.ch>
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <daniel@iogearbox.net>, <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ve1eur01on0082.outbound.protection.outlook.com ([104.47.1.82]:49901
-        "EHLO EUR01-VE1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S932546AbdEDDIu (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 3 May 2017 23:08:50 -0400
-In-Reply-To: <e366479239b66ba80415b5594def2369@agner.ch>
-Content-Language: en-US
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:44576 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S932588AbdEDDaq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 3 May 2017 23:30:46 -0400
+In-Reply-To: <20170503.133512.310640909764585408.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogU3RlZmFuIEFnbmVyIDxzdGVmYW5AYWduZXIuY2g+IFNlbnQ6IFRodXJzZGF5LCBNYXkg
-MDQsIDIwMTcgOToyMiBBTQ0KPlRvOiBBbmR5IER1YW4gPGZ1Z2FuZy5kdWFuQG54cC5jb20+DQo+
-Q2M6IGZ1Z2FuZy5kdWFuQGZyZWVzY2FsZS5jb207IGZlc3RldmFtQGdtYWlsLmNvbTsNCj5uZXRk
-ZXZAdmdlci5rZXJuZWwub3JnOyBuZXRkZXYtb3duZXJAdmdlci5rZXJuZWwub3JnDQo+U3ViamVj
-dDogUmU6IEZFQyBvbiBpLk1YIDcgdHJhbnNtaXQgcXVldWUgdGltZW91dA0KPg0KPkhpIEFuZHks
-DQo+DQo+T24gMjAxNy0wNC0yMCAxOTo0OCwgQW5keSBEdWFuIHdyb3RlOg0KPj4gT24gMjAxN+W5
-tDA05pyIMjDml6UgMDc6MTUsIFN0ZWZhbiBBZ25lciB3cm90ZToNCj4+PiBJIHRlc3RlZCBhZ2Fp
-biB3aXRoIGlteDZzeC1mZWMgY29tcGF0aWJsZSBzdHJpbmcuIEkgY291bGQgcmVwcm9kdWNlDQo+
-Pj4gaXQgb24gYSBDb2xpYnJpIHdpdGggaS5NWCA3RHVhbC4gQnV0IG5vdCBhbHdheXM6IEl0IHJl
-YWxseSBkZXBlbmRzDQo+Pj4gd2hldGhlciBxdWV1ZSAyIGlzIGNvdW50aW5nIHVwIG9yIG5vdC4g
-SnVzdCBhZnRlciBib290LCBJIGNoZWNrDQo+Pj4gL3Byb2MvaW50ZXJydXB0cyB0d2ljZSwgaWYg
-cXVldWUgMiBpcyBjb3VudGluZyBpdCB3aWxsIGhhcHBlbiENCj4+Pg0KPj4+IEJ1dCBpZiBvbmx5
-IHF1ZXVlIDAgaXMgbW9zdGx5IGluIHVzZSwgdGhlbiBpdCBzZWVtcyB0byB3b3JrIGp1c3QgZmlu
-ZS4NCj4+IElmIHlvdXIgY2FzZSBpcyBvbmx5IHJ1bm5pbmcgYmVzdCBlZmZvcnQgbGlrZSB0Y3Av
-dWRwLCB5b3UgY2FuIHJlLXNldA0KPj4gdGhlICJmc2wsbnVtLXR4LXF1ZXVlcyIgYW5kICJmc2ws
-bnVtLXJ4LXF1ZXVlcyIgdG8gMSBpbiBib2FyZCBkdHMgZmlsZS4NCj4+IE90aGVyIHR3byBxdWV1
-ZXMgYXJlIGZvciBBVkIgYXVkaW8vdmlkZW8gcXVldWVzLCB0aGV5IGhhdmUgaGlnaA0KPj4gcHJp
-b3JpdHkgdGhhbiBxdWV1ZSAwLiBJZiBydW5uaW5nIGlwZXJmIHRjcCB0ZXN0IG9uIHRoZSB0aHJl
-ZSBxdWV1ZXMsDQo+PiB0aGVuIHRoZSB0Y3Agc2VnbWVudCBtYXkgYmUgb3V0LW9mLW9yZGVyIHRo
-YXQgY2F1c2UgbmV0IHdhdGNoZG9nDQo+dGltZW91dC4NCj4+Pg0KPj4+IEkgYWxzbyB0cmllZCBp
-Lk1YIDdEdWFsIFNhYnJlU0QgaGVyZSwgYW5kIHRoZSBzYW1lIHRoaW5nLiBJIGhhZCB0bw0KPj4+
-IHJlYm9vdCAzIHRpbWVzLCB0aGVuIHF1ZXVlIDIgd2FzIGNvdW50aW5nOg0KPj4+ICAgNTc6ICAg
-ICAgICAgIDggICAgIEdJQy0wIDE1MCBMZXZlbCAgICAgMzBiZTAwMDAuZXRoZXJuZXQNCj4+PiAg
-IDU4OiAgICAgIDIwMTM3ICAgICBHSUMtMCAxNTEgTGV2ZWwgICAgIDMwYmUwMDAwLmV0aGVybmV0
-DQo+Pj4gICA1OTogICAgICAgOTI2OSAgICAgR0lDLTAgMTUyIExldmVsICAgICAzMGJlMDAwMC5l
-dGhlcm5ldA0KPj4+DQo+Pj4gSXQgdG9vayBtZSBhYm91dCA0MCBtaW51dGVzIG9uIFNhYnJlIHVu
-dGlsIGl0IGhhcHBlbmVkLCBhbmQgSSBoYWQgdG8NCj4+PiBmb3JjZSBpdCB1c2luZyBpcGVyZiwg
-YnV0IHRoZW4gSSBnb3QgdGhlIHJpbmcgZHVtcHM6DQo+PiBNeSBib2FyZCBoYWQgcmFuIG1vcmUg
-dGhhbiA0NyBob3VycyB3aXRoIG5mcyByb290ZnMgaW4gNC4xMS4wLXJjNiwgYnV0DQo+PiBub3Qg
-cnVubmluZyBpcGVyZi4NCj4+IEkgYW0gdGVzdGluZyB3aXRoIGlwZXJmLg0KPg0KPkFueSB1cGRh
-dGUgb24gdGhpcyBpc3N1ZT8NCj4NCj5XaGVuIHVzaW5nIGlwZXJmIChzZXJ2ZXIpIG9uIHRoZSBi
-b2FyZCB3aXRoIExpbnV4IDQuMTEgdGhlIGlzc3VlIGFwcGVhcnMNCj53aXRoaW4gYSBmZXcgaXBl
-cmYgaXRlcmF0aW9ucyBvbiBhIFNhYnJlIChUTyAxLjIsIEJvYXJkIFJldiBDLCBpZiB0aGF0IG1h
-dHRlcnMpLi4uDQo+DQpJIGRvbuKAmXQga25vdyB3aGV0aGVyIHlvdSByZWNlaXZlZCBteSBsYXN0
-IG1haWwuIChtYXliZSBmYWlsZWQgZHVlIHRvIEkgcmVjZWl2ZWQgc29tZSByZWplY3Rpb24gbWFp
-bHMpDQoNCklmIHlvdXIgY2FzZSBpcyBvbmx5IHJ1bm5pbmcgYmVzdCBlZmZvcnQgbGlrZSB0Y3Av
-dWRwLCB5b3UgY2FuIHJlLXNldCB0aGUgImZzbCxudW0tdHgtcXVldWVzIiBhbmQgImZzbCxudW0t
-cngtcXVldWVzIiB0byAxIGluIGJvYXJkIGR0cyBmaWxlLg0KT3RoZXIgdHdvIHF1ZXVlcyBhcmUg
-Zm9yIEFWQiBhdWRpby92aWRlbyBxdWV1ZXMsIHRoZXkgaGF2ZSBoaWdoIHByaW9yaXR5IHRoYW4g
-cXVldWUgMC4gSWYgcnVubmluZyBpcGVyZiB0Y3AgdGVzdCBvbiB0aGUgdGhyZWUgcXVldWVzLCB0
-aGVuIHRoZSB0Y3Agc2VnbWVudCBtYXkgYmUgb3V0LW9mLW9yZGVyIHRoYXQgY2F1c2UgbmV0IHdh
-dGNoZG9nIHRpbWVvdXQuDQpJbiBmc2wga2VybmVsIHRyZWUsIHRoZXJlIGhhdmUgb25lIHBhdGNo
-IHRoYXQgb25seSBzZWxlY3QgdGhlIHF1ZXVlMCBmb3IgYmVzdCBlZmZvcnQgbGlrZSB0Y3AvdWRw
-LiBQbHMgdGVzdCBhZ2FpbiBpbiB5b3VyIGJvYXJkLCBpZiBubyBwcm9ibGVtIEkgd2lsbCB1cHN0
-cmVhbSB0aGUgcGF0Y2guDQo=
+On 5/3/17 10:35 AM, David Miller wrote:
+> From: Alexei Starovoitov <ast@fb.com>
+> Date: Wed, 3 May 2017 09:54:42 -0700
+>
+>> /usr/include/asm/types.h -> asm-generic/int-ll64.h
+>> as far as I can see that should be the same on most archs.
+>> Why doesn't it work for sparc?
+>
+> You can't assume anything about the kernel headers installed,
+> on my debian Sparc box /usr/include/asm/types.h is below.
+>
+> They do things this way to facilitate multiarch building.  I think
+> it's pretty reasonable.
+>
+> #ifndef _SPARC_TYPES_H
+> #define _SPARC_TYPES_H
+> /*
+>  * This file is never included by application software unless
+>  * explicitly requested (e.g., via linux/types.h) in which case the
+>  * application is Linux specific so (user-) name space pollution is
+>  * not a major issue.  However, for interoperability, libraries still
+>  * need to be careful to avoid a name clashes.
+>  */
+>
+> #if defined(__sparc__)
+>
+> #include <asm-generic/int-ll64.h>
+>
+> #ifndef __ASSEMBLY__
+>
+> typedef unsigned short umode_t;
+>
+> #endif /* __ASSEMBLY__ */
+>
+> #endif /* defined(__sparc__) */
+
+if it was something like
+#ifdef __sparc__
+...
+#else
+#include_next <asm/types.h>
+
+I would buy that debian folks indeed care about multi-arch, but
+what above does is making #include <linux/types.h> to be a nop
+for any cross-compiler on sparc that included it.
+Which is probably quite painful to debug as we found out.
+You're right that we cannot assume much about /usr/include craziness.
+In that sense adding __native_arch__ macro is also wrong, since
+it assumes sane /usr/include without inline asm or other things
+that clang for bpf arch can consume.
+In that sense the only way to be independent from arch dependent
+things in /usr/include is to put all arch specific headers
+into our own dir in tools/selftests/ (or may be tools/bpf/include)
+and point clang to that. I think the list of .h in there will be
+limited. Only things like linux/types.h and gnu/stubs.h,
+so it will be manageable.
+Thoughts?
