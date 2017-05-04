@@ -1,45 +1,40 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [RFC] iproute: Add support for extended ack to rtnl_talk
-Date: Thu, 4 May 2017 11:50:10 -0400
-Message-ID: <60f33e91-2dfc-e70b-67bc-133484a47e3c@mojatatu.com>
-References: <20170503235638.31116-1-stephen@networkplumber.org>
- <590AF624.6090808@iogearbox.net>
- <7315b681-9c78-4bc1-ab74-64509ab5887d@gmail.com>
- <20170504.104103.1628291573330660235.davem@davemloft.net>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: WARNING: CPU: 2 PID: 682 at net/wireless/util.c:1236
+Date: Thu, 04 May 2017 11:59:27 -0400 (EDT)
+Message-ID: <20170504.115927.311620488504377288.davem@davemloft.net>
+References: <20170504.112512.833061289089590605.davem@davemloft.net>
+        <4ad7a627-62c7-be34-2dae-c54bb3ef0a15@kernel.dk>
+        <b25325a9-ab93-1c57-3b59-2d52a76d279a@kernel.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: daniel@iogearbox.net, stephen@networkplumber.org,
-        netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>, dsahern@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f193.google.com ([209.85.223.193]:35314 "EHLO
-        mail-io0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754503AbdEDPuW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 4 May 2017 11:50:22 -0400
-Received: by mail-io0-f193.google.com with SMTP id v34so4617379iov.2
-        for <netdev@vger.kernel.org>; Thu, 04 May 2017 08:50:22 -0700 (PDT)
-In-Reply-To: <20170504.104103.1628291573330660235.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linuxwifi-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+        johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
+To: axboe-tSWWG44O7X1aa/9Udqfwiw@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <b25325a9-ab93-1c57-3b59-2d52a76d279a-tSWWG44O7X1aa/9Udqfwiw@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 17-05-04 10:41 AM, David Miller wrote:
-> From: David Ahern <dsahern@gmail.com>
-> Date: Thu, 4 May 2017 08:27:35 -0600
->
->> On 5/4/17 3:36 AM, Daniel Borkmann wrote:
->>> What is the clear benefit/rationale of outsourcing this to
->>> libmnl? I always was the impression we should strive for as little
->>> dependencies as possible?
->>
->> +1
->
-> Agreed, all else being equal iproute2 should be as self contained
-> as possible since it is such a fundamental tool.
->
+From: Jens Axboe <axboe-tSWWG44O7X1aa/9Udqfwiw@public.gmane.org>
+Date: Thu, 4 May 2017 09:40:08 -0600
 
-True, but:->
-iproute2 _already_ depends on libmnl;-> (latest user being devlink).
+> On 05/04/2017 09:27 AM, Jens Axboe wrote:
+>> On 05/04/2017 09:25 AM, David Miller wrote:
+>>> From: Jens Axboe <axboe-tSWWG44O7X1aa/9Udqfwiw@public.gmane.org>
+>>> Date: Thu, 4 May 2017 09:23:36 -0600
+>>>
+>>>> Running current -git on my laptop, and I see this spew every once
+>>>> in a while. This is new, haven't seen it in 4.11 or previously. Driver
+>>>> is iwlwifi:
+>>>
+>>> Please try:
+>>>
+>>> http://patchwork.ozlabs.org/patch/758364/
+>> 
+>> Will do, compiling...
+> 
+> Yep works, thanks.
 
-cheers,
-jamal
+Thanks for testing.
