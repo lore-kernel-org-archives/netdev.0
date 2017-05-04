@@ -1,11 +1,11 @@
 From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: [PATCH 5/6] cxgb4: Use seq_puts() in cim_qcfg_show()
-Date: Thu, 4 May 2017 22:35:16 +0200
-Message-ID: <2695f4a2-8201-1ae5-d93d-e4f41544c76c@users.sourceforge.net>
+Subject: [PATCH 6/6] cxgb4: Combine substrings for two messages
+Date: Thu, 4 May 2017 22:36:11 +0200
+Message-ID: <5e89d06b-3f3b-2c78-ab7c-40cce15e7f74@users.sourceforge.net>
 References: <a3216042-2461-b397-dfa1-1de178d58513@users.sourceforge.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
+Content-Transfer-Encoding: 8bit
 Cc: LKML <linux-kernel@vger.kernel.org>,
         kernel-janitors@vger.kernel.org
 To: netdev@vger.kernel.org, Casey Leedom <leedom@chelsio.com>,
@@ -17,33 +17,50 @@ Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Thu, 4 May 2017 21:52:32 +0200
+Date: Thu, 4 May 2017 22:16:57 +0200
 
-A string which did not contain a data format specification should be put
-into a sequence. Thus use the corresponding function "seq_puts".
+The script "checkpatch.pl" pointed information out like the following.
 
-This issue was detected by using the Coccinelle software.
+WARNING: quoted string split across lines
+
+Thus fix two source code places.
 
 Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
 ---
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c | 5 ++---
- 1 file changed, 2 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c | 13 +++++++------
+ 1 file changed, 7 insertions(+), 6 deletions(-)
 
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c
-index 2bc40d89f874..32add8dfc253 100644
+index 32add8dfc253..f9384d8b680d 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c
 +++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c
-@@ -357,9 +357,8 @@ static int cim_qcfg_show(struct seq_file *seq, void *v)
- 		return i;
- 
- 	t4_read_cimq_cfg(adap, base, size, thres);
--
--	seq_printf(seq,
--		   "  Queue  Base  Size Thres  RdPtr WrPtr  SOP  EOP Avail\n");
-+	seq_puts(seq,
-+		 "  Queue  Base  Size Thres  RdPtr WrPtr  SOP  EOP Avail\n");
- 	for (i = 0; i < CIM_NUM_IBQ; i++, p += 4)
- 		seq_printf(seq, "%7s %5x %5u %5u %6x  %4x %4u %4u %5u\n",
- 			   qname[i], base[i], size[i], thres[i],
+@@ -1353,8 +1353,9 @@ static int mps_trc_show(struct seq_file *seq, void *v)
+ 	if (tp.port < 8) {
+ 		i = adap->chan_map[tp.port & 3];
+ 		if (i >= MAX_NPORTS) {
+-			dev_err(adap->pdev_dev, "tracer %u is assigned "
+-				"to non-existing port\n", trcidx);
++			dev_err(adap->pdev_dev,
++				"tracer %u is assigned to non-existing port\n",
++				trcidx);
+ 			return -EINVAL;
+ 		}
+ 		seq_printf(seq, "tracer is capturing %s %s, ",
+@@ -1798,11 +1799,11 @@ static int mps_tcam_show(struct seq_file *seq, void *v)
+ 				      FW_LDST_CMD_IDX_V(idx));
+ 			ret = t4_wr_mbox(adap, adap->mbox, &ldst_cmd,
+ 					 sizeof(ldst_cmd), &ldst_cmd);
+-			if (ret)
+-				dev_warn(adap->pdev_dev, "Can't read MPS "
+-					 "replication map for idx %d: %d\n",
++			if (ret) {
++				dev_warn(adap->pdev_dev,
++					 "Can't read MPS replication map for idx %d: %d\n",
+ 					 idx, -ret);
+-			else {
++			} else {
+ 				mps_rplc = ldst_cmd.u.mps.rplc;
+ 				rplc[0] = ntohl(mps_rplc.rplc31_0);
+ 				rplc[1] = ntohl(mps_rplc.rplc63_32);
 -- 
 2.12.2
