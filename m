@@ -1,66 +1,69 @@
-From: David Arcari <darcari@redhat.com>
-Subject: Re: [PATCH] aquantia: Fix "ethtool -S" crash when adapter down.
-Date: Thu, 4 May 2017 16:39:25 -0400
-Message-ID: <fc1105a3-5d97-9d2f-f3c4-db8e65b69db2@redhat.com>
-References: <9ea5a2ba21b4f8b22a63acf39135a41e2f1da23c.1493928470.git.pavel.belous@aquantia.com>
+From: Phil Sutter <phil@nwl.cc>
+Subject: Re: [RFC] iproute: Add support for extended ack to rtnl_talk
+Date: Thu, 4 May 2017 22:43:18 +0200
+Message-ID: <20170504204318.GB21130@orbyte.nwl.cc>
+References: <20170503235638.31116-1-stephen@networkplumber.org>
+ <590AF624.6090808@iogearbox.net>
+ <7315b681-9c78-4bc1-ab74-64509ab5887d@gmail.com>
+ <20170504.104103.1628291573330660235.davem@davemloft.net>
+ <20170504094356.66590a9a@xeon-e3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Lino Sanfilippo <LinoSanfilippo@gmx.de>,
-        Simon Edelhaus <simon.edelhaus@aquantia.com>
-To: Pavel Belous <Pavel.Belous@aquantia.com>,
-        "David S . Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, dsahern@gmail.com,
+        daniel@iogearbox.net, netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:44190 "EHLO mx1.redhat.com"
+Received: from orbyte.nwl.cc ([151.80.46.58]:45047 "EHLO mail.nwl.cc"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751228AbdEDUj0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 4 May 2017 16:39:26 -0400
-In-Reply-To: <9ea5a2ba21b4f8b22a63acf39135a41e2f1da23c.1493928470.git.pavel.belous@aquantia.com>
+        id S1750710AbdEDUnU (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 4 May 2017 16:43:20 -0400
+Content-Disposition: inline
+In-Reply-To: <20170504094356.66590a9a@xeon-e3>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/04/2017 04:10 PM, Pavel Belous wrote:
-> From: Pavel Belous <pavel.belous@aquantia.com>
-> 
-> This patch fixes the crash that happens when driver tries to collect statistics
-> from already released "aq_vec" object.
-> If adapter is in "down" state we still allow user to see statistics from HW.
-> 
-> V2: fixed braces around "aq_vec_free".
-> 
-> Fixes: 97bde5c4f909 ("net: ethernet: aquantia: Support for NIC-specific code")
-> Signed-off-by: Pavel Belous <pavel.belous@aquantia.com>
-> ---
->  drivers/net/ethernet/aquantia/atlantic/aq_nic.c | 6 ++++--
->  1 file changed, 4 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_nic.c b/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
-> index cdb0299..9ee1c50 100644
-> --- a/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
-> +++ b/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
-> @@ -755,7 +755,7 @@ void aq_nic_get_stats(struct aq_nic_s *self, u64 *data)
->  	count = 0U;
->  
->  	for (i = 0U, aq_vec = self->aq_vec[0];
-> -		self->aq_vecs > i; ++i, aq_vec = self->aq_vec[i]) {
-> +		aq_vec && self->aq_vecs > i; ++i, aq_vec = self->aq_vec[i]) {
->  		data += count;
->  		aq_vec_get_sw_stats(aq_vec, data, &count);
->  	}
-> @@ -959,8 +959,10 @@ void aq_nic_free_hot_resources(struct aq_nic_s *self)
->  		goto err_exit;
->  
->  	for (i = AQ_DIMOF(self->aq_vec); i--;) {
-> -		if (self->aq_vec[i])
-> +		if (self->aq_vec[i]) {
->  			aq_vec_free(self->aq_vec[i]);
-> +			self->aq_vec[i] = NULL;
-> +		}
->  	}
->  
->  err_exit:;
-> 
+Hi,
 
-Resolves the ethtool crash.
+On Thu, May 04, 2017 at 09:43:56AM -0700, Stephen Hemminger wrote:
+> On Thu, 04 May 2017 10:41:03 -0400 (EDT)
+> David Miller <davem@davemloft.net> wrote:
+> 
+> > From: David Ahern <dsahern@gmail.com>
+> > Date: Thu, 4 May 2017 08:27:35 -0600
+> > 
+> > > On 5/4/17 3:36 AM, Daniel Borkmann wrote:  
+> > >> What is the clear benefit/rationale of outsourcing this to
+> > >> libmnl? I always was the impression we should strive for as little
+> > >> dependencies as possible?  
+> > > 
+> > > +1  
+> > 
+> > Agreed, all else being equal iproute2 should be as self contained
+> > as possible since it is such a fundamental tool.
+> 
+> Sorry, the old netlink code is more difficult to understand than libmnl.
+> Having dependency on a library is not a problem. There already is
+> an alternative implementation of ip commands in busybox for those
+> people trying to work in small environments.
 
-Tested-by: David Arcari <darcari@redhat.com>
+I second that. If you can't afford the extra ~24KB of libmnl on your
+system, you much rather can't afford the 20 times bigger ip binary,
+either.
+
+Regarding conversion to libmnl, which I investigated and started working
+on once: My gut feeling back then was that it's not quite worth the
+effor since iproute2 requires an intermediate layer of functions anyway.
+Another detail which I didn't like that much was libmnl's idiom of
+creating netlink messages on base of just a plain buffer and using
+mnl_nlmsg_put_header() et al. to populate it with data. I'm probably a
+bit biased since I did the conversion to c99-style initializers for the
+various struct req data types, but I didn't like the added run-time
+overhead to achieve just the same.
+
+So in summary, given that very little change happens to iproute2's
+internal libnetlink, I don't see much urge to make it use libmnl as
+backend. In my opinion it just adds another potential source of errors.
+
+Eventually this should be a maintainer level decision, though. :)
+
+Cheers, Phil
