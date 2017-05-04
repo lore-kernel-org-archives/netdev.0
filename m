@@ -1,72 +1,52 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: Re: [PATCH] iproute2: hide devices starting with period by default
-Date: Thu, 4 May 2017 13:47:36 -0600
-Message-ID: <01aa60dc-8bf2-3207-1abe-158100f52960@gmail.com>
-References: <027775d1-ef98-deda-1f8d-bb058d1e4c2f@cumulusnetworks.com>
- <20170223163035.0a49f04d@xeon-e3>
- <13cec1c2-88f4-e61d-02ee-dc01ccee7281@cumulusnetworks.com>
- <20170223.221257.795227595252531962.davem@redhat.com>
- <0a8e1cf0-9f30-2356-5168-a97abb86d5c2@cumulusnetworks.com>
- <0635d3bb-0d8d-7ab6-fb53-4d84f979a023@6wind.com>
- <4bbb7a19-1b0b-8c9a-7e74-82ee146cf48c@gmail.com>
- <26442035-25fd-ff9a-2804-ed21ec6198cf@gmail.com>
+From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+Subject: [PATCH] net: ipv4: add code comment for clarification
+Date: Thu, 4 May 2017 14:44:16 -0500
+Message-ID: <20170504194415.GA29391@embeddedgus>
+References: <20170504142432.Horde.g9y26Ryxbtg1EIl_cnsdbbw@gator4166.hostgator.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: David Miller <davem@redhat.com>, stephen@networkplumber.org,
-        netdev@vger.kernel.org
-To: Florian Fainelli <f.fainelli@gmail.com>, nicolas.dichtel@6wind.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:36790 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751628AbdEDTrj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 4 May 2017 15:47:39 -0400
-Received: by mail-pf0-f193.google.com with SMTP id v14so3298323pfd.3
-        for <netdev@vger.kernel.org>; Thu, 04 May 2017 12:47:39 -0700 (PDT)
-In-Reply-To: <26442035-25fd-ff9a-2804-ed21ec6198cf@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        "Gustavo A. R. Silva" <garsilva@embeddedor.com>,
+        Joe Perches <joe@perches.com>
+To: "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170504142432.Horde.g9y26Ryxbtg1EIl_cnsdbbw@gator4166.hostgator.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 5/4/17 1:10 PM, Florian Fainelli wrote:
-> On 05/04/2017 09:37 AM, David Ahern wrote:
->> On 5/4/17 9:15 AM, Nicolas Dichtel wrote:
->>> Le 24/02/2017 à 16:52, David Ahern a écrit :
->>>> On 2/23/17 8:12 PM, David Miller wrote:
->>>>> This really need to be a fundamental facility, so that it transparently
->>>>> works for NetworkManager, router daemons, everything.  Not just iproute2
->>>>> and "ls".
->>>>
->>>> I'll rebase my patch and send out as RFC.
->>>>
->>> David, did you finally send those patches?
->>>
->>
->> No, but for a few reasons.
->>
->> It is easy to hide devices in a dump:
->>
->> https://github.com/dsahern/linux/commit/48a80a00eac284e58bae04af10a5a932dd7aee00
->>
->>
->> But I think those devices should also not exist in sysfs or procfs which
->> overlaps what I would like to see for lightweight netdevices:
->>
->> https://github.com/dsahern/linux/commit/70574be699cf252e77f71e3df11192438689f976
-> 
-> Interesting that does indeed solve the same problems as the L2 only
-> patch set intended. I am not exactly sure if hiding the devices from
-> procfs/sysfs would be appropriate in my case (dumb L2 only switch that
-> only does 802.1q for instance), but why not.
-> 
-> 
->>
->>
->> and to be complete, hidden devices should not be allowed to have a
->> network address or transmit packets which is the L2 only intent from
->> Florian:
->>     https://www.spinics.net/lists/netdev/msg340808.html
->>
-> 
-> Do you plan on submitting the LWT patch set at some point?
+Add code comment to make it clear that the position of the arguments
+req->id.idiag_dport and req->id.idiag_sport is a locked in behavior
+and it should not be changed.
 
-Definitely. Maybe I can find some time this weekend.
+Addresses-Coverity-ID: 1357474
+Cc: David Miller <davem@davemloft.net>
+Cc: Joe Perches <joe@perches.com>
+Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
+---
+ net/ipv4/inet_diag.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
+index 3828b3a..841800b 100644
+--- a/net/ipv4/inet_diag.c
++++ b/net/ipv4/inet_diag.c
+@@ -389,6 +389,12 @@ static int sk_diag_fill(struct sock *sk, struct sk_buff *skb,
+ 				  nlmsg_flags, unlh, net_admin);
+ }
+ 
++/*
++ * Ignore the position of the arguments req->id.idiag_dport and
++ * req->id.idiag_sport in both calls to inet_lookup() and inet6_lookup()
++ * functions, once this is a locked in behavior exposed to user space.
++ * Changing this will break things for people.
++ */
+ struct sock *inet_diag_find_one_icsk(struct net *net,
+ 				     struct inet_hashinfo *hashinfo,
+ 				     const struct inet_diag_req_v2 *req)
+-- 
+2.5.0
