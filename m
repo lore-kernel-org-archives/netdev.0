@@ -1,112 +1,70 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: Re: net: possible deadlock in skb_queue_tail
-Date: Thu, 04 May 2017 16:05:29 +0200
-Message-ID: <1493906729.2274.6.camel@redhat.com>
-References: <CAAeHK+yCwsZE9iv+OLHJaU+7FEka8UHy_t5vMqFUBpQ8srBbsQ@mail.gmail.com>
-         <20170224025650.GA16439@breakpoint.cc>
-         <CAAeHK+wNPLWKy7q-mpPFrgK6pvnGYA9aPc_rs5d4sSvpvtoxDA@mail.gmail.com>
+From: David Ahern <dsahern@gmail.com>
+Subject: Re: [Patch net] ipv6: reorder ip6_route_dev_notifier after
+ ipv6_dev_notf
+Date: Thu, 4 May 2017 08:04:51 -0600
+Message-ID: <a127b7fe-82a7-53e9-8df4-704f1b295ada@gmail.com>
+References: <1493874452-3050-2-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-        "David S. Miller" <davem@davemloft.net>,
-        netfilter-devel@vger.kernel.org, netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Dmitry Vyukov <dvyukov@google.com>,
-        Kostya Serebryany <kcc@google.com>,
-        Eric Dumazet <edumazet@google.com>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Andrey Konovalov <andreyknvl@google.com>,
-        Florian Westphal <fw@strlen.de>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <CAAeHK+wNPLWKy7q-mpPFrgK6pvnGYA9aPc_rs5d4sSvpvtoxDA@mail.gmail.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: andreyknvl@google.com
+To: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:32939 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754983AbdEDOEx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 4 May 2017 10:04:53 -0400
+Received: by mail-pf0-f193.google.com with SMTP id b23so2237248pfc.0
+        for <netdev@vger.kernel.org>; Thu, 04 May 2017 07:04:53 -0700 (PDT)
+In-Reply-To: <1493874452-3050-2-git-send-email-xiyou.wangcong@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2017-05-04 at 15:49 +0200, Andrey Konovalov wrote:
-> On Fri, Feb 24, 2017 at 3:56 AM, Florian Westphal <fw@strlen.de> wrote:
-> > Andrey Konovalov <andreyknvl@google.com> wrote:
-> > 
-> > [ CC Paolo ]
-> > 
-> > > I've got the following error report while fuzzing the kernel with syzkaller.
-> > > 
-> > > On commit c470abd4fde40ea6a0846a2beab642a578c0b8cd (4.10).
-> > > 
-> > > Unfortunately I can't reproduce it.
-> > 
-> > This needs NETLINK_BROADCAST_ERROR enabled on a netlink socket
-> > that then subscribes to netfilter conntrack (ctnetlink) events.
-> > probably syzkaller did this by accident -- impressive.
-> > 
-> > (one task is the ctnetlink event redelivery worker
-> >  which won't be scheduled otherwise).
-> > 
-> > > ======================================================
-> > > [ INFO: possible circular locking dependency detected ]
-> > > 4.10.0-rc8+ #201 Not tainted
-> > > -------------------------------------------------------
-> > > kworker/0:2/1404 is trying to acquire lock:
-> > >  (&(&list->lock)->rlock#3){+.-...}, at: [<ffffffff8335b23f>]
-> > > skb_queue_tail+0xcf/0x2f0 net/core/skbuff.c:2478
-> > > 
-> > > but task is already holding lock:
-> > >  (&(&pcpu->lock)->rlock){+.-...}, at: [<ffffffff8366b55f>] spin_lock
-> > > include/linux/spinlock.h:302 [inline]
-> > >  (&(&pcpu->lock)->rlock){+.-...}, at: [<ffffffff8366b55f>]
-> > > ecache_work_evict_list+0xaf/0x590
-> > > net/netfilter/nf_conntrack_ecache.c:48
-> > > 
-> > > which lock already depends on the new lock.
-> > 
-> > Cong is correct, this is a false positive.
-> > 
-> > However we should fix this splat.
-> > 
-> > Paolo, this happens since 7c13f97ffde63cc792c49ec1513f3974f2f05229
-> > ('udp: do fwd memory scheduling on dequeue'), before this
-> > commit kfree_skb() was invoked outside of the locked section in
-> > first_packet_length().
-> > 
-> > cpu 0 call chain:
-> > - first_packet_length (hold udp sk_receive_queue lock)
-> >    - kfree_skb
-> >       - nf_conntrack_destroy
-> >          - spin_lock(net->ct.pcpu->lock)
-> > 
-> > cpu 1 call chain:
-> > - ecache_work_evict_list
-> >   - spin_lock( net->ct.pcpu->lock)
-> >   - nf_conntrack_event
-> >      - aquire netlink socket sk_receive_queue
-> > 
-> > So this could only ever deadlock if a netlink socket
-> > calls kfree_skb while holding its sk_receive_queue lock, but afaics
-> > this is never the case.
-> > 
-> > There are two ways to avoid this splat (other than lockdep annotation):
-> > 
-> > 1. re-add the list to first_packet_length() and free the
-> > skbs outside of locked section.
-> > 
-> > 2. change ecache_work_evict_list to not call nf_conntrack_event()
-> > while holding the pcpu lock.
-> > 
-> > doing #2 might be a good idea anyway to avoid potential deadlock
-> > when kfree_skb gets invoked while other cpu holds its sk_receive_queue
-> > lock, I'll have a look if this is feasible.
+On 5/3/17 11:07 PM, Cong Wang wrote:
+> For each netns (except init_net), we initialize its null entry
+> in 3 places:
 > 
-> Hi!
+> 1) The template itself, as we use kmemdup()
+> 2) Code around dst_init_metrics() in ip6_route_net_init()
+> 3) ip6_route_dev_notify(), which is supposed to initialize it after
+> loopback registers
 > 
-> Any updates on this?
+> Unfortunately the last one still happens in a wrong order because
+> we expect to initialize net->ipv6.ip6_null_entry->rt6i_idev to
+> net->loopback_dev's idev, so we have to do that after we add
+> idev to it. However, this notifier has priority == 0 same as
+> ipv6_dev_notf, and ipv6_dev_notf is registered after
+> ip6_route_dev_notifier so it is called actually after
+> ip6_route_dev_notifier.
 > 
-> I might have missed the patch if there was one.
+> Fix it by specifying a smaller priority for ip6_route_dev_notifier.
 > 
-> Thanks!
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> ---
+>  net/ipv6/route.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+> index 2f11366..4dbf7e2 100644
+> --- a/net/ipv6/route.c
+> +++ b/net/ipv6/route.c
+> @@ -4024,7 +4024,7 @@ static struct pernet_operations ip6_route_net_late_ops = {
+>  
+>  static struct notifier_block ip6_route_dev_notifier = {
+>  	.notifier_call = ip6_route_dev_notify,
+> -	.priority = 0,
+> +	.priority = -10, /* Must be called after addrconf_notify!! */
+>  };
+>  
+>  void __init ip6_route_init_special_entries(void)
+> 
 
-That has should be fixed via lockdep annotation with
-581319c58600b54612c417aff32ae9bbd79f4cdb
+And I see a refcnt problem with this change:
 
-Paolo
+root@kenny-jessie2:~# unshare -n
+root@kenny-jessie2:~# logout
+root@kenny-jessie2:~# unshare -n
 
+Message from syslogd@kenny-jessie2 at May  4 07:04:38 ...
+ kernel:[   62.581552] unregister_netdevice: waiting for lo to become
+free. Usage count = 1
