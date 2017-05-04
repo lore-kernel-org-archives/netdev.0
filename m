@@ -1,84 +1,103 @@
-From: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: net/smc and the RDMA core
-Date: Thu, 4 May 2017 16:15:23 +0300
-Message-ID: <20170504131523.GV22833@mtr-leonro.local>
-References: <20170501163311.GA22209@lst.de>
- <d9214af6-1c6f-9f95-fc00-3e4a316b4f81@linux.vnet.ibm.com>
- <1493750358.2552.13.camel@sandisk.com>
- <1b79048f-4495-3840-e7a6-d4fa5a8dfb57@grimberg.me>
- <20170504084825.GA5399@lst.de>
- <efa9bd6d-1df9-952a-7f32-c2ee6bffcae5@linux.vnet.ibm.com>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-        protocol="application/pgp-signature"; boundary="PpocKf6TCvdC9BKE"
-Cc: "hch-jcswGhMUV9g@public.gmane.org" <hch-jcswGhMUV9g@public.gmane.org>, Sagi Grimberg <sagi-NQWnxTmZq1alnMjI0IkVqw@public.gmane.org>,
-        Bart Van Assche <Bart.VanAssche-XdAiOPVOjttBDgjK7y7TUQ@public.gmane.org>,
-        "davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Ursula Braun <ubraun-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <efa9bd6d-1df9-952a-7f32-c2ee6bffcae5-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH iproute] tc: Reflect HW offload status
+Date: Thu,  4 May 2017 16:15:15 +0300
+Message-ID: <1493903715-29664-1-git-send-email-ogerlitz@mellanox.com>
+Cc: netdev@vger.kernel.org, Roi Dayan <roid@mellanox.com>,
+        Paul Blakey <paulb@mellanox.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:36854 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1752803AbdEDNP0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 4 May 2017 09:15:26 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Currently there is no way of querying whether a filter is
+offloaded to HW or not when using "both" policy (where none
+of skip_sw or skip_hw flags are set by user-space).
 
---PpocKf6TCvdC9BKE
-Content-Type: text/plain; charset=utf-8
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Add two new flags, "in hw" and "not in hw" such that user
+space can determine if a filter is actually offloaded to
+hw or not. The "in hw" UAPI semantics was chosen so it's
+similar to the "skip hw" flag logic.
 
-On Thu, May 04, 2017 at 03:08:39PM +0200, Ursula Braun wrote:
->
->
-> On 05/04/2017 10:48 AM, hch-jcswGhMUV9g@public.gmane.org wrote:
-> > On Thu, May 04, 2017 at 11:43:50AM +0300, Sagi Grimberg wrote:
-> >> I would also suggest that you stop exposing the DMA MR for remote
-> >> access (at least by default) and use a proper reg_mr operations with a
-> >> limited lifetime on a properly sized buffer.
-> >
-> > Yes, exposing the default DMA MR is a _major_ security risk.  As soon
-> > as SMC is enabled this will mean a remote system has full read/write
-> > access to the local systems memory.
-> >
-> > There =D1=96s a reason why I removed the ib_get_dma_mr function and rep=
-laced
-> > it with the IB_PD_UNSAFE_GLOBAL_RKEY key that has _UNSAFE_ in the name
-> > and a very long comment explaining why, and I'm really disappointed that
-> > we got a driver merged that instead of asking on the relevant list on
-> > why a change unexpertong a function it needed happened and instead
-> > tried the hard way to keep a security vulnerarbility alive.
-> >
-> Thanks for pointing out these problems. We will address them.
->
+If none of these two flags are set, this signals running
+over older kernel.
 
-Out of curiosity, when do you plan to address all this?
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+Reviewed-by: Jiri Pirko <jiri@mellanox.com>
+---
+ tc/f_bpf.c      | 5 +++++
+ tc/f_flower.c   | 5 +++++
+ tc/f_matchall.c | 5 +++++
+ tc/f_u32.c      | 5 +++++
+ 4 files changed, 20 insertions(+)
 
-Thanks
-
---PpocKf6TCvdC9BKE
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAlkLKWsACgkQ5GN7iDZy
-WKck+Q//R5lRchnNuvYuBr3/3y/UXLF7LRkmBjOMX6LG3DCSVgJ2fscqhihWF8f1
-+puOlCtCuCEgjXR7CFbXJpL83vKqw6gru2Q4g/fzH7Bu4Cjx+ennxAzyl1EYSDqL
-nCmdttezEHWD83bcmZuwznpa+ACe1ADwTxlHHpUV84M2e2B9pSZiIx712S/2ANdc
-JuYOAIanrWD1tenaMsmX6QsFd4MophHy77BKTqLHKnFmA1+daeNJ95K+1TJwSVDT
-gym1Oid0zVCmLJvjJzNUijaye+jonu1nFnvr4Xfio2qJlQVyCxT9CNO8iZ3TE3R2
-v9G+L5JhuYb4GrZWpCY9j8uJElvRCClVt2nh+RDt0LO+ysZUJ6DpwjHQCpPU4BoK
-RV0jmfWZhcgdw6jXtZsP7GH7OUuDUMGqgFpoSn7CE+uYvtu7r/SxZ04hi1aSboJw
-kh1i7Exnwl0YGMTaxwP4LBF7yek9u3EDAU71bC9nzEz/9bz9XKpDe2Ph56Stm0E1
-2Uv+CEOdB5/Pa9mLOylipXpddDNRi5AQTN5YxWydHP42MaTJtCzylvzGfq/FH3WX
-/dvXuCn3cRsOn9pKfSMOrRoBiKR0bUnKtDY89bNrzCL8ysSYIhIqBGW/2vYITNiW
-q/gv4B8c36zaxZgntPd6tsp/sk/YlEEMX5cYXa9v4pEPs14UKck=
-=fe0e
------END PGP SIGNATURE-----
-
---PpocKf6TCvdC9BKE--
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/tc/f_bpf.c b/tc/f_bpf.c
+index df8a259..75c44c0 100644
+--- a/tc/f_bpf.c
++++ b/tc/f_bpf.c
+@@ -210,6 +210,11 @@ static int bpf_print_opt(struct filter_util *qu, FILE *f,
+ 			fprintf(f, "skip_hw ");
+ 		if (flags & TCA_CLS_FLAGS_SKIP_SW)
+ 			fprintf(f, "skip_sw ");
++
++		if (flags & TCA_CLS_FLAGS_IN_HW)
++			fprintf(f, "in_hw ");
++		else if (flags & TCA_CLS_FLAGS_NOT_IN_HW)
++			fprintf(f, "not_in_hw ");
+ 	}
+ 
+ 	if (tb[TCA_BPF_OPS] && tb[TCA_BPF_OPS_LEN])
+diff --git a/tc/f_flower.c b/tc/f_flower.c
+index 5aac4a0..ebc63ca 100644
+--- a/tc/f_flower.c
++++ b/tc/f_flower.c
+@@ -1171,6 +1171,11 @@ static int flower_print_opt(struct filter_util *qu, FILE *f,
+ 			fprintf(f, "\n  skip_hw");
+ 		if (flags & TCA_CLS_FLAGS_SKIP_SW)
+ 			fprintf(f, "\n  skip_sw");
++
++		if (flags & TCA_CLS_FLAGS_IN_HW)
++			fprintf(f, "\n  in_hw");
++		else if (flags & TCA_CLS_FLAGS_NOT_IN_HW)
++			fprintf(f, "\n  not_in_hw");
+ 	}
+ 
+ 	if (tb[TCA_FLOWER_ACT])
+diff --git a/tc/f_matchall.c b/tc/f_matchall.c
+index ac48630..5a51e75 100644
+--- a/tc/f_matchall.c
++++ b/tc/f_matchall.c
+@@ -137,6 +137,11 @@ static int matchall_print_opt(struct filter_util *qu, FILE *f,
+ 			fprintf(f, "\n  skip_hw");
+ 		if (flags & TCA_CLS_FLAGS_SKIP_SW)
+ 			fprintf(f, "\n  skip_sw");
++
++		if (flags & TCA_CLS_FLAGS_IN_HW)
++			fprintf(f, "\n  in_hw");
++		else if (flags & TCA_CLS_FLAGS_NOT_IN_HW)
++			fprintf(f, "\n  not_in_hw");
+ 	}
+ 
+ 	if (tb[TCA_MATCHALL_ACT])
+diff --git a/tc/f_u32.c b/tc/f_u32.c
+index 92c1fcd..ff700e9 100644
+--- a/tc/f_u32.c
++++ b/tc/f_u32.c
+@@ -1264,6 +1264,11 @@ static int u32_print_opt(struct filter_util *qu, FILE *f, struct rtattr *opt,
+ 			fprintf(f, "skip_hw ");
+ 		if (flags & TCA_CLS_FLAGS_SKIP_SW)
+ 			fprintf(f, "skip_sw ");
++
++		if (flags & TCA_CLS_FLAGS_IN_HW)
++			fprintf(f, "in_hw ");
++		else if (flags & TCA_CLS_FLAGS_NOT_IN_HW)
++			fprintf(f, "not_in_hw ");
+ 	}
+ 
+ 	if (tb[TCA_U32_PCNT]) {
+-- 
+2.3.7
