@@ -1,34 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] iproute: Add support for extended ack to rtnl_talk
-Date: Thu, 04 May 2017 10:41:03 -0400 (EDT)
-Message-ID: <20170504.104103.1628291573330660235.davem@davemloft.net>
-References: <20170503235638.31116-1-stephen@networkplumber.org>
-        <590AF624.6090808@iogearbox.net>
-        <7315b681-9c78-4bc1-ab74-64509ab5887d@gmail.com>
+Subject: Re: [PATCH] net:ethernet:aquantia:atlantic: Switch to use
+ napi_gro_receive
+Date: Thu, 04 May 2017 10:42:57 -0400 (EDT)
+Message-ID: <20170504.104257.1536182180703411206.davem@davemloft.net>
+References: <16bc94e6bb9cc977a9a9e0cac48ae91ff7198f05.1493829200.git.pavel.belous@aquantia.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: daniel@iogearbox.net, stephen@networkplumber.org,
-        netdev@vger.kernel.org
-To: dsahern@gmail.com
+Cc: netdev@vger.kernel.org, darcari@redhat.com
+To: Pavel.Belous@aquantia.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:55362 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:55396 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752997AbdEDOlI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 4 May 2017 10:41:08 -0400
-In-Reply-To: <7315b681-9c78-4bc1-ab74-64509ab5887d@gmail.com>
+        with ESMTP id S1751565AbdEDOm6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 4 May 2017 10:42:58 -0400
+In-Reply-To: <16bc94e6bb9cc977a9a9e0cac48ae91ff7198f05.1493829200.git.pavel.belous@aquantia.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Ahern <dsahern@gmail.com>
-Date: Thu, 4 May 2017 08:27:35 -0600
+From: Pavel Belous <Pavel.Belous@aquantia.com>
+Date: Wed,  3 May 2017 19:57:10 +0300
 
-> On 5/4/17 3:36 AM, Daniel Borkmann wrote:
->> What is the clear benefit/rationale of outsourcing this to
->> libmnl? I always was the impression we should strive for as little
->> dependencies as possible?
+> From: Pavel Belous <pavel.belous@aquantia.com>
 > 
-> +1
+> Add support for GRO (generic receive offload) for aQuantia Atlantic driver.
+> This results in a perfomance improvement when GRO is enabled.
+> 
+> Signed-off-by: Pavel Belous <pavel.belous@aquantia.com>
 
-Agreed, all else being equal iproute2 should be as self contained
-as possible since it is such a fundamental tool.
+Please format your Subject line properly.
+
+You have _way_ too many subsystem prefixes, and when there are more
+than one they should be separated by spaces like "a: b: c:"
+
+In this case an appropriate Subject line would be:
+
+[PATCH net-next] aquantia: Switch to use napi_gro_receive().
+
+But since this is a new feature, and the net-next tree is currently
+closed, you will have to resubmit this when the net-next tree
+opens.
+
+Thank you.
