@@ -1,7 +1,7 @@
 From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: [PATCH 3/6] cxgb4vf: Adjust five checks for null pointers
-Date: Thu, 4 May 2017 22:33:22 +0200
-Message-ID: <921bc451-3b7b-1d77-72eb-755061a7fe09@users.sourceforge.net>
+Subject: [PATCH 4/6] cxgb4: Replace seven seq_puts() calls by seq_putc()
+Date: Thu, 4 May 2017 22:34:14 +0200
+Message-ID: <d5af6439-f6a7-7bdb-a660-9ca3dd267875@users.sourceforge.net>
 References: <a3216042-2461-b397-dfa1-1de178d58513@users.sourceforge.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
@@ -17,70 +17,90 @@ Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Thu, 4 May 2017 21:20:25 +0200
-MIME-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
+Date: Thu, 4 May 2017 21:40:54 +0200
 
-The script “checkpatch.pl” pointed information out like the following.
+Seven single characters (line breaks) should be put into a sequence.
+Thus use the corresponding function "seq_putc".
 
-Comparison to NULL could be written !…
-
-Thus fix the affected source code places.
+This issue was detected by using the Coccinelle software.
 
 Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
 ---
- drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c | 10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c | 24 +++++++---------------
+ 1 file changed, 7 insertions(+), 17 deletions(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c b/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
-index 9c2690aeb32b..682e844c5a7d 100644
---- a/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
-@@ -491,7 +491,7 @@ static int fwevtq_handler(struct sge_rspq *rspq, const __be64 *rsp,
- 			break;
- 		}
- 		tq = s->egr_map[eq_idx];
--		if (unlikely(tq == NULL)) {
-+		if (unlikely(!tq)) {
- 			dev_err(adapter->pdev_dev,
- 				"Egress Update QID %d TXQ=NULL\n", qid);
- 			break;
-@@ -2939,7 +2939,7 @@ static int cxgb4vf_pci_probe(struct pci_dev *pdev,
- 		 */
- 		netdev = alloc_etherdev_mq(sizeof(struct port_info),
- 					   MAX_PORT_QSETS);
--		if (netdev == NULL) {
-+		if (!netdev) {
- 			t4vf_free_vi(adapter, viid);
- 			err = -ENOMEM;
- 			goto err_free_dev;
-@@ -3053,7 +3053,7 @@ static int cxgb4vf_pci_probe(struct pci_dev *pdev,
- 	for_each_port(adapter, pidx) {
- 		struct port_info *pi = netdev_priv(adapter->port[pidx]);
- 		netdev = adapter->port[pidx];
--		if (netdev == NULL)
-+		if (!netdev)
- 			continue;
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c
+index 1fa34b009891..2bc40d89f874 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c
+@@ -278,7 +278,7 @@ static int cim_ma_la_show(struct seq_file *seq, void *v, int idx)
+ 	const u32 *p = v;
  
- 		netif_set_real_num_tx_queues(netdev, pi->nqsets);
-@@ -3120,7 +3120,7 @@ static int cxgb4vf_pci_probe(struct pci_dev *pdev,
- err_free_dev:
- 	for_each_port(adapter, pidx) {
- 		netdev = adapter->port[pidx];
--		if (netdev == NULL)
-+		if (!netdev)
- 			continue;
- 		pi = netdev_priv(netdev);
- 		t4vf_free_vi(adapter, pi->viid);
-@@ -3197,7 +3197,7 @@ static void cxgb4vf_pci_remove(struct pci_dev *pdev)
- 			struct net_device *netdev = adapter->port[pidx];
- 			struct port_info *pi;
+ 	if (v == SEQ_START_TOKEN) {
+-		seq_puts(seq, "\n");
++		seq_putc(seq, '\n');
+ 	} else if (idx < CIM_MALA_SIZE) {
+ 		seq_printf(seq, "%02x%08x%08x%08x%08x\n",
+ 			   p[4], p[3], p[2], p[1], p[0]);
+@@ -1196,7 +1196,7 @@ static int mboxlog_show(struct seq_file *seq, void *v)
  
--			if (netdev == NULL)
-+			if (!netdev)
- 				continue;
+ 		seq_printf(seq, "  %08x %08x", hi, lo);
+ 	}
+-	seq_puts(seq, "\n");
++	seq_putc(seq, '\n');
+ 	return 0;
+ }
  
- 			pi = netdev_priv(netdev);
+@@ -2112,9 +2112,7 @@ static int rss_config_show(struct seq_file *seq, void *v)
+ 							HASHTOEPLITZ_F));
+ 	seq_printf(seq, "  Udp4En:        %3s\n", yesno(rssconf & UDPENABLE_F));
+ 	seq_printf(seq, "  Disable:       %3s\n", yesno(rssconf & DISABLE_F));
+-
+-	seq_puts(seq, "\n");
+-
++	seq_putc(seq, '\n');
+ 	rssconf = t4_read_reg(adapter, TP_RSS_CONFIG_TNL_A);
+ 	seq_printf(seq, "TP_RSS_CONFIG_TNL: %#x\n", rssconf);
+ 	seq_printf(seq, "  MaskSize:      %3d\n", MASKSIZE_G(rssconf));
+@@ -2126,25 +2124,19 @@ static int rss_config_show(struct seq_file *seq, void *v)
+ 			   yesno(rssconf & HASHETH_F));
+ 	}
+ 	seq_printf(seq, "  UseWireCh:     %3s\n", yesno(rssconf & USEWIRECH_F));
+-
+-	seq_puts(seq, "\n");
+-
++	seq_putc(seq, '\n');
+ 	rssconf = t4_read_reg(adapter, TP_RSS_CONFIG_OFD_A);
+ 	seq_printf(seq, "TP_RSS_CONFIG_OFD: %#x\n", rssconf);
+ 	seq_printf(seq, "  MaskSize:      %3d\n", MASKSIZE_G(rssconf));
+ 	seq_printf(seq, "  RRCplMapEn:    %3s\n", yesno(rssconf &
+ 							RRCPLMAPEN_F));
+ 	seq_printf(seq, "  RRCplQueWidth: %3d\n", RRCPLQUEWIDTH_G(rssconf));
+-
+-	seq_puts(seq, "\n");
+-
++	seq_putc(seq, '\n');
+ 	rssconf = t4_read_reg(adapter, TP_RSS_CONFIG_SYN_A);
+ 	seq_printf(seq, "TP_RSS_CONFIG_SYN: %#x\n", rssconf);
+ 	seq_printf(seq, "  MaskSize:      %3d\n", MASKSIZE_G(rssconf));
+ 	seq_printf(seq, "  UseWireCh:     %3s\n", yesno(rssconf & USEWIRECH_F));
+-
+-	seq_puts(seq, "\n");
+-
++	seq_putc(seq, '\n');
+ 	rssconf = t4_read_reg(adapter, TP_RSS_CONFIG_VRT_A);
+ 	seq_printf(seq, "TP_RSS_CONFIG_VRT: %#x\n", rssconf);
+ 	if (CHELSIO_CHIP_VERSION(adapter->params.chip) > CHELSIO_T5) {
+@@ -2170,9 +2162,7 @@ static int rss_config_show(struct seq_file *seq, void *v)
+ 	seq_printf(seq, "  VfWrEn:        %3s\n", yesno(rssconf & VFWREN_F));
+ 	seq_printf(seq, "  KeyWrEn:       %3s\n", yesno(rssconf & KEYWREN_F));
+ 	seq_printf(seq, "  KeyWrAddr:     %3d\n", KEYWRADDR_G(rssconf));
+-
+-	seq_puts(seq, "\n");
+-
++	seq_putc(seq, '\n');
+ 	rssconf = t4_read_reg(adapter, TP_RSS_CONFIG_CNG_A);
+ 	seq_printf(seq, "TP_RSS_CONFIG_CNG: %#x\n", rssconf);
+ 	seq_printf(seq, "  ChnCount3:     %3s\n", yesno(rssconf & CHNCOUNT3_F));
 -- 
 2.12.2
