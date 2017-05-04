@@ -1,56 +1,44 @@
-From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
-Subject: Re: net/smc and the RDMA core
-Date: Thu, 4 May 2017 09:31:55 -0600
-Message-ID: <20170504153155.GB854@obsidianresearch.com>
-References: <20170501163311.GA22209@lst.de>
- <d9214af6-1c6f-9f95-fc00-3e4a316b4f81@linux.vnet.ibm.com>
- <1493750358.2552.13.camel@sandisk.com>
- <1b79048f-4495-3840-e7a6-d4fa5a8dfb57@grimberg.me>
- <20170504084825.GA5399@lst.de>
- <efa9bd6d-1df9-952a-7f32-c2ee6bffcae5@linux.vnet.ibm.com>
+From: Jens Axboe <axboe@kernel.dk>
+Subject: Re: WARNING: CPU: 2 PID: 682 at net/wireless/util.c:1236
+Date: Thu, 4 May 2017 09:40:08 -0600
+Message-ID: <b25325a9-ab93-1c57-3b59-2d52a76d279a@kernel.dk>
+References: <240bae44-56e4-f342-0d1b-358a573e2eeb@kernel.dk>
+ <20170504.112512.833061289089590605.davem@davemloft.net>
+ <4ad7a627-62c7-be34-2dae-c54bb3ef0a15@kernel.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "hch@lst.de" <hch@lst.de>, Sagi Grimberg <sagi@grimberg.me>,
-        Bart Van Assche <Bart.VanAssche@sandisk.com>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>
-To: Ursula Braun <ubraun@linux.vnet.ibm.com>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: kvalo@codeaurora.org, linux-wireless@vger.kernel.org,
+        netdev@vger.kernel.org, linuxwifi@intel.com,
+        johannes.berg@intel.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from quartz.orcorp.ca ([184.70.90.242]:44592 "EHLO quartz.orcorp.ca"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751248AbdEDPcI (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 4 May 2017 11:32:08 -0400
-Content-Disposition: inline
-In-Reply-To: <efa9bd6d-1df9-952a-7f32-c2ee6bffcae5@linux.vnet.ibm.com>
+Received: from mail-it0-f46.google.com ([209.85.214.46]:36698 "EHLO
+        mail-it0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752221AbdEDPkL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 4 May 2017 11:40:11 -0400
+Received: by mail-it0-f46.google.com with SMTP id o5so274492ith.1
+        for <netdev@vger.kernel.org>; Thu, 04 May 2017 08:40:11 -0700 (PDT)
+In-Reply-To: <4ad7a627-62c7-be34-2dae-c54bb3ef0a15@kernel.dk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 04, 2017 at 03:08:39PM +0200, Ursula Braun wrote:
+On 05/04/2017 09:27 AM, Jens Axboe wrote:
+> On 05/04/2017 09:25 AM, David Miller wrote:
+>> From: Jens Axboe <axboe@kernel.dk>
+>> Date: Thu, 4 May 2017 09:23:36 -0600
+>>
+>>> Running current -git on my laptop, and I see this spew every once
+>>> in a while. This is new, haven't seen it in 4.11 or previously. Driver
+>>> is iwlwifi:
+>>
+>> Please try:
+>>
+>> http://patchwork.ozlabs.org/patch/758364/
 > 
-> 
-> On 05/04/2017 10:48 AM, hch@lst.de wrote:
-> > On Thu, May 04, 2017 at 11:43:50AM +0300, Sagi Grimberg wrote:
-> >> I would also suggest that you stop exposing the DMA MR for remote
-> >> access (at least by default) and use a proper reg_mr operations with a
-> >> limited lifetime on a properly sized buffer.
-> > 
-> > Yes, exposing the default DMA MR is a _major_ security risk.  As soon
-> > as SMC is enabled this will mean a remote system has full read/write
-> > access to the local systems memory.
-> > 
-> > There ??s a reason why I removed the ib_get_dma_mr function and replaced
-> > it with the IB_PD_UNSAFE_GLOBAL_RKEY key that has _UNSAFE_ in the name
-> > and a very long comment explaining why, and I'm really disappointed that
-> > we got a driver merged that instead of asking on the relevant list on
-> > why a change unexpertong a function it needed happened and instead
-> > tried the hard way to keep a security vulnerarbility alive.
-> > 
-> Thanks for pointing out these problems. We will address them.
+> Will do, compiling...
 
-So, you've created a huge security hole in the kernel, anyone who
-loads your smc module is vunerable.
+Yep works, thanks.
 
-What are you going to do *RIGHT NOW* to mitigate this?
-
-Jason
+-- 
+Jens Axboe
