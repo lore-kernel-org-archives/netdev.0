@@ -1,7 +1,7 @@
 From: Leon Romanovsky <leon@kernel.org>
-Subject: [RFC iproute2 2/8] rdma: Add dev object
-Date: Thu,  4 May 2017 21:02:10 +0300
-Message-ID: <20170504180216.7665-3-leon@kernel.org>
+Subject: [RFC iproute2 3/8] rdma: Add link object
+Date: Thu,  4 May 2017 21:02:11 +0300
+Message-ID: <20170504180216.7665-4-leon@kernel.org>
 References: <20170504180216.7665-1-leon@kernel.org>
 Cc: Leon Romanovsky <leonro@mellanox.com>,
         Jiri Pirko <jiri@mellanox.com>,
@@ -18,67 +18,75 @@ Cc: Leon Romanovsky <leonro@mellanox.com>,
 To: Stephen Hemminger <stephen@networkplumber.org>,
         Doug Ledford <dledford@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.136]:58452 "EHLO mail.kernel.org"
+Received: from mail.kernel.org ([198.145.29.136]:58546 "EHLO mail.kernel.org"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1756087AbdEDSC0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 4 May 2017 14:02:26 -0400
+        id S1755564AbdEDSCZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 4 May 2017 14:02:25 -0400
 In-Reply-To: <20170504180216.7665-1-leon@kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Leon Romanovsky <leonro@mellanox.com>
 
-Device (dev) object represents struct ib_device to user space.
+Link object represents port of struct ib_device.
 
-The supported commands are show, set and help.
+Supported commands are show, set and help.
 
-Print all devices:
- # rdma dev
-1: mlx5_0: board_id MT_2190110032 fw_pages 261002 fw_ver 12.17.2046 hca_type MT4115 hw_rev 0
-	node_desc hpchead HCA-1 node_guid e41d:2d03:0066:dee6 node_type 1: CA reg_pages 0
-	sys_image_guid e41d:2d03:0066:dee6
-2: mlx5_1: board_id MT_2190110032 fw_pages 250793 fw_ver 12.17.2046 hca_type MT4115 hw_rev 0
-	node_desc hpchead HCA-2 node_guid e41d:2d03:0066:dee7 node_type 1: CA reg_pages 0
-	sys_image_guid e41d:2d03:0066:dee6
-3: mlx5_2: board_id MT_1210110019 fw_pages 68067 fw_ver 10.16.1020 hca_type MT4113 hw_rev 0
-	node_desc hpchead HCA-3 node_guid 0002:c903:0016:75b0 node_type 1: CA reg_pages 0
-	sys_image_guid 0002:c903:0016:75b0
+Print all links for all devices:
+ # rdma link
+1/1: mlx5_0/1: ifname ib0 cap_mask 0x2651e848 lid 0x13 lid_mask_count 0 link_layer InfiniBand
+	phys_state 5: LinkUp rate 100 Gb/sec (4X EDR) sm_lid 0x2 sm_sl 0 state 4: ACTIVE
+2/1: mlx5_1/1: ifname ib1 cap_mask 0x2651e848 lid 0xffff lid_mask_count 0 link_layer InfiniBand
+	phys_state 3: Disabled rate 10 Gb/sec (4X) sm_lid 0x0 sm_sl 0 state 1: DOWN
+3/1: mlx5_2/1: ifname ib2 cap_mask 0x26516848 lid 0x1a lid_mask_count 0 link_layer InfiniBand
+	phys_state 5: LinkUp rate 56 Gb/sec (4X FDR) sm_lid 0x2 sm_sl 0 state 4: ACTIVE
+3/2: mlx5_2/2: ifname ib3 cap_mask 0x26516848 lid 0xffff lid_mask_count 0 link_layer InfiniBand
+	phys_state 3: Disabled rate 10 Gb/sec (4X) sm_lid 0x0 sm_sl 0 state 1: DOWN
 
-Print specific device:
- # rdma dev show mlx5_1
-2: mlx5_1: board_id MT_2190110032 fw_pages 250793 fw_ver 12.17.2046 hca_type MT4115 hw_rev 0
-	node_desc hpchead HCA-2 node_guid e41d:2d03:0066:dee7 node_type 1: CA reg_pages 0
-	sys_image_guid e41d:2d03:0066:dee6
+Print all links for specific device:
+ # rdma link show mlx5_2
+3/1: mlx5_2/1: ifname ib2 cap_mask 0x26516848 lid 0x1a lid_mask_count 0 link_layer InfiniBand
+	phys_state 5: LinkUp rate 56 Gb/sec (4X FDR) sm_lid 0x2 sm_sl 0 state 4: ACTIVE
+3/2: mlx5_2/2: ifname ib3 cap_mask 0x26516848 lid 0xffff lid_mask_count 0 link_layer InfiniBand
+	phys_state 3: Disabled rate 10 Gb/sec (4X) sm_lid 0x0 sm_sl 0 state 1: DOWN
+
+Print specific link:
+ # rdma link show mlx5_2/2
+3/2: mlx5_2/2: ifname ib3 cap_mask 0x26516848 lid 0xffff lid_mask_count 0 link_layer InfiniBand
+	phys_state 3: Disabled rate 10 Gb/sec (4X) sm_lid 0x0 sm_sl 0 state 1: DOWN
+
+Set parameter;
+ # rdma link set mlx5_2/2 type auto lb_unicast off
 
 Signed-off-by: Leon Romanovsky <leonro@mellanox.com>
 ---
  rdma/Makefile |   2 +-
- rdma/dev.c    | 101 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ rdma/link.c   | 112 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
  rdma/rdma.c   |   3 +-
- rdma/rdma.h   |   5 +++
- 4 files changed, 109 insertions(+), 2 deletions(-)
- create mode 100644 rdma/dev.c
+ rdma/rdma.h   |   1 +
+ 4 files changed, 116 insertions(+), 2 deletions(-)
+ create mode 100644 rdma/link.c
 
 diff --git a/rdma/Makefile b/rdma/Makefile
-index 65248b31..67e349b0 100644
+index 67e349b0..cf54ed36 100644
 --- a/rdma/Makefile
 +++ b/rdma/Makefile
 @@ -1,6 +1,6 @@
  include ../Config
 
--RDMA_OBJ = rdma.o utils.o
-+RDMA_OBJ = rdma.o utils.o dev.o
+-RDMA_OBJ = rdma.o utils.o dev.o
++RDMA_OBJ = rdma.o utils.o dev.o link.o
  TARGETS=rdma
 
  all:	$(TARGETS) $(LIBS)
-diff --git a/rdma/dev.c b/rdma/dev.c
+diff --git a/rdma/link.c b/rdma/link.c
 new file mode 100644
-index 00000000..e6d71035
+index 00000000..e86ff399
 --- /dev/null
-+++ b/rdma/dev.c
-@@ -0,0 +1,101 @@
++++ b/rdma/link.c
+@@ -0,0 +1,112 @@
 +/*
-+ * dev.c	RDMA tool
++ * link.c	RDMA tool
 + *
 + *              This program is free software; you can redistribute it and/or
 + *              modify it under the terms of the GNU General Public License
@@ -90,84 +98,95 @@ index 00000000..e6d71035
 +
 +#include "rdma.h"
 +
-+static int dev_help(struct rdma *rd)
++static int link_help(struct rdma *rd)
 +{
-+	pr_out("Usage: %s dev show [DEV]\n", rd->filename);
-+	pr_out("       %s dev set DEV [ node_desc { DESCRIPTION } ]\n", rd->filename);
-+	/* Add masking of device capabilities */
++	pr_out("Usage: %s link show [ DEV | DEV/PORT ]\n", rd->filename);
++	pr_out("       %s link set DEV/PORT { type { eth | ib | auto } |\n", rd->filename);
++	pr_out("                                lb_unicast { on | off } |\n");
++	pr_out("                                lb_multicast { on | off } }\n");
 +	return 0;
 +}
 +
-+static void dev_one_show(const struct dev_map *dev_map)
++static void dev_one_show(const struct dev_map *dev_map, uint32_t port_idx_first, uint32_t port_idx_last)
 +{
-+	char *nodes[] = { "board_id",
-+			  "fw_pages",
-+			  "fw_ver",
-+			  "hca_type",
-+			  "hw_rev",
-+			  "node_desc",
-+			  "node_guid",
-+			  "node_type",
-+			  "reg_pages",
-+			  "sys_image_guid",
-+			  /* hfi1 specific */
-+			  "nctxts",
-+			  "nfreectxts",
-+			  "serial",
-+			  "boardversion",
-+			  "tempsense",
-+			  NULL };
++	char *nodes[] = { "cap_mask",
++			  "lid",
++			  "lid_mask_count",
++			  "link_layer",
++			  "phys_state",
++			  "rate",
++			  "sm_lid",
++			  "sm_sl",
++			  "state",
++       			  NULL };
 +
++	struct port_map *port_map;
 +	char data[4096];
-+	int i;
-+	pr_out("%u: %s:", dev_map->idx, dev_map->dev_name);
-+	for (i = 0 ; nodes[i] ; i++) {
-+		if (rdma_sysfs_read_ib(dev_map->dev_name, 0, nodes[i], data))
-+			continue;
++	int i, j;
 +
-+		/* Split line before "node_desc" */
-+		if (!strcmp(nodes[i], "node_desc") ||
-+		    !strcmp(nodes[i], "sys_image_guid"))
-+			printf("\n\t");
++	for(j = port_idx_first ; j <= port_idx_last; j++) {
++		pr_out("%u/%u: %s/%u:", dev_map->idx, j, dev_map->dev_name, j);
++		list_for_each_entry(port_map, &dev_map->port_map_list, list)
++			if (j == port_map->idx)
++			       printf(" ifname %s", (port_map->ifname)?:"NONE");
 +
-+		pr_out(" %s %s", nodes[i], data);
++		for (i = 0 ; nodes[i] ; i++) {
++			if (rdma_sysfs_read_ib(dev_map->dev_name, j, nodes[i], data))
++				continue;
++
++			/* Split line before "phys_state" */
++			if (!strcmp(nodes[i], "phys_state"))
++				printf("\n\t");
++
++			pr_out(" %s %s", nodes[i], data);
++		}
++		pr_out("\n");
 +	}
-+	pr_out("\n");
 +}
 +
-+static int dev_show(struct rdma *rd)
++static int link_show(struct rdma *rd)
 +{
 +	struct dev_map *dev_map;
 +
 +	if (rd_no_arg(rd)) {
 +		list_for_each_entry(dev_map, &rd->dev_map_list, list)
-+			dev_one_show(dev_map);
++			dev_one_show(dev_map, 1, dev_map->num_ports);
 +	}
 +	else {
-+		dev_map = dev_map_lookup(rd, false);
-+		if (!dev_map) {
++		uint32_t port_idx;
++		uint32_t num_ports;
++		dev_map = dev_map_lookup(rd, true);
++		port_idx = get_port_from_argv(rd);
++		if (!dev_map || port_idx > dev_map->num_ports) {
 +			pr_err("Wrong device name\n");
-+			return -ENOENT;
++			return -EINVAL;
 +		}
-+		dev_one_show(dev_map);
++		if (port_idx)
++			num_ports = port_idx;
++		else {
++			port_idx = 1;
++			num_ports = dev_map->num_ports;
++		}
++
++		dev_one_show(dev_map, port_idx, num_ports);
 +	}
 +	return 0;
 +}
 +
-+static int dev_set(struct rdma *rd)
++static int link_set(struct rdma *rd)
 +{
-+	/* Not implemented yet */
++	/* Not supported yet */
 +	return 0;
 +}
 +
-+int obj_dev(struct rdma *rd)
++int obj_link(struct rdma *rd)
 +{
 +	const struct rdma_obj objs[] = {
-+		{ NULL,		dev_show },
-+		{ "show",	dev_show },
-+		{ "list",	dev_show },
-+		{ "set",	dev_set },
-+		{ "help",	dev_help },
++		{ NULL, 	link_show },
++		{ "show",	link_show },
++		{ "list",	link_show },
++		{ "set",	link_set },
++		{ "help",	link_help },
 +		{ 0 }
 +	};
 +
@@ -176,42 +195,38 @@ index 00000000..e6d71035
 +		return -ENOENT;
 +	}
 +
-+	return rdma_exec_cmd(rd, objs, "dev command");
++	return rdma_exec_cmd(rd, objs, "link command");
 +}
 diff --git a/rdma/rdma.c b/rdma/rdma.c
-index bc7d1483..7c537c5e 100644
+index 7c537c5e..55cbf0e3 100644
 --- a/rdma/rdma.c
 +++ b/rdma/rdma.c
 @@ -17,7 +17,7 @@
  static void help(char *name)
  {
  	pr_out("Usage: %s [ OPTIONS ] OBJECT { COMMAND | help }\n"
--	       "where  OBJECT := { }\n"
-+	       "where  OBJECT := { dev }\n"
+-	       "where  OBJECT := { dev }\n"
++	       "where  OBJECT := { dev | link }\n"
  	       "       OPTIONS := { -V[ersion] }\n", name);
  }
 
-@@ -31,6 +31,7 @@ static int rd_cmd(struct rdma *rd)
- {
+@@ -32,6 +32,7 @@ static int rd_cmd(struct rdma *rd)
  	const struct rdma_obj objs[] = {
  		{ NULL,		obj_help },
-+		{ "dev",	obj_dev },
+ 		{ "dev",	obj_dev },
++		{ "link",	obj_link },
  		{ "help",	obj_help },
  		{ 0 }
  	};
 diff --git a/rdma/rdma.h b/rdma/rdma.h
-index 156bb74c..2d81cd92 100644
+index 2d81cd92..bdb77b5e 100644
 --- a/rdma/rdma.h
 +++ b/rdma/rdma.h
-@@ -60,6 +60,11 @@ struct rdma_obj {
- };
+@@ -63,6 +63,7 @@ struct rdma_obj {
+  * Command interfaces
+  */
+ int obj_dev(struct rdma *rd);
++int obj_link(struct rdma *rd);
 
  /*
-+ * Command interfaces
-+ */
-+int obj_dev(struct rdma *rd);
-+
-+/*
   * Parser interface
-  */
- bool rd_no_arg(struct rdma *rd);
