@@ -1,41 +1,53 @@
-From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH RESEND 4.4-only] netlink: Allow direct reclaim for
- fallback allocation
-Date: Thu, 4 May 2017 12:38:14 -0700
-Message-ID: <20170504193814.GB10166@kroah.com>
-References: <1493801059-2828-1-git-send-email-ross.lagerwall@citrix.com>
+From: David Ahern <dsahern@gmail.com>
+Subject: Re: [Patch net v2] ipv6: reorder ip6_route_dev_notifier after
+ ipv6_dev_notf
+Date: Thu, 4 May 2017 13:41:15 -0600
+Message-ID: <11c2aeb4-cf2c-eded-0e56-789da2ba55ee@gmail.com>
+References: <1493919363-19989-1-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: stable@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-        Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Ross Lagerwall <ross.lagerwall@citrix.com>
-Return-path: <stable-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1493801059-2828-1-git-send-email-ross.lagerwall@citrix.com>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: andreyknvl@google.com
+To: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:34471 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751375AbdEDTlT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 4 May 2017 15:41:19 -0400
+Received: by mail-pg0-f66.google.com with SMTP id u187so1459199pgb.1
+        for <netdev@vger.kernel.org>; Thu, 04 May 2017 12:41:18 -0700 (PDT)
+In-Reply-To: <1493919363-19989-1-git-send-email-xiyou.wangcong@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 03, 2017 at 09:44:19AM +0100, Ross Lagerwall wrote:
-> The backport of d35c99ff77ec ("netlink: do not enter direct reclaim from
-> netlink_dump()") to the 4.4 branch (first in 4.4.32) mistakenly removed
-> direct claim from the initial large allocation _and_ the fallback
-> allocation which means that allocations can spuriously fail.
-> Fix the issue by adding back the direct reclaim flag to the fallback
-> allocation.
+On 5/4/17 11:36 AM, Cong Wang wrote:
+> For each netns (except init_net), we initialize its null entry
+> in 3 places:
 > 
-> Fixes: 6d123f1d396b ("netlink: do not enter direct reclaim from netlink_dump()")
-> Signed-off-by: Ross Lagerwall <ross.lagerwall@citrix.com>
+> 1) The template itself, as we use kmemdup()
+> 2) Code around dst_init_metrics() in ip6_route_net_init()
+> 3) ip6_route_dev_notify(), which is supposed to initialize it after
+>    loopback registers
+> 
+> Unfortunately the last one still happens in a wrong order because
+> we expect to initialize net->ipv6.ip6_null_entry->rt6i_idev to
+> net->loopback_dev's idev, so we have to do that after we add
+> idev to it. However, this notifier has priority == 0 same as
+> ipv6_dev_notf, and ipv6_dev_notf is registered after
+> ip6_route_dev_notifier so it is called actually after
+> ip6_route_dev_notifier.
+> 
+> Fix it by picking a smaller priority for ip6_route_dev_notifier.
+> Also, we have to release the refcnt accordingly when unregistering
+> loopback_dev because device exit functions are called before subsys
+> exit functions.
+> 
+> Cc: David Ahern <dsahern@gmail.com>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 > ---
-> 
-> Note that this is only for the 4.4 branch as the regression is only in
-> this branch. Consequently, there is no corresponding upstream commit.
-> 
-> I'm resending this to the linux-stable list since I now understand the
-> netdev maintainer only handles backports for the last couple of versions
-> of Linux.
-> 
 
-Many thanks for this fix, now queued up.
+Commit message needs a tie in to the problem that Andrey reported. It
+solves the same problem for namespaces other than init_net.
 
-greg k-h
+Acked-by: David Ahern <dsahern@gmail.com>
+Tested-by: David Ahern <dsahern@gmail.com>
