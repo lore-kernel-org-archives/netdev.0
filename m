@@ -1,85 +1,62 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: xfrm4_state_afinfo size increase (was: Re: xfrm: Add a xfrm type offload.)
-Date: Thu, 4 May 2017 10:08:07 +0200
-Message-ID: <CAMuHMdW=qBz+0qaXRRdBc=jKBA9aGqKafrQQ8rUiQhKv2UmW_Q@mail.gmail.com>
+From: Sagi Grimberg <sagi-NQWnxTmZq1alnMjI0IkVqw@public.gmane.org>
+Subject: Re: net/smc and the RDMA core
+Date: Thu, 4 May 2017 11:43:50 +0300
+Message-ID: <1b79048f-4495-3840-e7a6-d4fa5a8dfb57@grimberg.me>
+References: <20170501163311.GA22209@lst.de>
+ <d9214af6-1c6f-9f95-fc00-3e4a316b4f81@linux.vnet.ibm.com>
+ <1493750358.2552.13.camel@sandisk.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-        "David S. Miller" <davem@davemloft.net>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Steffen Klassert <steffen.klassert@secunet.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f194.google.com ([209.85.223.194]:33944 "EHLO
-        mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750981AbdEDIIJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 4 May 2017 04:08:09 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Bart Van Assche <Bart.VanAssche-XdAiOPVOjttBDgjK7y7TUQ@public.gmane.org>,
+        "hch-jcswGhMUV9g@public.gmane.org" <hch-jcswGhMUV9g@public.gmane.org>,
+        "davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        "ubraun-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org" <ubraun-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1493750358.2552.13.camel-XdAiOPVOjttBDgjK7y7TUQ@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi Steffen,
 
-On Wed, May 3, 2017 at 3:05 AM, Linux Kernel Mailing List
-<linux-kernel@vger.kernel.org> wrote:
-> Web:        https://git.kernel.org/torvalds/c/9d389d7f84bbb3a294eb05f7dfe2076e291fc150
-> Commit:     9d389d7f84bbb3a294eb05f7dfe2076e291fc150
-> Parent:     c7ef8f0c020ac43c8a692bf989017c06ab1fdf0f
-> Refname:    refs/heads/master
-> Author:     Steffen Klassert <steffen.klassert@secunet.com>
-> AuthorDate: Fri Apr 14 10:05:44 2017 +0200
-> Committer:  Steffen Klassert <steffen.klassert@secunet.com>
-> CommitDate: Fri Apr 14 10:05:44 2017 +0200
+>> if you can point out specific issues, we will be happy to work with you
+>> to get them addressed!
 >
->     xfrm: Add a xfrm type offload.
+> Hello Ursula,
 >
->     We add a struct  xfrm_type_offload so that we have the offloaded
->     codepath separated to the non offloaded codepath. With this the
->     non offloade and the offloaded codepath can coexist.
->
->     Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
-> ---
->  include/net/xfrm.h    | 28 +++++++++++++++-----
->  net/xfrm/xfrm_state.c | 73 +++++++++++++++++++++++++++++++++++++++++++++++++++
->  2 files changed, 95 insertions(+), 6 deletions(-)
->
-> diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-> index 9e3dc7b81a4d..159342f3e72b 100644
-> --- a/include/net/xfrm.h
-> +++ b/include/net/xfrm.h
+> My list of issues that I would like to see addressed can be found below. Doug,
+> Christoph and others may have additional inputs. The issues that have not yet
+> been mentioned in other e-mails are:
+> - The SMC driver only supports one RDMA transport type (RoCE v1) but
+>   none of the other RDMA transport types (RoCE v2, IB and iWARP). New
+>   RDMA drivers should support all RDMA transport types transparently.
+>   The traditional approach to support multiple RDMA transport types is
+>   by using the RDMA/CM to establish connections.
+> - The implementation of the SMC driver only supports RoCEv1. This is
+>   a very unfortunate choice because:
+>   - RoCEv1 is not routable and hence is limited to a single Ethernet
+>     broadcast domain.
+>   - RoCEv1 packets escape a whole bunch of mechanisms that only work
+>     for IP packets. Firewalls pass all RoCEv1 packets and switches
+>     do not restrict RoCEv1 packets to a single VLAN. This means that
+>     if the network configuration is changed after an SMC connection
+>     has been set up such that IP communication between the endpoints
+>     of an SMC connection is blocked that the SMC RoCEv1 packets will
+>     not be blocked by the network equipment of which the configuration
+>     has just been changed.
+> - As already mentioned by Christoph, the SMC implementation uses RDMA
+>   calls that probably will be deprecated soon (ib_create_cq()) and
+>   should use the RDMA R/W API instead of building sge lists itself.
 
-> @@ -314,12 +316,14 @@ void km_state_expired(struct xfrm_state *x, int hard, u32 portid);
->  int __xfrm_state_delete(struct xfrm_state *x);
->
->  struct xfrm_state_afinfo {
-> -       unsigned int            family;
-> -       unsigned int            proto;
-> -       __be16                  eth_proto;
-> -       struct module           *owner;
-> -       const struct xfrm_type  *type_map[IPPROTO_MAX];
-> -       struct xfrm_mode        *mode_map[XFRM_MODE_MAX];
-> +       unsigned int                    family;
-> +       unsigned int                    proto;
-> +       __be16                          eth_proto;
-> +       struct module                   *owner;
-> +       const struct xfrm_type          *type_map[IPPROTO_MAX];
-> +       const struct xfrm_type_offload  *type_offload_map[IPPROTO_MAX];
-> +       struct xfrm_mode                *mode_map[XFRM_MODE_MAX];
+I would also suggest that you stop exposing the DMA MR for remote
+access (at least by default) and use a proper reg_mr operations with a
+limited lifetime on a properly sized buffer.
 
-Bloat-o-meter reports the addition of xfrm_state_afinfo.type_offload_map[]
-increases the static kernel size by 1 KiB on 32-bit platforms (double on 64-bit
-platforms):
+Also, the cq polling code looks completely wrong, you should really
+use the RDMA CQ API.
 
-function                                     old     new   delta
-    xfrm4_state_afinfo                          1102    2126   +1024
-
-While IPPROTO_MAX = 256, the defined list of IP protocols is spread
-sparsely over the number space, but I assume all values may occur?
-
-Perhaps type_offload_map[] (and type_map[] while at it) can be allocated at
-runtime instead, when the feature is used?
-
-Thanks!
-
-Gr{oetje,eeting}s,
-
-                        Geert
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
