@@ -1,35 +1,68 @@
-From: Oleg <lego12239@yandex.ru>
-Subject: struct ip vs struct iphdr
-Date: Thu, 4 May 2017 19:42:19 +0300
-Message-ID: <20170504164219.GA25287@legohost>
-Reply-To: Oleg <lego12239@yandex.ru>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] aquantia: Fix "ethtool -S" crash when adapter down.
+Date: Thu, 04 May 2017 12:51:13 -0400 (EDT)
+Message-ID: <20170504.125113.569969253752966231.davem@davemloft.net>
+References: <90666578f043b366313ddd90ffad86de42d890f2.1493914743.git.pavel.belous@aquantia.com>
+        <0babf800-080c-96e0-4dbb-8d3fca3fb784@gmx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Pavel.Belous@aquantia.com, netdev@vger.kernel.org,
+        darcari@redhat.com
+To: LinoSanfilippo@gmx.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from forward6h.cmail.yandex.net ([87.250.230.217]:46831 "EHLO
-        forward6h.cmail.yandex.net" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752384AbdEDQtH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 4 May 2017 12:49:07 -0400
-Received: from smtp3h.mail.yandex.net (smtp3h.mail.yandex.net [84.201.186.20])
-        by forward6h.cmail.yandex.net (Yandex) with ESMTP id 7B2B421A31
-        for <netdev@vger.kernel.org>; Thu,  4 May 2017 19:41:30 +0300 (MSK)
-Received: from smtp3h.mail.yandex.net (localhost.localdomain [127.0.0.1])
-        by smtp3h.mail.yandex.net (Yandex) with ESMTP id 4DF1A440DCD
-        for <netdev@vger.kernel.org>; Thu,  4 May 2017 19:41:29 +0300 (MSK)
-Content-Disposition: inline
+Received: from shards.monkeyblade.net ([184.105.139.130]:57872 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755826AbdEDQvP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 4 May 2017 12:51:15 -0400
+In-Reply-To: <0babf800-080c-96e0-4dbb-8d3fca3fb784@gmx.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  Hi, all.
+From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
+Date: Thu, 4 May 2017 18:48:12 +0200
 
-It seems struct ip and struct iphdr are similar: struct ip, despite of
-it name, doesn't contain anything but ip header.
+> Hi Pavel,
+> 
+> On 04.05.2017 18:33, Pavel Belous wrote:
+>> From: Pavel Belous <pavel.belous@aquantia.com>
+>> 
+>> This patch fixes the crash that happens when driver tries to collect statistics
+>> from already released "aq_vec" object.
+>> 
+>> Fixes: 97bde5c4f909 ("net: ethernet: aquantia: Support for NIC-specific code")
+>> Signed-off-by: Pavel Belous <pavel.belous@aquantia.com>
+>> ---
+>>  drivers/net/ethernet/aquantia/atlantic/aq_nic.c | 3 ++-
+>>  1 file changed, 2 insertions(+), 1 deletion(-)
+>> 
+>> diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_nic.c b/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
+>> index cdb0299..3a32573 100644
+>> --- a/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
+>> +++ b/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
+>> @@ -755,7 +755,7 @@ void aq_nic_get_stats(struct aq_nic_s *self, u64 *data)
+>>  	count = 0U;
+>>  
+>>  	for (i = 0U, aq_vec = self->aq_vec[0];
+>> -		self->aq_vecs > i; ++i, aq_vec = self->aq_vec[i]) {
+>> +		aq_vec && self->aq_vecs > i; ++i, aq_vec = self->aq_vec[i]) {
+>>  		data += count;
+>>  		aq_vec_get_sw_stats(aq_vec, data, &count);
+>>  	}
+>> @@ -961,6 +961,7 @@ void aq_nic_free_hot_resources(struct aq_nic_s *self)
+>>  	for (i = AQ_DIMOF(self->aq_vec); i--;) {
+>>  		if (self->aq_vec[i])
+>>  			aq_vec_free(self->aq_vec[i]);
+>> +			self->aq_vec[i] = NULL;
+>>  	}
+>>  
+>>  err_exit:;
+>> 
+> 
+> if the driver does not support statistics when the interface is down, would not it be clearer
+> to check if netif_running() in get_stats() instead?
 
-So, my noob question, what is the difference between them?
+Yes, much cleaner.
 
-Thanks.
-
--- 
-Олег Неманов (Oleg Nemanov)
+Much better would be to have a cached software copy so that statistics
+can be reported regardless of whether the device is down or not.
