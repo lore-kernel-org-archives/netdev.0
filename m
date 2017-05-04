@@ -1,103 +1,73 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH iproute] tc: Reflect HW offload status
-Date: Thu,  4 May 2017 16:15:15 +0300
-Message-ID: <1493903715-29664-1-git-send-email-ogerlitz@mellanox.com>
-Cc: netdev@vger.kernel.org, Roi Dayan <roid@mellanox.com>,
-        Paul Blakey <paulb@mellanox.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:36854 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1752803AbdEDNP0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 4 May 2017 09:15:26 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andrey Konovalov <andreyknvl@google.com>
+Subject: Re: net/dccp: dccp_create_openreq_child freed held lock
+Date: Thu, 4 May 2017 15:36:37 +0200
+Message-ID: <CAAeHK+wSrkrooaK=d6Od85hNNQbTSuPxe55DFFYWEuE5zSqmSw@mail.gmail.com>
+References: <CACT4Y+ZOAWRzJH3=xJ1z5bFVCM2-smuVSykziQPhSgkv1k3FBQ@mail.gmail.com>
+ <20170301153510.GE15145@kernel.org> <20170301154011.GF15145@kernel.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Arnaldo Carvalho de Melo <arnaldo.melo@gmail.com>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        Gerrit Renker <gerrit@erg.abdn.ac.uk>,
+        David Miller <davem@davemloft.net>, dccp@vger.kernel.org,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Eric Dumazet <edumazet@google.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Arnaldo Carvalho de Melo <acme@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170301154011.GF15145@kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Currently there is no way of querying whether a filter is
-offloaded to HW or not when using "both" policy (where none
-of skip_sw or skip_hw flags are set by user-space).
+On Wed, Mar 1, 2017 at 4:40 PM, Arnaldo Carvalho de Melo
+<acme@kernel.org> wrote:
+> Em Wed, Mar 01, 2017 at 12:35:10PM -0300, Arnaldo Carvalho de Melo escreveu:
+>> Em Wed, Mar 01, 2017 at 10:38:54AM +0100, Dmitry Vyukov escreveu:
+>> > Hello,
+>> >
+>> > I've got the following report while running syzkaller fuzzer on
+>> > 86292b33d4b79ee03e2f43ea0381ef85f077c760:
+>> >
+>> >
+>> > It seems that dccp_create_openreq_child needs to unlock the sock if
+>> > dccp_feat_activate_values fails.
+>>
+>> Yeah, can you please use the patch below, that mimics the error paths in
+>> sk_clone_new(), from where I think even the comment about it being a raw
+>
+> Argh, s/sk_clone_new()/sk_clone_lock()/g
 
-Add two new flags, "in hw" and "not in hw" such that user
-space can determine if a filter is actually offloaded to
-hw or not. The "in hw" UAPI semantics was chosen so it's
-similar to the "skip hw" flag logic.
+Hi Arnaldo,
 
-If none of these two flags are set, this signals running
-over older kernel.
+Could you send the patch?
 
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
-Reviewed-by: Jiri Pirko <jiri@mellanox.com>
----
- tc/f_bpf.c      | 5 +++++
- tc/f_flower.c   | 5 +++++
- tc/f_matchall.c | 5 +++++
- tc/f_u32.c      | 5 +++++
- 4 files changed, 20 insertions(+)
+We haven't seen these reports since we applied it.
 
-diff --git a/tc/f_bpf.c b/tc/f_bpf.c
-index df8a259..75c44c0 100644
---- a/tc/f_bpf.c
-+++ b/tc/f_bpf.c
-@@ -210,6 +210,11 @@ static int bpf_print_opt(struct filter_util *qu, FILE *f,
- 			fprintf(f, "skip_hw ");
- 		if (flags & TCA_CLS_FLAGS_SKIP_SW)
- 			fprintf(f, "skip_sw ");
-+
-+		if (flags & TCA_CLS_FLAGS_IN_HW)
-+			fprintf(f, "in_hw ");
-+		else if (flags & TCA_CLS_FLAGS_NOT_IN_HW)
-+			fprintf(f, "not_in_hw ");
- 	}
- 
- 	if (tb[TCA_BPF_OPS] && tb[TCA_BPF_OPS_LEN])
-diff --git a/tc/f_flower.c b/tc/f_flower.c
-index 5aac4a0..ebc63ca 100644
---- a/tc/f_flower.c
-+++ b/tc/f_flower.c
-@@ -1171,6 +1171,11 @@ static int flower_print_opt(struct filter_util *qu, FILE *f,
- 			fprintf(f, "\n  skip_hw");
- 		if (flags & TCA_CLS_FLAGS_SKIP_SW)
- 			fprintf(f, "\n  skip_sw");
-+
-+		if (flags & TCA_CLS_FLAGS_IN_HW)
-+			fprintf(f, "\n  in_hw");
-+		else if (flags & TCA_CLS_FLAGS_NOT_IN_HW)
-+			fprintf(f, "\n  not_in_hw");
- 	}
- 
- 	if (tb[TCA_FLOWER_ACT])
-diff --git a/tc/f_matchall.c b/tc/f_matchall.c
-index ac48630..5a51e75 100644
---- a/tc/f_matchall.c
-+++ b/tc/f_matchall.c
-@@ -137,6 +137,11 @@ static int matchall_print_opt(struct filter_util *qu, FILE *f,
- 			fprintf(f, "\n  skip_hw");
- 		if (flags & TCA_CLS_FLAGS_SKIP_SW)
- 			fprintf(f, "\n  skip_sw");
-+
-+		if (flags & TCA_CLS_FLAGS_IN_HW)
-+			fprintf(f, "\n  in_hw");
-+		else if (flags & TCA_CLS_FLAGS_NOT_IN_HW)
-+			fprintf(f, "\n  not_in_hw");
- 	}
- 
- 	if (tb[TCA_MATCHALL_ACT])
-diff --git a/tc/f_u32.c b/tc/f_u32.c
-index 92c1fcd..ff700e9 100644
---- a/tc/f_u32.c
-+++ b/tc/f_u32.c
-@@ -1264,6 +1264,11 @@ static int u32_print_opt(struct filter_util *qu, FILE *f, struct rtattr *opt,
- 			fprintf(f, "skip_hw ");
- 		if (flags & TCA_CLS_FLAGS_SKIP_SW)
- 			fprintf(f, "skip_sw ");
-+
-+		if (flags & TCA_CLS_FLAGS_IN_HW)
-+			fprintf(f, "in_hw ");
-+		else if (flags & TCA_CLS_FLAGS_NOT_IN_HW)
-+			fprintf(f, "not_in_hw ");
- 	}
- 
- 	if (tb[TCA_U32_PCNT]) {
--- 
-2.3.7
+Thanks!
+
+>
+> - Arnaldo
+>
+>> copy came, but the bh_unlock_sock() didn't?
+>>
+>> - Arnaldo
+>>
+>> diff --git a/net/dccp/minisocks.c b/net/dccp/minisocks.c
+>> index 53eddf99e4f6..d20d948a98ed 100644
+>> --- a/net/dccp/minisocks.c
+>> +++ b/net/dccp/minisocks.c
+>> @@ -122,6 +122,7 @@ struct sock *dccp_create_openreq_child(const struct sock *sk,
+>>                       /* It is still raw copy of parent, so invalidate
+>>                        * destructor and make plain sk_free() */
+>>                       newsk->sk_destruct = NULL;
+>> +                     bh_unlock_sock(newsk);
+>>                       sk_free(newsk);
+>>                       return NULL;
+>>               }
+>
+> --
+> You received this message because you are subscribed to the Google Groups "syzkaller" group.
+> To unsubscribe from this group and stop receiving emails from it, send an email to syzkaller+unsubscribe@googlegroups.com.
+> For more options, visit https://groups.google.com/d/optout.
