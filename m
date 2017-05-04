@@ -1,93 +1,97 @@
-From: Leon Romanovsky <leon@kernel.org>
-Subject: Re: [RFC iproute2 0/8] RDMA tool
-Date: Thu, 4 May 2017 21:25:42 +0300
-Message-ID: <20170504182542.GD22833@mtr-leonro.local>
-References: <20170504180216.7665-1-leon@kernel.org>
- <1493921453.2692.6.camel@sandisk.com>
+From: David Arcari <darcari@redhat.com>
+Subject: Re: [PATCH] aquantia: Fix "ethtool -S" crash when adapter down.
+Date: Thu, 4 May 2017 14:27:18 -0400
+Message-ID: <0efef5aa-c73d-ff16-a2ec-e63ad298ffa2@redhat.com>
+References: <90666578f043b366313ddd90ffad86de42d890f2.1493914743.git.pavel.belous@aquantia.com>
+ <0babf800-080c-96e0-4dbb-8d3fca3fb784@gmx.de>
+ <20170504.125113.569969253752966231.davem@davemloft.net>
+ <d20deac6-7010-c0e8-e4d8-7faa591e7306@aquantia.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-        protocol="application/pgp-signature"; boundary="3dBJfKlFjfsS/piO"
-Cc: "stephen@networkplumber.org" <stephen@networkplumber.org>,
-        "dledford@redhat.com" <dledford@redhat.com>,
-        "jiri@mellanox.com" <jiri@mellanox.com>,
-        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
-        "ram.amrani@cavium.com" <ram.amrani@cavium.com>,
-        "sagi@grimberg.me" <sagi@grimberg.me>,
-        "ogerlitz@mellanox.com" <ogerlitz@mellanox.com>,
-        "dennis.dalessandro@intel.com" <dennis.dalessandro@intel.com>,
-        "hch@lst.de" <hch@lst.de>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "jgunthorpe@obsidianresearch.com" <jgunthorpe@obsidianresearch.com>,
-        "ariela@mellanox.com" <ariela@mellanox.com>
-To: Bart Van Assche <Bart.VanAssche@sandisk.com>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Pavel Belous <pavel.belous@aquantia.com>,
+        David Miller <davem@davemloft.net>, LinoSanfilippo@gmx.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.136]:33480 "EHLO mail.kernel.org"
+Received: from mx1.redhat.com ([209.132.183.28]:58860 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1756227AbdEDSZh (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 4 May 2017 14:25:37 -0400
-Content-Disposition: inline
-In-Reply-To: <1493921453.2692.6.camel@sandisk.com>
+        id S1755541AbdEDS1U (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 4 May 2017 14:27:20 -0400
+In-Reply-To: <d20deac6-7010-c0e8-e4d8-7faa591e7306@aquantia.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 05/04/2017 01:09 PM, Pavel Belous wrote:
+> 
+> 
+> On 04.05.2017 19:51, David Miller wrote:
+>> From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
+>> Date: Thu, 4 May 2017 18:48:12 +0200
+>>
+>>> Hi Pavel,
+>>>
+>>> On 04.05.2017 18:33, Pavel Belous wrote:
+>>>> From: Pavel Belous <pavel.belous@aquantia.com>
+>>>>
+>>>> This patch fixes the crash that happens when driver tries to collect statistics
+>>>> from already released "aq_vec" object.
+>>>>
+>>>> Fixes: 97bde5c4f909 ("net: ethernet: aquantia: Support for NIC-specific code")
+>>>> Signed-off-by: Pavel Belous <pavel.belous@aquantia.com>
+>>>> ---
+>>>>  drivers/net/ethernet/aquantia/atlantic/aq_nic.c | 3 ++-
+>>>>  1 file changed, 2 insertions(+), 1 deletion(-)
+>>>>
+>>>> diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
+>>>> b/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
+>>>> index cdb0299..3a32573 100644
+>>>> --- a/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
+>>>> +++ b/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
+>>>> @@ -755,7 +755,7 @@ void aq_nic_get_stats(struct aq_nic_s *self, u64 *data)
+>>>>      count = 0U;
+>>>>
+>>>>      for (i = 0U, aq_vec = self->aq_vec[0];
+>>>> -        self->aq_vecs > i; ++i, aq_vec = self->aq_vec[i]) {
+>>>> +        aq_vec && self->aq_vecs > i; ++i, aq_vec = self->aq_vec[i]) {
+>>>>          data += count;
+>>>>          aq_vec_get_sw_stats(aq_vec, data, &count);
+>>>>      }
+>>>> @@ -961,6 +961,7 @@ void aq_nic_free_hot_resources(struct aq_nic_s *self)
+>>>>      for (i = AQ_DIMOF(self->aq_vec); i--;) {
+>>>>          if (self->aq_vec[i])
+>>>>              aq_vec_free(self->aq_vec[i]);
+>>>> +            self->aq_vec[i] = NULL;
+>>>>      }
+>>>>
+>>>>  err_exit:;
+>>>>
+>>>
+>>> if the driver does not support statistics when the interface is down, would
+>>> not it be clearer
+>>> to check if netif_running() in get_stats() instead?
+>>
+>> Yes, much cleaner.
+>>
+>> Much better would be to have a cached software copy so that statistics
+>> can be reported regardless of whether the device is down or not.
+>>
+> 
+> Thank you.
+> I will think about how to do it better.
 
---3dBJfKlFjfsS/piO
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+It appears that the adapter is still reporting the cumulative hardware stats
+even while its down.  The user is just losing the per queue stats.
 
-On Thu, May 04, 2017 at 06:10:54PM +0000, Bart Van Assche wrote:
-> On Thu, 2017-05-04 at 21:02 +0300, Leon Romanovsky wrote:
-> > Following our discussion both in mailing list [1] and at the LPC 2016 [2],
-> > we would like to propose this RDMA tool to be part of iproute2 package
-> > and finally improve this situation.
->
-> Hello Leon,
->
-> Although I really appreciate your work: can you clarify why you would like to
-> add *RDMA* functionality to an *IP routing* tool? I haven't found any motivation
-> for adding RDMA functionality to iproute2 in [1].
+Although the loss of the per queue stats is not ideal, this patch still fixes a
+crash.
 
-We are planning to reuse the same infrastructure provided by iproute2,
-like netlink parsing, access to distributions, same CLI and same standards.
+It might be worthwhile to refactor this patch as a short term solution and then
+subsequently produce a version that contains cached statistics.  Assuming that
+is amenable to everyone of course.
 
-Right now, RDMA is already tightened to netdev: iWARP, RoCE, IPoIB, HFI-VNIC.
-Many drivers (mlx, qed, i40, cxgb) are sharing code between net and
-RDMA.
+-DA
 
-I do expect that iproute2 will be installed on every machine with any
-type of connection, including IB and OPA.
 
-So I think that it is enough to be part of that suite and don't invent
-our own for one specific tool.
-
-Thanks
-
->
-> Thanks,
->
-> Bart.--
-> To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
---3dBJfKlFjfsS/piO
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAlkLciYACgkQ5GN7iDZy
-WKc43Q/+NdnLNWr67QdCtoVyKZUJ8R5xyABnjG/kLM1dk6vMrTuLqLuB/s6YDg6X
-HTHO4AFV3QWC7nsAtlaQfKA3UI26W4XQpwjATobw+W1ZLjPnWq9vSQsss3cLKd7w
-8nomjC81to1RwYnifK+Q52kDeqY8qth1V7yF88vKgP0rElsBqn+/fRJGTIfeOLgI
-ren5m3OqiTjftdjkh5qSFUzymuj4JZ3AkaFMVda8n6AFh9qlFGlAXnohNiESCpDw
-sPTKeSMilDRylyDoj/0bK0v04AIf51LSCsZ6RG8SiH1Ly/CwtK21brjrwMHl6uCK
-uxVgSv3xkud7s6AoY5jztsTADtvtM3Px8JFKfW25qb04qxlI4Cs+3gAm2lfRCMWC
-cnXfMNNqzxSjz5ykDDP5Ovk+8p7rlqgZGfgbbKgb5mBYxid5vn3DO45tfP7YCpV/
-gFDyp7WvcK8LlwUKo2tmh/apbXAuUSK0plHX5V6YOOf2f5Hpxi+IVxYgEWGjDoNp
-iCLbFWupjp/EQuiPF8cA79X+56gvtjT6/HQ33zR2ToN4UqJ68LHR1rt9mjpC70h8
-71ogD6IjIIrN+2Izk31z3gGIkzRd+HEO7wsiToVxR7iJAp53zvpCQr7Y2Kxf4r+R
-3G14170g13oCQwGICxOO6Y1sWMjCy+K856AtKS657TZ8WjrIrvw=
-=qpQA
------END PGP SIGNATURE-----
-
---3dBJfKlFjfsS/piO--
+> 
+> Regards,
+> Pavel
