@@ -1,82 +1,72 @@
-From: <gregkh@linuxfoundation.org>
-Subject: Patch "netlink: Allow direct reclaim for fallback allocation" has been added to the 4.4-stable tree
-Date: Thu, 04 May 2017 12:43:33 -0700
-Message-ID: <1493927013248191@kroah.com>
-References: <1493801059-2828-1-git-send-email-ross.lagerwall@citrix.com>
+From: David Ahern <dsahern@gmail.com>
+Subject: Re: [PATCH] iproute2: hide devices starting with period by default
+Date: Thu, 4 May 2017 13:47:36 -0600
+Message-ID: <01aa60dc-8bf2-3207-1abe-158100f52960@gmail.com>
+References: <027775d1-ef98-deda-1f8d-bb058d1e4c2f@cumulusnetworks.com>
+ <20170223163035.0a49f04d@xeon-e3>
+ <13cec1c2-88f4-e61d-02ee-dc01ccee7281@cumulusnetworks.com>
+ <20170223.221257.795227595252531962.davem@redhat.com>
+ <0a8e1cf0-9f30-2356-5168-a97abb86d5c2@cumulusnetworks.com>
+ <0635d3bb-0d8d-7ab6-fb53-4d84f979a023@6wind.com>
+ <4bbb7a19-1b0b-8c9a-7e74-82ee146cf48c@gmail.com>
+ <26442035-25fd-ff9a-2804-ed21ec6198cf@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ANSI_X3.4-1968
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 8bit
-Cc: <stable@vger.kernel.org>, <stable-commits@vger.kernel.org>
-To: ross.lagerwall@citrix.com, davem@davemloft.net,
-        edumazet@google.com, gregkh@linuxfoundation.org,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        stable@vger.kernel.org
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <1493801059-2828-1-git-send-email-ross.lagerwall@citrix.com>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@redhat.com>, stephen@networkplumber.org,
+        netdev@vger.kernel.org
+To: Florian Fainelli <f.fainelli@gmail.com>, nicolas.dichtel@6wind.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:36790 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751628AbdEDTrj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 4 May 2017 15:47:39 -0400
+Received: by mail-pf0-f193.google.com with SMTP id v14so3298323pfd.3
+        for <netdev@vger.kernel.org>; Thu, 04 May 2017 12:47:39 -0700 (PDT)
+In-Reply-To: <26442035-25fd-ff9a-2804-ed21ec6198cf@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On 5/4/17 1:10 PM, Florian Fainelli wrote:
+> On 05/04/2017 09:37 AM, David Ahern wrote:
+>> On 5/4/17 9:15 AM, Nicolas Dichtel wrote:
+>>> Le 24/02/2017 à 16:52, David Ahern a écrit :
+>>>> On 2/23/17 8:12 PM, David Miller wrote:
+>>>>> This really need to be a fundamental facility, so that it transparently
+>>>>> works for NetworkManager, router daemons, everything.  Not just iproute2
+>>>>> and "ls".
+>>>>
+>>>> I'll rebase my patch and send out as RFC.
+>>>>
+>>> David, did you finally send those patches?
+>>>
+>>
+>> No, but for a few reasons.
+>>
+>> It is easy to hide devices in a dump:
+>>
+>> https://github.com/dsahern/linux/commit/48a80a00eac284e58bae04af10a5a932dd7aee00
+>>
+>>
+>> But I think those devices should also not exist in sysfs or procfs which
+>> overlaps what I would like to see for lightweight netdevices:
+>>
+>> https://github.com/dsahern/linux/commit/70574be699cf252e77f71e3df11192438689f976
+> 
+> Interesting that does indeed solve the same problems as the L2 only
+> patch set intended. I am not exactly sure if hiding the devices from
+> procfs/sysfs would be appropriate in my case (dumb L2 only switch that
+> only does 802.1q for instance), but why not.
+> 
+> 
+>>
+>>
+>> and to be complete, hidden devices should not be allowed to have a
+>> network address or transmit packets which is the L2 only intent from
+>> Florian:
+>>     https://www.spinics.net/lists/netdev/msg340808.html
+>>
+> 
+> Do you plan on submitting the LWT patch set at some point?
 
-This is a note to let you know that I've just added the patch titled
-
-    netlink: Allow direct reclaim for fallback allocation
-
-to the 4.4-stable tree which can be found at:
-    http://www.kernel.org/git/?p=linux/kernel/git/stable/stable-queue.git;a=summary
-
-The filename of the patch is:
-     netlink-allow-direct-reclaim-for-fallback-allocation.patch
-and it can be found in the queue-4.4 subdirectory.
-
-If you, or anyone else, feels it should not be added to the stable tree,
-please let <stable@vger.kernel.org> know about it.
-
-
->From ross.lagerwall@citrix.com  Thu May  4 12:37:51 2017
-From: Ross Lagerwall <ross.lagerwall@citrix.com>
-Date: Wed, 3 May 2017 09:44:19 +0100
-Subject: netlink: Allow direct reclaim for fallback allocation
-To: <stable@vger.kernel.org>
-Cc: Ross Lagerwall <ross.lagerwall@citrix.com>, "David S. Miller" <davem@davemloft.net>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Eric Dumazet <edumazet@google.com>, <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-Message-ID: <1493801059-2828-1-git-send-email-ross.lagerwall@citrix.com>
-
-From: Ross Lagerwall <ross.lagerwall@citrix.com>
-
-The backport of d35c99ff77ec ("netlink: do not enter direct reclaim from
-netlink_dump()") to the 4.4 branch (first in 4.4.32) mistakenly removed
-direct claim from the initial large allocation _and_ the fallback
-allocation which means that allocations can spuriously fail.
-Fix the issue by adding back the direct reclaim flag to the fallback
-allocation.
-
-Fixes: 6d123f1d396b ("netlink: do not enter direct reclaim from netlink_dump()")
-Signed-off-by: Ross Lagerwall <ross.lagerwall@citrix.com>
-Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
----
-
-Note that this is only for the 4.4 branch as the regression is only in
-this branch. Consequently, there is no corresponding upstream commit.
-
-I'm resending this to the linux-stable list since I now understand the
-netdev maintainer only handles backports for the last couple of versions
-of Linux.
-
- net/netlink/af_netlink.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -2107,7 +2107,7 @@ static int netlink_dump(struct sock *sk)
- 	if (!skb) {
- 		alloc_size = alloc_min_size;
- 		skb = netlink_alloc_skb(sk, alloc_size, nlk->portid,
--					(GFP_KERNEL & ~__GFP_DIRECT_RECLAIM));
-+					GFP_KERNEL);
- 	}
- 	if (!skb)
- 		goto errout_skb;
-
-
-Patches currently in stable-queue which might be from ross.lagerwall@citrix.com are
-
-queue-4.4/netlink-allow-direct-reclaim-for-fallback-allocation.patch
+Definitely. Maybe I can find some time this weekend.
