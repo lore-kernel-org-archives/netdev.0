@@ -1,67 +1,56 @@
-From: Benjamin Tissoires <benjamin.tissoires@redhat.com>
-Subject: Re: [PATCH v1] ACPI: Switch to use generic UUID API
-Date: Thu, 4 May 2017 17:29:01 +0200
-Message-ID: <20170504152901.GA16181@mail.corp.redhat.com>
-References: <20170504092151.88646-1-andriy.shevchenko@linux.intel.com>
+From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+Subject: Re: net/smc and the RDMA core
+Date: Thu, 4 May 2017 09:31:55 -0600
+Message-ID: <20170504153155.GB854@obsidianresearch.com>
+References: <20170501163311.GA22209@lst.de>
+ <d9214af6-1c6f-9f95-fc00-3e4a316b4f81@linux.vnet.ibm.com>
+ <1493750358.2552.13.camel@sandisk.com>
+ <1b79048f-4495-3840-e7a6-d4fa5a8dfb57@grimberg.me>
+ <20170504084825.GA5399@lst.de>
+ <efa9bd6d-1df9-952a-7f32-c2ee6bffcae5@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: alsa-devel@alsa-project.org,
- Heikki Krogerus <heikki.krogerus@linux.intel.com>,
- Liam Girdwood <lgirdwood@gmail.com>, linux-pci@vger.kernel.org,
- Amir Goldstein <amir73il@gmail.com>,
- Jarkko Sakkinen <jarkko.sakkinen@linux.intel.com>,
- Adrian Hunter <adrian.hunter@intel.com>, Joerg Roedel <joro@8bytes.org>,
- linux-acpi@vger.kernel.org, tpmdd-devel@lists.sourceforge.net,
- Ben Skeggs <bskeggs@redhat.com>, nouveau@lists.freedesktop.org,
- linux-mmc@vger.kernel.org, Zhang Rui <rui.zhang@intel.com>,
- Borislav Petkov <bp@suse.de>, Yisen Zhuang <yisen.zhuang@huawei.com>,
- Mathias Nyman <mathias.nyman@intel.com>, intel-gfx@lists.freedesktop.org,
- linux-input@vger.kernel.org, Mark Brown <broonie@kernel.org>,
- Bjorn Helgaas <bhelgaas@google.com>, Dan Williams <dan.j.williams@intel.com>,
- Mika Westerberg <mika.westerberg@linux.intel.com>,
- Felipe Balbi <balbi@kernel.org>, netdev@vger.kernel.org
-To: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-Return-path: <intel-gfx-bounces@lists.freedesktop.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "hch@lst.de" <hch@lst.de>, Sagi Grimberg <sagi@grimberg.me>,
+        Bart Van Assche <Bart.VanAssche@sandisk.com>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>
+To: Ursula Braun <ubraun@linux.vnet.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from quartz.orcorp.ca ([184.70.90.242]:44592 "EHLO quartz.orcorp.ca"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751248AbdEDPcI (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 4 May 2017 11:32:08 -0400
 Content-Disposition: inline
-In-Reply-To: <20170504092151.88646-1-andriy.shevchenko@linux.intel.com>
-List-Unsubscribe: <https://lists.freedesktop.org/mailman/options/intel-gfx>,
- <mailto:intel-gfx-request@lists.freedesktop.org?subject=unsubscribe>
-List-Archive: <https://lists.freedesktop.org/archives/intel-gfx>
-List-Post: <mailto:intel-gfx@lists.freedesktop.org>
-List-Help: <mailto:intel-gfx-request@lists.freedesktop.org?subject=help>
-List-Subscribe: <https://lists.freedesktop.org/mailman/listinfo/intel-gfx>,
- <mailto:intel-gfx-request@lists.freedesktop.org?subject=subscribe>
-Errors-To: intel-gfx-bounces@lists.freedesktop.org
-Sender: "Intel-gfx" <intel-gfx-bounces@lists.freedesktop.org>
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <efa9bd6d-1df9-952a-7f32-c2ee6bffcae5@linux.vnet.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gTWF5IDA0IDIwMTcgb3IgdGhlcmVhYm91dHMsIEFuZHkgU2hldmNoZW5rbyB3cm90ZToKPiBh
-Y3BpX2V2YWx1YXRlX2RzbSgpIGFuZCBmcmllbmRzIHRha2UgYSBwb2ludGVyIHRvIGEgcmF3IGJ1
-ZmZlciBvZiAxNgo+IGJ5dGVzLiBJbnN0ZWFkIHdlIGNvbnZlcnQgdGhlbSB0byB1c2UgdXVpZF9s
-ZSB0eXBlLiBBdCB0aGUgc2FtZSB0aW1lIHdlCj4gY29udmVydCBjdXJyZW50IHVzZXJzLgo+IAo+
-IGFjcGlfc3RyX3RvX3V1aWQoKSBiZWNvbWVzIHVzZWxlc3MgYWZ0ZXIgdGhlIGNvbnZlcnNpb24g
-YW5kIGl0J3Mgc2FmZSB0bwo+IGdldCByaWQgb2YgaXQuCj4gCj4gVGhlIGNvbnZlcnNpb24gZml4
-ZXMgYSBwb3RlbnRpYWwgYnVnIGluIGludDM0MHhfdGhlcm1hbCBhcyB3ZWxsIHNpbmNlCj4gd2Ug
-aGF2ZSB0byB1c2UgbWVtY21wKCkgb24gYmluYXJ5IGRhdGEuCj4gCj4gQ2M6IFJhZmFlbCBKLiBX
-eXNvY2tpIDxyandAcmp3eXNvY2tpLm5ldD4KPiBDYzogTWlrYSBXZXN0ZXJiZXJnIDxtaWthLndl
-c3RlcmJlcmdAbGludXguaW50ZWwuY29tPgo+IENjOiBCb3Jpc2xhdiBQZXRrb3YgPGJwQHN1c2Uu
-ZGU+Cj4gQ2M6IERhbiBXaWxsaWFtcyA8ZGFuLmoud2lsbGlhbXNAaW50ZWwuY29tPgo+IENjOiBB
-bWlyIEdvbGRzdGVpbiA8YW1pcjczaWxAZ21haWwuY29tPgo+IENjOiBKYXJra28gU2Fra2luZW4g
-PGphcmtrby5zYWtraW5lbkBsaW51eC5pbnRlbC5jb20+Cj4gQ2M6IEphbmkgTmlrdWxhIDxqYW5p
-Lm5pa3VsYUBsaW51eC5pbnRlbC5jb20+Cj4gQ2M6IEJlbiBTa2VnZ3MgPGJza2VnZ3NAcmVkaGF0
-LmNvbT4KPiBDYzogQmVuamFtaW4gVGlzc29pcmVzIDxiZW5qYW1pbi50aXNzb2lyZXNAcmVkaGF0
-LmNvbT4KPiBDYzogSm9lcmcgUm9lZGVsIDxqb3JvQDhieXRlcy5vcmc+Cj4gQ2M6IEFkcmlhbiBI
-dW50ZXIgPGFkcmlhbi5odW50ZXJAaW50ZWwuY29tPgo+IENjOiBZaXNlbiBaaHVhbmcgPHlpc2Vu
-LnpodWFuZ0BodWF3ZWkuY29tPgo+IENjOiBCam9ybiBIZWxnYWFzIDxiaGVsZ2Fhc0Bnb29nbGUu
-Y29tPgo+IENjOiBaaGFuZyBSdWkgPHJ1aS56aGFuZ0BpbnRlbC5jb20+Cj4gQ2M6IEZlbGlwZSBC
-YWxiaSA8YmFsYmlAa2VybmVsLm9yZz4KPiBDYzogTWF0aGlhcyBOeW1hbiA8bWF0aGlhcy5ueW1h
-bkBpbnRlbC5jb20+Cj4gQ2M6IEhlaWtraSBLcm9nZXJ1cyA8aGVpa2tpLmtyb2dlcnVzQGxpbnV4
-LmludGVsLmNvbT4KPiBDYzogTGlhbSBHaXJkd29vZCA8bGdpcmR3b29kQGdtYWlsLmNvbT4KPiBD
-YzogTWFyayBCcm93biA8YnJvb25pZUBrZXJuZWwub3JnPgo+IFNpZ25lZC1vZmYtYnk6IEFuZHkg
-U2hldmNoZW5rbyA8YW5kcml5LnNoZXZjaGVua29AbGludXguaW50ZWwuY29tPgo+IC0tLQoKRm9y
-IGkyYy1oaWQ6CkFja2VkLWJ5OiBCZW5qYW1pbiBUaXNzb2lyZXMgPGJlbmphbWluLnRpc3NvaXJl
-c0ByZWRoYXQuY29tPgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fXwpJbnRlbC1nZnggbWFpbGluZyBsaXN0CkludGVsLWdmeEBsaXN0cy5mcmVlZGVza3RvcC5v
-cmcKaHR0cHM6Ly9saXN0cy5mcmVlZGVza3RvcC5vcmcvbWFpbG1hbi9saXN0aW5mby9pbnRlbC1n
-ZngK
+On Thu, May 04, 2017 at 03:08:39PM +0200, Ursula Braun wrote:
+> 
+> 
+> On 05/04/2017 10:48 AM, hch@lst.de wrote:
+> > On Thu, May 04, 2017 at 11:43:50AM +0300, Sagi Grimberg wrote:
+> >> I would also suggest that you stop exposing the DMA MR for remote
+> >> access (at least by default) and use a proper reg_mr operations with a
+> >> limited lifetime on a properly sized buffer.
+> > 
+> > Yes, exposing the default DMA MR is a _major_ security risk.  As soon
+> > as SMC is enabled this will mean a remote system has full read/write
+> > access to the local systems memory.
+> > 
+> > There ??s a reason why I removed the ib_get_dma_mr function and replaced
+> > it with the IB_PD_UNSAFE_GLOBAL_RKEY key that has _UNSAFE_ in the name
+> > and a very long comment explaining why, and I'm really disappointed that
+> > we got a driver merged that instead of asking on the relevant list on
+> > why a change unexpertong a function it needed happened and instead
+> > tried the hard way to keep a security vulnerarbility alive.
+> > 
+> Thanks for pointing out these problems. We will address them.
+
+So, you've created a huge security hole in the kernel, anyone who
+loads your smc module is vunerable.
+
+What are you going to do *RIGHT NOW* to mitigate this?
+
+Jason
