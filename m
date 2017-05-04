@@ -1,73 +1,75 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH net] netvsc: make sure napi enabled before vmbus_open
-Date: Wed,  3 May 2017 16:59:21 -0700
-Message-ID: <20170503235921.31407-1-sthemmin@microsoft.com>
-Cc: netdev@vger.kernel.org, Stephen Hemminger <sthemmin@microsoft.com>
-To: davem@davemloft.net
+From: Gavin Shan <gwshan@linux.vnet.ibm.com>
+Subject: Re: [PATCH v4 net-next 06/10] net/ncsi: Ethtool operation to get
+ NCSI hw statistics
+Date: Thu, 4 May 2017 10:05:34 +1000
+Message-ID: <20170504000534.GA11287@gwshan>
+References: <1493786681-27468-1-git-send-email-gwshan@linux.vnet.ibm.com>
+ <1493786681-27468-7-git-send-email-gwshan@linux.vnet.ibm.com>
+ <20170503124722.GE8029@lunn.ch>
+ <20170503.091823.747316360571887178.davem@davemloft.net>
+Reply-To: Gavin Shan <gwshan@linux.vnet.ibm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: andrew@lunn.ch, gwshan@linux.vnet.ibm.com, netdev@vger.kernel.org,
+        joe@perches.com, kubakici@wp.pl, f.fainelli@gmail.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f41.google.com ([74.125.83.41]:34454 "EHLO
-        mail-pg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751233AbdECX7a (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 3 May 2017 19:59:30 -0400
-Received: by mail-pg0-f41.google.com with SMTP id v1so2509255pgv.1
-        for <netdev@vger.kernel.org>; Wed, 03 May 2017 16:59:29 -0700 (PDT)
+Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:47275 "EHLO
+        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751753AbdEDAGg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 3 May 2017 20:06:36 -0400
+Received: from pps.filterd (m0098399.ppops.net [127.0.0.1])
+        by mx0a-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v4403XcM108585
+        for <netdev@vger.kernel.org>; Wed, 3 May 2017 20:06:36 -0400
+Received: from e23smtp05.au.ibm.com (e23smtp05.au.ibm.com [202.81.31.147])
+        by mx0a-001b2d01.pphosted.com with ESMTP id 2a7hbjcb13-1
+        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Wed, 03 May 2017 20:06:36 -0400
+Received: from localhost
+        by e23smtp05.au.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        for <netdev@vger.kernel.org> from <gwshan@linux.vnet.ibm.com>;
+        Thu, 4 May 2017 10:06:33 +1000
+Received: from d23av06.au.ibm.com (d23av06.au.ibm.com [9.190.235.151])
+        by d23relay10.au.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id v4406Nxm8061194
+        for <netdev@vger.kernel.org>; Thu, 4 May 2017 10:06:31 +1000
+Received: from d23av06.au.ibm.com (localhost [127.0.0.1])
+        by d23av06.au.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id v4405xvD020366
+        for <netdev@vger.kernel.org>; Thu, 4 May 2017 10:05:59 +1000
+Content-Disposition: inline
+In-Reply-To: <20170503.091823.747316360571887178.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This fixes a race where vmbus callback for new packet arriving
-could occur before NAPI is initialized.
+On Wed, May 03, 2017 at 09:18:23AM -0400, David Miller wrote:
+>From: Andrew Lunn <andrew@lunn.ch>
+>Date: Wed, 3 May 2017 14:47:22 +0200
+>
+>> On Wed, May 03, 2017 at 02:44:37PM +1000, Gavin Shan wrote:
+>>> This adds ethtool command (ETHTOOL_GNCSISTATS) to retrieve the
+>>> NCSI hardware statistics.
+>> 
+>> Hi Gavin
+>> 
+>> I've not been following this patchset, so maybe i'm about to ask a
+>> question which has already been asked and answered.
+>> 
+>> Why cannot use just use ethtool -S for this?
+>
+>Indeed, when I said to use ethtool for these NCSI hw stats I meant
+>that the "ethtool -S" be used, not some new ethtool command.
+>
 
-Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
----
- drivers/net/hyperv/netvsc.c       | 8 +++++---
- drivers/net/hyperv/rndis_filter.c | 2 +-
- 2 files changed, 6 insertions(+), 4 deletions(-)
+Thanks for the comments. Feel free to ask any questions which would
+make the code clear and better. There are couple of factors I thought
+separate command is better than ETHTOOL_GSTATS: The statistic items from
+ETHTOOL_GSTATS are variable, meaning the kernel needs provide the layout
+of the statistic items via ETHTOOL_GSSET_INFO and ETHTOOL_GSTRINGS.
+NCSI HW statistics aren't following this and their layout is fixed.
+Besides, statistics for ETHTOOL_GSTATS are maintained in local MAC,
+but NCSI HW statistics are collected from NIC on far-end. So they're
+different from this point. Lastly, the NCSI software statistics needs
+separate command. It'd better to have separate command for HW statistics
+as well, to make things consistent.
 
-diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
-index 15749d359e60..652453d9fb08 100644
---- a/drivers/net/hyperv/netvsc.c
-+++ b/drivers/net/hyperv/netvsc.c
-@@ -1322,6 +1322,10 @@ int netvsc_device_add(struct hv_device *device,
- 		nvchan->channel = device->channel;
- 	}
- 
-+	/* Enable NAPI handler before init callbacks */
-+	netif_napi_add(ndev, &net_device->chan_table[0].napi,
-+		       netvsc_poll, NAPI_POLL_WEIGHT);
-+
- 	/* Open the channel */
- 	ret = vmbus_open(device->channel, ring_size * PAGE_SIZE,
- 			 ring_size * PAGE_SIZE, NULL, 0,
-@@ -1329,6 +1333,7 @@ int netvsc_device_add(struct hv_device *device,
- 			 net_device->chan_table);
- 
- 	if (ret != 0) {
-+		netif_napi_del(&net_device->chan_table[0].napi);
- 		netdev_err(ndev, "unable to open channel: %d\n", ret);
- 		goto cleanup;
- 	}
-@@ -1336,9 +1341,6 @@ int netvsc_device_add(struct hv_device *device,
- 	/* Channel is opened */
- 	netdev_dbg(ndev, "hv_netvsc channel opened successfully\n");
- 
--	/* Enable NAPI handler for init callbacks */
--	netif_napi_add(ndev, &net_device->chan_table[0].napi,
--		       netvsc_poll, NAPI_POLL_WEIGHT);
- 	napi_enable(&net_device->chan_table[0].napi);
- 
- 	/* Writing nvdev pointer unlocks netvsc_send(), make sure chn_table is
-diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
-index ab92c3c95951..f9d5b0b8209a 100644
---- a/drivers/net/hyperv/rndis_filter.c
-+++ b/drivers/net/hyperv/rndis_filter.c
-@@ -1018,7 +1018,7 @@ static void netvsc_sc_open(struct vmbus_channel *new_sc)
- 	if (ret == 0)
- 		napi_enable(&nvchan->napi);
- 	else
--		netdev_err(ndev, "sub channel open failed (%d)\n", ret);
-+		netif_napi_del(&nvchan->napi);
- 
- 	if (refcount_dec_and_test(&nvscdev->sc_offered))
- 		complete(&nvscdev->channel_init_wait);
--- 
-2.11.0
+Cheers,
+Gavin
