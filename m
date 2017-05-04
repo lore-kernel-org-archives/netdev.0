@@ -1,45 +1,78 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: sock_create_kern() and (lack of) get_net()
-Date: Thu, 4 May 2017 09:00:06 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DCFFE52FD@AcuExch.aculab.com>
-References: <063D6719AE5E284EB5DD2968C1650D6DCFFE4805@AcuExch.aculab.com>
- <CAM_iQpVmmtR8EKc2AsP2wMq8K8m_SeRSwSw4tp5u=Rt4zdzi-g@mail.gmail.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: iproute2 build error due to sr-ipv6 lwtunnel
+Date: Thu, 04 May 2017 11:13:39 +0200
+Message-ID: <590AF0C3.6070006@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: 'Cong Wang' <xiyou.wangcong@gmail.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, stephen@networkplumber.org
+To: david.lebrun@uclouvain.be
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out4.electric.net ([192.162.216.194]:55569 "EHLO
-        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751265AbdEDJAN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 4 May 2017 05:00:13 -0400
-In-Reply-To: <CAM_iQpVmmtR8EKc2AsP2wMq8K8m_SeRSwSw4tp5u=Rt4zdzi-g@mail.gmail.com>
-Content-Language: en-US
+Received: from www62.your-server.de ([213.133.104.62]:56341 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752691AbdEDJNw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 4 May 2017 05:13:52 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogQ29uZyBXYW5nDQo+IFNlbnQ6IDAzIE1heSAyMDE3IDE3OjMzDQo+IE9uIFdlZCwgTWF5
-IDMsIDIwMTcgYXQgNDozOSBBTSwgRGF2aWQgTGFpZ2h0IDxEYXZpZC5MYWlnaHRAYWN1bGFiLmNv
-bT4gd3JvdGU6DQo+ID4gSSBzdXNwZWN0IHRoYXQgbWFueSBvZiB0aGUgc29ja2V0cyBjcmVhdGVk
-IHdpdGggJ2tlcm49MScgYXJlIG5vdCAnc3BlY2lhbCcNCj4gPiBhbmQgc2hvdWxkIGhvbGQgYSBy
-ZWZlcmVuY2UgdG8gdGhlIG5hbWVzcGFjZS4NCj4gDQo+IFRoZXkgYXJlIHNwZWNpYWwgaWYgdGhl
-eSBhcmUgY3JlYXRlZCBpbiBuZXQgaW5pdCwgd2hpY2ggbWVhbnMgdGhleQ0KPiBoYXZlIHRoZSBz
-YW1lIGxpZmUtdGltZSB3aXRoIG5ldG5zLiBUaGV5IHNob3VsZCBOT1QgaG9sZCBhIHJlZmNudCwN
-Cj4gb3RoZXJ3aXNlIHdobyB3b3VsZCByZWxlYXNlIHRoZSBsYXN0IG5ldG5zIHJlZmNudD8gbmV0
-IGV4aXQgaXMgY2FsbGVkDQo+IHdoZW4gcmVmY250IHJlYWNoZXMgMCwgaWYgeW91IHJlYWxseSBo
-ZWxkIGl0LCBpdCBpcyBhbHdheXMgYXQgbGVhc3QgMS4NCg0KUmlnaHQsIHNvIHNvbWUgYXJlICdz
-cGVjaWFsJyBidXQgc29tZSBhcmVuJ3Q/DQoNCkF0IHRoZSBtb21lbnQgbm8gc29ja2V0cyBjcmVh
-dGVkIGluIHRoZSBrZXJuZWwgaG9sZCBhIHJlZmVyZW5jZSB0byB0aGUNCm5hbWVzcGFjZSwgZGVs
-ZXRpbmcgdGhlIG5hbWVzcGFjZSB3b24ndCBtYWdpY2FsbHkgY2F1c2UgdGhlIGtlcm5lbA0KbW9k
-dWxlIHRoYXQgY3JlYXRlZCB0aGUgc29ja2V0IHRvIGRlbGV0ZSBpdC4NCklmIHRoZSBzb2NrZXQg
-aXMgYmVpbmcgdXNlZCBmb3IgYSBUQ1AgY29ubmVjdGlvbiB0aGVuIGluIGNhbiBzaXQgaW4NCm9u
-ZSBvZiB0aGUgRklOLVdBSVQgc3RhdGVzIGFmdGVyIHNvY2tfcmVsZWFzZSgpIGhhcyBiZWVuIGNh
-bGxlZA0KKEknbSBub3Qgc3VyZSBleGFjdGx5IHdoZW4gdGhlICdzb2NrJyBhbmQgJ3NvY2tldCcg
-Z2V0IGZyZWVkKS4NCg0KSSBndWVzcyBpdCB3b3VsZCBiZSBwb3NzaWJsZSBmb3IgdGhlIG5hbWVz
-cGFjZSBkZWxldGluZyBjb2RlIHRvDQp0cmF2ZXJzZSB0aGUgbGlzdCBvZiBzb2NrZXRzIHRoYXQg
-cmVmZXJlbmNlIHRoZSBuYW1lc3BhY2UgYW5kICd1bmhvb2snDQp0aGVuIGFsbCBmcm9tIHRoZSBy
-ZWxldmFudCBwcm90b2NvbCBzdGFjayBzbyB0aGF0IGFueSAndXNlcicgY2FsbHMNCmVycm9yIG91
-dC4NCkl0IHdvdWxkIG5lZWQgdG8gYWxsb3cgZm9yIHRocmVhZHMgYmxvY2tlZCBpbnNpZGUgdGhl
-IHNvY2tldCBmdW5jdGlvbnMuDQoNCkRvZXMgYW55IG9mIHRoYXQgaGFwcGVuPw0KDQoJRGF2aWQN
-Cg0K
+Hi David,
+
+I'm getting the following build error from e8493916a8ed ("iproute:
+add support for SR-IPv6 lwtunnel encapsulation"). Reverting your
+commit makes iproute2 build again for me. Please take a look.
+
+[...]
+     CC       iplink_vrf.o
+     CC       iproute_lwtunnel.o
+In file included from ../include/linux/seg6.h:18:0,
+                  from iproute_lwtunnel.c:26:
+../include/linux/in6.h:131:26: error: expected identifier before numeric constant
+  #define IPPROTO_HOPOPTS  0 /* IPv6 hop-by-hop options */
+                           ^
+In file included from /usr/include/resolv.h:57:0,
+                  from ../include/utils.h:6,
+                  from iproute_lwtunnel.c:32:
+/usr/include/netinet/in.h:196:8: error: redefinition of ‘struct in6_addr’
+  struct in6_addr
+         ^
+In file included from ../include/linux/seg6.h:18:0,
+                  from iproute_lwtunnel.c:26:
+../include/linux/in6.h:32:8: note: originally defined here
+  struct in6_addr {
+         ^
+In file included from /usr/include/resolv.h:57:0,
+                  from ../include/utils.h:6,
+                  from iproute_lwtunnel.c:32:
+/usr/include/netinet/in.h:237:8: error: redefinition of ‘struct sockaddr_in6’
+  struct sockaddr_in6
+         ^
+In file included from ../include/linux/seg6.h:18:0,
+                  from iproute_lwtunnel.c:26:
+../include/linux/in6.h:49:8: note: originally defined here
+  struct sockaddr_in6 {
+         ^
+In file included from /usr/include/resolv.h:57:0,
+                  from ../include/utils.h:6,
+                  from iproute_lwtunnel.c:32:
+/usr/include/netinet/in.h:273:8: error: redefinition of ‘struct ipv6_mreq’
+  struct ipv6_mreq
+         ^
+In file included from ../include/linux/seg6.h:18:0,
+                  from iproute_lwtunnel.c:26:
+../include/linux/in6.h:59:8: note: originally defined here
+  struct ipv6_mreq {
+         ^
+iproute_lwtunnel.c: In function ‘parse_encap_seg6’:
+iproute_lwtunnel.c:375:3: warning: passing argument 3 of ‘inet_get_addr’ from incompatible pointer type [enabled by default]
+    inet_get_addr(s, NULL, &srh->segments[i]);
+    ^
+In file included from iproute_lwtunnel.c:32:0:
+../include/utils.h:241:5: note: expected ‘struct in6_addr *’ but argument is of type ‘struct in6_addr *’
+  int inet_get_addr(const char *src, __u32 *dst, struct in6_addr *dst6);
+      ^
+make[1]: *** [iproute_lwtunnel.o] Error 1
+make: *** [all] Error 2
+[root@localhost iproute]#
+
+Thanks,
+Daniel
