@@ -1,102 +1,55 @@
-From: Josh Poimboeuf <jpoimboe@redhat.com>
-Subject: [PATCH] x86/asm: Don't use rbp as temp register in csum_partial_copy_generic()
-Date: Thu,  4 May 2017 09:51:40 -0500
-Message-ID: <4b03a961efda5ec9bfe46b7b9c9ad72d1efad343.1493909486.git.jpoimboe@redhat.com>
-Cc: Andrey Konovalov <andreyknvl@google.com>,
-        linux-kernel@vger.kernel.org, Vlad Yasevich <vyasevich@gmail.com>,
-        Neil Horman <nhorman@tuxdriver.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        linux-sctp@vger.kernel.org, netdev <netdev@vger.kernel.org>,
-        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-        Dmitry Vyukov <dvyukov@google.com>,
-        Kostya Serebryany <kcc@google.com>,
-        syzkaller <syzkaller@googlegroups.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>
-To: x86@kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Pavel Belous <pavel.belous@aquantia.com>
+Subject: Re: [PATCH] net:ethernet:aquantia:atlantic: Switch to use
+ napi_gro_receive
+Date: Thu, 4 May 2017 17:53:06 +0300
+Message-ID: <c938a4be-76e0-eef8-381f-79b188870ddf@aquantia.com>
+References: <16bc94e6bb9cc977a9a9e0cac48ae91ff7198f05.1493829200.git.pavel.belous@aquantia.com>
+ <20170504.104257.1536182180703411206.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, darcari@redhat.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-co1nam03on0055.outbound.protection.outlook.com ([104.47.40.55]:5216
+        "EHLO NAM03-CO1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751500AbdEDOyI (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 4 May 2017 10:54:08 -0400
+In-Reply-To: <20170504.104257.1536182180703411206.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Andrey Konovalov reported the following warning while fuzzing the kernel
-with syzkaller:
 
-  WARNING: kernel stack regs at ffff8800686869f8 in a.out:4933 has bad 'bp' value c3fc855a10167ec0
 
-The unwinder dump revealed that rbp had a bad value when an interrupt
-occurred in csum_partial_copy_generic().
+On 04.05.2017 17:42, David Miller wrote:
+> From: Pavel Belous <Pavel.Belous@aquantia.com>
+> Date: Wed,  3 May 2017 19:57:10 +0300
+>
+>> From: Pavel Belous <pavel.belous@aquantia.com>
+>>
+>> Add support for GRO (generic receive offload) for aQuantia Atlantic driver.
+>> This results in a perfomance improvement when GRO is enabled.
+>>
+>> Signed-off-by: Pavel Belous <pavel.belous@aquantia.com>
+>
+> Please format your Subject line properly.
+>
+> You have _way_ too many subsystem prefixes, and when there are more
+> than one they should be separated by spaces like "a: b: c:"
+>
+> In this case an appropriate Subject line would be:
+>
+> [PATCH net-next] aquantia: Switch to use napi_gro_receive().
+>
+> But since this is a new feature, and the net-next tree is currently
+> closed, you will have to resubmit this when the net-next tree
+> opens.
+>
+> Thank you.
+>
 
-That function saves rbp on the stack and then overwrites it, using it as
-a scratch register.  That's problematic because it breaks stack traces
-if an interrupt occurs in the middle of the function.
+Ok. I will re-submit the patch when net-next tree opens.
 
-Replace the usage of rbp with another callee-saved register (r15) so
-stack traces are no longer be affected.
-
-Reported-by: Andrey Konovalov <andreyknvl@google.com>
-Tested-by: Andrey Konovalov <andreyknvl@google.com>
-Signed-off-by: Josh Poimboeuf <jpoimboe@redhat.com>
----
- arch/x86/lib/csum-copy_64.S | 12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
-
-diff --git a/arch/x86/lib/csum-copy_64.S b/arch/x86/lib/csum-copy_64.S
-index 7e48807..45a53df 100644
---- a/arch/x86/lib/csum-copy_64.S
-+++ b/arch/x86/lib/csum-copy_64.S
-@@ -55,7 +55,7 @@ ENTRY(csum_partial_copy_generic)
- 	movq  %r12, 3*8(%rsp)
- 	movq  %r14, 4*8(%rsp)
- 	movq  %r13, 5*8(%rsp)
--	movq  %rbp, 6*8(%rsp)
-+	movq  %r15, 6*8(%rsp)
- 
- 	movq  %r8, (%rsp)
- 	movq  %r9, 1*8(%rsp)
-@@ -74,7 +74,7 @@ ENTRY(csum_partial_copy_generic)
- 	/* main loop. clear in 64 byte blocks */
- 	/* r9: zero, r8: temp2, rbx: temp1, rax: sum, rcx: saved length */
- 	/* r11:	temp3, rdx: temp4, r12 loopcnt */
--	/* r10:	temp5, rbp: temp6, r14 temp7, r13 temp8 */
-+	/* r10:	temp5, r15: temp6, r14 temp7, r13 temp8 */
- 	.p2align 4
- .Lloop:
- 	source
-@@ -89,7 +89,7 @@ ENTRY(csum_partial_copy_generic)
- 	source
- 	movq  32(%rdi), %r10
- 	source
--	movq  40(%rdi), %rbp
-+	movq  40(%rdi), %r15
- 	source
- 	movq  48(%rdi), %r14
- 	source
-@@ -103,7 +103,7 @@ ENTRY(csum_partial_copy_generic)
- 	adcq  %r11, %rax
- 	adcq  %rdx, %rax
- 	adcq  %r10, %rax
--	adcq  %rbp, %rax
-+	adcq  %r15, %rax
- 	adcq  %r14, %rax
- 	adcq  %r13, %rax
- 
-@@ -121,7 +121,7 @@ ENTRY(csum_partial_copy_generic)
- 	dest
- 	movq %r10, 32(%rsi)
- 	dest
--	movq %rbp, 40(%rsi)
-+	movq %r15, 40(%rsi)
- 	dest
- 	movq %r14, 48(%rsi)
- 	dest
-@@ -203,7 +203,7 @@ ENTRY(csum_partial_copy_generic)
- 	movq 3*8(%rsp), %r12
- 	movq 4*8(%rsp), %r14
- 	movq 5*8(%rsp), %r13
--	movq 6*8(%rsp), %rbp
-+	movq 6*8(%rsp), %r15
- 	addq $7*8, %rsp
- 	ret
- 
--- 
-2.7.4
+Thank you,
+Pavel
