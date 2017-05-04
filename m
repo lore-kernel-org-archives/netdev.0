@@ -1,111 +1,123 @@
-From: Stefan Schmidt <stefan@osg.samsung.com>
-Subject: Re: [[NET-NEXT]] Added dump function to recognise rpl extension
- header option(63)
-Date: Thu, 4 May 2017 14:27:23 +0200
-Message-ID: <af9727bf-9987-1046-c2aa-2a8695447fde@osg.samsung.com>
-References: <a712ff423471e02a533650ce6d64dc85@ceid.upatras.gr>
+From: Andrey Konovalov <andreyknvl@google.com>
+Subject: Re: [Patch net] ipv6: initialize route null entry in addrconf_init()
+Date: Thu, 4 May 2017 14:28:37 +0200
+Message-ID: <CAAeHK+zmMUvt4Lz28k3Oyxi1QFmrTMBe34=6xJDBPxkeivnPeA@mail.gmail.com>
+References: <1493874452-3050-1-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Michael Richardson <mcr@sandelman.ca>,
-        "linux-wpan@vger.kernel.org" <linux-wpan@vger.kernel.org>
-To: Andreas Bardoutsos <bardoutsos@ceid.upatras.gr>,
-        netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>, David Ahern <dsahern@gmail.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ec2-52-27-115-49.us-west-2.compute.amazonaws.com ([52.27.115.49]:52722
-        "EHLO osg.samsung.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751353AbdEDM12 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 4 May 2017 08:27:28 -0400
-In-Reply-To: <a712ff423471e02a533650ce6d64dc85@ceid.upatras.gr>
+Received: from mail-yb0-f177.google.com ([209.85.213.177]:34781 "EHLO
+        mail-yb0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750710AbdEDM2j (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 4 May 2017 08:28:39 -0400
+Received: by mail-yb0-f177.google.com with SMTP id 8so2868792ybw.1
+        for <netdev@vger.kernel.org>; Thu, 04 May 2017 05:28:39 -0700 (PDT)
+In-Reply-To: <1493874452-3050-1-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+On Thu, May 4, 2017 at 7:07 AM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+> Andrey reported a crash on init_net.ipv6.ip6_null_entry->rt6i_idev
+> since it is always NULL.
+>
+> This is clearly wrong, we have code to initialize it to loopback_dev,
+> unfortunately the order is still not correct.
+>
+> loopback_dev is registered very early during boot, we lose a chance
+> to re-initialize it in notifier. addrconf_init() is called after
+> ip6_route_init(), which means we have no chance to correct it.
+>
+> Fix it by moving this initialization explicitly after
+> ipv6_add_dev(init_net.loopback_dev) in addrconf_init().
+>
+> Reported-by: Andrey Konovalov <andreyknvl@google.com>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 
-Lets do the review here on netdev.
+Hi Cong,
 
-Some general things first. You might want to use git send-email to make 
-sure the formatting does not get screwed up from your mailer. Another 
-thing to keep in mind is that net-next is closed right now (we are in 
-the 4.12 merge window right now) and Dave will most likely as you to 
-re-submit once it opens up again. On the other hand I would go as far as 
-calling this a fix as it makes sure the needed packet does not get 
-dropped in kernel space and unstrung as RPL daemon can work with it. It 
-also fixes the RPL communication with Contiki.
+This fixes the bug triggered by my reproducer.
 
-Your subject line also needs a prefix like "ipv6: ext_header:". Maybe 
-something like this is better:
+Thanks!
 
-ipv6: ext_header: add function to handle RPL option 0x63
+Tested-by: Andrey Konovalov <andreyknvl@google.com>
 
-On 05/04/2017 02:06 PM, Andreas Bardoutsos wrote:
-> Signed-off-by: Andreas Bardoutsos <bardoutsos@ceid.upatras.gr>
 > ---
-> I have added a dump function(always return true) to recognise RPL
-> extension header(RFC6553)
-> Otherwise packet was dropped by kernel resulting in impossible
-> communication in RPL DAG's between
-> linux running border routers and devices in the graph,which may run
-> different OS(contiki os for example)
-
-Please put this useful information in the commit message.
-
->  include/uapi/linux/in6.h |  1 +
->  net/ipv6/exthdrs.c       | 13 +++++++++++++
->  2 files changed, 14 insertions(+)
+>  include/net/ip6_route.h |  1 +
+>  net/ipv6/addrconf.c     |  2 ++
+>  net/ipv6/route.c        | 26 +++++++++++++++-----------
+>  3 files changed, 18 insertions(+), 11 deletions(-)
 >
-> diff --git a/include/uapi/linux/in6.h b/include/uapi/linux/in6.h
-> index 46444f8fbee4..5cc12d309dfe 100644
-> --- a/include/uapi/linux/in6.h
-> +++ b/include/uapi/linux/in6.h
-> @@ -146,6 +146,7 @@ struct in6_flowlabel_req {
->  #define IPV6_TLV_CALIPSO    7    /* RFC 5570 */
->  #define IPV6_TLV_JUMBO        194
->  #define IPV6_TLV_HAO        201    /* home address option */
-> +#define IPV6_TLV_RPL    99    /* RFC 6553 */
+> diff --git a/include/net/ip6_route.h b/include/net/ip6_route.h
+> index 9dc2c18..f5e625f 100644
+> --- a/include/net/ip6_route.h
+> +++ b/include/net/ip6_route.h
+> @@ -84,6 +84,7 @@ struct dst_entry *ip6_route_lookup(struct net *net, struct flowi6 *fl6,
+>  struct rt6_info *ip6_pol_route(struct net *net, struct fib6_table *table,
+>                                int ifindex, struct flowi6 *fl6, int flags);
 >
->  /*
->   *    IPV6 socket options
-> diff --git a/net/ipv6/exthdrs.c b/net/ipv6/exthdrs.c
-> index b636f1da9aec..82ed60d3180e 100644
-> --- a/net/ipv6/exthdrs.c
-> +++ b/net/ipv6/exthdrs.c
-> @@ -785,6 +785,15 @@ static bool ipv6_hop_calipso(struct sk_buff *skb,
-> int optoff)
->      return false;
->  }
+> +void ip6_route_init_special_entries(void);
+>  int ip6_route_init(void);
+>  void ip6_route_cleanup(void);
 >
-> +/* RPL RFC 6553 */
+> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+> index a2a370b..77a4bd5 100644
+> --- a/net/ipv6/addrconf.c
+> +++ b/net/ipv6/addrconf.c
+> @@ -6573,6 +6573,8 @@ int __init addrconf_init(void)
+>                 goto errlo;
+>         }
+>
+> +       ip6_route_init_special_entries();
 > +
-> +static bool ipv6_hop_rpl(struct sk_buff *skb, int optoff)
+>         for (i = 0; i < IN6_ADDR_HSIZE; i++)
+>                 INIT_HLIST_HEAD(&inet6_addr_lst[i]);
+>
+> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+> index a1bf426..2f11366 100644
+> --- a/net/ipv6/route.c
+> +++ b/net/ipv6/route.c
+> @@ -4027,6 +4027,21 @@ static struct notifier_block ip6_route_dev_notifier = {
+>         .priority = 0,
+>  };
+>
+> +void __init ip6_route_init_special_entries(void)
 > +{
-> +    /*Dump function which always return true
-> +    *when rpl option is detected*/
-> +    return true;
-
-We might need to do some more processing later here. For now it should 
-be good as a fix to get the RPL communication between Linux and Contiki 
-working again. Michael, what extra checks would you need in the kernel here?
-
+> +       /* Registering of the loopback is done before this portion of code,
+> +        * the loopback reference in rt6_info will not be taken, do it
+> +        * manually for init_net */
+> +       init_net.ipv6.ip6_null_entry->dst.dev = init_net.loopback_dev;
+> +       init_net.ipv6.ip6_null_entry->rt6i_idev = in6_dev_get(init_net.loopback_dev);
+> +  #ifdef CONFIG_IPV6_MULTIPLE_TABLES
+> +       init_net.ipv6.ip6_prohibit_entry->dst.dev = init_net.loopback_dev;
+> +       init_net.ipv6.ip6_prohibit_entry->rt6i_idev = in6_dev_get(init_net.loopback_dev);
+> +       init_net.ipv6.ip6_blk_hole_entry->dst.dev = init_net.loopback_dev;
+> +       init_net.ipv6.ip6_blk_hole_entry->rt6i_idev = in6_dev_get(init_net.loopback_dev);
+> +  #endif
 > +}
 > +
->  static const struct tlvtype_proc tlvprochopopt_lst[] = {
->      {
->          .type    = IPV6_TLV_ROUTERALERT,
-> @@ -798,6 +807,10 @@ static const struct tlvtype_proc
-> tlvprochopopt_lst[] = {
->          .type    = IPV6_TLV_CALIPSO,
->          .func    = ipv6_hop_calipso,
->      },
-> +    {
-> +        .type    = IPV6_TLV_RPL,
-> +        .func    = ipv6_hop_rpl,
-> +    },
->      { -1, }
->  };
-
-
-Reviewed-by: Stefan Schmidt <stefan@osg.samsung.com>
-
-regards
-Stefan Schmidt
+>  int __init ip6_route_init(void)
+>  {
+>         int ret;
+> @@ -4053,17 +4068,6 @@ int __init ip6_route_init(void)
+>
+>         ip6_dst_blackhole_ops.kmem_cachep = ip6_dst_ops_template.kmem_cachep;
+>
+> -       /* Registering of the loopback is done before this portion of code,
+> -        * the loopback reference in rt6_info will not be taken, do it
+> -        * manually for init_net */
+> -       init_net.ipv6.ip6_null_entry->dst.dev = init_net.loopback_dev;
+> -       init_net.ipv6.ip6_null_entry->rt6i_idev = in6_dev_get(init_net.loopback_dev);
+> -  #ifdef CONFIG_IPV6_MULTIPLE_TABLES
+> -       init_net.ipv6.ip6_prohibit_entry->dst.dev = init_net.loopback_dev;
+> -       init_net.ipv6.ip6_prohibit_entry->rt6i_idev = in6_dev_get(init_net.loopback_dev);
+> -       init_net.ipv6.ip6_blk_hole_entry->dst.dev = init_net.loopback_dev;
+> -       init_net.ipv6.ip6_blk_hole_entry->rt6i_idev = in6_dev_get(init_net.loopback_dev);
+> -  #endif
+>         ret = fib6_init();
+>         if (ret)
+>                 goto out_register_subsys;
+> --
+> 2.5.5
+>
