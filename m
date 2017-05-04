@@ -1,71 +1,51 @@
-From: Joerg Roedel <joro@8bytes.org>
-Subject: Re: [PATCH v1] ACPI: Switch to use generic UUID API
-Date: Thu, 4 May 2017 14:46:05 +0200
-Message-ID: <20170504124604.GA14127@8bytes.org>
-References: <20170504092151.88646-1-andriy.shevchenko@linux.intel.com>
+From: Stefan Schmidt <stefan@osg.samsung.com>
+Subject: Re: [[NET-NEXT]] Added dump function to recognise rpl extension
+ header option(63)
+Date: Thu, 4 May 2017 14:51:01 +0200
+Message-ID: <20170504125101.GD31463@work.Speedport_W_724V_09011603_05_010>
+References: <a712ff423471e02a533650ce6d64dc85@ceid.upatras.gr>
+ <af9727bf-9987-1046-c2aa-2a8695447fde@osg.samsung.com>
+ <20170504123337.GE13320@breakpoint.cc>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-acpi@vger.kernel.org, tpmdd-devel@lists.sourceforge.net,
-        intel-gfx@lists.freedesktop.org, nouveau@lists.freedesktop.org,
-        linux-input@vger.kernel.org, iommu@lists.linux-foundation.org,
-        linux-mmc@vger.kernel.org, netdev@vger.kernel.org,
-        linux-pci@vger.kernel.org, linux-usb@vger.kernel.org,
-        alsa-devel@alsa-project.org, linux-kernel@vger.kernel.org,
-        "Rafael J . Wysocki" <rjw@rjwysocki.net>,
-        Mika Westerberg <mika.westerberg@linux.intel.com>,
-        Borislav Petkov <bp@suse.de>,
-        Dan Williams <dan.j.williams@intel.com>,
-        Amir Goldstein <amir73il@gmail.com>,
-        Jarkko Sakkinen <jarkko.sakkinen@linux.intel.com>,
-        Jani Nikula <jani.nikula@linux.intel.com>,
-        Ben Skeggs <bskeggs@redhat.com>,
-        Benjamin Tissoires <benjamin.tissoires@redhat.com>,
-        Adrian Hunter <adrian.hunter@intel.com>,
-To: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
+Cc: Stefan Schmidt <stefan@osg.samsung.com>,
+        Andreas Bardoutsos <bardoutsos@ceid.upatras.gr>,
+        netdev <netdev@vger.kernel.org>,
+        Michael Richardson <mcr@sandelman.ca>,
+        "linux-wpan@vger.kernel.org" <linux-wpan@vger.kernel.org>
+To: Florian Westphal <fw@strlen.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ec2-52-27-115-49.us-west-2.compute.amazonaws.com ([52.27.115.49]:52896
+        "EHLO osg.samsung.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1750848AbdEDMvJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 4 May 2017 08:51:09 -0400
 Content-Disposition: inline
-In-Reply-To: <20170504092151.88646-1-andriy.shevchenko@linux.intel.com>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20170504123337.GE13320@breakpoint.cc>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 04, 2017 at 12:21:51PM +0300, Andy Shevchenko wrote:
-> diff --git a/drivers/iommu/dmar.c b/drivers/iommu/dmar.c
-> index cbf7763d8091..420d51b286ad 100644
-> --- a/drivers/iommu/dmar.c
-> +++ b/drivers/iommu/dmar.c
-> @@ -1808,10 +1808,9 @@ IOMMU_INIT_POST(detect_intel_iommu);
->   * for Directed-IO Architecture Specifiction, Rev 2.2, Section 8.8
->   * "Remapping Hardware Unit Hot Plug".
->   */
-> -static u8 dmar_hp_uuid[] = {
-> -	/* 0000 */    0xA6, 0xA3, 0xC1, 0xD8, 0x9B, 0xBE, 0x9B, 0x4C,
-> -	/* 0008 */    0x91, 0xBF, 0xC3, 0xCB, 0x81, 0xFC, 0x5D, 0xAF
-> -};
-> +static uuid_le dmar_hp_uuid =
-> +	UUID_LE(0xD8C1A3A6, 0xBE9B, 0x4C9B,
-> +		0x91, 0xBF, 0xC3, 0xCB, 0x81, 0xFC, 0x5D, 0xAF);
->  
->  /*
->   * Currently there's only one revision and BIOS will not check the revision id,
-> @@ -1824,7 +1823,7 @@ static u8 dmar_hp_uuid[] = {
->  
->  static inline bool dmar_detect_dsm(acpi_handle handle, int func)
->  {
-> -	return acpi_check_dsm(handle, dmar_hp_uuid, DMAR_DSM_REV_ID, 1 << func);
-> +	return acpi_check_dsm(handle, &dmar_hp_uuid, DMAR_DSM_REV_ID, 1 << func);
->  }
->  
->  static int dmar_walk_dsm_resource(acpi_handle handle, int func,
-> @@ -1843,7 +1842,7 @@ static int dmar_walk_dsm_resource(acpi_handle handle, int func,
->  	if (!dmar_detect_dsm(handle, func))
->  		return 0;
->  
-> -	obj = acpi_evaluate_dsm_typed(handle, dmar_hp_uuid, DMAR_DSM_REV_ID,
-> +	obj = acpi_evaluate_dsm_typed(handle, &dmar_hp_uuid, DMAR_DSM_REV_ID,
->  				      func, NULL, ACPI_TYPE_BUFFER);
->  	if (!obj)
->  		return -ENODEV;
+Hello.
 
-DMAR part is
+On Thu, 2017-05-04 at 14:33, Florian Westphal wrote:
+> Stefan Schmidt <stefan@osg.samsung.com> wrote:
+> > ipv6: ext_header: add function to handle RPL option 0x63
+> 
+> But its not handled, is it?
 
-	Acked-by: Joerg Roedel <jroedel@suse.de>
+Its not handled in the kernel. The RPL daemon would run in userspace in this
+case.
+
+>From my understanding unstrung (or any other RPL implementation) needs this
+packet. Right now the kernel silently drops it. Michael would know best
+about the details here and if we need some more logic in the kernel itself.
+Maybe just some sanity checking of the TLV.
+
+> The kernel tosses it because the RPL option/RFC says so
+> ('nodes that do not understand this option on a received
+>  packet MUST discard the packet.').
+
+What we might need is a way to let the kernel know we have a RPL running with
+support for this option. Would that meet your concern?
+
+regards
+Stefan Schmidt
