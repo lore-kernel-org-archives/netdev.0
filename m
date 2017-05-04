@@ -1,90 +1,52 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [RFC net-next] ipv6: ext_header: add function to handle RPL
- extension header option 0x63
-Date: Thu, 4 May 2017 18:00:42 +0200
-Message-ID: <20170504160042.GB2385@nanopsycho>
-References: <dca567582f1979384fb1f3c3d1411349@ceid.upatras.gr>
+From: David Ahern <dsahern@gmail.com>
+Subject: Re: [PATCH net] rtnetlink: NUL-terminate IFLA_PHYS_PORT_NAME string
+Date: Thu, 4 May 2017 10:14:13 -0600
+Message-ID: <1df4c5ca-9f8d-3cba-52d0-2efbd4117a69@gmail.com>
+References: <20170504144858.1905-1-mschmidt@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>, linux-wpan@vger.kernel.org,
-        Michael Richardson <mcr@sandelman.ca>,
-        Unstrung Hackers <unstrung-hackers@lists.sandelman.ca>,
-        netdev-owner@vger.kernel.org, linux-bluetooth@vger.kernel.org
-To: Andreas Bardoutsos <bardoutsos@ceid.upatras.gr>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Thomas Haller <thaller@redhat.com>
+To: Michal Schmidt <mschmidt@redhat.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f194.google.com ([209.85.128.194]:35482 "EHLO
-        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754649AbdEDQAq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 4 May 2017 12:00:46 -0400
-Received: by mail-wr0-f194.google.com with SMTP id g12so1891890wrg.2
-        for <netdev@vger.kernel.org>; Thu, 04 May 2017 09:00:45 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <dca567582f1979384fb1f3c3d1411349@ceid.upatras.gr>
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:33334 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754489AbdEDQOQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 4 May 2017 12:14:16 -0400
+Received: by mail-pg0-f66.google.com with SMTP id s62so2890569pgc.0
+        for <netdev@vger.kernel.org>; Thu, 04 May 2017 09:14:16 -0700 (PDT)
+In-Reply-To: <20170504144858.1905-1-mschmidt@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thu, May 04, 2017 at 05:17:18PM CEST, bardoutsos@ceid.upatras.gr wrote:
->Signed-off-by: Andreas Bardoutsos <bardoutsos@ceid.upatras.gr>
->---
->Hi all!
->
->I have added a dump function(always return true) to recognise RPL extension
->header(RFC6553)
->Otherwise packet was dropped by kernel resulting in failing communication in
->RPL DAG's between
->linux running border routers and devices in the graph.For example
->communication
->with contiki OS running devices was previously impossible.
->
-> include/uapi/linux/in6.h |  1 +
-> net/ipv6/exthdrs.c       | 13 +++++++++++++
-> 2 files changed, 14 insertions(+)
->
->diff --git a/include/uapi/linux/in6.h b/include/uapi/linux/in6.h
->index 46444f8fbee4..5cc12d309dfe 100644
->--- a/include/uapi/linux/in6.h
->+++ b/include/uapi/linux/in6.h
->@@ -146,6 +146,7 @@ struct in6_flowlabel_req {
-> #define IPV6_TLV_CALIPSO	7	/* RFC 5570 */
-> #define IPV6_TLV_JUMBO		194
-> #define IPV6_TLV_HAO		201	/* home address option */
->+#define IPV6_TLV_RPL	99	/* RFC 6553 */
->
-> /*
->  *	IPV6 socket options
->diff --git a/net/ipv6/exthdrs.c b/net/ipv6/exthdrs.c
->index b636f1da9aec..82ed60d3180e 100644
->--- a/net/ipv6/exthdrs.c
->+++ b/net/ipv6/exthdrs.c
->@@ -785,6 +785,15 @@ static bool ipv6_hop_calipso(struct sk_buff *skb, int
->optoff)
-> 	return false;
-> }
->
->+/* RPL RFC 6553 */
->+
->+static bool ipv6_hop_rpl(struct sk_buff *skb, int optoff)
->+{
->+	/*Dump function which always return true
->+	*when rpl option is detected*/
+On 5/4/17 8:48 AM, Michal Schmidt wrote:
+> IFLA_PHYS_PORT_NAME is a string attribute, so terminate it with \0.
+> Otherwise libnl3 fails to validate netlink messages with this attribute.
+> "ip -detail a" assumes too that the attribute is NUL-terminated when
+> printing it. It often was, due to padding.
+> 
+> I noticed this as libvirtd failing to start on a system with sfc driver
+> after upgrading it to Linux 4.11, i.e. when sfc added support for
+> phys_port_name.
+> 
+> Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
+> ---
+>  net/core/rtnetlink.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+> index c4e84c5582..69daf393cb 100644
+> --- a/net/core/rtnetlink.c
+> +++ b/net/core/rtnetlink.c
+> @@ -1056,7 +1056,7 @@ static int rtnl_phys_port_name_fill(struct sk_buff *skb, struct net_device *dev)
+>  		return err;
+>  	}
+>  
+> -	if (nla_put(skb, IFLA_PHYS_PORT_NAME, strlen(name), name))
+> +	if (nla_put_string(skb, IFLA_PHYS_PORT_NAME, name))
+>  		return -EMSGSIZE;
+>  
+>  	return 0;
+> 
 
-This is definitelly wrong formatting of comment. Did you run checkpatch?
-
-
->+	return true;
->+}
->+
-> static const struct tlvtype_proc tlvprochopopt_lst[] = {
-> 	{
-> 		.type	= IPV6_TLV_ROUTERALERT,
->@@ -798,6 +807,10 @@ static const struct tlvtype_proc tlvprochopopt_lst[] = {
-> 		.type	= IPV6_TLV_CALIPSO,
-> 		.func	= ipv6_hop_calipso,
-> 	},
->+	{
->+		.type	= IPV6_TLV_RPL,
->+		.func	= ipv6_hop_rpl,
->+	},
-> 	{ -1, }
-> };
->
+Thanks for fixing.
