@@ -1,49 +1,98 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [RFC] iproute: Add support for extended ack to rtnl_talk
-Date: Thu, 04 May 2017 11:36:36 +0200
-Message-ID: <590AF624.6090808@iogearbox.net>
-References: <20170503235638.31116-1-stephen@networkplumber.org>
+From: "Chiappero, Marco" <marco.chiappero@intel.com>
+Subject: RE: [PATCH net-next 9/9] ipvlan: introduce individual MAC addresses
+Date: Thu, 4 May 2017 09:37:00 +0000
+Message-ID: <695CDAEB5A6CE2498DE413F2A9AA82960915EF08@IRSMSX101.ger.corp.intel.com>
+References: <20170427145142.15830-1-marco.chiappero@intel.com>
+         <20170427145142.15830-10-marco.chiappero@intel.com>
+         <1493310033.27948.3.camel@redhat.com>
+ <1493310219.27948.5.camel@redhat.com>
+         <695CDAEB5A6CE2498DE413F2A9AA82960915DF0C@IRSMSX101.ger.corp.intel.com>
+ <1493741366.32411.7.camel@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "David S . Miller" <davem@davemloft.net>,
+        "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+        "Duyck, Alexander H" <alexander.h.duyck@intel.com>,
+        "Grandhi, Sainath" <sainath.grandhi@intel.com>,
+        Mahesh Bandewar <maheshb@google.com>
+To: Dan Williams <dcbw@redhat.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:59230 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751407AbdEDJgi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 4 May 2017 05:36:38 -0400
-In-Reply-To: <20170503235638.31116-1-stephen@networkplumber.org>
+Received: from mga01.intel.com ([192.55.52.88]:24520 "EHLO mga01.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751358AbdEDJhJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 4 May 2017 05:37:09 -0400
+In-Reply-To: <1493741366.32411.7.camel@redhat.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/04/2017 01:56 AM, Stephen Hemminger wrote:
-> Add support for extended ack error reporting via libmnl. This
-> is a better alternative to use existing library and not copy/paste
-> code from the kernel. Also make arguments const where possible.
->
-> Add a new function rtnl_talk_extack that takes a callback as an input
-> arg. If a netlink response contains extack attributes, the callback is
-> is invoked with the the err string, offset in the message and a pointer
-> to the message returned by the kernel.
->
-> Adding a new function allows commands to be moved over to the
-> extended error reporting over time.
->
-> For feedback, compile tested only.
-
-Just out of curiosity, what is the plan regarding converting iproute2
-over to libmnl (ip, tc, ss, ...)? In 2015, tipc tool was the first
-user merged that requires libmnl, the only other user today in the
-tree is devlink, which even seems to define its own libmnl library
-helpers. What is the clear benefit/rationale of outsourcing this to
-libmnl? I always was the impression we should strive for as little
-dependencies as possible?
-
-I don't really like that we make extended ack reporting now dependent
-on libmnl, which further diverts from iproute's native nl library vs
-requiring to install another nl library, making the current status
-quo even worse ... :/
-
-Thanks,
-Daniel
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBuZXRkZXYtb3duZXJAdmdlci5r
+ZXJuZWwub3JnIFttYWlsdG86bmV0ZGV2LW93bmVyQHZnZXIua2VybmVsLm9yZ10NCj4gT24gQmVo
+YWxmIE9mIERhbiBXaWxsaWFtcw0KPiBTZW50OiBUdWVzZGF5LCBNYXkgMiwgMjAxNyA1OjA5IFBN
+DQo+IFRvOiBDaGlhcHBlcm8sIE1hcmNvIDxtYXJjby5jaGlhcHBlcm9AaW50ZWwuY29tPjsgbmV0
+ZGV2QHZnZXIua2VybmVsLm9yZw0KPiBDYzogRGF2aWQgUyAuIE1pbGxlciA8ZGF2ZW1AZGF2ZW1s
+b2Z0Lm5ldD47IEtpcnNoZXIsIEplZmZyZXkgVA0KPiA8amVmZnJleS50LmtpcnNoZXJAaW50ZWwu
+Y29tPjsgRHV5Y2ssIEFsZXhhbmRlciBIDQo+IDxhbGV4YW5kZXIuaC5kdXlja0BpbnRlbC5jb20+
+OyBHcmFuZGhpLCBTYWluYXRoDQo+IDxzYWluYXRoLmdyYW5kaGlAaW50ZWwuY29tPjsgTWFoZXNo
+IEJhbmRld2FyIDxtYWhlc2hiQGdvb2dsZS5jb20+DQo+IFN1YmplY3Q6IFJlOiBbUEFUQ0ggbmV0
+LW5leHQgOS85XSBpcHZsYW46IGludHJvZHVjZSBpbmRpdmlkdWFsIE1BQyBhZGRyZXNzZXMNCj4g
+DQo+IE9uIFR1ZSwgMjAxNy0wNS0wMiBhdCAxNTowOCArMDAwMCwgQ2hpYXBwZXJvLCBNYXJjbyB3
+cm90ZToNCj4gPiA+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+ID4gPiBGcm9tOiBEYW4g
+V2lsbGlhbXMgW21haWx0bzpkY2J3QHJlZGhhdC5jb21dIE9uIFRodSwgMjAxNy0wNC0yNyBhdA0K
+PiA+ID4gMTE6MjAgLTA1MDAsIERhbiBXaWxsaWFtcyB3cm90ZToNCj4gPiA+ID4gT24gVGh1LCAy
+MDE3LTA0LTI3IGF0IDE1OjUxICswMTAwLCBNYXJjbyBDaGlhcHBlcm8gd3JvdGU6DQo+ID4gPiA+
+ID4gQ3VycmVudGx5IGFsbCB0aGUgc2xhdmUgZGV2aWNlcyBiZWxvbmdpbmcgdG8gdGhlIHNhbWUg
+cG9ydA0KPiA+ID4gPiA+IGluaGVyaXQgdGhlaXIgTUFDIGFkZHJlc3MgZnJvbSBpdHMgbWFzdGVy
+IGRldmljZS4gVGhpcyBwYXRjaA0KPiA+ID4gPiA+IHJlbW92ZXMgdGhpcyBsaW1pdGF0aW9uIGFu
+ZCBhbGxvd3MgZXZlcnkgc2xhdmUgZGV2aWNlIHRvIG9idGFpbg0KPiA+ID4gPiA+IGEgdW5pcXVl
+IE1BQyBhZGRyZXNzLCBieSBkZWZhdWx0IHJhbmRvbWx5IGdlbmVyYXRlZCBhdCBjcmVhdGlvbg0K
+PiA+ID4gPiA+IHRpbWUuDQo+ID4gPiA+ID4NCj4gPiA+ID4gPiBNb3Jlb3ZlciBpdCBpcyBub3cg
+cG9zc2libGUgdG8gY29ycmVjdGx5IG1vZGlmeSB0aGUgTUFDIGFkZHJlc3MNCj4gPiA+ID4gPiBh
+dCBhbnkgdGltZSwgZml4aW5nIGFuIGV4aXN0aW5nIGJ1ZyBhcyBNQUMgYWRkcmVzcyBjaGFuZ2Vz
+IG9uDQo+ID4gPiA+ID4gdGhlIG1hc3RlciB3ZXJlIG5vdCByZWZsZWN0ZWQgb24gdGhlIHNsYXZl
+cy4gSXQgYWxzbyBhdm9pZHMNCj4gPiA+ID4gPiBtdWx0aXBsZSBpbnRlcmZhY2VzIHNoYXJpbmcg
+dGhlIHNhbWUgSVB2NiBsaW5rLWxvY2FsIGFkZHJlc3MuDQo+ID4gPiA+DQo+ID4gPiA+IEhvdyBp
+cyB0aGlzIGRpZmZlcmVudCB0aGFuIG1hY3ZsYW4gbm93Pw0KPiA+DQo+ID4gVGhlIHNhbWUgd2F5
+IGl0IHdhcyBiZWZvcmUuIFRoZSBwdXJwb3NlIG9mIHRoZSBwYXRjaCBpcyB0byBtYWtlDQo+ID4g
+cG9zc2libGUgdG8gY2hhbmdlIHRoZSBNQUMgYWRkcmVzcyBvbiBzbGF2ZXMsIG5vdCB0byBjaGFu
+Z2UgdGhlDQo+ID4gZXh0ZXJuYWwgYmVoYXZpb3Igb2YgaXB2bGFuOiBpcHZsYW4gd2lsbCBzdGls
+bCBiZWhhdmUgYXMgaXB2bGFuLA0KPiA+IG1hY3ZsYW4gd2lsbCBzdGlsbCBiZWhhdmUgYXMgbWFj
+dmxhbi4NCj4gDQo+IE9rLCBpdCB3YXMgY29tcGxldGVseSB1bmNsZWFyIGZyb20gdGhlIGNvbW1p
+dCBtZXNzYWdlIHRoYXQgdGhlICJpbnRlcm5hbCIgTUFDDQo+IGFkZHJlc3NlcyBvZiB0aGUgaXB2
+bGFuIGludGVyZmFjZXMgd2VyZSBub3QgcmVmbGVjdGVkICJvbiB0aGUgd2lyZSIsIGJ1dCB0aGF0
+IHRoaXMNCj4gd2FzIGVzc2VudGlhbGx5IChhcyB5b3Ugc2F5IGJlbG93KSBNQUMgTkFULg0KDQpT
+b3JyeSBhYm91dCB0aGF0LCBJJ2xsIGZpeCBpdCBpbiBWMi4NCg0KPiBJIHRoaW5rIGV2ZXJ5b25l
+IGFncmVlcyB0aGF0IGJlaW5nIGFibGUgdG8gY2hhbmdlIHRoZSBNQUMgaXMgdXNlZnVsIGFuZCB3
+YXMgYQ0KPiBidWcuDQo+IA0KPiBXaGF0IEknbSBzdGlsbCBub3QgY2xlYXIgb24gaXMsIGlmIElQ
+djYgaXMgYWxyZWFkeSBzb2x2ZWQsIHdoeSBpcyBpdCB1c2VmdWwgdG8gaGF2ZQ0KPiBhc3NpZ24g
+aXB2bGFuIGludGVyZmFjZSBhIHVuaXF1ZSBNQUMgYWRkcmVzcz8gIElzIGl0IG9ubHkgdG8gbWFr
+ZSBpbnRlcmZhY2UNCj4gbG9va3VwcyB2aWEgTUFDIGVhc2llcj8NCg0KVGhlIG1haW4gbW90aXZh
+dGlvbiBpcyB0aGF0IHNvbWUgaGlnaGVyIGxldmVsIG1hbmFnZW1lbnQgc29mdHdhcmUgZXhwZWN0
+IGludGVyZmFjZXMgb24gdGhlIHNhbWUgTDIgYnJvYWRjYXN0IGRvbWFpbiB0byBvYnZpb3VzbHkg
+aGF2ZSBkaWZmZXJlbnQgTUFDIGFkZHJlc3NlcywgZWl0aGVyIG91dC1vZi10aGUtYm94IG9yIHZp
+YSBhZGRyZXNzIGNoYW5nZSAtIG9yIGJvdGguICBJbnN0ZWFkIHdpdGggaXB2bGFuOg0KLSB0aGVy
+ZSBpcyBubyByZWFsL2Zvcm1hbCBzZWdtZW50YXRpb24gYmV0d2VlbiBzbGF2ZXMNCi0gc2xhdmVz
+IHNoYXJlIHRoZSBzYW1lIEwyIGFkZHJlc3MNClRoaXMgbG9va3MgY29uY2VwdHVhbGx5IHdyb25n
+LiBZZXMsIGlwdmxhbiB3b3JrcyBhdCBMMyAod2hpY2ggaXMgYW4gaW1wbGVtZW50YXRpb24gZGV0
+YWlsIGFueXdheSksIGJ1dCBzbGF2ZXMgYXJlIEV0aGVybmV0IGludGVyZmFjZXMgYW5kIHNob3Vs
+ZCBiZWhhdmUgYXMgbXVjaCBhcyBwb3NzaWJsZSBhcyBzdWNoIHJlZ2FyZGxlc3MsIHdpdGggYW4g
+aW5kaXZpZHVhbCBNQUMgYWRkcmVzcyBhc3NpZ25lZC4NCg0KQWRkaXRpb25hbGx5IHRoZXJlIGlz
+IGFub3RoZXIgcmVsYXRlZCBidWcgYXMgaXQncyBjdXJyZW50bHkgcG9zc2libGUgdG8gd29yayBh
+cm91bmQgdGhpcyBsaW1pdGF0aW9uLCBhbHRob3VnaCBicmVha2luZyB0aGUgd2hvbGUgdGhpbmcs
+IGJ5Og0KMSkgY2hhbmdpbmcgdGhlIE1BQyBhZGRyZXNzIG9uIG1hc3RlciBmcm9tIFggdG8gWQ0K
+MikgY3JlYXRpbmcgYSBzbGF2ZSwgcmVjZWl2aW5nIGFkZHJlc3MgWQ0KMykgcmVzdG9yaW5nIHRo
+ZSBvcmlnaW5hbCBNQUMgYWRkcmVzcyBYIG9uIG1hc3Rlcg0KDQpTbywgZWl0aGVyIHdlIGZpeCB0
+aGlzIGJ5IGZvcmNpbmcgc2xhdmVzIHRvIHN0YXkgaW4gc3luYyB3aXRoIG1hc3Rlciwgb3IgY29y
+cmVjdGx5IHN1cHBvcnQgaW5kZXBlbmRlbnQgTUFDIGFkZHJlc3Nlcywgd2hpY2ggd291bGQgYmUg
+SU1PIHByZWZlcmFibGUgZm9yIHRoZSBhYm92ZSByZWFzb25zLg0KDQpCZXN0IFJlZ2FyZHMsDQpN
+YXJjbw0KLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0KSW50ZWwgUmVzZWFyY2ggYW5kIERldmVsb3BtZW50IElyZWxhbmQgTGltaXRl
+ZApSZWdpc3RlcmVkIGluIElyZWxhbmQKUmVnaXN0ZXJlZCBPZmZpY2U6IENvbGxpbnN0b3duIElu
+ZHVzdHJpYWwgUGFyaywgTGVpeGxpcCwgQ291bnR5IEtpbGRhcmUKUmVnaXN0ZXJlZCBOdW1iZXI6
+IDMwODI2MwoKClRoaXMgZS1tYWlsIGFuZCBhbnkgYXR0YWNobWVudHMgbWF5IGNvbnRhaW4gY29u
+ZmlkZW50aWFsIG1hdGVyaWFsIGZvciB0aGUgc29sZQp1c2Ugb2YgdGhlIGludGVuZGVkIHJlY2lw
+aWVudChzKS4gQW55IHJldmlldyBvciBkaXN0cmlidXRpb24gYnkgb3RoZXJzIGlzCnN0cmljdGx5
+IHByb2hpYml0ZWQuIElmIHlvdSBhcmUgbm90IHRoZSBpbnRlbmRlZCByZWNpcGllbnQsIHBsZWFz
+ZSBjb250YWN0IHRoZQpzZW5kZXIgYW5kIGRlbGV0ZSBhbGwgY29waWVzLgo=
