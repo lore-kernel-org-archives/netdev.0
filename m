@@ -1,145 +1,90 @@
-From: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [RFC iproute2 0/8] RDMA tool
-Date: Thu, 04 May 2017 16:45:58 -0400
-Message-ID: <1493930758.3041.231.camel@redhat.com>
-References: <20170504180216.7665-1-leon@kernel.org>
-         <1493921453.2692.6.camel@sandisk.com>
-         <20170504182542.GD22833@mtr-leonro.local>
-         <1493922625.2692.8.camel@sandisk.com>
-         <20170504184531.GE22833@mtr-leonro.local>
-         <2dee6cde-0406-b101-0fe6-c1f6de7c1b1a@intel.com>
+From: Casey Leedom <leedom@chelsio.com>
+Subject: Re: [PATCH 1/2] PCI: Add new PCIe Fabric End Node flag,
+ PCI_DEV_FLAGS_NO_RELAXED_ORDERING
+Date: Thu, 4 May 2017 21:01:24 +0000
+Message-ID: <MWHPR12MB1600E78DD7F530AA9DC2433DC8EA0@MWHPR12MB1600.namprd12.prod.outlook.com>
+References: <cover.1493678834.git.leedom@chelsio.com>
+ <758d0e431c732fe133e7b0e660bde5fc1beccdba.1493678834.git.leedom@chelsio.com>
+ <CAKgT0UeuW88AHBX14H8xHteeG7vR0AH3apbjOeEDx_6p46x7tA@mail.gmail.com>
+ <20170502165329.GB26406@linux.intel.com>
+ <CAKgT0UcxjGCZu_QV-eF7_yWkDBbQpLpdaPqBf1gji8XXM5Cc=w@mail.gmail.com>
+ <MWHPR12MB160095DF53CE981C923FE65DC8160@MWHPR12MB1600.namprd12.prod.outlook.com>,<CAKgT0UdJ17DGAphuP5Y9co6ky-GBFdq2s-1nqctY_Tz_iz5__g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: "jiri-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org" <jiri-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "ram.amrani-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org" <ram.amrani-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>,
-        "sagi-NQWnxTmZq1alnMjI0IkVqw@public.gmane.org" <sagi-NQWnxTmZq1alnMjI0IkVqw@public.gmane.org>,
-        "ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org" <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        "hch-jcswGhMUV9g@public.gmane.org" <hch-jcswGhMUV9g@public.gmane.org>,
-        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org" <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>,
-        "stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org" <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>,
-        "ariela-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org" <ariela-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-To: Dennis Dalessandro <dennis.dalessandro-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Bart Van Assche <Bart.VanAssche-XdAiOPVOjttBDgjK7y7TUQ@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <2dee6cde-0406-b101-0fe6-c1f6de7c1b1a-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: "Raj, Ashok" <ashok.raj@intel.com>,
+        Bjorn Helgaas <helgaas@kernel.org>,
+        Michael Werner <werner@chelsio.com>,
+        Ganesh GR <ganeshgr@chelsio.com>,
+        "Arjun V." <arjun@chelsio.com>,
+        Asit K Mallick <asit.k.mallick@intel.com>,
+        "Patrick J Cramer" <patrick.j.cramer@intel.com>,
+        Suravee Suthikulpanit <Suravee.Suthikulpanit@amd.com>,
+        Bob Shaw <Bob.Shaw@amd.com>, h <l.stach@pengutronix.de>,
+        Ding Tianhong <dingtianhong@huawei.com>,
+        "Mark Rutland" <mark.rutland@arm.com>,
+        Amir Ancel <amira@mellanox.com>,
+        "Gabriele Paoloni" <gabriele.paoloni@huawei.com>,
+        Catalin Marinas <catalin.marinas@arm.com>,
+        Will Deacon <will.deacon@arm.com>,
+        LinuxArm <linuxarm@huawei.com>,
+        David Laight <David.Laight@aculab.com>,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+        Netdev <netdev@v
+To: Alexander Duyck <alexander.duyck@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-cys01nam02on0137.outbound.protection.outlook.com ([104.47.37.137]:43894
+        "EHLO NAM02-CY1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1752135AbdEDVB2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 4 May 2017 17:01:28 -0400
+In-Reply-To: <CAKgT0UdJ17DGAphuP5Y9co6ky-GBFdq2s-1nqctY_Tz_iz5__g@mail.gmail.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2017-05-04 at 15:26 -0400, Dennis Dalessandro wrote:
-> On 05/04/2017 02:45 PM, Leon Romanovsky wrote:
-> > 
-> > On Thu, May 04, 2017 at 06:30:27PM +0000, Bart Van Assche wrote:
-> > > 
-> > > On Thu, 2017-05-04 at 21:25 +0300, Leon Romanovsky wrote:
-> > > > 
-> > > > On Thu, May 04, 2017 at 06:10:54PM +0000, Bart Van Assche
-> > > > wrote:
-> > > > > 
-> > > > > On Thu, 2017-05-04 at 21:02 +0300, Leon Romanovsky wrote:
-> > > > > > 
-> > > > > > Following our discussion both in mailing list [1] and at
-> > > > > > the LPC 2016 [2],
-> > > > > > we would like to propose this RDMA tool to be part of
-> > > > > > iproute2 package
-> > > > > > and finally improve this situation.
-> > > > > 
-> > > > > Hello Leon,
-> > > > > 
-> > > > > Although I really appreciate your work: can you clarify why
-> > > > > you would like to
-> > > > > add *RDMA* functionality to an *IP routing* tool? I haven't
-> > > > > found any motivation
-> > > > > for adding RDMA functionality to iproute2 in [1].
-> > > > 
-> > > > We are planning to reuse the same infrastructure provided by
-> > > > iproute2,
-> > > > like netlink parsing, access to distributions, same CLI and
-> > > > same standards.
-> > > > 
-> > > > Right now, RDMA is already tightened to netdev: iWARP, RoCE,
-> > > > IPoIB, HFI-VNIC.
-> > > > Many drivers (mlx, qed, i40, cxgb) are sharing code between net
-> > > > and
-> > > > RDMA.
-> > > > 
-> > > > I do expect that iproute2 will be installed on every machine
-> > > > with any
-> > > > type of connection, including IB and OPA.
-> > > > 
-> > > > So I think that it is enough to be part of that suite and don't
-> > > > invent
-> > > > our own for one specific tool.
-> > > 
-> > > Hello Leon,
-> > > 
-> > > Sorry but to me that sounds like a weak argument for including
-> > > RDMA functionality
-> > > in iproute2. There is already a library for communication over
-> > > netlink sockets,
-> > > namely libnl. Is there functionality that is in iproute2 but not
-> > > in libnl and
-> > > that is needed for the new tool? If so, have you considered to
-> > > create a new
-> > > library for that functionality?
-> > 
-> > It is not hard to create new tool, the hardest part is to ensure
-> > that it is
-> > part of the distributions. Did you count how many months we are
-> > trying to
-> > add rdma-core to debian?
-> 
-> I do agree that it is a strange pairing and am not really a fan.
-> However 
-> at the end of the day it's just a name for a repo/package. If the 
-> iproute folks are fine to include rdma in their repo/package, great
-> we 
-> can leverage their code for CLI and other common stuff.
+| From: Alexander Duyck <alexander.duyck@gmail.com>
+| Sent: Wednesday, May 3, 2017 9:02 AM
+| ...
+| It sounds like we are more or less in agreement. My only concern is
+| really what we default this to. On x86 I would say we could probably
+| default this to disabled for existing platforms since my understanding
+| is that relaxed ordering doesn't provide much benefit on what is out
+| there right now when performing DMA through the root complex. As far
+| as peer-to-peer I would say we should probably look at enabling the
+| ability to have Relaxed Ordering enabled for some channels but not
+| others. In those cases the hardware needs to be smart enough to allow
+| for you to indicate you want it disabled by default for most of your
+| DMA channels, and then enabled for the select channels that are
+| handling the peer-to-peer traffic.
 
-If you look into the iproute2 package, it becomes clear that the name
-iproute2 is historical and not really accurate any more.  It contains
-things like the bridge control software, tc for controlling send
-queues, and many things network related but not routing related.  The
-rdma tool is a perfectly fine fit in the sense that it is an additional
-network management tool IMO.
+  Yes, I think that we are mostly in agreement.  I had just wanted to make
+sure that whatever scheme was developed would allow for simultaneously
+supporting non-Relaxed Ordering for some PCIe End Points and Relaxed
+Ordering for others within the same system.  I.e. not simply
+enabling/disabling/etc.  based solely on System Platform Architecture.
 
-For reference, here's the list of stuff already in iproute on my Fedora
-24 box:
+  By the way, I've started our QA folks off looking at what things look lik=
+e
+in Linux Virtual Machines under different Hypervisors to see what
+information they may provide to the VM in the way of what Root Complex Port
+is being used, etc.  So far they've got Windows HyperV done and there
+there's no PCIe Fabric exposed in any way: just the attached device.  I'll
+have to see what pci_find_pcie_root_port() returns in that environment.
+Maybe NULL?
 
-/usr/sbin/arpd
-/usr/sbin/bridge
-/usr/sbin/cbq
-/usr/sbin/ctstat
-/usr/sbin/genl
-/usr/sbin/ifcfg
-/usr/sbin/ifstat
-/usr/sbin/ip
-/usr/sbin/lnstat
-/usr/sbin/nstat
-/usr/sbin/routef
-/usr/sbin/routel
-/usr/sbin/rtacct
-/usr/sbin/rtmon
-/usr/sbin/rtpr
-/usr/sbin/rtstat
-/usr/sbin/ss
-/usr/sbin/tc
-/usr/sbin/tipc
+  With your reservations (which I also share), I think that it probably
+makes sense to have a per-architecture definition of the "Can I Use Relaxed
+Ordering With TLPs Directed At This End Point" predicate, with the default
+being "No" for any architecture which doesn't implement the predicate.  And
+if the specified (struct pci_dev *) End Node is NULL, it ought to return
+False for that as well.  I can't see any reason to pass in the Source End
+Node but I may be missing something.
 
-And in fact, if you check, tipc is almost similar to RDMA ;-)  So, I
-suggest people not get hung up on the name iproute2, the fit is fine
-when you look deeper into the nature of the package.
+  At this point, this is pretty far outside my level of expertise.  I'm
+happy to give it a go, but I'd be even happier if someone with a lot more
+experience in the PCIe Infrastructure were to want to carry the ball
+forward.  I'm not super familiar with the Linux Kernel "Rules Of
+Engagement", so let me know what my next step should be.  Thanks.
 
--- 
-Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-    GPG KeyID: B826A3330E572FDD
-   
-Key fingerprint = AE6B 1BDA 122B 23B4 265B  1274 B826 A333 0E57 2FDD
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Casey
