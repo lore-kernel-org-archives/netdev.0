@@ -1,112 +1,116 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] aquantia: Fix "ethtool -S" crash when adapter down.
-Date: Thu, 04 May 2017 11:17:31 -0700
-Message-ID: <1493921851.22125.42.camel@perches.com>
-References: <90666578f043b366313ddd90ffad86de42d890f2.1493914743.git.pavel.belous@aquantia.com>
-         <50047294-4f40-e8ae-0982-5720b87019a9@redhat.com>
-         <800da97f-7a4b-6f61-f4ff-51d4ef50e05f@aquantia.com>
+From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 2/4] dt-bindings: add binding for RTL8211E
+ Ethernet PHY
+Date: Thu, 4 May 2017 11:21:29 -0700
+Message-ID: <a455c822-d5aa-3f66-03c5-4d1268f9104b@gmail.com>
+References: <20170421232436.10924-1-icenowy@aosc.io>
+ <20170421232436.10924-3-icenowy@aosc.io>
+ <c7aa9d7a-5e97-0e7f-2b1c-584a4de00837@gmail.com>
+ <edf26d7de605a93bfce258de0353df6d@aosc.io>
+Reply-To: f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Pavel Belous <pavel.belous@aquantia.com>,
-        David Arcari <darcari@redhat.com>,
-        "David S . Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0216.hostedemail.com ([216.40.44.216]:44310 "EHLO
-        smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1750786AbdEDSRm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 4 May 2017 14:17:42 -0400
-In-Reply-To: <800da97f-7a4b-6f61-f4ff-51d4ef50e05f@aquantia.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>, Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+ netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org, Icenowy Zheng <icenowy-ymACFijhrKM@public.gmane.org>
+To: icenowy-h8G6r0blFSE@public.gmane.org
+Return-path: <linux-sunxi+bncBCH67JWTV4DBBMHCVXEAKGQEY63MVVQ-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+In-Reply-To: <edf26d7de605a93bfce258de0353df6d-h8G6r0blFSE@public.gmane.org>
+List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Help: <https://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Archive: <https://groups.google.com/group/linux-sunxi
+List-Subscribe: <https://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
+ <https://groups.google.com/group/linux-sunxi/subscribe>
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2017-05-04 at 20:08 +0300, Pavel Belous wrote:
-> I will prepare another patch with Lino and David M. comments.
+On 05/04/2017 11:10 AM, icenowy-h8G6r0blFSE@public.gmane.org wrote:
+> =E5=9C=A8 2017-04-22 08:22=EF=BC=8CFlorian Fainelli =E5=86=99=E9=81=93=EF=
+=BC=9A
+>> On 04/21/2017 04:24 PM, Icenowy Zheng wrote:
+>>> From: Icenowy Zheng <icenowy-ymACFijhrKM@public.gmane.org>
+>>>
+>>> Some RTL8211E Ethernet PHY have an issue that needs a workaround
+>>> indicated with device tree.
+>>>
+>>> Add the binding for a property that indicates this workaround.
+>>>
+>>> Signed-off-by: Icenowy Zheng <icenowy-ymACFijhrKM@public.gmane.org>
+>>> ---
+>>>  .../devicetree/bindings/net/realtek,rtl8211e.txt   | 22
+>>> ++++++++++++++++++++++
+>>>  1 file changed, 22 insertions(+)
+>>>  create mode 100644
+>>> Documentation/devicetree/bindings/net/realtek,rtl8211e.txt
+>>>
+>>> diff --git
+>>> a/Documentation/devicetree/bindings/net/realtek,rtl8211e.txt
+>>> b/Documentation/devicetree/bindings/net/realtek,rtl8211e.txt
+>>> new file mode 100644
+>>> index 000000000000..c1913301bfe8
+>>> --- /dev/null
+>>> +++ b/Documentation/devicetree/bindings/net/realtek,rtl8211e.txt
+>>> @@ -0,0 +1,22 @@
+>>> +Realtek RTL8211E Ethernet PHY
+>>> +
+>>> +One batch of RTL8211E is slight broken, that needs some special (and
+>>> +full of magic numbers) tweaking in order to make GbE to operate
+>>> properly.
+>>> +The only well-known board that used the broken batch is Pine64+.
+>>> +Configure it through an Ethernet OF device node.
+>>> +
+>>> +Optional properties:
+>>> +
+>>> +- realtek,disable-rx-delay:
+>>> +  If set, RX delay will be completely disabled (according to
+>>> Realtek). This
+>>> +  will affect the performance on non-broken boards.
+>>> +  default: do not disable RX delay.
+>>
+>> Please don't introduce custom properties to do that, instead correct
+>> specify the "phy-mode" such that it is e.g: "rgmii-txid" which indicates
+>> that there should be no RX internal delay, but a TX internal delay added
+>> by the PHY.
+>=20
+> Checked the document, the meaning of "rgmii-txid" is not correct here.
+>=20
+> This doesn't effect the MAC, and the MAC should still add TX delay.
+>=20
+> The definition of "rgmii-txid" in
+> Documentation/devicetree/binding/net/ethernet.txt is "RGMII with
+> internal TX delay provided by the PHY, the MAC should not add an TX delay
+> in this case". However, this do not indicate that the MAC doesn't add TX
+> delay; in fact that just totally disabled the PHY to provide the RX delay=
+.
+> MAC still should to add delay on both TX/RX, which is the semantic of
+> standard "rgmii".
+>=20
+> So I cannot used "rgmii-txid" here, but should continue to use this
+> custom property.
 
-I'm not submitting this because it'd just cause merge conflicts,
-but
-something you could do one day is remove the AQ_DIMOF macro
-and just use ARRAY_SIZE directly.
----
- drivers/net/ethernet/aquantia/atlantic/aq_nic.c              | 4 ++--
- drivers/net/ethernet/aquantia/atlantic/aq_utils.h            | 2 --
- drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.c    | 2 +-
- drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.c    | 2 +-
- drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_utils.c | 2 +-
- 5 files changed, 5 insertions(+), 7 deletions(-)
+This is absolutely not a correct understanding. The 'phy-mode' property
+defines the contract between the MAC and PHY. It is defined from the
+PHY's perspective of the delay, which means that the MAC has to either
+also provide an adequate delay (RX or TX) or not (RX or TX). So if you
+specified 'phy-mode' =3D "rgmii" this means that the MAC needs to adds the
+TX and RX delay, so implcitly this means that your MAC operates in
+"rgmii-id", if the property was defined from the perspective of the MAC,
+which it is not.
 
-diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_nic.c b/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
-index cdb02991f249..cffae53414ba 100644
---- a/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
-+++ b/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
-@@ -154,7 +154,7 @@ static void aq_nic_service_timer_cb(unsigned long param)
- 
- 	memset(&stats_rx, 0U, sizeof(struct aq_ring_stats_rx_s));
- 	memset(&stats_tx, 0U, sizeof(struct aq_ring_stats_tx_s));
--	for (i = AQ_DIMOF(self->aq_vec); i--;) {
-+	for (i = ARRAY_SIZE(self->aq_vec); i--;) {
- 		if (self->aq_vec[i])
- 			aq_vec_add_stats(self->aq_vec[i], &stats_rx, &stats_tx);
- 	}
-@@ -958,7 +958,7 @@ void aq_nic_free_hot_resources(struct aq_nic_s *self)
- 	if (!self)
- 		goto err_exit;
- 
--	for (i = AQ_DIMOF(self->aq_vec); i--;) {
-+	for (i = ARRAY_SIZE(self->aq_vec); i--;) {
- 		if (self->aq_vec[i])
- 			aq_vec_free(self->aq_vec[i]);
- 	}
-diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_utils.h b/drivers/net/ethernet/aquantia/atlantic/aq_utils.h
-index f6012b34abe6..64a8c3c781ff 100644
---- a/drivers/net/ethernet/aquantia/atlantic/aq_utils.h
-+++ b/drivers/net/ethernet/aquantia/atlantic/aq_utils.h
-@@ -14,8 +14,6 @@
- 
- #include "aq_common.h"
- 
--#define AQ_DIMOF(_ARY_)  ARRAY_SIZE(_ARY_)
--
- struct aq_obj_s {
- 	spinlock_t lock; /* spinlock for nic/rings processing */
- 	atomic_t flags;
-diff --git a/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.c b/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.c
-index 4ee15ff06a44..96c3360e7060 100644
---- a/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.c
-+++ b/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.c
-@@ -182,7 +182,7 @@ static int hw_atl_a0_hw_rss_set(struct aq_hw_s *self,
- 			((i * 3U) & 0xFU));
- 	}
- 
--	for (i = AQ_DIMOF(bitary); i--;) {
-+	for (i = ARRAY_SIZE(bitary); i--;) {
- 		rpf_rss_redir_tbl_wr_data_set(self, bitary[i]);
- 		rpf_rss_redir_tbl_addr_set(self, i);
- 		rpf_rss_redir_wr_en_set(self, 1U);
-diff --git a/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.c b/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.c
-index 42150708191d..5a19eba31786 100644
---- a/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.c
-+++ b/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.c
-@@ -182,7 +182,7 @@ static int hw_atl_b0_hw_rss_set(struct aq_hw_s *self,
- 			((i * 3U) & 0xFU));
- 	}
- 
--	for (i = AQ_DIMOF(bitary); i--;) {
-+	for (i = ARRAY_SIZE(bitary); i--;) {
- 		rpf_rss_redir_tbl_wr_data_set(self, bitary[i]);
- 		rpf_rss_redir_tbl_addr_set(self, i);
- 		rpf_rss_redir_wr_en_set(self, 1U);
-diff --git a/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_utils.c b/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_utils.c
-index 8d6d8f5804da..922af5f36d37 100644
---- a/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_utils.c
-+++ b/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_utils.c
-@@ -385,7 +385,7 @@ int hw_atl_utils_get_mac_permanent(struct aq_hw_s *self,
- 					    aq_hw_read_reg(self, 0x00000374U) +
- 					    (40U * 4U),
- 					    mac_addr,
--					    AQ_DIMOF(mac_addr));
-+					    ARRAY_SIZE(mac_addr));
- 	if (err < 0) {
- 		mac_addr[0] = 0U;
- 		mac_addr[1] = 0U;
+Both the Ethernet PHY driver and the MAC driver need to take care of
+adjusting the delays based on the phydev->interface value.
+
+The property you are introducing here is absolutely not appropriate
+because it is entirely redundant with what 'phy-mode' already defines,
+except the latter also covers a lot more cases.
+--=20
+Florian
+
+--=20
+You received this message because you are subscribed to the Google Groups "=
+linux-sunxi" group.
+To unsubscribe from this group and stop receiving emails from it, send an e=
+mail to linux-sunxi+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0@public.gmane.org
+For more options, visit https://groups.google.com/d/optout.
