@@ -1,33 +1,103 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [[NET-NEXT]] Added dump function to recognise rpl extension
- header option(63)
-Date: Thu, 04 May 2017 09:49:42 -0400 (EDT)
-Message-ID: <20170504.094942.219807485722611696.davem@davemloft.net>
-References: <a712ff423471e02a533650ce6d64dc85@ceid.upatras.gr>
+From: Andrey Konovalov <andreyknvl@google.com>
+Subject: Re: net: possible deadlock in skb_queue_tail
+Date: Thu, 4 May 2017 15:49:44 +0200
+Message-ID: <CAAeHK+wNPLWKy7q-mpPFrgK6pvnGYA9aPc_rs5d4sSvpvtoxDA@mail.gmail.com>
+References: <CAAeHK+yCwsZE9iv+OLHJaU+7FEka8UHy_t5vMqFUBpQ8srBbsQ@mail.gmail.com>
+ <20170224025650.GA16439@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mcr@sandelman.ca
-To: bardoutsos@ceid.upatras.gr
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:54632 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751333AbdEDNto (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 4 May 2017 09:49:44 -0400
-In-Reply-To: <a712ff423471e02a533650ce6d64dc85@ceid.upatras.gr>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+        Paolo Abeni <pabeni@redhat.com>,
+        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+        "David S. Miller" <davem@davemloft.net>,
+        netfilter-devel@vger.kernel.org, netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        Kostya Serebryany <kcc@google.com>,
+        Eric Dumazet <edumazet@google.com>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Florian Westphal <fw@strlen.de>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20170224025650.GA16439@breakpoint.cc>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Andreas Bardoutsos <bardoutsos@ceid.upatras.gr>
-Date: Thu, 04 May 2017 14:06:32 +0200
+On Fri, Feb 24, 2017 at 3:56 AM, Florian Westphal <fw@strlen.de> wrote:
+> Andrey Konovalov <andreyknvl@google.com> wrote:
+>
+> [ CC Paolo ]
+>
+>> I've got the following error report while fuzzing the kernel with syzkaller.
+>>
+>> On commit c470abd4fde40ea6a0846a2beab642a578c0b8cd (4.10).
+>>
+>> Unfortunately I can't reproduce it.
+>
+> This needs NETLINK_BROADCAST_ERROR enabled on a netlink socket
+> that then subscribes to netfilter conntrack (ctnetlink) events.
+> probably syzkaller did this by accident -- impressive.
+>
+> (one task is the ctnetlink event redelivery worker
+>  which won't be scheduled otherwise).
+>
+>> ======================================================
+>> [ INFO: possible circular locking dependency detected ]
+>> 4.10.0-rc8+ #201 Not tainted
+>> -------------------------------------------------------
+>> kworker/0:2/1404 is trying to acquire lock:
+>>  (&(&list->lock)->rlock#3){+.-...}, at: [<ffffffff8335b23f>]
+>> skb_queue_tail+0xcf/0x2f0 net/core/skbuff.c:2478
+>>
+>> but task is already holding lock:
+>>  (&(&pcpu->lock)->rlock){+.-...}, at: [<ffffffff8366b55f>] spin_lock
+>> include/linux/spinlock.h:302 [inline]
+>>  (&(&pcpu->lock)->rlock){+.-...}, at: [<ffffffff8366b55f>]
+>> ecache_work_evict_list+0xaf/0x590
+>> net/netfilter/nf_conntrack_ecache.c:48
+>>
+>> which lock already depends on the new lock.
+>
+> Cong is correct, this is a false positive.
+>
+> However we should fix this splat.
+>
+> Paolo, this happens since 7c13f97ffde63cc792c49ec1513f3974f2f05229
+> ('udp: do fwd memory scheduling on dequeue'), before this
+> commit kfree_skb() was invoked outside of the locked section in
+> first_packet_length().
+>
+> cpu 0 call chain:
+> - first_packet_length (hold udp sk_receive_queue lock)
+>    - kfree_skb
+>       - nf_conntrack_destroy
+>          - spin_lock(net->ct.pcpu->lock)
+>
+> cpu 1 call chain:
+> - ecache_work_evict_list
+>   - spin_lock( net->ct.pcpu->lock)
+>   - nf_conntrack_event
+>      - aquire netlink socket sk_receive_queue
+>
+> So this could only ever deadlock if a netlink socket
+> calls kfree_skb while holding its sk_receive_queue lock, but afaics
+> this is never the case.
+>
+> There are two ways to avoid this splat (other than lockdep annotation):
+>
+> 1. re-add the list to first_packet_length() and free the
+> skbs outside of locked section.
+>
+> 2. change ecache_work_evict_list to not call nf_conntrack_event()
+> while holding the pcpu lock.
+>
+> doing #2 might be a good idea anyway to avoid potential deadlock
+> when kfree_skb gets invoked while other cpu holds its sk_receive_queue
+> lock, I'll have a look if this is feasible.
 
-> Signed-off-by: Andreas Bardoutsos <bardoutsos@ceid.upatras.gr>
+Hi!
 
-First of all, the net-next tree is closed.  You will need to resubmit
-this when the net-next tree opens back up.
+Any updates on this?
 
-Second of all, your Subject line is malformed.  Please format it like this:
+I might have missed the patch if there was one.
 
-	[PATCH net-next] ipv6: Add dump function to recognise rpl extension header option(63)
-
-Thank you.
+Thanks!
