@@ -1,70 +1,96 @@
-From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-Subject: Re: [net-ipv4] question about arguments position
-Date: Thu, 04 May 2017 14:00:15 -0500
-Message-ID: <20170504140015.Horde.iqqsROVYuFdJnC6P1dMPyBa@gator4166.hostgator.com>
-References: <20170504110755.Horde.9md-X4baf8TwOEKjGrXkelZ@gator4166.hostgator.com>
- <20170504.124600.627647229351638856.davem@davemloft.net>
- <1493920071.22125.37.camel@perches.com>
+From: Dennis Dalessandro <dennis.dalessandro@intel.com>
+Subject: Re: [RFC iproute2 0/8] RDMA tool
+Date: Thu, 4 May 2017 15:26:13 -0400
+Message-ID: <2dee6cde-0406-b101-0fe6-c1f6de7c1b1a@intel.com>
+References: <20170504180216.7665-1-leon@kernel.org>
+ <1493921453.2692.6.camel@sandisk.com>
+ <20170504182542.GD22833@mtr-leonro.local>
+ <1493922625.2692.8.camel@sandisk.com>
+ <20170504184531.GE22833@mtr-leonro.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed; DelSp=Yes
-Content-Transfer-Encoding: 8bit
-Cc: David Miller <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
-        jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Joe Perches <joe@perches.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "jiri@mellanox.com" <jiri@mellanox.com>,
+        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
+        "ram.amrani@cavium.com" <ram.amrani@cavium.com>,
+        "sagi@grimberg.me" <sagi@grimberg.me>,
+        "ogerlitz@mellanox.com" <ogerlitz@mellanox.com>,
+        "hch@lst.de" <hch@lst.de>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "jgunthorpe@obsidianresearch.com" <jgunthorpe@obsidianresearch.com>,
+        "stephen@networkplumber.org" <stephen@networkplumber.org>,
+        "dledford@redhat.com" <dledford@redhat.com>,
+        "ariela@mellanox.com" <ariela@mellanox.com>
+To: Leon Romanovsky <leon@kernel.org>,
+        Bart Van Assche <Bart.VanAssche@sandisk.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gateway34.websitewelcome.com ([192.185.149.101]:20701 "EHLO
-        gateway34.websitewelcome.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752374AbdEDTXx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 4 May 2017 15:23:53 -0400
-Received: from cm5.websitewelcome.com (cm5.websitewelcome.com [108.167.139.22])
-        by gateway34.websitewelcome.com (Postfix) with ESMTP id 2CC62B02FF
-        for <netdev@vger.kernel.org>; Thu,  4 May 2017 14:00:23 -0500 (CDT)
-In-Reply-To: <1493920071.22125.37.camel@perches.com>
-Content-Disposition: inline
+Received: from mga02.intel.com ([134.134.136.20]:17644 "EHLO mga02.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750865AbdEDT0R (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 4 May 2017 15:26:17 -0400
+In-Reply-To: <20170504184531.GE22833@mtr-leonro.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Joe,
-
-Quoting Joe Perches <joe@perches.com>:
-
-> On Thu, 2017-05-04 at 12:46 -0400, David Miller wrote:
->> From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
->> Date: Thu, 04 May 2017 11:07:54 -0500
+On 05/04/2017 02:45 PM, Leon Romanovsky wrote:
+> On Thu, May 04, 2017 at 06:30:27PM +0000, Bart Van Assche wrote:
+>> On Thu, 2017-05-04 at 21:25 +0300, Leon Romanovsky wrote:
+>>> On Thu, May 04, 2017 at 06:10:54PM +0000, Bart Van Assche wrote:
+>>>> On Thu, 2017-05-04 at 21:02 +0300, Leon Romanovsky wrote:
+>>>>> Following our discussion both in mailing list [1] and at the LPC 2016 [2],
+>>>>> we would like to propose this RDMA tool to be part of iproute2 package
+>>>>> and finally improve this situation.
+>>>>
+>>>> Hello Leon,
+>>>>
+>>>> Although I really appreciate your work: can you clarify why you would like to
+>>>> add *RDMA* functionality to an *IP routing* tool? I haven't found any motivation
+>>>> for adding RDMA functionality to iproute2 in [1].
+>>>
+>>> We are planning to reuse the same infrastructure provided by iproute2,
+>>> like netlink parsing, access to distributions, same CLI and same standards.
+>>>
+>>> Right now, RDMA is already tightened to netdev: iWARP, RoCE, IPoIB, HFI-VNIC.
+>>> Many drivers (mlx, qed, i40, cxgb) are sharing code between net and
+>>> RDMA.
+>>>
+>>> I do expect that iproute2 will be installed on every machine with any
+>>> type of connection, including IB and OPA.
+>>>
+>>> So I think that it is enough to be part of that suite and don't invent
+>>> our own for one specific tool.
 >>
->> > While looking into Coverity ID 1357474 I ran into the following piece
->> > of code at net/ipv4/inet_diag.c:392:
+>> Hello Leon,
 >>
->> Because it's been this way since at least 2005, it doesn't matter if
->> the order is correct or not.  What's there is the locked in behavior
->> exposed to userspace and changing it will break things for people.
+>> Sorry but to me that sounds like a weak argument for including RDMA functionality
+>> in iproute2. There is already a library for communication over netlink sockets,
+>> namely libnl. Is there functionality that is in iproute2 but not in libnl and
+>> that is needed for the new tool? If so, have you considered to create a new
+>> library for that functionality?
 >
-> Adding a few comments around the code about why
-> it is this way will help avoid future questions.
+> It is not hard to create new tool, the hardest part is to ensure that it is
+> part of the distributions. Did you count how many months we are trying to
+> add rdma-core to debian?
 
-In the case of Coverity, I already triaged and documented this issue.  
-So people can ignore it in the future.
+I do agree that it is a strange pairing and am not really a fan. However 
+at the end of the day it's just a name for a repo/package. If the 
+iproute folks are fine to include rdma in their repo/package, great we 
+can leverage their code for CLI and other common stuff.
 
-Regarding the code comments, what about the following patch:
+Now if the interface was something like "ip -FlagForRdma ..." I would 
+object to that, but the interface is "rdma ... " so from users 
+perspective it's different tools. They don't need to care that it was 
+sourced from a common git repo.
 
-diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
-index 3828b3a..7a56641 100644
---- a/net/ipv4/inet_diag.c
-+++ b/net/ipv4/inet_diag.c
-@@ -389,6 +389,12 @@ static int sk_diag_fill(struct sock *sk, struct  
-sk_buff *skb,
-                                   nlmsg_flags, unlh, net_admin);
-  }
+Just as an aside this already works a bit with OPA:
 
-+/*
-+ * Ignore the position of the arguments req->id.idiag_dport and
-+ * req->id.idiag_sport in both calls to inet_lookup() and inet6_lookup()
-+ * functions, once this is a locked in behavior exposed to user space.
-+ * Changing this will break things for people.
-+ */
-  struct sock *inet_diag_find_one_icsk(struct net *net,
-                                      struct inet_hashinfo *hashinfo,
-                                      const struct inet_diag_req_v2 *req)
+  $ ./rdma link
+1/1: hfi1_0/1: ifname NONE cap_mask 0x00410022 lid 0x1 lid_mask_count 0 
+link_layer InfiniBand
+          phys_state 5: LinkUp rate 100 Gb/sec (4X EDR) sm_lid 0x1 sm_sl 
+0 state 4: ACTIVE
 
-Thanks
+Leon I'll get you more feedback and testing, I've just been really 
+bogged down this week, sorry.
+
+-Denny
