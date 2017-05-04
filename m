@@ -1,50 +1,112 @@
-From: Bart Van Assche <Bart.VanAssche@sandisk.com>
-Subject: Re: [RFC iproute2 0/8] RDMA tool
-Date: Thu, 4 May 2017 18:10:54 +0000
-Message-ID: <1493921453.2692.6.camel@sandisk.com>
-References: <20170504180216.7665-1-leon@kernel.org>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] aquantia: Fix "ethtool -S" crash when adapter down.
+Date: Thu, 04 May 2017 11:17:31 -0700
+Message-ID: <1493921851.22125.42.camel@perches.com>
+References: <90666578f043b366313ddd90ffad86de42d890f2.1493914743.git.pavel.belous@aquantia.com>
+         <50047294-4f40-e8ae-0982-5720b87019a9@redhat.com>
+         <800da97f-7a4b-6f61-f4ff-51d4ef50e05f@aquantia.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: "leonro@mellanox.com" <leonro@mellanox.com>,
-        "jiri@mellanox.com" <jiri@mellanox.com>,
-        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
-        "ram.amrani@cavium.com" <ram.amrani@cavium.com>,
-        "sagi@grimberg.me" <sagi@grimberg.me>,
-        "ogerlitz@mellanox.com" <ogerlitz@mellanox.com>,
-        "dennis.dalessandro@intel.com" <dennis.dalessandro@intel.com>,
-        "hch@lst.de" <hch@lst.de>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "jgunthorpe@obsidianresearch.com" <jgunthorpe@obsidianresearch.com>,
-        "ariela@mellanox.com" <ariela@mellanox.com>
-To: "stephen@networkplumber.org" <stephen@networkplumber.org>,
-        "leon@kernel.org" <leon@kernel.org>,
-        "dledford@redhat.com" <dledford@redhat.com>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Pavel Belous <pavel.belous@aquantia.com>,
+        David Arcari <darcari@redhat.com>,
+        "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from esa6.hgst.iphmx.com ([216.71.154.45]:28495 "EHLO
-        esa6.hgst.iphmx.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751738AbdEDSK7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 4 May 2017 14:10:59 -0400
-In-Reply-To: <20170504180216.7665-1-leon@kernel.org>
-Content-Language: en-US
-Content-ID: <FFEDBA5C678ECD4D8F50DEEAAB02F00D@namprd04.prod.outlook.com>
+Received: from smtprelay0216.hostedemail.com ([216.40.44.216]:44310 "EHLO
+        smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1750786AbdEDSRm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 4 May 2017 14:17:42 -0400
+In-Reply-To: <800da97f-7a4b-6f61-f4ff-51d4ef50e05f@aquantia.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2017-05-04 at 21:02 +0300, Leon Romanovsky wrote:
-> Following our discussion both in mailing list [1] and at the LPC 2016 [2]=
-,
-> we would like to propose this RDMA tool to be part of iproute2 package
-> and finally improve this situation.
+On Thu, 2017-05-04 at 20:08 +0300, Pavel Belous wrote:
+> I will prepare another patch with Lino and David M. comments.
 
-Hello Leon,
+I'm not submitting this because it'd just cause merge conflicts,
+but
+something you could do one day is remove the AQ_DIMOF macro
+and just use ARRAY_SIZE directly.
+---
+ drivers/net/ethernet/aquantia/atlantic/aq_nic.c              | 4 ++--
+ drivers/net/ethernet/aquantia/atlantic/aq_utils.h            | 2 --
+ drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.c    | 2 +-
+ drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.c    | 2 +-
+ drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_utils.c | 2 +-
+ 5 files changed, 5 insertions(+), 7 deletions(-)
 
-Although I really appreciate your work: can you clarify why you would like =
-to
-add *RDMA* functionality to an *IP routing* tool? I haven't found any motiv=
-ation
-for adding RDMA functionality to iproute2 in [1].
-
-Thanks,
-
-Bart.=
+diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_nic.c b/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
+index cdb02991f249..cffae53414ba 100644
+--- a/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
++++ b/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
+@@ -154,7 +154,7 @@ static void aq_nic_service_timer_cb(unsigned long param)
+ 
+ 	memset(&stats_rx, 0U, sizeof(struct aq_ring_stats_rx_s));
+ 	memset(&stats_tx, 0U, sizeof(struct aq_ring_stats_tx_s));
+-	for (i = AQ_DIMOF(self->aq_vec); i--;) {
++	for (i = ARRAY_SIZE(self->aq_vec); i--;) {
+ 		if (self->aq_vec[i])
+ 			aq_vec_add_stats(self->aq_vec[i], &stats_rx, &stats_tx);
+ 	}
+@@ -958,7 +958,7 @@ void aq_nic_free_hot_resources(struct aq_nic_s *self)
+ 	if (!self)
+ 		goto err_exit;
+ 
+-	for (i = AQ_DIMOF(self->aq_vec); i--;) {
++	for (i = ARRAY_SIZE(self->aq_vec); i--;) {
+ 		if (self->aq_vec[i])
+ 			aq_vec_free(self->aq_vec[i]);
+ 	}
+diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_utils.h b/drivers/net/ethernet/aquantia/atlantic/aq_utils.h
+index f6012b34abe6..64a8c3c781ff 100644
+--- a/drivers/net/ethernet/aquantia/atlantic/aq_utils.h
++++ b/drivers/net/ethernet/aquantia/atlantic/aq_utils.h
+@@ -14,8 +14,6 @@
+ 
+ #include "aq_common.h"
+ 
+-#define AQ_DIMOF(_ARY_)  ARRAY_SIZE(_ARY_)
+-
+ struct aq_obj_s {
+ 	spinlock_t lock; /* spinlock for nic/rings processing */
+ 	atomic_t flags;
+diff --git a/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.c b/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.c
+index 4ee15ff06a44..96c3360e7060 100644
+--- a/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.c
++++ b/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.c
+@@ -182,7 +182,7 @@ static int hw_atl_a0_hw_rss_set(struct aq_hw_s *self,
+ 			((i * 3U) & 0xFU));
+ 	}
+ 
+-	for (i = AQ_DIMOF(bitary); i--;) {
++	for (i = ARRAY_SIZE(bitary); i--;) {
+ 		rpf_rss_redir_tbl_wr_data_set(self, bitary[i]);
+ 		rpf_rss_redir_tbl_addr_set(self, i);
+ 		rpf_rss_redir_wr_en_set(self, 1U);
+diff --git a/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.c b/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.c
+index 42150708191d..5a19eba31786 100644
+--- a/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.c
++++ b/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.c
+@@ -182,7 +182,7 @@ static int hw_atl_b0_hw_rss_set(struct aq_hw_s *self,
+ 			((i * 3U) & 0xFU));
+ 	}
+ 
+-	for (i = AQ_DIMOF(bitary); i--;) {
++	for (i = ARRAY_SIZE(bitary); i--;) {
+ 		rpf_rss_redir_tbl_wr_data_set(self, bitary[i]);
+ 		rpf_rss_redir_tbl_addr_set(self, i);
+ 		rpf_rss_redir_wr_en_set(self, 1U);
+diff --git a/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_utils.c b/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_utils.c
+index 8d6d8f5804da..922af5f36d37 100644
+--- a/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_utils.c
++++ b/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_utils.c
+@@ -385,7 +385,7 @@ int hw_atl_utils_get_mac_permanent(struct aq_hw_s *self,
+ 					    aq_hw_read_reg(self, 0x00000374U) +
+ 					    (40U * 4U),
+ 					    mac_addr,
+-					    AQ_DIMOF(mac_addr));
++					    ARRAY_SIZE(mac_addr));
+ 	if (err < 0) {
+ 		mac_addr[0] = 0U;
+ 		mac_addr[1] = 0U;
