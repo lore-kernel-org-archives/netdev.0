@@ -1,99 +1,50 @@
-From: icenowy-h8G6r0blFSE@public.gmane.org
-Subject: Re: [PATCH 2/4] dt-bindings: add binding for RTL8211E
- Ethernet PHY
-Date: Fri, 05 May 2017 02:10:50 +0800
-Message-ID: <edf26d7de605a93bfce258de0353df6d@aosc.io>
-References: <20170421232436.10924-1-icenowy@aosc.io>
- <20170421232436.10924-3-icenowy@aosc.io>
- <c7aa9d7a-5e97-0e7f-2b1c-584a4de00837@gmail.com>
-Reply-To: icenowy-h8G6r0blFSE@public.gmane.org
+From: Bart Van Assche <Bart.VanAssche@sandisk.com>
+Subject: Re: [RFC iproute2 0/8] RDMA tool
+Date: Thu, 4 May 2017 18:10:54 +0000
+Message-ID: <1493921453.2692.6.camel@sandisk.com>
+References: <20170504180216.7665-1-leon@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="iso-8859-1"
 Content-Transfer-Encoding: quoted-printable
-Cc: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>, Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
- netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org, Icenowy Zheng <icenowy-ymACFijhrKM@public.gmane.org>
-To: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-sunxi+bncBDS6XAN6ZADRBK65VXEAKGQELB2QJ3Q-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-In-Reply-To: <c7aa9d7a-5e97-0e7f-2b1c-584a4de00837-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Help: <https://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Archive: <https://groups.google.com/group/linux-sunxi
-List-Subscribe: <https://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
- <https://groups.google.com/group/linux-sunxi/subscribe>
-List-Id: netdev.vger.kernel.org
+Cc: "leonro@mellanox.com" <leonro@mellanox.com>,
+        "jiri@mellanox.com" <jiri@mellanox.com>,
+        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
+        "ram.amrani@cavium.com" <ram.amrani@cavium.com>,
+        "sagi@grimberg.me" <sagi@grimberg.me>,
+        "ogerlitz@mellanox.com" <ogerlitz@mellanox.com>,
+        "dennis.dalessandro@intel.com" <dennis.dalessandro@intel.com>,
+        "hch@lst.de" <hch@lst.de>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "jgunthorpe@obsidianresearch.com" <jgunthorpe@obsidianresearch.com>,
+        "ariela@mellanox.com" <ariela@mellanox.com>
+To: "stephen@networkplumber.org" <stephen@networkplumber.org>,
+        "leon@kernel.org" <leon@kernel.org>,
+        "dledford@redhat.com" <dledford@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from esa6.hgst.iphmx.com ([216.71.154.45]:28495 "EHLO
+        esa6.hgst.iphmx.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751738AbdEDSK7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 4 May 2017 14:10:59 -0400
+In-Reply-To: <20170504180216.7665-1-leon@kernel.org>
+Content-Language: en-US
+Content-ID: <FFEDBA5C678ECD4D8F50DEEAAB02F00D@namprd04.prod.outlook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=E5=9C=A8 2017-04-22 08:22=EF=BC=8CFlorian Fainelli =E5=86=99=E9=81=93=EF=
-=BC=9A
-> On 04/21/2017 04:24 PM, Icenowy Zheng wrote:
->> From: Icenowy Zheng <icenowy-ymACFijhrKM@public.gmane.org>
->>=20
->> Some RTL8211E Ethernet PHY have an issue that needs a workaround
->> indicated with device tree.
->>=20
->> Add the binding for a property that indicates this workaround.
->>=20
->> Signed-off-by: Icenowy Zheng <icenowy-ymACFijhrKM@public.gmane.org>
->> ---
->>  .../devicetree/bindings/net/realtek,rtl8211e.txt   | 22=20
->> ++++++++++++++++++++++
->>  1 file changed, 22 insertions(+)
->>  create mode 100644=20
->> Documentation/devicetree/bindings/net/realtek,rtl8211e.txt
->>=20
->> diff --git=20
->> a/Documentation/devicetree/bindings/net/realtek,rtl8211e.txt=20
->> b/Documentation/devicetree/bindings/net/realtek,rtl8211e.txt
->> new file mode 100644
->> index 000000000000..c1913301bfe8
->> --- /dev/null
->> +++ b/Documentation/devicetree/bindings/net/realtek,rtl8211e.txt
->> @@ -0,0 +1,22 @@
->> +Realtek RTL8211E Ethernet PHY
->> +
->> +One batch of RTL8211E is slight broken, that needs some special (and
->> +full of magic numbers) tweaking in order to make GbE to operate=20
->> properly.
->> +The only well-known board that used the broken batch is Pine64+.
->> +Configure it through an Ethernet OF device node.
->> +
->> +Optional properties:
->> +
->> +- realtek,disable-rx-delay:
->> +  If set, RX delay will be completely disabled (according to=20
->> Realtek). This
->> +  will affect the performance on non-broken boards.
->> +  default: do not disable RX delay.
->=20
-> Please don't introduce custom properties to do that, instead correct
-> specify the "phy-mode" such that it is e.g: "rgmii-txid" which=20
-> indicates
-> that there should be no RX internal delay, but a TX internal delay=20
-> added
-> by the PHY.
+On Thu, 2017-05-04 at 21:02 +0300, Leon Romanovsky wrote:
+> Following our discussion both in mailing list [1] and at the LPC 2016 [2]=
+,
+> we would like to propose this RDMA tool to be part of iproute2 package
+> and finally improve this situation.
 
-Checked the document, the meaning of "rgmii-txid" is not correct here.
+Hello Leon,
 
-This doesn't effect the MAC, and the MAC should still add TX delay.
+Although I really appreciate your work: can you clarify why you would like =
+to
+add *RDMA* functionality to an *IP routing* tool? I haven't found any motiv=
+ation
+for adding RDMA functionality to iproute2 in [1].
 
-The definition of "rgmii-txid" in
-Documentation/devicetree/binding/net/ethernet.txt is "RGMII with
-internal TX delay provided by the PHY, the MAC should not add an TX=20
-delay
-in this case". However, this do not indicate that the MAC doesn't add TX
-delay; in fact that just totally disabled the PHY to provide the RX=20
-delay.
-MAC still should to add delay on both TX/RX, which is the semantic of
-standard "rgmii".
+Thanks,
 
-So I cannot used "rgmii-txid" here, but should continue to use this
-custom property.
-
---=20
-You received this message because you are subscribed to the Google Groups "=
-linux-sunxi" group.
-To unsubscribe from this group and stop receiving emails from it, send an e=
-mail to linux-sunxi+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0@public.gmane.org
-For more options, visit https://groups.google.com/d/optout.
+Bart.=
