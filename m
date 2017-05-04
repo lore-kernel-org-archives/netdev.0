@@ -1,78 +1,59 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: iproute2 build error due to sr-ipv6 lwtunnel
-Date: Thu, 04 May 2017 11:13:39 +0200
-Message-ID: <590AF0C3.6070006@iogearbox.net>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: xfrm4_state_afinfo size increase (was: Re: xfrm: Add a xfrm type
+ offload.)
+Date: Thu, 4 May 2017 11:16:40 +0200
+Message-ID: <20170504091640.GR2649@secunet.com>
+References: <CAMuHMdW=qBz+0qaXRRdBc=jKBA9aGqKafrQQ8rUiQhKv2UmW_Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, stephen@networkplumber.org
-To: david.lebrun@uclouvain.be
+Content-Type: text/plain; charset="us-ascii"
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+        "David S. Miller" <davem@davemloft.net>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Geert Uytterhoeven <geert@linux-m68k.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:56341 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752691AbdEDJNw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 4 May 2017 05:13:52 -0400
+Received: from a.mx.secunet.com ([62.96.220.36]:34620 "EHLO a.mx.secunet.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751765AbdEDJQx (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 4 May 2017 05:16:53 -0400
+Content-Disposition: inline
+In-Reply-To: <CAMuHMdW=qBz+0qaXRRdBc=jKBA9aGqKafrQQ8rUiQhKv2UmW_Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+On Thu, May 04, 2017 at 10:08:07AM +0200, Geert Uytterhoeven wrote:
+> > @@ -314,12 +316,14 @@ void km_state_expired(struct xfrm_state *x, int hard, u32 portid);
+> >  int __xfrm_state_delete(struct xfrm_state *x);
+> >
+> >  struct xfrm_state_afinfo {
+> > -       unsigned int            family;
+> > -       unsigned int            proto;
+> > -       __be16                  eth_proto;
+> > -       struct module           *owner;
+> > -       const struct xfrm_type  *type_map[IPPROTO_MAX];
+> > -       struct xfrm_mode        *mode_map[XFRM_MODE_MAX];
+> > +       unsigned int                    family;
+> > +       unsigned int                    proto;
+> > +       __be16                          eth_proto;
+> > +       struct module                   *owner;
+> > +       const struct xfrm_type          *type_map[IPPROTO_MAX];
+> > +       const struct xfrm_type_offload  *type_offload_map[IPPROTO_MAX];
+> > +       struct xfrm_mode                *mode_map[XFRM_MODE_MAX];
+> 
+> Bloat-o-meter reports the addition of xfrm_state_afinfo.type_offload_map[]
+> increases the static kernel size by 1 KiB on 32-bit platforms (double on 64-bit
+> platforms):
+> 
+> function                                     old     new   delta
+>     xfrm4_state_afinfo                          1102    2126   +1024
+> 
+> While IPPROTO_MAX = 256, the defined list of IP protocols is spread
+> sparsely over the number space, but I assume all values may occur?
 
-I'm getting the following build error from e8493916a8ed ("iproute:
-add support for SR-IPv6 lwtunnel encapsulation"). Reverting your
-commit makes iproute2 build again for me. Please take a look.
+Actually no, I think we could boil this down to less than ten
+really used protocols by mapping the IPPROTO numbers to some
+XFRMPROTO numbers.
 
-[...]
-     CC       iplink_vrf.o
-     CC       iproute_lwtunnel.o
-In file included from ../include/linux/seg6.h:18:0,
-                  from iproute_lwtunnel.c:26:
-../include/linux/in6.h:131:26: error: expected identifier before numeric constant
-  #define IPPROTO_HOPOPTS  0 /* IPv6 hop-by-hop options */
-                           ^
-In file included from /usr/include/resolv.h:57:0,
-                  from ../include/utils.h:6,
-                  from iproute_lwtunnel.c:32:
-/usr/include/netinet/in.h:196:8: error: redefinition of ‘struct in6_addr’
-  struct in6_addr
-         ^
-In file included from ../include/linux/seg6.h:18:0,
-                  from iproute_lwtunnel.c:26:
-../include/linux/in6.h:32:8: note: originally defined here
-  struct in6_addr {
-         ^
-In file included from /usr/include/resolv.h:57:0,
-                  from ../include/utils.h:6,
-                  from iproute_lwtunnel.c:32:
-/usr/include/netinet/in.h:237:8: error: redefinition of ‘struct sockaddr_in6’
-  struct sockaddr_in6
-         ^
-In file included from ../include/linux/seg6.h:18:0,
-                  from iproute_lwtunnel.c:26:
-../include/linux/in6.h:49:8: note: originally defined here
-  struct sockaddr_in6 {
-         ^
-In file included from /usr/include/resolv.h:57:0,
-                  from ../include/utils.h:6,
-                  from iproute_lwtunnel.c:32:
-/usr/include/netinet/in.h:273:8: error: redefinition of ‘struct ipv6_mreq’
-  struct ipv6_mreq
-         ^
-In file included from ../include/linux/seg6.h:18:0,
-                  from iproute_lwtunnel.c:26:
-../include/linux/in6.h:59:8: note: originally defined here
-  struct ipv6_mreq {
-         ^
-iproute_lwtunnel.c: In function ‘parse_encap_seg6’:
-iproute_lwtunnel.c:375:3: warning: passing argument 3 of ‘inet_get_addr’ from incompatible pointer type [enabled by default]
-    inet_get_addr(s, NULL, &srh->segments[i]);
-    ^
-In file included from iproute_lwtunnel.c:32:0:
-../include/utils.h:241:5: note: expected ‘struct in6_addr *’ but argument is of type ‘struct in6_addr *’
-  int inet_get_addr(const char *src, __u32 *dst, struct in6_addr *dst6);
-      ^
-make[1]: *** [iproute_lwtunnel.o] Error 1
-make: *** [all] Error 2
-[root@localhost iproute]#
+I'll look into this.
 
-Thanks,
-Daniel
+Thanks!
