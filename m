@@ -1,80 +1,153 @@
-From: Bart Van Assche <Bart.VanAssche-XdAiOPVOjttBDgjK7y7TUQ@public.gmane.org>
-Subject: Re: [RFC iproute2 0/8] RDMA tool
-Date: Thu, 4 May 2017 18:30:27 +0000
-Message-ID: <1493922625.2692.8.camel@sandisk.com>
-References: <20170504180216.7665-1-leon@kernel.org>
-         <1493921453.2692.6.camel@sandisk.com>
-         <20170504182542.GD22833@mtr-leonro.local>
+From: Pavel Belous <pavel.belous@aquantia.com>
+Subject: Re: [PATCH] aquantia: Fix "ethtool -S" crash when adapter down.
+Date: Thu, 4 May 2017 21:37:04 +0300
+Message-ID: <b039f869-2b3a-416f-2f52-f3efdf7b385a@aquantia.com>
+References: <90666578f043b366313ddd90ffad86de42d890f2.1493914743.git.pavel.belous@aquantia.com>
+ <0babf800-080c-96e0-4dbb-8d3fca3fb784@gmx.de>
+ <20170504.125113.569969253752966231.davem@davemloft.net>
+ <d20deac6-7010-c0e8-e4d8-7faa591e7306@aquantia.com>
+ <0efef5aa-c73d-ff16-a2ec-e63ad298ffa2@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: "jiri-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org" <jiri-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "ram.amrani-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org" <ram.amrani-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>,
-        "sagi-NQWnxTmZq1alnMjI0IkVqw@public.gmane.org" <sagi-NQWnxTmZq1alnMjI0IkVqw@public.gmane.org>,
-        "ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org" <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        "dennis.dalessandro-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org" <dennis.dalessandro-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        "hch-jcswGhMUV9g@public.gmane.org" <hch-jcswGhMUV9g@public.gmane.org>,
-        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org" <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>,
-        "stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org" <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>,
-        "dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org" <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        "ariela-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org" <ariela-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-To: "leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org" <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170504182542.GD22833-U/DQcQFIOTAAJjI8aNfphQ@public.gmane.org>
-Content-Language: en-US
-Content-ID: <7201FA4E3F209A4A89B8DBF3FC36DCF2-+cFlbfsKLD6cE4WynfumptQqCkab/8FMAL8bYrjMMd8@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Arcari <darcari@redhat.com>,
+        David Miller <davem@davemloft.net>, LinoSanfilippo@gmx.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bl2nam02on0056.outbound.protection.outlook.com ([104.47.38.56]:23008
+        "EHLO NAM02-BL2-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1752210AbdEDShT (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 4 May 2017 14:37:19 -0400
+In-Reply-To: <0efef5aa-c73d-ff16-a2ec-e63ad298ffa2@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2017-05-04 at 21:25 +0300, Leon Romanovsky wrote:
-> On Thu, May 04, 2017 at 06:10:54PM +0000, Bart Van Assche wrote:
-> > On Thu, 2017-05-04 at 21:02 +0300, Leon Romanovsky wrote:
-> > > Following our discussion both in mailing list [1] and at the LPC 2016=
- [2],
-> > > we would like to propose this RDMA tool to be part of iproute2 packag=
-e
-> > > and finally improve this situation.
-> >=20
-> > Hello Leon,
-> >=20
-> > Although I really appreciate your work: can you clarify why you would l=
-ike to
-> > add *RDMA* functionality to an *IP routing* tool? I haven't found any m=
-otivation
-> > for adding RDMA functionality to iproute2 in [1].
->=20
-> We are planning to reuse the same infrastructure provided by iproute2,
-> like netlink parsing, access to distributions, same CLI and same standard=
-s.
->=20
-> Right now, RDMA is already tightened to netdev: iWARP, RoCE, IPoIB, HFI-V=
-NIC.
-> Many drivers (mlx, qed, i40, cxgb) are sharing code between net and
-> RDMA.
->=20
-> I do expect that iproute2 will be installed on every machine with any
-> type of connection, including IB and OPA.
->=20
-> So I think that it is enough to be part of that suite and don't invent
-> our own for one specific tool.
 
-Hello Leon,
 
-Sorry but to me that sounds like a weak argument for including RDMA functio=
-nality
-in iproute2. There is already a library for communication over netlink sock=
-ets,
-namely libnl. Is there functionality that is in iproute2 but not in libnl a=
-nd
-that is needed for the new tool? If so, have you considered to create a new
-library for that functionality?
+On 04.05.2017 21:27, David Arcari wrote:
+> On 05/04/2017 01:09 PM, Pavel Belous wrote:
+>>
+>>
+>> On 04.05.2017 19:51, David Miller wrote:
+>>> From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
+>>> Date: Thu, 4 May 2017 18:48:12 +0200
+>>>
+>>>> Hi Pavel,
+>>>>
+>>>> On 04.05.2017 18:33, Pavel Belous wrote:
+>>>>> From: Pavel Belous <pavel.belous@aquantia.com>
+>>>>>
+>>>>> This patch fixes the crash that happens when driver tries to collect statistics
+>>>>> from already released "aq_vec" object.
+>>>>>
+>>>>> Fixes: 97bde5c4f909 ("net: ethernet: aquantia: Support for NIC-specific code")
+>>>>> Signed-off-by: Pavel Belous <pavel.belous@aquantia.com>
+>>>>> ---
+>>>>>  drivers/net/ethernet/aquantia/atlantic/aq_nic.c | 3 ++-
+>>>>>  1 file changed, 2 insertions(+), 1 deletion(-)
+>>>>>
+>>>>> diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
+>>>>> b/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
+>>>>> index cdb0299..3a32573 100644
+>>>>> --- a/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
+>>>>> +++ b/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
+>>>>> @@ -755,7 +755,7 @@ void aq_nic_get_stats(struct aq_nic_s *self, u64 *data)
+>>>>>      count = 0U;
+>>>>>
+>>>>>      for (i = 0U, aq_vec = self->aq_vec[0];
+>>>>> -        self->aq_vecs > i; ++i, aq_vec = self->aq_vec[i]) {
+>>>>> +        aq_vec && self->aq_vecs > i; ++i, aq_vec = self->aq_vec[i]) {
+>>>>>          data += count;
+>>>>>          aq_vec_get_sw_stats(aq_vec, data, &count);
+>>>>>      }
+>>>>> @@ -961,6 +961,7 @@ void aq_nic_free_hot_resources(struct aq_nic_s *self)
+>>>>>      for (i = AQ_DIMOF(self->aq_vec); i--;) {
+>>>>>          if (self->aq_vec[i])
+>>>>>              aq_vec_free(self->aq_vec[i]);
+>>>>> +            self->aq_vec[i] = NULL;
+>>>>>      }
+>>>>>
+>>>>>  err_exit:;
+>>>>>
+>>>>
+>>>> if the driver does not support statistics when the interface is down, would
+>>>> not it be clearer
+>>>> to check if netif_running() in get_stats() instead?
+>>>
+>>> Yes, much cleaner.
+>>>
+>>> Much better would be to have a cached software copy so that statistics
+>>> can be reported regardless of whether the device is down or not.
+>>>
+>>
+>> Thank you.
+>> I will think about how to do it better.
+>
+> It appears that the adapter is still reporting the cumulative hardware stats
+> even while its down.  The user is just losing the per queue stats.
+>
+> Although the loss of the per queue stats is not ideal, this patch still fixes a
+> crash.
+>
+> It might be worthwhile to refactor this patch as a short term solution and then
+> subsequently produce a version that contains cached statistics.  Assuming that
+> is amenable to everyone of course.
+>
+> -DA
+>
 
-Thanks,
+Yes, even adapter is in the down state user can still see statistics 
+from the HW.
+For example (adapter is down):
 
-Bart.=
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+$ ethtool -S enp2s0
+NIC statistics:
+      InPackets: 3237727
+      InUCast: 3237214
+      InMCast: 391
+      InBCast: 122
+      InErrors: 0
+      OutPackets: 14157898
+      OutUCast: 14157089
+      OutMCast: 304
+      OutBCast: 505
+      InUCastOctects: 226714406
+      OutUCastOctects: 10463156
+      InMCastOctects: 58046
+      OutMCastOctects: 44817
+      InBCastOctects: 12857
+      OutBCastOctects: 41626
+      InOctects: 226785309
+      OutOctects: 10549599
+      InPacketsDma: 0
+      OutPacketsDma: 16
+      InOctetsDma: 0
+      OutOctetsDma: 2396
+      InDroppedDma: 0
+      Queue[0] InPackets: 0
+      Queue[0] OutPackets: 0
+      Queue[0] InJumboPackets: 0
+      Queue[0] InLroPackets: 0
+      Queue[0] InErrors: 0
+      Queue[1] InPackets: 0
+      Queue[1] OutPackets: 0
+      Queue[1] InJumboPackets: 0
+      Queue[1] InLroPackets: 0
+      Queue[1] InErrors: 0
+      Queue[2] InPackets: 0
+      Queue[2] OutPackets: 0
+      Queue[2] InJumboPackets: 0
+      Queue[2] InLroPackets: 0
+      Queue[2] InErrors: 0
+      Queue[3] InPackets: 0
+      Queue[3] OutPackets: 0
+      Queue[3] InJumboPackets: 0
+      Queue[3] InLroPackets: 0
+      Queue[3] InErrors: 0
+
+Lino, David what do you think?
+If you agree I can re-submit the patch (with fixed braces).
+
+Regards,
+Pavel
