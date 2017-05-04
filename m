@@ -1,41 +1,52 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH v4 net-next 04/10] net/ncsi: Ethtool operation to get
- NCSI topology
-Date: Wed, 3 May 2017 22:21:11 -0700
-Message-ID: <20170503222111.749ce90b@xeon-e3>
-References: <1493786681-27468-1-git-send-email-gwshan@linux.vnet.ibm.com>
-        <1493786681-27468-5-git-send-email-gwshan@linux.vnet.ibm.com>
+From: "Coelho, Luciano" <luciano.coelho-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: Re: new warning at net/wireless/util.c:1236
+Date: Thu, 4 May 2017 06:06:18 +0000
+Message-ID: <1493877978.14233.85.camel@intel.com>
+References: <CA+55aFxyp5gpUZEYHXLwyhbK6DMWf4RoVykGxq9FPtO=j4yJsw@mail.gmail.com>
+         <87o9v99r3g.fsf@purkki.adurom.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, joe@perches.com, kubakici@wp.pl,
-        f.fainelli@gmail.com, davem@davemloft.net
-To: Gavin Shan <gwshan@linux.vnet.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f174.google.com ([209.85.192.174]:35738 "EHLO
-        mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932207AbdEDFVO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 4 May 2017 01:21:14 -0400
-Received: by mail-pf0-f174.google.com with SMTP id v14so2277442pfd.2
-        for <netdev@vger.kernel.org>; Wed, 03 May 2017 22:21:14 -0700 (PDT)
-In-Reply-To: <1493786681-27468-5-git-send-email-gwshan@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org" <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+To: "torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org" <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+        "kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org" <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <87o9v99r3g.fsf-5ukZ45wKbUHoml4zekdYB16hYfS7NtTn@public.gmane.org>
+Content-Language: en-US
+Content-ID: <28266EE120BE294D965460F0C60F93A0-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed,  3 May 2017 14:44:35 +1000
-Gavin Shan <gwshan@linux.vnet.ibm.com> wrote:
-
-> +void ncsi_ethtool_register_dev(struct net_device *dev)
-> +{
-> +	struct ethtool_ops *ops;
-> +
-> +	ops = (struct ethtool_ops *)(dev->ethtool_ops);
-> +	if (!ops)
-> +		return;
-> +
-> +	ops->get_ncsi_channels = ncsi_get_channels;
-> +}
-> +
-
-Instead of casting away const which opens up potential security
-issues. Have two ethtool_ops structures.
+T24gVGh1LCAyMDE3LTA1LTA0IGF0IDA3OjM1ICswMzAwLCBLYWxsZSBWYWxvIHdyb3RlOg0KPiBM
+aW51cyBUb3J2YWxkcyA8dG9ydmFsZHNAbGludXgtZm91bmRhdGlvbi5vcmc+IHdyaXRlczoNCj4g
+DQo+ID4gU28gbXkgRGVsbCBYUFMgMTMgc2VlbXMgdG8gaGF2ZSBncm93biBhIG5ldyB3YXJuaW5n
+IGFzIG9mIHRoZQ0KPiA+IG5ldHdvcmtpbmcgbWVyZ2UgeWVzdGVyZGF5Lg0KPiA+IA0KPiA+IFRo
+aW5ncyBzdGlsbCB3b3JrLCBidXQgd2hlbiBpdCBzdGFydHMgd2FybmluZywgaXQgZ2VuZXJhdGVz
+IGEgKmxvdCogb2YNCj4gPiBub2lzZSAoSSBnb3QgMzYgb2YgdGhlc2Ugd2l0aGluIGFib3V0IHRl
+biBtaW51dGVzKS4NCj4gPiANCj4gPiBJIGhhdmUgbm8gaWRlYSB3aGF0IHRyaWdnZXJlZCBpdCwg
+YmVjYXVzZSB3aGVuIEkgcmVib290ZWQgKG5vdCBiZWNhdXNlDQo+ID4gb2YgdGhpcyBpc3N1ZSwg
+YnV0IGp1c3QgdG8gcmVib290IGludG8gYSBuZXdlciBrZXJuZWwpIEkgZG9uJ3Qgc2VlIGl0DQo+
+ID4gYWdhaW4uDQo+ID4gDQo+ID4gVGhpcyBpcyBhbGwgcHJldHR5IHJlZ3VsYXIgd2lyZWxlc3Mg
+LSBpdCdzIGludGVsIDgyNjAgd2lyZWxlc3MgaW4gYQ0KPiA+IGZhaXJseSBub3JtYWwgbGFwdG9w
+Lg0KPiA+IA0KPiA+IFRoaW5ncyBzdGlsbCBzZWVtIHRvICp3b3JrKiBvaywgc28gdGhlIG9ubHkg
+cHJvYmxlbSBoZXJlIGlzIHRoZSBvdmVybHkNCj4gPiB2ZXJib3NlIGFuZCB1c2VsZXNzIFdBUk5f
+T04uIEl0IGRvZXNuJ3QgZXZlbiBwcmludCBvdXQgKndoaWNoKiByYXRlIGl0DQo+ID4gaXMgd2Fy
+bmluZyBhYm91dCwgaXQganVzdCBkb2VzIHRoYXQgc3R1cGlkIHVuY29uZGl0aW9uYWwgV0FSTl9P
+TigpDQo+ID4gd2l0aG91dCBldmVyIHNodXR0aW5nIHVwIGFib3V0IGl0Li4NCj4gPiANCj4gPiBU
+aGUgV0FSTl9PTigpIHNlZW1zIHRvIGJlIG9sZCwgYnV0IG15IGxvZ3MgZG9uJ3Qgc2VlbSB0byBo
+YXZlIGFueQ0KPiA+IG1lbnRpb24gb2YgdGhpcyB1bnRpbCB0b2RheSwgc28gdGhlcmUncyBzb21l
+dGhpbmcgdGhhdCBoYXMgY2hhbmdlZA0KPiA+IHRoYXQgbm93IHRyaWdnZXJzIGl0Lg0KPiA+IA0K
+PiA+IElkZWFzPw0KPiA+IA0KPiA+ICAgICAgICAgICAgICAgICAgIExpbnVzDQo+ID4gDQo+ID4g
+LS0tDQo+ID4gDQo+ID4gV0FSTklORzogQ1BVOiAzIFBJRDogMTEzOCBhdCBuZXQvd2lyZWxlc3Mv
+dXRpbC5jOjEyMzYNCj4gPiBjZmc4MDIxMV9jYWxjdWxhdGVfYml0cmF0ZSsweDEzOS8weDE3MCBb
+Y2ZnODAyMTFdDQo+IA0KPiBBcyB0aGlzIGlzIHdpdGggaXdsd2lmaSBhZGRpbmcgYWxzbyBMdWNh
+LiBUaGVyZSB3ZXJlIHNvbWUgcmF0ZSBoYW5kbGluZw0KPiBjaGFuZ2VzIGluIGl3bHdpZmksIGxp
+a2UgY29tbWl0IDc3ZTQwOTQ1NWY0MSwgYnV0IGRvbid0IGtub3cgaWYgdGhhdA0KPiBjb3VsZCBj
+YXVzZSB0aGlzLg0KDQpUaGFua3MgS2FsbGUuICBJIGRvbid0IHNlZSBhbnl0aGluZyBpbiB0aGUg
+aXdsd2lmaSBkcml2ZXIgdGhhdCBjb3VsZCBiZQ0KY2F1c2luZyB0aGlzLiAgSm9oYW5uZXMgc3Vz
+cGVjdHMgc29tZSBSWCByYXRlIGNoYW5nZXMgaGUgbWFkZSBpbg0KbWFjODAyMTEuLi4NCg0KLS0N
+Ckx1Y2Eu
