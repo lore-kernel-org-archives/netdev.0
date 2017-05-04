@@ -1,153 +1,123 @@
 From: Pavel Belous <pavel.belous@aquantia.com>
 Subject: Re: [PATCH] aquantia: Fix "ethtool -S" crash when adapter down.
-Date: Thu, 4 May 2017 21:37:04 +0300
-Message-ID: <b039f869-2b3a-416f-2f52-f3efdf7b385a@aquantia.com>
+Date: Thu, 4 May 2017 21:41:28 +0300
+Message-ID: <69bfcc3a-f955-83f1-7acc-4841500568fe@aquantia.com>
 References: <90666578f043b366313ddd90ffad86de42d890f2.1493914743.git.pavel.belous@aquantia.com>
- <0babf800-080c-96e0-4dbb-8d3fca3fb784@gmx.de>
- <20170504.125113.569969253752966231.davem@davemloft.net>
- <d20deac6-7010-c0e8-e4d8-7faa591e7306@aquantia.com>
- <0efef5aa-c73d-ff16-a2ec-e63ad298ffa2@redhat.com>
+ <50047294-4f40-e8ae-0982-5720b87019a9@redhat.com>
+ <800da97f-7a4b-6f61-f4ff-51d4ef50e05f@aquantia.com>
+ <1493921851.22125.42.camel@perches.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: David Arcari <darcari@redhat.com>,
-        David Miller <davem@davemloft.net>, LinoSanfilippo@gmx.de
+To: Joe Perches <joe@perches.com>, David Arcari <darcari@redhat.com>,
+        "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2nam02on0056.outbound.protection.outlook.com ([104.47.38.56]:23008
+Received: from mail-bl2nam02on0053.outbound.protection.outlook.com ([104.47.38.53]:37440
         "EHLO NAM02-BL2-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1752210AbdEDShT (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 4 May 2017 14:37:19 -0400
-In-Reply-To: <0efef5aa-c73d-ff16-a2ec-e63ad298ffa2@redhat.com>
+        id S1752337AbdEDSlq (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 4 May 2017 14:41:46 -0400
+In-Reply-To: <1493921851.22125.42.camel@perches.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
 
-On 04.05.2017 21:27, David Arcari wrote:
-> On 05/04/2017 01:09 PM, Pavel Belous wrote:
->>
->>
->> On 04.05.2017 19:51, David Miller wrote:
->>> From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
->>> Date: Thu, 4 May 2017 18:48:12 +0200
->>>
->>>> Hi Pavel,
->>>>
->>>> On 04.05.2017 18:33, Pavel Belous wrote:
->>>>> From: Pavel Belous <pavel.belous@aquantia.com>
->>>>>
->>>>> This patch fixes the crash that happens when driver tries to collect statistics
->>>>> from already released "aq_vec" object.
->>>>>
->>>>> Fixes: 97bde5c4f909 ("net: ethernet: aquantia: Support for NIC-specific code")
->>>>> Signed-off-by: Pavel Belous <pavel.belous@aquantia.com>
->>>>> ---
->>>>>  drivers/net/ethernet/aquantia/atlantic/aq_nic.c | 3 ++-
->>>>>  1 file changed, 2 insertions(+), 1 deletion(-)
->>>>>
->>>>> diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
->>>>> b/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
->>>>> index cdb0299..3a32573 100644
->>>>> --- a/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
->>>>> +++ b/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
->>>>> @@ -755,7 +755,7 @@ void aq_nic_get_stats(struct aq_nic_s *self, u64 *data)
->>>>>      count = 0U;
->>>>>
->>>>>      for (i = 0U, aq_vec = self->aq_vec[0];
->>>>> -        self->aq_vecs > i; ++i, aq_vec = self->aq_vec[i]) {
->>>>> +        aq_vec && self->aq_vecs > i; ++i, aq_vec = self->aq_vec[i]) {
->>>>>          data += count;
->>>>>          aq_vec_get_sw_stats(aq_vec, data, &count);
->>>>>      }
->>>>> @@ -961,6 +961,7 @@ void aq_nic_free_hot_resources(struct aq_nic_s *self)
->>>>>      for (i = AQ_DIMOF(self->aq_vec); i--;) {
->>>>>          if (self->aq_vec[i])
->>>>>              aq_vec_free(self->aq_vec[i]);
->>>>> +            self->aq_vec[i] = NULL;
->>>>>      }
->>>>>
->>>>>  err_exit:;
->>>>>
->>>>
->>>> if the driver does not support statistics when the interface is down, would
->>>> not it be clearer
->>>> to check if netif_running() in get_stats() instead?
->>>
->>> Yes, much cleaner.
->>>
->>> Much better would be to have a cached software copy so that statistics
->>> can be reported regardless of whether the device is down or not.
->>>
->>
->> Thank you.
->> I will think about how to do it better.
+On 04.05.2017 21:17, Joe Perches wrote:
+> On Thu, 2017-05-04 at 20:08 +0300, Pavel Belous wrote:
+>> I will prepare another patch with Lino and David M. comments.
 >
-> It appears that the adapter is still reporting the cumulative hardware stats
-> even while its down.  The user is just losing the per queue stats.
+> I'm not submitting this because it'd just cause merge conflicts,
+> but
+> something you could do one day is remove the AQ_DIMOF macro
+> and just use ARRAY_SIZE directly.
+> ---
+>  drivers/net/ethernet/aquantia/atlantic/aq_nic.c              | 4 ++--
+>  drivers/net/ethernet/aquantia/atlantic/aq_utils.h            | 2 --
+>  drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.c    | 2 +-
+>  drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.c    | 2 +-
+>  drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_utils.c | 2 +-
+>  5 files changed, 5 insertions(+), 7 deletions(-)
 >
-> Although the loss of the per queue stats is not ideal, this patch still fixes a
-> crash.
+> diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_nic.c b/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
+> index cdb02991f249..cffae53414ba 100644
+> --- a/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
+> +++ b/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
+> @@ -154,7 +154,7 @@ static void aq_nic_service_timer_cb(unsigned long param)
 >
-> It might be worthwhile to refactor this patch as a short term solution and then
-> subsequently produce a version that contains cached statistics.  Assuming that
-> is amenable to everyone of course.
+>  	memset(&stats_rx, 0U, sizeof(struct aq_ring_stats_rx_s));
+>  	memset(&stats_tx, 0U, sizeof(struct aq_ring_stats_tx_s));
+> -	for (i = AQ_DIMOF(self->aq_vec); i--;) {
+> +	for (i = ARRAY_SIZE(self->aq_vec); i--;) {
+>  		if (self->aq_vec[i])
+>  			aq_vec_add_stats(self->aq_vec[i], &stats_rx, &stats_tx);
+>  	}
+> @@ -958,7 +958,7 @@ void aq_nic_free_hot_resources(struct aq_nic_s *self)
+>  	if (!self)
+>  		goto err_exit;
 >
-> -DA
+> -	for (i = AQ_DIMOF(self->aq_vec); i--;) {
+> +	for (i = ARRAY_SIZE(self->aq_vec); i--;) {
+>  		if (self->aq_vec[i])
+>  			aq_vec_free(self->aq_vec[i]);
+>  	}
+> diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_utils.h b/drivers/net/ethernet/aquantia/atlantic/aq_utils.h
+> index f6012b34abe6..64a8c3c781ff 100644
+> --- a/drivers/net/ethernet/aquantia/atlantic/aq_utils.h
+> +++ b/drivers/net/ethernet/aquantia/atlantic/aq_utils.h
+> @@ -14,8 +14,6 @@
+>
+>  #include "aq_common.h"
+>
+> -#define AQ_DIMOF(_ARY_)  ARRAY_SIZE(_ARY_)
+> -
+>  struct aq_obj_s {
+>  	spinlock_t lock; /* spinlock for nic/rings processing */
+>  	atomic_t flags;
+> diff --git a/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.c b/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.c
+> index 4ee15ff06a44..96c3360e7060 100644
+> --- a/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.c
+> +++ b/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.c
+> @@ -182,7 +182,7 @@ static int hw_atl_a0_hw_rss_set(struct aq_hw_s *self,
+>  			((i * 3U) & 0xFU));
+>  	}
+>
+> -	for (i = AQ_DIMOF(bitary); i--;) {
+> +	for (i = ARRAY_SIZE(bitary); i--;) {
+>  		rpf_rss_redir_tbl_wr_data_set(self, bitary[i]);
+>  		rpf_rss_redir_tbl_addr_set(self, i);
+>  		rpf_rss_redir_wr_en_set(self, 1U);
+> diff --git a/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.c b/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.c
+> index 42150708191d..5a19eba31786 100644
+> --- a/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.c
+> +++ b/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.c
+> @@ -182,7 +182,7 @@ static int hw_atl_b0_hw_rss_set(struct aq_hw_s *self,
+>  			((i * 3U) & 0xFU));
+>  	}
+>
+> -	for (i = AQ_DIMOF(bitary); i--;) {
+> +	for (i = ARRAY_SIZE(bitary); i--;) {
+>  		rpf_rss_redir_tbl_wr_data_set(self, bitary[i]);
+>  		rpf_rss_redir_tbl_addr_set(self, i);
+>  		rpf_rss_redir_wr_en_set(self, 1U);
+> diff --git a/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_utils.c b/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_utils.c
+> index 8d6d8f5804da..922af5f36d37 100644
+> --- a/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_utils.c
+> +++ b/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_utils.c
+> @@ -385,7 +385,7 @@ int hw_atl_utils_get_mac_permanent(struct aq_hw_s *self,
+>  					    aq_hw_read_reg(self, 0x00000374U) +
+>  					    (40U * 4U),
+>  					    mac_addr,
+> -					    AQ_DIMOF(mac_addr));
+> +					    ARRAY_SIZE(mac_addr));
+>  	if (err < 0) {
+>  		mac_addr[0] = 0U;
+>  		mac_addr[1] = 0U;
 >
 
-Yes, even adapter is in the down state user can still see statistics 
-from the HW.
-For example (adapter is down):
-
-$ ethtool -S enp2s0
-NIC statistics:
-      InPackets: 3237727
-      InUCast: 3237214
-      InMCast: 391
-      InBCast: 122
-      InErrors: 0
-      OutPackets: 14157898
-      OutUCast: 14157089
-      OutMCast: 304
-      OutBCast: 505
-      InUCastOctects: 226714406
-      OutUCastOctects: 10463156
-      InMCastOctects: 58046
-      OutMCastOctects: 44817
-      InBCastOctects: 12857
-      OutBCastOctects: 41626
-      InOctects: 226785309
-      OutOctects: 10549599
-      InPacketsDma: 0
-      OutPacketsDma: 16
-      InOctetsDma: 0
-      OutOctetsDma: 2396
-      InDroppedDma: 0
-      Queue[0] InPackets: 0
-      Queue[0] OutPackets: 0
-      Queue[0] InJumboPackets: 0
-      Queue[0] InLroPackets: 0
-      Queue[0] InErrors: 0
-      Queue[1] InPackets: 0
-      Queue[1] OutPackets: 0
-      Queue[1] InJumboPackets: 0
-      Queue[1] InLroPackets: 0
-      Queue[1] InErrors: 0
-      Queue[2] InPackets: 0
-      Queue[2] OutPackets: 0
-      Queue[2] InJumboPackets: 0
-      Queue[2] InLroPackets: 0
-      Queue[2] InErrors: 0
-      Queue[3] InPackets: 0
-      Queue[3] OutPackets: 0
-      Queue[3] InJumboPackets: 0
-      Queue[3] InLroPackets: 0
-      Queue[3] InErrors: 0
-
-Lino, David what do you think?
-If you agree I can re-submit the patch (with fixed braces).
+Thank you,
+I will do it, little bit later.
 
 Regards,
 Pavel
