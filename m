@@ -1,68 +1,50 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] aquantia: Fix "ethtool -S" crash when adapter down.
-Date: Thu, 04 May 2017 12:51:13 -0400 (EDT)
-Message-ID: <20170504.125113.569969253752966231.davem@davemloft.net>
-References: <90666578f043b366313ddd90ffad86de42d890f2.1493914743.git.pavel.belous@aquantia.com>
-        <0babf800-080c-96e0-4dbb-8d3fca3fb784@gmx.de>
+Subject: Re: [Patch net] ipv6: initialize route null entry in
+ addrconf_init()
+Date: Thu, 04 May 2017 12:51:44 -0400 (EDT)
+Message-ID: <20170504.125144.78973292337920988.davem@davemloft.net>
+References: <1493874452-3050-1-git-send-email-xiyou.wangcong@gmail.com>
+        <CAAeHK+zmMUvt4Lz28k3Oyxi1QFmrTMBe34=6xJDBPxkeivnPeA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Pavel.Belous@aquantia.com, netdev@vger.kernel.org,
-        darcari@redhat.com
-To: LinoSanfilippo@gmx.de
+Cc: xiyou.wangcong@gmail.com, netdev@vger.kernel.org, dsahern@gmail.com
+To: andreyknvl@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:57872 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:57886 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755826AbdEDQvP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 4 May 2017 12:51:15 -0400
-In-Reply-To: <0babf800-080c-96e0-4dbb-8d3fca3fb784@gmx.de>
+        with ESMTP id S1755361AbdEDQvp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 4 May 2017 12:51:45 -0400
+In-Reply-To: <CAAeHK+zmMUvt4Lz28k3Oyxi1QFmrTMBe34=6xJDBPxkeivnPeA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
-Date: Thu, 4 May 2017 18:48:12 +0200
+From: Andrey Konovalov <andreyknvl@google.com>
+Date: Thu, 4 May 2017 14:28:37 +0200
 
-> Hi Pavel,
+> On Thu, May 4, 2017 at 7:07 AM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+>> Andrey reported a crash on init_net.ipv6.ip6_null_entry->rt6i_idev
+>> since it is always NULL.
+>>
+>> This is clearly wrong, we have code to initialize it to loopback_dev,
+>> unfortunately the order is still not correct.
+>>
+>> loopback_dev is registered very early during boot, we lose a chance
+>> to re-initialize it in notifier. addrconf_init() is called after
+>> ip6_route_init(), which means we have no chance to correct it.
+>>
+>> Fix it by moving this initialization explicitly after
+>> ipv6_add_dev(init_net.loopback_dev) in addrconf_init().
+>>
+>> Reported-by: Andrey Konovalov <andreyknvl@google.com>
+>> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 > 
-> On 04.05.2017 18:33, Pavel Belous wrote:
->> From: Pavel Belous <pavel.belous@aquantia.com>
->> 
->> This patch fixes the crash that happens when driver tries to collect statistics
->> from already released "aq_vec" object.
->> 
->> Fixes: 97bde5c4f909 ("net: ethernet: aquantia: Support for NIC-specific code")
->> Signed-off-by: Pavel Belous <pavel.belous@aquantia.com>
->> ---
->>  drivers/net/ethernet/aquantia/atlantic/aq_nic.c | 3 ++-
->>  1 file changed, 2 insertions(+), 1 deletion(-)
->> 
->> diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_nic.c b/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
->> index cdb0299..3a32573 100644
->> --- a/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
->> +++ b/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
->> @@ -755,7 +755,7 @@ void aq_nic_get_stats(struct aq_nic_s *self, u64 *data)
->>  	count = 0U;
->>  
->>  	for (i = 0U, aq_vec = self->aq_vec[0];
->> -		self->aq_vecs > i; ++i, aq_vec = self->aq_vec[i]) {
->> +		aq_vec && self->aq_vecs > i; ++i, aq_vec = self->aq_vec[i]) {
->>  		data += count;
->>  		aq_vec_get_sw_stats(aq_vec, data, &count);
->>  	}
->> @@ -961,6 +961,7 @@ void aq_nic_free_hot_resources(struct aq_nic_s *self)
->>  	for (i = AQ_DIMOF(self->aq_vec); i--;) {
->>  		if (self->aq_vec[i])
->>  			aq_vec_free(self->aq_vec[i]);
->> +			self->aq_vec[i] = NULL;
->>  	}
->>  
->>  err_exit:;
->> 
+> Hi Cong,
 > 
-> if the driver does not support statistics when the interface is down, would not it be clearer
-> to check if netif_running() in get_stats() instead?
+> This fixes the bug triggered by my reproducer.
+> 
+> Thanks!
+> 
+> Tested-by: Andrey Konovalov <andreyknvl@google.com>
 
-Yes, much cleaner.
-
-Much better would be to have a cached software copy so that statistics
-can be reported regardless of whether the device is down or not.
+Applied and queued up for -stable, thanks.
