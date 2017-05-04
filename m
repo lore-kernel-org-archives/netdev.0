@@ -1,39 +1,83 @@
 From: Sudarsana Reddy Kalluru <sudarsana.kalluru@cavium.com>
-Subject: [PATCH net 0/3] qed*: Bug fix series.
-Date: Wed, 3 May 2017 23:52:06 -0700
-Message-ID: <20170504065209.26106-1-sudarsana.kalluru@cavium.com>
+Subject: [PATCH net 2/3] qed: Fix overriding of supported autoneg value.
+Date: Wed, 3 May 2017 23:52:08 -0700
+Message-ID: <20170504065209.26106-3-sudarsana.kalluru@cavium.com>
+References: <20170504065209.26106-1-sudarsana.kalluru@cavium.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <Yuval.Mintz@cavium.com>,
-        "Sudarsana Reddy Kalluru" <Sudarsana.Kalluru@cavium.com>
+Cc: <netdev@vger.kernel.org>, <Yuval.Mintz@cavium.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam01on0085.outbound.protection.outlook.com ([104.47.34.85]:54699
-        "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
+Received: from mail-by2nam03on0044.outbound.protection.outlook.com ([104.47.42.44]:13728
+        "EHLO NAM03-BY2-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751303AbdEDGwg (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 4 May 2017 02:52:36 -0400
+        id S1751400AbdEDGwj (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 4 May 2017 02:52:39 -0400
+In-Reply-To: <20170504065209.26106-1-sudarsana.kalluru@cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sudarsana Reddy Kalluru <Sudarsana.Kalluru@cavium.com>
+Driver currently uses advertised-autoneg value to populate the
+supported-autoneg field. When advertised field is updated, user gets
+the same value for supported field. Supported-autoneg value need to be
+populated from the link capabilities value returned by the MFW.
 
-The series contains minor bug fixes for qed/qede drivers.
+Signed-off-by: Sudarsana Reddy Kalluru <Sudarsana.Kalluru@cavium.com>
+---
+ drivers/net/ethernet/qlogic/qed/qed_dev.c  | 3 +++
+ drivers/net/ethernet/qlogic/qed/qed_main.c | 6 +++++-
+ drivers/net/ethernet/qlogic/qed/qed_mcp.h  | 1 +
+ 3 files changed, 9 insertions(+), 1 deletion(-)
 
-Please consider applying it to 'net' branch.
-
-Sudarsana Reddy Kalluru (3):
-  qed*: Fix possible overflow for status block id field.
-  qed: Fix overriding of supported autoneg value.
-  qede: Fix possible misconfiguration of advertised autoneg value.
-
- drivers/net/ethernet/qlogic/qed/qed_dev.c       | 11 +++++++----
- drivers/net/ethernet/qlogic/qed/qed_dev_api.h   |  4 ++--
- drivers/net/ethernet/qlogic/qed/qed_main.c      |  8 ++++++--
- drivers/net/ethernet/qlogic/qed/qed_mcp.h       |  1 +
- drivers/net/ethernet/qlogic/qede/qede_ethtool.c | 10 +++++++---
- include/linux/qed/qed_if.h                      |  2 +-
- 6 files changed, 24 insertions(+), 12 deletions(-)
-
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_dev.c b/drivers/net/ethernet/qlogic/qed/qed_dev.c
+index 5c6874a..bb70522 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_dev.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_dev.c
+@@ -2536,6 +2536,9 @@ static int qed_hw_get_nvm_info(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt)
+ 		DP_NOTICE(p_hwfn, "Unknown Speed in 0x%08x\n", link_temp);
+ 	}
+ 
++	p_hwfn->mcp_info->link_capabilities.default_speed_autoneg =
++		link->speed.autoneg;
++
+ 	link_temp &= NVM_CFG1_PORT_DRV_FLOW_CONTROL_MASK;
+ 	link_temp >>= NVM_CFG1_PORT_DRV_FLOW_CONTROL_OFFSET;
+ 	link->pause.autoneg = !!(link_temp &
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_main.c b/drivers/net/ethernet/qlogic/qed/qed_main.c
+index a5eef1a..b7ad36b 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_main.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_main.c
+@@ -1372,7 +1372,7 @@ static void qed_fill_link(struct qed_hwfn *hwfn,
+ 
+ 	/* TODO - at the moment assume supported and advertised speed equal */
+ 	if_link->supported_caps = QED_LM_FIBRE_BIT;
+-	if (params.speed.autoneg)
++	if (link_caps.default_speed_autoneg)
+ 		if_link->supported_caps |= QED_LM_Autoneg_BIT;
+ 	if (params.pause.autoneg ||
+ 	    (params.pause.forced_rx && params.pause.forced_tx))
+@@ -1382,6 +1382,10 @@ static void qed_fill_link(struct qed_hwfn *hwfn,
+ 		if_link->supported_caps |= QED_LM_Pause_BIT;
+ 
+ 	if_link->advertised_caps = if_link->supported_caps;
++	if (params.speed.autoneg)
++		if_link->advertised_caps |= QED_LM_Autoneg_BIT;
++	else
++		if_link->advertised_caps &= ~QED_LM_Autoneg_BIT;
+ 	if (params.speed.advertised_speeds &
+ 	    NVM_CFG1_PORT_DRV_SPEED_CAPABILITY_MASK_1G)
+ 		if_link->advertised_caps |= QED_LM_1000baseT_Half_BIT |
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_mcp.h b/drivers/net/ethernet/qlogic/qed/qed_mcp.h
+index 5ae35d6..937496d 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_mcp.h
++++ b/drivers/net/ethernet/qlogic/qed/qed_mcp.h
+@@ -61,6 +61,7 @@ struct qed_mcp_link_params {
+ 
+ struct qed_mcp_link_capabilities {
+ 	u32 speed_capabilities;
++	bool default_speed_autoneg;	/* In Mb/s */
+ };
+ 
+ struct qed_mcp_link_state {
 -- 
 1.8.3.1
