@@ -1,40 +1,40 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH] iproute2: hide devices starting with period by default
-Date: Thu, 4 May 2017 17:15:33 +0200
-Message-ID: <0635d3bb-0d8d-7ab6-fb53-4d84f979a023@6wind.com>
-References: <027775d1-ef98-deda-1f8d-bb058d1e4c2f@cumulusnetworks.com>
- <20170223163035.0a49f04d@xeon-e3>
- <13cec1c2-88f4-e61d-02ee-dc01ccee7281@cumulusnetworks.com>
- <20170223.221257.795227595252531962.davem@redhat.com>
- <0a8e1cf0-9f30-2356-5168-a97abb86d5c2@cumulusnetworks.com>
-Reply-To: nicolas.dichtel@6wind.com
+From: Simon Horman <simon.horman@netronome.com>
+Subject: Re: [PATCH iproute] tc: Reflect HW offload status
+Date: Thu, 4 May 2017 17:17:21 +0200
+Message-ID: <20170504151720.GA19349@vergenet.net>
+References: <1493903715-29664-1-git-send-email-ogerlitz@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 8bit
-Cc: David Miller <davem@redhat.com>, stephen@networkplumber.org,
-        netdev@vger.kernel.org
-To: David Ahern <dsa@cumulusnetworks.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+        netdev@vger.kernel.org, Roi Dayan <roid@mellanox.com>,
+        Paul Blakey <paulb@mellanox.com>
+To: Or Gerlitz <ogerlitz@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f48.google.com ([74.125.82.48]:37881 "EHLO
-        mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754745AbdEDPP1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 4 May 2017 11:15:27 -0400
-Received: by mail-wm0-f48.google.com with SMTP id m123so19357765wma.0
-        for <netdev@vger.kernel.org>; Thu, 04 May 2017 08:15:26 -0700 (PDT)
-In-Reply-To: <0a8e1cf0-9f30-2356-5168-a97abb86d5c2@cumulusnetworks.com>
+Received: from mail-wm0-f53.google.com ([74.125.82.53]:36959 "EHLO
+        mail-wm0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932090AbdEDPR3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 4 May 2017 11:17:29 -0400
+Received: by mail-wm0-f53.google.com with SMTP id m123so19423737wma.0
+        for <netdev@vger.kernel.org>; Thu, 04 May 2017 08:17:28 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1493903715-29664-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 24/02/2017 à 16:52, David Ahern a écrit :
-> On 2/23/17 8:12 PM, David Miller wrote:
->> This really need to be a fundamental facility, so that it transparently
->> works for NetworkManager, router daemons, everything.  Not just iproute2
->> and "ls".
+On Thu, May 04, 2017 at 04:15:15PM +0300, Or Gerlitz wrote:
+> Currently there is no way of querying whether a filter is
+> offloaded to HW or not when using "both" policy (where none
+> of skip_sw or skip_hw flags are set by user-space).
 > 
-> I'll rebase my patch and send out as RFC.
+> Add two new flags, "in hw" and "not in hw" such that user
+> space can determine if a filter is actually offloaded to
+> hw or not. The "in hw" UAPI semantics was chosen so it's
+> similar to the "skip hw" flag logic.
 > 
-David, did you finally send those patches?
+> If none of these two flags are set, this signals running
+> over older kernel.
+> 
+> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+> Reviewed-by: Jiri Pirko <jiri@mellanox.com>
 
-
-Thank you,
-Nicolas
+Reviewed-by: Simon Horman <simon.horman@netronome.com>
