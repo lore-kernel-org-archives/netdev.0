@@ -1,46 +1,88 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [net-ipv4] question about arguments position
-Date: Thu, 04 May 2017 12:02:18 -0700
-Message-ID: <1493924538.22125.43.camel@perches.com>
-References: <20170504110755.Horde.9md-X4baf8TwOEKjGrXkelZ@gator4166.hostgator.com>
-         <20170504.124600.627647229351638856.davem@davemloft.net>
-         <1493920071.22125.37.camel@perches.com>
-         <20170504140015.Horde.iqqsROVYuFdJnC6P1dMPyBa@gator4166.hostgator.com>
+From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
+Subject: Re: [PATCH] aquantia: Fix "ethtool -S" crash when adapter down.
+Date: Thu, 4 May 2017 21:08:06 +0200
+Message-ID: <37304a98-c122-c360-882b-31db3f62c1bf@gmx.de>
+References: <90666578f043b366313ddd90ffad86de42d890f2.1493914743.git.pavel.belous@aquantia.com>
+ <0babf800-080c-96e0-4dbb-8d3fca3fb784@gmx.de>
+ <20170504.125113.569969253752966231.davem@davemloft.net>
+ <d20deac6-7010-c0e8-e4d8-7faa591e7306@aquantia.com>
+ <0efef5aa-c73d-ff16-a2ec-e63ad298ffa2@redhat.com>
+ <b039f869-2b3a-416f-2f52-f3efdf7b385a@aquantia.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
-        jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+Cc: netdev@vger.kernel.org
+To: Pavel Belous <pavel.belous@aquantia.com>,
+        David Arcari <darcari@redhat.com>,
+        David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0154.hostedemail.com ([216.40.44.154]:41009 "EHLO
-        smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1751515AbdEDTC3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 4 May 2017 15:02:29 -0400
-In-Reply-To: <20170504140015.Horde.iqqsROVYuFdJnC6P1dMPyBa@gator4166.hostgator.com>
+Received: from mout.gmx.net ([212.227.17.20]:59916 "EHLO mout.gmx.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754514AbdEDTI2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 4 May 2017 15:08:28 -0400
+In-Reply-To: <b039f869-2b3a-416f-2f52-f3efdf7b385a@aquantia.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2017-05-04 at 14:00 -0500, Gustavo A. R. Silva wrote:
-> Regarding the code comments, what about the following patch:
-[]
-> diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
-[]
-> @@ -389,6 +389,12 @@ static int sk_diag_fill(struct sock *sk, struct  
-> sk_buff *skb,
->                                    nlmsg_flags, unlh, net_admin);
->   }
+On 04.05.2017 20:37, Pavel Belous wrote:
+
 > 
-> +/*
-> + * Ignore the position of the arguments req->id.idiag_dport and
-> + * req->id.idiag_sport in both calls to inet_lookup() and inet6_lookup()
-> + * functions, once this is a locked in behavior exposed to user space.
-> + * Changing this will break things for people.
-> + */
->   struct sock *inet_diag_find_one_icsk(struct net *net,
->                                       struct inet_hashinfo *hashinfo,
->                                       const struct inet_diag_req_v2 *req)
+> Yes, even adapter is in the down state user can still see statistics from the HW.
+> For example (adapter is down):
+> 
+> $ ethtool -S enp2s0
+> NIC statistics:
+>      InPackets: 3237727
+>      InUCast: 3237214
+>      InMCast: 391
+>      InBCast: 122
+>      InErrors: 0
+>      OutPackets: 14157898
+>      OutUCast: 14157089
+>      OutMCast: 304
+>      OutBCast: 505
+>      InUCastOctects: 226714406
+>      OutUCastOctects: 10463156
+>      InMCastOctects: 58046
+>      OutMCastOctects: 44817
+>      InBCastOctects: 12857
+>      OutBCastOctects: 41626
+>      InOctects: 226785309
+>      OutOctects: 10549599
+>      InPacketsDma: 0
+>      OutPacketsDma: 16
+>      InOctetsDma: 0
+>      OutOctetsDma: 2396
+>      InDroppedDma: 0
+>      Queue[0] InPackets: 0
+>      Queue[0] OutPackets: 0
+>      Queue[0] InJumboPackets: 0
+>      Queue[0] InLroPackets: 0
+>      Queue[0] InErrors: 0
+>      Queue[1] InPackets: 0
+>      Queue[1] OutPackets: 0
+>      Queue[1] InJumboPackets: 0
+>      Queue[1] InLroPackets: 0
+>      Queue[1] InErrors: 0
+>      Queue[2] InPackets: 0
+>      Queue[2] OutPackets: 0
+>      Queue[2] InJumboPackets: 0
+>      Queue[2] InLroPackets: 0
+>      Queue[2] InErrors: 0
+>      Queue[3] InPackets: 0
+>      Queue[3] OutPackets: 0
+>      Queue[3] InJumboPackets: 0
+>      Queue[3] InLroPackets: 0
+>      Queue[3] InErrors: 0
+> 
+> Lino, David what do you think?
+> If you agree I can re-submit the patch (with fixed braces).
 > 
 
-Seems sensible.  Thanks.
+Well my objection was related to how the bug is fixed. If in the end we have a solution
+as suggested by David it would be even better, of course. I dont think that this is too
+hard to realize since it is only the queues stats that are missing. But if you prefer to 
+solve it in two steps, sure, no objections from my side :)
+
+Regards,
+Lino 
