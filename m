@@ -1,46 +1,43 @@
 From: Sudarsana Reddy Kalluru <sudarsana.kalluru@cavium.com>
-Subject: [PATCH net v2 3/3] qede: Fix possible misconfiguration of advertised autoneg value.
-Date: Thu, 4 May 2017 08:15:05 -0700
-Message-ID: <20170504151505.4407-4-sudarsana.kalluru@cavium.com>
-References: <20170504151505.4407-1-sudarsana.kalluru@cavium.com>
+Subject: [PATCH net v2 0/3] qed*: Bug fix series.
+Date: Thu, 4 May 2017 08:15:02 -0700
+Message-ID: <20170504151505.4407-1-sudarsana.kalluru@cavium.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <Yuval.Mintz@cavium.com>
+Cc: <netdev@vger.kernel.org>, <Yuval.Mintz@cavium.com>,
+        "Sudarsana Reddy Kalluru" <Sudarsana.Kalluru@cavium.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2nam02on0054.outbound.protection.outlook.com ([104.47.38.54]:55794
-        "EHLO NAM02-BL2-obe.outbound.protection.outlook.com"
+Received: from mail-co1nam03on0050.outbound.protection.outlook.com ([104.47.40.50]:45024
+        "EHLO NAM03-CO1-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1752687AbdEDPPg (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 4 May 2017 11:15:36 -0400
-In-Reply-To: <20170504151505.4407-1-sudarsana.kalluru@cavium.com>
+        id S1752780AbdEDPP3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 4 May 2017 11:15:29 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fail the configuration of advertised speed-autoneg value if the config
-update is not supported.
+From: Sudarsana Reddy Kalluru <Sudarsana.Kalluru@cavium.com>
 
-Signed-off-by: Sudarsana Reddy Kalluru <Sudarsana.Kalluru@cavium.com>
-Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
----
- drivers/net/ethernet/qlogic/qede/qede_ethtool.c | 5 +++++
- 1 file changed, 5 insertions(+)
+The series contains minor bug fixes for qed/qede drivers.
 
-diff --git a/drivers/net/ethernet/qlogic/qede/qede_ethtool.c b/drivers/net/ethernet/qlogic/qede/qede_ethtool.c
-index b22753c..172b292 100644
---- a/drivers/net/ethernet/qlogic/qede/qede_ethtool.c
-+++ b/drivers/net/ethernet/qlogic/qede/qede_ethtool.c
-@@ -493,6 +493,11 @@ static int qede_set_link_ksettings(struct net_device *dev,
- 	params.override_flags |= QED_LINK_OVERRIDE_SPEED_ADV_SPEEDS;
- 	params.override_flags |= QED_LINK_OVERRIDE_SPEED_AUTONEG;
- 	if (base->autoneg == AUTONEG_ENABLE) {
-+		if (!(current_link.supported_caps & QED_LM_Autoneg_BIT)) {
-+			DP_INFO(edev, "Auto negotiation is not supported\n");
-+			return -EOPNOTSUPP;
-+		}
-+
- 		params.autoneg = true;
- 		params.forced_speed = 0;
- 		QEDE_ETHTOOL_TO_DRV_CAPS(params.adv_speeds, cmd, advertising)
+Please consider applying it to 'net' branch.
+
+Changes from previous versions:
+-------------------------------
+v2: Removed the incorrect comment message.
+
+Sudarsana Reddy Kalluru (3):
+  qed*: Fix possible overflow for status block id field.
+  qed: Fix overriding of supported autoneg value.
+  qede: Fix possible misconfiguration of advertised autoneg value.
+
+ drivers/net/ethernet/qlogic/qed/qed_dev.c       | 11 +++++++----
+ drivers/net/ethernet/qlogic/qed/qed_dev_api.h   |  4 ++--
+ drivers/net/ethernet/qlogic/qed/qed_main.c      |  8 ++++++--
+ drivers/net/ethernet/qlogic/qed/qed_mcp.h       |  1 +
+ drivers/net/ethernet/qlogic/qede/qede_ethtool.c | 10 +++++++---
+ include/linux/qed/qed_if.h                      |  2 +-
+ 6 files changed, 24 insertions(+), 12 deletions(-)
+
 -- 
 1.8.3.1
