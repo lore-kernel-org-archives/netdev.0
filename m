@@ -1,30 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next] net: remove duplicate add_device_randomness() call
-Date: Thu, 04 May 2017 11:13:02 -0400 (EDT)
-Message-ID: <20170504.111302.1520073128399942830.davem@davemloft.net>
-References: <1493869242-65468-1-git-send-email-zhangshengju@cmss.chinamobile.com>
+Subject: Re: [PATCH] cfg80211: make RATE_INFO_BW_20 the default
+Date: Thu, 04 May 2017 11:13:33 -0400 (EDT)
+Message-ID: <20170504.111333.814726752020791317.davem@davemloft.net>
+References: <20170504064230.22058-1-johannes@sipsolutions.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, edumazet@google.com
-To: zhangshengju@cmss.chinamobile.com
+Cc: linux-wireless@vger.kernel.org, torvalds@linux-foundation.org,
+        netdev@vger.kernel.org, johannes.berg@intel.com
+To: johannes@sipsolutions.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:55796 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:55804 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752412AbdEDPNE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 4 May 2017 11:13:04 -0400
-In-Reply-To: <1493869242-65468-1-git-send-email-zhangshengju@cmss.chinamobile.com>
+        with ESMTP id S1751120AbdEDPNe (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 4 May 2017 11:13:34 -0400
+In-Reply-To: <20170504064230.22058-1-johannes@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
-Date: Thu,  4 May 2017 11:40:42 +0800
+From: Johannes Berg <johannes@sipsolutions.net>
+Date: Thu,  4 May 2017 08:42:30 +0200
 
-> Since register_netdevice() already call add_device_randomness() and
-> dev_set_mac_address() will call it after mac address change.
-> It's not necessary to call at device UP.
+> From: Johannes Berg <johannes.berg@intel.com>
 > 
-> Signed-off-by: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
+> Due to the way I did the RX bitrate conversions in mac80211 with
+> spatch, going setting flags to setting the value, many drivers now
+> don't set the bandwidth value for 20 MHz, since with the flags it
+> wasn't necessary to (there was no 20 MHz flag, only the others.)
+> 
+> Rather than go through and try to fix up all the drivers, instead
+> renumber the enum so that 20 MHz, which is the typical bandwidth,
+> actually has the value 0, making those drivers all work again.
+> 
+> If VHT was hit used with a driver not reporting it, e.g. iwlmvm,
+> this manifested in hitting the bandwidth warning in
+> cfg80211_calculate_bitrate_vht().
+> 
+> Reported-by: Linus Torvalds <torvalds@linux-foundation.org>
+> Signed-off-by: Johannes Berg <johannes.berg@intel.com>
 
-The net-next tree is closed, please resubmit this when the net-next
-tree opens back up.
+Johannes, would you like me to merge this in via my tree directly?
+
+Thanks.
