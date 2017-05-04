@@ -1,59 +1,80 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Why do we need MSG_SENDPAGE_NOTLAST?
-Date: Thu, 04 May 2017 11:32:56 -0700
-Message-ID: <1493922776.7796.20.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <VI1PR0502MB2957F149F915013F6813559FD4EA0@VI1PR0502MB2957.eurprd05.prod.outlook.com>
+From: Bart Van Assche <Bart.VanAssche-XdAiOPVOjttBDgjK7y7TUQ@public.gmane.org>
+Subject: Re: [RFC iproute2 0/8] RDMA tool
+Date: Thu, 4 May 2017 18:30:27 +0000
+Message-ID: <1493922625.2692.8.camel@sandisk.com>
+References: <20170504180216.7665-1-leon@kernel.org>
+         <1493921453.2692.6.camel@sandisk.com>
+         <20170504182542.GD22833@mtr-leonro.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        tls-fpga-sw-dev <tls-fpga-sw-dev@mellanox.com>,
-        Dave Watson <davejwatson@fb.com>
-To: Ilya Lesokhin <ilyal@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f53.google.com ([74.125.83.53]:34552 "EHLO
-        mail-pg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752210AbdEDSc6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 4 May 2017 14:32:58 -0400
-Received: by mail-pg0-f53.google.com with SMTP id v1so12762919pgv.1
-        for <netdev@vger.kernel.org>; Thu, 04 May 2017 11:32:58 -0700 (PDT)
-In-Reply-To: <VI1PR0502MB2957F149F915013F6813559FD4EA0@VI1PR0502MB2957.eurprd05.prod.outlook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: "jiri-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org" <jiri-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "ram.amrani-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org" <ram.amrani-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>,
+        "sagi-NQWnxTmZq1alnMjI0IkVqw@public.gmane.org" <sagi-NQWnxTmZq1alnMjI0IkVqw@public.gmane.org>,
+        "ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org" <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        "dennis.dalessandro-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org" <dennis.dalessandro-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+        "hch-jcswGhMUV9g@public.gmane.org" <hch-jcswGhMUV9g@public.gmane.org>,
+        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org" <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>,
+        "stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org" <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>,
+        "dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org" <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        "ariela-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org" <ariela-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+To: "leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org" <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170504182542.GD22833-U/DQcQFIOTAAJjI8aNfphQ@public.gmane.org>
+Content-Language: en-US
+Content-ID: <7201FA4E3F209A4A89B8DBF3FC36DCF2-+cFlbfsKLD6cE4WynfumptQqCkab/8FMAL8bYrjMMd8@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2017-05-04 at 17:03 +0000, Ilya Lesokhin wrote:
-> I don't understand the need for MSG_SENDPAGE_NOTLAST and I'm hoping
-> someone can enlighten me.
-> 
-> According to commit 35f9c09 ('tcp: tcp_sendpages() should call
-> tcp_push() once'):
-> "We need to call tcp_flush() at the end of the last page processed in
-> tcp_sendpages(), or else transmits can be deferred and future sends
-> stall."
-> 
-> I don't understand why we need to differentiate between the user
-> setting MSG_MORE 
-> and splice indicating that more data is going to be sent.
-> if the user passed MSG_MORE and didn't push any extra data, isn't it
-> the users fault? 
-> Do we need it because poorly written applications were broken when 
-> MSG_MORE was added to tcp_sendpage? Or is there a deeper reason?
-> 
+On Thu, 2017-05-04 at 21:25 +0300, Leon Romanovsky wrote:
+> On Thu, May 04, 2017 at 06:10:54PM +0000, Bart Van Assche wrote:
+> > On Thu, 2017-05-04 at 21:02 +0300, Leon Romanovsky wrote:
+> > > Following our discussion both in mailing list [1] and at the LPC 2016=
+ [2],
+> > > we would like to propose this RDMA tool to be part of iproute2 packag=
+e
+> > > and finally improve this situation.
+> >=20
+> > Hello Leon,
+> >=20
+> > Although I really appreciate your work: can you clarify why you would l=
+ike to
+> > add *RDMA* functionality to an *IP routing* tool? I haven't found any m=
+otivation
+> > for adding RDMA functionality to iproute2 in [1].
+>=20
+> We are planning to reuse the same infrastructure provided by iproute2,
+> like netlink parsing, access to distributions, same CLI and same standard=
+s.
+>=20
+> Right now, RDMA is already tightened to netdev: iWARP, RoCE, IPoIB, HFI-V=
+NIC.
+> Many drivers (mlx, qed, i40, cxgb) are sharing code between net and
+> RDMA.
+>=20
+> I do expect that iproute2 will be installed on every machine with any
+> type of connection, including IB and OPA.
+>=20
+> So I think that it is enough to be part of that suite and don't invent
+> our own for one specific tool.
 
-The answer lies to how splice() is working.
+Hello Leon,
 
-User can issue one splice without MSG_MORE semantic, right ?
+Sorry but to me that sounds like a weak argument for including RDMA functio=
+nality
+in iproute2. There is already a library for communication over netlink sock=
+ets,
+namely libnl. Is there functionality that is in iproute2 but not in libnl a=
+nd
+that is needed for the new tool? If so, have you considered to create a new
+library for that functionality?
 
-Still, we want an implicit MORE behavior for all individual pages, but
-the last one.
+Thanks,
 
-
-> The reason I'm asking is that we are working on a kernel TLS
-> implementation 
-> and I would like to know if we can coalesce multiple tls_sendpage
-> calls with MSG_MORE into a single
-> tls record or whether we must push out the record as soon as
-> MSG_SENDPAGE_NOTLAST is cleared?
-
-Make sure you handle partial writes (you want to coalesce 10 pages, but
-stack will only take 5 of them)
+Bart.=
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
