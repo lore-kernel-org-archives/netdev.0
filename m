@@ -1,44 +1,38 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: iproute2 build error due to sr-ipv6 lwtunnel
-Date: Thu, 04 May 2017 11:55:22 +0200
-Message-ID: <590AFA8A.30602@iogearbox.net>
-References: <590AF0C3.6070006@iogearbox.net> <3c0c0584-338d-47d0-76d4-e4408decc2c1@uclouvain.be>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH v2 net] xfrm: fix stack access out of bounds with
+ CONFIG_XFRM_SUB_POLICY
+Date: Thu, 4 May 2017 12:34:43 +0200
+Message-ID: <20170504103443.GU2649@secunet.com>
+References: <491a7eae3b945498515ecfb7a7963b19b405dd73.1493816960.git.sd@queasysnail.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, stephen@networkplumber.org
-To: David Lebrun <david.lebrun@uclouvain.be>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>, Herbert Xu <herbert@gondor.apana.org.au>
+To: Sabrina Dubroca <sd@queasysnail.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:33896 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751319AbdEDJzY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 4 May 2017 05:55:24 -0400
-In-Reply-To: <3c0c0584-338d-47d0-76d4-e4408decc2c1@uclouvain.be>
+Received: from a.mx.secunet.com ([62.96.220.36]:37542 "EHLO a.mx.secunet.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751869AbdEDKev (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 4 May 2017 06:34:51 -0400
+Content-Disposition: inline
+In-Reply-To: <491a7eae3b945498515ecfb7a7963b19b405dd73.1493816960.git.sd@queasysnail.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/04/2017 11:28 AM, David Lebrun wrote:
-> On 05/04/2017 11:13 AM, Daniel Borkmann wrote:
->> Hi David,
->>
->> I'm getting the following build error from e8493916a8ed ("iproute:
->> add support for SR-IPv6 lwtunnel encapsulation"). Reverting your
->> commit makes iproute2 build again for me. Please take a look.
->
-> Hi Daniel,
->
-> This is because linux/seg6.h does an include of linux/in6.h (cf kernel
-> commit ea3ebc73b46fbdb049dafd47543bb22efaa09c8e "uapi: fix linux/seg6.h
-> and linux/seg6_iptunnel.h userspace compilation errors"), and iproute2's
-> include/utils.h requires the system /usr/include/resolv.h, which itself
-> includes /usr/include/netinet/in.h, re-defining struct in6_addr.
->
-> However, netinet/in.h protects some struct definitions with #ifndef
-> __USE_KERNEL_IPV6_DEFS, which is explicitly defined in
-> iproute_lwtunnel.c, thus avoiding this specific issue.
->
-> What is your glibc version ?
+On Wed, May 03, 2017 at 04:43:19PM +0200, Sabrina Dubroca wrote:
+> When CONFIG_XFRM_SUB_POLICY=y, xfrm_dst stores a copy of the flowi for
+> that dst. Unfortunately, the code that allocates and fills this copy
+> doesn't care about what type of flowi (flowi, flowi4, flowi6) gets
+> passed. In multiple code paths (from raw_sendmsg, from TCP when
+> replying to a FIN, in vxlan, geneve, and gre), the flowi that gets
+> passed to xfrm is actually an on-stack flowi4, so we end up reading
+> stuff from the stack past the end of the flowi4 struct.
+> 
+> Since xfrm_dst->origin isn't used anywhere following commit
+> ca116922afa8 ("xfrm: Eliminate "fl" and "pol" args to
+> xfrm_bundle_ok()."), just get rid of it.  xfrm_dst->partner isn't used
+> either, so get rid of that too.
+> 
+> Fixes: 9d6ec938019c ("ipv4: Use flowi4 in public route lookup interfaces.")
+> Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
 
-Ok, I see, on one of my machines I have an old user space, but
-latest net/net-next kernel (+ installed kernel headers) and
-iproute2. glibc version there is 2.18.
+Applied to the ipsec tree, thanks Sabrina!
