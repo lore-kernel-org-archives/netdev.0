@@ -1,79 +1,62 @@
-From: Alexei Starovoitov <ast@fb.com>
-Subject: Re: [PATCH net-next] selftests/bpf: get rid of -D__x86_64__
-Date: Wed, 3 May 2017 20:30:22 -0700
-Message-ID: <d809baa4-c864-af99-38af-fbcb6637ca2b@fb.com>
-References: <20170503.095251.353611409224180200.davem@davemloft.net>
- <20170503.120634.1673036085707133455.davem@davemloft.net>
- <6a5fa930-cb76-8eee-94c7-7c5fe8fb8cdc@fb.com>
- <20170503.133512.310640909764585408.davem@davemloft.net>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: net/ipv6: GPF in rt6_device_match
+Date: Wed, 3 May 2017 20:55:31 -0700
+Message-ID: <CAM_iQpU8rBnJEk7NRdJ9bBan93BpjFPeVV7Yz9QSb0O-O+=BtQ@mail.gmail.com>
+References: <CAAeHK+yfX9ZtpFMTFXKAtjYE17MDBXMQJS_mH0b3=xTuv3jk9g@mail.gmail.com>
+ <CAM_iQpUtVZiKTxnUBYEPLQzJSK+G_=Be-uzwuqph6g2VPsZijw@mail.gmail.com>
+ <4ef76406-8e05-ccdf-fefb-dc47d56c71c9@gmail.com> <CAM_iQpVwBp=11c_SQgNxdONefHfZQiyzRwb2pOGgJVECytOzgg@mail.gmail.com>
+ <dece4ab2-86b0-1649-5e34-1a9fa1240792@gmail.com> <CAM_iQpVbcOL3BD6SkVAOFLVCX5q_OpO0vfYnwG6XE4vdJkiw5Q@mail.gmail.com>
+ <79157b41-2a13-6fda-ef31-c96f16850254@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <daniel@iogearbox.net>, <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:44576 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S932588AbdEDDaq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 3 May 2017 23:30:46 -0400
-In-Reply-To: <20170503.133512.310640909764585408.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Andrey Konovalov <andreyknvl@google.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        Kostya Serebryany <kcc@google.com>,
+        Eric Dumazet <edumazet@google.com>,
+        syzkaller <syzkaller@googlegroups.com>
+To: David Ahern <dsahern@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <79157b41-2a13-6fda-ef31-c96f16850254@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 5/3/17 10:35 AM, David Miller wrote:
-> From: Alexei Starovoitov <ast@fb.com>
-> Date: Wed, 3 May 2017 09:54:42 -0700
+On Wed, May 3, 2017 at 7:43 PM, David Ahern <dsahern@gmail.com> wrote:
+> On 5/3/17 5:35 PM, Cong Wang wrote:
+>> Ah, we need:
+>>
+>> @@ -4024,7 +4027,7 @@ static struct pernet_operations ip6_route_net_late_ops = {
+>>
+>>  static struct notifier_block ip6_route_dev_notifier = {
+>>         .notifier_call = ip6_route_dev_notify,
+>> -       .priority = 0,
+>> +       .priority = -10, /* Must be called after addrconf_notify!! */
+>>  };
+>>
 >
->> /usr/include/asm/types.h -> asm-generic/int-ll64.h
->> as far as I can see that should be the same on most archs.
->> Why doesn't it work for sparc?
 >
-> You can't assume anything about the kernel headers installed,
-> on my debian Sparc box /usr/include/asm/types.h is below.
->
-> They do things this way to facilitate multiarch building.  I think
-> it's pretty reasonable.
->
-> #ifndef _SPARC_TYPES_H
-> #define _SPARC_TYPES_H
-> /*
->  * This file is never included by application software unless
->  * explicitly requested (e.g., via linux/types.h) in which case the
->  * application is Linux specific so (user-) name space pollution is
->  * not a major issue.  However, for interoperability, libraries still
->  * need to be careful to avoid a name clashes.
->  */
->
-> #if defined(__sparc__)
->
-> #include <asm-generic/int-ll64.h>
->
-> #ifndef __ASSEMBLY__
->
-> typedef unsigned short umode_t;
->
-> #endif /* __ASSEMBLY__ */
->
-> #endif /* defined(__sparc__) */
+> It's not a notifier problem; the null_entry is created in ip6_route_init
+> which is an init function.
 
-if it was something like
-#ifdef __sparc__
-...
-#else
-#include_next <asm/types.h>
+Only init_net's null entry is created here.
 
-I would buy that debian folks indeed care about multi-arch, but
-what above does is making #include <linux/types.h> to be a nop
-for any cross-compiler on sparc that included it.
-Which is probably quite painful to debug as we found out.
-You're right that we cannot assume much about /usr/include craziness.
-In that sense adding __native_arch__ macro is also wrong, since
-it assumes sane /usr/include without inline asm or other things
-that clang for bpf arch can consume.
-In that sense the only way to be independent from arch dependent
-things in /usr/include is to put all arch specific headers
-into our own dir in tools/selftests/ (or may be tools/bpf/include)
-and point clang to that. I think the list of .h in there will be
-limited. Only things like linux/types.h and gnu/stubs.h,
-so it will be manageable.
-Thoughts?
+>
+> For network namespaces other than init_net, it is never initialized. See
+> ip6_route_net_init.
+
+I don't understand what you are talking about...
+
+It is obviously initialized in 3 places:
+
+1) The template itself, as we use memdup()
+2) Code around dst_init_metrics() in ip6_route_net_init()
+3) ip6_route_dev_notify(), which is supposed to initialize it after
+loopback registers (the order needs to fix, as shown in my patch)
+
+Why not add a printk and play with my patch to see the difference?
