@@ -1,121 +1,117 @@
-From: Gavin Shan <gwshan@linux.vnet.ibm.com>
-Subject: Re: [PATCH v4 net-next 06/10] net/ncsi: Ethtool operation to get
- NCSI hw statistics
-Date: Thu, 4 May 2017 10:55:58 +1000
-Message-ID: <20170504005558.GB16780@gwshan>
-References: <1493786681-27468-1-git-send-email-gwshan@linux.vnet.ibm.com>
- <1493786681-27468-7-git-send-email-gwshan@linux.vnet.ibm.com>
- <20170503124722.GE8029@lunn.ch>
- <20170503.091823.747316360571887178.davem@davemloft.net>
- <20170504000534.GA11287@gwshan>
- <20170504003452.GO8029@lunn.ch>
-Reply-To: Gavin Shan <gwshan@linux.vnet.ibm.com>
+From: Stefan Agner <stefan@agner.ch>
+Subject: Re: FEC on i.MX 7 transmit queue timeout
+Date: Wed, 03 May 2017 18:21:32 -0700
+Message-ID: <e366479239b66ba80415b5594def2369@agner.ch>
+References: <c6b66956c48f981a952048da6b2ddd54@agner.ch>
+ <ed24e51d-499f-597b-0c9f-7f180e257acb@nxp.com>
+ <e99d7c93b7819507c6448842015bf836@agner.ch>
+ <AM4PR0401MB2260EBCD552219D3402B68FEFF180@AM4PR0401MB2260.eurprd04.prod.outlook.com>
+ <86b63ee28acfff3426c4a0bf72d848c1@agner.ch>
+ <2bdd64ab-5644-e0a0-9bfe-b8dd2fca7abb@nxp.com>
+ <80191e7c9df5871cd450f13b9ea47a10@agner.ch>
+ <ab1fc814-4a81-9eb0-b20b-2cd325158ba8@nxp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Gavin Shan <gwshan@linux.vnet.ibm.com>,
-        David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-        joe@perches.com, kubakici@wp.pl, f.fainelli@gmail.com
-To: Andrew Lunn <andrew@lunn.ch>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: fugang.duan@freescale.com, festevam@gmail.com,
+        netdev@vger.kernel.org, netdev-owner@vger.kernel.org
+To: Andy Duan <fugang.duan@nxp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:56484 "EHLO
-        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1752375AbdEDA5C (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 3 May 2017 20:57:02 -0400
-Received: from pps.filterd (m0098420.ppops.net [127.0.0.1])
-        by mx0b-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v440rjJg040329
-        for <netdev@vger.kernel.org>; Wed, 3 May 2017 20:57:01 -0400
-Received: from e23smtp07.au.ibm.com (e23smtp07.au.ibm.com [202.81.31.140])
-        by mx0b-001b2d01.pphosted.com with ESMTP id 2a7cytks0c-1
-        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Wed, 03 May 2017 20:57:01 -0400
-Received: from localhost
-        by e23smtp07.au.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-        for <netdev@vger.kernel.org> from <gwshan@linux.vnet.ibm.com>;
-        Thu, 4 May 2017 10:56:58 +1000
-Received: from d23av05.au.ibm.com (d23av05.au.ibm.com [9.190.234.119])
-        by d23relay07.au.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id v440ulgp4325674
-        for <netdev@vger.kernel.org>; Thu, 4 May 2017 10:56:56 +1000
-Received: from d23av05.au.ibm.com (localhost [127.0.0.1])
-        by d23av05.au.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id v440uNOf004733
-        for <netdev@vger.kernel.org>; Thu, 4 May 2017 10:56:23 +1000
-Content-Disposition: inline
-In-Reply-To: <20170504003452.GO8029@lunn.ch>
+Received: from mail.kmu-office.ch ([178.209.48.109]:47316 "EHLO
+        mail.kmu-office.ch" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752678AbdEDBV7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 3 May 2017 21:21:59 -0400
+In-Reply-To: <ab1fc814-4a81-9eb0-b20b-2cd325158ba8@nxp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 04, 2017 at 02:34:52AM +0200, Andrew Lunn wrote:
->On Thu, May 04, 2017 at 10:05:34AM +1000, Gavin Shan wrote:
->> On Wed, May 03, 2017 at 09:18:23AM -0400, David Miller wrote:
->> >From: Andrew Lunn <andrew@lunn.ch>
->> >Date: Wed, 3 May 2017 14:47:22 +0200
->> >
->> >> On Wed, May 03, 2017 at 02:44:37PM +1000, Gavin Shan wrote:
->> >>> This adds ethtool command (ETHTOOL_GNCSISTATS) to retrieve the
->> >>> NCSI hardware statistics.
->> >> 
->> >> Hi Gavin
->> >> 
->> >> I've not been following this patchset, so maybe i'm about to ask a
->> >> question which has already been asked and answered.
->> >> 
->> >> Why cannot use just use ethtool -S for this?
->> >
->> >Indeed, when I said to use ethtool for these NCSI hw stats I meant
->> >that the "ethtool -S" be used, not some new ethtool command.
->> >
->> 
->> Thanks for the comments. Feel free to ask any questions which would
->> make the code clear and better. There are couple of factors I thought
->> separate command is better than ETHTOOL_GSTATS: The statistic items from
->> ETHTOOL_GSTATS are variable, meaning the kernel needs provide the layout
->> of the statistic items via ETHTOOL_GSSET_INFO and ETHTOOL_GSTRINGS.
->> NCSI HW statistics aren't following this and their layout is fixed.
->
->That does not stop you from using it for a fixed layout. And what
->happens when a new version of the standard is released with more
->statistics?
->
+Hi Andy,
 
-Correct, I don't see the difference between NCSI spec 1.01 and 1.1.0.
-So I assume it's pretty stable, but still have potential to change.
+On 2017-04-20 19:48, Andy Duan wrote:
+> On 2017年04月20日 07:15, Stefan Agner wrote:
+>> I tested again with imx6sx-fec compatible string. I could reproduce it
+>> on a Colibri with i.MX 7Dual. But not always: It really depends whether
+>> queue 2 is counting up or not. Just after boot, I check /proc/interrupts
+>> twice, if queue 2 is counting it will happen!
+>>
+>> But if only queue 0 is mostly in use, then it seems to work just fine.
+> If your case is only running best effort like tcp/udp, you can re-set 
+> the "fsl,num-tx-queues" and "fsl,num-rx-queues" to 1 in board dts file.
+> Other two queues are for AVB audio/video queues, they have high priority 
+> than queue 0. If running iperf tcp test on the three queues, then
+> the tcp segment may be out-of-order that cause net watchdog timeout.
+>>
+>> I also tried i.MX 7Dual SabreSD here, and the same thing. I had to
+>> reboot 3 times, then queue 2 was counting:
+>>   57:          8     GIC-0 150 Level     30be0000.ethernet
+>>   58:      20137     GIC-0 151 Level     30be0000.ethernet
+>>   59:       9269     GIC-0 152 Level     30be0000.ethernet
+>>
+>> It took me about 40 minutes on Sabre until it happened, and I had to
+>> force it using iperf, but then I got the ring dumps:
+> My board had ran more than 47 hours with nfs rootfs in 4.11.0-rc6, but 
+> not running iperf.
+> I am testing with iperf.
 
-I agree to collect NCSI HW statistic with ETHTOOL_GSTATS as I said
-in another thread.
+Any update on this issue?
 
->> Besides, statistics for ETHTOOL_GSTATS are maintained in local MAC,
->> but NCSI HW statistics are collected from NIC on far-end. So they're
->> different from this point. 
->
->You might want to take a look at what is happening with Ethernet
->switches. Again, we have two sets of statistics for each port on the
->switch. We have the statistics from the hardware, and statistics from
->the software. Frames that come in one interface and the hardware
->forwards out another interface are not seen by the software. But
->frames which originate/terminate in the host, or the switch does not
->know what to do with and so are passed to the host, are seen by the
->software. Mellanox can tell you more. Your local and remote are not
->that different.
->
+When using iperf (server) on the board with Linux 4.11 the issue appears
+within a few iperf iterations on a Sabre (TO 1.2, Board Rev C, if that
+matters)...
 
-Yeah, it makes sense. Thanks for making an example here.
-
->> Lastly, the NCSI software statistics needs separate command. It'd
->> better to have separate command for HW statistics as well, to make
->> things consistent.
->
->Are software statistics defined in DSP0222? Since they are software, i
->kind of expect you want the flexibility to add more later. The
->ETHTOOL_GSSET_INFO and ETHTOOL_GSTRINGS gives you that flexibility,
->without having to change ethtool.
->
-
-No, they're purely software implementation, not defined in DSP0222.
-These statistics count the NCSI packets seen by software, not hardware.
-It's used for diagnosis.
-
-It's a nice suggestion to convey SW statistic with ETHTOOL_GSTATS,
-ETHTOOL_GSSET_INFO and ETHTOOL_GSTRINGS, for better flexibility. I'll
-follow this in next respin.
-
-Cheers,
-Gavin
+root@colibri-imx7:~# iperf -s
+------------------------------------------------------------
+Server listening on TCP port 5001
+TCP window size: 85.3 KByte (default)
+------------------------------------------------------------
+[  4] local 192.168.10.70 port 5001 connected with 192.168.10.1 port
+60524
+random: crng init done
+[ ID] Interval       Transfer     Bandwidth
+[  4]  0.0-10.0 sec  1.06 GBytes   909 Mbits/sec
+[  5] local 192.168.10.70 port 5001 connected with 192.168.10.1 port
+60528
+[  5]  0.0-10.0 sec  1.07 GBytes   919 Mbits/sec
+[  4] local 192.168.10.70 port 5001 connected with 192.168.10.1 port
+60562
+------------[ cut here ]------------
+WARNING: CPU: 0 PID: 0 at net/sched/sch_generic.c:316
+dev_watchdog+0x248/0x24c
+NETDEV WATCHDOG: eth0 (fec): transmit queue 1 timed out
+Modules linked in:
+CPU: 0 PID: 0 Comm: swapper/0 Not tainted 4.11.0 #360
+Hardware name: Freescale i.MX7 Dual (Device Tree)
+[<c0226930>] (unwind_backtrace) from [<c0222ffc>] (show_stack+0x10/0x14)
+[<c0222ffc>] (show_stack) from [<c04d4f78>] (dump_stack+0x78/0x8c)
+[<c04d4f78>] (dump_stack) from [<c0236b38>] (__warn+0xe8/0x100)
+[<c0236b38>] (__warn) from [<c0236b88>] (warn_slowpath_fmt+0x38/0x48)
+[<c0236b88>] (warn_slowpath_fmt) from [<c0806154>]
+(dev_watchdog+0x248/0x24c)
+[<c0806154>] (dev_watchdog) from [<c028a9a0>] (call_timer_fn+0x28/0x98)
+[<c028a9a0>] (call_timer_fn) from [<c028aab0>] (expire_timers+0xa0/0xac)
+[<c028aab0>] (expire_timers) from [<c028ab58>]
+(run_timer_softirq+0x9c/0x194)
+[<c028ab58>] (run_timer_softirq) from [<c023b110>]
+(__do_softirq+0x114/0x234)
+[<c023b110>] (__do_softirq) from [<c023b4fc>] (irq_exit+0xcc/0x108)
+[<c023b4fc>] (irq_exit) from [<c027a1a0>]
+(__handle_domain_irq+0x80/0xec)
+[<c027a1a0>] (__handle_domain_irq) from [<c0201544>]
+(gic_handle_irq+0x48/0x8c)
+[<c0201544>] (gic_handle_irq) from [<c0223ab8>] (__irq_svc+0x58/0x8c)
+Exception stack(0xc1001f28 to 0xc1001f70)
+1f20:                   00000001 00000000 00000000 c0230060 c1000000
+c1003d80
+1f40: c1003d34 c0e72f50 c0bd9a04 c1001f80 00000000 00000000 0000320a
+c1001f78
+1f60: c022070c c0220710 600e0013 ffffffff
+[<c0223ab8>] (__irq_svc) from [<c0220710>] (arch_cpu_idle+0x38/0x3c)
+[<c0220710>] (arch_cpu_idle) from [<c026f4e0>] (do_idle+0x170/0x204)
+[<c026f4e0>] (do_idle) from [<c026f82c>] (cpu_startup_entry+0x18/0x1c)
+[<c026f82c>] (cpu_startup_entry) from [<c0e00c88>]
+(start_kernel+0x394/0x3a0)
+---[ end trace 86a38600d1b9e2a5 ]---
+fec 30be0000.ethernet eth0: TX ring dump
+Nr     SC     addr       len  SKB
+  0    0x1c00 0x00000000   42   (null)
+  1  H 0x1c00 0x00000000   86   (null)
