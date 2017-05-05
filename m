@@ -1,43 +1,53 @@
-From: DESBRUS Maxime <maxime.desbrus@thalesgroup.com>
-Subject: Question about packet_mmap & huge pages
-Date: Fri, 5 May 2017 18:00:17 +0200
-Message-ID: <6C26BDBD2FD19B418E20F4A951DDC74A17CDD18778@THSONEA01CMS08P.one.grp>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+From: Vladis Dronov <vdronov@redhat.com>
+Subject: [PATCH] misplaced EXPORT_SYMBOL_GPL(ping_hash) in net/ipv4/ping.c
+Date: Fri,  5 May 2017 18:17:16 +0200
+Message-ID: <20170505161716.6752-1-vdronov@redhat.com>
+Cc: Vladis Dronov <vdronov@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from thsbbfxrt02p.thalesgroup.com ([192.93.158.29]:56002 "EHLO
-        thsbbfxrt02p.thalesgroup.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752142AbdEEQFi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 5 May 2017 12:05:38 -0400
-Received: from thsbbfxrt02p.thalesgroup.com (localhost [127.0.0.1])
-        by localhost (Postfix) with SMTP id 3wKGnb4d8Yz8Lf
-        for <netdev@vger.kernel.org>; Fri,  5 May 2017 18:00:19 +0200 (CEST)
-Content-Language: fr-FR
+Received: from mx1.redhat.com ([209.132.183.28]:34860 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750753AbdEEQR3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 5 May 2017 12:17:29 -0400
+Received: from smtp.corp.redhat.com (int-mx05.intmail.prod.int.phx2.redhat.com [10.5.11.15])
+        (using TLSv1.2 with cipher AECDH-AES256-SHA (256/256 bits))
+        (No client certificate requested)
+        by mx1.redhat.com (Postfix) with ESMTPS id 8AE7F8047D
+        for <netdev@vger.kernel.org>; Fri,  5 May 2017 16:17:28 +0000 (UTC)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+Move misplaced EXPORT_SYMBOL_GPL(ping_hash) to a proper place.
 
-I am currently evaluating various 0-copy packet capture frameworks on Linux.
-One of them is packet mmap, provided by the mainline Linux kernel.
+Signed-off-by: Vladis Dronov <vdronov@redhat.com>
+---
 
-I want to capture on one network interface with several raw sockets, each being used in a dedicated thread (to spread the processing load on several cores).
-My first test program works well, however I am now trying to gain even more performance by mapping RX rings inside 1GB huge pages (other 0-copy network frameworks like DPDK do this).
+Actually, this is so small and unimportant (it just hurts my perfectionism),
+so does not worth a separate patch. Please, feel free to make it a part of
+some patch of yours.
 
-My first question is: is it possible to map the rx ring of packet_mmap using huge pages, with the current Linux kernel?
-If it is possible, what specific flags must be passed to mmap?
+ net/ipv4/ping.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Here is what I tried so far:
-* Calling mmap on the socket file descriptor (to set the rx ring address) with MAP_SHARED | MAP_HUGETLB | MAP_HUGE_1GB
-=> mmap returns error EINVAL
-* Calling mmap on the socket file descriptor (to set the rx ring address) with MAP_SHARED | MAP_ANONYMOUS | MAP_HUGETLB | MAP_HUGE_1GB
-=> mmap succeeds and a huge page is allocated, but the memory area is all zero and does not contain the expected ring structures. I suspect the MAP_ANONYMOUS flag makes it ignore the socket file descriptor, and the mapping is thus unrelated to the ring.
-* Calling mmap first to map a huge page area by opening a file on a hugetlbfs mount, and then calling mmap on the socket file descriptor (to set the ring address) with an address inside the previously mapped area
-=> the address hint is ignored, and thus the ring is not mapped inside a huge page
-
-I am using "tpacket_v3" packet_mmap version and my kernel version is based on 4.8 (on Ubuntu 16.04). 
-I reserve huge pages with the kernel boot command line, as recommended in Documentation/vm/hugetlbpage.txt.
-
-Thank you in advance for your guidance
+diff --git a/net/ipv4/ping.c b/net/ipv4/ping.c
+index ccfbce1..19f0b7b 100644
+--- a/net/ipv4/ping.c
++++ b/net/ipv4/ping.c
+@@ -71,7 +71,6 @@ static inline u32 ping_hashfn(const struct net *net, u32 num, u32 mask)
+ 	pr_debug("hash(%u) = %u\n", num, res);
+ 	return res;
+ }
+-EXPORT_SYMBOL_GPL(ping_hash);
+ 
+ static inline struct hlist_nulls_head *ping_hashslot(struct ping_table *table,
+ 					     struct net *net, unsigned int num)
+@@ -152,6 +151,7 @@ int ping_hash(struct sock *sk)
+ 
+ 	return 0;
+ }
++EXPORT_SYMBOL_GPL(ping_hash);
+ 
+ void ping_unhash(struct sock *sk)
+ {
+-- 
+2.9.3
