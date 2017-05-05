@@ -1,58 +1,69 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] mac80211: Create ieee80211_if_process_skb from
- ieee80211_iface_work
-Date: Fri, 05 May 2017 02:47:56 -0700
-Message-ID: <1493977676.31950.16.camel@perches.com>
-References: <401d68b9015dc036589c99a26ef4664000cc821e.1493919003.git.joe@perches.com>
-         <1493975178.2500.0.camel@sipsolutions.net>
-         <1493976873.31950.15.camel@perches.com>
-         <1493977157.2500.2.camel@sipsolutions.net>
+From: Amir Goldstein <amir73il@gmail.com>
+Subject: Re: [PATCH v1] ACPI: Switch to use generic UUID API
+Date: Fri, 5 May 2017 12:50:31 +0300
+Message-ID: <CAOQ4uxjErce01+xyDnM=nCJS+avQ4g6hQVvH3fVotj7Ws2moCQ@mail.gmail.com>
+References: <20170504092151.88646-1-andriy.shevchenko@linux.intel.com>
+ <CAPcyv4jzD0MEBRNTwTokVzgdDWas682ArUjRAGT1hp=QRE8Pjg@mail.gmail.com>
+ <CAOQ4uxjha8_2_HwgdgBN=G-vNytAW5Gk155E9z8OWyFiGNEZVw@mail.gmail.com> <1493976265.30052.21.camel@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 8bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1493977157.2500.2.camel@sipsolutions.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Dan Williams <dan.j.williams@intel.com>,
+        Linux ACPI <linux-acpi@vger.kernel.org>,
+        tpmdd-devel@lists.sourceforge.net, intel-gfx@lists.freedesktop.org,
+        nouveau@lists.freedesktop.org, linux-input@vger.kernel.org,
+        iommu@lists.linux-foundation.org, linux-mmc@vger.kernel.org,
+        Netdev <netdev@vger.kernel.org>, linux-pci@vger.kernel.org,
+        USB list <linux-usb@vger.kernel.org>,
+        alsa-devel@alsa-project.org,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "Rafael J . Wysocki" <rjw@rjwysocki.net>,
+        Mika Westerberg <mika.westerberg@linux.intel.com>,
+        Borislav Petkov <bp@suse.de>,
+        Jarkko Sakkinen <jarkko.sakkinen@linux.intel.com>,
+        Jani Nikula <jani.nikula@linux.intel.com>,
+        Ben Skeggs <bskeggs@redhat.com>,
+        Benjamin Tissoires <benjamin.tissoires@redhat.com>,
+        Joerg
+To: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Return-path: <linux-input-owner@vger.kernel.org>
+In-Reply-To: <1493976265.30052.21.camel@linux.intel.com>
+Sender: linux-input-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2017-05-05 at 11:39 +0200, Johannes Berg wrote:
-> On Fri, 2017-05-05 at 02:34 -0700, Joe Perches wrote:
-> > On Fri, 2017-05-05 at 11:06 +0200, Johannes Berg wrote:
-> > > > o Use explicit casts to proper types instead of casts to (void *)
-> > > >   and have the compiler do the implicit cast
-> > > 
-> > > I see no advantage in this, why? All it does is make the code
-> > > longer,
-> > > and if anything changes, you have to change it in multiple places
-> > > now.
-> > 
-> > It makes use of the casted to types consistent within net/mac80211
-> > 
-> > Here are the current uses.  I changed iface .c to match the others.
-> 
-> Well, OK. I'd rather change the others I guess, don't really see the
-> point.
-> 
-> > $ grep -P --include=*.[ch] "\((\w++\s*){1,2}\s*\*\).*skb->cb" net/mac80211
-> > net/mac80211/iface.c:			ra_tid = (void *)&skb->cb;
-> > net/mac80211/iface.c:			ra_tid = (void *)&skb->cb;
-> > net/mac80211/iface.c:			rx_agg = (void *)&skb->cb;
-> > net/mac80211/iface.c:			rx_agg = (void *)&skb->cb;
-> > net/mac80211/agg-tx.c:	ra_tid = (struct ieee80211_ra_tid *) &skb->cb;
-> > net/mac80211/agg-tx.c:	ra_tid = (struct ieee80211_ra_tid *) &skb->cb;
-> > net/mac80211/agg-rx.c:	rx_agg = (struct ieee80211_rx_agg *) &skb->cb;
-> 
-> It's really just these three that are related to the iface.c ones
-> anyway.
-> 
-> > net/mac80211/mlme.c:	struct ieee80211_rx_status *rx_status = (void *) skb->cb;
-> > net/mac80211/mlme.c:	rx_status = (struct ieee80211_rx_status *) skb->cb;
-> > 
-> 
-> These should be using IEEE80211_SKB_RXCB(skb) :)
+On Fri, May 5, 2017 at 12:24 PM, Andy Shevchenko
+<andriy.shevchenko@linux.intel.com> wrote:
+> On Fri, 2017-05-05 at 10:06 +0300, Amir Goldstein wrote:
+[...]
+>> I think with this semantic change, our proposals can reach common
+>> grounds
+>> and satisfy a wider group of users (i.e. filesystem developers).
+>>
+>> Christoph also suggested a similar treatment to typedef guid_t to
+>> struct uuid_le.
+>> I don't know the use cases enough to comment on that.
+>
+> We may go this way. But I wouldn't prevent current users of uuid_le to
+> continue using it without conversion (it may be done case by case after
+> we settle an API)
+>
+> So, summarize what Christoph said it will look like
+>
+> typedef uuid_be uuid_t;
+> typedef uuid_le guid_t
+>
+> uuid_cmp() / uuid_copy() / uuid_to_bin() / etc
+> guid_cmp() / guid_copy() / guid_to_bin() / etc
+>
+> Correct? Christoph?
+>
 
-patches welcome... :)
+That looks right to me.
+
+To complete the picture for folks not cc'ed on my patches,
+xfs use case suggests there is also justification for the additional helpers:
+
+uuid_is_null() / uuid_equal()
+guid_is_null() / guid_equal()
+
+Cheers,
+Amir.
