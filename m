@@ -1,60 +1,87 @@
-From: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH v5 00/20] net-next: stmmac: add dwmac-sun8i ethernet
- driver
-Date: Fri, 5 May 2017 14:13:54 +0200
-Message-ID: <20170505121354.GA14023@Red>
-References: <20170501124520.3769-1-clabbe.montjoie@gmail.com>
+From: Andrey Konovalov <andreyknvl@google.com>
+Subject: Re: net/key: slab-out-of-bounds in pfkey_compile_policy
+Date: Fri, 5 May 2017 14:18:01 +0200
+Message-ID: <CAAeHK+xjbBPqHgBwBEK8=p7zUNCA144GqDSJMwUvz-1NFNQWxw@mail.gmail.com>
+References: <CAAeHK+xqxvEWMXS9sDNi2seUqFzJkijKJhivB8JDehpCJvBAaw@mail.gmail.com>
+ <20170505091105.GA9813@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-        robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
-        maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org, wens-jdAy2FN1RRM@public.gmane.org,
-        linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, catalin.marinas-5wv7dgnIgG8@public.gmane.org, will.deacon-5wv7dgnIgG8@public.gmane.org
-To: peppe.cavallaro-qxv4g6HH51o@public.gmane.org, alexandre.torgue-qxv4g6HH51o@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20170501124520.3769-1-clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+        "David S. Miller" <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        Kostya Serebryany <kcc@google.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Steffen Klassert <steffen.klassert@secunet.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170505091105.GA9813@secunet.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, May 01, 2017 at 02:45:00PM +0200, Corentin Labbe wrote:
-> Hello
-> 
-> This patch series add the driver for dwmac-sun8i which handle the Ethernet MAC
-> present on Allwinner H3/H5/A83T/A64 SoCs.
-> 
-> This driver is the continuation of the sun8i-emac driver.
-> During the development, it appeared that in fact the hardware was a modified
-> version of some dwmac.
-> So the driver is now written as a glue driver for stmmac.
-> 
-> It supports 10/100/1000 Mbit/s speed with half/full duplex.
-> It can use an internal PHY (MII 10/100) or an external PHY
-> via RGMII/RMII.
-> 
-> This patch series enable the driver only for the H3/A64/H5 SoC since A83T
-> doesn't have the necessary clocks present in mainline.
-> 
-> The driver have been tested on the following boards:
-> - H3 Orange PI PC, BananaPI-M2+
-> - A64 Pine64, BananaPi-M64
-> - A83T BananaPI-M3
-> 
-> The first two patchs are some mandatory changes for letting dwmac-sun8i be used.
-> The following three patchs add the driver and its documentation.
-> The remaining are DT patch enabling it.
-> 
-> Regards
-> Corentin Labbe
-> 
+On Fri, May 5, 2017 at 11:11 AM, Steffen Klassert
+<steffen.klassert@secunet.com> wrote:
+> On Tue, May 02, 2017 at 06:45:03PM +0200, Andrey Konovalov wrote:
+>> Hi,
+>>
+>> I've got the following error report while fuzzing the kernel with syzkaller.
+>>
+>> On commit d3b5d35290d729a2518af00feca867385a1b08fa (4.11).
+>>
+>> A reproducer and .config are attached.
+>>
+>> ==================================================================
+>> BUG: KASAN: slab-out-of-bounds in pfkey_compile_policy+0x8e6/0xd40 at
+>> addr ffff88006701f798
+>> Read of size 1280 by task a.out/4181
+>
+>
+> This bug was introduced twelve years ago...
+>
+> This patch is based just on code review, I don't have an option to
+> function test this. But I see that we now exit with -EINVAL before the
+> memcpy that causes the slab-out-of-bounds when using your reproducer,
+> so it should at least fix the bug.
 
-Hello Giuseppe
+Hi Steffen,
 
-Since this serie have only one minor comment on documentation, could you give me your view about it ?
+This patch fixes the issue for me.
 
-Regards
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks!
+
+Tested-by: Andrey Konovalov <andreyknvl@google.com>
+
+>
+> Subject: [PATCH RFC] af_key: Fix slab-out-of-bounds in pfkey_compile_policy.
+>
+> The sadb_x_sec_len is stored in the unit 'byte divided by eight'.
+> So we have to multiply this value by eight before we can do
+> size checks. Otherwise we may get a slab-out-of-bounds when
+> we memcpy the user sec_ctx.
+>
+> Fixes: df71837d502 ("[LSM-IPSec]: Security association restriction.")
+> Reported-by: Andrey Konovalov <andreyknvl@google.com>
+> Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+> ---
+>  net/key/af_key.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff --git a/net/key/af_key.c b/net/key/af_key.c
+> index c1950bb..512dc43 100644
+> --- a/net/key/af_key.c
+> +++ b/net/key/af_key.c
+> @@ -3285,7 +3285,7 @@ static struct xfrm_policy *pfkey_compile_policy(struct sock *sk, int opt,
+>                 p += pol->sadb_x_policy_len*8;
+>                 sec_ctx = (struct sadb_x_sec_ctx *)p;
+>                 if (len < pol->sadb_x_policy_len*8 +
+> -                   sec_ctx->sadb_x_sec_len) {
+> +                   sec_ctx->sadb_x_sec_len*8) {
+>                         *dir = -EINVAL;
+>                         goto out;
+>                 }
+> --
+> 2.7.4
+>
+>
