@@ -1,113 +1,38 @@
-From: Andy Duan <fugang.duan@nxp.com>
-Subject: Re: FEC on i.MX 7 transmit queue timeout
-Date: Fri, 5 May 2017 02:44:26 +0000
-Message-ID: <46a27329-36df-1eaf-1321-24db037842fe@nxp.com>
-References: <c6b66956c48f981a952048da6b2ddd54@agner.ch>
- <ed24e51d-499f-597b-0c9f-7f180e257acb@nxp.com>
- <e99d7c93b7819507c6448842015bf836@agner.ch>
- <AM4PR0401MB2260EBCD552219D3402B68FEFF180@AM4PR0401MB2260.eurprd04.prod.outlook.com>
- <86b63ee28acfff3426c4a0bf72d848c1@agner.ch>
- <2bdd64ab-5644-e0a0-9bfe-b8dd2fca7abb@nxp.com>
- <80191e7c9df5871cd450f13b9ea47a10@agner.ch>
- <ab1fc814-4a81-9eb0-b20b-2cd325158ba8@nxp.com>
- <e366479239b66ba80415b5594def2369@agner.ch>
- <AM4PR0401MB2260F011313883C522EA7684FFEA0@AM4PR0401MB2260.eurprd04.prod.outlook.com>
- <e044b850a90e7112028cc12977d15cf2@agner.ch>
- <e739d361-c20f-0de1-cdd1-c9aa13a0d11a@nxp.com>
- <110a7a48649cfcbbee46340c230e9008@agner.ch>
+From: "Anand H. Krishnan" <anandhkrishnan@gmail.com>
+Subject: Bug in skb_gro_receive - possible bad page state problems?
+Date: Fri, 5 May 2017 08:57:35 +0530
+Message-ID: <CACeb84vFNfPcC=FJ3HEjraZ02Zi2igbK0Q=M3=pUw7AKG=u3PQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "festevam@gmail.com" <festevam@gmail.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "netdev-owner@vger.kernel.org" <netdev-owner@vger.kernel.org>
-To: Stefan Agner <stefan@agner.ch>
+Content-Type: text/plain; charset=UTF-8
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-eopbgr40047.outbound.protection.outlook.com ([40.107.4.47]:12480
-        "EHLO EUR03-DB5-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1753556AbdEECo3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 4 May 2017 22:44:29 -0400
-In-Reply-To: <110a7a48649cfcbbee46340c230e9008@agner.ch>
-Content-Language: en-US
-Content-ID: <FC13A11A1E35FC46BCAB734B71C8FD70@eurprd04.prod.outlook.com>
+Received: from mail-qt0-f170.google.com ([209.85.216.170]:36170 "EHLO
+        mail-qt0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752224AbdEED1g (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 4 May 2017 23:27:36 -0400
+Received: by mail-qt0-f170.google.com with SMTP id m91so24936430qte.3
+        for <netdev@vger.kernel.org>; Thu, 04 May 2017 20:27:36 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-T24gMjAxN+W5tDA15pyIMDXml6UgMTA6MDksIFN0ZWZhbiBBZ25lciB3cm90ZToNCj4gT24gMjAx
-Ny0wNS0wNCAxOTowMywgQW5keSBEdWFuIHdyb3RlOg0KPj4gT24gMjAxN+W5tDA15pyIMDXml6Ug
-MDU6MzYsIFN0ZWZhbiBBZ25lciB3cm90ZToNCj4+PiBPbiAyMDE3LTA1LTAzIDIwOjA4LCBBbmR5
-IER1YW4gd3JvdGU6DQo+Pj4+IEZyb206IFN0ZWZhbiBBZ25lciA8c3RlZmFuQGFnbmVyLmNoPiBT
-ZW50OiBUaHVyc2RheSwgTWF5IDA0LCAyMDE3IDk6MjIgQU0NCj4+Pj4+IFRvOiBBbmR5IER1YW4g
-PGZ1Z2FuZy5kdWFuQG54cC5jb20+DQo+Pj4+PiBDYzogZnVnYW5nLmR1YW5AZnJlZXNjYWxlLmNv
-bTsgZmVzdGV2YW1AZ21haWwuY29tOw0KPj4+Pj4gbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgbmV0
-ZGV2LW93bmVyQHZnZXIua2VybmVsLm9yZw0KPj4+Pj4gU3ViamVjdDogUmU6IEZFQyBvbiBpLk1Y
-IDcgdHJhbnNtaXQgcXVldWUgdGltZW91dA0KPj4+Pj4NCj4+Pj4+IEhpIEFuZHksDQo+Pj4+Pg0K
-Pj4+Pj4gT24gMjAxNy0wNC0yMCAxOTo0OCwgQW5keSBEdWFuIHdyb3RlOg0KPj4+Pj4+IE9uIDIw
-MTflubQwNOaciDIw5pelIDA3OjE1LCBTdGVmYW4gQWduZXIgd3JvdGU6DQo+Pj4+Pj4+IEkgdGVz
-dGVkIGFnYWluIHdpdGggaW14NnN4LWZlYyBjb21wYXRpYmxlIHN0cmluZy4gSSBjb3VsZCByZXBy
-b2R1Y2UNCj4+Pj4+Pj4gaXQgb24gYSBDb2xpYnJpIHdpdGggaS5NWCA3RHVhbC4gQnV0IG5vdCBh
-bHdheXM6IEl0IHJlYWxseSBkZXBlbmRzDQo+Pj4+Pj4+IHdoZXRoZXIgcXVldWUgMiBpcyBjb3Vu
-dGluZyB1cCBvciBub3QuIEp1c3QgYWZ0ZXIgYm9vdCwgSSBjaGVjaw0KPj4+Pj4+PiAvcHJvYy9p
-bnRlcnJ1cHRzIHR3aWNlLCBpZiBxdWV1ZSAyIGlzIGNvdW50aW5nIGl0IHdpbGwgaGFwcGVuIQ0K
-Pj4+Pj4+Pg0KPj4+Pj4+PiBCdXQgaWYgb25seSBxdWV1ZSAwIGlzIG1vc3RseSBpbiB1c2UsIHRo
-ZW4gaXQgc2VlbXMgdG8gd29yayBqdXN0IGZpbmUuDQo+Pj4+Pj4gSWYgeW91ciBjYXNlIGlzIG9u
-bHkgcnVubmluZyBiZXN0IGVmZm9ydCBsaWtlIHRjcC91ZHAsIHlvdSBjYW4gcmUtc2V0DQo+Pj4+
-Pj4gdGhlICJmc2wsbnVtLXR4LXF1ZXVlcyIgYW5kICJmc2wsbnVtLXJ4LXF1ZXVlcyIgdG8gMSBp
-biBib2FyZCBkdHMgZmlsZS4NCj4+Pj4+PiBPdGhlciB0d28gcXVldWVzIGFyZSBmb3IgQVZCIGF1
-ZGlvL3ZpZGVvIHF1ZXVlcywgdGhleSBoYXZlIGhpZ2gNCj4+Pj4+PiBwcmlvcml0eSB0aGFuIHF1
-ZXVlIDAuIElmIHJ1bm5pbmcgaXBlcmYgdGNwIHRlc3Qgb24gdGhlIHRocmVlIHF1ZXVlcywNCj4+
-Pj4+PiB0aGVuIHRoZSB0Y3Agc2VnbWVudCBtYXkgYmUgb3V0LW9mLW9yZGVyIHRoYXQgY2F1c2Ug
-bmV0IHdhdGNoZG9nDQo+Pj4+PiB0aW1lb3V0Lg0KPj4+Pj4+PiBJIGFsc28gdHJpZWQgaS5NWCA3
-RHVhbCBTYWJyZVNEIGhlcmUsIGFuZCB0aGUgc2FtZSB0aGluZy4gSSBoYWQgdG8NCj4+Pj4+Pj4g
-cmVib290IDMgdGltZXMsIHRoZW4gcXVldWUgMiB3YXMgY291bnRpbmc6DQo+Pj4+Pj4+ICAgICA1
-NzogICAgICAgICAgOCAgICAgR0lDLTAgMTUwIExldmVsICAgICAzMGJlMDAwMC5ldGhlcm5ldA0K
-Pj4+Pj4+PiAgICAgNTg6ICAgICAgMjAxMzcgICAgIEdJQy0wIDE1MSBMZXZlbCAgICAgMzBiZTAw
-MDAuZXRoZXJuZXQNCj4+Pj4+Pj4gICAgIDU5OiAgICAgICA5MjY5ICAgICBHSUMtMCAxNTIgTGV2
-ZWwgICAgIDMwYmUwMDAwLmV0aGVybmV0DQo+Pj4+Pj4+DQo+Pj4+Pj4+IEl0IHRvb2sgbWUgYWJv
-dXQgNDAgbWludXRlcyBvbiBTYWJyZSB1bnRpbCBpdCBoYXBwZW5lZCwgYW5kIEkgaGFkIHRvDQo+
-Pj4+Pj4+IGZvcmNlIGl0IHVzaW5nIGlwZXJmLCBidXQgdGhlbiBJIGdvdCB0aGUgcmluZyBkdW1w
-czoNCj4+Pj4+PiBNeSBib2FyZCBoYWQgcmFuIG1vcmUgdGhhbiA0NyBob3VycyB3aXRoIG5mcyBy
-b290ZnMgaW4gNC4xMS4wLXJjNiwgYnV0DQo+Pj4+Pj4gbm90IHJ1bm5pbmcgaXBlcmYuDQo+Pj4+
-Pj4gSSBhbSB0ZXN0aW5nIHdpdGggaXBlcmYuDQo+Pj4+PiBBbnkgdXBkYXRlIG9uIHRoaXMgaXNz
-dWU/DQo+Pj4+Pg0KPj4+Pj4gV2hlbiB1c2luZyBpcGVyZiAoc2VydmVyKSBvbiB0aGUgYm9hcmQg
-d2l0aCBMaW51eCA0LjExIHRoZSBpc3N1ZSBhcHBlYXJzDQo+Pj4+PiB3aXRoaW4gYSBmZXcgaXBl
-cmYgaXRlcmF0aW9ucyBvbiBhIFNhYnJlIChUTyAxLjIsIEJvYXJkIFJldiBDLCBpZiB0aGF0IG1h
-dHRlcnMpLi4uDQo+Pj4+Pg0KPj4+PiBJIGRvbuKAmXQga25vdyB3aGV0aGVyIHlvdSByZWNlaXZl
-ZCBteSBsYXN0IG1haWwuIChtYXliZSBmYWlsZWQgZHVlIHRvIEkNCj4+Pj4gcmVjZWl2ZWQgc29t
-ZSByZWplY3Rpb24gbWFpbHMpDQo+Pj4gSSB0aGluayBJIGRpZCBub3QuLi4gVGhlIGxhc3QgZW1h
-aWwgSSByZWNlaXZlZCB3YXMgRnJpLCAyMSBBcHIgMjAxNw0KPj4+IDAyOjQ4OjIzIFVUQy4NCj4+
-Pg0KPj4+DQo+Pj4+IElmIHlvdXIgY2FzZSBpcyBvbmx5IHJ1bm5pbmcgYmVzdCBlZmZvcnQgbGlr
-ZSB0Y3AvdWRwLCB5b3UgY2FuIHJlLXNldA0KPj4+PiB0aGUgImZzbCxudW0tdHgtcXVldWVzIiBh
-bmQgImZzbCxudW0tcngtcXVldWVzIiB0byAxIGluIGJvYXJkIGR0cw0KPj4+PiBmaWxlLg0KPj4+
-IEkgZGlkIHRlc3QgdGhhdCwgYW5kIGl0IHNlZW1zIHRvIHdvcmsgZmluZSB3aXRoIHRob3NlIHBy
-b3BlcnRpZXMgc2V0IHRvDQo+Pj4gMS4NCj4+IFNvIGl0IGNhbiBmaXggeW91ciBwcm9ibGVtIGFm
-dGVyIGxvbmcgdGltZSB0ZXN0Pw0KPiBZZXMsIHNlZW1zIHRvIHdvcmsgZmluZSBhZnRlciBtb3Jl
-IHRoYW4gMiBob3Vycy4NCj4NCj4+Pj4gT3RoZXIgdHdvIHF1ZXVlcyBhcmUgZm9yIEFWQiBhdWRp
-by92aWRlbyBxdWV1ZXMsIHRoZXkgaGF2ZSBoaWdoDQo+Pj4+IHByaW9yaXR5IHRoYW4gcXVldWUg
-MC4gSWYgcnVubmluZyBpcGVyZiB0Y3AgdGVzdCBvbiB0aGUgdGhyZWUgcXVldWVzLA0KPj4+PiB0
-aGVuIHRoZSB0Y3Agc2VnbWVudCBtYXkgYmUgb3V0LW9mLW9yZGVyIHRoYXQgY2F1c2UgbmV0IHdh
-dGNoZG9nDQo+Pj4+IHRpbWVvdXQuDQo+Pj4gT2theS4gQSBzaW5nbGUgZXZlbnQgd291bGQgYmUg
-dW5kZXJzdGFuZGFibGUsIGJ1dCBpdCBzZWVtcyB0byBlbnRlciBzb21lDQo+Pj4ga2luZCBvZiBs
-b29wIGFmdGVyIHRoYXQgKGNvbnRpbnVvdXNseSBwcmludGluZyAiZmVjIDMwYmUwMDAwLmV0aGVy
-bmV0DQo+Pj4gZXRoMDogVFggcmluZyBkdW1wIC4uLiIpLg0KPj4+DQo+Pj4gSW4gYSBxdWljayB0
-ZXN0IEkgY29tbWVudGVkIG91dCB0aGUgZmVjX2R1bXAgY2FsbCwgd2l0aCB0aGF0IGl0IHNlZW1z
-IHRvDQo+Pj4gcHJpbnQgb25seSBvbmNlIGFuZCBjb250aW51ZXMgd29ya2luZyBhZnRlcndhcmRz
-IChhbHRob3VnaCwgc3BlZWQgc3RhcnRzDQo+Pj4gdG8gZGVjcmVhc2UsIHNvIHNvbWV0aGluZyBp
-cyBub3QgZ29vZCBhdCB0aGF0IHBvaW50KS4NCj4+IFRoZSB0ZXN0IGJhc2Ugb24gYWJvdmUgY2hh
-bmdlID8gT25lIHF1ZXVlIHN0aWxsIGJyaW5nIHdhdGNoZG9nIHRpbWVvdXQgPw0KPiBObywgc29y
-cnkgZm9yIHRoZSBjb25mdXNpb246IFRoaXMgd2FzIHdpdGhvdXQgdGhlIGZpeCBhYm92ZS4gU28g
-dXNlDQo+IG11bHRpcGxlIHF1ZXVlcywgYW5kIGRpc2FibGUgZmVjX2R1bXAuLi4gSSB3YXMganVz
-dCB3b25kZXJpbmcsIGJlY2F1c2UNCj4gZGlzYWJsaW5nIHRoZSBtdWx0aXBsZSBxdWV1ZXMgc2Vl
-bXMgdG8gbWUgc29tZXdoYXQgYSB3b3JrYXJvdW5kIGZvcg0KPiBub3cuLi4gOi0pDQo+DQpObywg
-aXQgaXMgbm90IHdvcmthcm91bmQuIEFzIGkgc2FpZCwgcXVxdWUxIGFuZCBxdWV1ZTIgYXJlIGZv
-ciBBVkIgcGF0aHMgDQpoYXZlIGhpZ2hlciBwcmlvcml0eSBpbiB0cmFuc21pdGlvbi4NCkl0IGJy
-aW5nIHRoZSB0cm91YmxlIGZvciB5b3VyIGNhc2UuIEkgd2lsbCBzdWJtaXQgb25lIHBhdGNoIHRv
-IGZpeCBpdCANCnRoYXQgYmVzdCBlZmZvcnQgZ28gcXVldWUwLCBBVkIgc3RyZWFtaW5nIGdvDQpx
-dXF1ZTEgYW5kIHF1ZXVlMi4NCg0KPg0KPj4+PiBJbiBmc2wga2VybmVsIHRyZWUsIHRoZXJlIGhh
-dmUgb25lIHBhdGNoIHRoYXQgb25seSBzZWxlY3QgdGhlIHF1ZXVlMA0KPj4+PiBmb3IgYmVzdCBl
-ZmZvcnQgbGlrZSB0Y3AvdWRwLiBQbHMgdGVzdCBhZ2FpbiBpbiB5b3VyIGJvYXJkLCBpZiBubw0K
-Pj4+PiBwcm9ibGVtIEkgd2lsbCB1cHN0cmVhbSB0aGUgcGF0Y2guDQo+Pj4gVGhhdCBzb3VuZHMg
-bGlrZSBhIHJlYXNvbmFibGUgZml4Lg0KPj4+DQo+Pj4gSVAsIG5vIG1hdHRlciB3aGV0aGVyIFRD
-UC9VRFAsIGlzIHRoZSBtb3N0IGNvbW1vbiB1c2UgY2FzZSwgc28gSU1ITyB0aGlzDQo+Pj4gc2hv
-dWxkICJqdXN0IHdvcmsiIGJ5IGRlZmF1bHQuDQo+Pj4NCj4+PiAtLQ0KPj4+IFN0ZWZhbg==
+Hello,
+
+Is skb_gro_receive doing the right thing for cloned packets?
+
+When we are merging fragments, we do not seem to be taking a reference
+to the underlying page. To me, it looks like it should work fine for non-cloned
+packets. However, for cloned packets, when the gro-ed packet is eventually
+freed (because the original skb was not cloned and hence reference was 1),
+the merged skb's frags also get freed (put_page-ed) without taking into account
+the other references that were held for the fragments (dataref).
+
+We saw crashes because of this behavior. Our setup had a third party kernel
+forwarding module which uses GRO (napi_gro_receive). Doing iperf3 with small
+packets and doing tcpdump on the receiving tap interface results in the problem.
+With DEBUG_VM enabled, put page crashes. Without DEBUG_VM, bad page
+state results.
+
+Your thoughts (please CC me, since I am not part of this list).
+
+Thanks,
+Anand
