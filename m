@@ -1,73 +1,87 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: net/key: slab-out-of-bounds in pfkey_compile_policy
-Date: Fri, 5 May 2017 11:11:05 +0200
-Message-ID: <20170505091105.GA9813@secunet.com>
-References: <CAAeHK+xqxvEWMXS9sDNi2seUqFzJkijKJhivB8JDehpCJvBAaw@mail.gmail.com>
+From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Subject: Re: [PATCH v1] ACPI: Switch to use generic UUID API
+Date: Fri, 05 May 2017 12:24:25 +0300
+Message-ID: <1493976265.30052.21.camel@linux.intel.com>
+References: <20170504092151.88646-1-andriy.shevchenko@linux.intel.com>
+ <CAPcyv4jzD0MEBRNTwTokVzgdDWas682ArUjRAGT1hp=QRE8Pjg@mail.gmail.com>
+ <CAOQ4uxjha8_2_HwgdgBN=G-vNytAW5Gk155E9z8OWyFiGNEZVw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-        "David S. Miller" <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>
-To: Andrey Konovalov <andreyknvl@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:41124 "EHLO a.mx.secunet.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753246AbdEEJLH (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 5 May 2017 05:11:07 -0400
-Content-Disposition: inline
-In-Reply-To: <CAAeHK+xqxvEWMXS9sDNi2seUqFzJkijKJhivB8JDehpCJvBAaw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: alsa-devel@alsa-project.org,
+ Heikki Krogerus <heikki.krogerus@linux.intel.com>,
+ Liam Girdwood <lgirdwood@gmail.com>, linux-pci@vger.kernel.org,
+ Jarkko Sakkinen <jarkko.sakkinen@linux.intel.com>,
+ Adrian Hunter <adrian.hunter@intel.com>,
+ Benjamin Tissoires <benjamin.tissoires@redhat.com>,
+ Christoph Hellwig <hch@lst.de>, Joerg Roedel <joro@8bytes.org>,
+ Linux ACPI <linux-acpi@vger.kernel.org>, tpmdd-devel@lists.sourceforge.net,
+ Ben Skeggs <bskeggs@redhat.com>, nouveau@lists.freedesktop.org,
+ linux-mmc@vger.kernel.org, Zhang Rui <rui.zhang@intel.com>,
+ Borislav Petkov <bp@suse.de>, Yisen Zhuang <yisen.zhuang@huawei.com>,
+ Mathias Nyman <mathias.nyman@intel.com>, intel-gfx@lists.freedesktop.org,
+ linux-input@vger.kernel.org, Mark Brown <broonie@kernel.org>,
+ Bjorn Helgaas <bhelgaas@google.com>,
+ Mika Westerberg <mika.westerberg@linux.intel.com>,
+ Felipe Balbi <balbi@kernel.org>, Ne
+To: Amir Goldstein <amir73il@gmail.com>, Dan Williams
+ <dan.j.williams@intel.com>
+Return-path: <intel-gfx-bounces@lists.freedesktop.org>
+In-Reply-To: <CAOQ4uxjha8_2_HwgdgBN=G-vNytAW5Gk155E9z8OWyFiGNEZVw@mail.gmail.com>
+List-Unsubscribe: <https://lists.freedesktop.org/mailman/options/intel-gfx>,
+ <mailto:intel-gfx-request@lists.freedesktop.org?subject=unsubscribe>
+List-Archive: <https://lists.freedesktop.org/archives/intel-gfx>
+List-Post: <mailto:intel-gfx@lists.freedesktop.org>
+List-Help: <mailto:intel-gfx-request@lists.freedesktop.org?subject=help>
+List-Subscribe: <https://lists.freedesktop.org/mailman/listinfo/intel-gfx>,
+ <mailto:intel-gfx-request@lists.freedesktop.org?subject=subscribe>
+Errors-To: intel-gfx-bounces@lists.freedesktop.org
+Sender: "Intel-gfx" <intel-gfx-bounces@lists.freedesktop.org>
+List-Id: netdev.vger.kernel.org
 
-On Tue, May 02, 2017 at 06:45:03PM +0200, Andrey Konovalov wrote:
-> Hi,
-> 
-> I've got the following error report while fuzzing the kernel with syzkaller.
-> 
-> On commit d3b5d35290d729a2518af00feca867385a1b08fa (4.11).
-> 
-> A reproducer and .config are attached.
-> 
-> ==================================================================
-> BUG: KASAN: slab-out-of-bounds in pfkey_compile_policy+0x8e6/0xd40 at
-> addr ffff88006701f798
-> Read of size 1280 by task a.out/4181
-
-
-This bug was introduced twelve years ago...
-
-This patch is based just on code review, I don't have an option to
-function test this. But I see that we now exit with -EINVAL before the
-memcpy that causes the slab-out-of-bounds when using your reproducer,
-so it should at least fix the bug.
-
-Subject: [PATCH RFC] af_key: Fix slab-out-of-bounds in pfkey_compile_policy.
-
-The sadb_x_sec_len is stored in the unit 'byte divided by eight'.
-So we have to multiply this value by eight before we can do
-size checks. Otherwise we may get a slab-out-of-bounds when
-we memcpy the user sec_ctx.
-
-Fixes: df71837d502 ("[LSM-IPSec]: Security association restriction.")
-Reported-by: Andrey Konovalov <andreyknvl@google.com>
-Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
----
- net/key/af_key.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/key/af_key.c b/net/key/af_key.c
-index c1950bb..512dc43 100644
---- a/net/key/af_key.c
-+++ b/net/key/af_key.c
-@@ -3285,7 +3285,7 @@ static struct xfrm_policy *pfkey_compile_policy(struct sock *sk, int opt,
- 		p += pol->sadb_x_policy_len*8;
- 		sec_ctx = (struct sadb_x_sec_ctx *)p;
- 		if (len < pol->sadb_x_policy_len*8 +
--		    sec_ctx->sadb_x_sec_len) {
-+		    sec_ctx->sadb_x_sec_len*8) {
- 			*dir = -EINVAL;
- 			goto out;
- 		}
--- 
-2.7.4
+T24gRnJpLCAyMDE3LTA1LTA1IGF0IDEwOjA2ICswMzAwLCBBbWlyIEdvbGRzdGVpbiB3cm90ZToK
+PiBPbiBGcmksIE1heSA1LCAyMDE3IGF0IDk6MjAgQU0sIERhbiBXaWxsaWFtcyA8ZGFuLmoud2ls
+bGlhbXNAaW50ZWwuY29tCj4gPiB3cm90ZToKPiA+IE9uIFRodSwgTWF5IDQsIDIwMTcgYXQgMjoy
+MSBBTSwgQW5keSBTaGV2Y2hlbmtvCj4gPiA8YW5kcml5LnNoZXZjaGVua29AbGludXguaW50ZWwu
+Y29tPiB3cm90ZToKCgo+ID4gPiDCoMKgwqDCoMKgwqDCoMKgZm9yIChpID0gMDsgaSA8IE5GSVRf
+VVVJRF9NQVg7IGkrKykKPiA+ID4gLcKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoGlmICht
+ZW1jbXAodG9fbmZpdF91dWlkKGkpLCBzcGEtPnJhbmdlX2d1aWQsIDE2KQo+ID4gPiA9PSAwKQo+
+ID4gPiArwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgaWYgKCF1dWlkX2xlX2NtcF9wcCh0
+b19uZml0X3V1aWQoaSksICh1dWlkX2xlCj4gPiA+ICopc3BhLT5yYW5nZV9ndWlkKSkKPiA+IAo+
+ID4gV2hhdCBpcyBfY21wX3BwPyBXaHkgbm90IF9jb21wYXJlPwoKRGFuLCBpdCdzIGEgdHlwby4g
+SW4gdGhpcyBwYXRjaCBpdCBzaG91bGQgYmUganVzdCAuLi5fY21wKCksIHdoaWNoIGlzCmFscmVh
+ZHkgYSBwYXJ0IG9mIEFQSS4KCj4gPiAKPiAKPiBJIHNlY29uZCB0aGF0Lgo+IAo+IEFuZHksCgpB
+bWlyLCBqdXN0IHRvIGJlIGNsZWFyLiBUaGlzIHBhdGNoIGNhbiBiZSBhcHBsaWVkIHdpdGhvdXQg
+YW55IGFkZG9ucyB0bwphbiBleGlzdGluZyBBUEkuIEFib3ZlIGlzIGp1c3QgYSB0eXBvIGR1ZSB0
+byByZWJhc2UgaW4gbXkgdHJlZS4gSSB3aWxsCnJlcGxhY2UgaXQgdG8ganVzdCB1dWlkX2xlX2Nt
+cCgpLgoKPiBJIG11Y2ggcmF0aGVyIHRoYXQgeW91IHNvcnQgb3V0IHV1aWQgaGVscGVycyBpbiBh
+IHdheSB0aGF0IHdpbGwKPiBzYXRpc2Z5IHRoZSBmaWxlc3lzdGVtCj4gbmVlZHMgKGp1c3QgcHJv
+dmlkZSB0aGUgaGVscGVycyBkb24ndCBuZWVkIHRvIGNvbnZlcnQgZmlsZXN5c3RlbXMKPiBjb2Rl
+KS4KCj4gVGhlIG9ubHkgcmVhc29uIEkgdG9vayBhIHN3aW5nIGF0IGhvaXN0aW5nIHRoZSB4ZnMg
+dXVpZCBoZWxwZXJzIGlzCj4gYmVjYXVzZSBpdCBkaWRuJ3QKPiBzZWVtIGxpa2UgeW91ciBwcm9w
+b3NhbCB3YXMgZ29pbmcgdG8gYmUgcG9zdGVkIHNvb24gb3Igd2Fzbid0IGdvaW5nIHRvCj4gc2F0
+aXNmeQo+IHRoZSBmaWxlc3lzdGVtcyB1c2UgY2FzZS4KCj4gCj4gTXkgb3BpbmlvbiBub3csIGlz
+IHRoYXQgeW91ciBzdWdnZXN0aW9uIGlzIHByb2JhYmx5IG11Y2ggY2xvc2VyIHRvIHRoZQo+IHJl
+YWwgZGVhbAo+IHRoYW4gbWluZS4KPiAKPiBJTU8sIHlvdSBzaG91bGQgYWNrbm93bGVkZ2UgdGhh
+dCB0aGUgY29tbW9uIHVzZSBjYXNlIGZvciBmaWxlc3lzdGVtcwo+IGlzCj4gdG8gaGFuZGxlIGFu
+IG9wYXF1ZSBjaGFyWzE2XSB3aGljaCBtb3N0IGxpa2VseSBob2xkcyBhIHV1aWRfYmUgYW5kIHlv
+dQo+IHNob3VsZCBwcm92aWRlICduZXV0cmFsJyBoZWxwZXJzIHRvIHNhdGlzZnkgdGhpcyB1c2Ug
+Y2FzZS4KPiAKPiBUaGUgc2ltcGxlc3Qgd291bGQgYmUgdG8gdHlwZWRlZiB1dWlkX3QgdG8gc3Ry
+dWN0IHV1aWRfYmUgYW5kIHRvIG5hbWUKPiAnbmV1dHJhbCcKPiBoZWxwZXJzJyB1dWlkX2NtcC91
+dWlkX2NvcHkodXVpZF90ICosIHV1aWRfdCAqKSwgc2ltaWxhciB0byBteQo+IHByb3Bvc2FsLgoK
+PiBJIHRoaW5rIHdpdGggdGhpcyBzZW1hbnRpYyBjaGFuZ2UsIG91ciBwcm9wb3NhbHMgY2FuIHJl
+YWNoIGNvbW1vbgo+IGdyb3VuZHMKPiBhbmQgc2F0aXNmeSBhIHdpZGVyIGdyb3VwIG9mIHVzZXJz
+IChpLmUuIGZpbGVzeXN0ZW0gZGV2ZWxvcGVycykuCj4gCj4gQ2hyaXN0b3BoIGFsc28gc3VnZ2Vz
+dGVkIGEgc2ltaWxhciB0cmVhdG1lbnQgdG8gdHlwZWRlZiBndWlkX3QgdG8KPiBzdHJ1Y3QgdXVp
+ZF9sZS4KPiBJIGRvbid0IGtub3cgdGhlIHVzZSBjYXNlcyBlbm91Z2ggdG8gY29tbWVudCBvbiB0
+aGF0LgoKV2UgbWF5IGdvIHRoaXMgd2F5LiBCdXQgSSB3b3VsZG4ndCBwcmV2ZW50IGN1cnJlbnQg
+dXNlcnMgb2YgdXVpZF9sZSB0bwpjb250aW51ZSB1c2luZyBpdCB3aXRob3V0IGNvbnZlcnNpb24g
+KGl0IG1heSBiZSBkb25lIGNhc2UgYnkgY2FzZSBhZnRlcgp3ZSBzZXR0bGUgYW4gQVBJKQoKU28s
+IHN1bW1hcml6ZSB3aGF0IENocmlzdG9waCBzYWlkIGl0IHdpbGwgbG9vayBsaWtlCgp0eXBlZGVm
+IHV1aWRfYmUgdXVpZF90Owp0eXBlZGVmIHV1aWRfbGUgZ3VpZF90Cgp1dWlkX2NtcCgpIC8gdXVp
+ZF9jb3B5KCkgLyB1dWlkX3RvX2JpbigpIC8gZXRjCmd1aWRfY21wKCkgLyBndWlkX2NvcHkoKSAv
+IGd1aWRfdG9fYmluKCkgLyBldGMKCkNvcnJlY3Q/IENocmlzdG9waD8KCi0tIApBbmR5IFNoZXZj
+aGVua28gPGFuZHJpeS5zaGV2Y2hlbmtvQGxpbnV4LmludGVsLmNvbT4KSW50ZWwgRmlubGFuZCBP
+eQpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpJbnRlbC1n
+ZnggbWFpbGluZyBsaXN0CkludGVsLWdmeEBsaXN0cy5mcmVlZGVza3RvcC5vcmcKaHR0cHM6Ly9s
+aXN0cy5mcmVlZGVza3RvcC5vcmcvbWFpbG1hbi9saXN0aW5mby9pbnRlbC1nZngK
