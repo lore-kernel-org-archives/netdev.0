@@ -1,7 +1,8 @@
 From: Simon Horman <simon.horman@netronome.com>
-Subject: [PATCH/RFC net-next v2 0/4] net/sched: cls_flower: avoid false matching of truncated packets
-Date: Fri,  5 May 2017 14:47:02 +0200
-Message-ID: <1493988426-22854-1-git-send-email-simon.horman@netronome.com>
+Subject: [PATCH/RFC net-next v2 1/4] flow dissector: return error on port dissection under-run
+Date: Fri,  5 May 2017 14:47:03 +0200
+Message-ID: <1493988426-22854-2-git-send-email-simon.horman@netronome.com>
+References: <1493988426-22854-1-git-send-email-simon.horman@netronome.com>
 Cc: Dinan Gunawardena <dinan.gunawardena@netronome.com>,
         netdev@vger.kernel.org, oss-drivers@netronome.com,
         Benjamin LaHaise <benjamin.lahaise@netronome.com>,
@@ -10,54 +11,150 @@ To: Jiri Pirko <jiri@mellanox.com>,
         Jamal Hadi Salim <jhs@mojatatu.com>,
         Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f49.google.com ([74.125.82.49]:37232 "EHLO
-        mail-wm0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751754AbdEEMrQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 5 May 2017 08:47:16 -0400
-Received: by mail-wm0-f49.google.com with SMTP id m123so5268173wma.0
-        for <netdev@vger.kernel.org>; Fri, 05 May 2017 05:47:15 -0700 (PDT)
+Received: from mail-wm0-f52.google.com ([74.125.82.52]:37928 "EHLO
+        mail-wm0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752183AbdEEMrR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 5 May 2017 08:47:17 -0400
+Received: by mail-wm0-f52.google.com with SMTP id 142so5222545wma.1
+        for <netdev@vger.kernel.org>; Fri, 05 May 2017 05:47:17 -0700 (PDT)
+In-Reply-To: <1493988426-22854-1-git-send-email-simon.horman@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Return an error from __skb_flow_dissect() if insufficient packet data is
+present when dissecting layer 4 ports.
 
-this series is intended to avoid false-positives which match
-truncated packets against flower classifiers which match on:
-* zero L4 ports or;
-* zero ICMP code or type
+Without this patch the absence of ports in truncated - e.g. UDP - packets
+is treated the same way by the flow dissector as the presence of ports with
+a value of zero. And without this patch the flower classifier is unable to
+differentiate between these two cases which may lead to unexpected matching
+of truncated packets.
 
-This requires updating the flow dissector to return an error in such cases
-and updating flower to not match on the result of a failed dissection.
+With this patch the flow dissector and in turn the flower classifier can
+differentiate between packets with zero L4 ports and truncated packets.
 
-In the case of UDP this results in a behavioural change to users of
-flow_keys_dissector_keys[] and flow_keys_dissector_symmetric_keys[] -
-dissection will fail on truncated packets where the IP protocol of the
-packets indicates ports should be present (according to skb_flow_get_ports()).
+The approach taken here is to only return an error if the offset of ports
+for the previously dissected IP protocol is known - a non error return from
+proto_ports_offset() - but port data is not present in the packet - an
+error return value from __skb_header_pointer().
 
-The last patch of the series builds on the above to allow users to specify
-a policy for how to handle packets whose dissection fails.
+The behaviour for callers of __skb_flow_get_ports() is changed but the only
+callers are skb_flow_get_ports() and the flow dissector.  The former has
+been updated so that its behaviour is unchanged.  Behavioural change of the
+latter is the intended purpose of this patch but will only take effect with
+a separate patch to have it refuse to match if dissection fails.
 
-I will separately provide RFC patches to iproute2 to allow exercising the
-last patch.
+This change will lead to behavioural changes of the users of the dissector
+with FLOW_DISSECTOR_KEY_PORTS - flower, and users of
+flow_keys_dissector_keys[] and flow_keys_dissector_symmetric_keys[].  The
+behavioural change for *_keys[] changes seem reasonable as the change will
+should only be for truncated packets.
 
-Changes between RFCv1 and RFCv2
-* Rename new attribute in last path TCA_FLOWER_META_TRUNCATED
-  after discussion with Jamal.
-* Update changelog for "flow dissector" patches to make it clearer what
-  the before and after behaviours are.
+Signed-off-by: Simon Horman <simon.horman@netronome.com>
+Reviewed-by: Benjamin LaHaise <benjamin.lahaise@netronome.com>
+---
+rfc2
+* Update changelog
+---
+ include/linux/skbuff.h    | 11 ++++++++---
+ net/core/flow_dissector.c | 40 ++++++++++++++++++++++++++--------------
+ 2 files changed, 34 insertions(+), 17 deletions(-)
 
-Simon Horman (4):
-  flow dissector: return error on port dissection under-run
-  flow dissector: return error on icmp dissection under-run
-  net/sched: cls_flower: do not match if dissection fails
-  net/sched: cls_flower: allow control of tree traversal on packet parse
-    errors
-
- include/linux/skbuff.h       |  11 +++--
- include/uapi/linux/pkt_cls.h |   2 +
- net/core/flow_dissector.c    | 105 ++++++++++++++++++++++++-------------------
- net/sched/cls_flower.c       |  46 ++++++++++++++-----
- 4 files changed, 106 insertions(+), 58 deletions(-)
-
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index a098d95b3d84..eb1b06dd0c8f 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -1108,13 +1108,18 @@ u32 __skb_get_hash_symmetric(const struct sk_buff *skb);
+ u32 skb_get_poff(const struct sk_buff *skb);
+ u32 __skb_get_poff(const struct sk_buff *skb, void *data,
+ 		   const struct flow_keys *keys, int hlen);
+-__be32 __skb_flow_get_ports(const struct sk_buff *skb, int thoff, u8 ip_proto,
+-			    void *data, int hlen_proto);
++bool __skb_flow_get_ports(const struct sk_buff *skb, int thoff, u8 ip_proto,
++			  void *data, int hlen_proto, __be32 *ports);
+ 
+ static inline __be32 skb_flow_get_ports(const struct sk_buff *skb,
+ 					int thoff, u8 ip_proto)
+ {
+-	return __skb_flow_get_ports(skb, thoff, ip_proto, NULL, 0);
++	__be32 ports;
++
++	if (__skb_flow_get_ports(skb, thoff, ip_proto, NULL, 0, &ports))
++		return ports;
++	else
++		return 0;
+ }
+ 
+ void skb_flow_dissector_init(struct flow_dissector *flow_dissector,
+diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
+index 28d94bce4df8..b3bf4886f71f 100644
+--- a/net/core/flow_dissector.c
++++ b/net/core/flow_dissector.c
+@@ -86,30 +86,41 @@ static __be16 skb_flow_get_be16(const struct sk_buff *skb, int poff,
+  * @ip_proto: protocol for which to get port offset
+  * @data: raw buffer pointer to the packet, if NULL use skb->data
+  * @hlen: packet header length, if @data is NULL use skb_headlen(skb)
++ * @ports: pointer to return ports in
+  *
+  * The function will try to retrieve the ports at offset thoff + poff where poff
+- * is the protocol port offset returned from proto_ports_offset
++ * is the protocol port offset returned from proto_ports_offset.
++ *
++ * Returns false on error, true otherwise.
+  */
+-__be32 __skb_flow_get_ports(const struct sk_buff *skb, int thoff, u8 ip_proto,
+-			    void *data, int hlen)
++bool __skb_flow_get_ports(const struct sk_buff *skb, int thoff, u8 ip_proto,
++			  void *data, int hlen, __be32 *ports)
+ {
+ 	int poff = proto_ports_offset(ip_proto);
++	__be32 *p, _p;
++
++	/* proto_ports_offset returning an error indicates that ip_proto is
++	 * not known to have ports. This is not considered an error here.
++	 * Rather it is considered that the flow key of the caller may use
++	 * the default value of port fields: 0.
++	 */
++	if (poff < 0) {
++		*ports = 0;
++		return true;
++	}
+ 
+ 	if (!data) {
+ 		data = skb->data;
+ 		hlen = skb_headlen(skb);
+ 	}
+ 
+-	if (poff >= 0) {
+-		__be32 *ports, _ports;
++	p = __skb_header_pointer(skb, thoff + poff, sizeof(_p),
++				 data, hlen, &_p);
++	if (!p)
++		return false;
++	*ports = *p;
+ 
+-		ports = __skb_header_pointer(skb, thoff + poff,
+-					     sizeof(_ports), data, hlen, &_ports);
+-		if (ports)
+-			return *ports;
+-	}
+-
+-	return 0;
++	return true;
+ }
+ EXPORT_SYMBOL(__skb_flow_get_ports);
+ 
+@@ -692,8 +703,9 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
+ 		key_ports = skb_flow_dissector_target(flow_dissector,
+ 						      FLOW_DISSECTOR_KEY_PORTS,
+ 						      target_container);
+-		key_ports->ports = __skb_flow_get_ports(skb, nhoff, ip_proto,
+-							data, hlen);
++		if (!__skb_flow_get_ports(skb, nhoff, ip_proto, data, hlen,
++					  &key_ports->ports))
++			goto out_bad;
+ 	}
+ 
+ 	if (dissector_uses_key(flow_dissector,
 -- 
 2.1.4
