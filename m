@@ -1,47 +1,119 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: Question about SOCK_SEQPACKET
-Date: Fri, 5 May 2017 11:21:02 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DCFFE60CD@AcuExch.aculab.com>
-References: <CAGtMfeCt95bj3-J5+TNb5gxVJUBDrgRjMXqMz-3jk9cOh0Z=tA@mail.gmail.com>
- <af19f11a-1bc3-bb8f-faf6-65c11b632bbf@redhat.com>
- <20170505100926.GD1547@oracle.com>
- <e413b04e-b441-604c-f605-c5a28389d064@redhat.com>
+From: Rakesh Pandit <rakesh@tuxera.com>
+Subject: [PATCH] net: alx: handle pci_alloc_irq_vectors return correctly
+Date: Fri, 5 May 2017 14:28:23 +0300
+Message-ID: <20170505112823.GA4019@hercules.tuxera.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: Sam Kumar <samkumar99@gmail.com>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: 'Steven Whitehouse' <swhiteho@redhat.com>,
-        Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Content-Type: text/plain; charset="us-ascii"
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Tobias Regnery <tobias.regnery@gmail.com>,
+        Feng Tang <feng.tang@intel.com>,
+        Eric Dumazet <edumazet@google.com>, <netdev@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>, Christoph Hellwig <hch@lst.de>
+To: Jay Cliburn <jcliburn@gmail.com>,
+        Chris Snook <chris.snook@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <e413b04e-b441-604c-f605-c5a28389d064@redhat.com>
-Content-Language: en-US
+Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Steven Whitehouse
-> Sent: 05 May 2017 11:34
-...
-> Just before the part that you've quoted, the description for
-> SOCK_SEQPACKET says:
-> "The SOCK_SEQPACKET socket type is similar to the SOCK_STREAM type, and
-> is also connection-oriented. The only difference between these types is
-> that record boundaries are maintained using the SOCK_SEQPACKET type. A
-> record can be sent using one or more output operations and received
-> using one or more input operations, but a single operation never
-> transfers parts of more than one record."
+It was introduced while switching to pci_alloc_irq_vectors recently
+and fixes:
 
-Right SOCK_SEQPACKET is for protocols like ISO transport.
-There is no limit on the length of a 'record'.
-I've written file transfer programs that put the entire file
-data into a single 'record'. The receiver disconnected on
-receipt of the 'end of record'.
+[   60.527052] alx 0000:03:00.0 enp3s0: Enabling MSI-X interrupts failed!
+[   60.529323] BUG: unable to handle kernel NULL pointer dereference at 00000000000000b8
+[   60.531589] IP: alx_alloc_napis+0xe6/0x1e0 [alx]
+[   60.533831] PGD 0
+[   60.533833] P4D 0
 
-The socket man pages could easily be wrong - they are very IP-centric.
-Remember ISO transport use declined when Unix became more popular
-back in the mid 1980s. Unix sockets have never really been used for
-it - the address information needed just doesn't match that IP
-(especially IPv4).
+[   60.540559] Oops: 0002 [#1] SMP
+[   60.542759] Modules linked in: ebtables ip6table_filter ip6_tables.....
+[   60.549990]  drm_kms_helper drm crc32c_intel alx serio_raw mdio wmi video i2c_hid uas usb_storage
+[   60.551404] CPU: 0 PID: 999 Comm: NetworkManager Not tainted 4.11.0+ #1
+[   60.552813] Hardware name: Acer Predator G9-591/Mustang_SLS, BIOS V1.10 03/03/2016
+[   60.554219] task: ffff8804ae833c00 task.stack: ffffc90003eec000
+[   60.555383] RIP: 0010:alx_alloc_napis+0xe6/0x1e0 [alx]
+[   60.556615] RSP: 0018:ffffc90003eef660 EFLAGS: 00010286
+[   60.557787] RAX: ffff8804962835a0 RBX: ffff8804aee8a8c0 RCX: 0000000000000000
+[   60.558987] RDX: 0000000000000060 RSI: 0000000000000000 RDI: ffff880496283600
+[   60.559979] RBP: ffffc90003eef688 R08: ffff8804c1c1e7e0 R09: ffff8804962835a0
+[   60.560978] R10: ffff8804962835a0 R11: 0000000000000102 R12: 0000000000000000
+[   60.561974] R13: 0000000000000000 R14: ffff8804aee8aaf0 R15: ffffffffa0052ea0
+[   60.562974] FS:  00007f1cecbc9940(0000) GS:ffff8804c1c00000(0000) knlGS:0000000000000000
+[   60.564003] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+[   60.564884] CR2: 00000000000000b8 CR3: 0000000496025000 CR4: 00000000003406f0
+[   60.565782] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+[   60.566676] DR3: 0000000000000000 DR6: 00000000fffe0ff0 DR7: 0000000000000400
+[   60.567560] Call Trace:
+[   60.568500]  __alx_open+0xa2/0x570 [alx]
+[   60.569355]  ? notifier_call_chain+0x4a/0x70
+[   60.570144]  alx_open+0x17/0x20 [alx]
+[   60.570909]  __dev_open+0xc6/0x140
+[   60.571682]  ? _raw_spin_unlock_bh+0x1a/0x20
+[   60.572469]  __dev_change_flags+0x9d/0x160
+[   60.573252]  dev_change_flags+0x29/0x60
+[   60.574070]  do_setlink+0x32e/0xc90
+[   60.574815]  ? ttwu_do_activate+0x77/0x80
+[   60.575544]  ? drm_fb_helper_dirty.isra.17+0xc7/0xe0 [drm_kms_helper]
+[   60.576273]  ? drm_fb_helper_cfb_imageblit+0x30/0x40 [drm_kms_helper]
+[   60.577004]  ? bit_putcs+0x2f7/0x560
+[   60.577729]  ? nla_parse+0x35/0x140
+[   60.578518]  rtnl_newlink+0x7d3/0x900
+[   60.579280]  ? security_capset+0x30/0x80
+[   60.580029]  ? ns_capable_common+0x68/0x80
+[   60.580747]  ? ns_capable+0x13/0x20
+[   60.581453]  rtnetlink_rcv_msg+0xee/0x220
+[   60.582198]  ? rtnl_newlink+0x900/0x900
+[   60.582909]  netlink_rcv_skb+0xe7/0x120
+[   60.583601]  rtnetlink_rcv+0x28/0x30
+[   60.584303]  netlink_unicast+0x18c/0x220
+[   60.585002]  netlink_sendmsg+0x2ba/0x3b0
+[   60.585703]  sock_sendmsg+0x38/0x50
+[   60.586436]  ___sys_sendmsg+0x2b6/0x2d0
+[   60.587123]  ? lockref_put_or_lock+0x5e/0x80
+[   60.587822]  ? dput+0x155/0x1d0
+[   60.588518]  ? mntput+0x24/0x40
+[   60.589215]  __sys_sendmsg+0x54/0x90
+[   60.589907]  ? __sys_sendmsg+0x54/0x90
+[   60.590627]  SyS_sendmsg+0x12/0x20
+[   60.591333]  entry_SYSCALL_64_fastpath+0x1a/0xa5
+[   60.592021] RIP: 0033:0x7f1ceb44e3b0
+[   60.592697] RSP: 002b:00007fffd7f0a2d0 EFLAGS: 00000293 ORIG_RAX: 000000000000002e
+[   60.593385] RAX: ffffffffffffffda RBX: 0000000000000002 RCX: 00007f1ceb44e3b0
+[   60.594107] RDX: 0000000000000000 RSI: 00007fffd7f0a380 RDI: 000000000000000c
+[   60.594798] RBP: 00007fffd7f0a800 R08: 0000000000000000 R09: 0000000000000000
+[   60.595502] R10: 0000564ffbae6e20 R11: 0000000000000293 R12: 0000000000000001
+[   60.596200] R13: 0000000000000002 R14: 0000000000000010 R15: 00007fffd7f0a4d0
+[   60.596899] Code: ed 85 c9 0f 8f ec 00 00 00 48 8b 3d 9d 97 1a e2 ba 50 00 00 00 be c0 80 40 01 4c 8b a3 30 02 00 00 e8 ff e5 1d e1 48 85 c0 74 a3 <49> 89 84 24 b8 00 00 00 48 8b 93 30 02 00 00 48 8b 4b 08 48 89
+[   60.597642] RIP: alx_alloc_napis+0xe6/0x1e0 [alx] RSP: ffffc90003eef660
+[   60.598427] CR2: 00000000000000b8
 
-	David
+Fixes: f3297f68 ("net: alx: switch to pci_alloc_irq_vectors")
+Signed-off-by: Rakesh Pandit <rakesh@tuxera.com>
+---
+ drivers/net/ethernet/atheros/alx/main.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/atheros/alx/main.c b/drivers/net/ethernet/atheros/alx/main.c
+index a8c2db8..567ee54 100644
+--- a/drivers/net/ethernet/atheros/alx/main.c
++++ b/drivers/net/ethernet/atheros/alx/main.c
+@@ -838,7 +838,7 @@ static int alx_enable_msix(struct alx_priv *alx)
+ 
+ 	err = pci_alloc_irq_vectors(alx->hw.pdev, num_vec, num_vec,
+ 			PCI_IRQ_MSIX);
+-	if (err) {
++	if (err < 0) {
+ 		netdev_warn(alx->dev, "Enabling MSI-X interrupts failed!\n");
+ 		return err;
+ 	}
+@@ -904,7 +904,7 @@ static int alx_init_intr(struct alx_priv *alx)
+ 
+ 	ret = pci_alloc_irq_vectors(alx->hw.pdev, 1, 1,
+ 			PCI_IRQ_MSI | PCI_IRQ_LEGACY);
+-	if (ret)
++	if (ret < 0)
+ 		return ret;
+ 
+ 	alx->num_vec = 1;
+-- 
+2.9.3
