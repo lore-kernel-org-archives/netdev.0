@@ -1,50 +1,80 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: SSE instructions for fast packet copy?
-Date: Fri, 5 May 2017 10:14:41 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DCFFE6085@AcuExch.aculab.com>
-References: <CALx6S34r6Q_wCKqzv5YjKJyuETyYmY1y=M7uDYiLfpnXzqbheg@mail.gmail.com>
+From: Steven Whitehouse <swhiteho@redhat.com>
+Subject: Re: Question about SOCK_SEQPACKET
+Date: Fri, 5 May 2017 11:34:05 +0100
+Message-ID: <e413b04e-b441-604c-f605-c5a28389d064@redhat.com>
+References: <CAGtMfeCt95bj3-J5+TNb5gxVJUBDrgRjMXqMz-3jk9cOh0Z=tA@mail.gmail.com>
+ <af19f11a-1bc3-bb8f-faf6-65c11b632bbf@redhat.com>
+ <20170505100926.GD1547@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-To: 'Tom Herbert' <tom@herbertland.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out6.electric.net ([192.162.217.189]:61201 "EHLO
-        smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751492AbdEEKOr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 5 May 2017 06:14:47 -0400
-In-Reply-To: <CALx6S34r6Q_wCKqzv5YjKJyuETyYmY1y=M7uDYiLfpnXzqbheg@mail.gmail.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Sam Kumar <samkumar99@gmail.com>, linux-kernel@vger.kernel.org,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170505100926.GD1547@oracle.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-RnJvbTogVG9tIEhlcmJlcnQNCj4gU2VudDogMDUgTWF5IDIwMTcgMDY6NTENCj4gVG86IExpbnV4
-IEtlcm5lbCBOZXR3b3JrIERldmVsb3BlcnMNCj4gU3ViamVjdDogU1NFIGluc3RydWN0aW9ucyBm
-b3IgZmFzdCBwYWNrZXQgY29weT8NCj4gDQo+IEhpLA0KPiANCj4gSSBhbSB0aGlua2luZyBhYm91
-dCB0aGUgcG9zc2liaWxpdHkgb2YgdXNpbmcgU1NFIGluIGtlcm5lbCBmb3INCj4gc3BlZWRpbmcg
-dXAgdGhlIGtlcm5lbCBtZW1jcHkgcGFydGljdWxhcmx5IGZvciBjb3B5IHRvIHVzZXJzcGFjZQ0K
-PiBlbWVvcnksIGFuZCBtYXliZSBldmVuIHVzaW5nIHRoZSBzdHJpbmcgaW5zdHJ1Y3Rpb25zIChs
-aWtlIGlmIHdlDQo+IHN1cHBvcnRlZCByZWdleCBpbiBzb21ldGhpbmcgbGlrZSBlQlBGKS4gQUZB
-SUsgd2UgZG9uJ3QgdXNlIFNTRSBpbg0KPiBrZXJuZWwgYmVjYXVzZSBvZiB4bW0gcmVnaXN0ZXIg
-c3RhdGUgbmVlZGluZyB0byBiZSBzYXZlZCBhY3Jvc3MNCj4gY29udGV4dCBzd2l0Y2guIEhvd2V2
-ZXIsIGlmIHdlIHN0YXJ0IGJ1c3ktcG9sbGluZyBhIENQVSBpbiBrZXJuZWwgb24NCj4gbmV0d29y
-ayBxdWV1ZXMgdGhlbiB0aGVyZSBtaWdodCBub3QgYmUgYW55IGNvbnRleHQgc3dpdGNoZXMgdG8g
-d29ycnkNCj4gYWJvdXQuIEluIHRoaXMgbW9kZWwgd2UnZCB3YW50IHRvIGVuYWJsZSBTU0UgcGVy
-IENQVS4NCj4gDQo+IEhhcyB0aGlzIGV2ZXIgYmVlbiB0cmllZCBiZWZvcmU/IElzIHRoaXMgYXQg
-YWxsIGZlYXNpYmxlPyA6LSkgSXMgaXQNCj4gcG9zc2libGUgdG8gZW5hYmxlIFNTRSBmb3Iga2Vy
-bmVsIGZvciBqdXN0IG9uZSBDUFU/IChJIGZvdW5kIENQVUlEDQo+IHdpbGwgcmV0dXJuIFNTRSBz
-dXBwb3J0ZWQsIGJ1dCBkb24ndCBzZWUgaG93IHRvIGVuYWJsZSBvdGhlciB0aGFuDQo+IC1tc3Nl
-IGZvciBjb21waWxpbmcpLg0KDQpOb3QgZXZlbiB3b3J0aCB0aGlua2luZyBhYm91dC4NCldpdGgg
-cmVjZW50IGludGVsIGNwdXMgJ3JlcCBtb3ZzYicgaXMgb3B0aW1pc2VkIGluIHRoZSBoYXJkd2Fy
-ZQ0KKGZvciBjYWNoZWQgbWVtb3J5KSBhbmQgd2lsbCBydW4gYXMgZmFzdCBhcyBhbnkgb3RoZXIg
-Y29weS4NCg0KKFRoZXJlIGlzIGEgcmVsYXRlZCBmdWJhciB0aGF0IG1lbWNvcHl0b2lvKCkgaXMg
-aW1wbGVtZW50ZWQNCmFzIG1lbWNweSgpIGFuZCB0aGVuIGFzICdyZXAgbW92c2InIHNvIGdlbmVy
-YXRlcyByZXBlYXRlZA0KYnl0ZSBhY2Nlc3NlcyB0byBpbyBtZW1vcnkuKQ0KDQpJJ20gcHJldHR5
-IHN1cmUgdGhlIEZQIHJlZ2lzdGVycyBhcmUgJ2xhenkgc2F2ZWQnLg0KVGhlIGNwdSdzIHNzZSBy
-ZWdpc3RlcnMgKHRoZSBlbnRpcmUgRlAgcmVnaXN0ZXIgc2V0KSBtaWdodA0KY29udGFpbiBsaWZl
-IHZhbHVlcyBmb3IgYSBwcm9jZXNzIHRoYXQgaXMgcnVubmluZyBvbiBhIGRpZmZlcmVudCBjcHUu
-DQpJZiB0aGF0IHByb2Nlc3MgZXhlY3V0ZXMgYW4gRlAgaW5zdHJ1Y3Rpb24gaXQgd2lsbCBmYXVs
-dCBhbmQgYW4gSVBJDQppc3N1ZWQgdG8gZ2V0IHRoZSByZWdpc3RlcnMgd3JpdHRlbiB0byB0aGUg
-cHJvY2Vzc2VzIGZwIHNhdmUgYXJlYQ0KZnJvbSB3aGVyZSB0aGV5IGNhbiBiZSBsb2FkZWQuDQpB
-bnkgdXNlIG9mIHRoZSBzc2UgcmVnaXN0ZXJzIHdvdWxkIGhhdmUgdG8gaW50ZXJhY3QgY29ycmVj
-dGx5DQp3aXRoIHRoYXQgSVBJIGNvZGUuDQoNCglEYXZpZA0KDQo=
+Hi,
+
+
+On 05/05/17 11:09, Sowmini Varadhan wrote:
+> On (05/05/17 10:45), Steven Whitehouse wrote:
+>> I do wonder if the man page for recvmsg is wrong, or at least a bit
+>> confusing. SOCK_SEQPACKET is stream based not message based - it just
+>> happens to have EOR markers in the stream. There is no reason that the whole
+>> message needs to be returned in a single read, and in fact that would be
+>> impossible if the sender didn't insert any EOR markers but kept sending data
+>> beyond the size that the socket could buffer.
+>>
+>> I notice that man 7 socket says SOCK_SEQPACKET is for datagrams of fixed
+>> maximum length which is definitely wrong, as is the statement that a
+>> consumer has to read an entire packet with each system call.
+> Which man page do you think is wrong here? The POSIX definition is here
+>
+> http://pubs.opengroup.org/onlinepubs/009695399/functions/recvmsg.html
+>
+> The description in
+>
+> http://pubs.opengroup.org/onlinepubs/009695399/functions/xsh_chap02_10.html
+>
+> says, "It is protocol-specific whether a maximum record size is imposed."
+> In my machine (Ubuntu 4.4.0-72, and it is in socket(2), not socket(7), btw)
+> doesnt have any references to max length, but I'm not sure I'd boldly assert
+> "definitely wrong" about the requirement of having to read entire
+> packet in a system call (see POSIX man page)
+>
+> --Sowmini
+>
+Just before the part that you've quoted, the description for 
+SOCK_SEQPACKET says:
+"The SOCK_SEQPACKET socket type is similar to the SOCK_STREAM type, and 
+is also connection-oriented. The only difference between these types is 
+that record boundaries are maintained using the SOCK_SEQPACKET type. A 
+record can be sent using one or more output operations and received 
+using one or more input operations, but a single operation never 
+transfers parts of more than one record."
+
+The man page for socket says SOCK_SEQPACKET "Provides  a sequenced,  
+reliable,  two-way connection-based data transmission path  for  
+datagrams  of  fixed maximum  length" which is not true, because while 
+there may be a length restriction, it is quite possible that there is 
+not a length restriction (as per DECnet). It also says "a  consumer  is  
+required  to read an entire packet with each input system call" which is 
+also contradicted by POSIX which says that a record can be "received 
+using one or more input operations". So both statements in the man page 
+are wrong, I think.
+
+I have to say that I'd not spotted the POSIX recvmsg wording before, 
+which says "For message-based sockets, such as SOCK_DGRAM and 
+SOCK_SEQPACKET, the entire message shall be read in a single operation" 
+however that does contradict the earlier wording, where it explicitly 
+says that multiple receive operations per record are ok for 
+SOCK_SEQPACKET - at least if we assume that record == message in this 
+case. Also, if this restriction was true (one message per recvmsg call) 
+then MSG_EOR would never be needed on receive, since every recvmsg would 
+be a single message/record only, and that same document does say that 
+MSG_EOR can be set on receive for protocols which support it,
+
+Steve.
