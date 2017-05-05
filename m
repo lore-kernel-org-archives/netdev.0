@@ -1,54 +1,81 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2 net] tcp: randomize timestamps on syncookies
-Date: Fri, 05 May 2017 06:46:23 -0700
-Message-ID: <1493991983.7796.40.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1493935361.7796.29.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20170505002456.GH13320@breakpoint.cc>
-         <20170505003208.GI13320@breakpoint.cc>
-         <1493949548.7796.32.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1493950957.7796.36.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20170505093630.GA3233@breakpoint.cc>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Yuchung Cheng <ycheng@google.com>
-To: Florian Westphal <fw@strlen.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f170.google.com ([209.85.192.170]:35928 "EHLO
-        mail-pf0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752207AbdEENql (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 5 May 2017 09:46:41 -0400
-Received: by mail-pf0-f170.google.com with SMTP id q66so3030947pfi.3
-        for <netdev@vger.kernel.org>; Fri, 05 May 2017 06:46:39 -0700 (PDT)
-In-Reply-To: <20170505093630.GA3233@breakpoint.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Quentin Schulz <quentin.schulz@free-electrons.com>
+Subject: [PATCH v4 1/4] can: m_can: move Message RAM initialization to function
+Date: Fri,  5 May 2017 15:50:30 +0200
+Message-ID: <20170505135033.8349-1-quentin.schulz@free-electrons.com>
+Cc: Quentin Schulz <quentin.schulz@free-electrons.com>,
+        linux-can@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, alexandre.belloni@free-electrons.com,
+        thomas.petazzoni@free-electrons.com
+To: wg@grandegger.com, mkl@pengutronix.de, mario.huettel@gmx.net,
+        socketcan@hartkopp.net
+Return-path: <linux-can-owner@vger.kernel.org>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2017-05-05 at 11:36 +0200, Florian Westphal wrote:
-> Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> > From: Eric Dumazet <edumazet@google.com>
-> > 
-> > Whole point of randomization was to hide server uptime, but an attacker
-> > can simply start a syn flood and TCP generates 'old style' timestamps,
-> > directly revealing server jiffies value.
-> > 
-> > Also, TSval sent by the server to a particular remote address vary
-> > depending on syncookies being sent or not, potentially triggering PAWS
-> > drops for innocent clients.
-> > 
-> > Lets implement proper randomization, including for SYNcookies.
-> 
-> 
-> Thanks a lot Eric, this works for me (I also tested ipv6 this time ;) )
-> 
-> Minor nit:
-> net/ipv4/tcp_ipv4.c:154:6: warning: unused variable 'seq' [-Wunused-variable]
-> 
+To avoid possible ECC/parity checksum errors when reading an
+uninitialized buffer, the entire Message RAM is initialized when probing
+the driver. This initialization is done in the same function reading the
+Device Tree properties.
 
-Thanks Florian, I will remove this in v3, and add your tags.
+This patch moves the RAM initialization to a separate function so it can
+be called separately from device initialization from Device Tree.
 
-> Other than this:
-> Reviewed-by: Florian Westphal <fw@strlen.de>
-> Tested-by: Florian Westphal <fw@strlen.de>
+Signed-off-by: Quentin Schulz <quentin.schulz@free-electrons.com>
+---
+
+v4:
+  - remove unused variables from m_can_of_parse_mram,
+
+ drivers/net/can/m_can/m_can.c | 26 +++++++++++++++-----------
+ 1 file changed, 15 insertions(+), 11 deletions(-)
+
+diff --git a/drivers/net/can/m_can/m_can.c b/drivers/net/can/m_can/m_can.c
+index bf8fdaeb955e..5da1bdb202a3 100644
+--- a/drivers/net/can/m_can/m_can.c
++++ b/drivers/net/can/m_can/m_can.c
+@@ -1489,11 +1489,23 @@ static int register_m_can_dev(struct net_device *dev)
+ 	return register_candev(dev);
+ }
+ 
++static void m_can_init_ram(struct m_can_priv *priv)
++{
++	int end, i, start;
++
++	/* initialize the entire Message RAM in use to avoid possible
++	 * ECC/parity checksum errors when reading an uninitialized buffer
++	 */
++	start = priv->mcfg[MRAM_SIDF].off;
++	end = priv->mcfg[MRAM_TXB].off +
++		priv->mcfg[MRAM_TXB].num * TXB_ELEMENT_SIZE;
++	for (i = start; i < end; i += 4)
++		writel(0x0, priv->mram_base + i);
++}
++
+ static void m_can_of_parse_mram(struct m_can_priv *priv,
+ 				const u32 *mram_config_vals)
+ {
+-	int i, start, end;
+-
+ 	priv->mcfg[MRAM_SIDF].off = mram_config_vals[0];
+ 	priv->mcfg[MRAM_SIDF].num = mram_config_vals[1];
+ 	priv->mcfg[MRAM_XIDF].off = priv->mcfg[MRAM_SIDF].off +
+@@ -1529,15 +1541,7 @@ static void m_can_of_parse_mram(struct m_can_priv *priv,
+ 		priv->mcfg[MRAM_TXE].off, priv->mcfg[MRAM_TXE].num,
+ 		priv->mcfg[MRAM_TXB].off, priv->mcfg[MRAM_TXB].num);
+ 
+-	/* initialize the entire Message RAM in use to avoid possible
+-	 * ECC/parity checksum errors when reading an uninitialized buffer
+-	 */
+-	start = priv->mcfg[MRAM_SIDF].off;
+-	end = priv->mcfg[MRAM_TXB].off +
+-		priv->mcfg[MRAM_TXB].num * TXB_ELEMENT_SIZE;
+-	for (i = start; i < end; i += 4)
+-		writel(0x0, priv->mram_base + i);
+-
++	m_can_init_ram(priv);
+ }
+ 
+ static int m_can_plat_probe(struct platform_device *pdev)
+-- 
+2.11.0
+
