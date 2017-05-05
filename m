@@ -1,37 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] bridge: netlink: account for
- IFLA_BRPORT_{B,M}CAST_FLOOD size and policy
-Date: Fri, 05 May 2017 11:22:44 -0400 (EDT)
-Message-ID: <20170505.112244.1416767855257763172.davem@davemloft.net>
-References: <20170505143653.8486-1-tklauser@distanz.ch>
+From: administrador <abd.jabar@customs.go.id>
+Subject: admin
+Date: Fri, 05 May 2017 19:43:02 +0530
+Message-ID: <20170505141508.9342E2BC843F@mail.customs.go.id>
+Reply-To: Sistemass_Adminss@mail2world.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: stephen@networkplumber.org, bridge@lists.linux-foundation.org,
-        netdev@vger.kernel.org, nikolay@cumulusnetworks.com,
-        mmanning@brocade.com
-To: tklauser@distanz.ch
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: Recipients <abd.jabar@customs.go.id>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:44864 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751437AbdEEPYB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 5 May 2017 11:24:01 -0400
-In-Reply-To: <20170505143653.8486-1-tklauser@distanz.ch>
+Received: from mail.customs.go.id ([202.61.126.135]:44481 "EHLO
+        mail.customs.go.id" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751638AbdEEP7K (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 5 May 2017 11:59:10 -0400
+Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tobias Klauser <tklauser@distanz.ch>
-Date: Fri,  5 May 2017 16:36:53 +0200
+ATENCI=D3N;
 
-> The attribute sizes for IFLA_BRPORT_MCAST_FLOOD and
-> IFLA_BRPORT_BCAST_FLOOD weren't accounted for in br_port_info_size()
-> when they were added. Do so now and also add the corresponding policy
-> entries:
-> 
-> Cc: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-> Cc: Mike Manning <mmanning@brocade.com>
-> Fixes: b6cb5ac8331b ("net: bridge: add per-port multicast flood flag")
-> Fixes: 99f906e9ad7b ("bridge: add per-port broadcast flood flag")
-> Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
+Su buz=F3n ha superado el l=EDmite de almacenamiento, que es de 5 GB defini=
+dos por el administrador, quien actualmente est=E1 ejecutando en 10.9GB, no=
+ puede ser capaz de  enviar o recibir correo nuevo hasta que vuelva a valid=
+ar subuz=F3n de correo electr=F3nico. Para revalidar su buz=F3n de correo, =
+env=EDe la siguiente informaci=F3n a continuaci=F3n:
 
-Applied and queued up for -stable, thanks.
+nombre:
+Nombre de usuario:
+contrase=F1a: =
+
+Confirmar contrase=F1a: =
+
+E-mail: =
+
+tel=E9fono: 0
+
+Si usted no puede revalidar su buz=F3n, el buz=F3n se deshabilitar=E1!
+
+Disculpa las molestias.
+C=F3digo de verificaci=F3n: es:00916gbd51.17 =
+
+Correo Soporte T=E9cnico =A9 2017
+
+=A1gracias
+Sistemas administrador
