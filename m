@@ -1,27 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: alx: handle pci_alloc_irq_vectors return correctly
-Date: Fri, 05 May 2017 14:52:47 -0400 (EDT)
-Message-ID: <20170505.145247.613295044455415425.davem@davemloft.net>
-References: <20170505112823.GA4019@hercules.tuxera.com>
+Subject: Re: [PATCH v4 binutils] Add BPF support to binutils...
+Date: Fri, 05 May 2017 14:53:21 -0400 (EDT)
+Message-ID: <20170505.145321.1378827304293216895.davem@davemloft.net>
+References: <20170430.120750.651845251226226775.davem@davemloft.net>
+        <33505cff-f730-ebac-c2d7-38f1793062b7@fb.com>
+        <bf3b6bde-d159-c6a3-a532-83cccb1833d9@fb.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jcliburn@gmail.com, chris.snook@gmail.com,
-        tobias.regnery@gmail.com, feng.tang@intel.com, edumazet@google.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org, hch@lst.de
-To: rakesh@tuxera.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170505112823.GA4019@hercules.tuxera.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: daniel@iogearbox.net, netdev@vger.kernel.org,
+        xdp-newbies@vger.kernel.org, yhs@fb.com
+To: ast@fb.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:47684 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752199AbdEESxX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 5 May 2017 14:53:23 -0400
+In-Reply-To: <bf3b6bde-d159-c6a3-a532-83cccb1833d9@fb.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Rakesh Pandit <rakesh@tuxera.com>
-Date: Fri, 5 May 2017 14:28:23 +0300
+From: Alexei Starovoitov <ast@fb.com>
+Date: Fri, 5 May 2017 11:24:19 -0700
 
-> It was introduced while switching to pci_alloc_irq_vectors recently
-> and fixes:
+> Yonghong fixed llvm bug with big-endian dwarf [1]
+> and binutils worked out of the box :)
+> 
+> $ ./bin/clang -O2 -target bpfeb -c -g test.c
+> $ /w/binutils-gdb/bld/binutils/objdump -S test.o
+> 
+> test.o:     file format elf64-bpfbe
+> 
+> Disassembly of section .text:
+> 0000000000000000 <bpf_prog1>:
+> int bpf_prog1(void *ign)
+> {
+>   volatile unsigned long t = 0x8983984739ull;
  ...
-> Fixes: f3297f68 ("net: alx: switch to pci_alloc_irq_vectors")
-> Signed-off-by: Rakesh Pandit <rakesh@tuxera.com>
+> [1]
+> https://reviews.llvm.org/rL302265
 
-Applied, thanks.
+Great, that's good to know!
