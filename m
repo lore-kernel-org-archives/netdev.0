@@ -1,55 +1,77 @@
-From: Tobias Klauser <tklauser@distanz.ch>
-Subject: [PATCH net] bridge: netlink: account for IFLA_BRPORT_{B,M}CAST_FLOOD size and policy
-Date: Fri,  5 May 2017 16:36:53 +0200
-Message-ID: <20170505143653.8486-1-tklauser@distanz.ch>
-Cc: bridge@lists.linux-foundation.org, netdev@vger.kernel.org,
-        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-        Mike Manning <mmanning@brocade.com>
-To: Stephen Hemminger <stephen@networkplumber.org>,
-        "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.zhinst.com ([212.126.164.98]:33586 "EHLO mail.zhinst.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751899AbdEEOhH (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 5 May 2017 10:37:07 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Vitaly Kuznetsov <vkuznets@redhat.com>
+Subject: Re: [PATCH] xen-netfront: avoid crashing on resume after a failure in talk_to_netback()
+Date: Fri, 05 May 2017 16:40:10 +0200
+Message-ID: <87lgqb74fp.fsf@vitty.brq.redhat.com>
+References: <20170504122304.11735-1-vkuznets@redhat.com>
+        <20170504.112150.391662736580694835.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: xen-devel@lists.xenproject.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, boris.ostrovsky@oracle.com,
+        jgross@suse.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170504.112150.391662736580694835.davem@davemloft.net> (David
+        Miller's message of "Thu, 04 May 2017 11:21:50 -0400 (EDT)")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The attribute sizes for IFLA_BRPORT_MCAST_FLOOD and
-IFLA_BRPORT_BCAST_FLOOD weren't accounted for in br_port_info_size()
-when they were added. Do so now and also add the corresponding policy
-entries:
+David Miller <davem@davemloft.net> writes:
 
-Cc: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Cc: Mike Manning <mmanning@brocade.com>
-Fixes: b6cb5ac8331b ("net: bridge: add per-port multicast flood flag")
-Fixes: 99f906e9ad7b ("bridge: add per-port broadcast flood flag")
-Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
----
- net/bridge/br_netlink.c | 4 ++++
- 1 file changed, 4 insertions(+)
+> From: Vitaly Kuznetsov <vkuznets@redhat.com>
+> Date: Thu,  4 May 2017 14:23:04 +0200
+>
+>> Unavoidable crashes in netfront_resume() and netback_changed() after a
+>> previous fail in talk_to_netback() (e.g. when we fail to read MAC from
+>> xenstore) were discovered. The failure path in talk_to_netback() does
+>> unregister/free for netdev but we don't reset drvdata and we try accessing
+>> it again after resume.
+>> 
+>> Reset drvdata in netback_changed() the same way we reset it in
+>> netfront_probe() and check for NULL in both netfront_resume() and
+>> netback_changed() to properly handle the situation.
+>> 
+>> Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
+>
+> The circumstances under which netfront_probe() NULLs out the device
+> private is different than what you propose here, which is to do it
+> on a live device in netback_changed() whilst mutliple susbsytems
+> have a reference to this device and can call into the driver still.
+>
+> It is only legal to do this in the probe function because such
+> references and execution possibilities do not exist at that point.
+>
+> What really needs to happen is that the xenbus_driver must be told to
+> unregister this xen device and stop making calls into the driver for
+> it before you release the netdev state.
+>
+> That is the only reasonable way to fix this bug.
 
-diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
-index a572db710d4e..c5ce7745b230 100644
---- a/net/bridge/br_netlink.c
-+++ b/net/bridge/br_netlink.c
-@@ -133,6 +133,8 @@ static inline size_t br_port_info_size(void)
- 		+ nla_total_size(1)	/* IFLA_BRPORT_MCAST_TO_UCAST */
- 		+ nla_total_size(1)	/* IFLA_BRPORT_LEARNING */
- 		+ nla_total_size(1)	/* IFLA_BRPORT_UNICAST_FLOOD */
-+		+ nla_total_size(1)	/* IFLA_BRPORT_MCAST_FLOOD */
-+		+ nla_total_size(1)	/* IFLA_BRPORT_BCAST_FLOOD */
- 		+ nla_total_size(1)	/* IFLA_BRPORT_PROXYARP */
- 		+ nla_total_size(1)	/* IFLA_BRPORT_PROXYARP_WIFI */
- 		+ nla_total_size(1)	/* IFLA_BRPORT_VLAN_TUNNEL */
-@@ -633,6 +635,8 @@ static const struct nla_policy br_port_policy[IFLA_BRPORT_MAX + 1] = {
- 	[IFLA_BRPORT_PROXYARP_WIFI] = { .type = NLA_U8 },
- 	[IFLA_BRPORT_MULTICAST_ROUTER] = { .type = NLA_U8 },
- 	[IFLA_BRPORT_MCAST_TO_UCAST] = { .type = NLA_U8 },
-+	[IFLA_BRPORT_MCAST_FLOOD] = { .type = NLA_U8 },
-+	[IFLA_BRPORT_BCAST_FLOOD] = { .type = NLA_U8 },
- };
- 
- /* Change the state of the port and notify spanning tree */
+True,
+
+after looking at the issue again I realized that removing half of the
+device in talk_to_netback() is a mistake - we should either treat errors
+as fatal and remove the device completely or leave netdev in place
+hoping that it'll magically got fixed later. I'm leaning towards the
+former, I tried and the following simple patch does the job:
+
+diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+index 6ffc482..7b61adb 100644
+--- a/drivers/net/xen-netfront.c
++++ b/drivers/net/xen-netfront.c
+@@ -1934,8 +1934,7 @@ static int talk_to_netback(struct xenbus_device *dev,
+        xennet_disconnect_backend(info);
+        xennet_destroy_queues(info);
+  out:
+-       unregister_netdev(info->netdev);
+-       xennet_free_netdev(info->netdev);
++       device_unregister(&dev->dev);
+        return err;
+ }
+
+In case noone is against this big hammer I can send this as v2.
+
+Thank you for your feedback, David!
+
 -- 
-2.12.2
+  Vitaly
