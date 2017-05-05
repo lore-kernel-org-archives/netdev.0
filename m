@@ -1,78 +1,66 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH v2] vlan: Keep NETIF_F_HW_CSUM similar to other software devices
-Date: Fri, 5 May 2017 13:37:23 -0700
-Message-ID: <CAKgT0Uf36kYzeSM5UJ9QFRpc_pwCvCGPMMeNkchb7du=4g2qJA@mail.gmail.com>
-References: <1494015461-12192-1-git-send-email-vyasevic@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>, Michal Kubecek <mkubecek@suse.cz>,
-        avagin@openvz.org, Vladislav Yasevich <vyasevic@redhat.com>
-To: Vladislav Yasevich <vyasevich@gmail.com>
+From: Vladislav Yasevich <vyasevich@gmail.com>
+Subject: [PATCH v4 net-next 0/2] rtnetlink: Updates to rtnetlink_event()
+Date: Fri,  5 May 2017 16:52:47 -0400
+Message-ID: <1494017569-12869-1-git-send-email-vyasevic@redhat.com>
+Cc: roopa@cumulusnetworks.com, dsa@cumulusnetworks.com,
+        jiri@resnulli.us, Vladislav Yasevich <vyasevic@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f67.google.com ([209.85.214.67]:34214 "EHLO
-        mail-it0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751466AbdEEUhZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 5 May 2017 16:37:25 -0400
-Received: by mail-it0-f67.google.com with SMTP id c26so2134986itd.1
-        for <netdev@vger.kernel.org>; Fri, 05 May 2017 13:37:24 -0700 (PDT)
-In-Reply-To: <1494015461-12192-1-git-send-email-vyasevic@redhat.com>
+Received: from mail-qt0-f195.google.com ([209.85.216.195]:36648 "EHLO
+        mail-qt0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751606AbdEEUxA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 5 May 2017 16:53:00 -0400
+Received: by mail-qt0-f195.google.com with SMTP id j13so2370853qta.3
+        for <netdev@vger.kernel.org>; Fri, 05 May 2017 13:53:00 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 5, 2017 at 1:17 PM, Vladislav Yasevich <vyasevich@gmail.com> wrote:
-> Vlan devices, like all other software devices, enable
-> NETIF_F_HW_CSUM feature.  However, unlike all the othe other
-> software devices, vlans will switch to using IP|IPV6_CSUM
-> features, if the underlying devices uses them.  In these situations,
-> checksum offload features on the vlan device can't be controlled
-> via ethtool.
->
-> This patch makes vlans keep HW_CSUM feature if the underlying
-> device supports checksum offloading.  This makes vlan devices
-> behave like other software devices, and restores control to the
-> user.
->
-> A side-effect is that some offload settings (typically UFO)
-> may be enabled on the vlan device while being disabled on the HW.
-> However, the GSO code will correctly process the packets. This
-> actually results in slightly better raw throughput.
->
-> Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
+This is a version 4 series came out of the conversation that started
+as a result my first attempt to add netdevice event info to netlink messages.
 
-Acked-by: Alexander Duyck <alexander.h.duyck@intel.com>
+First is the patch to add IFLA_EVENT attribute to the netlink message.  It
+supports only currently white-listed events.
+Like before, this is just an attribute that gets added to the rtnetlink
+message only when the messaged was generated as a result of a netdev event.
+In my case, this is necessary since I want to trap NETDEV_NOTIFY_PEERS
+event (also possibly NETDEV_RESEND_IGMP event) and perform certain actions
+in user space.  This is not possible since the messages generated as
+a result of netdev events do not usually contain any changed data.  They
+are just notifications.  This patch exposes this notification type to
+userspace.
 
-> ---
-> V2:  posted the right patch.
->
->  net/8021q/vlan_dev.c | 13 ++++++++++---
->  1 file changed, 10 insertions(+), 3 deletions(-)
->
-> diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
-> index 9ee5787..ff12cf3 100644
-> --- a/net/8021q/vlan_dev.c
-> +++ b/net/8021q/vlan_dev.c
-> @@ -626,11 +626,18 @@ static netdev_features_t vlan_dev_fix_features(struct net_device *dev,
->  {
->         struct net_device *real_dev = vlan_dev_priv(dev)->real_dev;
->         netdev_features_t old_features = features;
-> +       netdev_features_t lower_features;
->
-> -       features = netdev_intersect_features(features, real_dev->vlan_features);
-> -       features |= NETIF_F_RXCSUM;
-> -       features = netdev_intersect_features(features, real_dev->features);
-> +       lower_features = netdev_intersect_features((real_dev->vlan_features |
-> +                                                   NETIF_F_RXCSUM),
-> +                                                  real_dev->features);
->
-> +       /* Add HW_CSUM setting to preserve user ability to control
-> +        * checksum offload on the vlan device.
-> +        */
-> +       if (lower_features & (NETIF_F_IP_CSUM|NETIF_F_IPV6_CSUM))
-> +               lower_features |= NETIF_F_HW_CSUM;
-> +       features = netdev_intersect_features(features, lower_features);
->         features |= old_features & (NETIF_F_SOFT_FEATURES | NETIF_F_GSO_SOFTWARE);
->         features |= NETIF_F_LLTX;
->
-> --
-> 2.7.4
->
+Second, I remove duplicate messages that a result of a change to bonding
+options.  If netlink is used to configure bonding options, 2 messages
+are generated, one as a result NETDEV_CHANGEINFODATA event triggered by
+bonding code and one a result of device state changes triggered by
+netdev_state_change (called from do_setlink).
+
+I will also update my patch to iproute that will show this data
+through 'ip monitor'. 
+
+V4:
+  * Removed the patch the removed NETDEV_CHANGENAME from event whitelist.
+    It doesn't trigger duplicate messages since name changes can only be
+    done while device is down and netdev_state_change() doesn't report
+    changes while device is down.
+  * Added a patch to clean-up duplicate messages on bonding option changes.
+
+V3: Rebased.  Cleaned-up duplicate event.
+
+V2: Added missed events (from David Ahern)
+
+Vladislav Yasevich (2):
+  rtnl: Add support for netdev event to link messages
+  bonding: Prevent duplicate userspace notification
+
+ drivers/net/bonding/bond_main.c    |  3 +-
+ drivers/net/bonding/bond_options.c | 27 +++++++++++++++--
+ include/linux/rtnetlink.h          |  3 +-
+ include/net/bond_options.h         |  2 ++
+ include/uapi/linux/if_link.h       | 11 +++++++
+ net/core/dev.c                     |  2 +-
+ net/core/rtnetlink.c               | 62 ++++++++++++++++++++++++++++++++------
+ 7 files changed, 96 insertions(+), 14 deletions(-)
+
+-- 
+2.7.4
