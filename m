@@ -1,7 +1,7 @@
-From: Andy Duan <fugang.duan@nxp.com>
+From: Stefan Agner <stefan@agner.ch>
 Subject: Re: FEC on i.MX 7 transmit queue timeout
-Date: Fri, 5 May 2017 02:03:27 +0000
-Message-ID: <e739d361-c20f-0de1-cdd1-c9aa13a0d11a@nxp.com>
+Date: Thu, 04 May 2017 19:09:45 -0700
+Message-ID: <110a7a48649cfcbbee46340c230e9008@agner.ch>
 References: <c6b66956c48f981a952048da6b2ddd54@agner.ch>
  <ed24e51d-499f-597b-0c9f-7f180e257acb@nxp.com>
  <e99d7c93b7819507c6448842015bf836@agner.ch>
@@ -13,86 +13,92 @@ References: <c6b66956c48f981a952048da6b2ddd54@agner.ch>
  <e366479239b66ba80415b5594def2369@agner.ch>
  <AM4PR0401MB2260F011313883C522EA7684FFEA0@AM4PR0401MB2260.eurprd04.prod.outlook.com>
  <e044b850a90e7112028cc12977d15cf2@agner.ch>
+ <e739d361-c20f-0de1-cdd1-c9aa13a0d11a@nxp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "festevam@gmail.com" <festevam@gmail.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "netdev-owner@vger.kernel.org" <netdev-owner@vger.kernel.org>
-To: Stefan Agner <stefan@agner.ch>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: festevam@gmail.com, netdev@vger.kernel.org,
+        netdev-owner@vger.kernel.org
+To: Andy Duan <fugang.duan@nxp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db5eur01on0081.outbound.protection.outlook.com ([104.47.2.81]:36804
-        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751159AbdEECDa (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 4 May 2017 22:03:30 -0400
-In-Reply-To: <e044b850a90e7112028cc12977d15cf2@agner.ch>
-Content-Language: en-US
-Content-ID: <534F6596736B6341B4131A7F81EA0DEE@eurprd04.prod.outlook.com>
+Received: from mail.kmu-office.ch ([178.209.48.109]:44521 "EHLO
+        mail.kmu-office.ch" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751791AbdEECKN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 4 May 2017 22:10:13 -0400
+In-Reply-To: <e739d361-c20f-0de1-cdd1-c9aa13a0d11a@nxp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-T24gMjAxN+W5tDA15pyIMDXml6UgMDU6MzYsIFN0ZWZhbiBBZ25lciB3cm90ZToNCj4gT24gMjAx
-Ny0wNS0wMyAyMDowOCwgQW5keSBEdWFuIHdyb3RlOg0KPj4gRnJvbTogU3RlZmFuIEFnbmVyIDxz
-dGVmYW5AYWduZXIuY2g+IFNlbnQ6IFRodXJzZGF5LCBNYXkgMDQsIDIwMTcgOToyMiBBTQ0KPj4+
-IFRvOiBBbmR5IER1YW4gPGZ1Z2FuZy5kdWFuQG54cC5jb20+DQo+Pj4gQ2M6IGZ1Z2FuZy5kdWFu
-QGZyZWVzY2FsZS5jb207IGZlc3RldmFtQGdtYWlsLmNvbTsNCj4+PiBuZXRkZXZAdmdlci5rZXJu
-ZWwub3JnOyBuZXRkZXYtb3duZXJAdmdlci5rZXJuZWwub3JnDQo+Pj4gU3ViamVjdDogUmU6IEZF
-QyBvbiBpLk1YIDcgdHJhbnNtaXQgcXVldWUgdGltZW91dA0KPj4+DQo+Pj4gSGkgQW5keSwNCj4+
-Pg0KPj4+IE9uIDIwMTctMDQtMjAgMTk6NDgsIEFuZHkgRHVhbiB3cm90ZToNCj4+Pj4gT24gMjAx
-N+W5tDA05pyIMjDml6UgMDc6MTUsIFN0ZWZhbiBBZ25lciB3cm90ZToNCj4+Pj4+IEkgdGVzdGVk
-IGFnYWluIHdpdGggaW14NnN4LWZlYyBjb21wYXRpYmxlIHN0cmluZy4gSSBjb3VsZCByZXByb2R1
-Y2UNCj4+Pj4+IGl0IG9uIGEgQ29saWJyaSB3aXRoIGkuTVggN0R1YWwuIEJ1dCBub3QgYWx3YXlz
-OiBJdCByZWFsbHkgZGVwZW5kcw0KPj4+Pj4gd2hldGhlciBxdWV1ZSAyIGlzIGNvdW50aW5nIHVw
-IG9yIG5vdC4gSnVzdCBhZnRlciBib290LCBJIGNoZWNrDQo+Pj4+PiAvcHJvYy9pbnRlcnJ1cHRz
-IHR3aWNlLCBpZiBxdWV1ZSAyIGlzIGNvdW50aW5nIGl0IHdpbGwgaGFwcGVuIQ0KPj4+Pj4NCj4+
-Pj4+IEJ1dCBpZiBvbmx5IHF1ZXVlIDAgaXMgbW9zdGx5IGluIHVzZSwgdGhlbiBpdCBzZWVtcyB0
-byB3b3JrIGp1c3QgZmluZS4NCj4+Pj4gSWYgeW91ciBjYXNlIGlzIG9ubHkgcnVubmluZyBiZXN0
-IGVmZm9ydCBsaWtlIHRjcC91ZHAsIHlvdSBjYW4gcmUtc2V0DQo+Pj4+IHRoZSAiZnNsLG51bS10
-eC1xdWV1ZXMiIGFuZCAiZnNsLG51bS1yeC1xdWV1ZXMiIHRvIDEgaW4gYm9hcmQgZHRzIGZpbGUu
-DQo+Pj4+IE90aGVyIHR3byBxdWV1ZXMgYXJlIGZvciBBVkIgYXVkaW8vdmlkZW8gcXVldWVzLCB0
-aGV5IGhhdmUgaGlnaA0KPj4+PiBwcmlvcml0eSB0aGFuIHF1ZXVlIDAuIElmIHJ1bm5pbmcgaXBl
-cmYgdGNwIHRlc3Qgb24gdGhlIHRocmVlIHF1ZXVlcywNCj4+Pj4gdGhlbiB0aGUgdGNwIHNlZ21l
-bnQgbWF5IGJlIG91dC1vZi1vcmRlciB0aGF0IGNhdXNlIG5ldCB3YXRjaGRvZw0KPj4+IHRpbWVv
-dXQuDQo+Pj4+PiBJIGFsc28gdHJpZWQgaS5NWCA3RHVhbCBTYWJyZVNEIGhlcmUsIGFuZCB0aGUg
-c2FtZSB0aGluZy4gSSBoYWQgdG8NCj4+Pj4+IHJlYm9vdCAzIHRpbWVzLCB0aGVuIHF1ZXVlIDIg
-d2FzIGNvdW50aW5nOg0KPj4+Pj4gICAgNTc6ICAgICAgICAgIDggICAgIEdJQy0wIDE1MCBMZXZl
-bCAgICAgMzBiZTAwMDAuZXRoZXJuZXQNCj4+Pj4+ICAgIDU4OiAgICAgIDIwMTM3ICAgICBHSUMt
-MCAxNTEgTGV2ZWwgICAgIDMwYmUwMDAwLmV0aGVybmV0DQo+Pj4+PiAgICA1OTogICAgICAgOTI2
-OSAgICAgR0lDLTAgMTUyIExldmVsICAgICAzMGJlMDAwMC5ldGhlcm5ldA0KPj4+Pj4NCj4+Pj4+
-IEl0IHRvb2sgbWUgYWJvdXQgNDAgbWludXRlcyBvbiBTYWJyZSB1bnRpbCBpdCBoYXBwZW5lZCwg
-YW5kIEkgaGFkIHRvDQo+Pj4+PiBmb3JjZSBpdCB1c2luZyBpcGVyZiwgYnV0IHRoZW4gSSBnb3Qg
-dGhlIHJpbmcgZHVtcHM6DQo+Pj4+IE15IGJvYXJkIGhhZCByYW4gbW9yZSB0aGFuIDQ3IGhvdXJz
-IHdpdGggbmZzIHJvb3RmcyBpbiA0LjExLjAtcmM2LCBidXQNCj4+Pj4gbm90IHJ1bm5pbmcgaXBl
-cmYuDQo+Pj4+IEkgYW0gdGVzdGluZyB3aXRoIGlwZXJmLg0KPj4+IEFueSB1cGRhdGUgb24gdGhp
-cyBpc3N1ZT8NCj4+Pg0KPj4+IFdoZW4gdXNpbmcgaXBlcmYgKHNlcnZlcikgb24gdGhlIGJvYXJk
-IHdpdGggTGludXggNC4xMSB0aGUgaXNzdWUgYXBwZWFycw0KPj4+IHdpdGhpbiBhIGZldyBpcGVy
-ZiBpdGVyYXRpb25zIG9uIGEgU2FicmUgKFRPIDEuMiwgQm9hcmQgUmV2IEMsIGlmIHRoYXQgbWF0
-dGVycykuLi4NCj4+Pg0KPj4gSSBkb27igJl0IGtub3cgd2hldGhlciB5b3UgcmVjZWl2ZWQgbXkg
-bGFzdCBtYWlsLiAobWF5YmUgZmFpbGVkIGR1ZSB0byBJDQo+PiByZWNlaXZlZCBzb21lIHJlamVj
-dGlvbiBtYWlscykNCj4gSSB0aGluayBJIGRpZCBub3QuLi4gVGhlIGxhc3QgZW1haWwgSSByZWNl
-aXZlZCB3YXMgRnJpLCAyMSBBcHIgMjAxNw0KPiAwMjo0ODoyMyBVVEMuDQo+DQo+ICAgDQo+PiBJ
-ZiB5b3VyIGNhc2UgaXMgb25seSBydW5uaW5nIGJlc3QgZWZmb3J0IGxpa2UgdGNwL3VkcCwgeW91
-IGNhbiByZS1zZXQNCj4+IHRoZSAiZnNsLG51bS10eC1xdWV1ZXMiIGFuZCAiZnNsLG51bS1yeC1x
-dWV1ZXMiIHRvIDEgaW4gYm9hcmQgZHRzDQo+PiBmaWxlLg0KPiBJIGRpZCB0ZXN0IHRoYXQsIGFu
-ZCBpdCBzZWVtcyB0byB3b3JrIGZpbmUgd2l0aCB0aG9zZSBwcm9wZXJ0aWVzIHNldCB0bw0KPiAx
-Lg0KU28gaXQgY2FuIGZpeCB5b3VyIHByb2JsZW0gYWZ0ZXIgbG9uZyB0aW1lIHRlc3Q/DQo+PiBP
-dGhlciB0d28gcXVldWVzIGFyZSBmb3IgQVZCIGF1ZGlvL3ZpZGVvIHF1ZXVlcywgdGhleSBoYXZl
-IGhpZ2gNCj4+IHByaW9yaXR5IHRoYW4gcXVldWUgMC4gSWYgcnVubmluZyBpcGVyZiB0Y3AgdGVz
-dCBvbiB0aGUgdGhyZWUgcXVldWVzLA0KPj4gdGhlbiB0aGUgdGNwIHNlZ21lbnQgbWF5IGJlIG91
-dC1vZi1vcmRlciB0aGF0IGNhdXNlIG5ldCB3YXRjaGRvZw0KPj4gdGltZW91dC4NCj4gT2theS4g
-QSBzaW5nbGUgZXZlbnQgd291bGQgYmUgdW5kZXJzdGFuZGFibGUsIGJ1dCBpdCBzZWVtcyB0byBl
-bnRlciBzb21lDQo+IGtpbmQgb2YgbG9vcCBhZnRlciB0aGF0IChjb250aW51b3VzbHkgcHJpbnRp
-bmcgImZlYyAzMGJlMDAwMC5ldGhlcm5ldA0KPiBldGgwOiBUWCByaW5nIGR1bXAgLi4uIikuDQo+
-DQo+IEluIGEgcXVpY2sgdGVzdCBJIGNvbW1lbnRlZCBvdXQgdGhlIGZlY19kdW1wIGNhbGwsIHdp
-dGggdGhhdCBpdCBzZWVtcyB0bw0KPiBwcmludCBvbmx5IG9uY2UgYW5kIGNvbnRpbnVlcyB3b3Jr
-aW5nIGFmdGVyd2FyZHMgKGFsdGhvdWdoLCBzcGVlZCBzdGFydHMNCj4gdG8gZGVjcmVhc2UsIHNv
-IHNvbWV0aGluZyBpcyBub3QgZ29vZCBhdCB0aGF0IHBvaW50KS4NClRoZSB0ZXN0IGJhc2Ugb24g
-YWJvdmUgY2hhbmdlID8gT25lIHF1ZXVlIHN0aWxsIGJyaW5nIHdhdGNoZG9nIHRpbWVvdXQgPw0K
-Pj4gSW4gZnNsIGtlcm5lbCB0cmVlLCB0aGVyZSBoYXZlIG9uZSBwYXRjaCB0aGF0IG9ubHkgc2Vs
-ZWN0IHRoZSBxdWV1ZTANCj4+IGZvciBiZXN0IGVmZm9ydCBsaWtlIHRjcC91ZHAuIFBscyB0ZXN0
-IGFnYWluIGluIHlvdXIgYm9hcmQsIGlmIG5vDQo+PiBwcm9ibGVtIEkgd2lsbCB1cHN0cmVhbSB0
-aGUgcGF0Y2guDQo+IFRoYXQgc291bmRzIGxpa2UgYSByZWFzb25hYmxlIGZpeC4NCj4NCj4gSVAs
-IG5vIG1hdHRlciB3aGV0aGVyIFRDUC9VRFAsIGlzIHRoZSBtb3N0IGNvbW1vbiB1c2UgY2FzZSwg
-c28gSU1ITyB0aGlzDQo+IHNob3VsZCAianVzdCB3b3JrIiBieSBkZWZhdWx0Lg0KPg0KPiAtLQ0K
-PiBTdGVmYW4=
+On 2017-05-04 19:03, Andy Duan wrote:
+> On 2017年05月05日 05:36, Stefan Agner wrote:
+>> On 2017-05-03 20:08, Andy Duan wrote:
+>>> From: Stefan Agner <stefan@agner.ch> Sent: Thursday, May 04, 2017 9:22 AM
+>>>> To: Andy Duan <fugang.duan@nxp.com>
+>>>> Cc: fugang.duan@freescale.com; festevam@gmail.com;
+>>>> netdev@vger.kernel.org; netdev-owner@vger.kernel.org
+>>>> Subject: Re: FEC on i.MX 7 transmit queue timeout
+>>>>
+>>>> Hi Andy,
+>>>>
+>>>> On 2017-04-20 19:48, Andy Duan wrote:
+>>>>> On 2017年04月20日 07:15, Stefan Agner wrote:
+>>>>>> I tested again with imx6sx-fec compatible string. I could reproduce
+>>>>>> it on a Colibri with i.MX 7Dual. But not always: It really depends
+>>>>>> whether queue 2 is counting up or not. Just after boot, I check
+>>>>>> /proc/interrupts twice, if queue 2 is counting it will happen!
+>>>>>>
+>>>>>> But if only queue 0 is mostly in use, then it seems to work just fine.
+>>>>> If your case is only running best effort like tcp/udp, you can re-set
+>>>>> the "fsl,num-tx-queues" and "fsl,num-rx-queues" to 1 in board dts file.
+>>>>> Other two queues are for AVB audio/video queues, they have high
+>>>>> priority than queue 0. If running iperf tcp test on the three queues,
+>>>>> then the tcp segment may be out-of-order that cause net watchdog
+>>>> timeout.
+>>>>>> I also tried i.MX 7Dual SabreSD here, and the same thing. I had to
+>>>>>> reboot 3 times, then queue 2 was counting:
+>>>>>>    57:          8     GIC-0 150 Level     30be0000.ethernet
+>>>>>>    58:      20137     GIC-0 151 Level     30be0000.ethernet
+>>>>>>    59:       9269     GIC-0 152 Level     30be0000.ethernet
+>>>>>>
+>>>>>> It took me about 40 minutes on Sabre until it happened, and I had to
+>>>>>> force it using iperf, but then I got the ring dumps:
+>>>>> My board had ran more than 47 hours with nfs rootfs in 4.11.0-rc6, but
+>>>>> not running iperf.
+>>>>> I am testing with iperf.
+>>>> Any update on this issue?
+>>>>
+>>>> When using iperf (server) on the board with Linux 4.11 the issue appears
+>>>> within a few iperf iterations on a Sabre (TO 1.2, Board Rev C, if that matters)...
+>>>>
+>>> I don’t know whether you received my last mail. (maybe failed due to I
+>>> received some rejection mails)
+>> I think I did not... The last email I received was Fri, 21 Apr 2017
+>> 02:48:23 UTC.
+>>
+>>
+>>> If your case is only running best effort like tcp/udp, you can re-set
+>>> the "fsl,num-tx-queues" and "fsl,num-rx-queues" to 1 in board dts
+>>> file.
+>> I did test that, and it seems to work fine with those properties set to
+>> 1.
+> So it can fix your problem after long time test?
+
+Yes, seems to work fine after more than 2 hours.
+
+>>> Other two queues are for AVB audio/video queues, they have high
+>>> priority than queue 0. If running iperf tcp test on the three queues,
+>>> then the tcp segment may be out-of-order that cause net watchdog
+>>> timeout.
+>> Okay. A single event would be understandable, but it seems to enter some
+>> kind of loop after that (continuously printing "fec 30be0000.ethernet
+>> eth0: TX ring dump ...").
+>>
+>> In a quick test I commented out the fec_dump call, with that it seems to
+>> print only once and continues working afterwards (although, speed starts
+>> to decrease, so something is not good at that point).
+> The test base on above change ? One queue still bring watchdog timeout ?
+
+No, sorry for the confusion: This was without the fix above. So use
+multiple queues, and disable fec_dump... I was just wondering, because
+disabling the multiple queues seems to me somewhat a workaround for
+now... :-)
