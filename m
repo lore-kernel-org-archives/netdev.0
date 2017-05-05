@@ -1,88 +1,42 @@
-From: Dan Williams <dan.j.williams@intel.com>
-Subject: Re: [PATCH v1] ACPI: Switch to use generic UUID API
-Date: Thu, 4 May 2017 23:20:08 -0700
-Message-ID: <CAPcyv4jzD0MEBRNTwTokVzgdDWas682ArUjRAGT1hp=QRE8Pjg@mail.gmail.com>
-References: <20170504092151.88646-1-andriy.shevchenko@linux.intel.com>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: [PATCH] iproute2: hide devices starting with period by default
+Date: Fri, 5 May 2017 08:47:13 +0200
+Message-ID: <20170505084713.4321e69f@griffin>
+References: <027775d1-ef98-deda-1f8d-bb058d1e4c2f@cumulusnetworks.com>
+        <20170223163035.0a49f04d@xeon-e3>
+        <13cec1c2-88f4-e61d-02ee-dc01ccee7281@cumulusnetworks.com>
+        <20170223.221257.795227595252531962.davem@redhat.com>
+        <0a8e1cf0-9f30-2356-5168-a97abb86d5c2@cumulusnetworks.com>
+        <0635d3bb-0d8d-7ab6-fb53-4d84f979a023@6wind.com>
+        <4bbb7a19-1b0b-8c9a-7e74-82ee146cf48c@gmail.com>
+        <26442035-25fd-ff9a-2804-ed21ec6198cf@gmail.com>
+        <01aa60dc-8bf2-3207-1abe-158100f52960@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: alsa-devel@alsa-project.org,
- Heikki Krogerus <heikki.krogerus@linux.intel.com>,
- Liam Girdwood <lgirdwood@gmail.com>, linux-pci@vger.kernel.org,
- Amir Goldstein <amir73il@gmail.com>,
- Jarkko Sakkinen <jarkko.sakkinen@linux.intel.com>,
- Adrian Hunter <adrian.hunter@intel.com>,
- Benjamin Tissoires <benjamin.tissoires@redhat.com>,
- Joerg Roedel <joro@8bytes.org>, Linux ACPI <linux-acpi@vger.kernel.org>,
- tpmdd-devel@lists.sourceforge.net, Ben Skeggs <bskeggs@redhat.com>,
- nouveau@lists.freedesktop.org, linux-mmc@vger.kernel.org,
- Zhang Rui <rui.zhang@intel.com>, Borislav Petkov <bp@suse.de>,
- Yisen Zhuang <yisen.zhuang@huawei.com>,
- Mathias Nyman <mathias.nyman@intel.com>, intel-gfx@lists.freedesktop.org,
- linux-input@vger.kernel.org, Mark Brown <broonie@kernel.org>,
- Bjorn Helgaas <bhelgaas@google.com>,
- Mika Westerberg <mika.westerberg@linux.intel.com>,
- Felipe Balbi <balbi@kernel.or
-To: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-Return-path: <intel-gfx-bounces@lists.freedesktop.org>
-In-Reply-To: <20170504092151.88646-1-andriy.shevchenko@linux.intel.com>
-List-Unsubscribe: <https://lists.freedesktop.org/mailman/options/intel-gfx>,
- <mailto:intel-gfx-request@lists.freedesktop.org?subject=unsubscribe>
-List-Archive: <https://lists.freedesktop.org/archives/intel-gfx>
-List-Post: <mailto:intel-gfx@lists.freedesktop.org>
-List-Help: <mailto:intel-gfx-request@lists.freedesktop.org?subject=help>
-List-Subscribe: <https://lists.freedesktop.org/mailman/listinfo/intel-gfx>,
- <mailto:intel-gfx-request@lists.freedesktop.org?subject=subscribe>
-Errors-To: intel-gfx-bounces@lists.freedesktop.org
-Sender: "Intel-gfx" <intel-gfx-bounces@lists.freedesktop.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Florian Fainelli <f.fainelli@gmail.com>, nicolas.dichtel@6wind.com,
+        David Miller <davem@redhat.com>, stephen@networkplumber.org,
+        netdev@vger.kernel.org
+To: David Ahern <dsahern@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:50506 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1755507AbdEEGrR (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 5 May 2017 02:47:17 -0400
+In-Reply-To: <01aa60dc-8bf2-3207-1abe-158100f52960@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gVGh1LCBNYXkgNCwgMjAxNyBhdCAyOjIxIEFNLCBBbmR5IFNoZXZjaGVua28KPGFuZHJpeS5z
-aGV2Y2hlbmtvQGxpbnV4LmludGVsLmNvbT4gd3JvdGU6Cj4gYWNwaV9ldmFsdWF0ZV9kc20oKSBh
-bmQgZnJpZW5kcyB0YWtlIGEgcG9pbnRlciB0byBhIHJhdyBidWZmZXIgb2YgMTYKPiBieXRlcy4g
-SW5zdGVhZCB3ZSBjb252ZXJ0IHRoZW0gdG8gdXNlIHV1aWRfbGUgdHlwZS4gQXQgdGhlIHNhbWUg
-dGltZSB3ZQo+IGNvbnZlcnQgY3VycmVudCB1c2Vycy4KPgo+IGFjcGlfc3RyX3RvX3V1aWQoKSBi
-ZWNvbWVzIHVzZWxlc3MgYWZ0ZXIgdGhlIGNvbnZlcnNpb24gYW5kIGl0J3Mgc2FmZSB0bwo+IGdl
-dCByaWQgb2YgaXQuCj4KPiBUaGUgY29udmVyc2lvbiBmaXhlcyBhIHBvdGVudGlhbCBidWcgaW4g
-aW50MzQweF90aGVybWFsIGFzIHdlbGwgc2luY2UKPiB3ZSBoYXZlIHRvIHVzZSBtZW1jbXAoKSBv
-biBiaW5hcnkgZGF0YS4KPgo+IENjOiBSYWZhZWwgSi4gV3lzb2NraSA8cmp3QHJqd3lzb2NraS5u
-ZXQ+Cj4gQ2M6IE1pa2EgV2VzdGVyYmVyZyA8bWlrYS53ZXN0ZXJiZXJnQGxpbnV4LmludGVsLmNv
-bT4KPiBDYzogQm9yaXNsYXYgUGV0a292IDxicEBzdXNlLmRlPgo+IENjOiBEYW4gV2lsbGlhbXMg
-PGRhbi5qLndpbGxpYW1zQGludGVsLmNvbT4KPiBDYzogQW1pciBHb2xkc3RlaW4gPGFtaXI3M2ls
-QGdtYWlsLmNvbT4KPiBDYzogSmFya2tvIFNha2tpbmVuIDxqYXJra28uc2Fra2luZW5AbGludXgu
-aW50ZWwuY29tPgo+IENjOiBKYW5pIE5pa3VsYSA8amFuaS5uaWt1bGFAbGludXguaW50ZWwuY29t
-Pgo+IENjOiBCZW4gU2tlZ2dzIDxic2tlZ2dzQHJlZGhhdC5jb20+Cj4gQ2M6IEJlbmphbWluIFRp
-c3NvaXJlcyA8YmVuamFtaW4udGlzc29pcmVzQHJlZGhhdC5jb20+Cj4gQ2M6IEpvZXJnIFJvZWRl
-bCA8am9yb0A4Ynl0ZXMub3JnPgo+IENjOiBBZHJpYW4gSHVudGVyIDxhZHJpYW4uaHVudGVyQGlu
-dGVsLmNvbT4KPiBDYzogWWlzZW4gWmh1YW5nIDx5aXNlbi56aHVhbmdAaHVhd2VpLmNvbT4KPiBD
-YzogQmpvcm4gSGVsZ2FhcyA8YmhlbGdhYXNAZ29vZ2xlLmNvbT4KPiBDYzogWmhhbmcgUnVpIDxy
-dWkuemhhbmdAaW50ZWwuY29tPgo+IENjOiBGZWxpcGUgQmFsYmkgPGJhbGJpQGtlcm5lbC5vcmc+
-Cj4gQ2M6IE1hdGhpYXMgTnltYW4gPG1hdGhpYXMubnltYW5AaW50ZWwuY29tPgo+IENjOiBIZWlr
-a2kgS3JvZ2VydXMgPGhlaWtraS5rcm9nZXJ1c0BsaW51eC5pbnRlbC5jb20+Cj4gQ2M6IExpYW0g
-R2lyZHdvb2QgPGxnaXJkd29vZEBnbWFpbC5jb20+Cj4gQ2M6IE1hcmsgQnJvd24gPGJyb29uaWVA
-a2VybmVsLm9yZz4KPiBTaWduZWQtb2ZmLWJ5OiBBbmR5IFNoZXZjaGVua28gPGFuZHJpeS5zaGV2
-Y2hlbmtvQGxpbnV4LmludGVsLmNvbT4KWy4uXQo+IGRpZmYgLS1naXQgYS9kcml2ZXJzL2FjcGkv
-bmZpdC9jb3JlLmMgYi9kcml2ZXJzL2FjcGkvbmZpdC9jb3JlLmMKPiBpbmRleCAwZjc5ODJhMWNh
-YWYuLmJkM2U0NWVkZTA1NiAxMDA2NDQKPiAtLS0gYS9kcml2ZXJzL2FjcGkvbmZpdC9jb3JlLmMK
-PiArKysgYi9kcml2ZXJzL2FjcGkvbmZpdC9jb3JlLmMKPiBAQCAtNzQsMTEgKzc0LDExIEBAIHN0
-cnVjdCBuZml0X3RhYmxlX3ByZXYgewo+ICAgICAgICAgc3RydWN0IGxpc3RfaGVhZCBmbHVzaGVz
-Owo+ICB9Owo+Cj4gLXN0YXRpYyB1OCBuZml0X3V1aWRbTkZJVF9VVUlEX01BWF1bMTZdOwo+ICtz
-dGF0aWMgdXVpZF9sZSBuZml0X3V1aWRbTkZJVF9VVUlEX01BWF07Cj4KPiAtY29uc3QgdTggKnRv
-X25maXRfdXVpZChlbnVtIG5maXRfdXVpZHMgaWQpCj4gK2NvbnN0IHV1aWRfbGUgKnRvX25maXRf
-dXVpZChlbnVtIG5maXRfdXVpZHMgaWQpCj4gIHsKPiAtICAgICAgIHJldHVybiBuZml0X3V1aWRb
-aWRdOwo+ICsgICAgICAgcmV0dXJuICZuZml0X3V1aWRbaWRdOwo+ICB9Cj4gIEVYUE9SVF9TWU1C
-T0wodG9fbmZpdF91dWlkKTsKPgo+IEBAIC0yMDcsNyArMjA3LDcgQEAgaW50IGFjcGlfbmZpdF9j
-dGwoc3RydWN0IG52ZGltbV9idXNfZGVzY3JpcHRvciAqbmRfZGVzYywgc3RydWN0IG52ZGltbSAq
-bnZkaW1tLAo+ICAgICAgICAgdTMyIG9mZnNldCwgZndfc3RhdHVzID0gMDsKPiAgICAgICAgIGFj
-cGlfaGFuZGxlIGhhbmRsZTsKPiAgICAgICAgIHVuc2lnbmVkIGludCBmdW5jOwo+IC0gICAgICAg
-Y29uc3QgdTggKnV1aWQ7Cj4gKyAgICAgICBjb25zdCB1dWlkX2xlICp1dWlkOwo+ICAgICAgICAg
-aW50IHJjLCBpOwo+Cj4gICAgICAgICBmdW5jID0gY21kOwo+IEBAIC0zOTQsNyArMzk0LDcgQEAg
-aW50IG5maXRfc3BhX3R5cGUoc3RydWN0IGFjcGlfbmZpdF9zeXN0ZW1fYWRkcmVzcyAqc3BhKQo+
-ICAgICAgICAgaW50IGk7Cj4KPiAgICAgICAgIGZvciAoaSA9IDA7IGkgPCBORklUX1VVSURfTUFY
-OyBpKyspCj4gLSAgICAgICAgICAgICAgIGlmIChtZW1jbXAodG9fbmZpdF91dWlkKGkpLCBzcGEt
-PnJhbmdlX2d1aWQsIDE2KSA9PSAwKQo+ICsgICAgICAgICAgICAgICBpZiAoIXV1aWRfbGVfY21w
-X3BwKHRvX25maXRfdXVpZChpKSwgKHV1aWRfbGUgKilzcGEtPnJhbmdlX2d1aWQpKQoKV2hhdCBp
-cyBfY21wX3BwPyBXaHkgbm90IF9jb21wYXJlPwoKT3RoZXIgdGhhbiB0aGF0LCBsb29rcyBvayB0
-byBtZS4KX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KSW50
-ZWwtZ2Z4IG1haWxpbmcgbGlzdApJbnRlbC1nZnhAbGlzdHMuZnJlZWRlc2t0b3Aub3JnCmh0dHBz
-Oi8vbGlzdHMuZnJlZWRlc2t0b3Aub3JnL21haWxtYW4vbGlzdGluZm8vaW50ZWwtZ2Z4Cg==
+On Thu, 4 May 2017 13:47:36 -0600, David Ahern wrote:
+> On 5/4/17 1:10 PM, Florian Fainelli wrote:
+> > On 05/04/2017 09:37 AM, David Ahern wrote:
+> > Do you plan on submitting the LWT patch set at some point?
+> 
+> Definitely. Maybe I can find some time this weekend.
+
+I suggest to change the name to "lwd" or so. "lwt" name is too similar
+to the existing "lwtunnel" infrastructure and would be very confusing.
+
+Thanks,
+
+ Jiri
