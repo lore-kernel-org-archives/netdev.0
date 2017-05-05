@@ -1,81 +1,91 @@
 From: Quentin Schulz <quentin.schulz@free-electrons.com>
-Subject: [PATCH v4 1/4] can: m_can: move Message RAM initialization to function
-Date: Fri,  5 May 2017 15:50:30 +0200
-Message-ID: <20170505135033.8349-1-quentin.schulz@free-electrons.com>
+Subject: [PATCH v4 4/4] can: m_can: add deep Suspend/Resume support
+Date: Fri,  5 May 2017 15:50:33 +0200
+Message-ID: <20170505135033.8349-4-quentin.schulz@free-electrons.com>
+References: <20170505135033.8349-1-quentin.schulz@free-electrons.com>
 Cc: Quentin Schulz <quentin.schulz@free-electrons.com>,
         linux-can@vger.kernel.org, netdev@vger.kernel.org,
         linux-kernel@vger.kernel.org, alexandre.belloni@free-electrons.com,
         thomas.petazzoni@free-electrons.com
 To: wg@grandegger.com, mkl@pengutronix.de, mario.huettel@gmx.net,
         socketcan@hartkopp.net
-Return-path: <linux-can-owner@vger.kernel.org>
-Sender: linux-can-owner@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170505135033.8349-1-quentin.schulz@free-electrons.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-To avoid possible ECC/parity checksum errors when reading an
-uninitialized buffer, the entire Message RAM is initialized when probing
-the driver. This initialization is done in the same function reading the
-Device Tree properties.
+This adds Power Management deep Suspend/Resume support for Bosch M_CAN
+chip.
 
-This patch moves the RAM initialization to a separate function so it can
-be called separately from device initialization from Device Tree.
+When entering deep sleep, the clocks are gated, the interrupts are
+disabled. When resuming from deep sleep, the chip needs to be
+reinitialized, the clocks ungated and the interrupts enabled.
 
 Signed-off-by: Quentin Schulz <quentin.schulz@free-electrons.com>
 ---
 
 v4:
-  - remove unused variables from m_can_of_parse_mram,
+ - added a TODO comment for efficient runtime PM support,
+ - used m_can_clk_start/stop functions added in v4 to have symmetric
+ suspend and resume functions.
 
- drivers/net/can/m_can/m_can.c | 26 +++++++++++++++-----------
- 1 file changed, 15 insertions(+), 11 deletions(-)
+v3:
+ - do not close/reopen the can interface (which was previously done when
+ calling m_can_close), basically do the same routine as in probe but
+ it does not close/open the can device,
+ - update commit log,
+
+v2:
+ - fix erroneous commit log,
+
+ drivers/net/can/m_can/m_can.c | 15 ++++++++++++---
+ 1 file changed, 12 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/net/can/m_can/m_can.c b/drivers/net/can/m_can/m_can.c
-index bf8fdaeb955e..5da1bdb202a3 100644
+index 653b304d7091..f4947a74b65f 100644
 --- a/drivers/net/can/m_can/m_can.c
 +++ b/drivers/net/can/m_can/m_can.c
-@@ -1489,11 +1489,23 @@ static int register_m_can_dev(struct net_device *dev)
- 	return register_candev(dev);
+@@ -1668,6 +1668,8 @@ static int m_can_plat_probe(struct platform_device *pdev)
+ 	return ret;
  }
  
-+static void m_can_init_ram(struct m_can_priv *priv)
-+{
-+	int end, i, start;
++/* TODO: runtime PM with power down or sleep mode  */
 +
-+	/* initialize the entire Message RAM in use to avoid possible
-+	 * ECC/parity checksum errors when reading an uninitialized buffer
-+	 */
-+	start = priv->mcfg[MRAM_SIDF].off;
-+	end = priv->mcfg[MRAM_TXB].off +
-+		priv->mcfg[MRAM_TXB].num * TXB_ELEMENT_SIZE;
-+	for (i = start; i < end; i += 4)
-+		writel(0x0, priv->mram_base + i);
-+}
-+
- static void m_can_of_parse_mram(struct m_can_priv *priv,
- 				const u32 *mram_config_vals)
+ static __maybe_unused int m_can_suspend(struct device *dev)
  {
--	int i, start, end;
--
- 	priv->mcfg[MRAM_SIDF].off = mram_config_vals[0];
- 	priv->mcfg[MRAM_SIDF].num = mram_config_vals[1];
- 	priv->mcfg[MRAM_XIDF].off = priv->mcfg[MRAM_SIDF].off +
-@@ -1529,15 +1541,7 @@ static void m_can_of_parse_mram(struct m_can_priv *priv,
- 		priv->mcfg[MRAM_TXE].off, priv->mcfg[MRAM_TXE].num,
- 		priv->mcfg[MRAM_TXB].off, priv->mcfg[MRAM_TXB].num);
+ 	struct net_device *ndev = dev_get_drvdata(dev);
+@@ -1676,10 +1678,10 @@ static __maybe_unused int m_can_suspend(struct device *dev)
+ 	if (netif_running(ndev)) {
+ 		netif_stop_queue(ndev);
+ 		netif_device_detach(ndev);
++		m_can_stop(ndev);
++		m_can_clk_stop(priv);
+ 	}
  
--	/* initialize the entire Message RAM in use to avoid possible
--	 * ECC/parity checksum errors when reading an uninitialized buffer
--	 */
--	start = priv->mcfg[MRAM_SIDF].off;
--	end = priv->mcfg[MRAM_TXB].off +
--		priv->mcfg[MRAM_TXB].num * TXB_ELEMENT_SIZE;
--	for (i = start; i < end; i += 4)
--		writel(0x0, priv->mram_base + i);
+-	/* TODO: enter low power */
 -
+ 	priv->can.state = CAN_STATE_SLEEPING;
+ 
+ 	return 0;
+@@ -1690,11 +1692,18 @@ static __maybe_unused int m_can_resume(struct device *dev)
+ 	struct net_device *ndev = dev_get_drvdata(dev);
+ 	struct m_can_priv *priv = netdev_priv(ndev);
+ 
+-	/* TODO: exit low power */
 +	m_can_init_ram(priv);
- }
  
- static int m_can_plat_probe(struct platform_device *pdev)
+ 	priv->can.state = CAN_STATE_ERROR_ACTIVE;
+ 
+ 	if (netif_running(ndev)) {
++		int ret;
++
++		ret = m_can_clk_start(priv);
++		if (ret)
++			return ret;
++
++		m_can_start(ndev);
+ 		netif_device_attach(ndev);
+ 		netif_start_queue(ndev);
+ 	}
 -- 
 2.11.0
-
