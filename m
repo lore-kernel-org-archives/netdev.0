@@ -1,77 +1,105 @@
-From: Vitaly Kuznetsov <vkuznets@redhat.com>
-Subject: Re: [PATCH] xen-netfront: avoid crashing on resume after a failure in talk_to_netback()
-Date: Fri, 05 May 2017 16:40:10 +0200
-Message-ID: <87lgqb74fp.fsf@vitty.brq.redhat.com>
-References: <20170504122304.11735-1-vkuznets@redhat.com>
-        <20170504.112150.391662736580694835.davem@davemloft.net>
+From: Adam Ford <aford173-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 0/4] TI Bluetooth serdev support
+Date: Fri, 5 May 2017 09:51:33 -0500
+Message-ID: <CAHCN7x+Mq=b6RN-ezU0400W=H=D7DR+Es1FHtT4GyozpVd8ALA@mail.gmail.com>
+References: <20170405183005.20570-1-robh@kernel.org> <CAHCN7xJUxZm1qKAxT0kaK6qoDg+HWOJK7sTH-q9za4HJuUwe8Q@mail.gmail.com>
+ <20170430160430.rmyuo6sdrkrjxjg6@earth>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: xen-devel@lists.xenproject.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, boris.ostrovsky@oracle.com,
-        jgross@suse.com
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170504.112150.391662736580694835.davem@davemloft.net> (David
-        Miller's message of "Thu, 04 May 2017 11:21:50 -0400 (EDT)")
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
+        linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Gustavo Padovan <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>,
+        Satish Patel <satish.patel-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+        Wei Xu <xuwei5-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>, Eyal Reizer <eyalr-l0cyMroinI0@public.gmane.org>,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+To: Sebastian Reichel <sre-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170430160430.rmyuo6sdrkrjxjg6@earth>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-David Miller <davem@davemloft.net> writes:
-
-> From: Vitaly Kuznetsov <vkuznets@redhat.com>
-> Date: Thu,  4 May 2017 14:23:04 +0200
+On Sun, Apr 30, 2017 at 11:04 AM, Sebastian Reichel <sre-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org> wrote:
+> Hi,
 >
->> Unavoidable crashes in netfront_resume() and netback_changed() after a
->> previous fail in talk_to_netback() (e.g. when we fail to read MAC from
->> xenstore) were discovered. The failure path in talk_to_netback() does
->> unregister/free for netdev but we don't reset drvdata and we try accessing
->> it again after resume.
->> 
->> Reset drvdata in netback_changed() the same way we reset it in
->> netfront_probe() and check for NULL in both netfront_resume() and
->> netback_changed() to properly handle the situation.
->> 
->> Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
+> On Sun, Apr 30, 2017 at 10:14:20AM -0500, Adam Ford wrote:
+>> On Wed, Apr 5, 2017 at 1:30 PM, Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org> wrote:
+>> > This series adds serdev support to the HCI LL protocol used on TI BT
+>> > modules and enables support on HiKey board with with the WL1835 module.
+>> > With this the custom TI UIM daemon and btattach are no longer needed.
+>>
+>> Without UIM daemon, what instruction do you use to load the BT firmware?
+>>
+>> I was thinking 'hciattach' but I was having trouble.  I was hoping you
+>> might have some insight.
+>>
+>>  hciattach -t 30 -s 115200 /dev/ttymxc1 texas 3000000 flow  Just
+>> returns a timeout.
+>>
+>> I modified my i.MX6 device tree per the binding documentation and
+>> setup the regulators and enable GPIO pins.
 >
-> The circumstances under which netfront_probe() NULLs out the device
-> private is different than what you propose here, which is to do it
-> on a live device in netback_changed() whilst mutliple susbsytems
-> have a reference to this device and can call into the driver still.
+> If you configured everything correctly no userspace interaction is
+> required. The driver should request the firmware automatically once
+> you power up the bluetooth device.
 >
-> It is only legal to do this in the probe function because such
-> references and execution possibilities do not exist at that point.
+> Apart from DT changes make sure, that the following options are
+> enabled and check dmesg for any hints.
 >
-> What really needs to happen is that the xenbus_driver must be told to
-> unregister this xen device and stop making calls into the driver for
-> it before you release the netdev state.
+> CONFIG_SERIAL_DEV_BUS
+> CONFIG_SERIAL_DEV_CTRL_TTYPORT
+> CONFIG_BT_HCIUART
+> CONFIG_BT_HCIUART_LL
 >
-> That is the only reasonable way to fix this bug.
 
-True,
 
-after looking at the issue again I realized that removing half of the
-device in talk_to_netback() is a mistake - we should either treat errors
-as fatal and remove the device completely or leave netdev in place
-hoping that it'll magically got fixed later. I'm leaning towards the
-former, I tried and the following simple patch does the job:
+I have enabled those flags, and I have updated my device tree.
+I am testing this on an OMAP3630 (DM3730) board with a WL1283.  I am
+getting a lot of timeout errors.  I tested this against the original
+implemention I had in pdata-quirks.c using the ti-st driver, uim & and
+the btwilink driver.
 
-diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
-index 6ffc482..7b61adb 100644
---- a/drivers/net/xen-netfront.c
-+++ b/drivers/net/xen-netfront.c
-@@ -1934,8 +1934,7 @@ static int talk_to_netback(struct xenbus_device *dev,
-        xennet_disconnect_backend(info);
-        xennet_destroy_queues(info);
-  out:
--       unregister_netdev(info->netdev);
--       xennet_free_netdev(info->netdev);
-+       device_unregister(&dev->dev);
-        return err;
- }
+I pulled in some of the newer patches to enable the wl1283-st, but I
+am obviously missing something.
 
-In case noone is against this big hammer I can send this as v2.
+I   58.717651] Bluetooth: hci0: Reading TI version information failed
+(-110)
+[   58.724853] Bluetooth: hci0: download firmware failed, retrying...
+[   60.957641] Bluetooth: hci0 command 0x1001 tx timeout
+[   68.957641] Bluetooth: hci0: Reading TI version information failed
+(-110)
+[   68.964843] Bluetooth: hci0: download firmware failed, retrying...
+[   69.132171] Bluetooth: Unknown HCI packet type 06
+[   69.138244] Bluetooth: Unknown HCI packet type 0c
+[   69.143249] Bluetooth: Unknown HCI packet type 40
+[   69.148498] Bluetooth: Unknown HCI packet type 20
+[   69.153533] Bluetooth: Data length is too large
+[   69.158569] Bluetooth: Unknown HCI packet type a0
+[   69.163574] Bluetooth: Unknown HCI packet type 00
+[   69.168731] Bluetooth: Unknown HCI packet type 00
+[   69.173736] Bluetooth: Unknown HCI packet type 34
+[   69.178924] Bluetooth: Unknown HCI packet type 91
+[   71.197631] Bluetooth: hci0 command 0x1001 tx timeout
+[   79.197662] Bluetooth: hci0: Reading TI version information failed (-110)
 
-Thank you for your feedback, David!
+Since the pdata-quirks and original ti-st drivers work together, I
+know the hardware is fine.  The only change to the device tree is the
+addition of the Bluetooth container:
 
--- 
-  Vitaly
+bluetooth {
+  compatible = "ti,wl1283-st";
+  enable-gpios = <&gpio6 2 GPIO_ACTIVE_HIGH>;
+};
+
+Any thoughts or suggestions to try?  I get similar behavior on an
+i.MX6 board with a wl1837-st module as well.
+
+adam
+> -- Sebastian
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
