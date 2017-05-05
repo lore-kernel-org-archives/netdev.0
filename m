@@ -1,111 +1,107 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH 1/2] PCI: Add new PCIe Fabric End Node flag, PCI_DEV_FLAGS_NO_RELAXED_ORDERING
-Date: Fri, 5 May 2017 07:04:53 -0700
-Message-ID: <CAKgT0Ucwkp+fi-9HhMbze6t_i15dj4e2WQBp13Coi6MegrDh=w@mail.gmail.com>
-References: <cover.1493678834.git.leedom@chelsio.com> <758d0e431c732fe133e7b0e660bde5fc1beccdba.1493678834.git.leedom@chelsio.com>
- <CAKgT0UeuW88AHBX14H8xHteeG7vR0AH3apbjOeEDx_6p46x7tA@mail.gmail.com>
- <20170502165329.GB26406@linux.intel.com> <CAKgT0UcxjGCZu_QV-eF7_yWkDBbQpLpdaPqBf1gji8XXM5Cc=w@mail.gmail.com>
- <MWHPR12MB160095DF53CE981C923FE65DC8160@MWHPR12MB1600.namprd12.prod.outlook.com>
- <CAKgT0UdJ17DGAphuP5Y9co6ky-GBFdq2s-1nqctY_Tz_iz5__g@mail.gmail.com> <MWHPR12MB1600E78DD7F530AA9DC2433DC8EA0@MWHPR12MB1600.namprd12.prod.outlook.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "Raj, Ashok" <ashok.raj@intel.com>,
-        Bjorn Helgaas <helgaas@kernel.org>,
-        Michael Werner <werner@chelsio.com>,
-        Ganesh GR <ganeshgr@chelsio.com>,
-        "Arjun V." <arjun@chelsio.com>,
-        Asit K Mallick <asit.k.mallick@intel.com>,
-        Patrick J Cramer <patrick.j.cramer@intel.com>,
-        Suravee Suthikulpanit <Suravee.Suthikulpanit@amd.com>,
-        Bob Shaw <Bob.Shaw@amd.com>, h <l.stach@pengutronix.de>,
-        Ding Tianhong <dingtianhong@huawei.com>,
-        Mark Rutland <mark.rutland@arm.com>,
-        Amir Ancel <amira@mellanox.com>,
-        Gabriele Paoloni <gabriele.paoloni@huawei.com>,
-        Catalin Marinas <catalin.marinas@arm.com>,
-        Will Deacon <will.deacon@arm.com>,
-        LinuxArm <linuxarm@huawei.com>,
-        David Laight <David.Laight@aculab.com>,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-        Netdev <netdev@vger.ke
-To: Casey Leedom <leedom@chelsio.com>
+From: Sebastian Reichel <sebastian.reichel@collabora.co.uk>
+Subject: [PATCHv4] wlcore: add wl1285 compatible
+Date: Fri,  5 May 2017 16:15:53 +0200
+Message-ID: <20170505141553.2605-1-sebastian.reichel@collabora.co.uk>
+Cc: Sebastian Reichel <sre@kernel.org>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        Tony Lindgren <tony@atomide.com>,
+        Marcel Holtmann <marcel@holtmann.org>,
+        Rob Herring <robh+dt@kernel.org>,
+        linux-wireless@vger.kernel.org, linux-omap@vger.kernel.org,
+        linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+        Sebastian Reichel <sebastian.reichel@collabora.co.uk>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f49.google.com ([209.85.214.49]:33615 "EHLO
-        mail-it0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751127AbdEEOEz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 5 May 2017 10:04:55 -0400
-Received: by mail-it0-f49.google.com with SMTP id w68so2208019itc.0
-        for <netdev@vger.kernel.org>; Fri, 05 May 2017 07:04:55 -0700 (PDT)
-In-Reply-To: <MWHPR12MB1600E78DD7F530AA9DC2433DC8EA0@MWHPR12MB1600.namprd12.prod.outlook.com>
+Received: from bhuna.collabora.co.uk ([46.235.227.227]:39497 "EHLO
+        bhuna.collabora.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751215AbdEEOQE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 5 May 2017 10:16:04 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 4, 2017 at 2:01 PM, Casey Leedom <leedom@chelsio.com> wrote:
-> | From: Alexander Duyck <alexander.duyck@gmail.com>
-> | Sent: Wednesday, May 3, 2017 9:02 AM
-> | ...
-> | It sounds like we are more or less in agreement. My only concern is
-> | really what we default this to. On x86 I would say we could probably
-> | default this to disabled for existing platforms since my understanding
-> | is that relaxed ordering doesn't provide much benefit on what is out
-> | there right now when performing DMA through the root complex. As far
-> | as peer-to-peer I would say we should probably look at enabling the
-> | ability to have Relaxed Ordering enabled for some channels but not
-> | others. In those cases the hardware needs to be smart enough to allow
-> | for you to indicate you want it disabled by default for most of your
-> | DMA channels, and then enabled for the select channels that are
-> | handling the peer-to-peer traffic.
->
->   Yes, I think that we are mostly in agreement.  I had just wanted to make
-> sure that whatever scheme was developed would allow for simultaneously
-> supporting non-Relaxed Ordering for some PCIe End Points and Relaxed
-> Ordering for others within the same system.  I.e. not simply
-> enabling/disabling/etc.  based solely on System Platform Architecture.
->
->   By the way, I've started our QA folks off looking at what things look like
-> in Linux Virtual Machines under different Hypervisors to see what
-> information they may provide to the VM in the way of what Root Complex Port
-> is being used, etc.  So far they've got Windows HyperV done and there
-> there's no PCIe Fabric exposed in any way: just the attached device.  I'll
-> have to see what pci_find_pcie_root_port() returns in that environment.
-> Maybe NULL?
+Motorola Droid 4 uses a WL1285C. With differences between the
+chips not being public let's add explicit binding for wl1285
+instead of relying on wl1283 being very similar.
 
-I believe NULL is one of the options. It all depends on what qemu is
-emulating. Most likely you won't find a pcie root port on KVM because
-the default is to emulate an older system that only supports PCI.
+Reviewed-by: Rob Herring <robh@kernel.org>
+Acked-by: Kalle Valo <kvalo@codeaurora.org>
+Acked-by: Tony Lindgren <tony@atomide.com>
+Signed-off-by: Sebastian Reichel <sebastian.reichel@collabora.co.uk>
+---
+Hi Dave,
 
->   With your reservations (which I also share), I think that it probably
-> makes sense to have a per-architecture definition of the "Can I Use Relaxed
-> Ordering With TLPs Directed At This End Point" predicate, with the default
-> being "No" for any architecture which doesn't implement the predicate.  And
-> if the specified (struct pci_dev *) End Node is NULL, it ought to return
-> False for that as well.  I can't see any reason to pass in the Source End
-> Node but I may be missing something.
->
->   At this point, this is pretty far outside my level of expertise.  I'm
-> happy to give it a go, but I'd be even happier if someone with a lot more
-> experience in the PCIe Infrastructure were to want to carry the ball
-> forward.  I'm not super familiar with the Linux Kernel "Rules Of
-> Engagement", so let me know what my next step should be.  Thanks.
->
-> Casey
+I previously send this in two patches, but its hard to apply without
+requiring multiple kernel releases (the driver must be updated before
+the DTS change). Since the actual change is not very complex Marcel
+Holtmann & Tony Lindgren suggested, that I send this directly to you
+in a single patch for inclusion into 4.12. This also means, that the
+remaining series can be queued normally for 4.13.
 
-For now we can probably keep this on the linux-pci mailing list. Going
-that route is the most straight forward for now since step one is
-probably just making sure we are setting the relaxed ordering bit in
-the setups that make sense. I would say we could probably keep it
-simple. We just need to enable relaxed ordering by default for SPARC
-architectures, on most others we can probably default it to off.
+Changes since PATCHv3:
+ - add netdev@vger.kernel.org to cc
+ - add Acked-By from Tony & Kalle
+Changes since PATCHv2:
+ - merge patch for DTS and driver
+ - add Acked-By from Rob
+Changes since PATCHv1:
+ - patches did not exist in patchv1
 
-I believe this all had started as Ding Tianhong was hoping to enable
-this for the ARM architecture. That is the only one I can think of
-where it might be difficult to figure out which way to default as we
-were attempting to follow the same code that was enabled for SPARC and
-that is what started this tug-of-war about how this should be done.
-What we might do is take care of this in two phases. The first one
-enables the infrastructure generically but leaves it defaulted to off
-for everyone but SPARC. Then we can go through and start enabling it
-for other platforms such as some of those on ARM in the platforms that
-Ding Tianhong was working with.
+-- Sebastian
+---
+ Documentation/devicetree/bindings/net/wireless/ti,wlcore.txt | 1 +
+ arch/arm/boot/dts/omap4-droid4-xt894.dts                     | 2 +-
+ drivers/net/wireless/ti/wlcore/sdio.c                        | 1 +
+ drivers/net/wireless/ti/wlcore/spi.c                         | 1 +
+ 4 files changed, 4 insertions(+), 1 deletion(-)
 
-- Alex
+diff --git a/Documentation/devicetree/bindings/net/wireless/ti,wlcore.txt b/Documentation/devicetree/bindings/net/wireless/ti,wlcore.txt
+index 2a3d90de18ee..7b2cbb14113e 100644
+--- a/Documentation/devicetree/bindings/net/wireless/ti,wlcore.txt
++++ b/Documentation/devicetree/bindings/net/wireless/ti,wlcore.txt
+@@ -10,6 +10,7 @@ Required properties:
+     * "ti,wl1273"
+     * "ti,wl1281"
+     * "ti,wl1283"
++    * "ti,wl1285"
+     * "ti,wl1801"
+     * "ti,wl1805"
+     * "ti,wl1807"
+diff --git a/arch/arm/boot/dts/omap4-droid4-xt894.dts b/arch/arm/boot/dts/omap4-droid4-xt894.dts
+index 89eb607f4a9e..c09b51d6ccf7 100644
+--- a/arch/arm/boot/dts/omap4-droid4-xt894.dts
++++ b/arch/arm/boot/dts/omap4-droid4-xt894.dts
+@@ -301,7 +301,7 @@
+ 	#address-cells = <1>;
+ 	#size-cells = <0>;
+ 	wlcore: wlcore@2 {
+-		compatible = "ti,wl1283";
++		compatible = "ti,wl1285";
+ 		reg = <2>;
+ 		interrupt-parent = <&gpio4>;
+ 		interrupts = <4 IRQ_TYPE_LEVEL_HIGH>; /* gpio100 */
+diff --git a/drivers/net/wireless/ti/wlcore/sdio.c b/drivers/net/wireless/ti/wlcore/sdio.c
+index 287023ef4a78..2fb38717346f 100644
+--- a/drivers/net/wireless/ti/wlcore/sdio.c
++++ b/drivers/net/wireless/ti/wlcore/sdio.c
+@@ -237,6 +237,7 @@ static const struct of_device_id wlcore_sdio_of_match_table[] = {
+ 	{ .compatible = "ti,wl1273", .data = &wl127x_data },
+ 	{ .compatible = "ti,wl1281", .data = &wl128x_data },
+ 	{ .compatible = "ti,wl1283", .data = &wl128x_data },
++	{ .compatible = "ti,wl1285", .data = &wl128x_data },
+ 	{ .compatible = "ti,wl1801", .data = &wl18xx_data },
+ 	{ .compatible = "ti,wl1805", .data = &wl18xx_data },
+ 	{ .compatible = "ti,wl1807", .data = &wl18xx_data },
+diff --git a/drivers/net/wireless/ti/wlcore/spi.c b/drivers/net/wireless/ti/wlcore/spi.c
+index f949ad2bd898..1f5d9ebb0925 100644
+--- a/drivers/net/wireless/ti/wlcore/spi.c
++++ b/drivers/net/wireless/ti/wlcore/spi.c
+@@ -433,6 +433,7 @@ static const struct of_device_id wlcore_spi_of_match_table[] = {
+ 	{ .compatible = "ti,wl1273", .data = &wl127x_data},
+ 	{ .compatible = "ti,wl1281", .data = &wl128x_data},
+ 	{ .compatible = "ti,wl1283", .data = &wl128x_data},
++	{ .compatible = "ti,wl1285", .data = &wl128x_data},
+ 	{ .compatible = "ti,wl1801", .data = &wl18xx_data},
+ 	{ .compatible = "ti,wl1805", .data = &wl18xx_data},
+ 	{ .compatible = "ti,wl1807", .data = &wl18xx_data},
+-- 
+2.11.0
