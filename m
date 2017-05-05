@@ -1,7 +1,7 @@
 From: Simon Horman <simon.horman@netronome.com>
-Subject: [PATCH/RFC net-next v2 2/4] flow dissector: return error on icmp dissection under-run
-Date: Fri,  5 May 2017 14:47:04 +0200
-Message-ID: <1493988426-22854-3-git-send-email-simon.horman@netronome.com>
+Subject: [PATCH/RFC net-next v2 4/4] net/sched: cls_flower: allow control of tree traversal on packet parse errors
+Date: Fri,  5 May 2017 14:47:06 +0200
+Message-ID: <1493988426-22854-5-git-send-email-simon.horman@netronome.com>
 References: <1493988426-22854-1-git-send-email-simon.horman@netronome.com>
 Cc: Dinan Gunawardena <dinan.gunawardena@netronome.com>,
         netdev@vger.kernel.org, oss-drivers@netronome.com,
@@ -11,149 +11,183 @@ To: Jiri Pirko <jiri@mellanox.com>,
         Jamal Hadi Salim <jhs@mojatatu.com>,
         Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f43.google.com ([74.125.82.43]:33859 "EHLO
+Received: from mail-wm0-f43.google.com ([74.125.82.43]:34991 "EHLO
         mail-wm0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752752AbdEEMrT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 5 May 2017 08:47:19 -0400
-Received: by mail-wm0-f43.google.com with SMTP id u65so2631287wmu.1
-        for <netdev@vger.kernel.org>; Fri, 05 May 2017 05:47:18 -0700 (PDT)
+        with ESMTP id S1753468AbdEEMrW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 5 May 2017 08:47:22 -0400
+Received: by mail-wm0-f43.google.com with SMTP id w64so22936743wma.0
+        for <netdev@vger.kernel.org>; Fri, 05 May 2017 05:47:21 -0700 (PDT)
 In-Reply-To: <1493988426-22854-1-git-send-email-simon.horman@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Return an error from __skb_flow_dissect() if insufficient packet data is
-present when dissecting icmp type and code.
+Allow control how the tree of qdisc, classes and filters is further
+traversed if an error is encountered when parsing the packet in order to
+match the cls_flower filters at a particular prio.
 
-Without this patch the absence of the ICMP type and code in truncated
-ICMPv4 or IPVPv6 packets is treated the way same as the presence of a code
-and type of value of zero.  And without this patch the flower classifier is
-unable to differentiate between these two cases which may lead to
-unexpected matching of truncated packets.
+By default continue to the next filter, the behaviour without this patch.
 
-With this patch the flow dissector and in turn the flower classifier can
-differentiate between packets with zero ICMP type and code, and truncated
-packets.
+A use-case for this is to allow configuration of dropping of packets with
+truncated headers.
 
-The approach taken here is to return an error if the IP protocol indicates
-ICMP but the type and code data is not present in the packet - an error
-return value from __skb_header_pointer().
+For example, the following drops IPv4 packets that cannot be parsed by the
+flow dissector up to the end of the UDP ports - e.g. because they are
+truncated, and instantiates a continue action based on the port for packets
+that can be parsed.
 
-This should only effect the flower classifier as it is the only user of
-W_DISSECTOR_KEY_ICMP.  The behavioural update for flower only takes effect
-with a separate patch to have it refuse to match if dissection fails.
+ # tc qdisc del dev eth0 ingress; tc qdisc add dev eth0 ingress
+ # tc filter add dev eth0 protocol ip parent ffff: flower \
+       indev eth0 ip_proto udp dst_port 80 truncated drop action continue
 
 Signed-off-by: Simon Horman <simon.horman@netronome.com>
 Reviewed-by: Benjamin LaHaise <benjamin.lahaise@netronome.com>
 ---
 rfc2
-* Update changelog
+* s/TCA_FLOWER_HEADER_PARSE_ERR_ACT/TCA_FLOWER_META_TRUNCATED/
+  after discussion with Jamal
+* Clean up whitespace
 ---
- net/core/flow_dissector.c | 65 +++++++++++++++++++++++++----------------------
- 1 file changed, 34 insertions(+), 31 deletions(-)
+ include/uapi/linux/pkt_cls.h |  2 ++
+ net/sched/cls_flower.c       | 45 ++++++++++++++++++++++++++++++++++----------
+ 2 files changed, 37 insertions(+), 10 deletions(-)
 
-diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index b3bf4886f71f..496afd7b3051 100644
---- a/net/core/flow_dissector.c
-+++ b/net/core/flow_dissector.c
-@@ -58,28 +58,6 @@ void skb_flow_dissector_init(struct flow_dissector *flow_dissector,
- EXPORT_SYMBOL(skb_flow_dissector_init);
+diff --git a/include/uapi/linux/pkt_cls.h b/include/uapi/linux/pkt_cls.h
+index d613be3b3239..6474d6e55110 100644
+--- a/include/uapi/linux/pkt_cls.h
++++ b/include/uapi/linux/pkt_cls.h
+@@ -450,6 +450,8 @@ enum {
+ 	TCA_FLOWER_KEY_MPLS_TC,		/* u8 - 3 bits */
+ 	TCA_FLOWER_KEY_MPLS_LABEL,	/* be32 - 20 bits */
  
- /**
-- * skb_flow_get_be16 - extract be16 entity
-- * @skb: sk_buff to extract from
-- * @poff: offset to extract at
-- * @data: raw buffer pointer to the packet
-- * @hlen: packet header length
-- *
-- * The function will try to retrieve a be32 entity at
-- * offset poff
-- */
--static __be16 skb_flow_get_be16(const struct sk_buff *skb, int poff,
--				void *data, int hlen)
--{
--	__be16 *u, _u;
--
--	u = __skb_header_pointer(skb, poff, sizeof(_u), data, hlen, &_u);
--	if (u)
--		return *u;
--
--	return 0;
--}
--
--/**
-  * __skb_flow_get_ports - extract the upper layer ports and return them
-  * @skb: sk_buff to extract the ports from
-  * @thoff: transport header offset
-@@ -353,6 +331,29 @@ __skb_flow_dissect_gre(const struct sk_buff *skb,
- 	return FLOW_DISSECT_RET_OUT_PROTO_AGAIN;
++	TCA_FLOWER_META_TRUNCATED,
++
+ 	__TCA_FLOWER_MAX,
+ };
+ 
+diff --git a/net/sched/cls_flower.c b/net/sched/cls_flower.c
+index 90bfd003176b..000d0e3f44f9 100644
+--- a/net/sched/cls_flower.c
++++ b/net/sched/cls_flower.c
+@@ -67,13 +67,14 @@ struct cls_fl_head {
+ 	struct fl_flow_mask mask;
+ 	struct flow_dissector dissector;
+ 	u32 hgen;
+-	bool mask_assigned;
++	bool assigned;
+ 	struct list_head filters;
+ 	struct rhashtable_params ht_params;
+ 	union {
+ 		struct work_struct work;
+ 		struct rcu_head	rcu;
+ 	};
++	int err_action;
+ };
+ 
+ struct cls_fl_filter {
+@@ -188,7 +189,7 @@ static int fl_classify(struct sk_buff *skb, const struct tcf_proto *tp,
+ 	 */
+ 	skb_key.basic.n_proto = skb->protocol;
+ 	if (!skb_flow_dissect(skb, &head->dissector, &skb_key, 0))
+-		return -1;
++		return head->err_action;
+ 
+ 	fl_set_masked_key(&skb_mkey, &skb_key, &head->mask);
+ 
+@@ -317,7 +318,7 @@ static void fl_destroy_sleepable(struct work_struct *work)
+ {
+ 	struct cls_fl_head *head = container_of(work, struct cls_fl_head,
+ 						work);
+-	if (head->mask_assigned)
++	if (head->assigned)
+ 		rhashtable_destroy(&head->ht);
+ 	kfree(head);
+ 	module_put(THIS_MODULE);
+@@ -425,6 +426,7 @@ static const struct nla_policy fl_policy[TCA_FLOWER_MAX + 1] = {
+ 	[TCA_FLOWER_KEY_MPLS_BOS]	= { .type = NLA_U8 },
+ 	[TCA_FLOWER_KEY_MPLS_TC]	= { .type = NLA_U8 },
+ 	[TCA_FLOWER_KEY_MPLS_LABEL]	= { .type = NLA_U32 },
++	[TCA_FLOWER_META_TRUNCATED]	= { .type = NLA_U32 },
+ };
+ 
+ static void fl_set_key_val(struct nlattr **tb,
+@@ -791,13 +793,15 @@ static void fl_init_dissector(struct cls_fl_head *head,
+ 	skb_flow_dissector_init(&head->dissector, keys, cnt);
  }
  
-+static enum flow_dissect_ret
-+__skb_flow_dissect_icmp(const struct sk_buff *skb,
-+			struct flow_dissector *flow_dissector,
-+			void *target_container, void *data, int nhoff, int hlen)
-+{
-+	struct flow_dissector_key_icmp *key_icmp;
-+	__be16 *u, _u;
-+
-+	if (!dissector_uses_key(flow_dissector, FLOW_DISSECTOR_KEY_ICMP))
-+		return FLOW_DISSECT_RET_OUT_GOOD;
-+
-+	u = __skb_header_pointer(skb, nhoff, sizeof(_u), data, hlen, &_u);
-+	if (!u)
-+		return FLOW_DISSECT_RET_OUT_BAD;
-+
-+	key_icmp = skb_flow_dissector_target(flow_dissector,
-+					     FLOW_DISSECTOR_KEY_ICMP,
-+					     target_container);
-+	key_icmp->icmp = *u;
-+
-+	return FLOW_DISSECT_RET_OUT_GOOD;
-+}
-+
- /**
-  * __skb_flow_dissect - extract the flow_keys struct and return it
-  * @skb: sk_buff to extract the flow from, can be NULL if the rest are specified
-@@ -379,7 +380,6 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
- 	struct flow_dissector_key_basic *key_basic;
- 	struct flow_dissector_key_addrs *key_addrs;
- 	struct flow_dissector_key_ports *key_ports;
--	struct flow_dissector_key_icmp *key_icmp;
- 	struct flow_dissector_key_tags *key_tags;
- 	struct flow_dissector_key_vlan *key_vlan;
- 	bool skip_vlan = false;
-@@ -694,6 +694,17 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
- 	case IPPROTO_MPLS:
- 		proto = htons(ETH_P_MPLS_UC);
- 		goto mpls;
-+	case IPPROTO_ICMP:
-+	case NEXTHDR_ICMP:
-+		switch (__skb_flow_dissect_icmp(skb, flow_dissector,
-+						target_container, data,
-+						nhoff, hlen)) {
-+		case FLOW_DISSECT_RET_OUT_GOOD:
-+			goto out_good;
-+		case FLOW_DISSECT_RET_OUT_BAD:
-+		default:
-+			goto out_bad;
-+		}
- 	default:
- 		break;
- 	}
-@@ -708,14 +719,6 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
- 			goto out_bad;
+-static int fl_check_assign_mask(struct cls_fl_head *head,
+-				struct fl_flow_mask *mask)
++static int fl_check_assign_mask_and_err_action(struct cls_fl_head *head,
++					       struct fl_flow_mask *mask,
++					       int err_action)
+ {
+ 	int err;
+ 
+-	if (head->mask_assigned) {
+-		if (!fl_mask_eq(&head->mask, mask))
++	if (head->assigned) {
++		if (!fl_mask_eq(&head->mask, mask) ||
++		    head->err_action != err_action)
+ 			return -EINVAL;
+ 		else
+ 			return 0;
+@@ -810,7 +814,8 @@ static int fl_check_assign_mask(struct cls_fl_head *head,
+ 	if (err)
+ 		return err;
+ 	memcpy(&head->mask, mask, sizeof(head->mask));
+-	head->mask_assigned = true;
++	head->assigned = true;
++	head->err_action = err_action;
+ 
+ 	fl_init_dissector(head, mask);
+ 
+@@ -883,7 +888,7 @@ static int fl_change(struct net *net, struct sk_buff *in_skb,
+ 	struct cls_fl_filter *fnew;
+ 	struct nlattr **tb;
+ 	struct fl_flow_mask mask = {};
+-	int err;
++	int err, err_action;
+ 
+ 	if (!tca[TCA_OPTIONS])
+ 		return -EINVAL;
+@@ -930,11 +935,27 @@ static int fl_change(struct net *net, struct sk_buff *in_skb,
+ 		}
  	}
  
--	if (dissector_uses_key(flow_dissector,
--			       FLOW_DISSECTOR_KEY_ICMP)) {
--		key_icmp = skb_flow_dissector_target(flow_dissector,
--						     FLOW_DISSECTOR_KEY_ICMP,
--						     target_container);
--		key_icmp->icmp = skb_flow_get_be16(skb, nhoff, data, hlen);
--	}
--
- out_good:
- 	ret = true;
++	if (tb[TCA_FLOWER_META_TRUNCATED]) {
++		err_action = nla_get_u32(tb[TCA_FLOWER_META_TRUNCATED]);
++
++		switch (err_action) {
++		case TC_ACT_UNSPEC:
++		case TC_ACT_OK:
++		case TC_ACT_SHOT:
++			break;
++		default:
++			err = -EINVAL;
++			goto errout;
++		}
++	} else {
++		err_action = TC_ACT_UNSPEC;
++	}
++
+ 	err = fl_set_parms(net, tp, fnew, &mask, base, tb, tca[TCA_RATE], ovr);
+ 	if (err)
+ 		goto errout;
+ 
+-	err = fl_check_assign_mask(head, &mask);
++	err = fl_check_assign_mask_and_err_action(head, &mask, err_action);
+ 	if (err)
+ 		goto errout;
+ 
+@@ -1321,6 +1342,10 @@ static int fl_dump(struct net *net, struct tcf_proto *tp, unsigned long fh,
+ 	if (f->flags && nla_put_u32(skb, TCA_FLOWER_FLAGS, f->flags))
+ 		goto nla_put_failure;
+ 
++	if (head->err_action != TC_ACT_UNSPEC &&
++	    nla_put_u32(skb, TCA_FLOWER_META_TRUNCATED, head->err_action))
++		goto nla_put_failure;
++
+ 	if (tcf_exts_dump(skb, &f->exts))
+ 		goto nla_put_failure;
  
 -- 
 2.1.4
