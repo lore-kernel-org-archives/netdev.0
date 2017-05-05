@@ -1,79 +1,84 @@
-From: Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>
-Subject: Re: [PATCH v1] ACPI: Switch to use generic UUID API
-Date: Fri, 5 May 2017 09:30:35 +0200
-Message-ID: <20170505073035.GA3112@lst.de>
-References: <20170504092151.88646-1-andriy.shevchenko@linux.intel.com>
-	<CAPcyv4jzD0MEBRNTwTokVzgdDWas682ArUjRAGT1hp=QRE8Pjg@mail.gmail.com>
-	<CAOQ4uxjha8_2_HwgdgBN=G-vNytAW5Gk155E9z8OWyFiGNEZVw@mail.gmail.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH] iproute2: hide devices starting with period by default
+Date: Fri, 5 May 2017 09:42:06 +0200
+Message-ID: <15431948-fc31-ad01-e1eb-02e025b91f59@6wind.com>
+References: <027775d1-ef98-deda-1f8d-bb058d1e4c2f@cumulusnetworks.com>
+ <20170223163035.0a49f04d@xeon-e3>
+ <13cec1c2-88f4-e61d-02ee-dc01ccee7281@cumulusnetworks.com>
+ <20170223.221257.795227595252531962.davem@redhat.com>
+ <0a8e1cf0-9f30-2356-5168-a97abb86d5c2@cumulusnetworks.com>
+ <0635d3bb-0d8d-7ab6-fb53-4d84f979a023@6wind.com>
+ <4bbb7a19-1b0b-8c9a-7e74-82ee146cf48c@gmail.com>
+ <26442035-25fd-ff9a-2804-ed21ec6198cf@gmail.com>
+ <01aa60dc-8bf2-3207-1abe-158100f52960@gmail.com>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: alsa-devel-K7yf7f+aM1XWsZ/bQMPhNw@public.gmane.org,
-	Heikki Krogerus <heikki.krogerus-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-	Liam Girdwood <lgirdwood-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, linux-pci-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Jarkko Sakkinen <jarkko.sakkinen-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-	Adrian Hunter <adrian.hunter-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Benjamin Tissoires <benjamin.tissoires-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>, Linux ACPI <linux-acpi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	tpmdd-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
-	Ben Skeggs <bskeggs-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, nouveau-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org,
-	linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Zhang Rui <rui.zhang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Borislav Petkov <bp-l3A5Bk7waGM@public.gmane.org>, Yisen Zhuang <yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	Mathias Nyman <mathias.nyman-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	intel-gfx-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org, linux-input-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Jani Nikula <jani.nikula-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>, Mark Brown <broonie-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Bjorn Helgaas <bhelgaas-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Dan Williams <dan.j.williams-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Andy Shevchenko <andriy.shevchenk
-To: Amir Goldstein <amir73il-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <CAOQ4uxjha8_2_HwgdgBN=G-vNytAW5Gk155E9z8OWyFiGNEZVw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/iommu>,
-	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/iommu/>
-List-Post: <mailto:iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/iommu>,
-	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: David Miller <davem@redhat.com>, stephen@networkplumber.org,
+        netdev@vger.kernel.org
+To: David Ahern <dsahern@gmail.com>,
+        Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f46.google.com ([74.125.82.46]:35204 "EHLO
+        mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751616AbdEEHmK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 5 May 2017 03:42:10 -0400
+Received: by mail-wm0-f46.google.com with SMTP id w64so16342862wma.0
+        for <netdev@vger.kernel.org>; Fri, 05 May 2017 00:42:10 -0700 (PDT)
+In-Reply-To: <01aa60dc-8bf2-3207-1abe-158100f52960@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 05, 2017 at 10:06:06AM +0300, Amir Goldstein wrote:
-> I much rather that you sort out uuid helpers in a way that will
-> satisfy the filesystem
-> needs (just provide the helpers don't need to convert filesystems code).
-
-Yeah.
-
-> IMO, you should acknowledge that the common use case for filesystems is
-> to handle an opaque char[16] which most likely holds a uuid_be and you
-> should provide 'neutral' helpers to satisfy this use case.
+Le 04/05/2017 à 21:47, David Ahern a écrit :
+> On 5/4/17 1:10 PM, Florian Fainelli wrote:
+>> On 05/04/2017 09:37 AM, David Ahern wrote:
+>>> On 5/4/17 9:15 AM, Nicolas Dichtel wrote:
+>>>> Le 24/02/2017 à 16:52, David Ahern a écrit :
+>>>>> On 2/23/17 8:12 PM, David Miller wrote:
+>>>>>> This really need to be a fundamental facility, so that it transparently
+>>>>>> works for NetworkManager, router daemons, everything.  Not just iproute2
+>>>>>> and "ls".
+>>>>>
+>>>>> I'll rebase my patch and send out as RFC.
+>>>>>
+>>>> David, did you finally send those patches?
+>>>>
+>>>
+>>> No, but for a few reasons.
+>>>
+>>> It is easy to hide devices in a dump:
+>>>
+>>> https://github.com/dsahern/linux/commit/48a80a00eac284e58bae04af10a5a932dd7aee00
+>>>
+>>>
+>>> But I think those devices should also not exist in sysfs or procfs which
+>>> overlaps what I would like to see for lightweight netdevices:
+>>>
+>>> https://github.com/dsahern/linux/commit/70574be699cf252e77f71e3df11192438689f976
+>>
+>> Interesting that does indeed solve the same problems as the L2 only
+>> patch set intended. I am not exactly sure if hiding the devices from
+>> procfs/sysfs would be appropriate in my case (dumb L2 only switch that
+>> only does 802.1q for instance), but why not.
+>>
+>>
+>>>
+>>>
+>>> and to be complete, hidden devices should not be allowed to have a
+>>> network address or transmit packets which is the L2 only intent from
+>>> Florian:
+>>>     https://www.spinics.net/lists/netdev/msg340808.html
+>>>
+>>
+>> Do you plan on submitting the LWT patch set at some point?
 > 
-> The simplest would be to typedef uuid_t to struct uuid_be and to name 'neutral'
-> helpers' uuid_cmp/uuid_copy(uuid_t *, uuid_t *), similar to my proposal.
+> Definitely. Maybe I can find some time this weekend.
+> 
+Ok, thank you for the details.
 
-It's not jut neutral, it's the right thing to to.  The Apollo / DCE
-uuids (later also specified in RFC 4122) are big endian, so we should
-use the name there.
+I agree with Jiri that the name should be something different than lwt.
 
-> Christoph also suggested a similar treatment to typedef guid_t to
-> struct uuid_le.
 
-Exactly.  The whole idea of "little endian UUIDs" comes from the
-Wintel world, and if you look at the relevant specs they are almost
-exclusively referred to as GUIDs.
-
-The magic XFS and AFS types for specific interpretations of one of
-the RFC4122 formats don't really help, but I'll just send a patch
-to kill them off for XFS ASAP to at least get that out, and we
-probably should revert at least
-
-"afs: Move UUID struct to linux/uuid.h"
-
-That moved the AFS mess to common code as a start, and then
-also clean up the way we generate random UUIDs, where we currently
-have le helper, a be helper and then also generate_random_uuid
-just to confuse the heck out of people.  With no description of
-either of them.
+Regards,
+Nicolas
