@@ -1,41 +1,45 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute] tc: Reflect HW offload status
-Date: Fri, 5 May 2017 09:49:53 -0700
-Message-ID: <20170505094953.67f321d6@xeon-e3>
-References: <1493903715-29664-1-git-send-email-ogerlitz@mellanox.com>
+Subject: Re: [patch iproute2 v2 0/2] devlink: Add support for pipeline
+Date: Fri, 5 May 2017 09:50:59 -0700
+Message-ID: <20170505095059.2551afdd@xeon-e3>
+References: <1493810723-2536-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Roi Dayan <roid@mellanox.com>,
-        Paul Blakey <paulb@mellanox.com>
-To: Or Gerlitz <ogerlitz@mellanox.com>
+Cc: netdev@vger.kernel.org, arkadis@mellanox.com, davem@davemloft.net,
+        mlxsw@mellanox.com, dsa@cumulusnetworks.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f53.google.com ([74.125.83.53]:36608 "EHLO
-        mail-pg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750955AbdEEQuB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 5 May 2017 12:50:01 -0400
-Received: by mail-pg0-f53.google.com with SMTP id q4so5557844pga.3
-        for <netdev@vger.kernel.org>; Fri, 05 May 2017 09:50:01 -0700 (PDT)
-In-Reply-To: <1493903715-29664-1-git-send-email-ogerlitz@mellanox.com>
+Received: from mail-pf0-f173.google.com ([209.85.192.173]:35154 "EHLO
+        mail-pf0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750784AbdEEQvH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 5 May 2017 12:51:07 -0400
+Received: by mail-pf0-f173.google.com with SMTP id v14so5225600pfd.2
+        for <netdev@vger.kernel.org>; Fri, 05 May 2017 09:51:06 -0700 (PDT)
+In-Reply-To: <1493810723-2536-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu,  4 May 2017 16:15:15 +0300
-Or Gerlitz <ogerlitz@mellanox.com> wrote:
+On Wed,  3 May 2017 13:25:21 +0200
+Jiri Pirko <jiri@resnulli.us> wrote:
 
-> Currently there is no way of querying whether a filter is
-> offloaded to HW or not when using "both" policy (where none
-> of skip_sw or skip_hw flags are set by user-space).
+> From: Jiri Pirko <jiri@mellanox.com>
 > 
-> Add two new flags, "in hw" and "not in hw" such that user
-> space can determine if a filter is actually offloaded to
-> hw or not. The "in hw" UAPI semantics was chosen so it's
-> similar to the "skip hw" flag logic.
+> Arkadi says:
 > 
-> If none of these two flags are set, this signals running
-> over older kernel.
+> Add support for pipeline debug (dpipe). As a preparation step the netlink
+> attribute validation was changed before adding new dpipe attributes.
+> ---
+> v1->v2
+> - Change netlink attribute validation. 
+> - Fix commit message typos
 > 
-> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
-> Reviewed-by: Jiri Pirko <jiri@mellanox.com>
+> Arkadi Sharshevsky (2):
+>   devlink: Change netlink attribute validation
+>   devlink: Add support for pipeline debug (dpipe)
+> 
+>  devlink/devlink.c | 1450 ++++++++++++++++++++++++++++++++++++++++++++++-------
+>  1 file changed, 1281 insertions(+), 169 deletions(-)
+> 
 
-Applied thanks
+Applied thanks.
