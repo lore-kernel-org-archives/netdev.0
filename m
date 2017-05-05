@@ -1,57 +1,49 @@
-From: Alexei Starovoitov <ast@fb.com>
-Subject: Re: [PATCH v4 binutils] Add BPF support to binutils...
-Date: Fri, 5 May 2017 11:24:19 -0700
-Message-ID: <bf3b6bde-d159-c6a3-a532-83cccb1833d9@fb.com>
-References: <20170430.120750.651845251226226775.davem@davemloft.net>
- <33505cff-f730-ebac-c2d7-38f1793062b7@fb.com>
+From: Bart Van Assche <Bart.VanAssche@sandisk.com>
+Subject: Re: [RFC iproute2 0/8] RDMA tool
+Date: Fri, 5 May 2017 18:38:32 +0000
+Message-ID: <1494009511.2744.14.camel@sandisk.com>
+References: <20170504180216.7665-1-leon@kernel.org>
+         <1493921453.2692.6.camel@sandisk.com>
+         <20170504182542.GD22833@mtr-leonro.local>
+         <1493922625.2692.8.camel@sandisk.com>
+         <20170504184531.GE22833@mtr-leonro.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <daniel@iogearbox.net>, <netdev@vger.kernel.org>,
-        <xdp-newbies@vger.kernel.org>, Yonghong Song <yhs@fb.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: "jiri@mellanox.com" <jiri@mellanox.com>,
+        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
+        "ram.amrani@cavium.com" <ram.amrani@cavium.com>,
+        "sagi@grimberg.me" <sagi@grimberg.me>,
+        "ogerlitz@mellanox.com" <ogerlitz@mellanox.com>,
+        "hch@lst.de" <hch@lst.de>,
+        "dennis.dalessandro@intel.com" <dennis.dalessandro@intel.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "jgunthorpe@obsidianresearch.com" <jgunthorpe@obsidianresearch.com>,
+        "stephen@networkplumber.org" <stephen@networkplumber.org>,
+        "dledford@redhat.com" <dledford@redhat.com>,
+        "ariela@mellanox.com" <ariela@mellanox.com>
+To: "leon@kernel.org" <leon@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:35085 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1751163AbdEESYs (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 5 May 2017 14:24:48 -0400
-In-Reply-To: <33505cff-f730-ebac-c2d7-38f1793062b7@fb.com>
+Received: from esa5.hgst.iphmx.com ([216.71.153.144]:22402 "EHLO
+        esa5.hgst.iphmx.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755521AbdEESil (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 5 May 2017 14:38:41 -0400
+In-Reply-To: <20170504184531.GE22833@mtr-leonro.local>
+Content-Language: en-US
+Content-ID: <F4B7441F2D5D5645A782F9C785513C06@namprd04.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 5/1/17 8:49 PM, Alexei Starovoitov wrote:
-> On 4/30/17 9:07 AM, David Miller wrote:
->> This is mainly a synchronization point, I still need to look
->> more deeply into Alexei's -g issue.
->>
->> New in this version from v3:
->>  - Remove tailcall from opcode table
->>  - Rearrange relocations so that numbers match with LLVM ones
->>  - Emit relocs properly so that dwarf2 debug info tests pass
->>  - Handle negative load/store offsets properly, add tests
->>
->> Signed-off-by: David S. Miller <davem@davemloft.net>
->
-> dwarf on little endian works now :)
+On Thu, 2017-05-04 at 21:45 +0300, Leon Romanovsky wrote:
+> It is not hard to create new tool, the hardest part is to ensure that it =
+is
+> part of the distributions. Did you count how many months we are trying to
+> add rdma-core to debian?
 
-Yonghong fixed llvm bug with big-endian dwarf [1]
-and binutils worked out of the box :)
+Hello Leon,
 
-$ ./bin/clang -O2 -target bpfeb -c -g test.c
-$ /w/binutils-gdb/bld/binutils/objdump -S test.o
+Sorry but I was not aware that the effort to add rdma-core to Debian was ta=
+king
+that long. Please let me know if I can help with that effort.
 
-test.o:     file format elf64-bpfbe
-
-Disassembly of section .text:
-0000000000000000 <bpf_prog1>:
-int bpf_prog1(void *ign)
-{
-   volatile unsigned long t = 0x8983984739ull;
-    0:	18 10 00 00 83 98 47 39 	ldimm64	r1, 590618314553
-    8:	00 00 00 00 00 00 00 89
-   10:	7b a1 ff f8 00 00 00 00 	stdw	[r10+-8], r1
-   return *(unsigned long *)((0xffffffff8fff0002ull) + t);
-   18:	79 1a ff f8 00 00 00 00 	lddw	r1, [r10+-8]
-
-[1]
-https://reviews.llvm.org/rL302265
+Bart.=
