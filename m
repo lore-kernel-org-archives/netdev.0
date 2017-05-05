@@ -1,43 +1,133 @@
-From: Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [RFC iproute2 0/8] RDMA tool
-Date: Fri, 5 May 2017 08:54:57 +0200
-Message-ID: <20170505085457.0029edc9@griffin>
-References: <20170504180216.7665-1-leon@kernel.org>
+From: Amir Goldstein <amir73il@gmail.com>
+Subject: Re: [PATCH v1] ACPI: Switch to use generic UUID API
+Date: Fri, 5 May 2017 10:06:06 +0300
+Message-ID: <CAOQ4uxjha8_2_HwgdgBN=G-vNytAW5Gk155E9z8OWyFiGNEZVw@mail.gmail.com>
+References: <20170504092151.88646-1-andriy.shevchenko@linux.intel.com> <CAPcyv4jzD0MEBRNTwTokVzgdDWas682ArUjRAGT1hp=QRE8Pjg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>,
-        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Jiri Pirko <jiri-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Ariel Almog <ariela-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Dennis Dalessandro <dennis.dalessandro-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        Ram Amrani <ram.amrani-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>,
-        Bart Van Assche <Bart.VanAssche-XdAiOPVOjttBDgjK7y7TUQ@public.gmane.org>,
-        Sagi Grimberg <sagi-NQWnxTmZq1alnMjI0IkVqw@public.gmane.org>,
-        Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>,
-        Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>,
-        Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Linux RDMA <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Linux Netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170504180216.7665-1-leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Andy Shevchenko <andriy.shevchenko@linux.intel.com>,
+        Linux ACPI <linux-acpi@vger.kernel.org>,
+        tpmdd-devel@lists.sourceforge.net, intel-gfx@lists.freedesktop.org,
+        nouveau@lists.freedesktop.org, linux-input@vger.kernel.org,
+        iommu@lists.linux-foundation.org, linux-mmc@vger.kernel.org,
+        Netdev <netdev@vger.kernel.org>, linux-pci@vger.kernel.org,
+        USB list <linux-usb@vger.kernel.org>,
+        alsa-devel@alsa-project.org,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "Rafael J . Wysocki" <rjw@rjwysocki.net>,
+        Mika Westerberg <mika.westerberg@linux.intel.com>,
+        Borislav Petkov <bp@suse.de>,
+        Jarkko Sakkinen <jarkko.sakkinen@linux.intel.com>,
+        Jani Nikula <jani.nikula@linux.intel.com>,
+        Ben Skeggs <bskeggs@redhat.com>,
+        Benjamin Tissoires <benjamin.tissoires@redhat.com>,
+To: Dan Williams <dan.j.williams@intel.com>
+Return-path: <linux-acpi-owner@vger.kernel.org>
+In-Reply-To: <CAPcyv4jzD0MEBRNTwTokVzgdDWas682ArUjRAGT1hp=QRE8Pjg@mail.gmail.com>
+Sender: linux-acpi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu,  4 May 2017 21:02:08 +0300, Leon Romanovsky wrote:
-> In order to close object model, ensure reuse of existing code and make this
-> tool usable from day one, we decided to implement wrappers over legacy sysfs
-> prior to implementing netlink functionality. As a nice bonus, it will allow
-> to use this tool with old kernels too.
+On Fri, May 5, 2017 at 9:20 AM, Dan Williams <dan.j.williams@intel.com> wrote:
+> On Thu, May 4, 2017 at 2:21 AM, Andy Shevchenko
+> <andriy.shevchenko@linux.intel.com> wrote:
+>> acpi_evaluate_dsm() and friends take a pointer to a raw buffer of 16
+>> bytes. Instead we convert them to use uuid_le type. At the same time we
+>> convert current users.
+>>
+>> acpi_str_to_uuid() becomes useless after the conversion and it's safe to
+>> get rid of it.
+>>
+>> The conversion fixes a potential bug in int340x_thermal as well since
+>> we have to use memcmp() on binary data.
+>>
+>> Cc: Rafael J. Wysocki <rjw@rjwysocki.net>
+>> Cc: Mika Westerberg <mika.westerberg@linux.intel.com>
+>> Cc: Borislav Petkov <bp@suse.de>
+>> Cc: Dan Williams <dan.j.williams@intel.com>
+>> Cc: Amir Goldstein <amir73il@gmail.com>
+>> Cc: Jarkko Sakkinen <jarkko.sakkinen@linux.intel.com>
+>> Cc: Jani Nikula <jani.nikula@linux.intel.com>
+>> Cc: Ben Skeggs <bskeggs@redhat.com>
+>> Cc: Benjamin Tissoires <benjamin.tissoires@redhat.com>
+>> Cc: Joerg Roedel <joro@8bytes.org>
+>> Cc: Adrian Hunter <adrian.hunter@intel.com>
+>> Cc: Yisen Zhuang <yisen.zhuang@huawei.com>
+>> Cc: Bjorn Helgaas <bhelgaas@google.com>
+>> Cc: Zhang Rui <rui.zhang@intel.com>
+>> Cc: Felipe Balbi <balbi@kernel.org>
+>> Cc: Mathias Nyman <mathias.nyman@intel.com>
+>> Cc: Heikki Krogerus <heikki.krogerus@linux.intel.com>
+>> Cc: Liam Girdwood <lgirdwood@gmail.com>
+>> Cc: Mark Brown <broonie@kernel.org>
+>> Signed-off-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+> [..]
+>> diff --git a/drivers/acpi/nfit/core.c b/drivers/acpi/nfit/core.c
+>> index 0f7982a1caaf..bd3e45ede056 100644
+>> --- a/drivers/acpi/nfit/core.c
+>> +++ b/drivers/acpi/nfit/core.c
+>> @@ -74,11 +74,11 @@ struct nfit_table_prev {
+>>         struct list_head flushes;
+>>  };
+>>
+>> -static u8 nfit_uuid[NFIT_UUID_MAX][16];
+>> +static uuid_le nfit_uuid[NFIT_UUID_MAX];
+>>
+>> -const u8 *to_nfit_uuid(enum nfit_uuids id)
+>> +const uuid_le *to_nfit_uuid(enum nfit_uuids id)
+>>  {
+>> -       return nfit_uuid[id];
+>> +       return &nfit_uuid[id];
+>>  }
+>>  EXPORT_SYMBOL(to_nfit_uuid);
+>>
+>> @@ -207,7 +207,7 @@ int acpi_nfit_ctl(struct nvdimm_bus_descriptor *nd_desc, struct nvdimm *nvdimm,
+>>         u32 offset, fw_status = 0;
+>>         acpi_handle handle;
+>>         unsigned int func;
+>> -       const u8 *uuid;
+>> +       const uuid_le *uuid;
+>>         int rc, i;
+>>
+>>         func = cmd;
+>> @@ -394,7 +394,7 @@ int nfit_spa_type(struct acpi_nfit_system_address *spa)
+>>         int i;
+>>
+>>         for (i = 0; i < NFIT_UUID_MAX; i++)
+>> -               if (memcmp(to_nfit_uuid(i), spa->range_guid, 16) == 0)
+>> +               if (!uuid_le_cmp_pp(to_nfit_uuid(i), (uuid_le *)spa->range_guid))
+>
+> What is _cmp_pp? Why not _compare?
+>
 
-This sounds wrong. We don't support legacy ioctl interface for the 'ip'
-command, either. I think rdma should be converted to netlink first and
-the new tool should only use netlink.
+I second that.
 
- Jiri
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Andy,
+
+I much rather that you sort out uuid helpers in a way that will
+satisfy the filesystem
+needs (just provide the helpers don't need to convert filesystems code).
+
+The only reason I took a swing at hoisting the xfs uuid helpers is
+because it didn't
+seem like your proposal was going to be posted soon or wasn't going to satisfy
+the filesystems use case.
+
+My opinion now, is that your suggestion is probably much closer to the real deal
+than mine.
+
+IMO, you should acknowledge that the common use case for filesystems is
+to handle an opaque char[16] which most likely holds a uuid_be and you
+should provide 'neutral' helpers to satisfy this use case.
+
+The simplest would be to typedef uuid_t to struct uuid_be and to name 'neutral'
+helpers' uuid_cmp/uuid_copy(uuid_t *, uuid_t *), similar to my proposal.
+
+I think with this semantic change, our proposals can reach common grounds
+and satisfy a wider group of users (i.e. filesystem developers).
+
+Christoph also suggested a similar treatment to typedef guid_t to
+struct uuid_le.
+I don't know the use cases enough to comment on that.
+
+Cheers,
+Amir.
