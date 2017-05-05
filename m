@@ -1,54 +1,45 @@
-From: Amir Goldstein <amir73il@gmail.com>
-Subject: Re: [PATCH v1] ACPI: Switch to use generic UUID API
-Date: Fri, 5 May 2017 13:02:21 +0300
-Message-ID: <CAOQ4uxg6+_0KRMkMyupFJDtXrTqxx8vOz3=ZyEuj8BakvfuEJQ@mail.gmail.com>
-References: <20170504092151.88646-1-andriy.shevchenko@linux.intel.com>
- <CAPcyv4jzD0MEBRNTwTokVzgdDWas682ArUjRAGT1hp=QRE8Pjg@mail.gmail.com>
- <CAOQ4uxjha8_2_HwgdgBN=G-vNytAW5Gk155E9z8OWyFiGNEZVw@mail.gmail.com>
- <1493976265.30052.21.camel@linux.intel.com> <CAOQ4uxjErce01+xyDnM=nCJS+avQ4g6hQVvH3fVotj7Ws2moCQ@mail.gmail.com>
- <20170505095739.GB6762@lst.de>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: Re: Question about SOCK_SEQPACKET
+Date: Fri, 5 May 2017 06:09:26 -0400
+Message-ID: <20170505100926.GD1547@oracle.com>
+References: <CAGtMfeCt95bj3-J5+TNb5gxVJUBDrgRjMXqMz-3jk9cOh0Z=tA@mail.gmail.com>
+ <af19f11a-1bc3-bb8f-faf6-65c11b632bbf@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Andy Shevchenko <andriy.shevchenko@linux.intel.com>,
-        Dan Williams <dan.j.williams@intel.com>,
-        Linux ACPI <linux-acpi@vger.kernel.org>,
-        tpmdd-devel@lists.sourceforge.net, intel-gfx@lists.freedesktop.org,
-        nouveau@lists.freedesktop.org, linux-input@vger.kernel.org,
-        iommu@lists.linux-foundation.org, linux-mmc@vger.kernel.org,
-        Netdev <netdev@vger.kernel.org>, linux-pci@vger.kernel.org,
-        USB list <linux-usb@vger.kernel.org>,
-        alsa-devel@alsa-project.org,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "Rafael J . Wysocki" <rjw@rjwysocki.net>,
-        Mika Westerberg <mika.westerberg@linux.intel.com>,
-        Borislav Petkov <bp@suse.de>,
-        Jarkko Sakkinen <jarkko.sakkinen@linux.intel.com>,
-        Jani Nikula <jani.nikula@linux.intel.com>,
-        Ben Skeggs <bskeggs@redhat.com>,
-        Benj
-To: Christoph Hellwig <hch@lst.de>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <20170505095739.GB6762@lst.de>
-Sender: linux-pci-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Sam Kumar <samkumar99@gmail.com>, linux-kernel@vger.kernel.org,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Steven Whitehouse <swhiteho@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <af19f11a-1bc3-bb8f-faf6-65c11b632bbf@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, May 5, 2017 at 12:57 PM, Christoph Hellwig <hch@lst.de> wrote:
-> On Fri, May 05, 2017 at 12:50:31PM +0300, Amir Goldstein wrote:
->> To complete the picture for folks not cc'ed on my patches,
->> xfs use case suggests there is also justification for the additional helpers:
->>
->> uuid_is_null() / uuid_equal()
->> guid_is_null() / guid_equal()
->
-> The is_null is useful and I bet we'll find other instances. I'm
-> not sure _equals really adds much value over the existing _cmp
-> helpers, but on the other hand they are so trivial that we might as
-> well add them.
+On (05/05/17 10:45), Steven Whitehouse wrote:
+> 
+> I do wonder if the man page for recvmsg is wrong, or at least a bit
+> confusing. SOCK_SEQPACKET is stream based not message based - it just
+> happens to have EOR markers in the stream. There is no reason that the whole
+> message needs to be returned in a single read, and in fact that would be
+> impossible if the sender didn't insert any EOR markers but kept sending data
+> beyond the size that the socket could buffer.
+> 
+> I notice that man 7 socket says SOCK_SEQPACKET is for datagrams of fixed
+> maximum length which is definitely wrong, as is the statement that a
+> consumer has to read an entire packet with each system call.
 
-Exactly. The fact that not only xfs used the same helper name
-(drivers/md/md.c) suggests that it useful.
+Which man page do you think is wrong here? The POSIX definition is here
 
->
-> The other thing XFS has is uuid_copy.
+http://pubs.opengroup.org/onlinepubs/009695399/functions/recvmsg.html
 
-Andy already listed uuid_copy.
+The description in
+
+http://pubs.opengroup.org/onlinepubs/009695399/functions/xsh_chap02_10.html
+
+says, "It is protocol-specific whether a maximum record size is imposed."
+In my machine (Ubuntu 4.4.0-72, and it is in socket(2), not socket(7), btw)
+doesnt have any references to max length, but I'm not sure I'd boldly assert
+"definitely wrong" about the requirement of having to read entire
+packet in a system call (see POSIX man page)
+
+--Sowmini
