@@ -1,76 +1,98 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] tcp: randomize timestamps on syncookies
-Date: Thu, 04 May 2017 18:59:08 -0700
-Message-ID: <1493949548.7796.32.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1493935361.7796.29.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20170505002456.GH13320@breakpoint.cc>
-         <20170505003208.GI13320@breakpoint.cc>
+From: Andy Duan <fugang.duan@nxp.com>
+Subject: Re: FEC on i.MX 7 transmit queue timeout
+Date: Fri, 5 May 2017 02:03:27 +0000
+Message-ID: <e739d361-c20f-0de1-cdd1-c9aa13a0d11a@nxp.com>
+References: <c6b66956c48f981a952048da6b2ddd54@agner.ch>
+ <ed24e51d-499f-597b-0c9f-7f180e257acb@nxp.com>
+ <e99d7c93b7819507c6448842015bf836@agner.ch>
+ <AM4PR0401MB2260EBCD552219D3402B68FEFF180@AM4PR0401MB2260.eurprd04.prod.outlook.com>
+ <86b63ee28acfff3426c4a0bf72d848c1@agner.ch>
+ <2bdd64ab-5644-e0a0-9bfe-b8dd2fca7abb@nxp.com>
+ <80191e7c9df5871cd450f13b9ea47a10@agner.ch>
+ <ab1fc814-4a81-9eb0-b20b-2cd325158ba8@nxp.com>
+ <e366479239b66ba80415b5594def2369@agner.ch>
+ <AM4PR0401MB2260F011313883C522EA7684FFEA0@AM4PR0401MB2260.eurprd04.prod.outlook.com>
+ <e044b850a90e7112028cc12977d15cf2@agner.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Yuchung Cheng <ycheng@google.com>
-To: Florian Westphal <fw@strlen.de>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "festevam@gmail.com" <festevam@gmail.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "netdev-owner@vger.kernel.org" <netdev-owner@vger.kernel.org>
+To: Stefan Agner <stefan@agner.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:35177 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752457AbdEEB7L (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 4 May 2017 21:59:11 -0400
-Received: by mail-pg0-f65.google.com with SMTP id i63so349386pgd.2
-        for <netdev@vger.kernel.org>; Thu, 04 May 2017 18:59:11 -0700 (PDT)
-In-Reply-To: <20170505003208.GI13320@breakpoint.cc>
+Received: from mail-db5eur01on0081.outbound.protection.outlook.com ([104.47.2.81]:36804
+        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751159AbdEECDa (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 4 May 2017 22:03:30 -0400
+In-Reply-To: <e044b850a90e7112028cc12977d15cf2@agner.ch>
+Content-Language: en-US
+Content-ID: <534F6596736B6341B4131A7F81EA0DEE@eurprd04.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2017-05-05 at 02:32 +0200, Florian Westphal wrote:
-> Florian Westphal <fw@strlen.de> wrote:
-> [..]
-> > This breaks syncookies w. timestamps; cookie_timestamp_decode() lacks a tsoff
-> > for readjustment.
-> > 
-> > We also need to pass the (recomputed) tsoff to tcp_get_cookie_sock().
-> 
-> This small delta makes things work for me:
-> 
-
-Hi Florian, thanks for looking at this.
-
-One comment :
-
-> diff --git a/net/ipv6/syncookies.c b/net/ipv6/syncookies.c
-> index 895ff650db43..eb96825d6340 100644
-> --- a/net/ipv6/syncookies.c
-> +++ b/net/ipv6/syncookies.c
-> @@ -18,6 +18,7 @@
->  #include <linux/random.h>
->  #include <linux/siphash.h>
->  #include <linux/kernel.h>
-> +#include <net/secure_seq.h>
->  #include <net/ipv6.h>
->  #include <net/tcp.h>
->  
-> @@ -143,6 +144,7 @@ struct sock *cookie_v6_check(struct sock *sk, struct sk_buff *skb)
->  	int mss;
->  	struct dst_entry *dst;
->  	__u8 rcv_wscale;
-> +	u32 tsoff;
->  
->  	if (!sock_net(sk)->ipv4.sysctl_tcp_syncookies || !th->ack || th->rst)
->  		goto out;
-> @@ -162,6 +164,12 @@ struct sock *cookie_v6_check(struct sock *sk, struct sk_buff *skb)
->  	memset(&tcp_opt, 0, sizeof(tcp_opt));
->  	tcp_parse_options(skb, &tcp_opt, 0, NULL);
->  
-> +	tsoff = 0;
-> +	if (tcp_opt.saw_tstamp && tcp_opt.rcv_tsecr) {
-> +		tsoff = secure_tcpv6_ts_off(&ip_hdr(skb)->daddr, &ip_hdr(skb)->saddr);
-
-I will use the ipv6_hdr(skb)->daddr.s6_addr32 and
-ipv6_hdr(skb)->saddr.s6_addr32 if you agree ;)
-
-> +		tcp_opt.rcv_tsecr -= tsoff;
-> +	}
-> +
-
-Thanks !
+T24gMjAxN+W5tDA15pyIMDXml6UgMDU6MzYsIFN0ZWZhbiBBZ25lciB3cm90ZToNCj4gT24gMjAx
+Ny0wNS0wMyAyMDowOCwgQW5keSBEdWFuIHdyb3RlOg0KPj4gRnJvbTogU3RlZmFuIEFnbmVyIDxz
+dGVmYW5AYWduZXIuY2g+IFNlbnQ6IFRodXJzZGF5LCBNYXkgMDQsIDIwMTcgOToyMiBBTQ0KPj4+
+IFRvOiBBbmR5IER1YW4gPGZ1Z2FuZy5kdWFuQG54cC5jb20+DQo+Pj4gQ2M6IGZ1Z2FuZy5kdWFu
+QGZyZWVzY2FsZS5jb207IGZlc3RldmFtQGdtYWlsLmNvbTsNCj4+PiBuZXRkZXZAdmdlci5rZXJu
+ZWwub3JnOyBuZXRkZXYtb3duZXJAdmdlci5rZXJuZWwub3JnDQo+Pj4gU3ViamVjdDogUmU6IEZF
+QyBvbiBpLk1YIDcgdHJhbnNtaXQgcXVldWUgdGltZW91dA0KPj4+DQo+Pj4gSGkgQW5keSwNCj4+
+Pg0KPj4+IE9uIDIwMTctMDQtMjAgMTk6NDgsIEFuZHkgRHVhbiB3cm90ZToNCj4+Pj4gT24gMjAx
+N+W5tDA05pyIMjDml6UgMDc6MTUsIFN0ZWZhbiBBZ25lciB3cm90ZToNCj4+Pj4+IEkgdGVzdGVk
+IGFnYWluIHdpdGggaW14NnN4LWZlYyBjb21wYXRpYmxlIHN0cmluZy4gSSBjb3VsZCByZXByb2R1
+Y2UNCj4+Pj4+IGl0IG9uIGEgQ29saWJyaSB3aXRoIGkuTVggN0R1YWwuIEJ1dCBub3QgYWx3YXlz
+OiBJdCByZWFsbHkgZGVwZW5kcw0KPj4+Pj4gd2hldGhlciBxdWV1ZSAyIGlzIGNvdW50aW5nIHVw
+IG9yIG5vdC4gSnVzdCBhZnRlciBib290LCBJIGNoZWNrDQo+Pj4+PiAvcHJvYy9pbnRlcnJ1cHRz
+IHR3aWNlLCBpZiBxdWV1ZSAyIGlzIGNvdW50aW5nIGl0IHdpbGwgaGFwcGVuIQ0KPj4+Pj4NCj4+
+Pj4+IEJ1dCBpZiBvbmx5IHF1ZXVlIDAgaXMgbW9zdGx5IGluIHVzZSwgdGhlbiBpdCBzZWVtcyB0
+byB3b3JrIGp1c3QgZmluZS4NCj4+Pj4gSWYgeW91ciBjYXNlIGlzIG9ubHkgcnVubmluZyBiZXN0
+IGVmZm9ydCBsaWtlIHRjcC91ZHAsIHlvdSBjYW4gcmUtc2V0DQo+Pj4+IHRoZSAiZnNsLG51bS10
+eC1xdWV1ZXMiIGFuZCAiZnNsLG51bS1yeC1xdWV1ZXMiIHRvIDEgaW4gYm9hcmQgZHRzIGZpbGUu
+DQo+Pj4+IE90aGVyIHR3byBxdWV1ZXMgYXJlIGZvciBBVkIgYXVkaW8vdmlkZW8gcXVldWVzLCB0
+aGV5IGhhdmUgaGlnaA0KPj4+PiBwcmlvcml0eSB0aGFuIHF1ZXVlIDAuIElmIHJ1bm5pbmcgaXBl
+cmYgdGNwIHRlc3Qgb24gdGhlIHRocmVlIHF1ZXVlcywNCj4+Pj4gdGhlbiB0aGUgdGNwIHNlZ21l
+bnQgbWF5IGJlIG91dC1vZi1vcmRlciB0aGF0IGNhdXNlIG5ldCB3YXRjaGRvZw0KPj4+IHRpbWVv
+dXQuDQo+Pj4+PiBJIGFsc28gdHJpZWQgaS5NWCA3RHVhbCBTYWJyZVNEIGhlcmUsIGFuZCB0aGUg
+c2FtZSB0aGluZy4gSSBoYWQgdG8NCj4+Pj4+IHJlYm9vdCAzIHRpbWVzLCB0aGVuIHF1ZXVlIDIg
+d2FzIGNvdW50aW5nOg0KPj4+Pj4gICAgNTc6ICAgICAgICAgIDggICAgIEdJQy0wIDE1MCBMZXZl
+bCAgICAgMzBiZTAwMDAuZXRoZXJuZXQNCj4+Pj4+ICAgIDU4OiAgICAgIDIwMTM3ICAgICBHSUMt
+MCAxNTEgTGV2ZWwgICAgIDMwYmUwMDAwLmV0aGVybmV0DQo+Pj4+PiAgICA1OTogICAgICAgOTI2
+OSAgICAgR0lDLTAgMTUyIExldmVsICAgICAzMGJlMDAwMC5ldGhlcm5ldA0KPj4+Pj4NCj4+Pj4+
+IEl0IHRvb2sgbWUgYWJvdXQgNDAgbWludXRlcyBvbiBTYWJyZSB1bnRpbCBpdCBoYXBwZW5lZCwg
+YW5kIEkgaGFkIHRvDQo+Pj4+PiBmb3JjZSBpdCB1c2luZyBpcGVyZiwgYnV0IHRoZW4gSSBnb3Qg
+dGhlIHJpbmcgZHVtcHM6DQo+Pj4+IE15IGJvYXJkIGhhZCByYW4gbW9yZSB0aGFuIDQ3IGhvdXJz
+IHdpdGggbmZzIHJvb3RmcyBpbiA0LjExLjAtcmM2LCBidXQNCj4+Pj4gbm90IHJ1bm5pbmcgaXBl
+cmYuDQo+Pj4+IEkgYW0gdGVzdGluZyB3aXRoIGlwZXJmLg0KPj4+IEFueSB1cGRhdGUgb24gdGhp
+cyBpc3N1ZT8NCj4+Pg0KPj4+IFdoZW4gdXNpbmcgaXBlcmYgKHNlcnZlcikgb24gdGhlIGJvYXJk
+IHdpdGggTGludXggNC4xMSB0aGUgaXNzdWUgYXBwZWFycw0KPj4+IHdpdGhpbiBhIGZldyBpcGVy
+ZiBpdGVyYXRpb25zIG9uIGEgU2FicmUgKFRPIDEuMiwgQm9hcmQgUmV2IEMsIGlmIHRoYXQgbWF0
+dGVycykuLi4NCj4+Pg0KPj4gSSBkb27igJl0IGtub3cgd2hldGhlciB5b3UgcmVjZWl2ZWQgbXkg
+bGFzdCBtYWlsLiAobWF5YmUgZmFpbGVkIGR1ZSB0byBJDQo+PiByZWNlaXZlZCBzb21lIHJlamVj
+dGlvbiBtYWlscykNCj4gSSB0aGluayBJIGRpZCBub3QuLi4gVGhlIGxhc3QgZW1haWwgSSByZWNl
+aXZlZCB3YXMgRnJpLCAyMSBBcHIgMjAxNw0KPiAwMjo0ODoyMyBVVEMuDQo+DQo+ICAgDQo+PiBJ
+ZiB5b3VyIGNhc2UgaXMgb25seSBydW5uaW5nIGJlc3QgZWZmb3J0IGxpa2UgdGNwL3VkcCwgeW91
+IGNhbiByZS1zZXQNCj4+IHRoZSAiZnNsLG51bS10eC1xdWV1ZXMiIGFuZCAiZnNsLG51bS1yeC1x
+dWV1ZXMiIHRvIDEgaW4gYm9hcmQgZHRzDQo+PiBmaWxlLg0KPiBJIGRpZCB0ZXN0IHRoYXQsIGFu
+ZCBpdCBzZWVtcyB0byB3b3JrIGZpbmUgd2l0aCB0aG9zZSBwcm9wZXJ0aWVzIHNldCB0bw0KPiAx
+Lg0KU28gaXQgY2FuIGZpeCB5b3VyIHByb2JsZW0gYWZ0ZXIgbG9uZyB0aW1lIHRlc3Q/DQo+PiBP
+dGhlciB0d28gcXVldWVzIGFyZSBmb3IgQVZCIGF1ZGlvL3ZpZGVvIHF1ZXVlcywgdGhleSBoYXZl
+IGhpZ2gNCj4+IHByaW9yaXR5IHRoYW4gcXVldWUgMC4gSWYgcnVubmluZyBpcGVyZiB0Y3AgdGVz
+dCBvbiB0aGUgdGhyZWUgcXVldWVzLA0KPj4gdGhlbiB0aGUgdGNwIHNlZ21lbnQgbWF5IGJlIG91
+dC1vZi1vcmRlciB0aGF0IGNhdXNlIG5ldCB3YXRjaGRvZw0KPj4gdGltZW91dC4NCj4gT2theS4g
+QSBzaW5nbGUgZXZlbnQgd291bGQgYmUgdW5kZXJzdGFuZGFibGUsIGJ1dCBpdCBzZWVtcyB0byBl
+bnRlciBzb21lDQo+IGtpbmQgb2YgbG9vcCBhZnRlciB0aGF0IChjb250aW51b3VzbHkgcHJpbnRp
+bmcgImZlYyAzMGJlMDAwMC5ldGhlcm5ldA0KPiBldGgwOiBUWCByaW5nIGR1bXAgLi4uIikuDQo+
+DQo+IEluIGEgcXVpY2sgdGVzdCBJIGNvbW1lbnRlZCBvdXQgdGhlIGZlY19kdW1wIGNhbGwsIHdp
+dGggdGhhdCBpdCBzZWVtcyB0bw0KPiBwcmludCBvbmx5IG9uY2UgYW5kIGNvbnRpbnVlcyB3b3Jr
+aW5nIGFmdGVyd2FyZHMgKGFsdGhvdWdoLCBzcGVlZCBzdGFydHMNCj4gdG8gZGVjcmVhc2UsIHNv
+IHNvbWV0aGluZyBpcyBub3QgZ29vZCBhdCB0aGF0IHBvaW50KS4NClRoZSB0ZXN0IGJhc2Ugb24g
+YWJvdmUgY2hhbmdlID8gT25lIHF1ZXVlIHN0aWxsIGJyaW5nIHdhdGNoZG9nIHRpbWVvdXQgPw0K
+Pj4gSW4gZnNsIGtlcm5lbCB0cmVlLCB0aGVyZSBoYXZlIG9uZSBwYXRjaCB0aGF0IG9ubHkgc2Vs
+ZWN0IHRoZSBxdWV1ZTANCj4+IGZvciBiZXN0IGVmZm9ydCBsaWtlIHRjcC91ZHAuIFBscyB0ZXN0
+IGFnYWluIGluIHlvdXIgYm9hcmQsIGlmIG5vDQo+PiBwcm9ibGVtIEkgd2lsbCB1cHN0cmVhbSB0
+aGUgcGF0Y2guDQo+IFRoYXQgc291bmRzIGxpa2UgYSByZWFzb25hYmxlIGZpeC4NCj4NCj4gSVAs
+IG5vIG1hdHRlciB3aGV0aGVyIFRDUC9VRFAsIGlzIHRoZSBtb3N0IGNvbW1vbiB1c2UgY2FzZSwg
+c28gSU1ITyB0aGlzDQo+IHNob3VsZCAianVzdCB3b3JrIiBieSBkZWZhdWx0Lg0KPg0KPiAtLQ0K
+PiBTdGVmYW4=
