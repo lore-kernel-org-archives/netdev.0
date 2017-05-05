@@ -1,44 +1,49 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2] vxlan: Add support for modifying vxlan device
- attributes
-Date: Thu, 4 May 2017 17:07:43 -0700
-Message-ID: <20170504170743.3b411f21@xeon-e3>
-References: <1493934394-26317-1-git-send-email-girish.moodalbail@oracle.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH net] tcp: randomize timestamps on syncookies
+Date: Fri, 5 May 2017 02:24:56 +0200
+Message-ID: <20170505002456.GH13320@breakpoint.cc>
+References: <1493935361.7796.29.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: Girish Moodalbail <girish.moodalbail@oracle.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>, Florian Westphal <fw@strlen.de>,
+        Yuchung Cheng <ycheng@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f176.google.com ([209.85.192.176]:33362 "EHLO
-        mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752114AbdEEAHp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 4 May 2017 20:07:45 -0400
-Received: by mail-pf0-f176.google.com with SMTP id q20so14734883pfg.0
-        for <netdev@vger.kernel.org>; Thu, 04 May 2017 17:07:45 -0700 (PDT)
-In-Reply-To: <1493934394-26317-1-git-send-email-girish.moodalbail@oracle.com>
+Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:59232 "EHLO
+        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1750742AbdEEAZT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 4 May 2017 20:25:19 -0400
+Content-Disposition: inline
+In-Reply-To: <1493935361.7796.29.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu,  4 May 2017 14:46:34 -0700
-Girish Moodalbail <girish.moodalbail@oracle.com> wrote:
-
-> Ability to change vxlan device attributes was added to kernel through
-> commit 8bcdc4f3a20b ("vxlan: add changelink support"), however one
-> cannot do the same through ip(8) command.  Changing the allowed vxlan
-> device attributes using 'ip link set dev <vxlan_name> type vxlan
-> <allowed_attributes>' currently fails with 'operation not supported'
-> error.  This failure is due to the incorrect rtnetlink message
-> construction for the 'ip link set' operation.
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> The vxlan_parse_opt() callback function is called for parsing options
-> for both 'ip link add' and 'ip link set'. For the 'add' case, we pass
-> down default values for those attributes that were not provided as CLI
-> options. However, for the 'set' case we should be only passing down the
-> explicitly provided attributes and not any other (default) attributes.
+> Whole point of randomization was to hide server uptime, but an attacker
+> can simply start a syn flood and TCP generates 'old style' timestamps,
+> directly revealing server jiffies value.
 > 
-> Signed-off-by: Girish Moodalbail <girish.moodalbail@oracle.com>
-> ---
+> Also, TSval sent by the server to a particular remote address vary depending
+> on syncookies being sent or not, potentially triggering PAWS drops for
+> innocent clients.
+> 
+> Lets implement proper randomization, including for SYNcookies.
+> 
+> Also we do not need to export sysctl_tcp_timestamps, it is not used from
+> a module.
 
-All these foo_set variables are ugly. This looks almost like machine
-generated code. It doesn't read well.
+I like the direction, but this is incomplete.
+
+>  	if (want_cookie) {
+>  		isn = cookie_init_sequence(af_ops, sk, skb, &req->mss);
+> -		tcp_rsk(req)->ts_off = 0;
+
+This breaks syncookies w. timestamps; cookie_timestamp_decode() lacks a tsoff
+for readjustment.
+
+We also need to pass the (recomputed) tsoff to tcp_get_cookie_sock().
+
+Other than this, this patch looks good to me, thanks!
