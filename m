@@ -1,88 +1,74 @@
-From: Mike Manning <mmanning@brocade.com>
-Subject: Re: [PATCH] net: ipv6: Fix warning of freeing alive inet6 address
-Date: Fri, 5 May 2017 17:51:30 +0100
-Message-ID: <e4e4a347-1102-a9c3-5f44-4b59b467dc22@brocade.com>
-References: <1493749857-18032-1-git-send-email-mmanning@brocade.com>
- <CAM_iQpVNqU7zJhOe2Qqn5Og+qer4RKhFwh4bdvRcAnt82zyj3A@mail.gmail.com>
- <f52bbfcd-e961-190a-6aa5-3f43d833f27c@brocade.com>
+From: Ursula Braun <ubraun-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
+Subject: Re: net/smc and the RDMA core
+Date: Fri, 5 May 2017 19:06:56 +0200
+Message-ID: <750b09b5-f898-fe7f-1e82-1f6c06cc0f58@linux.vnet.ibm.com>
+References: <20170501163311.GA22209@lst.de>
+ <d9214af6-1c6f-9f95-fc00-3e4a316b4f81@linux.vnet.ibm.com>
+ <1493750358.2552.13.camel@sandisk.com>
+ <1b79048f-4495-3840-e7a6-d4fa5a8dfb57@grimberg.me>
+ <20170504084825.GA5399@lst.de>
+ <efa9bd6d-1df9-952a-7f32-c2ee6bffcae5@linux.vnet.ibm.com>
+ <20170504153155.GB854@obsidianresearch.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Andrey Konovalov <andreyknvl@google.com>,
-        David Miller <davem@davemloft.net>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:54409 "EHLO
-        mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1750854AbdEEQvr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 5 May 2017 12:51:47 -0400
-In-Reply-To: <f52bbfcd-e961-190a-6aa5-3f43d833f27c@brocade.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 8bit
+Cc: "hch-jcswGhMUV9g@public.gmane.org" <hch-jcswGhMUV9g@public.gmane.org>, Sagi Grimberg <sagi-NQWnxTmZq1alnMjI0IkVqw@public.gmane.org>,
+        Bart Van Assche <Bart.VanAssche-XdAiOPVOjttBDgjK7y7TUQ@public.gmane.org>,
+        "davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170504153155.GB854-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 03/05/17 19:24, Mike Manning wrote:
-> On 03/05/17 18:58, Cong Wang wrote:
->> On Tue, May 2, 2017 at 11:30 AM, Mike Manning <mmanning@brocade.com> wrote:
->>> While this is not reproducible manually, Andrey's syzkaller program hit
->>> the warning "IPv6: Freeing alive inet6 address" with this part trace:
->>>
->>> inet6_ifa_finish_destroy+0x12e/0x190 c:894
->>> in6_ifa_put ./include/net/addrconf.h:330
->>> addrconf_dad_work+0x4e9/0x1040 net/ipv6/addrconf.c:3963
->>>
->>> The fix is to call in6_ifa_put() for the inet6_ifaddr before rather
->>> than after calling addrconf_ifdown(), as the latter may remove it from
->>> the address hash table.
->>>
->>> Fixes: 85b51b12115c ("net: ipv6: Remove addresses for failures with strict DAD")
->>> Reported-by: Andrey Konovalov <andreyknvl@google.com>
->>> Signed-off-by: Mike Manning <mmanning@brocade.com>
->>> ---
->>>  net/ipv6/addrconf.c | 6 +++++-
->>>  1 file changed, 5 insertions(+), 1 deletion(-)
->>>
->>> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
->>> index 80ce478..361993a 100644
->>> --- a/net/ipv6/addrconf.c
->>> +++ b/net/ipv6/addrconf.c
->>> @@ -3902,8 +3902,11 @@ static void addrconf_dad_work(struct work_struct *w)
->>>         } else if (action == DAD_ABORT) {
->>>                 in6_ifa_hold(ifp);
->>>                 addrconf_dad_stop(ifp, 1);
->>> -               if (disable_ipv6)
->>> +               if (disable_ipv6) {
->>> +                       in6_ifa_put(ifp);
->>>                         addrconf_ifdown(idev->dev, 0);
->>> +                       goto unlock;
->>> +               }
+
+
+On 05/04/2017 05:31 PM, Jason Gunthorpe wrote:
+> On Thu, May 04, 2017 at 03:08:39PM +0200, Ursula Braun wrote:
 >>
 >>
->> But addrconf_dad_stop() calls ipv6_del_addr() which could unhash
->> the addr too...
->>
+>> On 05/04/2017 10:48 AM, hch-jcswGhMUV9g@public.gmane.org wrote:
+>>> On Thu, May 04, 2017 at 11:43:50AM +0300, Sagi Grimberg wrote:
+>>>> I would also suggest that you stop exposing the DMA MR for remote
+>>>> access (at least by default) and use a proper reg_mr operations with a
+>>>> limited lifetime on a properly sized buffer.
+>>>
+>>> Yes, exposing the default DMA MR is a _major_ security risk.  As soon
+>>> as SMC is enabled this will mean a remote system has full read/write
+>>> access to the local systems memory.
+>>>
+>>> There ??s a reason why I removed the ib_get_dma_mr function and replaced
+>>> it with the IB_PD_UNSAFE_GLOBAL_RKEY key that has _UNSAFE_ in the name
+>>> and a very long comment explaining why, and I'm really disappointed that
+>>> we got a driver merged that instead of asking on the relevant list on
+>>> why a change unexpertong a function it needed happened and instead
+>>> tried the hard way to keep a security vulnerarbility alive.
+>>>
+>> Thanks for pointing out these problems. We will address them.
+> 
+> So, you've created a huge security hole in the kernel, anyone who
+> loads your smc module is vunerable.
+> 
+> What are you going to do *RIGHT NOW* to mitigate this?
+> 
+> Jason
 
-Further investigation shows that none of the code block above is at fault. Debugging
-shows that the problem is happening with DAD_BEGIN and not DAD_ABORT. Follows more
-detail on the issue, but as I do not have a fix at this stage, I retract this
-submission altogether.
+We do not see that just loading the smc module causes this issue.The security
+risk starts with the first connection, that actually uses smc. This is only
+possible if an AF_SMC socket connection is created while the so-called
+pnet-table is available and offers a mapping between the used Ethernet
+interface and RoCE device. Such a mapping has to be configured by a user
+(via a netlink interface) and, thus, is a conscious decision by that user.
 
-The problem is due to rapidly adding the same address fd00::bb on ip6tnl0, and also
-without running DAD (accept_dad < 1), so it's an edge case. Typically the call to
-addrconf_dad_work() starts with an ifp refcnt of 3. Then via addrconf_dad_begin()
-and addrconf_dad_completed(), the call to addrconf_del_dad_work() results in a dec
-of the refcnt to 2 due to the call to cancel_delayed_work() returning 1.
+Nevertheless, thanks for all the valuable feedback; we take this security risk
+seriously and addressing it is obviously at the top of our list. We're working
+on this issue right now, and will post patches as soon as possible. 
+ 
+Ursula
 
-The 2nd normal case is if the call to addrconf_dad_work() starts with an ifp refcnt of
-2, in which case the call to cancel_delayed_work() returns 0 and so no decrement
-of the refcnt, which correctly stays at 2.
-
-The error case is when the call to addrconf_dad_work() starts with an ifp refcnt of
-2, but the call to cancel_delayed_work() then also results in a dec of the refcnt to 1,
-so the final in6_ifa_put() detects that the refcnt is being reduced to 0 for an active
-address.
-
-So the question is whether the interaction of cancel_delayed_work() in 
-addrconf_dad_work(), delayed_work_pending() in addrconf_mod_dad_work() and
-INIT_DELAYED_WORK in ipv6_add_addr() [along with the handling for this when deleting
-addresses] needs improving, and if so how?
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
