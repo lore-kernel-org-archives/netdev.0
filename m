@@ -1,100 +1,146 @@
-From: Alexei Starovoitov <ast@fb.com>
-Subject: Re: [PATCH net-next] selftests/bpf: get rid of -D__x86_64__
-Date: Thu, 4 May 2017 16:34:08 -0700
-Message-ID: <5d1d290b-7ff7-7f9d-15a0-599596e0778c@fb.com>
-References: <6a5fa930-cb76-8eee-94c7-7c5fe8fb8cdc@fb.com>
- <20170503.133512.310640909764585408.davem@davemloft.net>
- <d809baa4-c864-af99-38af-fbcb6637ca2b@fb.com>
- <20170504.093723.1592226593887244452.davem@davemloft.net>
+From: Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>
+Subject: Re: [RFC iproute2 0/8] RDMA tool
+Date: Thu, 4 May 2017 17:05:50 -0700
+Message-ID: <20170504170550.2028349f@xeon-e3>
+References: <20170504180216.7665-1-leon@kernel.org>
+        <1493921453.2692.6.camel@sandisk.com>
+        <20170504182542.GD22833@mtr-leonro.local>
+        <1493922625.2692.8.camel@sandisk.com>
+        <20170504184531.GE22833@mtr-leonro.local>
+        <2dee6cde-0406-b101-0fe6-c1f6de7c1b1a@intel.com>
+        <1493930758.3041.231.camel@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <daniel@iogearbox.net>, <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:60762 "EHLO
-        mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752377AbdEDXeb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 4 May 2017 19:34:31 -0400
-In-Reply-To: <20170504.093723.1592226593887244452.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: Dennis Dalessandro <dennis.dalessandro-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+        Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Bart Van Assche <Bart.VanAssche-XdAiOPVOjttBDgjK7y7TUQ@public.gmane.org>,
+        "jiri-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org" <jiri-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "ram.amrani-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org" <ram.amrani-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>,
+        "sagi-NQWnxTmZq1alnMjI0IkVqw@public.gmane.org" <sagi-NQWnxTmZq1alnMjI0IkVqw@public.gmane.org>,
+        "ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org" <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        "hch-jcswGhMUV9g@public.gmane.org" <hch-jcswGhMUV9g@public.gmane.org>,
+        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org" <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>,
+        "ariela-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org" <ariela-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+To: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1493930758.3041.231.camel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 5/4/17 6:37 AM, David Miller wrote:
-> From: Alexei Starovoitov <ast@fb.com>
-> Date: Wed, 3 May 2017 20:30:22 -0700
->
->> I would buy that debian folks indeed care about multi-arch, but
->> what above does is making #include <linux/types.h> to be a nop
->> for any cross-compiler on sparc that included it.
->
-> No, if you installed cross compiler for arch X it would add
-> another stanza doing that "ifdef __ARCH__, include blah, endif"
-> dance.
->
->> You're right that we cannot assume much about /usr/include craziness.
->> In that sense adding __native_arch__ macro is also wrong, since
->> it assumes sane /usr/include without inline asm or other things
->> that clang for bpf arch can consume.
->
-> You can assume that it's for the ARCH we are trying to run tests
-> for, which needs to be in the family of the kernel arch.
->
->> In that sense the only way to be independent from arch dependent
->> things in /usr/include is to put all arch specific headers
->> into our own dir in tools/selftests/ (or may be tools/bpf/include)
->> and point clang to that. I think the list of .h in there will be
->> limited. Only things like linux/types.h and gnu/stubs.h,
->> so it will be manageable.
->> Thoughts?
->
-> No, this way lies madness.
->
-> If you want to get the kernel headers, set up the proper environment
-> instead of constantly trying to fight it.
+On Thu, 04 May 2017 16:45:58 -0400
+Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
 
-We don't want to get kernel headers.
-We made this mistake with samples/bpf/, since tracing actually needs
-the headers to be able to call bpf_probe_read() with correct offsets.
-This stuff just doesn't work on arm and not clear whether it's working
-on other archs beyond x86.
-For arm we had this -D__ASM_SYSREG_H hack, but it stopped working
-and Andy tried to address it in [1], but it didn't go far.
-So today samples/bpf/ are completely broken on arm and it's making
-people believe that xdp and networking programs also need kernel
-headers and also cannot work on arm, which is not the case at all.
-Hence I don't want testing/selftests/bpf/ to have anything to do
-with kernel headers and arch specific headers too.
-All xdp programs are 90% arch independent. The only difference is
-big vs little endian and clang solves this for us automatically,
-since selftests's Makefile is using 'clang -target bpf' which
-picks native endianness.
-All headers included by tools/testing/selftests/bpf/test_*.c programs
-shouldn't use anything arch specific.
-They #include <linux/tcp.h> to get 'struct tcphdr' and things like
-IPPROTO_IPIP and AF_INET6.
-These headers should work seamlessly on all archs, but since such
-headers typically do #include <linux/types.h> which is arch dependent
-we get into the issue we're discussing.
-We don't need native <linux/types.h>. Moreover it's incorrect to
-use native types.h, since we're compiling to bpf bytecode which
-is 64-bit and needs to see types.h with sizeof(void*)==8.
-When we're compiling xdp programs on x86 we're compiling them
-into bpf bytecode with little endian flavor. Nothing x86 specific
-about it. The same bytecode will run on arm64.
-That is the case for all networking programs.
-Hence I think the cleanest solution is to have bpf arch's types.h
-either installed with llvm/gcc or picked from selftests's dir.
+> On Thu, 2017-05-04 at 15:26 -0400, Dennis Dalessandro wrote:
+> > On 05/04/2017 02:45 PM, Leon Romanovsky wrote: =20
+> > >=20
+> > > On Thu, May 04, 2017 at 06:30:27PM +0000, Bart Van Assche wrote: =20
+> > > >=20
+> > > > On Thu, 2017-05-04 at 21:25 +0300, Leon Romanovsky wrote: =20
+> > > > >=20
+> > > > > On Thu, May 04, 2017 at 06:10:54PM +0000, Bart Van Assche
+> > > > > wrote: =20
+> > > > > >=20
+> > > > > > On Thu, 2017-05-04 at 21:02 +0300, Leon Romanovsky wrote: =20
+> > > > > > >=20
+> > > > > > > Following our discussion both in mailing list [1] and at
+> > > > > > > the LPC 2016 [2],
+> > > > > > > we would like to propose this RDMA tool to be part of
+> > > > > > > iproute2 package
+> > > > > > > and finally improve this situation. =20
+> > > > > >=20
+> > > > > > Hello Leon,
+> > > > > >=20
+> > > > > > Although I really appreciate your work: can you clarify why
+> > > > > > you would like to
+> > > > > > add *RDMA* functionality to an *IP routing* tool? I haven't
+> > > > > > found any motivation
+> > > > > > for adding RDMA functionality to iproute2 in [1]. =20
+> > > > >=20
+> > > > > We are planning to reuse the same infrastructure provided by
+> > > > > iproute2,
+> > > > > like netlink parsing, access to distributions, same CLI and
+> > > > > same standards.
+> > > > >=20
+> > > > > Right now, RDMA is already tightened to netdev: iWARP, RoCE,
+> > > > > IPoIB, HFI-VNIC.
+> > > > > Many drivers (mlx, qed, i40, cxgb) are sharing code between net
+> > > > > and
+> > > > > RDMA.
+> > > > >=20
+> > > > > I do expect that iproute2 will be installed on every machine
+> > > > > with any
+> > > > > type of connection, including IB and OPA.
+> > > > >=20
+> > > > > So I think that it is enough to be part of that suite and don't
+> > > > > invent
+> > > > > our own for one specific tool. =20
+> > > >=20
+> > > > Hello Leon,
+> > > >=20
+> > > > Sorry but to me that sounds like a weak argument for including
+> > > > RDMA functionality
+> > > > in iproute2. There is already a library for communication over
+> > > > netlink sockets,
+> > > > namely libnl. Is there functionality that is in iproute2 but not
+> > > > in libnl and
+> > > > that is needed for the new tool? If so, have you considered to
+> > > > create a new
+> > > > library for that functionality? =20
+> > >=20
+> > > It is not hard to create new tool, the hardest part is to ensure
+> > > that it is
+> > > part of the distributions. Did you count how many months we are
+> > > trying to
+> > > add rdma-core to debian? =20
+> >=20
+> > I do agree that it is a strange pairing and am not really a fan.
+> > However=C2=A0
+> > at the end of the day it's just a name for a repo/package. If the=C2=A0
+> > iproute folks are fine to include rdma in their repo/package, great
+> > we=C2=A0
+> > can leverage their code for CLI and other common stuff. =20
+>=20
+> If you look into the iproute2 package, it becomes clear that the name
+> iproute2 is historical and not really accurate any more. =C2=A0It contains
+> things like the bridge control software, tc for controlling send
+> queues, and many things network related but not routing related. =C2=A0The
+> rdma tool is a perfectly fine fit in the sense that it is an additional
+> network management tool IMO.
+>=20
+> For reference, here's the list of stuff already in iproute on my Fedora
+> 24 box:
+>=20
+> /usr/sbin/arpd
+> /usr/sbin/bridge
+> /usr/sbin/cbq
+> /usr/sbin/ctstat
+> /usr/sbin/genl
+> /usr/sbin/ifcfg
+> /usr/sbin/ifstat
+> /usr/sbin/ip
+> /usr/sbin/lnstat
+> /usr/sbin/nstat
+> /usr/sbin/routef
+> /usr/sbin/routel
+> /usr/sbin/rtacct
+> /usr/sbin/rtmon
+> /usr/sbin/rtpr
+> /usr/sbin/rtstat
+> /usr/sbin/ss
+> /usr/sbin/tc
+> /usr/sbin/tipc
+>=20
+> And in fact, if you check, tipc is almost similar to RDMA ;-) =C2=A0So, I
+> suggest people not get hung up on the name iproute2, the fit is fine
+> when you look deeper into the nature of the package.
+>=20
 
-Tracing side is quite different.
-For example: samples/bpf/offwaketime_kern.c does:
-struct task_struct *p = (void *) PT_REGS_PARM1(ctx);
-u32 pid;
-bpf_probe_read(&pid, sizeof(pid), &p->pid);
-
-The '&p->pid' offset is arch and kernel specific, hence
-not only we need kernel headers for the given architecture,
-but autoconf.h of that specific kernel with correct kernel version too.
-
-[1]
-https://www.spinics.net/lists/arm-kernel/msg567602.html
+Iproute2 is a collection like busybox. It has bridging, devlink and tipc al=
+ready.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
