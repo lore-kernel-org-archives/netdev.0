@@ -1,85 +1,54 @@
-From: Leon Romanovsky <leon@kernel.org>
-Subject: Re: [RFC iproute2 0/8] RDMA tool
-Date: Fri, 5 May 2017 16:17:54 +0300
-Message-ID: <20170505131754.GH22833@mtr-leonro.local>
-References: <20170504180216.7665-1-leon@kernel.org>
- <20170505085457.0029edc9@griffin>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2 net] tcp: randomize timestamps on syncookies
+Date: Fri, 05 May 2017 06:46:23 -0700
+Message-ID: <1493991983.7796.40.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1493935361.7796.29.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20170505002456.GH13320@breakpoint.cc>
+         <20170505003208.GI13320@breakpoint.cc>
+         <1493949548.7796.32.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1493950957.7796.36.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20170505093630.GA3233@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-        protocol="application/pgp-signature"; boundary="DMefDzZywwCHZelG"
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-        Doug Ledford <dledford@redhat.com>,
-        Jiri Pirko <jiri@mellanox.com>,
-        Ariel Almog <ariela@mellanox.com>,
-        Dennis Dalessandro <dennis.dalessandro@intel.com>,
-        Ram Amrani <ram.amrani@cavium.com>,
-        Bart Van Assche <Bart.VanAssche@sandisk.com>,
-        Sagi Grimberg <sagi@grimberg.me>,
-        Jason Gunthorpe <jgunthorpe@obsidianresearch.com>,
-        Christoph Hellwig <hch@lst.de>,
-        Or Gerlitz <ogerlitz@mellanox.com>,
-        Linux RDMA <linux-rdma@vger.kernel.org>,
-        Linux Netdev <netdev@vger.kernel.org>
-To: Jiri Benc <jbenc@redhat.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Yuchung Cheng <ycheng@google.com>
+To: Florian Westphal <fw@strlen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.136]:57464 "EHLO mail.kernel.org"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751437AbdEENRz (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 5 May 2017 09:17:55 -0400
-Content-Disposition: inline
-In-Reply-To: <20170505085457.0029edc9@griffin>
+Received: from mail-pf0-f170.google.com ([209.85.192.170]:35928 "EHLO
+        mail-pf0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752207AbdEENql (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 5 May 2017 09:46:41 -0400
+Received: by mail-pf0-f170.google.com with SMTP id q66so3030947pfi.3
+        for <netdev@vger.kernel.org>; Fri, 05 May 2017 06:46:39 -0700 (PDT)
+In-Reply-To: <20170505093630.GA3233@breakpoint.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Fri, 2017-05-05 at 11:36 +0200, Florian Westphal wrote:
+> Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> > From: Eric Dumazet <edumazet@google.com>
+> > 
+> > Whole point of randomization was to hide server uptime, but an attacker
+> > can simply start a syn flood and TCP generates 'old style' timestamps,
+> > directly revealing server jiffies value.
+> > 
+> > Also, TSval sent by the server to a particular remote address vary
+> > depending on syncookies being sent or not, potentially triggering PAWS
+> > drops for innocent clients.
+> > 
+> > Lets implement proper randomization, including for SYNcookies.
+> 
+> 
+> Thanks a lot Eric, this works for me (I also tested ipv6 this time ;) )
+> 
+> Minor nit:
+> net/ipv4/tcp_ipv4.c:154:6: warning: unused variable 'seq' [-Wunused-variable]
+> 
 
---DMefDzZywwCHZelG
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+Thanks Florian, I will remove this in v3, and add your tags.
 
-On Fri, May 05, 2017 at 08:54:57AM +0200, Jiri Benc wrote:
-> On Thu,  4 May 2017 21:02:08 +0300, Leon Romanovsky wrote:
-> > In order to close object model, ensure reuse of existing code and make this
-> > tool usable from day one, we decided to implement wrappers over legacy sysfs
-> > prior to implementing netlink functionality. As a nice bonus, it will allow
-> > to use this tool with old kernels too.
->
-> This sounds wrong. We don't support legacy ioctl interface for the 'ip'
-> command, either. I think rdma should be converted to netlink first and
-> the new tool should only use netlink.
-
-RDMA in slightly different situation than "ip" tool was. "ip" was implemented
-when tools like ifconfig existed. It allowed to old and new systems to be
-configured to some degree. In RDMA community, there are no similar tools like
-"ifconfig". Implementation in netlink-only interface will leave old systems without
-common tool at all.
-
-As an upstream-oriented person, I personally fine with that, but anyway would
-like to get wider agreement/disagreement on that, before removing sysfs
-parsing logic from the rdmatool.
-
-Thanks
-
->
->  Jiri
-
---DMefDzZywwCHZelG
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAlkMe4IACgkQ5GN7iDZy
-WKf2WQ/8DkPETSwi9IYEu+gckJiQoOY57lXkGb5MqjWm95gEOyVXvYPM1GMSL8O5
-z55zXrlkpSf4PSW/wtuZ+rZdLg/IbU3dZzv1zGln9MlAcu9mpAxca2FfLIcKpXeM
-fTWdHcwbxFcODSm4IhwU4A12XTNPcXFsYbmhqVIqUSyT06+XYLcgabGCiQg9fvCk
-6VuHuJrPu0WcSBujytIVsOVfc31YwhURcvMjJNXauHpZFxUU9/0Wfkny9mvXVKgA
-UxRtts9OplezKXGC0i0T2lVAmqh84AD4fX06KBx9Lt0FG8NFds9J+31CwtxpEDch
-BrnWkWuMO6zlN8OiLliQpKwn/nJ9AEW0riKIb3Kxu/4JT4I6EM0Rf7Nem6/pznl2
-yMTZhfyz9Y/scq7q2Z0HtWhhW71n9cpYknqA62cF3dUcfmAh8QA6/coiqi0Cr8vy
-dvivF4cpIchJCYfTPqc6wdA3Ve0hd32v6+ZGcftLRQyOfYZ6VPLCtrwBbmpVvqs9
-3QSwO18+dGOfGpwyIezbR019Nm1ZECNOTJtnKYaY8AKeXOpZa/2UnmGJGcv17y0b
-eXwqEoJjr/adPqz329v4UaWjDTUamwWJvdujgoEAt8MAaiT1kCWLr/zL5knEEwlY
-eNnMh7qZlg1WjRTzDFQ07EOxTESoF80q8m93CNm3F5vdfBHf768=
-=/GCt
------END PGP SIGNATURE-----
-
---DMefDzZywwCHZelG--
+> Other than this:
+> Reviewed-by: Florian Westphal <fw@strlen.de>
+> Tested-by: Florian Westphal <fw@strlen.de>
