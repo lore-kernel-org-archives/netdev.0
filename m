@@ -1,133 +1,79 @@
-From: Amir Goldstein <amir73il@gmail.com>
+From: Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>
 Subject: Re: [PATCH v1] ACPI: Switch to use generic UUID API
-Date: Fri, 5 May 2017 10:06:06 +0300
-Message-ID: <CAOQ4uxjha8_2_HwgdgBN=G-vNytAW5Gk155E9z8OWyFiGNEZVw@mail.gmail.com>
-References: <20170504092151.88646-1-andriy.shevchenko@linux.intel.com> <CAPcyv4jzD0MEBRNTwTokVzgdDWas682ArUjRAGT1hp=QRE8Pjg@mail.gmail.com>
+Date: Fri, 5 May 2017 09:30:35 +0200
+Message-ID: <20170505073035.GA3112@lst.de>
+References: <20170504092151.88646-1-andriy.shevchenko@linux.intel.com>
+	<CAPcyv4jzD0MEBRNTwTokVzgdDWas682ArUjRAGT1hp=QRE8Pjg@mail.gmail.com>
+	<CAOQ4uxjha8_2_HwgdgBN=G-vNytAW5Gk155E9z8OWyFiGNEZVw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Andy Shevchenko <andriy.shevchenko@linux.intel.com>,
-        Linux ACPI <linux-acpi@vger.kernel.org>,
-        tpmdd-devel@lists.sourceforge.net, intel-gfx@lists.freedesktop.org,
-        nouveau@lists.freedesktop.org, linux-input@vger.kernel.org,
-        iommu@lists.linux-foundation.org, linux-mmc@vger.kernel.org,
-        Netdev <netdev@vger.kernel.org>, linux-pci@vger.kernel.org,
-        USB list <linux-usb@vger.kernel.org>,
-        alsa-devel@alsa-project.org,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "Rafael J . Wysocki" <rjw@rjwysocki.net>,
-        Mika Westerberg <mika.westerberg@linux.intel.com>,
-        Borislav Petkov <bp@suse.de>,
-        Jarkko Sakkinen <jarkko.sakkinen@linux.intel.com>,
-        Jani Nikula <jani.nikula@linux.intel.com>,
-        Ben Skeggs <bskeggs@redhat.com>,
-        Benjamin Tissoires <benjamin.tissoires@redhat.com>,
-To: Dan Williams <dan.j.williams@intel.com>
-Return-path: <linux-acpi-owner@vger.kernel.org>
-In-Reply-To: <CAPcyv4jzD0MEBRNTwTokVzgdDWas682ArUjRAGT1hp=QRE8Pjg@mail.gmail.com>
-Sender: linux-acpi-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: alsa-devel-K7yf7f+aM1XWsZ/bQMPhNw@public.gmane.org,
+	Heikki Krogerus <heikki.krogerus-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+	Liam Girdwood <lgirdwood-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, linux-pci-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Jarkko Sakkinen <jarkko.sakkinen-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+	Adrian Hunter <adrian.hunter-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Benjamin Tissoires <benjamin.tissoires-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>, Linux ACPI <linux-acpi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	tpmdd-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
+	Ben Skeggs <bskeggs-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, nouveau-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org,
+	linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Zhang Rui <rui.zhang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Borislav Petkov <bp-l3A5Bk7waGM@public.gmane.org>, Yisen Zhuang <yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	Mathias Nyman <mathias.nyman-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	intel-gfx-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org, linux-input-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Jani Nikula <jani.nikula-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>, Mark Brown <broonie-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Bjorn Helgaas <bhelgaas-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Dan Williams <dan.j.williams-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Andy Shevchenko <andriy.shevchenk
+To: Amir Goldstein <amir73il-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <CAOQ4uxjha8_2_HwgdgBN=G-vNytAW5Gk155E9z8OWyFiGNEZVw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/iommu>,
+	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/iommu/>
+List-Post: <mailto:iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/iommu>,
+	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, May 5, 2017 at 9:20 AM, Dan Williams <dan.j.williams@intel.com> wrote:
-> On Thu, May 4, 2017 at 2:21 AM, Andy Shevchenko
-> <andriy.shevchenko@linux.intel.com> wrote:
->> acpi_evaluate_dsm() and friends take a pointer to a raw buffer of 16
->> bytes. Instead we convert them to use uuid_le type. At the same time we
->> convert current users.
->>
->> acpi_str_to_uuid() becomes useless after the conversion and it's safe to
->> get rid of it.
->>
->> The conversion fixes a potential bug in int340x_thermal as well since
->> we have to use memcmp() on binary data.
->>
->> Cc: Rafael J. Wysocki <rjw@rjwysocki.net>
->> Cc: Mika Westerberg <mika.westerberg@linux.intel.com>
->> Cc: Borislav Petkov <bp@suse.de>
->> Cc: Dan Williams <dan.j.williams@intel.com>
->> Cc: Amir Goldstein <amir73il@gmail.com>
->> Cc: Jarkko Sakkinen <jarkko.sakkinen@linux.intel.com>
->> Cc: Jani Nikula <jani.nikula@linux.intel.com>
->> Cc: Ben Skeggs <bskeggs@redhat.com>
->> Cc: Benjamin Tissoires <benjamin.tissoires@redhat.com>
->> Cc: Joerg Roedel <joro@8bytes.org>
->> Cc: Adrian Hunter <adrian.hunter@intel.com>
->> Cc: Yisen Zhuang <yisen.zhuang@huawei.com>
->> Cc: Bjorn Helgaas <bhelgaas@google.com>
->> Cc: Zhang Rui <rui.zhang@intel.com>
->> Cc: Felipe Balbi <balbi@kernel.org>
->> Cc: Mathias Nyman <mathias.nyman@intel.com>
->> Cc: Heikki Krogerus <heikki.krogerus@linux.intel.com>
->> Cc: Liam Girdwood <lgirdwood@gmail.com>
->> Cc: Mark Brown <broonie@kernel.org>
->> Signed-off-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-> [..]
->> diff --git a/drivers/acpi/nfit/core.c b/drivers/acpi/nfit/core.c
->> index 0f7982a1caaf..bd3e45ede056 100644
->> --- a/drivers/acpi/nfit/core.c
->> +++ b/drivers/acpi/nfit/core.c
->> @@ -74,11 +74,11 @@ struct nfit_table_prev {
->>         struct list_head flushes;
->>  };
->>
->> -static u8 nfit_uuid[NFIT_UUID_MAX][16];
->> +static uuid_le nfit_uuid[NFIT_UUID_MAX];
->>
->> -const u8 *to_nfit_uuid(enum nfit_uuids id)
->> +const uuid_le *to_nfit_uuid(enum nfit_uuids id)
->>  {
->> -       return nfit_uuid[id];
->> +       return &nfit_uuid[id];
->>  }
->>  EXPORT_SYMBOL(to_nfit_uuid);
->>
->> @@ -207,7 +207,7 @@ int acpi_nfit_ctl(struct nvdimm_bus_descriptor *nd_desc, struct nvdimm *nvdimm,
->>         u32 offset, fw_status = 0;
->>         acpi_handle handle;
->>         unsigned int func;
->> -       const u8 *uuid;
->> +       const uuid_le *uuid;
->>         int rc, i;
->>
->>         func = cmd;
->> @@ -394,7 +394,7 @@ int nfit_spa_type(struct acpi_nfit_system_address *spa)
->>         int i;
->>
->>         for (i = 0; i < NFIT_UUID_MAX; i++)
->> -               if (memcmp(to_nfit_uuid(i), spa->range_guid, 16) == 0)
->> +               if (!uuid_le_cmp_pp(to_nfit_uuid(i), (uuid_le *)spa->range_guid))
->
-> What is _cmp_pp? Why not _compare?
->
+On Fri, May 05, 2017 at 10:06:06AM +0300, Amir Goldstein wrote:
+> I much rather that you sort out uuid helpers in a way that will
+> satisfy the filesystem
+> needs (just provide the helpers don't need to convert filesystems code).
 
-I second that.
+Yeah.
 
-Andy,
+> IMO, you should acknowledge that the common use case for filesystems is
+> to handle an opaque char[16] which most likely holds a uuid_be and you
+> should provide 'neutral' helpers to satisfy this use case.
+> 
+> The simplest would be to typedef uuid_t to struct uuid_be and to name 'neutral'
+> helpers' uuid_cmp/uuid_copy(uuid_t *, uuid_t *), similar to my proposal.
 
-I much rather that you sort out uuid helpers in a way that will
-satisfy the filesystem
-needs (just provide the helpers don't need to convert filesystems code).
+It's not jut neutral, it's the right thing to to.  The Apollo / DCE
+uuids (later also specified in RFC 4122) are big endian, so we should
+use the name there.
 
-The only reason I took a swing at hoisting the xfs uuid helpers is
-because it didn't
-seem like your proposal was going to be posted soon or wasn't going to satisfy
-the filesystems use case.
+> Christoph also suggested a similar treatment to typedef guid_t to
+> struct uuid_le.
 
-My opinion now, is that your suggestion is probably much closer to the real deal
-than mine.
+Exactly.  The whole idea of "little endian UUIDs" comes from the
+Wintel world, and if you look at the relevant specs they are almost
+exclusively referred to as GUIDs.
 
-IMO, you should acknowledge that the common use case for filesystems is
-to handle an opaque char[16] which most likely holds a uuid_be and you
-should provide 'neutral' helpers to satisfy this use case.
+The magic XFS and AFS types for specific interpretations of one of
+the RFC4122 formats don't really help, but I'll just send a patch
+to kill them off for XFS ASAP to at least get that out, and we
+probably should revert at least
 
-The simplest would be to typedef uuid_t to struct uuid_be and to name 'neutral'
-helpers' uuid_cmp/uuid_copy(uuid_t *, uuid_t *), similar to my proposal.
+"afs: Move UUID struct to linux/uuid.h"
 
-I think with this semantic change, our proposals can reach common grounds
-and satisfy a wider group of users (i.e. filesystem developers).
-
-Christoph also suggested a similar treatment to typedef guid_t to
-struct uuid_le.
-I don't know the use cases enough to comment on that.
-
-Cheers,
-Amir.
+That moved the AFS mess to common code as a start, and then
+also clean up the way we generate random UUIDs, where we currently
+have le helper, a be helper and then also generate_random_uuid
+just to confuse the heck out of people.  With no description of
+either of them.
