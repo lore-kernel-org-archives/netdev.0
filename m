@@ -1,51 +1,146 @@
-From: Girish Moodalbail <girish.moodalbail@oracle.com>
-Subject: Re: [PATCH iproute2] vxlan: Add support for modifying vxlan device
- attributes
-Date: Thu, 4 May 2017 17:26:23 -0700
-Message-ID: <c5c7969d-9808-13a9-316b-afe590997127@oracle.com>
-References: <1493934394-26317-1-git-send-email-girish.moodalbail@oracle.com>
- <20170504170743.3b411f21@xeon-e3>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH net] tcp: randomize timestamps on syncookies
+Date: Fri, 5 May 2017 02:32:08 +0200
+Message-ID: <20170505003208.GI13320@breakpoint.cc>
+References: <1493935361.7796.29.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20170505002456.GH13320@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+        David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Yuchung Cheng <ycheng@google.com>
+To: Florian Westphal <fw@strlen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:38813 "EHLO
-        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751441AbdEEA03 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 4 May 2017 20:26:29 -0400
-In-Reply-To: <20170504170743.3b411f21@xeon-e3>
+Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:59250 "EHLO
+        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1752330AbdEEAca (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 4 May 2017 20:32:30 -0400
+Content-Disposition: inline
+In-Reply-To: <20170505002456.GH13320@breakpoint.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 5/4/17 5:07 PM, Stephen Hemminger wrote:
-> On Thu,  4 May 2017 14:46:34 -0700
-> Girish Moodalbail <girish.moodalbail@oracle.com> wrote:
->
->> Ability to change vxlan device attributes was added to kernel through
->> commit 8bcdc4f3a20b ("vxlan: add changelink support"), however one
->> cannot do the same through ip(8) command.  Changing the allowed vxlan
->> device attributes using 'ip link set dev <vxlan_name> type vxlan
->> <allowed_attributes>' currently fails with 'operation not supported'
->> error.  This failure is due to the incorrect rtnetlink message
->> construction for the 'ip link set' operation.
->>
->> The vxlan_parse_opt() callback function is called for parsing options
->> for both 'ip link add' and 'ip link set'. For the 'add' case, we pass
->> down default values for those attributes that were not provided as CLI
->> options. However, for the 'set' case we should be only passing down the
->> explicitly provided attributes and not any other (default) attributes.
->>
->> Signed-off-by: Girish Moodalbail <girish.moodalbail@oracle.com>
->> ---
->
-> All these foo_set variables are ugly. This looks almost like machine
-> generated code. It doesn't read well.
+Florian Westphal <fw@strlen.de> wrote:
+[..]
+> This breaks syncookies w. timestamps; cookie_timestamp_decode() lacks a tsoff
+> for readjustment.
+> 
+> We also need to pass the (recomputed) tsoff to tcp_get_cookie_sock().
 
-I thought about it, however I wasn't sure if refactoring that whole routine will 
-be well received so I decided to follow the current model that already existed 
-in iplink_vxlan.c. I will re-submit a patch cleaning up that whole routine.
+This small delta makes things work for me:
 
-thanks,
-~Girish
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 1be353fc5cb1..8c0e5a901d64 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -470,7 +470,7 @@ void inet_sk_rx_dst_set(struct sock *sk, const struct sk_buff *skb);
+ /* From syncookies.c */
+ struct sock *tcp_get_cookie_sock(struct sock *sk, struct sk_buff *skb,
+ 				 struct request_sock *req,
+-				 struct dst_entry *dst);
++				 struct dst_entry *dst, u32 tsoff);
+ int __cookie_v4_check(const struct iphdr *iph, const struct tcphdr *th,
+ 		      u32 cookie);
+ struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb);
+diff --git a/net/ipv4/syncookies.c b/net/ipv4/syncookies.c
+index 496b97e17aaf..39bfdc94bf44 100644
+--- a/net/ipv4/syncookies.c
++++ b/net/ipv4/syncookies.c
+@@ -16,6 +16,7 @@
+ #include <linux/siphash.h>
+ #include <linux/kernel.h>
+ #include <linux/export.h>
++#include <net/secure_seq.h>
+ #include <net/tcp.h>
+ #include <net/route.h>
+ 
+@@ -203,7 +204,7 @@ EXPORT_SYMBOL_GPL(__cookie_v4_check);
+ 
+ struct sock *tcp_get_cookie_sock(struct sock *sk, struct sk_buff *skb,
+ 				 struct request_sock *req,
+-				 struct dst_entry *dst)
++				 struct dst_entry *dst, u32 tsoff)
+ {
+ 	struct inet_connection_sock *icsk = inet_csk(sk);
+ 	struct sock *child;
+@@ -213,6 +214,7 @@ struct sock *tcp_get_cookie_sock(struct sock *sk, struct sk_buff *skb,
+ 						 NULL, &own_req);
+ 	if (child) {
+ 		atomic_set(&req->rsk_refcnt, 1);
++		tcp_sk(child)->tsoffset = tsoff;
+ 		sock_rps_save_rxhash(child, skb);
+ 		inet_csk_reqsk_queue_add(sk, req, child);
+ 	} else {
+@@ -292,6 +294,7 @@ struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb)
+ 	struct rtable *rt;
+ 	__u8 rcv_wscale;
+ 	struct flowi4 fl4;
++	u32 tsoff;
+ 
+ 	if (!sock_net(sk)->ipv4.sysctl_tcp_syncookies || !th->ack || th->rst)
+ 		goto out;
+@@ -311,6 +314,12 @@ struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb)
+ 	memset(&tcp_opt, 0, sizeof(tcp_opt));
+ 	tcp_parse_options(skb, &tcp_opt, 0, NULL);
+ 
++	tsoff = 0;
++	if (tcp_opt.saw_tstamp && tcp_opt.rcv_tsecr) {
++		tsoff = secure_tcp_ts_off(ip_hdr(skb)->daddr, ip_hdr(skb)->saddr);
++		tcp_opt.rcv_tsecr -= tsoff;
++	}
++
+ 	if (!cookie_timestamp_decode(&tcp_opt))
+ 		goto out;
+ 
+@@ -381,7 +390,7 @@ struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb)
+ 	ireq->rcv_wscale  = rcv_wscale;
+ 	ireq->ecn_ok = cookie_ecn_ok(&tcp_opt, sock_net(sk), &rt->dst);
+ 
+-	ret = tcp_get_cookie_sock(sk, skb, req, &rt->dst);
++	ret = tcp_get_cookie_sock(sk, skb, req, &rt->dst, tsoff);
+ 	/* ip_queue_xmit() depends on our flow being setup
+ 	 * Normal sockets get it right from inet_csk_route_child_sock()
+ 	 */
+diff --git a/net/ipv6/syncookies.c b/net/ipv6/syncookies.c
+index 895ff650db43..eb96825d6340 100644
+--- a/net/ipv6/syncookies.c
++++ b/net/ipv6/syncookies.c
+@@ -18,6 +18,7 @@
+ #include <linux/random.h>
+ #include <linux/siphash.h>
+ #include <linux/kernel.h>
++#include <net/secure_seq.h>
+ #include <net/ipv6.h>
+ #include <net/tcp.h>
+ 
+@@ -143,6 +144,7 @@ struct sock *cookie_v6_check(struct sock *sk, struct sk_buff *skb)
+ 	int mss;
+ 	struct dst_entry *dst;
+ 	__u8 rcv_wscale;
++	u32 tsoff;
+ 
+ 	if (!sock_net(sk)->ipv4.sysctl_tcp_syncookies || !th->ack || th->rst)
+ 		goto out;
+@@ -162,6 +164,12 @@ struct sock *cookie_v6_check(struct sock *sk, struct sk_buff *skb)
+ 	memset(&tcp_opt, 0, sizeof(tcp_opt));
+ 	tcp_parse_options(skb, &tcp_opt, 0, NULL);
+ 
++	tsoff = 0;
++	if (tcp_opt.saw_tstamp && tcp_opt.rcv_tsecr) {
++		tsoff = secure_tcpv6_ts_off(&ip_hdr(skb)->daddr, &ip_hdr(skb)->saddr);
++		tcp_opt.rcv_tsecr -= tsoff;
++	}
++
+ 	if (!cookie_timestamp_decode(&tcp_opt))
+ 		goto out;
+ 
+@@ -242,7 +250,7 @@ struct sock *cookie_v6_check(struct sock *sk, struct sk_buff *skb)
+ 	ireq->rcv_wscale = rcv_wscale;
+ 	ireq->ecn_ok = cookie_ecn_ok(&tcp_opt, sock_net(sk), dst);
+ 
+-	ret = tcp_get_cookie_sock(sk, skb, req, dst);
++	ret = tcp_get_cookie_sock(sk, skb, req, dst, tsoff);
+ out:
+ 	return ret;
+ out_free:
