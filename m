@@ -1,59 +1,43 @@
-From: Kees Cook <keescook@chromium.org>
-Subject: [PATCH] ray_cs: Avoid reading past end of buffer
-Date: Fri, 5 May 2017 15:38:41 -0700
-Message-ID: <20170505223841.GA20367@beast>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH/RFC net-next v2 4/4] net/sched: cls_flower: allow control
+ of tree traversal on packet parse errors
+Date: Fri, 5 May 2017 15:44:58 -0700
+Message-ID: <CAM_iQpUY0Kj8oqYGGa-GB7LxaGKz1La1BkMfeCfFXGWKkPSyEA@mail.gmail.com>
+References: <1493988426-22854-1-git-send-email-simon.horman@netronome.com> <1493988426-22854-5-git-send-email-simon.horman@netronome.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Kalle Valo <kvalo@codeaurora.org>, linux-wireless@vger.kernel.org,
-        linux-kernel@vger.kernel.org, Daniel Micay <danielmicay@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Jiri Pirko <jiri@mellanox.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Dinan Gunawardena <dinan.gunawardena@netronome.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        oss-drivers@netronome.com,
+        Benjamin LaHaise <benjamin.lahaise@netronome.com>
+To: Simon Horman <simon.horman@netronome.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f53.google.com ([74.125.82.53]:37560 "EHLO
+        mail-wm0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754170AbdEEWpU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 5 May 2017 18:45:20 -0400
+Received: by mail-wm0-f53.google.com with SMTP id m123so17771869wma.0
+        for <netdev@vger.kernel.org>; Fri, 05 May 2017 15:45:20 -0700 (PDT)
+In-Reply-To: <1493988426-22854-5-git-send-email-simon.horman@netronome.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Using memcpy() from a buffer that is shorter than the length copied means
-the destination buffer is being filled with arbitrary data from the kernel
-rodata segment. In this case, the source was made longer, since it did not
-match the destination structure size. Additionally removes a needless cast.
+On Fri, May 5, 2017 at 5:47 AM, Simon Horman <simon.horman@netronome.com> wrote:
+>
+>  # tc qdisc del dev eth0 ingress; tc qdisc add dev eth0 ingress
+>  # tc filter add dev eth0 protocol ip parent ffff: flower \
+>        indev eth0 ip_proto udp dst_port 80 truncated drop action continue
+>
+[...]
+> @@ -188,7 +189,7 @@ static int fl_classify(struct sk_buff *skb, const struct tcf_proto *tp,
+>          */
+>         skb_key.basic.n_proto = skb->protocol;
+>         if (!skb_flow_dissect(skb, &head->dissector, &skb_key, 0))
+> -               return -1;
+> +               return head->err_action;
 
-This was found with the future CONFIG_FORTIFY_SOURCE feature.
-
-Cc: Daniel Micay <danielmicay@gmail.com>
-Signed-off-by: Kees Cook <keescook@chromium.org>
----
- drivers/net/wireless/ray_cs.c | 7 +++++--
- 1 file changed, 5 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/wireless/ray_cs.c b/drivers/net/wireless/ray_cs.c
-index b94479441b0c..170cd504e8ff 100644
---- a/drivers/net/wireless/ray_cs.c
-+++ b/drivers/net/wireless/ray_cs.c
-@@ -247,7 +247,10 @@ static const UCHAR b4_default_startup_parms[] = {
- 	0x04, 0x08,		/* Noise gain, limit offset */
- 	0x28, 0x28,		/* det rssi, med busy offsets */
- 	7,			/* det sync thresh */
--	0, 2, 2			/* test mode, min, max */
-+	0, 2, 2,		/* test mode, min, max */
-+	0,			/* rx/tx delay */
-+	0, 0, 0, 0, 0, 0,	/* current BSS id */
-+	0			/* hop set */
- };
- 
- /*===========================================================================*/
-@@ -597,7 +600,7 @@ static void init_startup_params(ray_dev_t *local)
- 	 *    a_beacon_period = hops    a_beacon_period = KuS
- 	 *//* 64ms = 010000 */
- 	if (local->fw_ver == 0x55) {
--		memcpy((UCHAR *) &local->sparm.b4, b4_default_startup_parms,
-+		memcpy(&local->sparm.b4, b4_default_startup_parms,
- 		       sizeof(struct b4_startup_params));
- 		/* Translate sane kus input values to old build 4/5 format */
- 		/* i = hop time in uS truncated to 3 bytes */
--- 
-2.7.4
-
-
--- 
-Kees Cook
-Pixel Security
+This design looks odd, if you consider matching truncated packets as
+a filter like other normal filters, then you should rely on the action
+appended to return the action code, not within the filter itself.
