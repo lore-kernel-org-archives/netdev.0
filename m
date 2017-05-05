@@ -1,37 +1,50 @@
-From: Sunil Kovvuri <sunil.kovvuri@gmail.com>
-Subject: Re: [PATCH 0/9] net: thunderx: Adds XDP support
-Date: Fri, 5 May 2017 15:40:27 +0530
-Message-ID: <CA+sq2CfsCkyV1A9UnVEzSoONjLXdgjcwRm8jD-FsULop0a9feQ@mail.gmail.com>
-References: <1493730418-24606-1-git-send-email-sunil.kovvuri@gmail.com>
- <20170502.154744.1762061314370744901.davem@davemloft.net> <CA+sq2CfW89EbiZmp6byc3y3cbATmmyVB=avzrUXG51-x3yxckg@mail.gmail.com>
- <CAKoUArku6tRuV=Y3fteY-R6eHM4daq-0ct6w1_unjkGA+yPTFQ@mail.gmail.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: SSE instructions for fast packet copy?
+Date: Fri, 5 May 2017 10:14:41 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DCFFE6085@AcuExch.aculab.com>
+References: <CALx6S34r6Q_wCKqzv5YjKJyuETyYmY1y=M7uDYiLfpnXzqbheg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Sunil Goutham <sgoutham@cavium.com>,
-        LAKML <linux-arm-kernel@lists.infradead.org>,
-        Netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        David Miller <davem@davemloft.net>
-To: Rami Rosen <roszenrami@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAKoUArku6tRuV=Y3fteY-R6eHM4daq-0ct6w1_unjkGA+yPTFQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+To: 'Tom Herbert' <tom@herbertland.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out6.electric.net ([192.162.217.189]:61201 "EHLO
+        smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751492AbdEEKOr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 5 May 2017 06:14:47 -0400
+In-Reply-To: <CALx6S34r6Q_wCKqzv5YjKJyuETyYmY1y=M7uDYiLfpnXzqbheg@mail.gmail.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 4, 2017 at 2:09 AM, Rami Rosen <roszenrami@gmail.com> wrote:
-> Thanks, Sunil.
->
->>with network stack: 0.32 Mpps
->>with XDP (XDP_TX): 3 Mpps
->>and XDP_DROP: 3.8 Mpps
->
-> Interesting; May I ask - which packet size did you use ?
-
-Packet size is 64bytes.
-
-Thanks,
-Sunil.
-
->
-> Regards,
-> Rami Rosen
+RnJvbTogVG9tIEhlcmJlcnQNCj4gU2VudDogMDUgTWF5IDIwMTcgMDY6NTENCj4gVG86IExpbnV4
+IEtlcm5lbCBOZXR3b3JrIERldmVsb3BlcnMNCj4gU3ViamVjdDogU1NFIGluc3RydWN0aW9ucyBm
+b3IgZmFzdCBwYWNrZXQgY29weT8NCj4gDQo+IEhpLA0KPiANCj4gSSBhbSB0aGlua2luZyBhYm91
+dCB0aGUgcG9zc2liaWxpdHkgb2YgdXNpbmcgU1NFIGluIGtlcm5lbCBmb3INCj4gc3BlZWRpbmcg
+dXAgdGhlIGtlcm5lbCBtZW1jcHkgcGFydGljdWxhcmx5IGZvciBjb3B5IHRvIHVzZXJzcGFjZQ0K
+PiBlbWVvcnksIGFuZCBtYXliZSBldmVuIHVzaW5nIHRoZSBzdHJpbmcgaW5zdHJ1Y3Rpb25zIChs
+aWtlIGlmIHdlDQo+IHN1cHBvcnRlZCByZWdleCBpbiBzb21ldGhpbmcgbGlrZSBlQlBGKS4gQUZB
+SUsgd2UgZG9uJ3QgdXNlIFNTRSBpbg0KPiBrZXJuZWwgYmVjYXVzZSBvZiB4bW0gcmVnaXN0ZXIg
+c3RhdGUgbmVlZGluZyB0byBiZSBzYXZlZCBhY3Jvc3MNCj4gY29udGV4dCBzd2l0Y2guIEhvd2V2
+ZXIsIGlmIHdlIHN0YXJ0IGJ1c3ktcG9sbGluZyBhIENQVSBpbiBrZXJuZWwgb24NCj4gbmV0d29y
+ayBxdWV1ZXMgdGhlbiB0aGVyZSBtaWdodCBub3QgYmUgYW55IGNvbnRleHQgc3dpdGNoZXMgdG8g
+d29ycnkNCj4gYWJvdXQuIEluIHRoaXMgbW9kZWwgd2UnZCB3YW50IHRvIGVuYWJsZSBTU0UgcGVy
+IENQVS4NCj4gDQo+IEhhcyB0aGlzIGV2ZXIgYmVlbiB0cmllZCBiZWZvcmU/IElzIHRoaXMgYXQg
+YWxsIGZlYXNpYmxlPyA6LSkgSXMgaXQNCj4gcG9zc2libGUgdG8gZW5hYmxlIFNTRSBmb3Iga2Vy
+bmVsIGZvciBqdXN0IG9uZSBDUFU/IChJIGZvdW5kIENQVUlEDQo+IHdpbGwgcmV0dXJuIFNTRSBz
+dXBwb3J0ZWQsIGJ1dCBkb24ndCBzZWUgaG93IHRvIGVuYWJsZSBvdGhlciB0aGFuDQo+IC1tc3Nl
+IGZvciBjb21waWxpbmcpLg0KDQpOb3QgZXZlbiB3b3J0aCB0aGlua2luZyBhYm91dC4NCldpdGgg
+cmVjZW50IGludGVsIGNwdXMgJ3JlcCBtb3ZzYicgaXMgb3B0aW1pc2VkIGluIHRoZSBoYXJkd2Fy
+ZQ0KKGZvciBjYWNoZWQgbWVtb3J5KSBhbmQgd2lsbCBydW4gYXMgZmFzdCBhcyBhbnkgb3RoZXIg
+Y29weS4NCg0KKFRoZXJlIGlzIGEgcmVsYXRlZCBmdWJhciB0aGF0IG1lbWNvcHl0b2lvKCkgaXMg
+aW1wbGVtZW50ZWQNCmFzIG1lbWNweSgpIGFuZCB0aGVuIGFzICdyZXAgbW92c2InIHNvIGdlbmVy
+YXRlcyByZXBlYXRlZA0KYnl0ZSBhY2Nlc3NlcyB0byBpbyBtZW1vcnkuKQ0KDQpJJ20gcHJldHR5
+IHN1cmUgdGhlIEZQIHJlZ2lzdGVycyBhcmUgJ2xhenkgc2F2ZWQnLg0KVGhlIGNwdSdzIHNzZSBy
+ZWdpc3RlcnMgKHRoZSBlbnRpcmUgRlAgcmVnaXN0ZXIgc2V0KSBtaWdodA0KY29udGFpbiBsaWZl
+IHZhbHVlcyBmb3IgYSBwcm9jZXNzIHRoYXQgaXMgcnVubmluZyBvbiBhIGRpZmZlcmVudCBjcHUu
+DQpJZiB0aGF0IHByb2Nlc3MgZXhlY3V0ZXMgYW4gRlAgaW5zdHJ1Y3Rpb24gaXQgd2lsbCBmYXVs
+dCBhbmQgYW4gSVBJDQppc3N1ZWQgdG8gZ2V0IHRoZSByZWdpc3RlcnMgd3JpdHRlbiB0byB0aGUg
+cHJvY2Vzc2VzIGZwIHNhdmUgYXJlYQ0KZnJvbSB3aGVyZSB0aGV5IGNhbiBiZSBsb2FkZWQuDQpB
+bnkgdXNlIG9mIHRoZSBzc2UgcmVnaXN0ZXJzIHdvdWxkIGhhdmUgdG8gaW50ZXJhY3QgY29ycmVj
+dGx5DQp3aXRoIHRoYXQgSVBJIGNvZGUuDQoNCglEYXZpZA0KDQo=
