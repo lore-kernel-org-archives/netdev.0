@@ -1,93 +1,147 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [RFC] iproute: Add support for extended ack to rtnl_talk
-Date: Sat, 6 May 2017 12:36:04 +0200
-Message-ID: <20170506103604.GA2017@nanopsycho>
-References: <20170503235638.31116-1-stephen@networkplumber.org>
- <590AF624.6090808@iogearbox.net>
- <20170504143738.GY22833@mtr-leonro.local>
- <20170504094558.78933e60@xeon-e3>
- <20170504175556.GZ22833@mtr-leonro.local>
+Subject: Re: [Unstrung-hackers] [RFC net-next] ipv6: ext_header: add function
+ to handle RPL extension header option 0x63
+Date: Sat, 6 May 2017 12:37:48 +0200
+Message-ID: <20170506103748.GB2017@nanopsycho>
+References: <dca567582f1979384fb1f3c3d1411349@ceid.upatras.gr>
+ <20170504160042.GB2385@nanopsycho>
+ <CAAK7Ti9iFFqM7vMyveNfaNeCi6PmAGptXdTYgEzh2gsMptqi4w@mail.gmail.com>
+ <96b9f3bc67da7c16249600990c2df4cc@ceid.upatras.gr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-        Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org
-To: Leon Romanovsky <leon@kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: JANARDHANACHARI KELLA <eni.chari@gmail.com>,
+        Michael Richardson <mcr@sandelman.ca>,
+        netdev <netdev@vger.kernel.org>, netdev-owner@vger.kernel.org,
+        linux-bluetooth@vger.kernel.org, linux-wpan@vger.kernel.org,
+        unstrung-hackers@lists.sandelman.ca
+To: Andreas Bardoutsos <bardoutsos@ceid.upatras.gr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f195.google.com ([209.85.128.195]:34784 "EHLO
-        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751978AbdEFKgI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 6 May 2017 06:36:08 -0400
-Received: by mail-wr0-f195.google.com with SMTP id 6so2808263wrb.1
-        for <netdev@vger.kernel.org>; Sat, 06 May 2017 03:36:08 -0700 (PDT)
+Received: from mail-wr0-f196.google.com ([209.85.128.196]:36585 "EHLO
+        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752018AbdEFKhv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 6 May 2017 06:37:51 -0400
+Received: by mail-wr0-f196.google.com with SMTP id v42so2802280wrc.3
+        for <netdev@vger.kernel.org>; Sat, 06 May 2017 03:37:50 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <20170504175556.GZ22833@mtr-leonro.local>
+In-Reply-To: <96b9f3bc67da7c16249600990c2df4cc@ceid.upatras.gr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thu, May 04, 2017 at 07:55:56PM CEST, leon@kernel.org wrote:
->On Thu, May 04, 2017 at 09:45:58AM -0700, Stephen Hemminger wrote:
->> On Thu, 4 May 2017 17:37:38 +0300
->> Leon Romanovsky <leon@kernel.org> wrote:
->>
->> > On Thu, May 04, 2017 at 11:36:36AM +0200, Daniel Borkmann wrote:
->> > > On 05/04/2017 01:56 AM, Stephen Hemminger wrote:
->> > > > Add support for extended ack error reporting via libmnl. This
->> > > > is a better alternative to use existing library and not copy/paste
->> > > > code from the kernel. Also make arguments const where possible.
->> > > >
->> > > > Add a new function rtnl_talk_extack that takes a callback as an input
->> > > > arg. If a netlink response contains extack attributes, the callback is
->> > > > is invoked with the the err string, offset in the message and a pointer
->> > > > to the message returned by the kernel.
->> > > >
->> > > > Adding a new function allows commands to be moved over to the
->> > > > extended error reporting over time.
->> > > >
->> > > > For feedback, compile tested only.
->> > >
->> > > Just out of curiosity, what is the plan regarding converting iproute2
->> > > over to libmnl (ip, tc, ss, ...)? In 2015, tipc tool was the first
->> > > user merged that requires libmnl, the only other user today in the
->> > > tree is devlink, which even seems to define its own libmnl library
->> > > helpers. What is the clear benefit/rationale of outsourcing this to
->> > > libmnl? I always was the impression we should strive for as little
->> > > dependencies as possible?
->> >
->> > And I would like to get direction for the RDMA tool [1] which I'm
->> > working on it now.
->> >
->> > The overall decision was to use netlink and put it under iproute2
->> > umbrella. Currently, I have working RFC which is based on
->> > legacy sysfs interface to ensure that we are converging on
->> > user-experience even before moving to actual netlink defines.
->> >
->> > An I would like to continue to work on netlink interface, but which lib interface
->> > should I need to base rdmatool's netlink code?
->> >
->> > [1] https://www.mail-archive.com/netdev@vger.kernel.org/msg148523.html
->> >
->> > >
->> > > I don't really like that we make extended ack reporting now dependent
->> > > on libmnl, which further diverts from iproute's native nl library vs
->> > > requiring to install another nl library, making the current status
->> > > quo even worse ... :/
->> > >
->> > > Thanks,
->> > > Daniel
->>
->> I would prefer new code use libmnl, but using libnetlink would also be ok.
->> Any later conversion to libmnl would be mostly automated anyway.
->
->Thanks, I'm copy/pasting devlink variation of libmnl :)
+Fri, May 05, 2017 at 09:55:54AM CEST, bardoutsos@ceid.upatras.gr wrote:
+>Yes I think we have faced the same problem,communication with RPL supporting
+>devices was failing otherwise.Your patch is also more complete since it also
+>implements #ifdef .About the comment,yes I have run checkpatch twice with no
+>errors,but ok :)
 
-I needed couple of small helpers for generic netlink support. I believe
-they could be pushed to upstream libmnl so we can avoid having them in
-iproute2
-
+Top-posting is highly annoying. Please stop with that.
 
 >
->>
->> The real objection was copy/pasting in the kernel netlink parser.
->> That was unnecessary bloat.
->
+>Στις 2017-05-05 08:59, JANARDHANACHARI KELLA έγραψε:
+>> I was inserted this patch manually. It was working. on 4.9 kernel.
+>> 
+>> check this bellow link for your ref.
+>> 
+>> https://github.com/mwasilak/bluetooth-next/commit/f29c632ef6a6a1777815c97fd2f326faccc704f7
+>> [2]
+>> 
+>> On Thu, May 4, 2017 at 9:30 PM, Jiri Pirko <jiri@resnulli.us> wrote:
+>> 
+>> > Thu, May 04, 2017 at 05:17:18PM CEST, bardoutsos@ceid.upatras.gr
+>> > wrote:
+>> > > Signed-off-by: Andreas Bardoutsos <bardoutsos@ceid.upatras.gr>
+>> > > ---
+>> > > Hi all!
+>> > > 
+>> > > I have added a dump function(always return true) to recognise RPL
+>> > extension
+>> > > header(RFC6553)
+>> > > Otherwise packet was dropped by kernel resulting in failing
+>> > communication in
+>> > > RPL DAG's between
+>> > > linux running border routers and devices in the graph.For example
+>> > > communication
+>> > > with contiki OS running devices was previously impossible.
+>> > > 
+>> > > include/uapi/linux/in6.h | 1 +
+>> > > net/ipv6/exthdrs.c | 13 +++++++++++++
+>> > > 2 files changed, 14 insertions(+)
+>> > > 
+>> > > diff --git a/include/uapi/linux/in6.h b/include/uapi/linux/in6.h
+>> > > index 46444f8fbee4..5cc12d309dfe 100644
+>> > > --- a/include/uapi/linux/in6.h
+>> > > +++ b/include/uapi/linux/in6.h
+>> > > @@ -146,6 +146,7 @@ struct in6_flowlabel_req {
+>> > > #define IPV6_TLV_CALIPSO 7 /* RFC 5570 */
+>> > > #define IPV6_TLV_JUMBO 194
+>> > > #define IPV6_TLV_HAO 201 /* home address option */
+>> > > +#define IPV6_TLV_RPL 99 /* RFC 6553 */
+>> > > 
+>> > > /*
+>> > > * IPV6 socket options
+>> > > diff --git a/net/ipv6/exthdrs.c b/net/ipv6/exthdrs.c
+>> > > index b636f1da9aec..82ed60d3180e 100644
+>> > > --- a/net/ipv6/exthdrs.c
+>> > > +++ b/net/ipv6/exthdrs.c
+>> > > @@ -785,6 +785,15 @@ static bool ipv6_hop_calipso(struct sk_buff
+>> > *skb, int
+>> > > optoff)
+>> > > return false;
+>> > > }
+>> > > 
+>> > > +/* RPL RFC 6553 */
+>> > > +
+>> > > +static bool ipv6_hop_rpl(struct sk_buff *skb, int optoff)
+>> > > +{
+>> > > + /*Dump function which always return true
+>> > > + *when rpl option is detected*/
+>> > 
+>> > This is definitelly wrong formatting of comment. Did you run
+>> > checkpatch?
+>> > 
+>> > > + return true;
+>> > > +}
+>> > > +
+>> > > static const struct tlvtype_proc tlvprochopopt_lst[] = {
+>> > > {
+>> > > .type = IPV6_TLV_ROUTERALERT,
+>> > > @@ -798,6 +807,10 @@ static const struct tlvtype_proc
+>> > tlvprochopopt_lst[] = {
+>> > > .type = IPV6_TLV_CALIPSO,
+>> > > .func = ipv6_hop_calipso,
+>> > > },
+>> > > + {
+>> > > + .type = IPV6_TLV_RPL,
+>> > > + .func = ipv6_hop_rpl,
+>> > > + },
+>> > > { -1, }
+>> > > };
+>> > > 
+>> > --
+>> > To unsubscribe from this list: send the line "unsubscribe
+>> > linux-wpan" in
+>> > the body of a message to majordomo@vger.kernel.org
+>> > More majordomo info at http://vger.kernel.org/majordomo-info.html
+>> > [1]
+>> 
+>> --
+>> 
+>> Sincerely Your's
+>> 
+>> Janardhanachari Kella
+>> 
+>> Contact:+91-9908469599
+>> E-mail: eni.chari@gmail.com
+>> 
+>> 
+>> Links:
+>> ------
+>> [1] http://vger.kernel.org/majordomo-info.html
+>> [2]
+>> https://github.com/mwasilak/bluetooth-next/commit/f29c632ef6a6a1777815c97fd2f326faccc704f7
+>> 
+>> _______________________________________________
+>> Unstrung-hackers mailing list
+>> Unstrung-hackers@lists.sandelman.ca
+>> https://lists.sandelman.ca/mailman/listinfo/unstrung-hackers
 >
