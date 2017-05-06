@@ -1,74 +1,46 @@
-From: Shubham Bansal <illusionist.neo@gmail.com>
-Subject: Re: arch: arm: bpf: Converting cBPF to eBPF for arm 32 bit
-Date: Sun, 7 May 2017 01:57:48 +0530
-Message-ID: <CAHgaXd+2vF=d5zpWTg+a=vSnv2ZA+8LCR_MXT_MDKn4r2s8sig@mail.gmail.com>
-References: <CAHgaXdJ1M4W3p9=B2hJmtxByPsA5-XHae8U6YtDH_2r_XMaR5A@mail.gmail.com>
- <58E639E0.1010700@iogearbox.net>
- <CAHgaXdK1XjDnhTqtk=nCq2crrigHiuCaLhF+1GupJt9bPThwZw@mail.gmail.com>
- <20170506.143816.2259768618578706384.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Kees Cook <keescook@chromium.org>, Daniel Borkmann <daniel@iogearbox.net>,
- kernel-hardening@lists.openwall.com,
- Network Development <netdev@vger.kernel.org>, ast@fb.com,
- Mircea Gherzan <mgherzan@gmail.com>, linux-arm-kernel@lists.infradead.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <20170506.143816.2259768618578706384.davem@davemloft.net>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+From: Alexander Alemayhu <alexander@alemayhu.com>
+Subject: [PATCH iproute2] tc: bpf: add ppc64 and sparc64 to list of archs with eBPF support
+Date: Sat,  6 May 2017 22:30:10 +0200
+Message-ID: <1494102610-19853-1-git-send-email-alexander@alemayhu.com>
+Cc: daniel@iogearbox.net, stephen@networkplumber.org,
+        Alexander Alemayhu <alexander@alemayhu.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f43.google.com ([74.125.82.43]:37310 "EHLO
+        mail-wm0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751373AbdEFUaP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 6 May 2017 16:30:15 -0400
+Received: by mail-wm0-f43.google.com with SMTP id m123so30685865wma.0
+        for <netdev@vger.kernel.org>; Sat, 06 May 2017 13:30:14 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Thanks David.
+sparc64 support was added in 7a12b5031c6b (sparc64: Add eBPF JIT., 2017-04-17)[0]
+and ppc64 in 156d0e290e96 (powerpc/ebpf/jit: Implement JIT compiler for extended BPF, 2016-06-22)[1].
 
-Hi all,
+[0]: https://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git/commit/?id=7a12b5031c6b
+[1]: https://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git/commit/?id=156d0e290e96
+Signed-off-by: Alexander Alemayhu <alexander@alemayhu.com>
+---
+ man/man8/tc-bpf.8 | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-I have two questions about the code at arch/arm64/net/bpf_jit_comp.c.
-
-1. At line 708, " const u8 r1 = bpf2a64[BPF_REG_1]; /* r1: struct
-sk_buff *skb */ ".
-    Why is this code using BPF_REG_1 before saving it? As far as I
-know, BPF_REG_1 has pointer to bpf program context and this code
-clearly is overwriting that pointer which makes that pointer useless
-for future usage. It clearly looks like a bug.
-
-2. At line 256, " emit(A64_LDR64(prg, tmp, r3), ctx); ".
-    This line of code is used to load an array( of pointers ) element,
-where r3 is used as an index of that array. Shouldn't it be be
-arithmetic left shifted by 3 or multiplied by 8 to get the right
-address in that array of pointers ?
-
-Apologies if any of the above question is stupid to ask.
-
-Best,
-Shubham
-Best,
-Shubham Bansal
-
-
-On Sun, May 7, 2017 at 12:08 AM, David Miller <davem@davemloft.net> wrote:
-> From: Shubham Bansal <illusionist.neo@gmail.com>
-> Date: Sat, 6 May 2017 22:18:16 +0530
->
->> Hi Daniel,
->>
->> Thanks for the last reply about the testing of eBPF JIT.
->>
->> I have one issue though, I am not able to find what BPF_ABS and
->> BPF_IND instruction does exactly.
->
-> They are not instructions, they are modifiers for the BPF_LD
-> instruction which indicate an SKB load is to be performed.
->
-> You never need to ask what a BPF instruction does, it is clear
-> defined in the BPF interperter found in kernel/bpf/core.c
->
-> Look for the case statement LD_ABS_W and friends in __bpf_prog_run().
+diff --git a/man/man8/tc-bpf.8 b/man/man8/tc-bpf.8
+index e371964d06ab..2e9812ede028 100644
+--- a/man/man8/tc-bpf.8
++++ b/man/man8/tc-bpf.8
+@@ -75,9 +75,9 @@ In Linux, it's generally considered that eBPF is the successor of cBPF.
+ The kernel internally transforms cBPF expressions into eBPF expressions and
+ executes the latter. Execution of them can be performed in an interpreter
+ or at setup time, they can be just-in-time compiled (JIT'ed) to run as
+-native machine code. Currently, x86_64, ARM64 and s390 architectures have
+-eBPF JIT support, whereas PPC, SPARC, ARM and MIPS have cBPF, but did not
+-(yet) switch to eBPF JIT support.
++native machine code. Currently, x86_64, ARM64, s390, ppc64 and sparc64
++architectures have eBPF JIT support, whereas PPC, SPARC, ARM and MIPS have
++cBPF, but did not (yet) switch to eBPF JIT support.
+ 
+ eBPF's instruction set has similar underlying principles as the cBPF
+ instruction set, it however is modelled closer to the underlying
+-- 
+2.7.4
