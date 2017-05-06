@@ -1,81 +1,66 @@
-From: Shubham Bansal <illusionist.neo@gmail.com>
-Subject: Re: arch: arm: bpf: Converting cBPF to eBPF for arm 32 bit
-Date: Sun, 7 May 2017 03:47:08 +0530
-Message-ID: <CAHgaXdLsUYEmY86Nz3rC50repRA_rz-CVYx_i90k1Q5G1E-mCw@mail.gmail.com>
-References: <CAHgaXdJ1M4W3p9=B2hJmtxByPsA5-XHae8U6YtDH_2r_XMaR5A@mail.gmail.com>
- <58E639E0.1010700@iogearbox.net> <CAHgaXdK1XjDnhTqtk=nCq2crrigHiuCaLhF+1GupJt9bPThwZw@mail.gmail.com>
- <20170506.143816.2259768618578706384.davem@davemloft.net> <CAHgaXd+2vF=d5zpWTg+a=vSnv2ZA+8LCR_MXT_MDKn4r2s8sig@mail.gmail.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [RFC PATCH 0/3] udp: scalability improvements
+Date: Sat, 6 May 2017 16:09:30 -0700
+Message-ID: <CALx6S349K0_61uKs0Aje4f-8yjkQdLgFTxgF=Xd1jOyS0uddVQ@mail.gmail.com>
+References: <cover.1494103184.git.pabeni@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
-        Kees Cook <keescook@chromium.org>,
-        Mircea Gherzan <mgherzan@gmail.com>,
-        Network Development <netdev@vger.kernel.org>,
-        kernel-hardening@lists.openwall.com,
-        linux-arm-kernel@lists.infradead.org, ast@fb.com
-To: David Miller <davem@davemloft.net>
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>
+To: Paolo Abeni <pabeni@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f51.google.com ([209.85.218.51]:34544 "EHLO
-        mail-oi0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753442AbdEFWRJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 6 May 2017 18:17:09 -0400
-Received: by mail-oi0-f51.google.com with SMTP id b204so19065931oii.1
-        for <netdev@vger.kernel.org>; Sat, 06 May 2017 15:17:09 -0700 (PDT)
-In-Reply-To: <CAHgaXd+2vF=d5zpWTg+a=vSnv2ZA+8LCR_MXT_MDKn4r2s8sig@mail.gmail.com>
+Received: from mail-qt0-f195.google.com ([209.85.216.195]:33291 "EHLO
+        mail-qt0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754744AbdEFXJb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 6 May 2017 19:09:31 -0400
+Received: by mail-qt0-f195.google.com with SMTP id a46so5347593qte.0
+        for <netdev@vger.kernel.org>; Sat, 06 May 2017 16:09:31 -0700 (PDT)
+In-Reply-To: <cover.1494103184.git.pabeni@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Okay. My mistake. I just checked the verify function.
+On Sat, May 6, 2017 at 1:42 PM, Paolo Abeni <pabeni@redhat.com> wrote:
+> This patch series implement an idea suggested by Eric Dumazet to
+> reduce the contention of the udp sk_receive_queue lock when the socket is
+> under flood.
+>
+> An ancillary queue is added to the udp socket, and the socket always
+> tries first to read packets from such queue. If it's empty, we splice
+> the content from sk_receive_queue into the ancillary queue.
+>
+> The first patch introduces some helpers to keep the udp code small, and the
+> following two implement the ancillary queue strategy. The code is split
+> to hopefully help the reviewing process.
+>
+> The measured overall gain under udp flood is in the 20-35% range depending on
+> the numa layout and the number of ingress queue used by the relevant nic.
+>
+Certainly sounds good, but can you give real reproducible performance
+numbers including the test that was run?
 
-Apologies.
-Best,
-Shubham Bansal
+Tom
 
-
-On Sun, May 7, 2017 at 1:57 AM, Shubham Bansal
-<illusionist.neo@gmail.com> wrote:
-> Thanks David.
->
-> Hi all,
->
-> I have two questions about the code at arch/arm64/net/bpf_jit_comp.c.
->
-> 1. At line 708, " const u8 r1 = bpf2a64[BPF_REG_1]; /* r1: struct
-> sk_buff *skb */ ".
->     Why is this code using BPF_REG_1 before saving it? As far as I
-> know, BPF_REG_1 has pointer to bpf program context and this code
-> clearly is overwriting that pointer which makes that pointer useless
-> for future usage. It clearly looks like a bug.
->
-> 2. At line 256, " emit(A64_LDR64(prg, tmp, r3), ctx); ".
->     This line of code is used to load an array( of pointers ) element,
-> where r3 is used as an index of that array. Shouldn't it be be
-> arithmetic left shifted by 3 or multiplied by 8 to get the right
-> address in that array of pointers ?
->
-> Apologies if any of the above question is stupid to ask.
->
-> Best,
-> Shubham
-> Best,
-> Shubham Bansal
+> On a single numa node host, the peak tput is now reached when the traffic
+> targeting the udp socket uses multiple nic rx queues, while on current net-next
+> the tput always decreases when moving from a single rx queue to multiple ones.
 >
 >
-> On Sun, May 7, 2017 at 12:08 AM, David Miller <davem@davemloft.net> wrote:
->> From: Shubham Bansal <illusionist.neo@gmail.com>
->> Date: Sat, 6 May 2017 22:18:16 +0530
->>
->>> Hi Daniel,
->>>
->>> Thanks for the last reply about the testing of eBPF JIT.
->>>
->>> I have one issue though, I am not able to find what BPF_ABS and
->>> BPF_IND instruction does exactly.
->>
->> They are not instructions, they are modifiers for the BPF_LD
->> instruction which indicate an SKB load is to be performed.
->>
->> You never need to ask what a BPF instruction does, it is clear
->> defined in the BPF interperter found in kernel/bpf/core.c
->>
->> Look for the case statement LD_ABS_W and friends in __bpf_prog_run().
+> Paolo Abeni (3):
+>   net/sock: factor out dequeue/peek with offset code
+>   udp: use a separate rx queue for packet reception
+>   udp: keep the sk_receive_queue held when splicing
+>
+>  include/linux/skbuff.h |   7 +++
+>  include/linux/udp.h    |   3 +
+>  include/net/sock.h     |   4 +-
+>  include/net/udp.h      |   9 +--
+>  include/net/udplite.h  |   2 +-
+>  net/core/datagram.c    |  90 +++++++++++++++------------
+>  net/ipv4/udp.c         | 162 +++++++++++++++++++++++++++++++++++++++++++------
+>  net/ipv6/udp.c         |   3 +-
+>  8 files changed, 211 insertions(+), 69 deletions(-)
+>
+> --
+> 2.9.3
+>
