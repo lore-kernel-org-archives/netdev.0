@@ -1,29 +1,161 @@
-From: "hch@lst.de" <hch@lst.de>
-Subject: Re: net/smc and the RDMA core
-Date: Sat, 6 May 2017 10:25:39 +0200
-Message-ID: <20170506082539.GA3987@lst.de>
-References: <20170501163311.GA22209@lst.de> <d9214af6-1c6f-9f95-fc00-3e4a316b4f81@linux.vnet.ibm.com> <1493750358.2552.13.camel@sandisk.com> <1b79048f-4495-3840-e7a6-d4fa5a8dfb57@grimberg.me> <20170504084825.GA5399@lst.de> <efa9bd6d-1df9-952a-7f32-c2ee6bffcae5@linux.vnet.ibm.com> <20170504153155.GB854@obsidianresearch.com> <750b09b5-f898-fe7f-1e82-1f6c06cc0f58@linux.vnet.ibm.com> <20170505171017.GA29554@obsidianresearch.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ursula Braun <ubraun@linux.vnet.ibm.com>,
-        "hch@lst.de" <hch@lst.de>, Sagi Grimberg <sagi@grimberg.me>,
-        Bart Van Assche <Bart.VanAssche@sandisk.com>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>
-To: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+From: Ganesh Goudar <ganeshgr@chelsio.com>
+Subject: [PATCH net] cxgb4: avoid disabling FEC by default
+Date: Sat,  6 May 2017 14:25:06 +0530
+Message-ID: <1494060906-6453-1-git-send-email-ganeshgr@chelsio.com>
+Cc: nirranjan@chelsio.com, indranil@chelsio.com,
+        Ganesh Goudar <ganeshgr@chelsio.com>
+To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from verein.lst.de ([213.95.11.211]:59115 "EHLO newverein.lst.de"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750907AbdEFIZk (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 6 May 2017 04:25:40 -0400
-Content-Disposition: inline
-In-Reply-To: <20170505171017.GA29554@obsidianresearch.com>
+Received: from stargate.chelsio.com ([12.32.117.8]:31883 "EHLO
+        stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751613AbdEFIzb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 6 May 2017 04:55:31 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 05, 2017 at 11:10:17AM -0600, Jason Gunthorpe wrote:
-> I recommend immediately sending a kconfig patch cc'd to stable making
-> SMC require CONFIG_BROKEN so that nobody inadvertantly turns it on.
+Recent Chelsio firmware started using few port capablity bits to
+manage FEC and as driver was not aware of FEC changes those bits
+were zeroed, consequently disabling FEC.
 
-Yes, I'll send the patch.
+Avoid zeroing those bits and default to whatever the firmware
+tells us the Link is currently advertising.
+
+Signed-off-by: Ganesh Goudar <ganeshgr@chelsio.com>
+---
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h    |  9 +++++++
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c    | 38 ++++++++++++++++++++++-----
+ drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h |  6 ++---
+ 3 files changed, 43 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+index 163543b..862e008 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+@@ -108,6 +108,12 @@ enum {
+ 	PAUSE_AUTONEG = 1 << 2
+ };
+ 
++enum {
++	FEC_AUTO      = 1 << 0,	 /* IEEE 802.3 "automatic" */
++	FEC_RS        = 1 << 1,  /* Reed-Solomon */
++	FEC_BASER_RS  = 1 << 2   /* BaseR/Reed-Solomon */
++};
++
+ struct port_stats {
+ 	u64 tx_octets;            /* total # of octets in good frames */
+ 	u64 tx_frames;            /* all good frames */
+@@ -432,6 +438,9 @@ struct link_config {
+ 	unsigned int   speed;            /* actual link speed */
+ 	unsigned char  requested_fc;     /* flow control user has requested */
+ 	unsigned char  fc;               /* actual link flow control */
++	unsigned char  auto_fec;	 /* Forward Error Correction: */
++	unsigned char  requested_fec;	 /* "automatic" (IEEE 802.3), */
++	unsigned char  fec;		 /* requested, and actual in use */
+ 	unsigned char  autoneg;          /* autonegotiating? */
+ 	unsigned char  link_ok;          /* link up? */
+ 	unsigned char  link_down_rc;     /* link down reason */
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+index 0de8eb7..aded42b96 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+@@ -3707,7 +3707,8 @@ int t4_link_l1cfg(struct adapter *adap, unsigned int mbox, unsigned int port,
+ 		  struct link_config *lc)
+ {
+ 	struct fw_port_cmd c;
+-	unsigned int fc = 0, mdi = FW_PORT_CAP_MDI_V(FW_PORT_CAP_MDI_AUTO);
++	unsigned int mdi = FW_PORT_CAP_MDI_V(FW_PORT_CAP_MDI_AUTO);
++	unsigned int fc = 0, fec = 0, fw_fec = 0;
+ 
+ 	lc->link_ok = 0;
+ 	if (lc->requested_fc & PAUSE_RX)
+@@ -3715,6 +3716,13 @@ int t4_link_l1cfg(struct adapter *adap, unsigned int mbox, unsigned int port,
+ 	if (lc->requested_fc & PAUSE_TX)
+ 		fc |= FW_PORT_CAP_FC_TX;
+ 
++	fec = lc->requested_fec & FEC_AUTO ? lc->auto_fec : lc->requested_fec;
++
++	if (fec & FEC_RS)
++		fw_fec |= FW_PORT_CAP_FEC_RS;
++	if (fec & FEC_BASER_RS)
++		fw_fec |= FW_PORT_CAP_FEC_BASER_RS;
++
+ 	memset(&c, 0, sizeof(c));
+ 	c.op_to_portid = cpu_to_be32(FW_CMD_OP_V(FW_PORT_CMD) |
+ 				     FW_CMD_REQUEST_F | FW_CMD_EXEC_F |
+@@ -3725,13 +3733,15 @@ int t4_link_l1cfg(struct adapter *adap, unsigned int mbox, unsigned int port,
+ 
+ 	if (!(lc->supported & FW_PORT_CAP_ANEG)) {
+ 		c.u.l1cfg.rcap = cpu_to_be32((lc->supported & ADVERT_MASK) |
+-					     fc);
++					     fc | fw_fec);
+ 		lc->fc = lc->requested_fc & (PAUSE_RX | PAUSE_TX);
+ 	} else if (lc->autoneg == AUTONEG_DISABLE) {
+-		c.u.l1cfg.rcap = cpu_to_be32(lc->requested_speed | fc | mdi);
++		c.u.l1cfg.rcap = cpu_to_be32(lc->requested_speed | fc |
++					     fw_fec | mdi);
+ 		lc->fc = lc->requested_fc & (PAUSE_RX | PAUSE_TX);
+ 	} else
+-		c.u.l1cfg.rcap = cpu_to_be32(lc->advertising | fc | mdi);
++		c.u.l1cfg.rcap = cpu_to_be32(lc->advertising | fc |
++					     fw_fec | mdi);
+ 
+ 	return t4_wr_mbox(adap, mbox, &c, sizeof(c), NULL);
+ }
+@@ -7407,13 +7417,26 @@ static void get_pci_mode(struct adapter *adapter, struct pci_params *p)
+  *	Initializes the SW state maintained for each link, including the link's
+  *	capabilities and default speed/flow-control/autonegotiation settings.
+  */
+-static void init_link_config(struct link_config *lc, unsigned int caps)
++static void init_link_config(struct link_config *lc, unsigned int pcaps,
++			     unsigned int acaps)
+ {
+-	lc->supported = caps;
++	lc->supported = pcaps;
+ 	lc->lp_advertising = 0;
+ 	lc->requested_speed = 0;
+ 	lc->speed = 0;
+ 	lc->requested_fc = lc->fc = PAUSE_RX | PAUSE_TX;
++	lc->auto_fec = 0;
++
++	/* For Forward Error Control, we default to whatever the Firmware
++	 * tells us the Link is currently advertising.
++	 */
++	if (acaps & FW_PORT_CAP_FEC_RS)
++		lc->auto_fec |= FEC_RS;
++	if (acaps & FW_PORT_CAP_FEC_BASER_RS)
++		lc->auto_fec |= FEC_BASER_RS;
++	lc->requested_fec = FEC_AUTO;
++	lc->fec = lc->auto_fec;
++
+ 	if (lc->supported & FW_PORT_CAP_ANEG) {
+ 		lc->advertising = lc->supported & ADVERT_MASK;
+ 		lc->autoneg = AUTONEG_ENABLE;
+@@ -7991,7 +8014,8 @@ int t4_init_portinfo(struct port_info *pi, int mbox,
+ 	pi->port_type = FW_PORT_CMD_PTYPE_G(ret);
+ 	pi->mod_type = FW_PORT_MOD_TYPE_NA;
+ 
+-	init_link_config(&pi->link_cfg, be16_to_cpu(c.u.info.pcap));
++	init_link_config(&pi->link_cfg, be16_to_cpu(c.u.info.pcap),
++			 be16_to_cpu(c.u.info.acap));
+ 	return 0;
+ }
+ 
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h b/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
+index 8f8c079..251a35e 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
+@@ -2263,9 +2263,9 @@ enum fw_port_cap {
+ 	FW_PORT_CAP_ANEG		= 0x0100,
+ 	FW_PORT_CAP_MDIX		= 0x0200,
+ 	FW_PORT_CAP_MDIAUTO		= 0x0400,
+-	FW_PORT_CAP_FEC			= 0x0800,
+-	FW_PORT_CAP_TECHKR		= 0x1000,
+-	FW_PORT_CAP_TECHKX4		= 0x2000,
++	FW_PORT_CAP_FEC_RS		= 0x0800,
++	FW_PORT_CAP_FEC_BASER_RS	= 0x1000,
++	FW_PORT_CAP_FEC_RESERVED	= 0x2000,
+ 	FW_PORT_CAP_802_3_PAUSE		= 0x4000,
+ 	FW_PORT_CAP_802_3_ASM_DIR	= 0x8000,
+ };
+-- 
+2.1.0
