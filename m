@@ -1,46 +1,52 @@
-From: Alexander Alemayhu <alexander@alemayhu.com>
-Subject: [PATCH iproute2] tc: bpf: add ppc64 and sparc64 to list of archs with eBPF support
-Date: Sat,  6 May 2017 22:30:10 +0200
-Message-ID: <1494102610-19853-1-git-send-email-alexander@alemayhu.com>
-Cc: daniel@iogearbox.net, stephen@networkplumber.org,
-        Alexander Alemayhu <alexander@alemayhu.com>
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: [RFC PATCH 0/3] udp: scalability improvements
+Date: Sat,  6 May 2017 22:42:35 +0200
+Message-ID: <cover.1494103184.git.pabeni@redhat.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f43.google.com ([74.125.82.43]:37310 "EHLO
-        mail-wm0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751373AbdEFUaP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 6 May 2017 16:30:15 -0400
-Received: by mail-wm0-f43.google.com with SMTP id m123so30685865wma.0
-        for <netdev@vger.kernel.org>; Sat, 06 May 2017 13:30:14 -0700 (PDT)
+Received: from mx1.redhat.com ([209.132.183.28]:34244 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750780AbdEFUnv (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 6 May 2017 16:43:51 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-sparc64 support was added in 7a12b5031c6b (sparc64: Add eBPF JIT., 2017-04-17)[0]
-and ppc64 in 156d0e290e96 (powerpc/ebpf/jit: Implement JIT compiler for extended BPF, 2016-06-22)[1].
+This patch series implement an idea suggested by Eric Dumazet to
+reduce the contention of the udp sk_receive_queue lock when the socket is
+under flood.
 
-[0]: https://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git/commit/?id=7a12b5031c6b
-[1]: https://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git/commit/?id=156d0e290e96
-Signed-off-by: Alexander Alemayhu <alexander@alemayhu.com>
----
- man/man8/tc-bpf.8 | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+An ancillary queue is added to the udp socket, and the socket always
+tries first to read packets from such queue. If it's empty, we splice
+the content from sk_receive_queue into the ancillary queue.
 
-diff --git a/man/man8/tc-bpf.8 b/man/man8/tc-bpf.8
-index e371964d06ab..2e9812ede028 100644
---- a/man/man8/tc-bpf.8
-+++ b/man/man8/tc-bpf.8
-@@ -75,9 +75,9 @@ In Linux, it's generally considered that eBPF is the successor of cBPF.
- The kernel internally transforms cBPF expressions into eBPF expressions and
- executes the latter. Execution of them can be performed in an interpreter
- or at setup time, they can be just-in-time compiled (JIT'ed) to run as
--native machine code. Currently, x86_64, ARM64 and s390 architectures have
--eBPF JIT support, whereas PPC, SPARC, ARM and MIPS have cBPF, but did not
--(yet) switch to eBPF JIT support.
-+native machine code. Currently, x86_64, ARM64, s390, ppc64 and sparc64
-+architectures have eBPF JIT support, whereas PPC, SPARC, ARM and MIPS have
-+cBPF, but did not (yet) switch to eBPF JIT support.
- 
- eBPF's instruction set has similar underlying principles as the cBPF
- instruction set, it however is modelled closer to the underlying
+The first patch introduces some helpers to keep the udp code small, and the
+following two implement the ancillary queue strategy. The code is split
+to hopefully help the reviewing process.
+
+The measured overall gain under udp flood is in the 20-35% range depending on
+the numa layout and the number of ingress queue used by the relevant nic.
+
+On a single numa node host, the peak tput is now reached when the traffic
+targeting the udp socket uses multiple nic rx queues, while on current net-next
+the tput always decreases when moving from a single rx queue to multiple ones.
+
+
+Paolo Abeni (3):
+  net/sock: factor out dequeue/peek with offset code
+  udp: use a separate rx queue for packet reception
+  udp: keep the sk_receive_queue held when splicing
+
+ include/linux/skbuff.h |   7 +++
+ include/linux/udp.h    |   3 +
+ include/net/sock.h     |   4 +-
+ include/net/udp.h      |   9 +--
+ include/net/udplite.h  |   2 +-
+ net/core/datagram.c    |  90 +++++++++++++++------------
+ net/ipv4/udp.c         | 162 +++++++++++++++++++++++++++++++++++++++++++------
+ net/ipv6/udp.c         |   3 +-
+ 8 files changed, 211 insertions(+), 69 deletions(-)
+
 -- 
-2.7.4
+2.9.3
