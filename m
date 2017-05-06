@@ -1,71 +1,35 @@
-From: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
-Subject: Re: [RFC iproute2 0/8] RDMA tool
-Date: Sat, 6 May 2017 12:48:26 +0200
-Message-ID: <20170506104826.GD2017@nanopsycho>
-References: <20170504180216.7665-1-leon@kernel.org>
- <20170505085457.0029edc9@griffin>
- <20170505131754.GH22833@mtr-leonro.local>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH v4 net-next 0/2] rtnetlink: Updates to rtnetlink_event()
+Date: Sat, 6 May 2017 12:51:30 +0200
+Message-ID: <20170506105130.GE2017@nanopsycho>
+References: <1494017569-12869-1-git-send-email-vyasevic@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>,
-        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        Jiri Pirko <jiri-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Ariel Almog <ariela-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Dennis Dalessandro <dennis.dalessandro-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        Ram Amrani <ram.amrani-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>,
-        Bart Van Assche <Bart.VanAssche-XdAiOPVOjttBDgjK7y7TUQ@public.gmane.org>,
-        Sagi Grimberg <sagi-NQWnxTmZq1alnMjI0IkVqw@public.gmane.org>,
-        Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>,
-        Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>,
-        Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Linux RDMA <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Linux Netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
+        dsa@cumulusnetworks.com, Vladislav Yasevich <vyasevic@redhat.com>
+To: Vladislav Yasevich <vyasevich@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:35182 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751824AbdEFKvd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 6 May 2017 06:51:33 -0400
+Received: by mail-wm0-f67.google.com with SMTP id v4so906048wmb.2
+        for <netdev@vger.kernel.org>; Sat, 06 May 2017 03:51:33 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <20170505131754.GH22833-U/DQcQFIOTAAJjI8aNfphQ@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1494017569-12869-1-git-send-email-vyasevic@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Fri, May 05, 2017 at 03:17:54PM CEST, leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org wrote:
->On Fri, May 05, 2017 at 08:54:57AM +0200, Jiri Benc wrote:
->> On Thu,  4 May 2017 21:02:08 +0300, Leon Romanovsky wrote:
->> > In order to close object model, ensure reuse of existing code and make this
->> > tool usable from day one, we decided to implement wrappers over legacy sysfs
->> > prior to implementing netlink functionality. As a nice bonus, it will allow
->> > to use this tool with old kernels too.
->>
->> This sounds wrong. We don't support legacy ioctl interface for the 'ip'
->> command, either. I think rdma should be converted to netlink first and
->> the new tool should only use netlink.
+Fri, May 05, 2017 at 10:52:47PM CEST, vyasevich@gmail.com wrote:
+>This is a version 4 series came out of the conversation that started
+>as a result my first attempt to add netdevice event info to netlink messages.
 >
->RDMA in slightly different situation than "ip" tool was. "ip" was implemented
->when tools like ifconfig existed. It allowed to old and new systems to be
->configured to some degree. In RDMA community, there are no similar tools like
->"ifconfig". Implementation in netlink-only interface will leave old systems without
->common tool at all.
->
->As an upstream-oriented person, I personally fine with that, but anyway would
->like to get wider agreement/disagreement on that, before removing sysfs
->parsing logic from the rdmatool.
+>First is the patch to add IFLA_EVENT attribute to the netlink message.  It
+>supports only currently white-listed events.
+>Like before, this is just an attribute that gets added to the rtnetlink
+>message only when the messaged was generated as a result of a netdev event.
+>In my case, this is necessary since I want to trap NETDEV_NOTIFY_PEERS
+>event (also possibly NETDEV_RESEND_IGMP event) and perform certain actions
+>in user space.  This is not possible since the messages generated as
 
-I tend to agree with Jiri Benc. I fear that supporting sysfs + netlink
-api later on for the same things will make the code unnecessary complex.
-Also, the legacy sysfs will most likely stay there forever so there will
-be no actual motivation to port the existing things to the new netlink
-api.
-
-For the prototyping purposes, I belive that what you did makes perfect
-sense. But for the actual mergable version, my feeling is that we need
-to strictly stick with new netlink rdma interface and just forget about
-the old sysfs one. Distros would have to backport the new kernel
-rdma netlink api.
-
-Yes, this will be little bit more painful at the beginning, but in the
-long run, I believe it will save some severe headaches.
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+What are you trying to do in userspace if I may ask.
