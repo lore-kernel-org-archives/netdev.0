@@ -1,124 +1,93 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next 4/5] dsa: Microchip KSZ switches SPI devicetree
- configuration
-Date: Sat, 6 May 2017 13:02:04 +0300
-Message-ID: <1ade6f7e-7a28-db47-3811-d35d90f57b56@cogentembedded.com>
-References: <9235D6609DB808459E95D78E17F2E43D40A5C00B@CHN-SV-EXMX02.mchp-main.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [RFC] iproute: Add support for extended ack to rtnl_talk
+Date: Sat, 6 May 2017 12:36:04 +0200
+Message-ID: <20170506103604.GA2017@nanopsycho>
+References: <20170503235638.31116-1-stephen@networkplumber.org>
+ <590AF624.6090808@iogearbox.net>
+ <20170504143738.GY22833@mtr-leonro.local>
+ <20170504094558.78933e60@xeon-e3>
+ <20170504175556.GZ22833@mtr-leonro.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-        UNGLinuxDriver@microchip.com
-To: Woojung.Huh@microchip.com, andrew@lunn.ch, f.fainelli@gmail.com,
-        vivien.didelot@savoirfairelinux.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+        Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org
+To: Leon Romanovsky <leon@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f44.google.com ([209.85.215.44]:33827 "EHLO
-        mail-lf0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751935AbdEFKCH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 6 May 2017 06:02:07 -0400
-Received: by mail-lf0-f44.google.com with SMTP id 99so14169224lfu.1
-        for <netdev@vger.kernel.org>; Sat, 06 May 2017 03:02:07 -0700 (PDT)
-In-Reply-To: <9235D6609DB808459E95D78E17F2E43D40A5C00B@CHN-SV-EXMX02.mchp-main.com>
+Received: from mail-wr0-f195.google.com ([209.85.128.195]:34784 "EHLO
+        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751978AbdEFKgI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 6 May 2017 06:36:08 -0400
+Received: by mail-wr0-f195.google.com with SMTP id 6so2808263wrb.1
+        for <netdev@vger.kernel.org>; Sat, 06 May 2017 03:36:08 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20170504175556.GZ22833@mtr-leonro.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello!
-
-On 5/6/2017 2:18 AM, Woojung.Huh@microchip.com wrote:
-
-> From: Woojung Huh <Woojung.Huh@microchip.com>
+Thu, May 04, 2017 at 07:55:56PM CEST, leon@kernel.org wrote:
+>On Thu, May 04, 2017 at 09:45:58AM -0700, Stephen Hemminger wrote:
+>> On Thu, 4 May 2017 17:37:38 +0300
+>> Leon Romanovsky <leon@kernel.org> wrote:
+>>
+>> > On Thu, May 04, 2017 at 11:36:36AM +0200, Daniel Borkmann wrote:
+>> > > On 05/04/2017 01:56 AM, Stephen Hemminger wrote:
+>> > > > Add support for extended ack error reporting via libmnl. This
+>> > > > is a better alternative to use existing library and not copy/paste
+>> > > > code from the kernel. Also make arguments const where possible.
+>> > > >
+>> > > > Add a new function rtnl_talk_extack that takes a callback as an input
+>> > > > arg. If a netlink response contains extack attributes, the callback is
+>> > > > is invoked with the the err string, offset in the message and a pointer
+>> > > > to the message returned by the kernel.
+>> > > >
+>> > > > Adding a new function allows commands to be moved over to the
+>> > > > extended error reporting over time.
+>> > > >
+>> > > > For feedback, compile tested only.
+>> > >
+>> > > Just out of curiosity, what is the plan regarding converting iproute2
+>> > > over to libmnl (ip, tc, ss, ...)? In 2015, tipc tool was the first
+>> > > user merged that requires libmnl, the only other user today in the
+>> > > tree is devlink, which even seems to define its own libmnl library
+>> > > helpers. What is the clear benefit/rationale of outsourcing this to
+>> > > libmnl? I always was the impression we should strive for as little
+>> > > dependencies as possible?
+>> >
+>> > And I would like to get direction for the RDMA tool [1] which I'm
+>> > working on it now.
+>> >
+>> > The overall decision was to use netlink and put it under iproute2
+>> > umbrella. Currently, I have working RFC which is based on
+>> > legacy sysfs interface to ensure that we are converging on
+>> > user-experience even before moving to actual netlink defines.
+>> >
+>> > An I would like to continue to work on netlink interface, but which lib interface
+>> > should I need to base rdmatool's netlink code?
+>> >
+>> > [1] https://www.mail-archive.com/netdev@vger.kernel.org/msg148523.html
+>> >
+>> > >
+>> > > I don't really like that we make extended ack reporting now dependent
+>> > > on libmnl, which further diverts from iproute's native nl library vs
+>> > > requiring to install another nl library, making the current status
+>> > > quo even worse ... :/
+>> > >
+>> > > Thanks,
+>> > > Daniel
+>>
+>> I would prefer new code use libmnl, but using libnetlink would also be ok.
+>> Any later conversion to libmnl would be mostly automated anyway.
 >
-> A sample SPI configuration for Microchip KSZ switches.
+>Thanks, I'm copy/pasting devlink variation of libmnl :)
+
+I needed couple of small helpers for generic netlink support. I believe
+they could be pushed to upstream libmnl so we can avoid having them in
+iproute2
+
+
 >
-> Signed-off-by: Woojung Huh <Woojung.Huh@microchip.com>
-> ---
->  Documentation/devicetree/bindings/net/dsa/ksz.txt | 73 +++++++++++++++++++++++
->  1 file changed, 73 insertions(+)
->  create mode 100644 Documentation/devicetree/bindings/net/dsa/ksz.txt
+>>
+>> The real objection was copy/pasting in the kernel netlink parser.
+>> That was unnecessary bloat.
 >
-> diff --git a/Documentation/devicetree/bindings/net/dsa/ksz.txt b/Documentation/devicetree/bindings/net/dsa/ksz.txt
-> new file mode 100644
-> index 0000000..9cca7d4
-> --- /dev/null
-> +++ b/Documentation/devicetree/bindings/net/dsa/ksz.txt
-> @@ -0,0 +1,73 @@
-> +Microchip KSZ Series Ethernet switches
-> +==================================
-> +
-> +Required properties:
-> +
-> +- compatible: For external switch chips, compatible string must be exactly one
-> +  of: "microchip,ksz9477"
-> +
-> +See Documentation/devicetree/bindings/dsa/dsa.txt for a list of additional
-> +required and optional properties.
-> +
-> +Examples:
-> +
-> +Ethernet switch connected via SPI to the host, CPU port wired to eth0:
-> +
-> +		eth0: ethernet@10001000 {
-> +			fixed-link {
-> +				reg = <7>
-> +				speed = <1000>;
-> +				duplex-full;
-> +			};
-> +		};
-> +
-> +		spi1: spi@f8008000 {
-> +		pinctrl-0 = <&pinctrl_spi_ksz>;
-> +		cs-gpios = <&pioC 25 0>;
-> +		id = <1>;
-> +		status = "okay";
-
-    4 lines above should be indented more to the right.
-
-> +
-> +		ksz9477: ksz9477@0 {
-> +			compatible = "microchip,ksz9477";
-> +			reg = <0>;
-> +
-> +			spi-max-frequency = <44000000>;
-> +			spi-cpha;
-> +			spi-cpol;
-> +
-> +			status = "okay";
-> +			ports {
-> +				#address-cells = <1>;
-> +				#size-cells = <0>;
-> +				port@0 {
-> +					reg = <0>;
-> +					label = "lan1";
-> +				};
-> +				port@1 {
-> +					reg = <1>;
-> +					label = "lan2";
-> +				};
-> +				port@2 {
-> +					reg = <2>;
-> +					label = "lan3";
-> +				};
-> +				port@3 {
-> +					reg = <3>;
-> +					label = "lan4";
-> +				};
-> +				port@4 {
-> +					reg = <4>;
-> +					label = "lan5";
-> +				};
-> +				port@5 {
-> +					reg = <5>;
-> +					label = "cpu";
-> +					ethernet = <&macb0>;
-> +					fixed-link {
-> +						speed = <1000>;
-> +						full-duplex;
-> +					};
-> +				};
-> +			};
-> +		};
-> +		};
-
-    Unmatched }?
-
-MBR, Sergei
+>
