@@ -1,61 +1,24 @@
-From: Ilya Lesokhin <ilyal@mellanox.com>
-Subject: RE: Why do we need MSG_SENDPAGE_NOTLAST?
-Date: Sat, 6 May 2017 05:46:55 +0000
-Message-ID: <VI1PR0502MB29571B2B852BF681FC1DB9B0D4E80@VI1PR0502MB2957.eurprd05.prod.outlook.com>
-References: <VI1PR0502MB2957F149F915013F6813559FD4EA0@VI1PR0502MB2957.eurprd05.prod.outlook.com>
- <1493922776.7796.20.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Info <information@info.com>
+Subject: Information.
+Date: Fri, 05 May 2017 18:36:17 -0700
+Message-ID: <20170506014705.2B7D51F62283@unionlifesales.lk>
+Reply-To: yong.yu@hblsco.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        tls-fpga-sw-dev <tls-fpga-sw-dev@mellanox.com>,
-        Dave Watson <davejwatson@fb.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: 8BIT
+To: Recipients <information@info.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db5eur01on0068.outbound.protection.outlook.com ([104.47.2.68]:36420
-        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1750756AbdEFFq6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 6 May 2017 01:46:58 -0400
-In-Reply-To: <1493922776.7796.20.camel@edumazet-glaptop3.roam.corp.google.com>
-Content-Language: en-US
+Received: from relay.ualink.lk ([203.189.65.236]:55664 "EHLO relay.ualink.lk"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752011AbdEFHub (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 6 May 2017 03:50:31 -0400
+Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SSBkb24ndCBmb2xsb3cuDQpXaHkgY2FuJ3Qgc3BsaWNlIHVzZSBNU0dfTU9SRSBmb3IgdGhlIGlu
-ZGl2aWR1YWwgcGFnZXM/DQpXaHkgZG9lcyB0Y3Bfc2VuZHBhZ2UgbmVlZCB0byBrbm93IGlmIHRo
-ZSBNT1JFIGluZGljYXRvciBpcyBjb21pbmcgZnJvbSB0aGUgdXNlciBvciBmcm9tIHNwbGljZT8N
-Cg0KSSBhbHNvIGRvbid0IHVuZGVyc3RhbmQgeW91ciBjb21tZW50IGFib3V0IHBhcnRpYWwgd3Jp
-dGVzLg0KDQpUaGFua3MsDQpJbHlhDQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4g
-RnJvbTogRXJpYyBEdW1hemV0IFttYWlsdG86ZXJpYy5kdW1hemV0QGdtYWlsLmNvbV0NCj4gU2Vu
-dDogVGh1cnNkYXksIE1heSA0LCAyMDE3IDk6MzMgUE0NCj4gVG86IElseWEgTGVzb2toaW4gPGls
-eWFsQG1lbGxhbm94LmNvbT4NCj4gQ2M6IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IHRscy1mcGdh
-LXN3LWRldiA8dGxzLWZwZ2Etc3ctDQo+IGRldkBtZWxsYW5veC5jb20+OyBEYXZlIFdhdHNvbiA8
-ZGF2ZWp3YXRzb25AZmIuY29tPg0KPiBTdWJqZWN0OiBSZTogV2h5IGRvIHdlIG5lZWQgTVNHX1NF
-TkRQQUdFX05PVExBU1Q/DQo+IA0KPiBPbiBUaHUsIDIwMTctMDUtMDQgYXQgMTc6MDMgKzAwMDAs
-IElseWEgTGVzb2toaW4gd3JvdGU6DQo+ID4gSSBkb24ndCB1bmRlcnN0YW5kIHRoZSBuZWVkIGZv
-ciBNU0dfU0VORFBBR0VfTk9UTEFTVCBhbmQgSSdtIGhvcGluZw0KPiA+IHNvbWVvbmUgY2FuIGVu
-bGlnaHRlbiBtZS4NCj4gPg0KPiA+IEFjY29yZGluZyB0byBjb21taXQgMzVmOWMwOSAoJ3RjcDog
-dGNwX3NlbmRwYWdlcygpIHNob3VsZCBjYWxsDQo+ID4gdGNwX3B1c2goKSBvbmNlJyk6DQo+ID4g
-IldlIG5lZWQgdG8gY2FsbCB0Y3BfZmx1c2goKSBhdCB0aGUgZW5kIG9mIHRoZSBsYXN0IHBhZ2Ug
-cHJvY2Vzc2VkIGluDQo+ID4gdGNwX3NlbmRwYWdlcygpLCBvciBlbHNlIHRyYW5zbWl0cyBjYW4g
-YmUgZGVmZXJyZWQgYW5kIGZ1dHVyZSBzZW5kcw0KPiA+IHN0YWxsLiINCj4gPg0KPiA+IEkgZG9u
-J3QgdW5kZXJzdGFuZCB3aHkgd2UgbmVlZCB0byBkaWZmZXJlbnRpYXRlIGJldHdlZW4gdGhlIHVz
-ZXINCj4gPiBzZXR0aW5nIE1TR19NT1JFDQo+ID4gYW5kIHNwbGljZSBpbmRpY2F0aW5nIHRoYXQg
-bW9yZSBkYXRhIGlzIGdvaW5nIHRvIGJlIHNlbnQuDQo+ID4gaWYgdGhlIHVzZXIgcGFzc2VkIE1T
-R19NT1JFIGFuZCBkaWRuJ3QgcHVzaCBhbnkgZXh0cmEgZGF0YSwgaXNuJ3QgaXQNCj4gPiB0aGUg
-dXNlcnMgZmF1bHQ/DQo+ID4gRG8gd2UgbmVlZCBpdCBiZWNhdXNlIHBvb3JseSB3cml0dGVuIGFw
-cGxpY2F0aW9ucyB3ZXJlIGJyb2tlbiB3aGVuDQo+ID4gTVNHX01PUkUgd2FzIGFkZGVkIHRvIHRj
-cF9zZW5kcGFnZT8gT3IgaXMgdGhlcmUgYSBkZWVwZXIgcmVhc29uPw0KPiA+DQo+IA0KPiBUaGUg
-YW5zd2VyIGxpZXMgdG8gaG93IHNwbGljZSgpIGlzIHdvcmtpbmcuDQo+IA0KPiBVc2VyIGNhbiBp
-c3N1ZSBvbmUgc3BsaWNlIHdpdGhvdXQgTVNHX01PUkUgc2VtYW50aWMsIHJpZ2h0ID8NCj4gDQo+
-IFN0aWxsLCB3ZSB3YW50IGFuIGltcGxpY2l0IE1PUkUgYmVoYXZpb3IgZm9yIGFsbCBpbmRpdmlk
-dWFsIHBhZ2VzLCBidXQNCj4gdGhlIGxhc3Qgb25lLg0KPiANCj4gDQo+ID4gVGhlIHJlYXNvbiBJ
-J20gYXNraW5nIGlzIHRoYXQgd2UgYXJlIHdvcmtpbmcgb24gYSBrZXJuZWwgVExTDQo+ID4gaW1w
-bGVtZW50YXRpb24NCj4gPiBhbmQgSSB3b3VsZCBsaWtlIHRvIGtub3cgaWYgd2UgY2FuIGNvYWxl
-c2NlIG11bHRpcGxlIHRsc19zZW5kcGFnZQ0KPiA+IGNhbGxzIHdpdGggTVNHX01PUkUgaW50byBh
-IHNpbmdsZQ0KPiA+IHRscyByZWNvcmQgb3Igd2hldGhlciB3ZSBtdXN0IHB1c2ggb3V0IHRoZSBy
-ZWNvcmQgYXMgc29vbiBhcw0KPiA+IE1TR19TRU5EUEFHRV9OT1RMQVNUIGlzIGNsZWFyZWQ/DQo+
-IA0KPiBNYWtlIHN1cmUgeW91IGhhbmRsZSBwYXJ0aWFsIHdyaXRlcyAoeW91IHdhbnQgdG8gY29h
-bGVzY2UgMTAgcGFnZXMsIGJ1dA0KPiBzdGFjayB3aWxsIG9ubHkgdGFrZSA1IG9mIHRoZW0pDQo+
-IA0KPiANCg0K
+I want to inquire if you can be our regional representative in your region. It would by no Means interfere with your current job. If you are interested please contact Mr. Yu Yong
+Email: yong.yu@hblsco.com for more information on the job. I look forward to hearing from you.
+
+
+Sincerely,
+Yu Yong.
