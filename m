@@ -1,40 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: arch: arm: bpf: Converting cBPF to eBPF for arm 32 bit
-Date: Sat, 06 May 2017 14:38:16 -0400 (EDT)
-Message-ID: <20170506.143816.2259768618578706384.davem@davemloft.net>
-References: <CAHgaXdJ1M4W3p9=B2hJmtxByPsA5-XHae8U6YtDH_2r_XMaR5A@mail.gmail.com>
-        <58E639E0.1010700@iogearbox.net>
-        <CAHgaXdK1XjDnhTqtk=nCq2crrigHiuCaLhF+1GupJt9bPThwZw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: daniel@iogearbox.net, keescook@chromium.org, mgherzan@gmail.com,
-        netdev@vger.kernel.org, kernel-hardening@lists.openwall.com,
-        linux-arm-kernel@lists.infradead.org, ast@fb.com
-To: illusionist.neo@gmail.com
+From: Girish Moodalbail <girish.moodalbail@oracle.com>
+Subject: [PATCH iproute2 v2 0/1] vxlan: support for modifying vxlan device
+Date: Sat,  6 May 2017 11:37:42 -0700
+Message-ID: <1494095863-21916-1-git-send-email-girish.moodalbail@oracle.com>
+Cc: <netdev@vger.kernel.org>
+To: <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:36622 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750721AbdEFSiY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 6 May 2017 14:38:24 -0400
-In-Reply-To: <CAHgaXdK1XjDnhTqtk=nCq2crrigHiuCaLhF+1GupJt9bPThwZw@mail.gmail.com>
+Received: from aserp1040.oracle.com ([141.146.126.69]:40668 "EHLO
+        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752375AbdEFSqm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 6 May 2017 14:46:42 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shubham Bansal <illusionist.neo@gmail.com>
-Date: Sat, 6 May 2017 22:18:16 +0530
+Hello all,
 
-> Hi Daniel,
-> 
-> Thanks for the last reply about the testing of eBPF JIT.
-> 
-> I have one issue though, I am not able to find what BPF_ABS and
-> BPF_IND instruction does exactly.
+This patch adds support for modifying VXLAN device attributes. I have
+refactored the vxlan_parse_opt() function to be more readable and not
+use lot of bool variables.
 
-They are not instructions, they are modifiers for the BPF_LD
-instruction which indicate an SKB load is to be performed.
+I have tested my changes by running Linux Test Project's VXLAN
+testcases, and I didn't see any regression.
+---
+v1->v2
+- refactored vxlan_parse_opt() to not to use a bunch of
+  foo_set variables
 
-You never need to ask what a BPF instruction does, it is clear
-defined in the BPF interperter found in kernel/bpf/core.c
+Girish Moodalbail (1):
+  vxlan: Add support for modifying vxlan device attributes
 
-Look for the case statement LD_ABS_W and friends in __bpf_prog_run().
+ ip/iplink_vxlan.c | 251 +++++++++++++++++++++++++++++++-----------------------
+ 1 file changed, 143 insertions(+), 108 deletions(-)
+
+-- 
+1.8.3.1
