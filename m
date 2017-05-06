@@ -1,161 +1,124 @@
-From: Ganesh Goudar <ganeshgr@chelsio.com>
-Subject: [PATCH net] cxgb4: avoid disabling FEC by default
-Date: Sat,  6 May 2017 14:25:06 +0530
-Message-ID: <1494060906-6453-1-git-send-email-ganeshgr@chelsio.com>
-Cc: nirranjan@chelsio.com, indranil@chelsio.com,
-        Ganesh Goudar <ganeshgr@chelsio.com>
-To: netdev@vger.kernel.org, davem@davemloft.net
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next 4/5] dsa: Microchip KSZ switches SPI devicetree
+ configuration
+Date: Sat, 6 May 2017 13:02:04 +0300
+Message-ID: <1ade6f7e-7a28-db47-3811-d35d90f57b56@cogentembedded.com>
+References: <9235D6609DB808459E95D78E17F2E43D40A5C00B@CHN-SV-EXMX02.mchp-main.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+        UNGLinuxDriver@microchip.com
+To: Woojung.Huh@microchip.com, andrew@lunn.ch, f.fainelli@gmail.com,
+        vivien.didelot@savoirfairelinux.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.32.117.8]:31883 "EHLO
-        stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751613AbdEFIzb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 6 May 2017 04:55:31 -0400
+Received: from mail-lf0-f44.google.com ([209.85.215.44]:33827 "EHLO
+        mail-lf0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751935AbdEFKCH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 6 May 2017 06:02:07 -0400
+Received: by mail-lf0-f44.google.com with SMTP id 99so14169224lfu.1
+        for <netdev@vger.kernel.org>; Sat, 06 May 2017 03:02:07 -0700 (PDT)
+In-Reply-To: <9235D6609DB808459E95D78E17F2E43D40A5C00B@CHN-SV-EXMX02.mchp-main.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Recent Chelsio firmware started using few port capablity bits to
-manage FEC and as driver was not aware of FEC changes those bits
-were zeroed, consequently disabling FEC.
+Hello!
 
-Avoid zeroing those bits and default to whatever the firmware
-tells us the Link is currently advertising.
+On 5/6/2017 2:18 AM, Woojung.Huh@microchip.com wrote:
 
-Signed-off-by: Ganesh Goudar <ganeshgr@chelsio.com>
----
- drivers/net/ethernet/chelsio/cxgb4/cxgb4.h    |  9 +++++++
- drivers/net/ethernet/chelsio/cxgb4/t4_hw.c    | 38 ++++++++++++++++++++++-----
- drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h |  6 ++---
- 3 files changed, 43 insertions(+), 10 deletions(-)
+> From: Woojung Huh <Woojung.Huh@microchip.com>
+>
+> A sample SPI configuration for Microchip KSZ switches.
+>
+> Signed-off-by: Woojung Huh <Woojung.Huh@microchip.com>
+> ---
+>  Documentation/devicetree/bindings/net/dsa/ksz.txt | 73 +++++++++++++++++++++++
+>  1 file changed, 73 insertions(+)
+>  create mode 100644 Documentation/devicetree/bindings/net/dsa/ksz.txt
+>
+> diff --git a/Documentation/devicetree/bindings/net/dsa/ksz.txt b/Documentation/devicetree/bindings/net/dsa/ksz.txt
+> new file mode 100644
+> index 0000000..9cca7d4
+> --- /dev/null
+> +++ b/Documentation/devicetree/bindings/net/dsa/ksz.txt
+> @@ -0,0 +1,73 @@
+> +Microchip KSZ Series Ethernet switches
+> +==================================
+> +
+> +Required properties:
+> +
+> +- compatible: For external switch chips, compatible string must be exactly one
+> +  of: "microchip,ksz9477"
+> +
+> +See Documentation/devicetree/bindings/dsa/dsa.txt for a list of additional
+> +required and optional properties.
+> +
+> +Examples:
+> +
+> +Ethernet switch connected via SPI to the host, CPU port wired to eth0:
+> +
+> +		eth0: ethernet@10001000 {
+> +			fixed-link {
+> +				reg = <7>
+> +				speed = <1000>;
+> +				duplex-full;
+> +			};
+> +		};
+> +
+> +		spi1: spi@f8008000 {
+> +		pinctrl-0 = <&pinctrl_spi_ksz>;
+> +		cs-gpios = <&pioC 25 0>;
+> +		id = <1>;
+> +		status = "okay";
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-index 163543b..862e008 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-@@ -108,6 +108,12 @@ enum {
- 	PAUSE_AUTONEG = 1 << 2
- };
- 
-+enum {
-+	FEC_AUTO      = 1 << 0,	 /* IEEE 802.3 "automatic" */
-+	FEC_RS        = 1 << 1,  /* Reed-Solomon */
-+	FEC_BASER_RS  = 1 << 2   /* BaseR/Reed-Solomon */
-+};
-+
- struct port_stats {
- 	u64 tx_octets;            /* total # of octets in good frames */
- 	u64 tx_frames;            /* all good frames */
-@@ -432,6 +438,9 @@ struct link_config {
- 	unsigned int   speed;            /* actual link speed */
- 	unsigned char  requested_fc;     /* flow control user has requested */
- 	unsigned char  fc;               /* actual link flow control */
-+	unsigned char  auto_fec;	 /* Forward Error Correction: */
-+	unsigned char  requested_fec;	 /* "automatic" (IEEE 802.3), */
-+	unsigned char  fec;		 /* requested, and actual in use */
- 	unsigned char  autoneg;          /* autonegotiating? */
- 	unsigned char  link_ok;          /* link up? */
- 	unsigned char  link_down_rc;     /* link down reason */
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-index 0de8eb7..aded42b96 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-@@ -3707,7 +3707,8 @@ int t4_link_l1cfg(struct adapter *adap, unsigned int mbox, unsigned int port,
- 		  struct link_config *lc)
- {
- 	struct fw_port_cmd c;
--	unsigned int fc = 0, mdi = FW_PORT_CAP_MDI_V(FW_PORT_CAP_MDI_AUTO);
-+	unsigned int mdi = FW_PORT_CAP_MDI_V(FW_PORT_CAP_MDI_AUTO);
-+	unsigned int fc = 0, fec = 0, fw_fec = 0;
- 
- 	lc->link_ok = 0;
- 	if (lc->requested_fc & PAUSE_RX)
-@@ -3715,6 +3716,13 @@ int t4_link_l1cfg(struct adapter *adap, unsigned int mbox, unsigned int port,
- 	if (lc->requested_fc & PAUSE_TX)
- 		fc |= FW_PORT_CAP_FC_TX;
- 
-+	fec = lc->requested_fec & FEC_AUTO ? lc->auto_fec : lc->requested_fec;
-+
-+	if (fec & FEC_RS)
-+		fw_fec |= FW_PORT_CAP_FEC_RS;
-+	if (fec & FEC_BASER_RS)
-+		fw_fec |= FW_PORT_CAP_FEC_BASER_RS;
-+
- 	memset(&c, 0, sizeof(c));
- 	c.op_to_portid = cpu_to_be32(FW_CMD_OP_V(FW_PORT_CMD) |
- 				     FW_CMD_REQUEST_F | FW_CMD_EXEC_F |
-@@ -3725,13 +3733,15 @@ int t4_link_l1cfg(struct adapter *adap, unsigned int mbox, unsigned int port,
- 
- 	if (!(lc->supported & FW_PORT_CAP_ANEG)) {
- 		c.u.l1cfg.rcap = cpu_to_be32((lc->supported & ADVERT_MASK) |
--					     fc);
-+					     fc | fw_fec);
- 		lc->fc = lc->requested_fc & (PAUSE_RX | PAUSE_TX);
- 	} else if (lc->autoneg == AUTONEG_DISABLE) {
--		c.u.l1cfg.rcap = cpu_to_be32(lc->requested_speed | fc | mdi);
-+		c.u.l1cfg.rcap = cpu_to_be32(lc->requested_speed | fc |
-+					     fw_fec | mdi);
- 		lc->fc = lc->requested_fc & (PAUSE_RX | PAUSE_TX);
- 	} else
--		c.u.l1cfg.rcap = cpu_to_be32(lc->advertising | fc | mdi);
-+		c.u.l1cfg.rcap = cpu_to_be32(lc->advertising | fc |
-+					     fw_fec | mdi);
- 
- 	return t4_wr_mbox(adap, mbox, &c, sizeof(c), NULL);
- }
-@@ -7407,13 +7417,26 @@ static void get_pci_mode(struct adapter *adapter, struct pci_params *p)
-  *	Initializes the SW state maintained for each link, including the link's
-  *	capabilities and default speed/flow-control/autonegotiation settings.
-  */
--static void init_link_config(struct link_config *lc, unsigned int caps)
-+static void init_link_config(struct link_config *lc, unsigned int pcaps,
-+			     unsigned int acaps)
- {
--	lc->supported = caps;
-+	lc->supported = pcaps;
- 	lc->lp_advertising = 0;
- 	lc->requested_speed = 0;
- 	lc->speed = 0;
- 	lc->requested_fc = lc->fc = PAUSE_RX | PAUSE_TX;
-+	lc->auto_fec = 0;
-+
-+	/* For Forward Error Control, we default to whatever the Firmware
-+	 * tells us the Link is currently advertising.
-+	 */
-+	if (acaps & FW_PORT_CAP_FEC_RS)
-+		lc->auto_fec |= FEC_RS;
-+	if (acaps & FW_PORT_CAP_FEC_BASER_RS)
-+		lc->auto_fec |= FEC_BASER_RS;
-+	lc->requested_fec = FEC_AUTO;
-+	lc->fec = lc->auto_fec;
-+
- 	if (lc->supported & FW_PORT_CAP_ANEG) {
- 		lc->advertising = lc->supported & ADVERT_MASK;
- 		lc->autoneg = AUTONEG_ENABLE;
-@@ -7991,7 +8014,8 @@ int t4_init_portinfo(struct port_info *pi, int mbox,
- 	pi->port_type = FW_PORT_CMD_PTYPE_G(ret);
- 	pi->mod_type = FW_PORT_MOD_TYPE_NA;
- 
--	init_link_config(&pi->link_cfg, be16_to_cpu(c.u.info.pcap));
-+	init_link_config(&pi->link_cfg, be16_to_cpu(c.u.info.pcap),
-+			 be16_to_cpu(c.u.info.acap));
- 	return 0;
- }
- 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h b/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
-index 8f8c079..251a35e 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
-@@ -2263,9 +2263,9 @@ enum fw_port_cap {
- 	FW_PORT_CAP_ANEG		= 0x0100,
- 	FW_PORT_CAP_MDIX		= 0x0200,
- 	FW_PORT_CAP_MDIAUTO		= 0x0400,
--	FW_PORT_CAP_FEC			= 0x0800,
--	FW_PORT_CAP_TECHKR		= 0x1000,
--	FW_PORT_CAP_TECHKX4		= 0x2000,
-+	FW_PORT_CAP_FEC_RS		= 0x0800,
-+	FW_PORT_CAP_FEC_BASER_RS	= 0x1000,
-+	FW_PORT_CAP_FEC_RESERVED	= 0x2000,
- 	FW_PORT_CAP_802_3_PAUSE		= 0x4000,
- 	FW_PORT_CAP_802_3_ASM_DIR	= 0x8000,
- };
--- 
-2.1.0
+    4 lines above should be indented more to the right.
+
+> +
+> +		ksz9477: ksz9477@0 {
+> +			compatible = "microchip,ksz9477";
+> +			reg = <0>;
+> +
+> +			spi-max-frequency = <44000000>;
+> +			spi-cpha;
+> +			spi-cpol;
+> +
+> +			status = "okay";
+> +			ports {
+> +				#address-cells = <1>;
+> +				#size-cells = <0>;
+> +				port@0 {
+> +					reg = <0>;
+> +					label = "lan1";
+> +				};
+> +				port@1 {
+> +					reg = <1>;
+> +					label = "lan2";
+> +				};
+> +				port@2 {
+> +					reg = <2>;
+> +					label = "lan3";
+> +				};
+> +				port@3 {
+> +					reg = <3>;
+> +					label = "lan4";
+> +				};
+> +				port@4 {
+> +					reg = <4>;
+> +					label = "lan5";
+> +				};
+> +				port@5 {
+> +					reg = <5>;
+> +					label = "cpu";
+> +					ethernet = <&macb0>;
+> +					fixed-link {
+> +						speed = <1000>;
+> +						full-duplex;
+> +					};
+> +				};
+> +			};
+> +		};
+> +		};
+
+    Unmatched }?
+
+MBR, Sergei
