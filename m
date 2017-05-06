@@ -1,275 +1,156 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: bpf pointer alignment validation
-Date: Fri, 05 May 2017 22:47:09 -0400 (EDT)
-Message-ID: <20170505.224709.1156323937148435706.davem@davemloft.net>
-References: <20170505.162044.2097924822206705957.davem@davemloft.net>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: [PATCH 1/2] PCI: Add new PCIe Fabric End Node flag,
+ PCI_DEV_FLAGS_NO_RELAXED_ORDERING
+Date: Sat, 6 May 2017 11:08:40 +0800
+Message-ID: <22c46382-5778-022f-d0bd-74abec9e9c7c@huawei.com>
+References: <cover.1493678834.git.leedom@chelsio.com>
+ <758d0e431c732fe133e7b0e660bde5fc1beccdba.1493678834.git.leedom@chelsio.com>
+ <CAKgT0UeuW88AHBX14H8xHteeG7vR0AH3apbjOeEDx_6p46x7tA@mail.gmail.com>
+ <20170502165329.GB26406@linux.intel.com>
+ <CAKgT0UcxjGCZu_QV-eF7_yWkDBbQpLpdaPqBf1gji8XXM5Cc=w@mail.gmail.com>
+ <MWHPR12MB160095DF53CE981C923FE65DC8160@MWHPR12MB1600.namprd12.prod.outlook.com>
+ <CAKgT0UdJ17DGAphuP5Y9co6ky-GBFdq2s-1nqctY_Tz_iz5__g@mail.gmail.com>
+ <MWHPR12MB1600E78DD7F530AA9DC2433DC8EA0@MWHPR12MB1600.namprd12.prod.outlook.com>
+ <CAKgT0Ucwkp+fi-9HhMbze6t_i15dj4e2WQBp13Coi6MegrDh=w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: daniel@iogearbox.net, netdev@vger.kernel.org
-To: ast@fb.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:53772 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751027AbdEFCrQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 5 May 2017 22:47:16 -0400
-In-Reply-To: <20170505.162044.2097924822206705957.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Mark Rutland <mark.rutland@arm.com>,
+ Gabriele Paoloni <gabriele.paoloni@huawei.com>,
+ Asit K Mallick <asit.k.mallick@intel.com>,
+ Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will.deacon@arm.com>,
+ LinuxArm <linuxarm@huawei.com>, "Raj, Ashok" <ashok.raj@intel.com>,
+ Bjorn Helgaas <helgaas@kernel.org>, Ganesh GR <ganeshgr@chelsio.com>,
+ Jeff Kirsher <jeffrey.t.kirsher@intel.com>, Bob Shaw <Bob.Shaw@amd.com>,
+ Patrick J Cramer <patrick.j.cramer@intel.com>, "Arjun V." <arjun@chelsio.com>,
+ Michael Werner <werner@chelsio.com>,
+ "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>,
+ Amir Ancel <amira@mellanox.com>, Netdev <netdev@vger.kernel.org>,
+ David Laight <David.Laight@aculab.com>,
+ Suravee Suthikulpanit <Suravee.Suthikulpanit@amd.com>,
+ Robin Murphy <robin.murphy@arm.com>, David Miller <davem@davemloft.net>,
+ h <l.stach@pengutronix.de>
+To: Alexander Duyck <alexander.duyck@gmail.com>, Casey Leedom
+ <leedom@chelsio.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <CAKgT0Ucwkp+fi-9HhMbze6t_i15dj4e2WQBp13Coi6MegrDh=w@mail.gmail.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-From: David Miller <davem@davemloft.net>
-Date: Fri, 05 May 2017 16:20:44 -0400 (EDT)
 
-> Anyways, I'll play with this design and see what happens...
-> Feedback is of course welcome.
 
-Here is a prototype that works for me with test_pkt_access.c,
-which otherwise won't load on sparc.
+On 2017/5/5 22:04, Alexander Duyck wrote:
+> On Thu, May 4, 2017 at 2:01 PM, Casey Leedom <leedom@chelsio.com> wrote:
+>> | From: Alexander Duyck <alexander.duyck@gmail.com>
+>> | Sent: Wednesday, May 3, 2017 9:02 AM
+>> | ...
+>> | It sounds like we are more or less in agreement. My only concern is
+>> | really what we default this to. On x86 I would say we could probably
+>> | default this to disabled for existing platforms since my understanding
+>> | is that relaxed ordering doesn't provide much benefit on what is out
+>> | there right now when performing DMA through the root complex. As far
+>> | as peer-to-peer I would say we should probably look at enabling the
+>> | ability to have Relaxed Ordering enabled for some channels but not
+>> | others. In those cases the hardware needs to be smart enough to allow
+>> | for you to indicate you want it disabled by default for most of your
+>> | DMA channels, and then enabled for the select channels that are
+>> | handling the peer-to-peer traffic.
+>>
+>>   Yes, I think that we are mostly in agreement.  I had just wanted to make
+>> sure that whatever scheme was developed would allow for simultaneously
+>> supporting non-Relaxed Ordering for some PCIe End Points and Relaxed
+>> Ordering for others within the same system.  I.e. not simply
+>> enabling/disabling/etc.  based solely on System Platform Architecture.
+>>
+>>   By the way, I've started our QA folks off looking at what things look like
+>> in Linux Virtual Machines under different Hypervisors to see what
+>> information they may provide to the VM in the way of what Root Complex Port
+>> is being used, etc.  So far they've got Windows HyperV done and there
+>> there's no PCIe Fabric exposed in any way: just the attached device.  I'll
+>> have to see what pci_find_pcie_root_port() returns in that environment.
+>> Maybe NULL?
+> 
+> I believe NULL is one of the options. It all depends on what qemu is
+> emulating. Most likely you won't find a pcie root port on KVM because
+> the default is to emulate an older system that only supports PCI.
+> 
+>>   With your reservations (which I also share), I think that it probably
+>> makes sense to have a per-architecture definition of the "Can I Use Relaxed
+>> Ordering With TLPs Directed At This End Point" predicate, with the default
+>> being "No" for any architecture which doesn't implement the predicate.  And
+>> if the specified (struct pci_dev *) End Node is NULL, it ought to return
+>> False for that as well.  I can't see any reason to pass in the Source End
+>> Node but I may be missing something.
+>>
+>>   At this point, this is pretty far outside my level of expertise.  I'm
+>> happy to give it a go, but I'd be even happier if someone with a lot more
+>> experience in the PCIe Infrastructure were to want to carry the ball
+>> forward.  I'm not super familiar with the Linux Kernel "Rules Of
+>> Engagement", so let me know what my next step should be.  Thanks.
+>>
+>> Casey
+> 
+> For now we can probably keep this on the linux-pci mailing list. Going
+> that route is the most straight forward for now since step one is
+> probably just making sure we are setting the relaxed ordering bit in
+> the setups that make sense. I would say we could probably keep it
+> simple. We just need to enable relaxed ordering by default for SPARC
+> architectures, on most others we can probably default it to off.
+> 
 
-diff --git a/include/linux/bpf_verifier.h b/include/linux/bpf_verifier.h
-index 5efb4db..5733308 100644
---- a/include/linux/bpf_verifier.h
-+++ b/include/linux/bpf_verifier.h
-@@ -40,6 +40,8 @@ struct bpf_reg_state {
- 	 */
- 	s64 min_value;
- 	u64 max_value;
-+	u32 min_align;
-+	u32 aux_off_align;
- };
- 
- enum bpf_stack_slot_type {
-diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
-index c2ff608..95f70d0 100644
---- a/kernel/bpf/verifier.c
-+++ b/kernel/bpf/verifier.c
-@@ -241,6 +241,10 @@ static void print_verifier_state(struct bpf_verifier_state *state)
- 		if (reg->max_value != BPF_REGISTER_MAX_RANGE)
- 			verbose(",max_value=%llu",
- 				(unsigned long long)reg->max_value);
-+		if (reg->min_align)
-+			verbose(",min_align=%u", reg->min_align);
-+		if (reg->aux_off_align)
-+			verbose(",aux_off_align=%u", reg->aux_off_align);
- 	}
- 	for (i = 0; i < MAX_BPF_STACK; i += BPF_REG_SIZE) {
- 		if (state->stack_slot_type[i] == STACK_SPILL)
-@@ -455,6 +459,8 @@ static void init_reg_state(struct bpf_reg_state *regs)
- 		regs[i].imm = 0;
- 		regs[i].min_value = BPF_REGISTER_MIN_RANGE;
- 		regs[i].max_value = BPF_REGISTER_MAX_RANGE;
-+		regs[i].min_align = 0;
-+		regs[i].aux_off_align = 0;
- 	}
- 
- 	/* frame pointer */
-@@ -483,11 +489,17 @@ static void reset_reg_range_values(struct bpf_reg_state *regs, u32 regno)
- 	regs[regno].max_value = BPF_REGISTER_MAX_RANGE;
- }
- 
-+static void reset_reg_align(struct bpf_reg_state *regs, u32 regno)
+Casey, Alexander:
+
+Thanks for the wonderful discussion, it is more clearly that what to do next,
+I agree that enable relaxed ordering by default only for SPARC and ARM64
+is more safe for all the other platform, as no one want to break anything.
+
+> I believe this all had started as Ding Tianhong was hoping to enable
+> this for the ARM architecture. That is the only one I can think of
+> where it might be difficult to figure out which way to default as we
+> were attempting to follow the same code that was enabled for SPARC and
+> that is what started this tug-of-war about how this should be done.
+> What we might do is take care of this in two phases. The first one
+> enables the infrastructure generically but leaves it defaulted to off
+> for everyone but SPARC. Then we can go through and start enabling it
+> for other platforms such as some of those on ARM in the platforms that
+> Ding Tianhong was working with.
+> 
+
+According the suggestion, I could only think of this code:
+
+@@ -3979,6 +3979,15 @@ static void quirk_tw686x_class(struct pci_dev *pdev)
+ DECLARE_PCI_FIXUP_CLASS_EARLY(0x1797, 0x6869, PCI_CLASS_NOT_DEFINED, 8,
+                              quirk_tw686x_class);
+
++static void quirk_relaxedordering_disable(struct pci_dev *dev)
 +{
-+	regs[regno].min_align = 0;
++ if (dev->vendor != PCI_VENDOR_ID_HUAWEI &&
++     dev->vendor != PCI_VENDOR_ID_SUN)
++         dev->dev_flags |= PCI_DEV_FLAGS_NO_RELAXED_ORDERING;
 +}
++DECLARE_PCI_FIXUP_CLASS_EARLY(PCI_INTEL_ID, PCI_ANY_ID, PCI_CLASS_NOT_DEFINED, 8,
++                       quirk_relaxedordering_disable);
 +
- static void mark_reg_unknown_value_and_range(struct bpf_reg_state *regs,
- 					     u32 regno)
- {
- 	mark_reg_unknown_value(regs, regno);
- 	reset_reg_range_values(regs, regno);
-+	reset_reg_align(regs, regno);
- }
- 
- enum reg_arg_type {
-@@ -770,9 +782,16 @@ static bool is_pointer_value(struct bpf_verifier_env *env, int regno)
- static int check_pkt_ptr_alignment(const struct bpf_reg_state *reg,
- 				   int off, int size)
- {
--	if (reg->id && size != 1) {
--		verbose("Unknown alignment. Only byte-sized access allowed in packet access.\n");
--		return -EACCES;
-+	/* Byte size accesses are always allowed. */
-+	if (size == 1)
-+		return 0;
-+
-+	if (reg->id) {
-+		if (reg->aux_off_align % size) {
-+			verbose("Packet access is only %u byte aligned, %d byte access not allowed\n",
-+				reg->aux_off_align, size);
-+			return -EACCES;
-+		}
- 	}
- 
- 	/* skb->data is NET_IP_ALIGN-ed */
-@@ -872,6 +891,7 @@ static int check_mem_access(struct bpf_verifier_env *env, u32 regno, int off,
- 							 value_regno);
- 			/* note that reg.[id|off|range] == 0 */
- 			state->regs[value_regno].type = reg_type;
-+			state->regs[value_regno].aux_off_align = 0;
- 		}
- 
- 	} else if (reg->type == FRAME_PTR || reg->type == PTR_TO_STACK) {
-@@ -1444,6 +1464,8 @@ static int check_packet_ptr_add(struct bpf_verifier_env *env,
- 		 */
- 		dst_reg->off += imm;
- 	} else {
-+		bool had_id;
-+
- 		if (src_reg->type == PTR_TO_PACKET) {
- 			/* R6=pkt(id=0,off=0,r=62) R7=imm22; r7 += r6 */
- 			tmp_reg = *dst_reg;  /* save r7 state */
-@@ -1477,14 +1499,22 @@ static int check_packet_ptr_add(struct bpf_verifier_env *env,
- 				src_reg->imm);
- 			return -EACCES;
- 		}
-+
-+		had_id = (dst_reg->id != 0);
-+
- 		/* dst_reg stays as pkt_ptr type and since some positive
- 		 * integer value was added to the pointer, increment its 'id'
- 		 */
- 		dst_reg->id = ++env->id_gen;
- 
--		/* something was added to pkt_ptr, set range and off to zero */
-+		/* something was added to pkt_ptr, set range to zero */
- 		dst_reg->off = 0;
- 		dst_reg->range = 0;
-+		if (had_id)
-+			dst_reg->aux_off_align = min(dst_reg->aux_off_align,
-+						     src_reg->min_align);
-+		else
-+			dst_reg->aux_off_align = src_reg->min_align;
- 	}
- 	return 0;
- }
-@@ -1658,6 +1688,20 @@ static void check_reg_overflow(struct bpf_reg_state *reg)
- 		reg->min_value = BPF_REGISTER_MIN_RANGE;
- }
- 
-+static u32 calc_align(u32 imm)
-+{
-+	u32 align = 1;
-+
-+	if (!imm)
-+		return 1U << 31;
-+
-+	while (!(imm & 1)) {
-+		imm >>= 1;
-+		align <<= 1;
-+	}
-+	return align;
-+}
-+
- static void adjust_reg_min_max_vals(struct bpf_verifier_env *env,
- 				    struct bpf_insn *insn)
- {
-@@ -1665,8 +1709,10 @@ static void adjust_reg_min_max_vals(struct bpf_verifier_env *env,
- 	s64 min_val = BPF_REGISTER_MIN_RANGE;
- 	u64 max_val = BPF_REGISTER_MAX_RANGE;
- 	u8 opcode = BPF_OP(insn->code);
-+	u32 dst_align, src_align;
- 
- 	dst_reg = &regs[insn->dst_reg];
-+	src_align = 0;
- 	if (BPF_SRC(insn->code) == BPF_X) {
- 		check_reg_overflow(&regs[insn->src_reg]);
- 		min_val = regs[insn->src_reg].min_value;
-@@ -1682,18 +1728,25 @@ static void adjust_reg_min_max_vals(struct bpf_verifier_env *env,
- 		    regs[insn->src_reg].type != UNKNOWN_VALUE) {
- 			min_val = BPF_REGISTER_MIN_RANGE;
- 			max_val = BPF_REGISTER_MAX_RANGE;
-+			src_align = 0;
-+		} else {
-+			src_align = regs[insn->src_reg].min_align;
- 		}
- 	} else if (insn->imm < BPF_REGISTER_MAX_RANGE &&
- 		   (s64)insn->imm > BPF_REGISTER_MIN_RANGE) {
- 		min_val = max_val = insn->imm;
-+		src_align = calc_align(insn->imm);
- 	}
- 
-+	dst_align = dst_reg->min_align;
-+
- 	/* We don't know anything about what was done to this register, mark it
- 	 * as unknown.
- 	 */
- 	if (min_val == BPF_REGISTER_MIN_RANGE &&
- 	    max_val == BPF_REGISTER_MAX_RANGE) {
- 		reset_reg_range_values(regs, insn->dst_reg);
-+		reset_reg_align(regs, insn->dst_reg);
- 		return;
- 	}
- 
-@@ -1712,18 +1765,21 @@ static void adjust_reg_min_max_vals(struct bpf_verifier_env *env,
- 			dst_reg->min_value += min_val;
- 		if (dst_reg->max_value != BPF_REGISTER_MAX_RANGE)
- 			dst_reg->max_value += max_val;
-+		dst_reg->min_align = min(src_align, dst_align);
- 		break;
- 	case BPF_SUB:
- 		if (dst_reg->min_value != BPF_REGISTER_MIN_RANGE)
- 			dst_reg->min_value -= min_val;
- 		if (dst_reg->max_value != BPF_REGISTER_MAX_RANGE)
- 			dst_reg->max_value -= max_val;
-+		dst_reg->min_align = min(src_align, dst_align);
- 		break;
- 	case BPF_MUL:
- 		if (dst_reg->min_value != BPF_REGISTER_MIN_RANGE)
- 			dst_reg->min_value *= min_val;
- 		if (dst_reg->max_value != BPF_REGISTER_MAX_RANGE)
- 			dst_reg->max_value *= max_val;
-+		dst_reg->min_align = max(src_align, dst_align);
- 		break;
- 	case BPF_AND:
- 		/* Disallow AND'ing of negative numbers, ain't nobody got time
-@@ -1735,17 +1791,21 @@ static void adjust_reg_min_max_vals(struct bpf_verifier_env *env,
- 		else
- 			dst_reg->min_value = 0;
- 		dst_reg->max_value = max_val;
-+		dst_reg->min_align = max(src_align, dst_align);
- 		break;
- 	case BPF_LSH:
- 		/* Gotta have special overflow logic here, if we're shifting
- 		 * more than MAX_RANGE then just assume we have an invalid
- 		 * range.
- 		 */
--		if (min_val > ilog2(BPF_REGISTER_MAX_RANGE))
-+		if (min_val > ilog2(BPF_REGISTER_MAX_RANGE)) {
- 			dst_reg->min_value = BPF_REGISTER_MIN_RANGE;
--		else if (dst_reg->min_value != BPF_REGISTER_MIN_RANGE)
--			dst_reg->min_value <<= min_val;
--
-+			dst_reg->min_align = 0;
-+		} else {
-+			if (dst_reg->min_value != BPF_REGISTER_MIN_RANGE)
-+				dst_reg->min_value <<= min_val;
-+			dst_reg->min_align = max(dst_align, 1U << min_val);
-+		}
- 		if (max_val > ilog2(BPF_REGISTER_MAX_RANGE))
- 			dst_reg->max_value = BPF_REGISTER_MAX_RANGE;
- 		else if (dst_reg->max_value != BPF_REGISTER_MAX_RANGE)
-@@ -1755,11 +1815,14 @@ static void adjust_reg_min_max_vals(struct bpf_verifier_env *env,
- 		/* RSH by a negative number is undefined, and the BPF_RSH is an
- 		 * unsigned shift, so make the appropriate casts.
- 		 */
--		if (min_val < 0 || dst_reg->min_value < 0)
-+		if (min_val < 0 || dst_reg->min_value < 0) {
- 			dst_reg->min_value = BPF_REGISTER_MIN_RANGE;
--		else
-+			dst_reg->min_align = 0;
-+		} else {
- 			dst_reg->min_value =
- 				(u64)(dst_reg->min_value) >> min_val;
-+			dst_reg->min_align >>= (u64) min_val;
-+		}
- 		if (dst_reg->max_value != BPF_REGISTER_MAX_RANGE)
- 			dst_reg->max_value >>= max_val;
- 		break;
-@@ -1861,6 +1924,7 @@ static int check_alu_op(struct bpf_verifier_env *env, struct bpf_insn *insn)
- 			regs[insn->dst_reg].imm = insn->imm;
- 			regs[insn->dst_reg].max_value = insn->imm;
- 			regs[insn->dst_reg].min_value = insn->imm;
-+			regs[insn->dst_reg].min_align = calc_align(insn->imm);
- 		}
- 
- 	} else if (opcode > BPF_END) {
+ /*
+  * Per PCIe r3.0, sec 2.2.9, "Completion headers must supply the same
+  * values for the Attribute as were supplied in the header of the
+
+
+What do you think of it?
+
+Thanks
+Ding
+
+
+> - Alex
+> 
+> .
+> 
