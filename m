@@ -1,60 +1,63 @@
-From: SF Markus Elfring <elfring-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-Subject: [PATCH 2/2] batman-adv: Combine two seq_puts() calls
- into one call in batadv_nc_nodes_seq_print_text()
-Date: Sat, 6 May 2017 18:15:36 +0200
-Message-ID: <0813673a-a824-5fd7-7388-65d3af475002@users.sourceforge.net>
-References: <512d2e7c-0967-9303-2b68-6c9ef53d6ed2@users.sourceforge.net>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
- <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+From: Shubham Bansal <illusionist.neo@gmail.com>
+Subject: Re: arch: arm: bpf: Converting cBPF to eBPF for arm 32 bit
+Date: Sat, 6 May 2017 22:18:16 +0530
+Message-ID: <CAHgaXdK1XjDnhTqtk=nCq2crrigHiuCaLhF+1GupJt9bPThwZw@mail.gmail.com>
+References: <CAHgaXd+EKJ0FWaaPojsNJtgY_YpdQXu6eMEp97uOpTFAWs4qTQ@mail.gmail.com>
+ <CAGXu5jLo8UvpNSQZBHjWZoO959ha6KFQxFzmg7SK44wz=R_QSg@mail.gmail.com>
+ <CAHgaXdJL92XRjHae2Nb9j9SerSe65=N=ErDHTQf23sdBxwthzw@mail.gmail.com>
+ <20170315.145512.1542025976162251828.davem@davemloft.net> <CAHgaXd+4QkFxnt-_iCqH8AyCN_Y8gXwr+y=iugz38NKSWspsbA@mail.gmail.com>
+ <58DAF908.8010404@iogearbox.net> <CAHgaXdKfbob3WHMho32JSh_dmfp2A=cjcePqk+NfajVpShPE6Q@mail.gmail.com>
+ <CAHgaXdJ1M4W3p9=B2hJmtxByPsA5-XHae8U6YtDH_2r_XMaR5A@mail.gmail.com> <58E639E0.1010700@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- Antonio Quartulli <a@unstable.cc>, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
- Marek Lindner <mareklindner-rVWd3aGhH2z5bpWLKbzFeg@public.gmane.org>,
- Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <512d2e7c-0967-9303-2b68-6c9ef53d6ed2-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-Content-Language: en-US
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+        Kees Cook <keescook@chromium.org>,
+        Mircea Gherzan <mgherzan@gmail.com>,
+        Network Development <netdev@vger.kernel.org>,
+        kernel-hardening@lists.openwall.com,
+        linux-arm-kernel@lists.infradead.org, ast@fb.com
+To: Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f50.google.com ([209.85.218.50]:34051 "EHLO
+        mail-oi0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751836AbdEFQsR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 6 May 2017 12:48:17 -0400
+Received: by mail-oi0-f50.google.com with SMTP id b204so15539452oii.1
+        for <netdev@vger.kernel.org>; Sat, 06 May 2017 09:48:17 -0700 (PDT)
+In-Reply-To: <58E639E0.1010700@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Markus Elfring <elfring-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-Date: Sat, 6 May 2017 17:57:36 +0200
+Hi Daniel,
 
-A bit of text was put into a sequence by two separate function calls.
-Print the same data by a single function call instead.
+Thanks for the last reply about the testing of eBPF JIT.
 
-This issue was detected by using the Coccinelle software.
+I have one issue though, I am not able to find what BPF_ABS and
+BPF_IND instruction does exactly. It not described on this link -
+https://www.kernel.org/doc/Documentation/networking/filter.txt either.
+Can you please tell me where I could find the description of these
+instructions please?
+Best,
+Shubham Bansal
 
-Signed-off-by: Markus Elfring <elfring-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
----
- net/batman-adv/network-coding.c | 4 +---
- 1 file changed, 1 insertion(+), 3 deletions(-)
 
-diff --git a/net/batman-adv/network-coding.c b/net/batman-adv/network-coding.c
-index e1f6fc72fe3e..3604d7899e2c 100644
---- a/net/batman-adv/network-coding.c
-+++ b/net/batman-adv/network-coding.c
-@@ -1935,9 +1935,7 @@ int batadv_nc_nodes_seq_print_text(struct seq_file *seq, void *offset)
- 						list)
- 				seq_printf(seq, "%pM ",
- 					   nc_node->addr);
--			seq_puts(seq, "\n");
--
--			seq_puts(seq, " Outgoing: ");
-+			seq_puts(seq, "\n Outgoing: ");
- 			/* For out_nc_node to this orig_node */
- 			list_for_each_entry_rcu(nc_node,
- 						&orig_node->out_coding_list,
--- 
-2.12.2
+On Thu, Apr 6, 2017 at 6:21 PM, Daniel Borkmann <daniel@iogearbox.net> wrote:
+> On 04/06/2017 01:05 PM, Shubham Bansal wrote:
+>>
+>> Gentle Reminder.
+>
+>
+> Sorry for late reply.
+>
+>> Anybody can tell me how to test the JIT compiler ?
+>
+>
+> There's lib/test_bpf.c, see Documentation/networking/filter.txt +1349
+> for some more information. It basically contains various test cases that
+> have the purpose to test the JIT with corner cases. If you see a useful
+> test missing, please send a patch for it, so all other JITs can benefit
+> from this as well. For extracting disassembly from a generated test case,
+> check out bpf_jit_disasm (Documentation/networking/filter.txt +486).
+>
+> Thanks,
+> Daniel
