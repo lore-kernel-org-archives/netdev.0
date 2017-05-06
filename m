@@ -1,33 +1,55 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH] net: dsa: loop: Check for memory allocation failure
-Date: Sat, 6 May 2017 16:45:19 +0200
-Message-ID: <20170506144519.GA23180@lunn.ch>
-References: <20170506052945.2639-1-christophe.jaillet@wanadoo.fr>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel-janitors@vger.kernel.org
-To: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+From: Geliang Tang <geliangtang@gmail.com>
+Subject: [PATCH] net/hippi/rrunner: use memdup_user
+Date: Sat,  6 May 2017 23:42:16 +0800
+Message-ID: <58733b05cfe6248e30471a59ad1faee7f2f71280.1493780932.git.geliangtang@gmail.com>
+References: <df8091d4c64a0d5a7ab0a5989f34552a5eebd15e.1493778999.git.geliangtang@gmail.com>
+Cc: Geliang Tang <geliangtang@gmail.com>, linux-hippi@sunsite.dk,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Jes Sorensen <jes@trained-monkey.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:52017 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750947AbdEFOpX (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 6 May 2017 10:45:23 -0400
-Content-Disposition: inline
-In-Reply-To: <20170506052945.2639-1-christophe.jaillet@wanadoo.fr>
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:34158 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751836AbdEFPmf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 6 May 2017 11:42:35 -0400
+In-Reply-To: <df8091d4c64a0d5a7ab0a5989f34552a5eebd15e.1493778999.git.geliangtang@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, May 06, 2017 at 07:29:45AM +0200, Christophe JAILLET wrote:
-> If 'devm_kzalloc' fails, a NULL pointer will be dereferenced.
-> Return -ENOMEM instead, as done for some other memory allocation just a
-> few lines above.
-> 
-> Fixes: 98cd1552ea27 ("net: dsa: Mock-up driver")
-> 
-> Signed-off-by: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+Use memdup_user() helper instead of open-coding to simplify the code.
 
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+Signed-off-by: Geliang Tang <geliangtang@gmail.com>
+---
+ drivers/net/hippi/rrunner.c | 17 +++++++----------
+ 1 file changed, 7 insertions(+), 10 deletions(-)
 
-    Andrew
+diff --git a/drivers/net/hippi/rrunner.c b/drivers/net/hippi/rrunner.c
+index 9b0d614..1ce6239 100644
+--- a/drivers/net/hippi/rrunner.c
++++ b/drivers/net/hippi/rrunner.c
+@@ -1616,17 +1616,14 @@ static int rr_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+ 			return -EPERM;
+ 		}
+ 
+-		image = kmalloc(EEPROM_WORDS * sizeof(u32), GFP_KERNEL);
+-		oldimage = kmalloc(EEPROM_WORDS * sizeof(u32), GFP_KERNEL);
+-		if (!image || !oldimage) {
+-			error = -ENOMEM;
+-			goto wf_out;
+-		}
++		image = memdup_user(rq->ifr_data, EEPROM_BYTES);
++		if (IS_ERR(image))
++			return PTR_ERR(image);
+ 
+-		error = copy_from_user(image, rq->ifr_data, EEPROM_BYTES);
+-		if (error) {
+-			error = -EFAULT;
+-			goto wf_out;
++		oldimage = kmalloc(EEPROM_BYTES, GFP_KERNEL);
++		if (!oldimage) {
++			kfree(image);
++			return -ENOMEM;
+ 		}
+ 
+ 		if (rrpriv->fw_running){
+-- 
+2.9.3
