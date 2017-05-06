@@ -1,93 +1,165 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Why do we need MSG_SENDPAGE_NOTLAST?
-Date: Sat, 06 May 2017 10:13:57 -0700
-Message-ID: <1494090837.7796.49.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <VI1PR0502MB2957F149F915013F6813559FD4EA0@VI1PR0502MB2957.eurprd05.prod.outlook.com>
-         <1493922776.7796.20.camel@edumazet-glaptop3.roam.corp.google.com>
-         <VI1PR0502MB29571B2B852BF681FC1DB9B0D4E80@VI1PR0502MB2957.eurprd05.prod.outlook.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH 1/2] PCI: Add new PCIe Fabric End Node flag, PCI_DEV_FLAGS_NO_RELAXED_ORDERING
+Date: Sat, 6 May 2017 11:07:19 -0700
+Message-ID: <CAKgT0Ufg6uebqj79e1FOHoPpF-GxPYMkp353r3Ok_=nM8wF6qA@mail.gmail.com>
+References: <cover.1493678834.git.leedom@chelsio.com> <758d0e431c732fe133e7b0e660bde5fc1beccdba.1493678834.git.leedom@chelsio.com>
+ <CAKgT0UeuW88AHBX14H8xHteeG7vR0AH3apbjOeEDx_6p46x7tA@mail.gmail.com>
+ <20170502165329.GB26406@linux.intel.com> <CAKgT0UcxjGCZu_QV-eF7_yWkDBbQpLpdaPqBf1gji8XXM5Cc=w@mail.gmail.com>
+ <MWHPR12MB160095DF53CE981C923FE65DC8160@MWHPR12MB1600.namprd12.prod.outlook.com>
+ <CAKgT0UdJ17DGAphuP5Y9co6ky-GBFdq2s-1nqctY_Tz_iz5__g@mail.gmail.com>
+ <MWHPR12MB1600E78DD7F530AA9DC2433DC8EA0@MWHPR12MB1600.namprd12.prod.outlook.com>
+ <CAKgT0Ucwkp+fi-9HhMbze6t_i15dj4e2WQBp13Coi6MegrDh=w@mail.gmail.com> <22c46382-5778-022f-d0bd-74abec9e9c7c@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        tls-fpga-sw-dev <tls-fpga-sw-dev@mellanox.com>,
-        Dave Watson <davejwatson@fb.com>
-To: Ilya Lesokhin <ilyal@mellanox.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Casey Leedom <leedom@chelsio.com>,
+        "Raj, Ashok" <ashok.raj@intel.com>,
+        Bjorn Helgaas <helgaas@kernel.org>,
+        Michael Werner <werner@chelsio.com>,
+        Ganesh GR <ganeshgr@chelsio.com>,
+        "Arjun V." <arjun@chelsio.com>,
+        Asit K Mallick <asit.k.mallick@intel.com>,
+        Patrick J Cramer <patrick.j.cramer@intel.com>,
+        Suravee Suthikulpanit <Suravee.Suthikulpanit@amd.com>,
+        Bob Shaw <Bob.Shaw@amd.com>, h <l.stach@pengutronix.de>,
+        Mark Rutland <mark.rutland@arm.com>,
+        Amir Ancel <amira@mellanox.com>,
+        Gabriele Paoloni <gabriele.paoloni@huawei.com>,
+        Catalin Marinas <catalin.marinas@arm.com>,
+        Will Deacon <will.deacon@arm.com>,
+        LinuxArm <linuxarm@huawei.com>,
+        David Laight <David.Laight@aculab.com>,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+        Netdev <netdev@vger.kernel.o
+To: Ding Tianhong <dingtianhong@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f43.google.com ([74.125.83.43]:35494 "EHLO
-        mail-pg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751157AbdEFROA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 6 May 2017 13:14:00 -0400
-Received: by mail-pg0-f43.google.com with SMTP id o3so16444905pgn.2
-        for <netdev@vger.kernel.org>; Sat, 06 May 2017 10:14:00 -0700 (PDT)
-In-Reply-To: <VI1PR0502MB29571B2B852BF681FC1DB9B0D4E80@VI1PR0502MB2957.eurprd05.prod.outlook.com>
+Received: from mail-io0-f182.google.com ([209.85.223.182]:34022 "EHLO
+        mail-io0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751157AbdEFSHV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 6 May 2017 14:07:21 -0400
+Received: by mail-io0-f182.google.com with SMTP id k91so31564766ioi.1
+        for <netdev@vger.kernel.org>; Sat, 06 May 2017 11:07:20 -0700 (PDT)
+In-Reply-To: <22c46382-5778-022f-d0bd-74abec9e9c7c@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Do not top-post on netdev, please.
+On Fri, May 5, 2017 at 8:08 PM, Ding Tianhong <dingtianhong@huawei.com> wrote:
+>
+>
+> On 2017/5/5 22:04, Alexander Duyck wrote:
+>> On Thu, May 4, 2017 at 2:01 PM, Casey Leedom <leedom@chelsio.com> wrote:
+>>> | From: Alexander Duyck <alexander.duyck@gmail.com>
+>>> | Sent: Wednesday, May 3, 2017 9:02 AM
+>>> | ...
+>>> | It sounds like we are more or less in agreement. My only concern is
+>>> | really what we default this to. On x86 I would say we could probably
+>>> | default this to disabled for existing platforms since my understanding
+>>> | is that relaxed ordering doesn't provide much benefit on what is out
+>>> | there right now when performing DMA through the root complex. As far
+>>> | as peer-to-peer I would say we should probably look at enabling the
+>>> | ability to have Relaxed Ordering enabled for some channels but not
+>>> | others. In those cases the hardware needs to be smart enough to allow
+>>> | for you to indicate you want it disabled by default for most of your
+>>> | DMA channels, and then enabled for the select channels that are
+>>> | handling the peer-to-peer traffic.
+>>>
+>>>   Yes, I think that we are mostly in agreement.  I had just wanted to make
+>>> sure that whatever scheme was developed would allow for simultaneously
+>>> supporting non-Relaxed Ordering for some PCIe End Points and Relaxed
+>>> Ordering for others within the same system.  I.e. not simply
+>>> enabling/disabling/etc.  based solely on System Platform Architecture.
+>>>
+>>>   By the way, I've started our QA folks off looking at what things look like
+>>> in Linux Virtual Machines under different Hypervisors to see what
+>>> information they may provide to the VM in the way of what Root Complex Port
+>>> is being used, etc.  So far they've got Windows HyperV done and there
+>>> there's no PCIe Fabric exposed in any way: just the attached device.  I'll
+>>> have to see what pci_find_pcie_root_port() returns in that environment.
+>>> Maybe NULL?
+>>
+>> I believe NULL is one of the options. It all depends on what qemu is
+>> emulating. Most likely you won't find a pcie root port on KVM because
+>> the default is to emulate an older system that only supports PCI.
+>>
+>>>   With your reservations (which I also share), I think that it probably
+>>> makes sense to have a per-architecture definition of the "Can I Use Relaxed
+>>> Ordering With TLPs Directed At This End Point" predicate, with the default
+>>> being "No" for any architecture which doesn't implement the predicate.  And
+>>> if the specified (struct pci_dev *) End Node is NULL, it ought to return
+>>> False for that as well.  I can't see any reason to pass in the Source End
+>>> Node but I may be missing something.
+>>>
+>>>   At this point, this is pretty far outside my level of expertise.  I'm
+>>> happy to give it a go, but I'd be even happier if someone with a lot more
+>>> experience in the PCIe Infrastructure were to want to carry the ball
+>>> forward.  I'm not super familiar with the Linux Kernel "Rules Of
+>>> Engagement", so let me know what my next step should be.  Thanks.
+>>>
+>>> Casey
+>>
+>> For now we can probably keep this on the linux-pci mailing list. Going
+>> that route is the most straight forward for now since step one is
+>> probably just making sure we are setting the relaxed ordering bit in
+>> the setups that make sense. I would say we could probably keep it
+>> simple. We just need to enable relaxed ordering by default for SPARC
+>> architectures, on most others we can probably default it to off.
+>>
+>
+> Casey, Alexander:
+>
+> Thanks for the wonderful discussion, it is more clearly that what to do next,
+> I agree that enable relaxed ordering by default only for SPARC and ARM64
+> is more safe for all the other platform, as no one want to break anything.
+>
+>> I believe this all had started as Ding Tianhong was hoping to enable
+>> this for the ARM architecture. That is the only one I can think of
+>> where it might be difficult to figure out which way to default as we
+>> were attempting to follow the same code that was enabled for SPARC and
+>> that is what started this tug-of-war about how this should be done.
+>> What we might do is take care of this in two phases. The first one
+>> enables the infrastructure generically but leaves it defaulted to off
+>> for everyone but SPARC. Then we can go through and start enabling it
+>> for other platforms such as some of those on ARM in the platforms that
+>> Ding Tianhong was working with.
+>>
+>
+> According the suggestion, I could only think of this code:
+>
+> @@ -3979,6 +3979,15 @@ static void quirk_tw686x_class(struct pci_dev *pdev)
+>  DECLARE_PCI_FIXUP_CLASS_EARLY(0x1797, 0x6869, PCI_CLASS_NOT_DEFINED, 8,
+>                               quirk_tw686x_class);
+>
+> +static void quirk_relaxedordering_disable(struct pci_dev *dev)
+> +{
+> + if (dev->vendor != PCI_VENDOR_ID_HUAWEI &&
+> +     dev->vendor != PCI_VENDOR_ID_SUN)
+> +         dev->dev_flags |= PCI_DEV_FLAGS_NO_RELAXED_ORDERING;
+> +}
+> +DECLARE_PCI_FIXUP_CLASS_EARLY(PCI_INTEL_ID, PCI_ANY_ID, PCI_CLASS_NOT_DEFINED, 8,
+> +                       quirk_relaxedordering_disable);
+> +
+>  /*
+>   * Per PCIe r3.0, sec 2.2.9, "Completion headers must supply the same
+>   * values for the Attribute as were supplied in the header of the
+>
+>
+> What do you think of it?
+>
+> Thanks
+> Ding
+>
 
+This is a bit simplistic but it is a start.
 
-On Sat, 2017-05-06 at 05:46 +0000, Ilya Lesokhin wrote:
-> I don't follow.
-> Why can't splice use MSG_MORE for the individual pages?
-> Why does tcp_sendpage need to know if the MORE indicator is coming from the user or from splice?
-> 
-> I also don't understand your comment about partial writes.
-> 
+The other bit I was getting at is that we need to update the core PCIe
+code so that when we configure devices and the root complex reports no
+support for relaxed ordering it should be clearing the relaxed
+ordering bits in the PCIe configuration registers on the upstream
+facing devices.
 
-Make sure that sendpage() wont end up with a stall on TCP, if the socket
-has not enough room to store the 16 pages provided by splice() or
-sendpage()
+The last bit we need in all this is a way to allow for setups where
+peer-to-peer wants to perform relaxed ordering but for writes to the
+host we have to not use relaxed ordering. For that we need to enable a
+special case and that isn't handled right now in any of the solutions
+we have coded up so far.
 
-Just use MSG_SENDPAGE_NOTLAST and be happy.
-
-
-> Thanks,
-> Ilya
-> 
-> > -----Original Message-----
-> > From: Eric Dumazet [mailto:eric.dumazet@gmail.com]
-> > Sent: Thursday, May 4, 2017 9:33 PM
-> > To: Ilya Lesokhin <ilyal@mellanox.com>
-> > Cc: netdev@vger.kernel.org; tls-fpga-sw-dev <tls-fpga-sw-
-> > dev@mellanox.com>; Dave Watson <davejwatson@fb.com>
-> > Subject: Re: Why do we need MSG_SENDPAGE_NOTLAST?
-> > 
-> > On Thu, 2017-05-04 at 17:03 +0000, Ilya Lesokhin wrote:
-> > > I don't understand the need for MSG_SENDPAGE_NOTLAST and I'm hoping
-> > > someone can enlighten me.
-> > >
-> > > According to commit 35f9c09 ('tcp: tcp_sendpages() should call
-> > > tcp_push() once'):
-> > > "We need to call tcp_flush() at the end of the last page processed in
-> > > tcp_sendpages(), or else transmits can be deferred and future sends
-> > > stall."
-> > >
-> > > I don't understand why we need to differentiate between the user
-> > > setting MSG_MORE
-> > > and splice indicating that more data is going to be sent.
-> > > if the user passed MSG_MORE and didn't push any extra data, isn't it
-> > > the users fault?
-> > > Do we need it because poorly written applications were broken when
-> > > MSG_MORE was added to tcp_sendpage? Or is there a deeper reason?
-> > >
-> > 
-> > The answer lies to how splice() is working.
-> > 
-> > User can issue one splice without MSG_MORE semantic, right ?
-> > 
-> > Still, we want an implicit MORE behavior for all individual pages, but
-> > the last one.
-> > 
-> > 
-> > > The reason I'm asking is that we are working on a kernel TLS
-> > > implementation
-> > > and I would like to know if we can coalesce multiple tls_sendpage
-> > > calls with MSG_MORE into a single
-> > > tls record or whether we must push out the record as soon as
-> > > MSG_SENDPAGE_NOTLAST is cleared?
-> > 
-> > Make sure you handle partial writes (you want to coalesce 10 pages, but
-> > stack will only take 5 of them)
-> > 
-> > 
-> 
+- Alex
