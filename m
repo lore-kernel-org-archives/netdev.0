@@ -1,112 +1,68 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v4 00/12] Fix possbile memleaks when fail to
- register_netdevice
-Date: Sun, 07 May 2017 18:25:50 -0400 (EDT)
-Message-ID: <20170507.182550.695836233888168365.davem@davemloft.net>
-References: <cover.1493699451.git.gfree.wind@foxmail.com>
+From: Jann Horn <jannh@google.com>
+Subject: Re: [PATCH net] bpf: don't let ldimm64 leak map addresses on unprivileged
+Date: Mon, 8 May 2017 00:26:10 +0200
+Message-ID: <CAG48ez0S92fLmX5fEa1=HNC3wF+SYizske5MjiJDpW4=tLg6Uw@mail.gmail.com>
+References: <793c517a7d163c613ab886eb02d32efea9f902fd.1494194233.git.daniel@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jiri@resnulli.us, mareklindner@neomailbox.ch,
-        sw@simonwunderlich.de, a@unstable.cc, kuznet@ms2.inr.ac.ru,
-        jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-        steffen.klassert@secunet.com, herbert@gondor.apana.org.au,
-        netdev@vger.kernel.org
-To: gfree.wind@foxmail.com
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        kafai@fb.com, netdev@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:41118 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750984AbdEGWZz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 7 May 2017 18:25:55 -0400
-In-Reply-To: <cover.1493699451.git.gfree.wind@foxmail.com>
+Received: from mail-it0-f45.google.com ([209.85.214.45]:38088 "EHLO
+        mail-it0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1757091AbdEGW0c (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 7 May 2017 18:26:32 -0400
+Received: by mail-it0-f45.google.com with SMTP id e65so30673738ita.1
+        for <netdev@vger.kernel.org>; Sun, 07 May 2017 15:26:32 -0700 (PDT)
+In-Reply-To: <793c517a7d163c613ab886eb02d32efea9f902fd.1494194233.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: gfree.wind@foxmail.com
-Date: Tue,  2 May 2017 13:58:42 +0800
+On Mon, May 8, 2017 at 12:04 AM, Daniel Borkmann <daniel@iogearbox.net> wrote:
+> The patch fixes two things at once:
+>
+> 1) It checks the env->allow_ptr_leaks and only prints the map address to
+>    the log if we have the privileges to do so, otherwise it just dumps 0
+>    as we would when kptr_restrict is enabled on %pK. Given the latter is
+>    off by default and not every distro sets it, I don't want to rely on
+>    this, hence the 0 by default for unprivileged.
+>
+> 2) Printing of ldimm64 in the verifier log is currently broken in that
+>    we don't print the full immediate, but only the 32 bit part of the
+>    first insn part for ldimm64. Thus, fix this up as well; it's okay to
+>    access, since we verified all ldimm64 earlier already (including just
+>    constants) through replace_map_fd_with_map_ptr().
+>
+> Fixes: cbd357008604 ("bpf: verifier (add ability to receive verification log)")
+> Reported-by: Jann Horn <jannh@google.com>
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+[...]
+> @@ -362,9 +363,19 @@ static void print_bpf_insn(struct bpf_insn *insn)
+>                                 insn->code,
+>                                 bpf_ldst_string[BPF_SIZE(insn->code) >> 3],
+>                                 insn->src_reg, insn->imm);
+> -               } else if (BPF_MODE(insn->code) == BPF_IMM) {
+> -                       verbose("(%02x) r%d = 0x%x\n",
+> -                               insn->code, insn->dst_reg, insn->imm);
+> +               } else if (BPF_MODE(insn->code) == BPF_IMM &&
+> +                          BPF_SIZE(insn->code) == BPF_DW) {
+> +                       /* At this point, we already made sure that the second
+> +                        * part of the ldimm64 insn is accessible.
+> +                        */
+> +                       u64 imm = ((u64)(insn + 1)->imm << 32) | (u32)insn->imm;
+> +                       bool map_ptr = insn->src_reg == BPF_PSEUDO_MAP_FD;
+> +
+> +                       if (map_ptr && !env->allow_ptr_leaks)
+> +                               imm = 0;
+> +
+> +                       verbose("(%02x) r%d = 0x%llx\n", insn->code,
+> +                               insn->dst_reg, (unsigned long long)imm);
+>                 } else {
+>                         verbose("BUG_ld_%02x\n", insn->code);
+>                         return;
 
-> These following drivers allocate kinds of resources in its ndo_init
-> func, free some of them or all in the destructor func. Then there is
-> one memleak that some errors happen after register_netdevice invokes
-> the ndo_init callback. Because only the ndo_uninit callback is invoked
-> in the error handler of register_netdevice, but destructor not.
-> 
-> In my original approach, I tried to free the resources in the
-> newlink func when fail to register_netdevice, like destructor did
-> except not free the net_dev. This method is not good when destructor
-> is changed, and the memleak could be not fixed when there is no
-> newlink callback.
-> 
-> Now create one new func used to free the resources in the
-> destructor, and the ndo_uninit func also could invokes it when fail
-> to register the net_device by comparing the dev->reg_state with
-> NETREG_UNINITIALIZED.  If there is no existing ndo_uninit, just add
-> one.
-> 
-> This solution doesn't only make sure free all resources in any case,
-> but also follows the original desgin that some resources could be
-> kept until the destructor executes normally after register the
-> device successfully.
-
-Device private teardown is in two stages for the following reason.
-The issue is that netdev_ops->ndo_init() allocates two types of
-resources.
-
-One type is OK to release during destruction before the netdev refs
-goes to zero.  This is what netdev_ops->ndo_uninit() is for.
-
-The second type is for releasing things which are not safe to drop
-until the very last netdev reference disappears.  This is what
-netdev->destructor() is for.
-
-If you look around there are hacks in place all over to try and deal
-with this issue.  Basically, look for code that checks the return
-value of register_netdev() and if an error is indicated it does
-some local driver state freeing.  Bonding is one example.  It is
-trying to deal with the problem this patch set is targetting.
-
-What really needs to happen is we must divorce the logic of
-dev->destructor() from free_netdev().
-
-That way we can do the free_netdev in the unregister netdevice path
-after calling netdev->destructor().
-
-Then the only issue callers of register_netdevice() need to be aware
-of is that if an error is returned, that caller must call
-free_netdev().  Which has been the case for decades.
-
-So I would fix this as follows:
-
-1) Rename netdev->destructor() into "netdev->priv_destructor()"  It
-   performs all post ndo_ops->ndo_uninit() cleanups, _except_
-   free_netdev().  Update all drivers with netdev->destructor().
-
-2) Add a boolean state to netdev, which indicates if free_netdev()
-   should be performed after netdev->priv_destructor() during
-   unregister.
-
-That provides all of the flexibility necessary to fix this bug in
-the core.
-
-In register_netdevice() if something after ndo_ops->ndo_init()
-succeeeds, we invoke _both_ ndo_ops->ndo_uninit() and
-netdev->priv_destructor().  We do not look at the netdev "needs
-free_netdev()" boolean.
-
-In netdev_run_todo(), where we have the one and only
-netdev->destructor() call, change it to:
-
-	if (dev->priv_destructor)
-		dev->priv_destructor(dev);
-	if (dev->needs_free_netdev)
-		free_netdev(dev);
-
-That fixes the bug in all cases.  And makes the purpose and logic
-extremely clear.  Also, no internal state tests leak into the
-drivers.
-
-Finally, drivers that try to cover up this issue, such as bonding,
-need to be changed to no try and free up device private state if
-their invocation of register_netdevice() fails.
-
-Thanks.
+You replaced the `BPF_MODE(insn->code) == BPF_IMM` branch with a
+`BPF_MODE(insn->code) == BPF_IMM && BPF_SIZE(insn->code) == BPF_DW`
+branch. Doesn't that break printing normal immediates?
