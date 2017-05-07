@@ -1,45 +1,92 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [Patch net] ipv4: restore rt->fi for reference counting
-Date: Sun, 07 May 2017 11:53:00 -0700
-Message-ID: <1494183180.7796.50.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1493934857-6693-1-git-send-email-xiyou.wangcong@gmail.com>
+From: Leon Romanovsky <leonro@mellanox.com>
+Subject: Re: [RFC iproute2 0/8] RDMA tool
+Date: Sun, 7 May 2017 09:14:24 +0300
+Message-ID: <20170507061424.GJ22833@mtr-leonro.local>
+References: <20170504180216.7665-1-leon@kernel.org>
+ <1493921453.2692.6.camel@sandisk.com>
+ <20170506104047.GC2017@nanopsycho>
+ <1494081623.3228.1.camel@sandisk.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, andreyknvl@google.com, edumazet@google.com
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+        protocol="application/pgp-signature"; boundary="eGyD7iWN192kf2IJ"
+Cc: "jiri@resnulli.us" <jiri@resnulli.us>,
+        "jiri@mellanox.com" <jiri@mellanox.com>,
+        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
+        "ram.amrani@cavium.com" <ram.amrani@cavium.com>,
+        "sagi@grimberg.me" <sagi@grimberg.me>,
+        "ogerlitz@mellanox.com" <ogerlitz@mellanox.com>,
+        "dennis.dalessandro@intel.com" <dennis.dalessandro@intel.com>,
+        "hch@lst.de" <hch@lst.de>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "stephen@networkplumber.org" <stephen@networkplumber.org>,
+        "dledford@redhat.com" <dledford@redhat.com>,
+        "jgunthorpe@obsidianresearch.com" <jgunthorpe@obsidianresearch.com>,
+        "ariela@mellanox.com" <ariela@mellanox.com>
+To: Bart Van Assche <Bart.VanAssche@sandisk.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:33470 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751166AbdEGVmi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 7 May 2017 17:42:38 -0400
-Received: by mail-pf0-f194.google.com with SMTP id b23so7428601pfc.0
-        for <netdev@vger.kernel.org>; Sun, 07 May 2017 14:42:38 -0700 (PDT)
-In-Reply-To: <1493934857-6693-1-git-send-email-xiyou.wangcong@gmail.com>
+Received: from mail-ve1eur01on0055.outbound.protection.outlook.com ([104.47.1.55]:52160
+        "EHLO EUR01-VE1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1753805AbdEGVqa (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 7 May 2017 17:46:30 -0400
+Content-Disposition: inline
+In-Reply-To: <1494081623.3228.1.camel@sandisk.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2017-05-04 at 14:54 -0700, Cong Wang wrote:
-> IPv4 dst could use fi->fib_metrics to store metrics but fib_info
-> itself is refcnt'ed, so without taking a refcnt fi and
-> fi->fib_metrics could be freed while dst metrics still points to
-> it. This triggers use-after-free as reported by Andrey twice.
-> 
-> This patch reverts commit 2860583fe840 ("ipv4: Kill rt->fi") to
-> restore this reference counting. It is a quick fix for -net and
-> -stable, for -net-next, as Eric suggested, we can consider doing
-> reference counting for metrics itself instead of relying on fib_info.
-> 
-> IPv6 is very different, it copies or steals the metrics from mx6_config
-> in fib6_commit_metrics() so probably doesn't need a refcnt.
-> 
-> Decnet has already done the refcnt'ing, see dn_fib_semantic_match().
-> 
-> Fixes: 2860583fe840 ("ipv4: Kill rt->fi")
-> Reported-by: Andrey Konovalov <andreyknvl@google.com>
-> Tested-by: Andrey Konovalov <andreyknvl@google.com>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+--eGyD7iWN192kf2IJ
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+On Sat, May 06, 2017 at 02:40:24PM +0000, Bart Van Assche wrote:
+> On Sat, 2017-05-06 at 12:40 +0200, Jiri Pirko wrote:
+> > Thu, May 04, 2017 at 08:10:54PM CEST, Bart.VanAssche@sandisk.com wrote:
+> > > On Thu, 2017-05-04 at 21:02 +0300, Leon Romanovsky wrote:
+> > > > Following our discussion both in mailing list [1] and at the LPC 2016 [2],
+> > > > we would like to propose this RDMA tool to be part of iproute2 package
+> > > > and finally improve this situation.
+> > >
+> > > Although I really appreciate your work: can you clarify why you would like to
+> > > add *RDMA* functionality to an *IP routing* tool? I haven't found any motivation
+> > > for adding RDMA functionality to iproute2 in [1].
+> >
+> > Bart, please realize that iproute2 is much more than "*IP routing* tool".
+> > I understand you got confused by the name. Please see sources. Your comment
+> > is totally pointless...
+>
+> I asked for a clarification that should have been in the cover letter but that
+> was missing from that cover letter. So I think that was the right thing to do
+> instead of pointless. BTW, can you explain why you are using an e-mail address
+> that is hiding that you are a Mellanox employee?
 
-Thanks !
+For the same reason as I do. It is much easier to use outside servers
+than Mellanox's IT infrastructure.
+
+Right now, I'm speaking for myself, but for me, to properly answer with @mellanox.com,
+I need to use very specific mail setup, while for any other addresses I can and use any
+sane setup, including mobile application.
+
+>
+> Bart.
+
+--eGyD7iWN192kf2IJ
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAlkOu0AACgkQ5GN7iDZy
+WKfHTQ/+LJdIUqd9u7Oc07+rMCgDCGN2gGWvu+5ZRRW3uh+7Z2oQcvlxJEY6xfDw
+zeAOvYqq0s6RT3jv2yqPnthfeq12efRmN691qZg0SlsDviOjgh3gzPZp/W2OlXOV
+hN5LtWweKhnhz2fRiY51pLBn0xPhAA+iWuILY7lagNKCCuRTs2f/9R7JRxEZ2dz9
+VLkdi9y4Laa0vLUym3SBJSJ0Q2ul/M1rfGts/GBxyyT2Cc/w7gQGQrGJ2i4gYUVr
+9mophggzj3SxFvmNQSdY8Xja3VnfEvUCMXREZhUPHGUJJ3EyJ/9TdL+iSgEWAsTo
+jUbeN5TEUg2V8GTC57m1XNPczKWb3YRItrU185g/rf92edIQbCdijKeYWmijzOVG
+O8URlLd36uNefo9ubMMICN3KbLf7DM2kF3Dp3EkT0iwtX8lay31NUXjpcBCvgwEM
+oFxJTj0bJt0i9EhAgO2Tiap4wE8zoMGVBRjGiwx6/zpDchooIXRQi+mntnFUqkgc
++eO4oU6vHNzTCRWNfgEbcR8DzXSx9eimTnsunul8LmNiWMuxR9mL/2pTisj3ioxj
+f8lVzwa/yCKRPIlabL2AToMx90D0EyTfU2P3dmVSPMQkeIQdwEhfDuAm656ZQro3
+Y8M/+35l0a/07TqwjDzeCcs8NsRcx7ec+rhjL+p/0mSnszV75Aw=
+=0C+O
+-----END PGP SIGNATURE-----
+
+--eGyD7iWN192kf2IJ--
