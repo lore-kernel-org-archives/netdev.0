@@ -1,40 +1,45 @@
-From: Peter Heise <mail@pheise.de>
-Subject: [PATCH net v2] Check for skb_put_padto return value
-Date: Sun, 7 May 2017 17:15:26 +0000
-Message-ID: <0102015be3e8a656-6cd75d31-ac07-4255-80d9-3c481165dfaa-000000@eu-west-1.amazonses.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [Patch net] ipv4: restore rt->fi for reference counting
+Date: Sun, 07 May 2017 11:53:00 -0700
+Message-ID: <1494183180.7796.50.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1493934857-6693-1-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: mail@pheise.de
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, andreyknvl@google.com, edumazet@google.com
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a4-23.smtp-out.eu-west-1.amazonses.com ([54.240.4.23]:58170
-        "EHLO a4-23.smtp-out.eu-west-1.amazonses.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751733AbdEGVmb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 7 May 2017 17:42:31 -0400
-Content-Disposition: inline
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:33470 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751166AbdEGVmi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 7 May 2017 17:42:38 -0400
+Received: by mail-pf0-f194.google.com with SMTP id b23so7428601pfc.0
+        for <netdev@vger.kernel.org>; Sun, 07 May 2017 14:42:38 -0700 (PDT)
+In-Reply-To: <1493934857-6693-1-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Return value of skb_put_padto is now checked as
-reported by Dan Carpenter. skb might be freed in
-case of error in skb_put_padto.
----
- net/hsr/hsr_device.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+On Thu, 2017-05-04 at 14:54 -0700, Cong Wang wrote:
+> IPv4 dst could use fi->fib_metrics to store metrics but fib_info
+> itself is refcnt'ed, so without taking a refcnt fi and
+> fi->fib_metrics could be freed while dst metrics still points to
+> it. This triggers use-after-free as reported by Andrey twice.
+> 
+> This patch reverts commit 2860583fe840 ("ipv4: Kill rt->fi") to
+> restore this reference counting. It is a quick fix for -net and
+> -stable, for -net-next, as Eric suggested, we can consider doing
+> reference counting for metrics itself instead of relying on fib_info.
+> 
+> IPv6 is very different, it copies or steals the metrics from mx6_config
+> in fib6_commit_metrics() so probably doesn't need a refcnt.
+> 
+> Decnet has already done the refcnt'ing, see dn_fib_semantic_match().
+> 
+> Fixes: 2860583fe840 ("ipv4: Kill rt->fi")
+> Reported-by: Andrey Konovalov <andreyknvl@google.com>
+> Tested-by: Andrey Konovalov <andreyknvl@google.com>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 
-diff --git a/net/hsr/hsr_device.c b/net/hsr/hsr_device.c
-index c73160fb11e7..a1545d09a3c9 100644
---- a/net/hsr/hsr_device.c
-+++ b/net/hsr/hsr_device.c
-@@ -314,7 +314,8 @@ static void send_hsr_supervision_frame(struct hsr_port *master,
- 	hsr_sp = (typeof(hsr_sp)) skb_put(skb, sizeof(struct hsr_sup_payload));
- 	ether_addr_copy(hsr_sp->MacAddressA, master->dev->dev_addr);
- 
--	skb_put_padto(skb, ETH_ZLEN + HSR_HLEN);
-+	if (skb_put_padto(skb, ETH_ZLEN + HSR_HLEN))
-+		return;
- 
- 	hsr_forward_skb(skb, master);
- 	return;
--- 
-2.11.0
+Acked-by: Eric Dumazet <edumazet@google.com>
+
+Thanks !
