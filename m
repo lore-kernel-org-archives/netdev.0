@@ -1,66 +1,41 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] net: dsa: loop: Check for memory allocation failure
-Date: Mon, 08 May 2017 10:44:03 -0700
-Message-ID: <1494265443.31950.62.camel@perches.com>
-References: <20170506052945.2639-1-christophe.jaillet@wanadoo.fr>
-         <063D6719AE5E284EB5DD2968C1650D6DCFFE715E@AcuExch.aculab.com>
-         <alpine.DEB.2.20.1705082031280.3440@hadrien>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] ip6_tunnel: remove unreachable ICMP_REDIRECT code
+Date: Mon, 08 May 2017 15:59:03 -0400 (EDT)
+Message-ID: <20170508.155903.61649135414142419.davem@davemloft.net>
+References: <1494241863-32549-1-git-send-email-liuhangbin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: 'Christophe JAILLET' <christophe.jaillet@wanadoo.fr>,
-        "andrew@lunn.ch" <andrew@lunn.ch>,
-        "vivien.didelot@savoirfairelinux.com"
-        <vivien.didelot@savoirfairelinux.com>,
-        "f.fainelli@gmail.com" <f.fainelli@gmail.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>
-To: Julia Lawall <julia.lawall@lip6.fr>,
-        David Laight <David.Laight@ACULAB.COM>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.DEB.2.20.1705082031280.3440@hadrien>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: liuhangbin@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:37444 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754321AbdEHT7F (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 8 May 2017 15:59:05 -0400
+In-Reply-To: <1494241863-32549-1-git-send-email-liuhangbin@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2017-05-08 at 20:32 +0800, Julia Lawall wrote:
+From: Hangbin Liu <liuhangbin@gmail.com>
+Date: Mon,  8 May 2017 19:11:03 +0800
+
+> After call ip6_tnl_err(), the rel_type will be ether ICMPV6_DEST_UNREACH
+> or ICMPV6_PKT_TOOBIG. We will never reach ICMP_REDIRECT. So remove it.
 > 
-> On Mon, 8 May 2017, David Laight wrote:
-> 
-> > From: Christophe JAILLET
-> > > Sent: 06 May 2017 06:30
-> > > If 'devm_kzalloc' fails, a NULL pointer will be dereferenced.
-> > > Return -ENOMEM instead, as done for some other memory allocation just a
-> > > few lines above.
-> > 
-> > ...
-> > > --- a/drivers/net/dsa/dsa_loop.c
-> > > +++ b/drivers/net/dsa/dsa_loop.c
-> > > @@ -256,6 +256,9 @@ static int dsa_loop_drv_probe(struct mdio_device *mdiodev)
-> > >  		return -ENOMEM;
-> > > 
-> > >  	ps = devm_kzalloc(&mdiodev->dev, sizeof(*ps), GFP_KERNEL);
-> > > +	if (!ps)
-> > > +		return -ENOMEM;
-> > > +
-> > >  	ps->netdev = dev_get_by_name(&init_net, pdata->netdev);
-> > >  	if (!ps->netdev)
-> > >  		return -EPROBE_DEFER;
-> > 
-> > On the face if it this code leaks like a sieve.
-> 
-> I don't think so.  The allocations (dsa_switch_alloc and devm_kzalloc) use
-> devm functions.
+> Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
 
-It's at least wasteful.
+Your patches here, all seemingly due to "visual inspection", are starting
+to really, truly, irritate me.
 
-Each time -EPROBE_DEFER occurs, another set of calls to
-dsa_switch_alloc and dev_kzalloc also occurs.
+Half of them are unnecessary, some are completely buggy.
 
-Perhaps it'd be better to do:
+I have to review them and audit them very satrictly as a result, and
+this takes up an unnecessarily large amount of my time.
 
-	if (ps->netdev) {
-		devm_kfree(&devmdev->dev, ps);
-		devm_kfree(&mdiodev->dev, ds);
-		return -EPROBE_DEFER;
-	}
+Therefore, I'm basically going to stop looking at your changes _unless_
+you can show that you specifically tested and exercised all of the code
+paths you are changing.
+
+I am sorry to have to do this, but the value to effort ratio of
+reviewing and integrating your changes is quite poor.
