@@ -1,60 +1,38 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: net/key: slab-out-of-bounds in pfkey_compile_policy
-Date: Mon, 8 May 2017 13:49:19 +0200
-Message-ID: <20170508114918.GB9813@secunet.com>
-References: <CAAeHK+xqxvEWMXS9sDNi2seUqFzJkijKJhivB8JDehpCJvBAaw@mail.gmail.com>
- <20170505091105.GA9813@secunet.com>
- <CAAeHK+xjbBPqHgBwBEK8=p7zUNCA144GqDSJMwUvz-1NFNQWxw@mail.gmail.com>
+Subject: Re: [PATCH net v2 1/1] xfrm: Fix NETDEV_DOWN with IPSec offload
+Date: Mon, 8 May 2017 13:50:08 +0200
+Message-ID: <20170508115008.GC9813@secunet.com>
+References: <20170508073934.28529-1-ilant@mellanox.com>
+ <20170508073934.28529-2-ilant@mellanox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-        "David S. Miller" <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Dmitry Vyukov <dvyukov@google.com>,
-        "Kostya Serebryany" <kcc@google.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Andrey Konovalov <andreyknvl@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>,
+        Boris Pismenny <borisp@mellanox.com>, <netdev@vger.kernel.org>
+To: <ilant@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([62.96.220.36]:36454 "EHLO a.mx.secunet.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752942AbdEHLuV (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 8 May 2017 07:50:21 -0400
 Content-Disposition: inline
-In-Reply-To: <CAAeHK+xjbBPqHgBwBEK8=p7zUNCA144GqDSJMwUvz-1NFNQWxw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20170508073934.28529-2-ilant@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 05, 2017 at 02:18:01PM +0200, Andrey Konovalov wrote:
-> On Fri, May 5, 2017 at 11:11 AM, Steffen Klassert
-> <steffen.klassert@secunet.com> wrote:
-> > On Tue, May 02, 2017 at 06:45:03PM +0200, Andrey Konovalov wrote:
-> >> Hi,
-> >>
-> >> I've got the following error report while fuzzing the kernel with syzkaller.
-> >>
-> >> On commit d3b5d35290d729a2518af00feca867385a1b08fa (4.11).
-> >>
-> >> A reproducer and .config are attached.
-> >>
-> >> ==================================================================
-> >> BUG: KASAN: slab-out-of-bounds in pfkey_compile_policy+0x8e6/0xd40 at
-> >> addr ffff88006701f798
-> >> Read of size 1280 by task a.out/4181
-> >
-> >
-> > This bug was introduced twelve years ago...
-> >
-> > This patch is based just on code review, I don't have an option to
-> > function test this. But I see that we now exit with -EINVAL before the
-> > memcpy that causes the slab-out-of-bounds when using your reproducer,
-> > so it should at least fix the bug.
+On Mon, May 08, 2017 at 10:39:34AM +0300, ilant@mellanox.com wrote:
+> From: Ilan Tayari <ilant@mellanox.com>
 > 
-> Hi Steffen,
+> Upon NETDEV_DOWN event, all xfrm_state objects which are bound to
+> the device are flushed.
 > 
-> This patch fixes the issue for me.
+> The condition for this is wrong, though, testing dev->hw_features
+> instead of dev->features. If a device has non-user-modifiable
+> NETIF_F_HW_ESP, then its xfrm_state objects are not flushed,
+> causing a crash later on after the device is deleted.
 > 
-> Thanks!
+> Check dev->features instead of dev->hw_features.
 > 
-> Tested-by: Andrey Konovalov <andreyknvl@google.com>
+> Fixes: d77e38e612a0 ("xfrm: Add an IPsec hardware offloading API")
+> Signed-off-by: Ilan Tayari <ilant@mellanox.com>
 
-Patch is now applied to the ipsec tree.
-Thanks for reporting and testing!
+Applied, thanks Ilan!
