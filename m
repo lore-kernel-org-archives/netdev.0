@@ -1,43 +1,64 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH RFC net-next 5/6] net: Delay initializations for
- lightweight devices
-Date: Mon, 8 May 2017 10:31:50 -0700
-Message-ID: <79cad243-51fc-cae4-633c-fd217c30a150@gmail.com>
-References: <20170506160734.47084-1-dsahern@gmail.com>
- <20170506160734.47084-6-dsahern@gmail.com>
+From: Jan Kiszka <jan.kiszka@siemens.com>
+Subject: Re: [PATCH v1 0/4] stmmac: pci: Fix crash on Intel Galileo Gen2
+Date: Mon, 8 May 2017 19:34:14 +0200
+Message-ID: <ebf3cc78-c139-9b0e-1a16-d0ef095a80da@siemens.com>
+References: <20170508141422.39612-1-andriy.shevchenko@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=iso-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: roopa@cumulusnetworks.com, nicolas.dichtel@6wind.com
-To: David Ahern <dsahern@gmail.com>, netdev@vger.kernel.org
+To: Andy Shevchenko <andriy.shevchenko@linux.intel.com>,
+        Joao Pinto <Joao.Pinto@synopsys.com>,
+        netdev <netdev@vger.kernel.org>,
+        Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
+        "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f193.google.com ([209.85.220.193]:32821 "EHLO
-        mail-qk0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754978AbdEHRb6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 8 May 2017 13:31:58 -0400
-Received: by mail-qk0-f193.google.com with SMTP id o85so11101191qkh.0
-        for <netdev@vger.kernel.org>; Mon, 08 May 2017 10:31:58 -0700 (PDT)
-In-Reply-To: <20170506160734.47084-6-dsahern@gmail.com>
+Received: from david.siemens.de ([192.35.17.14]:54556 "EHLO david.siemens.de"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752179AbdEHRe2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 8 May 2017 13:34:28 -0400
+In-Reply-To: <20170508141422.39612-1-andriy.shevchenko@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/06/2017 09:07 AM, David Ahern wrote:
-> Delay ipv4 and ipv6 initializations on lightweight netdevices until an
-> address is added to the device.
+On 2017-05-08 16:14, Andy Shevchenko wrote:
+> Due to misconfiguration of PCI driver for Intel Quark the user will get
+> a kernel crash:
 > 
-> Skip sysctl initialization for neighbor path as well.
+> # udhcpc -i eth0
+> udhcpc: started, v1.26.2
+> stmmaceth 0000:00:14.6 eth0: device MAC address 98:4f:ee:05:ac:47
+> Generic PHY stmmac-a6:01: attached PHY driver [Generic PHY] (mii_bus:phy_addr=stmmac-a6:01, irq=-1)
+> stmmaceth 0000:00:14.6 eth0: IEEE 1588-2008 Advanced Timestamp supported
+> stmmaceth 0000:00:14.6 eth0: registered PTP clock
+> IPv6: ADDRCONF(NETDEV_UP): eth0: link is not ready
+> 
+> udhcpc: sending discover
+> 
+> stmmaceth 0000:00:14.6 eth0: Link is Up - 100Mbps/Full - flow control off
+> IPv6: ADDRCONF(NETDEV_CHANGE): eth0: link becomes ready
+> BUG: unable to handle kernel NULL pointer dereference at (null)
+> IP: stmmac_xmit+0xf1/0x1080
+> 
+> Fix this by adding necessary settings.
+> 
+> P.S. I split fix to three patches according to what each of them adds.
+> 
+> Andy Shevchenko (4):
+>   stmmac: pci: set default number of rx and tx queues
+>   stmmac: pci: TX and RX queue priority configuration
+>   stmmac: pci: RX queue routing configuration
+>   stmmac: pci: split out common_default_data() helper
+> 
+>  drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c | 41 +++++++++++-------------
+>  1 file changed, 18 insertions(+), 23 deletions(-)
+> 
 
-Yeah, thanks for including the sysctl initialization. One thing that my
-earlier "L2 only" attempt attempted to solve as well, was to put the
-IFF_NOIPV4 and IFF_NOIPV6 flags as volatile. In case you changed your
-mind and ended-up needing IP stacks to be initialized, this ought to be
-possible at some point. I did not get to test that part though.
+Tested-by: Jan Kiszka <jan.kiszka@siemens.com>
 
-AFAIR, some peculiar devices like 6lowpan (and to some extent the larger
-802.15.4 family) may want to be IPv6 exclusively. This means we may have
-a bit of overlap with flags like IFF_NOARP, (the proposed IFF_NOIPV6
-before) and IFF_LWT_NETDEV.
+All fine again, thanks!
 
-Thanks!
+Jan
+
 -- 
-Florian
+Siemens AG, Corporate Technology, CT RDA ITP SES-DE
+Corporate Competence Center Embedded Linux
