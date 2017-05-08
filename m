@@ -1,40 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] geneve: add rtnl changelink support
-Date: Mon, 08 May 2017 16:18:28 -0400 (EDT)
-Message-ID: <20170508.161828.2205832008681371745.davem@davemloft.net>
-References: <1494274104-16494-1-git-send-email-girish.moodalbail@oracle.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net] ip6_tunnel: remove unreachable ICMP_REDIRECT code
+Date: Mon, 8 May 2017 13:26:48 -0700
+Message-ID: <CAM_iQpWAdKve_ZxG3n+uoz_We65RV95CaKydPFYobo+pQWvjjg@mail.gmail.com>
+References: <1494241863-32549-1-git-send-email-liuhangbin@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, pshelar@ovn.org, joe@ovn.org,
-        jbenc@redhat.com
-To: girish.moodalbail@oracle.com
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Hangbin Liu <liuhangbin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:38344 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756773AbdEHUSa (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 8 May 2017 16:18:30 -0400
-In-Reply-To: <1494274104-16494-1-git-send-email-girish.moodalbail@oracle.com>
+Received: from mail-wm0-f45.google.com ([74.125.82.45]:36358 "EHLO
+        mail-wm0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752586AbdEHU1K (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 8 May 2017 16:27:10 -0400
+Received: by mail-wm0-f45.google.com with SMTP id u65so98030400wmu.1
+        for <netdev@vger.kernel.org>; Mon, 08 May 2017 13:27:09 -0700 (PDT)
+In-Reply-To: <1494241863-32549-1-git-send-email-liuhangbin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Girish Moodalbail <girish.moodalbail@oracle.com>
-Date: Mon,  8 May 2017 13:08:24 -0700
+On Mon, May 8, 2017 at 4:11 AM, Hangbin Liu <liuhangbin@gmail.com> wrote:
+> After call ip6_tnl_err(), the rel_type will be ether ICMPV6_DEST_UNREACH
+> or ICMPV6_PKT_TOOBIG. We will never reach ICMP_REDIRECT. So remove it.
 
-> This patch adds changelink rtnl operation support for geneve devices.
-> Code changes involve:
->   - refactor geneve_newlink into geneve_nl2info to be used by both
->     geneve_newlink and geneve_changelink
->   - geneve_nl2info takes a changelink boolean argument to isolate
->     changelink checks and updates.
->   - Allow changing only a few attributes:
->     - return -EOPNOTSUPP for attributes that cannot be changed for
->       now. Incremental patches can make the non-supported one
->       available in the future if needed.
-> 
-> Signed-off-by: Girish Moodalbail <girish.moodalbail@oracle.com>
+Are you sure we really don't need to handle NDISC_REDIRECT here?
 
-The net-next tree is closed, please resubmit this when the net-next
-tree opens back up.
+I can't find anything in RFC 2473 explictly, but I am feeling we should handle
+it rather than ignoring it according to:
 
-Thank you.
+   To report a problem detected inside the tunnel to the source of an
+   original packet, the tunnel entry point node must relay the ICMP
+   message received from inside the tunnel to the source of that
+   original IPv6 packet.
+
+I am not sure...
