@@ -1,7 +1,8 @@
 From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-Subject: [PATCH v1 0/4] stmmac: pci: Fix crash on Intel Galileo Gen2
-Date: Mon,  8 May 2017 17:14:18 +0300
-Message-ID: <20170508141422.39612-1-andriy.shevchenko@linux.intel.com>
+Subject: [PATCH v1 2/4] stmmac: pci: TX and RX queue priority configuration
+Date: Mon,  8 May 2017 17:14:20 +0300
+Message-ID: <20170508141422.39612-3-andriy.shevchenko@linux.intel.com>
+References: <20170508141422.39612-1-andriy.shevchenko@linux.intel.com>
 Cc: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
 To: Joao Pinto <Joao.Pinto@synopsys.com>,
         Jan Kiszka <jan.kiszka@siemens.com>,
@@ -11,41 +12,39 @@ To: Joao Pinto <Joao.Pinto@synopsys.com>,
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga09.intel.com ([134.134.136.24]:50269 "EHLO mga09.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754831AbdEHOO0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 8 May 2017 10:14:26 -0400
+        id S1754890AbdEHOO1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 8 May 2017 10:14:27 -0400
+In-Reply-To: <20170508141422.39612-1-andriy.shevchenko@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Due to misconfiguration of PCI driver for Intel Quark the user will get
-a kernel crash:
+The commit a8f5102af2a7
 
-# udhcpc -i eth0
-udhcpc: started, v1.26.2
-stmmaceth 0000:00:14.6 eth0: device MAC address 98:4f:ee:05:ac:47
-Generic PHY stmmac-a6:01: attached PHY driver [Generic PHY] (mii_bus:phy_addr=stmmac-a6:01, irq=-1)
-stmmaceth 0000:00:14.6 eth0: IEEE 1588-2008 Advanced Timestamp supported
-stmmaceth 0000:00:14.6 eth0: registered PTP clock
-IPv6: ADDRCONF(NETDEV_UP): eth0: link is not ready
+	("net: stmmac: TX and RX queue priority configuration")
 
-udhcpc: sending discover
+missed Intel Quark configuration. Append it here.
 
-stmmaceth 0000:00:14.6 eth0: Link is Up - 100Mbps/Full - flow control off
-IPv6: ADDRCONF(NETDEV_CHANGE): eth0: link becomes ready
-BUG: unable to handle kernel NULL pointer dereference at (null)
-IP: stmmac_xmit+0xf1/0x1080
+Fixes: a8f5102af2a7 ("net: stmmac: TX and RX queue priority configuration")
+Cc: Joao Pinto <Joao.Pinto@synopsys.com>
+Signed-off-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+---
+ drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c | 4 ++++
+ 1 file changed, 4 insertions(+)
 
-Fix this by adding necessary settings.
-
-P.S. I split fix to three patches according to what each of them adds.
-
-Andy Shevchenko (4):
-  stmmac: pci: set default number of rx and tx queues
-  stmmac: pci: TX and RX queue priority configuration
-  stmmac: pci: RX queue routing configuration
-  stmmac: pci: split out common_default_data() helper
-
- drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c | 41 +++++++++++-------------
- 1 file changed, 18 insertions(+), 23 deletions(-)
-
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
+index ae3e836f9bb6..c015a715a8ac 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
+@@ -149,6 +149,10 @@ static int quark_default_data(struct plat_stmmacenet_data *plat,
+ 	plat->tx_queues_to_use = 1;
+ 	plat->rx_queues_to_use = 1;
+ 
++	/* Disable Priority config by default */
++	plat->tx_queues_cfg[0].use_prio = false;
++	plat->rx_queues_cfg[0].use_prio = false;
++
+ 	return 0;
+ }
+ 
 -- 
 2.11.0
