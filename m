@@ -1,10 +1,10 @@
 From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH/RFC net-next v2 2/4] flow dissector: return error on icmp
- dissection under-run
-Date: Mon, 8 May 2017 07:21:29 -0400
-Message-ID: <f1590e4d-aeba-2f52-bb74-5e905659bcf9@mojatatu.com>
+Subject: Re: [PATCH/RFC net-next v2 3/4] net/sched: cls_flower: do not match
+ if dissection fails
+Date: Mon, 8 May 2017 07:26:31 -0400
+Message-ID: <20bc02eb-ea99-652e-7205-fa6131964446@mojatatu.com>
 References: <1493988426-22854-1-git-send-email-simon.horman@netronome.com>
- <1493988426-22854-3-git-send-email-simon.horman@netronome.com>
+ <1493988426-22854-4-git-send-email-simon.horman@netronome.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
@@ -15,42 +15,37 @@ To: Simon Horman <simon.horman@netronome.com>,
         Jiri Pirko <jiri@mellanox.com>,
         Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f196.google.com ([209.85.223.196]:35654 "EHLO
-        mail-io0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752833AbdEHLVc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 8 May 2017 07:21:32 -0400
-Received: by mail-io0-f196.google.com with SMTP id o12so1152858iod.2
-        for <netdev@vger.kernel.org>; Mon, 08 May 2017 04:21:31 -0700 (PDT)
-In-Reply-To: <1493988426-22854-3-git-send-email-simon.horman@netronome.com>
+Received: from mail-it0-f65.google.com ([209.85.214.65]:33613 "EHLO
+        mail-it0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752105AbdEHL0e (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 8 May 2017 07:26:34 -0400
+Received: by mail-it0-f65.google.com with SMTP id v135so6979741itv.0
+        for <netdev@vger.kernel.org>; Mon, 08 May 2017 04:26:34 -0700 (PDT)
+In-Reply-To: <1493988426-22854-4-git-send-email-simon.horman@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 On 17-05-05 08:47 AM, Simon Horman wrote:
-> Return an error from __skb_flow_dissect() if insufficient packet data is
-> present when dissecting icmp type and code.
+> If the flow skb_flow_dissect() returns an error it indicates that
+> dissection was incomplete for some reason. Matching using the result of an
+> incomplete dissection may cause unexpected results. For example:
 >
-> Without this patch the absence of the ICMP type and code in truncated
-> ICMPv4 or IPVPv6 packets is treated the way same as the presence of a code
-> and type of value of zero.  And without this patch the flower classifier is
-> unable to differentiate between these two cases which may lead to
-> unexpected matching of truncated packets.
+> * A match on zero layer 4 ports will also match packets truncated at
+>   the end of the IP header; that is packets where ports are missing are
+>   treated the same way as packets with zero ports.
+> * Likewise, a match on zero ICMP code or type will also match packets
+>   truncated at the end of the IP header; that is packets where the ICMP
+>   type and code are missing will be treated the same way as packets with
+>   zero ICMP code and type.
 >
-> With this patch the flow dissector and in turn the flower classifier can
-> differentiate between packets with zero ICMP type and code, and truncated
-> packets.
+> Separate patches to the flow dissector are required in order for it to
+> return errors in the above cases.
 >
-> The approach taken here is to return an error if the IP protocol indicates
-> ICMP but the type and code data is not present in the packet - an error
-> return value from __skb_header_pointer().
->
-> This should only effect the flower classifier as it is the only user of
-> W_DISSECTOR_KEY_ICMP.  The behavioural update for flower only takes effect
-> with a separate patch to have it refuse to match if dissection fails.
->
+> Fixes: 77b9900ef53a ("tc: introduce Flower classifier")
 > Signed-off-by: Simon Horman <simon.horman@netronome.com>
 > Reviewed-by: Benjamin LaHaise <benjamin.lahaise@netronome.com>
 
-Reviewed-by: Jamal Hadi Salim <jhs@mojatatu.com>
+Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
 
 cheers,
 jamal
