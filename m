@@ -1,38 +1,62 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH RFC net-next 4/6] net: Do not intialize kobject for
- lightweight netdevs
-Date: Mon, 8 May 2017 10:26:59 -0700
-Message-ID: <cc6c7118-95f0-5252-4962-b4376b4bf61d@gmail.com>
-References: <20170506160734.47084-1-dsahern@gmail.com>
- <20170506160734.47084-5-dsahern@gmail.com>
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Subject: [PATCH] qca_debug: Reduce function calls for sequence output in
+ qcaspi_info_show()
+Date: Mon, 8 May 2017 19:29:12 +0200
+Message-ID: <9932ee63-f766-49ce-d760-9a0bd06f0657@users.sourceforge.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: roopa@cumulusnetworks.com, nicolas.dichtel@6wind.com
-To: David Ahern <dsahern@gmail.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f193.google.com ([209.85.220.193]:32983 "EHLO
-        mail-qk0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754638AbdEHR1D (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 8 May 2017 13:27:03 -0400
-Received: by mail-qk0-f193.google.com with SMTP id o85so11081396qkh.0
-        for <netdev@vger.kernel.org>; Mon, 08 May 2017 10:27:02 -0700 (PDT)
-In-Reply-To: <20170506160734.47084-5-dsahern@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: LKML <linux-kernel@vger.kernel.org>,
+        kernel-janitors@vger.kernel.org
+To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+        Philippe Reynes <tremyfr@gmail.com>,
+        Stefan Wahren <stefan.wahren@i2se.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 05/06/2017 09:07 AM, David Ahern wrote:
-> Lightweight netdevices are not added to sysfs; bypass kobject
-> initialization.
+From: Markus Elfring <elfring@users.sourceforge.net>
+Date: Mon, 8 May 2017 19:21:27 +0200
 
-I was wondering if we actually needed a flag to tell: this is a
-lightweight device, but still let it show up in /sys. All use cases that
-I have in mind (getting the physical port name etc. etc) can be done via
-netlink which is not restricted even with LWT devices, so this sounds
-reasonable. In case we need to revisit that, we can always add more
-flags to control the lightweight devices creation and how this
-percolates through the networking stack.
+A bit of data was put into a sequence by separate function calls.
+Print the same data together with adjusted seq_printf() calls instead.
 
-Thanks!
+This issue was detected by using the Coccinelle software.
+
+Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+---
+ drivers/net/ethernet/qualcomm/qca_debug.c | 10 ++--------
+ 1 file changed, 2 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/net/ethernet/qualcomm/qca_debug.c b/drivers/net/ethernet/qualcomm/qca_debug.c
+index d145df98feff..27b5c1dd27d0 100644
+--- a/drivers/net/ethernet/qualcomm/qca_debug.c
++++ b/drivers/net/ethernet/qualcomm/qca_debug.c
+@@ -81,11 +81,7 @@ qcaspi_info_show(struct seq_file *s, void *what)
+ 	else
+ 		seq_puts(s, "in use");
+ 
+-	seq_puts(s, "\n");
+-
+-	seq_printf(s, "TX ring size     : %u\n",
+-		   qca->txr.size);
+-
++	seq_printf(s, "\nTX ring size     : %u\n", qca->txr.size);
+ 	seq_printf(s, "Sync state       : %u (",
+ 		   (unsigned int)qca->sync);
+ 	switch (qca->sync) {
+@@ -102,10 +98,8 @@ qcaspi_info_show(struct seq_file *s, void *what)
+ 		seq_puts(s, "INVALID");
+ 		break;
+ 	}
+-	seq_puts(s, ")\n");
+ 
+-	seq_printf(s, "IRQ              : %d\n",
+-		   qca->spi_dev->irq);
++	seq_printf(s, ")\nIRQ              : %d\n", qca->spi_dev->irq);
+ 	seq_printf(s, "INTR REQ         : %u\n",
+ 		   qca->intr_req);
+ 	seq_printf(s, "INTR SVC         : %u\n",
 -- 
-Florian
+2.12.2
