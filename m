@@ -1,41 +1,51 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: Network cooling device and how to control NIC speed on thermal
- condition
-Date: Mon, 8 May 2017 16:02:25 +0200
-Message-ID: <20170508140225.GD19995@lunn.ch>
-References: <CAHKzcEMQPQzg6PYCSuv7Ufad+4AZ2gnqMgz3-VH5NTeb_pv4zQ@mail.gmail.com>
- <20170425144501.0cfe27a5@lxorguk.ukuu.org.uk>
- <CAHKzcEO-75r5Gmew9x1eprh9ACf_NQKCHQg9svOLM1OmVX0JgQ@mail.gmail.com>
- <20170428115630.GG13231@lunn.ch>
- <CAHKzcENk8USj1kjFco=a+vdXeX-FycM1G4hPm6JnotEUtNi99Q@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alan Cox <gnomes@lxorguk.ukuu.org.uk>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Waldemar Rymarkiewicz <waldemar.rymarkiewicz@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAHKzcENk8USj1kjFco=a+vdXeX-FycM1G4hPm6JnotEUtNi99Q@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Subject: [PATCH v1 0/4] stmmac: pci: Fix crash on Intel Galileo Gen2
+Date: Mon,  8 May 2017 17:14:18 +0300
+Message-ID: <20170508141422.39612-1-andriy.shevchenko@linux.intel.com>
+Cc: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+To: Joao Pinto <Joao.Pinto@synopsys.com>,
+        Jan Kiszka <jan.kiszka@siemens.com>,
+        netdev <netdev@vger.kernel.org>,
+        Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
+        "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:50269 "EHLO mga09.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754831AbdEHOO0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 8 May 2017 10:14:26 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> However, the fact is that PHYs having active 1G/s link generate much
-> more heat than having 100M/s link independently from network traffic.
+Due to misconfiguration of PCI driver for Intel Quark the user will get
+a kernel crash:
 
-Yes, this is true. I got an off-list email suggesting this power
-difference is very significant, more so than actually processing
-packets.
+# udhcpc -i eth0
+udhcpc: started, v1.26.2
+stmmaceth 0000:00:14.6 eth0: device MAC address 98:4f:ee:05:ac:47
+Generic PHY stmmac-a6:01: attached PHY driver [Generic PHY] (mii_bus:phy_addr=stmmac-a6:01, irq=-1)
+stmmaceth 0000:00:14.6 eth0: IEEE 1588-2008 Advanced Timestamp supported
+stmmaceth 0000:00:14.6 eth0: registered PTP clock
+IPv6: ADDRCONF(NETDEV_UP): eth0: link is not ready
 
-> All cooling methods impact host only, but "net cooling" impacts remote
-> side in addition, which seems to me to be a problem sometimes. Also,
-> the moment of link renegotiation blocks rx/tx for upper layers, so the
-> user sees a pause when streaming a video for example. However, if a
-> system is under a thermal condition, does it really matter?
+udhcpc: sending discover
 
-I don't know the cooling subsystem too well. Can you express a 'cost'
-for making a change, as well as the likely result in making the
-change. You might want to make the cost high, so it is used as a last
-resort if other methods cannot give enough cooling.
+stmmaceth 0000:00:14.6 eth0: Link is Up - 100Mbps/Full - flow control off
+IPv6: ADDRCONF(NETDEV_CHANGE): eth0: link becomes ready
+BUG: unable to handle kernel NULL pointer dereference at (null)
+IP: stmmac_xmit+0xf1/0x1080
 
-       Andrew
+Fix this by adding necessary settings.
+
+P.S. I split fix to three patches according to what each of them adds.
+
+Andy Shevchenko (4):
+  stmmac: pci: set default number of rx and tx queues
+  stmmac: pci: TX and RX queue priority configuration
+  stmmac: pci: RX queue routing configuration
+  stmmac: pci: split out common_default_data() helper
+
+ drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c | 41 +++++++++++-------------
+ 1 file changed, 18 insertions(+), 23 deletions(-)
+
+-- 
+2.11.0
