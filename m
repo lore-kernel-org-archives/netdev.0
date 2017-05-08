@@ -1,100 +1,46 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH RFC] net: Fix inconsistent teardown and release of
- private netdev state.
-Date: Mon, 8 May 2017 12:13:59 -0700
-Message-ID: <20170508121359.45e367e5@xeon-e3>
-References: <20170508.125243.1637135196896174683.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v1 0/4] stmmac: pci: Fix crash on Intel Galileo Gen2
+Date: Mon, 08 May 2017 15:15:57 -0400 (EDT)
+Message-ID: <20170508.151557.1146408229474904058.davem@davemloft.net>
+References: <20170508141422.39612-1-andriy.shevchenko@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: Joao.Pinto@synopsys.com, jan.kiszka@siemens.com,
+        netdev@vger.kernel.org, peppe.cavallaro@st.com
+To: andriy.shevchenko@linux.intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f51.google.com ([74.125.83.51]:35844 "EHLO
-        mail-pg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752798AbdEHTOC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 8 May 2017 15:14:02 -0400
-Received: by mail-pg0-f51.google.com with SMTP id 64so15807663pgb.3
-        for <netdev@vger.kernel.org>; Mon, 08 May 2017 12:14:02 -0700 (PDT)
-In-Reply-To: <20170508.125243.1637135196896174683.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([184.105.139.130]:35864 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754140AbdEHTP7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 8 May 2017 15:15:59 -0400
+In-Reply-To: <20170508141422.39612-1-andriy.shevchenko@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 08 May 2017 12:52:43 -0400 (EDT)
-David Miller <davem@davemloft.net> wrote:
+From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Date: Mon,  8 May 2017 17:14:18 +0300
 
-> Network devices can allocate reasources and private memory using
-> netdev_ops->ndo_init().  However, the release of these resources
-> can occur in one of two different places.
+> Due to misconfiguration of PCI driver for Intel Quark the user will get
+> a kernel crash:
 > 
-> Either netdev_ops->ndo_uninit() or netdev->destructor().
+> # udhcpc -i eth0
+> udhcpc: started, v1.26.2
+> stmmaceth 0000:00:14.6 eth0: device MAC address 98:4f:ee:05:ac:47
+> Generic PHY stmmac-a6:01: attached PHY driver [Generic PHY] (mii_bus:phy_addr=stmmac-a6:01, irq=-1)
+> stmmaceth 0000:00:14.6 eth0: IEEE 1588-2008 Advanced Timestamp supported
+> stmmaceth 0000:00:14.6 eth0: registered PTP clock
+> IPv6: ADDRCONF(NETDEV_UP): eth0: link is not ready
 > 
-> The decision of which operation frees the resources depends upon
-> whether it is necessary for all netdev refs to be released before it
-> is safe to perform the freeing.
+> udhcpc: sending discover
 > 
-> netdev_ops->ndo_uninit() presumably can occur right after the
-> NETDEV_UNREGISTER notifier completes and the unicast and multicast
-> address lists are flushed.
+> stmmaceth 0000:00:14.6 eth0: Link is Up - 100Mbps/Full - flow control off
+> IPv6: ADDRCONF(NETDEV_CHANGE): eth0: link becomes ready
+> BUG: unable to handle kernel NULL pointer dereference at (null)
+> IP: stmmac_xmit+0xf1/0x1080
 > 
-> netdev->destructor(), on the other hand, does not run until the
-> netdev references all go away.
+> Fix this by adding necessary settings.
 > 
-> Further complicating the situation is that netdev->destructor()
-> almost universally does also a free_netdev().
-> 
-> This creates a problem for the logic in register_netdevice().
-> Because all callers of register_netdevice() manage the freeing
-> of the netdev, and invoke free_netdev(dev) if register_netdevice()
-> fails.
-> 
-> If netdev_ops->ndo_init() succeeds, but something else fails inside
-> of register_netdevice(), it does call ndo_ops->ndo_uninit().  But
-> it is not able to invoke netdev->destructor().
-> 
-> This is because netdev->destructor() will do a free_netdev() and
-> then the caller of register_netdevice() will do the same.
-> 
-> However, this means that the resources that would normally be released
-> by netdev->destructor() will not be.
-> 
-> Over the years drivers have added local hacks to deal with this, by
-> invoking their destructor parts by hand when register_netdevice()
-> fails.
-> 
-> Many drivers do not try to deal with this, and instead we have leaks.
-> 
-> Let's close this hole by formalizing the distinction between what
-> private things need to be freed up by netdev->destructor() and whether
-> the driver needs unregister_netdevice() to perform the free_netdev().
-> 
-> netdev->priv_destructor() performs all actions to free up the private
-> resources that used to be freed by netdev->destructor(), except for
-> free_netdev().
-> 
-> netdev->needs_free_netdev is a boolean that indicates whether
-> free_netdev() should be done at the end of unregister_netdevice().
-> 
-> Now, register_netdevice() can sanely release all resources after
-> ndo_ops->ndo_init() succeeds, by invoking both ndo_ops->ndo_uninit()
-> and netdev->priv_destructor().
-> 
-> And at the end of unregister_netdevice(), we invoke
-> netdev->priv_destructor() and optionally call free_netdev().
-> 
-> Signed-off-by: David S. Miller <davem@davemloft.net>
-> 
+> P.S. I split fix to three patches according to what each of them adds.
 
-Thanks for addressing a confusing and messy semantic. If you merge
-this then it would be good to update the documentation in Doucmentation/networking
-to describe how drivers are supposed to behave.
-
-The original semantics here evolved from a desire not to have to re-engineer
-lots of device drivers. And your change does the same; ie. assume that there
-is a reason the device needs special treatment on unregister.
-
-An alternative and more difficult way of addressing the problem would
-be to rework the drivers that define destructors to work with the simpler
-model used by all the other drivers. What makes these drivers special,
-and can they be fixed instead. Probably this won't work and would be too
-much effort on lots of little used devices.
+Looks good, series applied, thanks.
