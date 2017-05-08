@@ -1,49 +1,70 @@
 From: Hangbin Liu <liuhangbin@gmail.com>
-Subject: [PATCH v2 net] vti: check nla_put_* return value
-Date: Mon,  8 May 2017 17:57:13 +0800
-Message-ID: <1494237433-18964-1-git-send-email-liuhangbin@gmail.com>
-References: <1494225380-12322-1-git-send-email-liuhangbin@gmail.com>
+Subject: [PATCH net] tcp: init tcp_options before using it.
+Date: Mon,  8 May 2017 17:57:57 +0800
+Message-ID: <1494237477-19023-1-git-send-email-liuhangbin@gmail.com>
 Cc: Hangbin Liu <liuhangbin@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:35425 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752759AbdEHJ5t (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 8 May 2017 05:57:49 -0400
-Received: by mail-pg0-f65.google.com with SMTP id i63so9896998pgd.2
-        for <netdev@vger.kernel.org>; Mon, 08 May 2017 02:57:48 -0700 (PDT)
-In-Reply-To: <1494225380-12322-1-git-send-email-liuhangbin@gmail.com>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:35854 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753808AbdEHJ6R (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 8 May 2017 05:58:17 -0400
+Received: by mail-pf0-f195.google.com with SMTP id v14so9184201pfd.3
+        for <netdev@vger.kernel.org>; Mon, 08 May 2017 02:58:17 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+I searched 4308fc58dced ("tcp: Document use of undefined variable") in
+archive list, but did not find the thread. So I'm not sure why we only
+add a description about un-initialized value.
+
+Even we don't use tmp_opt.sack_ok, I think it would be more safe to
+initialize the value before using it. Just as other caller did.
+
 Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
 ---
- net/ipv4/ip_vti.c | 13 +++++++------
- 1 file changed, 7 insertions(+), 6 deletions(-)
+ net/ipv4/tcp_minisocks.c | 8 ++------
+ 1 file changed, 2 insertions(+), 6 deletions(-)
 
-diff --git a/net/ipv4/ip_vti.c b/net/ipv4/ip_vti.c
-index 4097741..4ec9aff 100644
---- a/net/ipv4/ip_vti.c
-+++ b/net/ipv4/ip_vti.c
-@@ -546,12 +546,13 @@ static int vti_fill_info(struct sk_buff *skb, const struct net_device *dev)
- 	struct ip_tunnel *t = netdev_priv(dev);
- 	struct ip_tunnel_parm *p = &t->parms;
+diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
+index 717be4d..6ca2546 100644
+--- a/net/ipv4/tcp_minisocks.c
++++ b/net/ipv4/tcp_minisocks.c
+@@ -85,8 +85,6 @@ tcp_timewait_check_oow_rate_limit(struct inet_timewait_sock *tw,
+  * spinlock it. I do not want! Well, probability of misbehaviour
+  * is ridiculously low and, seems, we could use some mb() tricks
+  * to avoid misread sequence numbers, states etc.  --ANK
+- *
+- * We don't need to initialize tmp_out.sack_ok as we don't use the results
+  */
+ enum tcp_tw_status
+ tcp_timewait_state_process(struct inet_timewait_sock *tw, struct sk_buff *skb,
+@@ -96,7 +94,7 @@ tcp_timewait_state_process(struct inet_timewait_sock *tw, struct sk_buff *skb,
+ 	struct tcp_timewait_sock *tcptw = tcp_twsk((struct sock *)tw);
+ 	bool paws_reject = false;
  
--	nla_put_u32(skb, IFLA_VTI_LINK, p->link);
--	nla_put_be32(skb, IFLA_VTI_IKEY, p->i_key);
--	nla_put_be32(skb, IFLA_VTI_OKEY, p->o_key);
--	nla_put_in_addr(skb, IFLA_VTI_LOCAL, p->iph.saddr);
--	nla_put_in_addr(skb, IFLA_VTI_REMOTE, p->iph.daddr);
--	nla_put_u32(skb, IFLA_VTI_FWMARK, t->fwmark);
-+	if (nla_put_u32(skb, IFLA_VTI_LINK, p->link) ||
-+	    nla_put_be32(skb, IFLA_VTI_IKEY, p->i_key) ||
-+	    nla_put_be32(skb, IFLA_VTI_OKEY, p->o_key) ||
-+	    nla_put_in_addr(skb, IFLA_VTI_LOCAL, p->iph.saddr) ||
-+	    nla_put_in_addr(skb, IFLA_VTI_REMOTE, p->iph.daddr) ||
-+	    nla_put_u32(skb, IFLA_VTI_FWMARK, t->fwmark))
-+		return -EMSGSIZE;
+-	tmp_opt.saw_tstamp = 0;
++	memset(&tmp_opt, 0, sizeof(tmp_opt));
+ 	if (th->doff > (sizeof(*th) >> 2) && tcptw->tw_ts_recent_stamp) {
+ 		tcp_parse_options(skb, &tmp_opt, 0, NULL);
  
- 	return 0;
- }
+@@ -542,8 +540,6 @@ EXPORT_SYMBOL(tcp_create_openreq_child);
+  *
+  * XXX (TFO) - The current impl contains a special check for ack
+  * validation and inside tcp_v4_reqsk_send_ack(). Can we do better?
+- *
+- * We don't need to initialize tmp_opt.sack_ok as we don't use the results
+  */
+ 
+ struct sock *tcp_check_req(struct sock *sk, struct sk_buff *skb,
+@@ -557,7 +553,7 @@ struct sock *tcp_check_req(struct sock *sk, struct sk_buff *skb,
+ 	bool paws_reject = false;
+ 	bool own_req;
+ 
+-	tmp_opt.saw_tstamp = 0;
++	memset(&tmp_opt, 0, sizeof(tmp_opt));
+ 	if (th->doff > (sizeof(struct tcphdr)>>2)) {
+ 		tcp_parse_options(skb, &tmp_opt, 0, NULL);
+ 
 -- 
 2.5.5
