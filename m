@@ -1,104 +1,58 @@
-From: Alexandru Ardelean <ardeleanalex@gmail.com>
-Subject: [PATCH] net/fsl: remove func xgmac_wait_until_free() as duplicate
-Date: Mon,  8 May 2017 14:31:18 +0300
-Message-ID: <1494243078-17917-1-git-send-email-ardeleanalex@gmail.com>
-Cc: Shaohui.Xie@nxp.com, davem@davemloft.net,
-        Alexandru Ardelean <ardeleanalex@gmail.com>
-To: netdev@vger.kernel.org
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH/RFC net-next v2 4/4] net/sched: cls_flower: allow control
+ of tree traversal on packet parse errors
+Date: Mon, 8 May 2017 07:32:02 -0400
+Message-ID: <6c618cf6-99ec-d2e1-f1ed-dfae0bf54de7@mojatatu.com>
+References: <1493988426-22854-1-git-send-email-simon.horman@netronome.com>
+ <1493988426-22854-5-git-send-email-simon.horman@netronome.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Dinan Gunawardena <dinan.gunawardena@netronome.com>,
+        netdev@vger.kernel.org, oss-drivers@netronome.com,
+        Benjamin LaHaise <benjamin.lahaise@netronome.com>
+To: Simon Horman <simon.horman@netronome.com>,
+        Jiri Pirko <jiri@mellanox.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f195.google.com ([209.85.128.195]:36692 "EHLO
-        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750785AbdEHLb0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 8 May 2017 07:31:26 -0400
-Received: by mail-wr0-f195.google.com with SMTP id v42so7992096wrc.3
-        for <netdev@vger.kernel.org>; Mon, 08 May 2017 04:31:25 -0700 (PDT)
+Received: from mail-it0-f52.google.com ([209.85.214.52]:37443 "EHLO
+        mail-it0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752105AbdEHLcF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 8 May 2017 07:32:05 -0400
+Received: by mail-it0-f52.google.com with SMTP id x188so36157554itb.0
+        for <netdev@vger.kernel.org>; Mon, 08 May 2017 04:32:05 -0700 (PDT)
+In-Reply-To: <1493988426-22854-5-git-send-email-simon.horman@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Looking at xgmac_wait_until_done() and xgmac_wait_until_free()
-functions, they seem to have turned out completely identical.
+On 17-05-05 08:47 AM, Simon Horman wrote:
+> Allow control how the tree of qdisc, classes and filters is further
+> traversed if an error is encountered when parsing the packet in order to
+> match the cls_flower filters at a particular prio.
+>
+> By default continue to the next filter, the behaviour without this patch.
+>
+> A use-case for this is to allow configuration of dropping of packets with
+> truncated headers.
+>
+> For example, the following drops IPv4 packets that cannot be parsed by the
+> flow dissector up to the end of the UDP ports - e.g. because they are
+> truncated, and instantiates a continue action based on the port for packets
+> that can be parsed.
+>
+>  # tc qdisc del dev eth0 ingress; tc qdisc add dev eth0 ingress
+>  # tc filter add dev eth0 protocol ip parent ffff: flower \
+>        indev eth0 ip_proto udp dst_port 80 truncated drop action continue
+>
+> Signed-off-by: Simon Horman <simon.horman@netronome.com>
+> Reviewed-by: Benjamin LaHaise <benjamin.lahaise@netronome.com>
 
-Though, judging from the git history it seems they
-initially weren't.
+I agree with Cong on this. The default should be "didnt match" (which
+is accomplished by returning -1). The user could enter an explicit
+rule to override this behavior. i.e something like:
 
-Remove xgmac_wait_until_free() in favor of xgmac_wait_until_done().
+tc filter add dev eth0 protocol ip parent ffff: flower \
+         indev eth0 ip_proto udp dst_port 80 truncated action continue
 
-Signed-off-by: Alexandru Ardelean <ardeleanalex@gmail.com>
----
- drivers/net/ethernet/freescale/xgmac_mdio.c | 33 ++++-------------------------
- 1 file changed, 4 insertions(+), 29 deletions(-)
-
-diff --git a/drivers/net/ethernet/freescale/xgmac_mdio.c b/drivers/net/ethernet/freescale/xgmac_mdio.c
-index e03b30c..54597a8 100644
---- a/drivers/net/ethernet/freescale/xgmac_mdio.c
-+++ b/drivers/net/ethernet/freescale/xgmac_mdio.c
-@@ -71,31 +71,6 @@ static void xgmac_write32(u32 value,
- }
- 
- /*
-- * Wait until the MDIO bus is free
-- */
--static int xgmac_wait_until_free(struct device *dev,
--				 struct tgec_mdio_controller __iomem *regs,
--				 bool is_little_endian)
--{
--	unsigned int timeout;
--
--	/* Wait till the bus is free */
--	timeout = TIMEOUT;
--	while ((xgmac_read32(&regs->mdio_stat, is_little_endian) &
--		MDIO_STAT_BSY) && timeout) {
--		cpu_relax();
--		timeout--;
--	}
--
--	if (!timeout) {
--		dev_err(dev, "timeout waiting for bus to be free\n");
--		return -ETIMEDOUT;
--	}
--
--	return 0;
--}
--
--/*
-  * Wait till the MDIO read or write operation is complete
-  */
- static int xgmac_wait_until_done(struct device *dev,
-@@ -147,7 +122,7 @@ static int xgmac_mdio_write(struct mii_bus *bus, int phy_id, int regnum, u16 val
- 
- 	xgmac_write32(mdio_stat, &regs->mdio_stat, endian);
- 
--	ret = xgmac_wait_until_free(&bus->dev, regs, endian);
-+	ret = xgmac_wait_until_done(&bus->dev, regs, endian);
- 	if (ret)
- 		return ret;
- 
-@@ -159,7 +134,7 @@ static int xgmac_mdio_write(struct mii_bus *bus, int phy_id, int regnum, u16 val
- 	if (regnum & MII_ADDR_C45) {
- 		xgmac_write32(regnum & 0xffff, &regs->mdio_addr, endian);
- 
--		ret = xgmac_wait_until_free(&bus->dev, regs, endian);
-+		ret = xgmac_wait_until_done(&bus->dev, regs, endian);
- 		if (ret)
- 			return ret;
- 	}
-@@ -201,7 +176,7 @@ static int xgmac_mdio_read(struct mii_bus *bus, int phy_id, int regnum)
- 
- 	xgmac_write32(mdio_stat, &regs->mdio_stat, endian);
- 
--	ret = xgmac_wait_until_free(&bus->dev, regs, endian);
-+	ret = xgmac_wait_until_done(&bus->dev, regs, endian);
- 	if (ret)
- 		return ret;
- 
-@@ -213,7 +188,7 @@ static int xgmac_mdio_read(struct mii_bus *bus, int phy_id, int regnum)
- 	if (regnum & MII_ADDR_C45) {
- 		xgmac_write32(regnum & 0xffff, &regs->mdio_addr, endian);
- 
--		ret = xgmac_wait_until_free(&bus->dev, regs, endian);
-+		ret = xgmac_wait_until_done(&bus->dev, regs, endian);
- 		if (ret)
- 			return ret;
- 	}
--- 
-2.7.4
+cheers,
+jamal
