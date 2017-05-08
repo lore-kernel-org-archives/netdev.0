@@ -1,48 +1,46 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH RFC net-next 3/6] net: Introduce IFF_LWT_NETDEV flag
-Date: Mon, 8 May 2017 14:37:41 -0700
-Message-ID: <CAJieiUhyeSBk+Zm8xkZ2D24-CrgpUpBCvUORDLXX7+6yAbw-6Q@mail.gmail.com>
-References: <20170506160734.47084-1-dsahern@gmail.com> <20170506160734.47084-4-dsahern@gmail.com>
- <1494233712.2562.0.camel@sipsolutions.net> <20170508.161130.1538627061428691500.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Johannes Berg <johannes@sipsolutions.net>,
-        David Ahern <dsahern@gmail.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ua0-f178.google.com ([209.85.217.178]:35091 "EHLO
-        mail-ua0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754527AbdEHVhs (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 8 May 2017 17:37:48 -0400
-Received: by mail-ua0-f178.google.com with SMTP id e55so55424493uaa.2
-        for <netdev@vger.kernel.org>; Mon, 08 May 2017 14:37:47 -0700 (PDT)
-In-Reply-To: <20170508.161130.1538627061428691500.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jon Mason <jon.mason@broadcom.com>
+Subject: [PATCH] net: mdio-mux: bcm-iproc: call mdiobus_free() in error path
+Date: Mon,  8 May 2017 17:48:35 -0400
+Message-ID: <1494280115-9252-1-git-send-email-jon.mason@broadcom.com>
+Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+        linux-kernel@vger.kernel.org, bcm-kernel-feedback-list@broadcom.com
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, May 8, 2017 at 1:11 PM, David Miller <davem@davemloft.net> wrote:
-> From: Johannes Berg <johannes@sipsolutions.net>
-> Date: Mon, 08 May 2017 10:55:12 +0200
->
->>
->>> +static inline bool netif_is_lwd(struct net_device *dev)
->>> +{
->>> +    return !!(dev->priv_flags & IFF_LWT_NETDEV);
->>> +}
->>
->> Am I the only one who thinks that this "LWT_NETDEV" vs "LWD" is a bit
->> confusing?
->
-> Agreed, my old eyes can't discern them at a distance :-)
+If an error is encountered in mdio_mux_init(), the error path will call
+mdiobus_free().  Since mdiobus_register() has been called prior to
+mdio_mux_init(), the bus->state will not be MDIOBUS_UNREGISTERED.  This
+causes a BUG_ON() in mdiobus_free().  To correct this issue, add an
+error path for mdio_mux_init() which calls mdiobus_unregister() prior to
+mdiobus_free().
 
+Signed-off-by: Jon Mason <jon.mason@broadcom.com>
+Fixes: 98bc865a1ec8 ("net: mdio-mux: Add MDIO mux driver for iProc SoCs")
+---
+ drivers/net/phy/mdio-mux-bcm-iproc.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
 
-agree.
-
-mix of LWT_NETDEV and LWD can get confusing.
-
-LWT already stands for Light Weight Tunnel...,
-this can only be LWD or  LWN ;)....if people don't confuse it with
-some weekly news device :)
+diff --git a/drivers/net/phy/mdio-mux-bcm-iproc.c b/drivers/net/phy/mdio-mux-bcm-iproc.c
+index 0a0412524cec..0a5f62e0efcc 100644
+--- a/drivers/net/phy/mdio-mux-bcm-iproc.c
++++ b/drivers/net/phy/mdio-mux-bcm-iproc.c
+@@ -203,11 +203,14 @@ static int mdio_mux_iproc_probe(struct platform_device *pdev)
+ 			   &md->mux_handle, md, md->mii_bus);
+ 	if (rc) {
+ 		dev_info(md->dev, "mdiomux initialization failed\n");
+-		goto out;
++		goto out_register;
+ 	}
+ 
+ 	dev_info(md->dev, "iProc mdiomux registered\n");
+ 	return 0;
++
++out_register:
++	mdiobus_unregister(bus);
+ out:
+ 	mdiobus_free(bus);
+ 	return rc;
+-- 
+2.7.4
