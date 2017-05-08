@@ -1,75 +1,67 @@
-From: Grygorii Strashko <grygorii.strashko@ti.com>
-Subject: [PATCH] net: ethernet: ti: cpsw: adjust cpsw fifos depth for fullduplex flow control
-Date: Mon, 8 May 2017 14:21:21 -0500
-Message-ID: <20170508192121.20451-1-grygorii.strashko@ti.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net/fsl: remove func xgmac_wait_until_free() as
+ duplicate
+Date: Mon, 08 May 2017 15:34:14 -0400 (EDT)
+Message-ID: <20170508.153414.1871607886646871422.davem@davemloft.net>
+References: <1494243078-17917-1-git-send-email-ardeleanalex@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <linux-kernel@vger.kernel.org>, <linux-omap@vger.kernel.org>,
-        Grygorii Strashko <grygorii.strashko@ti.com>,
-        Schuyler Patton <spatton@ti.com>
-To: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
-        Sekhar Nori <nsekhar@ti.com>,
-        Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Shaohui.Xie@nxp.com
+To: ardeleanalex@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:36640 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754550AbdEHTeQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 8 May 2017 15:34:16 -0400
+In-Reply-To: <1494243078-17917-1-git-send-email-ardeleanalex@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-When users set flow control using ethtool the bits are set properly in the
-CPGMAC_SL MACCONTROL register, but the FIFO depth in the respective Port n
-Maximum FIFO Blocks (Pn_MAX_BLKS) registers remains set to the minimum size
-reset value. When receive flow control is enabled on a port, the port's
-associated FIFO block allocation must be adjusted. The port RX allocation
-must increase to accommodate the flow control runout. The TRM recommends
-numbers of 5 or 6.
+From: Alexandru Ardelean <ardeleanalex@gmail.com>
+Date: Mon,  8 May 2017 14:31:18 +0300
 
-Hence, apply required Port FIFO configuration to
-Pn_MAX_BLKS.Pn_TX_MAX_BLKS=0xF and Pn_MAX_BLKS.Pn_RX_MAX_BLKS=0x5 during
-interface initialization.
+> Looking at xgmac_wait_until_done() and xgmac_wait_until_free()
+> functions, they seem to have turned out completely identical.
+> 
+> Though, judging from the git history it seems they
+> initially weren't.
+> 
+> Remove xgmac_wait_until_free() in favor of xgmac_wait_until_done().
+> 
+> Signed-off-by: Alexandru Ardelean <ardeleanalex@gmail.com>
 
-Cc: Schuyler Patton <spatton@ti.com>
-Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
----
- drivers/net/ethernet/ti/cpsw.c | 16 ++++++++++++++++
- 1 file changed, 16 insertions(+)
+This situation got created by the commit below, I wonder if it
+is even correct.
 
-diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index 20fd14c..7cf9c79 100644
---- a/drivers/net/ethernet/ti/cpsw.c
-+++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -287,6 +287,10 @@ struct cpsw_ss_regs {
- /* Bit definitions for the CPSW1_TS_SEQ_LTYPE register */
- #define CPSW_V1_SEQ_ID_OFS_SHIFT	16
+Certainly the original author of this code intended the MDIO
+_data_ rather than the _status_ register to be polled.
+
+Otherwise, why in the world have two functions which are in
+every other regard identical?
+
+commit 26eee0210ad72a29eb4a70b34320bda266f91a0d
+Author: Shaohui Xie <Shaohui.Xie@freescale.com>
+Date:   Mon Mar 16 18:55:50 2015 +0800
+
+    net/fsl: fix a bug in xgmac_mdio
+    
+    There is a bug in xgmac_wait_until_done() which mdio_stat should be used
+    instead of mdio_data when checking if busy bit is cleared.
+    
+    Signed-off-by: Shaohui Xie <Shaohui.Xie@freescale.com>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+
+diff --git a/drivers/net/ethernet/freescale/xgmac_mdio.c b/drivers/net/ethernet/freescale/xgmac_mdio.c
+index 3a83bc2..5f691f2 100644
+--- a/drivers/net/ethernet/freescale/xgmac_mdio.c
++++ b/drivers/net/ethernet/freescale/xgmac_mdio.c
+@@ -79,7 +79,7 @@ static int xgmac_wait_until_done(struct device *dev,
  
-+#define CPSW_MAX_BLKS_TX		15
-+#define CPSW_MAX_BLKS_TX_SHIFT		4
-+#define CPSW_MAX_BLKS_RX		5
-+
- struct cpsw_host_regs {
- 	u32	max_blks;
- 	u32	blk_cnt;
-@@ -1278,11 +1282,23 @@ static void cpsw_slave_open(struct cpsw_slave *slave, struct cpsw_priv *priv)
- 	switch (cpsw->version) {
- 	case CPSW_VERSION_1:
- 		slave_write(slave, TX_PRIORITY_MAPPING, CPSW1_TX_PRI_MAP);
-+		/* Increase RX FIFO size to 5 for supporting fullduplex
-+		 * flow control mode
-+		 */
-+		slave_write(slave,
-+			    (CPSW_MAX_BLKS_TX << CPSW_MAX_BLKS_TX_SHIFT) |
-+			    CPSW_MAX_BLKS_RX, CPSW1_MAX_BLKS);
- 		break;
- 	case CPSW_VERSION_2:
- 	case CPSW_VERSION_3:
- 	case CPSW_VERSION_4:
- 		slave_write(slave, TX_PRIORITY_MAPPING, CPSW2_TX_PRI_MAP);
-+		/* Increase RX FIFO size to 5 for supporting fullduplex
-+		 * flow control mode
-+		 */
-+		slave_write(slave,
-+			    (CPSW_MAX_BLKS_TX << CPSW_MAX_BLKS_TX_SHIFT) |
-+			    CPSW_MAX_BLKS_RX, CPSW2_MAX_BLKS);
- 		break;
+ 	/* Wait till the MDIO write is complete */
+ 	timeout = TIMEOUT;
+-	while ((ioread32be(&regs->mdio_data) & MDIO_DATA_BSY) && timeout) {
++	while ((ioread32be(&regs->mdio_stat) & MDIO_STAT_BSY) && timeout) {
+ 		cpu_relax();
+ 		timeout--;
  	}
- 
--- 
-2.10.1
