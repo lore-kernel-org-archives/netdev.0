@@ -1,46 +1,66 @@
-From: Benjamin Poirier <benjamin.poirier@gmail.com>
-Subject: Re: SSE instructions for fast packet copy?
-Date: Mon, 8 May 2017 15:46:21 -0400
-Message-ID: <20170508194621.5khsjn7xgdxfggfz@f1.synalogic.ca>
-References: <CALx6S34r6Q_wCKqzv5YjKJyuETyYmY1y=M7uDYiLfpnXzqbheg@mail.gmail.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] net: dsa: loop: Check for memory allocation failure
+Date: Mon, 08 May 2017 10:44:03 -0700
+Message-ID: <1494265443.31950.62.camel@perches.com>
+References: <20170506052945.2639-1-christophe.jaillet@wanadoo.fr>
+         <063D6719AE5E284EB5DD2968C1650D6DCFFE715E@AcuExch.aculab.com>
+         <alpine.DEB.2.20.1705082031280.3440@hadrien>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Tom Herbert <tom@herbertland.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f47.google.com ([209.85.214.47]:37682 "EHLO
-        mail-it0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753385AbdEHTqZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 8 May 2017 15:46:25 -0400
-Received: by mail-it0-f47.google.com with SMTP id x188so44041408itb.0
-        for <netdev@vger.kernel.org>; Mon, 08 May 2017 12:46:25 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CALx6S34r6Q_wCKqzv5YjKJyuETyYmY1y=M7uDYiLfpnXzqbheg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: 'Christophe JAILLET' <christophe.jaillet@wanadoo.fr>,
+        "andrew@lunn.ch" <andrew@lunn.ch>,
+        "vivien.didelot@savoirfairelinux.com"
+        <vivien.didelot@savoirfairelinux.com>,
+        "f.fainelli@gmail.com" <f.fainelli@gmail.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>
+To: Julia Lawall <julia.lawall@lip6.fr>,
+        David Laight <David.Laight@ACULAB.COM>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.DEB.2.20.1705082031280.3440@hadrien>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 2017/05/04 22:50, Tom Herbert wrote:
-> Hi,
+On Mon, 2017-05-08 at 20:32 +0800, Julia Lawall wrote:
 > 
-> I am thinking about the possibility of using SSE in kernel for
-> speeding up the kernel memcpy particularly for copy to userspace
-> emeory, and maybe even using the string instructions (like if we
-> supported regex in something like eBPF). AFAIK we don't use SSE in
-> kernel because of xmm register state needing to be saved across
-> context switch. However, if we start busy-polling a CPU in kernel on
-> network queues then there might not be any context switches to worry
-> about. In this model we'd want to enable SSE per CPU.
+> On Mon, 8 May 2017, David Laight wrote:
 > 
-> Has this ever been tried before? Is this at all feasible? :-) Is it
-> possible to enable SSE for kernel for just one CPU? (I found CPUID
-> will return SSE supported, but don't see how to enable other than
-> -msse for compiling).
+> > From: Christophe JAILLET
+> > > Sent: 06 May 2017 06:30
+> > > If 'devm_kzalloc' fails, a NULL pointer will be dereferenced.
+> > > Return -ENOMEM instead, as done for some other memory allocation just a
+> > > few lines above.
+> > 
+> > ...
+> > > --- a/drivers/net/dsa/dsa_loop.c
+> > > +++ b/drivers/net/dsa/dsa_loop.c
+> > > @@ -256,6 +256,9 @@ static int dsa_loop_drv_probe(struct mdio_device *mdiodev)
+> > >  		return -ENOMEM;
+> > > 
+> > >  	ps = devm_kzalloc(&mdiodev->dev, sizeof(*ps), GFP_KERNEL);
+> > > +	if (!ps)
+> > > +		return -ENOMEM;
+> > > +
+> > >  	ps->netdev = dev_get_by_name(&init_net, pdata->netdev);
+> > >  	if (!ps->netdev)
+> > >  		return -EPROBE_DEFER;
+> > 
+> > On the face if it this code leaks like a sieve.
+> 
+> I don't think so.  The allocations (dsa_switch_alloc and devm_kzalloc) use
+> devm functions.
 
-This reminds me of what you tried in
-	c6e1a0d12ca7 net: Allow no-cache copy from user on transmit
-	(v3.0-rc1)
-and that I reverted in
-	cdb3f4a31b64 net: Do not enable tx-nocache-copy by default
-	(v3.14-rc1)
+It's at least wasteful.
 
-Sure, it's not exactly the same thing...
+Each time -EPROBE_DEFER occurs, another set of calls to
+dsa_switch_alloc and dev_kzalloc also occurs.
+
+Perhaps it'd be better to do:
+
+	if (ps->netdev) {
+		devm_kfree(&devmdev->dev, ps);
+		devm_kfree(&mdiodev->dev, ds);
+		return -EPROBE_DEFER;
+	}
