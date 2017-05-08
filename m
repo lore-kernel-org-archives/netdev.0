@@ -1,30 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bonding: make multi if nla_put_failure check into one
-Date: Mon, 08 May 2017 14:57:44 -0400 (EDT)
-Message-ID: <20170508.145744.1888562760946152162.davem@davemloft.net>
-References: <1494040672-13934-1-git-send-email-liuhangbin@gmail.com>
+Subject: Re: [PATCH] net: dsa: loop: Check for memory allocation failure
+Date: Mon, 08 May 2017 15:01:36 -0400 (EDT)
+Message-ID: <20170508.150136.1033006170371331565.davem@davemloft.net>
+References: <20170506052945.2639-1-christophe.jaillet@wanadoo.fr>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: liuhangbin@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:34920 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753948AbdEHS5p (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 8 May 2017 14:57:45 -0400
-In-Reply-To: <1494040672-13934-1-git-send-email-liuhangbin@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
+        f.fainelli@gmail.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: christophe.jaillet@wanadoo.fr
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170506052945.2639-1-christophe.jaillet@wanadoo.fr>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Hangbin Liu <liuhangbin@gmail.com>
-Date: Sat,  6 May 2017 11:17:52 +0800
+From: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+Date: Sat,  6 May 2017 07:29:45 +0200
 
-> Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
+> If 'devm_kzalloc' fails, a NULL pointer will be dereferenced.
+> Return -ENOMEM instead, as done for some other memory allocation just a
+> few lines above.
+> 
+> Fixes: 98cd1552ea27 ("net: dsa: Mock-up driver")
+> 
+> Signed-off-by: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
 
-Changes like this neither make the code better nor worse, so please
-avoid this kind of churn.
+Please do not separate "Fixes: " tags from signoffs and acks with
+empty lines in the future, thank you.
 
-I'm not applying this.
-
-Thank you.
+Applied and queued up for -stable.
