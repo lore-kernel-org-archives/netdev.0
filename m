@@ -1,136 +1,47 @@
-From: "Gao Feng" <gfree.wind@foxmail.com>
-Subject: RE: [PATCH net v4 00/12] Fix possbile memleaks when fail to register_netdevice
-Date: Mon, 8 May 2017 12:18:44 +0800
-Message-ID: <004f01d2c7b2$2f951050$8ebf30f0$@foxmail.com>
-References: <cover.1493699451.git.gfree.wind@foxmail.com> <20170507.182550.695836233888168365.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain;
-        charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: <jiri@resnulli.us>, <mareklindner@neomailbox.ch>,
-        <sw@simonwunderlich.de>, <a@unstable.cc>, <kuznet@ms2.inr.ac.ru>,
-        <jmorris@namei.org>, <yoshfuji@linux-ipv6.org>, <kaber@trash.net>,
-        <steffen.klassert@secunet.com>, <herbert@gondor.apana.org.au>,
-        <netdev@vger.kernel.org>
-To: "'David Miller'" <davem@davemloft.net>
+From: Hangbin Liu <liuhangbin@gmail.com>
+Subject: [PATCH net] vit: check nla_put_* return value
+Date: Mon,  8 May 2017 14:36:20 +0800
+Message-ID: <1494225380-12322-1-git-send-email-liuhangbin@gmail.com>
+Cc: Hangbin Liu <liuhangbin@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpbgau2.qq.com ([54.206.34.216]:55430 "EHLO smtpbgau2.qq.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750944AbdEHETF (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 8 May 2017 00:19:05 -0400
-In-Reply-To: <20170507.182550.695836233888168365.davem@davemloft.net>
-Content-Language: zh-cn
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:35705 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751872AbdEHGgu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 8 May 2017 02:36:50 -0400
+Received: by mail-pg0-f66.google.com with SMTP id i63so9243457pgd.2
+        for <netdev@vger.kernel.org>; Sun, 07 May 2017 23:36:50 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
+---
+ net/ipv4/ip_vti.c | 13 +++++++------
+ 1 file changed, 7 insertions(+), 6 deletions(-)
 
-> From: David Miller [mailto:davem@davemloft.net]
-> From: gfree.wind@foxmail.com
-> Date: Tue,  2 May 2017 13:58:42 +0800
-> 
-> > These following drivers allocate kinds of resources in its ndo_init
-> > func, free some of them or all in the destructor func. Then there is
-> > one memleak that some errors happen after register_netdevice invokes
-> > the ndo_init callback. Because only the ndo_uninit callback is invoked
-> > in the error handler of register_netdevice, but destructor not.
-> >
-> > In my original approach, I tried to free the resources in the newlink
-> > func when fail to register_netdevice, like destructor did except not
-> > free the net_dev. This method is not good when destructor is changed,
-> > and the memleak could be not fixed when there is no newlink callback.
-> >
-> > Now create one new func used to free the resources in the destructor,
-> > and the ndo_uninit func also could invokes it when fail to register
-> > the net_device by comparing the dev->reg_state with
-> > NETREG_UNINITIALIZED.  If there is no existing ndo_uninit, just add
-> > one.
-> >
-> > This solution doesn't only make sure free all resources in any case,
-> > but also follows the original desgin that some resources could be kept
-> > until the destructor executes normally after register the device
-> > successfully.
-> 
-> Device private teardown is in two stages for the following reason.
-> The issue is that netdev_ops->ndo_init() allocates two types of resources.
-> 
-> One type is OK to release during destruction before the netdev refs goes
-to
-> zero.  This is what netdev_ops->ndo_uninit() is for.
-> 
-> The second type is for releasing things which are not safe to drop until
-the very
-> last netdev reference disappears.  This is what
-> netdev->destructor() is for.
-> 
-> If you look around there are hacks in place all over to try and deal with
-this
-> issue.  Basically, look for code that checks the return value of
-> register_netdev() and if an error is indicated it does some local driver
-state
-> freeing.  Bonding is one example.  It is trying to deal with the problem
-this
-> patch set is targetting.
-
-Yes. When I was fixing this bug, I had found the bond had deal with this
-issue, frees the resources by itself.
-
-> 
-> What really needs to happen is we must divorce the logic of
-> dev->destructor() from free_netdev().
-> 
-> That way we can do the free_netdev in the unregister netdevice path after
-> calling netdev->destructor().
-> 
-> Then the only issue callers of register_netdevice() need to be aware of is
-that if
-> an error is returned, that caller must call free_netdev().  Which has been
-the
-> case for decades.
-> 
-> So I would fix this as follows:
-> 
-> 1) Rename netdev->destructor() into "netdev->priv_destructor()"  It
->    performs all post ndo_ops->ndo_uninit() cleanups, _except_
->    free_netdev().  Update all drivers with netdev->destructor().
-> 
-> 2) Add a boolean state to netdev, which indicates if free_netdev()
->    should be performed after netdev->priv_destructor() during
->    unregister.
-> 
-> That provides all of the flexibility necessary to fix this bug in the
-core.
-> 
-> In register_netdevice() if something after ndo_ops->ndo_init() succeeeds,
-we
-> invoke _both_ ndo_ops->ndo_uninit() and
-> netdev->priv_destructor().  We do not look at the netdev "needs
-> free_netdev()" boolean.
-> 
-> In netdev_run_todo(), where we have the one and only
-> netdev->destructor() call, change it to:
-> 
-> 	if (dev->priv_destructor)
-> 		dev->priv_destructor(dev);
-> 	if (dev->needs_free_netdev)
-> 		free_netdev(dev);
-> 
-> That fixes the bug in all cases.  And makes the purpose and logic
-extremely
-> clear.  Also, no internal state tests leak into the drivers.
-> 
-> Finally, drivers that try to cover up this issue, such as bonding, need to
-be
-> changed to no try and free up device private state if their invocation of
-> register_netdevice() fails.
-> 
-> Thanks.
-
-Ok. It is better to fix it by changing the framework of net_dev.
-I was afraid that I would bring other bugs if I changed it.
-Because it would affect too many codes.
-
-I would like to see you fix it by yourself.
-
-Best Regards
-Feng
+diff --git a/net/ipv4/ip_vti.c b/net/ipv4/ip_vti.c
+index 4097741..4ec9aff 100644
+--- a/net/ipv4/ip_vti.c
++++ b/net/ipv4/ip_vti.c
+@@ -546,12 +546,13 @@ static int vti_fill_info(struct sk_buff *skb, const struct net_device *dev)
+ 	struct ip_tunnel *t = netdev_priv(dev);
+ 	struct ip_tunnel_parm *p = &t->parms;
+ 
+-	nla_put_u32(skb, IFLA_VTI_LINK, p->link);
+-	nla_put_be32(skb, IFLA_VTI_IKEY, p->i_key);
+-	nla_put_be32(skb, IFLA_VTI_OKEY, p->o_key);
+-	nla_put_in_addr(skb, IFLA_VTI_LOCAL, p->iph.saddr);
+-	nla_put_in_addr(skb, IFLA_VTI_REMOTE, p->iph.daddr);
+-	nla_put_u32(skb, IFLA_VTI_FWMARK, t->fwmark);
++	if (nla_put_u32(skb, IFLA_VTI_LINK, p->link) ||
++	    nla_put_be32(skb, IFLA_VTI_IKEY, p->i_key) ||
++	    nla_put_be32(skb, IFLA_VTI_OKEY, p->o_key) ||
++	    nla_put_in_addr(skb, IFLA_VTI_LOCAL, p->iph.saddr) ||
++	    nla_put_in_addr(skb, IFLA_VTI_REMOTE, p->iph.daddr) ||
++	    nla_put_u32(skb, IFLA_VTI_FWMARK, t->fwmark))
++		return -EMSGSIZE;
+ 
+ 	return 0;
+ }
+-- 
+2.5.5
