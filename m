@@ -1,83 +1,51 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [ISSUE: sky2 - rx error] Link stops working under heavy traffic
- load connected to a mv88e6176
-Date: Mon, 8 May 2017 14:38:52 +0200
-Message-ID: <20170508123852.GI27709@lunn.ch>
-References: <58F9FD64.80506@aoifes.com>
- <20170425082741.59428876@xeon-e3>
- <5901DE9F.1070005@aoifes.com>
- <20170427130450.GL17172@lunn.ch>
- <59032D8B.1010801@aoifes.com>
- <20170428122259.GH13231@lunn.ch>
- <59105EA3.9030203@aoifes.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH v4 net-next 04/10] net/ncsi: Ethtool operation to get
+ NCSI topology
+Date: Mon, 8 May 2017 12:40:28 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DCFFE7192@AcuExch.aculab.com>
+References: <1493786681-27468-1-git-send-email-gwshan@linux.vnet.ibm.com>
+ <1493786681-27468-5-git-send-email-gwshan@linux.vnet.ibm.com>
+ <20170503221944.1dd0d576@xeon-e3> <20170504061559.GA2162@gwshan>
+ <063D6719AE5E284EB5DD2968C1650D6DCFFE535E@AcuExch.aculab.com>
+ <20170508001955.GA5787@gwshan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
 Cc: Stephen Hemminger <stephen@networkplumber.org>,
-        netdev@vger.kernel.org
-To: Rafa Corvillo <rafael.corvillo@aoifes.com>
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "joe@perches.com" <joe@perches.com>,
+        "kubakici@wp.pl" <kubakici@wp.pl>,
+        "f.fainelli@gmail.com" <f.fainelli@gmail.com>,
+        "davem@davemloft.net" <davem@davemloft.net>
+To: 'Gavin Shan' <gwshan@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:52779 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750853AbdEHMiy (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 8 May 2017 08:38:54 -0400
-Content-Disposition: inline
-In-Reply-To: <59105EA3.9030203@aoifes.com>
+Received: from smtp-out4.electric.net ([192.162.216.183]:64564 "EHLO
+        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750853AbdEHMkh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 8 May 2017 08:40:37 -0400
+In-Reply-To: <20170508001955.GA5787@gwshan>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> >static unsigned sky2_get_rx_threshold(struct sky2_port *sky2)
-> >{
-> >         unsigned size;
-> >
-> >         /* Space needed for frame data + headers rounded up */
-> >         size = roundup(sky2->netdev->mtu + ETH_HLEN + VLAN_HLEN, 8);
-> >
-> >         /* Stopping point for hardware truncation */
-> >         return (size - 8) / sizeof(u32);
-> >}
-> >
-> >This is not going to be big enough for a frame with a DSA header.
+From: Gavin Shan
+> Sent: 08 May 2017 01:20
+...
+> >Why 16 bits?
+> >You are just making life hard for the compiler and possibly generating
+> >random padding.
 > >
 > 
-> Then, would be a good fix add 8 bytes to the size variable in this function?
+> It's because there are 256 NCSI channels to maximal degree. So 16-bits
+> is the minial data width to hold it in signed format. Yes, I think
+> __s32 would be better in this case. However, I would like to discard
+> the negotiation mechanism in next respin.
 
-Yes. Also look at the transmit code, is there again a limit based on
-the MTU.
+Just because the domain of a value fits in 16 bits doesn't mean
+that a 16bit type is appropriate.
 
-> Settings for marvell:
->         Supported ports: [ TP ]
->         Supported link modes:   10baseT/Half 10baseT/Full
->                                 100baseT/Half 100baseT/Full
->                                 1000baseT/Half 1000baseT/Full
->         Supported pause frame use: No
->         Supports auto-negotiation: Yes
->         Advertised link modes:  10baseT/Half 10baseT/Full
->                                 100baseT/Half 100baseT/Full
->                                 1000baseT/Half 1000baseT/Full
->         Advertised pause frame use: No
->         Advertised auto-negotiation: No
->         Speed: 1000Mb/s
->         Duplex: Full
->         Port: Twisted Pair
->         PHYAD: 0
->         Transceiver: internal
->         Auto-negotiation: on
->         MDI-X: Unknown
->         Supports Wake-on: pg
->         Wake-on: d
->         Current message level: 0x000000ff (255)
->                                drv probe link timer ifdown ifup
-> rx_err tx_err
->         Link detected: yes
-> 
+It is generally much better to use 32 (aka machine word) sized
+items unless you have an array or are trying to fit a lot of
+items into a small memory area.
 
-So this suggests there is a real PHY there, and it is
-auto-negotiating.
-
-What we cannot see is the status for the PHY it connects to. But since
-this PHY has established a link, the other PHY is probably O.K. It is
-just a bit unsafe, since you are relying on reset behaviour. There is
-nothing in software configuring the second PHY to make it
-auto-negotiate.
-
-	Andrew
+	David
