@@ -1,41 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] ip6_tunnel: remove unreachable ICMP_REDIRECT code
-Date: Mon, 08 May 2017 15:59:03 -0400 (EDT)
-Message-ID: <20170508.155903.61649135414142419.davem@davemloft.net>
-References: <1494241863-32549-1-git-send-email-liuhangbin@gmail.com>
+Subject: Re: [PATCH V2 1/1] net: cdc_ncm: Fix TX zero padding
+Date: Mon, 08 May 2017 16:01:48 -0400 (EDT)
+Message-ID: <20170508.160148.1055084315233926966.davem@davemloft.net>
+References: <1494247797-1732-1-git-send-email-jim_baxter@mentor.com>
+        <1494247797-1732-2-git-send-email-jim_baxter@mentor.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: liuhangbin@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:37444 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754321AbdEHT7F (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 8 May 2017 15:59:05 -0400
-In-Reply-To: <1494241863-32549-1-git-send-email-liuhangbin@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8BIT
+Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, oliver@neukum.org
+To: jim_baxter@mentor.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1494247797-1732-2-git-send-email-jim_baxter@mentor.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Hangbin Liu <liuhangbin@gmail.com>
-Date: Mon,  8 May 2017 19:11:03 +0800
+From: Jim Baxter <jim_baxter@mentor.com>
+Date: Mon, 8 May 2017 13:49:57 +0100
 
-> After call ip6_tnl_err(), the rel_type will be ether ICMPV6_DEST_UNREACH
-> or ICMPV6_PKT_TOOBIG. We will never reach ICMP_REDIRECT. So remove it.
+> The zero padding that is added to NTB's does
+> not zero the memory correctly.
+> This is because the skb_put modifies the value
+> of skb_out->len which results in the memset
+> command not setting any memory to zero as
+> (ctx->tx_max - skb_out->len) == 0.
 > 
-> Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
+> I have resolved this by storing the size of
+> the memory to be zeroed before the skb_put
+> and using this in the memset call.
+> 
+> Signed-off-by: Jim Baxter <jim_baxter@mentor.com>
+> Reviewed-by: Bjørn Mork <bjorn@mork.no>
 
-Your patches here, all seemingly due to "visual inspection", are starting
-to really, truly, irritate me.
-
-Half of them are unnecessary, some are completely buggy.
-
-I have to review them and audit them very satrictly as a result, and
-this takes up an unnecessarily large amount of my time.
-
-Therefore, I'm basically going to stop looking at your changes _unless_
-you can show that you specifically tested and exercised all of the code
-paths you are changing.
-
-I am sorry to have to do this, but the value to effort ratio of
-reviewing and integrating your changes is quite poor.
+Applied, thank you.
