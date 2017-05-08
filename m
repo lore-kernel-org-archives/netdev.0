@@ -1,47 +1,48 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] ipv6: make sure dev is not NULL before call
- ip6_frag_reasm
-Date: Mon, 08 May 2017 07:50:30 -0700
-Message-ID: <1494255030.7796.56.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1494212964-17861-1-git-send-email-liuhangbin@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: bpf pointer alignment validation
+Date: Mon, 08 May 2017 11:04:12 -0400 (EDT)
+Message-ID: <20170508.110412.1728647139242329068.davem@davemloft.net>
+References: <20170505.162044.2097924822206705957.davem@davemloft.net>
+        <20170505.224709.1156323937148435706.davem@davemloft.net>
+        <59104D35.8080108@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Hangbin Liu <liuhangbin@gmail.com>
+Cc: ast@fb.com, netdev@vger.kernel.org
+To: daniel@iogearbox.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:36093 "EHLO
-        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754315AbdEHOud (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 8 May 2017 10:50:33 -0400
-Received: by mail-pg0-f67.google.com with SMTP id 64so3364266pgb.3
-        for <netdev@vger.kernel.org>; Mon, 08 May 2017 07:50:33 -0700 (PDT)
-In-Reply-To: <1494212964-17861-1-git-send-email-liuhangbin@gmail.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:57372 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750985AbdEHPEQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 8 May 2017 11:04:16 -0400
+In-Reply-To: <59104D35.8080108@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2017-05-08 at 11:09 +0800, Hangbin Liu wrote:
-> Since ip6_frag_reasm() will call __in6_dev_get(dev), which will access
-> dev->ip6_ptr. We need to make sure dev is not NULL.
-> 
-> Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
-> ---
->  net/ipv6/reassembly.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/net/ipv6/reassembly.c b/net/ipv6/reassembly.c
-> index e1da5b8..e3ebd62 100644
-> --- a/net/ipv6/reassembly.c
-> +++ b/net/ipv6/reassembly.c
-> @@ -348,7 +348,7 @@ static int ip6_frag_queue(struct frag_queue *fq, struct sk_buff *skb,
->  		fq->q.flags |= INET_FRAG_FIRST_IN;
->  	}
->  
-> -	if (fq->q.flags == (INET_FRAG_FIRST_IN | INET_FRAG_LAST_IN) &&
-> +	if (dev && fq->q.flags == (INET_FRAG_FIRST_IN | INET_FRAG_LAST_IN) &&
->  	    fq->q.meat == fq->q.len) {
->  		int res;
->  		unsigned long orefdst = skb->_skb_refdst;
+From: Daniel Borkmann <daniel@iogearbox.net>
+Date: Mon, 08 May 2017 12:49:25 +0200
 
+> On 05/06/2017 04:47 AM, David Miller wrote:
+>> From: David Miller <davem@davemloft.net>
+>> Date: Fri, 05 May 2017 16:20:44 -0400 (EDT)
+>>
+>>> Anyways, I'll play with this design and see what happens...
+>>> Feedback is of course welcome.
+>>
+>> Here is a prototype that works for me with test_pkt_access.c,
+>> which otherwise won't load on sparc.
+> 
+> Code looks good to me as far as I can tell, thanks for working
+> on this.
+> 
+> Could you also add test cases specifically to this for test_verifier
+> in bpf selftests? I'm thinking of the cases when we have no pkt id
+> and offset originated from reg->off (accumulated through const imm
+> ops on reg) and insn->off, where we had i) no pkt id and ii) a
+> specific pkt id (so we can probe for aux_off_align rejection as well).
+> I believe we do have coverage to some extend in some of the tests
+> (more on the map_value_adj though), but it would be good to keep
+> tracking this specifically as well.
 
-How dev could be possibly NULL here ?
+Yes, I am working on also on special tests that parse the verifier
+trace to make sure the alignment values were calculated properly.
