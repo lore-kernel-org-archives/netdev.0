@@ -1,67 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/fsl: remove func xgmac_wait_until_free() as
- duplicate
-Date: Mon, 08 May 2017 15:34:14 -0400 (EDT)
-Message-ID: <20170508.153414.1871607886646871422.davem@davemloft.net>
-References: <1494243078-17917-1-git-send-email-ardeleanalex@gmail.com>
+From: Benjamin Poirier <benjamin.poirier@gmail.com>
+Subject: Re: SSE instructions for fast packet copy?
+Date: Mon, 8 May 2017 15:46:21 -0400
+Message-ID: <20170508194621.5khsjn7xgdxfggfz@f1.synalogic.ca>
+References: <CALx6S34r6Q_wCKqzv5YjKJyuETyYmY1y=M7uDYiLfpnXzqbheg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Shaohui.Xie@nxp.com
-To: ardeleanalex@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:36640 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754550AbdEHTeQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 8 May 2017 15:34:16 -0400
-In-Reply-To: <1494243078-17917-1-git-send-email-ardeleanalex@gmail.com>
+Received: from mail-it0-f47.google.com ([209.85.214.47]:37682 "EHLO
+        mail-it0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753385AbdEHTqZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 8 May 2017 15:46:25 -0400
+Received: by mail-it0-f47.google.com with SMTP id x188so44041408itb.0
+        for <netdev@vger.kernel.org>; Mon, 08 May 2017 12:46:25 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <CALx6S34r6Q_wCKqzv5YjKJyuETyYmY1y=M7uDYiLfpnXzqbheg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexandru Ardelean <ardeleanalex@gmail.com>
-Date: Mon,  8 May 2017 14:31:18 +0300
-
-> Looking at xgmac_wait_until_done() and xgmac_wait_until_free()
-> functions, they seem to have turned out completely identical.
+On 2017/05/04 22:50, Tom Herbert wrote:
+> Hi,
 > 
-> Though, judging from the git history it seems they
-> initially weren't.
+> I am thinking about the possibility of using SSE in kernel for
+> speeding up the kernel memcpy particularly for copy to userspace
+> emeory, and maybe even using the string instructions (like if we
+> supported regex in something like eBPF). AFAIK we don't use SSE in
+> kernel because of xmm register state needing to be saved across
+> context switch. However, if we start busy-polling a CPU in kernel on
+> network queues then there might not be any context switches to worry
+> about. In this model we'd want to enable SSE per CPU.
 > 
-> Remove xgmac_wait_until_free() in favor of xgmac_wait_until_done().
-> 
-> Signed-off-by: Alexandru Ardelean <ardeleanalex@gmail.com>
+> Has this ever been tried before? Is this at all feasible? :-) Is it
+> possible to enable SSE for kernel for just one CPU? (I found CPUID
+> will return SSE supported, but don't see how to enable other than
+> -msse for compiling).
 
-This situation got created by the commit below, I wonder if it
-is even correct.
+This reminds me of what you tried in
+	c6e1a0d12ca7 net: Allow no-cache copy from user on transmit
+	(v3.0-rc1)
+and that I reverted in
+	cdb3f4a31b64 net: Do not enable tx-nocache-copy by default
+	(v3.14-rc1)
 
-Certainly the original author of this code intended the MDIO
-_data_ rather than the _status_ register to be polled.
-
-Otherwise, why in the world have two functions which are in
-every other regard identical?
-
-commit 26eee0210ad72a29eb4a70b34320bda266f91a0d
-Author: Shaohui Xie <Shaohui.Xie@freescale.com>
-Date:   Mon Mar 16 18:55:50 2015 +0800
-
-    net/fsl: fix a bug in xgmac_mdio
-    
-    There is a bug in xgmac_wait_until_done() which mdio_stat should be used
-    instead of mdio_data when checking if busy bit is cleared.
-    
-    Signed-off-by: Shaohui Xie <Shaohui.Xie@freescale.com>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
-
-diff --git a/drivers/net/ethernet/freescale/xgmac_mdio.c b/drivers/net/ethernet/freescale/xgmac_mdio.c
-index 3a83bc2..5f691f2 100644
---- a/drivers/net/ethernet/freescale/xgmac_mdio.c
-+++ b/drivers/net/ethernet/freescale/xgmac_mdio.c
-@@ -79,7 +79,7 @@ static int xgmac_wait_until_done(struct device *dev,
- 
- 	/* Wait till the MDIO write is complete */
- 	timeout = TIMEOUT;
--	while ((ioread32be(&regs->mdio_data) & MDIO_DATA_BSY) && timeout) {
-+	while ((ioread32be(&regs->mdio_stat) & MDIO_STAT_BSY) && timeout) {
- 		cpu_relax();
- 		timeout--;
- 	}
+Sure, it's not exactly the same thing...
