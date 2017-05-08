@@ -1,10 +1,10 @@
 From: Joao Pinto <Joao.Pinto@synopsys.com>
-Subject: Re: [PATCH v1 1/4] stmmac: pci: set default number of rx and tx
- queues
-Date: Mon, 8 May 2017 15:18:17 +0100
-Message-ID: <30583383-106f-2611-ebad-8dd8ad41d434@synopsys.com>
+Subject: Re: [PATCH v1 2/4] stmmac: pci: TX and RX queue priority
+ configuration
+Date: Mon, 8 May 2017 15:18:26 +0100
+Message-ID: <9ca48adc-03b2-1a99-3cd1-d9dc3b46d904@synopsys.com>
 References: <20170508141422.39612-1-andriy.shevchenko@linux.intel.com>
- <20170508141422.39612-2-andriy.shevchenko@linux.intel.com>
+ <20170508141422.39612-3-andriy.shevchenko@linux.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="windows-1252"
 Content-Transfer-Encoding: 8bit
@@ -15,22 +15,22 @@ To: Andy Shevchenko <andriy.shevchenko@linux.intel.com>,
         Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
         "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay2.synopsys.com ([198.182.60.111]:39166 "EHLO
+Received: from us01smtprelay-2.synopsys.com ([198.182.60.111]:39175 "EHLO
         smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752042AbdEHOSW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 8 May 2017 10:18:22 -0400
-In-Reply-To: <20170508141422.39612-2-andriy.shevchenko@linux.intel.com>
+        with ESMTP id S1754652AbdEHOSa (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 8 May 2017 10:18:30 -0400
+In-Reply-To: <20170508141422.39612-3-andriy.shevchenko@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Às 3:14 PM de 5/8/2017, Andy Shevchenko escreveu:
-> The commit 26d6851fd24e
+> The commit a8f5102af2a7
 > 
-> 	("net: stmmac: set default number of rx and tx queues in stmmac_pci")
+> 	("net: stmmac: TX and RX queue priority configuration")
 > 
 > missed Intel Quark configuration. Append it here.
 > 
-> Fixes: 26d6851fd24e ("net: stmmac: set default number of rx and tx queues in stmmac_pci")
+> Fixes: a8f5102af2a7 ("net: stmmac: TX and RX queue priority configuration")
 > Cc: Joao Pinto <Joao.Pinto@synopsys.com>
 > Signed-off-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
 > ---
@@ -38,16 +38,16 @@ List-ID: <netdev.vger.kernel.org>
 >  1 file changed, 4 insertions(+)
 > 
 > diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
-> index 39be96779145..ae3e836f9bb6 100644
+> index ae3e836f9bb6..c015a715a8ac 100644
 > --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
 > +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
-> @@ -145,6 +145,10 @@ static int quark_default_data(struct plat_stmmacenet_data *plat,
->  	/* Set the maxmtu to a default of JUMBO_LEN */
->  	plat->maxmtu = JUMBO_LEN;
+> @@ -149,6 +149,10 @@ static int quark_default_data(struct plat_stmmacenet_data *plat,
+>  	plat->tx_queues_to_use = 1;
+>  	plat->rx_queues_to_use = 1;
 >  
-> +	/* Set default number of RX and TX queues to use */
-> +	plat->tx_queues_to_use = 1;
-> +	plat->rx_queues_to_use = 1;
+> +	/* Disable Priority config by default */
+> +	plat->tx_queues_cfg[0].use_prio = false;
+> +	plat->rx_queues_cfg[0].use_prio = false;
 > +
 >  	return 0;
 >  }
