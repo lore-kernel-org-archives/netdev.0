@@ -1,51 +1,104 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH/RFC net-next v2 3/4] net/sched: cls_flower: do not match
- if dissection fails
-Date: Mon, 8 May 2017 07:26:31 -0400
-Message-ID: <20bc02eb-ea99-652e-7205-fa6131964446@mojatatu.com>
-References: <1493988426-22854-1-git-send-email-simon.horman@netronome.com>
- <1493988426-22854-4-git-send-email-simon.horman@netronome.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Dinan Gunawardena <dinan.gunawardena@netronome.com>,
-        netdev@vger.kernel.org, oss-drivers@netronome.com,
-        Benjamin LaHaise <benjamin.lahaise@netronome.com>
-To: Simon Horman <simon.horman@netronome.com>,
-        Jiri Pirko <jiri@mellanox.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>
+From: Alexandru Ardelean <ardeleanalex@gmail.com>
+Subject: [PATCH] net/fsl: remove func xgmac_wait_until_free() as duplicate
+Date: Mon,  8 May 2017 14:31:18 +0300
+Message-ID: <1494243078-17917-1-git-send-email-ardeleanalex@gmail.com>
+Cc: Shaohui.Xie@nxp.com, davem@davemloft.net,
+        Alexandru Ardelean <ardeleanalex@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f65.google.com ([209.85.214.65]:33613 "EHLO
-        mail-it0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752105AbdEHL0e (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 8 May 2017 07:26:34 -0400
-Received: by mail-it0-f65.google.com with SMTP id v135so6979741itv.0
-        for <netdev@vger.kernel.org>; Mon, 08 May 2017 04:26:34 -0700 (PDT)
-In-Reply-To: <1493988426-22854-4-git-send-email-simon.horman@netronome.com>
+Received: from mail-wr0-f195.google.com ([209.85.128.195]:36692 "EHLO
+        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750785AbdEHLb0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 8 May 2017 07:31:26 -0400
+Received: by mail-wr0-f195.google.com with SMTP id v42so7992096wrc.3
+        for <netdev@vger.kernel.org>; Mon, 08 May 2017 04:31:25 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 17-05-05 08:47 AM, Simon Horman wrote:
-> If the flow skb_flow_dissect() returns an error it indicates that
-> dissection was incomplete for some reason. Matching using the result of an
-> incomplete dissection may cause unexpected results. For example:
->
-> * A match on zero layer 4 ports will also match packets truncated at
->   the end of the IP header; that is packets where ports are missing are
->   treated the same way as packets with zero ports.
-> * Likewise, a match on zero ICMP code or type will also match packets
->   truncated at the end of the IP header; that is packets where the ICMP
->   type and code are missing will be treated the same way as packets with
->   zero ICMP code and type.
->
-> Separate patches to the flow dissector are required in order for it to
-> return errors in the above cases.
->
-> Fixes: 77b9900ef53a ("tc: introduce Flower classifier")
-> Signed-off-by: Simon Horman <simon.horman@netronome.com>
-> Reviewed-by: Benjamin LaHaise <benjamin.lahaise@netronome.com>
+Looking at xgmac_wait_until_done() and xgmac_wait_until_free()
+functions, they seem to have turned out completely identical.
 
-Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
+Though, judging from the git history it seems they
+initially weren't.
 
-cheers,
-jamal
+Remove xgmac_wait_until_free() in favor of xgmac_wait_until_done().
+
+Signed-off-by: Alexandru Ardelean <ardeleanalex@gmail.com>
+---
+ drivers/net/ethernet/freescale/xgmac_mdio.c | 33 ++++-------------------------
+ 1 file changed, 4 insertions(+), 29 deletions(-)
+
+diff --git a/drivers/net/ethernet/freescale/xgmac_mdio.c b/drivers/net/ethernet/freescale/xgmac_mdio.c
+index e03b30c..54597a8 100644
+--- a/drivers/net/ethernet/freescale/xgmac_mdio.c
++++ b/drivers/net/ethernet/freescale/xgmac_mdio.c
+@@ -71,31 +71,6 @@ static void xgmac_write32(u32 value,
+ }
+ 
+ /*
+- * Wait until the MDIO bus is free
+- */
+-static int xgmac_wait_until_free(struct device *dev,
+-				 struct tgec_mdio_controller __iomem *regs,
+-				 bool is_little_endian)
+-{
+-	unsigned int timeout;
+-
+-	/* Wait till the bus is free */
+-	timeout = TIMEOUT;
+-	while ((xgmac_read32(&regs->mdio_stat, is_little_endian) &
+-		MDIO_STAT_BSY) && timeout) {
+-		cpu_relax();
+-		timeout--;
+-	}
+-
+-	if (!timeout) {
+-		dev_err(dev, "timeout waiting for bus to be free\n");
+-		return -ETIMEDOUT;
+-	}
+-
+-	return 0;
+-}
+-
+-/*
+  * Wait till the MDIO read or write operation is complete
+  */
+ static int xgmac_wait_until_done(struct device *dev,
+@@ -147,7 +122,7 @@ static int xgmac_mdio_write(struct mii_bus *bus, int phy_id, int regnum, u16 val
+ 
+ 	xgmac_write32(mdio_stat, &regs->mdio_stat, endian);
+ 
+-	ret = xgmac_wait_until_free(&bus->dev, regs, endian);
++	ret = xgmac_wait_until_done(&bus->dev, regs, endian);
+ 	if (ret)
+ 		return ret;
+ 
+@@ -159,7 +134,7 @@ static int xgmac_mdio_write(struct mii_bus *bus, int phy_id, int regnum, u16 val
+ 	if (regnum & MII_ADDR_C45) {
+ 		xgmac_write32(regnum & 0xffff, &regs->mdio_addr, endian);
+ 
+-		ret = xgmac_wait_until_free(&bus->dev, regs, endian);
++		ret = xgmac_wait_until_done(&bus->dev, regs, endian);
+ 		if (ret)
+ 			return ret;
+ 	}
+@@ -201,7 +176,7 @@ static int xgmac_mdio_read(struct mii_bus *bus, int phy_id, int regnum)
+ 
+ 	xgmac_write32(mdio_stat, &regs->mdio_stat, endian);
+ 
+-	ret = xgmac_wait_until_free(&bus->dev, regs, endian);
++	ret = xgmac_wait_until_done(&bus->dev, regs, endian);
+ 	if (ret)
+ 		return ret;
+ 
+@@ -213,7 +188,7 @@ static int xgmac_mdio_read(struct mii_bus *bus, int phy_id, int regnum)
+ 	if (regnum & MII_ADDR_C45) {
+ 		xgmac_write32(regnum & 0xffff, &regs->mdio_addr, endian);
+ 
+-		ret = xgmac_wait_until_free(&bus->dev, regs, endian);
++		ret = xgmac_wait_until_done(&bus->dev, regs, endian);
+ 		if (ret)
+ 			return ret;
+ 	}
+-- 
+2.7.4
