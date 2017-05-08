@@ -1,50 +1,100 @@
-From: <ccc@mail.com>
-Subject: 55346
-Date: Mon, 08 May 2017 20:48:21 -0000
-Message-ID: <149427650169.26666.10873891001054796136@fastnet.it>
+From: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH 0/4] TI Bluetooth serdev support
+Date: Mon, 8 May 2017 16:12:16 -0500
+Message-ID: <CAL_JsqKBAPUPRtn+pEtz8B8pCrA=45RkEq6X_0i_HYoWsVmtyw@mail.gmail.com>
+References: <20170405183005.20570-1-robh@kernel.org> <CAHCN7xJUxZm1qKAxT0kaK6qoDg+HWOJK7sTH-q9za4HJuUwe8Q@mail.gmail.com>
+ <20170430160430.rmyuo6sdrkrjxjg6@earth> <CAHCN7x+Mq=b6RN-ezU0400W=H=D7DR+Es1FHtT4GyozpVd8ALA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: application/zip; name="8.zip"
-Content-Transfer-Encoding: base64
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ip185-28.55-190.fastnet.it ([185.28.55.190]:33008 "HELO
-        fastnet.it" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with SMTP
-        id S1750737AbdEHUs2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 8 May 2017 16:48:28 -0400
-Content-Disposition: attachment
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Sebastian Reichel <sre-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
+        "open list:BLUETOOTH DRIVERS" <linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+        "devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Gustavo Padovan <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>,
+        Satish Patel <satish.patel-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+        Wei Xu <xuwei5-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>, Eyal Reizer <eyalr-l0cyMroinI0@public.gmane.org>,
+        netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
+        <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+To: Adam Ford <aford173-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAHCN7x+Mq=b6RN-ezU0400W=H=D7DR+Es1FHtT4GyozpVd8ALA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-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
+On Fri, May 5, 2017 at 9:51 AM, Adam Ford <aford173-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+> On Sun, Apr 30, 2017 at 11:04 AM, Sebastian Reichel <sre-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org> wrote:
+>> Hi,
+>>
+>> On Sun, Apr 30, 2017 at 10:14:20AM -0500, Adam Ford wrote:
+>>> On Wed, Apr 5, 2017 at 1:30 PM, Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org> wrote:
+>>> > This series adds serdev support to the HCI LL protocol used on TI BT
+>>> > modules and enables support on HiKey board with with the WL1835 module.
+>>> > With this the custom TI UIM daemon and btattach are no longer needed.
+>>>
+>>> Without UIM daemon, what instruction do you use to load the BT firmware?
+>>>
+>>> I was thinking 'hciattach' but I was having trouble.  I was hoping you
+>>> might have some insight.
+>>>
+>>>  hciattach -t 30 -s 115200 /dev/ttymxc1 texas 3000000 flow  Just
+>>> returns a timeout.
+>>>
+>>> I modified my i.MX6 device tree per the binding documentation and
+>>> setup the regulators and enable GPIO pins.
+>>
+>> If you configured everything correctly no userspace interaction is
+>> required. The driver should request the firmware automatically once
+>> you power up the bluetooth device.
+>>
+>> Apart from DT changes make sure, that the following options are
+>> enabled and check dmesg for any hints.
+>>
+>> CONFIG_SERIAL_DEV_BUS
+>> CONFIG_SERIAL_DEV_CTRL_TTYPORT
+>> CONFIG_BT_HCIUART
+>> CONFIG_BT_HCIUART_LL
+>>
+>
+>
+> I have enabled those flags, and I have updated my device tree.
+> I am testing this on an OMAP3630 (DM3730) board with a WL1283.  I am
+> getting a lot of timeout errors.  I tested this against the original
+> implemention I had in pdata-quirks.c using the ti-st driver, uim & and
+> the btwilink driver.
+>
+> I pulled in some of the newer patches to enable the wl1283-st, but I
+> am obviously missing something.
+>
+> I   58.717651] Bluetooth: hci0: Reading TI version information failed
+> (-110)
+> [   58.724853] Bluetooth: hci0: download firmware failed, retrying...
+> [   60.957641] Bluetooth: hci0 command 0x1001 tx timeout
+> [   68.957641] Bluetooth: hci0: Reading TI version information failed
+> (-110)
+> [   68.964843] Bluetooth: hci0: download firmware failed, retrying...
+> [   69.132171] Bluetooth: Unknown HCI packet type 06
+> [   69.138244] Bluetooth: Unknown HCI packet type 0c
+> [   69.143249] Bluetooth: Unknown HCI packet type 40
+> [   69.148498] Bluetooth: Unknown HCI packet type 20
+> [   69.153533] Bluetooth: Data length is too large
+> [   69.158569] Bluetooth: Unknown HCI packet type a0
+> [   69.163574] Bluetooth: Unknown HCI packet type 00
+> [   69.168731] Bluetooth: Unknown HCI packet type 00
+> [   69.173736] Bluetooth: Unknown HCI packet type 34
+> [   69.178924] Bluetooth: Unknown HCI packet type 91
+> [   71.197631] Bluetooth: hci0 command 0x1001 tx timeout
+> [   79.197662] Bluetooth: hci0: Reading TI version information failed (-110)
+
+There's a bug in serdev_device_write(), so if you have that function
+you need either the fix I sent or the patch to make
+serdev_device_writebuf atomic again. Both are on the linux-serial
+list, but not in any tree yet.
+
+Rob
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
