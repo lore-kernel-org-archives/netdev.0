@@ -1,54 +1,44 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [RFC iproute2 0/8] RDMA tool
-Date: Mon, 8 May 2017 18:19:19 +0200
-Message-ID: <20170508161919.GA22150@lunn.ch>
-References: <20170504180216.7665-1-leon@kernel.org>
- <1493921453.2692.6.camel@sandisk.com>
- <20170506104047.GC2017@nanopsycho>
- <1494081623.3228.1.camel@sandisk.com>
- <20170507102046.GA1889@nanopsycho.orion>
- <1494256767.2591.3.camel@sandisk.com>
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Subject: [PATCH] sky2: Use seq_putc() in sky2_debug_show()
+Date: Mon, 8 May 2017 18:42:22 +0200
+Message-ID: <1f36d45e-3ca9-bfb8-0634-901c42390e2c@users.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "jiri@resnulli.us" <jiri@resnulli.us>,
-        "leonro@mellanox.com" <leonro@mellanox.com>,
-        "jiri@mellanox.com" <jiri@mellanox.com>,
-        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
-        "ram.amrani@cavium.com" <ram.amrani@cavium.com>,
-        "sagi@grimberg.me" <sagi@grimberg.me>,
-        "ogerlitz@mellanox.com" <ogerlitz@mellanox.com>,
-        "hch@lst.de" <hch@lst.de>,
-        "dennis.dalessandro@intel.com" <dennis.dalessandro@intel.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "leon@kernel.org" <leon@kernel.org>,
-        "stephen@networkplumber.org" <stephen@networkplumber.org>,
-        "dledford@redhat.com" <dledford@redhat.com>,
-        "jgunthorpe@obsidianresearch.com" <jgunthorpe@obsidianresearch.com>,
-        "ariela@mellanox.com" <ariela@mellanox.com>
-To: Bart Van Assche <Bart.VanAssche@sandisk.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:52966 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752552AbdEHQTc (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 8 May 2017 12:19:32 -0400
-Content-Disposition: inline
-In-Reply-To: <1494256767.2591.3.camel@sandisk.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: LKML <linux-kernel@vger.kernel.org>,
+        kernel-janitors@vger.kernel.org
+To: netdev@vger.kernel.org, Mirko Lindner <mlindner@marvell.com>,
+        Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> Several companies maintain embedded Linux
-> distributions and tools to build software images. These tools provide a user
-> interface that allows to select what packages go into such an image.
+From: Markus Elfring <elfring@users.sourceforge.net>
+Date: Mon, 8 May 2017 18:38:17 +0200
 
-The tools allow you to select what binary packages are placed into the
-image. You can build multiple binary packages from one source package.
-Desktop distributions are not likely to do this for something as small
-as iproute2. But embedded distributions can easily break up iproute2
-into a number of smaller packages, as you suggested, tipc, devlink,
-tc, bridge, ss, etc.
+A single character (line break) should be put into a sequence.
+Thus use the corresponding function "seq_putc".
 
-Openwrt does exactly this:
+This issue was detected by using the Coccinelle software.
 
-https://github.com/openwrt-mirror/openwrt/blob/master/package/network/utils/iproute2/Makefile
+Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+---
+ drivers/net/ethernet/marvell/sky2.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-    Andrew
+diff --git a/drivers/net/ethernet/marvell/sky2.c b/drivers/net/ethernet/marvell/sky2.c
+index 1145cde2274a..73575101cd72 100644
+--- a/drivers/net/ethernet/marvell/sky2.c
++++ b/drivers/net/ethernet/marvell/sky2.c
+@@ -4562,7 +4562,7 @@ static int sky2_debug_show(struct seq_file *seq, void *v)
+ 			seq_printf(seq, "[%d] %#x %d %#x\n",
+ 				   idx, le->opcode, le->length, le->status);
+ 		}
+-		seq_puts(seq, "\n");
++		seq_putc(seq, '\n');
+ 	}
+ 
+ 	seq_printf(seq, "Tx ring pending=%u...%u report=%d done=%d\n",
+-- 
+2.12.2
