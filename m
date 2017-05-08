@@ -1,147 +1,55 @@
-From: Dennis Dalessandro <dennis.dalessandro-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [RFC iproute2 0/8] RDMA tool
-Date: Mon, 8 May 2017 11:55:25 -0400
-Message-ID: <b82f5d3d-f198-3410-af85-85befc14a2ec@intel.com>
-References: <20170504180216.7665-1-leon@kernel.org>
- <1493921453.2692.6.camel@sandisk.com>
- <20170504182542.GD22833@mtr-leonro.local>
- <1493922625.2692.8.camel@sandisk.com>
- <20170504184531.GE22833@mtr-leonro.local>
- <2dee6cde-0406-b101-0fe6-c1f6de7c1b1a@intel.com>
- <20170504194242.GF22833@mtr-leonro.local>
+From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+Subject: Re: [PATCH] net: ipv4: add code comment for clarification
+Date: Mon, 08 May 2017 10:44:27 -0500
+Message-ID: <20170508104427.Horde.jrko8gSbk6ftIkwXE4ywgc5@gator4166.hostgator.com>
+References: <20170504142432.Horde.g9y26Ryxbtg1EIl_cnsdbbw@gator4166.hostgator.com>
+ <20170504194415.GA29391@embeddedgus>
+ <20170508.113637.783558334411383400.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Bart Van Assche <Bart.VanAssche-XdAiOPVOjttBDgjK7y7TUQ@public.gmane.org>,
-        "jiri-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org" <jiri-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "ram.amrani-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org" <ram.amrani-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>,
-        "sagi-NQWnxTmZq1alnMjI0IkVqw@public.gmane.org" <sagi-NQWnxTmZq1alnMjI0IkVqw@public.gmane.org>,
-        "ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org" <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        "hch-jcswGhMUV9g@public.gmane.org" <hch-jcswGhMUV9g@public.gmane.org>,
-        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org" <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>,
-        "stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org" <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>,
-        "dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org" <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        "ariela-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org" <ariela-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-To: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170504194242.GF22833-U/DQcQFIOTAAJjI8aNfphQ@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed; DelSp=Yes
+Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+        kaber@trash.net, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, joe@perches.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gateway30.websitewelcome.com ([192.185.193.11]:33303 "EHLO
+        gateway30.websitewelcome.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751191AbdEHQEl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 8 May 2017 12:04:41 -0400
+Received: from cm6.websitewelcome.com (cm6.websitewelcome.com [108.167.139.19])
+        by gateway30.websitewelcome.com (Postfix) with ESMTP id 4D4BB588D6
+        for <netdev@vger.kernel.org>; Mon,  8 May 2017 10:44:29 -0500 (CDT)
+In-Reply-To: <20170508.113637.783558334411383400.davem@davemloft.net>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 05/04/2017 03:42 PM, Leon Romanovsky wrote:
-> On Thu, May 04, 2017 at 03:26:13PM -0400, Dennis Dalessandro wrote:
->> On 05/04/2017 02:45 PM, Leon Romanovsky wrote:
->>> On Thu, May 04, 2017 at 06:30:27PM +0000, Bart Van Assche wrote:
->>>> On Thu, 2017-05-04 at 21:25 +0300, Leon Romanovsky wrote:
->>>>> On Thu, May 04, 2017 at 06:10:54PM +0000, Bart Van Assche wrote:
->>>>>> On Thu, 2017-05-04 at 21:02 +0300, Leon Romanovsky wrote:
->>>>>>> Following our discussion both in mailing list [1] and at the LPC 2016 [2],
->>>>>>> we would like to propose this RDMA tool to be part of iproute2 package
->>>>>>> and finally improve this situation.
->>>>>>
->>>>>> Hello Leon,
->>>>>>
->>>>>> Although I really appreciate your work: can you clarify why you would like to
->>>>>> add *RDMA* functionality to an *IP routing* tool? I haven't found any motivation
->>>>>> for adding RDMA functionality to iproute2 in [1].
->>>>>
->>>>> We are planning to reuse the same infrastructure provided by iproute2,
->>>>> like netlink parsing, access to distributions, same CLI and same standards.
->>>>>
->>>>> Right now, RDMA is already tightened to netdev: iWARP, RoCE, IPoIB, HFI-VNIC.
->>>>> Many drivers (mlx, qed, i40, cxgb) are sharing code between net and
->>>>> RDMA.
->>>>>
->>>>> I do expect that iproute2 will be installed on every machine with any
->>>>> type of connection, including IB and OPA.
->>>>>
->>>>> So I think that it is enough to be part of that suite and don't invent
->>>>> our own for one specific tool.
->>>>
->>>> Hello Leon,
->>>>
->>>> Sorry but to me that sounds like a weak argument for including RDMA functionality
->>>> in iproute2. There is already a library for communication over netlink sockets,
->>>> namely libnl. Is there functionality that is in iproute2 but not in libnl and
->>>> that is needed for the new tool? If so, have you considered to create a new
->>>> library for that functionality?
->>>
->>> It is not hard to create new tool, the hardest part is to ensure that it is
->>> part of the distributions. Did you count how many months we are trying to
->>> add rdma-core to debian?
->>
->> I do agree that it is a strange pairing and am not really a fan. However at
->> the end of the day it's just a name for a repo/package. If the iproute folks
->> are fine to include rdma in their repo/package, great we can leverage their
->> code for CLI and other common stuff.
->>
->> Now if the interface was something like "ip -FlagForRdma ..." I would object
->> to that, but the interface is "rdma ... " so from users perspective it's
->> different tools. They don't need to care that it was sourced from a common
->> git repo.
->>
->> Just as an aside this already works a bit with OPA:
->>
->>  $ ./rdma link
->> 1/1: hfi1_0/1: ifname NONE cap_mask 0x00410022 lid 0x1 lid_mask_count 0
->> link_layer InfiniBand
->>          phys_state 5: LinkUp rate 100 Gb/sec (4X EDR) sm_lid 0x1 sm_sl 0
->> state 4: ACTIVE
->>
->> Leon I'll get you more feedback and testing, I've just been really bogged
->> down this week, sorry.
+Hi David,
+
+Quoting David Miller <davem@davemloft.net>:
+
+> From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+> Date: Thu, 4 May 2017 14:44:16 -0500
 >
-> Thanks Denny,
+>> @@ -389,6 +389,12 @@ static int sk_diag_fill(struct sock *sk,  
+>> struct sk_buff *skb,
+>>  				  nlmsg_flags, unlh, net_admin);
+>>  }
+>>
+>> +/*
+>> + * Ignore the position of the arguments req->id.idiag_dport and
+>> + * req->id.idiag_sport in both calls to inet_lookup() and inet6_lookup()
+>> + * functions, once this is a locked in behavior exposed to user space.
+>> + * Changing this will break things for people.
+>> + */
 >
-> Before you are starting to test it, can you please provide your feedback
-> on my initial questions? Usability and need of sysfs.
-> ----
-> This is initial phase to understand if user experience for this tool fits
-> RDMA and netdev communities exepectations. Also I would like to get feedback
-> if it is really worth to provide legacy sysfs for old kernels, or maybe I should
-> implement netlink from the beginning and abandon sysfs completely.
-> -----
+> This is implicit for every interface exposed to userspace.
+>
+> Therefore, saying it here and there in various comments provides
+> questionable value.
+>
+> And in fact I think these arguments are probably in the correct order.
+>
+> I'm definitely not applying a patch like this, sorry.
 
-For the initial phase I think you did the right thing by reading sysfs. 
-I like the ability for the tool to be compatible with legacy kernels, 
-but at the same time I don't know if it's worth the hassle. I won't 
-fight too hard either way.
-
-Perhaps we should take a stab and seeing what a dual sysfs/netlink 
-interface would look like, and see just how hard and complicated it 
-really is. Then we can make that call. You already have the sysfs 
-version, and have to do netink anyway, so let's not rip out what's there 
-just yet, this is an RFC after all, not like you are asking for this 
-exact version to be merged yet.
-
-As far as usability, I think what's here is a great start and we can 
-continue to refine. I'm particularly interested in the stats 
-capabilities. In particular being able to filter what stats are shown 
-and watch as they change over time. RDMA devices have lots of counters 
-and stats. A common tool for users to be able to get that data across HW 
-types would be a really good thing.
-
--Denny
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I get it, thanks for clarifying.
