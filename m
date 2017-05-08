@@ -1,206 +1,103 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH 1/2] PCI: Add new PCIe Fabric End Node flag, PCI_DEV_FLAGS_NO_RELAXED_ORDERING
-Date: Mon, 8 May 2017 08:22:14 -0700
-Message-ID: <CAKgT0Uej61MGJjxaZCXsVTVApO2bYTmChi0suXbLZ7vSf4Y9wQ@mail.gmail.com>
-References: <cover.1493678834.git.leedom@chelsio.com> <758d0e431c732fe133e7b0e660bde5fc1beccdba.1493678834.git.leedom@chelsio.com>
- <CAKgT0UeuW88AHBX14H8xHteeG7vR0AH3apbjOeEDx_6p46x7tA@mail.gmail.com>
- <20170502165329.GB26406@linux.intel.com> <CAKgT0UcxjGCZu_QV-eF7_yWkDBbQpLpdaPqBf1gji8XXM5Cc=w@mail.gmail.com>
- <MWHPR12MB160095DF53CE981C923FE65DC8160@MWHPR12MB1600.namprd12.prod.outlook.com>
- <CAKgT0UdJ17DGAphuP5Y9co6ky-GBFdq2s-1nqctY_Tz_iz5__g@mail.gmail.com>
- <MWHPR12MB1600E78DD7F530AA9DC2433DC8EA0@MWHPR12MB1600.namprd12.prod.outlook.com>
- <CAKgT0Ucwkp+fi-9HhMbze6t_i15dj4e2WQBp13Coi6MegrDh=w@mail.gmail.com>
- <22c46382-5778-022f-d0bd-74abec9e9c7c@huawei.com> <CAKgT0Ufg6uebqj79e1FOHoPpF-GxPYMkp353r3Ok_=nM8wF6qA@mail.gmail.com>
- <2a3f064b-e885-a528-4945-adb32904bd0e@huawei.com>
+From: "Chiappero, Marco" <marco.chiappero@intel.com>
+Subject: RE: [PATCH net-next 9/9] ipvlan: introduce individual MAC addresses
+Date: Mon, 8 May 2017 15:29:09 +0000
+Message-ID: <695CDAEB5A6CE2498DE413F2A9AA829609161324@IRSMSX101.ger.corp.intel.com>
+References: <20170427145142.15830-1-marco.chiappero@intel.com>
+        <20170427145142.15830-10-marco.chiappero@intel.com>
+        <1493310033.27948.3.camel@redhat.com>   <1493310219.27948.5.camel@redhat.com>
+        <695CDAEB5A6CE2498DE413F2A9AA82960915DF0C@IRSMSX101.ger.corp.intel.com>
+        <1493741366.32411.7.camel@redhat.com>
+        <695CDAEB5A6CE2498DE413F2A9AA82960915EF08@IRSMSX101.ger.corp.intel.com>
+ <20170504184345.3f9afb8e@griffin>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Casey Leedom <leedom@chelsio.com>,
-        "Raj, Ashok" <ashok.raj@intel.com>,
-        Bjorn Helgaas <helgaas@kernel.org>,
-        Michael Werner <werner@chelsio.com>,
-        Ganesh GR <ganeshgr@chelsio.com>,
-        "Arjun V." <arjun@chelsio.com>,
-        Asit K Mallick <asit.k.mallick@intel.com>,
-        Patrick J Cramer <patrick.j.cramer@intel.com>,
-        Suravee Suthikulpanit <Suravee.Suthikulpanit@amd.com>,
-        Bob Shaw <Bob.Shaw@amd.com>, h <l.stach@pengutronix.de>,
-        Mark Rutland <mark.rutland@arm.com>,
-        Amir Ancel <amira@mellanox.com>,
-        Gabriele Paoloni <gabriele.paoloni@huawei.com>,
-        Catalin Marinas <catalin.marinas@arm.com>,
-        Will Deacon <will.deacon@arm.com>,
-        LinuxArm <linuxarm@huawei.com>,
-        David Laight <David.Laight@aculab.com>,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-        Netdev <netdev@vger.kernel.o
-To: Ding Tianhong <dingtianhong@huawei.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Dan Williams <dcbw@redhat.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "David S . Miller" <davem@davemloft.net>,
+        "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+        "Duyck, Alexander H" <alexander.h.duyck@intel.com>,
+        "Grandhi, Sainath" <sainath.grandhi@intel.com>,
+        Mahesh Bandewar <maheshb@google.com>
+To: Jiri Benc <jbenc@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f54.google.com ([209.85.214.54]:38110 "EHLO
-        mail-it0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752957AbdEHPWU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 8 May 2017 11:22:20 -0400
-Received: by mail-it0-f54.google.com with SMTP id e65so40590406ita.1
-        for <netdev@vger.kernel.org>; Mon, 08 May 2017 08:22:20 -0700 (PDT)
-In-Reply-To: <2a3f064b-e885-a528-4945-adb32904bd0e@huawei.com>
+Received: from mga11.intel.com ([192.55.52.93]:38195 "EHLO mga11.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752459AbdEHP3X (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 8 May 2017 11:29:23 -0400
+In-Reply-To: <20170504184345.3f9afb8e@griffin>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 8, 2017 at 7:33 AM, Ding Tianhong <dingtianhong@huawei.com> wrote:
->
->
-> On 2017/5/7 2:07, Alexander Duyck wrote:
->> On Fri, May 5, 2017 at 8:08 PM, Ding Tianhong <dingtianhong@huawei.com> wrote:
->>>
->>>
->>> On 2017/5/5 22:04, Alexander Duyck wrote:
->>>> On Thu, May 4, 2017 at 2:01 PM, Casey Leedom <leedom@chelsio.com> wrote:
->>>>> | From: Alexander Duyck <alexander.duyck@gmail.com>
->>>>> | Sent: Wednesday, May 3, 2017 9:02 AM
->>>>> | ...
->>>>> | It sounds like we are more or less in agreement. My only concern is
->>>>> | really what we default this to. On x86 I would say we could probably
->>>>> | default this to disabled for existing platforms since my understanding
->>>>> | is that relaxed ordering doesn't provide much benefit on what is out
->>>>> | there right now when performing DMA through the root complex. As far
->>>>> | as peer-to-peer I would say we should probably look at enabling the
->>>>> | ability to have Relaxed Ordering enabled for some channels but not
->>>>> | others. In those cases the hardware needs to be smart enough to allow
->>>>> | for you to indicate you want it disabled by default for most of your
->>>>> | DMA channels, and then enabled for the select channels that are
->>>>> | handling the peer-to-peer traffic.
->>>>>
->>>>>   Yes, I think that we are mostly in agreement.  I had just wanted to make
->>>>> sure that whatever scheme was developed would allow for simultaneously
->>>>> supporting non-Relaxed Ordering for some PCIe End Points and Relaxed
->>>>> Ordering for others within the same system.  I.e. not simply
->>>>> enabling/disabling/etc.  based solely on System Platform Architecture.
->>>>>
->>>>>   By the way, I've started our QA folks off looking at what things look like
->>>>> in Linux Virtual Machines under different Hypervisors to see what
->>>>> information they may provide to the VM in the way of what Root Complex Port
->>>>> is being used, etc.  So far they've got Windows HyperV done and there
->>>>> there's no PCIe Fabric exposed in any way: just the attached device.  I'll
->>>>> have to see what pci_find_pcie_root_port() returns in that environment.
->>>>> Maybe NULL?
->>>>
->>>> I believe NULL is one of the options. It all depends on what qemu is
->>>> emulating. Most likely you won't find a pcie root port on KVM because
->>>> the default is to emulate an older system that only supports PCI.
->>>>
->>>>>   With your reservations (which I also share), I think that it probably
->>>>> makes sense to have a per-architecture definition of the "Can I Use Relaxed
->>>>> Ordering With TLPs Directed At This End Point" predicate, with the default
->>>>> being "No" for any architecture which doesn't implement the predicate.  And
->>>>> if the specified (struct pci_dev *) End Node is NULL, it ought to return
->>>>> False for that as well.  I can't see any reason to pass in the Source End
->>>>> Node but I may be missing something.
->>>>>
->>>>>   At this point, this is pretty far outside my level of expertise.  I'm
->>>>> happy to give it a go, but I'd be even happier if someone with a lot more
->>>>> experience in the PCIe Infrastructure were to want to carry the ball
->>>>> forward.  I'm not super familiar with the Linux Kernel "Rules Of
->>>>> Engagement", so let me know what my next step should be.  Thanks.
->>>>>
->>>>> Casey
->>>>
->>>> For now we can probably keep this on the linux-pci mailing list. Going
->>>> that route is the most straight forward for now since step one is
->>>> probably just making sure we are setting the relaxed ordering bit in
->>>> the setups that make sense. I would say we could probably keep it
->>>> simple. We just need to enable relaxed ordering by default for SPARC
->>>> architectures, on most others we can probably default it to off.
->>>>
->>>
->>> Casey, Alexander:
->>>
->>> Thanks for the wonderful discussion, it is more clearly that what to do next,
->>> I agree that enable relaxed ordering by default only for SPARC and ARM64
->>> is more safe for all the other platform, as no one want to break anything.
->>>
->>>> I believe this all had started as Ding Tianhong was hoping to enable
->>>> this for the ARM architecture. That is the only one I can think of
->>>> where it might be difficult to figure out which way to default as we
->>>> were attempting to follow the same code that was enabled for SPARC and
->>>> that is what started this tug-of-war about how this should be done.
->>>> What we might do is take care of this in two phases. The first one
->>>> enables the infrastructure generically but leaves it defaulted to off
->>>> for everyone but SPARC. Then we can go through and start enabling it
->>>> for other platforms such as some of those on ARM in the platforms that
->>>> Ding Tianhong was working with.
->>>>
->>>
->>> According the suggestion, I could only think of this code:
->>>
->>> @@ -3979,6 +3979,15 @@ static void quirk_tw686x_class(struct pci_dev *pdev)
->>>  DECLARE_PCI_FIXUP_CLASS_EARLY(0x1797, 0x6869, PCI_CLASS_NOT_DEFINED, 8,
->>>                               quirk_tw686x_class);
->>>
->>> +static void quirk_relaxedordering_disable(struct pci_dev *dev)
->>> +{
->>> + if (dev->vendor != PCI_VENDOR_ID_HUAWEI &&
->>> +     dev->vendor != PCI_VENDOR_ID_SUN)
->>> +         dev->dev_flags |= PCI_DEV_FLAGS_NO_RELAXED_ORDERING;
->>> +}
->>> +DECLARE_PCI_FIXUP_CLASS_EARLY(PCI_INTEL_ID, PCI_ANY_ID, PCI_CLASS_NOT_DEFINED, 8,
->>> +                       quirk_relaxedordering_disable);
->>> +
->>>  /*
->>>   * Per PCIe r3.0, sec 2.2.9, "Completion headers must supply the same
->>>   * values for the Attribute as were supplied in the header of the
->>>
->>>
->>> What do you think of it?
->>>
->>> Thanks
->>> Ding
->>>
->>
->> This is a bit simplistic but it is a start.
->>
->> The other bit I was getting at is that we need to update the core PCIe
->> code so that when we configure devices and the root complex reports no
->> support for relaxed ordering it should be clearing the relaxed
->> ordering bits in the PCIe configuration registers on the upstream
->> facing devices.
->
-> How about this:
-> rename the PCI_DEV_FLAGS_NO_RELAXED_ORDERIN to PCI_DEV_FLAGS_RELAXED_ORDERIN, only enable it
-> when pcie root configure if it support the RO mode, otherwise we will not set it to indicate
-> that the pcie dev did not support RO mode.
 
-The problem is we need to have something that can be communicated
-through a VM. Your change doesn't work in that regard. That was why I
-suggested just updating the code so that we when we initialized PCIe
-devices what we do is either set or clear the relaxed ordering bit in
-the PCIe device control register. That way when we direct assign an
-interface it could know just based on the bits int the PCIe
-configuration if it could use relaxed ordering or not.
+> -----Original Message-----
+> From: Jiri Benc [mailto:jbenc@redhat.com]
+> Sent: Thursday, May 4, 2017 5:44 PM
+> To: Chiappero, Marco <marco.chiappero@intel.com>
+> Cc: Dan Williams <dcbw@redhat.com>; netdev@vger.kernel.org; David S .
+> Miller <davem@davemloft.net>; Kirsher, Jeffrey T
+> <jeffrey.t.kirsher@intel.com>; Duyck, Alexander H
+> <alexander.h.duyck@intel.com>; Grandhi, Sainath
+> <sainath.grandhi@intel.com>; Mahesh Bandewar <maheshb@google.com>
+> Subject: Re: [PATCH net-next 9/9] ipvlan: introduce individual MAC addresses
+> 
+> On Thu, 4 May 2017 09:37:00 +0000, Chiappero, Marco wrote:
+> > This looks conceptually wrong. Yes, ipvlan works at L3 (which is an
+> > implementation detail anyway), but slaves are Ethernet interfaces and
+> > should behave as much as possible as such regardless, with an
+> > individual MAC address assigned.
+> 
+> Isn't the proper fix then converting ipvlan interfaces to be L3 only interfaces?
+> I.e., ARPHRD_NONE? There's not much ipvlan can do with arbitrary Ethernet
+> frames anyway. Of course, a flag to switch to the new behavior would be
+> needed in order to preserve backwards compatibility.
 
-At that point the driver code itself becomes very simple since you
-could just enable the relaxed ordering by default in the igb/ixgbe
-driver and if the bit is set or cleared in the PCIe configuration then
-we are either sending with relaxed ordering requests or not and don't
-have to try and locate the root complex.
+Yes, L3 only interfaces would be a valid solution and a major differentiation with respect to macvlan. In fact it's been considered but abandoned because:
+- it would be a break from the past
+- VMs and containers usually expect Ethernet devices
 
->>
->> The last bit we need in all this is a way to allow for setups where
->> peer-to-peer wants to perform relaxed ordering but for writes to the
->> host we have to not use relaxed ordering. For that we need to enable a
->> special case and that isn't handled right now in any of the solutions
->> we have coded up so far.
->>
->
-> Sorry I am not clear of this way, can you explain more about this or give me
-> a special case, thanks a lot.
+Having that said, I'm ok with this solution if deemed preferable.
+ 
+> This patchset looks very wrong. For proper support of multiple MAC addresses,
+> we have macvlan and it's pointless to add that to ipvlan.
 
-So from the sound of it Casey has a special use case where he doesn't
-want to send relaxed ordering frames to the root complex, but instead
-would like to send them to another PCIe device. To do that he needs to
-have a way to enable the relaxed ordering bit in the PCIe
-configuration but then not send any to the root complex. Odds are that
-is something he might be able to just implement in the driver, but is
-something that may become a more general case in the future. I don't
-see our change here impacting it as long as we keep the solution
-generic and mostly confined to when we instantiate the devices as the
-driver could likely make the decision to change the behavior later.
+Ipvlan will never have proper support for L2, it's a L3 thing and doesn't aim at replacing macvlan. So, the options are:
+1) remove it and provide L3 only interfaces - as you are proposing
+2) fully emulate it preserving the single unicast MAC rule - my proposal
 
-- Alex
+I'm open to both solutions, to me the important thing is to address the problems with the current implementation, one way or another, making it comply with basic networking concepts and expectations.
+
+> And doing some kind of weird MAC NAT in ipvlan just to satisfy broken tools that
+> can't cope with multiple interfaces with the same MAC address is wrong, too.
+
+Ipvlan has always had the MAC issue, regardless, these tools simply make it more apparent. And as I said already, whether they are broken is debatable (yet I have to read a reasonable motivation). At the very least their expectation to have unique addresses on the same broadcast domain is hardly arguable. Should ipvlan considered special? Again, questionable.
+
+> Those tools are already broken anyway, there's nothing preventing anyone to
+> set the same MAC address to multiple interfaces.
+
+What are you trying to demonstrate, that you can shoot yourself in the foot? That you can interfere with the controller? That you can intentionally break your network? Yes, of course you can, so what?
+As long as network components comply with expected behaviors, including the ability to change the MAC address, every orchestrator will do its job of managing the network and will do it correctly.
+
+> I suppose those tools don't work with bonding and bridge, either?
+
+NaaS software and SDN controllers are built around bridges, a bridge is a well-defined, coherent, fundamental network component. As soon as ipvlan will behave coherently as well, upper layers will handle it properly.
+By the way, none of them has the same limitations of ipvlan.
+ 
+> > So, either we fix this by forcing slaves to stay in sync with master,
+> 
+> Yes, that's the correct behavior. Well, at least as correct as one can get with the
+> ipvlan broken design of pretending that an interface is L2 when in fact, it is not.
+
+Eventually we got there:  "ipvlan broken design". Let's fix it then. Would moving to L3 only interfaces be accepted instead?
+--------------------------------------------------------------
+Intel Research and Development Ireland Limited
+Registered in Ireland
+Registered Office: Collinstown Industrial Park, Leixlip, County Kildare
+Registered Number: 308263
+
+
+This e-mail and any attachments may contain confidential material for the sole
+use of the intended recipient(s). Any review or distribution by others is
+strictly prohibited. If you are not the intended recipient, please contact the
+sender and delete all copies.
