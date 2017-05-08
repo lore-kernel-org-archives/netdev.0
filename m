@@ -1,55 +1,75 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH RFC] net: Fix inconsistent teardown and release of
- private netdev state.
-Date: Mon, 08 May 2017 15:21:35 -0400 (EDT)
-Message-ID: <20170508.152135.1200615918260312115.davem@davemloft.net>
-References: <20170508.125243.1637135196896174683.davem@davemloft.net>
-        <20170508121359.45e367e5@xeon-e3>
+From: Grygorii Strashko <grygorii.strashko@ti.com>
+Subject: [PATCH] net: ethernet: ti: cpsw: adjust cpsw fifos depth for fullduplex flow control
+Date: Mon, 8 May 2017 14:21:21 -0500
+Message-ID: <20170508192121.20451-1-grygorii.strashko@ti.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: stephen@networkplumber.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:36148 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752364AbdEHTVh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 8 May 2017 15:21:37 -0400
-In-Reply-To: <20170508121359.45e367e5@xeon-e3>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <linux-kernel@vger.kernel.org>, <linux-omap@vger.kernel.org>,
+        Grygorii Strashko <grygorii.strashko@ti.com>,
+        Schuyler Patton <spatton@ti.com>
+To: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
+        Sekhar Nori <nsekhar@ti.com>,
+        Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <stephen@networkplumber.org>
-Date: Mon, 8 May 2017 12:13:59 -0700
+When users set flow control using ethtool the bits are set properly in the
+CPGMAC_SL MACCONTROL register, but the FIFO depth in the respective Port n
+Maximum FIFO Blocks (Pn_MAX_BLKS) registers remains set to the minimum size
+reset value. When receive flow control is enabled on a port, the port's
+associated FIFO block allocation must be adjusted. The port RX allocation
+must increase to accommodate the flow control runout. The TRM recommends
+numbers of 5 or 6.
 
-> Thanks for addressing a confusing and messy semantic. If you merge
-> this then it would be good to update the documentation in
-> Doucmentation/networking to describe how drivers are supposed to
-> behave.
+Hence, apply required Port FIFO configuration to
+Pn_MAX_BLKS.Pn_TX_MAX_BLKS=0xF and Pn_MAX_BLKS.Pn_RX_MAX_BLKS=0x5 during
+interface initialization.
 
-Will do.
+Cc: Schuyler Patton <spatton@ti.com>
+Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
+---
+ drivers/net/ethernet/ti/cpsw.c | 16 ++++++++++++++++
+ 1 file changed, 16 insertions(+)
 
-> An alternative and more difficult way of addressing the problem would
-> be to rework the drivers that define destructors to work with the simpler
-> model used by all the other drivers. What makes these drivers special,
-> and can they be fixed instead. Probably this won't work and would be too
-> much effort on lots of little used devices.
-
-The biggest problem is that we have two models of teardown... well
-actually the issue is more about resources allocated at probe time.
-
-For many software devices, instances come from ->newlink() or other
-config requests, so they go "register the device" and then forget
-about it, leaving it to the registered callbacks to cleanup.
-
-But things are different for most hardware devices.  They allocate
-resources on probe, and therefore absolutely cannot let
-register_netdevice(), or the callbacks, release those resources
-nor perform the free_netdev().
-
-So what a lot of drivers do is, in their driver ->remove() method,
-unregister the device, release the probe time resources, then
-do the free_netdev() by hand.
-
-So as you say, these interfaces and their behavior evolved over time
-in response to need.
+diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+index 20fd14c..7cf9c79 100644
+--- a/drivers/net/ethernet/ti/cpsw.c
++++ b/drivers/net/ethernet/ti/cpsw.c
+@@ -287,6 +287,10 @@ struct cpsw_ss_regs {
+ /* Bit definitions for the CPSW1_TS_SEQ_LTYPE register */
+ #define CPSW_V1_SEQ_ID_OFS_SHIFT	16
+ 
++#define CPSW_MAX_BLKS_TX		15
++#define CPSW_MAX_BLKS_TX_SHIFT		4
++#define CPSW_MAX_BLKS_RX		5
++
+ struct cpsw_host_regs {
+ 	u32	max_blks;
+ 	u32	blk_cnt;
+@@ -1278,11 +1282,23 @@ static void cpsw_slave_open(struct cpsw_slave *slave, struct cpsw_priv *priv)
+ 	switch (cpsw->version) {
+ 	case CPSW_VERSION_1:
+ 		slave_write(slave, TX_PRIORITY_MAPPING, CPSW1_TX_PRI_MAP);
++		/* Increase RX FIFO size to 5 for supporting fullduplex
++		 * flow control mode
++		 */
++		slave_write(slave,
++			    (CPSW_MAX_BLKS_TX << CPSW_MAX_BLKS_TX_SHIFT) |
++			    CPSW_MAX_BLKS_RX, CPSW1_MAX_BLKS);
+ 		break;
+ 	case CPSW_VERSION_2:
+ 	case CPSW_VERSION_3:
+ 	case CPSW_VERSION_4:
+ 		slave_write(slave, TX_PRIORITY_MAPPING, CPSW2_TX_PRI_MAP);
++		/* Increase RX FIFO size to 5 for supporting fullduplex
++		 * flow control mode
++		 */
++		slave_write(slave,
++			    (CPSW_MAX_BLKS_TX << CPSW_MAX_BLKS_TX_SHIFT) |
++			    CPSW_MAX_BLKS_RX, CPSW2_MAX_BLKS);
+ 		break;
+ 	}
+ 
+-- 
+2.10.1
