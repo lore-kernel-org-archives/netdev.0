@@ -1,40 +1,57 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: ipv4: add code comment for clarification
-Date: Mon, 08 May 2017 11:36:37 -0400 (EDT)
-Message-ID: <20170508.113637.783558334411383400.davem@davemloft.net>
-References: <20170504142432.Horde.g9y26Ryxbtg1EIl_cnsdbbw@gator4166.hostgator.com>
-        <20170504194415.GA29391@embeddedgus>
+Subject: Re: [Patch net v2] ipv6: reorder ip6_route_dev_notifier after
+ ipv6_dev_notf
+Date: Mon, 08 May 2017 11:37:47 -0400 (EDT)
+Message-ID: <20170508.113747.1274183761621757735.davem@davemloft.net>
+References: <1493919363-19989-1-git-send-email-xiyou.wangcong@gmail.com>
+        <11c2aeb4-cf2c-eded-0e56-789da2ba55ee@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-        kaber@trash.net, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, joe@perches.com
-To: garsilva@embeddedor.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170504194415.GA29391@embeddedgus>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: xiyou.wangcong@gmail.com, netdev@vger.kernel.org,
+        andreyknvl@google.com
+To: dsahern@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:57642 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750803AbdEHPhs (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 8 May 2017 11:37:48 -0400
+In-Reply-To: <11c2aeb4-cf2c-eded-0e56-789da2ba55ee@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-Date: Thu, 4 May 2017 14:44:16 -0500
+From: David Ahern <dsahern@gmail.com>
+Date: Thu, 4 May 2017 13:41:15 -0600
 
-> @@ -389,6 +389,12 @@ static int sk_diag_fill(struct sock *sk, struct sk_buff *skb,
->  				  nlmsg_flags, unlh, net_admin);
->  }
->  
-> +/*
-> + * Ignore the position of the arguments req->id.idiag_dport and
-> + * req->id.idiag_sport in both calls to inet_lookup() and inet6_lookup()
-> + * functions, once this is a locked in behavior exposed to user space.
-> + * Changing this will break things for people.
-> + */
+> On 5/4/17 11:36 AM, Cong Wang wrote:
+>> For each netns (except init_net), we initialize its null entry
+>> in 3 places:
+>> 
+>> 1) The template itself, as we use kmemdup()
+>> 2) Code around dst_init_metrics() in ip6_route_net_init()
+>> 3) ip6_route_dev_notify(), which is supposed to initialize it after
+>>    loopback registers
+>> 
+>> Unfortunately the last one still happens in a wrong order because
+>> we expect to initialize net->ipv6.ip6_null_entry->rt6i_idev to
+>> net->loopback_dev's idev, so we have to do that after we add
+>> idev to it. However, this notifier has priority == 0 same as
+>> ipv6_dev_notf, and ipv6_dev_notf is registered after
+>> ip6_route_dev_notifier so it is called actually after
+>> ip6_route_dev_notifier.
+>> 
+>> Fix it by picking a smaller priority for ip6_route_dev_notifier.
+>> Also, we have to release the refcnt accordingly when unregistering
+>> loopback_dev because device exit functions are called before subsys
+>> exit functions.
+>> 
+>> Cc: David Ahern <dsahern@gmail.com>
+>> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+>> ---
+> 
+> Commit message needs a tie in to the problem that Andrey reported. It
+> solves the same problem for namespaces other than init_net.
 
-This is implicit for every interface exposed to userspace.
+Cong, please update the commit message as David is requesting.
 
-Therefore, saying it here and there in various comments provides
-questionable value.
-
-And in fact I think these arguments are probably in the correct order.
-
-I'm definitely not applying a patch like this, sorry.
+Thanks.
