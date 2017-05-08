@@ -1,51 +1,50 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH v4 net-next 04/10] net/ncsi: Ethtool operation to get
- NCSI topology
-Date: Mon, 8 May 2017 12:40:28 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DCFFE7192@AcuExch.aculab.com>
-References: <1493786681-27468-1-git-send-email-gwshan@linux.vnet.ibm.com>
- <1493786681-27468-5-git-send-email-gwshan@linux.vnet.ibm.com>
- <20170503221944.1dd0d576@xeon-e3> <20170504061559.GA2162@gwshan>
- <063D6719AE5E284EB5DD2968C1650D6DCFFE535E@AcuExch.aculab.com>
- <20170508001955.GA5787@gwshan>
+From: Jim Baxter <jim_baxter@mentor.com>
+Subject: [PATCH V2 0/1] net: cdc_ncm: Fix TX zero padding
+Date: Mon, 8 May 2017 13:49:56 +0100
+Message-ID: <1494247797-1732-1-git-send-email-jim_baxter@mentor.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "joe@perches.com" <joe@perches.com>,
-        "kubakici@wp.pl" <kubakici@wp.pl>,
-        "f.fainelli@gmail.com" <f.fainelli@gmail.com>,
-        "davem@davemloft.net" <davem@davemloft.net>
-To: 'Gavin Shan' <gwshan@linux.vnet.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out4.electric.net ([192.162.216.183]:64564 "EHLO
-        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750853AbdEHMkh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 8 May 2017 08:40:37 -0400
-In-Reply-To: <20170508001955.GA5787@gwshan>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: <jim_baxter@mentor.com>
+To: <linux-usb@vger.kernel.org>, <netdev@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>, Oliver Neukum <oliver@neukum.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Gavin Shan
-> Sent: 08 May 2017 01:20
-...
-> >Why 16 bits?
-> >You are just making life hard for the compiler and possibly generating
-> >random padding.
-> >
-> 
-> It's because there are 256 NCSI channels to maximal degree. So 16-bits
-> is the minial data width to hold it in signed format. Yes, I think
-> __s32 would be better in this case. However, I would like to discard
-> the negotiation mechanism in next respin.
+Analysis
+--------
 
-Just because the domain of a value fits in 16 bits doesn't mean
-that a 16bit type is appropriate.
+The zero padding that is added to NTB's does not zero
+the memory correctly.
+This happens because the skb_put called within the memset in
+the line:
+memset(skb_put(skb_out, ctx->tx_max - skb_out->len),
+       0, ctx->tx_max - skb_out->len);
+causes the value of skb_out->len to be modified during
+the two uses of it within the above line.
+This causes non-zeroed data at the end of skb_out.
 
-It is generally much better to use 32 (aka machine word) sized
-items unless you have an array or are trying to fit a lot of
-items into a small memory area.
+This issue was found when connecting between an ARM
+Sabre SD Host platform and a test box that was
+dropping the NDP's due to the non zeroed memory being
+identified as an error.
 
-	David
+Solution
+--------
+
+To resolve this I have cached the value of
+ctx->tx_max - skb_out->len before the memset operation.
+
+----
+
+V1: Sent to linux-use for review.
+V2: Added netdev mailing list as it was missed for V1.
+
+Jim Baxter (1):
+  net: cdc_ncm: Fix TX zero padding
+
+ drivers/net/usb/cdc_ncm.c | 11 +++++++----
+ 1 file changed, 7 insertions(+), 4 deletions(-)
+
+-- 
+1.9.1
