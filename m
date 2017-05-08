@@ -1,277 +1,187 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [PATCH] net: ethernet: stmmac: properly set PS bit in MII
- configurations during reset
-Date: Mon, 8 May 2017 16:28:21 +0200
-Message-ID: <49297ed2-84dc-3e9b-8f40-af915476a091@st.com>
-References: <1493286329-24448-1-git-send-email-thomas.petazzoni@free-electrons.com>
- <deea272a-f0a9-ad0b-4ad6-387723938314@st.com> <20170503143032.GA22106@Red>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: [PATCH 1/2] PCI: Add new PCIe Fabric End Node flag,
+ PCI_DEV_FLAGS_NO_RELAXED_ORDERING
+Date: Mon, 8 May 2017 22:33:10 +0800
+Message-ID: <2a3f064b-e885-a528-4945-adb32904bd0e@huawei.com>
+References: <cover.1493678834.git.leedom@chelsio.com>
+ <758d0e431c732fe133e7b0e660bde5fc1beccdba.1493678834.git.leedom@chelsio.com>
+ <CAKgT0UeuW88AHBX14H8xHteeG7vR0AH3apbjOeEDx_6p46x7tA@mail.gmail.com>
+ <20170502165329.GB26406@linux.intel.com>
+ <CAKgT0UcxjGCZu_QV-eF7_yWkDBbQpLpdaPqBf1gji8XXM5Cc=w@mail.gmail.com>
+ <MWHPR12MB160095DF53CE981C923FE65DC8160@MWHPR12MB1600.namprd12.prod.outlook.com>
+ <CAKgT0UdJ17DGAphuP5Y9co6ky-GBFdq2s-1nqctY_Tz_iz5__g@mail.gmail.com>
+ <MWHPR12MB1600E78DD7F530AA9DC2433DC8EA0@MWHPR12MB1600.namprd12.prod.outlook.com>
+ <CAKgT0Ucwkp+fi-9HhMbze6t_i15dj4e2WQBp13Coi6MegrDh=w@mail.gmail.com>
+ <22c46382-5778-022f-d0bd-74abec9e9c7c@huawei.com>
+ <CAKgT0Ufg6uebqj79e1FOHoPpF-GxPYMkp353r3Ok_=nM8wF6qA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-        Alexandre Torgue <alexandre.torgue@st.com>,
-        <netdev@vger.kernel.org>, <stable@vger.kernel.org>
-To: Corentin Labbe <clabbe.montjoie@gmail.com>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <20170503143032.GA22106@Red>
-Sender: stable-owner@vger.kernel.org
+Cc: Mark Rutland <mark.rutland@arm.com>,
+ Gabriele Paoloni <gabriele.paoloni@huawei.com>, Asit K
+ Mallick <asit.k.mallick@intel.com>, Catalin Marinas <catalin.marinas@arm.com>,
+ Will Deacon <will.deacon@arm.com>, LinuxArm <linuxarm@huawei.com>, "Raj,
+ Ashok" <ashok.raj@intel.com>, Bjorn Helgaas <helgaas@kernel.org>,
+ Ganesh GR <ganeshgr@chelsio.com>, Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+ Bob Shaw <Bob.Shaw@amd.com>, Casey Leedom <leedom@chelsio.com>,
+ Patrick J Cramer <patrick.j.cramer@intel.com>, "Arjun V." <arjun@chelsio.com>,
+ Michael Werner <werner@chelsio.com>,
+ "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>,
+ Amir Ancel <amira@mellanox.com>, Netdev <netdev@vger.kernel.org>,
+ David Laight <David.Laight@aculab.com>,
+ Suravee Suthikulpanit <Suravee.Suthikulpanit@amd.com>,
+ Robin Murphy <robin.murphy@arm.com>, David Miller <davem@davemloft.net>,
+ h
+To: Alexander Duyck <alexander.duyck@gmail.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <CAKgT0Ufg6uebqj79e1FOHoPpF-GxPYMkp353r3Ok_=nM8wF6qA@mail.gmail.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-Hello
 
-On 5/3/2017 4:30 PM, Corentin Labbe wrote:
-> On Wed, May 03, 2017 at 10:13:56AM +0200, Giuseppe CAVALLARO wrote:
->> Hello Thomas
->>
->> this was initially set by using the hw->link.port; both the core_init
->> and adjust callback
->> should invoke the hook and tuning the PS bit according to the speed and
->> mode.
->> So maybe the ->set_ps is superfluous and you could reuse the existent hook
->>
->> let me know
->>
->> Regards
->> peppe
->>
-> I just see that GMAC_CONTROL and MAC_CTRL_REG are the same, so why not create a custom adjust_link for each dwmac type ?
-> This will permit to call it instead of set_ps() and remove lots of if (has_gmac) and co in stmmac_adjust_link()
-> Basicly replace all between "ctrl = readl()... and writel(ctrl)" by a sot of priv->hw->mac->adjust_link()
->
-> It will also help a lot for my dwmac-sun8i inclusion (since I add some if has_sun8i:))
 
-Corentin, I think this is a good idea and maybe necessary now that the 
-driver is supporting a lot of chips.
-In the past it was sufficient to have a adjust link function and a 
-stmmac_hw_fix_mac_speed
-to invoke dedicated hook shared between MAC10/100 and GMAC inside STM 
-platforms.
-
-Thomas, I wonder if you could take a look at the 
-priv->plat->fix_mac_speed. This can be used
-for setting internal registers too.
-
-Regards
-Peppe
-
->
-> Regards
->
->> On 4/27/2017 11:45 AM, Thomas Petazzoni wrote:
->>> On the SPEAr600 SoC, which has the dwmac1000 variant of the IP block,
->>> the DMA reset never succeeds when a MII PHY is used (no problem with a
->>> GMII PHY). The dwmac_dma_reset() function sets the
->>> DMA_BUS_MODE_SFT_RESET bit in the DMA_BUS_MODE register, and then
->>> polls until this bit clears. When a MII PHY is used, with the current
->>> driver, this bit never clears and the driver therefore doesn't work.
->>>
->>> The reason is that the PS bit of the GMAC_CONTROL register should be
->>> correctly configured for the DMA reset to work. When the PS bit is 0,
->>> it tells the MAC we have a GMII PHY, when the PS bit is 1, it tells
->>> the MAC we have a MII PHY.
->>>
->>> Doing a DMA reset clears all registers, so the PS bit is cleared as
->>> well. This makes the DMA reset work fine with a GMII PHY. However,
->>> with MII PHY, the PS bit should be set.
->>>
->>> We have identified this issue thanks to two SPEAr600 platform:
->>>
->>>    - One equipped with a GMII PHY, with which the existing driver was
->>>      working fine.
->>>
->>>    - One equipped with a MII PHY, where the current driver fails because
->>>      the DMA reset times out.
->>>
->>> This patch fixes the problem for the MII PHY configuration, and has
->>> been tested with a GMII PHY configuration as well.
->>>
->>> In terms of implement, since the ->reset() hook is implemented in the
->>> DMA related code, we do not want to touch directly from this function
->>> the MAC registers. Therefore, a ->set_ps() hook has been added to
->>> stmmac_ops, which gets called between the moment the reset is asserted
->>> and the polling loop waiting for the reset bit to clear.
->>>
->>> In order for this ->set_ps() hook to decide what to do, we pass it the
->>> "struct mac_device_info" so it can access the MAC registers, and the
->>> PHY interface type so it knows if we're using a MII PHY or not.
->>>
->>> The ->set_ps() hook is only implemented for the dwmac1000 case.
->>>
->>> Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
->>> Cc: <stable@vger.kernel.org>
->>> ---
->>> Do not hesitate to suggest ideas for alternative implementations, I'm
->>> not sure if the current proposal is the one that fits best with the
->>> current design of the driver.
->>> ---
->>>    drivers/net/ethernet/stmicro/stmmac/common.h         | 12 +++++++++---
->>>    drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c | 16 ++++++++++++++++
->>>    drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.h     |  3 ++-
->>>    drivers/net/ethernet/stmicro/stmmac/dwmac4_lib.c     |  7 ++++++-
->>>    drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h      |  3 ++-
->>>    drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c      |  6 +++++-
->>>    drivers/net/ethernet/stmicro/stmmac/stmmac_main.c    |  3 ++-
->>>    7 files changed, 42 insertions(+), 8 deletions(-)
->>>
->>> diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h b/drivers/net/ethernet/stmicro/stmmac/common.h
->>> index 04d9245..d576f95 100644
->>> --- a/drivers/net/ethernet/stmicro/stmmac/common.h
->>> +++ b/drivers/net/ethernet/stmicro/stmmac/common.h
->>> @@ -407,10 +407,13 @@ struct stmmac_desc_ops {
->>>    extern const struct stmmac_desc_ops enh_desc_ops;
->>>    extern const struct stmmac_desc_ops ndesc_ops;
->>>    
->>> +struct mac_device_info;
->>> +
->>>    /* Specific DMA helpers */
->>>    struct stmmac_dma_ops {
->>>    	/* DMA core initialization */
->>> -	int (*reset)(void __iomem *ioaddr);
->>> +	int (*reset)(void __iomem *ioaddr, struct mac_device_info *hw,
->>> +		     phy_interface_t interface);
->>>    	void (*init)(void __iomem *ioaddr, struct stmmac_dma_cfg *dma_cfg,
->>>    		     u32 dma_tx, u32 dma_rx, int atds);
->>>    	/* Configure the AXI Bus Mode Register */
->>> @@ -445,12 +448,15 @@ struct stmmac_dma_ops {
->>>    	void (*enable_tso)(void __iomem *ioaddr, bool en, u32 chan);
->>>    };
->>>    
->>> -struct mac_device_info;
->>> -
->>>    /* Helpers to program the MAC core */
->>>    struct stmmac_ops {
->>>    	/* MAC core initialization */
->>>    	void (*core_init)(struct mac_device_info *hw, int mtu);
->>> +	/* Set port select. Called between asserting DMA reset and
->>> +	 * waiting for the reset bit to clear.
->>> +	 */
->>> +	void (*set_ps)(struct mac_device_info *hw,
->>> +		       phy_interface_t interface);
->>>    	/* Enable and verify that the IPC module is supported */
->>>    	int (*rx_ipc)(struct mac_device_info *hw);
->>>    	/* Enable RX Queues */
->>> diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
->>> index 19b9b308..dfcbb5b 100644
->>> --- a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
->>> +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
->>> @@ -75,6 +75,21 @@ static void dwmac1000_core_init(struct mac_device_info *hw, int mtu)
->>>    #endif
->>>    }
->>>    
->>> +static void dwmac1000_set_ps(struct mac_device_info *hw,
->>> +			     phy_interface_t interface)
->>> +{
->>> +	void __iomem *ioaddr = hw->pcsr;
->>> +	u32 value = readl(ioaddr + GMAC_CONTROL);
->>> +
->>> +	/* When a MII PHY is used, we must set the PS bit for the DMA
->>> +	 * reset to succeed.
->>> +	 */
->>> +	if (interface == PHY_INTERFACE_MODE_MII)
->>> +		value |= GMAC_CONTROL_PS;
->>> +
->>> +	writel(value, ioaddr + GMAC_CONTROL);
->>> +}
->>> +
->>>    static int dwmac1000_rx_ipc_enable(struct mac_device_info *hw)
->>>    {
->>>    	void __iomem *ioaddr = hw->pcsr;
->>> @@ -488,6 +503,7 @@ static void dwmac1000_debug(void __iomem *ioaddr, struct stmmac_extra_stats *x)
->>>    
->>>    static const struct stmmac_ops dwmac1000_ops = {
->>>    	.core_init = dwmac1000_core_init,
->>> +	.set_ps = dwmac1000_set_ps,
->>>    	.rx_ipc = dwmac1000_rx_ipc_enable,
->>>    	.dump_regs = dwmac1000_dump_regs,
->>>    	.host_irq_status = dwmac1000_irq_status,
->>> diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.h b/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.h
->>> index 1b06df7..e9c6c49 100644
->>> --- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.h
->>> +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.h
->>> @@ -183,7 +183,8 @@
->>>    #define DMA_CHAN0_DBG_STAT_RPS		GENMASK(11, 8)
->>>    #define DMA_CHAN0_DBG_STAT_RPS_SHIFT	8
->>>    
->>> -int dwmac4_dma_reset(void __iomem *ioaddr);
->>> +int dwmac4_dma_reset(void __iomem *ioaddr, struct mac_device_info *hw,
->>> +		     phy_interface_t interface);
->>>    void dwmac4_enable_dma_transmission(void __iomem *ioaddr, u32 tail_ptr);
->>>    void dwmac4_enable_dma_irq(void __iomem *ioaddr);
->>>    void dwmac410_enable_dma_irq(void __iomem *ioaddr);
->>> diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_lib.c b/drivers/net/ethernet/stmicro/stmmac/dwmac4_lib.c
->>> index c7326d5..485eecb 100644
->>> --- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_lib.c
->>> +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_lib.c
->>> @@ -14,7 +14,8 @@
->>>    #include "dwmac4_dma.h"
->>>    #include "dwmac4.h"
->>>    
->>> -int dwmac4_dma_reset(void __iomem *ioaddr)
->>> +int dwmac4_dma_reset(void __iomem *ioaddr, struct mac_device_info *hw,
->>> +		     phy_interface_t interface)
->>>    {
->>>    	u32 value = readl(ioaddr + DMA_BUS_MODE);
->>>    	int limit;
->>> @@ -22,6 +23,10 @@ int dwmac4_dma_reset(void __iomem *ioaddr)
->>>    	/* DMA SW reset */
->>>    	value |= DMA_BUS_MODE_SFT_RESET;
->>>    	writel(value, ioaddr + DMA_BUS_MODE);
->>> +
->>> +	if (hw->mac->set_ps)
->>> +		hw->mac->set_ps(hw, interface);
->>> +
->>>    	limit = 10;
->>>    	while (limit--) {
->>>    		if (!(readl(ioaddr + DMA_BUS_MODE) & DMA_BUS_MODE_SFT_RESET))
->>> diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h b/drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h
->>> index 56e485f..25ae028 100644
->>> --- a/drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h
->>> +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h
->>> @@ -144,6 +144,7 @@ void dwmac_dma_stop_tx(void __iomem *ioaddr);
->>>    void dwmac_dma_start_rx(void __iomem *ioaddr);
->>>    void dwmac_dma_stop_rx(void __iomem *ioaddr);
->>>    int dwmac_dma_interrupt(void __iomem *ioaddr, struct stmmac_extra_stats *x);
->>> -int dwmac_dma_reset(void __iomem *ioaddr);
->>> +int dwmac_dma_reset(void __iomem *ioaddr, struct mac_device_info *hw,
->>> +		    phy_interface_t interface);
->>>    
->>>    #endif /* __DWMAC_DMA_H__ */
->>> diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c b/drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c
->>> index e60bfca..1a17df5 100644
->>> --- a/drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c
->>> +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c
->>> @@ -23,7 +23,8 @@
->>>    
->>>    #define GMAC_HI_REG_AE		0x80000000
->>>    
->>> -int dwmac_dma_reset(void __iomem *ioaddr)
->>> +int dwmac_dma_reset(void __iomem *ioaddr, struct mac_device_info *hw,
->>> +		    phy_interface_t interface)
->>>    {
->>>    	u32 value = readl(ioaddr + DMA_BUS_MODE);
->>>    	int err;
->>> @@ -32,6 +33,9 @@ int dwmac_dma_reset(void __iomem *ioaddr)
->>>    	value |= DMA_BUS_MODE_SFT_RESET;
->>>    	writel(value, ioaddr + DMA_BUS_MODE);
->>>    
->>> +	if (hw->mac->set_ps)
->>> +		hw->mac->set_ps(hw, interface);
->>> +
->>>    	err = readl_poll_timeout(ioaddr + DMA_BUS_MODE, value,
->>>    				 !(value & DMA_BUS_MODE_SFT_RESET),
->>>    				 100000, 10000);
->>> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
->>> index 4498a38..66bc218 100644
->>> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
->>> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
->>> @@ -1585,7 +1585,8 @@ static int stmmac_init_dma_engine(struct stmmac_priv *priv)
->>>    	if (priv->extend_desc && (priv->mode == STMMAC_RING_MODE))
->>>    		atds = 1;
->>>    
->>> -	ret = priv->hw->dma->reset(priv->ioaddr);
->>> +	ret = priv->hw->dma->reset(priv->ioaddr, priv->hw,
->>> +				   priv->plat->interface);
->>>    	if (ret) {
->>>    		dev_err(priv->device, "Failed to reset the dma\n");
->>>    		return ret;
+On 2017/5/7 2:07, Alexander Duyck wrote:
+> On Fri, May 5, 2017 at 8:08 PM, Ding Tianhong <dingtianhong@huawei.com> wrote:
 >>
+>>
+>> On 2017/5/5 22:04, Alexander Duyck wrote:
+>>> On Thu, May 4, 2017 at 2:01 PM, Casey Leedom <leedom@chelsio.com> wrote:
+>>>> | From: Alexander Duyck <alexander.duyck@gmail.com>
+>>>> | Sent: Wednesday, May 3, 2017 9:02 AM
+>>>> | ...
+>>>> | It sounds like we are more or less in agreement. My only concern is
+>>>> | really what we default this to. On x86 I would say we could probably
+>>>> | default this to disabled for existing platforms since my understanding
+>>>> | is that relaxed ordering doesn't provide much benefit on what is out
+>>>> | there right now when performing DMA through the root complex. As far
+>>>> | as peer-to-peer I would say we should probably look at enabling the
+>>>> | ability to have Relaxed Ordering enabled for some channels but not
+>>>> | others. In those cases the hardware needs to be smart enough to allow
+>>>> | for you to indicate you want it disabled by default for most of your
+>>>> | DMA channels, and then enabled for the select channels that are
+>>>> | handling the peer-to-peer traffic.
+>>>>
+>>>>   Yes, I think that we are mostly in agreement.  I had just wanted to make
+>>>> sure that whatever scheme was developed would allow for simultaneously
+>>>> supporting non-Relaxed Ordering for some PCIe End Points and Relaxed
+>>>> Ordering for others within the same system.  I.e. not simply
+>>>> enabling/disabling/etc.  based solely on System Platform Architecture.
+>>>>
+>>>>   By the way, I've started our QA folks off looking at what things look like
+>>>> in Linux Virtual Machines under different Hypervisors to see what
+>>>> information they may provide to the VM in the way of what Root Complex Port
+>>>> is being used, etc.  So far they've got Windows HyperV done and there
+>>>> there's no PCIe Fabric exposed in any way: just the attached device.  I'll
+>>>> have to see what pci_find_pcie_root_port() returns in that environment.
+>>>> Maybe NULL?
+>>>
+>>> I believe NULL is one of the options. It all depends on what qemu is
+>>> emulating. Most likely you won't find a pcie root port on KVM because
+>>> the default is to emulate an older system that only supports PCI.
+>>>
+>>>>   With your reservations (which I also share), I think that it probably
+>>>> makes sense to have a per-architecture definition of the "Can I Use Relaxed
+>>>> Ordering With TLPs Directed At This End Point" predicate, with the default
+>>>> being "No" for any architecture which doesn't implement the predicate.  And
+>>>> if the specified (struct pci_dev *) End Node is NULL, it ought to return
+>>>> False for that as well.  I can't see any reason to pass in the Source End
+>>>> Node but I may be missing something.
+>>>>
+>>>>   At this point, this is pretty far outside my level of expertise.  I'm
+>>>> happy to give it a go, but I'd be even happier if someone with a lot more
+>>>> experience in the PCIe Infrastructure were to want to carry the ball
+>>>> forward.  I'm not super familiar with the Linux Kernel "Rules Of
+>>>> Engagement", so let me know what my next step should be.  Thanks.
+>>>>
+>>>> Casey
+>>>
+>>> For now we can probably keep this on the linux-pci mailing list. Going
+>>> that route is the most straight forward for now since step one is
+>>> probably just making sure we are setting the relaxed ordering bit in
+>>> the setups that make sense. I would say we could probably keep it
+>>> simple. We just need to enable relaxed ordering by default for SPARC
+>>> architectures, on most others we can probably default it to off.
+>>>
+>>
+>> Casey, Alexander:
+>>
+>> Thanks for the wonderful discussion, it is more clearly that what to do next,
+>> I agree that enable relaxed ordering by default only for SPARC and ARM64
+>> is more safe for all the other platform, as no one want to break anything.
+>>
+>>> I believe this all had started as Ding Tianhong was hoping to enable
+>>> this for the ARM architecture. That is the only one I can think of
+>>> where it might be difficult to figure out which way to default as we
+>>> were attempting to follow the same code that was enabled for SPARC and
+>>> that is what started this tug-of-war about how this should be done.
+>>> What we might do is take care of this in two phases. The first one
+>>> enables the infrastructure generically but leaves it defaulted to off
+>>> for everyone but SPARC. Then we can go through and start enabling it
+>>> for other platforms such as some of those on ARM in the platforms that
+>>> Ding Tianhong was working with.
+>>>
+>>
+>> According the suggestion, I could only think of this code:
+>>
+>> @@ -3979,6 +3979,15 @@ static void quirk_tw686x_class(struct pci_dev *pdev)
+>>  DECLARE_PCI_FIXUP_CLASS_EARLY(0x1797, 0x6869, PCI_CLASS_NOT_DEFINED, 8,
+>>                               quirk_tw686x_class);
+>>
+>> +static void quirk_relaxedordering_disable(struct pci_dev *dev)
+>> +{
+>> + if (dev->vendor != PCI_VENDOR_ID_HUAWEI &&
+>> +     dev->vendor != PCI_VENDOR_ID_SUN)
+>> +         dev->dev_flags |= PCI_DEV_FLAGS_NO_RELAXED_ORDERING;
+>> +}
+>> +DECLARE_PCI_FIXUP_CLASS_EARLY(PCI_INTEL_ID, PCI_ANY_ID, PCI_CLASS_NOT_DEFINED, 8,
+>> +                       quirk_relaxedordering_disable);
+>> +
+>>  /*
+>>   * Per PCIe r3.0, sec 2.2.9, "Completion headers must supply the same
+>>   * values for the Attribute as were supplied in the header of the
+>>
+>>
+>> What do you think of it?
+>>
+>> Thanks
+>> Ding
+>>
+> 
+> This is a bit simplistic but it is a start.
+> 
+> The other bit I was getting at is that we need to update the core PCIe
+> code so that when we configure devices and the root complex reports no
+> support for relaxed ordering it should be clearing the relaxed
+> ordering bits in the PCIe configuration registers on the upstream
+> facing devices.
+
+How about this:
+rename the PCI_DEV_FLAGS_NO_RELAXED_ORDERIN to PCI_DEV_FLAGS_RELAXED_ORDERIN, only enable it
+when pcie root configure if it support the RO mode, otherwise we will not set it to indicate
+that the pcie dev did not support RO mode.
+
+> 
+> The last bit we need in all this is a way to allow for setups where
+> peer-to-peer wants to perform relaxed ordering but for writes to the
+> host we have to not use relaxed ordering. For that we need to enable a
+> special case and that isn't handled right now in any of the solutions
+> we have coded up so far.
+> 
+
+Sorry I am not clear of this way, can you explain more about this or give me
+a special case, thanks a lot.
+
+Ding
+
+> - Alex
+> 
+> .
+> 
