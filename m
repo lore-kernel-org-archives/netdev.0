@@ -1,32 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: dsa: loop: Check for memory allocation failure
-Date: Mon, 08 May 2017 15:01:36 -0400 (EDT)
-Message-ID: <20170508.150136.1033006170371331565.davem@davemloft.net>
-References: <20170506052945.2639-1-christophe.jaillet@wanadoo.fr>
+Subject: Re: [PATCH net] cxgb4: avoid disabling FEC by default
+Date: Mon, 08 May 2017 15:01:41 -0400 (EDT)
+Message-ID: <20170508.150141.852423881158703331.davem@davemloft.net>
+References: <1494060906-6453-1-git-send-email-ganeshgr@chelsio.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
-        f.fainelli@gmail.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: christophe.jaillet@wanadoo.fr
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170506052945.2639-1-christophe.jaillet@wanadoo.fr>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, nirranjan@chelsio.com, indranil@chelsio.com
+To: ganeshgr@chelsio.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:35104 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751349AbdEHTBm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 8 May 2017 15:01:42 -0400
+In-Reply-To: <1494060906-6453-1-git-send-email-ganeshgr@chelsio.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
-Date: Sat,  6 May 2017 07:29:45 +0200
+From: Ganesh Goudar <ganeshgr@chelsio.com>
+Date: Sat,  6 May 2017 14:25:06 +0530
 
-> If 'devm_kzalloc' fails, a NULL pointer will be dereferenced.
-> Return -ENOMEM instead, as done for some other memory allocation just a
-> few lines above.
+> Recent Chelsio firmware started using few port capablity bits to
+> manage FEC and as driver was not aware of FEC changes those bits
+> were zeroed, consequently disabling FEC.
 > 
-> Fixes: 98cd1552ea27 ("net: dsa: Mock-up driver")
+> Avoid zeroing those bits and default to whatever the firmware
+> tells us the Link is currently advertising.
 > 
-> Signed-off-by: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+> Signed-off-by: Ganesh Goudar <ganeshgr@chelsio.com>
 
-Please do not separate "Fixes: " tags from signoffs and acks with
-empty lines in the future, thank you.
-
-Applied and queued up for -stable.
+Applied.
