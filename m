@@ -1,75 +1,166 @@
-From: Joao Pinto <Joao.Pinto@synopsys.com>
-Subject: Re: [PATCH v3 net-next 01/11] net: stmmac: prepare dma op mode config
- for multiple queues
-Date: Mon, 8 May 2017 13:02:12 +0100
-Message-ID: <54cd5a46-eed3-bce7-5280-c5e95957e8e6@synopsys.com>
-References: <cover.1489575025.git.jpinto@synopsys.com>
- <efde5ec3d6873d0b2ad5b806f230f5804257915d.1489575025.git.jpinto@synopsys.com>
- <de6d5aa6-250b-e583-3f24-aee13e6b7ff8@siemens.com>
- <CAHp75Vfe0pXTEvdt7Z3-DgMTFdC5B3106ubj_D+_ng0vNCUaRA@mail.gmail.com>
- <96c988c8-2d4a-33df-0d20-cc8adac3b01c@synopsys.com>
- <CAHp75VcO13o0BgZ75Ssxav2jwP_g+WXLjob8x5QTB6Mdoynpzg@mail.gmail.com>
- <967da95a-cc4e-a0ac-c702-e659bd4f0481@synopsys.com>
- <CAHp75Vea1jke4yp0=762B0XvFkcP+YrW=KA7C-v6w61_s4EzUA@mail.gmail.com>
- <c80563da-d4f7-5281-d692-d05f43fc80b6@synopsys.com>
- <CAHp75Vc1YeD9DvwVLh7U1CtDWRGpm-zQSbf4d8C=skLcf_ucBg@mail.gmail.com>
+From: Rafa Corvillo <rafael.corvillo@aoifes.com>
+Subject: Re: [ISSUE: sky2 - rx error] Link stops working under heavy traffic
+ load connected to a mv88e6176
+Date: Mon, 8 May 2017 14:03:47 +0200
+Message-ID: <59105EA3.9030203@aoifes.com>
+References: <58F9FD64.80506@aoifes.com> <20170425082741.59428876@xeon-e3>
+ <5901DE9F.1070005@aoifes.com> <20170427130450.GL17172@lunn.ch>
+ <59032D8B.1010801@aoifes.com> <20170428122259.GH13231@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: Jan Kiszka <jan.kiszka@siemens.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
-        Alexandre TORGUE <alexandre.torgue@st.com>,
-        netdev <netdev@vger.kernel.org>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Andy Shevchenko <andy.shevchenko@gmail.com>,
-        Joao Pinto <Joao.Pinto@synopsys.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+        netdev@vger.kernel.org
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from us01smtprelay-2.synopsys.com ([198.182.60.111]:37303 "EHLO
-        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751390AbdEHMCS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 8 May 2017 08:02:18 -0400
-In-Reply-To: <CAHp75Vc1YeD9DvwVLh7U1CtDWRGpm-zQSbf4d8C=skLcf_ucBg@mail.gmail.com>
+Received: from smtp-relay-00-2.dondominio.net ([31.214.176.15]:32912 "EHLO
+        smtp-relay-00-2.dondominio.net" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751181AbdEHMDv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 8 May 2017 08:03:51 -0400
+In-Reply-To: <20170428122259.GH13231@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Às 12:56 PM de 5/8/2017, Andy Shevchenko escreveu:
-> On Mon, May 8, 2017 at 2:40 PM, Joao Pinto <Joao.Pinto@synopsys.com> wrote:
->> Às 12:34 PM de 5/8/2017, Andy Shevchenko escreveu:
->>> On Mon, May 8, 2017 at 1:42 PM, Joao Pinto <Joao.Pinto@synopsys.com> wrote:
->>>> Às 11:12 AM de 5/8/2017, Andy Shevchenko escreveu:
->>>>> On Mon, May 8, 2017 at 12:54 PM, Joao Pinto <Joao.Pinto@synopsys.com> wrote:
->>>>>> Às 10:36 AM de 5/8/2017, Andy Shevchenko escreveu:
-> 
+On 28/04/17 14:22, Andrew Lunn wrote:
+>>> Since you are using DSA, you will have DSA tags enabled on frames
+>>> to/from the switch. This adds an extra 8 byte header in the frame.  My
+>>> guess is, it is this header, not the VLAN tag which is causing you MTU
+>>> issues.
+>>
+>> But it is strange because, as I have said above, we have the same
+>> configuration working properly on a kernel 4.1 (with OpenWrt), and
+>> we have the MTU set to 1500.
+
+Hi Andrew,
+
+Sorry for the delay in my answer, I was out of the office.
+
+>
+> If you look at sky2.c:
+>
+> static unsigned sky2_get_rx_threshold(struct sky2_port *sky2)
+> {
+>          unsigned size;
+>
+>          /* Space needed for frame data + headers rounded up */
+>          size = roundup(sky2->netdev->mtu + ETH_HLEN + VLAN_HLEN, 8);
+>
+>          /* Stopping point for hardware truncation */
+>          return (size - 8) / sizeof(u32);
+> }
+>
+> This is not going to be big enough for a frame with a DSA header.
+>
+
+Then, would be a good fix add 8 bytes to the size variable in this function?
+
+>>> I think this is the first time i've seen sky2 used in a DSA
+>>> setup. mv643xx or mvneta is generally what is used, when using Marvell
+>>> chipsets. These drivers are more lenient about MTU, and are happy to
+>>> pass frames with additional headers.
 >>>
->>> [   44.374161] stmmac_dvr_probe <<< 0 0
+>>
+>> We use the mv88e6xxx (as our switch is mv88e6176) and it depends on
+>> DSA driver in the kernel (isn't it?).
+>
+> That is correct. But i was talking about the Ethernet interface. All
+> the designs i've seen use an mv643xxx Ethernet interface, or an mvneta
+> interface. This is the first time i've seen a sky2 used, which is why
+> i'm not too surprised you have issues.
+>
+>>> Changing the MTU like this is not a good fix. It will allow you to
+>>> receive frames which are bigger, but it also means the local network
+>>> stack will generate bigger frames to be transmitted. You probably need
+>>> to modify the sky2 driver to allow it to receive frames bigger than
+>>> the interface MTU, by about 8 bytes.
+>>
+>> Should the DSA driver remove the DSA tags before pass the frames to
+>> sky2 interface?
+>
+> The DSA driver is adding the DSA tags to the frame and passing these
+> tagged frames to the sky2 interface. Frames going to/from the switch
+> will always have such tags.
+>
+>>>> [ 4901.032989] sky2 0000:04:00.0 marvell: tx timeout
+>>>> [ 4904.722670] sky2 0000:04:00.0 marvell: Link is up at 1000 Mbps,
+>>>> full duplex, flow control both
 >>>
+>>> Between the sky2 and the switch, do you have two back-to-back PHYs or
+>>> are you connecting the RGMII interfaces together?
 >>
->> Ok, so this is the cause of the problem. The driver is geting 0 for real RX and
->> TX queues.
->>
->> Your setup uses standard DT parsing from stmmac_platform or a custom one?
->>
->> If you are using stmmac_probe_config_dt():
->> https://urldefense.proofpoint.com/v2/url?u=https-3A__git.kernel.org_pub_scm_linux_kernel_git_torvalds_linux.git_tree_drivers_net_ethernet_stmicro_stmmac_stmmac-5Fplatform.c-23n363&d=DwIFaQ&c=DPL6_X_6JkXFx7AXWqB0tg&r=s2fO0hii0OGNOv9qQy_HRXy-xAJUD1NNoEcc3io_kx0&m=fJQj7RiT2sksJYOAZ9VSJUDnxPR7RlE6Fw_cTV0_Mqc&s=KhdAPUtP0twDkibE89cLYs8JjnxEvBgav5uf08WL_e8&e= 
->>
->> You will find a function named stmmac_mtl_setup() being called:
->> https://urldefense.proofpoint.com/v2/url?u=https-3A__git.kernel.org_pub_scm_linux_kernel_git_torvalds_linux.git_tree_drivers_net_ethernet_stmicro_stmmac_stmmac-5Fplatform.c-23n492&d=DwIFaQ&c=DPL6_X_6JkXFx7AXWqB0tg&r=s2fO0hii0OGNOv9qQy_HRXy-xAJUD1NNoEcc3io_kx0&m=fJQj7RiT2sksJYOAZ9VSJUDnxPR7RlE6Fw_cTV0_Mqc&s=rTxn0fwdudwq9XAquH60xNHN538KBQ6_n4wODdLoyA0&e= 
->>
->> In this function, the number of RX and TX queues is being set to 1 by default.
-> 
-> Ah-ha, now I know how it's happened.
-> You forget to update all setup() hooks in PCI bus driver :-)
-> 
-> I will prepare a fix.
-> Just tell me should I put Fixes tag or not? And if yes, what commit
-> should I refer to?
-> 
+>> I think that we have two back-to-back PHYs, but I am going to double
+>> check this with the hardware team.
+>
+> This could be your problem them. The mv88e6xxx switch driver assumes
+> there is a straight rgmii-rgmii connection, no PHYs. So it hard
+> configures the 'CPU' port to its fastest speed, with the link forced
+> up. If you actually have a PHY there, this might not work so well. I
+> don't know if the switch PHY is going to do autoneg correctly. Try
+> using ethtool to look at the sky2 PHY and see what state it is in.
+>
+>        Andrew
+>
 
-Great, you can use this commit:
+The output of ethtool of sky2 interface is the following:
 
-https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c?id=26d6851fd24ed5d88580d66b4c8384947d5ca29b
+Settings for marvell:
+         Supported ports: [ TP ]
+         Supported link modes:   10baseT/Half 10baseT/Full
+                                 100baseT/Half 100baseT/Full
+                                 1000baseT/Half 1000baseT/Full
+         Supported pause frame use: No
+         Supports auto-negotiation: Yes
+         Advertised link modes:  10baseT/Half 10baseT/Full
+                                 100baseT/Half 100baseT/Full
+                                 1000baseT/Half 1000baseT/Full
+         Advertised pause frame use: No
+         Advertised auto-negotiation: No
+         Speed: 1000Mb/s
+         Duplex: Full
+         Port: Twisted Pair
+         PHYAD: 0
+         Transceiver: internal
+         Auto-negotiation: on
+         MDI-X: Unknown
+         Supports Wake-on: pg
+         Wake-on: d
+         Current message level: 0x000000ff (255)
+                                drv probe link timer ifdown ifup rx_err 
+tx_err
+         Link detected: yes
 
-Thanks!
 
-Joao
+And the output of ethtool of eth2@marvell (interface that I have connected):
+
+Settings for eth2:
+         Supported ports: [ TP MII ]
+         Supported link modes:   10baseT/Half 10baseT/Full
+                                 100baseT/Half 100baseT/Full
+                                 1000baseT/Half 1000baseT/Full
+         Supported pause frame use: No
+         Supports auto-negotiation: Yes
+         Advertised link modes:  10baseT/Half 10baseT/Full
+                                 100baseT/Half 100baseT/Full
+                                 1000baseT/Half 1000baseT/Full
+         Advertised pause frame use: No
+         Advertised auto-negotiation: Yes
+         Link partner advertised link modes:  10baseT/Half 10baseT/Full
+                                              100baseT/Half 100baseT/Full
+         Link partner advertised pause frame use: No
+         Link partner advertised auto-negotiation: No
+         Speed: 100Mb/s
+         Duplex: Full
+         Port: MII
+         PHYAD: 2
+         Transceiver: external
+         Auto-negotiation: on
+         Supports Wake-on: d
+         Wake-on: d
+         Link detected: yes
+
+
+Do you see something strange in these outputs?
+
+Thanks,
+
+Rafa
