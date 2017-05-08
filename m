@@ -1,42 +1,76 @@
-From: Anton Ivanov <anton.ivanov@cambridgegreys.com>
-Subject: net_sched strange in 4.11
-Date: Mon, 8 May 2017 08:15:15 +0100
-Message-ID: <66c5c2d3-65df-8506-6934-5628e709e229@cambridgegreys.com>
+From: Waldemar Rymarkiewicz <waldemar.rymarkiewicz@gmail.com>
+Subject: Re: Network cooling device and how to control NIC speed on thermal condition
+Date: Mon, 8 May 2017 10:08:25 +0200
+Message-ID: <CAHKzcENk8USj1kjFco=a+vdXeX-FycM1G4hPm6JnotEUtNi99Q@mail.gmail.com>
+References: <CAHKzcEMQPQzg6PYCSuv7Ufad+4AZ2gnqMgz3-VH5NTeb_pv4zQ@mail.gmail.com>
+ <20170425144501.0cfe27a5@lxorguk.ukuu.org.uk> <CAHKzcEO-75r5Gmew9x1eprh9ACf_NQKCHQg9svOLM1OmVX0JgQ@mail.gmail.com>
+ <20170428115630.GG13231@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ivanoab5.miniserver.com ([78.31.111.25]:40886 "EHLO
-        www.kot-begemot.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751255AbdEHHwb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 8 May 2017 03:52:31 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Alan Cox <gnomes@lxorguk.ukuu.org.uk>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170428115630.GG13231@lunn.ch>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi all,
+On 28 April 2017 at 13:56, Andrew Lunn <andrew@lunn.ch> wrote:
+> Is that a realistic test? No traffic over the network? If you are
+> hitting your thermal limit, to me that means one of two things:
+>
+> 1) The device is under very heavy load, consuming a lot of power to do
+>    what it needs to to.
+>
+> 2) Your device is idle, no packets are flowing, but your thermal
+>    design is wrong, so that it cannot dissipate enough heat.
+>
+> It seems to me, you are more interested in 1). But your quick test is
+> more about 2).
 
-I was revising some of my old work for UML to prepare it for submission 
-and I noticed that skb->xmit_more does not seem to be set any more.
+The test was not realistic indeed, but it was rather about showing how
+link speed correlates to temperature. In the test, I was not under any
+thermal condition. But the same gain on the temperature we can achieve
+when we hit hot temperature trip point and does not matter how heavy
+the network traffic is. It's not said the source of heat is a heavy
+network traffic. There can be several sources of heat on SoC.
+However, the fact is that PHYs having active 1G/s link generate much
+more heat than having 100M/s link independently from network traffic.
 
-I traced the issue as far as net/sched/sched_generic.c
 
-try_bulk_dequeue_skb() is never invoked (the drivers I am working on are 
-dql enabled so that is not the problem).
+> I would be more interested in do quick tests of switching 8Gbps,
+> 4Gbps, 2Gbps, 1Gbps, 512Mbps, 256Bps, ... What effect does this have
+> on temperature?
+>
+>> So, throttling link speed can really help to dissipate heat
+>> significantly when the platform is under threat.
+>>
+>> Renegotiating link speed costs something I agree, it also impacts user
+>> experience, but such a thermal condition will not occur often I
+>> believe.
+>
+> It is a heavy handed approach, and you have to be careful. There are
+> some devices which don't work properly, e.g. if you try to negotiate
+> 1000 half duplex, you might find the link just breaks.
 
-More interestingly, if I put a breakpoint and debug output into 
-dequeue_skb() around line 147 - right before the bulk: tag that skb 
-there is always NULL. ???
+That is a valuable remark. I definitely need to run some interoperability tests.
 
-Similarly, debug in pfifo_fast_dequeue shows only NULLs being dequeued. 
-Again - ???
+> Doing this via packet filtering, dropping packets, gives you a much
+> finer grained control and is a lot less disruptive. But it assumes
+> handling packets is what it causing you heat problems, not the links
+> themselves.
 
-First and foremost, I apologize for the silly question, but how can this 
-work at all? I see the skbs showing up at the driver level, why are 
-NULLs being returned at qdisc dequeue and where do the skbs at the 
-driver level come from?
+Link speed manipulation is considered by me as one of a cooling
+method, the way to maintain the temperature along with cpufreq, fan
+etc. It's not said, the heat is caused by heavy network traffic
+itself. So, packets filtering is not of my interests.
 
-Second, where should I look to fix it?
+All cooling methods impact host only, but "net cooling" impacts remote
+side in addition, which seems to me to be a problem sometimes. Also,
+the moment of link renegotiation blocks rx/tx for upper layers, so the
+user sees a pause when streaming a video for example. However, if a
+system is under a thermal condition, does it really matter?
 
-A.
+
+/Waldek
