@@ -1,43 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net] ipv4: restore rt->fi for reference counting
-Date: Mon, 08 May 2017 14:35:57 -0400 (EDT)
-Message-ID: <20170508.143557.105629611489969352.davem@davemloft.net>
-References: <1493934857-6693-1-git-send-email-xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net] tcp: make congestion control optionally skip slow
+ start after idle
+Date: Mon, 08 May 2017 14:37:59 -0400 (EDT)
+Message-ID: <20170508.143759.420967359752096993.davem@davemloft.net>
+References: <20170505195323.124792-1-tracywwnj@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, andreyknvl@google.com, edumazet@google.com
-To: xiyou.wangcong@gmail.com
+Cc: netdev@vger.kernel.org, ycheng@google.com, ncardwell@google.com,
+        edumazet@google.com
+To: weiwan@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:33886 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:33966 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751350AbdEHSgB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 8 May 2017 14:36:01 -0400
-In-Reply-To: <1493934857-6693-1-git-send-email-xiyou.wangcong@gmail.com>
+        with ESMTP id S1751191AbdEHSiC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 8 May 2017 14:38:02 -0400
+In-Reply-To: <20170505195323.124792-1-tracywwnj@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Date: Thu,  4 May 2017 14:54:17 -0700
+From: Wei Wang <weiwan@google.com>
+Date: Fri,  5 May 2017 12:53:23 -0700
 
-> IPv4 dst could use fi->fib_metrics to store metrics but fib_info
-> itself is refcnt'ed, so without taking a refcnt fi and
-> fi->fib_metrics could be freed while dst metrics still points to
-> it. This triggers use-after-free as reported by Andrey twice.
+> From: Wei Wang <weiwan@google.com>
 > 
-> This patch reverts commit 2860583fe840 ("ipv4: Kill rt->fi") to
-> restore this reference counting. It is a quick fix for -net and
-> -stable, for -net-next, as Eric suggested, we can consider doing
-> reference counting for metrics itself instead of relying on fib_info.
+> Congestion control modules that want full control over congestion
+> control behavior do not want the cwnd modifications controlled by
+> the sysctl_tcp_slow_start_after_idle code path.
+> So skip those code paths for CC modules that use the cong_control()
+> API.
+> As an example, those cwnd effects are not desired for the BBR congestion
+> control algorithm.
 > 
-> IPv6 is very different, it copies or steals the metrics from mx6_config
-> in fib6_commit_metrics() so probably doesn't need a refcnt.
-> 
-> Decnet has already done the refcnt'ing, see dn_fib_semantic_match().
-> 
-> Fixes: 2860583fe840 ("ipv4: Kill rt->fi")
-> Reported-by: Andrey Konovalov <andreyknvl@google.com>
-> Tested-by: Andrey Konovalov <andreyknvl@google.com>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> Fixes: c0402760f565 ("tcp: new CC hook to set sending rate with rate_sample in any CA state")
+> Signed-off-by: Wei Wang <weiwan@google.com>
+> Signed-off-by: Yuchung Cheng <ycheng@google.com>
+> Signed-off-by: Neal Cardwell <ncardwell@google.com>
 
 Applied and queued up for -stable, thanks.
