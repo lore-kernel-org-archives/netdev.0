@@ -1,54 +1,47 @@
-From: Hangbin Liu <liuhangbin@gmail.com>
-Subject: Re: [PATCH net] ip6_tunnel: remove unreachable ICMP_REDIRECT code
-Date: Tue, 9 May 2017 11:25:06 +0800
-Message-ID: <CAPwn2JQp=UZx+ZEUWxPhiiLBkCGoVQq1VJ_ctTHSnowwXQJOWA@mail.gmail.com>
-References: <1494241863-32549-1-git-send-email-liuhangbin@gmail.com> <20170508.155903.61649135414142419.davem@davemloft.net>
+From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+Subject: [PATCH] net: wireless: ath: ath9k: remove unnecessary code
+Date: Mon, 8 May 2017 22:48:14 -0500
+Message-ID: <20170509034814.GA18034@embeddedgus>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: network dev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+To: QCA ath9k Development <ath9k-devel@qca.qualcomm.com>,
+        Kalle Valo <kvalo@codeaurora.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f45.google.com ([209.85.214.45]:35119 "EHLO
-        mail-it0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751166AbdEIDZH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 8 May 2017 23:25:07 -0400
-Received: by mail-it0-f45.google.com with SMTP id c15so79263338ith.0
-        for <netdev@vger.kernel.org>; Mon, 08 May 2017 20:25:07 -0700 (PDT)
-In-Reply-To: <20170508.155903.61649135414142419.davem@davemloft.net>
+Received: from gateway23.websitewelcome.com ([192.185.48.84]:20642 "EHLO
+        gateway23.websitewelcome.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751250AbdEIELM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 9 May 2017 00:11:12 -0400
+Received: from cm2.websitewelcome.com (cm2.websitewelcome.com [192.185.178.13])
+        by gateway23.websitewelcome.com (Postfix) with ESMTP id 2D8DF14A6E
+        for <netdev@vger.kernel.org>; Mon,  8 May 2017 22:48:16 -0500 (CDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2017-05-09 3:59 GMT+08:00 David Miller <davem@davemloft.net>:
-> From: Hangbin Liu <liuhangbin@gmail.com>
-> Date: Mon,  8 May 2017 19:11:03 +0800
->
->> After call ip6_tnl_err(), the rel_type will be ether ICMPV6_DEST_UNREACH
->> or ICMPV6_PKT_TOOBIG. We will never reach ICMP_REDIRECT. So remove it.
->>
->> Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
->
-> Your patches here, all seemingly due to "visual inspection", are starting
-> to really, truly, irritate me.
+The name of an array used by itself will always return the array's address.
+So this test will always evaluate as true.
 
-Yes, this is based on the coverity scan result.  I'm really sorry to make
-you feel uncomfortable and I apologize for this.  I trust the result too much
-and did not do enough research. I will try my best to make sure the patch
-really improve or fix something next time.
+Addresses-Coverity-ID: 1364903
+Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
+---
+ drivers/net/wireless/ath/ath9k/eeprom.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Sorry again.
-
-Regards
-Hangbin
-
->
-> Half of them are unnecessary, some are completely buggy.
->
-> I have to review them and audit them very satrictly as a result, and
-> this takes up an unnecessarily large amount of my time.
->
-> Therefore, I'm basically going to stop looking at your changes _unless_
-> you can show that you specifically tested and exercised all of the code
-> paths you are changing.
->
-> I am sorry to have to do this, but the value to effort ratio of
-> reviewing and integrating your changes is quite poor.
+diff --git a/drivers/net/wireless/ath/ath9k/eeprom.c b/drivers/net/wireless/ath/ath9k/eeprom.c
+index fb80ec8..5c3bc28 100644
+--- a/drivers/net/wireless/ath/ath9k/eeprom.c
++++ b/drivers/net/wireless/ath/ath9k/eeprom.c
+@@ -143,7 +143,7 @@ bool ath9k_hw_nvram_read(struct ath_hw *ah, u32 off, u16 *data)
+ 
+ 	if (ah->eeprom_blob)
+ 		ret = ath9k_hw_nvram_read_firmware(ah->eeprom_blob, off, data);
+-	else if (pdata && !pdata->use_eeprom && pdata->eeprom_data)
++	else if (pdata && !pdata->use_eeprom)
+ 		ret = ath9k_hw_nvram_read_pdata(pdata, off, data);
+ 	else
+ 		ret = common->bus_ops->eeprom_read(common, off, data);
+-- 
+2.5.0
