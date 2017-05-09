@@ -1,54 +1,41 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2] tc: bpf: add ppc64 and sparc64 to list of
- archs with eBPF support
-Date: Mon, 8 May 2017 23:06:19 -0700
-Message-ID: <20170508230619.2d339edd@xeon-e3>
-References: <1494102610-19853-1-git-send-email-alexander@alemayhu.com>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: [PATCH] wcn36xx: Close SMD channel on device removal
+Date: Tue, 09 May 2017 09:17:05 +0300
+Message-ID: <87h90u3672.fsf@kamboji.qca.qualcomm.com>
+References: <20170509043637.28179-1-bjorn.andersson@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, daniel@iogearbox.net
-To: Alexander Alemayhu <alexander@alemayhu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f41.google.com ([74.125.83.41]:36282 "EHLO
-        mail-pg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752393AbdEIGG1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 9 May 2017 02:06:27 -0400
-Received: by mail-pg0-f41.google.com with SMTP id 64so22934449pgb.3
-        for <netdev@vger.kernel.org>; Mon, 08 May 2017 23:06:26 -0700 (PDT)
-In-Reply-To: <1494102610-19853-1-git-send-email-alexander@alemayhu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: Eugene Krasnikov <k.eugene.e@gmail.com>,
+        Eyal Ilsar <c_eilsar@qti.qualcomm.com>,
+        wcn36xx@lists.infradead.org, linux-wireless@vger.kernel.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        linux-arm-msm@vger.kernel.org
+To: Bjorn Andersson <bjorn.andersson@linaro.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170509043637.28179-1-bjorn.andersson@linaro.org> (Bjorn
+        Andersson's message of "Mon, 8 May 2017 21:36:37 -0700")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat,  6 May 2017 22:30:10 +0200
-Alexander Alemayhu <alexander@alemayhu.com> wrote:
+Bjorn Andersson <bjorn.andersson@linaro.org> writes:
 
-> sparc64 support was added in 7a12b5031c6b (sparc64: Add eBPF JIT., 2017-04-17)[0]
-> and ppc64 in 156d0e290e96 (powerpc/ebpf/jit: Implement JIT compiler for extended BPF, 2016-06-22)[1].
-> 
-> [0]: https://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git/commit/?id=7a12b5031c6b
-> [1]: https://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git/commit/?id=156d0e290e96
-> Signed-off-by: Alexander Alemayhu <alexander@alemayhu.com>
-> ---
->  man/man8/tc-bpf.8 | 6 +++---
->  1 file changed, 3 insertions(+), 3 deletions(-)
-> 
-> diff --git a/man/man8/tc-bpf.8 b/man/man8/tc-bpf.8
-> index e371964d06ab..2e9812ede028 100644
-> --- a/man/man8/tc-bpf.8
-> +++ b/man/man8/tc-bpf.8
-> @@ -75,9 +75,9 @@ In Linux, it's generally considered that eBPF is the successor of cBPF.
->  The kernel internally transforms cBPF expressions into eBPF expressions and
->  executes the latter. Execution of them can be performed in an interpreter
->  or at setup time, they can be just-in-time compiled (JIT'ed) to run as
-> -native machine code. Currently, x86_64, ARM64 and s390 architectures have
-> -eBPF JIT support, whereas PPC, SPARC, ARM and MIPS have cBPF, but did not
-> -(yet) switch to eBPF JIT support.
-> +native machine code. Currently, x86_64, ARM64, s390, ppc64 and sparc64
-> +architectures have eBPF JIT support, whereas PPC, SPARC, ARM and MIPS have
-> +cBPF, but did not (yet) switch to eBPF JIT support.
->  
->  eBPF's instruction set has similar underlying principles as the cBPF
->  instruction set, it however is modelled closer to the underlying
+> The SMD channel is not the primary WCNSS channel and must explicitly be
+> closed as the device is removed, or the channel will already by open on
+> a subsequent probe call in e.g. the case of reloading the kernel module.
+>
+> This issue was introduced because I simplified the underlying SMD
+> implementation while the SMD adaptions of the driver sat on the mailing
+> list, but missed to update these patches. The patch does however only
+> apply back to the transition to rpmsg, hence the limited Fixes.
+>
+> Fixes: 5052de8deff5 ("soc: qcom: smd: Transition client drivers from smd to rpmsg")
+> Reported-by: Eyal Ilsar <c_eilsar@qti.qualcomm.com>
+> Signed-off-by: Bjorn Andersson <bjorn.andersson@linaro.org>
 
-Applied thanks.
+As this is a regression I'll queue this to 4.12.
+
+But if this is an older bug (didn't quite understand your description
+though) should there be a separate patch for stable releases?
+
+-- 
+Kalle Valo
