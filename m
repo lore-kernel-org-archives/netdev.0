@@ -1,67 +1,64 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [Patch net] ipv4: restore rt->fi for reference counting
-Date: Tue, 09 May 2017 15:54:11 -0700
-Message-ID: <1494370451.7796.93.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1493934857-6693-1-git-send-email-xiyou.wangcong@gmail.com>
-         <20170508.143557.105629611489969352.davem@davemloft.net>
-         <1494288080.7796.59.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20170508.212211.1291611254198273979.davem@davemloft.net>
-         <1494296302.7796.61.camel@edumazet-glaptop3.roam.corp.google.com>
-         <CAM_iQpWQoLppsMfDOQWsdifGd56CAY24tCNm0Jm02QCe7ZThOw@mail.gmail.com>
-         <1494348962.7796.88.camel@edumazet-glaptop3.roam.corp.google.com>
-         <CAM_iQpXADa6AyQ3X-EbmRPGCQArgPWygvHMYgWtfUYV082oF3Q@mail.gmail.com>
-         <CAM_iQpVhdzeen+ZJ3jyK7Qb=yVuoRSZ7BFB3RoVMShY8KPBTZA@mail.gmail.com>
-         <1494370367.7796.92.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Shannon Nelson <shannon.nelson@oracle.com>
+Subject: Re: [PATCH net-next] bnxt: add dma mapping attributes
+Date: Tue, 9 May 2017 15:54:48 -0700
+Message-ID: <b8fb7775-9074-b730-d464-b37f36101676@oracle.com>
+References: <1494362253-270990-1-git-send-email-shannon.nelson@oracle.com>
+ <CACKFLikw_oi4rHRC9P-23xuvuOJSaf9b2kUSeTMgbNW1WA__=w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: David Miller <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Andrey Konovalov <andreyknvl@google.com>,
-        Eric Dumazet <edumazet@google.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:33759 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750733AbdEIWyN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 9 May 2017 18:54:13 -0400
-Received: by mail-pg0-f68.google.com with SMTP id s62so1669914pgc.0
-        for <netdev@vger.kernel.org>; Tue, 09 May 2017 15:54:13 -0700 (PDT)
-In-Reply-To: <1494370367.7796.92.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+        Netdev <netdev@vger.kernel.org>, sparclinux@vger.kernel.org
+To: Michael Chan <michael.chan@broadcom.com>
+Return-path: <sparclinux-owner@vger.kernel.org>
+In-Reply-To: <CACKFLikw_oi4rHRC9P-23xuvuOJSaf9b2kUSeTMgbNW1WA__=w@mail.gmail.com>
+Sender: sparclinux-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2017-05-09 at 15:52 -0700, Eric Dumazet wrote:
-> On Tue, 2017-05-09 at 15:07 -0700, Cong Wang wrote:
-> > On Tue, May 9, 2017 at 1:56 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
-> > > Wait... if we transfer dst->dev to loopback_dev because we don't
-> > > want to block unregister path, then we might have a similar problem
-> > > for rt->fi too, fib_info is still referenced by dst, so these nh_dev's still
-> > > hold the dev references...
-> > >
-> > 
-> > I finally come up with the attach patch... Do you mind to give it a try?
-> 
-> I will, but this might be delayed by a few hours.
-> 
-> In the mean time, it looks like you could try adding the following to
-> your .config ;)
-> 
-> CONFIG_IP_ROUTE_MULTIPATH=y
-> 
-> 
+On 5/9/2017 2:05 PM, Michael Chan wrote:
+> On Tue, May 9, 2017 at 1:37 PM, Shannon Nelson
+> <shannon.nelson@oracle.com> wrote:
+>> On the SPARC platform we need to use the DMA_ATTR_WEAK_ORDERING attribute
+>> in our Rx path dma mapping in order to get the expected performance out
+>> of the receive path.  Adding it to the Tx path has little effect, so
+>> that's not a part of this patch.
+>>
+>> Signed-off-by: Shannon Nelson <shannon.nelson@oracle.com>
+>> Reviewed-by: Tushar Dave <tushar.n.dave@oracle.com>
+>> Reviewed-by: Tom Saeger <tom.saeger@oracle.com>
+>> ---
+>>  drivers/net/ethernet/broadcom/bnxt/bnxt.c |   61 ++++++++++++++++++----------
+>>  1 files changed, 39 insertions(+), 22 deletions(-)
+>>
+>> diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+>> index 1f1e54b..771742c 100644
+>> --- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+>> +++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+>> @@ -66,6 +66,12 @@
+>>  MODULE_DESCRIPTION("Broadcom BCM573xx network driver");
+>>  MODULE_VERSION(DRV_MODULE_VERSION);
+>>
+>> +#ifdef CONFIG_SPARC
+>> +#define BNXT_DMA_ATTRS  DMA_ATTR_WEAK_ORDERING
+>> +#else
+>> +#define BNXT_DMA_ATTRS 0
+>> +#endif
+>> +
+>
+> I think we can use the same attribute for all architectures.
+> Architectures that don't implement weak ordering will ignore the
+> attribute.
+>
 
-+                               /* This should be fine, we are on unregister
-+                                * path so synchronize_net() already waits for
-+                                * existing readers. We have to release the
-+                                * dev here because dst could still hold this
-+                                * fib_info via rt->fi, we can't wait for GC.
-+                                */
-+                               RCU_INIT_POINTER(nexthop_nh->nh_dev, NULL);
-+                               dev_put(dev);
-                                dead = fi->fib_nhs;
+In the long run, you are probably correct, and it would be simple enough 
+to change this.  However, given the recent threads about the 
+applicability of Relaxed Ordering and a couple of PCIe root complexes 
+that have been found to have issues with Relaxed Ordering TLPs, I prefer 
+to stay on the conservative side and set it up only for the platform I 
+know.  As it stands, this patch won't change the currently working 
+behavior on other platforms, but will help us out on the one we know can 
+use the feature.
 
-dead = fi->fib_mhs looks wrong if you remove the break; statement ?
+sln
 
--                               break;
-                        }
+
