@@ -1,213 +1,127 @@
-From: David Miller <davem@davemloft.net>
-Subject: [GIT] Networking
-Date: Tue, 09 May 2017 16:03:35 -0400 (EDT)
-Message-ID: <20170509.160335.1354364643862943360.davem@davemloft.net>
+From: Shubham Bansal <illusionist.neo@gmail.com>
+Subject: Re: arch: arm: bpf: Converting cBPF to eBPF for arm 32 bit
+Date: Wed, 10 May 2017 01:42:10 +0530
+Message-ID: <CAHgaXd+xb5dN90sH___RtxgSC3usnH2jXkA5r3=fQJc3pOY5xw@mail.gmail.com>
+References: <CAHgaXd+EKJ0FWaaPojsNJtgY_YpdQXu6eMEp97uOpTFAWs4qTQ@mail.gmail.com>
+ <CAGXu5jLo8UvpNSQZBHjWZoO959ha6KFQxFzmg7SK44wz=R_QSg@mail.gmail.com>
+ <CAHgaXdJL92XRjHae2Nb9j9SerSe65=N=ErDHTQf23sdBxwthzw@mail.gmail.com>
+ <20170315.145512.1542025976162251828.davem@davemloft.net> <CAHgaXd+4QkFxnt-_iCqH8AyCN_Y8gXwr+y=iugz38NKSWspsbA@mail.gmail.com>
+ <58DAF908.8010404@iogearbox.net> <CAHgaXdKfbob3WHMho32JSh_dmfp2A=cjcePqk+NfajVpShPE6Q@mail.gmail.com>
+ <CAHgaXdJ1M4W3p9=B2hJmtxByPsA5-XHae8U6YtDH_2r_XMaR5A@mail.gmail.com> <58E639E0.1010700@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+        Kees Cook <keescook@chromium.org>,
+        Mircea Gherzan <mgherzan@gmail.com>,
+        Network Development <netdev@vger.kernel.org>,
+        kernel-hardening@lists.openwall.com,
+        linux-arm-kernel@lists.infradead.org, ast@fb.com
+To: Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f49.google.com ([209.85.218.49]:34767 "EHLO
+        mail-oi0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751095AbdEIUML (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 9 May 2017 16:12:11 -0400
+Received: by mail-oi0-f49.google.com with SMTP id b204so13452448oii.1
+        for <netdev@vger.kernel.org>; Tue, 09 May 2017 13:12:11 -0700 (PDT)
+In-Reply-To: <58E639E0.1010700@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+Hi Daniel,
+
+I just tried running test_bpf.ko module.
+
+$ echo 2 >>  /proc/sys/net/core/bpf_jit_enable
+$ insmod test_bpf.ko
+
+test_bpf: #0 TAX
+bpf_jit: flen=14 proglen=212 pass=2 image=7f15a83c from=insmod pid=730
+JIT code: 00000000: f0 05 2d e9 40 d2 4d e2 00 40 a0 e3 0c 42 8d e5
+JIT code: 00000010: 08 42 8d e5 00 00 20 e0 01 10 21 e0 20 62 9d e5
+JIT code: 00000020: 20 72 9d e5 06 70 27 e0 20 72 8d e5 24 62 9d e5
+JIT code: 00000030: 24 72 9d e5 06 70 27 e0 24 72 8d e5 00 40 a0 e1
+JIT code: 00000040: 01 50 a0 e1 01 00 a0 e3 00 10 a0 e3 20 02 8d e5
+JIT code: 00000050: 24 12 8d e5 02 00 a0 e3 00 10 a0 e3 20 62 9d e5
+JIT code: 00000060: 06 00 80 e0 00 10 a0 e3 00 00 60 e2 00 10 a0 e3
+JIT code: 00000070: 20 02 8d e5 24 12 8d e5 54 40 90 e5 20 62 9d e5
+JIT code: 00000080: 06 00 80 e0 00 10 a0 e3 20 02 8d e5 24 12 8d e5
+JIT code: 00000090: 04 00 a0 e1 01 10 a0 e3 20 62 9d e5 06 10 81 e0
+JIT code: 000000a0: 01 20 a0 e3 04 32 8d e2 bc 68 0a e3 11 60 48 e3
+JIT code: 000000b0: 36 ff 2f e1 01 10 21 e0 00 00 50 e3 04 00 00 0a
+JIT code: 000000c0: 00 00 d0 e5 01 00 00 ea 40 d2 8d e2 f0 05 bd e8
+JIT code: 000000d0: 1e ff 2f e1
+jited:1
+Unhandled fault: page domain fault (0x01b) at 0x00000051
+pgd = 871d0000
+[00000051] *pgd=671b7831, *pte=00000000, *ppte=00000000
+Internal error: : 1b [#1] SMP ARM
+Modules linked in: test_bpf(+)
+CPU: 0 PID: 730 Comm: insmod Not tainted 4.11.0+ #5
+Hardware name: ARM-Versatile Express
+task: 87023700 task.stack: 8718a000
+PC is at 0x7f15a8b4
+LR is at test_bpf_init+0x5bc/0x1000 [test_bpf]
+pc : [<7f15a8b4>]    lr : [<7f1575bc>]    psr: 80000013
+sp : 8718bd7c  ip : 00000015  fp : 7f005008
+r10: 7f005094  r9 : 893ba020  r8 : 893ba000
+r7 : 00000000  r6 : 00000001  r5 : 00000000  r4 : 00000000
+r3 : 7f15a83c  r2 : 893ba020  r1 : 00000000  r0 : fffffffd
+Flags: Nzcv  IRQs on  FIQs on  Mode SVC_32  ISA ARM  Segment none
+Control: 10c5387d  Table: 671d0059  DAC: 00000051
+Process insmod (pid: 730, stack limit = 0x8718a210)
+Stack: (0x8718bd7c to 0x8718c000)
+bd60:                                                                00000000
+bd80: 00002710 870db300 c302e7e8 7f004010 893ba000 7f005094 00000000 00000000
+bda0: 00000000 00000000 00000000 00000001 00000001 00000000 014000c0 00150628
+bdc0: 7f0050ac 7f154840 1234aaaa 1234aaab c302e7e8 0000000f 00000000 893ba000
+bde0: 0000000b 7f004010 87fd54a0 ffffe000 7f157000 00000000 871b6fc0 00000001
+be00: 78e4905c 00000024 7f154640 8010179c 80a06544 8718a000 00000001 80a54980
+be20: 80a3066c 00000007 809685c0 80a54700 80a54700 07551000 80a54700 60070013
+be40: 7f154640 801f3fc8 78e4905c 7f154640 00000001 871b6fe4 7f154640 00000001
+be60: 871b6b00 00000001 78e4905c 801eaa94 00000001 871b6fe4 8718bf44 00000001
+be80: 871b6fe4 80196e4c 7f15464c 00007fff 7f154640 80193f10 87127000 7f154640
+bea0: 7f154688 80703800 7f154770 807037e4 8081b184 807bec60 807becc4 807bec6c
+bec0: 7f15481c 8010c1b8 93600000 76ed8028 00000f60 00000000 00000000 00000000
+bee0: 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+bf00: 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00003f80
+bf20: 76f5cf88 00000000 93684f80 8718a000 00160fda 00000051 00000000 801973b0
+bf40: 87671a00 93501000 00183f80 93684760 93684574 936788e0 00155000 00155290
+bf60: 00000000 00000000 00000000 00001f64 00000032 00000033 0000001d 00000000
+bf80: 00000017 00000000 00000000 00183f80 756e694c 00000080 80107684 fffffffd
+bfa0: 00000000 801074c0 00000000 00183f80 76dd9008 00183f80 00160fda 00000000
+bfc0: 00000000 00183f80 756e694c 00000080 00000001 7eabae2c 00172f8c 00000000
+bfe0: 7eabaae0 7eabaad0 0004017f 00013172 60070030 76dd9008 00000000 00000000
+[<7f1575bc>] (test_bpf_init [test_bpf]) from [<7f157000>]
+(test_bpf_init+0x0/0x1000 [test_bpf])
+[<7f157000>] (test_bpf_init [test_bpf]) from [<78e4905c>] (0x78e4905c)
+Code: e2600000 e3a01000 e58d0220 e58d1224 (e5904054)
+---[ end trace a36398923b914fe2 ]---
+Segmentation fault
+
+Why is trying to execute TAX which is a cBPF instruction?
+
+Best,
+Shubham Bansal
 
 
-1) Fix multiqueue in stmmac driver on PCI, from Andy Shevchenko.
-
-2) cdc_ncm doesn't actually fully zero out the padding area is
-   allocates on TX, from Jim Baxter.
-
-3) Don't leak map addresses in BPF verifier, from Daniel Borkmann.
-
-4) If we randomize TCP timestamps, we have to do it everywhere
-   including SYN cookies.  From Eric Dumazet.
-
-5) Fix "ethtool -S" crash in aquantia driver, from Pavel Belous.
-
-6) Fix allocation size for ntp filter bitmap in bnxt_en driver,
-   from Dan Carpenter.
-
-7) Add missing memory allocation return value check to DSA loop
-   driver, from Christophe Jaillet.
-
-8) Fix XDP leak on driver unload in qed driver, from Suddarsana Reddy
-   Kalluru.
-
-9) Don't inherit MC list from parent inet connection sockets,
-   another syzkaller spotted gem.  Fix from Eric Dumazet.
-
-Please pull, thanks a lot.
-
-The following changes since commit af82455f7dbd9dc20244d80d033721b30d22c065:
-
-  Merge tag 'char-misc-4.12-rc1' of git://git.kernel.org/pub/scm/linux/kernel/git/gregkh/char-misc (2017-05-04 19:15:35 -0700)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git 
-
-for you to fetch changes up to 657831ffc38e30092a2d5f03d385d710eb88b09a:
-
-  dccp/tcp: do not inherit mc_list from parent (2017-05-09 15:17:49 -0400)
-
-----------------------------------------------------------------
-Andy Shevchenko (4):
-      stmmac: pci: set default number of rx and tx queues
-      stmmac: pci: TX and RX queue priority configuration
-      stmmac: pci: RX queue routing configuration
-      stmmac: pci: split out common_default_data() helper
-
-Christophe Jaillet (1):
-      net: dsa: loop: Check for memory allocation failure
-
-Dan Carpenter (1):
-      bnxt_en: allocate enough space for ->ntp_fltr_bmap
-
-Daniel Borkmann (1):
-      bpf: don't let ldimm64 leak map addresses on unprivileged
-
-David S. Miller (5):
-      Merge branch 'stmmac-pci-fix-crash-on-Intel-Galileo-Gen2'
-      Merge tag 'mac80211-for-davem-2017-05-08' of git://git.kernel.org/.../jberg/mac80211
-      Revert "ipv4: restore rt->fi for reference counting"
-      Merge branch 'mlx4-misc-fixes'
-      Merge branch 'qed-general-fixes'
-
-Eric Dumazet (2):
-      tcp: randomize timestamps on syncookies
-      dccp/tcp: do not inherit mc_list from parent
-
-Ganesh Goudar (1):
-      cxgb4: avoid disabling FEC by default
-
-Geliang Tang (2):
-      net/hippi/rrunner: use memdup_user
-      yam: use memdup_user
-
-Grygorii Strashko (1):
-      net: ethernet: ti: cpsw: adjust cpsw fifos depth for fullduplex flow control
-
-Hangbin Liu (2):
-      bonding: check nla_put_be32 return value
-      vti: check nla_put_* return value
-
-Jack Morgenstein (1):
-      net/mlx4_core: Reduce harmless SRIOV error message to debug level
-
-Jim Baxter (1):
-      net: cdc_ncm: Fix TX zero padding
-
-Johannes Berg (4):
-      mac80211: properly remove RX_ENC_FLAG_40MHZ
-      nl80211: correctly validate MU-MIMO groups
-      mac80211: fix IBSS presp allocation size
-      cfg80211: fix multi scheduled scan kernel-doc
-
-Jon Mason (1):
-      net: mdio-mux: bcm-iproc: call mdiobus_free() in error path
-
-Kamal Heib (1):
-      net/mlx4_en: Change the error print to debug print
-
-Karim Eshapa (1):
-      drivers: net: wimax: i2400m: i2400m-usb: Use time_after for time comparison
-
-Kees Cook (4):
-      bna: Avoid reading past end of buffer
-      bna: ethtool: Avoid reading past end of buffer
-      qlge: Avoid reading past end of buffer
-      DECnet: Use container_of() for embedded struct
-
-Luca Coelho (1):
-      mac80211: bail out from prep_connection() if a reconfig is ongoing
-
-Mintz, Yuval (3):
-      qed: Fix VF removal sequence
-      qed: Tell QM the number of tasks
-      qede: Split PF/VF ndos.
-
-Pavel Belous (1):
-      aquantia: Fix "ethtool -S" crash when adapter down.
-
-Rakesh Pandit (1):
-      net: alx: handle pci_alloc_irq_vectors return correctly
-
-Ram Amrani (1):
-      qed: Correct doorbell configuration for !4Kb pages
-
-Suddarsana Reddy Kalluru (1):
-      qede: Fix XDP memory leak on unload
-
-Talat Batheesh (1):
-      net/mlx4_en: Avoid adding steering rules with invalid ring
-
-Tobias Klauser (1):
-      bridge: netlink: account for IFLA_BRPORT_{B, M}CAST_FLOOD size and policy
-
-Vlad Yasevich (1):
-      vlan: Keep NETIF_F_HW_CSUM similar to other software devices
-
-WANG Cong (2):
-      ipv4: restore rt->fi for reference counting
-      ipv6: reorder ip6_route_dev_notifier after ipv6_dev_notf
-
-Wei Wang (1):
-      tcp: make congestion control optionally skip slow start after idle
-
- drivers/net/bonding/bond_netlink.c                    |  3 ++-
- drivers/net/dsa/dsa_loop.c                            |  3 +++
- drivers/net/ethernet/aquantia/atlantic/aq_nic.c       |  6 ++++--
- drivers/net/ethernet/atheros/alx/main.c               |  4 ++--
- drivers/net/ethernet/broadcom/bnxt/bnxt.c             |  3 ++-
- drivers/net/ethernet/brocade/bna/bfa_ioc.c            |  2 +-
- drivers/net/ethernet/brocade/bna/bnad_ethtool.c       |  4 ++--
- drivers/net/ethernet/chelsio/cxgb4/cxgb4.h            |  9 +++++++++
- drivers/net/ethernet/chelsio/cxgb4/t4_hw.c            | 38 +++++++++++++++++++++++++++++++-------
- drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h         |  6 +++---
- drivers/net/ethernet/mellanox/mlx4/cmd.c              | 14 +++++++++++---
- drivers/net/ethernet/mellanox/mlx4/en_ethtool.c       |  5 +++++
- drivers/net/ethernet/mellanox/mlx4/en_rx.c            |  3 ++-
- drivers/net/ethernet/mellanox/mlx4/resource_tracker.c |  2 +-
- drivers/net/ethernet/qlogic/qed/qed_cxt.c             |  1 +
- drivers/net/ethernet/qlogic/qed/qed_dev.c             |  2 +-
- drivers/net/ethernet/qlogic/qed/qed_main.c            |  6 ++++--
- drivers/net/ethernet/qlogic/qede/qede_filter.c        |  5 -----
- drivers/net/ethernet/qlogic/qede/qede_main.c          | 25 ++++++++++++++++++++++++-
- drivers/net/ethernet/qlogic/qlge/qlge_dbg.c           |  4 ++--
- drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c      | 41 ++++++++++++++++++-----------------------
- drivers/net/ethernet/ti/cpsw.c                        | 16 ++++++++++++++++
- drivers/net/hamradio/yam.c                            | 10 ++++------
- drivers/net/hippi/rrunner.c                           | 17 +++++++----------
- drivers/net/phy/mdio-mux-bcm-iproc.c                  |  5 ++++-
- drivers/net/usb/cdc_ncm.c                             | 11 +++++++----
- drivers/net/wimax/i2400m/i2400m-usb.h                 |  2 +-
- drivers/net/wireless/ath/ath9k/ar9003_mac.c           |  2 +-
- drivers/net/wireless/ath/ath9k/mac.c                  |  4 ++--
- drivers/net/wireless/intel/iwlegacy/4965-mac.c        |  4 +++-
- drivers/net/wireless/intel/iwlwifi/dvm/rx.c           |  4 +++-
- drivers/net/wireless/mac80211_hwsim.c                 |  8 +++++++-
- include/net/addrconf.h                                |  2 ++
- include/net/cfg80211.h                                |  2 +-
- include/net/mac80211.h                                |  2 --
- include/net/secure_seq.h                              | 10 ++++++----
- include/net/tcp.h                                     |  9 ++++++---
- kernel/bpf/verifier.c                                 | 21 ++++++++++++++++-----
- net/8021q/vlan_dev.c                                  | 13 ++++++++++---
- net/bridge/br_netlink.c                               |  4 ++++
- net/core/secure_seq.c                                 | 31 +++++++++++++++++++------------
- net/decnet/dn_neigh.c                                 | 12 ++++++------
- net/ipv4/inet_connection_sock.c                       |  2 ++
- net/ipv4/ip_vti.c                                     | 13 +++++++------
- net/ipv4/syncookies.c                                 | 12 ++++++++++--
- net/ipv4/tcp_input.c                                  |  8 +++-----
- net/ipv4/tcp_ipv4.c                                   | 32 +++++++++++++++++++-------------
- net/ipv4/tcp_output.c                                 |  4 +++-
- net/ipv6/addrconf.c                                   |  1 +
- net/ipv6/route.c                                      | 13 +++++++++++--
- net/ipv6/syncookies.c                                 | 10 +++++++++-
- net/ipv6/tcp_ipv6.c                                   | 32 +++++++++++++++++++-------------
- net/mac80211/ibss.c                                   |  2 ++
- net/mac80211/mlme.c                                   |  4 ++++
- net/wireless/nl80211.c                                |  4 ++--
- 55 files changed, 345 insertions(+), 167 deletions(-)
+On Thu, Apr 6, 2017 at 6:21 PM, Daniel Borkmann <daniel@iogearbox.net> wrote:
+> On 04/06/2017 01:05 PM, Shubham Bansal wrote:
+>>
+>> Gentle Reminder.
+>
+>
+> Sorry for late reply.
+>
+>> Anybody can tell me how to test the JIT compiler ?
+>
+>
+> There's lib/test_bpf.c, see Documentation/networking/filter.txt +1349
+> for some more information. It basically contains various test cases that
+> have the purpose to test the JIT with corner cases. If you see a useful
+> test missing, please send a patch for it, so all other JITs can benefit
+> from this as well. For extracting disassembly from a generated test case,
+> check out bpf_jit_disasm (Documentation/networking/filter.txt +486).
+>
+> Thanks,
+> Daniel
