@@ -1,96 +1,76 @@
 From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [Patch net] ipv4: restore rt->fi for reference counting
-Date: Tue, 9 May 2017 15:07:25 -0700
-Message-ID: <CAM_iQpVhdzeen+ZJ3jyK7Qb=yVuoRSZ7BFB3RoVMShY8KPBTZA@mail.gmail.com>
-References: <1493934857-6693-1-git-send-email-xiyou.wangcong@gmail.com>
- <20170508.143557.105629611489969352.davem@davemloft.net> <1494288080.7796.59.camel@edumazet-glaptop3.roam.corp.google.com>
- <20170508.212211.1291611254198273979.davem@davemloft.net> <1494296302.7796.61.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAM_iQpWQoLppsMfDOQWsdifGd56CAY24tCNm0Jm02QCe7ZThOw@mail.gmail.com>
- <1494348962.7796.88.camel@edumazet-glaptop3.roam.corp.google.com> <CAM_iQpXADa6AyQ3X-EbmRPGCQArgPWygvHMYgWtfUYV082oF3Q@mail.gmail.com>
+Subject: Re: [PATCH v2 net] dccp/tcp: do not inherit mc_list from parent
+Date: Tue, 9 May 2017 15:37:46 -0700
+Message-ID: <CAM_iQpXHXhnCJr6TNCUm06TkSQvdz6H+k=avN1AyBO9uBkWZAA@mail.gmail.com>
+References: <1494332235.7796.70.camel@edumazet-glaptop3.roam.corp.google.com> <1494336559.7796.78.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=94eb2c1cd208e4750c054f1e95c5
+Content-Type: text/plain; charset=UTF-8
 Cc: David Miller <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Andrey Konovalov <andreyknvl@google.com>,
-        Eric Dumazet <edumazet@google.com>
+        netdev <netdev@vger.kernel.org>, Pray3r <pray3r.z@gmail.com>,
+        Andrey Konovalov <andreyknvl@google.com>
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f180.google.com ([209.85.128.180]:36323 "EHLO
-        mail-wr0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750753AbdEIWHr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 9 May 2017 18:07:47 -0400
-Received: by mail-wr0-f180.google.com with SMTP id l50so18319062wrc.3
-        for <netdev@vger.kernel.org>; Tue, 09 May 2017 15:07:46 -0700 (PDT)
-In-Reply-To: <CAM_iQpXADa6AyQ3X-EbmRPGCQArgPWygvHMYgWtfUYV082oF3Q@mail.gmail.com>
+Received: from mail-wr0-f195.google.com ([209.85.128.195]:35337 "EHLO
+        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750747AbdEIWiI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 9 May 2017 18:38:08 -0400
+Received: by mail-wr0-f195.google.com with SMTP id g12so3738162wrg.2
+        for <netdev@vger.kernel.org>; Tue, 09 May 2017 15:38:07 -0700 (PDT)
+In-Reply-To: <1494336559.7796.78.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---94eb2c1cd208e4750c054f1e95c5
-Content-Type: text/plain; charset=UTF-8
-
-On Tue, May 9, 2017 at 1:56 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
-> Wait... if we transfer dst->dev to loopback_dev because we don't
-> want to block unregister path, then we might have a similar problem
-> for rt->fi too, fib_info is still referenced by dst, so these nh_dev's still
-> hold the dev references...
+On Tue, May 9, 2017 at 6:29 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> From: Eric Dumazet <edumazet@google.com>
+>
+> syzkaller found a way to trigger double frees from ip_mc_drop_socket()
+>
+> It turns out that leave a copy of parent mc_list at accept() time,
+> which is very bad.
+>
+> Very similar to commit 8b485ce69876 ("tcp: do not inherit
+> fastopen_req from parent")
+>
+> Initial report from Pray3r, completed by Andrey one.
+> Thanks a lot to them !
+>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Reported-by: Pray3r <pray3r.z@gmail.com>
+> Reported-by: Andrey Konovalov <andreyknvl@google.com>
+> Tested-by: Andrey Konovalov <andreyknvl@google.com>
+> ---
+> v2: fix moved into inet_csk_clone_lock() to fix both DCCP and TCP
+>
+>  net/ipv4/inet_connection_sock.c |    2 ++
+>  1 file changed, 2 insertions(+)
+>
+> diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
+> index 5e313c1ac94fc88eca5fe3a0e9e46e551e955ff0..1054d330bf9df3189a21dbb08e27c0e6ad136775 100644
+> --- a/net/ipv4/inet_connection_sock.c
+> +++ b/net/ipv4/inet_connection_sock.c
+> @@ -794,6 +794,8 @@ struct sock *inet_csk_clone_lock(const struct sock *sk,
+>                 /* listeners have SOCK_RCU_FREE, not the children */
+>                 sock_reset_flag(newsk, SOCK_RCU_FREE);
+>
+> +               inet_sk(newsk)->mc_list = NULL;
+> +
+>                 newsk->sk_mark = inet_rsk(req)->ir_mark;
+>                 atomic64_set(&newsk->sk_cookie,
+>                              atomic64_read(&inet_rsk(req)->ir_cookie));
 >
 
-I finally come up with the attach patch... Do you mind to give it a try?
+I think IPv6 needs this too?
 
---94eb2c1cd208e4750c054f1e95c5
-Content-Type: text/plain; charset=US-ASCII; name="ipv4-rt-fi-ref-count.diff"
-Content-Disposition: attachment; filename="ipv4-rt-fi-ref-count.diff"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_j2i3wost0
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index aeb9497..b3611d9 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -1062,6 +1062,7 @@ static struct sock *tcp_v6_syn_recv_sock(const
+struct sock *sk, struct sk_buff *
+                newtp->af_specific = &tcp_sock_ipv6_mapped_specific;
+ #endif
 
-Y29tbWl0IGE0MzFiNGQ5NjlmNjE3YzVlZjg3MTFiNmJmNDkzMTk5ZWVjZWM3NTkKQXV0aG9yOiBD
-b25nIFdhbmcgPHhpeW91Lndhbmdjb25nQGdtYWlsLmNvbT4KRGF0ZTogICBUdWUgTWF5IDkgMTQ6
-MzU6MTAgMjAxNyAtMDcwMAoKICAgIGlwdjQ6IHJlc3RvcmUgcnQtPmZpIGZvciByZWZlcmVuY2Ug
-Y291bnRpbmcsIHRyeSAjMgogICAgCiAgICBTaWduZWQtb2ZmLWJ5OiBDb25nIFdhbmcgPHhpeW91
-Lndhbmdjb25nQGdtYWlsLmNvbT4KCmRpZmYgLS1naXQgYS9pbmNsdWRlL25ldC9yb3V0ZS5oIGIv
-aW5jbHVkZS9uZXQvcm91dGUuaAppbmRleCAyY2MwZTE0Li40MzM1ZWI3IDEwMDY0NAotLS0gYS9p
-bmNsdWRlL25ldC9yb3V0ZS5oCisrKyBiL2luY2x1ZGUvbmV0L3JvdXRlLmgKQEAgLTY5LDYgKzY5
-LDcgQEAgc3RydWN0IHJ0YWJsZSB7CiAKIAlzdHJ1Y3QgbGlzdF9oZWFkCXJ0X3VuY2FjaGVkOwog
-CXN0cnVjdCB1bmNhY2hlZF9saXN0CSpydF91bmNhY2hlZF9saXN0OworCXN0cnVjdCBmaWJfaW5m
-bwkJKmZpOyAvKiBmb3IgcmVmY250IHRvIHNoYXJlZCBtZXRyaWNzICovCiB9OwogCiBzdGF0aWMg
-aW5saW5lIGJvb2wgcnRfaXNfaW5wdXRfcm91dGUoY29uc3Qgc3RydWN0IHJ0YWJsZSAqcnQpCmRp
-ZmYgLS1naXQgYS9uZXQvaXB2NC9maWJfc2VtYW50aWNzLmMgYi9uZXQvaXB2NC9maWJfc2VtYW50
-aWNzLmMKaW5kZXggZGE0NDlkZC4uZDc3YzQ1MyAxMDA2NDQKLS0tIGEvbmV0L2lwdjQvZmliX3Nl
-bWFudGljcy5jCisrKyBiL25ldC9pcHY0L2ZpYl9zZW1hbnRpY3MuYwpAQCAtMTQyOSw4ICsxNDI5
-LDE1IEBAIGludCBmaWJfc3luY19kb3duX2RldihzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LCB1bnNp
-Z25lZCBsb25nIGV2ZW50LCBib29sIGZvcmNlKQogI2lmZGVmIENPTkZJR19JUF9ST1VURV9NVUxU
-SVBBVEgKIAkJCWlmIChldmVudCA9PSBORVRERVZfVU5SRUdJU1RFUiAmJgogCQkJICAgIG5leHRo
-b3BfbmgtPm5oX2RldiA9PSBkZXYpIHsKKwkJCQkvKiBUaGlzIHNob3VsZCBiZSBmaW5lLCB3ZSBh
-cmUgb24gdW5yZWdpc3RlcgorCQkJCSAqIHBhdGggc28gc3luY2hyb25pemVfbmV0KCkgYWxyZWFk
-eSB3YWl0cyBmb3IKKwkJCQkgKiBleGlzdGluZyByZWFkZXJzLiBXZSBoYXZlIHRvIHJlbGVhc2Ug
-dGhlCisJCQkJICogZGV2IGhlcmUgYmVjYXVzZSBkc3QgY291bGQgc3RpbGwgaG9sZCB0aGlzCisJ
-CQkJICogZmliX2luZm8gdmlhIHJ0LT5maSwgd2UgY2FuJ3Qgd2FpdCBmb3IgR0MuCisJCQkJICov
-CisJCQkJUkNVX0lOSVRfUE9JTlRFUihuZXh0aG9wX25oLT5uaF9kZXYsIE5VTEwpOworCQkJCWRl
-dl9wdXQoZGV2KTsKIAkJCQlkZWFkID0gZmktPmZpYl9uaHM7Ci0JCQkJYnJlYWs7CiAJCQl9CiAj
-ZW5kaWYKIAkJfSBlbmRmb3JfbmV4dGhvcHMoZmkpCmRpZmYgLS1naXQgYS9uZXQvaXB2NC9yb3V0
-ZS5jIGIvbmV0L2lwdjQvcm91dGUuYwppbmRleCA2NTVkOWVlLi5mNjQ3MzEwIDEwMDY0NAotLS0g
-YS9uZXQvaXB2NC9yb3V0ZS5jCisrKyBiL25ldC9pcHY0L3JvdXRlLmMKQEAgLTEzODcsNiArMTM4
-NywxMSBAQCBzdGF0aWMgdm9pZCBpcHY0X2RzdF9kZXN0cm95KHN0cnVjdCBkc3RfZW50cnkgKmRz
-dCkKIHsKIAlzdHJ1Y3QgcnRhYmxlICpydCA9IChzdHJ1Y3QgcnRhYmxlICopIGRzdDsKIAorCWlm
-IChydC0+ZmkpIHsKKwkJZmliX2luZm9fcHV0KHJ0LT5maSk7CisJCXJ0LT5maSA9IE5VTEw7CisJ
-fQorCiAJaWYgKCFsaXN0X2VtcHR5KCZydC0+cnRfdW5jYWNoZWQpKSB7CiAJCXN0cnVjdCB1bmNh
-Y2hlZF9saXN0ICp1bCA9IHJ0LT5ydF91bmNhY2hlZF9saXN0OwogCkBAIC0xNDI0LDYgKzE0Mjks
-MTYgQEAgc3RhdGljIGJvb2wgcnRfY2FjaGVfdmFsaWQoY29uc3Qgc3RydWN0IHJ0YWJsZSAqcnQp
-CiAJCSFydF9pc19leHBpcmVkKHJ0KTsKIH0KIAorc3RhdGljIHZvaWQgcnRfaW5pdF9tZXRyaWNz
-KHN0cnVjdCBydGFibGUgKnJ0LCBzdHJ1Y3QgZmliX2luZm8gKmZpKQoreworCWlmIChmaS0+Zmli
-X21ldHJpY3MgIT0gKHUzMiAqKWRzdF9kZWZhdWx0X21ldHJpY3MpIHsKKwkJZmliX2luZm9faG9s
-ZChmaSk7CisJCXJ0LT5maSA9IGZpOworCX0KKworCWRzdF9pbml0X21ldHJpY3MoJnJ0LT5kc3Qs
-IGZpLT5maWJfbWV0cmljcywgdHJ1ZSk7Cit9CisKIHN0YXRpYyB2b2lkIHJ0X3NldF9uZXh0aG9w
-KHN0cnVjdCBydGFibGUgKnJ0LCBfX2JlMzIgZGFkZHIsCiAJCQkgICBjb25zdCBzdHJ1Y3QgZmli
-X3Jlc3VsdCAqcmVzLAogCQkJICAgc3RydWN0IGZpYl9uaF9leGNlcHRpb24gKmZuaGUsCkBAIC0x
-NDM4LDcgKzE0NTMsNyBAQCBzdGF0aWMgdm9pZCBydF9zZXRfbmV4dGhvcChzdHJ1Y3QgcnRhYmxl
-ICpydCwgX19iZTMyIGRhZGRyLAogCQkJcnQtPnJ0X2dhdGV3YXkgPSBuaC0+bmhfZ3c7CiAJCQly
-dC0+cnRfdXNlc19nYXRld2F5ID0gMTsKIAkJfQotCQlkc3RfaW5pdF9tZXRyaWNzKCZydC0+ZHN0
-LCBmaS0+ZmliX21ldHJpY3MsIHRydWUpOworCQlydF9pbml0X21ldHJpY3MocnQsIGZpKTsKICNp
-ZmRlZiBDT05GSUdfSVBfUk9VVEVfQ0xBU1NJRAogCQlydC0+ZHN0LnRjbGFzc2lkID0gbmgtPm5o
-X3RjbGFzc2lkOwogI2VuZGlmCkBAIC0xNDkwLDYgKzE1MDUsNyBAQCBzdHJ1Y3QgcnRhYmxlICpy
-dF9kc3RfYWxsb2Moc3RydWN0IG5ldF9kZXZpY2UgKmRldiwKIAkJcnQtPnJ0X2dhdGV3YXkgPSAw
-OwogCQlydC0+cnRfdXNlc19nYXRld2F5ID0gMDsKIAkJcnQtPnJ0X3RhYmxlX2lkID0gMDsKKwkJ
-cnQtPmZpID0gTlVMTDsKIAkJSU5JVF9MSVNUX0hFQUQoJnJ0LT5ydF91bmNhY2hlZCk7CiAKIAkJ
-cnQtPmRzdC5vdXRwdXQgPSBpcF9vdXRwdXQ7Cg==
---94eb2c1cd208e4750c054f1e95c5--
++               newnp->ipv6_mc_list = NULL;
+                newnp->ipv6_ac_list = NULL;
+                newnp->ipv6_fl_list = NULL;
+                newnp->pktoptions  = NULL;
