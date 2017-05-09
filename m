@@ -1,84 +1,48 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2 net] dccp/tcp: do not inherit mc_list from parent
-Date: Tue, 09 May 2017 15:51:13 -0700
-Message-ID: <1494370273.7796.91.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1494332235.7796.70.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1494336559.7796.78.camel@edumazet-glaptop3.roam.corp.google.com>
-         <CAM_iQpXHXhnCJr6TNCUm06TkSQvdz6H+k=avN1AyBO9uBkWZAA@mail.gmail.com>
+Subject: Re: [Patch net] ipv4: restore rt->fi for reference counting
+Date: Tue, 09 May 2017 15:52:47 -0700
+Message-ID: <1494370367.7796.92.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1493934857-6693-1-git-send-email-xiyou.wangcong@gmail.com>
+         <20170508.143557.105629611489969352.davem@davemloft.net>
+         <1494288080.7796.59.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20170508.212211.1291611254198273979.davem@davemloft.net>
+         <1494296302.7796.61.camel@edumazet-glaptop3.roam.corp.google.com>
+         <CAM_iQpWQoLppsMfDOQWsdifGd56CAY24tCNm0Jm02QCe7ZThOw@mail.gmail.com>
+         <1494348962.7796.88.camel@edumazet-glaptop3.roam.corp.google.com>
+         <CAM_iQpXADa6AyQ3X-EbmRPGCQArgPWygvHMYgWtfUYV082oF3Q@mail.gmail.com>
+         <CAM_iQpVhdzeen+ZJ3jyK7Qb=yVuoRSZ7BFB3RoVMShY8KPBTZA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 Cc: David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>, Pray3r <pray3r.z@gmail.com>,
-        Andrey Konovalov <andreyknvl@google.com>
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Andrey Konovalov <andreyknvl@google.com>,
+        Eric Dumazet <edumazet@google.com>
 To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:35972 "EHLO
-        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750733AbdEIWvQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 9 May 2017 18:51:16 -0400
-Received: by mail-pg0-f67.google.com with SMTP id 64so1643606pgb.3
-        for <netdev@vger.kernel.org>; Tue, 09 May 2017 15:51:15 -0700 (PDT)
-In-Reply-To: <CAM_iQpXHXhnCJr6TNCUm06TkSQvdz6H+k=avN1AyBO9uBkWZAA@mail.gmail.com>
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:33232 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751040AbdEIWwt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 9 May 2017 18:52:49 -0400
+Received: by mail-pg0-f66.google.com with SMTP id s62so1666383pgc.0
+        for <netdev@vger.kernel.org>; Tue, 09 May 2017 15:52:49 -0700 (PDT)
+In-Reply-To: <CAM_iQpVhdzeen+ZJ3jyK7Qb=yVuoRSZ7BFB3RoVMShY8KPBTZA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2017-05-09 at 15:37 -0700, Cong Wang wrote:
-> On Tue, May 9, 2017 at 6:29 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> > From: Eric Dumazet <edumazet@google.com>
-> >
-> > syzkaller found a way to trigger double frees from ip_mc_drop_socket()
-> >
-> > It turns out that leave a copy of parent mc_list at accept() time,
-> > which is very bad.
-> >
-> > Very similar to commit 8b485ce69876 ("tcp: do not inherit
-> > fastopen_req from parent")
-> >
-> > Initial report from Pray3r, completed by Andrey one.
-> > Thanks a lot to them !
-> >
-> > Signed-off-by: Eric Dumazet <edumazet@google.com>
-> > Reported-by: Pray3r <pray3r.z@gmail.com>
-> > Reported-by: Andrey Konovalov <andreyknvl@google.com>
-> > Tested-by: Andrey Konovalov <andreyknvl@google.com>
-> > ---
-> > v2: fix moved into inet_csk_clone_lock() to fix both DCCP and TCP
-> >
-> >  net/ipv4/inet_connection_sock.c |    2 ++
-> >  1 file changed, 2 insertions(+)
-> >
-> > diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
-> > index 5e313c1ac94fc88eca5fe3a0e9e46e551e955ff0..1054d330bf9df3189a21dbb08e27c0e6ad136775 100644
-> > --- a/net/ipv4/inet_connection_sock.c
-> > +++ b/net/ipv4/inet_connection_sock.c
-> > @@ -794,6 +794,8 @@ struct sock *inet_csk_clone_lock(const struct sock *sk,
-> >                 /* listeners have SOCK_RCU_FREE, not the children */
-> >                 sock_reset_flag(newsk, SOCK_RCU_FREE);
-> >
-> > +               inet_sk(newsk)->mc_list = NULL;
-> > +
-> >                 newsk->sk_mark = inet_rsk(req)->ir_mark;
-> >                 atomic64_set(&newsk->sk_cookie,
-> >                              atomic64_read(&inet_rsk(req)->ir_cookie));
+On Tue, 2017-05-09 at 15:07 -0700, Cong Wang wrote:
+> On Tue, May 9, 2017 at 1:56 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+> > Wait... if we transfer dst->dev to loopback_dev because we don't
+> > want to block unregister path, then we might have a similar problem
+> > for rt->fi too, fib_info is still referenced by dst, so these nh_dev's still
+> > hold the dev references...
 > >
 > 
-> I think IPv6 needs this too?
-> 
-> diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-> index aeb9497..b3611d9 100644
-> --- a/net/ipv6/tcp_ipv6.c
-> +++ b/net/ipv6/tcp_ipv6.c
-> @@ -1062,6 +1062,7 @@ static struct sock *tcp_v6_syn_recv_sock(const
-> struct sock *sk, struct sk_buff *
->                 newtp->af_specific = &tcp_sock_ipv6_mapped_specific;
->  #endif
-> 
-> +               newnp->ipv6_mc_list = NULL;
->                 newnp->ipv6_ac_list = NULL;
->                 newnp->ipv6_fl_list = NULL;
->                 newnp->pktoptions  = NULL;
+> I finally come up with the attach patch... Do you mind to give it a try?
 
-Good point, but it looks like you patched on only IPv4 mapped sockets.
+I will, but this might be delayed by a few hours.
 
-And DCCP would need fixes as well.
+In the mean time, it looks like you could try adding the following to
+your .config ;)
+
+CONFIG_IP_ROUTE_MULTIPATH=y
