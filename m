@@ -1,64 +1,55 @@
-From: Shannon Nelson <shannon.nelson@oracle.com>
-Subject: Re: [PATCH net-next] bnxt: add dma mapping attributes
-Date: Tue, 9 May 2017 15:54:48 -0700
-Message-ID: <b8fb7775-9074-b730-d464-b37f36101676@oracle.com>
-References: <1494362253-270990-1-git-send-email-shannon.nelson@oracle.com>
- <CACKFLikw_oi4rHRC9P-23xuvuOJSaf9b2kUSeTMgbNW1WA__=w@mail.gmail.com>
+From: Bjorn Andersson <bjorn.andersson@linaro.org>
+Subject: Re: [PATCH] wcn36xx: Close SMD channel on device removal
+Date: Tue, 9 May 2017 16:03:12 -0700
+Message-ID: <20170509230312.GR15143@minitux>
+References: <20170509043637.28179-1-bjorn.andersson@linaro.org>
+ <87h90u3672.fsf@kamboji.qca.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-        Netdev <netdev@vger.kernel.org>, sparclinux@vger.kernel.org
-To: Michael Chan <michael.chan@broadcom.com>
-Return-path: <sparclinux-owner@vger.kernel.org>
-In-Reply-To: <CACKFLikw_oi4rHRC9P-23xuvuOJSaf9b2kUSeTMgbNW1WA__=w@mail.gmail.com>
-Sender: sparclinux-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Eugene Krasnikov <k.eugene.e@gmail.com>,
+        Eyal Ilsar <c_eilsar@qti.qualcomm.com>,
+        wcn36xx@lists.infradead.org, linux-wireless@vger.kernel.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        linux-arm-msm@vger.kernel.org
+To: Kalle Valo <kvalo@codeaurora.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <87h90u3672.fsf@kamboji.qca.qualcomm.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 5/9/2017 2:05 PM, Michael Chan wrote:
-> On Tue, May 9, 2017 at 1:37 PM, Shannon Nelson
-> <shannon.nelson@oracle.com> wrote:
->> On the SPARC platform we need to use the DMA_ATTR_WEAK_ORDERING attribute
->> in our Rx path dma mapping in order to get the expected performance out
->> of the receive path.  Adding it to the Tx path has little effect, so
->> that's not a part of this patch.
->>
->> Signed-off-by: Shannon Nelson <shannon.nelson@oracle.com>
->> Reviewed-by: Tushar Dave <tushar.n.dave@oracle.com>
->> Reviewed-by: Tom Saeger <tom.saeger@oracle.com>
->> ---
->>  drivers/net/ethernet/broadcom/bnxt/bnxt.c |   61 ++++++++++++++++++----------
->>  1 files changed, 39 insertions(+), 22 deletions(-)
->>
->> diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
->> index 1f1e54b..771742c 100644
->> --- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
->> +++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
->> @@ -66,6 +66,12 @@
->>  MODULE_DESCRIPTION("Broadcom BCM573xx network driver");
->>  MODULE_VERSION(DRV_MODULE_VERSION);
->>
->> +#ifdef CONFIG_SPARC
->> +#define BNXT_DMA_ATTRS  DMA_ATTR_WEAK_ORDERING
->> +#else
->> +#define BNXT_DMA_ATTRS 0
->> +#endif
->> +
->
-> I think we can use the same attribute for all architectures.
-> Architectures that don't implement weak ordering will ignore the
-> attribute.
->
+On Mon 08 May 23:17 PDT 2017, Kalle Valo wrote:
 
-In the long run, you are probably correct, and it would be simple enough 
-to change this.  However, given the recent threads about the 
-applicability of Relaxed Ordering and a couple of PCIe root complexes 
-that have been found to have issues with Relaxed Ordering TLPs, I prefer 
-to stay on the conservative side and set it up only for the platform I 
-know.  As it stands, this patch won't change the currently working 
-behavior on other platforms, but will help us out on the one we know can 
-use the feature.
+> Bjorn Andersson <bjorn.andersson@linaro.org> writes:
+> 
+> > The SMD channel is not the primary WCNSS channel and must explicitly be
+> > closed as the device is removed, or the channel will already by open on
+> > a subsequent probe call in e.g. the case of reloading the kernel module.
+> >
+> > This issue was introduced because I simplified the underlying SMD
+> > implementation while the SMD adaptions of the driver sat on the mailing
+> > list, but missed to update these patches. The patch does however only
+> > apply back to the transition to rpmsg, hence the limited Fixes.
+> >
+> > Fixes: 5052de8deff5 ("soc: qcom: smd: Transition client drivers from smd to rpmsg")
+> > Reported-by: Eyal Ilsar <c_eilsar@qti.qualcomm.com>
+> > Signed-off-by: Bjorn Andersson <bjorn.andersson@linaro.org>
+> 
+> As this is a regression I'll queue this to 4.12.
+> 
 
-sln
+Thanks.
 
+> But if this is an older bug (didn't quite understand your description
+> though) should there be a separate patch for stable releases?
+> 
 
+AFAICT this never worked, as it seems I did the rework in SMD while we
+tried to figure out the dependency issues we had with moving to SMD. So
+v4.9 through v4.11 has SMD support - with this bug.
+
+How do I proceed, do you want me to write up a fix for stable@? Do I
+send that out as an ordinary patch?
+
+Regards,
+Bjorn
