@@ -1,32 +1,44 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] wil6210: Replace five seq_puts() calls by seq_putc()
-Date: Tue, 09 May 2017 05:25:23 -0700
-Message-ID: <1494332723.7796.74.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <64747f85-e373-a0ff-b6dc-70cdfe35f71a@users.sourceforge.net>
+From: Tobias Klauser <tklauser@distanz.ch>
+Subject: Re: [PATCH net] rtnetlink: Fix the IFLA_PHYS_PORT_NAME TLV to
+ include terminating NULL
+Date: Tue, 9 May 2017 14:31:07 +0200
+Message-ID: <20170509123107.GG10395@distanz.ch>
+References: <1494331922-16451-1-git-send-email-yotamg@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: wil6210@qca.qualcomm.com, linux-wireless@vger.kernel.org,
-        netdev@vger.kernel.org, Kalle Valo <kvalo@codeaurora.org>,
-        Maya Erez <qca_merez@qca.qualcomm.com>,
-        LKML <linux-kernel@vger.kernel.org>,
-        kernel-janitors@vger.kernel.org
-To: SF Markus Elfring <elfring@users.sourceforge.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <64747f85-e373-a0ff-b6dc-70cdfe35f71a@users.sourceforge.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, zhangshengju@cmss.chinamobile.com,
+        roopa@cumulusnetworks.com, sd@queasysnail.net,
+        bblanco@plumgrid.com, minipli@googlemail.com, nogahf@mellanox.com,
+        moshe@mellanox.com, rshearma@brocade.com, daniel@iogearbox.net,
+        netdev@vger.kernel.org, David Ahern <dsa@cumulusnetworks.com>
+To: Yotam Gigi <yotamg@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sym2.noone.org ([178.63.92.236]:38119 "EHLO sym2.noone.org"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752682AbdEIMbL (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 9 May 2017 08:31:11 -0400
+Content-Disposition: inline
+In-Reply-To: <1494331922-16451-1-git-send-email-yotamg@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2017-05-09 at 09:50 +0200, SF Markus Elfring wrote:
-> From: Markus Elfring <elfring@users.sourceforge.net>
-> Date: Mon, 8 May 2017 22:22:04 +0200
+On 2017-05-09 at 14:12:02 +0200, Yotam Gigi <yotamg@mellanox.com> wrote:
+> The IFLA_PHYS_PORT_NAME rtnetlink TLV length does not include the
+> terminating NULL character, which is different from other string typed
+> TLVs. Due to the fact that libnl checks for the terminating NULL in every
+> string typed attribute, it crashes on every RTM_GETLINK response on
+> drivers that implement ndo_get_phys_port_name.
 > 
-> Five single characters (line breaks) should be put into a sequence.
-> Thus use the corresponding function "seq_putc".
+> Make the fill_phys_port_name function include the terminating NULL in the
+> TLV size by using the nla_put_string helper function.
 > 
-> This issue was detected by using the Coccinelle software.
+> Fixes: db24a9044ee1 ("net: add support for phys_port_name")
+> Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
+> Cc: David Ahern <dsa@cumulusnetworks.com>
+> Reviewed-by: Ido Schimmel <idosch@mellanox.com>
+> Acked-by: Jiri Pirko <jiri@mellanox.com>
+> ---
+> Please consider this for stable too. Thanks!
 
-There is no _issue_ at all here, only a matter of taste.
-
-printf("\n")  or putchar('\n')  in some slow path is really not that
-interesting.
+This is already fixed in commit 77ef033b687c ("rtnetlink: NUL-terminate
+IFLA_PHYS_PORT_NAME string").
