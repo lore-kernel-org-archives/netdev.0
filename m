@@ -1,49 +1,72 @@
-From: Timur Tabi <timur@codeaurora.org>
-Subject: Requirements for a shutdown function?
-Date: Tue, 9 May 2017 11:58:32 -0500
-Message-ID: <49bee65f-2ea8-1787-9642-659a967df8f0@codeaurora.org>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH net v2] driver: vrf: Fix one possible use-after-free issue
+Date: Tue, 9 May 2017 19:11:42 +0200
+Message-ID: <20170509171142.GC16263@breakpoint.cc>
+References: <1494325653-39885-1-git-send-email-gfree.wind@vip.163.com>
+ <43be9c0c-2cee-5d05-0908-53b81b4ebbba@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: gfree.wind@vip.163.com, shm@cumulusnetworks.com,
+        davem@davemloft.net, fw@strlen.de, netdev@vger.kernel.org
+To: David Ahern <dsahern@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:37040 "EHLO
-        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754330AbdEIQ6e (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 9 May 2017 12:58:34 -0400
+Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:45082 "EHLO
+        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1753460AbdEIRMP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 9 May 2017 13:12:15 -0400
+Content-Disposition: inline
+In-Reply-To: <43be9c0c-2cee-5d05-0908-53b81b4ebbba@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I'm trying to add a platform_driver.shutdown function to my Ethernet driver
-(drivers/net/ethernet/qualcomm/emac/*), but I can't find any definitive
-information as to what a network driver shutdown callback is supposed to do.
- I also don't know what testcase I should use to verify that my function is
-working.
+David Ahern <dsahern@gmail.com> wrote:
+> On 5/9/17 3:27 AM, gfree.wind@vip.163.com wrote:
+> > diff --git a/drivers/net/vrf.c b/drivers/net/vrf.c
+> > index ceda586..db88249 100644
+> > --- a/drivers/net/vrf.c
+> > +++ b/drivers/net/vrf.c
+> > @@ -989,6 +989,7 @@ static u32 vrf_fib_table(const struct net_device *dev)
+> >  
+> >  static int vrf_rcv_finish(struct net *net, struct sock *sk, struct sk_buff *skb)
+> >  {
+> > +	kfree_skb(skb);
+> >  	return 0;
+> >  }
+> >  
+> > @@ -998,7 +999,7 @@ static struct sk_buff *vrf_rcv_nfhook(u8 pf, unsigned int hook,
+> >  {
+> >  	struct net *net = dev_net(dev);
+> >  
+> > -	if (NF_HOOK(pf, hook, net, NULL, skb, dev, NULL, vrf_rcv_finish) < 0)
+> > +	if (nf_hook(pf, hook, net, NULL, skb, dev, NULL, vrf_rcv_finish) != 1)
+> >  		skb = NULL;    /* kfree_skb(skb) handled by nf code */
+> >  
+> >  	return skb;
+> > 
+> 
+> I'm clearly misunderstanding something ...
+> 
+> With the current code:
+> - nf_hook returns 1, NF_HOOK invokes vrf_rcv_finish as the okfn, it
+> returns 0, skb passes on.
+> 
+> - nf_hook returns 0, vrf_rcv_finish has been called by the nf_hook tree,
+> vrf_rcv_finish returns 0, skb passes on
 
-I see only four instances of a platform_driver.shutdown function in
-drivers/net/ethernet:
+Yes, thats a bug. The skb could be have been queued to userspace, or
+stolen by a hook.
 
-$ git grep -A 20 -w platform_driver | grep '\.shutdown'
-apm/xgene-v2/main.c-	.shutdown = xge_shutdown,
-apm/xgene/xgene_enet_main.c-	.shutdown = xgene_enet_shutdown,
-marvell/mv643xx_eth.c-	.shutdown	= mv643xx_eth_shutdown,
-marvell/pxa168_eth.c-	.shutdown = pxa168_eth_shutdown,
+It is illegal to use the skb after NF_HOOK() no matter the return value.
+The okfn has to do further processing.
 
-(Other shutdown functions are for pci_driver.shutdown).
+If nf_hook() is used instead, only a return value of 1 means the skb is
+still valid.
 
-For the xgene drivers, the shutdown function just calls the 'remove'
-function.  Isn't that overkill?  Why bother with a shutdown function if it's
-just the same thing as removing the driver outright?
+In < 0 case it was free'd, in 0 case its in unknown state (usually queued
+or free'd).
 
-mv643xx_eth_shutdown() seems more reasonable.  All it does is halt the TX
-and RX queues.
+As for the patch, it avoids skb leak on userspace reinject but nfqueue
+still won't work as no reinject is possible (vrf_rcv_finish is a sink that
+doesn't do anyting).
 
-pxa168_eth_shutdown() is a little more heavyweight: halts the queues, and
-stops the DMA and calls phy_stop().
-
-Can anyone help me figure out what my driver really should do?
-
--- 
-Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm
-Technologies, Inc.  Qualcomm Technologies, Inc. is a member of the
-Code Aurora Forum, a Linux Foundation Collaborative Project.
+Hope this clarifies things.
