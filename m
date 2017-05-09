@@ -1,58 +1,34 @@
-From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-Subject: Re: [PATCH] net: wireless: ath: ath9k: remove unnecessary code
-Date: Tue, 09 May 2017 07:01:58 -0500
-Message-ID: <20170509070158.Horde.dYleVB-aK1cNNyQpdVsVMNp@gator4166.hostgator.com>
-References: <20170509034814.GA18034@embeddedgus>
- <87efvy1d07.fsf@kamboji.qca.qualcomm.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH 1/4] net: macb: Add support for PTP timestamps in DMA
+ descriptors
+Date: Tue, 9 May 2017 14:04:34 +0200
+Message-ID: <20170509120434.GA9368@localhost.localdomain>
+References: <1494321885-14384-1-git-send-email-rafalo@cadence.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed; DelSp=Yes
-Cc: ath9k-devel <ath9k-devel@qca.qualcomm.com>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Kalle Valo <kvalo@qca.qualcomm.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, nicolas.ferre@atmel.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        devicetree@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+        harini.katakam@xilinx.com, andrei.pistirica@microchip.com
+To: Rafal Ozieblo <rafalo@cadence.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87efvy1d07.fsf@kamboji.qca.qualcomm.com>
 Content-Disposition: inline
+In-Reply-To: <1494321885-14384-1-git-send-email-rafalo@cadence.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Kalle,
+On Tue, May 09, 2017 at 10:24:45AM +0100, Rafal Ozieblo wrote:
+> This patch adds support for PTP timestamps in
+> DMA buffer descriptors. It checks capability at runtime
+> and uses appropriate buffer descriptor.
+> 
+> Signed-off-by: Rafal Ozieblo <rafalo@cadence.com>
 
-Quoting Kalle Valo <kvalo@qca.qualcomm.com>:
+You posted this series once before, on April 13, 2017.  That makes
+this v2.  Please add v2 in the subject line, eg. [PATCH v2 1/4].
 
-> "Gustavo A. R. Silva" <garsilva@embeddedor.com> writes:
->
->> The name of an array used by itself will always return the array's address.
->> So this test will always evaluate as true.
->>
->> Addresses-Coverity-ID: 1364903
->> Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
->> ---
->>  drivers/net/wireless/ath/ath9k/eeprom.c | 2 +-
->>  1 file changed, 1 insertion(+), 1 deletion(-)
->>
->> diff --git a/drivers/net/wireless/ath/ath9k/eeprom.c  
->> b/drivers/net/wireless/ath/ath9k/eeprom.c
->> index fb80ec8..5c3bc28 100644
->> --- a/drivers/net/wireless/ath/ath9k/eeprom.c
->> +++ b/drivers/net/wireless/ath/ath9k/eeprom.c
->> @@ -143,7 +143,7 @@ bool ath9k_hw_nvram_read(struct ath_hw *ah, u32  
->> off, u16 *data)
->>
->>  	if (ah->eeprom_blob)
->>  		ret = ath9k_hw_nvram_read_firmware(ah->eeprom_blob, off, data);
->> -	else if (pdata && !pdata->use_eeprom && pdata->eeprom_data)
->> +	else if (pdata && !pdata->use_eeprom)
->>  		ret = ath9k_hw_nvram_read_pdata(pdata, off, data);
->>  	else
->>  		ret = common->bus_ops->eeprom_read(common, off, data);
->
-> The patch may very well be valid (didn't check yet) but the commit log
-> is gibberish for me.
->
+Also, add a cover letter [0/4] that summarizes the changes between v1
+and v2 of the series.
 
-Let me correct that and I'll send the patch again.
-
-Thanks!
---
-Gustavo A. R. Silva
+Thanks,
+Richard
