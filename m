@@ -1,58 +1,47 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] tcp: do not inherit mc_list from parent
-Date: Tue, 09 May 2017 05:17:15 -0700
-Message-ID: <1494332235.7796.70.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Kalle Valo <kvalo@qca.qualcomm.com>
+Subject: Re: [PATCH] net: wireless: ath: ath10k: remove unnecessary code
+Date: Tue, 9 May 2017 12:20:40 +0000
+Message-ID: <87wp9qz0fd.fsf@kamboji.qca.qualcomm.com>
+References: <20170509042159.GA19727@embeddedgus>
+        <87lgq6387s.fsf@kamboji.qca.qualcomm.com>
+        <76408651-07c6-fe31-863f-e1cb73b49663@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Pray3r <pray3r.z@gmail.com>,
-        Andrey Konovalov <andreyknvl@google.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f42.google.com ([74.125.83.42]:33729 "EHLO
-        mail-pg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752049AbdEIMRR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 9 May 2017 08:17:17 -0400
-Received: by mail-pg0-f42.google.com with SMTP id u187so43529875pgb.0
-        for <netdev@vger.kernel.org>; Tue, 09 May 2017 05:17:17 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: "Gustavo A. R. Silva" <garsilva@embeddedor.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "ath10k@lists.infradead.org" <ath10k@lists.infradead.org>
+To: Arend Van Spriel <arend.vanspriel@broadcom.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <76408651-07c6-fe31-863f-e1cb73b49663@broadcom.com> (Arend Van
+        Spriel's message of "Tue, 9 May 2017 14:07:57 +0200")
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+Arend Van Spriel <arend.vanspriel@broadcom.com> writes:
 
-syzkaller found a way to trigger double frees from ip_mc_drop_socket()
+> On 9-5-2017 7:33, Kalle Valo wrote:
+>> "Gustavo A. R. Silva" <garsilva@embeddedor.com> writes:
+>>=20
+>>> The name of an array used by itself will always return the array's addr=
+ess.
+>>> So these tests will always evaluate as false and therefore the _return_
+>>> will never be executed.
+>>>
+>>> Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
+>>=20
+>> I don't understand the commit log, especially what does "The name of an
+>> array used by itself" mean?
+>
+> The array fields in struct wmi_start_scan_arg that are checked here are
+> fixed size arrays so they can never be NULL.
+>
+> Maybe that helps rephrasing this commit message.
 
-It turns out that leave a copy of parent mc_list at accept() time,
-which is very bad.
+Much much better, thanks!
 
-Very similar to commit 8b485ce69876 ("tcp: do not inherit
-fastopen_req from parent")
-
-Initial report from Pray3r, completed by Andrey one.
-Thanks a lot to them !
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Reported-by: Pray3r <pray3r.z@gmail.com>
-Reported-by: Andrey Konovalov <andreyknvl@google.com>
-Tested-by: Andrey Konovalov <andreyknvl@google.com>
----
-Notes:
- - day-0 bug.
- - Not sure if it makes sense for TCP socket to be able to join MC
-group ?
-
- net/ipv4/tcp_minisocks.c |    1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
-index 717be4de53248352c758b50557987d898340dd4f..03035e2857fc8b6e4cd8af6e46e81048d4de9105 100644
---- a/net/ipv4/tcp_minisocks.c
-+++ b/net/ipv4/tcp_minisocks.c
-@@ -448,6 +448,7 @@ struct sock *tcp_create_openreq_child(const struct sock *sk,
- 		minmax_reset(&newtp->rtt_min, tcp_time_stamp, ~0U);
- 		newicsk->icsk_rto = TCP_TIMEOUT_INIT;
- 		newicsk->icsk_ack.lrcvtime = tcp_time_stamp;
-+		newicsk->icsk_inet.mc_list = NULL;
- 
- 		newtp->packets_out = 0;
- 		newtp->retrans_out = 0;
+--=20
+Kalle Valo=
