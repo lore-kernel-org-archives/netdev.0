@@ -1,76 +1,83 @@
-From: Joao Pinto <Joao.Pinto@synopsys.com>
-Subject: mlx5 endpoint driver problem
-Date: Tue, 9 May 2017 17:25:48 +0100
-Message-ID: <f0b8881d-9aa3-8816-7ea6-daccc0e91262@synopsys.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [Patch net] ipv4: restore rt->fi for reference counting
+Date: Tue, 9 May 2017 09:44:36 -0700
+Message-ID: <CAM_iQpWQoLppsMfDOQWsdifGd56CAY24tCNm0Jm02QCe7ZThOw@mail.gmail.com>
+References: <1493934857-6693-1-git-send-email-xiyou.wangcong@gmail.com>
+ <20170508.143557.105629611489969352.davem@davemloft.net> <1494288080.7796.59.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20170508.212211.1291611254198273979.davem@davemloft.net> <1494296302.7796.61.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: <saeedm@mellanox.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Andrey Konovalov <andreyknvl@google.com>,
+        Eric Dumazet <edumazet@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay2.synopsys.com ([198.182.60.111]:35456 "EHLO
-        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750805AbdEIQ0E (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 9 May 2017 12:26:04 -0400
+Received: from mail-lf0-f65.google.com ([209.85.215.65]:34070 "EHLO
+        mail-lf0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751306AbdEIQo6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 9 May 2017 12:44:58 -0400
+Received: by mail-lf0-f65.google.com with SMTP id q24so524024lfb.1
+        for <netdev@vger.kernel.org>; Tue, 09 May 2017 09:44:57 -0700 (PDT)
+In-Reply-To: <1494296302.7796.61.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+On Mon, May 8, 2017 at 7:18 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Mon, 2017-05-08 at 21:22 -0400, David Miller wrote:
+>> From: Eric Dumazet <eric.dumazet@gmail.com>
+>> Date: Mon, 08 May 2017 17:01:20 -0700
+>>
+>> > On Mon, 2017-05-08 at 14:35 -0400, David Miller wrote:
+>> >> From: Cong Wang <xiyou.wangcong@gmail.com>
+>> >> Date: Thu,  4 May 2017 14:54:17 -0700
+>> >>
+>> >> > IPv4 dst could use fi->fib_metrics to store metrics but fib_info
+>> >> > itself is refcnt'ed, so without taking a refcnt fi and
+>> >> > fi->fib_metrics could be freed while dst metrics still points to
+>> >> > it. This triggers use-after-free as reported by Andrey twice.
+>> >> >
+>> >> > This patch reverts commit 2860583fe840 ("ipv4: Kill rt->fi") to
+>> >> > restore this reference counting. It is a quick fix for -net and
+>> >> > -stable, for -net-next, as Eric suggested, we can consider doing
+>> >> > reference counting for metrics itself instead of relying on fib_info.
+>> >> >
+>> >> > IPv6 is very different, it copies or steals the metrics from mx6_config
+>> >> > in fib6_commit_metrics() so probably doesn't need a refcnt.
+>> >> >
+>> >> > Decnet has already done the refcnt'ing, see dn_fib_semantic_match().
+>> >> >
+>> >> > Fixes: 2860583fe840 ("ipv4: Kill rt->fi")
+>> >> > Reported-by: Andrey Konovalov <andreyknvl@google.com>
+>> >> > Tested-by: Andrey Konovalov <andreyknvl@google.com>
+>> >> > Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+>> >>
+>> >> Applied and queued up for -stable, thanks.
+>> >
+>> > Although I now have on latest net tree these messages when I reboot my
+>> > test machine.
+>> >
+>> > [  224.085873] unregister_netdevice: waiting for eth0 to become free. Usage count = 43
+>>
+>> Strange, the refcounting looks quite OK in the patch you're quoting.
+>> I looked over it a few times and cannot figure out a possible cause
+>> there.
 
-I am making tests with a Mellanox MLX5 Endpoint, and I am getting kernel hangs
-when trying to enable the hca:
 
-mlx5_core 0000:01:00.0: enabling device (0000 -> 0002)
-mlx5_core 0000:01:00.0: Warning: couldn't set 64-bit PCI DMA mask
-mlx5_core 0000:01:00.0: Warning: couldn't set 64-bit consistent PCI DMA mask
-mlx5_core 0000:01:00.0: firmware version: 16.19.21102
-INFO: task swapper:1 blocked for more than 10 seconds.
-      Not tainted 4.11.0-BETAMSIX1 #51
-"echo 0 > /proc/sys/kernel/hung_task_timeout_secs" disables this message.
-swapper         D    0     1      0 0x00000000
+Eric, how did you produce it?
+I guess it's because of nh_dev which is the only netdevice pointer inside
+fib_info. Let me take a deeper look.
 
-Stack Trace:
-  __switch_to+0x0/0x94
-  __schedule+0x1da/0x8b0
-  schedule+0x26/0x6c
-  schedule_timeout+0x2da/0x380
-  wait_for_completion+0x92/0x104
-  mlx5_cmd_exec+0x70e/0xd60
-  mlx5_load_one+0x1b4/0xad8
-  init_one+0x404/0x600
-  pci_device_probe+0x122/0x1f0
-  really_probe+0x1ac/0x348
-  __driver_attach+0xa8/0xd0
-  bus_for_each_dev+0x3c/0x74
-  bus_add_driver+0xc2/0x184
-  driver_register+0x50/0xec
-  init+0x40/0x60
+>>
+>> I am assuming you are quite confident it is this change?
+>
+> At least, reverting the patch resolves the issue for me.
+>
+> Keeping fib (and their reference to netdev) is apparently too much,
+> we probably need to implement a refcount on the metrics themselves,
+> being stand alone objects.
 
-(...)
+I don't disagree, just that it may need to change too much code which
+goes beyond a stable candidate.
 
-Stack Trace:
-  __switch_to+0x0/0x94
-  __schedule+0x1da/0x8b0
-  schedule+0x26/0x6c
-  schedule_timeout+0x2da/0x380
-  wait_for_completion+0x92/0x104
-  mlx5_cmd_exec+0x70e/0xd60
-  mlx5_load_one+0x1b4/0xad8
-  init_one+0x404/0x600
-  pci_device_probe+0x122/0x1f0
-  really_probe+0x1ac/0x348
-  __driver_attach+0xa8/0xd0
-  bus_for_each_dev+0x3c/0x74
-  bus_add_driver+0xc2/0x184
-  driver_register+0x50/0xec
-  init+0x40/0x60
-mlx5_core 0000:01:00.0: wait_func:882:(pid 1): ENABLE_HCA(0x104) timeout. Will
-cause a leak of a command resource
-mlx5_core 0000:01:00.0: enable hca failed
-mlx5_core 0000:01:00.0: mlx5_load_one failed with error code -110
-mlx5_core: probe of 0000:01:00.0 failed with error -110
-
-Could you give me a clue of what might be happennig?
-
-Thanks,
-Joao
+Thanks for the bug report!
