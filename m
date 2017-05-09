@@ -1,69 +1,32 @@
-From: Kalle Valo <kvalo@qca.qualcomm.com>
-Subject: Re: [PATCH] net: wireless: ath: ath9k: remove unnecessary code
-Date: Tue, 9 May 2017 12:21:54 +0000
-Message-ID: <87shkez0da.fsf@kamboji.qca.qualcomm.com>
-References: <20170509034814.GA18034@embeddedgus>
-        <87efvy1d07.fsf@kamboji.qca.qualcomm.com>
-        <20170509070158.Horde.dYleVB-aK1cNNyQpdVsVMNp@gator4166.hostgator.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] wil6210: Replace five seq_puts() calls by seq_putc()
+Date: Tue, 09 May 2017 05:25:23 -0700
+Message-ID: <1494332723.7796.74.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <64747f85-e373-a0ff-b6dc-70cdfe35f71a@users.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: ath9k-devel <ath9k-devel@qca.qualcomm.com>,
-        "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: wil6210@qca.qualcomm.com, linux-wireless@vger.kernel.org,
+        netdev@vger.kernel.org, Kalle Valo <kvalo@codeaurora.org>,
+        Maya Erez <qca_merez@qca.qualcomm.com>,
+        LKML <linux-kernel@vger.kernel.org>,
+        kernel-janitors@vger.kernel.org
+To: SF Markus Elfring <elfring@users.sourceforge.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170509070158.Horde.dYleVB-aK1cNNyQpdVsVMNp@gator4166.hostgator.com>
-        (Gustavo A. R. Silva's message of "Tue, 9 May 2017 07:01:58 -0500")
-Content-Language: en-US
+In-Reply-To: <64747f85-e373-a0ff-b6dc-70cdfe35f71a@users.sourceforge.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-"Gustavo A. R. Silva" <garsilva@embeddedor.com> writes:
+On Tue, 2017-05-09 at 09:50 +0200, SF Markus Elfring wrote:
+> From: Markus Elfring <elfring@users.sourceforge.net>
+> Date: Mon, 8 May 2017 22:22:04 +0200
+> 
+> Five single characters (line breaks) should be put into a sequence.
+> Thus use the corresponding function "seq_putc".
+> 
+> This issue was detected by using the Coccinelle software.
 
-> Hi Kalle,
->
-> Quoting Kalle Valo <kvalo@qca.qualcomm.com>:
->
->> "Gustavo A. R. Silva" <garsilva@embeddedor.com> writes:
->>
->>> The name of an array used by itself will always return the array's addr=
-ess.
->>> So this test will always evaluate as true.
->>>
->>> Addresses-Coverity-ID: 1364903
->>> Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
->>> ---
->>>  drivers/net/wireless/ath/ath9k/eeprom.c | 2 +-
->>>  1 file changed, 1 insertion(+), 1 deletion(-)
->>>
->>> diff --git a/drivers/net/wireless/ath/ath9k/eeprom.c
->>> b/drivers/net/wireless/ath/ath9k/eeprom.c
->>> index fb80ec8..5c3bc28 100644
->>> --- a/drivers/net/wireless/ath/ath9k/eeprom.c
->>> +++ b/drivers/net/wireless/ath/ath9k/eeprom.c
->>> @@ -143,7 +143,7 @@ bool ath9k_hw_nvram_read(struct ath_hw *ah, u32
->>> off, u16 *data)
->>>
->>>  	if (ah->eeprom_blob)
->>>  		ret =3D ath9k_hw_nvram_read_firmware(ah->eeprom_blob, off, data);
->>> -	else if (pdata && !pdata->use_eeprom && pdata->eeprom_data)
->>> +	else if (pdata && !pdata->use_eeprom)
->>>  		ret =3D ath9k_hw_nvram_read_pdata(pdata, off, data);
->>>  	else
->>>  		ret =3D common->bus_ops->eeprom_read(common, off, data);
->>
->> The patch may very well be valid (didn't check yet) but the commit log
->> is gibberish for me.
->>
->
-> Let me correct that and I'll send the patch again.
+There is no _issue_ at all here, only a matter of taste.
 
-Thanks.
-
-Also no need to have that long "net: wireless: ath:" prefix, "ath9k: "
-or "ath10k: " is enough.
-
---=20
-Kalle Valo=
+printf("\n")  or putchar('\n')  in some slow path is really not that
+interesting.
