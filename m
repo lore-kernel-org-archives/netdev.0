@@ -1,59 +1,35 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [Patch net] ipv4: restore rt->fi for reference counting
-Date: Mon, 08 May 2017 17:01:20 -0700
-Message-ID: <1494288080.7796.59.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1493934857-6693-1-git-send-email-xiyou.wangcong@gmail.com>
-         <20170508.143557.105629611489969352.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: xiyou.wangcong@gmail.com, netdev@vger.kernel.org,
-        andreyknvl@google.com, edumazet@google.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:36561 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751036AbdEIABW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 8 May 2017 20:01:22 -0400
-Received: by mail-pg0-f66.google.com with SMTP id 64so5065298pgb.3
-        for <netdev@vger.kernel.org>; Mon, 08 May 2017 17:01:22 -0700 (PDT)
-In-Reply-To: <20170508.143557.105629611489969352.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Karim Eshapa <karim.eshapa@gmail.com>
+Subject: RE: [PATCH] drivers: net: wimax: i2400m: i2400m-usb: Use time_after for time comparison
+Date: Tue,  9 May 2017 02:06:50 +0200
+Message-ID: <1494288410-19028-1-git-send-email-karim.eshapa@gmail.com>
+References: <1494262682-5401-1-git-send-email-karim.eshapa@gmail.com>
+Cc: linux-wimax@intel.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, Karim Eshapa <karim.eshapa@gmail.com>
+To: inaky.perez-gonzalez@intel.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1494262682-5401-1-git-send-email-karim.eshapa@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2017-05-08 at 14:35 -0400, David Miller wrote:
-> From: Cong Wang <xiyou.wangcong@gmail.com>
-> Date: Thu,  4 May 2017 14:54:17 -0700
-> 
-> > IPv4 dst could use fi->fib_metrics to store metrics but fib_info
-> > itself is refcnt'ed, so without taking a refcnt fi and
-> > fi->fib_metrics could be freed while dst metrics still points to
-> > it. This triggers use-after-free as reported by Andrey twice.
-> > 
-> > This patch reverts commit 2860583fe840 ("ipv4: Kill rt->fi") to
-> > restore this reference counting. It is a quick fix for -net and
-> > -stable, for -net-next, as Eric suggested, we can consider doing
-> > reference counting for metrics itself instead of relying on fib_info.
-> > 
-> > IPv6 is very different, it copies or steals the metrics from mx6_config
-> > in fib6_commit_metrics() so probably doesn't need a refcnt.
-> > 
-> > Decnet has already done the refcnt'ing, see dn_fib_semantic_match().
-> > 
-> > Fixes: 2860583fe840 ("ipv4: Kill rt->fi")
-> > Reported-by: Andrey Konovalov <andreyknvl@google.com>
-> > Tested-by: Andrey Konovalov <andreyknvl@google.com>
-> > Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
-> 
-> Applied and queued up for -stable, thanks.
+Use time_after() for time comparison with the new fix.
 
-Although I now have on latest net tree these messages when I reboot my
-test machine.
+Signed-off-by: Karim Eshapa <karim.eshapa@gmail.com>
+---
+ drivers/net/wimax/i2400m/i2400m-usb.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-[  224.085873] unregister_netdevice: waiting for eth0 to become free. Usage count = 43
-[  234.106018] unregister_netdevice: waiting for eth0 to become free. Usage count = 43
-[  244.366187] unregister_netdevice: waiting for eth0 to become free. Usage count = 43
-[  254.626325] unregister_netdevice: waiting for eth0 to become free. Usage count = 43
-[  264.706472] unregister_netdevice: waiting for eth0 to become free. Usage count = 43
-[  274.736619] unregister_netdevice: waiting for eth0 to become free. Usage count = 43
-[  284.766766] unregister_netdevice: waiting for eth0 to become free. Usage count = 43
+diff --git a/drivers/net/wimax/i2400m/i2400m-usb.h b/drivers/net/wimax/i2400m/i2400m-usb.h
+index 649ecad..eff4f464 100644
+--- a/drivers/net/wimax/i2400m/i2400m-usb.h
++++ b/drivers/net/wimax/i2400m/i2400m-usb.h
+@@ -131,7 +131,7 @@ static inline int edc_inc(struct edc *edc, u16 max_err, u16 timeframe)
+ 	unsigned long now;
+ 
+ 	now = jiffies;
+-	if (now - edc->timestart > timeframe) {
++	if (time_after(now, edc->timestart + timeframe)) {
+ 		edc->errorcount = 1;
+ 		edc->timestart = now;
+ 	} else if (++edc->errorcount > max_err) {
+-- 
+2.7.4
