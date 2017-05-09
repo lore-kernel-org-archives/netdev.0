@@ -1,127 +1,31 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: [PATCH nf] xtables: zero padding in data_to_user
-Date: Tue,  9 May 2017 16:17:37 -0400
-Message-ID: <20170509201737.102987-1-willemdebruijn.kernel@gmail.com>
-Cc: netdev@vger.kernel.org, rgb@redhat.com, fwestpha@redhat.com,
-        pmoore@redhat.com, pvrabec@redhat.com, pablo@netfilter.org,
-        davem@davemloft.net, Willem de Bruijn <willemb@google.com>
-To: netfilter-devel@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: arch: arm: bpf: Converting cBPF to eBPF for arm 32 bit
+Date: Tue, 09 May 2017 16:19:41 -0400 (EDT)
+Message-ID: <20170509.161941.675253656642957586.davem@davemloft.net>
+References: <CAHgaXdJ1M4W3p9=B2hJmtxByPsA5-XHae8U6YtDH_2r_XMaR5A@mail.gmail.com>
+        <58E639E0.1010700@iogearbox.net>
+        <CAHgaXd+xb5dN90sH___RtxgSC3usnH2jXkA5r3=fQJc3pOY5xw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: daniel@iogearbox.net, keescook@chromium.org, mgherzan@gmail.com,
+        netdev@vger.kernel.org, kernel-hardening@lists.openwall.com,
+        linux-arm-kernel@lists.infradead.org, ast@fb.com
+To: illusionist.neo@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f195.google.com ([209.85.220.195]:36537 "EHLO
-        mail-qk0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752852AbdEIUSI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 9 May 2017 16:18:08 -0400
+Received: from shards.monkeyblade.net ([184.105.139.130]:32992 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753313AbdEIUTo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 9 May 2017 16:19:44 -0400
+In-Reply-To: <CAHgaXd+xb5dN90sH___RtxgSC3usnH2jXkA5r3=fQJc3pOY5xw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Willem de Bruijn <willemb@google.com>
+From: Shubham Bansal <illusionist.neo@gmail.com>
+Date: Wed, 10 May 2017 01:42:10 +0530
 
-When looking up an iptables rule, the iptables binary compares the
-aligned match and target data (XT_ALIGN). In some cases this can
-exceed the actual data size to include padding bytes.
+> Why is trying to execute TAX which is a cBPF instruction?
 
-Before commit f77bc5b23fb1 ("iptables: use match, target and data
-copy_to_user helpers") the malloc()ed bytes were overwritten by the
-kernel with kzalloced contents, zeroing the padding and making the
-comparison succeed. After this patch, the kernel copies and clears
-only data, leaving the padding bytes undefined.
-
-Extend the clear operation from data size to aligned data size to
-include the padding bytes, if any.
-
-Padding bytes can be observed in both match and target, and the bug
-triggered, by issuing a rule with match icmp and target ACCEPT:
-
-  iptables -t mangle -A INPUT -i lo -p icmp --icmp-type 1 -j ACCEPT
-  iptables -t mangle -D INPUT -i lo -p icmp --icmp-type 1 -j ACCEPT
-
-Fixes: f77bc5b23fb1 ("iptables: use match, target and data copy_to_user helpers")
-Reported-by: Paul Moore <pmoore@redhat.com>
-Reported-by: Richard Guy Briggs <rgb@redhat.com>
-Signed-off-by: Willem de Bruijn <willemb@google.com>
----
- include/linux/netfilter/x_tables.h | 2 +-
- net/bridge/netfilter/ebtables.c    | 9 ++++++---
- net/netfilter/x_tables.c           | 9 ++++++---
- 3 files changed, 13 insertions(+), 7 deletions(-)
-
-diff --git a/include/linux/netfilter/x_tables.h b/include/linux/netfilter/x_tables.h
-index be378cf47fcc..b3044c2c62cb 100644
---- a/include/linux/netfilter/x_tables.h
-+++ b/include/linux/netfilter/x_tables.h
-@@ -294,7 +294,7 @@ int xt_match_to_user(const struct xt_entry_match *m,
- int xt_target_to_user(const struct xt_entry_target *t,
- 		      struct xt_entry_target __user *u);
- int xt_data_to_user(void __user *dst, const void *src,
--		    int usersize, int size);
-+		    int usersize, int size, int aligned_size);
- 
- void *xt_copy_counters_from_user(const void __user *user, unsigned int len,
- 				 struct xt_counters_info *info, bool compat);
-diff --git a/net/bridge/netfilter/ebtables.c b/net/bridge/netfilter/ebtables.c
-index 9ec0c9f908fa..9c6e619f452b 100644
---- a/net/bridge/netfilter/ebtables.c
-+++ b/net/bridge/netfilter/ebtables.c
-@@ -1373,7 +1373,8 @@ static inline int ebt_obj_to_user(char __user *um, const char *_name,
- 	strlcpy(name, _name, sizeof(name));
- 	if (copy_to_user(um, name, EBT_FUNCTION_MAXNAMELEN) ||
- 	    put_user(datasize, (int __user *)(um + EBT_FUNCTION_MAXNAMELEN)) ||
--	    xt_data_to_user(um + entrysize, data, usersize, datasize))
-+	    xt_data_to_user(um + entrysize, data, usersize, datasize,
-+			    XT_ALIGN(datasize)))
- 		return -EFAULT;
- 
- 	return 0;
-@@ -1658,7 +1659,8 @@ static int compat_match_to_user(struct ebt_entry_match *m, void __user **dstptr,
- 		if (match->compat_to_user(cm->data, m->data))
- 			return -EFAULT;
- 	} else {
--		if (xt_data_to_user(cm->data, m->data, match->usersize, msize))
-+		if (xt_data_to_user(cm->data, m->data, match->usersize, msize,
-+				    COMPAT_XT_ALIGN(msize)))
- 			return -EFAULT;
- 	}
- 
-@@ -1687,7 +1689,8 @@ static int compat_target_to_user(struct ebt_entry_target *t,
- 		if (target->compat_to_user(cm->data, t->data))
- 			return -EFAULT;
- 	} else {
--		if (xt_data_to_user(cm->data, t->data, target->usersize, tsize))
-+		if (xt_data_to_user(cm->data, t->data, target->usersize, tsize,
-+				    COMPAT_XT_ALIGN(tsize)))
- 			return -EFAULT;
- 	}
- 
-diff --git a/net/netfilter/x_tables.c b/net/netfilter/x_tables.c
-index f134d384852f..c64716a735b0 100644
---- a/net/netfilter/x_tables.c
-+++ b/net/netfilter/x_tables.c
-@@ -283,12 +283,13 @@ static int xt_obj_to_user(u16 __user *psize, u16 size,
- 		       &U->u.user.revision, K->u.kernel.TYPE->revision)
- 
- int xt_data_to_user(void __user *dst, const void *src,
--		    int usersize, int size)
-+		    int usersize, int size, int aligned_size)
- {
- 	usersize = usersize ? : size;
- 	if (copy_to_user(dst, src, usersize))
- 		return -EFAULT;
--	if (usersize != size && clear_user(dst + usersize, size - usersize))
-+	if (usersize != aligned_size &&
-+	    clear_user(dst + usersize, aligned_size - usersize))
- 		return -EFAULT;
- 
- 	return 0;
-@@ -298,7 +299,9 @@ EXPORT_SYMBOL_GPL(xt_data_to_user);
- #define XT_DATA_TO_USER(U, K, TYPE, C_SIZE)				\
- 	xt_data_to_user(U->data, K->data,				\
- 			K->u.kernel.TYPE->usersize,			\
--			C_SIZE ? : K->u.kernel.TYPE->TYPE##size)
-+			C_SIZE ? : K->u.kernel.TYPE->TYPE##size,	\
-+			C_SIZE ? COMPAT_XT_ALIGN(C_SIZE) :		\
-+				 XT_ALIGN(K->u.kernel.TYPE->TYPE##size))
- 
- int xt_match_to_user(const struct xt_entry_match *m,
- 		     struct xt_entry_match __user *u)
--- 
-2.13.0.rc2.291.g57267f2277-goog
+Because some of the tests are classic BPF programs which
+get translated into eBPF ones and sent to the JIT for
+compilation.
