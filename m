@@ -1,52 +1,38 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: [PATCH 4/4] net: stmmac: Delete an unnecessary return statement in
- stmmac_get_tx_hwtstamp()
-Date: Tue, 9 May 2017 13:55:35 +0200
-Message-ID: <4d8b60f5-5d5f-8fa1-a896-d48c2b054ec4@users.sourceforge.net>
-References: <aa58027a-a39c-963e-4376-a4d5312ee118@users.sourceforge.net>
+From: "Gustavo A. R. Silva" <garsilva-L1vi/lXTdts+Va1GwOuvDg@public.gmane.org>
+Subject: Re: [PATCH] net: wireless: ath: ath10k: remove unnecessary code
+Date: Tue, 09 May 2017 07:00:40 -0500
+Message-ID: <20170509070040.Horde.6Ij5mVFBAtwRRwxv1IUZfj_@gator4166.hostgator.com>
+References: <20170509042159.GA19727@embeddedgus>
+ <87lgq6387s.fsf@kamboji.qca.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-        kernel-janitors@vger.kernel.org
-To: netdev@vger.kernel.org, Alexandre Torgue <alexandre.torgue@st.com>,
-        Giuseppe Cavallaro <peppe.cavallaro@st.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.web.de ([217.72.192.78]:51796 "EHLO mout.web.de"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752016AbdEILzz (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 9 May 2017 07:55:55 -0400
-In-Reply-To: <aa58027a-a39c-963e-4376-a4d5312ee118@users.sourceforge.net>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8; format=flowed; DelSp=Yes
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ath10k-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+To: Kalle Valo <kvalo-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <87lgq6387s.fsf-HodKDYzPHsUD5k0oWYwrnHL1okKdlPRT@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Tue, 9 May 2017 13:36:04 +0200
+Hi Kalle,
 
-The script "checkpatch.pl" pointed information out like the following.
+Quoting Kalle Valo <kvalo-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>:
 
-WARNING: void function return statements are not generally useful
+> "Gustavo A. R. Silva" <garsilva-L1vi/lXTdts+Va1GwOuvDg@public.gmane.org> writes:
+>
+>> The name of an array used by itself will always return the array's address.
+>> So these tests will always evaluate as false and therefore the _return_
+>> will never be executed.
+>>
+>> Signed-off-by: Gustavo A. R. Silva <garsilva-L1vi/lXTdts+Va1GwOuvDg@public.gmane.org>
+>
+> I don't understand the commit log, especially what does "The name of an
+> array used by itself" mean?
+>
 
-Thus remove such a statement in the affected function.
+Let me correct that and I'll send the patch again.
 
-Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
----
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 2 --
- 1 file changed, 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 4fa95234978c..9ab4cbfa67f1 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -445,8 +445,6 @@ static void stmmac_get_tx_hwtstamp(struct stmmac_priv *priv,
- 		/* pass tstamp to stack */
- 		skb_tstamp_tx(skb, &shhwtstamp);
- 	}
--
--	return;
- }
- 
- /* stmmac_get_rx_hwtstamp - get HW RX timestamps
--- 
-2.12.2
+Thanks!
+--
+Gustavo A. R. Silva
