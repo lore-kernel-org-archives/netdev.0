@@ -1,47 +1,69 @@
 From: Kalle Valo <kvalo@qca.qualcomm.com>
-Subject: Re: [PATCH] net: wireless: ath: ath10k: remove unnecessary code
-Date: Tue, 9 May 2017 12:20:40 +0000
-Message-ID: <87wp9qz0fd.fsf@kamboji.qca.qualcomm.com>
-References: <20170509042159.GA19727@embeddedgus>
-        <87lgq6387s.fsf@kamboji.qca.qualcomm.com>
-        <76408651-07c6-fe31-863f-e1cb73b49663@broadcom.com>
+Subject: Re: [PATCH] net: wireless: ath: ath9k: remove unnecessary code
+Date: Tue, 9 May 2017 12:21:54 +0000
+Message-ID: <87shkez0da.fsf@kamboji.qca.qualcomm.com>
+References: <20170509034814.GA18034@embeddedgus>
+        <87efvy1d07.fsf@kamboji.qca.qualcomm.com>
+        <20170509070158.Horde.dYleVB-aK1cNNyQpdVsVMNp@gator4166.hostgator.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="iso-8859-1"
 Content-Transfer-Encoding: quoted-printable
-Cc: "Gustavo A. R. Silva" <garsilva@embeddedor.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+Cc: ath9k-devel <ath9k-devel@qca.qualcomm.com>,
         "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "ath10k@lists.infradead.org" <ath10k@lists.infradead.org>
-To: Arend Van Spriel <arend.vanspriel@broadcom.com>
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <76408651-07c6-fe31-863f-e1cb73b49663@broadcom.com> (Arend Van
-        Spriel's message of "Tue, 9 May 2017 14:07:57 +0200")
+In-Reply-To: <20170509070158.Horde.dYleVB-aK1cNNyQpdVsVMNp@gator4166.hostgator.com>
+        (Gustavo A. R. Silva's message of "Tue, 9 May 2017 07:01:58 -0500")
 Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Arend Van Spriel <arend.vanspriel@broadcom.com> writes:
+"Gustavo A. R. Silva" <garsilva@embeddedor.com> writes:
 
-> On 9-5-2017 7:33, Kalle Valo wrote:
+> Hi Kalle,
+>
+> Quoting Kalle Valo <kvalo@qca.qualcomm.com>:
+>
 >> "Gustavo A. R. Silva" <garsilva@embeddedor.com> writes:
->>=20
+>>
 >>> The name of an array used by itself will always return the array's addr=
 ess.
->>> So these tests will always evaluate as false and therefore the _return_
->>> will never be executed.
+>>> So this test will always evaluate as true.
 >>>
+>>> Addresses-Coverity-ID: 1364903
 >>> Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
->>=20
->> I don't understand the commit log, especially what does "The name of an
->> array used by itself" mean?
+>>> ---
+>>>  drivers/net/wireless/ath/ath9k/eeprom.c | 2 +-
+>>>  1 file changed, 1 insertion(+), 1 deletion(-)
+>>>
+>>> diff --git a/drivers/net/wireless/ath/ath9k/eeprom.c
+>>> b/drivers/net/wireless/ath/ath9k/eeprom.c
+>>> index fb80ec8..5c3bc28 100644
+>>> --- a/drivers/net/wireless/ath/ath9k/eeprom.c
+>>> +++ b/drivers/net/wireless/ath/ath9k/eeprom.c
+>>> @@ -143,7 +143,7 @@ bool ath9k_hw_nvram_read(struct ath_hw *ah, u32
+>>> off, u16 *data)
+>>>
+>>>  	if (ah->eeprom_blob)
+>>>  		ret =3D ath9k_hw_nvram_read_firmware(ah->eeprom_blob, off, data);
+>>> -	else if (pdata && !pdata->use_eeprom && pdata->eeprom_data)
+>>> +	else if (pdata && !pdata->use_eeprom)
+>>>  		ret =3D ath9k_hw_nvram_read_pdata(pdata, off, data);
+>>>  	else
+>>>  		ret =3D common->bus_ops->eeprom_read(common, off, data);
+>>
+>> The patch may very well be valid (didn't check yet) but the commit log
+>> is gibberish for me.
+>>
 >
-> The array fields in struct wmi_start_scan_arg that are checked here are
-> fixed size arrays so they can never be NULL.
->
-> Maybe that helps rephrasing this commit message.
+> Let me correct that and I'll send the patch again.
 
-Much much better, thanks!
+Thanks.
+
+Also no need to have that long "net: wireless: ath:" prefix, "ath9k: "
+or "ath10k: " is enough.
 
 --=20
 Kalle Valo=
