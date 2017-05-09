@@ -1,54 +1,71 @@
-From: Li Er <phoooyb@gmail.com>
-Subject: iproute2 ss outputs duplicate tcp sockets info on kernel 3.10.105
-Date: Mon, 08 May 2017 18:56:04 -0700 (PDT)
-Message-ID: <591121b4.213b9f0a.5aed.b3a8@mx.google.com>
-To: netdev@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [Patch net] ipv4: restore rt->fi for reference counting
+Date: Mon, 08 May 2017 19:18:22 -0700
+Message-ID: <1494296302.7796.61.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1493934857-6693-1-git-send-email-xiyou.wangcong@gmail.com>
+         <20170508.143557.105629611489969352.davem@davemloft.net>
+         <1494288080.7796.59.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20170508.212211.1291611254198273979.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: xiyou.wangcong@gmail.com, netdev@vger.kernel.org,
+        andreyknvl@google.com, edumazet@google.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ua0-f169.google.com ([209.85.217.169]:33942 "EHLO
-        mail-ua0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751334AbdEIB4G (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 8 May 2017 21:56:06 -0400
-Received: by mail-ua0-f169.google.com with SMTP id g49so60212548uaa.1
-        for <netdev@vger.kernel.org>; Mon, 08 May 2017 18:56:05 -0700 (PDT)
-Received: from localhost (148.104-88-23.rdns.scalabledns.com. [23.88.104.148])
-        by smtp.gmail.com with ESMTPSA id i33sm1321615uah.16.2017.05.08.18.56.01
-        for <netdev@vger.kernel.org>
-        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
-        Mon, 08 May 2017 18:56:04 -0700 (PDT)
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:34869 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754479AbdEICS3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 8 May 2017 22:18:29 -0400
+Received: by mail-pg0-f67.google.com with SMTP id i63so13015162pgd.2
+        for <netdev@vger.kernel.org>; Mon, 08 May 2017 19:18:29 -0700 (PDT)
+In-Reply-To: <20170508.212211.1291611254198273979.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-i'm using v4.11.0 release of iproute2 and kernel 3.10.105, simply
-running
+On Mon, 2017-05-08 at 21:22 -0400, David Miller wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Mon, 08 May 2017 17:01:20 -0700
+> 
+> > On Mon, 2017-05-08 at 14:35 -0400, David Miller wrote:
+> >> From: Cong Wang <xiyou.wangcong@gmail.com>
+> >> Date: Thu,  4 May 2017 14:54:17 -0700
+> >> 
+> >> > IPv4 dst could use fi->fib_metrics to store metrics but fib_info
+> >> > itself is refcnt'ed, so without taking a refcnt fi and
+> >> > fi->fib_metrics could be freed while dst metrics still points to
+> >> > it. This triggers use-after-free as reported by Andrey twice.
+> >> > 
+> >> > This patch reverts commit 2860583fe840 ("ipv4: Kill rt->fi") to
+> >> > restore this reference counting. It is a quick fix for -net and
+> >> > -stable, for -net-next, as Eric suggested, we can consider doing
+> >> > reference counting for metrics itself instead of relying on fib_info.
+> >> > 
+> >> > IPv6 is very different, it copies or steals the metrics from mx6_config
+> >> > in fib6_commit_metrics() so probably doesn't need a refcnt.
+> >> > 
+> >> > Decnet has already done the refcnt'ing, see dn_fib_semantic_match().
+> >> > 
+> >> > Fixes: 2860583fe840 ("ipv4: Kill rt->fi")
+> >> > Reported-by: Andrey Konovalov <andreyknvl@google.com>
+> >> > Tested-by: Andrey Konovalov <andreyknvl@google.com>
+> >> > Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> >> 
+> >> Applied and queued up for -stable, thanks.
+> > 
+> > Although I now have on latest net tree these messages when I reboot my
+> > test machine.
+> > 
+> > [  224.085873] unregister_netdevice: waiting for eth0 to become free. Usage count = 43
+> 
+> Strange, the refcounting looks quite OK in the patch you're quoting.
+> I looked over it a few times and cannot figure out a possible cause
+> there.
+> 
+> I am assuming you are quite confident it is this change?
 
-        $ ss
-        Netid  State      Recv-Q Send-Q Local Address:Port                 Peer Address:Port
-        tcp    CLOSE-WAIT 434    0      10.0.0.1:47931                65.49.18.136:https
-        tcp    CLOSE-WAIT 432    0      10.0.0.1:47932                65.49.18.136:https
-        tcp    CLOSE-WAIT 434    0      10.0.0.1:47931                65.49.18.136:https
-        tcp    CLOSE-WAIT 432    0      10.0.0.1:47932                65.49.18.136:https
+At least, reverting the patch resolves the issue for me.
 
-as you can see, there's one duplicate entry of each  tcp  socket,
-however,  if  i  explicitly  specify  tcp socket by adding the -t
-switch,
-
-        $ ss -t
-        State      Recv-Q Send-Q Local Address:Port                 Peer Address:Port
-        CLOSE-WAIT 434    0      10.0.0.1:47931                65.49.18.136:https
-        CLOSE-WAIT 432    0      10.0.0.1:47932                65.49.18.136:https
-
-the duplication is gone.
-
-this problem also occurs on  git  master,  but  not  on  iproute2
-v4.3.0,  so  i  did  a  git bisect and found out the commit which
-caused this is 9f66764e308e9c645b3fb2d1cfbb7fb207eb5de1,  and  by
-revert this commit on git master, i.e. removing
-
-                                        err = rtnl_dump_done(rth, h);
-                                        if (err < 0)
-                                                return -1;
-
-these 3 lines of code of lib/libnetlink.c, the problem is gone.
-
-since  i'm not familiar with the source code, i doubt this is the
-right way to solve the problem, what's your suggestions? thanks.
+Keeping fib (and their reference to netdev) is apparently too much,
+we probably need to implement a refcount on the metrics themselves,
+being stand alone objects.
