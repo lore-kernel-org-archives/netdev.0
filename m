@@ -1,67 +1,54 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: [PATCH] ip: mpls: fix printing of mpls labels
-Date: Mon,  8 May 2017 23:04:13 -0700
-Message-ID: <20170509060413.11596-1-dsahern@gmail.com>
-Cc: roopa@cumulusnetworks.com, David Ahern <dsahern@gmail.com>
-To: stephen@networkplumber.org, netdev@vger.kernel.org
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2] tc: bpf: add ppc64 and sparc64 to list of
+ archs with eBPF support
+Date: Mon, 8 May 2017 23:06:19 -0700
+Message-ID: <20170508230619.2d339edd@xeon-e3>
+References: <1494102610-19853-1-git-send-email-alexander@alemayhu.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, daniel@iogearbox.net
+To: Alexander Alemayhu <alexander@alemayhu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:36200 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750909AbdEIGEj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 9 May 2017 02:04:39 -0400
-Received: by mail-pg0-f65.google.com with SMTP id 64so6117617pgb.3
-        for <netdev@vger.kernel.org>; Mon, 08 May 2017 23:04:39 -0700 (PDT)
+Received: from mail-pg0-f41.google.com ([74.125.83.41]:36282 "EHLO
+        mail-pg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752393AbdEIGG1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 9 May 2017 02:06:27 -0400
+Received: by mail-pg0-f41.google.com with SMTP id 64so22934449pgb.3
+        for <netdev@vger.kernel.org>; Mon, 08 May 2017 23:06:26 -0700 (PDT)
+In-Reply-To: <1494102610-19853-1-git-send-email-alexander@alemayhu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If the kernel returns more labels than iproute2 expects, none of
-the labels are printed and (null) is shown instead:
-    $ ip -f mpls ro ls
-    101 as to (null) via inet 172.16.2.2 dev virt12
-    201 as to 202/203 via inet6 2001:db8:2::2 dev virt12
+On Sat,  6 May 2017 22:30:10 +0200
+Alexander Alemayhu <alexander@alemayhu.com> wrote:
 
-Remove the use of MPLS_MAX_LABELS and rely on buffer length that is
-passed to mpls_ntop. With this change ip can print the label stack
-returned by the kernel up to 255 characters (limit is due to size of
-buf passed in) which amounts to 31 labels with a separator.
+> sparc64 support was added in 7a12b5031c6b (sparc64: Add eBPF JIT., 2017-04-17)[0]
+> and ppc64 in 156d0e290e96 (powerpc/ebpf/jit: Implement JIT compiler for extended BPF, 2016-06-22)[1].
+> 
+> [0]: https://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git/commit/?id=7a12b5031c6b
+> [1]: https://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git/commit/?id=156d0e290e96
+> Signed-off-by: Alexander Alemayhu <alexander@alemayhu.com>
+> ---
+>  man/man8/tc-bpf.8 | 6 +++---
+>  1 file changed, 3 insertions(+), 3 deletions(-)
+> 
+> diff --git a/man/man8/tc-bpf.8 b/man/man8/tc-bpf.8
+> index e371964d06ab..2e9812ede028 100644
+> --- a/man/man8/tc-bpf.8
+> +++ b/man/man8/tc-bpf.8
+> @@ -75,9 +75,9 @@ In Linux, it's generally considered that eBPF is the successor of cBPF.
+>  The kernel internally transforms cBPF expressions into eBPF expressions and
+>  executes the latter. Execution of them can be performed in an interpreter
+>  or at setup time, they can be just-in-time compiled (JIT'ed) to run as
+> -native machine code. Currently, x86_64, ARM64 and s390 architectures have
+> -eBPF JIT support, whereas PPC, SPARC, ARM and MIPS have cBPF, but did not
+> -(yet) switch to eBPF JIT support.
+> +native machine code. Currently, x86_64, ARM64, s390, ppc64 and sparc64
+> +architectures have eBPF JIT support, whereas PPC, SPARC, ARM and MIPS have
+> +cBPF, but did not (yet) switch to eBPF JIT support.
+>  
+>  eBPF's instruction set has similar underlying principles as the cBPF
+>  instruction set, it however is modelled closer to the underlying
 
-With this change the above is:
-    $ ip/ip -f mpls ro ls
-    101 as to 102/103/104/105/106/107/108/109/110 via inet 172.16.2.2 dev virt12
-
-Signed-off-by: David Ahern <dsahern@gmail.com>
----
- lib/mpls_ntop.c | 10 ++++++----
- 1 file changed, 6 insertions(+), 4 deletions(-)
-
-diff --git a/lib/mpls_ntop.c b/lib/mpls_ntop.c
-index 945d6d5e..5902f503 100644
---- a/lib/mpls_ntop.c
-+++ b/lib/mpls_ntop.c
-@@ -10,18 +10,20 @@ static const char *mpls_ntop1(const struct mpls_label *addr, char *buf, size_t b
- {
- 	size_t destlen = buflen;
- 	char *dest = buf;
--	int count;
-+	int count = 0;
- 
--	for (count = 0; count < MPLS_MAX_LABELS; count++) {
--		uint32_t entry = ntohl(addr[count].entry);
-+	while (1) {
-+		uint32_t entry = ntohl(addr[count++].entry);
- 		uint32_t label = (entry & MPLS_LS_LABEL_MASK) >> MPLS_LS_LABEL_SHIFT;
- 		int len = snprintf(dest, destlen, "%u", label);
- 
-+		if (len >= destlen)
-+			break;
-+
- 		/* Is this the end? */
- 		if (entry & MPLS_LS_S_MASK)
- 			return buf;
- 
--
- 		dest += len;
- 		destlen -= len;
- 		if (destlen) {
--- 
-2.11.0 (Apple Git-81)
+Applied thanks.
