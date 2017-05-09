@@ -1,55 +1,42 @@
-From: Ganesh GR <ganeshgr@chelsio.com>
-Subject: Re: [PATCH 0/6] cxgb4: Fine-tuning for some function implementations
-Date: Tue, 9 May 2017 09:40:47 +0000
-Message-ID: <CY4PR12MB1432C4CD9C354BF03E4B1776C1EF0@CY4PR12MB1432.namprd12.prod.outlook.com>
-References: <a3216042-2461-b397-dfa1-1de178d58513@users.sourceforge.net>
+From: "Gao Feng" <gfree.wind@vip.163.com>
+Subject: Re:Re: [PATCH net] driver: vrf: Fix one possible use-after-free
+ issue
+Date: Tue, 9 May 2017 17:41:57 +0800 (CST)
+Message-ID: <39383de.68eb.15bec962fe1.Coremail.gfree.wind@vip.163.com>
+References: <1494320069-39638-1-git-send-email-gfree.wind@vip.163.com>
+ <20170509092102.GB16263@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: LKML <linux-kernel@vger.kernel.org>,
-        "kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>
-To: SF Markus Elfring <elfring@users.sourceforge.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Casey Leedom <leedom@chelsio.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <a3216042-2461-b397-dfa1-1de178d58513@users.sourceforge.net>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=GBK
+Content-Transfer-Encoding: base64
+Cc: dsa@cumulusnetworks.com, shm@cumulusnetworks.com,
+        davem@davemloft.net, netdev@vger.kernel.org,
+        "gfree.wind@foxmail.com" <gfree.wind@foxmail.com>
+To: "Florian Westphal" <fw@strlen.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from m171-177.vip.163.com ([123.58.177.171]:21969 "EHLO
+        m171-177.vip.163.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753012AbdEIJra (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 9 May 2017 05:47:30 -0400
+In-Reply-To: <20170509092102.GB16263@breakpoint.cc>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-Acked-by: Ganesh Goudar <ganeshgr@chelsio.com>
-
-
-
-
-
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Sent: Friday, May 5, 2017 2:00 AM
-To: netdev@vger.kernel.org; Casey Leedom; Ganesh GR
-Cc: LKML; kernel-janitors@vger.kernel.org
-Subject: [PATCH 0/6] cxgb4: Fine-tuning for some function implementations
-=A0  =20
-From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Thu, 4 May 2017 22:23:45 +0200
-
-A few update suggestions were taken into account
-from static source code analysis.
-
-Markus Elfring (6):
-=A0 Use seq_putc() in mboxlog_show()
-=A0 Combine substrings for 24 messages
-=A0 Adjust five checks for null pointers
-=A0 Replace seven seq_puts() calls by seq_putc()
-=A0 Use seq_puts() in cim_qcfg_show()
-=A0 Combine substrings for two messages
-
-=A0drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c |=A0 42 +++----
-=A0.../net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c=A0=A0=A0 | 125 +++++++++=
-+++---------
-=A02 files changed, 86 insertions(+), 81 deletions(-)
-
---=20
-2.12.2
-
-    =
+QXQgMjAxNy0wNS0wOSAxNzoyMTowMiwgIkZsb3JpYW4gV2VzdHBoYWwiIDxmd0BzdHJsZW4uZGU+
+IHdyb3RlOgo+Z2ZyZWUud2luZEB2aXAuMTYzLmNvbSA8Z2ZyZWUud2luZEB2aXAuMTYzLmNvbT4g
+d3JvdGU6Cj4+IFdoZW4gb25lIG5ldGZpbHRlciBydWxlIG9yIGhvb2sgc3RvbGVzIHRoZSBza2Ig
+YW5kIHJldHVybiBORl9TVE9MRU4sCj4+IGl0IG1lYW5zIHRoZSBza2IgaXMgdGFrZW4gYnkgdGhl
+IHJ1bGUsIGFuZCBvdGhlciBtb2R1bGVzIHNob3VsZCBub3QKPj4gdG91Y2ggdGhpcyBza2IgZXZl
+ci4gTWF5YmUgdGhlIHNrYiBpcyBxdWV1ZWQgb3IgZnJlZWQgZGlyZWN0bHkgYnkgdGhlCj4+IHJ1
+bGUuCj4+IAo+PiBOb3cgdXNlcyB0aGUgbmZfaG9vayBpbnN0ZWFkIG9mIE5GX0hPT0sgdG8gZ2V0
+IHRoZSByZXN1bHQgb2YgbmV0ZmlsdGVyLAo+PiBhbmQgY2hlY2sgdGhlIHJldHVybiB2YWx1ZSBv
+ZiBuZl9ob29rLiBPbmx5IHdoZW4gaXRzIHZhbHVlIGVxdWFscyAxLCBpdAo+PiBtZWFucyB0aGUg
+c2tiIGNvdWxkIGdvIGFoZWFkLiBPciByZXNldCB0aGUgc2tiIGFzIE5VTEwuCj4+IAo+PiBCVFcs
+IGJlY2F1c2UgdnJmX3Jjdl9maW5pc2ggaXMgZW1wdHkgZnVuY3Rpb24sIHNvIG5lZWRuJ3QgaW52
+b2tlIGl0Cj4+IGV2ZW4gdGhvdWdoIG5mX2hvb2sgcmV0dXJucyAxLgo+Cj5UaGF0cyBhIGJ1ZyB0
+aGVuLgo+Cj5UaGUgb2tmbiAoaWYgY2FsbGVkKSB0YWtlcyBvd25lcnNoaXAgb2Ygc2tiIGFuZCBt
+dXN0IGZyZWUgaXQgZXZlbnR1YWxseS4KPk90aGVyd2lzZSB1c2Vyc3BhY2UgcXVldWVpbmcgbGVh
+a3Mgc2tiIG9uIHJlaW5qZWN0aW9uLgo+Cj4oc2VlIG5mX3JlaW5qZWN0KCkgYW5kIGl0cyB1c2Ug
+b2Ygb2tmbigpKS4KClRoYW5rcywgSSBvbmx5IHRob3VnaHQgYWJvdXQgdGhlIHN0b2xlbiBjYXNl
+IGxpa2Ugc3lucHJveHkgd2hpY2ggd291bGQgZnJlZSB0aGUgc2tiIGRpcmVjdGx5LAphbmQgZm9y
+Z2V0IHRoZSB1c2Vyc3BhY2UgY291bGQgcmVpbmplY3QgdGhlIHNrYi4KCkkgd291bGQgdXBkYXRl
+IHRoZSBwYXRjaC4KCkJlc3QgUmVnYXJkcwpGZW5n
