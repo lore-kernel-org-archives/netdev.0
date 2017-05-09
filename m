@@ -1,92 +1,77 @@
-From: Anton Ivanov <anton.ivanov@cambridgegreys.com>
-Subject: DQL and TCQ_F_CAN_BYPASS destroy performance under virtualizaiton
- (Was: "Re: net_sched strange in 4.11")
-Date: Tue, 9 May 2017 08:46:46 +0100
-Message-ID: <27ae4e1c-7c6c-14c2-f3a4-9d0b1265d034@cambridgegreys.com>
-References: <66c5c2d3-65df-8506-6934-5628e709e229@cambridgegreys.com>
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Subject: [PATCH] wil6210: Replace five seq_puts() calls by seq_putc()
+Date: Tue, 9 May 2017 09:50:34 +0200
+Message-ID: <64747f85-e373-a0ff-b6dc-70cdfe35f71a@users.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Stefan Hajnoczi <stefanha@redhat.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ivanoab5.miniserver.com ([78.31.111.25]:40969 "EHLO
-        www.kot-begemot.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751348AbdEIHqx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 9 May 2017 03:46:53 -0400
-In-Reply-To: <66c5c2d3-65df-8506-6934-5628e709e229@cambridgegreys.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: LKML <linux-kernel@vger.kernel.org>,
+        kernel-janitors@vger.kernel.org
+To: wil6210@qca.qualcomm.com, linux-wireless@vger.kernel.org,
+        netdev@vger.kernel.org, Kalle Valo <kvalo@codeaurora.org>,
+        Maya Erez <qca_merez@qca.qualcomm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-I have figured it out. Two issues.
+From: Markus Elfring <elfring@users.sourceforge.net>
+Date: Mon, 8 May 2017 22:22:04 +0200
 
-1) skb->xmit_more is hardly ever set under virtualization because the 
-qdisc is usually bypassed because of TCQ_F_CAN_BYPASS. Once 
-TCQ_F_CAN_BYPASS is set a virtual NIC driver is not likely see 
-skb->xmit_more (this answers my "how does this work at all" question).
+Five single characters (line breaks) should be put into a sequence.
+Thus use the corresponding function "seq_putc".
 
-2) If that flag is turned off (I patched sched_generic to turn it off in 
-pfifo_fast while testing), DQL keeps xmit_more from being set. If the 
-driver is not DQL enabled xmit_more is never ever set. If the driver is 
-DQL enabled the queue is adjusted to ensure xmit_more stops happening 
-within 10-15 xmit cycles.
+This issue was detected by using the Coccinelle software.
 
-That is plain *wrong* for virtual NICs - virtio, emulated NICs, etc. 
-There, the BIG cost is telling the hypervisor that it needs to "kick" 
-the packets. The cost of putting them into the vNIC buffers is 
-negligible. You want xmit_more to happen - it makes between 50% and 300% 
-(depending on vNIC design) difference. If there is no xmit_more the vNIC 
-will immediately "kick" the hypervisor and try to signal that  the 
-packet needs to move straight away (as for example in virtio_net).
+Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+---
+ drivers/net/wireless/ath/wil6210/debugfs.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
 
-In addition to that, the perceived line rate is proportional to this 
-cost, so I am not sure that the current dql math holds. In fact, I think 
-it does not - it is trying to adjust something which influences the 
-perceived line rate.
-
-So - how do we turn BOTH bypass and DQL adjustment while under 
-virtualization and set them to be "always qdisc" + "always xmit_more 
-allowed"
-
-A.
-
-P.S. Cc-ing virtio maintainer
-
-A.
-
-
-On 08/05/17 08:15, Anton Ivanov wrote:
-> Hi all,
->
-> I was revising some of my old work for UML to prepare it for 
-> submission and I noticed that skb->xmit_more does not seem to be set 
-> any more.
->
-> I traced the issue as far as net/sched/sched_generic.c
->
-> try_bulk_dequeue_skb() is never invoked (the drivers I am working on 
-> are dql enabled so that is not the problem).
->
-> More interestingly, if I put a breakpoint and debug output into 
-> dequeue_skb() around line 147 - right before the bulk: tag that skb 
-> there is always NULL. ???
->
-> Similarly, debug in pfifo_fast_dequeue shows only NULLs being 
-> dequeued. Again - ???
->
-> First and foremost, I apologize for the silly question, but how can 
-> this work at all? I see the skbs showing up at the driver level, why 
-> are NULLs being returned at qdisc dequeue and where do the skbs at the 
-> driver level come from?
->
-> Second, where should I look to fix it?
->
-> A.
->
-
-
+diff --git a/drivers/net/wireless/ath/wil6210/debugfs.c b/drivers/net/wireless/ath/wil6210/debugfs.c
+index 5648ebbd0e16..90118d286fb9 100644
+--- a/drivers/net/wireless/ath/wil6210/debugfs.c
++++ b/drivers/net/wireless/ath/wil6210/debugfs.c
+@@ -76,11 +76,11 @@ static void wil_print_vring(struct seq_file *s, struct wil6210_priv *wil,
+ 			volatile struct vring_tx_desc *d = &vring->va[i].tx;
+ 
+ 			if ((i % 128) == 0 && (i != 0))
+-				seq_puts(s, "\n");
++				seq_putc(s, '\n');
+ 			seq_printf(s, "%c", (d->dma.status & BIT(0)) ?
+ 					_s : (vring->ctx[i].skb ? _h : 'h'));
+ 		}
+-		seq_puts(s, "\n");
++		seq_putc(s, '\n');
+ 	}
+ 	seq_puts(s, "}\n");
+ }
+@@ -233,7 +233,7 @@ static void wil_print_ring(struct seq_file *s, const char *prefix,
+ 				wil_seq_hexdump(s, databuf, len, "      : ");
+ 			}
+ 		} else {
+-			seq_puts(s, "\n");
++			seq_putc(s, '\n');
+ 		}
+ 	}
+  out:
+@@ -1366,7 +1366,7 @@ static void wil_print_rxtid_crypto(struct seq_file *s, int tid,
+ 		seq_printf(s, " [%i%s]%6phN", i, cc->key_set ? "+" : "-",
+ 			   cc->pn);
+ 	}
+-	seq_puts(s, "\n");
++	seq_putc(s, '\n');
+ }
+ 
+ static int wil_sta_debugfs_show(struct seq_file *s, void *data)
+@@ -1423,7 +1423,7 @@ __acquires(&p->tid_rx_lock) __releases(&p->tid_rx_lock)
+ 			     mcs++)
+ 				seq_printf(s, " %lld",
+ 					   p->stats.rx_per_mcs[mcs]);
+-			seq_puts(s, "\n");
++			seq_putc(s, '\n');
+ 		}
+ 	}
+ 
 -- 
-Anton R. Ivanov
-
-Cambridge Greys Limited, England company No 10273661
-http://www.cambridgegreys.com/
+2.12.2
