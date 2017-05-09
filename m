@@ -1,106 +1,170 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: arch: arm: bpf: Converting cBPF to eBPF for arm 32 bit
-Date: Tue, 09 May 2017 22:25:59 +0200
-Message-ID: <591225D7.9090500@iogearbox.net>
-References: <CAHgaXd+EKJ0FWaaPojsNJtgY_YpdQXu6eMEp97uOpTFAWs4qTQ@mail.gmail.com> <CAGXu5jLo8UvpNSQZBHjWZoO959ha6KFQxFzmg7SK44wz=R_QSg@mail.gmail.com> <CAHgaXdJL92XRjHae2Nb9j9SerSe65=N=ErDHTQf23sdBxwthzw@mail.gmail.com> <20170315.145512.1542025976162251828.davem@davemloft.net> <CAHgaXd+4QkFxnt-_iCqH8AyCN_Y8gXwr+y=iugz38NKSWspsbA@mail.gmail.com> <58DAF908.8010404@iogearbox.net> <CAHgaXdKfbob3WHMho32JSh_dmfp2A=cjcePqk+NfajVpShPE6Q@mail.gmail.com> <CAHgaXdJ1M4W3p9=B2hJmtxByPsA5-XHae8U6YtDH_2r_XMaR5A@mail.gmail.com> <58E639E0.1010700@iogearbox.net> <CAHgaXd+xb5dN90sH___RtxgSC3usnH2jXkA5r3=fQJc3pOY5xw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-        Kees Cook <keescook@chromium.org>,
-        Mircea Gherzan <mgherzan@gmail.com>,
-        Network Development <netdev@vger.kernel.org>,
-        kernel-hardening@lists.openwall.com,
-        linux-arm-kernel@lists.infradead.org, ast@fb.com
-To: Shubham Bansal <illusionist.neo@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:36516 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751974AbdEIU0G (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 9 May 2017 16:26:06 -0400
-In-Reply-To: <CAHgaXd+xb5dN90sH___RtxgSC3usnH2jXkA5r3=fQJc3pOY5xw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Shannon Nelson <shannon.nelson@oracle.com>
+Subject: [PATCH net-next] bnxt: add dma mapping attributes
+Date: Tue,  9 May 2017 13:37:33 -0700
+Message-ID: <1494362253-270990-1-git-send-email-shannon.nelson@oracle.com>
+Cc: sparclinux@vger.kernel.org,
+        Shannon Nelson <shannon.nelson@oracle.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <sparclinux-owner@vger.kernel.org>
+Sender: sparclinux-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 05/09/2017 10:12 PM, Shubham Bansal wrote:
-> Hi Daniel,
->
-> I just tried running test_bpf.ko module.
->
-> $ echo 2 >>  /proc/sys/net/core/bpf_jit_enable
-> $ insmod test_bpf.ko
->
-> test_bpf: #0 TAX
-> bpf_jit: flen=14 proglen=212 pass=2 image=7f15a83c from=insmod pid=730
-> JIT code: 00000000: f0 05 2d e9 40 d2 4d e2 00 40 a0 e3 0c 42 8d e5
-> JIT code: 00000010: 08 42 8d e5 00 00 20 e0 01 10 21 e0 20 62 9d e5
-> JIT code: 00000020: 20 72 9d e5 06 70 27 e0 20 72 8d e5 24 62 9d e5
-> JIT code: 00000030: 24 72 9d e5 06 70 27 e0 24 72 8d e5 00 40 a0 e1
-> JIT code: 00000040: 01 50 a0 e1 01 00 a0 e3 00 10 a0 e3 20 02 8d e5
-> JIT code: 00000050: 24 12 8d e5 02 00 a0 e3 00 10 a0 e3 20 62 9d e5
-> JIT code: 00000060: 06 00 80 e0 00 10 a0 e3 00 00 60 e2 00 10 a0 e3
-> JIT code: 00000070: 20 02 8d e5 24 12 8d e5 54 40 90 e5 20 62 9d e5
-> JIT code: 00000080: 06 00 80 e0 00 10 a0 e3 20 02 8d e5 24 12 8d e5
-> JIT code: 00000090: 04 00 a0 e1 01 10 a0 e3 20 62 9d e5 06 10 81 e0
-> JIT code: 000000a0: 01 20 a0 e3 04 32 8d e2 bc 68 0a e3 11 60 48 e3
-> JIT code: 000000b0: 36 ff 2f e1 01 10 21 e0 00 00 50 e3 04 00 00 0a
-> JIT code: 000000c0: 00 00 d0 e5 01 00 00 ea 40 d2 8d e2 f0 05 bd e8
-> JIT code: 000000d0: 1e ff 2f e1
-> jited:1
-> Unhandled fault: page domain fault (0x01b) at 0x00000051
-> pgd = 871d0000
-> [00000051] *pgd=671b7831, *pte=00000000, *ppte=00000000
-> Internal error: : 1b [#1] SMP ARM
-> Modules linked in: test_bpf(+)
-> CPU: 0 PID: 730 Comm: insmod Not tainted 4.11.0+ #5
-> Hardware name: ARM-Versatile Express
-> task: 87023700 task.stack: 8718a000
-> PC is at 0x7f15a8b4
-> LR is at test_bpf_init+0x5bc/0x1000 [test_bpf]
-> pc : [<7f15a8b4>]    lr : [<7f1575bc>]    psr: 80000013
-> sp : 8718bd7c  ip : 00000015  fp : 7f005008
-> r10: 7f005094  r9 : 893ba020  r8 : 893ba000
-> r7 : 00000000  r6 : 00000001  r5 : 00000000  r4 : 00000000
-> r3 : 7f15a83c  r2 : 893ba020  r1 : 00000000  r0 : fffffffd
-> Flags: Nzcv  IRQs on  FIQs on  Mode SVC_32  ISA ARM  Segment none
-> Control: 10c5387d  Table: 671d0059  DAC: 00000051
-> Process insmod (pid: 730, stack limit = 0x8718a210)
-> Stack: (0x8718bd7c to 0x8718c000)
-> bd60:                                                                00000000
-> bd80: 00002710 870db300 c302e7e8 7f004010 893ba000 7f005094 00000000 00000000
-> bda0: 00000000 00000000 00000000 00000001 00000001 00000000 014000c0 00150628
-> bdc0: 7f0050ac 7f154840 1234aaaa 1234aaab c302e7e8 0000000f 00000000 893ba000
-> bde0: 0000000b 7f004010 87fd54a0 ffffe000 7f157000 00000000 871b6fc0 00000001
-> be00: 78e4905c 00000024 7f154640 8010179c 80a06544 8718a000 00000001 80a54980
-> be20: 80a3066c 00000007 809685c0 80a54700 80a54700 07551000 80a54700 60070013
-> be40: 7f154640 801f3fc8 78e4905c 7f154640 00000001 871b6fe4 7f154640 00000001
-> be60: 871b6b00 00000001 78e4905c 801eaa94 00000001 871b6fe4 8718bf44 00000001
-> be80: 871b6fe4 80196e4c 7f15464c 00007fff 7f154640 80193f10 87127000 7f154640
-> bea0: 7f154688 80703800 7f154770 807037e4 8081b184 807bec60 807becc4 807bec6c
-> bec0: 7f15481c 8010c1b8 93600000 76ed8028 00000f60 00000000 00000000 00000000
-> bee0: 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-> bf00: 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00003f80
-> bf20: 76f5cf88 00000000 93684f80 8718a000 00160fda 00000051 00000000 801973b0
-> bf40: 87671a00 93501000 00183f80 93684760 93684574 936788e0 00155000 00155290
-> bf60: 00000000 00000000 00000000 00001f64 00000032 00000033 0000001d 00000000
-> bf80: 00000017 00000000 00000000 00183f80 756e694c 00000080 80107684 fffffffd
-> bfa0: 00000000 801074c0 00000000 00183f80 76dd9008 00183f80 00160fda 00000000
-> bfc0: 00000000 00183f80 756e694c 00000080 00000001 7eabae2c 00172f8c 00000000
-> bfe0: 7eabaae0 7eabaad0 0004017f 00013172 60070030 76dd9008 00000000 00000000
-> [<7f1575bc>] (test_bpf_init [test_bpf]) from [<7f157000>]
-> (test_bpf_init+0x0/0x1000 [test_bpf])
-> [<7f157000>] (test_bpf_init [test_bpf]) from [<78e4905c>] (0x78e4905c)
-> Code: e2600000 e3a01000 e58d0220 e58d1224 (e5904054)
-> ---[ end trace a36398923b914fe2 ]---
-> Segmentation fault
->
-> Why is trying to execute TAX which is a cBPF instruction?
+On the SPARC platform we need to use the DMA_ATTR_WEAK_ORDERING attribute
+in our Rx path dma mapping in order to get the expected performance out
+of the receive path.  Adding it to the Tx path has little effect, so
+that's not a part of this patch.
 
-Kernel translates this to eBPF internally (bpf_prepare_filter() ->
-bpf_migrate_filter()), no cBPF will see the JIT directly.
+Signed-off-by: Shannon Nelson <shannon.nelson@oracle.com>
+Reviewed-by: Tushar Dave <tushar.n.dave@oracle.com>
+Reviewed-by: Tom Saeger <tom.saeger@oracle.com>
+---
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c |   61 ++++++++++++++++++----------
+ 1 files changed, 39 insertions(+), 22 deletions(-)
 
-Is your implementation still using bpf_jit_compile() callback as
-opposed to bpf_int_jit_compile()?!
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+index 1f1e54b..771742c 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+@@ -66,6 +66,12 @@
+ MODULE_DESCRIPTION("Broadcom BCM573xx network driver");
+ MODULE_VERSION(DRV_MODULE_VERSION);
+ 
++#ifdef CONFIG_SPARC
++#define BNXT_DMA_ATTRS  DMA_ATTR_WEAK_ORDERING
++#else
++#define BNXT_DMA_ATTRS	0
++#endif
++
+ #define BNXT_RX_OFFSET (NET_SKB_PAD + NET_IP_ALIGN)
+ #define BNXT_RX_DMA_OFFSET NET_SKB_PAD
+ #define BNXT_RX_COPY_THRESH 256
+@@ -582,7 +588,8 @@ static void bnxt_tx_int(struct bnxt *bp, struct bnxt_napi *bnapi, int nr_pkts)
+ 	if (!page)
+ 		return NULL;
+ 
+-	*mapping = dma_map_page(dev, page, 0, PAGE_SIZE, bp->rx_dir);
++	*mapping = dma_map_page_attrs(dev, page, 0, PAGE_SIZE, bp->rx_dir,
++				      BNXT_DMA_ATTRS);
+ 	if (dma_mapping_error(dev, *mapping)) {
+ 		__free_page(page);
+ 		return NULL;
+@@ -601,8 +608,9 @@ static void bnxt_tx_int(struct bnxt *bp, struct bnxt_napi *bnapi, int nr_pkts)
+ 	if (!data)
+ 		return NULL;
+ 
+-	*mapping = dma_map_single(&pdev->dev, data + bp->rx_dma_offset,
+-				  bp->rx_buf_use_size, bp->rx_dir);
++	*mapping = dma_map_single_attrs(&pdev->dev, data + bp->rx_dma_offset,
++					bp->rx_buf_use_size, bp->rx_dir,
++					BNXT_DMA_ATTRS);
+ 
+ 	if (dma_mapping_error(&pdev->dev, *mapping)) {
+ 		kfree(data);
+@@ -705,8 +713,9 @@ static inline int bnxt_alloc_rx_page(struct bnxt *bp,
+ 			return -ENOMEM;
+ 	}
+ 
+-	mapping = dma_map_page(&pdev->dev, page, offset, BNXT_RX_PAGE_SIZE,
+-			       PCI_DMA_FROMDEVICE);
++	mapping = dma_map_page_attrs(&pdev->dev, page, offset,
++				     BNXT_RX_PAGE_SIZE, PCI_DMA_FROMDEVICE,
++				     BNXT_DMA_ATTRS);
+ 	if (dma_mapping_error(&pdev->dev, mapping)) {
+ 		__free_page(page);
+ 		return -EIO;
+@@ -799,7 +808,8 @@ static void bnxt_reuse_rx_agg_bufs(struct bnxt_napi *bnapi, u16 cp_cons,
+ 		return NULL;
+ 	}
+ 	dma_addr -= bp->rx_dma_offset;
+-	dma_unmap_page(&bp->pdev->dev, dma_addr, PAGE_SIZE, bp->rx_dir);
++	dma_unmap_page_attrs(&bp->pdev->dev, dma_addr, PAGE_SIZE, bp->rx_dir,
++			     BNXT_DMA_ATTRS);
+ 
+ 	if (unlikely(!payload))
+ 		payload = eth_get_headlen(data_ptr, len);
+@@ -841,8 +851,8 @@ static void bnxt_reuse_rx_agg_bufs(struct bnxt_napi *bnapi, u16 cp_cons,
+ 	}
+ 
+ 	skb = build_skb(data, 0);
+-	dma_unmap_single(&bp->pdev->dev, dma_addr, bp->rx_buf_use_size,
+-			 bp->rx_dir);
++	dma_unmap_single_attrs(&bp->pdev->dev, dma_addr, bp->rx_buf_use_size,
++			       bp->rx_dir, BNXT_DMA_ATTRS);
+ 	if (!skb) {
+ 		kfree(data);
+ 		return NULL;
+@@ -909,8 +919,8 @@ static void bnxt_reuse_rx_agg_bufs(struct bnxt_napi *bnapi, u16 cp_cons,
+ 			return NULL;
+ 		}
+ 
+-		dma_unmap_page(&pdev->dev, mapping, BNXT_RX_PAGE_SIZE,
+-			       PCI_DMA_FROMDEVICE);
++		dma_unmap_page_attrs(&pdev->dev, mapping, BNXT_RX_PAGE_SIZE,
++				     PCI_DMA_FROMDEVICE, BNXT_DMA_ATTRS);
+ 
+ 		skb->data_len += frag_len;
+ 		skb->len += frag_len;
+@@ -1329,8 +1339,9 @@ static void bnxt_abort_tpa(struct bnxt *bp, struct bnxt_napi *bnapi,
+ 		tpa_info->mapping = new_mapping;
+ 
+ 		skb = build_skb(data, 0);
+-		dma_unmap_single(&bp->pdev->dev, mapping, bp->rx_buf_use_size,
+-				 bp->rx_dir);
++		dma_unmap_single_attrs(&bp->pdev->dev, mapping,
++				       bp->rx_buf_use_size, bp->rx_dir,
++				       BNXT_DMA_ATTRS);
+ 
+ 		if (!skb) {
+ 			kfree(data);
+@@ -1971,9 +1982,11 @@ static void bnxt_free_rx_skbs(struct bnxt *bp)
+ 				if (!data)
+ 					continue;
+ 
+-				dma_unmap_single(&pdev->dev, tpa_info->mapping,
+-						 bp->rx_buf_use_size,
+-						 bp->rx_dir);
++				dma_unmap_single_attrs(&pdev->dev,
++						       tpa_info->mapping,
++						       bp->rx_buf_use_size,
++						       bp->rx_dir,
++						       BNXT_DMA_ATTRS);
+ 
+ 				tpa_info->data = NULL;
+ 
+@@ -1993,13 +2006,15 @@ static void bnxt_free_rx_skbs(struct bnxt *bp)
+ 
+ 			if (BNXT_RX_PAGE_MODE(bp)) {
+ 				mapping -= bp->rx_dma_offset;
+-				dma_unmap_page(&pdev->dev, mapping,
+-					       PAGE_SIZE, bp->rx_dir);
++				dma_unmap_page_attrs(&pdev->dev, mapping,
++						     PAGE_SIZE, bp->rx_dir,
++						     BNXT_DMA_ATTRS);
+ 				__free_page(data);
+ 			} else {
+-				dma_unmap_single(&pdev->dev, mapping,
+-						 bp->rx_buf_use_size,
+-						 bp->rx_dir);
++				dma_unmap_single_attrs(&pdev->dev, mapping,
++						       bp->rx_buf_use_size,
++						       bp->rx_dir,
++						       BNXT_DMA_ATTRS);
+ 				kfree(data);
+ 			}
+ 		}
+@@ -2012,8 +2027,10 @@ static void bnxt_free_rx_skbs(struct bnxt *bp)
+ 			if (!page)
+ 				continue;
+ 
+-			dma_unmap_page(&pdev->dev, rx_agg_buf->mapping,
+-				       BNXT_RX_PAGE_SIZE, PCI_DMA_FROMDEVICE);
++			dma_unmap_page_attrs(&pdev->dev, rx_agg_buf->mapping,
++					     BNXT_RX_PAGE_SIZE,
++					     PCI_DMA_FROMDEVICE,
++					     BNXT_DMA_ATTRS);
+ 
+ 			rx_agg_buf->page = NULL;
+ 			__clear_bit(j, rxr->rx_agg_bmap);
+-- 
+1.7.1
 
-Cheers,
-Daniel
