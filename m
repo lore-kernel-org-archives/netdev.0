@@ -1,51 +1,117 @@
-From: Bjorn Andersson <bjorn.andersson@linaro.org>
-Subject: [PATCH] wcn36xx: Close SMD channel on device removal
-Date: Mon,  8 May 2017 21:36:37 -0700
-Message-ID: <20170509043637.28179-1-bjorn.andersson@linaro.org>
-Cc: wcn36xx@lists.infradead.org, linux-wireless@vger.kernel.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linux-arm-msm@vger.kernel.org
-To: Eugene Krasnikov <k.eugene.e@gmail.com>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        Eyal Ilsar <c_eilsar@qti.qualcomm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f179.google.com ([209.85.192.179]:35631 "EHLO
-        mail-pf0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751537AbdEIEgl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 9 May 2017 00:36:41 -0400
-Received: by mail-pf0-f179.google.com with SMTP id v14so43128461pfd.2
-        for <netdev@vger.kernel.org>; Mon, 08 May 2017 21:36:41 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Baruch Siach <baruch-NswTu9S1W3P6gbPvEgmw2w@public.gmane.org>
+Subject: Re: [PATCH 0/4] TI Bluetooth serdev support
+Date: Tue, 9 May 2017 07:48:37 +0300
+Message-ID: <20170509044837.oje2tfodytyuuuur@sapphire.tkos.co.il>
+References: <20170405183005.20570-1-robh@kernel.org>
+ <CAHCN7xJUxZm1qKAxT0kaK6qoDg+HWOJK7sTH-q9za4HJuUwe8Q@mail.gmail.com>
+ <20170430160430.rmyuo6sdrkrjxjg6@earth>
+ <CAHCN7x+Mq=b6RN-ezU0400W=H=D7DR+Es1FHtT4GyozpVd8ALA@mail.gmail.com>
+ <CAL_JsqKBAPUPRtn+pEtz8B8pCrA=45RkEq6X_0i_HYoWsVmtyw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Adam Ford <aford173-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+        "devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Gustavo Padovan <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>,
+        Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
+        Sebastian Reichel <sre-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Wei Xu <xuwei5-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>,
+        "open list:BLUETOOTH DRIVERS" <linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Eyal Reizer <eyalr-l0cyMroinI0@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Satish Patel <satish.patel-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+        "linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
+        <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+To: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <CAL_JsqKBAPUPRtn+pEtz8B8pCrA=45RkEq6X_0i_HYoWsVmtyw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-The SMD channel is not the primary WCNSS channel and must explicitly be
-closed as the device is removed, or the channel will already by open on
-a subsequent probe call in e.g. the case of reloading the kernel module.
+Hi Rob,
 
-This issue was introduced because I simplified the underlying SMD
-implementation while the SMD adaptions of the driver sat on the mailing
-list, but missed to update these patches. The patch does however only
-apply back to the transition to rpmsg, hence the limited Fixes.
+On Mon, May 08, 2017 at 04:12:16PM -0500, Rob Herring wrote:
+> On Fri, May 5, 2017 at 9:51 AM, Adam Ford <aford173-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+> > On Sun, Apr 30, 2017 at 11:04 AM, Sebastian Reichel <sre-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org> wrote:
+> >> On Sun, Apr 30, 2017 at 10:14:20AM -0500, Adam Ford wrote:
+> >>> On Wed, Apr 5, 2017 at 1:30 PM, Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org> wrote:
+> >>> > This series adds serdev support to the HCI LL protocol used on TI BT
+> >>> > modules and enables support on HiKey board with with the WL1835 module.
+> >>> > With this the custom TI UIM daemon and btattach are no longer needed.
+> >>>
+> >>> Without UIM daemon, what instruction do you use to load the BT firmware?
+> >>>
+> >>> I was thinking 'hciattach' but I was having trouble.  I was hoping you
+> >>> might have some insight.
+> >>>
+> >>>  hciattach -t 30 -s 115200 /dev/ttymxc1 texas 3000000 flow  Just
+> >>> returns a timeout.
+> >>>
+> >>> I modified my i.MX6 device tree per the binding documentation and
+> >>> setup the regulators and enable GPIO pins.
+> >>
+> >> If you configured everything correctly no userspace interaction is
+> >> required. The driver should request the firmware automatically once
+> >> you power up the bluetooth device.
+> >>
+> >> Apart from DT changes make sure, that the following options are
+> >> enabled and check dmesg for any hints.
+> >>
+> >> CONFIG_SERIAL_DEV_BUS
+> >> CONFIG_SERIAL_DEV_CTRL_TTYPORT
+> >> CONFIG_BT_HCIUART
+> >> CONFIG_BT_HCIUART_LL
+> >
+> > I have enabled those flags, and I have updated my device tree.
+> > I am testing this on an OMAP3630 (DM3730) board with a WL1283.  I am
+> > getting a lot of timeout errors.  I tested this against the original
+> > implemention I had in pdata-quirks.c using the ti-st driver, uim & and
+> > the btwilink driver.
+> >
+> > I pulled in some of the newer patches to enable the wl1283-st, but I
+> > am obviously missing something.
+> >
+> > I   58.717651] Bluetooth: hci0: Reading TI version information failed
+> > (-110)
+> > [   58.724853] Bluetooth: hci0: download firmware failed, retrying...
+> > [   60.957641] Bluetooth: hci0 command 0x1001 tx timeout
+> > [   68.957641] Bluetooth: hci0: Reading TI version information failed
+> > (-110)
+> > [   68.964843] Bluetooth: hci0: download firmware failed, retrying...
+> > [   69.132171] Bluetooth: Unknown HCI packet type 06
+> > [   69.138244] Bluetooth: Unknown HCI packet type 0c
+> > [   69.143249] Bluetooth: Unknown HCI packet type 40
+> > [   69.148498] Bluetooth: Unknown HCI packet type 20
+> > [   69.153533] Bluetooth: Data length is too large
+> > [   69.158569] Bluetooth: Unknown HCI packet type a0
+> > [   69.163574] Bluetooth: Unknown HCI packet type 00
+> > [   69.168731] Bluetooth: Unknown HCI packet type 00
+> > [   69.173736] Bluetooth: Unknown HCI packet type 34
+> > [   69.178924] Bluetooth: Unknown HCI packet type 91
+> > [   71.197631] Bluetooth: hci0 command 0x1001 tx timeout
+> > [   79.197662] Bluetooth: hci0: Reading TI version information failed (-110)
+> 
+> There's a bug in serdev_device_write(), so if you have that function
+> you need either the fix I sent or the patch to make
+> serdev_device_writebuf atomic again. Both are on the linux-serial
+> list, but not in any tree yet.
 
-Fixes: 5052de8deff5 ("soc: qcom: smd: Transition client drivers from smd to rpmsg")
-Reported-by: Eyal Ilsar <c_eilsar@qti.qualcomm.com>
-Signed-off-by: Bjorn Andersson <bjorn.andersson@linaro.org>
----
- drivers/net/wireless/ath/wcn36xx/main.c | 2 ++
- 1 file changed, 2 insertions(+)
+You refer to the patches below, right?
 
-diff --git a/drivers/net/wireless/ath/wcn36xx/main.c b/drivers/net/wireless/ath/wcn36xx/main.c
-index d5e993dc9b23..517a315e259b 100644
---- a/drivers/net/wireless/ath/wcn36xx/main.c
-+++ b/drivers/net/wireless/ath/wcn36xx/main.c
-@@ -1271,6 +1271,8 @@ static int wcn36xx_remove(struct platform_device *pdev)
- 	qcom_smem_state_put(wcn->tx_enable_state);
- 	qcom_smem_state_put(wcn->tx_rings_empty_state);
- 
-+	rpmsg_destroy_ept(wcn->smd_channel);
-+
- 	iounmap(wcn->dxe_base);
- 	iounmap(wcn->ccu_base);
- 
+  [PATCH] tty: serdev: fix serdev_device_write return value, 
+  http://www.spinics.net/lists/linux-serial/msg26117.html
+
+  [PATCH] serdev: Restore serdev_device_write_buf for atomic context,
+  http://www.spinics.net/lists/linux-serial/msg26113.html
+
+baruch
+
 -- 
-2.12.0
+     http://baruch.siach.name/blog/                  ~. .~   Tk Open Systems
+=}------------------------------------------------ooO--U--Ooo------------{=
+   - baruch-NswTu9S1W3P6gbPvEgmw2w@public.gmane.org - tel: +972.2.679.5364, http://www.tkos.co.il -
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
