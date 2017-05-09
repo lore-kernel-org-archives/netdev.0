@@ -1,39 +1,50 @@
-From: Arend Van Spriel <arend.vanspriel@broadcom.com>
-Subject: Re: [PATCH] net: wireless: ath: ath10k: remove unnecessary code
-Date: Tue, 9 May 2017 14:07:57 +0200
-Message-ID: <76408651-07c6-fe31-863f-e1cb73b49663@broadcom.com>
-References: <20170509042159.GA19727@embeddedgus>
- <87lgq6387s.fsf@kamboji.qca.qualcomm.com>
+From: Yuval Mintz <Yuval.Mintz@cavium.com>
+Subject: [PATCH net 0/5] qed*: General fixes
+Date: Tue, 9 May 2017 15:07:46 +0300
+Message-ID: <1494331671-16273-1-git-send-email-Yuval.Mintz@cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "ath10k@lists.infradead.org" <ath10k@lists.infradead.org>
-To: Kalle Valo <kvalo@qca.qualcomm.com>,
-        "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87lgq6387s.fsf@kamboji.qca.qualcomm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: Yuval Mintz <Yuval.Mintz@cavium.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-by2nam01on0069.outbound.protection.outlook.com ([104.47.34.69]:22896
+        "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1753431AbdEIMII (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 9 May 2017 08:08:08 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 9-5-2017 7:33, Kalle Valo wrote:
-> "Gustavo A. R. Silva" <garsilva@embeddedor.com> writes:
-> 
->> The name of an array used by itself will always return the array's address.
->> So these tests will always evaluate as false and therefore the _return_
->> will never be executed.
->>
->> Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
-> 
-> I don't understand the commit log, especially what does "The name of an
-> array used by itself" mean?
+This series contain several fixes for qed and qede.
 
-The array fields in struct wmi_start_scan_arg that are checked here are
-fixed size arrays so they can never be NULL.
+ - #1 [and ~#5] relate to XDP cleanups
+ - #2 and #5 correct VF behavior
+ - #3 and #4 fix and add missing configurations needed for RoCE & storage
 
-Maybe that helps rephrasing this commit message.
+Dave,
 
-Regards,
-Arend
+Please consider applying the series to 'net'.
+
+Thanks,
+Yuval
+
+Sudarsana Reddy Kalluru (1):
+  qede: Fix XDP memory leak on unload
+
+Ram Amrani (1):
+  qed: Correct doorbell configuration for !4Kb pages
+
+Yuval Mintz (3):
+  qed: Fix VF removal sequence
+  qed: Tell QM the number of tasks
+  qede: Split PF/VF ndos
+
+ drivers/net/ethernet/qlogic/qed/qed_cxt.c      |  1 +
+ drivers/net/ethernet/qlogic/qed/qed_dev.c      |  2 +-
+ drivers/net/ethernet/qlogic/qed/qed_main.c     |  6 ++++--
+ drivers/net/ethernet/qlogic/qede/qede_filter.c |  5 -----
+ drivers/net/ethernet/qlogic/qede/qede_main.c   | 25 ++++++++++++++++++++++++-
+ 5 files changed, 30 insertions(+), 9 deletions(-)
+
+-- 
+1.9.3
