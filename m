@@ -1,61 +1,49 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [Patch net] ipv4: restore rt->fi for reference counting
-Date: Tue, 09 May 2017 09:56:02 -0700
-Message-ID: <1494348962.7796.88.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1493934857-6693-1-git-send-email-xiyou.wangcong@gmail.com>
-         <20170508.143557.105629611489969352.davem@davemloft.net>
-         <1494288080.7796.59.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20170508.212211.1291611254198273979.davem@davemloft.net>
-         <1494296302.7796.61.camel@edumazet-glaptop3.roam.corp.google.com>
-         <CAM_iQpWQoLppsMfDOQWsdifGd56CAY24tCNm0Jm02QCe7ZThOw@mail.gmail.com>
+From: Timur Tabi <timur@codeaurora.org>
+Subject: Requirements for a shutdown function?
+Date: Tue, 9 May 2017 11:58:32 -0500
+Message-ID: <49bee65f-2ea8-1787-9642-659a967df8f0@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Andrey Konovalov <andreyknvl@google.com>,
-        Eric Dumazet <edumazet@google.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:35738 "EHLO
-        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753437AbdEIQ4E (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 9 May 2017 12:56:04 -0400
-Received: by mail-pg0-f67.google.com with SMTP id i63so636617pgd.2
-        for <netdev@vger.kernel.org>; Tue, 09 May 2017 09:56:04 -0700 (PDT)
-In-Reply-To: <CAM_iQpWQoLppsMfDOQWsdifGd56CAY24tCNm0Jm02QCe7ZThOw@mail.gmail.com>
+Received: from smtp.codeaurora.org ([198.145.29.96]:37040 "EHLO
+        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754330AbdEIQ6e (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 9 May 2017 12:58:34 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2017-05-09 at 09:44 -0700, Cong Wang wrote:
+I'm trying to add a platform_driver.shutdown function to my Ethernet driver
+(drivers/net/ethernet/qualcomm/emac/*), but I can't find any definitive
+information as to what a network driver shutdown callback is supposed to do.
+ I also don't know what testcase I should use to verify that my function is
+working.
 
-> 
-> Eric, how did you produce it?
-> I guess it's because of nh_dev which is the only netdevice pointer inside
-> fib_info. Let me take a deeper look.
-> 
+I see only four instances of a platform_driver.shutdown function in
+drivers/net/ethernet:
 
-Nothing particular, I am using kexec to boot new kernels, and all my
-attempts with your patch included demonstrated the issue.
+$ git grep -A 20 -w platform_driver | grep '\.shutdown'
+apm/xgene-v2/main.c-	.shutdown = xge_shutdown,
+apm/xgene/xgene_enet_main.c-	.shutdown = xgene_enet_shutdown,
+marvell/mv643xx_eth.c-	.shutdown	= mv643xx_eth_shutdown,
+marvell/pxa168_eth.c-	.shutdown = pxa168_eth_shutdown,
 
-eth0 is a bonding device, it might matter, I do not know.
+(Other shutdown functions are for pci_driver.shutdown).
 
-We also have some tunnels, but unfortunately I can not provide a setup
-that you could use on say a VM.
+For the xgene drivers, the shutdown function just calls the 'remove'
+function.  Isn't that overkill?  Why bother with a shutdown function if it's
+just the same thing as removing the driver outright?
 
-I can send you the .config if this can help
+mv643xx_eth_shutdown() seems more reasonable.  All it does is halt the TX
+and RX queues.
 
-> >>
-> >> I am assuming you are quite confident it is this change?
-> >
-> > At least, reverting the patch resolves the issue for me.
-> >
-> > Keeping fib (and their reference to netdev) is apparently too much,
-> > we probably need to implement a refcount on the metrics themselves,
-> > being stand alone objects.
-> 
-> I don't disagree, just that it may need to change too much code which
-> goes beyond a stable candidate.
+pxa168_eth_shutdown() is a little more heavyweight: halts the queues, and
+stops the DMA and calls phy_stop().
 
-Well, your choice, but dealing with a full blown fib and its
-dependencies look fragile to me.
+Can anyone help me figure out what my driver really should do?
+
+-- 
+Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm
+Technologies, Inc.  Qualcomm Technologies, Inc. is a member of the
+Code Aurora Forum, a Linux Foundation Collaborative Project.
