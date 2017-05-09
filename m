@@ -1,117 +1,53 @@
-From: Baruch Siach <baruch-NswTu9S1W3P6gbPvEgmw2w@public.gmane.org>
-Subject: Re: [PATCH 0/4] TI Bluetooth serdev support
-Date: Tue, 9 May 2017 07:48:37 +0300
-Message-ID: <20170509044837.oje2tfodytyuuuur@sapphire.tkos.co.il>
-References: <20170405183005.20570-1-robh@kernel.org>
- <CAHCN7xJUxZm1qKAxT0kaK6qoDg+HWOJK7sTH-q9za4HJuUwe8Q@mail.gmail.com>
- <20170430160430.rmyuo6sdrkrjxjg6@earth>
- <CAHCN7x+Mq=b6RN-ezU0400W=H=D7DR+Es1FHtT4GyozpVd8ALA@mail.gmail.com>
- <CAL_JsqKBAPUPRtn+pEtz8B8pCrA=45RkEq6X_0i_HYoWsVmtyw@mail.gmail.com>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH RFC net-next 3/6] net: Introduce IFF_LWT_NETDEV flag
+Date: Mon, 8 May 2017 22:04:04 -0700
+Message-ID: <CAJieiUhKYB2AcSphh1pP8dpe_mdkG+2ri2SofYkEcXEgDAyMOQ@mail.gmail.com>
+References: <20170506160734.47084-1-dsahern@gmail.com> <20170506160734.47084-4-dsahern@gmail.com>
+ <1494233712.2562.0.camel@sipsolutions.net> <20170508.161130.1538627061428691500.davem@davemloft.net>
+ <52621c1c-57c4-efb7-80dc-648a0da7ae7f@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Adam Ford <aford173-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-        "devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Gustavo Padovan <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>,
-        Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
-        Sebastian Reichel <sre-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Wei Xu <xuwei5-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>,
-        "open list:BLUETOOTH DRIVERS" <linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Eyal Reizer <eyalr-l0cyMroinI0@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Satish Patel <satish.patel-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-        "linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
-        <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-To: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <CAL_JsqKBAPUPRtn+pEtz8B8pCrA=45RkEq6X_0i_HYoWsVmtyw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+        Johannes Berg <johannes@sipsolutions.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: David Ahern <dsahern@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ua0-f171.google.com ([209.85.217.171]:33269 "EHLO
+        mail-ua0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751213AbdEIFEF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 9 May 2017 01:04:05 -0400
+Received: by mail-ua0-f171.google.com with SMTP id z47so63136145uaz.0
+        for <netdev@vger.kernel.org>; Mon, 08 May 2017 22:04:05 -0700 (PDT)
+In-Reply-To: <52621c1c-57c4-efb7-80dc-648a0da7ae7f@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Rob,
+On Mon, May 8, 2017 at 5:57 PM, David Ahern <dsahern@gmail.com> wrote:
+> On 5/8/17 1:11 PM, David Miller wrote:
+>> From: Johannes Berg <johannes@sipsolutions.net>
+>> Date: Mon, 08 May 2017 10:55:12 +0200
+>>
+>>>
+>>>> +static inline bool netif_is_lwd(struct net_device *dev)
+>>>> +{
+>>>> +   return !!(dev->priv_flags & IFF_LWT_NETDEV);
+>>>> +}
+>>>
+>>> Am I the only one who thinks that this "LWT_NETDEV" vs "LWD" is a bit
+>>> confusing?
+>>
+>> Agreed, my old eyes can't discern them at a distance :-)
+>>
+>
+> perhaps it is the tiny font your old eyes are having trouble with :-)
+>
+> I am fine with Johannes' suggestion -- just spell it out:
+>     netif_is_lwt_netdev
+>
+> where lwt = LightWeighT
 
-On Mon, May 08, 2017 at 04:12:16PM -0500, Rob Herring wrote:
-> On Fri, May 5, 2017 at 9:51 AM, Adam Ford <aford173-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
-> > On Sun, Apr 30, 2017 at 11:04 AM, Sebastian Reichel <sre-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org> wrote:
-> >> On Sun, Apr 30, 2017 at 10:14:20AM -0500, Adam Ford wrote:
-> >>> On Wed, Apr 5, 2017 at 1:30 PM, Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org> wrote:
-> >>> > This series adds serdev support to the HCI LL protocol used on TI BT
-> >>> > modules and enables support on HiKey board with with the WL1835 module.
-> >>> > With this the custom TI UIM daemon and btattach are no longer needed.
-> >>>
-> >>> Without UIM daemon, what instruction do you use to load the BT firmware?
-> >>>
-> >>> I was thinking 'hciattach' but I was having trouble.  I was hoping you
-> >>> might have some insight.
-> >>>
-> >>>  hciattach -t 30 -s 115200 /dev/ttymxc1 texas 3000000 flow  Just
-> >>> returns a timeout.
-> >>>
-> >>> I modified my i.MX6 device tree per the binding documentation and
-> >>> setup the regulators and enable GPIO pins.
-> >>
-> >> If you configured everything correctly no userspace interaction is
-> >> required. The driver should request the firmware automatically once
-> >> you power up the bluetooth device.
-> >>
-> >> Apart from DT changes make sure, that the following options are
-> >> enabled and check dmesg for any hints.
-> >>
-> >> CONFIG_SERIAL_DEV_BUS
-> >> CONFIG_SERIAL_DEV_CTRL_TTYPORT
-> >> CONFIG_BT_HCIUART
-> >> CONFIG_BT_HCIUART_LL
-> >
-> > I have enabled those flags, and I have updated my device tree.
-> > I am testing this on an OMAP3630 (DM3730) board with a WL1283.  I am
-> > getting a lot of timeout errors.  I tested this against the original
-> > implemention I had in pdata-quirks.c using the ti-st driver, uim & and
-> > the btwilink driver.
-> >
-> > I pulled in some of the newer patches to enable the wl1283-st, but I
-> > am obviously missing something.
-> >
-> > I   58.717651] Bluetooth: hci0: Reading TI version information failed
-> > (-110)
-> > [   58.724853] Bluetooth: hci0: download firmware failed, retrying...
-> > [   60.957641] Bluetooth: hci0 command 0x1001 tx timeout
-> > [   68.957641] Bluetooth: hci0: Reading TI version information failed
-> > (-110)
-> > [   68.964843] Bluetooth: hci0: download firmware failed, retrying...
-> > [   69.132171] Bluetooth: Unknown HCI packet type 06
-> > [   69.138244] Bluetooth: Unknown HCI packet type 0c
-> > [   69.143249] Bluetooth: Unknown HCI packet type 40
-> > [   69.148498] Bluetooth: Unknown HCI packet type 20
-> > [   69.153533] Bluetooth: Data length is too large
-> > [   69.158569] Bluetooth: Unknown HCI packet type a0
-> > [   69.163574] Bluetooth: Unknown HCI packet type 00
-> > [   69.168731] Bluetooth: Unknown HCI packet type 00
-> > [   69.173736] Bluetooth: Unknown HCI packet type 34
-> > [   69.178924] Bluetooth: Unknown HCI packet type 91
-> > [   71.197631] Bluetooth: hci0 command 0x1001 tx timeout
-> > [   79.197662] Bluetooth: hci0: Reading TI version information failed (-110)
-> 
-> There's a bug in serdev_device_write(), so if you have that function
-> you need either the fix I sent or the patch to make
-> serdev_device_writebuf atomic again. Both are on the linux-serial
-> list, but not in any tree yet.
-
-You refer to the patches below, right?
-
-  [PATCH] tty: serdev: fix serdev_device_write return value, 
-  http://www.spinics.net/lists/linux-serial/msg26117.html
-
-  [PATCH] serdev: Restore serdev_device_write_buf for atomic context,
-  http://www.spinics.net/lists/linux-serial/msg26113.html
-
-baruch
-
--- 
-     http://baruch.siach.name/blog/                  ~. .~   Tk Open Systems
-=}------------------------------------------------ooO--U--Ooo------------{=
-   - baruch-NswTu9S1W3P6gbPvEgmw2w@public.gmane.org - tel: +972.2.679.5364, http://www.tkos.co.il -
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+makes sense...but this does sound like a 'light weight tunnel
+netdevice' though.....just cause 'LWT' already expands to 'light
+weight tunnel'
