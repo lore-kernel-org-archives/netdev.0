@@ -1,26 +1,62 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] drivers: net: wimax: i2400m: i2400m-usb: Use
- time_after for time comparison
-Date: Tue, 09 May 2017 09:40:46 -0400 (EDT)
-Message-ID: <20170509.094046.795668836609742751.davem@davemloft.net>
-References: <1494262682-5401-1-git-send-email-karim.eshapa@gmail.com>
-        <1494288410-19028-1-git-send-email-karim.eshapa@gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: inaky.perez-gonzalez@intel.com, linux-wimax@intel.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: karim.eshapa@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1494288410-19028-1-git-send-email-karim.eshapa@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Stefan Wahren <stefan.wahren@i2se.com>
+Subject: [PATCH] net: qca_spi: Fix alignment issues in rx path
+Date: Tue,  9 May 2017 15:40:38 +0200
+Message-ID: <1494337238-1699-1-git-send-email-stefan.wahren@i2se.com>
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Stefan Wahren <stefan.wahren@i2se.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.kundenserver.de ([212.227.126.133]:62578 "EHLO
+        mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753992AbdEINlQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 9 May 2017 09:41:16 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Karim Eshapa <karim.eshapa@gmail.com>
-Date: Tue,  9 May 2017 02:06:50 +0200
+The qca_spi driver causes alignment issues on ARM devices.
+So fix this by using netdev_alloc_skb_ip_align().
 
-> Use time_after() for time comparison with the new fix.
-> 
-> Signed-off-by: Karim Eshapa <karim.eshapa@gmail.com>
+Signed-off-by: Stefan Wahren <stefan.wahren@i2se.com>
+Fixes: 291ab06ecf67 ("net: qualcomm: new Ethernet over SPI driver for QCA7000")
+---
+ drivers/net/ethernet/qualcomm/qca_spi.c | 10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
 
-This looks a lot better, applied, thanks.
+diff --git a/drivers/net/ethernet/qualcomm/qca_spi.c b/drivers/net/ethernet/qualcomm/qca_spi.c
+index 513e6c7..24ca7df 100644
+--- a/drivers/net/ethernet/qualcomm/qca_spi.c
++++ b/drivers/net/ethernet/qualcomm/qca_spi.c
+@@ -296,8 +296,9 @@ qcaspi_receive(struct qcaspi *qca)
+ 
+ 	/* Allocate rx SKB if we don't have one available. */
+ 	if (!qca->rx_skb) {
+-		qca->rx_skb = netdev_alloc_skb(net_dev,
+-					       net_dev->mtu + VLAN_ETH_HLEN);
++		qca->rx_skb = netdev_alloc_skb_ip_align(net_dev,
++							net_dev->mtu +
++							VLAN_ETH_HLEN);
+ 		if (!qca->rx_skb) {
+ 			netdev_dbg(net_dev, "out of RX resources\n");
+ 			qca->stats.out_of_mem++;
+@@ -377,7 +378,7 @@ qcaspi_receive(struct qcaspi *qca)
+ 					qca->rx_skb, qca->rx_skb->dev);
+ 				qca->rx_skb->ip_summed = CHECKSUM_UNNECESSARY;
+ 				netif_rx_ni(qca->rx_skb);
+-				qca->rx_skb = netdev_alloc_skb(net_dev,
++				qca->rx_skb = netdev_alloc_skb_ip_align(net_dev,
+ 					net_dev->mtu + VLAN_ETH_HLEN);
+ 				if (!qca->rx_skb) {
+ 					netdev_dbg(net_dev, "out of RX resources\n");
+@@ -759,7 +760,8 @@ qcaspi_netdev_init(struct net_device *dev)
+ 	if (!qca->rx_buffer)
+ 		return -ENOBUFS;
+ 
+-	qca->rx_skb = netdev_alloc_skb(dev, qca->net_dev->mtu + VLAN_ETH_HLEN);
++	qca->rx_skb = netdev_alloc_skb_ip_align(dev, qca->net_dev->mtu +
++						VLAN_ETH_HLEN);
+ 	if (!qca->rx_skb) {
+ 		kfree(qca->rx_buffer);
+ 		netdev_info(qca->net_dev, "Failed to allocate RX sk_buff.\n");
+-- 
+2.1.4
