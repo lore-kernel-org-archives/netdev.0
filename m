@@ -1,78 +1,40 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: [PATCH 4/4] hamradio: Adjust four function calls together with a
- variable assignment
-Date: Tue, 9 May 2017 16:25:07 +0200
-Message-ID: <20f62ffa-b12a-f14c-df7b-96a750153823@users.sourceforge.net>
-References: <4c5c939a-bd55-7b88-8e41-49f5544b7658@users.sourceforge.net>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: sky2: Use seq_putc() in sky2_debug_show()
+Date: Tue, 9 May 2017 14:26:58 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DCFFE7F45@AcuExch.aculab.com>
+References: <1f36d45e-3ca9-bfb8-0634-901c42390e2c@users.sourceforge.net>
+        <8594c152-68a4-c0c7-b4c6-49c753b0c748@gmx.de>
+        <a85959a8-a357-d8e0-d7e9-617e2052aed6@users.sourceforge.net>
+ <20170508225012.508f24c0@xeon-e3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-        kernel-janitors@vger.kernel.org
-To: linux-hams@vger.kernel.org, netdev@vger.kernel.org,
-        "David S. Miller" <davem@davemloft.net>,
-        Javier Martinez Canillas <javier@osg.samsung.com>,
-        Jean-Paul Roubelat <jpr@f6fbb.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Lino Sanfilippo <LinoSanfilippo@gmx.de>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Mirko Lindner <mlindner@marvell.com>,
+        LKML <linux-kernel@vger.kernel.org>,
+        "kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>
+To: 'Stephen Hemminger' <stephen@networkplumber.org>,
+        SF Markus Elfring <elfring@users.sourceforge.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4c5c939a-bd55-7b88-8e41-49f5544b7658@users.sourceforge.net>
+In-Reply-To: <20170508225012.508f24c0@xeon-e3>
 Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Tue, 9 May 2017 15:57:17 +0200
-
-The script "checkpatch.pl" pointed information out like the following.
-
-ERROR: do not use assignment in if condition
-
-Thus fix affected source code places.
-
-Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
----
- drivers/net/hamradio/bpqether.c | 12 ++++++++----
- 1 file changed, 8 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/hamradio/bpqether.c b/drivers/net/hamradio/bpqether.c
-index eaa0f2e8e561..5e234e0ca256 100644
---- a/drivers/net/hamradio/bpqether.c
-+++ b/drivers/net/hamradio/bpqether.c
-@@ -185,7 +185,8 @@ static int bpq_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_ty
- 	if (!net_eq(dev_net(dev), &init_net))
- 		goto drop;
- 
--	if ((skb = skb_share_check(skb, GFP_ATOMIC)) == NULL)
-+	skb = skb_share_check(skb, GFP_ATOMIC);
-+	if (!skb)
- 		return NET_RX_DROP;
- 
- 	if (!pskb_may_pull(skb, sizeof(struct ethhdr)))
-@@ -286,7 +287,8 @@ static netdev_tx_t bpq_xmit(struct sk_buff *skb, struct net_device *dev)
- 	bpq = netdev_priv(dev);
- 
- 	orig_dev = dev;
--	if ((dev = bpq_get_ether_dev(dev)) == NULL) {
-+	dev = bpq_get_ether_dev(dev);
-+	if (!dev) {
- 		orig_dev->stats.tx_dropped++;
- 		kfree_skb(skb);
- 		return NETDEV_TX_OK;
-@@ -565,12 +567,14 @@ static int bpq_device_event(struct notifier_block *this,
- 		break;
- 
- 	case NETDEV_DOWN:	/* ethernet device closed -> close BPQ interface */
--		if ((dev = bpq_get_ax25_dev(dev)) != NULL)
-+		dev = bpq_get_ax25_dev(dev);
-+		if (dev)
- 			dev_close(dev);
- 		break;
- 
- 	case NETDEV_UNREGISTER:	/* ethernet device removed -> free BPQ interface */
--		if ((dev = bpq_get_ax25_dev(dev)) != NULL)
-+		dev = bpq_get_ax25_dev(dev);
-+		if (dev)
- 			bpq_free_device(dev);
- 		break;
- 	default:
--- 
-2.12.2
+RnJvbTogU3RlcGhlbiBIZW1taW5nZXINCj4gU2VudDogMDkgTWF5IDIwMTcgMDY6NTANCj4gT24g
+TW9uLCA4IE1heSAyMDE3IDE5OjQyOjQ2ICswMjAwDQo+IFNGIE1hcmt1cyBFbGZyaW5nIDxlbGZy
+aW5nQHVzZXJzLnNvdXJjZWZvcmdlLm5ldD4gd3JvdGU6DQo+IA0KPiA+ID4gV2hpY2ggaXNzdWUg
+ZG8geW91IG1lYW4/IEkgZG9udCBzZWUgYW55IGlzc3VlIHlvdSBmaXggaGVyZS4NCj4gPg0KPiA+
+IEFyZSB0aGUgcnVuIHRpbWUgY2hhcmFjdGVyaXN0aWNzIGEgYml0IG5pY2VyIGZvciB0aGUgZnVu
+Y3Rpb24gc2VxX3B1dGMNCj4gPiBpbiBjb21wYXJpc29uIHRvIHRoZSBmdW5jdGlvbiBzZXFfcHV0
+cyBmb3IgcHJpbnRpbmcgYSBzaW5nbGUgbGluZSBicmVhayBoZXJlPw0KPiA+DQo+ID4gUmVnYXJk
+cywNCj4gPiBNYXJrdXMNCj4gDQo+IEkgd291bGQgcHV0IHRoaXMgaW4gd2h5IGJvdGhlciBjYXRl
+Z29yeS4gc2VxX3B1dHMgaXMgY29ycmVjdCBhbmQgdGhpcyBpcyBvbmx5DQo+IGluIGRpYWdub3N0
+aWMgb3V0cHV0IHVzZWZ1bCB0byBkZXZlbG9wZXIgYW5kIGRpc2FibGVkIG9uIG1vc3QgZGlzdHJv
+IGtlcm5lbHMNCg0KU29tZXRpbWVzIGNvbnNpc3RlbmN5IGlzIGJlc3QuDQpPdXRwdXQgZXZlcnl0
+aGluZyB3aXRoIHNlcV9wcmludGYoKSwgdXNpbmcgYSBmb3JtYXQgIiVzIiBpZiBuZWNlc3Nhcnku
+DQpUaGUgcGVyZm9ybWFuY2UgcmVhbGx5IGRvZXNuJ3QgbWF0dGVyIGhlcmUgYXQgYWxsLg0KDQpJ
+dCBpcyBhbHNvIChwcm9iYWJseSkgcG9zc2libGUgdG8gZ2V0IGdjYyB0byBkbyB0aGUgY29udmVy
+c2lvbnMgLSBhcyBpdCBkb2VzIGZvciBwcmludGYoKS4NCihBIHJpZ2h0IFBJVEEgZm9yIGVtYmVk
+ZGVkIHN5c3RlbXMgd2hlcmUgb25seSBwcmludGYoKSBleGlzdHMuKQ0KDQoJRGF2aWQNCg0K
