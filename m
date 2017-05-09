@@ -1,47 +1,46 @@
 From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-Subject: [PATCH] net: wireless: ath: ath9k: remove unnecessary code
-Date: Mon, 8 May 2017 22:48:14 -0500
-Message-ID: <20170509034814.GA18034@embeddedgus>
+Subject: [PATCH] net: wireless: ath: ath10k: remove unnecessary code
+Date: Mon, 8 May 2017 23:21:59 -0500
+Message-ID: <20170509042159.GA19727@embeddedgus>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org,
+Cc: ath10k@lists.infradead.org, linux-wireless@vger.kernel.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
         "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-To: QCA ath9k Development <ath9k-devel@qca.qualcomm.com>,
-        Kalle Valo <kvalo@codeaurora.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gateway23.websitewelcome.com ([192.185.48.84]:20642 "EHLO
-        gateway23.websitewelcome.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751250AbdEIELM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 9 May 2017 00:11:12 -0400
-Received: from cm2.websitewelcome.com (cm2.websitewelcome.com [192.185.178.13])
-        by gateway23.websitewelcome.com (Postfix) with ESMTP id 2D8DF14A6E
-        for <netdev@vger.kernel.org>; Mon,  8 May 2017 22:48:16 -0500 (CDT)
+To: Kalle Valo <kvalo@qca.qualcomm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 The name of an array used by itself will always return the array's address.
-So this test will always evaluate as true.
+So these tests will always evaluate as false and therefore the _return_
+will never be executed.
 
-Addresses-Coverity-ID: 1364903
 Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
 ---
- drivers/net/wireless/ath/ath9k/eeprom.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/wireless/ath/ath10k/wmi.c | 9 ---------
+ 1 file changed, 9 deletions(-)
 
-diff --git a/drivers/net/wireless/ath/ath9k/eeprom.c b/drivers/net/wireless/ath/ath9k/eeprom.c
-index fb80ec8..5c3bc28 100644
---- a/drivers/net/wireless/ath/ath9k/eeprom.c
-+++ b/drivers/net/wireless/ath/ath9k/eeprom.c
-@@ -143,7 +143,7 @@ bool ath9k_hw_nvram_read(struct ath_hw *ah, u32 off, u16 *data)
+diff --git a/drivers/net/wireless/ath/ath10k/wmi.c b/drivers/net/wireless/ath/ath10k/wmi.c
+index 2f1743e..135cf83 100644
+--- a/drivers/net/wireless/ath/ath10k/wmi.c
++++ b/drivers/net/wireless/ath/ath10k/wmi.c
+@@ -5933,15 +5933,6 @@ static struct sk_buff *ath10k_wmi_10_4_op_gen_init(struct ath10k *ar)
  
- 	if (ah->eeprom_blob)
- 		ret = ath9k_hw_nvram_read_firmware(ah->eeprom_blob, off, data);
--	else if (pdata && !pdata->use_eeprom && pdata->eeprom_data)
-+	else if (pdata && !pdata->use_eeprom)
- 		ret = ath9k_hw_nvram_read_pdata(pdata, off, data);
- 	else
- 		ret = common->bus_ops->eeprom_read(common, off, data);
+ int ath10k_wmi_start_scan_verify(const struct wmi_start_scan_arg *arg)
+ {
+-	if (arg->ie_len && !arg->ie)
+-		return -EINVAL;
+-	if (arg->n_channels && !arg->channels)
+-		return -EINVAL;
+-	if (arg->n_ssids && !arg->ssids)
+-		return -EINVAL;
+-	if (arg->n_bssids && !arg->bssids)
+-		return -EINVAL;
+-
+ 	if (arg->ie_len > WLAN_SCAN_PARAMS_MAX_IE_LEN)
+ 		return -EINVAL;
+ 	if (arg->n_channels > ARRAY_SIZE(arg->channels))
 -- 
 2.5.0
