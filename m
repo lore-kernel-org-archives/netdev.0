@@ -1,44 +1,53 @@
-From: Tobias Klauser <tklauser@distanz.ch>
-Subject: Re: [PATCH net] rtnetlink: Fix the IFLA_PHYS_PORT_NAME TLV to
- include terminating NULL
-Date: Tue, 9 May 2017 14:31:07 +0200
-Message-ID: <20170509123107.GG10395@distanz.ch>
-References: <1494331922-16451-1-git-send-email-yotamg@mellanox.com>
+From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+Subject: Re: [PATCH] net: wireless: ath: ath10k: remove unnecessary code
+Date: Tue, 09 May 2017 07:34:42 -0500
+Message-ID: <20170509073442.Horde.Q8CbZi0XhNUcuRQ3NxtQfks@gator4166.hostgator.com>
+References: <20170509042159.GA19727@embeddedgus>
+ <87lgq6387s.fsf@kamboji.qca.qualcomm.com>
+ <76408651-07c6-fe31-863f-e1cb73b49663@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, zhangshengju@cmss.chinamobile.com,
-        roopa@cumulusnetworks.com, sd@queasysnail.net,
-        bblanco@plumgrid.com, minipli@googlemail.com, nogahf@mellanox.com,
-        moshe@mellanox.com, rshearma@brocade.com, daniel@iogearbox.net,
-        netdev@vger.kernel.org, David Ahern <dsa@cumulusnetworks.com>
-To: Yotam Gigi <yotamg@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sym2.noone.org ([178.63.92.236]:38119 "EHLO sym2.noone.org"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752682AbdEIMbL (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 9 May 2017 08:31:11 -0400
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"; DelSp="Yes"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Kalle Valo <kvalo@qca.qualcomm.com>,
+ linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
+ ath10k@lists.infradead.org
+To: Arend Van Spriel <arend.vanspriel@broadcom.com>
+Return-path: <ath10k-bounces+gldad-ath10k=m.gmane.org@lists.infradead.org>
+In-Reply-To: <76408651-07c6-fe31-863f-e1cb73b49663@broadcom.com>
 Content-Disposition: inline
-In-Reply-To: <1494331922-16451-1-git-send-email-yotamg@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/ath10k>,
+ <mailto:ath10k-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/ath10k/>
+List-Post: <mailto:ath10k@lists.infradead.org>
+List-Help: <mailto:ath10k-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/ath10k>,
+ <mailto:ath10k-request@lists.infradead.org?subject=subscribe>
+Sender: "ath10k" <ath10k-bounces@lists.infradead.org>
+Errors-To: ath10k-bounces+gldad-ath10k=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-On 2017-05-09 at 14:12:02 +0200, Yotam Gigi <yotamg@mellanox.com> wrote:
-> The IFLA_PHYS_PORT_NAME rtnetlink TLV length does not include the
-> terminating NULL character, which is different from other string typed
-> TLVs. Due to the fact that libnl checks for the terminating NULL in every
-> string typed attribute, it crashes on every RTM_GETLINK response on
-> drivers that implement ndo_get_phys_port_name.
-> 
-> Make the fill_phys_port_name function include the terminating NULL in the
-> TLV size by using the nla_put_string helper function.
-> 
-> Fixes: db24a9044ee1 ("net: add support for phys_port_name")
-> Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
-> Cc: David Ahern <dsa@cumulusnetworks.com>
-> Reviewed-by: Ido Schimmel <idosch@mellanox.com>
-> Acked-by: Jiri Pirko <jiri@mellanox.com>
-> ---
-> Please consider this for stable too. Thanks!
+Hi Arend,
 
-This is already fixed in commit 77ef033b687c ("rtnetlink: NUL-terminate
-IFLA_PHYS_PORT_NAME string").
+Quoting Arend Van Spriel <arend.vanspriel@broadcom.com>:
+
+> On 9-5-2017 7:33, Kalle Valo wrote:
+>> "Gustavo A. R. Silva" <garsilva@embeddedor.com> writes:
+>>
+>>> The name of an array used by itself will always return the array's address.
+>>> So these tests will always evaluate as false and therefore the _return_
+>>> will never be executed.
+>>>
+>>> Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
+>>
+>> I don't understand the commit log, especially what does "The name of an
+>> array used by itself" mean?
+>
+> The array fields in struct wmi_start_scan_arg that are checked here are
+> fixed size arrays so they can never be NULL.
+>
+> Maybe that helps rephrasing this commit message.
+>
+
+Definitely. Thank you!
+--
+Gustavo A. R. Silva
