@@ -1,29 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 0/3] mlx4 misc fixes
-Date: Tue, 09 May 2017 11:23:51 -0400 (EDT)
-Message-ID: <20170509.112351.219116599179367220.davem@davemloft.net>
-References: <1494330324-11752-1-git-send-email-tariqt@mellanox.com>
+Subject: Re: [PATCH net 0/5] qed*: General fixes
+Date: Tue, 09 May 2017 11:25:34 -0400 (EDT)
+Message-ID: <20170509.112534.209265465332111370.davem@davemloft.net>
+References: <1494331671-16273-1-git-send-email-Yuval.Mintz@cavium.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eranbe@mellanox.com
-To: tariqt@mellanox.com
+Cc: netdev@vger.kernel.org
+To: Yuval.Mintz@cavium.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:52388 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:52438 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751306AbdEIPXy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 9 May 2017 11:23:54 -0400
-In-Reply-To: <1494330324-11752-1-git-send-email-tariqt@mellanox.com>
+        with ESMTP id S1751653AbdEIPZg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 9 May 2017 11:25:36 -0400
+In-Reply-To: <1494331671-16273-1-git-send-email-Yuval.Mintz@cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tariq Toukan <tariqt@mellanox.com>
-Date: Tue,  9 May 2017 14:45:21 +0300
+From: Yuval Mintz <Yuval.Mintz@cavium.com>
+Date: Tue, 9 May 2017 15:07:46 +0300
 
-> This patchset contains misc bug fixes from the team
-> to the mlx4 Core and Eth drivers.
+> This series contain several fixes for qed and qede.
 > 
-> Series generated against net commit:
-> 32f1bc0f3d26 Revert "ipv4: restore rt->fi for reference counting"
+>  - #1 [and ~#5] relate to XDP cleanups
+>  - #2 and #5 correct VF behavior
+>  - #3 and #4 fix and add missing configurations needed for RoCE & storage
+> 
+> Dave,
+> 
+> Please consider applying the series to 'net'.
 
-Series applied, thanks Tariq.
+Series applied, thank you.
