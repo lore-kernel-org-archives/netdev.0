@@ -1,120 +1,58 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH RFC v2] ptr_ring: add ptr_ring_unconsume
-Date: Tue, 9 May 2017 16:26:53 +0300
-Message-ID: <20170509162622-mutt-send-email-mst@kernel.org>
-References: <1493049492-3229-1-git-send-email-mst@redhat.com>
- <ce6e1816-e3e0-4e6b-b017-05cfc54a0170@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH v2 net] dccp/tcp: do not inherit mc_list from parent
+Date: Tue, 09 May 2017 06:29:19 -0700
+Message-ID: <1494336559.7796.78.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1494332235.7796.70.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <ce6e1816-e3e0-4e6b-b017-05cfc54a0170@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, Pray3r <pray3r.z@gmail.com>,
+        Andrey Konovalov <andreyknvl@google.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:33967 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752541AbdEIN3X (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 9 May 2017 09:29:23 -0400
+Received: by mail-pf0-f196.google.com with SMTP id w69so47594pfk.1
+        for <netdev@vger.kernel.org>; Tue, 09 May 2017 06:29:22 -0700 (PDT)
+In-Reply-To: <1494332235.7796.70.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 26, 2017 at 05:09:42PM +0800, Jason Wang wrote:
-> 
-> 
-> On 2017年04月25日 00:01, Michael S. Tsirkin wrote:
-> > Applications that consume a batch of entries in one go
-> > can benefit from ability to return some of them back
-> > into the ring.
-> > 
-> > Add an API for that - assuming there's space. If there's no space
-> > naturally can't do this and have to drop entries, but this implies ring
-> > is full so we'd likely drop some anyway.
-> > 
-> > Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-> > ---
-> > 
-> > Jason, if you add this and unconsume the outstanding packets
-> > on backend disconnect, vhost close and reset, I think
-> > we should apply your patch even if we don't yet know 100%
-> > why it helps.
-> > 
-> > changes from v1:
-> > - fix up coding style issues reported by Sergei Shtylyov
-> > 
-> > 
-> >   include/linux/ptr_ring.h | 56 ++++++++++++++++++++++++++++++++++++++++++++++++
-> >   1 file changed, 56 insertions(+)
-> > 
-> > diff --git a/include/linux/ptr_ring.h b/include/linux/ptr_ring.h
-> > index 783e7f5..902afc2 100644
-> > --- a/include/linux/ptr_ring.h
-> > +++ b/include/linux/ptr_ring.h
-> > @@ -457,6 +457,62 @@ static inline int ptr_ring_init(struct ptr_ring *r, int size, gfp_t gfp)
-> >   	return 0;
-> >   }
-> > +/*
-> > + * Return entries into ring. Destroy entries that don't fit.
-> > + *
-> > + * Note: this is expected to be a rare slow path operation.
-> > + *
-> > + * Note: producer lock is nested within consumer lock, so if you
-> > + * resize you must make sure all uses nest correctly.
-> > + * In particular if you consume ring in interrupt or BH context, you must
-> > + * disable interrupts/BH when doing so.
-> > + */
-> > +static inline void ptr_ring_unconsume(struct ptr_ring *r, void **batch, int n,
-> > +				      void (*destroy)(void *))
-> > +{
-> > +	unsigned long flags;
-> > +	int head;
-> > +
-> > +	spin_lock_irqsave(&r->consumer_lock, flags);
-> > +	spin_lock(&r->producer_lock);
-> > +
-> > +	if (!r->size)
-> > +		goto done;
-> > +
-> > +	/*
-> > +	 * Clean out buffered entries (for simplicity). This way following code
-> > +	 * can test entries for NULL and if not assume they are valid.
-> > +	 */
-> > +	head = r->consumer_head - 1;
-> > +	while (likely(head >= r->consumer_tail))
-> > +		r->queue[head--] = NULL;
-> > +	r->consumer_tail = r->consumer_head;
-> > +
-> > +	/*
-> > +	 * Go over entries in batch, start moving head back and copy entries.
-> > +	 * Stop when we run into previously unconsumed entries.
-> > +	 */
-> > +	while (n--) {
-> > +		head = r->consumer_head - 1;
-> > +		if (head < 0)
-> > +			head = r->size - 1;
-> > +		if (r->queue[head]) {
-> > +			/* This batch entry will have to be destroyed. */
-> > +			++n;
-> > +			goto done;
-> > +		}
-> > +		r->queue[head] = batch[n];
-> > +		r->consumer_tail = r->consumer_head = head;
-> 
-> Looks like something wrong here (bad page state reported), uncomment the
-> above while() solving the issue. But after staring it for a while I didn't
-> find anything interesting, maybe you have some idea on this?
-> 
-> Thanks
-> 
-> 
-> > +	}
-> > +
-> > +done:
-> > +	/* Destroy all entries left in the batch. */
-> > +	while (n--)
-> > +		destroy(batch[n]);
-> > +	spin_unlock(&r->producer_lock);
-> > +	spin_unlock_irqrestore(&r->consumer_lock, flags);
-> > +}
-> > +
-> >   static inline void **__ptr_ring_swap_queue(struct ptr_ring *r, void **queue,
-> >   					   int size, gfp_t gfp,
-> >   					   void (*destroy)(void *))
+From: Eric Dumazet <edumazet@google.com>
 
-What's our plan here? I can't delay pull request much longer.
+syzkaller found a way to trigger double frees from ip_mc_drop_socket()
+
+It turns out that leave a copy of parent mc_list at accept() time,
+which is very bad.
+
+Very similar to commit 8b485ce69876 ("tcp: do not inherit
+fastopen_req from parent")
+
+Initial report from Pray3r, completed by Andrey one.
+Thanks a lot to them !
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Reported-by: Pray3r <pray3r.z@gmail.com>
+Reported-by: Andrey Konovalov <andreyknvl@google.com>
+Tested-by: Andrey Konovalov <andreyknvl@google.com>
+---
+v2: fix moved into inet_csk_clone_lock() to fix both DCCP and TCP
+
+ net/ipv4/inet_connection_sock.c |    2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
+index 5e313c1ac94fc88eca5fe3a0e9e46e551e955ff0..1054d330bf9df3189a21dbb08e27c0e6ad136775 100644
+--- a/net/ipv4/inet_connection_sock.c
++++ b/net/ipv4/inet_connection_sock.c
+@@ -794,6 +794,8 @@ struct sock *inet_csk_clone_lock(const struct sock *sk,
+ 		/* listeners have SOCK_RCU_FREE, not the children */
+ 		sock_reset_flag(newsk, SOCK_RCU_FREE);
+ 
++		inet_sk(newsk)->mc_list = NULL;
++
+ 		newsk->sk_mark = inet_rsk(req)->ir_mark;
+ 		atomic64_set(&newsk->sk_cookie,
+ 			     atomic64_read(&inet_rsk(req)->ir_cookie));
