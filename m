@@ -1,53 +1,96 @@
-From: Michael Chan <michael.chan@broadcom.com>
-Subject: Re: [PATCH net-next] bnxt: add dma mapping attributes
-Date: Tue, 9 May 2017 14:05:14 -0700
-Message-ID: <CACKFLikw_oi4rHRC9P-23xuvuOJSaf9b2kUSeTMgbNW1WA__=w@mail.gmail.com>
-References: <1494362253-270990-1-git-send-email-shannon.nelson@oracle.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [Patch net] ipv4: restore rt->fi for reference counting
+Date: Tue, 9 May 2017 15:07:25 -0700
+Message-ID: <CAM_iQpVhdzeen+ZJ3jyK7Qb=yVuoRSZ7BFB3RoVMShY8KPBTZA@mail.gmail.com>
+References: <1493934857-6693-1-git-send-email-xiyou.wangcong@gmail.com>
+ <20170508.143557.105629611489969352.davem@davemloft.net> <1494288080.7796.59.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20170508.212211.1291611254198273979.davem@davemloft.net> <1494296302.7796.61.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAM_iQpWQoLppsMfDOQWsdifGd56CAY24tCNm0Jm02QCe7ZThOw@mail.gmail.com>
+ <1494348962.7796.88.camel@edumazet-glaptop3.roam.corp.google.com> <CAM_iQpXADa6AyQ3X-EbmRPGCQArgPWygvHMYgWtfUYV082oF3Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: multipart/mixed; boundary=94eb2c1cd208e4750c054f1e95c5
 Cc: David Miller <davem@davemloft.net>,
-        Netdev <netdev@vger.kernel.org>, sparclinux@vger.kernel.org
-To: Shannon Nelson <shannon.nelson@oracle.com>
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Andrey Konovalov <andreyknvl@google.com>,
+        Eric Dumazet <edumazet@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f43.google.com ([209.85.215.43]:33254 "EHLO
-        mail-lf0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750734AbdEIVFQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 9 May 2017 17:05:16 -0400
-Received: by mail-lf0-f43.google.com with SMTP id r17so9366297lfg.0
-        for <netdev@vger.kernel.org>; Tue, 09 May 2017 14:05:15 -0700 (PDT)
-In-Reply-To: <1494362253-270990-1-git-send-email-shannon.nelson@oracle.com>
+Received: from mail-wr0-f180.google.com ([209.85.128.180]:36323 "EHLO
+        mail-wr0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750753AbdEIWHr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 9 May 2017 18:07:47 -0400
+Received: by mail-wr0-f180.google.com with SMTP id l50so18319062wrc.3
+        for <netdev@vger.kernel.org>; Tue, 09 May 2017 15:07:46 -0700 (PDT)
+In-Reply-To: <CAM_iQpXADa6AyQ3X-EbmRPGCQArgPWygvHMYgWtfUYV082oF3Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 9, 2017 at 1:37 PM, Shannon Nelson
-<shannon.nelson@oracle.com> wrote:
-> On the SPARC platform we need to use the DMA_ATTR_WEAK_ORDERING attribute
-> in our Rx path dma mapping in order to get the expected performance out
-> of the receive path.  Adding it to the Tx path has little effect, so
-> that's not a part of this patch.
->
-> Signed-off-by: Shannon Nelson <shannon.nelson@oracle.com>
-> Reviewed-by: Tushar Dave <tushar.n.dave@oracle.com>
-> Reviewed-by: Tom Saeger <tom.saeger@oracle.com>
-> ---
->  drivers/net/ethernet/broadcom/bnxt/bnxt.c |   61 ++++++++++++++++++----------
->  1 files changed, 39 insertions(+), 22 deletions(-)
->
-> diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-> index 1f1e54b..771742c 100644
-> --- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-> +++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-> @@ -66,6 +66,12 @@
->  MODULE_DESCRIPTION("Broadcom BCM573xx network driver");
->  MODULE_VERSION(DRV_MODULE_VERSION);
->
-> +#ifdef CONFIG_SPARC
-> +#define BNXT_DMA_ATTRS  DMA_ATTR_WEAK_ORDERING
-> +#else
-> +#define BNXT_DMA_ATTRS 0
-> +#endif
-> +
+--94eb2c1cd208e4750c054f1e95c5
+Content-Type: text/plain; charset=UTF-8
 
-I think we can use the same attribute for all architectures.
-Architectures that don't implement weak ordering will ignore the
-attribute.
+On Tue, May 9, 2017 at 1:56 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+> Wait... if we transfer dst->dev to loopback_dev because we don't
+> want to block unregister path, then we might have a similar problem
+> for rt->fi too, fib_info is still referenced by dst, so these nh_dev's still
+> hold the dev references...
+>
+
+I finally come up with the attach patch... Do you mind to give it a try?
+
+--94eb2c1cd208e4750c054f1e95c5
+Content-Type: text/plain; charset=US-ASCII; name="ipv4-rt-fi-ref-count.diff"
+Content-Disposition: attachment; filename="ipv4-rt-fi-ref-count.diff"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_j2i3wost0
+
+Y29tbWl0IGE0MzFiNGQ5NjlmNjE3YzVlZjg3MTFiNmJmNDkzMTk5ZWVjZWM3NTkKQXV0aG9yOiBD
+b25nIFdhbmcgPHhpeW91Lndhbmdjb25nQGdtYWlsLmNvbT4KRGF0ZTogICBUdWUgTWF5IDkgMTQ6
+MzU6MTAgMjAxNyAtMDcwMAoKICAgIGlwdjQ6IHJlc3RvcmUgcnQtPmZpIGZvciByZWZlcmVuY2Ug
+Y291bnRpbmcsIHRyeSAjMgogICAgCiAgICBTaWduZWQtb2ZmLWJ5OiBDb25nIFdhbmcgPHhpeW91
+Lndhbmdjb25nQGdtYWlsLmNvbT4KCmRpZmYgLS1naXQgYS9pbmNsdWRlL25ldC9yb3V0ZS5oIGIv
+aW5jbHVkZS9uZXQvcm91dGUuaAppbmRleCAyY2MwZTE0Li40MzM1ZWI3IDEwMDY0NAotLS0gYS9p
+bmNsdWRlL25ldC9yb3V0ZS5oCisrKyBiL2luY2x1ZGUvbmV0L3JvdXRlLmgKQEAgLTY5LDYgKzY5
+LDcgQEAgc3RydWN0IHJ0YWJsZSB7CiAKIAlzdHJ1Y3QgbGlzdF9oZWFkCXJ0X3VuY2FjaGVkOwog
+CXN0cnVjdCB1bmNhY2hlZF9saXN0CSpydF91bmNhY2hlZF9saXN0OworCXN0cnVjdCBmaWJfaW5m
+bwkJKmZpOyAvKiBmb3IgcmVmY250IHRvIHNoYXJlZCBtZXRyaWNzICovCiB9OwogCiBzdGF0aWMg
+aW5saW5lIGJvb2wgcnRfaXNfaW5wdXRfcm91dGUoY29uc3Qgc3RydWN0IHJ0YWJsZSAqcnQpCmRp
+ZmYgLS1naXQgYS9uZXQvaXB2NC9maWJfc2VtYW50aWNzLmMgYi9uZXQvaXB2NC9maWJfc2VtYW50
+aWNzLmMKaW5kZXggZGE0NDlkZC4uZDc3YzQ1MyAxMDA2NDQKLS0tIGEvbmV0L2lwdjQvZmliX3Nl
+bWFudGljcy5jCisrKyBiL25ldC9pcHY0L2ZpYl9zZW1hbnRpY3MuYwpAQCAtMTQyOSw4ICsxNDI5
+LDE1IEBAIGludCBmaWJfc3luY19kb3duX2RldihzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LCB1bnNp
+Z25lZCBsb25nIGV2ZW50LCBib29sIGZvcmNlKQogI2lmZGVmIENPTkZJR19JUF9ST1VURV9NVUxU
+SVBBVEgKIAkJCWlmIChldmVudCA9PSBORVRERVZfVU5SRUdJU1RFUiAmJgogCQkJICAgIG5leHRo
+b3BfbmgtPm5oX2RldiA9PSBkZXYpIHsKKwkJCQkvKiBUaGlzIHNob3VsZCBiZSBmaW5lLCB3ZSBh
+cmUgb24gdW5yZWdpc3RlcgorCQkJCSAqIHBhdGggc28gc3luY2hyb25pemVfbmV0KCkgYWxyZWFk
+eSB3YWl0cyBmb3IKKwkJCQkgKiBleGlzdGluZyByZWFkZXJzLiBXZSBoYXZlIHRvIHJlbGVhc2Ug
+dGhlCisJCQkJICogZGV2IGhlcmUgYmVjYXVzZSBkc3QgY291bGQgc3RpbGwgaG9sZCB0aGlzCisJ
+CQkJICogZmliX2luZm8gdmlhIHJ0LT5maSwgd2UgY2FuJ3Qgd2FpdCBmb3IgR0MuCisJCQkJICov
+CisJCQkJUkNVX0lOSVRfUE9JTlRFUihuZXh0aG9wX25oLT5uaF9kZXYsIE5VTEwpOworCQkJCWRl
+dl9wdXQoZGV2KTsKIAkJCQlkZWFkID0gZmktPmZpYl9uaHM7Ci0JCQkJYnJlYWs7CiAJCQl9CiAj
+ZW5kaWYKIAkJfSBlbmRmb3JfbmV4dGhvcHMoZmkpCmRpZmYgLS1naXQgYS9uZXQvaXB2NC9yb3V0
+ZS5jIGIvbmV0L2lwdjQvcm91dGUuYwppbmRleCA2NTVkOWVlLi5mNjQ3MzEwIDEwMDY0NAotLS0g
+YS9uZXQvaXB2NC9yb3V0ZS5jCisrKyBiL25ldC9pcHY0L3JvdXRlLmMKQEAgLTEzODcsNiArMTM4
+NywxMSBAQCBzdGF0aWMgdm9pZCBpcHY0X2RzdF9kZXN0cm95KHN0cnVjdCBkc3RfZW50cnkgKmRz
+dCkKIHsKIAlzdHJ1Y3QgcnRhYmxlICpydCA9IChzdHJ1Y3QgcnRhYmxlICopIGRzdDsKIAorCWlm
+IChydC0+ZmkpIHsKKwkJZmliX2luZm9fcHV0KHJ0LT5maSk7CisJCXJ0LT5maSA9IE5VTEw7CisJ
+fQorCiAJaWYgKCFsaXN0X2VtcHR5KCZydC0+cnRfdW5jYWNoZWQpKSB7CiAJCXN0cnVjdCB1bmNh
+Y2hlZF9saXN0ICp1bCA9IHJ0LT5ydF91bmNhY2hlZF9saXN0OwogCkBAIC0xNDI0LDYgKzE0Mjks
+MTYgQEAgc3RhdGljIGJvb2wgcnRfY2FjaGVfdmFsaWQoY29uc3Qgc3RydWN0IHJ0YWJsZSAqcnQp
+CiAJCSFydF9pc19leHBpcmVkKHJ0KTsKIH0KIAorc3RhdGljIHZvaWQgcnRfaW5pdF9tZXRyaWNz
+KHN0cnVjdCBydGFibGUgKnJ0LCBzdHJ1Y3QgZmliX2luZm8gKmZpKQoreworCWlmIChmaS0+Zmli
+X21ldHJpY3MgIT0gKHUzMiAqKWRzdF9kZWZhdWx0X21ldHJpY3MpIHsKKwkJZmliX2luZm9faG9s
+ZChmaSk7CisJCXJ0LT5maSA9IGZpOworCX0KKworCWRzdF9pbml0X21ldHJpY3MoJnJ0LT5kc3Qs
+IGZpLT5maWJfbWV0cmljcywgdHJ1ZSk7Cit9CisKIHN0YXRpYyB2b2lkIHJ0X3NldF9uZXh0aG9w
+KHN0cnVjdCBydGFibGUgKnJ0LCBfX2JlMzIgZGFkZHIsCiAJCQkgICBjb25zdCBzdHJ1Y3QgZmli
+X3Jlc3VsdCAqcmVzLAogCQkJICAgc3RydWN0IGZpYl9uaF9leGNlcHRpb24gKmZuaGUsCkBAIC0x
+NDM4LDcgKzE0NTMsNyBAQCBzdGF0aWMgdm9pZCBydF9zZXRfbmV4dGhvcChzdHJ1Y3QgcnRhYmxl
+ICpydCwgX19iZTMyIGRhZGRyLAogCQkJcnQtPnJ0X2dhdGV3YXkgPSBuaC0+bmhfZ3c7CiAJCQly
+dC0+cnRfdXNlc19nYXRld2F5ID0gMTsKIAkJfQotCQlkc3RfaW5pdF9tZXRyaWNzKCZydC0+ZHN0
+LCBmaS0+ZmliX21ldHJpY3MsIHRydWUpOworCQlydF9pbml0X21ldHJpY3MocnQsIGZpKTsKICNp
+ZmRlZiBDT05GSUdfSVBfUk9VVEVfQ0xBU1NJRAogCQlydC0+ZHN0LnRjbGFzc2lkID0gbmgtPm5o
+X3RjbGFzc2lkOwogI2VuZGlmCkBAIC0xNDkwLDYgKzE1MDUsNyBAQCBzdHJ1Y3QgcnRhYmxlICpy
+dF9kc3RfYWxsb2Moc3RydWN0IG5ldF9kZXZpY2UgKmRldiwKIAkJcnQtPnJ0X2dhdGV3YXkgPSAw
+OwogCQlydC0+cnRfdXNlc19nYXRld2F5ID0gMDsKIAkJcnQtPnJ0X3RhYmxlX2lkID0gMDsKKwkJ
+cnQtPmZpID0gTlVMTDsKIAkJSU5JVF9MSVNUX0hFQUQoJnJ0LT5ydF91bmNhY2hlZCk7CiAKIAkJ
+cnQtPmRzdC5vdXRwdXQgPSBpcF9vdXRwdXQ7Cg==
+--94eb2c1cd208e4750c054f1e95c5--
