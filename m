@@ -1,53 +1,74 @@
 From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-Subject: Re: [PATCH] net: wireless: ath: ath10k: remove unnecessary code
-Date: Tue, 09 May 2017 07:34:42 -0500
-Message-ID: <20170509073442.Horde.Q8CbZi0XhNUcuRQ3NxtQfks@gator4166.hostgator.com>
-References: <20170509042159.GA19727@embeddedgus>
- <87lgq6387s.fsf@kamboji.qca.qualcomm.com>
- <76408651-07c6-fe31-863f-e1cb73b49663@broadcom.com>
+Subject: Re: [PATCH] net: wireless: ath: ath9k: remove unnecessary code
+Date: Tue, 09 May 2017 07:36:46 -0500
+Message-ID: <20170509073646.Horde.5fDkrgZNCS1pwNCHAUdEsoQ@gator4166.hostgator.com>
+References: <20170509034814.GA18034@embeddedgus>
+ <87efvy1d07.fsf@kamboji.qca.qualcomm.com>
+ <20170509070158.Horde.dYleVB-aK1cNNyQpdVsVMNp@gator4166.hostgator.com>
+ <87shkez0da.fsf@kamboji.qca.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"; DelSp="Yes"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Kalle Valo <kvalo@qca.qualcomm.com>,
- linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
- ath10k@lists.infradead.org
-To: Arend Van Spriel <arend.vanspriel@broadcom.com>
-Return-path: <ath10k-bounces+gldad-ath10k=m.gmane.org@lists.infradead.org>
-In-Reply-To: <76408651-07c6-fe31-863f-e1cb73b49663@broadcom.com>
+Content-Type: text/plain; charset=utf-8; format=flowed; DelSp=Yes
+Cc: ath9k-devel <ath9k-devel@qca.qualcomm.com>,
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Kalle Valo <kvalo@qca.qualcomm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87shkez0da.fsf@kamboji.qca.qualcomm.com>
 Content-Disposition: inline
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/ath10k>,
- <mailto:ath10k-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/ath10k/>
-List-Post: <mailto:ath10k@lists.infradead.org>
-List-Help: <mailto:ath10k-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/ath10k>,
- <mailto:ath10k-request@lists.infradead.org?subject=subscribe>
-Sender: "ath10k" <ath10k-bounces@lists.infradead.org>
-Errors-To: ath10k-bounces+gldad-ath10k=m.gmane.org@lists.infradead.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Arend,
 
-Quoting Arend Van Spriel <arend.vanspriel@broadcom.com>:
+Quoting Kalle Valo <kvalo@qca.qualcomm.com>:
 
-> On 9-5-2017 7:33, Kalle Valo wrote:
->> "Gustavo A. R. Silva" <garsilva@embeddedor.com> writes:
+> "Gustavo A. R. Silva" <garsilva@embeddedor.com> writes:
+>
+>> Hi Kalle,
 >>
->>> The name of an array used by itself will always return the array's address.
->>> So these tests will always evaluate as false and therefore the _return_
->>> will never be executed.
+>> Quoting Kalle Valo <kvalo@qca.qualcomm.com>:
+>>
+>>> "Gustavo A. R. Silva" <garsilva@embeddedor.com> writes:
 >>>
->>> Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
+>>>> The name of an array used by itself will always return the  
+>>>> array's address.
+>>>> So this test will always evaluate as true.
+>>>>
+>>>> Addresses-Coverity-ID: 1364903
+>>>> Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
+>>>> ---
+>>>>  drivers/net/wireless/ath/ath9k/eeprom.c | 2 +-
+>>>>  1 file changed, 1 insertion(+), 1 deletion(-)
+>>>>
+>>>> diff --git a/drivers/net/wireless/ath/ath9k/eeprom.c
+>>>> b/drivers/net/wireless/ath/ath9k/eeprom.c
+>>>> index fb80ec8..5c3bc28 100644
+>>>> --- a/drivers/net/wireless/ath/ath9k/eeprom.c
+>>>> +++ b/drivers/net/wireless/ath/ath9k/eeprom.c
+>>>> @@ -143,7 +143,7 @@ bool ath9k_hw_nvram_read(struct ath_hw *ah, u32
+>>>> off, u16 *data)
+>>>>
+>>>>  	if (ah->eeprom_blob)
+>>>>  		ret = ath9k_hw_nvram_read_firmware(ah->eeprom_blob, off, data);
+>>>> -	else if (pdata && !pdata->use_eeprom && pdata->eeprom_data)
+>>>> +	else if (pdata && !pdata->use_eeprom)
+>>>>  		ret = ath9k_hw_nvram_read_pdata(pdata, off, data);
+>>>>  	else
+>>>>  		ret = common->bus_ops->eeprom_read(common, off, data);
+>>>
+>>> The patch may very well be valid (didn't check yet) but the commit log
+>>> is gibberish for me.
+>>>
 >>
->> I don't understand the commit log, especially what does "The name of an
->> array used by itself" mean?
+>> Let me correct that and I'll send the patch again.
 >
-> The array fields in struct wmi_start_scan_arg that are checked here are
-> fixed size arrays so they can never be NULL.
+> Thanks.
 >
-> Maybe that helps rephrasing this commit message.
+> Also no need to have that long "net: wireless: ath:" prefix, "ath9k: "
+> or "ath10k: " is enough.
 >
 
-Definitely. Thank you!
+I get it.
+
+Thanks!
 --
 Gustavo A. R. Silva
