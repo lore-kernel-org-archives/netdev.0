@@ -1,35 +1,50 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH 0/2] net: Set maximum receive packet size on veth
- interfaces
-Date: Tue, 9 May 2017 08:49:28 -0700
-Message-ID: <20170509084928.4cfcbda5@xeon-e3>
-References: <20170509124439.45674-1-fredrik.markstrom@gmail.com>
+From: Colin King <colin.king@canonical.com>
+Subject: [PATCH] netxen_nic: set rcode to the return status from the call to netxen_issue_cmd
+Date: Tue,  9 May 2017 17:19:42 +0100
+Message-ID: <20170509161942.32383-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Alexei Starovoitov <ast@kernel.org>,
-        Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, bridge@lists.linux-foundation.org
-To: Fredrik Markstrom <fredrik.markstrom@gmail.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Manish Chopra <manish.chopra@cavium.com>,
+        Rahul Verma <rahul.verma@cavium.com>,
+        Dept-GELinuxNICDev@cavium.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f173.google.com ([209.85.192.173]:33217 "EHLO
-        mail-pf0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754502AbdEIPtb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 9 May 2017 11:49:31 -0400
-Received: by mail-pf0-f173.google.com with SMTP id e193so2088320pfh.0
-        for <netdev@vger.kernel.org>; Tue, 09 May 2017 08:49:30 -0700 (PDT)
-In-Reply-To: <20170509124439.45674-1-fredrik.markstrom@gmail.com>
+Received: from youngberry.canonical.com ([91.189.89.112]:53578 "EHLO
+        youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755898AbdEIQTo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 9 May 2017 12:19:44 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue,  9 May 2017 14:44:36 +0200
-Fredrik Markstrom <fredrik.markstrom@gmail.com> wrote:
+From: Colin Ian King <colin.king@canonical.com>
 
-> Currently veth drops all packets larger then the mtu set on the receiving
-> end of the pair. This is inconsistent with most hardware ethernet drivers.
+Currently rcode is being initialized to NX_RCODE_SUCCESS and later it
+is checked to see if it is not NX_RCODE_SUCCESS which is never true. It
+appears that there is an unintentional missing assignment of rcode from
+the return of the call to netxen_issue_cmd() that was dropped in
+an earlier fix, so add it in.
 
-There is no guarantee that packets larger than MTU + VLAN tag will be received
-by hardware drivers. So why is this necessary for veth? What is your special
-use case which makes this necessary?
+Detected by CoverityScan, CID#401900 ("Logically dead code")
+
+Fixes: 2dcd5d95ad6b2 ("netxen_nic: fix cdrp race condition")
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+---
+ drivers/net/ethernet/qlogic/netxen/netxen_nic_ctx.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_ctx.c b/drivers/net/ethernet/qlogic/netxen/netxen_nic_ctx.c
+index b8d5270359cd..e30676515529 100644
+--- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_ctx.c
++++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_ctx.c
+@@ -247,7 +247,7 @@ nx_fw_cmd_set_mtu(struct netxen_adapter *adapter, int mtu)
+ 	cmd.req.arg3 = 0;
+ 
+ 	if (recv_ctx->state == NX_HOST_CTX_STATE_ACTIVE)
+-		netxen_issue_cmd(adapter, &cmd);
++		rcode = netxen_issue_cmd(adapter, &cmd);
+ 
+ 	if (rcode != NX_RCODE_SUCCESS)
+ 		return -EIO;
+-- 
+2.11.0
