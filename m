@@ -1,110 +1,53 @@
-From: Andy Duan <fugang.duan@nxp.com>
-Subject: RE: FEC on i.MX 7 transmit queue timeout
-Date: Tue, 9 May 2017 10:35:18 +0000
-Message-ID: <AM4PR0401MB2260F316B39A05C659EE1ECDFFEF0@AM4PR0401MB2260.eurprd04.prod.outlook.com>
-References: <86b63ee28acfff3426c4a0bf72d848c1@agner.ch>
- <2bdd64ab-5644-e0a0-9bfe-b8dd2fca7abb@nxp.com>
- <80191e7c9df5871cd450f13b9ea47a10@agner.ch>
- <ab1fc814-4a81-9eb0-b20b-2cd325158ba8@nxp.com>
- <e366479239b66ba80415b5594def2369@agner.ch>
- <AM4PR0401MB2260F011313883C522EA7684FFEA0@AM4PR0401MB2260.eurprd04.prod.outlook.com>
- <e044b850a90e7112028cc12977d15cf2@agner.ch>
- <e739d361-c20f-0de1-cdd1-c9aa13a0d11a@nxp.com>
- <110a7a48649cfcbbee46340c230e9008@agner.ch>
- <46a27329-36df-1eaf-1321-24db037842fe@nxp.com>
- <20170505122330.GA23432@lunn.ch>
- <AM4PR0401MB2260D9D293EE8A37B93554F6FFEE0@AM4PR0401MB2260.eurprd04.prod.outlook.com>
- <d48a6d17b05280331642ea683caabc81@agner.ch>
+From: Kalle Valo <kvalo@qca.qualcomm.com>
+Subject: Re: [PATCH] net: wireless: ath: ath9k: remove unnecessary code
+Date: Tue, 9 May 2017 11:32:58 +0000
+Message-ID: <87efvy1d07.fsf@kamboji.qca.qualcomm.com>
+References: <20170509034814.GA18034@embeddedgus>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="iso-8859-1"
 Content-Transfer-Encoding: quoted-printable
-Cc: "festevam@gmail.com" <festevam@gmail.com>,
+Cc: ath9k-devel <ath9k-devel@qca.qualcomm.com>,
+        "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
         "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "netdev-owner@vger.kernel.org" <netdev-owner@vger.kernel.org>
-To: Stefan Agner <stefan@agner.ch>, Andrew Lunn <andrew@lunn.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-eopbgr30040.outbound.protection.outlook.com ([40.107.3.40]:44348
-        "EHLO EUR03-AM5-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751368AbdEIKfV (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 9 May 2017 06:35:21 -0400
-In-Reply-To: <d48a6d17b05280331642ea683caabc81@agner.ch>
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170509034814.GA18034@embeddedgus> (Gustavo A. R. Silva's
+        message of "Mon, 8 May 2017 22:48:14 -0500")
 Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Stefan Agner <stefan@agner.ch> Sent: Tuesday, May 09, 2017 2:23 AM
->To: Andy Duan <fugang.duan@nxp.com>; Andrew Lunn <andrew@lunn.ch>
->Cc: festevam@gmail.com; netdev@vger.kernel.org; netdev-
->owner@vger.kernel.org
->Subject: Re: FEC on i.MX 7 transmit queue timeout
->
->On 2017-05-07 19:13, Andy Duan wrote:
->> From: Andrew Lunn <andrew@lunn.ch> Sent: Friday, May 05, 2017 8:24 PM
->>>To: Andy Duan <fugang.duan@nxp.com>
->>>Cc: Stefan Agner <stefan@agner.ch>; festevam@gmail.com;
->>>netdev@vger.kernel.org; netdev-owner@vger.kernel.org
->>>Subject: Re: FEC on i.MX 7 transmit queue timeout
->>>
->>>> No, it is not workaround. As i said, quque1 and queue2 are for AVB
->>>> paths have higher priority in transmition.
->>>
->>>Does this higher priority result in the low priority queue being
->>>starved? Is that why the timer goes off? What happens when somebody
->>>does use AVB. Are we back to the same problem? This is what seems to
->>>make is sounds like a work around, not a fix.
->>>
->>>     Andrew
->> Yes, queue0 may be blocked by queue1 and queue2, then the queue0
->> watchdog time maybe triggered.
->> If somebody use AVB quque1 and queue2, the remaining bandwidth is for
->> queue0, for example, in 100Mbps system, quque1 cost 50Mbps bandwidth
->> and queue2 cost 50Mbps bandwidth for audio and video streaming, then
->> queue0 (best effort) has 0 bandwidth that limit user case cannot have
->> asynchronous frames (IP(tcp/udp)) on networking. Of course these is
->> extreme case.
->> In essentially,  asynchronous frames (IP) go queue0 for the original
->> design. To do these just implement .ndo_select_queue() callback in
->> driver like fsl tree.
->
->I guess you refer to this commit?
->
->http://git.freescale.com/git/cgit.cgi/imx/linux-
->imx.git/commit/?h=3Dimx_4.1.15_2.0.0_ga&id=3Db0d8fa989651baf847287f6888f4d
->7b723e2a207
->
->It seems that by default there is a Credit-based scheme enabled
->(ENETx_QOS[TX_SCHEME] =3D 000). The driver enables the queue1/2 and
->assigns it each 50% of the bandwidth (IDLE_SLOPE_1/2 is set to 0x200, whic=
-h
->according to the register description of IDLE_SLOPE means BW fraction of 0=
-.5!).
->This actually violates even the note in register
->ENETx_DMAnCFG:
->
->"NOTE: For AVB applications, the BW fraction of class 1 and class 2 combin=
-ed
->must not exceed .75."
->
-Yes, the suggested BW fraction for class1 and class2 must not exceed .75, o=
-therwise best effort
-Queue will be blocked then watchdog timeout on queue0.
+"Gustavo A. R. Silva" <garsilva@embeddedor.com> writes:
 
-How to set the BW fraction that is up to user case.
-
->Instead of using the credit based scheme we could switch to round robin, b=
-ut
->not sure if that is what we want.
->=20
-Using round robin has no meaning for AVB feature.
-
->What is the default criteria to select queues when .ndo_select_queue is no=
-t
->provided? I guess it tries to balance individual streams/processes for bet=
-ter
->SMP performance?
+> The name of an array used by itself will always return the array's addres=
+s.
+> So this test will always evaluate as true.
 >
-Since AVB audio/video streaming is based on IEEE1722 format,  .ndo_select_q=
-ueue just parse
-the avb streaming and insect the skb into class1 and class2 queues, which a=
-re individual streaming and processes.
+> Addresses-Coverity-ID: 1364903
+> Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
+> ---
+>  drivers/net/wireless/ath/ath9k/eeprom.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/wireless/ath/ath9k/eeprom.c b/drivers/net/wirele=
+ss/ath/ath9k/eeprom.c
+> index fb80ec8..5c3bc28 100644
+> --- a/drivers/net/wireless/ath/ath9k/eeprom.c
+> +++ b/drivers/net/wireless/ath/ath9k/eeprom.c
+> @@ -143,7 +143,7 @@ bool ath9k_hw_nvram_read(struct ath_hw *ah, u32 off, =
+u16 *data)
+> =20
+>  	if (ah->eeprom_blob)
+>  		ret =3D ath9k_hw_nvram_read_firmware(ah->eeprom_blob, off, data);
+> -	else if (pdata && !pdata->use_eeprom && pdata->eeprom_data)
+> +	else if (pdata && !pdata->use_eeprom)
+>  		ret =3D ath9k_hw_nvram_read_pdata(pdata, off, data);
+>  	else
+>  		ret =3D common->bus_ops->eeprom_read(common, off, data);
+
+The patch may very well be valid (didn't check yet) but the commit log
+is gibberish for me.
+
+--=20
+Kalle Valo=
