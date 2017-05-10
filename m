@@ -1,88 +1,109 @@
-From: Jon Mason <jon.mason@broadcom.com>
-Subject: [PATCH] mdio: mux: Correct mdio_mux_init error path issues
-Date: Wed, 10 May 2017 11:20:27 -0400
-Message-ID: <1494429627-5527-1-git-send-email-jon.mason@broadcom.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        bcm-kernel-feedback-list@broadcom.com
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: bpf pointer alignment validation
+Date: Wed, 10 May 2017 11:33:57 -0400 (EDT)
+Message-ID: <20170510.113357.362211347006868605.davem@davemloft.net>
+References: <59104D35.8080108@iogearbox.net>
+        <20170509.143234.1785658771452710730.davem@davemloft.net>
+        <20170510055735.hfkoh4w3xaka5yl5@ast-mbp>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: daniel@iogearbox.net, ast@fb.com, netdev@vger.kernel.org
+To: alexei.starovoitov@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:41260 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752955AbdEJPd7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 10 May 2017 11:33:59 -0400
+In-Reply-To: <20170510055735.hfkoh4w3xaka5yl5@ast-mbp>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-There is a potential unnecessary refcount decriment on error path of
-put_device(&pb->mii_bus->dev), as it is possible to avoid the
-of_mdio_find_bus() call if mux_bus is specified by the calling function.
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Date: Tue, 9 May 2017 22:57:37 -0700
 
-The same put_device() is not called in the error path if the
-devm_kzalloc of pb fails.  This caused the variable used in the
-put_device() to be changed, as the pb pointer was obviously not set up.
+> On Tue, May 09, 2017 at 02:32:34PM -0400, David Miller wrote:
+>>  
+>> +static u32 calc_align(u32 imm)
+>> +{
+>> +	u32 align = 1;
+>> +
+>> +	if (!imm)
+>> +		return 1U << 31;
+>> +
+>> +	while (!(imm & 1)) {
+>> +		imm >>= 1;
+>> +		align <<= 1;
+>> +	}
+>> +	return align;
+>> +}
+> 
+> same question as in previous reply.
+> Why not to use something like:
+> static u32 calc_align(u32 n)
+> {
+>         if (!n)
+>                 return 1U << 31;
+>         return n - ((n - 1) & n);
+> }
 
-There is an unnecessary of_node_get() on child_bus_node if the
-of_mdiobus_register() is successful, as the
-for_each_available_child_of_node() automatically increments this.
-Thus the refcount on this node will always be +1 more than it should be.
+Ok.
 
-There is no of_node_put() on child_bus_node if the of_mdiobus_register()
-call fails.
+I did a cursory search and we don't have a generic kernel helper for
+this kind of calculation.  I was actually quite surprised, as we
+have one for everything else :-)
 
-Finally, it is lacking devm_kfree() of pb in the error path.  While this
-might not be technically necessary, it was present in other parts of the
-function.  So, I am adding it where necessary to make it uniform.
+> this needs to be tweaked like
+> if (log_level > 1)
+>         verbose("%d:", insn_idx);
+> else
+> 	verbose("\nfrom %d to %d:", prev_insn_idx, insn_idx);
+> 
+> otherwise it prints prev_insn_idx which is meaningful
+> only with processing exit and search pruning.
 
-Signed-off-by: Jon Mason <jon.mason@broadcom.com>
-Fixes: f20e6657a875 ("mdio: mux: Enhanced MDIO mux framework for integrated multiplexers")
-Fixes: 0ca2997d1452 ("netdev/of/phy: Add MDIO bus multiplexer support.")
----
- drivers/net/phy/mdio-mux.c | 12 +++++++-----
- 1 file changed, 7 insertions(+), 5 deletions(-)
+Agreed.
 
-diff --git a/drivers/net/phy/mdio-mux.c b/drivers/net/phy/mdio-mux.c
-index 963838d4fac1..6943c5ece44a 100644
---- a/drivers/net/phy/mdio-mux.c
-+++ b/drivers/net/phy/mdio-mux.c
-@@ -122,10 +122,9 @@ int mdio_mux_init(struct device *dev,
- 	pb = devm_kzalloc(dev, sizeof(*pb), GFP_KERNEL);
- 	if (pb == NULL) {
- 		ret_val = -ENOMEM;
--		goto err_parent_bus;
-+		goto err_pb_kz;
- 	}
- 
--
- 	pb->switch_data = data;
- 	pb->switch_fn = switch_fn;
- 	pb->current_child = -1;
-@@ -154,6 +153,7 @@ int mdio_mux_init(struct device *dev,
- 		cb->mii_bus = mdiobus_alloc();
- 		if (!cb->mii_bus) {
- 			ret_val = -ENOMEM;
-+			devm_kfree(dev, cb);
- 			of_node_put(child_bus_node);
- 			break;
- 		}
-@@ -169,8 +169,8 @@ int mdio_mux_init(struct device *dev,
- 		if (r) {
- 			mdiobus_free(cb->mii_bus);
- 			devm_kfree(dev, cb);
-+			of_node_put(child_bus_node);
- 		} else {
--			of_node_get(child_bus_node);
- 			cb->next = pb->children;
- 			pb->children = cb;
- 		}
-@@ -181,9 +181,11 @@ int mdio_mux_init(struct device *dev,
- 		return 0;
- 	}
- 
-+	devm_kfree(dev, pb);
-+err_pb_kz:
- 	/* balance the reference of_mdio_find_bus() took */
--	put_device(&pb->mii_bus->dev);
--
-+	if (!mux_bus)
-+		put_device(&parent_bus->dev);
- err_parent_bus:
- 	of_node_put(parent_bus_node);
- 	return ret_val;
--- 
-2.7.4
+> Nice to see all these comments.
+> I wonder how we can make them automatic in the verifier.
+> Like if verifier can somehow hint the user in such human friendly way
+> about what is happening with the program.
+> Today that's the #1 problem. Most folks complaining
+> that verifier error messages are too hard to understand.
+
+We can put whatever text strings we want into that verifier buffer.
+It is as flexible as netlink extended acks.
+
+> would it make sense to bpf_prog_test_run() it here as well?
+
+We could.
+
+> On x86 not much value, but on sparc we can somehow look for traps?
+> Is there some counter of unaligned traps that we can read and report
+> as error to user space after prog_test_run ?
+
+Unfortunately, no.
+
+> These tests we cannot really run, since they don't do any load/store.
+> I mean more for some future tests. Or some sort of debug warn
+> that there were traps while bpf prog was executed, so the user
+> is alarmed and reports to us, since that would be a bug in verifier
+> align logic?
+
+One thing I could definitely do is add logic to the unaligned trap
+handler to print something special in the logs if we find that we
+are executing BPF code.
+
+The basic structure of the log message can be codified in a generic
+bpf_xxx() helper, which architectures call with the PC and unaligned
+address as arguments.
+
+I was thinking more last night about strict alignment mode for the
+verifier, so that bugs can be spotted on all architectures.  But
+it stupidly will not work.
+
+The problem is that x86 and powerpc define NET_IP_ALIGN as 0, so all
+bets are off.
+
+One thing we could do in "strict alignment" verifier mode is pretend
+that NET_IP_ALIGN is 2 in the alignment checks.
