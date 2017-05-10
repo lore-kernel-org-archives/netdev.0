@@ -1,7 +1,8 @@
 From: Julian Wiedmann <jwi@linux.vnet.ibm.com>
-Subject: [PATCH net 0/4] s390/net fixes
-Date: Wed, 10 May 2017 19:07:50 +0200
-Message-ID: <20170510170754.53922-1-jwi@linux.vnet.ibm.com>
+Subject: [PATCH net 2/4] s390/qeth: unbreak OSM and OSN support
+Date: Wed, 10 May 2017 19:07:52 +0200
+Message-ID: <20170510170754.53922-3-jwi@linux.vnet.ibm.com>
+References: <20170510170754.53922-1-jwi@linux.vnet.ibm.com>
 Cc: <netdev@vger.kernel.org>, <linux-s390@vger.kernel.org>,
         Martin Schwidefsky <schwidefsky@de.ibm.com>,
         Heiko Carstens <heiko.carstens@de.ibm.com>,
@@ -10,48 +11,289 @@ Cc: <netdev@vger.kernel.org>, <linux-s390@vger.kernel.org>,
         Julian Wiedmann <jwi@linux.vnet.ibm.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:33225 "EHLO
-        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1753585AbdEJRIK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 10 May 2017 13:08:10 -0400
-Received: from pps.filterd (m0098410.ppops.net [127.0.0.1])
-        by mx0a-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v4AH3fZK094311
-        for <netdev@vger.kernel.org>; Wed, 10 May 2017 13:08:09 -0400
+Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:39969 "EHLO
+        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1753736AbdEJRIN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 10 May 2017 13:08:13 -0400
+Received: from pps.filterd (m0098419.ppops.net [127.0.0.1])
+        by mx0b-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v4AH3ewK094323
+        for <netdev@vger.kernel.org>; Wed, 10 May 2017 13:08:12 -0400
 Received: from e06smtp10.uk.ibm.com (e06smtp10.uk.ibm.com [195.75.94.106])
-        by mx0a-001b2d01.pphosted.com with ESMTP id 2abhbb664k-1
+        by mx0b-001b2d01.pphosted.com with ESMTP id 2ac5r5bwu1-1
         (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Wed, 10 May 2017 13:08:09 -0400
+        for <netdev@vger.kernel.org>; Wed, 10 May 2017 13:08:11 -0400
 Received: from localhost
         by e06smtp10.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
         for <netdev@vger.kernel.org> from <jwi@linux.vnet.ibm.com>;
-        Wed, 10 May 2017 18:08:06 +0100
+        Wed, 10 May 2017 18:08:09 +0100
+In-Reply-To: <20170510170754.53922-1-jwi@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Dave,
+commit b4d72c08b358 ("qeth: bridgeport support - basic control")
+broke the support for OSM and OSN devices as follows:
 
-some qeth fixes for -net, the OSM/OSN one being the most crucial.
-Please also queue these up for stable.
+As OSM and OSN are L2 only, qeth_core_probe_device() does an early
+setup by loading the l2 discipline and calling qeth_l2_probe_device().
+In this context, adding the l2-specific bridgeport sysfs attributes
+via qeth_l2_create_device_attributes() hits a BUG_ON in fs/sysfs/group.c,
+since the basic sysfs infrastructure for the device hasn't been
+established yet.
 
-Thanks,
-Julian
+Note that OSN actually has its own unique sysfs attributes
+(qeth_osn_devtype), so the additional attributes shouldn't be created
+at all.
+For OSM, add a new qeth_l2_devtype that contains all the common
+and l2-specific sysfs attributes.
+When qeth_core_probe_device() does early setup for OSM or OSN, assign
+the corresponding devtype so that the ccwgroup probe code creates the
+full set of sysfs attributes.
+This allows us to skip qeth_l2_create_device_attributes() in case
+of an early setup.
 
-Julian Wiedmann (2):
-  s390/qeth: unbreak OSM and OSN support
-  s390/qeth: avoid null pointer dereference on OSN
+Any device that can't do early setup will initially have only the
+generic sysfs attributes, and when it's probed later
+qeth_l2_probe_device() adds the l2-specific attributes.
 
-Ursula Braun (2):
-  s390/qeth: handle sysfs error during initialization
-  s390/qeth: add missing hash table initializations
+If an early-setup device is removed (by calling ccwgroup_ungroup()),
+device_unregister() will - using the devtype - delete the
+l2-specific attributes before qeth_l2_remove_device() is called.
+So make sure to not remove them twice.
 
+What complicates the issue is that qeth_l2_probe_device() and
+qeth_l2_remove_device() is also called on a device when its
+layer2 attribute changes (ie. its layer mode is switched).
+For early-setup devices this wouldn't work properly - we wouldn't
+remove the l2-specific attributes when switching to L3.
+But switching the layer mode doesn't actually make any sense;
+we already decided that the device can only operate in L2!
+So just refuse to switch the layer mode on such devices. Note that
+OSN doesn't have a layer2 attribute, so we only need to special-case
+OSM.
+
+Based on an initial patch by Ursula Braun.
+
+Fixes: b4d72c08b358 ("qeth: bridgeport support - basic control")
+Signed-off-by: Julian Wiedmann <jwi@linux.vnet.ibm.com>
+---
  drivers/s390/net/qeth_core.h      |  4 ++++
- drivers/s390/net/qeth_core_main.c | 21 ++++++++++++---------
- drivers/s390/net/qeth_core_sys.c  | 24 ++++++++++++++++--------
+ drivers/s390/net/qeth_core_main.c | 17 +++++++++--------
+ drivers/s390/net/qeth_core_sys.c  | 22 ++++++++++++++--------
  drivers/s390/net/qeth_l2.h        |  2 ++
- drivers/s390/net/qeth_l2_main.c   | 26 ++++++++++++++++++++------
+ drivers/s390/net/qeth_l2_main.c   | 17 +++++++++++++----
  drivers/s390/net/qeth_l2_sys.c    |  8 ++++++++
- drivers/s390/net/qeth_l3_main.c   |  8 +++++++-
- 7 files changed, 69 insertions(+), 24 deletions(-)
+ drivers/s390/net/qeth_l3_main.c   |  1 +
+ 7 files changed, 51 insertions(+), 20 deletions(-)
 
+diff --git a/drivers/s390/net/qeth_core.h b/drivers/s390/net/qeth_core.h
+index f6aa21176d89..30bc6105aac3 100644
+--- a/drivers/s390/net/qeth_core.h
++++ b/drivers/s390/net/qeth_core.h
+@@ -701,6 +701,7 @@ enum qeth_discipline_id {
+ };
+ 
+ struct qeth_discipline {
++	const struct device_type *devtype;
+ 	void (*start_poll)(struct ccw_device *, int, unsigned long);
+ 	qdio_handler_t *input_handler;
+ 	qdio_handler_t *output_handler;
+@@ -875,6 +876,9 @@ extern struct qeth_discipline qeth_l2_discipline;
+ extern struct qeth_discipline qeth_l3_discipline;
+ extern const struct attribute_group *qeth_generic_attr_groups[];
+ extern const struct attribute_group *qeth_osn_attr_groups[];
++extern const struct attribute_group qeth_device_attr_group;
++extern const struct attribute_group qeth_device_blkt_group;
++extern const struct device_type qeth_generic_devtype;
+ extern struct workqueue_struct *qeth_wq;
+ 
+ int qeth_card_hw_is_reachable(struct qeth_card *);
+diff --git a/drivers/s390/net/qeth_core_main.c b/drivers/s390/net/qeth_core_main.c
+index 5bfd7c15d6a9..fc6d85f2b38d 100644
+--- a/drivers/s390/net/qeth_core_main.c
++++ b/drivers/s390/net/qeth_core_main.c
+@@ -5530,10 +5530,12 @@ void qeth_core_free_discipline(struct qeth_card *card)
+ 	card->discipline = NULL;
+ }
+ 
+-static const struct device_type qeth_generic_devtype = {
++const struct device_type qeth_generic_devtype = {
+ 	.name = "qeth_generic",
+ 	.groups = qeth_generic_attr_groups,
+ };
++EXPORT_SYMBOL_GPL(qeth_generic_devtype);
++
+ static const struct device_type qeth_osn_devtype = {
+ 	.name = "qeth_osn",
+ 	.groups = qeth_osn_attr_groups,
+@@ -5659,23 +5661,22 @@ static int qeth_core_probe_device(struct ccwgroup_device *gdev)
+ 		goto err_card;
+ 	}
+ 
+-	if (card->info.type == QETH_CARD_TYPE_OSN)
+-		gdev->dev.type = &qeth_osn_devtype;
+-	else
+-		gdev->dev.type = &qeth_generic_devtype;
+-
+ 	switch (card->info.type) {
+ 	case QETH_CARD_TYPE_OSN:
+ 	case QETH_CARD_TYPE_OSM:
+ 		rc = qeth_core_load_discipline(card, QETH_DISCIPLINE_LAYER2);
+ 		if (rc)
+ 			goto err_card;
++
++		gdev->dev.type = (card->info.type != QETH_CARD_TYPE_OSN)
++					? card->discipline->devtype
++					: &qeth_osn_devtype;
+ 		rc = card->discipline->setup(card->gdev);
+ 		if (rc)
+ 			goto err_disc;
+-	case QETH_CARD_TYPE_OSD:
+-	case QETH_CARD_TYPE_OSX:
++		break;
+ 	default:
++		gdev->dev.type = &qeth_generic_devtype;
+ 		break;
+ 	}
+ 
+diff --git a/drivers/s390/net/qeth_core_sys.c b/drivers/s390/net/qeth_core_sys.c
+index 412ff61891ac..db6a285d41e0 100644
+--- a/drivers/s390/net/qeth_core_sys.c
++++ b/drivers/s390/net/qeth_core_sys.c
+@@ -413,12 +413,16 @@ static ssize_t qeth_dev_layer2_store(struct device *dev,
+ 
+ 	if (card->options.layer2 == newdis)
+ 		goto out;
+-	else {
+-		card->info.mac_bits  = 0;
+-		if (card->discipline) {
+-			card->discipline->remove(card->gdev);
+-			qeth_core_free_discipline(card);
+-		}
++	if (card->info.type == QETH_CARD_TYPE_OSM) {
++		/* fixed layer, can't switch */
++		rc = -EOPNOTSUPP;
++		goto out;
++	}
++
++	card->info.mac_bits = 0;
++	if (card->discipline) {
++		card->discipline->remove(card->gdev);
++		qeth_core_free_discipline(card);
+ 	}
+ 
+ 	rc = qeth_core_load_discipline(card, newdis);
+@@ -705,10 +709,11 @@ static struct attribute *qeth_blkt_device_attrs[] = {
+ 	&dev_attr_inter_jumbo.attr,
+ 	NULL,
+ };
+-static struct attribute_group qeth_device_blkt_group = {
++const struct attribute_group qeth_device_blkt_group = {
+ 	.name = "blkt",
+ 	.attrs = qeth_blkt_device_attrs,
+ };
++EXPORT_SYMBOL_GPL(qeth_device_blkt_group);
+ 
+ static struct attribute *qeth_device_attrs[] = {
+ 	&dev_attr_state.attr,
+@@ -728,9 +733,10 @@ static struct attribute *qeth_device_attrs[] = {
+ 	&dev_attr_switch_attrs.attr,
+ 	NULL,
+ };
+-static struct attribute_group qeth_device_attr_group = {
++const struct attribute_group qeth_device_attr_group = {
+ 	.attrs = qeth_device_attrs,
+ };
++EXPORT_SYMBOL_GPL(qeth_device_attr_group);
+ 
+ const struct attribute_group *qeth_generic_attr_groups[] = {
+ 	&qeth_device_attr_group,
+diff --git a/drivers/s390/net/qeth_l2.h b/drivers/s390/net/qeth_l2.h
+index 29d9fb3890ad..0d59f9a45ea9 100644
+--- a/drivers/s390/net/qeth_l2.h
++++ b/drivers/s390/net/qeth_l2.h
+@@ -8,6 +8,8 @@
+ 
+ #include "qeth_core.h"
+ 
++extern const struct attribute_group *qeth_l2_attr_groups[];
++
+ int qeth_l2_create_device_attributes(struct device *);
+ void qeth_l2_remove_device_attributes(struct device *);
+ void qeth_l2_setup_bridgeport_attrs(struct qeth_card *card);
+diff --git a/drivers/s390/net/qeth_l2_main.c b/drivers/s390/net/qeth_l2_main.c
+index 2d2623182abf..04666fe231aa 100644
+--- a/drivers/s390/net/qeth_l2_main.c
++++ b/drivers/s390/net/qeth_l2_main.c
+@@ -880,14 +880,21 @@ static int qeth_l2_stop(struct net_device *dev)
+ 	return 0;
+ }
+ 
++static const struct device_type qeth_l2_devtype = {
++	.name = "qeth_layer2",
++	.groups = qeth_l2_attr_groups,
++};
++
+ static int qeth_l2_probe_device(struct ccwgroup_device *gdev)
+ {
+ 	struct qeth_card *card = dev_get_drvdata(&gdev->dev);
+ 	int rc;
+ 
+-	rc = qeth_l2_create_device_attributes(&gdev->dev);
+-	if (rc)
+-		return rc;
++	if (gdev->dev.type == &qeth_generic_devtype) {
++		rc = qeth_l2_create_device_attributes(&gdev->dev);
++		if (rc)
++			return rc;
++	}
+ 	INIT_LIST_HEAD(&card->vid_list);
+ 	hash_init(card->mac_htable);
+ 	card->options.layer2 = 1;
+@@ -899,7 +906,8 @@ static void qeth_l2_remove_device(struct ccwgroup_device *cgdev)
+ {
+ 	struct qeth_card *card = dev_get_drvdata(&cgdev->dev);
+ 
+-	qeth_l2_remove_device_attributes(&cgdev->dev);
++	if (cgdev->dev.type == &qeth_generic_devtype)
++		qeth_l2_remove_device_attributes(&cgdev->dev);
+ 	qeth_set_allowed_threads(card, 0, 1);
+ 	wait_event(card->wait_q, qeth_threads_running(card, 0xffffffff) == 0);
+ 
+@@ -1272,6 +1280,7 @@ static int qeth_l2_control_event(struct qeth_card *card,
+ }
+ 
+ struct qeth_discipline qeth_l2_discipline = {
++	.devtype = &qeth_l2_devtype,
+ 	.start_poll = qeth_qdio_start_poll,
+ 	.input_handler = (qdio_handler_t *) qeth_qdio_input_handler,
+ 	.output_handler = (qdio_handler_t *) qeth_qdio_output_handler,
+diff --git a/drivers/s390/net/qeth_l2_sys.c b/drivers/s390/net/qeth_l2_sys.c
+index 687972356d6b..9696baa49e2d 100644
+--- a/drivers/s390/net/qeth_l2_sys.c
++++ b/drivers/s390/net/qeth_l2_sys.c
+@@ -269,3 +269,11 @@ void qeth_l2_setup_bridgeport_attrs(struct qeth_card *card)
+ 	} else
+ 		qeth_bridgeport_an_set(card, 0);
+ }
++
++const struct attribute_group *qeth_l2_attr_groups[] = {
++	&qeth_device_attr_group,
++	&qeth_device_blkt_group,
++	/* l2 specific, see l2_{create,remove}_device_attributes(): */
++	&qeth_l2_bridgeport_attr_group,
++	NULL,
++};
+diff --git a/drivers/s390/net/qeth_l3_main.c b/drivers/s390/net/qeth_l3_main.c
+index ae70daf33bd5..6c2146fc831a 100644
+--- a/drivers/s390/net/qeth_l3_main.c
++++ b/drivers/s390/net/qeth_l3_main.c
+@@ -3309,6 +3309,7 @@ static int qeth_l3_control_event(struct qeth_card *card,
+ }
+ 
+ struct qeth_discipline qeth_l3_discipline = {
++	.devtype = &qeth_generic_devtype,
+ 	.start_poll = qeth_qdio_start_poll,
+ 	.input_handler = (qdio_handler_t *) qeth_qdio_input_handler,
+ 	.output_handler = (qdio_handler_t *) qeth_qdio_output_handler,
 -- 
 2.10.2
