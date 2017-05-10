@@ -1,75 +1,59 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net 2/2] xdp: disallow use of native and generic hook
- at once
-Date: Thu, 11 May 2017 01:02:08 +0200
-Message-ID: <59139BF0.5090606@iogearbox.net>
-References: <cover.1494379046.git.daniel@iogearbox.net> <f8405a8769dca09a0f21d11eab3793e30f608531.1494379046.git.daniel@iogearbox.net>  <20170509201842.2ed5e330@cakuba.netronome.com>  <5912DF16.7050603@iogearbox.net>        <20170510140754.739e4123@cakuba.netronome.com>  <59139338.5020405@iogearbox.net> <20170510154630.316010f9@cakuba.netronome.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] libertas: Avoid reading past end of buffer
+Date: Wed, 10 May 2017 16:05:06 -0700
+Message-ID: <1494457506.2028.1.camel@perches.com>
+References: <20170510192451.GA115771@beast>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, alexei.starovoitov@gmail.com,
-        john.fastabend@gmail.com, netdev@vger.kernel.org
-To: Jakub Kicinski <kubakici@wp.pl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:54581 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750930AbdEJXCP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 10 May 2017 19:02:15 -0400
-In-Reply-To: <20170510154630.316010f9@cakuba.netronome.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Kalle Valo <kvalo@codeaurora.org>,
+        libertas-dev@lists.infradead.org, linux-wireless@vger.kernel.org,
+        Daniel Micay <danielmicay@gmail.com>,
+        linux-kernel@vger.kernel.org
+To: Kees Cook <keescook@chromium.org>, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170510192451.GA115771@beast>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 05/11/2017 12:46 AM, Jakub Kicinski wrote:
-> On Thu, 11 May 2017 00:24:56 +0200, Daniel Borkmann wrote:
->>> I understand the counter argument that from user space perspective it
->>> would make things slightly more complicated because there would be two
->>> conditions in which driver hook is used:
->>>    1) DRV_MODE set on dump;
->>>    2) flags attribute not present (old kernel).
->>>
->>> I'm concerned about number 2).  We can't simply depend on SKB_MODE
->>> not being set because we may add more *_MODE flags in the future.  So
->>> doing:
->>>
->>> if (flags & SKB_MODE)
->>> 	printf("skb-mode");
->>> else
->>> 	printf("drv-mode");
->>>
->>> is not correct.  The flags attribute must not be present at all (think
->>> HW_MODE flag).  But going further there can also be non-MODE flags,
->>> like, say.. NEVER_TX, and then there may be flags present in dump,
->>> and if SKB_MODE isn't be set, the mode could be some new MODE user space
->>> doesn't understand, or it could be DRV_MODE+a new non-MODE flag... no
->>> way to tell :S
->>
->> Yep, I see your point. Additionally, if we use XDP_FLAGS_* again for
->> dumping we're wasting bit space for flags we would never dump back
->> such as mentioned XDP_FLAGS_UPDATE_IF_NOEXIST (or any other future
->> flags that are only relevant for loading, but never for dumping).
->> Given dumping IFLA_XDP_FLAGS was added due to XDP_FLAGS_SKB_MODE,
->> we can still change this, since it's not too late.
->>
->> How about the following proposal: IFLA_XDP_ATTACHED we have as-is
->> (need to keep that anyway), if that is true, it means "something
->> is attached at XDP layer". Then, we add a new attribute IFLA_XDP_MODE
->> (enum as type), which can contain XDP_DRV_MODE (0), XDP_SKB_MODE (1).
->> I don't think there's a strict requirement to really dump IFLA_XDP_FLAGS
->> back, separating both attrs would avoid this hassle of what current
->> or future load flag fits for dump as well and which not. Wdyt?
->
-> I really like the idea of not reusing IFLA_XDP_FLAGS for dumps!  New
-> enum sounds good, but perhaps reusing IFLA_XDP_ATTACHED isn't 100%
-> off-limits either?  4.11 would report (0) - driver supports XDP but
-> nothing is attached, (1) - something attached at the driver, could we
-> make (2) mean - something attached at generic XDP?  Would that be
-> considered breaking the ABI, are we bound to boolean semantics?
+On Wed, 2017-05-10 at 12:24 -0700, Kees Cook wrote:
+> Using memcpy() from a string that is shorter than the length copied means
+[]
+> diff --git a/drivers/net/wireless/marvell/libertas/mesh.c b/drivers/net/wireless/marvell/libertas/mesh.c
+[]
+> @@ -1170,17 +1170,11 @@ int lbs_mesh_ethtool_get_sset_count(struct net_device *dev, int sset)
+>  void lbs_mesh_ethtool_get_strings(struct net_device *dev,
+>  	uint32_t stringset, uint8_t *s)
+>  {
+> -	int i;
+> -
+>  	lbs_deb_enter(LBS_DEB_ETHTOOL);
+>  
+>  	switch (stringset) {
+>  	case ETH_SS_STATS:
+> -		for (i = 0; i < MESH_STATS_NUM; i++) {
+> -			memcpy(s + i * ETH_GSTRING_LEN,
+> -					mesh_stat_strings[i],
+> -					ETH_GSTRING_LEN);
+> -		}
+> +		memcpy(s, *mesh_stat_strings, sizeof(mesh_stat_strings));
+>  		break;
+>  	}
+>  	lbs_deb_enter(LBS_DEB_ETHTOOL);
 
-I like the idea, it would also render IFLA_XDP_ATTACHED not useless
-or redundant then. Older binaries check !rta_getattr_u8(tb[IFLA_XDP_ATTACHED])
-whether something is attached or not at XDP layer. So they won't know
-IFLA_XDP_FLAGS attr either to make a more fine-grained distinction about
-what mode. That seems actually cleaner to me, will give it a try.
+unrelated trivia:
 
-Thanks,
-Daniel
+lbs_deb_enter is used incorrectly here at
+function exit as both enter and leave calls.
+
+That type of copy/paste defect may be common.
+
+$ git grep -w lbs_deb_enter | wc -l
+148
+$ git grep -w lbs_deb_leave | wc -l
+71
+
+One would expect these numbers to be the same.
+
+Another option would be to delete all these
+calls as ftrace function tracing works well.
