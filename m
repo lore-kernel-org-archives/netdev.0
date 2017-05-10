@@ -1,61 +1,58 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: Re: iproute2 ss outputs duplicate tcp sockets info on kernel 3.10.105
-Date: Wed, 10 May 2017 12:37:23 +0200
-Message-ID: <20170510103723.GR20805@orbyte.nwl.cc>
-References: <591121b4.213b9f0a.5aed.b3a8@mx.google.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: bpf pointer alignment validation
+Date: Wed, 10 May 2017 11:12:10 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DCFFE86D8@AcuExch.aculab.com>
+References: <20170505.162044.2097924822206705957.davem@davemloft.net>
+ <20170505.224709.1156323937148435706.davem@davemloft.net>
+ <59104D35.8080108@iogearbox.net>
+ <20170509.143234.1785658771452710730.davem@davemloft.net>
+ <20170510055735.hfkoh4w3xaka5yl5@ast-mbp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Cyrill Gorcunov <gorcunov@gmail.com>
-To: Li Er <phoooyb@gmail.com>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "daniel@iogearbox.net" <daniel@iogearbox.net>,
+        "ast@fb.com" <ast@fb.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: 'Alexei Starovoitov' <alexei.starovoitov@gmail.com>,
+        David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:56277 "EHLO mail.nwl.cc"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752066AbdEJKhZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 10 May 2017 06:37:25 -0400
-Content-Disposition: inline
-In-Reply-To: <591121b4.213b9f0a.5aed.b3a8@mx.google.com>
+Received: from smtp-out6.electric.net ([192.162.217.193]:64800 "EHLO
+        smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751423AbdEJLMS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 10 May 2017 07:12:18 -0400
+In-Reply-To: <20170510055735.hfkoh4w3xaka5yl5@ast-mbp>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+From: Alexei Starovoitov
+> Sent: 10 May 2017 06:58
+> > +static u32 calc_align(u32 imm)
+> > +{
+> > +	u32 align = 1;
+> > +
+> > +	if (!imm)
+> > +		return 1U << 31;
+> > +
+> > +	while (!(imm & 1)) {
+> > +		imm >>= 1;
+> > +		align <<= 1;
+> > +	}
+> > +	return align;
+> > +}
+> 
+> same question as in previous reply.
+> Why not to use something like:
+> static u32 calc_align(u32 n)
+> {
+>         if (!n)
+>                 return 1U << 31;
+>         return n - ((n - 1) & n);
+> }
 
-Cc'ing Cyrill who wrote the code in question. Maybe he has an idea
-what's going wrong here.
+That function needs a comment saying what it returns.
+Think I'd write it as:
+		return n & ~(n & (n - 1));
+(even though that might be one more instruction)
 
-Cheers, Phil
-
-On Mon, May 08, 2017 at 06:56:04PM -0700, Li Er wrote:
-> i'm using v4.11.0 release of iproute2 and kernel 3.10.105, simply
-> running
-> 
->         $ ss
->         Netid  State      Recv-Q Send-Q Local Address:Port                 Peer Address:Port
->         tcp    CLOSE-WAIT 434    0      10.0.0.1:47931                65.49.18.136:https
->         tcp    CLOSE-WAIT 432    0      10.0.0.1:47932                65.49.18.136:https
->         tcp    CLOSE-WAIT 434    0      10.0.0.1:47931                65.49.18.136:https
->         tcp    CLOSE-WAIT 432    0      10.0.0.1:47932                65.49.18.136:https
-> 
-> as you can see, there's one duplicate entry of each  tcp  socket,
-> however,  if  i  explicitly  specify  tcp socket by adding the -t
-> switch,
-> 
->         $ ss -t
->         State      Recv-Q Send-Q Local Address:Port                 Peer Address:Port
->         CLOSE-WAIT 434    0      10.0.0.1:47931                65.49.18.136:https
->         CLOSE-WAIT 432    0      10.0.0.1:47932                65.49.18.136:https
-> 
-> the duplication is gone.
-> 
-> this problem also occurs on  git  master,  but  not  on  iproute2
-> v4.3.0,  so  i  did  a  git bisect and found out the commit which
-> caused this is 9f66764e308e9c645b3fb2d1cfbb7fb207eb5de1,  and  by
-> revert this commit on git master, i.e. removing
-> 
->                                         err = rtnl_dump_done(rth, h);
->                                         if (err < 0)
->                                                 return -1;
-> 
-> these 3 lines of code of lib/libnetlink.c, the problem is gone.
-> 
-> since  i'm not familiar with the source code, i doubt this is the
-> right way to solve the problem, what's your suggestions? thanks.
+	David
