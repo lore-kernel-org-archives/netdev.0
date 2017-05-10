@@ -1,99 +1,91 @@
 From: Ihar Hrachyshka <ihrachys@redhat.com>
-Subject: [PATCH] neighbour: update neigh timestamps iff update is effective
-Date: Tue,  9 May 2017 17:06:05 -0700
-Message-ID: <20170510000605.6799-1-ihrachys@redhat.com>
+Subject: [PATCH] arp: honour gratuitous ARP _replies_
+Date: Tue,  9 May 2017 17:16:07 -0700
+Message-ID: <20170510001607.9716-1-ihrachys@redhat.com>
+Cc: Ihar Hrachyshka <ihrachys@redhat.com>
 To: "David S. Miller" <davem@davemloft.net>,
-        Ihar Hrachyshka <ihrachys@redhat.com>,
-        Julian Anastasov <ja@ssi.bg>,
-        He Chunhui <hchunhui@mail.ustc.edu.cn>, netdev@vger.kernel.org
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:39906 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:44046 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750780AbdEJAGb (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 9 May 2017 20:06:31 -0400
+        id S1750747AbdEJAQR (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 9 May 2017 20:16:17 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It's a common practice to send gratuitous ARPs after moving an
-IP address to another device to speed up healing of a service. To
-fulfill service availability constraints, the timing of network peers
-updating their caches to point to a new location of an IP address can be
-particularly important.
+When arp_accept is 1, gratuitous ARPs are supposed to override matching
+entries irrespective of whether they arrive during locktime. This was
+implemented in commit 56022a8fdd87 ("ipv4: arp: update neighbour address
+when a gratuitous arp is received and arp_accept is set")
 
-Sometimes neigh_update calls won't touch neither lladdr nor state, for
-example if an update arrives in locktime interval. Then we effectively
-ignore the update request, bailing out of touching the neigh entry,
-except that we still bump its timestamps.
+There is a glitch in the patch though. RFC 2002, section 4.6, "ARP,
+Proxy ARP, and Gratuitous ARP", defines gratuitous ARPs so that they can
+be either of Request or Reply type. Those Reply gratuitous ARPs can be
+triggered with standard tooling, for example, arping -A option does just
+that.
 
-This may be a problem for updates arriving in quick succession. For
-example, consider the following scenario:
+This patch fixes the glitch, making both Request and Reply flavours of
+gratuitous ARPs to behave identically.
 
-A service is moved to another device with its IP address. The new device
-sends three gratuitous ARP requests into the network with ~1 seconds
-interval between them. Just before the first request arrives to one of
-network peer nodes, its neigh entry for the IP address transitions from
-STALE to DELAY.  This transition, among other things, updates
-neigh->updated. Once the kernel receives the first gratuitous ARP, it
-ignores it because its arrival time is inside the locktime interval. The
-kernel still bumps neigh->updated. Then the second gratuitous ARP
-request arrives, and it's also ignored because it's still in the (new)
-locktime interval. Same happens for the third request. The node
-eventually heals itself (after delay_first_probe_time seconds since the
-initial transition to DELAY state), but it just wasted some time and
-require a new ARP request/reply round trip. This unfortunate behaviour
-both puts more load on the network, as well as reduces service
-availability.
-
-This patch changes neigh_update so that it bumps neigh->updated (as well
-as neigh->confirmed) only once we are sure that either lladdr or entry
-state will change). In the scenario described above, it means that the
-second gratuitous ARP request will actually update the entry lladdr.
-
-Ideally, we would update the neigh entry on the very first gratuitous
-ARP request. The locktime mechanism is designed to ignore ARP updates in
-a short timeframe after a previous ARP update was honoured by the kernel
-layer. This would require tracking timestamps for state transitions
-separately from timestamps when actual updates are received. This would
-probably involve changes in neighbour struct. Therefore, the patch
-doesn't tackle the issue of the first gratuitous APR ignored, leaving
-it for a follow-up.
+As per RFC, if gratuitous ARPs are of Reply type, their Target Hardware
+Address field should also be set to the link-layer address to which this
+cache entry should be updated. The field is present in ARP over Ethernet
+but not in IEEE 1394. In this patch, I don't consider any broadcasted
+ARP replies as gratuitous if the field is not present, to conform the
+standard. It's not clear whether there is such a thing for IEEE 1394 as
+a gratuitous ARP reply; until it's cleared up, we will ignore such
+broadcasts. Note that they will still update existing ARP cache entries,
+assuming they arrive out of locktime time interval.
 
 Signed-off-by: Ihar Hrachyshka <ihrachys@redhat.com>
 ---
- net/core/neighbour.c | 14 ++++++++++----
- 1 file changed, 10 insertions(+), 4 deletions(-)
+ net/ipv4/arp.c | 18 ++++++++++++++++--
+ 1 file changed, 16 insertions(+), 2 deletions(-)
 
-diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-index 58b0bcc..d274f81 100644
---- a/net/core/neighbour.c
-+++ b/net/core/neighbour.c
-@@ -1132,10 +1132,6 @@ int neigh_update(struct neighbour *neigh, const u8 *lladdr, u8 new,
- 		lladdr = neigh->ha;
+diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
+index 0937b34..fb97b9c 100644
+--- a/net/ipv4/arp.c
++++ b/net/ipv4/arp.c
+@@ -653,6 +653,7 @@ static int arp_process(struct net *net, struct sock *sk, struct sk_buff *skb)
+ 	unsigned char *arp_ptr;
+ 	struct rtable *rt;
+ 	unsigned char *sha;
++	unsigned char *tha = NULL;
+ 	__be32 sip, tip;
+ 	u16 dev_type = dev->type;
+ 	int addr_type;
+@@ -724,6 +725,7 @@ static int arp_process(struct net *net, struct sock *sk, struct sk_buff *skb)
+ 		break;
+ #endif
+ 	default:
++		tha = arp_ptr;
+ 		arp_ptr += dev->addr_len;
  	}
- 
--	if (new & NUD_CONNECTED)
--		neigh->confirmed = jiffies;
--	neigh->updated = jiffies;
--
- 	/* If entry was valid and address is not changed,
- 	   do not change entry state, if new one is STALE.
- 	 */
-@@ -1157,6 +1153,16 @@ int neigh_update(struct neighbour *neigh, const u8 *lladdr, u8 new,
- 		}
- 	}
- 
-+	/* Update timestamps only once we know we will make a change to the
-+	 * neighbour entry. Otherwise we risk to move the locktime window with
-+	 * noop updates and ignore relevant ARP updates.
-+	 */
-+	if (new != old || lladdr != neigh->ha) {
-+		if (new & NUD_CONNECTED)
-+			neigh->confirmed = jiffies;
-+		neigh->updated = jiffies;
-+	}
+ 	memcpy(&tip, arp_ptr, 4);
+@@ -842,8 +844,20 @@ static int arp_process(struct net *net, struct sock *sk, struct sk_buff *skb)
+ 		   It is possible, that this option should be enabled for some
+ 		   devices (strip is candidate)
+ 		 */
+-		is_garp = arp->ar_op == htons(ARPOP_REQUEST) && tip == sip &&
+-			  addr_type == RTN_UNICAST;
++		is_garp = tip == sip && addr_type == RTN_UNICAST;
 +
- 	if (new != old) {
- 		neigh_del_timer(neigh);
- 		if (new & NUD_PROBE)
++		/* Unsolicited ARP _replies_ also require target hwaddr to be
++		 * the same as source.
++		 */
++		if (is_garp && arp->ar_op == htons(ARPOP_REPLY))
++			is_garp =
++#if IS_ENABLED(CONFIG_FIREWIRE_NET)
++				/* IPv4 over IEEE 1394 doesn't provide target
++				 * hardware address field in its ARP payload.
++				 */
++				tha &&
++#endif
++				!memcmp(tha, sha, dev->addr_len);
+ 
+ 		if (!n &&
+ 		    ((arp->ar_op == htons(ARPOP_REPLY)  &&
 -- 
 2.9.3
