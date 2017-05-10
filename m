@@ -1,91 +1,32 @@
-From: Ihar Hrachyshka <ihrachys@redhat.com>
-Subject: [PATCH] arp: honour gratuitous ARP _replies_
-Date: Tue,  9 May 2017 17:16:07 -0700
-Message-ID: <20170510001607.9716-1-ihrachys@redhat.com>
-Cc: Ihar Hrachyshka <ihrachys@redhat.com>
-To: "David S. Miller" <davem@davemloft.net>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [Patch net] ipv6/dccp: do not inherit ipv6_mc_list from parent
+Date: Tue, 09 May 2017 17:21:56 -0700
+Message-ID: <1494375716.7796.101.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1494374394-24373-1-git-send-email-xiyou.wangcong@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, edumazet@google.com
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:44046 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750747AbdEJAQR (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 9 May 2017 20:16:17 -0400
+Received: from mail-pf0-f172.google.com ([209.85.192.172]:36351 "EHLO
+        mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750747AbdEJAV7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 9 May 2017 20:21:59 -0400
+Received: by mail-pf0-f172.google.com with SMTP id m17so7535692pfg.3
+        for <netdev@vger.kernel.org>; Tue, 09 May 2017 17:21:59 -0700 (PDT)
+In-Reply-To: <1494374394-24373-1-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When arp_accept is 1, gratuitous ARPs are supposed to override matching
-entries irrespective of whether they arrive during locktime. This was
-implemented in commit 56022a8fdd87 ("ipv4: arp: update neighbour address
-when a gratuitous arp is received and arp_accept is set")
+On Tue, 2017-05-09 at 16:59 -0700, Cong Wang wrote:
+> Like commit 657831ffc38e ("dccp/tcp: do not inherit mc_list from parent")
+> we should clear ipv6_mc_list etc. for IPv6 sockets too.
+> 
+> Cc: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> ---
 
-There is a glitch in the patch though. RFC 2002, section 4.6, "ARP,
-Proxy ARP, and Gratuitous ARP", defines gratuitous ARPs so that they can
-be either of Request or Reply type. Those Reply gratuitous ARPs can be
-triggered with standard tooling, for example, arping -A option does just
-that.
+Thanks !
 
-This patch fixes the glitch, making both Request and Reply flavours of
-gratuitous ARPs to behave identically.
-
-As per RFC, if gratuitous ARPs are of Reply type, their Target Hardware
-Address field should also be set to the link-layer address to which this
-cache entry should be updated. The field is present in ARP over Ethernet
-but not in IEEE 1394. In this patch, I don't consider any broadcasted
-ARP replies as gratuitous if the field is not present, to conform the
-standard. It's not clear whether there is such a thing for IEEE 1394 as
-a gratuitous ARP reply; until it's cleared up, we will ignore such
-broadcasts. Note that they will still update existing ARP cache entries,
-assuming they arrive out of locktime time interval.
-
-Signed-off-by: Ihar Hrachyshka <ihrachys@redhat.com>
----
- net/ipv4/arp.c | 18 ++++++++++++++++--
- 1 file changed, 16 insertions(+), 2 deletions(-)
-
-diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
-index 0937b34..fb97b9c 100644
---- a/net/ipv4/arp.c
-+++ b/net/ipv4/arp.c
-@@ -653,6 +653,7 @@ static int arp_process(struct net *net, struct sock *sk, struct sk_buff *skb)
- 	unsigned char *arp_ptr;
- 	struct rtable *rt;
- 	unsigned char *sha;
-+	unsigned char *tha = NULL;
- 	__be32 sip, tip;
- 	u16 dev_type = dev->type;
- 	int addr_type;
-@@ -724,6 +725,7 @@ static int arp_process(struct net *net, struct sock *sk, struct sk_buff *skb)
- 		break;
- #endif
- 	default:
-+		tha = arp_ptr;
- 		arp_ptr += dev->addr_len;
- 	}
- 	memcpy(&tip, arp_ptr, 4);
-@@ -842,8 +844,20 @@ static int arp_process(struct net *net, struct sock *sk, struct sk_buff *skb)
- 		   It is possible, that this option should be enabled for some
- 		   devices (strip is candidate)
- 		 */
--		is_garp = arp->ar_op == htons(ARPOP_REQUEST) && tip == sip &&
--			  addr_type == RTN_UNICAST;
-+		is_garp = tip == sip && addr_type == RTN_UNICAST;
-+
-+		/* Unsolicited ARP _replies_ also require target hwaddr to be
-+		 * the same as source.
-+		 */
-+		if (is_garp && arp->ar_op == htons(ARPOP_REPLY))
-+			is_garp =
-+#if IS_ENABLED(CONFIG_FIREWIRE_NET)
-+				/* IPv4 over IEEE 1394 doesn't provide target
-+				 * hardware address field in its ARP payload.
-+				 */
-+				tha &&
-+#endif
-+				!memcmp(tha, sha, dev->addr_len);
- 
- 		if (!n &&
- 		    ((arp->ar_op == htons(ARPOP_REPLY)  &&
--- 
-2.9.3
+Acked-by: Eric Dumazet <edumazet@google.com>
