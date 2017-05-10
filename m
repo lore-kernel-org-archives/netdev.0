@@ -1,7 +1,7 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH net-next V3 4/9] skb_array: introduce batch dequeuing
-Date: Wed, 10 May 2017 10:37:56 +0800
-Message-ID: <1494383881-6811-5-git-send-email-jasowang@redhat.com>
+Subject: [PATCH net-next V3 3/9] ptr_ring: introduce batch dequeuing
+Date: Wed, 10 May 2017 10:37:55 +0800
+Message-ID: <1494383881-6811-4-git-send-email-jasowang@redhat.com>
 References: <1494383881-6811-1-git-send-email-jasowang@redhat.com>
 Cc: Jason Wang <jasowang@redhat.com>
 To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
@@ -11,61 +11,97 @@ In-Reply-To: <1494383881-6811-1-git-send-email-jasowang@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+This patch introduce a batched version of consuming, consumer can
+dequeue more than one pointers from the ring at a time. We don't care
+about the reorder of reading here so no need for compiler barrier.
+
 Signed-off-by: Jason Wang <jasowang@redhat.com>
 ---
- include/linux/skb_array.h | 25 +++++++++++++++++++++++++
- 1 file changed, 25 insertions(+)
+ include/linux/ptr_ring.h | 65 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 65 insertions(+)
 
-diff --git a/include/linux/skb_array.h b/include/linux/skb_array.h
-index 79850b6..35226cd 100644
---- a/include/linux/skb_array.h
-+++ b/include/linux/skb_array.h
-@@ -97,21 +97,46 @@ static inline struct sk_buff *skb_array_consume(struct skb_array *a)
- 	return ptr_ring_consume(&a->ring);
+diff --git a/include/linux/ptr_ring.h b/include/linux/ptr_ring.h
+index 5476f68..9db39e6 100644
+--- a/include/linux/ptr_ring.h
++++ b/include/linux/ptr_ring.h
+@@ -247,6 +247,22 @@ static inline void *__ptr_ring_consume(struct ptr_ring *r)
+ 	return ptr;
  }
  
-+static inline int skb_array_consume_batched(struct skb_array *a,
-+					    struct sk_buff **array, int n)
++static inline int __ptr_ring_consume_batched(struct ptr_ring *r,
++					     void **array, int n)
 +{
-+	return ptr_ring_consume_batched(&a->ring, (void **)array, n);
++	void *ptr;
++	int i;
++
++	for (i = 0; i < n; i++) {
++		ptr = __ptr_ring_consume(r);
++		if (!ptr)
++			break;
++		array[i] = ptr;
++	}
++
++	return i;
 +}
 +
- static inline struct sk_buff *skb_array_consume_irq(struct skb_array *a)
- {
- 	return ptr_ring_consume_irq(&a->ring);
+ /*
+  * Note: resize (below) nests producer lock within consumer lock, so if you
+  * call this in interrupt or BH context, you must disable interrupts/BH when
+@@ -297,6 +313,55 @@ static inline void *ptr_ring_consume_bh(struct ptr_ring *r)
+ 	return ptr;
  }
  
-+static inline int skb_array_consume_batched_irq(struct skb_array *a,
-+						struct sk_buff **array, int n)
++static inline int ptr_ring_consume_batched(struct ptr_ring *r,
++					   void **array, int n)
 +{
-+	return ptr_ring_consume_batched_irq(&a->ring, (void **)array, n);
++	int ret;
++
++	spin_lock(&r->consumer_lock);
++	ret = __ptr_ring_consume_batched(r, array, n);
++	spin_unlock(&r->consumer_lock);
++
++	return ret;
 +}
 +
- static inline struct sk_buff *skb_array_consume_any(struct skb_array *a)
- {
- 	return ptr_ring_consume_any(&a->ring);
- }
- 
-+static inline int skb_array_consume_batched_any(struct skb_array *a,
-+						struct sk_buff **array, int n)
++static inline int ptr_ring_consume_batched_irq(struct ptr_ring *r,
++					       void **array, int n)
 +{
-+	return ptr_ring_consume_batched_any(&a->ring, (void **)array, n);
++	int ret;
++
++	spin_lock_irq(&r->consumer_lock);
++	ret = __ptr_ring_consume_batched(r, array, n);
++	spin_unlock_irq(&r->consumer_lock);
++
++	return ret;
 +}
 +
-+
- static inline struct sk_buff *skb_array_consume_bh(struct skb_array *a)
- {
- 	return ptr_ring_consume_bh(&a->ring);
- }
- 
-+static inline int skb_array_consume_batched_bh(struct skb_array *a,
-+					       struct sk_buff **array, int n)
++static inline int ptr_ring_consume_batched_any(struct ptr_ring *r,
++					       void **array, int n)
 +{
-+	return ptr_ring_consume_batched_bh(&a->ring, (void **)array, n);
++	unsigned long flags;
++	int ret;
++
++	spin_lock_irqsave(&r->consumer_lock, flags);
++	ret = __ptr_ring_consume_batched(r, array, n);
++	spin_unlock_irqrestore(&r->consumer_lock, flags);
++
++	return ret;
 +}
 +
- static inline int __skb_array_len_with_tag(struct sk_buff *skb)
- {
- 	if (likely(skb)) {
++static inline int ptr_ring_consume_batched_bh(struct ptr_ring *r,
++					      void **array, int n)
++{
++	int ret;
++
++	spin_lock_bh(&r->consumer_lock);
++	ret = __ptr_ring_consume_batched(r, array, n);
++	spin_unlock_bh(&r->consumer_lock);
++
++	return ret;
++}
++
+ /* Cast to structure type and call a function without discarding from FIFO.
+  * Function must return a value.
+  * Callers must take consumer_lock.
 -- 
 2.7.4
