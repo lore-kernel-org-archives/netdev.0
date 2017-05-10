@@ -1,112 +1,217 @@
-From: Zhang Rui <rui.zhang@intel.com>
-Subject: Re: [PATCH v1] ACPI: Switch to use generic UUID API
-Date: Wed, 10 May 2017 09:20:51 +0800
-Message-ID: <1494379251.2129.15.camel@intel.com>
-References: <20170504092151.88646-1-andriy.shevchenko@linux.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: "Rafael J . Wysocki" <rjw@rjwysocki.net>,
-        Mika Westerberg <mika.westerberg@linux.intel.com>,
-        Borislav Petkov <bp@suse.de>,
-        Dan Williams <dan.j.williams@intel.com>,
-        Amir Goldstein <amir73il@gmail.com>,
-        Jarkko Sakkinen <jarkko.sakkinen@linux.intel.com>,
-        Jani Nikula <jani.nikula@linux.intel.com>,
-        Ben Skeggs <bskeggs@redhat.com>,
-        Benjamin Tissoires <benjamin.tissoires@redhat.com>,
-        Joerg Roedel <joro@8bytes.org>,
-        Adrian Hunter <adrian.hunter@intel.com>,
-        Yisen Zhuang <yisen.zhuang@huawei.com>,
-        Bjorn Helgaas <bhelgaas@google.com>,
-        Felipe Balbi <balbi@kernel.org>,
-        Mathias Nyman <mathias.nyman@intel.com>,
-        Heikki Krogerus <heikki.krogerus@linux.intel.com>,
-        Liam Girdwood <lgirdwood@gmail.com>,
-        Mark Brown <broonie@kernel.org>
-To: Andy Shevchenko <andriy.shevchenko@linux.intel.com>,
-        linux-acpi@vger.kernel.org, tpmdd-devel@lists.sourceforge.net,
-        intel-gfx@lists.freedesktop.org, nouveau@lists.freedesktop.org,
-        linux-input@vger.kernel.org, iommu@lists.linux-foundation.org,
-        linux-mmc@vger.kernel.org, netdev@vger.kernel.org,
-        linux-pci@vger.kernel.org, linux-usb@vger.kernel.org,
-        alsa-devel@alsa-project.org, linux-kernel@vger.kernel.org
-Return-path: <linux-acpi-owner@vger.kernel.org>
-In-Reply-To: <20170504092151.88646-1-andriy.shevchenko@linux.intel.com>
-Sender: linux-acpi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH net 2/2] xdp: disallow use of native and generic hook at once
+Date: Wed, 10 May 2017 03:31:31 +0200
+Message-ID: <f8405a8769dca09a0f21d11eab3793e30f608531.1494379046.git.daniel@iogearbox.net>
+References: <cover.1494379046.git.daniel@iogearbox.net>
+Cc: alexei.starovoitov@gmail.com, john.fastabend@gmail.com,
+        netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:54341 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751060AbdEJBbg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 9 May 2017 21:31:36 -0400
+In-Reply-To: <cover.1494379046.git.daniel@iogearbox.net>
+In-Reply-To: <cover.1494379046.git.daniel@iogearbox.net>
+References: <cover.1494379046.git.daniel@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2017-05-04 at 12:21 +0300, Andy Shevchenko wrote:
-> acpi_evaluate_dsm() and friends take a pointer to a raw buffer of 16
-> bytes. Instead we convert them to use uuid_le type. At the same time
-> we
-> convert current users.
-> 
-> acpi_str_to_uuid() becomes useless after the conversion and it's safe
-> to
-> get rid of it.
-> 
-> The conversion fixes a potential bug in int340x_thermal as well since
-> we have to use memcmp() on binary data.
-> 
-> Cc: Rafael J. Wysocki <rjw@rjwysocki.net>
-> Cc: Mika Westerberg <mika.westerberg@linux.intel.com>
-> Cc: Borislav Petkov <bp@suse.de>
-> Cc: Dan Williams <dan.j.williams@intel.com>
-> Cc: Amir Goldstein <amir73il@gmail.com>
-> Cc: Jarkko Sakkinen <jarkko.sakkinen@linux.intel.com>
-> Cc: Jani Nikula <jani.nikula@linux.intel.com>
-> Cc: Ben Skeggs <bskeggs@redhat.com>
-> Cc: Benjamin Tissoires <benjamin.tissoires@redhat.com>
-> Cc: Joerg Roedel <joro@8bytes.org>
-> Cc: Adrian Hunter <adrian.hunter@intel.com>
-> Cc: Yisen Zhuang <yisen.zhuang@huawei.com>
-> Cc: Bjorn Helgaas <bhelgaas@google.com>
-> Cc: Zhang Rui <rui.zhang@intel.com>
-> Cc: Felipe Balbi <balbi@kernel.org>
-> Cc: Mathias Nyman <mathias.nyman@intel.com>
-> Cc: Heikki Krogerus <heikki.krogerus@linux.intel.com>
-> Cc: Liam Girdwood <lgirdwood@gmail.com>
-> Cc: Mark Brown <broonie@kernel.org>
-> Signed-off-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-> ---
-> 
-> diff --git a/drivers/thermal/int340x_thermal/int3400_thermal.c
-> b/drivers/thermal/int340x_thermal/int3400_thermal.c
-> index 9413c4abf0b9..c0eb3bb19b23 100644
-> --- a/drivers/thermal/int340x_thermal/int3400_thermal.c
-> +++ b/drivers/thermal/int340x_thermal/int3400_thermal.c
-> @@ -23,7 +23,7 @@ enum int3400_thermal_uuid {
->  	INT3400_THERMAL_MAXIMUM_UUID,
->  };
->  
-> -static u8 *int3400_thermal_uuids[INT3400_THERMAL_MAXIMUM_UUID] = {
-> +static const char
-> *int3400_thermal_uuids[INT3400_THERMAL_MAXIMUM_UUID] = {
->  	"42A441D6-AE6A-462b-A84B-4A8CE79027D3",
->  	"3A95C389-E4B8-4629-A526-C52C88626BAE",
->  	"97C68AE7-15FA-499c-B8C9-5DA81D606E0A",
-> @@ -141,10 +141,10 @@ static int int3400_thermal_get_uuids(struct
-> int3400_thermal_priv *priv)
->  		}
->  
->  		for (j = 0; j < INT3400_THERMAL_MAXIMUM_UUID; j++) {
-> -			u8 uuid[16];
-> +			uuid_le u;
->  
-> -			acpi_str_to_uuid(int3400_thermal_uuids[j],
-> uuid);
-> -			if (!strncmp(uuid, objb->buffer.pointer,
-> 16)) {
-> +			uuid_le_to_bin(int3400_thermal_uuids[j],
-> &u);
-> +			if (!uuid_le_cmp(*(uuid_le *)objb-
-> >buffer.pointer), u) {
->  				priv->uuid_bitmap |= (1 << j);
->  				break;
->  			}
-thanks for the fix.
+While working on the iproute2 generic XDP frontend, I noticed that
+as of right now it's possible to have native *and* generic XDP
+programs loaded both at the same time for the case when a driver
+supports native XDP.
 
-Acked-by: Zhang Rui <rui.zhang@intel.com>
+The intended model for generic XDP from b5cdae3291f7 ("net: Generic
+XDP") is, however, that only one out of the two can be present at
+once which is also indicated as such in the XPD netlink dump part.
+The main rationale for generic XDP is to ease accessibility (in
+case a driver does not yet have XDP support) and to generically
+provide a semantical model as an example for driver developers
+wanting to add XDP support. The generic XDP option for an XDP
+aware driver can still be useful for comparing and testing both
+implementations.
 
--rui
+However, it is not intended to have a second XDP processing stage
+or layer with exactly the same functionality of the first native
+stage. Only reason would be to have a partial fallback for future
+XDP features that are not supported yet in the native implementation
+and we probably also shouldn't strive for such fallback and instead
+encourage native feature support in the first place. Given there's
+currently no such fallback issue or use case, lets not go there
+yet if we don't need to.
+
+Therefore, change semantics for loading XDP and bail out if the
+user tries to load a generic XDP program when a native one is
+present and vice versa. Another alternative to bailing out would
+be to handle the transition from one flavor to another gracefully,
+but that would require to bring the device down, exchange both
+types of programs, and bring it up again in order to avoid a tiny
+window where a packet could hit both hooks. Given this complicates
+the logic a bit more for just a debugging feature, I went with the
+simpler variant.
+
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+Acked-by: Alexei Starovoitov <ast@kernel.org>
+---
+ include/linux/netdevice.h | 15 +++++++++++--
+ net/core/dev.c            | 55 +++++++++++++++++++++++++++++++----------------
+ net/core/rtnetlink.c      | 14 +++++-------
+ 3 files changed, 54 insertions(+), 30 deletions(-)
+
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 9c23bd2..abedec7 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -3296,11 +3296,22 @@ int dev_get_phys_port_id(struct net_device *dev,
+ int dev_get_phys_port_name(struct net_device *dev,
+ 			   char *name, size_t len);
+ int dev_change_proto_down(struct net_device *dev, bool proto_down);
+-int dev_change_xdp_fd(struct net_device *dev, struct netlink_ext_ack *extack,
+-		      int fd, u32 flags);
+ struct sk_buff *validate_xmit_skb_list(struct sk_buff *skb, struct net_device *dev);
+ struct sk_buff *dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev,
+ 				    struct netdev_queue *txq, int *ret);
++
++typedef int (*xdp_op_t)(struct net_device *dev, struct netdev_xdp *xdp);
++int dev_change_xdp_fd(struct net_device *dev, struct netlink_ext_ack *extack,
++		      int fd, u32 flags);
++bool __dev_xdp_attached(struct net_device *dev, xdp_op_t xdp_op);
++
++static inline bool dev_xdp_attached(struct net_device *dev)
++{
++	const struct net_device_ops *ops = dev->netdev_ops;
++
++	return ops->ndo_xdp && __dev_xdp_attached(dev, ops->ndo_xdp);
++}
++
+ int __dev_forward_skb(struct net_device *dev, struct sk_buff *skb);
+ int dev_forward_skb(struct net_device *dev, struct sk_buff *skb);
+ bool is_skb_forwardable(const struct net_device *dev,
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 61443f0..d25f847 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -6851,6 +6851,32 @@ int dev_change_proto_down(struct net_device *dev, bool proto_down)
+ }
+ EXPORT_SYMBOL(dev_change_proto_down);
+ 
++bool __dev_xdp_attached(struct net_device *dev, xdp_op_t xdp_op)
++{
++	struct netdev_xdp xdp;
++
++	memset(&xdp, 0, sizeof(xdp));
++	xdp.command = XDP_QUERY_PROG;
++
++	/* Query must always succeed. */
++	WARN_ON(xdp_op(dev, &xdp) < 0);
++	return xdp.prog_attached;
++}
++
++static int dev_xdp_install(struct net_device *dev, xdp_op_t xdp_op,
++			   struct netlink_ext_ack *extack,
++			   struct bpf_prog *prog)
++{
++	struct netdev_xdp xdp;
++
++	memset(&xdp, 0, sizeof(xdp));
++	xdp.command = XDP_SETUP_PROG;
++	xdp.extack = extack;
++	xdp.prog = prog;
++
++	return xdp_op(dev, &xdp);
++}
++
+ /**
+  *	dev_change_xdp_fd - set or clear a bpf program for a device rx path
+  *	@dev: device
+@@ -6863,43 +6889,34 @@ int dev_change_proto_down(struct net_device *dev, bool proto_down)
+ int dev_change_xdp_fd(struct net_device *dev, struct netlink_ext_ack *extack,
+ 		      int fd, u32 flags)
+ {
+-	int (*xdp_op)(struct net_device *dev, struct netdev_xdp *xdp);
+ 	const struct net_device_ops *ops = dev->netdev_ops;
+ 	struct bpf_prog *prog = NULL;
+-	struct netdev_xdp xdp;
++	xdp_op_t xdp_op, xdp_chk;
+ 	int err;
+ 
+ 	ASSERT_RTNL();
+ 
+-	xdp_op = ops->ndo_xdp;
++	xdp_op = xdp_chk = ops->ndo_xdp;
+ 	if (!xdp_op && (flags & XDP_FLAGS_DRV_MODE))
+ 		return -EOPNOTSUPP;
+ 	if (!xdp_op || (flags & XDP_FLAGS_SKB_MODE))
+ 		xdp_op = generic_xdp_install;
++	if (xdp_op == xdp_chk)
++		xdp_chk = generic_xdp_install;
+ 
+ 	if (fd >= 0) {
+-		if (flags & XDP_FLAGS_UPDATE_IF_NOEXIST) {
+-			memset(&xdp, 0, sizeof(xdp));
+-			xdp.command = XDP_QUERY_PROG;
+-
+-			err = xdp_op(dev, &xdp);
+-			if (err < 0)
+-				return err;
+-			if (xdp.prog_attached)
+-				return -EBUSY;
+-		}
++		if (xdp_chk && __dev_xdp_attached(dev, xdp_chk))
++			return -EEXIST;
++		if ((flags & XDP_FLAGS_UPDATE_IF_NOEXIST) &&
++		    __dev_xdp_attached(dev, xdp_op))
++			return -EBUSY;
+ 
+ 		prog = bpf_prog_get_type(fd, BPF_PROG_TYPE_XDP);
+ 		if (IS_ERR(prog))
+ 			return PTR_ERR(prog);
+ 	}
+ 
+-	memset(&xdp, 0, sizeof(xdp));
+-	xdp.command = XDP_SETUP_PROG;
+-	xdp.extack = extack;
+-	xdp.prog = prog;
+-
+-	err = xdp_op(dev, &xdp);
++	err = dev_xdp_install(dev, xdp_op, extack, prog);
+ 	if (err < 0 && prog)
+ 		bpf_prog_put(prog);
+ 
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index dda9f16..99320f0 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -1251,24 +1251,20 @@ static int rtnl_xdp_fill(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	struct nlattr *xdp;
+ 	u32 xdp_flags = 0;
+-	u8 val = 0;
+ 	int err;
++	u8 val;
+ 
+ 	xdp = nla_nest_start(skb, IFLA_XDP);
+ 	if (!xdp)
+ 		return -EMSGSIZE;
++
+ 	if (rcu_access_pointer(dev->xdp_prog)) {
+ 		xdp_flags = XDP_FLAGS_SKB_MODE;
+ 		val = 1;
+-	} else if (dev->netdev_ops->ndo_xdp) {
+-		struct netdev_xdp xdp_op = {};
+-
+-		xdp_op.command = XDP_QUERY_PROG;
+-		err = dev->netdev_ops->ndo_xdp(dev, &xdp_op);
+-		if (err)
+-			goto err_cancel;
+-		val = xdp_op.prog_attached;
++	} else {
++		val = dev_xdp_attached(dev);
+ 	}
++
+ 	err = nla_put_u8(skb, IFLA_XDP_ATTACHED, val);
+ 	if (err)
+ 		goto err_cancel;
+-- 
+1.9.3
