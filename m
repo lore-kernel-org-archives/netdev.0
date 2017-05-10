@@ -1,67 +1,533 @@
 From: Iyappan Subramanian <isubramanian@apm.com>
-Subject: [PATCH v2 net-next 00/12] drivers: net: xgene: Add ethtool stats and bug fixes
-Date: Wed, 10 May 2017 13:44:58 -0700
-Message-ID: <1494449110-23785-1-git-send-email-isubramanian@apm.com>
+Subject: [PATCH v2 net-next 01/12] drivers: net: xgene: Protect indirect MAC access
+Date: Wed, 10 May 2017 13:44:59 -0700
+Message-ID: <1494449110-23785-2-git-send-email-isubramanian@apm.com>
+References: <1494449110-23785-1-git-send-email-isubramanian@apm.com>
 Cc: linux-arm-kernel@lists.infradead.org, patches@apm.com,
         Iyappan Subramanian <isubramanian@apm.com>,
         Quan Nguyen <qnguyen@apm.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f49.google.com ([209.85.214.49]:38542 "EHLO
-        mail-it0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751096AbdEJUmV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 10 May 2017 16:42:21 -0400
-Received: by mail-it0-f49.google.com with SMTP id e65so8948738ita.1
-        for <netdev@vger.kernel.org>; Wed, 10 May 2017 13:42:20 -0700 (PDT)
+Received: from mail-it0-f44.google.com ([209.85.214.44]:33221 "EHLO
+        mail-it0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751096AbdEJUmW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 10 May 2017 16:42:22 -0400
+Received: by mail-it0-f44.google.com with SMTP id w68so17403593itc.0
+        for <netdev@vger.kernel.org>; Wed, 10 May 2017 13:42:22 -0700 (PDT)
+In-Reply-To: <1494449110-23785-1-git-send-email-isubramanian@apm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch set,
+This patch,
 
-- adds ethtool extended statistics support
-- addresses errata workarounds
-- fixes bugs related to statistics
+     - refactors mac read/write functions
+     - adds lock to protect indirect mac access
 
 Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
 Signed-off-by: Quan Nguyen <qnguyen@apm.com>
 ---
-v2: Address review comments from v1
-	- Adds lock to protect mdio-xgene indirect MAC access
-	- Refactors xgene-enet indirect MAC read/write functions
-	- Uses mdio-xgene MAC access routines, if xgene-enet port
-	  use the same HW.
-v1:
-	- Initial version
----
+ drivers/net/ethernet/apm/xgene/xgene_enet_hw.c    | 119 +++++++++-------------
+ drivers/net/ethernet/apm/xgene/xgene_enet_hw.h    |   3 +
+ drivers/net/ethernet/apm/xgene/xgene_enet_main.c  |   1 +
+ drivers/net/ethernet/apm/xgene/xgene_enet_main.h  |   1 +
+ drivers/net/ethernet/apm/xgene/xgene_enet_sgmac.c |  71 -------------
+ drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.c |  44 ++------
+ 6 files changed, 62 insertions(+), 177 deletions(-)
 
-Iyappan Subramanian (3):
-  drivers: net: xgene: Protect indirect MAC access
-  drivers: net: xgene: Add rx_overrun/tx_underrun statistics
-  drivers: net: xgene: Fix redundant prefetch buffer cleanup
-
-Quan Nguyen (9):
-  drivers: net: phy: xgene: Add lock to protect mac access
-  drivers: net: xgene: Use rgmii mdio mac access
-  drivers: net: xgene: Remove redundant local stats
-  drivers: net: xgene: Refactor statistics error parsing code
-  drivers: net: xgene: Remove unused macros
-  drivers: net: xgene: Extend ethtool statistics
-  drivers: net: xgene: Workaround for HW errata 10GE_4
-  drivers: net: xgene: Add frame recovered statistics counter for errata
-    10GE_8/ENET_11
-  drivers: net: xgene: Workaround for HW errata 10GE_10/ENET_15
-
- .../net/ethernet/apm/xgene/xgene_enet_ethtool.c    | 132 ++++++++++++++-
- drivers/net/ethernet/apm/xgene/xgene_enet_hw.c     | 188 +++++++++++----------
- drivers/net/ethernet/apm/xgene/xgene_enet_hw.h     |  70 +++++++-
- drivers/net/ethernet/apm/xgene/xgene_enet_main.c   |  59 +++++--
- drivers/net/ethernet/apm/xgene/xgene_enet_main.h   |  12 +-
- drivers/net/ethernet/apm/xgene/xgene_enet_sgmac.c  | 110 +++---------
- drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.c  |  77 +++------
- drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.h  |   5 +
- drivers/net/phy/mdio-xgene.c                       |  74 ++++----
- drivers/net/phy/mdio-xgene.h                       |   3 +
- 10 files changed, 428 insertions(+), 302 deletions(-)
-
+diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
+index 2a835e0..2050c58 100644
+--- a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
++++ b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
+@@ -270,42 +270,32 @@ static void xgene_enet_wr_mcx_csr(struct xgene_enet_pdata *pdata,
+ 	iowrite32(val, addr);
+ }
+ 
+-static bool xgene_enet_wr_indirect(void __iomem *addr, void __iomem *wr,
+-				   void __iomem *cmd, void __iomem *cmd_done,
+-				   u32 wr_addr, u32 wr_data)
++void xgene_enet_wr_mac(struct xgene_enet_pdata *pdata, u32 wr_addr, u32 wr_data)
+ {
+-	u32 done;
++	void __iomem *addr, *wr, *cmd, *cmd_done;
++	struct net_device *ndev = pdata->ndev;
+ 	u8 wait = 10;
++	u32 done;
+ 
++	addr = pdata->mcx_mac_addr + MAC_ADDR_REG_OFFSET;
++	wr = pdata->mcx_mac_addr + MAC_WRITE_REG_OFFSET;
++	cmd = pdata->mcx_mac_addr + MAC_COMMAND_REG_OFFSET;
++	cmd_done = pdata->mcx_mac_addr + MAC_COMMAND_DONE_REG_OFFSET;
++
++	spin_lock(&pdata->mac_lock);
+ 	iowrite32(wr_addr, addr);
+ 	iowrite32(wr_data, wr);
+ 	iowrite32(XGENE_ENET_WR_CMD, cmd);
+ 
+-	/* wait for write command to complete */
+ 	while (!(done = ioread32(cmd_done)) && wait--)
+ 		udelay(1);
+ 
+ 	if (!done)
+-		return false;
++		netdev_err(ndev, "mac write failed, addr: %04x data: %08x\n",
++			   wr_addr, wr_data);
+ 
+ 	iowrite32(0, cmd);
+-
+-	return true;
+-}
+-
+-static void xgene_enet_wr_mcx_mac(struct xgene_enet_pdata *pdata,
+-				  u32 wr_addr, u32 wr_data)
+-{
+-	void __iomem *addr, *wr, *cmd, *cmd_done;
+-
+-	addr = pdata->mcx_mac_addr + MAC_ADDR_REG_OFFSET;
+-	wr = pdata->mcx_mac_addr + MAC_WRITE_REG_OFFSET;
+-	cmd = pdata->mcx_mac_addr + MAC_COMMAND_REG_OFFSET;
+-	cmd_done = pdata->mcx_mac_addr + MAC_COMMAND_DONE_REG_OFFSET;
+-
+-	if (!xgene_enet_wr_indirect(addr, wr, cmd, cmd_done, wr_addr, wr_data))
+-		netdev_err(pdata->ndev, "MCX mac write failed, addr: %04x\n",
+-			   wr_addr);
++	spin_unlock(&pdata->mac_lock);
+ }
+ 
+ static void xgene_enet_rd_csr(struct xgene_enet_pdata *pdata,
+@@ -332,42 +322,33 @@ static void xgene_enet_rd_mcx_csr(struct xgene_enet_pdata *pdata,
+ 	*val = ioread32(addr);
+ }
+ 
+-static bool xgene_enet_rd_indirect(void __iomem *addr, void __iomem *rd,
+-				   void __iomem *cmd, void __iomem *cmd_done,
+-				   u32 rd_addr, u32 *rd_data)
++u32 xgene_enet_rd_mac(struct xgene_enet_pdata *pdata, u32 rd_addr)
+ {
+-	u32 done;
++	void __iomem *addr, *rd, *cmd, *cmd_done;
++	u32 done, rd_data;
+ 	u8 wait = 10;
+ 
++	addr = pdata->mcx_mac_addr + MAC_ADDR_REG_OFFSET;
++	rd = pdata->mcx_mac_addr + MAC_READ_REG_OFFSET;
++	cmd = pdata->mcx_mac_addr + MAC_COMMAND_REG_OFFSET;
++	cmd_done = pdata->mcx_mac_addr + MAC_COMMAND_DONE_REG_OFFSET;
++
++	spin_lock(&pdata->mac_lock);
+ 	iowrite32(rd_addr, addr);
+ 	iowrite32(XGENE_ENET_RD_CMD, cmd);
+ 
+-	/* wait for read command to complete */
+ 	while (!(done = ioread32(cmd_done)) && wait--)
+ 		udelay(1);
+ 
+ 	if (!done)
+-		return false;
++		netdev_err(pdata->ndev, "mac read failed, addr: %04x\n",
++			   rd_addr);
+ 
+-	*rd_data = ioread32(rd);
++	rd_data = ioread32(rd);
+ 	iowrite32(0, cmd);
++	spin_unlock(&pdata->mac_lock);
+ 
+-	return true;
+-}
+-
+-static void xgene_enet_rd_mcx_mac(struct xgene_enet_pdata *pdata,
+-				  u32 rd_addr, u32 *rd_data)
+-{
+-	void __iomem *addr, *rd, *cmd, *cmd_done;
+-
+-	addr = pdata->mcx_mac_addr + MAC_ADDR_REG_OFFSET;
+-	rd = pdata->mcx_mac_addr + MAC_READ_REG_OFFSET;
+-	cmd = pdata->mcx_mac_addr + MAC_COMMAND_REG_OFFSET;
+-	cmd_done = pdata->mcx_mac_addr + MAC_COMMAND_DONE_REG_OFFSET;
+-
+-	if (!xgene_enet_rd_indirect(addr, rd, cmd, cmd_done, rd_addr, rd_data))
+-		netdev_err(pdata->ndev, "MCX mac read failed, addr: %04x\n",
+-			   rd_addr);
++	return rd_data;
+ }
+ 
+ static void xgene_gmac_set_mac_addr(struct xgene_enet_pdata *pdata)
+@@ -379,8 +360,8 @@ static void xgene_gmac_set_mac_addr(struct xgene_enet_pdata *pdata)
+ 		(dev_addr[1] << 8) | dev_addr[0];
+ 	addr1 = (dev_addr[5] << 24) | (dev_addr[4] << 16);
+ 
+-	xgene_enet_wr_mcx_mac(pdata, STATION_ADDR0_ADDR, addr0);
+-	xgene_enet_wr_mcx_mac(pdata, STATION_ADDR1_ADDR, addr1);
++	xgene_enet_wr_mac(pdata, STATION_ADDR0_ADDR, addr0);
++	xgene_enet_wr_mac(pdata, STATION_ADDR1_ADDR, addr1);
+ }
+ 
+ static int xgene_enet_ecc_init(struct xgene_enet_pdata *pdata)
+@@ -405,8 +386,8 @@ static int xgene_enet_ecc_init(struct xgene_enet_pdata *pdata)
+ 
+ static void xgene_gmac_reset(struct xgene_enet_pdata *pdata)
+ {
+-	xgene_enet_wr_mcx_mac(pdata, MAC_CONFIG_1_ADDR, SOFT_RESET1);
+-	xgene_enet_wr_mcx_mac(pdata, MAC_CONFIG_1_ADDR, 0);
++	xgene_enet_wr_mac(pdata, MAC_CONFIG_1_ADDR, SOFT_RESET1);
++	xgene_enet_wr_mac(pdata, MAC_CONFIG_1_ADDR, 0);
+ }
+ 
+ static void xgene_enet_configure_clock(struct xgene_enet_pdata *pdata)
+@@ -456,8 +437,8 @@ static void xgene_gmac_set_speed(struct xgene_enet_pdata *pdata)
+ 
+ 	xgene_enet_rd_mcx_csr(pdata, ICM_CONFIG0_REG_0_ADDR, &icm0);
+ 	xgene_enet_rd_mcx_csr(pdata, ICM_CONFIG2_REG_0_ADDR, &icm2);
+-	xgene_enet_rd_mcx_mac(pdata, MAC_CONFIG_2_ADDR, &mc2);
+-	xgene_enet_rd_mcx_mac(pdata, INTERFACE_CONTROL_ADDR, &intf_ctl);
++	mc2 = xgene_enet_rd_mac(pdata, MAC_CONFIG_2_ADDR);
++	intf_ctl = xgene_enet_rd_mac(pdata, INTERFACE_CONTROL_ADDR);
+ 	xgene_enet_rd_csr(pdata, RGMII_REG_0_ADDR, &rgmii);
+ 
+ 	switch (pdata->phy_speed) {
+@@ -495,8 +476,8 @@ static void xgene_gmac_set_speed(struct xgene_enet_pdata *pdata)
+ 	}
+ 
+ 	mc2 |= FULL_DUPLEX2 | PAD_CRC | LENGTH_CHK;
+-	xgene_enet_wr_mcx_mac(pdata, MAC_CONFIG_2_ADDR, mc2);
+-	xgene_enet_wr_mcx_mac(pdata, INTERFACE_CONTROL_ADDR, intf_ctl);
++	xgene_enet_wr_mac(pdata, MAC_CONFIG_2_ADDR, mc2);
++	xgene_enet_wr_mac(pdata, INTERFACE_CONTROL_ADDR, intf_ctl);
+ 	xgene_enet_wr_csr(pdata, RGMII_REG_0_ADDR, rgmii);
+ 	xgene_enet_configure_clock(pdata);
+ 
+@@ -506,7 +487,7 @@ static void xgene_gmac_set_speed(struct xgene_enet_pdata *pdata)
+ 
+ static void xgene_enet_set_frame_size(struct xgene_enet_pdata *pdata, int size)
+ {
+-	xgene_enet_wr_mcx_mac(pdata, MAX_FRAME_LEN_ADDR, size);
++	xgene_enet_wr_mac(pdata, MAX_FRAME_LEN_ADDR, size);
+ }
+ 
+ static void xgene_gmac_enable_tx_pause(struct xgene_enet_pdata *pdata,
+@@ -528,14 +509,14 @@ static void xgene_gmac_flowctl_tx(struct xgene_enet_pdata *pdata, bool enable)
+ {
+ 	u32 data;
+ 
+-	xgene_enet_rd_mcx_mac(pdata, MAC_CONFIG_1_ADDR, &data);
++	data = xgene_enet_rd_mac(pdata, MAC_CONFIG_1_ADDR);
+ 
+ 	if (enable)
+ 		data |= TX_FLOW_EN;
+ 	else
+ 		data &= ~TX_FLOW_EN;
+ 
+-	xgene_enet_wr_mcx_mac(pdata, MAC_CONFIG_1_ADDR, data);
++	xgene_enet_wr_mac(pdata, MAC_CONFIG_1_ADDR, data);
+ 
+ 	pdata->mac_ops->enable_tx_pause(pdata, enable);
+ }
+@@ -544,14 +525,14 @@ static void xgene_gmac_flowctl_rx(struct xgene_enet_pdata *pdata, bool enable)
+ {
+ 	u32 data;
+ 
+-	xgene_enet_rd_mcx_mac(pdata, MAC_CONFIG_1_ADDR, &data);
++	data = xgene_enet_rd_mac(pdata, MAC_CONFIG_1_ADDR);
+ 
+ 	if (enable)
+ 		data |= RX_FLOW_EN;
+ 	else
+ 		data &= ~RX_FLOW_EN;
+ 
+-	xgene_enet_wr_mcx_mac(pdata, MAC_CONFIG_1_ADDR, data);
++	xgene_enet_wr_mac(pdata, MAC_CONFIG_1_ADDR, data);
+ }
+ 
+ static void xgene_gmac_init(struct xgene_enet_pdata *pdata)
+@@ -565,9 +546,9 @@ static void xgene_gmac_init(struct xgene_enet_pdata *pdata)
+ 	xgene_gmac_set_mac_addr(pdata);
+ 
+ 	/* Adjust MDC clock frequency */
+-	xgene_enet_rd_mcx_mac(pdata, MII_MGMT_CONFIG_ADDR, &value);
++	value = xgene_enet_rd_mac(pdata, MII_MGMT_CONFIG_ADDR);
+ 	MGMT_CLOCK_SEL_SET(&value, 7);
+-	xgene_enet_wr_mcx_mac(pdata, MII_MGMT_CONFIG_ADDR, value);
++	xgene_enet_wr_mac(pdata, MII_MGMT_CONFIG_ADDR, value);
+ 
+ 	/* Enable drop if bufpool not available */
+ 	xgene_enet_rd_csr(pdata, RSIF_CONFIG_REG_ADDR, &value);
+@@ -637,32 +618,32 @@ static void xgene_gmac_rx_enable(struct xgene_enet_pdata *pdata)
+ {
+ 	u32 data;
+ 
+-	xgene_enet_rd_mcx_mac(pdata, MAC_CONFIG_1_ADDR, &data);
+-	xgene_enet_wr_mcx_mac(pdata, MAC_CONFIG_1_ADDR, data | RX_EN);
++	data = xgene_enet_rd_mac(pdata, MAC_CONFIG_1_ADDR);
++	xgene_enet_wr_mac(pdata, MAC_CONFIG_1_ADDR, data | RX_EN);
+ }
+ 
+ static void xgene_gmac_tx_enable(struct xgene_enet_pdata *pdata)
+ {
+ 	u32 data;
+ 
+-	xgene_enet_rd_mcx_mac(pdata, MAC_CONFIG_1_ADDR, &data);
+-	xgene_enet_wr_mcx_mac(pdata, MAC_CONFIG_1_ADDR, data | TX_EN);
++	data = xgene_enet_rd_mac(pdata, MAC_CONFIG_1_ADDR);
++	xgene_enet_wr_mac(pdata, MAC_CONFIG_1_ADDR, data | TX_EN);
+ }
+ 
+ static void xgene_gmac_rx_disable(struct xgene_enet_pdata *pdata)
+ {
+ 	u32 data;
+ 
+-	xgene_enet_rd_mcx_mac(pdata, MAC_CONFIG_1_ADDR, &data);
+-	xgene_enet_wr_mcx_mac(pdata, MAC_CONFIG_1_ADDR, data & ~RX_EN);
++	data = xgene_enet_rd_mac(pdata, MAC_CONFIG_1_ADDR);
++	xgene_enet_wr_mac(pdata, MAC_CONFIG_1_ADDR, data & ~RX_EN);
+ }
+ 
+ static void xgene_gmac_tx_disable(struct xgene_enet_pdata *pdata)
+ {
+ 	u32 data;
+ 
+-	xgene_enet_rd_mcx_mac(pdata, MAC_CONFIG_1_ADDR, &data);
+-	xgene_enet_wr_mcx_mac(pdata, MAC_CONFIG_1_ADDR, data & ~TX_EN);
++	data = xgene_enet_rd_mac(pdata, MAC_CONFIG_1_ADDR);
++	xgene_enet_wr_mac(pdata, MAC_CONFIG_1_ADDR, data & ~TX_EN);
+ }
+ 
+ bool xgene_ring_mgr_init(struct xgene_enet_pdata *p)
+diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.h b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.h
+index d250bfe..057f951 100644
+--- a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.h
++++ b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.h
+@@ -388,6 +388,9 @@ void xgene_enet_parse_error(struct xgene_enet_desc_ring *ring,
+ bool xgene_ring_mgr_init(struct xgene_enet_pdata *p);
+ int xgene_enet_phy_connect(struct net_device *ndev);
+ void xgene_enet_phy_disconnect(struct xgene_enet_pdata *pdata);
++u32 xgene_enet_rd_mac(struct xgene_enet_pdata *pdata, u32 rd_addr);
++void xgene_enet_wr_mac(struct xgene_enet_pdata *pdata, u32 wr_addr,
++		       u32 wr_data);
+ 
+ extern const struct xgene_mac_ops xgene_gmac_ops;
+ extern const struct xgene_port_ops xgene_gport_ops;
+diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
+index 5f37ed3..9a28ac3 100644
+--- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
++++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
+@@ -2055,6 +2055,7 @@ static int xgene_enet_probe(struct platform_device *pdev)
+ 		goto err;
+ 
+ 	xgene_enet_setup_ops(pdata);
++	spin_lock_init(&pdata->mac_lock);
+ 
+ 	if (pdata->phy_mode == PHY_INTERFACE_MODE_XGMII) {
+ 		ndev->features |= NETIF_F_TSO | NETIF_F_RXCSUM;
+diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.h b/drivers/net/ethernet/apm/xgene/xgene_enet_main.h
+index 0d4be24..827b33d 100644
+--- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.h
++++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.h
+@@ -221,6 +221,7 @@ struct xgene_enet_pdata {
+ 	struct xgene_enet_cle cle;
+ 	struct rtnl_link_stats64 stats;
+ 	const struct xgene_mac_ops *mac_ops;
++	spinlock_t mac_lock; /* mac lock */
+ 	const struct xgene_port_ops *port_ops;
+ 	struct xgene_ring_ops *ring_ops;
+ 	const struct xgene_cle_ops *cle_ops;
+diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_sgmac.c b/drivers/net/ethernet/apm/xgene/xgene_enet_sgmac.c
+index a8e063b..cb6350f 100644
+--- a/drivers/net/ethernet/apm/xgene/xgene_enet_sgmac.c
++++ b/drivers/net/ethernet/apm/xgene/xgene_enet_sgmac.c
+@@ -54,41 +54,6 @@ static void xgene_enet_wr_mcx_csr(struct xgene_enet_pdata *pdata,
+ 	iowrite32(val, addr);
+ }
+ 
+-static bool xgene_enet_wr_indirect(struct xgene_indirect_ctl *ctl,
+-				   u32 wr_addr, u32 wr_data)
+-{
+-	int i;
+-
+-	iowrite32(wr_addr, ctl->addr);
+-	iowrite32(wr_data, ctl->ctl);
+-	iowrite32(XGENE_ENET_WR_CMD, ctl->cmd);
+-
+-	/* wait for write command to complete */
+-	for (i = 0; i < 10; i++) {
+-		if (ioread32(ctl->cmd_done)) {
+-			iowrite32(0, ctl->cmd);
+-			return true;
+-		}
+-		udelay(1);
+-	}
+-
+-	return false;
+-}
+-
+-static void xgene_enet_wr_mac(struct xgene_enet_pdata *p,
+-			      u32 wr_addr, u32 wr_data)
+-{
+-	struct xgene_indirect_ctl ctl = {
+-		.addr = p->mcx_mac_addr + MAC_ADDR_REG_OFFSET,
+-		.ctl = p->mcx_mac_addr + MAC_WRITE_REG_OFFSET,
+-		.cmd = p->mcx_mac_addr + MAC_COMMAND_REG_OFFSET,
+-		.cmd_done = p->mcx_mac_addr + MAC_COMMAND_DONE_REG_OFFSET
+-	};
+-
+-	if (!xgene_enet_wr_indirect(&ctl, wr_addr, wr_data))
+-		netdev_err(p->ndev, "mac write failed, addr: %04x\n", wr_addr);
+-}
+-
+ static u32 xgene_enet_rd_csr(struct xgene_enet_pdata *p, u32 offset)
+ {
+ 	return ioread32(p->eth_csr_addr + offset);
+@@ -104,42 +69,6 @@ static u32 xgene_enet_rd_mcx_csr(struct xgene_enet_pdata *p, u32 offset)
+ 	return ioread32(p->mcx_mac_csr_addr + offset);
+ }
+ 
+-static u32 xgene_enet_rd_indirect(struct xgene_indirect_ctl *ctl, u32 rd_addr)
+-{
+-	u32 rd_data;
+-	int i;
+-
+-	iowrite32(rd_addr, ctl->addr);
+-	iowrite32(XGENE_ENET_RD_CMD, ctl->cmd);
+-
+-	/* wait for read command to complete */
+-	for (i = 0; i < 10; i++) {
+-		if (ioread32(ctl->cmd_done)) {
+-			rd_data = ioread32(ctl->ctl);
+-			iowrite32(0, ctl->cmd);
+-
+-			return rd_data;
+-		}
+-		udelay(1);
+-	}
+-
+-	pr_err("%s: mac read failed, addr: %04x\n", __func__, rd_addr);
+-
+-	return 0;
+-}
+-
+-static u32 xgene_enet_rd_mac(struct xgene_enet_pdata *p, u32 rd_addr)
+-{
+-	struct xgene_indirect_ctl ctl = {
+-		.addr = p->mcx_mac_addr + MAC_ADDR_REG_OFFSET,
+-		.ctl = p->mcx_mac_addr + MAC_READ_REG_OFFSET,
+-		.cmd = p->mcx_mac_addr + MAC_COMMAND_REG_OFFSET,
+-		.cmd_done = p->mcx_mac_addr + MAC_COMMAND_DONE_REG_OFFSET
+-	};
+-
+-	return xgene_enet_rd_indirect(&ctl, rd_addr);
+-}
+-
+ static int xgene_enet_ecc_init(struct xgene_enet_pdata *p)
+ {
+ 	struct net_device *ndev = p->ndev;
+diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.c b/drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.c
+index 423240c..c6a5dac 100644
+--- a/drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.c
++++ b/drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.c
+@@ -71,21 +71,6 @@ static bool xgene_enet_wr_indirect(void __iomem *addr, void __iomem *wr,
+ 	return true;
+ }
+ 
+-static void xgene_enet_wr_mac(struct xgene_enet_pdata *pdata,
+-			      u32 wr_addr, u32 wr_data)
+-{
+-	void __iomem *addr, *wr, *cmd, *cmd_done;
+-
+-	addr = pdata->mcx_mac_addr + MAC_ADDR_REG_OFFSET;
+-	wr = pdata->mcx_mac_addr + MAC_WRITE_REG_OFFSET;
+-	cmd = pdata->mcx_mac_addr + MAC_COMMAND_REG_OFFSET;
+-	cmd_done = pdata->mcx_mac_addr + MAC_COMMAND_DONE_REG_OFFSET;
+-
+-	if (!xgene_enet_wr_indirect(addr, wr, cmd, cmd_done, wr_addr, wr_data))
+-		netdev_err(pdata->ndev, "MCX mac write failed, addr: %04x\n",
+-			   wr_addr);
+-}
+-
+ static void xgene_enet_wr_pcs(struct xgene_enet_pdata *pdata,
+ 			      u32 wr_addr, u32 wr_data)
+ {
+@@ -148,21 +133,6 @@ static bool xgene_enet_rd_indirect(void __iomem *addr, void __iomem *rd,
+ 	return true;
+ }
+ 
+-static void xgene_enet_rd_mac(struct xgene_enet_pdata *pdata,
+-			      u32 rd_addr, u32 *rd_data)
+-{
+-	void __iomem *addr, *rd, *cmd, *cmd_done;
+-
+-	addr = pdata->mcx_mac_addr + MAC_ADDR_REG_OFFSET;
+-	rd = pdata->mcx_mac_addr + MAC_READ_REG_OFFSET;
+-	cmd = pdata->mcx_mac_addr + MAC_COMMAND_REG_OFFSET;
+-	cmd_done = pdata->mcx_mac_addr + MAC_COMMAND_DONE_REG_OFFSET;
+-
+-	if (!xgene_enet_rd_indirect(addr, rd, cmd, cmd_done, rd_addr, rd_data))
+-		netdev_err(pdata->ndev, "MCX mac read failed, addr: %04x\n",
+-			   rd_addr);
+-}
+-
+ static bool xgene_enet_rd_pcs(struct xgene_enet_pdata *pdata,
+ 			      u32 rd_addr, u32 *rd_data)
+ {
+@@ -300,7 +270,7 @@ static void xgene_xgmac_flowctl_tx(struct xgene_enet_pdata *pdata, bool enable)
+ {
+ 	u32 data;
+ 
+-	xgene_enet_rd_mac(pdata, AXGMAC_CONFIG_1, &data);
++	data = xgene_enet_rd_mac(pdata, AXGMAC_CONFIG_1);
+ 
+ 	if (enable)
+ 		data |= HSTTCTLEN;
+@@ -316,7 +286,7 @@ static void xgene_xgmac_flowctl_rx(struct xgene_enet_pdata *pdata, bool enable)
+ {
+ 	u32 data;
+ 
+-	xgene_enet_rd_mac(pdata, AXGMAC_CONFIG_1, &data);
++	data = xgene_enet_rd_mac(pdata, AXGMAC_CONFIG_1);
+ 
+ 	if (enable)
+ 		data |= HSTRCTLEN;
+@@ -332,7 +302,7 @@ static void xgene_xgmac_init(struct xgene_enet_pdata *pdata)
+ 
+ 	xgene_xgmac_reset(pdata);
+ 
+-	xgene_enet_rd_mac(pdata, AXGMAC_CONFIG_1, &data);
++	data = xgene_enet_rd_mac(pdata, AXGMAC_CONFIG_1);
+ 	data |= HSTPPEN;
+ 	data &= ~HSTLENCHK;
+ 	xgene_enet_wr_mac(pdata, AXGMAC_CONFIG_1, data);
+@@ -379,7 +349,7 @@ static void xgene_xgmac_rx_enable(struct xgene_enet_pdata *pdata)
+ {
+ 	u32 data;
+ 
+-	xgene_enet_rd_mac(pdata, AXGMAC_CONFIG_1, &data);
++	data = xgene_enet_rd_mac(pdata, AXGMAC_CONFIG_1);
+ 	xgene_enet_wr_mac(pdata, AXGMAC_CONFIG_1, data | HSTRFEN);
+ }
+ 
+@@ -387,7 +357,7 @@ static void xgene_xgmac_tx_enable(struct xgene_enet_pdata *pdata)
+ {
+ 	u32 data;
+ 
+-	xgene_enet_rd_mac(pdata, AXGMAC_CONFIG_1, &data);
++	data = xgene_enet_rd_mac(pdata, AXGMAC_CONFIG_1);
+ 	xgene_enet_wr_mac(pdata, AXGMAC_CONFIG_1, data | HSTTFEN);
+ }
+ 
+@@ -395,7 +365,7 @@ static void xgene_xgmac_rx_disable(struct xgene_enet_pdata *pdata)
+ {
+ 	u32 data;
+ 
+-	xgene_enet_rd_mac(pdata, AXGMAC_CONFIG_1, &data);
++	data = xgene_enet_rd_mac(pdata, AXGMAC_CONFIG_1);
+ 	xgene_enet_wr_mac(pdata, AXGMAC_CONFIG_1, data & ~HSTRFEN);
+ }
+ 
+@@ -403,7 +373,7 @@ static void xgene_xgmac_tx_disable(struct xgene_enet_pdata *pdata)
+ {
+ 	u32 data;
+ 
+-	xgene_enet_rd_mac(pdata, AXGMAC_CONFIG_1, &data);
++	data = xgene_enet_rd_mac(pdata, AXGMAC_CONFIG_1);
+ 	xgene_enet_wr_mac(pdata, AXGMAC_CONFIG_1, data & ~HSTTFEN);
+ }
+ 
 -- 
 1.9.1
