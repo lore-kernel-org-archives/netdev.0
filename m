@@ -1,44 +1,52 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: bpf pointer alignment validation
-Date: Wed, 10 May 2017 18:21:50 +0200
-Message-ID: <59133E1E.8060208@iogearbox.net>
-References: <20170510055735.hfkoh4w3xaka5yl5@ast-mbp>   <20170510.113357.362211347006868605.davem@davemloft.net>        <59133716.7060800@iogearbox.net> <20170510.115720.1396306489898364855.davem@davemloft.net>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [Patch net] ipv4: restore rt->fi for reference counting
+Date: Wed, 10 May 2017 09:32:12 -0700
+Message-ID: <CAM_iQpVFoyDCemfr_fVD7+zN6-Cb5sv_c9XRqA7Oa9sx5cj2fg@mail.gmail.com>
+References: <1493934857-6693-1-git-send-email-xiyou.wangcong@gmail.com>
+ <20170508.143557.105629611489969352.davem@davemloft.net> <1494288080.7796.59.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20170508.212211.1291611254198273979.davem@davemloft.net> <1494296302.7796.61.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAM_iQpWQoLppsMfDOQWsdifGd56CAY24tCNm0Jm02QCe7ZThOw@mail.gmail.com>
+ <1494348962.7796.88.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAM_iQpXADa6AyQ3X-EbmRPGCQArgPWygvHMYgWtfUYV082oF3Q@mail.gmail.com>
+ <CAM_iQpVhdzeen+ZJ3jyK7Qb=yVuoRSZ7BFB3RoVMShY8KPBTZA@mail.gmail.com>
+ <1494370367.7796.92.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1494370451.7796.93.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1494371348.7796.95.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAM_iQpU+fXO7eFroAYMv6vqDzCK_ZYXjrTPAMfoDR2BDqaK9rQ@mail.gmail.com> <1494373805.7796.98.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: alexei.starovoitov@gmail.com, ast@fb.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Andrey Konovalov <andreyknvl@google.com>,
+        Eric Dumazet <edumazet@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:44125 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932226AbdEJQWD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 10 May 2017 12:22:03 -0400
-In-Reply-To: <20170510.115720.1396306489898364855.davem@davemloft.net>
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:33528 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754335AbdEJQci (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 10 May 2017 12:32:38 -0400
+Received: by mail-wm0-f67.google.com with SMTP id y10so975673wmh.0
+        for <netdev@vger.kernel.org>; Wed, 10 May 2017 09:32:38 -0700 (PDT)
+In-Reply-To: <1494373805.7796.98.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/10/2017 05:57 PM, David Miller wrote:
-> From: Daniel Borkmann <daniel@iogearbox.net>
-> Date: Wed, 10 May 2017 17:51:50 +0200
+On Tue, May 9, 2017 at 4:50 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Tue, 2017-05-09 at 16:35 -0700, Cong Wang wrote:
 >
->> Would probably be good nevertheless to have this as a flag for
->> program loads, which gets then passed through to the verifier to
->> explicitly enable strict alignment checks.
->>
->> Might certainly aide developing & testing programs on archs with
->> efficient unaligned access and later actually running them on archs
->> that don't have it. (And at minimum, it also helps for checking
->> the test suite against the verifier.)
+>> All of them take RCU read lock, so, as I explained in the code comment,
+>> they all should be fine because of synchronize_net() on unregister path.
+>> Do you see anything otherwise?
 >
-> Ok, I can implement this flag.
+> They might take rcu lock, but compiler is still allowed to read
+> fi->fib_dev multiple times, and crashes might happen.
 >
-> The only question is where to put it?  An unused bit in the program
-> type? :-)
+> You will need to audit all code and fix it, using proper
+> rcu_dereference() or similar code ensuring compiler wont do stupid
+> things.
+>
 
-See for example 7f677633379b ("bpf: introduce BPF_F_ALLOW_OVERRIDE
-flag"). We can add a flags field to the prog loading part of union
-bpf_attr; we would need to make sure to update BPF_PROG_LOAD_LAST_FIELD
-to the new member, and to reject unknown flags, of course. Then the
-syscall will handle compat with older binaries just fine by design,
-the main bpf syscall code and CHECK_ATTR() macros will ensure this
-(backward compat, and to a limited degree also forward compat).
+Point taken. But without my patch, nh_dev is supposed to be protected
+by RCU too, it is freed in a rcu callback and dereferenced like:
+
+struct in_device *in_dev = __in_dev_get_rcu(nh->nh_dev);
