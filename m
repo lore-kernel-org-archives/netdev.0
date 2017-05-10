@@ -1,7 +1,7 @@
 From: Stefan Wahren <stefan.wahren@i2se.com>
-Subject: [PATCH v5 14/17] dt-bindings: slave-device: add current-speed property
-Date: Wed, 10 May 2017 10:53:25 +0200
-Message-ID: <1494406408-31760-15-git-send-email-stefan.wahren@i2se.com>
+Subject: [PATCH v5 15/17] dt-bindings: qca7000: append UART interface to binding
+Date: Wed, 10 May 2017 10:53:26 +0200
+Message-ID: <1494406408-31760-16-git-send-email-stefan.wahren@i2se.com>
 References: <1494406408-31760-1-git-send-email-stefan.wahren@i2se.com>
 Cc: Mark Rutland <mark.rutland@arm.com>,
         Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
@@ -15,33 +15,53 @@ In-Reply-To: <1494406408-31760-1-git-send-email-stefan.wahren@i2se.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This adds a new DT property to define the current baud rate of the
-slave device.
+This merges the serdev binding for the QCA7000 UART driver (Ethernet over
+UART) into the existing document.
 
 Signed-off-by: Stefan Wahren <stefan.wahren@i2se.com>
 ---
- Documentation/devicetree/bindings/serial/slave-device.txt | 9 +++++++++
- 1 file changed, 9 insertions(+)
+ .../devicetree/bindings/net/qca-qca7000.txt        | 32 ++++++++++++++++++++++
+ 1 file changed, 32 insertions(+)
 
-diff --git a/Documentation/devicetree/bindings/serial/slave-device.txt b/Documentation/devicetree/bindings/serial/slave-device.txt
-index f660379..40110e0 100644
---- a/Documentation/devicetree/bindings/serial/slave-device.txt
-+++ b/Documentation/devicetree/bindings/serial/slave-device.txt
-@@ -21,6 +21,15 @@ Optional Properties:
- 		  can support. For example, a particular board has some signal
- 		  quality issue or the host processor can't support higher
- 		  baud rates.
-+- current-speed	: The current baud rate the device operates at. This should
-+		  only be present in case a driver has no chance to know
-+		  the baud rate of the slave device.
-+		  Examples:
-+		    * device supports auto-baud
-+		    * the rate is setup by a bootloader and there is no
-+		      way to reset the device
-+		    * device baud rate is configured by its firmware but
-+		      there is no way to request the actual settings
- 
- Example:
- 
+diff --git a/Documentation/devicetree/bindings/net/qca-qca7000.txt b/Documentation/devicetree/bindings/net/qca-qca7000.txt
+index a37f656..08364c3 100644
+--- a/Documentation/devicetree/bindings/net/qca-qca7000.txt
++++ b/Documentation/devicetree/bindings/net/qca-qca7000.txt
+@@ -54,3 +54,35 @@ ssp2: spi@80014000 {
+ 		local-mac-address = [ A0 B0 C0 D0 E0 F0 ];
+ 	};
+ };
++
++(b) Ethernet over UART
++
++In order to use the QCA7000 as UART slave it must be defined as a child of a
++UART master in the device tree. It is possible to preconfigure the UART
++settings of the QCA7000 firmware, but it's not possible to change them during
++runtime.
++
++Required properties:
++- compatible        : Should be "qca,qca7000-uart"
++
++Optional properties:
++- local-mac-address : see ./ethernet.txt
++- current-speed     : current baud rate of QCA7000 which defaults to 115200
++		      if absent, see also ../serial/slave-device.txt
++
++UART Example:
++
++/* Freescale i.MX28 UART */
++auart0: serial@8006a000 {
++	compatible = "fsl,imx28-auart", "fsl,imx23-auart";
++	reg = <0x8006a000 0x2000>;
++	pinctrl-names = "default";
++	pinctrl-0 = <&auart0_2pins_a>;
++	status = "okay";
++
++	qca7000: ethernet {
++		compatible = "qca,qca7000-uart";
++		local-mac-address = [ A0 B0 C0 D0 E0 F0 ];
++		current-speed = <38400>;
++	};
++};
 -- 
 2.1.4
