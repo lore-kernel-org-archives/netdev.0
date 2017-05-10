@@ -1,7 +1,7 @@
 From: Stefan Wahren <stefan.wahren@i2se.com>
-Subject: [PATCH v5 02/17] net: qca_framing: use u16 for frame offset
-Date: Wed, 10 May 2017 10:53:13 +0200
-Message-ID: <1494406408-31760-3-git-send-email-stefan.wahren@i2se.com>
+Subject: [PATCH v5 16/17] tty: serdev-ttyport: return actual baudrate from ttyport_set_baudrate
+Date: Wed, 10 May 2017 10:53:27 +0200
+Message-ID: <1494406408-31760-17-git-send-email-stefan.wahren@i2se.com>
 References: <1494406408-31760-1-git-send-email-stefan.wahren@i2se.com>
 Cc: Mark Rutland <mark.rutland@arm.com>,
         Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
@@ -15,26 +15,27 @@ In-Reply-To: <1494406408-31760-1-git-send-email-stefan.wahren@i2se.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-It doesn't make sense to use a signed variable for offset here, so
-fix it up.
+Instead of returning the requested baudrate, we better return the
+actual one because it isn't always the same.
 
 Signed-off-by: Stefan Wahren <stefan.wahren@i2se.com>
+Acked-by: Rob Herring <robh@kernel.org>
 ---
- drivers/net/ethernet/qualcomm/qca_framing.h | 2 +-
+ drivers/tty/serdev/serdev-ttyport.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/qualcomm/qca_framing.h b/drivers/net/ethernet/qualcomm/qca_framing.h
-index d5e795d..8b385e6 100644
---- a/drivers/net/ethernet/qualcomm/qca_framing.h
-+++ b/drivers/net/ethernet/qualcomm/qca_framing.h
-@@ -103,7 +103,7 @@ struct qcafrm_handle {
- 	enum qcafrm_state state;
+diff --git a/drivers/tty/serdev/serdev-ttyport.c b/drivers/tty/serdev/serdev-ttyport.c
+index 487c88f..2cfdf34 100644
+--- a/drivers/tty/serdev/serdev-ttyport.c
++++ b/drivers/tty/serdev/serdev-ttyport.c
+@@ -151,7 +151,7 @@ static unsigned int ttyport_set_baudrate(struct serdev_controller *ctrl, unsigne
  
- 	/* Offset in buffer (borrowed for length too) */
--	s16 offset;
-+	u16 offset;
+ 	/* tty_set_termios() return not checked as it is always 0 */
+ 	tty_set_termios(tty, &ktermios);
+-	return speed;
++	return ktermios.c_ospeed;
+ }
  
- 	/* Frame length as kept by this module */
- 	u16 len;
+ static void ttyport_set_flow_control(struct serdev_controller *ctrl, bool enable)
 -- 
 2.1.4
