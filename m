@@ -1,7 +1,7 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH net-next V4 04/10] ptr_ring: introduce batch dequeuing
-Date: Wed, 10 May 2017 11:36:16 +0800
-Message-ID: <1494387382-19916-5-git-send-email-jasowang@redhat.com>
+Subject: [PATCH net-next V4 06/10] tun: export skb_array
+Date: Wed, 10 May 2017 11:36:18 +0800
+Message-ID: <1494387382-19916-7-git-send-email-jasowang@redhat.com>
 References: <1494387382-19916-1-git-send-email-jasowang@redhat.com>
 Cc: Jason Wang <jasowang@redhat.com>
 To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
@@ -11,97 +11,60 @@ In-Reply-To: <1494387382-19916-1-git-send-email-jasowang@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch introduce a batched version of consuming, consumer can
-dequeue more than one pointers from the ring at a time. We don't care
-about the reorder of reading here so no need for compiler barrier.
+This patch exports skb_array through tun_get_skb_array(). Caller can
+then manipulate skb array directly.
 
 Signed-off-by: Jason Wang <jasowang@redhat.com>
 ---
- include/linux/ptr_ring.h | 65 ++++++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 65 insertions(+)
+ drivers/net/tun.c      | 13 +++++++++++++
+ include/linux/if_tun.h |  5 +++++
+ 2 files changed, 18 insertions(+)
 
-diff --git a/include/linux/ptr_ring.h b/include/linux/ptr_ring.h
-index 796b90f..d8c97ec 100644
---- a/include/linux/ptr_ring.h
-+++ b/include/linux/ptr_ring.h
-@@ -278,6 +278,22 @@ static inline void *__ptr_ring_consume(struct ptr_ring *r)
- 	return ptr;
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index bbd707b..3cbfc5c 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -2626,6 +2626,19 @@ struct socket *tun_get_socket(struct file *file)
  }
+ EXPORT_SYMBOL_GPL(tun_get_socket);
  
-+static inline int __ptr_ring_consume_batched(struct ptr_ring *r,
-+					     void **array, int n)
++struct skb_array *tun_get_skb_array(struct file *file)
 +{
-+	void *ptr;
-+	int i;
++	struct tun_file *tfile;
 +
-+	for (i = 0; i < n; i++) {
-+		ptr = __ptr_ring_consume(r);
-+		if (!ptr)
-+			break;
-+		array[i] = ptr;
-+	}
-+
-+	return i;
++	if (file->f_op != &tun_fops)
++		return ERR_PTR(-EINVAL);
++	tfile = file->private_data;
++	if (!tfile)
++		return ERR_PTR(-EBADFD);
++	return &tfile->tx_array;
 +}
++EXPORT_SYMBOL_GPL(tun_get_skb_array);
 +
- /*
-  * Note: resize (below) nests producer lock within consumer lock, so if you
-  * call this in interrupt or BH context, you must disable interrupts/BH when
-@@ -328,6 +344,55 @@ static inline void *ptr_ring_consume_bh(struct ptr_ring *r)
- 	return ptr;
+ module_init(tun_init);
+ module_exit(tun_cleanup);
+ MODULE_DESCRIPTION(DRV_DESCRIPTION);
+diff --git a/include/linux/if_tun.h b/include/linux/if_tun.h
+index ed6da2e..bf9bdf4 100644
+--- a/include/linux/if_tun.h
++++ b/include/linux/if_tun.h
+@@ -19,6 +19,7 @@
+ 
+ #if defined(CONFIG_TUN) || defined(CONFIG_TUN_MODULE)
+ struct socket *tun_get_socket(struct file *);
++struct skb_array *tun_get_skb_array(struct file *file);
+ #else
+ #include <linux/err.h>
+ #include <linux/errno.h>
+@@ -28,5 +29,9 @@ static inline struct socket *tun_get_socket(struct file *f)
+ {
+ 	return ERR_PTR(-EINVAL);
  }
- 
-+static inline int ptr_ring_consume_batched(struct ptr_ring *r,
-+					   void **array, int n)
++static inline struct skb_array *tun_get_skb_array(struct file *f)
 +{
-+	int ret;
-+
-+	spin_lock(&r->consumer_lock);
-+	ret = __ptr_ring_consume_batched(r, array, n);
-+	spin_unlock(&r->consumer_lock);
-+
-+	return ret;
++	return ERR_PTR(-EINVAL);
 +}
-+
-+static inline int ptr_ring_consume_batched_irq(struct ptr_ring *r,
-+					       void **array, int n)
-+{
-+	int ret;
-+
-+	spin_lock_irq(&r->consumer_lock);
-+	ret = __ptr_ring_consume_batched(r, array, n);
-+	spin_unlock_irq(&r->consumer_lock);
-+
-+	return ret;
-+}
-+
-+static inline int ptr_ring_consume_batched_any(struct ptr_ring *r,
-+					       void **array, int n)
-+{
-+	unsigned long flags;
-+	int ret;
-+
-+	spin_lock_irqsave(&r->consumer_lock, flags);
-+	ret = __ptr_ring_consume_batched(r, array, n);
-+	spin_unlock_irqrestore(&r->consumer_lock, flags);
-+
-+	return ret;
-+}
-+
-+static inline int ptr_ring_consume_batched_bh(struct ptr_ring *r,
-+					      void **array, int n)
-+{
-+	int ret;
-+
-+	spin_lock_bh(&r->consumer_lock);
-+	ret = __ptr_ring_consume_batched(r, array, n);
-+	spin_unlock_bh(&r->consumer_lock);
-+
-+	return ret;
-+}
-+
- /* Cast to structure type and call a function without discarding from FIFO.
-  * Function must return a value.
-  * Callers must take consumer_lock.
+ #endif /* CONFIG_TUN */
+ #endif /* __IF_TUN_H */
 -- 
 2.7.4
