@@ -1,54 +1,53 @@
-From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: Re: [PATCH] net: ethernet: stmmac: properly set PS bit in MII
- configurations during reset
-Date: Wed, 10 May 2017 09:18:17 +0200
-Message-ID: <20170510091817.58f4e843@free-electrons.com>
-References: <1493286329-24448-1-git-send-email-thomas.petazzoni@free-electrons.com>
-        <deea272a-f0a9-ad0b-4ad6-387723938314@st.com>
-        <20170503143032.GA22106@Red>
-        <49297ed2-84dc-3e9b-8f40-af915476a091@st.com>
-        <20170508211230.58aeead9@free-electrons.com>
-        <e8151650-aa51-6713-f10c-b3663763ff78@st.com>
+From: <kelley@colfaxcommunitynetwork.org>
+Subject: (unknown)
+Date: Wed, 10 May 2017 07:23:40 -0000
+Message-ID: <149440102051.19573.99475350644360405@linode.com>
+Reply-To: <kelley@colfaxcommunitynetwork.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Corentin Labbe <clabbe.montjoie@gmail.com>,
-        Alexandre Torgue <alexandre.torgue@st.com>,
-        <netdev@vger.kernel.org>, <stable@vger.kernel.org>
-To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <e8151650-aa51-6713-f10c-b3663763ff78@st.com>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: application/zip; name="620_netdev.zip"
+Content-Transfer-Encoding: base64
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [218.90.8.112] ([218.90.8.112]:53345 "HELO linode.com"
+        rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with SMTP
+        id S1751353AbdEJHXq (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 10 May 2017 03:23:46 -0400
+Content-Disposition: attachment
+Subject: 
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello,
-
-On Wed, 10 May 2017 09:03:12 +0200, Giuseppe CAVALLARO wrote:
-
-> > Please, read again my patch and the description of the problem that I
-> > have sent. But basically, any solution that does not allow to set the
-> > PS bit between asserting the DMA reset bit and polling for it to clear
-> > will not work for MII PHYs.  
-> 
-> yes your point was clear to me, I was just wondering if we could find an 
-> easier way
-> to solve it w/o changing the API, adding  the set_ps and propagating the 
-> "interface"
-> inside the DMA reset.
-> 
-> Maybe this could be fixed in the glue-logic in some way. Let me know 
-> what do you think.
-
-Well, it's more up to you to tell me how you would like this be solved.
-We figured out what the problem was, but I don't know well enough the
-architecture of the driver to decide how the solution to this problem
-should be designed. I made an initial simple proposal to show what is
-needed, but I'm definitely open to suggestions.
-
-Best regards,
-
-Thomas
--- 
-Thomas Petazzoni, CTO, Free Electrons
-Embedded Linux and Kernel engineering
-http://free-electrons.com
+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
