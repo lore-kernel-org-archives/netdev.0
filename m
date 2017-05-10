@@ -1,62 +1,67 @@
-From: Arend van Spriel <arend.vanspriel@broadcom.com>
-Subject: Re: [PATCH] wcn36xx: Close SMD channel on device removal
-Date: Wed, 10 May 2017 09:27:43 +0200
-Message-ID: <6e1cc217-924f-c536-6009-f6a377844d6f@broadcom.com>
-References: <20170509043637.28179-1-bjorn.andersson@linaro.org>
- <87h90u3672.fsf@kamboji.qca.qualcomm.com> <20170509230312.GR15143@minitux>
+From: Girish Moodalbail <girish.moodalbail@oracle.com>
+Subject: Re: [PATCH iproute2 v2 1/1] vxlan: Add support for modifying vxlan
+ device attributes
+Date: Wed, 10 May 2017 00:31:27 -0700
+Message-ID: <29877f9d-f6c7-5823-4ecb-4c2d1ee2b525@oracle.com>
+References: <1494095863-21916-1-git-send-email-girish.moodalbail@oracle.com>
+ <1494095863-21916-2-git-send-email-girish.moodalbail@oracle.com>
+ <85shkgd92a.fsf@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Eugene Krasnikov <k.eugene.e@gmail.com>,
-        Eyal Ilsar <c_eilsar@qti.qualcomm.com>,
-        wcn36xx@lists.infradead.org, linux-wireless@vger.kernel.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linux-arm-msm@vger.kernel.org
-To: Bjorn Andersson <bjorn.andersson@linaro.org>,
-        Kalle Valo <kvalo@codeaurora.org>
-Return-path: <linux-arm-msm-owner@vger.kernel.org>
-In-Reply-To: <20170509230312.GR15143@minitux>
-Content-Language: en-GB
-Sender: linux-arm-msm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: stephen@networkplumber.org, netdev@vger.kernel.org
+To: Roman Mashak <mrv@mojatatu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from aserp1040.oracle.com ([141.146.126.69]:23443 "EHLO
+        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751890AbdEJHbX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 10 May 2017 03:31:23 -0400
+In-Reply-To: <85shkgd92a.fsf@mojatatu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 5/10/2017 1:03 AM, Bjorn Andersson wrote:
-> On Mon 08 May 23:17 PDT 2017, Kalle Valo wrote:
-> 
->> Bjorn Andersson <bjorn.andersson@linaro.org> writes:
+On 5/7/17 7:40 AM, Roman Mashak wrote:
+> Girish Moodalbail <girish.moodalbail@oracle.com> writes:
+>
+>
+> [...]
+>
+>>  ip/iplink_vxlan.c | 251 +++++++++++++++++++++++++++++++-----------------------
+>>  1 file changed, 143 insertions(+), 108 deletions(-)
 >>
->>> The SMD channel is not the primary WCNSS channel and must explicitly be
->>> closed as the device is removed, or the channel will already by open on
->>> a subsequent probe call in e.g. the case of reloading the kernel module.
->>>
->>> This issue was introduced because I simplified the underlying SMD
->>> implementation while the SMD adaptions of the driver sat on the mailing
->>> list, but missed to update these patches. The patch does however only
->>> apply back to the transition to rpmsg, hence the limited Fixes.
->>>
->>> Fixes: 5052de8deff5 ("soc: qcom: smd: Transition client drivers from smd to rpmsg")
->>> Reported-by: Eyal Ilsar <c_eilsar@qti.qualcomm.com>
->>> Signed-off-by: Bjorn Andersson <bjorn.andersson@linaro.org>
+>> diff --git a/ip/iplink_vxlan.c b/ip/iplink_vxlan.c
+>> index b4ebb13..2bd619d 100644
+>> --- a/ip/iplink_vxlan.c
+>> +++ b/ip/iplink_vxlan.c
+>> @@ -21,6 +21,8 @@
+>>  #include "utils.h"
+>>  #include "ip_common.h"
 >>
->> As this is a regression I'll queue this to 4.12.
->>
-> 
-> Thanks.
-> 
->> But if this is an older bug (didn't quite understand your description
->> though) should there be a separate patch for stable releases?
->>
-> 
-> AFAICT this never worked, as it seems I did the rework in SMD while we
-> tried to figure out the dependency issues we had with moving to SMD. So
-> v4.9 through v4.11 has SMD support - with this bug.
-> 
-> How do I proceed, do you want me to write up a fix for stable@? Do I
-> send that out as an ordinary patch?
+>> +#define VXLAN_ATTRSET(attrs, type) (((attrs) & (1L << (type))) != 0)
+>
+> I think you can drop '!= 0' part in the macro.
 
-If the patch applies cleanly on branches linux-4.9.y through 
-linux-4.11.y in the stable repository you can go for '--- Option 1 ---' 
-as described in <linux-repo>/Documentation/stable_kernel_rules.txt.
+Sure it can be done that way as well. However, I have seen both forms in use in 
+iproute2 code base, so I would like to keep this as is unless you feel strongly 
+about it. Furthermore, running 'checkpatch.pl --strict' on the patch didn't 
+complain too.
 
-Regards,
-Arend
+regards,
+~Girish
+
+>
+> [...]
+>
+>>
+>> +static void check_duparg(__u64 *attrs, int type, const char *key,
+>> +			 const char *argv)
+>> +{
+>> +	if (!VXLAN_ATTRSET(*attrs, type)) {
+>> +		*attrs |= (1L << type);
+>> +		return;
+>> +	}
+>> +	duparg2(key, argv);
+>> +}
+>
+> [...]
+>
