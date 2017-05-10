@@ -1,369 +1,138 @@
-From: Iyappan Subramanian <isubramanian@apm.com>
-Subject: [PATCH v2 net-next 07/12] drivers: net: xgene: Extend ethtool statistics
-Date: Wed, 10 May 2017 13:45:05 -0700
-Message-ID: <1494449110-23785-8-git-send-email-isubramanian@apm.com>
-References: <1494449110-23785-1-git-send-email-isubramanian@apm.com>
-Cc: linux-arm-kernel@lists.infradead.org, patches@apm.com,
-        Quan Nguyen <qnguyen@apm.com>,
-        Iyappan Subramanian <isubramanian@apm.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
+From: Jakub Kicinski <kubakici@wp.pl>
+Subject: Re: [PATCH net 2/2] xdp: disallow use of native and generic hook at
+ once
+Date: Wed, 10 May 2017 14:07:54 -0700
+Message-ID: <20170510140754.739e4123@cakuba.netronome.com>
+References: <cover.1494379046.git.daniel@iogearbox.net>
+        <f8405a8769dca09a0f21d11eab3793e30f608531.1494379046.git.daniel@iogearbox.net>
+        <20170509201842.2ed5e330@cakuba.netronome.com>
+        <5912DF16.7050603@iogearbox.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, alexei.starovoitov@gmail.com,
+        john.fastabend@gmail.com, netdev@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f176.google.com ([209.85.223.176]:35631 "EHLO
-        mail-io0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753934AbdEJUm3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 10 May 2017 16:42:29 -0400
-Received: by mail-io0-f176.google.com with SMTP id f102so9426517ioi.2
-        for <netdev@vger.kernel.org>; Wed, 10 May 2017 13:42:29 -0700 (PDT)
-In-Reply-To: <1494449110-23785-1-git-send-email-isubramanian@apm.com>
+Received: from mx3.wp.pl ([212.77.101.9]:45132 "EHLO mx3.wp.pl"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750930AbdEJVIM (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 10 May 2017 17:08:12 -0400
+In-Reply-To: <5912DF16.7050603@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Quan Nguyen <qnguyen@apm.com>
+On Wed, 10 May 2017 11:36:22 +0200, Daniel Borkmann wrote:
+> On 05/10/2017 05:18 AM, Jakub Kicinski wrote:
+> > On Wed, 10 May 2017 03:31:31 +0200, Daniel Borkmann wrote:  
+> >> @@ -6851,6 +6851,32 @@ int dev_change_proto_down(struct net_device *dev, bool proto_down)
+> >>   }
+> >>   EXPORT_SYMBOL(dev_change_proto_down);
+> >>
+> >> +bool __dev_xdp_attached(struct net_device *dev, xdp_op_t xdp_op)  
+> >
+> > Out of curiosity - the leading underscores refer to caller having to
+> > hold rtnl?  I assume they are not needed in the function below because
+> > it's static?  
+> 
+> I think I don't quite follow the last question, but it probably makes
+> sense to add an ASSERT_RTNL() into dev_xdp_attached() inline helper to
+> make it clearly visible to callers of this api.
 
-This patch adds extended ethtool statistics support.
+Sorry, I missed you have a dev_xdp_attached() defined in the header,
+hence the confusion.
 
-Signed-off-by: Quan Nguyen <qnguyen@apm.com>
-Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
----
- .../net/ethernet/apm/xgene/xgene_enet_ethtool.c    | 89 +++++++++++++++++++++-
- drivers/net/ethernet/apm/xgene/xgene_enet_hw.c     | 29 +++++++
- drivers/net/ethernet/apm/xgene/xgene_enet_hw.h     | 51 +++++++++++++
- drivers/net/ethernet/apm/xgene/xgene_enet_main.c   |  8 ++
- drivers/net/ethernet/apm/xgene/xgene_enet_main.h   |  4 +
- drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.h  |  1 +
- 6 files changed, 181 insertions(+), 1 deletion(-)
+> >> +{
+> >> +	struct netdev_xdp xdp;
+> >> +
+> >> +	memset(&xdp, 0, sizeof(xdp));
+> >> +	xdp.command = XDP_QUERY_PROG;  
+> >
+> > Probably personal preference, but seems like designated struct
+> > initializer would do quite nicely here and save the memset :)  
+> 
+> I had that initially, but I recalled that gcc < 4.6 does not handle this
+> style for the initialization of anonymous struct/union properly (e.g.,
+> we fixed that in iproute2 as well). Andrew Morton still uses gcc 4.4.4
+> and occasionally sends kernel fixes, so we might end up like this anyway.
 
-diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_ethtool.c b/drivers/net/ethernet/apm/xgene/xgene_enet_ethtool.c
-index 217cde8..a7eed3b 100644
---- a/drivers/net/ethernet/apm/xgene/xgene_enet_ethtool.c
-+++ b/drivers/net/ethernet/apm/xgene/xgene_enet_ethtool.c
-@@ -23,9 +23,17 @@
- struct xgene_gstrings_stats {
- 	char name[ETH_GSTRING_LEN];
- 	int offset;
-+	u32 addr;
-+	u32 mask;
- };
- 
- #define XGENE_STAT(m) { #m, offsetof(struct rtnl_link_stats64, m) }
-+#define XGENE_EXTD_STAT(s, a, m)		\
-+		{			\
-+		.name = #s,		\
-+		.addr = a ## _ADDR,	\
-+		.mask = m		\
-+		}
- 
- static const struct xgene_gstrings_stats gstrings_stats[] = {
- 	XGENE_STAT(rx_packets),
-@@ -40,7 +48,51 @@ struct xgene_gstrings_stats {
- 	XGENE_STAT(rx_fifo_errors)
- };
- 
-+static const struct xgene_gstrings_stats gstrings_extd_stats[] = {
-+	XGENE_EXTD_STAT(tx_rx_64b_frame_cntr, TR64, 31),
-+	XGENE_EXTD_STAT(tx_rx_127b_frame_cntr, TR127, 31),
-+	XGENE_EXTD_STAT(tx_rx_255b_frame_cntr, TR255, 31),
-+	XGENE_EXTD_STAT(tx_rx_511b_frame_cntr, TR511, 31),
-+	XGENE_EXTD_STAT(tx_rx_1023b_frame_cntr, TR1K, 31),
-+	XGENE_EXTD_STAT(tx_rx_1518b_frame_cntr, TRMAX, 31),
-+	XGENE_EXTD_STAT(tx_rx_1522b_frame_cntr, TRMGV, 31),
-+	XGENE_EXTD_STAT(rx_fcs_error_cntr, RFCS, 16),
-+	XGENE_EXTD_STAT(rx_multicast_pkt_cntr, RMCA, 31),
-+	XGENE_EXTD_STAT(rx_broadcast_pkt_cntr, RBCA, 31),
-+	XGENE_EXTD_STAT(rx_ctrl_frame_pkt_cntr, RXCF, 16),
-+	XGENE_EXTD_STAT(rx_pause_frame_pkt_cntr, RXPF, 16),
-+	XGENE_EXTD_STAT(rx_unk_opcode_cntr, RXUO, 16),
-+	XGENE_EXTD_STAT(rx_align_err_cntr, RALN, 16),
-+	XGENE_EXTD_STAT(rx_frame_len_err_cntr, RFLR, 16),
-+	XGENE_EXTD_STAT(rx_code_err_cntr, RCDE, 16),
-+	XGENE_EXTD_STAT(rx_carrier_sense_err_cntr, RCSE, 16),
-+	XGENE_EXTD_STAT(rx_undersize_pkt_cntr, RUND, 16),
-+	XGENE_EXTD_STAT(rx_oversize_pkt_cntr, ROVR, 16),
-+	XGENE_EXTD_STAT(rx_fragments_cntr, RFRG, 16),
-+	XGENE_EXTD_STAT(rx_jabber_cntr, RJBR, 16),
-+	XGENE_EXTD_STAT(rx_dropped_pkt_cntr, RDRP, 16),
-+	XGENE_EXTD_STAT(tx_multicast_pkt_cntr, TMCA, 31),
-+	XGENE_EXTD_STAT(tx_broadcast_pkt_cntr, TBCA, 31),
-+	XGENE_EXTD_STAT(tx_pause_ctrl_frame_cntr, TXPF, 16),
-+	XGENE_EXTD_STAT(tx_defer_pkt_cntr, TDFR, 31),
-+	XGENE_EXTD_STAT(tx_excv_defer_pkt_cntr, TEDF, 31),
-+	XGENE_EXTD_STAT(tx_single_col_pkt_cntr, TSCL, 31),
-+	XGENE_EXTD_STAT(tx_multi_col_pkt_cntr, TMCL, 31),
-+	XGENE_EXTD_STAT(tx_late_col_pkt_cntr, TLCL, 31),
-+	XGENE_EXTD_STAT(tx_excv_col_pkt_cntr, TXCL, 31),
-+	XGENE_EXTD_STAT(tx_total_col_cntr, TNCL, 31),
-+	XGENE_EXTD_STAT(tx_pause_frames_hnrd_cntr, TPFH, 16),
-+	XGENE_EXTD_STAT(tx_drop_frame_cntr, TDRP, 16),
-+	XGENE_EXTD_STAT(tx_jabber_frame_cntr, TJBR, 12),
-+	XGENE_EXTD_STAT(tx_fcs_error_cntr, TFCS, 12),
-+	XGENE_EXTD_STAT(tx_ctrl_frame_cntr, TXCF, 12),
-+	XGENE_EXTD_STAT(tx_oversize_frame_cntr, TOVR, 12),
-+	XGENE_EXTD_STAT(tx_undersize_frame_cntr, TUND, 12),
-+	XGENE_EXTD_STAT(tx_fragments_cntr, TFRG, 12)
-+};
-+
- #define XGENE_STATS_LEN		ARRAY_SIZE(gstrings_stats)
-+#define XGENE_EXTD_STATS_LEN	ARRAY_SIZE(gstrings_extd_stats)
- 
- static void xgene_get_drvinfo(struct net_device *ndev,
- 			      struct ethtool_drvinfo *info)
-@@ -142,6 +194,11 @@ static void xgene_get_strings(struct net_device *ndev, u32 stringset, u8 *data)
- 		memcpy(p, gstrings_stats[i].name, ETH_GSTRING_LEN);
- 		p += ETH_GSTRING_LEN;
- 	}
-+
-+	for (i = 0; i < XGENE_EXTD_STATS_LEN; i++) {
-+		memcpy(p, gstrings_extd_stats[i].name, ETH_GSTRING_LEN);
-+		p += ETH_GSTRING_LEN;
-+	}
- }
- 
- static int xgene_get_sset_count(struct net_device *ndev, int sset)
-@@ -149,19 +206,49 @@ static int xgene_get_sset_count(struct net_device *ndev, int sset)
- 	if (sset != ETH_SS_STATS)
- 		return -EINVAL;
- 
--	return XGENE_STATS_LEN;
-+	return XGENE_STATS_LEN + XGENE_EXTD_STATS_LEN;
-+}
-+
-+static void xgene_get_extd_stats(struct xgene_enet_pdata *pdata)
-+{
-+	u32 tmp;
-+	int i;
-+
-+	for (i = 0; i < XGENE_EXTD_STATS_LEN; i++) {
-+		tmp = xgene_enet_rd_stat(pdata, gstrings_extd_stats[i].addr);
-+		pdata->extd_stats[i] += tmp &
-+			GENMASK(gstrings_extd_stats[i].mask - 1, 0);
-+	}
-+}
-+
-+int xgene_extd_stats_init(struct xgene_enet_pdata *pdata)
-+{
-+	pdata->extd_stats = devm_kmalloc_array(&pdata->pdev->dev,
-+			XGENE_EXTD_STATS_LEN, sizeof(u64), GFP_KERNEL);
-+	if (!pdata->extd_stats)
-+		return -ENOMEM;
-+
-+	xgene_get_extd_stats(pdata);
-+	memset(pdata->extd_stats, 0, XGENE_EXTD_STATS_LEN * sizeof(u64));
-+
-+	return 0;
- }
- 
- static void xgene_get_ethtool_stats(struct net_device *ndev,
- 				    struct ethtool_stats *dummy,
- 				    u64 *data)
- {
-+	struct xgene_enet_pdata *pdata = netdev_priv(ndev);
- 	struct rtnl_link_stats64 stats;
- 	int i;
- 
- 	dev_get_stats(ndev, &stats);
- 	for (i = 0; i < XGENE_STATS_LEN; i++)
- 		data[i] = *(u64 *)((char *)&stats + gstrings_stats[i].offset);
-+
-+	xgene_get_extd_stats(pdata);
-+	for (i = 0; i < XGENE_EXTD_STATS_LEN; i++)
-+		data[i + XGENE_STATS_LEN] = pdata->extd_stats[i];
- }
- 
- static void xgene_get_pauseparam(struct net_device *ndev,
-diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
-index 02df577..9e89193 100644
---- a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
-+++ b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
-@@ -359,6 +359,35 @@ u32 xgene_enet_rd_mac(struct xgene_enet_pdata *pdata, u32 rd_addr)
- 	return rd_data;
- }
- 
-+u32 xgene_enet_rd_stat(struct xgene_enet_pdata *pdata, u32 rd_addr)
-+{
-+	void __iomem *addr, *rd, *cmd, *cmd_done;
-+	u32 done, rd_data;
-+	u8 wait = 10;
-+
-+	addr = pdata->mcx_stats_addr + STAT_ADDR_REG_OFFSET;
-+	rd = pdata->mcx_stats_addr + STAT_READ_REG_OFFSET;
-+	cmd = pdata->mcx_stats_addr + STAT_COMMAND_REG_OFFSET;
-+	cmd_done = pdata->mcx_stats_addr + STAT_COMMAND_DONE_REG_OFFSET;
-+
-+	spin_lock(&pdata->stats_lock);
-+	iowrite32(rd_addr, addr);
-+	iowrite32(XGENE_ENET_RD_CMD, cmd);
-+
-+	while (!(done = ioread32(cmd_done)) && wait--)
-+		udelay(1);
-+
-+	if (!done)
-+		netdev_err(pdata->ndev, "mac stats read failed, addr: %04x\n",
-+			   rd_addr);
-+
-+	rd_data = ioread32(rd);
-+	iowrite32(0, cmd);
-+	spin_unlock(&pdata->stats_lock);
-+
-+	return rd_data;
-+}
-+
- static void xgene_gmac_set_mac_addr(struct xgene_enet_pdata *pdata)
- {
- 	u32 addr0, addr1;
-diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.h b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.h
-index ed51005..f1a4cfa 100644
---- a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.h
-+++ b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.h
-@@ -115,6 +115,7 @@ enum xgene_enet_rm {
- #define BLOCK_ETH_CLKRST_CSR_OFFSET	0xc000
- #define BLOCK_ETH_DIAG_CSR_OFFSET	0xD000
- #define BLOCK_ETH_MAC_OFFSET		0x0000
-+#define BLOCK_ETH_STATS_OFFSET		0x0000
- #define BLOCK_ETH_MAC_CSR_OFFSET	0x2800
- 
- #define CLKEN_ADDR			0xc208
-@@ -126,6 +127,12 @@ enum xgene_enet_rm {
- #define MAC_READ_REG_OFFSET		0x0c
- #define MAC_COMMAND_DONE_REG_OFFSET	0x10
- 
-+#define STAT_ADDR_REG_OFFSET            0x14
-+#define STAT_COMMAND_REG_OFFSET         0x18
-+#define STAT_WRITE_REG_OFFSET           0x1c
-+#define STAT_READ_REG_OFFSET            0x20
-+#define STAT_COMMAND_DONE_REG_OFFSET    0x24
-+
- #define PCS_ADDR_REG_OFFSET		0x00
- #define PCS_COMMAND_REG_OFFSET		0x04
- #define PCS_WRITE_REG_OFFSET		0x08
-@@ -218,6 +225,49 @@ enum xgene_enet_rm {
- #define PAD_CRC				BIT(2)
- #define LENGTH_CHK			BIT(4)
- 
-+#define TR64_ADDR	0x20
-+#define TR127_ADDR	0x21
-+#define TR255_ADDR	0x22
-+#define TR511_ADDR	0x23
-+#define TR1K_ADDR	0x24
-+#define TRMAX_ADDR	0x25
-+#define TRMGV_ADDR	0x26
-+
-+#define RFCS_ADDR	0x29
-+#define RMCA_ADDR	0x2a
-+#define RBCA_ADDR	0x2b
-+#define RXCF_ADDR	0x2c
-+#define RXPF_ADDR	0x2d
-+#define RXUO_ADDR	0x2e
-+#define RALN_ADDR	0x2f
-+#define RFLR_ADDR	0x30
-+#define RCDE_ADDR	0x31
-+#define RCSE_ADDR	0x32
-+#define RUND_ADDR	0x33
-+#define ROVR_ADDR	0x34
-+#define RFRG_ADDR	0x35
-+#define RJBR_ADDR	0x36
-+#define RDRP_ADDR	0x37
-+
-+#define TMCA_ADDR	0x3a
-+#define TBCA_ADDR	0x3b
-+#define TXPF_ADDR	0x3c
-+#define TDFR_ADDR	0x3d
-+#define TEDF_ADDR	0x3e
-+#define TSCL_ADDR	0x3f
-+#define TMCL_ADDR	0x40
-+#define TLCL_ADDR	0x41
-+#define TXCL_ADDR	0x42
-+#define TNCL_ADDR	0x43
-+#define TPFH_ADDR	0x44
-+#define TDRP_ADDR	0x45
-+#define TJBR_ADDR	0x46
-+#define TFCS_ADDR	0x47
-+#define TXCF_ADDR	0x48
-+#define TOVR_ADDR	0x49
-+#define TUND_ADDR	0x4a
-+#define TFRG_ADDR	0x4b
-+
- #define TSO_IPPROTO_TCP			1
- 
- #define USERINFO_POS			0
-@@ -383,6 +433,7 @@ void xgene_enet_parse_error(struct xgene_enet_desc_ring *ring,
- u32 xgene_enet_rd_mac(struct xgene_enet_pdata *pdata, u32 rd_addr);
- void xgene_enet_wr_mac(struct xgene_enet_pdata *pdata, u32 wr_addr,
- 		       u32 wr_data);
-+u32 xgene_enet_rd_stat(struct xgene_enet_pdata *pdata, u32 rd_addr);
- 
- extern const struct xgene_mac_ops xgene_gmac_ops;
- extern const struct xgene_port_ops xgene_gport_ops;
-diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-index 3f24b83..bd2486e 100644
---- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-+++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-@@ -1792,12 +1792,15 @@ static int xgene_enet_get_resources(struct xgene_enet_pdata *pdata)
- 	if (pdata->phy_mode == PHY_INTERFACE_MODE_RGMII ||
- 	    pdata->phy_mode == PHY_INTERFACE_MODE_SGMII) {
- 		pdata->mcx_mac_addr = pdata->base_addr + BLOCK_ETH_MAC_OFFSET;
-+		pdata->mcx_stats_addr =
-+			pdata->base_addr + BLOCK_ETH_STATS_OFFSET;
- 		offset = (pdata->enet_id == XGENE_ENET1) ?
- 			  BLOCK_ETH_MAC_CSR_OFFSET :
- 			  X2_BLOCK_ETH_MAC_CSR_OFFSET;
- 		pdata->mcx_mac_csr_addr = base_addr + offset;
- 	} else {
- 		pdata->mcx_mac_addr = base_addr + BLOCK_AXG_MAC_OFFSET;
-+		pdata->mcx_stats_addr = base_addr + BLOCK_AXG_STATS_OFFSET;
- 		pdata->mcx_mac_csr_addr = base_addr + BLOCK_AXG_MAC_CSR_OFFSET;
- 		pdata->pcs_addr = base_addr + BLOCK_PCS_OFFSET;
- 	}
-@@ -2090,6 +2093,11 @@ static int xgene_enet_probe(struct platform_device *pdev)
- 			goto err1;
- 	}
- 
-+	spin_lock_init(&pdata->stats_lock);
-+	ret = xgene_extd_stats_init(pdata);
-+	if (ret)
-+		goto err2;
-+
- 	xgene_enet_napi_add(pdata);
- 	ret = register_netdev(ndev);
- 	if (ret) {
-diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.h b/drivers/net/ethernet/apm/xgene/xgene_enet_main.h
-index 3bf6638..cbdc09c 100644
---- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.h
-+++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.h
-@@ -214,6 +214,7 @@ struct xgene_enet_pdata {
- 	void __iomem *eth_diag_csr_addr;
- 	void __iomem *mcx_mac_addr;
- 	void __iomem *mcx_mac_csr_addr;
-+	void __iomem *mcx_stats_addr;
- 	void __iomem *base_addr;
- 	void __iomem *pcs_addr;
- 	void __iomem *ring_csr_addr;
-@@ -221,6 +222,8 @@ struct xgene_enet_pdata {
- 	int phy_mode;
- 	enum xgene_enet_rm rm;
- 	struct xgene_enet_cle cle;
-+	u64 *extd_stats;
-+	spinlock_t stats_lock; /* statistics lock */
- 	const struct xgene_mac_ops *mac_ops;
- 	spinlock_t mac_lock; /* mac lock */
- 	const struct xgene_port_ops *port_ops;
-@@ -265,5 +268,6 @@ static inline u16 xgene_enet_dst_ring_num(struct xgene_enet_desc_ring *ring)
- }
- 
- void xgene_enet_set_ethtool_ops(struct net_device *netdev);
-+int xgene_extd_stats_init(struct xgene_enet_pdata *pdata);
- 
- #endif /* __XGENE_ENET_MAIN_H__ */
-diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.h b/drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.h
-index e644a42..9b98c83 100644
---- a/drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.h
-+++ b/drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.h
-@@ -23,6 +23,7 @@
- 
- #define X2_BLOCK_ETH_MAC_CSR_OFFSET	0x3000
- #define BLOCK_AXG_MAC_OFFSET		0x0800
-+#define BLOCK_AXG_STATS_OFFSET		0x0800
- #define BLOCK_AXG_MAC_CSR_OFFSET	0x2000
- #define BLOCK_PCS_OFFSET		0x3800
- 
--- 
-1.9.1
+Ah, good to know!
+
+> >> diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+> >> index dda9f16..99320f0 100644
+> >> --- a/net/core/rtnetlink.c
+> >> +++ b/net/core/rtnetlink.c
+> >> @@ -1251,24 +1251,20 @@ static int rtnl_xdp_fill(struct sk_buff *skb, struct net_device *dev)
+> >>   {
+> >>   	struct nlattr *xdp;
+> >>   	u32 xdp_flags = 0;
+> >> -	u8 val = 0;
+> >>   	int err;
+> >> +	u8 val;
+> >>
+> >>   	xdp = nla_nest_start(skb, IFLA_XDP);
+> >>   	if (!xdp)
+> >>   		return -EMSGSIZE;
+> >> +
+> >>   	if (rcu_access_pointer(dev->xdp_prog)) {
+> >>   		xdp_flags = XDP_FLAGS_SKB_MODE;
+> >>   		val = 1;
+> >> -	} else if (dev->netdev_ops->ndo_xdp) {
+> >> -		struct netdev_xdp xdp_op = {};
+> >> -
+> >> -		xdp_op.command = XDP_QUERY_PROG;
+> >> -		err = dev->netdev_ops->ndo_xdp(dev, &xdp_op);
+> >> -		if (err)
+> >> -			goto err_cancel;
+> >> -		val = xdp_op.prog_attached;
+> >> +	} else {
+> >> +		val = dev_xdp_attached(dev);
+> >> 	}  
+> >
+> > Would it make sense to set xdp_flags to XDP_FLAGS_DRV_MODE here to keep
+> > things symmetrical?  I know you are just preserving existing behaviour
+> > but it may seem slightly arbitrary to a new comer to report one of the
+> > very similarly named flags in the dump but not the other.  
+> 
+> I thought about it, it's kind of redundant information since
+> IFLA_XDP_ATTACHED attribute w/o IFLA_XDP_FLAGS attribute today
+> says that it's native already. It might look strange if we add
+> also XDP_FLAGS_DRV_MODE there, since it doesn't give anything
+> new. I rather see it similar to XDP_FLAGS_UPDATE_IF_NOEXIST flag
+> that is for updating fd only, but I don't really have a strong
+> opinion on this though. I could add it to the respin if preferred.
+
+XDP_FLAGS_UPDATE_IF_NOEXIST is indeed the precedent which makes things
+a bit murky.  There are no reasonably useful semantics for IF_NOEXIST
+on dump :(  Note that meaning of SKB_MODE flag shifts slightly between
+set and dump IIUC.  At set time it means:
+ "force installation at the generic hook",
+at dump time it means:
+ "installed at generic hook - regardless of whether the flag was set at
+  installation time",
+
+So I would argue that DRV_MODE flag is closer to SKB_MODE not only by
+name but also by semantics, and it would be cool if we could keep the
+semantics close on dump as well as set.
+
+I understand the counter argument that from user space perspective it
+would make things slightly more complicated because there would be two
+conditions in which driver hook is used:
+ 1) DRV_MODE set on dump;
+ 2) flags attribute not present (old kernel).
+
+I'm concerned about number 2).  We can't simply depend on SKB_MODE
+not being set because we may add more *_MODE flags in the future.  So
+doing:
+
+if (flags & SKB_MODE)
+	printf("skb-mode");
+else
+	printf("drv-mode");
+
+is not correct.  The flags attribute must not be present at all (think
+HW_MODE flag).  But going further there can also be non-MODE flags,
+like, say.. NEVER_TX, and then there may be flags present in dump,
+and if SKB_MODE isn't be set, the mode could be some new MODE user space
+doesn't understand, or it could be DRV_MODE+a new non-MODE flag... no
+way to tell :S
