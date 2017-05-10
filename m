@@ -1,7 +1,7 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH net-next V3 9/9] vhost_net: try batch dequing from skb array
-Date: Wed, 10 May 2017 10:38:01 +0800
-Message-ID: <1494383881-6811-10-git-send-email-jasowang@redhat.com>
+Subject: [PATCH net-next V3 1/9] ptr_ring: add ptr_ring_unconsume
+Date: Wed, 10 May 2017 10:37:53 +0800
+Message-ID: <1494383881-6811-2-git-send-email-jasowang@redhat.com>
 References: <1494383881-6811-1-git-send-email-jasowang@redhat.com>
 Cc: Jason Wang <jasowang@redhat.com>
 To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
@@ -11,258 +11,87 @@ In-Reply-To: <1494383881-6811-1-git-send-email-jasowang@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-We used to dequeue one skb during recvmsg() from skb_array, this could
-be inefficient because of the bad cache utilization and spinlock
-touching for each packet. This patch tries to batch them by calling
-batch dequeuing helpers explicitly on the exported skb array and pass
-the skb back through msg_control for underlayer socket to finish the
-userspace copying.
+From: "Michael S. Tsirkin" <mst@redhat.com>
 
-Batch dequeuing is also the requirement for more batching improvement
-on rx.
+Applications that consume a batch of entries in one go
+can benefit from ability to return some of them back
+into the ring.
 
-Tests were done by pktgen on tap with XDP1 in guest on top of batch
-zeroing:
+Add an API for that - assuming there's space. If there's no space
+naturally can't do this and have to drop entries, but this implies ring
+is full so we'd likely drop some anyway.
 
-rx batch | pps
-
-256        2.41Mpps (+6.16%)
-128        2.48Mpps (+8.80%)
-64         2.38Mpps (+3.96%) <- Default
-16         2.31Mpps (+1.76%)
-4          2.31Mpps (+1.76%)
-1          2.30Mpps (+1.32%)
-0          2.27Mpps (+7.48%)
-
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 Signed-off-by: Jason Wang <jasowang@redhat.com>
 ---
- drivers/vhost/net.c | 117 +++++++++++++++++++++++++++++++++++++++++++++++++---
- 1 file changed, 111 insertions(+), 6 deletions(-)
+ include/linux/ptr_ring.h | 55 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 55 insertions(+)
 
-diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-index 9b51989..fbaecf3 100644
---- a/drivers/vhost/net.c
-+++ b/drivers/vhost/net.c
-@@ -28,6 +28,8 @@
- #include <linux/if_macvlan.h>
- #include <linux/if_tap.h>
- #include <linux/if_vlan.h>
-+#include <linux/skb_array.h>
-+#include <linux/skbuff.h>
+diff --git a/include/linux/ptr_ring.h b/include/linux/ptr_ring.h
+index 6c70444..5476f68 100644
+--- a/include/linux/ptr_ring.h
++++ b/include/linux/ptr_ring.h
+@@ -359,6 +359,61 @@ static inline int ptr_ring_init(struct ptr_ring *r, int size, gfp_t gfp)
+ 	return 0;
+ }
  
- #include <net/sock.h>
- 
-@@ -85,6 +87,13 @@ struct vhost_net_ubuf_ref {
- 	struct vhost_virtqueue *vq;
- };
- 
-+#define VHOST_RX_BATCH 64
-+struct vhost_net_buf {
-+	struct sk_buff *queue[VHOST_RX_BATCH];
-+	int tail;
++/*
++ * Return entries into ring. Destroy entries that don't fit.
++ *
++ * Note: this is expected to be a rare slow path operation.
++ *
++ * Note: producer lock is nested within consumer lock, so if you
++ * resize you must make sure all uses nest correctly.
++ * In particular if you consume ring in interrupt or BH context, you must
++ * disable interrupts/BH when doing so.
++ */
++static inline void ptr_ring_unconsume(struct ptr_ring *r, void **batch, int n,
++				      void (*destroy)(void *))
++{
++	unsigned long flags;
 +	int head;
-+};
 +
- struct vhost_net_virtqueue {
- 	struct vhost_virtqueue vq;
- 	size_t vhost_hlen;
-@@ -99,6 +108,8 @@ struct vhost_net_virtqueue {
- 	/* Reference counting for outstanding ubufs.
- 	 * Protected by vq mutex. Writers must also take device mutex. */
- 	struct vhost_net_ubuf_ref *ubufs;
-+	struct skb_array *rx_array;
-+	struct vhost_net_buf rxq;
- };
- 
- struct vhost_net {
-@@ -117,6 +128,71 @@ struct vhost_net {
- 
- static unsigned vhost_net_zcopy_mask __read_mostly;
- 
-+static void *vhost_net_buf_get_ptr(struct vhost_net_buf *rxq)
-+{
-+	if (rxq->tail != rxq->head)
-+		return rxq->queue[rxq->head];
-+	else
-+		return NULL;
-+}
++	spin_lock_irqsave(&r->consumer_lock, flags);
++	spin_lock(&r->producer_lock);
 +
-+static int vhost_net_buf_get_size(struct vhost_net_buf *rxq)
-+{
-+	return rxq->tail - rxq->head;
-+}
++	if (!r->size)
++		goto done;
 +
-+static int vhost_net_buf_is_empty(struct vhost_net_buf *rxq)
-+{
-+	return rxq->tail == rxq->head;
-+}
++	/*
++	 * Clean out buffered entries (for simplicity). This way following code
++	 * can test entries for NULL and if not assume they are valid.
++	 */
++	head = r->consumer_head - 1;
++	while (likely(head >= r->consumer_tail))
++		r->queue[head--] = NULL;
++	r->consumer_tail = r->consumer_head;
 +
-+static void *vhost_net_buf_consume(struct vhost_net_buf *rxq)
-+{
-+	void *ret = vhost_net_buf_get_ptr(rxq);
-+	++rxq->head;
-+	return ret;
-+}
-+
-+static int vhost_net_buf_produce(struct vhost_net_virtqueue *nvq)
-+{
-+	struct vhost_net_buf *rxq = &nvq->rxq;
-+
-+	rxq->head = 0;
-+	rxq->tail = skb_array_consume_batched(nvq->rx_array, rxq->queue,
-+					      VHOST_RX_BATCH);
-+	return rxq->tail;
-+}
-+
-+static void vhost_net_buf_unproduce(struct vhost_net_virtqueue *nvq)
-+{
-+	struct vhost_net_buf *rxq = &nvq->rxq;
-+
-+	if (nvq->rx_array && !vhost_net_buf_is_empty(rxq)) {
-+		skb_array_unconsume(nvq->rx_array, rxq->queue + rxq->head,
-+				    vhost_net_buf_get_size(rxq));
-+		rxq->head = rxq->tail = 0;
++	/*
++	 * Go over entries in batch, start moving head back and copy entries.
++	 * Stop when we run into previously unconsumed entries.
++	 */
++	while (n) {
++		head = r->consumer_head - 1;
++		if (head < 0)
++			head = r->size - 1;
++		if (r->queue[head]) {
++			/* This batch entry will have to be destroyed. */
++			goto done;
++		}
++		r->queue[head] = batch[--n];
++		r->consumer_tail = r->consumer_head = head;
 +	}
++
++done:
++	/* Destroy all entries left in the batch. */
++	while (n)
++		destroy(batch[--n]);
++	spin_unlock(&r->producer_lock);
++	spin_unlock_irqrestore(&r->consumer_lock, flags);
 +}
 +
-+static int vhost_net_buf_peek(struct vhost_net_virtqueue *nvq)
-+{
-+	struct vhost_net_buf *rxq = &nvq->rxq;
-+
-+	if (!vhost_net_buf_is_empty(rxq))
-+		goto out;
-+
-+	if (!vhost_net_buf_produce(nvq))
-+		return 0;
-+
-+out:
-+	return __skb_array_len_with_tag(vhost_net_buf_get_ptr(rxq));
-+}
-+
-+static void vhost_net_buf_init(struct vhost_net_buf *rxq)
-+{
-+	rxq->head = rxq->tail = 0;
-+}
-+
- static void vhost_net_enable_zcopy(int vq)
- {
- 	vhost_net_zcopy_mask |= 0x1 << vq;
-@@ -201,6 +277,7 @@ static void vhost_net_vq_reset(struct vhost_net *n)
- 		n->vqs[i].ubufs = NULL;
- 		n->vqs[i].vhost_hlen = 0;
- 		n->vqs[i].sock_hlen = 0;
-+		vhost_net_buf_init(&n->vqs[i].rxq);
- 	}
- 
- }
-@@ -503,15 +580,14 @@ static void handle_tx(struct vhost_net *net)
- 	mutex_unlock(&vq->mutex);
- }
- 
--static int peek_head_len(struct sock *sk)
-+static int peek_head_len(struct vhost_net_virtqueue *rvq, struct sock *sk)
- {
--	struct socket *sock = sk->sk_socket;
- 	struct sk_buff *head;
- 	int len = 0;
- 	unsigned long flags;
- 
--	if (sock->ops->peek_len)
--		return sock->ops->peek_len(sock);
-+	if (rvq->rx_array)
-+		return vhost_net_buf_peek(rvq);
- 
- 	spin_lock_irqsave(&sk->sk_receive_queue.lock, flags);
- 	head = skb_peek(&sk->sk_receive_queue);
-@@ -537,10 +613,11 @@ static int sk_has_rx_data(struct sock *sk)
- 
- static int vhost_net_rx_peek_head_len(struct vhost_net *net, struct sock *sk)
- {
-+	struct vhost_net_virtqueue *rvq = &net->vqs[VHOST_NET_VQ_RX];
- 	struct vhost_net_virtqueue *nvq = &net->vqs[VHOST_NET_VQ_TX];
- 	struct vhost_virtqueue *vq = &nvq->vq;
- 	unsigned long uninitialized_var(endtime);
--	int len = peek_head_len(sk);
-+	int len = peek_head_len(rvq, sk);
- 
- 	if (!len && vq->busyloop_timeout) {
- 		/* Both tx vq and rx socket were polled here */
-@@ -561,7 +638,7 @@ static int vhost_net_rx_peek_head_len(struct vhost_net *net, struct sock *sk)
- 			vhost_poll_queue(&vq->poll);
- 		mutex_unlock(&vq->mutex);
- 
--		len = peek_head_len(sk);
-+		len = peek_head_len(rvq, sk);
- 	}
- 
- 	return len;
-@@ -699,6 +776,8 @@ static void handle_rx(struct vhost_net *net)
- 		/* On error, stop handling until the next kick. */
- 		if (unlikely(headcount < 0))
- 			goto out;
-+		if (nvq->rx_array)
-+			msg.msg_control = vhost_net_buf_consume(&nvq->rxq);
- 		/* On overrun, truncate and discard */
- 		if (unlikely(headcount > UIO_MAXIOV)) {
- 			iov_iter_init(&msg.msg_iter, READ, vq->iov, 1, 1);
-@@ -841,6 +920,7 @@ static int vhost_net_open(struct inode *inode, struct file *f)
- 		n->vqs[i].done_idx = 0;
- 		n->vqs[i].vhost_hlen = 0;
- 		n->vqs[i].sock_hlen = 0;
-+		vhost_net_buf_init(&n->vqs[i].rxq);
- 	}
- 	vhost_dev_init(dev, vqs, VHOST_NET_VQ_MAX);
- 
-@@ -856,11 +936,14 @@ static struct socket *vhost_net_stop_vq(struct vhost_net *n,
- 					struct vhost_virtqueue *vq)
- {
- 	struct socket *sock;
-+	struct vhost_net_virtqueue *nvq =
-+		container_of(vq, struct vhost_net_virtqueue, vq);
- 
- 	mutex_lock(&vq->mutex);
- 	sock = vq->private_data;
- 	vhost_net_disable_vq(n, vq);
- 	vq->private_data = NULL;
-+	vhost_net_buf_unproduce(nvq);
- 	mutex_unlock(&vq->mutex);
- 	return sock;
- }
-@@ -953,6 +1036,25 @@ static struct socket *get_raw_socket(int fd)
- 	return ERR_PTR(r);
- }
- 
-+static struct skb_array *get_tap_skb_array(int fd)
-+{
-+	struct skb_array *array;
-+	struct file *file = fget(fd);
-+
-+	if (!file)
-+		return NULL;
-+	array = tun_get_skb_array(file);
-+	if (!IS_ERR(array))
-+		goto out;
-+	array = tap_get_skb_array(file);
-+	if (!IS_ERR(array))
-+		goto out;
-+	array = NULL;
-+out:
-+	fput(file);
-+	return array;
-+}
-+
- static struct socket *get_tap_socket(int fd)
- {
- 	struct file *file = fget(fd);
-@@ -1029,6 +1131,9 @@ static long vhost_net_set_backend(struct vhost_net *n, unsigned index, int fd)
- 
- 		vhost_net_disable_vq(n, vq);
- 		vq->private_data = sock;
-+		vhost_net_buf_unproduce(nvq);
-+		if (index == VHOST_NET_VQ_RX)
-+			nvq->rx_array = get_tap_skb_array(fd);
- 		r = vhost_vq_init_access(vq);
- 		if (r)
- 			goto err_used;
+ static inline void **__ptr_ring_swap_queue(struct ptr_ring *r, void **queue,
+ 					   int size, gfp_t gfp,
+ 					   void (*destroy)(void *))
 -- 
 2.7.4
