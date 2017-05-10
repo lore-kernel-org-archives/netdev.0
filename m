@@ -1,7 +1,7 @@
 From: Stefan Wahren <stefan.wahren@i2se.com>
-Subject: [PATCH v5 01/17] net: qualcomm: remove unnecessary includes
-Date: Wed, 10 May 2017 10:53:12 +0200
-Message-ID: <1494406408-31760-2-git-send-email-stefan.wahren@i2se.com>
+Subject: [PATCH v5 14/17] dt-bindings: slave-device: add current-speed property
+Date: Wed, 10 May 2017 10:53:25 +0200
+Message-ID: <1494406408-31760-15-git-send-email-stefan.wahren@i2se.com>
 References: <1494406408-31760-1-git-send-email-stefan.wahren@i2se.com>
 Cc: Mark Rutland <mark.rutland@arm.com>,
         Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
@@ -15,28 +15,33 @@ In-Reply-To: <1494406408-31760-1-git-send-email-stefan.wahren@i2se.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Most of the includes in qca_7k.c are unnecessary so we better remove them.
+This adds a new DT property to define the current baud rate of the
+slave device.
 
 Signed-off-by: Stefan Wahren <stefan.wahren@i2se.com>
 ---
- drivers/net/ethernet/qualcomm/qca_7k.c | 4 ----
- 1 file changed, 4 deletions(-)
+ Documentation/devicetree/bindings/serial/slave-device.txt | 9 +++++++++
+ 1 file changed, 9 insertions(+)
 
-diff --git a/drivers/net/ethernet/qualcomm/qca_7k.c b/drivers/net/ethernet/qualcomm/qca_7k.c
-index f0066fb..557d53c 100644
---- a/drivers/net/ethernet/qualcomm/qca_7k.c
-+++ b/drivers/net/ethernet/qualcomm/qca_7k.c
-@@ -23,11 +23,7 @@
-  *   kernel-based SPI device.
-  */
+diff --git a/Documentation/devicetree/bindings/serial/slave-device.txt b/Documentation/devicetree/bindings/serial/slave-device.txt
+index f660379..40110e0 100644
+--- a/Documentation/devicetree/bindings/serial/slave-device.txt
++++ b/Documentation/devicetree/bindings/serial/slave-device.txt
+@@ -21,6 +21,15 @@ Optional Properties:
+ 		  can support. For example, a particular board has some signal
+ 		  quality issue or the host processor can't support higher
+ 		  baud rates.
++- current-speed	: The current baud rate the device operates at. This should
++		  only be present in case a driver has no chance to know
++		  the baud rate of the slave device.
++		  Examples:
++		    * device supports auto-baud
++		    * the rate is setup by a bootloader and there is no
++		      way to reset the device
++		    * device baud rate is configured by its firmware but
++		      there is no way to request the actual settings
  
--#include <linux/init.h>
--#include <linux/module.h>
--#include <linux/moduleparam.h>
- #include <linux/spi/spi.h>
--#include <linux/version.h>
- 
- #include "qca_7k.h"
+ Example:
  
 -- 
 2.1.4
