@@ -1,7 +1,7 @@
 From: Stefan Wahren <stefan.wahren@i2se.com>
-Subject: [PATCH v5 16/17] tty: serdev-ttyport: return actual baudrate from ttyport_set_baudrate
-Date: Wed, 10 May 2017 10:53:27 +0200
-Message-ID: <1494406408-31760-17-git-send-email-stefan.wahren@i2se.com>
+Subject: [PATCH v5 09/17] net: qualcomm: rename qca_framing.c to qca_7k_common.c
+Date: Wed, 10 May 2017 10:53:20 +0200
+Message-ID: <1494406408-31760-10-git-send-email-stefan.wahren@i2se.com>
 References: <1494406408-31760-1-git-send-email-stefan.wahren@i2se.com>
 Cc: Mark Rutland <mark.rutland@arm.com>,
         Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
@@ -15,27 +15,80 @@ In-Reply-To: <1494406408-31760-1-git-send-email-stefan.wahren@i2se.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Instead of returning the requested baudrate, we better return the
-actual one because it isn't always the same.
+As preparation for the upcoming UART driver we need a module
+which contains common functions for both interfaces. The module
+qca_framing is a good candidate but renaming to qca_7k_common would
+make it clear.
 
 Signed-off-by: Stefan Wahren <stefan.wahren@i2se.com>
-Acked-by: Rob Herring <robh@kernel.org>
 ---
- drivers/tty/serdev/serdev-ttyport.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/qualcomm/Makefile                           | 2 +-
+ drivers/net/ethernet/qualcomm/{qca_framing.c => qca_7k_common.c} | 2 +-
+ drivers/net/ethernet/qualcomm/{qca_framing.h => qca_7k_common.h} | 0
+ drivers/net/ethernet/qualcomm/qca_spi.c                          | 2 +-
+ drivers/net/ethernet/qualcomm/qca_spi.h                          | 2 +-
+ 5 files changed, 4 insertions(+), 4 deletions(-)
+ rename drivers/net/ethernet/qualcomm/{qca_framing.c => qca_7k_common.c} (99%)
+ rename drivers/net/ethernet/qualcomm/{qca_framing.h => qca_7k_common.h} (100%)
 
-diff --git a/drivers/tty/serdev/serdev-ttyport.c b/drivers/tty/serdev/serdev-ttyport.c
-index 487c88f..2cfdf34 100644
---- a/drivers/tty/serdev/serdev-ttyport.c
-+++ b/drivers/tty/serdev/serdev-ttyport.c
-@@ -151,7 +151,7 @@ static unsigned int ttyport_set_baudrate(struct serdev_controller *ctrl, unsigne
+diff --git a/drivers/net/ethernet/qualcomm/Makefile b/drivers/net/ethernet/qualcomm/Makefile
+index aacb0a5..5e17bf1 100644
+--- a/drivers/net/ethernet/qualcomm/Makefile
++++ b/drivers/net/ethernet/qualcomm/Makefile
+@@ -3,6 +3,6 @@
+ #
  
- 	/* tty_set_termios() return not checked as it is always 0 */
- 	tty_set_termios(tty, &ktermios);
--	return speed;
-+	return ktermios.c_ospeed;
- }
+ obj-$(CONFIG_QCA7000) += qcaspi.o
+-qcaspi-objs := qca_spi.o qca_framing.o qca_7k.o qca_debug.o
++qcaspi-objs := qca_spi.o qca_7k_common.o qca_7k.o qca_debug.o
  
- static void ttyport_set_flow_control(struct serdev_controller *ctrl, bool enable)
+ obj-y += emac/
+diff --git a/drivers/net/ethernet/qualcomm/qca_framing.c b/drivers/net/ethernet/qualcomm/qca_7k_common.c
+similarity index 99%
+rename from drivers/net/ethernet/qualcomm/qca_framing.c
+rename to drivers/net/ethernet/qualcomm/qca_7k_common.c
+index 2341f2b..6d17fbd 100644
+--- a/drivers/net/ethernet/qualcomm/qca_framing.c
++++ b/drivers/net/ethernet/qualcomm/qca_7k_common.c
+@@ -23,7 +23,7 @@
+ 
+ #include <linux/kernel.h>
+ 
+-#include "qca_framing.h"
++#include "qca_7k_common.h"
+ 
+ u16
+ qcafrm_create_header(u8 *buf, u16 length)
+diff --git a/drivers/net/ethernet/qualcomm/qca_framing.h b/drivers/net/ethernet/qualcomm/qca_7k_common.h
+similarity index 100%
+rename from drivers/net/ethernet/qualcomm/qca_framing.h
+rename to drivers/net/ethernet/qualcomm/qca_7k_common.h
+diff --git a/drivers/net/ethernet/qualcomm/qca_spi.c b/drivers/net/ethernet/qualcomm/qca_spi.c
+index deec70f..2bc3ba4 100644
+--- a/drivers/net/ethernet/qualcomm/qca_spi.c
++++ b/drivers/net/ethernet/qualcomm/qca_spi.c
+@@ -43,8 +43,8 @@
+ #include <linux/types.h>
+ 
+ #include "qca_7k.h"
++#include "qca_7k_common.h"
+ #include "qca_debug.h"
+-#include "qca_framing.h"
+ #include "qca_spi.h"
+ 
+ #define MAX_DMA_BURST_LEN 5000
+diff --git a/drivers/net/ethernet/qualcomm/qca_spi.h b/drivers/net/ethernet/qualcomm/qca_spi.h
+index 064853d..fc4beb1 100644
+--- a/drivers/net/ethernet/qualcomm/qca_spi.h
++++ b/drivers/net/ethernet/qualcomm/qca_spi.h
+@@ -32,7 +32,7 @@
+ #include <linux/spi/spi.h>
+ #include <linux/types.h>
+ 
+-#include "qca_framing.h"
++#include "qca_7k_common.h"
+ 
+ #define QCASPI_DRV_VERSION "0.2.7-i"
+ #define QCASPI_DRV_NAME    "qcaspi"
 -- 
 2.1.4
