@@ -1,62 +1,79 @@
-From: Julia Lawall <julia.lawall@lip6.fr>
-Subject: Re: [PATCH] net: dsa: loop: Free resources if initialization is
- deferred
-Date: Wed, 10 May 2017 12:30:39 +0800 (SGT)
-Message-ID: <alpine.DEB.2.20.1705101229410.3326@hadrien>
-References: <20170510041503.29363-1-christophe.jaillet@wanadoo.fr>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] libertas: Avoid reading past end of buffer
+Date: Tue, 09 May 2017 21:33:17 -0700
+Message-ID: <1494390797.4564.5.camel@perches.com>
+References: <20170509232334.GA55070@beast>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
-        f.fainelli@gmail.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170510041503.29363-1-christophe.jaillet@wanadoo.fr>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Kalle Valo <kvalo@codeaurora.org>,
+        libertas-dev@lists.infradead.org, linux-wireless@vger.kernel.org,
+        linux-kernel@vger.kernel.org, Daniel Micay <danielmicay@gmail.com>
+To: Kees Cook <keescook@chromium.org>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtprelay0189.hostedemail.com ([216.40.44.189]:40654 "EHLO
+        smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1751555AbdEJEdY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 10 May 2017 00:33:24 -0400
+In-Reply-To: <20170509232334.GA55070@beast>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Tue, 2017-05-09 at 16:23 -0700, Kees Cook wrote:
+> Using memcpy() from a string that is shorter than the length copied means
+> the destination buffer is being filled with arbitrary data from the kernel
+> rodata segment. Instead, use strncpy() which will fill the trailing bytes
+> with zeros. Additionally adjust indentation to keep checkpatch.pl happy.
+> 
+> This was found with the future CONFIG_FORTIFY_SOURCE feature.
+[]
+> diff --git a/drivers/net/wireless/marvell/libertas/mesh.c b/drivers/net/wireless/marvell/libertas/mesh.c
+[]
+> @@ -1177,9 +1177,9 @@ void lbs_mesh_ethtool_get_strings(struct net_device *dev,
+>  	switch (stringset) {
+>  	case ETH_SS_STATS:
+>  		for (i = 0; i < MESH_STATS_NUM; i++) {
+> -			memcpy(s + i * ETH_GSTRING_LEN,
+> -					mesh_stat_strings[i],
+> -					ETH_GSTRING_LEN);
+> +			strncpy(s + i * ETH_GSTRING_LEN,
+> +				mesh_stat_strings[i],
+> +				ETH_GSTRING_LEN);
+>  		}
 
+The better solution is to declare
+mesh_stat_strings in in the normal way
 
-On Wed, 10 May 2017, Christophe JAILLET wrote:
+---
+ drivers/net/wireless/marvell/libertas/mesh.c | 18 +++++++++---------
+ 1 file changed, 9 insertions(+), 9 deletions(-)
 
-> Free some devm'allocated memory in case of deferred driver initialization.
-> This avoid to waste some memory in such a case.
-
-I really think it would be helpful to mention the special behavior of
--EPROBE_DEFER.  It doesn't take much space, and it coud be helpful to
-someone in the future.
-
-julia
-
->
-> Suggested-by: Joe Perches <joe@perches.com>
-> Signed-off-by: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
-> ---
->  drivers/net/dsa/dsa_loop.c | 5 ++++-
->  1 file changed, 4 insertions(+), 1 deletion(-)
->
-> diff --git a/drivers/net/dsa/dsa_loop.c b/drivers/net/dsa/dsa_loop.c
-> index a19e1781e9bb..557afb418320 100644
-> --- a/drivers/net/dsa/dsa_loop.c
-> +++ b/drivers/net/dsa/dsa_loop.c
-> @@ -260,8 +260,11 @@ static int dsa_loop_drv_probe(struct mdio_device *mdiodev)
->  		return -ENOMEM;
->
->  	ps->netdev = dev_get_by_name(&init_net, pdata->netdev);
-> -	if (!ps->netdev)
-> +	if (!ps->netdev) {
-> +		devm_kfree(&mdiodev->dev, ps);
-> +		devm_kfree(&mdiodev->dev, ds);
->  		return -EPROBE_DEFER;
-> +	}
->
->  	pdata->cd.netdev[DSA_LOOP_CPU_PORT] = &ps->netdev->dev;
->
-> --
-> 2.11.0
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe kernel-janitors" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+diff --git a/drivers/net/wireless/marvell/libertas/mesh.c b/drivers/net/wireless/marvell/libertas/mesh.c
+index d0c881dd5846..a535e7f48d2d 100644
+--- a/drivers/net/wireless/marvell/libertas/mesh.c
++++ b/drivers/net/wireless/marvell/libertas/mesh.c
+@@ -1108,15 +1108,15 @@ void lbs_mesh_set_txpd(struct lbs_private *priv,
+  * Ethtool related
+  */
+ 
+-static const char * const mesh_stat_strings[] = {
+-			"drop_duplicate_bcast",
+-			"drop_ttl_zero",
+-			"drop_no_fwd_route",
+-			"drop_no_buffers",
+-			"fwded_unicast_cnt",
+-			"fwded_bcast_cnt",
+-			"drop_blind_table",
+-			"tx_failed_cnt"
++static const char mesh_stat_strings[][ETH_GSTRING_LEN] = {
++	"drop_duplicate_bcast",
++	"drop_ttl_zero",
++	"drop_no_fwd_route",
++	"drop_no_buffers",
++	"fwded_unicast_cnt",
++	"fwded_bcast_cnt",
++	"drop_blind_table",
++	"tx_failed_cnt",
+ };
+ 
+ void lbs_mesh_ethtool_get_stats(struct net_device *dev,
