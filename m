@@ -1,7 +1,7 @@
 From: Stefan Wahren <stefan.wahren@i2se.com>
-Subject: [PATCH v5 03/17] net: qca_7k: Use BIT macro
-Date: Wed, 10 May 2017 10:53:14 +0200
-Message-ID: <1494406408-31760-4-git-send-email-stefan.wahren@i2se.com>
+Subject: [PATCH v5 05/17] net: qualcomm: Improve readability of length defines
+Date: Wed, 10 May 2017 10:53:16 +0200
+Message-ID: <1494406408-31760-6-git-send-email-stefan.wahren@i2se.com>
 References: <1494406408-31760-1-git-send-email-stefan.wahren@i2se.com>
 Cc: Mark Rutland <mark.rutland@arm.com>,
         Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
@@ -15,39 +15,93 @@ In-Reply-To: <1494406408-31760-1-git-send-email-stefan.wahren@i2se.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Use the BIT macro for the CONFIG and INT register values.
+In order to avoid mixing things up, make the MTU and frame length
+defines easier to read.
 
 Signed-off-by: Stefan Wahren <stefan.wahren@i2se.com>
 ---
- drivers/net/ethernet/qualcomm/qca_7k.h | 14 +++++++-------
- 1 file changed, 7 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/qualcomm/qca_framing.c |  2 +-
+ drivers/net/ethernet/qualcomm/qca_framing.h |  8 ++++----
+ drivers/net/ethernet/qualcomm/qca_spi.c     | 12 ++++++------
+ 3 files changed, 11 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/net/ethernet/qualcomm/qca_7k.h b/drivers/net/ethernet/qualcomm/qca_7k.h
-index 1cad851..4047f0a 100644
---- a/drivers/net/ethernet/qualcomm/qca_7k.h
-+++ b/drivers/net/ethernet/qualcomm/qca_7k.h
-@@ -54,15 +54,15 @@
- #define SPI_REG_ACTION_CTRL     0x1B00
+diff --git a/drivers/net/ethernet/qualcomm/qca_framing.c b/drivers/net/ethernet/qualcomm/qca_framing.c
+index faa924c..2341f2b 100644
+--- a/drivers/net/ethernet/qualcomm/qca_framing.c
++++ b/drivers/net/ethernet/qualcomm/qca_framing.c
+@@ -117,7 +117,7 @@ qcafrm_fsm_decode(struct qcafrm_handle *handle, u8 *buf, u16 buf_len, u8 recv_by
+ 		break;
+ 	case QCAFRM_WAIT_RSVD_BYTE2:
+ 		len = handle->offset;
+-		if (len > buf_len || len < QCAFRM_ETHMINLEN) {
++		if (len > buf_len || len < QCAFRM_MIN_LEN) {
+ 			ret = QCAFRM_INVLEN;
+ 			handle->state = QCAFRM_HW_LEN0;
+ 		} else {
+diff --git a/drivers/net/ethernet/qualcomm/qca_framing.h b/drivers/net/ethernet/qualcomm/qca_framing.h
+index 8b385e6..5df7c65 100644
+--- a/drivers/net/ethernet/qualcomm/qca_framing.h
++++ b/drivers/net/ethernet/qualcomm/qca_framing.h
+@@ -44,12 +44,12 @@
+ #define QCAFRM_INVFRAME (QCAFRM_ERR_BASE - 4)
  
- /*   SPI_CONFIG register definition;             */
--#define QCASPI_SLAVE_RESET_BIT (1 << 6)
-+#define QCASPI_SLAVE_RESET_BIT  BIT(6)
+ /* Min/Max Ethernet MTU: 46/1500 */
+-#define QCAFRM_ETHMINMTU (ETH_ZLEN - ETH_HLEN)
+-#define QCAFRM_ETHMAXMTU ETH_DATA_LEN
++#define QCAFRM_MIN_MTU (ETH_ZLEN - ETH_HLEN)
++#define QCAFRM_MAX_MTU ETH_DATA_LEN
  
- /*   INTR_CAUSE/ENABLE register definition.      */
--#define SPI_INT_WRBUF_BELOW_WM (1 << 10)
--#define SPI_INT_CPU_ON         (1 << 6)
--#define SPI_INT_ADDR_ERR       (1 << 3)
--#define SPI_INT_WRBUF_ERR      (1 << 2)
--#define SPI_INT_RDBUF_ERR      (1 << 1)
--#define SPI_INT_PKT_AVLBL      (1 << 0)
-+#define SPI_INT_WRBUF_BELOW_WM  BIT(10)
-+#define SPI_INT_CPU_ON          BIT(6)
-+#define SPI_INT_ADDR_ERR        BIT(3)
-+#define SPI_INT_WRBUF_ERR       BIT(2)
-+#define SPI_INT_RDBUF_ERR       BIT(1)
-+#define SPI_INT_PKT_AVLBL       BIT(0)
+ /* Min/Max frame lengths */
+-#define QCAFRM_ETHMINLEN (QCAFRM_ETHMINMTU + ETH_HLEN)
+-#define QCAFRM_ETHMAXLEN (QCAFRM_ETHMAXMTU + VLAN_ETH_HLEN)
++#define QCAFRM_MIN_LEN (QCAFRM_MIN_MTU + ETH_HLEN)
++#define QCAFRM_MAX_LEN (QCAFRM_MAX_MTU + VLAN_ETH_HLEN)
  
- void qcaspi_spi_error(struct qcaspi *qca);
- int qcaspi_read_register(struct qcaspi *qca, u16 reg, u16 *result);
+ /* QCA7K header len */
+ #define QCAFRM_HEADER_LEN 8
+diff --git a/drivers/net/ethernet/qualcomm/qca_spi.c b/drivers/net/ethernet/qualcomm/qca_spi.c
+index 5c79612..a0dbb92 100644
+--- a/drivers/net/ethernet/qualcomm/qca_spi.c
++++ b/drivers/net/ethernet/qualcomm/qca_spi.c
+@@ -69,7 +69,7 @@ static int qcaspi_pluggable = QCASPI_PLUGGABLE_MIN;
+ module_param(qcaspi_pluggable, int, 0);
+ MODULE_PARM_DESC(qcaspi_pluggable, "Pluggable SPI connection (yes/no).");
+ 
+-#define QCASPI_MTU QCAFRM_ETHMAXMTU
++#define QCASPI_MTU QCAFRM_MAX_MTU
+ #define QCASPI_TX_TIMEOUT (1 * HZ)
+ #define QCASPI_QCA7K_REBOOT_TIME_MS 1000
+ 
+@@ -402,7 +402,7 @@ qcaspi_tx_ring_has_space(struct tx_ring *txr)
+ 	if (txr->skb[txr->tail])
+ 		return 0;
+ 
+-	return (txr->size + QCAFRM_ETHMAXLEN < QCASPI_HW_BUF_LEN) ? 1 : 0;
++	return (txr->size + QCAFRM_MAX_LEN < QCASPI_HW_BUF_LEN) ? 1 : 0;
+ }
+ 
+ /*   Flush the tx ring. This function is only safe to
+@@ -666,8 +666,8 @@ qcaspi_netdev_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	struct sk_buff *tskb;
+ 	u8 pad_len = 0;
+ 
+-	if (skb->len < QCAFRM_ETHMINLEN)
+-		pad_len = QCAFRM_ETHMINLEN - skb->len;
++	if (skb->len < QCAFRM_MIN_LEN)
++		pad_len = QCAFRM_MIN_LEN - skb->len;
+ 
+ 	if (qca->txr.skb[qca->txr.tail]) {
+ 		netdev_warn(qca->net_dev, "queue was unexpectedly full!\n");
+@@ -804,8 +804,8 @@ qcaspi_netdev_setup(struct net_device *dev)
+ 	dev->tx_queue_len = 100;
+ 
+ 	/* MTU range: 46 - 1500 */
+-	dev->min_mtu = QCAFRM_ETHMINMTU;
+-	dev->max_mtu = QCAFRM_ETHMAXMTU;
++	dev->min_mtu = QCAFRM_MIN_MTU;
++	dev->max_mtu = QCAFRM_MAX_MTU;
+ 
+ 	qca = netdev_priv(dev);
+ 	memset(qca, 0, sizeof(struct qcaspi));
 -- 
 2.1.4
