@@ -1,73 +1,87 @@
-From: Bjorn Andersson <bjorn.andersson@linaro.org>
-Subject: Re: [PATCH] wcn36xx: Close SMD channel on device removal
-Date: Wed, 10 May 2017 10:52:55 -0700
-Message-ID: <20170510175254.GS15143@minitux>
-References: <20170509043637.28179-1-bjorn.andersson@linaro.org>
- <87h90u3672.fsf@kamboji.qca.qualcomm.com>
- <20170509230312.GR15143@minitux>
- <6e1cc217-924f-c536-6009-f6a377844d6f@broadcom.com>
+From: Kees Cook <keescook@chromium.org>
+Subject: Re: [PATCH] libertas: Avoid reading past end of buffer
+Date: Wed, 10 May 2017 12:06:02 -0700
+Message-ID: <CAGXu5jK_QLYa=L3a2eMEjsDm0JTQn-E2yH1eCdKVSFFHbn25Yw@mail.gmail.com>
+References: <20170509232334.GA55070@beast> <1494390797.4564.5.camel@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Kalle Valo <kvalo@codeaurora.org>,
-        Eugene Krasnikov <k.eugene.e@gmail.com>,
-        Eyal Ilsar <c_eilsar@qti.qualcomm.com>,
-        wcn36xx@lists.infradead.org, linux-wireless@vger.kernel.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linux-arm-msm@vger.kernel.org
-To: Arend van Spriel <arend.vanspriel@broadcom.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Network Development <netdev@vger.kernel.org>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        libertas-dev@lists.infradead.org,
+        linux-wireless <linux-wireless@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Daniel Micay <danielmicay@gmail.com>
+To: Joe Perches <joe@perches.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <6e1cc217-924f-c536-6009-f6a377844d6f@broadcom.com>
+In-Reply-To: <1494390797.4564.5.camel@perches.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed 10 May 00:27 PDT 2017, Arend van Spriel wrote:
+On Tue, May 9, 2017 at 9:33 PM, Joe Perches <joe@perches.com> wrote:
+> On Tue, 2017-05-09 at 16:23 -0700, Kees Cook wrote:
+>> Using memcpy() from a string that is shorter than the length copied means
+>> the destination buffer is being filled with arbitrary data from the kernel
+>> rodata segment. Instead, use strncpy() which will fill the trailing bytes
+>> with zeros. Additionally adjust indentation to keep checkpatch.pl happy.
+>>
+>> This was found with the future CONFIG_FORTIFY_SOURCE feature.
+> []
+>> diff --git a/drivers/net/wireless/marvell/libertas/mesh.c b/drivers/net/wireless/marvell/libertas/mesh.c
+> []
+>> @@ -1177,9 +1177,9 @@ void lbs_mesh_ethtool_get_strings(struct net_device *dev,
+>>       switch (stringset) {
+>>       case ETH_SS_STATS:
+>>               for (i = 0; i < MESH_STATS_NUM; i++) {
+>> -                     memcpy(s + i * ETH_GSTRING_LEN,
+>> -                                     mesh_stat_strings[i],
+>> -                                     ETH_GSTRING_LEN);
+>> +                     strncpy(s + i * ETH_GSTRING_LEN,
+>> +                             mesh_stat_strings[i],
+>> +                             ETH_GSTRING_LEN);
+>>               }
+>
+> The better solution is to declare
+> mesh_stat_strings in in the normal way
+>
+> ---
+>  drivers/net/wireless/marvell/libertas/mesh.c | 18 +++++++++---------
+>  1 file changed, 9 insertions(+), 9 deletions(-)
+>
+> diff --git a/drivers/net/wireless/marvell/libertas/mesh.c b/drivers/net/wireless/marvell/libertas/mesh.c
+> index d0c881dd5846..a535e7f48d2d 100644
+> --- a/drivers/net/wireless/marvell/libertas/mesh.c
+> +++ b/drivers/net/wireless/marvell/libertas/mesh.c
+> @@ -1108,15 +1108,15 @@ void lbs_mesh_set_txpd(struct lbs_private *priv,
+>   * Ethtool related
+>   */
+>
+> -static const char * const mesh_stat_strings[] = {
+> -                       "drop_duplicate_bcast",
+> -                       "drop_ttl_zero",
+> -                       "drop_no_fwd_route",
+> -                       "drop_no_buffers",
+> -                       "fwded_unicast_cnt",
+> -                       "fwded_bcast_cnt",
+> -                       "drop_blind_table",
+> -                       "tx_failed_cnt"
+> +static const char mesh_stat_strings[][ETH_GSTRING_LEN] = {
+> +       "drop_duplicate_bcast",
+> +       "drop_ttl_zero",
+> +       "drop_no_fwd_route",
+> +       "drop_no_buffers",
+> +       "fwded_unicast_cnt",
+> +       "fwded_bcast_cnt",
+> +       "drop_blind_table",
+> +       "tx_failed_cnt",
+>  };
+>
+>  void lbs_mesh_ethtool_get_stats(struct net_device *dev,
 
-> On 5/10/2017 1:03 AM, Bjorn Andersson wrote:
-> > On Mon 08 May 23:17 PDT 2017, Kalle Valo wrote:
-> > 
-> > > Bjorn Andersson <bjorn.andersson@linaro.org> writes:
-> > > 
-> > > > The SMD channel is not the primary WCNSS channel and must explicitly be
-> > > > closed as the device is removed, or the channel will already by open on
-> > > > a subsequent probe call in e.g. the case of reloading the kernel module.
-> > > > 
-> > > > This issue was introduced because I simplified the underlying SMD
-> > > > implementation while the SMD adaptions of the driver sat on the mailing
-> > > > list, but missed to update these patches. The patch does however only
-> > > > apply back to the transition to rpmsg, hence the limited Fixes.
-> > > > 
-> > > > Fixes: 5052de8deff5 ("soc: qcom: smd: Transition client drivers from smd to rpmsg")
-> > > > Reported-by: Eyal Ilsar <c_eilsar@qti.qualcomm.com>
-> > > > Signed-off-by: Bjorn Andersson <bjorn.andersson@linaro.org>
-> > > 
-> > > As this is a regression I'll queue this to 4.12.
-> > > 
-> > 
-> > Thanks.
-> > 
-> > > But if this is an older bug (didn't quite understand your description
-> > > though) should there be a separate patch for stable releases?
-> > > 
-> > 
-> > AFAICT this never worked, as it seems I did the rework in SMD while we
-> > tried to figure out the dependency issues we had with moving to SMD. So
-> > v4.9 through v4.11 has SMD support - with this bug.
-> > 
-> > How do I proceed, do you want me to write up a fix for stable@? Do I
-> > send that out as an ordinary patch?
-> 
-> If the patch applies cleanly on branches linux-4.9.y through linux-4.11.y in
-> the stable repository you can go for '--- Option 1 ---' as described in
-> <linux-repo>/Documentation/stable_kernel_rules.txt.
-> 
+Ah yeah! And that simplifies the memcpy too, since it can just do it
+in one go. New patch on the way...
 
-It does not, before v4.12 it's a completely different function to call
-to close the channel.
+-Kees
 
-But "Option 3" describes the situation, thanks for the reference. I'll
-try to find the time to verify the patch on v4.11 and send it to
-stable@.
-
-Regards,
-Bjorn
+-- 
+Kees Cook
+Pixel Security
