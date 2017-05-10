@@ -1,53 +1,49 @@
-From: <kelley@colfaxcommunitynetwork.org>
-Subject: (unknown)
-Date: Wed, 10 May 2017 07:23:40 -0000
-Message-ID: <149440102051.19573.99475350644360405@linode.com>
-Reply-To: <kelley@colfaxcommunitynetwork.org>
-Mime-Version: 1.0
-Content-Type: application/zip; name="620_netdev.zip"
-Content-Transfer-Encoding: base64
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from [218.90.8.112] ([218.90.8.112]:53345 "HELO linode.com"
-        rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with SMTP
-        id S1751353AbdEJHXq (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 10 May 2017 03:23:46 -0400
-Content-Disposition: attachment
-Subject: 
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Christoph Hellwig <hch@lst.de>
+Subject: [PATCH] net/smc: mark as BROKEN due to remote memory exposure
+Date: Wed, 10 May 2017 09:26:27 +0200
+Message-ID: <20170510072627.12060-1-hch@lst.de>
+Cc: ubraun@linux.vnet.ibm.com, netdev@vger.kernel.org,
+        linux-rdma@vger.kernel.org, stable@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <stable-owner@vger.kernel.org>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-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
+The driver has a lot of quality issues due to the lack of RDMA-side
+review, and explicitly bypasses APIs to register all memory once a
+connection is made, and thus allows remote access to memoery.
+
+Mark it as broken until at least that part is fixed.
+
+Signed-off-by: Christoph Hellwig <hch@lst.de>
+Cc: stable@vger.kernel.org
+
+---
+ net/smc/Kconfig | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/net/smc/Kconfig b/net/smc/Kconfig
+index c717ef0896aa..fe6b78bc515f 100644
+--- a/net/smc/Kconfig
++++ b/net/smc/Kconfig
+@@ -1,6 +1,6 @@
+ config SMC
+ 	tristate "SMC socket protocol family"
+-	depends on INET && INFINIBAND
++	depends on INET && INFINIBAND && BROKEN
+ 	---help---
+ 	  SMC-R provides a "sockets over RDMA" solution making use of
+ 	  RDMA over Converged Ethernet (RoCE) technology to upgrade
+@@ -8,6 +8,10 @@ config SMC
+ 	  The Linux implementation of the SMC-R solution is designed as
+ 	  a separate socket family SMC.
+ 
++	  Warning: SMC will expose all memory for remote reads and writes
++	  once a connection is established.  Don't enable this option except
++	  for tightly controlled lab environment.
++
+ 	  Select this option if you want to run SMC socket applications
+ 
+ config SMC_DIAG
+-- 
+2.11.0
