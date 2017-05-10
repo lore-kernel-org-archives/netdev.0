@@ -1,127 +1,29 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH RFC v2] ptr_ring: add ptr_ring_unconsume
-Date: Wed, 10 May 2017 10:01:23 +0800
-Message-ID: <5cd116bb-74ab-9d0b-07b1-df3fb9ee8eb1@redhat.com>
-References: <1493049492-3229-1-git-send-email-mst@redhat.com>
- <ce6e1816-e3e0-4e6b-b017-05cfc54a0170@redhat.com>
- <20170509162622-mutt-send-email-mst@kernel.org>
+From: Michael Chan <michael.chan@broadcom.com>
+Subject: Re: [PATCH v2 net-next] bnxt: add dma mapping attributes
+Date: Tue, 9 May 2017 19:16:37 -0700
+Message-ID: <CACKFLimzVSgb92EmiZ44Xr7G=Xi8FD+wrs7dgY6jg8vdVMBOSA@mail.gmail.com>
+References: <1494379812-282087-1-git-send-email-shannon.nelson@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170509162622-mutt-send-email-mst@kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+        Netdev <netdev@vger.kernel.org>, sparclinux@vger.kernel.org
+To: Shannon Nelson <shannon.nelson@oracle.com>
+Return-path: <sparclinux-owner@vger.kernel.org>
+In-Reply-To: <1494379812-282087-1-git-send-email-shannon.nelson@oracle.com>
+Sender: sparclinux-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-
-On 2017年05月09日 21:26, Michael S. Tsirkin wrote:
-> On Wed, Apr 26, 2017 at 05:09:42PM +0800, Jason Wang wrote:
->>
->> On 2017年04月25日 00:01, Michael S. Tsirkin wrote:
->>> Applications that consume a batch of entries in one go
->>> can benefit from ability to return some of them back
->>> into the ring.
->>>
->>> Add an API for that - assuming there's space. If there's no space
->>> naturally can't do this and have to drop entries, but this implies ring
->>> is full so we'd likely drop some anyway.
->>>
->>> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
->>> ---
->>>
->>> Jason, if you add this and unconsume the outstanding packets
->>> on backend disconnect, vhost close and reset, I think
->>> we should apply your patch even if we don't yet know 100%
->>> why it helps.
->>>
->>> changes from v1:
->>> - fix up coding style issues reported by Sergei Shtylyov
->>>
->>>
->>>    include/linux/ptr_ring.h | 56 ++++++++++++++++++++++++++++++++++++++++++++++++
->>>    1 file changed, 56 insertions(+)
->>>
->>> diff --git a/include/linux/ptr_ring.h b/include/linux/ptr_ring.h
->>> index 783e7f5..902afc2 100644
->>> --- a/include/linux/ptr_ring.h
->>> +++ b/include/linux/ptr_ring.h
->>> @@ -457,6 +457,62 @@ static inline int ptr_ring_init(struct ptr_ring *r, int size, gfp_t gfp)
->>>    	return 0;
->>>    }
->>> +/*
->>> + * Return entries into ring. Destroy entries that don't fit.
->>> + *
->>> + * Note: this is expected to be a rare slow path operation.
->>> + *
->>> + * Note: producer lock is nested within consumer lock, so if you
->>> + * resize you must make sure all uses nest correctly.
->>> + * In particular if you consume ring in interrupt or BH context, you must
->>> + * disable interrupts/BH when doing so.
->>> + */
->>> +static inline void ptr_ring_unconsume(struct ptr_ring *r, void **batch, int n,
->>> +				      void (*destroy)(void *))
->>> +{
->>> +	unsigned long flags;
->>> +	int head;
->>> +
->>> +	spin_lock_irqsave(&r->consumer_lock, flags);
->>> +	spin_lock(&r->producer_lock);
->>> +
->>> +	if (!r->size)
->>> +		goto done;
->>> +
->>> +	/*
->>> +	 * Clean out buffered entries (for simplicity). This way following code
->>> +	 * can test entries for NULL and if not assume they are valid.
->>> +	 */
->>> +	head = r->consumer_head - 1;
->>> +	while (likely(head >= r->consumer_tail))
->>> +		r->queue[head--] = NULL;
->>> +	r->consumer_tail = r->consumer_head;
->>> +
->>> +	/*
->>> +	 * Go over entries in batch, start moving head back and copy entries.
->>> +	 * Stop when we run into previously unconsumed entries.
->>> +	 */
->>> +	while (n--) {
->>> +		head = r->consumer_head - 1;
->>> +		if (head < 0)
->>> +			head = r->size - 1;
->>> +		if (r->queue[head]) {
->>> +			/* This batch entry will have to be destroyed. */
->>> +			++n;
->>> +			goto done;
->>> +		}
->>> +		r->queue[head] = batch[n];
->>> +		r->consumer_tail = r->consumer_head = head;
->> Looks like something wrong here (bad page state reported), uncomment the
->> above while() solving the issue. But after staring it for a while I didn't
->> find anything interesting, maybe you have some idea on this?
->>
->> Thanks
->>
->>
->>> +	}
->>> +
->>> +done:
->>> +	/* Destroy all entries left in the batch. */
->>> +	while (n--)
->>> +		destroy(batch[n]);
->>> +	spin_unlock(&r->producer_lock);
->>> +	spin_unlock_irqrestore(&r->consumer_lock, flags);
->>> +}
->>> +
->>>    static inline void **__ptr_ring_swap_queue(struct ptr_ring *r, void **queue,
->>>    					   int size, gfp_t gfp,
->>>    					   void (*destroy)(void *))
-> What's our plan here? I can't delay pull request much longer.
+On Tue, May 9, 2017 at 6:30 PM, Shannon Nelson
+<shannon.nelson@oracle.com> wrote:
+> On the SPARC platform we need to use the DMA_ATTR_WEAK_ORDERING attribute
+> in our Rx path dma mapping in order to get the expected performance out
+> of the receive path.  Adding it to the Tx path has little effect, so
+> that's not a part of this patch.
 >
+> Signed-off-by: Shannon Nelson <shannon.nelson@oracle.com>
+> Reviewed-by: Tushar Dave <tushar.n.dave@oracle.com>
+> Reviewed-by: Tom Saeger <tom.saeger@oracle.com>
+> ---
+> v2: simplify by getting rid of the driver-specific ifdef and define
 
-I'm waiting for net-next to be opened (since the series touches tun/tap).
-
-Let me post a new version soon.
-
-Thanks
+Acked-by: Michael Chan <michael.chan@broadcom.com>
