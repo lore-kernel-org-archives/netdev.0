@@ -1,7 +1,7 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH net-next V4 01/10] ptr_ring: batch ring zeroing
-Date: Wed, 10 May 2017 11:36:13 +0800
-Message-ID: <1494387382-19916-2-git-send-email-jasowang@redhat.com>
+Subject: [PATCH net-next V4 04/10] ptr_ring: introduce batch dequeuing
+Date: Wed, 10 May 2017 11:36:16 +0800
+Message-ID: <1494387382-19916-5-git-send-email-jasowang@redhat.com>
 References: <1494387382-19916-1-git-send-email-jasowang@redhat.com>
 Cc: Jason Wang <jasowang@redhat.com>
 To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
@@ -11,167 +11,97 @@ In-Reply-To: <1494387382-19916-1-git-send-email-jasowang@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Michael S. Tsirkin" <mst@redhat.com>
+This patch introduce a batched version of consuming, consumer can
+dequeue more than one pointers from the ring at a time. We don't care
+about the reorder of reading here so no need for compiler barrier.
 
-A known weakness in ptr_ring design is that it does not handle well the
-situation when ring is almost full: as entries are consumed they are
-immediately used again by the producer, so consumer and producer are
-writing to a shared cache line.
-
-To fix this, add batching to consume calls: as entries are
-consumed do not write NULL into the ring until we get
-a multiple (in current implementation 2x) of cache lines
-away from the producer. At that point, write them all out.
-
-We do the write out in the reverse order to keep
-producer from sharing cache with consumer for as long
-as possible.
-
-Writeout also triggers when ring wraps around - there's
-no special reason to do this but it helps keep the code
-a bit simpler.
-
-What should we do if getting away from producer by 2 cache lines
-would mean we are keeping the ring moe than half empty?
-Maybe we should reduce the batching in this case,
-current patch simply reduces the batching.
-
-Notes:
-- it is no longer true that a call to consume guarantees
-  that the following call to produce will succeed.
-  No users seem to assume that.
-- batching can also in theory reduce the signalling rate:
-  users that would previously send interrups to the producer
-  to wake it up after consuming each entry would now only
-  need to do this once in a batch.
-  Doing this would be easy by returning a flag to the caller.
-  No users seem to do signalling on consume yet so this was not
-  implemented yet.
-
-Tested with pktgen on tap with xdp1 in guest:
-
-Before 2.10 Mpps
-After  2.27 Mpps (+7.48%)
-
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-Reviewed-by: Jesper Dangaard Brouer <brouer@redhat.com>
 Signed-off-by: Jason Wang <jasowang@redhat.com>
 ---
- include/linux/ptr_ring.h | 63 +++++++++++++++++++++++++++++++++++++++++-------
- 1 file changed, 54 insertions(+), 9 deletions(-)
+ include/linux/ptr_ring.h | 65 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 65 insertions(+)
 
 diff --git a/include/linux/ptr_ring.h b/include/linux/ptr_ring.h
-index 6c70444..6b2e0dd 100644
+index 796b90f..d8c97ec 100644
 --- a/include/linux/ptr_ring.h
 +++ b/include/linux/ptr_ring.h
-@@ -34,11 +34,13 @@
- struct ptr_ring {
- 	int producer ____cacheline_aligned_in_smp;
- 	spinlock_t producer_lock;
--	int consumer ____cacheline_aligned_in_smp;
-+	int consumer_head ____cacheline_aligned_in_smp; /* next valid entry */
-+	int consumer_tail; /* next entry to invalidate */
- 	spinlock_t consumer_lock;
- 	/* Shared consumer/producer data */
- 	/* Read-only by both the producer and the consumer */
- 	int size ____cacheline_aligned_in_smp; /* max entries in queue */
-+	int batch; /* number of entries to consume in a batch */
- 	void **queue;
- };
- 
-@@ -170,7 +172,7 @@ static inline int ptr_ring_produce_bh(struct ptr_ring *r, void *ptr)
- static inline void *__ptr_ring_peek(struct ptr_ring *r)
- {
- 	if (likely(r->size))
--		return r->queue[r->consumer];
-+		return r->queue[r->consumer_head];
- 	return NULL;
+@@ -278,6 +278,22 @@ static inline void *__ptr_ring_consume(struct ptr_ring *r)
+ 	return ptr;
  }
  
-@@ -231,9 +233,38 @@ static inline bool ptr_ring_empty_bh(struct ptr_ring *r)
- /* Must only be called after __ptr_ring_peek returned !NULL */
- static inline void __ptr_ring_discard_one(struct ptr_ring *r)
- {
--	r->queue[r->consumer++] = NULL;
--	if (unlikely(r->consumer >= r->size))
--		r->consumer = 0;
-+	/* Fundamentally, what we want to do is update consumer
-+	 * index and zero out the entry so producer can reuse it.
-+	 * Doing it naively at each consume would be as simple as:
-+	 *       r->queue[r->consumer++] = NULL;
-+	 *       if (unlikely(r->consumer >= r->size))
-+	 *               r->consumer = 0;
-+	 * but that is suboptimal when the ring is full as producer is writing
-+	 * out new entries in the same cache line.  Defer these updates until a
-+	 * batch of entries has been consumed.
-+	 */
-+	int head = r->consumer_head++;
-+
-+	/* Once we have processed enough entries invalidate them in
-+	 * the ring all at once so producer can reuse their space in the ring.
-+	 * We also do this when we reach end of the ring - not mandatory
-+	 * but helps keep the implementation simple.
-+	 */
-+	if (unlikely(r->consumer_head - r->consumer_tail >= r->batch ||
-+		     r->consumer_head >= r->size)) {
-+		/* Zero out entries in the reverse order: this way we touch the
-+		 * cache line that producer might currently be reading the last;
-+		 * producer won't make progress and touch other cache lines
-+		 * besides the first one until we write out all entries.
-+		 */
-+		while (likely(head >= r->consumer_tail))
-+			r->queue[head--] = NULL;
-+		r->consumer_tail = r->consumer_head;
-+	}
-+	if (unlikely(r->consumer_head >= r->size)) {
-+		r->consumer_head = 0;
-+		r->consumer_tail = 0;
-+	}
- }
- 
- static inline void *__ptr_ring_consume(struct ptr_ring *r)
-@@ -345,14 +376,27 @@ static inline void **__ptr_ring_init_queue_alloc(int size, gfp_t gfp)
- 	return kzalloc(ALIGN(size * sizeof(void *), SMP_CACHE_BYTES), gfp);
- }
- 
-+static inline void __ptr_ring_set_size(struct ptr_ring *r, int size)
++static inline int __ptr_ring_consume_batched(struct ptr_ring *r,
++					     void **array, int n)
 +{
-+	r->size = size;
-+	r->batch = SMP_CACHE_BYTES * 2 / sizeof(*(r->queue));
-+	/* We need to set batch at least to 1 to make logic
-+	 * in __ptr_ring_discard_one work correctly.
-+	 * Batching too much (because ring is small) would cause a lot of
-+	 * burstiness. Needs tuning, for now disable batching.
-+	 */
-+	if (r->batch > r->size / 2 || !r->batch)
-+		r->batch = 1;
++	void *ptr;
++	int i;
++
++	for (i = 0; i < n; i++) {
++		ptr = __ptr_ring_consume(r);
++		if (!ptr)
++			break;
++		array[i] = ptr;
++	}
++
++	return i;
 +}
 +
- static inline int ptr_ring_init(struct ptr_ring *r, int size, gfp_t gfp)
- {
- 	r->queue = __ptr_ring_init_queue_alloc(size, gfp);
- 	if (!r->queue)
- 		return -ENOMEM;
+ /*
+  * Note: resize (below) nests producer lock within consumer lock, so if you
+  * call this in interrupt or BH context, you must disable interrupts/BH when
+@@ -328,6 +344,55 @@ static inline void *ptr_ring_consume_bh(struct ptr_ring *r)
+ 	return ptr;
+ }
  
--	r->size = size;
--	r->producer = r->consumer = 0;
-+	__ptr_ring_set_size(r, size);
-+	r->producer = r->consumer_head = r->consumer_tail = 0;
- 	spin_lock_init(&r->producer_lock);
- 	spin_lock_init(&r->consumer_lock);
- 
-@@ -373,9 +417,10 @@ static inline void **__ptr_ring_swap_queue(struct ptr_ring *r, void **queue,
- 		else if (destroy)
- 			destroy(ptr);
- 
--	r->size = size;
-+	__ptr_ring_set_size(r, size);
- 	r->producer = producer;
--	r->consumer = 0;
-+	r->consumer_head = 0;
-+	r->consumer_tail = 0;
- 	old = r->queue;
- 	r->queue = queue;
- 
++static inline int ptr_ring_consume_batched(struct ptr_ring *r,
++					   void **array, int n)
++{
++	int ret;
++
++	spin_lock(&r->consumer_lock);
++	ret = __ptr_ring_consume_batched(r, array, n);
++	spin_unlock(&r->consumer_lock);
++
++	return ret;
++}
++
++static inline int ptr_ring_consume_batched_irq(struct ptr_ring *r,
++					       void **array, int n)
++{
++	int ret;
++
++	spin_lock_irq(&r->consumer_lock);
++	ret = __ptr_ring_consume_batched(r, array, n);
++	spin_unlock_irq(&r->consumer_lock);
++
++	return ret;
++}
++
++static inline int ptr_ring_consume_batched_any(struct ptr_ring *r,
++					       void **array, int n)
++{
++	unsigned long flags;
++	int ret;
++
++	spin_lock_irqsave(&r->consumer_lock, flags);
++	ret = __ptr_ring_consume_batched(r, array, n);
++	spin_unlock_irqrestore(&r->consumer_lock, flags);
++
++	return ret;
++}
++
++static inline int ptr_ring_consume_batched_bh(struct ptr_ring *r,
++					      void **array, int n)
++{
++	int ret;
++
++	spin_lock_bh(&r->consumer_lock);
++	ret = __ptr_ring_consume_batched(r, array, n);
++	spin_unlock_bh(&r->consumer_lock);
++
++	return ret;
++}
++
+ /* Cast to structure type and call a function without discarding from FIFO.
+  * Function must return a value.
+  * Callers must take consumer_lock.
 -- 
 2.7.4
