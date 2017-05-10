@@ -1,58 +1,46 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [Patch net] ipv4: restore rt->fi for reference counting
-Date: Wed, 10 May 2017 10:38:49 +0300 (EEST)
-Message-ID: <alpine.LFD.2.20.1705100937330.1938@ja.home.ssi.bg>
-References: <1493934857-6693-1-git-send-email-xiyou.wangcong@gmail.com> <20170508.143557.105629611489969352.davem@davemloft.net> <1494288080.7796.59.camel@edumazet-glaptop3.roam.corp.google.com> <20170508.212211.1291611254198273979.davem@davemloft.net>
- <1494296302.7796.61.camel@edumazet-glaptop3.roam.corp.google.com> <CAM_iQpWQoLppsMfDOQWsdifGd56CAY24tCNm0Jm02QCe7ZThOw@mail.gmail.com> <1494348962.7796.88.camel@edumazet-glaptop3.roam.corp.google.com> <CAM_iQpXADa6AyQ3X-EbmRPGCQArgPWygvHMYgWtfUYV082oF3Q@mail.gmail.com>
- <CAM_iQpVhdzeen+ZJ3jyK7Qb=yVuoRSZ7BFB3RoVMShY8KPBTZA@mail.gmail.com> <1494370367.7796.92.camel@edumazet-glaptop3.roam.corp.google.com> <1494370451.7796.93.camel@edumazet-glaptop3.roam.corp.google.com> <1494371348.7796.95.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAM_iQpU+fXO7eFroAYMv6vqDzCK_ZYXjrTPAMfoDR2BDqaK9rQ@mail.gmail.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH 1/4] hamradio: Combine two seq_printf() calls into one
+ in yam_seq_show()
+Date: Wed, 10 May 2017 08:48:13 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DCFFE852F@AcuExch.aculab.com>
+References: <4c5c939a-bd55-7b88-8e41-49f5544b7658@users.sourceforge.net>
+ <c2866b46-28c9-f17f-dce7-96425a17a43a@users.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-        David Miller <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Andrey Konovalov <andreyknvl@google.com>,
-        Eric Dumazet <edumazet@google.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:36436 "EHLO ja.ssi.bg"
-        rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751121AbdEJHjB (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 10 May 2017 03:39:01 -0400
-In-Reply-To: <CAM_iQpU+fXO7eFroAYMv6vqDzCK_ZYXjrTPAMfoDR2BDqaK9rQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: LKML <linux-kernel@vger.kernel.org>,
+        "kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>
+To: 'SF Markus Elfring' <elfring@users.sourceforge.net>,
+        "linux-hams@vger.kernel.org" <linux-hams@vger.kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        Javier Martinez Canillas <javier@osg.samsung.com>,
+        Jean-Paul Roubelat <jpr@f6fbb.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <c2866b46-28c9-f17f-dce7-96425a17a43a@users.sourceforge.net>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-
-	Hello,
-
-On Tue, 9 May 2017, Cong Wang wrote:
-
-> > Also setting nexthop_nh->nh_dev to NULL looks quite dangerous
-> >
-> > We have plenty of sites doing :
-> >
-> > if (fi->fib_dev)
-> >     x = fi->fib_dev->field
-> >
-> > fib_route_seq_show() is one example.
-> >
-> 
-> All of them take RCU read lock, so, as I explained in the code comment,
-> they all should be fine because of synchronize_net() on unregister path.
-> Do you see anything otherwise?
-
-	During NETDEV_UNREGISTER packets for dev should not
-be flying but packets for other devs can walk the nexthops
-for multipath routes. It is the rcu_barrier before
-NETDEV_UNREGISTER_FINAL that allows nh_dev to be set to NULL
-during this grace period but there are many places to fix that
-assume nh_dev!=NULL.
-
-	But why we leak routes? Is there some place that holds
-routes without listening for NETDEV_UNREGISTER? On fib_flush
-the infos are unlinked from trees, so after a grace period packets
-should not see/hold such infos. If we hold routes somewhere for
-long time, problem can happen also for routes with single nexthop.
-
-Regards
+RnJvbTogU0YgTWFya3VzIEVsZnJpbmcNCj4gU2VudDogMDkgTWF5IDIwMTcgMTU6MjINCj4gQSBi
+aXQgb2YgZGF0YSB3YXMgcHV0IGludG8gYSBzZXF1ZW5jZSBieSB0d28gc2VwYXJhdGUgZnVuY3Rp
+b24gY2FsbHMuDQo+IFByaW50IHRoZSBzYW1lIGRhdGEgYnkgYSBzaW5nbGUgZnVuY3Rpb24gY2Fs
+bCBpbnN0ZWFkLg0KPiANCj4gVGhpcyBpc3N1ZSB3YXMgZGV0ZWN0ZWQgYnkgdXNpbmcgdGhlIENv
+Y2NpbmVsbGUgc29mdHdhcmUuDQo+IA0KPiBTaWduZWQtb2ZmLWJ5OiBNYXJrdXMgRWxmcmluZyA8
+ZWxmcmluZ0B1c2Vycy5zb3VyY2Vmb3JnZS5uZXQ+DQo+IC0tLQ0KPiAgZHJpdmVycy9uZXQvaGFt
+cmFkaW8veWFtLmMgfCAzICstLQ0KPiAgMSBmaWxlIGNoYW5nZWQsIDEgaW5zZXJ0aW9uKCspLCAy
+IGRlbGV0aW9ucygtKQ0KPiANCj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2hhbXJhZGlvL3lh
+bS5jIGIvZHJpdmVycy9uZXQvaGFtcmFkaW8veWFtLmMNCj4gaW5kZXggYjY4OTFhZGExZDdiLi41
+NDJmMWU1MTFkZjEgMTAwNjQ0DQo+IC0tLSBhL2RyaXZlcnMvbmV0L2hhbXJhZGlvL3lhbS5jDQo+
+ICsrKyBiL2RyaXZlcnMvbmV0L2hhbXJhZGlvL3lhbS5jDQo+IEBAIC04MzAsOCArODMwLDcgQEAg
+c3RhdGljIGludCB5YW1fc2VxX3Nob3coc3RydWN0IHNlcV9maWxlICpzZXEsIHZvaWQgKnYpDQo+
+ICAJc2VxX3ByaW50ZihzZXEsICIgIFJ4RnJhbWVzICVsdVxuIiwgZGV2LT5zdGF0cy5yeF9wYWNr
+ZXRzKTsNCj4gIAlzZXFfcHJpbnRmKHNlcSwgIiAgVHhJbnQgICAgJXVcbiIsIHlwLT5uYl9tZGlu
+dCk7DQo+ICAJc2VxX3ByaW50ZihzZXEsICIgIFJ4SW50ICAgICV1XG4iLCB5cC0+bmJfcnhpbnQp
+Ow0KPiAtCXNlcV9wcmludGYoc2VxLCAiICBSeE92ZXIgICAlbHVcbiIsIGRldi0+c3RhdHMucnhf
+Zmlmb19lcnJvcnMpOw0KPiAtCXNlcV9wcmludGYoc2VxLCAiXG4iKTsNCj4gKwlzZXFfcHJpbnRm
+KHNlcSwgIiAgUnhPdmVyICAgJWx1XG5cbiIsIGRldi0+c3RhdHMucnhfZmlmb19lcnJvcnMpOw0K
+PiAgCXJldHVybiAwOw0KDQpUaGUgY29kZSB3YXMgY29uc2lzdGVudGx5IChhbmQgcHJvYmFibHkg
+ZGVsaWJlcmF0ZWx5KSB1c2luZyBvbmUgc2VxX3ByaW50ZigpDQpjYWxsIGZvciBlYWNoIGxpbmUg
+c28gdGhhdCB0aGUgc291cmNlIGxvb2tzICdhIGJpdCBsaWtlJyB0aGUgb3V0cHV0Lg0KDQpUaGVz
+ZSBjaGFuZ2VzIGFyZSBhbGwgc3R1cGlkLg0KDQoJRGF2aWQNCg0K
