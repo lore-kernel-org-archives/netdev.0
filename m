@@ -1,87 +1,90 @@
-From: Andy Duan <fugang.duan@nxp.com>
-Subject: RE: [PATCH] net: fec: select queue depending on VLAN priority
-Date: Wed, 10 May 2017 02:42:21 +0000
-Message-ID: <AM4PR0401MB2260BA1BC2F65B36284CF7D2FFEC0@AM4PR0401MB2260.eurprd04.prod.outlook.com>
-References: <20170509053708.2573-1-stefan@agner.ch>
- <20170509.093913.1803457630634565212.davem@davemloft.net>
+From: Jakub Kicinski <kubakici@wp.pl>
+Subject: Re: [PATCH net 2/2] xdp: disallow use of native and generic hook at
+ once
+Date: Tue, 9 May 2017 20:18:42 -0700
+Message-ID: <20170509201842.2ed5e330@cakuba.netronome.com>
+References: <cover.1494379046.git.daniel@iogearbox.net>
+        <f8405a8769dca09a0f21d11eab3793e30f608531.1494379046.git.daniel@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "andrew@lunn.ch" <andrew@lunn.ch>,
-        "festevam@gmail.com" <festevam@gmail.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: David Miller <davem@davemloft.net>,
-        "stefan@agner.ch" <stefan@agner.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170509.093913.1803457630634565212.davem@davemloft.net>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, alexei.starovoitov@gmail.com,
+        john.fastabend@gmail.com, netdev@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx3.wp.pl ([212.77.101.9]:7377 "EHLO mx3.wp.pl"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750946AbdEJDTE (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 9 May 2017 23:19:04 -0400
+In-Reply-To: <f8405a8769dca09a0f21d11eab3793e30f608531.1494379046.git.daniel@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net> Sent: Tuesday, May 09, 2017 9:39 P=
-M
->To: stefan@agner.ch
->Cc: Andy Duan <fugang.duan@nxp.com>; andrew@lunn.ch;
->festevam@gmail.com; netdev@vger.kernel.org; linux-
->kernel@vger.kernel.org
->Subject: Re: [PATCH] net: fec: select queue depending on VLAN priority
->
->From: Stefan Agner <stefan@agner.ch>
->Date: Mon,  8 May 2017 22:37:08 -0700
->
->> Since the addition of the multi queue code with commit 59d0f7465644
->> ("net: fec: init multi queue date structure") the queue selection has
->> been handelt by the default transmit queue selection implementation
->> which tries to evenly distribute the traffic across all available
->> queues. This selection presumes that the queues are using an equal
->> priority, however, the queues 1 and 2 are actually of higher priority
->> (the classification of the queues is enabled in fec_enet_enable_ring).
->>
->> This can lead to net scheduler warnings and continuous TX ring dumps
->> when exercising the system with iperf.
->>
->> Use only queue 0 for all common traffic (no VLAN and P802.1p priority
->> 0 and 1) and route level 2-7 through queue 1 and 2.
->>
->> Signed-off-by: Fugang Duan <fugang.duan@nxp.com>
->> Fixes: 59d0f7465644 ("net: fec: init multi queue date structure")
->
->If the queues are used for prioritization, and it does not have multiple n=
-ormal
->priority level queues, multiqueue is not what the driver should have
->implemented.
-Firstly, HW multiple queues support:
-	- Traffic-shaping bandwidth distribution supports credit-based and round-r=
-obin-based policies. Either policy can be combined with time-based shaping.
-	- AVB (Audio Video Bridging, IEEE 802.1Qav) features:
-		* Credit-based bandwidth distribution policy can be combined with time-ba=
-sed shaping
-		* AVB endpoint talker and listener support
-		* Support for arbitration between different priority traffic (for example=
-, AVB class A, AVB class B, and non-AVB)
-Round-robin-based policies:
-	It has the same priority for three queues: In the round-robin QoS scheme, =
-each queue is given an equal opportunity to transmit one frame. For example=
-, if queue n has a frame to transmit, the queue transmits its frame. After =
-queue n has transmitted its frame, or if queue n does not have a frame to t=
-ransmit, queue n+1 is then allowed to transmit its frame, and so on.
+On Wed, 10 May 2017 03:31:31 +0200, Daniel Borkmann wrote:
+> While working on the iproute2 generic XDP frontend, I noticed that
+> as of right now it's possible to have native *and* generic XDP
+> programs loaded both at the same time for the case when a driver
+> supports native XDP.
 
-Credit-based policies:
-	The AVB credit based shaper acts independently, per class, to control the =
-bandwidth distribution between normal traffic and time-sensitive traffic wi=
-th respect to the total link bandwidth available.
-	Credit based shaper conbined with time-based shaping: =20
-		- priority: ClassA queue > ClassB queue > best effort
-		- ensure the queue bandwidth as user set based on time-based shaping algo=
-rithms (transmitter transmit frame from three queue in turn based on time-b=
-ased shaping algorithms)
-	And in real AVB case,  each streaming can be independent, and are fixed on=
- related queue. Then driver level should implement .ndo_select_queue() to p=
-ut the streaming into related queue. That is what the patch did.
+Nice improvement!  A couple of absolute nitpicks below..
 
-The current driver config the three queue to credit-based policies (AVB), t=
-he patch seems no problem for the implementation. Do you have any suggestio=
-n ?
+> The intended model for generic XDP from b5cdae3291f7 ("net: Generic
+> XDP") is, however, that only one out of the two can be present at
+> once which is also indicated as such in the XPD netlink dump part.
+                                              ^^^
+                                                 XDP
 
-Andy
+> @@ -6851,6 +6851,32 @@ int dev_change_proto_down(struct net_device *dev, bool proto_down)
+>  }
+>  EXPORT_SYMBOL(dev_change_proto_down);
+>  
+> +bool __dev_xdp_attached(struct net_device *dev, xdp_op_t xdp_op)
+
+Out of curiosity - the leading underscores refer to caller having to
+hold rtnl?  I assume they are not needed in the function below because
+it's static?
+
+> +{
+> +	struct netdev_xdp xdp;
+> +
+> +	memset(&xdp, 0, sizeof(xdp));
+> +	xdp.command = XDP_QUERY_PROG;
+
+Probably personal preference, but seems like designated struct
+initializer would do quite nicely here and save the memset :)
+
+> diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+> index dda9f16..99320f0 100644
+> --- a/net/core/rtnetlink.c
+> +++ b/net/core/rtnetlink.c
+> @@ -1251,24 +1251,20 @@ static int rtnl_xdp_fill(struct sk_buff *skb, struct net_device *dev)
+>  {
+>  	struct nlattr *xdp;
+>  	u32 xdp_flags = 0;
+> -	u8 val = 0;
+>  	int err;
+> +	u8 val;
+>  
+>  	xdp = nla_nest_start(skb, IFLA_XDP);
+>  	if (!xdp)
+>  		return -EMSGSIZE;
+> +
+>  	if (rcu_access_pointer(dev->xdp_prog)) {
+>  		xdp_flags = XDP_FLAGS_SKB_MODE;
+>  		val = 1;
+> -	} else if (dev->netdev_ops->ndo_xdp) {
+> -		struct netdev_xdp xdp_op = {};
+> -
+> -		xdp_op.command = XDP_QUERY_PROG;
+> -		err = dev->netdev_ops->ndo_xdp(dev, &xdp_op);
+> -		if (err)
+> -			goto err_cancel;
+> -		val = xdp_op.prog_attached;
+> +	} else {
+> +		val = dev_xdp_attached(dev);
+> 	}
+
+Would it make sense to set xdp_flags to XDP_FLAGS_DRV_MODE here to keep
+things symmetrical?  I know you are just preserving existing behaviour
+but it may seem slightly arbitrary to a new comer to report one of the
+very similarly named flags in the dump but not the other.
