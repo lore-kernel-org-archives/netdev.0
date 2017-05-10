@@ -1,88 +1,54 @@
-From: Kees Cook <keescook@chromium.org>
-Subject: [PATCH] libertas: Avoid reading past end of buffer
-Date: Wed, 10 May 2017 12:24:51 -0700
-Message-ID: <20170510192451.GA115771@beast>
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Subject: [PATCH] net-procfs: Adjust buffer output in dev_mc_seq_show()
+Date: Wed, 10 May 2017 21:30:29 +0200
+Message-ID: <f4834759-37aa-14d7-e000-6526a3a4071f@users.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Joe Perches <joe@perches.com>, Kalle Valo <kvalo@codeaurora.org>,
-        libertas-dev@lists.infradead.org, linux-wireless@vger.kernel.org,
-        Daniel Micay <danielmicay@gmail.com>,
-        linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: LKML <linux-kernel@vger.kernel.org>,
+        kernel-janitors@vger.kernel.org
+To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Using memcpy() from a string that is shorter than the length copied means
-the destination buffer is being filled with arbitrary data from the kernel
-rodata segment. Instead, redefine the stat strings to be ETH_GSTRING_LEN
-sizes, like other drivers. This lets us use a single memcpy that does not
-leak rodata contents. Additionally adjust indentation to keep checkpatch.pl
-happy.
+From: Markus Elfring <elfring@users.sourceforge.net>
+Date: Wed, 10 May 2017 21:17:43 +0200
 
-This was found with the future CONFIG_FORTIFY_SOURCE feature.
+* Use a special format string specification for the desired output of the
+  array "addr" into a sequence.
 
-Cc: Daniel Micay <danielmicay@gmail.com>
-Signed-off-by: Kees Cook <keescook@chromium.org>
+  This issue was detected by using the Coccinelle software.
+
+* Delete the local variable "i" and a call of the function "seq_putc"
+  which became unnecessary with this refactoring.
+
+Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
 ---
-v2: use ETH_GSTRING_LEN; joe
----
- drivers/net/wireless/marvell/libertas/mesh.c | 26 ++++++++++----------------
- 1 file changed, 10 insertions(+), 16 deletions(-)
+ net/core/net-procfs.c | 8 +-------
+ 1 file changed, 1 insertion(+), 7 deletions(-)
 
-diff --git a/drivers/net/wireless/marvell/libertas/mesh.c b/drivers/net/wireless/marvell/libertas/mesh.c
-index d0c881dd5846..6076c83ce5ab 100644
---- a/drivers/net/wireless/marvell/libertas/mesh.c
-+++ b/drivers/net/wireless/marvell/libertas/mesh.c
-@@ -1108,15 +1108,15 @@ void lbs_mesh_set_txpd(struct lbs_private *priv,
-  * Ethtool related
-  */
+diff --git a/net/core/net-procfs.c b/net/core/net-procfs.c
+index 14d09345f00d..6aa427a2fb98 100644
+--- a/net/core/net-procfs.c
++++ b/net/core/net-procfs.c
+@@ -363,15 +363,9 @@ static int dev_mc_seq_show(struct seq_file *seq, void *v)
  
--static const char * const mesh_stat_strings[] = {
--			"drop_duplicate_bcast",
--			"drop_ttl_zero",
--			"drop_no_fwd_route",
--			"drop_no_buffers",
--			"fwded_unicast_cnt",
--			"fwded_bcast_cnt",
--			"drop_blind_table",
--			"tx_failed_cnt"
-+static const char mesh_stat_strings[MESH_STATS_NUM][ETH_GSTRING_LEN] = {
-+	"drop_duplicate_bcast",
-+	"drop_ttl_zero",
-+	"drop_no_fwd_route",
-+	"drop_no_buffers",
-+	"fwded_unicast_cnt",
-+	"fwded_bcast_cnt",
-+	"drop_blind_table",
-+	"tx_failed_cnt"
- };
- 
- void lbs_mesh_ethtool_get_stats(struct net_device *dev,
-@@ -1170,17 +1170,11 @@ int lbs_mesh_ethtool_get_sset_count(struct net_device *dev, int sset)
- void lbs_mesh_ethtool_get_strings(struct net_device *dev,
- 	uint32_t stringset, uint8_t *s)
- {
--	int i;
+ 	netif_addr_lock_bh(dev);
+ 	netdev_for_each_mc_addr(ha, dev) {
+-		int i;
 -
- 	lbs_deb_enter(LBS_DEB_ETHTOOL);
- 
- 	switch (stringset) {
- 	case ETH_SS_STATS:
--		for (i = 0; i < MESH_STATS_NUM; i++) {
--			memcpy(s + i * ETH_GSTRING_LEN,
--					mesh_stat_strings[i],
--					ETH_GSTRING_LEN);
--		}
-+		memcpy(s, *mesh_stat_strings, sizeof(mesh_stat_strings));
- 		break;
+ 		seq_printf(seq, "%-4d %-15s %-5d %-5d ", dev->ifindex,
+ 			   dev->name, ha->refcount, ha->global_use);
+-
+-		for (i = 0; i < dev->addr_len; i++)
+-			seq_printf(seq, "%02x", ha->addr[i]);
+-
+-		seq_putc(seq, '\n');
++		seq_printf(seq, "%*phN\n", dev->addr_len, ha->addr);
  	}
- 	lbs_deb_enter(LBS_DEB_ETHTOOL);
+ 	netif_addr_unlock_bh(dev);
+ 	return 0;
 -- 
-2.7.4
-
-
--- 
-Kees Cook
-Pixel Security
+2.12.3
