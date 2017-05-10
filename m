@@ -1,71 +1,78 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH net-next V3 6/9] tap: export skb_array
-Date: Wed, 10 May 2017 10:37:58 +0800
-Message-ID: <1494383881-6811-7-git-send-email-jasowang@redhat.com>
+Subject: [PATCH net-next V3 8/9] tap: support receiving skb from msg_control
+Date: Wed, 10 May 2017 10:38:00 +0800
+Message-ID: <1494383881-6811-9-git-send-email-jasowang@redhat.com>
 References: <1494383881-6811-1-git-send-email-jasowang@redhat.com>
 Cc: Jason Wang <jasowang@redhat.com>
 To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
         mst@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:34628 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751935AbdEJCiy (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 9 May 2017 22:38:54 -0400
 In-Reply-To: <1494383881-6811-1-git-send-email-jasowang@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch exports skb_array through tap_get_skb_array(). Caller can
-then manipulate skb array directly.
+This patch makes tap_recvmsg() can receive from skb from its caller
+through msg_control. Vhost_net will be the first user.
 
 Signed-off-by: Jason Wang <jasowang@redhat.com>
 ---
- drivers/net/tap.c      | 13 +++++++++++++
- include/linux/if_tap.h |  5 +++++
- 2 files changed, 18 insertions(+)
+ drivers/net/tap.c | 12 ++++++++----
+ 1 file changed, 8 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/tap.c b/drivers/net/tap.c
-index 4d4173d..abdaf86 100644
+index abdaf86..9af3239 100644
 --- a/drivers/net/tap.c
 +++ b/drivers/net/tap.c
-@@ -1193,6 +1193,19 @@ struct socket *tap_get_socket(struct file *file)
- }
- EXPORT_SYMBOL_GPL(tap_get_socket);
+@@ -824,15 +824,17 @@ static ssize_t tap_put_user(struct tap_queue *q,
  
-+struct skb_array *tap_get_skb_array(struct file *file)
-+{
-+	struct tap_queue *q;
-+
-+	if (file->f_op != &tap_fops)
-+		return ERR_PTR(-EINVAL);
-+	q = file->private_data;
-+	if (!q)
-+		return ERR_PTR(-EBADFD);
-+	return &q->skb_array;
-+}
-+EXPORT_SYMBOL_GPL(tap_get_skb_array);
-+
- int tap_queue_resize(struct tap_dev *tap)
+ static ssize_t tap_do_read(struct tap_queue *q,
+ 			   struct iov_iter *to,
+-			   int noblock)
++			   int noblock, struct sk_buff *skb)
  {
- 	struct net_device *dev = tap->dev;
-diff --git a/include/linux/if_tap.h b/include/linux/if_tap.h
-index 3482c3c..4837157 100644
---- a/include/linux/if_tap.h
-+++ b/include/linux/if_tap.h
-@@ -3,6 +3,7 @@
+ 	DEFINE_WAIT(wait);
+-	struct sk_buff *skb;
+ 	ssize_t ret = 0;
  
- #if IS_ENABLED(CONFIG_TAP)
- struct socket *tap_get_socket(struct file *);
-+struct skb_array *tap_get_skb_array(struct file *file);
- #else
- #include <linux/err.h>
- #include <linux/errno.h>
-@@ -12,6 +13,10 @@ static inline struct socket *tap_get_socket(struct file *f)
- {
- 	return ERR_PTR(-EINVAL);
- }
-+static inline struct skb_array *tap_get_skb_array(struct file *f)
-+{
-+	return ERR_PTR(-EINVAL);
-+}
- #endif /* CONFIG_TAP */
+ 	if (!iov_iter_count(to))
+ 		return 0;
  
- #include <net/sock.h>
++	if (skb)
++		goto put;
++
+ 	while (1) {
+ 		if (!noblock)
+ 			prepare_to_wait(sk_sleep(&q->sk), &wait,
+@@ -856,6 +858,7 @@ static ssize_t tap_do_read(struct tap_queue *q,
+ 	if (!noblock)
+ 		finish_wait(sk_sleep(&q->sk), &wait);
+ 
++put:
+ 	if (skb) {
+ 		ret = tap_put_user(q, skb, to);
+ 		if (unlikely(ret < 0))
+@@ -872,7 +875,7 @@ static ssize_t tap_read_iter(struct kiocb *iocb, struct iov_iter *to)
+ 	struct tap_queue *q = file->private_data;
+ 	ssize_t len = iov_iter_count(to), ret;
+ 
+-	ret = tap_do_read(q, to, file->f_flags & O_NONBLOCK);
++	ret = tap_do_read(q, to, file->f_flags & O_NONBLOCK, NULL);
+ 	ret = min_t(ssize_t, ret, len);
+ 	if (ret > 0)
+ 		iocb->ki_pos = ret;
+@@ -1155,7 +1158,8 @@ static int tap_recvmsg(struct socket *sock, struct msghdr *m,
+ 	int ret;
+ 	if (flags & ~(MSG_DONTWAIT|MSG_TRUNC))
+ 		return -EINVAL;
+-	ret = tap_do_read(q, &m->msg_iter, flags & MSG_DONTWAIT);
++	ret = tap_do_read(q, &m->msg_iter, flags & MSG_DONTWAIT,
++			  m->msg_control);
+ 	if (ret > total_len) {
+ 		m->msg_flags |= MSG_TRUNC;
+ 		ret = flags & MSG_TRUNC ? ret : total_len;
 -- 
 2.7.4
