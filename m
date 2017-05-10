@@ -1,72 +1,73 @@
-From: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
-Subject: [PATCH] net: ethernet: ti: netcp_core: return error while dma channel open issue
-Date: Wed, 10 May 2017 10:28:05 -0700
-Message-ID: <1494437285-13839-1-git-send-email-ivan.khoronzhuk@linaro.org>
-Cc: ssantosh@kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org,
-        Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
-To: w-kwok2@ti.com, m-karicheri2@ti.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f44.google.com ([74.125.83.44]:35650 "EHLO
-        mail-pg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753895AbdEJR2J (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 10 May 2017 13:28:09 -0400
-Received: by mail-pg0-f44.google.com with SMTP id o3so1094319pgn.2
-        for <netdev@vger.kernel.org>; Wed, 10 May 2017 10:28:09 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Bjorn Andersson <bjorn.andersson@linaro.org>
+Subject: Re: [PATCH] wcn36xx: Close SMD channel on device removal
+Date: Wed, 10 May 2017 10:52:55 -0700
+Message-ID: <20170510175254.GS15143@minitux>
+References: <20170509043637.28179-1-bjorn.andersson@linaro.org>
+ <87h90u3672.fsf@kamboji.qca.qualcomm.com>
+ <20170509230312.GR15143@minitux>
+ <6e1cc217-924f-c536-6009-f6a377844d6f@broadcom.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Kalle Valo <kvalo@codeaurora.org>,
+        Eugene Krasnikov <k.eugene.e@gmail.com>,
+        Eyal Ilsar <c_eilsar@qti.qualcomm.com>,
+        wcn36xx@lists.infradead.org, linux-wireless@vger.kernel.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        linux-arm-msm@vger.kernel.org
+To: Arend van Spriel <arend.vanspriel@broadcom.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <6e1cc217-924f-c536-6009-f6a377844d6f@broadcom.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Fix error path while dma open channel issue. Also, no need to check output
-on NULL if it's never returned.
+On Wed 10 May 00:27 PDT 2017, Arend van Spriel wrote:
 
-Signed-off-by: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
----
-Based on net-next
+> On 5/10/2017 1:03 AM, Bjorn Andersson wrote:
+> > On Mon 08 May 23:17 PDT 2017, Kalle Valo wrote:
+> > 
+> > > Bjorn Andersson <bjorn.andersson@linaro.org> writes:
+> > > 
+> > > > The SMD channel is not the primary WCNSS channel and must explicitly be
+> > > > closed as the device is removed, or the channel will already by open on
+> > > > a subsequent probe call in e.g. the case of reloading the kernel module.
+> > > > 
+> > > > This issue was introduced because I simplified the underlying SMD
+> > > > implementation while the SMD adaptions of the driver sat on the mailing
+> > > > list, but missed to update these patches. The patch does however only
+> > > > apply back to the transition to rpmsg, hence the limited Fixes.
+> > > > 
+> > > > Fixes: 5052de8deff5 ("soc: qcom: smd: Transition client drivers from smd to rpmsg")
+> > > > Reported-by: Eyal Ilsar <c_eilsar@qti.qualcomm.com>
+> > > > Signed-off-by: Bjorn Andersson <bjorn.andersson@linaro.org>
+> > > 
+> > > As this is a regression I'll queue this to 4.12.
+> > > 
+> > 
+> > Thanks.
+> > 
+> > > But if this is an older bug (didn't quite understand your description
+> > > though) should there be a separate patch for stable releases?
+> > > 
+> > 
+> > AFAICT this never worked, as it seems I did the rework in SMD while we
+> > tried to figure out the dependency issues we had with moving to SMD. So
+> > v4.9 through v4.11 has SMD support - with this bug.
+> > 
+> > How do I proceed, do you want me to write up a fix for stable@? Do I
+> > send that out as an ordinary patch?
+> 
+> If the patch applies cleanly on branches linux-4.9.y through linux-4.11.y in
+> the stable repository you can go for '--- Option 1 ---' as described in
+> <linux-repo>/Documentation/stable_kernel_rules.txt.
+> 
 
- drivers/net/ethernet/ti/netcp_core.c | 6 ++++--
- drivers/soc/ti/knav_dma.c            | 2 +-
- 2 files changed, 5 insertions(+), 3 deletions(-)
+It does not, before v4.12 it's a completely different function to call
+to close the channel.
 
-diff --git a/drivers/net/ethernet/ti/netcp_core.c b/drivers/net/ethernet/ti/netcp_core.c
-index 729a7da..e6222e5 100644
---- a/drivers/net/ethernet/ti/netcp_core.c
-+++ b/drivers/net/ethernet/ti/netcp_core.c
-@@ -1353,9 +1353,10 @@ int netcp_txpipe_open(struct netcp_tx_pipe *tx_pipe)
- 
- 	tx_pipe->dma_channel = knav_dma_open_channel(dev,
- 				tx_pipe->dma_chan_name, &config);
--	if (IS_ERR_OR_NULL(tx_pipe->dma_channel)) {
-+	if (IS_ERR(tx_pipe->dma_channel)) {
- 		dev_err(dev, "failed opening tx chan(%s)\n",
- 			tx_pipe->dma_chan_name);
-+		ret = PTR_ERR(tx_pipe->dma_channel);
- 		goto err;
- 	}
- 
-@@ -1673,9 +1674,10 @@ static int netcp_setup_navigator_resources(struct net_device *ndev)
- 
- 	netcp->rx_channel = knav_dma_open_channel(netcp->netcp_device->device,
- 					netcp->dma_chan_name, &config);
--	if (IS_ERR_OR_NULL(netcp->rx_channel)) {
-+	if (IS_ERR(netcp->rx_channel)) {
- 		dev_err(netcp->ndev_dev, "failed opening rx chan(%s\n",
- 			netcp->dma_chan_name);
-+		ret = PTR_ERR(netcp->rx_channel);
- 		goto fail;
- 	}
- 
-diff --git a/drivers/soc/ti/knav_dma.c b/drivers/soc/ti/knav_dma.c
-index ecebe2e..026182d 100644
---- a/drivers/soc/ti/knav_dma.c
-+++ b/drivers/soc/ti/knav_dma.c
-@@ -413,7 +413,7 @@ static int of_channel_match_helper(struct device_node *np, const char *name,
-  * @name:	slave channel name
-  * @config:	dma configuration parameters
-  *
-- * Returns pointer to appropriate DMA channel on success or NULL.
-+ * Returns pointer to appropriate DMA channel on success or error.
-  */
- void *knav_dma_open_channel(struct device *dev, const char *name,
- 					struct knav_dma_cfg *config)
--- 
-2.7.4
+But "Option 3" describes the situation, thanks for the reference. I'll
+try to find the time to verify the patch on v4.11 and send it to
+stable@.
+
+Regards,
+Bjorn
