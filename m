@@ -1,8 +1,7 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH 1/5] bpf: Track alignment of register values in the
- verifier.
-Date: Wed, 10 May 2017 15:09:42 -0400 (EDT)
-Message-ID: <20170510.150942.1969073633182798014.davem@davemloft.net>
+Subject: [PATCH 3/5] bpf: Add strict alignment flag for BPF_PROG_LOAD.
+Date: Wed, 10 May 2017 15:09:51 -0400 (EDT)
+Message-ID: <20170510.150951.1359250469075249855.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -10,389 +9,195 @@ Cc: alexei.starovoitov@gmail.com, daniel@iogearbox.net,
         netdev@vger.kernel.org
 To: ast@fb.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:42880 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:42898 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754076AbdEJTJo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 10 May 2017 15:09:44 -0400
+        with ESMTP id S1754076AbdEJTJx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 10 May 2017 15:09:53 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-Currently if we add only constant values to pointers we can fully
-validate the alignment, and properly check if we need to reject the
-program on CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS architectures.
+Add a new field, "prog_flags", and an initial flag value
+BPF_F_STRCIT_ALIGNMENT.
 
-However, once an unknown value is introduced we only allow byte sized
-memory accesses which is too restrictive.
+When set, the verifier will enforce strict pointer alignment
+regardless of the setting of CONFIG_EFFICIENT_UNALIGNED_ACCESS.
 
-Add logic to track the known minimum alignment of register values,
-and propagate this state into registers containing pointers.
+The verifier, in this mode, will also use a fixed value of "2" in
+place of NET_IP_ALIGN.
 
-The most common paradigm that makes use of this new logic is computing
-the transport header using the IP header length field.  For example:
-
-	struct ethhdr *ep = skb->data;
-	struct iphdr *iph = (struct iphdr *) (ep + 1);
-	struct tcphdr *th;
- ...
-	n = iph->ihl;
-	th = ((void *)iph + (n * 4));
-	port = th->dest;
-
-The existing code will reject the load of th->dport because it cannot
-validate that the alignment is at least 2 once "n * 4" is added the
-the packet pointer.
-
-In the new code, the register holding "n * 4" will have a reg->min_align
-value of 4, because any value multiplied by 4 will be at least 4 byte
-aligned.  (actually, the eBPF code emitted by the compiler in this case
-is most likely to use a shift left by 2, but the end result is identical)
-
-At the critical addition:
-
-	th = ((void *)iph + (n * 4));
-
-The register holding 'th' will start with reg->off value of 14.  The
-pointer addition will transform that reg into something that looks like:
-
-	reg->aux_off = 14
-	reg->aux_off_align = 4
-
-Next, the verifier will look at the th->dest load, and it will see
-a load offset of 2, and first check:
-
-	if (reg->aux_off_align % size)
-
-which will pass because aux_off_align is 4.  reg_off will be computed:
-
-	reg_off = reg->off;
- ...
-		reg_off += reg->aux_off;
-
-plus we have off==2, and it will thus check:
-
-	if ((NET_IP_ALIGN + reg_off + off) % size != 0)
-
-which evaluates to:
-
-	if ((NET_IP_ALIGN + 14 + 2) % size != 0)
-
-On strict alignment architectures, NET_IP_ALIGN is 2, thus:
-
-	if ((2 + 14 + 2) % size != 0)
-
-which passes.
-
-These pointer transformations and checks work regardless of whether
-the constant offset or the variable with known alignment is added
-first to the pointer register.
+This facilitates test cases that will exercise and validate this part
+of the verifier even when run on architectures where alignment doesn't
+matter.
 
 Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- include/linux/bpf_verifier.h |   3 ++
- kernel/bpf/verifier.c        | 114 +++++++++++++++++++++++++++++++++++--------
- 2 files changed, 98 insertions(+), 19 deletions(-)
+ include/uapi/linux/bpf.h       |  8 ++++++++
+ kernel/bpf/syscall.c           |  5 ++++-
+ kernel/bpf/verifier.c          | 20 ++++++++++++++++----
+ tools/build/feature/test-bpf.c |  1 +
+ tools/include/uapi/linux/bpf.h | 11 +++++++++--
+ 5 files changed, 38 insertions(+), 7 deletions(-)
 
-diff --git a/include/linux/bpf_verifier.h b/include/linux/bpf_verifier.h
-index 5efb4db..7c6a519 100644
---- a/include/linux/bpf_verifier.h
-+++ b/include/linux/bpf_verifier.h
-@@ -40,6 +40,9 @@ struct bpf_reg_state {
- 	 */
- 	s64 min_value;
- 	u64 max_value;
-+	u32 min_align;
-+	u32 aux_off;
-+	u32 aux_off_align;
- };
+diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+index 945a1f5..94dfa9d 100644
+--- a/include/uapi/linux/bpf.h
++++ b/include/uapi/linux/bpf.h
+@@ -132,6 +132,13 @@ enum bpf_attach_type {
+  */
+ #define BPF_F_ALLOW_OVERRIDE	(1U << 0)
  
- enum bpf_stack_slot_type {
++/* If BPF_F_STRICT_ALIGNMENT is used in BPF_PROG_LOAD command, the
++ * verifier will perform strict alignment checking as if the kernel
++ * has been built with CONFIG_EFFICIENT_UNALIGNED_ACCESS not set,
++ * and NET_IP_ALIGN defined to 2.
++ */
++#define BPF_F_STRICT_ALIGNMENT	(1U << 0)
++
+ #define BPF_PSEUDO_MAP_FD	1
+ 
+ /* flags for BPF_MAP_UPDATE_ELEM command */
+@@ -177,6 +184,7 @@ union bpf_attr {
+ 		__u32		log_size;	/* size of user buffer */
+ 		__aligned_u64	log_buf;	/* user supplied buffer */
+ 		__u32		kern_version;	/* checked when prog_type=kprobe */
++		__u32		prog_flags;
+ 	};
+ 
+ 	struct { /* anonymous struct used by BPF_OBJ_* commands */
+diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
+index fd2411f..265a0d8 100644
+--- a/kernel/bpf/syscall.c
++++ b/kernel/bpf/syscall.c
+@@ -783,7 +783,7 @@ struct bpf_prog *bpf_prog_get_type(u32 ufd, enum bpf_prog_type type)
+ EXPORT_SYMBOL_GPL(bpf_prog_get_type);
+ 
+ /* last field in 'union bpf_attr' used by this command */
+-#define	BPF_PROG_LOAD_LAST_FIELD kern_version
++#define	BPF_PROG_LOAD_LAST_FIELD prog_flags
+ 
+ static int bpf_prog_load(union bpf_attr *attr)
+ {
+@@ -796,6 +796,9 @@ static int bpf_prog_load(union bpf_attr *attr)
+ 	if (CHECK_ATTR(BPF_PROG_LOAD))
+ 		return -EINVAL;
+ 
++	if (attr->prog_flags & ~BPF_F_STRICT_ALIGNMENT)
++		return -EINVAL;
++
+ 	/* copy eBPF program license from user space */
+ 	if (strncpy_from_user(license, u64_to_user_ptr(attr->license),
+ 			      sizeof(license) - 1) < 0)
 diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
-index c5b56c9..56230ff 100644
+index e1effce..a406555 100644
 --- a/kernel/bpf/verifier.c
 +++ b/kernel/bpf/verifier.c
-@@ -241,6 +241,12 @@ static void print_verifier_state(struct bpf_verifier_state *state)
- 		if (reg->max_value != BPF_REGISTER_MAX_RANGE)
- 			verbose(",max_value=%llu",
- 				(unsigned long long)reg->max_value);
-+		if (reg->min_align)
-+			verbose(",min_align=%u", reg->min_align);
-+		if (reg->aux_off)
-+			verbose(",aux_off=%u", reg->aux_off);
-+		if (reg->aux_off_align)
-+			verbose(",aux_off_align=%u", reg->aux_off_align);
- 	}
- 	for (i = 0; i < MAX_BPF_STACK; i += BPF_REG_SIZE) {
- 		if (state->stack_slot_type[i] == STACK_SPILL)
-@@ -466,6 +472,9 @@ static void init_reg_state(struct bpf_reg_state *regs)
- 		regs[i].imm = 0;
- 		regs[i].min_value = BPF_REGISTER_MIN_RANGE;
- 		regs[i].max_value = BPF_REGISTER_MAX_RANGE;
-+		regs[i].min_align = 0;
-+		regs[i].aux_off = 0;
-+		regs[i].aux_off_align = 0;
- 	}
- 
- 	/* frame pointer */
-@@ -494,11 +503,17 @@ static void reset_reg_range_values(struct bpf_reg_state *regs, u32 regno)
- 	regs[regno].max_value = BPF_REGISTER_MAX_RANGE;
- }
- 
-+static void reset_reg_align(struct bpf_reg_state *regs, u32 regno)
-+{
-+	regs[regno].min_align = 0;
-+}
-+
- static void mark_reg_unknown_value_and_range(struct bpf_reg_state *regs,
- 					     u32 regno)
- {
- 	mark_reg_unknown_value(regs, regno);
- 	reset_reg_range_values(regs, regno);
-+	reset_reg_align(regs, regno);
- }
- 
- enum reg_arg_type {
-@@ -779,17 +794,28 @@ static bool is_pointer_value(struct bpf_verifier_env *env, int regno)
- }
- 
+@@ -796,6 +796,7 @@ static bool is_pointer_value(struct bpf_verifier_env *env, int regno)
  static int check_pkt_ptr_alignment(const struct bpf_reg_state *reg,
--				   int off, int size)
-+				   int off, int size, bool strict)
+ 				   int off, int size, bool strict)
  {
--	if (reg->id && size != 1) {
--		verbose("Unknown alignment. Only byte-sized access allowed in packet access.\n");
--		return -EACCES;
-+	int reg_off;
-+
-+	/* Byte size accesses are always allowed. */
-+	if (!strict || size == 1)
-+		return 0;
-+
-+	reg_off = reg->off;
-+	if (reg->id) {
-+		if (reg->aux_off_align % size) {
-+			verbose("Packet access is only %u byte aligned, %d byte access not allowed\n",
-+				reg->aux_off_align, size);
-+			return -EACCES;
-+		}
-+		reg_off += reg->aux_off;
++	int ip_align;
+ 	int reg_off;
+ 
+ 	/* Byte size accesses are always allowed. */
+@@ -812,10 +813,14 @@ static int check_pkt_ptr_alignment(const struct bpf_reg_state *reg,
+ 		reg_off += reg->aux_off;
  	}
  
- 	/* skb->data is NET_IP_ALIGN-ed */
--	if ((NET_IP_ALIGN + reg->off + off) % size != 0) {
-+	if ((NET_IP_ALIGN + reg_off + off) % size != 0) {
+-	/* skb->data is NET_IP_ALIGN-ed */
+-	if ((NET_IP_ALIGN + reg_off + off) % size != 0) {
++	/* skb->data is NET_IP_ALIGN-ed, but for strict alignment checking
++	 * we force this to 2 which is universally what architectures use
++	 * when they don't set CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS.
++	 */
++	ip_align = strict ? 2 : NET_IP_ALIGN;
++	if ((ip_align + reg_off + off) % size != 0) {
  		verbose("misaligned packet access off %d+%d+%d size %d\n",
--			NET_IP_ALIGN, reg->off, off, size);
-+			NET_IP_ALIGN, reg_off, off, size);
+-			NET_IP_ALIGN, reg_off, off, size);
++			ip_align, reg_off, off, size);
  		return -EACCES;
  	}
  
-@@ -797,9 +823,9 @@ static int check_pkt_ptr_alignment(const struct bpf_reg_state *reg,
+@@ -833,10 +838,12 @@ static int check_val_ptr_alignment(const struct bpf_reg_state *reg,
+ 	return 0;
  }
  
- static int check_val_ptr_alignment(const struct bpf_reg_state *reg,
--				   int size)
-+				   int size, bool strict)
- {
--	if (size != 1) {
-+	if (strict && size != 1) {
- 		verbose("Unknown alignment. Only byte-sized access allowed in value access.\n");
- 		return -EACCES;
- 	}
-@@ -810,13 +836,16 @@ static int check_val_ptr_alignment(const struct bpf_reg_state *reg,
++static bool strict_alignment;
++
  static int check_ptr_alignment(const struct bpf_reg_state *reg,
  			       int off, int size)
  {
-+	bool strict = false;
-+
-+	if (!IS_ENABLED(CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS))
-+		strict = true;
-+
- 	switch (reg->type) {
- 	case PTR_TO_PACKET:
--		return IS_ENABLED(CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS) ? 0 :
--		       check_pkt_ptr_alignment(reg, off, size);
-+		return check_pkt_ptr_alignment(reg, off, size, strict);
- 	case PTR_TO_MAP_VALUE_ADJ:
--		return IS_ENABLED(CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS) ? 0 :
--		       check_val_ptr_alignment(reg, size);
-+		return check_val_ptr_alignment(reg, size, strict);
- 	default:
- 		if (off % size != 0) {
- 			verbose("misaligned access off %d size %d\n",
-@@ -883,6 +912,8 @@ static int check_mem_access(struct bpf_verifier_env *env, u32 regno, int off,
- 							 value_regno);
- 			/* note that reg.[id|off|range] == 0 */
- 			state->regs[value_regno].type = reg_type;
-+			state->regs[value_regno].aux_off = 0;
-+			state->regs[value_regno].aux_off_align = 0;
- 		}
+-	bool strict = false;
++	bool strict = strict_alignment;
  
- 	} else if (reg->type == FRAME_PTR || reg->type == PTR_TO_STACK) {
-@@ -1455,6 +1486,8 @@ static int check_packet_ptr_add(struct bpf_verifier_env *env,
- 		 */
- 		dst_reg->off += imm;
+ 	if (!IS_ENABLED(CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS))
+ 		strict = true;
+@@ -3574,6 +3581,10 @@ int bpf_check(struct bpf_prog **prog, union bpf_attr *attr)
  	} else {
-+		bool had_id;
-+
- 		if (src_reg->type == PTR_TO_PACKET) {
- 			/* R6=pkt(id=0,off=0,r=62) R7=imm22; r7 += r6 */
- 			tmp_reg = *dst_reg;  /* save r7 state */
-@@ -1488,14 +1521,23 @@ static int check_packet_ptr_add(struct bpf_verifier_env *env,
- 				src_reg->imm);
- 			return -EACCES;
- 		}
-+
-+		had_id = (dst_reg->id != 0);
-+
- 		/* dst_reg stays as pkt_ptr type and since some positive
- 		 * integer value was added to the pointer, increment its 'id'
- 		 */
- 		dst_reg->id = ++env->id_gen;
- 
--		/* something was added to pkt_ptr, set range and off to zero */
-+		/* something was added to pkt_ptr, set range to zero */
-+		dst_reg->aux_off = dst_reg->off;
- 		dst_reg->off = 0;
- 		dst_reg->range = 0;
-+		if (had_id)
-+			dst_reg->aux_off_align = min(dst_reg->aux_off_align,
-+						     src_reg->min_align);
-+		else
-+			dst_reg->aux_off_align = src_reg->min_align;
+ 		log_level = 0;
  	}
- 	return 0;
- }
-@@ -1669,6 +1711,13 @@ static void check_reg_overflow(struct bpf_reg_state *reg)
- 		reg->min_value = BPF_REGISTER_MIN_RANGE;
- }
++	if (attr->prog_flags & BPF_F_STRICT_ALIGNMENT)
++		strict_alignment = true;
++	else
++		strict_alignment = false;
  
-+static u32 calc_align(u32 imm)
-+{
-+	if (!imm)
-+		return 1U << 31;
-+	return imm - ((imm - 1) & imm);
-+}
+ 	ret = replace_map_fd_with_map_ptr(env);
+ 	if (ret < 0)
+@@ -3679,6 +3690,7 @@ int bpf_analyzer(struct bpf_prog *prog, const struct bpf_ext_analyzer_ops *ops,
+ 	mutex_lock(&bpf_verifier_lock);
+ 
+ 	log_level = 0;
++	strict_alignment = false;
+ 
+ 	env->explored_states = kcalloc(env->prog->len,
+ 				       sizeof(struct bpf_verifier_state_list *),
+diff --git a/tools/build/feature/test-bpf.c b/tools/build/feature/test-bpf.c
+index ebc6dce..7598361 100644
+--- a/tools/build/feature/test-bpf.c
++++ b/tools/build/feature/test-bpf.c
+@@ -29,6 +29,7 @@ int main(void)
+ 	attr.log_size = 0;
+ 	attr.log_level = 0;
+ 	attr.kern_version = 0;
++	attr.prog_flags = 0;
+ 
+ 	/*
+ 	 * Test existence of __NR_bpf and BPF_PROG_LOAD.
+diff --git a/tools/include/uapi/linux/bpf.h b/tools/include/uapi/linux/bpf.h
+index e553529..94dfa9d 100644
+--- a/tools/include/uapi/linux/bpf.h
++++ b/tools/include/uapi/linux/bpf.h
+@@ -132,6 +132,13 @@ enum bpf_attach_type {
+  */
+ #define BPF_F_ALLOW_OVERRIDE	(1U << 0)
+ 
++/* If BPF_F_STRICT_ALIGNMENT is used in BPF_PROG_LOAD command, the
++ * verifier will perform strict alignment checking as if the kernel
++ * has been built with CONFIG_EFFICIENT_UNALIGNED_ACCESS not set,
++ * and NET_IP_ALIGN defined to 2.
++ */
++#define BPF_F_STRICT_ALIGNMENT	(1U << 0)
 +
- static void adjust_reg_min_max_vals(struct bpf_verifier_env *env,
- 				    struct bpf_insn *insn)
- {
-@@ -1676,8 +1725,10 @@ static void adjust_reg_min_max_vals(struct bpf_verifier_env *env,
- 	s64 min_val = BPF_REGISTER_MIN_RANGE;
- 	u64 max_val = BPF_REGISTER_MAX_RANGE;
- 	u8 opcode = BPF_OP(insn->code);
-+	u32 dst_align, src_align;
+ #define BPF_PSEUDO_MAP_FD	1
  
- 	dst_reg = &regs[insn->dst_reg];
-+	src_align = 0;
- 	if (BPF_SRC(insn->code) == BPF_X) {
- 		check_reg_overflow(&regs[insn->src_reg]);
- 		min_val = regs[insn->src_reg].min_value;
-@@ -1693,18 +1744,25 @@ static void adjust_reg_min_max_vals(struct bpf_verifier_env *env,
- 		    regs[insn->src_reg].type != UNKNOWN_VALUE) {
- 			min_val = BPF_REGISTER_MIN_RANGE;
- 			max_val = BPF_REGISTER_MAX_RANGE;
-+			src_align = 0;
-+		} else {
-+			src_align = regs[insn->src_reg].min_align;
- 		}
- 	} else if (insn->imm < BPF_REGISTER_MAX_RANGE &&
- 		   (s64)insn->imm > BPF_REGISTER_MIN_RANGE) {
- 		min_val = max_val = insn->imm;
-+		src_align = calc_align(insn->imm);
- 	}
+ /* flags for BPF_MAP_UPDATE_ELEM command */
+@@ -177,6 +184,7 @@ union bpf_attr {
+ 		__u32		log_size;	/* size of user buffer */
+ 		__aligned_u64	log_buf;	/* user supplied buffer */
+ 		__u32		kern_version;	/* checked when prog_type=kprobe */
++		__u32		prog_flags;
+ 	};
  
-+	dst_align = dst_reg->min_align;
-+
- 	/* We don't know anything about what was done to this register, mark it
- 	 * as unknown.
- 	 */
- 	if (min_val == BPF_REGISTER_MIN_RANGE &&
- 	    max_val == BPF_REGISTER_MAX_RANGE) {
- 		reset_reg_range_values(regs, insn->dst_reg);
-+		reset_reg_align(regs, insn->dst_reg);
- 		return;
- 	}
- 
-@@ -1723,18 +1781,21 @@ static void adjust_reg_min_max_vals(struct bpf_verifier_env *env,
- 			dst_reg->min_value += min_val;
- 		if (dst_reg->max_value != BPF_REGISTER_MAX_RANGE)
- 			dst_reg->max_value += max_val;
-+		dst_reg->min_align = min(src_align, dst_align);
- 		break;
- 	case BPF_SUB:
- 		if (dst_reg->min_value != BPF_REGISTER_MIN_RANGE)
- 			dst_reg->min_value -= min_val;
- 		if (dst_reg->max_value != BPF_REGISTER_MAX_RANGE)
- 			dst_reg->max_value -= max_val;
-+		dst_reg->min_align = min(src_align, dst_align);
- 		break;
- 	case BPF_MUL:
- 		if (dst_reg->min_value != BPF_REGISTER_MIN_RANGE)
- 			dst_reg->min_value *= min_val;
- 		if (dst_reg->max_value != BPF_REGISTER_MAX_RANGE)
- 			dst_reg->max_value *= max_val;
-+		dst_reg->min_align = max(src_align, dst_align);
- 		break;
- 	case BPF_AND:
- 		/* Disallow AND'ing of negative numbers, ain't nobody got time
-@@ -1746,17 +1807,23 @@ static void adjust_reg_min_max_vals(struct bpf_verifier_env *env,
- 		else
- 			dst_reg->min_value = 0;
- 		dst_reg->max_value = max_val;
-+		dst_reg->min_align = max(src_align, dst_align);
- 		break;
- 	case BPF_LSH:
- 		/* Gotta have special overflow logic here, if we're shifting
- 		 * more than MAX_RANGE then just assume we have an invalid
- 		 * range.
- 		 */
--		if (min_val > ilog2(BPF_REGISTER_MAX_RANGE))
-+		if (min_val > ilog2(BPF_REGISTER_MAX_RANGE)) {
- 			dst_reg->min_value = BPF_REGISTER_MIN_RANGE;
--		else if (dst_reg->min_value != BPF_REGISTER_MIN_RANGE)
--			dst_reg->min_value <<= min_val;
--
-+			dst_reg->min_align = 1;
-+		} else {
-+			if (dst_reg->min_value != BPF_REGISTER_MIN_RANGE)
-+				dst_reg->min_value <<= min_val;
-+			if (!dst_reg->min_align)
-+				dst_reg->min_align = 1;
-+			dst_reg->min_align <<= min_val;
-+		}
- 		if (max_val > ilog2(BPF_REGISTER_MAX_RANGE))
- 			dst_reg->max_value = BPF_REGISTER_MAX_RANGE;
- 		else if (dst_reg->max_value != BPF_REGISTER_MAX_RANGE)
-@@ -1766,11 +1833,19 @@ static void adjust_reg_min_max_vals(struct bpf_verifier_env *env,
- 		/* RSH by a negative number is undefined, and the BPF_RSH is an
- 		 * unsigned shift, so make the appropriate casts.
- 		 */
--		if (min_val < 0 || dst_reg->min_value < 0)
-+		if (min_val < 0 || dst_reg->min_value < 0) {
- 			dst_reg->min_value = BPF_REGISTER_MIN_RANGE;
--		else
-+		} else {
- 			dst_reg->min_value =
- 				(u64)(dst_reg->min_value) >> min_val;
-+		}
-+		if (min_val < 0) {
-+			dst_reg->min_align = 1;
-+		} else {
-+			dst_reg->min_align >>= (u64) min_val;
-+			if (!dst_reg->min_align)
-+				dst_reg->min_align = 1;
-+		}
- 		if (dst_reg->max_value != BPF_REGISTER_MAX_RANGE)
- 			dst_reg->max_value >>= max_val;
- 		break;
-@@ -1872,6 +1947,7 @@ static int check_alu_op(struct bpf_verifier_env *env, struct bpf_insn *insn)
- 			regs[insn->dst_reg].imm = insn->imm;
- 			regs[insn->dst_reg].max_value = insn->imm;
- 			regs[insn->dst_reg].min_value = insn->imm;
-+			regs[insn->dst_reg].min_align = calc_align(insn->imm);
- 		}
- 
- 	} else if (opcode > BPF_END) {
+ 	struct { /* anonymous struct used by BPF_OBJ_* commands */
+@@ -481,8 +489,7 @@ union bpf_attr {
+  * u32 bpf_get_socket_uid(skb)
+  *     Get the owner uid of the socket stored inside sk_buff.
+  *     @skb: pointer to skb
+- *     Return: uid of the socket owner on success or 0 if the socket pointer
+- *     inside sk_buff is NULL
++ *     Return: uid of the socket owner on success or overflowuid if failed.
+  */
+ #define __BPF_FUNC_MAPPER(FN)		\
+ 	FN(unspec),			\
 -- 
 2.1.2.532.g19b5d50
