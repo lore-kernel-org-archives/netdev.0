@@ -1,72 +1,99 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net] ipv6/dccp: do not inherit ipv6_mc_list from parent
-Date: Tue,  9 May 2017 16:59:54 -0700
-Message-ID: <1494374394-24373-1-git-send-email-xiyou.wangcong@gmail.com>
-Cc: edumazet@google.com, Cong Wang <xiyou.wangcong@gmail.com>
-To: netdev@vger.kernel.org
+From: Ihar Hrachyshka <ihrachys@redhat.com>
+Subject: [PATCH] neighbour: update neigh timestamps iff update is effective
+Date: Tue,  9 May 2017 17:06:05 -0700
+Message-ID: <20170510000605.6799-1-ihrachys@redhat.com>
+To: "David S. Miller" <davem@davemloft.net>,
+        Ihar Hrachyshka <ihrachys@redhat.com>,
+        Julian Anastasov <ja@ssi.bg>,
+        He Chunhui <hchunhui@mail.ustc.edu.cn>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:36603 "EHLO
-        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750734AbdEJAAX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 9 May 2017 20:00:23 -0400
-Received: by mail-pg0-f67.google.com with SMTP id 64so1797331pgb.3
-        for <netdev@vger.kernel.org>; Tue, 09 May 2017 17:00:23 -0700 (PDT)
+Received: from mx1.redhat.com ([209.132.183.28]:39906 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750780AbdEJAGb (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 9 May 2017 20:06:31 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Like commit 657831ffc38e ("dccp/tcp: do not inherit mc_list from parent")
-we should clear ipv6_mc_list etc. for IPv6 sockets too.
+It's a common practice to send gratuitous ARPs after moving an
+IP address to another device to speed up healing of a service. To
+fulfill service availability constraints, the timing of network peers
+updating their caches to point to a new location of an IP address can be
+particularly important.
 
-Cc: Eric Dumazet <edumazet@google.com>
-Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+Sometimes neigh_update calls won't touch neither lladdr nor state, for
+example if an update arrives in locktime interval. Then we effectively
+ignore the update request, bailing out of touching the neigh entry,
+except that we still bump its timestamps.
+
+This may be a problem for updates arriving in quick succession. For
+example, consider the following scenario:
+
+A service is moved to another device with its IP address. The new device
+sends three gratuitous ARP requests into the network with ~1 seconds
+interval between them. Just before the first request arrives to one of
+network peer nodes, its neigh entry for the IP address transitions from
+STALE to DELAY.  This transition, among other things, updates
+neigh->updated. Once the kernel receives the first gratuitous ARP, it
+ignores it because its arrival time is inside the locktime interval. The
+kernel still bumps neigh->updated. Then the second gratuitous ARP
+request arrives, and it's also ignored because it's still in the (new)
+locktime interval. Same happens for the third request. The node
+eventually heals itself (after delay_first_probe_time seconds since the
+initial transition to DELAY state), but it just wasted some time and
+require a new ARP request/reply round trip. This unfortunate behaviour
+both puts more load on the network, as well as reduces service
+availability.
+
+This patch changes neigh_update so that it bumps neigh->updated (as well
+as neigh->confirmed) only once we are sure that either lladdr or entry
+state will change). In the scenario described above, it means that the
+second gratuitous ARP request will actually update the entry lladdr.
+
+Ideally, we would update the neigh entry on the very first gratuitous
+ARP request. The locktime mechanism is designed to ignore ARP updates in
+a short timeframe after a previous ARP update was honoured by the kernel
+layer. This would require tracking timestamps for state transitions
+separately from timestamps when actual updates are received. This would
+probably involve changes in neighbour struct. Therefore, the patch
+doesn't tackle the issue of the first gratuitous APR ignored, leaving
+it for a follow-up.
+
+Signed-off-by: Ihar Hrachyshka <ihrachys@redhat.com>
 ---
- net/dccp/ipv6.c     | 6 ++++++
- net/ipv6/tcp_ipv6.c | 2 ++
- 2 files changed, 8 insertions(+)
+ net/core/neighbour.c | 14 ++++++++++----
+ 1 file changed, 10 insertions(+), 4 deletions(-)
 
-diff --git a/net/dccp/ipv6.c b/net/dccp/ipv6.c
-index d9b6a4e..b6bbb71 100644
---- a/net/dccp/ipv6.c
-+++ b/net/dccp/ipv6.c
-@@ -426,6 +426,9 @@ static struct sock *dccp_v6_request_recv_sock(const struct sock *sk,
- 		newsk->sk_backlog_rcv = dccp_v4_do_rcv;
- 		newnp->pktoptions  = NULL;
- 		newnp->opt	   = NULL;
-+		newnp->ipv6_mc_list = NULL;
-+		newnp->ipv6_ac_list = NULL;
-+		newnp->ipv6_fl_list = NULL;
- 		newnp->mcast_oif   = inet6_iif(skb);
- 		newnp->mcast_hops  = ipv6_hdr(skb)->hop_limit;
+diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+index 58b0bcc..d274f81 100644
+--- a/net/core/neighbour.c
++++ b/net/core/neighbour.c
+@@ -1132,10 +1132,6 @@ int neigh_update(struct neighbour *neigh, const u8 *lladdr, u8 new,
+ 		lladdr = neigh->ha;
+ 	}
  
-@@ -490,6 +493,9 @@ static struct sock *dccp_v6_request_recv_sock(const struct sock *sk,
- 	/* Clone RX bits */
- 	newnp->rxopt.all = np->rxopt.all;
- 
-+	newnp->ipv6_mc_list = NULL;
-+	newnp->ipv6_ac_list = NULL;
-+	newnp->ipv6_fl_list = NULL;
- 	newnp->pktoptions = NULL;
- 	newnp->opt	  = NULL;
- 	newnp->mcast_oif  = inet6_iif(skb);
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index aeb9497..df5a9ff 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -1062,6 +1062,7 @@ static struct sock *tcp_v6_syn_recv_sock(const struct sock *sk, struct sk_buff *
- 		newtp->af_specific = &tcp_sock_ipv6_mapped_specific;
- #endif
- 
-+		newnp->ipv6_mc_list = NULL;
- 		newnp->ipv6_ac_list = NULL;
- 		newnp->ipv6_fl_list = NULL;
- 		newnp->pktoptions  = NULL;
-@@ -1131,6 +1132,7 @@ static struct sock *tcp_v6_syn_recv_sock(const struct sock *sk, struct sk_buff *
- 	   First: no IPv4 options.
+-	if (new & NUD_CONNECTED)
+-		neigh->confirmed = jiffies;
+-	neigh->updated = jiffies;
+-
+ 	/* If entry was valid and address is not changed,
+ 	   do not change entry state, if new one is STALE.
  	 */
- 	newinet->inet_opt = NULL;
-+	newnp->ipv6_mc_list = NULL;
- 	newnp->ipv6_ac_list = NULL;
- 	newnp->ipv6_fl_list = NULL;
+@@ -1157,6 +1153,16 @@ int neigh_update(struct neighbour *neigh, const u8 *lladdr, u8 new,
+ 		}
+ 	}
  
++	/* Update timestamps only once we know we will make a change to the
++	 * neighbour entry. Otherwise we risk to move the locktime window with
++	 * noop updates and ignore relevant ARP updates.
++	 */
++	if (new != old || lladdr != neigh->ha) {
++		if (new & NUD_CONNECTED)
++			neigh->confirmed = jiffies;
++		neigh->updated = jiffies;
++	}
++
+ 	if (new != old) {
+ 		neigh_del_timer(neigh);
+ 		if (new & NUD_PROBE)
 -- 
-2.5.5
+2.9.3
