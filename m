@@ -1,7 +1,7 @@
 From: Stefan Wahren <stefan.wahren@i2se.com>
-Subject: [PATCH v5 09/17] net: qualcomm: rename qca_framing.c to qca_7k_common.c
-Date: Wed, 10 May 2017 10:53:20 +0200
-Message-ID: <1494406408-31760-10-git-send-email-stefan.wahren@i2se.com>
+Subject: [PATCH v5 03/17] net: qca_7k: Use BIT macro
+Date: Wed, 10 May 2017 10:53:14 +0200
+Message-ID: <1494406408-31760-4-git-send-email-stefan.wahren@i2se.com>
 References: <1494406408-31760-1-git-send-email-stefan.wahren@i2se.com>
 Cc: Mark Rutland <mark.rutland@arm.com>,
         Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
@@ -15,80 +15,39 @@ In-Reply-To: <1494406408-31760-1-git-send-email-stefan.wahren@i2se.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-As preparation for the upcoming UART driver we need a module
-which contains common functions for both interfaces. The module
-qca_framing is a good candidate but renaming to qca_7k_common would
-make it clear.
+Use the BIT macro for the CONFIG and INT register values.
 
 Signed-off-by: Stefan Wahren <stefan.wahren@i2se.com>
 ---
- drivers/net/ethernet/qualcomm/Makefile                           | 2 +-
- drivers/net/ethernet/qualcomm/{qca_framing.c => qca_7k_common.c} | 2 +-
- drivers/net/ethernet/qualcomm/{qca_framing.h => qca_7k_common.h} | 0
- drivers/net/ethernet/qualcomm/qca_spi.c                          | 2 +-
- drivers/net/ethernet/qualcomm/qca_spi.h                          | 2 +-
- 5 files changed, 4 insertions(+), 4 deletions(-)
- rename drivers/net/ethernet/qualcomm/{qca_framing.c => qca_7k_common.c} (99%)
- rename drivers/net/ethernet/qualcomm/{qca_framing.h => qca_7k_common.h} (100%)
+ drivers/net/ethernet/qualcomm/qca_7k.h | 14 +++++++-------
+ 1 file changed, 7 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/ethernet/qualcomm/Makefile b/drivers/net/ethernet/qualcomm/Makefile
-index aacb0a5..5e17bf1 100644
---- a/drivers/net/ethernet/qualcomm/Makefile
-+++ b/drivers/net/ethernet/qualcomm/Makefile
-@@ -3,6 +3,6 @@
- #
+diff --git a/drivers/net/ethernet/qualcomm/qca_7k.h b/drivers/net/ethernet/qualcomm/qca_7k.h
+index 1cad851..4047f0a 100644
+--- a/drivers/net/ethernet/qualcomm/qca_7k.h
++++ b/drivers/net/ethernet/qualcomm/qca_7k.h
+@@ -54,15 +54,15 @@
+ #define SPI_REG_ACTION_CTRL     0x1B00
  
- obj-$(CONFIG_QCA7000) += qcaspi.o
--qcaspi-objs := qca_spi.o qca_framing.o qca_7k.o qca_debug.o
-+qcaspi-objs := qca_spi.o qca_7k_common.o qca_7k.o qca_debug.o
+ /*   SPI_CONFIG register definition;             */
+-#define QCASPI_SLAVE_RESET_BIT (1 << 6)
++#define QCASPI_SLAVE_RESET_BIT  BIT(6)
  
- obj-y += emac/
-diff --git a/drivers/net/ethernet/qualcomm/qca_framing.c b/drivers/net/ethernet/qualcomm/qca_7k_common.c
-similarity index 99%
-rename from drivers/net/ethernet/qualcomm/qca_framing.c
-rename to drivers/net/ethernet/qualcomm/qca_7k_common.c
-index 2341f2b..6d17fbd 100644
---- a/drivers/net/ethernet/qualcomm/qca_framing.c
-+++ b/drivers/net/ethernet/qualcomm/qca_7k_common.c
-@@ -23,7 +23,7 @@
+ /*   INTR_CAUSE/ENABLE register definition.      */
+-#define SPI_INT_WRBUF_BELOW_WM (1 << 10)
+-#define SPI_INT_CPU_ON         (1 << 6)
+-#define SPI_INT_ADDR_ERR       (1 << 3)
+-#define SPI_INT_WRBUF_ERR      (1 << 2)
+-#define SPI_INT_RDBUF_ERR      (1 << 1)
+-#define SPI_INT_PKT_AVLBL      (1 << 0)
++#define SPI_INT_WRBUF_BELOW_WM  BIT(10)
++#define SPI_INT_CPU_ON          BIT(6)
++#define SPI_INT_ADDR_ERR        BIT(3)
++#define SPI_INT_WRBUF_ERR       BIT(2)
++#define SPI_INT_RDBUF_ERR       BIT(1)
++#define SPI_INT_PKT_AVLBL       BIT(0)
  
- #include <linux/kernel.h>
- 
--#include "qca_framing.h"
-+#include "qca_7k_common.h"
- 
- u16
- qcafrm_create_header(u8 *buf, u16 length)
-diff --git a/drivers/net/ethernet/qualcomm/qca_framing.h b/drivers/net/ethernet/qualcomm/qca_7k_common.h
-similarity index 100%
-rename from drivers/net/ethernet/qualcomm/qca_framing.h
-rename to drivers/net/ethernet/qualcomm/qca_7k_common.h
-diff --git a/drivers/net/ethernet/qualcomm/qca_spi.c b/drivers/net/ethernet/qualcomm/qca_spi.c
-index deec70f..2bc3ba4 100644
---- a/drivers/net/ethernet/qualcomm/qca_spi.c
-+++ b/drivers/net/ethernet/qualcomm/qca_spi.c
-@@ -43,8 +43,8 @@
- #include <linux/types.h>
- 
- #include "qca_7k.h"
-+#include "qca_7k_common.h"
- #include "qca_debug.h"
--#include "qca_framing.h"
- #include "qca_spi.h"
- 
- #define MAX_DMA_BURST_LEN 5000
-diff --git a/drivers/net/ethernet/qualcomm/qca_spi.h b/drivers/net/ethernet/qualcomm/qca_spi.h
-index 064853d..fc4beb1 100644
---- a/drivers/net/ethernet/qualcomm/qca_spi.h
-+++ b/drivers/net/ethernet/qualcomm/qca_spi.h
-@@ -32,7 +32,7 @@
- #include <linux/spi/spi.h>
- #include <linux/types.h>
- 
--#include "qca_framing.h"
-+#include "qca_7k_common.h"
- 
- #define QCASPI_DRV_VERSION "0.2.7-i"
- #define QCASPI_DRV_NAME    "qcaspi"
+ void qcaspi_spi_error(struct qcaspi *qca);
+ int qcaspi_read_register(struct qcaspi *qca, u16 reg, u16 *result);
 -- 
 2.1.4
