@@ -1,39 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] bnxt: add dma mapping attributes
-Date: Tue, 09 May 2017 20:49:37 -0400 (EDT)
-Message-ID: <20170509.204937.115947896476049334.davem@davemloft.net>
-References: <1494362253-270990-1-git-send-email-shannon.nelson@oracle.com>
+From: "Gao Feng" <gfree.wind@vip.163.com>
+Subject: Re:Re: [PATCH net v2] driver: vrf: Fix one possible use-after-free
+ issue
+Date: Wed, 10 May 2017 09:00:18 +0800 (CST)
+Message-ID: <194f0ada.c4fe.15befdef6df.Coremail.gfree.wind@vip.163.com>
+References: <1494325653-39885-1-git-send-email-gfree.wind@vip.163.com>
+ <20170509.143736.1436700294491473750.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sparclinux@vger.kernel.org
-To: shannon.nelson@oracle.com
+Content-Type: text/plain; charset=GBK
+Content-Transfer-Encoding: base64
+Cc: dsa@cumulusnetworks.com, shm@cumulusnetworks.com, fw@strlen.de,
+        netdev@vger.kernel.org
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:35126 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751353AbdEJAtl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 9 May 2017 20:49:41 -0400
-In-Reply-To: <1494362253-270990-1-git-send-email-shannon.nelson@oracle.com>
+Received: from proxy90-8.mail.163.com ([43.230.90.8]:40076 "EHLO
+        proxy90-8.mail.163.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750733AbdEJBGU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 9 May 2017 21:06:20 -0400
+In-Reply-To: <20170509.143736.1436700294491473750.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shannon Nelson <shannon.nelson@oracle.com>
-Date: Tue,  9 May 2017 13:37:33 -0700
-
-> @@ -66,6 +66,12 @@
->  MODULE_DESCRIPTION("Broadcom BCM573xx network driver");
->  MODULE_VERSION(DRV_MODULE_VERSION);
->  
-> +#ifdef CONFIG_SPARC
-> +#define BNXT_DMA_ATTRS  DMA_ATTR_WEAK_ORDERING
-> +#else
-> +#define BNXT_DMA_ATTRS	0
-> +#endif
-> +
-
-I do not what this ifdef crap showing up in every driver just
-to improve performance on one platform.
-
-This needs to be generically done somehow in a way that
-drivers get the correct setting automatically and without
-ifdef checks.
+CkF0IDIwMTctMDUtMTAgMDI6Mzc6MzYsICJEYXZpZCBNaWxsZXIiIDxkYXZlbUBkYXZlbWxvZnQu
+bmV0PiB3cm90ZToKPkZyb206IGdmcmVlLndpbmRAdmlwLjE2My5jb20KPkRhdGU6IFR1ZSwgIDkg
+TWF5IDIwMTcgMTg6Mjc6MzMgKzA4MDAKPgo+PiBAQCAtOTg5LDYgKzk4OSw3IEBAIHN0YXRpYyB1
+MzIgdnJmX2ZpYl90YWJsZShjb25zdCBzdHJ1Y3QgbmV0X2RldmljZSAqZGV2KQo+PiAgCj4+ICBz
+dGF0aWMgaW50IHZyZl9yY3ZfZmluaXNoKHN0cnVjdCBuZXQgKm5ldCwgc3RydWN0IHNvY2sgKnNr
+LCBzdHJ1Y3Qgc2tfYnVmZiAqc2tiKQo+PiAgewo+PiArCWtmcmVlX3NrYihza2IpOwo+PiAgCXJl
+dHVybiAwOwo+PiAgfQo+PiAgCj4+IEBAIC05OTgsNyArOTk5LDcgQEAgc3RhdGljIHN0cnVjdCBz
+a19idWZmICp2cmZfcmN2X25maG9vayh1OCBwZiwgdW5zaWduZWQgaW50IGhvb2ssCj4+ICB7Cj4+
+ICAJc3RydWN0IG5ldCAqbmV0ID0gZGV2X25ldChkZXYpOwo+PiAgCj4+IC0JaWYgKE5GX0hPT0so
+cGYsIGhvb2ssIG5ldCwgTlVMTCwgc2tiLCBkZXYsIE5VTEwsIHZyZl9yY3ZfZmluaXNoKSA8IDAp
+Cj4+ICsJaWYgKG5mX2hvb2socGYsIGhvb2ssIG5ldCwgTlVMTCwgc2tiLCBkZXYsIE5VTEwsIHZy
+Zl9yY3ZfZmluaXNoKSAhPSAxKQo+PiAgCQlza2IgPSBOVUxMOyAgICAvKiBrZnJlZV9za2Ioc2ti
+KSBoYW5kbGVkIGJ5IG5mIGNvZGUgKi8KPj4gIAo+PiAgCXJldHVybiBza2I7Cj4KPkluZGVlZCwg
+dGhpcyBmaXhlcyB0aGUgaW1tZWRpYXRlIHByb2JsZW0gd2l0aCBORl9TVE9MRU4uCj4KPk1ha2lu
+ZyBORl9TVE9MRU4gZnVsbHkgZnVuY3Rpb25hbCBpcyBhbm90aGVyIHN0b3J5LCB3ZSdkIG5lZWQg
+dG8gc3RhY2sKPnRoaXMgYWxsIHRvZ2V0aGVyIHByb3Blcmx5OgoKWWVzLCB0aGlzIGZpeCBqdXN0
+IG1ha2UgdGhlIHZyZiB3b3VsZG4ndCBjYXVzZSBwYW5pYyB3aGljaCBpcyBjYXVzZWQgYnkgdXNl
+LWFmdGVyLWZyZWUgc2tiLgpJdCBkb2Vzbid0IHdvcmsgYXMgcmVhbCBORl9RVUVVRSB3aGVuIHJl
+aW5qZWN0IHRoZSBza2IuIAoKPgo+c3RhdGljIGludCBfX2lwX3Jjdl9maW5pc2goc3RydWN0IG5l
+dCAqbmV0LCBzdHJ1Y3Qgc29jayAqc2ssIHN0cnVjdCBza19idWZmICpza2IpCj57Cj4gLi4uCj59
+Cj4KPnN0YXRpYyBpbnQgaXBfcmN2X2ZpbmlzaChzdHJ1Y3QgbmV0ICpuZXQsIHN0cnVjdCBzb2Nr
+ICpzaywgc3RydWN0IHNrX2J1ZmYgKnNrYikKPnsKPglyZXR1cm4gbDNtZGV2X2lwX3Jjdihza2Is
+IF9faXBfcmN2X2ZpbmlzaCk7Cj59Cj4uLi4KPnN0YXRpYyBpbmxpbmUKPnN0cnVjdCBza19idWZm
+ICpsM21kZXZfaXBfcmN2KHN0cnVjdCBza19idWZmICpza2IsCj4JCQkgICAgICBpbnQgKCpva2Zu
+KShzdHJ1Y3QgbmV0ICosIHN0cnVjdCBzb2NrICosIHN0cnVjdCBza19idWZmICopKQo+ewo+CXJl
+dHVybiBsM21kZXZfbDNfcmN2KHNrYiwgb2tmbiwgQUZfSU5FVCk7Cj59Cj4KPmV0Yy4gYnV0IHRo
+YXQncyBnb2luZyB0byByZWFsbHkgYWRkIGEga2luayB0byB0aGUgcmVjZWl2ZSBwYXRoLAo+bWlj
+cm9iZW5jaG1hcmsgd2lzZS4KCkl0IGlzIGEgc29sdXRpb24gdG8gbWFrZSBORl9TVE9MRU4gZnVs
+bHkgZnVuY3Rpb24sIGJ1dCBJIGhhdmVuJ3QgZW52aXJvbm1lbnQgdG8gdGVzdCB0aGUgYmVuY2ht
+YXJrLgoKQmVzdCBSZWdhcmRzCkZlbmcKCgo=
