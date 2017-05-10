@@ -1,51 +1,67 @@
-From: Timur Tabi <timur@codeaurora.org>
-Subject: Re: Requirements for a shutdown function?
-Date: Wed, 10 May 2017 15:17:25 -0500
-Message-ID: <1efae594-427b-58e5-fd48-bac9f686bb52@codeaurora.org>
-References: <49bee65f-2ea8-1787-9642-659a967df8f0@codeaurora.org>
- <1721db9b-ed60-4556-9aac-81f17e2c1849@gmail.com>
- <f995d5b3-2a5c-df08-3915-f77ab9203844@codeaurora.org>
- <c2cdef1a-768c-c890-d5b2-e1dae99e0f9d@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
+From: Iyappan Subramanian <isubramanian@apm.com>
+Subject: [PATCH v2 net-next 00/12] drivers: net: xgene: Add ethtool stats and bug fixes
+Date: Wed, 10 May 2017 13:44:58 -0700
+Message-ID: <1494449110-23785-1-git-send-email-isubramanian@apm.com>
+Cc: linux-arm-kernel@lists.infradead.org, patches@apm.com,
+        Iyappan Subramanian <isubramanian@apm.com>,
+        Quan Nguyen <qnguyen@apm.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:33926 "EHLO
-        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750897AbdEJUR1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 10 May 2017 16:17:27 -0400
-In-Reply-To: <c2cdef1a-768c-c890-d5b2-e1dae99e0f9d@gmail.com>
+Received: from mail-it0-f49.google.com ([209.85.214.49]:38542 "EHLO
+        mail-it0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751096AbdEJUmV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 10 May 2017 16:42:21 -0400
+Received: by mail-it0-f49.google.com with SMTP id e65so8948738ita.1
+        for <netdev@vger.kernel.org>; Wed, 10 May 2017 13:42:20 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/09/2017 02:06 PM, Florian Fainelli wrote:
-> On 05/09/2017 11:51 AM, Timur Tabi wrote:
+This patch set,
 
->> Is it possible that the network stack detects a kexec and automatically
->> stops all network devices?
-> 
-> No. why would it? However the device driver model does call into your
-> driver's remove function and that one does a right job already because
-> it does an network device unregister, and so on.
+- adds ethtool extended statistics support
+- addresses errata workarounds
+- fixes bugs related to statistics
 
-I ran some more tests.  When I launch kexec, the driver's
-net_device_ops.ndo_stop function is called, which already stops the interface.
+Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
+Signed-off-by: Quan Nguyen <qnguyen@apm.com>
+---
+v2: Address review comments from v1
+	- Adds lock to protect mdio-xgene indirect MAC access
+	- Refactors xgene-enet indirect MAC read/write functions
+	- Uses mdio-xgene MAC access routines, if xgene-enet port
+	  use the same HW.
+v1:
+	- Initial version
+---
 
-So it looks to me as if the network stack does close the interface during a
-kexec.  With the interface closed, there's no point in having a shutdown
-function, is there?
+Iyappan Subramanian (3):
+  drivers: net: xgene: Protect indirect MAC access
+  drivers: net: xgene: Add rx_overrun/tx_underrun statistics
+  drivers: net: xgene: Fix redundant prefetch buffer cleanup
 
->> My in-house driver stops the RX and TX queues.  I'm guessing that's good
->> enough, but I don't have a failing test case to prove it.
->>
-> 
-> That's probably good enough, yes.
+Quan Nguyen (9):
+  drivers: net: phy: xgene: Add lock to protect mac access
+  drivers: net: xgene: Use rgmii mdio mac access
+  drivers: net: xgene: Remove redundant local stats
+  drivers: net: xgene: Refactor statistics error parsing code
+  drivers: net: xgene: Remove unused macros
+  drivers: net: xgene: Extend ethtool statistics
+  drivers: net: xgene: Workaround for HW errata 10GE_4
+  drivers: net: xgene: Add frame recovered statistics counter for errata
+    10GE_8/ENET_11
+  drivers: net: xgene: Workaround for HW errata 10GE_10/ENET_15
 
-Except that it turns out that the queues are already stopped by then because
-the emac_close() function has already been called.
+ .../net/ethernet/apm/xgene/xgene_enet_ethtool.c    | 132 ++++++++++++++-
+ drivers/net/ethernet/apm/xgene/xgene_enet_hw.c     | 188 +++++++++++----------
+ drivers/net/ethernet/apm/xgene/xgene_enet_hw.h     |  70 +++++++-
+ drivers/net/ethernet/apm/xgene/xgene_enet_main.c   |  59 +++++--
+ drivers/net/ethernet/apm/xgene/xgene_enet_main.h   |  12 +-
+ drivers/net/ethernet/apm/xgene/xgene_enet_sgmac.c  | 110 +++---------
+ drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.c  |  77 +++------
+ drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.h  |   5 +
+ drivers/net/phy/mdio-xgene.c                       |  74 ++++----
+ drivers/net/phy/mdio-xgene.h                       |   3 +
+ 10 files changed, 428 insertions(+), 302 deletions(-)
 
 -- 
-Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm
-Technologies, Inc.  Qualcomm Technologies, Inc. is a member of the
-Code Aurora Forum, a Linux Foundation Collaborative Project.
+1.9.1
