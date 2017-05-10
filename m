@@ -1,49 +1,62 @@
-From: Christoph Hellwig <hch@lst.de>
-Subject: [PATCH] net/smc: mark as BROKEN due to remote memory exposure
-Date: Wed, 10 May 2017 09:26:27 +0200
-Message-ID: <20170510072627.12060-1-hch@lst.de>
-Cc: ubraun@linux.vnet.ibm.com, netdev@vger.kernel.org,
-        linux-rdma@vger.kernel.org, stable@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <stable-owner@vger.kernel.org>
-Sender: stable-owner@vger.kernel.org
+From: Arend van Spriel <arend.vanspriel@broadcom.com>
+Subject: Re: [PATCH] wcn36xx: Close SMD channel on device removal
+Date: Wed, 10 May 2017 09:27:43 +0200
+Message-ID: <6e1cc217-924f-c536-6009-f6a377844d6f@broadcom.com>
+References: <20170509043637.28179-1-bjorn.andersson@linaro.org>
+ <87h90u3672.fsf@kamboji.qca.qualcomm.com> <20170509230312.GR15143@minitux>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Eugene Krasnikov <k.eugene.e@gmail.com>,
+        Eyal Ilsar <c_eilsar@qti.qualcomm.com>,
+        wcn36xx@lists.infradead.org, linux-wireless@vger.kernel.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        linux-arm-msm@vger.kernel.org
+To: Bjorn Andersson <bjorn.andersson@linaro.org>,
+        Kalle Valo <kvalo@codeaurora.org>
+Return-path: <linux-arm-msm-owner@vger.kernel.org>
+In-Reply-To: <20170509230312.GR15143@minitux>
+Content-Language: en-GB
+Sender: linux-arm-msm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The driver has a lot of quality issues due to the lack of RDMA-side
-review, and explicitly bypasses APIs to register all memory once a
-connection is made, and thus allows remote access to memoery.
+On 5/10/2017 1:03 AM, Bjorn Andersson wrote:
+> On Mon 08 May 23:17 PDT 2017, Kalle Valo wrote:
+> 
+>> Bjorn Andersson <bjorn.andersson@linaro.org> writes:
+>>
+>>> The SMD channel is not the primary WCNSS channel and must explicitly be
+>>> closed as the device is removed, or the channel will already by open on
+>>> a subsequent probe call in e.g. the case of reloading the kernel module.
+>>>
+>>> This issue was introduced because I simplified the underlying SMD
+>>> implementation while the SMD adaptions of the driver sat on the mailing
+>>> list, but missed to update these patches. The patch does however only
+>>> apply back to the transition to rpmsg, hence the limited Fixes.
+>>>
+>>> Fixes: 5052de8deff5 ("soc: qcom: smd: Transition client drivers from smd to rpmsg")
+>>> Reported-by: Eyal Ilsar <c_eilsar@qti.qualcomm.com>
+>>> Signed-off-by: Bjorn Andersson <bjorn.andersson@linaro.org>
+>>
+>> As this is a regression I'll queue this to 4.12.
+>>
+> 
+> Thanks.
+> 
+>> But if this is an older bug (didn't quite understand your description
+>> though) should there be a separate patch for stable releases?
+>>
+> 
+> AFAICT this never worked, as it seems I did the rework in SMD while we
+> tried to figure out the dependency issues we had with moving to SMD. So
+> v4.9 through v4.11 has SMD support - with this bug.
+> 
+> How do I proceed, do you want me to write up a fix for stable@? Do I
+> send that out as an ordinary patch?
 
-Mark it as broken until at least that part is fixed.
+If the patch applies cleanly on branches linux-4.9.y through 
+linux-4.11.y in the stable repository you can go for '--- Option 1 ---' 
+as described in <linux-repo>/Documentation/stable_kernel_rules.txt.
 
-Signed-off-by: Christoph Hellwig <hch@lst.de>
-Cc: stable@vger.kernel.org
-
----
- net/smc/Kconfig | 6 +++++-
- 1 file changed, 5 insertions(+), 1 deletion(-)
-
-diff --git a/net/smc/Kconfig b/net/smc/Kconfig
-index c717ef0896aa..fe6b78bc515f 100644
---- a/net/smc/Kconfig
-+++ b/net/smc/Kconfig
-@@ -1,6 +1,6 @@
- config SMC
- 	tristate "SMC socket protocol family"
--	depends on INET && INFINIBAND
-+	depends on INET && INFINIBAND && BROKEN
- 	---help---
- 	  SMC-R provides a "sockets over RDMA" solution making use of
- 	  RDMA over Converged Ethernet (RoCE) technology to upgrade
-@@ -8,6 +8,10 @@ config SMC
- 	  The Linux implementation of the SMC-R solution is designed as
- 	  a separate socket family SMC.
- 
-+	  Warning: SMC will expose all memory for remote reads and writes
-+	  once a connection is established.  Don't enable this option except
-+	  for tightly controlled lab environment.
-+
- 	  Select this option if you want to run SMC socket applications
- 
- config SMC_DIAG
--- 
-2.11.0
+Regards,
+Arend
