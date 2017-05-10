@@ -1,97 +1,87 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH net-next V3 1/9] ptr_ring: add ptr_ring_unconsume
-Date: Wed, 10 May 2017 10:37:53 +0800
-Message-ID: <1494383881-6811-2-git-send-email-jasowang@redhat.com>
-References: <1494383881-6811-1-git-send-email-jasowang@redhat.com>
-Cc: Jason Wang <jasowang@redhat.com>
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        mst@redhat.com
+From: Andy Duan <fugang.duan@nxp.com>
+Subject: RE: [PATCH] net: fec: select queue depending on VLAN priority
+Date: Wed, 10 May 2017 02:42:21 +0000
+Message-ID: <AM4PR0401MB2260BA1BC2F65B36284CF7D2FFEC0@AM4PR0401MB2260.eurprd04.prod.outlook.com>
+References: <20170509053708.2573-1-stefan@agner.ch>
+ <20170509.093913.1803457630634565212.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "andrew@lunn.ch" <andrew@lunn.ch>,
+        "festevam@gmail.com" <festevam@gmail.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: David Miller <davem@davemloft.net>,
+        "stefan@agner.ch" <stefan@agner.ch>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1494383881-6811-1-git-send-email-jasowang@redhat.com>
+In-Reply-To: <20170509.093913.1803457630634565212.davem@davemloft.net>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Michael S. Tsirkin" <mst@redhat.com>
+From: David Miller <davem@davemloft.net> Sent: Tuesday, May 09, 2017 9:39 P=
+M
+>To: stefan@agner.ch
+>Cc: Andy Duan <fugang.duan@nxp.com>; andrew@lunn.ch;
+>festevam@gmail.com; netdev@vger.kernel.org; linux-
+>kernel@vger.kernel.org
+>Subject: Re: [PATCH] net: fec: select queue depending on VLAN priority
+>
+>From: Stefan Agner <stefan@agner.ch>
+>Date: Mon,  8 May 2017 22:37:08 -0700
+>
+>> Since the addition of the multi queue code with commit 59d0f7465644
+>> ("net: fec: init multi queue date structure") the queue selection has
+>> been handelt by the default transmit queue selection implementation
+>> which tries to evenly distribute the traffic across all available
+>> queues. This selection presumes that the queues are using an equal
+>> priority, however, the queues 1 and 2 are actually of higher priority
+>> (the classification of the queues is enabled in fec_enet_enable_ring).
+>>
+>> This can lead to net scheduler warnings and continuous TX ring dumps
+>> when exercising the system with iperf.
+>>
+>> Use only queue 0 for all common traffic (no VLAN and P802.1p priority
+>> 0 and 1) and route level 2-7 through queue 1 and 2.
+>>
+>> Signed-off-by: Fugang Duan <fugang.duan@nxp.com>
+>> Fixes: 59d0f7465644 ("net: fec: init multi queue date structure")
+>
+>If the queues are used for prioritization, and it does not have multiple n=
+ormal
+>priority level queues, multiqueue is not what the driver should have
+>implemented.
+Firstly, HW multiple queues support:
+	- Traffic-shaping bandwidth distribution supports credit-based and round-r=
+obin-based policies. Either policy can be combined with time-based shaping.
+	- AVB (Audio Video Bridging, IEEE 802.1Qav) features:
+		* Credit-based bandwidth distribution policy can be combined with time-ba=
+sed shaping
+		* AVB endpoint talker and listener support
+		* Support for arbitration between different priority traffic (for example=
+, AVB class A, AVB class B, and non-AVB)
+Round-robin-based policies:
+	It has the same priority for three queues: In the round-robin QoS scheme, =
+each queue is given an equal opportunity to transmit one frame. For example=
+, if queue n has a frame to transmit, the queue transmits its frame. After =
+queue n has transmitted its frame, or if queue n does not have a frame to t=
+ransmit, queue n+1 is then allowed to transmit its frame, and so on.
 
-Applications that consume a batch of entries in one go
-can benefit from ability to return some of them back
-into the ring.
+Credit-based policies:
+	The AVB credit based shaper acts independently, per class, to control the =
+bandwidth distribution between normal traffic and time-sensitive traffic wi=
+th respect to the total link bandwidth available.
+	Credit based shaper conbined with time-based shaping: =20
+		- priority: ClassA queue > ClassB queue > best effort
+		- ensure the queue bandwidth as user set based on time-based shaping algo=
+rithms (transmitter transmit frame from three queue in turn based on time-b=
+ased shaping algorithms)
+	And in real AVB case,  each streaming can be independent, and are fixed on=
+ related queue. Then driver level should implement .ndo_select_queue() to p=
+ut the streaming into related queue. That is what the patch did.
 
-Add an API for that - assuming there's space. If there's no space
-naturally can't do this and have to drop entries, but this implies ring
-is full so we'd likely drop some anyway.
+The current driver config the three queue to credit-based policies (AVB), t=
+he patch seems no problem for the implementation. Do you have any suggestio=
+n ?
 
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-Signed-off-by: Jason Wang <jasowang@redhat.com>
----
- include/linux/ptr_ring.h | 55 ++++++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 55 insertions(+)
-
-diff --git a/include/linux/ptr_ring.h b/include/linux/ptr_ring.h
-index 6c70444..5476f68 100644
---- a/include/linux/ptr_ring.h
-+++ b/include/linux/ptr_ring.h
-@@ -359,6 +359,61 @@ static inline int ptr_ring_init(struct ptr_ring *r, int size, gfp_t gfp)
- 	return 0;
- }
- 
-+/*
-+ * Return entries into ring. Destroy entries that don't fit.
-+ *
-+ * Note: this is expected to be a rare slow path operation.
-+ *
-+ * Note: producer lock is nested within consumer lock, so if you
-+ * resize you must make sure all uses nest correctly.
-+ * In particular if you consume ring in interrupt or BH context, you must
-+ * disable interrupts/BH when doing so.
-+ */
-+static inline void ptr_ring_unconsume(struct ptr_ring *r, void **batch, int n,
-+				      void (*destroy)(void *))
-+{
-+	unsigned long flags;
-+	int head;
-+
-+	spin_lock_irqsave(&r->consumer_lock, flags);
-+	spin_lock(&r->producer_lock);
-+
-+	if (!r->size)
-+		goto done;
-+
-+	/*
-+	 * Clean out buffered entries (for simplicity). This way following code
-+	 * can test entries for NULL and if not assume they are valid.
-+	 */
-+	head = r->consumer_head - 1;
-+	while (likely(head >= r->consumer_tail))
-+		r->queue[head--] = NULL;
-+	r->consumer_tail = r->consumer_head;
-+
-+	/*
-+	 * Go over entries in batch, start moving head back and copy entries.
-+	 * Stop when we run into previously unconsumed entries.
-+	 */
-+	while (n) {
-+		head = r->consumer_head - 1;
-+		if (head < 0)
-+			head = r->size - 1;
-+		if (r->queue[head]) {
-+			/* This batch entry will have to be destroyed. */
-+			goto done;
-+		}
-+		r->queue[head] = batch[--n];
-+		r->consumer_tail = r->consumer_head = head;
-+	}
-+
-+done:
-+	/* Destroy all entries left in the batch. */
-+	while (n)
-+		destroy(batch[--n]);
-+	spin_unlock(&r->producer_lock);
-+	spin_unlock_irqrestore(&r->consumer_lock, flags);
-+}
-+
- static inline void **__ptr_ring_swap_queue(struct ptr_ring *r, void **queue,
- 					   int size, gfp_t gfp,
- 					   void (*destroy)(void *))
--- 
-2.7.4
+Andy
