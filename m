@@ -1,72 +1,88 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net-next V4 00/10] vhost_net batch dequeuing
-Date: Wed, 10 May 2017 15:37:46 +0300
-Message-ID: <20170510153734-mutt-send-email-mst@kernel.org>
-References: <1494387382-19916-1-git-send-email-jasowang@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Jason Wang <jasowang@redhat.com>
+From: Jon Mason <jon.mason@broadcom.com>
+Subject: [PATCH] mdio: mux: Correct mdio_mux_init error path issues
+Date: Wed, 10 May 2017 11:20:27 -0400
+Message-ID: <1494429627-5527-1-git-send-email-jon.mason@broadcom.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        bcm-kernel-feedback-list@broadcom.com
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1494387382-19916-1-git-send-email-jasowang@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, May 10, 2017 at 11:36:12AM +0800, Jason Wang wrote:
-> This series tries to implement rx batching for vhost-net. This is done
-> by batching the dequeuing from skb_array which was exported by
-> underlayer socket and pass the sbk back through msg_control to finish
-> userspace copying. This is also the requirement for more batching
-> implemention on rx path.
-> 
-> Tests shows at most 8.8% improvment bon rx pps on top of batch zeroing.
-> 
-> Please review.
-> 
-> Thanks
-> 
-> Changes from V3:
-> - add batch zeroing patch to fix the build warnings
+There is a potential unnecessary refcount decriment on error path of
+put_device(&pb->mii_bus->dev), as it is possible to avoid the
+of_mdio_find_bus() call if mux_bus is specified by the calling function.
 
-FYI that one's going upstream now.
+The same put_device() is not called in the error path if the
+devm_kzalloc of pb fails.  This caused the variable used in the
+put_device() to be changed, as the pb pointer was obviously not set up.
 
-> Changes from V2:
-> - rebase to net-next HEAD
-> - use unconsume helpers to put skb back on releasing
-> - introduce and use vhost_net internal buffer helpers
-> - renew performance numbers on top of batch zeroing
-> 
-> Changes from V1:
-> - switch to use for() in __ptr_ring_consume_batched()
-> - rename peek_head_len_batched() to fetch_skbs()
-> - use skb_array_consume_batched() instead of
->   skb_array_consume_batched_bh() since no consumer run in bh
-> - drop the lockless peeking patch since skb_array could be resized, so
->   it's not safe to call lockless one
-> 
-> Jason Wang (8):
->   skb_array: introduce skb_array_unconsume
->   ptr_ring: introduce batch dequeuing
->   skb_array: introduce batch dequeuing
->   tun: export skb_array
->   tap: export skb_array
->   tun: support receiving skb through msg_control
->   tap: support receiving skb from msg_control
->   vhost_net: try batch dequing from skb array
-> 
-> Michael S. Tsirkin (2):
->   ptr_ring: batch ring zeroing
->   ptr_ring: add ptr_ring_unconsume
-> 
->  drivers/net/tap.c         |  25 ++++++-
->  drivers/net/tun.c         |  31 ++++++--
->  drivers/vhost/net.c       | 117 +++++++++++++++++++++++++++--
->  include/linux/if_tap.h    |   5 ++
->  include/linux/if_tun.h    |   5 ++
->  include/linux/ptr_ring.h  | 183 +++++++++++++++++++++++++++++++++++++++++++---
->  include/linux/skb_array.h |  31 ++++++++
->  7 files changed, 370 insertions(+), 27 deletions(-)
-> 
-> -- 
-> 2.7.4
+There is an unnecessary of_node_get() on child_bus_node if the
+of_mdiobus_register() is successful, as the
+for_each_available_child_of_node() automatically increments this.
+Thus the refcount on this node will always be +1 more than it should be.
+
+There is no of_node_put() on child_bus_node if the of_mdiobus_register()
+call fails.
+
+Finally, it is lacking devm_kfree() of pb in the error path.  While this
+might not be technically necessary, it was present in other parts of the
+function.  So, I am adding it where necessary to make it uniform.
+
+Signed-off-by: Jon Mason <jon.mason@broadcom.com>
+Fixes: f20e6657a875 ("mdio: mux: Enhanced MDIO mux framework for integrated multiplexers")
+Fixes: 0ca2997d1452 ("netdev/of/phy: Add MDIO bus multiplexer support.")
+---
+ drivers/net/phy/mdio-mux.c | 12 +++++++-----
+ 1 file changed, 7 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/phy/mdio-mux.c b/drivers/net/phy/mdio-mux.c
+index 963838d4fac1..6943c5ece44a 100644
+--- a/drivers/net/phy/mdio-mux.c
++++ b/drivers/net/phy/mdio-mux.c
+@@ -122,10 +122,9 @@ int mdio_mux_init(struct device *dev,
+ 	pb = devm_kzalloc(dev, sizeof(*pb), GFP_KERNEL);
+ 	if (pb == NULL) {
+ 		ret_val = -ENOMEM;
+-		goto err_parent_bus;
++		goto err_pb_kz;
+ 	}
+ 
+-
+ 	pb->switch_data = data;
+ 	pb->switch_fn = switch_fn;
+ 	pb->current_child = -1;
+@@ -154,6 +153,7 @@ int mdio_mux_init(struct device *dev,
+ 		cb->mii_bus = mdiobus_alloc();
+ 		if (!cb->mii_bus) {
+ 			ret_val = -ENOMEM;
++			devm_kfree(dev, cb);
+ 			of_node_put(child_bus_node);
+ 			break;
+ 		}
+@@ -169,8 +169,8 @@ int mdio_mux_init(struct device *dev,
+ 		if (r) {
+ 			mdiobus_free(cb->mii_bus);
+ 			devm_kfree(dev, cb);
++			of_node_put(child_bus_node);
+ 		} else {
+-			of_node_get(child_bus_node);
+ 			cb->next = pb->children;
+ 			pb->children = cb;
+ 		}
+@@ -181,9 +181,11 @@ int mdio_mux_init(struct device *dev,
+ 		return 0;
+ 	}
+ 
++	devm_kfree(dev, pb);
++err_pb_kz:
+ 	/* balance the reference of_mdio_find_bus() took */
+-	put_device(&pb->mii_bus->dev);
+-
++	if (!mux_bus)
++		put_device(&parent_bus->dev);
+ err_parent_bus:
+ 	of_node_put(parent_bus_node);
+ 	return ret_val;
+-- 
+2.7.4
