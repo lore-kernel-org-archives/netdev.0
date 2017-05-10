@@ -1,147 +1,160 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net 1/2] xdp: add flag to enforce driver mode
-Date: Wed, 10 May 2017 03:31:30 +0200
-Message-ID: <967d58e9c674d85a743bf47661db1570737ef14e.1494379046.git.daniel@iogearbox.net>
-References: <cover.1494379046.git.daniel@iogearbox.net>
-Cc: alexei.starovoitov@gmail.com, john.fastabend@gmail.com,
-        netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:54347 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751081AbdEJBbg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 9 May 2017 21:31:36 -0400
-In-Reply-To: <cover.1494379046.git.daniel@iogearbox.net>
-In-Reply-To: <cover.1494379046.git.daniel@iogearbox.net>
-References: <cover.1494379046.git.daniel@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Shannon Nelson <shannon.nelson@oracle.com>
+Subject: [PATCH v2 net-next] bnxt: add dma mapping attributes
+Date: Tue,  9 May 2017 18:30:12 -0700
+Message-ID: <1494379812-282087-1-git-send-email-shannon.nelson@oracle.com>
+Cc: sparclinux@vger.kernel.org, michael.chan@broadcom.com,
+        Shannon Nelson <shannon.nelson@oracle.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <sparclinux-owner@vger.kernel.org>
+Sender: sparclinux-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-After commit b5cdae3291f7 ("net: Generic XDP") we automatically fall
-back to a generic XDP variant if the driver does not support native
-XDP. Allow for an option where the user can specify that always the
-native XDP variant should be selected and in case it's not supported
-by a driver, just bail out.
+On the SPARC platform we need to use the DMA_ATTR_WEAK_ORDERING attribute
+in our Rx path dma mapping in order to get the expected performance out
+of the receive path.  Adding it to the Tx path has little effect, so
+that's not a part of this patch.
 
-Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-Acked-by: Alexei Starovoitov <ast@kernel.org>
+Signed-off-by: Shannon Nelson <shannon.nelson@oracle.com>
+Reviewed-by: Tushar Dave <tushar.n.dave@oracle.com>
+Reviewed-by: Tom Saeger <tom.saeger@oracle.com>
 ---
- include/uapi/linux/if_link.h       | 6 ++++--
- net/core/dev.c                     | 2 ++
- net/core/rtnetlink.c               | 5 +++++
- samples/bpf/xdp1_user.c            | 8 ++++++--
- samples/bpf/xdp_tx_iptunnel_user.c | 7 ++++++-
- 5 files changed, 23 insertions(+), 5 deletions(-)
+v2: simplify by getting rid of the driver-specific ifdef and define
 
-diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
-index 8e56ac7..549ac8a 100644
---- a/include/uapi/linux/if_link.h
-+++ b/include/uapi/linux/if_link.h
-@@ -888,9 +888,11 @@ enum {
- /* XDP section */
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c |   56 +++++++++++++++++-----------
+ 1 files changed, 34 insertions(+), 22 deletions(-)
+
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+index 1f1e54b..687f852 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+@@ -582,7 +582,8 @@ static void bnxt_tx_int(struct bnxt *bp, struct bnxt_napi *bnapi, int nr_pkts)
+ 	if (!page)
+ 		return NULL;
  
- #define XDP_FLAGS_UPDATE_IF_NOEXIST	(1U << 0)
--#define XDP_FLAGS_SKB_MODE		(2U << 0)
-+#define XDP_FLAGS_SKB_MODE		(1U << 1)
-+#define XDP_FLAGS_DRV_MODE		(1U << 2)
- #define XDP_FLAGS_MASK			(XDP_FLAGS_UPDATE_IF_NOEXIST | \
--					 XDP_FLAGS_SKB_MODE)
-+					 XDP_FLAGS_SKB_MODE | \
-+					 XDP_FLAGS_DRV_MODE)
+-	*mapping = dma_map_page(dev, page, 0, PAGE_SIZE, bp->rx_dir);
++	*mapping = dma_map_page_attrs(dev, page, 0, PAGE_SIZE, bp->rx_dir,
++				      DMA_ATTR_WEAK_ORDERING);
+ 	if (dma_mapping_error(dev, *mapping)) {
+ 		__free_page(page);
+ 		return NULL;
+@@ -601,8 +602,9 @@ static void bnxt_tx_int(struct bnxt *bp, struct bnxt_napi *bnapi, int nr_pkts)
+ 	if (!data)
+ 		return NULL;
  
- enum {
- 	IFLA_XDP_UNSPEC,
-diff --git a/net/core/dev.c b/net/core/dev.c
-index d07aa5f..61443f0 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -6872,6 +6872,8 @@ int dev_change_xdp_fd(struct net_device *dev, struct netlink_ext_ack *extack,
- 	ASSERT_RTNL();
+-	*mapping = dma_map_single(&pdev->dev, data + bp->rx_dma_offset,
+-				  bp->rx_buf_use_size, bp->rx_dir);
++	*mapping = dma_map_single_attrs(&pdev->dev, data + bp->rx_dma_offset,
++					bp->rx_buf_use_size, bp->rx_dir,
++					DMA_ATTR_WEAK_ORDERING);
  
- 	xdp_op = ops->ndo_xdp;
-+	if (!xdp_op && (flags & XDP_FLAGS_DRV_MODE))
-+		return -EOPNOTSUPP;
- 	if (!xdp_op || (flags & XDP_FLAGS_SKB_MODE))
- 		xdp_op = generic_xdp_install;
+ 	if (dma_mapping_error(&pdev->dev, *mapping)) {
+ 		kfree(data);
+@@ -705,8 +707,9 @@ static inline int bnxt_alloc_rx_page(struct bnxt *bp,
+ 			return -ENOMEM;
+ 	}
  
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index bcb0f610..dda9f16 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -2199,6 +2199,11 @@ static int do_setlink(const struct sk_buff *skb,
- 				err = -EINVAL;
- 				goto errout;
- 			}
-+			if ((xdp_flags & XDP_FLAGS_SKB_MODE) &&
-+			    (xdp_flags & XDP_FLAGS_DRV_MODE)) {
-+				err = -EINVAL;
-+				goto errout;
-+			}
+-	mapping = dma_map_page(&pdev->dev, page, offset, BNXT_RX_PAGE_SIZE,
+-			       PCI_DMA_FROMDEVICE);
++	mapping = dma_map_page_attrs(&pdev->dev, page, offset,
++				     BNXT_RX_PAGE_SIZE, PCI_DMA_FROMDEVICE,
++				     DMA_ATTR_WEAK_ORDERING);
+ 	if (dma_mapping_error(&pdev->dev, mapping)) {
+ 		__free_page(page);
+ 		return -EIO;
+@@ -799,7 +802,8 @@ static void bnxt_reuse_rx_agg_bufs(struct bnxt_napi *bnapi, u16 cp_cons,
+ 		return NULL;
+ 	}
+ 	dma_addr -= bp->rx_dma_offset;
+-	dma_unmap_page(&bp->pdev->dev, dma_addr, PAGE_SIZE, bp->rx_dir);
++	dma_unmap_page_attrs(&bp->pdev->dev, dma_addr, PAGE_SIZE, bp->rx_dir,
++			     DMA_ATTR_WEAK_ORDERING);
+ 
+ 	if (unlikely(!payload))
+ 		payload = eth_get_headlen(data_ptr, len);
+@@ -841,8 +845,8 @@ static void bnxt_reuse_rx_agg_bufs(struct bnxt_napi *bnapi, u16 cp_cons,
+ 	}
+ 
+ 	skb = build_skb(data, 0);
+-	dma_unmap_single(&bp->pdev->dev, dma_addr, bp->rx_buf_use_size,
+-			 bp->rx_dir);
++	dma_unmap_single_attrs(&bp->pdev->dev, dma_addr, bp->rx_buf_use_size,
++			       bp->rx_dir, DMA_ATTR_WEAK_ORDERING);
+ 	if (!skb) {
+ 		kfree(data);
+ 		return NULL;
+@@ -909,8 +913,9 @@ static void bnxt_reuse_rx_agg_bufs(struct bnxt_napi *bnapi, u16 cp_cons,
+ 			return NULL;
  		}
  
- 		if (xdp[IFLA_XDP_FD]) {
-diff --git a/samples/bpf/xdp1_user.c b/samples/bpf/xdp1_user.c
-index 378850c..17be9ea 100644
---- a/samples/bpf/xdp1_user.c
-+++ b/samples/bpf/xdp1_user.c
-@@ -62,13 +62,14 @@ static void usage(const char *prog)
- 	fprintf(stderr,
- 		"usage: %s [OPTS] IFINDEX\n\n"
- 		"OPTS:\n"
--		"    -S    use skb-mode\n",
-+		"    -S    use skb-mode\n"
-+		"    -N    enforce native mode\n",
- 		prog);
- }
+-		dma_unmap_page(&pdev->dev, mapping, BNXT_RX_PAGE_SIZE,
+-			       PCI_DMA_FROMDEVICE);
++		dma_unmap_page_attrs(&pdev->dev, mapping, BNXT_RX_PAGE_SIZE,
++				     PCI_DMA_FROMDEVICE,
++				     DMA_ATTR_WEAK_ORDERING);
  
- int main(int argc, char **argv)
- {
--	const char *optstr = "S";
-+	const char *optstr = "SN";
- 	char filename[256];
- 	int opt;
+ 		skb->data_len += frag_len;
+ 		skb->len += frag_len;
+@@ -1329,8 +1334,9 @@ static void bnxt_abort_tpa(struct bnxt *bp, struct bnxt_napi *bnapi,
+ 		tpa_info->mapping = new_mapping;
  
-@@ -77,6 +78,9 @@ int main(int argc, char **argv)
- 		case 'S':
- 			xdp_flags |= XDP_FLAGS_SKB_MODE;
- 			break;
-+		case 'N':
-+			xdp_flags |= XDP_FLAGS_DRV_MODE;
-+			break;
- 		default:
- 			usage(basename(argv[0]));
- 			return 1;
-diff --git a/samples/bpf/xdp_tx_iptunnel_user.c b/samples/bpf/xdp_tx_iptunnel_user.c
-index 92b8bde..631cdcc 100644
---- a/samples/bpf/xdp_tx_iptunnel_user.c
-+++ b/samples/bpf/xdp_tx_iptunnel_user.c
-@@ -79,6 +79,8 @@ static void usage(const char *cmd)
- 	printf("    -m <dest-MAC> Used in sending the IP Tunneled pkt\n");
- 	printf("    -T <stop-after-X-seconds> Default: 0 (forever)\n");
- 	printf("    -P <IP-Protocol> Default is TCP\n");
-+	printf("    -S use skb-mode\n");
-+	printf("    -N enforce native mode\n");
- 	printf("    -h Display this help\n");
- }
+ 		skb = build_skb(data, 0);
+-		dma_unmap_single(&bp->pdev->dev, mapping, bp->rx_buf_use_size,
+-				 bp->rx_dir);
++		dma_unmap_single_attrs(&bp->pdev->dev, mapping,
++				       bp->rx_buf_use_size, bp->rx_dir,
++				       DMA_ATTR_WEAK_ORDERING);
  
-@@ -138,7 +140,7 @@ int main(int argc, char **argv)
- {
- 	unsigned char opt_flags[256] = {};
- 	unsigned int kill_after_s = 0;
--	const char *optstr = "i:a:p:s:d:m:T:P:Sh";
-+	const char *optstr = "i:a:p:s:d:m:T:P:SNh";
- 	int min_port = 0, max_port = 0;
- 	struct iptnl_info tnl = {};
- 	struct rlimit r = {RLIM_INFINITY, RLIM_INFINITY};
-@@ -206,6 +208,9 @@ int main(int argc, char **argv)
- 		case 'S':
- 			xdp_flags |= XDP_FLAGS_SKB_MODE;
- 			break;
-+		case 'N':
-+			xdp_flags |= XDP_FLAGS_DRV_MODE;
-+			break;
- 		default:
- 			usage(argv[0]);
- 			return 1;
+ 		if (!skb) {
+ 			kfree(data);
+@@ -1971,9 +1977,11 @@ static void bnxt_free_rx_skbs(struct bnxt *bp)
+ 				if (!data)
+ 					continue;
+ 
+-				dma_unmap_single(&pdev->dev, tpa_info->mapping,
+-						 bp->rx_buf_use_size,
+-						 bp->rx_dir);
++				dma_unmap_single_attrs(&pdev->dev,
++						       tpa_info->mapping,
++						       bp->rx_buf_use_size,
++						       bp->rx_dir,
++						       DMA_ATTR_WEAK_ORDERING);
+ 
+ 				tpa_info->data = NULL;
+ 
+@@ -1993,13 +2001,15 @@ static void bnxt_free_rx_skbs(struct bnxt *bp)
+ 
+ 			if (BNXT_RX_PAGE_MODE(bp)) {
+ 				mapping -= bp->rx_dma_offset;
+-				dma_unmap_page(&pdev->dev, mapping,
+-					       PAGE_SIZE, bp->rx_dir);
++				dma_unmap_page_attrs(&pdev->dev, mapping,
++						     PAGE_SIZE, bp->rx_dir,
++						     DMA_ATTR_WEAK_ORDERING);
+ 				__free_page(data);
+ 			} else {
+-				dma_unmap_single(&pdev->dev, mapping,
+-						 bp->rx_buf_use_size,
+-						 bp->rx_dir);
++				dma_unmap_single_attrs(&pdev->dev, mapping,
++						       bp->rx_buf_use_size,
++						       bp->rx_dir,
++						       DMA_ATTR_WEAK_ORDERING);
+ 				kfree(data);
+ 			}
+ 		}
+@@ -2012,8 +2022,10 @@ static void bnxt_free_rx_skbs(struct bnxt *bp)
+ 			if (!page)
+ 				continue;
+ 
+-			dma_unmap_page(&pdev->dev, rx_agg_buf->mapping,
+-				       BNXT_RX_PAGE_SIZE, PCI_DMA_FROMDEVICE);
++			dma_unmap_page_attrs(&pdev->dev, rx_agg_buf->mapping,
++					     BNXT_RX_PAGE_SIZE,
++					     PCI_DMA_FROMDEVICE,
++					     DMA_ATTR_WEAK_ORDERING);
+ 
+ 			rx_agg_buf->page = NULL;
+ 			__clear_bit(j, rxr->rx_agg_bmap);
 -- 
-1.9.3
+1.7.1
+
