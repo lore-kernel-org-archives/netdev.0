@@ -1,79 +1,49 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] libertas: Avoid reading past end of buffer
-Date: Tue, 09 May 2017 21:33:17 -0700
-Message-ID: <1494390797.4564.5.camel@perches.com>
-References: <20170509232334.GA55070@beast>
+From: Stefan Agner <stefan@agner.ch>
+Subject: Re: [PATCH] net: fec: select queue depending on VLAN priority
+Date: Tue, 09 May 2017 21:51:09 -0700
+Message-ID: <6965c0828bb5294faa471af10865a388@agner.ch>
+References: <20170509053708.2573-1-stefan@agner.ch>
+ <20170509.093913.1803457630634565212.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Kalle Valo <kvalo@codeaurora.org>,
-        libertas-dev@lists.infradead.org, linux-wireless@vger.kernel.org,
-        linux-kernel@vger.kernel.org, Daniel Micay <danielmicay@gmail.com>
-To: Kees Cook <keescook@chromium.org>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0189.hostedemail.com ([216.40.44.189]:40654 "EHLO
-        smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1751555AbdEJEdY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 10 May 2017 00:33:24 -0400
-In-Reply-To: <20170509232334.GA55070@beast>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: fugang.duan@nxp.com, andrew@lunn.ch, festevam@gmail.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170509.093913.1803457630634565212.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2017-05-09 at 16:23 -0700, Kees Cook wrote:
-> Using memcpy() from a string that is shorter than the length copied means
-> the destination buffer is being filled with arbitrary data from the kernel
-> rodata segment. Instead, use strncpy() which will fill the trailing bytes
-> with zeros. Additionally adjust indentation to keep checkpatch.pl happy.
+On 2017-05-09 06:39, David Miller wrote:
+> From: Stefan Agner <stefan@agner.ch>
+> Date: Mon,  8 May 2017 22:37:08 -0700
 > 
-> This was found with the future CONFIG_FORTIFY_SOURCE feature.
-[]
-> diff --git a/drivers/net/wireless/marvell/libertas/mesh.c b/drivers/net/wireless/marvell/libertas/mesh.c
-[]
-> @@ -1177,9 +1177,9 @@ void lbs_mesh_ethtool_get_strings(struct net_device *dev,
->  	switch (stringset) {
->  	case ETH_SS_STATS:
->  		for (i = 0; i < MESH_STATS_NUM; i++) {
-> -			memcpy(s + i * ETH_GSTRING_LEN,
-> -					mesh_stat_strings[i],
-> -					ETH_GSTRING_LEN);
-> +			strncpy(s + i * ETH_GSTRING_LEN,
-> +				mesh_stat_strings[i],
-> +				ETH_GSTRING_LEN);
->  		}
+>> Since the addition of the multi queue code with commit 59d0f7465644
+>> ("net: fec: init multi queue date structure") the queue selection
+>> has been handelt by the default transmit queue selection
+>> implementation which tries to evenly distribute the traffic across
+>> all available queues. This selection presumes that the queues are
+>> using an equal priority, however, the queues 1 and 2 are actually
+>> of higher priority (the classification of the queues is enabled in
+>> fec_enet_enable_ring).
+>>
+>> This can lead to net scheduler warnings and continuous TX ring
+>> dumps when exercising the system with iperf.
+>>
+>> Use only queue 0 for all common traffic (no VLAN and P802.1p
+>> priority 0 and 1) and route level 2-7 through queue 1 and 2.
+>>
+>> Signed-off-by: Fugang Duan <fugang.duan@nxp.com>
+>> Fixes: 59d0f7465644 ("net: fec: init multi queue date structure")
+> 
+> If the queues are used for prioritization, and it does not have
+> multiple normal priority level queues, multiqueue is not what the
+> driver should have implemented.
 
-The better solution is to declare
-mesh_stat_strings in in the normal way
+As Andy mentioned, there is also a round-robin mode. I'll try that.
 
----
- drivers/net/wireless/marvell/libertas/mesh.c | 18 +++++++++---------
- 1 file changed, 9 insertions(+), 9 deletions(-)
+What would be the proper way to use the prioritized queues?
 
-diff --git a/drivers/net/wireless/marvell/libertas/mesh.c b/drivers/net/wireless/marvell/libertas/mesh.c
-index d0c881dd5846..a535e7f48d2d 100644
---- a/drivers/net/wireless/marvell/libertas/mesh.c
-+++ b/drivers/net/wireless/marvell/libertas/mesh.c
-@@ -1108,15 +1108,15 @@ void lbs_mesh_set_txpd(struct lbs_private *priv,
-  * Ethtool related
-  */
- 
--static const char * const mesh_stat_strings[] = {
--			"drop_duplicate_bcast",
--			"drop_ttl_zero",
--			"drop_no_fwd_route",
--			"drop_no_buffers",
--			"fwded_unicast_cnt",
--			"fwded_bcast_cnt",
--			"drop_blind_table",
--			"tx_failed_cnt"
-+static const char mesh_stat_strings[][ETH_GSTRING_LEN] = {
-+	"drop_duplicate_bcast",
-+	"drop_ttl_zero",
-+	"drop_no_fwd_route",
-+	"drop_no_buffers",
-+	"fwded_unicast_cnt",
-+	"fwded_bcast_cnt",
-+	"drop_blind_table",
-+	"tx_failed_cnt",
- };
- 
- void lbs_mesh_ethtool_get_stats(struct net_device *dev,
+--
+Stefan
