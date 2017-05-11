@@ -1,57 +1,63 @@
 From: Alexei Starovoitov <ast@fb.com>
-Subject: Re: [PATCH v2 1/7] bpf: Track alignment of register values in the
- verifier.
-Date: Thu, 11 May 2017 15:53:06 -0700
-Message-ID: <06d46f08-2c62-d167-1fe5-a49284c614bb@fb.com>
-References: <20170511.120516.2089919860112370473.davem@davemloft.net>
+Subject: Re: [PATCH net-next] selftests/bpf: get rid of -D__x86_64__
+Date: Thu, 11 May 2017 15:58:33 -0700
+Message-ID: <9afe8b73-806c-1511-dd26-f09e67b85107@fb.com>
+References: <d809baa4-c864-af99-38af-fbcb6637ca2b@fb.com>
+ <20170504.093723.1592226593887244452.davem@davemloft.net>
+ <5d1d290b-7ff7-7f9d-15a0-599596e0778c@fb.com>
+ <20170511.150246.650724054596949813.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="windows-1252"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: <alexei.starovoitov@gmail.com>, <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>, <daniel@iogearbox.net>
+Cc: <daniel@iogearbox.net>, <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:60304 "EHLO
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:32790 "EHLO
         mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751248AbdEKWxa (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 11 May 2017 18:53:30 -0400
-In-Reply-To: <20170511.120516.2089919860112370473.davem@davemloft.net>
+        by vger.kernel.org with ESMTP id S1755287AbdEKW65 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 11 May 2017 18:58:57 -0400
+In-Reply-To: <20170511.150246.650724054596949813.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 5/11/17 9:05 AM, David Miller wrote:
-> +		had_id = (dst_reg->id != 0);
-> +
->  		/* dst_reg stays as pkt_ptr type and since some positive
->  		 * integer value was added to the pointer, increment its 'id'
->  		 */
->  		dst_reg->id = ++env->id_gen;
+On 5/11/17 12:02 PM, David Miller wrote:
+> From: Alexei Starovoitov <ast@fb.com>
+> Date: Thu, 4 May 2017 16:34:08 -0700
 >
-> -		/* something was added to pkt_ptr, set range and off to zero */
-> +		/* something was added to pkt_ptr, set range to zero */
-> +		dst_reg->aux_off = dst_reg->off;
+>> Hence I think the cleanest solution is to have bpf arch's types.h
+>> either installed with llvm/gcc or picked from selftests's dir.
+>
+> Something like this?
 
-what about 2nd addition of a variable to pkt_ptr ?
-aux_off sort-of remembers already accumulated offset in pkt_ptr, but
-above line will hard assign it which doesn't seem right for the 2nd
-addition.
-Ex:
-before first add, reg->off == 14
-after first add, aux_off = 14, off = 0
-then imm4 added, now we have reg->off=4, aux_off=14
-now we do 2nd add of variable and
-reg->aux_off becomes 4
-and if we later do u64 load from the packet it will be rejected
-due to (net_ip_align + 4) whereas it should have been ok
-due to (net_ip_align + 14 + 4).
+yes :)
+Ack.
 
+> ====================
+> [PATCH] bpf: Provide a linux/types.h override for bpf selftests.
+>
+> We do not want to use the architecture's type.h header when
+> building BPF programs which are always 64-bit.
+>
+> Signed-off-by: David S. Miller <davem@davemloft.net>
+> ---
+>  tools/testing/selftests/bpf/Makefile                   | 3 ++-
+>  tools/testing/selftests/bpf/include/uapi/linux/types.h | 6 ++++++
+>  2 files changed, 8 insertions(+), 1 deletion(-)
+>  create mode 100644 tools/testing/selftests/bpf/include/uapi/linux/types.h
+>
+> diff --git a/tools/testing/selftests/bpf/Makefile b/tools/testing/selftests/bpf/Makefile
+> index f92f27d..f389b02 100644
+> --- a/tools/testing/selftests/bpf/Makefile
+> +++ b/tools/testing/selftests/bpf/Makefile
+> @@ -35,6 +35,7 @@ $(BPFOBJ): force
+>  CLANG ?= clang
+>
+>  %.o: %.c
+> -	$(CLANG) -I. -I../../../include/uapi -I../../../../samples/bpf/ \
+> +	$(CLANG) -I. -I./include/uapi -I../../../include/uapi \
 
->  		dst_reg->off = 0;
->  		dst_reg->range = 0;
-> +		if (had_id)
-> +			dst_reg->aux_off_align = min(dst_reg->aux_off_align,
-> +						     src_reg->min_align);
-> +		else
-> +			dst_reg->aux_off_align = src_reg->min_align;
-
-all aux_off_align logic here and in other places looks fine to me,
-since it's conservative.
+Can we than move gnu/stubs.h into include/uapi as well and remove
+the first -I. ?
+Or keep them separate, since this linux/types.h is bpf's arch types.h
+whereas gnu/stubs.h is a hack for glibc /usr/include/features.h ?
+I'm fine whichever way including keeping this patch as-is.
