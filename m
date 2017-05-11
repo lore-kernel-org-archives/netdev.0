@@ -1,55 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] mdio: mux: Correct mdio_mux_init error path issues
-Date: Thu, 11 May 2017 13:20:46 -0400 (EDT)
-Message-ID: <20170511.132046.1868957374968763665.davem@davemloft.net>
-References: <1494429627-5527-1-git-send-email-jon.mason@broadcom.com>
-        <d4126200-c1c1-1adc-120d-5fa55bf28ce5@gmail.com>
+Subject: Re: [PATCH v2 6/7] bpf: Make use of alignment information in
+ check_val_ptr_alignment().
+Date: Thu, 11 May 2017 13:23:54 -0400 (EDT)
+Message-ID: <20170511.132354.1049312079662884972.davem@davemloft.net>
+References: <20170511.120608.248672395765712270.davem@davemloft.net>
+        <59149629.4090109@iogearbox.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jon.mason@broadcom.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org,
-        bcm-kernel-feedback-list@broadcom.com, andrew@lunn.ch
-To: f.fainelli@gmail.com
+Cc: ast@fb.com, alexei.starovoitov@gmail.com, netdev@vger.kernel.org
+To: daniel@iogearbox.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:52458 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:52490 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755763AbdEKRUv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 11 May 2017 13:20:51 -0400
-In-Reply-To: <d4126200-c1c1-1adc-120d-5fa55bf28ce5@gmail.com>
+        with ESMTP id S932444AbdEKRX4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 11 May 2017 13:23:56 -0400
+In-Reply-To: <59149629.4090109@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Thu, 11 May 2017 10:05:27 -0700
+From: Daniel Borkmann <daniel@iogearbox.net>
+Date: Thu, 11 May 2017 18:49:45 +0200
 
-> On 05/10/2017 08:20 AM, Jon Mason wrote:
->> There is a potential unnecessary refcount decriment on error path of
->> put_device(&pb->mii_bus->dev), as it is possible to avoid the
->> of_mdio_find_bus() call if mux_bus is specified by the calling function.
->> 
->> The same put_device() is not called in the error path if the
->> devm_kzalloc of pb fails.  This caused the variable used in the
->> put_device() to be changed, as the pb pointer was obviously not set up.
->> 
->> There is an unnecessary of_node_get() on child_bus_node if the
->> of_mdiobus_register() is successful, as the
->> for_each_available_child_of_node() automatically increments this.
->> Thus the refcount on this node will always be +1 more than it should be.
->> 
->> There is no of_node_put() on child_bus_node if the of_mdiobus_register()
->> call fails.
->> 
->> Finally, it is lacking devm_kfree() of pb in the error path.  While this
->> might not be technically necessary, it was present in other parts of the
->> function.  So, I am adding it where necessary to make it uniform.
->> 
->> Signed-off-by: Jon Mason <jon.mason@broadcom.com>
->> Fixes: f20e6657a875 ("mdio: mux: Enhanced MDIO mux framework for integrated multiplexers")
->> Fixes: 0ca2997d1452 ("netdev/of/phy: Add MDIO bus multiplexer support.")
-> 
-> Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
-> 
-> Please include "net" in the subject for future submissions, thanks!
+> This actually won't work, see also commit 79adffcd6489 ("bpf,
+> verifier:
+> fix rejection of unaligned access checks for map_value_adj") with some
+> longer explanation. In case of map_value_adj, reg->id is always 0.
 
-Applied.
+I see....
+
+Ok if I merge in the first 5 patches then?
+
+I'll look more deeply into the MAP value issues.
