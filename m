@@ -1,37 +1,63 @@
-From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
-Subject: RE: [PATCH] qed: fix uninitialized data in aRFS intrastructure
-Date: Thu, 11 May 2017 14:37:54 +0000
-Message-ID: <BLUPR0701MB20046B7EA7273C97047B02F28DED0@BLUPR0701MB2004.namprd07.prod.outlook.com>
-References: <20170511121633.3591880-1-arnd@arndb.de>
- <BLUPR0701MB2004E8FA50C46973E09FBA298DED0@BLUPR0701MB2004.namprd07.prod.outlook.com>
- <CAK8P3a2x8OxcoHyx_e1Tj7k5QP5nVvTt3mh5WZvdfMfrZqPw8g@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/5] bpf: Track alignment of register values in the
+ verifier.
+Date: Thu, 11 May 2017 10:49:04 -0400 (EDT)
+Message-ID: <20170511.104904.2085723000669887052.davem@davemloft.net>
+References: <20170510.150942.1969073633182798014.davem@davemloft.net>
+        <59145BEC.9040804@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "David S. Miller" <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAK8P3a2x8OxcoHyx_e1Tj7k5QP5nVvTt3mh5WZvdfMfrZqPw8g@mail.gmail.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: ast@fb.com, alexei.starovoitov@gmail.com, netdev@vger.kernel.org
+To: daniel@iogearbox.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:50780 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932984AbdEKOtQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 11 May 2017 10:49:16 -0400
+In-Reply-To: <59145BEC.9040804@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-PiA+IEZvciB0aGUgbW9zdCBwYXJ0IC0gSSdtIGFsbW9zdCBhbGwgaW4gZmF2b3Igb2YgdGhpcyBj
-aGFuZ2UuDQo+ID4gQnV0IGp1c3QgdG8gbWFrZSBpdCBjbGVhciAtIHRoZSBhY3R1YWwgZml4IGNv
-dWxkIGhhdmUgYmVlbiBhIG9uZS1saW5lciwgcmlnaHQ/DQo+ID4gVGhlIHJlc3QgYXJlIHN0eWxl
-IGNoYW5nZXMuDQoNCj4gQ29ycmVjdC4gSGF2aW5nIHRoZSBjb3JyZWN0IGxlbmd0aCBpbiB0aGUg
-bWVtc2V0IGlzIGEgc3VmZmljaWVudCBmaXggZm9yIHRoZSB3YXJuaW5nLA0KPiBidXQgaXQgZmVs
-dCB3cm9uZyB0byBzZW5kIGl0IHNpbmNlIHRoZSByb290IG9mIHRoZSBwcm9ibGVtIHNlZW1zIHRv
-IGJlIHRoZQ0KPiBjb21wbGV4aXR5IG9mIHRoZSBjb2RlIHRoYXQgd2FzIGhpZGluZyBpdC4NCg0K
-Li4uDQoNCj4gR2VuZXJhbGx5IHNwZWFraW5nLCBmZWVsIGZyZWUgdG8gdHJlYXQgYW55IG9mIG15
-IGNvbXBpbGUtdGltZSB3YXJuaW5nIGZpeA0KPiBwYXRjaGVzIGFzIHNpbXBsZSBidWcgcmVwb3J0
-cyBhbmQgYXBwbHkgYSBkaWZmZXJlbnQgZml4IHRoYXQgc2VlbXMgbW9yZQ0KPiBhcHByb3ByaWF0
-ZS4gSSBtYWlubHkgc2VuZCBpdCBpbiBwYXRjaCBmb3JtIHNpbmNlIHRoYXQgc2VlbXMgdG8gYmUg
-dGhlDQo+IHF1aWNrZXN0IHdheSB0byBhZGRyZXNzIGFueSBpc3N1ZXMuDQoNClN1cmUuIA0KDQpP
-bmNlIG5ldC1uZXh0IGlzIHJlLW9wZW5lZCBJIGludGVuZCB0byBwdXNoIG91ciBuZXh0IEZXIHZl
-cnNpb24gd2hpY2gNCmlzIGFsc28gZ29pbmcgdG8gY2hhbmdlIHNvbWUgb2YgdGhlIGFSRlMgcmVs
-YXRlZCBjb25maWd1cmF0aW9ucy4NCg0KU28gSSB0aGluayB3ZSBzaG91bGQgc3RpY2sgdG8gdGhl
-IHNpbmdsZS1saW5lciBmaXggZm9yIG5vdywNCmFuZCBJJ2xsIHJldmlzZSB0aGUgc3R5bGUgW2lm
-IHN0aWxsIG5lZWRlZDsgSSdsbCBoYXZlIHRvIGNoZWNrXSBvbiB0aGF0IHN1Ym1pc3Npb24uDQo=
+From: Daniel Borkmann <daniel@iogearbox.net>
+Date: Thu, 11 May 2017 14:41:16 +0200
+
+> On 05/10/2017 09:09 PM, David Miller wrote:
+>>
+>> Currently if we add only constant values to pointers we can fully
+>> validate the alignment, and properly check if we need to reject the
+>> program on CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS architectures.
+> 
+> Should say: !CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS
+
+Ok.
+
+>>
+>> The existing code will reject the load of th->dport because it cannot
+> 
+> s/th->dport/th->dest/
+
+Right :)
+
+> In adjust_reg_min_max_vals(), don't we also need to call
+> reset_reg_align() in the 'default' case for the cases where
+> we use have ALU ops that we don't bother tracking (mod, div,
+> endianess ops, etc)?
+> 
+> Likewise, for other cases where we do reset_reg_range_values()
+> which is BPF_LD as class and for the BPF_MOV in check_alu_op(),
+> which I think, is only relevant when we move reg A to reg B
+> in 32 bit mode. Perhaps it makes sense to consolidate the reset
+> on alignment with the reset of min/max values, or do we have
+> cases where this is undesirable (not that I'm currently aware
+> of ...)?
+
+I can't think of any situation where these two actions don't have
+to both be performned, so I've moved the alignment clear into
+reset_reg_range_values() and removed reset_reg_align() altogether.
+
+> But other than that:
+> 
+> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+
+Thanks for reviewing.
