@@ -1,73 +1,30 @@
-From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-Subject: [net-dsa-mv88e6xxx] question about potential use of uninitialized
- variable
-Date: Thu, 11 May 2017 16:35:37 -0500
-Message-ID: <20170511163537.Horde.CH1Q_6Lo2SOIbQB6MQJFV3g@gator4166.hostgator.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 5/7] bpf: Add verifier test case for alignment.
+Date: Thu, 11 May 2017 17:53:47 -0400 (EDT)
+Message-ID: <20170511.175347.1784432804227034764.davem@davemloft.net>
+References: <20170511.120601.246881624526451669.davem@davemloft.net>
+        <20170511211945.GB20107@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed; DelSp=Yes
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Andrew Lunn <andrew@lunn.ch>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: daniel@iogearbox.net, ast@fb.com, alexei.starovoitov@gmail.com,
+        netdev@vger.kernel.org
+To: alexander@alemayhu.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:55070 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756404AbdEKVxw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 11 May 2017 17:53:52 -0400
+In-Reply-To: <20170511211945.GB20107@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Alexander Alemayhu <alexander@alemayhu.com>
+Date: Thu, 11 May 2017 23:19:45 +0200
 
-Hello everybody,
+> Why is this commented out?
 
-While looking into Coverity ID 1398130 I ran into the following piece  
-of code at drivers/net/dsa/mv88e6xxx/chip.c:849:
+That was a debugging hack while developing this code, I'll
+remove it.
 
-  849static uint64_t _mv88e6xxx_get_ethtool_stat(struct mv88e6xxx_chip *chip,
-  850                                            struct mv88e6xxx_hw_stat *s,
-  851                                            int port, u16 bank1_select,
-  852                                            u16 histogram)
-  853{
-  854        u32 low;
-  855        u32 high = 0;
-  856        u16 reg = 0;
-  857        int err;
-  858        u64 value;
-  859
-  860        switch (s->type) {
-  861        case STATS_TYPE_PORT:
-  862                err = mv88e6xxx_port_read(chip, port, s->reg, &reg);
-  863                if (err)
-  864                        return UINT64_MAX;
-  865
-  866                low = reg;
-  867                if (s->sizeof_stat == 4) {
-  868                        err = mv88e6xxx_port_read(chip, port,  
-s->reg + 1, &reg);
-  869                        if (err)
-  870                                return UINT64_MAX;
-  871                        high = reg;
-  872                }
-  873                break;
-  874        case STATS_TYPE_BANK1:
-  875                reg = bank1_select;
-  876                /* fall through */
-  877        case STATS_TYPE_BANK0:
-  878                reg |= s->reg | histogram;
-  879                mv88e6xxx_g1_stats_read(chip, reg, &low);
-  880                if (s->sizeof_stat == 8)
-  881                        mv88e6xxx_g1_stats_read(chip, reg + 1, &high);
-  882        }
-  883        value = (((u64)high) << 16) | low;
-  884        return value;
-  885}
-
-My question here is if there is any chance for the execution path to  
-directly jump from line 860 to line 883, hence ending up using the  
-uninitialized variable _low_?
-
-I'm trying to figure out if this is a false positive or something that  
-needs to be fixed.
-
-I'd really appreciate any comment on this.
-
-Thank you!
---
-Gustavo A. R. Silva
+Thanks.
