@@ -1,32 +1,36 @@
 From: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH v2] net/mlx4_core: Use min_t instead of if for consistency
-Date: Thu, 11 May 2017 13:42:19 +0300
-Message-ID: <20170511104219.GE3616@mtr-leonro.local>
-References: <1494498962-16852-1-git-send-email-yuval.shaia@oracle.com>
+Subject: Re: [PATCH v3] net/mlx4_core: Use min3 to select number of MSI-X
+ vectors
+Date: Thu, 11 May 2017 13:48:43 +0300
+Message-ID: <20170511104843.GF3616@mtr-leonro.local>
+References: <1494499258-17017-1-git-send-email-yuval.shaia@oracle.com>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha256;
-        protocol="application/pgp-signature"; boundary="d8Lz2Tf5e5STOWUP"
+        protocol="application/pgp-signature"; boundary="B0nZA57HJSoPbsHY"
 Cc: yishaih-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
         linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 To: Yuval Shaia <yuval.shaia-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
 Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <1494498962-16852-1-git-send-email-yuval.shaia-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+In-Reply-To: <1494499258-17017-1-git-send-email-yuval.shaia-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
 Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
 
---d8Lz2Tf5e5STOWUP
+--B0nZA57HJSoPbsHY
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 
-On Thu, May 11, 2017 at 01:36:02PM +0300, Yuval Shaia wrote:
+On Thu, May 11, 2017 at 01:40:58PM +0300, Yuval Shaia wrote:
 > Signed-off-by: Yuval Shaia <yuval.shaia-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
 > ---
 > v0 -> v1:
 > 	* s/"min_t("/"min_t(int"
 > v1 -> v2:
 > 	* Use min3 instead of min_t twice
+> v2 -> v3:
+> 	* Change commit log header message to reflect the changes made in
+> 	  v2
 > ---
 >  drivers/net/ethernet/mellanox/mlx4/main.c | 9 +++------
 >  1 file changed, 3 insertions(+), 6 deletions(-)
@@ -35,27 +39,27 @@ On Thu, May 11, 2017 at 01:36:02PM +0300, Yuval Shaia wrote:
 Thanks,
 Reviewed-by: Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
 
---d8Lz2Tf5e5STOWUP
+--B0nZA57HJSoPbsHY
 Content-Type: application/pgp-signature; name="signature.asc"
 
 -----BEGIN PGP SIGNATURE-----
 
-iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAlkUQAsACgkQ5GN7iDZy
-WKd0yg//SiMHLU9snoPL8CFFmgRP5qU4e3Bi86VsRNWRmx7Rosh1Am1zVgIL6PUH
-mfUR5N9S4hjHGEd1VPhgXzQxjacAJC2aFjJFNP7wlAtjyTb0bB4Wl1TGrP/aflYO
-G6zQoRXyJ9viej0CQGX1DgVIyL82QlBQiB9njs7vAIKqqpZFSrYSX0LSFV05WJEM
-d4f1mbJfVpZZtcLVF+j7UMTZ3QElfgGotAQ9i2vQNM49yxD4IF/y1HNpV7Ny/C+c
-PNjg0VsRUTGYkGuI7iYEFghhoJgn4Xj93FAsk/sVRZbWOn2CQlVl0loThqcH3j6Y
-Qa+mXI4SThD6zCMC2po3V/nUG2yfYWe2YJpKWznKKRKPmPzFv1KC4ZI96crQDySo
-b8GB4hivvKgMBAnsK8w7F5zZl829Ic/esUFc7srwq4PWELnwooWRboS8gJ14ImJQ
-BFzzHCcUETJmxAY3329zi4jRFEFJ6fsrRVJmgFWOFkMsifR26MkoIghM9lVGD/qq
-k50YqrsBNd6Nzs8r+H31P6EDuRI7zEV8Jb/HTU9nXMdfvXE6Ha4z0yVgOzYrw1ao
-YeJrpHZqGe4O3NWwJZX7afNZzUmBnMpy8UMYbF4lNLVEOqbrAJl/szjFjaf4c2nb
-SpzF6E+0eQAsnFyfWqn0s1f2C/gDmTJuenr8PLf7s64i3HnqJjw=
-=V4j4
+iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAlkUQYsACgkQ5GN7iDZy
+WKfh1g/+LvrbCfgEwEuvAEHjM6ENHoXhfksOpgF/NQfbdbUXPmlbvTmlnH7yQDws
+wkMeHjADdzE3WnXZSa8pZZH61iDRRTooioM6MKDgAhU1R5COaRkh5vdOLyJm/zxy
+BZCBZP1xKhryB+FigkIO3uWM8EWZDlFDZp8oA3mPDgX6iJ5jUk5F2V4Gb4nGeiES
+NOvN5Zoenu2vcf6cvz0Z6JG5HMTW7phm3dvvYMsNsPqtHGfdJnQLGsaIpjyiXmdg
+XGzCoaUCwpntyWR3RJkNxLOCqDuEy3fOM8OaJDx/2SIqRHX+TCMHFfy3GGu/7TZq
+70/oRtEpZo/6acY04JfuTsE2EH61P9jeisV4ZcuIPpIVRsBfB4Ph5G3E4+C4iCrW
+hYbvfCxMut/7TdZHHqlLiqQG+DXCpraRGbxW6V+n4H5oRgc6u1rpMXX1QvFl+ZZf
+WiGXAQmTwsD4LPvuk2YqmsXnRz5qkDfqAW6i5KKfHajdHibUWvWC5vBhOQUssA8N
+mjr1OdgIZ3C8ipISminp2cz0rAUl8aGjGnmxORdpsNgCT6Q7ypxBXDw0E3kqleKL
+5GxaY8eLJXVepZRuKUVJy4YBY7ZwtU1A0EROhrjXjFjJXDynwAEsLZmYbTxGvaCw
+335tT0PlVBfezhSKK+ZASt7EUMuaaU/GDbjHhoqyNnzBgg2dVlg=
+=o1Sy
 -----END PGP SIGNATURE-----
 
---d8Lz2Tf5e5STOWUP--
+--B0nZA57HJSoPbsHY--
 --
 To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
