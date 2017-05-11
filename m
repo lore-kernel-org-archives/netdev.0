@@ -1,51 +1,37 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH] qed: fix uninitialized data in aRFS intrastructure
-Date: Thu, 11 May 2017 16:31:13 +0200
-Message-ID: <CAK8P3a2x8OxcoHyx_e1Tj7k5QP5nVvTt3mh5WZvdfMfrZqPw8g@mail.gmail.com>
-References: <20170511121633.3591880-1-arnd@arndb.de> <BLUPR0701MB2004E8FA50C46973E09FBA298DED0@BLUPR0701MB2004.namprd07.prod.outlook.com>
+From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
+Subject: RE: [PATCH] qed: fix uninitialized data in aRFS intrastructure
+Date: Thu, 11 May 2017 14:37:54 +0000
+Message-ID: <BLUPR0701MB20046B7EA7273C97047B02F28DED0@BLUPR0701MB2004.namprd07.prod.outlook.com>
+References: <20170511121633.3591880-1-arnd@arndb.de>
+ <BLUPR0701MB2004E8FA50C46973E09FBA298DED0@BLUPR0701MB2004.namprd07.prod.outlook.com>
+ <CAK8P3a2x8OxcoHyx_e1Tj7k5QP5nVvTt3mh5WZvdfMfrZqPw8g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
 Cc: "David S. Miller" <davem@davemloft.net>,
         "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
         "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
+To: Arnd Bergmann <arnd@arndb.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <BLUPR0701MB2004E8FA50C46973E09FBA298DED0@BLUPR0701MB2004.namprd07.prod.outlook.com>
+In-Reply-To: <CAK8P3a2x8OxcoHyx_e1Tj7k5QP5nVvTt3mh5WZvdfMfrZqPw8g@mail.gmail.com>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, May 11, 2017 at 4:03 PM, Mintz, Yuval <Yuval.Mintz@cavium.com> wrote:
->> register, which went subtly wrong due to the wrong size in a memset():
->>
->> ethernet/qlogic/qed/qed_init_fw_funcs.c: In function
->> 'qed_set_rfs_mode_disable':
->> ethernet/qlogic/qed/qed_init_fw_funcs.c:993:3: error: '*((void
->> *)&ramline+4)' is used uninitialized in this function [-Werror=uninitialized]
->>
->> This removes the silly loop and memset, and instead directly writes the
->> correct value to the register.
->
-> Hi Arnd,
->
-> For the most part - I'm almost all in favor of this change.
-> But just to make it clear - the actual fix could have been a one-liner, right?
-> The rest are style changes.
-
-Correct. Having the correct length in the memset is a sufficient fix for
-the warning, but it felt wrong to send it since the root of the problem
-seems to be the complexity of the code that was hiding it.
-
->> +#define CAM_REG(pf_id) (PRS_REG_GFT_CAM + CAM_LINE_SIZE * (pf_id))
->> +#define RAM_REG(pf_id) (PRS_REG_GFT_PROFILE_MASK_RAM +
->
-> Not sure I'm a huge fan of this specific style change;
-> Seems like we could easily manage without these macros.
-
-I tried first and ended up with really long lines that I did not like.
-
-Generally speaking, feel free to treat any of my compile-time warning
-fix patches as simple bug reports and apply a different fix that seems
-more appropriate. I mainly send it in patch form since that seems to be
-the quickest way to address any issues.
-
-      Arnd
+PiA+IEZvciB0aGUgbW9zdCBwYXJ0IC0gSSdtIGFsbW9zdCBhbGwgaW4gZmF2b3Igb2YgdGhpcyBj
+aGFuZ2UuDQo+ID4gQnV0IGp1c3QgdG8gbWFrZSBpdCBjbGVhciAtIHRoZSBhY3R1YWwgZml4IGNv
+dWxkIGhhdmUgYmVlbiBhIG9uZS1saW5lciwgcmlnaHQ/DQo+ID4gVGhlIHJlc3QgYXJlIHN0eWxl
+IGNoYW5nZXMuDQoNCj4gQ29ycmVjdC4gSGF2aW5nIHRoZSBjb3JyZWN0IGxlbmd0aCBpbiB0aGUg
+bWVtc2V0IGlzIGEgc3VmZmljaWVudCBmaXggZm9yIHRoZSB3YXJuaW5nLA0KPiBidXQgaXQgZmVs
+dCB3cm9uZyB0byBzZW5kIGl0IHNpbmNlIHRoZSByb290IG9mIHRoZSBwcm9ibGVtIHNlZW1zIHRv
+IGJlIHRoZQ0KPiBjb21wbGV4aXR5IG9mIHRoZSBjb2RlIHRoYXQgd2FzIGhpZGluZyBpdC4NCg0K
+Li4uDQoNCj4gR2VuZXJhbGx5IHNwZWFraW5nLCBmZWVsIGZyZWUgdG8gdHJlYXQgYW55IG9mIG15
+IGNvbXBpbGUtdGltZSB3YXJuaW5nIGZpeA0KPiBwYXRjaGVzIGFzIHNpbXBsZSBidWcgcmVwb3J0
+cyBhbmQgYXBwbHkgYSBkaWZmZXJlbnQgZml4IHRoYXQgc2VlbXMgbW9yZQ0KPiBhcHByb3ByaWF0
+ZS4gSSBtYWlubHkgc2VuZCBpdCBpbiBwYXRjaCBmb3JtIHNpbmNlIHRoYXQgc2VlbXMgdG8gYmUg
+dGhlDQo+IHF1aWNrZXN0IHdheSB0byBhZGRyZXNzIGFueSBpc3N1ZXMuDQoNClN1cmUuIA0KDQpP
+bmNlIG5ldC1uZXh0IGlzIHJlLW9wZW5lZCBJIGludGVuZCB0byBwdXNoIG91ciBuZXh0IEZXIHZl
+cnNpb24gd2hpY2gNCmlzIGFsc28gZ29pbmcgdG8gY2hhbmdlIHNvbWUgb2YgdGhlIGFSRlMgcmVs
+YXRlZCBjb25maWd1cmF0aW9ucy4NCg0KU28gSSB0aGluayB3ZSBzaG91bGQgc3RpY2sgdG8gdGhl
+IHNpbmdsZS1saW5lciBmaXggZm9yIG5vdywNCmFuZCBJJ2xsIHJldmlzZSB0aGUgc3R5bGUgW2lm
+IHN0aWxsIG5lZWRlZDsgSSdsbCBoYXZlIHRvIGNoZWNrXSBvbiB0aGF0IHN1Ym1pc3Npb24uDQo=
