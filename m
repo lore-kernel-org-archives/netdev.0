@@ -1,124 +1,61 @@
-From: kbuild test robot <lkp-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH v3] net/mlx4_core: Use min3 to select number of MSI-X
- vectors
-Date: Thu, 11 May 2017 21:36:30 +0800
-Message-ID: <201705112123.XAIeddmG%fengguang.wu@intel.com>
-References: <1494499258-17017-1-git-send-email-yuval.shaia@oracle.com>
+From: Fredrik Markstrom <fredrik.markstrom@gmail.com>
+Subject: [PATCH v2 0/2] net: Set maximum receive packet size on
+	veth interfaces
+Date: Thu, 11 May 2017 15:46:26 +0200
+Message-ID: <20170511134629.139528-1-fredrik.markstrom@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kbuild-all-JC7UmRfGjtg@public.gmane.org, yishaih-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Yuval Shaia <yuval.shaia-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1494499258-17017-1-git-send-email-yuval.shaia-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
+	Alexei Starovoitov <ast@kernel.org>,
+	Fredrik Markstrom <fredrik.markstrom@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-Hi Yuval,
 
-[auto build test WARNING on net-next/master]
-[also build test WARNING on v4.11 next-20170511]
-[if your patch is applied to the wrong git tree, please drop us a note to help improve the system]
+Currently veth drops all packets larger then the mtu set on the receiving
+end of the pair. This is inconsistent with most hardware ethernet drivers
+that happily receives packets up the the ethernet MTU independent of the
+configured MTU.
 
-url:    https://github.com/0day-ci/linux/commits/Yuval-Shaia/net-mlx4_core-Use-min3-to-select-number-of-MSI-X-vectors/20170511-184906
-reproduce:
-        # apt-get install sparse
-        make ARCH=x86_64 allmodconfig
-        make C=1 CF=-D__CHECK_ENDIAN__
+This patch set adds a new driver attribute to set the maximum size of
+received packet to make it possible to create configurations similar to
+those possible with (most) hardware ethernet interfaces.
 
+The set consists of two patches. The first one adding a parameter do the
+dev_forward_skb functions to specify the maximum packet size, the
+second one implents a new attribute (VETH_MRU) in the veth driver.
 
-sparse warnings: (new ones prefixed by >>)
+Fredrik Markstrom (1):
+  veth: Added attribute to set maximum receive size on veth interfaces
 
-   include/linux/compiler.h:264:8: sparse: attribute 'no_sanitize_address': unknown attribute
->> drivers/net/ethernet/mellanox/mlx4/main.c:2865:28: sparse: incompatible types in comparison expression (different signedness)
->> drivers/net/ethernet/mellanox/mlx4/main.c:2865:28: sparse: incompatible types in comparison expression (different signedness)
->> drivers/net/ethernet/mellanox/mlx4/main.c:2865:28: sparse: incompatible types in comparison expression (different signedness)
-   In file included from include/linux/list.h:8:0,
-                    from include/linux/module.h:9,
-                    from drivers/net/ethernet/mellanox/mlx4/main.c:36:
-   drivers/net/ethernet/mellanox/mlx4/main.c: In function 'mlx4_enable_msi_x':
-   include/linux/kernel.h:757:16: warning: comparison of distinct pointer types lacks a cast
-     (void) (&min1 == &min2);   \
-                   ^
-   include/linux/kernel.h:755:2: note: in definition of macro '__min'
-     t1 min1 = (x);     \
-     ^~
-   include/linux/kernel.h:774:23: note: in expansion of macro 'min'
-    #define min3(x, y, z) min((typeof(x))min(x, y), z)
-                          ^~~
-   include/linux/kernel.h:760:2: note: in expansion of macro '__min'
-     __min(typeof(x), typeof(y),   \
-     ^~~~~
-   include/linux/kernel.h:774:38: note: in expansion of macro 'min'
-    #define min3(x, y, z) min((typeof(x))min(x, y), z)
-                                         ^~~
-   drivers/net/ethernet/mellanox/mlx4/main.c:2865:14: note: in expansion of macro 'min3'
-      int nreq = min3(dev->caps.num_ports * num_online_cpus() + 1,
-                 ^~~~
-   include/linux/kernel.h:757:16: warning: comparison of distinct pointer types lacks a cast
-     (void) (&min1 == &min2);   \
-                   ^
-   include/linux/kernel.h:755:13: note: in definition of macro '__min'
-     t1 min1 = (x);     \
-                ^
-   include/linux/kernel.h:774:23: note: in expansion of macro 'min'
-    #define min3(x, y, z) min((typeof(x))min(x, y), z)
-                          ^~~
-   include/linux/kernel.h:760:2: note: in expansion of macro '__min'
-     __min(typeof(x), typeof(y),   \
-     ^~~~~
-   include/linux/kernel.h:774:38: note: in expansion of macro 'min'
-    #define min3(x, y, z) min((typeof(x))min(x, y), z)
-                                         ^~~
-   drivers/net/ethernet/mellanox/mlx4/main.c:2865:14: note: in expansion of macro 'min3'
-      int nreq = min3(dev->caps.num_ports * num_online_cpus() + 1,
-                 ^~~~
-   include/linux/kernel.h:757:16: warning: comparison of distinct pointer types lacks a cast
-     (void) (&min1 == &min2);   \
-                   ^
-   include/linux/kernel.h:760:2: note: in expansion of macro '__min'
-     __min(typeof(x), typeof(y),   \
-     ^~~~~
-   include/linux/kernel.h:774:23: note: in expansion of macro 'min'
-    #define min3(x, y, z) min((typeof(x))min(x, y), z)
-                          ^~~
-   drivers/net/ethernet/mellanox/mlx4/main.c:2865:14: note: in expansion of macro 'min3'
-      int nreq = min3(dev->caps.num_ports * num_online_cpus() + 1,
-                 ^~~~
+Fredrik Markström (1):
+  net: Added mtu parameter to dev_forward_skb calls
 
-vim +2865 drivers/net/ethernet/mellanox/mlx4/main.c
+ drivers/net/ipvlan/ipvlan_core.c |  7 ++++---
+ drivers/net/macvlan.c            |  4 ++--
+ drivers/net/veth.c               | 45 +++++++++++++++++++++++++++++++++++++++-
+ include/linux/netdevice.h        | 10 ++++-----
+ include/uapi/linux/veth.h        |  1 +
+ net/bridge/br_forward.c          |  4 ++--
+ net/core/dev.c                   | 17 +++++++++------
+ net/core/filter.c                |  4 ++--
+ net/l2tp/l2tp_eth.c              |  2 +-
+ 9 files changed, 72 insertions(+), 22 deletions(-)
 
-  2849		if (!zalloc_cpumask_var(&eq->affinity_mask, GFP_KERNEL))
-  2850			return -ENOMEM;
-  2851	
-  2852		cpumask_set_cpu(requested_cpu, eq->affinity_mask);
-  2853	
-  2854		return 0;
-  2855	}
-  2856	
-  2857	static void mlx4_enable_msi_x(struct mlx4_dev *dev)
-  2858	{
-  2859		struct mlx4_priv *priv = mlx4_priv(dev);
-  2860		struct msix_entry *entries;
-  2861		int i;
-  2862		int port = 0;
-  2863	
-  2864		if (msi_x) {
-> 2865			int nreq = min3(dev->caps.num_ports * num_online_cpus() + 1,
-  2866					dev->caps.num_eqs - dev->caps.reserved_eqs,
-  2867					MAX_MSIX);
-  2868	
-  2869			entries = kcalloc(nreq, sizeof *entries, GFP_KERNEL);
-  2870			if (!entries)
-  2871				goto no_msi;
-  2872	
-  2873			for (i = 0; i < nreq; ++i)
+v2 - Updated description and fixed compile error in net/bridge/br_forward.c
 
----
-0-DAY kernel test infrastructure                Open Source Technology Center
-https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-- 
+2.11.0
