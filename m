@@ -1,49 +1,63 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: Re: [PATCH] ip: mpls: fix printing of mpls labels
-Date: Thu, 11 May 2017 13:52:47 -0700
-Message-ID: <61f9b581-77d4-3ece-4f16-225afdb6af58@gmail.com>
-References: <20170509060413.11596-1-dsahern@gmail.com>
- <20170511110941.344a3011@xeon-e3>
+From: Alexander Alemayhu <alexander@alemayhu.com>
+Subject: Re: [PATCH v2 5/7] bpf: Add verifier test case for alignment.
+Date: Thu, 11 May 2017 23:19:45 +0200
+Message-ID: <20170511211945.GB20107@gmail.com>
+References: <20170511.120601.246881624526451669.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: daniel@iogearbox.net, ast@fb.com, alexei.starovoitov@gmail.com,
+        netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:33513 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755197AbdEKUwz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 11 May 2017 16:52:55 -0400
-Received: by mail-pf0-f194.google.com with SMTP id a23so4506781pfe.0
-        for <netdev@vger.kernel.org>; Thu, 11 May 2017 13:52:55 -0700 (PDT)
-In-Reply-To: <20170511110941.344a3011@xeon-e3>
-Content-Language: en-US
+Received: from mail-wm0-f46.google.com ([74.125.82.46]:38267 "EHLO
+        mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750708AbdEKVTt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 11 May 2017 17:19:49 -0400
+Received: by mail-wm0-f46.google.com with SMTP id 142so51279076wma.1
+        for <netdev@vger.kernel.org>; Thu, 11 May 2017 14:19:49 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20170511.120601.246881624526451669.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 5/11/17 11:09 AM, Stephen Hemminger wrote:
-> On Mon,  8 May 2017 23:04:13 -0700
-> David Ahern <dsahern@gmail.com> wrote:
+On Thu, May 11, 2017 at 12:06:01PM -0400, David Miller wrote:
 > 
->> If the kernel returns more labels than iproute2 expects, none of
->> the labels are printed and (null) is shown instead:
->>     $ ip -f mpls ro ls
->>     101 as to (null) via inet 172.16.2.2 dev virt12
->>     201 as to 202/203 via inet6 2001:db8:2::2 dev virt12
->>
->> Remove the use of MPLS_MAX_LABELS and rely on buffer length that is
->> passed to mpls_ntop. With this change ip can print the label stack
->> returned by the kernel up to 255 characters (limit is due to size of
->> buf passed in) which amounts to 31 labels with a separator.
->>
->> With this change the above is:
->>     $ ip/ip -f mpls ro ls
->>     101 as to 102/103/104/105/106/107/108/109/110 via inet 172.16.2.2 dev virt12
->>
->> Signed-off-by: David Ahern <dsahern@gmail.com>
-> 
-> Much better. Applied thanks.
-> 
+> +static int do_test_single(struct bpf_align_test *test)
+> +{
+> +	struct bpf_insn *prog = test->insns;
+> +	int prog_type = test->prog_type;
+> +	int prog_len, i;
+> +	int fd_prog;
+> +	int ret;
+> +
+> +	prog_len = probe_filter_length(prog);
+> +	fd_prog = bpf_verify_program(prog_type ? : BPF_PROG_TYPE_SOCKET_FILTER,
+> +				     prog, prog_len, 1, "GPL", 0,
+> +				     bpf_vlog, sizeof(bpf_vlog));
+> +	if (fd_prog < 0) {
+> +		printf("Failed to load program.\n");
+> +		printf("%s", bpf_vlog);
+> +		ret = 1;
+> +	} else {
+> +		ret = 0;
+> +		for (i = 0; i < MAX_MATCHES; i++) {
+> +			const char *t, *m = test->matches[i];
+> +
+> +			if (!m)
+> +				break;
+> +			t = strstr(bpf_vlog, m);
+> +			if (!t) {
+> +				printf("Failed to find match: %s\n", m);
+> +				ret = 1;
+> +				printf("%s", bpf_vlog);
+> +				break;
+> +			}
+> +		}
+> +		/* printf("%s", bpf_vlog); */
+Why is this commented out?
 
-This is only one-half of the solution; the install side is harder. I'll
-send something in the next few days.
+-- 
+Mit freundlichen Grüßen
+
+Alexander Alemayhu
