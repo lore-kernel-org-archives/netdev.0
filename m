@@ -1,84 +1,229 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] netem: fix skb_orphan_partial()
-Date: Thu, 11 May 2017 15:24:41 -0700
-Message-ID: <1494541481.7796.124.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20170511094758.2112b00f@xeon-e3>
-         <1494522379.7796.112.camel@edumazet-glaptop3.roam.corp.google.com>
-         <c5a4858f-1559-7c75-b224-99391e6bb6c4@nabto.com>
-         <1494531770.7796.115.camel@edumazet-glaptop3.roam.corp.google.com>
+From: =?UTF-8?q?Niklas=20S=C3=B6derlund?=
+        <niklas.soderlund+renesas@ragnatech.se>
+Subject: [PATCH] ravb: add wake-on-lan support via magic packet
+Date: Fri, 12 May 2017 00:27:35 +0200
+Message-ID: <20170511222735.10706-1-niklas.soderlund+renesas@ragnatech.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-        Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org
-To: Michael Madsen <mkm@nabto.com>, David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:35022 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752472AbdEKWYo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 11 May 2017 18:24:44 -0400
-Received: by mail-pg0-f65.google.com with SMTP id i63so5098000pgd.2
-        for <netdev@vger.kernel.org>; Thu, 11 May 2017 15:24:44 -0700 (PDT)
-In-Reply-To: <1494531770.7796.115.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org,
+        =?UTF-8?q?Niklas=20S=C3=B6derlund?=
+        <niklas.soderlund+renesas@ragnatech.se>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+Sender: linux-renesas-soc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+WoL is enabled in the suspend callback by setting MagicPacket detection
+and disabling all interrupts expect MagicPacket. In the resume path the
+driver needs to reset the hardware to rearm the WoL logic, this prevents
+the driver from simply restoring the registers and to take advantage of
+that ravb was not suspended to reduce resume time. To reset the
+hardware the driver closes the device, sets it in reset mode and reopens
+the device just like it would do in a normal suspend/resume scenario
+without WoL enabled, but it both closes and opens the device in the
+resume callback since the device needs to be reset for WoL to work.
 
-I should have known that lowering skb->truesize was dangerous :/
+One quirk needed for WoL is that the module clock needs to be prevented
+from being switched off by Runtime PM. To keep the clock alive the
+suspend callback need to call clk_enable() directly to increase the
+usage count of the clock. Then when Runtime PM decreases the clock usage
+count it won't reach 0 and be switched off.
 
-In case packets are not leaving the host via a standard Ethernet device,
-but looped back to local sockets, bad things can happen, as reported
-by Michael Madsen ( https://bugzilla.kernel.org/show_bug.cgi?id=195713 )
-
-So instead of tweaking skb->truesize, lets change skb->destructor
-and keep a reference on the owner socket via its sk_refcnt.
-
-Fixes: f2f872f9272a ("netem: Introduce skb_orphan_partial() helper")
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Reported-by: Michael Madsen <mkm@nabto.com>
+Signed-off-by: Niklas Söderlund <niklas.soderlund+renesas@ragnatech.se>
 ---
- net/core/sock.c |   20 ++++++++------------
- 1 file changed, 8 insertions(+), 12 deletions(-)
 
-diff --git a/net/core/sock.c b/net/core/sock.c
-index 79c6aee6af9b817bd7086f04ae8f46342a3bf4b6..e43e71d7856b385111cd4c4b1bd835a78c670c60 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -1803,28 +1803,24 @@ EXPORT_SYMBOL(skb_set_owner_w);
-  * delay queue. We want to allow the owner socket to send more
-  * packets, as if they were already TX completed by a typical driver.
-  * But we also want to keep skb->sk set because some packet schedulers
-- * rely on it (sch_fq for example). So we set skb->truesize to a small
-- * amount (1) and decrease sk_wmem_alloc accordingly.
-+ * rely on it (sch_fq for example).
-  */
- void skb_orphan_partial(struct sk_buff *skb)
- {
--	/* If this skb is a TCP pure ACK or already went here,
--	 * we have nothing to do. 2 is already a very small truesize.
--	 */
--	if (skb->truesize <= 2)
-+	if (skb_is_tcp_pure_ack(skb))
- 		return;
+Tested on Salvator-X H3 and M3-W.
+
+ drivers/net/ethernet/renesas/ravb.h      |   2 +
+ drivers/net/ethernet/renesas/ravb_main.c | 108 +++++++++++++++++++++++++++++--
+ 2 files changed, 106 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/ethernet/renesas/ravb.h b/drivers/net/ethernet/renesas/ravb.h
+index 0525bd696d5d02e5..96a27b00c90e212a 100644
+--- a/drivers/net/ethernet/renesas/ravb.h
++++ b/drivers/net/ethernet/renesas/ravb.h
+@@ -991,6 +991,7 @@ struct ravb_private {
+ 	struct net_device *ndev;
+ 	struct platform_device *pdev;
+ 	void __iomem *addr;
++	struct clk *clk;
+ 	struct mdiobb_ctrl mdiobb;
+ 	u32 num_rx_ring[NUM_RX_QUEUE];
+ 	u32 num_tx_ring[NUM_TX_QUEUE];
+@@ -1033,6 +1034,7 @@ struct ravb_private {
  
--	/* TCP stack sets skb->ooo_okay based on sk_wmem_alloc,
--	 * so we do not completely orphan skb, but transfert all
--	 * accounted bytes but one, to avoid unexpected reorders.
--	 */
- 	if (skb->destructor == sock_wfree
- #ifdef CONFIG_INET
- 	    || skb->destructor == tcp_wfree
- #endif
- 		) {
--		atomic_sub(skb->truesize - 1, &skb->sk->sk_wmem_alloc);
--		skb->truesize = 1;
-+		struct sock *sk = skb->sk;
+ 	unsigned no_avb_link:1;
+ 	unsigned avb_link_active_low:1;
++	unsigned wol_enabled:1;
+ };
+ 
+ static inline u32 ravb_read(struct net_device *ndev, enum ravb_reg reg)
+diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
+index 3cd7989c007dfe46..90913cf2477eb25d 100644
+--- a/drivers/net/ethernet/renesas/ravb_main.c
++++ b/drivers/net/ethernet/renesas/ravb_main.c
+@@ -680,6 +680,9 @@ static void ravb_emac_interrupt_unlocked(struct net_device *ndev)
+ 
+ 	ecsr = ravb_read(ndev, ECSR);
+ 	ravb_write(ndev, ecsr, ECSR);	/* clear interrupt */
 +
-+		if (atomic_inc_not_zero(&sk->sk_refcnt)) {
-+			atomic_sub(skb->truesize, &sk->sk_wmem_alloc);
-+			skb->destructor = sock_efree;
-+		}
- 	} else {
- 		skb_orphan(skb);
- 	}
++	if (ecsr & ECSR_MPD)
++		pm_wakeup_event(&priv->pdev->dev, 0);
+ 	if (ecsr & ECSR_ICD)
+ 		ndev->stats.tx_carrier_errors++;
+ 	if (ecsr & ECSR_LCHNG) {
+@@ -1330,6 +1333,33 @@ static int ravb_get_ts_info(struct net_device *ndev,
+ 	return 0;
+ }
+ 
++static void ravb_get_wol(struct net_device *ndev, struct ethtool_wolinfo *wol)
++{
++	struct ravb_private *priv = netdev_priv(ndev);
++
++	wol->supported = 0;
++	wol->wolopts = 0;
++
++	if (priv->clk) {
++		wol->supported = WAKE_MAGIC;
++		wol->wolopts = priv->wol_enabled ? WAKE_MAGIC : 0;
++	}
++}
++
++static int ravb_set_wol(struct net_device *ndev, struct ethtool_wolinfo *wol)
++{
++	struct ravb_private *priv = netdev_priv(ndev);
++
++	if (!priv->clk || wol->wolopts & ~WAKE_MAGIC)
++		return -EOPNOTSUPP;
++
++	priv->wol_enabled = !!(wol->wolopts & WAKE_MAGIC);
++
++	device_set_wakeup_enable(&priv->pdev->dev, priv->wol_enabled);
++
++	return 0;
++}
++
+ static const struct ethtool_ops ravb_ethtool_ops = {
+ 	.nway_reset		= ravb_nway_reset,
+ 	.get_msglevel		= ravb_get_msglevel,
+@@ -1343,6 +1373,8 @@ static const struct ethtool_ops ravb_ethtool_ops = {
+ 	.get_ts_info		= ravb_get_ts_info,
+ 	.get_link_ksettings	= ravb_get_link_ksettings,
+ 	.set_link_ksettings	= ravb_set_link_ksettings,
++	.get_wol		= ravb_get_wol,
++	.set_wol		= ravb_set_wol,
+ };
+ 
+ static inline int ravb_hook_irq(unsigned int irq, irq_handler_t handler,
+@@ -2041,6 +2073,11 @@ static int ravb_probe(struct platform_device *pdev)
+ 
+ 	priv->chip_id = chip_id;
+ 
++	/* Get clock, if not found that's OK but Wake-On-Lan is unavailable */
++	priv->clk = devm_clk_get(&pdev->dev, NULL);
++	if (IS_ERR(priv->clk))
++		priv->clk = NULL;
++
+ 	/* Set function */
+ 	ndev->netdev_ops = &ravb_netdev_ops;
+ 	ndev->ethtool_ops = &ravb_ethtool_ops;
+@@ -2107,6 +2144,9 @@ static int ravb_probe(struct platform_device *pdev)
+ 	if (error)
+ 		goto out_napi_del;
+ 
++	if (priv->clk)
++		device_set_wakeup_capable(&pdev->dev, 1);
++
+ 	/* Print device information */
+ 	netdev_info(ndev, "Base address at %#x, %pM, IRQ %d.\n",
+ 		    (u32)ndev->base_addr, ndev->dev_addr, ndev->irq);
+@@ -2160,15 +2200,69 @@ static int ravb_remove(struct platform_device *pdev)
+ 	return 0;
+ }
+ 
++static int ravb_wol_setup(struct net_device *ndev)
++{
++	struct ravb_private *priv = netdev_priv(ndev);
++
++	/* Disable interrupts by clearing the interrupt masks. */
++	ravb_write(ndev, 0, RIC0);
++	ravb_write(ndev, 0, RIC2);
++	ravb_write(ndev, 0, TIC);
++
++	/* Only allow ECI interrupts */
++	synchronize_irq(priv->emac_irq);
++	napi_disable(&priv->napi[RAVB_NC]);
++	napi_disable(&priv->napi[RAVB_BE]);
++	ravb_write(ndev, ECSIPR_MPDIP, ECSIPR);
++
++	/* Enable MagicPacket */
++	ravb_modify(ndev, ECMR, ECMR_MPDE, ECMR_MPDE);
++
++	/* Increased clock usage so device won't be suspended */
++	clk_enable(priv->clk);
++
++	return enable_irq_wake(priv->emac_irq);
++}
++
++static int ravb_wol_restore(struct net_device *ndev)
++{
++	struct ravb_private *priv = netdev_priv(ndev);
++	int ret;
++
++	napi_enable(&priv->napi[RAVB_NC]);
++	napi_enable(&priv->napi[RAVB_BE]);
++
++	/* Disable MagicPacket */
++	ravb_modify(ndev, ECMR, ECMR_MPDE, 0);
++
++	ret = ravb_close(ndev);
++	if (ret < 0)
++		return ret;
++
++	/* Restore clock usage count */
++	clk_disable(priv->clk);
++
++	/* Set reset mode */
++	ravb_write(ndev, CCC_OPC_RESET, CCC);
++
++	return disable_irq_wake(priv->emac_irq);
++}
++
+ static int __maybe_unused ravb_suspend(struct device *dev)
+ {
+ 	struct net_device *ndev = dev_get_drvdata(dev);
+-	int ret = 0;
++	struct ravb_private *priv = netdev_priv(ndev);
++	int ret;
+ 
+-	if (netif_running(ndev)) {
+-		netif_device_detach(ndev);
++	if (!netif_running(ndev))
++		return 0;
++
++	netif_device_detach(ndev);
++
++	if (priv->wol_enabled)
++		ret = ravb_wol_setup(ndev);
++	else
+ 		ret = ravb_close(ndev);
+-	}
+ 
+ 	return ret;
+ }
+@@ -2179,6 +2273,12 @@ static int __maybe_unused ravb_resume(struct device *dev)
+ 	struct ravb_private *priv = netdev_priv(ndev);
+ 	int ret = 0;
+ 
++	if (priv->wol_enabled) {
++		ret = ravb_wol_restore(ndev);
++		if (ret)
++			return ret;
++	}
++
+ 	/* All register have been reset to default values.
+ 	 * Restore all registers which where setup at probe time and
+ 	 * reopen device if it was running before system suspended.
+-- 
+2.12.2
