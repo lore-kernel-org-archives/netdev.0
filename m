@@ -1,23 +1,22 @@
-From: Yuval Shaia <yuval.shaia@oracle.com>
-Subject: [PATCH v2] net/mlx4_core: Use min_t instead of if for consistency
-Date: Thu, 11 May 2017 13:36:02 +0300
-Message-ID: <1494498962-16852-1-git-send-email-yuval.shaia@oracle.com>
-To: yishaih@mellanox.com, netdev@vger.kernel.org,
-        linux-rdma@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:20879 "EHLO
-        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755097AbdEKKgR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 11 May 2017 06:36:17 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Yuval Shaia <yuval.shaia-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH v3] net/mlx4_core: Use min3 to select number of MSI-X vectors
+Date: Thu, 11 May 2017 13:40:58 +0300
+Message-ID: <1494499258-17017-1-git-send-email-yuval.shaia@oracle.com>
+To: yishaih-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Yuval Shaia <yuval.shaia@oracle.com>
+Signed-off-by: Yuval Shaia <yuval.shaia-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
 ---
 v0 -> v1:
 	* s/"min_t("/"min_t(int"
 v1 -> v2:
 	* Use min3 instead of min_t twice
+v2 -> v3:
+	* Change commit log header message to reflect the changes made in
+	  v2
 ---
  drivers/net/ethernet/mellanox/mlx4/main.c | 9 +++------
  1 file changed, 3 insertions(+), 6 deletions(-)
@@ -44,3 +43,8 @@ index 7032054..2afa340 100644
  		if (!entries)
 -- 
 2.7.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
