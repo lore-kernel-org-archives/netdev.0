@@ -1,125 +1,113 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] qed: fix uninitialized data in aRFS intrastructure
-Date: Thu, 11 May 2017 14:15:14 +0200
-Message-ID: <20170511121633.3591880-1-arnd@arndb.de>
-Cc: Arnd Bergmann <arnd@arndb.de>,
-        "David S. Miller" <davem@davemloft.net>,
-        Chad Dupuis <Chad.Dupuis@cavium.com>,
-        Ram Amrani <Ram.Amrani@cavium.com>,
-        Manish Rangankar <Manish.Rangankar@cavium.com>,
-        "Chopra, Manish" <Manish.Chopra@cavium.com>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Yuval Mintz <Yuval.Mintz@cavium.com>,
-        Ariel Elior <Ariel.Elior@cavium.com>,
-        everest-linux-l2@cavium.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH 1/5] bpf: Track alignment of register values in the verifier.
+Date: Thu, 11 May 2017 14:41:16 +0200
+Message-ID: <59145BEC.9040804@iogearbox.net>
+References: <20170510.150942.1969073633182798014.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: alexei.starovoitov@gmail.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>, ast@fb.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:45311 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754975AbdEKMlY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 11 May 2017 08:41:24 -0400
+In-Reply-To: <20170510.150942.1969073633182798014.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The new code contains an incredibly elaborate way of setting a 64-bit
-register, which went subtly wrong due to the wrong size in a memset():
+On 05/10/2017 09:09 PM, David Miller wrote:
+>
+> Currently if we add only constant values to pointers we can fully
+> validate the alignment, and properly check if we need to reject the
+> program on CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS architectures.
 
-ethernet/qlogic/qed/qed_init_fw_funcs.c: In function 'qed_set_rfs_mode_disable':
-ethernet/qlogic/qed/qed_init_fw_funcs.c:993:3: error: '*((void *)&ramline+4)' is used uninitialized in this function [-Werror=uninitialized]
+Should say: !CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS
 
-This removes the silly loop and memset, and instead directly writes
-the correct value to the register.
+> However, once an unknown value is introduced we only allow byte sized
+> memory accesses which is too restrictive.
+>
+> Add logic to track the known minimum alignment of register values,
+> and propagate this state into registers containing pointers.
+>
+> The most common paradigm that makes use of this new logic is computing
+> the transport header using the IP header length field.  For example:
+>
+> 	struct ethhdr *ep = skb->data;
+> 	struct iphdr *iph = (struct iphdr *) (ep + 1);
+> 	struct tcphdr *th;
+>   ...
+> 	n = iph->ihl;
+> 	th = ((void *)iph + (n * 4));
+> 	port = th->dest;
+>
+> The existing code will reject the load of th->dport because it cannot
 
-Fixes: d51e4af5c209 ("qed: aRFS infrastructure support")
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
----
- .../net/ethernet/qlogic/qed/qed_init_fw_funcs.c    | 48 +++++-----------------
- 1 file changed, 11 insertions(+), 37 deletions(-)
+s/th->dport/th->dest/
 
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_init_fw_funcs.c b/drivers/net/ethernet/qlogic/qed/qed_init_fw_funcs.c
-index 67200c5498ab..a7c2c147a738 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_init_fw_funcs.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_init_fw_funcs.c
-@@ -966,45 +966,29 @@ void qed_set_geneve_enable(struct qed_hwfn *p_hwfn,
- #define PARSER_ETH_CONN_CM_HDR (0x0)
- #define CAM_LINE_SIZE sizeof(u32)
- #define RAM_LINE_SIZE sizeof(u64)
--#define REG_SIZE sizeof(u32)
-+#define CAM_REG(pf_id) (PRS_REG_GFT_CAM + CAM_LINE_SIZE * (pf_id))
-+#define RAM_REG(pf_id) (PRS_REG_GFT_PROFILE_MASK_RAM + RAM_LINE_SIZE * (pf_id))
- 
- void qed_set_rfs_mode_disable(struct qed_hwfn *p_hwfn,
- 			      struct qed_ptt *p_ptt, u16 pf_id)
- {
--	union gft_cam_line_union camline;
--	struct gft_ram_line ramline;
--	u32 *p_ramline, i;
--
--	p_ramline = (u32 *)&ramline;
--
- 	/*stop using gft logic */
- 	qed_wr(p_hwfn, p_ptt, PRS_REG_SEARCH_GFT, 0);
- 	qed_wr(p_hwfn, p_ptt, PRS_REG_CM_HDR_GFT, 0x0);
--	memset(&camline, 0, sizeof(union gft_cam_line_union));
--	qed_wr(p_hwfn, p_ptt, PRS_REG_GFT_CAM + CAM_LINE_SIZE * pf_id,
--	       camline.cam_line_mapped.camline);
--	memset(&ramline, 0, sizeof(union gft_cam_line_union));
--
--	for (i = 0; i < RAM_LINE_SIZE / REG_SIZE; i++) {
--		u32 hw_addr = PRS_REG_GFT_PROFILE_MASK_RAM;
--
--		hw_addr += (RAM_LINE_SIZE * pf_id + i * REG_SIZE);
--
--		qed_wr(p_hwfn, p_ptt, hw_addr, *(p_ramline + i));
--	}
-+	qed_wr(p_hwfn, p_ptt, CAM_REG(pf_id), 0);
-+	qed_wr(p_hwfn, p_ptt, RAM_REG(pf_id), 0);
-+	qed_wr(p_hwfn, p_ptt, RAM_REG(pf_id) + 4, 0);
- }
- 
- void qed_set_rfs_mode_enable(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt,
- 			     u16 pf_id, bool tcp, bool udp,
- 			     bool ipv4, bool ipv6)
- {
--	u32 rfs_cm_hdr_event_id, *p_ramline;
-+	u32 rfs_cm_hdr_event_id;
- 	union gft_cam_line_union camline;
- 	struct gft_ram_line ramline;
--	int i;
- 
- 	rfs_cm_hdr_event_id = qed_rd(p_hwfn, p_ptt, PRS_REG_CM_HDR_GFT);
--	p_ramline = (u32 *)&ramline;
- 
- 	if (!ipv6 && !ipv4)
- 		DP_NOTICE(p_hwfn,
-@@ -1060,8 +1044,7 @@ void qed_set_rfs_mode_enable(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt,
- 	}
- 
- 	/* write characteristics to cam */
--	qed_wr(p_hwfn, p_ptt, PRS_REG_GFT_CAM + CAM_LINE_SIZE * pf_id,
--	       camline.cam_line_mapped.camline);
-+	qed_wr(p_hwfn, p_ptt, CAM_REG(pf_id), camline.cam_line_mapped.camline);
- 	camline.cam_line_mapped.camline = qed_rd(p_hwfn, p_ptt,
- 						 PRS_REG_GFT_CAM +
- 						 CAM_LINE_SIZE * pf_id);
-@@ -1074,19 +1057,10 @@ void qed_set_rfs_mode_enable(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt,
- 	SET_FIELD(ramline.low32bits, GFT_RAM_LINE_SRC_PORT, 1);
- 	SET_FIELD(ramline.low32bits, GFT_RAM_LINE_DST_PORT, 1);
- 
--	/* each iteration write to reg */
--	for (i = 0; i < RAM_LINE_SIZE / REG_SIZE; i++)
--		qed_wr(p_hwfn, p_ptt,
--		       PRS_REG_GFT_PROFILE_MASK_RAM + RAM_LINE_SIZE * pf_id +
--		       i * REG_SIZE, *(p_ramline + i));
-+	qed_wr(p_hwfn, p_ptt, RAM_REG(pf_id),     ramline.low32bits);
-+	qed_wr(p_hwfn, p_ptt, RAM_REG(pf_id) + 4, ramline.high32bits);
- 
- 	/* set default profile so that no filter match will happen */
--	ramline.low32bits = 0xffff;
--	ramline.high32bits = 0xffff;
--
--	for (i = 0; i < RAM_LINE_SIZE / REG_SIZE; i++)
--		qed_wr(p_hwfn, p_ptt,
--		       PRS_REG_GFT_PROFILE_MASK_RAM + RAM_LINE_SIZE *
--		       PRS_GFT_CAM_LINES_NO_MATCH + i * REG_SIZE,
--		       *(p_ramline + i));
-+	qed_wr(p_hwfn, p_ptt, RAM_REG(PRS_GFT_CAM_LINES_NO_MATCH),     0xffff);
-+	qed_wr(p_hwfn, p_ptt, RAM_REG(PRS_GFT_CAM_LINES_NO_MATCH) + 4, 0xffff);
- }
--- 
-2.9.0
+> validate that the alignment is at least 2 once "n * 4" is added the
+> the packet pointer.
+>
+> In the new code, the register holding "n * 4" will have a reg->min_align
+> value of 4, because any value multiplied by 4 will be at least 4 byte
+> aligned.  (actually, the eBPF code emitted by the compiler in this case
+> is most likely to use a shift left by 2, but the end result is identical)
+>
+> At the critical addition:
+>
+> 	th = ((void *)iph + (n * 4));
+>
+> The register holding 'th' will start with reg->off value of 14.  The
+> pointer addition will transform that reg into something that looks like:
+>
+> 	reg->aux_off = 14
+> 	reg->aux_off_align = 4
+>
+> Next, the verifier will look at the th->dest load, and it will see
+> a load offset of 2, and first check:
+>
+> 	if (reg->aux_off_align % size)
+>
+> which will pass because aux_off_align is 4.  reg_off will be computed:
+>
+> 	reg_off = reg->off;
+>   ...
+> 		reg_off += reg->aux_off;
+>
+> plus we have off==2, and it will thus check:
+>
+> 	if ((NET_IP_ALIGN + reg_off + off) % size != 0)
+>
+> which evaluates to:
+>
+> 	if ((NET_IP_ALIGN + 14 + 2) % size != 0)
+>
+> On strict alignment architectures, NET_IP_ALIGN is 2, thus:
+>
+> 	if ((2 + 14 + 2) % size != 0)
+>
+> which passes.
+>
+> These pointer transformations and checks work regardless of whether
+> the constant offset or the variable with known alignment is added
+> first to the pointer register.
+>
+> Signed-off-by: David S. Miller <davem@davemloft.net>
+
+In adjust_reg_min_max_vals(), don't we also need to call
+reset_reg_align() in the 'default' case for the cases where
+we use have ALU ops that we don't bother tracking (mod, div,
+endianess ops, etc)?
+
+Likewise, for other cases where we do reset_reg_range_values()
+which is BPF_LD as class and for the BPF_MOV in check_alu_op(),
+which I think, is only relevant when we move reg A to reg B
+in 32 bit mode. Perhaps it makes sense to consolidate the reset
+on alignment with the reset of min/max values, or do we have
+cases where this is undesirable (not that I'm currently aware
+of ...)?
+
+But other than that:
+
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
