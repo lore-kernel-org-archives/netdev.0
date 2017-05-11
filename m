@@ -1,164 +1,84 @@
-From: Lino Sanfilippo <LinoSanfilippo-Mmb7MZpHnFY@public.gmane.org>
-Subject: Re: [PATCH v5 17/17] net: qualcomm: add QCA7000 UART driver
-Date: Thu, 11 May 2017 23:58:31 +0200
-Message-ID: <f39d7b94-ef8e-986e-710f-6d9524978f4d@gmx.de>
-References: <1494406408-31760-1-git-send-email-stefan.wahren@i2se.com>
- <1494406408-31760-18-git-send-email-stefan.wahren@i2se.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] netem: fix skb_orphan_partial()
+Date: Thu, 11 May 2017 15:24:41 -0700
+Message-ID: <1494541481.7796.124.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20170511094758.2112b00f@xeon-e3>
+         <1494522379.7796.112.camel@edumazet-glaptop3.roam.corp.google.com>
+         <c5a4858f-1559-7c75-b224-99391e6bb6c4@nabto.com>
+         <1494531770.7796.115.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-        Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-        Jiri Slaby <jslaby-IBi9RG/b67k@public.gmane.org>, linux-serial-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Stefan Wahren <stefan.wahren-eS4NqCHxEME@public.gmane.org>,
-        Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1494406408-31760-18-git-send-email-stefan.wahren-eS4NqCHxEME@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+        Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org
+To: Michael Madsen <mkm@nabto.com>, David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:35022 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752472AbdEKWYo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 11 May 2017 18:24:44 -0400
+Received: by mail-pg0-f65.google.com with SMTP id i63so5098000pgd.2
+        for <netdev@vger.kernel.org>; Thu, 11 May 2017 15:24:44 -0700 (PDT)
+In-Reply-To: <1494531770.7796.115.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+From: Eric Dumazet <edumazet@google.com>
 
-On 10.05.2017 10:53, Stefan Wahren wrote:
+I should have known that lowering skb->truesize was dangerous :/
 
-> +static int qcauart_netdev_init(struct net_device *dev)
-> +{
-> +	struct qcauart *qca = netdev_priv(dev);
-> +	size_t len;
-> +
-> +	/* Finish setting up the device info. */
-> +	dev->mtu = QCAFRM_MAX_MTU;
-> +	dev->type = ARPHRD_ETHER;
-> +
-> +	qca->rx_skb = netdev_alloc_skb_ip_align(qca->net_dev,
-> +						qca->net_dev->mtu +
-> +						VLAN_ETH_HLEN);
-> +	if (!qca->rx_skb)
-> +		return -ENOBUFS;
-> +
-> +	len = QCAFRM_HEADER_LEN + QCAFRM_MAX_LEN + QCAFRM_FOOTER_LEN;
-> +	qca->tx_buffer = kmalloc(len, GFP_KERNEL);
-> +	if (!qca->tx_buffer)
-> +		return -ENOBUFS;
+In case packets are not leaving the host via a standard Ethernet device,
+but looped back to local sockets, bad things can happen, as reported
+by Michael Madsen ( https://bugzilla.kernel.org/show_bug.cgi?id=195713 )
 
-Freeing the rx_skb is missing here.
+So instead of tweaking skb->truesize, lets change skb->destructor
+and keep a reference on the owner socket via its sk_refcnt.
 
-> +
-> +static void qcauart_netdev_setup(struct net_device *dev)
-> +{
-> +	struct qcauart *qca;
-> +
-> +	dev->netdev_ops = &qcauart_netdev_ops;
-> +	dev->watchdog_timeo = QCAUART_TX_TIMEOUT;
-> +	dev->priv_flags &= ~IFF_TX_SKB_SHARING;
-> +	dev->tx_queue_len = 100;
-> +
-> +	/* MTU range: 46 - 1500 */
-> +	dev->min_mtu = QCAFRM_MIN_MTU;
-> +	dev->max_mtu = QCAFRM_MAX_MTU;
-> +
-> +	qca = netdev_priv(dev);
-> +	memset(qca, 0, sizeof(struct qcauart));
+Fixes: f2f872f9272a ("netem: Introduce skb_orphan_partial() helper")
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Reported-by: Michael Madsen <mkm@nabto.com>
+---
+ net/core/sock.c |   20 ++++++++------------
+ 1 file changed, 8 insertions(+), 12 deletions(-)
 
-Zeroing the private data is not necessary since it is already done
-at device allocation.
-
-
-> +
-> +static int qca_uart_probe(struct serdev_device *serdev)
-> +{
-> +	struct net_device *qcauart_dev = alloc_etherdev(sizeof(struct qcauart));
-> +	struct qcauart *qca;
-> +	const char *mac;
-> +	u32 speed = 115200;
-> +	int ret;
-> +
-> +	if (!qcauart_dev)
-> +		return -ENOMEM;
-> +
-> +	qcauart_netdev_setup(qcauart_dev);
-> +
-> +	qca = netdev_priv(qcauart_dev);
-> +	if (!qca) {
-> +		pr_err("qca_uart: Fail to retrieve private structure\n");
-> +		ret = -ENOMEM;
-> +		goto free;
-> +	}
-> +	qca->net_dev = qcauart_dev;
-> +	qca->serdev = serdev;
-> +	qcafrm_fsm_init_uart(&qca->frm_handle);
-> +
-> +	spin_lock_init(&qca->lock);
-> +	INIT_WORK(&qca->tx_work, qcauart_transmit);
-> +
-> +	of_property_read_u32(serdev->dev.of_node, "current-speed", &speed);
-> +
-> +	mac = of_get_mac_address(serdev->dev.of_node);
-> +
-> +	if (mac)
-> +		ether_addr_copy(qca->net_dev->dev_addr, mac);
-> +
-> +	if (!is_valid_ether_addr(qca->net_dev->dev_addr)) {
-> +		eth_hw_addr_random(qca->net_dev);
-> +		dev_info(&serdev->dev, "Using random MAC address: %pM\n",
-> +			 qca->net_dev->dev_addr);
-> +	}
-> +
-> +	netif_carrier_on(qca->net_dev);
-> +	serdev_device_set_drvdata(serdev, qca);
-> +	serdev_device_set_client_ops(serdev, &qca_serdev_ops);
-> +
-> +	ret = serdev_device_open(serdev);
-> +	if (ret) {
-> +		dev_err(&serdev->dev, "Unable to open device %s\n",
-> +			qcauart_dev->name);
-> +		goto free;
-> +	}
-> +
-> +	speed = serdev_device_set_baudrate(serdev, speed);
-> +	dev_info(&serdev->dev, "Using baudrate: %u\n", speed);
-> +
-> +	serdev_device_set_flow_control(serdev, false);
-> +
-> +	ret = register_netdev(qcauart_dev);
-> +	if (ret) {
-> +		dev_err(&serdev->dev, "Unable to register net device %s\n",
-> +			qcauart_dev->name);
-
-	serdev_device_close() ?
-
-> +		goto free;
-> +	}
-> +
-> +	return 0;
-> +
-> +free:
-> +	free_netdev(qcauart_dev);
-> +	return ret;
-> +}
-> +
-> +static void qca_uart_remove(struct serdev_device *serdev)
-> +{
-> +	struct qcauart *qca = serdev_device_get_drvdata(serdev);
-
-	Here you should make sure that the tx_work is not running/pending any
-	more (e.g by calling cancel_delayed_work_sync()).
-
-> +	/* Flush any pending characters in the driver. */
-> +	serdev_device_close(serdev);
-> +
-> +	netif_carrier_off(qca->net_dev);
-> +	unregister_netdev(qca->net_dev);
-> +	free_netdev(qca->net_dev);
-> +}
-
-Regards,
-Lino
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 79c6aee6af9b817bd7086f04ae8f46342a3bf4b6..e43e71d7856b385111cd4c4b1bd835a78c670c60 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -1803,28 +1803,24 @@ EXPORT_SYMBOL(skb_set_owner_w);
+  * delay queue. We want to allow the owner socket to send more
+  * packets, as if they were already TX completed by a typical driver.
+  * But we also want to keep skb->sk set because some packet schedulers
+- * rely on it (sch_fq for example). So we set skb->truesize to a small
+- * amount (1) and decrease sk_wmem_alloc accordingly.
++ * rely on it (sch_fq for example).
+  */
+ void skb_orphan_partial(struct sk_buff *skb)
+ {
+-	/* If this skb is a TCP pure ACK or already went here,
+-	 * we have nothing to do. 2 is already a very small truesize.
+-	 */
+-	if (skb->truesize <= 2)
++	if (skb_is_tcp_pure_ack(skb))
+ 		return;
+ 
+-	/* TCP stack sets skb->ooo_okay based on sk_wmem_alloc,
+-	 * so we do not completely orphan skb, but transfert all
+-	 * accounted bytes but one, to avoid unexpected reorders.
+-	 */
+ 	if (skb->destructor == sock_wfree
+ #ifdef CONFIG_INET
+ 	    || skb->destructor == tcp_wfree
+ #endif
+ 		) {
+-		atomic_sub(skb->truesize - 1, &skb->sk->sk_wmem_alloc);
+-		skb->truesize = 1;
++		struct sock *sk = skb->sk;
++
++		if (atomic_inc_not_zero(&sk->sk_refcnt)) {
++			atomic_sub(skb->truesize, &sk->sk_wmem_alloc);
++			skb->destructor = sock_efree;
++		}
+ 	} else {
+ 		skb_orphan(skb);
+ 	}
