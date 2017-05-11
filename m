@@ -1,66 +1,53 @@
-From: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH v3] net/mlx4_core: Use min3 to select number of MSI-X
- vectors
-Date: Thu, 11 May 2017 13:48:43 +0300
-Message-ID: <20170511104843.GF3616@mtr-leonro.local>
-References: <1494499258-17017-1-git-send-email-yuval.shaia@oracle.com>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-        protocol="application/pgp-signature"; boundary="B0nZA57HJSoPbsHY"
-Cc: yishaih-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Yuval Shaia <yuval.shaia-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1494499258-17017-1-git-send-email-yuval.shaia-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH] wlcore: fix 64K page support
+Date: Thu, 11 May 2017 13:52:09 +0200
+Message-ID: <20170511115307.3060650-1-arnd@arndb.de>
+Cc: Arnd Bergmann <arnd@arndb.de>, stable@vger.kernel.org,
+        "Reizer, Eyal" <eyalr@ti.com>, Tony Lindgren <tony@atomide.com>,
+        Wei Yongjun <weiyj.lk@gmail.com>,
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Kalle Valo <kvalo@codeaurora.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+In the stable linux-3.16 branch, I ran into a warning in the
+wlcore driver:
 
---B0nZA57HJSoPbsHY
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+drivers/net/wireless/ti/wlcore/spi.c: In function 'wl12xx_spi_raw_write':
+drivers/net/wireless/ti/wlcore/spi.c:315:1: error: the frame size of 12848 bytes is larger than 2048 bytes [-Werror=frame-larger-than=]
 
-On Thu, May 11, 2017 at 01:40:58PM +0300, Yuval Shaia wrote:
-> Signed-off-by: Yuval Shaia <yuval.shaia-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-> ---
-> v0 -> v1:
-> 	* s/"min_t("/"min_t(int"
-> v1 -> v2:
-> 	* Use min3 instead of min_t twice
-> v2 -> v3:
-> 	* Change commit log header message to reflect the changes made in
-> 	  v2
-> ---
->  drivers/net/ethernet/mellanox/mlx4/main.c | 9 +++------
->  1 file changed, 3 insertions(+), 6 deletions(-)
->
+Newer kernels no longer show the warning, but the bug is still there,
+as the allocation is based on the CPU page size rather than the
+actual capabilities of the hardware.
 
-Thanks,
-Reviewed-by: Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+This replaces the PAGE_SIZE macro with the SZ_4K macro, i.e. 4096 bytes
+per buffer.
 
---B0nZA57HJSoPbsHY
-Content-Type: application/pgp-signature; name="signature.asc"
+Cc: stable@vger.kernel.org
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+---
+ drivers/net/wireless/ti/wlcore/spi.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
------BEGIN PGP SIGNATURE-----
-
-iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAlkUQYsACgkQ5GN7iDZy
-WKfh1g/+LvrbCfgEwEuvAEHjM6ENHoXhfksOpgF/NQfbdbUXPmlbvTmlnH7yQDws
-wkMeHjADdzE3WnXZSa8pZZH61iDRRTooioM6MKDgAhU1R5COaRkh5vdOLyJm/zxy
-BZCBZP1xKhryB+FigkIO3uWM8EWZDlFDZp8oA3mPDgX6iJ5jUk5F2V4Gb4nGeiES
-NOvN5Zoenu2vcf6cvz0Z6JG5HMTW7phm3dvvYMsNsPqtHGfdJnQLGsaIpjyiXmdg
-XGzCoaUCwpntyWR3RJkNxLOCqDuEy3fOM8OaJDx/2SIqRHX+TCMHFfy3GGu/7TZq
-70/oRtEpZo/6acY04JfuTsE2EH61P9jeisV4ZcuIPpIVRsBfB4Ph5G3E4+C4iCrW
-hYbvfCxMut/7TdZHHqlLiqQG+DXCpraRGbxW6V+n4H5oRgc6u1rpMXX1QvFl+ZZf
-WiGXAQmTwsD4LPvuk2YqmsXnRz5qkDfqAW6i5KKfHajdHibUWvWC5vBhOQUssA8N
-mjr1OdgIZ3C8ipISminp2cz0rAUl8aGjGnmxORdpsNgCT6Q7ypxBXDw0E3kqleKL
-5GxaY8eLJXVepZRuKUVJy4YBY7ZwtU1A0EROhrjXjFjJXDynwAEsLZmYbTxGvaCw
-335tT0PlVBfezhSKK+ZASt7EUMuaaU/GDbjHhoqyNnzBgg2dVlg=
-=o1Sy
------END PGP SIGNATURE-----
-
---B0nZA57HJSoPbsHY--
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/wireless/ti/wlcore/spi.c b/drivers/net/wireless/ti/wlcore/spi.c
+index f949ad2bd898..fa3547e06424 100644
+--- a/drivers/net/wireless/ti/wlcore/spi.c
++++ b/drivers/net/wireless/ti/wlcore/spi.c
+@@ -70,10 +70,10 @@
+ #define WSPI_MAX_CHUNK_SIZE    4092
+ 
+ /*
+- * wl18xx driver aggregation buffer size is (13 * PAGE_SIZE) compared to
+- * (4 * PAGE_SIZE) for wl12xx, so use the larger buffer needed for wl18xx
++ * wl18xx driver aggregation buffer size is (13 * 4K) compared to
++ * (4 * 4K) for wl12xx, so use the larger buffer needed for wl18xx
+  */
+-#define SPI_AGGR_BUFFER_SIZE (13 * PAGE_SIZE)
++#define SPI_AGGR_BUFFER_SIZE (13 * SZ_4K)
+ 
+ /* Maximum number of SPI write chunks */
+ #define WSPI_MAX_NUM_OF_CHUNKS \
+-- 
+2.9.0
