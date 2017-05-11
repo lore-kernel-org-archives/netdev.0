@@ -1,91 +1,120 @@
-From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net 1/1] tipc: make macro tipc_wait_for_cond() smp safe
-Date: Thu, 11 May 2017 20:28:15 +0200
-Message-ID: <1494527295-20646-1-git-send-email-jon.maloy@ericsson.com>
+From: Colin King <colin.king@canonical.com>
+Subject: [PATCH][V2] ethernet: aquantia: remove redundant checks on error status
+Date: Thu, 11 May 2017 19:29:40 +0100
+Message-ID: <20170511182940.18774-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <parthasarathy.bhuvaragan@ericsson.com>, <ying.xue@windriver.com>,
-        <tipc-discussion@lists.sourceforge.net>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sesbmg22.ericsson.net ([193.180.251.48]:53814 "EHLO
-        sesbmg22.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933972AbdEKS20 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 11 May 2017 14:28:26 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Pavel Belous <pavel.belous@aquantia.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        David VomLehn <vomlehn@texas.net>,
+        Alexander Loktionov <Alexander.Loktionov@aquantia.com>,
+        Dmitry Bezrukov <Dmitry.Bezrukov@aquantia.com>,
+        Dmitrii Tarakanov <Dmitrii.Tarakanov@aquantia.com>,
+        netdev@vger.kernel.org
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The macro tipc_wait_for_cond() is embedding the macro sk_wait_event()
-to fulfil its task. The latter, in turn, is evaluating the stated
-condition outside the socket lock context. This is problematic if
-the condition is accessing non-trivial data structures which may be
-altered by incoming interrupts, as is the case with the cong_links()
-linked list, used by socket to keep track of the current set of
-congested links. We sometimes see crashes when this list is accessed
-by a condition function at the same time as a SOCK_WAKEUP interrupt
-is removing an element from the list.
+From: Colin Ian King <colin.king@canonical.com>
 
-We fix this by expanding selected parts of sk_wait_event() into the
-outer macro, while ensuring that all evaluations of a given condition
-are performed under socket lock protection.
+The error status err is initialized as zero and then being checked
+several times to see if it is less than zero even when it has not
+been updated.  It may seem that the err should be assigned to the
+return code of the call to the various *offload_en_set calls and
+then we check for failure, however, these functions are void and
+never actually return any status.  
 
-Fixes: commit 365ad353c256 ("tipc: reduce risk of user starvation
-during link congestion")
+Since these error checks are redundant we can remove these
+as well as err and the error exit label err_exit.
 
-Reviewed-by: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
-Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+Detected by CoverityScan, CID#1398313 and CID#1398306 ("Logically
+dead code")
+
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
 ---
- net/tipc/socket.c | 38 +++++++++++++++++++-------------------
- 1 file changed, 19 insertions(+), 19 deletions(-)
+ drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.c | 13 +------------
+ drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.c | 12 +-----------
+ 2 files changed, 2 insertions(+), 23 deletions(-)
 
-diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index 0d4f2f4..1b92b72 100644
---- a/net/tipc/socket.c
-+++ b/net/tipc/socket.c
-@@ -362,25 +362,25 @@ static int tipc_sk_sock_err(struct socket *sock, long *timeout)
- 	return 0;
+diff --git a/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.c b/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.c
+index 4ee15ff06a44..faeb4935ef3e 100644
+--- a/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.c
++++ b/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.c
+@@ -200,29 +200,18 @@ static int hw_atl_a0_hw_rss_set(struct aq_hw_s *self,
+ static int hw_atl_a0_hw_offload_set(struct aq_hw_s *self,
+ 				    struct aq_nic_cfg_s *aq_nic_cfg)
+ {
+-	int err = 0;
+-
+ 	/* TX checksums offloads*/
+ 	tpo_ipv4header_crc_offload_en_set(self, 1);
+ 	tpo_tcp_udp_crc_offload_en_set(self, 1);
+-	if (err < 0)
+-		goto err_exit;
+ 
+ 	/* RX checksums offloads*/
+ 	rpo_ipv4header_crc_offload_en_set(self, 1);
+ 	rpo_tcp_udp_crc_offload_en_set(self, 1);
+-	if (err < 0)
+-		goto err_exit;
+ 
+ 	/* LSO offloads*/
+ 	tdm_large_send_offload_en_set(self, 0xFFFFFFFFU);
+-	if (err < 0)
+-		goto err_exit;
+-
+-	err = aq_hw_err_from_flags(self);
+ 
+-err_exit:
+-	return err;
++	return aq_hw_err_from_flags(self);
  }
  
--#define tipc_wait_for_cond(sock_, timeout_, condition_)			\
--({								        \
--	int rc_ = 0;							\
--	int done_ = 0;							\
--									\
--	while (!(condition_) && !done_) {				\
--		struct sock *sk_ = sock->sk;				\
--		DEFINE_WAIT_FUNC(wait_, woken_wake_function);		\
--									\
--		rc_ = tipc_sk_sock_err(sock_, timeout_);		\
--		if (rc_)						\
--			break;						\
--		prepare_to_wait(sk_sleep(sk_), &wait_,			\
--				TASK_INTERRUPTIBLE);			\
--		done_ = sk_wait_event(sk_, timeout_,			\
--				      (condition_), &wait_);		\
--		remove_wait_queue(sk_sleep(sk_), &wait_);		\
--	}								\
--	rc_;								\
-+#define tipc_wait_for_cond(sock_, timeo_, condition_)			       \
-+({                                                                             \
-+	struct sock *sk_;						       \
-+	int rc_;							       \
-+									       \
-+	while ((rc_ = !(condition_))) {					       \
-+		DEFINE_WAIT_FUNC(wait_, woken_wake_function);	               \
-+		sk_ = (sock_)->sk;					       \
-+		rc_ = tipc_sk_sock_err((sock_), timeo_);		       \
-+		if (rc_)						       \
-+			break;						       \
-+		prepare_to_wait(sk_sleep(sk_), &wait_, TASK_INTERRUPTIBLE);    \
-+		release_sock(sk_);					       \
-+		*(timeo_) = wait_woken(&wait_, TASK_INTERRUPTIBLE, *(timeo_)); \
-+		sched_annotate_sleep();				               \
-+		lock_sock(sk_);						       \
-+		remove_wait_queue(sk_sleep(sk_), &wait_);		       \
-+	}								       \
-+	rc_;								       \
- })
+ static int hw_atl_a0_hw_init_tx_path(struct aq_hw_s *self)
+diff --git a/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.c b/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.c
+index 42150708191d..1bceb7358e5c 100644
+--- a/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.c
++++ b/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.c
+@@ -200,25 +200,18 @@ static int hw_atl_b0_hw_rss_set(struct aq_hw_s *self,
+ static int hw_atl_b0_hw_offload_set(struct aq_hw_s *self,
+ 				    struct aq_nic_cfg_s *aq_nic_cfg)
+ {
+-	int err = 0;
+ 	unsigned int i;
  
- /**
+ 	/* TX checksums offloads*/
+ 	tpo_ipv4header_crc_offload_en_set(self, 1);
+ 	tpo_tcp_udp_crc_offload_en_set(self, 1);
+-	if (err < 0)
+-		goto err_exit;
+ 
+ 	/* RX checksums offloads*/
+ 	rpo_ipv4header_crc_offload_en_set(self, 1);
+ 	rpo_tcp_udp_crc_offload_en_set(self, 1);
+-	if (err < 0)
+-		goto err_exit;
+ 
+ 	/* LSO offloads*/
+ 	tdm_large_send_offload_en_set(self, 0xFFFFFFFFU);
+-	if (err < 0)
+-		goto err_exit;
+ 
+ /* LRO offloads */
+ 	{
+@@ -245,10 +238,7 @@ static int hw_atl_b0_hw_offload_set(struct aq_hw_s *self,
+ 
+ 		rpo_lro_en_set(self, aq_nic_cfg->is_lro ? 0xFFFFFFFFU : 0U);
+ 	}
+-	err = aq_hw_err_from_flags(self);
+-
+-err_exit:
+-	return err;
++	return aq_hw_err_from_flags(self);
+ }
+ 
+ static int hw_atl_b0_hw_init_tx_path(struct aq_hw_s *self)
 -- 
-2.1.4
+2.11.0
+
