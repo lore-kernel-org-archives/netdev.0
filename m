@@ -1,80 +1,53 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH v2 1/2] net: Added mtu parameter to
- dev_forward_skb calls
-Date: Thu, 11 May 2017 12:44:54 -0700
-Message-ID: <20170511124454.473dd56e@xeon-e3>
-References: <20170511134629.139528-1-fredrik.markstrom@gmail.com>
-	<20170511134629.139528-2-fredrik.markstrom@gmail.com>
-	<20170511090132.79fdbf12@xeon-e3>
-	<CAKdL+dS_-UiHA5tr7zP-5LtwDd0aXpZq5tpMYf9kr7hu2SwdGQ@mail.gmail.com>
+From: Michael Heimpold <mhei-Z/Lg1yOAjpkb1SvskN2V4Q@public.gmane.org>
+Subject: Re: [PATCH v5 13/17] dt-bindings: qca7000: rename binding
+Date: Thu, 11 May 2017 21:48:02 +0200
+Message-ID: <166063028.gdG7XIniBq@kerker>
+References: <1494406408-31760-1-git-send-email-stefan.wahren@i2se.com> <1494406408-31760-14-git-send-email-stefan.wahren@i2se.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org,
-	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
-	Alexei Starovoitov <ast@kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Fredrik =?UTF-8?B?TWFya3N0csO2bQ==?= <fredrik.markstrom@gmail.com>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <CAKdL+dS_-UiHA5tr7zP-5LtwDd0aXpZq5tpMYf9kr7hu2SwdGQ@mail.gmail.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+        Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+        Jiri Slaby <jslaby-IBi9RG/b67k@public.gmane.org>, linux-serial-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Stefan Wahren <stefan.wahren-eS4NqCHxEME@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1494406408-31760-14-git-send-email-stefan.wahren-eS4NqCHxEME@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 11 May 2017 21:10:11 +0200
-Fredrik Markstr=C3=B6m <fredrik.markstrom@gmail.com> wrote:
+Hi,
 
-> On Thu, May 11, 2017 at 6:01 PM, Stephen Hemminger
-> <stephen@networkplumber.org> wrote:
-> > On Thu, 11 May 2017 15:46:27 +0200
-> > Fredrik Markstrom <fredrik.markstrom@gmail.com> wrote:
-> > =20
-> >> From: Fredrik Markstr=C3=B6m <fredrik.markstrom@gmail.com>
-> >>
-> >> is_skb_forwardable() currently checks if the packet size is <=3D mtu of
-> >> the receiving interface. This is not consistent with most of the hardw=
-are
-> >> ethernet drivers that happily receives packets larger then MTU. =20
-> >
-> > Wrong. =20
->=20
-> What is "Wrong" ? I was initially skeptical to implement this patch,
-> since it feels odd to have different MTU:s set on the two sides of a
-> link. After consulting some IP people and the RFC:s I kind of changed
-> my mind and thought I'd give it a shot. In the RFCs I couldn't find
-> anything that defined when and when not a received packet should be
-> dropped.
->=20
-> >
-> > Hardware interfaces are free to drop any packet greater than MTU (actua=
-lly MTU + VLAN).
-> > The actual limit is a function of the hardware. Some hardware can only =
-limit by
-> > power of 2; some can only limit frames larger than 1500; some have no l=
-imiting at all. =20
->=20
-> Agreed. The purpose of these patches is to be able to configure an
-> veth interface to mimic these different behaviors. Non of the Ethernet
-> interfaces I have access to drops packets due to them being larger
-> then the configured MTU like veth does.
->=20
-> Being able to mimic real Ethernet hardware is useful when
-> consolidating hardware using containers/namespaces.
->=20
-> In a reply to a comment from David Miller in my previous version of
-> the patch I attached the example below to demonstrate the case in
-> detail.
->=20
-> This works with all ethernet hardware setups I have access to:
->=20
+Am Mittwoch, 10. Mai 2017, 10:53:24 CEST schrieb Stefan Wahren:
+> Before we can merge the QCA7000 UART binding the document needs to be
+> renamed.
+> 
+> Signed-off-by: Stefan Wahren <stefan.wahren-eS4NqCHxEME@public.gmane.org>
+> ---
+>  .../devicetree/bindings/net/{qca-qca7000-spi.txt => qca-qca7000.txt}      |
+> 0 1 file changed, 0 insertions(+), 0 deletions(-)
+>  rename Documentation/devicetree/bindings/net/{qca-qca7000-spi.txt =>
+> qca-qca7000.txt} (100%)
+> 
+> diff --git a/Documentation/devicetree/bindings/net/qca-qca7000-spi.txt
+> b/Documentation/devicetree/bindings/net/qca-qca7000.txt similarity index
+> 100%
+> rename from Documentation/devicetree/bindings/net/qca-qca7000-spi.txt
+> rename to Documentation/devicetree/bindings/net/qca-qca7000.txt
 
-Why not just use an iptables rule to enforce what ever semantic you
-want?
+I was told here [1], that it is prefered when the filename matchs the
+compatible string, so using "qca,qca7000.txt" should be better.
+
+Regards,
+Michael
+
+
+[1]
+https://www.spinics.net/lists/devicetree/msg124088.html
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
