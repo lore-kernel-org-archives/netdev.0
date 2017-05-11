@@ -1,54 +1,91 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net] net: phy: Call bus->reset() after releasing PHYs from reset
-Date: Thu, 11 May 2017 11:24:16 -0700
-Message-ID: <20170511182417.17708-1-f.fainelli@gmail.com>
-Cc: rogerq@ti.com, davem@davemloft.net,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        linux-kernel@vger.kernel.org (open list)
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jon Maloy <jon.maloy@ericsson.com>
+Subject: [PATCH net 1/1] tipc: make macro tipc_wait_for_cond() smp safe
+Date: Thu, 11 May 2017 20:28:15 +0200
+Message-ID: <1494527295-20646-1-git-send-email-jon.maloy@ericsson.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <parthasarathy.bhuvaragan@ericsson.com>, <ying.xue@windriver.com>,
+        <tipc-discussion@lists.sourceforge.net>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sesbmg22.ericsson.net ([193.180.251.48]:53814 "EHLO
+        sesbmg22.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933972AbdEKS20 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 11 May 2017 14:28:26 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The API convention makes it that a given MDIO bus reset should be able
-to access PHY devices in its reset() callback and perform additional
-MDIO accesses in order to bring the bus and PHYs in a working state.
+The macro tipc_wait_for_cond() is embedding the macro sk_wait_event()
+to fulfil its task. The latter, in turn, is evaluating the stated
+condition outside the socket lock context. This is problematic if
+the condition is accessing non-trivial data structures which may be
+altered by incoming interrupts, as is the case with the cong_links()
+linked list, used by socket to keep track of the current set of
+congested links. We sometimes see crashes when this list is accessed
+by a condition function at the same time as a SOCK_WAKEUP interrupt
+is removing an element from the list.
 
-Commit 69226896ad63 ("mdio_bus: Issue GPIO RESET to PHYs.") broke that
-contract by first calling bus->reset() and then release all PHYs from
-reset using their shared GPIO line, so restore the expected
-functionality here.
+We fix this by expanding selected parts of sk_wait_event() into the
+outer macro, while ensuring that all evaluations of a given condition
+are performed under socket lock protection.
 
-Fixes: 69226896ad63 ("mdio_bus: Issue GPIO RESET to PHYs.")
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+Fixes: commit 365ad353c256 ("tipc: reduce risk of user starvation
+during link congestion")
+
+Reviewed-by: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
+Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 ---
- drivers/net/phy/mdio_bus.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ net/tipc/socket.c | 38 +++++++++++++++++++-------------------
+ 1 file changed, 19 insertions(+), 19 deletions(-)
 
-diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
-index a898e5c4ef1b..8e73f5f36e71 100644
---- a/drivers/net/phy/mdio_bus.c
-+++ b/drivers/net/phy/mdio_bus.c
-@@ -364,9 +364,6 @@ int __mdiobus_register(struct mii_bus *bus, struct module *owner)
+diff --git a/net/tipc/socket.c b/net/tipc/socket.c
+index 0d4f2f4..1b92b72 100644
+--- a/net/tipc/socket.c
++++ b/net/tipc/socket.c
+@@ -362,25 +362,25 @@ static int tipc_sk_sock_err(struct socket *sock, long *timeout)
+ 	return 0;
+ }
  
- 	mutex_init(&bus->mdio_lock);
+-#define tipc_wait_for_cond(sock_, timeout_, condition_)			\
+-({								        \
+-	int rc_ = 0;							\
+-	int done_ = 0;							\
+-									\
+-	while (!(condition_) && !done_) {				\
+-		struct sock *sk_ = sock->sk;				\
+-		DEFINE_WAIT_FUNC(wait_, woken_wake_function);		\
+-									\
+-		rc_ = tipc_sk_sock_err(sock_, timeout_);		\
+-		if (rc_)						\
+-			break;						\
+-		prepare_to_wait(sk_sleep(sk_), &wait_,			\
+-				TASK_INTERRUPTIBLE);			\
+-		done_ = sk_wait_event(sk_, timeout_,			\
+-				      (condition_), &wait_);		\
+-		remove_wait_queue(sk_sleep(sk_), &wait_);		\
+-	}								\
+-	rc_;								\
++#define tipc_wait_for_cond(sock_, timeo_, condition_)			       \
++({                                                                             \
++	struct sock *sk_;						       \
++	int rc_;							       \
++									       \
++	while ((rc_ = !(condition_))) {					       \
++		DEFINE_WAIT_FUNC(wait_, woken_wake_function);	               \
++		sk_ = (sock_)->sk;					       \
++		rc_ = tipc_sk_sock_err((sock_), timeo_);		       \
++		if (rc_)						       \
++			break;						       \
++		prepare_to_wait(sk_sleep(sk_), &wait_, TASK_INTERRUPTIBLE);    \
++		release_sock(sk_);					       \
++		*(timeo_) = wait_woken(&wait_, TASK_INTERRUPTIBLE, *(timeo_)); \
++		sched_annotate_sleep();				               \
++		lock_sock(sk_);						       \
++		remove_wait_queue(sk_sleep(sk_), &wait_);		       \
++	}								       \
++	rc_;								       \
+ })
  
--	if (bus->reset)
--		bus->reset(bus);
--
- 	/* de-assert bus level PHY GPIO resets */
- 	if (bus->num_reset_gpios > 0) {
- 		bus->reset_gpiod = devm_kcalloc(&bus->dev,
-@@ -396,6 +393,9 @@ int __mdiobus_register(struct mii_bus *bus, struct module *owner)
- 		}
- 	}
- 
-+	if (bus->reset)
-+		bus->reset(bus);
-+
- 	for (i = 0; i < PHY_MAX_ADDR; i++) {
- 		if ((bus->phy_mask & (1 << i)) == 0) {
- 			struct phy_device *phydev;
+ /**
 -- 
-2.9.3
+2.1.4
