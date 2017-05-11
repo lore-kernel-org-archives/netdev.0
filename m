@@ -1,24 +1,26 @@
-From: Edward Cree <ecree@solarflare.com>
-Subject: Re: [PATCH v2 3/7] bpf: Add strict alignment flag for BPF_PROG_LOAD.
-Date: Thu, 11 May 2017 17:18:30 +0100
-Message-ID: <a1a33bb6-c230-3748-a192-9479d5d4fa2d@solarflare.com>
-References: <20170511.120540.405652687533650995.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: qca_spi: Fix alignment issues in rx path
+Date: Thu, 11 May 2017 12:14:39 -0400 (EDT)
+Message-ID: <20170511.121439.1848705853202049320.davem@davemloft.net>
+References: <1494337238-1699-1-git-send-email-stefan.wahren@i2se.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: <ast@fb.com>, <alexei.starovoitov@gmail.com>,
-        <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>, <daniel@iogearbox.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from dispatch1-us1.ppe-hosted.com ([67.231.154.164]:34757 "EHLO
-        dispatch1-us1.ppe-hosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S932473AbdEKQTB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 11 May 2017 12:19:01 -0400
-In-Reply-To: <20170511.120540.405652687533650995.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: gregkh@linuxfoundation.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: stefan.wahren@i2se.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1494337238-1699-1-git-send-email-stefan.wahren@i2se.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 11/05/17 17:05, David Miller wrote:
-> Add a new field, "prog_flags", and an initial flag value
-> BPF_F_STRCIT_ALIGNMENT.
-Should this be STRICT?
+From: Stefan Wahren <stefan.wahren@i2se.com>
+Date: Tue,  9 May 2017 15:40:38 +0200
+
+> The qca_spi driver causes alignment issues on ARM devices.
+> So fix this by using netdev_alloc_skb_ip_align().
+> 
+> Signed-off-by: Stefan Wahren <stefan.wahren@i2se.com>
+> Fixes: 291ab06ecf67 ("net: qualcomm: new Ethernet over SPI driver for QCA7000")
+
+Applied.
