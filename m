@@ -1,74 +1,465 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH v2 6/7] bpf: Make use of alignment information in
- check_val_ptr_alignment().
-Date: Thu, 11 May 2017 12:06:08 -0400 (EDT)
-Message-ID: <20170511.120608.248672395765712270.davem@davemloft.net>
+Subject: [PATCH v2 5/7] bpf: Add verifier test case for alignment.
+Date: Thu, 11 May 2017 12:06:01 -0400 (EDT)
+Message-ID: <20170511.120601.246881624526451669.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: ast@fb.com, alexei.starovoitov@gmail.com, netdev@vger.kernel.org
 To: daniel@iogearbox.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:51590 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:51578 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933901AbdEKQGK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 11 May 2017 12:06:10 -0400
+        with ESMTP id S933697AbdEKQGR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 11 May 2017 12:06:17 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-We can validate PTR_TO_MAP_VALUE_ADJ accesses in the same way that we
-do for PTR_TO_PACKET.  The only difference is that we don't plug
-NET_IP_ALIGN into the equation.
-
 Signed-off-by: David S. Miller <davem@davemloft.net>
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
 ---
- kernel/bpf/verifier.c | 25 +++++++++++++++++++++----
- 1 file changed, 21 insertions(+), 4 deletions(-)
+ tools/testing/selftests/bpf/Makefile     |   3 +-
+ tools/testing/selftests/bpf/test_align.c | 417 +++++++++++++++++++++++++++++++
+ 2 files changed, 419 insertions(+), 1 deletion(-)
+ create mode 100644 tools/testing/selftests/bpf/test_align.c
 
-diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
-index e74fb1b..cdbf282 100644
---- a/kernel/bpf/verifier.c
-+++ b/kernel/bpf/verifier.c
-@@ -823,10 +823,27 @@ static int check_pkt_ptr_alignment(const struct bpf_reg_state *reg,
- }
+diff --git a/tools/testing/selftests/bpf/Makefile b/tools/testing/selftests/bpf/Makefile
+index 91edd05..f92f27d 100644
+--- a/tools/testing/selftests/bpf/Makefile
++++ b/tools/testing/selftests/bpf/Makefile
+@@ -11,7 +11,8 @@ endif
+ CFLAGS += -Wall -O2 -I$(APIDIR) -I$(LIBDIR) -I$(GENDIR) $(GENFLAGS) -I../../../include
+ LDLIBS += -lcap -lelf
  
- static int check_val_ptr_alignment(const struct bpf_reg_state *reg,
--				   int size, bool strict)
-+				   int off, int size, bool strict)
- {
--	if (strict && size != 1) {
--		verbose("Unknown alignment. Only byte-sized access allowed in value access.\n");
-+	int reg_off;
+-TEST_GEN_PROGS = test_verifier test_tag test_maps test_lru_map test_lpm_map test_progs
++TEST_GEN_PROGS = test_verifier test_tag test_maps test_lru_map test_lpm_map test_progs \
++	test_align
+ 
+ TEST_GEN_FILES = test_pkt_access.o test_xdp.o test_l4lb.o test_tcp_estats.o
+ 
+diff --git a/tools/testing/selftests/bpf/test_align.c b/tools/testing/selftests/bpf/test_align.c
+new file mode 100644
+index 0000000..9dd9794
+--- /dev/null
++++ b/tools/testing/selftests/bpf/test_align.c
+@@ -0,0 +1,417 @@
++#include <asm/types.h>
++#include <linux/types.h>
++#include <stdint.h>
++#include <stdio.h>
++#include <stdlib.h>
++#include <unistd.h>
++#include <errno.h>
++#include <string.h>
++#include <stddef.h>
++#include <stdbool.h>
 +
-+	/* Byte size accesses are always allowed. */
-+	if (!strict || size == 1)
-+		return 0;
++#include <linux/unistd.h>
++#include <linux/filter.h>
++#include <linux/bpf_perf_event.h>
++#include <linux/bpf.h>
 +
-+	reg_off = reg->off;
-+	if (reg->id) {
-+		if (reg->aux_off_align % size) {
-+			verbose("Value access is only %u byte aligned, %d byte access not allowed\n",
-+				reg->aux_off_align, size);
-+			return -EACCES;
++#include <bpf/bpf.h>
++
++#include "../../../include/linux/filter.h"
++
++#ifndef ARRAY_SIZE
++# define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
++#endif
++
++#define MAX_INSNS	512
++#define MAX_MATCHES	16
++
++struct bpf_align_test {
++	const char *descr;
++	struct bpf_insn	insns[MAX_INSNS];
++	enum {
++		UNDEF,
++		ACCEPT,
++		REJECT
++	} result;
++	enum bpf_prog_type prog_type;
++	const char *matches[MAX_MATCHES];
++};
++
++static struct bpf_align_test tests[] = {
++	{
++		.descr = "mov",
++		.insns = {
++			BPF_MOV64_IMM(BPF_REG_3, 2),
++			BPF_MOV64_IMM(BPF_REG_3, 4),
++			BPF_MOV64_IMM(BPF_REG_3, 8),
++			BPF_MOV64_IMM(BPF_REG_3, 16),
++			BPF_MOV64_IMM(BPF_REG_3, 32),
++			BPF_MOV64_IMM(BPF_REG_0, 0),
++			BPF_EXIT_INSN(),
++		},
++		.prog_type = BPF_PROG_TYPE_SCHED_CLS,
++		.matches = {
++			"1: R1=ctx R3=imm2,min_value=2,max_value=2,min_align=2 R10=fp",
++			"2: R1=ctx R3=imm4,min_value=4,max_value=4,min_align=4 R10=fp",
++			"3: R1=ctx R3=imm8,min_value=8,max_value=8,min_align=8 R10=fp",
++			"4: R1=ctx R3=imm16,min_value=16,max_value=16,min_align=16 R10=fp",
++			"5: R1=ctx R3=imm32,min_value=32,max_value=32,min_align=32 R10=fp",
++		},
++	},
++	{
++		.descr = "shift",
++		.insns = {
++			BPF_MOV64_IMM(BPF_REG_3, 1),
++			BPF_ALU64_IMM(BPF_LSH, BPF_REG_3, 1),
++			BPF_ALU64_IMM(BPF_LSH, BPF_REG_3, 1),
++			BPF_ALU64_IMM(BPF_LSH, BPF_REG_3, 1),
++			BPF_ALU64_IMM(BPF_LSH, BPF_REG_3, 1),
++			BPF_ALU64_IMM(BPF_RSH, BPF_REG_3, 4),
++			BPF_MOV64_IMM(BPF_REG_4, 32),
++			BPF_ALU64_IMM(BPF_RSH, BPF_REG_4, 1),
++			BPF_ALU64_IMM(BPF_RSH, BPF_REG_4, 1),
++			BPF_ALU64_IMM(BPF_RSH, BPF_REG_4, 1),
++			BPF_ALU64_IMM(BPF_RSH, BPF_REG_4, 1),
++			BPF_MOV64_IMM(BPF_REG_0, 0),
++			BPF_EXIT_INSN(),
++		},
++		.prog_type = BPF_PROG_TYPE_SCHED_CLS,
++		.matches = {
++			"1: R1=ctx R3=imm1,min_value=1,max_value=1,min_align=1 R10=fp",
++			"2: R1=ctx R3=imm2,min_value=2,max_value=2,min_align=2 R10=fp",
++			"3: R1=ctx R3=imm4,min_value=4,max_value=4,min_align=4 R10=fp",
++			"4: R1=ctx R3=imm8,min_value=8,max_value=8,min_align=8 R10=fp",
++			"5: R1=ctx R3=imm16,min_value=16,max_value=16,min_align=16 R10=fp",
++			"6: R1=ctx R3=imm1,min_value=1,max_value=1,min_align=1 R10=fp",
++			"7: R1=ctx R3=imm1,min_value=1,max_value=1,min_align=1 R4=imm32,min_value=32,max_value=32,min_align=32 R10=fp",
++			"8: R1=ctx R3=imm1,min_value=1,max_value=1,min_align=1 R4=imm16,min_value=16,max_value=16,min_align=16 R10=fp",
++			"9: R1=ctx R3=imm1,min_value=1,max_value=1,min_align=1 R4=imm8,min_value=8,max_value=8,min_align=8 R10=fp",
++			"10: R1=ctx R3=imm1,min_value=1,max_value=1,min_align=1 R4=imm4,min_value=4,max_value=4,min_align=4 R10=fp",
++			"11: R1=ctx R3=imm1,min_value=1,max_value=1,min_align=1 R4=imm2,min_value=2,max_value=2,min_align=2 R10=fp",
++		},
++	},
++	{
++		.descr = "addsub",
++		.insns = {
++			BPF_MOV64_IMM(BPF_REG_3, 4),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_3, 4),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_3, 2),
++			BPF_MOV64_IMM(BPF_REG_4, 8),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_4, 4),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_4, 2),
++			BPF_MOV64_IMM(BPF_REG_0, 0),
++			BPF_EXIT_INSN(),
++		},
++		.prog_type = BPF_PROG_TYPE_SCHED_CLS,
++		.matches = {
++			"1: R1=ctx R3=imm4,min_value=4,max_value=4,min_align=4 R10=fp",
++			"2: R1=ctx R3=imm8,min_value=8,max_value=8,min_align=4 R10=fp",
++			"3: R1=ctx R3=imm10,min_value=10,max_value=10,min_align=2 R10=fp",
++			"4: R1=ctx R3=imm10,min_value=10,max_value=10,min_align=2 R4=imm8,min_value=8,max_value=8,min_align=8 R10=fp",
++			"5: R1=ctx R3=imm10,min_value=10,max_value=10,min_align=2 R4=imm12,min_value=12,max_value=12,min_align=4 R10=fp",
++			"6: R1=ctx R3=imm10,min_value=10,max_value=10,min_align=2 R4=imm14,min_value=14,max_value=14,min_align=2 R10=fp",
++		},
++	},
++	{
++		.descr = "mul",
++		.insns = {
++			BPF_MOV64_IMM(BPF_REG_3, 7),
++			BPF_ALU64_IMM(BPF_MUL, BPF_REG_3, 1),
++			BPF_ALU64_IMM(BPF_MUL, BPF_REG_3, 2),
++			BPF_ALU64_IMM(BPF_MUL, BPF_REG_3, 4),
++			BPF_MOV64_IMM(BPF_REG_0, 0),
++			BPF_EXIT_INSN(),
++		},
++		.prog_type = BPF_PROG_TYPE_SCHED_CLS,
++		.matches = {
++			"1: R1=ctx R3=imm7,min_value=7,max_value=7,min_align=1 R10=fp",
++			"2: R1=ctx R3=imm7,min_value=7,max_value=7,min_align=1 R10=fp",
++			"3: R1=ctx R3=imm14,min_value=14,max_value=14,min_align=2 R10=fp",
++			"4: R1=ctx R3=imm56,min_value=56,max_value=56,min_align=4 R10=fp",
++		},
++	},
++
++#define PREP_PKT_POINTERS \
++	BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1, \
++		    offsetof(struct __sk_buff, data)), \
++	BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_1, \
++		    offsetof(struct __sk_buff, data_end))
++
++#define LOAD_UNKNOWN(DST_REG) \
++	PREP_PKT_POINTERS, \
++	BPF_MOV64_REG(BPF_REG_0, BPF_REG_2), \
++	BPF_ALU64_IMM(BPF_ADD, BPF_REG_0, 8), \
++	BPF_JMP_REG(BPF_JGE, BPF_REG_3, BPF_REG_0, 1), \
++	BPF_EXIT_INSN(), \
++	BPF_LDX_MEM(BPF_B, DST_REG, BPF_REG_2, 0)
++
++	{
++		.descr = "unknown shift",
++		.insns = {
++			LOAD_UNKNOWN(BPF_REG_3),
++			BPF_ALU64_IMM(BPF_LSH, BPF_REG_3, 1),
++			BPF_ALU64_IMM(BPF_LSH, BPF_REG_3, 1),
++			BPF_ALU64_IMM(BPF_LSH, BPF_REG_3, 1),
++			BPF_ALU64_IMM(BPF_LSH, BPF_REG_3, 1),
++			LOAD_UNKNOWN(BPF_REG_4),
++			BPF_ALU64_IMM(BPF_LSH, BPF_REG_4, 5),
++			BPF_ALU64_IMM(BPF_RSH, BPF_REG_4, 1),
++			BPF_ALU64_IMM(BPF_RSH, BPF_REG_4, 1),
++			BPF_ALU64_IMM(BPF_RSH, BPF_REG_4, 1),
++			BPF_ALU64_IMM(BPF_RSH, BPF_REG_4, 1),
++			BPF_MOV64_IMM(BPF_REG_0, 0),
++			BPF_EXIT_INSN(),
++		},
++		.prog_type = BPF_PROG_TYPE_SCHED_CLS,
++		.matches = {
++			"7: R0=pkt(id=0,off=8,r=8) R1=ctx R2=pkt(id=0,off=0,r=8) R3=inv56 R10=fp",
++			"8: R0=pkt(id=0,off=8,r=8) R1=ctx R2=pkt(id=0,off=0,r=8) R3=inv55,min_align=2 R10=fp",
++			"9: R0=pkt(id=0,off=8,r=8) R1=ctx R2=pkt(id=0,off=0,r=8) R3=inv54,min_align=4 R10=fp",
++			"10: R0=pkt(id=0,off=8,r=8) R1=ctx R2=pkt(id=0,off=0,r=8) R3=inv53,min_align=8 R10=fp",
++			"11: R0=pkt(id=0,off=8,r=8) R1=ctx R2=pkt(id=0,off=0,r=8) R3=inv52,min_align=16 R10=fp",
++			"18: R0=pkt(id=0,off=8,r=8) R1=ctx R2=pkt(id=0,off=0,r=8) R3=pkt_end R4=inv56 R10=fp",
++			"19: R0=pkt(id=0,off=8,r=8) R1=ctx R2=pkt(id=0,off=0,r=8) R3=pkt_end R4=inv51,min_align=32 R10=fp",
++			"20: R0=pkt(id=0,off=8,r=8) R1=ctx R2=pkt(id=0,off=0,r=8) R3=pkt_end R4=inv52,min_align=16 R10=fp",
++			"21: R0=pkt(id=0,off=8,r=8) R1=ctx R2=pkt(id=0,off=0,r=8) R3=pkt_end R4=inv53,min_align=8 R10=fp",
++			"22: R0=pkt(id=0,off=8,r=8) R1=ctx R2=pkt(id=0,off=0,r=8) R3=pkt_end R4=inv54,min_align=4 R10=fp",
++			"23: R0=pkt(id=0,off=8,r=8) R1=ctx R2=pkt(id=0,off=0,r=8) R3=pkt_end R4=inv55,min_align=2 R10=fp",
++		},
++	},
++	{
++		.descr = "unknown mul",
++		.insns = {
++			LOAD_UNKNOWN(BPF_REG_3),
++			BPF_MOV64_REG(BPF_REG_4, BPF_REG_3),
++			BPF_ALU64_IMM(BPF_MUL, BPF_REG_4, 1),
++			BPF_MOV64_REG(BPF_REG_4, BPF_REG_3),
++			BPF_ALU64_IMM(BPF_MUL, BPF_REG_4, 2),
++			BPF_MOV64_REG(BPF_REG_4, BPF_REG_3),
++			BPF_ALU64_IMM(BPF_MUL, BPF_REG_4, 4),
++			BPF_MOV64_REG(BPF_REG_4, BPF_REG_3),
++			BPF_ALU64_IMM(BPF_MUL, BPF_REG_4, 8),
++			BPF_ALU64_IMM(BPF_MUL, BPF_REG_4, 2),
++			BPF_MOV64_IMM(BPF_REG_0, 0),
++			BPF_EXIT_INSN(),
++		},
++		.prog_type = BPF_PROG_TYPE_SCHED_CLS,
++		.matches = {
++			"7: R0=pkt(id=0,off=8,r=8) R1=ctx R2=pkt(id=0,off=0,r=8) R3=inv56 R10=fp",
++			"8: R0=pkt(id=0,off=8,r=8) R1=ctx R2=pkt(id=0,off=0,r=8) R3=inv56 R4=inv56 R10=fp",
++			"9: R0=pkt(id=0,off=8,r=8) R1=ctx R2=pkt(id=0,off=0,r=8) R3=inv56 R4=inv55,min_align=1 R10=fp",
++			"10: R0=pkt(id=0,off=8,r=8) R1=ctx R2=pkt(id=0,off=0,r=8) R3=inv56 R4=inv56 R10=fp",
++			"11: R0=pkt(id=0,off=8,r=8) R1=ctx R2=pkt(id=0,off=0,r=8) R3=inv56 R4=inv54,min_align=2 R10=fp",
++			"12: R0=pkt(id=0,off=8,r=8) R1=ctx R2=pkt(id=0,off=0,r=8) R3=inv56 R4=inv56 R10=fp",
++			"13: R0=pkt(id=0,off=8,r=8) R1=ctx R2=pkt(id=0,off=0,r=8) R3=inv56 R4=inv53,min_align=4 R10=fp",
++			"14: R0=pkt(id=0,off=8,r=8) R1=ctx R2=pkt(id=0,off=0,r=8) R3=inv56 R4=inv56 R10=fp",
++			"15: R0=pkt(id=0,off=8,r=8) R1=ctx R2=pkt(id=0,off=0,r=8) R3=inv56 R4=inv52,min_align=8 R10=fp",
++			"16: R0=pkt(id=0,off=8,r=8) R1=ctx R2=pkt(id=0,off=0,r=8) R3=inv56 R4=inv50,min_align=8 R10=fp"
++		},
++	},
++	{
++		.descr = "packet const offset",
++		.insns = {
++			PREP_PKT_POINTERS,
++			BPF_MOV64_REG(BPF_REG_5, BPF_REG_2),
++
++			BPF_MOV64_IMM(BPF_REG_0, 0),
++
++			/* Skip over ethernet header.  */
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_5, 14),
++			BPF_MOV64_REG(BPF_REG_4, BPF_REG_5),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_4, 4),
++			BPF_JMP_REG(BPF_JGE, BPF_REG_3, BPF_REG_4, 1),
++			BPF_EXIT_INSN(),
++
++			BPF_LDX_MEM(BPF_B, BPF_REG_4, BPF_REG_5, 0),
++			BPF_LDX_MEM(BPF_B, BPF_REG_4, BPF_REG_5, 1),
++			BPF_LDX_MEM(BPF_B, BPF_REG_4, BPF_REG_5, 2),
++			BPF_LDX_MEM(BPF_B, BPF_REG_4, BPF_REG_5, 3),
++			BPF_LDX_MEM(BPF_H, BPF_REG_4, BPF_REG_5, 0),
++			BPF_LDX_MEM(BPF_H, BPF_REG_4, BPF_REG_5, 2),
++			BPF_LDX_MEM(BPF_W, BPF_REG_4, BPF_REG_5, 0),
++
++			BPF_MOV64_IMM(BPF_REG_0, 0),
++			BPF_EXIT_INSN(),
++		},
++		.prog_type = BPF_PROG_TYPE_SCHED_CLS,
++		.matches = {
++			"4: R0=imm0,min_value=0,max_value=0,min_align=2147483648 R1=ctx R2=pkt(id=0,off=0,r=0) R3=pkt_end R5=pkt(id=0,off=0,r=0) R10=fp",
++			"5: R0=imm0,min_value=0,max_value=0,min_align=2147483648 R1=ctx R2=pkt(id=0,off=0,r=0) R3=pkt_end R5=pkt(id=0,off=14,r=0) R10=fp",
++			"6: R0=imm0,min_value=0,max_value=0,min_align=2147483648 R1=ctx R2=pkt(id=0,off=0,r=0) R3=pkt_end R4=pkt(id=0,off=14,r=0) R5=pkt(id=0,off=14,r=0) R10=fp",
++			"10: R0=imm0,min_value=0,max_value=0,min_align=2147483648 R1=ctx R2=pkt(id=0,off=0,r=18) R3=pkt_end R4=inv56 R5=pkt(id=0,off=14,r=18) R10=fp",
++			"14: R0=imm0,min_value=0,max_value=0,min_align=2147483648 R1=ctx R2=pkt(id=0,off=0,r=18) R3=pkt_end R4=inv48 R5=pkt(id=0,off=14,r=18) R10=fp",
++			"15: R0=imm0,min_value=0,max_value=0,min_align=2147483648 R1=ctx R2=pkt(id=0,off=0,r=18) R3=pkt_end R4=inv48 R5=pkt(id=0,off=14,r=18) R10=fp",
++		},
++	},
++	{
++		.descr = "packet variable offset",
++		.insns = {
++			LOAD_UNKNOWN(BPF_REG_6),
++			BPF_ALU64_IMM(BPF_LSH, BPF_REG_6, 2),
++
++			/* First, add a constant to the R5 packet pointer,
++			 * then a variable with a known alignment.
++			 */
++			BPF_MOV64_REG(BPF_REG_5, BPF_REG_2),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_5, 14),
++			BPF_ALU64_REG(BPF_ADD, BPF_REG_5, BPF_REG_6),
++			BPF_MOV64_REG(BPF_REG_4, BPF_REG_5),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_4, 4),
++			BPF_JMP_REG(BPF_JGE, BPF_REG_3, BPF_REG_4, 1),
++			BPF_EXIT_INSN(),
++			BPF_LDX_MEM(BPF_W, BPF_REG_4, BPF_REG_5, 0),
++
++			/* Now, test in the other direction.  Adding first
++			 * the variable offset to R5, then the constant.
++			 */
++			BPF_MOV64_REG(BPF_REG_5, BPF_REG_2),
++			BPF_ALU64_REG(BPF_ADD, BPF_REG_5, BPF_REG_6),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_5, 14),
++			BPF_MOV64_REG(BPF_REG_4, BPF_REG_5),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_4, 4),
++			BPF_JMP_REG(BPF_JGE, BPF_REG_3, BPF_REG_4, 1),
++			BPF_EXIT_INSN(),
++			BPF_LDX_MEM(BPF_W, BPF_REG_4, BPF_REG_5, 0),
++
++			BPF_MOV64_IMM(BPF_REG_0, 0),
++			BPF_EXIT_INSN(),
++		},
++		.prog_type = BPF_PROG_TYPE_SCHED_CLS,
++		.matches = {
++			/* Calculated offset in R6 has unknown value, but known
++			 * alignment of 4.
++			 */
++			"8: R0=pkt(id=0,off=8,r=8) R1=ctx R2=pkt(id=0,off=0,r=8) R3=pkt_end R6=inv54,min_align=4 R10=fp",
++
++			/* Offset is added to packet pointer R5, resulting in known
++			 * auxiliary alignment and offset.
++			 */
++			"11: R0=pkt(id=0,off=8,r=8) R1=ctx R2=pkt(id=0,off=0,r=8) R3=pkt_end R5=pkt(id=1,off=0,r=0),aux_off=14,aux_off_align=4 R6=inv54,min_align=4 R10=fp",
++
++			/* At the time the word size load is performed from R5,
++			 * it's total offset is NET_IP_ALIGN + reg->off (0) +
++			 * reg->aux_off (14) which is 16.  Then the variable
++			 * offset is considered using reg->aux_off_align which
++			 * is 4 and meets the load's requirements.
++			 */
++			"15: R0=pkt(id=0,off=8,r=8) R1=ctx R2=pkt(id=0,off=0,r=8) R3=pkt_end R4=pkt(id=1,off=4,r=4),aux_off=14,aux_off_align=4 R5=pkt(id=1,off=0,r=4),aux_off=14,aux_off_align=4 R6=inv54,min_align=4 R10=fp",
++
++
++			/* Variable offset is added to R5 packet pointer,
++			 * resulting in auxiliary alignment of 4.
++			 */
++			"18: R0=pkt(id=0,off=8,r=8) R1=ctx R2=pkt(id=0,off=0,r=8) R3=pkt_end R4=inv,aux_off=14,aux_off_align=4 R5=pkt(id=2,off=0,r=0),aux_off_align=4 R6=inv54,min_align=4 R10=fp",
++
++			/* Constant offset is added to R5, resulting in
++			 * reg->off of 14.
++			 */
++			"19: R0=pkt(id=0,off=8,r=8) R1=ctx R2=pkt(id=0,off=0,r=8) R3=pkt_end R4=inv,aux_off=14,aux_off_align=4 R5=pkt(id=2,off=14,r=0),aux_off_align=4 R6=inv54,min_align=4 R10=fp",
++
++			/* At the time the word size load is performed from R5,
++			 * it's total offset is NET_IP_ALIGN + reg->off (14) which
++			 * is 16.  Then the variable offset is considered using
++			 * reg->aux_off_align which is 4 and meets the load's
++			 * requirements.
++			 */
++			"23: R0=pkt(id=0,off=8,r=8) R1=ctx R2=pkt(id=0,off=0,r=8) R3=pkt_end R4=pkt(id=2,off=18,r=18),aux_off_align=4 R5=pkt(id=2,off=14,r=18),aux_off_align=4 R6=inv54,min_align=4 R10=fp",
++		},
++	},
++};
++
++static int probe_filter_length(const struct bpf_insn *fp)
++{
++	int len;
++
++	for (len = MAX_INSNS - 1; len > 0; --len)
++		if (fp[len].code != 0 || fp[len].imm != 0)
++			break;
++	return len + 1;
++}
++
++static char bpf_vlog[32768];
++
++static int do_test_single(struct bpf_align_test *test)
++{
++	struct bpf_insn *prog = test->insns;
++	int prog_type = test->prog_type;
++	int prog_len, i;
++	int fd_prog;
++	int ret;
++
++	prog_len = probe_filter_length(prog);
++	fd_prog = bpf_verify_program(prog_type ? : BPF_PROG_TYPE_SOCKET_FILTER,
++				     prog, prog_len, 1, "GPL", 0,
++				     bpf_vlog, sizeof(bpf_vlog));
++	if (fd_prog < 0) {
++		printf("Failed to load program.\n");
++		printf("%s", bpf_vlog);
++		ret = 1;
++	} else {
++		ret = 0;
++		for (i = 0; i < MAX_MATCHES; i++) {
++			const char *t, *m = test->matches[i];
++
++			if (!m)
++				break;
++			t = strstr(bpf_vlog, m);
++			if (!t) {
++				printf("Failed to find match: %s\n", m);
++				ret = 1;
++				printf("%s", bpf_vlog);
++				break;
++			}
 +		}
-+		reg_off += reg->aux_off;
++		/* printf("%s", bpf_vlog); */
++		close(fd_prog);
 +	}
++	return ret;
++}
 +
-+	if ((reg_off + off) % size != 0) {
-+		verbose("misaligned value access off %d+%d size %d\n",
-+			reg_off, off, size);
- 		return -EACCES;
- 	}
- 
-@@ -846,7 +863,7 @@ static int check_ptr_alignment(struct bpf_verifier_env *env,
- 	case PTR_TO_PACKET:
- 		return check_pkt_ptr_alignment(reg, off, size, strict);
- 	case PTR_TO_MAP_VALUE_ADJ:
--		return check_val_ptr_alignment(reg, size, strict);
-+		return check_val_ptr_alignment(reg, off, size, strict);
- 	default:
- 		if (off % size != 0) {
- 			verbose("misaligned access off %d size %d\n",
++static int do_test(unsigned int from, unsigned int to)
++{
++	int all_pass = 0;
++	int all_fail = 0;
++	unsigned int i;
++
++	for (i = from; i < to; i++) {
++		struct bpf_align_test *test = &tests[i];
++		int fail;
++
++		printf("Test %3d: %s ... ",
++		       i, test->descr);
++		fail = do_test_single(test);
++		if (fail) {
++			all_fail++;
++			printf("FAIL\n");
++		} else {
++			all_pass++;
++			printf("PASS\n");
++		}
++	}
++	printf("Results: %d pass %d fail\n",
++	       all_pass, all_fail);
++	return 0;
++}
++
++int main(int argc, char **argv)
++{
++	unsigned int from = 0, to = ARRAY_SIZE(tests);
++
++	if (argc == 3) {
++		unsigned int l = atoi(argv[argc - 2]);
++		unsigned int u = atoi(argv[argc - 1]);
++
++		if (l < to && u < to) {
++			from = l;
++			to   = u + 1;
++		}
++	} else if (argc == 2) {
++		unsigned int t = atoi(argv[argc - 1]);
++
++		if (t < to) {
++			from = t;
++			to   = t + 1;
++		}
++	}
++	return do_test(from, to);
++}
 -- 
-2.1.2.532.g19b5d50
+2.7.4
