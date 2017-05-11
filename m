@@ -1,36 +1,44 @@
-From: Bart Van Assche <Bart.VanAssche@sandisk.com>
-Subject: Re: [PATCH] net/smc: mark as BROKEN due to remote memory exposure
-Date: Thu, 11 May 2017 14:57:43 +0000
-Message-ID: <1494514662.2489.1.camel@sandisk.com>
-References: <20170510072627.12060-1-hch@lst.de>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH] qed: fix uninitialized data in aRFS intrastructure
+Date: Thu, 11 May 2017 17:01:18 +0200
+Message-ID: <CAK8P3a00dkyyB7jZ62EDkoFA8=qgboKOMUWP8f2i3s8VOhbtMg@mail.gmail.com>
+References: <20170511121633.3591880-1-arnd@arndb.de> <BLUPR0701MB2004E8FA50C46973E09FBA298DED0@BLUPR0701MB2004.namprd07.prod.outlook.com>
+ <CAK8P3a2x8OxcoHyx_e1Tj7k5QP5nVvTt3mh5WZvdfMfrZqPw8g@mail.gmail.com> <BLUPR0701MB20046B7EA7273C97047B02F28DED0@BLUPR0701MB2004.namprd07.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
-        "stable@vger.kernel.org" <stable@vger.kernel.org>,
-        "ubraun@linux.vnet.ibm.com" <ubraun@linux.vnet.ibm.com>
-To: "hch@lst.de" <hch@lst.de>,
-        "davem@davemloft.net" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from esa2.hgst.iphmx.com ([68.232.143.124]:40639 "EHLO
-        esa2.hgst.iphmx.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932514AbdEKO5r (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 11 May 2017 10:57:47 -0400
-In-Reply-To: <20170510072627.12060-1-hch@lst.de>
-Content-Language: en-US
-Content-ID: <71188D6E1FAAF24AA77D97D83BC075C9@namprd04.prod.outlook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: "David S. Miller" <davem@davemloft.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <BLUPR0701MB20046B7EA7273C97047B02F28DED0@BLUPR0701MB2004.namprd07.prod.outlook.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2017-05-10 at 09:26 +0200, Christoph Hellwig wrote:
-> The driver has a lot of quality issues due to the lack of RDMA-side
-> review, and explicitly bypasses APIs to register all memory once a
-> connection is made, and thus allows remote access to memoery.
->=20
-> Mark it as broken until at least that part is fixed.
+On Thu, May 11, 2017 at 4:37 PM, Mintz, Yuval <Yuval.Mintz@cavium.com> wrote:
+>> > For the most part - I'm almost all in favor of this change.
+>> > But just to make it clear - the actual fix could have been a one-liner, right?
+>> > The rest are style changes.
+>
+>> Correct. Having the correct length in the memset is a sufficient fix for the warning,
+>> but it felt wrong to send it since the root of the problem seems to be the
+>> complexity of the code that was hiding it.
+>
+> ...
+>
+>> Generally speaking, feel free to treat any of my compile-time warning fix
+>> patches as simple bug reports and apply a different fix that seems more
+>> appropriate. I mainly send it in patch form since that seems to be the
+>> quickest way to address any issues.
+>
+> Sure.
+>
+> Once net-next is re-opened I intend to push our next FW version which
+> is also going to change some of the aRFS related configurations.
+>
+> So I think we should stick to the single-liner fix for now,
+> and I'll revise the style [if still needed; I'll have to check] on that submission.
 
-Since this is the only way to get the BROKEN marker in the v4.11 stable
-kernel series:
+Sounds good, thanks!
 
-Acked-by: Bart Van Assche <bart.vanassche@sandisk.com>=
+     Arnd
