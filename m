@@ -1,108 +1,82 @@
-From: Michael Heimpold <mhei-Z/Lg1yOAjpkb1SvskN2V4Q@public.gmane.org>
-Subject: Re: [PATCH v5 15/17] dt-bindings: qca7000: append UART interface to binding
-Date: Thu, 11 May 2017 21:12:22 +0200
-Message-ID: <1702237.66ccflAQAJ@kerker>
-References: <1494406408-31760-1-git-send-email-stefan.wahren@i2se.com> <1494406408-31760-16-git-send-email-stefan.wahren@i2se.com>
+From: David Miller <davem@davemloft.net>
+Subject: BPF relocations
+Date: Thu, 11 May 2017 15:31:18 -0400 (EDT)
+Message-ID: <20170511.153118.2082025756694634804.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Stefan Wahren <stefan.wahren-eS4NqCHxEME@public.gmane.org>,
-        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-        Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-        Jiri Slaby <jslaby-IBi9RG/b67k@public.gmane.org>, linux-serial-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1494406408-31760-16-git-send-email-stefan.wahren-eS4NqCHxEME@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
-
-Hi,
-
-Am Mittwoch, 10. Mai 2017, 10:53:26 CEST schrieb Stefan Wahren:
-> This merges the serdev binding for the QCA7000 UART driver (Ethernet over
-> UART) into the existing document.
-> 
-> Signed-off-by: Stefan Wahren <stefan.wahren-eS4NqCHxEME@public.gmane.org>
-> ---
->  .../devicetree/bindings/net/qca-qca7000.txt        | 32
-> ++++++++++++++++++++++ 1 file changed, 32 insertions(+)
-> 
-> diff --git a/Documentation/devicetree/bindings/net/qca-qca7000.txt
-> b/Documentation/devicetree/bindings/net/qca-qca7000.txt index
-> a37f656..08364c3 100644
-> --- a/Documentation/devicetree/bindings/net/qca-qca7000.txt
-> +++ b/Documentation/devicetree/bindings/net/qca-qca7000.txt
-> @@ -54,3 +54,35 @@ ssp2: spi@80014000 {
->  		local-mac-address = [ A0 B0 C0 D0 E0 F0 ];
->  	};
->  };
-> +
-> +(b) Ethernet over UART
-> +
-> +In order to use the QCA7000 as UART slave it must be defined as a child of
-> a +UART master in the device tree. It is possible to preconfigure the UART
-> +settings of the QCA7000 firmware, but it's not possible to change them
-> during +runtime.
-> +
-> +Required properties:
-> +- compatible        : Should be "qca,qca7000-uart"
-
-I already discussed this with Stefan off-list a little bit, but I would like
-to bring this to a broader audience: I'm not sure whether the compatible 
-should contain the "-uart" suffix, because the hardware chip is the very same
-QCA7000 chip which can also be used with SPI protocol.
-The only difference is the loaded firmware within the chip which can either
-speak SPI or UART protocol (but not both at the same time - due to shared 
-pins). So the hardware design decides which interface type is used.
-
-At the moment, this patch series adds a dedicated driver for the UART 
-protocol, in parallel to the existing SPI driver. So a different compatible
-string is needed here to match against the new driver.
-
-An alternative approach would be to re-use the existing compatible string
-"qca,qca7000" for both, the SPI and UART protocol, because a "smarter" 
-(combined) driver would detect which protocol to use. For example the driver 
-could check for spi-cpha and/or spi-cpol which are required for SPI protocol: 
-if these exists the driver could assume that SPI must be used, if both are 
-missing then UART protocol should be used.
-(This way it would not be necessary to check whether the node is a child of
-a SPI or UART master node - but maybe this is even easier - I don't know)
-
-Or in shorter words: my concern is that while "qca7000-uart" describes the 
-hardware, it's too closely coupled to the driver implementation. Having
-some feedback of the experts would be nice :-)
-
-Thanks,
-Michael
-
-> +
-> +Optional properties:
-> +- local-mac-address : see ./ethernet.txt
-> +- current-speed     : current baud rate of QCA7000 which defaults to 115200
-> +		      if absent, see also ../serial/slave-device.txt
-> +
-> +UART Example:
-> +
-> +/* Freescale i.MX28 UART */
-> +auart0: serial@8006a000 {
-> +	compatible = "fsl,imx28-auart", "fsl,imx23-auart";
-> +	reg = <0x8006a000 0x2000>;
-> +	pinctrl-names = "default";
-> +	pinctrl-0 = <&auart0_2pins_a>;
-> +	status = "okay";
-> +
-> +	qca7000: ethernet {
-> +		compatible = "qca,qca7000-uart";
-> +		local-mac-address = [ A0 B0 C0 D0 E0 F0 ];
-> +		current-speed = <38400>;
-> +	};
-> +};
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: daniel@iogearbox.net, netdev@vger.kernel.org
+To: ast@fb.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:53626 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752210AbdEKTbU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 11 May 2017 15:31:20 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I haven't done more work on bintuils BPF support because we
+need to figure out exactly what to do with relocations.  So
+I've been trying to spend time thinking about this.
+
+As far as I can tell the 64-bit BPF relocation llvm uses
+is used in two situations:
+
+1) 64-bit relocations against data
+
+2) 64-bit relocations against ldimm64 instructions
+
+If this is true it's a very bad decision that has ramifications for us
+right now.
+
+One must always explicitly define relocations as being against data or
+instruction fields.  You cannot use the same relocation for both kinds
+of transformations, somehow trying to figure out what to do
+"contextually".  That doesn't work.
+
+Right now in binutils I gave this relocation with value "1" the name
+R_BPF_DATA_64.  But it's not correct as explained above.
+
+I'm using it as a data relocation so that dwarf2 information emitted
+by llvm gets handled correctly by binutils.
+
+The only real dependency upon relocation "1" being used against
+instructions is the ELF parser that records the relocations against
+MAP sections which get applied to ldimm64 instructions.
+
+So I propose:
+
+1) We define the set of relocations as follows:
+
+  RELOC_NUMBER (R_BPF_NONE, 0)
+  RELOC_NUMBER (R_BPF_OLD_64, 1)
+  RELOC_NUMBER (R_BPF_INSN_64, 2)
+  RELOC_NUMBER (R_BPF_INSN_32, 3)
+  RELOC_NUMBER (R_BPF_INSN_16, 4)
+  RELOC_NUMBER (R_BPF_WDISP16, 5)
+  RELOC_NUMBER (R_BPF_DATA_8,  8)
+  RELOC_NUMBER (R_BPF_DATA_16, 9)
+  RELOC_NUMBER (R_BPF_DATA_32, 10)
+  RELOC_NUMBER (R_BPF_DATA_64, 11)
+
+2) LLVM is changed to have relocations:
+
+	#define R_BPF_OLD_64_64	1  /* deprecated, do not use */
+	#define R_BPF_INSN_64	2  /* 64-bit instruction relocation */
+	#define R_BPF_64_32	10 /* 32-bit data relocation */
+	#define R_BPF_DATA_64	11 /* 64-bit data relocation */
+
+   and emit 64-bit relocations against instructions and data using
+   R_BPF_INSN_64 and R_BPF_DATA_64, respectively.  Keep the llvm code
+   around for interpreting R_BPF_OLD_64_64 so that interaction with
+   older binaries keeps working.
+
+3) The existing loaders should continue to function properly, and with
+   suitable changes alongside the list in #1 to binutils it will still
+   properly read dwarf2 information in both old and new binaries.
+
+4) Add explicit relocation number checks to the ELF loaders, they
+   should accept both "1" and "2" for MAP relocations against ldimm64
+
+Comments?
