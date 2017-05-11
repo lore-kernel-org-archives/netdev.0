@@ -1,48 +1,54 @@
-From: Vitaly Kuznetsov <vkuznets@redhat.com>
-Subject: [PATCH v2] xen-netfront: avoid crashing on resume after a failure in talk_to_netback()
-Date: Thu, 11 May 2017 13:58:06 +0200
-Message-ID: <20170511115806.25322-1-vkuznets@redhat.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Boris Ostrovsky <boris.ostrovsky@oracle.com>,
-        Juergen Gross <jgross@suse.com>,
-        David Miller <davem@davemloft.net>
-To: xen-devel@lists.xenproject.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: [PATCH] wcn36xx: Close SMD channel on device removal
+Date: Thu, 11 May 2017 15:11:38 +0300
+Message-ID: <87o9uzsidh.fsf@kamboji.qca.qualcomm.com>
+References: <20170509043637.28179-1-bjorn.andersson@linaro.org>
+        <87h90u3672.fsf@kamboji.qca.qualcomm.com>
+        <20170509230312.GR15143@minitux>
+        <6e1cc217-924f-c536-6009-f6a377844d6f@broadcom.com>
+        <20170510175254.GS15143@minitux>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: Arend van Spriel <arend.vanspriel@broadcom.com>,
+        Eugene Krasnikov <k.eugene.e@gmail.com>,
+        Eyal Ilsar <c_eilsar@qti.qualcomm.com>,
+        wcn36xx@lists.infradead.org, linux-wireless@vger.kernel.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        linux-arm-msm@vger.kernel.org
+To: Bjorn Andersson <bjorn.andersson@linaro.org>
+Return-path: <linux-arm-msm-owner@vger.kernel.org>
+In-Reply-To: <20170510175254.GS15143@minitux> (Bjorn Andersson's message of
+        "Wed, 10 May 2017 10:52:55 -0700")
+Sender: linux-arm-msm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Unavoidable crashes in netfront_resume() and netback_changed() after a
-previous fail in talk_to_netback() (e.g. when we fail to read MAC from
-xenstore) were discovered. The failure path in talk_to_netback() does
-unregister/free for netdev but we don't reset drvdata and we try accessing
-it after resume.
+Bjorn Andersson <bjorn.andersson@linaro.org> writes:
 
-Fix the bug by removing the whole xen device completely with
-device_unregister(), this guarantees we won't have any calls into netfront
-after a failure.
+> On Wed 10 May 00:27 PDT 2017, Arend van Spriel wrote:
+>
+>> On 5/10/2017 1:03 AM, Bjorn Andersson wrote:
+>>
+>> > AFAICT this never worked, as it seems I did the rework in SMD while we
+>> > tried to figure out the dependency issues we had with moving to SMD. So
+>> > v4.9 through v4.11 has SMD support - with this bug.
+>> > 
+>> > How do I proceed, do you want me to write up a fix for stable@? Do I
+>> > send that out as an ordinary patch?
+>> 
+>> If the patch applies cleanly on branches linux-4.9.y through linux-4.11.y in
+>> the stable repository you can go for '--- Option 1 ---' as described in
+>> <linux-repo>/Documentation/stable_kernel_rules.txt.
+>> 
+>
+> It does not, before v4.12 it's a completely different function to call
+> to close the channel.
+>
+> But "Option 3" describes the situation, thanks for the reference. I'll
+> try to find the time to verify the patch on v4.11 and send it to
+> stable@.
 
-Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
----
-Changes since v1: instead of cleaning drvdata and checking for it in
-netfront_resume() and netback_changed() remove the device completely with
-device_unregister() [David Miller]
----
- drivers/net/xen-netfront.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+Great, thanks. This seems to be that serious that better to fix this
+also in older releases.
 
-diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
-index 6ffc482..7b61adb 100644
---- a/drivers/net/xen-netfront.c
-+++ b/drivers/net/xen-netfront.c
-@@ -1934,8 +1934,7 @@ static int talk_to_netback(struct xenbus_device *dev,
- 	xennet_disconnect_backend(info);
- 	xennet_destroy_queues(info);
-  out:
--	unregister_netdev(info->netdev);
--	xennet_free_netdev(info->netdev);
-+	device_unregister(&dev->dev);
- 	return err;
- }
- 
 -- 
-2.9.3
+Kalle Valo
