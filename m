@@ -1,57 +1,107 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] net: sched: optimize class dumps
-Date: Wed, 10 May 2017 21:59:28 -0700
-Message-ID: <1494478768.7796.108.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Anton Ivanov <anton.ivanov@cambridgegreys.com>
+Subject: Re: DQL and TCQ_F_CAN_BYPASS destroy performance under virtualizaiton
+ (Was: "Re: net_sched strange in 4.11")
+Date: Thu, 11 May 2017 06:43:28 +0100
+Message-ID: <e0a7d551-aadb-6fdd-bb12-5adfa13d5279@cambridgegreys.com>
+References: <66c5c2d3-65df-8506-6934-5628e709e229@cambridgegreys.com>
+ <27ae4e1c-7c6c-14c2-f3a4-9d0b1265d034@cambridgegreys.com>
+ <20170509151109.GH16825@stefanha-x1.localdomain>
+ <52801b17-d8af-eaba-3ecf-fa4495c352f5@redhat.com>
+ <16de49b9-dec1-d1df-aa59-dedd90fffb92@cambridgegreys.com>
+ <6accf7bd-fb21-604b-9586-ecd0f6830a65@redhat.com>
+ <c9fe2748-0a14-17f4-3742-3184f0b2831b@cambridgegreys.com>
+ <c11c50db-4e66-f3c2-5ebb-519ad6dbc2fe@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Jiri Kosina <jkosina@suse.cz>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        Jiri Pirko <jiri@resnulli.us>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        "Michael S. Tsirkin" <mst@redhat.com>
+To: Jason Wang <jasowang@redhat.com>,
+        Stefan Hajnoczi <stefanha@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:34670 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754696AbdEKE7g (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 11 May 2017 00:59:36 -0400
-Received: by mail-pg0-f68.google.com with SMTP id u187so2074394pgb.1
-        for <netdev@vger.kernel.org>; Wed, 10 May 2017 21:59:31 -0700 (PDT)
+Received: from ivanoab5.miniserver.com ([78.31.111.25]:41161 "EHLO
+        www.kot-begemot.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751028AbdEKFnl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 11 May 2017 01:43:41 -0400
+In-Reply-To: <c11c50db-4e66-f3c2-5ebb-519ad6dbc2fe@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On 11/05/17 03:43, Jason Wang wrote:
+>
+>
+> On 2017年05月10日 17:42, Anton Ivanov wrote:
+>> On 10/05/17 09:56, Jason Wang wrote:
+>>>
+>>>
+>>> On 2017年05月10日 13:28, Anton Ivanov wrote:
+>>>> On 10/05/17 03:18, Jason Wang wrote:
+>>>>>
+>>>>> On 2017年05月09日 23:11, Stefan Hajnoczi wrote:
+>>>>>> On Tue, May 09, 2017 at 08:46:46AM +0100, Anton Ivanov wrote:
+>>>>>>> I have figured it out. Two issues.
+>>>>>>>
+>>>>>>> 1) skb->xmit_more is hardly ever set under virtualization because
+>>>>>>> the qdisc
+>>>>>>> is usually bypassed because of TCQ_F_CAN_BYPASS. Once
+>>>>>>> TCQ_F_CAN_BYPASS is
+>>>>>>> set a virtual NIC driver is not likely see skb->xmit_more (this
+>>>>>>> answers my
+>>>>>>> "how does this work at all" question).
+>>>>>>>
+>>>>>>> 2) If that flag is turned off (I patched sched_generic to turn it
+>>>>>>> off in
+>>>>>>> pfifo_fast while testing), DQL keeps xmit_more from being set. If
+>>>>>>> the driver
+>>>>>>> is not DQL enabled xmit_more is never ever set. If the driver is
+>>>>>>> DQL
+>>>>>>> enabled
+>>>>>>> the queue is adjusted to ensure xmit_more stops happening within
+>>>>>>> 10-15 xmit
+>>>>>>> cycles.
+>>>>>>>
+>>>>>>> That is plain *wrong* for virtual NICs - virtio, emulated NICs,
+>>>>>>> etc.
+>>>>>>> There,
+>>>>>>> the BIG cost is telling the hypervisor that it needs to "kick" the
+>>>>>>> packets.
+>>>>>>> The cost of putting them into the vNIC buffers is negligible.
+>>>>>>> You want
+>>>>>>> xmit_more to happen - it makes between 50% and 300% (depending
+>>>>>>> on vNIC
+>>>>>>> design) difference. If there is no xmit_more the vNIC will
+>>>>>>> immediately
+>>>>>>> "kick" the hypervisor and try to signal that  the packet needs
+>>>>>>> to move
+>>>>>>> straight away (as for example in virtio_net).
+>>>>> How do you measure the performance? TCP or just measure pps?
+>>>> In this particular case - tcp from guest. I have a couple of other
+>>>> benchmarks (forwarding, etc).
+>>>
+>>> One more question, is the number for virtio-net or other emulated vNIC?
+>>
+>> Other for now - you are cc-ed to keep you in the loop.
+>>
+>> Virtio is next on my list - I am revisiting the l2tpv3.c driver in
+>> QEMU and looking at how to preserve bulking by adding back sendmmsg
+>> (as well as a list of other features/transports).
+>>
+>> We had sendmmsg removed for the final inclusion in QEMU 2.1, it
+>> presently uses only recvmmsg so for the time being it does not care.
+>> That will most likely change once it starts using sendmmsg as well.
+>
+> An issue is that qemu net API does not support bulking, do you plan to
+> add it?
 
-In commit 59cc1f61f09c ("net: sched: convert qdisc linked list to
-hashtable") we missed the opportunity to considerably speed up
-tc_dump_tclass_root() if a qdisc handle is provided by user.
+Yes :)
 
-Instead of iterating all the qdiscs, use qdisc_match_from_root()
-to directly get the one we look for.
+A.
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Jiri Kosina <jkosina@suse.cz>
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-Cc: Cong Wang <xiyou.wangcong@gmail.com>
-Cc: Jiri Pirko <jiri@resnulli.us>
----
- net/sched/sch_api.c |    6 ++++++
- 1 file changed, 6 insertions(+)
+>
+> Thanks
+>
 
-diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
-index bbe57d57b67fd498692bd41db49147511f1bb091..e88342fde1bc409aed6a3c86e7a628030eaac66f 100644
---- a/net/sched/sch_api.c
-+++ b/net/sched/sch_api.c
-@@ -1831,6 +1831,12 @@ static int tc_dump_tclass_root(struct Qdisc *root, struct sk_buff *skb,
- 	if (!qdisc_dev(root))
- 		return 0;
- 
-+	if (tcm->tcm_parent) {
-+		q = qdisc_match_from_root(root, TC_H_MAJ(tcm->tcm_parent));
-+		if (q && tc_dump_tclass_qdisc(q, skb, tcm, cb, t_p, s_t) < 0)
-+			return -1;
-+		return 0;
-+	}
- 	hash_for_each(qdisc_dev(root)->qdisc_hash, b, q, hash) {
- 		if (tc_dump_tclass_qdisc(q, skb, tcm, cb, t_p, s_t) < 0)
- 			return -1;
+
+-- 
+Anton R. Ivanov
+Cambridgegreys Limited. Registered in England. Company Number 10273661
