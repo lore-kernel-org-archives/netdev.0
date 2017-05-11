@@ -1,29 +1,24 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net] ipv6/dccp: do not inherit ipv6_mc_list from parent
-Date: Thu, 11 May 2017 12:18:04 -0400 (EDT)
-Message-ID: <20170511.121804.1512438261634911702.davem@davemloft.net>
-References: <1494374394-24373-1-git-send-email-xiyou.wangcong@gmail.com>
+From: Edward Cree <ecree@solarflare.com>
+Subject: Re: [PATCH v2 3/7] bpf: Add strict alignment flag for BPF_PROG_LOAD.
+Date: Thu, 11 May 2017 17:18:30 +0100
+Message-ID: <a1a33bb6-c230-3748-a192-9479d5d4fa2d@solarflare.com>
+References: <20170511.120540.405652687533650995.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, edumazet@google.com
-To: xiyou.wangcong@gmail.com
+Cc: <ast@fb.com>, <alexei.starovoitov@gmail.com>,
+        <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>, <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:51810 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753354AbdEKQSL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 11 May 2017 12:18:11 -0400
-In-Reply-To: <1494374394-24373-1-git-send-email-xiyou.wangcong@gmail.com>
+Received: from dispatch1-us1.ppe-hosted.com ([67.231.154.164]:34757 "EHLO
+        dispatch1-us1.ppe-hosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S932473AbdEKQTB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 11 May 2017 12:19:01 -0400
+In-Reply-To: <20170511.120540.405652687533650995.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Date: Tue,  9 May 2017 16:59:54 -0700
-
-> Like commit 657831ffc38e ("dccp/tcp: do not inherit mc_list from parent")
-> we should clear ipv6_mc_list etc. for IPv6 sockets too.
-> 
-> Cc: Eric Dumazet <edumazet@google.com>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
-
-Applied and queued up for -stable, thanks.
+On 11/05/17 17:05, David Miller wrote:
+> Add a new field, "prog_flags", and an initial flag value
+> BPF_F_STRCIT_ALIGNMENT.
+Should this be STRICT?
