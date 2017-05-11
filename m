@@ -1,94 +1,46 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net-next V4 10/10] vhost_net: try batch dequing from skb
- array
-Date: Thu, 11 May 2017 10:47:47 +0800
-Message-ID: <6ec5ce73-793b-56b8-51a8-fe119581a874@redhat.com>
-References: <1494387382-19916-1-git-send-email-jasowang@redhat.com>
- <1494387382-19916-11-git-send-email-jasowang@redhat.com>
- <20170510152848-mutt-send-email-mst@kernel.org>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: [PATCH] libertas: Avoid reading past end of buffer
+Date: Thu, 11 May 2017 06:45:58 +0300
+Message-ID: <87fugcvyx5.fsf@kamboji.qca.qualcomm.com>
+References: <20170510192451.GA115771@beast>
+        <1494457506.2028.1.camel@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170510152848-mutt-send-email-mst@kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: Kees Cook <keescook@chromium.org>, netdev@vger.kernel.org,
+        libertas-dev@lists.infradead.org, linux-wireless@vger.kernel.org,
+        Daniel Micay <danielmicay@gmail.com>,
+        linux-kernel@vger.kernel.org
+To: Joe Perches <joe@perches.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.codeaurora.org ([198.145.29.96]:46964 "EHLO
+        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754038AbdEKDqN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 10 May 2017 23:46:13 -0400
+In-Reply-To: <1494457506.2028.1.camel@perches.com> (Joe Perches's message of
+        "Wed, 10 May 2017 16:05:06 -0700")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Joe Perches <joe@perches.com> writes:
 
-
-On 2017年05月10日 20:34, Michael S. Tsirkin wrote:
-> On Wed, May 10, 2017 at 11:36:22AM +0800, Jason Wang wrote:
->> We used to dequeue one skb during recvmsg() from skb_array, this could
->> be inefficient because of the bad cache utilization and spinlock
->> touching for each packet. This patch tries to batch them by calling
->> batch dequeuing helpers explicitly on the exported skb array and pass
->> the skb back through msg_control for underlayer socket to finish the
->> userspace copying.
->>
->> Batch dequeuing is also the requirement for more batching improvement
->> on rx.
->>
->> Tests were done by pktgen on tap with XDP1 in guest on top of batch
->> zeroing:
->>
->> rx batch | pps
->>
->> 256        2.41Mpps (+6.16%)
->> 128        2.48Mpps (+8.80%)
->> 64         2.38Mpps (+3.96%) <- Default
->> 16         2.31Mpps (+1.76%)
->> 4          2.31Mpps (+1.76%)
->> 1          2.30Mpps (+1.32%)
->> 0          2.27Mpps (+7.48%)
->>
->> Signed-off-by: Jason Wang<jasowang@redhat.com>
->> ---
->>   drivers/vhost/net.c | 117 +++++++++++++++++++++++++++++++++++++++++++++++++---
->>   1 file changed, 111 insertions(+), 6 deletions(-)
->>
->> diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
->> index 9b51989..fbaecf3 100644
->> --- a/drivers/vhost/net.c
->> +++ b/drivers/vhost/net.c
->> @@ -28,6 +28,8 @@
->>   #include <linux/if_macvlan.h>
->>   #include <linux/if_tap.h>
->>   #include <linux/if_vlan.h>
->> +#include <linux/skb_array.h>
->> +#include <linux/skbuff.h>
->>   
->>   #include <net/sock.h>
->>   
->> @@ -85,6 +87,13 @@ struct vhost_net_ubuf_ref {
->>   	struct vhost_virtqueue *vq;
->>   };
->>   
->> +#define VHOST_RX_BATCH 64
->> +struct vhost_net_buf {
->> +	struct sk_buff *queue[VHOST_RX_BATCH];
->> +	int tail;
->> +	int head;
->> +};
->> +
-> Do you strictly need to put this inline? This structure is quite big
-> already. Do you see a measureabe difference if you make it
+> unrelated trivia:
 >
-> 	struct sk_buff **queue;
-> 	int tail;
-> 	int head;
+> lbs_deb_enter is used incorrectly here at
+> function exit as both enter and leave calls.
 >
-> ?
-
-I don't.
-
+> That type of copy/paste defect may be common.
 >
-> Will also make it easier to play with the size in the future
-> should someone want to see how does it work e.g. for different
-> ring sizes.
+> $ git grep -w lbs_deb_enter | wc -l
+> 148
+> $ git grep -w lbs_deb_leave | wc -l
+> 71
 >
+> One would expect these numbers to be the same.
+>
+> Another option would be to delete all these
+> calls as ftrace function tracing works well.
 
-Ok, will do this in next version
+Yeah, deleting all the enter/exit calls would be better.
 
-Thanks
+-- 
+Kalle Valo
