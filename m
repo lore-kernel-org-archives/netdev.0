@@ -1,43 +1,37 @@
 From: Manish Chopra <manish.chopra@cavium.com>
-Subject: [PATCH net 2/2] qlcnic: Update version to 5.3.66
-Date: Thu, 11 May 2017 07:12:48 -0700
-Message-ID: <20170511141248.996-3-manish.chopra@cavium.com>
-References: <20170511141248.996-1-manish.chopra@cavium.com>
+Subject: [PATCH net 0/2] qlcnic: Bug fix and update version
+Date: Thu, 11 May 2017 07:12:46 -0700
+Message-ID: <20170511141248.996-1-manish.chopra@cavium.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>, <Dept-GELinuxNICDev@cavium.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-co1nam03on0084.outbound.protection.outlook.com ([104.47.40.84]:18689
-        "EHLO NAM03-CO1-obe.outbound.protection.outlook.com"
+Received: from mail-bn3nam01on0064.outbound.protection.outlook.com ([104.47.33.64]:7676
+        "EHLO NAM01-BN3-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S932245AbdEKONK (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 11 May 2017 10:13:10 -0400
-In-Reply-To: <20170511141248.996-1-manish.chopra@cavium.com>
+        id S932128AbdEKONI (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 11 May 2017 10:13:08 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Bumping up the version as couple of fixes added after 5.3.65
+Hi David,
 
-Signed-off-by: Manish Chopra <manish.chopra@cavium.com>
----
- drivers/net/ethernet/qlogic/qlcnic/qlcnic.h | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+This series has one fix and bumps up driver version.
+Please consider applying to "net"
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-index 49bad00..7245b10 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-@@ -37,8 +37,8 @@
- 
- #define _QLCNIC_LINUX_MAJOR 5
- #define _QLCNIC_LINUX_MINOR 3
--#define _QLCNIC_LINUX_SUBVERSION 65
--#define QLCNIC_LINUX_VERSIONID  "5.3.65"
-+#define _QLCNIC_LINUX_SUBVERSION 66
-+#define QLCNIC_LINUX_VERSIONID  "5.3.66"
- #define QLCNIC_DRV_IDC_VER  0x01
- #define QLCNIC_DRIVER_VERSION  ((_QLCNIC_LINUX_MAJOR << 16) |\
- 		 (_QLCNIC_LINUX_MINOR << 8) | (_QLCNIC_LINUX_SUBVERSION))
+Thanks,
+Manish
+
+Manish Chopra (2):
+  qlcnic: Fix link configuration with autoneg disabled
+  qlcnic: Update version to 5.3.66
+
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic.h        |  4 +--
+ .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c    | 34 ++++++++++++++++++++++
+ .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h    |  1 +
+ .../net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c    |  3 ++
+ 4 files changed, 40 insertions(+), 2 deletions(-)
+
 -- 
 2.7.2
