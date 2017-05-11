@@ -1,82 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: BPF relocations
-Date: Thu, 11 May 2017 15:31:18 -0400 (EDT)
-Message-ID: <20170511.153118.2082025756694634804.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: daniel@iogearbox.net, netdev@vger.kernel.org
-To: ast@fb.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:53626 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752210AbdEKTbU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 11 May 2017 15:31:20 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Subject: [PATCH v8 0/5] skb_to_sgvec hardening
+Date: Thu, 11 May 2017 21:41:29 +0200
+Message-ID: <20170511194134.31183-1-Jason@zx2c4.com>
+Cc: "Jason A. Donenfeld" <Jason@zx2c4.com>
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        davem@davemloft.net, kernel-hardening@lists.openwall.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+The recent bug with macsec and historical one with virtio have
+indicated that letting skb_to_sgvec trounce all over an sglist
+without checking the length is probably a bad idea. And it's not
+necessary either: an sglist already explicitly marks its last
+item, and the initialization functions are diligent in doing so.
+Thus there's a clear way of avoiding future overflows.
 
-I haven't done more work on bintuils BPF support because we
-need to figure out exactly what to do with relocations.  So
-I've been trying to spend time thinking about this.
+So, this patchset, from a high level, makes skb_to_sgvec return
+a potential error code, and then adjusts all callers to check
+for the error code. There are two situations in which skb_to_sgvec
+might return such an error:
 
-As far as I can tell the 64-bit BPF relocation llvm uses
-is used in two situations:
+   1) When the passed in sglist is too small; and
+   2) When the passed in skbuff is too deeply nested.
 
-1) 64-bit relocations against data
+So, the first patch in this series handles the issues with
+skb_to_sgvec directly, and the remaining ones then handle the call
+sites.
 
-2) 64-bit relocations against ldimm64 instructions
+Changes v7->v8:
+   - Added __must_check annotation.
+   - Rebased against latest upstream ipsec changes.
 
-If this is true it's a very bad decision that has ramifications for us
-right now.
+Jason A. Donenfeld (5):
+  skbuff: return -EMSGSIZE in skb_to_sgvec to prevent overflow
+  ipsec: check return value of skb_to_sgvec always
+  rxrpc: check return value of skb_to_sgvec always
+  macsec: check return value of skb_to_sgvec always
+  virtio_net: check return value of skb_to_sgvec always
 
-One must always explicitly define relocations as being against data or
-instruction fields.  You cannot use the same relocation for both kinds
-of transformations, somehow trying to figure out what to do
-"contextually".  That doesn't work.
+ drivers/net/macsec.c     | 13 ++++++++--
+ drivers/net/virtio_net.c |  9 +++++--
+ include/linux/skbuff.h   |  8 +++---
+ net/core/skbuff.c        | 65 +++++++++++++++++++++++++++++++-----------------
+ net/ipv4/ah4.c           |  8 ++++--
+ net/ipv4/esp4.c          | 20 +++++++++------
+ net/ipv6/ah6.c           |  8 ++++--
+ net/ipv6/esp6.c          | 20 +++++++++------
+ net/rxrpc/rxkad.c        | 13 +++++++---
+ 9 files changed, 112 insertions(+), 52 deletions(-)
 
-Right now in binutils I gave this relocation with value "1" the name
-R_BPF_DATA_64.  But it's not correct as explained above.
-
-I'm using it as a data relocation so that dwarf2 information emitted
-by llvm gets handled correctly by binutils.
-
-The only real dependency upon relocation "1" being used against
-instructions is the ELF parser that records the relocations against
-MAP sections which get applied to ldimm64 instructions.
-
-So I propose:
-
-1) We define the set of relocations as follows:
-
-  RELOC_NUMBER (R_BPF_NONE, 0)
-  RELOC_NUMBER (R_BPF_OLD_64, 1)
-  RELOC_NUMBER (R_BPF_INSN_64, 2)
-  RELOC_NUMBER (R_BPF_INSN_32, 3)
-  RELOC_NUMBER (R_BPF_INSN_16, 4)
-  RELOC_NUMBER (R_BPF_WDISP16, 5)
-  RELOC_NUMBER (R_BPF_DATA_8,  8)
-  RELOC_NUMBER (R_BPF_DATA_16, 9)
-  RELOC_NUMBER (R_BPF_DATA_32, 10)
-  RELOC_NUMBER (R_BPF_DATA_64, 11)
-
-2) LLVM is changed to have relocations:
-
-	#define R_BPF_OLD_64_64	1  /* deprecated, do not use */
-	#define R_BPF_INSN_64	2  /* 64-bit instruction relocation */
-	#define R_BPF_64_32	10 /* 32-bit data relocation */
-	#define R_BPF_DATA_64	11 /* 64-bit data relocation */
-
-   and emit 64-bit relocations against instructions and data using
-   R_BPF_INSN_64 and R_BPF_DATA_64, respectively.  Keep the llvm code
-   around for interpreting R_BPF_OLD_64_64 so that interaction with
-   older binaries keeps working.
-
-3) The existing loaders should continue to function properly, and with
-   suitable changes alongside the list in #1 to binutils it will still
-   properly read dwarf2 information in both old and new binaries.
-
-4) Add explicit relocation number checks to the ELF loaders, they
-   should accept both "1" and "2" for MAP relocations against ldimm64
-
-Comments?
+-- 
+2.13.0
