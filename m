@@ -1,46 +1,30 @@
-From: Pavel Belous <pavel.belous@aquantia.com>
-Subject: Re: [PATCH][V2] ethernet: aquantia: remove redundant checks on error
- status
-Date: Thu, 11 May 2017 23:02:17 +0300
-Message-ID: <64e74735-a23e-8b91-7c48-810850f097b7@aquantia.com>
-References: <20170511182940.18774-1-colin.king@canonical.com>
+From: Morgan Yang <morgan.yang1982@gmail.com>
+Subject: Advice on user space application integration with tc
+Date: Thu, 11 May 2017 13:45:48 -0700
+Message-ID: <CAHV_CwaAF-tDqEpPT1LL04tqTLE14qqqhxZtsB+d-ndKot8_UQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Colin King <colin.king@canonical.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        David VomLehn <vomlehn@texas.net>,
-        Alexander Loktionov <Alexander.Loktionov@aquantia.com>,
-        Dmitry Bezrukov <Dmitry.Bezrukov@aquantia.com>,
-        Dmitrii Tarakanov <Dmitrii.Tarakanov@aquantia.com>,
-        netdev@vger.kernel.org
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <20170511182940.18774-1-colin.king@canonical.com>
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qt0-f172.google.com ([209.85.216.172]:33856 "EHLO
+        mail-qt0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754916AbdEKUpt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 11 May 2017 16:45:49 -0400
+Received: by mail-qt0-f172.google.com with SMTP id j29so27438126qtj.1
+        for <netdev@vger.kernel.org>; Thu, 11 May 2017 13:45:49 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Hi All:
 
-
-On 11.05.2017 21:29, Colin King wrote:
-> From: Colin Ian King <colin.king@canonical.com>
->
-> The error status err is initialized as zero and then being checked
-> several times to see if it is less than zero even when it has not
-> been updated.  It may seem that the err should be assigned to the
-> return code of the call to the various *offload_en_set calls and
-> then we check for failure, however, these functions are void and
-> never actually return any status.
->
-> Since these error checks are redundant we can remove these
-> as well as err and the error exit label err_exit.
->
-> Detected by CoverityScan, CID#1398313 and CID#1398306 ("Logically
-> dead code")
->
-> Signed-off-by: Colin Ian King <colin.king@canonical.com>
-
-Acked-by: Pavel Belous <pavel.belous@aquantia.com>
-
-Regards,
-Pavel
+I want to build a solution that leverages the filtering and actions of
+tc in kernel space, but have the ability to hook  to a userspace
+application that can additional packet processing (such as payload
+masking). I'm curious what are the best ways to go about doing that? I
+have been looking into tc-skbmod and tc-pedit, but as good as they
+are, they would require newer kernels. I have also tried using tc to
+mirror filterd packets to a dummy or tap interface, and have the
+userspace application pick up there, but the performance has been
+supar. I'm hoping to have a solution that avoids the extra mirroring.
+Much Thanks
+Morgan Yang
