@@ -1,106 +1,53 @@
-From: Manish Chopra <manish.chopra@cavium.com>
-Subject: [PATCH net 1/2] qlcnic: Fix link configuration with autoneg disabled
-Date: Thu, 11 May 2017 07:12:47 -0700
-Message-ID: <20170511141248.996-2-manish.chopra@cavium.com>
-References: <20170511141248.996-1-manish.chopra@cavium.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net v2] driver: vrf: Fix one possible use-after-free
+ issue
+Date: Thu, 11 May 2017 12:13:34 -0400 (EDT)
+Message-ID: <20170511.121334.1892578973439125966.davem@davemloft.net>
+References: <1494325653-39885-1-git-send-email-gfree.wind@vip.163.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <Dept-GELinuxNICDev@cavium.com>
-To: <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: dsa@cumulusnetworks.com, shm@cumulusnetworks.com, fw@strlen.de,
+        netdev@vger.kernel.org
+To: gfree.wind@vip.163.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-dm3nam03on0087.outbound.protection.outlook.com ([104.47.41.87]:44177
-        "EHLO NAM03-DM3-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S932294AbdEKONM (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 11 May 2017 10:13:12 -0400
-In-Reply-To: <20170511141248.996-1-manish.chopra@cavium.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:51720 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751825AbdEKQNg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 11 May 2017 12:13:36 -0400
+In-Reply-To: <1494325653-39885-1-git-send-email-gfree.wind@vip.163.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently driver returns error on speed configurations
-for 83xx adapter's non XGBE ports, due to this link doesn't
-come up on the ports using 1000Base-T as a connector with
-autoneg disabled. This patch fixes this with initializing
-appropriate port type based on queried module/connector
-types from hardware before any speed/autoneg configuration.
+From: gfree.wind@vip.163.com
+Date: Tue,  9 May 2017 18:27:33 +0800
 
-Signed-off-by: Manish Chopra <manish.chopra@cavium.com>
----
- .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c    | 34 ++++++++++++++++++++++
- .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h    |  1 +
- .../net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c    |  3 ++
- 3 files changed, 38 insertions(+)
+> From: Gao Feng <gfree.wind@vip.163.com>
+> 
+> The current codes only deal with the case that the skb is dropped, it
+> may meet one use-after-free issue when NF_HOOK returns 0 that means
+> the skb is stolen by one netfilter rule or hook.
+> 
+> When one netfilter rule or hook stoles the skb and return NF_STOLEN,
+> it means the skb is taken by the rule, and other modules should not
+> touch this skb ever. Maybe the skb is queued or freed directly by the
+> rule.
+> 
+> Now uses the nf_hook instead of NF_HOOK to get the result of netfilter,
+> and check the return value of nf_hook. Only when its value equals 1, it
+> means the skb could go ahead. Or reset the skb as NULL.
+> 
+> BTW, because vrf_rcv_finish is empty function, so needn't invoke it
+> even though nf_hook returns 1. But we need to modify vrf_rcv_finish
+> to deal with the NF_STOLEN case.
+> 
+> There are two cases when skb is stolen.
+> 1. The skb is stolen and freed directly.
+>    There is nothing we need to do, and vrf_rcv_finish isn't invoked.
+> 2. The skb is queued and reinjected again.
+>    The vrf_rcv_finish would be invoked as okfn, so need to free the
+>    skb in it.
+> 
+> Signed-off-by: Gao Feng <gfree.wind@vip.163.com>
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
-index 718bf58..4fb6879 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
-@@ -3168,6 +3168,40 @@ int qlcnic_83xx_flash_read32(struct qlcnic_adapter *adapter, u32 flash_addr,
- 	return 0;
- }
- 
-+void qlcnic_83xx_get_port_type(struct qlcnic_adapter *adapter)
-+{
-+	struct qlcnic_hardware_context *ahw = adapter->ahw;
-+	struct qlcnic_cmd_args cmd;
-+	u32 config;
-+	int err;
-+
-+	err = qlcnic_alloc_mbx_args(&cmd, adapter, QLCNIC_CMD_GET_LINK_STATUS);
-+	if (err)
-+		return;
-+
-+	err = qlcnic_issue_cmd(adapter, &cmd);
-+	if (err) {
-+		dev_info(&adapter->pdev->dev,
-+			 "Get Link Status Command failed: 0x%x\n", err);
-+		goto out;
-+	} else {
-+		config = cmd.rsp.arg[3];
-+
-+		switch (QLC_83XX_SFP_MODULE_TYPE(config)) {
-+		case QLC_83XX_MODULE_FIBRE_1000BASE_SX:
-+		case QLC_83XX_MODULE_FIBRE_1000BASE_LX:
-+		case QLC_83XX_MODULE_FIBRE_1000BASE_CX:
-+		case QLC_83XX_MODULE_TP_1000BASE_T:
-+			ahw->port_type = QLCNIC_GBE;
-+			break;
-+		default:
-+			ahw->port_type = QLCNIC_XGBE;
-+		}
-+	}
-+out:
-+	qlcnic_free_mbx_args(&cmd);
-+}
-+
- int qlcnic_83xx_test_link(struct qlcnic_adapter *adapter)
- {
- 	u8 pci_func;
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h
-index 3dfe8e2..b75a812 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h
-@@ -637,6 +637,7 @@ void qlcnic_83xx_get_pauseparam(struct qlcnic_adapter *,
- int qlcnic_83xx_set_pauseparam(struct qlcnic_adapter *,
- 			       struct ethtool_pauseparam *);
- int qlcnic_83xx_test_link(struct qlcnic_adapter *);
-+void qlcnic_83xx_get_port_type(struct qlcnic_adapter *adapter);
- int qlcnic_83xx_reg_test(struct qlcnic_adapter *);
- int qlcnic_83xx_get_regs_len(struct qlcnic_adapter *);
- int qlcnic_83xx_get_registers(struct qlcnic_adapter *, u32 *);
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
-index 9a869c1..7f7deea 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
-@@ -486,6 +486,9 @@ static int qlcnic_set_link_ksettings(struct net_device *dev,
- 	u32 ret = 0;
- 	struct qlcnic_adapter *adapter = netdev_priv(dev);
- 
-+	if (qlcnic_83xx_check(adapter))
-+		qlcnic_83xx_get_port_type(adapter);
-+
- 	if (adapter->ahw->port_type != QLCNIC_GBE)
- 		return -EOPNOTSUPP;
- 
--- 
-2.7.2
+Applied and queued up for -stable, thanks.
