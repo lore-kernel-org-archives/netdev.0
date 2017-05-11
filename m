@@ -1,28 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 0/4] s390/net fixes
-Date: Thu, 11 May 2017 12:38:14 -0400 (EDT)
-Message-ID: <20170511.123814.1367298637891934098.davem@davemloft.net>
-References: <20170510170754.53922-1-jwi@linux.vnet.ibm.com>
+Subject: Re: [PATCH] net: ethernet: ti: netcp_core: return error while dma
+ channel open issue
+Date: Thu, 11 May 2017 12:40:00 -0400 (EDT)
+Message-ID: <20170511.124000.1534930712708208063.davem@davemloft.net>
+References: <1494437285-13839-1-git-send-email-ivan.khoronzhuk@linaro.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
-        schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com,
-        raspl@linux.vnet.ibm.com, ubraun@linux.vnet.ibm.com
-To: jwi@linux.vnet.ibm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:51980 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757480AbdEKQiV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 11 May 2017 12:38:21 -0400
-In-Reply-To: <20170510170754.53922-1-jwi@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: w-kwok2@ti.com, m-karicheri2@ti.com, ssantosh@kernel.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: ivan.khoronzhuk@linaro.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1494437285-13839-1-git-send-email-ivan.khoronzhuk@linaro.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Julian Wiedmann <jwi@linux.vnet.ibm.com>
-Date: Wed, 10 May 2017 19:07:50 +0200
+From: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
+Date: Wed, 10 May 2017 10:28:05 -0700
 
-> some qeth fixes for -net, the OSM/OSN one being the most crucial.
-> Please also queue these up for stable.
+> Fix error path while dma open channel issue. Also, no need to check output
+> on NULL if it's never returned.
+> 
+> Signed-off-by: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
 
-Series applied and queued up for -stable, thanks.
+Applied.
