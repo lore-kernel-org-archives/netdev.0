@@ -1,34 +1,112 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 6/7] bpf: Make use of alignment information in
- check_val_ptr_alignment().
-Date: Thu, 11 May 2017 13:23:54 -0400 (EDT)
-Message-ID: <20170511.132354.1049312079662884972.davem@davemloft.net>
-References: <20170511.120608.248672395765712270.davem@davemloft.net>
-        <59149629.4090109@iogearbox.net>
+From: Colin King <colin.king@canonical.com>
+Subject: [PATCH] ethernet: aquantia: remove redundant checks on error status
+Date: Thu, 11 May 2017 18:29:29 +0100
+Message-ID: <20170511172929.12951-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ast@fb.com, alexei.starovoitov@gmail.com, netdev@vger.kernel.org
-To: daniel@iogearbox.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:52490 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932444AbdEKRX4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 11 May 2017 13:23:56 -0400
-In-Reply-To: <59149629.4090109@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "David S . Miller" <davem@davemloft.net>,
+        Pavel Belous <pavel.belous@aquantia.com>,
+        Dmitrii Tarakanov <Dmitrii.Tarakanov@aquantia.com>,
+        Alexander Loktionov <Alexander.Loktionov@aquantia.com>,
+        David VomLehn <vomlehn@texas.net>, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Daniel Borkmann <daniel@iogearbox.net>
-Date: Thu, 11 May 2017 18:49:45 +0200
+From: Colin Ian King <colin.king@canonical.com>
 
-> This actually won't work, see also commit 79adffcd6489 ("bpf,
-> verifier:
-> fix rejection of unaligned access checks for map_value_adj") with some
-> longer explanation. In case of map_value_adj, reg->id is always 0.
+The error status err is initialized as zero and then being checked
+several times to see if it is less than zero even when it has not
+been updated. Since these checks are redundant we can remove these
+as well as err and the error exit label err_exit.
 
-I see....
+Detected by CoverityScan, CID#1398313 and CID#1398306 ("Logically
+dead code")
 
-Ok if I merge in the first 5 patches then?
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+---
+ drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.c | 13 +------------
+ drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.c | 12 +-----------
+ 2 files changed, 2 insertions(+), 23 deletions(-)
 
-I'll look more deeply into the MAP value issues.
+diff --git a/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.c b/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.c
+index 4ee15ff06a44..faeb4935ef3e 100644
+--- a/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.c
++++ b/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.c
+@@ -200,29 +200,18 @@ static int hw_atl_a0_hw_rss_set(struct aq_hw_s *self,
+ static int hw_atl_a0_hw_offload_set(struct aq_hw_s *self,
+ 				    struct aq_nic_cfg_s *aq_nic_cfg)
+ {
+-	int err = 0;
+-
+ 	/* TX checksums offloads*/
+ 	tpo_ipv4header_crc_offload_en_set(self, 1);
+ 	tpo_tcp_udp_crc_offload_en_set(self, 1);
+-	if (err < 0)
+-		goto err_exit;
+ 
+ 	/* RX checksums offloads*/
+ 	rpo_ipv4header_crc_offload_en_set(self, 1);
+ 	rpo_tcp_udp_crc_offload_en_set(self, 1);
+-	if (err < 0)
+-		goto err_exit;
+ 
+ 	/* LSO offloads*/
+ 	tdm_large_send_offload_en_set(self, 0xFFFFFFFFU);
+-	if (err < 0)
+-		goto err_exit;
+-
+-	err = aq_hw_err_from_flags(self);
+ 
+-err_exit:
+-	return err;
++	return aq_hw_err_from_flags(self);
+ }
+ 
+ static int hw_atl_a0_hw_init_tx_path(struct aq_hw_s *self)
+diff --git a/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.c b/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.c
+index 42150708191d..1bceb7358e5c 100644
+--- a/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.c
++++ b/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.c
+@@ -200,25 +200,18 @@ static int hw_atl_b0_hw_rss_set(struct aq_hw_s *self,
+ static int hw_atl_b0_hw_offload_set(struct aq_hw_s *self,
+ 				    struct aq_nic_cfg_s *aq_nic_cfg)
+ {
+-	int err = 0;
+ 	unsigned int i;
+ 
+ 	/* TX checksums offloads*/
+ 	tpo_ipv4header_crc_offload_en_set(self, 1);
+ 	tpo_tcp_udp_crc_offload_en_set(self, 1);
+-	if (err < 0)
+-		goto err_exit;
+ 
+ 	/* RX checksums offloads*/
+ 	rpo_ipv4header_crc_offload_en_set(self, 1);
+ 	rpo_tcp_udp_crc_offload_en_set(self, 1);
+-	if (err < 0)
+-		goto err_exit;
+ 
+ 	/* LSO offloads*/
+ 	tdm_large_send_offload_en_set(self, 0xFFFFFFFFU);
+-	if (err < 0)
+-		goto err_exit;
+ 
+ /* LRO offloads */
+ 	{
+@@ -245,10 +238,7 @@ static int hw_atl_b0_hw_offload_set(struct aq_hw_s *self,
+ 
+ 		rpo_lro_en_set(self, aq_nic_cfg->is_lro ? 0xFFFFFFFFU : 0U);
+ 	}
+-	err = aq_hw_err_from_flags(self);
+-
+-err_exit:
+-	return err;
++	return aq_hw_err_from_flags(self);
+ }
+ 
+ static int hw_atl_b0_hw_init_tx_path(struct aq_hw_s *self)
+-- 
+2.11.0
