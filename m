@@ -1,35 +1,102 @@
-From: "hch-jcswGhMUV9g@public.gmane.org" <hch-jcswGhMUV9g@public.gmane.org>
-Subject: Re: net/smc and the RDMA core
-Date: Thu, 11 May 2017 18:56:59 +0200
-Message-ID: <20170511165659.GB20043@lst.de>
-References: <20170501163311.GA22209@lst.de> <d9214af6-1c6f-9f95-fc00-3e4a316b4f81@linux.vnet.ibm.com> <1493750358.2552.13.camel@sandisk.com> <1b79048f-4495-3840-e7a6-d4fa5a8dfb57@grimberg.me> <20170504084825.GA5399@lst.de> <869d9fb6-0d83-5f57-f8e4-5c1ee7477b94@linux.vnet.ibm.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH] mdio: mux: Correct mdio_mux_init error path issues
+Date: Thu, 11 May 2017 10:05:27 -0700
+Message-ID: <d4126200-c1c1-1adc-120d-5fa55bf28ce5@gmail.com>
+References: <1494429627-5527-1-git-send-email-jon.mason@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "hch-jcswGhMUV9g@public.gmane.org" <hch-jcswGhMUV9g@public.gmane.org>, Sagi Grimberg <sagi-NQWnxTmZq1alnMjI0IkVqw@public.gmane.org>,
-        Bart Van Assche <Bart.VanAssche-XdAiOPVOjttBDgjK7y7TUQ@public.gmane.org>,
-        "davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Ursula Braun <ubraun-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <869d9fb6-0d83-5f57-f8e4-5c1ee7477b94-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        bcm-kernel-feedback-list@broadcom.com, andrew@lunn.ch
+To: Jon Mason <jon.mason@broadcom.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1494429627-5527-1-git-send-email-jon.mason@broadcom.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, May 11, 2017 at 06:50:04PM +0200, Ursula Braun wrote:
-> Please consider the following patch to make users aware of the
-> security implications through existing mechanisms.
+On 05/10/2017 08:20 AM, Jon Mason wrote:
+> There is a potential unnecessary refcount decriment on error path of
+> put_device(&pb->mii_bus->dev), as it is possible to avoid the
+> of_mdio_find_bus() call if mux_bus is specified by the calling function.
+> 
+> The same put_device() is not called in the error path if the
+> devm_kzalloc of pb fails.  This caused the variable used in the
+> put_device() to be changed, as the pb pointer was obviously not set up.
+> 
+> There is an unnecessary of_node_get() on child_bus_node if the
+> of_mdiobus_register() is successful, as the
+> for_each_available_child_of_node() automatically increments this.
+> Thus the refcount on this node will always be +1 more than it should be.
+> 
+> There is no of_node_put() on child_bus_node if the of_mdiobus_register()
+> call fails.
+> 
+> Finally, it is lacking devm_kfree() of pb in the error path.  While this
+> might not be technically necessary, it was present in other parts of the
+> function.  So, I am adding it where necessary to make it uniform.
+> 
+> Signed-off-by: Jon Mason <jon.mason@broadcom.com>
+> Fixes: f20e6657a875 ("mdio: mux: Enhanced MDIO mux framework for integrated multiplexers")
+> Fixes: 0ca2997d1452 ("netdev/of/phy: Add MDIO bus multiplexer support.")
 
-Any such patch would be in addition to the BROKEN marker until
-there is an actual alternative.
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
 
-> +		rmb_desc->mr_rx[SMC_SINGLE_LINK] =
-> +			lgr->lnk[SMC_SINGLE_LINK].roce_pd->__internal_mr;
+Please include "net" in the subject for future submissions, thanks!
 
-And it's named __internal_mr for reason.  The right interface to use
-the unsafe rkey is to use pd->unsafe_global_rkey.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> ---
+>  drivers/net/phy/mdio-mux.c | 12 +++++++-----
+>  1 file changed, 7 insertions(+), 5 deletions(-)
+> 
+> diff --git a/drivers/net/phy/mdio-mux.c b/drivers/net/phy/mdio-mux.c
+> index 963838d4fac1..6943c5ece44a 100644
+> --- a/drivers/net/phy/mdio-mux.c
+> +++ b/drivers/net/phy/mdio-mux.c
+> @@ -122,10 +122,9 @@ int mdio_mux_init(struct device *dev,
+>  	pb = devm_kzalloc(dev, sizeof(*pb), GFP_KERNEL);
+>  	if (pb == NULL) {
+>  		ret_val = -ENOMEM;
+> -		goto err_parent_bus;
+> +		goto err_pb_kz;
+>  	}
+>  
+> -
+>  	pb->switch_data = data;
+>  	pb->switch_fn = switch_fn;
+>  	pb->current_child = -1;
+> @@ -154,6 +153,7 @@ int mdio_mux_init(struct device *dev,
+>  		cb->mii_bus = mdiobus_alloc();
+>  		if (!cb->mii_bus) {
+>  			ret_val = -ENOMEM;
+> +			devm_kfree(dev, cb);
+>  			of_node_put(child_bus_node);
+>  			break;
+>  		}
+> @@ -169,8 +169,8 @@ int mdio_mux_init(struct device *dev,
+>  		if (r) {
+>  			mdiobus_free(cb->mii_bus);
+>  			devm_kfree(dev, cb);
+> +			of_node_put(child_bus_node);
+>  		} else {
+> -			of_node_get(child_bus_node);
+>  			cb->next = pb->children;
+>  			pb->children = cb;
+>  		}
+> @@ -181,9 +181,11 @@ int mdio_mux_init(struct device *dev,
+>  		return 0;
+>  	}
+>  
+> +	devm_kfree(dev, pb);
+> +err_pb_kz:
+>  	/* balance the reference of_mdio_find_bus() took */
+> -	put_device(&pb->mii_bus->dev);
+> -
+> +	if (!mux_bus)
+> +		put_device(&parent_bus->dev);
+>  err_parent_bus:
+>  	of_node_put(parent_bus_node);
+>  	return ret_val;
+> 
+
+
+-- 
+Florian
