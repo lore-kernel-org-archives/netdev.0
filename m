@@ -1,46 +1,31 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: [PATCH net] tcp: avoid fragmenting peculiar skbs in SACK
-Date: Wed, 10 May 2017 21:33:52 -0400
-Message-ID: <CADVnQynyA-pWE8cWPiiLP_=1tviBNeec97b3HBv_GOMxHZwA_Q@mail.gmail.com>
-References: <20170511000127.4249-1-ycheng@google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: openvswitch MTU patch needed in 4.10 stable
+Date: Wed, 10 May 2017 22:40:20 -0400 (EDT)
+Message-ID: <20170510.224020.1196873795096355425.davem@davemloft.net>
+References: <20170509084656.53f2d590@xeon-e3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-        Netdev <netdev@vger.kernel.org>,
-        Eric Dumazet <edumazet@google.com>,
-        Soheil Hassas Yeganeh <soheil@google.com>
-To: Yuchung Cheng <ycheng@google.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f49.google.com ([209.85.218.49]:35816 "EHLO
-        mail-oi0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751096AbdEKBeY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 10 May 2017 21:34:24 -0400
-Received: by mail-oi0-f49.google.com with SMTP id l18so14389867oig.2
-        for <netdev@vger.kernel.org>; Wed, 10 May 2017 18:34:24 -0700 (PDT)
-In-Reply-To: <20170511000127.4249-1-ycheng@google.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:45810 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754727AbdEKCka (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 10 May 2017 22:40:30 -0400
+In-Reply-To: <20170509084656.53f2d590@xeon-e3>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 10, 2017 at 8:01 PM, Yuchung Cheng <ycheng@google.com> wrote:
->
-> This patch fixes a bug in splitting an SKB during SACK
-> processing. Specifically if an skb contains multiple
-> packets and is only partially sacked in the higher sequences,
-> tcp_match_sack_to_skb() splits the skb and marks the second fragment
-> as SACKed.
->
-> The current code further attempts rounding up the first fragment
-> to MSS boundaries. But it misses a boundary condition when the
-> rounded-up fragment size (pkt_len) is exactly skb size.  Spliting
-> such an skb is pointless and causses a kernel warning and aborts
-> the SACK processing. This patch universally checks such over-split
-> before calling tcp_fragment to prevent these unnecessary warnings.
->
-> Fixes: adb92db857ee ("tcp: Make SACK code to split only at mss boundaries")
-> Signed-off-by: Yuchung Cheng <ycheng@google.com>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Signed-off-by: Soheil Hassas Yeganeh <soheil@google.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Tue, 9 May 2017 08:46:56 -0700
 
-Acked-by: Neal Cardwell <ncardwell@google.com>
+> Could you queue the patch to stable?
 
-neal
+It speeds things along if you actually specify the SHA1 ID of the
+specific commit being requested for a -stable backport.
+
+I did this work, but you could have taken a brief amount of time so
+that this would not have been necessary.
+
+Thanks.
