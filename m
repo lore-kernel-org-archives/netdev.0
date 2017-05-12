@@ -1,45 +1,60 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] mdio: mux: fix device_node_continue.cocci warnings
-Date: Fri, 12 May 2017 15:52:25 -0700
-Message-ID: <872f3980-9faa-718f-3260-9e4b22946140@gmail.com>
-References: <alpine.DEB.2.20.1705122252440.3416@hadrien>
- <20170512.122223.341607427763777325.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jon.mason@broadcom.com, andrew@lunn.ch,
-        kbuild-all@01.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>, julia.lawall@lip6.fr,
-        jon.mason@broadcom.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170512.122223.341607427763777325.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: [PATCH net v2] netvsc: fix net poll mode
+Date: Fri, 12 May 2017 15:55:30 -0700
+Message-ID: <20170512225530.2233-1-sthemmin@microsoft.com>
+Cc: netdev@vger.kernel.org, Stephen Hemminger <sthemmin@microsoft.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f182.google.com ([209.85.192.182]:35095 "EHLO
+        mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1757551AbdELWzk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 12 May 2017 18:55:40 -0400
+Received: by mail-pf0-f182.google.com with SMTP id n23so31524493pfb.2
+        for <netdev@vger.kernel.org>; Fri, 12 May 2017 15:55:40 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 05/12/2017 09:22 AM, David Miller wrote:
-> From: Julia Lawall <julia.lawall@lip6.fr>
-> Date: Fri, 12 May 2017 22:54:23 +0800 (SGT)
-> 
->> Device node iterators put the previous value of the index variable, so an
->> explicit put causes a double put.
->  ...
->> @@ -169,7 +169,6 @@ int mdio_mux_init(struct device *dev,
->>  		if (r) {
->>  			mdiobus_free(cb->mii_bus);
->>  			devm_kfree(dev, cb);
->> -			of_node_put(child_bus_node);
->>  		} else {
-> 
-> I think we're instead simply missing a break; statement here.
+The ndo_poll_controller function needs to schedule NAPI to pick
+up arriving packets and send completions. Otherwise no data
+will ever be received.
 
-It's kind of questionable, if we have an error initializing one of our
-child MDIO bus controller (child from the perspective of the MDIO mux,
-boy this is getting complicated...), should we keep on going, or should
-we abort entirely and rollback what we have successfully registered?
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+---
+v2 - use rcu to ensure lower data structure is present
 
-I don't think Julia's patch makes thing worse, in that if we had to
-rollback, we would not be doing this correctly now anyway.
+ drivers/net/hyperv/netvsc_drv.c | 19 +++++++++++++++----
+ 1 file changed, 15 insertions(+), 4 deletions(-)
 
-Jon, what do you think?
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index 4421a6d00375..c171f5bc41b9 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -1158,11 +1158,22 @@ netvsc_get_rxnfc(struct net_device *dev, struct ethtool_rxnfc *info,
+ }
+ 
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+-static void netvsc_poll_controller(struct net_device *net)
++static void netvsc_poll_controller(struct net_device *dev)
+ {
+-	/* As netvsc_start_xmit() works synchronous we don't have to
+-	 * trigger anything here.
+-	 */
++	struct net_device_context *ndc = netdev_priv(dev);
++	struct netvsc_device *ndev;
++	int i;
++
++	rcu_read_lock();
++	ndev = rcu_dereference(ndc->nvdev);
++	if (ndev) {
++		for (i = 0; i < ndev->num_chn; i++) {
++			struct netvsc_channel *nvchan = &ndev->chan_table[i];
++
++			napi_schedule(&nvchan->napi);
++		}
++	}
++	rcu_read_unlock();
+ }
+ #endif
+ 
 -- 
-Florian
+2.11.0
