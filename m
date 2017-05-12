@@ -1,30 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tools: hv: Add clean up for included files in
- Ubuntu net config
-Date: Fri, 12 May 2017 12:20:26 -0400 (EDT)
-Message-ID: <20170512.122026.71874509847193117.davem@davemloft.net>
-References: <1494598413-19106-1-git-send-email-haiyangz@exchange.microsoft.com>
+Subject: Re: [PATCH] mdio: mux: fix device_node_continue.cocci warnings
+Date: Fri, 12 May 2017 12:22:23 -0400 (EDT)
+Message-ID: <20170512.122223.341607427763777325.davem@davemloft.net>
+References: <alpine.DEB.2.20.1705122252440.3416@hadrien>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kys@microsoft.com, olaf@aepfle.de,
-        vkuznets@redhat.com, linux-kernel@vger.kernel.org
-To: haiyangz@microsoft.com, haiyangz@exchange.microsoft.com
+Cc: netdev@vger.kernel.org, jon.mason@broadcom.com, andrew@lunn.ch,
+        f.fainelli@gmail.com, kbuild-all@01.org,
+        linux-kernel@vger.kernel.org
+To: julia.lawall@lip6.fr
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1494598413-19106-1-git-send-email-haiyangz@exchange.microsoft.com>
+In-Reply-To: <alpine.DEB.2.20.1705122252440.3416@hadrien>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Haiyang Zhang <haiyangz@exchange.microsoft.com>
-Date: Fri, 12 May 2017 07:13:33 -0700
+From: Julia Lawall <julia.lawall@lip6.fr>
+Date: Fri, 12 May 2017 22:54:23 +0800 (SGT)
 
->  
-> +	local fn
-> +	for fn in "${fnlist[@]}"
-> +	do
->  	awk "/$nic_end/{x=0} x{next} /$nic_start/{x=1;next} 1"  $fn >$tmpfl
->  
->  	cp $tmpfl $fn
-> +	done
+> Device node iterators put the previous value of the index variable, so an
+> explicit put causes a double put.
+ ...
+> @@ -169,7 +169,6 @@ int mdio_mux_init(struct device *dev,
+>  		if (r) {
+>  			mdiobus_free(cb->mii_bus);
+>  			devm_kfree(dev, cb);
+> -			of_node_put(child_bus_node);
+>  		} else {
 
-Please indent the body of this loop properly.
+I think we're instead simply missing a break; statement here.
