@@ -1,51 +1,56 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ipv6: Implement limits on hop by hop and
- destination options
-Date: Fri, 12 May 2017 11:38:47 -0400 (EDT)
-Message-ID: <20170512.113847.1389407948502066394.davem@davemloft.net>
-References: <1494451999-19031-1-git-send-email-tom@herbertland.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: Queries regarding TAP interface
+Date: Fri, 12 May 2017 08:52:29 -0700
+Message-ID: <20170512085229.3cecd2d1@xeon-e3>
+References: <C7C039BE-EDC9-4E82-BC66-EEDE814F9E56@cavium.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kafai@fb.com
-To: tom@herbertland.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Kashyap, Saurav" <Saurav.Kashyap@cavium.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:34976 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756738AbdELPit (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 12 May 2017 11:38:49 -0400
-In-Reply-To: <1494451999-19031-1-git-send-email-tom@herbertland.com>
+Received: from mail-pg0-f48.google.com ([74.125.83.48]:33870 "EHLO
+        mail-pg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1757351AbdELPwc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 12 May 2017 11:52:32 -0400
+Received: by mail-pg0-f48.google.com with SMTP id u28so32138637pgn.1
+        for <netdev@vger.kernel.org>; Fri, 12 May 2017 08:52:32 -0700 (PDT)
+In-Reply-To: <C7C039BE-EDC9-4E82-BC66-EEDE814F9E56@cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tom Herbert <tom@herbertland.com>
-Date: Wed, 10 May 2017 14:33:19 -0700
+On Fri, 12 May 2017 05:02:37 +0000
+"Kashyap, Saurav" <Saurav.Kashyap@cavium.com> wrote:
 
-> RFC 2460 (IPv6) defines hop by hop options and destination options
-> extension headers. Both of these carry a list of TLVs which is
-> only limited by the maximum length of the extension header (2048
-> bytes). By the spec a host must process all the TLVs in these
-> options, however these could be used as a fairly obvious
-> denial of service attack. I think this could in fact be
-> a significant DOS vector on the Internet, one mitigating
-> factor might be that many FWs drop all packets with EH (and
-> obviously this is only IPv6) so an Internet wide attack might not
-> be so effective (yet!).
-> 
-> By my calculation, the worse case packet with TLVs in a standard
-> 1500 byte MTU packet that would be processed by the stack contains
-> 1282 invidual TLVs (including pad TLVS) or 724 two byte TLVs. I
-> wrote a quick test program that floods a whole bunch of these
-> packets to a host and sure enough there is substantial time spent
-> in ip6_parse_tlv. These packets contain nothing but unknown TLVS
-> (that are ignored), TLV padding, and bogus UDP header with zero
-> payload length.
- ...
-> Default values are set to 8 for options counts, and set to INT_MAX
-> for maximum length. Note the choice to limit options to 8 is an
-> arbitrary guess (roughly based on the fact that the stack supports
-> three HBH options and just one destination option).
+> Hi,
+>=20
+> I am using upstream kernel 4.11.0 and base is RHEL 7.2. I am playing arou=
+nd with TAP devices and created it using following commands
+> =3D=3D=3D=3D=3D=3D=3D
+> ip tuntap add tap10 mode tap
+> ip addr add 172.28.12.1/24 dev tap10
+> ip link set tap10 up
+> ethtool -s tap10 msglvl 1
+> =3D=3D=3D=3D=3D=3D=3D
+>=20
+> I enabled debug in driver and also added some prints in tun_net_xmit func=
+tion. I tried to ping using tap10 but I don=E2=80=99t see request reaching =
+driver. I also tried to create a bridge using brctl and link with physical =
+ethernet interface but it didn=E2=80=99t work.
+>=20
+> Second experiment I did was to create two tap device on same system and t=
+ry pinging one from another, that also didn=E2=80=99t worked.=20
+> I have following queries
+> 1) Is I am missing something?=20
+> 2) Is is possible to hook my own tx/rx to that tap device, so that data p=
+ackets actually goes on wire?
+> 3) Does DHCP works with tap devices?
+>=20
+>=20
+> Thanks,
+> ~Saurav
+>=20
 
-So the maximum number of TLVs we could process is some function of the
-option count limit, and the number of padding TLVs that can be stuffed
-alongside of those 8 non-padding options?
+Don't you need an application reading/writing the tap device?
+The carrier state of tap device is up/down based on whether the correspondi=
+ng tap device is open
