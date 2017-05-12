@@ -1,48 +1,159 @@
-From: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 0/5] net-next: ethernet: add sun8i-emac driver
-Date: Fri, 12 May 2017 16:03:28 +0200
-Message-ID: <20170512140328.GA22554@Red>
-References: <1464947790-22991-1-git-send-email-clabbe.montjoie@gmail.com>
- <593bffd3-a04a-421b-86d4-ed3035c79445@googlegroups.com>
-Reply-To: clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: linux-sunxi <linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
-	pawel.moll-5wv7dgnIgG8@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
-	ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org, galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
-	maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org, wens-jdAy2FN1RRM@public.gmane.org,
-	linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Mahesh Nanavalla <mahesh.nanavalla-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-sunxi+bncBD7YLCN32UNBBNUB27EAKGQER6XJO4Y-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-Content-Disposition: inline
-In-Reply-To: <593bffd3-a04a-421b-86d4-ed3035c79445-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Help: <https://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Archive: <https://groups.google.com/group/linux-sunxi
-List-Subscribe: <https://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
- <https://groups.google.com/group/linux-sunxi/subscribe>
+From: Mauro Carvalho Chehab <mchehab@s-opensource.com>
+Subject: [PATCH 31/36] net: fix some identation issues at kernel-doc markups
+Date: Fri, 12 May 2017 11:00:14 -0300
+Message-ID: <838b8324deb5fb5a789a0f1e8f121bdd50689a30.1494596071.git.mchehab@s-opensource.com>
+References: <cover.1494596071.git.mchehab@s-opensource.com>
+Cc: Mauro Carvalho Chehab <mchehab@s-opensource.com>,
+        Mauro Carvalho Chehab <mchehab@infradead.org>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>,
+        Paolo Abeni <pabeni@redhat.com>,
+        Al Viro <viro@zeniv.linux.org.uk>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        Ding Tianhong <dingtianhong@huawei.com>,
+        Alexander Duyck <alexander.h.duyck@intel.com>,
+        Soheil Hassas Yeganeh <soheil@google.com>,
+        Ursula Braun <ubraun@linux.vnet.ibm.com>,
+        Johannes Weiner <hannes@cmpxchg.org>,
+        Sridhar Samudrala <sridhar.samudrala@intel.com>,
+        David Howells <dhowells@redhat.com>,
+        Josh Hunt <johunt@akamai.com>, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org,
+        Linux Doc Mailing List <linux-doc@vger.kernel.org>
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <cover.1494596071.git.mchehab@s-opensource.com>
+In-Reply-To: <cover.1494596071.git.mchehab@s-opensource.com>
+References: <cover.1494596071.git.mchehab@s-opensource.com>
+Sender: linux-doc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, May 12, 2017 at 06:09:17AM -0700, Mahesh Nanavalla wrote:
-> Hi All,
-> 
-> I am new to Ethernet Driver.
-> 
-> I am working on NanoPI Neo Based on SUN8i-H3 SOC ...
-> 
-> can any body helpout to up the Ethernet on The NanoPi Neo.
-> 
+Sphinx is very pedantic with regards to identation and
+escape sequences:
 
-Ouch, you answer to a very old email (1 year!).
+  ./include/net/sock.h:1967: ERROR: Unexpected indentation.
+  ./include/net/sock.h:1969: ERROR: Unexpected indentation.
+  ./include/net/sock.h:1970: WARNING: Block quote ends without a blank line; unexpected unindent.
+  ./include/net/sock.h:1971: WARNING: Block quote ends without a blank line; unexpected unindent.
+  ./include/net/sock.h:2268: WARNING: Inline emphasis start-string without end-string.
+  ./net/core/sock.c:2686: ERROR: Unexpected indentation.
+  ./net/core/sock.c:2687: WARNING: Block quote ends without a blank line; unexpected unindent.
+  ./net/core/datagram.c:182: WARNING: Inline emphasis start-string without end-string.
+  ./include/linux/netdevice.h:1444: ERROR: Unexpected indentation.
+  ./drivers/net/phy/phy.c:381: ERROR: Unexpected indentation.
+  ./drivers/net/phy/phy.c:382: WARNING: Block quote ends without a blank line; unexpected unindent.
 
-The best way to check for support of your board is linux-sunxi.org
+- Fix spacing where needed;
+- Properly escape constants;
+- Use a literal block for a race description.
 
-Anyway, I will update this week my github branch dwmac-sun8i branch with a DT patch for your board.
-If it works, contact me directly.
+No functional changes.
 
-Regards
-Corentin Labbe
+Signed-off-by: Mauro Carvalho Chehab <mchehab@s-opensource.com>
+---
+ drivers/net/phy/phy.c     | 1 +
+ include/linux/netdevice.h | 9 +++++----
+ include/net/sock.h        | 9 ++++-----
+ net/core/datagram.c       | 2 +-
+ net/core/sock.c           | 7 +++++--
+ 5 files changed, 16 insertions(+), 12 deletions(-)
+
+diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
+index 82ab8fb82587..709b8be53443 100644
+--- a/drivers/net/phy/phy.c
++++ b/drivers/net/phy/phy.c
+@@ -377,6 +377,7 @@ static void phy_sanitize_settings(struct phy_device *phydev)
+  * @cmd: ethtool_cmd
+  *
+  * A few notes about parameter checking:
++ *
+  * - We don't set port or transceiver, so we don't care what they
+  *   were set to.
+  * - phy_start_aneg() will make sure forced settings are sane, and
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 9c23bd2efb56..56d54b6fac45 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1433,13 +1433,14 @@ enum netdev_priv_flags {
+ 
+ /**
+  *	struct net_device - The DEVICE structure.
+- *		Actually, this whole structure is a big mistake.  It mixes I/O
+- *		data with strictly "high-level" data, and it has to know about
+- *		almost every data structure used in the INET module.
++ *
++ *	Actually, this whole structure is a big mistake.  It mixes I/O
++ *	data with strictly "high-level" data, and it has to know about
++ *	almost every data structure used in the INET module.
+  *
+  *	@name:	This is the first field of the "visible" part of this structure
+  *		(i.e. as seen by users in the "Space.c" file).  It is the name
+- *	 	of the interface.
++ *		of the interface.
+  *
+  *	@name_hlist: 	Device name hash chain, please keep it close to name[]
+  *	@ifalias:	SNMP alias
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 66349e49d468..9ca99b5c1328 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -1953,11 +1953,10 @@ static inline bool sk_has_allocations(const struct sock *sk)
+  * The purpose of the skwq_has_sleeper and sock_poll_wait is to wrap the memory
+  * barrier call. They were added due to the race found within the tcp code.
+  *
+- * Consider following tcp code paths:
++ * Consider following tcp code paths::
+  *
+- * CPU1                  CPU2
+- *
+- * sys_select            receive packet
++ *   CPU1                CPU2
++ *   sys_select          receive packet
+  *   ...                 ...
+  *   __add_wait_queue    update tp->rcv_nxt
+  *   ...                 ...
+@@ -2264,7 +2263,7 @@ void __sock_tx_timestamp(__u16 tsflags, __u8 *tx_flags);
+  * @tsflags:	timestamping flags to use
+  * @tx_flags:	completed with instructions for time stamping
+  *
+- * Note : callers should take care of initial *tx_flags value (usually 0)
++ * Note: callers should take care of initial ``*tx_flags`` value (usually 0)
+  */
+ static inline void sock_tx_timestamp(const struct sock *sk, __u16 tsflags,
+ 				     __u8 *tx_flags)
+diff --git a/net/core/datagram.c b/net/core/datagram.c
+index db1866f2ffcf..4dd594741b6d 100644
+--- a/net/core/datagram.c
++++ b/net/core/datagram.c
+@@ -181,7 +181,7 @@ static struct sk_buff *skb_set_peeked(struct sk_buff *skb)
+  *
+  *	This function will lock the socket if a skb is returned, so
+  *	the caller needs to unlock the socket in that case (usually by
+- *	calling skb_free_datagram). Returns NULL with *err set to
++ *	calling skb_free_datagram). Returns NULL with @err set to
+  *	-EAGAIN if no data was available or to some other value if an
+  *	error was detected.
+  *
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 79c6aee6af9b..6adc69edfdd6 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -2682,9 +2682,12 @@ EXPORT_SYMBOL(release_sock);
+  * @sk: socket
+  *
+  * This version should be used for very small section, where process wont block
+- * return false if fast path is taken
++ * return false if fast path is taken:
++ *
+  *   sk_lock.slock locked, owned = 0, BH disabled
+- * return true if slow path is taken
++ *
++ * return true if slow path is taken:
++ *
+  *   sk_lock.slock unlocked, owned = 1, BH enabled
+  */
+ bool lock_sock_fast(struct sock *sk)
+-- 
+2.9.3
+
