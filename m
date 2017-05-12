@@ -1,48 +1,42 @@
 From: Johan Hovold <johan@kernel.org>
-Subject: [PATCH] net: can: peak: fix product-id endianness in error message
-Date: Fri, 12 May 2017 12:09:25 +0200
-Message-ID: <20170512100925.1841-1-johan@kernel.org>
-Cc: linux-can@vger.kernel.org, netdev@vger.kernel.org,
-        Johan Hovold <johan@kernel.org>
-To: Wolfgang Grandegger <wg@grandegger.com>,
-        Marc Kleine-Budde <mkl@pengutronix.de>
-Return-path: <linux-can-owner@vger.kernel.org>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Subject: [PATCH] net: irda: irda-usb: fix firmware name on big-endian hosts
+Date: Fri, 12 May 2017 12:11:13 +0200
+Message-ID: <20170512101113.1935-1-johan@kernel.org>
+Cc: netdev@vger.kernel.org, Johan Hovold <johan@kernel.org>,
+        stable <stable@vger.kernel.org>,
+        Nick Fedchik <nfedchik@atlantic-link.com.ua>
+To: Samuel Ortiz <samuel@sortiz.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:36383 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756761AbdELKLe (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 12 May 2017 06:11:34 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Make sure to use the USB device product-id stored in host-byte order in
-a probe error message.
+Add missing endianness conversion when using the USB device-descriptor
+bcdDevice field to construct a firmware file name.
 
-Also remove a redundant reassignment of the local usb_dev variable which
-had already been used to retrieve the product id.
-
+Fixes: 8ef80aef118e ("[IRDA]: irda-usb.c: STIR421x cleanups")
+Cc: stable <stable@vger.kernel.org>     # 2.6.18
+Cc: Nick Fedchik <nfedchik@atlantic-link.com.ua>
 Signed-off-by: Johan Hovold <johan@kernel.org>
 ---
- drivers/net/can/usb/peak_usb/pcan_usb_core.c | 4 +---
- 1 file changed, 1 insertion(+), 3 deletions(-)
+ drivers/net/irda/irda-usb.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/can/usb/peak_usb/pcan_usb_core.c b/drivers/net/can/usb/peak_usb/pcan_usb_core.c
-index 57913dbbae0a..1ca76e03e965 100644
---- a/drivers/net/can/usb/peak_usb/pcan_usb_core.c
-+++ b/drivers/net/can/usb/peak_usb/pcan_usb_core.c
-@@ -908,8 +908,6 @@ static int peak_usb_probe(struct usb_interface *intf,
- 	const struct peak_usb_adapter *peak_usb_adapter = NULL;
- 	int i, err = -ENOMEM;
- 
--	usb_dev = interface_to_usbdev(intf);
--
- 	/* get corresponding PCAN-USB adapter */
- 	for (i = 0; i < ARRAY_SIZE(peak_usb_adapters_list); i++)
- 		if (peak_usb_adapters_list[i]->device_id == usb_id_product) {
-@@ -920,7 +918,7 @@ static int peak_usb_probe(struct usb_interface *intf,
- 	if (!peak_usb_adapter) {
- 		/* should never come except device_id bad usage in this file */
- 		pr_err("%s: didn't find device id. 0x%x in devices list\n",
--			PCAN_USB_DRIVER_NAME, usb_dev->descriptor.idProduct);
-+			PCAN_USB_DRIVER_NAME, usb_id_product);
- 		return -ENODEV;
- 	}
- 
+diff --git a/drivers/net/irda/irda-usb.c b/drivers/net/irda/irda-usb.c
+index 8716b8c07feb..6f3c805f7211 100644
+--- a/drivers/net/irda/irda-usb.c
++++ b/drivers/net/irda/irda-usb.c
+@@ -1077,7 +1077,7 @@ static int stir421x_patch_device(struct irda_usb_cb *self)
+          * are "42101001.sb" or "42101002.sb"
+          */
+         sprintf(stir421x_fw_name, "4210%4X.sb",
+-                self->usbdev->descriptor.bcdDevice);
++		le16_to_cpu(self->usbdev->descriptor.bcdDevice));
+         ret = request_firmware(&fw, stir421x_fw_name, &self->usbdev->dev);
+         if (ret < 0)
+                 return ret;
 -- 
 2.13.0
-
