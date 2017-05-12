@@ -1,56 +1,58 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: Queries regarding TAP interface
-Date: Fri, 12 May 2017 08:52:29 -0700
-Message-ID: <20170512085229.3cecd2d1@xeon-e3>
-References: <C7C039BE-EDC9-4E82-BC66-EEDE814F9E56@cavium.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Kashyap, Saurav" <Saurav.Kashyap@cavium.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: [PATCH] vmxnet3: ensure that adapter is in proper state during force_close
+Date: Fri, 12 May 2017 12:00:01 -0400
+Message-ID: <20170512160001.24425-1-nhorman@tuxdriver.com>
+Cc: Neil Horman <nhorman@tuxdriver.com>,
+        Shrikrishna Khare <skhare@vmware.com>,
+        "VMware, Inc." <pv-drivers@vmware.com>,
+        "David S. Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f48.google.com ([74.125.83.48]:33870 "EHLO
-        mail-pg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757351AbdELPwc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 12 May 2017 11:52:32 -0400
-Received: by mail-pg0-f48.google.com with SMTP id u28so32138637pgn.1
-        for <netdev@vger.kernel.org>; Fri, 12 May 2017 08:52:32 -0700 (PDT)
-In-Reply-To: <C7C039BE-EDC9-4E82-BC66-EEDE814F9E56@cavium.com>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:33317 "EHLO
+        smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756671AbdELQAp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 12 May 2017 12:00:45 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 12 May 2017 05:02:37 +0000
-"Kashyap, Saurav" <Saurav.Kashyap@cavium.com> wrote:
+There are several paths in vmxnet3, where settings changes cause the
+adapter to be brought down and back up (vmxnet3_set_ringparam among
+them).  Should part of the reset operation fail, these paths call
+vmxnet3_force_close, which enables all napi instances prior to calling
+dev_close (with the expectation that vmxnet3_close will then properly
+disable them again).  However, vmxnet3_force_close neglects to clear
+VMXNET3_STATE_BIT_QUIESCED prior to calling dev_close.  As a result
+vmxnet3_quiesce_dev (called from vmxnet3_close), returns early, and
+leaves all the napi instances in a enabled state while the device itself
+is closed.  If a device in this state is activated again, napi_enable
+will be called on already enabled napi_instances, leading to a BUG halt.
 
-> Hi,
->=20
-> I am using upstream kernel 4.11.0 and base is RHEL 7.2. I am playing arou=
-nd with TAP devices and created it using following commands
-> =3D=3D=3D=3D=3D=3D=3D
-> ip tuntap add tap10 mode tap
-> ip addr add 172.28.12.1/24 dev tap10
-> ip link set tap10 up
-> ethtool -s tap10 msglvl 1
-> =3D=3D=3D=3D=3D=3D=3D
->=20
-> I enabled debug in driver and also added some prints in tun_net_xmit func=
-tion. I tried to ping using tap10 but I don=E2=80=99t see request reaching =
-driver. I also tried to create a bridge using brctl and link with physical =
-ethernet interface but it didn=E2=80=99t work.
->=20
-> Second experiment I did was to create two tap device on same system and t=
-ry pinging one from another, that also didn=E2=80=99t worked.=20
-> I have following queries
-> 1) Is I am missing something?=20
-> 2) Is is possible to hook my own tx/rx to that tap device, so that data p=
-ackets actually goes on wire?
-> 3) Does DHCP works with tap devices?
->=20
->=20
-> Thanks,
-> ~Saurav
->=20
+The fix is to simply enausre that the QUIESCED bit is cleared in
+vmxnet3_force_close to allow quesence to be completed properly on close.
 
-Don't you need an application reading/writing the tap device?
-The carrier state of tap device is up/down based on whether the correspondi=
-ng tap device is open
+Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+CC: Shrikrishna Khare <skhare@vmware.com>
+CC: "VMware, Inc." <pv-drivers@vmware.com>
+CC: "David S. Miller" <davem@davemloft.net>
+---
+ drivers/net/vmxnet3/vmxnet3_drv.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
+index 25bc764..d1c7029 100644
+--- a/drivers/net/vmxnet3/vmxnet3_drv.c
++++ b/drivers/net/vmxnet3/vmxnet3_drv.c
+@@ -2962,6 +2962,11 @@ vmxnet3_force_close(struct vmxnet3_adapter *adapter)
+ 	/* we need to enable NAPI, otherwise dev_close will deadlock */
+ 	for (i = 0; i < adapter->num_rx_queues; i++)
+ 		napi_enable(&adapter->rx_queue[i].napi);
++	/*
++	 * Need to clear the quiesce bit to ensure that vmxnet3_close
++	 * can quiesce the device properly
++	 */
++	clear_bit(VMXNET3_STATE_BIT_QUIESCED, &adapter->state);
+ 	dev_close(adapter->netdev);
+ }
+ 
+-- 
+2.9.3
