@@ -1,43 +1,45 @@
-From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [net 5/6] net/mlx5e: IPoIB, Only support regular RQ for now
-Date: Fri, 12 May 2017 14:56:49 +0300
-Message-ID: <20170512115650.11635-6-saeedm@mellanox.com>
-References: <20170512115650.11635-1-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Saeed Mahameed <saeedm@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:51205 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1755900AbdELMCD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 12 May 2017 08:02:03 -0400
-In-Reply-To: <20170512115650.11635-1-saeedm@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] ravb: add wake-on-lan support via magic packet
+Date: Fri, 12 May 2017 15:06:59 +0300
+Message-ID: <45ae8c69-8420-eedd-7f97-ab78fe300949@cogentembedded.com>
+References: <20170511222735.10706-1-niklas.soderlund+renesas@ragnatech.se>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org
+To: =?UTF-8?Q?Niklas_S=c3=b6derlund?=
+        <niklas.soderlund+renesas@ragnatech.se>
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+In-Reply-To: <20170511222735.10706-1-niklas.soderlund+renesas@ragnatech.se>
+Sender: linux-renesas-soc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-IPoIB doesn't support striding RQ at the moment, for this
-we need to explicitly choose non striding RQ in IPoIB init,
-even if the HW supports it.
+Hello!
 
-Fixes: 8f493ffd88ea ("net/mlx5e: IPoIB, RX steering RSS RQTs and TIRs")
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx5/core/ipoib.c | 4 ++++
- 1 file changed, 4 insertions(+)
+On 05/12/2017 01:27 AM, Niklas Söderlund wrote:
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/ipoib.c b/drivers/net/ethernet/mellanox/mlx5/core/ipoib.c
-index 019c230da498..56bff3540954 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/ipoib.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/ipoib.c
-@@ -66,6 +66,10 @@ static void mlx5i_init(struct mlx5_core_dev *mdev,
- 
- 	mlx5e_build_nic_params(mdev, &priv->channels.params, profile->max_nch(mdev));
- 
-+	/* Override RQ params as IPoIB supports only LINKED LIST RQ for now */
-+	mlx5e_set_rq_type_params(mdev, &priv->channels.params, MLX5_WQ_TYPE_LINKED_LIST);
-+	priv->channels.params.lro_en = false;
-+
- 	mutex_init(&priv->state_lock);
- 
- 	netdev->hw_features    |= NETIF_F_SG;
--- 
-2.11.0
+> WoL is enabled in the suspend callback by setting MagicPacket detection
+> and disabling all interrupts expect MagicPacket. In the resume path the
+
+    Except.
+
+> driver needs to reset the hardware to rearm the WoL logic, this prevents
+> the driver from simply restoring the registers and to take advantage of
+> that ravb was not suspended to reduce resume time. To reset the
+> hardware the driver closes the device, sets it in reset mode and reopens
+> the device just like it would do in a normal suspend/resume scenario
+> without WoL enabled, but it both closes and opens the device in the
+> resume callback since the device needs to be reset for WoL to work.
+>
+> One quirk needed for WoL is that the module clock needs to be prevented
+> from being switched off by Runtime PM. To keep the clock alive the
+> suspend callback need to call clk_enable() directly to increase the
+> usage count of the clock. Then when Runtime PM decreases the clock usage
+> count it won't reach 0 and be switched off.
+>
+> Signed-off-by: Niklas Söderlund <niklas.soderlund+renesas@ragnatech.se>
+[...]
+
+Acked-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+
+MBR, Sergei
