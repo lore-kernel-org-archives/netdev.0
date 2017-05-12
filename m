@@ -1,40 +1,54 @@
-From: linzhang <xiaolou4617@gmail.com>
-Subject: [PATCH] net: netfilter: netlink: delete extra spaces
-Date: Fri, 12 May 2017 13:11:06 +0800
-Message-ID: <1494565866-23308-1-git-send-email-xiaolou4617@gmail.com>
-Cc: kadlec@blackhole.kfki.hu, fw@strlen.de, davem@davemloft.net,
-        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linzhang <xiaolou4617@gmail.com>
-To: pablo@netfilter.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Yuval Shaia <yuval.shaia-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH v4] net/mlx4_core: Use min3 to select number of MSI-X vectors
+Date: Fri, 12 May 2017 09:10:51 +0300
+Message-ID: <1494569451-2567-1-git-send-email-yuval.shaia@oracle.com>
+To: yishaih-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This patch cleans up extra spaces.
-
-Signed-off-by: linzhang <xiaolou4617@gmail.com>
+Signed-off-by: Yuval Shaia <yuval.shaia-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
 ---
- net/netfilter/nf_conntrack_netlink.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+v0 -> v1:
+	* s/"min_t("/"min_t(int"
+v1 -> v2:
+	* Use min3 instead of min_t twice
+v2 -> v3:
+	* Change commit log header message to reflect the changes made in
+	  v2
+v3 -> v4:
+	* Cast return value from num_online_cpus to int to avoid
+	  compilation errors from "sparse"
+---
+ drivers/net/ethernet/mellanox/mlx4/main.c | 10 ++++------
+ 1 file changed, 4 insertions(+), 6 deletions(-)
 
-diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
-index dcf561b..356e6f0 100644
---- a/net/netfilter/nf_conntrack_netlink.c
-+++ b/net/netfilter/nf_conntrack_netlink.c
-@@ -634,11 +634,11 @@ static size_t ctnetlink_nlmsg_size(const struct nf_conn *ct)
- 	if (events & (1 << IPCT_DESTROY)) {
- 		type = IPCTNL_MSG_CT_DELETE;
- 		group = NFNLGRP_CONNTRACK_DESTROY;
--	} else  if (events & ((1 << IPCT_NEW) | (1 << IPCT_RELATED))) {
-+	} else if (events & ((1 << IPCT_NEW) | (1 << IPCT_RELATED))) {
- 		type = IPCTNL_MSG_CT_NEW;
- 		flags = NLM_F_CREATE|NLM_F_EXCL;
- 		group = NFNLGRP_CONNTRACK_NEW;
--	} else  if (events) {
-+	} else if (events) {
- 		type = IPCTNL_MSG_CT_NEW;
- 		group = NFNLGRP_CONNTRACK_UPDATE;
- 	} else
+diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
+index 7032054..83aab1e 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/main.c
++++ b/drivers/net/ethernet/mellanox/mlx4/main.c
+@@ -2862,12 +2862,10 @@ static void mlx4_enable_msi_x(struct mlx4_dev *dev)
+ 	int port = 0;
+ 
+ 	if (msi_x) {
+-		int nreq = dev->caps.num_ports * num_online_cpus() + 1;
+-
+-		nreq = min_t(int, dev->caps.num_eqs - dev->caps.reserved_eqs,
+-			     nreq);
+-		if (nreq > MAX_MSIX)
+-			nreq = MAX_MSIX;
++		int nreq = min3(dev->caps.num_ports *
++				(int)num_online_cpus() + 1,
++				dev->caps.num_eqs - dev->caps.reserved_eqs,
++				MAX_MSIX);
+ 
+ 		entries = kcalloc(nreq, sizeof *entries, GFP_KERNEL);
+ 		if (!entries)
 -- 
-1.8.3.1
+2.7.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
