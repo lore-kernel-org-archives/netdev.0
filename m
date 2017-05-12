@@ -1,61 +1,81 @@
-From: Daniel Kim <dkim@playmechanix.com>
-Subject: Re: [Problem] Broadcom BCM5762 Ethernet tg3 times out with stack trace
-Date: Fri, 12 May 2017 18:12:22 -0500
-Message-ID: <CANeD+K_hYMuC_AqB97fjBt+NXCMi5r8KzCNpcvFBk5obKL_k=w@mail.gmail.com>
-References: <CAMet4B7c_wT3rk2DBcTBmdMpPpHuiuWSEae=VLrVH_tfcZT1_g@mail.gmail.com>
- <CANeD+K_ojPPUS2QtHRg+1o4EZaCSFcaa=dDPfkR2tUYNwdGNiw@mail.gmail.com> <CACKFLi=762N5LzmcOE4dPS_1Op8EsJ8QJBRFqZySaSx7SNb1bg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Siva Reddy Kallam <siva.kallam@broadcom.com>,
-        Prashant Sreedharan <prashant@broadcom.com>,
-        Michael Chan <mchan@broadcom.com>,
-        Linux Netdev List <netdev@vger.kernel.org>
-To: Michael Chan <michael.chan@broadcom.com>
+From: Mahesh Bandewar <mahesh@bandewar.net>
+Subject: [PATCH] kmod: don't load module unless req process has CAP_SYS_MODULE
+Date: Fri, 12 May 2017 16:22:59 -0700
+Message-ID: <20170512232259.10820-1-mahesh@bandewar.net>
+Cc: "Eric W . Biederman" <ebiederm@xmission.com>,
+        Kees Cook <keescook@chromium.org>,
+        David Miller <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>,
+        Mahesh Bandewar <mahesh@bandewar.net>,
+        Mahesh Bandewar <maheshb@google.com>
+To: Ingo Molnar <mingo@kernel.org>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f46.google.com ([209.85.214.46]:38780 "EHLO
-        mail-it0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752976AbdELXMX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 12 May 2017 19:12:23 -0400
-Received: by mail-it0-f46.google.com with SMTP id e65so45157600ita.1
-        for <netdev@vger.kernel.org>; Fri, 12 May 2017 16:12:23 -0700 (PDT)
-In-Reply-To: <CACKFLi=762N5LzmcOE4dPS_1Op8EsJ8QJBRFqZySaSx7SNb1bg@mail.gmail.com>
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:35382 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754977AbdELXXU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 12 May 2017 19:23:20 -0400
+Received: by mail-pg0-f67.google.com with SMTP id i63so9186156pgd.2
+        for <netdev@vger.kernel.org>; Fri, 12 May 2017 16:23:20 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I believe I do have IOMMU enabled. At least the dmesg output seems to
-imply that I do:
-[    1.141948] iommu: Adding device 0000:00:02.0 to group 0
-[    1.142033] iommu: Adding device 0000:00:10.0 to group 1
-[    1.142074] iommu: Adding device 0000:00:10.1 to group 1
-[    1.142119] iommu: Adding device 0000:00:11.0 to group 2
-[    1.142172] iommu: Adding device 0000:00:12.0 to group 3
-[    1.142184] iommu: Adding device 0000:00:12.2 to group 3
-[    1.142234] iommu: Adding device 0000:00:13.0 to group 4
-[    1.142247] iommu: Adding device 0000:00:13.2 to group 4
-[    1.142303] iommu: Adding device 0000:00:14.0 to group 5
-[    1.142315] iommu: Adding device 0000:00:14.2 to group 5
-[    1.142328] iommu: Adding device 0000:00:14.3 to group 5
-[    1.142373] iommu: Adding device 0000:00:14.4 to group 6
-[    1.142417] iommu: Adding device 0000:00:14.5 to group 7
-[    1.142529] iommu: Adding device 0000:00:15.0 to group 8
-[    1.142570] iommu: Adding device 0000:00:15.2 to group 8
-[    1.142639] iommu: Adding device 0000:00:18.0 to group 9
-[    1.142653] iommu: Adding device 0000:00:18.1 to group 9
-[    1.142668] iommu: Adding device 0000:00:18.2 to group 9
-[    1.142682] iommu: Adding device 0000:00:18.3 to group 9
-[    1.142695] iommu: Adding device 0000:00:18.4 to group 9
-[    1.142712] iommu: Adding device 0000:00:18.5 to group 9
-[    1.142725] iommu: Adding device 0000:01:00.0 to group 0
-[    1.142733] iommu: Adding device 0000:01:00.1 to group 0
-[    1.142840] iommu: Adding device 0000:04:00.0 to group 8
-[    1.143305] AMD-Vi: Found IOMMU at 0000:00:00.2 cap 0x40
+From: Mahesh Bandewar <maheshb@google.com>
 
-The last kernel I used where the NIC mostly worked was 4.4.0 (x86-64).
-Even when it worked, it had this issue we've experienced since v3.13
-where the NIC would suddenly become unresponsive. It won't be
-considered disconnected from the network, but RX/TX packets, errors,
-dropped, etc. values displayed with ifconfig would show a number that
-looked suspiciously close to 32-bit INT_MAX.
+A process inside random user-ns should not load a module, which is
+currently possible. As demonstrated in following scenario -
 
-Since v4.8, I can trigger it much faster and it now prints out a call
-stack and other messages into dmesg.
+  Create namespaces; especially a user-ns and become root inside.
+  $ unshare -rfUp -- unshare -unm -- bash
+
+  Try to load the bridge module. It should fail and this is expected!
+  #  modprobe bridge
+  WARNING: Error inserting stp (/lib/modules/4.11.0-smp-DEV/kernel/net/802/stp.ko): Operation not permitted
+  FATAL: Error inserting bridge (/lib/modules/4.11.0-smp-DEV/kernel/net/bridge/bridge.ko): Operation not permitted
+
+  Verify bridge module is not loaded.
+  # lsmod | grep bridge
+  #
+
+  Now try to create a bridge inside this newly created net-ns which would
+  mean bridge module need to be loaded.
+  # ip link add br0 type bridge
+  # echo $?
+  0
+  # lsmod | grep bridge
+  bridge                110592  0
+  stp                    16384  1 bridge
+  llc                    16384  2 bridge,stp
+  #
+
+  After this patch -
+  # ip link add br0 type bridge
+  RTNETLINK answers: Operation not supported
+  # echo $?
+  2
+  # lsmod | grep bridge
+  #
+
+Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+---
+ kernel/kmod.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/kernel/kmod.c b/kernel/kmod.c
+index 563f97e2be36..ac30157169b7 100644
+--- a/kernel/kmod.c
++++ b/kernel/kmod.c
+@@ -133,6 +133,9 @@ int __request_module(bool wait, const char *fmt, ...)
+ #define MAX_KMOD_CONCURRENT 50	/* Completely arbitrary value - KAO */
+ 	static int kmod_loop_msg;
+ 
++	if (!capable(CAP_SYS_MODULE))
++		return -EPERM;
++
+ 	/*
+ 	 * We don't allow synchronous module loading from async.  Module
+ 	 * init may invoke async_synchronize_full() which will end up
+-- 
+2.13.0.rc2.291.g57267f2277-goog
