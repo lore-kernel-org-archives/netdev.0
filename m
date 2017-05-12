@@ -1,48 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net 1/6] net/mlx5e: Use a spinlock to synchronize statistics
-Date: Fri, 12 May 2017 12:13:54 -0400 (EDT)
-Message-ID: <20170512.121354.1583292892374462482.davem@davemloft.net>
-References: <20170512115650.11635-1-saeedm@mellanox.com>
-        <20170512115650.11635-2-saeedm@mellanox.com>
+Subject: Re: [PATCH] net: dsa: mv88e6xxx: add default case to switch
+Date: Fri, 12 May 2017 12:15:04 -0400 (EDT)
+Message-ID: <20170512.121504.1955818908238157662.davem@davemloft.net>
+References: <20170511214814.Horde.otwLVFIaWFNJZ23PSdgsq_Z@gator4166.hostgator.com>
+        <20170512031129.GA4065@embeddedgus>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, galp@mellanox.com, kernel-team@fb.com
-To: saeedm@mellanox.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:35280 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755960AbdELQN6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 12 May 2017 12:13:58 -0400
-In-Reply-To: <20170512115650.11635-2-saeedm@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
+        f.fainelli@gmail.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: garsilva@embeddedor.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170512031129.GA4065@embeddedgus>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Saeed Mahameed <saeedm@mellanox.com>
-Date: Fri, 12 May 2017 14:56:45 +0300
+From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+Date: Thu, 11 May 2017 22:11:29 -0500
 
-> From: Gal Pressman <galp@mellanox.com>
+> Add default case to switch in order to avoid any chance of using an
+> uninitialized variable _low_, in case s->type does not match any of
+> the listed case values.
 > 
-> Add a spinlock to prevent races when querying statistics, for example
-> querying counters in the middle of a non atomic memcpy() operation in
-> mlx5e_update_stats().
-> 
-> This RW lock should be held when accessing priv->stats, to prevent other
-> reads/writes.
-> 
-> Fixes: 9218b44dcc05 ("net/mlx5e: Statistics handling refactoring")
-> Signed-off-by: Gal Pressman <galp@mellanox.com>
-> Suggested-by: Eric Dumazet <eric.dumazet@gmail.com>
-> Cc: kernel-team@fb.com
-> Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+> Addresses-Coverity-ID: 1398130
+> Suggested-by: Andrew Lunn <andrew@lunn.ch>
+> Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
 
-This is overkill, and that rwlock is going to show up in perf for some
-workloads.
-
-Furthermore, two kzalloc()'s for a single state update operation?
-That's not reasonable either.
-
-Use a seqlock, which is the primitive for handling this kind of
-situation cheaply, and adds no atomics to the read path.
-
-Thank you.
+Applied, thanks.
