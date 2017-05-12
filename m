@@ -1,52 +1,40 @@
-From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-Subject: [PATCH] net: dsa: mv88e6xxx: add default case to switch
-Date: Thu, 11 May 2017 22:11:29 -0500
-Message-ID: <20170512031129.GA4065@embeddedgus>
-References: <20170511214814.Horde.otwLVFIaWFNJZ23PSdgsq_Z@gator4166.hostgator.com>
+From: Ravish Kumar <ravishk2004@gmail.com>
+Subject: Re: Implementing Dynamic Rerouting in Kernel
+Date: Fri, 12 May 2017 08:41:38 +0530
+Message-ID: <CAEDnJmJZMaJ0bMO3X5gx7NE6jcDuE5zYnchrmSrftZmi_55ENw@mail.gmail.com>
+References: <CAEDnJmKWYeEwB=cBKd-cOL+hmxe0U6G7CQ8Mkwc_eP5CpJVmbA@mail.gmail.com>
+ <3b6e4d7b-0e35-5944-1200-6b0721afca82@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-To: Andrew Lunn <andrew@lunn.ch>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gateway34.websitewelcome.com ([192.185.150.114]:22187 "EHLO
-        gateway34.websitewelcome.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1754841AbdELDLe (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 11 May 2017 23:11:34 -0400
-Received: from cm6.websitewelcome.com (cm6.websitewelcome.com [108.167.139.19])
-        by gateway34.websitewelcome.com (Postfix) with ESMTP id 1AEAB164C0
-        for <netdev@vger.kernel.org>; Thu, 11 May 2017 22:11:32 -0500 (CDT)
-Content-Disposition: inline
-In-Reply-To: <20170511214814.Horde.otwLVFIaWFNJZ23PSdgsq_Z@gator4166.hostgator.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Networking <netdev@vger.kernel.org>, linux-kernel@vger.kernel.org,
+        mst@redhat.com, Jason@zx2c4.com
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <3b6e4d7b-0e35-5944-1200-6b0721afca82@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Add default case to switch in order to avoid any chance of using an
-uninitialized variable _low_, in case s->type does not match any of
-the listed case values.
+Hi,
 
-Addresses-Coverity-ID: 1398130
-Suggested-by: Andrew Lunn <andrew@lunn.ch>
-Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
----
- drivers/net/dsa/mv88e6xxx/chip.c | 3 +++
- 1 file changed, 3 insertions(+)
+We do not want to add routes at run time rather i would prefer to have
+a NetFilter driver which can intercept the packet and forward it to
+desired interface.
 
-diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-index 03dc886..d39e210 100644
---- a/drivers/net/dsa/mv88e6xxx/chip.c
-+++ b/drivers/net/dsa/mv88e6xxx/chip.c
-@@ -879,6 +879,9 @@ static uint64_t _mv88e6xxx_get_ethtool_stat(struct mv88e6xxx_chip *chip,
- 		mv88e6xxx_g1_stats_read(chip, reg, &low);
- 		if (s->sizeof_stat == 8)
- 			mv88e6xxx_g1_stats_read(chip, reg + 1, &high);
-+		break;
-+	default:
-+		return UINT64_MAX;
- 	}
- 	value = (((u64)high) << 16) | low;
- 	return value;
--- 
-2.5.0
+
+
+On Thu, May 11, 2017 at 9:52 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
+> On 05/11/2017 02:59 AM, Ravish Kumar wrote:
+>> Hi Experts,
+>>
+>> Need expert advice for the one of the requirement Where in VPN
+>> solution we want to dynaically route the packets to different adapter.
+>> We will manage our own DNS cache and , based on DNS to IP lookup, we
+>> can redirect the packet either to Tun device or to a physical adapter.
+>>
+>> Please suggest some design what i need to do.
+>
+> What you are looking for can be done using ipset-dns from Jason:
+>
+> https://git.zx2c4.com/ipset-dns/about/
+> --
+> Florian
