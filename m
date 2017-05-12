@@ -1,7 +1,8 @@
 From: <Woojung.Huh@microchip.com>
-Subject: [PATCH v2 net-next 0/5] dsa: add Microchip KSZ9477 DSA driver
-Date: Fri, 12 May 2017 20:07:51 +0000
-Message-ID: <9235D6609DB808459E95D78E17F2E43D40A632A0@CHN-SV-EXMX02.mchp-main.com>
+Subject: [PATCH v2 net-next 1/5] dsa: add support for Microchip KSZ tail
+ tagging
+Date: Fri, 12 May 2017 20:07:54 +0000
+Message-ID: <9235D6609DB808459E95D78E17F2E43D40A632AB@CHN-SV-EXMX02.mchp-main.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
@@ -10,79 +11,196 @@ To: <andrew@lunn.ch>, <f.fainelli@gmail.com>,
         <vivien.didelot@savoirfairelinux.com>,
         <sergei.shtylyov@cogentembedded.com>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from esa5.microchip.iphmx.com ([216.71.150.166]:5143 "EHLO
-        esa5.microchip.iphmx.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932439AbdELUHy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 12 May 2017 16:07:54 -0400
+Received: from esa6.microchip.iphmx.com ([216.71.154.253]:39622 "EHLO
+        esa6.microchip.iphmx.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933143AbdELUH4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 12 May 2017 16:07:56 -0400
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Woojung Huh <Woojung.Huh@microchip.com>
 
-This series of patches is for Microchip KSZ9477 DSA driver.
-KSZ9477 is 7 ports GigE switch with numerous advanced features.
-5 ports are 10/100/1000 Mbps internal PHYs and 2 ports have
-Interfaces to SGMII, RGMII, MII or RMII.
+Adding support for the Microchip KSZ switch family tail tagging.
 
-This patch supports VLAN, MDB, FDB and port mirroring offloads.
-
-Welcome reviews and comments from community.
-
-Note: Tests are performed on internal development board.
-
-V2
-- update per review comments
-- several cosmetic changes
-- net/dsa/tag_ksz.c
-  * constants are changed to defines
-  * remove skb_linearize() in ksz_rcv()
-  * ksz_xmit()checks skb tailroom before allocate new skb
-- drivers/net/phy/micrel.c
-  * remove PHY_HAS_MAGICANEG from ksphy_driver[]
-- drivers/net/dsa/microchip/ksz_common.c
-  * add timeout to avoid endless loop
-  * port initialization is move to ksz_port_enable() instead of  ksz_setup_ports()
-- Documentation/devicetree/bindings/net/dsa/ksz.txt
-  * fix typo and indentations
-Thanks to Andres, Florian, Sergei for reviews.
-
-Woojung Huh (5):
-  dsa: add support for Microchip KSZ tail tagging
-  phy: micrel: add Microchip KSZ 9477 Switch PHY support
-  dsa: add DSA switch driver for Microchip KSZ9477
-  dsa: Add spi support to Microchip KSZ switches
-  dsa: add maintainer of Microchip KSZ switches
-
- Documentation/devicetree/bindings/net/dsa/ksz.txt |   73 +
- MAINTAINERS                                       |    9 +
- drivers/net/dsa/Kconfig                           |    2 +
- drivers/net/dsa/Makefile                          |    1 +
- drivers/net/dsa/microchip/Kconfig                 |   12 +
- drivers/net/dsa/microchip/Makefile                |    2 +
- drivers/net/dsa/microchip/ksz_9477_reg.h          | 1676 +++++++++++++++++++++
- drivers/net/dsa/microchip/ksz_common.c            | 1211 +++++++++++++++
- drivers/net/dsa/microchip/ksz_priv.h              |  209 +++
- drivers/net/dsa/microchip/ksz_spi.c               |  215 +++
- drivers/net/phy/micrel.c                          |   11 +
- include/linux/micrel_phy.h                        |    2 +
- include/linux/platform_data/microchip-ksz.h       |   29 +
- include/net/dsa.h                                 |    1 +
- net/dsa/Kconfig                                   |    3 +
- net/dsa/Makefile                                  |    1 +
- net/dsa/dsa.c                                     |    3 +
- net/dsa/dsa_priv.h                                |    3 +
- net/dsa/tag_ksz.c                                 |  103 ++
- 19 files changed, 3566 insertions(+)
- create mode 100644 Documentation/devicetree/bindings/net/dsa/ksz.txt
- create mode 100644 drivers/net/dsa/microchip/Kconfig
- create mode 100644 drivers/net/dsa/microchip/Makefile
- create mode 100644 drivers/net/dsa/microchip/ksz_9477_reg.h
- create mode 100644 drivers/net/dsa/microchip/ksz_common.c
- create mode 100644 drivers/net/dsa/microchip/ksz_priv.h
- create mode 100644 drivers/net/dsa/microchip/ksz_spi.c
- create mode 100644 include/linux/platform_data/microchip-ksz.h
+Signed-off-by: Woojung Huh <Woojung.Huh@microchip.com>
+---
+ include/net/dsa.h  |   1 +
+ net/dsa/Kconfig    |   3 ++
+ net/dsa/Makefile   |   1 +
+ net/dsa/dsa.c      |   3 ++
+ net/dsa/dsa_priv.h |   3 ++
+ net/dsa/tag_ksz.c  | 103 +++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 6 files changed, 114 insertions(+)
  create mode 100644 net/dsa/tag_ksz.c
 
+diff --git a/include/net/dsa.h b/include/net/dsa.h
+index 8e24677..c92204a 100644
+--- a/include/net/dsa.h
++++ b/include/net/dsa.h
+@@ -34,6 +34,7 @@ enum dsa_tag_protocol {
+ 	DSA_TAG_PROTO_QCA,
+ 	DSA_TAG_PROTO_MTK,
+ 	DSA_TAG_PROTO_LAN9303,
++	DSA_TAG_PROTO_KSZ,
+ 	DSA_TAG_LAST,		/* MUST BE LAST */
+ };
+ 
+diff --git a/net/dsa/Kconfig b/net/dsa/Kconfig
+index 81a0868..ce31428 100644
+--- a/net/dsa/Kconfig
++++ b/net/dsa/Kconfig
+@@ -37,4 +37,7 @@ config NET_DSA_TAG_MTK
+ config NET_DSA_TAG_LAN9303
+ 	bool
+ 
++config NET_DSA_TAG_KSZ
++	bool
++
+ endif
+diff --git a/net/dsa/Makefile b/net/dsa/Makefile
+index 0b747d7..8becb26 100644
+--- a/net/dsa/Makefile
++++ b/net/dsa/Makefile
+@@ -10,3 +10,4 @@ dsa_core-$(CONFIG_NET_DSA_TAG_TRAILER) += tag_trailer.o
+ dsa_core-$(CONFIG_NET_DSA_TAG_QCA) += tag_qca.o
+ dsa_core-$(CONFIG_NET_DSA_TAG_MTK) += tag_mtk.o
+ dsa_core-$(CONFIG_NET_DSA_TAG_LAN9303) += tag_lan9303.o
++dsa_core-$(CONFIG_NET_DSA_TAG_KSZ) += tag_ksz.o
+diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
+index 26130ae..6340323 100644
+--- a/net/dsa/dsa.c
++++ b/net/dsa/dsa.c
+@@ -61,6 +61,9 @@ const struct dsa_device_ops *dsa_device_ops[DSA_TAG_LAST] = {
+ #ifdef CONFIG_NET_DSA_TAG_LAN9303
+ 	[DSA_TAG_PROTO_LAN9303] = &lan9303_netdev_ops,
+ #endif
++#ifdef CONFIG_NET_DSA_TAG_KSZ
++	[DSA_TAG_PROTO_KSZ] = &ksz_netdev_ops,
++#endif
+ 	[DSA_TAG_PROTO_NONE] = &none_ops,
+ };
+ 
+diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
+index f4a88e4..70183ac 100644
+--- a/net/dsa/dsa_priv.h
++++ b/net/dsa/dsa_priv.h
+@@ -96,4 +96,7 @@ extern const struct dsa_device_ops mtk_netdev_ops;
+ /* tag_lan9303.c */
+ extern const struct dsa_device_ops lan9303_netdev_ops;
+ 
++/* tag_ksz.c */
++extern const struct dsa_device_ops ksz_netdev_ops;
++
+ #endif
+diff --git a/net/dsa/tag_ksz.c b/net/dsa/tag_ksz.c
+new file mode 100644
+index 0000000..9dda96e
+--- /dev/null
++++ b/net/dsa/tag_ksz.c
+@@ -0,0 +1,103 @@
++/*
++ * net/dsa/tag_ksz.c - Microchip KSZ Switch tag format handling
++ * Copyright (c) 2017 Microchip Technology
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ */
++
++#include <linux/etherdevice.h>
++#include <linux/list.h>
++#include <linux/slab.h>
++#include <net/dsa.h>
++#include "dsa_priv.h"
++
++/* For Ingress (Host -> KSZ), 2 bytes are added before FCS.
++ * ---------------------------------------------------------------------------
++ * DA(6bytes)|SA(6bytes)|....|Data(nbytes)|tag0(1byte)|tag1(1byte)|FCS(4bytes)
++ * ---------------------------------------------------------------------------
++ * tag0 : Prioritization (not used now)
++ * tag1 : each bit represents port (eg, 0x01=port1, 0x02=port2, 0x10=port5)
++ *
++ * For Egress (KSZ -> Host), 1 byte is added before FCS.
++ * ---------------------------------------------------------------------------
++ * DA(6bytes)|SA(6bytes)|....|Data(nbytes)|tag0(1byte)|FCS(4bytes)
++ * ---------------------------------------------------------------------------
++ * tag0 : zero-based value represents port
++ *	  (eg, 0x00=port1, 0x02=port3, 0x06=port7)
++ */
++
++#define	KSZ_INGRESS_TAG_LEN	2
++#define	KSZ_EGRESS_TAG_LEN	1
++
++static struct sk_buff *ksz_xmit(struct sk_buff *skb, struct net_device *dev)
++{
++	struct dsa_slave_priv *p = netdev_priv(dev);
++	struct sk_buff *nskb;
++	int padlen;
++	u8 *tag;
++
++	padlen = (skb->len >= ETH_ZLEN) ? 0 : ETH_ZLEN - skb->len;
++
++	if (skb_tailroom(skb) >= padlen + KSZ_INGRESS_TAG_LEN) {
++		nskb = skb;
++	} else {
++		nskb = alloc_skb(NET_IP_ALIGN + skb->len +
++				 padlen + KSZ_INGRESS_TAG_LEN, GFP_ATOMIC);
++		if (!nskb) {
++			kfree_skb(skb);
++			return NULL;
++		}
++		skb_reserve(nskb, NET_IP_ALIGN);
++
++		skb_reset_mac_header(nskb);
++		skb_set_network_header(nskb,
++				       skb_network_header(skb) - skb->head);
++		skb_set_transport_header(nskb,
++					 skb_transport_header(skb) - skb->head);
++		skb_copy_and_csum_dev(skb, skb_put(nskb, skb->len));
++		kfree_skb(skb);
++	}
++
++	if (padlen) {
++		u8 *pad = skb_put(nskb, padlen);
++
++		memset(pad, 0, padlen);
++	}
++
++	tag = skb_put(nskb, KSZ_INGRESS_TAG_LEN);
++	tag[0] = 0;
++	tag[1] = 1 << p->dp->index; /* destnation port */
++
++	return nskb;
++}
++
++struct sk_buff *ksz_rcv(struct sk_buff *skb, struct net_device *dev,
++			struct packet_type *pt, struct net_device *orig_dev)
++{
++	struct dsa_switch_tree *dst = dev->dsa_ptr;
++	struct dsa_switch *ds;
++	u8 *tag;
++	int source_port;
++
++	ds = dst->cpu_switch;
++
++	tag = skb_tail_pointer(skb) - KSZ_EGRESS_TAG_LEN;
++
++	source_port = tag[0] & 7;
++	if (source_port >= ds->num_ports || !ds->ports[source_port].netdev)
++		return NULL;
++
++	pskb_trim_rcsum(skb, skb->len - KSZ_EGRESS_TAG_LEN);
++
++	skb->dev = ds->ports[source_port].netdev;
++
++	return skb;
++}
++
++const struct dsa_device_ops ksz_netdev_ops = {
++	.xmit	= ksz_xmit,
++	.rcv	= ksz_rcv,
++};
 -- 
 2.7.4
