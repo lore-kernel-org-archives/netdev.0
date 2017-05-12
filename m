@@ -1,168 +1,145 @@
-From: Ursula Braun <ubraun@linux.vnet.ibm.com>
-Subject: [PATCH V2 net 1/1] smc: switch to usage of IB_PD_UNSAFE_GLOBAL_RKEY
-Date: Fri, 12 May 2017 19:09:52 +0200
-Message-ID: <20170512170952.39863-2-ubraun@linux.vnet.ibm.com>
-References: <20170512170952.39863-1-ubraun@linux.vnet.ibm.com>
-Cc: hch@lst.de, netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
-        linux-s390@vger.kernel.org, jwi@linux.vnet.ibm.com,
-        schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com,
-        raspl@linux.vnet.ibm.com, ubraun@linux.vnet.ibm.com
-To: davem@davemloft.net
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [Patch net] ipv4: restore rt->fi for reference counting
+Date: Fri, 12 May 2017 10:27:05 -0700
+Message-ID: <CAM_iQpVQSMd_LYMqm3EauRRgJhfkW=zsdvKRf4-YcGWwSufuvQ@mail.gmail.com>
+References: <1493934857-6693-1-git-send-email-xiyou.wangcong@gmail.com>
+ <CAM_iQpWQoLppsMfDOQWsdifGd56CAY24tCNm0Jm02QCe7ZThOw@mail.gmail.com>
+ <1494348962.7796.88.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAM_iQpXADa6AyQ3X-EbmRPGCQArgPWygvHMYgWtfUYV082oF3Q@mail.gmail.com>
+ <CAM_iQpVhdzeen+ZJ3jyK7Qb=yVuoRSZ7BFB3RoVMShY8KPBTZA@mail.gmail.com>
+ <1494370367.7796.92.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1494370451.7796.93.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1494371348.7796.95.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAM_iQpU+fXO7eFroAYMv6vqDzCK_ZYXjrTPAMfoDR2BDqaK9rQ@mail.gmail.com>
+ <alpine.LFD.2.20.1705100937330.1938@ja.home.ssi.bg> <CAM_iQpX22qTqo4yfM_Je1bvJHxjAGK_tvm5KgQSnJzsYq7K55Q@mail.gmail.com>
+ <alpine.LFD.2.20.1705102141320.1928@ja.home.ssi.bg> <CAM_iQpW0fJJXPS=FoTf-o4f5-mOC=mZYNP8=uqiUOmvX+CDwWw@mail.gmail.com>
+ <CAM_iQpWxDKHF4N1xor7qj+5s91GrctgcGnzN0buw18qs7__-gQ@mail.gmail.com> <alpine.LFD.2.20.1705120659370.1811@ja.home.ssi.bg>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+        David Miller <davem@davemloft.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Andrey Konovalov <andreyknvl@google.com>,
+        Eric Dumazet <edumazet@google.com>
+To: Julian Anastasov <ja@ssi.bg>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:39990 "EHLO
-        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1757717AbdELRKE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 12 May 2017 13:10:04 -0400
-Received: from pps.filterd (m0098421.ppops.net [127.0.0.1])
-        by mx0a-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v4CH9fxT086392
-        for <netdev@vger.kernel.org>; Fri, 12 May 2017 13:10:03 -0400
-Received: from e06smtp14.uk.ibm.com (e06smtp14.uk.ibm.com [195.75.94.110])
-        by mx0a-001b2d01.pphosted.com with ESMTP id 2adg802a76-1
-        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Fri, 12 May 2017 13:10:03 -0400
-Received: from localhost
-        by e06smtp14.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-        for <netdev@vger.kernel.org> from <ubraun@linux.vnet.ibm.com>;
-        Fri, 12 May 2017 18:10:00 +0100
-In-Reply-To: <20170512170952.39863-1-ubraun@linux.vnet.ibm.com>
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:35261 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756951AbdELR11 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 12 May 2017 13:27:27 -0400
+Received: by mail-wm0-f68.google.com with SMTP id v4so15209671wmb.2
+        for <netdev@vger.kernel.org>; Fri, 12 May 2017 10:27:27 -0700 (PDT)
+In-Reply-To: <alpine.LFD.2.20.1705120659370.1811@ja.home.ssi.bg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch makes users aware of the current security implications
-when using smc.
+On Thu, May 11, 2017 at 11:39 PM, Julian Anastasov <ja@ssi.bg> wrote:
+>
+>         Hello,
+>
+> On Thu, 11 May 2017, Cong Wang wrote:
+>
+>> On Thu, May 11, 2017 at 5:07 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+>> > So, if I understand you correctly it is safe to NULL'ing
+>> > nh_dev in NETDEV_UNREGISTER_FINAL, right?
+>> >
+>> > If still not, how about transfer nh_dev's to loopback_dev
+>> > too in NETDEV_UNREGISTER? Like we transfer dst->dev.
+>> >
+>> > I don't want to touch the fast path to check for NULL, as
+>> > it will change more code and slow down performance.
+>>
+>> Finally I come up with the attached patch. Please let me know if
+>> I still miss anything.
+>
+>         fib_flush will unlink the FIB infos at NETDEV_UNREGISTER
+> time, so we can not see them in any hash tables later on
+> NETDEV_UNREGISTER_FINAL. fib_put_nh_devs() can not work
+> except if moving NHs in another hash table but that should
+> not be needed.
 
-The final fix to resolve the reported security issue is worked on;
-respective patches will follow as soon as possible.
+Ah, I did miss the hlist_del() in fib_table_flush(), so we just need some
+way to link those fib_nh together for NETDEV_UNREGISTER_FINAL,
+a linked list should be sufficient, but requires adding list_head to fib_nh.
 
-Signed-off-by: Ursula Braun <ubraun@linux.vnet.ibm.com>
----
- net/smc/smc_clc.c  |  4 ++--
- net/smc/smc_core.c | 16 +++-------------
- net/smc/smc_core.h |  2 +-
- net/smc/smc_ib.c   | 21 ++-------------------
- net/smc/smc_ib.h   |  2 --
- 5 files changed, 8 insertions(+), 37 deletions(-)
+>
+>         I'm thinking for the following solution which
+> is a bit hackish:
+>
+> - on NETDEV_UNREGISTER we want to put the nh_dev references,
+> so fib_release_info is a good place. But as fib_release_info
+> is not always called, we will have two places that put
+> references. We can use such hack:
+>
+>         - for example, use nh_oif to know if dev_put is
+>         already called
+>
+>         - fib_release_info() should set nh_oif to 0 because
+>         it will now call dev_put without clearing nh_dev
 
-diff --git a/net/smc/smc_clc.c b/net/smc/smc_clc.c
-index e41f594..03ec058 100644
---- a/net/smc/smc_clc.c
-+++ b/net/smc/smc_clc.c
-@@ -204,7 +204,7 @@ int smc_clc_send_confirm(struct smc_sock *smc)
- 	memcpy(&cclc.lcl.mac, &link->smcibdev->mac[link->ibport - 1], ETH_ALEN);
- 	hton24(cclc.qpn, link->roce_qp->qp_num);
- 	cclc.rmb_rkey =
--		htonl(conn->rmb_desc->mr_rx[SMC_SINGLE_LINK]->rkey);
-+		htonl(conn->rmb_desc->rkey[SMC_SINGLE_LINK]);
- 	cclc.conn_idx = 1; /* for now: 1 RMB = 1 RMBE */
- 	cclc.rmbe_alert_token = htonl(conn->alert_token_local);
- 	cclc.qp_mtu = min(link->path_mtu, link->peer_mtu);
-@@ -256,7 +256,7 @@ int smc_clc_send_accept(struct smc_sock *new_smc, int srv_first_contact)
- 	memcpy(&aclc.lcl.mac, link->smcibdev->mac[link->ibport - 1], ETH_ALEN);
- 	hton24(aclc.qpn, link->roce_qp->qp_num);
- 	aclc.rmb_rkey =
--		htonl(conn->rmb_desc->mr_rx[SMC_SINGLE_LINK]->rkey);
-+		htonl(conn->rmb_desc->rkey[SMC_SINGLE_LINK]);
- 	aclc.conn_idx = 1;			/* as long as 1 RMB = 1 RMBE */
- 	aclc.rmbe_alert_token = htonl(conn->alert_token_local);
- 	aclc.qp_mtu = link->path_mtu;
-diff --git a/net/smc/smc_core.c b/net/smc/smc_core.c
-index 65020e9..3ac09a6 100644
---- a/net/smc/smc_core.c
-+++ b/net/smc/smc_core.c
-@@ -613,19 +613,8 @@ int smc_rmb_create(struct smc_sock *smc)
- 			rmb_desc = NULL;
- 			continue; /* if mapping failed, try smaller one */
- 		}
--		rc = smc_ib_get_memory_region(lgr->lnk[SMC_SINGLE_LINK].roce_pd,
--					      IB_ACCESS_REMOTE_WRITE |
--					      IB_ACCESS_LOCAL_WRITE,
--					     &rmb_desc->mr_rx[SMC_SINGLE_LINK]);
--		if (rc) {
--			smc_ib_buf_unmap(lgr->lnk[SMC_SINGLE_LINK].smcibdev,
--					 tmp_bufsize, rmb_desc,
--					 DMA_FROM_DEVICE);
--			kfree(rmb_desc->cpu_addr);
--			kfree(rmb_desc);
--			rmb_desc = NULL;
--			continue;
--		}
-+		rmb_desc->rkey[SMC_SINGLE_LINK] =
-+			lgr->lnk[SMC_SINGLE_LINK].roce_pd->unsafe_global_rkey;
- 		rmb_desc->used = 1;
- 		write_lock_bh(&lgr->rmbs_lock);
- 		list_add(&rmb_desc->list,
-@@ -668,6 +657,7 @@ int smc_rmb_rtoken_handling(struct smc_connection *conn,
- 
- 	for (i = 0; i < SMC_RMBS_PER_LGR_MAX; i++) {
- 		if ((lgr->rtokens[i][SMC_SINGLE_LINK].rkey == rkey) &&
-+		    (lgr->rtokens[i][SMC_SINGLE_LINK].dma_addr == dma_addr) &&
- 		    test_bit(i, lgr->rtokens_used_mask)) {
- 			conn->rtoken_idx = i;
- 			return 0;
-diff --git a/net/smc/smc_core.h b/net/smc/smc_core.h
-index 27eb3805..b013cb4 100644
---- a/net/smc/smc_core.h
-+++ b/net/smc/smc_core.h
-@@ -93,7 +93,7 @@ struct smc_buf_desc {
- 	u64			dma_addr[SMC_LINKS_PER_LGR_MAX];
- 						/* mapped address of buffer */
- 	void			*cpu_addr;	/* virtual address of buffer */
--	struct ib_mr		*mr_rx[SMC_LINKS_PER_LGR_MAX];
-+	u32			rkey[SMC_LINKS_PER_LGR_MAX];
- 						/* for rmb only:
- 						 * rkey provided to peer
- 						 */
-diff --git a/net/smc/smc_ib.c b/net/smc/smc_ib.c
-index cb69ab9..b317155 100644
---- a/net/smc/smc_ib.c
-+++ b/net/smc/smc_ib.c
-@@ -37,24 +37,6 @@ u8 local_systemid[SMC_SYSTEMID_LEN] = SMC_LOCAL_SYSTEMID_RESET;	/* unique system
- 								 * identifier
- 								 */
- 
--int smc_ib_get_memory_region(struct ib_pd *pd, int access_flags,
--			     struct ib_mr **mr)
--{
--	int rc;
--
--	if (*mr)
--		return 0; /* already done */
--
--	/* obtain unique key -
--	 * next invocation of get_dma_mr returns a different key!
--	 */
--	*mr = pd->device->get_dma_mr(pd, access_flags);
--	rc = PTR_ERR_OR_ZERO(*mr);
--	if (IS_ERR(*mr))
--		*mr = NULL;
--	return rc;
--}
--
- static int smc_ib_modify_qp_init(struct smc_link *lnk)
- {
- 	struct ib_qp_attr qp_attr;
-@@ -210,7 +192,8 @@ int smc_ib_create_protection_domain(struct smc_link *lnk)
- {
- 	int rc;
- 
--	lnk->roce_pd = ib_alloc_pd(lnk->smcibdev->ibdev, 0);
-+	lnk->roce_pd = ib_alloc_pd(lnk->smcibdev->ibdev,
-+				   IB_PD_UNSAFE_GLOBAL_RKEY);
- 	rc = PTR_ERR_OR_ZERO(lnk->roce_pd);
- 	if (IS_ERR(lnk->roce_pd))
- 		lnk->roce_pd = NULL;
-diff --git a/net/smc/smc_ib.h b/net/smc/smc_ib.h
-index 7e1f0e2..b567152 100644
---- a/net/smc/smc_ib.h
-+++ b/net/smc/smc_ib.h
-@@ -61,8 +61,6 @@ void smc_ib_dealloc_protection_domain(struct smc_link *lnk);
- int smc_ib_create_protection_domain(struct smc_link *lnk);
- void smc_ib_destroy_queue_pair(struct smc_link *lnk);
- int smc_ib_create_queue_pair(struct smc_link *lnk);
--int smc_ib_get_memory_region(struct ib_pd *pd, int access_flags,
--			     struct ib_mr **mr);
- int smc_ib_ready_link(struct smc_link *lnk);
- int smc_ib_modify_qp_rts(struct smc_link *lnk);
- int smc_ib_modify_qp_reset(struct smc_link *lnk);
--- 
-2.10.2
+Are you sure we are safe to call dev_put() in fib_release_info()
+for _all_ paths, especially non-unregister paths? See:
+
+commit e49cc0da7283088c5e03d475ffe2fdcb24a6d5b1
+Author: Yanmin Zhang <yanmin_zhang@linux.intel.com>
+Date:   Wed May 23 15:39:45 2012 +0000
+
+    ipv4: fix the rcu race between free_fib_info and ip_route_output_slow
+
+But, hmm, very interesting, I always thought dev_put() triggers a
+kfree() potentially, but here your suggestion actually leverages the fact
+that it is merely a pcpu counter decrease, so for unregister path,
+this is just giving refcnt back, which means it is safe as long as
+we don't have any parallel unregister?  We should because of RTNL.
+
+I see why you say this is hackish, really it is. ;) We have to ensure
+the evil dev_put() is only called on unregister path.
+
+>
+>         - free_fib_info_rcu() will not call dev_put if nh_oif is 0:
+>         if (nexthop_nh->nh_dev && nexthop_nh->nh_oif)
+>                 dev_put(nexthop_nh->nh_dev);
+>
+>         - as fi is unlinked, there is no chance fib_info_hashfn()
+>         to use the cleared nh_oif for hashing
+>
+>         - we expect noone to touch nh_dev fields after fi is
+>         unlinked, this includes free_fib_info and free_fib_info_rcu
+>
+>         What we achieve:
+>
+> - between NETDEV_UNREGISTER and NETDEV_UNREGISTER_FINAL nh_dev
+> still points to our dev (and not to loopback, I think, this
+> answers your question in previous email), so route lookups
+> will not find loopback in the FIB tree. We do not want
+> some packets to be wrongly rerouted. Even if we don't
+> hold dev reference, the RCU grace period helps here.
+
+Thanks to dev_put() for not calling a netdev_freemem(). ;-)
+
+>
+> - fib_dev/nh_dev != NULL checks are not needed, so this addresses
+> Eric's concerns. BTW, fib_route_seq_show actually checks
+> for fi->fib_dev, may be not in a safe way (lockless_dereference
+> needed?) but as we don't set nh_dev to NULL this is not
+> needed.
+>
+
+I think Eric was complaining about the lack of rcu_dereference()
+there.
+
+>         What more? What about nh_pcpu_rth_output and
+> nh_rth_input holding routes? We should think about
+> them too. I should think more if nh_oif trick can work
+> for them, may be not because nh_oif is optional...
+> May be we should purge them somehow?
+>
+
+Or maybe don't touch nh_oif but using a new flag in
+nh_flags?? We only need to know if we should call
+dev_put() in free_fib_info_rcu().
+
+Again, I am still not sure if it is any better than just
+putting these fib_nh into a linked list.
+
+Thanks.
