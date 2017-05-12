@@ -1,41 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] vmxnet3: ensure that adapter is in proper state during
- force_close
-Date: Fri, 12 May 2017 12:24:14 -0400 (EDT)
-Message-ID: <20170512.122414.1439442347417322148.davem@davemloft.net>
-References: <20170512160001.24425-1-nhorman@tuxdriver.com>
+Subject: Re: [PATCH net] sfc: revert changes to NIC revision numbers
+Date: Fri, 12 May 2017 12:34:23 -0400 (EDT)
+Message-ID: <20170512.123423.875326676821100454.davem@davemloft.net>
+References: <5a87b5cf-1696-0fbc-209d-95fa85023918@solarflare.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, skhare@vmware.com, pv-drivers@vmware.com
-To: nhorman@tuxdriver.com
+Cc: linux-net-drivers@solarflare.com, netdev@vger.kernel.org
+To: ecree@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:35432 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:35510 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932922AbdELQYP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 12 May 2017 12:24:15 -0400
-In-Reply-To: <20170512160001.24425-1-nhorman@tuxdriver.com>
+        with ESMTP id S1756345AbdELQeY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 12 May 2017 12:34:24 -0400
+In-Reply-To: <5a87b5cf-1696-0fbc-209d-95fa85023918@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Neil Horman <nhorman@tuxdriver.com>
-Date: Fri, 12 May 2017 12:00:01 -0400
+From: Edward Cree <ecree@solarflare.com>
+Date: Fri, 12 May 2017 17:18:50 +0100
 
-> There are several paths in vmxnet3, where settings changes cause the
-> adapter to be brought down and back up (vmxnet3_set_ringparam among
-> them).  Should part of the reset operation fail, these paths call
-> vmxnet3_force_close, which enables all napi instances prior to calling
-> dev_close (with the expectation that vmxnet3_close will then properly
-> disable them again).  However, vmxnet3_force_close neglects to clear
-> VMXNET3_STATE_BIT_QUIESCED prior to calling dev_close.  As a result
-> vmxnet3_quiesce_dev (called from vmxnet3_close), returns early, and
-> leaves all the napi instances in a enabled state while the device itself
-> is closed.  If a device in this state is activated again, napi_enable
-> will be called on already enabled napi_instances, leading to a BUG halt.
+> From: Bert Kenward <bkenward@solarflare.com>
 > 
-> The fix is to simply enausre that the QUIESCED bit is cleared in
-> vmxnet3_force_close to allow quesence to be completed properly on close.
+> The revision enum values (eg EFX_REV_HUNT_A0) form part of our API,
+>  and are included in ethtool. If these are inconsistent then ethtool
+>  will print garbage for a register dump (ethtool -d).
 > 
-> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+> Fixes: 5a6681e22c14 ("sfc: separate out SFC4000 ("Falcon") support into new sfc-falcon driver")
+> Signed-off-by: Edward Cree <ecree@solarflare.com>
 
-Looks good, applied, thanks Neil.
+Applied.
