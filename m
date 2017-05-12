@@ -1,38 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] xen-netfront: avoid crashing on resume after a
- failure in talk_to_netback()
-Date: Thu, 11 May 2017 21:39:12 -0400 (EDT)
-Message-ID: <20170511.213912.1393187351699676007.davem@davemloft.net>
-References: <20170511115806.25322-1-vkuznets@redhat.com>
+Subject: Re: [PATCH net 0/2] qlcnic: Bug fix and update version
+Date: Thu, 11 May 2017 21:40:11 -0400 (EDT)
+Message-ID: <20170511.214011.1059356806701405156.davem@davemloft.net>
+References: <20170511141248.996-1-manish.chopra@cavium.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: xen-devel@lists.xenproject.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, boris.ostrovsky@oracle.com,
-        jgross@suse.com
-To: vkuznets@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170511115806.25322-1-vkuznets@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, Dept-GELinuxNICDev@cavium.com
+To: manish.chopra@cavium.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:56818 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754913AbdELBkM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 11 May 2017 21:40:12 -0400
+In-Reply-To: <20170511141248.996-1-manish.chopra@cavium.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Vitaly Kuznetsov <vkuznets@redhat.com>
-Date: Thu, 11 May 2017 13:58:06 +0200
+From: Manish Chopra <manish.chopra@cavium.com>
+Date: Thu, 11 May 2017 07:12:46 -0700
 
-> Unavoidable crashes in netfront_resume() and netback_changed() after a
-> previous fail in talk_to_netback() (e.g. when we fail to read MAC from
-> xenstore) were discovered. The failure path in talk_to_netback() does
-> unregister/free for netdev but we don't reset drvdata and we try accessing
-> it after resume.
-> 
-> Fix the bug by removing the whole xen device completely with
-> device_unregister(), this guarantees we won't have any calls into netfront
-> after a failure.
-> 
-> Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
-> ---
-> Changes since v1: instead of cleaning drvdata and checking for it in
-> netfront_resume() and netback_changed() remove the device completely with
-> device_unregister() [David Miller]
+> This series has one fix and bumps up driver version.
+> Please consider applying to "net"
 
-This looks a lot better, applied, thanks!
+Series applied, thanks.
