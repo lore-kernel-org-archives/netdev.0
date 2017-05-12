@@ -1,155 +1,90 @@
-From: "Niklas =?iso-8859-1?Q?S=F6derlund?=" <niklas.soderlund@ragnatech.se>
-Subject: Re: [PATCH] ravb: add wake-on-lan support via magic packet
-Date: Fri, 12 May 2017 16:32:42 +0200
-Message-ID: <20170512143242.GA13939@bigcity.dyn.berto.se>
-References: <20170511222735.10706-1-niklas.soderlund+renesas@ragnatech.se>
- <CAMuHMdUXqWJMh7syd3muMs8v9wx5bJNRj_3+xEAXTQTfAv0BFA@mail.gmail.com>
- <20170512125853.GH31437@bigcity.dyn.berto.se>
+From: =?UTF-8?Q?Fredrik_Markstr=C3=B6m?= <fredrik.markstrom@gmail.com>
+Subject: Re: [PATCH v2 1/2] net: Added mtu parameter to
+	dev_forward_skb calls
+Date: Fri, 12 May 2017 16:35:55 +0200
+Message-ID: <CAKdL+dToiiJYqTj9jHhOtGUaUqefd_94gWLDhmO+vCvmqNRJBg@mail.gmail.com>
+References: <20170511134629.139528-1-fredrik.markstrom@gmail.com>
+	<20170511134629.139528-2-fredrik.markstrom@gmail.com>
+	<20170511090132.79fdbf12@xeon-e3>
+	<CAKdL+dS_-UiHA5tr7zP-5LtwDd0aXpZq5tpMYf9kr7hu2SwdGQ@mail.gmail.com>
+	<20170511124454.473dd56e@xeon-e3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Linux-Renesas <linux-renesas-soc@vger.kernel.org>
-To: Geert Uytterhoeven <geert@linux-m68k.org>
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170512125853.GH31437@bigcity.dyn.berto.se>
-Sender: linux-renesas-soc-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
+	Alexei Starovoitov <ast@kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <20170511124454.473dd56e@xeon-e3>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-Hi Geert,
+On Thu, May 11, 2017 at 9:44 PM, Stephen Hemminger
+<stephen@networkplumber.org> wrote:
+> On Thu, 11 May 2017 21:10:11 +0200
+> Fredrik Markstr=C3=B6m <fredrik.markstrom@gmail.com> wrote:
+>
+>> On Thu, May 11, 2017 at 6:01 PM, Stephen Hemminger
+>> <stephen@networkplumber.org> wrote:
+>> > On Thu, 11 May 2017 15:46:27 +0200
+>> > Fredrik Markstrom <fredrik.markstrom@gmail.com> wrote:
+>> >
+>> >> From: Fredrik Markstr=C3=B6m <fredrik.markstrom@gmail.com>
+>> >>
+>> >> is_skb_forwardable() currently checks if the packet size is <=3D mtu =
+of
+>> >> the receiving interface. This is not consistent with most of the hard=
+ware
+>> >> ethernet drivers that happily receives packets larger then MTU.
+>> >
+>> > Wrong.
+>>
+>> What is "Wrong" ? I was initially skeptical to implement this patch,
+>> since it feels odd to have different MTU:s set on the two sides of a
+>> link. After consulting some IP people and the RFC:s I kind of changed
+>> my mind and thought I'd give it a shot. In the RFCs I couldn't find
+>> anything that defined when and when not a received packet should be
+>> dropped.
+>>
+>> >
+>> > Hardware interfaces are free to drop any packet greater than MTU (actu=
+ally MTU + VLAN).
+>> > The actual limit is a function of the hardware. Some hardware can only=
+ limit by
+>> > power of 2; some can only limit frames larger than 1500; some have no =
+limiting at all.
+>>
+>> Agreed. The purpose of these patches is to be able to configure an
+>> veth interface to mimic these different behaviors. Non of the Ethernet
+>> interfaces I have access to drops packets due to them being larger
+>> then the configured MTU like veth does.
+>>
+>> Being able to mimic real Ethernet hardware is useful when
+>> consolidating hardware using containers/namespaces.
+>>
+>> In a reply to a comment from David Miller in my previous version of
+>> the patch I attached the example below to demonstrate the case in
+>> detail.
+>>
+>> This works with all ethernet hardware setups I have access to:
+>>
+>
+> Why not just use an iptables rule to enforce what ever semantic you
+> want?
+>
 
-On 2017-05-12 14:58:53 +0200, Niklas Söderlund wrote:
-> Hi Geert,
-> 
-> Thanks for testing.
-> 
-> On 2017-05-12 14:47:53 +0200, Geert Uytterhoeven wrote:
-> > Hi Niklas,
-> > 
-> > On Fri, May 12, 2017 at 12:27 AM, Niklas Söderlund
-> > <niklas.soderlund+renesas@ragnatech.se> wrote:
-> > > WoL is enabled in the suspend callback by setting MagicPacket detection
-> > > and disabling all interrupts expect MagicPacket. In the resume path the
-> > > driver needs to reset the hardware to rearm the WoL logic, this prevents
-> > > the driver from simply restoring the registers and to take advantage of
-> > > that ravb was not suspended to reduce resume time. To reset the
-> > > hardware the driver closes the device, sets it in reset mode and reopens
-> > > the device just like it would do in a normal suspend/resume scenario
-> > > without WoL enabled, but it both closes and opens the device in the
-> > > resume callback since the device needs to be reset for WoL to work.
-> > >
-> > > One quirk needed for WoL is that the module clock needs to be prevented
-> > > from being switched off by Runtime PM. To keep the clock alive the
-> > > suspend callback need to call clk_enable() directly to increase the
-> > > usage count of the clock. Then when Runtime PM decreases the clock usage
-> > > count it won't reach 0 and be switched off.
-> > >
-> > > Signed-off-by: Niklas Söderlund <niklas.soderlund+renesas@ragnatech.se>
-> > 
-> > Thanks for your patch!
-> > 
-> > Wake-on-LAN now works for me on Salvator-X (both H3 and M3).
-> > 
-> > However, after a few cycles, Ethernet stopped working, because CMA ran out of
-> > memory:
-> > 
-> >     cma: cma_alloc: alloc failed, req-size: 6 pages, ret: -4
-> >     dpm_run_callback(): ravb_resume+0x0/0x148 returns -12
-> >     PM: Device e6800000.ethernet failed to resume: error -12
-> > 
-> > Are we still missing some ravb patches in net-next, or is this a different
-> > issue?
-> 
-> Interesting, I did a 100 loop test on H3 based on v4.11 without any 
-> issues. What are you using as a base for your test and I will test if I 
-> can reproduce it.
+I think that would be ok, but I can't find anything but TCPMSS but
+that's only for TCP.
 
-I re-ran my test based on renesas-drivers-2017-05-02-v4.11 using the 
-arm64 defconfig. And was not able to see this :-(
-
-My TC is basically a expect script that do:
-
-ethtool -s eth0 wol g
-
-for (i = 0; i < 100; i++) {
-    echo s2idle > /sys/power/mem_sleep
-    echo mem > /sys/power/state
-
-    sleep 5
-
-    HOST: etherwake -i net0 2e:09:0a:00:83:90
-
-    WAIT_FOR_CONSOLE
-}
-
-I use the default DT and arm64 defconfig and no other modifications. I'm 
-testing on H3 ES1.x board. What can be the different for us?
-
-> 
-> > 
-> > When using PSCI suspend/resume, and Wake-on-LAN cannot work due to
-> > PSCI firmware issues, Ethernet fails to come up afterwards:
-> > 
-> >     ravb e6800000.ethernet eth0: failed to switch device to config mode
-> >     ravb e6800000.ethernet eth0: device will be stopped after h/w
-> > processes are done.
-> >     ravb e6800000.ethernet eth0: failed to switch device to config mode
-> >     dpm_run_callback(): ravb_resume+0x0/0x148 returns -110
-> >     PM: Device e6800000.ethernet failed to resume: error -110
-> > 
-> > Your resume routine cannot assume RAVB is in a sane mode, as it will
-> > have been reset if PSCI suspend was used.
-> 
-> Ouch, yes this is true thanks for reporting will look in to it.
-> 
-> The problem is that in the resume handler if WoL is enabled it will try 
-> to close the device before reinitializing it from reset state. If WoL is 
-> not enabled the device will be closed at suspend time so no need to 
-> close it before restoring operation from reset in the resume handler.
-
-I was not able to reproduce this fault neither :-( But here I see 
-something is wrong, nothing is outputted on the console if WoL is 
-enabled:
-
-echo 0 > /sys/module/printk/parameters/console_suspend
-i2cset -f -y 7 0x30 0x20 0x0F
-<Flip SW23>
-echo mem > /sys/power/state
-<Flip SW23>
-<System wakes up>
-
-While:
-ethtool -s eth0 wol g
-echo 0 > /sys/module/printk/parameters/console_suspend
-i2cset -f -y 7 0x30 0x20 0x0F
-<Flip SW23>
-echo mem > /sys/power/state
-<Flip SW23>
-<Nothing happens on the console, not even firmware info is printed>
-
-Are you enabling anything else then console_suspend to be able to 
-capture output at this point? I'm using the same setup tag and config as 
-I described above.
-
-> 
-> > 
-> > Gr{oetje,eeting}s,
-> > 
-> >                         Geert
-> > 
-> > --
-> > Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
-> > 
-> > In personal conversations with technical people, I call myself a hacker. But
-> > when I'm talking to journalists I just say "programmer" or something like that.
-> >                                 -- Linus Torvalds
-> 
-> -- 
-> Regards,
-> Niklas Söderlund
-
--- 
-Regards,
-Niklas Söderlund
+/Fredrik
