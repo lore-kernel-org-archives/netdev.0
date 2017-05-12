@@ -1,40 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH][V2] ethernet: aquantia: remove redundant checks on
- error status
-Date: Thu, 11 May 2017 21:42:33 -0400 (EDT)
-Message-ID: <20170511.214233.1981021610793266657.davem@davemloft.net>
-References: <20170511182940.18774-1-colin.king@canonical.com>
+Subject: Re: [PATCH net] samples/bpf: run cleanup routines when receiving
+ SIGTERM
+Date: Thu, 11 May 2017 21:43:46 -0400 (EDT)
+Message-ID: <20170511.214346.76939954403260957.davem@davemloft.net>
+References: <1494532350-23945-1-git-send-email-andy@greyhouse.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: pavel.belous@aquantia.com, vomlehn@texas.net,
-        Alexander.Loktionov@aquantia.com, Dmitry.Bezrukov@aquantia.com,
-        Dmitrii.Tarakanov@aquantia.com, netdev@vger.kernel.org,
-        kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: colin.king@canonical.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170511182940.18774-1-colin.king@canonical.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, shahid.habib@broadcom.com
+To: andy@greyhouse.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:56868 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756925AbdELBns (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 11 May 2017 21:43:48 -0400
+In-Reply-To: <1494532350-23945-1-git-send-email-andy@greyhouse.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Colin King <colin.king@canonical.com>
-Date: Thu, 11 May 2017 19:29:40 +0100
+From: Andy Gospodarek <andy@greyhouse.net>
+Date: Thu, 11 May 2017 15:52:30 -0400
 
-> From: Colin Ian King <colin.king@canonical.com>
+> Shahid Habib noticed that when xdp1 was killed from a different console the xdp
+> program was not cleaned-up properly in the kernel and it continued to forward
+> traffic.
 > 
-> The error status err is initialized as zero and then being checked
-> several times to see if it is less than zero even when it has not
-> been updated.  It may seem that the err should be assigned to the
-> return code of the call to the various *offload_en_set calls and
-> then we check for failure, however, these functions are void and
-> never actually return any status.  
+> Most of the applications in samples/bpf cleanup properly, but only when getting
+> SIGINT.  Since kill defaults to using SIGTERM, add support to cleanup when the
+> application receives either SIGINT or SIGTERM.
 > 
-> Since these error checks are redundant we can remove these
-> as well as err and the error exit label err_exit.
-> 
-> Detected by CoverityScan, CID#1398313 and CID#1398306 ("Logically
-> dead code")
-> 
-> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+> Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
+> Reported-by: Shahid Habib <shahid.habib@broadcom.com>
 
-Applied, thank you.
+Applied, thanks Andy.
