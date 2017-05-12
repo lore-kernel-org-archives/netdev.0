@@ -1,81 +1,82 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [net-dsa-mv88e6xxx] question about potential use of
- uninitialized variable
-Date: Fri, 12 May 2017 04:33:33 +0200
-Message-ID: <20170512023333.GA18767@lunn.ch>
-References: <20170511163537.Horde.CH1Q_6Lo2SOIbQB6MQJFV3g@gator4166.hostgator.com>
+From: Jakub Kicinski <kubakici@wp.pl>
+Subject: Re: [PATCH v5 15/17] dt-bindings: qca7000: append UART interface to
+ binding
+Date: Thu, 11 May 2017 19:45:41 -0700
+Message-ID: <20170511194541.4e58cb7d@cakuba.netronome.com>
+References: <1494406408-31760-1-git-send-email-stefan.wahren@i2se.com>
+        <1494406408-31760-16-git-send-email-stefan.wahren@i2se.com>
+        <1702237.66ccflAQAJ@kerker>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Rob Herring <robh@kernel.org>,
+        Stefan Wahren <stefan.wahren@i2se.com>,
+        Mark Rutland <mark.rutland@arm.com>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        Jiri Slaby <jslaby@suse.com>, linux-serial@vger.kernel.org,
+        linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+        devicetree@vger.kernel.org
+To: Michael Heimpold <mhei@heimpold.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170511163537.Horde.CH1Q_6Lo2SOIbQB6MQJFV3g@gator4166.hostgator.com>
+In-Reply-To: <1702237.66ccflAQAJ@kerker>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, May 11, 2017 at 04:35:37PM -0500, Gustavo A. R. Silva wrote:
+On Thu, 11 May 2017 21:12:22 +0200, Michael Heimpold wrote:
+> Am Mittwoch, 10. Mai 2017, 10:53:26 CEST schrieb Stefan Wahren:
+> > This merges the serdev binding for the QCA7000 UART driver (Ethernet over
+> > UART) into the existing document.
+> > 
+> > Signed-off-by: Stefan Wahren <stefan.wahren@i2se.com>
+> > ---
+> >  .../devicetree/bindings/net/qca-qca7000.txt        | 32
+> > ++++++++++++++++++++++ 1 file changed, 32 insertions(+)
+> > 
+> > diff --git a/Documentation/devicetree/bindings/net/qca-qca7000.txt
+> > b/Documentation/devicetree/bindings/net/qca-qca7000.txt index
+> > a37f656..08364c3 100644
+> > --- a/Documentation/devicetree/bindings/net/qca-qca7000.txt
+> > +++ b/Documentation/devicetree/bindings/net/qca-qca7000.txt
+> > @@ -54,3 +54,35 @@ ssp2: spi@80014000 {
+> >  		local-mac-address = [ A0 B0 C0 D0 E0 F0 ];
+> >  	};
+> >  };
+> > +
+> > +(b) Ethernet over UART
+> > +
+> > +In order to use the QCA7000 as UART slave it must be defined as a child of
+> > a +UART master in the device tree. It is possible to preconfigure the UART
+> > +settings of the QCA7000 firmware, but it's not possible to change them
+> > during +runtime.
+> > +
+> > +Required properties:
+> > +- compatible        : Should be "qca,qca7000-uart"  
 > 
-> Hello everybody,
+> I already discussed this with Stefan off-list a little bit, but I would like
+> to bring this to a broader audience: I'm not sure whether the compatible 
+> should contain the "-uart" suffix, because the hardware chip is the very same
+> QCA7000 chip which can also be used with SPI protocol.
+> The only difference is the loaded firmware within the chip which can either
+> speak SPI or UART protocol (but not both at the same time - due to shared 
+> pins). So the hardware design decides which interface type is used.
 > 
-> While looking into Coverity ID 1398130 I ran into the following
-> piece of code at drivers/net/dsa/mv88e6xxx/chip.c:849:
+> At the moment, this patch series adds a dedicated driver for the UART 
+> protocol, in parallel to the existing SPI driver. So a different compatible
+> string is needed here to match against the new driver.
 > 
->  849static uint64_t _mv88e6xxx_get_ethtool_stat(struct mv88e6xxx_chip *chip,
->  850                                            struct mv88e6xxx_hw_stat *s,
->  851                                            int port, u16 bank1_select,
->  852                                            u16 histogram)
->  853{
->  854        u32 low;
->  855        u32 high = 0;
->  856        u16 reg = 0;
->  857        int err;
->  858        u64 value;
->  859
->  860        switch (s->type) {
->  861        case STATS_TYPE_PORT:
->  862                err = mv88e6xxx_port_read(chip, port, s->reg, &reg);
->  863                if (err)
->  864                        return UINT64_MAX;
->  865
->  866                low = reg;
->  867                if (s->sizeof_stat == 4) {
->  868                        err = mv88e6xxx_port_read(chip, port,
-> s->reg + 1, &reg);
->  869                        if (err)
->  870                                return UINT64_MAX;
->  871                        high = reg;
->  872                }
->  873                break;
->  874        case STATS_TYPE_BANK1:
->  875                reg = bank1_select;
->  876                /* fall through */
->  877        case STATS_TYPE_BANK0:
->  878                reg |= s->reg | histogram;
->  879                mv88e6xxx_g1_stats_read(chip, reg, &low);
->  880                if (s->sizeof_stat == 8)
->  881                        mv88e6xxx_g1_stats_read(chip, reg + 1, &high);
->  882        }
->  883        value = (((u64)high) << 16) | low;
->  884        return value;
->  885}
+> An alternative approach would be to re-use the existing compatible string
+> "qca,qca7000" for both, the SPI and UART protocol, because a "smarter" 
+> (combined) driver would detect which protocol to use. For example the driver 
+> could check for spi-cpha and/or spi-cpol which are required for SPI protocol: 
+> if these exists the driver could assume that SPI must be used, if both are 
+> missing then UART protocol should be used.
+> (This way it would not be necessary to check whether the node is a child of
+> a SPI or UART master node - but maybe this is even easier - I don't know)
 > 
-> My question here is if there is any chance for the execution path to
-> directly jump from line 860 to line 883, hence ending up using the
-> uninitialized variable _low_?
+> Or in shorter words: my concern is that while "qca7000-uart" describes the 
+> hardware, it's too closely coupled to the driver implementation. Having
+> some feedback of the experts would be nice :-)
 
-Hi Gustavo
-
-It would require that s->type not have one of the listed case values.
-Currently all members of mv88e6xxx_hw_stats due use expected values.
-However, it would not hurt to add a
-
-	 default:
-		return UINT64_MAX;
-
-Do you want to submit a patch?
-
-   Thanks
-	Andrew
+I'm no expert, but devices which can do both I2C and SPI are quite
+common, and they usually have the same compatible string for both
+buses.
