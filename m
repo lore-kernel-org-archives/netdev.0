@@ -1,57 +1,43 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [Patch net] ipv4: restore rt->fi for reference counting
-Date: Thu, 11 May 2017 17:07:15 -0700
-Message-ID: <CAM_iQpW0fJJXPS=FoTf-o4f5-mOC=mZYNP8=uqiUOmvX+CDwWw@mail.gmail.com>
-References: <1493934857-6693-1-git-send-email-xiyou.wangcong@gmail.com>
- <20170508.143557.105629611489969352.davem@davemloft.net> <1494288080.7796.59.camel@edumazet-glaptop3.roam.corp.google.com>
- <20170508.212211.1291611254198273979.davem@davemloft.net> <1494296302.7796.61.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAM_iQpWQoLppsMfDOQWsdifGd56CAY24tCNm0Jm02QCe7ZThOw@mail.gmail.com>
- <1494348962.7796.88.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAM_iQpXADa6AyQ3X-EbmRPGCQArgPWygvHMYgWtfUYV082oF3Q@mail.gmail.com>
- <CAM_iQpVhdzeen+ZJ3jyK7Qb=yVuoRSZ7BFB3RoVMShY8KPBTZA@mail.gmail.com>
- <1494370367.7796.92.camel@edumazet-glaptop3.roam.corp.google.com>
- <1494370451.7796.93.camel@edumazet-glaptop3.roam.corp.google.com>
- <1494371348.7796.95.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAM_iQpU+fXO7eFroAYMv6vqDzCK_ZYXjrTPAMfoDR2BDqaK9rQ@mail.gmail.com>
- <alpine.LFD.2.20.1705100937330.1938@ja.home.ssi.bg> <CAM_iQpX22qTqo4yfM_Je1bvJHxjAGK_tvm5KgQSnJzsYq7K55Q@mail.gmail.com>
- <alpine.LFD.2.20.1705102141320.1928@ja.home.ssi.bg>
+From: Jakub Kicinski <kubakici@wp.pl>
+Subject: Re: [PATCH net v2 2/2] xdp: refine xdp api with regards to generic
+ xdp
+Date: Thu, 11 May 2017 17:13:20 -0700
+Message-ID: <20170511171320.657fb52f@cakuba.netronome.com>
+References: <cover.1494542162.git.daniel@iogearbox.net>
+        <fe08e3c98d6c473d77b14a323abbd41c1e7d8f6d.1494542162.git.daniel@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-        David Miller <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Andrey Konovalov <andreyknvl@google.com>,
-        Eric Dumazet <edumazet@google.com>
-To: Julian Anastasov <ja@ssi.bg>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, alexei.starovoitov@gmail.com,
+        john.fastabend@gmail.com, netdev@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f44.google.com ([74.125.82.44]:35243 "EHLO
-        mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751743AbdELAHh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 11 May 2017 20:07:37 -0400
-Received: by mail-wm0-f44.google.com with SMTP id b84so4059610wmh.0
-        for <netdev@vger.kernel.org>; Thu, 11 May 2017 17:07:36 -0700 (PDT)
-In-Reply-To: <alpine.LFD.2.20.1705102141320.1928@ja.home.ssi.bg>
+Received: from mx4.wp.pl ([212.77.101.12]:59843 "EHLO mx4.wp.pl"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1756730AbdELANo (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 11 May 2017 20:13:44 -0400
+In-Reply-To: <fe08e3c98d6c473d77b14a323abbd41c1e7d8f6d.1494542162.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 10, 2017 at 12:51 PM, Julian Anastasov <ja@ssi.bg> wrote:
->         Oh, well, the sockets can hold cached dst.
-> But if the promise is that rt->fi is used only as
-> reference to metrics we have to find a way to drop
-> the dev references at NETDEV_UNREGISTER time. If you
-> set nh_dev to NULL then all lookups should check it
-> for != NULL. The sockets will not walk NHs via rt->fi,
-> i.e. the route lookups will get valid res.fi from trees,
-> so it may work in this way.
->
+On Fri, 12 May 2017 01:04:46 +0200, Daniel Borkmann wrote:
+> For the dump, remove IFLA_XDP_FLAGS that was added with b5cdae3291f7
+> and reuse IFLA_XDP_ATTACHED for indicating the mode. Dumping all
+> or just a subset of flags that were used for loading the XDP prog
+> is suboptimal in the long run since not all flags are useful for
+> dumping and if we start to reuse the same flag definitions for
+> load and dump, then we'll waste bit space. What we really just
+> want is to dump the mode for now.
+> 
+> Current IFLA_XDP_ATTACHED semantics are: nothing was installed (0),
+> a program is running at the native driver layer (1). Thus, add a
+> mode that says that a program is running at generic XDP layer (2).
+> Applications will handle this fine in that older binaries will
+> just indicate that something is attached at XDP layer, effectively
+> this is similar to IFLA_XDP_FLAGS attr that we would have had
+> modulo the redundancy.
+> 
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+> Acked-by: Alexei Starovoitov <ast@kernel.org>
 
-So, if I understand you correctly it is safe to NULL'ing
-nh_dev in NETDEV_UNREGISTER_FINAL, right?
-
-If still not, how about transfer nh_dev's to loopback_dev
-too in NETDEV_UNREGISTER? Like we transfer dst->dev.
-
-I don't want to touch the fast path to check for NULL, as
-it will change more code and slow down performance.
-
-Thanks.
+Looks good to me, thanks!
