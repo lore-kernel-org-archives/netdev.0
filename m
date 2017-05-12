@@ -1,40 +1,53 @@
-From: Kalle Valo <kvalo@qca.qualcomm.com>
-Subject: Re: net: ath: tx99: fixed a spelling issue
-Date: Fri, 12 May 2017 11:21:18 +0200
-Message-ID: <af27ca4be4084c66991089e220881f1c@euamsexm01a.eu.qualcomm.com>
-References: <1493310697-18610-1-git-send-email-ammly@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: <ath9k-devel@qca.qualcomm.com>, <kvalo@codeaurora.org>,
-        <linux-wireless@vger.kernel.org>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>, Ammly Fredrick <ammlyf@gmail.com>
-To: ammly <ammlyf@gmail.com>
+From: Xie Qirong <cheerx1994@gmail.com>
+Subject: [PATCH v4] brcmfmac: btcoex: replace init_timer with setup_timer
+Date: Fri, 12 May 2017 17:32:59 +0800
+Message-ID: <20170512093259.28479-1-cheerx1994@gmail.com>
+Cc: linux-wireless@vger.kernel.org,
+        brcm80211-dev-list.pdl@broadcom.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, Xie Qirong <cheerx1994@gmail.com>
+To: Arend van Spriel <arend.vanspriel@broadcom.com>,
+        Franky Lin <franky.lin@broadcom.com>,
+        Hante Meuleman <hante.meuleman@broadcom.com>,
+        Kalle Valo <kvalo@codeaurora.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1493310697-18610-1-git-send-email-ammly@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-ammly <ammlyf@gmail.com> wrote:
-> Fixed a spelling issue.
-> 
-> Signed-off-by: Ammly Fredrick <ammlyf@gmail.com>
+setup_timer.cocci suggested the following improvement:
+drivers/net/wireless/broadcom/brcm80211/brcmfmac/btcoex.c:383:1-11: Use
+setup_timer function for function on line 384.
 
-I changed the commit log. Also check your From header in the email headers,
-it's missing your last name.
+Acked-by: Arend van Spriel <arend.vanspriel@broadcom.com>
+Signed-off-by: Xie Qirong <cheerx1994@gmail.com>
+---
 
-Author: Ammly Fredrick <ammlyf@gmail.com>
-Date:   Thu Apr 27 19:31:37 2017 +0300
+ The combination of init_timer and setting up the data and function field
+ manually is equivalent to calling setup_timer(). This is an api
+ consolidation only and improves readability.
 
-    ath9k: fix spelling in ath9k_tx99_init()
-    
-    It's spelled hardware, not harware.
-    
-    Signed-off-by: Ammly Fredrick <ammlyf@gmail.com>
-    [kvalo@qca.qualcomm.com: improve commit log]
-    Signed-off-by: Kalle Valo <kvalo@qca.qualcomm.com>
+ Patch was compile checked with: x86_64_defconfig + CONFIG_BRCMFMAC=y +
+ CONFIG_BRCMFMAC_USB=y + CONFIG_BRCMFMAC_PCIE=y + CONFIG_BRCM_TRACING=y +
+ CONFIG_BRCMDBG=y
 
+ Kernel version: 4.11.0 (localversion-next is next-20170512)
+
+ drivers/net/wireless/broadcom/brcm80211/brcmfmac/btcoex.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
+
+diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/btcoex.c b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/btcoex.c
+index 14a70d4b4e86..3559fb5b8fb0 100644
+--- a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/btcoex.c
++++ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/btcoex.c
+@@ -380,9 +380,7 @@ int brcmf_btcoex_attach(struct brcmf_cfg80211_info *cfg)
+ 	/* Set up timer for BT  */
+ 	btci->timer_on = false;
+ 	btci->timeout = BRCMF_BTCOEX_OPPR_WIN_TIME;
+-	init_timer(&btci->timer);
+-	btci->timer.data = (ulong)btci;
+-	btci->timer.function = brcmf_btcoex_timerfunc;
++	setup_timer(&btci->timer, brcmf_btcoex_timerfunc, (ulong)btci);
+ 	btci->cfg = cfg;
+ 	btci->saved_regs_part1 = false;
+ 	btci->saved_regs_part2 = false;
 -- 
-https://patchwork.kernel.org/patch/9703211/
-
-https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
+2.12.2
