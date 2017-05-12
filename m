@@ -1,37 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: phy: Call bus->reset() after releasing PHYs
- from reset
-Date: Thu, 11 May 2017 23:07:01 -0400 (EDT)
-Message-ID: <20170511.230701.1656036521860703475.davem@davemloft.net>
-References: <20170511182417.17708-1-f.fainelli@gmail.com>
+From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+Subject: [PATCH] net: dsa: mv88e6xxx: add default case to switch
+Date: Thu, 11 May 2017 22:11:29 -0500
+Message-ID: <20170512031129.GA4065@embeddedgus>
+References: <20170511214814.Horde.otwLVFIaWFNJZ23PSdgsq_Z@gator4166.hostgator.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, rogerq@ti.com, andrew@lunn.ch,
-        linux-kernel@vger.kernel.org
-To: f.fainelli@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+To: Andrew Lunn <andrew@lunn.ch>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:57754 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750708AbdELDHG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 11 May 2017 23:07:06 -0400
-In-Reply-To: <20170511182417.17708-1-f.fainelli@gmail.com>
+Received: from gateway34.websitewelcome.com ([192.185.150.114]:22187 "EHLO
+        gateway34.websitewelcome.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1754841AbdELDLe (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 11 May 2017 23:11:34 -0400
+Received: from cm6.websitewelcome.com (cm6.websitewelcome.com [108.167.139.19])
+        by gateway34.websitewelcome.com (Postfix) with ESMTP id 1AEAB164C0
+        for <netdev@vger.kernel.org>; Thu, 11 May 2017 22:11:32 -0500 (CDT)
+Content-Disposition: inline
+In-Reply-To: <20170511214814.Horde.otwLVFIaWFNJZ23PSdgsq_Z@gator4166.hostgator.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Thu, 11 May 2017 11:24:16 -0700
+Add default case to switch in order to avoid any chance of using an
+uninitialized variable _low_, in case s->type does not match any of
+the listed case values.
 
-> The API convention makes it that a given MDIO bus reset should be able
-> to access PHY devices in its reset() callback and perform additional
-> MDIO accesses in order to bring the bus and PHYs in a working state.
-> 
-> Commit 69226896ad63 ("mdio_bus: Issue GPIO RESET to PHYs.") broke that
-> contract by first calling bus->reset() and then release all PHYs from
-> reset using their shared GPIO line, so restore the expected
-> functionality here.
-> 
-> Fixes: 69226896ad63 ("mdio_bus: Issue GPIO RESET to PHYs.")
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+Addresses-Coverity-ID: 1398130
+Suggested-by: Andrew Lunn <andrew@lunn.ch>
+Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
+---
+ drivers/net/dsa/mv88e6xxx/chip.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
-Applied, thanks Florian.
+diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
+index 03dc886..d39e210 100644
+--- a/drivers/net/dsa/mv88e6xxx/chip.c
++++ b/drivers/net/dsa/mv88e6xxx/chip.c
+@@ -879,6 +879,9 @@ static uint64_t _mv88e6xxx_get_ethtool_stat(struct mv88e6xxx_chip *chip,
+ 		mv88e6xxx_g1_stats_read(chip, reg, &low);
+ 		if (s->sizeof_stat == 8)
+ 			mv88e6xxx_g1_stats_read(chip, reg + 1, &high);
++		break;
++	default:
++		return UINT64_MAX;
+ 	}
+ 	value = (((u64)high) << 16) | low;
+ 	return value;
+-- 
+2.5.0
