@@ -1,52 +1,82 @@
-From: <Woojung.Huh@microchip.com>
-Subject: [PATCH v2 net-next 5/5] dsa: add maintainer of Microchip KSZ
- switches
-Date: Fri, 12 May 2017 20:08:01 +0000
-Message-ID: <9235D6609DB808459E95D78E17F2E43D40A632D5@CHN-SV-EXMX02.mchp-main.com>
+From: Soheil Hassas Yeganeh <soheil@google.com>
+Subject: Re: [PATCH] net/packet: fix missing net_device reference release
+Date: Fri, 12 May 2017 16:11:08 -0400
+Message-ID: <CACSApvYmR6RgM6nhf34AemmPXVzoHSkqF5DELfad4-_D1NJtJA@mail.gmail.com>
+References: <7daebe52-8542-87cb-551a-1a5b4912f140@taghos.com.br>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <davem@davemloft.net>, <UNGLinuxDriver@microchip.com>
-To: <andrew@lunn.ch>, <f.fainelli@gmail.com>,
-        <vivien.didelot@savoirfairelinux.com>,
-        <sergei.shtylyov@cogentembedded.com>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: netdev <netdev@vger.kernel.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Willem de Bruijn <willemb@google.com>,
+        Jarno Rajahalme <jarno@ovn.org>,
+        Andrey Konovalov <andreyknvl@google.com>,
+        Anoob Soman <anoob.soman@citrix.com>,
+        Sowmini Varadhan <sowmini.varadhan@oracle.com>,
+        Philip Pettersson <philip.pettersson@gmail.com>,
+        Mike Rapoport <rppt@linux.vnet.ibm.com>
+To: Douglas Caetano dos Santos <douglascs@taghos.com.br>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from esa4.microchip.iphmx.com ([68.232.154.123]:37048 "EHLO
-        esa4.microchip.iphmx.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933166AbdELUIC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 12 May 2017 16:08:02 -0400
-Content-Language: en-US
+Received: from mail-it0-f54.google.com ([209.85.214.54]:35095 "EHLO
+        mail-it0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755796AbdELULu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 12 May 2017 16:11:50 -0400
+Received: by mail-it0-f54.google.com with SMTP id c15so16942520ith.0
+        for <netdev@vger.kernel.org>; Fri, 12 May 2017 13:11:49 -0700 (PDT)
+In-Reply-To: <7daebe52-8542-87cb-551a-1a5b4912f140@taghos.com.br>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Woojung Huh <Woojung.Huh@microchip.com>
+On Fri, May 12, 2017 at 2:19 PM, Douglas Caetano dos Santos
+<douglascs@taghos.com.br> wrote:
+> When using a TX ring buffer, if an error occurs processing a control
+> message (e.g. invalid message), the net_device reference is not
+> released.
+>
+> Fixes c14ac9451c348 ("sock: enable timestamping using control messages")
+> Signed-off-by: Douglas Caetano dos Santos <douglascs@taghos.com.br>
 
-Adding maintainer of Microchip KSZ switches.
+Acked-by: Soheil Hassas Yeganeh <soheil@google.com>
 
-Signed-off-by: Woojung Huh <Woojung.Huh@microchip.com>
----
- MAINTAINERS | 9 +++++++++
- 1 file changed, 9 insertions(+)
+> ---
+>  net/packet/af_packet.c | 14 +++++++-------
+>  1 file changed, 7 insertions(+), 7 deletions(-)
+>
+> diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+> index f4001763134d..e3eeed19cc7a 100644
+> --- a/net/packet/af_packet.c
+> +++ b/net/packet/af_packet.c
+> @@ -2658,13 +2658,6 @@ static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
+>                 dev = dev_get_by_index(sock_net(&po->sk), saddr->sll_ifindex);
+>         }
+>
+> -       sockc.tsflags = po->sk.sk_tsflags;
+> -       if (msg->msg_controllen) {
+> -               err = sock_cmsg_send(&po->sk, msg, &sockc);
+> -               if (unlikely(err))
+> -                       goto out;
+> -       }
+> -
+>         err = -ENXIO;
+>         if (unlikely(dev == NULL))
+>                 goto out;
+> @@ -2672,6 +2665,13 @@ static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
+>         if (unlikely(!(dev->flags & IFF_UP)))
+>                 goto out_put;
+>
+> +       sockc.tsflags = po->sk.sk_tsflags;
+> +       if (msg->msg_controllen) {
+> +               err = sock_cmsg_send(&po->sk, msg, &sockc);
+> +               if (unlikely(err))
+> +                       goto out_put;
+> +       }
+> +
+>         if (po->sk.sk_socket->type == SOCK_RAW)
+>                 reserve = dev->hard_header_len;
+>         size_max = po->tx_ring.frame_size
+> --
+> 2.12.2
+>
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 45b173a..e65e501 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -8370,6 +8370,15 @@ F:	drivers/media/platform/atmel/atmel-isc.c
- F:	drivers/media/platform/atmel/atmel-isc-regs.h
- F:	devicetree/bindings/media/atmel-isc.txt
- 
-+MICROCHIP KSZ SERIES ETHERNET SWITCH DRIVER
-+M:	Woojung Huh <Woojung.Huh@microchip.com>
-+M:	Microchip Linux Driver Support <UNGLinuxDriver@microchip.com>
-+L:	netdev@vger.kernel.org
-+S:	Maintained
-+F:	drivers/net/dsa/microchip/*
-+F:	include/linux/platform_data/microchip-ksz.h
-+F:	Documentation/devicetree/bindings/net/dsa/ksz.txt
-+
- MICROCHIP USB251XB DRIVER
- M:	Richard Leitner <richard.leitner@skidata.com>
- L:	linux-usb@vger.kernel.org
--- 
-2.7.4
+Thank you, for the fix.
