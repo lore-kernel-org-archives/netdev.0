@@ -1,90 +1,37 @@
-From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-Subject: Re: [net-dsa-mv88e6xxx] question about potential use of
- uninitialized variable
-Date: Thu, 11 May 2017 21:48:14 -0500
-Message-ID: <20170511214814.Horde.otwLVFIaWFNJZ23PSdgsq_Z@gator4166.hostgator.com>
-References: <20170511163537.Horde.CH1Q_6Lo2SOIbQB6MQJFV3g@gator4166.hostgator.com>
- <20170512023333.GA18767@lunn.ch>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] net: phy: Call bus->reset() after releasing PHYs
+ from reset
+Date: Thu, 11 May 2017 23:07:01 -0400 (EDT)
+Message-ID: <20170511.230701.1656036521860703475.davem@davemloft.net>
+References: <20170511182417.17708-1-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed; DelSp=Yes
-Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170512023333.GA18767@lunn.ch>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, rogerq@ti.com, andrew@lunn.ch,
+        linux-kernel@vger.kernel.org
+To: f.fainelli@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:57754 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750708AbdELDHG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 11 May 2017 23:07:06 -0400
+In-Reply-To: <20170511182417.17708-1-f.fainelli@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Andrew,
+From: Florian Fainelli <f.fainelli@gmail.com>
+Date: Thu, 11 May 2017 11:24:16 -0700
 
-Quoting Andrew Lunn <andrew@lunn.ch>:
+> The API convention makes it that a given MDIO bus reset should be able
+> to access PHY devices in its reset() callback and perform additional
+> MDIO accesses in order to bring the bus and PHYs in a working state.
+> 
+> Commit 69226896ad63 ("mdio_bus: Issue GPIO RESET to PHYs.") broke that
+> contract by first calling bus->reset() and then release all PHYs from
+> reset using their shared GPIO line, so restore the expected
+> functionality here.
+> 
+> Fixes: 69226896ad63 ("mdio_bus: Issue GPIO RESET to PHYs.")
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 
-> On Thu, May 11, 2017 at 04:35:37PM -0500, Gustavo A. R. Silva wrote:
->>
->> Hello everybody,
->>
->> While looking into Coverity ID 1398130 I ran into the following
->> piece of code at drivers/net/dsa/mv88e6xxx/chip.c:849:
->>
->>  849static uint64_t _mv88e6xxx_get_ethtool_stat(struct mv88e6xxx_chip *chip,
->>  850                                            struct mv88e6xxx_hw_stat *s,
->>  851                                            int port, u16 bank1_select,
->>  852                                            u16 histogram)
->>  853{
->>  854        u32 low;
->>  855        u32 high = 0;
->>  856        u16 reg = 0;
->>  857        int err;
->>  858        u64 value;
->>  859
->>  860        switch (s->type) {
->>  861        case STATS_TYPE_PORT:
->>  862                err = mv88e6xxx_port_read(chip, port, s->reg, &reg);
->>  863                if (err)
->>  864                        return UINT64_MAX;
->>  865
->>  866                low = reg;
->>  867                if (s->sizeof_stat == 4) {
->>  868                        err = mv88e6xxx_port_read(chip, port,
->> s->reg + 1, &reg);
->>  869                        if (err)
->>  870                                return UINT64_MAX;
->>  871                        high = reg;
->>  872                }
->>  873                break;
->>  874        case STATS_TYPE_BANK1:
->>  875                reg = bank1_select;
->>  876                /* fall through */
->>  877        case STATS_TYPE_BANK0:
->>  878                reg |= s->reg | histogram;
->>  879                mv88e6xxx_g1_stats_read(chip, reg, &low);
->>  880                if (s->sizeof_stat == 8)
->>  881                        mv88e6xxx_g1_stats_read(chip, reg + 1, &high);
->>  882        }
->>  883        value = (((u64)high) << 16) | low;
->>  884        return value;
->>  885}
->>
->> My question here is if there is any chance for the execution path to
->> directly jump from line 860 to line 883, hence ending up using the
->> uninitialized variable _low_?
->
-> Hi Gustavo
->
-> It would require that s->type not have one of the listed case values.
-> Currently all members of mv88e6xxx_hw_stats due use expected values.
-> However, it would not hurt to add a
->
-> 	 default:
-> 		return UINT64_MAX;
->
-> Do you want to submit a patch?
->
-
-Sure, I'll send it shortly.
-
-Thanks for clarifying!
---
-Gustavo A. R. Silva
+Applied, thanks Florian.
