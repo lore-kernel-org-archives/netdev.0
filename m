@@ -1,95 +1,127 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [Patch net] ipv4: restore rt->fi for reference counting
-Date: Fri, 12 May 2017 09:39:25 +0300 (EEST)
-Message-ID: <alpine.LFD.2.20.1705120659370.1811@ja.home.ssi.bg>
-References: <1493934857-6693-1-git-send-email-xiyou.wangcong@gmail.com> <CAM_iQpWQoLppsMfDOQWsdifGd56CAY24tCNm0Jm02QCe7ZThOw@mail.gmail.com> <1494348962.7796.88.camel@edumazet-glaptop3.roam.corp.google.com> <CAM_iQpXADa6AyQ3X-EbmRPGCQArgPWygvHMYgWtfUYV082oF3Q@mail.gmail.com>
- <CAM_iQpVhdzeen+ZJ3jyK7Qb=yVuoRSZ7BFB3RoVMShY8KPBTZA@mail.gmail.com> <1494370367.7796.92.camel@edumazet-glaptop3.roam.corp.google.com> <1494370451.7796.93.camel@edumazet-glaptop3.roam.corp.google.com> <1494371348.7796.95.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAM_iQpU+fXO7eFroAYMv6vqDzCK_ZYXjrTPAMfoDR2BDqaK9rQ@mail.gmail.com> <alpine.LFD.2.20.1705100937330.1938@ja.home.ssi.bg> <CAM_iQpX22qTqo4yfM_Je1bvJHxjAGK_tvm5KgQSnJzsYq7K55Q@mail.gmail.com> <alpine.LFD.2.20.1705102141320.1928@ja.home.ssi.bg>
- <CAM_iQpW0fJJXPS=FoTf-o4f5-mOC=mZYNP8=uqiUOmvX+CDwWw@mail.gmail.com> <CAM_iQpWxDKHF4N1xor7qj+5s91GrctgcGnzN0buw18qs7__-gQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-        David Miller <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Andrey Konovalov <andreyknvl@google.com>,
-        Eric Dumazet <edumazet@google.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+From: Xin Long <lucien.xin@gmail.com>
+Subject: [PATCH net] sctp: fix src address selection if using secondary addresses for ipv6
+Date: Fri, 12 May 2017 14:39:52 +0800
+Message-ID: <7bbcf970cdc9eca6de6132a942d8c46eb7e138c0.1494571192.git.lucien.xin@gmail.com>
+Cc: davem@davemloft.net,
+        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+        Neil Horman <nhorman@tuxdriver.com>
+To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:60012 "EHLO ja.ssi.bg"
-        rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1755015AbdELGji (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 12 May 2017 02:39:38 -0400
-In-Reply-To: <CAM_iQpWxDKHF4N1xor7qj+5s91GrctgcGnzN0buw18qs7__-gQ@mail.gmail.com>
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:34362 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753354AbdELGkB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 12 May 2017 02:40:01 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Commit 0ca50d12fe46 ("sctp: fix src address selection if using secondary
+addresses") has fixed a src address selection issue when using secondary
+addresses for ipv4.
 
-	Hello,
+Now sctp ipv6 also has the similar issue. When using a secondary address,
+sctp_v6_get_dst tries to choose the saddr which has the most same bits
+with the daddr by sctp_v6_addr_match_len. It may make some cases not work
+as expected.
 
-On Thu, 11 May 2017, Cong Wang wrote:
+hostA:
+  [1] fd21:356b:459a:cf10::11 (eth1)
+  [2] fd21:356b:459a:cf20::11 (eth2)
 
-> On Thu, May 11, 2017 at 5:07 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
-> > So, if I understand you correctly it is safe to NULL'ing
-> > nh_dev in NETDEV_UNREGISTER_FINAL, right?
-> >
-> > If still not, how about transfer nh_dev's to loopback_dev
-> > too in NETDEV_UNREGISTER? Like we transfer dst->dev.
-> >
-> > I don't want to touch the fast path to check for NULL, as
-> > it will change more code and slow down performance.
-> 
-> Finally I come up with the attached patch. Please let me know if
-> I still miss anything.
+hostB:
+  [a] fd21:356b:459a:cf30::2  (eth1)
+  [b] fd21:356b:459a:cf40::2  (eth2)
 
-	fib_flush will unlink the FIB infos at NETDEV_UNREGISTER
-time, so we can not see them in any hash tables later on
-NETDEV_UNREGISTER_FINAL. fib_put_nh_devs() can not work
-except if moving NHs in another hash table but that should
-not be needed.
+route from hostA to hostB:
+  fd21:356b:459a:cf30::/64 dev eth1  metric 1024  mtu 1500
 
-	I'm thinking for the following solution which
-is a bit hackish:
+The expected path should be:
+  fd21:356b:459a:cf10::11 <-> fd21:356b:459a:cf30::2
+But addr[2] matches addr[a] more bits than addr[1] does, according to
+sctp_v6_addr_match_len. It causes the path to be:
+  fd21:356b:459a:cf20::11 <-> fd21:356b:459a:cf30::2
 
-- on NETDEV_UNREGISTER we want to put the nh_dev references,
-so fib_release_info is a good place. But as fib_release_info
-is not always called, we will have two places that put
-references. We can use such hack:
+This patch is to fix it with the same way as Marcelo's fix for sctp ipv4.
+As no ip_dev_find for ipv6, this patch is to use ipv6_chk_addr to check
+if the saddr is in a dev instead.
 
-	- for example, use nh_oif to know if dev_put is
-	already called
+Note that for backwards compatibility, it will still do the addr_match_len
+check here when no optimal is found.
 
-	- fib_release_info() should set nh_oif to 0 because
-	it will now call dev_put without clearing nh_dev
+Reported-by: Patrick Talbert <ptalbert@redhat.com>
+Signed-off-by: Xin Long <lucien.xin@gmail.com>
+---
+ net/sctp/ipv6.c | 46 +++++++++++++++++++++++++++++-----------------
+ 1 file changed, 29 insertions(+), 17 deletions(-)
 
-	- free_fib_info_rcu() will not call dev_put if nh_oif is 0:
-	if (nexthop_nh->nh_dev && nexthop_nh->nh_oif)
-		dev_put(nexthop_nh->nh_dev);
-
-	- as fi is unlinked, there is no chance fib_info_hashfn()
-	to use the cleared nh_oif for hashing
-
-	- we expect noone to touch nh_dev fields after fi is
-	unlinked, this includes free_fib_info and free_fib_info_rcu
-
-	What we achieve:
-
-- between NETDEV_UNREGISTER and NETDEV_UNREGISTER_FINAL nh_dev
-still points to our dev (and not to loopback, I think, this
-answers your question in previous email), so route lookups
-will not find loopback in the FIB tree. We do not want
-some packets to be wrongly rerouted. Even if we don't
-hold dev reference, the RCU grace period helps here.
-
-- fib_dev/nh_dev != NULL checks are not needed, so this addresses
-Eric's concerns. BTW, fib_route_seq_show actually checks
-for fi->fib_dev, may be not in a safe way (lockless_dereference
-needed?) but as we don't set nh_dev to NULL this is not
-needed.
-
-	What more? What about nh_pcpu_rth_output and
-nh_rth_input holding routes? We should think about
-them too. I should think more if nh_oif trick can work
-for them, may be not because nh_oif is optional...
-May be we should purge them somehow?
-
-Regards
+diff --git a/net/sctp/ipv6.c b/net/sctp/ipv6.c
+index 961ee59..142b70e 100644
+--- a/net/sctp/ipv6.c
++++ b/net/sctp/ipv6.c
+@@ -240,12 +240,10 @@ static void sctp_v6_get_dst(struct sctp_transport *t, union sctp_addr *saddr,
+ 	struct sctp_bind_addr *bp;
+ 	struct ipv6_pinfo *np = inet6_sk(sk);
+ 	struct sctp_sockaddr_entry *laddr;
+-	union sctp_addr *baddr = NULL;
+ 	union sctp_addr *daddr = &t->ipaddr;
+ 	union sctp_addr dst_saddr;
+ 	struct in6_addr *final_p, final;
+ 	__u8 matchlen = 0;
+-	__u8 bmatchlen;
+ 	sctp_scope_t scope;
+ 
+ 	memset(fl6, 0, sizeof(struct flowi6));
+@@ -312,23 +310,37 @@ static void sctp_v6_get_dst(struct sctp_transport *t, union sctp_addr *saddr,
+ 	 */
+ 	rcu_read_lock();
+ 	list_for_each_entry_rcu(laddr, &bp->address_list, list) {
+-		if (!laddr->valid)
++		struct dst_entry *bdst;
++		__u8 bmatchlen;
++
++		if (!laddr->valid ||
++		    laddr->state != SCTP_ADDR_SRC ||
++		    laddr->a.sa.sa_family != AF_INET6 ||
++		    scope > sctp_scope(&laddr->a))
+ 			continue;
+-		if ((laddr->state == SCTP_ADDR_SRC) &&
+-		    (laddr->a.sa.sa_family == AF_INET6) &&
+-		    (scope <= sctp_scope(&laddr->a))) {
+-			bmatchlen = sctp_v6_addr_match_len(daddr, &laddr->a);
+-			if (!baddr || (matchlen < bmatchlen)) {
+-				baddr = &laddr->a;
+-				matchlen = bmatchlen;
+-			}
+-		}
+-	}
+-	if (baddr) {
+-		fl6->saddr = baddr->v6.sin6_addr;
+-		fl6->fl6_sport = baddr->v6.sin6_port;
++
++		fl6->saddr = laddr->a.v6.sin6_addr;
++		fl6->fl6_sport = laddr->a.v6.sin6_port;
+ 		final_p = fl6_update_dst(fl6, rcu_dereference(np->opt), &final);
+-		dst = ip6_dst_lookup_flow(sk, fl6, final_p);
++		bdst = ip6_dst_lookup_flow(sk, fl6, final_p);
++
++		if (!IS_ERR(bdst) &&
++		    ipv6_chk_addr(dev_net(bdst->dev),
++				  &laddr->a.v6.sin6_addr, bdst->dev, 1)) {
++			if (!IS_ERR_OR_NULL(dst))
++				dst_release(dst);
++			dst = bdst;
++			break;
++		}
++
++		bmatchlen = sctp_v6_addr_match_len(daddr, &laddr->a);
++		if (matchlen > bmatchlen)
++			continue;
++
++		if (!IS_ERR_OR_NULL(dst))
++			dst_release(dst);
++		dst = bdst;
++		matchlen = bmatchlen;
+ 	}
+ 	rcu_read_unlock();
+ 
+-- 
+2.1.0
