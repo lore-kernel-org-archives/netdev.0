@@ -1,270 +1,69 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [net 6/6] net/mlx5: Use underlay QPN from the root name space
-Date: Fri, 12 May 2017 14:56:50 +0300
-Message-ID: <20170512115650.11635-7-saeedm@mellanox.com>
-References: <20170512115650.11635-1-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Yishai Hadas <yishaih@mellanox.com>,
-        Erez Shitrit <erezsh@mellanox.com>,
-        Maor Gottlieb <maorg@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>
+Subject: [pull request][net 0/6] Mellanox, mlx5 fixes 2017-05-12
+Date: Fri, 12 May 2017 14:56:44 +0300
+Message-ID: <20170512115650.11635-1-saeedm@mellanox.com>
+Cc: netdev@vger.kernel.org, Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:51212 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:51201 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1755605AbdELMCD (ORCPT
+        with ESMTP id S1755662AbdELMCD (ORCPT
         <rfc822;netdev@vger.kernel.org>); Fri, 12 May 2017 08:02:03 -0400
-In-Reply-To: <20170512115650.11635-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yishai Hadas <yishaih@mellanox.com>
+Hi Dave,
 
-Root flow table is dynamically changed by the underlying flow steering
-layer, and IPoIB/ULPs have no idea what will be the root flow table in
-the future, hence we need a dynamic infrastructure to move Underlay QPs
-with the root flow table.
+This series contains some mlx5 fixes for net.
+Please pull and let me know if there's any problem.
 
-Fixes: b3ba51498bdd ("net/mlx5: Refactor create flow table method to accept underlay QP")
-Signed-off-by: Erez Shitrit <erezsh@mellanox.com>
-Signed-off-by: Maor Gottlieb <maorg@mellanox.com>
-Signed-off-by: Yishai Hadas <yishaih@mellanox.com>
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+For -stable:
+("net/mlx5e: Fix ethtool pause support and advertise reporting") kernels >= 4.8
+("net/mlx5e: Use the correct pause values for ethtool advertising") kernels >= 4.8
+
+Thanks,
+Saeed.
+
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en.h      |  2 +-
- drivers/net/ethernet/mellanox/mlx5/core/en_fs.c   |  5 ++---
- drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c  |  9 +++-----
- drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.h  |  3 ++-
- drivers/net/ethernet/mellanox/mlx5/core/fs_core.c | 25 +++++++++++++++++++----
- drivers/net/ethernet/mellanox/mlx5/core/fs_core.h |  2 +-
- drivers/net/ethernet/mellanox/mlx5/core/ipoib.c   |  7 +++++--
- include/linux/mlx5/fs.h                           |  4 +++-
- 8 files changed, 38 insertions(+), 19 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-index c41cf7e82795..34d3377a6147 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-@@ -1004,7 +1004,7 @@ int mlx5e_create_direct_tirs(struct mlx5e_priv *priv);
- void mlx5e_destroy_direct_tirs(struct mlx5e_priv *priv);
- void mlx5e_destroy_rqt(struct mlx5e_priv *priv, struct mlx5e_rqt *rqt);
- 
--int mlx5e_create_ttc_table(struct mlx5e_priv *priv, u32 underlay_qpn);
-+int mlx5e_create_ttc_table(struct mlx5e_priv *priv);
- void mlx5e_destroy_ttc_table(struct mlx5e_priv *priv);
- 
- int mlx5e_create_tis(struct mlx5_core_dev *mdev, int tc,
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_fs.c b/drivers/net/ethernet/mellanox/mlx5/core/en_fs.c
-index 576d6787b484..53ed58320a24 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_fs.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_fs.c
-@@ -800,7 +800,7 @@ void mlx5e_destroy_ttc_table(struct mlx5e_priv *priv)
- 	mlx5e_destroy_flow_table(&ttc->ft);
- }
- 
--int mlx5e_create_ttc_table(struct mlx5e_priv *priv, u32 underlay_qpn)
-+int mlx5e_create_ttc_table(struct mlx5e_priv *priv)
- {
- 	struct mlx5e_ttc_table *ttc = &priv->fs.ttc;
- 	struct mlx5_flow_table_attr ft_attr = {};
-@@ -810,7 +810,6 @@ int mlx5e_create_ttc_table(struct mlx5e_priv *priv, u32 underlay_qpn)
- 	ft_attr.max_fte = MLX5E_TTC_TABLE_SIZE;
- 	ft_attr.level = MLX5E_TTC_FT_LEVEL;
- 	ft_attr.prio = MLX5E_NIC_PRIO;
--	ft_attr.underlay_qpn = underlay_qpn;
- 
- 	ft->t = mlx5_create_flow_table(priv->fs.ns, &ft_attr);
- 	if (IS_ERR(ft->t)) {
-@@ -1147,7 +1146,7 @@ int mlx5e_create_flow_steering(struct mlx5e_priv *priv)
- 		priv->netdev->hw_features &= ~NETIF_F_NTUPLE;
- 	}
- 
--	err = mlx5e_create_ttc_table(priv, 0);
-+	err = mlx5e_create_ttc_table(priv);
- 	if (err) {
- 		netdev_err(priv->netdev, "Failed to create ttc table, err=%d\n",
- 			   err);
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c b/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c
-index 19e3d2fc2099..fcec7bedd3cd 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c
-@@ -40,28 +40,25 @@
- #include "eswitch.h"
- 
- int mlx5_cmd_update_root_ft(struct mlx5_core_dev *dev,
--			    struct mlx5_flow_table *ft)
-+			    struct mlx5_flow_table *ft, u32 underlay_qpn)
- {
- 	u32 in[MLX5_ST_SZ_DW(set_flow_table_root_in)]   = {0};
- 	u32 out[MLX5_ST_SZ_DW(set_flow_table_root_out)] = {0};
- 
- 	if ((MLX5_CAP_GEN(dev, port_type) == MLX5_CAP_PORT_TYPE_IB) &&
--	    ft->underlay_qpn == 0)
-+	    underlay_qpn == 0)
- 		return 0;
- 
- 	MLX5_SET(set_flow_table_root_in, in, opcode,
- 		 MLX5_CMD_OP_SET_FLOW_TABLE_ROOT);
- 	MLX5_SET(set_flow_table_root_in, in, table_type, ft->type);
- 	MLX5_SET(set_flow_table_root_in, in, table_id, ft->id);
-+	MLX5_SET(set_flow_table_root_in, in, underlay_qpn, underlay_qpn);
- 	if (ft->vport) {
- 		MLX5_SET(set_flow_table_root_in, in, vport_number, ft->vport);
- 		MLX5_SET(set_flow_table_root_in, in, other_vport, 1);
- 	}
- 
--	if ((MLX5_CAP_GEN(dev, port_type) == MLX5_CAP_PORT_TYPE_IB) &&
--	    ft->underlay_qpn != 0)
--		MLX5_SET(set_flow_table_root_in, in, underlay_qpn, ft->underlay_qpn);
--
- 	return mlx5_cmd_exec(dev, in, sizeof(in), out, sizeof(out));
- }
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.h b/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.h
-index 8fad80688536..0f98a7cf4877 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.h
-@@ -71,7 +71,8 @@ int mlx5_cmd_delete_fte(struct mlx5_core_dev *dev,
- 			unsigned int index);
- 
- int mlx5_cmd_update_root_ft(struct mlx5_core_dev *dev,
--			    struct mlx5_flow_table *ft);
-+			    struct mlx5_flow_table *ft,
-+			    u32 underlay_qpn);
- 
- int mlx5_cmd_fc_alloc(struct mlx5_core_dev *dev, u16 *id);
- int mlx5_cmd_fc_free(struct mlx5_core_dev *dev, u16 id);
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
-index b8a176503d38..0e487e8ca634 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
-@@ -650,7 +650,7 @@ static int update_root_ft_create(struct mlx5_flow_table *ft, struct fs_prio
- 	if (ft->level >= min_level)
- 		return 0;
- 
--	err = mlx5_cmd_update_root_ft(root->dev, ft);
-+	err = mlx5_cmd_update_root_ft(root->dev, ft, root->underlay_qpn);
- 	if (err)
- 		mlx5_core_warn(root->dev, "Update root flow table of id=%u failed\n",
- 			       ft->id);
-@@ -818,8 +818,6 @@ static struct mlx5_flow_table *__mlx5_create_flow_table(struct mlx5_flow_namespa
- 		goto unlock_root;
- 	}
- 
--	ft->underlay_qpn = ft_attr->underlay_qpn;
--
- 	tree_init_node(&ft->node, 1, del_flow_table);
- 	log_table_sz = ft->max_fte ? ilog2(ft->max_fte) : 0;
- 	next_ft = find_next_chained_ft(fs_prio);
-@@ -1489,7 +1487,8 @@ static int update_root_ft_destroy(struct mlx5_flow_table *ft)
- 
- 	new_root_ft = find_next_ft(ft);
- 	if (new_root_ft) {
--		int err = mlx5_cmd_update_root_ft(root->dev, new_root_ft);
-+		int err = mlx5_cmd_update_root_ft(root->dev, new_root_ft,
-+						  root->underlay_qpn);
- 
- 		if (err) {
- 			mlx5_core_warn(root->dev, "Update root flow table of id=%u failed\n",
-@@ -2062,3 +2061,21 @@ int mlx5_init_fs(struct mlx5_core_dev *dev)
- 	mlx5_cleanup_fs(dev);
- 	return err;
- }
-+
-+int mlx5_fs_add_rx_underlay_qpn(struct mlx5_core_dev *dev, u32 underlay_qpn)
-+{
-+	struct mlx5_flow_root_namespace *root = dev->priv.steering->root_ns;
-+
-+	root->underlay_qpn = underlay_qpn;
-+	return 0;
-+}
-+EXPORT_SYMBOL(mlx5_fs_add_rx_underlay_qpn);
-+
-+int mlx5_fs_remove_rx_underlay_qpn(struct mlx5_core_dev *dev, u32 underlay_qpn)
-+{
-+	struct mlx5_flow_root_namespace *root = dev->priv.steering->root_ns;
-+
-+	root->underlay_qpn = 0;
-+	return 0;
-+}
-+EXPORT_SYMBOL(mlx5_fs_remove_rx_underlay_qpn);
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h
-index 81eafc7b9dd9..990acee6fb09 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h
-@@ -118,7 +118,6 @@ struct mlx5_flow_table {
- 	/* FWD rules that point on this flow table */
- 	struct list_head		fwd_rules;
- 	u32				flags;
--	u32				underlay_qpn;
- };
- 
- struct mlx5_fc_cache {
-@@ -195,6 +194,7 @@ struct mlx5_flow_root_namespace {
- 	struct mlx5_flow_table		*root_ft;
- 	/* Should be held when chaining flow tables */
- 	struct mutex			chain_lock;
-+	u32				underlay_qpn;
- };
- 
- int mlx5_init_fc_stats(struct mlx5_core_dev *dev);
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/ipoib.c b/drivers/net/ethernet/mellanox/mlx5/core/ipoib.c
-index 56bff3540954..cc1858752e70 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/ipoib.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/ipoib.c
-@@ -160,6 +160,8 @@ static int mlx5i_create_underlay_qp(struct mlx5_core_dev *mdev, struct mlx5_core
- 
- static void mlx5i_destroy_underlay_qp(struct mlx5_core_dev *mdev, struct mlx5_core_qp *qp)
- {
-+	mlx5_fs_remove_rx_underlay_qpn(mdev, qp->qpn);
-+
- 	mlx5_core_destroy_qp(mdev, qp);
- }
- 
-@@ -174,6 +176,8 @@ static int mlx5i_init_tx(struct mlx5e_priv *priv)
- 		return err;
- 	}
- 
-+	mlx5_fs_add_rx_underlay_qpn(priv->mdev, ipriv->qp.qpn);
-+
- 	err = mlx5e_create_tis(priv->mdev, 0 /* tc */, ipriv->qp.qpn, &priv->tisn[0]);
- 	if (err) {
- 		mlx5_core_warn(priv->mdev, "create tis failed, %d\n", err);
-@@ -193,7 +197,6 @@ static void mlx5i_cleanup_tx(struct mlx5e_priv *priv)
- 
- static int mlx5i_create_flow_steering(struct mlx5e_priv *priv)
- {
--	struct mlx5i_priv *ipriv = priv->ppriv;
- 	int err;
- 
- 	priv->fs.ns = mlx5_get_flow_namespace(priv->mdev,
-@@ -209,7 +212,7 @@ static int mlx5i_create_flow_steering(struct mlx5e_priv *priv)
- 		priv->netdev->hw_features &= ~NETIF_F_NTUPLE;
- 	}
- 
--	err = mlx5e_create_ttc_table(priv, ipriv->qp.qpn);
-+	err = mlx5e_create_ttc_table(priv);
- 	if (err) {
- 		netdev_err(priv->netdev, "Failed to create ttc table, err=%d\n",
- 			   err);
-diff --git a/include/linux/mlx5/fs.h b/include/linux/mlx5/fs.h
-index 1b166d2e19c5..b25e7baa273e 100644
---- a/include/linux/mlx5/fs.h
-+++ b/include/linux/mlx5/fs.h
-@@ -109,7 +109,6 @@ struct mlx5_flow_table_attr {
- 	int max_fte;
- 	u32 level;
- 	u32 flags;
--	u32 underlay_qpn;
- };
- 
- struct mlx5_flow_table *
-@@ -167,4 +166,7 @@ struct mlx5_fc *mlx5_fc_create(struct mlx5_core_dev *dev, bool aging);
- void mlx5_fc_destroy(struct mlx5_core_dev *dev, struct mlx5_fc *counter);
- void mlx5_fc_query_cached(struct mlx5_fc *counter,
- 			  u64 *bytes, u64 *packets, u64 *lastuse);
-+int mlx5_fs_add_rx_underlay_qpn(struct mlx5_core_dev *dev, u32 underlay_qpn);
-+int mlx5_fs_remove_rx_underlay_qpn(struct mlx5_core_dev *dev, u32 underlay_qpn);
-+
- #endif
--- 
-2.11.0
+The following changes since commit df0c8d911abf6ba97b2c2fc3c5a12769e0b081a3:
+
+  net: phy: Call bus->reset() after releasing PHYs from reset (2017-05-11 23:06:18 -0400)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/saeed/linux.git tags/mlx5-fixes-2017-05-12
+
+for you to fetch changes up to 5405a3d4687a3e2fad41a59c3cecbd33b7200fa1:
+
+  net/mlx5: Use underlay QPN from the root name space (2017-05-12 14:18:41 +0300)
+
+----------------------------------------------------------------
+mlx5-fixes-2017-05-12
+
+Misc mlx5 fixes
+
+----------------------------------------------------------------
+Gal Pressman (3):
+      net/mlx5e: Use a spinlock to synchronize statistics
+      net/mlx5e: Use the correct pause values for ethtool advertising
+      net/mlx5e: Fix ethtool pause support and advertise reporting
+
+Saeed Mahameed (2):
+      net/mlx5e: Fix setup TC ndo
+      net/mlx5e: IPoIB, Only support regular RQ for now
+
+Yishai Hadas (1):
+      net/mlx5: Use underlay QPN from the root name space
+
+ drivers/net/ethernet/mellanox/mlx5/core/en.h       |  3 +-
+ .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   | 21 +++++++---
+ drivers/net/ethernet/mellanox/mlx5/core/en_fs.c    |  5 +--
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c  | 47 ++++++++++++++++------
+ drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c   |  9 ++---
+ drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.h   |  3 +-
+ drivers/net/ethernet/mellanox/mlx5/core/fs_core.c  | 25 ++++++++++--
+ drivers/net/ethernet/mellanox/mlx5/core/fs_core.h  |  2 +-
+ drivers/net/ethernet/mellanox/mlx5/core/ipoib.c    | 11 ++++-
+ include/linux/mlx5/fs.h                            |  4 +-
+ 10 files changed, 93 insertions(+), 37 deletions(-)
