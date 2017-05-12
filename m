@@ -1,48 +1,30 @@
-From: Edward Cree <ecree@solarflare.com>
-Subject: [PATCH net] sfc: revert changes to NIC revision numbers
-Date: Fri, 12 May 2017 17:18:50 +0100
-Message-ID: <5a87b5cf-1696-0fbc-209d-95fa85023918@solarflare.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] tools: hv: Add clean up for included files in
+ Ubuntu net config
+Date: Fri, 12 May 2017 12:20:26 -0400 (EDT)
+Message-ID: <20170512.122026.71874509847193117.davem@davemloft.net>
+References: <1494598413-19106-1-git-send-email-haiyangz@exchange.microsoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: <linux-net-drivers@solarflare.com>, <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from dispatch1-us1.ppe-hosted.com ([67.231.154.164]:46980 "EHLO
-        dispatch1-us1.ppe-hosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1758081AbdELQTA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 12 May 2017 12:19:00 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, kys@microsoft.com, olaf@aepfle.de,
+        vkuznets@redhat.com, linux-kernel@vger.kernel.org
+To: haiyangz@microsoft.com, haiyangz@exchange.microsoft.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1494598413-19106-1-git-send-email-haiyangz@exchange.microsoft.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Bert Kenward <bkenward@solarflare.com>
+From: Haiyang Zhang <haiyangz@exchange.microsoft.com>
+Date: Fri, 12 May 2017 07:13:33 -0700
 
-The revision enum values (eg EFX_REV_HUNT_A0) form part of our API,
- and are included in ethtool. If these are inconsistent then ethtool
- will print garbage for a register dump (ethtool -d).
+>  
+> +	local fn
+> +	for fn in "${fnlist[@]}"
+> +	do
+>  	awk "/$nic_end/{x=0} x{next} /$nic_start/{x=1;next} 1"  $fn >$tmpfl
+>  
+>  	cp $tmpfl $fn
+> +	done
 
-Fixes: 5a6681e22c14 ("sfc: separate out SFC4000 ("Falcon") support into new sfc-falcon driver")
-Signed-off-by: Edward Cree <ecree@solarflare.com>
----
- drivers/net/ethernet/sfc/nic.h | 8 ++++++--
- 1 file changed, 6 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/sfc/nic.h b/drivers/net/ethernet/sfc/nic.h
-index 7b916aa..4d7fb8a 100644
---- a/drivers/net/ethernet/sfc/nic.h
-+++ b/drivers/net/ethernet/sfc/nic.h
-@@ -18,8 +18,12 @@
- #include "mcdi.h"
- 
- enum {
--	EFX_REV_SIENA_A0 = 0,
--	EFX_REV_HUNT_A0 = 1,
-+	/* Revisions 0-2 were Falcon A0, A1 and B0 respectively.
-+	 * They are not supported by this driver but these revision numbers
-+	 * form part of the ethtool API for register dumping.
-+	 */
-+	EFX_REV_SIENA_A0 = 3,
-+	EFX_REV_HUNT_A0 = 4,
- };
- 
- static inline int efx_nic_rev(struct efx_nic *efx)
+Please indent the body of this loop properly.
