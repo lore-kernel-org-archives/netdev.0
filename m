@@ -1,52 +1,58 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [Patch net] ipv4: restore rt->fi for reference counting
-Date: Fri, 12 May 2017 14:13:03 -0700
-Message-ID: <CAM_iQpU-+8rVswnfMcOtQ8Lb0PrnGJEwm2MjQWMLEZdEycSZmg@mail.gmail.com>
-References: <1493934857-6693-1-git-send-email-xiyou.wangcong@gmail.com>
- <CAM_iQpWQoLppsMfDOQWsdifGd56CAY24tCNm0Jm02QCe7ZThOw@mail.gmail.com>
- <1494348962.7796.88.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAM_iQpXADa6AyQ3X-EbmRPGCQArgPWygvHMYgWtfUYV082oF3Q@mail.gmail.com>
- <CAM_iQpVhdzeen+ZJ3jyK7Qb=yVuoRSZ7BFB3RoVMShY8KPBTZA@mail.gmail.com>
- <1494370367.7796.92.camel@edumazet-glaptop3.roam.corp.google.com>
- <1494370451.7796.93.camel@edumazet-glaptop3.roam.corp.google.com>
- <1494371348.7796.95.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAM_iQpU+fXO7eFroAYMv6vqDzCK_ZYXjrTPAMfoDR2BDqaK9rQ@mail.gmail.com>
- <alpine.LFD.2.20.1705100937330.1938@ja.home.ssi.bg> <CAM_iQpX22qTqo4yfM_Je1bvJHxjAGK_tvm5KgQSnJzsYq7K55Q@mail.gmail.com>
- <alpine.LFD.2.20.1705102141320.1928@ja.home.ssi.bg> <CAM_iQpW0fJJXPS=FoTf-o4f5-mOC=mZYNP8=uqiUOmvX+CDwWw@mail.gmail.com>
- <CAM_iQpWxDKHF4N1xor7qj+5s91GrctgcGnzN0buw18qs7__-gQ@mail.gmail.com>
- <alpine.LFD.2.20.1705120659370.1811@ja.home.ssi.bg> <CAM_iQpVQSMd_LYMqm3EauRRgJhfkW=zsdvKRf4-YcGWwSufuvQ@mail.gmail.com>
- <CAM_iQpUdknc_4Hjk9ieC3mshrF20BPEhP8e=rKTRybpOadDg6w@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] netvsc: fix net poll mode
+Date: Fri, 12 May 2017 14:15:26 -0700
+Message-ID: <1494623726.7796.136.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20170512200331.14433-1-sthemmin@microsoft.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-        David Miller <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Andrey Konovalov <andreyknvl@google.com>,
-        Eric Dumazet <edumazet@google.com>
-To: Julian Anastasov <ja@ssi.bg>
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+        Stephen Hemminger <sthemmin@microsoft.com>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f48.google.com ([74.125.82.48]:35184 "EHLO
-        mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932190AbdELVNZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 12 May 2017 17:13:25 -0400
-Received: by mail-wm0-f48.google.com with SMTP id b84so31659705wmh.0
-        for <netdev@vger.kernel.org>; Fri, 12 May 2017 14:13:24 -0700 (PDT)
-In-Reply-To: <CAM_iQpUdknc_4Hjk9ieC3mshrF20BPEhP8e=rKTRybpOadDg6w@mail.gmail.com>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:34393 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1758146AbdELVP3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 12 May 2017 17:15:29 -0400
+Received: by mail-pf0-f195.google.com with SMTP id w69so8249973pfk.1
+        for <netdev@vger.kernel.org>; Fri, 12 May 2017 14:15:28 -0700 (PDT)
+In-Reply-To: <20170512200331.14433-1-sthemmin@microsoft.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 12, 2017 at 1:58 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
-> On Fri, May 12, 2017 at 10:27 AM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
->> Or maybe don't touch nh_oif but using a new flag in
->> nh_flags?? We only need to know if we should call
->> dev_put() in free_fib_info_rcu().
->>
->> Again, I am still not sure if it is any better than just
->> putting these fib_nh into a linked list.
->>
->
-> I am afraid we have to use a linked list, because either a flag or
-> nh_oif is per nh, but one nh could have multiple different nh_devs...
+On Fri, 2017-05-12 at 13:03 -0700, Stephen Hemminger wrote:
+> The ndo_poll_controller function needs to schedule NAPI to pick
+> up arriving packets and send completions. Otherwise no data
+> will ever be received.
+> 
+> Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+> ---
+>  drivers/net/hyperv/netvsc_drv.c | 17 +++++++++++++----
+>  1 file changed, 13 insertions(+), 4 deletions(-)
+> 
+> diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+> index 4421a6d00375..e487ccea251c 100644
+> --- a/drivers/net/hyperv/netvsc_drv.c
+> +++ b/drivers/net/hyperv/netvsc_drv.c
+> @@ -1158,11 +1158,20 @@ netvsc_get_rxnfc(struct net_device *dev, struct ethtool_rxnfc *info,
+>  }
+>  
+>  #ifdef CONFIG_NET_POLL_CONTROLLER
+> -static void netvsc_poll_controller(struct net_device *net)
+> +static void netvsc_poll_controller(struct net_device *dev)
+>  {
+> -	/* As netvsc_start_xmit() works synchronous we don't have to
+> -	 * trigger anything here.
+> -	 */
+> +	struct net_device_context *ndc = netdev_priv(dev);
+> +	struct netvsc_device *ndev = rtnl_dereference(ndc->nvdev);
 
-Scratch that. Each fib_nh has one nh_dev...
-I am trying to use a flag.
+
+rtnl_dereference() can not possibly be used in an ndo_poll_controller()
+
+You would certainly trigger a lockdep issue here if you compile a kernel
+with enough debugging support.
+
+CONFIG_PROVE_RCU=y
+CONFIG_PROVE_RCU_REPEATEDLY=y
+CONFIG_SPARSE_RCU_POINTER=y
