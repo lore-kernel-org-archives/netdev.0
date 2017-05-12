@@ -1,80 +1,192 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [PATCH] ravb: add wake-on-lan support via magic packet
-Date: Fri, 12 May 2017 15:03:15 +0200
-Message-ID: <CAMuHMdWBDEoRhgMKun_AjOqkuq0xRvGBjnpnJmCiLHMcev7OdA@mail.gmail.com>
-References: <20170511222735.10706-1-niklas.soderlund+renesas@ragnatech.se>
- <CAMuHMdUXqWJMh7syd3muMs8v9wx5bJNRj_3+xEAXTQTfAv0BFA@mail.gmail.com> <20170512125853.GH31437@bigcity.dyn.berto.se>
+From: Mahesh Nanavalla <mahesh.nanavalla-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 0/5] net-next: ethernet: add sun8i-emac driver
+Date: Fri, 12 May 2017 06:09:17 -0700 (PDT)
+Message-ID: <593bffd3-a04a-421b-86d4-ed3035c79445@googlegroups.com>
+References: <1464947790-22991-1-git-send-email-clabbe.montjoie@gmail.com>
+Reply-To: mahesh.nanavalla-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
 Mime-Version: 1.0
+Content-Type: multipart/mixed;
+	boundary="----=_Part_6076_339322027.1494594557960"
+Cc: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, pawel.moll-5wv7dgnIgG8@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
+	ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org, galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
+	maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org, wens-jdAy2FN1RRM@public.gmane.org,
+	linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+To: linux-sunxi <linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Return-path: <linux-sunxi+bncBDQ4N35GZUMBBTPT23EAKGQERLXI4QY-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+In-Reply-To: <1464947790-22991-1-git-send-email-clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Help: <https://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Archive: <https://groups.google.com/group/linux-sunxi
+List-Subscribe: <https://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
+ <https://groups.google.com/group/linux-sunxi/subscribe>
+List-Id: netdev.vger.kernel.org
+
+------=_Part_6076_339322027.1494594557960
+Content-Type: multipart/alternative;
+	boundary="----=_Part_6077_1112402886.1494594557960"
+
+------=_Part_6077_1112402886.1494594557960
 Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Linux-Renesas <linux-renesas-soc@vger.kernel.org>
-To: =?UTF-8?Q?Niklas_S=C3=B6derlund?= <niklas.soderlund@ragnatech.se>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f169.google.com ([209.85.223.169]:35558 "EHLO
-        mail-io0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755479AbdELNDR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 12 May 2017 09:03:17 -0400
-In-Reply-To: <20170512125853.GH31437@bigcity.dyn.berto.se>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
 
-Hi Niklas,
+Hi All,
 
-On Fri, May 12, 2017 at 2:58 PM, Niklas S=C3=B6derlund
-<niklas.soderlund@ragnatech.se> wrote:
-> On 2017-05-12 14:47:53 +0200, Geert Uytterhoeven wrote:
->> On Fri, May 12, 2017 at 12:27 AM, Niklas S=C3=B6derlund
->> <niklas.soderlund+renesas@ragnatech.se> wrote:
->> > WoL is enabled in the suspend callback by setting MagicPacket detectio=
-n
->> > and disabling all interrupts expect MagicPacket. In the resume path th=
-e
->> > driver needs to reset the hardware to rearm the WoL logic, this preven=
-ts
->> > the driver from simply restoring the registers and to take advantage o=
-f
->> > that ravb was not suspended to reduce resume time. To reset the
->> > hardware the driver closes the device, sets it in reset mode and reope=
-ns
->> > the device just like it would do in a normal suspend/resume scenario
->> > without WoL enabled, but it both closes and opens the device in the
->> > resume callback since the device needs to be reset for WoL to work.
->> >
->> > One quirk needed for WoL is that the module clock needs to be prevente=
-d
->> > from being switched off by Runtime PM. To keep the clock alive the
->> > suspend callback need to call clk_enable() directly to increase the
->> > usage count of the clock. Then when Runtime PM decreases the clock usa=
-ge
->> > count it won't reach 0 and be switched off.
->> >
->> > Signed-off-by: Niklas S=C3=B6derlund <niklas.soderlund+renesas@ragnate=
-ch.se>
->>
->> Thanks for your patch!
->>
->> Wake-on-LAN now works for me on Salvator-X (both H3 and M3).
->>
->> However, after a few cycles, Ethernet stopped working, because CMA ran o=
-ut of
->> memory:
->>
->>     cma: cma_alloc: alloc failed, req-size: 6 pages, ret: -4
->>     dpm_run_callback(): ravb_resume+0x0/0x148 returns -12
->>     PM: Device e6800000.ethernet failed to resume: error -12
->>
->> Are we still missing some ravb patches in net-next, or is this a differe=
-nt
->> issue?
+I am new to Ethernet Driver.
+
+I am working on NanoPI Neo Based on SUN8i-H3 SOC ...
+
+can any body helpout to up the Ethernet on The NanoPi Neo.
+
+
+
+On Friday, June 3, 2016 at 3:27:19 PM UTC+5:30, clabbe.montjoie wrote:
 >
-> Interesting, I did a 100 loop test on H3 based on v4.11 without any
-> issues. What are you using as a base for your test and I will test if I
-> can reproduce it.
+> Hello 
+>
+> This patch series add the driver for sun8i-emac which handle the Ethernet 
+> MAC 
+> present on Allwinner H3/A83T/A64 SoCs. 
+>
+> It supports 10/100/1000 Mbit/s speed with half/full duplex. 
+> It can use an internal PHY (MII 10/100) or an external PHY 
+> via RGMII/RMII. 
+>
+> This patch series enable the driver only for the H3 SoC since A83T and A64 
+> doesn't have the necessary clocks present in mainline. 
+>
+> This patch series enable the driver only for the OrangePiPC board since 
+> other 
+> board with H3 use external PHY which need optional regulators that will be 
+> supported later. 
+>
+> The driver have been tested on the following boards: 
+> - H3 Orange PI PC, Orange PI Plus, BananaPI-M2+ 
+> - A64 Pine64 
+> - A83T BananaPI-M3 
+>
+> I would like to thanks Chen-Yu Tsai for his help on developing this 
+> driver. 
+>
+> Regards 
+>
+> LABBE Corentin (5): 
+>   ethernet: add sun8i-emac driver 
+>   MAINTAINERS: Add myself as maintainers of sun8i-emac 
+>   ARM: sun8i: dt: Add DT bindings documentation for Allwinner sun8i-emac 
+>   ARM: dts: sun8i-h3: add sun8i-emac ethernet driver 
+>   ARM: dts: sun8i: Enable sun8i-emac on the Orange PI PC 
+>
+>  .../bindings/net/allwinner,sun8i-emac.txt          |   64 + 
+>  MAINTAINERS                                        |    6 + 
+>  arch/arm/boot/dts/sun8i-h3-orangepi-pc.dts         |   11 + 
+>  arch/arm/boot/dts/sun8i-h3.dtsi                    |   14 + 
+>  drivers/net/ethernet/allwinner/Kconfig             |   13 + 
+>  drivers/net/ethernet/allwinner/Makefile            |    1 + 
+>  drivers/net/ethernet/allwinner/sun8i-emac.c        | 1943 
+> ++++++++++++++++++++ 
+>  7 files changed, 2052 insertions(+) 
+>  create mode 100644 
+> Documentation/devicetree/bindings/net/allwinner,sun8i-emac.txt 
+>  create mode 100644 drivers/net/ethernet/allwinner/sun8i-emac.c 
+>
+> -- 
+> 2.7.3 
+>
+>
 
-Something based on last renesas-drivers.
+-- 
+You received this message because you are subscribed to the Google Groups "linux-sunxi" group.
+To unsubscribe from this group and stop receiving emails from it, send an email to linux-sunxi+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0@public.gmane.org
+For more options, visit https://groups.google.com/d/optout.
 
-Gr{oetje,eeting}s,
+------=_Part_6077_1112402886.1494594557960
+Content-Type: text/html; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-                        Geert
+<div dir=3D"ltr">Hi All,<div><br></div><div>I am new to Ethernet Driver.</d=
+iv><div><br></div><div>I am working on NanoPI Neo Based on SUN8i-H3 SOC ...=
+</div><div><br></div><div>can any body helpout to up the Ethernet on The Na=
+noPi Neo.</div><div><br></div><div><br><br>On Friday, June 3, 2016 at 3:27:=
+19 PM UTC+5:30, clabbe.montjoie wrote:<blockquote class=3D"gmail_quote" sty=
+le=3D"margin: 0;margin-left: 0.8ex;border-left: 1px #ccc solid;padding-left=
+: 1ex;">Hello
+<br>
+<br>This patch series add the driver for sun8i-emac which handle the Ethern=
+et MAC
+<br>present on Allwinner H3/A83T/A64 SoCs.
+<br>
+<br>It supports 10/100/1000 Mbit/s speed with half/full duplex.
+<br>It can use an internal PHY (MII 10/100) or an external PHY
+<br>via RGMII/RMII.
+<br>
+<br>This patch series enable the driver only for the H3 SoC since A83T and =
+A64
+<br>doesn&#39;t have the necessary clocks present in mainline.
+<br>
+<br>This patch series enable the driver only for the OrangePiPC board since=
+ other
+<br>board with H3 use external PHY which need optional regulators that will=
+ be
+<br>supported later.
+<br>
+<br>The driver have been tested on the following boards:
+<br>- H3 Orange PI PC, Orange PI Plus, BananaPI-M2+
+<br>- A64 Pine64
+<br>- A83T BananaPI-M3
+<br>
+<br>I would like to thanks Chen-Yu Tsai for his help on developing this dri=
+ver.
+<br>
+<br>Regards
+<br>
+<br>LABBE Corentin (5):
+<br>=C2=A0 ethernet: add sun8i-emac driver
+<br>=C2=A0 MAINTAINERS: Add myself as maintainers of sun8i-emac
+<br>=C2=A0 ARM: sun8i: dt: Add DT bindings documentation for Allwinner sun8=
+i-emac
+<br>=C2=A0 ARM: dts: sun8i-h3: add sun8i-emac ethernet driver
+<br>=C2=A0 ARM: dts: sun8i: Enable sun8i-emac on the Orange PI PC
+<br>
+<br>=C2=A0.../bindings/net/allwinner,<wbr>sun8i-emac.txt =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0 =C2=A0| =C2=A0 64 +
+<br>=C2=A0MAINTAINERS =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =
+=C2=A0 =C2=A0| =C2=A0 =C2=A06 +
+<br>=C2=A0arch/arm/boot/dts/sun8i-h3-<wbr>orangepi-pc.dts =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0 | =C2=A0 11 +
+<br>=C2=A0arch/arm/boot/dts/sun8i-h3.<wbr>dtsi =C2=A0 =C2=A0 =C2=A0 =C2=A0 =
+=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0| =C2=A0 14 +
+<br>=C2=A0drivers/net/ethernet/<wbr>allwinner/Kconfig =C2=A0 =C2=A0 =C2=A0 =
+=C2=A0 =C2=A0 =C2=A0 | =C2=A0 13 +
+<br>=C2=A0drivers/net/ethernet/<wbr>allwinner/Makefile =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 =C2=A0| =C2=A0 =C2=A01 +
+<br>=C2=A0drivers/net/ethernet/<wbr>allwinner/sun8i-emac.c =C2=A0 =C2=A0 =
+=C2=A0 =C2=A0| 1943 ++++++++++++++++++++
+<br>=C2=A07 files changed, 2052 insertions(+)
+<br>=C2=A0create mode 100644 Documentation/devicetree/<wbr>bindings/net/all=
+winner,sun8i-<wbr>emac.txt
+<br>=C2=A0create mode 100644 drivers/net/ethernet/<wbr>allwinner/sun8i-emac=
+.c
+<br>
+<br>--=20
+<br>2.7.3
+<br>
+<br></blockquote></div></div>
+
+<p></p>
+
+-- <br />
+You received this message because you are subscribed to the Google Groups &=
+quot;linux-sunxi&quot; group.<br />
+To unsubscribe from this group and stop receiving emails from it, send an e=
+mail to <a href=3D"mailto:linux-sunxi+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org">linux-s=
+unxi+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org</a>.<br />
+For more options, visit <a href=3D"https://groups.google.com/d/optout">http=
+s://groups.google.com/d/optout</a>.<br />
+
+------=_Part_6077_1112402886.1494594557960--
+
+------=_Part_6076_339322027.1494594557960--
