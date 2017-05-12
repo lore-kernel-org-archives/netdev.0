@@ -1,30 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: dsa: mv88e6xxx: add default case to switch
-Date: Fri, 12 May 2017 12:15:04 -0400 (EDT)
-Message-ID: <20170512.121504.1955818908238157662.davem@davemloft.net>
-References: <20170511214814.Horde.otwLVFIaWFNJZ23PSdgsq_Z@gator4166.hostgator.com>
-        <20170512031129.GA4065@embeddedgus>
+Subject: Re: [PATCH] net: irda: irda-usb: fix firmware name on big-endian
+ hosts
+Date: Fri, 12 May 2017 12:16:11 -0400 (EDT)
+Message-ID: <20170512.121611.799407836371084869.davem@davemloft.net>
+References: <20170512101113.1935-1-johan@kernel.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
-        f.fainelli@gmail.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: garsilva@embeddedor.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170512031129.GA4065@embeddedgus>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: samuel@sortiz.org, netdev@vger.kernel.org, stable@vger.kernel.org,
+        nfedchik@atlantic-link.com.ua
+To: johan@kernel.org
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <20170512101113.1935-1-johan@kernel.org>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-Date: Thu, 11 May 2017 22:11:29 -0500
+From: Johan Hovold <johan@kernel.org>
+Date: Fri, 12 May 2017 12:11:13 +0200
 
-> Add default case to switch in order to avoid any chance of using an
-> uninitialized variable _low_, in case s->type does not match any of
-> the listed case values.
+> Add missing endianness conversion when using the USB device-descriptor
+> bcdDevice field to construct a firmware file name.
 > 
-> Addresses-Coverity-ID: 1398130
-> Suggested-by: Andrew Lunn <andrew@lunn.ch>
-> Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
+> Fixes: 8ef80aef118e ("[IRDA]: irda-usb.c: STIR421x cleanups")
+> Cc: stable <stable@vger.kernel.org>     # 2.6.18
+> Cc: Nick Fedchik <nfedchik@atlantic-link.com.ua>
+> Signed-off-by: Johan Hovold <johan@kernel.org>
 
-Applied, thanks.
+Applied.
