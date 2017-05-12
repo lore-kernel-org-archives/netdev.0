@@ -1,136 +1,41 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [Patch net] ipv4: restore rt->fi for reference counting
-Date: Thu, 11 May 2017 18:22:23 -0700
-Message-ID: <CAM_iQpWxDKHF4N1xor7qj+5s91GrctgcGnzN0buw18qs7__-gQ@mail.gmail.com>
-References: <1493934857-6693-1-git-send-email-xiyou.wangcong@gmail.com>
- <20170508.143557.105629611489969352.davem@davemloft.net> <1494288080.7796.59.camel@edumazet-glaptop3.roam.corp.google.com>
- <20170508.212211.1291611254198273979.davem@davemloft.net> <1494296302.7796.61.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAM_iQpWQoLppsMfDOQWsdifGd56CAY24tCNm0Jm02QCe7ZThOw@mail.gmail.com>
- <1494348962.7796.88.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAM_iQpXADa6AyQ3X-EbmRPGCQArgPWygvHMYgWtfUYV082oF3Q@mail.gmail.com>
- <CAM_iQpVhdzeen+ZJ3jyK7Qb=yVuoRSZ7BFB3RoVMShY8KPBTZA@mail.gmail.com>
- <1494370367.7796.92.camel@edumazet-glaptop3.roam.corp.google.com>
- <1494370451.7796.93.camel@edumazet-glaptop3.roam.corp.google.com>
- <1494371348.7796.95.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAM_iQpU+fXO7eFroAYMv6vqDzCK_ZYXjrTPAMfoDR2BDqaK9rQ@mail.gmail.com>
- <alpine.LFD.2.20.1705100937330.1938@ja.home.ssi.bg> <CAM_iQpX22qTqo4yfM_Je1bvJHxjAGK_tvm5KgQSnJzsYq7K55Q@mail.gmail.com>
- <alpine.LFD.2.20.1705102141320.1928@ja.home.ssi.bg> <CAM_iQpW0fJJXPS=FoTf-o4f5-mOC=mZYNP8=uqiUOmvX+CDwWw@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] selftests/bpf: get rid of -D__x86_64__
+Date: Thu, 11 May 2017 21:29:40 -0400 (EDT)
+Message-ID: <20170511.212940.1950696136811799858.davem@davemloft.net>
+References: <5d1d290b-7ff7-7f9d-15a0-599596e0778c@fb.com>
+        <20170511.150246.650724054596949813.davem@davemloft.net>
+        <9afe8b73-806c-1511-dd26-f09e67b85107@fb.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="94eb2c1aeed8d4bf4f054f498ae3"
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-        David Miller <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Andrey Konovalov <andreyknvl@google.com>,
-        Eric Dumazet <edumazet@google.com>
-To: Julian Anastasov <ja@ssi.bg>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: daniel@iogearbox.net, netdev@vger.kernel.org
+To: ast@fb.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f47.google.com ([74.125.82.47]:35618 "EHLO
-        mail-wm0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750879AbdELBWp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 11 May 2017 21:22:45 -0400
-Received: by mail-wm0-f47.google.com with SMTP id b84so5191341wmh.0
-        for <netdev@vger.kernel.org>; Thu, 11 May 2017 18:22:45 -0700 (PDT)
-In-Reply-To: <CAM_iQpW0fJJXPS=FoTf-o4f5-mOC=mZYNP8=uqiUOmvX+CDwWw@mail.gmail.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:56642 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750713AbdELB3n (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 11 May 2017 21:29:43 -0400
+In-Reply-To: <9afe8b73-806c-1511-dd26-f09e67b85107@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---94eb2c1aeed8d4bf4f054f498ae3
-Content-Type: text/plain; charset="UTF-8"
+From: Alexei Starovoitov <ast@fb.com>
+Date: Thu, 11 May 2017 15:58:33 -0700
 
-On Thu, May 11, 2017 at 5:07 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
-> So, if I understand you correctly it is safe to NULL'ing
-> nh_dev in NETDEV_UNREGISTER_FINAL, right?
->
-> If still not, how about transfer nh_dev's to loopback_dev
-> too in NETDEV_UNREGISTER? Like we transfer dst->dev.
->
-> I don't want to touch the fast path to check for NULL, as
-> it will change more code and slow down performance.
+> Can we than move gnu/stubs.h into include/uapi as well and remove
+> the first -I. ?
+> Or keep them separate, since this linux/types.h is bpf's arch types.h
+> whereas gnu/stubs.h is a hack for glibc /usr/include/features.h ?
+> I'm fine whichever way including keeping this patch as-is.
 
-Finally I come up with the attached patch. Please let me know if
-I still miss anything.
+Let's keep it like this for now, and perhaps in the long term we
+can have a better more organized piece of infrastructure for this.
 
---94eb2c1aeed8d4bf4f054f498ae3
-Content-Type: text/plain; charset="US-ASCII"; name="ipv4-rt-fi-ref-count.diff"
-Content-Disposition: attachment; filename="ipv4-rt-fi-ref-count.diff"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_j2l5qdeq0
+So I'll commit this fix for now and happily sparc now works out of the
+box for all the selftests and samples as far as I can tell. :-)
 
-Y29tbWl0IGVkYzM4ZWNhYjcxMDE0ODdiMzVmYzkxNTJlMTY2YTI2NzA0NjdlNDkKQXV0aG9yOiBD
-b25nIFdhbmcgPHhpeW91Lndhbmdjb25nQGdtYWlsLmNvbT4KRGF0ZTogICBUdWUgTWF5IDkgMTQ6
-MzU6MTAgMjAxNyAtMDcwMAoKICAgIGlwdjQ6IHJlc3RvcmUgcnQtPmZpIGZvciByZWZlcmVuY2Ug
-Y291bnRpbmcsIHRyeSAjMgogICAgCiAgICBTaWduZWQtb2ZmLWJ5OiBDb25nIFdhbmcgPHhpeW91
-Lndhbmdjb25nQGdtYWlsLmNvbT4KCmRpZmYgLS1naXQgYS9pbmNsdWRlL25ldC9pcF9maWIuaCBi
-L2luY2x1ZGUvbmV0L2lwX2ZpYi5oCmluZGV4IDY2OTJjNTcuLjBmMDRmNGQgMTAwNjQ0Ci0tLSBh
-L2luY2x1ZGUvbmV0L2lwX2ZpYi5oCisrKyBiL2luY2x1ZGUvbmV0L2lwX2ZpYi5oCkBAIC0zOTIs
-NiArMzkyLDcgQEAgaW50IGZpYl91bm1lcmdlKHN0cnVjdCBuZXQgKm5ldCk7CiAvKiBFeHBvcnRl
-ZCBieSBmaWJfc2VtYW50aWNzLmMgKi8KIGludCBpcF9maWJfY2hlY2tfZGVmYXVsdChfX2JlMzIg
-Z3csIHN0cnVjdCBuZXRfZGV2aWNlICpkZXYpOwogaW50IGZpYl9zeW5jX2Rvd25fZGV2KHN0cnVj
-dCBuZXRfZGV2aWNlICpkZXYsIHVuc2lnbmVkIGxvbmcgZXZlbnQsIGJvb2wgZm9yY2UpOwordm9p
-ZCBmaWJfcHV0X25oX2RldnMoc3RydWN0IG5ldF9kZXZpY2UgKmRldik7CiBpbnQgZmliX3N5bmNf
-ZG93bl9hZGRyKHN0cnVjdCBuZXRfZGV2aWNlICpkZXYsIF9fYmUzMiBsb2NhbCk7CiBpbnQgZmli
-X3N5bmNfdXAoc3RydWN0IG5ldF9kZXZpY2UgKmRldiwgdW5zaWduZWQgaW50IG5oX2ZsYWdzKTsK
-IApkaWZmIC0tZ2l0IGEvaW5jbHVkZS9uZXQvcm91dGUuaCBiL2luY2x1ZGUvbmV0L3JvdXRlLmgK
-aW5kZXggMmNjMGUxNC4uNDMzNWViNyAxMDA2NDQKLS0tIGEvaW5jbHVkZS9uZXQvcm91dGUuaAor
-KysgYi9pbmNsdWRlL25ldC9yb3V0ZS5oCkBAIC02OSw2ICs2OSw3IEBAIHN0cnVjdCBydGFibGUg
-ewogCiAJc3RydWN0IGxpc3RfaGVhZAlydF91bmNhY2hlZDsKIAlzdHJ1Y3QgdW5jYWNoZWRfbGlz
-dAkqcnRfdW5jYWNoZWRfbGlzdDsKKwlzdHJ1Y3QgZmliX2luZm8JCSpmaTsgLyogZm9yIHJlZmNu
-dCB0byBzaGFyZWQgbWV0cmljcyAqLwogfTsKIAogc3RhdGljIGlubGluZSBib29sIHJ0X2lzX2lu
-cHV0X3JvdXRlKGNvbnN0IHN0cnVjdCBydGFibGUgKnJ0KQpkaWZmIC0tZ2l0IGEvbmV0L2lwdjQv
-ZmliX2Zyb250ZW5kLmMgYi9uZXQvaXB2NC9maWJfZnJvbnRlbmQuYwppbmRleCAzOWJkMWVkLi41
-OWIwYTFkIDEwMDY0NAotLS0gYS9uZXQvaXB2NC9maWJfZnJvbnRlbmQuYworKysgYi9uZXQvaXB2
-NC9maWJfZnJvbnRlbmQuYwpAQCAtMTE3OCw2ICsxMTc4LDkgQEAgc3RhdGljIGludCBmaWJfbmV0
-ZGV2X2V2ZW50KHN0cnVjdCBub3RpZmllcl9ibG9jayAqdGhpcywgdW5zaWduZWQgbG9uZyBldmVu
-dCwgdm8KIAkJZmliX2Rpc2FibGVfaXAoZGV2LCBldmVudCwgdHJ1ZSk7CiAJCXJ0X2ZsdXNoX2Rl
-dihkZXYpOwogCQlyZXR1cm4gTk9USUZZX0RPTkU7CisJfSBlbHNlIGlmIChldmVudCA9PSBORVRE
-RVZfVU5SRUdJU1RFUl9GSU5BTCkgeworCQlmaWJfcHV0X25oX2RldnMoZGV2KTsKKwkJcmV0dXJu
-IE5PVElGWV9ET05FOwogCX0KIAogCWluX2RldiA9IF9faW5fZGV2X2dldF9ydG5sKGRldik7CmRp
-ZmYgLS1naXQgYS9uZXQvaXB2NC9maWJfc2VtYW50aWNzLmMgYi9uZXQvaXB2NC9maWJfc2VtYW50
-aWNzLmMKaW5kZXggZGE0NDlkZC4uYjg1YzViYiAxMDA2NDQKLS0tIGEvbmV0L2lwdjQvZmliX3Nl
-bWFudGljcy5jCisrKyBiL25ldC9pcHY0L2ZpYl9zZW1hbnRpY3MuYwpAQCAtMTQ1Myw2ICsxNDUz
-LDM2IEBAIGludCBmaWJfc3luY19kb3duX2RldihzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LCB1bnNp
-Z25lZCBsb25nIGV2ZW50LCBib29sIGZvcmNlKQogCXJldHVybiByZXQ7CiB9CiAKKy8qIFdlIGhh
-dmUgdG8gcmVsZWFzZSB0aGVzZSBuaF9kZXYgaGVyZSBiZWNhdXNlIGEgZHN0IGNvdWxkIHN0aWxs
-IGhvbGQgYQorICogZmliX2luZm8gdmlhIHJ0LT5maSwgd2UgY2FuJ3Qgd2FpdCBmb3IgR0MsIGEg
-c29ja2V0IGNvdWxkIGhvbGQgdGhlIGRzdAorICogZm9yIGEgbG9uZyB0aW1lLgorICovCit2b2lk
-IGZpYl9wdXRfbmhfZGV2cyhzdHJ1Y3QgbmV0X2RldmljZSAqZGV2KQoreworCXN0cnVjdCBmaWJf
-aW5mbyAqcHJldl9maSA9IE5VTEw7CisJdW5zaWduZWQgaW50IGhhc2ggPSBmaWJfZGV2aW5kZXhf
-aGFzaGZuKGRldi0+aWZpbmRleCk7CisJc3RydWN0IGhsaXN0X2hlYWQgKmhlYWQgPSAmZmliX2lu
-Zm9fZGV2aGFzaFtoYXNoXTsKKwlzdHJ1Y3QgZmliX25oICpuaDsKKworCWhsaXN0X2Zvcl9lYWNo
-X2VudHJ5KG5oLCBoZWFkLCBuaF9oYXNoKSB7CisJCXN0cnVjdCBmaWJfaW5mbyAqZmkgPSBuaC0+
-bmhfcGFyZW50OworCisJCWlmIChuaC0+bmhfZGV2ICE9IGRldiB8fCBmaSA9PSBwcmV2X2ZpKQor
-CQkJY29udGludWU7CisJCXByZXZfZmkgPSBmaTsKKwkJY2hhbmdlX25leHRob3BzKGZpKSB7CisJ
-CQlpZiAobmV4dGhvcF9uaC0+bmhfZGV2ID09IGRldikgeworCQkJCS8qIFRoaXMgc2hvdWxkIGJl
-IHNhZmUsIHdlIGFyZSBvbiB1bnJlZ2lzdGVyCisJCQkJICogcGF0aCwgYWZ0ZXIgc3luY2hyb25p
-emVfbmV0KCkgYW5kCisJCQkJICogcmN1X2JhcnJpZXIoKSwgbm8gb25lIGNvdWxkIHNlZSB0aGlz
-LgorCQkJCSAqLworCQkJCVJDVV9JTklUX1BPSU5URVIobmV4dGhvcF9uaC0+bmhfZGV2LCBOVUxM
-KTsKKwkJCQlkZXZfcHV0KGRldik7CisJCQl9CisJCX0gZW5kZm9yX25leHRob3BzKGZpKQorCX0K
-K30KKwogLyogTXVzdCBiZSBpbnZva2VkIGluc2lkZSBvZiBhbiBSQ1UgcHJvdGVjdGVkIHJlZ2lv
-bi4gICovCiBzdGF0aWMgdm9pZCBmaWJfc2VsZWN0X2RlZmF1bHQoY29uc3Qgc3RydWN0IGZsb3dp
-NCAqZmxwLCBzdHJ1Y3QgZmliX3Jlc3VsdCAqcmVzKQogewpkaWZmIC0tZ2l0IGEvbmV0L2lwdjQv
-cm91dGUuYyBiL25ldC9pcHY0L3JvdXRlLmMKaW5kZXggNjU1ZDllZS4uZjY0NzMxMCAxMDA2NDQK
-LS0tIGEvbmV0L2lwdjQvcm91dGUuYworKysgYi9uZXQvaXB2NC9yb3V0ZS5jCkBAIC0xMzg3LDYg
-KzEzODcsMTEgQEAgc3RhdGljIHZvaWQgaXB2NF9kc3RfZGVzdHJveShzdHJ1Y3QgZHN0X2VudHJ5
-ICpkc3QpCiB7CiAJc3RydWN0IHJ0YWJsZSAqcnQgPSAoc3RydWN0IHJ0YWJsZSAqKSBkc3Q7CiAK
-KwlpZiAocnQtPmZpKSB7CisJCWZpYl9pbmZvX3B1dChydC0+ZmkpOworCQlydC0+ZmkgPSBOVUxM
-OworCX0KKwogCWlmICghbGlzdF9lbXB0eSgmcnQtPnJ0X3VuY2FjaGVkKSkgewogCQlzdHJ1Y3Qg
-dW5jYWNoZWRfbGlzdCAqdWwgPSBydC0+cnRfdW5jYWNoZWRfbGlzdDsKIApAQCAtMTQyNCw2ICsx
-NDI5LDE2IEBAIHN0YXRpYyBib29sIHJ0X2NhY2hlX3ZhbGlkKGNvbnN0IHN0cnVjdCBydGFibGUg
-KnJ0KQogCQkhcnRfaXNfZXhwaXJlZChydCk7CiB9CiAKK3N0YXRpYyB2b2lkIHJ0X2luaXRfbWV0
-cmljcyhzdHJ1Y3QgcnRhYmxlICpydCwgc3RydWN0IGZpYl9pbmZvICpmaSkKK3sKKwlpZiAoZmkt
-PmZpYl9tZXRyaWNzICE9ICh1MzIgKilkc3RfZGVmYXVsdF9tZXRyaWNzKSB7CisJCWZpYl9pbmZv
-X2hvbGQoZmkpOworCQlydC0+ZmkgPSBmaTsKKwl9CisKKwlkc3RfaW5pdF9tZXRyaWNzKCZydC0+
-ZHN0LCBmaS0+ZmliX21ldHJpY3MsIHRydWUpOworfQorCiBzdGF0aWMgdm9pZCBydF9zZXRfbmV4
-dGhvcChzdHJ1Y3QgcnRhYmxlICpydCwgX19iZTMyIGRhZGRyLAogCQkJICAgY29uc3Qgc3RydWN0
-IGZpYl9yZXN1bHQgKnJlcywKIAkJCSAgIHN0cnVjdCBmaWJfbmhfZXhjZXB0aW9uICpmbmhlLApA
-QCAtMTQzOCw3ICsxNDUzLDcgQEAgc3RhdGljIHZvaWQgcnRfc2V0X25leHRob3Aoc3RydWN0IHJ0
-YWJsZSAqcnQsIF9fYmUzMiBkYWRkciwKIAkJCXJ0LT5ydF9nYXRld2F5ID0gbmgtPm5oX2d3Owog
-CQkJcnQtPnJ0X3VzZXNfZ2F0ZXdheSA9IDE7CiAJCX0KLQkJZHN0X2luaXRfbWV0cmljcygmcnQt
-PmRzdCwgZmktPmZpYl9tZXRyaWNzLCB0cnVlKTsKKwkJcnRfaW5pdF9tZXRyaWNzKHJ0LCBmaSk7
-CiAjaWZkZWYgQ09ORklHX0lQX1JPVVRFX0NMQVNTSUQKIAkJcnQtPmRzdC50Y2xhc3NpZCA9IG5o
-LT5uaF90Y2xhc3NpZDsKICNlbmRpZgpAQCAtMTQ5MCw2ICsxNTA1LDcgQEAgc3RydWN0IHJ0YWJs
-ZSAqcnRfZHN0X2FsbG9jKHN0cnVjdCBuZXRfZGV2aWNlICpkZXYsCiAJCXJ0LT5ydF9nYXRld2F5
-ID0gMDsKIAkJcnQtPnJ0X3VzZXNfZ2F0ZXdheSA9IDA7CiAJCXJ0LT5ydF90YWJsZV9pZCA9IDA7
-CisJCXJ0LT5maSA9IE5VTEw7CiAJCUlOSVRfTElTVF9IRUFEKCZydC0+cnRfdW5jYWNoZWQpOwog
-CiAJCXJ0LT5kc3Qub3V0cHV0ID0gaXBfb3V0cHV0Owo=
---94eb2c1aeed8d4bf4f054f498ae3--
+This whole thing go me thinking however.  What do you expect to happen
+on 32-bit architectures implementing an eBPF JIT?  That's going to
+create some serious conflicts and consternation wrt.  tracing which is
+going to want to use headers which are for sizeof(void *)==4 whereas
+for eBPF natively it's 8.
