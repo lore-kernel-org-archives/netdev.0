@@ -1,53 +1,48 @@
-From: Xie Qirong <cheerx1994@gmail.com>
-Subject: [PATCH v4] brcmfmac: btcoex: replace init_timer with setup_timer
-Date: Fri, 12 May 2017 17:32:59 +0800
-Message-ID: <20170512093259.28479-1-cheerx1994@gmail.com>
-Cc: linux-wireless@vger.kernel.org,
-        brcm80211-dev-list.pdl@broadcom.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, Xie Qirong <cheerx1994@gmail.com>
-To: Arend van Spriel <arend.vanspriel@broadcom.com>,
-        Franky Lin <franky.lin@broadcom.com>,
-        Hante Meuleman <hante.meuleman@broadcom.com>,
-        Kalle Valo <kvalo@codeaurora.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Johan Hovold <johan@kernel.org>
+Subject: [PATCH] net: can: peak: fix product-id endianness in error message
+Date: Fri, 12 May 2017 12:09:25 +0200
+Message-ID: <20170512100925.1841-1-johan@kernel.org>
+Cc: linux-can@vger.kernel.org, netdev@vger.kernel.org,
+        Johan Hovold <johan@kernel.org>
+To: Wolfgang Grandegger <wg@grandegger.com>,
+        Marc Kleine-Budde <mkl@pengutronix.de>
+Return-path: <linux-can-owner@vger.kernel.org>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-setup_timer.cocci suggested the following improvement:
-drivers/net/wireless/broadcom/brcm80211/brcmfmac/btcoex.c:383:1-11: Use
-setup_timer function for function on line 384.
+Make sure to use the USB device product-id stored in host-byte order in
+a probe error message.
 
-Acked-by: Arend van Spriel <arend.vanspriel@broadcom.com>
-Signed-off-by: Xie Qirong <cheerx1994@gmail.com>
+Also remove a redundant reassignment of the local usb_dev variable which
+had already been used to retrieve the product id.
+
+Signed-off-by: Johan Hovold <johan@kernel.org>
 ---
-
- The combination of init_timer and setting up the data and function field
- manually is equivalent to calling setup_timer(). This is an api
- consolidation only and improves readability.
-
- Patch was compile checked with: x86_64_defconfig + CONFIG_BRCMFMAC=y +
- CONFIG_BRCMFMAC_USB=y + CONFIG_BRCMFMAC_PCIE=y + CONFIG_BRCM_TRACING=y +
- CONFIG_BRCMDBG=y
-
- Kernel version: 4.11.0 (localversion-next is next-20170512)
-
- drivers/net/wireless/broadcom/brcm80211/brcmfmac/btcoex.c | 4 +---
+ drivers/net/can/usb/peak_usb/pcan_usb_core.c | 4 +---
  1 file changed, 1 insertion(+), 3 deletions(-)
 
-diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/btcoex.c b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/btcoex.c
-index 14a70d4b4e86..3559fb5b8fb0 100644
---- a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/btcoex.c
-+++ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/btcoex.c
-@@ -380,9 +380,7 @@ int brcmf_btcoex_attach(struct brcmf_cfg80211_info *cfg)
- 	/* Set up timer for BT  */
- 	btci->timer_on = false;
- 	btci->timeout = BRCMF_BTCOEX_OPPR_WIN_TIME;
--	init_timer(&btci->timer);
--	btci->timer.data = (ulong)btci;
--	btci->timer.function = brcmf_btcoex_timerfunc;
-+	setup_timer(&btci->timer, brcmf_btcoex_timerfunc, (ulong)btci);
- 	btci->cfg = cfg;
- 	btci->saved_regs_part1 = false;
- 	btci->saved_regs_part2 = false;
+diff --git a/drivers/net/can/usb/peak_usb/pcan_usb_core.c b/drivers/net/can/usb/peak_usb/pcan_usb_core.c
+index 57913dbbae0a..1ca76e03e965 100644
+--- a/drivers/net/can/usb/peak_usb/pcan_usb_core.c
++++ b/drivers/net/can/usb/peak_usb/pcan_usb_core.c
+@@ -908,8 +908,6 @@ static int peak_usb_probe(struct usb_interface *intf,
+ 	const struct peak_usb_adapter *peak_usb_adapter = NULL;
+ 	int i, err = -ENOMEM;
+ 
+-	usb_dev = interface_to_usbdev(intf);
+-
+ 	/* get corresponding PCAN-USB adapter */
+ 	for (i = 0; i < ARRAY_SIZE(peak_usb_adapters_list); i++)
+ 		if (peak_usb_adapters_list[i]->device_id == usb_id_product) {
+@@ -920,7 +918,7 @@ static int peak_usb_probe(struct usb_interface *intf,
+ 	if (!peak_usb_adapter) {
+ 		/* should never come except device_id bad usage in this file */
+ 		pr_err("%s: didn't find device id. 0x%x in devices list\n",
+-			PCAN_USB_DRIVER_NAME, usb_dev->descriptor.idProduct);
++			PCAN_USB_DRIVER_NAME, usb_id_product);
+ 		return -ENODEV;
+ 	}
+ 
 -- 
-2.12.2
+2.13.0
+
