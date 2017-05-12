@@ -1,33 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v2 0/2] Two generic xdp related follow-ups
-Date: Thu, 11 May 2017 21:31:19 -0400 (EDT)
-Message-ID: <20170511.213119.1933854850284274886.davem@davemloft.net>
-References: <cover.1494542162.git.daniel@iogearbox.net>
+Subject: Re: [PATCH net] netem: fix skb_orphan_partial()
+Date: Thu, 11 May 2017 21:33:24 -0400 (EDT)
+Message-ID: <20170511.213324.2195365887593861486.davem@davemloft.net>
+References: <c5a4858f-1559-7c75-b224-99391e6bb6c4@nabto.com>
+        <1494531770.7796.115.camel@edumazet-glaptop3.roam.corp.google.com>
+        <1494541481.7796.124.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: alexei.starovoitov@gmail.com, kubakici@wp.pl,
-        john.fastabend@gmail.com, netdev@vger.kernel.org
-To: daniel@iogearbox.net
+Cc: mkm@nabto.com, stephen@networkplumber.org, edumazet@google.com,
+        netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:56710 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:56718 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757391AbdELBbV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 11 May 2017 21:31:21 -0400
-In-Reply-To: <cover.1494542162.git.daniel@iogearbox.net>
+        with ESMTP id S1755591AbdELBdb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 11 May 2017 21:33:31 -0400
+In-Reply-To: <1494541481.7796.124.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann <daniel@iogearbox.net>
-Date: Fri, 12 May 2017 01:04:44 +0200
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 11 May 2017 15:24:41 -0700
 
-> Two follow-ups for the generic XDP API, would be great if
-> both could still be considered, since the XDP API is not
-> frozen yet. For details please see individual patches.
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> v1 -> v2:
->   - Implemented feedback from Jakub Kicinski (reusing
->     attribute on dump), thanks!
->   - Rest as is.
+> I should have known that lowering skb->truesize was dangerous :/
+> 
+> In case packets are not leaving the host via a standard Ethernet device,
+> but looped back to local sockets, bad things can happen, as reported
+> by Michael Madsen ( https://bugzilla.kernel.org/show_bug.cgi?id=195713 )
+> 
+> So instead of tweaking skb->truesize, lets change skb->destructor
+> and keep a reference on the owner socket via its sk_refcnt.
+> 
+> Fixes: f2f872f9272a ("netem: Introduce skb_orphan_partial() helper")
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Reported-by: Michael Madsen <mkm@nabto.com>
 
-Series applied, thanks for working on this.
+Applied and queued up for -stable, thanks.
