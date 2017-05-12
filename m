@@ -1,26 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 0/2] qlcnic: Bug fix and update version
-Date: Thu, 11 May 2017 21:40:11 -0400 (EDT)
-Message-ID: <20170511.214011.1059356806701405156.davem@davemloft.net>
-References: <20170511141248.996-1-manish.chopra@cavium.com>
+Subject: Re: [PATCH][V2] ethernet: aquantia: remove redundant checks on
+ error status
+Date: Thu, 11 May 2017 21:42:33 -0400 (EDT)
+Message-ID: <20170511.214233.1981021610793266657.davem@davemloft.net>
+References: <20170511182940.18774-1-colin.king@canonical.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Dept-GELinuxNICDev@cavium.com
-To: manish.chopra@cavium.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:56818 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754913AbdELBkM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 11 May 2017 21:40:12 -0400
-In-Reply-To: <20170511141248.996-1-manish.chopra@cavium.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: pavel.belous@aquantia.com, vomlehn@texas.net,
+        Alexander.Loktionov@aquantia.com, Dmitry.Bezrukov@aquantia.com,
+        Dmitrii.Tarakanov@aquantia.com, netdev@vger.kernel.org,
+        kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
+To: colin.king@canonical.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170511182940.18774-1-colin.king@canonical.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Manish Chopra <manish.chopra@cavium.com>
-Date: Thu, 11 May 2017 07:12:46 -0700
+From: Colin King <colin.king@canonical.com>
+Date: Thu, 11 May 2017 19:29:40 +0100
 
-> This series has one fix and bumps up driver version.
-> Please consider applying to "net"
+> From: Colin Ian King <colin.king@canonical.com>
+> 
+> The error status err is initialized as zero and then being checked
+> several times to see if it is less than zero even when it has not
+> been updated.  It may seem that the err should be assigned to the
+> return code of the call to the various *offload_en_set calls and
+> then we check for failure, however, these functions are void and
+> never actually return any status.  
+> 
+> Since these error checks are redundant we can remove these
+> as well as err and the error exit label err_exit.
+> 
+> Detected by CoverityScan, CID#1398313 and CID#1398306 ("Logically
+> dead code")
+> 
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
 
-Series applied, thanks.
+Applied, thank you.
