@@ -1,54 +1,61 @@
-From: Julia Lawall <julia.lawall@lip6.fr>
-Subject: Re: [PATCH] mdio: mux: fix device_node_continue.cocci warnings
-Date: Sat, 13 May 2017 08:40:02 +0800 (SGT)
-Message-ID: <alpine.DEB.2.20.1705130839400.3152@hadrien>
-References: <alpine.DEB.2.20.1705122252440.3416@hadrien> <20170512.122223.341607427763777325.davem@davemloft.net> <872f3980-9faa-718f-3260-9e4b22946140@gmail.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH net-next] ipv6: Implement limits on hop by hop and
+ destination options
+Date: Fri, 12 May 2017 18:02:36 -0700
+Message-ID: <CALx6S35=3aiP3ip0GabnqbOFS=NFY0zvjPne_WJ_Y9J6ZpPe+w@mail.gmail.com>
+References: <1494451999-19031-1-git-send-email-tom@herbertland.com> <20170512.113847.1389407948502066394.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>, jon.mason@broadcom.com,
-        netdev@vger.kernel.org, andrew@lunn.ch, kbuild-all@01.org,
-        linux-kernel@vger.kernel.org
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <872f3980-9faa-718f-3260-9e4b22946140@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Martin Lau <kafai@fb.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qt0-f175.google.com ([209.85.216.175]:36650 "EHLO
+        mail-qt0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755801AbdEMBCh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 12 May 2017 21:02:37 -0400
+Received: by mail-qt0-f175.google.com with SMTP id f55so11772905qta.3
+        for <netdev@vger.kernel.org>; Fri, 12 May 2017 18:02:37 -0700 (PDT)
+In-Reply-To: <20170512.113847.1389407948502066394.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-
-On Fri, 12 May 2017, Florian Fainelli wrote:
-
-> On 05/12/2017 09:22 AM, David Miller wrote:
-> > From: Julia Lawall <julia.lawall@lip6.fr>
-> > Date: Fri, 12 May 2017 22:54:23 +0800 (SGT)
-> >
-> >> Device node iterators put the previous value of the index variable, so an
-> >> explicit put causes a double put.
-> >  ...
-> >> @@ -169,7 +169,6 @@ int mdio_mux_init(struct device *dev,
-> >>  		if (r) {
-> >>  			mdiobus_free(cb->mii_bus);
-> >>  			devm_kfree(dev, cb);
-> >> -			of_node_put(child_bus_node);
-> >>  		} else {
-> >
-> > I think we're instead simply missing a break; statement here.
+On Fri, May 12, 2017 at 8:38 AM, David Miller <davem@davemloft.net> wrote:
+> From: Tom Herbert <tom@herbertland.com>
+> Date: Wed, 10 May 2017 14:33:19 -0700
 >
-> It's kind of questionable, if we have an error initializing one of our
-> child MDIO bus controller (child from the perspective of the MDIO mux,
-> boy this is getting complicated...), should we keep on going, or should
-> we abort entirely and rollback what we have successfully registered?
+>> RFC 2460 (IPv6) defines hop by hop options and destination options
+>> extension headers. Both of these carry a list of TLVs which is
+>> only limited by the maximum length of the extension header (2048
+>> bytes). By the spec a host must process all the TLVs in these
+>> options, however these could be used as a fairly obvious
+>> denial of service attack. I think this could in fact be
+>> a significant DOS vector on the Internet, one mitigating
+>> factor might be that many FWs drop all packets with EH (and
+>> obviously this is only IPv6) so an Internet wide attack might not
+>> be so effective (yet!).
+>>
+>> By my calculation, the worse case packet with TLVs in a standard
+>> 1500 byte MTU packet that would be processed by the stack contains
+>> 1282 invidual TLVs (including pad TLVS) or 724 two byte TLVs. I
+>> wrote a quick test program that floods a whole bunch of these
+>> packets to a host and sure enough there is substantial time spent
+>> in ip6_parse_tlv. These packets contain nothing but unknown TLVS
+>> (that are ignored), TLV padding, and bogus UDP header with zero
+>> payload length.
+>  ...
+>> Default values are set to 8 for options counts, and set to INT_MAX
+>> for maximum length. Note the choice to limit options to 8 is an
+>> arbitrary guess (roughly based on the fact that the stack supports
+>> three HBH options and just one destination option).
 >
-> I don't think Julia's patch makes thing worse, in that if we had to
-> rollback, we would not be doing this correctly now anyway.
+> So the maximum number of TLVs we could process is some function of the
+> option count limit, and the number of padding TLVs that can be stuffed
+> alongside of those 8 non-padding options?
 
-Just to be clear, if you want the break instead, then you need to keep the
-put.
+Yes, if you count the one byte pad TLVs then maximum TLVs processed (#
+times through the loop) with the default of 8 is 8 + 9*7= 71. The
+padding TLVs are less expensive to process at least.
 
-julia
-
->
-> Jon, what do you think?
-> --
-> Florian
->
+Function is:
+N(max_non_pad) = (max_non_pad + 1) * 7 + max_non_pad
