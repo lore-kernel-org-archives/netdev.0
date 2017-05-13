@@ -1,100 +1,70 @@
-From: Jan Moskyto Matejka <mq@jmq.cz>
-Subject: Re: [PATCH] net: ipv6: Truncate single route when it doesn't fit
- into dump buffer.
-Date: Sat, 13 May 2017 12:54:01 +0200
-Message-ID: <20170513105401.iaialveoomahrmyq@lopatka.joja.cz>
-References: <20170512111510.2697-1-mq@ucw.cz>
- <20170512.112447.1421545301592945998.davem@davemloft.net>
- <3828cf04-1bf8-92d2-dfc4-184bd615fe10@gmail.com>
- <20170512214107.w3q7ycl6wm7phwox@lopatka.joja.cz>
- <6670aa0f-2f07-5afd-7c47-35b006c9b2e7@gmail.com>
+From: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH V2 net 1/1] smc: switch to usage of
+ IB_PD_UNSAFE_GLOBAL_RKEY
+Date: Sat, 13 May 2017 14:29:48 +0300
+Message-ID: <20170513112948.GK3616@mtr-leonro.local>
+References: <20170512170952.39863-1-ubraun@linux.vnet.ibm.com>
+ <20170512170952.39863-2-ubraun@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, mq@ucw.cz,
-        netdev@vger.kernel.org, roopa <roopa@cumulusnetworks.com>
-To: David Ahern <dsahern@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-84-242-100-228.net.upcbroadband.cz ([84.242.100.228]:44462
-        "EHLO prague.ecotrend.cz" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1751885AbdEMKyJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 13 May 2017 06:54:09 -0400
+Content-Type: multipart/signed; micalg=pgp-sha256;
+        protocol="application/pgp-signature"; boundary="XjbSsFHOHxvQpKib"
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, hch-jcswGhMUV9g@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        jwi-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org, schwidefsky-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org,
+        heiko.carstens-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org, raspl-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org
+To: Ursula Braun <ubraun-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <6670aa0f-2f07-5afd-7c47-35b006c9b2e7@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20170512170952.39863-2-ubraun-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, May 13, 2017 at 12:52:47AM -0600, David Ahern wrote:
-> On 5/12/17 3:41 PM, Jan Moskyto Matejka wrote:
-> > On Fri, May 12, 2017 at 10:26:08AM -0700, David Ahern wrote:
-> >> On 5/12/17 8:24 AM, David Miller wrote:
-> >>> From: Jan Moskyto Matejka <mq@ucw.cz>
-> >>> Date: Fri, 12 May 2017 13:15:10 +0200
-> >>>
-> >>>> -int rt6_dump_route(struct rt6_info *rt, void *p_arg);
-> >>>> +int rt6_dump_route(struct rt6_info *rt, void *p_arg, int truncate);
-> >>>
-> >>> Please use "bool" and "true"/"false" for boolean values.
-> >>>
-> >>> What does ipv4 do in this situation?
-> >>>
-> >>> I'm hesitant to be OK with adding a new nlmsg flag just for this case
-> >>> if we solve this problem differently and using existing mechanisms
-> >>> elsewhere.
-> >>>
-> >>
-> >> I'll take a look at this later today or this weekend; we can't just
-> >> truncate the route returned to userspace.
-> > 
-> > Agreed. My favourite would be skb realloc somewhere inside the dump loop
-> > ... but I don't know whether it's feasible.
-> > 
-> > MQ
-> > 
-> 
-> Here is what is happening: user initiates a route dump and specifies a
-> buffer size for receiving the message which becomes max_recvmsg_len.
-> This buffer size dictates the skb length allocated by netlink_dump.
-> 
-> The dump is interrupted when a route does not fit in the skb and
-> returns. Subsequent call picks up with the next route to be dumped - the
-> one that overflowed. All good and normal so far.
-> 
-> If the next route is larger than max_recvmsg_len, then the route can not
-> be put in the buffer, nothing is returned to the user which causes the
-> dump to abort showing the abbreviated output. This problem occurs with
-> IPv4 and IPv6. You can see this with modest size routes by just dropping
-> the buffer size to something really small (e.g., with iproute2, change
-> buf size in rtnl_dump_filter_l to say 2048).
 
-Ergo no skb realloc is possible.
+--XjbSsFHOHxvQpKib
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-> I see 2 problems:
-> 1. the kernel is not telling the user the supplied buffer is too small
-> (ie., if a single route does not fit in the skb then it should fail and
-> return an error code to the user),
+On Fri, May 12, 2017 at 07:09:52PM +0200, Ursula Braun wrote:
+> This patch makes users aware of the current security implications
+> when using smc.
+>
+> The final fix to resolve the reported security issue is worked on;
+> respective patches will follow as soon as possible.
+>
+> Signed-off-by: Ursula Braun <ubraun-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
 
-Definitely. I want just to note that this condition usually occurs
-somewhere during route dump. To know it before starting output, we would 
-have to walk the FIB once before dump to calculate max route len.
+I'm glad that you moved to use IB_PD_UNSAFE_GLOBAL_RKEY, so the users
+will see the warning in their dmesg log.
 
-> 2. multipath routes for IPv4 and IPv6 do not have a limit.
-> 
-> Should the kernel put a limit on the number of nexthops? I recently put
-> a cap on MPLS route size as 4096 bytes, but I think this should be
-> revisited in terms of a limit on number of nexthops to create a
-> consistent limit even if struct sizes change. And, the limit on the
-> number of nexthops should be consistent across address families (same
-> limit for IPv4, IPv6, and MPLS).
-> 
-> From discussions I have had, 32 nexthops for a single route is on the
-> laughably high side, but some people do crazy things. How about a limit
-> of 256 nexthops?
+However can you please update your commit log? There is need to add
+description of security issue (access to whole physical memory), clear
+message that doesn't fix anything and remove mentioning unpredictable
+future (... as soon as possible ...).
 
-256 should be OK even for a crazy developer of BIRD.
+Thanks
 
-It would be nice to have if the returned error were somehow useful for
-the userspace -- to know what is happening, not only something like
-"impossible to add / append route".
+--XjbSsFHOHxvQpKib
+Content-Type: application/pgp-signature; name="signature.asc"
 
-Thanks for looking into that!
-MQ
+-----BEGIN PGP SIGNATURE-----
+
+iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAlkW7iwACgkQ5GN7iDZy
+WKe2rQ//cIlCvj5MBS1YkDDW9lOrSbJQ3bGHkq0wo26wIykD8d0vgSaiTVuLpRUg
+NEqi/VZbakNzAhbB5zLmwiRp1qEv/JzjMW6CMIcZy7k+nFRBMSXir4NQWJXeQdwn
+7amWIF1au5JhxutV/MpGpN3xqyGTN9AOkZOXRJml2NThh0yRYC4jrfDb2VhElZgq
+Cu/yFslaLlw/Wu47tfU0gI8EAFC69lnCX2l4Z2aPwab/3fAGGCLUxBCU9kHlGm/8
+AMftKF3Fets1IxYIC7K1UJM44nKH+v1zPDpEWmpd5abp50+1hnAEGCJOtNDz0Juk
+9IHvv0J4GJxGY8Acd7lNyOugQRPPloh4CLf3gexEI/3+0liW/K2lPnyDIJYPNn38
+3ub+JGZFrrQR79Sq+fj77yWpzsP5IDEgd+AEy4QoO4v0NTOQ2LrbIVic25lxFq5w
+R3Ubwarzj8BXHac+oqqe9vGzbT+GVrHEr+TOuQUVqIDIJ9auQRhQJ9irhyM6+IGG
+P5p3MhFxiLFdzgaAMEQwE/8V/lY9mgBBUOzJJqafhmvh643tJ1/Gb651SUFXS1Za
+ulz6Mzi7qPumbBJMMvuqzkwVBSPJDR74D2r4hAuX+RSSWiravK0pmNyfXFugU+ZM
+lC4aa42QtEDt5cfg7NoZH/CZ6mtygXi2fKxxtJbjFtGZr5w9kbQ=
+=GALp
+-----END PGP SIGNATURE-----
+
+--XjbSsFHOHxvQpKib--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
