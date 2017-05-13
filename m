@@ -1,211 +1,325 @@
-From: "Mauro S. M. Rodrigues" <maurosr@linux.vnet.ibm.com>
-Subject: [PATCH net] i40e: Fix state flags for bit set and clean operations of PF
-Date: Fri, 12 May 2017 23:26:56 -0300
-Message-ID: <1494642416-21796-1-git-send-email-maurosr@linux.vnet.ibm.com>
-Cc: jeffrey.t.kirsher@intel.com, gpiccoli@linux.vnet.ibm.com,
-        "Mauro S. M. Rodrigues" <maurosr@linux.vnet.ibm.com>
-To: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org
+From: David Miller <davem@davemloft.net>
+Subject: [PATCH 2/3] bpf: Track alignment of MAP pointers in verifier.
+Date: Fri, 12 May 2017 22:28:56 -0400 (EDT)
+Message-ID: <20170512.222856.46437864475991511.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: ast@fb.com, alexei.starovoitov@gmail.com, netdev@vger.kernel.org
+To: daniel@iogearbox.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:33400 "EHLO
-        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1751407AbdEMC12 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 12 May 2017 22:27:28 -0400
-Received: from pps.filterd (m0098421.ppops.net [127.0.0.1])
-        by mx0a-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v4D2OQ7x016914
-        for <netdev@vger.kernel.org>; Fri, 12 May 2017 22:27:20 -0400
-Received: from e24smtp05.br.ibm.com (e24smtp05.br.ibm.com [32.104.18.26])
-        by mx0a-001b2d01.pphosted.com with ESMTP id 2adg80km8t-1
-        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Fri, 12 May 2017 22:27:19 -0400
-Received: from localhost
-        by e24smtp05.br.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-        for <netdev@vger.kernel.org> from <maurosr@linux.vnet.ibm.com>;
-        Fri, 12 May 2017 23:27:18 -0300
-Received: from d24av01.br.ibm.com (d24av01.br.ibm.com [9.8.31.91])
-        by d24relay04.br.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id v4D2RFvw40894496
-        for <netdev@vger.kernel.org>; Fri, 12 May 2017 23:27:15 -0300
-Received: from d24av01.br.ibm.com (localhost [127.0.0.1])
-        by d24av01.br.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id v4D2REnZ029063
-        for <netdev@vger.kernel.org>; Fri, 12 May 2017 23:27:15 -0300
+Received: from shards.monkeyblade.net ([184.105.139.130]:39630 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754846AbdEMC26 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 12 May 2017 22:28:58 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit 0da36b9774cc ("i40e: use DECLARE_BITMAP for state fields")
-introduced changes in the way i40e works with state flags converting
-them to bitmaps using kernel bitmap API. This change introduced a
-regression due to a mistaken substitution using __I40E_VSI_DOWN instead
-of __I40E_DOWN when testing state of a PF at i40e_reset_subtask()
-function. This caused a flood in the kernel log with the follow message:
 
-[49.013] i40e 0002:01:00.0: bad reset request 0x00000020
+Just like packet pointers, track the known alignment of MAP pointers.
 
-Commit d19cb64b9222 ("i40e: separate PF and VSI state flags")
-also introduced some misuse of the VSI and PF flags, so both could be
-considered as the offenders.
+In order to facilitate the state tracking, move the register offset
+field into where there is an unused 32-bit padding slot on 64-bit.
 
-This patch simply fixes the flags where it makes sense by changing
-__I40E_VSI_DOWN to __I40E_DOWN.
+The check logic is the same as for packet pointers, except we do not
+apply NET_IP_ALIGN to the calculations.
 
-Fixes: 0da36b9774cc ("i40e: use DECLARE_BITMAP for state fields")
-Fixes: d19cb64b9222 ("i40e: separate PF and VSI state flags")
+Also, there are several restrictions that apply to packet pointers
+which we do not extend to MAP pointers.  For example, the
+MAX_PACKET_OFF limitation and the "adding integer with < 48 upper zero
+bits" thing.
 
-Reviewed-by: Guilherme G. Piccoli <gpiccoli@linux.vnet.ibm.com>
-Signed-off-by: Mauro S. M. Rodrigues <maurosr@linux.vnet.ibm.com>
+When we add a variable to the MAP pointer, all of the state
+transitions are identical except that we elide the reg->range clear
+because it is a packet pointer specific piece of state.
+
+This changes the string emitted when an unaligned access is trapped by
+the verifier.  Therefore, we need to adjust the search string used by
+test_verifier.c
+
+Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 36 ++++++++++++++---------------
- 1 file changed, 18 insertions(+), 18 deletions(-)
+ include/linux/bpf_verifier.h                |   6 +-
+ kernel/bpf/verifier.c                       | 112 +++++++++++++++++++---------
+ tools/testing/selftests/bpf/test_verifier.c |   3 +-
+ 3 files changed, 80 insertions(+), 41 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index d5c9c9e..150caf6 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -295,7 +295,7 @@ struct i40e_vsi *i40e_find_vsi_from_id(struct i40e_pf *pf, u16 id)
-  **/
- void i40e_service_event_schedule(struct i40e_pf *pf)
+diff --git a/include/linux/bpf_verifier.h b/include/linux/bpf_verifier.h
+index d5093b5..acf711b 100644
+--- a/include/linux/bpf_verifier.h
++++ b/include/linux/bpf_verifier.h
+@@ -18,15 +18,13 @@
+ 
+ struct bpf_reg_state {
+ 	enum bpf_reg_type type;
++	u32 off;
+ 	union {
+ 		/* valid when type == CONST_IMM | PTR_TO_STACK | UNKNOWN_VALUE */
+ 		s64 imm;
+ 
+ 		/* valid when type == PTR_TO_PACKET* */
+-		struct {
+-			u16 off;
+-			u16 range;
+-		};
++		u32 range;
+ 
+ 		/* valid when type == CONST_PTR_TO_MAP | PTR_TO_MAP_VALUE |
+ 		 *   PTR_TO_MAP_VALUE_OR_NULL
+diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+index 0f33db0..b187815 100644
+--- a/kernel/bpf/verifier.c
++++ b/kernel/bpf/verifier.c
+@@ -231,10 +231,10 @@ static void print_verifier_state(struct bpf_verifier_state *state)
+ 		else if (t == CONST_PTR_TO_MAP || t == PTR_TO_MAP_VALUE ||
+ 			 t == PTR_TO_MAP_VALUE_OR_NULL ||
+ 			 t == PTR_TO_MAP_VALUE_ADJ)
+-			verbose("(ks=%d,vs=%d,id=%u)",
++			verbose("(ks=%d,vs=%d,id=%u,off=%u)",
+ 				reg->map_ptr->key_size,
+ 				reg->map_ptr->value_size,
+-				reg->id);
++				reg->id, reg->off);
+ 		if (reg->min_value != BPF_REGISTER_MIN_RANGE)
+ 			verbose(",min_value=%lld",
+ 				(long long)reg->min_value);
+@@ -469,6 +469,7 @@ static void init_reg_state(struct bpf_reg_state *regs)
+ 
+ 	for (i = 0; i < MAX_BPF_REG; i++) {
+ 		regs[i].type = NOT_INIT;
++		regs[i].off = 0;
+ 		regs[i].imm = 0;
+ 		regs[i].min_value = BPF_REGISTER_MIN_RANGE;
+ 		regs[i].max_value = BPF_REGISTER_MAX_RANGE;
+@@ -487,6 +488,7 @@ static void init_reg_state(struct bpf_reg_state *regs)
+ static void __mark_reg_unknown_value(struct bpf_reg_state *regs, u32 regno)
  {
--	if (!test_bit(__I40E_VSI_DOWN, pf->state) &&
-+	if (!test_bit(__I40E_DOWN, pf->state) &&
- 	    !test_bit(__I40E_RESET_RECOVERY_PENDING, pf->state))
- 		queue_work(i40e_wq, &pf->service_task);
+ 	regs[regno].type = UNKNOWN_VALUE;
++	regs[regno].off = 0;
+ 	regs[regno].id = 0;
+ 	regs[regno].imm = 0;
  }
-@@ -3611,7 +3611,7 @@ static irqreturn_t i40e_intr(int irq, void *data)
- 		 * this is not a performance path and napi_schedule()
- 		 * can deal with rescheduling.
- 		 */
--		if (!test_bit(__I40E_VSI_DOWN, pf->state))
-+		if (!test_bit(__I40E_DOWN, pf->state))
- 			napi_schedule_irqoff(&q_vector->napi);
- 	}
+@@ -823,10 +825,27 @@ static int check_pkt_ptr_alignment(const struct bpf_reg_state *reg,
+ }
  
-@@ -3687,7 +3687,7 @@ static irqreturn_t i40e_intr(int irq, void *data)
- enable_intr:
- 	/* re-enable interrupt causes */
- 	wr32(hw, I40E_PFINT_ICR0_ENA, ena_mask);
--	if (!test_bit(__I40E_VSI_DOWN, pf->state)) {
-+	if (!test_bit(__I40E_DOWN, pf->state)) {
- 		i40e_service_event_schedule(pf);
- 		i40e_irq_dynamic_enable_icr0(pf, false);
- 	}
-@@ -6203,7 +6203,7 @@ static void i40e_fdir_reinit_subtask(struct i40e_pf *pf)
+ static int check_val_ptr_alignment(const struct bpf_reg_state *reg,
+-				   int size, bool strict)
++				   int off, int size, bool strict)
  {
- 
- 	/* if interface is down do nothing */
--	if (test_bit(__I40E_VSI_DOWN, pf->state))
-+	if (test_bit(__I40E_DOWN, pf->state))
- 		return;
- 
- 	if (test_bit(__I40E_FD_FLUSH_REQUESTED, pf->state))
-@@ -6344,7 +6344,7 @@ static void i40e_watchdog_subtask(struct i40e_pf *pf)
- 	int i;
- 
- 	/* if interface is down do nothing */
--	if (test_bit(__I40E_VSI_DOWN, pf->state) ||
-+	if (test_bit(__I40E_DOWN, pf->state) ||
- 	    test_bit(__I40E_CONFIG_BUSY, pf->state))
- 		return;
- 
-@@ -6399,9 +6399,9 @@ static void i40e_reset_subtask(struct i40e_pf *pf)
- 		reset_flags |= BIT(__I40E_GLOBAL_RESET_REQUESTED);
- 		clear_bit(__I40E_GLOBAL_RESET_REQUESTED, pf->state);
- 	}
--	if (test_bit(__I40E_VSI_DOWN_REQUESTED, pf->state)) {
--		reset_flags |= BIT(__I40E_VSI_DOWN_REQUESTED);
--		clear_bit(__I40E_VSI_DOWN_REQUESTED, pf->state);
-+	if (test_bit(__I40E_DOWN_REQUESTED, pf->state)) {
-+		reset_flags |= BIT(__I40E_DOWN_REQUESTED);
-+		clear_bit(__I40E_DOWN_REQUESTED, pf->state);
+-	if (strict && size != 1) {
+-		verbose("Unknown alignment. Only byte-sized access allowed in value access.\n");
++	int reg_off;
++
++	/* Byte size accesses are always allowed. */
++	if (!strict || size == 1)
++		return 0;
++
++	reg_off = reg->off;
++	if (reg->id) {
++		if (reg->aux_off_align % size) {
++			verbose("Value access is only %u byte aligned, %d byte access not allowed\n",
++				reg->aux_off_align, size);
++			return -EACCES;
++		}
++		reg_off += reg->aux_off;
++	}
++
++	if ((reg_off + off) % size != 0) {
++		verbose("misaligned value access off %d+%d size %d\n",
++			reg_off, off, size);
+ 		return -EACCES;
  	}
  
- 	/* If there's a recovery already waiting, it takes
-@@ -6415,7 +6415,7 @@ static void i40e_reset_subtask(struct i40e_pf *pf)
- 
- 	/* If we're already down or resetting, just bail */
- 	if (reset_flags &&
--	    !test_bit(__I40E_VSI_DOWN, pf->state) &&
-+	    !test_bit(__I40E_DOWN, pf->state) &&
- 	    !test_bit(__I40E_CONFIG_BUSY, pf->state)) {
- 		rtnl_lock();
- 		i40e_do_reset(pf, reset_flags, true);
-@@ -7002,7 +7002,7 @@ static void i40e_rebuild(struct i40e_pf *pf, bool reinit, bool lock_acquired)
- 	u32 val;
- 	int v;
- 
--	if (test_bit(__I40E_VSI_DOWN, pf->state))
-+	if (test_bit(__I40E_DOWN, pf->state))
- 		goto clear_recovery;
- 	dev_dbg(&pf->pdev->dev, "Rebuilding internal switch\n");
- 
-@@ -9767,7 +9767,7 @@ int i40e_vsi_release(struct i40e_vsi *vsi)
- 		return -ENODEV;
+@@ -846,7 +865,7 @@ static int check_ptr_alignment(struct bpf_verifier_env *env,
+ 	case PTR_TO_PACKET:
+ 		return check_pkt_ptr_alignment(reg, off, size, strict);
+ 	case PTR_TO_MAP_VALUE_ADJ:
+-		return check_val_ptr_alignment(reg, size, strict);
++		return check_val_ptr_alignment(reg, off, size, strict);
+ 	default:
+ 		if (off % size != 0) {
+ 			verbose("misaligned access off %d size %d\n",
+@@ -1336,6 +1355,7 @@ static void clear_all_pkt_pointers(struct bpf_verifier_env *env)
+ 		    reg->type != PTR_TO_PACKET_END)
+ 			continue;
+ 		reg->type = UNKNOWN_VALUE;
++		reg->off = 0;
+ 		reg->imm = 0;
  	}
- 	if (vsi == pf->vsi[pf->lan_vsi] &&
--	    !test_bit(__I40E_VSI_DOWN, pf->state)) {
-+	    !test_bit(__I40E_DOWN, pf->state)) {
- 		dev_info(&pf->pdev->dev, "Can't remove PF VSI\n");
- 		return -ENODEV;
+ }
+@@ -1415,6 +1435,7 @@ static int check_call(struct bpf_verifier_env *env, int func_id, int insn_idx)
+ 	for (i = 0; i < CALLER_SAVED_REGS; i++) {
+ 		reg = regs + caller_saved[i];
+ 		reg->type = NOT_INIT;
++		reg->off = 0;
+ 		reg->imm = 0;
  	}
-@@ -11003,7 +11003,7 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 
+@@ -1458,8 +1479,8 @@ static int check_call(struct bpf_verifier_env *env, int func_id, int insn_idx)
+ 	return 0;
+ }
+ 
+-static int check_packet_ptr_add(struct bpf_verifier_env *env,
+-				struct bpf_insn *insn)
++static int check_pointer_add(struct bpf_verifier_env *env,
++			     struct bpf_insn *insn, bool is_packet)
+ {
+ 	struct bpf_reg_state *regs = env->cur_state.regs;
+ 	struct bpf_reg_state *dst_reg = &regs[insn->dst_reg];
+@@ -1468,28 +1489,28 @@ static int check_packet_ptr_add(struct bpf_verifier_env *env,
+ 	s32 imm;
+ 
+ 	if (BPF_SRC(insn->code) == BPF_K) {
+-		/* pkt_ptr += imm */
++		/* pointer += imm */
+ 		imm = insn->imm;
+ 
+ add_imm:
+-		if (imm < 0) {
+-			verbose("addition of negative constant to packet pointer is not allowed\n");
+-			return -EACCES;
+-		}
+-		if (imm >= MAX_PACKET_OFF ||
+-		    imm + dst_reg->off >= MAX_PACKET_OFF) {
+-			verbose("constant %d is too large to add to packet pointer\n",
+-				imm);
+-			return -EACCES;
++		if (is_packet) {
++			if (imm < 0) {
++				verbose("addition of negative constant to packet pointer is not allowed\n");
++				return -EACCES;
++			}
++			if (imm >= MAX_PACKET_OFF ||
++			    imm + dst_reg->off >= MAX_PACKET_OFF) {
++				verbose("constant %d is too large to add to packet pointer\n",
++					imm);
++				return -EACCES;
++			}
+ 		}
+-		/* a constant was added to pkt_ptr.
++		/* a constant was added to the pointer.
+ 		 * Remember it while keeping the same 'id'
+ 		 */
+ 		dst_reg->off += imm;
+ 	} else {
+-		bool had_id;
+-
+-		if (src_reg->type == PTR_TO_PACKET) {
++		if (is_packet && src_reg->type == PTR_TO_PACKET) {
+ 			/* R6=pkt(id=0,off=0,r=62) R7=imm22; r7 += r6 */
+ 			tmp_reg = *dst_reg;  /* save r7 state */
+ 			*dst_reg = *src_reg; /* copy pkt_ptr state r6 into r7 */
+@@ -1503,46 +1524,62 @@ static int check_packet_ptr_add(struct bpf_verifier_env *env,
+ 		}
+ 
+ 		if (src_reg->type == CONST_IMM) {
+-			/* pkt_ptr += reg where reg is known constant */
++			/* pointer += reg where reg is known constant */
+ 			imm = src_reg->imm;
+ 			goto add_imm;
+ 		}
+-		/* disallow pkt_ptr += reg
++		/* disallow pointer += reg
+ 		 * if reg is not uknown_value with guaranteed zero upper bits
+-		 * otherwise pkt_ptr may overflow and addition will become
++		 * otherwise pointer_ptr may overflow and addition will become
+ 		 * subtraction which is not allowed
+ 		 */
+ 		if (src_reg->type != UNKNOWN_VALUE) {
+-			verbose("cannot add '%s' to ptr_to_packet\n",
++			verbose("cannot add '%s' to pointer\n",
+ 				reg_type_str[src_reg->type]);
+ 			return -EACCES;
+ 		}
+-		if (src_reg->imm < 48) {
++		if (is_packet && src_reg->imm < 48) {
+ 			verbose("cannot add integer value with %lld upper zero bits to ptr_to_packet\n",
+ 				src_reg->imm);
+ 			return -EACCES;
+ 		}
+ 
+-		had_id = (dst_reg->id != 0);
+-
+-		/* dst_reg stays as pkt_ptr type and since some positive
++		/* dst_reg stays as the same type and since some positive
+ 		 * integer value was added to the pointer, increment its 'id'
+ 		 */
+ 		dst_reg->id = ++env->id_gen;
+ 
+-		/* something was added to pkt_ptr, set range to zero */
+ 		dst_reg->aux_off += dst_reg->off;
+ 		dst_reg->off = 0;
+-		dst_reg->range = 0;
+-		if (had_id)
++
++		if (is_packet) {
++			/* something was added to packet ptr, set range to zero */
++			dst_reg->range = 0;
++		}
++		if (dst_reg->aux_off_align) {
+ 			dst_reg->aux_off_align = min(dst_reg->aux_off_align,
+ 						     src_reg->min_align);
+-		else
++		} else {
+ 			dst_reg->aux_off_align = src_reg->min_align;
++		}
++		if (!dst_reg->aux_off_align)
++			dst_reg->aux_off_align = 1;
  	}
- 	pf->next_vsi = 0;
- 	pf->pdev = pdev;
--	set_bit(__I40E_VSI_DOWN, pf->state);
-+	set_bit(__I40E_DOWN, pf->state);
+ 	return 0;
+ }
  
- 	hw = &pf->hw;
- 	hw->back = pf;
-@@ -11293,7 +11293,7 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	 * before setting up the misc vector or we get a race and the vector
- 	 * ends up disabled forever.
- 	 */
--	clear_bit(__I40E_VSI_DOWN, pf->state);
-+	clear_bit(__I40E_DOWN, pf->state);
++static int check_packet_ptr_add(struct bpf_verifier_env *env,
++				struct bpf_insn *insn)
++{
++	return check_pointer_add(env, insn, true);
++}
++
++static int check_map_ptr_add(struct bpf_verifier_env *env,
++			     struct bpf_insn *insn)
++{
++	return check_pointer_add(env, insn, false);
++}
++
+ static int evaluate_reg_alu(struct bpf_verifier_env *env, struct bpf_insn *insn)
+ {
+ 	struct bpf_reg_state *regs = env->cur_state.regs;
+@@ -2056,10 +2093,12 @@ static int check_alu_op(struct bpf_verifier_env *env, struct bpf_insn *insn)
+ 		if (env->allow_ptr_leaks &&
+ 		    BPF_CLASS(insn->code) == BPF_ALU64 && opcode == BPF_ADD &&
+ 		    (dst_reg->type == PTR_TO_MAP_VALUE ||
+-		     dst_reg->type == PTR_TO_MAP_VALUE_ADJ))
++		     dst_reg->type == PTR_TO_MAP_VALUE_ADJ)) {
+ 			dst_reg->type = PTR_TO_MAP_VALUE_ADJ;
+-		else
++			check_map_ptr_add(env, insn);
++		} else {
+ 			mark_reg_unknown_value(regs, insn->dst_reg);
++		}
+ 	}
  
- 	/* In case of MSIX we are going to setup the misc vector right here
- 	 * to handle admin queue events etc. In case of legacy and MSI
-@@ -11448,7 +11448,7 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	return 0;
+@@ -2480,6 +2519,7 @@ static int check_ld_abs(struct bpf_verifier_env *env, struct bpf_insn *insn)
+ 	for (i = 0; i < CALLER_SAVED_REGS; i++) {
+ 		reg = regs + caller_saved[i];
+ 		reg->type = NOT_INIT;
++		reg->off = 0;
+ 		reg->imm = 0;
+ 	}
  
- 	/* Unwind what we've done if something failed in the setup */
- err_vsis:
--	set_bit(__I40E_VSI_DOWN, pf->state);
-+	set_bit(__I40E_DOWN, pf->state);
- 	i40e_clear_interrupt_scheme(pf);
- 	kfree(pf->vsi);
- err_switch_setup:
-@@ -11500,7 +11500,7 @@ static void i40e_remove(struct pci_dev *pdev)
+diff --git a/tools/testing/selftests/bpf/test_verifier.c b/tools/testing/selftests/bpf/test_verifier.c
+index 3773562..889fb5a 100644
+--- a/tools/testing/selftests/bpf/test_verifier.c
++++ b/tools/testing/selftests/bpf/test_verifier.c
+@@ -5070,7 +5070,8 @@ static void do_test_single(struct bpf_test *test, bool unpriv,
  
- 	/* no more scheduling of any task */
- 	set_bit(__I40E_SUSPENDED, pf->state);
--	set_bit(__I40E_VSI_DOWN, pf->state);
-+	set_bit(__I40E_DOWN, pf->state);
- 	if (pf->service_timer.data)
- 		del_timer_sync(&pf->service_timer);
- 	if (pf->service_task.func)
-@@ -11740,7 +11740,7 @@ static void i40e_shutdown(struct pci_dev *pdev)
- 	struct i40e_hw *hw = &pf->hw;
- 
- 	set_bit(__I40E_SUSPENDED, pf->state);
--	set_bit(__I40E_VSI_DOWN, pf->state);
-+	set_bit(__I40E_DOWN, pf->state);
- 	rtnl_lock();
- 	i40e_prep_for_reset(pf, true);
- 	rtnl_unlock();
-@@ -11789,7 +11789,7 @@ static int i40e_suspend(struct pci_dev *pdev, pm_message_t state)
- 	int retval = 0;
- 
- 	set_bit(__I40E_SUSPENDED, pf->state);
--	set_bit(__I40E_VSI_DOWN, pf->state);
-+	set_bit(__I40E_DOWN, pf->state);
- 
- 	if (pf->wol_en && (pf->flags & I40E_FLAG_WOL_MC_MAGIC_PKT_WAKE))
- 		i40e_enable_mc_magic_wake(pf);
-@@ -11841,7 +11841,7 @@ static int i40e_resume(struct pci_dev *pdev)
- 
- 	/* handling the reset will rebuild the device state */
- 	if (test_and_clear_bit(__I40E_SUSPENDED, pf->state)) {
--		clear_bit(__I40E_VSI_DOWN, pf->state);
-+		clear_bit(__I40E_DOWN, pf->state);
- 		rtnl_lock();
- 		i40e_reset_and_rebuild(pf, false, true);
- 		rtnl_unlock();
+ 	reject_from_alignment = fd_prog < 0 &&
+ 				(test->flags & F_NEEDS_EFFICIENT_UNALIGNED_ACCESS) &&
+-				strstr(bpf_vlog, "Unknown alignment.");
++				(strstr(bpf_vlog, "misaligned value access") ||
++				 strstr(bpf_vlog, "Value access is only"));
+ #ifdef CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS
+ 	if (reject_from_alignment) {
+ 		printf("FAIL\nFailed due to alignment despite having efficient unaligned access: '%s'!\n",
 -- 
-2.7.4
+2.1.2.532.g19b5d50
