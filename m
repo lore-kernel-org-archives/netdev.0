@@ -1,86 +1,73 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: Re: [PATCH] net: ipv6: Truncate single route when it doesn't fit into
- dump buffer.
-Date: Sat, 13 May 2017 00:52:47 -0600
-Message-ID: <6670aa0f-2f07-5afd-7c47-35b006c9b2e7@gmail.com>
-References: <20170512111510.2697-1-mq@ucw.cz>
- <20170512.112447.1421545301592945998.davem@davemloft.net>
- <3828cf04-1bf8-92d2-dfc4-184bd615fe10@gmail.com>
- <20170512214107.w3q7ycl6wm7phwox@lopatka.joja.cz>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH iproute2 -master 1/2] bpf: update printing of generic xdp
+ mode
+Date: Sat, 13 May 2017 12:01:44 +0300
+Message-ID: <d012ef18-8689-81ef-8f56-ef2b9c673b44@cogentembedded.com>
+References: <cover.1494635217.git.daniel@iogearbox.net>
+ <3c90a0b9480c61746220636ed48320da53410b6f.1494635217.git.daniel@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, mq@ucw.cz,
-        netdev@vger.kernel.org, roopa <roopa@cumulusnetworks.com>
-To: Jan Moskyto Matejka <mq@jmq.cz>
+Cc: alexei.starovoitov@gmail.com, netdev@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>, stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:33449 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750935AbdEMGxF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 13 May 2017 02:53:05 -0400
-Received: by mail-pg0-f68.google.com with SMTP id s62so10151884pgc.0
-        for <netdev@vger.kernel.org>; Fri, 12 May 2017 23:53:05 -0700 (PDT)
-In-Reply-To: <20170512214107.w3q7ycl6wm7phwox@lopatka.joja.cz>
-Content-Language: en-US
+Received: from mail-lf0-f49.google.com ([209.85.215.49]:34119 "EHLO
+        mail-lf0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750822AbdEMJBr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 13 May 2017 05:01:47 -0400
+Received: by mail-lf0-f49.google.com with SMTP id 99so11394881lfu.1
+        for <netdev@vger.kernel.org>; Sat, 13 May 2017 02:01:46 -0700 (PDT)
+In-Reply-To: <3c90a0b9480c61746220636ed48320da53410b6f.1494635217.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 5/12/17 3:41 PM, Jan Moskyto Matejka wrote:
-> On Fri, May 12, 2017 at 10:26:08AM -0700, David Ahern wrote:
->> On 5/12/17 8:24 AM, David Miller wrote:
->>> From: Jan Moskyto Matejka <mq@ucw.cz>
->>> Date: Fri, 12 May 2017 13:15:10 +0200
->>>
->>>> -int rt6_dump_route(struct rt6_info *rt, void *p_arg);
->>>> +int rt6_dump_route(struct rt6_info *rt, void *p_arg, int truncate);
->>>
->>> Please use "bool" and "true"/"false" for boolean values.
->>>
->>> What does ipv4 do in this situation?
->>>
->>> I'm hesitant to be OK with adding a new nlmsg flag just for this case
->>> if we solve this problem differently and using existing mechanisms
->>> elsewhere.
->>>
->>
->> I'll take a look at this later today or this weekend; we can't just
->> truncate the route returned to userspace.
-> 
-> Agreed. My favourite would be skb realloc somewhere inside the dump loop
-> ... but I don't know whether it's feasible.
-> 
-> MQ
-> 
+Hello!
 
-Here is what is happening: user initiates a route dump and specifies a
-buffer size for receiving the message which becomes max_recvmsg_len.
-This buffer size dictates the skb length allocated by netlink_dump.
+On 5/13/2017 3:32 AM, Daniel Borkmann wrote:
 
-The dump is interrupted when a route does not fit in the skb and
-returns. Subsequent call picks up with the next route to be dumped - the
-one that overflowed. All good and normal so far.
+> Follow-up to d67b9cd28c1d ("xdp: refine xdp api with regards to
+> generic xdp") in order to update the XDP dumping part.
+>
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+> ---
+>  ip/iplink_xdp.c | 19 +++++++++++--------
+>  1 file changed, 11 insertions(+), 8 deletions(-)
+>
+> diff --git a/ip/iplink_xdp.c b/ip/iplink_xdp.c
+> index a1380ee..98503fa 100644
+> --- a/ip/iplink_xdp.c
+> +++ b/ip/iplink_xdp.c
+> @@ -79,17 +79,20 @@ int xdp_parse(int *argc, char ***argv, struct iplink_req *req, bool generic)
+>  void xdp_dump(FILE *fp, struct rtattr *xdp)
+>  {
+>  	struct rtattr *tb[IFLA_XDP_MAX + 1];
+> -	__u32 flags = 0;
+> +	__u8 mode;
+>
+>  	parse_rtattr_nested(tb, IFLA_XDP_MAX, xdp);
+>
+> -	if (!tb[IFLA_XDP_ATTACHED] ||
+> -	    !rta_getattr_u8(tb[IFLA_XDP_ATTACHED]))
+> +	if (!tb[IFLA_XDP_ATTACHED])
+>  		return;
+>
+> -	if (tb[IFLA_XDP_FLAGS])
+> -		flags = rta_getattr_u32(tb[IFLA_XDP_FLAGS]);
+> -
+> -	fprintf(fp, "xdp%s ",
+> -		flags & XDP_FLAGS_SKB_MODE ? "generic" : "");
+> +	mode = rta_getattr_u8(tb[IFLA_XDP_ATTACHED]);
+> +	if (mode == XDP_ATTACHED_NONE)
+> +		return;
+> +	else if (mode == XDP_ATTACHED_DRV)
+> +		fprintf(fp, "xdp ");
+> +	else if (mode == XDP_ATTACHED_SKB)
+> +		fprintf(fp, "xdpgeneric ");
+> +	else
+> +		fprintf(fp, "xdp[%u] ", mode);
 
-If the next route is larger than max_recvmsg_len, then the route can not
-be put in the buffer, nothing is returned to the user which causes the
-dump to abort showing the abbreviated output. This problem occurs with
-IPv4 and IPv6. You can see this with modest size routes by just dropping
-the buffer size to something really small (e.g., with iproute2, change
-buf size in rtnl_dump_filter_l to say 2048).
+    This is asking to be a *switch* statement.
 
-I see 2 problems:
-1. the kernel is not telling the user the supplied buffer is too small
-(ie., if a single route does not fit in the skb then it should fail and
-return an error code to the user),
+[...]
 
-2. multipath routes for IPv4 and IPv6 do not have a limit.
-
-Should the kernel put a limit on the number of nexthops? I recently put
-a cap on MPLS route size as 4096 bytes, but I think this should be
-revisited in terms of a limit on number of nexthops to create a
-consistent limit even if struct sizes change. And, the limit on the
-number of nexthops should be consistent across address families (same
-limit for IPv4, IPv6, and MPLS).
-
->From discussions I have had, 32 nexthops for a single route is on the
-laughably high side, but some people do crazy things. How about a limit
-of 256 nexthops?
+MBR, Sergei
