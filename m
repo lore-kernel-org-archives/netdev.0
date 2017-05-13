@@ -1,36 +1,59 @@
-From: Rob Herring <robh@kernel.org>
-Subject: Re: [PATCH v5 14/17] dt-bindings: slave-device: add current-speed
- property
-Date: Fri, 12 May 2017 19:05:38 -0500
-Message-ID: <20170513000538.4vczi2qqr2hykv6g@rob-hp-laptop>
-References: <1494406408-31760-1-git-send-email-stefan.wahren@i2se.com>
- <1494406408-31760-15-git-send-email-stefan.wahren@i2se.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Mark Rutland <mark.rutland@arm.com>,
-        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        Jiri Slaby <jslaby@suse.com>, linux-serial@vger.kernel.org,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        devicetree@vger.kernel.org
-To: Stefan Wahren <stefan.wahren@i2se.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH iproute2 -master 2/2] bpf: dump error to the user when retrieving pinned prog fails
+Date: Sat, 13 May 2017 02:32:35 +0200
+Message-ID: <8a55c1bf1c2114141c621954d8a1cd55d60bfd59.1494635217.git.daniel@iogearbox.net>
+References: <cover.1494635217.git.daniel@iogearbox.net>
+Cc: alexei.starovoitov@gmail.com, netdev@vger.kernel.org,
+        Daniel Borkmann <daniel@iogearbox.net>
+To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f68.google.com ([209.85.218.68]:33347 "EHLO
-        mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757786AbdEMAFk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 12 May 2017 20:05:40 -0400
-Content-Disposition: inline
-In-Reply-To: <1494406408-31760-15-git-send-email-stefan.wahren@i2se.com>
+Received: from www62.your-server.de ([213.133.104.62]:42834 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756974AbdEMAcs (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 12 May 2017 20:32:48 -0400
+In-Reply-To: <cover.1494635217.git.daniel@iogearbox.net>
+In-Reply-To: <cover.1494635217.git.daniel@iogearbox.net>
+References: <cover.1494635217.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 10, 2017 at 10:53:25AM +0200, Stefan Wahren wrote:
-> This adds a new DT property to define the current baud rate of the
-> slave device.
-> 
-> Signed-off-by: Stefan Wahren <stefan.wahren@i2se.com>
-> ---
->  Documentation/devicetree/bindings/serial/slave-device.txt | 9 +++++++++
->  1 file changed, 9 insertions(+)
+I noticed we currently don't dump an error message when a pinned
+program couldn't be retrieved, thus add a hint to the user.
 
-Reviewed-by: Rob Herring <robh@kernel.org>
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+---
+ lib/bpf.c | 12 +++++++++++-
+ 1 file changed, 11 insertions(+), 1 deletion(-)
+
+diff --git a/lib/bpf.c b/lib/bpf.c
+index 04ee1ab..ae4d97d 100644
+--- a/lib/bpf.c
++++ b/lib/bpf.c
+@@ -648,6 +648,16 @@ static int bpf_obj_get(const char *pathname, enum bpf_prog_type type)
+ 	return bpf(BPF_OBJ_GET, &attr, sizeof(attr));
+ }
+ 
++static int bpf_obj_pinned(const char *pathname, enum bpf_prog_type type)
++{
++	int prog_fd = bpf_obj_get(pathname, type);
++
++	if (prog_fd < 0)
++		fprintf(stderr, "Couldn\'t retrieve pinned program \'%s\': %s\n",
++			pathname, strerror(errno));
++	return prog_fd;
++}
++
+ enum bpf_mode {
+ 	CBPF_BYTECODE,
+ 	CBPF_FILE,
+@@ -750,7 +760,7 @@ static int bpf_parse(enum bpf_prog_type *type, enum bpf_mode *mode,
+ 	else if (*mode == EBPF_OBJECT)
+ 		ret = bpf_obj_open(file, *type, section, verbose);
+ 	else if (*mode == EBPF_PINNED)
+-		ret = bpf_obj_get(file, *type);
++		ret = bpf_obj_pinned(file, *type);
+ 	else
+ 		return -1;
+ 
+-- 
+1.9.3
