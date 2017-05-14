@@ -1,73 +1,70 @@
-From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
-Subject: Re: [net 1/6] net/mlx5e: Use a spinlock to synchronize statistics
-Date: Sun, 14 May 2017 11:52:13 +0300
-Message-ID: <CALzJLG-CbN5ipg3_CsN9_1RWtY_q_UaQGMu3KwDpgoYk53xkOQ@mail.gmail.com>
-References: <20170512115650.11635-1-saeedm@mellanox.com> <20170512115650.11635-2-saeedm@mellanox.com>
- <20170512.121354.1583292892374462482.davem@davemloft.net>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH v2 net-next 3/5] dsa: add DSA switch driver for Microchip
+ KSZ9477
+Date: Sun, 14 May 2017 12:13:37 +0300
+Message-ID: <7f0c4c6a-a6fd-5c4f-9c40-f23f694cee6f@cogentembedded.com>
+References: <9235D6609DB808459E95D78E17F2E43D40A632C2@CHN-SV-EXMX02.mchp-main.com>
+ <20170513145609.GD14058@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Saeed Mahameed <saeedm@mellanox.com>,
-        Linux Netdev List <netdev@vger.kernel.org>,
-        Gal Pressman <galp@mellanox.com>,
-        Kernel Team <kernel-team@fb.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: f.fainelli@gmail.com, vivien.didelot@savoirfairelinux.com,
+        netdev@vger.kernel.org, davem@davemloft.net,
+        UNGLinuxDriver@microchip.com
+To: Andrew Lunn <andrew@lunn.ch>, Woojung.Huh@microchip.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f196.google.com ([209.85.220.196]:35679 "EHLO
-        mail-qk0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751036AbdENIwe (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 14 May 2017 04:52:34 -0400
-Received: by mail-qk0-f196.google.com with SMTP id k74so13309722qke.2
-        for <netdev@vger.kernel.org>; Sun, 14 May 2017 01:52:34 -0700 (PDT)
-In-Reply-To: <20170512.121354.1583292892374462482.davem@davemloft.net>
+Received: from mail-wr0-f171.google.com ([209.85.128.171]:34104 "EHLO
+        mail-wr0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750882AbdENJNj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 14 May 2017 05:13:39 -0400
+Received: by mail-wr0-f171.google.com with SMTP id l9so62779760wre.1
+        for <netdev@vger.kernel.org>; Sun, 14 May 2017 02:13:39 -0700 (PDT)
+In-Reply-To: <20170513145609.GD14058@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 12, 2017 at 7:13 PM, David Miller <davem@davemloft.net> wrote:
-> From: Saeed Mahameed <saeedm@mellanox.com>
-> Date: Fri, 12 May 2017 14:56:45 +0300
+Hello!
+
+On 5/13/2017 5:56 PM, Andrew Lunn wrote:
+
+[...]
+
+>> +static int ksz_reset_switch(struct dsa_switch *ds)
+>> +{
+>> +	struct ksz_device *dev = ds->priv;
+>> +	u8 data8;
+>> +	u16 data16;
+>> +	u32 data32;
+>> +
 >
->> From: Gal Pressman <galp@mellanox.com>
->>
->> Add a spinlock to prevent races when querying statistics, for example
->> querying counters in the middle of a non atomic memcpy() operation in
->> mlx5e_update_stats().
->>
->> This RW lock should be held when accessing priv->stats, to prevent other
->> reads/writes.
->>
->> Fixes: 9218b44dcc05 ("net/mlx5e: Statistics handling refactoring")
->> Signed-off-by: Gal Pressman <galp@mellanox.com>
->> Suggested-by: Eric Dumazet <eric.dumazet@gmail.com>
->> Cc: kernel-team@fb.com
->> Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+> ...
 >
-> This is overkill, and that rwlock is going to show up in perf for some
-> workloads.
+>> +
+>> +	memset(dev->vlan_cache, 0, sizeof(*dev->vlan_cache) * dev->num_vlans);
+>> +
+>> +	return 0;
+>> +}
 >
-> Furthermore, two kzalloc()'s for a single state update operation?
-> That's not reasonable either.
+>> +static int ksz_setup(struct dsa_switch *ds)
+>> +{
+>> +	struct ksz_device *dev = ds->priv;
+>> +	int ret = 0;
+>> +
+>> +	dev->vlan_cache = devm_kmalloc_array(dev->dev,
+>> +					     sizeof(struct vlan_table),
+>> +					     dev->num_vlans, GFP_KERNEL);
 >
+> You should check, but i think devm_kmalloc_array sets the allocated
+> memory to 0.
 
-Hi Dave,
+    No. Else there would be no need for it, since kcalloc() is a function that 
+allocates the arrays and zeroes them.
 
-Well, the idea of the patch is to minimize the stats update to a
-single safe copy operation under stats_lock
-for that we need a temp buffer to store stats FW commands output, and
-then safely -under stats_lock- copy it to
-the buffer ethtool is going to report.
+> So i don't think you need the memset. If it is needed, i
+> would move it here, after the check the allocation is successful.
 
-I agree, it is really ridiculous that we allocate/free a couple of
-buffers on each update_stats operations, regardless of this patch.
-Is it ok if we use a temp buffer under netdev_priv for such usages or
-even use kmemcache ?
+    If it could be done here, kcalloc() should be used.
 
-> Use a seqlock, which is the primitive for handling this kind of
-> situation cheaply, and adds no atomics to the read path.
->
+[...]
 
-Will change this. Thanks for the tip.
-I will drop this patch for now and I will resend it later once Gal
-addresses all of the above comments.
-
-Thanks,
-Saeed.
+MBR, Sergei
