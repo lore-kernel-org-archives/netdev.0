@@ -1,71 +1,44 @@
-From: Yuval Shaia <yuval.shaia-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH v4] net/mlx4_core: Use min3 to select number of MSI-X
- vectors
-Date: Sun, 14 May 2017 22:01:34 +0300
-Message-ID: <20170514190133.GC28994@yuval-lap>
-References: <1494569451-2567-1-git-send-email-yuval.shaia@oracle.com>
+From: Bart Van Assche <Bart.VanAssche@sandisk.com>
+Subject: Re: [PATCH] net/smc: mark as BROKEN due to remote memory exposure
+Date: Sun, 14 May 2017 19:08:50 +0000
+Message-ID: <1494788929.21774.1.camel@sandisk.com>
+References: <20170510072627.12060-1-hch@lst.de>
+         <1494514662.2489.1.camel@sandisk.com> <20170514055848.GA23149@lst.de>
+         <20170514.115116.499149210596634881.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: yishaih-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1494569451-2567-1-git-send-email-yuval.shaia-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
+        "stable@vger.kernel.org" <stable@vger.kernel.org>,
+        "ubraun@linux.vnet.ibm.com" <ubraun@linux.vnet.ibm.com>
+To: "hch@lst.de" <hch@lst.de>,
+        "davem@davemloft.net" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from esa4.hgst.iphmx.com ([216.71.154.42]:38597 "EHLO
+        esa4.hgst.iphmx.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751451AbdENTIx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 14 May 2017 15:08:53 -0400
+In-Reply-To: <20170514.115116.499149210596634881.davem@davemloft.net>
+Content-Language: en-US
+Content-ID: <B9F0FA574049584AAFE91E63EEAAAB11@namprd04.prod.outlook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 12, 2017 at 09:10:51AM +0300, Yuval Shaia wrote:
-> Signed-off-by: Yuval Shaia <yuval.shaia-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-> ---
-> v0 -> v1:
-> 	* s/"min_t("/"min_t(int"
-> v1 -> v2:
-> 	* Use min3 instead of min_t twice
-> v2 -> v3:
-> 	* Change commit log header message to reflect the changes made in
-> 	  v2
-> v3 -> v4:
-> 	* Cast return value from num_online_cpus to int to avoid
-> 	  compilation errors from "sparse"
-
-Hi Leon,
-Got your r-b for v3, can you please review v4?
-
-Thanks,
-
-> ---
->  drivers/net/ethernet/mellanox/mlx4/main.c | 10 ++++------
->  1 file changed, 4 insertions(+), 6 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
-> index 7032054..83aab1e 100644
-> --- a/drivers/net/ethernet/mellanox/mlx4/main.c
-> +++ b/drivers/net/ethernet/mellanox/mlx4/main.c
-> @@ -2862,12 +2862,10 @@ static void mlx4_enable_msi_x(struct mlx4_dev *dev)
->  	int port = 0;
->  
->  	if (msi_x) {
-> -		int nreq = dev->caps.num_ports * num_online_cpus() + 1;
-> -
-> -		nreq = min_t(int, dev->caps.num_eqs - dev->caps.reserved_eqs,
-> -			     nreq);
-> -		if (nreq > MAX_MSIX)
-> -			nreq = MAX_MSIX;
-> +		int nreq = min3(dev->caps.num_ports *
-> +				(int)num_online_cpus() + 1,
-> +				dev->caps.num_eqs - dev->caps.reserved_eqs,
-> +				MAX_MSIX);
->  
->  		entries = kcalloc(nreq, sizeof *entries, GFP_KERNEL);
->  		if (!entries)
-> -- 
-> 2.7.4
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+T24gU3VuLCAyMDE3LTA1LTE0IGF0IDExOjUxIC0wNDAwLCBEYXZpZCBNaWxsZXIgd3JvdGU6DQo+
+IEZyb206IENocmlzdG9waCBIZWxsd2lnIDxoY2hAbHN0LmRlPg0KPiBEYXRlOiBTdW4sIDE0IE1h
+eSAyMDE3IDA3OjU4OjQ4ICswMjAwDQo+IA0KPiA+IHRoaXMgcGF0Y2ggaGFzIG5vdCBiZWVuIHN1
+cGVyY2VlZGVkIGJ5IGFueXRoaW5nLCBjYW4geW91IGV4cGxhaW4gd2h5DQo+ID4gaXQgaGFzIGJl
+ZW4gbWFya2VkIGFzIHN1Y2ggaW4gcGF0Y2h3b3Jrcz8NCj4gDQo+IEkgdGhpbmsgeW91J3JlIGJl
+aW5nIG92ZXJiZWFyaW5nIGJ5IHJlcXVpcmluZyB0aGlzIHRvIGJlIG1hcmtlZCBCUk9LRU4NCj4g
+YW5kIEkgd291bGQgbGlrZSB5b3UgdG8gZXhwbG9yZSBvdGhlciB3YXlzIHdpdGggdGhlIGF1dGhv
+cnMgdG8gZml4DQo+IHdoYXRldmVyIHBlcmNlaXZlZCBwcm9ibGVtcyB5b3UgdGhpbmsgU01DIGhh
+cy4NCj4gDQo+IFlvdSBjbGFpbSB0aGF0IHRoaXMgaXMgc29tZWhvdyAidXJnZW50IiBpcyBmYWxz
+ZS4gIFlvdSBjYW4gYXNrDQo+IGRpc3RyaWJ1dGlvbnMgdG8gZGlzYWJsZSBTTUMgb3Igd2hhdGV2
+ZXIgaW4gdGhlIHNob3J0IHRlcm0gaWYgaXQNCj4gcmVhbGxseSwgdHJ1bHksIGJvdGhlcnMgeW91
+Lg0KDQpIZWxsbyBEYXZlLA0KDQpUaGVyZSBpcyBhZ3JlZW1lbnQgdGhhdCB0aGUgdXNlci1zcGFj
+ZSBBUEkgZm9yIHVzaW5nIHRoZSBTTUMgcHJvdG9jb2wgbXVzdA0KYmUgY2hhbmdlZCwgbmFtZWx5
+IGJ5IGRyb3BwaW5nIEFGX1NNQyBhbmQgYnkgbWFraW5nIGFwcGxpY2F0aW9ucyB1c2UgdGhlDQpT
+TUMgcHJvdG9jb2wgdGhyb3VnaCBzb2NrZXQoQUZfSU5FVC4uLiwgU09DS19TVFJFQU0sIC4uLiku
+IFdoYXQgaXMgeW91cg0KcGxhbiB0byBhdm9pZCB0aGF0IGFwcGxpY2F0aW9ucyBzdGFydCB1c2lu
+ZyBhbmQgZGVwZW5kaW5nIG9uIEFGX1NNQz8NCg0KVGhhbmtzLA0KDQpCYXJ0Lg==
