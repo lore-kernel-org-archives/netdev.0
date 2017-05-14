@@ -1,47 +1,118 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: iproute2 build error due to sr-ipv6 lwtunnel
-Date: Sun, 14 May 2017 15:26:46 +0200
-Message-ID: <59185B16.5020107@iogearbox.net>
-References: <590AF0C3.6070006@iogearbox.net> <3c0c0584-338d-47d0-76d4-e4408decc2c1@uclouvain.be> <590AFA8A.30602@iogearbox.net>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH] kmod: don't load module unless req process has CAP_SYS_MODULE
+Date: Sun, 14 May 2017 08:57:34 -0500
+Message-ID: <87d1bbo81d.fsf@xmission.com>
+References: <20170512232259.10820-1-mahesh@bandewar.net>
+        <20170514104537.GA29323@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, stephen@networkplumber.org
-To: David Lebrun <david.lebrun@uclouvain.be>
+Content-Type: text/plain
+Cc: Mahesh Bandewar <mahesh@bandewar.net>,
+        Ingo Molnar <mingo@kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        netdev <netdev@vger.kernel.org>,
+        Kees Cook <keescook@chromium.org>,
+        David Miller <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>,
+        Mahesh Bandewar <maheshb@google.com>
+To: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:44755 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751934AbdENN0t (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 14 May 2017 09:26:49 -0400
-In-Reply-To: <590AFA8A.30602@iogearbox.net>
+Received: from out02.mta.xmission.com ([166.70.13.232]:41947 "EHLO
+        out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751676AbdENOEH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 14 May 2017 10:04:07 -0400
+In-Reply-To: <20170514104537.GA29323@kroah.com> (Greg Kroah-Hartman's message
+        of "Sun, 14 May 2017 12:45:37 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/04/2017 11:55 AM, Daniel Borkmann wrote:
-> On 05/04/2017 11:28 AM, David Lebrun wrote:
->> On 05/04/2017 11:13 AM, Daniel Borkmann wrote:
->>> Hi David,
->>>
->>> I'm getting the following build error from e8493916a8ed ("iproute:
->>> add support for SR-IPv6 lwtunnel encapsulation"). Reverting your
->>> commit makes iproute2 build again for me. Please take a look.
->>
->> Hi Daniel,
->>
->> This is because linux/seg6.h does an include of linux/in6.h (cf kernel
->> commit ea3ebc73b46fbdb049dafd47543bb22efaa09c8e "uapi: fix linux/seg6.h
->> and linux/seg6_iptunnel.h userspace compilation errors"), and iproute2's
->> include/utils.h requires the system /usr/include/resolv.h, which itself
->> includes /usr/include/netinet/in.h, re-defining struct in6_addr.
->>
->> However, netinet/in.h protects some struct definitions with #ifndef
->> __USE_KERNEL_IPV6_DEFS, which is explicitly defined in
->> iproute_lwtunnel.c, thus avoiding this specific issue.
->>
->> What is your glibc version ?
->
-> Ok, I see, on one of my machines I have an old user space, but
-> latest net/net-next kernel (+ installed kernel headers) and
-> iproute2. glibc version there is 2.18.
+Greg Kroah-Hartman <gregkh@linuxfoundation.org> writes:
 
-David, are you still looking into fixing this?
+> On Fri, May 12, 2017 at 04:22:59PM -0700, Mahesh Bandewar wrote:
+>> From: Mahesh Bandewar <maheshb@google.com>
+>> 
+>> A process inside random user-ns should not load a module, which is
+>> currently possible. As demonstrated in following scenario -
+>> 
+>>   Create namespaces; especially a user-ns and become root inside.
+>>   $ unshare -rfUp -- unshare -unm -- bash
+>> 
+>>   Try to load the bridge module. It should fail and this is expected!
+>>   #  modprobe bridge
+>>   WARNING: Error inserting stp (/lib/modules/4.11.0-smp-DEV/kernel/net/802/stp.ko): Operation not permitted
+>>   FATAL: Error inserting bridge (/lib/modules/4.11.0-smp-DEV/kernel/net/bridge/bridge.ko): Operation not permitted
+>> 
+>>   Verify bridge module is not loaded.
+>>   # lsmod | grep bridge
+>>   #
+>> 
+>>   Now try to create a bridge inside this newly created net-ns which would
+>>   mean bridge module need to be loaded.
+>>   # ip link add br0 type bridge
+>>   # echo $?
+>>   0
+>>   # lsmod | grep bridge
+>>   bridge                110592  0
+>>   stp                    16384  1 bridge
+>>   llc                    16384  2 bridge,stp
+>>   #
+>> 
+>>   After this patch -
+>>   # ip link add br0 type bridge
+>>   RTNETLINK answers: Operation not supported
+>>   # echo $?
+>>   2
+>>   # lsmod | grep bridge
+>>   #
+>
+> Well, it only loads this because the kernel asked for it to be loaded,
+> right?
+>
+>> 
+>> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+>> ---
+>>  kernel/kmod.c | 3 +++
+>>  1 file changed, 3 insertions(+)
+>> 
+>> diff --git a/kernel/kmod.c b/kernel/kmod.c
+>> index 563f97e2be36..ac30157169b7 100644
+>> --- a/kernel/kmod.c
+>> +++ b/kernel/kmod.c
+>> @@ -133,6 +133,9 @@ int __request_module(bool wait, const char *fmt, ...)
+>>  #define MAX_KMOD_CONCURRENT 50	/* Completely arbitrary value - KAO */
+>>  	static int kmod_loop_msg;
+>>  
+>> +	if (!capable(CAP_SYS_MODULE))
+>> +		return -EPERM;
+>
+> At first glance this looks right, but I'm worried what this will break
+> that currently relies on this.  There might be lots of systems that are
+> used to this being the method that the needed module is requested.  What
+> about when userspace asks for a random char device and that module is
+> then loaded?  Does this patch break that functionality?
+
+For the specific example give I think we would be better served by
+adding a capability check at the call site.  In this case CAP_NET_ADMIN
+as those are the capabilities iproute traditionally has.
+
+We have something similar in dev_load in already in the networking code.
+
+This limits the people who can't load modules to root user in user
+namespaces.  I would be fine with any other code paths in a user
+namespace getting a similar treatment.
+
+Eric
+
+
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index bcb0f610ee42..6b72528a4636 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -2595,7 +2595,7 @@ static int rtnl_newlink(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 
+                if (!ops) {
+ #ifdef CONFIG_MODULES
+-                       if (kind[0]) {
++                       if (kind[0] && capable(CAP_NET_ADMIN)) {
+                                __rtnl_unlock();
+                                request_module("rtnl-link-%s", kind);
+                                rtnl_lock();
