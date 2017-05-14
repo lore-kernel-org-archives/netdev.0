@@ -1,50 +1,36 @@
-From: =?UTF-8?q?Bj=C3=B6rn=20T=C3=B6pel?= <bjorn.topel@gmail.com>
-Subject: [PATCH net] i40e: proper update of the page_offset field
-Date: Sun, 14 May 2017 19:56:49 +0200
-Message-ID: <20170514175649.31616-1-bjorn.topel@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: =?UTF-8?q?Bj=C3=B6rn=20T=C3=B6pel?= <bjorn.topel@intel.com>,
-        alexander.h.duyck@intel.com, jeffrey.t.kirsher@intel.com
-To: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:4520 "EHLO mga01.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1759089AbdENR5k (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 14 May 2017 13:57:40 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Maciek Fijalkowski <macfij7@wp.pl>
+Subject: [PATCH 3/3] Fix ERROR: code indent should use tabs where possible
+Date: Sun, 14 May 2017 19:51:30 +0200
+Message-ID: <20170514175130.18664-3-macfij7@wp.pl>
+References: <20170514175130.18664-1-macfij7@wp.pl>
+Cc: jasonwang@redhat.com, virtualization@lists.linux-foundation.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Maciej Fijalkowski <macfij7@wp.pl>
+To: mst@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170514175130.18664-1-macfij7@wp.pl>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Björn Töpel <bjorn.topel@intel.com>
+From: Maciej Fijalkowski <macfij7@wp.pl>
 
-In f8b45b74cc62 ("i40e/i40evf: Use build_skb to build frames")
-i40e_build_skb updates the page_offset field with an incorrect offset,
-which can lead to data corruption. This patch updates page_offset
-correctly.
-
-Note that the bug only appears on architectures where PAGE_SIZE is
-8192 or larger.
-
-Fixes: f8b45b74cc62 ("i40e/i40evf: Use build_skb to build frames")
-Signed-off-by: Björn Töpel <bjorn.topel@intel.com>
+Signed-off-by: Maciej Fijalkowski <macfij7@wp.pl>
 ---
- drivers/net/ethernet/intel/i40e/i40e_txrx.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ drivers/net/virtio_net.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-index 29321a6167a6..cd894f4023b1 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-@@ -1854,7 +1854,8 @@ static struct sk_buff *i40e_build_skb(struct i40e_ring *rx_ring,
- #if (PAGE_SIZE < 8192)
- 	unsigned int truesize = i40e_rx_pg_size(rx_ring) / 2;
- #else
--	unsigned int truesize = SKB_DATA_ALIGN(size);
-+	unsigned int truesize = SKB_DATA_ALIGN(sizeof(struct skb_shared_info)) +
-+				SKB_DATA_ALIGN(I40E_SKB_PAD + size);
- #endif
- 	struct sk_buff *skb;
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index 6c8170c..5d71e9f 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -2717,7 +2717,7 @@ static __init int virtio_net_driver_init(void)
+ 	if (ret)
+ 		goto err_dead;
  
+-        ret = register_virtio_driver(&virtio_net_driver);
++	ret = register_virtio_driver(&virtio_net_driver);
+ 	if (ret)
+ 		goto err_virtio;
+ 	return 0;
 -- 
-2.11.0
+2.4.11
