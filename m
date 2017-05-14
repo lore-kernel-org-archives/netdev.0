@@ -1,32 +1,26 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/smc: mark as BROKEN due to remote memory exposure
-Date: Sun, 14 May 2017 11:51:16 -0400 (EDT)
-Message-ID: <20170514.115116.499149210596634881.davem@davemloft.net>
-References: <20170510072627.12060-1-hch@lst.de>
-        <1494514662.2489.1.camel@sandisk.com>
-        <20170514055848.GA23149@lst.de>
+From: Oliver Neukum <oneukum@suse.com>
+Subject: question on devices that have a UUID but no MAC
+Date: Sun, 14 May 2017 18:48:27 +0200
+Message-ID: <1494780507.21837.6.camel@suse.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Bart.VanAssche@sandisk.com, netdev@vger.kernel.org,
-        linux-rdma@vger.kernel.org, stable@vger.kernel.org,
-        ubraun@linux.vnet.ibm.com
-To: hch@lst.de
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <20170514055848.GA23149@lst.de>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx2.suse.de ([195.135.220.15]:33157 "EHLO mx1.suse.de"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1759061AbdENQu4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 14 May 2017 12:50:56 -0400
+Received: from relay2.suse.de (charybdis-ext.suse.de [195.135.220.254])
+        by mx1.suse.de (Postfix) with ESMTP id 8D039AAB4
+        for <netdev@vger.kernel.org>; Sun, 14 May 2017 16:50:55 +0000 (UTC)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Christoph Hellwig <hch@lst.de>
-Date: Sun, 14 May 2017 07:58:48 +0200
+Hi,
 
-> this patch has not been superceeded by anything, can you explain why
-> it has been marked as such in patchworks?
+is there a canonical way to use a device's UUID to generate a MAC
+inside the kernel? If I add it, where does it belong into?
 
-I think you're being overbearing by requiring this to be marked BROKEN
-and I would like you to explore other ways with the authors to fix
-whatever perceived problems you think SMC has.
-
-You claim that this is somehow "urgent" is false.  You can ask
-distributions to disable SMC or whatever in the short term if it
-reallly, truly, bothers you.
+	Regards
+		Oliver
