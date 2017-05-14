@@ -1,60 +1,69 @@
-From: Yuval Mintz <Yuval.Mintz@cavium.com>
-Subject: [PATCH net v2] qed: Fix uninitialized data in aRFS infrastructure
-Date: Sun, 14 May 2017 12:21:23 +0300
-Message-ID: <1494753683-3429-1-git-send-email-Yuval.Mintz@cavium.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Yuval Mintz <Yuval.Mintz@cavium.com>
-To: <arnd@arndb.de>, <davem@davemloft.net>, <netdev@vger.kernel.org>
+From: Saeed Mahameed <saeedm@mellanox.com>
+Subject: [pull request][net V2 0/5] Mellanox, mlx5 fixes 2017-05-12
+Date: Sun, 14 May 2017 13:43:06 +0300
+Message-ID: <20170514104311.2081-1-saeedm@mellanox.com>
+Cc: netdev@vger.kernel.org, Saeed Mahameed <saeedm@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-dm3nam03on0040.outbound.protection.outlook.com ([104.47.41.40]:7525
-        "EHLO NAM03-DM3-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751369AbdENJVb (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 14 May 2017 05:21:31 -0400
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:48609 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1750969AbdENKnZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 14 May 2017 06:43:25 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Current memset is using incorrect type of variable, causing the
-upper-half of the strucutre to be left uninitialized and causing:
+Hi Dave,
 
-  ethernet/qlogic/qed/qed_init_fw_funcs.c: In function 'qed_set_rfs_mode_disable':
-  ethernet/qlogic/qed/qed_init_fw_funcs.c:993:3: error: '*((void *)&ramline+4)' is used uninitialized in this function [-Werror=uninitialized]
+This series contains some mlx5 fixes for net.
+Please pull and let me know if there's any problem.
 
-Fixes: d51e4af5c209 ("qed: aRFS infrastructure support")
-Reported-by: Arnd Bergmann <arnd@arndb.de>
-Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
----
-Hi Arnd,
+For -stable:
+("net/mlx5e: Fix ethtool pause support and advertise reporting") kernels >= 4.8
+("net/mlx5e: Use the correct pause values for ethtool advertising") kernels >= 4.8
 
-I don't see the original warning you've reported [probably due to
-compiler differences], so other than via code reading I couldn't
-actually test this. Can you please compile-test this one?
-
-As mentioned in the original thread, I'll send the style-change
-later to net-next.
-
-Dave - please consider applying this to `net'.
+v1->v2:
+ Dropped statistics spinlock patch, it needs some extra work.
 
 Thanks,
-Yuval
----
+Saeed.
 
- drivers/net/ethernet/qlogic/qed/qed_init_fw_funcs.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+The following changes since commit 1c4d5f51a812a82de97beee24f48ed05c65ebda5:
 
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_init_fw_funcs.c b/drivers/net/ethernet/qlogic/qed/qed_init_fw_funcs.c
-index 67200c5..0a8fde6 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_init_fw_funcs.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_init_fw_funcs.c
-@@ -983,7 +983,7 @@ void qed_set_rfs_mode_disable(struct qed_hwfn *p_hwfn,
- 	memset(&camline, 0, sizeof(union gft_cam_line_union));
- 	qed_wr(p_hwfn, p_ptt, PRS_REG_GFT_CAM + CAM_LINE_SIZE * pf_id,
- 	       camline.cam_line_mapped.camline);
--	memset(&ramline, 0, sizeof(union gft_cam_line_union));
-+	memset(&ramline, 0, sizeof(ramline));
- 
- 	for (i = 0; i < RAM_LINE_SIZE / REG_SIZE; i++) {
- 		u32 hw_addr = PRS_REG_GFT_PROFILE_MASK_RAM;
--- 
-1.9.3
+  vmxnet3: ensure that adapter is in proper state during force_close (2017-05-12 12:23:52 -0400)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/saeed/linux.git tags/mlx5-fixes-2017-05-12-V2
+
+for you to fetch changes up to 508541146af18e43072e41a31aa62fac2b01aac1:
+
+  net/mlx5: Use underlay QPN from the root name space (2017-05-14 13:33:45 +0300)
+
+----------------------------------------------------------------
+mlx5-fixes-2017-05-12
+
+Misc fixes for mlx5 driver
+
+----------------------------------------------------------------
+Gal Pressman (2):
+      net/mlx5e: Use the correct pause values for ethtool advertising
+      net/mlx5e: Fix ethtool pause support and advertise reporting
+
+Saeed Mahameed (2):
+      net/mlx5e: Fix setup TC ndo
+      net/mlx5e: IPoIB, Only support regular RQ for now
+
+Yishai Hadas (1):
+      net/mlx5: Use underlay QPN from the root name space
+
+ drivers/net/ethernet/mellanox/mlx5/core/en.h       |  2 +-
+ .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   |  9 +++++---
+ drivers/net/ethernet/mellanox/mlx5/core/en_fs.c    |  5 ++---
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c  |  2 +-
+ drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c   |  9 +++-----
+ drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.h   |  3 ++-
+ drivers/net/ethernet/mellanox/mlx5/core/fs_core.c  | 25 ++++++++++++++++++----
+ drivers/net/ethernet/mellanox/mlx5/core/fs_core.h  |  2 +-
+ drivers/net/ethernet/mellanox/mlx5/core/ipoib.c    | 11 ++++++++--
+ include/linux/mlx5/fs.h                            |  4 +++-
+ 10 files changed, 49 insertions(+), 23 deletions(-)
