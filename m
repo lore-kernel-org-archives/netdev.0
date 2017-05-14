@@ -1,70 +1,60 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH v2 net-next 3/5] dsa: add DSA switch driver for Microchip
- KSZ9477
-Date: Sun, 14 May 2017 12:13:37 +0300
-Message-ID: <7f0c4c6a-a6fd-5c4f-9c40-f23f694cee6f@cogentembedded.com>
-References: <9235D6609DB808459E95D78E17F2E43D40A632C2@CHN-SV-EXMX02.mchp-main.com>
- <20170513145609.GD14058@lunn.ch>
+From: Yuval Mintz <Yuval.Mintz@cavium.com>
+Subject: [PATCH net v2] qed: Fix uninitialized data in aRFS infrastructure
+Date: Sun, 14 May 2017 12:21:23 +0300
+Message-ID: <1494753683-3429-1-git-send-email-Yuval.Mintz@cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: f.fainelli@gmail.com, vivien.didelot@savoirfairelinux.com,
-        netdev@vger.kernel.org, davem@davemloft.net,
-        UNGLinuxDriver@microchip.com
-To: Andrew Lunn <andrew@lunn.ch>, Woojung.Huh@microchip.com
+Content-Type: text/plain
+Cc: Yuval Mintz <Yuval.Mintz@cavium.com>
+To: <arnd@arndb.de>, <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f171.google.com ([209.85.128.171]:34104 "EHLO
-        mail-wr0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750882AbdENJNj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 14 May 2017 05:13:39 -0400
-Received: by mail-wr0-f171.google.com with SMTP id l9so62779760wre.1
-        for <netdev@vger.kernel.org>; Sun, 14 May 2017 02:13:39 -0700 (PDT)
-In-Reply-To: <20170513145609.GD14058@lunn.ch>
+Received: from mail-dm3nam03on0040.outbound.protection.outlook.com ([104.47.41.40]:7525
+        "EHLO NAM03-DM3-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751369AbdENJVb (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 14 May 2017 05:21:31 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello!
+Current memset is using incorrect type of variable, causing the
+upper-half of the strucutre to be left uninitialized and causing:
 
-On 5/13/2017 5:56 PM, Andrew Lunn wrote:
+  ethernet/qlogic/qed/qed_init_fw_funcs.c: In function 'qed_set_rfs_mode_disable':
+  ethernet/qlogic/qed/qed_init_fw_funcs.c:993:3: error: '*((void *)&ramline+4)' is used uninitialized in this function [-Werror=uninitialized]
 
-[...]
+Fixes: d51e4af5c209 ("qed: aRFS infrastructure support")
+Reported-by: Arnd Bergmann <arnd@arndb.de>
+Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
+---
+Hi Arnd,
 
->> +static int ksz_reset_switch(struct dsa_switch *ds)
->> +{
->> +	struct ksz_device *dev = ds->priv;
->> +	u8 data8;
->> +	u16 data16;
->> +	u32 data32;
->> +
->
-> ...
->
->> +
->> +	memset(dev->vlan_cache, 0, sizeof(*dev->vlan_cache) * dev->num_vlans);
->> +
->> +	return 0;
->> +}
->
->> +static int ksz_setup(struct dsa_switch *ds)
->> +{
->> +	struct ksz_device *dev = ds->priv;
->> +	int ret = 0;
->> +
->> +	dev->vlan_cache = devm_kmalloc_array(dev->dev,
->> +					     sizeof(struct vlan_table),
->> +					     dev->num_vlans, GFP_KERNEL);
->
-> You should check, but i think devm_kmalloc_array sets the allocated
-> memory to 0.
+I don't see the original warning you've reported [probably due to
+compiler differences], so other than via code reading I couldn't
+actually test this. Can you please compile-test this one?
 
-    No. Else there would be no need for it, since kcalloc() is a function that 
-allocates the arrays and zeroes them.
+As mentioned in the original thread, I'll send the style-change
+later to net-next.
 
-> So i don't think you need the memset. If it is needed, i
-> would move it here, after the check the allocation is successful.
+Dave - please consider applying this to `net'.
 
-    If it could be done here, kcalloc() should be used.
+Thanks,
+Yuval
+---
 
-[...]
+ drivers/net/ethernet/qlogic/qed/qed_init_fw_funcs.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-MBR, Sergei
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_init_fw_funcs.c b/drivers/net/ethernet/qlogic/qed/qed_init_fw_funcs.c
+index 67200c5..0a8fde6 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_init_fw_funcs.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_init_fw_funcs.c
+@@ -983,7 +983,7 @@ void qed_set_rfs_mode_disable(struct qed_hwfn *p_hwfn,
+ 	memset(&camline, 0, sizeof(union gft_cam_line_union));
+ 	qed_wr(p_hwfn, p_ptt, PRS_REG_GFT_CAM + CAM_LINE_SIZE * pf_id,
+ 	       camline.cam_line_mapped.camline);
+-	memset(&ramline, 0, sizeof(union gft_cam_line_union));
++	memset(&ramline, 0, sizeof(ramline));
+ 
+ 	for (i = 0; i < RAM_LINE_SIZE / REG_SIZE; i++) {
+ 		u32 hw_addr = PRS_REG_GFT_PROFILE_MASK_RAM;
+-- 
+1.9.3
