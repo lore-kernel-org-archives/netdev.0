@@ -1,45 +1,64 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH nf] xtables: zero padding in data_to_user
-Date: Mon, 15 May 2017 18:52:22 +0200
-Message-ID: <20170515165222.GA3986@salvia>
-References: <20170509201737.102987-1-willemdebruijn.kernel@gmail.com>
+From: "Duyck, Alexander H" <alexander.h.duyck@intel.com>
+Subject: Re: [PATCH net v2] i40e/i40evf: proper update of the page_offset
+ field
+Date: Mon, 15 May 2017 16:57:43 +0000
+Message-ID: <1494867458.20114.168.camel@intel.com>
+References: <20170515045200.27789-1-bjorn.topel@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-        rgb@redhat.com, fwestpha@redhat.com, pmoore@redhat.com,
-        pvrabec@redhat.com, davem@davemloft.net,
-        Willem de Bruijn <willemb@google.com>
-To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "Topel, Bjorn" <bjorn.topel@intel.com>,
+        "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+        "alexander.duyck@gmail.com" <alexander.duyck@gmail.com>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+        "bjorn.topel@gmail.com" <bjorn.topel@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ganesha.gnumonks.org ([213.95.27.120]:54603 "EHLO
-        ganesha.gnumonks.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S965996AbdEOQwc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 15 May 2017 12:52:32 -0400
-Content-Disposition: inline
-In-Reply-To: <20170509201737.102987-1-willemdebruijn.kernel@gmail.com>
+Received: from mga03.intel.com ([134.134.136.65]:49008 "EHLO mga03.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S932514AbdEOQ5p (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 15 May 2017 12:57:45 -0400
+In-Reply-To: <20170515045200.27789-1-bjorn.topel@gmail.com>
+Content-Language: en-US
+Content-ID: <7FF0103C9BC51E4DB5AEA3131DA335E1@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 09, 2017 at 04:17:37PM -0400, Willem de Bruijn wrote:
-> From: Willem de Bruijn <willemb@google.com>
-> 
-> When looking up an iptables rule, the iptables binary compares the
-> aligned match and target data (XT_ALIGN). In some cases this can
-> exceed the actual data size to include padding bytes.
-> 
-> Before commit f77bc5b23fb1 ("iptables: use match, target and data
-> copy_to_user helpers") the malloc()ed bytes were overwritten by the
-> kernel with kzalloced contents, zeroing the padding and making the
-> comparison succeed. After this patch, the kernel copies and clears
-> only data, leaving the padding bytes undefined.
-> 
-> Extend the clear operation from data size to aligned data size to
-> include the padding bytes, if any.
-> 
-> Padding bytes can be observed in both match and target, and the bug
-> triggered, by issuing a rule with match icmp and target ACCEPT:
-> 
->   iptables -t mangle -A INPUT -i lo -p icmp --icmp-type 1 -j ACCEPT
->   iptables -t mangle -D INPUT -i lo -p icmp --icmp-type 1 -j ACCEPT
-
-Applied, thanks.
+T24gTW9uLCAyMDE3LTA1LTE1IGF0IDA2OjUyICswMjAwLCBCasO2cm4gVMO2cGVsIHdyb3RlOg0K
+PiBGcm9tOiBCasO2cm4gVMO2cGVsIDxiam9ybi50b3BlbEBpbnRlbC5jb20+DQo+IA0KPiBJbiBm
+OGI0NWI3NGNjNjIgKCJpNDBlL2k0MGV2ZjogVXNlIGJ1aWxkX3NrYiB0byBidWlsZCBmcmFtZXMi
+KQ0KPiBpNDBlX2J1aWxkX3NrYiB1cGRhdGVzIHRoZSBwYWdlX29mZnNldCBmaWVsZCB3aXRoIGFu
+IGluY29ycmVjdCBvZmZzZXQsDQo+IHdoaWNoIGNhbiBsZWFkIHRvIGRhdGEgY29ycnVwdGlvbi4g
+VGhpcyBwYXRjaCB1cGRhdGVzIHBhZ2Vfb2Zmc2V0DQo+IGNvcnJlY3RseSwgYnkgcHJvcGVybHkg
+c2V0dGluZyB0cnVlc2l6ZS4NCj4gDQo+IE5vdGUgdGhhdCB0aGUgYnVnIG9ubHkgYXBwZWFycyBv
+biBhcmNoaXRlY3R1cmVzIHdoZXJlIFBBR0VfU0laRSBpcw0KPiA4MTkyIG9yIGxhcmdlci4NCj4g
+DQo+IEZpeGVzOiBmOGI0NWI3NGNjNjIgKCJpNDBlL2k0MGV2ZjogVXNlIGJ1aWxkX3NrYiB0byBi
+dWlsZCBmcmFtZXMiKQ0KPiBTaWduZWQtb2ZmLWJ5OiBCasO2cm4gVMO2cGVsIDxiam9ybi50b3Bl
+bEBpbnRlbC5jb20+DQoNCkFja2VkLWJ5OiBBbGV4YW5kZXIgRHV5Y2sgPGFsZXhhbmRlci5oLmR1
+eWNrQGludGVsLmNvbT4NCg0KPiAtLS0NCj4gIGRyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2k0
+MGUvaTQwZV90eHJ4LmMgICB8IDMgKystDQo+ICBkcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9p
+NDBldmYvaTQwZV90eHJ4LmMgfCAzICsrLQ0KPiAgMiBmaWxlcyBjaGFuZ2VkLCA0IGluc2VydGlv
+bnMoKyksIDIgZGVsZXRpb25zKC0pDQo+IA0KPiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvZXRo
+ZXJuZXQvaW50ZWwvaTQwZS9pNDBlX3R4cnguYyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVs
+L2k0MGUvaTQwZV90eHJ4LmMNCj4gaW5kZXggMjkzMjFhNjE2N2E2Li5jZDg5NGY0MDIzYjEgMTAw
+NjQ0DQo+IC0tLSBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2k0MGUvaTQwZV90eHJ4LmMN
+Cj4gKysrIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaTQwZS9pNDBlX3R4cnguYw0KPiBA
+QCAtMTg1NCw3ICsxODU0LDggQEAgc3RhdGljIHN0cnVjdCBza19idWZmICppNDBlX2J1aWxkX3Nr
+YihzdHJ1Y3QgaTQwZV9yaW5nICpyeF9yaW5nLA0KPiAgI2lmIChQQUdFX1NJWkUgPCA4MTkyKQ0K
+PiAgCXVuc2lnbmVkIGludCB0cnVlc2l6ZSA9IGk0MGVfcnhfcGdfc2l6ZShyeF9yaW5nKSAvIDI7
+DQo+ICAjZWxzZQ0KPiAtCXVuc2lnbmVkIGludCB0cnVlc2l6ZSA9IFNLQl9EQVRBX0FMSUdOKHNp
+emUpOw0KPiArCXVuc2lnbmVkIGludCB0cnVlc2l6ZSA9IFNLQl9EQVRBX0FMSUdOKHNpemVvZihz
+dHJ1Y3Qgc2tiX3NoYXJlZF9pbmZvKSkgKw0KPiArCQkJCVNLQl9EQVRBX0FMSUdOKEk0MEVfU0tC
+X1BBRCArIHNpemUpOw0KPiAgI2VuZGlmDQo+ICAJc3RydWN0IHNrX2J1ZmYgKnNrYjsNCj4gIA0K
+PiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaTQwZXZmL2k0MGVfdHhy
+eC5jIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaTQwZXZmL2k0MGVfdHhyeC5jDQo+IGlu
+ZGV4IGRmZTI0MWExMmFkMC4uMTJiMDJlNTMwNTAzIDEwMDY0NA0KPiAtLS0gYS9kcml2ZXJzL25l
+dC9ldGhlcm5ldC9pbnRlbC9pNDBldmYvaTQwZV90eHJ4LmMNCj4gKysrIGIvZHJpdmVycy9uZXQv
+ZXRoZXJuZXQvaW50ZWwvaTQwZXZmL2k0MGVfdHhyeC5jDQo+IEBAIC0xMTkwLDcgKzExOTAsOCBA
+QCBzdGF0aWMgc3RydWN0IHNrX2J1ZmYgKmk0MGVfYnVpbGRfc2tiKHN0cnVjdCBpNDBlX3Jpbmcg
+KnJ4X3JpbmcsDQo+ICAjaWYgKFBBR0VfU0laRSA8IDgxOTIpDQo+ICAJdW5zaWduZWQgaW50IHRy
+dWVzaXplID0gaTQwZV9yeF9wZ19zaXplKHJ4X3JpbmcpIC8gMjsNCj4gICNlbHNlDQo+IC0JdW5z
+aWduZWQgaW50IHRydWVzaXplID0gU0tCX0RBVEFfQUxJR04oc2l6ZSk7DQo+ICsJdW5zaWduZWQg
+aW50IHRydWVzaXplID0gU0tCX0RBVEFfQUxJR04oc2l6ZW9mKHN0cnVjdCBza2Jfc2hhcmVkX2lu
+Zm8pKSArDQo+ICsJCQkJU0tCX0RBVEFfQUxJR04oSTQwRV9TS0JfUEFEICsgc2l6ZSk7DQo+ICAj
+ZW5kaWYNCj4gIAlzdHJ1Y3Qgc2tfYnVmZiAqc2tiOw0KPiAgDQo=
