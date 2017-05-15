@@ -1,63 +1,55 @@
-From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: Re: [PATCH] net: ethernet: stmmac: properly set PS bit in MII
- configurations during reset
-Date: Mon, 15 May 2017 16:27:34 +0200
-Message-ID: <20170515162734.187845dc@free-electrons.com>
-References: <1493286329-24448-1-git-send-email-thomas.petazzoni@free-electrons.com>
-        <deea272a-f0a9-ad0b-4ad6-387723938314@st.com>
-        <20170503143032.GA22106@Red>
-        <49297ed2-84dc-3e9b-8f40-af915476a091@st.com>
-        <20170508211230.58aeead9@free-electrons.com>
-        <e8151650-aa51-6713-f10c-b3663763ff78@st.com>
-        <20170510091817.58f4e843@free-electrons.com>
+From: Stanislaw Gruszka <sgruszka@redhat.com>
+Subject: Re: [PATCH] rt2x00: improve calling conventions for register
+ accessors
+Date: Mon, 15 May 2017 16:28:01 +0200
+Message-ID: <20170515142520.GA13996@redhat.com>
+References: <20170515134711.2770374-1-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Corentin Labbe <clabbe.montjoie@gmail.com>,
-        Alexandre Torgue <alexandre.torgue@st.com>,
-        <netdev@vger.kernel.org>, <stable@vger.kernel.org>
-To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Helmut Schaa <helmut.schaa@googlemail.com>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        Daniel Golle <daniel@makrotopia.org>,
+        Mathias Kresin <dev@kresin.me>,
+        Johannes Berg <johannes.berg@intel.com>,
+        Tomislav =?utf-8?Q?Po=C5=BEega?= <pozega.tomislav@gmail.com>,
+        Serge Vasilugin <vasilugin@yandex.ru>,
+        Roman Yeryomin <roman@advem.lv>,
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Arnd Bergmann <arnd@arndb.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:53327 "EHLO
-        mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S964829AbdEOO1n (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 15 May 2017 10:27:43 -0400
-In-Reply-To: <20170510091817.58f4e843@free-electrons.com>
+Received: from mx1.redhat.com ([209.132.183.28]:46704 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S933222AbdEOO3y (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 15 May 2017 10:29:54 -0400
+Content-Disposition: inline
+In-Reply-To: <20170515134711.2770374-1-arnd@arndb.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Giuseppe,
-
-On Wed, 10 May 2017 09:18:17 +0200, Thomas Petazzoni wrote:
-
-> On Wed, 10 May 2017 09:03:12 +0200, Giuseppe CAVALLARO wrote:
+On Mon, May 15, 2017 at 03:46:55PM +0200, Arnd Bergmann wrote:
+> With CONFIG_KASAN enabled and gcc-7, we get a warning about rather high
+> stack usage (with a private patch set I have to turn on this warning,
+> which I intend to get into the next kernel release):
 > 
-> > > Please, read again my patch and the description of the problem that I
-> > > have sent. But basically, any solution that does not allow to set the
-> > > PS bit between asserting the DMA reset bit and polling for it to clear
-> > > will not work for MII PHYs.    
-> > 
-> > yes your point was clear to me, I was just wondering if we could find an 
-> > easier way
-> > to solve it w/o changing the API, adding  the set_ps and propagating the 
-> > "interface"
-> > inside the DMA reset.
-> > 
-> > Maybe this could be fixed in the glue-logic in some way. Let me know 
-> > what do you think.  
+> wireless/ralink/rt2x00/rt2800lib.c: In function 'rt2800_bw_filter_calibration':
+> wireless/ralink/rt2x00/rt2800lib.c:7990:1: error: the frame size of 2144 bytes is larger than 1536 bytes [-Werror=frame-larger-than=]
 > 
-> Well, it's more up to you to tell me how you would like this be solved.
-> We figured out what the problem was, but I don't know well enough the
-> architecture of the driver to decide how the solution to this problem
-> should be designed. I made an initial simple proposal to show what is
-> needed, but I'm definitely open to suggestions.
+> The problem is that KASAN inserts a redzone around each local variable that
+> gets passed by reference, and the newly added function has a lot of them.
+> We can easily avoid that here by changing the calling convention to have
+> the output as the return value of the function. This should also results in
+> smaller object code, saving around 4KB in .text with KASAN, or 2KB without
+> KASAN.
+> 
+> Fixes: 41977e86c984 ("rt2x00: add support for MT7620")
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> ---
+>  drivers/net/wireless/ralink/rt2x00/rt2800lib.c | 319 +++++++++++++------------
+>  1 file changed, 164 insertions(+), 155 deletions(-)
 
-Do you have any suggestion on how to move forward with this?
+We have read(, &val) calling convention since forever in rt2x00 and that
+was never a problem. I dislike to change that now to make some tools
+happy, I think problem should be fixed in the tools instead.
 
-Thanks a lot,
-
-Thomas
--- 
-Thomas Petazzoni, CTO, Free Electrons
-Embedded Linux and Kernel engineering
-http://free-electrons.com
+Stanislaw
