@@ -1,33 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/packet: fix missing net_device reference release
-Date: Mon, 15 May 2017 14:25:45 -0400 (EDT)
-Message-ID: <20170515.142545.1755990425599910242.davem@davemloft.net>
-References: <7daebe52-8542-87cb-551a-1a5b4912f140@taghos.com.br>
+Subject: Re: [PATCH net] ipv6: avoid dad-failures for addresses with NODAD
+Date: Mon, 15 May 2017 14:26:55 -0400 (EDT)
+Message-ID: <20170515.142655.1279898304018190599.davem@davemloft.net>
+References: <20170513000339.15843-1-mahesh@bandewar.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, edumazet@google.com, daniel@iogearbox.net,
-        willemb@google.com, jarno@ovn.org, andreyknvl@google.com,
-        anoob.soman@citrix.com, sowmini.varadhan@oracle.com,
-        philip.pettersson@gmail.com, rppt@linux.vnet.ibm.com
-To: douglascs@taghos.com.br
+Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+        kaber@trash.net, netdev@vger.kernel.org, edumazet@google.com,
+        maheshb@google.com
+To: mahesh@bandewar.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:38176 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:38208 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933821AbdEOSZr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 15 May 2017 14:25:47 -0400
-In-Reply-To: <7daebe52-8542-87cb-551a-1a5b4912f140@taghos.com.br>
+        with ESMTP id S934127AbdEOS05 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 15 May 2017 14:26:57 -0400
+In-Reply-To: <20170513000339.15843-1-mahesh@bandewar.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Douglas Caetano dos Santos <douglascs@taghos.com.br>
-Date: Fri, 12 May 2017 15:19:15 -0300
+From: Mahesh Bandewar <mahesh@bandewar.net>
+Date: Fri, 12 May 2017 17:03:39 -0700
 
-> When using a TX ring buffer, if an error occurs processing a control
-> message (e.g. invalid message), the net_device reference is not
-> released.
+> From: Mahesh Bandewar <maheshb@google.com>
 > 
-> Fixes c14ac9451c348 ("sock: enable timestamping using control messages")
-> Signed-off-by: Douglas Caetano dos Santos <douglascs@taghos.com.br>
+> Every address gets added with TENTATIVE flag even for the addresses with
+> IFA_F_NODAD flag and dad-work is scheduled for them. During this DAD process
+> we realize it's an address with NODAD and complete the process without
+> sending any probe. However the TENTATIVE flags stays on the
+> address for sometime enough to cause misinterpretation when we receive a NS.
+> While processing NS, if the address has TENTATIVE flag, we mark it DADFAILED
+> and endup with an address that was originally configured as NODAD with
+> DADFAILED.
+> 
+> We can't avoid scheduling dad_work for addresses with NODAD but we can
+> avoid adding TENTATIVE flag to avoid this racy situation.
+> 
+> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
 
-Applied and queued up for -stable, thanks.
+This doesn't apply cleanly to the net tree, please respin.
+
+Thank you.
