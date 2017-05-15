@@ -1,46 +1,58 @@
-From: Alexander Sverdlin <alexander.sverdlin@gmail.com>
-Subject: Re: [PATCH v2 net-next 06/12] ep93xx_eth: add GRO support
-Date: Mon, 15 May 2017 23:02:50 +0200
-Message-ID: <1494882170.2185.2.camel@Nokia-N900>
-References: <20170204232502.22361-1-edumazet@google.com>
-         <20170204232502.22361-7-edumazet@google.com>
-         <20170515103132.GA24992@wantstofly.org>  <591A12E8.1050603@gmail.com>
-Reply-To: Alexander Sverdlin <alexander.sverdlin@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        Hartley Sweeten <hsweeten@visionengravers.com>
-To: Ryan Mallon <rmallon@gmail.com>,
-        Lennert Buytenhek <buytenh@wantstofly.org>,
+From: Soheil Hassas Yeganeh <soheil.kdev@gmail.com>
+Subject: [PATCH net] tcp: eliminate negative reordering in tcp_clean_rtx_queue
+Date: Mon, 15 May 2017 17:05:47 -0400
+Message-ID: <20170515210547.125052-1-soheil.kdev@gmail.com>
+Cc: ilpo.jarvinen@helsinki.fi,
+        Soheil Hassas Yeganeh <soheil@google.com>,
+        Neal Cardwell <ncardwell@google.com>,
+        Yuchung Cheng <ycheng@google.com>,
         Eric Dumazet <edumazet@google.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:32951 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756678AbdEOVC7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 15 May 2017 17:02:59 -0400
-Received: by mail-wm0-f67.google.com with SMTP id y10so31719213wmh.0
-        for <netdev@vger.kernel.org>; Mon, 15 May 2017 14:02:58 -0700 (PDT)
-In-Reply-To: <591A12E8.1050603@gmail.com>
-Content-ID: <1494882168.2185.1.camel@Nokia-N900>
+Received: from mail-qt0-f195.google.com ([209.85.216.195]:33560 "EHLO
+        mail-qt0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756248AbdEOVFv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 15 May 2017 17:05:51 -0400
+Received: by mail-qt0-f195.google.com with SMTP id a46so17859269qte.0
+        for <netdev@vger.kernel.org>; Mon, 15 May 2017 14:05:51 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi!
+From: Soheil Hassas Yeganeh <soheil@google.com>
 
-On Mon May 15 22:43:20 2017 Ryan Mallon <rmallon@gmail.com> wrote:
-> > I don't know if we really care about this hardware anymore (I don't),
-> > but the ep93xx platform is still listed as being maintained in the
-> > MAINTAINERS file -- adding Ryan and Hartley.
-> 
-> I no longer have any ep93xx hardware to test with, and I never looked at
-> the Ethernet, so don't know the details. I think there are still a
-> handful of users. Adding Alexander who sent an ADC support series this
-> week, who might be able to test this?
+tcp_ack() can call tcp_fragment() which may dededuct the
+value tp->fackets_out when MSS changes. When prior_fackets
+is larger than tp->fackets_out, tcp_clean_rtx_queue() can
+invoke tcp_update_reordering() with negative values. This
+results in absurd tp->reodering values higher than
+sysctl_tcp_max_reordering.
 
-Yes, I very much care about ep93xx code being functional :)
-I'll test the patches tomorrow.
+Note that tcp_update_reordering indeeds sets tp->reordering
+to min(sysctl_tcp_max_reordering, metric), but because
+the comparison is signed, a negative metric always wins.
 
-Alexander.
+Fixes: c7caf8d3ed7a ("[TCP]: Fix reord detection due to snd_una covered holes")
+Reported-by: Rebecca Isaacs <risaacs@google.com>
+Signed-off-by: Soheil Hassas Yeganeh <soheil@google.com>
+Signed-off-by: Neal Cardwell <ncardwell@google.com>
+Signed-off-by: Yuchung Cheng <ycheng@google.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/ipv4/tcp_input.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 9739962bfb3f..f27dff64e59e 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -3190,7 +3190,7 @@ static int tcp_clean_rtx_queue(struct sock *sk, int prior_fackets,
+ 			int delta;
+ 
+ 			/* Non-retransmitted hole got filled? That's reordering */
+-			if (reord < prior_fackets)
++			if (reord < prior_fackets && reord <= tp->fackets_out)
+ 				tcp_update_reordering(sk, tp->fackets_out - reord, 0);
+ 
+ 			delta = tcp_is_fack(tp) ? pkts_acked :
+-- 
+2.13.0.rc2.291.g57267f2277-goog
