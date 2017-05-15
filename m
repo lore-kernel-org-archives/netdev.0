@@ -1,47 +1,63 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH 1/3] Fix ERROR: trailing statements should be on next
- line
-Date: Mon, 15 May 2017 14:25:40 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DCFFF5B0B@AcuExch.aculab.com>
-References: <20170514175130.18664-1-macfij7@wp.pl>
-        <20170515055700-mutt-send-email-mst@kernel.org>
- <20170514212048.24ee7667@t450s.home>
+From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Subject: Re: [PATCH] net: ethernet: stmmac: properly set PS bit in MII
+ configurations during reset
+Date: Mon, 15 May 2017 16:27:34 +0200
+Message-ID: <20170515162734.187845dc@free-electrons.com>
+References: <1493286329-24448-1-git-send-email-thomas.petazzoni@free-electrons.com>
+        <deea272a-f0a9-ad0b-4ad6-387723938314@st.com>
+        <20170503143032.GA22106@Red>
+        <49297ed2-84dc-3e9b-8f40-af915476a091@st.com>
+        <20170508211230.58aeead9@free-electrons.com>
+        <e8151650-aa51-6713-f10c-b3663763ff78@st.com>
+        <20170510091817.58f4e843@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: Maciek Fijalkowski <macfij7@wp.pl>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "virtualization@lists.linux-foundation.org"
-        <virtualization@lists.linux-foundation.org>
-To: 'Alex Williamson' <alex.williamson@redhat.com>,
-        "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170514212048.24ee7667@t450s.home>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Corentin Labbe <clabbe.montjoie@gmail.com>,
+        Alexandre Torgue <alexandre.torgue@st.com>,
+        <netdev@vger.kernel.org>, <stable@vger.kernel.org>
+To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.free-electrons.com ([62.4.15.54]:53327 "EHLO
+        mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S964829AbdEOO1n (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 15 May 2017 10:27:43 -0400
+In-Reply-To: <20170510091817.58f4e843@free-electrons.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Alex Williamson
-> Sent: 15 May 2017 04:21
-...
-> > >  	/* Find end of list, sew whole thing into vi->rq.pages. */
-> > > -	for (end = page; end->private; end = (struct page *)end->private);
-> > > +	for (end = page; end->private; end = (struct page *)end->private)
-> > > +		;
+Hello Giuseppe,
+
+On Wed, 10 May 2017 09:18:17 +0200, Thomas Petazzoni wrote:
+
+> On Wed, 10 May 2017 09:03:12 +0200, Giuseppe CAVALLARO wrote:
 > 
-> FWIW, I generally like to put a comment on the next line to make it
-> abundantly clear that there's nothing in the body of the loop, it's
-> also more aesthetically pleasing than a semi-colon on the line by
-> itself, ex. /* Nothing */;  It's just too easy to misinterpret the
-> loop otherwise, especially without gratuitous white space.  Thanks,
+> > > Please, read again my patch and the description of the problem that I
+> > > have sent. But basically, any solution that does not allow to set the
+> > > PS bit between asserting the DMA reset bit and polling for it to clear
+> > > will not work for MII PHYs.    
+> > 
+> > yes your point was clear to me, I was just wondering if we could find an 
+> > easier way
+> > to solve it w/o changing the API, adding  the set_ps and propagating the 
+> > "interface"
+> > inside the DMA reset.
+> > 
+> > Maybe this could be fixed in the glue-logic in some way. Let me know 
+> > what do you think.  
+> 
+> Well, it's more up to you to tell me how you would like this be solved.
+> We figured out what the problem was, but I don't know well enough the
+> architecture of the driver to decide how the solution to this problem
+> should be designed. I made an initial simple proposal to show what is
+> needed, but I'm definitely open to suggestions.
 
-My preference is to put 'continue;' on a line by itself.
-Or even move the termination condition into the loop:
-	for (end = page;; end = (struct page *)end->private)
-		if (!end->private)
-			break;
+Do you have any suggestion on how to move forward with this?
 
-(oh, is that cast needed??)
+Thanks a lot,
 
-	David
+Thomas
+-- 
+Thomas Petazzoni, CTO, Free Electrons
+Embedded Linux and Kernel engineering
+http://free-electrons.com
