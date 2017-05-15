@@ -1,61 +1,38 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2 master 0/4] pedit: Introduce IPv6 support +
- some minor fixes
-Date: Mon, 15 May 2017 15:06:37 -0700
-Message-ID: <20170515150637.1856cbbe@xeon-e3>
-References: <20170514081746.9010-1-amir@vadai.me>
+Subject: Re: [PATCH iproute2 -master 0/2] Two misc BPF updates
+Date: Mon, 15 May 2017 15:07:41 -0700
+Message-ID: <20170515150741.645e25f5@xeon-e3>
+References: <cover.1494635217.git.daniel@iogearbox.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>
-To: Amir Vadai <amir@vadai.me>
+Cc: alexei.starovoitov@gmail.com, netdev@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f179.google.com ([209.85.192.179]:34394 "EHLO
-        mail-pf0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751068AbdEOWGk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 15 May 2017 18:06:40 -0400
-Received: by mail-pf0-f179.google.com with SMTP id 9so29786479pfj.1
-        for <netdev@vger.kernel.org>; Mon, 15 May 2017 15:06:40 -0700 (PDT)
-In-Reply-To: <20170514081746.9010-1-amir@vadai.me>
+Received: from mail-pg0-f48.google.com ([74.125.83.48]:36681 "EHLO
+        mail-pg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751068AbdEOWHo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 15 May 2017 18:07:44 -0400
+Received: by mail-pg0-f48.google.com with SMTP id x64so46931449pgd.3
+        for <netdev@vger.kernel.org>; Mon, 15 May 2017 15:07:44 -0700 (PDT)
+In-Reply-To: <cover.1494635217.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 14 May 2017 11:17:42 +0300
-Amir Vadai <amir@vadai.me> wrote:
+On Sat, 13 May 2017 02:32:33 +0200
+Daniel Borkmann <daniel@iogearbox.net> wrote:
 
-> Hi,
+> Requires header rebase with -net.
 > 
-> This patchset introduces pedit IPv6 support.
-> Almost all IPv6 header fields are editable now (src, dst, flow_lbl,
-> payload_len, next_hdr and hoplimit).
-> The patch uses the new extended pedit netlink and will fail the operation if
-> kernel has no support or user didn't use the 'ex' keyword.
-> In addition to this patch, 3 more patches fix some minor UI issues:
-> - some typo's
-> - 'retain' can't be used with fields > 32 bits. It will make unexpected things
-> 	when used in such fields. Fixing this limitiation requires some changes (in
-> 	tc user space only) that are out of the scope of this patchset. So I added a
-> 	patch to prevent the user from using retain on those fields.
+> Thanks!
 > 
+> Daniel Borkmann (2):
+>   bpf: update printing of generic xdp mode
+>   bpf: dump error to the user when retrieving pinned prog fails
 > 
-> Thanks,
-> Amir	
-> 
-> Amir Vadai (4):
->   pedit: Fix a typo in warning
->   pedit: Do not allow using retain for too big fields
->   pedit: Check for extended capability in protocol parser
->   pedit: Introduce ipv6 support
-> 
->  man/man8/tc-pedit.8 | 33 ++++++++++++++++++-
->  tc/Makefile         |  1 +
->  tc/m_pedit.c        | 51 ++++++++++++++++++++++++++++--
->  tc/p_eth.c          |  3 ++
->  tc/p_ip.c           | 17 +---------
->  tc/p_ip6.c          | 91 +++++++++++++++++++++++++++++++++++++++++++++++++++++
->  tc/p_udp.c          |  3 ++
->  7 files changed, 179 insertions(+), 20 deletions(-)
->  create mode 100644 tc/p_ip6.c
+>  ip/iplink_xdp.c | 19 +++++++++++--------
+>  lib/bpf.c       | 12 +++++++++++-
+>  2 files changed, 22 insertions(+), 9 deletions(-)
 > 
 
-Looks good. Applied.
+Holding off until Linus pulls net
