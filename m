@@ -1,46 +1,49 @@
-From: David Lebrun <david.lebrun@uclouvain.be>
-Subject: [PATCH iproute2 net] ip: lwtunnel: remove definition of __USE_KERNEL_IPV6_DEFS
-Date: Mon, 15 May 2017 13:13:34 +0200
-Message-ID: <20170515111334.23805-1-david.lebrun@uclouvain.be>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <daniel@iogearbox.net>, David Lebrun <david.lebrun@uclouvain.be>
-To: <netdev@vger.kernel.org>
+From: Tobias Jungel <tobias.jungel@bisdn.de>
+Subject: [PATCH] bridge: netlink: check vlan_default_pvid range
+Date: Mon, 15 May 2017 13:08:19 +0200
+Message-ID: <20170515110819.11847-1-tobias.jungel@bisdn.de>
+To: Stephen Hemminger <stephen@networkplumber.org>,
+        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:60789 "EHLO
-        smtp5.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933182AbdEOLNT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 15 May 2017 07:13:19 -0400
+Received: from mx.bisdn.de ([185.27.182.31]:44873 "EHLO mx.bisdn.de"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752677AbdEOLQL (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 15 May 2017 07:16:11 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When __USE_KERNEL_IPV6_DEFS is set, netinet/in.h will not define structures
-such as in6_addr. This is useful when linux/in6.h is also included.
-However, older glibc versions do not support this switch.
+Currently it is allowed to set the default pvid of a bridge to a value
+above VLAN_VID_MASK (0xfff). This patch checks the passed pvid and
+disables the pvid in case it is out of bounds.
 
-This patch allows iproute2 to still be compiled with older glibc versions,
-along with the kernel net-next patch that updates include/linux/seg6.h.
+Reproduce by calling:
 
-Fixes: e8493916a8ede9970732e33ea52d30b83071f401 ("iproute: add support for SR-IPv6 lwtunnel encapsulation")
-Reported-by: Daniel Borkmann <daniel@iogearbox.net>
-Signed-off-by: David Lebrun <david.lebrun@uclouvain.be>
+[root@test ~]# ip l a type bridge
+[root@test ~]# ip l a type dummy
+[root@test ~]# ip l s bridge0 type bridge vlan_filtering 1
+[root@test ~]# ip l s bridge0 type bridge vlan_default_pvid 9999
+[root@test ~]# ip l s dummy0 master bridge0
+[root@test ~]# bridge vlan
+port	vlan ids
+bridge0	 9999 PVID Egress Untagged
+
+dummy0	 9999 PVID Egress Untagged
 ---
- ip/iproute_lwtunnel.c | 3 ---
- 1 file changed, 3 deletions(-)
+ net/bridge/br_vlan.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/ip/iproute_lwtunnel.c b/ip/iproute_lwtunnel.c
-index 1395f03..434e60a 100644
---- a/ip/iproute_lwtunnel.c
-+++ b/ip/iproute_lwtunnel.c
-@@ -20,9 +20,6 @@
- #include <linux/lwtunnel.h>
- #include <linux/mpls_iptunnel.h>
+diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
+index b838213..e363d75 100644
+--- a/net/bridge/br_vlan.c
++++ b/net/bridge/br_vlan.c
+@@ -820,7 +820,7 @@ int __br_vlan_set_default_pvid(struct net_bridge *br, u16 pvid)
+ 	int err = 0;
+ 	unsigned long *changed;
  
--#ifndef __USE_KERNEL_IPV6_DEFS
--#define __USE_KERNEL_IPV6_DEFS
--#endif
- #include <linux/seg6.h>
- #include <linux/seg6_iptunnel.h>
- #include <linux/seg6_hmac.h>
+-	if (!pvid) {
++	if (!pvid || pvid >= VLAN_VID_MASK) {
+ 		br_vlan_disable_default_pvid(br);
+ 		return 0;
+ 	}
 -- 
-2.10.2
+2.9.4
