@@ -1,58 +1,32 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] rt2x00: improve calling conventions for register
- accessors
-Date: Mon, 15 May 2017 10:40:52 -0400 (EDT)
-Message-ID: <20170515.104052.1376354562934671974.davem@davemloft.net>
-References: <20170515134711.2770374-1-arnd@arndb.de>
-        <20170515142520.GA13996@redhat.com>
-        <CAK8P3a1xYah7_4=DAcN+M83noUQyLZ9hV=WWD0Q79sQrFsoroA@mail.gmail.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH net] net: netcp: fix check of requested timestamping
+ filter
+Date: Mon, 15 May 2017 17:03:36 +0200
+Message-ID: <20170515150336.GA14554@localhost.localdomain>
+References: <20170515140436.12175-1-mlichvar@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: sgruszka@redhat.com, helmut.schaa@googlemail.com,
-        kvalo@codeaurora.org, daniel@makrotopia.org, dev@kresin.me,
-        johannes.berg@intel.com, pozega.tomislav@gmail.com,
-        vasilugin@yandex.ru, roman@advem.lv,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: arnd@arndb.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAK8P3a1xYah7_4=DAcN+M83noUQyLZ9hV=WWD0Q79sQrFsoroA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, WingMan Kwok <w-kwok2@ti.com>
+To: Miroslav Lichvar <mlichvar@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f50.google.com ([74.125.82.50]:34823 "EHLO
+        mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934147AbdEOPDw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 15 May 2017 11:03:52 -0400
+Received: by mail-wm0-f50.google.com with SMTP id b84so88063748wmh.0
+        for <netdev@vger.kernel.org>; Mon, 15 May 2017 08:03:51 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20170515140436.12175-1-mlichvar@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Mon, 15 May 2017 16:36:45 +0200
-
-> On Mon, May 15, 2017 at 4:28 PM, Stanislaw Gruszka <sgruszka@redhat.com> wrote:
->> On Mon, May 15, 2017 at 03:46:55PM +0200, Arnd Bergmann wrote:
->>> With CONFIG_KASAN enabled and gcc-7, we get a warning about rather high
->>> stack usage (with a private patch set I have to turn on this warning,
->>> which I intend to get into the next kernel release):
->>>
->>> wireless/ralink/rt2x00/rt2800lib.c: In function 'rt2800_bw_filter_calibration':
->>> wireless/ralink/rt2x00/rt2800lib.c:7990:1: error: the frame size of 2144 bytes is larger than 1536 bytes [-Werror=frame-larger-than=]
->>>
->>> The problem is that KASAN inserts a redzone around each local variable that
->>> gets passed by reference, and the newly added function has a lot of them.
->>> We can easily avoid that here by changing the calling convention to have
->>> the output as the return value of the function. This should also results in
->>> smaller object code, saving around 4KB in .text with KASAN, or 2KB without
->>> KASAN.
->>>
->>> Fixes: 41977e86c984 ("rt2x00: add support for MT7620")
->>> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
->>> ---
->>>  drivers/net/wireless/ralink/rt2x00/rt2800lib.c | 319 +++++++++++++------------
->>>  1 file changed, 164 insertions(+), 155 deletions(-)
->>
->> We have read(, &val) calling convention since forever in rt2x00 and that
->> was never a problem. I dislike to change that now to make some tools
->> happy, I think problem should be fixed in the tools instead.
+On Mon, May 15, 2017 at 04:04:36PM +0200, Miroslav Lichvar wrote:
+> The driver doesn't support timestamping of all received packets and
+> should return error when trying to enable the HWTSTAMP_FILTER_ALL
+> filter.
 > 
-> How about adding 'depends on !KASAN' in Kconfig instead?
+> Cc: WingMan Kwok <w-kwok2@ti.com>
+> Cc: Richard Cochran <richardcochran@gmail.com>
+> Signed-off-by: Miroslav Lichvar <mlichvar@redhat.com>
 
-Please let's not go down that route and make such facilities less
-useful due to decreased coverage.
-
-Thanks.
+Acked-by: Richard Cochran <richardcochran@gmail.com>
