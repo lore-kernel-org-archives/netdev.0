@@ -1,83 +1,85 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next v3 06/10] net: sched: introduce helpers to work
- with filter chains
-Date: Wed, 17 May 2017 07:50:11 +0200
-Message-ID: <20170517055011.GC1832@nanopsycho>
-References: <20170516172802.1317-1-jiri@resnulli.us>
- <20170516172802.1317-7-jiri@resnulli.us>
- <CAM_iQpWDp3kFfCDL0JJ4c1_e9FZQ_-Wg+5HV0txz=KrTgWsq-w@mail.gmail.com>
+From: Jonathan Corbet <corbet@lwn.net>
+Subject: Re: [PATCH 00/36] Convert DocBook documents to ReST
+Date: Mon, 15 May 2017 11:11:41 -0600
+Message-ID: <20170515111141.0fcd5ee6@lwn.net>
+References: <cover.1494596071.git.mchehab@s-opensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        David Ahern <dsa@cumulusnetworks.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Stephen Hemminger <stephen@networkplumber.org>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Alexander Duyck <alexander.h.duyck@intel.com>,
-        Simon Horman <simon.horman@netronome.com>, mlxsw@mellanox.com
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f193.google.com ([209.85.128.193]:33547 "EHLO
-        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751305AbdEQFuO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 17 May 2017 01:50:14 -0400
-Received: by mail-wr0-f193.google.com with SMTP id w50so222677wrc.0
-        for <netdev@vger.kernel.org>; Tue, 16 May 2017 22:50:13 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CAM_iQpWDp3kFfCDL0JJ4c1_e9FZQ_-Wg+5HV0txz=KrTgWsq-w@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Lunn <andrew@lunn.ch>, alsa-devel@alsa-project.org,
+ Linux Doc Mailing List <linux-doc@vger.kernel.org>,
+ Takashi Iwai <tiwai@suse.de>, Jan Kiszka <jan.kiszka@siemens.com>, "Herton R.
+ Krzesinski" <herton@redhat.com>, Alexei Starovoitov <ast@kernel.org>,
+ Takashi Iwai <tiwai@suse.com>, "J. Bruce
+ Fields" <bfields@fieldses.org>, linux-ide@vger.kernel.org,
+ Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org,
+ Jeff Layton <jlayton@poochiereds.net>, Jan Kara <jack@suse.com>,
+ Soheil Hassas Yeganeh <soheil@google.com>, linux-s390@vger.kernel.org,
+ Florian Fainelli <f.fainelli@gmail.com>,
+ "James E.J. Bottomley" <jejb@linux.vnet.ibm.com>,
+ Herbert Xu <herbert@gondor.apana.org.au>, linux-scsi@vger.kernel.org,
+ Ursula Braun <ubraun@linux.vnet.ibm.com>,
+ "Rafael J. Wysocki" <rafael.j.wysocki@intel.com>,
+ Peter Zijlstra <peterz@infradead.org>, Julian Anastasov <ja@ssi.bg>,
+ Ingo
+To: Mauro Carvalho Chehab <mchehab@s-opensource.com>
+Return-path: <alsa-devel-bounces@alsa-project.org>
+In-Reply-To: <cover.1494596071.git.mchehab@s-opensource.com>
+List-Unsubscribe: <http://mailman.alsa-project.org/mailman/options/alsa-devel>,
+ <mailto:alsa-devel-request@alsa-project.org?subject=unsubscribe>
+List-Archive: <http://mailman.alsa-project.org/pipermail/alsa-devel/>
+List-Post: <mailto:alsa-devel@alsa-project.org>
+List-Help: <mailto:alsa-devel-request@alsa-project.org?subject=help>
+List-Subscribe: <http://mailman.alsa-project.org/mailman/listinfo/alsa-devel>,
+ <mailto:alsa-devel-request@alsa-project.org?subject=subscribe>
+Errors-To: alsa-devel-bounces@alsa-project.org
+Sender: alsa-devel-bounces@alsa-project.org
+List-Id: netdev.vger.kernel.org
 
-Wed, May 17, 2017 at 12:17:11AM CEST, xiyou.wangcong@gmail.com wrote:
->On Tue, May 16, 2017 at 10:27 AM, Jiri Pirko <jiri@resnulli.us> wrote:
->> +static struct tcf_proto *tcf_chain_tp_prev(struct tcf_chain_info *chain_info)
->> +{
->> +       return rtnl_dereference(*chain_info->pprev);
->> +}
->> +
->> +static void tcf_chain_tp_insert(struct tcf_chain *chain,
->> +                               struct tcf_chain_info *chain_info,
->> +                               struct tcf_proto *tp)
->> +{
->> +       if (chain->p_filter_chain &&
->> +           *chain_info->pprev == chain->filter_chain)
->> +               *chain->p_filter_chain = tp;
->> +       RCU_INIT_POINTER(tp->next, rtnl_dereference(*chain_info->pprev));
->
->Use tcf_chain_tp_prev()?
+On Fri, 12 May 2017 10:59:43 -0300
+Mauro Carvalho Chehab <mchehab@s-opensource.com> wrote:
 
-Ok. Will do that.
+> This patch series convert the following books from
+> DocBook to ReST:
+> 
+>    - filesystems
+>    - kernel-hacking
+>    - kernel-locking
+>    - kgdb
+>    - libata
+>    - networking
+>    - rapidio
+>    - s390-drivers
+>    - scsi
+>    - w1
+>    - z8530book
+> 
+> It also adjusts some Sphinx-pedantic errors/warnings on
+> some kernel-doc markups.
+> 
+> I also added some patches here to add PDF output for all
+> existing ReST books.
 
->
->
->> +       rcu_assign_pointer(*chain_info->pprev, tp);
->> +}
->> +
->> +static void tcf_chain_tp_remove(struct tcf_chain *chain,
->> +                               struct tcf_chain_info *chain_info,
->> +                               struct tcf_proto *tp)
->> +{
->> +       struct tcf_proto *next = rtnl_dereference(chain_info->next);
->> +
->> +       if (chain->p_filter_chain && tp == chain->filter_chain)
->> +               *chain->p_filter_chain = next;
->> +       RCU_INIT_POINTER(*chain_info->pprev, next);
->> +}
->> +
->> +static struct tcf_proto *tcf_chain_tp_find(struct tcf_chain *chain,
->> +                                          struct tcf_chain_info *chain_info,
->> +                                          u32 protocol, u32 prio,
->> +                                          bool prio_allocate)
->> +{
->> +       struct tcf_proto **pprev;
->> +       struct tcf_proto *tp;
->> +
->> +       /* Check the chain for existence of proto-tcf with this priority */
->> +       for (pprev = &chain->filter_chain;
->> +            (tp = rtnl_dereference(*pprev)); pprev = &tp->next) {
->
->Use tcf_chain_tp_prev()?
+So I've been through the series (including digging out the parts that
+weren't sent to me).  
 
-Can't be done.
+> I did my best to check if what's there is not too outdated, but
+> the best is if the subsystem maintainers could check it.
+
+That has been my real concern with those remaining books; many of them
+have not been touched in any significant way in at least ten years.  Just
+shoveling a bunch of stuff into RST doesn't really solve the problem that
+Documentation/ is an unorganized jumble of sometimes highly outdated
+documentation.
+
+But, then, I guess there's value in having a disorganized jumble that
+depends on only one fragile toolchain rather than two :)  So maybe we
+should just do this.
+
+I only had one real comment with the series beyond the general stuff
+here.  I see Markus had a few.  When the tweaks are done, can you send me
+a series for the stuff I can apply, and I'll do it?
+
+Thanks,
+
+jon
