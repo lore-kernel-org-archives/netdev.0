@@ -1,37 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] neighbour: update neigh timestamps iff update is
- effective
-Date: Mon, 15 May 2017 13:10:23 -0400 (EDT)
-Message-ID: <20170515.131023.1878814687849300375.davem@davemloft.net>
-References: <20170510000605.6799-1-ihrachys@redhat.com>
+From: "Mrs. Linda Jones" <"WWW."@pearl.ocn.ne.jp>
+Subject: Your first payment of $5000  ,
+Date: Tue, 16 May 2017 02:16:25 +0900 (JST)
+Message-ID: <656700279.4776513.1494868585565.JavaMail.root@pearl.ocn.ne.jp>
+Reply-To: "Mrs. Linda Jones" <wstun.office123@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ja@ssi.bg, hchunhui@mail.ustc.edu.cn, netdev@vger.kernel.org
-To: ihrachys@redhat.com
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8BIT
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:36918 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750803AbdEORK1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 15 May 2017 13:10:27 -0400
-In-Reply-To: <20170510000605.6799-1-ihrachys@redhat.com>
+Received: from mbkd0338.ocn.ad.jp ([153.149.236.39]:32919 "EHLO
+        mbkd0338.ocn.ad.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1760153AbdEORf0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 15 May 2017 13:35:26 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ihar Hrachyshka <ihrachys@redhat.com>
-Date: Tue,  9 May 2017 17:06:05 -0700
+Attn Beneficiary,
 
-> Sometimes neigh_update calls won't touch neither lladdr nor state, for
-> example if an update arrives in locktime interval. Then we effectively
-> ignore the update request, bailing out of touching the neigh entry,
-> except that we still bump its timestamps.
+We have deposited the check of your fund ($2.5m USD) through western union money transfer
+department after our finally meeting today regarding your fund, Now all you
+will do is to contact western union director Mis Rose Kelly  ,And She will give you
+the direction on how you will be receiving your funds daily. Remember to send
+her your Full information to avoid wrong transfer such as,
 
-So, in order to understand this, one has to know that the ->updated
-value is tested by the protocol specific neigh code, which in turn
-will thus influence whether NEIGH_UPDATE_F_OVERRIDE gets set in the
-call to neigh_update() or not.
+Your Receiver Name--------------­
+Your Country--------------------­
+Your City-----------------------­
+Your Phone No-----------------------­
+Your Address--------------------­
+Your Id card or pasport :.......
 
-Please update your commit message to explain that this is how the
-locktime mechanism influences neigh_update()'s behavior.
+Therefore you are advised to contact western union accountant Manager 
+ to her bellow information and tell She to give you the Mtcn, sender name
+and question/answer to pick the money,
 
-Thank you.
+CONTACT Name: Mis Rose Kelly reply to (  wstun.office123@gmail.com  )
+Phone: +229-99374614 
+
+
+Get back to us once you receive your total fund of $2.5m.
+Thanks and God bless you.
+
+Best Regards
+WESTERN UNION AGENT
