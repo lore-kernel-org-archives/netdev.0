@@ -1,104 +1,95 @@
-From: Yuval Shaia <yuval.shaia-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH v4] net/mlx4_core: Use min3 to select number of MSI-X
- vectors
-Date: Mon, 15 May 2017 10:53:24 +0300
-Message-ID: <20170515075324.GA3523@yuval-lap>
-References: <1494569451-2567-1-git-send-email-yuval.shaia@oracle.com>
- <20170514190133.GC28994@yuval-lap>
- <20170515044304.GV3616@mtr-leonro.local>
+From: David Lebrun <david.lebrun@uclouvain.be>
+Subject: Re: iproute2 build error due to sr-ipv6 lwtunnel
+Date: Mon, 15 May 2017 09:56:18 +0200
+Message-ID: <6c156160-706e-7f87-117e-5c2c9784ec6f@uclouvain.be>
+References: <590AF0C3.6070006@iogearbox.net>
+ <3c0c0584-338d-47d0-76d4-e4408decc2c1@uclouvain.be>
+ <590AFA8A.30602@iogearbox.net> <59185B16.5020107@iogearbox.net>
 Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1;
+        protocol="application/pgp-signature";
+        boundary="St30lv91VSeSW17n33dBtqNwquKmkAQ10"
+Cc: <netdev@vger.kernel.org>, <stephen@networkplumber.org>
+To: Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:58740 "EHLO
+        smtp5.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1759721AbdEOHzu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 15 May 2017 03:55:50 -0400
+In-Reply-To: <59185B16.5020107@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+--St30lv91VSeSW17n33dBtqNwquKmkAQ10
+Content-Type: multipart/mixed; boundary="2Hiv5tvj3hGJLHUojIxWH6HGpQnvwr7VX"
+From: David Lebrun <david.lebrun@uclouvain.be>
+To: Daniel Borkmann <daniel@iogearbox.net>
+Cc: netdev@vger.kernel.org, stephen@networkplumber.org
+Message-ID: <6c156160-706e-7f87-117e-5c2c9784ec6f@uclouvain.be>
+Subject: Re: iproute2 build error due to sr-ipv6 lwtunnel
+References: <590AF0C3.6070006@iogearbox.net>
+ <3c0c0584-338d-47d0-76d4-e4408decc2c1@uclouvain.be>
+ <590AFA8A.30602@iogearbox.net> <59185B16.5020107@iogearbox.net>
+In-Reply-To: <59185B16.5020107@iogearbox.net>
+
+--2Hiv5tvj3hGJLHUojIxWH6HGpQnvwr7VX
 Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: yishaih-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20170515044304.GV3616-U/DQcQFIOTAAJjI8aNfphQ@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: quoted-printable
 
-On Mon, May 15, 2017 at 07:43:04AM +0300, Leon Romanovsky wrote:
-> On Sun, May 14, 2017 at 10:01:34PM +0300, Yuval Shaia wrote:
-> > On Fri, May 12, 2017 at 09:10:51AM +0300, Yuval Shaia wrote:
-> > > Signed-off-by: Yuval Shaia <yuval.shaia-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-> > > ---
-> > > v0 -> v1:
-> > > 	* s/"min_t("/"min_t(int"
-> > > v1 -> v2:
-> > > 	* Use min3 instead of min_t twice
-> > > v2 -> v3:
-> > > 	* Change commit log header message to reflect the changes made in
-> > > 	  v2
-> > > v3 -> v4:
-> > > 	* Cast return value from num_online_cpus to int to avoid
-> > > 	  compilation errors from "sparse"
-> >
-> > Hi Leon,
-> > Got your r-b for v3, can you please review v4?
-> 
-> What was the sparse error?
-> 
-> num_online_cpus() is declared as "unsigned int", so you don't need to do casting.
-> 
-> ➜  linux-rdma git:(master) git grep num_online_cpus include/
-> include/linux/cpumask.h:#define num_online_cpus()       cpumask_weight(cpu_online_mask)
-> include/linux/cpumask.h:#define num_online_cpus()       1U
-> 
-> ➜  linux-rdma git:(master) git grep cpumask_weight include/
-> include/linux/cpumask.h:static inline unsigned int cpumask_weight(const struct cpumask *srcp)
+On 05/14/2017 03:26 PM, Daniel Borkmann wrote:
+>=20
+> David, are you still looking into fixing this?
 
-But num_eqs and reserved_eqs are ints so assuming the error is that i
-asked min3 to compare unsigned int with int.
+Sorry, I left the issue on the side and then forgot about it.
 
-This casting cannot do harm because anyway the result is stored in int
-variable.
+Could you try the following iproute2 patch ? Thanks
 
-> 
-> Thanks
-> 
-> >
-> > Thanks,
-> >
-> > > ---
-> > >  drivers/net/ethernet/mellanox/mlx4/main.c | 10 ++++------
-> > >  1 file changed, 4 insertions(+), 6 deletions(-)
-> > >
-> > > diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
-> > > index 7032054..83aab1e 100644
-> > > --- a/drivers/net/ethernet/mellanox/mlx4/main.c
-> > > +++ b/drivers/net/ethernet/mellanox/mlx4/main.c
-> > > @@ -2862,12 +2862,10 @@ static void mlx4_enable_msi_x(struct mlx4_dev *dev)
-> > >  	int port = 0;
-> > >
-> > >  	if (msi_x) {
-> > > -		int nreq = dev->caps.num_ports * num_online_cpus() + 1;
-> > > -
-> > > -		nreq = min_t(int, dev->caps.num_eqs - dev->caps.reserved_eqs,
-> > > -			     nreq);
-> > > -		if (nreq > MAX_MSIX)
-> > > -			nreq = MAX_MSIX;
-> > > +		int nreq = min3(dev->caps.num_ports *
-> > > +				(int)num_online_cpus() + 1,
-> > > +				dev->caps.num_eqs - dev->caps.reserved_eqs,
-> > > +				MAX_MSIX);
-> > >
-> > >  		entries = kcalloc(nreq, sizeof *entries, GFP_KERNEL);
-> > >  		if (!entries)
-> > > --
-> > > 2.7.4
-> > >
-> > > --
-> > > To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-> > > the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> > > More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> > --
-> > To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-> > the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/include/linux/seg6.h b/include/linux/seg6.h
+index 0715279..dd28017 100644
+--- a/include/linux/seg6.h
++++ b/include/linux/seg6.h
+@@ -15,7 +15,12 @@
+ #define _LINUX_SEG6_H
+
+ #include <linux/types.h>
++
++#ifdef __KERNEL__
+ #include <linux/in6.h>         /* For struct in6_addr. */
++#else
++#include <netinet/in.h>
++#endif
+
+ /*
+  * SRH
+diff --git a/ip/iproute_lwtunnel.c b/ip/iproute_lwtunnel.c
+index 1395f03..434e60a 100644
+--- a/ip/iproute_lwtunnel.c
++++ b/ip/iproute_lwtunnel.c
+@@ -20,9 +20,6 @@
+ #include <linux/lwtunnel.h>
+ #include <linux/mpls_iptunnel.h>
+
+-#ifndef __USE_KERNEL_IPV6_DEFS
+-#define __USE_KERNEL_IPV6_DEFS
+-#endif
+ #include <linux/seg6.h>
+ #include <linux/seg6_iptunnel.h>
+ #include <linux/seg6_hmac.h>
 
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+--2Hiv5tvj3hGJLHUojIxWH6HGpQnvwr7VX--
+
+--St30lv91VSeSW17n33dBtqNwquKmkAQ10
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iF0EARECAB0WIQT8nTbQ2eQR5sQwCJ+NvOfruxnoAwUCWRlfJgAKCRCNvOfruxno
+A9IoAJwOHBBhVjMVo8C+mIHAylMm/ZvJ+wCbBXWyrKuD9SDMBRbquTBVIFUSac4=
+=QHJk
+-----END PGP SIGNATURE-----
+
+--St30lv91VSeSW17n33dBtqNwquKmkAQ10--
