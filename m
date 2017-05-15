@@ -1,40 +1,49 @@
-From: Miroslav Lichvar <mlichvar@redhat.com>
-Subject: [PATCH net] net: netcp: fix check of requested timestamping filter
-Date: Mon, 15 May 2017 16:04:36 +0200
-Message-ID: <20170515140436.12175-1-mlichvar@redhat.com>
-Cc: WingMan Kwok <w-kwok2@ti.com>,
-        Richard Cochran <richardcochran@gmail.com>
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net v2] ipv6: sr: fix user space compilation error with
+ old glibc
+Date: Mon, 15 May 2017 10:09:22 -0400 (EDT)
+Message-ID: <20170515.100922.2194549018034831667.davem@davemloft.net>
+References: <20170515110320.23369-1-david.lebrun@uclouvain.be>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, daniel@iogearbox.net
+To: david.lebrun@uclouvain.be
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:49852 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932677AbdEOOEu (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 15 May 2017 10:04:50 -0400
+Received: from shards.monkeyblade.net ([184.105.139.130]:35170 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932677AbdEOOJZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 15 May 2017 10:09:25 -0400
+In-Reply-To: <20170515110320.23369-1-david.lebrun@uclouvain.be>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The driver doesn't support timestamping of all received packets and
-should return error when trying to enable the HWTSTAMP_FILTER_ALL
-filter.
+From: David Lebrun <david.lebrun@uclouvain.be>
+Date: Mon, 15 May 2017 13:03:20 +0200
 
-Cc: WingMan Kwok <w-kwok2@ti.com>
-Cc: Richard Cochran <richardcochran@gmail.com>
-Signed-off-by: Miroslav Lichvar <mlichvar@redhat.com>
----
- drivers/net/ethernet/ti/netcp_ethss.c | 1 -
- 1 file changed, 1 deletion(-)
+> When seg6.h is included in a user space program that also includes
+> netinet/in.h, it results in multiple definitions of structures such as
+> struct in6_addr. Recent glibc versions have a workaround that consists in
+> defining __USE_KERNEL_IPV6_DEFS to prevent duplicates. However, such a
+> program will fail to compile with older glibc versions.
+> 
+> This patch ensures that including seg6.h will work in any case.
+> 
+> v2: do not try to handle __USE_KERNEL_IPV6_DEFS case in seg6.h
+> 
+> Fixes: ea3ebc73b46fbdb049dafd47543bb22efaa09c8e ("uapi: fix linux/seg6.h and linux/seg6_iptunnel.h userspace compilation errors")
+> Reported-by: Daniel Borkmann <daniel@iogearbox.net>
+> Signed-off-by: David Lebrun <david.lebrun@uclouvain.be>
 
-diff --git a/drivers/net/ethernet/ti/netcp_ethss.c b/drivers/net/ethernet/ti/netcp_ethss.c
-index 897176f..dd92950 100644
---- a/drivers/net/ethernet/ti/netcp_ethss.c
-+++ b/drivers/net/ethernet/ti/netcp_ethss.c
-@@ -2651,7 +2651,6 @@ static int gbe_hwtstamp_set(struct gbe_intf *gbe_intf, struct ifreq *ifr)
- 	case HWTSTAMP_FILTER_NONE:
- 		cpts_rx_enable(cpts, 0);
- 		break;
--	case HWTSTAMP_FILTER_ALL:
- 	case HWTSTAMP_FILTER_PTP_V1_L4_EVENT:
- 	case HWTSTAMP_FILTER_PTP_V1_L4_SYNC:
- 	case HWTSTAMP_FILTER_PTP_V1_L4_DELAY_REQ:
--- 
-2.9.3
+Please, no.
+
+The reason we put together a method by which glibc and the kernel can
+stay out of eachother's way in header files is exactly so that we
+don't need ifdefs that conditionally do netinet/in.h vs. using the
+kernel header.
+
+There are more than a dozen other UAPI headers which make use of
+linux/in6.h and none of them jump through hoops like what is being
+proposed here, and that's on purpose.
+
+So special casing this one one header is really not the way to go.
