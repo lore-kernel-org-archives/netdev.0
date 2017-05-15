@@ -1,103 +1,102 @@
-From: Ihar Hrachyshka <ihrachys@redhat.com>
-Subject: Re: [PATCH] neighbour: update neigh timestamps iff update is effective
-Date: Mon, 15 May 2017 14:40:25 -0700
-Message-ID: <20170515214025.28575-1-ihrachys@redhat.com>
-References: <20170515.131023.1878814687849300375.davem@davemloft.net>
-Cc: ja@ssi.bg, netdev@vger.kernel.org,
-        Ihar Hrachyshka <ihrachys@redhat.com>
-To: davem@davemloft.net
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH 2/3] bpf: Track alignment of MAP pointers in verifier.
+Date: Mon, 15 May 2017 23:55:47 +0200
+Message-ID: <591A23E3.2050105@iogearbox.net>
+References: <59186A2E.2010904@iogearbox.net>    <20170514.210005.2210026226038557615.davem@davemloft.net>       <5919A8AA.9010401@iogearbox.net> <20170515.113419.1265777991542814689.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: ast@fb.com, alexei.starovoitov@gmail.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:36311 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750713AbdEOVkb (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 15 May 2017 17:40:31 -0400
-In-Reply-To: <20170515.131023.1878814687849300375.davem@davemloft.net>
+Received: from www62.your-server.de ([213.133.104.62]:33221 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751082AbdEOVz5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 15 May 2017 17:55:57 -0400
+In-Reply-To: <20170515.113419.1265777991542814689.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It's a common practice to send gratuitous ARPs after moving an
-IP address to another device to speed up healing of a service. To
-fulfill service availability constraints, the timing of network peers
-updating their caches to point to a new location of an IP address can be
-particularly important.
+On 05/15/2017 05:34 PM, David Miller wrote:
+> From: Daniel Borkmann <daniel@iogearbox.net>
+> Date: Mon, 15 May 2017 15:10:02 +0200
+>
+>>>> What are the semantics of using id here? In ptr_to_pkt, we have it,
+>>>> so that eventually, in find_good_pkt_pointers() we can match on id
+>>>> and update the range for all such regs with the same id. I'm just
+>>>> wondering as the side effect of this is that this makes state
+>>>> pruning worse.
+>
+> Daniel, I looked at the state pruning for maps.  The situation is
+> quite interesting.
+>
+> Once we have env->varlen_map_value_access (and load or store via a
+> PTR_TO_MAP_VALUE_ADJ pointer), the state pruning gets more strict, the
+> relevant tests are:
+>
+> 		if (memcmp(rold, rcur, sizeof(*rold)) == 0)
+> 			continue;
+>
+> 		/* If the ranges were not the same, but everything else was and
+> 		 * we didn't do a variable access into a map then we are a-ok.
+> 		 */
+> 		if (!varlen_map_access &&
+> 		    memcmp(rold, rcur, offsetofend(struct bpf_reg_state, id)) == 0)
+> 			continue;
+>
+> The first memcmp() is not going to match any time we adjust any
+> component of a MAP pointer reg.  The offset, the alignment, anything.
+> That means any side effect whatsoever performed by check_pointer_add()
+> even if we changed the code to not modify reg->id
+>
+> The second check elides:
+>
+> 	s64 min_value;
+> 	u64 max_value;
+> 	u32 min_align;
+> 	u32 aux_off;
+> 	u32 aux_off_align;
+>
+> from the comparison but only if we haven't done a variable length
+> MAP access.
 
-Sometimes neigh_update calls won't touch neither lladdr nor state, for
-example if an update arrives in locktime interval. The neigh->updated
-value is tested by the protocol specific neigh code, which in turn
-will influence whether NEIGH_UPDATE_F_OVERRIDE gets set in the
-call to neigh_update() or not. As a result, we may effectively ignore
-the update request, bailing out of touching the neigh entry, except that
-we still bump its timestamps inside neigh_update.
+I'm actually wondering about the min_align/aux_off/aux_off_align and
+given this is not really related to varlen_map_access and we currently
+just skip this.
 
-This may be a problem for updates arriving in quick succession. For
-example, consider the following scenario:
+We should make sure that when env->strict_alignment is false that we
+ignore any difference in min_align/aux_off/aux_off_align, afaik, the
+min_align would also be set on regs other than ptr_to_pkt.
 
-A service is moved to another device with its IP address. The new device
-sends three gratuitous ARP requests into the network with ~1 seconds
-interval between them. Just before the first request arrives to one of
-network peer nodes, its neigh entry for the IP address transitions from
-STALE to DELAY.  This transition, among other things, updates
-neigh->updated. Once the kernel receives the first gratuitous ARP, it
-ignores it because its arrival time is inside the locktime interval. The
-kernel still bumps neigh->updated. Then the second gratuitous ARP
-request arrives, and it's also ignored because it's still in the (new)
-locktime interval. Same happens for the third request. The node
-eventually heals itself (after delay_first_probe_time seconds since the
-initial transition to DELAY state), but it just wasted some time and
-require a new ARP request/reply round trip. This unfortunate behaviour
-both puts more load on the network, as well as reduces service
-availability.
+What about compare_ptrs_to_packet() for when env->strict_alignment is
+true in ptr_to_pkt case? Could we have a situation that prunes the search
+with matching the third test? Say, in the old case, we did go all the
+way and ...
 
-This patch changes neigh_update so that it bumps neigh->updated (as well
-as neigh->confirmed) only once we are sure that either lladdr or entry
-state will change). In the scenario described above, it means that the
-second gratuitous ARP request will actually update the entry lladdr.
+   R3(off=0, r=0)
+   R4 = R3 + 20   // AAA
+   // now R4(off=20,r=0)
+   if (R4 > data_end)
+       got out;
+   // BBB: now R4(off=20,r=20), R3(off=0,r=20) and R3 used to access
 
-Ideally, we would update the neigh entry on the very first gratuitous
-ARP request. The locktime mechanism is designed to ignore ARP updates in
-a short timeframe after a previous ARP update was honoured by the kernel
-layer. This would require tracking timestamps for state transitions
-separately from timestamps when actual updates are received. This would
-probably involve changes in neighbour struct. Therefore, the patch
-doesn't tackle the issue of the first gratuitous APR ignored, leaving
-it for a follow-up.
+... verify the code under 'BBB' and found that it's safe to run,
+including alignment, etc. Next time we come to this branch through
+R4 = R3 + 33 (under AAA), so we have R4(off=33,r=0). What happens
+if we then do R4-=4, and access 4 bytes of the packet?
 
-Signed-off-by: Ihar Hrachyshka <ihrachys@redhat.com>
----
- net/core/neighbour.c | 14 ++++++++++----
- 1 file changed, 10 insertions(+), 4 deletions(-)
+The old R4(off=20,r=20) becomes R4(off=16,r=20), which was found
+safe and the new R4(off=33,r=0) becomes R4(off=29,r=33) which
+would end up being unaligned? Looks like we shouldn't prune in
+such case? Maybe test_verifier test case helps to visualize.
 
-diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-index 58b0bcc..d274f81 100644
---- a/net/core/neighbour.c
-+++ b/net/core/neighbour.c
-@@ -1132,10 +1132,6 @@ int neigh_update(struct neighbour *neigh, const u8 *lladdr, u8 new,
- 		lladdr = neigh->ha;
- 	}
- 
--	if (new & NUD_CONNECTED)
--		neigh->confirmed = jiffies;
--	neigh->updated = jiffies;
--
- 	/* If entry was valid and address is not changed,
- 	   do not change entry state, if new one is STALE.
- 	 */
-@@ -1157,6 +1153,16 @@ int neigh_update(struct neighbour *neigh, const u8 *lladdr, u8 new,
- 		}
- 	}
- 
-+	/* Update timestamps only once we know we will make a change to the
-+	 * neighbour entry. Otherwise we risk to move the locktime window with
-+	 * noop updates and ignore relevant ARP updates.
-+	 */
-+	if (new != old || lladdr != neigh->ha) {
-+		if (new & NUD_CONNECTED)
-+			neigh->confirmed = jiffies;
-+		neigh->updated = jiffies;
-+	}
-+
- 	if (new != old) {
- 		neigh_del_timer(neigh);
- 		if (new & NUD_PROBE)
--- 
-2.9.3
+> The only conclusion I can come to is that changing reg->id for
+> PTR_TO_MAP_VALUE_ADJ has no side effect for state pruning, unless we
+> perform PTR_TO_MAP_VALUE_ADJ register adjustments without ever
+> accessing the map via that pointer in the entire program.
+
+Why entire program, just between two state pruning points, no?
+(They are marked as STATE_LIST_MARK.)
+
+> I could add some new state to avoid the reg->id change, but given
+> the above I don't think that it is really necessary.
