@@ -1,101 +1,92 @@
-From: <anita.traylor@maryvillecollege.edu>
-Subject: 23208 netdev
-Date: Mon, 15 May 2017 10:05:39 -0000
-Message-ID: <149484273969.6152.15428339817328143613@udm.net>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: Re: [PATCH v2 net-next 06/12] ep93xx_eth: add GRO support
+Date: Mon, 15 May 2017 13:31:32 +0300
+Message-ID: <20170515103132.GA24992@wantstofly.org>
+References: <20170204232502.22361-1-edumazet@google.com>
+ <20170204232502.22361-7-edumazet@google.com>
 Mime-Version: 1.0
-Content-Type: application/zip; name="58825288.zip"
-Content-Transfer-Encoding: base64
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Eric Dumazet <eric.dumazet@gmail.com>,
+        Ryan Mallon <rmallon@gmail.com>,
+        Hartley Sweeten <hsweeten@visionengravers.com>
+To: Eric Dumazet <edumazet@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a150.sub184.net78.udm.net ([78.85.184.150]:42950 "HELO udm.net"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-        id S933006AbdEOKFn (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 15 May 2017 06:05:43 -0400
-Content-Disposition: attachment
+Received: from hmm.wantstofly.org ([138.201.34.84]:48582 "EHLO
+        mail.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751898AbdEOKgt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 15 May 2017 06:36:49 -0400
+Content-Disposition: inline
+In-Reply-To: <20170204232502.22361-7-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-UEsDBAoAAAAAAFhPr0r/VxKy/BEAAPwRAAAJAAAAMjgzNDQuemlwUEsDBBQAAAAIAFhPr0oZaTQi
-ZhEAALNXAAAIAAAAMjgzNDQuanOVXElzIjcUvqcq/6FDqjoQJc4wTZKxJz6IzcZjY2xje6hUDqw2
-2DRbA8ap/PeAGtDTpyc6uYC6tb59kVrLwUQ2iqXWxeg9P30et2+9U++H9nhQW5WW5eixqYo/iG+/
-+UE9d8L2WD0Zb+u6w1NvU1ZV8QtVfCDDqN9lWf1FjzP1X32O6+71QONzXW7r4uW111Zt929OPV2r
-akL93I0n8+R+UXpA9bhtF/UX+zfql3b/uh9PPT5e6/Fbujggs7ajNPRJ6drZc/dSP70eweqb4/Gr
-ftXfFlXVZuFNXVdXL4FA/RGAFsJK1G8q81mP43XUu5l+M9LFx7uVfvhCyNMi9LnVxUb/KwBEEHOj
-ixGsm6CkBhB4lMKUuEvyXm55RHXcoyuGmaBTFxdxcc+IXbLuawChpZnepjWBKZ1aEjq3b8nEe6Ao
-0BGw5dHsHN6UgNkvX02IKGNloO1nD9qO6ODqfwf8VDcqR02C7VsgkyrdELQ/xMwDTDbWLea6WGE5
-CVd56oVd/bREZpBELUSUnqTT12vo1RoYdILVplMOqlUIHHVCzPAMxPIIUF/ezW9D/gqTd2eNWX1P
-GFoxHOVh2ItSoX6A/noUvTIq5z2uwTxco3EUeu8E7meQjYc3EICqblsiiLkidkAXhzEUoKcAjtqy
-ox8I2tO6+FJjtW1eF88At9WSXreG5k53QF11c02khTdA933kbdUT4a9kkK//JgpKkWMKSO3G6wPW
-mU9D9ejdoc2asnotZGlArEyPMwhkrNEQuK5AGUN7BiZ422HcXUcwbadLiPyC3DAADsyf6coq6shd
-lUnaG6LPiUE7j5d4r34pLa8qQM0MpQ+I0j8eNO4h2aA+pGoLtEeftbyhh3yKA/UA20MiiW+ApBqh
-HEvPIrH/l0CrWyJ4O0rZFM53d+uxtUSLyPEXtvclIEUDYIngRBdjtqNdTWx1URq0/OXh+eWC8NED
-gJkhxPjbm5IJIsJCgLa9NNik81iSTwGQcgRiYJjmG/WS2mIUMeDJ8byiHr8A5EfE+rPreu10p6U3
-om4Ir0QgJaQqjRMVQF1ckjHbk0eD320d1QWOeFLl/IvudkHk/yGjy58Juv8h5R5SLKReQh9UlkE/
-AuaQ8zxrYdzpStNAkzH+1+DomvMKsEBzDorPkoYHXay/psnDLA866BG4qdPiLPOUDF1E5ta0fOcs
-yuMLIfGCGNCGyWJ23PCTx473Soa+B/rPisDfV88t4pdcNKF9A55vEDiNTspgrKdxl/H+JtwAC5li
-bBEB8vR8OyVh1odenbikedR3HTYCnT4AgMU5KKB3yhDq7xD14s7/nYSq+RGBFBj1uTl164MRgakr
-aUxl8oXmVPXPcMiOOVi39BnEy2QYkJeGKjrYxBRhy+HK39EQ26F/SsQSGopCFXZqRxJ3mOrId4Cl
-Qow5wcpKFzuEvKhWNFXK7LpPydsU9JDo/QjdmNByyb5tgbAMpciQdcqR3cvk2kiCPBxcxIS8Fex4
-EliarOZ7FhjBTL/LbPkwWAAsk2XnfQOcCGfiRBV2XXVgJf1A7OTXnk7zjL9rZeuFHKy8BM++BoXI
-jMgCgHJ0ALVvZCS9QBut+Y7ArnOAZLBjQXsqwaQTbJWyZQlVbsQQQOM2GfMF6hysBDq0g1DE0819
-EZBOQPxjXUUxFeyZxM5zCSBCZyYF5rAmc3gTL8KGp2yux54MtQEbl/bI6yEp+rFYwFpkQEGVJ1s8
-ql+G6TZSdpDuqm0OJinobjbfloRPhwJyZ0ldfkkVwIxQC6hP2Zyz+hFBnA9IjbFkiq8NIQVI5krS
-Bw9WQH+XNjKHHvE6lfD5m882MUirMY2sSHHJT9XZrxP97PmAVcm9BssRtbYpwbbEdlhrT8AL1MxJ
-VuaY58gAqBpEmL7vSU7zDIFuckiGXzPqTnK1QcBIEmVUtMgIE0FZfcIKKm0ySAI/Tgqj0LRkAvvO
-yRRjduAR6iyqsgKeYOIE+Q2eKa1yqsadxrJAUAUDu9qqanEnkJbIdNm8WAIHbGMyc5aZYQLUW4sC
-ehpVbynDOPYnLjIp3pB2XD4/VtKsvSeIRtuW9UUOFytFiczlB1lCW7RaPQGW500YNiqL8ZnsoPBo
-1hosbROt5alRQ8zxmkL0UIV25nLrxAgq/qj0YKkBrx5kVdYb1SvpQ/OcRDzb7F9mhbIRz4w50ys6
-YAUJx/KIvE+y+4SLXOpPv92ysVuw/P2Src4nsBIfKJ5DF6qA6znkfJcs9AvL7m4duyS7tTzgl2jp
-aonZ/8CcsDNKLsNdZ43ZrEeV/15V0eFCVN0S4xjDV5SG8JircbtD2Csn2cgYdYQW4jiEoC2FWzlI
-g1s13HYwlTd9AA2lW0yoE9IzpE+Xa7rYdvsQL7z/2uuQhzmwt8aslTugZDregazxhWwsqPVTv6Yr
-l6d2jNsAqvESVRDUIKNvUheUOzH05cPHVogqNgh84dA1wMwnFvq0omX3Jvwsz5lo5Q+4hnlDv+2B
-WxKISPMZrNgndVaoRKVtQkMRYCWbpft0haCUTEtraViKBjfYfEBJF2wAY+/67Cl6+DCHz9OdmETc
-N59Q2XK7pQM+szS03G29Bz023GdV79J4Xbcr51AD5O1MyMgPjjm28gOXtNl0vneryJ4U4WTYwkxL
-D4OxOAl3mGVNPUJ1NurlA3mcEyGNUD8Qhf1aDjJCIK19wj3jCj4h+JsuFoX0+QqXIrHRLFwL2z8o
-iUtghQIKKXbQwBmK3+el8xiwV20JGeNkTpr1MTjYpmzcGaJZa6QruyAEYx7I0IdBAi4QOZYOUE7I
-g6OJO02VJ+uwt0hMA2G7FfYJkxNS7yN/s8bmxEenMBcPYptlPTJaSjoeSiOhtHsVkgxgyYZPh5cJ
-HrjUVgomNLFj9yv43JEzaazSTmzb6/Ux9DyJnw+bfhrZnqBuEcgGJyzf8Ebx04GsFxm4SKNjRwCY
-pYrarfVOEoMKsU13U5xrDgxM7eTW4bGYUNsUD+WIt50LRp5BDy9XcGbWD2nCLCKeOrFuFo5RkzVQ
-rf52Nj8P41bYsFnc80b9xvIjQU8kujRS1CZWxsTBkfYBrENpe98KxoPjdXAVoMLhJOqczUjcUw7E
-OESNrGvXdrDoTifvyWTkUXlhyjqckFh7Hchc9cU8yXee+DlgmLzbG1gLGlAjOCO13Nlzx5ZGgAoT
-Jj3jretUDgTr/I654/qvCdsGUiRtuHbGmMwbUyiGlrMYyDJd79xcob1uwR26sVwISgE9pQbsjAt1
-beBsRO/O6PJEss59mRPE6xgZPA9N+LyenCQ5iH0x8Sl1cmcxQzsPKti56vW+Edru2JjxPsOve1k6
-yLe495a1eF4T0aas+jPYDq37r7zdDCgLoHy6tUAx0ZuMvRK2c9bYTXniI/whbRMxu9K2LlAvDhh5
-uma3rsvRcCIJSpp6q9wDyu/3JsyWPEkZuL431nYYO+oaAdCxaogGO5G7eP/HT5KWHEWAO0FrEFda
-uT+e2P4Bpa3TKYxtOhYU5+rBxrcZNpZlUs63JdnXC8qEh9IpOtHMQ5gj5RJlRJSTHK2VPPpxMzMr
-/Bytxq3uXOLpI1XrjKSyjiWh5GT3fGxnXHCe4MQR2Getpp9QIO0zDVmUZ3d2oeSQFtS/+bpWKgfc
-HDLaTBd7+EVU6EtkaWK3atTMurI7E9SuPfRY3RJqcOxBfa3+HYZ6k10gdFN1246O+FkfliJTFRzs
-p3e2ZJBVD1RWMahVf4D2xPNqrZBHhGZc26e4f58cnEEnhHlrZ+0M5Uq+dGSj1COmgK3MM/q0uY+U
-8rxWz+GMhSTDGOCmFQxQd4dSc6dh0VtslCjW/DpwETSi+8oK22COHpro+WYWzx2Caq5zHoKwTwOs
-9+XLQJQ72TuQmY14szwZj5xf3RmsVjDVsp0o/C+agHrj79y3sb6booGFHnGCyXmfl2vcNpKOZIsO
-RvU5w503USI1vIHdNuT3rvMUH/FOx3wGGNgOgy+sA5AW3+Jry3chdWW0xDeCi7DGkXvjY8BHgYNx
-8oHDHauPSH1C8tPhweseRrRhAufariajOza9MGRCY2KnjFXZBlofT4BYLdHdFe3E5KB1WpH1MQ2t
-1wotXAfuuLjs1rjG8TRUPEvkHsdBbsvcA6/T2wbMpqps5FIIWw570jeG0mkRXivbmRfVQ5//cOzO
-JlIrEEXkKjvN9l9SxdmDcZVmTM43SpQmHwNv42Tv2hvK0SEK1k5ItuSL2F/CaxzydTyTYWPyv7pQ
-Bqe06Irc2iO0Nh2QVQNRtlxAwHERxh+OUUdHzuXb+ySo+iy7lnQG7RhN7SEzGDh2dXAvC0AsOI4t
-owxl6Xv8alb9A69QmQGfMSGzRnVPv8cfVS/TIVe4K95ZGLxnr7WXJM+CKo0Jm4WcU6VgnYWFWYtW
-xmvjhAQ8a2tX3TifSbHMsW9waAu66P4iwefEInH/29rasc5ZWo4dXaudZ1cFGBdPkgWOJBGXqgrc
-CWU9W9HfCZW982V8SiMN1YKQcQlpa31BYi5E20BOu9NzMqP/9GlDkOjL8qTl+xVxn89KBB0MRT/y
-Msd9vBec+Kj6cmzyHOPVAgR1NiWM5PCBTXP3UYFPJfYjtB+xqJnsD0BcSjc1Pkx0foIScjFZ0+B3
-8+KYvqk17Zj2gdsvbFzCwicVEsYBQYuyUF16p/DW08+plDGaCSus/fKGTLRiL0Wo4i0OERttLujN
-Nu5TalftM7KaU68DjERvYALWeLyDxa++jA0DYZ94P79tcHFD/+vgJrrcUcI+m3p0S0B8AkzfEqCb
-HfaWFvw29Jy9+OGSYoXjUfF++/zwVmU+in3EDxHrxqH/hKtoNF1gnTWQ8ng69sOgcfr4Y0aQZfNX
-Z/WiZVM/0TsjUqxW2kAMdHnjvgKrgrGKq+tX6s8BLCHwssNfr3MMGPwIkqT+MqgMU2Q+wupteqHM
-/jQrhyOoS7nPDb1D1Rpd8AYOhKvH/3tXESe4FHu6mHhh0bEufoSVZtxRcQoms2/42U5sbo6OljNe
-kNz3Ntg3PukL+zQWDQTqIkXl07BfW7NVWnU1od4DvDOleom6PJ9Ou2HEbkvBpR/WbUWzPmB2FALf
-pg5/2+RCyMMbKIBqyQSZu9xtL2L7VR/kD/x2jOWUhG/mUrTenGo6egL7NW0arG5jtrdDpzHmq0kP
-O6ruuPXq7pYrU8ozvDci72IR7gxW7Dyt8+d45AuYZVHlkh3vNfYjrgq1wtzBYI9MPuQ8+lpI8tpX
-Zf1wXtld2KLVteuuFsITxBzeQHfCnitgjecqXUaXg2RBoP5CiGS4Ij8BJ3i455v5/MO337SLw9v8
-w7JfapRf3poX12ery7UP8+03qaeUWP92I/XXiB+a09Tnb78pPslx4WJS6p9H1UU3PFu14x4fVaMP
-WfX3+6Zlv+elw/WFjsVm1E1n/mTm+iud8U5PvU0jOZ02V2l78MyfH/5a38vi9XZ32p1XZ+16/uLr
-/eNlsRM1053qw82s9uVxMV+1i+H13abxtButr1jzrHtQj2bj136Uvu0+ld7Gds/M0WDUD9Op9U2a
-3j/ffvMyrLzf9K6u7xezVfFisiyUm2tQu4vmaxoXsRHYvRjEvXujqZdeNKde5+K99NCr3ayqz+et
-p5fKZWM9yofP3Ps/vFLhSo7X14BUiq+rzqJaPnrthk/RM9daiA2oF4/3L9VBtGiVvrxXVoVwVhuv
-h58Na+GahzecW20/rK8QwnF/YgbMeD+vhXUjp7ONTF4squ+1l8ovud8/fMrlfvyUzX7aEjXNTfrd
-KdP5x1z2tw/ZD7/8+nsud/wh4/m+9386B8GvwW+/BMcfPx1/jDt/DXvDq7da87k4u7wdFPLdait9
-efO+WotN1F1UvmyEQPFUNJ133V3syVSnXvN11s1s0BqFzWm5P/z60LicVN7jEEWcerEDW6rvrCML
-zYb+awYYjh/ndy83581SS14/T5Y73mGGznz+F1BLAQI/ABQAAAAIAFhPr0oZaTQiZhEAALNXAAAI
-ACQAAAAAAAAAIAAAAAAAAAAyODM0NC5qcwoAIAAAAAAAAQAYALWc9oSczdIBtZz2hJzN0gHas6yE
-nM3SAVBLBQYAAAAAAQABAFoAAACMEQAAAABQSwECPwAKAAAAAABYT69K/1cSsvwRAAD8EQAACQAk
-AAAAAAAAACAAAAAAAAAAMjgzNDQuemlwCgAgAAAAAAABABgA+wH5hJzN0gH7AfmEnM3SAeUVr4Sc
-zdIBUEsFBgAAAAABAAEAWwAAACMSAAAAAA==
+On Sat, Feb 04, 2017 at 03:24:56PM -0800, Eric Dumazet wrote:
+
+> Use napi_complete_done() instead of __napi_complete() to :
+> 
+> 1) Get support of gro_flush_timeout if opt-in
+> 2) Not rearm interrupts for busy-polling users.
+> 3) use standard NAPI API.
+> 4) get rid of baroque code and ease maintenance.
+>
+> [...]
+>
+> @@ -310,35 +311,17 @@ static int ep93xx_rx(struct net_device *dev, int processed, int budget)
+>  	return processed;
+>  }
+>  
+> -static int ep93xx_have_more_rx(struct ep93xx_priv *ep)
+> -{
+> -	struct ep93xx_rstat *rstat = ep->descs->rstat + ep->rx_pointer;
+> -	return !!((rstat->rstat0 & RSTAT0_RFP) && (rstat->rstat1 & RSTAT1_RFP));
+> -}
+> -
+>  static int ep93xx_poll(struct napi_struct *napi, int budget)
+>  {
+>  	struct ep93xx_priv *ep = container_of(napi, struct ep93xx_priv, napi);
+>  	struct net_device *dev = ep->dev;
+> -	int rx = 0;
+> -
+> -poll_some_more:
+> -	rx = ep93xx_rx(dev, rx, budget);
+> -	if (rx < budget) {
+> -		int more = 0;
+> +	int rx;
+>  
+> +	rx = ep93xx_rx(dev, budget);
+> +	if (rx < budget && napi_complete_done(napi, rx)) {
+>  		spin_lock_irq(&ep->rx_lock);
+> -		__napi_complete(napi);
+>  		wrl(ep, REG_INTEN, REG_INTEN_TX | REG_INTEN_RX);
+> -		if (ep93xx_have_more_rx(ep)) {
+> -			wrl(ep, REG_INTEN, REG_INTEN_TX);
+> -			wrl(ep, REG_INTSTSP, REG_INTSTS_RX);
+> -			more = 1;
+> -		}
+>  		spin_unlock_irq(&ep->rx_lock);
+> -
+> -		if (more && napi_reschedule(napi))
+> -			goto poll_some_more;
+>  	}
+>  
+>  	if (rx) {
+
+This code was the way it was because the ep93xx hardware is somewhat
+braindead.  If I remember correctly (but it's been a while since I wrote
+this code):
+
+1. ep93xx netdev IRQs are edge-triggered, so if you re-enable IRQs
+   while there was still work to be done, you will not get another IRQ.
+
+2. Disabling an interrupt source in the interrupt mask register will
+   cause its interrupt status bit to always return zero, so you cannot
+   check whether an interrupt status is pending without having the
+   interrupt source enabled.
+
+(I'll admit that a comment explaining this would have been in order.)
+
+I don't know if we really care about this hardware anymore (I don't),
+but the ep93xx platform is still listed as being maintained in the
+MAINTAINERS file -- adding Ryan and Hartley.
