@@ -1,32 +1,42 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH net] net: netcp: fix check of requested timestamping
- filter
-Date: Mon, 15 May 2017 17:03:36 +0200
-Message-ID: <20170515150336.GA14554@localhost.localdomain>
-References: <20170515140436.12175-1-mlichvar@redhat.com>
+From: Oliver Neukum <oneukum@suse.com>
+Subject: Re: [PATCH] usbnet: no address filtering on RNDIS
+Date: Mon, 15 May 2017 17:08:22 +0200
+Message-ID: <1494860902.2346.0.camel@suse.com>
+References: <20170515115853.32688-1-oneukum@suse.com>
+         <87efvqia63.fsf@miraculix.mork.no>
+         <20170515.101658.471352019262168789.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, WingMan Kwok <w-kwok2@ti.com>
-To: Miroslav Lichvar <mlichvar@redhat.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>, bjorn@mork.no
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f50.google.com ([74.125.82.50]:34823 "EHLO
-        mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934147AbdEOPDw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 15 May 2017 11:03:52 -0400
-Received: by mail-wm0-f50.google.com with SMTP id b84so88063748wmh.0
-        for <netdev@vger.kernel.org>; Mon, 15 May 2017 08:03:51 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20170515140436.12175-1-mlichvar@redhat.com>
+Received: from mx2.suse.de ([195.135.220.15]:49574 "EHLO mx1.suse.de"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S934555AbdEOPJx (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 15 May 2017 11:09:53 -0400
+In-Reply-To: <20170515.101658.471352019262168789.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 15, 2017 at 04:04:36PM +0200, Miroslav Lichvar wrote:
-> The driver doesn't support timestamping of all received packets and
-> should return error when trying to enable the HWTSTAMP_FILTER_ALL
-> filter.
+Am Montag, den 15.05.2017, 10:16 -0400 schrieb David Miller:
+> From: Bjørn Mork <bjorn@mork.no>
+> Date: Mon, 15 May 2017 14:20:20 +0200
 > 
-> Cc: WingMan Kwok <w-kwok2@ti.com>
-> Cc: Richard Cochran <richardcochran@gmail.com>
-> Signed-off-by: Miroslav Lichvar <mlichvar@redhat.com>
+> > Oliver Neukum <oneukum@suse.com> writes:
+> > 
+> >> RNDIS does not do multicast filtering and the commands crash a few devices.
+> >> Make it conditional.
+> > 
+> > 
+> > Strange.  I thought we already discussed this when the filter reset
+> > request was initially added 3 years ago.  Ref
+> > https://patchwork.ozlabs.org/patch/374137/
+> 
+> I think the suggestion at the end of that thread is a better way to
+> handle this.
 
-Acked-by: Richard Cochran <richardcochran@gmail.com>
+Indeed. I will redo the patch.
+
+	Regards
+		Oliver
