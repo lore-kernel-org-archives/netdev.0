@@ -1,102 +1,37 @@
-From: <bcohen@childrensnational.org>
-Subject: 465 netdev
-Date: Sun, 14 May 2017 23:03:15 -0000
-Message-ID: <149480299559.6152.3228946764751247313@zaural.ru>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH 2/3] Fix ERROR: Macros with complex values should be
+ enclosed in parentheses
+Date: Mon, 15 May 2017 02:25:31 +0200
+Message-ID: <20170515002531.GG14058@lunn.ch>
+References: <20170514175130.18664-1-macfij7@wp.pl>
+ <20170514175130.18664-2-macfij7@wp.pl>
 Mime-Version: 1.0
-Content-Type: application/zip; name="2786216.zip"
-Content-Transfer-Encoding: base64
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ws53.zone31-163-135.zaural.ru ([31.163.135.53]:51252 "HELO
-        zaural.ru" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with SMTP
-        id S1752398AbdENXDT (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 14 May 2017 19:03:19 -0400
-Content-Disposition: attachment
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: mst@redhat.com, jasonwang@redhat.com,
+        virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Maciek Fijalkowski <macfij7@wp.pl>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170514175130.18664-2-macfij7@wp.pl>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-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
+On Sun, May 14, 2017 at 07:51:29PM +0200, Maciek Fijalkowski wrote:
+> From: Maciej Fijalkowski <macfij7@wp.pl>
+
+Hi Maciek
+
+Please include some commit message, even if it is just the checkpatch
+error you are fixing.
+
+Please include the subsystem/driver you are patch in the subject line.
+Also, your subject of Fix ERROR: makes it sound a lot worse than it
+is. 
+
+net: virtio: Fix checkpatch error Complex macros should use ()
+
+Also, you should at least compile test your change. It is clearly
+wrong, as shown by 0-day.
+
+       Andrew
