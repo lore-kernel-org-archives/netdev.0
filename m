@@ -1,50 +1,54 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH] neighbour: update neigh timestamps iff update is
- effective
-Date: Tue, 16 May 2017 01:27:52 +0300 (EEST)
-Message-ID: <alpine.LFD.2.20.1705160114010.8760@ja.home.ssi.bg>
-References: <20170510000605.6799-1-ihrachys@redhat.com> <alpine.LFD.2.20.1705152234490.4002@ja.home.ssi.bg> <CAKwN9=C-_F-8GQ7yMO6wVR1Ukw3gCBYOzxxDRRLU9b-u9P1v-Q@mail.gmail.com>
+From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+Subject: [PATCH] net: ethernet: broadcom: bnxt: remove dead code
+Date: Mon, 15 May 2017 17:28:18 -0500
+Message-ID: <20170515222818.GA17519@embeddedgus>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: "David S. Miller" <davem@davemloft.net>,
-        He Chunhui <hchunhui@mail.ustc.edu.cn>, netdev@vger.kernel.org
-To: Ihar Hrachyshka <ihrachys@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:57766 "EHLO ja.ssi.bg"
-        rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751253AbdEOW20 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 15 May 2017 18:28:26 -0400
-In-Reply-To: <CAKwN9=C-_F-8GQ7yMO6wVR1Ukw3gCBYOzxxDRRLU9b-u9P1v-Q@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+To: Michael Chan <michael.chan@broadcom.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Local variable _sh_ is assigned to a constant value and it is never updated
+again. Remove this variable and the dead code it guards.
 
-	Hello,
+Addresses-Coverity-ID: 1350916
+Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
+---
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c | 9 +++------
+ 1 file changed, 3 insertions(+), 6 deletions(-)
 
-On Mon, 15 May 2017, Ihar Hrachyshka wrote:
-
-> On Mon, May 15, 2017 at 1:05 PM, Julian Anastasov <ja@ssi.bg> wrote:
-> >
-> >         It seems arp_accept value currently has influence on
-> > the locktime for GARP requests. My understanding is that
-> > locktime is used to ignore replies from proxy_arp
-> > routers while the requested IP is present on the LAN
-> > and replies immediately. IMHO, GARP requests should not
-> > depend on locktime, even when arp_accept=0. For example:
-> 
-> Yes, I believe so.
-> 
-> I actually thought about introducing the patch that does just that:
-> forcing override on garp, but then I was thinking, maybe there is some
-> reason to still apply locktime rules to garps; f.e. if you have
-> multiple nodes carrying the ip address and located on the same
-> segment, maybe you want to pick the first that replies to you (in
-> theory, it may be the node that is less loaded, or closer to us; but
-> then, it's so fragile even if that was the intent...) Do you want me
-> to post the patch, or will you cover it?
-
-	Feel free to post a patch for this, I see that you change
-in another patch the is_garp value, so it seems the same logic
-should be used twice.
-
-Regards
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+index 1f1e54b..018674b 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+@@ -7380,12 +7380,10 @@ static int bnxt_get_dflt_rings(struct bnxt *bp, int *max_rx, int *max_tx,
+ static int bnxt_set_dflt_rings(struct bnxt *bp)
+ {
+ 	int dflt_rings, max_rx_rings, max_tx_rings, rc;
+-	bool sh = true;
+ 
+-	if (sh)
+-		bp->flags |= BNXT_FLAG_SHARED_RINGS;
++	bp->flags |= BNXT_FLAG_SHARED_RINGS;
+ 	dflt_rings = netif_get_num_default_rss_queues();
+-	rc = bnxt_get_dflt_rings(bp, &max_rx_rings, &max_tx_rings, sh);
++	rc = bnxt_get_dflt_rings(bp, &max_rx_rings, &max_tx_rings, true);
+ 	if (rc)
+ 		return rc;
+ 	bp->rx_nr_rings = min_t(int, dflt_rings, max_rx_rings);
+@@ -7396,8 +7394,7 @@ static int bnxt_set_dflt_rings(struct bnxt *bp)
+ 		netdev_warn(bp->dev, "Unable to reserve tx rings\n");
+ 
+ 	bp->tx_nr_rings = bp->tx_nr_rings_per_tc;
+-	bp->cp_nr_rings = sh ? max_t(int, bp->tx_nr_rings, bp->rx_nr_rings) :
+-			       bp->tx_nr_rings + bp->rx_nr_rings;
++	bp->cp_nr_rings = max_t(int, bp->tx_nr_rings, bp->rx_nr_rings);
+ 	bp->num_stat_ctxs = bp->cp_nr_rings;
+ 	if (BNXT_CHIP_TYPE_NITRO_A0(bp)) {
+ 		bp->rx_nr_rings++;
+-- 
+2.5.0
