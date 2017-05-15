@@ -1,76 +1,67 @@
 From: David Lebrun <david.lebrun@uclouvain.be>
-Subject: Re: [PATCH net v2] ipv6: sr: fix user space compilation error with
- old glibc
-Date: Mon, 15 May 2017 16:21:09 +0200
-Message-ID: <9f06720b-1a6e-2a0b-0756-70e9e73b631f@uclouvain.be>
-References: <20170515110320.23369-1-david.lebrun@uclouvain.be>
- <20170515.100922.2194549018034831667.davem@davemloft.net>
+Subject: Re: [PATCH iproute2 net] ip: lwtunnel: remove definition of
+ __USE_KERNEL_IPV6_DEFS
+Date: Mon, 15 May 2017 16:22:37 +0200
+Message-ID: <72a522bf-9e39-d5a9-6fad-72d5411a6228@uclouvain.be>
+References: <20170515111334.23805-1-david.lebrun@uclouvain.be>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha1;
         protocol="application/pgp-signature";
-        boundary="S60dR1cuWrOUXUQnkqgbcruA9wE1gQVc9"
-Cc: <netdev@vger.kernel.org>, <daniel@iogearbox.net>
-To: David Miller <davem@davemloft.net>
+        boundary="j8n0toxK5iugRikdA0uL1hb5wx0KCuBlp"
+Cc: <daniel@iogearbox.net>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:48179 "EHLO
-        smtp6.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934565AbdEOOUk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 15 May 2017 10:20:40 -0400
-In-Reply-To: <20170515.100922.2194549018034831667.davem@davemloft.net>
+Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:37731 "EHLO
+        smtp1.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933222AbdEOOWF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 15 May 2017 10:22:05 -0400
+In-Reply-To: <20170515111334.23805-1-david.lebrun@uclouvain.be>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---S60dR1cuWrOUXUQnkqgbcruA9wE1gQVc9
-Content-Type: multipart/mixed; boundary="1Nolc0iIUxlaaSjj1xArIkqigq2vuTo8k"
+--j8n0toxK5iugRikdA0uL1hb5wx0KCuBlp
+Content-Type: multipart/mixed; boundary="oJHg6hHd9DwJnsEKErWVTthcxhFBnSGFb"
 From: David Lebrun <david.lebrun@uclouvain.be>
-To: David Miller <davem@davemloft.net>
-Cc: netdev@vger.kernel.org, daniel@iogearbox.net
-Message-ID: <9f06720b-1a6e-2a0b-0756-70e9e73b631f@uclouvain.be>
-Subject: Re: [PATCH net v2] ipv6: sr: fix user space compilation error with
- old glibc
-References: <20170515110320.23369-1-david.lebrun@uclouvain.be>
- <20170515.100922.2194549018034831667.davem@davemloft.net>
-In-Reply-To: <20170515.100922.2194549018034831667.davem@davemloft.net>
+To: netdev@vger.kernel.org
+Cc: daniel@iogearbox.net
+Message-ID: <72a522bf-9e39-d5a9-6fad-72d5411a6228@uclouvain.be>
+Subject: Re: [PATCH iproute2 net] ip: lwtunnel: remove definition of
+ __USE_KERNEL_IPV6_DEFS
+References: <20170515111334.23805-1-david.lebrun@uclouvain.be>
+In-Reply-To: <20170515111334.23805-1-david.lebrun@uclouvain.be>
 
---1Nolc0iIUxlaaSjj1xArIkqigq2vuTo8k
-Content-Type: text/plain; charset=windows-1252
+--oJHg6hHd9DwJnsEKErWVTthcxhFBnSGFb
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: quoted-printable
 
-On 05/15/2017 04:09 PM, David Miller wrote:
-> Please, no.
+On 05/15/2017 01:13 PM, David Lebrun wrote:
+> When __USE_KERNEL_IPV6_DEFS is set, netinet/in.h will not define struct=
+ures
+> such as in6_addr. This is useful when linux/in6.h is also included.
+> However, older glibc versions do not support this switch.
 >=20
-> The reason we put together a method by which glibc and the kernel can
-> stay out of eachother's way in header files is exactly so that we
-> don't need ifdefs that conditionally do netinet/in.h vs. using the
-> kernel header.
->=20
-> There are more than a dozen other UAPI headers which make use of
-> linux/in6.h and none of them jump through hoops like what is being
-> proposed here, and that's on purpose.
->=20
-> So special casing this one one header is really not the way to go.
+> This patch allows iproute2 to still be compiled with older glibc versio=
+ns,
+> along with the kernel net-next patch that updates include/linux/seg6.h.=
 
-Mmmh it's true that special casing in kernel headers for a user space
-issue is not the best way to go.. I'll find a way to solve this in user
-space only.
 
-Sorry about the lousy patch.
+Please disregard this patch, it's not the proper way to solve the issue.
 
 David
 
 
---1Nolc0iIUxlaaSjj1xArIkqigq2vuTo8k--
+--oJHg6hHd9DwJnsEKErWVTthcxhFBnSGFb--
 
---S60dR1cuWrOUXUQnkqgbcruA9wE1gQVc9
+--j8n0toxK5iugRikdA0uL1hb5wx0KCuBlp
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: OpenPGP digital signature
 Content-Disposition: attachment; filename="signature.asc"
 
 -----BEGIN PGP SIGNATURE-----
 
-iF0EARECAB0WIQT8nTbQ2eQR5sQwCJ+NvOfruxnoAwUCWRm5VQAKCRCNvOfruxno
-A/pPAJ9PbGoEKm3CcRWaBOcRbD0hwpqN7QCdFisfmP4y6od0IuiEMfrAJBZugrE=
-=mbwl
+iF0EARECAB0WIQT8nTbQ2eQR5sQwCJ+NvOfruxnoAwUCWRm5rQAKCRCNvOfruxno
+AzWfAJ4qzSCediSX6IUwrmdJHQlVDibp5ACeJ3ILhPQ8mAOwoWaS9B6pbHaMbBs=
+=CllP
 -----END PGP SIGNATURE-----
 
---S60dR1cuWrOUXUQnkqgbcruA9wE1gQVc9--
+--j8n0toxK5iugRikdA0uL1hb5wx0KCuBlp--
