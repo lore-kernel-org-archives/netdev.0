@@ -1,56 +1,34 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: [PATCH] bridge: netlink: check vlan_default_pvid range
-Date: Mon, 15 May 2017 15:05:38 +0300
-Message-ID: <0ba60aa7-9791-a023-0d5b-a8bc0223fffd@cumulusnetworks.com>
-References: <20170515110819.11847-1-tobias.jungel@bisdn.de>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: [PATCH] usbnet: no address filtering on RNDIS
+Date: Mon, 15 May 2017 14:20:20 +0200
+Message-ID: <87efvqia63.fsf@miraculix.mork.no>
+References: <20170515115853.32688-1-oneukum@suse.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Tobias Jungel <tobias.jungel@bisdn.de>,
-        Stephen Hemminger <stephen@networkplumber.org>,
-        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Oliver Neukum <oneukum@suse.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f44.google.com ([74.125.82.44]:38254 "EHLO
-        mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754329AbdEOMFj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 15 May 2017 08:05:39 -0400
-Received: by mail-wm0-f44.google.com with SMTP id v15so44148189wmv.1
-        for <netdev@vger.kernel.org>; Mon, 15 May 2017 05:05:38 -0700 (PDT)
-In-Reply-To: <20170515110819.11847-1-tobias.jungel@bisdn.de>
-Content-Language: en-US
+Received: from canardo.mork.no ([148.122.252.1]:34185 "EHLO canardo.mork.no"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750935AbdEOMUk (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 15 May 2017 08:20:40 -0400
+In-Reply-To: <20170515115853.32688-1-oneukum@suse.com> (Oliver Neukum's
+        message of "Mon, 15 May 2017 13:58:53 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 5/15/17 2:08 PM, Tobias Jungel wrote:
-> Currently it is allowed to set the default pvid of a bridge to a value
-> above VLAN_VID_MASK (0xfff). This patch checks the passed pvid and
-> disables the pvid in case it is out of bounds.
-> 
-> Reproduce by calling:
-> 
-> [root@test ~]# ip l a type bridge
-> [root@test ~]# ip l a type dummy
-> [root@test ~]# ip l s bridge0 type bridge vlan_filtering 1
-> [root@test ~]# ip l s bridge0 type bridge vlan_default_pvid 9999
-> [root@test ~]# ip l s dummy0 master bridge0
-> [root@test ~]# bridge vlan
-> port	vlan ids
-> bridge0	 9999 PVID Egress Untagged
-> 
-> dummy0	 9999 PVID Egress Untagged
-> ---
->   net/bridge/br_vlan.c | 2 +-
->   1 file changed, 1 insertion(+), 1 deletion(-)
-> 
+Oliver Neukum <oneukum@suse.com> writes:
 
-Good catch, but this is not the right fix. Default pvid of 0 disables the
-default pvid, but a wrong pvid should result in -EINVAL return instead of
-0. Take a look how the parent default pvid function handles this case
-(br_vlan_set_default_pvid).
+> RNDIS does not do multicast filtering and the commands crash a few device=
+s.
+> Make it conditional.
 
-Also please add a sign off and a proper Fixes tag.
-For more information about submitting patches you can check
-Documentation/SubmittingPatches
 
-Thanks,
-  Nik
+Strange.  I thought we already discussed this when the filter reset
+request was initially added 3 years ago.  Ref
+https://patchwork.ozlabs.org/patch/374137/
+
+
+
+Bj=C3=B8rn
