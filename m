@@ -1,69 +1,48 @@
-From: Alex Williamson <alex.williamson@redhat.com>
-Subject: Re: [PATCH 1/3] Fix ERROR: trailing statements should be on next line
-Date: Sun, 14 May 2017 21:20:48 -0600
-Message-ID: <20170514212048.24ee7667@t450s.home>
-References: <20170514175130.18664-1-macfij7@wp.pl>
-	<20170515055700-mutt-send-email-mst@kernel.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org, Maciek Fijalkowski <macfij7@wp.pl>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20170515055700-mutt-send-email-mst@kernel.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: linzhang <xiaolou4617@gmail.com>
+Subject: [PATCH] net: x25: fix one potential use-after-free issue
+Date: Mon, 15 May 2017 12:12:49 +0800
+Message-ID: <1494821569-18572-1-git-send-email-xiaolou4617@gmail.com>
+Cc: nhorman@tuxdriver.com, linux-x25@vger.kernel.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        linzhang <xiaolou4617@gmail.com>
+To: andrew.hendry@gmail.com, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:32880 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932066AbdEOENF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 15 May 2017 00:13:05 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 15 May 2017 05:58:05 +0300
-"Michael S. Tsirkin" <mst@redhat.com> wrote:
+The function x25_init is not properly unregister related resources
+on error handler.It is will result in kernel oops if x25_init init
+failed, so add right unregister call on error handler.
 
-> On Sun, May 14, 2017 at 07:51:28PM +0200, Maciek Fijalkowski wrote:
-> > From: Maciej Fijalkowski <macfij7@wp.pl>
-> > 
-> > Signed-off-by: Maciej Fijalkowski <macfij7@wp.pl>  
-> 
-> I prefer the original form - ; isn't a full statement.
-> 
-> > ---
-> >  drivers/net/virtio_net.c | 3 ++-
-> >  1 file changed, 2 insertions(+), 1 deletion(-)
-> > 
-> > diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> > index 9320d96..f20dfb8 100644
-> > --- a/drivers/net/virtio_net.c
-> > +++ b/drivers/net/virtio_net.c
-> > @@ -217,7 +217,8 @@ static void give_pages(struct receive_queue *rq, struct page *page)
-> >  	struct page *end;
-> >  
-> >  	/* Find end of list, sew whole thing into vi->rq.pages. */
-> > -	for (end = page; end->private; end = (struct page *)end->private);
-> > +	for (end = page; end->private; end = (struct page *)end->private)
-> > +		;
+Signed-off-by: linzhang <xiaolou4617@gmail.com>
+---
+ net/x25/af_x25.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
-FWIW, I generally like to put a comment on the next line to make it
-abundantly clear that there's nothing in the body of the loop, it's
-also more aesthetically pleasing than a semi-colon on the line by
-itself, ex. /* Nothing */;  It's just too easy to misinterpret the
-loop otherwise, especially without gratuitous white space.  Thanks,
-
-Alex
-
-
-> >  	end->private = (unsigned long)rq->pages;
-> >  	rq->pages = page;
-> >  }
-> > -- 
-> > 2.4.11  
-> _______________________________________________
-> Virtualization mailing list
-> Virtualization@lists.linux-foundation.org
-> https://lists.linuxfoundation.org/mailman/listinfo/virtualization
+diff --git a/net/x25/af_x25.c b/net/x25/af_x25.c
+index 8b911c2..e01e09a 100644
+--- a/net/x25/af_x25.c
++++ b/net/x25/af_x25.c
+@@ -1811,12 +1811,14 @@ static int __init x25_init(void)
+ 	x25_register_sysctl();
+ 	rc = x25_proc_init();
+ 	if (rc != 0)
+-		goto out_dev;
++		goto out_sysctl;
+ out:
+ 	return rc;
+-out_dev:
++out_sysctl:
++	x25_unregister_sysctl();
+ 	unregister_netdevice_notifier(&x25_dev_notifier);
+ out_sock:
++	dev_remove_pack(&x25_packet_type);
+ 	sock_unregister(AF_X25);
+ out_proto:
+ 	proto_unregister(&x25_proto);
+-- 
+1.8.3.1
