@@ -1,42 +1,90 @@
-From: administrador <indra.ratama@j-express.id>
-Subject: Admin
-Date: Mon, 15 May 2017 21:56:16 +0530
-Message-ID: <20170515162628.C108F12E1B2C@mail.j-express.id>
-Reply-To: Sistemass_Adminss@mail2world.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: x25: fix one potential use-after-free issue
+Date: Mon, 15 May 2017 14:47:01 -0400 (EDT)
+Message-ID: <20170515.144701.1280299270304471194.davem@davemloft.net>
+References: <1494821569-18572-1-git-send-email-xiaolou4617@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: Recipients <indra.ratama@j-express.id>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from [103.229.161.179] ([103.229.161.179]:46780 "EHLO
-        mail.j-express.id" rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org
-        with ESMTP id S932948AbdEOSk0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 15 May 2017 14:40:26 -0400
-Content-Description: Mail message body
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: andrew.hendry@gmail.com, nhorman@tuxdriver.com,
+        linux-x25@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: xiaolou4617@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1494821569-18572-1-git-send-email-xiaolou4617@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+From: linzhang <xiaolou4617@gmail.com>
+Date: Mon, 15 May 2017 12:12:49 +0800
 
-ATENCI=D3N;
+> The function x25_init is not properly unregister related resources
+> on error handler.It is will result in kernel oops if x25_init init
+> failed, so add right unregister call on error handler.
+> 
+> Signed-off-by: linzhang <xiaolou4617@gmail.com>
 
-Su buz=F3n ha superado el l=EDmite de almacenamiento, que es de 5 GB defini=
-dos por el administrador, quien actualmente est=E1 ejecutando en 10.9GB, no=
- puede ser capaz de enviar o recibir correo nuevo hasta que vuelva a valida=
-r subuz=F3n de correo electr=F3nico. Para revalidar su buz=F3n de correo, e=
-nv=EDe la siguiente informaci=F3n a continuaci=F3n:
+I think we need to go a bit further and make x25_register_sysctl()
+properly check for and return failure.
 
-nombre:
-Nombre de usuario:
-contrase=F1a:
-Confirmar contrase=F1a:
-E-mail:
-tel=E9fono: 0
+Something like:
 
-Si usted no puede revalidar su buz=F3n, el buz=F3n se deshabilitar=E1!
-
-Disculpa las molestias.
-C=F3digo de verificaci=F3n: es:00916gbd51.17
-Correo Soporte T=E9cnico =A9 2017
-
-=A1gracias
-Sistemas Administrador
+diff --git a/include/net/x25.h b/include/net/x25.h
+index c383aa4..6d30a01 100644
+--- a/include/net/x25.h
++++ b/include/net/x25.h
+@@ -298,10 +298,10 @@ void x25_check_rbuf(struct sock *);
+ 
+ /* sysctl_net_x25.c */
+ #ifdef CONFIG_SYSCTL
+-void x25_register_sysctl(void);
++int x25_register_sysctl(void);
+ void x25_unregister_sysctl(void);
+ #else
+-static inline void x25_register_sysctl(void) {};
++static inline int x25_register_sysctl(void) { return 0; };
+ static inline void x25_unregister_sysctl(void) {};
+ #endif /* CONFIG_SYSCTL */
+ 
+diff --git a/net/x25/af_x25.c b/net/x25/af_x25.c
+index 8b911c2..b7d6614 100644
+--- a/net/x25/af_x25.c
++++ b/net/x25/af_x25.c
+@@ -1808,12 +1808,17 @@ static int __init x25_init(void)
+ 
+ 	pr_info("Linux Version 0.2\n");
+ 
+-	x25_register_sysctl();
++	rc = x25_register_sysctl();
++	if (rc)
++		goto out_dev;
++
+ 	rc = x25_proc_init();
+ 	if (rc != 0)
+-		goto out_dev;
++		goto out_sysctl;
+ out:
+ 	return rc;
++out_sysctl:
++	x25_unregister_sysctl();
+ out_dev:
+ 	unregister_netdevice_notifier(&x25_dev_notifier);
+ out_sock:
+diff --git a/net/x25/sysctl_net_x25.c b/net/x25/sysctl_net_x25.c
+index a06dfe1..ba078c8 100644
+--- a/net/x25/sysctl_net_x25.c
++++ b/net/x25/sysctl_net_x25.c
+@@ -73,9 +73,12 @@ static struct ctl_table x25_table[] = {
+ 	{ },
+ };
+ 
+-void __init x25_register_sysctl(void)
++int __init x25_register_sysctl(void)
+ {
+ 	x25_table_header = register_net_sysctl(&init_net, "net/x25", x25_table);
++	if (!x25_table_header)
++		return -ENOMEM;
++	return 0;
+ }
+ 
+ void x25_unregister_sysctl(void)
