@@ -1,34 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v2] qed: Fix uninitialized data in aRFS
- infrastructure
-Date: Mon, 15 May 2017 14:39:13 -0400 (EDT)
-Message-ID: <20170515.143913.1695026862760668885.davem@davemloft.net>
-References: <1494753683-3429-1-git-send-email-Yuval.Mintz@cavium.com>
+Subject: Re: [net 1/6] net/mlx5e: Use a spinlock to synchronize statistics
+Date: Mon, 15 May 2017 14:39:48 -0400 (EDT)
+Message-ID: <20170515.143948.1759849420537263846.davem@davemloft.net>
+References: <20170512115650.11635-2-saeedm@mellanox.com>
+        <20170512.121354.1583292892374462482.davem@davemloft.net>
+        <CALzJLG-CbN5ipg3_CsN9_1RWtY_q_UaQGMu3KwDpgoYk53xkOQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: arnd@arndb.de, netdev@vger.kernel.org
-To: Yuval.Mintz@cavium.com
+Cc: saeedm@mellanox.com, netdev@vger.kernel.org, galp@mellanox.com,
+        kernel-team@fb.com
+To: saeedm@dev.mellanox.co.il
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:38352 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:38364 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932948AbdEOSjO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 15 May 2017 14:39:14 -0400
-In-Reply-To: <1494753683-3429-1-git-send-email-Yuval.Mintz@cavium.com>
+        with ESMTP id S932948AbdEOSju (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 15 May 2017 14:39:50 -0400
+In-Reply-To: <CALzJLG-CbN5ipg3_CsN9_1RWtY_q_UaQGMu3KwDpgoYk53xkOQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yuval Mintz <Yuval.Mintz@cavium.com>
-Date: Sun, 14 May 2017 12:21:23 +0300
+From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Date: Sun, 14 May 2017 11:52:13 +0300
 
-> Current memset is using incorrect type of variable, causing the
-> upper-half of the strucutre to be left uninitialized and causing:
-> 
->   ethernet/qlogic/qed/qed_init_fw_funcs.c: In function 'qed_set_rfs_mode_disable':
->   ethernet/qlogic/qed/qed_init_fw_funcs.c:993:3: error: '*((void *)&ramline+4)' is used uninitialized in this function [-Werror=uninitialized]
-> 
-> Fixes: d51e4af5c209 ("qed: aRFS infrastructure support")
-> Reported-by: Arnd Bergmann <arnd@arndb.de>
-> Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
+> I agree, it is really ridiculous that we allocate/free a couple of
+> buffers on each update_stats operations, regardless of this patch.
+> Is it ok if we use a temp buffer under netdev_priv for such usages or
+> even use kmemcache ?
 
-Applied, thank you.
+If you can safely use a pre-allocated tmp buffer, yes that would be
+preferred.
