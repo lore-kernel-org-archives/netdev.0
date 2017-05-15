@@ -1,90 +1,80 @@
-From: Parav Pandit <parav-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Subject: RE: [PATCH] net/smc: mark as BROKEN due to remote memory exposure
-Date: Mon, 15 May 2017 01:58:05 +0000
-Message-ID: <VI1PR0502MB3008AAFB2888EBB88F69DFEAD1E10@VI1PR0502MB3008.eurprd05.prod.outlook.com>
-References: <20170514055848.GA23149@lst.de>
-        <20170514.115116.499149210596634881.davem@davemloft.net>
-        <1494788929.21774.1.camel@sandisk.com>
- <20170514.204404.1844909849561204299.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "hch-jcswGhMUV9g@public.gmane.org" <hch-jcswGhMUV9g@public.gmane.org>,
-        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "ubraun-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org" <ubraun-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        "Bart.VanAssche-XdAiOPVOjttBDgjK7y7TUQ@public.gmane.org" <Bart.VanAssche-XdAiOPVOjttBDgjK7y7TUQ@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170514.204404.1844909849561204299.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Content-Language: en-US
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: linzhang <xiaolou4617@gmail.com>
+Subject: [PATCH] net: socket: mark socket protocol handler structs as const
+Date: Mon, 15 May 2017 10:26:47 +0800
+Message-ID: <1494815207-9378-1-git-send-email-xiaolou4617@gmail.com>
+Cc: dmitry.tarnyagin@lockless.no, sameo@linux.intel.com,
+        nhorman@tuxdriver.com, linux-bluetooth@vger.kernel.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        linux-wireless@vger.kernel.org, linzhang <xiaolou4617@gmail.com>
+To: marcel@holtmann.org, gustavo@padovan.org, johan.hedberg@gmail.com,
+        davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:34029 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751166AbdEOC1M (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 14 May 2017 22:27:12 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+Signed-off-by: linzhang <xiaolou4617@gmail.com>
+---
+ net/bluetooth/af_bluetooth.c | 2 +-
+ net/caif/caif_socket.c       | 2 +-
+ net/kcm/kcmsock.c            | 2 +-
+ net/nfc/af_nfc.c             | 2 +-
+ 4 files changed, 4 insertions(+), 4 deletions(-)
 
-> -----Original Message-----
-> From: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org [mailto:linux-rdma-
-> owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org] On Behalf Of David Miller
-> Sent: Sunday, May 14, 2017 7:44 PM
-> To: Bart.VanAssche-XdAiOPVOjttBDgjK7y7TUQ@public.gmane.org
-> Cc: hch-jcswGhMUV9g@public.gmane.org; netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org;
-> stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; ubraun-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org
-> Subject: Re: [PATCH] net/smc: mark as BROKEN due to remote memory
-> exposure
->=20
-> From: Bart Van Assche <Bart.VanAssche-XdAiOPVOjttBDgjK7y7TUQ@public.gmane.org>
-> Date: Sun, 14 May 2017 19:08:50 +0000
->=20
-> > What is your plan to avoid that applications start using and depending
-> > on AF_SMC?
->=20
-
-status =3D socket(AF_SMC, field, IPPROT_TCP);
-Here,
-- AF_SMC actually means AF_INET IPv4 addresses!
-- IPPROTO_TCP means TCP and RDMA both when socket is AF_SMC.
-- When creating socket addresses, use AF_INET based addresses.
--  When invoking bind(), listen(), connect() APIs, use AF_INET addresses in=
-stead.
-- Supporting IPv6 is TBD with AF_SMC sockets.
-- At user level get_addrinfo will continue to return AF_INET addresses.
-
-Such explanation for socket APIs doesn't sound correct.
-
-The primary motivation for SMC protocol was to simplify the applications an=
-d library to make use of RDMA.
-This kind of API is against such simplicity and creates more confusion.
-RFC only gives example and doesn't asks to create new socket family.
-I can provide more data, but a simple grep in get_addrinfo() and friend fun=
-ctions in user space has heavy dependence on AF_INET and AF_INET6.
-
-> The API is out there already so we are out of luck, and neither you nor I=
- nor
-> anyone else can "stop" this from happening.
-
-I think it is still not too late to fix this API. SMC is released in v4.11 =
-very recently.
-v4.12 is still not out.
-Given the limitation of protocol being RoCEv1 only, we might not have many =
-users whose applications will stop functioning.
-(Which will anyway won't work for RoCEv2, and IPv6 addresses).
-
-I propose,
-(a) AF_SMC socket 43 can be marked reserved in future kernel versions to av=
-oid use.
-(b) New protocol family that represents TCP and RDMA protocol, may be named=
- IPPROTO_SMC even though it is not a protocol in IP header.
-
-We can possibly target to have this fix in 4.13 kernel timeframe.
-
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-rdma" in =
-the
-> body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org More majordomo info
-> at  http://vger.kernel.org/majordomo-info.html
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/net/bluetooth/af_bluetooth.c b/net/bluetooth/af_bluetooth.c
+index 42d0997..8a8f77a 100644
+--- a/net/bluetooth/af_bluetooth.c
++++ b/net/bluetooth/af_bluetooth.c
+@@ -733,7 +733,7 @@ void bt_procfs_cleanup(struct net *net, const char *name)
+ EXPORT_SYMBOL(bt_procfs_init);
+ EXPORT_SYMBOL(bt_procfs_cleanup);
+ 
+-static struct net_proto_family bt_sock_family_ops = {
++static const struct net_proto_family bt_sock_family_ops = {
+ 	.owner	= THIS_MODULE,
+ 	.family	= PF_BLUETOOTH,
+ 	.create	= bt_sock_create,
+diff --git a/net/caif/caif_socket.c b/net/caif/caif_socket.c
+index adcad34..4674d17 100644
+--- a/net/caif/caif_socket.c
++++ b/net/caif/caif_socket.c
+@@ -1099,7 +1099,7 @@ static int caif_create(struct net *net, struct socket *sock, int protocol,
+ }
+ 
+ 
+-static struct net_proto_family caif_family_ops = {
++static const struct net_proto_family caif_family_ops = {
+ 	.family = PF_CAIF,
+ 	.create = caif_create,
+ 	.owner = THIS_MODULE,
+diff --git a/net/kcm/kcmsock.c b/net/kcm/kcmsock.c
+index deca20f..da49191 100644
+--- a/net/kcm/kcmsock.c
++++ b/net/kcm/kcmsock.c
+@@ -1985,7 +1985,7 @@ static int kcm_create(struct net *net, struct socket *sock,
+ 	return 0;
+ }
+ 
+-static struct net_proto_family kcm_family_ops = {
++static const struct net_proto_family kcm_family_ops = {
+ 	.family = PF_KCM,
+ 	.create = kcm_create,
+ 	.owner  = THIS_MODULE,
+diff --git a/net/nfc/af_nfc.c b/net/nfc/af_nfc.c
+index 54e40fa..d3e594e 100644
+--- a/net/nfc/af_nfc.c
++++ b/net/nfc/af_nfc.c
+@@ -48,7 +48,7 @@ static int nfc_sock_create(struct net *net, struct socket *sock, int proto,
+ 	return rc;
+ }
+ 
+-static struct net_proto_family nfc_sock_family_ops = {
++static const struct net_proto_family nfc_sock_family_ops = {
+ 	.owner  = THIS_MODULE,
+ 	.family = PF_NFC,
+ 	.create = nfc_sock_create,
+-- 
+1.8.3.1
