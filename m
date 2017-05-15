@@ -1,32 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net 1/6] net/mlx5e: Use a spinlock to synchronize statistics
-Date: Mon, 15 May 2017 14:39:48 -0400 (EDT)
-Message-ID: <20170515.143948.1759849420537263846.davem@davemloft.net>
-References: <20170512115650.11635-2-saeedm@mellanox.com>
-        <20170512.121354.1583292892374462482.davem@davemloft.net>
-        <CALzJLG-CbN5ipg3_CsN9_1RWtY_q_UaQGMu3KwDpgoYk53xkOQ@mail.gmail.com>
+From: administrador <indra.ratama@j-express.id>
+Subject: Admin
+Date: Mon, 15 May 2017 21:56:16 +0530
+Message-ID: <20170515162628.C108F12E1B2C@mail.j-express.id>
+Reply-To: Sistemass_Adminss@mail2world.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: saeedm@mellanox.com, netdev@vger.kernel.org, galp@mellanox.com,
-        kernel-team@fb.com
-To: saeedm@dev.mellanox.co.il
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: Recipients <indra.ratama@j-express.id>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:38364 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932948AbdEOSju (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 15 May 2017 14:39:50 -0400
-In-Reply-To: <CALzJLG-CbN5ipg3_CsN9_1RWtY_q_UaQGMu3KwDpgoYk53xkOQ@mail.gmail.com>
+Received: from [103.229.161.179] ([103.229.161.179]:46780 "EHLO
+        mail.j-express.id" rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org
+        with ESMTP id S932948AbdEOSk0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 15 May 2017 14:40:26 -0400
+Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
-Date: Sun, 14 May 2017 11:52:13 +0300
 
-> I agree, it is really ridiculous that we allocate/free a couple of
-> buffers on each update_stats operations, regardless of this patch.
-> Is it ok if we use a temp buffer under netdev_priv for such usages or
-> even use kmemcache ?
+ATENCI=D3N;
 
-If you can safely use a pre-allocated tmp buffer, yes that would be
-preferred.
+Su buz=F3n ha superado el l=EDmite de almacenamiento, que es de 5 GB defini=
+dos por el administrador, quien actualmente est=E1 ejecutando en 10.9GB, no=
+ puede ser capaz de enviar o recibir correo nuevo hasta que vuelva a valida=
+r subuz=F3n de correo electr=F3nico. Para revalidar su buz=F3n de correo, e=
+nv=EDe la siguiente informaci=F3n a continuaci=F3n:
+
+nombre:
+Nombre de usuario:
+contrase=F1a:
+Confirmar contrase=F1a:
+E-mail:
+tel=E9fono: 0
+
+Si usted no puede revalidar su buz=F3n, el buz=F3n se deshabilitar=E1!
+
+Disculpa las molestias.
+C=F3digo de verificaci=F3n: es:00916gbd51.17
+Correo Soporte T=E9cnico =A9 2017
+
+=A1gracias
+Sistemas Administrador
