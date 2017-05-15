@@ -1,65 +1,42 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: iproute2 build error due to sr-ipv6 lwtunnel
-Date: Mon, 15 May 2017 08:24:24 -0700
-Message-ID: <20170515082424.074e472e@xeon-e3>
-References: <590AF0C3.6070006@iogearbox.net>
-        <3c0c0584-338d-47d0-76d4-e4408decc2c1@uclouvain.be>
-        <590AFA8A.30602@iogearbox.net>
-        <59185B16.5020107@iogearbox.net>
-        <6c156160-706e-7f87-117e-5c2c9784ec6f@uclouvain.be>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
- boundary="Sig_/aq4g0Y9.69TGM3_ULLqu2nJ"; protocol="application/pgp-signature"
-Cc: Daniel Borkmann <daniel@iogearbox.net>, <netdev@vger.kernel.org>
-To: David Lebrun <david.lebrun@uclouvain.be>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f52.google.com ([74.125.83.52]:35970 "EHLO
-        mail-pg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S965773AbdEOPY2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 15 May 2017 11:24:28 -0400
-Received: by mail-pg0-f52.google.com with SMTP id x64so42338349pgd.3
-        for <netdev@vger.kernel.org>; Mon, 15 May 2017 08:24:27 -0700 (PDT)
-In-Reply-To: <6c156160-706e-7f87-117e-5c2c9784ec6f@uclouvain.be>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ursula Braun <ubraun-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
+Subject: [PATCH V3 net 0/1] net/smc and the RDMA core
+Date: Mon, 15 May 2017 17:33:36 +0200
+Message-ID: <20170515153337.31262-1-ubraun@linux.vnet.ibm.com>
+Cc: hch-jcswGhMUV9g@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, jwi-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org,
+        schwidefsky-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org, heiko.carstens-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org,
+        raspl-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org, ubraun-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
---Sig_/aq4g0Y9.69TGM3_ULLqu2nJ
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: quoted-printable
+From: Ursula Braun <ursula.braun-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>
 
-On Mon, 15 May 2017 09:56:18 +0200
-David Lebrun <david.lebrun@uclouvain.be> wrote:
+Hi Dave,
 
-> On 05/14/2017 03:26 PM, Daniel Borkmann wrote:
-> >=20
-> > David, are you still looking into fixing this? =20
->=20
-> Sorry, I left the issue on the side and then forgot about it.
->=20
-> Could you try the following iproute2 patch ? Thanks
+as requested, here is V3 of the smc-patch with an updated commit log.
 
-The headers in iproute2 come from kernel headers.
-Any changes need to be done upstream in kernel.
+V3: update commit log
+V2: do not use _internal_mr
+V1: switch to usage of IB_PD_UNSAFE_GLOBAL_RKEY
 
---Sig_/aq4g0Y9.69TGM3_ULLqu2nJ
-Content-Type: application/pgp-signature
-Content-Description: OpenPGP digital signature
+Kind regards, Ursula
 
------BEGIN PGP SIGNATURE-----
+Ursula Braun (1):
+  smc: switch to usage of IB_PD_UNSAFE_GLOBAL_RKEY
 
-iQIzBAEBCAAdFiEEn2/DRbBb5+dmuDyPgKd/YJXN5H4FAlkZyCgACgkQgKd/YJXN
-5H5UrRAAuTWiGgOhs0IWaNtBtWjcyUjKeNHofckx0q4TPEALMSxeOF0ZGHeOOKMO
-FMkV/qh/jDd81FpLuFbfVWe9MKJdY7eOXCiQUhyfrd1IBMTq4iVDjRmxCjyjrpRE
-+I0xyH1i31/JEHw0z3YSwKVPAJWo3Q6LGUCkubnpGl0X4rOozbXuDso34jcHtiMB
-N+f04FaEmpZaDkg16kUtwPzqaJhBU7hIQ6hSuHuQsyYdKdPcnvqIpqstoP7HgRvi
-pr4LXoIzNaRhdUi1mROgLb+f8nVN64sGkRLSbVrhkNuJEPGcSVcrZ2C2KrmhQk17
-uaDWD7Msg91zsQeCWwQl74g4gPNQRmrB/gGm3mtWPWxoXpyTfpjEt/qJNHg/x/ez
-l2wDTGX1wEOdqMVllb+7CAjO75oLVpoUyYZ1440nBxJD0rcFeVHJO0t6BP/ota2s
-KmgKKcoj6tewvayMUUmYw5DK3XdiSL+WrG0l3Z+7qT6FEe5AHPQEojFLlxMoidf3
-kANuisem/gGfSDuKWFf68+he38GAL+kRn524shpjYIJIszxP/r49LZUSG++/8++w
-4tAVF9q2k4fOqZHLLXT+CorFjUNGvA21OWDW6QL770JWhwoU6bteCOQsoM2r10BU
-fC23+wThRz/VBwfCOE6ZvqsVHQRzVr9QZJN7JnEwwTtXvVmZ4a4=
-=DAG8
------END PGP SIGNATURE-----
+ net/smc/smc_clc.c  |  4 ++--
+ net/smc/smc_core.c | 16 +++-------------
+ net/smc/smc_core.h |  2 +-
+ net/smc/smc_ib.c   | 21 ++-------------------
+ net/smc/smc_ib.h   |  2 --
+ 5 files changed, 8 insertions(+), 37 deletions(-)
 
---Sig_/aq4g0Y9.69TGM3_ULLqu2nJ--
+-- 
+2.10.2
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
