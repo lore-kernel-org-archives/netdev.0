@@ -1,70 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/3] bpf: Track alignment of MAP pointers in verifier.
-Date: Mon, 15 May 2017 11:34:19 -0400 (EDT)
-Message-ID: <20170515.113419.1265777991542814689.davem@davemloft.net>
-References: <59186A2E.2010904@iogearbox.net>
-        <20170514.210005.2210026226038557615.davem@davemloft.net>
-        <5919A8AA.9010401@iogearbox.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 1/3] net/sock: factor out dequeue/peek with
+ offset code
+Date: Mon, 15 May 2017 09:02:18 -0700
+Message-ID: <1494864138.6465.0.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <cover.1494837879.git.pabeni@redhat.com>
+         <503e324ecd4085f256474df1a352a92814fd29f4.1494837879.git.pabeni@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: ast@fb.com, alexei.starovoitov@gmail.com, netdev@vger.kernel.org
-To: daniel@iogearbox.net
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>
+To: Paolo Abeni <pabeni@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:36120 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934637AbdEOPeY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 15 May 2017 11:34:24 -0400
-In-Reply-To: <5919A8AA.9010401@iogearbox.net>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:35679 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S935060AbdEOQCV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 15 May 2017 12:02:21 -0400
+Received: by mail-pf0-f196.google.com with SMTP id u26so16240144pfd.2
+        for <netdev@vger.kernel.org>; Mon, 15 May 2017 09:02:21 -0700 (PDT)
+In-Reply-To: <503e324ecd4085f256474df1a352a92814fd29f4.1494837879.git.pabeni@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann <daniel@iogearbox.net>
-Date: Mon, 15 May 2017 15:10:02 +0200
+On Mon, 2017-05-15 at 11:01 +0200, Paolo Abeni wrote:
+> And update __sk_queue_drop_skb() to work on the specified queue.
+> This will help the udp protocol to use an additional private
+> rx queue in a later patch.
+> 
+> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+> ---
 
->>> What are the semantics of using id here? In ptr_to_pkt, we have it,
->>> so that eventually, in find_good_pkt_pointers() we can match on id
->>> and update the range for all such regs with the same id. I'm just
->>> wondering as the side effect of this is that this makes state
->>> pruning worse.
-
-Daniel, I looked at the state pruning for maps.  The situation is
-quite interesting.
-
-Once we have env->varlen_map_value_access (and load or store via a
-PTR_TO_MAP_VALUE_ADJ pointer), the state pruning gets more strict, the
-relevant tests are:
-
-		if (memcmp(rold, rcur, sizeof(*rold)) == 0)
-			continue;
-
-		/* If the ranges were not the same, but everything else was and
-		 * we didn't do a variable access into a map then we are a-ok.
-		 */
-		if (!varlen_map_access &&
-		    memcmp(rold, rcur, offsetofend(struct bpf_reg_state, id)) == 0)
-			continue;
-
-The first memcmp() is not going to match any time we adjust any
-component of a MAP pointer reg.  The offset, the alignment, anything.
-That means any side effect whatsoever performed by check_pointer_add()
-even if we changed the code to not modify reg->id
-
-The second check elides:
-
-	s64 min_value;
-	u64 max_value;
-	u32 min_align;
-	u32 aux_off;
-	u32 aux_off_align;
-
-from the comparison but only if we haven't done a variable length
-MAP access.
-
-The only conclusion I can come to is that changing reg->id for
-PTR_TO_MAP_VALUE_ADJ has no side effect for state pruning, unless we
-perform PTR_TO_MAP_VALUE_ADJ register adjustments without ever
-accessing the map via that pointer in the entire program.
-
-I could add some new state to avoid the reg->id change, but given
-the above I don't think that it is really necessary.
+Acked-by: Eric Dumazet <edumazet@google.com>
