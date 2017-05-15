@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 01/10] net: sched: move tc_classify function to cls_api.c
-Date: Mon, 15 May 2017 10:38:48 +0200
-Message-ID: <20170515083857.3615-2-jiri@resnulli.us>
+Subject: [patch net-next v2 10/10] net: sched: add termination action to allow goto chain
+Date: Mon, 15 May 2017 10:38:57 +0200
+Message-ID: <20170515083857.3615-11-jiri@resnulli.us>
 References: <20170515083857.3615-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
         dsa@cumulusnetworks.com, edumazet@google.com,
@@ -10,377 +10,169 @@ Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
         mlxsw@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f196.google.com ([209.85.128.196]:33620 "EHLO
-        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933308AbdEOIjH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 15 May 2017 04:39:07 -0400
-Received: by mail-wr0-f196.google.com with SMTP id w50so14104384wrc.0
-        for <netdev@vger.kernel.org>; Mon, 15 May 2017 01:39:01 -0700 (PDT)
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:34523 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933308AbdEOIjU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 15 May 2017 04:39:20 -0400
+Received: by mail-wm0-f65.google.com with SMTP id d127so26496604wmf.1
+        for <netdev@vger.kernel.org>; Mon, 15 May 2017 01:39:14 -0700 (PDT)
 In-Reply-To: <20170515083857.3615-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-Move tc_classify function to cls_api.c where it belongs, rename it to
-fit the namespace.
+Introduce new type of termination action called "goto_chain". This allows
+user to specify a chain to be processed. This action type is
+then processed as a return value in tcf_classify loop in similar
+way as "reclassify" is, only it does not reset to the first filter
+in chain but rather reset to the first filter of the desired chain.
 
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- include/net/pkt_cls.h    |  9 +++++++++
- include/net/pkt_sched.h  |  3 ---
- net/core/dev.c           |  5 +++--
- net/sched/cls_api.c      | 42 ++++++++++++++++++++++++++++++++++++++++++
- net/sched/sch_api.c      | 48 ------------------------------------------------
- net/sched/sch_atm.c      |  2 +-
- net/sched/sch_cbq.c      |  2 +-
- net/sched/sch_drr.c      |  2 +-
- net/sched/sch_dsmark.c   |  2 +-
- net/sched/sch_fq_codel.c |  2 +-
- net/sched/sch_hfsc.c     |  2 +-
- net/sched/sch_htb.c      |  2 +-
- net/sched/sch_multiq.c   |  2 +-
- net/sched/sch_prio.c     |  2 +-
- net/sched/sch_qfq.c      |  2 +-
- net/sched/sch_sfb.c      |  2 +-
- net/sched/sch_sfq.c      |  2 +-
- 17 files changed, 66 insertions(+), 65 deletions(-)
+ include/net/act_api.h        |  1 +
+ include/net/sch_generic.h    |  9 +++++++--
+ include/uapi/linux/pkt_cls.h |  1 +
+ net/sched/act_api.c          | 40 ++++++++++++++++++++++++++++++++++++++++
+ net/sched/cls_api.c          |  8 ++++++--
+ 5 files changed, 55 insertions(+), 4 deletions(-)
 
-diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
-index 269fd78..cb74506 100644
---- a/include/net/pkt_cls.h
-+++ b/include/net/pkt_cls.h
-@@ -19,10 +19,19 @@ int unregister_tcf_proto_ops(struct tcf_proto_ops *ops);
+diff --git a/include/net/act_api.h b/include/net/act_api.h
+index b22c6f3..26ffd83 100644
+--- a/include/net/act_api.h
++++ b/include/net/act_api.h
+@@ -42,6 +42,7 @@ struct tc_action {
+ 	struct gnet_stats_basic_cpu __percpu *cpu_bstats;
+ 	struct gnet_stats_queue __percpu *cpu_qstats;
+ 	struct tc_cookie	*act_cookie;
++	struct tcf_chain	*goto_chain;
+ };
+ #define tcf_head	common.tcfa_head
+ #define tcf_index	common.tcfa_index
+diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
+index 569b565..3688501 100644
+--- a/include/net/sch_generic.h
++++ b/include/net/sch_generic.h
+@@ -193,8 +193,13 @@ struct Qdisc_ops {
  
- #ifdef CONFIG_NET_CLS
- void tcf_destroy_chain(struct tcf_proto __rcu **fl);
-+int tcf_classify(struct sk_buff *skb, const struct tcf_proto *tp,
-+		 struct tcf_result *res, bool compat_mode);
-+
- #else
- static inline void tcf_destroy_chain(struct tcf_proto __rcu **fl)
- {
- }
-+
-+static inline int tcf_classify(struct sk_buff *skb, const struct tcf_proto *tp,
-+			       struct tcf_result *res, bool compat_mode)
+ 
+ struct tcf_result {
+-	unsigned long	class;
+-	u32		classid;
++	union {
++		struct {
++			unsigned long	class;
++			u32		classid;
++		};
++		const struct tcf_proto *goto_tp;
++	};
+ };
+ 
+ struct tcf_proto_ops {
+diff --git a/include/uapi/linux/pkt_cls.h b/include/uapi/linux/pkt_cls.h
+index d613be3..1b9aa9e 100644
+--- a/include/uapi/linux/pkt_cls.h
++++ b/include/uapi/linux/pkt_cls.h
+@@ -51,6 +51,7 @@ enum {
+ 	(((combined) & (~TC_ACT_EXT_VAL_MASK)) == opcode)
+ 
+ #define TC_ACT_JUMP __TC_ACT_EXT(1)
++#define TC_ACT_GOTO_CHAIN __TC_ACT_EXT(2)
+ 
+ /* Action type identifiers*/
+ enum {
+diff --git a/net/sched/act_api.c b/net/sched/act_api.c
+index e389eb4..0ecf2a8 100644
+--- a/net/sched/act_api.c
++++ b/net/sched/act_api.c
+@@ -28,6 +28,31 @@
+ #include <net/act_api.h>
+ #include <net/netlink.h>
+ 
++static int tcf_action_goto_chain_init(struct tc_action *a, struct tcf_proto *tp)
 +{
-+	return TC_ACT_UNSPEC;
++	u32 chain_index = a->tcfa_action & TC_ACT_EXT_VAL_MASK;
++
++	if (!tp)
++		return -EINVAL;
++	a->goto_chain = tcf_chain_get(tp->chain->block, chain_index);
++	if (!a->goto_chain)
++		return -ENOMEM;
++	return 0;
 +}
- #endif
- 
- static inline unsigned long
-diff --git a/include/net/pkt_sched.h b/include/net/pkt_sched.h
-index bec46f6..2579c20 100644
---- a/include/net/pkt_sched.h
-+++ b/include/net/pkt_sched.h
-@@ -113,9 +113,6 @@ static inline void qdisc_run(struct Qdisc *q)
- 		__qdisc_run(q);
- }
- 
--int tc_classify(struct sk_buff *skb, const struct tcf_proto *tp,
--		struct tcf_result *res, bool compat_mode);
--
- static inline __be16 tc_skb_protocol(const struct sk_buff *skb)
++
++static void tcf_action_goto_chain_fini(struct tc_action *a)
++{
++	tcf_chain_put(a->goto_chain);
++}
++
++static void tcf_action_goto_chain_exec(const struct tc_action *a,
++				       struct tcf_result *res)
++{
++	const struct tcf_chain *chain = a->goto_chain;
++
++	res->goto_tp = rcu_dereference_bh(chain->filter_chain);
++}
++
+ static void free_tcf(struct rcu_head *head)
  {
- 	/* We need to take extra care in case the skb came via
-diff --git a/net/core/dev.c b/net/core/dev.c
-index d07aa5f..4c18534 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -104,6 +104,7 @@
- #include <net/dst.h>
- #include <net/dst_metadata.h>
- #include <net/pkt_sched.h>
-+#include <net/pkt_cls.h>
- #include <net/checksum.h>
- #include <net/xfrm.h>
- #include <linux/highmem.h>
-@@ -3177,7 +3178,7 @@ sch_handle_egress(struct sk_buff *skb, int *ret, struct net_device *dev)
- 	/* qdisc_skb_cb(skb)->pkt_len was already set by the caller. */
- 	qdisc_bstats_cpu_update(cl->q, skb);
+ 	struct tc_action *p = container_of(head, struct tc_action, tcfa_rcu);
+@@ -39,6 +64,8 @@ static void free_tcf(struct rcu_head *head)
+ 		kfree(p->act_cookie->data);
+ 		kfree(p->act_cookie);
+ 	}
++	if (p->goto_chain)
++		tcf_action_goto_chain_fini(p);
  
--	switch (tc_classify(skb, cl, &cl_res, false)) {
-+	switch (tcf_classify(skb, cl, &cl_res, false)) {
- 	case TC_ACT_OK:
- 	case TC_ACT_RECLASSIFY:
- 		skb->tc_index = TC_H_MIN(cl_res.classid);
-@@ -3947,7 +3948,7 @@ sch_handle_ingress(struct sk_buff *skb, struct packet_type **pt_prev, int *ret,
- 	skb->tc_at_ingress = 1;
- 	qdisc_bstats_cpu_update(cl->q, skb);
+ 	kfree(p);
+ }
+@@ -465,6 +492,8 @@ int tcf_action_exec(struct sk_buff *skb, struct tc_action **actions,
+ 				else /* faulty graph, stop pipeline */
+ 					return TC_ACT_OK;
+ 			}
++		} else if (TC_ACT_EXT_CMP(ret, TC_ACT_GOTO_CHAIN)) {
++			tcf_action_goto_chain_exec(a, res);
+ 		}
  
--	switch (tc_classify(skb, cl, &cl_res, false)) {
-+	switch (tcf_classify(skb, cl, &cl_res, false)) {
- 	case TC_ACT_OK:
- 	case TC_ACT_RECLASSIFY:
- 		skb->tc_index = TC_H_MIN(cl_res.classid);
+ 		if (ret != TC_ACT_PIPE)
+@@ -657,6 +686,17 @@ struct tc_action *tcf_action_init_1(struct net *net, struct tcf_proto *tp,
+ 	if (err != ACT_P_CREATED)
+ 		module_put(a_o->owner);
+ 
++	if (TC_ACT_EXT_CMP(a->tcfa_action, TC_ACT_GOTO_CHAIN)) {
++		err = tcf_action_goto_chain_init(a, tp);
++		if (err) {
++			LIST_HEAD(actions);
++
++			list_add_tail(&a->list, &actions);
++			tcf_action_destroy(&actions, bind);
++			return ERR_PTR(err);
++		}
++	}
++
+ 	return a;
+ 
+ err_mod:
 diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
-index 22f88b3..a97af61 100644
+index 1112a2b..98cc689 100644
 --- a/net/sched/cls_api.c
 +++ b/net/sched/cls_api.c
-@@ -196,6 +196,48 @@ void tcf_destroy_chain(struct tcf_proto __rcu **fl)
- }
- EXPORT_SYMBOL(tcf_destroy_chain);
+@@ -304,10 +304,14 @@ int tcf_classify(struct sk_buff *skb, const struct tcf_proto *tp,
+ 			continue;
  
-+/* Main classifier routine: scans classifier chain attached
-+ * to this qdisc, (optionally) tests for protocol and asks
-+ * specific classifiers.
-+ */
-+int tcf_classify(struct sk_buff *skb, const struct tcf_proto *tp,
-+		 struct tcf_result *res, bool compat_mode)
-+{
-+	__be16 protocol = tc_skb_protocol(skb);
-+	const int max_reclassify_loop = 4;
-+	const struct tcf_proto *old_tp = tp;
-+	int limit = 0;
-+
-+reclassify:
-+	for (; tp; tp = rcu_dereference_bh(tp->next)) {
-+		int err;
-+
-+		if (tp->protocol != protocol &&
-+		    tp->protocol != htons(ETH_P_ALL))
-+			continue;
-+
-+		err = tp->classify(skb, tp, res);
-+		if (unlikely(err == TC_ACT_RECLASSIFY && !compat_mode))
-+			goto reset;
-+		if (err >= 0)
-+			return err;
-+	}
-+
-+	return TC_ACT_UNSPEC; /* signal: continue lookup */
-+reset:
-+	if (unlikely(limit++ >= max_reclassify_loop)) {
-+		net_notice_ratelimited("%s: reclassify loop, rule prio %u, protocol %02x\n",
-+				       tp->q->ops->id, tp->prio & 0xffff,
-+				       ntohs(tp->protocol));
-+		return TC_ACT_SHOT;
-+	}
-+
-+	tp = old_tp;
-+	protocol = tc_skb_protocol(skb);
-+	goto reclassify;
-+}
-+EXPORT_SYMBOL(tcf_classify);
-+
- /* Add/change/delete/get a filter node */
- 
- static int tc_ctl_tfilter(struct sk_buff *skb, struct nlmsghdr *n,
-diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
-index bbe57d5..2bf20bb 100644
---- a/net/sched/sch_api.c
-+++ b/net/sched/sch_api.c
-@@ -1872,54 +1872,6 @@ static int tc_dump_tclass(struct sk_buff *skb, struct netlink_callback *cb)
- 	return skb->len;
- }
- 
--/* Main classifier routine: scans classifier chain attached
-- * to this qdisc, (optionally) tests for protocol and asks
-- * specific classifiers.
-- */
--int tc_classify(struct sk_buff *skb, const struct tcf_proto *tp,
--		struct tcf_result *res, bool compat_mode)
--{
--	__be16 protocol = tc_skb_protocol(skb);
--#ifdef CONFIG_NET_CLS_ACT
--	const int max_reclassify_loop = 4;
--	const struct tcf_proto *old_tp = tp;
--	int limit = 0;
--
--reclassify:
--#endif
--	for (; tp; tp = rcu_dereference_bh(tp->next)) {
--		int err;
--
--		if (tp->protocol != protocol &&
--		    tp->protocol != htons(ETH_P_ALL))
--			continue;
--
--		err = tp->classify(skb, tp, res);
--#ifdef CONFIG_NET_CLS_ACT
+ 		err = tp->classify(skb, tp, res);
 -		if (unlikely(err == TC_ACT_RECLASSIFY && !compat_mode))
--			goto reset;
--#endif
++		if (err == TC_ACT_RECLASSIFY && !compat_mode) {
+ 			goto reset;
 -		if (err >= 0)
--			return err;
--	}
--
--	return TC_ACT_UNSPEC; /* signal: continue lookup */
--#ifdef CONFIG_NET_CLS_ACT
--reset:
--	if (unlikely(limit++ >= max_reclassify_loop)) {
--		net_notice_ratelimited("%s: reclassify loop, rule prio %u, protocol %02x\n",
--				       tp->q->ops->id, tp->prio & 0xffff,
--				       ntohs(tp->protocol));
--		return TC_ACT_SHOT;
--	}
--
--	tp = old_tp;
--	protocol = tc_skb_protocol(skb);
--	goto reclassify;
--#endif
--}
--EXPORT_SYMBOL(tc_classify);
--
- #ifdef CONFIG_PROC_FS
- static int psched_show(struct seq_file *seq, void *v)
- {
-diff --git a/net/sched/sch_atm.c b/net/sched/sch_atm.c
-index 40cbcee..89d32fa 100644
---- a/net/sched/sch_atm.c
-+++ b/net/sched/sch_atm.c
-@@ -377,7 +377,7 @@ static int atm_tc_enqueue(struct sk_buff *skb, struct Qdisc *sch,
- 		list_for_each_entry(flow, &p->flows, list) {
- 			fl = rcu_dereference_bh(flow->filter_list);
- 			if (fl) {
--				result = tc_classify(skb, fl, &res, true);
-+				result = tcf_classify(skb, fl, &res, true);
- 				if (result < 0)
- 					continue;
- 				flow = (struct atm_flow_data *)res.class;
-diff --git a/net/sched/sch_cbq.c b/net/sched/sch_cbq.c
-index 7415859..c543ea3 100644
---- a/net/sched/sch_cbq.c
-+++ b/net/sched/sch_cbq.c
-@@ -233,7 +233,7 @@ cbq_classify(struct sk_buff *skb, struct Qdisc *sch, int *qerr)
- 		/*
- 		 * Step 2+n. Apply classifier.
- 		 */
--		result = tc_classify(skb, fl, &res, true);
-+		result = tcf_classify(skb, fl, &res, true);
- 		if (!fl || result < 0)
- 			goto fallback;
- 
-diff --git a/net/sched/sch_drr.c b/net/sched/sch_drr.c
-index 58a8c32..446d79b 100644
---- a/net/sched/sch_drr.c
-+++ b/net/sched/sch_drr.c
-@@ -333,7 +333,7 @@ static struct drr_class *drr_classify(struct sk_buff *skb, struct Qdisc *sch,
- 
- 	*qerr = NET_XMIT_SUCCESS | __NET_XMIT_BYPASS;
- 	fl = rcu_dereference_bh(q->filter_list);
--	result = tc_classify(skb, fl, &res, false);
-+	result = tcf_classify(skb, fl, &res, false);
- 	if (result >= 0) {
- #ifdef CONFIG_NET_CLS_ACT
- 		switch (result) {
-diff --git a/net/sched/sch_dsmark.c b/net/sched/sch_dsmark.c
-index 1c0f877..7bc638d 100644
---- a/net/sched/sch_dsmark.c
-+++ b/net/sched/sch_dsmark.c
-@@ -234,7 +234,7 @@ static int dsmark_enqueue(struct sk_buff *skb, struct Qdisc *sch,
- 	else {
- 		struct tcf_result res;
- 		struct tcf_proto *fl = rcu_dereference_bh(p->filter_list);
--		int result = tc_classify(skb, fl, &res, false);
-+		int result = tcf_classify(skb, fl, &res, false);
- 
- 		pr_debug("result %d class 0x%04x\n", result, res.classid);
- 
-diff --git a/net/sched/sch_fq_codel.c b/net/sched/sch_fq_codel.c
-index 18bbb54..0db8d68 100644
---- a/net/sched/sch_fq_codel.c
-+++ b/net/sched/sch_fq_codel.c
-@@ -96,7 +96,7 @@ static unsigned int fq_codel_classify(struct sk_buff *skb, struct Qdisc *sch,
- 		return fq_codel_hash(q, skb) + 1;
- 
- 	*qerr = NET_XMIT_SUCCESS | __NET_XMIT_BYPASS;
--	result = tc_classify(skb, filter, &res, false);
-+	result = tcf_classify(skb, filter, &res, false);
- 	if (result >= 0) {
- #ifdef CONFIG_NET_CLS_ACT
- 		switch (result) {
-diff --git a/net/sched/sch_hfsc.c b/net/sched/sch_hfsc.c
-index 5cb82f6..b0dcab1 100644
---- a/net/sched/sch_hfsc.c
-+++ b/net/sched/sch_hfsc.c
-@@ -1142,7 +1142,7 @@ hfsc_classify(struct sk_buff *skb, struct Qdisc *sch, int *qerr)
- 	*qerr = NET_XMIT_SUCCESS | __NET_XMIT_BYPASS;
- 	head = &q->root;
- 	tcf = rcu_dereference_bh(q->root.filter_list);
--	while (tcf && (result = tc_classify(skb, tcf, &res, false)) >= 0) {
-+	while (tcf && (result = tcf_classify(skb, tcf, &res, false)) >= 0) {
- #ifdef CONFIG_NET_CLS_ACT
- 		switch (result) {
- 		case TC_ACT_QUEUED:
-diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
-index 570ef3b..640f5f3 100644
---- a/net/sched/sch_htb.c
-+++ b/net/sched/sch_htb.c
-@@ -231,7 +231,7 @@ static struct htb_class *htb_classify(struct sk_buff *skb, struct Qdisc *sch,
++		} else if (TC_ACT_EXT_CMP(err, TC_ACT_GOTO_CHAIN)) {
++			old_tp = res->goto_tp;
++			goto reset;
++		} else if (err >= 0) {
+ 			return err;
++		}
  	}
  
- 	*qerr = NET_XMIT_SUCCESS | __NET_XMIT_BYPASS;
--	while (tcf && (result = tc_classify(skb, tcf, &res, false)) >= 0) {
-+	while (tcf && (result = tcf_classify(skb, tcf, &res, false)) >= 0) {
- #ifdef CONFIG_NET_CLS_ACT
- 		switch (result) {
- 		case TC_ACT_QUEUED:
-diff --git a/net/sched/sch_multiq.c b/net/sched/sch_multiq.c
-index 43a3a10..25bb9ff 100644
---- a/net/sched/sch_multiq.c
-+++ b/net/sched/sch_multiq.c
-@@ -46,7 +46,7 @@ multiq_classify(struct sk_buff *skb, struct Qdisc *sch, int *qerr)
- 	int err;
- 
- 	*qerr = NET_XMIT_SUCCESS | __NET_XMIT_BYPASS;
--	err = tc_classify(skb, fl, &res, false);
-+	err = tcf_classify(skb, fl, &res, false);
- #ifdef CONFIG_NET_CLS_ACT
- 	switch (err) {
- 	case TC_ACT_STOLEN:
-diff --git a/net/sched/sch_prio.c b/net/sched/sch_prio.c
-index 92c2e6d..7997363 100644
---- a/net/sched/sch_prio.c
-+++ b/net/sched/sch_prio.c
-@@ -42,7 +42,7 @@ prio_classify(struct sk_buff *skb, struct Qdisc *sch, int *qerr)
- 	*qerr = NET_XMIT_SUCCESS | __NET_XMIT_BYPASS;
- 	if (TC_H_MAJ(skb->priority) != sch->handle) {
- 		fl = rcu_dereference_bh(q->filter_list);
--		err = tc_classify(skb, fl, &res, false);
-+		err = tcf_classify(skb, fl, &res, false);
- #ifdef CONFIG_NET_CLS_ACT
- 		switch (err) {
- 		case TC_ACT_STOLEN:
-diff --git a/net/sched/sch_qfq.c b/net/sched/sch_qfq.c
-index 041eba3..73c7ac3 100644
---- a/net/sched/sch_qfq.c
-+++ b/net/sched/sch_qfq.c
-@@ -720,7 +720,7 @@ static struct qfq_class *qfq_classify(struct sk_buff *skb, struct Qdisc *sch,
- 
- 	*qerr = NET_XMIT_SUCCESS | __NET_XMIT_BYPASS;
- 	fl = rcu_dereference_bh(q->filter_list);
--	result = tc_classify(skb, fl, &res, false);
-+	result = tcf_classify(skb, fl, &res, false);
- 	if (result >= 0) {
- #ifdef CONFIG_NET_CLS_ACT
- 		switch (result) {
-diff --git a/net/sched/sch_sfb.c b/net/sched/sch_sfb.c
-index 0f77727..b2878808 100644
---- a/net/sched/sch_sfb.c
-+++ b/net/sched/sch_sfb.c
-@@ -259,7 +259,7 @@ static bool sfb_classify(struct sk_buff *skb, struct tcf_proto *fl,
- 	struct tcf_result res;
- 	int result;
- 
--	result = tc_classify(skb, fl, &res, false);
-+	result = tcf_classify(skb, fl, &res, false);
- 	if (result >= 0) {
- #ifdef CONFIG_NET_CLS_ACT
- 		switch (result) {
-diff --git a/net/sched/sch_sfq.c b/net/sched/sch_sfq.c
-index b00e02c..012fa3b 100644
---- a/net/sched/sch_sfq.c
-+++ b/net/sched/sch_sfq.c
-@@ -180,7 +180,7 @@ static unsigned int sfq_classify(struct sk_buff *skb, struct Qdisc *sch,
- 		return sfq_hash(q, skb) + 1;
- 
- 	*qerr = NET_XMIT_SUCCESS | __NET_XMIT_BYPASS;
--	result = tc_classify(skb, fl, &res, false);
-+	result = tcf_classify(skb, fl, &res, false);
- 	if (result >= 0) {
- #ifdef CONFIG_NET_CLS_ACT
- 		switch (result) {
+ 	return TC_ACT_UNSPEC; /* signal: continue lookup */
 -- 
 2.9.3
