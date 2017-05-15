@@ -1,41 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] kmod: don't load module unless req process has
- CAP_SYS_MODULE
-Date: Mon, 15 May 2017 14:14:44 -0400 (EDT)
-Message-ID: <20170515.141444.2109254753464149113.davem@davemloft.net>
-References: <20170515061059.GB28741@kroah.com>
-        <20170515.095228.1483686375235860235.davem@davemloft.net>
-        <CAF2d9jjdouSQYVk3kbWyOUEUe5b8S_Q6_Zx2WE_EBZB1cVeEvA@mail.gmail.com>
+Subject: Re: [PATCH net] macvlan: Fix performance issues with vlan tagged
+ packets
+Date: Mon, 15 May 2017 14:17:49 -0400 (EDT)
+Message-ID: <20170515.141749.698049536255759644.davem@davemloft.net>
+References: <1494515392-30826-1-git-send-email-vyasevic@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: gregkh@linuxfoundation.org, ebiederm@xmission.com,
-        mahesh@bandewar.net, mingo@kernel.org,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        keescook@chromium.org, edumazet@google.com
-To: maheshb@google.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAF2d9jjdouSQYVk3kbWyOUEUe5b8S_Q6_Zx2WE_EBZB1cVeEvA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jasowang@redhat.com, mst@redhat.com,
+        vyasevic@redhat.com
+To: vyasevich@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:38116 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932653AbdEOSRv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 15 May 2017 14:17:51 -0400
+In-Reply-To: <1494515392-30826-1-git-send-email-vyasevic@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogTWFoZXNoIEJhbmRld2FyICjgpK7gpLngpYfgpLYg4KSs4KSC4KSh4KWH4KS14KS+4KSw
-KSA8bWFoZXNoYkBnb29nbGUuY29tPg0KRGF0ZTogTW9uLCAxNSBNYXkgMjAxNyAxMDo1OTo1NSAt
-MDcwMA0KDQo+IFRoZSBjdXJyZW50IGJlaGF2aW9yIGlzIGFscmVhZHkgYnJlYWtpbmcgdGhpbmdz
-LiBlLmcuIHVucHJpdmlsZWdlZA0KPiBwcm9jZXNzIGNhbiBiZSByb290IGluc2lkZSBpdCdzIG93
-biB1c2VyLW5zLiBUaGlzIHdpbGwgYWxsb3cgaXQgdG8NCj4gY3JlYXRlIElQdGFibGUgcnVsZXMg
-Y2F1c2luZyBjb250cmFja2luZyBtb2R1bGUgdG8gYmUgbG9hZGVkIGluDQo+IGRlZmF1bHQtbnMg
-YWZmZWN0aW5nIGV2ZXJ5IGZsb3cgb24gdGhlIHNlcnZlciAobm90IGp1c3QgdGhlIG5hbWVzcGFj
-ZQ0KPiB0aGF0IHVzZXIgb3IgYW4gdW5wcml2aWxlZ2VkIHByb2Nlc3MgaXMgYXR0YWNoZWQgdG8p
-LiBDYXNlcyB0aGF0IEkNCj4gbWVudGlvbmVkIGFib3ZlIGFyZSBqdXN0IHRoZSB0aXAgb2YgYW4g
-aWNlYmVyZy4NCg0KWWVzLCB0aGF0IGlzIGNlcnRhaW5seSB1bmRlc2lyYWJsZS4NCg0KQnV0IGlz
-IGl0IHJlYWxseSBhIG1vZHVsZSBsb2FkaW5nIHByb2JsZW0/ICBQZXJoYXBzIHdlIG5lZWQgdG8g
-bG9vaw0KbW9yZSBkZWVwbHkgaW50byBob3cgY29ubnRyYWN0IGJlaGF2ZXMgYnkgZGVmYXVsdCB3
-cnQuIG5hbWVzcGFjZXMuDQoNCklmIHdlJ3ZlIGdpdmVuIHRoZSB1c2VyIHRoZSBhYmlsaXR5IHRv
-IGJlIHJvb3QgaW4gaGlzIG9yIGhlciBvd24NCm5hbWVzcGFjZSwgdGhlbiB3ZSBzaG91bGQgbGV0
-IHRoZW0gZG8gcm9vdCBzdHVmZiBpbiB0aGVyZS4NCg0KVGhlIG9ubHkgcHJvYmxlbSBpcyB3aGVu
-ICJkb2luZyByb290IHN0dWZmIGluIHRoZXJlIiBoYXMgYW4NCnVuZGVzaXJhYmxlIGltcGFjdCB1
-cG9uIHRoZSByZXN0IG9mIHRoZSBzeXN0ZW0uDQoNCkFuZCB0aGF0J3MgbmVlZHMgdG8gYmUgbG9v
-a2VkIGludG8gb24gYSBmYWNpbGl0eSBieSBmYWNpbGl0eSBiYXNpcywNCnJhdGhlciB0aGVuIGp1
-c3Qgc3ByaW5rbGluZyAibm8gbW9kdWxlIGxvYWRpbmciIHRlc3QgaGVyZSBhbmQgdGhlcmUsDQpv
-ciBldmVuIHVuY29uZGl0aW9uYWxseS4NCg==
+From: Vladislav Yasevich <vyasevich@gmail.com>
+Date: Thu, 11 May 2017 11:09:52 -0400
+
+> Macvlan always turns on offload features that have sofware
+> fallback (NETIF_GSO_SOFTWARE).  This allows much higher guest-guest
+> communications over macvtap.
+> 
+> However, macvtap does not turn on these features for vlan tagged traffic.
+> As a result, depending on the HW that mactap is configured on, the
+> performance of guest-guest communication over a vlan is very
+> inconsistent.  If the HW supports TSO/UFO over vlans, then the
+> performance will be fine.  If not, the the performance will suffer
+> greatly since the VM may continue using TSO/UFO, and will force the host
+> segment the traffic and possibly overlow the macvtap queue.
+> 
+> This patch adds the always on offloads to vlan_features.  This
+> makes sure that any vlan tagged traffic between 2 guest will not
+> be segmented needlessly.
+> 
+> Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
+
+Indeed, this makes us more consistent with how we handle non-vlan
+features in macvtap.
+
+Applied, thanks.
