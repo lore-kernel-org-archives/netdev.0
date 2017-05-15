@@ -1,30 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: stmmac: use correct pointer when
- printing normal descriptor ring
-Date: Mon, 15 May 2017 10:02:41 -0400 (EDT)
-Message-ID: <20170515.100241.503769139886204675.davem@davemloft.net>
-References: <20170515085606.24217-1-niklas.cassel@axis.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com, niklass@axis.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: niklas.cassel@axis.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170515085606.24217-1-niklas.cassel@axis.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Miroslav Lichvar <mlichvar@redhat.com>
+Subject: [PATCH net] net: netcp: fix check of requested timestamping filter
+Date: Mon, 15 May 2017 16:04:36 +0200
+Message-ID: <20170515140436.12175-1-mlichvar@redhat.com>
+Cc: WingMan Kwok <w-kwok2@ti.com>,
+        Richard Cochran <richardcochran@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:49852 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S932677AbdEOOEu (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 15 May 2017 10:04:50 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Niklas Cassel <niklas.cassel@axis.com>
-Date: Mon, 15 May 2017 10:56:06 +0200
+The driver doesn't support timestamping of all received packets and
+should return error when trying to enable the HWTSTAMP_FILTER_ALL
+filter.
 
-> There are two pointers in sysfs_display_ring,
-> one that increments if using normal dma descriptors,
-> another if using extended dma descriptors.
-> 
-> When printing the normal dma descriptors, the wrong pointer is used,
-> thus the printed descriptor addresses are incorrect.
-> 
-> Signed-off-by: Niklas Cassel <niklas.cassel@axis.com>
+Cc: WingMan Kwok <w-kwok2@ti.com>
+Cc: Richard Cochran <richardcochran@gmail.com>
+Signed-off-by: Miroslav Lichvar <mlichvar@redhat.com>
+---
+ drivers/net/ethernet/ti/netcp_ethss.c | 1 -
+ 1 file changed, 1 deletion(-)
 
-Applied, thanks.
+diff --git a/drivers/net/ethernet/ti/netcp_ethss.c b/drivers/net/ethernet/ti/netcp_ethss.c
+index 897176f..dd92950 100644
+--- a/drivers/net/ethernet/ti/netcp_ethss.c
++++ b/drivers/net/ethernet/ti/netcp_ethss.c
+@@ -2651,7 +2651,6 @@ static int gbe_hwtstamp_set(struct gbe_intf *gbe_intf, struct ifreq *ifr)
+ 	case HWTSTAMP_FILTER_NONE:
+ 		cpts_rx_enable(cpts, 0);
+ 		break;
+-	case HWTSTAMP_FILTER_ALL:
+ 	case HWTSTAMP_FILTER_PTP_V1_L4_EVENT:
+ 	case HWTSTAMP_FILTER_PTP_V1_L4_SYNC:
+ 	case HWTSTAMP_FILTER_PTP_V1_L4_DELAY_REQ:
+-- 
+2.9.3
