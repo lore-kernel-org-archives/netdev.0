@@ -1,46 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] macvlan: Fix performance issues with vlan tagged
- packets
-Date: Mon, 15 May 2017 14:17:49 -0400 (EDT)
-Message-ID: <20170515.141749.698049536255759644.davem@davemloft.net>
-References: <1494515392-30826-1-git-send-email-vyasevic@redhat.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH v4] net/mlx4_core: Use min3 to select number of MSI-X
+ vectors
+Date: Mon, 15 May 2017 14:20:58 -0400 (EDT)
+Message-ID: <20170515.142058.561848464430283197.davem@davemloft.net>
+References: <1494569451-2567-1-git-send-email-yuval.shaia@oracle.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jasowang@redhat.com, mst@redhat.com,
-        vyasevic@redhat.com
-To: vyasevich@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:38116 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932653AbdEOSRv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 15 May 2017 14:17:51 -0400
-In-Reply-To: <1494515392-30826-1-git-send-email-vyasevic@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: yishaih-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: yuval.shaia-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1494569451-2567-1-git-send-email-yuval.shaia-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Vladislav Yasevich <vyasevich@gmail.com>
-Date: Thu, 11 May 2017 11:09:52 -0400
+From: Yuval Shaia <yuval.shaia-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Date: Fri, 12 May 2017 09:10:51 +0300
 
-> Macvlan always turns on offload features that have sofware
-> fallback (NETIF_GSO_SOFTWARE).  This allows much higher guest-guest
-> communications over macvtap.
-> 
-> However, macvtap does not turn on these features for vlan tagged traffic.
-> As a result, depending on the HW that mactap is configured on, the
-> performance of guest-guest communication over a vlan is very
-> inconsistent.  If the HW supports TSO/UFO over vlans, then the
-> performance will be fine.  If not, the the performance will suffer
-> greatly since the VM may continue using TSO/UFO, and will force the host
-> segment the traffic and possibly overlow the macvtap queue.
-> 
-> This patch adds the always on offloads to vlan_features.  This
-> makes sure that any vlan tagged traffic between 2 guest will not
-> be segmented needlessly.
-> 
-> Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
-
-Indeed, this makes us more consistent with how we handle non-vlan
-features in macvtap.
+> Signed-off-by: Yuval Shaia <yuval.shaia-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+> ---
+> v0 -> v1:
+> 	* s/"min_t("/"min_t(int"
+> v1 -> v2:
+> 	* Use min3 instead of min_t twice
+> v2 -> v3:
+> 	* Change commit log header message to reflect the changes made in
+> 	  v2
+> v3 -> v4:
+> 	* Cast return value from num_online_cpus to int to avoid
+> 	  compilation errors from "sparse"
 
 Applied, thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
