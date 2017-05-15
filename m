@@ -1,83 +1,51 @@
-From: =?UTF-8?B?TWFoZXNoIEJhbmRld2FyICjgpK7gpLngpYfgpLYg4KSs4KSC4KSh4KWH4KS14KS+4KSwKQ==?=
-        <maheshb@google.com>
-Subject: Re: [PATCH] kmod: don't load module unless req process has CAP_SYS_MODULE
-Date: Mon, 15 May 2017 10:59:55 -0700
-Message-ID: <CAF2d9jjdouSQYVk3kbWyOUEUe5b8S_Q6_Zx2WE_EBZB1cVeEvA@mail.gmail.com>
-References: <20170514104537.GA29323@kroah.com> <87d1bbo81d.fsf@xmission.com>
- <20170515061059.GB28741@kroah.com> <20170515.095228.1483686375235860235.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] arp: honour gratuitous ARP _replies_
+Date: Mon, 15 May 2017 14:08:32 -0400 (EDT)
+Message-ID: <20170515.140832.354922796595622860.davem@davemloft.net>
+References: <20170510001607.9716-1-ihrachys@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: gregkh@linuxfoundation.org, ebiederm@xmission.com,
-        mahesh@bandewar.net, mingo@kernel.org,
-        linux-kernel@vger.kernel.org,
-        linux-netdev <netdev@vger.kernel.org>, keescook@chromium.org,
-        Eric Dumazet <edumazet@google.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170515.095228.1483686375235860235.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
+        netdev@vger.kernel.org
+To: ihrachys@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:37954 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751413AbdEOSIg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 15 May 2017 14:08:36 -0400
+In-Reply-To: <20170510001607.9716-1-ihrachys@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 15, 2017 at 6:52 AM, David Miller <davem@davemloft.net> wrote:
-> From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-> Date: Mon, 15 May 2017 08:10:59 +0200
->
->> On Sun, May 14, 2017 at 08:57:34AM -0500, Eric W. Biederman wrote:
->>> Greg Kroah-Hartman <gregkh@linuxfoundation.org> writes:
->>>
->>> diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
->>> index bcb0f610ee42..6b72528a4636 100644
->>> --- a/net/core/rtnetlink.c
->>> +++ b/net/core/rtnetlink.c
->>> @@ -2595,7 +2595,7 @@ static int rtnl_newlink(struct sk_buff *skb, struct nlmsghdr *nlh,
->>>
->>>                 if (!ops) {
->>>  #ifdef CONFIG_MODULES
->>> -                       if (kind[0]) {
->>> +                       if (kind[0] && capable(CAP_NET_ADMIN)) {
->>>                                 __rtnl_unlock();
->>>                                 request_module("rtnl-link-%s", kind);
->>>                                 rtnl_lock();
->>
->> I don't object to this if the networking developers don't mind the
->> change in functionality.  They can handle the fallout :)
->
-> As I've said in another email, I am pretty sure this can break things.
+From: Ihar Hrachyshka <ihrachys@redhat.com>
+Date: Tue,  9 May 2017 17:16:07 -0700
 
-The current behavior is already breaking things. e.g. unprivileged
-process can be root inside it's own user-ns. This will allow it to
-create IPtable rules causing contracking module to be loaded in
-default-ns affecting every flow on the server (not just the namespace
-that user or an unprivileged process is attached to). Cases that I
-mentioned above are just the tip of an iceberg.
+> @@ -842,8 +844,20 @@ static int arp_process(struct net *net, struct sock *sk, struct sk_buff *skb)
+>  		   It is possible, that this option should be enabled for some
+>  		   devices (strip is candidate)
+>  		 */
+> -		is_garp = arp->ar_op == htons(ARPOP_REQUEST) && tip == sip &&
+> -			  addr_type == RTN_UNICAST;
+> +		is_garp = tip == sip && addr_type == RTN_UNICAST;
+> +
+> +		/* Unsolicited ARP _replies_ also require target hwaddr to be
+> +		 * the same as source.
+> +		 */
+> +		if (is_garp && arp->ar_op == htons(ARPOP_REPLY))
+> +			is_garp =
+> +#if IS_ENABLED(CONFIG_FIREWIRE_NET)
+> +				/* IPv4 over IEEE 1394 doesn't provide target
+> +				 * hardware address field in its ARP payload.
+> +				 */
+> +				tha &&
+> +#endif
+> +				!memcmp(tha, sha, dev->addr_len);
+>  
 
-In a non-namespace world this wouldn't happen as capability checks are
-performed correctly but the moment an unprivileged user can create
-it's own user-ns and becomes root inside, it could make use of these
-things and perform privileged operations in default-ns. So to protect
-"global namespace" from making such things happen, we have to protect
-using global capability check.
+The ifdefs here make the test harder to understand.
 
-Alternatively we can preserve the existing behavior by adding this
-check for non-default-user-ns only. e.g.
+I would suggest removing the ifdef and letting the compiler remove the 'tha'
+check if it can.
 
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 6e67315ec368..263f0d175091 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -2595,7 +2595,9 @@ static int rtnl_newlink(struct sk_buff *skb,
-struct nlmsghdr *nlh,
-
-                if (!ops) {
- #ifdef CONFIG_MODULES
--                       if (kind[0]) {
-+                       if (kind[0] &&
-+                           ((net->user_ns == &init_user_ns) ||
-+                            capable(CAP_SYS_MODULE))) {
-                                __rtnl_unlock();
-                                request_module("rtnl-link-%s", kind);
-                                rtnl_lock();
-
-if we have to do this in net-subsystem then it's not just this call
-site and there are lot more. But if this is an acceptable alternative,
-I can think of better implementation for all those sites.
+Thank you.
