@@ -1,66 +1,53 @@
-From: =?UTF-8?q?Bj=C3=B6rn=20T=C3=B6pel?= <bjorn.topel@gmail.com>
-Subject: [PATCH net v2] i40e/i40evf: proper update of the page_offset field
-Date: Mon, 15 May 2017 06:52:00 +0200
-Message-ID: <20170515045200.27789-1-bjorn.topel@gmail.com>
+From: "Kashyap, Saurav" <Saurav.Kashyap@cavium.com>
+Subject: Re: Queries regarding TAP interface
+Date: Mon, 15 May 2017 05:00:36 +0000
+Message-ID: <9868369D-4994-43CC-9686-8C5DF8CA06BA@cavium.com>
+References: <C7C039BE-EDC9-4E82-BC66-EEDE814F9E56@cavium.com>
+ <20170512085229.3cecd2d1@xeon-e3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: =?UTF-8?q?Bj=C3=B6rn=20T=C3=B6pel?= <bjorn.topel@intel.com>,
-        alexander.h.duyck@intel.com, jeffrey.t.kirsher@intel.com,
-        alexander.duyck@gmail.com
-To: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:28788 "EHLO mga11.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750937AbdEOEw2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 15 May 2017 00:52:28 -0400
+Received: from mail-bl2nam02on0076.outbound.protection.outlook.com ([104.47.38.76]:33872
+        "EHLO NAM02-BL2-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751105AbdEOFAl (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 15 May 2017 01:00:41 -0400
+In-Reply-To: <20170512085229.3cecd2d1@xeon-e3>
+Content-Language: en-US
+Content-ID: <5733EBBD18F3FE42B99BCF27E04FF1B2@namprd07.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Björn Töpel <bjorn.topel@intel.com>
-
-In f8b45b74cc62 ("i40e/i40evf: Use build_skb to build frames")
-i40e_build_skb updates the page_offset field with an incorrect offset,
-which can lead to data corruption. This patch updates page_offset
-correctly, by properly setting truesize.
-
-Note that the bug only appears on architectures where PAGE_SIZE is
-8192 or larger.
-
-Fixes: f8b45b74cc62 ("i40e/i40evf: Use build_skb to build frames")
-Signed-off-by: Björn Töpel <bjorn.topel@intel.com>
----
- drivers/net/ethernet/intel/i40e/i40e_txrx.c   | 3 ++-
- drivers/net/ethernet/intel/i40evf/i40e_txrx.c | 3 ++-
- 2 files changed, 4 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-index 29321a6167a6..cd894f4023b1 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-@@ -1854,7 +1854,8 @@ static struct sk_buff *i40e_build_skb(struct i40e_ring *rx_ring,
- #if (PAGE_SIZE < 8192)
- 	unsigned int truesize = i40e_rx_pg_size(rx_ring) / 2;
- #else
--	unsigned int truesize = SKB_DATA_ALIGN(size);
-+	unsigned int truesize = SKB_DATA_ALIGN(sizeof(struct skb_shared_info)) +
-+				SKB_DATA_ALIGN(I40E_SKB_PAD + size);
- #endif
- 	struct sk_buff *skb;
- 
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-index dfe241a12ad0..12b02e530503 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-@@ -1190,7 +1190,8 @@ static struct sk_buff *i40e_build_skb(struct i40e_ring *rx_ring,
- #if (PAGE_SIZE < 8192)
- 	unsigned int truesize = i40e_rx_pg_size(rx_ring) / 2;
- #else
--	unsigned int truesize = SKB_DATA_ALIGN(size);
-+	unsigned int truesize = SKB_DATA_ALIGN(sizeof(struct skb_shared_info)) +
-+				SKB_DATA_ALIGN(I40E_SKB_PAD + size);
- #endif
- 	struct sk_buff *skb;
- 
--- 
-2.11.0
+SGkgU3RlcGhlbiwNCkNvbW1lbnRzIGlubGluZS4NCg0KDQoNCj5PbiBGcmksIDEyIE1heSAyMDE3
+IDA1OjAyOjM3ICswMDAwDQo+Ikthc2h5YXAsIFNhdXJhdiIgPFNhdXJhdi5LYXNoeWFwQGNhdml1
+bS5jb20+IHdyb3RlOg0KPg0KPj4gSGksDQo+PiANCj4+IEkgYW0gdXNpbmcgdXBzdHJlYW0ga2Vy
+bmVsIDQuMTEuMCBhbmQgYmFzZSBpcyBSSEVMIDcuMi4gSSBhbSBwbGF5aW5nIGFyb3VuZCB3aXRo
+IFRBUCBkZXZpY2VzIGFuZCBjcmVhdGVkIGl0IHVzaW5nIGZvbGxvd2luZyBjb21tYW5kcw0KPj4g
+PT09PT09PQ0KPj4gaXAgdHVudGFwIGFkZCB0YXAxMCBtb2RlIHRhcA0KPj4gaXAgYWRkciBhZGQg
+MTcyLjI4LjEyLjEvMjQgZGV2IHRhcDEwDQo+PiBpcCBsaW5rIHNldCB0YXAxMCB1cA0KPj4gZXRo
+dG9vbCAtcyB0YXAxMCBtc2dsdmwgMQ0KPj4gPT09PT09PQ0KPj4gDQo+PiBJIGVuYWJsZWQgZGVi
+dWcgaW4gZHJpdmVyIGFuZCBhbHNvIGFkZGVkIHNvbWUgcHJpbnRzIGluIHR1bl9uZXRfeG1pdCBm
+dW5jdGlvbi4gSSB0cmllZCB0byBwaW5nIHVzaW5nIHRhcDEwIGJ1dCBJIGRvbuKAmXQgc2VlIHJl
+cXVlc3QgcmVhY2hpbmcgZHJpdmVyLiBJIGFsc28gdHJpZWQgdG8gY3JlYXRlIGEgYnJpZGdlIHVz
+aW5nIGJyY3RsIGFuZCBsaW5rIHdpdGggcGh5c2ljYWwgZXRoZXJuZXQgaW50ZXJmYWNlIGJ1dCBp
+dCBkaWRu4oCZdCB3b3JrLg0KPj4gDQo+PiBTZWNvbmQgZXhwZXJpbWVudCBJIGRpZCB3YXMgdG8g
+Y3JlYXRlIHR3byB0YXAgZGV2aWNlIG9uIHNhbWUgc3lzdGVtIGFuZCB0cnkgcGluZ2luZyBvbmUg
+ZnJvbSBhbm90aGVyLCB0aGF0IGFsc28gZGlkbuKAmXQgd29ya2VkLiANCj4+IEkgaGF2ZSBmb2xs
+b3dpbmcgcXVlcmllcw0KPj4gMSkgSXMgSSBhbSBtaXNzaW5nIHNvbWV0aGluZz8gDQo+PiAyKSBJ
+cyBpcyBwb3NzaWJsZSB0byBob29rIG15IG93biB0eC9yeCB0byB0aGF0IHRhcCBkZXZpY2UsIHNv
+IHRoYXQgZGF0YSBwYWNrZXRzIGFjdHVhbGx5IGdvZXMgb24gd2lyZT8NCj4+IDMpIERvZXMgREhD
+UCB3b3JrcyB3aXRoIHRhcCBkZXZpY2VzPw0KPj4gDQo+PiANCj4+IFRoYW5rcywNCj4+IH5TYXVy
+YXYNCj4+IA0KPg0KPkRvbid0IHlvdSBuZWVkIGFuIGFwcGxpY2F0aW9uIHJlYWRpbmcvd3JpdGlu
+ZyB0aGUgdGFwIGRldmljZT8NCjxTSz4gU28gcGluZyBpcyBub3QgaW50ZWxsaWdlbnQgZW5vdWdo
+IHRvIHdvcmsgd2l0aCBUQVA/IEkgaGFkIHdyb3RlIGEgc2ltcGxlIHRhcCBwcm9ncmFtIHRoYXQg
+b3BlbiBhIHR1biBkZXZpY2UgKC9kZXYvbmV0L3R1bikgYW5kIGRvZXMgcmVhZC93cml0ZS4gV2l0
+aCB0aGlzIHByb2dyYW0gSSBjYW4gc2VlIHRoYXQgY2FsbHMgYXJlIGdvaW5nIHRvIHRoZSBkcml2
+ZXIuIEkgcmFuIHRoaXMgcHJvZ3JhbSBhbmQgZnJvbSBvdGhlciB0ZXJtaW5hbCBJIHRyaWVkIHBp
+bmcgYnV0IHBpbmcgZmFpbGVkLiBEb2VzIHBpbmcvYXJwaW5nL2RoY3AgdXRpbGl0aWVzIHdvcmsg
+d2l0aCBUQVAgaW50ZXJmYWNlPw0KDQo+VGhlIGNhcnJpZXIgc3RhdGUgb2YgdGFwIGRldmljZSBp
+cyB1cC9kb3duIGJhc2VkIG9uIHdoZXRoZXIgdGhlIGNvcnJlc3BvbmRpbmcgdGFwIGRldmljZSBp
+cyBvcGVuDQoNCjxTSz4gWWVzLCB0aGFuayBmb3IgYW4gaW5mby4NCg0KVGhhbmtzLA0KflNhdXJh
+dg0K
