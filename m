@@ -1,389 +1,70 @@
-From: Corentin Labbe <clabbe.montjoie@gmail.com>
-Subject: [PATCH 1/2] net-next: stmmac: add adjust_link function
-Date: Mon, 15 May 2017 13:41:39 +0200
-Message-ID: <20170515114140.1676-1-clabbe.montjoie@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Corentin Labbe <clabbe.montjoie@gmail.com>
-To: peppe.cavallaro@st.com, alexandre.torgue@st.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Ahern <dsahern@gmail.com>
+Subject: Re: [PATCH net] ipv6: avoid dad-failures for addresses with NODAD
+Date: Mon, 15 May 2017 05:56:29 -0600
+Message-ID: <0f49737f-f6d1-6025-4eb2-2cabc2f88688@gmail.com>
+References: <20170513000339.15843-1-mahesh@bandewar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <edumazet@google.com>,
+        Mahesh Bandewar <maheshb@google.com>
+To: Mahesh Bandewar <mahesh@bandewar.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>,
+        netdev <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f193.google.com ([209.85.223.193]:36222 "EHLO
+        mail-io0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755231AbdEOL4h (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 15 May 2017 07:56:37 -0400
+Received: by mail-io0-f193.google.com with SMTP id f102so11287781ioi.3
+        for <netdev@vger.kernel.org>; Mon, 15 May 2017 04:56:37 -0700 (PDT)
+In-Reply-To: <20170513000339.15843-1-mahesh@bandewar.net>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-My dwmac-sun8i serie will add some if (has_sun8i) to
-stmmac_adjust_link()
-Since the current stmmac_adjust_link() alreaady have lots of if (has_gmac/gmac4),
-It is now better to create an adjust_link() function for each dwmac.
+On 5/12/17 6:03 PM, Mahesh Bandewar wrote:
+> From: Mahesh Bandewar <maheshb@google.com>
+> 
+> Every address gets added with TENTATIVE flag even for the addresses with
+> IFA_F_NODAD flag and dad-work is scheduled for them. During this DAD process
+> we realize it's an address with NODAD and complete the process without
+> sending any probe. However the TENTATIVE flags stays on the
+> address for sometime enough to cause misinterpretation when we receive a NS.
+> While processing NS, if the address has TENTATIVE flag, we mark it DADFAILED
+> and endup with an address that was originally configured as NODAD with
+> DADFAILED.
+> 
+> We can't avoid scheduling dad_work for addresses with NODAD but we can
+> avoid adding TENTATIVE flag to avoid this racy situation.
+> 
+> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+> ---
+>  net/ipv6/addrconf.c | 5 ++++-
+>  1 file changed, 4 insertions(+), 1 deletion(-)
+> 
+> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+> index b09ac38d8dc4..53f2dc092023 100644
+> --- a/net/ipv6/addrconf.c
+> +++ b/net/ipv6/addrconf.c
+> @@ -1022,7 +1022,10 @@ ipv6_add_addr(struct inet6_dev *idev, const struct in6_addr *addr,
+>  	INIT_HLIST_NODE(&ifa->addr_lst);
+>  	ifa->scope = scope;
+>  	ifa->prefix_len = pfxlen;
+> -	ifa->flags = flags | IFA_F_TENTATIVE;
+> +	ifa->flags = flags;
+> +	/* No need to add the TENTATIVE flag for addresses with NODAD */
+> +	if (!(flags & IFA_F_NODAD))
+> +		ifa->flags |= IFA_F_TENTATIVE;
+>  	ifa->valid_lft = valid_lft;
+>  	ifa->prefered_lft = prefered_lft;
+>  	ifa->cstamp = ifa->tstamp = jiffies;
+> 
 
-So this patch add an adjust_link() function pointer, and move code out
-of stmmac_adjust_link to it.
+LGTM.
 
-Removing in the process stmmac_mac_flow_ctrl/stmmac_hw_fix_mac_speed
-since there not used anymore.
-
-Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
----
- drivers/net/ethernet/stmicro/stmmac/common.h       |  3 +
- .../net/ethernet/stmicro/stmmac/dwmac1000_core.c   | 54 ++++++++++++++
- .../net/ethernet/stmicro/stmmac/dwmac100_core.c    | 46 ++++++++++++
- drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c  | 54 ++++++++++++++
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  | 83 +---------------------
- 5 files changed, 158 insertions(+), 82 deletions(-)
-
-diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h b/drivers/net/ethernet/stmicro/stmmac/common.h
-index b7ce3fbb5375..451c231006fe 100644
---- a/drivers/net/ethernet/stmicro/stmmac/common.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/common.h
-@@ -469,11 +469,14 @@ struct stmmac_dma_ops {
- };
- 
- struct mac_device_info;
-+struct stmmac_priv;
- 
- /* Helpers to program the MAC core */
- struct stmmac_ops {
- 	/* MAC core initialization */
- 	void (*core_init)(struct mac_device_info *hw, int mtu);
-+	/* adjust link */
-+	int (*adjust_link)(struct stmmac_priv *priv);
- 	/* Enable the MAC RX/TX */
- 	void (*set_mac)(void __iomem *ioaddr, bool enable);
- 	/* Enable and verify that the IPC module is supported */
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
-index f3d9305e5f70..5f3aace46c41 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
-@@ -26,6 +26,7 @@
- #include <linux/slab.h>
- #include <linux/ethtool.h>
- #include <asm/io.h>
-+#include "stmmac.h"
- #include "stmmac_pcs.h"
- #include "dwmac1000.h"
- 
-@@ -75,6 +76,58 @@ static void dwmac1000_core_init(struct mac_device_info *hw, int mtu)
- #endif
- }
- 
-+static int dwmac1000_adjust_link(struct stmmac_priv *priv)
-+{
-+	struct net_device *ndev = priv->dev;
-+	struct phy_device *phydev = ndev->phydev;
-+	int new_state = 0;
-+	u32 tx_cnt = priv->plat->tx_queues_to_use;
-+	u32 ctrl;
-+
-+	ctrl = readl(priv->ioaddr + GMAC_CONTROL);
-+
-+	if (phydev->duplex != priv->oldduplex) {
-+		new_state = 1;
-+		if (!(phydev->duplex))
-+			ctrl &= ~GMAC_CONTROL_DM;
-+		else
-+			ctrl |= GMAC_CONTROL_DM;
-+		priv->oldduplex = phydev->duplex;
-+	}
-+
-+	if (phydev->pause)
-+		priv->hw->mac->flow_ctrl(priv->hw, phydev->duplex, priv->flow_ctrl,
-+					 priv->pause, tx_cnt);
-+
-+	if (phydev->speed != priv->speed) {
-+		new_state = 1;
-+		switch (phydev->speed) {
-+		case 1000:
-+			ctrl &= ~GMAC_CONTROL_PS;
-+			break;
-+		case 100:
-+			ctrl |= GMAC_CONTROL_PS;
-+			ctrl |= GMAC_CONTROL_FES;
-+			break;
-+		case 10:
-+			ctrl |= GMAC_CONTROL_PS;
-+			ctrl |= ~GMAC_CONTROL_FES;
-+			break;
-+		default:
-+			netif_warn(priv, link, priv->dev,
-+				   "broken speed: %d\n", phydev->speed);
-+			phydev->speed = SPEED_UNKNOWN;
-+			break;
-+		}
-+		if (phydev->speed != SPEED_UNKNOWN && likely(priv->plat->fix_mac_speed))
-+			priv->plat->fix_mac_speed(priv->plat->bsp_priv, phydev->speed);
-+		priv->speed = phydev->speed;
-+	}
-+
-+	writel(ctrl, priv->ioaddr + GMAC_CONTROL);
-+	return new_state;
-+}
-+
- static int dwmac1000_rx_ipc_enable(struct mac_device_info *hw)
- {
- 	void __iomem *ioaddr = hw->pcsr;
-@@ -490,6 +543,7 @@ static void dwmac1000_debug(void __iomem *ioaddr, struct stmmac_extra_stats *x,
- 
- static const struct stmmac_ops dwmac1000_ops = {
- 	.core_init = dwmac1000_core_init,
-+	.adjust_link = dwmac1000_adjust_link,
- 	.set_mac = stmmac_set_mac,
- 	.rx_ipc = dwmac1000_rx_ipc_enable,
- 	.dump_regs = dwmac1000_dump_regs,
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c
-index 1b3609105484..ba3d46e65e1a 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c
-@@ -27,6 +27,7 @@
- #include <linux/crc32.h>
- #include <asm/io.h>
- #include "dwmac100.h"
-+#include "stmmac.h"
- 
- static void dwmac100_core_init(struct mac_device_info *hw, int mtu)
- {
-@@ -40,6 +41,50 @@ static void dwmac100_core_init(struct mac_device_info *hw, int mtu)
- #endif
- }
- 
-+static int dwmac100_adjust_link(struct stmmac_priv *priv)
-+{
-+	struct net_device *ndev = priv->dev;
-+	struct phy_device *phydev = ndev->phydev;
-+	int new_state = 0;
-+	u32 tx_cnt = priv->plat->tx_queues_to_use;
-+	u32 ctrl;
-+
-+	ctrl = readl(priv->ioaddr + MAC_CTRL_REG);
-+	if (phydev->duplex != priv->oldduplex) {
-+		new_state = 1;
-+		if (!(phydev->duplex))
-+			ctrl &= ~MAC_CONTROL_F;
-+		else
-+			ctrl |= MAC_CONTROL_F;
-+		priv->oldduplex = phydev->duplex;
-+	}
-+
-+	if (phydev->pause)
-+		priv->hw->mac->flow_ctrl(priv->hw, phydev->duplex, priv->flow_ctrl,
-+				priv->pause, tx_cnt);
-+
-+	if (phydev->speed != priv->speed) {
-+		new_state = 1;
-+		switch (phydev->speed) {
-+		case 100:
-+		case 10:
-+			ctrl &= ~MAC_CONTROL_PS;
-+			break;
-+		default:
-+			netif_warn(priv, link, priv->dev,
-+					"broken speed: %d\n", phydev->speed);
-+			phydev->speed = SPEED_UNKNOWN;
-+			break;
-+		}
-+		if (phydev->speed != SPEED_UNKNOWN && likely(priv->plat->fix_mac_speed))
-+			priv->plat->fix_mac_speed(priv->plat->bsp_priv, phydev->speed);
-+		priv->speed = phydev->speed;
-+	}
-+
-+	writel(ctrl, priv->ioaddr + MAC_CTRL_REG);
-+	return new_state;
-+}
-+
- static void dwmac100_dump_mac_regs(struct mac_device_info *hw, u32 *reg_space)
- {
- 	void __iomem *ioaddr = hw->pcsr;
-@@ -150,6 +195,7 @@ static void dwmac100_pmt(struct mac_device_info *hw, unsigned long mode)
- 
- static const struct stmmac_ops dwmac100_ops = {
- 	.core_init = dwmac100_core_init,
-+	.adjust_link = dwmac100_adjust_link,
- 	.set_mac = stmmac_set_mac,
- 	.rx_ipc = dwmac100_rx_ipc_enable,
- 	.dump_regs = dwmac100_dump_mac_regs,
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
-index 48793f2e9307..133b6bcd7b61 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
-@@ -19,6 +19,7 @@
- #include <linux/io.h>
- #include "stmmac_pcs.h"
- #include "dwmac4.h"
-+#include "stmmac.h"
- 
- static void dwmac4_core_init(struct mac_device_info *hw, int mtu)
- {
-@@ -59,6 +60,58 @@ static void dwmac4_core_init(struct mac_device_info *hw, int mtu)
- 	writel(value, ioaddr + GMAC_INT_EN);
- }
- 
-+static int dwmac4_adjust_link(struct stmmac_priv *priv)
-+{
-+	struct net_device *ndev = priv->dev;
-+	struct phy_device *phydev = ndev->phydev;
-+	int new_state = 0;
-+	u32 tx_cnt = priv->plat->tx_queues_to_use;
-+	u32 ctrl;
-+
-+	ctrl = readl(priv->ioaddr + MAC_CTRL_REG);
-+
-+	if (phydev->duplex != priv->oldduplex) {
-+		new_state = 1;
-+		if (!(phydev->duplex))
-+			ctrl &= ~GMAC_CONFIG_DM;
-+		else
-+			ctrl |= GMAC_CONFIG_DM;
-+		priv->oldduplex = phydev->duplex;
-+	}
-+
-+	if (phydev->pause)
-+		priv->hw->mac->flow_ctrl(priv->hw, phydev->duplex, priv->flow_ctrl,
-+					 priv->pause, tx_cnt);
-+
-+	if (phydev->speed != priv->speed) {
-+		new_state = 1;
-+		switch (phydev->speed) {
-+		case 1000:
-+			ctrl &= ~GMAC_CONFIG_PS;
-+			break;
-+		case 100:
-+			ctrl |= GMAC_CONFIG_PS;
-+			ctrl |= GMAC_CONFIG_FES;
-+			break;
-+		case 10:
-+			ctrl |= GMAC_CONFIG_PS;
-+			ctrl |= ~GMAC_CONFIG_FES;
-+			break;
-+		default:
-+			netif_warn(priv, link, priv->dev,
-+				   "broken speed: %d\n", phydev->speed);
-+			phydev->speed = SPEED_UNKNOWN;
-+			break;
-+		}
-+		if (phydev->speed != SPEED_UNKNOWN && likely(priv->plat->fix_mac_speed))
-+			priv->plat->fix_mac_speed(priv->plat->bsp_priv, phydev->speed);
-+		priv->speed = phydev->speed;
-+	}
-+
-+	writel(ctrl, priv->ioaddr + MAC_CTRL_REG);
-+	return new_state;
-+}
-+
- static void dwmac4_rx_queue_enable(struct mac_device_info *hw,
- 				   u8 mode, u32 queue)
- {
-@@ -669,6 +722,7 @@ static void dwmac4_debug(void __iomem *ioaddr, struct stmmac_extra_stats *x,
- 
- static const struct stmmac_ops dwmac4_ops = {
- 	.core_init = dwmac4_core_init,
-+	.adjust_link = dwmac4_adjust_link,
- 	.set_mac = stmmac_set_mac,
- 	.rx_ipc = dwmac4_rx_ipc_enable,
- 	.rx_queue_enable = dwmac4_rx_queue_enable,
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index b05a042cf2c6..fb3e2ddaa7c9 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -286,21 +286,6 @@ static inline u32 stmmac_rx_dirty(struct stmmac_priv *priv, u32 queue)
- }
- 
- /**
-- * stmmac_hw_fix_mac_speed - callback for speed selection
-- * @priv: driver private structure
-- * Description: on some platforms (e.g. ST), some HW system configuration
-- * registers have to be set according to the link speed negotiated.
-- */
--static inline void stmmac_hw_fix_mac_speed(struct stmmac_priv *priv)
--{
--	struct net_device *ndev = priv->dev;
--	struct phy_device *phydev = ndev->phydev;
--
--	if (likely(priv->plat->fix_mac_speed))
--		priv->plat->fix_mac_speed(priv->plat->bsp_priv, phydev->speed);
--}
--
--/**
-  * stmmac_enable_eee_mode - check and enter in LPI mode
-  * @priv: driver private structure
-  * Description: this function is to verify and enter in LPI mode in case of
-@@ -759,19 +744,6 @@ static void stmmac_release_ptp(struct stmmac_priv *priv)
- }
- 
- /**
-- *  stmmac_mac_flow_ctrl - Configure flow control in all queues
-- *  @priv: driver private structure
-- *  Description: It is used for configuring the flow control in all queues
-- */
--static void stmmac_mac_flow_ctrl(struct stmmac_priv *priv, u32 duplex)
--{
--	u32 tx_cnt = priv->plat->tx_queues_to_use;
--
--	priv->hw->mac->flow_ctrl(priv->hw, duplex, priv->flow_ctrl,
--				 priv->pause, tx_cnt);
--}
--
--/**
-  * stmmac_adjust_link - adjusts the link parameters
-  * @dev: net device structure
-  * Description: this is the helper called by the physical abstraction layer
-@@ -793,60 +765,7 @@ static void stmmac_adjust_link(struct net_device *dev)
- 	spin_lock_irqsave(&priv->lock, flags);
- 
- 	if (phydev->link) {
--		u32 ctrl = readl(priv->ioaddr + MAC_CTRL_REG);
--
--		/* Now we make sure that we can be in full duplex mode.
--		 * If not, we operate in half-duplex mode. */
--		if (phydev->duplex != priv->oldduplex) {
--			new_state = 1;
--			if (!(phydev->duplex))
--				ctrl &= ~priv->hw->link.duplex;
--			else
--				ctrl |= priv->hw->link.duplex;
--			priv->oldduplex = phydev->duplex;
--		}
--		/* Flow Control operation */
--		if (phydev->pause)
--			stmmac_mac_flow_ctrl(priv, phydev->duplex);
--
--		if (phydev->speed != priv->speed) {
--			new_state = 1;
--			switch (phydev->speed) {
--			case 1000:
--				if (priv->plat->has_gmac ||
--				    priv->plat->has_gmac4)
--					ctrl &= ~priv->hw->link.port;
--				break;
--			case 100:
--				if (priv->plat->has_gmac ||
--				    priv->plat->has_gmac4) {
--					ctrl |= priv->hw->link.port;
--					ctrl |= priv->hw->link.speed;
--				} else {
--					ctrl &= ~priv->hw->link.port;
--				}
--				break;
--			case 10:
--				if (priv->plat->has_gmac ||
--				    priv->plat->has_gmac4) {
--					ctrl |= priv->hw->link.port;
--					ctrl &= ~(priv->hw->link.speed);
--				} else {
--					ctrl &= ~priv->hw->link.port;
--				}
--				break;
--			default:
--				netif_warn(priv, link, priv->dev,
--					   "broken speed: %d\n", phydev->speed);
--				phydev->speed = SPEED_UNKNOWN;
--				break;
--			}
--			if (phydev->speed != SPEED_UNKNOWN)
--				stmmac_hw_fix_mac_speed(priv);
--			priv->speed = phydev->speed;
--		}
--
--		writel(ctrl, priv->ioaddr + MAC_CTRL_REG);
-+		new_state = priv->hw->mac->adjust_link(priv);
- 
- 		if (!priv->oldlink) {
- 			new_state = 1;
--- 
-2.13.0
+Acked-by: David Ahern <dsahern@gmail.com>
