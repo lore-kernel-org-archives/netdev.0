@@ -1,32 +1,24 @@
 From: David Miller <davem@redhat.com>
-Subject: Re: [PATCH net] net: netcp: fix check of requested timestamping
- filter
-Date: Mon, 15 May 2017 15:21:30 -0400 (EDT)
-Message-ID: <20170515.152130.1349542624120816980.davem@redhat.com>
-References: <20170515140436.12175-1-mlichvar@redhat.com>
+Subject: Re: [PATCH net-next 0/2] ldmvsw: port removal stability
+Date: Mon, 15 May 2017 15:36:46 -0400 (EDT)
+Message-ID: <20170515.153646.1717852985305748981.davem@redhat.com>
+References: <1494870668-65047-1-git-send-email-shannon.nelson@oracle.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, w-kwok2@ti.com, richardcochran@gmail.com
-To: mlichvar@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:37262 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S934329AbdEOTVd (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 15 May 2017 15:21:33 -0400
-In-Reply-To: <20170515140436.12175-1-mlichvar@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, sparclinux@vger.kernel.org
+To: shannon.nelson@oracle.com
+Return-path: <sparclinux-owner@vger.kernel.org>
+In-Reply-To: <1494870668-65047-1-git-send-email-shannon.nelson@oracle.com>
+Sender: sparclinux-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Miroslav Lichvar <mlichvar@redhat.com>
-Date: Mon, 15 May 2017 16:04:36 +0200
+From: Shannon Nelson <shannon.nelson@oracle.com>
+Date: Mon, 15 May 2017 10:51:06 -0700
 
-> The driver doesn't support timestamping of all received packets and
-> should return error when trying to enable the HWTSTAMP_FILTER_ALL
-> filter.
-> 
-> Cc: WingMan Kwok <w-kwok2@ti.com>
-> Cc: Richard Cochran <richardcochran@gmail.com>
-> Signed-off-by: Miroslav Lichvar <mlichvar@redhat.com>
+> Under heavy reboot stress testing we found a couple of timing issues
+> when removing the device that could cause the kernel great heartburn,
+> addressed by these two patches.
 
-Applied, thank you.
+These are pretty legit bug fixes so I've applied this series to net,
+thanks.
