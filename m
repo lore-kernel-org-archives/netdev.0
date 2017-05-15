@@ -1,38 +1,33 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH v4] net/mlx4_core: Use min3 to select number of MSI-X
- vectors
-Date: Mon, 15 May 2017 14:20:58 -0400 (EDT)
-Message-ID: <20170515.142058.561848464430283197.davem@davemloft.net>
-References: <1494569451-2567-1-git-send-email-yuval.shaia@oracle.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net/packet: fix missing net_device reference release
+Date: Mon, 15 May 2017 14:25:45 -0400 (EDT)
+Message-ID: <20170515.142545.1755990425599910242.davem@davemloft.net>
+References: <7daebe52-8542-87cb-551a-1a5b4912f140@taghos.com.br>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: yishaih-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: yuval.shaia-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1494569451-2567-1-git-send-email-yuval.shaia-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, edumazet@google.com, daniel@iogearbox.net,
+        willemb@google.com, jarno@ovn.org, andreyknvl@google.com,
+        anoob.soman@citrix.com, sowmini.varadhan@oracle.com,
+        philip.pettersson@gmail.com, rppt@linux.vnet.ibm.com
+To: douglascs@taghos.com.br
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:38176 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933821AbdEOSZr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 15 May 2017 14:25:47 -0400
+In-Reply-To: <7daebe52-8542-87cb-551a-1a5b4912f140@taghos.com.br>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Yuval Shaia <yuval.shaia-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Date: Fri, 12 May 2017 09:10:51 +0300
+From: Douglas Caetano dos Santos <douglascs@taghos.com.br>
+Date: Fri, 12 May 2017 15:19:15 -0300
 
-> Signed-off-by: Yuval Shaia <yuval.shaia-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-> ---
-> v0 -> v1:
-> 	* s/"min_t("/"min_t(int"
-> v1 -> v2:
-> 	* Use min3 instead of min_t twice
-> v2 -> v3:
-> 	* Change commit log header message to reflect the changes made in
-> 	  v2
-> v3 -> v4:
-> 	* Cast return value from num_online_cpus to int to avoid
-> 	  compilation errors from "sparse"
+> When using a TX ring buffer, if an error occurs processing a control
+> message (e.g. invalid message), the net_device reference is not
+> released.
+> 
+> Fixes c14ac9451c348 ("sock: enable timestamping using control messages")
+> Signed-off-by: Douglas Caetano dos Santos <douglascs@taghos.com.br>
 
-Applied, thanks.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied and queued up for -stable, thanks.
