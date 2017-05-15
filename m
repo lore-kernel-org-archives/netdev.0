@@ -1,33 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [pull request][net V2 0/5] Mellanox, mlx5 fixes 2017-05-12
-Date: Mon, 15 May 2017 14:38:56 -0400 (EDT)
-Message-ID: <20170515.143856.1085319582171965999.davem@davemloft.net>
-References: <20170514104311.2081-1-saeedm@mellanox.com>
+Subject: Re: [PATCH net v2] qed: Fix uninitialized data in aRFS
+ infrastructure
+Date: Mon, 15 May 2017 14:39:13 -0400 (EDT)
+Message-ID: <20170515.143913.1695026862760668885.davem@davemloft.net>
+References: <1494753683-3429-1-git-send-email-Yuval.Mintz@cavium.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: saeedm@mellanox.com
+Cc: arnd@arndb.de, netdev@vger.kernel.org
+To: Yuval.Mintz@cavium.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:38346 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:38352 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932948AbdEOSi6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 15 May 2017 14:38:58 -0400
-In-Reply-To: <20170514104311.2081-1-saeedm@mellanox.com>
+        with ESMTP id S932948AbdEOSjO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 15 May 2017 14:39:14 -0400
+In-Reply-To: <1494753683-3429-1-git-send-email-Yuval.Mintz@cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Saeed Mahameed <saeedm@mellanox.com>
-Date: Sun, 14 May 2017 13:43:06 +0300
+From: Yuval Mintz <Yuval.Mintz@cavium.com>
+Date: Sun, 14 May 2017 12:21:23 +0300
 
-> This series contains some mlx5 fixes for net.
-> Please pull and let me know if there's any problem.
+> Current memset is using incorrect type of variable, causing the
+> upper-half of the strucutre to be left uninitialized and causing:
 > 
-> For -stable:
-> ("net/mlx5e: Fix ethtool pause support and advertise reporting") kernels >= 4.8
-> ("net/mlx5e: Use the correct pause values for ethtool advertising") kernels >= 4.8
+>   ethernet/qlogic/qed/qed_init_fw_funcs.c: In function 'qed_set_rfs_mode_disable':
+>   ethernet/qlogic/qed/qed_init_fw_funcs.c:993:3: error: '*((void *)&ramline+4)' is used uninitialized in this function [-Werror=uninitialized]
 > 
-> v1->v2:
->  Dropped statistics spinlock patch, it needs some extra work.
+> Fixes: d51e4af5c209 ("qed: aRFS infrastructure support")
+> Reported-by: Arnd Bergmann <arnd@arndb.de>
+> Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
 
-Pulled and the first two patches queued up for -stable, thanks.
+Applied, thank you.
