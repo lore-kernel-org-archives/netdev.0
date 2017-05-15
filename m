@@ -1,46 +1,72 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: rps: don't skip offline cpus when set
- rps_cpus
-Date: Mon, 15 May 2017 10:23:30 -0400 (EDT)
-Message-ID: <20170515.102330.1406781282658945993.davem@davemloft.net>
-References: <20170515125552.2971-1-zlpnobody@163.com>
+Subject: Re: stable/linux-4.10.y build: 203 builds: 3 failed, 200 passed, 3
+ errors, 5 warnings (v4.10.16)
+Date: Mon, 15 May 2017 10:23:55 -0400 (EDT)
+Message-ID: <20170515.102355.1861593347498991413.davem@davemloft.net>
+References: <5918603a.118d1c0a.d6026.6b1a@mx.google.com>
+        <CAK8P3a2gFXScsizfvd-2=yEWBvPoE7L-r5CCf63MzPuWejPzAQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, therbert@google.com, zlpnobody@gmail.com
-To: zlpnobody@163.com
+Cc: bot@kernelci.org, kernel-build-reports@lists.linaro.org,
+        edumazet@google.com, gregkh@linuxfoundation.org,
+        stable@vger.kernel.org, netdev@vger.kernel.org
+To: arnd@arndb.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:35322 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:35336 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S965524AbdEOOXh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 15 May 2017 10:23:37 -0400
-In-Reply-To: <20170515125552.2971-1-zlpnobody@163.com>
+        with ESMTP id S965454AbdEOOX5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 15 May 2017 10:23:57 -0400
+In-Reply-To: <CAK8P3a2gFXScsizfvd-2=yEWBvPoE7L-r5CCf63MzPuWejPzAQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Liping Zhang <zlpnobody@163.com>
-Date: Mon, 15 May 2017 20:55:52 +0800
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Mon, 15 May 2017 14:57:08 +0200
 
-> From: Liping Zhang <zlpnobody@gmail.com>
+> On Sun, May 14, 2017 at 3:48 PM, kernelci.org bot <bot@kernelci.org> wrote:
+>>
+>> stable/linux-4.10.y build: 203 builds: 3 failed, 200 passed, 3 errors, 5 warnings (v4.10.16)
+>> Full Build Summary: https://kernelci.org/build/stable/branch/linux-4.10.y/kernel/v4.10.16/
+>> Tree: stable
+>> Branch: linux-4.10.y
+>> Git Describe: v4.10.16
+>> Git Commit: 6e8e9958691907e8d7eb3b2107619dddbdaeb175
+>> Git URL: http://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git
+>> Built: 4 unique architectures
+>>
+>> Build Failures Detected:
+>>
+>> arm: gcc version 5.3.1 20160412 (Linaro GCC 5.3-2016.05)
+>> spear3xx_defconfig FAIL
+>> spear6xx_defconfig FAIL
+>> tct_hammer_defconfig FAIL
+>> Errors summary:
+>> 3 net/core/skbuff.c:1575:37: error: 'sock_edemux' undeclared (first use in this function)
+>> Warnings summary:
 > 
-> On our 4-core system, sometimes I can enable all CPUs to process packets.
-> But sometimes I can't, if all the CPUs become offline except core 0, I
-> will get the following result, which is really annoying for my script:
->  # echo f > /sys/class/net/eth0/queues/rx-0/rps_cpus
->  # cat /sys/class/net/eth0/queues/rx-0/rps_cpus
->  1
+> This is a regression against v4.10.15, caused by the backport of
+> c21b48cc1bbf ("net: adjust skb->truesize in ___pskb_trim()") by Eric
+> Dumazet.
 > 
-> Since we won't steer the packets to these offline cpus, it's reasonable
-> to enable all configed cpus to the rps_map, even if they are offline for
-> the time being.
+> Part of another commit that Eric did earlier fixes it:
 > 
-> Signed-off-by: Liping Zhang <zlpnobody@gmail.com>
+> 158f323b9868 ("net: adjust skb->truesize in pskb_expand_head()")
+> --- a/include/net/sock.h
+> +++ b/include/net/sock.h
+> @@ -1534,7 +1534,7 @@ void sock_efree(struct sk_buff *skb);
+>  #ifdef CONFIG_INET
+>  void sock_edemux(struct sk_buff *skb);
+>  #else
+> -#define sock_edemux(skb) sock_efree(skb)
+> +#define sock_edemux sock_efree
+>  #endif
+> 
+>  int sock_setsockopt(struct socket *sock, int level, int op,
+> 
+> This commit is not marked 'Cc: stable' upstream, but is referenced
+> in the one that was backported and looks like it might be appropriate
+> for stable as well. Eric, can you clarify?
 
-But this means while those cpus are offline, get_rps_cpu() performs
-very suboptimally.
-
-In fact, if the packet hashes to one of those offline cpus, you get
-no RPS at all.
-
-So I think we really can't make this change, at least in it's current
-form.
+Yeah we should definitely merge this into -stable, sorry for not
+noticing this during the backport.
