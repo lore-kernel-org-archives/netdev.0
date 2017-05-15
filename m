@@ -1,33 +1,42 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 1/3] net/sock: factor out dequeue/peek with
- offset code
-Date: Mon, 15 May 2017 09:02:18 -0700
-Message-ID: <1494864138.6465.0.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <cover.1494837879.git.pabeni@redhat.com>
-         <503e324ecd4085f256474df1a352a92814fd29f4.1494837879.git.pabeni@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: [PATCH v2 0/3] bpf: Track MAP pointer alignment
+Date: Mon, 15 May 2017 12:04:22 -0400 (EDT)
+Message-ID: <20170515.120422.1411526109824089456.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-        Eric Dumazet <edumazet@google.com>
-To: Paolo Abeni <pabeni@redhat.com>
+Cc: ast@fb.com, alexei.starovoitov@gmail.com, netdev@vger.kernel.org
+To: daniel@iogearbox.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:35679 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S935060AbdEOQCV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 15 May 2017 12:02:21 -0400
-Received: by mail-pf0-f196.google.com with SMTP id u26so16240144pfd.2
-        for <netdev@vger.kernel.org>; Mon, 15 May 2017 09:02:21 -0700 (PDT)
-In-Reply-To: <503e324ecd4085f256474df1a352a92814fd29f4.1494837879.git.pabeni@redhat.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:36348 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934249AbdEOQEZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 15 May 2017 12:04:25 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2017-05-15 at 11:01 +0200, Paolo Abeni wrote:
-> And update __sk_queue_drop_skb() to work on the specified queue.
-> This will help the udp protocol to use an additional private
-> rx queue in a later patch.
-> 
-> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
-> ---
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+This patch series updates the BPF verifier to properly track MAP
+access alignment, just as we already do for packet pointers.
+
+The two main elements of the implementation are putting the register
+offset into a shared rather than reg type specific area of the
+verifier register tracking strcutre, and also eliding packet pointer
+specific checks when managing MAP pointer alignment.
+
+More details of the implementation are in the commit message for patch
+#2.
+
+Patch #3 removes alignment restrictions from various test_verifier.c
+tests which are no longer necessary with this MAP alignment
+infrastructure in place.  Further improvements are possible, but
+I didn't want to be overly ambitious here.
+
+In the future we can add some MAP tests to test_align.c as well.
+
+changes since v1:
+ - Enforce offset limits just like for packet pointers
+ - Handle "CONST_IMM += MAP_VALUE_ADJ"
+ - Document effects on state pruning in commit message of patch #2
+
+Signed-off-by: David S. Miller <davem@davemloft.net>
