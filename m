@@ -1,58 +1,88 @@
-From: Soheil Hassas Yeganeh <soheil.kdev@gmail.com>
-Subject: [PATCH net] tcp: eliminate negative reordering in tcp_clean_rtx_queue
-Date: Mon, 15 May 2017 17:05:47 -0400
-Message-ID: <20170515210547.125052-1-soheil.kdev@gmail.com>
-Cc: ilpo.jarvinen@helsinki.fi,
-        Soheil Hassas Yeganeh <soheil@google.com>,
-        Neal Cardwell <ncardwell@google.com>,
-        Yuchung Cheng <ycheng@google.com>,
-        Eric Dumazet <edumazet@google.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
+From: Ihar Hrachyshka <ihrachys@redhat.com>
+Subject: Re: [PATCH] arp: honour gratuitous ARP _replies_
+Date: Mon, 15 May 2017 14:16:16 -0700
+Message-ID: <20170515211616.26077-1-ihrachys@redhat.com>
+References: <20170515.140832.354922796595622860.davem@davemloft.net>
+Cc: netdev@vger.kernel.org, Ihar Hrachyshka <ihrachys@redhat.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f195.google.com ([209.85.216.195]:33560 "EHLO
-        mail-qt0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756248AbdEOVFv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 15 May 2017 17:05:51 -0400
-Received: by mail-qt0-f195.google.com with SMTP id a46so17859269qte.0
-        for <netdev@vger.kernel.org>; Mon, 15 May 2017 14:05:51 -0700 (PDT)
+Received: from mx1.redhat.com ([209.132.183.28]:56940 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754546AbdEOVQf (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 15 May 2017 17:16:35 -0400
+In-Reply-To: <20170515.140832.354922796595622860.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Soheil Hassas Yeganeh <soheil@google.com>
+When arp_accept is 1, gratuitous ARPs are supposed to override matching
+entries irrespective of whether they arrive during locktime. This was
+implemented in commit 56022a8fdd87 ("ipv4: arp: update neighbour address
+when a gratuitous arp is received and arp_accept is set")
 
-tcp_ack() can call tcp_fragment() which may dededuct the
-value tp->fackets_out when MSS changes. When prior_fackets
-is larger than tp->fackets_out, tcp_clean_rtx_queue() can
-invoke tcp_update_reordering() with negative values. This
-results in absurd tp->reodering values higher than
-sysctl_tcp_max_reordering.
+There is a glitch in the patch though. RFC 2002, section 4.6, "ARP,
+Proxy ARP, and Gratuitous ARP", defines gratuitous ARPs so that they can
+be either of Request or Reply type. Those Reply gratuitous ARPs can be
+triggered with standard tooling, for example, arping -A option does just
+that.
 
-Note that tcp_update_reordering indeeds sets tp->reordering
-to min(sysctl_tcp_max_reordering, metric), but because
-the comparison is signed, a negative metric always wins.
+This patch fixes the glitch, making both Request and Reply flavours of
+gratuitous ARPs to behave identically.
 
-Fixes: c7caf8d3ed7a ("[TCP]: Fix reord detection due to snd_una covered holes")
-Reported-by: Rebecca Isaacs <risaacs@google.com>
-Signed-off-by: Soheil Hassas Yeganeh <soheil@google.com>
-Signed-off-by: Neal Cardwell <ncardwell@google.com>
-Signed-off-by: Yuchung Cheng <ycheng@google.com>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
+As per RFC, if gratuitous ARPs are of Reply type, their Target Hardware
+Address field should also be set to the link-layer address to which this
+cache entry should be updated. The field is present in ARP over Ethernet
+but not in IEEE 1394. In this patch, I don't consider any broadcasted
+ARP replies as gratuitous if the field is not present, to conform the
+standard. It's not clear whether there is such a thing for IEEE 1394 as
+a gratuitous ARP reply; until it's cleared up, we will ignore such
+broadcasts. Note that they will still update existing ARP cache entries,
+assuming they arrive out of locktime time interval.
+
+Signed-off-by: Ihar Hrachyshka <ihrachys@redhat.com>
 ---
- net/ipv4/tcp_input.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/ipv4/arp.c | 16 ++++++++++++++--
+ 1 file changed, 14 insertions(+), 2 deletions(-)
 
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 9739962bfb3f..f27dff64e59e 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -3190,7 +3190,7 @@ static int tcp_clean_rtx_queue(struct sock *sk, int prior_fackets,
- 			int delta;
+diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
+index 0937b34..d54345a 100644
+--- a/net/ipv4/arp.c
++++ b/net/ipv4/arp.c
+@@ -653,6 +653,7 @@ static int arp_process(struct net *net, struct sock *sk, struct sk_buff *skb)
+ 	unsigned char *arp_ptr;
+ 	struct rtable *rt;
+ 	unsigned char *sha;
++	unsigned char *tha = NULL;
+ 	__be32 sip, tip;
+ 	u16 dev_type = dev->type;
+ 	int addr_type;
+@@ -724,6 +725,7 @@ static int arp_process(struct net *net, struct sock *sk, struct sk_buff *skb)
+ 		break;
+ #endif
+ 	default:
++		tha = arp_ptr;
+ 		arp_ptr += dev->addr_len;
+ 	}
+ 	memcpy(&tip, arp_ptr, 4);
+@@ -842,8 +844,18 @@ static int arp_process(struct net *net, struct sock *sk, struct sk_buff *skb)
+ 		   It is possible, that this option should be enabled for some
+ 		   devices (strip is candidate)
+ 		 */
+-		is_garp = arp->ar_op == htons(ARPOP_REQUEST) && tip == sip &&
+-			  addr_type == RTN_UNICAST;
++		is_garp = tip == sip && addr_type == RTN_UNICAST;
++
++		/* Unsolicited ARP _replies_ also require target hwaddr to be
++		 * the same as source.
++		 */
++		if (is_garp && arp->ar_op == htons(ARPOP_REPLY))
++			is_garp =
++				/* IPv4 over IEEE 1394 doesn't provide target
++				 * hardware address field in its ARP payload.
++				 */
++				tha &&
++				!memcmp(tha, sha, dev->addr_len);
  
- 			/* Non-retransmitted hole got filled? That's reordering */
--			if (reord < prior_fackets)
-+			if (reord < prior_fackets && reord <= tp->fackets_out)
- 				tcp_update_reordering(sk, tp->fackets_out - reord, 0);
- 
- 			delta = tcp_is_fack(tp) ? pkts_acked :
+ 		if (!n &&
+ 		    ((arp->ar_op == htons(ARPOP_REPLY)  &&
 -- 
-2.13.0.rc2.291.g57267f2277-goog
+2.9.3
