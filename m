@@ -1,7 +1,8 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 00/10] net: sched: introduce multichain support for filters
-Date: Mon, 15 May 2017 10:38:47 +0200
-Message-ID: <20170515083857.3615-1-jiri@resnulli.us>
+Subject: [patch net-next v2 03/10] net: sched: rename tcf_destroy_chain helper
+Date: Mon, 15 May 2017 10:38:50 +0200
+Message-ID: <20170515083857.3615-4-jiri@resnulli.us>
+References: <20170515083857.3615-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
         dsa@cumulusnetworks.com, edumazet@google.com,
         stephen@networkplumber.org, daniel@iogearbox.net,
@@ -9,102 +10,55 @@ Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
         mlxsw@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f195.google.com ([209.85.128.195]:33604 "EHLO
-        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932311AbdEOIjB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 15 May 2017 04:39:01 -0400
-Received: by mail-wr0-f195.google.com with SMTP id w50so14104253wrc.0
-        for <netdev@vger.kernel.org>; Mon, 15 May 2017 01:39:00 -0700 (PDT)
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:33361 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933302AbdEOIjF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 15 May 2017 04:39:05 -0400
+Received: by mail-wm0-f65.google.com with SMTP id y10so26498636wmh.0
+        for <netdev@vger.kernel.org>; Mon, 15 May 2017 01:39:04 -0700 (PDT)
+In-Reply-To: <20170515083857.3615-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-Currently, each classful qdisc holds one chain of filters.
-This chain is traversed and each filter could be matched on, which
-may lead to execution of list of actions. One of such action
-could be "reclassify", which would "reset" the processing of the
-filter chain.
+Make the name consistent with the rest of the helpers around.
 
-So this filter chain could be looked at as a flat table.
-Sometimes it is convenient for user to configure a hierarchy
-of tables. Example usecase is encapsulation.
-
-Hierarchy of tables is a common way how it is done in HW pipelines.
-So it is much more convenient to offload this.
-
-This patchset contains two major patches:
-8/10 - This patch introduces the support for having multiple
-       chains of filters.
-10/10 - This patch adds new control action to allow going to specified chain
-
-The rest of the patches are smaller or bigger depencies of those 2.
-Please see individual patch descriptions for details.
-
-Corresponding iproute2 patches are appended as a reply to this cover letter.
-
-Simple example:
-$ tc qdisc add dev eth0 ingress
-$ tc filter add dev eth0 parent ffff: protocol ip pref 33 flower dst_mac 52:54:00:3d:c7:6d action goto chain 11
-$ tc filter add dev eth0 parent ffff: protocol ip pref 22 chain 11 flower dst_ip 192.168.40.1 action drop
-$ tc filter show dev eth0 root
-filter parent ffff: protocol ip pref 33 flower chain 0
-filter parent ffff: protocol ip pref 33 flower chain 0 handle 0x1
-  dst_mac 52:54:00:3d:c7:6d
-  eth_type ipv4
-        action order 1: gact action goto chain 11
-         random type none pass val 0
-         index 2 ref 1 bind 1
-
-filter parent ffff: protocol ip pref 22 flower chain 11
-filter parent ffff: protocol ip pref 22 flower chain 11 handle 0x1
-  eth_type ipv4
-  dst_ip 192.168.40.1
-        action order 1: gact action drop
-         random type none pass val 0
-         index 3 ref 1 bind 1
-
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
-v1->v2:
-- 09/10 - no need to push tp all the way down to actions
-- 10/10 - reworked gact to generic control action as suggested by Jamal
+ net/sched/cls_api.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-Jiri Pirko (10):
-  net: sched: move tc_classify function to cls_api.c
-  net: sched: introduce tcf block infractructure
-  net: sched: rename tcf_destroy_chain helper
-  net: sched: replace nprio by a bool to make the function more readable
-  net: sched: move TC_H_MAJ macro call into tcf_auto_prio
-  net: sched: introduce helpers to work with filter chains
-  net: sched: push chain dump to a separate function
-  net: sched: introduce multichain support for filters
-  net: sched: push tp down to action init
-  net: sched: add termination action to allow goto chain
-
- include/net/act_api.h          |  13 +-
- include/net/pkt_cls.h          |  24 ++-
- include/net/pkt_sched.h        |   3 -
- include/net/sch_generic.h      |  26 ++-
- include/uapi/linux/pkt_cls.h   |   1 +
- include/uapi/linux/rtnetlink.h |   1 +
- net/core/dev.c                 |   5 +-
- net/sched/act_api.c            |  55 +++++-
- net/sched/cls_api.c            | 405 ++++++++++++++++++++++++++++++++---------
- net/sched/sch_api.c            |  50 +----
- net/sched/sch_atm.c            |  29 ++-
- net/sched/sch_cbq.c            |  21 ++-
- net/sched/sch_drr.c            |  15 +-
- net/sched/sch_dsmark.c         |  19 +-
- net/sched/sch_fq_codel.c       |  17 +-
- net/sched/sch_hfsc.c           |  21 ++-
- net/sched/sch_htb.c            |  28 ++-
- net/sched/sch_ingress.c        |  61 +++++--
- net/sched/sch_multiq.c         |  16 +-
- net/sched/sch_prio.c           |  19 +-
- net/sched/sch_qfq.c            |  16 +-
- net/sched/sch_sfb.c            |  17 +-
- net/sched/sch_sfq.c            |  17 +-
- 23 files changed, 619 insertions(+), 260 deletions(-)
-
+diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
+index 42fdc8a..88ec1a1 100644
+--- a/net/sched/cls_api.c
++++ b/net/sched/cls_api.c
+@@ -187,7 +187,7 @@ static void tcf_proto_destroy(struct tcf_proto *tp)
+ 	kfree_rcu(tp, rcu);
+ }
+ 
+-static void tcf_destroy_chain(struct tcf_proto __rcu **fl)
++static void tcf_chain_destroy(struct tcf_proto __rcu **fl)
+ {
+ 	struct tcf_proto *tp;
+ 
+@@ -214,7 +214,7 @@ void tcf_block_put(struct tcf_block *block)
+ {
+ 	if (!block)
+ 		return;
+-	tcf_destroy_chain(block->p_filter_chain);
++	tcf_chain_destroy(block->p_filter_chain);
+ 	kfree(block);
+ }
+ EXPORT_SYMBOL(tcf_block_put);
+@@ -366,7 +366,7 @@ static int tc_ctl_tfilter(struct sk_buff *skb, struct nlmsghdr *n,
+ 
+ 	if (n->nlmsg_type == RTM_DELTFILTER && prio == 0) {
+ 		tfilter_notify_chain(net, skb, n, chain, RTM_DELTFILTER);
+-		tcf_destroy_chain(chain);
++		tcf_chain_destroy(chain);
+ 		err = 0;
+ 		goto errout;
+ 	}
 -- 
 2.9.3
