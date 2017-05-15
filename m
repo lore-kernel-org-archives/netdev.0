@@ -1,41 +1,75 @@
-From: Niklas Cassel <niklas.cassel@axis.com>
-Subject: [PATCH net-next] net: stmmac: use correct pointer when printing normal descriptor ring
-Date: Mon, 15 May 2017 10:56:06 +0200
-Message-ID: <20170515085606.24217-1-niklas.cassel@axis.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Niklas Cassel <niklass@axis.com>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>
-To: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-        Alexandre Torgue <alexandre.torgue@st.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: [PATCH net-next 0/3] udp: scalability improvements
+Date: Mon, 15 May 2017 11:01:41 +0200
+Message-ID: <cover.1494837879.git.pabeni@redhat.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:56620 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S933764AbdEOJDH (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 15 May 2017 05:03:07 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-There are two pointers in sysfs_display_ring,
-one that increments if using normal dma descriptors,
-another if using extended dma descriptors.
+This patch series implement an idea suggested by Eric Dumazet to
+reduce the contention of the udp sk_receive_queue lock when the socket is
+under flood.
 
-When printing the normal dma descriptors, the wrong pointer is used,
-thus the printed descriptor addresses are incorrect.
+An ancillary queue is added to the udp socket, and the socket always
+tries first to read packets from such queue. If it's empty, we splice
+the content from sk_receive_queue into the ancillary queue.
 
-Signed-off-by: Niklas Cassel <niklas.cassel@axis.com>
----
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+The first patch introduces some helpers to keep the udp code small, and the
+following two implement the ancillary queue strategy. The code is split
+to hopefully help the reviewing process.
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index cd8c60132390..a74c481401c4 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -3725,7 +3725,7 @@ static void sysfs_display_ring(void *head, int size, int extend_desc,
- 			ep++;
- 		} else {
- 			seq_printf(seq, "%d [0x%x]: 0x%x 0x%x 0x%x 0x%x\n",
--				   i, (unsigned int)virt_to_phys(ep),
-+				   i, (unsigned int)virt_to_phys(p),
- 				   le32_to_cpu(p->des0), le32_to_cpu(p->des1),
- 				   le32_to_cpu(p->des2), le32_to_cpu(p->des3));
- 			p++;
+The measured overall gain under udp flood is up to the 30% depending on
+the numa layout and the number of ingress queue used by the relevant nic.
+
+The performance numbers have been gathered using pktgen as sender, with 64
+bytes packets, random src port on a host b2b connected via a 10Gbs link
+with the dut.
+
+The receiver used the udp_sink program by Jesper [1] and an h/w l4 rx hash on
+the ingress nic, so that the number of ingress nic rx queues hit by the udp
+traffic could be controlled via ethtool -L.
+
+The udp_sink program was bound to the first idle cpu, to get more
+stable numbers.
+
+On a single numa node receiver:
+
+nic rx queues           vanilla                 patched kernel
+1                       1820 kpps               1900 kpps
+2                       1950 kpps               2500 kpps
+16                      1670 kpps               2120 kpps
+
+When using a single nic rx queue, busy polling was also enabled,
+elsewhere, in the above scenario, the bh processing becomes the bottle-neck
+and this produces large artifacts in the measured performances (e.g.
+improving the udp sink run time, decreases the overall tput, since more
+action from the scheduler comes into play).
+
+[1] https://github.com/netoptimizer/network-testing/blob/master/src/udp_sink.c
+
+No changes since the RFC.
+
+Paolo Abeni (3):
+  net/sock: factor out dequeue/peek with offset code
+  udp: use a separate rx queue for packet reception
+  udp: keep the sk_receive_queue held when splicing
+
+ include/linux/skbuff.h |   7 +++
+ include/linux/udp.h    |   3 +
+ include/net/sock.h     |   4 +-
+ include/net/udp.h      |   9 +--
+ include/net/udplite.h  |   2 +-
+ net/core/datagram.c    |  90 +++++++++++++++------------
+ net/ipv4/udp.c         | 162 +++++++++++++++++++++++++++++++++++++++++++------
+ net/ipv6/udp.c         |   3 +-
+ 8 files changed, 211 insertions(+), 69 deletions(-)
+
 -- 
-2.11.0
+2.9.3
