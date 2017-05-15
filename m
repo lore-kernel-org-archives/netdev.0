@@ -1,129 +1,205 @@
 From: Paolo Abeni <pabeni@redhat.com>
-Subject: [PATCH net-next 3/3] udp: keep the sk_receive_queue held when splicing
-Date: Mon, 15 May 2017 11:01:44 +0200
-Message-ID: <41a898cfb2cf7ee618237a62bc48df1defed8957.1494837879.git.pabeni@redhat.com>
+Subject: [PATCH net-next 1/3] net/sock: factor out dequeue/peek with offset code
+Date: Mon, 15 May 2017 11:01:42 +0200
+Message-ID: <503e324ecd4085f256474df1a352a92814fd29f4.1494837879.git.pabeni@redhat.com>
 References: <cover.1494837879.git.pabeni@redhat.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
         Eric Dumazet <edumazet@google.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:58654 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:57346 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S933764AbdEOJDL (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 15 May 2017 05:03:11 -0400
+        id S933565AbdEOJDI (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 15 May 2017 05:03:08 -0400
 In-Reply-To: <cover.1494837879.git.pabeni@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On packet reception, when we are forced to splice the
-sk_receive_queue, we can keep the related lock held, so
-that we can avoid re-acquiring it, if fwd memory
-scheduling is required.
+And update __sk_queue_drop_skb() to work on the specified queue.
+This will help the udp protocol to use an additional private
+rx queue in a later patch.
 
 Signed-off-by: Paolo Abeni <pabeni@redhat.com>
 ---
- net/ipv4/udp.c | 36 ++++++++++++++++++++++++++----------
- 1 file changed, 26 insertions(+), 10 deletions(-)
+ include/linux/skbuff.h |  7 ++++
+ include/net/sock.h     |  4 +--
+ net/core/datagram.c    | 90 ++++++++++++++++++++++++++++----------------------
+ 3 files changed, 60 insertions(+), 41 deletions(-)
 
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index 492c76b..d698973 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -1164,7 +1164,8 @@ int udp_sendpage(struct sock *sk, struct page *page, int offset,
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index a098d95..bfc7892 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -3056,6 +3056,13 @@ static inline void skb_frag_list_init(struct sk_buff *skb)
+ 
+ int __skb_wait_for_more_packets(struct sock *sk, int *err, long *timeo_p,
+ 				const struct sk_buff *skb);
++struct sk_buff *__skb_try_recv_from_queue(struct sock *sk,
++					  struct sk_buff_head *queue,
++					  unsigned int flags,
++					  void (*destructor)(struct sock *sk,
++							   struct sk_buff *skb),
++					  int *peeked, int *off, int *err,
++					  struct sk_buff **last);
+ struct sk_buff *__skb_try_recv_datagram(struct sock *sk, unsigned flags,
+ 					void (*destructor)(struct sock *sk,
+ 							   struct sk_buff *skb),
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 66349e4..49d226f 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -2035,8 +2035,8 @@ void sk_reset_timer(struct sock *sk, struct timer_list *timer,
+ 
+ void sk_stop_timer(struct sock *sk, struct timer_list *timer);
+ 
+-int __sk_queue_drop_skb(struct sock *sk, struct sk_buff *skb,
+-			unsigned int flags,
++int __sk_queue_drop_skb(struct sock *sk, struct sk_buff_head *sk_queue,
++			struct sk_buff *skb, unsigned int flags,
+ 			void (*destructor)(struct sock *sk,
+ 					   struct sk_buff *skb));
+ int __sock_queue_rcv_skb(struct sock *sk, struct sk_buff *skb);
+diff --git a/net/core/datagram.c b/net/core/datagram.c
+index db1866f2..a4592b4 100644
+--- a/net/core/datagram.c
++++ b/net/core/datagram.c
+@@ -161,6 +161,43 @@ static struct sk_buff *skb_set_peeked(struct sk_buff *skb)
+ 	return skb;
  }
  
- /* fully reclaim rmem/fwd memory allocated for skb */
--static void udp_rmem_release(struct sock *sk, int size, int partial)
-+static void udp_rmem_release(struct sock *sk, int size, int partial,
-+			     int rx_queue_lock_held)
- {
- 	struct udp_sock *up = udp_sk(sk);
- 	struct sk_buff_head *sk_queue;
-@@ -1181,9 +1182,13 @@ static void udp_rmem_release(struct sock *sk, int size, int partial)
- 	}
- 	up->forward_deficit = 0;
- 
--	/* acquire the sk_receive_queue for fwd allocated memory scheduling */
-+	/* acquire the sk_receive_queue for fwd allocated memory scheduling,
-+	 * if the called don't held it already
-+	 */
- 	sk_queue = &sk->sk_receive_queue;
--	spin_lock(&sk_queue->lock);
-+	if (!rx_queue_lock_held)
-+		spin_lock(&sk_queue->lock);
-+
- 
- 	sk->sk_forward_alloc += size;
- 	amt = (sk->sk_forward_alloc - partial) & ~(SK_MEM_QUANTUM - 1);
-@@ -1197,7 +1202,8 @@ static void udp_rmem_release(struct sock *sk, int size, int partial)
- 	/* this can save us from acquiring the rx queue lock on next receive */
- 	skb_queue_splice_tail_init(sk_queue, &up->reader_queue);
- 
--	spin_unlock(&sk_queue->lock);
-+	if (!rx_queue_lock_held)
-+		spin_unlock(&sk_queue->lock);
- }
- 
- /* Note: called with reader_queue.lock held.
-@@ -1207,10 +1213,16 @@ static void udp_rmem_release(struct sock *sk, int size, int partial)
-  */
- void udp_skb_destructor(struct sock *sk, struct sk_buff *skb)
- {
--	udp_rmem_release(sk, skb->dev_scratch, 1);
-+	udp_rmem_release(sk, skb->dev_scratch, 1, 0);
- }
- EXPORT_SYMBOL(udp_skb_destructor);
- 
-+/* as above, but the caller held the rx queue lock, too */
-+void udp_skb_dtor_locked(struct sock *sk, struct sk_buff *skb)
++struct sk_buff *__skb_try_recv_from_queue(struct sock *sk,
++					  struct sk_buff_head *queue,
++					  unsigned int flags,
++					  void (*destructor)(struct sock *sk,
++							   struct sk_buff *skb),
++					  int *peeked, int *off, int *err,
++					  struct sk_buff **last)
 +{
-+	udp_rmem_release(sk, skb->dev_scratch, 1, 1);
++	struct sk_buff *skb;
++
++	*last = queue->prev;
++	skb_queue_walk(queue, skb) {
++		if (flags & MSG_PEEK) {
++			if (*off >= skb->len && (skb->len || *off ||
++						 skb->peeked)) {
++				*off -= skb->len;
++				continue;
++			}
++			if (!skb->len) {
++				skb = skb_set_peeked(skb);
++				if (unlikely(IS_ERR(skb))) {
++					*err = PTR_ERR(skb);
++					return skb;
++				}
++			}
++			*peeked = 1;
++			atomic_inc(&skb->users);
++		} else {
++			__skb_unlink(skb, queue);
++			if (destructor)
++				destructor(sk, skb);
++		}
++		return skb;
++	}
++	return NULL;
 +}
 +
- /* Idea of busylocks is to let producers grab an extra spinlock
-  * to relieve pressure on the receive_queue spinlock shared by consumer.
-  * Under flood, this means that only one producer can be in line
-@@ -1325,7 +1337,7 @@ void udp_destruct_sock(struct sock *sk)
- 		total += skb->truesize;
- 		kfree_skb(skb);
- 	}
--	udp_rmem_release(sk, total, 0);
-+	udp_rmem_release(sk, total, 0, 1);
+ /**
+  *	__skb_try_recv_datagram - Receive a datagram skbuff
+  *	@sk: socket
+@@ -216,46 +253,20 @@ struct sk_buff *__skb_try_recv_datagram(struct sock *sk, unsigned int flags,
  
- 	inet_sock_destruct(sk);
+ 	*peeked = 0;
+ 	do {
++		int _off = *off;
++
+ 		/* Again only user level code calls this function, so nothing
+ 		 * interrupt level will suddenly eat the receive_queue.
+ 		 *
+ 		 * Look at current nfs client by the way...
+ 		 * However, this function was correct in any case. 8)
+ 		 */
+-		int _off = *off;
+-
+-		*last = (struct sk_buff *)queue;
+ 		spin_lock_irqsave(&queue->lock, cpu_flags);
+-		skb_queue_walk(queue, skb) {
+-			*last = skb;
+-			if (flags & MSG_PEEK) {
+-				if (_off >= skb->len && (skb->len || _off ||
+-							 skb->peeked)) {
+-					_off -= skb->len;
+-					continue;
+-				}
+-				if (!skb->len) {
+-					skb = skb_set_peeked(skb);
+-					if (IS_ERR(skb)) {
+-						error = PTR_ERR(skb);
+-						spin_unlock_irqrestore(&queue->lock,
+-								       cpu_flags);
+-						goto no_packet;
+-					}
+-				}
+-				*peeked = 1;
+-				atomic_inc(&skb->users);
+-			} else {
+-				__skb_unlink(skb, queue);
+-				if (destructor)
+-					destructor(sk, skb);
+-			}
+-			spin_unlock_irqrestore(&queue->lock, cpu_flags);
+-			*off = _off;
+-			return skb;
+-		}
+-
++		skb = __skb_try_recv_from_queue(sk, queue, flags, destructor,
++						peeked, &_off, err, last);
+ 		spin_unlock_irqrestore(&queue->lock, cpu_flags);
++		if (skb)
++			return skb;
+ 
+ 		if (!sk_can_busy_loop(sk))
+ 			break;
+@@ -335,8 +346,8 @@ void __skb_free_datagram_locked(struct sock *sk, struct sk_buff *skb, int len)
  }
-@@ -1397,7 +1409,7 @@ static int first_packet_length(struct sock *sk)
+ EXPORT_SYMBOL(__skb_free_datagram_locked);
+ 
+-int __sk_queue_drop_skb(struct sock *sk, struct sk_buff *skb,
+-			unsigned int flags,
++int __sk_queue_drop_skb(struct sock *sk, struct sk_buff_head *sk_queue,
++			struct sk_buff *skb, unsigned int flags,
+ 			void (*destructor)(struct sock *sk,
+ 					   struct sk_buff *skb))
+ {
+@@ -344,15 +355,15 @@ int __sk_queue_drop_skb(struct sock *sk, struct sk_buff *skb,
+ 
+ 	if (flags & MSG_PEEK) {
+ 		err = -ENOENT;
+-		spin_lock_bh(&sk->sk_receive_queue.lock);
+-		if (skb == skb_peek(&sk->sk_receive_queue)) {
+-			__skb_unlink(skb, &sk->sk_receive_queue);
++		spin_lock_bh(&sk_queue->lock);
++		if (skb == skb_peek(sk_queue)) {
++			__skb_unlink(skb, sk_queue);
+ 			atomic_dec(&skb->users);
+ 			if (destructor)
+ 				destructor(sk, skb);
+ 			err = 0;
+ 		}
+-		spin_unlock_bh(&sk->sk_receive_queue.lock);
++		spin_unlock_bh(&sk_queue->lock);
  	}
- 	res = skb ? skb->len : -1;
- 	if (total)
--		udp_rmem_release(sk, total, 1);
-+		udp_rmem_release(sk, total, 1, 0);
- 	spin_unlock_bh(&rcvq->lock);
- 	return res;
- }
-@@ -1471,16 +1483,20 @@ struct sk_buff *__skb_recv_udp(struct sock *sk, unsigned int flags,
- 				goto busy_check;
- 			}
  
--			/* refill the reader queue and walk it again */
-+			/* refill the reader queue and walk it again
-+			 * keep both queues locked to avoid re-acquiring
-+			 * the sk_receive_queue lock if fwd memory scheduling
-+			 * is needed.
-+			 */
- 			_off = *off;
- 			spin_lock(&sk_queue->lock);
- 			skb_queue_splice_tail_init(sk_queue, queue);
--			spin_unlock(&sk_queue->lock);
+ 	atomic_inc(&sk->sk_drops);
+@@ -383,7 +394,8 @@ EXPORT_SYMBOL(__sk_queue_drop_skb);
  
- 			skb = __skb_try_recv_from_queue(sk, queue, flags,
--							udp_skb_destructor,
-+							udp_skb_dtor_locked,
- 							peeked, &_off, err,
- 							&last);
-+			spin_unlock(&sk_queue->lock);
- 			spin_unlock_bh(&queue->lock);
- 			if (skb) {
- 				*off = _off;
+ int skb_kill_datagram(struct sock *sk, struct sk_buff *skb, unsigned int flags)
+ {
+-	int err = __sk_queue_drop_skb(sk, skb, flags, NULL);
++	int err = __sk_queue_drop_skb(sk, &sk->sk_receive_queue, skb, flags,
++				      NULL);
+ 
+ 	kfree_skb(skb);
+ 	sk_mem_reclaim_partial(sk);
 -- 
 2.9.3
