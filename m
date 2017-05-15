@@ -1,95 +1,103 @@
-From: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH] net/smc: mark as BROKEN due to remote memory exposure
-Date: Mon, 15 May 2017 10:18:49 +0300
-Message-ID: <20170515071849.GZ3616@mtr-leonro.local>
-References: <20170510072627.12060-1-hch@lst.de>
- <1494514662.2489.1.camel@sandisk.com>
- <20170514055848.GA23149@lst.de>
- <20170514.115116.499149210596634881.davem@davemloft.net>
+From: Yuval Shaia <yuval.shaia-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH v4] net/mlx4_core: Use min3 to select number of MSI-X
+ vectors
+Date: Mon, 15 May 2017 10:53:24 +0300
+Message-ID: <20170515075324.GA3523@yuval-lap>
+References: <1494569451-2567-1-git-send-email-yuval.shaia@oracle.com>
+ <20170514190133.GC28994@yuval-lap>
+ <20170515044304.GV3616@mtr-leonro.local>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-        protocol="application/pgp-signature"; boundary="YHHegWJYV76VGRm9"
-Cc: hch-jcswGhMUV9g@public.gmane.org, Bart.VanAssche-XdAiOPVOjttBDgjK7y7TUQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        ubraun-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: yishaih-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
 Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <20170514.115116.499149210596634881.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+In-Reply-To: <20170515044304.GV3616-U/DQcQFIOTAAJjI8aNfphQ@public.gmane.org>
 Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+On Mon, May 15, 2017 at 07:43:04AM +0300, Leon Romanovsky wrote:
+> On Sun, May 14, 2017 at 10:01:34PM +0300, Yuval Shaia wrote:
+> > On Fri, May 12, 2017 at 09:10:51AM +0300, Yuval Shaia wrote:
+> > > Signed-off-by: Yuval Shaia <yuval.shaia-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+> > > ---
+> > > v0 -> v1:
+> > > 	* s/"min_t("/"min_t(int"
+> > > v1 -> v2:
+> > > 	* Use min3 instead of min_t twice
+> > > v2 -> v3:
+> > > 	* Change commit log header message to reflect the changes made in
+> > > 	  v2
+> > > v3 -> v4:
+> > > 	* Cast return value from num_online_cpus to int to avoid
+> > > 	  compilation errors from "sparse"
+> >
+> > Hi Leon,
+> > Got your r-b for v3, can you please review v4?
+> 
+> What was the sparse error?
+> 
+> num_online_cpus() is declared as "unsigned int", so you don't need to do casting.
+> 
+> ➜  linux-rdma git:(master) git grep num_online_cpus include/
+> include/linux/cpumask.h:#define num_online_cpus()       cpumask_weight(cpu_online_mask)
+> include/linux/cpumask.h:#define num_online_cpus()       1U
+> 
+> ➜  linux-rdma git:(master) git grep cpumask_weight include/
+> include/linux/cpumask.h:static inline unsigned int cpumask_weight(const struct cpumask *srcp)
 
---YHHegWJYV76VGRm9
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+But num_eqs and reserved_eqs are ints so assuming the error is that i
+asked min3 to compare unsigned int with int.
 
-On Sun, May 14, 2017 at 11:51:16AM -0400, David Miller wrote:
-> From: Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>
-> Date: Sun, 14 May 2017 07:58:48 +0200
->
-> > this patch has not been superceeded by anything, can you explain why
-> > it has been marked as such in patchworks?
->
-> I think you're being overbearing by requiring this to be marked BROKEN
-> and I would like you to explore other ways with the authors to fix
-> whatever perceived problems you think SMC has.
+This casting cannot do harm because anyway the result is stored in int
+variable.
 
-Hi Dave,
+> 
+> Thanks
+> 
+> >
+> > Thanks,
+> >
+> > > ---
+> > >  drivers/net/ethernet/mellanox/mlx4/main.c | 10 ++++------
+> > >  1 file changed, 4 insertions(+), 6 deletions(-)
+> > >
+> > > diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
+> > > index 7032054..83aab1e 100644
+> > > --- a/drivers/net/ethernet/mellanox/mlx4/main.c
+> > > +++ b/drivers/net/ethernet/mellanox/mlx4/main.c
+> > > @@ -2862,12 +2862,10 @@ static void mlx4_enable_msi_x(struct mlx4_dev *dev)
+> > >  	int port = 0;
+> > >
+> > >  	if (msi_x) {
+> > > -		int nreq = dev->caps.num_ports * num_online_cpus() + 1;
+> > > -
+> > > -		nreq = min_t(int, dev->caps.num_eqs - dev->caps.reserved_eqs,
+> > > -			     nreq);
+> > > -		if (nreq > MAX_MSIX)
+> > > -			nreq = MAX_MSIX;
+> > > +		int nreq = min3(dev->caps.num_ports *
+> > > +				(int)num_online_cpus() + 1,
+> > > +				dev->caps.num_eqs - dev->caps.reserved_eqs,
+> > > +				MAX_MSIX);
+> > >
+> > >  		entries = kcalloc(nreq, sizeof *entries, GFP_KERNEL);
+> > >  		if (!entries)
+> > > --
+> > > 2.7.4
+> > >
+> > > --
+> > > To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+> > > the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> > > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> > --
+> > To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+> > the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-Christoph proposed very clear way to remove BROKEN tag, by providing
-secure environment by default to all users.
 
-All ULPs in RDMA and lustre in staging [1] are working in secure mode
-by default and I don't understand why SMC-R should be different.
-
-=46rom my experience such "BROKEN" tag will help for authors to get proper
-priority from their managers to fix it in a first place, before they are
-moved to anything else.
-
->
-> You claim that this is somehow "urgent" is false.  You can ask
-> distributions to disable SMC or whatever in the short term if it
-> reallly, truly, bothers you.
-
-It is not distributions only. For example, RDMA stack is released by
-different providers. Mellanox OFED [2] is one of them and it is based on
-upstream kernel.
-
-Thanks
-
-[1] e0ccf5d085ab ("staging: lustre: ko2iblnd: Adapt to the removal of ib_ge=
-t_dma_mr()")
-[2] http://www.mellanox.com/page/products_dyn?product_family=3D26&mtag=3Dli=
-nux_sw_drivers
-
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
---YHHegWJYV76VGRm9
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAlkZVlkACgkQ5GN7iDZy
-WKcb+A//SPoz91215P1vqdulAXFNAZWeqz96b8AIvnoQbybS0Pu/O8uoSOhRI1P1
-lU21Ajtzc5vbLrzs7lB0qHdWMyZAZzx3oabV4aPvolohyl5/ZYiy2nhInxxRpaGC
-any/cje3sIHvlT/UswWUIg/cvwh8+VcRWpZSDTIYH3h56hnIfZ46vCBd7QzNKEVP
-phCll/UinofyoIc2630Yyg9O3VjE3yzHMQsmhJo1/7YJeqb8xgnzDBNa4XO0p5Dg
-HXO2XBEOEfjVqT4F30mdyLK7QvDcKzmr4D+fbTfXZ2jd+CQPpg+SkxsLk3dNGvb3
-m73NPwIU2lEiBPup37PUwRMaeEL3zOaNdCTxlIwPxim97+4YrO5MFHzy0oVrDPqr
-BNteWZCMYJ9d+T/dN9YIilCxUamLWDGXoD5MUqzeXXBCF72vEBhC5CgarQ+XQd7l
-+JAwyYeCsUUNRU+9Lbbx6E73nnMfybkr9jZrfysb0V2lPbww4kTi6qLWNHLceuRR
-4wRDR2djztzlhcFNUOT+/FlOpZ32yo2Uw7it+1cu+Af723xB24zHrx37dU+gAOPd
-CLrAfIzjldzGlb82arsVRdXwGXAiVns2znvT+XHsZyyhQywKObATwEXKL/Y2x8P+
-q37ImZMvM4n7M1jPY0kaivKh01o65MZJQdHIZWWqHSLkfDCpYwk=
-=cKQ1
------END PGP SIGNATURE-----
-
---YHHegWJYV76VGRm9--
 --
 To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
