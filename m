@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 04/10] net: sched: replace nprio by a bool to make the function more readable
-Date: Mon, 15 May 2017 10:38:51 +0200
-Message-ID: <20170515083857.3615-5-jiri@resnulli.us>
+Subject: [patch net-next v2 07/10] net: sched: push chain dump to a separate function
+Date: Mon, 15 May 2017 10:38:54 +0200
+Message-ID: <20170515083857.3615-8-jiri@resnulli.us>
 References: <20170515083857.3615-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
         dsa@cumulusnetworks.com, edumazet@google.com,
@@ -10,80 +10,149 @@ Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
         mlxsw@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f193.google.com ([209.85.128.193]:35128 "EHLO
-        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933346AbdEOIjQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 15 May 2017 04:39:16 -0400
-Received: by mail-wr0-f193.google.com with SMTP id g12so14134404wrg.2
-        for <netdev@vger.kernel.org>; Mon, 15 May 2017 01:39:16 -0700 (PDT)
+Received: from mail-wr0-f195.google.com ([209.85.128.195]:35168 "EHLO
+        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933358AbdEOIjV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 15 May 2017 04:39:21 -0400
+Received: by mail-wr0-f195.google.com with SMTP id g12so14134712wrg.2
+        for <netdev@vger.kernel.org>; Mon, 15 May 2017 01:39:10 -0700 (PDT)
 In-Reply-To: <20170515083857.3615-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-The use of "nprio" variable in tc_ctl_tfilter is a bit cryptic and makes
-a reader wonder what is going on for a while. So help him to understand
-this priority allocation dance a litte bit better.
+Since there will be multiple chains to dump, push chain dumping code to
+a separate function.
 
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- net/sched/cls_api.c | 13 +++++++------
- 1 file changed, 7 insertions(+), 6 deletions(-)
+ net/sched/cls_api.c | 95 +++++++++++++++++++++++++++++------------------------
+ 1 file changed, 52 insertions(+), 43 deletions(-)
 
 diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
-index 88ec1a1..0e49e6e 100644
+index 6f2ea68..9f48061 100644
 --- a/net/sched/cls_api.c
 +++ b/net/sched/cls_api.c
-@@ -271,7 +271,7 @@ static int tc_ctl_tfilter(struct sk_buff *skb, struct nlmsghdr *n,
- 	struct tcmsg *t;
- 	u32 protocol;
- 	u32 prio;
--	u32 nprio;
-+	bool prio_allocate;
- 	u32 parent;
+@@ -634,21 +634,65 @@ static int tcf_node_dump(struct tcf_proto *tp, unsigned long n,
+ 			     RTM_NEWTFILTER);
+ }
+ 
++static void tcf_chain_dump(struct tcf_chain *chain, struct sk_buff *skb,
++			   struct netlink_callback *cb,
++			   long index_start, long *p_index)
++{
++	struct net *net = sock_net(skb->sk);
++	struct tcmsg *tcm = nlmsg_data(cb->nlh);
++	struct tcf_dump_args arg;
++	struct tcf_proto *tp;
++
++	for (tp = rtnl_dereference(chain->filter_chain);
++	     tp; tp = rtnl_dereference(tp->next), (*p_index)++) {
++		if (*p_index < index_start)
++			continue;
++		if (TC_H_MAJ(tcm->tcm_info) &&
++		    TC_H_MAJ(tcm->tcm_info) != tp->prio)
++			continue;
++		if (TC_H_MIN(tcm->tcm_info) &&
++		    TC_H_MIN(tcm->tcm_info) != tp->protocol)
++			continue;
++		if (*p_index > index_start)
++			memset(&cb->args[1], 0,
++			       sizeof(cb->args) - sizeof(cb->args[0]));
++		if (cb->args[1] == 0) {
++			if (tcf_fill_node(net, skb, tp, 0,
++					  NETLINK_CB(cb->skb).portid,
++					  cb->nlh->nlmsg_seq, NLM_F_MULTI,
++					  RTM_NEWTFILTER) <= 0)
++				break;
++
++			cb->args[1] = 1;
++		}
++		if (!tp->ops->walk)
++			continue;
++		arg.w.fn = tcf_node_dump;
++		arg.skb = skb;
++		arg.cb = cb;
++		arg.w.stop = 0;
++		arg.w.skip = cb->args[1] - 1;
++		arg.w.count = 0;
++		tp->ops->walk(tp, &arg.w);
++		cb->args[1] = arg.w.count + 1;
++		if (arg.w.stop)
++			break;
++	}
++}
++
+ /* called with RTNL */
+ static int tc_dump_tfilter(struct sk_buff *skb, struct netlink_callback *cb)
+ {
+ 	struct net *net = sock_net(skb->sk);
+-	int t;
+-	int s_t;
  	struct net_device *dev;
- 	struct Qdisc  *q;
-@@ -300,7 +300,7 @@ static int tc_ctl_tfilter(struct sk_buff *skb, struct nlmsghdr *n,
- 	t = nlmsg_data(n);
- 	protocol = TC_H_MIN(t->tcm_info);
- 	prio = TC_H_MAJ(t->tcm_info);
--	nprio = prio;
-+	prio_allocate = false;
- 	parent = t->tcm_parent;
- 	cl = 0;
+ 	struct Qdisc *q;
+ 	struct tcf_block *block;
+-	struct tcf_proto *tp;
+ 	struct tcf_chain *chain;
+ 	struct tcmsg *tcm = nlmsg_data(cb->nlh);
+ 	unsigned long cl = 0;
+ 	const struct Qdisc_class_ops *cops;
+-	struct tcf_dump_args arg;
++	long index_start;
++	long index;
  
-@@ -316,6 +316,7 @@ static int tc_ctl_tfilter(struct sk_buff *skb, struct nlmsghdr *n,
- 			 */
- 			if (n->nlmsg_flags & NLM_F_CREATE) {
- 				prio = TC_H_MAKE(0x80000000U, 0U);
-+				prio_allocate = true;
- 				break;
- 			}
- 			/* fall-through */
-@@ -377,7 +378,7 @@ static int tc_ctl_tfilter(struct sk_buff *skb, struct nlmsghdr *n,
- 	     back = &tp->next) {
- 		if (tp->prio >= prio) {
- 			if (tp->prio == prio) {
--				if (!nprio ||
-+				if (prio_allocate ||
- 				    (tp->protocol != protocol && protocol)) {
- 					err = -EINVAL;
- 					goto errout;
-@@ -403,11 +404,11 @@ static int tc_ctl_tfilter(struct sk_buff *skb, struct nlmsghdr *n,
- 			goto errout;
- 		}
+ 	if (nlmsg_len(cb->nlh) < sizeof(*tcm))
+ 		return skb->len;
+@@ -677,45 +721,10 @@ static int tc_dump_tfilter(struct sk_buff *skb, struct netlink_callback *cb)
+ 		goto errout;
+ 	chain = block->chain;
  
--		if (!nprio)
--			nprio = TC_H_MAJ(tcf_auto_prio(rtnl_dereference(*back)));
-+		if (prio_allocate)
-+			prio = TC_H_MAJ(tcf_auto_prio(rtnl_dereference(*back)));
+-	s_t = cb->args[0];
+-
+-	for (tp = rtnl_dereference(chain->filter_chain), t = 0;
+-	     tp; tp = rtnl_dereference(tp->next), t++) {
+-		if (t < s_t)
+-			continue;
+-		if (TC_H_MAJ(tcm->tcm_info) &&
+-		    TC_H_MAJ(tcm->tcm_info) != tp->prio)
+-			continue;
+-		if (TC_H_MIN(tcm->tcm_info) &&
+-		    TC_H_MIN(tcm->tcm_info) != tp->protocol)
+-			continue;
+-		if (t > s_t)
+-			memset(&cb->args[1], 0,
+-			       sizeof(cb->args)-sizeof(cb->args[0]));
+-		if (cb->args[1] == 0) {
+-			if (tcf_fill_node(net, skb, tp, 0,
+-					  NETLINK_CB(cb->skb).portid,
+-					  cb->nlh->nlmsg_seq, NLM_F_MULTI,
+-					  RTM_NEWTFILTER) <= 0)
+-				break;
+-
+-			cb->args[1] = 1;
+-		}
+-		if (tp->ops->walk == NULL)
+-			continue;
+-		arg.w.fn = tcf_node_dump;
+-		arg.skb = skb;
+-		arg.cb = cb;
+-		arg.w.stop = 0;
+-		arg.w.skip = cb->args[1] - 1;
+-		arg.w.count = 0;
+-		tp->ops->walk(tp, &arg.w);
+-		cb->args[1] = arg.w.count + 1;
+-		if (arg.w.stop)
+-			break;
+-	}
+-
+-	cb->args[0] = t;
++	index_start = cb->args[0];
++	index = 0;
++	tcf_chain_dump(chain, skb, cb, index_start, &index);
++	cb->args[0] = index;
  
- 		tp = tcf_proto_create(nla_data(tca[TCA_KIND]),
--				      protocol, nprio, parent, q, block);
-+				      protocol, prio, parent, q, block);
- 		if (IS_ERR(tp)) {
- 			err = PTR_ERR(tp);
- 			goto errout;
+ errout:
+ 	if (cl)
 -- 
 2.9.3
