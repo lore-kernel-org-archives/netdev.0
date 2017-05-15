@@ -1,106 +1,55 @@
-From: "Luis R. Rodriguez" <mcgrof@kernel.org>
-Subject: Re: [PATCH 2/6] wl1251: Use request_firmware_prefer_user() for
- loading NVS calibration data
-Date: Tue, 16 May 2017 01:13:39 +0200
-Message-ID: <20170515231339.GF17314@wotan.suse.de>
-References: <0fd90416-f33c-a6be-14fd-5e964583e9cb@broadcom.com>
+From: <bcohen@childrensnational.org>
+Subject: (unknown)
+Date: Mon, 15 May 2017 23:19:58 -0000
+Message-ID: <149489039837.6150.17308500474389555907@nojabrsk.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: "Luis R. Rodriguez" <mcgrof@kernel.org>,
-        Pavel Machek <pavel@ucw.cz>, Daniel Wagner <wagi@monom.org>,
-        Tom Gundersen <teg@jklm.no>,
-        Pali =?iso-8859-1?Q?Roh=E1r?= <pali.rohar@gmail.com>,
-        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        David Gnedt <david.gnedt@davizone.at>,
-        Tony Lindgren <tony@atomide.com>,
-        Sebastian Reichel <sre@kernel.org>,
-        Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>,
-        Aaro Koskinen <aaro.koskinen@iki.fi>,
-        Takashi Iwai <tiwai@suse.de>,
-        AKASHI Takahiro <takahiro.akashi@linaro.org>,
-        David Woodhouse <dwmw2@infradead.org>,
-        Bjorn Andersson <bjorn.andersson@linaro.org>,
-        Grazvydas Ignotas <notasas@gmail.com>,
-        linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
-        netdev@vger.kernel.org,
-        =?u
-To: Arend Van Spriel <arend.vanspriel@broadcom.com>,
-        Johannes Berg <johannes@sipsolutions.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <0fd90416-f33c-a6be-14fd-5e964583e9cb@broadcom.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: application/zip; name="EMAIL_94874074783512_netdev.zip"
+Content-Transfer-Encoding: base64
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from adsl-178-46-15-240.nojabrsk.ru ([178.46.15.240]:57779 "HELO
+        nojabrsk.ru" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with SMTP
+        id S1752806AbdEOXUN (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 15 May 2017 19:20:13 -0400
+Subject: 
+Content-Disposition: attachment
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 12, 2017 at 11:02:26PM +0200, Arend Van Spriel wrote:
-> try again.. replacing email address from Michał
-> On 12-5-2017 22:55, Arend Van Spriel wrote:
-> > Let me explain the idea to refresh your memory (and mine). It started
-> > when we were working on adding driver support for OpenWrt in brcmfmac.
-> > The driver requests for firmware calibration data, but on routers it is
-> > stored in flash. So after failing on the firmware request we now call a
-> > platform specific API. That was my itch, but it was not bad enough to go
-> > and scratch. Now for N900 case there is a similar scenario alhtough it
-> > has additional requirement to go to user-space due to need to use a
-> > proprietary library to obtain the NVS calibration data. My thought: Why
-> > should firmware_class care?
-
-Agreed.
-
-> > So the idea is that firmware_class provides
-> > a registry for modules that can produce a certain firmware "file". Those
-> > modules can do whatever is needed. If they need to use umh so be it.
-> > They would only register themselves with firmware_class on platforms
-> > that need them. It would basically be replacing the fallback mechanism
-> > and only be effective on certain platforms.
-
-Sure, so it sounds like the work that Daniel Wagner and Tom Gundersen worked
-[0] on which provides a firmwared with two modes: best-effort, and final-mode,
-would address what you are looking for but without requiring any upstream
-changes, *and* it also helps solve the rootfs race remote-proc folks had
-concerns over.
-
-The other added gain over this solution is if folks need their own proprietary
-concoction they can just fork firmwared and have that do whatever it needs
-for the specific device on the specific rootfs. That is, firmwared can be the
-upstream solution if folks need it, but if folks need something custom they can
-just mimic the implementation: best-effort, and and final-mode.
-
-Yet another added gain over this solution we can do *not* support the
-custom fallback mechanism as its not needed, the udev event should suffice
-to let userspace do what it needs.
-
-Lastly, if we did not want to deal with timeouts for the way the driver data
-API implements it I think we might be able to do away with them for for async
-requests if we assume there will be a daemon that spawns in final-mode eventually,
-and since it *knows* when the rootfs is ready it should be able to do a final
-lookup, if it returns -ENOENT; then indeed we know we can give up. Now, perhaps
-how and if we want to deal with timeouts when using the driver data API for
-the fallback mechanism is worth considering given it does not have a fallback
-mechanism support yet. If we *add* them it would seem this would also put an
-implicit race against userspace finishing initialization and running firmwared
-in final-mode.
-
-Johannes, do you recall the corner cases we spoke about regarding timeouts?
-Does this match what we spoke about?
-
-> > Let me know if this idea is still of interest and I will rebase what I
-> > have for an RFC round.
-
-Since no upstream delta is needed for firmwared I'd like to first encourage
-evaluating the above. While distributions don't carry it yet that may be seen as
-an issue but since what we are looking for are corner cases, only folks needing
-to deploy a specific solution would need it or a custom proprietary solution.
-
-[0] https://github.com/teg/firmwared.git
-
-PS.
-
-Note that firmware signing will require an additional file, the detached
-signature. The driver data API does not currently support the fallback
-mechanism so we would not have to worry about that yet but once we add
-fallback support we'd need to consider this.
-
-  Luis
+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
+UEsFBgAAAAABAAEAWwAAAKkHAAAAAA==
