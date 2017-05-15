@@ -1,45 +1,73 @@
-From: "Mrs. Linda Jones" <"WWW."@pearl.ocn.ne.jp>
-Subject: Your first payment of $5000  ,
-Date: Tue, 16 May 2017 02:16:25 +0900 (JST)
-Message-ID: <656700279.4776513.1494868585565.JavaMail.root@pearl.ocn.ne.jp>
-Reply-To: "Mrs. Linda Jones" <wstun.office123@gmail.com>
+From: Jon Mason <jon.mason@broadcom.com>
+Subject: Re: [PATCH] mdio: mux: fix device_node_continue.cocci warnings
+Date: Mon, 15 May 2017 13:37:09 -0400
+Message-ID: <CAC3K-4qtjNOfseuENeg2Q7-xKVCK-Ytz2wPQMcX_LiwPLuTAiw@mail.gmail.com>
+References: <alpine.DEB.2.20.1705122252440.3416@hadrien> <20170512.122223.341607427763777325.davem@davemloft.net>
+ <872f3980-9faa-718f-3260-9e4b22946140@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8BIT
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mbkd0338.ocn.ad.jp ([153.149.236.39]:32919 "EHLO
-        mbkd0338.ocn.ad.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1760153AbdEORf0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 15 May 2017 13:35:26 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: David Miller <davem@davemloft.net>,
+        Julia Lawall <julia.lawall@lip6.fr>,
+        Network Development <netdev@vger.kernel.org>,
+        Andrew Lunn <andrew@lunn.ch>, kbuild-all@01.org,
+        open list <linux-kernel@vger.kernel.org>
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <872f3980-9faa-718f-3260-9e4b22946140@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Attn Beneficiary,
+On Fri, May 12, 2017 at 6:52 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
+> On 05/12/2017 09:22 AM, David Miller wrote:
+>> From: Julia Lawall <julia.lawall@lip6.fr>
+>> Date: Fri, 12 May 2017 22:54:23 +0800 (SGT)
+>>
+>>> Device node iterators put the previous value of the index variable, so an
+>>> explicit put causes a double put.
+>>  ...
+>>> @@ -169,7 +169,6 @@ int mdio_mux_init(struct device *dev,
+>>>              if (r) {
+>>>                      mdiobus_free(cb->mii_bus);
+>>>                      devm_kfree(dev, cb);
+>>> -                    of_node_put(child_bus_node);
+>>>              } else {
+>>
+>> I think we're instead simply missing a break; statement here.
+>
+> It's kind of questionable, if we have an error initializing one of our
+> child MDIO bus controller (child from the perspective of the MDIO mux,
+> boy this is getting complicated...), should we keep on going, or should
+> we abort entirely and rollback what we have successfully registered?
+>
+> I don't think Julia's patch makes thing worse, in that if we had to
+> rollback, we would not be doing this correctly now anyway.
+>
+> Jon, what do you think?
 
-We have deposited the check of your fund ($2.5m USD) through western union money transfer
-department after our finally meeting today regarding your fund, Now all you
-will do is to contact western union director Mis Rose Kelly  ,And She will give you
-the direction on how you will be receiving your funds daily. Remember to send
-her your Full information to avoid wrong transfer such as,
+If every other case is fatal, then it is odd that this one is
+permissive.  I think we should go 100% one way or the other.  So, the
+options here are to:
+1.  Encounter an error, unroll any mallocs, etc created by this entry,
+but continue on to the next entry and return success if any are
+created
+2.  Encounter an error, unroll any mallocs, etc created by this entry
+and any others that were created, and return an error
+3.  Encounter an error, unroll any mallocs, etc created by this entry,
+exit and return success if any are created
 
-Your Receiver Name--------------­
-Your Country--------------------­
-Your City-----------------------­
-Your Phone No-----------------------­
-Your Address--------------------­
-Your Id card or pasport :.......
+#1 would be the most accepting of any errors encountered
+#2 would identify any poorly written DTs by breaking their currently
+working functionality (though we should add some error messages to let
+them know why)
+#3 matches the suggestion by David Miller, and would be a hybrid of #1
+and #2 in outcome
 
-Therefore you are advised to contact western union accountant Manager 
- to her bellow information and tell She to give you the Mtcn, sender name
-and question/answer to pick the money,
+I would prefer #1, as I would not want to break something that was
+currently working.  However, I think we should add much error logging
+here to let people know their DT is hosed (instead of silently
+working).  So, this would mean applying Julia's patch, and I'll do a
+follow-on to change the breaks to continues and add the error logging
+(assuming others agree with me).
 
-CONTACT Name: Mis Rose Kelly reply to (  wstun.office123@gmail.com  )
-Phone: +229-99374614 
-
-
-Get back to us once you receive your total fund of $2.5m.
-Thanks and God bless you.
-
-Best Regards
-WESTERN UNION AGENT
+Thanks,
+Jon
