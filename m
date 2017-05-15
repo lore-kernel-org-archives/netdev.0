@@ -1,37 +1,55 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: Advice on user space application integration with tc
-Date: Mon, 15 May 2017 13:14:54 -0700
-Message-ID: <CAM_iQpWnxTuHQfXzxQ6Cg5Ec=D7yJQsvw+3WpnzDuDXAUow7fg@mail.gmail.com>
-References: <CAHV_CwaAF-tDqEpPT1LL04tqTLE14qqqhxZtsB+d-ndKot8_UQ@mail.gmail.com>
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: Re: [PATCH net-next 3/3] udp: keep the sk_receive_queue held when
+ splicing
+Date: Mon, 15 May 2017 22:22:57 +0200
+Message-ID: <1494879777.3586.21.camel@redhat.com>
+References: <1494865864.3586.19.camel@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Morgan Yang <morgan.yang1982@gmail.com>
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+To: Eric Dumazet <edumazet@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f182.google.com ([209.85.220.182]:35808 "EHLO
-        mail-qk0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934544AbdEOUPP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 15 May 2017 16:15:15 -0400
-Received: by mail-qk0-f182.google.com with SMTP id a72so108920916qkj.2
-        for <netdev@vger.kernel.org>; Mon, 15 May 2017 13:15:15 -0700 (PDT)
-In-Reply-To: <CAHV_CwaAF-tDqEpPT1LL04tqTLE14qqqhxZtsB+d-ndKot8_UQ@mail.gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:45910 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S965496AbdEOUXB (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 15 May 2017 16:23:01 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 11, 2017 at 1:45 PM, Morgan Yang <morgan.yang1982@gmail.com> wrote:
-> Hi All:
->
-> I want to build a solution that leverages the filtering and actions of
-> tc in kernel space, but have the ability to hook  to a userspace
-> application that can additional packet processing (such as payload
-> masking). I'm curious what are the best ways to go about doing that? I
-> have been looking into tc-skbmod and tc-pedit, but as good as they
-> are, they would require newer kernels. I have also tried using tc to
-> mirror filterd packets to a dummy or tap interface, and have the
-> userspace application pick up there, but the performance has been
-> supar. I'm hoping to have a solution that avoids the extra mirroring.
+On Mon, 2017-05-15 at 09:11 -0700, Eric Dumazet wrote:
+> On Mon, 2017-05-15 at 11:01 +0200, Paolo Abeni wrote:
+> > On packet reception, when we are forced to splice the
+> > sk_receive_queue, we can keep the related lock held, so
+> > that we can avoid re-acquiring it, if fwd memory
+> > scheduling is required.
+> > 
+> > Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+> > ---
+> >  net/ipv4/udp.c | 36 ++++++++++++++++++++++++++----------
+> >  1 file changed, 26 insertions(+), 10 deletions(-)
+> > 
+> > diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+> > index 492c76b..d698973 100644
+> > --- a/net/ipv4/udp.c
+> > +++ b/net/ipv4/udp.c
+> > @@ -1164,7 +1164,8 @@ int udp_sendpage(struct sock *sk, struct page *page, int offset,
+> >  }
+> >  
+> >  /* fully reclaim rmem/fwd memory allocated for skb */
+> > -static void udp_rmem_release(struct sock *sk, int size, int partial)
+> > +static void udp_rmem_release(struct sock *sk, int size, int partial,
+> > +			     int rx_queue_lock_held)
+> 
+> Looks good, but please use a bool rx_queue_lock_held ?
 
+oops, I wrongly omitted some most recipients in my initial reply, re-
+sending. Eric, I'm sorry for the duplicates.
 
-act pedit exists for a rather long time, I don't think you need a new
-kernel to use it, unless of course you have a different definition of
-"new kernel". ;)
+ok, it sounds cleaner, I will submit a v2.
+
+Thank you for reviewing this!
+
+Cheers,
+
+Paolo
