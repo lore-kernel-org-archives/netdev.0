@@ -1,73 +1,76 @@
-From: Jon Mason <jon.mason@broadcom.com>
-Subject: Re: [PATCH] mdio: mux: fix device_node_continue.cocci warnings
-Date: Mon, 15 May 2017 13:37:09 -0400
-Message-ID: <CAC3K-4qtjNOfseuENeg2Q7-xKVCK-Ytz2wPQMcX_LiwPLuTAiw@mail.gmail.com>
-References: <alpine.DEB.2.20.1705122252440.3416@hadrien> <20170512.122223.341607427763777325.davem@davemloft.net>
- <872f3980-9faa-718f-3260-9e4b22946140@gmail.com>
+From: Kees Cook <keescook@chromium.org>
+Subject: Re: arch: arm: bpf: Converting cBPF to eBPF for arm 32 bit
+Date: Mon, 15 May 2017 10:44:07 -0700
+Message-ID: <CAGXu5jLeCB-H0nkVtpJN5SSz4r4idnKJbnV+rO610nw-o98wCQ@mail.gmail.com>
+References: <CAHgaXdKsO2xoKYp7g91g+n+d_1KHSSByLjzBB-WjVXSjhB7qxw@mail.gmail.com>
+ <20170510.212952.1440495072777358778.davem@davemloft.net> <CAHgaXdK8LEEUPm4jTRRzCnjwdWAauHmmB=caZsSFY8MmStH89Q@mail.gmail.com>
+ <20170510.215218.2185526627014393313.davem@davemloft.net> <CAHgaXdKZ_v+iO7uqEDx7PA7D+xcp1FngGvJ1SRSsGXNQ-iWWDQ@mail.gmail.com>
+ <CAHgaXdLJoVUXXGTYs7FYXay5wx=sA-O+=dYhX+r7AQT7vSNfGQ@mail.gmail.com>
+ <CAGXu5j+2q4Wwfhuk_DnDaV894A9ZOD=A_AvAU_OZG6KQv0_KMg@mail.gmail.com> <CAHgaXdL7GcVzs+ANPke_NywhcgHbe_fzi1sTDEy+Ni1-o82GYQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Cc: David Miller <davem@davemloft.net>,
-        Julia Lawall <julia.lawall@lip6.fr>,
+        Mircea Gherzan <mgherzan@gmail.com>,
         Network Development <netdev@vger.kernel.org>,
-        Andrew Lunn <andrew@lunn.ch>, kbuild-all@01.org,
-        open list <linux-kernel@vger.kernel.org>
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <872f3980-9faa-718f-3260-9e4b22946140@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+        "kernel-hardening@lists.openwall.com"
+        <kernel-hardening@lists.openwall.com>,
+        "linux-arm-kernel@lists.infradead.org"
+        <linux-arm-kernel@lists.infradead.org>, ast@fb.com,
+        Daniel Borkmann <daniel@iogearbox.net>
+To: Shubham Bansal <illusionist.neo@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f181.google.com ([209.85.223.181]:34091 "EHLO
+        mail-io0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1760583AbdEORoK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 15 May 2017 13:44:10 -0400
+Received: by mail-io0-f181.google.com with SMTP id k91so78406245ioi.1
+        for <netdev@vger.kernel.org>; Mon, 15 May 2017 10:44:08 -0700 (PDT)
+In-Reply-To: <CAHgaXdL7GcVzs+ANPke_NywhcgHbe_fzi1sTDEy+Ni1-o82GYQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 12, 2017 at 6:52 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
-> On 05/12/2017 09:22 AM, David Miller wrote:
->> From: Julia Lawall <julia.lawall@lip6.fr>
->> Date: Fri, 12 May 2017 22:54:23 +0800 (SGT)
+On Sat, May 13, 2017 at 2:38 PM, Shubham Bansal
+<illusionist.neo@gmail.com> wrote:
+> Finally finished testing.
+>
+> "test_bpf: Summary: 314 PASSED, 0 FAILED, [274/306 JIT'ed]"
+
+Nice work! Glad you've been chipping away at this. Thanks!
+
+-Kees
+
+>
+> Will send the patch after code refactoring. Thanks for all the help
+> you guys. I really really appreciate it.
+>
+> Special thanks to Kees and Daniel. :)
+>
+> Best,
+> Shubham Bansal
+>
+>
+> On Thu, May 11, 2017 at 9:00 PM, Kees Cook <keescook@chromium.org> wrote:
+>> On Thu, May 11, 2017 at 2:32 AM, Shubham Bansal
+>> <illusionist.neo@gmail.com> wrote:
+>>> What do you guys suggest i should implement it? I am almost done with
+>>> my current implementation but if you think I should change it to the
+>>> way David suggested, its better to suggest now before I send the
+>>> patch.
 >>
->>> Device node iterators put the previous value of the index variable, so an
->>> explicit put causes a double put.
->>  ...
->>> @@ -169,7 +169,6 @@ int mdio_mux_init(struct device *dev,
->>>              if (r) {
->>>                      mdiobus_free(cb->mii_bus);
->>>                      devm_kfree(dev, cb);
->>> -                    of_node_put(child_bus_node);
->>>              } else {
+>> I'd say send what you have right now, as it's a good starting point
+>> for future work. I'll be curious to see the benchmarks, etc. It can be
+>> a base for further optimization.
 >>
->> I think we're instead simply missing a break; statement here.
->
-> It's kind of questionable, if we have an error initializing one of our
-> child MDIO bus controller (child from the perspective of the MDIO mux,
-> boy this is getting complicated...), should we keep on going, or should
-> we abort entirely and rollback what we have successfully registered?
->
-> I don't think Julia's patch makes thing worse, in that if we had to
-> rollback, we would not be doing this correctly now anyway.
->
-> Jon, what do you think?
+>> Thanks for chipping away at this!
+>>
+>> -Kees
+>>
+>> --
+>> Kees Cook
+>> Pixel Security
 
-If every other case is fatal, then it is odd that this one is
-permissive.  I think we should go 100% one way or the other.  So, the
-options here are to:
-1.  Encounter an error, unroll any mallocs, etc created by this entry,
-but continue on to the next entry and return success if any are
-created
-2.  Encounter an error, unroll any mallocs, etc created by this entry
-and any others that were created, and return an error
-3.  Encounter an error, unroll any mallocs, etc created by this entry,
-exit and return success if any are created
 
-#1 would be the most accepting of any errors encountered
-#2 would identify any poorly written DTs by breaking their currently
-working functionality (though we should add some error messages to let
-them know why)
-#3 matches the suggestion by David Miller, and would be a hybrid of #1
-and #2 in outcome
 
-I would prefer #1, as I would not want to break something that was
-currently working.  However, I think we should add much error logging
-here to let people know their DT is hosed (instead of silently
-working).  So, this would mean applying Julia's patch, and I'll do a
-follow-on to change the breaks to continues and add the error logging
-(assuming others agree with me).
-
-Thanks,
-Jon
+-- 
+Kees Cook
+Pixel Security
