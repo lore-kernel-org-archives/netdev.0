@@ -1,44 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] kmod: don't load module unless req process has
- CAP_SYS_MODULE
-Date: Mon, 15 May 2017 09:52:28 -0400 (EDT)
-Message-ID: <20170515.095228.1483686375235860235.davem@davemloft.net>
-References: <20170514104537.GA29323@kroah.com>
-        <87d1bbo81d.fsf@xmission.com>
-        <20170515061059.GB28741@kroah.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: stable/linux-4.10.y build: 203 builds: 3 failed, 200 passed, 3
+ errors, 5 warnings (v4.10.16)
+Date: Mon, 15 May 2017 15:55:56 +0200
+Message-ID: <CAK8P3a0XjehCE07iPkQM2sWG9AavZXw+T4s4YCJQ_JoF24-o1A@mail.gmail.com>
+References: <5918603a.118d1c0a.d6026.6b1a@mx.google.com> <CAK8P3a2gFXScsizfvd-2=yEWBvPoE7L-r5CCf63MzPuWejPzAQ@mail.gmail.com>
+ <CANn89iKvCk5C6btBbXh1kYpq2GcyW=6NADDGKH1ULeUbF9ddKA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ebiederm@xmission.com, mahesh@bandewar.net, mingo@kernel.org,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        keescook@chromium.org, edumazet@google.com, maheshb@google.com
-To: gregkh@linuxfoundation.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170515061059.GB28741@kroah.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: "kernelci.org bot" <bot@kernelci.org>,
+        Kernel Build Reports Mailman List
+        <kernel-build-reports@lists.linaro.org>,
+        gregkh <gregkh@linuxfoundation.org>, stable@vger.kernel.org,
+        Networking <netdev@vger.kernel.org>
+To: Eric Dumazet <edumazet@google.com>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <CANn89iKvCk5C6btBbXh1kYpq2GcyW=6NADDGKH1ULeUbF9ddKA@mail.gmail.com>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Date: Mon, 15 May 2017 08:10:59 +0200
+On Mon, May 15, 2017 at 3:39 PM, Eric Dumazet <edumazet@google.com> wrote:
+> On Mon, May 15, 2017 at 5:57 AM, Arnd Bergmann <arnd@arndb.de> wrote:
+>> On Sun, May 14, 2017 at 3:48 PM, kernelci.org bot <bot@kernelci.org> wrote:
+>>
+>>  int sock_setsockopt(struct socket *sock, int level, int op,
+>>
+>> This commit is not marked 'Cc: stable' upstream, but is referenced
+>> in the one that was backported and looks like it might be appropriate
+>> for stable as well. Eric, can you clarify?
+>>
+>
+> Hi Arnd
+>
+> Yes, it looks like stable would need this small extract from 158f323b9868,
+> removing the parameter from sock_edemux macro
 
-> On Sun, May 14, 2017 at 08:57:34AM -0500, Eric W. Biederman wrote:
->> Greg Kroah-Hartman <gregkh@linuxfoundation.org> writes:
->> 
->> diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
->> index bcb0f610ee42..6b72528a4636 100644
->> --- a/net/core/rtnetlink.c
->> +++ b/net/core/rtnetlink.c
->> @@ -2595,7 +2595,7 @@ static int rtnl_newlink(struct sk_buff *skb, struct nlmsghdr *nlh,
->>  
->>                 if (!ops) {
->>  #ifdef CONFIG_MODULES
->> -                       if (kind[0]) {
->> +                       if (kind[0] && capable(CAP_NET_ADMIN)) {
->>                                 __rtnl_unlock();
->>                                 request_module("rtnl-link-%s", kind);
->>                                 rtnl_lock();
-> 
-> I don't object to this if the networking developers don't mind the
-> change in functionality.  They can handle the fallout :)
+Ok, and the rest of 158f323b9868 should not go into stable, right?
 
-As I've said in another email, I am pretty sure this can break things.
+      Arnd
