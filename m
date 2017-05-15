@@ -1,48 +1,68 @@
-From: Liping Zhang <zlpnobody@163.com>
-Subject: [PATCH net-next] net: rps: don't skip offline cpus when set rps_cpus
-Date: Mon, 15 May 2017 20:55:52 +0800
-Message-ID: <20170515125552.2971-1-zlpnobody@163.com>
-Cc: netdev@vger.kernel.org, therbert@google.com,
-        Liping Zhang <zlpnobody@gmail.com>
-To: davem@davemloft.net
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: stable/linux-4.10.y build: 203 builds: 3 failed, 200 passed, 3
+ errors, 5 warnings (v4.10.16)
+Date: Mon, 15 May 2017 14:57:08 +0200
+Message-ID: <CAK8P3a2gFXScsizfvd-2=yEWBvPoE7L-r5CCf63MzPuWejPzAQ@mail.gmail.com>
+References: <5918603a.118d1c0a.d6026.6b1a@mx.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: Kernel Build Reports Mailman List
+        <kernel-build-reports@lists.linaro.org>,
+        Eric Dumazet <edumazet@google.com>,
+        gregkh <gregkh@linuxfoundation.org>, stable@vger.kernel.org,
+        Networking <netdev@vger.kernel.org>
+To: "kernelci.org bot" <bot@kernelci.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from m12-13.163.com ([220.181.12.13]:48993 "EHLO m12-13.163.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932721AbdEOM4k (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 15 May 2017 08:56:40 -0400
+Received: from mail-oi0-f65.google.com ([209.85.218.65]:35134 "EHLO
+        mail-oi0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932839AbdEOM5O (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 15 May 2017 08:57:14 -0400
+In-Reply-To: <5918603a.118d1c0a.d6026.6b1a@mx.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Liping Zhang <zlpnobody@gmail.com>
+On Sun, May 14, 2017 at 3:48 PM, kernelci.org bot <bot@kernelci.org> wrote:
+>
+> stable/linux-4.10.y build: 203 builds: 3 failed, 200 passed, 3 errors, 5 warnings (v4.10.16)
+> Full Build Summary: https://kernelci.org/build/stable/branch/linux-4.10.y/kernel/v4.10.16/
+> Tree: stable
+> Branch: linux-4.10.y
+> Git Describe: v4.10.16
+> Git Commit: 6e8e9958691907e8d7eb3b2107619dddbdaeb175
+> Git URL: http://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git
+> Built: 4 unique architectures
+>
+> Build Failures Detected:
+>
+> arm: gcc version 5.3.1 20160412 (Linaro GCC 5.3-2016.05)
+> spear3xx_defconfig FAIL
+> spear6xx_defconfig FAIL
+> tct_hammer_defconfig FAIL
+> Errors summary:
+> 3 net/core/skbuff.c:1575:37: error: 'sock_edemux' undeclared (first use in this function)
+> Warnings summary:
 
-On our 4-core system, sometimes I can enable all CPUs to process packets.
-But sometimes I can't, if all the CPUs become offline except core 0, I
-will get the following result, which is really annoying for my script:
- # echo f > /sys/class/net/eth0/queues/rx-0/rps_cpus
- # cat /sys/class/net/eth0/queues/rx-0/rps_cpus
- 1
+This is a regression against v4.10.15, caused by the backport of
+c21b48cc1bbf ("net: adjust skb->truesize in ___pskb_trim()") by Eric
+Dumazet.
 
-Since we won't steer the packets to these offline cpus, it's reasonable
-to enable all configed cpus to the rps_map, even if they are offline for
-the time being.
+Part of another commit that Eric did earlier fixes it:
 
-Signed-off-by: Liping Zhang <zlpnobody@gmail.com>
----
- net/core/net-sysfs.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+158f323b9868 ("net: adjust skb->truesize in pskb_expand_head()")
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -1534,7 +1534,7 @@ void sock_efree(struct sk_buff *skb);
+ #ifdef CONFIG_INET
+ void sock_edemux(struct sk_buff *skb);
+ #else
+-#define sock_edemux(skb) sock_efree(skb)
++#define sock_edemux sock_efree
+ #endif
 
-diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
-index 65ea0ff..8adb36d 100644
---- a/net/core/net-sysfs.c
-+++ b/net/core/net-sysfs.c
-@@ -731,7 +731,7 @@ static ssize_t store_rps_map(struct netdev_rx_queue *queue,
- 	}
- 
- 	i = 0;
--	for_each_cpu_and(cpu, mask, cpu_online_mask)
-+	for_each_cpu_and(cpu, mask, cpu_possible_mask)
- 		map->cpus[i++] = cpu;
- 
- 	if (i)
--- 
-2.9.3
+ int sock_setsockopt(struct socket *sock, int level, int op,
+
+This commit is not marked 'Cc: stable' upstream, but is referenced
+in the one that was backported and looks like it might be appropriate
+for stable as well. Eric, can you clarify?
+
+       Arnd
