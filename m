@@ -1,28 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] dt-bindings: net: move FMan binding
-Date: Mon, 15 May 2017 10:30:48 -0400 (EDT)
-Message-ID: <20170515.103048.248884533404807350.davem@davemloft.net>
-References: <1494855398-26215-1-git-send-email-madalin.bucur@nxp.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH net v2] qed: Fix uninitialized data in aRFS infrastructure
+Date: Mon, 15 May 2017 16:35:34 +0200
+Message-ID: <CAK8P3a2HNAPOrwr+RQ0gGkjs64aKr3=C2VgNwqgqN9+yaNa6JQ@mail.gmail.com>
+References: <1494753683-3429-1-git-send-email-Yuval.Mintz@cavium.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: robh+dt@kernel.org, mark.rutland@arm.com, oss@buserror.net,
-        benh@kernel.crashing.org, paulus@samba.org, mpe@ellerman.id.au,
-        linuxppc-dev@lists.ozlabs.org,
-        linux-arm-kernel@lists.infradead.org, devicetree@vger.kernel.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: madalin.bucur@nxp.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1494855398-26215-1-git-send-email-madalin.bucur@nxp.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: David Miller <davem@davemloft.net>,
+        Networking <netdev@vger.kernel.org>
+To: Yuval Mintz <Yuval.Mintz@cavium.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f44.google.com ([209.85.218.44]:33348 "EHLO
+        mail-oi0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934356AbdEOOff (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 15 May 2017 10:35:35 -0400
+Received: by mail-oi0-f44.google.com with SMTP id w10so133007957oif.0
+        for <netdev@vger.kernel.org>; Mon, 15 May 2017 07:35:35 -0700 (PDT)
+In-Reply-To: <1494753683-3429-1-git-send-email-Yuval.Mintz@cavium.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Madalin Bucur <madalin.bucur@nxp.com>
-Date: Mon, 15 May 2017 16:36:38 +0300
+On Sun, May 14, 2017 at 11:21 AM, Yuval Mintz <Yuval.Mintz@cavium.com> wrote:
+> Current memset is using incorrect type of variable, causing the
+> upper-half of the strucutre to be left uninitialized and causing:
+>
+>   ethernet/qlogic/qed/qed_init_fw_funcs.c: In function 'qed_set_rfs_mode_disable':
+>   ethernet/qlogic/qed/qed_init_fw_funcs.c:993:3: error: '*((void *)&ramline+4)' is used uninitialized in this function [-Werror=uninitialized]
+>
+> Fixes: d51e4af5c209 ("qed: aRFS infrastructure support")
+> Reported-by: Arnd Bergmann <arnd@arndb.de>
+> Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
 
-> Besides the PPC SoCs, the QorIQ DPAA FMan is also present on ARM SoCs,
-> moving the device tree binding document into the bindings/net folder.
-> 
-> Signed-off-by: Madalin Bucur <madalin.bucur@nxp.com>
+> I don't see the original warning you've reported [probably due to
+> compiler differences], so other than via code reading I couldn't
+> actually test this. Can you please compile-test this one?
 
-What tree is this targetted at for merging?
+I don't see the warning any more either with the compiler and defconfig
+I used last time, maybe some compiler flags have changed in the
+meantime.
+
+Anyway, your patch is definitely required to make it work correctly, so
+
+Reviewed-by: Arnd Bergmann <arnd@arndb.de>
+
+       Arnd
