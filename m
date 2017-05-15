@@ -1,110 +1,90 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/3] bpf: Track alignment of MAP pointers in verifier.
-Date: Sun, 14 May 2017 21:00:05 -0400 (EDT)
-Message-ID: <20170514.210005.2210026226038557615.davem@davemloft.net>
-References: <20170512.222856.46437864475991511.davem@davemloft.net>
-        <59186A2E.2010904@iogearbox.net>
+From: Parav Pandit <parav-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Subject: RE: [PATCH] net/smc: mark as BROKEN due to remote memory exposure
+Date: Mon, 15 May 2017 01:58:05 +0000
+Message-ID: <VI1PR0502MB3008AAFB2888EBB88F69DFEAD1E10@VI1PR0502MB3008.eurprd05.prod.outlook.com>
+References: <20170514055848.GA23149@lst.de>
+        <20170514.115116.499149210596634881.davem@davemloft.net>
+        <1494788929.21774.1.camel@sandisk.com>
+ <20170514.204404.1844909849561204299.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ast@fb.com, alexei.starovoitov@gmail.com, netdev@vger.kernel.org
-To: daniel@iogearbox.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:57192 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754749AbdEOBAH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 14 May 2017 21:00:07 -0400
-In-Reply-To: <59186A2E.2010904@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "hch-jcswGhMUV9g@public.gmane.org" <hch-jcswGhMUV9g@public.gmane.org>,
+        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "ubraun-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org" <ubraun-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        "Bart.VanAssche-XdAiOPVOjttBDgjK7y7TUQ@public.gmane.org" <Bart.VanAssche-XdAiOPVOjttBDgjK7y7TUQ@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170514.204404.1844909849561204299.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Content-Language: en-US
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Daniel Borkmann <daniel@iogearbox.net>
-Date: Sun, 14 May 2017 16:31:10 +0200
+Hi Dave,
 
-> On 05/13/2017 04:28 AM, David Miller wrote:
->> @@ -823,10 +825,27 @@ static int check_pkt_ptr_alignment(const struct
->> bpf_reg_state *reg,
->>   }
->>
->>   static int check_val_ptr_alignment(const struct bpf_reg_state *reg,
->> -				   int size, bool strict)
->> +				   int off, int size, bool strict)
->>   {
->> -	if (strict && size != 1) {
->> -		verbose("Unknown alignment. Only byte-sized access allowed in value
->> -		access.\n");
->> +	int reg_off;
->> +
->> +	/* Byte size accesses are always allowed. */
->> +	if (!strict || size == 1)
->> +		return 0;
->> +
->> +	reg_off = reg->off;
->> +	if (reg->id) {
->> +		if (reg->aux_off_align % size) {
->> + verbose("Value access is only %u byte aligned, %d byte access not
->> allowed\n",
->> +				reg->aux_off_align, size);
->> +			return -EACCES;
->> +		}
->> +		reg_off += reg->aux_off;
->> +	}
->
-> What are the semantics of using id here? In ptr_to_pkt, we have it,
-> so that eventually, in find_good_pkt_pointers() we can match on id
-> and update the range for all such regs with the same id. I'm just
-> wondering as the side effect of this is that this makes state
-> pruning worse.
+> -----Original Message-----
+> From: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org [mailto:linux-rdma-
+> owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org] On Behalf Of David Miller
+> Sent: Sunday, May 14, 2017 7:44 PM
+> To: Bart.VanAssche-XdAiOPVOjttBDgjK7y7TUQ@public.gmane.org
+> Cc: hch-jcswGhMUV9g@public.gmane.org; netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org;
+> stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; ubraun-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org
+> Subject: Re: [PATCH] net/smc: mark as BROKEN due to remote memory
+> exposure
+>=20
+> From: Bart Van Assche <Bart.VanAssche-XdAiOPVOjttBDgjK7y7TUQ@public.gmane.org>
+> Date: Sun, 14 May 2017 19:08:50 +0000
+>=20
+> > What is your plan to avoid that applications start using and depending
+> > on AF_SMC?
+>=20
 
-Ok.  I was advancing reg->id so that it can be used here as the signal
-that there is "auxiliary" components to the pointer, and thus we need
-to take reg->aux_off_align and reg->aux_off into account.
+status =3D socket(AF_SMC, field, IPPROT_TCP);
+Here,
+- AF_SMC actually means AF_INET IPv4 addresses!
+- IPPROTO_TCP means TCP and RDMA both when socket is AF_SMC.
+- When creating socket addresses, use AF_INET based addresses.
+-  When invoking bind(), listen(), connect() APIs, use AF_INET addresses in=
+stead.
+- Supporting IPv6 is TBD with AF_SMC sockets.
+- At user level get_addrinfo will continue to return AF_INET addresses.
 
-I did not realize the state pruning component of reg->id so I'll need
-to look more deeply into this.
+Such explanation for socket APIs doesn't sound correct.
 
-We could use something other than reg->id to decide if there are
-variable components to the pointer if necessary.
+The primary motivation for SMC protocol was to simplify the applications an=
+d library to make use of RDMA.
+This kind of API is against such simplicity and creates more confusion.
+RFC only gives example and doesn't asks to create new socket family.
+I can provide more data, but a simple grep in get_addrinfo() and friend fun=
+ctions in user space has heavy dependence on AF_INET and AF_INET6.
 
-> Also, reg->off is currently only used in ptr_to_pkt types and
-> checked as well in check_packet_access(). Now as semantics change,
-> do we need to check for it as well in check_map_access_adj() which
-> we currently don't do?
+> The API is out there already so we are out of luck, and neither you nor I=
+ nor
+> anyone else can "stop" this from happening.
 
-It should not be necessary.  Both before and after my changes we
-validate the access range using the reg->min_value and reg->max_value.
+I think it is still not too late to fix this API. SMC is released in v4.11 =
+very recently.
+v4.12 is still not out.
+Given the limitation of protocol being RoCEv1 only, we might not have many =
+users whose applications will stop functioning.
+(Which will anyway won't work for RoCEv2, and IPv6 addresses).
 
->> -		/* a constant was added to pkt_ptr.
->> +		/* a constant was added to the pointer.
->>   		 * Remember it while keeping the same 'id'
->>   		 */
->>   		dst_reg->off += imm;
-> 
-> Can this now overflow for map type? Also in the UNKNOWN_VALUE case
-> below since overflow checks are then only enforced in ptr_to_pkt case?
+I propose,
+(a) AF_SMC socket 43 can be marked reserved in future kernel versions to av=
+oid use.
+(b) New protocol family that represents TCP and RDMA protocol, may be named=
+ IPPROTO_SMC even though it is not a protocol in IP header.
 
-Indeed, we will have to do "something".  The reg->off used to be u16
-and is now a u32 with my changes.  So it can handle something larger
-than MAX_PACKET_OFF.
+We can possibly target to have this fix in 4.13 kernel timeframe.
 
-But we still have to handle overflow.  I am not so sure what range of
-offsets is reasonable for these MAP pointers, can you make a
-suggestion?
-
-> 
->>   	} else {
->> -		bool had_id;
->> -
->> -		if (src_reg->type == PTR_TO_PACKET) {
->> +		if (is_packet && src_reg->type == PTR_TO_PACKET) {
->>   			/* R6=pkt(id=0,off=0,r=62) R7=imm22; r7 += r6 */
->>   			tmp_reg = *dst_reg;  /* save r7 state */
->>   			*dst_reg = *src_reg; /* copy pkt_ptr state r6 into r7 */
-> 
-> I believe clang could probably generate something similar also for
-> map value pointers.
-
-Ok, it should be easy to make that part work both with packet pointers
-and MAPs.
-
-Thanks for your feedback, I'll try to refine this some more.
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-rdma" in =
+the
+> body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org More majordomo info
+> at  http://vger.kernel.org/majordomo-info.html
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
