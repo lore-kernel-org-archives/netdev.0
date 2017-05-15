@@ -1,43 +1,30 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: Re: stable/linux-4.10.y build: 203 builds: 3 failed, 200 passed, 3
- errors, 5 warnings (v4.10.16)
-Date: Mon, 15 May 2017 06:57:51 -0700
-Message-ID: <CANn89iJEsM9xYC6boSMkJW6MfL1HoUzVNc8ov_Lvi=qi=mHJpg@mail.gmail.com>
-References: <5918603a.118d1c0a.d6026.6b1a@mx.google.com> <CAK8P3a2gFXScsizfvd-2=yEWBvPoE7L-r5CCf63MzPuWejPzAQ@mail.gmail.com>
- <CANn89iKvCk5C6btBbXh1kYpq2GcyW=6NADDGKH1ULeUbF9ddKA@mail.gmail.com> <CAK8P3a0XjehCE07iPkQM2sWG9AavZXw+T4s4YCJQ_JoF24-o1A@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] net: stmmac: use correct pointer when
+ printing normal descriptor ring
+Date: Mon, 15 May 2017 10:02:41 -0400 (EDT)
+Message-ID: <20170515.100241.503769139886204675.davem@davemloft.net>
+References: <20170515085606.24217-1-niklas.cassel@axis.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: "kernelci.org bot" <bot@kernelci.org>,
-        Kernel Build Reports Mailman List
-        <kernel-build-reports@lists.linaro.org>,
-        gregkh <gregkh@linuxfoundation.org>, stable@vger.kernel.org,
-        Networking <netdev@vger.kernel.org>
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <CAK8P3a0XjehCE07iPkQM2sWG9AavZXw+T4s4YCJQ_JoF24-o1A@mail.gmail.com>
-Sender: stable-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com, niklass@axis.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: niklas.cassel@axis.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170515085606.24217-1-niklas.cassel@axis.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, May 15, 2017 at 6:55 AM, Arnd Bergmann <arnd@arndb.de> wrote:
-> On Mon, May 15, 2017 at 3:39 PM, Eric Dumazet <edumazet@google.com> wrote:
->> On Mon, May 15, 2017 at 5:57 AM, Arnd Bergmann <arnd@arndb.de> wrote:
->>> On Sun, May 14, 2017 at 3:48 PM, kernelci.org bot <bot@kernelci.org> wrote:
->>>
->>>  int sock_setsockopt(struct socket *sock, int level, int op,
->>>
->>> This commit is not marked 'Cc: stable' upstream, but is referenced
->>> in the one that was backported and looks like it might be appropriate
->>> for stable as well. Eric, can you clarify?
->>>
->>
->> Hi Arnd
->>
->> Yes, it looks like stable would need this small extract from 158f323b9868,
->> removing the parameter from sock_edemux macro
->
-> Ok, and the rest of 158f323b9868 should not go into stable, right?
->
+From: Niklas Cassel <niklas.cassel@axis.com>
+Date: Mon, 15 May 2017 10:56:06 +0200
 
-I do not believe this is a stable candidate.
+> There are two pointers in sysfs_display_ring,
+> one that increments if using normal dma descriptors,
+> another if using extended dma descriptors.
+> 
+> When printing the normal dma descriptors, the wrong pointer is used,
+> thus the printed descriptor addresses are incorrect.
+> 
+> Signed-off-by: Niklas Cassel <niklas.cassel@axis.com>
 
-A stable candidate coming from me would have a Fixes: tag
+Applied, thanks.
