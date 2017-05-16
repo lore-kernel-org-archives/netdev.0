@@ -1,118 +1,91 @@
-From: Jes Sorensen <jes.sorensen-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH] rt2x00: improve calling conventions for register
- accessors
-Date: Tue, 16 May 2017 10:31:00 -0400
-Message-ID: <0080a870-2d15-9b60-b7fb-8847d3c8aa8a@gmail.com>
-References: <20170515134711.2770374-1-arnd@arndb.de>
- <20170515142520.GA13996@redhat.com>
- <20170515.103951.2305484593464882104.davem@davemloft.net>
- <20170516115511.GA4230@redhat.com>
- <0ce21c48-1d2c-3035-3c6e-52c7debf86d5@gmail.com>
- <CAK8P3a18opkvCyoNmYhR6M7XXEq8f__hMZH1A6w8UFP7qbmQWw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Stanislaw Gruszka <sgruszka-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Helmut Schaa <helmut.schaa-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>,
-        Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-        Daniel Golle <daniel-g5gK2j5usbvCyp4qypjU+w@public.gmane.org>,
-        Mathias Kresin <dev-zg6vgJgm1sizQB+pC5nmwQ@public.gmane.org>,
-        Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        =?UTF-8?Q?Tomislav_Po=c5=beega?= <pozega.tomislav-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Serge Vasilugin <vasilugin-o+MxOtu4lMCHXe+LvDLADg@public.gmane.org>,
-        Roman Yeryomin <roman-9zmcapQ0v8Q@public.gmane.org>,
-        linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Networking <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAK8P3a18opkvCyoNmYhR6M7XXEq8f__hMZH1A6w8UFP7qbmQWw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Content-Language: en-US
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Ihar Hrachyshka <ihrachys@redhat.com>
+Subject: Re: [PATCH v2] arp: honour gratuitous ARP _replies_
+Date: Tue, 16 May 2017 07:53:43 -0700
+Message-ID: <20170516145343.8546-1-ihrachys@redhat.com>
+References: <20170515.140832.354922796595622860.davem@davemloft.net>
+Cc: netdev@vger.kernel.org, Ihar Hrachyshka <ihrachys@redhat.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:57370 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750777AbdEPOyD (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 16 May 2017 10:54:03 -0400
+In-Reply-To: <20170515.140832.354922796595622860.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 05/16/2017 10:19 AM, Arnd Bergmann wrote:
-> On Tue, May 16, 2017 at 3:44 PM, Jes Sorensen <jes.sorensen-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
->> On 05/16/2017 07:55 AM, Stanislaw Gruszka wrote:
->>>
->>> On Mon, May 15, 2017 at 10:39:51AM -0400, David Miller wrote:
->>>>
->>>> Passing return values by reference is and always has been a really
->>>> poor way to achieve what these functions are doing.
->>>>
->>>> And frankly, whilst the tool could see what's going on here better, we
->>>> should be making code easier rather than more difficult to audit.
->>>>
->>>> I am therefore very much in favor of Arnd's change.
->>>>
->>>> This isn't even a situation where there are multiple return values,
->>>> such as needing to signal an error and return an unsigned value at the
->>>> same time.
->>>>
->>>> These functions return _one_ value, and therefore they should be
->>>> returned as a true return value.
->>>
->>>
->>> In rt2x00 driver we use poor convention in other kind of registers
->>> accessors like bbp, mac, eeprom. I dislike to changing only rfcsr
->>> accessors and leaving others in the old way. And changing all accessors
->>> would be massive and error prone change, which I'm not prefer either.
->>
->>
->> That's why you do it in multiple smaller patches rather than one ugly giant
->> patch.
-> 
-> I did  the first step using a search&replace in vim using
-> 
-> s:\(rt2800_rfcsr_read(.*,.*\), &\(.*\));:\2 = \1);:
-> 
-> but had to introduce a conversion function
-> 
-> static void rt2800_rfcsr_readreg(struct rt2x00_dev *rt2x00dev,
->                                  const unsigned int word, u8 *value)
-> {
->         *value = rt2800_rfcsr_read(rt2x00dev, word);
-> }
-> 
-> to keep the correct types in place for struct rt2x00debug. I now
-> did all the other ones too, and removed that helper again. The
-> result in much nicer, but I basically ended up having to do
-> the same regex search for all of these at once:
-> 
-> static void rt2400pci_bbp_read(struct rt2x00_dev *rt2x00dev,
-> static void rt2500pci_bbp_read(struct rt2x00_dev *rt2x00dev,
-> static void rt2500usb_register_read(struct rt2x00_dev *rt2x00dev,
-> static void rt2500usb_register_read_lock(struct rt2x00_dev *rt2x00dev,
-> static void rt2500usb_bbp_read(struct rt2x00_dev *rt2x00dev,
-> static void _rt2500usb_register_read(struct rt2x00_dev *rt2x00dev,
-> static void rt2800_bbp_read(struct rt2x00_dev *rt2x00dev,
-> static void rt2800_eeprom_read(struct rt2x00_dev *rt2x00dev,
-> static void rt2800_rfcsr_readreg(struct rt2x00_dev *rt2x00dev,
-> static void rt2800_bbp_dcoc_read(struct rt2x00_dev *rt2x00dev,
-> void (*register_read)(struct rt2x00_dev *rt2x00dev,
-> void (*register_read_lock)(struct rt2x00_dev *rt2x00dev,
-> static inline void rt2800_register_read(struct rt2x00_dev *rt2x00dev,
-> static inline void rt2800_register_read_lock(struct rt2x00_dev *rt2x00dev,
-> static inline void rt2x00_rf_read(struct rt2x00_dev *rt2x00dev,
-> static inline void rt2x00_eeprom_read(struct rt2x00_dev *rt2x00dev,
-> void (*read)(struct rt2x00_dev *rt2x00dev, \
-> static inline void rt2x00mmio_register_read(struct rt2x00_dev *rt2x00dev,
-> static inline void _rt2x00_desc_read(__le32 *desc, const u8 word, __le32 *value)
-> static inline void rt2x00_desc_read(__le32 *desc, const u8 word, u32 *value)
-> static inline void rt2x00usb_register_read(struct rt2x00_dev *rt2x00dev,
-> static inline void rt2x00usb_register_read_lock(struct rt2x00_dev *rt2x00dev,
-> static void rt61pci_bbp_read(struct rt2x00_dev *rt2x00dev,
-> static void rt73usb_bbp_read(struct rt2x00_dev *rt2x00dev,
-> 
-> and that ended up as a 300KB patch [1]. Splitting it up is clearly possibly,
-> but I fear that would be more error-prone as we then need to add
-> those helpers for the other debug stuff as well, and remove it again
-> afterwards.
+When arp_accept is 1, gratuitous ARPs are supposed to override matching
+entries irrespective of whether they arrive during locktime. This was
+implemented in commit 56022a8fdd87 ("ipv4: arp: update neighbour address
+when a gratuitous arp is received and arp_accept is set")
 
-True - if the automatic conversion works without automatic intervention, 
-I am less worried about it. Personally I would still focus on converting 
-one function at a time to reduce the impact of each patch.
+There is a glitch in the patch though. RFC 2002, section 4.6, "ARP,
+Proxy ARP, and Gratuitous ARP", defines gratuitous ARPs so that they can
+be either of Request or Reply type. Those Reply gratuitous ARPs can be
+triggered with standard tooling, for example, arping -A option does just
+that.
 
-Cheers,
-Jes
+This patch fixes the glitch, making both Request and Reply flavours of
+gratuitous ARPs to behave identically.
+
+As per RFC, if gratuitous ARPs are of Reply type, their Target Hardware
+Address field should also be set to the link-layer address to which this
+cache entry should be updated. The field is present in ARP over Ethernet
+but not in IEEE 1394. In this patch, I don't consider any broadcasted
+ARP replies as gratuitous if the field is not present, to conform the
+standard. It's not clear whether there is such a thing for IEEE 1394 as
+a gratuitous ARP reply; until it's cleared up, we will ignore such
+broadcasts. Note that they will still update existing ARP cache entries,
+assuming they arrive out of locktime time interval.
+
+Signed-off-by: Ihar Hrachyshka <ihrachys@redhat.com>
+---
+v2:
+- removed #ifdef for CONFIG_FIREWIRE_NET
+---
+ net/ipv4/arp.c | 16 ++++++++++++++--
+ 1 file changed, 14 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
+index 0937b34..d54345a 100644
+--- a/net/ipv4/arp.c
++++ b/net/ipv4/arp.c
+@@ -653,6 +653,7 @@ static int arp_process(struct net *net, struct sock *sk, struct sk_buff *skb)
+ 	unsigned char *arp_ptr;
+ 	struct rtable *rt;
+ 	unsigned char *sha;
++	unsigned char *tha = NULL;
+ 	__be32 sip, tip;
+ 	u16 dev_type = dev->type;
+ 	int addr_type;
+@@ -724,6 +725,7 @@ static int arp_process(struct net *net, struct sock *sk, struct sk_buff *skb)
+ 		break;
+ #endif
+ 	default:
++		tha = arp_ptr;
+ 		arp_ptr += dev->addr_len;
+ 	}
+ 	memcpy(&tip, arp_ptr, 4);
+@@ -842,8 +844,18 @@ static int arp_process(struct net *net, struct sock *sk, struct sk_buff *skb)
+ 		   It is possible, that this option should be enabled for some
+ 		   devices (strip is candidate)
+ 		 */
+-		is_garp = arp->ar_op == htons(ARPOP_REQUEST) && tip == sip &&
+-			  addr_type == RTN_UNICAST;
++		is_garp = tip == sip && addr_type == RTN_UNICAST;
++
++		/* Unsolicited ARP _replies_ also require target hwaddr to be
++		 * the same as source.
++		 */
++		if (is_garp && arp->ar_op == htons(ARPOP_REPLY))
++			is_garp =
++				/* IPv4 over IEEE 1394 doesn't provide target
++				 * hardware address field in its ARP payload.
++				 */
++				tha &&
++				!memcmp(tha, sha, dev->addr_len);
+ 
+ 		if (!n &&
+ 		    ((arp->ar_op == htons(ARPOP_REPLY)  &&
+-- 
+2.9.3
