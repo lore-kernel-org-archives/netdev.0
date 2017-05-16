@@ -1,55 +1,50 @@
-From: <momofr@free.fr>
-Subject: (unknown)
-Date: Tue, 16 May 2017 06:37:34 -0000
-Message-ID: <149491665475.6152.9591146206185436416@89.dynamic-n193.in72.ru>
-Mime-Version: 1.0
-Content-Type: application/zip; name="EMAIL_373084188081_netdev.zip"
-Content-Transfer-Encoding: base64
-To: <netdev@vger.kernel.org>
+From: Leon Romanovsky <leon@kernel.org>
+Subject: [PATCH net v1] net/smc: Add warning about remote memory exposure
+Date: Tue, 16 May 2017 09:51:38 +0300
+Message-ID: <20170516065138.24789-1-leon@kernel.org>
+Cc: ubraun@linux.vnet.ibm.com, netdev@vger.kernel.org,
+        iinux-rdma@vger.kernel.org, Christoph Hellwig <hch@lst.de>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 89.dynamic-n193.in72.ru ([91.211.193.89]:47155 "HELO
-        89.dynamic-n193.in72.ru" rhost-flags-OK-FAIL-OK-FAIL)
-        by vger.kernel.org with SMTP id S1751027AbdEPGht (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 16 May 2017 02:37:49 -0400
-Subject: 
-Content-Disposition: attachment
+Received: from mail.kernel.org ([198.145.29.99]:34996 "EHLO mail.kernel.org"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750759AbdEPGvm (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 16 May 2017 02:51:42 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-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
-ztIBUEsFBgAAAAABAAEAWgAAAK0HAAAAAA==
+From: Christoph Hellwig <hch@lst.de>
+
+The driver explicitly bypasses APIs to register all memory once a
+connection is made, and thus allows remote access to memory.
+
+Signed-off-by: Christoph Hellwig <hch@lst.de>
+Signed-off-by: Leon Romanovsky <leon@kernel.org>
+---
+Dave,
+Can you please forward this patch to stable?
+Thanks
+---
+ Changes from v0:
+  * Remove BROKEN Kconfig option as a followup of this discussion
+    https://patchwork.ozlabs.org/patch/760454/
+  * Refine commit message
+---
+ net/smc/Kconfig | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/net/smc/Kconfig b/net/smc/Kconfig
+index c717ef0896aa..33954852f3f8 100644
+--- a/net/smc/Kconfig
++++ b/net/smc/Kconfig
+@@ -8,6 +8,10 @@ config SMC
+ 	  The Linux implementation of the SMC-R solution is designed as
+ 	  a separate socket family SMC.
+
++	  Warning: SMC will expose all memory for remote reads and writes
++	  once a connection is established.  Don't enable this option except
++	  for tightly controlled lab environment.
++
+ 	  Select this option if you want to run SMC socket applications
+
+ config SMC_DIAG
