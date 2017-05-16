@@ -1,68 +1,63 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: Re: linux-next: Tree for May 16 (net/core)
-Date: Tue, 16 May 2017 13:12:44 -0700
-Message-ID: <CANn89i+SLtR4LpBmEPD4fZum=3gv_t6OfhvfJfLUpq5u6BbzDA@mail.gmail.com>
-References: <20170516112125.517607f8@canb.auug.org.au> <f63533e7-edd3-4c0d-ddff-e3409d15abc6@infradead.org>
- <CAP=VYLoYkz1HE4yOHVGQvBanDtpkWhtHBMvbeuyd8PtNFCivRQ@mail.gmail.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: switchdev offload & ecmp
+Date: Tue, 16 May 2017 22:22:02 +0200
+Message-ID: <eb9e0c4a-5862-d109-3272-38430b69f707@6wind.com>
+References: <84b9801f-0c2a-cd55-61a4-411261943024@6wind.com>
+ <20170515164036.GA5669@splinter.mtl.com>
+ <4c70d1fc-ba11-e358-2142-d373f44cb5a1@6wind.com>
+ <20170516141149.GA1874@splinter.mtl.com>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Randy Dunlap <rdunlap@infradead.org>,
-        Stephen Rothwell <sfr@canb.auug.org.au>,
-        Linux-Next Mailing List <linux-next@vger.kernel.org>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Paul Gortmaker <paul.gortmaker@windriver.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAP=VYLoYkz1HE4yOHVGQvBanDtpkWhtHBMvbeuyd8PtNFCivRQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 8bit
+Cc: Jiri Pirko <jiri@resnulli.us>,
+        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+        Roopa Prabhu <roopa@cumulusnetworks.com>,
+        netdev <netdev@vger.kernel.org>
+To: Ido Schimmel <idosch@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f45.google.com ([74.125.82.45]:36084 "EHLO
+        mail-wm0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751394AbdEPUWG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 16 May 2017 16:22:06 -0400
+Received: by mail-wm0-f45.google.com with SMTP id u65so133072800wmu.1
+        for <netdev@vger.kernel.org>; Tue, 16 May 2017 13:22:06 -0700 (PDT)
+In-Reply-To: <20170516141149.GA1874@splinter.mtl.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 16, 2017 at 12:44 PM, Paul Gortmaker
-<paul.gortmaker@windriver.com> wrote:
-> On Tue, May 16, 2017 at 12:28 PM, Randy Dunlap <rdunlap@infradead.org> wrote:
->> On 05/15/17 18:21, Stephen Rothwell wrote:
->>> Hi all,
+Le 16/05/2017 à 16:11, Ido Schimmel a écrit :
+> On Tue, May 16, 2017 at 02:57:47PM +0200, Nicolas Dichtel wrote:
+>>>> I suspect that there can be scenarii where some packets of a flow are forwarded
+>>>> by the driver and some other are forwarded by the kernel.
 >>>
->>> Changes since 20170515:
->>>
+>>> Can you elaborate? The kernel only sees specific packets, which were
+>>> trapped to the CPU. See:
+>>> https://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git/tree/drivers/net/ethernet/mellanox/mlxsw/spectrum.c#n2996
+>> Ok, this part was not clear for me, thank you for the pointer.
 >>
->> on i386 or x86_64:
->>
->> when CONFIG_INET is not enabled:
->>
->> ../net/core/sock.c: In function 'skb_orphan_partial':
->> ../net/core/sock.c:1810:2: error: implicit declaration of function 'skb_is_tcp_pure_ack' [-Werror=implicit-function-declaration]
->>   if (skb_is_tcp_pure_ack(skb))
->
-> Automated bisect on an ARM build with the same issue reveals:
->
-> f6ba8d33cfbb46df569972e64dbb5bb7e929bfd9 is the first bad commit
-> commit f6ba8d33cfbb46df569972e64dbb5bb7e929bfd9
-> Author: Eric Dumazet <edumazet@google.com>
-> Date:   Thu May 11 15:24:41 2017 -0700
->
->     netem: fix skb_orphan_partial()
->
->     I should have known that lowering skb->truesize was dangerous :/
->
->     In case packets are not leaving the host via a standard Ethernet device,
->     but looped back to local sockets, bad things can happen, as reported
->     by Michael Madsen ( https://bugzilla.kernel.org/show_bug.cgi?id=195713 )
->
->     So instead of tweaking skb->truesize, lets change skb->destructor
->     and keep a reference on the owner socket via its sk_refcnt.
->
->     Fixes: f2f872f9272a ("netem: Introduce skb_orphan_partial() helper")
->     Signed-off-by: Eric Dumazet <edumazet@google.com>
->     Reported-by: Michael Madsen <mkm@nabto.com>
->     Signed-off-by: David S. Miller <davem@davemloft.net>
->
-> :040000 040000 7bfb7a6f5e12373b1c50ede2455b6ddd6d79cee0
-> b45b7255322f1dff5e3ab8d3d707cf38a91c76ce M      net
-> bisect run success
->
-> http://kisskb.ellerman.id.au/kisskb/buildresult/13033081/
->
-> I'm guessing Eric already knows about this but I've Cc'd him just in case.
+>> So, when an arp resolution is needed, the packets are not trapped to the CPU,
+>> the device manages the queue itself?
+> 
+> There are two cases here. If you need an ARP resolution following a hit
+> of a directly connected route and this neighbour isn't in the device's
+> table, then packet is trapped (HOST_MISS_IPV4 in above list) to the CPU
+> and triggers ARP resolution in the kernel. Eventually a NETEVENT will be
+> sent and the neighbour will be programmed to the device.
+> 
+> If you need an ARP resolution of a nexthop, then this is a bit
+> different. If you have an ECMP group with several nexthops, then once
+> one of them is resolved, packets will be forwarded using it. To make
+> sure other nexthops will also be resolved we try to periodically refresh
+> them. Otherwise packets will always be forwarded using a single nexthop,
+> as the kernel won't have motivation to resolve the others.
+> https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c#n987
+> 
+> In case no nexthops can be resolved, then packets will be trapped to the
+> CPU (RTR_INGRESS0 in above list) and forwarded by the kernel.
+> https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c#n1896
+> 
+Ok, thank you for the details.
 
-I was not aware of this, I will submit a fix, thanks.
+Regards,
+Nicolas
