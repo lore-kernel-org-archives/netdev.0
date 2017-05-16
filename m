@@ -1,29 +1,36 @@
-From: "Mayrhofer Family" <info@charity.net>
-Subject: RE: Donation
-Date: Wed, 17 May 2017 05:33:46 +0800
-Message-ID: <20170516213522.E3255161F93__46161.7815461524$1494971118$gmane$org@mx4.ufrn.br>
-Reply-To: tmason9w4r@gmail.com
+From: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Subject: Re: [PATCH v8 1/5] skbuff: return -EMSGSIZE in skb_to_sgvec to
+ prevent overflow
+Date: Wed, 17 May 2017 00:11:03 +0200
+Message-ID: <CAHmME9o2+HAXSLPURLaPDSSTwMJtQ1ZD+4tCNHUowsnWcxOYsg@mail.gmail.com>
+References: <20170511194134.31183-1-Jason@zx2c4.com> <20170511194134.31183-2-Jason@zx2c4.com>
+ <30551.1494853968@warthog.procyon.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: 8BIT
-To: Recipients <info@charity.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx4.ufrn.br ([177.20.144.191]:42222 "EHLO mx4.ufrn.br"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751300AbdEPVpC (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 16 May 2017 17:45:02 -0400
-Content-Description: Mail message body
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        David Miller <davem@davemloft.net>,
+        kernel-hardening@lists.openwall.com,
+        Steffen Klassert <steffen.klassert@secunet.com>,
+        Herbert Xu <herbert@gondor.apana.org.au>,
+        Sabrina Dubroca <sd@queasysnail.net>,
+        "Michael S. Tsirkin" <mst@redhat.com>,
+        Jason Wang <jasowang@redhat.com>
+To: David Howells <dhowells@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <30551.1494853968@warthog.procyon.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Good Day,
+On Mon, May 15, 2017 at 3:12 PM, David Howells <dhowells@redhat.com> wrote:
+> Is there a reason you moved skb_to_sgvec() in the file rather than just moving
+> the comment to it (since you moved the comment anyway)?
 
-My wife and I have awarded you with a donation of $ 1,000,000.00 Dollars from part of our Jackpot Lottery of 50 Million Dollars, respond with your details for claims.
+1) Because it's easier to understand skb_to_sgvec_nomark as a variant
+of skb_to_sgvec, so I'd rather skb_to_sgvec to be first when reading.
+2) Because skb_to_sgvec relies on the return value of __skb_to_sgvec,
+and so when assessing it, it's sometimes nice to be able to look at
+why it will return different things. In that case, it's easier to have
+both functions within the same view without scrolling.
 
-We await your earliest response and God Bless you.
-
-Friedrich And Annand Mayrhofer.
-
----
-This email has been checked for viruses by Avast antivirus software.
-https://www.avast.com/antivirus
+It's the little things that make life easier sometimes.
