@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch iproute2 v2 repost 1/3] tc_filter: add support for chain index
-Date: Tue, 16 May 2017 19:29:35 +0200
-Message-ID: <20170516172937.1391-1-jiri@resnulli.us>
+Subject: [patch iproute2 v2 repost 3/3] tc/actions: introduce support for goto chain action
+Date: Tue, 16 May 2017 19:29:37 +0200
+Message-ID: <20170516172937.1391-3-jiri@resnulli.us>
 References: <20170516172802.1317-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
         dsa@cumulusnetworks.com, edumazet@google.com,
@@ -10,263 +10,275 @@ Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
         mlxsw@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:36848 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751730AbdEPR3k (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 16 May 2017 13:29:40 -0400
-Received: by mail-wm0-f65.google.com with SMTP id u65so38919726wmu.3
-        for <netdev@vger.kernel.org>; Tue, 16 May 2017 10:29:39 -0700 (PDT)
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:35781 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752420AbdEPR3o (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 16 May 2017 13:29:44 -0400
+Received: by mail-wm0-f66.google.com with SMTP id v4so39826106wmb.2
+        for <netdev@vger.kernel.org>; Tue, 16 May 2017 10:29:42 -0700 (PDT)
 In-Reply-To: <20170516172802.1317-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-Allow user to put filter to a specific chain identified by index.
+Allow user to set control action "goto" with filter chain index as
+a parameter.
 
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- include/linux/rtnetlink.h |  1 +
- tc/tc_filter.c            | 87 +++++++++++++++++++++++++++++++++++++++--------
- 2 files changed, 73 insertions(+), 15 deletions(-)
+ include/linux/pkt_cls.h | 16 +++++++++++++++-
+ man/man8/tc-ife.8       |  2 +-
+ man/man8/tc-pedit.8     |  2 +-
+ man/man8/tc-police.8    |  2 +-
+ man/man8/tc-vlan.8      |  2 +-
+ tc/m_connmark.c         |  3 ++-
+ tc/m_gact.c             |  6 ++++--
+ tc/m_pedit.c            |  3 ++-
+ tc/m_police.c           |  6 ++++--
+ tc/m_skbmod.c           |  3 ++-
+ tc/m_vlan.c             |  3 ++-
+ tc/tc_util.c            | 24 +++++++++++++++++++++++-
+ 12 files changed, 58 insertions(+), 14 deletions(-)
 
-diff --git a/include/linux/rtnetlink.h b/include/linux/rtnetlink.h
-index a96db83..70c5750 100644
---- a/include/linux/rtnetlink.h
-+++ b/include/linux/rtnetlink.h
-@@ -549,6 +549,7 @@ enum {
- 	TCA_STAB,
- 	TCA_PAD,
- 	TCA_DUMP_INVISIBLE,
-+	TCA_CHAIN,
- 	__TCA_MAX
- };
+diff --git a/include/linux/pkt_cls.h b/include/linux/pkt_cls.h
+index f1129e3..1b9aa9e 100644
+--- a/include/linux/pkt_cls.h
++++ b/include/linux/pkt_cls.h
+@@ -37,7 +37,21 @@ enum {
+ #define TC_ACT_QUEUED		5
+ #define TC_ACT_REPEAT		6
+ #define TC_ACT_REDIRECT		7
+-#define TC_ACT_JUMP		0x10000000
++
++/* There is a special kind of actions called "extended actions",
++ * which need a value parameter. These have a local opcode located in
++ * the highest nibble, starting from 1. The rest of the bits
++ * are used to carry the value. These two parts together make
++ * a combined opcode.
++ */
++#define __TC_ACT_EXT_SHIFT 28
++#define __TC_ACT_EXT(local) ((local) << __TC_ACT_EXT_SHIFT)
++#define TC_ACT_EXT_VAL_MASK ((1 << __TC_ACT_EXT_SHIFT) - 1)
++#define TC_ACT_EXT_CMP(combined, opcode) \
++	(((combined) & (~TC_ACT_EXT_VAL_MASK)) == opcode)
++
++#define TC_ACT_JUMP __TC_ACT_EXT(1)
++#define TC_ACT_GOTO_CHAIN __TC_ACT_EXT(2)
  
-diff --git a/tc/tc_filter.c b/tc/tc_filter.c
-index ff8713b..b13fb91 100644
---- a/tc/tc_filter.c
-+++ b/tc/tc_filter.c
-@@ -31,7 +31,7 @@ static void usage(void)
+ /* Action type identifiers*/
+ enum {
+diff --git a/man/man8/tc-ife.8 b/man/man8/tc-ife.8
+index a8f1f28..24595cc 100644
+--- a/man/man8/tc-ife.8
++++ b/man/man8/tc-ife.8
+@@ -34,7 +34,7 @@ IFE - encapsulate/decapsulate metadata
+ 
+ .ti -8
+ .IR CONTROL " := { "
+-.BR reclassify " | " use " | " pipe " | " drop " | " continue " | " ok " }"
++.BR reclassify " | " use " | " pipe " | " drop " | " continue " | " ok " | " goto " " chain " " CHAIN_INDEX " }"
+ .SH DESCRIPTION
+ The
+ .B ife
+diff --git a/man/man8/tc-pedit.8 b/man/man8/tc-pedit.8
+index 7f482ea..de0d9e9 100644
+--- a/man/man8/tc-pedit.8
++++ b/man/man8/tc-pedit.8
+@@ -74,7 +74,7 @@ pedit - generic packet editor action
+ 
+ .ti -8
+ .IR CONTROL " := {"
+-.BR reclassify " | " pipe " | " drop " | " shot " | " continue " | " pass " }"
++.BR reclassify " | " pipe " | " drop " | " shot " | " continue " | " pass " | " goto " " chain " " CHAIN_INDEX " }"
+ .SH DESCRIPTION
+ The
+ .B pedit
+diff --git a/man/man8/tc-police.8 b/man/man8/tc-police.8
+index 620c288..bcc5f43 100644
+--- a/man/man8/tc-police.8
++++ b/man/man8/tc-police.8
+@@ -30,7 +30,7 @@ police - policing action
+ 
+ .ti -8
+ .IR EXCEEDACT/NOTEXCEEDACT " := { "
+-.BR pipe " | " ok " | " reclassify " | " drop " | " continue " }"
++.BR pipe " | " ok " | " reclassify " | " drop " | " continue " | " goto " " chain " " CHAIN_INDEX " }"
+ .SH DESCRIPTION
+ The
+ .B police
+diff --git a/man/man8/tc-vlan.8 b/man/man8/tc-vlan.8
+index af3de1c..59c81e8 100644
+--- a/man/man8/tc-vlan.8
++++ b/man/man8/tc-vlan.8
+@@ -26,7 +26,7 @@ vlan - vlan manipulation module
+ 
+ .ti -8
+ .IR CONTROL " := { "
+-.BR reclassify " | " pipe " | " drop " | " continue " | " pass " }"
++.BR reclassify " | " pipe " | " drop " | " continue " | " pass " | " goto " " chain " " CHAIN_INDEX " }"
+ .SH DESCRIPTION
+ The
+ .B vlan
+diff --git a/tc/m_connmark.c b/tc/m_connmark.c
+index 3c2274b..37d7185 100644
+--- a/tc/m_connmark.c
++++ b/tc/m_connmark.c
+@@ -30,7 +30,8 @@ explain(void)
+ 	fprintf(stderr, "Usage: ... connmark [zone ZONE] [CONTROL] [index <INDEX>]\n");
+ 	fprintf(stderr, "where :\n"
+ 		"\tZONE is the conntrack zone\n"
+-		"\tCONTROL := reclassify|pipe|drop|continue|ok\n");
++		"\tCONTROL := reclassify | pipe | drop | continue | ok |\n"
++		"\t           goto chain <CHAIN_INDEX>\n");
+ }
+ 
+ static void
+diff --git a/tc/m_gact.c b/tc/m_gact.c
+index 938b6b5..d95aa11 100644
+--- a/tc/m_gact.c
++++ b/tc/m_gact.c
+@@ -45,7 +45,8 @@ explain(void)
+ #ifdef CONFIG_GACT_PROB
+ 	fprintf(stderr, "Usage: ... gact <ACTION> [RAND] [INDEX]\n");
  	fprintf(stderr,
- 		"Usage: tc filter [ add | del | change | replace | show ] dev STRING\n"
- 		"Usage: tc filter get dev STRING parent CLASSID protocol PROTO handle FILTERID pref PRIO FILTER_TYPE\n"
--		"       [ pref PRIO ] protocol PROTO\n"
-+		"       [ pref PRIO ] protocol PROTO [ chain CHAIN_INDEX ]\n"
- 		"       [ estimator INTERVAL TIME_CONSTANT ]\n"
- 		"       [ root | ingress | egress | parent CLASSID ]\n"
- 		"       [ handle FILTERID ] [ [ FILTER_TYPE ] [ help | OPTIONS ] ]\n"
-@@ -59,6 +59,8 @@ static int tc_filter_modify(int cmd, unsigned int flags, int argc, char **argv)
- 	__u32 prio = 0;
- 	__u32 protocol = 0;
- 	int protocol_set = 0;
-+	__u32 chain_index;
-+	int chain_index_set = 0;
- 	char *fhandle = NULL;
- 	char  d[16] = {};
- 	char  k[16] = {};
-@@ -127,6 +129,13 @@ static int tc_filter_modify(int cmd, unsigned int flags, int argc, char **argv)
- 				invarg("invalid protocol", *argv);
- 			protocol = id;
- 			protocol_set = 1;
-+		} else if (matches(*argv, "chain") == 0) {
-+			NEXT_ARG();
-+			if (chain_index_set)
-+				duparg("chain", *argv);
-+			if (get_u32(&chain_index, *argv, 0))
-+				invarg("invalid chain index value", *argv);
-+			chain_index_set = 1;
- 		} else if (matches(*argv, "estimator") == 0) {
- 			if (parse_estimator(&argc, &argv, &est) < 0)
+-		"Where: \tACTION := reclassify | drop | continue | pass | pipe\n"
++		"Where: \tACTION := reclassify | drop | continue | pass | pipe |\n"
++		"       \t          goto chain <CHAIN_INDEX>\n"
+ 			"\tRAND := random <RANDTYPE> <ACTION> <VAL>\n"
+ 			"\tRANDTYPE := netrand | determ\n"
+ 			"\tVAL : = value not exceeding 10000\n"
+@@ -54,7 +55,8 @@ explain(void)
+ #else
+ 	fprintf(stderr, "Usage: ... gact <ACTION> [INDEX]\n");
+ 	fprintf(stderr,
+-		"Where: \tACTION := reclassify | drop | continue | pass | pipe\n"
++		"Where: \tACTION := reclassify | drop | continue | pass | pipe |\n"
++		"       \t          goto chain <CHAIN_INDEX>\n"
+ 		"\tINDEX := index value used\n"
+ 		"\n");
+ #endif
+diff --git a/tc/m_pedit.c b/tc/m_pedit.c
+index 730a434..cb3bb0e 100644
+--- a/tc/m_pedit.c
++++ b/tc/m_pedit.c
+@@ -45,7 +45,8 @@ static void explain(void)
+ 		"\t\tCMD:= clear | invert | set <setval>| add <addval> | retain\n"
+ 		"\t<LAYERED>:= ip <ipdata> | ip6 <ip6data>\n"
+ 		" \t\t| udp <udpdata> | tcp <tcpdata> | icmp <icmpdata>\n"
+-		"\tCONTROL:= reclassify | pipe | drop | continue | pass\n"
++		"\tCONTROL:= reclassify | pipe | drop | continue | pass |\n"
++		"\t          goto chain <CHAIN_INDEX>\n"
+ 		"\tNOTE: if 'ex' is set, extended functionality will be supported (kernel >= 4.11)\n"
+ 		"For Example usage look at the examples directory\n");
+ 
+diff --git a/tc/m_police.c b/tc/m_police.c
+index 2b73969..86117db 100644
+--- a/tc/m_police.c
++++ b/tc/m_police.c
+@@ -41,7 +41,8 @@ static void usage(void)
+ 	fprintf(stderr, "Where: CONTROL := conform-exceed <EXCEEDACT>[/NOTEXCEEDACT]\n");
+ 	fprintf(stderr, "                  Define how to handle packets which exceed (<EXCEEDACT>)\n");
+ 	fprintf(stderr, "                  or conform (<NOTEXCEEDACT>) the configured bandwidth limit.\n");
+-	fprintf(stderr, "       EXCEEDACT/NOTEXCEEDACT := { pipe | ok | reclassify | drop | continue }\n");
++	fprintf(stderr, "       EXCEEDACT/NOTEXCEEDACT := { pipe | ok | reclassify | drop | continue |\n");
++	fprintf(stderr, "                                   goto chain <CHAIN_INDEX> }\n");
+ 	exit(-1);
+ }
+ 
+@@ -150,7 +151,8 @@ int act_parse_police(struct action_util *a, int *argc_p, char ***argv_p,
+ 			   matches(*argv, "shot") == 0 ||
+ 			   matches(*argv, "continue") == 0 ||
+ 			   matches(*argv, "pass") == 0 ||
+-			   matches(*argv, "pipe") == 0) {
++			   matches(*argv, "pipe") == 0 ||
++			   matches(*argv, "goto") == 0) {
+ 			if (parse_action_control(&argc, &argv, &p.action, false))
  				return -1;
-@@ -146,6 +155,9 @@ static int tc_filter_modify(int cmd, unsigned int flags, int argc, char **argv)
+ 		} else if (strcmp(*argv, "conform-exceed") == 0) {
+diff --git a/tc/m_skbmod.c b/tc/m_skbmod.c
+index 1ccd474..ba79308 100644
+--- a/tc/m_skbmod.c
++++ b/tc/m_skbmod.c
+@@ -36,7 +36,8 @@ static void skbmod_explain(void)
+ 		"\tDMAC := 6 byte Destination MAC address\n"
+ 		"\tSMAC := optional 6 byte Source MAC address\n"
+ 		"\tETYPE := optional 16 bit ethertype\n"
+-		"\tCONTROL := reclassify|pipe|drop|continue|ok\n"
++		"\tCONTROL := reclassify | pipe | drop | continue | ok |\n"
++		"\t           goto chain <CHAIN_INDEX>\n"
+ 		"\tINDEX := skbmod index value to use\n");
+ }
  
- 	req.t.tcm_info = TC_H_MAKE(prio<<16, protocol);
+diff --git a/tc/m_vlan.c b/tc/m_vlan.c
+index 2441b06..cccb499 100644
+--- a/tc/m_vlan.c
++++ b/tc/m_vlan.c
+@@ -32,7 +32,8 @@ static void explain(void)
+ 	fprintf(stderr, "       vlan modify [ protocol VLANPROTO ] id VLANID [ priority VLANPRIO ] [CONTROL]\n");
+ 	fprintf(stderr, "       VLANPROTO is one of 802.1Q or 802.1AD\n");
+ 	fprintf(stderr, "            with default: 802.1Q\n");
+-	fprintf(stderr, "       CONTROL := reclassify | pipe | drop | continue | pass\n");
++	fprintf(stderr, "       CONTROL := reclassify | pipe | drop | continue | pass |\n");
++	fprintf(stderr, "                  goto chain <CHAIN_INDEX>\n");
+ }
  
-+	if (chain_index_set)
-+		addattr32(&req.n, sizeof(req), TCA_CHAIN, chain_index);
-+
- 	if (k[0])
- 		addattr_l(&req.n, sizeof(req), TCA_KIND, k, strlen(k)+1);
- 
-@@ -167,6 +179,7 @@ static int tc_filter_modify(int cmd, unsigned int flags, int argc, char **argv)
- 			return -1;
- 		}
- 	}
-+
- 	if (est.ewma_log)
- 		addattr_l(&req.n, sizeof(req), TCA_RATE, &est, sizeof(est));
- 
-@@ -193,6 +206,8 @@ static __u32 filter_parent;
- static int filter_ifindex;
- static __u32 filter_prio;
- static __u32 filter_protocol;
-+static __u32 filter_chain_index;
-+static int filter_chain_index_set;
- __u16 f_proto;
- 
- int print_filter(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
-@@ -270,6 +285,15 @@ int print_filter(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
- 		}
- 	}
- 	fprintf(fp, "%s ", rta_getattr_str(tb[TCA_KIND]));
-+
-+	if (tb[TCA_CHAIN]) {
-+		__u32 chain_index = rta_getattr_u32(tb[TCA_CHAIN]);
-+
-+		if (!filter_chain_index_set ||
-+		    filter_chain_index != chain_index)
-+			fprintf(fp, "chain %u ", chain_index);
-+	}
-+
- 	q = get_filter_kind(RTA_DATA(tb[TCA_KIND]));
- 	if (tb[TCA_OPTIONS]) {
- 		if (q)
-@@ -311,6 +335,8 @@ static int tc_filter_get(int cmd, unsigned int flags, int argc, char **argv)
- 	__u32 prio = 0;
- 	__u32 protocol = 0;
- 	int protocol_set = 0;
-+	__u32 chain_index;
-+	int chain_index_set = 0;
- 	__u32 parent_handle = 0;
- 	char *fhandle = NULL;
- 	char  d[16] = {};
-@@ -375,6 +401,13 @@ static int tc_filter_get(int cmd, unsigned int flags, int argc, char **argv)
- 				invarg("invalid protocol", *argv);
- 			protocol = id;
- 			protocol_set = 1;
-+		} else if (matches(*argv, "chain") == 0) {
-+			NEXT_ARG();
-+			if (chain_index_set)
-+				duparg("chain", *argv);
-+			if (get_u32(&chain_index, *argv, 0))
-+				invarg("invalid chain index value", *argv);
-+			chain_index_set = 1;
- 		} else if (matches(*argv, "help") == 0) {
- 			usage();
- 			return 0;
-@@ -401,6 +434,9 @@ static int tc_filter_get(int cmd, unsigned int flags, int argc, char **argv)
- 
- 	req.t.tcm_info = TC_H_MAKE(prio<<16, protocol);
- 
-+	if (chain_index_set)
-+		addattr32(&req.n, sizeof(req), TCA_CHAIN, chain_index);
-+
- 	if (req.t.tcm_parent == TC_H_UNSPEC) {
- 		fprintf(stderr, "Must specify filter parent\n");
- 		return -1;
-@@ -457,10 +493,20 @@ static int tc_filter_get(int cmd, unsigned int flags, int argc, char **argv)
- 
- static int tc_filter_list(int argc, char **argv)
+ static void usage(void)
+diff --git a/tc/tc_util.c b/tc/tc_util.c
+index fd543c5..4f7283d 100644
+--- a/tc/tc_util.c
++++ b/tc/tc_util.c
+@@ -415,6 +415,8 @@ static const char *action_n2a(int action)
  {
--	struct tcmsg t = { .tcm_family = AF_UNSPEC };
-+	struct {
-+		struct nlmsghdr n;
-+		struct tcmsg t;
-+		char buf[MAX_MSG];
-+	} req = {
-+		.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct tcmsg)),
-+		.n.nlmsg_type = RTM_GETTFILTER,
-+		.t.tcm_parent = TC_H_UNSPEC,
-+		.t.tcm_family = AF_UNSPEC,
-+	};
- 	char d[16] = {};
- 	__u32 prio = 0;
- 	__u32 protocol = 0;
-+	__u32 chain_index;
- 	char *fhandle = NULL;
+ 	static char buf[64];
  
- 	while (argc > 0) {
-@@ -470,39 +516,39 @@ static int tc_filter_list(int argc, char **argv)
- 				duparg("dev", *argv);
- 			strncpy(d, *argv, sizeof(d)-1);
- 		} else if (strcmp(*argv, "root") == 0) {
--			if (t.tcm_parent) {
-+			if (req.t.tcm_parent) {
- 				fprintf(stderr,
- 					"Error: \"root\" is duplicate parent ID\n");
- 				return -1;
- 			}
--			filter_parent = t.tcm_parent = TC_H_ROOT;
-+			filter_parent = req.t.tcm_parent = TC_H_ROOT;
- 		} else if (strcmp(*argv, "ingress") == 0) {
--			if (t.tcm_parent) {
-+			if (req.t.tcm_parent) {
- 				fprintf(stderr,
- 					"Error: \"ingress\" is duplicate parent ID\n");
- 				return -1;
- 			}
- 			filter_parent = TC_H_MAKE(TC_H_CLSACT,
- 						  TC_H_MIN_INGRESS);
--			t.tcm_parent = filter_parent;
-+			req.t.tcm_parent = filter_parent;
- 		} else if (strcmp(*argv, "egress") == 0) {
--			if (t.tcm_parent) {
-+			if (req.t.tcm_parent) {
- 				fprintf(stderr,
- 					"Error: \"egress\" is duplicate parent ID\n");
- 				return -1;
- 			}
- 			filter_parent = TC_H_MAKE(TC_H_CLSACT,
- 						  TC_H_MIN_EGRESS);
--			t.tcm_parent = filter_parent;
-+			req.t.tcm_parent = filter_parent;
- 		} else if (strcmp(*argv, "parent") == 0) {
- 			__u32 handle;
++	if (TC_ACT_EXT_CMP(action, TC_ACT_GOTO_CHAIN))
++		return "goto";
+ 	switch (action) {
+ 	case TC_ACT_UNSPEC:
+ 		return "continue";
+@@ -459,6 +461,7 @@ static int action_a2n(char *arg, int *result, bool allow_num)
+ 		{"ok", TC_ACT_OK},
+ 		{"reclassify", TC_ACT_RECLASSIFY},
+ 		{"pipe", TC_ACT_PIPE},
++		{"goto", TC_ACT_GOTO_CHAIN},
+ 		{ NULL },
+ 	}, *iter;
  
- 			NEXT_ARG();
--			if (t.tcm_parent)
-+			if (req.t.tcm_parent)
- 				duparg("parent", *argv);
- 			if (get_tc_classid(&handle, *argv))
- 				invarg("invalid parent ID", *argv);
--			filter_parent = t.tcm_parent = handle;
-+			filter_parent = req.t.tcm_parent = handle;
- 		} else if (strcmp(*argv, "handle") == 0) {
- 			NEXT_ARG();
- 			if (fhandle)
-@@ -526,6 +572,14 @@ static int tc_filter_list(int argc, char **argv)
- 				invarg("invalid protocol", *argv);
- 			protocol = res;
- 			filter_protocol = protocol;
-+		} else if (matches(*argv, "chain") == 0) {
-+			NEXT_ARG();
-+			if (filter_chain_index_set)
-+				duparg("chain", *argv);
-+			if (get_u32(&chain_index, *argv, 0))
-+				invarg("invalid chain index value", *argv);
-+			filter_chain_index_set = 1;
-+			filter_chain_index = chain_index;
- 		} else if (matches(*argv, "help") == 0) {
- 			usage();
- 		} else {
-@@ -538,20 +592,23 @@ static int tc_filter_list(int argc, char **argv)
- 		argc--; argv++;
+@@ -498,6 +501,22 @@ int parse_action_control(int *argc_p, char ***argv_p,
+ 		fprintf(stderr, "Bad action type %s\n", *argv);
+ 		return -1;
  	}
- 
--	t.tcm_info = TC_H_MAKE(prio<<16, protocol);
-+	req.t.tcm_info = TC_H_MAKE(prio<<16, protocol);
- 
- 	ll_init_map(&rth);
- 
- 	if (d[0]) {
--		t.tcm_ifindex = ll_name_to_index(d);
--		if (t.tcm_ifindex == 0) {
-+		req.t.tcm_ifindex = ll_name_to_index(d);
-+		if (req.t.tcm_ifindex == 0) {
- 			fprintf(stderr, "Cannot find device \"%s\"\n", d);
- 			return 1;
- 		}
--		filter_ifindex = t.tcm_ifindex;
-+		filter_ifindex = req.t.tcm_ifindex;
- 	}
- 
--	if (rtnl_dump_request(&rth, RTM_GETTFILTER, &t, sizeof(t)) < 0) {
-+	if (filter_chain_index_set)
-+		addattr32(&req.n, sizeof(req), TCA_CHAIN, chain_index);
++	if (result == TC_ACT_GOTO_CHAIN) {
++		__u32 chain_index;
 +
-+	if (rtnl_dump_request_n(&rth, &req.n) < 0) {
- 		perror("Cannot send dump request");
- 		return 1;
- 	}
++		NEXT_ARG();
++		if (matches(*argv, "chain") != 0) {
++			fprintf(stderr, "\"chain index\" expected\n");
++			return -1;
++		}
++		NEXT_ARG();
++		if (get_u32(&chain_index, *argv, 10) ||
++		    chain_index > TC_ACT_EXT_VAL_MASK) {
++			fprintf(stderr, "Illegal \"chain index\"\n");
++			return -1;
++		}
++		result |= chain_index;
++	}
+ 	NEXT_ARG_FWD();
+ 	*argc_p = argc;
+ 	*argv_p = argv;
+@@ -605,7 +624,10 @@ int parse_action_control_slash(int *argc_p, char ***argv_p,
+ void print_action_control(FILE *f, const char *prefix,
+ 			  int action, const char *suffix)
+ {
+-	fprintf(f, "%s%s%s", prefix, action_n2a(action), suffix);
++	fprintf(f, "%s%s", prefix, action_n2a(action));
++	if (TC_ACT_EXT_CMP(action, TC_ACT_GOTO_CHAIN))
++		fprintf(f, " chain %u", action & TC_ACT_EXT_VAL_MASK);
++	fprintf(f, "%s", suffix);
+ }
+ 
+ int get_linklayer(unsigned int *val, const char *arg)
 -- 
 2.9.3
