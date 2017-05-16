@@ -1,64 +1,54 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [ISSUE: sky2 - rx error] Link stops working under heavy traffic
- load connected to a mv88e6176
-Date: Tue, 16 May 2017 15:21:16 +0200
-Message-ID: <20170516132116.GE5456@lunn.ch>
-References: <20170425082741.59428876@xeon-e3>
- <5901DE9F.1070005@aoifes.com>
- <20170427130450.GL17172@lunn.ch>
- <59032D8B.1010801@aoifes.com>
- <20170428122259.GH13231@lunn.ch>
- <59105EA3.9030203@aoifes.com>
- <20170508123852.GI27709@lunn.ch>
- <591AD990.901@aoifes.com>
- <20170516124759.GB27959@lunn.ch>
- <591AF9FD.1000304@aoifes.com>
+From: Jes Sorensen <jes.sorensen@gmail.com>
+Subject: Re: [PATCH] rt2x00: improve calling conventions for register
+ accessors
+Date: Tue, 16 May 2017 09:44:19 -0400
+Message-ID: <0ce21c48-1d2c-3035-3c6e-52c7debf86d5@gmail.com>
+References: <20170515134711.2770374-1-arnd@arndb.de>
+ <20170515142520.GA13996@redhat.com>
+ <20170515.103951.2305484593464882104.davem@davemloft.net>
+ <20170516115511.GA4230@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-        netdev@vger.kernel.org
-To: Rafa Corvillo <rafael.corvillo@aoifes.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:60357 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752172AbdEPNVS (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 16 May 2017 09:21:18 -0400
-Content-Disposition: inline
-In-Reply-To: <591AF9FD.1000304@aoifes.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, arnd@arndb.de,
+        helmut.schaa@googlemail.com, kvalo@codeaurora.org,
+        daniel@makrotopia.org, dev@kresin.me, johannes.berg@intel.com,
+        pozega.tomislav@gmail.com, vasilugin@yandex.ru, roman@advem.lv,
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Stanislaw Gruszka <sgruszka@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170516115511.GA4230@redhat.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, May 16, 2017 at 03:09:17PM +0200, Rafa Corvillo wrote:
-> >>Adding 8 bytes (sky2->netdev->mtu + ETH_HLEN + VLAN_HLEN + 8
-> >>(EDSA_HLEN)) does not fix the error, because the interface keep
-> >>having a maximum length of 1518 bytes (sky2->netdev->mtu + ETH_HLEN
-> >>+ VLAN_HLEN).
-> >
-> >Did you check the value being written to here:
-> >
-> >         /*
-> >          * The receiver hangs if it receives frames larger than the
-> >          * packet buffer. As a workaround, truncate oversize frames, but
-> >          * the register is limited to 9 bits, so if you do frames > 2052
-> >          * you better get the MTU right!
-> >          */
-> >         thresh = sky2_get_rx_threshold(sky2);
-> >         if (thresh > 0x1ff)
-> >                 sky2_write32(hw, SK_REG(sky2->port, RX_GMF_CTRL_T), RX_TRUNC_OFF);
-> >         else {
-> >                 sky2_write16(hw, SK_REG(sky2->port, RX_GMF_TR_THR), thresh);
-> >                 sky2_write32(hw, SK_REG(sky2->port, RX_GMF_CTRL_T), RX_TRUNC_ON);
-> >         }
-> >
-> >
-> >What is thresh?
+On 05/16/2017 07:55 AM, Stanislaw Gruszka wrote:
+> On Mon, May 15, 2017 at 10:39:51AM -0400, David Miller wrote:
+>> Passing return values by reference is and always has been a really
+>> poor way to achieve what these functions are doing.
+>>
+>> And frankly, whilst the tool could see what's going on here better, we
+>> should be making code easier rather than more difficult to audit.
+>>
+>> I am therefore very much in favor of Arnd's change.
+>>
+>> This isn't even a situation where there are multiple return values,
+>> such as needing to signal an error and return an unsigned value at the
+>> same time.
+>>
+>> These functions return _one_ value, and therefore they should be
+>> returned as a true return value.
 > 
-> The value of thresh is 380.
+> In rt2x00 driver we use poor convention in other kind of registers
+> accessors like bbp, mac, eeprom. I dislike to changing only rfcsr
+> accessors and leaving others in the old way. And changing all accessors
+> would be massive and error prone change, which I'm not prefer either.
 
-So that is 1528.
+That's why you do it in multiple smaller patches rather than one ugly 
+giant patch.
 
-You could hack it and try 0x1ff.
+The rt2x00 current register accessor functions makes the Realtek vendor 
+driver equivalent ones look pretty, which is saying something.
 
-Also, check that in sky2_rx_add(), le->length is set to 4K.
-
-      Andrew
+Jes
