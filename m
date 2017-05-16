@@ -1,56 +1,174 @@
-From: Alexander Sverdlin <alexander.sverdlin@gmail.com>
-Subject: Re: [PATCH v2 net-next 06/12] ep93xx_eth: add GRO support
-Date: Tue, 16 May 2017 22:41:28 +0200
-Message-ID: <8ce1ad39-5f57-ecff-805d-0aaca6fbd138@gmail.com>
-References: <20170204232502.22361-1-edumazet@google.com>
- <20170204232502.22361-7-edumazet@google.com>
- <20170515103132.GA24992@wantstofly.org> <591A12E8.1050603@gmail.com>
- <1494882170.2185.2.camel@Nokia-N900>
-Reply-To: Alexander Sverdlin <alexander.sverdlin@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        Hartley Sweeten <hsweeten@visionengravers.com>
-To: Ryan Mallon <rmallon@gmail.com>,
-        Lennert Buytenhek <buytenh@wantstofly.org>,
-        Eric Dumazet <edumazet@google.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: [PATCH net-next 1/2] net: dsa: Sort DSA tagging protocol drivers
+Date: Tue, 16 May 2017 22:40:07 +0200
+Message-ID: <1494967208-11550-2-git-send-email-andrew@lunn.ch>
+References: <1494967208-11550-1-git-send-email-andrew@lunn.ch>
+Cc: netdev <netdev@vger.kernel.org>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        Andrew Lunn <andrew@lunn.ch>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:35518 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751521AbdEPUlp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 16 May 2017 16:41:45 -0400
-Received: by mail-wm0-f66.google.com with SMTP id v4so40744929wmb.2
-        for <netdev@vger.kernel.org>; Tue, 16 May 2017 13:41:40 -0700 (PDT)
-In-Reply-To: <1494882170.2185.2.camel@Nokia-N900>
-Content-Language: en-US
+Received: from vps0.lunn.ch ([178.209.37.122]:60847 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751775AbdEPUly (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 16 May 2017 16:41:54 -0400
+In-Reply-To: <1494967208-11550-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello all,
+With more tag protocols being added, regain some order by sorting the
+entries in various places.
 
-On 15/05/17 23:02, Alexander Sverdlin wrote:
->>> I don't know if we really care about this hardware anymore (I don't),
->>> but the ep93xx platform is still listed as being maintained in the
->>> MAINTAINERS file -- adding Ryan and Hartley.
->> I no longer have any ep93xx hardware to test with, and I never looked at
->> the Ethernet, so don't know the details. I think there are still a
->> handful of users. Adding Alexander who sent an ADC support series this
->> week, who might be able to test this?
-> Yes, I very much care about ep93xx code being functional :)
-> I'll test the patches tomorrow.
+Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+---
+ include/net/dsa.h  |  8 ++++----
+ net/dsa/Kconfig    |  8 ++++----
+ net/dsa/Makefile   |  6 +++---
+ net/dsa/dsa.c      | 18 +++++++++---------
+ net/dsa/dsa_priv.h | 18 +++++++++---------
+ 5 files changed, 29 insertions(+), 29 deletions(-)
 
-it turns out I've used this patch two weeks long already in 4.11; but I've spent
-a couple of hours now torturing the new driver and was not able to provoke
-any inadequate behavior. It either receives all packets in time or not at all.
-If IRQs would be edge-triggered, I'd expect some stale packets, which do not
-arrive at first, but then appear with the packets coming next. This is not
-the case. I've used pktgen module for this, with minimal packets and
-different bursts.
-
-netperf shows 45Mbit/s on UDP_STREAM test, which is also fair amount for
-200MHz CPU.
-
-So, I see no problems with the change.
+diff --git a/include/net/dsa.h b/include/net/dsa.h
+index 8e24677b1c62..f5b3ab645624 100644
+--- a/include/net/dsa.h
++++ b/include/net/dsa.h
+@@ -27,13 +27,13 @@ struct fixed_phy_status;
+ 
+ enum dsa_tag_protocol {
+ 	DSA_TAG_PROTO_NONE = 0,
++	DSA_TAG_PROTO_BRCM,
+ 	DSA_TAG_PROTO_DSA,
+-	DSA_TAG_PROTO_TRAILER,
+ 	DSA_TAG_PROTO_EDSA,
+-	DSA_TAG_PROTO_BRCM,
+-	DSA_TAG_PROTO_QCA,
+-	DSA_TAG_PROTO_MTK,
+ 	DSA_TAG_PROTO_LAN9303,
++	DSA_TAG_PROTO_MTK,
++	DSA_TAG_PROTO_QCA,
++	DSA_TAG_PROTO_TRAILER,
+ 	DSA_TAG_LAST,		/* MUST BE LAST */
+ };
+ 
+diff --git a/net/dsa/Kconfig b/net/dsa/Kconfig
+index 81a0868edb1d..297389b2ab35 100644
+--- a/net/dsa/Kconfig
++++ b/net/dsa/Kconfig
+@@ -25,16 +25,16 @@ config NET_DSA_TAG_DSA
+ config NET_DSA_TAG_EDSA
+ 	bool
+ 
+-config NET_DSA_TAG_TRAILER
++config NET_DSA_TAG_LAN9303
+ 	bool
+ 
+-config NET_DSA_TAG_QCA
++config NET_DSA_TAG_MTK
+ 	bool
+ 
+-config NET_DSA_TAG_MTK
++config NET_DSA_TAG_TRAILER
+ 	bool
+ 
+-config NET_DSA_TAG_LAN9303
++config NET_DSA_TAG_QCA
+ 	bool
+ 
+ endif
+diff --git a/net/dsa/Makefile b/net/dsa/Makefile
+index 0b747d75e65a..f8c0251d1f43 100644
+--- a/net/dsa/Makefile
++++ b/net/dsa/Makefile
+@@ -6,7 +6,7 @@ dsa_core-y += dsa.o slave.o dsa2.o switch.o legacy.o
+ dsa_core-$(CONFIG_NET_DSA_TAG_BRCM) += tag_brcm.o
+ dsa_core-$(CONFIG_NET_DSA_TAG_DSA) += tag_dsa.o
+ dsa_core-$(CONFIG_NET_DSA_TAG_EDSA) += tag_edsa.o
+-dsa_core-$(CONFIG_NET_DSA_TAG_TRAILER) += tag_trailer.o
+-dsa_core-$(CONFIG_NET_DSA_TAG_QCA) += tag_qca.o
+-dsa_core-$(CONFIG_NET_DSA_TAG_MTK) += tag_mtk.o
+ dsa_core-$(CONFIG_NET_DSA_TAG_LAN9303) += tag_lan9303.o
++dsa_core-$(CONFIG_NET_DSA_TAG_MTK) += tag_mtk.o
++dsa_core-$(CONFIG_NET_DSA_TAG_QCA) += tag_qca.o
++dsa_core-$(CONFIG_NET_DSA_TAG_TRAILER) += tag_trailer.o
+diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
+index 26130ae438da..c0a1307c87dd 100644
+--- a/net/dsa/dsa.c
++++ b/net/dsa/dsa.c
+@@ -40,26 +40,26 @@ static const struct dsa_device_ops none_ops = {
+ };
+ 
+ const struct dsa_device_ops *dsa_device_ops[DSA_TAG_LAST] = {
++#ifdef CONFIG_NET_DSA_TAG_BRCM
++	[DSA_TAG_PROTO_BRCM] = &brcm_netdev_ops,
++#endif
+ #ifdef CONFIG_NET_DSA_TAG_DSA
+ 	[DSA_TAG_PROTO_DSA] = &dsa_netdev_ops,
+ #endif
+ #ifdef CONFIG_NET_DSA_TAG_EDSA
+ 	[DSA_TAG_PROTO_EDSA] = &edsa_netdev_ops,
+ #endif
+-#ifdef CONFIG_NET_DSA_TAG_TRAILER
+-	[DSA_TAG_PROTO_TRAILER] = &trailer_netdev_ops,
++#ifdef CONFIG_NET_DSA_TAG_LAN9303
++	[DSA_TAG_PROTO_LAN9303] = &lan9303_netdev_ops,
+ #endif
+-#ifdef CONFIG_NET_DSA_TAG_BRCM
+-	[DSA_TAG_PROTO_BRCM] = &brcm_netdev_ops,
++#ifdef CONFIG_NET_DSA_TAG_MTK
++	[DSA_TAG_PROTO_MTK] = &mtk_netdev_ops,
+ #endif
+ #ifdef CONFIG_NET_DSA_TAG_QCA
+ 	[DSA_TAG_PROTO_QCA] = &qca_netdev_ops,
+ #endif
+-#ifdef CONFIG_NET_DSA_TAG_MTK
+-	[DSA_TAG_PROTO_MTK] = &mtk_netdev_ops,
+-#endif
+-#ifdef CONFIG_NET_DSA_TAG_LAN9303
+-	[DSA_TAG_PROTO_LAN9303] = &lan9303_netdev_ops,
++#ifdef CONFIG_NET_DSA_TAG_TRAILER
++	[DSA_TAG_PROTO_TRAILER] = &trailer_netdev_ops,
+ #endif
+ 	[DSA_TAG_PROTO_NONE] = &none_ops,
+ };
+diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
+index f4a88e485213..e9003b79cbbc 100644
+--- a/net/dsa/dsa_priv.h
++++ b/net/dsa/dsa_priv.h
+@@ -75,25 +75,25 @@ void dsa_slave_unregister_notifier(void);
+ int dsa_switch_register_notifier(struct dsa_switch *ds);
+ void dsa_switch_unregister_notifier(struct dsa_switch *ds);
+ 
++/* tag_brcm.c */
++extern const struct dsa_device_ops brcm_netdev_ops;
++
+ /* tag_dsa.c */
+ extern const struct dsa_device_ops dsa_netdev_ops;
+ 
+ /* tag_edsa.c */
+ extern const struct dsa_device_ops edsa_netdev_ops;
+ 
+-/* tag_trailer.c */
+-extern const struct dsa_device_ops trailer_netdev_ops;
++/* tag_lan9303.c */
++extern const struct dsa_device_ops lan9303_netdev_ops;
+ 
+-/* tag_brcm.c */
+-extern const struct dsa_device_ops brcm_netdev_ops;
++/* tag_mtk.c */
++extern const struct dsa_device_ops mtk_netdev_ops;
+ 
+ /* tag_qca.c */
+ extern const struct dsa_device_ops qca_netdev_ops;
+ 
+-/* tag_mtk.c */
+-extern const struct dsa_device_ops mtk_netdev_ops;
+-
+-/* tag_lan9303.c */
+-extern const struct dsa_device_ops lan9303_netdev_ops;
++/* tag_trailer.c */
++extern const struct dsa_device_ops trailer_netdev_ops;
+ 
+ #endif
+-- 
+2.11.0
