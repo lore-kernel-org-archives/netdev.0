@@ -1,54 +1,37 @@
-From: Ido Schimmel <idosch@mellanox.com>
-Subject: Re: switchdev offload & ecmp
-Date: Tue, 16 May 2017 17:11:49 +0300
-Message-ID: <20170516141149.GA1874@splinter.mtl.com>
-References: <84b9801f-0c2a-cd55-61a4-411261943024@6wind.com>
- <20170515164036.GA5669@splinter.mtl.com>
- <4c70d1fc-ba11-e358-2142-d373f44cb5a1@6wind.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next v2 3/3] udp: keep the sk_receive_queue held
+ when splicing
+Date: Tue, 16 May 2017 07:12:26 -0700
+Message-ID: <1494943946.6465.5.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <cover.1494881617.git.pabeni@redhat.com>
+         <35e3fc420159a14392b9a2f501f76cc6eb59ba0f.1494881617.git.pabeni@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Jiri Pirko <jiri@resnulli.us>,
-        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-        Roopa Prabhu <roopa@cumulusnetworks.com>,
-        netdev <netdev@vger.kernel.org>
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>
+To: Paolo Abeni <pabeni@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-he1eur01on0074.outbound.protection.outlook.com ([104.47.0.74]:3719
-        "EHLO EUR01-HE1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1753507AbdEPOL5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 16 May 2017 10:11:57 -0400
-Content-Disposition: inline
-In-Reply-To: <4c70d1fc-ba11-e358-2142-d373f44cb5a1@6wind.com>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:35292 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751035AbdEPOM2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 16 May 2017 10:12:28 -0400
+Received: by mail-pf0-f194.google.com with SMTP id u26so20091241pfd.2
+        for <netdev@vger.kernel.org>; Tue, 16 May 2017 07:12:28 -0700 (PDT)
+In-Reply-To: <35e3fc420159a14392b9a2f501f76cc6eb59ba0f.1494881617.git.pabeni@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 16, 2017 at 02:57:47PM +0200, Nicolas Dichtel wrote:
-> >> I suspect that there can be scenarii where some packets of a flow are forwarded
-> >> by the driver and some other are forwarded by the kernel.
-> > 
-> > Can you elaborate? The kernel only sees specific packets, which were
-> > trapped to the CPU. See:
-> > https://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git/tree/drivers/net/ethernet/mellanox/mlxsw/spectrum.c#n2996
-> Ok, this part was not clear for me, thank you for the pointer.
+On Tue, 2017-05-16 at 11:20 +0200, Paolo Abeni wrote:
+> On packet reception, when we are forced to splice the
+> sk_receive_queue, we can keep the related lock held, so
+> that we can avoid re-acquiring it, if fwd memory
+> scheduling is required.
 > 
-> So, when an arp resolution is needed, the packets are not trapped to the CPU,
-> the device manages the queue itself?
+> v1 -> v2:
+>   the rx_queue_lock_held param in udp_rmem_release() is
+>   now a bool
+> 
+> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
 
-There are two cases here. If you need an ARP resolution following a hit
-of a directly connected route and this neighbour isn't in the device's
-table, then packet is trapped (HOST_MISS_IPV4 in above list) to the CPU
-and triggers ARP resolution in the kernel. Eventually a NETEVENT will be
-sent and the neighbour will be programmed to the device.
-
-If you need an ARP resolution of a nexthop, then this is a bit
-different. If you have an ECMP group with several nexthops, then once
-one of them is resolved, packets will be forwarded using it. To make
-sure other nexthops will also be resolved we try to periodically refresh
-them. Otherwise packets will always be forwarded using a single nexthop,
-as the kernel won't have motivation to resolve the others.
-https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c#n987
-
-In case no nexthops can be resolved, then packets will be trapped to the
-CPU (RTR_INGRESS0 in above list) and forwarded by the kernel.
-https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c#n1896
+Acked-by: Eric Dumazet <edumazet@google.com>
