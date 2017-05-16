@@ -1,78 +1,120 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [Patch net] ipv4: restore rt->fi for reference counting
-Date: Tue, 16 May 2017 10:46:46 +0300 (EEST)
-Message-ID: <alpine.LFD.2.20.1705160955310.1856@ja.home.ssi.bg>
-References: <1493934857-6693-1-git-send-email-xiyou.wangcong@gmail.com> <1494370451.7796.93.camel@edumazet-glaptop3.roam.corp.google.com> <1494371348.7796.95.camel@edumazet-glaptop3.roam.corp.google.com> <CAM_iQpU+fXO7eFroAYMv6vqDzCK_ZYXjrTPAMfoDR2BDqaK9rQ@mail.gmail.com>
- <alpine.LFD.2.20.1705100937330.1938@ja.home.ssi.bg> <CAM_iQpX22qTqo4yfM_Je1bvJHxjAGK_tvm5KgQSnJzsYq7K55Q@mail.gmail.com> <alpine.LFD.2.20.1705102141320.1928@ja.home.ssi.bg> <CAM_iQpW0fJJXPS=FoTf-o4f5-mOC=mZYNP8=uqiUOmvX+CDwWw@mail.gmail.com>
- <CAM_iQpWxDKHF4N1xor7qj+5s91GrctgcGnzN0buw18qs7__-gQ@mail.gmail.com> <alpine.LFD.2.20.1705120659370.1811@ja.home.ssi.bg> <CAM_iQpVQSMd_LYMqm3EauRRgJhfkW=zsdvKRf4-YcGWwSufuvQ@mail.gmail.com> <alpine.LFD.2.20.1705122151001.2835@ja.home.ssi.bg>
- <CAM_iQpXtWUZoGS_KEqfZc+ZbzYxaF1hbAV7H9Qd82=r4auJojw@mail.gmail.com> <alpine.LFD.2.20.1705152317090.4002@ja.home.ssi.bg> <CAM_iQpWAjTJL54h_Pdg3DigjEK4kQdSz0pmAks6ByoP67ROOFg@mail.gmail.com>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: Re: [PATCH] ravb: add wake-on-lan support via magic packet
+Date: Tue, 16 May 2017 09:48:51 +0200
+Message-ID: <CAMuHMdWZ8XLX0Zu0D54Ex+3RaFNm_fJyFQvyo+qz10HpB2nGqQ@mail.gmail.com>
+References: <20170511222735.10706-1-niklas.soderlund+renesas@ragnatech.se>
+ <CAMuHMdUXqWJMh7syd3muMs8v9wx5bJNRj_3+xEAXTQTfAv0BFA@mail.gmail.com>
+ <20170512125853.GH31437@bigcity.dyn.berto.se> <20170512143242.GA13939@bigcity.dyn.berto.se>
+ <CAMuHMdU+uiiZfh5u+tL_bVJinhP-c0_iF4ZQh8=9NHN+aqUs=Q@mail.gmail.com> <20170512211222.GI31437@bigcity.dyn.berto.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-        David Miller <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Andrey Konovalov <andreyknvl@google.com>,
-        Eric Dumazet <edumazet@google.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:39458 "EHLO ja.ssi.bg"
-        rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1750949AbdEPHq5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 16 May 2017 03:46:57 -0400
-In-Reply-To: <CAM_iQpWAjTJL54h_Pdg3DigjEK4kQdSz0pmAks6ByoP67ROOFg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Linux-Renesas <linux-renesas-soc@vger.kernel.org>
+To: =?UTF-8?Q?Niklas_S=C3=B6derlund?= <niklas.soderlund@ragnatech.se>
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+In-Reply-To: <20170512211222.GI31437@bigcity.dyn.berto.se>
+Sender: linux-renesas-soc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Hi Niklas,
 
-	Hello,
+On Fri, May 12, 2017 at 11:12 PM, Niklas S=C3=B6derlund
+<niklas.soderlund@ragnatech.se> wrote:
+> On 2017-05-12 16:43:55 +0200, Geert Uytterhoeven wrote:
+>> On Fri, May 12, 2017 at 4:32 PM, Niklas S=C3=B6derlund
+>> <niklas.soderlund@ragnatech.se> wrote:
+>> > On 2017-05-12 14:58:53 +0200, Niklas S=C3=B6derlund wrote:
+>> >> On 2017-05-12 14:47:53 +0200, Geert Uytterhoeven wrote:
+>> >> > On Fri, May 12, 2017 at 12:27 AM, Niklas S=C3=B6derlund
+>> >> > <niklas.soderlund+renesas@ragnatech.se> wrote:
+>> >> > When using PSCI suspend/resume, and Wake-on-LAN cannot work due to
+>> >> > PSCI firmware issues, Ethernet fails to come up afterwards:
+>> >> >
+>> >> >     ravb e6800000.ethernet eth0: failed to switch device to config =
+mode
+>> >> >     ravb e6800000.ethernet eth0: device will be stopped after h/w
+>> >> > processes are done.
+>> >> >     ravb e6800000.ethernet eth0: failed to switch device to config =
+mode
+>> >> >     dpm_run_callback(): ravb_resume+0x0/0x148 returns -110
+>> >> >     PM: Device e6800000.ethernet failed to resume: error -110
+>> >> >
+>> >> > Your resume routine cannot assume RAVB is in a sane mode, as it wil=
+l
+>> >> > have been reset if PSCI suspend was used.
+>> >>
+>> >> Ouch, yes this is true thanks for reporting will look in to it.
+>> >>
+>> >> The problem is that in the resume handler if WoL is enabled it will t=
+ry
+>> >> to close the device before reinitializing it from reset state. If WoL=
+ is
+>> >> not enabled the device will be closed at suspend time so no need to
+>> >> close it before restoring operation from reset in the resume handler.
 
-On Mon, 15 May 2017, Cong Wang wrote:
+>> With renesas-drivers, it will refuse to use PSCI suspend if any other wa=
+ke-up
+>> sources are configured, i.e. try
+>>
+>>     echo disabled > /sys/devices/platform/soc/e6800000.ethernet/power/wa=
+keup
+>>
+>> Good luck, and have a nice weekend!
+>
+> Thanks this allowed me to reproduce the same error as you. And after
+> future digging I don't believe the problem being in the logic of the
+> ravb suspend/resume functions. The problem is that the module clock is
+> never turned on after PCSI system suspend if its usage count is above 0
+> at suspend time, so the errors we both now observe are due to the module
+> clock being disabled.
+>
+> If I set DEBUG in renesas-cpg-mssr.c and observe when each module clock
+> is turned OFF and ON, the fault is clear. If WoL is enabled the clock is
+> never turned on when the system is resuming, while if WoL is disabled it
+> is. I verified this by removing the calls to clk_enable() and
+> clk_disable() from this patch, and by doing so the PCSI system suspend
+> works perfect with WoL enabled and the ravb comes up fine after toggling
+> SW23 (while ofc WoL no longer works in s2idle due to the module clock is
+> switched off at suspend time).
+>
+> I checked drivers/clk/renesas and I can't find a suspend/resume handler
+> for the clock driver, how is this intended to work? If a clock have a
+> usage count higher then 0 when the system is PSCI System Suspended it
+> seems like it won't be turned back on when the system is resumed from
+> this sleep stage. I might have misunderstood something and I need to
+> alter the logic in the ravb driver to let the clock driver know it
+> should turn on the clock at resume time?
 
-> On Mon, May 15, 2017 at 1:37 PM, Julian Anastasov <ja@ssi.bg> wrote:
-> >         Any user that does not set FIB_LOOKUP_NOREF
-> > will need nh_dev refcounts. The assumption is that the
-> > NHs are accessed, who knows, may be even after RCU grace
-> > period. As result, we can not use dev_put on NETDEV_UNREGISTER.
-> > So, we should check if there are users that do not
-> > set FIB_LOOKUP_NOREF, at first look, I don't see such ones
-> > for IPv4.
-> 
-> I see, although we do have FIB_LOOKUP_NOREF set all the times,
-> there are other places we hold fib_clntref too, for example
-> mlxsw_sp_router_fib_event_work(), it actually uses nh_dev too...
-> 
-> So I am afraid moving dev_put() to fib_release_info() is not a solution
-> here. I have to rethink about it.
+Ah, you found a real use case for suspend/resume support in the clock
+drivers ;-)
 
-	At first look, they use fib_info_hold() to get fib_clntref 
-reference from places where fib_treeref is not fatally decreased
-to 0 but later a work is used which finishes the job. I guess, we
-can convert such places to use just a fib_treeref reference.
-They can use such new method instead of fib_info_hold:
+Due to PSCI system suspend powering down the whole SoC, all clock
+settings are lost.
 
-void fib_treeref_get(struct fib_info *fi)
-{
-	spin_lock_bh(&fib_info_lock);
-	fi->fib_treeref++;
-	spin_unlock_bh(&fib_info_lock);
-}
+Thanks, I will look into this...
 
-They will use fib_release_info() to put the reference. But
-on FIB_EVENT_ENTRY_DEL there is a small window where the
-scheduled work delays the unlink of fib info from the
-hash tables, i.e. there is a risk fib_find_info to reuse
-a dead fib info.
+> Whit all this being said I still like to withdraw this patch as I found
+> another fault with it, ravb_wol_restore() will unconditionally be called
+> while ravb_wol_setup() will only be called if netif_running(ndev). This
+> is en easy fix and I will send out a v2 once we figure out what to do
+> about the clock.
 
-	May be we can add a fi->fib_flags & RTNH_F_DEAD
-check there but the problem is that it is set also on
-NETDEV_DOWN. While attempts to add route to device with
-!(dev->flags & IFF_UP) is rejected by fib_check_nh(),
-fib_create_info still can create routes when
-cfg->fc_scope == RT_SCOPE_HOST. So, RTNH_F_DEAD check
-in fib_find_info can avoid the reuse of fib info for
-host routes while device is down but not unregistered.
-As result, many fib infos can be created instead of one
-that is reused. Adding new RTNH_F_* flag to properly handle
-this does not look good...
+The clock issue is external to the ravb driver. If it works with
+s2idle, it should
+be OK.
 
-Regards
+Gr{oetje,eeting}s,
+
+                        Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k=
+.org
+
+In personal conversations with technical people, I call myself a hacker. Bu=
+t
+when I'm talking to journalists I just say "programmer" or something like t=
+hat.
+                                -- Linus Torvalds
