@@ -1,135 +1,44 @@
-From: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH] net/smc: mark as BROKEN due to remote memory exposure
-Date: Tue, 16 May 2017 13:20:44 -0400
-Message-ID: <1494955244.3259.130.camel@redhat.com>
-References: <1494950224.3259.98.camel@redhat.com>
-         <20170516.122923.869994491617365845.davem@davemloft.net>
-         <1494952963.3259.109.camel@redhat.com>
-         <20170516.124945.386235742645153398.davem@davemloft.net>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: Advice on user space application integration with tc
+Date: Tue, 16 May 2017 10:22:29 -0700
+Message-ID: <CAM_iQpVKfdSb0nmmXojZMo+pj5qxf9nSy14ScpYu_UG=jJaN_A@mail.gmail.com>
+References: <CAHV_CwaAF-tDqEpPT1LL04tqTLE14qqqhxZtsB+d-ndKot8_UQ@mail.gmail.com>
+ <CAM_iQpWnxTuHQfXzxQ6Cg5Ec=D7yJQsvw+3WpnzDuDXAUow7fg@mail.gmail.com> <CAHV_CwaesEdmR+=Kr-O+NUCwGC4KNJZvXcDV3qNmji38OtZOeg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: Bart.VanAssche-XdAiOPVOjttBDgjK7y7TUQ@public.gmane.org, torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
-        hch-jcswGhMUV9g@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ubraun-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170516.124945.386235742645153398.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Morgan Yang <morgan.yang1982@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f53.google.com ([74.125.82.53]:36512 "EHLO
+        mail-wm0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751052AbdEPRWv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 16 May 2017 13:22:51 -0400
+Received: by mail-wm0-f53.google.com with SMTP id u65so129160446wmu.1
+        for <netdev@vger.kernel.org>; Tue, 16 May 2017 10:22:51 -0700 (PDT)
+In-Reply-To: <CAHV_CwaesEdmR+=Kr-O+NUCwGC4KNJZvXcDV3qNmji38OtZOeg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2017-05-16 at 12:49 -0400, David Miller wrote:
-> From: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-> Date: Tue, 16 May 2017 12:42:43 -0400
-> 
-> > On Tue, 2017-05-16 at 12:29 -0400, David Miller wrote:
-> >> From: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-> >> Date: Tue, 16 May 2017 11:57:04 -0400
-> >> 
-> >> > Regardless though, I'm rather purturbed about this entire thing.
-> >>  If
-> >> > you are right that because this got into 4.11, it's now a done
-> >> deal,
-> >> > then the fact that this went through 4 review cycles on netdev@
-> >> that,
-> >> > as I understand it, spanned roughly one years time, and not one
-> >> single
-> >> > person bothered to note that this was as much an RDMA driver as
-> >> > anything else, and not one person bothered to note that linux-
-> rdma@ 
-> >> was
-> >> > not on the Cc: list, and not one person told the submitters that
-> >> they
-> >> > needed to include linux-rdma@ on the Cc: list of these
-> submissions,
-> >> and
-> >> > you took it without any review comments from any RDMA people in
-> the
-> >> > course of a year, or an ack from me to show that the RDMA
-> portion
-> >> of
-> >> > this had at least been given some sort of review, was a collosal
-> >> fuckup
-> >> > of cross tree maintainer cooperation.
-> >> 
-> >> We rely on people from various areas of expertiece to contribute
-> to
-> >> patch review on netdev and give appropriate feedback.
-> >> 
-> >> If you actually look through the history, I made many semantic
-> >> reviews
-> >> of the SMC changes, and kept pushing back.
-> >> 
-> >> And in fact I did this several times, making them go through
-> several
-> >> revisions, in the hopes that someone would review more of the meat
-> >> and
-> >> substance of the patch set.
-> > 
-> > If you want to walk to the mailbox, you walk to the mailbox, you
-> don't
-> > walk to the grocery store, to the gym, and never even go to the
-> > mailbox.  Likewise, if you want review from RDMA experts, most
-> (maybe
-> > even all) don't subscribe to netdev@ because it's too high traffic,
-> you
-> > don't waste time on silly semantic pushbacks, you send a single
-> email
-> > that says "Please get review from linux-rdma@, thank you."  Don't
-> beat
-> > around the bush, be direct and get it over with.  That's exactly
-> what I
-> > do for all netdev@ related patches coming to linux-rdma@ without a
-> > proper Cc: to netdev@.
-> 
-> Read my other email, it wasn't %100 clear to me that this was so
-> strictly RDMA related.  And I kept pushing back with semantic changes
-> in part because it wasn't clear.
+On Mon, May 15, 2017 at 1:33 PM, Morgan Yang <morgan.yang1982@gmail.com> wrote:
+> I tried on both stock CentOS 7.3 and Ubuntu 16.04 and tc-skbmod was not
+> support (I built tc from the latest versions of iproute2). For tc-pedit,
+> examples from man tc-pedit such as "pedit ex munge" were not supported, but
+> "pedit munge offset" is.
 
-See my other email.  I think in the fact that you are overloaded on
-netdev@ you skimmed the cover letter, which is the one thing that would
-have made things clear.
+act skbmod is new, it is introduced by:
 
-> So as far as I was concerned I was not necessarily going to the wrong
-> store, in fact I wasn't sure what store to go to.
-> 
-> And none of the thousands of subscribers to netdev intuit'd this
-> either.  Maybe there is a reason for that.
+commit 86da71b57383d40993cb90baafb3735cffe5d800
+Author: Jamal Hadi Salim <jhs@mojatatu.com>
+Date:   Mon Sep 12 20:13:09 2016 -0400
 
-Yeah, it's an overloaded list would be my guess.  I imagine no one can
-keep up with it fully in truth.  Maybe it's time to split some of it
-out into sublists?  netdev-core/netdev-ethernet/netdev-packet?  I don't
-know, but I know I can't keep up with it.  That you do as well as you
-do is probably only because you know how to not spend too much time on
-any one thing.  I'm sure you have people you know are submitting
-important work that effects the overall net subsystem and you focus on
-their stuff, but ancillary things probably only get half attention at
-double speed in order to allow you to make it through the day.
+    net_sched: Introduce skbmod action
 
-> Furthermore, if netdev is too much traffic for one or two RDMA people
-> to just casually subscribe to on the off chance that a situationm
-> like
-> this comes up, guess what it is like for me who has to read and
-> review
-> pretty much every single posting that is placed there?
+For pedit, "ex", as it implies, it is an extended feature which was
+introduced in:
 
-I get it.  I don't have the time to both be responsible for linux-rdma
-and follow netdev.  I can already tell you what would happen if I
-tried.  Eventually netdev would get so far behind I would just mass
-delete and start over.  So that doesn't solve the problem.
+commit 71d0ed7079dffbc5cd0941d77d9b84e04109c9bb
+Author: Amir Vadai <amir@vadai.me>
+Date:   Tue Feb 7 09:56:07 2017 +0200
 
-Anyway, we're just talking out what happened, when what we really need
-to focus on is moving forward.  Again, your thoughts on marking SMC
-EXPERIMENTAL until it's fixed up and unfreezing the API in case we need
-to adjust it to work on different link layers?
-
--- 
-Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-    GPG KeyID: B826A3330E572FDD
-   
-Key fingerprint = AE6B 1BDA 122B 23B4 265B  1274 B826 A333 0E57 2FDD
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+    net/act_pedit: Support using offset relative to the conventional
+network headers
