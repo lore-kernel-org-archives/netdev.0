@@ -1,58 +1,133 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: Re: [PATCH v1] samples/bpf: Add a .gitignore for binaries
-Date: Tue, 16 May 2017 16:27:36 -0700
-Message-ID: <ad02fd5c-6812-8f1b-b348-b2ec81b9524b@gmail.com>
-References: <20170212212356.11675-1-mic@digikod.net>
- <8277c7cc-8f44-40ec-1f7e-53c404d84292@cumulusnetworks.com>
- <bd91cc8d-4683-4c4c-e672-7dce5da28183@digikod.net>
+From: "Luis R. Rodriguez" <mcgrof@kernel.org>
+Subject: Re: [PATCH 2/6] wl1251: Use request_firmware_prefer_user() for
+ loading NVS calibration data
+Date: Wed, 17 May 2017 01:57:52 +0200
+Message-ID: <20170516235752.GM17314@wotan.suse.de>
+References: <0fd90416-f33c-a6be-14fd-5e964583e9cb@broadcom.com>
+ <20170515231339.GF17314@wotan.suse.de>
+ <0c43c825-df2a-b427-4b67-f17fd644667f@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 8bit
-Cc: linux-kernel@vger.kernel.org,
-        Arnaldo Carvalho de Melo <acme@redhat.com>,
-        Wang Nan <wangnan0@huawei.com>, netdev@vger.kernel.org
-To: =?UTF-8?Q?Micka=c3=abl_Sala=c3=bcn?= <mic@digikod.net>,
-        David Ahern <dsa@cumulusnetworks.com>,
-        Alexei Starovoitov <ast@fb.com>,
-        Daniel Borkmann <daniel@iogearbox.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <bd91cc8d-4683-4c4c-e672-7dce5da28183@digikod.net>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "Luis R. Rodriguez" <mcgrof@kernel.org>,
+        Johannes Berg <johannes@sipsolutions.net>,
+        Pavel Machek <pavel@ucw.cz>, Daniel Wagner <wagi@monom.org>,
+        Tom Gundersen <teg@jklm.no>,
+        Pali =?iso-8859-1?Q?Roh=E1r?= <pali.rohar@gmail.com>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        David Gnedt <david.gnedt@davizone.at>,
+        Tony Lindgren <tony@atomide.com>,
+        Sebastian Reichel <sre@kernel.org>,
+        Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>,
+        Aaro Koskinen <aaro.koskinen@iki.fi>,
+        Takashi Iwai <tiwai@suse.de>,
+        AKASHI Takahiro <takahiro.akashi@linaro.org>,
+        David Woodhouse <dwmw2@infradead.org>,
+        Bjorn Andersson <bjorn.andersson@linaro.org>,
+        Grazvydas Ignotas <notasas@gmail.com>,
+        linux-kernel@vger.kernel.org, linux-wireless@vger.kern
+To: Arend Van Spriel <arend.vanspriel@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx2.suse.de ([195.135.220.15]:35700 "EHLO mx1.suse.de"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1752916AbdEPX55 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 16 May 2017 19:57:57 -0400
+Content-Disposition: inline
+In-Reply-To: <0c43c825-df2a-b427-4b67-f17fd644667f@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 5/13/17 3:30 AM, Mickaël Salaün wrote:
+On Tue, May 16, 2017 at 10:41:08AM +0200, Arend Van Spriel wrote:
+> On 16-5-2017 1:13, Luis R. Rodriguez wrote:
+> > On Fri, May 12, 2017 at 11:02:26PM +0200, Arend Van Spriel wrote:
+> >> try again.. replacing email address from Michał
+> >> On 12-5-2017 22:55, Arend Van Spriel wrote:
+> >>> Let me explain the idea to refresh your memory (and mine). It started
+> >>> when we were working on adding driver support for OpenWrt in brcmfmac.
+> >>> The driver requests for firmware calibration data, but on routers it is
+> >>> stored in flash. So after failing on the firmware request we now call a
+> >>> platform specific API. That was my itch, but it was not bad enough to go
+> >>> and scratch. Now for N900 case there is a similar scenario alhtough it
+> >>> has additional requirement to go to user-space due to need to use a
+> >>> proprietary library to obtain the NVS calibration data. My thought: Why
+> >>> should firmware_class care?
+> > 
+> > Agreed.
+> > 
+> >>> So the idea is that firmware_class provides
+> >>> a registry for modules that can produce a certain firmware "file". Those
+> >>> modules can do whatever is needed. If they need to use umh so be it.
+> >>> They would only register themselves with firmware_class on platforms
+> >>> that need them. It would basically be replacing the fallback mechanism
+> >>> and only be effective on certain platforms.
+> > 
+> > Sure, so it sounds like the work that Daniel Wagner and Tom Gundersen worked
+> > [0] on which provides a firmwared with two modes: best-effort, and final-mode,
+> > would address what you are looking for but without requiring any upstream
+> > changes, *and* it also helps solve the rootfs race remote-proc folks had
+> > concerns over.
+> > 
+> > The other added gain over this solution is if folks need their own proprietary
+> > concoction they can just fork firmwared and have that do whatever it needs
+> > for the specific device on the specific rootfs. That is, firmwared can be the
+> > upstream solution if folks need it, but if folks need something custom they can
+> > just mimic the implementation: best-effort, and and final-mode.
+> > 
+> > Yet another added gain over this solution we can do *not* support the
+> > custom fallback mechanism as its not needed, the udev event should suffice
+> > to let userspace do what it needs.
+> > 
+> > Lastly, if we did not want to deal with timeouts for the way the driver data
+> > API implements it I think we might be able to do away with them for for async
+> > requests if we assume there will be a daemon that spawns in final-mode eventually,
+> > and since it *knows* when the rootfs is ready it should be able to do a final
+> > lookup, if it returns -ENOENT; then indeed we know we can give up. Now, perhaps
+> > how and if we want to deal with timeouts when using the driver data API for
+> > the fallback mechanism is worth considering given it does not have a fallback
+> > mechanism support yet. If we *add* them it would seem this would also put an
+> > implicit race against userspace finishing initialization and running firmwared
+> > in final-mode.
 > 
-> On 13/02/2017 02:43, David Ahern wrote:
->> On 2/12/17 2:23 PM, Mickaël Salaün wrote:
->>> diff --git a/samples/bpf/.gitignore b/samples/bpf/.gitignore
->>> new file mode 100644
->>> index 000000000000..a7562a5ef4c2
->>> --- /dev/null
->>> +++ b/samples/bpf/.gitignore
->>> @@ -0,0 +1,32 @@
->>> +fds_example
->>> +lathist
->>
->> ...
->>
->> Listing each target is going to be a PITA to maintain. It would be
->> better to put targets into a build directory (bin?) and ignore the
->> directory.
->>
-> 
-> It would require a lot of modifications to the Makefile and more
-> complexity. It seems much more simple for everyone to stick to a simple
-> gitignore file easily maintainable:
-> $ awk '$1 == "hostprogs-y" { print $3 }' < Makefile > .gitignore
-> 
-> Alexei, Daniel, what do you think about this? Do you want me to send a
-> v2 with the new tests?
-> 
+> Just to be clear. When you are saying "rootfs" in this story, you mean
+> any (mounted) file-system which may hold the firmware. At least that was
+> one of the arguments. In kernel space we can not know how the system is
+> setup in terms of mount points, let alone on which mounted file-system
+> the firmware resides.
 
-The problem stems from the fact that bpf samples do not really fall into
-the 'hostprogs' category (see "4 Host Program support" in
-Documentation/kbuild/makefiles.txt). Fixing samples/bpf to not rely on
-it is the better long term solution. Building of tools/ for example does
-not rely on it so there is an existing example of leveraging kernel
-headers without the overhead.
+Right, wherever the hell that thing is on, which could be on a crypic fuse
+drive waiting for some bits to be decrypted from Elon Musk on a spaceship on his
+way to Mars, and only userspace knows how to decrypt this thing through some
+evil proprietary thing, way way after a full bootup.
+
+> > Johannes, do you recall the corner cases we spoke about regarding timeouts?
+> > Does this match what we spoke about?
+> > 
+> >>> Let me know if this idea is still of interest and I will rebase what I
+> >>> have for an RFC round.
+> > 
+> > Since no upstream delta is needed for firmwared I'd like to first encourage
+> > evaluating the above. While distributions don't carry it yet that may be seen as
+> > an issue but since what we are looking for are corner cases, only folks needing
+> > to deploy a specific solution would need it or a custom proprietary solution.
+> 
+> Ok. I will go try and run firmwared in OpenWrt on a router platform.
+> Have to steal one from a colleague :-p Will study firmwared.
+
+The finale-mode is the trick.
+
+> > [0] https://github.com/teg/firmwared.git
+> > 
+> > PS.
+> > 
+> > Note that firmware signing will require an additional file, the detached
+> > signature. The driver data API does not currently support the fallback
+> > mechanism so we would not have to worry about that yet but once we add
+> > fallback support we'd need to consider this.
+> 
+> Do you have references to the firmware signing design. Is the idea to
+> have one signature and all "firmware files" need to be signed with it?
+
+Nope, I'm afraid a lot has been discussed so best we can do is wait.
+
+ Luis
