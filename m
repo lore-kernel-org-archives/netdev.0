@@ -1,57 +1,51 @@
-From: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH] net/smc: mark as BROKEN due to remote memory exposure
-Date: Tue, 16 May 2017 12:36:01 -0400
-Message-ID: <1494952561.3259.104.camel@redhat.com>
-References: <1494788929.21774.1.camel@sandisk.com>
-         <20170514.204404.1844909849561204299.davem@davemloft.net>
-         <1494950224.3259.98.camel@redhat.com>
-         <20170516.122923.869994491617365845.davem@davemloft.net>
-         <20170516163041.GA5132@lst.de>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [RFC] iproute: Add support for extended ack to rtnl_talk
+Date: Tue, 16 May 2017 09:36:25 -0700
+Message-ID: <20170516093625.178caf3f@xeon-e3>
+References: <20170503235638.31116-1-stephen@networkplumber.org>
+        <590AF624.6090808@iogearbox.net>
+        <7315b681-9c78-4bc1-ab74-64509ab5887d@gmail.com>
+        <20170504.104103.1628291573330660235.davem@davemloft.net>
+        <20170504094356.66590a9a@xeon-e3>
+        <20170504204318.GB21130@orbyte.nwl.cc>
+        <f847c8d4-a6c0-66ab-0ac0-d83d6ea96a00@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: Bart.VanAssche-XdAiOPVOjttBDgjK7y7TUQ@public.gmane.org, torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ubraun-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org
-To: Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170516163041.GA5132-jcswGhMUV9g@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Phil Sutter <phil@nwl.cc>, David Miller <davem@davemloft.net>,
+        daniel@iogearbox.net, netdev@vger.kernel.org
+To: David Ahern <dsahern@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f42.google.com ([74.125.83.42]:34089 "EHLO
+        mail-pg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750765AbdEPQgd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 16 May 2017 12:36:33 -0400
+Received: by mail-pg0-f42.google.com with SMTP id u28so79026937pgn.1
+        for <netdev@vger.kernel.org>; Tue, 16 May 2017 09:36:33 -0700 (PDT)
+In-Reply-To: <f847c8d4-a6c0-66ab-0ac0-d83d6ea96a00@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2017-05-16 at 18:30 +0200, Christoph Hellwig wrote:
-> On Tue, May 16, 2017 at 12:29:23PM -0400, David Miller wrote:
+On Sat, 13 May 2017 19:29:57 -0600
+David Ahern <dsahern@gmail.com> wrote:
+
+> On 5/4/17 2:43 PM, Phil Sutter wrote:
+> > So in summary, given that very little change happens to iproute2's
+> > internal libnetlink, I don't see much urge to make it use libmnl as
+> > backend. In my opinion it just adds another potential source of errors.
 > > 
-> > I can't push back on people with silly coding style and small
-> > semantic
-> > issues forever.  And I think I made a serious effort to keep the
-> > patches getting posted over and over again to make sure they got
-> > more
-> > exposure.
+> > Eventually this should be a maintainer level decision, though. :)  
 > 
-> You can tell them to go to linux-rdma.  I'm sending people to the
-> right
-> mailing list all the time.
+> What is the decision on this?
 
-Indeed.  Every single time a patch comes into linux-rdma that touches
-things in net/ or include/net, unless it is exceedingly minor, I check
-the To:/Cc: lines on the email and if netdev@ isn't included, or in the
-case of complex/tricky items, you aren't directly Cc:ed, then I
-specifically tell them to include netdev@ and/or you.  I've even had
-things like a 12 patch series that buried three netdev@ appropriate
-patches at different points in the series and told the submitter to
-move all of the netdev@ related patches to the front and submit them to
-netdev@ so they can be reviewed as a group before I would move on to
-the others.  It's just what you do.  I've always considered that part
-of my job.
+I am waiting for a longer before committing anything. This was to allow
+for a wider range of distribution maintainer feedback.
 
--- 
-Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-    GPG KeyID: B826A3330E572FDD
-   
-Key fingerprint = AE6B 1BDA 122B 23B4 265B  1274 B826 A333 0E57 2FDD
+The most likely outcome is that for 4.12 is to use libmnl for extended ack.
+And continue to support building without mnl with loss of functionality.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+As far as conversion of all of iproute2 to libmnl. I have better things
+to do... But for new functionality like extended ack, devlink, tipc, using
+libmnl is easy, safe and it works well. I will continue to not accept
+new  code that depends on the other library (libnl). That has come up
+a couple of times.
