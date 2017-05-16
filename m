@@ -1,115 +1,104 @@
 From: Miroslav Lichvar <mlichvar@redhat.com>
-Subject: [PATCH v3 net-next 3/7] net: add function to retrieve original skb device using NAPI ID
-Date: Tue, 16 May 2017 14:44:21 +0200
-Message-ID: <20170516124425.6294-4-mlichvar@redhat.com>
+Subject: [PATCH v3 net-next 7/7] net: ethernet: update drivers to make both SW and HW TX timestamps
+Date: Tue, 16 May 2017 14:44:25 +0200
+Message-ID: <20170516124425.6294-8-mlichvar@redhat.com>
 References: <20170516124425.6294-1-mlichvar@redhat.com>
 Cc: Richard Cochran <richardcochran@gmail.com>,
         Willem de Bruijn <willemb@google.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:37036 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:60376 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752756AbdEPMoz (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S1752753AbdEPMoz (ORCPT <rfc822;netdev@vger.kernel.org>);
         Tue, 16 May 2017 08:44:55 -0400
 In-Reply-To: <20170516124425.6294-1-mlichvar@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since commit b68581778cd0 ("net: Make skb->skb_iif always track
-skb->dev") skbs don't have the original index of the interface which
-received the packet. This information is now needed for a new control
-message related to hardware timestamping.
-
-Instead of adding a new field to skb, we can find the device by the NAPI
-ID if it is available, i.e. CONFIG_NET_RX_BUSY_POLL is enabled and the
-driver is using NAPI. Add dev_get_by_napi_id() and also skb_napi_id() to
-hide the CONFIG_NET_RX_BUSY_POLL ifdef.
+Some drivers were calling the skb_tx_timestamp() function only when
+a hardware timestamp was not requested. Now that applications can use
+the SOF_TIMESTAMPING_OPT_TX_SWHW option to request both software and
+hardware timestamps, the drivers need to be modified to unconditionally
+call skb_tx_timestamp().
 
 CC: Richard Cochran <richardcochran@gmail.com>
 CC: Willem de Bruijn <willemb@google.com>
-Suggested-by: Willem de Bruijn <willemb@google.com>
 Signed-off-by: Miroslav Lichvar <mlichvar@redhat.com>
 ---
- include/linux/netdevice.h |  1 +
- include/linux/skbuff.h    |  9 +++++++++
- net/core/dev.c            | 26 ++++++++++++++++++++++++++
- 3 files changed, 36 insertions(+)
+ drivers/net/ethernet/amd/xgbe/xgbe-drv.c          | 3 +--
+ drivers/net/ethernet/intel/e1000e/netdev.c        | 4 ++--
+ drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c   | 3 +--
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 6 ++----
+ 4 files changed, 6 insertions(+), 10 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 3f39d27..b6c36d5 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -2456,6 +2456,7 @@ static inline int dev_recursion_level(void)
- struct net_device *dev_get_by_index(struct net *net, int ifindex);
- struct net_device *__dev_get_by_index(struct net *net, int ifindex);
- struct net_device *dev_get_by_index_rcu(struct net *net, int ifindex);
-+struct net_device *dev_get_by_napi_id(unsigned int napi_id);
- int netdev_get_name(struct net *net, char *name, int ifindex);
- int dev_restart(struct net_device *dev);
- int skb_gro_receive(struct sk_buff **head, struct sk_buff *skb);
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index a098d95..42dd430 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -915,6 +915,15 @@ static inline bool skb_pkt_type_ok(u32 ptype)
- 	return ptype <= PACKET_OTHERHOST;
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
+index 89b21d7..5a2ad9c 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
+@@ -1391,8 +1391,7 @@ static void xgbe_prep_tx_tstamp(struct xgbe_prv_data *pdata,
+ 		spin_unlock_irqrestore(&pdata->tstamp_lock, flags);
+ 	}
+ 
+-	if (!XGMAC_GET_BITS(packet->attributes, TX_PACKET_ATTRIBUTES, PTP))
+-		skb_tx_timestamp(skb);
++	skb_tx_timestamp(skb);
  }
  
-+static inline unsigned int skb_napi_id(const struct sk_buff *skb)
-+{
-+#ifdef CONFIG_NET_RX_BUSY_POLL
-+	return skb->napi_id;
-+#else
-+	return 0;
-+#endif
-+}
-+
- void kfree_skb(struct sk_buff *skb);
- void kfree_skb_list(struct sk_buff *segs);
- void skb_tx_error(struct sk_buff *skb);
-diff --git a/net/core/dev.c b/net/core/dev.c
-index fca407b..dcbc84e 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -161,6 +161,7 @@ static int netif_rx_internal(struct sk_buff *skb);
- static int call_netdevice_notifiers_info(unsigned long val,
- 					 struct net_device *dev,
- 					 struct netdev_notifier_info *info);
-+static struct napi_struct *napi_by_id(unsigned int napi_id);
+ static void xgbe_prep_vlan(struct sk_buff *skb, struct xgbe_packet_data *packet)
+diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+index 0ff9295..6ed3bc4 100644
+--- a/drivers/net/ethernet/intel/e1000e/netdev.c
++++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+@@ -5868,10 +5868,10 @@ static netdev_tx_t e1000_xmit_frame(struct sk_buff *skb,
+ 			adapter->tx_hwtstamp_skb = skb_get(skb);
+ 			adapter->tx_hwtstamp_start = jiffies;
+ 			schedule_work(&adapter->tx_hwtstamp_work);
+-		} else {
+-			skb_tx_timestamp(skb);
+ 		}
  
- /*
-  * The @dev_base_head list is protected by @dev_base_lock and the rtnl
-@@ -865,6 +866,31 @@ struct net_device *dev_get_by_index(struct net *net, int ifindex)
- EXPORT_SYMBOL(dev_get_by_index);
++		skb_tx_timestamp(skb);
++
+ 		netdev_sent_queue(netdev, skb->len);
+ 		e1000_tx_queue(tx_ring, tx_flags, count);
+ 		/* Make sure there is space in the ring for the next send. */
+diff --git a/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c b/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c
+index 1e59435..89831ad 100644
+--- a/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c
++++ b/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c
+@@ -1418,8 +1418,7 @@ static netdev_tx_t sxgbe_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		priv->hw->desc->tx_enable_tstamp(first_desc);
+ 	}
  
- /**
-+ *	dev_get_by_napi_id - find a device by napi_id
-+ *	@napi_id: ID of the NAPI struct
-+ *
-+ *	Search for an interface by NAPI ID. Returns %NULL if the device
-+ *	is not found or a pointer to the device. The device has not had
-+ *	its reference counter increased so the caller must be careful
-+ *	about locking. The caller must hold RCU lock.
-+ */
-+
-+struct net_device *dev_get_by_napi_id(unsigned int napi_id)
-+{
-+	struct napi_struct *napi;
-+
-+	WARN_ON_ONCE(!rcu_read_lock_held());
-+
-+	if (napi_id < MIN_NAPI_ID)
-+		return NULL;
-+
-+	napi = napi_by_id(napi_id);
-+
-+	return napi ? napi->dev : NULL;
-+}
-+EXPORT_SYMBOL(dev_get_by_napi_id);
-+
-+/**
-  *	netdev_get_name - get a netdevice name, knowing its ifindex.
-  *	@net: network namespace
-  *	@name: a pointer to the buffer where the name will be stored.
+-	if (!tqueue->hwts_tx_en)
+-		skb_tx_timestamp(skb);
++	skb_tx_timestamp(skb);
+ 
+ 	priv->hw->dma->enable_dma_transmission(priv->ioaddr, txq_index);
+ 
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index cce862b..27c12e7 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -2880,8 +2880,7 @@ static netdev_tx_t stmmac_tso_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		priv->xstats.tx_set_ic_bit++;
+ 	}
+ 
+-	if (!priv->hwts_tx_en)
+-		skb_tx_timestamp(skb);
++	skb_tx_timestamp(skb);
+ 
+ 	if (unlikely((skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP) &&
+ 		     priv->hwts_tx_en)) {
+@@ -3084,8 +3083,7 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		priv->xstats.tx_set_ic_bit++;
+ 	}
+ 
+-	if (!priv->hwts_tx_en)
+-		skb_tx_timestamp(skb);
++	skb_tx_timestamp(skb);
+ 
+ 	/* Ready to fill the first descriptor and set the OWN bit w/o any
+ 	 * problems because all the descriptors are actually ready to be
 -- 
 2.9.3
