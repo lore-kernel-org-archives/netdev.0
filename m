@@ -1,66 +1,68 @@
-From: Girish Moodalbail <girish.moodalbail@oracle.com>
-Subject: Re: [PATCH net-next] geneve: add rtnl changelink support
-Date: Tue, 16 May 2017 13:09:10 -0700
-Message-ID: <b8ecc429-5710-cae8-0f43-9211abafb18d@oracle.com>
-References: <1494870424-22699-1-git-send-email-girish.moodalbail@oracle.com>
- <20170516.153115.2084299272043901950.davem@davemloft.net>
+From: Eric Dumazet <edumazet@google.com>
+Subject: Re: linux-next: Tree for May 16 (net/core)
+Date: Tue, 16 May 2017 13:12:44 -0700
+Message-ID: <CANn89i+SLtR4LpBmEPD4fZum=3gv_t6OfhvfJfLUpq5u6BbzDA@mail.gmail.com>
+References: <20170516112125.517607f8@canb.auug.org.au> <f63533e7-edd3-4c0d-ddff-e3409d15abc6@infradead.org>
+ <CAP=VYLoYkz1HE4yOHVGQvBanDtpkWhtHBMvbeuyd8PtNFCivRQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, pshelar@ovn.org, joe@ovn.org,
-        jbenc@redhat.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:40910 "EHLO
-        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752362AbdEPUJi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 16 May 2017 16:09:38 -0400
-In-Reply-To: <20170516.153115.2084299272043901950.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Randy Dunlap <rdunlap@infradead.org>,
+        Stephen Rothwell <sfr@canb.auug.org.au>,
+        Linux-Next Mailing List <linux-next@vger.kernel.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Paul Gortmaker <paul.gortmaker@windriver.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAP=VYLoYkz1HE4yOHVGQvBanDtpkWhtHBMvbeuyd8PtNFCivRQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 5/16/17 12:31 PM, David Miller wrote:
-> From: Girish Moodalbail <girish.moodalbail@oracle.com>
-> Date: Mon, 15 May 2017 10:47:04 -0700
->
->>  	if (data[IFLA_GENEVE_REMOTE]) {
->> -		info.key.u.ipv4.dst =
->> +		info->key.u.ipv4.dst =
->>  			nla_get_in_addr(data[IFLA_GENEVE_REMOTE]);
+On Tue, May 16, 2017 at 12:44 PM, Paul Gortmaker
+<paul.gortmaker@windriver.com> wrote:
+> On Tue, May 16, 2017 at 12:28 PM, Randy Dunlap <rdunlap@infradead.org> wrote:
+>> On 05/15/17 18:21, Stephen Rothwell wrote:
+>>> Hi all,
+>>>
+>>> Changes since 20170515:
+>>>
 >>
->> -		if (IN_MULTICAST(ntohl(info.key.u.ipv4.dst))) {
->> +		if (IN_MULTICAST(ntohl(info->key.u.ipv4.dst))) {
->>  			netdev_dbg(dev, "multicast remote is unsupported\n");
->>  			return -EINVAL;
->>  		}
->> +		if (changelink &&
->> +		    ip_tunnel_info_af(&geneve->info) == AF_INET6) {
->> +			info->mode &= ~IP_TUNNEL_INFO_IPV6;
->> +			info->key.tun_flags &= ~TUNNEL_CSUM;
->> +			*use_udp6_rx_checksums = false;
->> +		}
->>  	}
+>> on i386 or x86_64:
+>>
+>> when CONFIG_INET is not enabled:
+>>
+>> ../net/core/sock.c: In function 'skb_orphan_partial':
+>> ../net/core/sock.c:1810:2: error: implicit declaration of function 'skb_is_tcp_pure_ack' [-Werror=implicit-function-declaration]
+>>   if (skb_is_tcp_pure_ack(skb))
 >
-> I don't understand this "changelink" guarded code, why do you need to
-> clear all of this state out if the existing tunnel type if AF_INET6
-> and only when doing a changelink?
+> Automated bisect on an ARM build with the same issue reveals:
 >
-> In any event, I think you need to add a comment explaining it.
+> f6ba8d33cfbb46df569972e64dbb5bb7e929bfd9 is the first bad commit
+> commit f6ba8d33cfbb46df569972e64dbb5bb7e929bfd9
+> Author: Eric Dumazet <edumazet@google.com>
+> Date:   Thu May 11 15:24:41 2017 -0700
 >
+>     netem: fix skb_orphan_partial()
+>
+>     I should have known that lowering skb->truesize was dangerous :/
+>
+>     In case packets are not leaving the host via a standard Ethernet device,
+>     but looped back to local sockets, bad things can happen, as reported
+>     by Michael Madsen ( https://bugzilla.kernel.org/show_bug.cgi?id=195713 )
+>
+>     So instead of tweaking skb->truesize, lets change skb->destructor
+>     and keep a reference on the owner socket via its sk_refcnt.
+>
+>     Fixes: f2f872f9272a ("netem: Introduce skb_orphan_partial() helper")
+>     Signed-off-by: Eric Dumazet <edumazet@google.com>
+>     Reported-by: Michael Madsen <mkm@nabto.com>
+>     Signed-off-by: David S. Miller <davem@davemloft.net>
+>
+> :040000 040000 7bfb7a6f5e12373b1c50ede2455b6ddd6d79cee0
+> b45b7255322f1dff5e3ab8d3d707cf38a91c76ce M      net
+> bisect run success
+>
+> http://kisskb.ellerman.id.au/kisskb/buildresult/13033081/
+>
+> I'm guessing Eric already knows about this but I've Cc'd him just in case.
 
-If geneve link was overlayed over IPv6 network and now the user modifies the 
-link to be over IPv4 network by doing
-
-# ip link set gen0 type geneve id 100 remote 192.168.13.2
-
-Then we will need to
-
-  - reset info->mode to be not IPv6 type
-  - the default for UDP checksum over IPv4 is 'no', so reset that and
-  - set use_udp6_rx_checksums to its default value which is false.
-
-I will capture the above information concisely in a comment around that 
-'changelink' guard.
-
-thanks,
-~Girish
+I was not aware of this, I will submit a fix, thanks.
