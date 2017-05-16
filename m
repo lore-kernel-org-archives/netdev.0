@@ -1,64 +1,47 @@
-From: Michael Chan <michael.chan@broadcom.com>
-Subject: Re: [PATCH] net: ethernet: broadcom: bnxt: remove dead code
-Date: Mon, 15 May 2017 17:34:30 -0700
-Message-ID: <CACKFLimtPW-uxEUK2GaL-ZPLhLOx19Qqzr8d-pVcV3bOEXqYTA@mail.gmail.com>
-References: <20170515222818.GA17519@embeddedgus>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Netdev <netdev@vger.kernel.org>,
-        open list <linux-kernel@vger.kernel.org>
-To: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170515222818.GA17519@embeddedgus>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Subject: [PATCH net-next 0/9] nfp: LSO, checksum and XDP datapath updates
+Date: Mon, 15 May 2017 17:55:14 -0700
+Message-ID: <20170516005523.26124-1-jakub.kicinski@netronome.com>
+Cc: oss-drivers@netronome.com,
+        Jakub Kicinski <jakub.kicinski@netronome.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f52.google.com ([74.125.83.52]:36774 "EHLO
+        mail-pg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750896AbdEPA4S (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 15 May 2017 20:56:18 -0400
+Received: by mail-pg0-f52.google.com with SMTP id x64so48476922pgd.3
+        for <netdev@vger.kernel.org>; Mon, 15 May 2017 17:56:18 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 15, 2017 at 3:28 PM, Gustavo A. R. Silva
-<garsilva@embeddedor.com> wrote:
-> Local variable _sh_ is assigned to a constant value and it is never updated
-> again. Remove this variable and the dead code it guards.
->
-> Addresses-Coverity-ID: 1350916
-> Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
-> ---
->  drivers/net/ethernet/broadcom/bnxt/bnxt.c | 9 +++------
->  1 file changed, 3 insertions(+), 6 deletions(-)
->
-> diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-> index 1f1e54b..018674b 100644
-> --- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-> +++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-> @@ -7380,12 +7380,10 @@ static int bnxt_get_dflt_rings(struct bnxt *bp, int *max_rx, int *max_tx,
->  static int bnxt_set_dflt_rings(struct bnxt *bp)
->  {
->         int dflt_rings, max_rx_rings, max_tx_rings, rc;
-> -       bool sh = true;
+Hi!
 
-The point of this logic is that we can easily change the default to
-shared rings or separate rings.  I think what I'll do is change it so
-that the parameter sh is passed in and let the caller decide.  Thanks
-for pointing this out.
+This series introduces a number of refinements to standard features
+like LSO and checksum offload.  Three major features are support for
+CHECKSUM_COMPLETE, refinement of TSO handling and another small speed
+up for XDP TX.  This series also switches from depending on some 
+app FW<>driver ABI versions to heavier use of capabilities.
 
->
-> -       if (sh)
-> -               bp->flags |= BNXT_FLAG_SHARED_RINGS;
-> +       bp->flags |= BNXT_FLAG_SHARED_RINGS;
->         dflt_rings = netif_get_num_default_rss_queues();
-> -       rc = bnxt_get_dflt_rings(bp, &max_rx_rings, &max_tx_rings, sh);
-> +       rc = bnxt_get_dflt_rings(bp, &max_rx_rings, &max_tx_rings, true);
->         if (rc)
->                 return rc;
->         bp->rx_nr_rings = min_t(int, dflt_rings, max_rx_rings);
-> @@ -7396,8 +7394,7 @@ static int bnxt_set_dflt_rings(struct bnxt *bp)
->                 netdev_warn(bp->dev, "Unable to reserve tx rings\n");
->
->         bp->tx_nr_rings = bp->tx_nr_rings_per_tc;
-> -       bp->cp_nr_rings = sh ? max_t(int, bp->tx_nr_rings, bp->rx_nr_rings) :
-> -                              bp->tx_nr_rings + bp->rx_nr_rings;
-> +       bp->cp_nr_rings = max_t(int, bp->tx_nr_rings, bp->rx_nr_rings);
->         bp->num_stat_ctxs = bp->cp_nr_rings;
->         if (BNXT_CHIP_TYPE_NITRO_A0(bp)) {
->                 bp->rx_nr_rings++;
-> --
-> 2.5.0
->
+
+Edwin Peer (3):
+  nfp: rename l4_offset in struct nfp_net_tx_desc to lso_hdrlen
+  nfp: support LSO2 capability
+  nfp: version independent support for chained RSS metadata
+
+Jakub Kicinski (6):
+  nfp: don't enable TSO on the device when disabled
+  nfp: don't assume RSS and IRQ moderation are always enabled
+  nfp: add CHECKSUM_COMPLETE support
+  nfp: complete the XDP TX ring only when it's full
+  nfp: add a helper for wrapping descriptor index
+  nfp: eliminate an if statement in calculation of completed frames
+
+ drivers/net/ethernet/netronome/nfp/nfp_net.h       |  19 ++-
+ .../net/ethernet/netronome/nfp/nfp_net_common.c    | 179 +++++++++++++--------
+ drivers/net/ethernet/netronome/nfp/nfp_net_ctrl.h  |  18 ++-
+ .../net/ethernet/netronome/nfp/nfp_net_ethtool.c   |  12 +-
+ 4 files changed, 149 insertions(+), 79 deletions(-)
+
+-- 
+2.11.0
