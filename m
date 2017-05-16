@@ -1,11 +1,11 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next v3 02/10] net: sched: introduce tcf block
- infractructure
-Date: Tue, 16 May 2017 22:57:46 +0200
-Message-ID: <20170516205746.GQ1939@nanopsycho.orion>
+Subject: Re: [patch net-next v3 01/10] net: sched: move tc_classify function
+ to cls_api.c
+Date: Tue, 16 May 2017 23:00:38 +0200
+Message-ID: <20170516210038.GR1939@nanopsycho.orion>
 References: <20170516172802.1317-1-jiri@resnulli.us>
- <20170516172802.1317-3-jiri@resnulli.us>
- <CAM_iQpW1wsvyg_v2Vy9Bg33f5iT9_c8kNdgn+0CXkAbVCs8=ew@mail.gmail.com>
+ <20170516172802.1317-2-jiri@resnulli.us>
+ <CAM_iQpVqRTcK0H3wSiUEOXSk+pWtriSLFy7jtN6d77wrTjqe3Q@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
@@ -19,49 +19,29 @@ Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
         Simon Horman <simon.horman@netronome.com>, mlxsw@mellanox.com
 To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f196.google.com ([209.85.128.196]:34590 "EHLO
-        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752258AbdEPU5t (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 16 May 2017 16:57:49 -0400
-Received: by mail-wr0-f196.google.com with SMTP id 6so15362788wrb.1
-        for <netdev@vger.kernel.org>; Tue, 16 May 2017 13:57:48 -0700 (PDT)
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:35612 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750799AbdEPVAl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 16 May 2017 17:00:41 -0400
+Received: by mail-wm0-f66.google.com with SMTP id v4so40831515wmb.2
+        for <netdev@vger.kernel.org>; Tue, 16 May 2017 14:00:40 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <CAM_iQpW1wsvyg_v2Vy9Bg33f5iT9_c8kNdgn+0CXkAbVCs8=ew@mail.gmail.com>
+In-Reply-To: <CAM_iQpVqRTcK0H3wSiUEOXSk+pWtriSLFy7jtN6d77wrTjqe3Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tue, May 16, 2017 at 10:51:30PM CEST, xiyou.wangcong@gmail.com wrote:
+Tue, May 16, 2017 at 10:25:35PM CEST, xiyou.wangcong@gmail.com wrote:
 >On Tue, May 16, 2017 at 10:27 AM, Jiri Pirko <jiri@resnulli.us> wrote:
->> +int tcf_block_get(struct tcf_block **p_block,
->> +                 struct tcf_proto __rcu **p_filter_chain)
->> +{
->> +       struct tcf_block *block = kzalloc(sizeof(*block), GFP_KERNEL);
->> +
->> +       if (!block)
->> +               return -ENOMEM;
->> +       block->p_filter_chain = p_filter_chain;
->> +       *p_block = block;
->> +       return 0;
->> +}
->> +EXPORT_SYMBOL(tcf_block_get);
+>> From: Jiri Pirko <jiri@mellanox.com>
+>>
+>> Move tc_classify function to cls_api.c where it belongs, rename it to
+>> fit the namespace.
+>>
 >
->
->XXX_get() is usually for refcnt'ing, here you only allocate
->a block, so please rename it to tcf_block_alloc().
+>It is not a pure move, you silently remove the CONFIG_NET_CLS_ACT
+>macros in tc_classify(). Probably not buggy, just redundancy when
+>actions are not compiled.
 
-I already replied to the same Jamal's comment.
+Plese see include/net/pkt_cls.h in this patch.
 
-
->
->
->> +
->> +void tcf_block_put(struct tcf_block *block)
->> +{
->> +       if (!block)
->> +               return;
->> +       tcf_destroy_chain(block->p_filter_chain);
->> +       kfree(block);
->> +}
->> +EXPORT_SYMBOL(tcf_block_put);
->
->Ditto, tcf_block_destroy().
+If CONFIG_NET_CLS_ACT is not defined, there is a stub there.
