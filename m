@@ -1,7 +1,7 @@
 From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH net-next 05/15] tcp: use tcp_jiffies32 to feed tp->snd_cwnd_stamp
-Date: Tue, 16 May 2017 14:00:04 -0700
-Message-ID: <20170516210014.31176-6-edumazet@google.com>
+Subject: [PATCH net-next 08/15] tcp: use tcp_jiffies32 for rcv_tstamp and lrcvtime
+Date: Tue, 16 May 2017 14:00:07 -0700
+Message-ID: <20170516210014.31176-9-edumazet@google.com>
 References: <20170516210014.31176-1-edumazet@google.com>
 Cc: netdev <netdev@vger.kernel.org>,
         Eric Dumazet <edumazet@google.com>,
@@ -12,147 +12,112 @@ To: "David S . Miller" <davem@davemloft.net>,
         Soheil Hassas Yeganeh <soheil@google.com>,
         Wei Wang <weiwan@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f173.google.com ([209.85.192.173]:32935 "EHLO
-        mail-pf0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752635AbdEPV2O (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 16 May 2017 17:28:14 -0400
-Received: by mail-pf0-f173.google.com with SMTP id e193so86499710pfh.0
-        for <netdev@vger.kernel.org>; Tue, 16 May 2017 14:28:09 -0700 (PDT)
+Received: from mail-pg0-f42.google.com ([74.125.83.42]:34089 "EHLO
+        mail-pg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752635AbdEPV2S (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 16 May 2017 17:28:18 -0400
+Received: by mail-pg0-f42.google.com with SMTP id u28so82321643pgn.1
+        for <netdev@vger.kernel.org>; Tue, 16 May 2017 14:28:17 -0700 (PDT)
 In-Reply-To: <20170516210014.31176-1-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use tcp_jiffies32 instead of tcp_time_stamp to feed
-tp->snd_cwnd_stamp.
-
-tcp_time_stamp will soon be a litle bit more expensive
-than simply reading 'jiffies'.
+Use tcp_jiffies32 instead of tcp_time_stamp, since
+tcp_time_stamp will soon be only used for TCP TS option.
 
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- net/ipv4/tcp_input.c   | 14 +++++++-------
- net/ipv4/tcp_metrics.c |  2 +-
- net/ipv4/tcp_output.c  |  8 ++++----
- 3 files changed, 12 insertions(+), 12 deletions(-)
+ include/net/tcp.h        | 4 ++--
+ net/ipv4/tcp_input.c     | 6 +++---
+ net/ipv4/tcp_minisocks.c | 2 +-
+ net/ipv4/tcp_output.c    | 2 +-
+ net/ipv4/tcp_timer.c     | 2 +-
+ 5 files changed, 8 insertions(+), 8 deletions(-)
 
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index feba4c0406e551d7e57da3411476735731b4d817..5b2932b8363fb8546322ebff7c74663139b3371d 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -1307,8 +1307,8 @@ static inline u32 keepalive_time_elapsed(const struct tcp_sock *tp)
+ {
+ 	const struct inet_connection_sock *icsk = &tp->inet_conn;
+ 
+-	return min_t(u32, tcp_time_stamp - icsk->icsk_ack.lrcvtime,
+-			  tcp_time_stamp - tp->rcv_tstamp);
++	return min_t(u32, tcp_jiffies32 - icsk->icsk_ack.lrcvtime,
++			  tcp_jiffies32 - tp->rcv_tstamp);
+ }
+ 
+ static inline int tcp_fin_time(const struct sock *sk)
 diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index c0b3f909df394214785749704f2760171fe9d160..6a15c9b80b09829799dc37d89ecdbf11ec9ff904 100644
+index 6a15c9b80b09829799dc37d89ecdbf11ec9ff904..eeb4967df25a8dc35128d0a0848b5ae7ee6d63e3 100644
 --- a/net/ipv4/tcp_input.c
 +++ b/net/ipv4/tcp_input.c
-@@ -463,7 +463,7 @@ void tcp_init_buffer_space(struct sock *sk)
- 		tp->window_clamp = max(2 * tp->advmss, maxwin - tp->advmss);
+@@ -672,7 +672,7 @@ static void tcp_event_data_recv(struct sock *sk, struct sk_buff *skb)
  
- 	tp->rcv_ssthresh = min(tp->rcv_ssthresh, tp->window_clamp);
--	tp->snd_cwnd_stamp = tcp_time_stamp;
-+	tp->snd_cwnd_stamp = tcp_jiffies32;
- }
+ 	tcp_rcv_rtt_measure(tp);
  
- /* 5. Recalculate window clamp after socket hit its memory bounds. */
-@@ -1954,7 +1954,7 @@ void tcp_enter_loss(struct sock *sk)
- 	}
- 	tp->snd_cwnd	   = 1;
- 	tp->snd_cwnd_cnt   = 0;
--	tp->snd_cwnd_stamp = tcp_time_stamp;
-+	tp->snd_cwnd_stamp = tcp_jiffies32;
+-	now = tcp_time_stamp;
++	now = tcp_jiffies32;
  
- 	tp->retrans_out = 0;
- 	tp->lost_out = 0;
-@@ -2383,7 +2383,7 @@ static void tcp_undo_cwnd_reduction(struct sock *sk, bool unmark_loss)
- 			tcp_ecn_withdraw_cwr(tp);
- 		}
- 	}
--	tp->snd_cwnd_stamp = tcp_time_stamp;
-+	tp->snd_cwnd_stamp = tcp_jiffies32;
- 	tp->undo_marker = 0;
- }
+ 	if (!icsk->icsk_ack.ato) {
+ 		/* The _first_ data packet received, initialize
+@@ -3636,7 +3636,7 @@ static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)
+ 	 */
+ 	sk->sk_err_soft = 0;
+ 	icsk->icsk_probes_out = 0;
+-	tp->rcv_tstamp = tcp_time_stamp;
++	tp->rcv_tstamp = tcp_jiffies32;
+ 	if (!prior_packets)
+ 		goto no_queue;
  
-@@ -2520,7 +2520,7 @@ static inline void tcp_end_cwnd_reduction(struct sock *sk)
- 	if (inet_csk(sk)->icsk_ca_state == TCP_CA_CWR ||
- 	    (tp->undo_marker && tp->snd_ssthresh < TCP_INFINITE_SSTHRESH)) {
- 		tp->snd_cwnd = tp->snd_ssthresh;
--		tp->snd_cwnd_stamp = tcp_time_stamp;
-+		tp->snd_cwnd_stamp = tcp_jiffies32;
- 	}
- 	tcp_ca_event(sk, CA_EVENT_COMPLETE_CWR);
- }
-@@ -2590,7 +2590,7 @@ static void tcp_mtup_probe_success(struct sock *sk)
- 		       tcp_mss_to_mtu(sk, tp->mss_cache) /
- 		       icsk->icsk_mtup.probe_size;
- 	tp->snd_cwnd_cnt = 0;
--	tp->snd_cwnd_stamp = tcp_time_stamp;
-+	tp->snd_cwnd_stamp = tcp_jiffies32;
- 	tp->snd_ssthresh = tcp_current_ssthresh(sk);
+@@ -5554,7 +5554,7 @@ void tcp_finish_connect(struct sock *sk, struct sk_buff *skb)
+ 	struct inet_connection_sock *icsk = inet_csk(sk);
  
- 	icsk->icsk_mtup.search_low = icsk->icsk_mtup.probe_size;
-@@ -2976,7 +2976,7 @@ static void tcp_cong_avoid(struct sock *sk, u32 ack, u32 acked)
- 	const struct inet_connection_sock *icsk = inet_csk(sk);
+ 	tcp_set_state(sk, TCP_ESTABLISHED);
+-	icsk->icsk_ack.lrcvtime = tcp_time_stamp;
++	icsk->icsk_ack.lrcvtime = tcp_jiffies32;
  
- 	icsk->icsk_ca_ops->cong_avoid(sk, ack, acked);
--	tcp_sk(sk)->snd_cwnd_stamp = tcp_time_stamp;
-+	tcp_sk(sk)->snd_cwnd_stamp = tcp_jiffies32;
- }
+ 	if (skb) {
+ 		icsk->icsk_af_ops->sk_rx_dst_set(sk, skb);
+diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
+index 717be4de53248352c758b50557987d898340dd4f..59c32e0086c0e46d7955dffe211ec03bb18dcb12 100644
+--- a/net/ipv4/tcp_minisocks.c
++++ b/net/ipv4/tcp_minisocks.c
+@@ -447,7 +447,7 @@ struct sock *tcp_create_openreq_child(const struct sock *sk,
+ 		newtp->mdev_us = jiffies_to_usecs(TCP_TIMEOUT_INIT);
+ 		minmax_reset(&newtp->rtt_min, tcp_time_stamp, ~0U);
+ 		newicsk->icsk_rto = TCP_TIMEOUT_INIT;
+-		newicsk->icsk_ack.lrcvtime = tcp_time_stamp;
++		newicsk->icsk_ack.lrcvtime = tcp_jiffies32;
  
- /* Restart timer after forward progress on connection.
-@@ -5019,7 +5019,7 @@ static void tcp_new_space(struct sock *sk)
- 
- 	if (tcp_should_expand_sndbuf(sk)) {
- 		tcp_sndbuf_expand(sk);
--		tp->snd_cwnd_stamp = tcp_time_stamp;
-+		tp->snd_cwnd_stamp = tcp_jiffies32;
- 	}
- 
- 	sk->sk_write_space(sk);
-diff --git a/net/ipv4/tcp_metrics.c b/net/ipv4/tcp_metrics.c
-index 653bbd67e3a39b68d27d26d17571c00ce2854bfd..102b2c90bb807d3a88d31b59324baf72cf901cdf 100644
---- a/net/ipv4/tcp_metrics.c
-+++ b/net/ipv4/tcp_metrics.c
-@@ -524,7 +524,7 @@ void tcp_init_metrics(struct sock *sk)
- 		tp->snd_cwnd = 1;
- 	else
- 		tp->snd_cwnd = tcp_init_cwnd(tp, dst);
--	tp->snd_cwnd_stamp = tcp_time_stamp;
-+	tp->snd_cwnd_stamp = tcp_jiffies32;
- }
- 
- bool tcp_peer_is_proven(struct request_sock *req, struct dst_entry *dst)
+ 		newtp->packets_out = 0;
+ 		newtp->retrans_out = 0;
 diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index be9f8f483e21bdbb4d944fcdae8560f3ae11ee64..4bd50f0b236ba23fe521a76dd9d35ee16acb061f 100644
+index 4bd50f0b236ba23fe521a76dd9d35ee16acb061f..cbda5de164495cf318960489bd8edf98fe3a5033 100644
 --- a/net/ipv4/tcp_output.c
 +++ b/net/ipv4/tcp_output.c
-@@ -151,7 +151,7 @@ void tcp_cwnd_restart(struct sock *sk, s32 delta)
- 	while ((delta -= inet_csk(sk)->icsk_rto) > 0 && cwnd > restart_cwnd)
- 		cwnd >>= 1;
- 	tp->snd_cwnd = max(cwnd, restart_cwnd);
--	tp->snd_cwnd_stamp = tcp_time_stamp;
-+	tp->snd_cwnd_stamp = tcp_jiffies32;
- 	tp->snd_cwnd_used = 0;
- }
+@@ -3324,7 +3324,7 @@ static void tcp_connect_init(struct sock *sk)
+ 	if (likely(!tp->repair))
+ 		tp->rcv_nxt = 0;
+ 	else
+-		tp->rcv_tstamp = tcp_time_stamp;
++		tp->rcv_tstamp = tcp_jiffies32;
+ 	tp->rcv_wup = tp->rcv_nxt;
+ 	tp->copied_seq = tp->rcv_nxt;
  
-@@ -1576,7 +1576,7 @@ static void tcp_cwnd_application_limited(struct sock *sk)
+diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
+index 5f6f219a431e41a90b3c5d667a1a22b50f4464cf..9e0616cb8c17a6385ac97fc0cd657ef9413a1749 100644
+--- a/net/ipv4/tcp_timer.c
++++ b/net/ipv4/tcp_timer.c
+@@ -451,7 +451,7 @@ void tcp_retransmit_timer(struct sock *sk)
+ 					    tp->snd_una, tp->snd_nxt);
  		}
- 		tp->snd_cwnd_used = 0;
- 	}
--	tp->snd_cwnd_stamp = tcp_time_stamp;
-+	tp->snd_cwnd_stamp = tcp_jiffies32;
- }
- 
- static void tcp_cwnd_validate(struct sock *sk, bool is_cwnd_limited)
-@@ -1597,14 +1597,14 @@ static void tcp_cwnd_validate(struct sock *sk, bool is_cwnd_limited)
- 	if (tcp_is_cwnd_limited(sk)) {
- 		/* Network is feed fully. */
- 		tp->snd_cwnd_used = 0;
--		tp->snd_cwnd_stamp = tcp_time_stamp;
-+		tp->snd_cwnd_stamp = tcp_jiffies32;
- 	} else {
- 		/* Network starves. */
- 		if (tp->packets_out > tp->snd_cwnd_used)
- 			tp->snd_cwnd_used = tp->packets_out;
- 
- 		if (sysctl_tcp_slow_start_after_idle &&
--		    (s32)(tcp_time_stamp - tp->snd_cwnd_stamp) >= inet_csk(sk)->icsk_rto &&
-+		    (s32)(tcp_jiffies32 - tp->snd_cwnd_stamp) >= inet_csk(sk)->icsk_rto &&
- 		    !ca_ops->cong_control)
- 			tcp_cwnd_application_limited(sk);
- 
+ #endif
+-		if (tcp_time_stamp - tp->rcv_tstamp > TCP_RTO_MAX) {
++		if (tcp_jiffies32 - tp->rcv_tstamp > TCP_RTO_MAX) {
+ 			tcp_write_err(sk);
+ 			goto out;
+ 		}
 -- 
 2.13.0.303.g4ebf302169-goog
