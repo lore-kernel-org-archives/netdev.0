@@ -1,192 +1,136 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next 7/9] nfp: complete the XDP TX ring only when it's full
-Date: Mon, 15 May 2017 17:55:21 -0700
-Message-ID: <20170516005523.26124-8-jakub.kicinski@netronome.com>
+Subject: [PATCH net-next 8/9] nfp: add a helper for wrapping descriptor index
+Date: Mon, 15 May 2017 17:55:22 -0700
+Message-ID: <20170516005523.26124-9-jakub.kicinski@netronome.com>
 References: <20170516005523.26124-1-jakub.kicinski@netronome.com>
 Cc: oss-drivers@netronome.com,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f179.google.com ([209.85.192.179]:34507 "EHLO
-        mail-pf0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750896AbdEPA4X (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 15 May 2017 20:56:23 -0400
-Received: by mail-pf0-f179.google.com with SMTP id 9so31448560pfj.1
-        for <netdev@vger.kernel.org>; Mon, 15 May 2017 17:56:23 -0700 (PDT)
+Received: from mail-pf0-f181.google.com ([209.85.192.181]:36375 "EHLO
+        mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751287AbdEPA4Y (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 15 May 2017 20:56:24 -0400
+Received: by mail-pf0-f181.google.com with SMTP id m17so71278901pfg.3
+        for <netdev@vger.kernel.org>; Mon, 15 May 2017 17:56:24 -0700 (PDT)
 In-Reply-To: <20170516005523.26124-1-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since XDP TX ring holds "spare" RX buffers anyway, we don't have to
-rush the completion.  We can wait until ring fills up completely
-before trying to reclaim buffers.  If RX poll has ended an no
-buffer has been queued for XDP TX we have no guarantee we will see
-another interrupt, so run the reclaim there as well, to make sure
-TX statistics won't become stale.
-
-This should help us reclaim more buffers per single queue controller
-register read.
-
-Note that the XDP completion is very trivial, it only adds up
-the sizes of transmitted frames for statistics so the latency
-spike should be acceptable.  In case user sets the ring sizes
-to something crazy, limit the completion to 2k entries.
-
-The check if the ring is empty at the beginning of xdp_complete()
-is no longer needed - the callers will perform it.
+We have a number of places where we calculate the descriptor
+index based on a value which may have overflown.  Create a
+macro for masking with the ring size.
 
 Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 ---
- drivers/net/ethernet/netronome/nfp/nfp_net.h       |  1 +
- .../net/ethernet/netronome/nfp/nfp_net_common.c    | 52 ++++++++++++++--------
- 2 files changed, 35 insertions(+), 18 deletions(-)
+ drivers/net/ethernet/netronome/nfp/nfp_net.h        |  3 +++
+ drivers/net/ethernet/netronome/nfp/nfp_net_common.c | 21 ++++++++++-----------
+ 2 files changed, 13 insertions(+), 11 deletions(-)
 
 diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net.h b/drivers/net/ethernet/netronome/nfp/nfp_net.h
-index acd9811d08d1..66319a1026bb 100644
+index 66319a1026bb..7b9518cbe965 100644
 --- a/drivers/net/ethernet/netronome/nfp/nfp_net.h
 +++ b/drivers/net/ethernet/netronome/nfp/nfp_net.h
-@@ -102,6 +102,7 @@
- #define NFP_NET_RX_DESCS_DEFAULT 4096	/* Default # of Rx descs per ring */
+@@ -117,6 +117,9 @@ struct nfp_eth_table_port;
+ struct nfp_net;
+ struct nfp_net_r_vector;
  
- #define NFP_NET_FL_BATCH	16	/* Add freelist in this Batch size */
-+#define NFP_NET_XDP_MAX_COMPLETE 2048	/* XDP bufs to reclaim in NAPI poll */
- 
- /* Offload definitions */
- #define NFP_NET_N_VXLAN_PORTS	(NFP_NET_CFG_VXLAN_SZ / sizeof(__be16))
++/* Convenience macro for wrapping descriptor index on ring size */
++#define D_IDX(ring, idx)	((idx) & ((ring)->cnt - 1))
++
+ /* Convenience macro for writing dma address into RX/TX descriptors */
+ #define nfp_desc_set_dma_addr(desc, dma_addr)				\
+ 	do {								\
 diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-index d640b3331741..a4c6878f1df1 100644
+index a4c6878f1df1..c64514f8ee65 100644
 --- a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
 +++ b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-@@ -1001,27 +1001,30 @@ static void nfp_net_tx_complete(struct nfp_net_tx_ring *tx_ring)
- 		  tx_ring->rd_p, tx_ring->wr_p, tx_ring->cnt);
- }
+@@ -809,7 +809,7 @@ static int nfp_net_tx(struct sk_buff *skb, struct net_device *netdev)
+ 	if (dma_mapping_error(dp->dev, dma_addr))
+ 		goto err_free;
  
--static void nfp_net_xdp_complete(struct nfp_net_tx_ring *tx_ring)
-+static bool nfp_net_xdp_complete(struct nfp_net_tx_ring *tx_ring)
- {
- 	struct nfp_net_r_vector *r_vec = tx_ring->r_vec;
- 	u32 done_pkts = 0, done_bytes = 0;
-+	bool done_all;
- 	int idx, todo;
- 	u32 qcp_rd_p;
+-	wr_idx = tx_ring->wr_p & (tx_ring->cnt - 1);
++	wr_idx = D_IDX(tx_ring, tx_ring->wr_p);
  
--	if (tx_ring->wr_p == tx_ring->rd_p)
--		return;
--
- 	/* Work out how many descriptors have been transmitted */
- 	qcp_rd_p = nfp_qcp_rd_ptr_read(tx_ring->qcp_q);
+ 	/* Stash the soft descriptor of the head then initialize it */
+ 	txbuf = &tx_ring->txbufs[wr_idx];
+@@ -852,7 +852,7 @@ static int nfp_net_tx(struct sk_buff *skb, struct net_device *netdev)
+ 			if (dma_mapping_error(dp->dev, dma_addr))
+ 				goto err_unmap;
  
- 	if (qcp_rd_p == tx_ring->qcp_rd_p)
--		return;
-+		return true;
- 
- 	if (qcp_rd_p > tx_ring->qcp_rd_p)
- 		todo = qcp_rd_p - tx_ring->qcp_rd_p;
- 	else
+-			wr_idx = (wr_idx + 1) & (tx_ring->cnt - 1);
++			wr_idx = D_IDX(tx_ring, wr_idx + 1);
+ 			tx_ring->txbufs[wr_idx].skb = skb;
+ 			tx_ring->txbufs[wr_idx].dma_addr = dma_addr;
+ 			tx_ring->txbufs[wr_idx].fidx = f;
+@@ -946,8 +946,7 @@ static void nfp_net_tx_complete(struct nfp_net_tx_ring *tx_ring)
  		todo = qcp_rd_p + tx_ring->cnt - tx_ring->qcp_rd_p;
  
-+	done_all = todo <= NFP_NET_XDP_MAX_COMPLETE;
-+	todo = min(todo, NFP_NET_XDP_MAX_COMPLETE);
-+
-+	tx_ring->qcp_rd_p = (tx_ring->qcp_rd_p + todo) & (tx_ring->cnt - 1);
-+
+ 	while (todo--) {
+-		idx = tx_ring->rd_p & (tx_ring->cnt - 1);
+-		tx_ring->rd_p++;
++		idx = D_IDX(tx_ring, tx_ring->rd_p++);
+ 
+ 		skb = tx_ring->txbufs[idx].skb;
+ 		if (!skb)
+@@ -1023,11 +1022,11 @@ static bool nfp_net_xdp_complete(struct nfp_net_tx_ring *tx_ring)
+ 	done_all = todo <= NFP_NET_XDP_MAX_COMPLETE;
+ 	todo = min(todo, NFP_NET_XDP_MAX_COMPLETE);
+ 
+-	tx_ring->qcp_rd_p = (tx_ring->qcp_rd_p + todo) & (tx_ring->cnt - 1);
++	tx_ring->qcp_rd_p = D_IDX(tx_ring, tx_ring->qcp_rd_p + todo);
+ 
  	done_pkts = todo;
  	while (todo--) {
- 		idx = tx_ring->rd_p & (tx_ring->cnt - 1);
-@@ -1030,16 +1033,16 @@ static void nfp_net_xdp_complete(struct nfp_net_tx_ring *tx_ring)
+-		idx = tx_ring->rd_p & (tx_ring->cnt - 1);
++		idx = D_IDX(tx_ring, tx_ring->rd_p);
+ 		tx_ring->rd_p++;
+ 
  		done_bytes += tx_ring->txbufs[idx].real_len;
- 	}
+@@ -1063,7 +1062,7 @@ nfp_net_tx_ring_reset(struct nfp_net_dp *dp, struct nfp_net_tx_ring *tx_ring)
+ 		struct sk_buff *skb;
+ 		int idx, nr_frags;
  
--	tx_ring->qcp_rd_p = qcp_rd_p;
--
- 	u64_stats_update_begin(&r_vec->tx_sync);
- 	r_vec->tx_bytes += done_bytes;
- 	r_vec->tx_pkts += done_pkts;
- 	u64_stats_update_end(&r_vec->tx_sync);
+-		idx = tx_ring->rd_p & (tx_ring->cnt - 1);
++		idx = D_IDX(tx_ring, tx_ring->rd_p);
+ 		tx_buf = &tx_ring->txbufs[idx];
  
- 	WARN_ONCE(tx_ring->wr_p - tx_ring->rd_p > tx_ring->cnt,
--		  "TX ring corruption rd_p=%u wr_p=%u cnt=%u\n",
-+		  "XDP TX ring corruption rd_p=%u wr_p=%u cnt=%u\n",
- 		  tx_ring->rd_p, tx_ring->wr_p, tx_ring->cnt);
-+
-+	return done_all;
- }
- 
- /**
-@@ -1500,15 +1503,23 @@ static bool
- nfp_net_tx_xdp_buf(struct nfp_net_dp *dp, struct nfp_net_rx_ring *rx_ring,
- 		   struct nfp_net_tx_ring *tx_ring,
- 		   struct nfp_net_rx_buf *rxbuf, unsigned int dma_off,
--		   unsigned int pkt_len)
-+		   unsigned int pkt_len, bool *completed)
+ 		skb = tx_ring->txbufs[idx].skb;
+@@ -1216,7 +1215,7 @@ static void nfp_net_rx_give_one(const struct nfp_net_dp *dp,
  {
- 	struct nfp_net_tx_buf *txbuf;
- 	struct nfp_net_tx_desc *txd;
- 	int wr_idx;
+ 	unsigned int wr_idx;
  
- 	if (unlikely(nfp_net_tx_full(tx_ring, 1))) {
--		nfp_net_rx_drop(dp, rx_ring->r_vec, rx_ring, rxbuf, NULL);
--		return false;
-+		if (!*completed) {
-+			nfp_net_xdp_complete(tx_ring);
-+			*completed = true;
-+		}
-+
-+		if (unlikely(nfp_net_tx_full(tx_ring, 1))) {
-+			nfp_net_rx_drop(dp, rx_ring->r_vec, rx_ring, rxbuf,
-+					NULL);
-+			return false;
-+		}
+-	wr_idx = rx_ring->wr_p & (rx_ring->cnt - 1);
++	wr_idx = D_IDX(rx_ring, rx_ring->wr_p);
+ 
+ 	nfp_net_dma_sync_dev_rx(dp, dma_addr);
+ 
+@@ -1254,7 +1253,7 @@ static void nfp_net_rx_ring_reset(struct nfp_net_rx_ring *rx_ring)
+ 	unsigned int wr_idx, last_idx;
+ 
+ 	/* Move the empty entry to the end of the list */
+-	wr_idx = rx_ring->wr_p & (rx_ring->cnt - 1);
++	wr_idx = D_IDX(rx_ring, rx_ring->wr_p);
+ 	last_idx = rx_ring->cnt - 1;
+ 	rx_ring->rxbufs[wr_idx].dma_addr = rx_ring->rxbufs[last_idx].dma_addr;
+ 	rx_ring->rxbufs[wr_idx].frag = rx_ring->rxbufs[last_idx].frag;
+@@ -1522,7 +1521,7 @@ nfp_net_tx_xdp_buf(struct nfp_net_dp *dp, struct nfp_net_rx_ring *rx_ring,
+ 		}
  	}
  
- 	wr_idx = tx_ring->wr_p & (tx_ring->cnt - 1);
-@@ -1580,6 +1591,7 @@ static int nfp_net_rx(struct nfp_net_rx_ring *rx_ring, int budget)
- 	struct nfp_net_dp *dp = &r_vec->nfp_net->dp;
- 	struct nfp_net_tx_ring *tx_ring;
- 	struct bpf_prog *xdp_prog;
-+	bool xdp_tx_cmpl = false;
- 	unsigned int true_bufsz;
- 	struct sk_buff *skb;
- 	int pkts_polled = 0;
-@@ -1690,7 +1702,8 @@ static int nfp_net_rx(struct nfp_net_rx_ring *rx_ring, int budget)
- 				if (unlikely(!nfp_net_tx_xdp_buf(dp, rx_ring,
- 								 tx_ring, rxbuf,
- 								 dma_off,
--								 pkt_len)))
-+								 pkt_len,
-+								 &xdp_tx_cmpl)))
- 					trace_xdp_exception(dp->netdev,
- 							    xdp_prog, act);
- 				continue;
-@@ -1738,8 +1751,14 @@ static int nfp_net_rx(struct nfp_net_rx_ring *rx_ring, int budget)
- 		napi_gro_receive(&rx_ring->r_vec->napi, skb);
- 	}
+-	wr_idx = tx_ring->wr_p & (tx_ring->cnt - 1);
++	wr_idx = D_IDX(tx_ring, tx_ring->wr_p);
  
--	if (xdp_prog && tx_ring->wr_ptr_add)
--		nfp_net_tx_xmit_more_flush(tx_ring);
-+	if (xdp_prog) {
-+		if (tx_ring->wr_ptr_add)
-+			nfp_net_tx_xmit_more_flush(tx_ring);
-+		else if (unlikely(tx_ring->wr_p != tx_ring->rd_p) &&
-+			 !xdp_tx_cmpl)
-+			if (!nfp_net_xdp_complete(tx_ring))
-+				pkts_polled = budget;
-+	}
- 	rcu_read_unlock();
+ 	/* Stash the soft descriptor of the head then initialize it */
+ 	txbuf = &tx_ring->txbufs[wr_idx];
+@@ -1610,7 +1609,7 @@ static int nfp_net_rx(struct nfp_net_rx_ring *rx_ring, int budget)
+ 		dma_addr_t new_dma_addr;
+ 		void *new_frag;
  
- 	return pkts_polled;
-@@ -1760,11 +1779,8 @@ static int nfp_net_poll(struct napi_struct *napi, int budget)
+-		idx = rx_ring->rd_p & (rx_ring->cnt - 1);
++		idx = D_IDX(rx_ring, rx_ring->rd_p);
  
- 	if (r_vec->tx_ring)
- 		nfp_net_tx_complete(r_vec->tx_ring);
--	if (r_vec->rx_ring) {
-+	if (r_vec->rx_ring)
- 		pkts_polled = nfp_net_rx(r_vec->rx_ring, budget);
--		if (r_vec->xdp_ring)
--			nfp_net_xdp_complete(r_vec->xdp_ring);
--	}
- 
- 	if (pkts_polled < budget)
- 		if (napi_complete_done(napi, pkts_polled))
+ 		rxd = &rx_ring->rxds[idx];
+ 		if (!(rxd->rxd.meta_len_dd & PCIE_DESC_RX_DD))
 -- 
 2.11.0
