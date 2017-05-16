@@ -1,56 +1,65 @@
-From: Alexandre Belloni <alexandre.belloni@free-electrons.com>
-Subject: Re: [PATCH v4 1/4] can: m_can: move Message RAM initialization to
- function
-Date: Tue, 16 May 2017 10:00:49 +0200
-Message-ID: <20170516080049.4fvo4hkj4e6v7r3v@piout.net>
-References: <20170505135033.8349-1-quentin.schulz@free-electrons.com>
- <90788d6d-24f3-64ba-43f3-16301b777536@free-electrons.com>
- <4676456c-823c-d7db-2139-35c8229109f0@pengutronix.de>
- <1d41efe1-d24f-4700-8986-0d5dc848ea23@hartkopp.net>
+From: Simon Horman <simon.horman@netronome.com>
+Subject: Re: [oss-drivers] [PATCH net-next 8/9] nfp: add a helper for
+ wrapping descriptor index
+Date: Tue, 16 May 2017 10:22:28 +0200
+Message-ID: <20170516082225.GA15081@vergenet.net>
+References: <20170516005523.26124-1-jakub.kicinski@netronome.com>
+ <20170516005523.26124-9-jakub.kicinski@netronome.com>
+ <20170516070806.GC11965@vergenet.net>
+ <20170516003857.52c3f31b@cakuba.netronome.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Marc Kleine-Budde <mkl@pengutronix.de>,
-        Quentin Schulz <quentin.schulz@free-electrons.com>,
-        wg@grandegger.com, mario.huettel@gmx.net,
-        linux-can@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, thomas.petazzoni@free-electrons.com
-To: Oliver Hartkopp <socketcan@hartkopp.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: netdev@vger.kernel.org, oss-drivers@netronome.com
+To: Jakub Kicinski <kubakici@wp.pl>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f169.google.com ([209.85.220.169]:36572 "EHLO
+        mail-qk0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750932AbdEPIWc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 16 May 2017 04:22:32 -0400
+Received: by mail-qk0-f169.google.com with SMTP id u75so120321227qka.3
+        for <netdev@vger.kernel.org>; Tue, 16 May 2017 01:22:32 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <1d41efe1-d24f-4700-8986-0d5dc848ea23@hartkopp.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20170516003857.52c3f31b@cakuba.netronome.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
-
-On 15/05/2017 at 20:51:30 -0700, Oliver Hartkopp wrote:
-> On 05/15/2017 06:50 AM, Marc Kleine-Budde wrote:
-> > On 05/12/2017 08:37 AM, Quentin Schulz wrote:
-> > > On 05/05/2017 15:50, Quentin Schulz wrote:
-> > > > To avoid possible ECC/parity checksum errors when reading an
-> > > > uninitialized buffer, the entire Message RAM is initialized when probing
-> > > > the driver. This initialization is done in the same function reading the
-> > > > Device Tree properties.
-> > > > 
-> > > > This patch moves the RAM initialization to a separate function so it can
-> > > > be called separately from device initialization from Device Tree.
-> > > > 
-> > > > Signed-off-by: Quentin Schulz <quentin.schulz@free-electrons.com>
+On Tue, May 16, 2017 at 12:38:57AM -0700, Jakub Kicinski wrote:
+> On Tue, 16 May 2017 09:08:08 +0200, Simon Horman wrote:
+> > On Mon, May 15, 2017 at 05:55:22PM -0700, Jakub Kicinski wrote:
+> > > We have a number of places where we calculate the descriptor
+> > > index based on a value which may have overflown.  Create a
+> > > macro for masking with the ring size.
 > > > 
-> > > It's been a week since I sent this patch series. Any comments?
+> > > Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+> > > ---
+> > >  drivers/net/ethernet/netronome/nfp/nfp_net.h        |  3 +++
+> > >  drivers/net/ethernet/netronome/nfp/nfp_net_common.c | 21 ++++++++++-----------
+> > >  2 files changed, 13 insertions(+), 11 deletions(-)
+> > > 
+> > > diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net.h b/drivers/net/ethernet/netronome/nfp/nfp_net.h
+> > > index 66319a1026bb..7b9518cbe965 100644
+> > > --- a/drivers/net/ethernet/netronome/nfp/nfp_net.h
+> > > +++ b/drivers/net/ethernet/netronome/nfp/nfp_net.h
+> > > @@ -117,6 +117,9 @@ struct nfp_eth_table_port;
+> > >  struct nfp_net;
+> > >  struct nfp_net_r_vector;
+> > >  
+> > > +/* Convenience macro for wrapping descriptor index on ring size */
+> > > +#define D_IDX(ring, idx)	((idx) & ((ring)->cnt - 1))  
 > > 
-> > Looks good, added to linux-can-next.
+> > Any reason not to make this a function?
 > 
-> Isn't this a fix for linux-can instead?
+> This is to be able to use the same macro for both RX and TX rings.  If
+> you look below in the code I have a macro for setting dma addresses on
+> descriptors also regardless of the type.
 > 
-> At least it would make no sense to me to have the upgraded M_CAN driver in
-> Linux 4.12 without this fix.
-> 
+> It makes the code a tiny bit cleaner IMHO and should be acceptable for
+> trivial macros.
 
-The related suspend mode on the sama5d2 is not present in v4.12 so I
-think this can wait v4.13.
+Thanks for the clarification, that sounds reasonable to me.
 
--- 
-Alexandre Belloni, Free Electrons
-Embedded Linux and Kernel engineering
-http://free-electrons.com
+> > That notwithstanding:
+> > 
+> > Reviewed-by: Simon Horman <simon.horman@netronome.com>
+> 
+> Thanks for the reviews!
