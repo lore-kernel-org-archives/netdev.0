@@ -1,56 +1,37 @@
-From: Ganesh Goudar <ganeshgr@chelsio.com>
-Subject: [PATCH net-next] cxgb4: update latest firmware version supported
-Date: Tue, 16 May 2017 20:56:52 +0530
-Message-ID: <1494948412-7818-1-git-send-email-ganeshgr@chelsio.com>
-Cc: nirranjan@chelsio.com, indranil@chelsio.com,
-        Ganesh Goudar <ganeshgr@chelsio.com>
-To: netdev@vger.kernel.org, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.32.117.8]:25139 "EHLO
-        stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753329AbdEPP1X (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 16 May 2017 11:27:23 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] rt2x00: improve calling conventions for register
+ accessors
+Date: Tue, 16 May 2017 11:37:23 -0400 (EDT)
+Message-ID: <20170516.113723.631618367518477483.davem@davemloft.net>
+References: <20170515.103951.2305484593464882104.davem@davemloft.net>
+        <20170516115511.GA4230@redhat.com>
+        <1494935936.15923.0.camel@sipsolutions.net>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: sgruszka@redhat.com, arnd@arndb.de, helmut.schaa@googlemail.com,
+        kvalo@codeaurora.org, daniel@makrotopia.org, dev@kresin.me,
+        pozega.tomislav@gmail.com, vasilugin@yandex.ru, roman@advem.lv,
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: johannes@sipsolutions.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1494935936.15923.0.camel@sipsolutions.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Change t4fw_version.h to update latest firmware version
-number to 1.16.43.0.
+From: Johannes Berg <johannes@sipsolutions.net>
+Date: Tue, 16 May 2017 13:58:56 +0200
 
-Signed-off-by: Ganesh Goudar <ganeshgr@chelsio.com>
----
- drivers/net/ethernet/chelsio/cxgb4/t4fw_version.h | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+> On Tue, 2017-05-16 at 13:55 +0200, Stanislaw Gruszka wrote:
+>> 
+>> In rt2x00 driver we use poor convention in other kind of registers
+>> accessors like bbp, mac, eeprom. I dislike to changing only rfcsr
+>> accessors and leaving others in the old way. And changing all
+>> accessors would be massive and error prone change, which I'm not
+>> prefer either.
+> 
+> That's a stupid argument, but for the sake of it - the conversion can
+> easily be done with coccinelle/spatch without being "error prone".
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4fw_version.h b/drivers/net/ethernet/chelsio/cxgb4/t4fw_version.h
-index fa37644..3549d387 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4fw_version.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4fw_version.h
-@@ -37,7 +37,7 @@
- 
- #define T4FW_VERSION_MAJOR 0x01
- #define T4FW_VERSION_MINOR 0x10
--#define T4FW_VERSION_MICRO 0x21
-+#define T4FW_VERSION_MICRO 0x2B
- #define T4FW_VERSION_BUILD 0x00
- 
- #define T4FW_MIN_VERSION_MAJOR 0x01
-@@ -46,7 +46,7 @@
- 
- #define T5FW_VERSION_MAJOR 0x01
- #define T5FW_VERSION_MINOR 0x10
--#define T5FW_VERSION_MICRO 0x21
-+#define T5FW_VERSION_MICRO 0x2B
- #define T5FW_VERSION_BUILD 0x00
- 
- #define T5FW_MIN_VERSION_MAJOR 0x00
-@@ -55,7 +55,7 @@
- 
- #define T6FW_VERSION_MAJOR 0x01
- #define T6FW_VERSION_MINOR 0x10
--#define T6FW_VERSION_MICRO 0x21
-+#define T6FW_VERSION_MICRO 0x2B
- #define T6FW_VERSION_BUILD 0x00
- 
- #define T6FW_MIN_VERSION_MAJOR 0x00
--- 
-2.1.0
+Agreed, we have tools for this.
