@@ -1,44 +1,41 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next v2 00/10] net: sched: introduce multichain
- support for filters
-Date: Tue, 16 May 2017 18:23:46 +0200
-Message-ID: <20170516162345.GN1939@nanopsycho.orion>
-References: <20170515083857.3615-1-jiri@resnulli.us>
- <20170516.122021.1415036093574332123.davem@davemloft.net>
+From: Randy Dunlap <rdunlap@infradead.org>
+Subject: Re: linux-next: Tree for May 16 (net/core)
+Date: Tue, 16 May 2017 09:28:30 -0700
+Message-ID: <f63533e7-edd3-4c0d-ddff-e3409d15abc6@infradead.org>
+References: <20170516112125.517607f8@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
-        dsa@cumulusnetworks.com, edumazet@google.com,
-        stephen@networkplumber.org, daniel@iogearbox.net,
-        alexander.h.duyck@intel.com, simon.horman@netronome.com,
-        mlxsw@mellanox.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Stephen Rothwell <sfr@canb.auug.org.au>,
+        Linux-Next Mailing List <linux-next@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:33249 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750777AbdEPQXs (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 16 May 2017 12:23:48 -0400
-Received: by mail-wm0-f66.google.com with SMTP id y10so39518091wmh.0
-        for <netdev@vger.kernel.org>; Tue, 16 May 2017 09:23:48 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20170516.122021.1415036093574332123.davem@davemloft.net>
+Received: from bombadil.infradead.org ([65.50.211.133]:54707 "EHLO
+        bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753082AbdEPQ2c (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 16 May 2017 12:28:32 -0400
+In-Reply-To: <20170516112125.517607f8@canb.auug.org.au>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tue, May 16, 2017 at 06:20:21PM CEST, davem@davemloft.net wrote:
->From: Jiri Pirko <jiri@resnulli.us>
->Date: Mon, 15 May 2017 10:38:47 +0200
->
->> This patchset contains two major patches:
->> 8/10 - This patch introduces the support for having multiple
->>        chains of filters.
->> 10/10 - This patch adds new control action to allow going to specified chain
->> 
->> The rest of the patches are smaller or bigger depencies of those 2.
->> Please see individual patch descriptions for details.
->
->I'm expecting at least some adjustments to the tests in the final
->patch based upon your discussions with Daniel, and thus another
->spin of this series.
+On 05/15/17 18:21, Stephen Rothwell wrote:
+> Hi all,
+> 
+> Changes since 20170515:
+> 
 
-Will send in a jiff. Thanks
+on i386 or x86_64:
+
+when CONFIG_INET is not enabled:
+
+../net/core/sock.c: In function 'skb_orphan_partial':
+../net/core/sock.c:1810:2: error: implicit declaration of function 'skb_is_tcp_pure_ack' [-Werror=implicit-function-declaration]
+  if (skb_is_tcp_pure_ack(skb))
+  ^
+
+
+
+-- 
+~Randy
