@@ -1,154 +1,119 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: Re: [PATCH iproute2] ip: add support for more MPLS labels
-Date: Tue, 16 May 2017 10:32:27 +0200
-Message-ID: <20170516083224.GC15081@vergenet.net>
-References: <20170514012702.1083-1-dsahern@gmail.com>
+From: Arend Van Spriel <arend.vanspriel@broadcom.com>
+Subject: Re: [PATCH 2/6] wl1251: Use request_firmware_prefer_user() for
+ loading NVS calibration data
+Date: Tue, 16 May 2017 10:41:08 +0200
+Message-ID: <0c43c825-df2a-b427-4b67-f17fd644667f@broadcom.com>
+References: <0fd90416-f33c-a6be-14fd-5e964583e9cb@broadcom.com>
+ <20170515231339.GF17314@wotan.suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, stephen@networkplumber.org
-To: David Ahern <dsahern@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f179.google.com ([209.85.220.179]:33995 "EHLO
-        mail-qk0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751138AbdEPIcc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 16 May 2017 04:32:32 -0400
-Received: by mail-qk0-f179.google.com with SMTP id k74so121158289qke.1
-        for <netdev@vger.kernel.org>; Tue, 16 May 2017 01:32:31 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20170514012702.1083-1-dsahern@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: Pavel Machek <pavel@ucw.cz>, Daniel Wagner <wagi@monom.org>,
+        Tom Gundersen <teg@jklm.no>,
+        =?UTF-8?Q?Pali_Roh=c3=a1r?= <pali.rohar@gmail.com>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        David Gnedt <david.gnedt@davizone.at>,
+        Tony Lindgren <tony@atomide.com>,
+        Sebastian Reichel <sre@kernel.org>,
+        Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>,
+        Aaro Koskinen <aaro.koskinen@iki.fi>,
+        Takashi Iwai <tiwai@suse.de>,
+        AKASHI Takahiro <takahiro.akashi@linaro.org>,
+        David Woodhouse <dwmw2@infradead.org>,
+        Bjorn Andersson <bjorn.andersson@linaro.org>,
+        Grazvydas Ignotas <notasas@gmail.com>,
+        linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
+        netdev@vger.kernel.org,
+        =?UTF-8?Q?Micha=c5=82_Kazior?= <kazikcz@gmail.com>
+To: "Luis R. Rodriguez" <mcgrof@kernel.org>,
+        Johannes Berg <johannes@sipsolutions.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170515231339.GF17314@wotan.suse.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, May 13, 2017 at 07:27:02PM -0600, David Ahern wrote:
-> Kernel now supports up to 30 labels but not defined as part of the uapi.
-> iproute2 handles up to 8 labels but in a non-consistent way. Update ip
-> to handle more labels, but in a more programmatic way.
+On 16-5-2017 1:13, Luis R. Rodriguez wrote:
+> On Fri, May 12, 2017 at 11:02:26PM +0200, Arend Van Spriel wrote:
+>> try again.. replacing email address from Michał
+>> On 12-5-2017 22:55, Arend Van Spriel wrote:
+>>> Let me explain the idea to refresh your memory (and mine). It started
+>>> when we were working on adding driver support for OpenWrt in brcmfmac.
+>>> The driver requests for firmware calibration data, but on routers it is
+>>> stored in flash. So after failing on the firmware request we now call a
+>>> platform specific API. That was my itch, but it was not bad enough to go
+>>> and scratch. Now for N900 case there is a similar scenario alhtough it
+>>> has additional requirement to go to user-space due to need to use a
+>>> proprietary library to obtain the NVS calibration data. My thought: Why
+>>> should firmware_class care?
 > 
-> For the MPLS address family, the data field in inet_prefix is used for
-> labels.  Increase that field to 64 u32's -- 64 as nothing more than a
-> convenient power of 2 number.
+> Agreed.
 > 
-> Update mpls_pton to take the length of the address field, convert that
-> length to number of labels and add better error handling to the parsing
-> of the user supplied string.
+>>> So the idea is that firmware_class provides
+>>> a registry for modules that can produce a certain firmware "file". Those
+>>> modules can do whatever is needed. If they need to use umh so be it.
+>>> They would only register themselves with firmware_class on platforms
+>>> that need them. It would basically be replacing the fallback mechanism
+>>> and only be effective on certain platforms.
 > 
-> Signed-off-by: David Ahern <dsahern@gmail.com>
-> ---
->  include/utils.h |  7 ++-----
->  lib/mpls_pton.c | 11 +++++++----
->  lib/utils.c     |  7 +++++--
->  3 files changed, 14 insertions(+), 11 deletions(-)
+> Sure, so it sounds like the work that Daniel Wagner and Tom Gundersen worked
+> [0] on which provides a firmwared with two modes: best-effort, and final-mode,
+> would address what you are looking for but without requiring any upstream
+> changes, *and* it also helps solve the rootfs race remote-proc folks had
+> concerns over.
 > 
-> diff --git a/include/utils.h b/include/utils.h
-> index 8c12e1e2a60c..bfbc9e6dff55 100644
-> --- a/include/utils.h
-> +++ b/include/utils.h
-> @@ -61,7 +61,7 @@ typedef struct
->  	__s16 bitlen;
->  	/* These next two fields match rtvia */
->  	__u16 family;
-> -	__u32 data[8];
-> +	__u32 data[64];
->  } inet_prefix;
->  
->  #define PREFIXLEN_SPECIFIED 1
-> @@ -88,9 +88,6 @@ struct ipx_addr {
->  # define AF_MPLS 28
->  #endif
->  
-> -/* Maximum number of labels the mpls helpers support */
-> -#define MPLS_MAX_LABELS 8
-> -
->  __u32 get_addr32(const char *name);
->  int get_addr_1(inet_prefix *dst, const char *arg, int family);
->  int get_prefix_1(inet_prefix *dst, char *arg, int family);
-> @@ -155,7 +152,7 @@ const char *ipx_ntop(int af, const void *addr, char *str, size_t len);
->  int ipx_pton(int af, const char *src, void *addr);
->  
->  const char *mpls_ntop(int af, const void *addr, char *str, size_t len);
-> -int mpls_pton(int af, const char *src, void *addr);
-> +int mpls_pton(int af, const char *src, void *addr, size_t alen);
->  
->  extern int __iproute2_hz_internal;
->  int __get_hz(void);
-> diff --git a/lib/mpls_pton.c b/lib/mpls_pton.c
-> index bd448cfcf14a..6d2e6a69436a 100644
-> --- a/lib/mpls_pton.c
-> +++ b/lib/mpls_pton.c
-> @@ -7,12 +7,13 @@
->  #include "utils.h"
->  
->  
-> -static int mpls_pton1(const char *name, struct mpls_label *addr)
-> +static int mpls_pton1(const char *name, struct mpls_label *addr,
-> +		      unsigned int maxlabels)
->  {
->  	char *endp;
->  	unsigned count;
->  
-> -	for (count = 0; count < MPLS_MAX_LABELS; count++) {
-> +	for (count = 0; count < maxlabels; count++) {
->  		unsigned long label;
->  
->  		label = strtoul(name, &endp, 0);
-> @@ -37,17 +38,19 @@ static int mpls_pton1(const char *name, struct mpls_label *addr)
->  		addr += 1;
->  	}
->  	/* The address was too long */
-> +	fprintf(stderr, "Error: too many labels.\n");
->  	return 0;
->  }
->  
-> -int mpls_pton(int af, const char *src, void *addr)
-> +int mpls_pton(int af, const char *src, void *addr, size_t alen)
->  {
-> +	unsigned int maxlabels = alen / sizeof(struct mpls_label);
-
-Could ARRAY_SIZE be used?
-
-Also, I know its only calculated twice, but might it be nicer to
-provide a function or macro to do so? It seems like an ugly thing
-to open code.
-
-Cosmetic points above notwithstanding:
-
-Reviewed-by: Simon Horman <simon.horman@netronome.com>
-
->  	int err;
->  
->  	switch(af) {
->  	case AF_MPLS:
->  		errno = 0;
-> -		err = mpls_pton1(src, (struct mpls_label *)addr);
-> +		err = mpls_pton1(src, (struct mpls_label *)addr, maxlabels);
->  		break;
->  	default:
->  		errno = EAFNOSUPPORT;
-> diff --git a/lib/utils.c b/lib/utils.c
-> index 6d5642f4f1f3..e77bd302530b 100644
-> --- a/lib/utils.c
-> +++ b/lib/utils.c
-> @@ -518,15 +518,18 @@ int get_addr_1(inet_prefix *addr, const char *name, int family)
->  	}
->  
->  	if (family == AF_MPLS) {
-> +		unsigned int maxlabels;
->  		int i;
->  
->  		addr->family = AF_MPLS;
-> -		if (mpls_pton(AF_MPLS, name, addr->data) <= 0)
-> +		if (mpls_pton(AF_MPLS, name, addr->data,
-> +			      sizeof(addr->data)) <= 0)
->  			return -1;
->  		addr->bytelen = 4;
->  		addr->bitlen = 20;
->  		/* How many bytes do I need? */
-> -		for (i = 0; i < 8; i++) {
-> +		maxlabels = sizeof(addr->data) / sizeof(struct mpls_label);
-> +		for (i = 0; i < maxlabels; i++) {
->  			if (ntohl(addr->data[i]) & MPLS_LS_S_MASK) {
->  				addr->bytelen = (i + 1)*4;
->  				break;
-> -- 
-> 2.11.0 (Apple Git-81)
+> The other added gain over this solution is if folks need their own proprietary
+> concoction they can just fork firmwared and have that do whatever it needs
+> for the specific device on the specific rootfs. That is, firmwared can be the
+> upstream solution if folks need it, but if folks need something custom they can
+> just mimic the implementation: best-effort, and and final-mode.
 > 
+> Yet another added gain over this solution we can do *not* support the
+> custom fallback mechanism as its not needed, the udev event should suffice
+> to let userspace do what it needs.
+> 
+> Lastly, if we did not want to deal with timeouts for the way the driver data
+> API implements it I think we might be able to do away with them for for async
+> requests if we assume there will be a daemon that spawns in final-mode eventually,
+> and since it *knows* when the rootfs is ready it should be able to do a final
+> lookup, if it returns -ENOENT; then indeed we know we can give up. Now, perhaps
+> how and if we want to deal with timeouts when using the driver data API for
+> the fallback mechanism is worth considering given it does not have a fallback
+> mechanism support yet. If we *add* them it would seem this would also put an
+> implicit race against userspace finishing initialization and running firmwared
+> in final-mode.
+
+Just to be clear. When you are saying "rootfs" in this story, you mean
+any (mounted) file-system which may hold the firmware. At least that was
+one of the arguments. In kernel space we can not know how the system is
+setup in terms of mount points, let alone on which mounted file-system
+the firmware resides.
+
+> Johannes, do you recall the corner cases we spoke about regarding timeouts?
+> Does this match what we spoke about?
+> 
+>>> Let me know if this idea is still of interest and I will rebase what I
+>>> have for an RFC round.
+> 
+> Since no upstream delta is needed for firmwared I'd like to first encourage
+> evaluating the above. While distributions don't carry it yet that may be seen as
+> an issue but since what we are looking for are corner cases, only folks needing
+> to deploy a specific solution would need it or a custom proprietary solution.
+
+Ok. I will go try and run firmwared in OpenWrt on a router platform.
+Have to steal one from a colleague :-p Will study firmwared.
+
+> [0] https://github.com/teg/firmwared.git
+> 
+> PS.
+> 
+> Note that firmware signing will require an additional file, the detached
+> signature. The driver data API does not currently support the fallback
+> mechanism so we would not have to worry about that yet but once we add
+> fallback support we'd need to consider this.
+
+Do you have references to the firmware signing design. Is the idea to
+have one signature and all "firmware files" need to be signed with it?
+
+Thanks,
+Arend
