@@ -1,73 +1,72 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [patch net-next v2 04/10] net: sched: replace nprio by a bool to
- make the function more readable
-Date: Tue, 16 May 2017 08:56:22 -0400
-Message-ID: <6442bd7c-18dd-b4b8-b968-347e847b68b5@mojatatu.com>
-References: <20170515083857.3615-1-jiri@resnulli.us>
- <20170515083857.3615-5-jiri@resnulli.us>
- <0553194d-9d76-bb39-4b29-c3c734a6ff44@mojatatu.com>
- <20170516122532.GL1939@nanopsycho.orion>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: switchdev offload & ecmp
+Date: Tue, 16 May 2017 14:57:47 +0200
+Message-ID: <4c70d1fc-ba11-e358-2142-d373f44cb5a1@6wind.com>
+References: <84b9801f-0c2a-cd55-61a4-411261943024@6wind.com>
+ <20170515164036.GA5669@splinter.mtl.com>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-        xiyou.wangcong@gmail.com, dsa@cumulusnetworks.com,
-        edumazet@google.com, stephen@networkplumber.org,
-        daniel@iogearbox.net, alexander.h.duyck@intel.com,
-        simon.horman@netronome.com, mlxsw@mellanox.com
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 8bit
+Cc: Jiri Pirko <jiri@resnulli.us>,
+        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+        Roopa Prabhu <roopa@cumulusnetworks.com>,
+        netdev <netdev@vger.kernel.org>
+To: Ido Schimmel <idosch@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f68.google.com ([209.85.214.68]:33038 "EHLO
-        mail-it0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752173AbdEPM4Y (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 16 May 2017 08:56:24 -0400
-Received: by mail-it0-f68.google.com with SMTP id l145so14000412ita.0
-        for <netdev@vger.kernel.org>; Tue, 16 May 2017 05:56:24 -0700 (PDT)
-In-Reply-To: <20170516122532.GL1939@nanopsycho.orion>
+Received: from mail-wm0-f51.google.com ([74.125.82.51]:34534 "EHLO
+        mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751990AbdEPM5v (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 16 May 2017 08:57:51 -0400
+Received: by mail-wm0-f51.google.com with SMTP id u65so35816527wmu.1
+        for <netdev@vger.kernel.org>; Tue, 16 May 2017 05:57:50 -0700 (PDT)
+In-Reply-To: <20170515164036.GA5669@splinter.mtl.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 17-05-16 08:25 AM, Jiri Pirko wrote:
-> Tue, May 16, 2017 at 02:09:25PM CEST, jhs@mojatatu.com wrote:
->> On 17-05-15 04:38 AM, Jiri Pirko wrote:
->>
->>> diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
->>> index 88ec1a1..0e49e6e 100644
->>> --- a/net/sched/cls_api.c
->>> +++ b/net/sched/cls_api.c
->>> @@ -271,7 +271,7 @@ static int tc_ctl_tfilter(struct sk_buff *skb, struct nlmsghdr *n,
->>>  	struct tcmsg *t;
->>>  	u32 protocol;
->>>  	u32 prio;
->>> -	u32 nprio;
->>> +	bool prio_allocate;
->>
->> prio_allocated? (past tense seems more sensible)
->
-> No, it actually tell if the prio should be allocated:
->
->                 if (prio_allocate)
->                         prio = tcf_auto_prio(tcf_chain_tp_prev(&chain_info));
->
-> I believe it is accurate.
->
+Le 15/05/2017 à 18:40, Ido Schimmel a écrit :
+[snip]
+>> Is there a consistency between the ecmp algorithm of the kernel and the one from
+>> spectrum?
+> 
+> We currently use the hardware's defaults for ECMP hashing, which include
+> both L3 and L4 fields. I'm aware of Nik's patch, but we've yet to
+> reflect that. Note that the L4 fields aren't considered for fragmented
+> packets.
+Ok.
 
-Your mileage may vary, this chunk:
-===
-  			if (n->nlmsg_flags & NLM_F_CREATE) {
-  				prio = TC_H_MAKE(0x80000000U, 0U);
-+				prio_allocate = true;
-  				break;
-  			}
+> 
+>> I suspect that there can be scenarii where some packets of a flow are forwarded
+>> by the driver and some other are forwarded by the kernel.
+> 
+> Can you elaborate? The kernel only sees specific packets, which were
+> trapped to the CPU. See:
+> https://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git/tree/drivers/net/ethernet/mellanox/mlxsw/spectrum.c#n2996
+Ok, this part was not clear for me, thank you for the pointer.
 
-in which prio is used subsequently before the chunk you refer to
-allocates implies the prio is already allocated.
-Your call really.
+So, when an arp resolution is needed, the packets are not trapped to the CPU,
+the device manages the queue itself?
 
-I will review more later.
+> 
+>> For example, an ecmp route with two nexthops: a connected route and a gw? 
+> 
+> Not sure I'm following you. A packet will either hit a remote route or a
+> directly connected one. We distinguish between the two based on the
+> scope of the first nexthop in the group. See:
+> https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c#n2043
+> 
+>> In that case, the periodic nexthops update
+>> (https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c#n987)
+>> won't help. How do you ensure that all packets of the flow are always forwarded
+>> through the same nexthop?
+> 
+> I don't think we can ensure that for a flow in which some packets are
+> forwarded by the kernel and some by the device, but I failed to
+> understand your example of such a flow.
+I was trying to understand if nexthop choice is always the same in the kernel
+and in the device. And I was also trying to understand if it's possible to have
+some packets of a flow routed by the kernel and some others by the device.
 
-cheers,
-jamal
 
-cheers,
-jamal
+Thank you for the answers,
+Nicolas
