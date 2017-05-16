@@ -1,7 +1,8 @@
 From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH net-next 00/15] tcp: TCP TS option use 1 ms clock
-Date: Tue, 16 May 2017 13:59:59 -0700
-Message-ID: <20170516210014.31176-1-edumazet@google.com>
+Subject: [PATCH net-next 01/15] tcp: use tp->tcp_mstamp in output path
+Date: Tue, 16 May 2017 14:00:00 -0700
+Message-ID: <20170516210014.31176-2-edumazet@google.com>
+References: <20170516210014.31176-1-edumazet@google.com>
 Cc: netdev <netdev@vger.kernel.org>,
         Eric Dumazet <edumazet@google.com>,
         Eric Dumazet <eric.dumazet@gmail.com>
@@ -11,82 +12,178 @@ To: "David S . Miller" <davem@davemloft.net>,
         Soheil Hassas Yeganeh <soheil@google.com>,
         Wei Wang <weiwan@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f169.google.com ([209.85.192.169]:32868 "EHLO
-        mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750775AbdEPV1v (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 16 May 2017 17:27:51 -0400
-Received: by mail-pf0-f169.google.com with SMTP id e193so86496353pfh.0
-        for <netdev@vger.kernel.org>; Tue, 16 May 2017 14:27:51 -0700 (PDT)
+Received: from mail-pf0-f180.google.com ([209.85.192.180]:34944 "EHLO
+        mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751300AbdEPV1z (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 16 May 2017 17:27:55 -0400
+Received: by mail-pf0-f180.google.com with SMTP id n23so81560188pfb.2
+        for <netdev@vger.kernel.org>; Tue, 16 May 2017 14:27:55 -0700 (PDT)
+In-Reply-To: <20170516210014.31176-1-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-TCP Timestamps option is defined in RFC 7323
+Idea is to later convert tp->tcp_mstamp to a full u64 counter
+using usec resolution, so that we can later have fine
+grained TCP TS clock (RFC 7323), regardless of HZ value.
 
-Traditionally on linux, it has been tied to the internal
-'jiffy' variable, because it had been a cheap and good enough
-generator.
+We try to refresh tp->tcp_mstamp only when necessary.
 
-Unfortunately some distros use HZ=250 or even HZ=100 leading
-to not very useful TCP timestamps.
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/ipv4/tcp_ipv4.c     |  1 +
+ net/ipv4/tcp_output.c   | 21 +++++++++++----------
+ net/ipv4/tcp_recovery.c |  1 -
+ net/ipv4/tcp_timer.c    |  3 ++-
+ 4 files changed, 14 insertions(+), 12 deletions(-)
 
-For TCP flows in the DC, Google has used usec resolution for more
-than two years with great success [1].
-RCVBUF autotuning is more precise.
-
-This series converts tp->tcp_mstamp to a plain u64 value storing
-a 1 usec TCP clock.
-
-This choice will allow us to upstream the 1 usec TS option as
-discussed in IETF 97.
-
-Kathleen Nichols [2] and others advocate for 1ms TS clocks for
-network analysis. (1ms being the lowest value supported by RFC 7323.)
-
-[1] https://www.ietf.org/proceedings/97/slides/slides-97-tcpm-tcp-options-for-low-latency-00.pdf
-[2] http://netseminar.stanford.edu/seminars/02_02_17.pdf
-
-Eric Dumazet (15):
-  tcp: use tp->tcp_mstamp in output path
-  tcp: introduce tcp_jiffies32
-  dccp: do not use tcp_time_stamp
-  tcp: use tcp_jiffies32 to feed tp->lsndtime
-  tcp: use tcp_jiffies32 to feed tp->snd_cwnd_stamp
-  tcp_bbr: use tcp_jiffies32 instead of tcp_time_stamp
-  tcp: bic,cubic: use tcp_jiffies32 instead of tcp_time_stamp
-  tcp: use tcp_jiffies32 for rcv_tstamp and lrcvtime
-  tcp: use tcp_jiffies32 to feed probe_timestamp
-  tcp: uses jiffies_32 to feed tp->chrono_start
-  tcp: use tcp_jiffies32 in __tcp_oow_rate_limited()
-  tcp_westwood: use tcp_jiffies32 instead of tcp_time_stamp
-  tcp_lp: cache tcp_time_stamp
-  tcp: replace misc tcp_time_stamp to tcp_jiffies32
-  tcp: switch TCP TS option (RFC 7323) to 1ms clock
-
- include/linux/skbuff.h           |  62 +------------------
- include/linux/tcp.h              |  22 +++----
- include/net/tcp.h                |  74 ++++++++++++++++++-----
- net/dccp/ccids/ccid2.c           |   8 +--
- net/dccp/ccids/ccid2.h           |   2 +-
- net/ipv4/syncookies.c            |   8 +--
- net/ipv4/tcp.c                   |  10 ++--
- net/ipv4/tcp_bbr.c               |  34 +++++------
- net/ipv4/tcp_bic.c               |   6 +-
- net/ipv4/tcp_cubic.c             |  14 ++---
- net/ipv4/tcp_htcp.c              |   2 +-
- net/ipv4/tcp_input.c             | 126 +++++++++++++++++++--------------------
- net/ipv4/tcp_ipv4.c              |  16 ++---
- net/ipv4/tcp_lp.c                |  17 +++---
- net/ipv4/tcp_metrics.c           |   2 +-
- net/ipv4/tcp_minisocks.c         |   8 +--
- net/ipv4/tcp_output.c            |  51 ++++++++--------
- net/ipv4/tcp_rate.c              |  16 ++---
- net/ipv4/tcp_recovery.c          |  24 ++++----
- net/ipv4/tcp_timer.c             |  17 +++---
- net/ipv4/tcp_westwood.c          |   6 +-
- net/ipv6/syncookies.c            |   2 +-
- net/ipv6/tcp_ipv6.c              |   4 +-
- net/netfilter/nf_synproxy_core.c |   2 +-
- 24 files changed, 259 insertions(+), 274 deletions(-)
-
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 5ab2aac5ca191075383fc75214da816873bb222c..d8fe25db79f223e3fde85882effd2ac6ec15f8ca 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -483,6 +483,7 @@ void tcp_v4_err(struct sk_buff *icmp_skb, u32 info)
+ 		skb = tcp_write_queue_head(sk);
+ 		BUG_ON(!skb);
+ 
++		skb_mstamp_get(&tp->tcp_mstamp);
+ 		remaining = icsk->icsk_rto -
+ 			    min(icsk->icsk_rto,
+ 				tcp_time_stamp - tcp_skb_timestamp(skb));
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index a32172d69a03cbe76b45ec3094222f6c3a73e27d..4c8a6eaba6b39a2aea061dd6857ed8df954c5ca2 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -997,8 +997,8 @@ static int tcp_transmit_skb(struct sock *sk, struct sk_buff *skb, int clone_it,
+ 	BUG_ON(!skb || !tcp_skb_pcount(skb));
+ 	tp = tcp_sk(sk);
+ 
++	skb->skb_mstamp = tp->tcp_mstamp;
+ 	if (clone_it) {
+-		skb_mstamp_get(&skb->skb_mstamp);
+ 		TCP_SKB_CB(skb)->tx.in_flight = TCP_SKB_CB(skb)->end_seq
+ 			- tp->snd_una;
+ 		tcp_rate_skb_sent(sk, skb);
+@@ -1906,7 +1906,6 @@ static bool tcp_tso_should_defer(struct sock *sk, struct sk_buff *skb,
+ 	const struct inet_connection_sock *icsk = inet_csk(sk);
+ 	u32 age, send_win, cong_win, limit, in_flight;
+ 	struct tcp_sock *tp = tcp_sk(sk);
+-	struct skb_mstamp now;
+ 	struct sk_buff *head;
+ 	int win_divisor;
+ 
+@@ -1962,8 +1961,8 @@ static bool tcp_tso_should_defer(struct sock *sk, struct sk_buff *skb,
+ 	}
+ 
+ 	head = tcp_write_queue_head(sk);
+-	skb_mstamp_get(&now);
+-	age = skb_mstamp_us_delta(&now, &head->skb_mstamp);
++
++	age = skb_mstamp_us_delta(&tp->tcp_mstamp, &head->skb_mstamp);
+ 	/* If next ACK is likely to come too late (half srtt), do not defer */
+ 	if (age < (tp->srtt_us >> 4))
+ 		goto send_now;
+@@ -2280,6 +2279,7 @@ static bool tcp_write_xmit(struct sock *sk, unsigned int mss_now, int nonagle,
+ 	}
+ 
+ 	max_segs = tcp_tso_segs(sk, mss_now);
++	skb_mstamp_get(&tp->tcp_mstamp);
+ 	while ((skb = tcp_send_head(sk))) {
+ 		unsigned int limit;
+ 
+@@ -2291,7 +2291,7 @@ static bool tcp_write_xmit(struct sock *sk, unsigned int mss_now, int nonagle,
+ 
+ 		if (unlikely(tp->repair) && tp->repair_queue == TCP_SEND_QUEUE) {
+ 			/* "skb_mstamp" is used as a start point for the retransmit timer */
+-			skb_mstamp_get(&skb->skb_mstamp);
++			skb->skb_mstamp = tp->tcp_mstamp;
+ 			goto repair; /* Skip network transmission */
+ 		}
+ 
+@@ -2879,7 +2879,7 @@ int __tcp_retransmit_skb(struct sock *sk, struct sk_buff *skb, int segs)
+ 		     skb_headroom(skb) >= 0xFFFF)) {
+ 		struct sk_buff *nskb;
+ 
+-		skb_mstamp_get(&skb->skb_mstamp);
++		skb->skb_mstamp = tp->tcp_mstamp;
+ 		nskb = __pskb_copy(skb, MAX_TCP_HEADER, GFP_ATOMIC);
+ 		err = nskb ? tcp_transmit_skb(sk, nskb, 0, GFP_ATOMIC) :
+ 			     -ENOBUFS;
+@@ -3095,7 +3095,7 @@ void tcp_send_active_reset(struct sock *sk, gfp_t priority)
+ 	skb_reserve(skb, MAX_TCP_HEADER);
+ 	tcp_init_nondata_skb(skb, tcp_acceptable_seq(sk),
+ 			     TCPHDR_ACK | TCPHDR_RST);
+-	skb_mstamp_get(&skb->skb_mstamp);
++	skb_mstamp_get(&tcp_sk(sk)->tcp_mstamp);
+ 	/* Send it off. */
+ 	if (tcp_transmit_skb(sk, skb, 0, priority))
+ 		NET_INC_STATS(sock_net(sk), LINUX_MIB_TCPABORTFAILED);
+@@ -3453,7 +3453,8 @@ int tcp_connect(struct sock *sk)
+ 		return -ENOBUFS;
+ 
+ 	tcp_init_nondata_skb(buff, tp->write_seq++, TCPHDR_SYN);
+-	tp->retrans_stamp = tcp_time_stamp;
++	skb_mstamp_get(&tp->tcp_mstamp);
++	tp->retrans_stamp = tp->tcp_mstamp.stamp_jiffies;
+ 	tcp_connect_queue_skb(sk, buff);
+ 	tcp_ecn_send_syn(sk, buff);
+ 
+@@ -3572,7 +3573,6 @@ void tcp_send_ack(struct sock *sk)
+ 	skb_set_tcp_pure_ack(buff);
+ 
+ 	/* Send it off, this clears delayed acks for us. */
+-	skb_mstamp_get(&buff->skb_mstamp);
+ 	tcp_transmit_skb(sk, buff, 0, (__force gfp_t)0);
+ }
+ EXPORT_SYMBOL_GPL(tcp_send_ack);
+@@ -3606,15 +3606,16 @@ static int tcp_xmit_probe_skb(struct sock *sk, int urgent, int mib)
+ 	 * send it.
+ 	 */
+ 	tcp_init_nondata_skb(skb, tp->snd_una - !urgent, TCPHDR_ACK);
+-	skb_mstamp_get(&skb->skb_mstamp);
+ 	NET_INC_STATS(sock_net(sk), mib);
+ 	return tcp_transmit_skb(sk, skb, 0, (__force gfp_t)0);
+ }
+ 
++/* Called from setsockopt( ... TCP_REPAIR ) */
+ void tcp_send_window_probe(struct sock *sk)
+ {
+ 	if (sk->sk_state == TCP_ESTABLISHED) {
+ 		tcp_sk(sk)->snd_wl1 = tcp_sk(sk)->rcv_nxt - 1;
++		skb_mstamp_get(&tcp_sk(sk)->tcp_mstamp);
+ 		tcp_xmit_probe_skb(sk, 0, LINUX_MIB_TCPWINPROBE);
+ 	}
+ }
+diff --git a/net/ipv4/tcp_recovery.c b/net/ipv4/tcp_recovery.c
+index 362b8c75bfab44cf87c2a01398a146a271bc1119..cd72b3d3879e88181c8a4639f0334a24e4cda852 100644
+--- a/net/ipv4/tcp_recovery.c
++++ b/net/ipv4/tcp_recovery.c
+@@ -166,7 +166,6 @@ void tcp_rack_reo_timeout(struct sock *sk)
+ 	u32 timeout, prior_inflight;
+ 
+ 	prior_inflight = tcp_packets_in_flight(tp);
+-	skb_mstamp_get(&tp->tcp_mstamp);
+ 	tcp_rack_detect_loss(sk, &timeout);
+ 	if (prior_inflight != tcp_packets_in_flight(tp)) {
+ 		if (inet_csk(sk)->icsk_ca_state != TCP_CA_Recovery) {
+diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
+index 86934bcf685a65ec3af3d22f1801ffa33eea76e2..ec7c5473c788d77ae459b38492f2f2606d00d1ba 100644
+--- a/net/ipv4/tcp_timer.c
++++ b/net/ipv4/tcp_timer.c
+@@ -339,7 +339,7 @@ static void tcp_probe_timer(struct sock *sk)
+ 	 */
+ 	start_ts = tcp_skb_timestamp(tcp_send_head(sk));
+ 	if (!start_ts)
+-		skb_mstamp_get(&tcp_send_head(sk)->skb_mstamp);
++		tcp_send_head(sk)->skb_mstamp = tp->tcp_mstamp;
+ 	else if (icsk->icsk_user_timeout &&
+ 		 (s32)(tcp_time_stamp - start_ts) > icsk->icsk_user_timeout)
+ 		goto abort;
+@@ -561,6 +561,7 @@ void tcp_write_timer_handler(struct sock *sk)
+ 		goto out;
+ 	}
+ 
++	skb_mstamp_get(&tcp_sk(sk)->tcp_mstamp);
+ 	event = icsk->icsk_pending;
+ 
+ 	switch (event) {
 -- 
 2.13.0.303.g4ebf302169-goog
