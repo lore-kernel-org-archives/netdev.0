@@ -1,40 +1,90 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH] rt2x00: improve calling conventions for register
- accessors
-Date: Tue, 16 May 2017 13:58:56 +0200
-Message-ID: <1494935936.15923.0.camel@sipsolutions.net>
-References: <20170515134711.2770374-1-arnd@arndb.de>
-         <20170515142520.GA13996@redhat.com>
-         <20170515.103951.2305484593464882104.davem@davemloft.net>
-         <20170516115511.GA4230@redhat.com> (sfid-20170516_135707_063500_1838FD88)
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [patch net-next v2 02/10] net: sched: introduce tcf block
+ infractructure
+Date: Tue, 16 May 2017 08:07:25 -0400
+Message-ID: <33ea772b-d35b-ae08-4137-b63185c2f590@mojatatu.com>
+References: <20170515083857.3615-1-jiri@resnulli.us>
+ <20170515083857.3615-3-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: arnd@arndb.de, helmut.schaa@googlemail.com, kvalo@codeaurora.org,
-        daniel@makrotopia.org, dev@kresin.me, pozega.tomislav@gmail.com,
-        vasilugin@yandex.ru, roman@advem.lv,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Stanislaw Gruszka <sgruszka@redhat.com>,
-        David Miller <davem@davemloft.net>
+Cc: davem@davemloft.net, xiyou.wangcong@gmail.com,
+        dsa@cumulusnetworks.com, edumazet@google.com,
+        stephen@networkplumber.org, daniel@iogearbox.net,
+        alexander.h.duyck@intel.com, simon.horman@netronome.com,
+        mlxsw@mellanox.com
+To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:56066 "EHLO sipsolutions.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750839AbdEPL7S (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 16 May 2017 07:59:18 -0400
-In-Reply-To: <20170516115511.GA4230@redhat.com> (sfid-20170516_135707_063500_1838FD88)
+Received: from mail-io0-f194.google.com ([209.85.223.194]:36477 "EHLO
+        mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751203AbdEPMH2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 16 May 2017 08:07:28 -0400
+Received: by mail-io0-f194.google.com with SMTP id f102so14167423ioi.3
+        for <netdev@vger.kernel.org>; Tue, 16 May 2017 05:07:28 -0700 (PDT)
+In-Reply-To: <20170515083857.3615-3-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2017-05-16 at 13:55 +0200, Stanislaw Gruszka wrote:
-> 
-> In rt2x00 driver we use poor convention in other kind of registers
-> accessors like bbp, mac, eeprom. I dislike to changing only rfcsr
-> accessors and leaving others in the old way. And changing all
-> accessors would be massive and error prone change, which I'm not
-> prefer either.
 
-That's a stupid argument, but for the sake of it - the conversion can
-easily be done with coccinelle/spatch without being "error prone".
+Jiri,
 
-johannes
+I am sorry i am tied up elsewhere but will respond in chunks.
+
+On 17-05-15 04:38 AM, Jiri Pirko wrote:
+
+
+>  static inline void qdisc_cb_private_validate(const struct sk_buff *skb, int sz)
+>  {
+>  	struct qdisc_skb_cb *qcb;
+
+
+> +int tcf_block_get(struct tcf_block **p_block,
+> +		  struct tcf_proto __rcu **p_filter_chain)
+> +{
+> +	struct tcf_block *block = kzalloc(sizeof(*block), GFP_KERNEL);
+> +
+> +	if (!block)
+> +		return -ENOMEM;
+> +	block->p_filter_chain = p_filter_chain;
+> +	*p_block = block;
+> +	return 0;
+> +}
+
+tcf_block_get() sounds odd. tcf_block_create()?
+
+> +EXPORT_SYMBOL(tcf_block_get);
+> +
+> +void tcf_block_put(struct tcf_block *block)
+> +{
+> +	if (!block)
+> +		return;
+> +	tcf_destroy_chain(block->p_filter_chain);
+> +	kfree(block);
+> +}
+
+tcf_destroy_block()?
+
+[..]
+
+> +	error = tcf_block_get(&flow->block, &flow->filter_list);
+> +	if (error) {
+> +		kfree(flow);
+> +		goto err_out;
+> +	}
+> +
+>  	flow->q = qdisc_create_dflt(sch->dev_queue, &pfifo_qdisc_ops, classid);
+>  	if (!flow->q)
+>  		flow->q = &noop_qdisc;
+> @@ -346,14 +353,13 @@ static void atm_tc_walk(struct Qdisc *sch, struct qdisc_walker *walker)
+>  	}
+>  }
+>
+> -static struct tcf_proto __rcu **atm_tc_find_tcf(struct Qdisc *sch,
+> -						unsigned long cl)
+> +static struct tcf_block *atm_tc_tcf_block(struct Qdisc *sch, unsigned long cl)
+
+Any reason you removed the verb "find" from all these calls?
+eg above: better to have atm_tc_tcf_block_find()?
+
+cheers,
+jamal
