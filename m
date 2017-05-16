@@ -1,53 +1,269 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 00/12] mlxsw: Preparations for restructuring
-Date: Tue, 16 May 2017 19:38:23 +0200
-Message-ID: <20170516173835.2978-1-jiri@resnulli.us>
+Subject: [patch net-next 01/12] mlxsw: spectrum_buffer: Reduce scope of shared buffer struct
+Date: Tue, 16 May 2017 19:38:24 +0200
+Message-ID: <20170516173835.2978-2-jiri@resnulli.us>
+References: <20170516173835.2978-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, mlxsw@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f193.google.com ([209.85.128.193]:34536 "EHLO
-        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750785AbdEPRii (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 16 May 2017 13:38:38 -0400
-Received: by mail-wr0-f193.google.com with SMTP id 6so14928235wrb.1
-        for <netdev@vger.kernel.org>; Tue, 16 May 2017 10:38:38 -0700 (PDT)
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:36369 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751531AbdEPRik (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 16 May 2017 13:38:40 -0400
+Received: by mail-wm0-f67.google.com with SMTP id u65so38963286wmu.3
+        for <netdev@vger.kernel.org>; Tue, 16 May 2017 10:38:39 -0700 (PDT)
+In-Reply-To: <20170516173835.2978-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@mellanox.com>
+From: Ido Schimmel <idosch@mellanox.com>
 
-This patchset doesn't introduce any functional changes and merely meant
-to make the code base more receptive for upcoming restructuring.
+The shared buffer structure ('mlxsw_sp_sb') doesn't need to be
+accessible to anyone, but the shared buffer code located at
+spectrum_buffers.c
 
-The first six patches mainly shuffle code in order to reduce the scope of
-structs that shouldn't be defined in the main driver header. Most of them
-will be later expanded, so it makes sense to correctly place them now.
+Make this apparent and reduce its scope by defining it there.
 
-The last patches mostly simplify bridge-related functions, so that they
-could be more easily modified later on.
+Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.h     | 54 ++--------------
+ .../net/ethernet/mellanox/mlxsw/spectrum_buffers.c | 73 +++++++++++++++++++---
+ 2 files changed, 68 insertions(+), 59 deletions(-)
 
-Ido Schimmel (12):
-  mlxsw: spectrum_buffer: Reduce scope of shared buffer struct
-  mlxsw: spectrum_router: Reduce scope of router struct
-  mlxsw: spectrum_switchdev: Reduce scope of bridge struct
-  mlxsw: spectrum_router: Move RIFs array to its rightful place
-  mlxsw: spectrum_router: Move FIB notification block to router struct
-  mlxsw: spectrum_router: Initialize RIFs in a separate function
-  mlxsw: spectrum_switchdev: Remove redundant check
-  mlxsw: spectrum_switchdev: Don't batch VLAN operations
-  mlxsw: spectrum_switchdev: Don't batch STP operations
-  mlxsw: spectrum_switchdev: Don't batch learning operations
-  mlxsw: spectrum: Move PVID code to appropriate place
-  mlxsw: spectrum: Default ports to non-virtual mode
-
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c     | 118 +++++-
- drivers/net/ethernet/mellanox/mlxsw/spectrum.h     | 131 +------
- .../net/ethernet/mellanox/mlxsw/spectrum_buffers.c |  73 +++-
- .../net/ethernet/mellanox/mlxsw/spectrum_dpipe.c   |  17 +-
- .../net/ethernet/mellanox/mlxsw/spectrum_router.c  | 289 +++++++++-----
- .../net/ethernet/mellanox/mlxsw/spectrum_router.h  |   2 +
- .../ethernet/mellanox/mlxsw/spectrum_switchdev.c   | 415 ++++++++-------------
- 7 files changed, 529 insertions(+), 516 deletions(-)
-
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+index 0c23bc1..976f5b6 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+@@ -110,43 +110,6 @@ static inline bool mlxsw_sp_fid_is_vfid(u16 fid)
+ 	return fid >= MLXSW_SP_VFID_BASE && fid < MLXSW_SP_DUMMY_FID;
+ }
+ 
+-struct mlxsw_sp_sb_pr {
+-	enum mlxsw_reg_sbpr_mode mode;
+-	u32 size;
+-};
+-
+-struct mlxsw_cp_sb_occ {
+-	u32 cur;
+-	u32 max;
+-};
+-
+-struct mlxsw_sp_sb_cm {
+-	u32 min_buff;
+-	u32 max_buff;
+-	u8 pool;
+-	struct mlxsw_cp_sb_occ occ;
+-};
+-
+-struct mlxsw_sp_sb_pm {
+-	u32 min_buff;
+-	u32 max_buff;
+-	struct mlxsw_cp_sb_occ occ;
+-};
+-
+-#define MLXSW_SP_SB_POOL_COUNT	4
+-#define MLXSW_SP_SB_TC_COUNT	8
+-
+-struct mlxsw_sp_sb_port {
+-	struct mlxsw_sp_sb_cm cms[2][MLXSW_SP_SB_TC_COUNT];
+-	struct mlxsw_sp_sb_pm pms[2][MLXSW_SP_SB_POOL_COUNT];
+-};
+-
+-struct mlxsw_sp_sb {
+-	struct mlxsw_sp_sb_pr prs[2][MLXSW_SP_SB_POOL_COUNT];
+-	struct mlxsw_sp_sb_port *ports;
+-	u32 cell_size;
+-};
+-
+ #define MLXSW_SP_PREFIX_COUNT (sizeof(struct in6_addr) * BITS_PER_BYTE)
+ 
+ struct mlxsw_sp_prefix_usage {
+@@ -231,6 +194,7 @@ struct mlxsw_sp_router {
+ 	bool aborted;
+ };
+ 
++struct mlxsw_sp_sb;
+ struct mlxsw_sp_acl;
+ struct mlxsw_sp_counter_pool;
+ 
+@@ -261,7 +225,7 @@ struct mlxsw_sp {
+ 	struct mlxsw_sp_upper master_bridge;
+ 	struct mlxsw_sp_upper *lags;
+ 	u8 *port_to_module;
+-	struct mlxsw_sp_sb sb;
++	struct mlxsw_sp_sb *sb;
+ 	struct mlxsw_sp_router router;
+ 	struct mlxsw_sp_acl *acl;
+ 	struct {
+@@ -282,18 +246,6 @@ mlxsw_sp_lag_get(struct mlxsw_sp *mlxsw_sp, u16 lag_id)
+ 	return &mlxsw_sp->lags[lag_id];
+ }
+ 
+-static inline u32 mlxsw_sp_cells_bytes(const struct mlxsw_sp *mlxsw_sp,
+-				       u32 cells)
+-{
+-	return mlxsw_sp->sb.cell_size * cells;
+-}
+-
+-static inline u32 mlxsw_sp_bytes_cells(const struct mlxsw_sp *mlxsw_sp,
+-				       u32 bytes)
+-{
+-	return DIV_ROUND_UP(bytes, mlxsw_sp->sb.cell_size);
+-}
+-
+ struct mlxsw_sp_port_pcpu_stats {
+ 	u64			rx_packets;
+ 	u64			rx_bytes;
+@@ -515,6 +467,8 @@ int mlxsw_sp_sb_occ_tc_port_bind_get(struct mlxsw_core_port *mlxsw_core_port,
+ 				     unsigned int sb_index, u16 tc_index,
+ 				     enum devlink_sb_pool_type pool_type,
+ 				     u32 *p_cur, u32 *p_max);
++u32 mlxsw_sp_cells_bytes(const struct mlxsw_sp *mlxsw_sp, u32 cells);
++u32 mlxsw_sp_bytes_cells(const struct mlxsw_sp *mlxsw_sp, u32 bytes);
+ 
+ int mlxsw_sp_switchdev_init(struct mlxsw_sp *mlxsw_sp);
+ void mlxsw_sp_switchdev_fini(struct mlxsw_sp *mlxsw_sp);
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_buffers.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_buffers.c
+index 997189c..93728c6 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_buffers.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_buffers.c
+@@ -43,25 +43,72 @@
+ #include "port.h"
+ #include "reg.h"
+ 
++struct mlxsw_sp_sb_pr {
++	enum mlxsw_reg_sbpr_mode mode;
++	u32 size;
++};
++
++struct mlxsw_cp_sb_occ {
++	u32 cur;
++	u32 max;
++};
++
++struct mlxsw_sp_sb_cm {
++	u32 min_buff;
++	u32 max_buff;
++	u8 pool;
++	struct mlxsw_cp_sb_occ occ;
++};
++
++struct mlxsw_sp_sb_pm {
++	u32 min_buff;
++	u32 max_buff;
++	struct mlxsw_cp_sb_occ occ;
++};
++
++#define MLXSW_SP_SB_POOL_COUNT	4
++#define MLXSW_SP_SB_TC_COUNT	8
++
++struct mlxsw_sp_sb_port {
++	struct mlxsw_sp_sb_cm cms[2][MLXSW_SP_SB_TC_COUNT];
++	struct mlxsw_sp_sb_pm pms[2][MLXSW_SP_SB_POOL_COUNT];
++};
++
++struct mlxsw_sp_sb {
++	struct mlxsw_sp_sb_pr prs[2][MLXSW_SP_SB_POOL_COUNT];
++	struct mlxsw_sp_sb_port *ports;
++	u32 cell_size;
++};
++
++u32 mlxsw_sp_cells_bytes(const struct mlxsw_sp *mlxsw_sp, u32 cells)
++{
++	return mlxsw_sp->sb->cell_size * cells;
++}
++
++u32 mlxsw_sp_bytes_cells(const struct mlxsw_sp *mlxsw_sp, u32 bytes)
++{
++	return DIV_ROUND_UP(bytes, mlxsw_sp->sb->cell_size);
++}
++
+ static struct mlxsw_sp_sb_pr *mlxsw_sp_sb_pr_get(struct mlxsw_sp *mlxsw_sp,
+ 						 u8 pool,
+ 						 enum mlxsw_reg_sbxx_dir dir)
+ {
+-	return &mlxsw_sp->sb.prs[dir][pool];
++	return &mlxsw_sp->sb->prs[dir][pool];
+ }
+ 
+ static struct mlxsw_sp_sb_cm *mlxsw_sp_sb_cm_get(struct mlxsw_sp *mlxsw_sp,
+ 						 u8 local_port, u8 pg_buff,
+ 						 enum mlxsw_reg_sbxx_dir dir)
+ {
+-	return &mlxsw_sp->sb.ports[local_port].cms[dir][pg_buff];
++	return &mlxsw_sp->sb->ports[local_port].cms[dir][pg_buff];
+ }
+ 
+ static struct mlxsw_sp_sb_pm *mlxsw_sp_sb_pm_get(struct mlxsw_sp *mlxsw_sp,
+ 						 u8 local_port, u8 pool,
+ 						 enum mlxsw_reg_sbxx_dir dir)
+ {
+-	return &mlxsw_sp->sb.ports[local_port].pms[dir][pool];
++	return &mlxsw_sp->sb->ports[local_port].pms[dir][pool];
+ }
+ 
+ static int mlxsw_sp_sb_pr_write(struct mlxsw_sp *mlxsw_sp, u8 pool,
+@@ -215,16 +262,17 @@ static int mlxsw_sp_sb_ports_init(struct mlxsw_sp *mlxsw_sp)
+ {
+ 	unsigned int max_ports = mlxsw_core_max_ports(mlxsw_sp->core);
+ 
+-	mlxsw_sp->sb.ports = kcalloc(max_ports, sizeof(struct mlxsw_sp_sb_port),
+-				     GFP_KERNEL);
+-	if (!mlxsw_sp->sb.ports)
++	mlxsw_sp->sb->ports = kcalloc(max_ports,
++				      sizeof(struct mlxsw_sp_sb_port),
++				      GFP_KERNEL);
++	if (!mlxsw_sp->sb->ports)
+ 		return -ENOMEM;
+ 	return 0;
+ }
+ 
+ static void mlxsw_sp_sb_ports_fini(struct mlxsw_sp *mlxsw_sp)
+ {
+-	kfree(mlxsw_sp->sb.ports);
++	kfree(mlxsw_sp->sb->ports);
+ }
+ 
+ #define MLXSW_SP_SB_PR_INGRESS_SIZE	12440000
+@@ -551,15 +599,19 @@ int mlxsw_sp_buffers_init(struct mlxsw_sp *mlxsw_sp)
+ 
+ 	if (!MLXSW_CORE_RES_VALID(mlxsw_sp->core, CELL_SIZE))
+ 		return -EIO;
+-	mlxsw_sp->sb.cell_size = MLXSW_CORE_RES_GET(mlxsw_sp->core, CELL_SIZE);
+ 
+ 	if (!MLXSW_CORE_RES_VALID(mlxsw_sp->core, MAX_BUFFER_SIZE))
+ 		return -EIO;
+ 	sb_size = MLXSW_CORE_RES_GET(mlxsw_sp->core, MAX_BUFFER_SIZE);
+ 
++	mlxsw_sp->sb = kzalloc(sizeof(*mlxsw_sp->sb), GFP_KERNEL);
++	if (!mlxsw_sp->sb)
++		return -ENOMEM;
++	mlxsw_sp->sb->cell_size = MLXSW_CORE_RES_GET(mlxsw_sp->core, CELL_SIZE);
++
+ 	err = mlxsw_sp_sb_ports_init(mlxsw_sp);
+ 	if (err)
+-		return err;
++		goto err_sb_ports_init;
+ 	err = mlxsw_sp_sb_prs_init(mlxsw_sp);
+ 	if (err)
+ 		goto err_sb_prs_init;
+@@ -584,6 +636,8 @@ int mlxsw_sp_buffers_init(struct mlxsw_sp *mlxsw_sp)
+ err_sb_cpu_port_sb_cms_init:
+ err_sb_prs_init:
+ 	mlxsw_sp_sb_ports_fini(mlxsw_sp);
++err_sb_ports_init:
++	kfree(mlxsw_sp->sb);
+ 	return err;
+ }
+ 
+@@ -591,6 +645,7 @@ void mlxsw_sp_buffers_fini(struct mlxsw_sp *mlxsw_sp)
+ {
+ 	devlink_sb_unregister(priv_to_devlink(mlxsw_sp->core), 0);
+ 	mlxsw_sp_sb_ports_fini(mlxsw_sp);
++	kfree(mlxsw_sp->sb);
+ }
+ 
+ int mlxsw_sp_port_buffers_init(struct mlxsw_sp_port *mlxsw_sp_port)
 -- 
 2.9.3
