@@ -1,60 +1,77 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [PATCH] ravb: add wake-on-lan support via magic packet
-Date: Tue, 16 May 2017 11:07:34 +0200
-Message-ID: <CAMuHMdVkitTgVmUrPu5+z2JwnwHop4bJ5anMq1SmCeFfV=OxQg@mail.gmail.com>
-References: <20170511222735.10706-1-niklas.soderlund+renesas@ragnatech.se>
- <CAMuHMdUXqWJMh7syd3muMs8v9wx5bJNRj_3+xEAXTQTfAv0BFA@mail.gmail.com>
- <20170512125853.GH31437@bigcity.dyn.berto.se> <20170512143242.GA13939@bigcity.dyn.berto.se>
- <CAMuHMdU+uiiZfh5u+tL_bVJinhP-c0_iF4ZQh8=9NHN+aqUs=Q@mail.gmail.com>
- <20170512211222.GI31437@bigcity.dyn.berto.se> <CAMuHMdWZ8XLX0Zu0D54Ex+3RaFNm_fJyFQvyo+qz10HpB2nGqQ@mail.gmail.com>
- <20170516090214.GA30768@bigcity.dyn.berto.se>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Linux-Renesas <linux-renesas-soc@vger.kernel.org>
-To: =?UTF-8?Q?Niklas_S=C3=B6derlund?= <niklas.soderlund@ragnatech.se>
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-In-Reply-To: <20170516090214.GA30768@bigcity.dyn.berto.se>
-Sender: linux-renesas-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: [PATCH net-next v2 0/3] udp: scalability improvements
+Date: Tue, 16 May 2017 11:20:12 +0200
+Message-ID: <cover.1494881617.git.pabeni@redhat.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:39658 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750795AbdEPJVK (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 16 May 2017 05:21:10 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Niklas,
+This patch series implement an idea suggested by Eric Dumazet to
+reduce the contention of the udp sk_receive_queue lock when the socket is
+under flood.
 
-On Tue, May 16, 2017 at 11:02 AM, Niklas S=C3=B6derlund
-<niklas.soderlund@ragnatech.se> wrote:
->> > Whit all this being said I still like to withdraw this patch as I foun=
-d
->> > another fault with it, ravb_wol_restore() will unconditionally be call=
-ed
->> > while ravb_wol_setup() will only be called if netif_running(ndev). Thi=
-s
->> > is en easy fix and I will send out a v2 once we figure out what to do
->> > about the clock.
->>
->> The clock issue is external to the ravb driver. If it works with
->> s2idle, it should
->> be OK.
->
-> Do you think it's a good idea to move ahead with a v2 of the ravb WoL
-> patch to fix the unrelated issue and aim for it to be picked up prior to
-> suspend/resume support is added to the CPG/MSSR?
+An ancillary queue is added to the udp socket, and the socket always
+tries first to read packets from such queue. If it's empty, we splice
+the content from sk_receive_queue into the ancillary queue.
 
-Sure.
+The first patch introduces some helpers to keep the udp code small, and the
+following two implement the ancillary queue strategy. The code is split
+to hopefully help the reviewing process.
 
-It can still be used on R-Car Gen2, where we're not s*d by mandatory PSCI.
+The measured overall gain under udp flood is up to the 30% depending on
+the numa layout and the number of ingress queue used by the relevant nic.
 
-Gr{oetje,eeting}s,
+The performance numbers have been gathered using pktgen as sender, with 64
+bytes packets, random src port on a host b2b connected via a 10Gbs link
+with the dut.
 
-                        Geert
+The receiver used the udp_sink program by Jesper [1] and an h/w l4 rx hash on
+the ingress nic, so that the number of ingress nic rx queues hit by the udp
+traffic could be controlled via ethtool -L.
 
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k=
-.org
+The udp_sink program was bound to the first idle cpu, to get more
+stable numbers.
 
-In personal conversations with technical people, I call myself a hacker. Bu=
-t
-when I'm talking to journalists I just say "programmer" or something like t=
-hat.
-                                -- Linus Torvalds
+On a single numa node receiver:
+
+nic rx queues           vanilla                 patched kernel
+1                       1820 kpps               1900 kpps
+2                       1950 kpps               2500 kpps
+16                      1670 kpps               2120 kpps
+
+When using a single nic rx queue, busy polling was also enabled,
+elsewhere, in the above scenario, the bh processing becomes the bottle-neck
+and this produces large artifacts in the measured performances (e.g.
+improving the udp sink run time, decreases the overall tput, since more
+action from the scheduler comes into play).
+
+[1] https://github.com/netoptimizer/network-testing/blob/master/src/udp_sink.c
+
+v1 -> v2:
+  Patches 1/3 and 2/3 are unchanged, in patch 3/3 the rx_queue_lock_held param
+  of udp_rmem_release() is now a bool.
+
+Paolo Abeni (3):
+  net/sock: factor out dequeue/peek with offset code
+  udp: use a separate rx queue for packet reception
+  udp: keep the sk_receive_queue held when splicing
+
+ include/linux/skbuff.h |   7 +++
+ include/linux/udp.h    |   3 +
+ include/net/sock.h     |   4 +-
+ include/net/udp.h      |   9 +--
+ include/net/udplite.h  |   2 +-
+ net/core/datagram.c    |  90 +++++++++++++++------------
+ net/ipv4/udp.c         | 162 +++++++++++++++++++++++++++++++++++++++++++------
+ net/ipv6/udp.c         |   3 +-
+ 8 files changed, 211 insertions(+), 69 deletions(-)
+
+-- 
+2.9.3
