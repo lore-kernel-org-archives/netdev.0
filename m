@@ -1,44 +1,216 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: Re: [PATCH] ipmr: vrf: Find VIFs using the actual device
-Date: Mon, 15 May 2017 21:50:46 -0700
-Message-ID: <11682335-6d21-f8d1-0b20-7ea47a236823@gmail.com>
-References: <20170515221444.4913-1-Thomas.Winter@alliedtelesis.co.nz>
+From: kbuild test robot <lkp@intel.com>
+Subject: Re: [PATCH net-next] tcp: internal implementation for pacing
+Date: Tue, 16 May 2017 13:57:04 +0800
+Message-ID: <201705161323.MPIbat79%fengguang.wu@intel.com>
+References: <20170516034318.9913-1-edumazet@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: David Ahern <dsa@cumulusnetworks.com>,
-        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-        roopa <roopa@cumulusnetworks.com>
-To: Thomas Winter <Thomas.Winter@alliedtelesis.co.nz>,
-        netdev@vger.kernel.org
+Content-Type: multipart/mixed; boundary="mYCpIKhGyMATD0i+"
+Cc: kbuild-all@01.org, "David S . Miller" <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Eric Dumazet <edumazet@google.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>,
+        Neal Cardwell <ncardwell@google.com>,
+        Yuchung Cheng <ycheng@google.com>,
+        Soheil Hassas Yeganeh <soheil@google.com>,
+        Van Jacobson <vanj@google.com>, Jerry Chu <hkchu@google.com>
+To: Eric Dumazet <edumazet@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:36121 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751009AbdEPEuy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 16 May 2017 00:50:54 -0400
-Received: by mail-pf0-f193.google.com with SMTP id n23so17360318pfb.3
-        for <netdev@vger.kernel.org>; Mon, 15 May 2017 21:50:54 -0700 (PDT)
-In-Reply-To: <20170515221444.4913-1-Thomas.Winter@alliedtelesis.co.nz>
-Content-Language: en-US
+Received: from mga02.intel.com ([134.134.136.20]:33829 "EHLO mga02.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750950AbdEPF5b (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 16 May 2017 01:57:31 -0400
+Content-Disposition: inline
+In-Reply-To: <20170516034318.9913-1-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 5/15/17 3:14 PM, Thomas Winter wrote:
-> The skb->dev that is passed into ip_mr_input is
-> the loX device for VRFs. When we lookup a vif
-> for this dev, none is found as we do not create
-> vifs for loopbacks. Instead lookup a vif for the
-> actual device that the packet was received on,
-> eg the vlan.
-> 
-> Signed-off-by: Thomas Winter <Thomas.Winter@alliedtelesis.co.nz>
-> cc: David Ahern <dsa@cumulusnetworks.com>
-> cc: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-> cc: roopa <roopa@cumulusnetworks.com>
-> ---
->  net/ipv4/ipmr.c | 18 ++++++++++++++++--
->  1 file changed, 16 insertions(+), 2 deletions(-)
 
-LGTM
+--mYCpIKhGyMATD0i+
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-Acked-by: David Ahern <dsahern@gmail.com>
+Hi Eric,
+
+[auto build test WARNING on net-next/master]
+
+url:    https://github.com/0day-ci/linux/commits/Eric-Dumazet/tcp-internal-implementation-for-pacing/20170516-115441
+reproduce: make htmldocs
+
+All warnings (new ones prefixed by >>):
+
+   include/net/sock.h:476: warning: No description found for parameter 'sk_tsq_flags'
+>> include/net/sock.h:476: warning: No description found for parameter 'sk_pacing_status'
+   include/net/sock.h:476: warning: No description found for parameter '__sk_flags_offset'
+   include/net/sock.h:476: warning: No description found for parameter 'sk_uid'
+   drivers/net/phy/phy.c:259: warning: No description found for parameter 'features'
+   drivers/net/phy/phy.c:259: warning: Excess function parameter 'feature' description in 'phy_lookup_setting'
+   drivers/net/phy/phy.c:259: warning: No description found for parameter 'features'
+   drivers/net/phy/phy.c:259: warning: Excess function parameter 'feature' description in 'phy_lookup_setting'
+
+vim +/sk_pacing_status +476 include/net/sock.h
+
+^1da177e4 Linus Torvalds  2005-04-16  460  	struct socket		*sk_socket;
+^1da177e4 Linus Torvalds  2005-04-16  461  	void			*sk_user_data;
+d5f642384 Alexey Dobriyan 2008-11-04  462  #ifdef CONFIG_SECURITY
+^1da177e4 Linus Torvalds  2005-04-16  463  	void			*sk_security;
+d5f642384 Alexey Dobriyan 2008-11-04  464  #endif
+2a56a1fec Tejun Heo       2015-12-07  465  	struct sock_cgroup_data	sk_cgrp_data;
+baac50bbc Johannes Weiner 2016-01-14  466  	struct mem_cgroup	*sk_memcg;
+^1da177e4 Linus Torvalds  2005-04-16  467  	void			(*sk_state_change)(struct sock *sk);
+676d23690 David S. Miller 2014-04-11  468  	void			(*sk_data_ready)(struct sock *sk);
+^1da177e4 Linus Torvalds  2005-04-16  469  	void			(*sk_write_space)(struct sock *sk);
+^1da177e4 Linus Torvalds  2005-04-16  470  	void			(*sk_error_report)(struct sock *sk);
+^1da177e4 Linus Torvalds  2005-04-16  471  	int			(*sk_backlog_rcv)(struct sock *sk,
+^1da177e4 Linus Torvalds  2005-04-16  472  						  struct sk_buff *skb);
+^1da177e4 Linus Torvalds  2005-04-16  473  	void                    (*sk_destruct)(struct sock *sk);
+ef456144d Craig Gallek    2016-01-04  474  	struct sock_reuseport __rcu	*sk_reuseport_cb;
+a4298e452 Eric Dumazet    2016-04-01  475  	struct rcu_head		sk_rcu;
+^1da177e4 Linus Torvalds  2005-04-16 @476  };
+^1da177e4 Linus Torvalds  2005-04-16  477  
+98acdc088 Eric Dumazet    2017-05-15  478  enum sk_pacing {
+98acdc088 Eric Dumazet    2017-05-15  479  	SK_PACING_NONE		= 0,
+98acdc088 Eric Dumazet    2017-05-15  480  	SK_PACING_NEEDED	= 1,
+98acdc088 Eric Dumazet    2017-05-15  481  	SK_PACING_FQ		= 2,
+98acdc088 Eric Dumazet    2017-05-15  482  };
+98acdc088 Eric Dumazet    2017-05-15  483  
+559835ea7 Pravin B Shelar 2013-09-24  484  #define __sk_user_data(sk) ((*((void __rcu **)&(sk)->sk_user_data)))
+
+:::::: The code at line 476 was first introduced by commit
+:::::: 1da177e4c3f41524e886b7f1b8a0c1fc7321cac2 Linux-2.6.12-rc2
+
+:::::: TO: Linus Torvalds <torvalds@ppc970.osdl.org>
+:::::: CC: Linus Torvalds <torvalds@ppc970.osdl.org>
+
+---
+0-DAY kernel test infrastructure                Open Source Technology Center
+https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
+
+--mYCpIKhGyMATD0i+
+Content-Type: application/gzip
+Content-Disposition: attachment; filename=".config.gz"
+Content-Transfer-Encoding: base64
+
+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
+
+--mYCpIKhGyMATD0i+--
