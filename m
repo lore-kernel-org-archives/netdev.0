@@ -1,374 +1,58 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH v2 net-next] tcp: internal implementation for pacing
-Date: Tue, 16 May 2017 04:24:36 -0700
-Message-ID: <20170516112436.10189-1-edumazet@google.com>
-Cc: netdev <netdev@vger.kernel.org>,
-        Eric Dumazet <edumazet@google.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        Neal Cardwell <ncardwell@google.com>,
-        Yuchung Cheng <ycheng@google.com>,
-        Van Jacobson <vanj@google.com>, Jerry Chu <hkchu@google.com>
-To: "David S . Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f177.google.com ([209.85.192.177]:34712 "EHLO
-        mail-pf0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750852AbdEPLYo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 16 May 2017 07:24:44 -0400
-Received: by mail-pf0-f177.google.com with SMTP id 9so39068981pfj.1
-        for <netdev@vger.kernel.org>; Tue, 16 May 2017 04:24:43 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Subject: [PATCH] [net, 4.12] mlx5e: add CONFIG_INET dependency
+Date: Tue, 16 May 2017 13:27:49 +0200
+Message-ID: <20170516112807.4107417-1-arnd@arndb.de>
+Cc: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
+        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Erez Shitrit <erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-BBR congestion control depends on pacing, and pacing is
-currently handled by sch_fq packet scheduler for performance reasons,
-and also because implemening pacing with FQ was convenient to truly
-avoid bursts.
+We now reference the arp_tbl, which requires IPv4 support to be
+enabled in the kernel, otherwise we get a link error:
 
-However there are many cases where this packet scheduler constraint
-is not practical.
-- Many linux hosts are not focusing on handling thousands of TCP
-  flows in the most efficient way.
-- Some routers use fq_codel or other AQM, but still would like
-  to use BBR for the few TCP flows they initiate/terminate.
+drivers/net/built-in.o: In function `mlx5e_tc_update_neigh_used_value':
+(.text+0x16afec): undefined reference to `arp_tbl'
+drivers/net/built-in.o: In function `mlx5e_rep_neigh_init':
+en_rep.c:(.text+0x16c16d): undefined reference to `arp_tbl'
+drivers/net/built-in.o: In function `mlx5e_rep_netevent_event':
+en_rep.c:(.text+0x16cbb5): undefined reference to `arp_tbl'
 
-This patch implements an automatic fallback to internal pacing.
+This adds a Kconfig dependency for it.
 
-Pacing is requested either by BBR or use of SO_MAX_PACING_RATE option.
-
-If sch_fq happens to be in the egress path, pacing is delegated to
-the qdisc, otherwise pacing is done by TCP itself.
-
-One advantage of pacing from TCP stack is to get more precise rtt
-estimations, and less work done from TX completion, since TCP Small
-queue limits are not generally hit. Setups with single TX queue but
-many cpus might even benefit from this.
-
-Note that unlike sch_fq, we do not take into account header sizes.
-Taking care of these headers would add additional complexity for
-no practical differences in behavior.
-
-Some performance numbers using 800 TCP_STREAM flows rate limited to
-~48 Mbit per second on 40Gbit NIC.
-
-If MQ+pfifo_fast is used on the NIC :
-
-$ sar -n DEV 1 5 | grep eth
-14:48:44         eth0 725743.00 2932134.00  46776.76 4335184.68      0.00      0.00      1.00
-14:48:45         eth0 725349.00 2932112.00  46751.86 4335158.90      0.00      0.00      0.00
-14:48:46         eth0 725101.00 2931153.00  46735.07 4333748.63      0.00      0.00      0.00
-14:48:47         eth0 725099.00 2931161.00  46735.11 4333760.44      0.00      0.00      1.00
-14:48:48         eth0 725160.00 2931731.00  46738.88 4334606.07      0.00      0.00      0.00
-Average:         eth0 725290.40 2931658.20  46747.54 4334491.74      0.00      0.00      0.40
-$ vmstat 1 5
-procs -----------memory---------- ---swap-- -----io---- -system-- ------cpu-----
- r  b   swpd   free   buff  cache   si   so    bi    bo   in   cs us sy id wa st
- 4  0      0 259825920  45644 2708324    0    0    21     2  247   98  0  0 100  0  0
- 4  0      0 259823744  45644 2708356    0    0     0     0 2400825 159843  0 19 81  0  0
- 0  0      0 259824208  45644 2708072    0    0     0     0 2407351 159929  0 19 81  0  0
- 1  0      0 259824592  45644 2708128    0    0     0     0 2405183 160386  0 19 80  0  0
- 1  0      0 259824272  45644 2707868    0    0     0    32 2396361 158037  0 19 81  0  0
-
-Now use MQ+FQ :
-
-lpaa23:~# echo fq >/proc/sys/net/core/default_qdisc
-lpaa23:~# tc qdisc replace dev eth0 root mq
-
-$ sar -n DEV 1 5 | grep eth
-14:49:57         eth0 678614.00 2727930.00  43739.13 4033279.14      0.00      0.00      0.00
-14:49:58         eth0 677620.00 2723971.00  43674.69 4027429.62      0.00      0.00      1.00
-14:49:59         eth0 676396.00 2719050.00  43596.83 4020125.02      0.00      0.00      0.00
-14:50:00         eth0 675197.00 2714173.00  43518.62 4012938.90      0.00      0.00      1.00
-14:50:01         eth0 676388.00 2719063.00  43595.47 4020171.64      0.00      0.00      0.00
-Average:         eth0 676843.00 2720837.40  43624.95 4022788.86      0.00      0.00      0.40
-$ vmstat 1 5
-procs -----------memory---------- ---swap-- -----io---- -system-- ------cpu-----
- r  b   swpd   free   buff  cache   si   so    bi    bo   in   cs us sy id wa st
- 2  0      0 259832240  46008 2710912    0    0    21     2  223  192  0  1 99  0  0
- 1  0      0 259832896  46008 2710744    0    0     0     0 1702206 198078  0 17 82  0  0
- 0  0      0 259830272  46008 2710596    0    0     0     0 1696340 197756  1 17 83  0  0
- 4  0      0 259829168  46024 2710584    0    0    16     0 1688472 197158  1 17 82  0  0
- 3  0      0 259830224  46024 2710408    0    0     0     0 1692450 197212  0 18 82  0  0
-
-As expected, number of interrupts per second is very different.
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Acked-by: Soheil Hassas Yeganeh <soheil@google.com>
-Cc: Neal Cardwell <ncardwell@google.com>
-Cc: Yuchung Cheng <ycheng@google.com>
-Cc: Van Jacobson <vanj@google.com>
-Cc: Jerry Chu <hkchu@google.com>
+Fixes: 232c001398ae ("net/mlx5e: Add support to neighbour update flow")
+Signed-off-by: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
 ---
-v2: added one missing kdoc for sk_pacing_status (kbuild test robot report)
- include/linux/tcp.h   |  2 ++
- include/net/sock.h    |  9 +++++-
- include/net/tcp.h     |  3 ++
- net/core/sock.c       |  4 +++
- net/ipv4/tcp_bbr.c    |  9 +++---
- net/ipv4/tcp_output.c | 80 +++++++++++++++++++++++++++++++++++++++++++++++++++
- net/ipv4/tcp_timer.c  |  3 ++
- net/sched/sch_fq.c    |  8 ++++++
- 8 files changed, 113 insertions(+), 5 deletions(-)
+Note: the mlxsw driver has referenced the same symbol for a while,
+but had an implicit dependency on CONFIG_INET since it also depends
+on SWITCHDEV.
 
-diff --git a/include/linux/tcp.h b/include/linux/tcp.h
-index b6d5adcee8fcb611de202993623cc80274d262e4..22854f0284347a3bb047709478525ee5a9dd9b36 100644
---- a/include/linux/tcp.h
-+++ b/include/linux/tcp.h
-@@ -293,6 +293,8 @@ struct tcp_sock {
- 	u32	sacked_out;	/* SACK'd packets			*/
- 	u32	fackets_out;	/* FACK'd packets			*/
+ drivers/net/ethernet/mellanox/mlx5/core/Kconfig | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/Kconfig b/drivers/net/ethernet/mellanox/mlx5/core/Kconfig
+index fc52d742b7f7..27251a78075c 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/Kconfig
++++ b/drivers/net/ethernet/mellanox/mlx5/core/Kconfig
+@@ -13,7 +13,7 @@ config MLX5_CORE
  
-+	struct hrtimer	pacing_timer;
-+
- 	/* from STCP, retrans queue hinting */
- 	struct sk_buff* lost_skb_hint;
- 	struct sk_buff *retransmit_skb_hint;
-diff --git a/include/net/sock.h b/include/net/sock.h
-index f33e3d134e0b7f66329f2122d7acc8b396c1787b..28d33b08524fda31d50f97366e2a4fc6f9bff402 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -253,6 +253,7 @@ struct sock_common {
-   *	@sk_ll_usec: usecs to busypoll when there is no data
-   *	@sk_allocation: allocation mode
-   *	@sk_pacing_rate: Pacing rate (if supported by transport/packet scheduler)
-+  *	@sk_pacing_status: Pacing status (requested, handled by sch_fq)
-   *	@sk_max_pacing_rate: Maximum pacing rate (%SO_MAX_PACING_RATE)
-   *	@sk_sndbuf: size of send buffer in bytes
-   *	@sk_padding: unused element for alignment
-@@ -396,7 +397,7 @@ struct sock {
- 	__s32			sk_peek_off;
- 	int			sk_write_pending;
- 	__u32			sk_dst_pending_confirm;
--	/* Note: 32bit hole on 64bit arches */
-+	u32			sk_pacing_status; /* see enum sk_pacing */
- 	long			sk_sndtimeo;
- 	struct timer_list	sk_timer;
- 	__u32			sk_priority;
-@@ -475,6 +476,12 @@ struct sock {
- 	struct rcu_head		sk_rcu;
- };
- 
-+enum sk_pacing {
-+	SK_PACING_NONE		= 0,
-+	SK_PACING_NEEDED	= 1,
-+	SK_PACING_FQ		= 2,
-+};
-+
- #define __sk_user_data(sk) ((*((void __rcu **)&(sk)->sk_user_data)))
- 
- #define rcu_dereference_sk_user_data(sk)	rcu_dereference(__sk_user_data((sk)))
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 38a7427ae902e35973a8b7fa0e95ff602ede0e87..b4dc93dae98c2d175ccadce150083705d237555e 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -574,6 +574,7 @@ void tcp_fin(struct sock *sk);
- void tcp_init_xmit_timers(struct sock *);
- static inline void tcp_clear_xmit_timers(struct sock *sk)
- {
-+	hrtimer_cancel(&tcp_sk(sk)->pacing_timer);
- 	inet_csk_clear_xmit_timers(sk);
- }
- 
-@@ -1945,4 +1946,6 @@ static inline void tcp_listendrop(const struct sock *sk)
- 	__NET_INC_STATS(sock_net(sk), LINUX_MIB_LISTENDROPS);
- }
- 
-+enum hrtimer_restart tcp_pace_kick(struct hrtimer *timer);
-+
- #endif	/* _TCP_H */
-diff --git a/net/core/sock.c b/net/core/sock.c
-index e43e71d7856b385111cd4c4b1bd835a78c670c60..93d011e35b8349954db6918055c2f90ae473d254 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -1041,6 +1041,10 @@ int sock_setsockopt(struct socket *sock, int level, int optname,
- #endif
- 
- 	case SO_MAX_PACING_RATE:
-+		if (val != ~0U)
-+			cmpxchg(&sk->sk_pacing_status,
-+				SK_PACING_NONE,
-+				SK_PACING_NEEDED);
- 		sk->sk_max_pacing_rate = val;
- 		sk->sk_pacing_rate = min(sk->sk_pacing_rate,
- 					 sk->sk_max_pacing_rate);
-diff --git a/net/ipv4/tcp_bbr.c b/net/ipv4/tcp_bbr.c
-index b89bce4c721eed530f5cfc725b759147b38cef42..92b045c72163def1c1d6aa0f2002760186aa5dc3 100644
---- a/net/ipv4/tcp_bbr.c
-+++ b/net/ipv4/tcp_bbr.c
-@@ -52,10 +52,9 @@
-  * There is a public e-mail list for discussing BBR development and testing:
-  *   https://groups.google.com/forum/#!forum/bbr-dev
-  *
-- * NOTE: BBR *must* be used with the fq qdisc ("man tc-fq") with pacing enabled,
-- * since pacing is integral to the BBR design and implementation.
-- * BBR without pacing would not function properly, and may incur unnecessary
-- * high packet loss rates.
-+ * NOTE: BBR might be used with the fq qdisc ("man tc-fq") with pacing enabled,
-+ * otherwise TCP stack falls back to an internal pacing using one high
-+ * resolution timer per TCP socket and may use more resources.
-  */
- #include <linux/module.h>
- #include <net/tcp.h>
-@@ -830,6 +829,8 @@ static void bbr_init(struct sock *sk)
- 	bbr->cycle_idx = 0;
- 	bbr_reset_lt_bw_sampling(sk);
- 	bbr_reset_startup_mode(sk);
-+
-+	cmpxchg(&sk->sk_pacing_status, SK_PACING_NONE, SK_PACING_NEEDED);
- }
- 
- static u32 bbr_sndbuf_expand(struct sock *sk)
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 4858e190f6ac130c9441f58cb8944cc82bf67270..a32172d69a03cbe76b45ec3094222f6c3a73e27d 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -904,6 +904,72 @@ void tcp_wfree(struct sk_buff *skb)
- 	sk_free(sk);
- }
- 
-+/* Note: Called under hard irq.
-+ * We can not call TCP stack right away.
-+ */
-+enum hrtimer_restart tcp_pace_kick(struct hrtimer *timer)
-+{
-+	struct tcp_sock *tp = container_of(timer, struct tcp_sock, pacing_timer);
-+	struct sock *sk = (struct sock *)tp;
-+	unsigned long nval, oval;
-+
-+	for (oval = READ_ONCE(sk->sk_tsq_flags);; oval = nval) {
-+		struct tsq_tasklet *tsq;
-+		bool empty;
-+
-+		if (oval & TSQF_QUEUED)
-+			break;
-+
-+		nval = (oval & ~TSQF_THROTTLED) | TSQF_QUEUED | TCPF_TSQ_DEFERRED;
-+		nval = cmpxchg(&sk->sk_tsq_flags, oval, nval);
-+		if (nval != oval)
-+			continue;
-+
-+		if (!atomic_inc_not_zero(&sk->sk_wmem_alloc))
-+			break;
-+		/* queue this socket to tasklet queue */
-+		tsq = this_cpu_ptr(&tsq_tasklet);
-+		empty = list_empty(&tsq->head);
-+		list_add(&tp->tsq_node, &tsq->head);
-+		if (empty)
-+			tasklet_schedule(&tsq->tasklet);
-+		break;
-+	}
-+	return HRTIMER_NORESTART;
-+}
-+
-+/* BBR congestion control needs pacing.
-+ * Same remark for SO_MAX_PACING_RATE.
-+ * sch_fq packet scheduler is efficiently handling pacing,
-+ * but is not always installed/used.
-+ * Return true if TCP stack should pace packets itself.
-+ */
-+static bool tcp_needs_internal_pacing(const struct sock *sk)
-+{
-+	return smp_load_acquire(&sk->sk_pacing_status) == SK_PACING_NEEDED;
-+}
-+
-+static void tcp_internal_pacing(struct sock *sk, const struct sk_buff *skb)
-+{
-+	u64 len_ns;
-+	u32 rate;
-+
-+	if (!tcp_needs_internal_pacing(sk))
-+		return;
-+	rate = sk->sk_pacing_rate;
-+	if (!rate || rate == ~0U)
-+		return;
-+
-+	/* Should account for header sizes as sch_fq does,
-+	 * but lets make things simple.
-+	 */
-+	len_ns = (u64)skb->len * NSEC_PER_SEC;
-+	do_div(len_ns, rate);
-+	hrtimer_start(&tcp_sk(sk)->pacing_timer,
-+		      ktime_add_ns(ktime_get(), len_ns),
-+		      HRTIMER_MODE_ABS_PINNED);
-+}
-+
- /* This routine actually transmits TCP packets queued in by
-  * tcp_do_sendmsg().  This is used by both the initial
-  * transmission and possible later retransmissions.
-@@ -1034,6 +1100,7 @@ static int tcp_transmit_skb(struct sock *sk, struct sk_buff *skb, int clone_it,
- 	if (skb->len != tcp_header_size) {
- 		tcp_event_data_sent(tp, sk);
- 		tp->data_segs_out += tcp_skb_pcount(skb);
-+		tcp_internal_pacing(sk, skb);
- 	}
- 
- 	if (after(tcb->end_seq, tp->snd_nxt) || tcb->seq == tcb->end_seq)
-@@ -2086,6 +2153,12 @@ static int tcp_mtu_probe(struct sock *sk)
- 	return -1;
- }
- 
-+static bool tcp_pacing_check(const struct sock *sk)
-+{
-+	return tcp_needs_internal_pacing(sk) &&
-+	       hrtimer_active(&tcp_sk(sk)->pacing_timer);
-+}
-+
- /* TCP Small Queues :
-  * Control number of packets in qdisc/devices to two packets / or ~1 ms.
-  * (These limits are doubled for retransmits)
-@@ -2210,6 +2283,9 @@ static bool tcp_write_xmit(struct sock *sk, unsigned int mss_now, int nonagle,
- 	while ((skb = tcp_send_head(sk))) {
- 		unsigned int limit;
- 
-+		if (tcp_pacing_check(sk))
-+			break;
-+
- 		tso_segs = tcp_init_tso_segs(skb, mss_now);
- 		BUG_ON(!tso_segs);
- 
-@@ -2878,6 +2954,10 @@ void tcp_xmit_retransmit_queue(struct sock *sk)
- 
- 		if (skb == tcp_send_head(sk))
- 			break;
-+
-+		if (tcp_pacing_check(sk))
-+			break;
-+
- 		/* we could do better than to assign each time */
- 		if (!hole)
- 			tp->retransmit_skb_hint = skb;
-diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
-index 14672543cf0bd27bc59976d5cec38d2d3bbcdd2c..86934bcf685a65ec3af3d22f1801ffa33eea76e2 100644
---- a/net/ipv4/tcp_timer.c
-+++ b/net/ipv4/tcp_timer.c
-@@ -710,4 +710,7 @@ void tcp_init_xmit_timers(struct sock *sk)
- {
- 	inet_csk_init_xmit_timers(sk, &tcp_write_timer, &tcp_delack_timer,
- 				  &tcp_keepalive_timer);
-+	hrtimer_init(&tcp_sk(sk)->pacing_timer, CLOCK_MONOTONIC,
-+		     HRTIMER_MODE_ABS_PINNED);
-+	tcp_sk(sk)->pacing_timer.function = tcp_pace_kick;
- }
-diff --git a/net/sched/sch_fq.c b/net/sched/sch_fq.c
-index b488721a0059adb24aea47240afa0164a6e467a9..147fde73a0f566e8f6a26718adf176ef3943afa0 100644
---- a/net/sched/sch_fq.c
-+++ b/net/sched/sch_fq.c
-@@ -390,9 +390,17 @@ static int fq_enqueue(struct sk_buff *skb, struct Qdisc *sch,
- 		q->stat_tcp_retrans++;
- 	qdisc_qstats_backlog_inc(sch, skb);
- 	if (fq_flow_is_detached(f)) {
-+		struct sock *sk = skb->sk;
-+
- 		fq_flow_add_tail(&q->new_flows, f);
- 		if (time_after(jiffies, f->age + q->flow_refill_delay))
- 			f->credit = max_t(u32, f->credit, q->quantum);
-+		if (sk && q->rate_enable) {
-+			if (unlikely(smp_load_acquire(&sk->sk_pacing_status) !=
-+				     SK_PACING_FQ))
-+				smp_store_release(&sk->sk_pacing_status,
-+						  SK_PACING_FQ);
-+		}
- 		q->inactive_flows--;
- 	}
- 
+ config MLX5_CORE_EN
+ 	bool "Mellanox Technologies ConnectX-4 Ethernet support"
+-	depends on NETDEVICES && ETHERNET && PCI && MLX5_CORE
++	depends on NETDEVICES && ETHERNET && INET && PCI && MLX5_CORE
+ 	depends on IPV6=y || IPV6=n || MLX5_CORE=m
+ 	imply PTP_1588_CLOCK
+ 	default n
 -- 
-2.13.0.303.g4ebf302169-goog
+2.9.0
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
