@@ -1,36 +1,43 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: Re: [PATCH v3 net-next 5/7] net: don't make false software transmit timestamps
-Date: Tue, 16 May 2017 18:34:38 -0400
-Message-ID: <CAF=yD-+rFQBER8A=P216Bgbtxq+zHgAERoZaGdp=dvo=_otMXA@mail.gmail.com>
-References: <20170516124425.6294-1-mlichvar@redhat.com> <20170516124425.6294-6-mlichvar@redhat.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [patch net-next v3 05/10] net: sched: move TC_H_MAJ macro call
+ into tcf_auto_prio
+Date: Tue, 16 May 2017 15:38:08 -0700
+Message-ID: <CAM_iQpUcoK04Xim8PbHg3GVykhioCA1MrBd3Ddd7HERaVYELQg@mail.gmail.com>
+References: <20170516172802.1317-1-jiri@resnulli.us> <20170516172802.1317-6-jiri@resnulli.us>
+ <CAM_iQpXUY03tfi1RHLx0EnT5ZP1xPNdo4xGmUUiSKvRtSg44vw@mail.gmail.com> <20170516210346.GS1939@nanopsycho.orion>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: Network Development <netdev@vger.kernel.org>,
-        Richard Cochran <richardcochran@gmail.com>,
-        Willem de Bruijn <willemb@google.com>
-To: Miroslav Lichvar <mlichvar@redhat.com>
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        David Ahern <dsa@cumulusnetworks.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Stephen Hemminger <stephen@networkplumber.org>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Alexander Duyck <alexander.h.duyck@intel.com>,
+        Simon Horman <simon.horman@netronome.com>, mlxsw@mellanox.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f47.google.com ([209.85.218.47]:33618 "EHLO
-        mail-oi0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752157AbdEPWfT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 16 May 2017 18:35:19 -0400
-Received: by mail-oi0-f47.google.com with SMTP id w10so43931233oif.0
-        for <netdev@vger.kernel.org>; Tue, 16 May 2017 15:35:19 -0700 (PDT)
-In-Reply-To: <20170516124425.6294-6-mlichvar@redhat.com>
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:34353 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751858AbdEPWia (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 16 May 2017 18:38:30 -0400
+Received: by mail-wm0-f68.google.com with SMTP id d127so41043642wmf.1
+        for <netdev@vger.kernel.org>; Tue, 16 May 2017 15:38:29 -0700 (PDT)
+In-Reply-To: <20170516210346.GS1939@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 16, 2017 at 8:44 AM, Miroslav Lichvar <mlichvar@redhat.com> wrote:
-> If software timestamping is enabled by the SO_TIMESTAMP(NS) option
-> when a message without timestamp is already waiting in the queue, the
-> __sock_recv_timestamp() function will read the current time to make a
-> timestamp in order to always have something for the application.
+On Tue, May 16, 2017 at 2:03 PM, Jiri Pirko <jiri@resnulli.us> wrote:
+> Tue, May 16, 2017 at 11:01:52PM CEST, xiyou.wangcong@gmail.com wrote:
+>>On Tue, May 16, 2017 at 10:27 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+>>> From: Jiri Pirko <jiri@mellanox.com>
+>>>
+>>> Call the helper from the function rather than to always adjust the
+>>> return value of the function.
+>>
+>>And rename the function name to reflect this change?
 >
-> However, this applies also to outgoing packets looped back to the error
-> queue when hardware timestamping is enabled by the SO_TIMESTAMPING
-> option.
+> ? What do you suggest?
 
-This is already the case for sockets that have both software receive
-timestamps and hardware tx timestamps enabled, independent from
-the new option SOF_TIMESTAMPING_OPT_TX_SWHW, right? If so,
-then this behavior must remain.
+tcf_auto_major_prio()?
