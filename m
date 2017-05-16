@@ -1,160 +1,52 @@
-From: Miroslav Lichvar <mlichvar@redhat.com>
-Subject: [PATCH v3 net-next 4/7] net: add new control message for incoming HW-timestamped packets
-Date: Tue, 16 May 2017 14:44:22 +0200
-Message-ID: <20170516124425.6294-5-mlichvar@redhat.com>
-References: <20170516124425.6294-1-mlichvar@redhat.com>
-Cc: Richard Cochran <richardcochran@gmail.com>,
-        Willem de Bruijn <willemb@google.com>
-To: netdev@vger.kernel.org
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [patch net-next v2 10/10] net: sched: add termination action to
+ allow goto chain
+Date: Tue, 16 May 2017 08:46:26 -0400
+Message-ID: <6118ec19-9093-eaf2-6677-28c128e636a9@mojatatu.com>
+References: <20170515083857.3615-1-jiri@resnulli.us>
+ <20170515083857.3615-11-jiri@resnulli.us> <591A0940.2070801@iogearbox.net>
+ <20170516044319.GA24493@nanopsycho> <591AB168.30202@iogearbox.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+        xiyou.wangcong@gmail.com, dsa@cumulusnetworks.com,
+        edumazet@google.com, stephen@networkplumber.org,
+        alexander.h.duyck@intel.com, simon.horman@netronome.com,
+        mlxsw@mellanox.com, alexei.starovoitov@gmail.com
+To: Daniel Borkmann <daniel@iogearbox.net>,
+        Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:45038 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752750AbdEPMpB (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 16 May 2017 08:45:01 -0400
-In-Reply-To: <20170516124425.6294-1-mlichvar@redhat.com>
+Received: from mail-it0-f68.google.com ([209.85.214.68]:36514 "EHLO
+        mail-it0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752230AbdEPMq3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 16 May 2017 08:46:29 -0400
+Received: by mail-it0-f68.google.com with SMTP id z15so13283721ite.3
+        for <netdev@vger.kernel.org>; Tue, 16 May 2017 05:46:29 -0700 (PDT)
+In-Reply-To: <591AB168.30202@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add SOF_TIMESTAMPING_OPT_PKTINFO option to request a new control message
-for incoming packets with hardware timestamps. It contains the index of
-the real interface which received the packet and the length of the
-packet at layer 2.
+On 17-05-16 03:59 AM, Daniel Borkmann wrote:
+> On 05/16/2017 06:43 AM, Jiri Pirko wrote:
+>> Mon, May 15, 2017 at 10:02:08PM CEST, daniel@iogearbox.net wrote:
 
-The index is useful with bonding, bridges and other interfaces, where
-IP_PKTINFO doesn't allow applications to determine which PHC made the
-timestamp. With the L2 length (and link speed) it is possible to
-transpose preamble timestamps to trailer timestamps, which are used in
-the NTP protocol.
+[..]
+>>>
+>>> Given this goto chain feature is pretty much only interesting for hw
+>>> offloads, can we move this further away from the sw fast path to not
+>>> add up to the cost per packet? (I doubt anyone is using
+>>> TC_ACT_RECLASSIFY
+>>> in sw as well ...)
+>>
+>> I don't think so. First of all, the whole thing would be broken then in
+>> sw. It is useful to have it in sw, at least for testing reasons.
+>> So I would leave the unlikely and add it to the second check as well.
+>
+> Ok, lets go with that then, thanks!
 
-While this information could be provided by two new socket options
-independently from timestamping, it doesn't look like they would be very
-useful. With this option any performance impact is limited to hardware
-timestamping.
+Side comment:
+I dont think this is only useful for h/w offloads;->
 
-Use dev_get_by_napi_id() to get the device and its index. On kernels
-with disabled CONFIG_NET_RX_BUSY_POLL or drivers not using NAPI, a zero
-index will be returned in the control message.
-
-CC: Richard Cochran <richardcochran@gmail.com>
-CC: Willem de Bruijn <willemb@google.com>
-Signed-off-by: Miroslav Lichvar <mlichvar@redhat.com>
----
- Documentation/networking/timestamping.txt |  9 +++++++++
- include/uapi/asm-generic/socket.h         |  2 ++
- include/uapi/linux/net_tstamp.h           | 10 +++++++++-
- net/socket.c                              | 27 ++++++++++++++++++++++++++-
- 4 files changed, 46 insertions(+), 2 deletions(-)
-
-diff --git a/Documentation/networking/timestamping.txt b/Documentation/networking/timestamping.txt
-index 96f5069..600c6bf 100644
---- a/Documentation/networking/timestamping.txt
-+++ b/Documentation/networking/timestamping.txt
-@@ -193,6 +193,15 @@ SOF_TIMESTAMPING_OPT_STATS:
-   the transmit timestamps, such as how long a certain block of
-   data was limited by peer's receiver window.
- 
-+SOF_TIMESTAMPING_OPT_PKTINFO:
-+
-+  Enable the SCM_TIMESTAMPING_PKTINFO control message for incoming
-+  packets with hardware timestamps. The message contains struct
-+  scm_ts_pktinfo, which supplies the index of the real interface which
-+  received the packet and its length at layer 2. A valid (non-zero)
-+  interface index will be returned only if CONFIG_NET_RX_BUSY_POLL is
-+  enabled and the driver is using NAPI.
-+
- New applications are encouraged to pass SOF_TIMESTAMPING_OPT_ID to
- disambiguate timestamps and SOF_TIMESTAMPING_OPT_TSONLY to operate
- regardless of the setting of sysctl net.core.tstamp_allow_data.
-diff --git a/include/uapi/asm-generic/socket.h b/include/uapi/asm-generic/socket.h
-index 2b48856..a5f6e81 100644
---- a/include/uapi/asm-generic/socket.h
-+++ b/include/uapi/asm-generic/socket.h
-@@ -100,4 +100,6 @@
- 
- #define SO_COOKIE		57
- 
-+#define SCM_TIMESTAMPING_PKTINFO	58
-+
- #endif /* __ASM_GENERIC_SOCKET_H */
-diff --git a/include/uapi/linux/net_tstamp.h b/include/uapi/linux/net_tstamp.h
-index 0749fb1..f2fb455 100644
---- a/include/uapi/linux/net_tstamp.h
-+++ b/include/uapi/linux/net_tstamp.h
-@@ -9,6 +9,7 @@
- #ifndef _NET_TIMESTAMPING_H
- #define _NET_TIMESTAMPING_H
- 
-+#include <linux/types.h>
- #include <linux/socket.h>   /* for SO_TIMESTAMPING */
- 
- /* SO_TIMESTAMPING gets an integer bit field comprised of these values */
-@@ -26,8 +27,9 @@ enum {
- 	SOF_TIMESTAMPING_OPT_CMSG = (1<<10),
- 	SOF_TIMESTAMPING_OPT_TSONLY = (1<<11),
- 	SOF_TIMESTAMPING_OPT_STATS = (1<<12),
-+	SOF_TIMESTAMPING_OPT_PKTINFO = (1<<13),
- 
--	SOF_TIMESTAMPING_LAST = SOF_TIMESTAMPING_OPT_STATS,
-+	SOF_TIMESTAMPING_LAST = SOF_TIMESTAMPING_OPT_PKTINFO,
- 	SOF_TIMESTAMPING_MASK = (SOF_TIMESTAMPING_LAST - 1) |
- 				 SOF_TIMESTAMPING_LAST
- };
-@@ -130,4 +132,10 @@ enum hwtstamp_rx_filters {
- 	HWTSTAMP_FILTER_NTP_ALL,
- };
- 
-+/* SCM_TIMESTAMPING_PKTINFO control message */
-+struct scm_ts_pktinfo {
-+	__u32 if_index;
-+	__u32 pkt_length;
-+};
-+
- #endif /* _NET_TIMESTAMPING_H */
-diff --git a/net/socket.c b/net/socket.c
-index c2564eb..ee1f4ec 100644
---- a/net/socket.c
-+++ b/net/socket.c
-@@ -662,6 +662,27 @@ static bool skb_is_err_queue(const struct sk_buff *skb)
- 	return skb->pkt_type == PACKET_OUTGOING;
- }
- 
-+static void put_ts_pktinfo(struct msghdr *msg, struct sk_buff *skb)
-+{
-+	struct scm_ts_pktinfo ts_pktinfo;
-+	struct net_device *orig_dev;
-+	int ifindex = 0;
-+
-+	if (!skb_mac_header_was_set(skb))
-+		return;
-+
-+	rcu_read_lock();
-+	orig_dev = dev_get_by_napi_id(skb_napi_id(skb));
-+	if (orig_dev)
-+		ifindex = orig_dev->ifindex;
-+	rcu_read_unlock();
-+
-+	ts_pktinfo.if_index = ifindex;
-+	ts_pktinfo.pkt_length = skb->len - skb_mac_offset(skb);
-+	put_cmsg(msg, SOL_SOCKET, SCM_TIMESTAMPING_PKTINFO,
-+		 sizeof(ts_pktinfo), &ts_pktinfo);
-+}
-+
- /*
-  * called from sock_recv_timestamp() if sock_flag(sk, SOCK_RCVTSTAMP)
-  */
-@@ -699,8 +720,12 @@ void __sock_recv_timestamp(struct msghdr *msg, struct sock *sk,
- 		empty = 0;
- 	if (shhwtstamps &&
- 	    (sk->sk_tsflags & SOF_TIMESTAMPING_RAW_HARDWARE) &&
--	    ktime_to_timespec_cond(shhwtstamps->hwtstamp, tss.ts + 2))
-+	    ktime_to_timespec_cond(shhwtstamps->hwtstamp, tss.ts + 2)) {
- 		empty = 0;
-+		if ((sk->sk_tsflags & SOF_TIMESTAMPING_OPT_PKTINFO) &&
-+		    !skb_is_err_queue(skb))
-+			put_ts_pktinfo(msg, skb);
-+	}
- 	if (!empty) {
- 		put_cmsg(msg, SOL_SOCKET,
- 			 SCM_TIMESTAMPING, sizeof(tss), &tss);
--- 
-2.9.3
+cheers,
+jamal
