@@ -1,56 +1,44 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [RFC V1 1/1] net: cdc_ncm: Reduce memory use when kernel memory low
-Date: Tue, 16 May 2017 20:24:10 +0200
-Message-ID: <87shk4fynp.fsf@miraculix.mork.no>
-References: <1494956480-6127-1-git-send-email-jim_baxter@mentor.com>
-        <1494956480-6127-2-git-send-email-jim_baxter@mentor.com>
+From: Felix Manlunas <felix.manlunas@cavium.com>
+Subject: [PATCH net-next] liquidio: fix PF falsely indicating success at
+ setting MAC address of a nonexistent VF
+Date: Tue, 16 May 2017 11:28:00 -0700
+Message-ID: <20170516182800.GA1067@felix-thinkpad.cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
-Cc: <linux-usb@vger.kernel.org>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>, Oliver Neukum <oliver@neukum.org>
-To: Jim Baxter <jim_baxter@mentor.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1494956480-6127-2-git-send-email-jim_baxter@mentor.com> (Jim
-        Baxter's message of "Tue, 16 May 2017 18:41:20 +0100")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
+        derek.chickles@cavium.com, satananda.burla@cavium.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-by2nam03on0051.outbound.protection.outlook.com ([104.47.42.51]:40342
+        "EHLO NAM03-BY2-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1750853AbdEPS2G (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 16 May 2017 14:28:06 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Jim Baxter <jim_baxter@mentor.com> writes:
+In the function assigned to .ndo_set_vf_mac, check the validity of the
+vfidx argument before proceeding to tell the firmware to set the VF MAC
+address.
 
-> The CDC-NCM driver can require large amounts of memory to create
-> skb's and this can be a problem when the memory becomes fragmented.
->
-> This especially affects embedded systems that have constrained
-> resources but wish to maximise the throughput of CDC-NCM with 16KiB
-> NTB's.
->
-> The issue is after running for a while the kernel memory can become
-> fragmented and it needs compacting.
-> If the NTB allocation is needed before the memory has been compacted
-> the atomic allocation can fail which can cause increased latency,
-> large re-transmissions or disconnections depending upon the data
-> being transmitted at the time.
-> This situation occurs for less than a second until the kernel has
-> compacted the memory but the failed devices can take a lot longer to
-> recover from the failed TX packets.
->
-> To ease this temporary situation I modified the CDC-NCM TX path to
-> temporarily switch into a reduced memory mode which allocates an NTB
-> that will fit into a USB_CDC_NCM_NTB_MIN_OUT_SIZE (default 2048 Bytes)
-> sized memory block and only transmit NTB's with a single network frame
-> until the memory situation is resolved.
-> Once the memory is compacted the CDC-NCM data can resume transmitting
-> at the normal tx_max rate once again.
+Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
+Signed-off-by: Derek Chickles <derek.chickles@cavium.com>
+---
+ drivers/net/ethernet/cavium/liquidio/lio_main.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
-I must say that I don't like the additional complexity added here.  If
-there are memory issues and you can reduce the buffer size to
-USB_CDC_NCM_NTB_MIN_OUT_SIZE, then why don't you just set a lower tx_max
-buffer size in the first place?
-
-  echo 2048 > /sys/class/net/wwan0/cdc_ncm/tx_max
-
-
-
-
-Bj=C3=B8rn
+diff --git a/drivers/net/ethernet/cavium/liquidio/lio_main.c b/drivers/net/ethernet/cavium/liquidio/lio_main.c
+index 927617c..eed6ff0 100644
+--- a/drivers/net/ethernet/cavium/liquidio/lio_main.c
++++ b/drivers/net/ethernet/cavium/liquidio/lio_main.c
+@@ -3694,6 +3694,9 @@ static int liquidio_set_vf_mac(struct net_device *netdev, int vfidx, u8 *mac)
+ 	struct octeon_device *oct = lio->oct_dev;
+ 	int retval;
+ 
++	if (vfidx < 0 || vfidx >= oct->sriov_info.num_vfs_alloced)
++		return -EINVAL;
++
+ 	retval = __liquidio_set_vf_mac(netdev, vfidx, mac, true);
+ 	if (!retval)
+ 		cn23xx_tell_vf_its_macaddr_changed(oct, vfidx, mac);
