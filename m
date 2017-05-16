@@ -1,82 +1,46 @@
-From: Doug Ledford <dledford@redhat.com>
-Subject: Re: [PATCH] net/smc: mark as BROKEN due to remote memory exposure
-Date: Tue, 16 May 2017 13:12:37 -0400
-Message-ID: <1494954757.3259.123.camel@redhat.com>
-References: <20170516.122923.869994491617365845.davem@davemloft.net>
-         <20170516163041.GA5132@lst.de> <1494952561.3259.104.camel@redhat.com>
-         <20170516.124129.292555623308256441.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net v2] net: x25: fix one potential use-after-free issue
+Date: Tue, 16 May 2017 13:16:26 -0400 (EDT)
+Message-ID: <20170516.131626.1752384449655666500.davem@davemloft.net>
+References: <1494906774-16352-1-git-send-email-xiaolou4617@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: hch@lst.de, Bart.VanAssche@sandisk.com,
-        torvalds@linux-foundation.org, netdev@vger.kernel.org,
-        linux-rdma@vger.kernel.org, stable@vger.kernel.org,
-        ubraun@linux.vnet.ibm.com
-To: David Miller <davem@davemloft.net>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <20170516.124129.292555623308256441.davem@davemloft.net>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: andrew.hendry@gmail.com, nhorman@tuxdriver.com,
+        linux-x25@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: xiaolou4617@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:51280 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752214AbdEPRQ2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 16 May 2017 13:16:28 -0400
+In-Reply-To: <1494906774-16352-1-git-send-email-xiaolou4617@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2017-05-16 at 12:41 -0400, David Miller wrote:
-> From: Doug Ledford <dledford@redhat.com>
-> Date: Tue, 16 May 2017 12:36:01 -0400
-> 
-> > On Tue, 2017-05-16 at 18:30 +0200, Christoph Hellwig wrote:
-> >> On Tue, May 16, 2017 at 12:29:23PM -0400, David Miller wrote:
-> >> > 
-> >> > I can't push back on people with silly coding style and small
-> >> > semantic
-> >> > issues forever.  And I think I made a serious effort to keep the
-> >> > patches getting posted over and over again to make sure they got
-> >> > more
-> >> > exposure.
-> >> 
-> >> You can tell them to go to linux-rdma.  I'm sending people to the
-> >> right
-> >> mailing list all the time.
-> > 
-> > Indeed.  Every single time a patch comes into linux-rdma that
-> touches
-> > things in net/ or include/net, unless it is exceedingly minor, I
-> check
-> > the To:/Cc: lines on the email and if netdev@ isn't included, or in
-> the
-> > case of complex/tricky items, you aren't directly Cc:ed, then I
-> > specifically tell them to include netdev@ and/or you.  I've even
-> had
-> > things like a 12 patch series that buried three netdev@ appropriate
-> > patches at different points in the series and told the submitter to
-> > move all of the netdev@ related patches to the front and submit
-> them to
-> > netdev@ so they can be reviewed as a group before I would move on
-> to
-> > the others.  It's just what you do.  I've always considered that
-> part
-> > of my job.
-> 
-> To be quite honest it wasn't exceedingly clear, even to me, that this
-> had such implications or was directly a RDMA thing.  From my
-> perspective while reviewing I saw a patch series adding it's own
-> protocol stack living inside of it's own directory under net/
+From: linzhang <xiaolou4617@gmail.com>
+Date: Tue, 16 May 2017 11:52:54 +0800
 
-OK.  Fair enough.  That implies to me that you probably dove right into
-the patches and skimmed the cover letter (http://marc.info/?l=linux-s39
-0&m=148397751211964&w=2), because when I read the cover letter, it
-seems pretty clear to me that this is very much RDMA related.  In any
-case, there are already two other code bases that live under net/ but
-also involve RDMA heavily: nfs and rds.  This is a third now.  So, for
-future reference, just like the RDMA related nfs/rds patches already
-get Cc:ed to linux-rdma@, these probably should be too.
+>  	return rc;
+> -out_dev:
+> +out_proc:
+> +	x25_unregister_sysctl();
+> +out_sysctl:
+>  	unregister_netdevice_notifier(&x25_dev_notifier);
+> -out_sock:
+> +out_dev:
+> +	dev_remove_pack(&x25_packet_type);
+>  	sock_unregister(AF_X25);
+> -out_proto:
+> +out_sock:
+>  	proto_unregister(&x25_proto);
+>  	goto out;
+>  }
 
-> And, if even one RDMA/infiniband person said to me "you really
-> shouldn't apply this" then I would have dropped it on the spot.
+Please do not name the labels this way, retain the current convention.
+And that is the label names what resources get released not the
+resource that we failed to acquire.
 
-I'm glad to hear that.  I wish we had managed to get together on this
-sooner.
-
--- 
-Doug Ledford <dledford@redhat.com>
-    GPG KeyID: B826A3330E572FDD
-   
-Key fingerprint = AE6B 1BDA 122B 23B4 265B  1274 B826 A333 0E57 2FDD
+So the first label, should be "out_sysctl:" because that is what we
+are releasing.
