@@ -1,31 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next] bnxt: add dma mapping attributes
-Date: Tue, 16 May 2017 11:53:25 -0400 (EDT)
-Message-ID: <20170516.115325.904175179446683748.davem@davemloft.net>
-References: <1494379812-282087-1-git-send-email-shannon.nelson@oracle.com>
+Subject: Re: [PATCH net-next,v2] tools: hv: Add clean up for included files
+ in Ubuntu net config
+Date: Tue, 16 May 2017 11:53:35 -0400 (EDT)
+Message-ID: <20170516.115335.556054324035758220.davem@davemloft.net>
+References: <1494616451-30130-1-git-send-email-haiyangz@exchange.microsoft.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sparclinux@vger.kernel.org,
-        michael.chan@broadcom.com
-To: shannon.nelson@oracle.com
-Return-path: <sparclinux-owner@vger.kernel.org>
-In-Reply-To: <1494379812-282087-1-git-send-email-shannon.nelson@oracle.com>
-Sender: sparclinux-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, kys@microsoft.com, olaf@aepfle.de,
+        vkuznets@redhat.com, linux-kernel@vger.kernel.org
+To: haiyangz@microsoft.com, haiyangz@exchange.microsoft.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1494616451-30130-1-git-send-email-haiyangz@exchange.microsoft.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Shannon Nelson <shannon.nelson@oracle.com>
-Date: Tue,  9 May 2017 18:30:12 -0700
+From: Haiyang Zhang <haiyangz@exchange.microsoft.com>
+Date: Fri, 12 May 2017 12:14:11 -0700
 
-> On the SPARC platform we need to use the DMA_ATTR_WEAK_ORDERING attribute
-> in our Rx path dma mapping in order to get the expected performance out
-> of the receive path.  Adding it to the Tx path has little effect, so
-> that's not a part of this patch.
+> From: Haiyang Zhang <haiyangz@microsoft.com>
 > 
-> Signed-off-by: Shannon Nelson <shannon.nelson@oracle.com>
-> Reviewed-by: Tushar Dave <tushar.n.dave@oracle.com>
-> Reviewed-by: Tom Saeger <tom.saeger@oracle.com>
-> ---
-> v2: simplify by getting rid of the driver-specific ifdef and define
+> The clean up function is updated to cover duplicate config info in
+> files included by "source" key word in Ubuntu network config.
+> 
+> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
 
 Applied.
