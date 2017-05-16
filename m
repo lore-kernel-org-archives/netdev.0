@@ -1,127 +1,74 @@
-From: linzhang <xiaolou4617@gmail.com>
-Subject: [PATCH net v2] net: x25: fix one potential use-after-free issue
-Date: Tue, 16 May 2017 11:52:54 +0800
-Message-ID: <1494906774-16352-1-git-send-email-xiaolou4617@gmail.com>
-Cc: nhorman@tuxdriver.com, linux-x25@vger.kernel.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linzhang <xiaolou4617@gmail.com>
-To: andrew.hendry@gmail.com, davem@davemloft.net
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next v2 10/10] net: sched: add termination action to
+ allow goto chain
+Date: Tue, 16 May 2017 06:43:19 +0200
+Message-ID: <20170516044319.GA24493@nanopsycho>
+References: <20170515083857.3615-1-jiri@resnulli.us>
+ <20170515083857.3615-11-jiri@resnulli.us>
+ <591A0940.2070801@iogearbox.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, jhs@mojatatu.com,
+        xiyou.wangcong@gmail.com, dsa@cumulusnetworks.com,
+        edumazet@google.com, stephen@networkplumber.org,
+        alexander.h.duyck@intel.com, simon.horman@netronome.com,
+        mlxsw@mellanox.com, alexei.starovoitov@gmail.com
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:36617 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750713AbdEPDxH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 15 May 2017 23:53:07 -0400
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:34840 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751225AbdEPEnW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 16 May 2017 00:43:22 -0400
+Received: by mail-wm0-f66.google.com with SMTP id v4so34490889wmb.2
+        for <netdev@vger.kernel.org>; Mon, 15 May 2017 21:43:22 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <591A0940.2070801@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The function x25_init is not properly unregister related resources
-on error handler.It is will result in kernel oops if x25_init init
-failed, so add properly unregister call on error handler.
+Mon, May 15, 2017 at 10:02:08PM CEST, daniel@iogearbox.net wrote:
+>On 05/15/2017 10:38 AM, Jiri Pirko wrote:
+>> From: Jiri Pirko <jiri@mellanox.com>
+>> 
+>> Introduce new type of termination action called "goto_chain". This allows
+>> user to specify a chain to be processed. This action type is
+>> then processed as a return value in tcf_classify loop in similar
+>> way as "reclassify" is, only it does not reset to the first filter
+>> in chain but rather reset to the first filter of the desired chain.
+>> 
+>> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+>[...]
+>> diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
+>> index 1112a2b..98cc689 100644
+>> --- a/net/sched/cls_api.c
+>> +++ b/net/sched/cls_api.c
+>> @@ -304,10 +304,14 @@ int tcf_classify(struct sk_buff *skb, const struct tcf_proto *tp,
+>>   			continue;
+>> 
+>>   		err = tp->classify(skb, tp, res);
+>> -		if (unlikely(err == TC_ACT_RECLASSIFY && !compat_mode))
+>> +		if (err == TC_ACT_RECLASSIFY && !compat_mode) {
+>>   			goto reset;
+>> -		if (err >= 0)
+>> +		} else if (TC_ACT_EXT_CMP(err, TC_ACT_GOTO_CHAIN)) {
+>> +			old_tp = res->goto_tp;
+>> +			goto reset;
+>> +		} else if (err >= 0) {
+>>   			return err;
+>> +		}
+>
+>Given this goto chain feature is pretty much only interesting for hw
+>offloads, can we move this further away from the sw fast path to not
+>add up to the cost per packet? (I doubt anyone is using TC_ACT_RECLASSIFY
+>in sw as well ...)
 
-Also, i adjust the coding style and make x25_register_sysctl properly
-return failure.
+I don't think so. First of all, the whole thing would be broken then in
+sw. It is useful to have it in sw, at least for testing reasons.
+So I would leave the unlikely and add it to the second check as well.
 
-Signed-off-by: linzhang <xiaolou4617@gmail.com>
----
- include/net/x25.h        |  4 ++--
- net/x25/af_x25.c         | 34 +++++++++++++++++++++-------------
- net/x25/sysctl_net_x25.c |  5 ++++-
- 3 files changed, 27 insertions(+), 16 deletions(-)
 
-diff --git a/include/net/x25.h b/include/net/x25.h
-index c383aa4..339820c 100644
---- a/include/net/x25.h
-+++ b/include/net/x25.h
-@@ -298,10 +298,10 @@ int x25_decode(struct sock *, struct sk_buff *, int *, int *, int *, int *,
- 
- /* sysctl_net_x25.c */
- #ifdef CONFIG_SYSCTL
--void x25_register_sysctl(void);
-+int x25_register_sysctl(void);
- void x25_unregister_sysctl(void);
- #else
--static inline void x25_register_sysctl(void) {};
-+static inline int x25_register_sysctl(void) { return 0 };
- static inline void x25_unregister_sysctl(void) {};
- #endif /* CONFIG_SYSCTL */
- 
-diff --git a/net/x25/af_x25.c b/net/x25/af_x25.c
-index 8b911c2..75c64de 100644
---- a/net/x25/af_x25.c
-+++ b/net/x25/af_x25.c
-@@ -1791,34 +1791,42 @@ void x25_kill_by_neigh(struct x25_neigh *nb)
- 
- static int __init x25_init(void)
- {
--	int rc = proto_register(&x25_proto, 0);
-+	int rc;
- 
--	if (rc != 0)
-+	rc = proto_register(&x25_proto, 0);
-+	if (rc)
- 		goto out;
- 
- 	rc = sock_register(&x25_family_ops);
--	if (rc != 0)
--		goto out_proto;
-+	if (rc)
-+		goto out_sock;
- 
- 	dev_add_pack(&x25_packet_type);
- 
- 	rc = register_netdevice_notifier(&x25_dev_notifier);
--	if (rc != 0)
--		goto out_sock;
-+	if (rc)
-+		goto out_dev;
- 
--	pr_info("Linux Version 0.2\n");
-+	rc = x25_register_sysctl();
-+	if (rc)
-+		goto out_sysctl;
- 
--	x25_register_sysctl();
- 	rc = x25_proc_init();
--	if (rc != 0)
--		goto out_dev;
-+	if (rc)
-+		goto out_proc;
-+
-+	pr_info("Linux Version 0.2\n");
-+
- out:
- 	return rc;
--out_dev:
-+out_proc:
-+	x25_unregister_sysctl();
-+out_sysctl:
- 	unregister_netdevice_notifier(&x25_dev_notifier);
--out_sock:
-+out_dev:
-+	dev_remove_pack(&x25_packet_type);
- 	sock_unregister(AF_X25);
--out_proto:
-+out_sock:
- 	proto_unregister(&x25_proto);
- 	goto out;
- }
-diff --git a/net/x25/sysctl_net_x25.c b/net/x25/sysctl_net_x25.c
-index a06dfe1..ba078c8 100644
---- a/net/x25/sysctl_net_x25.c
-+++ b/net/x25/sysctl_net_x25.c
-@@ -73,9 +73,12 @@
- 	{ },
- };
- 
--void __init x25_register_sysctl(void)
-+int __init x25_register_sysctl(void)
- {
- 	x25_table_header = register_net_sysctl(&init_net, "net/x25", x25_table);
-+	if (!x25_table_header)
-+		return -ENOMEM;
-+	return 0;
- }
- 
- void x25_unregister_sysctl(void)
--- 
-1.8.3.1
+>
+>>   	}
+>> 
+>>   	return TC_ACT_UNSPEC; /* signal: continue lookup */
+>> 
