@@ -1,186 +1,383 @@
-From: Davide Caratti <dcaratti@redhat.com>
-Subject: [PATCH net-next v2 3/7] sk_buff: remove support for csum_bad in sk_buff
-Date: Tue, 16 May 2017 18:27:47 +0200
-Message-ID: <7a4c2076f525ac3ad247a5da0425d1388089d8f2.1494946940.git.dcaratti@redhat.com>
-References: <cover.1494946940.git.dcaratti@redhat.com>
-Cc: Alexander Duyck <alexander.duyck@gmail.com>,
-        Tom Herbert <tom@herbertland.com>,
-        David Laight <David.Laight@ACULAB.COM>,
-        "David S. Miller" <davem@davemloft.net>,
-        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-To: linux-sctp@vger.kernel.org, netdev@vger.kernel.org
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: [PATCH] net: phy: Remove residual magic from PHY drivers
+Date: Tue, 16 May 2017 18:29:11 +0200
+Message-ID: <1494952151-3040-1-git-send-email-andrew@lunn.ch>
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+        netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:51930 "EHLO mx1.redhat.com"
+Received: from vps0.lunn.ch ([178.209.37.122]:60565 "EHLO vps0.lunn.ch"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753245AbdEPQ3n (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 16 May 2017 12:29:43 -0400
-In-Reply-To: <cover.1494946940.git.dcaratti@redhat.com>
+        id S1751677AbdEPQ3r (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 16 May 2017 12:29:47 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This bit was introduced with commit 5a21232983aa ("net: Support for
-csum_bad in skbuff") to reduce the stack workload when processing RX
-packets carrying a wrong Internet Checksum. Up to now, only one driver and
-GRO core are setting it.
+commit fa8cddaf903c ("net phylib: Remove unnecessary condition check in phy")
+removed the only place where the PHY flag PHY_HAS_MAGICANEG was
+checked. But it left the flag being set in the drivers. Remove the flag.
 
-Suggested-by: Tom Herbert <tom@herbertland.com>
-Signed-off-by: Davide Caratti <dcaratti@redhat.com>
+Signed-off-by: Andrew Lunn <andrew@lunn.ch>
 ---
- drivers/net/ethernet/aquantia/atlantic/aq_ring.c |  2 +-
- include/linux/netdevice.h                        |  4 +---
- include/linux/skbuff.h                           | 23 ++---------------------
- net/bridge/netfilter/nft_reject_bridge.c         |  5 +----
- net/core/dev.c                                   |  3 ---
- net/ipv4/netfilter/nf_reject_ipv4.c              |  2 +-
- net/ipv6/netfilter/nf_reject_ipv6.c              |  3 ---
- 7 files changed, 6 insertions(+), 36 deletions(-)
+ drivers/net/phy/broadcom.c  | 30 +++++++++++++++---------------
+ drivers/net/phy/micrel.c    | 27 +++++++++++++--------------
+ drivers/net/phy/microchip.c |  2 +-
+ drivers/net/phy/smsc.c      | 12 ++++++------
+ include/linux/phy.h         |  3 +--
+ 5 files changed, 36 insertions(+), 38 deletions(-)
 
-diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_ring.c b/drivers/net/ethernet/aquantia/atlantic/aq_ring.c
-index 3a8a4aa..9a08179 100644
---- a/drivers/net/ethernet/aquantia/atlantic/aq_ring.c
-+++ b/drivers/net/ethernet/aquantia/atlantic/aq_ring.c
-@@ -223,7 +223,7 @@ int aq_ring_rx_clean(struct aq_ring_s *self, int *work_done, int budget)
- 		skb->protocol = eth_type_trans(skb, ndev);
- 		if (unlikely(buff->is_cso_err)) {
- 			++self->stats.rx.errors;
--			__skb_mark_checksum_bad(skb);
-+			skb->ip_summed = CHECKSUM_NONE;
- 		} else {
- 			if (buff->is_ip_cso) {
- 				__skb_incr_checksum_unnecessary(skb);
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 8e771f1..f168edb 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -2573,9 +2573,7 @@ static inline void skb_gro_incr_csum_unnecessary(struct sk_buff *skb)
- 	if (__skb_gro_checksum_validate_needed(skb, zero_okay, check))	\
- 		__ret = __skb_gro_checksum_validate_complete(skb,	\
- 				compute_pseudo(skb, proto));		\
--	if (__ret)							\
--		__skb_mark_checksum_bad(skb);				\
--	else								\
-+	if (!__ret)							\
- 		skb_gro_incr_csum_unnecessary(skb);			\
- 	__ret;								\
- })
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index f3cfaaf..f98e3a6 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -745,7 +745,7 @@ struct sk_buff {
- 	__u8			csum_valid:1;
- 	__u8			csum_complete_sw:1;
- 	__u8			csum_level:2;
--	__u8			csum_bad:1;
-+	__u8			__csum_bad_unused:1; /* one bit hole */
+diff --git a/drivers/net/phy/broadcom.c b/drivers/net/phy/broadcom.c
+index a32dc5d11e89..1e9ad30a35c8 100644
+--- a/drivers/net/phy/broadcom.c
++++ b/drivers/net/phy/broadcom.c
+@@ -540,7 +540,7 @@ static struct phy_driver broadcom_drivers[] = {
+ 	.phy_id_mask	= 0xfffffff0,
+ 	.name		= "Broadcom BCM5411",
+ 	.features	= PHY_GBIT_FEATURES,
+-	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
++	.flags		= PHY_HAS_INTERRUPT,
+ 	.config_init	= bcm54xx_config_init,
+ 	.config_aneg	= genphy_config_aneg,
+ 	.read_status	= genphy_read_status,
+@@ -551,7 +551,7 @@ static struct phy_driver broadcom_drivers[] = {
+ 	.phy_id_mask	= 0xfffffff0,
+ 	.name		= "Broadcom BCM5421",
+ 	.features	= PHY_GBIT_FEATURES,
+-	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
++	.flags		= PHY_HAS_INTERRUPT,
+ 	.config_init	= bcm54xx_config_init,
+ 	.config_aneg	= genphy_config_aneg,
+ 	.read_status	= genphy_read_status,
+@@ -562,7 +562,7 @@ static struct phy_driver broadcom_drivers[] = {
+ 	.phy_id_mask	= 0xfffffff0,
+ 	.name		= "Broadcom BCM54210E",
+ 	.features	= PHY_GBIT_FEATURES,
+-	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
++	.flags		= PHY_HAS_INTERRUPT,
+ 	.config_init	= bcm54xx_config_init,
+ 	.config_aneg	= genphy_config_aneg,
+ 	.read_status	= genphy_read_status,
+@@ -573,7 +573,7 @@ static struct phy_driver broadcom_drivers[] = {
+ 	.phy_id_mask	= 0xfffffff0,
+ 	.name		= "Broadcom BCM5461",
+ 	.features	= PHY_GBIT_FEATURES,
+-	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
++	.flags		= PHY_HAS_INTERRUPT,
+ 	.config_init	= bcm54xx_config_init,
+ 	.config_aneg	= genphy_config_aneg,
+ 	.read_status	= genphy_read_status,
+@@ -584,7 +584,7 @@ static struct phy_driver broadcom_drivers[] = {
+ 	.phy_id_mask	= 0xfffffff0,
+ 	.name		= "Broadcom BCM54612E",
+ 	.features	= PHY_GBIT_FEATURES,
+-	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
++	.flags		= PHY_HAS_INTERRUPT,
+ 	.config_init	= bcm54xx_config_init,
+ 	.config_aneg	= genphy_config_aneg,
+ 	.read_status	= genphy_read_status,
+@@ -595,7 +595,7 @@ static struct phy_driver broadcom_drivers[] = {
+ 	.phy_id_mask	= 0xfffffff0,
+ 	.name		= "Broadcom BCM54616S",
+ 	.features	= PHY_GBIT_FEATURES,
+-	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
++	.flags		= PHY_HAS_INTERRUPT,
+ 	.config_init	= bcm54xx_config_init,
+ 	.config_aneg	= genphy_config_aneg,
+ 	.read_status	= genphy_read_status,
+@@ -606,7 +606,7 @@ static struct phy_driver broadcom_drivers[] = {
+ 	.phy_id_mask	= 0xfffffff0,
+ 	.name		= "Broadcom BCM5464",
+ 	.features	= PHY_GBIT_FEATURES,
+-	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
++	.flags		= PHY_HAS_INTERRUPT,
+ 	.config_init	= bcm54xx_config_init,
+ 	.config_aneg	= genphy_config_aneg,
+ 	.read_status	= genphy_read_status,
+@@ -617,7 +617,7 @@ static struct phy_driver broadcom_drivers[] = {
+ 	.phy_id_mask	= 0xfffffff0,
+ 	.name		= "Broadcom BCM5481",
+ 	.features	= PHY_GBIT_FEATURES,
+-	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
++	.flags		= PHY_HAS_INTERRUPT,
+ 	.config_init	= bcm54xx_config_init,
+ 	.config_aneg	= bcm5481_config_aneg,
+ 	.read_status	= genphy_read_status,
+@@ -628,7 +628,7 @@ static struct phy_driver broadcom_drivers[] = {
+ 	.phy_id_mask    = 0xfffffff0,
+ 	.name           = "Broadcom BCM54810",
+ 	.features       = PHY_GBIT_FEATURES,
+-	.flags          = PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
++	.flags          = PHY_HAS_INTERRUPT,
+ 	.config_init    = bcm54xx_config_init,
+ 	.config_aneg    = bcm5481_config_aneg,
+ 	.read_status    = genphy_read_status,
+@@ -639,7 +639,7 @@ static struct phy_driver broadcom_drivers[] = {
+ 	.phy_id_mask	= 0xfffffff0,
+ 	.name		= "Broadcom BCM5482",
+ 	.features	= PHY_GBIT_FEATURES,
+-	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
++	.flags		= PHY_HAS_INTERRUPT,
+ 	.config_init	= bcm5482_config_init,
+ 	.config_aneg	= genphy_config_aneg,
+ 	.read_status	= bcm5482_read_status,
+@@ -650,7 +650,7 @@ static struct phy_driver broadcom_drivers[] = {
+ 	.phy_id_mask	= 0xfffffff0,
+ 	.name		= "Broadcom BCM50610",
+ 	.features	= PHY_GBIT_FEATURES,
+-	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
++	.flags		= PHY_HAS_INTERRUPT,
+ 	.config_init	= bcm54xx_config_init,
+ 	.config_aneg	= genphy_config_aneg,
+ 	.read_status	= genphy_read_status,
+@@ -661,7 +661,7 @@ static struct phy_driver broadcom_drivers[] = {
+ 	.phy_id_mask	= 0xfffffff0,
+ 	.name		= "Broadcom BCM50610M",
+ 	.features	= PHY_GBIT_FEATURES,
+-	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
++	.flags		= PHY_HAS_INTERRUPT,
+ 	.config_init	= bcm54xx_config_init,
+ 	.config_aneg	= genphy_config_aneg,
+ 	.read_status	= genphy_read_status,
+@@ -672,7 +672,7 @@ static struct phy_driver broadcom_drivers[] = {
+ 	.phy_id_mask	= 0xfffffff0,
+ 	.name		= "Broadcom BCM57780",
+ 	.features	= PHY_GBIT_FEATURES,
+-	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
++	.flags		= PHY_HAS_INTERRUPT,
+ 	.config_init	= bcm54xx_config_init,
+ 	.config_aneg	= genphy_config_aneg,
+ 	.read_status	= genphy_read_status,
+@@ -683,7 +683,7 @@ static struct phy_driver broadcom_drivers[] = {
+ 	.phy_id_mask	= 0xfffffff0,
+ 	.name		= "Broadcom BCMAC131",
+ 	.features	= PHY_BASIC_FEATURES,
+-	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
++	.flags		= PHY_HAS_INTERRUPT,
+ 	.config_init	= brcm_fet_config_init,
+ 	.config_aneg	= genphy_config_aneg,
+ 	.read_status	= genphy_read_status,
+@@ -694,7 +694,7 @@ static struct phy_driver broadcom_drivers[] = {
+ 	.phy_id_mask	= 0xfffffff0,
+ 	.name		= "Broadcom BCM5241",
+ 	.features	= PHY_BASIC_FEATURES,
+-	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
++	.flags		= PHY_HAS_INTERRUPT,
+ 	.config_init	= brcm_fet_config_init,
+ 	.config_aneg	= genphy_config_aneg,
+ 	.read_status	= genphy_read_status,
+diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
+index 6a5fd18f062c..4cfd54182da2 100644
+--- a/drivers/net/phy/micrel.c
++++ b/drivers/net/phy/micrel.c
+@@ -779,7 +779,7 @@ static struct phy_driver ksphy_driver[] = {
+ 	.phy_id_mask	= MICREL_PHY_ID_MASK,
+ 	.name		= "Micrel KS8737",
+ 	.features	= PHY_BASIC_FEATURES,
+-	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
++	.flags		= PHY_HAS_INTERRUPT,
+ 	.driver_data	= &ks8737_type,
+ 	.config_init	= kszphy_config_init,
+ 	.config_aneg	= genphy_config_aneg,
+@@ -793,7 +793,7 @@ static struct phy_driver ksphy_driver[] = {
+ 	.phy_id_mask	= 0x00ffffff,
+ 	.name		= "Micrel KSZ8021 or KSZ8031",
+ 	.features	= PHY_BASIC_FEATURES,
+-	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
++	.flags		= PHY_HAS_INTERRUPT,
+ 	.driver_data	= &ksz8021_type,
+ 	.probe		= kszphy_probe,
+ 	.config_init	= kszphy_config_init,
+@@ -811,7 +811,7 @@ static struct phy_driver ksphy_driver[] = {
+ 	.phy_id_mask	= 0x00ffffff,
+ 	.name		= "Micrel KSZ8031",
+ 	.features	= PHY_BASIC_FEATURES,
+-	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
++	.flags		= PHY_HAS_INTERRUPT,
+ 	.driver_data	= &ksz8021_type,
+ 	.probe		= kszphy_probe,
+ 	.config_init	= kszphy_config_init,
+@@ -829,7 +829,7 @@ static struct phy_driver ksphy_driver[] = {
+ 	.phy_id_mask	= MICREL_PHY_ID_MASK,
+ 	.name		= "Micrel KSZ8041",
+ 	.features	= PHY_BASIC_FEATURES,
+-	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
++	.flags		= PHY_HAS_INTERRUPT,
+ 	.driver_data	= &ksz8041_type,
+ 	.probe		= kszphy_probe,
+ 	.config_init	= ksz8041_config_init,
+@@ -847,7 +847,7 @@ static struct phy_driver ksphy_driver[] = {
+ 	.phy_id_mask	= MICREL_PHY_ID_MASK,
+ 	.name		= "Micrel KSZ8041RNLI",
+ 	.features	= PHY_BASIC_FEATURES,
+-	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
++	.flags		= PHY_HAS_INTERRUPT,
+ 	.driver_data	= &ksz8041_type,
+ 	.probe		= kszphy_probe,
+ 	.config_init	= kszphy_config_init,
+@@ -865,7 +865,7 @@ static struct phy_driver ksphy_driver[] = {
+ 	.phy_id_mask	= MICREL_PHY_ID_MASK,
+ 	.name		= "Micrel KSZ8051",
+ 	.features	= PHY_BASIC_FEATURES,
+-	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
++	.flags		= PHY_HAS_INTERRUPT,
+ 	.driver_data	= &ksz8051_type,
+ 	.probe		= kszphy_probe,
+ 	.config_init	= kszphy_config_init,
+@@ -883,7 +883,7 @@ static struct phy_driver ksphy_driver[] = {
+ 	.name		= "Micrel KSZ8001 or KS8721",
+ 	.phy_id_mask	= 0x00fffffc,
+ 	.features	= PHY_BASIC_FEATURES,
+-	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
++	.flags		= PHY_HAS_INTERRUPT,
+ 	.driver_data	= &ksz8041_type,
+ 	.probe		= kszphy_probe,
+ 	.config_init	= kszphy_config_init,
+@@ -901,7 +901,7 @@ static struct phy_driver ksphy_driver[] = {
+ 	.name		= "Micrel KSZ8081 or KSZ8091",
+ 	.phy_id_mask	= MICREL_PHY_ID_MASK,
+ 	.features	= PHY_BASIC_FEATURES,
+-	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
++	.flags		= PHY_HAS_INTERRUPT,
+ 	.driver_data	= &ksz8081_type,
+ 	.probe		= kszphy_probe,
+ 	.config_init	= kszphy_config_init,
+@@ -919,7 +919,7 @@ static struct phy_driver ksphy_driver[] = {
+ 	.name		= "Micrel KSZ8061",
+ 	.phy_id_mask	= MICREL_PHY_ID_MASK,
+ 	.features	= PHY_BASIC_FEATURES,
+-	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
++	.flags		= PHY_HAS_INTERRUPT,
+ 	.config_init	= kszphy_config_init,
+ 	.config_aneg	= genphy_config_aneg,
+ 	.read_status	= genphy_read_status,
+@@ -932,7 +932,7 @@ static struct phy_driver ksphy_driver[] = {
+ 	.phy_id_mask	= 0x000ffffe,
+ 	.name		= "Micrel KSZ9021 Gigabit PHY",
+ 	.features	= PHY_GBIT_FEATURES,
+-	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
++	.flags		= PHY_HAS_INTERRUPT,
+ 	.driver_data	= &ksz9021_type,
+ 	.probe		= kszphy_probe,
+ 	.config_init	= ksz9021_config_init,
+@@ -952,7 +952,7 @@ static struct phy_driver ksphy_driver[] = {
+ 	.phy_id_mask	= MICREL_PHY_ID_MASK,
+ 	.name		= "Micrel KSZ9031 Gigabit PHY",
+ 	.features	= PHY_GBIT_FEATURES,
+-	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
++	.flags		= PHY_HAS_INTERRUPT,
+ 	.driver_data	= &ksz9021_type,
+ 	.probe		= kszphy_probe,
+ 	.config_init	= ksz9031_config_init,
+@@ -969,7 +969,6 @@ static struct phy_driver ksphy_driver[] = {
+ 	.phy_id		= PHY_ID_KSZ8873MLL,
+ 	.phy_id_mask	= MICREL_PHY_ID_MASK,
+ 	.name		= "Micrel KSZ8873MLL Switch",
+-	.flags		= PHY_HAS_MAGICANEG,
+ 	.config_init	= kszphy_config_init,
+ 	.config_aneg	= ksz8873mll_config_aneg,
+ 	.read_status	= ksz8873mll_read_status,
+@@ -980,7 +979,7 @@ static struct phy_driver ksphy_driver[] = {
+ 	.phy_id_mask	= MICREL_PHY_ID_MASK,
+ 	.name		= "Micrel KSZ886X Switch",
+ 	.features	= PHY_BASIC_FEATURES,
+-	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
++	.flags		= PHY_HAS_INTERRUPT,
+ 	.config_init	= kszphy_config_init,
+ 	.config_aneg	= genphy_config_aneg,
+ 	.read_status	= genphy_read_status,
+@@ -991,7 +990,7 @@ static struct phy_driver ksphy_driver[] = {
+ 	.phy_id_mask	= MICREL_PHY_ID_MASK,
+ 	.name		= "Micrel KSZ8795",
+ 	.features	= PHY_BASIC_FEATURES,
+-	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
++	.flags		= PHY_HAS_INTERRUPT,
+ 	.config_init	= kszphy_config_init,
+ 	.config_aneg	= ksz8873mll_config_aneg,
+ 	.read_status	= ksz8873mll_read_status,
+diff --git a/drivers/net/phy/microchip.c b/drivers/net/phy/microchip.c
+index 2b2f543cf9f0..37ee856c7680 100644
+--- a/drivers/net/phy/microchip.c
++++ b/drivers/net/phy/microchip.c
+@@ -146,7 +146,7 @@ static struct phy_driver microchip_phy_driver[] = {
+ 	.name		= "Microchip LAN88xx",
  
- 	__u8			dst_pending_confirm:1;
- #ifdef CONFIG_IPV6_NDISC_NODETYPE
-@@ -3389,21 +3389,6 @@ static inline void __skb_incr_checksum_unnecessary(struct sk_buff *skb)
- 	}
- }
+ 	.features	= PHY_GBIT_FEATURES,
+-	.flags		= PHY_HAS_INTERRUPT | PHY_HAS_MAGICANEG,
++	.flags		= PHY_HAS_INTERRUPT,
  
--static inline void __skb_mark_checksum_bad(struct sk_buff *skb)
--{
--	/* Mark current checksum as bad (typically called from GRO
--	 * path). In the case that ip_summed is CHECKSUM_NONE
--	 * this must be the first checksum encountered in the packet.
--	 * When ip_summed is CHECKSUM_UNNECESSARY, this is the first
--	 * checksum after the last one validated. For UDP, a zero
--	 * checksum can not be marked as bad.
--	 */
--
--	if (skb->ip_summed == CHECKSUM_NONE ||
--	    skb->ip_summed == CHECKSUM_UNNECESSARY)
--		skb->csum_bad = 1;
--}
--
- /* Check if we need to perform checksum complete validation.
-  *
-  * Returns true if checksum complete is needed, false otherwise
-@@ -3457,9 +3442,6 @@ static inline __sum16 __skb_checksum_validate_complete(struct sk_buff *skb,
- 			skb->csum_valid = 1;
- 			return 0;
- 		}
--	} else if (skb->csum_bad) {
--		/* ip_summed == CHECKSUM_NONE in this case */
--		return (__force __sum16)1;
- 	}
+ 	.probe		= lan88xx_probe,
+ 	.remove		= lan88xx_remove,
+diff --git a/drivers/net/phy/smsc.c b/drivers/net/phy/smsc.c
+index cef6967b0396..67c9f2b26c8e 100644
+--- a/drivers/net/phy/smsc.c
++++ b/drivers/net/phy/smsc.c
+@@ -170,7 +170,7 @@ static struct phy_driver smsc_phy_driver[] = {
+ 	.name		= "SMSC LAN83C185",
  
- 	skb->csum = psum;
-@@ -3519,8 +3501,7 @@ static inline __wsum null_compute_pseudo(struct sk_buff *skb, int proto)
+ 	.features	= PHY_BASIC_FEATURES,
+-	.flags		= PHY_HAS_INTERRUPT | PHY_HAS_MAGICANEG,
++	.flags		= PHY_HAS_INTERRUPT,
  
- static inline bool __skb_checksum_convert_check(struct sk_buff *skb)
- {
--	return (skb->ip_summed == CHECKSUM_NONE &&
--		skb->csum_valid && !skb->csum_bad);
-+	return (skb->ip_summed == CHECKSUM_NONE && skb->csum_valid);
- }
+ 	.probe		= smsc_phy_probe,
  
- static inline void __skb_checksum_convert(struct sk_buff *skb,
-diff --git a/net/bridge/netfilter/nft_reject_bridge.c b/net/bridge/netfilter/nft_reject_bridge.c
-index 346ef6b..c16dd3a 100644
---- a/net/bridge/netfilter/nft_reject_bridge.c
-+++ b/net/bridge/netfilter/nft_reject_bridge.c
-@@ -111,7 +111,7 @@ static void nft_reject_br_send_v4_unreach(struct net *net,
- 	__wsum csum;
- 	u8 proto;
+@@ -192,7 +192,7 @@ static struct phy_driver smsc_phy_driver[] = {
+ 	.name		= "SMSC LAN8187",
  
--	if (oldskb->csum_bad || !nft_bridge_iphdr_validate(oldskb))
-+	if (!nft_bridge_iphdr_validate(oldskb))
- 		return;
+ 	.features	= PHY_BASIC_FEATURES,
+-	.flags		= PHY_HAS_INTERRUPT | PHY_HAS_MAGICANEG,
++	.flags		= PHY_HAS_INTERRUPT,
  
- 	/* IP header checks: fragment. */
-@@ -226,9 +226,6 @@ static bool reject6_br_csum_ok(struct sk_buff *skb, int hook)
- 	__be16 fo;
- 	u8 proto = ip6h->nexthdr;
+ 	.probe		= smsc_phy_probe,
  
--	if (skb->csum_bad)
--		return false;
--
- 	if (skb_csum_unnecessary(skb))
- 		return true;
+@@ -214,7 +214,7 @@ static struct phy_driver smsc_phy_driver[] = {
+ 	.name		= "SMSC LAN8700",
  
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 702ed50..1b9575c 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4676,9 +4676,6 @@ static enum gro_result dev_gro_receive(struct napi_struct *napi, struct sk_buff
- 	if (netif_elide_gro(skb->dev))
- 		goto normal;
+ 	.features	= PHY_BASIC_FEATURES,
+-	.flags		= PHY_HAS_INTERRUPT | PHY_HAS_MAGICANEG,
++	.flags		= PHY_HAS_INTERRUPT,
  
--	if (skb->csum_bad)
--		goto normal;
--
- 	gro_list_prepare(napi, skb);
+ 	.probe		= smsc_phy_probe,
  
- 	rcu_read_lock();
-diff --git a/net/ipv4/netfilter/nf_reject_ipv4.c b/net/ipv4/netfilter/nf_reject_ipv4.c
-index 7cd8d0d..6f8d9e5 100644
---- a/net/ipv4/netfilter/nf_reject_ipv4.c
-+++ b/net/ipv4/netfilter/nf_reject_ipv4.c
-@@ -172,7 +172,7 @@ void nf_send_unreach(struct sk_buff *skb_in, int code, int hook)
- 	struct iphdr *iph = ip_hdr(skb_in);
- 	u8 proto;
+@@ -236,7 +236,7 @@ static struct phy_driver smsc_phy_driver[] = {
+ 	.name		= "SMSC LAN911x Internal PHY",
  
--	if (skb_in->csum_bad || iph->frag_off & htons(IP_OFFSET))
-+	if (iph->frag_off & htons(IP_OFFSET))
- 		return;
+ 	.features	= PHY_BASIC_FEATURES,
+-	.flags		= PHY_HAS_INTERRUPT | PHY_HAS_MAGICANEG,
++	.flags		= PHY_HAS_INTERRUPT,
  
- 	if (skb_csum_unnecessary(skb_in)) {
-diff --git a/net/ipv6/netfilter/nf_reject_ipv6.c b/net/ipv6/netfilter/nf_reject_ipv6.c
-index eedee5d..f63b18e 100644
---- a/net/ipv6/netfilter/nf_reject_ipv6.c
-+++ b/net/ipv6/netfilter/nf_reject_ipv6.c
-@@ -220,9 +220,6 @@ static bool reject6_csum_ok(struct sk_buff *skb, int hook)
- 	__be16 fo;
- 	u8 proto;
+ 	.probe		= smsc_phy_probe,
  
--	if (skb->csum_bad)
--		return false;
--
- 	if (skb_csum_unnecessary(skb))
- 		return true;
+@@ -257,7 +257,7 @@ static struct phy_driver smsc_phy_driver[] = {
+ 	.name		= "SMSC LAN8710/LAN8720",
  
+ 	.features	= PHY_BASIC_FEATURES,
+-	.flags		= PHY_HAS_INTERRUPT | PHY_HAS_MAGICANEG,
++	.flags		= PHY_HAS_INTERRUPT,
+ 
+ 	.probe		= smsc_phy_probe,
+ 
+@@ -279,7 +279,7 @@ static struct phy_driver smsc_phy_driver[] = {
+ 	.name		= "SMSC LAN8740",
+ 
+ 	.features	= PHY_BASIC_FEATURES,
+-	.flags		= PHY_HAS_INTERRUPT | PHY_HAS_MAGICANEG,
++	.flags		= PHY_HAS_INTERRUPT,
+ 
+ 	.probe		= smsc_phy_probe,
+ 
+diff --git a/include/linux/phy.h b/include/linux/phy.h
+index e76e4adbc7c7..54ef45823fc1 100644
+--- a/include/linux/phy.h
++++ b/include/linux/phy.h
+@@ -58,8 +58,7 @@
+ #define PHY_IGNORE_INTERRUPT	-2
+ 
+ #define PHY_HAS_INTERRUPT	0x00000001
+-#define PHY_HAS_MAGICANEG	0x00000002
+-#define PHY_IS_INTERNAL		0x00000004
++#define PHY_IS_INTERNAL		0x00000002
+ #define MDIO_DEVICE_IS_PHY	0x80000000
+ 
+ /* Interface Mode definitions */
 -- 
-2.7.4
+2.11.0
