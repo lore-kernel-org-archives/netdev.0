@@ -1,186 +1,181 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next 3/9] nfp: support LSO2 capability
-Date: Mon, 15 May 2017 17:55:17 -0700
-Message-ID: <20170516005523.26124-4-jakub.kicinski@netronome.com>
+Subject: [PATCH net-next 6/9] nfp: add CHECKSUM_COMPLETE support
+Date: Mon, 15 May 2017 17:55:20 -0700
+Message-ID: <20170516005523.26124-7-jakub.kicinski@netronome.com>
 References: <20170516005523.26124-1-jakub.kicinski@netronome.com>
-Cc: oss-drivers@netronome.com, Edwin Peer <edwin.peer@netronome.com>,
-        Jakub Kicinski <jakub.kicinski@netronome.com>
+Cc: oss-drivers@netronome.com,
+        Jakub Kicinski <jakub.kicinski@netronome.com>,
+        Edwin Peer <edwin.peer@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f178.google.com ([209.85.192.178]:35766 "EHLO
-        mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751338AbdEPA4a (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 15 May 2017 20:56:30 -0400
-Received: by mail-pf0-f178.google.com with SMTP id n23so66332724pfb.2
-        for <netdev@vger.kernel.org>; Mon, 15 May 2017 17:56:25 -0700 (PDT)
+Received: from mail-pg0-f49.google.com ([74.125.83.49]:34587 "EHLO
+        mail-pg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751341AbdEPA4c (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 15 May 2017 20:56:32 -0400
+Received: by mail-pg0-f49.google.com with SMTP id u28so67931966pgn.1
+        for <netdev@vger.kernel.org>; Mon, 15 May 2017 17:56:22 -0700 (PDT)
 In-Reply-To: <20170516005523.26124-1-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Edwin Peer <edwin.peer@netronome.com>
+Introduce NFP_NET_CFG_CTRL_CSUM_COMPLETE capability and implement parsing
+of CHECKSUM_COMPLETE metadata.
 
-Firmware advertising the LSO2 capability exploits driver provided L3 and L4
-offsets in order to avoid parsing packet headers in the TX path. The vlan
-field in struct nfp_net_tx_desc is repurposed, making TXVLAN a mutually
-exclusive configuration to LSO2.
-
-Signed-off-by: Edwin Peer <edwin.peer@netronome.com>
 Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+Signed-off-by: Edwin Peer <edwin.peer@netronome.com>
+Reviewed-by: Simon Horman <simon.horman@netronome.com>
 ---
- drivers/net/ethernet/netronome/nfp/nfp_net.h       |  9 +++--
- .../net/ethernet/netronome/nfp/nfp_net_common.c    | 38 ++++++++++++++--------
- drivers/net/ethernet/netronome/nfp/nfp_net_ctrl.h  |  7 +++-
- 3 files changed, 38 insertions(+), 16 deletions(-)
+ drivers/net/ethernet/netronome/nfp/nfp_net.h       |  4 ++-
+ .../net/ethernet/netronome/nfp/nfp_net_common.c    | 35 +++++++++++++++++-----
+ drivers/net/ethernet/netronome/nfp/nfp_net_ctrl.h  |  7 ++++-
+ 3 files changed, 36 insertions(+), 10 deletions(-)
 
 diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net.h b/drivers/net/ethernet/netronome/nfp/nfp_net.h
-index 6bad11e5b845..c6b7141dc50d 100644
+index c6b7141dc50d..acd9811d08d1 100644
 --- a/drivers/net/ethernet/netronome/nfp/nfp_net.h
 +++ b/drivers/net/ethernet/netronome/nfp/nfp_net.h
-@@ -155,8 +155,13 @@ struct nfp_net_tx_desc {
- 			__le16 mss;	/* MSS to be used for LSO */
- 			u8 lso_hdrlen;	/* LSO, TCP payload offset */
- 			u8 flags;	/* TX Flags, see @PCIE_DESC_TX_* */
--
--			__le16 vlan;	/* VLAN tag to add if indicated */
-+			union {
-+				struct {
-+					u8 l3_offset; /* L3 header offset */
-+					u8 l4_offset; /* L4 header offset */
-+				};
-+				__le16 vlan; /* VLAN tag to add if indicated */
-+			};
- 			__le16 data_len; /* Length of frame + meta data */
- 		} __packed;
- 		__le32 vals[4];
+@@ -292,9 +292,11 @@ struct nfp_net_rx_desc {
+ #define NFP_NET_META_FIELD_MASK GENMASK(NFP_NET_META_FIELD_SIZE - 1, 0)
+ 
+ struct nfp_meta_parsed {
+-	u32 hash_type;
++	u8 hash_type;
++	u8 csum_type;
+ 	u32 hash;
+ 	u32 mark;
++	__wsum csum;
+ };
+ 
+ struct nfp_net_rx_hash {
 diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-index 0cebe9098451..5e8049a84d16 100644
+index cc5a2eaef156..d640b3331741 100644
 --- a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
 +++ b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-@@ -667,11 +667,16 @@ static void nfp_net_tx_tso(struct nfp_net_r_vector *r_vec,
- 	if (!skb_is_gso(skb))
+@@ -1354,17 +1354,28 @@ static int nfp_net_rx_csum_has_errors(u16 flags)
+  * @dp:  NFP Net data path struct
+  * @r_vec: per-ring structure
+  * @rxd: Pointer to RX descriptor
++ * @meta: Parsed metadata prepend
+  * @skb: Pointer to SKB
+  */
+ static void nfp_net_rx_csum(struct nfp_net_dp *dp,
+ 			    struct nfp_net_r_vector *r_vec,
+-			    struct nfp_net_rx_desc *rxd, struct sk_buff *skb)
++			    struct nfp_net_rx_desc *rxd,
++			    struct nfp_meta_parsed *meta, struct sk_buff *skb)
+ {
+ 	skb_checksum_none_assert(skb);
+ 
+ 	if (!(dp->netdev->features & NETIF_F_RXCSUM))
  		return;
  
--	if (!skb->encapsulation)
-+	if (!skb->encapsulation) {
-+		txd->l3_offset = skb_network_offset(skb);
-+		txd->l4_offset = skb_transport_offset(skb);
- 		hdrlen = skb_transport_offset(skb) + tcp_hdrlen(skb);
--	else
-+	} else {
-+		txd->l3_offset = skb_inner_network_offset(skb);
-+		txd->l4_offset = skb_inner_transport_offset(skb);
- 		hdrlen = skb_inner_transport_header(skb) - skb->data +
- 			inner_tcp_hdrlen(skb);
++	if (meta->csum_type) {
++		skb->ip_summed = meta->csum_type;
++		skb->csum = meta->csum;
++		u64_stats_update_begin(&r_vec->rx_sync);
++		r_vec->hw_csum_rx_ok++;
++		u64_stats_update_end(&r_vec->rx_sync);
++		return;
 +	}
++
+ 	if (nfp_net_rx_csum_has_errors(le16_to_cpu(rxd->rxd.flags))) {
+ 		u64_stats_update_begin(&r_vec->rx_sync);
+ 		r_vec->hw_csum_rx_error++;
+@@ -1449,6 +1460,12 @@ nfp_net_parse_meta(struct net_device *netdev, struct nfp_meta_parsed *meta,
+ 			meta->mark = get_unaligned_be32(data);
+ 			data += 4;
+ 			break;
++		case NFP_NET_META_CSUM:
++			meta->csum_type = CHECKSUM_COMPLETE;
++			meta->csum =
++				(__force __wsum)__get_unaligned_cpu32(data);
++			data += 4;
++			break;
+ 		default:
+ 			return NULL;
+ 		}
+@@ -1712,7 +1729,7 @@ static int nfp_net_rx(struct nfp_net_rx_ring *rx_ring, int budget)
+ 		skb_record_rx_queue(skb, rx_ring->idx);
+ 		skb->protocol = eth_type_trans(skb, dp->netdev);
  
- 	txbuf->pkt_cnt = skb_shinfo(skb)->gso_segs;
- 	txbuf->real_len += hdrlen * (txbuf->pkt_cnt - 1);
-@@ -825,10 +830,9 @@ static int nfp_net_tx(struct sk_buff *skb, struct net_device *netdev)
- 	txd->mss = 0;
- 	txd->lso_hdrlen = 0;
+-		nfp_net_rx_csum(dp, r_vec, rxd, skb);
++		nfp_net_rx_csum(dp, r_vec, rxd, &meta, skb);
  
-+	/* Do not reorder - tso may adjust pkt cnt, vlan may override fields */
- 	nfp_net_tx_tso(r_vec, txbuf, txd, skb);
--
- 	nfp_net_tx_csum(dp, r_vec, txbuf, txd, skb);
--
- 	if (skb_vlan_tag_present(skb) && dp->ctrl & NFP_NET_CFG_CTRL_TXVLAN) {
- 		txd->flags |= PCIE_DESC_TX_VLAN;
- 		txd->vlan = cpu_to_le16(skb_vlan_tag_get(skb));
-@@ -2724,9 +2728,10 @@ static int nfp_net_set_features(struct net_device *netdev,
+ 		if (rxd->rxd.flags & PCIE_DESC_RX_VLAN)
+ 			__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q),
+@@ -2712,9 +2729,9 @@ static int nfp_net_set_features(struct net_device *netdev,
  
- 	if (changed & (NETIF_F_TSO | NETIF_F_TSO6)) {
- 		if (features & (NETIF_F_TSO | NETIF_F_TSO6))
--			new_ctrl |= NFP_NET_CFG_CTRL_LSO;
-+			new_ctrl |= nn->cap & NFP_NET_CFG_CTRL_LSO2 ?:
-+					      NFP_NET_CFG_CTRL_LSO;
+ 	if (changed & NETIF_F_RXCSUM) {
+ 		if (features & NETIF_F_RXCSUM)
+-			new_ctrl |= NFP_NET_CFG_CTRL_RXCSUM;
++			new_ctrl |= nn->cap & NFP_NET_CFG_CTRL_RXCSUM_ANY;
  		else
--			new_ctrl &= ~NFP_NET_CFG_CTRL_LSO;
-+			new_ctrl &= ~NFP_NET_CFG_CTRL_LSO_ANY;
+-			new_ctrl &= ~NFP_NET_CFG_CTRL_RXCSUM;
++			new_ctrl &= ~NFP_NET_CFG_CTRL_RXCSUM_ANY;
  	}
  
- 	if (changed & NETIF_F_HW_VLAN_CTAG_RX) {
-@@ -3032,7 +3037,7 @@ void nfp_net_info(struct nfp_net *nn)
+ 	if (changed & (NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM)) {
+@@ -3035,7 +3052,7 @@ void nfp_net_info(struct nfp_net *nn)
  		nn->fw_ver.resv, nn->fw_ver.class,
  		nn->fw_ver.major, nn->fw_ver.minor,
  		nn->max_mtu);
--	nn_info(nn, "CAP: %#x %s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s\n",
-+	nn_info(nn, "CAP: %#x %s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s\n",
+-	nn_info(nn, "CAP: %#x %s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s\n",
++	nn_info(nn, "CAP: %#x %s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s\n",
  		nn->cap,
  		nn->cap & NFP_NET_CFG_CTRL_PROMISC  ? "PROMISC "  : "",
  		nn->cap & NFP_NET_CFG_CTRL_L2BC     ? "L2BCFILT " : "",
-@@ -3043,7 +3048,8 @@ void nfp_net_info(struct nfp_net *nn)
- 		nn->cap & NFP_NET_CFG_CTRL_TXVLAN   ? "TXVLAN "   : "",
- 		nn->cap & NFP_NET_CFG_CTRL_SCATTER  ? "SCATTER "  : "",
- 		nn->cap & NFP_NET_CFG_CTRL_GATHER   ? "GATHER "   : "",
--		nn->cap & NFP_NET_CFG_CTRL_LSO      ? "TSO "      : "",
-+		nn->cap & NFP_NET_CFG_CTRL_LSO      ? "TSO1 "     : "",
-+		nn->cap & NFP_NET_CFG_CTRL_LSO2     ? "TSO2 "     : "",
- 		nn->cap & NFP_NET_CFG_CTRL_RSS      ? "RSS "      : "",
- 		nn->cap & NFP_NET_CFG_CTRL_L2SWITCH ? "L2SWITCH " : "",
- 		nn->cap & NFP_NET_CFG_CTRL_MSIXAUTO ? "AUTOMASK " : "",
-@@ -3249,9 +3255,11 @@ int nfp_net_netdev_init(struct net_device *netdev)
- 		netdev->hw_features |= NETIF_F_SG;
- 		nn->dp.ctrl |= NFP_NET_CFG_CTRL_GATHER;
- 	}
--	if ((nn->cap & NFP_NET_CFG_CTRL_LSO) && nn->fw_ver.major > 2) {
-+	if ((nn->cap & NFP_NET_CFG_CTRL_LSO && nn->fw_ver.major > 2) ||
-+	    nn->cap & NFP_NET_CFG_CTRL_LSO2) {
- 		netdev->hw_features |= NETIF_F_TSO | NETIF_F_TSO6;
--		nn->dp.ctrl |= NFP_NET_CFG_CTRL_LSO;
-+		nn->dp.ctrl |= nn->cap & NFP_NET_CFG_CTRL_LSO2 ?:
-+					 NFP_NET_CFG_CTRL_LSO;
- 	}
- 	if (nn->cap & NFP_NET_CFG_CTRL_RSS) {
- 		netdev->hw_features |= NETIF_F_RXHASH;
-@@ -3275,8 +3283,12 @@ int nfp_net_netdev_init(struct net_device *netdev)
- 		nn->dp.ctrl |= NFP_NET_CFG_CTRL_RXVLAN;
- 	}
- 	if (nn->cap & NFP_NET_CFG_CTRL_TXVLAN) {
--		netdev->hw_features |= NETIF_F_HW_VLAN_CTAG_TX;
--		nn->dp.ctrl |= NFP_NET_CFG_CTRL_TXVLAN;
-+		if (nn->cap & NFP_NET_CFG_CTRL_LSO2) {
-+			nn_warn(nn, "Device advertises both TSO2 and TXVLAN. Refusing to enable TXVLAN.\n");
-+		} else {
-+			netdev->hw_features |= NETIF_F_HW_VLAN_CTAG_TX;
-+			nn->dp.ctrl |= NFP_NET_CFG_CTRL_TXVLAN;
-+		}
- 	}
+@@ -3055,7 +3072,9 @@ void nfp_net_info(struct nfp_net *nn)
+ 		nn->cap & NFP_NET_CFG_CTRL_IRQMOD   ? "IRQMOD "   : "",
+ 		nn->cap & NFP_NET_CFG_CTRL_VXLAN    ? "VXLAN "    : "",
+ 		nn->cap & NFP_NET_CFG_CTRL_NVGRE    ? "NVGRE "	  : "",
+-		nfp_net_ebpf_capable(nn)            ? "BPF "	  : "");
++		nfp_net_ebpf_capable(nn)            ? "BPF "	  : "",
++		nn->cap & NFP_NET_CFG_CTRL_CSUM_COMPLETE ?
++						      "RXCSUM_COMPLETE " : "");
+ }
  
- 	netdev->features = netdev->hw_features;
-@@ -3286,7 +3298,7 @@ int nfp_net_netdev_init(struct net_device *netdev)
- 
- 	/* Advertise but disable TSO by default. */
- 	netdev->features &= ~(NETIF_F_TSO | NETIF_F_TSO6);
--	nn->dp.ctrl &= ~NFP_NET_CFG_CTRL_LSO;
-+	nn->dp.ctrl &= ~NFP_NET_CFG_CTRL_LSO_ANY;
- 
- 	/* Allow L2 Broadcast and Multicast through by default, if supported */
- 	if (nn->cap & NFP_NET_CFG_CTRL_L2BC)
+ /**
+@@ -3246,9 +3265,9 @@ int nfp_net_netdev_init(struct net_device *netdev)
+ 	 * supported.  By default we enable most features.
+ 	 */
+ 	netdev->hw_features = NETIF_F_HIGHDMA;
+-	if (nn->cap & NFP_NET_CFG_CTRL_RXCSUM) {
++	if (nn->cap & NFP_NET_CFG_CTRL_RXCSUM_ANY) {
+ 		netdev->hw_features |= NETIF_F_RXCSUM;
+-		nn->dp.ctrl |= NFP_NET_CFG_CTRL_RXCSUM;
++		nn->dp.ctrl |= nn->cap & NFP_NET_CFG_CTRL_RXCSUM_ANY;
+ 	}
+ 	if (nn->cap & NFP_NET_CFG_CTRL_TXCSUM) {
+ 		netdev->hw_features |= NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM;
 diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_ctrl.h b/drivers/net/ethernet/netronome/nfp/nfp_net_ctrl.h
-index d04ccc9f6116..1575e8fdb541 100644
+index a049c5d6839d..df75b8dc3617 100644
 --- a/drivers/net/ethernet/netronome/nfp/nfp_net_ctrl.h
 +++ b/drivers/net/ethernet/netronome/nfp/nfp_net_ctrl.h
-@@ -119,7 +119,7 @@
- #define   NFP_NET_CFG_CTRL_TXVLAN         (0x1 <<  7) /* Enable VLAN insert */
- #define   NFP_NET_CFG_CTRL_SCATTER        (0x1 <<  8) /* Scatter DMA */
- #define   NFP_NET_CFG_CTRL_GATHER         (0x1 <<  9) /* Gather DMA */
--#define   NFP_NET_CFG_CTRL_LSO            (0x1 << 10) /* LSO/TSO */
-+#define   NFP_NET_CFG_CTRL_LSO            (0x1 << 10) /* LSO/TSO (version 1) */
- #define   NFP_NET_CFG_CTRL_RINGCFG        (0x1 << 16) /* Ring runtime changes */
- #define   NFP_NET_CFG_CTRL_RSS            (0x1 << 17) /* RSS */
- #define   NFP_NET_CFG_CTRL_IRQMOD         (0x1 << 18) /* Interrupt moderation */
-@@ -131,6 +131,11 @@
- #define   NFP_NET_CFG_CTRL_VXLAN	  (0x1 << 24) /* VXLAN tunnel support */
- #define   NFP_NET_CFG_CTRL_NVGRE	  (0x1 << 25) /* NVGRE tunnel support */
+@@ -71,6 +71,7 @@
+ #define NFP_NET_META_FIELD_SIZE		4
+ #define NFP_NET_META_HASH		1 /* next field carries hash type */
+ #define NFP_NET_META_MARK		2
++#define NFP_NET_META_CSUM		6 /* checksum complete type */
+ 
+ /**
+  * Hash type pre-pended when a RSS hash was computed
+@@ -133,12 +134,16 @@
  #define   NFP_NET_CFG_CTRL_BPF		  (0x1 << 27) /* BPF offload capable */
-+#define   NFP_NET_CFG_CTRL_LSO2		  (0x1 << 28) /* LSO/TSO (version 2) */
-+
-+#define NFP_NET_CFG_CTRL_LSO_ANY	(NFP_NET_CFG_CTRL_LSO | \
-+					 NFP_NET_CFG_CTRL_LSO2)
-+
+ #define   NFP_NET_CFG_CTRL_LSO2		  (0x1 << 28) /* LSO/TSO (version 2) */
+ #define   NFP_NET_CFG_CTRL_RSS2		  (0x1 << 29) /* RSS (version 2) */
++#define   NFP_NET_CFG_CTRL_CSUM_COMPLETE  (0x1 << 30) /* Checksum complete */
+ 
+ #define NFP_NET_CFG_CTRL_LSO_ANY	(NFP_NET_CFG_CTRL_LSO | \
+ 					 NFP_NET_CFG_CTRL_LSO2)
+ #define NFP_NET_CFG_CTRL_RSS_ANY	(NFP_NET_CFG_CTRL_RSS | \
+ 					 NFP_NET_CFG_CTRL_RSS2)
+-#define NFP_NET_CFG_CTRL_CHAIN_META	NFP_NET_CFG_CTRL_RSS2
++#define NFP_NET_CFG_CTRL_RXCSUM_ANY	(NFP_NET_CFG_CTRL_RXCSUM | \
++					 NFP_NET_CFG_CTRL_CSUM_COMPLETE)
++#define NFP_NET_CFG_CTRL_CHAIN_META	(NFP_NET_CFG_CTRL_RSS2 | \
++					 NFP_NET_CFG_CTRL_CSUM_COMPLETE)
+ 
  #define NFP_NET_CFG_UPDATE              0x0004
  #define   NFP_NET_CFG_UPDATE_GEN          (0x1 <<  0) /* General update */
- #define   NFP_NET_CFG_UPDATE_RING         (0x1 <<  1) /* Ring config change */
 -- 
 2.11.0
