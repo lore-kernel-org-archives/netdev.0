@@ -1,41 +1,58 @@
-From: Randy Dunlap <rdunlap@infradead.org>
-Subject: Re: linux-next: Tree for May 16 (net/core)
-Date: Tue, 16 May 2017 09:28:30 -0700
-Message-ID: <f63533e7-edd3-4c0d-ddff-e3409d15abc6@infradead.org>
-References: <20170516112125.517607f8@canb.auug.org.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net/smc: mark as BROKEN due to remote memory exposure
+Date: Tue, 16 May 2017 12:29:23 -0400 (EDT)
+Message-ID: <20170516.122923.869994491617365845.davem@davemloft.net>
+References: <1494788929.21774.1.camel@sandisk.com>
+        <20170514.204404.1844909849561204299.davem@davemloft.net>
+        <1494950224.3259.98.camel@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Stephen Rothwell <sfr@canb.auug.org.au>,
-        Linux-Next Mailing List <linux-next@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([65.50.211.133]:54707 "EHLO
-        bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753082AbdEPQ2c (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 16 May 2017 12:28:32 -0400
-In-Reply-To: <20170516112125.517607f8@canb.auug.org.au>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8BIT
+Cc: Bart.VanAssche@sandisk.com, torvalds@linux-foundation.org,
+        hch@lst.de, netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
+        stable@vger.kernel.org, ubraun@linux.vnet.ibm.com
+To: dledford@redhat.com
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <1494950224.3259.98.camel@redhat.com>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 05/15/17 18:21, Stephen Rothwell wrote:
-> Hi all,
-> 
-> Changes since 20170515:
-> 
+From: Doug Ledford <dledford@redhat.com>
+Date: Tue, 16 May 2017 11:57:04 -0400
 
-on i386 or x86_64:
+> Regardless though, I'm rather purturbed about this entire thing.  If
+> you are right that because this got into 4.11, it's now a done deal,
+> then the fact that this went through 4 review cycles on netdev@ that,
+> as I understand it, spanned roughly one years time, and not one single
+> person bothered to note that this was as much an RDMA driver as
+> anything else, and not one person bothered to note that linux-rdma@ was
+> not on the Cc: list, and not one person told the submitters that they
+> needed to include linux-rdma@ on the Cc: list of these submissions, and
+> you took it without any review comments from any RDMA people in the
+> course of a year, or an ack from me to show that the RDMA portion of
+> this had at least been given some sort of review, was a collosal fuckup
+> of cross tree maintainer cooperation.
 
-when CONFIG_INET is not enabled:
+We rely on people from various areas of expertiece to contribute to
+patch review on netdev and give appropriate feedback.
 
-../net/core/sock.c: In function 'skb_orphan_partial':
-../net/core/sock.c:1810:2: error: implicit declaration of function 'skb_is_tcp_pure_ack' [-Werror=implicit-function-declaration]
-  if (skb_is_tcp_pure_ack(skb))
-  ^
+If you actually look through the history, I made many semantic reviews
+of the SMC changes, and kept pushing back.
 
+And in fact I did this several times, making them go through several
+revisions, in the hopes that someone would review more of the meat and
+substance of the patch set.
 
+Nobody do this for over a year.
 
--- 
-~Randy
+I can't push back on people with silly coding style and small semantic
+issues forever.  And I think I made a serious effort to keep the
+patches getting posted over and over again to make sure they got more
+exposure.
+
+I think it's unsettling that there are no RDMA experts, or at least
+people remotely knowledgable about this "networking" technology,
+subscribed to netdev and taking a cursory look at pactches that might
+be relevant and effect that technology either directly or indirectly.
+
+So there is a lot of blame to go around.
