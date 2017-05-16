@@ -1,150 +1,110 @@
-From: Jim Baxter <jim_baxter-nmGgyN9QBj3QT0dZR+AlfA@public.gmane.org>
-Subject: [RFC V1 1/1] net: cdc_ncm: Reduce memory use when kernel memory low
-Date: Tue, 16 May 2017 18:41:20 +0100
-Message-ID: <1494956480-6127-2-git-send-email-jim_baxter@mentor.com>
-References: <1494956480-6127-1-git-send-email-jim_baxter@mentor.com>
+From: Logan Gunthorpe <logang@deltatee.com>
+Subject: Re: cxgb4 is broken in v4.12-rc1
+Date: Tue, 16 May 2017 11:43:47 -0600
+Message-ID: <28ecd2a6-ad24-0ae5-65d2-14e749f1802a@deltatee.com>
+References: <f5966da1-44e7-ebf7-c5df-28f815a77424@deltatee.com>
+ <CY4PR12MB1432CA69BD6B7AE335B5DBB2C1E60@CY4PR12MB1432.namprd12.prod.outlook.com>
+ <745b4343-52e7-b8c7-0889-98ea843de15b@deltatee.com>
+ <CY4PR12MB1432E4FA04313105999F04FAC1E60@CY4PR12MB1432.namprd12.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <jim_baxter-nmGgyN9QBj3QT0dZR+AlfA@public.gmane.org>
-To: <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1494956480-6127-1-git-send-email-jim_baxter-nmGgyN9QBj3QT0dZR+AlfA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Stephen Bates <sbates@raithlin.com>,
+        SWise OGC <swise@opengridcomputing.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Ganesh GR <ganeshgr@chelsio.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ale.deltatee.com ([207.54.116.67]:35822 "EHLO ale.deltatee.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750829AbdEPRnt (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 16 May 2017 13:43:49 -0400
+In-Reply-To: <CY4PR12MB1432E4FA04313105999F04FAC1E60@CY4PR12MB1432.namprd12.prod.outlook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The CDC-NCM driver can require large amounts of memory to create
-skb's and this can be a problem when the memory becomes fragmented.
+Hey,
 
-This especially affects embedded systems that have constrained
-resources but wish to maximise the throughput of CDC-NCM with 16KiB
-NTB's.
+Ok, yes with the latest firmware the issue seems to have gone away.
 
-The issue is after running for a while the kernel memory can become
-fragmented and it needs compacting.
-If the NTB allocation is needed before the memory has been compacted
-the atomic allocation can fail which can cause increased latency,
-large re-transmissions or disconnections depending upon the data
-being transmitted at the time.
-This situation occurs for less than a second until the kernel has
-compacted the memory but the failed devices can take a lot longer to
-recover from the failed TX packets.
+Still, it's probably not a great idea to break peoples hardware with a
+kernel update even if their firmware is old.
 
-To ease this temporary situation I modified the CDC-NCM TX path to
-temporarily switch into a reduced memory mode which allocates an NTB
-that will fit into a USB_CDC_NCM_NTB_MIN_OUT_SIZE (default 2048 Bytes)
-sized memory block and only transmit NTB's with a single network frame
-until the memory situation is resolved.
-Once the memory is compacted the CDC-NCM data can resume transmitting
-at the normal tx_max rate once again.
+Thanks,
 
-Signed-off-by: Jim Baxter <jim_baxter-nmGgyN9QBj3QT0dZR+AlfA@public.gmane.org>
----
- drivers/net/usb/cdc_ncm.c   | 39 +++++++++++++++++++++++++++------------
- include/linux/usb/cdc_ncm.h |  1 +
- 2 files changed, 28 insertions(+), 12 deletions(-)
+Logan
 
-diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
-index b5cec18..c06d20f 100644
---- a/drivers/net/usb/cdc_ncm.c
-+++ b/drivers/net/usb/cdc_ncm.c
-@@ -1055,10 +1055,10 @@ static struct usb_cdc_ncm_ndp16 *cdc_ncm_ndp(struct cdc_ncm_ctx *ctx, struct sk_
- 
- 	/* align new NDP */
- 	if (!(ctx->drvflags & CDC_NCM_FLAG_NDP_TO_END))
--		cdc_ncm_align_tail(skb, ctx->tx_ndp_modulus, 0, ctx->tx_max);
-+		cdc_ncm_align_tail(skb, ctx->tx_ndp_modulus, 0, ctx->tx_curr_size);
- 
- 	/* verify that there is room for the NDP and the datagram (reserve) */
--	if ((ctx->tx_max - skb->len - reserve) < ctx->max_ndp_size)
-+	if ((ctx->tx_curr_size - skb->len - reserve) < ctx->max_ndp_size)
- 		return NULL;
- 
- 	/* link to it */
-@@ -1111,13 +1111,28 @@ struct sk_buff *
- 
- 	/* allocate a new OUT skb */
- 	if (!skb_out) {
--		skb_out = alloc_skb(ctx->tx_max, GFP_ATOMIC);
-+		ctx->tx_curr_size = ctx->tx_max;
-+		skb_out = alloc_skb(ctx->tx_curr_size, GFP_ATOMIC);
- 		if (skb_out == NULL) {
--			if (skb != NULL) {
--				dev_kfree_skb_any(skb);
--				dev->net->stats.tx_dropped++;
-+			/* See if a very small allocation is possible.
-+			 * We will send this packet immediately and hope
-+			 * that there is more memory available later.
-+			 */
-+			if (skb)
-+				ctx->tx_curr_size = max(skb->len,
-+					(u32)USB_CDC_NCM_NTB_MIN_OUT_SIZE);
-+			else
-+				ctx->tx_curr_size = USB_CDC_NCM_NTB_MIN_OUT_SIZE;
-+			skb_out = alloc_skb(ctx->tx_curr_size, GFP_ATOMIC);
-+
-+			/* No allocation possible so we will abort */
-+			if (skb_out == NULL) {
-+				if (skb != NULL) {
-+					dev_kfree_skb_any(skb);
-+					dev->net->stats.tx_dropped++;
-+				}
-+				goto exit_no_skb;
- 			}
--			goto exit_no_skb;
- 		}
- 		/* fill out the initial 16-bit NTB header */
- 		nth16 = (struct usb_cdc_ncm_nth16 *)memset(skb_put(skb_out, sizeof(struct usb_cdc_ncm_nth16)), 0, sizeof(struct usb_cdc_ncm_nth16));
-@@ -1148,10 +1163,10 @@ struct sk_buff *
- 		ndp16 = cdc_ncm_ndp(ctx, skb_out, sign, skb->len + ctx->tx_modulus + ctx->tx_remainder);
- 
- 		/* align beginning of next frame */
--		cdc_ncm_align_tail(skb_out,  ctx->tx_modulus, ctx->tx_remainder, ctx->tx_max);
-+		cdc_ncm_align_tail(skb_out,  ctx->tx_modulus, ctx->tx_remainder, ctx->tx_curr_size);
- 
- 		/* check if we had enough room left for both NDP and frame */
--		if (!ndp16 || skb_out->len + skb->len + delayed_ndp_size > ctx->tx_max) {
-+		if (!ndp16 || skb_out->len + skb->len + delayed_ndp_size > ctx->tx_curr_size) {
- 			if (n == 0) {
- 				/* won't fit, MTU problem? */
- 				dev_kfree_skb_any(skb);
-@@ -1227,7 +1242,7 @@ struct sk_buff *
- 	/* If requested, put NDP at end of frame. */
- 	if (ctx->drvflags & CDC_NCM_FLAG_NDP_TO_END) {
- 		nth16 = (struct usb_cdc_ncm_nth16 *)skb_out->data;
--		cdc_ncm_align_tail(skb_out, ctx->tx_ndp_modulus, 0, ctx->tx_max);
-+		cdc_ncm_align_tail(skb_out, ctx->tx_ndp_modulus, 0, ctx->tx_curr_size);
- 		nth16->wNdpIndex = cpu_to_le16(skb_out->len);
- 		memcpy(skb_put(skb_out, ctx->max_ndp_size), ctx->delayed_ndp16, ctx->max_ndp_size);
- 
-@@ -1246,9 +1261,9 @@ struct sk_buff *
- 	 */
- 	if (!(dev->driver_info->flags & FLAG_SEND_ZLP) &&
- 	    skb_out->len > ctx->min_tx_pkt) {
--		padding_count = ctx->tx_max - skb_out->len;
-+		padding_count = ctx->tx_curr_size - skb_out->len;
- 		memset(skb_put(skb_out, padding_count), 0, padding_count);
--	} else if (skb_out->len < ctx->tx_max &&
-+	} else if (skb_out->len < ctx->tx_curr_size &&
- 		   (skb_out->len % dev->maxpacket) == 0) {
- 		*skb_put(skb_out, 1) = 0;	/* force short packet */
- 	}
-diff --git a/include/linux/usb/cdc_ncm.h b/include/linux/usb/cdc_ncm.h
-index 00d2324..5162f38 100644
---- a/include/linux/usb/cdc_ncm.h
-+++ b/include/linux/usb/cdc_ncm.h
-@@ -117,6 +117,7 @@ struct cdc_ncm_ctx {
- 	u32 tx_curr_frame_num;
- 	u32 rx_max;
- 	u32 tx_max;
-+	u32 tx_curr_size;
- 	u32 max_datagram_size;
- 	u16 tx_max_datagrams;
- 	u16 tx_remainder;
--- 
-1.9.1
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+On 16/05/17 09:19 AM, Ganesh GR wrote:
+> 
+> Hi Logan,
+> 
+> The latest firmware available is 1.16.43.0 kindly update your firmware and
+> give a try, 1.16.29.4 have no support for autoneg.
+> 
+> Thanks
+> Ganesh
+> 
+> 
+> 
+> 
+> 
+> 
+> From: Logan Gunthorpe <logang@deltatee.com>
+> Sent: Tuesday, May 16, 2017 7:20 AM
+> To: Ganesh GR
+> Cc: David S. Miller; Stephen Bates; SWise OGC; netdev@vger.kernel.org
+> Subject: Re: cxgb4 is broken in v4.12-rc1
+>     
+> Hi,
+> 
+> Thanks for looking into it. The version information of the card is:
+> 
+> [    5.235956] cxgb4 0000:07:00.4: Chelsio T62100-LP-CR rev 0
+> [    5.235957] cxgb4 0000:07:00.4: S/N: PT51160053, P/N: 11012106004
+> [    5.235959] cxgb4 0000:07:00.4: Firmware version: 1.16.29.4
+> [    5.235960] cxgb4 0000:07:00.4: Bootstrap version: 255.255.255.255
+> [    5.235961] cxgb4 0000:07:00.4: TP Microcode version: 0.1.23.2
+> 
+> Logan
+> 
+> 
+> On 15/05/17 07:00 PM, Ganesh GR wrote:
+>>
+>> Hi Logan,
+>>
+>> Thanks for reporting the issue I will try to reproduce this, btw what is the firmware version
+>> on your setup?.
+>>
+>> Regards
+>> Ganesh
+>>
+>>
+>>
+>>
+>> From: Logan Gunthorpe <logang@deltatee.com>
+>> Sent: Tuesday, May 16, 2017 4:06 AM
+>> To: Ganesh GR
+>> Cc: David S. Miller; Stephen Bates; SWise OGC; netdev@vger.kernel.org
+>> Subject: BUG: cxgb4 is broken in v4.12-rc1
+>>      
+>> Hi,
+>>
+>> With rc1 my T62100-LP-CR no longer functions correctly. Everything
+>> appears fine but the link never goes into the UP state. I have one peer
+>> with an older (functioning) kernel and the other peer on rc1.
+>>
+>> I've bisected to find this is the offending commit:
+>>
+>> 3bb4858fd: cxgb4: avoid disabling FEC by default
+>>
+>> I've also attached a bisect log.
+>>
+>> Let me know if you need anything else.
+>>
+>> Thanks,
+>>
+>> Logan
+>>      
+>>
+>     
+> 
