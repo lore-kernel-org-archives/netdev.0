@@ -1,29 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: phy: Remove residual magic from PHY drivers
-Date: Tue, 16 May 2017 15:58:31 -0400 (EDT)
-Message-ID: <20170516.155831.1664076050609953649.davem@davemloft.net>
-References: <1494952151-3040-1-git-send-email-andrew@lunn.ch>
+Subject: Re: [PATCH] liquidio: use pcie_flr instead of duplicating it
+Date: Tue, 16 May 2017 16:00:00 -0400 (EDT)
+Message-ID: <20170516.160000.1677155549929964398.davem@davemloft.net>
+References: <20170516142146.21739-1-hch@lst.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: f.fainelli@gmail.com, netdev@vger.kernel.org
-To: andrew@lunn.ch
+Cc: felix.manlunas@caviumnetworks.com,
+        raghu.vatsavayi@caviumnetworks.com,
+        satananda.burla@caviumnetworks.com,
+        derek.chickles@caviumnetworks.com, netdev@vger.kernel.org
+To: hch@lst.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:53116 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:53146 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751577AbdEPT6d (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 16 May 2017 15:58:33 -0400
-In-Reply-To: <1494952151-3040-1-git-send-email-andrew@lunn.ch>
+        with ESMTP id S1750949AbdEPUAC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 16 May 2017 16:00:02 -0400
+In-Reply-To: <20170516142146.21739-1-hch@lst.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andrew Lunn <andrew@lunn.ch>
-Date: Tue, 16 May 2017 18:29:11 +0200
+From: Christoph Hellwig <hch@lst.de>
+Date: Tue, 16 May 2017 16:21:46 +0200
 
-> commit fa8cddaf903c ("net phylib: Remove unnecessary condition check in phy")
-> removed the only place where the PHY flag PHY_HAS_MAGICANEG was
-> checked. But it left the flag being set in the drivers. Remove the flag.
-> 
-> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+> Signed-off-by: Christoph Hellwig <hch@lst.de>
+> Tested-by: Felix Manlunas <felix.manlunas@cavium.com>
 
 Applied to net-next, thanks.
