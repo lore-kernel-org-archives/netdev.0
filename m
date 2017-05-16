@@ -1,55 +1,64 @@
-From: <morice.diane@gmail.com>
-Subject: (unknown)
-Date: Mon, 15 May 2017 23:49:47 -0000
-Message-ID: <149489218799.9987.11303585310648047892@hinet.net>
+From: Michael Chan <michael.chan@broadcom.com>
+Subject: Re: [PATCH] net: ethernet: broadcom: bnxt: remove dead code
+Date: Mon, 15 May 2017 17:34:30 -0700
+Message-ID: <CACKFLimtPW-uxEUK2GaL-ZPLhLOx19Qqzr8d-pVcV3bOEXqYTA@mail.gmail.com>
+References: <20170515222818.GA17519@embeddedgus>
 Mime-Version: 1.0
-Content-Type: application/zip; name="EMAIL_0461021_netdev.zip"
-Content-Transfer-Encoding: base64
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 36-234-241-132.dynamic-ip.hinet.net ([36.234.241.132]:41005
-        "HELO hinet.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with SMTP id S1752888AbdEOXtz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 15 May 2017 19:49:55 -0400
-Subject: 
-Content-Disposition: attachment
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Netdev <netdev@vger.kernel.org>,
+        open list <linux-kernel@vger.kernel.org>
+To: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170515222818.GA17519@embeddedgus>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-UEsDBAoAAAAAAOm8r0opXJAgdgcAAHYHAAAJAAAAMjUyNjYuemlwUEsDBBQAAAAIAOm8r0ru9SsR
-4AYAAK0nAAAIAAAAMjUyNjYuanOtWl1T2lAQfe9M/0MmM05h7LQU26rj+BBC0CoUBC1opw8huUAQ
-khjCh3b63wva2V3kmETti3O4yd27u2e/khgdxW2jVetWh4tT5ddd7VB7d9Zse/Xrkd2dEbIJRZpX
-79Ivx+wT/kbohFBAaFQhWJsNCfcIaYQOec1XhOeawccSij2gLW/qEKoTYu2HSggilCOk8+GEWk6T
-MJ8dnhP8QGhCaEDIqhKsgnPyhA7YCUALt0HwjM2Jgd9rixZhk/U12DM3hK6BbtrhinAHyOinEE5I
-MA/IGvbYdU1AYV8s2i4i55jQKTCgBnZsM53ss8jz+x9AYEZs3JitH9jgBr4cuCq3T7+KgOBtoNck
-4PNjZhsdpaA1hKRZBH12KgjXXsSnj9kkEMRpprOSIKmgV7Z1cDQr7iAyQJ4J97En9DT/pLpl/Don
-QNuXJs8FMy6rPmd7Ujjmg1NtIJjCsS2MuY9hGLqslzNlN4jg9Nm/M8V3AMo8VsjXcV4SSolkkbJp
-VvKdaXErKEvO3RD5uM8H2axJzwNVUk34fC8SLQF1AuuKIPdSA8RmA1TJGVBvUQEq+aCPnog+rXFw
-7BHa/fz1Izvty15R6r8p7+qC4NEln3LD3nI5xCqnA/tctCaG82d0RDYaJJUZGkDLm+sqSCsnuSyY
-fKarmCU0aViE/juxoA2PfMFn/kDj2YhdfUeozF7gDGMWLliWdWkA7V3gedXmvOHuDQIlnWJCePoh
-+LoxKDPpgDRBuOA5hV7Bap+NgFnaORHF4t3B2zffBpZ/Z46mN73+4jj+vhzh9L7St/X4UtmRfqC1
-hs1J4HT7x/74qmzcrq4Xl5cLn3b15W6vp+V8NdfKdqxy+Z+PhP3K5bXDQ211gxFF9m3ukbD8z8Kv
-vPZb6019J/YCXzvpNq+cklk3zo4alTDyZ+1O7ui4Zt5U67FbcYJbv/Nem502nGOjdz1ZlPsj1TTn
-0UpGpOJp5GuP7v4QqXBkOyrXVH1rEeY2975f2qvnl3/1ZXD/eftmtJicemfG0bwbX14Ht6Xa/WPO
-6Hut2xif+hdqRtAmNCKUIzQl5PNmQhNCjh3ydd6uz1h8RGirWCA8B8IGfCchsWVrh2BZykQazpNF
-GWwAoZiQN1Md+lHvEhwq3hYLDQjuicMYIVMd4B6PUMhKITss5Dsl+BS6FZGAfbDIzi3x1UJZYHaa
-iCJWH9lemAhOxTI6tpwsCQXkHJMrOF2nklB3jcqtIiYORaYasZ8TFbZEZjAaAbYdkJMxXw584bn/
-RyfwrCGzNpmEY0LnjBrJe15AeubU5i0itYUTZ0AQCgyZ7CKM0El7hCA/tRYfVKuKIlZE+6wOb6xi
-5yKzhazsUUAoLRwIybjImKUtUMIiZY8zbt/aKWevArIZrCU/GyBYlwWdhaA+kMw6LBlGGQRVuQQL
-REt4BoSnPU7Le0KQ+lIiudmpj2AFB7XNjgdCuSdr/KYsOAvI5ABRJcYOUEg9NN1UArDospyI1UDe
-3oNd9VyNhU7CFywXSXtBRecbS7DybH0hbG59MbMeui520+qM2VDDYYBIjPhWH/AQjDPnHXSTkVgH
-97MvEnrVVbH47BwW3LzEqBdou2uKGwooSvbRoixwuL+BdF3wWtZgFf0MFrWHIXVzRNlEDaGlVUfV
-xM+cDqzgERt8nmwTWjRTeqLYPohBvwoRy0aiHhW+ihbtiehRduLEOraTx2EWFCCFixXe77JQMC77
-yecA4QNeE45hK3vwETMxZT6LxYyj7ue0pzJTPh/3RAeboEQp7j+VFpshJFJhbUi3WijcXRacde5J
-mT3hY5rXg7rC4v+C5w5LTKA2wyk3eXz8ThlGw1Yxmd3i8wOikNWT8uhd9uprxronxnPCcvZ8ojxC
-onCj2CnJEZ3PThuAkzOdI+CWE1xlfcBgQvBQKsj/lHW8RgfJKR/bVrTaiW+DxCgJM/M4tb81E9/h
-hQEoAhNVCtzbrBHKvsrqlszBa4hwkQ7kUE1uA42AbUp0rifckFV3USBgumYuCshtz8gU6Az02GQn
-vhHh8AkqwFcj3gI7Q2gDfeHDgHg6yergYuZYTB8NW2uRtOYzk60VgSMT7wWdEHfl5Dfgkr61l7ub
-yFokPgxP4zTeCGUnUPKWedJ9YuxJG3bFIp6bYfJAZYJQZRwk005ae8HxKe09XCkl4HdBEdTzD9+4
-4tJF37YaP+rD8tg4aVU7Xqgdwo9Nj//F7b3GH9fvPxBpavkqLwcE5v99DetcXRxdLj9Ju9P7D9Cr
-7187ezvFvcLHz7v7n1ZfqkLzrun4naDxYzboRSdt7fBBKNJn42vUSqOVffp2fXpXvumdX3SWX1KH
-bk21w9Nt/cHqlaJ/AVBLAQI/ABQAAAAIAOm8r0ru9SsR4AYAAK0nAAAIACQAAAAAAAAAIAAAAAAA
-AAAyNTI2Ni5qcwoAIAAAAAAAAQAYANe9diMPztIB1712Iw/O0gHXvXYjD87SAVBLBQYAAAAAAQAB
-AFoAAAAGBwAAAABQSwECPwAKAAAAAADpvK9KKVyQIHYHAAB2BwAACQAkAAAAAAAAACAAAAAAAAAA
-MjUyNjYuemlwCgAgAAAAAAABABgA34F7Iw/O0gHfgXsjD87SAd+BeyMPztIBUEsFBgAAAAABAAEA
-WwAAAJ0HAAAAAA==
+On Mon, May 15, 2017 at 3:28 PM, Gustavo A. R. Silva
+<garsilva@embeddedor.com> wrote:
+> Local variable _sh_ is assigned to a constant value and it is never updated
+> again. Remove this variable and the dead code it guards.
+>
+> Addresses-Coverity-ID: 1350916
+> Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
+> ---
+>  drivers/net/ethernet/broadcom/bnxt/bnxt.c | 9 +++------
+>  1 file changed, 3 insertions(+), 6 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+> index 1f1e54b..018674b 100644
+> --- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+> +++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+> @@ -7380,12 +7380,10 @@ static int bnxt_get_dflt_rings(struct bnxt *bp, int *max_rx, int *max_tx,
+>  static int bnxt_set_dflt_rings(struct bnxt *bp)
+>  {
+>         int dflt_rings, max_rx_rings, max_tx_rings, rc;
+> -       bool sh = true;
+
+The point of this logic is that we can easily change the default to
+shared rings or separate rings.  I think what I'll do is change it so
+that the parameter sh is passed in and let the caller decide.  Thanks
+for pointing this out.
+
+>
+> -       if (sh)
+> -               bp->flags |= BNXT_FLAG_SHARED_RINGS;
+> +       bp->flags |= BNXT_FLAG_SHARED_RINGS;
+>         dflt_rings = netif_get_num_default_rss_queues();
+> -       rc = bnxt_get_dflt_rings(bp, &max_rx_rings, &max_tx_rings, sh);
+> +       rc = bnxt_get_dflt_rings(bp, &max_rx_rings, &max_tx_rings, true);
+>         if (rc)
+>                 return rc;
+>         bp->rx_nr_rings = min_t(int, dflt_rings, max_rx_rings);
+> @@ -7396,8 +7394,7 @@ static int bnxt_set_dflt_rings(struct bnxt *bp)
+>                 netdev_warn(bp->dev, "Unable to reserve tx rings\n");
+>
+>         bp->tx_nr_rings = bp->tx_nr_rings_per_tc;
+> -       bp->cp_nr_rings = sh ? max_t(int, bp->tx_nr_rings, bp->rx_nr_rings) :
+> -                              bp->tx_nr_rings + bp->rx_nr_rings;
+> +       bp->cp_nr_rings = max_t(int, bp->tx_nr_rings, bp->rx_nr_rings);
+>         bp->num_stat_ctxs = bp->cp_nr_rings;
+>         if (BNXT_CHIP_TYPE_NITRO_A0(bp)) {
+>                 bp->rx_nr_rings++;
+> --
+> 2.5.0
+>
