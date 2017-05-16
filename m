@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v3 03/10] net: sched: rename tcf_destroy_chain helper
-Date: Tue, 16 May 2017 19:27:55 +0200
-Message-ID: <20170516172802.1317-4-jiri@resnulli.us>
+Subject: [patch net-next v3 07/10] net: sched: push chain dump to a separate function
+Date: Tue, 16 May 2017 19:27:59 +0200
+Message-ID: <20170516172802.1317-8-jiri@resnulli.us>
 References: <20170516172802.1317-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
         dsa@cumulusnetworks.com, edumazet@google.com,
@@ -10,55 +10,149 @@ Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
         mlxsw@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:33519 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752793AbdEPR2K (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 16 May 2017 13:28:10 -0400
-Received: by mail-wm0-f66.google.com with SMTP id y10so39842230wmh.0
-        for <netdev@vger.kernel.org>; Tue, 16 May 2017 10:28:09 -0700 (PDT)
+Received: from mail-wr0-f196.google.com ([209.85.128.196]:35300 "EHLO
+        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753389AbdEPR2P (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 16 May 2017 13:28:15 -0400
+Received: by mail-wr0-f196.google.com with SMTP id g12so14918039wrg.2
+        for <netdev@vger.kernel.org>; Tue, 16 May 2017 10:28:15 -0700 (PDT)
 In-Reply-To: <20170516172802.1317-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-Make the name consistent with the rest of the helpers around.
+Since there will be multiple chains to dump, push chain dumping code to
+a separate function.
 
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- net/sched/cls_api.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ net/sched/cls_api.c | 95 +++++++++++++++++++++++++++++------------------------
+ 1 file changed, 52 insertions(+), 43 deletions(-)
 
 diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
-index 42fdc8a..88ec1a1 100644
+index 6f2ea68..9f48061 100644
 --- a/net/sched/cls_api.c
 +++ b/net/sched/cls_api.c
-@@ -187,7 +187,7 @@ static void tcf_proto_destroy(struct tcf_proto *tp)
- 	kfree_rcu(tp, rcu);
+@@ -634,21 +634,65 @@ static int tcf_node_dump(struct tcf_proto *tp, unsigned long n,
+ 			     RTM_NEWTFILTER);
  }
  
--static void tcf_destroy_chain(struct tcf_proto __rcu **fl)
-+static void tcf_chain_destroy(struct tcf_proto __rcu **fl)
++static void tcf_chain_dump(struct tcf_chain *chain, struct sk_buff *skb,
++			   struct netlink_callback *cb,
++			   long index_start, long *p_index)
++{
++	struct net *net = sock_net(skb->sk);
++	struct tcmsg *tcm = nlmsg_data(cb->nlh);
++	struct tcf_dump_args arg;
++	struct tcf_proto *tp;
++
++	for (tp = rtnl_dereference(chain->filter_chain);
++	     tp; tp = rtnl_dereference(tp->next), (*p_index)++) {
++		if (*p_index < index_start)
++			continue;
++		if (TC_H_MAJ(tcm->tcm_info) &&
++		    TC_H_MAJ(tcm->tcm_info) != tp->prio)
++			continue;
++		if (TC_H_MIN(tcm->tcm_info) &&
++		    TC_H_MIN(tcm->tcm_info) != tp->protocol)
++			continue;
++		if (*p_index > index_start)
++			memset(&cb->args[1], 0,
++			       sizeof(cb->args) - sizeof(cb->args[0]));
++		if (cb->args[1] == 0) {
++			if (tcf_fill_node(net, skb, tp, 0,
++					  NETLINK_CB(cb->skb).portid,
++					  cb->nlh->nlmsg_seq, NLM_F_MULTI,
++					  RTM_NEWTFILTER) <= 0)
++				break;
++
++			cb->args[1] = 1;
++		}
++		if (!tp->ops->walk)
++			continue;
++		arg.w.fn = tcf_node_dump;
++		arg.skb = skb;
++		arg.cb = cb;
++		arg.w.stop = 0;
++		arg.w.skip = cb->args[1] - 1;
++		arg.w.count = 0;
++		tp->ops->walk(tp, &arg.w);
++		cb->args[1] = arg.w.count + 1;
++		if (arg.w.stop)
++			break;
++	}
++}
++
+ /* called with RTNL */
+ static int tc_dump_tfilter(struct sk_buff *skb, struct netlink_callback *cb)
  {
- 	struct tcf_proto *tp;
+ 	struct net *net = sock_net(skb->sk);
+-	int t;
+-	int s_t;
+ 	struct net_device *dev;
+ 	struct Qdisc *q;
+ 	struct tcf_block *block;
+-	struct tcf_proto *tp;
+ 	struct tcf_chain *chain;
+ 	struct tcmsg *tcm = nlmsg_data(cb->nlh);
+ 	unsigned long cl = 0;
+ 	const struct Qdisc_class_ops *cops;
+-	struct tcf_dump_args arg;
++	long index_start;
++	long index;
  
-@@ -214,7 +214,7 @@ void tcf_block_put(struct tcf_block *block)
- {
- 	if (!block)
- 		return;
--	tcf_destroy_chain(block->p_filter_chain);
-+	tcf_chain_destroy(block->p_filter_chain);
- 	kfree(block);
- }
- EXPORT_SYMBOL(tcf_block_put);
-@@ -366,7 +366,7 @@ static int tc_ctl_tfilter(struct sk_buff *skb, struct nlmsghdr *n,
- 
- 	if (n->nlmsg_type == RTM_DELTFILTER && prio == 0) {
- 		tfilter_notify_chain(net, skb, n, chain, RTM_DELTFILTER);
--		tcf_destroy_chain(chain);
-+		tcf_chain_destroy(chain);
- 		err = 0;
+ 	if (nlmsg_len(cb->nlh) < sizeof(*tcm))
+ 		return skb->len;
+@@ -677,45 +721,10 @@ static int tc_dump_tfilter(struct sk_buff *skb, struct netlink_callback *cb)
  		goto errout;
- 	}
+ 	chain = block->chain;
+ 
+-	s_t = cb->args[0];
+-
+-	for (tp = rtnl_dereference(chain->filter_chain), t = 0;
+-	     tp; tp = rtnl_dereference(tp->next), t++) {
+-		if (t < s_t)
+-			continue;
+-		if (TC_H_MAJ(tcm->tcm_info) &&
+-		    TC_H_MAJ(tcm->tcm_info) != tp->prio)
+-			continue;
+-		if (TC_H_MIN(tcm->tcm_info) &&
+-		    TC_H_MIN(tcm->tcm_info) != tp->protocol)
+-			continue;
+-		if (t > s_t)
+-			memset(&cb->args[1], 0,
+-			       sizeof(cb->args)-sizeof(cb->args[0]));
+-		if (cb->args[1] == 0) {
+-			if (tcf_fill_node(net, skb, tp, 0,
+-					  NETLINK_CB(cb->skb).portid,
+-					  cb->nlh->nlmsg_seq, NLM_F_MULTI,
+-					  RTM_NEWTFILTER) <= 0)
+-				break;
+-
+-			cb->args[1] = 1;
+-		}
+-		if (tp->ops->walk == NULL)
+-			continue;
+-		arg.w.fn = tcf_node_dump;
+-		arg.skb = skb;
+-		arg.cb = cb;
+-		arg.w.stop = 0;
+-		arg.w.skip = cb->args[1] - 1;
+-		arg.w.count = 0;
+-		tp->ops->walk(tp, &arg.w);
+-		cb->args[1] = arg.w.count + 1;
+-		if (arg.w.stop)
+-			break;
+-	}
+-
+-	cb->args[0] = t;
++	index_start = cb->args[0];
++	index = 0;
++	tcf_chain_dump(chain, skb, cb, index_start, &index);
++	cb->args[0] = index;
+ 
+ errout:
+ 	if (cl)
 -- 
 2.9.3
