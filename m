@@ -1,261 +1,41 @@
-From: Felix Manlunas <felix.manlunas@cavium.com>
-Subject: [PATCH net-next] liquidio: fix insmod failure when multiple NICs are
- plugged in
-Date: Tue, 16 May 2017 11:14:50 -0700
-Message-ID: <20170516181450.GA1014@felix-thinkpad.cavium.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [Patch net] ipv4: restore rt->fi for reference counting
+Date: Tue, 16 May 2017 11:16:09 -0700
+Message-ID: <CAM_iQpVBKjwqmU1p-xLYwy=032fewdCfDetaSxC+aQoE=dgMfQ@mail.gmail.com>
+References: <1493934857-6693-1-git-send-email-xiyou.wangcong@gmail.com>
+ <1494370451.7796.93.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1494371348.7796.95.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAM_iQpU+fXO7eFroAYMv6vqDzCK_ZYXjrTPAMfoDR2BDqaK9rQ@mail.gmail.com>
+ <alpine.LFD.2.20.1705100937330.1938@ja.home.ssi.bg> <CAM_iQpX22qTqo4yfM_Je1bvJHxjAGK_tvm5KgQSnJzsYq7K55Q@mail.gmail.com>
+ <alpine.LFD.2.20.1705102141320.1928@ja.home.ssi.bg> <CAM_iQpW0fJJXPS=FoTf-o4f5-mOC=mZYNP8=uqiUOmvX+CDwWw@mail.gmail.com>
+ <CAM_iQpWxDKHF4N1xor7qj+5s91GrctgcGnzN0buw18qs7__-gQ@mail.gmail.com>
+ <alpine.LFD.2.20.1705120659370.1811@ja.home.ssi.bg> <CAM_iQpVQSMd_LYMqm3EauRRgJhfkW=zsdvKRf4-YcGWwSufuvQ@mail.gmail.com>
+ <alpine.LFD.2.20.1705122151001.2835@ja.home.ssi.bg> <CAM_iQpXtWUZoGS_KEqfZc+ZbzYxaF1hbAV7H9Qd82=r4auJojw@mail.gmail.com>
+ <alpine.LFD.2.20.1705152317090.4002@ja.home.ssi.bg> <CAM_iQpWAjTJL54h_Pdg3DigjEK4kQdSz0pmAks6ByoP67ROOFg@mail.gmail.com>
+ <alpine.LFD.2.20.1705160955310.1856@ja.home.ssi.bg> <CAM_iQpVuqBkQxq=g4n5t33Gv0mxR_S0iOtQxgBHKceam8pmwfQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
-        derek.chickles@cavium.com, satananda.burla@cavium.com,
-        ricardo.farrington@cavium.com
-To: davem@davemloft.net
+Content-Type: text/plain; charset="UTF-8"
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+        David Miller <davem@davemloft.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Andrey Konovalov <andreyknvl@google.com>,
+        Eric Dumazet <edumazet@google.com>
+To: Julian Anastasov <ja@ssi.bg>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-cys01nam02on0079.outbound.protection.outlook.com ([104.47.37.79]:56012
-        "EHLO NAM02-CY1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1750784AbdEPSO5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 16 May 2017 14:14:57 -0400
-Content-Disposition: inline
+Received: from mail-wm0-f41.google.com ([74.125.82.41]:35945 "EHLO
+        mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750795AbdEPSQb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 16 May 2017 14:16:31 -0400
+Received: by mail-wm0-f41.google.com with SMTP id u65so130379592wmu.1
+        for <netdev@vger.kernel.org>; Tue, 16 May 2017 11:16:30 -0700 (PDT)
+In-Reply-To: <CAM_iQpVuqBkQxq=g4n5t33Gv0mxR_S0iOtQxgBHKceam8pmwfQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Rick Farrington <ricardo.farrington@cavium.com>
+On Tue, May 16, 2017 at 10:53 AM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+> How about adding a check for ->fib_dead in these work's?
+> If the last treeref is gone, probably it is no longer needed
+> to continue to do the offloading work.
 
-When multiple liquidio NICs are plugged in, the first insmod of the PF
-driver succeeds.  But after an rmmod, a subsequent insmod fails.  Reason is
-during rmmod, the PF driver resets the Octeon of only one of the NICs; it
-neglects to reset the Octeons of the other NICs.
-
-Fix the insmod failure by adding the missing Octeon resets at rmmod.  Keep
-a per-NIC refcount that indicates the number of active PFs in a given NIC.
-When the refcount goes to zero, then reset the Octeon of that NIC.
-
-Signed-off-by: Rick Farrington <ricardo.farrington@cavium.com>
-Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
----
- drivers/net/ethernet/cavium/liquidio/lio_main.c    | 21 +++++-
- .../net/ethernet/cavium/liquidio/octeon_device.c   | 87 ++++++++++++++++++++--
- .../net/ethernet/cavium/liquidio/octeon_device.h   | 25 +++++++
- 3 files changed, 123 insertions(+), 10 deletions(-)
-
-diff --git a/drivers/net/ethernet/cavium/liquidio/lio_main.c b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-index 927617c..360ddc8 100644
---- a/drivers/net/ethernet/cavium/liquidio/lio_main.c
-+++ b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-@@ -1421,7 +1421,7 @@ static bool fw_type_is_none(void)
-  */
- static void octeon_destroy_resources(struct octeon_device *oct)
- {
--	int i;
-+	int i, refcount;
- 	struct msix_entry *msix_entries;
- 	struct octeon_device_priv *oct_priv =
- 		(struct octeon_device_priv *)oct->priv;
-@@ -1556,10 +1556,14 @@ static void octeon_destroy_resources(struct octeon_device *oct)
- 
- 		/* fallthrough */
- 	case OCT_DEV_PCI_MAP_DONE:
-+		refcount = octeon_deregister_device(oct);
-+
- 		if (!fw_type_is_none()) {
--			/* Soft reset the octeon device before exiting */
--			if (!OCTEON_CN23XX_PF(oct) ||
--			    (OCTEON_CN23XX_PF(oct) && !oct->octeon_id))
-+			/* Soft reset the octeon device before exiting.
-+			 * Implementation note: here, we reset the device
-+			 * if it is a CN6XXX OR the last CN23XX device.
-+			 */
-+			if (OCTEON_CN6XXX(oct) || !refcount)
- 				oct->fn_list.soft_reset(oct);
- 		}
- 
-@@ -4511,6 +4515,15 @@ static int octeon_device_init(struct octeon_device *octeon_dev)
- 
- 	atomic_set(&octeon_dev->status, OCT_DEV_PCI_MAP_DONE);
- 
-+	/* Only add a reference after setting status 'OCT_DEV_PCI_MAP_DONE',
-+	 * since that is what is required for the reference to be removed
-+	 * during de-initialization (see 'octeon_destroy_resources').
-+	 */
-+	octeon_register_device(octeon_dev, octeon_dev->pci_dev->bus->number,
-+			       PCI_SLOT(octeon_dev->pci_dev->devfn),
-+			       PCI_FUNC(octeon_dev->pci_dev->devfn),
-+			       true);
-+
- 	octeon_dev->app_mode = CVM_DRV_INVALID_APP;
- 
- 	if (OCTEON_CN23XX_PF(octeon_dev)) {
-diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_device.c b/drivers/net/ethernet/cavium/liquidio/octeon_device.c
-index e21b477..3cc5667 100644
---- a/drivers/net/ethernet/cavium/liquidio/octeon_device.c
-+++ b/drivers/net/ethernet/cavium/liquidio/octeon_device.c
-@@ -543,7 +543,11 @@ static char oct_dev_app_str[CVM_DRV_APP_COUNT + 1][32] = {
- 	"BASE", "NIC", "UNKNOWN"};
- 
- static struct octeon_device *octeon_device[MAX_OCTEON_DEVICES];
-+static atomic_t adapter_refcounts[MAX_OCTEON_DEVICES];
-+
- static u32 octeon_device_count;
-+/* locks device array (i.e. octeon_device[]) */
-+spinlock_t octeon_devices_lock;
- 
- static struct octeon_core_setup core_setup[MAX_OCTEON_DEVICES];
- 
-@@ -561,6 +565,7 @@ void octeon_init_device_list(int conf_type)
- 	memset(octeon_device, 0, (sizeof(void *) * MAX_OCTEON_DEVICES));
- 	for (i = 0; i <  MAX_OCTEON_DEVICES; i++)
- 		oct_set_config_info(i, conf_type);
-+	spin_lock_init(&octeon_devices_lock);
- }
- 
- static void *__retrieve_octeon_config_info(struct octeon_device *oct,
-@@ -720,23 +725,27 @@ struct octeon_device *octeon_allocate_device(u32 pci_id,
- 	u32 oct_idx = 0;
- 	struct octeon_device *oct = NULL;
- 
-+	spin_lock(&octeon_devices_lock);
-+
- 	for (oct_idx = 0; oct_idx < MAX_OCTEON_DEVICES; oct_idx++)
- 		if (!octeon_device[oct_idx])
- 			break;
- 
--	if (oct_idx == MAX_OCTEON_DEVICES)
--		return NULL;
-+	if (oct_idx < MAX_OCTEON_DEVICES) {
-+		oct = octeon_allocate_device_mem(pci_id, priv_size);
-+		if (oct) {
-+			octeon_device_count++;
-+			octeon_device[oct_idx] = oct;
-+		}
-+	}
- 
--	oct = octeon_allocate_device_mem(pci_id, priv_size);
-+	spin_unlock(&octeon_devices_lock);
- 	if (!oct)
- 		return NULL;
- 
- 	spin_lock_init(&oct->pci_win_lock);
- 	spin_lock_init(&oct->mem_access_lock);
- 
--	octeon_device_count++;
--	octeon_device[oct_idx] = oct;
--
- 	oct->octeon_id = oct_idx;
- 	snprintf(oct->device_name, sizeof(oct->device_name),
- 		 "LiquidIO%d", (oct->octeon_id));
-@@ -744,6 +753,72 @@ struct octeon_device *octeon_allocate_device(u32 pci_id,
- 	return oct;
- }
- 
-+/** Register a device's bus location at initialization time.
-+ *  @param octeon_dev - pointer to the octeon device structure.
-+ *  @param bus        - PCIe bus #
-+ *  @param dev        - PCIe device #
-+ *  @param func       - PCIe function #
-+ *  @param is_pf      - TRUE for PF, FALSE for VF
-+ *  @return reference count of device's adapter
-+ */
-+int octeon_register_device(struct octeon_device *oct,
-+			   int bus, int dev, int func, int is_pf)
-+{
-+	int idx, refcount;
-+
-+	oct->loc.bus = bus;
-+	oct->loc.dev = dev;
-+	oct->loc.func = func;
-+
-+	oct->adapter_refcount = &adapter_refcounts[oct->octeon_id];
-+	atomic_set(oct->adapter_refcount, 0);
-+
-+	spin_lock(&octeon_devices_lock);
-+	for (idx = (int)oct->octeon_id - 1; idx >= 0; idx--) {
-+		if (!octeon_device[idx]) {
-+			dev_err(&oct->pci_dev->dev,
-+				"%s: Internal driver error, missing dev",
-+				__func__);
-+			spin_unlock(&octeon_devices_lock);
-+			atomic_inc(oct->adapter_refcount);
-+			return 1; /* here, refcount is guaranteed to be 1 */
-+		}
-+		/* if another device is at same bus/dev, use its refcounter */
-+		if ((octeon_device[idx]->loc.bus == bus) &&
-+		    (octeon_device[idx]->loc.dev == dev)) {
-+			oct->adapter_refcount =
-+				octeon_device[idx]->adapter_refcount;
-+			break;
-+		}
-+	}
-+	spin_unlock(&octeon_devices_lock);
-+
-+	atomic_inc(oct->adapter_refcount);
-+	refcount = atomic_read(oct->adapter_refcount);
-+
-+	dev_dbg(&oct->pci_dev->dev, "%s: %02x:%02x:%d refcount %u", __func__,
-+		oct->loc.bus, oct->loc.dev, oct->loc.func, refcount);
-+
-+	return refcount;
-+}
-+
-+/** Deregister a device at de-initialization time.
-+ *  @param octeon_dev - pointer to the octeon device structure.
-+ *  @return reference count of device's adapter
-+ */
-+int octeon_deregister_device(struct octeon_device *oct)
-+{
-+	int refcount;
-+
-+	atomic_dec(oct->adapter_refcount);
-+	refcount = atomic_read(oct->adapter_refcount);
-+
-+	dev_dbg(&oct->pci_dev->dev, "%s: %04d:%02d:%d refcount %u", __func__,
-+		oct->loc.bus, oct->loc.dev, oct->loc.func, refcount);
-+
-+	return refcount;
-+}
-+
- int
- octeon_allocate_ioq_vector(struct octeon_device  *oct)
- {
-diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_device.h b/drivers/net/ethernet/cavium/liquidio/octeon_device.h
-index 92f67de..c90ed48 100644
---- a/drivers/net/ethernet/cavium/liquidio/octeon_device.h
-+++ b/drivers/net/ethernet/cavium/liquidio/octeon_device.h
-@@ -544,6 +544,14 @@ struct octeon_device {
- 	u32 tx_max_coalesced_frames;
- 
- 	bool cores_crashed;
-+
-+	struct {
-+		int bus;
-+		int dev;
-+		int func;
-+	} loc;
-+
-+	atomic_t *adapter_refcount; /* reference count of adapter */
- };
- 
- #define  OCT_DRV_ONLINE 1
-@@ -572,6 +580,23 @@ void octeon_free_device_mem(struct octeon_device *oct);
- struct octeon_device *octeon_allocate_device(u32 pci_id,
- 					     u32 priv_size);
- 
-+/** Register a device's bus location at initialization time.
-+ *  @param octeon_dev - pointer to the octeon device structure.
-+ *  @param bus        - PCIe bus #
-+ *  @param dev        - PCIe device #
-+ *  @param func       - PCIe function #
-+ *  @param is_pf      - TRUE for PF, FALSE for VF
-+ *  @return reference count of device's adapter
-+ */
-+int octeon_register_device(struct octeon_device *oct,
-+			   int bus, int dev, int func, int is_pf);
-+
-+/** Deregister a device at de-initialization time.
-+ *  @param octeon_dev - pointer to the octeon device structure.
-+ *  @return reference count of device's adapter
-+ */
-+int octeon_deregister_device(struct octeon_device *oct);
-+
- /**  Initialize the driver's dispatch list which is a mix of a hash table
-  *  and a linked list. This is done at driver load time.
-  *  @param octeon_dev - pointer to the octeon device structure.
+Hmm, this doesn't look correct either, we may miss an offloading work
+if fib_release_info() comes first.
