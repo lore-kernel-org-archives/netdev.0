@@ -1,30 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/9] nfp: LSO, checksum and XDP datapath
- updates
-Date: Tue, 16 May 2017 12:59:24 -0400 (EDT)
-Message-ID: <20170516.125924.2267416702240466691.davem@davemloft.net>
-References: <20170516005523.26124-1-jakub.kicinski@netronome.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: 'iw events' stops receiving events after a while on 4.9 + hacks
+Date: Tue, 16 May 2017 10:12:37 -0700
+Message-ID: <d82d191e-8ede-68c6-c9e0-c381dc874d36@candelatech.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, oss-drivers@netronome.com
-To: jakub.kicinski@netronome.com
+To: netdev <netdev@vger.kernel.org>,
+        "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:51012 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751815AbdEPQ70 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 16 May 2017 12:59:26 -0400
-In-Reply-To: <20170516005523.26124-1-jakub.kicinski@netronome.com>
+Received: from mail2.candelatech.com ([208.74.158.173]:40660 "EHLO
+        mail2.candelatech.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750784AbdEPRMj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 16 May 2017 13:12:39 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Date: Mon, 15 May 2017 17:55:14 -0700
+I have been keeping an 'iw events' program running with a perl script gathering its
+output and post-processing it.  This has been working for several years on 4.7 and earlier
+kernels, but when testing on 4.9 overnight, I notice that 'iw events' is not showing any input.  'strace' shows
+that it is waiting on recvmsg.  If I start a second 'iw events' then it will get
+wifi events as expected.
 
-> This series introduces a number of refinements to standard features
-> like LSO and checksum offload.  Three major features are support for
-> CHECKSUM_COMPLETE, refinement of TSO handling and another small speed
-> up for XDP TX.  This series also switches from depending on some 
-> app FW<>driver ABI versions to heavier use of capabilities.
+Are there any known issues in this area?
 
-Series applied, thanks Jakub.
+Thanks,
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
