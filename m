@@ -1,7 +1,7 @@
 From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH net-next 02/15] tcp: introduce tcp_jiffies32
-Date: Tue, 16 May 2017 14:00:01 -0700
-Message-ID: <20170516210014.31176-3-edumazet@google.com>
+Subject: [PATCH net-next 03/15] dccp: do not use tcp_time_stamp
+Date: Tue, 16 May 2017 14:00:02 -0700
+Message-ID: <20170516210014.31176-4-edumazet@google.com>
 References: <20170516210014.31176-1-edumazet@google.com>
 Cc: netdev <netdev@vger.kernel.org>,
         Eric Dumazet <edumazet@google.com>,
@@ -12,58 +12,76 @@ To: "David S . Miller" <davem@davemloft.net>,
         Soheil Hassas Yeganeh <soheil@google.com>,
         Wei Wang <weiwan@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f53.google.com ([74.125.83.53]:33385 "EHLO
-        mail-pg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751300AbdEPV17 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 16 May 2017 17:27:59 -0400
-Received: by mail-pg0-f53.google.com with SMTP id u187so82194738pgb.0
-        for <netdev@vger.kernel.org>; Tue, 16 May 2017 14:27:59 -0700 (PDT)
+Received: from mail-pf0-f169.google.com ([209.85.192.169]:34782 "EHLO
+        mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751716AbdEPV2C (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 16 May 2017 17:28:02 -0400
+Received: by mail-pf0-f169.google.com with SMTP id 9so46692395pfj.1
+        for <netdev@vger.kernel.org>; Tue, 16 May 2017 14:28:02 -0700 (PDT)
 In-Reply-To: <20170516210014.31176-1-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We abuse tcp_time_stamp for two different cases :
-
-1) base to generate TCP Timestamp options (RFC 7323)
-
-2) A 32bit version of jiffies since some TCP fields
-   are 32bit wide to save memory.
-
-Since we want in the future to have 1ms TCP TS clock,
-regardless of HZ value, we want to cleanup things.
-
-tcp_jiffies32 is the truncated jiffies value,
-which will be used only in places where we want a 'host'
-timestamp.
+Use our own macro instead of abusing tcp_time_stamp
 
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- include/net/tcp.h | 13 ++++++++-----
- 1 file changed, 8 insertions(+), 5 deletions(-)
+ net/dccp/ccids/ccid2.c | 8 ++++----
+ net/dccp/ccids/ccid2.h | 2 +-
+ 2 files changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index b4dc93dae98c2d175ccadce150083705d237555e..4b45be5708215bae4551a5430b63ab2777baf447 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -700,11 +700,14 @@ u32 __tcp_select_window(struct sock *sk);
+diff --git a/net/dccp/ccids/ccid2.c b/net/dccp/ccids/ccid2.c
+index 5e3a7302f7747e4c4f3134eacab2f2c65b13402f..e1295d5f2c562e8785f59a0f5bd7064f471e85ab 100644
+--- a/net/dccp/ccids/ccid2.c
++++ b/net/dccp/ccids/ccid2.c
+@@ -233,7 +233,7 @@ static void ccid2_hc_tx_packet_sent(struct sock *sk, unsigned int len)
+ {
+ 	struct dccp_sock *dp = dccp_sk(sk);
+ 	struct ccid2_hc_tx_sock *hc = ccid2_hc_tx_sk(sk);
+-	const u32 now = ccid2_time_stamp;
++	const u32 now = ccid2_jiffies32;
+ 	struct ccid2_seq *next;
  
- void tcp_send_window_probe(struct sock *sk);
+ 	/* slow-start after idle periods (RFC 2581, RFC 2861) */
+@@ -466,7 +466,7 @@ static void ccid2_new_ack(struct sock *sk, struct ccid2_seq *seqp,
+ 	 * The cleanest solution is to not use the ccid2s_sent field at all
+ 	 * and instead use DCCP timestamps: requires changes in other places.
+ 	 */
+-	ccid2_rtt_estimator(sk, ccid2_time_stamp - seqp->ccid2s_sent);
++	ccid2_rtt_estimator(sk, ccid2_jiffies32 - seqp->ccid2s_sent);
+ }
  
--/* TCP timestamps are only 32-bits, this causes a slight
-- * complication on 64-bit systems since we store a snapshot
-- * of jiffies in the buffer control blocks below.  We decided
-- * to use only the low 32-bits of jiffies and hide the ugly
-- * casts with the following macro.
-+/* TCP uses 32bit jiffies to save some space.
-+ * Note that this is different from tcp_time_stamp, which
-+ * historically has been the same until linux-4.13.
-+ */
-+#define tcp_jiffies32 ((u32)jiffies)
-+
-+/* Generator for TCP TS option (RFC 7323)
-+ * Currently tied to 'jiffies' but will soon be driven by 1 ms clock.
+ static void ccid2_congestion_event(struct sock *sk, struct ccid2_seq *seqp)
+@@ -478,7 +478,7 @@ static void ccid2_congestion_event(struct sock *sk, struct ccid2_seq *seqp)
+ 		return;
+ 	}
+ 
+-	hc->tx_last_cong = ccid2_time_stamp;
++	hc->tx_last_cong = ccid2_jiffies32;
+ 
+ 	hc->tx_cwnd      = hc->tx_cwnd / 2 ? : 1U;
+ 	hc->tx_ssthresh  = max(hc->tx_cwnd, 2U);
+@@ -731,7 +731,7 @@ static int ccid2_hc_tx_init(struct ccid *ccid, struct sock *sk)
+ 
+ 	hc->tx_rto	 = DCCP_TIMEOUT_INIT;
+ 	hc->tx_rpdupack  = -1;
+-	hc->tx_last_cong = hc->tx_lsndtime = hc->tx_cwnd_stamp = ccid2_time_stamp;
++	hc->tx_last_cong = hc->tx_lsndtime = hc->tx_cwnd_stamp = ccid2_jiffies32;
+ 	hc->tx_cwnd_used = 0;
+ 	setup_timer(&hc->tx_rtotimer, ccid2_hc_tx_rto_expire,
+ 			(unsigned long)sk);
+diff --git a/net/dccp/ccids/ccid2.h b/net/dccp/ccids/ccid2.h
+index 18c97543e522a6b9a5c8a3c817d4b40224adde48..6e50ef2898fb9dd9080217cc167defea6a2e9021 100644
+--- a/net/dccp/ccids/ccid2.h
++++ b/net/dccp/ccids/ccid2.h
+@@ -27,7 +27,7 @@
+  * CCID-2 timestamping faces the same issues as TCP timestamping.
+  * Hence we reuse/share as much of the code as possible.
   */
- #define tcp_time_stamp		((__u32)(jiffies))
+-#define ccid2_time_stamp	tcp_time_stamp
++#define ccid2_jiffies32	((u32)jiffies)
  
+ /* NUMDUPACK parameter from RFC 4341, p. 6 */
+ #define NUMDUPACK	3
 -- 
 2.13.0.303.g4ebf302169-goog
