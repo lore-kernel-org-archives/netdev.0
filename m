@@ -1,269 +1,335 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 01/12] mlxsw: spectrum_buffer: Reduce scope of shared buffer struct
-Date: Tue, 16 May 2017 19:38:24 +0200
-Message-ID: <20170516173835.2978-2-jiri@resnulli.us>
+Subject: [patch net-next 03/12] mlxsw: spectrum_switchdev: Reduce scope of bridge struct
+Date: Tue, 16 May 2017 19:38:26 +0200
+Message-ID: <20170516173835.2978-4-jiri@resnulli.us>
 References: <20170516173835.2978-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, mlxsw@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:36369 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751531AbdEPRik (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 16 May 2017 13:38:40 -0400
-Received: by mail-wm0-f67.google.com with SMTP id u65so38963286wmu.3
-        for <netdev@vger.kernel.org>; Tue, 16 May 2017 10:38:39 -0700 (PDT)
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:33071 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752610AbdEPRin (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 16 May 2017 13:38:43 -0400
+Received: by mail-wm0-f66.google.com with SMTP id y10so39894011wmh.0
+        for <netdev@vger.kernel.org>; Tue, 16 May 2017 10:38:42 -0700 (PDT)
 In-Reply-To: <20170516173835.2978-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ido Schimmel <idosch@mellanox.com>
 
-The shared buffer structure ('mlxsw_sp_sb') doesn't need to be
-accessible to anyone, but the shared buffer code located at
-spectrum_buffers.c
+Some attributes in the global chip struct are only relevant for bridge
+operation, so encapsulate them in their own struct that isn't exposed to
+non-bridge code.
 
-Make this apparent and reduce its scope by defining it there.
+This will also help us later, when we add more bridge-specific
+attributes.
 
 Signed-off-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/spectrum.h     | 54 ++--------------
- .../net/ethernet/mellanox/mlxsw/spectrum_buffers.c | 73 +++++++++++++++++++---
- 2 files changed, 68 insertions(+), 59 deletions(-)
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c     | 20 ++++---
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.h     | 17 +-----
+ .../net/ethernet/mellanox/mlxsw/spectrum_router.c  |  4 +-
+ .../ethernet/mellanox/mlxsw/spectrum_switchdev.c   | 65 +++++++++++++++++-----
+ 4 files changed, 69 insertions(+), 37 deletions(-)
 
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+index 88357ce..166be18 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+@@ -3312,7 +3312,6 @@ static int mlxsw_sp_init(struct mlxsw_core *mlxsw_core,
+ 	mlxsw_sp->bus_info = mlxsw_bus_info;
+ 	INIT_LIST_HEAD(&mlxsw_sp->fids);
+ 	INIT_LIST_HEAD(&mlxsw_sp->vfids.list);
+-	INIT_LIST_HEAD(&mlxsw_sp->br_mids.list);
+ 
+ 	err = mlxsw_sp_base_mac_get(mlxsw_sp);
+ 	if (err) {
+@@ -3659,21 +3658,26 @@ static void mlxsw_sp_master_bridge_gone_sync(struct mlxsw_sp *mlxsw_sp)
+ static bool mlxsw_sp_master_bridge_check(struct mlxsw_sp *mlxsw_sp,
+ 					 struct net_device *br_dev)
+ {
+-	return !mlxsw_sp->master_bridge.dev ||
+-	       mlxsw_sp->master_bridge.dev == br_dev;
++	struct mlxsw_sp_upper *master_bridge = mlxsw_sp_master_bridge(mlxsw_sp);
++
++	return !master_bridge->dev || master_bridge->dev == br_dev;
+ }
+ 
+ static void mlxsw_sp_master_bridge_inc(struct mlxsw_sp *mlxsw_sp,
+ 				       struct net_device *br_dev)
+ {
+-	mlxsw_sp->master_bridge.dev = br_dev;
+-	mlxsw_sp->master_bridge.ref_count++;
++	struct mlxsw_sp_upper *master_bridge = mlxsw_sp_master_bridge(mlxsw_sp);
++
++	master_bridge->dev = br_dev;
++	master_bridge->ref_count++;
+ }
+ 
+ static void mlxsw_sp_master_bridge_dec(struct mlxsw_sp *mlxsw_sp)
+ {
+-	if (--mlxsw_sp->master_bridge.ref_count == 0) {
+-		mlxsw_sp->master_bridge.dev = NULL;
++	struct mlxsw_sp_upper *master_bridge = mlxsw_sp_master_bridge(mlxsw_sp);
++
++	if (--master_bridge->ref_count == 0) {
++		master_bridge->dev = NULL;
+ 		/* It's possible upper VLAN devices are still holding
+ 		 * references to underlying FIDs. Drop the reference
+ 		 * and release the resources if it was the last one.
+@@ -4272,7 +4276,7 @@ static int mlxsw_sp_netdevice_bridge_event(struct net_device *br_dev,
+ 		if (!is_vlan_dev(upper_dev))
+ 			return -EINVAL;
+ 		if (is_vlan_dev(upper_dev) &&
+-		    br_dev != mlxsw_sp->master_bridge.dev)
++		    br_dev != mlxsw_sp_master_bridge(mlxsw_sp)->dev)
+ 			return -EINVAL;
+ 		break;
+ 	case NETDEV_CHANGEUPPER:
 diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-index 0c23bc1..976f5b6 100644
+index 2eb2230..7c9e2f1 100644
 --- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
 +++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-@@ -110,43 +110,6 @@ static inline bool mlxsw_sp_fid_is_vfid(u16 fid)
- 	return fid >= MLXSW_SP_VFID_BASE && fid < MLXSW_SP_DUMMY_FID;
- }
- 
--struct mlxsw_sp_sb_pr {
--	enum mlxsw_reg_sbpr_mode mode;
--	u32 size;
--};
--
--struct mlxsw_cp_sb_occ {
--	u32 cur;
--	u32 max;
--};
--
--struct mlxsw_sp_sb_cm {
--	u32 min_buff;
--	u32 max_buff;
--	u8 pool;
--	struct mlxsw_cp_sb_occ occ;
--};
--
--struct mlxsw_sp_sb_pm {
--	u32 min_buff;
--	u32 max_buff;
--	struct mlxsw_cp_sb_occ occ;
--};
--
--#define MLXSW_SP_SB_POOL_COUNT	4
--#define MLXSW_SP_SB_TC_COUNT	8
--
--struct mlxsw_sp_sb_port {
--	struct mlxsw_sp_sb_cm cms[2][MLXSW_SP_SB_TC_COUNT];
--	struct mlxsw_sp_sb_pm pms[2][MLXSW_SP_SB_POOL_COUNT];
--};
--
--struct mlxsw_sp_sb {
--	struct mlxsw_sp_sb_pr prs[2][MLXSW_SP_SB_POOL_COUNT];
--	struct mlxsw_sp_sb_port *ports;
--	u32 cell_size;
--};
--
- #define MLXSW_SP_PREFIX_COUNT (sizeof(struct in6_addr) * BITS_PER_BYTE)
- 
- struct mlxsw_sp_prefix_usage {
-@@ -231,6 +194,7 @@ struct mlxsw_sp_router {
- 	bool aborted;
+@@ -149,6 +149,7 @@ struct mlxsw_sp_port_mall_tc_entry {
  };
  
-+struct mlxsw_sp_sb;
+ struct mlxsw_sp_sb;
++struct mlxsw_sp_bridge;
+ struct mlxsw_sp_router;
  struct mlxsw_sp_acl;
  struct mlxsw_sp_counter_pool;
- 
-@@ -261,7 +225,7 @@ struct mlxsw_sp {
- 	struct mlxsw_sp_upper master_bridge;
+@@ -158,29 +159,16 @@ struct mlxsw_sp {
+ 		struct list_head list;
+ 		DECLARE_BITMAP(mapped, MLXSW_SP_VFID_MAX);
+ 	} vfids;
+-	struct {
+-		struct list_head list;
+-		DECLARE_BITMAP(mapped, MLXSW_SP_MID_MAX);
+-	} br_mids;
+ 	struct list_head fids;	/* VLAN-aware bridge FIDs */
+ 	struct mlxsw_sp_rif **rifs;
+ 	struct mlxsw_sp_port **ports;
+ 	struct mlxsw_core *core;
+ 	const struct mlxsw_bus_info *bus_info;
+ 	unsigned char base_mac[ETH_ALEN];
+-	struct {
+-		struct delayed_work dw;
+-#define MLXSW_SP_DEFAULT_LEARNING_INTERVAL 100
+-		unsigned int interval; /* ms */
+-	} fdb_notify;
+-#define MLXSW_SP_MIN_AGEING_TIME 10
+-#define MLXSW_SP_MAX_AGEING_TIME 1000000
+-#define MLXSW_SP_DEFAULT_AGEING_TIME 300
+-	u32 ageing_time;
+-	struct mlxsw_sp_upper master_bridge;
  	struct mlxsw_sp_upper *lags;
  	u8 *port_to_module;
--	struct mlxsw_sp_sb sb;
-+	struct mlxsw_sp_sb *sb;
- 	struct mlxsw_sp_router router;
+ 	struct mlxsw_sp_sb *sb;
++	struct mlxsw_sp_bridge *bridge;
+ 	struct mlxsw_sp_router *router;
  	struct mlxsw_sp_acl *acl;
  	struct {
-@@ -282,18 +246,6 @@ mlxsw_sp_lag_get(struct mlxsw_sp *mlxsw_sp, u16 lag_id)
- 	return &mlxsw_sp->lags[lag_id];
- }
+@@ -425,6 +413,7 @@ int mlxsw_sp_sb_occ_tc_port_bind_get(struct mlxsw_core_port *mlxsw_core_port,
+ u32 mlxsw_sp_cells_bytes(const struct mlxsw_sp *mlxsw_sp, u32 cells);
+ u32 mlxsw_sp_bytes_cells(const struct mlxsw_sp *mlxsw_sp, u32 bytes);
  
--static inline u32 mlxsw_sp_cells_bytes(const struct mlxsw_sp *mlxsw_sp,
--				       u32 cells)
--{
--	return mlxsw_sp->sb.cell_size * cells;
--}
--
--static inline u32 mlxsw_sp_bytes_cells(const struct mlxsw_sp *mlxsw_sp,
--				       u32 bytes)
--{
--	return DIV_ROUND_UP(bytes, mlxsw_sp->sb.cell_size);
--}
--
- struct mlxsw_sp_port_pcpu_stats {
- 	u64			rx_packets;
- 	u64			rx_bytes;
-@@ -515,6 +467,8 @@ int mlxsw_sp_sb_occ_tc_port_bind_get(struct mlxsw_core_port *mlxsw_core_port,
- 				     unsigned int sb_index, u16 tc_index,
- 				     enum devlink_sb_pool_type pool_type,
- 				     u32 *p_cur, u32 *p_max);
-+u32 mlxsw_sp_cells_bytes(const struct mlxsw_sp *mlxsw_sp, u32 cells);
-+u32 mlxsw_sp_bytes_cells(const struct mlxsw_sp *mlxsw_sp, u32 bytes);
- 
++struct mlxsw_sp_upper *mlxsw_sp_master_bridge(const struct mlxsw_sp *mlxsw_sp);
  int mlxsw_sp_switchdev_init(struct mlxsw_sp *mlxsw_sp);
  void mlxsw_sp_switchdev_fini(struct mlxsw_sp *mlxsw_sp);
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_buffers.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_buffers.c
-index 997189c..93728c6 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_buffers.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_buffers.c
-@@ -43,25 +43,72 @@
- #include "port.h"
+ int mlxsw_sp_port_vlan_init(struct mlxsw_sp_port *mlxsw_sp_port);
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+index 28f7f54..434e091 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+@@ -3193,7 +3193,7 @@ static struct mlxsw_sp_fid *mlxsw_sp_bridge_fid_get(struct mlxsw_sp *mlxsw_sp,
+ 
+ 	if (is_vlan_dev(l3_dev))
+ 		fid = vlan_dev_vlan_id(l3_dev);
+-	else if (mlxsw_sp->master_bridge.dev == l3_dev)
++	else if (mlxsw_sp_master_bridge(mlxsw_sp)->dev == l3_dev)
+ 		fid = 1;
+ 	else
+ 		return mlxsw_sp_vfid_find(mlxsw_sp, l3_dev);
+@@ -3389,7 +3389,7 @@ static int mlxsw_sp_inetaddr_vlan_event(struct net_device *vlan_dev,
+ 		return __mlxsw_sp_inetaddr_lag_event(vlan_dev, real_dev, event,
+ 						     vid);
+ 	else if (netif_is_bridge_master(real_dev) &&
+-		 mlxsw_sp->master_bridge.dev == real_dev)
++		 mlxsw_sp_master_bridge(mlxsw_sp)->dev == real_dev)
+ 		return mlxsw_sp_inetaddr_bridge_event(vlan_dev, real_dev,
+ 						      event);
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
+index 0d8411f..85790d3 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
+@@ -52,6 +52,27 @@
+ #include "core.h"
  #include "reg.h"
  
-+struct mlxsw_sp_sb_pr {
-+	enum mlxsw_reg_sbpr_mode mode;
-+	u32 size;
++struct mlxsw_sp_bridge {
++	struct mlxsw_sp *mlxsw_sp;
++	struct {
++		struct delayed_work dw;
++#define MLXSW_SP_DEFAULT_LEARNING_INTERVAL 100
++		unsigned int interval; /* ms */
++	} fdb_notify;
++#define MLXSW_SP_MIN_AGEING_TIME 10
++#define MLXSW_SP_MAX_AGEING_TIME 1000000
++#define MLXSW_SP_DEFAULT_AGEING_TIME 300
++	u32 ageing_time;
++	struct mlxsw_sp_upper master_bridge;
++	struct list_head mids_list;
++	DECLARE_BITMAP(mids_bitmap, MLXSW_SP_MID_MAX);
 +};
 +
-+struct mlxsw_cp_sb_occ {
-+	u32 cur;
-+	u32 max;
-+};
-+
-+struct mlxsw_sp_sb_cm {
-+	u32 min_buff;
-+	u32 max_buff;
-+	u8 pool;
-+	struct mlxsw_cp_sb_occ occ;
-+};
-+
-+struct mlxsw_sp_sb_pm {
-+	u32 min_buff;
-+	u32 max_buff;
-+	struct mlxsw_cp_sb_occ occ;
-+};
-+
-+#define MLXSW_SP_SB_POOL_COUNT	4
-+#define MLXSW_SP_SB_TC_COUNT	8
-+
-+struct mlxsw_sp_sb_port {
-+	struct mlxsw_sp_sb_cm cms[2][MLXSW_SP_SB_TC_COUNT];
-+	struct mlxsw_sp_sb_pm pms[2][MLXSW_SP_SB_POOL_COUNT];
-+};
-+
-+struct mlxsw_sp_sb {
-+	struct mlxsw_sp_sb_pr prs[2][MLXSW_SP_SB_POOL_COUNT];
-+	struct mlxsw_sp_sb_port *ports;
-+	u32 cell_size;
-+};
-+
-+u32 mlxsw_sp_cells_bytes(const struct mlxsw_sp *mlxsw_sp, u32 cells)
++struct mlxsw_sp_upper *mlxsw_sp_master_bridge(const struct mlxsw_sp *mlxsw_sp)
 +{
-+	return mlxsw_sp->sb->cell_size * cells;
++	return &mlxsw_sp->bridge->master_bridge;
 +}
 +
-+u32 mlxsw_sp_bytes_cells(const struct mlxsw_sp *mlxsw_sp, u32 bytes)
-+{
-+	return DIV_ROUND_UP(bytes, mlxsw_sp->sb->cell_size);
-+}
-+
- static struct mlxsw_sp_sb_pr *mlxsw_sp_sb_pr_get(struct mlxsw_sp *mlxsw_sp,
- 						 u8 pool,
- 						 enum mlxsw_reg_sbxx_dir dir)
+ static u16 mlxsw_sp_port_vid_to_fid_get(struct mlxsw_sp_port *mlxsw_sp_port,
+ 					u16 vid)
  {
--	return &mlxsw_sp->sb.prs[dir][pool];
-+	return &mlxsw_sp->sb->prs[dir][pool];
- }
- 
- static struct mlxsw_sp_sb_cm *mlxsw_sp_sb_cm_get(struct mlxsw_sp *mlxsw_sp,
- 						 u8 local_port, u8 pg_buff,
- 						 enum mlxsw_reg_sbxx_dir dir)
- {
--	return &mlxsw_sp->sb.ports[local_port].cms[dir][pg_buff];
-+	return &mlxsw_sp->sb->ports[local_port].cms[dir][pg_buff];
- }
- 
- static struct mlxsw_sp_sb_pm *mlxsw_sp_sb_pm_get(struct mlxsw_sp *mlxsw_sp,
- 						 u8 local_port, u8 pool,
- 						 enum mlxsw_reg_sbxx_dir dir)
- {
--	return &mlxsw_sp->sb.ports[local_port].pms[dir][pool];
-+	return &mlxsw_sp->sb->ports[local_port].pms[dir][pool];
- }
- 
- static int mlxsw_sp_sb_pr_write(struct mlxsw_sp *mlxsw_sp, u8 pool,
-@@ -215,16 +262,17 @@ static int mlxsw_sp_sb_ports_init(struct mlxsw_sp *mlxsw_sp)
- {
- 	unsigned int max_ports = mlxsw_core_max_ports(mlxsw_sp->core);
- 
--	mlxsw_sp->sb.ports = kcalloc(max_ports, sizeof(struct mlxsw_sp_sb_port),
--				     GFP_KERNEL);
--	if (!mlxsw_sp->sb.ports)
-+	mlxsw_sp->sb->ports = kcalloc(max_ports,
-+				      sizeof(struct mlxsw_sp_sb_port),
-+				      GFP_KERNEL);
-+	if (!mlxsw_sp->sb->ports)
- 		return -ENOMEM;
+@@ -397,7 +418,7 @@ static int mlxsw_sp_ageing_set(struct mlxsw_sp *mlxsw_sp, u32 ageing_time)
+ 	err = mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(sfdat), sfdat_pl);
+ 	if (err)
+ 		return err;
+-	mlxsw_sp->ageing_time = ageing_time;
++	mlxsw_sp->bridge->ageing_time = ageing_time;
  	return 0;
  }
  
- static void mlxsw_sp_sb_ports_fini(struct mlxsw_sp *mlxsw_sp)
+@@ -428,7 +449,8 @@ static int mlxsw_sp_port_attr_br_vlan_set(struct mlxsw_sp_port *mlxsw_sp_port,
+ 	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
+ 
+ 	/* SWITCHDEV_TRANS_PREPARE phase */
+-	if ((!vlan_enabled) && (mlxsw_sp->master_bridge.dev == orig_dev)) {
++	if ((!vlan_enabled) &&
++	    (mlxsw_sp->bridge->master_bridge.dev == orig_dev)) {
+ 		netdev_err(mlxsw_sp_port->dev, "Bridge must be vlan-aware\n");
+ 		return -EINVAL;
+ 	}
+@@ -1006,7 +1028,7 @@ static struct mlxsw_sp_mid *__mlxsw_sp_mc_get(struct mlxsw_sp *mlxsw_sp,
  {
--	kfree(mlxsw_sp->sb.ports);
-+	kfree(mlxsw_sp->sb->ports);
+ 	struct mlxsw_sp_mid *mid;
+ 
+-	list_for_each_entry(mid, &mlxsw_sp->br_mids.list, list) {
++	list_for_each_entry(mid, &mlxsw_sp->bridge->mids_list, list) {
+ 		if (ether_addr_equal(mid->addr, addr) && mid->fid == fid)
+ 			return mid;
+ 	}
+@@ -1020,7 +1042,7 @@ static struct mlxsw_sp_mid *__mlxsw_sp_mc_alloc(struct mlxsw_sp *mlxsw_sp,
+ 	struct mlxsw_sp_mid *mid;
+ 	u16 mid_idx;
+ 
+-	mid_idx = find_first_zero_bit(mlxsw_sp->br_mids.mapped,
++	mid_idx = find_first_zero_bit(mlxsw_sp->bridge->mids_bitmap,
+ 				      MLXSW_SP_MID_MAX);
+ 	if (mid_idx == MLXSW_SP_MID_MAX)
+ 		return NULL;
+@@ -1029,12 +1051,12 @@ static struct mlxsw_sp_mid *__mlxsw_sp_mc_alloc(struct mlxsw_sp *mlxsw_sp,
+ 	if (!mid)
+ 		return NULL;
+ 
+-	set_bit(mid_idx, mlxsw_sp->br_mids.mapped);
++	set_bit(mid_idx, mlxsw_sp->bridge->mids_bitmap);
+ 	ether_addr_copy(mid->addr, addr);
+ 	mid->fid = fid;
+ 	mid->mid = mid_idx;
+ 	mid->ref_count = 0;
+-	list_add_tail(&mid->list, &mlxsw_sp->br_mids.list);
++	list_add_tail(&mid->list, &mlxsw_sp->bridge->mids_list);
+ 
+ 	return mid;
  }
+@@ -1044,7 +1066,7 @@ static int __mlxsw_sp_mc_dec_ref(struct mlxsw_sp *mlxsw_sp,
+ {
+ 	if (--mid->ref_count == 0) {
+ 		list_del(&mid->list);
+-		clear_bit(mid->mid, mlxsw_sp->br_mids.mapped);
++		clear_bit(mid->mid, mlxsw_sp->bridge->mids_bitmap);
+ 		kfree(mid);
+ 		return 1;
+ 	}
+@@ -1600,12 +1622,15 @@ static void mlxsw_sp_fdb_notify_rec_process(struct mlxsw_sp *mlxsw_sp,
  
- #define MLXSW_SP_SB_PR_INGRESS_SIZE	12440000
-@@ -551,15 +599,19 @@ int mlxsw_sp_buffers_init(struct mlxsw_sp *mlxsw_sp)
- 
- 	if (!MLXSW_CORE_RES_VALID(mlxsw_sp->core, CELL_SIZE))
- 		return -EIO;
--	mlxsw_sp->sb.cell_size = MLXSW_CORE_RES_GET(mlxsw_sp->core, CELL_SIZE);
- 
- 	if (!MLXSW_CORE_RES_VALID(mlxsw_sp->core, MAX_BUFFER_SIZE))
- 		return -EIO;
- 	sb_size = MLXSW_CORE_RES_GET(mlxsw_sp->core, MAX_BUFFER_SIZE);
- 
-+	mlxsw_sp->sb = kzalloc(sizeof(*mlxsw_sp->sb), GFP_KERNEL);
-+	if (!mlxsw_sp->sb)
-+		return -ENOMEM;
-+	mlxsw_sp->sb->cell_size = MLXSW_CORE_RES_GET(mlxsw_sp->core, CELL_SIZE);
+ static void mlxsw_sp_fdb_notify_work_schedule(struct mlxsw_sp *mlxsw_sp)
+ {
+-	mlxsw_core_schedule_dw(&mlxsw_sp->fdb_notify.dw,
+-			       msecs_to_jiffies(mlxsw_sp->fdb_notify.interval));
++	struct mlxsw_sp_bridge *bridge = mlxsw_sp->bridge;
 +
- 	err = mlxsw_sp_sb_ports_init(mlxsw_sp);
- 	if (err)
--		return err;
-+		goto err_sb_ports_init;
- 	err = mlxsw_sp_sb_prs_init(mlxsw_sp);
- 	if (err)
- 		goto err_sb_prs_init;
-@@ -584,6 +636,8 @@ int mlxsw_sp_buffers_init(struct mlxsw_sp *mlxsw_sp)
- err_sb_cpu_port_sb_cms_init:
- err_sb_prs_init:
- 	mlxsw_sp_sb_ports_fini(mlxsw_sp);
-+err_sb_ports_init:
-+	kfree(mlxsw_sp->sb);
- 	return err;
++	mlxsw_core_schedule_dw(&bridge->fdb_notify.dw,
++			       msecs_to_jiffies(bridge->fdb_notify.interval));
  }
  
-@@ -591,6 +645,7 @@ void mlxsw_sp_buffers_fini(struct mlxsw_sp *mlxsw_sp)
+ static void mlxsw_sp_fdb_notify_work(struct work_struct *work)
  {
- 	devlink_sb_unregister(priv_to_devlink(mlxsw_sp->core), 0);
- 	mlxsw_sp_sb_ports_fini(mlxsw_sp);
-+	kfree(mlxsw_sp->sb);
++	struct mlxsw_sp_bridge *bridge;
+ 	struct mlxsw_sp *mlxsw_sp;
+ 	char *sfn_pl;
+ 	u8 num_rec;
+@@ -1616,7 +1641,8 @@ static void mlxsw_sp_fdb_notify_work(struct work_struct *work)
+ 	if (!sfn_pl)
+ 		return;
+ 
+-	mlxsw_sp = container_of(work, struct mlxsw_sp, fdb_notify.dw.work);
++	bridge = container_of(work, struct mlxsw_sp_bridge, fdb_notify.dw.work);
++	mlxsw_sp = bridge->mlxsw_sp;
+ 
+ 	rtnl_lock();
+ 	mlxsw_reg_sfn_pack(sfn_pl);
+@@ -1637,6 +1663,7 @@ static void mlxsw_sp_fdb_notify_work(struct work_struct *work)
+ 
+ static int mlxsw_sp_fdb_init(struct mlxsw_sp *mlxsw_sp)
+ {
++	struct mlxsw_sp_bridge *bridge = mlxsw_sp->bridge;
+ 	int err;
+ 
+ 	err = mlxsw_sp_ageing_set(mlxsw_sp, MLXSW_SP_DEFAULT_AGEING_TIME);
+@@ -1644,25 +1671,37 @@ static int mlxsw_sp_fdb_init(struct mlxsw_sp *mlxsw_sp)
+ 		dev_err(mlxsw_sp->bus_info->dev, "Failed to set default ageing time\n");
+ 		return err;
+ 	}
+-	INIT_DELAYED_WORK(&mlxsw_sp->fdb_notify.dw, mlxsw_sp_fdb_notify_work);
+-	mlxsw_sp->fdb_notify.interval = MLXSW_SP_DEFAULT_LEARNING_INTERVAL;
++	INIT_DELAYED_WORK(&bridge->fdb_notify.dw, mlxsw_sp_fdb_notify_work);
++	bridge->fdb_notify.interval = MLXSW_SP_DEFAULT_LEARNING_INTERVAL;
+ 	mlxsw_sp_fdb_notify_work_schedule(mlxsw_sp);
+ 	return 0;
  }
  
- int mlxsw_sp_port_buffers_init(struct mlxsw_sp_port *mlxsw_sp_port)
+ static void mlxsw_sp_fdb_fini(struct mlxsw_sp *mlxsw_sp)
+ {
+-	cancel_delayed_work_sync(&mlxsw_sp->fdb_notify.dw);
++	cancel_delayed_work_sync(&mlxsw_sp->bridge->fdb_notify.dw);
+ }
+ 
+ int mlxsw_sp_switchdev_init(struct mlxsw_sp *mlxsw_sp)
+ {
++	struct mlxsw_sp_bridge *bridge;
++
++	bridge = kzalloc(sizeof(*mlxsw_sp->bridge), GFP_KERNEL);
++	if (!bridge)
++		return -ENOMEM;
++	mlxsw_sp->bridge = bridge;
++	bridge->mlxsw_sp = mlxsw_sp;
++
++	INIT_LIST_HEAD(&mlxsw_sp->bridge->mids_list);
++
+ 	return mlxsw_sp_fdb_init(mlxsw_sp);
+ }
+ 
+ void mlxsw_sp_switchdev_fini(struct mlxsw_sp *mlxsw_sp)
+ {
+ 	mlxsw_sp_fdb_fini(mlxsw_sp);
++	WARN_ON(!list_empty(&mlxsw_sp->bridge->mids_list));
++	kfree(mlxsw_sp->bridge);
+ }
+ 
+ void mlxsw_sp_port_switchdev_init(struct mlxsw_sp_port *mlxsw_sp_port)
 -- 
 2.9.3
