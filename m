@@ -1,136 +1,118 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 06/12] mlxsw: spectrum_router: Initialize RIFs in a separate function
-Date: Tue, 16 May 2017 19:38:29 +0200
-Message-ID: <20170516173835.2978-7-jiri@resnulli.us>
+Subject: [patch net-next 10/12] mlxsw: spectrum_switchdev: Don't batch learning operations
+Date: Tue, 16 May 2017 19:38:33 +0200
+Message-ID: <20170516173835.2978-11-jiri@resnulli.us>
 References: <20170516173835.2978-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, mlxsw@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f194.google.com ([209.85.128.194]:34564 "EHLO
-        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752835AbdEPRiw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 16 May 2017 13:38:52 -0400
-Received: by mail-wr0-f194.google.com with SMTP id 6so14928512wrb.1
-        for <netdev@vger.kernel.org>; Tue, 16 May 2017 10:38:51 -0700 (PDT)
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:33800 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752848AbdEPRix (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 16 May 2017 13:38:53 -0400
+Received: by mail-wm0-f66.google.com with SMTP id d127so39722545wmf.1
+        for <netdev@vger.kernel.org>; Tue, 16 May 2017 10:38:52 -0700 (PDT)
 In-Reply-To: <20170516173835.2978-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ido Schimmel <idosch@mellanox.com>
 
-The router interfaces (RIFs) array is currently initialized together
-with the general router configuration. However, in a follow-up patchset
-we're going to introduce a common RIF core that will require us to
-initialize more RIF constructs, so move the RIF initialization to its
-own function.
+We no longer batch VLAN operations, so there's no need to set the
+learning state for a range of VLANs.
+
+Use a common function to set the learning state for a Port-VLAN, thereby
+making the code saner more receptive for upcoming changes.
 
 Signed-off-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- .../net/ethernet/mellanox/mlxsw/spectrum_router.c  | 48 ++++++++++++++--------
- 1 file changed, 30 insertions(+), 18 deletions(-)
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c           | 16 ++++------------
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.h           |  3 ---
+ drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c |  8 +++-----
+ 3 files changed, 7 insertions(+), 20 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-index df4051f..aba3326 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-@@ -3550,6 +3550,28 @@ int mlxsw_sp_netdevice_vrf_event(struct net_device *l3_dev, unsigned long event,
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+index 2f0e149..da15819 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+@@ -666,9 +666,8 @@ int mlxsw_sp_port_vid_to_fid_set(struct mlxsw_sp_port *mlxsw_sp_port,
+ 	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(svfa), svfa_pl);
+ }
+ 
+-int __mlxsw_sp_port_vid_learning_set(struct mlxsw_sp_port *mlxsw_sp_port,
+-				     u16 vid_begin, u16 vid_end,
+-				     bool learn_enable)
++int mlxsw_sp_port_vid_learning_set(struct mlxsw_sp_port *mlxsw_sp_port, u16 vid,
++				   bool learn_enable)
+ {
+ 	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
+ 	char *spvmlr_pl;
+@@ -677,20 +676,13 @@ int __mlxsw_sp_port_vid_learning_set(struct mlxsw_sp_port *mlxsw_sp_port,
+ 	spvmlr_pl = kmalloc(MLXSW_REG_SPVMLR_LEN, GFP_KERNEL);
+ 	if (!spvmlr_pl)
+ 		return -ENOMEM;
+-	mlxsw_reg_spvmlr_pack(spvmlr_pl, mlxsw_sp_port->local_port, vid_begin,
+-			      vid_end, learn_enable);
++	mlxsw_reg_spvmlr_pack(spvmlr_pl, mlxsw_sp_port->local_port, vid, vid,
++			      learn_enable);
+ 	err = mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(spvmlr), spvmlr_pl);
+ 	kfree(spvmlr_pl);
  	return err;
  }
  
-+static int mlxsw_sp_rifs_init(struct mlxsw_sp *mlxsw_sp)
-+{
-+	u64 max_rifs = MLXSW_CORE_RES_GET(mlxsw_sp->core, MAX_RIFS);
-+
-+	mlxsw_sp->router->rifs = kcalloc(max_rifs,
-+					 sizeof(struct mlxsw_sp_rif *),
-+					 GFP_KERNEL);
-+	if (!mlxsw_sp->router->rifs)
-+		return -ENOMEM;
-+	return 0;
-+}
-+
-+static void mlxsw_sp_rifs_fini(struct mlxsw_sp *mlxsw_sp)
-+{
-+	int i;
-+
-+	for (i = 0; i < MLXSW_CORE_RES_GET(mlxsw_sp->core, MAX_RIFS); i++)
-+		WARN_ON_ONCE(mlxsw_sp->router->rifs[i]);
-+
-+	kfree(mlxsw_sp->router->rifs);
-+}
-+
- static void mlxsw_sp_router_fib_dump_flush(struct notifier_block *nb)
+-int mlxsw_sp_port_vid_learning_set(struct mlxsw_sp_port *mlxsw_sp_port, u16 vid,
+-				   bool learn_enable)
+-{
+-	return __mlxsw_sp_port_vid_learning_set(mlxsw_sp_port, vid, vid,
+-						learn_enable);
+-}
+-
+ static int
+ mlxsw_sp_port_system_port_mapping_set(struct mlxsw_sp_port *mlxsw_sp_port)
  {
- 	struct mlxsw_sp_router *router;
-@@ -3571,39 +3593,22 @@ static int __mlxsw_sp_router_init(struct mlxsw_sp *mlxsw_sp)
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+index d96e9126..aea321e 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+@@ -442,9 +442,6 @@ int __mlxsw_sp_port_headroom_set(struct mlxsw_sp_port *mlxsw_sp_port, int mtu,
+ int mlxsw_sp_port_ets_maxrate_set(struct mlxsw_sp_port *mlxsw_sp_port,
+ 				  enum mlxsw_reg_qeec_hr hr, u8 index,
+ 				  u8 next_index, u32 maxrate);
+-int __mlxsw_sp_port_vid_learning_set(struct mlxsw_sp_port *mlxsw_sp_port,
+-				     u16 vid_begin, u16 vid_end,
+-				     bool learn_enable);
+ int mlxsw_sp_port_vid_stp_set(struct mlxsw_sp_port *mlxsw_sp_port, u16 vid,
+ 			      u8 state);
+ int mlxsw_sp_port_vid_learning_set(struct mlxsw_sp_port *mlxsw_sp_port, u16 vid,
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
+index ad5eefa..6fdcbcf 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
+@@ -322,13 +322,11 @@ static int mlxsw_sp_port_learning_set(struct mlxsw_sp_port *mlxsw_sp_port,
+ 	if (mlxsw_sp_port_is_vport(mlxsw_sp_port)) {
+ 		vid = mlxsw_sp_vport_vid_get(mlxsw_sp_port);
  
- 	if (!MLXSW_CORE_RES_VALID(mlxsw_sp->core, MAX_RIFS))
- 		return -EIO;
--
- 	max_rifs = MLXSW_CORE_RES_GET(mlxsw_sp->core, MAX_RIFS);
--	mlxsw_sp->router->rifs = kcalloc(max_rifs,
--					 sizeof(struct mlxsw_sp_rif *),
--					 GFP_KERNEL);
--	if (!mlxsw_sp->router->rifs)
--		return -ENOMEM;
+-		return __mlxsw_sp_port_vid_learning_set(mlxsw_sp_port, vid, vid,
+-							set);
++		return mlxsw_sp_port_vid_learning_set(mlxsw_sp_port, vid, set);
+ 	}
  
- 	mlxsw_reg_rgcr_pack(rgcr_pl, true);
- 	mlxsw_reg_rgcr_max_router_interfaces_set(rgcr_pl, max_rifs);
- 	err = mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(rgcr), rgcr_pl);
- 	if (err)
--		goto err_rgcr_fail;
--
-+		return err;
- 	return 0;
--
--err_rgcr_fail:
--	kfree(mlxsw_sp->router->rifs);
--	return err;
+ 	for_each_set_bit(vid, mlxsw_sp_port->active_vlans, VLAN_N_VID) {
+-		err = __mlxsw_sp_port_vid_learning_set(mlxsw_sp_port, vid, vid,
+-						       set);
++		err = mlxsw_sp_port_vid_learning_set(mlxsw_sp_port, vid, set);
+ 		if (err)
+ 			goto err_port_vid_learning_set;
+ 	}
+@@ -337,7 +335,7 @@ static int mlxsw_sp_port_learning_set(struct mlxsw_sp_port *mlxsw_sp_port,
+ 
+ err_port_vid_learning_set:
+ 	for_each_set_bit(vid, mlxsw_sp_port->active_vlans, VLAN_N_VID)
+-		__mlxsw_sp_port_vid_learning_set(mlxsw_sp_port, vid, vid, !set);
++		mlxsw_sp_port_vid_learning_set(mlxsw_sp_port, vid, !set);
+ 	return err;
  }
  
- static void __mlxsw_sp_router_fini(struct mlxsw_sp *mlxsw_sp)
- {
- 	char rgcr_pl[MLXSW_REG_RGCR_LEN];
--	int i;
- 
- 	mlxsw_reg_rgcr_pack(rgcr_pl, false);
- 	mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(rgcr), rgcr_pl);
--
--	for (i = 0; i < MLXSW_CORE_RES_GET(mlxsw_sp->core, MAX_RIFS); i++)
--		WARN_ON_ONCE(mlxsw_sp->router->rifs[i]);
--
--	kfree(mlxsw_sp->router->rifs);
- }
- 
- int mlxsw_sp_router_init(struct mlxsw_sp *mlxsw_sp)
-@@ -3622,6 +3627,10 @@ int mlxsw_sp_router_init(struct mlxsw_sp *mlxsw_sp)
- 	if (err)
- 		goto err_router_init;
- 
-+	err = mlxsw_sp_rifs_init(mlxsw_sp);
-+	if (err)
-+		goto err_rifs_init;
-+
- 	err = rhashtable_init(&mlxsw_sp->router->nexthop_ht,
- 			      &mlxsw_sp_nexthop_ht_params);
- 	if (err)
-@@ -3663,6 +3672,8 @@ int mlxsw_sp_router_init(struct mlxsw_sp *mlxsw_sp)
- err_nexthop_group_ht_init:
- 	rhashtable_destroy(&mlxsw_sp->router->nexthop_ht);
- err_nexthop_ht_init:
-+	mlxsw_sp_rifs_fini(mlxsw_sp);
-+err_rifs_init:
- 	__mlxsw_sp_router_fini(mlxsw_sp);
- err_router_init:
- 	kfree(mlxsw_sp->router);
-@@ -3677,6 +3688,7 @@ void mlxsw_sp_router_fini(struct mlxsw_sp *mlxsw_sp)
- 	mlxsw_sp_lpm_fini(mlxsw_sp);
- 	rhashtable_destroy(&mlxsw_sp->router->nexthop_group_ht);
- 	rhashtable_destroy(&mlxsw_sp->router->nexthop_ht);
-+	mlxsw_sp_rifs_fini(mlxsw_sp);
- 	__mlxsw_sp_router_fini(mlxsw_sp);
- 	kfree(mlxsw_sp->router);
- }
 -- 
 2.9.3
