@@ -1,52 +1,72 @@
-From: Ihar Hrachyshka <ihrachys@redhat.com>
-Subject: Re: [PATCH] arp: honour gratuitous ARP _replies_
-Date: Tue, 16 May 2017 08:01:34 -0700
-Message-ID: <CAKwN9=AtFWADVRFXJROGJxF9g_3O_t9sWTRP3T9G1amzdaGMdA@mail.gmail.com>
-References: <20170515.140832.354922796595622860.davem@davemloft.net> <20170515211616.26077-1-ihrachys@redhat.com>
+From: Ursula Braun <ubraun@linux.vnet.ibm.com>
+Subject: Re: [PATCH net v1] net/smc: Add warning about remote memory exposure
+Date: Tue, 16 May 2017 17:04:00 +0200
+Message-ID: <f5f60ab0-52c6-e8f2-4654-bc52658c93b0@linux.vnet.ibm.com>
+References: <20170516065138.24789-1-leon@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: netdev@vger.kernel.org, Ihar Hrachyshka <ihrachys@redhat.com>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, iinux-rdma@vger.kernel.org,
+        Christoph Hellwig <hch@lst.de>
+To: Leon Romanovsky <leon@kernel.org>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f171.google.com ([209.85.161.171]:36130 "EHLO
-        mail-yw0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751030AbdEPPBz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 16 May 2017 11:01:55 -0400
-Received: by mail-yw0-f171.google.com with SMTP id b68so54243144ywe.3
-        for <netdev@vger.kernel.org>; Tue, 16 May 2017 08:01:55 -0700 (PDT)
-In-Reply-To: <20170515211616.26077-1-ihrachys@redhat.com>
+Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:55506 "EHLO
+        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1753128AbdEPPEM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 16 May 2017 11:04:12 -0400
+Received: from pps.filterd (m0098420.ppops.net [127.0.0.1])
+        by mx0b-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v4GF47TQ018610
+        for <netdev@vger.kernel.org>; Tue, 16 May 2017 11:04:11 -0400
+Received: from e06smtp11.uk.ibm.com (e06smtp11.uk.ibm.com [195.75.94.107])
+        by mx0b-001b2d01.pphosted.com with ESMTP id 2ag21rphpe-1
+        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Tue, 16 May 2017 11:04:10 -0400
+Received: from localhost
+        by e06smtp11.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        for <netdev@vger.kernel.org> from <ubraun@linux.vnet.ibm.com>;
+        Tue, 16 May 2017 16:04:04 +0100
+In-Reply-To: <20170516065138.24789-1-leon@kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 15, 2017 at 2:16 PM, Ihar Hrachyshka <ihrachys@redhat.com> wrote:
-> When arp_accept is 1, gratuitous ARPs are supposed to override matching
-> entries irrespective of whether they arrive during locktime. This was
-> implemented in commit 56022a8fdd87 ("ipv4: arp: update neighbour address
-> when a gratuitous arp is received and arp_accept is set")
->
-> There is a glitch in the patch though. RFC 2002, section 4.6, "ARP,
-> Proxy ARP, and Gratuitous ARP", defines gratuitous ARPs so that they can
-> be either of Request or Reply type. Those Reply gratuitous ARPs can be
-> triggered with standard tooling, for example, arping -A option does just
-> that.
->
-> This patch fixes the glitch, making both Request and Reply flavours of
-> gratuitous ARPs to behave identically.
->
-> As per RFC, if gratuitous ARPs are of Reply type, their Target Hardware
-> Address field should also be set to the link-layer address to which this
-> cache entry should be updated. The field is present in ARP over Ethernet
-> but not in IEEE 1394. In this patch, I don't consider any broadcasted
-> ARP replies as gratuitous if the field is not present, to conform the
-> standard. It's not clear whether there is such a thing for IEEE 1394 as
-> a gratuitous ARP reply; until it's cleared up, we will ignore such
-> broadcasts. Note that they will still update existing ARP cache entries,
-> assuming they arrive out of locktime time interval.
->
-> Signed-off-by: Ihar Hrachyshka <ihrachys@redhat.com>
+On 05/16/2017 08:51 AM, Leon Romanovsky wrote:
+> From: Christoph Hellwig <hch@lst.de>
+> 
+> The driver explicitly bypasses APIs to register all memory once a
+> connection is made, and thus allows remote access to memory.
+> 
+> Signed-off-by: Christoph Hellwig <hch@lst.de>
+> Signed-off-by: Leon Romanovsky <leon@kernel.org>
+> ---
+> Dave,
+> Can you please forward this patch to stable?
+> Thanks
+> ---
+>  Changes from v0:
+>   * Remove BROKEN Kconfig option as a followup of this discussion
+>     https://patchwork.ozlabs.org/patch/760454/
+>   * Refine commit message
+> ---
+>  net/smc/Kconfig | 4 ++++
+>  1 file changed, 4 insertions(+)
+> 
+> diff --git a/net/smc/Kconfig b/net/smc/Kconfig
+> index c717ef0896aa..33954852f3f8 100644
+> --- a/net/smc/Kconfig
+> +++ b/net/smc/Kconfig
+> @@ -8,6 +8,10 @@ config SMC
+>  	  The Linux implementation of the SMC-R solution is designed as
+>  	  a separate socket family SMC.
+> 
+> +	  Warning: SMC will expose all memory for remote reads and writes
+> +	  once a connection is established.  Don't enable this option except
+> +	  for tightly controlled lab environment.
+> +
+>  	  Select this option if you want to run SMC socket applications
+> 
+>  config SMC_DIAG
+> --
+> 2.12.2
+> 
 
-Please disregard this email, I forgot to update the patch version to
-v2 and provide changelog. I posted (hopefully) correct version. Still
-learning the process...
-
-Ihar
+Acked-by: Ursula Braun <ubraun@linux.vnet.ibm.com>
