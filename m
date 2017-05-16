@@ -1,60 +1,106 @@
-From: Michael Ulmer <mulmer@cradlepoint.com>
-Subject: [Patch][IPv6] Fix wrong routing mechanism for Link Local IPv6 packets
-Date: Tue, 16 May 2017 15:37:39 +0000
-Message-ID: <MWHPR1201MB01730F7F4A6BE57ADFB92EAFCAE60@MWHPR1201MB0173.namprd12.prod.outlook.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+From: Ihar Hrachyshka <ihrachys@redhat.com>
+Subject: Re: [PATCH v2] neighbour: update neigh timestamps iff update is effective
+Date: Tue, 16 May 2017 08:44:24 -0700
+Message-ID: <20170516154424.12864-1-ihrachys@redhat.com>
+References: <20170515.131023.1878814687849300375.davem@davemloft.net>
+Cc: ja@ssi.bg, netdev@vger.kernel.org,
+        Ihar Hrachyshka <ihrachys@redhat.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2nam02on0126.outbound.protection.outlook.com ([104.47.38.126]:27552
-        "EHLO NAM02-BL2-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1752249AbdEPPhr (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 16 May 2017 11:37:47 -0400
-Content-Language: en-US
+Received: from mx1.redhat.com ([209.132.183.28]:23212 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752000AbdEPPot (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 16 May 2017 11:44:49 -0400
+In-Reply-To: <20170515.131023.1878814687849300375.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Blast from the past. 10 years back Wei Dong submitted the patch found (amon=
-gst several places) here:
-http://lists.openwall.net/netdev/2007/01/30/20
+It's a common practice to send gratuitous ARPs after moving an
+IP address to another device to speed up healing of a service. To
+fulfill service availability constraints, the timing of network peers
+updating their caches to point to a new location of an IP address can be
+particularly important.
 
-Problem:
-I have a firewall rule that DNATs ipv6 traffic from a destination address t=
-o ::1. The route lookup gives me the Main table & forwards that DNAT'd traf=
-fic instead of sending it to local process.
+Sometimes neigh_update calls won't touch neither lladdr nor state, for
+example if an update arrives in locktime interval. The neigh->updated
+value is tested by the protocol specific neigh code, which in turn
+will influence whether NEIGH_UPDATE_F_OVERRIDE gets set in the
+call to neigh_update() or not. As a result, we may effectively ignore
+the update request, bailing out of touching the neigh entry, except that
+we still bump its timestamps inside neigh_update.
 
-Example:
-Looking at this from a netfilter point of view, a client (IP of fd00::5) re=
-quests a web page at [2000::25:0:0:1]:8080. The firewall rule DNATs it to :=
-:1 (note that I threw a -j TRACE in raw's REROUTING).
-TRACE: nat:PREROUTING:rule:2 SRC=3Dfd00::5 DST=3D2000::25:0:0:1
-TRACE: mangle:FORWARD:rule:1 SRC=3Dfd00::5 DST=3D::1
+This may be a problem for updates arriving in quick succession. For
+example, consider the following scenario:
 
-The patch is verbatim (as is the subject line for this email). Traffic DNAT=
-'d to ::1 now goes to mangle's INPUT chain after routing decision. I'm not =
-sure why it was removed--I'm assuming it was an accident--as I can't find a=
- record in the mailing list archive.
+A service is moved to another device with its IP address. The new device
+sends three gratuitous ARP requests into the network with ~1 seconds
+interval between them. Just before the first request arrives to one of
+network peer nodes, its neigh entry for the IP address transitions from
+STALE to DELAY.  This transition, among other things, updates
+neigh->updated. Once the kernel receives the first gratuitous ARP, it
+ignores it because its arrival time is inside the locktime interval. The
+kernel still bumps neigh->updated. Then the second gratuitous ARP
+request arrives, and it's also ignored because it's still in the (new)
+locktime interval. Same happens for the third request. The node
+eventually heals itself (after delay_first_probe_time seconds since the
+initial transition to DELAY state), but it just wasted some time and
+require a new ARP request/reply round trip. This unfortunate behaviour
+both puts more load on the network, as well as reduces service
+availability.
 
-diff --git a/gpl/kernel/linux/net/ipv6/route.c b/gpl/kernel/linux/net/ipv6/=
-route.c
-index 3809ca2..2a2563f 100644
---- a/gpl/kernel/linux/net/ipv6/route.c
-+++ b/gpl/kernel/linux/net/ipv6/route.c
-@@ -611,7 +611,7 @@ static int rt6_score_route(struct rt6_info *rt, int oif=
-,
-        int m;
-=20
-        m =3D rt6_check_dev(rt, oif);
--       if (!m && (strict & RT6_LOOKUP_F_IFACE))
-+       if (!m && (rt->rt6i_flags & RTF_CACHE) && (strict & RT6_LOOKUP_F_IF=
-ACE))
-                return RT6_NUD_FAIL_HARD;
- #ifdef CONFIG_IPV6_ROUTER_PREF
-        m |=3D IPV6_DECODE_PREF(IPV6_EXTRACT_PREF(rt->rt6i_flags)) << 2;
+This patch changes neigh_update so that it bumps neigh->updated (as well
+as neigh->confirmed) only once we are sure that either lladdr or entry
+state will change). In the scenario described above, it means that the
+second gratuitous ARP request will actually update the entry lladdr.
 
+Ideally, we would update the neigh entry on the very first gratuitous
+ARP request. The locktime mechanism is designed to ignore ARP updates in
+a short timeframe after a previous ARP update was honoured by the kernel
+layer. This would require tracking timestamps for state transitions
+separately from timestamps when actual updates are received. This would
+probably involve changes in neighbour struct. Therefore, the patch
+doesn't tackle the issue of the first gratuitous APR ignored, leaving
+it for a follow-up.
 
+Signed-off-by: Ihar Hrachyshka <ihrachys@redhat.com>
+---
+v2: added more details to commit message to explain relation between arp
+    and neigh code.
+---
+ net/core/neighbour.c | 14 ++++++++++----
+ 1 file changed, 10 insertions(+), 4 deletions(-)
 
-__
-Mike Ulmer=
+diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+index 58b0bcc..d274f81 100644
+--- a/net/core/neighbour.c
++++ b/net/core/neighbour.c
+@@ -1132,10 +1132,6 @@ int neigh_update(struct neighbour *neigh, const u8 *lladdr, u8 new,
+ 		lladdr = neigh->ha;
+ 	}
+ 
+-	if (new & NUD_CONNECTED)
+-		neigh->confirmed = jiffies;
+-	neigh->updated = jiffies;
+-
+ 	/* If entry was valid and address is not changed,
+ 	   do not change entry state, if new one is STALE.
+ 	 */
+@@ -1157,6 +1153,16 @@ int neigh_update(struct neighbour *neigh, const u8 *lladdr, u8 new,
+ 		}
+ 	}
+ 
++	/* Update timestamps only once we know we will make a change to the
++	 * neighbour entry. Otherwise we risk to move the locktime window with
++	 * noop updates and ignore relevant ARP updates.
++	 */
++	if (new != old || lladdr != neigh->ha) {
++		if (new & NUD_CONNECTED)
++			neigh->confirmed = jiffies;
++		neigh->updated = jiffies;
++	}
++
+ 	if (new != old) {
+ 		neigh_del_timer(neigh);
+ 		if (new & NUD_PROBE)
+-- 
+2.9.3
