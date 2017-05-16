@@ -1,110 +1,81 @@
-From: Logan Gunthorpe <logang@deltatee.com>
-Subject: Re: cxgb4 is broken in v4.12-rc1
-Date: Tue, 16 May 2017 11:43:47 -0600
-Message-ID: <28ecd2a6-ad24-0ae5-65d2-14e749f1802a@deltatee.com>
-References: <f5966da1-44e7-ebf7-c5df-28f815a77424@deltatee.com>
- <CY4PR12MB1432CA69BD6B7AE335B5DBB2C1E60@CY4PR12MB1432.namprd12.prod.outlook.com>
- <745b4343-52e7-b8c7-0889-98ea843de15b@deltatee.com>
- <CY4PR12MB1432E4FA04313105999F04FAC1E60@CY4PR12MB1432.namprd12.prod.outlook.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [Patch net] ipv4: restore rt->fi for reference counting
+Date: Tue, 16 May 2017 10:53:24 -0700
+Message-ID: <CAM_iQpVuqBkQxq=g4n5t33Gv0mxR_S0iOtQxgBHKceam8pmwfQ@mail.gmail.com>
+References: <1493934857-6693-1-git-send-email-xiyou.wangcong@gmail.com>
+ <1494370451.7796.93.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1494371348.7796.95.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAM_iQpU+fXO7eFroAYMv6vqDzCK_ZYXjrTPAMfoDR2BDqaK9rQ@mail.gmail.com>
+ <alpine.LFD.2.20.1705100937330.1938@ja.home.ssi.bg> <CAM_iQpX22qTqo4yfM_Je1bvJHxjAGK_tvm5KgQSnJzsYq7K55Q@mail.gmail.com>
+ <alpine.LFD.2.20.1705102141320.1928@ja.home.ssi.bg> <CAM_iQpW0fJJXPS=FoTf-o4f5-mOC=mZYNP8=uqiUOmvX+CDwWw@mail.gmail.com>
+ <CAM_iQpWxDKHF4N1xor7qj+5s91GrctgcGnzN0buw18qs7__-gQ@mail.gmail.com>
+ <alpine.LFD.2.20.1705120659370.1811@ja.home.ssi.bg> <CAM_iQpVQSMd_LYMqm3EauRRgJhfkW=zsdvKRf4-YcGWwSufuvQ@mail.gmail.com>
+ <alpine.LFD.2.20.1705122151001.2835@ja.home.ssi.bg> <CAM_iQpXtWUZoGS_KEqfZc+ZbzYxaF1hbAV7H9Qd82=r4auJojw@mail.gmail.com>
+ <alpine.LFD.2.20.1705152317090.4002@ja.home.ssi.bg> <CAM_iQpWAjTJL54h_Pdg3DigjEK4kQdSz0pmAks6ByoP67ROOFg@mail.gmail.com>
+ <alpine.LFD.2.20.1705160955310.1856@ja.home.ssi.bg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Stephen Bates <sbates@raithlin.com>,
-        SWise OGC <swise@opengridcomputing.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Ganesh GR <ganeshgr@chelsio.com>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+        David Miller <davem@davemloft.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Andrey Konovalov <andreyknvl@google.com>,
+        Eric Dumazet <edumazet@google.com>
+To: Julian Anastasov <ja@ssi.bg>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ale.deltatee.com ([207.54.116.67]:35822 "EHLO ale.deltatee.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750829AbdEPRnt (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 16 May 2017 13:43:49 -0400
-In-Reply-To: <CY4PR12MB1432E4FA04313105999F04FAC1E60@CY4PR12MB1432.namprd12.prod.outlook.com>
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:34831 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752667AbdEPRxq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 16 May 2017 13:53:46 -0400
+Received: by mail-wm0-f65.google.com with SMTP id v4so39944970wmb.2
+        for <netdev@vger.kernel.org>; Tue, 16 May 2017 10:53:45 -0700 (PDT)
+In-Reply-To: <alpine.LFD.2.20.1705160955310.1856@ja.home.ssi.bg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hey,
+On Tue, May 16, 2017 at 12:46 AM, Julian Anastasov <ja@ssi.bg> wrote:
+>
+>         Hello,
+>
+> On Mon, 15 May 2017, Cong Wang wrote:
+>
+>> On Mon, May 15, 2017 at 1:37 PM, Julian Anastasov <ja@ssi.bg> wrote:
+>> >         Any user that does not set FIB_LOOKUP_NOREF
+>> > will need nh_dev refcounts. The assumption is that the
+>> > NHs are accessed, who knows, may be even after RCU grace
+>> > period. As result, we can not use dev_put on NETDEV_UNREGISTER.
+>> > So, we should check if there are users that do not
+>> > set FIB_LOOKUP_NOREF, at first look, I don't see such ones
+>> > for IPv4.
+>>
+>> I see, although we do have FIB_LOOKUP_NOREF set all the times,
+>> there are other places we hold fib_clntref too, for example
+>> mlxsw_sp_router_fib_event_work(), it actually uses nh_dev too...
+>>
+>> So I am afraid moving dev_put() to fib_release_info() is not a solution
+>> here. I have to rethink about it.
+>
+>         At first look, they use fib_info_hold() to get fib_clntref
+> reference from places where fib_treeref is not fatally decreased
+> to 0 but later a work is used which finishes the job. I guess, we
+> can convert such places to use just a fib_treeref reference.
+> They can use such new method instead of fib_info_hold:
+>
+> void fib_treeref_get(struct fib_info *fi)
+> {
+>         spin_lock_bh(&fib_info_lock);
+>         fi->fib_treeref++;
+>         spin_unlock_bh(&fib_info_lock);
+> }
+>
+> They will use fib_release_info() to put the reference. But
+> on FIB_EVENT_ENTRY_DEL there is a small window where the
+> scheduled work delays the unlink of fib info from the
+> hash tables, i.e. there is a risk fib_find_info to reuse
+> a dead fib info.
+>
 
-Ok, yes with the latest firmware the issue seems to have gone away.
+Right, that seems risky.
 
-Still, it's probably not a great idea to break peoples hardware with a
-kernel update even if their firmware is old.
-
-Thanks,
-
-Logan
-
-On 16/05/17 09:19 AM, Ganesh GR wrote:
-> 
-> Hi Logan,
-> 
-> The latest firmware available is 1.16.43.0 kindly update your firmware and
-> give a try, 1.16.29.4 have no support for autoneg.
-> 
-> Thanks
-> Ganesh
-> 
-> 
-> 
-> 
-> 
-> 
-> From: Logan Gunthorpe <logang@deltatee.com>
-> Sent: Tuesday, May 16, 2017 7:20 AM
-> To: Ganesh GR
-> Cc: David S. Miller; Stephen Bates; SWise OGC; netdev@vger.kernel.org
-> Subject: Re: cxgb4 is broken in v4.12-rc1
->     
-> Hi,
-> 
-> Thanks for looking into it. The version information of the card is:
-> 
-> [    5.235956] cxgb4 0000:07:00.4: Chelsio T62100-LP-CR rev 0
-> [    5.235957] cxgb4 0000:07:00.4: S/N: PT51160053, P/N: 11012106004
-> [    5.235959] cxgb4 0000:07:00.4: Firmware version: 1.16.29.4
-> [    5.235960] cxgb4 0000:07:00.4: Bootstrap version: 255.255.255.255
-> [    5.235961] cxgb4 0000:07:00.4: TP Microcode version: 0.1.23.2
-> 
-> Logan
-> 
-> 
-> On 15/05/17 07:00 PM, Ganesh GR wrote:
->>
->> Hi Logan,
->>
->> Thanks for reporting the issue I will try to reproduce this, btw what is the firmware version
->> on your setup?.
->>
->> Regards
->> Ganesh
->>
->>
->>
->>
->> From: Logan Gunthorpe <logang@deltatee.com>
->> Sent: Tuesday, May 16, 2017 4:06 AM
->> To: Ganesh GR
->> Cc: David S. Miller; Stephen Bates; SWise OGC; netdev@vger.kernel.org
->> Subject: BUG: cxgb4 is broken in v4.12-rc1
->>      
->> Hi,
->>
->> With rc1 my T62100-LP-CR no longer functions correctly. Everything
->> appears fine but the link never goes into the UP state. I have one peer
->> with an older (functioning) kernel and the other peer on rc1.
->>
->> I've bisected to find this is the offending commit:
->>
->> 3bb4858fd: cxgb4: avoid disabling FEC by default
->>
->> I've also attached a bisect log.
->>
->> Let me know if you need anything else.
->>
->> Thanks,
->>
->> Logan
->>      
->>
->     
-> 
+How about adding a check for ->fib_dead in these work's?
+If the last treeref is gone, probably it is no longer needed
+to continue to do the offloading work.
