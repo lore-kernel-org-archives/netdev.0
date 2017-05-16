@@ -1,53 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/smc: mark as BROKEN due to remote memory exposure
-Date: Tue, 16 May 2017 14:52:49 -0400 (EDT)
-Message-ID: <20170516.145249.871010194359061722.davem@davemloft.net>
-References: <1494955244.3259.130.camel@redhat.com>
-        <20170516.133644.850927380166261577.davem@davemloft.net>
-        <1494957802.3259.131.camel@redhat.com>
+Subject: Re: [PATCH] net: Improve handling of failures on link and route
+ dumps
+Date: Tue, 16 May 2017 14:54:36 -0400 (EDT)
+Message-ID: <20170516.145436.967557028017706784.davem@davemloft.net>
+References: <20170516061917.8128-1-dsahern@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
-Cc: Bart.VanAssche@sandisk.com, torvalds@linux-foundation.org,
-        hch@lst.de, netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
-        stable@vger.kernel.org, ubraun@linux.vnet.ibm.com
-To: dledford@redhat.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, mq@ucw.cz
+To: dsahern@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:52376 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:52428 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752941AbdEPSw6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 16 May 2017 14:52:58 -0400
-In-Reply-To: <1494957802.3259.131.camel@redhat.com>
+        with ESMTP id S1752563AbdEPSyy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 16 May 2017 14:54:54 -0400
+In-Reply-To: <20170516061917.8128-1-dsahern@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Doug Ledford <dledford@redhat.com>
-Date: Tue, 16 May 2017 14:03:22 -0400
+From: David Ahern <dsahern@gmail.com>
+Date: Mon, 15 May 2017 23:19:17 -0700
 
-> On Tue, 2017-05-16 at 13:36 -0400, David Miller wrote:
->> From: Doug Ledford <dledford@redhat.com>
->> Date: Tue, 16 May 2017 13:20:44 -0400
->> 
->> > Anyway, we're just talking out what happened, when what we really
->> need
->> > to focus on is moving forward.  Again, your thoughts on marking SMC
->> > EXPERIMENTAL until it's fixed up and unfreezing the API in case we
->> need
->> > to adjust it to work on different link layers?
->> 
->> Something like:
->> 
->>         http://patchwork.ozlabs.org/patch/762803/
->> 
->> with the addition of the EXPERIMENTAL dependency?
->> 
->> Sure.
+> In general, rtnetlink dumps do not anticipate failure to dump a single
+> object (e.g., link or route) on a single pass. As both route and link
+> objects have grown via more attributes, that is no longer a given.
 > 
-> Perfect.  I assume you'll submit it since it's in your patchworks?
+> netlink dumps can handle a failure if the dump function returns an
+> error; specifically, netlink_dump adds the return code to the response
+> if it is <= 0 so userspace is notified of the failure. The missing
+> piece is the rtnetlink dump functions returning the error.
+> 
+> Fix route and link dump functions to return the errors if no object is
+> added to an skb (detected by skb->len != 0). IPv6 route dumps
+> (rt6_dump_route) already return the error; this patch updates IPv4 and
+> link dumps. Other dump functions may need to be ajusted as well.
+> 
+> Reported-by: Jan Moskyto Matejka <mq@ucw.cz>
+> Signed-off-by: David Ahern <dsahern@gmail.com>
+> ---
+> The recent IPv6 multipath change brought this to light because of the
+> ease at which ipv6 route appends can exceed a buffer size, but it seems
+> to be a day 1 problem.
 
-Ok I applied the patch referenced above, but we don't actually have
-an EXPERIMENTAL symbol.  The closest thing we have is BROKEN and
-even in this situation that's a bit harsh.
-
-I also applied the patch which converts SMC over to using
-IB_PD_UNSAFE_GLOBAL_RKEY.
+Applied and queued up for -stable, thanks David.
