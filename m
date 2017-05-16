@@ -1,383 +1,44 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCH] net: phy: Remove residual magic from PHY drivers
-Date: Tue, 16 May 2017 18:29:11 +0200
-Message-ID: <1494952151-3040-1-git-send-email-andrew@lunn.ch>
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-        netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
-To: David Miller <davem@davemloft.net>
+From: Davide Caratti <dcaratti@redhat.com>
+Subject: [PATCH net-next v2 6/7] openvswitch: more accurate checksumming in queue_userspace_packet()
+Date: Tue, 16 May 2017 18:27:50 +0200
+Message-ID: <9946093f33c2d425d58a82f8625fbe610e0c4802.1494946940.git.dcaratti@redhat.com>
+References: <cover.1494946940.git.dcaratti@redhat.com>
+Cc: Alexander Duyck <alexander.duyck@gmail.com>,
+        Tom Herbert <tom@herbertland.com>,
+        David Laight <David.Laight@ACULAB.COM>,
+        "David S. Miller" <davem@davemloft.net>,
+        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+To: linux-sctp@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:60565 "EHLO vps0.lunn.ch"
+Received: from mx1.redhat.com ([209.132.183.28]:57380 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751677AbdEPQ3r (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 16 May 2017 12:29:47 -0400
+        id S1752781AbdEPQ3z (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 16 May 2017 12:29:55 -0400
+In-Reply-To: <cover.1494946940.git.dcaratti@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-commit fa8cddaf903c ("net phylib: Remove unnecessary condition check in phy")
-removed the only place where the PHY flag PHY_HAS_MAGICANEG was
-checked. But it left the flag being set in the drivers. Remove the flag.
+if skb carries an SCTP packet and ip_summed is CHECKSUM_PARTIAL, it needs
+CRC32c in place of Internet Checksum: use skb_csum_hwoffload_help to avoid
+corrupting such packets while queueing them towards userspace.
 
-Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+Signed-off-by: Davide Caratti <dcaratti@redhat.com>
 ---
- drivers/net/phy/broadcom.c  | 30 +++++++++++++++---------------
- drivers/net/phy/micrel.c    | 27 +++++++++++++--------------
- drivers/net/phy/microchip.c |  2 +-
- drivers/net/phy/smsc.c      | 12 ++++++------
- include/linux/phy.h         |  3 +--
- 5 files changed, 36 insertions(+), 38 deletions(-)
+ net/openvswitch/datapath.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/phy/broadcom.c b/drivers/net/phy/broadcom.c
-index a32dc5d11e89..1e9ad30a35c8 100644
---- a/drivers/net/phy/broadcom.c
-+++ b/drivers/net/phy/broadcom.c
-@@ -540,7 +540,7 @@ static struct phy_driver broadcom_drivers[] = {
- 	.phy_id_mask	= 0xfffffff0,
- 	.name		= "Broadcom BCM5411",
- 	.features	= PHY_GBIT_FEATURES,
--	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
-+	.flags		= PHY_HAS_INTERRUPT,
- 	.config_init	= bcm54xx_config_init,
- 	.config_aneg	= genphy_config_aneg,
- 	.read_status	= genphy_read_status,
-@@ -551,7 +551,7 @@ static struct phy_driver broadcom_drivers[] = {
- 	.phy_id_mask	= 0xfffffff0,
- 	.name		= "Broadcom BCM5421",
- 	.features	= PHY_GBIT_FEATURES,
--	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
-+	.flags		= PHY_HAS_INTERRUPT,
- 	.config_init	= bcm54xx_config_init,
- 	.config_aneg	= genphy_config_aneg,
- 	.read_status	= genphy_read_status,
-@@ -562,7 +562,7 @@ static struct phy_driver broadcom_drivers[] = {
- 	.phy_id_mask	= 0xfffffff0,
- 	.name		= "Broadcom BCM54210E",
- 	.features	= PHY_GBIT_FEATURES,
--	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
-+	.flags		= PHY_HAS_INTERRUPT,
- 	.config_init	= bcm54xx_config_init,
- 	.config_aneg	= genphy_config_aneg,
- 	.read_status	= genphy_read_status,
-@@ -573,7 +573,7 @@ static struct phy_driver broadcom_drivers[] = {
- 	.phy_id_mask	= 0xfffffff0,
- 	.name		= "Broadcom BCM5461",
- 	.features	= PHY_GBIT_FEATURES,
--	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
-+	.flags		= PHY_HAS_INTERRUPT,
- 	.config_init	= bcm54xx_config_init,
- 	.config_aneg	= genphy_config_aneg,
- 	.read_status	= genphy_read_status,
-@@ -584,7 +584,7 @@ static struct phy_driver broadcom_drivers[] = {
- 	.phy_id_mask	= 0xfffffff0,
- 	.name		= "Broadcom BCM54612E",
- 	.features	= PHY_GBIT_FEATURES,
--	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
-+	.flags		= PHY_HAS_INTERRUPT,
- 	.config_init	= bcm54xx_config_init,
- 	.config_aneg	= genphy_config_aneg,
- 	.read_status	= genphy_read_status,
-@@ -595,7 +595,7 @@ static struct phy_driver broadcom_drivers[] = {
- 	.phy_id_mask	= 0xfffffff0,
- 	.name		= "Broadcom BCM54616S",
- 	.features	= PHY_GBIT_FEATURES,
--	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
-+	.flags		= PHY_HAS_INTERRUPT,
- 	.config_init	= bcm54xx_config_init,
- 	.config_aneg	= genphy_config_aneg,
- 	.read_status	= genphy_read_status,
-@@ -606,7 +606,7 @@ static struct phy_driver broadcom_drivers[] = {
- 	.phy_id_mask	= 0xfffffff0,
- 	.name		= "Broadcom BCM5464",
- 	.features	= PHY_GBIT_FEATURES,
--	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
-+	.flags		= PHY_HAS_INTERRUPT,
- 	.config_init	= bcm54xx_config_init,
- 	.config_aneg	= genphy_config_aneg,
- 	.read_status	= genphy_read_status,
-@@ -617,7 +617,7 @@ static struct phy_driver broadcom_drivers[] = {
- 	.phy_id_mask	= 0xfffffff0,
- 	.name		= "Broadcom BCM5481",
- 	.features	= PHY_GBIT_FEATURES,
--	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
-+	.flags		= PHY_HAS_INTERRUPT,
- 	.config_init	= bcm54xx_config_init,
- 	.config_aneg	= bcm5481_config_aneg,
- 	.read_status	= genphy_read_status,
-@@ -628,7 +628,7 @@ static struct phy_driver broadcom_drivers[] = {
- 	.phy_id_mask    = 0xfffffff0,
- 	.name           = "Broadcom BCM54810",
- 	.features       = PHY_GBIT_FEATURES,
--	.flags          = PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
-+	.flags          = PHY_HAS_INTERRUPT,
- 	.config_init    = bcm54xx_config_init,
- 	.config_aneg    = bcm5481_config_aneg,
- 	.read_status    = genphy_read_status,
-@@ -639,7 +639,7 @@ static struct phy_driver broadcom_drivers[] = {
- 	.phy_id_mask	= 0xfffffff0,
- 	.name		= "Broadcom BCM5482",
- 	.features	= PHY_GBIT_FEATURES,
--	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
-+	.flags		= PHY_HAS_INTERRUPT,
- 	.config_init	= bcm5482_config_init,
- 	.config_aneg	= genphy_config_aneg,
- 	.read_status	= bcm5482_read_status,
-@@ -650,7 +650,7 @@ static struct phy_driver broadcom_drivers[] = {
- 	.phy_id_mask	= 0xfffffff0,
- 	.name		= "Broadcom BCM50610",
- 	.features	= PHY_GBIT_FEATURES,
--	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
-+	.flags		= PHY_HAS_INTERRUPT,
- 	.config_init	= bcm54xx_config_init,
- 	.config_aneg	= genphy_config_aneg,
- 	.read_status	= genphy_read_status,
-@@ -661,7 +661,7 @@ static struct phy_driver broadcom_drivers[] = {
- 	.phy_id_mask	= 0xfffffff0,
- 	.name		= "Broadcom BCM50610M",
- 	.features	= PHY_GBIT_FEATURES,
--	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
-+	.flags		= PHY_HAS_INTERRUPT,
- 	.config_init	= bcm54xx_config_init,
- 	.config_aneg	= genphy_config_aneg,
- 	.read_status	= genphy_read_status,
-@@ -672,7 +672,7 @@ static struct phy_driver broadcom_drivers[] = {
- 	.phy_id_mask	= 0xfffffff0,
- 	.name		= "Broadcom BCM57780",
- 	.features	= PHY_GBIT_FEATURES,
--	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
-+	.flags		= PHY_HAS_INTERRUPT,
- 	.config_init	= bcm54xx_config_init,
- 	.config_aneg	= genphy_config_aneg,
- 	.read_status	= genphy_read_status,
-@@ -683,7 +683,7 @@ static struct phy_driver broadcom_drivers[] = {
- 	.phy_id_mask	= 0xfffffff0,
- 	.name		= "Broadcom BCMAC131",
- 	.features	= PHY_BASIC_FEATURES,
--	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
-+	.flags		= PHY_HAS_INTERRUPT,
- 	.config_init	= brcm_fet_config_init,
- 	.config_aneg	= genphy_config_aneg,
- 	.read_status	= genphy_read_status,
-@@ -694,7 +694,7 @@ static struct phy_driver broadcom_drivers[] = {
- 	.phy_id_mask	= 0xfffffff0,
- 	.name		= "Broadcom BCM5241",
- 	.features	= PHY_BASIC_FEATURES,
--	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
-+	.flags		= PHY_HAS_INTERRUPT,
- 	.config_init	= brcm_fet_config_init,
- 	.config_aneg	= genphy_config_aneg,
- 	.read_status	= genphy_read_status,
-diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
-index 6a5fd18f062c..4cfd54182da2 100644
---- a/drivers/net/phy/micrel.c
-+++ b/drivers/net/phy/micrel.c
-@@ -779,7 +779,7 @@ static struct phy_driver ksphy_driver[] = {
- 	.phy_id_mask	= MICREL_PHY_ID_MASK,
- 	.name		= "Micrel KS8737",
- 	.features	= PHY_BASIC_FEATURES,
--	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
-+	.flags		= PHY_HAS_INTERRUPT,
- 	.driver_data	= &ks8737_type,
- 	.config_init	= kszphy_config_init,
- 	.config_aneg	= genphy_config_aneg,
-@@ -793,7 +793,7 @@ static struct phy_driver ksphy_driver[] = {
- 	.phy_id_mask	= 0x00ffffff,
- 	.name		= "Micrel KSZ8021 or KSZ8031",
- 	.features	= PHY_BASIC_FEATURES,
--	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
-+	.flags		= PHY_HAS_INTERRUPT,
- 	.driver_data	= &ksz8021_type,
- 	.probe		= kszphy_probe,
- 	.config_init	= kszphy_config_init,
-@@ -811,7 +811,7 @@ static struct phy_driver ksphy_driver[] = {
- 	.phy_id_mask	= 0x00ffffff,
- 	.name		= "Micrel KSZ8031",
- 	.features	= PHY_BASIC_FEATURES,
--	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
-+	.flags		= PHY_HAS_INTERRUPT,
- 	.driver_data	= &ksz8021_type,
- 	.probe		= kszphy_probe,
- 	.config_init	= kszphy_config_init,
-@@ -829,7 +829,7 @@ static struct phy_driver ksphy_driver[] = {
- 	.phy_id_mask	= MICREL_PHY_ID_MASK,
- 	.name		= "Micrel KSZ8041",
- 	.features	= PHY_BASIC_FEATURES,
--	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
-+	.flags		= PHY_HAS_INTERRUPT,
- 	.driver_data	= &ksz8041_type,
- 	.probe		= kszphy_probe,
- 	.config_init	= ksz8041_config_init,
-@@ -847,7 +847,7 @@ static struct phy_driver ksphy_driver[] = {
- 	.phy_id_mask	= MICREL_PHY_ID_MASK,
- 	.name		= "Micrel KSZ8041RNLI",
- 	.features	= PHY_BASIC_FEATURES,
--	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
-+	.flags		= PHY_HAS_INTERRUPT,
- 	.driver_data	= &ksz8041_type,
- 	.probe		= kszphy_probe,
- 	.config_init	= kszphy_config_init,
-@@ -865,7 +865,7 @@ static struct phy_driver ksphy_driver[] = {
- 	.phy_id_mask	= MICREL_PHY_ID_MASK,
- 	.name		= "Micrel KSZ8051",
- 	.features	= PHY_BASIC_FEATURES,
--	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
-+	.flags		= PHY_HAS_INTERRUPT,
- 	.driver_data	= &ksz8051_type,
- 	.probe		= kszphy_probe,
- 	.config_init	= kszphy_config_init,
-@@ -883,7 +883,7 @@ static struct phy_driver ksphy_driver[] = {
- 	.name		= "Micrel KSZ8001 or KS8721",
- 	.phy_id_mask	= 0x00fffffc,
- 	.features	= PHY_BASIC_FEATURES,
--	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
-+	.flags		= PHY_HAS_INTERRUPT,
- 	.driver_data	= &ksz8041_type,
- 	.probe		= kszphy_probe,
- 	.config_init	= kszphy_config_init,
-@@ -901,7 +901,7 @@ static struct phy_driver ksphy_driver[] = {
- 	.name		= "Micrel KSZ8081 or KSZ8091",
- 	.phy_id_mask	= MICREL_PHY_ID_MASK,
- 	.features	= PHY_BASIC_FEATURES,
--	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
-+	.flags		= PHY_HAS_INTERRUPT,
- 	.driver_data	= &ksz8081_type,
- 	.probe		= kszphy_probe,
- 	.config_init	= kszphy_config_init,
-@@ -919,7 +919,7 @@ static struct phy_driver ksphy_driver[] = {
- 	.name		= "Micrel KSZ8061",
- 	.phy_id_mask	= MICREL_PHY_ID_MASK,
- 	.features	= PHY_BASIC_FEATURES,
--	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
-+	.flags		= PHY_HAS_INTERRUPT,
- 	.config_init	= kszphy_config_init,
- 	.config_aneg	= genphy_config_aneg,
- 	.read_status	= genphy_read_status,
-@@ -932,7 +932,7 @@ static struct phy_driver ksphy_driver[] = {
- 	.phy_id_mask	= 0x000ffffe,
- 	.name		= "Micrel KSZ9021 Gigabit PHY",
- 	.features	= PHY_GBIT_FEATURES,
--	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
-+	.flags		= PHY_HAS_INTERRUPT,
- 	.driver_data	= &ksz9021_type,
- 	.probe		= kszphy_probe,
- 	.config_init	= ksz9021_config_init,
-@@ -952,7 +952,7 @@ static struct phy_driver ksphy_driver[] = {
- 	.phy_id_mask	= MICREL_PHY_ID_MASK,
- 	.name		= "Micrel KSZ9031 Gigabit PHY",
- 	.features	= PHY_GBIT_FEATURES,
--	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
-+	.flags		= PHY_HAS_INTERRUPT,
- 	.driver_data	= &ksz9021_type,
- 	.probe		= kszphy_probe,
- 	.config_init	= ksz9031_config_init,
-@@ -969,7 +969,6 @@ static struct phy_driver ksphy_driver[] = {
- 	.phy_id		= PHY_ID_KSZ8873MLL,
- 	.phy_id_mask	= MICREL_PHY_ID_MASK,
- 	.name		= "Micrel KSZ8873MLL Switch",
--	.flags		= PHY_HAS_MAGICANEG,
- 	.config_init	= kszphy_config_init,
- 	.config_aneg	= ksz8873mll_config_aneg,
- 	.read_status	= ksz8873mll_read_status,
-@@ -980,7 +979,7 @@ static struct phy_driver ksphy_driver[] = {
- 	.phy_id_mask	= MICREL_PHY_ID_MASK,
- 	.name		= "Micrel KSZ886X Switch",
- 	.features	= PHY_BASIC_FEATURES,
--	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
-+	.flags		= PHY_HAS_INTERRUPT,
- 	.config_init	= kszphy_config_init,
- 	.config_aneg	= genphy_config_aneg,
- 	.read_status	= genphy_read_status,
-@@ -991,7 +990,7 @@ static struct phy_driver ksphy_driver[] = {
- 	.phy_id_mask	= MICREL_PHY_ID_MASK,
- 	.name		= "Micrel KSZ8795",
- 	.features	= PHY_BASIC_FEATURES,
--	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
-+	.flags		= PHY_HAS_INTERRUPT,
- 	.config_init	= kszphy_config_init,
- 	.config_aneg	= ksz8873mll_config_aneg,
- 	.read_status	= ksz8873mll_read_status,
-diff --git a/drivers/net/phy/microchip.c b/drivers/net/phy/microchip.c
-index 2b2f543cf9f0..37ee856c7680 100644
---- a/drivers/net/phy/microchip.c
-+++ b/drivers/net/phy/microchip.c
-@@ -146,7 +146,7 @@ static struct phy_driver microchip_phy_driver[] = {
- 	.name		= "Microchip LAN88xx",
+diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
+index 7b17da9..9ddc9f8 100644
+--- a/net/openvswitch/datapath.c
++++ b/net/openvswitch/datapath.c
+@@ -453,7 +453,7 @@ static int queue_userspace_packet(struct datapath *dp, struct sk_buff *skb,
  
- 	.features	= PHY_GBIT_FEATURES,
--	.flags		= PHY_HAS_INTERRUPT | PHY_HAS_MAGICANEG,
-+	.flags		= PHY_HAS_INTERRUPT,
+ 	/* Complete checksum if needed */
+ 	if (skb->ip_summed == CHECKSUM_PARTIAL &&
+-	    (err = skb_checksum_help(skb)))
++	    (err = skb_csum_hwoffload_help(skb, 0)))
+ 		goto out;
  
- 	.probe		= lan88xx_probe,
- 	.remove		= lan88xx_remove,
-diff --git a/drivers/net/phy/smsc.c b/drivers/net/phy/smsc.c
-index cef6967b0396..67c9f2b26c8e 100644
---- a/drivers/net/phy/smsc.c
-+++ b/drivers/net/phy/smsc.c
-@@ -170,7 +170,7 @@ static struct phy_driver smsc_phy_driver[] = {
- 	.name		= "SMSC LAN83C185",
- 
- 	.features	= PHY_BASIC_FEATURES,
--	.flags		= PHY_HAS_INTERRUPT | PHY_HAS_MAGICANEG,
-+	.flags		= PHY_HAS_INTERRUPT,
- 
- 	.probe		= smsc_phy_probe,
- 
-@@ -192,7 +192,7 @@ static struct phy_driver smsc_phy_driver[] = {
- 	.name		= "SMSC LAN8187",
- 
- 	.features	= PHY_BASIC_FEATURES,
--	.flags		= PHY_HAS_INTERRUPT | PHY_HAS_MAGICANEG,
-+	.flags		= PHY_HAS_INTERRUPT,
- 
- 	.probe		= smsc_phy_probe,
- 
-@@ -214,7 +214,7 @@ static struct phy_driver smsc_phy_driver[] = {
- 	.name		= "SMSC LAN8700",
- 
- 	.features	= PHY_BASIC_FEATURES,
--	.flags		= PHY_HAS_INTERRUPT | PHY_HAS_MAGICANEG,
-+	.flags		= PHY_HAS_INTERRUPT,
- 
- 	.probe		= smsc_phy_probe,
- 
-@@ -236,7 +236,7 @@ static struct phy_driver smsc_phy_driver[] = {
- 	.name		= "SMSC LAN911x Internal PHY",
- 
- 	.features	= PHY_BASIC_FEATURES,
--	.flags		= PHY_HAS_INTERRUPT | PHY_HAS_MAGICANEG,
-+	.flags		= PHY_HAS_INTERRUPT,
- 
- 	.probe		= smsc_phy_probe,
- 
-@@ -257,7 +257,7 @@ static struct phy_driver smsc_phy_driver[] = {
- 	.name		= "SMSC LAN8710/LAN8720",
- 
- 	.features	= PHY_BASIC_FEATURES,
--	.flags		= PHY_HAS_INTERRUPT | PHY_HAS_MAGICANEG,
-+	.flags		= PHY_HAS_INTERRUPT,
- 
- 	.probe		= smsc_phy_probe,
- 
-@@ -279,7 +279,7 @@ static struct phy_driver smsc_phy_driver[] = {
- 	.name		= "SMSC LAN8740",
- 
- 	.features	= PHY_BASIC_FEATURES,
--	.flags		= PHY_HAS_INTERRUPT | PHY_HAS_MAGICANEG,
-+	.flags		= PHY_HAS_INTERRUPT,
- 
- 	.probe		= smsc_phy_probe,
- 
-diff --git a/include/linux/phy.h b/include/linux/phy.h
-index e76e4adbc7c7..54ef45823fc1 100644
---- a/include/linux/phy.h
-+++ b/include/linux/phy.h
-@@ -58,8 +58,7 @@
- #define PHY_IGNORE_INTERRUPT	-2
- 
- #define PHY_HAS_INTERRUPT	0x00000001
--#define PHY_HAS_MAGICANEG	0x00000002
--#define PHY_IS_INTERNAL		0x00000004
-+#define PHY_IS_INTERNAL		0x00000002
- #define MDIO_DEVICE_IS_PHY	0x80000000
- 
- /* Interface Mode definitions */
+ 	/* Older versions of OVS user space enforce alignment of the last
 -- 
-2.11.0
+2.7.4
