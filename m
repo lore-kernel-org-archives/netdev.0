@@ -1,47 +1,38 @@
-From: Rafa Corvillo <rafael.corvillo@aoifes.com>
-Subject: Re: [ISSUE: sky2 - rx error] Link stops working under heavy traffic
- load connected to a mv88e6176
-Date: Tue, 16 May 2017 18:19:09 +0200
-Message-ID: <591B267D.1030800@aoifes.com>
-References: <20170427130450.GL17172@lunn.ch> <59032D8B.1010801@aoifes.com>
- <20170428122259.GH13231@lunn.ch> <59105EA3.9030203@aoifes.com>
- <20170508123852.GI27709@lunn.ch> <591AD990.901@aoifes.com>
- <20170516124759.GB27959@lunn.ch> <591AF9FD.1000304@aoifes.com>
- <20170516132116.GE5456@lunn.ch> <591B1FC2.1090402@aoifes.com>
- <20170516155843.GE32357@lunn.ch>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch net-next v2 00/10] net: sched: introduce multichain
+ support for filters
+Date: Tue, 16 May 2017 12:20:21 -0400 (EDT)
+Message-ID: <20170516.122021.1415036093574332123.davem@davemloft.net>
+References: <20170515083857.3615-1-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-        netdev@vger.kernel.org
-To: Andrew Lunn <andrew@lunn.ch>
+Cc: netdev@vger.kernel.org, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
+        dsa@cumulusnetworks.com, edumazet@google.com,
+        stephen@networkplumber.org, daniel@iogearbox.net,
+        alexander.h.duyck@intel.com, simon.horman@netronome.com,
+        mlxsw@mellanox.com
+To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-relay-00-3.dondominio.net ([31.214.176.16]:36885 "EHLO
-        smtp-relay-00-3.dondominio.net" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1750950AbdEPQTM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 16 May 2017 12:19:12 -0400
-In-Reply-To: <20170516155843.GE32357@lunn.ch>
+Received: from shards.monkeyblade.net ([184.105.139.130]:50398 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751909AbdEPQUZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 16 May 2017 12:20:25 -0400
+In-Reply-To: <20170515083857.3615-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->>> Also, check that in sky2_rx_add(), le->length is set to 4K.
->>>
->>
->> The value of le->length is set to 1520.
->
->> Rafa
->
-> Ah.
->
-> You probably need to change sky2_get_rx_data_size() as well, to add in
-> the extra 8 bytes.
->
->      Andrew
->
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Mon, 15 May 2017 10:38:47 +0200
 
-If I add the extra 8 byte in the function sky2_get_rx_data_size(), the 
-value of le->length is set to 1528. But the rx error still appears. 
-Because of that, I think it is possible the maximum length could be set 
-outside the sky2 code.
+> This patchset contains two major patches:
+> 8/10 - This patch introduces the support for having multiple
+>        chains of filters.
+> 10/10 - This patch adds new control action to allow going to specified chain
+> 
+> The rest of the patches are smaller or bigger depencies of those 2.
+> Please see individual patch descriptions for details.
 
-Rafa
+I'm expecting at least some adjustments to the tests in the final
+patch based upon your discussions with Daniel, and thus another
+spin of this series.
