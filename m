@@ -1,77 +1,69 @@
-From: Ihar Hrachyshka <ihrachys@redhat.com>
-Subject: Re: [PATCH] neighbour: update neigh timestamps iff update is effective
-Date: Tue, 16 May 2017 08:47:00 -0700
-Message-ID: <CAKwN9=BfuUFPEQm5ED4W6UxTtWGLPNC37QEd02BCfEE0c5YC9g@mail.gmail.com>
-References: <20170515.131023.1878814687849300375.davem@davemloft.net> <20170515214025.28575-1-ihrachys@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Julian Anastasov <ja@ssi.bg>, netdev@vger.kernel.org,
-        Ihar Hrachyshka <ihrachys@redhat.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Ganesh Goudar <ganeshgr@chelsio.com>
+Subject: [PATCH net-next] cxgb4: reduce resource allocation in kdump kernel
+Date: Tue, 16 May 2017 21:17:42 +0530
+Message-ID: <1494949662-8339-1-git-send-email-ganeshgr@chelsio.com>
+Cc: nirranjan@chelsio.com, indranil@chelsio.com,
+        Ganesh Goudar <ganeshgr@chelsio.com>
+To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f178.google.com ([209.85.161.178]:35122 "EHLO
-        mail-yw0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752636AbdEPPrW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 16 May 2017 11:47:22 -0400
-Received: by mail-yw0-f178.google.com with SMTP id l74so40441525ywe.2
-        for <netdev@vger.kernel.org>; Tue, 16 May 2017 08:47:21 -0700 (PDT)
-In-Reply-To: <20170515214025.28575-1-ihrachys@redhat.com>
+Received: from stargate.chelsio.com ([12.32.117.8]:4652 "EHLO
+        stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752314AbdEPPr6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 16 May 2017 11:47:58 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 15, 2017 at 2:40 PM, Ihar Hrachyshka <ihrachys@redhat.com> wrote:
-> It's a common practice to send gratuitous ARPs after moving an
-> IP address to another device to speed up healing of a service. To
-> fulfill service availability constraints, the timing of network peers
-> updating their caches to point to a new location of an IP address can be
-> particularly important.
->
-> Sometimes neigh_update calls won't touch neither lladdr nor state, for
-> example if an update arrives in locktime interval. The neigh->updated
-> value is tested by the protocol specific neigh code, which in turn
-> will influence whether NEIGH_UPDATE_F_OVERRIDE gets set in the
-> call to neigh_update() or not. As a result, we may effectively ignore
-> the update request, bailing out of touching the neigh entry, except that
-> we still bump its timestamps inside neigh_update.
->
->
-> This may be a problem for updates arriving in quick succession. For
-> example, consider the following scenario:
->
-> A service is moved to another device with its IP address. The new device
-> sends three gratuitous ARP requests into the network with ~1 seconds
-> interval between them. Just before the first request arrives to one of
-> network peer nodes, its neigh entry for the IP address transitions from
-> STALE to DELAY.  This transition, among other things, updates
-> neigh->updated. Once the kernel receives the first gratuitous ARP, it
-> ignores it because its arrival time is inside the locktime interval. The
-> kernel still bumps neigh->updated. Then the second gratuitous ARP
-> request arrives, and it's also ignored because it's still in the (new)
-> locktime interval. Same happens for the third request. The node
-> eventually heals itself (after delay_first_probe_time seconds since the
-> initial transition to DELAY state), but it just wasted some time and
-> require a new ARP request/reply round trip. This unfortunate behaviour
-> both puts more load on the network, as well as reduces service
-> availability.
->
-> This patch changes neigh_update so that it bumps neigh->updated (as well
-> as neigh->confirmed) only once we are sure that either lladdr or entry
-> state will change). In the scenario described above, it means that the
-> second gratuitous ARP request will actually update the entry lladdr.
->
-> Ideally, we would update the neigh entry on the very first gratuitous
-> ARP request. The locktime mechanism is designed to ignore ARP updates in
-> a short timeframe after a previous ARP update was honoured by the kernel
-> layer. This would require tracking timestamps for state transitions
-> separately from timestamps when actual updates are received. This would
-> probably involve changes in neighbour struct. Therefore, the patch
-> doesn't tackle the issue of the first gratuitous APR ignored, leaving
-> it for a follow-up.
->
-> Signed-off-by: Ihar Hrachyshka <ihrachys@redhat.com>
+When is_kdump_kernel() is true, reduce memory footprint of
+cxgb4 by using a single "Queue Set".
 
-Please disregard this email, I forgot to update the patch version to
-v2 and provide changelog. I posted (hopefully) correct version. Still
-learning the process...
+Signed-off-by: Ganesh Goudar <ganeshgr@chelsio.com>
+---
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
 
-Ihar
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index 38a5c67..4249ffb 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -891,7 +891,7 @@ static u16 cxgb_select_queue(struct net_device *dev, struct sk_buff *skb,
+ 	 * The skb's priority is determined via the VLAN Tag Priority Code
+ 	 * Point field.
+ 	 */
+-	if (cxgb4_dcb_enabled(dev)) {
++	if (cxgb4_dcb_enabled(dev) && !is_kdump_kernel()) {
+ 		u16 vlan_tci;
+ 		int err;
+ 
+@@ -4007,10 +4007,7 @@ static void cfg_queues(struct adapter *adap)
+ 
+ 	/* Reduce memory usage in kdump environment, disable all offload.
+ 	 */
+-	if (is_kdump_kernel()) {
+-		adap->params.offload = 0;
+-		adap->params.crypto = 0;
+-	} else if (is_uld(adap) && t4_uld_mem_alloc(adap)) {
++	if (is_kdump_kernel() || (is_uld(adap) && t4_uld_mem_alloc(adap))) {
+ 		adap->params.offload = 0;
+ 		adap->params.crypto = 0;
+ 	}
+@@ -4031,7 +4028,7 @@ static void cfg_queues(struct adapter *adap)
+ 		struct port_info *pi = adap2pinfo(adap, i);
+ 
+ 		pi->first_qset = qidx;
+-		pi->nqsets = 8;
++		pi->nqsets = is_kdump_kernel() ? 1 : 8;
+ 		qidx += pi->nqsets;
+ 	}
+ #else /* !CONFIG_CHELSIO_T4_DCB */
+@@ -4044,6 +4041,9 @@ static void cfg_queues(struct adapter *adap)
+ 	if (q10g > netif_get_num_default_rss_queues())
+ 		q10g = netif_get_num_default_rss_queues();
+ 
++	if (is_kdump_kernel())
++		q10g = 1;
++
+ 	for_each_port(adap, i) {
+ 		struct port_info *pi = adap2pinfo(adap, i);
+ 
+-- 
+2.1.0
