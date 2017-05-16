@@ -1,45 +1,58 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: Re: [PATCH v3 net-next 6/7] net: allow simultaneous SW and HW
- transmit timestamping
-Date: Tue, 16 May 2017 18:31:36 -0400
-Message-ID: <CAF=yD-K=XDboSqVwqxLh1rjbgW5oCCa-yYs3zoTx-9O_7jmQoA@mail.gmail.com>
-References: <20170516124425.6294-1-mlichvar@redhat.com> <20170516124425.6294-7-mlichvar@redhat.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [patch net-next v3 02/10] net: sched: introduce tcf block infractructure
+Date: Tue, 16 May 2017 15:34:04 -0700
+Message-ID: <CAM_iQpUZKjR1SXVaHNq4fRiiFx8-X=mjK+k=4TDvxd5CuK4gyw@mail.gmail.com>
+References: <20170516172802.1317-1-jiri@resnulli.us> <20170516172802.1317-3-jiri@resnulli.us>
+ <CAM_iQpW1wsvyg_v2Vy9Bg33f5iT9_c8kNdgn+0CXkAbVCs8=ew@mail.gmail.com> <20170516.173404.1930033807247247443.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: Network Development <netdev@vger.kernel.org>,
-        Richard Cochran <richardcochran@gmail.com>,
-        Willem de Bruijn <willemb@google.com>
-To: Miroslav Lichvar <mlichvar@redhat.com>
+Cc: Jiri Pirko <jiri@resnulli.us>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        David Ahern <dsa@cumulusnetworks.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Stephen Hemminger <stephen@networkplumber.org>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Alexander Duyck <alexander.h.duyck@intel.com>,
+        Simon Horman <simon.horman@netronome.com>, mlxsw@mellanox.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f54.google.com ([209.85.218.54]:34418 "EHLO
-        mail-oi0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750785AbdEPWcS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 16 May 2017 18:32:18 -0400
-Received: by mail-oi0-f54.google.com with SMTP id b204so43763827oii.1
-        for <netdev@vger.kernel.org>; Tue, 16 May 2017 15:32:17 -0700 (PDT)
-In-Reply-To: <20170516124425.6294-7-mlichvar@redhat.com>
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:34118 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750949AbdEPWe0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 16 May 2017 18:34:26 -0400
+Received: by mail-wm0-f68.google.com with SMTP id d127so41031665wmf.1
+        for <netdev@vger.kernel.org>; Tue, 16 May 2017 15:34:25 -0700 (PDT)
+In-Reply-To: <20170516.173404.1930033807247247443.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 16, 2017 at 8:44 AM, Miroslav Lichvar <mlichvar@redhat.com> wrote:
-> Add SOF_TIMESTAMPING_OPT_TX_SWHW option to allow an outgoing packet to
-> be looped to the socket's error queue with a software timestamp even
-> when a hardware transmit timestamp is expected to be provided by the
-> driver.
+On Tue, May 16, 2017 at 2:34 PM, David Miller <davem@davemloft.net> wrote:
+> From: Cong Wang <xiyou.wangcong@gmail.com>
+> Date: Tue, 16 May 2017 13:51:30 -0700
 >
-> Applications using this option will receive two separate messages from
-> the error queue, one with a software timestamp and the other with a
-> hardware timestamp. As the hardware timestamp is saved to the shared skb
-> info, which may happen before the first message with software timestamp
-> is received by the application, the hardware timestamp is copied to the
-> SCM_TIMESTAMPING control message only when the skb has no software
-> timestamp or it is an incoming packet.
+>> On Tue, May 16, 2017 at 10:27 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+>>> +int tcf_block_get(struct tcf_block **p_block,
+>>> +                 struct tcf_proto __rcu **p_filter_chain)
+>>> +{
+>>> +       struct tcf_block *block = kzalloc(sizeof(*block), GFP_KERNEL);
+>>> +
+>>> +       if (!block)
+>>> +               return -ENOMEM;
+>>> +       block->p_filter_chain = p_filter_chain;
+>>> +       *p_block = block;
+>>> +       return 0;
+>>> +}
+>>> +EXPORT_SYMBOL(tcf_block_get);
+>>
+>>
+>> XXX_get() is usually for refcnt'ing, here you only allocate
+>> a block, so please rename it to tcf_block_alloc().
 >
-> While changing sw_tx_timestamp(), inline it in skb_tx_timestamp() as
-> there are no other users.
+> Later in the series he adds refcounting to these objects.
 >
-> CC: Richard Cochran <richardcochran@gmail.com>
-> CC: Willem de Bruijn <willemb@google.com>
-> Signed-off-by: Miroslav Lichvar <mlichvar@redhat.com>
+> He explained this to Jamal too.
 
-Acked-by: Willem de Bruijn <willemb@google.com>
+I have read all patches, unless I miss something, block itself
+is not refcn'ted, only chains are, so it makes no sense to get
+a block, right?
