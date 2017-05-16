@@ -1,7 +1,7 @@
 From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH net-next 06/15] tcp_bbr: use tcp_jiffies32 instead of tcp_time_stamp
-Date: Tue, 16 May 2017 14:00:05 -0700
-Message-ID: <20170516210014.31176-7-edumazet@google.com>
+Subject: [PATCH net-next 09/15] tcp: use tcp_jiffies32 to feed probe_timestamp
+Date: Tue, 16 May 2017 14:00:08 -0700
+Message-ID: <20170516210014.31176-10-edumazet@google.com>
 References: <20170516210014.31176-1-edumazet@google.com>
 Cc: netdev <netdev@vger.kernel.org>,
         Eric Dumazet <edumazet@google.com>,
@@ -12,12 +12,12 @@ To: "David S . Miller" <davem@davemloft.net>,
         Soheil Hassas Yeganeh <soheil@google.com>,
         Wei Wang <weiwan@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f48.google.com ([74.125.83.48]:34069 "EHLO
-        mail-pg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752635AbdEPV2W (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 16 May 2017 17:28:22 -0400
-Received: by mail-pg0-f48.google.com with SMTP id u28so82320666pgn.1
-        for <netdev@vger.kernel.org>; Tue, 16 May 2017 14:28:17 -0700 (PDT)
+Received: from mail-pg0-f43.google.com ([74.125.83.43]:35636 "EHLO
+        mail-pg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752589AbdEPV2U (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 16 May 2017 17:28:20 -0400
+Received: by mail-pg0-f43.google.com with SMTP id q125so62894385pgq.2
+        for <netdev@vger.kernel.org>; Tue, 16 May 2017 14:28:20 -0700 (PDT)
 In-Reply-To: <20170516210014.31176-1-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -27,56 +27,53 @@ tcp_time_stamp will soon be only used for TCP TS option.
 
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- net/ipv4/tcp_bbr.c | 12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
+ net/ipv4/tcp_output.c | 6 +++---
+ net/ipv4/tcp_timer.c  | 2 +-
+ 2 files changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/net/ipv4/tcp_bbr.c b/net/ipv4/tcp_bbr.c
-index 92b045c72163def1c1d6aa0f2002760186aa5dc3..40dc4fc5f6acba91634290e1cacde69a3584248f 100644
---- a/net/ipv4/tcp_bbr.c
-+++ b/net/ipv4/tcp_bbr.c
-@@ -730,12 +730,12 @@ static void bbr_update_min_rtt(struct sock *sk, const struct rate_sample *rs)
- 	bool filter_expired;
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index cbda5de164495cf318960489bd8edf98fe3a5033..f0fd1b4fdb3291638fcdca613d826db2cd27f517 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -1475,7 +1475,7 @@ void tcp_mtup_init(struct sock *sk)
+ 	icsk->icsk_mtup.search_low = tcp_mss_to_mtu(sk, net->ipv4.sysctl_tcp_base_mss);
+ 	icsk->icsk_mtup.probe_size = 0;
+ 	if (icsk->icsk_mtup.enabled)
+-		icsk->icsk_mtup.probe_timestamp = tcp_time_stamp;
++		icsk->icsk_mtup.probe_timestamp = tcp_jiffies32;
+ }
+ EXPORT_SYMBOL(tcp_mtup_init);
  
- 	/* Track min RTT seen in the min_rtt_win_sec filter window: */
--	filter_expired = after(tcp_time_stamp,
-+	filter_expired = after(tcp_jiffies32,
- 			       bbr->min_rtt_stamp + bbr_min_rtt_win_sec * HZ);
- 	if (rs->rtt_us >= 0 &&
- 	    (rs->rtt_us <= bbr->min_rtt_us || filter_expired)) {
- 		bbr->min_rtt_us = rs->rtt_us;
--		bbr->min_rtt_stamp = tcp_time_stamp;
-+		bbr->min_rtt_stamp = tcp_jiffies32;
+@@ -1987,7 +1987,7 @@ static inline void tcp_mtu_check_reprobe(struct sock *sk)
+ 	s32 delta;
+ 
+ 	interval = net->ipv4.sysctl_tcp_probe_interval;
+-	delta = tcp_time_stamp - icsk->icsk_mtup.probe_timestamp;
++	delta = tcp_jiffies32 - icsk->icsk_mtup.probe_timestamp;
+ 	if (unlikely(delta >= interval * HZ)) {
+ 		int mss = tcp_current_mss(sk);
+ 
+@@ -1999,7 +1999,7 @@ static inline void tcp_mtu_check_reprobe(struct sock *sk)
+ 		icsk->icsk_mtup.search_low = tcp_mss_to_mtu(sk, mss);
+ 
+ 		/* Update probe time stamp */
+-		icsk->icsk_mtup.probe_timestamp = tcp_time_stamp;
++		icsk->icsk_mtup.probe_timestamp = tcp_jiffies32;
  	}
+ }
  
- 	if (bbr_probe_rtt_mode_ms > 0 && filter_expired &&
-@@ -754,7 +754,7 @@ static void bbr_update_min_rtt(struct sock *sk, const struct rate_sample *rs)
- 		/* Maintain min packets in flight for max(200 ms, 1 round). */
- 		if (!bbr->probe_rtt_done_stamp &&
- 		    tcp_packets_in_flight(tp) <= bbr_cwnd_min_target) {
--			bbr->probe_rtt_done_stamp = tcp_time_stamp +
-+			bbr->probe_rtt_done_stamp = tcp_jiffies32 +
- 				msecs_to_jiffies(bbr_probe_rtt_mode_ms);
- 			bbr->probe_rtt_round_done = 0;
- 			bbr->next_rtt_delivered = tp->delivered;
-@@ -762,8 +762,8 @@ static void bbr_update_min_rtt(struct sock *sk, const struct rate_sample *rs)
- 			if (bbr->round_start)
- 				bbr->probe_rtt_round_done = 1;
- 			if (bbr->probe_rtt_round_done &&
--			    after(tcp_time_stamp, bbr->probe_rtt_done_stamp)) {
--				bbr->min_rtt_stamp = tcp_time_stamp;
-+			    after(tcp_jiffies32, bbr->probe_rtt_done_stamp)) {
-+				bbr->min_rtt_stamp = tcp_jiffies32;
- 				bbr->restore_cwnd = 1;  /* snap to prior_cwnd */
- 				bbr_reset_mode(sk);
- 			}
-@@ -810,7 +810,7 @@ static void bbr_init(struct sock *sk)
- 	bbr->probe_rtt_done_stamp = 0;
- 	bbr->probe_rtt_round_done = 0;
- 	bbr->min_rtt_us = tcp_min_rtt(tp);
--	bbr->min_rtt_stamp = tcp_time_stamp;
-+	bbr->min_rtt_stamp = tcp_jiffies32;
- 
- 	minmax_reset(&bbr->bw, bbr->rtt_cnt, 0);  /* init max bw to 0 */
- 
+diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
+index 9e0616cb8c17a6385ac97fc0cd657ef9413a1749..6629f47aa7f0182ece7873afcc3daa6f0019e228 100644
+--- a/net/ipv4/tcp_timer.c
++++ b/net/ipv4/tcp_timer.c
+@@ -115,7 +115,7 @@ static void tcp_mtu_probing(struct inet_connection_sock *icsk, struct sock *sk)
+ 	if (net->ipv4.sysctl_tcp_mtu_probing) {
+ 		if (!icsk->icsk_mtup.enabled) {
+ 			icsk->icsk_mtup.enabled = 1;
+-			icsk->icsk_mtup.probe_timestamp = tcp_time_stamp;
++			icsk->icsk_mtup.probe_timestamp = tcp_jiffies32;
+ 			tcp_sync_mss(sk, icsk->icsk_pmtu_cookie);
+ 		} else {
+ 			struct net *net = sock_net(sk);
 -- 
 2.13.0.303.g4ebf302169-goog
