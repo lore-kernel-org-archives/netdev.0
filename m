@@ -1,119 +1,58 @@
-From: Arend Van Spriel <arend.vanspriel@broadcom.com>
-Subject: Re: [PATCH 2/6] wl1251: Use request_firmware_prefer_user() for
- loading NVS calibration data
-Date: Tue, 16 May 2017 10:41:08 +0200
-Message-ID: <0c43c825-df2a-b427-4b67-f17fd644667f@broadcom.com>
-References: <0fd90416-f33c-a6be-14fd-5e964583e9cb@broadcom.com>
- <20170515231339.GF17314@wotan.suse.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: Pavel Machek <pavel@ucw.cz>, Daniel Wagner <wagi@monom.org>,
-        Tom Gundersen <teg@jklm.no>,
-        =?UTF-8?Q?Pali_Roh=c3=a1r?= <pali.rohar@gmail.com>,
-        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        David Gnedt <david.gnedt@davizone.at>,
-        Tony Lindgren <tony@atomide.com>,
-        Sebastian Reichel <sre@kernel.org>,
-        Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>,
-        Aaro Koskinen <aaro.koskinen@iki.fi>,
-        Takashi Iwai <tiwai@suse.de>,
-        AKASHI Takahiro <takahiro.akashi@linaro.org>,
-        David Woodhouse <dwmw2@infradead.org>,
-        Bjorn Andersson <bjorn.andersson@linaro.org>,
-        Grazvydas Ignotas <notasas@gmail.com>,
-        linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
-        netdev@vger.kernel.org,
-        =?UTF-8?Q?Micha=c5=82_Kazior?= <kazikcz@gmail.com>
-To: "Luis R. Rodriguez" <mcgrof@kernel.org>,
-        Johannes Berg <johannes@sipsolutions.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170515231339.GF17314@wotan.suse.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Tobias Jungel <tobias.jungel@bisdn.de>
+Subject: [PATCH v3] bridge: netlink: check vlan_default_pvid range
+Date: Tue, 16 May 2017 10:48:40 +0200
+Message-ID: <20170516084840.21432-1-tobias.jungel@bisdn.de>
+To: Sabrina Dubroca <sd@queasysnail.net>,
+        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+        Stephen Hemminger <stephen@networkplumber.org>,
+        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx.bisdn.de ([185.27.182.31]:46100 "EHLO mx.bisdn.de"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751272AbdEPIsw (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 16 May 2017 04:48:52 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 16-5-2017 1:13, Luis R. Rodriguez wrote:
-> On Fri, May 12, 2017 at 11:02:26PM +0200, Arend Van Spriel wrote:
->> try again.. replacing email address from Michał
->> On 12-5-2017 22:55, Arend Van Spriel wrote:
->>> Let me explain the idea to refresh your memory (and mine). It started
->>> when we were working on adding driver support for OpenWrt in brcmfmac.
->>> The driver requests for firmware calibration data, but on routers it is
->>> stored in flash. So after failing on the firmware request we now call a
->>> platform specific API. That was my itch, but it was not bad enough to go
->>> and scratch. Now for N900 case there is a similar scenario alhtough it
->>> has additional requirement to go to user-space due to need to use a
->>> proprietary library to obtain the NVS calibration data. My thought: Why
->>> should firmware_class care?
-> 
-> Agreed.
-> 
->>> So the idea is that firmware_class provides
->>> a registry for modules that can produce a certain firmware "file". Those
->>> modules can do whatever is needed. If they need to use umh so be it.
->>> They would only register themselves with firmware_class on platforms
->>> that need them. It would basically be replacing the fallback mechanism
->>> and only be effective on certain platforms.
-> 
-> Sure, so it sounds like the work that Daniel Wagner and Tom Gundersen worked
-> [0] on which provides a firmwared with two modes: best-effort, and final-mode,
-> would address what you are looking for but without requiring any upstream
-> changes, *and* it also helps solve the rootfs race remote-proc folks had
-> concerns over.
-> 
-> The other added gain over this solution is if folks need their own proprietary
-> concoction they can just fork firmwared and have that do whatever it needs
-> for the specific device on the specific rootfs. That is, firmwared can be the
-> upstream solution if folks need it, but if folks need something custom they can
-> just mimic the implementation: best-effort, and and final-mode.
-> 
-> Yet another added gain over this solution we can do *not* support the
-> custom fallback mechanism as its not needed, the udev event should suffice
-> to let userspace do what it needs.
-> 
-> Lastly, if we did not want to deal with timeouts for the way the driver data
-> API implements it I think we might be able to do away with them for for async
-> requests if we assume there will be a daemon that spawns in final-mode eventually,
-> and since it *knows* when the rootfs is ready it should be able to do a final
-> lookup, if it returns -ENOENT; then indeed we know we can give up. Now, perhaps
-> how and if we want to deal with timeouts when using the driver data API for
-> the fallback mechanism is worth considering given it does not have a fallback
-> mechanism support yet. If we *add* them it would seem this would also put an
-> implicit race against userspace finishing initialization and running firmwared
-> in final-mode.
+Currently it is allowed to set the default pvid of a bridge to a value
+above VLAN_VID_MASK (0xfff). This patch adds a check to br_validate and
+returns -EINVAL in case the pvid is out of bounds.
 
-Just to be clear. When you are saying "rootfs" in this story, you mean
-any (mounted) file-system which may hold the firmware. At least that was
-one of the arguments. In kernel space we can not know how the system is
-setup in terms of mount points, let alone on which mounted file-system
-the firmware resides.
+Reproduce by calling:
 
-> Johannes, do you recall the corner cases we spoke about regarding timeouts?
-> Does this match what we spoke about?
-> 
->>> Let me know if this idea is still of interest and I will rebase what I
->>> have for an RFC round.
-> 
-> Since no upstream delta is needed for firmwared I'd like to first encourage
-> evaluating the above. While distributions don't carry it yet that may be seen as
-> an issue but since what we are looking for are corner cases, only folks needing
-> to deploy a specific solution would need it or a custom proprietary solution.
+[root@test ~]# ip l a type bridge
+[root@test ~]# ip l a type dummy
+[root@test ~]# ip l s bridge0 type bridge vlan_filtering 1
+[root@test ~]# ip l s bridge0 type bridge vlan_default_pvid 9999
+[root@test ~]# ip l s dummy0 master bridge0
+[root@test ~]# bridge vlan
+port	vlan ids
+bridge0	 9999 PVID Egress Untagged
 
-Ok. I will go try and run firmwared in OpenWrt on a router platform.
-Have to steal one from a colleague :-p Will study firmwared.
+dummy0	 9999 PVID Egress Untagged
 
-> [0] https://github.com/teg/firmwared.git
-> 
-> PS.
-> 
-> Note that firmware signing will require an additional file, the detached
-> signature. The driver data API does not currently support the fallback
-> mechanism so we would not have to worry about that yet but once we add
-> fallback support we'd need to consider this.
+Fixes: 0f963b7592ef ("bridge: netlink: add support for default_pvid")
+Signed-off-by: Tobias Jungel <tobias.jungel@bisdn.de>
+---
+ net/bridge/br_netlink.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
-Do you have references to the firmware signing design. Is the idea to
-have one signature and all "firmware files" need to be signed with it?
-
-Thanks,
-Arend
+diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
+index c5ce774..47cb95b 100644
+--- a/net/bridge/br_netlink.c
++++ b/net/bridge/br_netlink.c
+@@ -835,6 +835,12 @@ static int br_validate(struct nlattr *tb[], struct nlattr *data[])
+ 			return -EPROTONOSUPPORT;
+ 		}
+ 	}
++
++	if (data[IFLA_BR_VLAN_DEFAULT_PVID]) {
++		__u16 defpvid = nla_get_u16(data[IFLA_BR_VLAN_DEFAULT_PVID]);
++		if (defpvid >= VLAN_VID_MASK)
++			return -EINVAL;
++	}
+ #endif
+ 
+ 	return 0;
+-- 
+2.9.4
