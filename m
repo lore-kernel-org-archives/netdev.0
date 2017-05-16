@@ -1,33 +1,45 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next] net: dsa: store CPU port pointer in the tree
-Date: Tue, 16 May 2017 22:42:32 +0200
-Message-ID: <20170516204232.GA11625@lunn.ch>
-References: <20170516181033.19980-1-vivien.didelot@savoirfairelinux.com>
+From: Eric Dumazet <edumazet@google.com>
+Subject: Re: [PATCH v2 net-next 06/12] ep93xx_eth: add GRO support
+Date: Tue, 16 May 2017 13:48:55 -0700
+Message-ID: <CANn89iLk=C_MbY9rHC9UufOEyPxrSwVxet61PJZXx1sP3FYLcQ@mail.gmail.com>
+References: <20170204232502.22361-1-edumazet@google.com> <20170204232502.22361-7-edumazet@google.com>
+ <20170515103132.GA24992@wantstofly.org> <591A12E8.1050603@gmail.com>
+ <1494882170.2185.2.camel@Nokia-N900> <8ce1ad39-5f57-ecff-805d-0aaca6fbd138@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel@savoirfairelinux.com,
+Content-Type: text/plain; charset="UTF-8"
+Cc: Ryan Mallon <rmallon@gmail.com>,
+        Lennert Buytenhek <buytenh@wantstofly.org>,
         "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170516181033.19980-1-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+        netdev <netdev@vger.kernel.org>,
+        Eric Dumazet <eric.dumazet@gmail.com>,
+        Hartley Sweeten <hsweeten@visionengravers.com>
+To: Alexander Sverdlin <alexander.sverdlin@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yw0-f177.google.com ([209.85.161.177]:34032 "EHLO
+        mail-yw0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751080AbdEPUs4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 16 May 2017 16:48:56 -0400
+Received: by mail-yw0-f177.google.com with SMTP id l14so59076154ywk.1
+        for <netdev@vger.kernel.org>; Tue, 16 May 2017 13:48:56 -0700 (PDT)
+In-Reply-To: <8ce1ad39-5f57-ecff-805d-0aaca6fbd138@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 16, 2017 at 02:10:33PM -0400, Vivien Didelot wrote:
-> A dsa_switch_tree instance holds a dsa_switch pointer and a port index
-> to identify the switch port to which the CPU is attached.
-> 
-> Now that the DSA layer has a dsa_port structure to hold this data, use
-> it to point the switch CPU port.
-> 
-> This patch simply substitutes s/dst->cpu_switch/dst->cpu_dp->ds/ and
-> s/dst->cpu_port/dst->cpu_dp->index/.
-> 
-> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+On Tue, May 16, 2017 at 1:41 PM, Alexander Sverdlin
+<alexander.sverdlin@gmail.com> wrote:
 
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+> it turns out I've used this patch two weeks long already in 4.11; but I've spent
+> a couple of hours now torturing the new driver and was not able to provoke
+> any inadequate behavior. It either receives all packets in time or not at all.
+> If IRQs would be edge-triggered, I'd expect some stale packets, which do not
+> arrive at first, but then appear with the packets coming next. This is not
+> the case. I've used pktgen module for this, with minimal packets and
+> different bursts.
+>
+> netperf shows 45Mbit/s on UDP_STREAM test, which is also fair amount for
+> 200MHz CPU.
+>
+> So, I see no problems with the change.
+>
 
-    Andrew
+Thanks a lot for testing !
