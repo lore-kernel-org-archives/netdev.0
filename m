@@ -1,66 +1,56 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [patch net-next v2 10/10] net: sched: add termination action
- to allow goto chain
-Date: Tue, 16 May 2017 09:59:36 +0200
-Message-ID: <591AB168.30202@iogearbox.net>
-References: <20170515083857.3615-1-jiri@resnulli.us> <20170515083857.3615-11-jiri@resnulli.us> <591A0940.2070801@iogearbox.net> <20170516044319.GA24493@nanopsycho>
+From: Alexandre Belloni <alexandre.belloni@free-electrons.com>
+Subject: Re: [PATCH v4 1/4] can: m_can: move Message RAM initialization to
+ function
+Date: Tue, 16 May 2017 10:00:49 +0200
+Message-ID: <20170516080049.4fvo4hkj4e6v7r3v@piout.net>
+References: <20170505135033.8349-1-quentin.schulz@free-electrons.com>
+ <90788d6d-24f3-64ba-43f3-16301b777536@free-electrons.com>
+ <4676456c-823c-d7db-2139-35c8229109f0@pengutronix.de>
+ <1d41efe1-d24f-4700-8986-0d5dc848ea23@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, jhs@mojatatu.com,
-        xiyou.wangcong@gmail.com, dsa@cumulusnetworks.com,
-        edumazet@google.com, stephen@networkplumber.org,
-        alexander.h.duyck@intel.com, simon.horman@netronome.com,
-        mlxsw@mellanox.com, alexei.starovoitov@gmail.com
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:43551 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751215AbdEPH7n (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 16 May 2017 03:59:43 -0400
-In-Reply-To: <20170516044319.GA24493@nanopsycho>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Marc Kleine-Budde <mkl@pengutronix.de>,
+        Quentin Schulz <quentin.schulz@free-electrons.com>,
+        wg@grandegger.com, mario.huettel@gmx.net,
+        linux-can@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, thomas.petazzoni@free-electrons.com
+To: Oliver Hartkopp <socketcan@hartkopp.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1d41efe1-d24f-4700-8986-0d5dc848ea23@hartkopp.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 05/16/2017 06:43 AM, Jiri Pirko wrote:
-> Mon, May 15, 2017 at 10:02:08PM CEST, daniel@iogearbox.net wrote:
->> On 05/15/2017 10:38 AM, Jiri Pirko wrote:
->>> From: Jiri Pirko <jiri@mellanox.com>
->>>
->>> Introduce new type of termination action called "goto_chain". This allows
->>> user to specify a chain to be processed. This action type is
->>> then processed as a return value in tcf_classify loop in similar
->>> way as "reclassify" is, only it does not reset to the first filter
->>> in chain but rather reset to the first filter of the desired chain.
->>>
->>> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
->> [...]
->>> diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
->>> index 1112a2b..98cc689 100644
->>> --- a/net/sched/cls_api.c
->>> +++ b/net/sched/cls_api.c
->>> @@ -304,10 +304,14 @@ int tcf_classify(struct sk_buff *skb, const struct tcf_proto *tp,
->>>    			continue;
->>>
->>>    		err = tp->classify(skb, tp, res);
->>> -		if (unlikely(err == TC_ACT_RECLASSIFY && !compat_mode))
->>> +		if (err == TC_ACT_RECLASSIFY && !compat_mode) {
->>>    			goto reset;
->>> -		if (err >= 0)
->>> +		} else if (TC_ACT_EXT_CMP(err, TC_ACT_GOTO_CHAIN)) {
->>> +			old_tp = res->goto_tp;
->>> +			goto reset;
->>> +		} else if (err >= 0) {
->>>    			return err;
->>> +		}
->>
->> Given this goto chain feature is pretty much only interesting for hw
->> offloads, can we move this further away from the sw fast path to not
->> add up to the cost per packet? (I doubt anyone is using TC_ACT_RECLASSIFY
->> in sw as well ...)
->
-> I don't think so. First of all, the whole thing would be broken then in
-> sw. It is useful to have it in sw, at least for testing reasons.
-> So I would leave the unlikely and add it to the second check as well.
+Hi,
 
-Ok, lets go with that then, thanks!
+On 15/05/2017 at 20:51:30 -0700, Oliver Hartkopp wrote:
+> On 05/15/2017 06:50 AM, Marc Kleine-Budde wrote:
+> > On 05/12/2017 08:37 AM, Quentin Schulz wrote:
+> > > On 05/05/2017 15:50, Quentin Schulz wrote:
+> > > > To avoid possible ECC/parity checksum errors when reading an
+> > > > uninitialized buffer, the entire Message RAM is initialized when probing
+> > > > the driver. This initialization is done in the same function reading the
+> > > > Device Tree properties.
+> > > > 
+> > > > This patch moves the RAM initialization to a separate function so it can
+> > > > be called separately from device initialization from Device Tree.
+> > > > 
+> > > > Signed-off-by: Quentin Schulz <quentin.schulz@free-electrons.com>
+> > > 
+> > > It's been a week since I sent this patch series. Any comments?
+> > 
+> > Looks good, added to linux-can-next.
+> 
+> Isn't this a fix for linux-can instead?
+> 
+> At least it would make no sense to me to have the upgraded M_CAN driver in
+> Linux 4.12 without this fix.
+> 
+
+The related suspend mode on the sama5d2 is not present in v4.12 so I
+think this can wait v4.13.
+
+-- 
+Alexandre Belloni, Free Electrons
+Embedded Linux and Kernel engineering
+http://free-electrons.com
