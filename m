@@ -1,7 +1,7 @@
 From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH net-next 08/15] tcp: use tcp_jiffies32 for rcv_tstamp and lrcvtime
-Date: Tue, 16 May 2017 14:00:07 -0700
-Message-ID: <20170516210014.31176-9-edumazet@google.com>
+Subject: [PATCH net-next 07/15] tcp: bic,cubic: use tcp_jiffies32 instead of tcp_time_stamp
+Date: Tue, 16 May 2017 14:00:06 -0700
+Message-ID: <20170516210014.31176-8-edumazet@google.com>
 References: <20170516210014.31176-1-edumazet@google.com>
 Cc: netdev <netdev@vger.kernel.org>,
         Eric Dumazet <edumazet@google.com>,
@@ -12,12 +12,12 @@ To: "David S . Miller" <davem@davemloft.net>,
         Soheil Hassas Yeganeh <soheil@google.com>,
         Wei Wang <weiwan@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f42.google.com ([74.125.83.42]:34089 "EHLO
-        mail-pg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752635AbdEPV2S (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 16 May 2017 17:28:18 -0400
-Received: by mail-pg0-f42.google.com with SMTP id u28so82321643pgn.1
-        for <netdev@vger.kernel.org>; Tue, 16 May 2017 14:28:17 -0700 (PDT)
+Received: from mail-pg0-f46.google.com ([74.125.83.46]:35618 "EHLO
+        mail-pg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752589AbdEPV2P (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 16 May 2017 17:28:15 -0400
+Received: by mail-pg0-f46.google.com with SMTP id q125so62893513pgq.2
+        for <netdev@vger.kernel.org>; Tue, 16 May 2017 14:28:14 -0700 (PDT)
 In-Reply-To: <20170516210014.31176-1-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -27,97 +27,79 @@ tcp_time_stamp will soon be only used for TCP TS option.
 
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- include/net/tcp.h        | 4 ++--
- net/ipv4/tcp_input.c     | 6 +++---
- net/ipv4/tcp_minisocks.c | 2 +-
- net/ipv4/tcp_output.c    | 2 +-
- net/ipv4/tcp_timer.c     | 2 +-
- 5 files changed, 8 insertions(+), 8 deletions(-)
+ net/ipv4/tcp_bic.c   |  6 +++---
+ net/ipv4/tcp_cubic.c | 12 ++++++------
+ 2 files changed, 9 insertions(+), 9 deletions(-)
 
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index feba4c0406e551d7e57da3411476735731b4d817..5b2932b8363fb8546322ebff7c74663139b3371d 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -1307,8 +1307,8 @@ static inline u32 keepalive_time_elapsed(const struct tcp_sock *tp)
+diff --git a/net/ipv4/tcp_bic.c b/net/ipv4/tcp_bic.c
+index 36087bca9f489646c2ca5aae3111449a956dd33b..609965f0e29836ed95605a2c7f3170e67c641058 100644
+--- a/net/ipv4/tcp_bic.c
++++ b/net/ipv4/tcp_bic.c
+@@ -84,14 +84,14 @@ static void bictcp_init(struct sock *sk)
+ static inline void bictcp_update(struct bictcp *ca, u32 cwnd)
  {
- 	const struct inet_connection_sock *icsk = &tp->inet_conn;
+ 	if (ca->last_cwnd == cwnd &&
+-	    (s32)(tcp_time_stamp - ca->last_time) <= HZ / 32)
++	    (s32)(tcp_jiffies32 - ca->last_time) <= HZ / 32)
+ 		return;
  
--	return min_t(u32, tcp_time_stamp - icsk->icsk_ack.lrcvtime,
--			  tcp_time_stamp - tp->rcv_tstamp);
-+	return min_t(u32, tcp_jiffies32 - icsk->icsk_ack.lrcvtime,
-+			  tcp_jiffies32 - tp->rcv_tstamp);
- }
+ 	ca->last_cwnd = cwnd;
+-	ca->last_time = tcp_time_stamp;
++	ca->last_time = tcp_jiffies32;
  
- static inline int tcp_fin_time(const struct sock *sk)
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 6a15c9b80b09829799dc37d89ecdbf11ec9ff904..eeb4967df25a8dc35128d0a0848b5ae7ee6d63e3 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -672,7 +672,7 @@ static void tcp_event_data_recv(struct sock *sk, struct sk_buff *skb)
+ 	if (ca->epoch_start == 0) /* record the beginning of an epoch */
+-		ca->epoch_start = tcp_time_stamp;
++		ca->epoch_start = tcp_jiffies32;
  
- 	tcp_rcv_rtt_measure(tp);
+ 	/* start off normal */
+ 	if (cwnd <= low_window) {
+diff --git a/net/ipv4/tcp_cubic.c b/net/ipv4/tcp_cubic.c
+index 2052ca740916d0872a41125ab61b769b334a314b..57ae5b5ae643efad106f5d6ac224ca54a52f9689 100644
+--- a/net/ipv4/tcp_cubic.c
++++ b/net/ipv4/tcp_cubic.c
+@@ -231,21 +231,21 @@ static inline void bictcp_update(struct bictcp *ca, u32 cwnd, u32 acked)
+ 	ca->ack_cnt += acked;	/* count the number of ACKed packets */
  
--	now = tcp_time_stamp;
-+	now = tcp_jiffies32;
+ 	if (ca->last_cwnd == cwnd &&
+-	    (s32)(tcp_time_stamp - ca->last_time) <= HZ / 32)
++	    (s32)(tcp_jiffies32 - ca->last_time) <= HZ / 32)
+ 		return;
  
- 	if (!icsk->icsk_ack.ato) {
- 		/* The _first_ data packet received, initialize
-@@ -3636,7 +3636,7 @@ static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)
+ 	/* The CUBIC function can update ca->cnt at most once per jiffy.
+ 	 * On all cwnd reduction events, ca->epoch_start is set to 0,
+ 	 * which will force a recalculation of ca->cnt.
  	 */
- 	sk->sk_err_soft = 0;
- 	icsk->icsk_probes_out = 0;
--	tp->rcv_tstamp = tcp_time_stamp;
-+	tp->rcv_tstamp = tcp_jiffies32;
- 	if (!prior_packets)
- 		goto no_queue;
+-	if (ca->epoch_start && tcp_time_stamp == ca->last_time)
++	if (ca->epoch_start && tcp_jiffies32 == ca->last_time)
+ 		goto tcp_friendliness;
  
-@@ -5554,7 +5554,7 @@ void tcp_finish_connect(struct sock *sk, struct sk_buff *skb)
- 	struct inet_connection_sock *icsk = inet_csk(sk);
+ 	ca->last_cwnd = cwnd;
+-	ca->last_time = tcp_time_stamp;
++	ca->last_time = tcp_jiffies32;
  
- 	tcp_set_state(sk, TCP_ESTABLISHED);
--	icsk->icsk_ack.lrcvtime = tcp_time_stamp;
-+	icsk->icsk_ack.lrcvtime = tcp_jiffies32;
+ 	if (ca->epoch_start == 0) {
+-		ca->epoch_start = tcp_time_stamp;	/* record beginning */
++		ca->epoch_start = tcp_jiffies32;	/* record beginning */
+ 		ca->ack_cnt = acked;			/* start counting */
+ 		ca->tcp_cwnd = cwnd;			/* syn with cubic */
  
- 	if (skb) {
- 		icsk->icsk_af_ops->sk_rx_dst_set(sk, skb);
-diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
-index 717be4de53248352c758b50557987d898340dd4f..59c32e0086c0e46d7955dffe211ec03bb18dcb12 100644
---- a/net/ipv4/tcp_minisocks.c
-+++ b/net/ipv4/tcp_minisocks.c
-@@ -447,7 +447,7 @@ struct sock *tcp_create_openreq_child(const struct sock *sk,
- 		newtp->mdev_us = jiffies_to_usecs(TCP_TIMEOUT_INIT);
- 		minmax_reset(&newtp->rtt_min, tcp_time_stamp, ~0U);
- 		newicsk->icsk_rto = TCP_TIMEOUT_INIT;
--		newicsk->icsk_ack.lrcvtime = tcp_time_stamp;
-+		newicsk->icsk_ack.lrcvtime = tcp_jiffies32;
+@@ -276,7 +276,7 @@ static inline void bictcp_update(struct bictcp *ca, u32 cwnd, u32 acked)
+ 	 * if the cwnd < 1 million packets !!!
+ 	 */
  
- 		newtp->packets_out = 0;
- 		newtp->retrans_out = 0;
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 4bd50f0b236ba23fe521a76dd9d35ee16acb061f..cbda5de164495cf318960489bd8edf98fe3a5033 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -3324,7 +3324,7 @@ static void tcp_connect_init(struct sock *sk)
- 	if (likely(!tp->repair))
- 		tp->rcv_nxt = 0;
- 	else
--		tp->rcv_tstamp = tcp_time_stamp;
-+		tp->rcv_tstamp = tcp_jiffies32;
- 	tp->rcv_wup = tp->rcv_nxt;
- 	tp->copied_seq = tp->rcv_nxt;
+-	t = (s32)(tcp_time_stamp - ca->epoch_start);
++	t = (s32)(tcp_jiffies32 - ca->epoch_start);
+ 	t += msecs_to_jiffies(ca->delay_min >> 3);
+ 	/* change the unit from HZ to bictcp_HZ */
+ 	t <<= BICTCP_HZ;
+@@ -448,7 +448,7 @@ static void bictcp_acked(struct sock *sk, const struct ack_sample *sample)
+ 		return;
  
-diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
-index 5f6f219a431e41a90b3c5d667a1a22b50f4464cf..9e0616cb8c17a6385ac97fc0cd657ef9413a1749 100644
---- a/net/ipv4/tcp_timer.c
-+++ b/net/ipv4/tcp_timer.c
-@@ -451,7 +451,7 @@ void tcp_retransmit_timer(struct sock *sk)
- 					    tp->snd_una, tp->snd_nxt);
- 		}
- #endif
--		if (tcp_time_stamp - tp->rcv_tstamp > TCP_RTO_MAX) {
-+		if (tcp_jiffies32 - tp->rcv_tstamp > TCP_RTO_MAX) {
- 			tcp_write_err(sk);
- 			goto out;
- 		}
+ 	/* Discard delay samples right after fast recovery */
+-	if (ca->epoch_start && (s32)(tcp_time_stamp - ca->epoch_start) < HZ)
++	if (ca->epoch_start && (s32)(tcp_jiffies32 - ca->epoch_start) < HZ)
+ 		return;
+ 
+ 	delay = (sample->rtt_us << 3) / USEC_PER_MSEC;
 -- 
 2.13.0.303.g4ebf302169-goog
