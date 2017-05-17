@@ -1,32 +1,51 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] liquidio: fix PF falsely indicating success
- at setting MAC address of a nonexistent VF
-Date: Wed, 17 May 2017 14:50:36 -0400 (EDT)
-Message-ID: <20170517.145036.2098131861729499280.davem@davemloft.net>
-References: <20170516182800.GA1067@felix-thinkpad.cavium.com>
+Subject: Re: [PATCH net-next] ipv6: Prevent overrun when parsing v6 header
+ options
+Date: Wed, 17 May 2017 14:57:30 -0400 (EDT)
+Message-ID: <20170517.145730.76726417606716563.davem@davemloft.net>
+References: <20170516183623.84966-1-kraigatgoog@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
-        derek.chickles@cavium.com, satananda.burla@cavium.com
-To: felix.manlunas@cavium.com
+Cc: andreyknvl@google.com, netdev@vger.kernel.org
+To: kraigatgoog@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:35484 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:35506 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752038AbdEQSui (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 17 May 2017 14:50:38 -0400
-In-Reply-To: <20170516182800.GA1067@felix-thinkpad.cavium.com>
+        with ESMTP id S1750944AbdEQS5u (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 17 May 2017 14:57:50 -0400
+In-Reply-To: <20170516183623.84966-1-kraigatgoog@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Felix Manlunas <felix.manlunas@cavium.com>
-Date: Tue, 16 May 2017 11:28:00 -0700
+From: Craig Gallek <kraigatgoog@gmail.com>
+Date: Tue, 16 May 2017 14:36:23 -0400
 
-> In the function assigned to .ndo_set_vf_mac, check the validity of the
-> vfidx argument before proceeding to tell the firmware to set the VF MAC
-> address.
+> From: Craig Gallek <kraig@google.com>
 > 
-> Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
-> Signed-off-by: Derek Chickles <derek.chickles@cavium.com>
+> The KASAN warning repoted below was discovered with a syzkaller
+> program.  The reproducer is basically:
+>   int s = socket(AF_INET6, SOCK_RAW, NEXTHDR_HOP);
+>   send(s, &one_byte_of_data, 1, MSG_MORE);
+>   send(s, &more_than_mtu_bytes_data, 2000, 0);
+> 
+> The socket() call sets the nexthdr field of the v6 header to
+> NEXTHDR_HOP, the first send call primes the payload with a non zero
+> byte of data, and the second send call triggers the fragmentation path.
+> 
+> The fragmentation code tries to parse the header options in order
+> to figure out where to insert the fragment option.  Since nexthdr points
+> to an invalid option, the calculation of the size of the network header
+> can made to be much larger than the linear section of the skb and data
+> is read outside of it.
+> 
+> This fix makes ip6_find_1stfrag return an error if it detects
+> running out-of-bounds.
+ ...
+> Reported-by: Andrey Konovalov <andreyknvl@google.com>
+> Signed-off-by: Craig Gallek <kraig@google.com>
 
-Applied.
+Since this is a reasonably serious bug I'm going to apply this
+to 'net' and queue it up for -stable.
+
+Thanks.
