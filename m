@@ -1,71 +1,86 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH net-next 2/3] net: dsa: mv88e6xxx: mv88e6390X SERDES support
-Date: Wed, 17 May 2017 16:49:32 -0400
-Message-ID: <877f1f8azn.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
-References: <1495051512-13554-1-git-send-email-andrew@lunn.ch> <1495051512-13554-3-git-send-email-andrew@lunn.ch>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net-next V5 0/9] vhost_net rx batch dequeuing
+Date: Wed, 17 May 2017 23:59:57 +0300
+Message-ID: <20170517235738-mutt-send-email-mst@kernel.org>
+References: <1494994485-12994-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev <netdev@vger.kernel.org>, nikita.yoush@cogentembedded.com,
-        Andrew Lunn <andrew@lunn.ch>
-To: Andrew Lunn <andrew@lunn.ch>, David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:50146 "EHLO
-        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752996AbdEQUv1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 17 May 2017 16:51:27 -0400
-In-Reply-To: <1495051512-13554-3-git-send-email-andrew@lunn.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1494994485-12994-1-git-send-email-jasowang@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Andrew,
+On Wed, May 17, 2017 at 12:14:36PM +0800, Jason Wang wrote:
+> This series tries to implement rx batching for vhost-net. This is done
+> by batching the dequeuing from skb_array which was exported by
+> underlayer socket and pass the sbk back through msg_control to finish
+> userspace copying. This is also the requirement for more batching
+> implemention on rx path.
+> 
+> Tests shows at most 7.56% improvment bon rx pps on top of batch
+> zeroing and no obvious changes for TCP_STREAM/TCP_RR result.
+> 
+> Please review.
+> 
+> Thanks
 
-Andrew Lunn <andrew@lunn.ch> writes:
+A surprisingly large gain for such as simple change.  It would be nice
+to understand better why this helps - in particular, does the optimal
+batch size change if ring is bigger or smaller? But let's merge it
+meanwhile.
 
-> -static int mv88e6xxx_phy_read(struct mv88e6xxx_chip *chip, int phy,
-> -			      int reg, u16 *val)
-> +int mv88e6xxx_phy_read(struct mv88e6xxx_chip *chip, int phy,
-> +		       int reg, u16 *val)
->  {
->  	int addr = phy; /* PHY devices addresses start at 0x0 */
->  	struct mii_bus *bus;
-> @@ -265,8 +265,8 @@ static int mv88e6xxx_phy_read(struct mv88e6xxx_chip *chip, int phy,
->  	return chip->info->ops->phy_read(chip, bus, addr, reg, val);
->  }
->  
-> -static int mv88e6xxx_phy_write(struct mv88e6xxx_chip *chip, int phy,
-> -			       int reg, u16 val)
-> +int mv88e6xxx_phy_write(struct mv88e6xxx_chip *chip, int phy,
-> +			int reg, u16 val)
+Series:
 
-Please add a very first patch which expose the mv88e6xxx_phy_ (and page_
-of patch 1/3) PHY related code in new phy.[ch] files. These are the
-missing specific files for the PHY Registers sets ;-)
-
-> +	if (chip->info->ops->serdes_power)
-> +		return chip->info->ops->serdes_power(chip, port, true);
-> +
-> +	return 0;
->  }
->  
->  static int mv88e6xxx_setup_message_port(struct mv88e6xxx_chip *chip, int port)
-> @@ -2068,15 +2071,6 @@ static int mv88e6xxx_setup_port(struct mv88e6xxx_chip *chip, int port)
->  	if (err)
->  		return err;
->  
-> -	/* If this port is connected to a SerDes, make sure the SerDes is
-> -	 * powered up.
-> -	 */
-> -	if (chip->info->ops->serdes_power) {
-> -		err = chip->info->ops->serdes_power(chip, port, true);
-> -		if (err)
-> -			return err;
-> -	}
-> -
-
-All 3 patches moves this call around. Can we place it right once, the
-first time a mv88e6xxx_serdes_power() helper is added?
+Acked-by: Michael S. Tsirkin <mst@redhat.com>
 
 
-Thank you,
 
-        Vivien
+> Changes from V4:
+> - drop batch zeroing patch
+> - renew the performance numbers
+> - move skb pointer array out of vhost_net structure
+> 
+> Changes from V3:
+> - add batch zeroing patch to fix the build warnings
+> 
+> Changes from V2:
+> - rebase to net-next HEAD
+> - use unconsume helpers to put skb back on releasing
+> - introduce and use vhost_net internal buffer helpers
+> - renew performance numbers on top of batch zeroing
+> 
+> Changes from V1:
+> - switch to use for() in __ptr_ring_consume_batched()
+> - rename peek_head_len_batched() to fetch_skbs()
+> - use skb_array_consume_batched() instead of
+>   skb_array_consume_batched_bh() since no consumer run in bh
+> - drop the lockless peeking patch since skb_array could be resized, so
+>   it's not safe to call lockless one
+> 
+> Jason Wang (8):
+>   skb_array: introduce skb_array_unconsume
+>   ptr_ring: introduce batch dequeuing
+>   skb_array: introduce batch dequeuing
+>   tun: export skb_array
+>   tap: export skb_array
+>   tun: support receiving skb through msg_control
+>   tap: support receiving skb from msg_control
+>   vhost_net: try batch dequing from skb array
+> 
+> Michael S. Tsirkin (1):
+>   ptr_ring: add ptr_ring_unconsume
+> 
+>  drivers/net/tap.c         |  25 +++++++--
+>  drivers/net/tun.c         |  31 ++++++++---
+>  drivers/vhost/net.c       | 128 +++++++++++++++++++++++++++++++++++++++++++---
+>  include/linux/if_tap.h    |   5 ++
+>  include/linux/if_tun.h    |   5 ++
+>  include/linux/ptr_ring.h  | 120 +++++++++++++++++++++++++++++++++++++++++++
+>  include/linux/skb_array.h |  31 +++++++++++
+>  7 files changed, 327 insertions(+), 18 deletions(-)
+> 
+> -- 
+> 2.7.4
