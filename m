@@ -1,80 +1,194 @@
-From: Firo Yang <firogm@gmail.com>
-Subject: Re: [PATCH] hdlcdrv: fix divide error bug if bitrate is 0
-Date: Wed, 17 May 2017 21:42:46 +0800
-Message-ID: <20170517134246.GA24874@snow>
-References: <20170517123549.22659-1-firogm@gmail.com>
- <591C493B.6060908@bfs.de>
+From: Soheil Hassas Yeganeh <soheil@google.com>
+Subject: Re: [PATCH net-next 01/15] tcp: use tp->tcp_mstamp in output path
+Date: Wed, 17 May 2017 09:42:55 -0400
+Message-ID: <CACSApvY=PTugyXmdvBQm0By3_uCzFb-fRbjjY2dw8NUKVLfiHA@mail.gmail.com>
+References: <20170516210014.31176-1-edumazet@google.com> <20170516210014.31176-2-edumazet@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: t.sailer@alumni.ethz.ch, davem@davemloft.net,
-        gregkh@linuxfoundation.org, linux-hams@vger.kernel.org,
-        netdev@vger.kernel.org, dvyukov@google.com,
-        syzkaller@googlegroups.com
-To: walter harms <wharms@bfs.de>
+Content-Type: text/plain; charset="UTF-8"
+Cc: "David S . Miller" <davem@davemloft.net>,
+        Neal Cardwell <ncardwell@google.com>,
+        Yuchung Cheng <ycheng@google.com>,
+        Wei Wang <weiwan@google.com>, netdev <netdev@vger.kernel.org>,
+        Eric Dumazet <eric.dumazet@gmail.com>
+To: Eric Dumazet <edumazet@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:36329 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753814AbdEQNmu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 17 May 2017 09:42:50 -0400
-Content-Disposition: inline
-In-Reply-To: <591C493B.6060908@bfs.de>
+Received: from mail-io0-f170.google.com ([209.85.223.170]:34118 "EHLO
+        mail-io0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752572AbdEQNnh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 17 May 2017 09:43:37 -0400
+Received: by mail-io0-f170.google.com with SMTP id k91so9358595ioi.1
+        for <netdev@vger.kernel.org>; Wed, 17 May 2017 06:43:36 -0700 (PDT)
+In-Reply-To: <20170516210014.31176-2-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 17, 2017 at 02:59:39PM +0200, walter harms wrote:
+On Tue, May 16, 2017 at 5:00 PM, Eric Dumazet <edumazet@google.com> wrote:
+> Idea is to later convert tp->tcp_mstamp to a full u64 counter
+> using usec resolution, so that we can later have fine
+> grained TCP TS clock (RFC 7323), regardless of HZ value.
 >
+> We try to refresh tp->tcp_mstamp only when necessary.
 >
->Am 17.05.2017 14:35, schrieb Firo Yang:
->> The divisor s->par.bitrate will always be 0 until initialized by
->> ndo_open() and hdlcdrv_open().
->> 
->> In order to fix this divide zero error, check whether the netdevice
->> was opened by ndo_open() before performing divide.
->> 
->> Reported-by: Dmitry Vyukov <dvyukov@google.com>
->> Signed-off-by: Firo Yang <firogm@gmail.com>
->> ---
->>  drivers/net/hamradio/hdlcdrv.c | 2 +-
->>  1 file changed, 1 insertion(+), 1 deletion(-)
->> 
->> diff --git a/drivers/net/hamradio/hdlcdrv.c b/drivers/net/hamradio/hdlcdrv.c
->> index 8c3633c..3c783fd 100644
->> --- a/drivers/net/hamradio/hdlcdrv.c
->> +++ b/drivers/net/hamradio/hdlcdrv.c
->> @@ -574,7 +574,7 @@ static int hdlcdrv_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
->>  		break;		
->>  
->>  	case HDLCDRVCTL_CALIBRATE:
->> -		if(!capable(CAP_SYS_RAWIO))
->> +		if (!capable(CAP_SYS_RAWIO) || !netif_running(dev))
->>  			return -EPERM;
->>  		if (bi.data.calibrate > INT_MAX / s->par.bitrate)
->>  			return -EINVAL;
->
->I would still check for s->par.bitrate > 0 later changes may affect the setting of it
->and it is much more obvious.
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-I think 0 is not valid value for bitrate, so we should check it in
-other places, like what ser12_open() did:
-429         if (bc->baud < 300 || bc->baud > 4800) {
-430                 printk(KERN_INFO "baycom_ser_fdx: invalid baudrate "
-431                                 "(300...4800)\n");
-432                 return -EINVAL;
-433         }
-...
-440         bc->hdrv.par.bitrate = bc->baud;
+Acked-by: Soheil Hassas Yeganeh <soheil@google.com>
 
+> ---
+>  net/ipv4/tcp_ipv4.c     |  1 +
+>  net/ipv4/tcp_output.c   | 21 +++++++++++----------
+>  net/ipv4/tcp_recovery.c |  1 -
+>  net/ipv4/tcp_timer.c    |  3 ++-
+>  4 files changed, 14 insertions(+), 12 deletions(-)
 >
->Also perhaps !netif_running(dev) should better return ENODEV.
-
-However, the 'dev' truly exists in this circumstance.
-
-Thanks,
-Firo
-
+> diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+> index 5ab2aac5ca191075383fc75214da816873bb222c..d8fe25db79f223e3fde85882effd2ac6ec15f8ca 100644
+> --- a/net/ipv4/tcp_ipv4.c
+> +++ b/net/ipv4/tcp_ipv4.c
+> @@ -483,6 +483,7 @@ void tcp_v4_err(struct sk_buff *icmp_skb, u32 info)
+>                 skb = tcp_write_queue_head(sk);
+>                 BUG_ON(!skb);
 >
+> +               skb_mstamp_get(&tp->tcp_mstamp);
+>                 remaining = icsk->icsk_rto -
+>                             min(icsk->icsk_rto,
+>                                 tcp_time_stamp - tcp_skb_timestamp(skb));
+> diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+> index a32172d69a03cbe76b45ec3094222f6c3a73e27d..4c8a6eaba6b39a2aea061dd6857ed8df954c5ca2 100644
+> --- a/net/ipv4/tcp_output.c
+> +++ b/net/ipv4/tcp_output.c
+> @@ -997,8 +997,8 @@ static int tcp_transmit_skb(struct sock *sk, struct sk_buff *skb, int clone_it,
+>         BUG_ON(!skb || !tcp_skb_pcount(skb));
+>         tp = tcp_sk(sk);
 >
->just my 2 cents,
->re,
-> wh
+> +       skb->skb_mstamp = tp->tcp_mstamp;
+>         if (clone_it) {
+> -               skb_mstamp_get(&skb->skb_mstamp);
+>                 TCP_SKB_CB(skb)->tx.in_flight = TCP_SKB_CB(skb)->end_seq
+>                         - tp->snd_una;
+>                 tcp_rate_skb_sent(sk, skb);
+> @@ -1906,7 +1906,6 @@ static bool tcp_tso_should_defer(struct sock *sk, struct sk_buff *skb,
+>         const struct inet_connection_sock *icsk = inet_csk(sk);
+>         u32 age, send_win, cong_win, limit, in_flight;
+>         struct tcp_sock *tp = tcp_sk(sk);
+> -       struct skb_mstamp now;
+>         struct sk_buff *head;
+>         int win_divisor;
+>
+> @@ -1962,8 +1961,8 @@ static bool tcp_tso_should_defer(struct sock *sk, struct sk_buff *skb,
+>         }
+>
+>         head = tcp_write_queue_head(sk);
+> -       skb_mstamp_get(&now);
+> -       age = skb_mstamp_us_delta(&now, &head->skb_mstamp);
+> +
+> +       age = skb_mstamp_us_delta(&tp->tcp_mstamp, &head->skb_mstamp);
+>         /* If next ACK is likely to come too late (half srtt), do not defer */
+>         if (age < (tp->srtt_us >> 4))
+>                 goto send_now;
+> @@ -2280,6 +2279,7 @@ static bool tcp_write_xmit(struct sock *sk, unsigned int mss_now, int nonagle,
+>         }
+>
+>         max_segs = tcp_tso_segs(sk, mss_now);
+> +       skb_mstamp_get(&tp->tcp_mstamp);
+>         while ((skb = tcp_send_head(sk))) {
+>                 unsigned int limit;
+>
+> @@ -2291,7 +2291,7 @@ static bool tcp_write_xmit(struct sock *sk, unsigned int mss_now, int nonagle,
+>
+>                 if (unlikely(tp->repair) && tp->repair_queue == TCP_SEND_QUEUE) {
+>                         /* "skb_mstamp" is used as a start point for the retransmit timer */
+> -                       skb_mstamp_get(&skb->skb_mstamp);
+> +                       skb->skb_mstamp = tp->tcp_mstamp;
+>                         goto repair; /* Skip network transmission */
+>                 }
+>
+> @@ -2879,7 +2879,7 @@ int __tcp_retransmit_skb(struct sock *sk, struct sk_buff *skb, int segs)
+>                      skb_headroom(skb) >= 0xFFFF)) {
+>                 struct sk_buff *nskb;
+>
+> -               skb_mstamp_get(&skb->skb_mstamp);
+> +               skb->skb_mstamp = tp->tcp_mstamp;
+>                 nskb = __pskb_copy(skb, MAX_TCP_HEADER, GFP_ATOMIC);
+>                 err = nskb ? tcp_transmit_skb(sk, nskb, 0, GFP_ATOMIC) :
+>                              -ENOBUFS;
+> @@ -3095,7 +3095,7 @@ void tcp_send_active_reset(struct sock *sk, gfp_t priority)
+>         skb_reserve(skb, MAX_TCP_HEADER);
+>         tcp_init_nondata_skb(skb, tcp_acceptable_seq(sk),
+>                              TCPHDR_ACK | TCPHDR_RST);
+> -       skb_mstamp_get(&skb->skb_mstamp);
+> +       skb_mstamp_get(&tcp_sk(sk)->tcp_mstamp);
+>         /* Send it off. */
+>         if (tcp_transmit_skb(sk, skb, 0, priority))
+>                 NET_INC_STATS(sock_net(sk), LINUX_MIB_TCPABORTFAILED);
+> @@ -3453,7 +3453,8 @@ int tcp_connect(struct sock *sk)
+>                 return -ENOBUFS;
+>
+>         tcp_init_nondata_skb(buff, tp->write_seq++, TCPHDR_SYN);
+> -       tp->retrans_stamp = tcp_time_stamp;
+> +       skb_mstamp_get(&tp->tcp_mstamp);
+> +       tp->retrans_stamp = tp->tcp_mstamp.stamp_jiffies;
+>         tcp_connect_queue_skb(sk, buff);
+>         tcp_ecn_send_syn(sk, buff);
+>
+> @@ -3572,7 +3573,6 @@ void tcp_send_ack(struct sock *sk)
+>         skb_set_tcp_pure_ack(buff);
+>
+>         /* Send it off, this clears delayed acks for us. */
+> -       skb_mstamp_get(&buff->skb_mstamp);
+>         tcp_transmit_skb(sk, buff, 0, (__force gfp_t)0);
+>  }
+>  EXPORT_SYMBOL_GPL(tcp_send_ack);
+> @@ -3606,15 +3606,16 @@ static int tcp_xmit_probe_skb(struct sock *sk, int urgent, int mib)
+>          * send it.
+>          */
+>         tcp_init_nondata_skb(skb, tp->snd_una - !urgent, TCPHDR_ACK);
+> -       skb_mstamp_get(&skb->skb_mstamp);
+>         NET_INC_STATS(sock_net(sk), mib);
+>         return tcp_transmit_skb(sk, skb, 0, (__force gfp_t)0);
+>  }
+>
+> +/* Called from setsockopt( ... TCP_REPAIR ) */
+>  void tcp_send_window_probe(struct sock *sk)
+>  {
+>         if (sk->sk_state == TCP_ESTABLISHED) {
+>                 tcp_sk(sk)->snd_wl1 = tcp_sk(sk)->rcv_nxt - 1;
+> +               skb_mstamp_get(&tcp_sk(sk)->tcp_mstamp);
+>                 tcp_xmit_probe_skb(sk, 0, LINUX_MIB_TCPWINPROBE);
+>         }
+>  }
+> diff --git a/net/ipv4/tcp_recovery.c b/net/ipv4/tcp_recovery.c
+> index 362b8c75bfab44cf87c2a01398a146a271bc1119..cd72b3d3879e88181c8a4639f0334a24e4cda852 100644
+> --- a/net/ipv4/tcp_recovery.c
+> +++ b/net/ipv4/tcp_recovery.c
+> @@ -166,7 +166,6 @@ void tcp_rack_reo_timeout(struct sock *sk)
+>         u32 timeout, prior_inflight;
+>
+>         prior_inflight = tcp_packets_in_flight(tp);
+> -       skb_mstamp_get(&tp->tcp_mstamp);
+>         tcp_rack_detect_loss(sk, &timeout);
+>         if (prior_inflight != tcp_packets_in_flight(tp)) {
+>                 if (inet_csk(sk)->icsk_ca_state != TCP_CA_Recovery) {
+> diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
+> index 86934bcf685a65ec3af3d22f1801ffa33eea76e2..ec7c5473c788d77ae459b38492f2f2606d00d1ba 100644
+> --- a/net/ipv4/tcp_timer.c
+> +++ b/net/ipv4/tcp_timer.c
+> @@ -339,7 +339,7 @@ static void tcp_probe_timer(struct sock *sk)
+>          */
+>         start_ts = tcp_skb_timestamp(tcp_send_head(sk));
+>         if (!start_ts)
+> -               skb_mstamp_get(&tcp_send_head(sk)->skb_mstamp);
+> +               tcp_send_head(sk)->skb_mstamp = tp->tcp_mstamp;
+>         else if (icsk->icsk_user_timeout &&
+>                  (s32)(tcp_time_stamp - start_ts) > icsk->icsk_user_timeout)
+>                 goto abort;
+> @@ -561,6 +561,7 @@ void tcp_write_timer_handler(struct sock *sk)
+>                 goto out;
+>         }
+>
+> +       skb_mstamp_get(&tcp_sk(sk)->tcp_mstamp);
+>         event = icsk->icsk_pending;
+>
+>         switch (event) {
+> --
+> 2.13.0.303.g4ebf302169-goog
 >
