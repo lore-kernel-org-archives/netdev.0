@@ -1,7 +1,7 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH net-next V5 3/9] ptr_ring: introduce batch dequeuing
-Date: Wed, 17 May 2017 12:14:39 +0800
-Message-ID: <1494994485-12994-4-git-send-email-jasowang@redhat.com>
+Subject: [PATCH net-next V5 8/9] tap: support receiving skb from msg_control
+Date: Wed, 17 May 2017 12:14:44 +0800
+Message-ID: <1494994485-12994-9-git-send-email-jasowang@redhat.com>
 References: <1494994485-12994-1-git-send-email-jasowang@redhat.com>
 Cc: Jason Wang <jasowang@redhat.com>
 To: mst@redhat.com, netdev@vger.kernel.org,
@@ -11,97 +11,64 @@ In-Reply-To: <1494994485-12994-1-git-send-email-jasowang@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch introduce a batched version of consuming, consumer can
-dequeue more than one pointers from the ring at a time. We don't care
-about the reorder of reading here so no need for compiler barrier.
+This patch makes tap_recvmsg() can receive from skb from its caller
+through msg_control. Vhost_net will be the first user.
 
 Signed-off-by: Jason Wang <jasowang@redhat.com>
 ---
- include/linux/ptr_ring.h | 65 ++++++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 65 insertions(+)
+ drivers/net/tap.c | 12 ++++++++----
+ 1 file changed, 8 insertions(+), 4 deletions(-)
 
-diff --git a/include/linux/ptr_ring.h b/include/linux/ptr_ring.h
-index 796b90f..d8c97ec 100644
---- a/include/linux/ptr_ring.h
-+++ b/include/linux/ptr_ring.h
-@@ -278,6 +278,22 @@ static inline void *__ptr_ring_consume(struct ptr_ring *r)
- 	return ptr;
- }
+diff --git a/drivers/net/tap.c b/drivers/net/tap.c
+index abdaf86..9af3239 100644
+--- a/drivers/net/tap.c
++++ b/drivers/net/tap.c
+@@ -824,15 +824,17 @@ static ssize_t tap_put_user(struct tap_queue *q,
  
-+static inline int __ptr_ring_consume_batched(struct ptr_ring *r,
-+					     void **array, int n)
-+{
-+	void *ptr;
-+	int i;
-+
-+	for (i = 0; i < n; i++) {
-+		ptr = __ptr_ring_consume(r);
-+		if (!ptr)
-+			break;
-+		array[i] = ptr;
-+	}
-+
-+	return i;
-+}
-+
- /*
-  * Note: resize (below) nests producer lock within consumer lock, so if you
-  * call this in interrupt or BH context, you must disable interrupts/BH when
-@@ -328,6 +344,55 @@ static inline void *ptr_ring_consume_bh(struct ptr_ring *r)
- 	return ptr;
- }
+ static ssize_t tap_do_read(struct tap_queue *q,
+ 			   struct iov_iter *to,
+-			   int noblock)
++			   int noblock, struct sk_buff *skb)
+ {
+ 	DEFINE_WAIT(wait);
+-	struct sk_buff *skb;
+ 	ssize_t ret = 0;
  
-+static inline int ptr_ring_consume_batched(struct ptr_ring *r,
-+					   void **array, int n)
-+{
-+	int ret;
+ 	if (!iov_iter_count(to))
+ 		return 0;
+ 
++	if (skb)
++		goto put;
 +
-+	spin_lock(&r->consumer_lock);
-+	ret = __ptr_ring_consume_batched(r, array, n);
-+	spin_unlock(&r->consumer_lock);
-+
-+	return ret;
-+}
-+
-+static inline int ptr_ring_consume_batched_irq(struct ptr_ring *r,
-+					       void **array, int n)
-+{
-+	int ret;
-+
-+	spin_lock_irq(&r->consumer_lock);
-+	ret = __ptr_ring_consume_batched(r, array, n);
-+	spin_unlock_irq(&r->consumer_lock);
-+
-+	return ret;
-+}
-+
-+static inline int ptr_ring_consume_batched_any(struct ptr_ring *r,
-+					       void **array, int n)
-+{
-+	unsigned long flags;
-+	int ret;
-+
-+	spin_lock_irqsave(&r->consumer_lock, flags);
-+	ret = __ptr_ring_consume_batched(r, array, n);
-+	spin_unlock_irqrestore(&r->consumer_lock, flags);
-+
-+	return ret;
-+}
-+
-+static inline int ptr_ring_consume_batched_bh(struct ptr_ring *r,
-+					      void **array, int n)
-+{
-+	int ret;
-+
-+	spin_lock_bh(&r->consumer_lock);
-+	ret = __ptr_ring_consume_batched(r, array, n);
-+	spin_unlock_bh(&r->consumer_lock);
-+
-+	return ret;
-+}
-+
- /* Cast to structure type and call a function without discarding from FIFO.
-  * Function must return a value.
-  * Callers must take consumer_lock.
+ 	while (1) {
+ 		if (!noblock)
+ 			prepare_to_wait(sk_sleep(&q->sk), &wait,
+@@ -856,6 +858,7 @@ static ssize_t tap_do_read(struct tap_queue *q,
+ 	if (!noblock)
+ 		finish_wait(sk_sleep(&q->sk), &wait);
+ 
++put:
+ 	if (skb) {
+ 		ret = tap_put_user(q, skb, to);
+ 		if (unlikely(ret < 0))
+@@ -872,7 +875,7 @@ static ssize_t tap_read_iter(struct kiocb *iocb, struct iov_iter *to)
+ 	struct tap_queue *q = file->private_data;
+ 	ssize_t len = iov_iter_count(to), ret;
+ 
+-	ret = tap_do_read(q, to, file->f_flags & O_NONBLOCK);
++	ret = tap_do_read(q, to, file->f_flags & O_NONBLOCK, NULL);
+ 	ret = min_t(ssize_t, ret, len);
+ 	if (ret > 0)
+ 		iocb->ki_pos = ret;
+@@ -1155,7 +1158,8 @@ static int tap_recvmsg(struct socket *sock, struct msghdr *m,
+ 	int ret;
+ 	if (flags & ~(MSG_DONTWAIT|MSG_TRUNC))
+ 		return -EINVAL;
+-	ret = tap_do_read(q, &m->msg_iter, flags & MSG_DONTWAIT);
++	ret = tap_do_read(q, &m->msg_iter, flags & MSG_DONTWAIT,
++			  m->msg_control);
+ 	if (ret > total_len) {
+ 		m->msg_flags |= MSG_TRUNC;
+ 		ret = flags & MSG_TRUNC ? ret : total_len;
 -- 
 2.7.4
