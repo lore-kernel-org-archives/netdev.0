@@ -1,8 +1,8 @@
 From: Soheil Hassas Yeganeh <soheil@google.com>
-Subject: Re: [PATCH net-next 03/15] dccp: do not use tcp_time_stamp
-Date: Wed, 17 May 2017 09:43:28 -0400
-Message-ID: <CACSApvYySTJydoECVnu0VP08+MU=0BYKUiyqP426L+deoCBi4w@mail.gmail.com>
-References: <20170516210014.31176-1-edumazet@google.com> <20170516210014.31176-4-edumazet@google.com>
+Subject: Re: [PATCH net-next 04/15] tcp: use tcp_jiffies32 to feed tp->lsndtime
+Date: Wed, 17 May 2017 09:43:54 -0400
+Message-ID: <CACSApvZpP3w_nkJFPRtS2vd5v4tm-qXuDzkpXrL9neSvo2njeg@mail.gmail.com>
+References: <20170516210014.31176-1-edumazet@google.com> <20170516210014.31176-5-edumazet@google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Cc: "David S . Miller" <davem@davemloft.net>,
@@ -12,81 +12,141 @@ Cc: "David S . Miller" <davem@davemloft.net>,
         Eric Dumazet <eric.dumazet@gmail.com>
 To: Eric Dumazet <edumazet@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f50.google.com ([209.85.214.50]:35715 "EHLO
-        mail-it0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753692AbdEQNoK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 17 May 2017 09:44:10 -0400
-Received: by mail-it0-f50.google.com with SMTP id c15so81308294ith.0
-        for <netdev@vger.kernel.org>; Wed, 17 May 2017 06:44:10 -0700 (PDT)
-In-Reply-To: <20170516210014.31176-4-edumazet@google.com>
+Received: from mail-it0-f49.google.com ([209.85.214.49]:34884 "EHLO
+        mail-it0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752978AbdEQNof (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 17 May 2017 09:44:35 -0400
+Received: by mail-it0-f49.google.com with SMTP id c15so81316430ith.0
+        for <netdev@vger.kernel.org>; Wed, 17 May 2017 06:44:35 -0700 (PDT)
+In-Reply-To: <20170516210014.31176-5-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 On Tue, May 16, 2017 at 5:00 PM, Eric Dumazet <edumazet@google.com> wrote:
-> Use our own macro instead of abusing tcp_time_stamp
+> Use tcp_jiffies32 instead of tcp_time_stamp to feed
+> tp->lsndtime.
+>
+> tcp_time_stamp will soon be a litle bit more expensive
+> than simply reading 'jiffies'.
 >
 > Signed-off-by: Eric Dumazet <edumazet@google.com>
 
 Acked-by: Soheil Hassas Yeganeh <soheil@google.com>
 
 > ---
->  net/dccp/ccids/ccid2.c | 8 ++++----
->  net/dccp/ccids/ccid2.h | 2 +-
->  2 files changed, 5 insertions(+), 5 deletions(-)
+>  include/net/tcp.h     | 2 +-
+>  net/ipv4/tcp.c        | 2 +-
+>  net/ipv4/tcp_cubic.c  | 2 +-
+>  net/ipv4/tcp_input.c  | 4 ++--
+>  net/ipv4/tcp_output.c | 4 ++--
+>  net/ipv4/tcp_timer.c  | 4 ++--
+>  6 files changed, 9 insertions(+), 9 deletions(-)
 >
-> diff --git a/net/dccp/ccids/ccid2.c b/net/dccp/ccids/ccid2.c
-> index 5e3a7302f7747e4c4f3134eacab2f2c65b13402f..e1295d5f2c562e8785f59a0f5bd7064f471e85ab 100644
-> --- a/net/dccp/ccids/ccid2.c
-> +++ b/net/dccp/ccids/ccid2.c
-> @@ -233,7 +233,7 @@ static void ccid2_hc_tx_packet_sent(struct sock *sk, unsigned int len)
->  {
->         struct dccp_sock *dp = dccp_sk(sk);
->         struct ccid2_hc_tx_sock *hc = ccid2_hc_tx_sk(sk);
-> -       const u32 now = ccid2_time_stamp;
-> +       const u32 now = ccid2_jiffies32;
->         struct ccid2_seq *next;
->
->         /* slow-start after idle periods (RFC 2581, RFC 2861) */
-> @@ -466,7 +466,7 @@ static void ccid2_new_ack(struct sock *sk, struct ccid2_seq *seqp,
->          * The cleanest solution is to not use the ccid2s_sent field at all
->          * and instead use DCCP timestamps: requires changes in other places.
->          */
-> -       ccid2_rtt_estimator(sk, ccid2_time_stamp - seqp->ccid2s_sent);
-> +       ccid2_rtt_estimator(sk, ccid2_jiffies32 - seqp->ccid2s_sent);
->  }
->
->  static void ccid2_congestion_event(struct sock *sk, struct ccid2_seq *seqp)
-> @@ -478,7 +478,7 @@ static void ccid2_congestion_event(struct sock *sk, struct ccid2_seq *seqp)
+> diff --git a/include/net/tcp.h b/include/net/tcp.h
+> index 4b45be5708215bae4551a5430b63ab2777baf447..feba4c0406e551d7e57da3411476735731b4d817 100644
+> --- a/include/net/tcp.h
+> +++ b/include/net/tcp.h
+> @@ -1245,7 +1245,7 @@ static inline void tcp_slow_start_after_idle_check(struct sock *sk)
+>         if (!sysctl_tcp_slow_start_after_idle || tp->packets_out ||
+>             ca_ops->cong_control)
 >                 return;
->         }
+> -       delta = tcp_time_stamp - tp->lsndtime;
+> +       delta = tcp_jiffies32 - tp->lsndtime;
+>         if (delta > inet_csk(sk)->icsk_rto)
+>                 tcp_cwnd_restart(sk, delta);
+>  }
+> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+> index 1e4c76d2b8278ba71d6cc2cf7ebfe483e241f76e..d0bb61ee28bbceff8f2e27416ce87fec94935973 100644
+> --- a/net/ipv4/tcp.c
+> +++ b/net/ipv4/tcp.c
+> @@ -2841,7 +2841,7 @@ void tcp_get_info(struct sock *sk, struct tcp_info *info)
+>         info->tcpi_retrans = tp->retrans_out;
+>         info->tcpi_fackets = tp->fackets_out;
 >
-> -       hc->tx_last_cong = ccid2_time_stamp;
-> +       hc->tx_last_cong = ccid2_jiffies32;
+> -       now = tcp_time_stamp;
+> +       now = tcp_jiffies32;
+>         info->tcpi_last_data_sent = jiffies_to_msecs(now - tp->lsndtime);
+>         info->tcpi_last_data_recv = jiffies_to_msecs(now - icsk->icsk_ack.lrcvtime);
+>         info->tcpi_last_ack_recv = jiffies_to_msecs(now - tp->rcv_tstamp);
+> diff --git a/net/ipv4/tcp_cubic.c b/net/ipv4/tcp_cubic.c
+> index 0683ba447d775b6101a929a6aca3eb255cff8932..2052ca740916d0872a41125ab61b769b334a314b 100644
+> --- a/net/ipv4/tcp_cubic.c
+> +++ b/net/ipv4/tcp_cubic.c
+> @@ -155,7 +155,7 @@ static void bictcp_cwnd_event(struct sock *sk, enum tcp_ca_event event)
+>  {
+>         if (event == CA_EVENT_TX_START) {
+>                 struct bictcp *ca = inet_csk_ca(sk);
+> -               u32 now = tcp_time_stamp;
+> +               u32 now = tcp_jiffies32;
+>                 s32 delta;
 >
->         hc->tx_cwnd      = hc->tx_cwnd / 2 ? : 1U;
->         hc->tx_ssthresh  = max(hc->tx_cwnd, 2U);
-> @@ -731,7 +731,7 @@ static int ccid2_hc_tx_init(struct ccid *ccid, struct sock *sk)
+>                 delta = now - tcp_sk(sk)->lsndtime;
+> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+> index 06e2dbc2b4a212a054fd88e57bb902c55a171b11..c0b3f909df394214785749704f2760171fe9d160 100644
+> --- a/net/ipv4/tcp_input.c
+> +++ b/net/ipv4/tcp_input.c
+> @@ -5571,7 +5571,7 @@ void tcp_finish_connect(struct sock *sk, struct sk_buff *skb)
+>         /* Prevent spurious tcp_cwnd_restart() on first data
+>          * packet.
+>          */
+> -       tp->lsndtime = tcp_time_stamp;
+> +       tp->lsndtime = tcp_jiffies32;
 >
->         hc->tx_rto       = DCCP_TIMEOUT_INIT;
->         hc->tx_rpdupack  = -1;
-> -       hc->tx_last_cong = hc->tx_lsndtime = hc->tx_cwnd_stamp = ccid2_time_stamp;
-> +       hc->tx_last_cong = hc->tx_lsndtime = hc->tx_cwnd_stamp = ccid2_jiffies32;
->         hc->tx_cwnd_used = 0;
->         setup_timer(&hc->tx_rtotimer, ccid2_hc_tx_rto_expire,
->                         (unsigned long)sk);
-> diff --git a/net/dccp/ccids/ccid2.h b/net/dccp/ccids/ccid2.h
-> index 18c97543e522a6b9a5c8a3c817d4b40224adde48..6e50ef2898fb9dd9080217cc167defea6a2e9021 100644
-> --- a/net/dccp/ccids/ccid2.h
-> +++ b/net/dccp/ccids/ccid2.h
-> @@ -27,7 +27,7 @@
->   * CCID-2 timestamping faces the same issues as TCP timestamping.
->   * Hence we reuse/share as much of the code as possible.
->   */
-> -#define ccid2_time_stamp       tcp_time_stamp
-> +#define ccid2_jiffies32        ((u32)jiffies)
+>         tcp_init_buffer_space(sk);
 >
->  /* NUMDUPACK parameter from RFC 4341, p. 6 */
->  #define NUMDUPACK      3
+> @@ -6008,7 +6008,7 @@ int tcp_rcv_state_process(struct sock *sk, struct sk_buff *skb)
+>                         tcp_update_pacing_rate(sk);
+>
+>                 /* Prevent spurious tcp_cwnd_restart() on first data packet */
+> -               tp->lsndtime = tcp_time_stamp;
+> +               tp->lsndtime = tcp_jiffies32;
+>
+>                 tcp_initialize_rcv_mss(sk);
+>                 tcp_fast_path_on(tp);
+> diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+> index 4c8a6eaba6b39a2aea061dd6857ed8df954c5ca2..be9f8f483e21bdbb4d944fcdae8560f3ae11ee64 100644
+> --- a/net/ipv4/tcp_output.c
+> +++ b/net/ipv4/tcp_output.c
+> @@ -160,7 +160,7 @@ static void tcp_event_data_sent(struct tcp_sock *tp,
+>                                 struct sock *sk)
+>  {
+>         struct inet_connection_sock *icsk = inet_csk(sk);
+> -       const u32 now = tcp_time_stamp;
+> +       const u32 now = tcp_jiffies32;
+>
+>         if (tcp_packets_in_flight(tp) == 0)
+>                 tcp_ca_event(sk, CA_EVENT_TX_START);
+> @@ -1918,7 +1918,7 @@ static bool tcp_tso_should_defer(struct sock *sk, struct sk_buff *skb,
+>         /* Avoid bursty behavior by allowing defer
+>          * only if the last write was recent.
+>          */
+> -       if ((s32)(tcp_time_stamp - tp->lsndtime) > 0)
+> +       if ((s32)(tcp_jiffies32 - tp->lsndtime) > 0)
+>                 goto send_now;
+>
+>         in_flight = tcp_packets_in_flight(tp);
+> diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
+> index ec7c5473c788d77ae459b38492f2f2606d00d1ba..5f6f219a431e41a90b3c5d667a1a22b50f4464cf 100644
+> --- a/net/ipv4/tcp_timer.c
+> +++ b/net/ipv4/tcp_timer.c
+> @@ -63,7 +63,7 @@ static int tcp_out_of_resources(struct sock *sk, bool do_reset)
+>
+>         /* If peer does not open window for long time, or did not transmit
+>          * anything for long time, penalize it. */
+> -       if ((s32)(tcp_time_stamp - tp->lsndtime) > 2*TCP_RTO_MAX || !do_reset)
+> +       if ((s32)(tcp_jiffies32 - tp->lsndtime) > 2*TCP_RTO_MAX || !do_reset)
+>                 shift++;
+>
+>         /* If some dubious ICMP arrived, penalize even more. */
+> @@ -73,7 +73,7 @@ static int tcp_out_of_resources(struct sock *sk, bool do_reset)
+>         if (tcp_check_oom(sk, shift)) {
+>                 /* Catch exceptional cases, when connection requires reset.
+>                  *      1. Last segment was sent recently. */
+> -               if ((s32)(tcp_time_stamp - tp->lsndtime) <= TCP_TIMEWAIT_LEN ||
+> +               if ((s32)(tcp_jiffies32 - tp->lsndtime) <= TCP_TIMEWAIT_LEN ||
+>                     /*  2. Window is closed. */
+>                     (!tp->snd_wnd && !tp->packets_out))
+>                         do_reset = true;
 > --
 > 2.13.0.303.g4ebf302169-goog
 >
