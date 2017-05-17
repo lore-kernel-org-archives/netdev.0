@@ -1,71 +1,66 @@
-From: <anita.traylor@maryvillecollege.edu>
-Subject: (unknown)
-Date: Wed, 17 May 2017 10:59:22 -0000
-Message-ID: <149501876218.6150.14644224025063333078@isurgut.ru>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net-next 9/9] nfp: eliminate an if statement in
+ calculation of completed frames
+Date: Wed, 17 May 2017 11:07:19 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DCFFF7B93@AcuExch.aculab.com>
+References: <20170516005523.26124-1-jakub.kicinski@netronome.com>
+ <20170516005523.26124-10-jakub.kicinski@netronome.com>
 Mime-Version: 1.0
-Content-Type: application/zip; name="55356090.zip"
-Content-Transfer-Encoding: base64
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "oss-drivers@netronome.com" <oss-drivers@netronome.com>
+To: 'Jakub Kicinski' <jakub.kicinski@netronome.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 5-141-97-224.static-adsl.isurgut.ru ([5.141.87.224]:35988 "HELO
-        isurgut.ru" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with SMTP
-        id S1754340AbdEQK71 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 17 May 2017 06:59:27 -0400
-Subject: 
-Content-Disposition: attachment
+Received: from smtp-out6.electric.net ([192.162.217.186]:62886 "EHLO
+        smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750950AbdEQLHY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 17 May 2017 07:07:24 -0400
+In-Reply-To: <20170516005523.26124-10-jakub.kicinski@netronome.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-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
+From: Jakub Kicinski
+> Sent: 16 May 2017 01:55
+> Given that our rings are always a power of 2, we can simplify the
+> calculation of number of completed TX descriptors by using masking
+> instead of if statement based on whether the index have wrapped
+> or not.
+> 
+> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+> ---
+>  drivers/net/ethernet/netronome/nfp/nfp_net_common.c | 10 ++--------
+>  1 file changed, 2 insertions(+), 8 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
+> b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
+> index c64514f8ee65..da83e17b8b20 100644
+> --- a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
+> +++ b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
+> @@ -940,10 +940,7 @@ static void nfp_net_tx_complete(struct nfp_net_tx_ring *tx_ring)
+>  	if (qcp_rd_p == tx_ring->qcp_rd_p)
+>  		return;
+> 
+> -	if (qcp_rd_p > tx_ring->qcp_rd_p)
+> -		todo = qcp_rd_p - tx_ring->qcp_rd_p;
+> -	else
+> -		todo = qcp_rd_p + tx_ring->cnt - tx_ring->qcp_rd_p;
+> +	todo = D_IDX(tx_ring, qcp_rd_p + tx_ring->cnt - tx_ring->qcp_rd_p);
+
+I'm not sure you need to add tx_ring->cnt here.
+I bet D_IDX() masks it away.
+
+>  	while (todo--) {
+>  		idx = D_IDX(tx_ring, tx_ring->rd_p++);
+
+That '++' looks suspicious.
+I think you need to decide whether you are incrementing pointers into the ring
+or indexes into it.
+Sometimes it is safer to use a non-wrapping index and mask when accessing the entry.
+	entry_ptr = &ring[idx & (RING_SIZE - 1)]
+Ring full is then (read_idx == write_idx + RING_SIZE),
+ring empty (read_idx == write_idx).
+So the index just wrap at (probably)_2^32.
+
+	David
