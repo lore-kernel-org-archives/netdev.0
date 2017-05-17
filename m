@@ -1,86 +1,80 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net-next V5 0/9] vhost_net rx batch dequeuing
-Date: Wed, 17 May 2017 23:59:57 +0300
-Message-ID: <20170517235738-mutt-send-email-mst@kernel.org>
-References: <1494994485-12994-1-git-send-email-jasowang@redhat.com>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next 1/3] net: dsa: mv88e6xxx: Refactor mv88e6352 SERDES code into an op
+Date: Wed, 17 May 2017 17:01:28 -0400
+Message-ID: <874lwj8afr.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+References: <1495051512-13554-1-git-send-email-andrew@lunn.ch> <1495051512-13554-2-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1494994485-12994-1-git-send-email-jasowang@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: netdev <netdev@vger.kernel.org>, nikita.yoush@cogentembedded.com,
+        Andrew Lunn <andrew@lunn.ch>
+To: Andrew Lunn <andrew@lunn.ch>, David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:50770 "EHLO
+        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752053AbdEQVDW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 17 May 2017 17:03:22 -0400
+In-Reply-To: <1495051512-13554-2-git-send-email-andrew@lunn.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 17, 2017 at 12:14:36PM +0800, Jason Wang wrote:
-> This series tries to implement rx batching for vhost-net. This is done
-> by batching the dequeuing from skb_array which was exported by
-> underlayer socket and pass the sbk back through msg_control to finish
-> userspace copying. This is also the requirement for more batching
-> implemention on rx path.
-> 
-> Tests shows at most 7.56% improvment bon rx pps on top of batch
-> zeroing and no obvious changes for TCP_STREAM/TCP_RR result.
-> 
-> Please review.
-> 
-> Thanks
+Hi Andrew,
 
-A surprisingly large gain for such as simple change.  It would be nice
-to understand better why this helps - in particular, does the optimal
-batch size change if ring is bigger or smaller? But let's merge it
-meanwhile.
+Andrew Lunn <andrew@lunn.ch> writes:
 
-Series:
+>  static int mv88e6xxx_phy_page_get(struct mv88e6xxx_chip *chip, int phy, u8 page)
+>  {
+> -	if (!mv88e6xxx_has(chip, MV88E6XXX_FLAG_PHY_PAGE))
+> -		return -EOPNOTSUPP;
+> -
+>  	return mv88e6xxx_phy_write(chip, phy, PHY_PAGE, page);
+>  }
+>  
+> @@ -300,8 +298,8 @@ static void mv88e6xxx_phy_page_put(struct mv88e6xxx_chip *chip, int phy)
+>  	}
+>  }
+>  
+> -static int mv88e6xxx_phy_page_read(struct mv88e6xxx_chip *chip, int phy,
+> -				   u8 page, int reg, u16 *val)
+> +int mv88e6xxx_phy_page_read(struct mv88e6xxx_chip *chip, int phy,
+> +			    u8 page, int reg, u16 *val)
+>  {
+>  	int err;
+>  
+> @@ -318,8 +316,8 @@ static int mv88e6xxx_phy_page_read(struct mv88e6xxx_chip *chip, int phy,
+>  	return err;
+>  }
+>  
+> -static int mv88e6xxx_phy_page_write(struct mv88e6xxx_chip *chip, int phy,
+> -				    u8 page, int reg, u16 val)
+> +int mv88e6xxx_phy_page_write(struct mv88e6xxx_chip *chip, int phy,
+> +			     u8 page, int reg, u16 val)
 
-Acked-by: Michael S. Tsirkin <mst@redhat.com>
+Hum, this patch does a bit too much... Please at least add a first one
+providing phy.[ch] for the PHY Registers related functions, then add the
+serdes_power operation.
+
+> +#define MV88E6XXX_FLAG_G1_ATU_FID	BIT_ULL(MV88E6XXX_CAP_G1_ATU_FID)
+
+This seems to be added back by mistake.
+
+> @@ -889,6 +868,9 @@ struct mv88e6xxx_ops {
+>  			   struct mv88e6xxx_vtu_entry *entry);
+>  	int (*vtu_loadpurge)(struct mv88e6xxx_chip *chip,
+>  			     struct mv88e6xxx_vtu_entry *entry);
+> +
+> +	/* Power on/off a SERDES interface */
+> +	int (*serdes_power)(struct mv88e6xxx_chip *chip, int port, bool on);
+>  };
+
+While the get_* and set_* ops are an exception, we might want to sort
+that at least before the vtu_* ops. But that is a minor comment.
+
+> +#define MV88E6352_ADDR_SERDES		0x0f
+> +#define MV88E6352_SERDES_PAGE_FIBER	0x01
+
+Why not moving this in the serdes.h header with the others?
 
 
+Thank you,
 
-> Changes from V4:
-> - drop batch zeroing patch
-> - renew the performance numbers
-> - move skb pointer array out of vhost_net structure
-> 
-> Changes from V3:
-> - add batch zeroing patch to fix the build warnings
-> 
-> Changes from V2:
-> - rebase to net-next HEAD
-> - use unconsume helpers to put skb back on releasing
-> - introduce and use vhost_net internal buffer helpers
-> - renew performance numbers on top of batch zeroing
-> 
-> Changes from V1:
-> - switch to use for() in __ptr_ring_consume_batched()
-> - rename peek_head_len_batched() to fetch_skbs()
-> - use skb_array_consume_batched() instead of
->   skb_array_consume_batched_bh() since no consumer run in bh
-> - drop the lockless peeking patch since skb_array could be resized, so
->   it's not safe to call lockless one
-> 
-> Jason Wang (8):
->   skb_array: introduce skb_array_unconsume
->   ptr_ring: introduce batch dequeuing
->   skb_array: introduce batch dequeuing
->   tun: export skb_array
->   tap: export skb_array
->   tun: support receiving skb through msg_control
->   tap: support receiving skb from msg_control
->   vhost_net: try batch dequing from skb array
-> 
-> Michael S. Tsirkin (1):
->   ptr_ring: add ptr_ring_unconsume
-> 
->  drivers/net/tap.c         |  25 +++++++--
->  drivers/net/tun.c         |  31 ++++++++---
->  drivers/vhost/net.c       | 128 +++++++++++++++++++++++++++++++++++++++++++---
->  include/linux/if_tap.h    |   5 ++
->  include/linux/if_tun.h    |   5 ++
->  include/linux/ptr_ring.h  | 120 +++++++++++++++++++++++++++++++++++++++++++
->  include/linux/skb_array.h |  31 +++++++++++
->  7 files changed, 327 insertions(+), 18 deletions(-)
-> 
-> -- 
-> 2.7.4
+      Vivien
