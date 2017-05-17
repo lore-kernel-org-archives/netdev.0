@@ -1,39 +1,64 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [patch net-next v4 07/10] net: sched: push chain dump to a
- separate function
-Date: Wed, 17 May 2017 08:19:57 -0400
-Message-ID: <29988d6f-a1b0-50f1-5aba-575d0f880805@mojatatu.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next v4 06/10] net: sched: introduce helpers to work
+ with filter chains
+Date: Wed, 17 May 2017 14:25:28 +0200
+Message-ID: <20170517122528.GA9557@nanopsycho>
 References: <20170517090803.4461-1-jiri@resnulli.us>
- <20170517090803.4461-8-jiri@resnulli.us>
+ <20170517090803.4461-7-jiri@resnulli.us>
+ <ae02e4e8-3047-cd42-9c53-a2a38f8c28df@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, xiyou.wangcong@gmail.com,
-        dsa@cumulusnetworks.com, edumazet@google.com,
-        stephen@networkplumber.org, daniel@iogearbox.net,
-        alexander.h.duyck@intel.com, simon.horman@netronome.com,
-        mlxsw@mellanox.com
-To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+        xiyou.wangcong@gmail.com, dsa@cumulusnetworks.com,
+        edumazet@google.com, stephen@networkplumber.org,
+        daniel@iogearbox.net, alexander.h.duyck@intel.com,
+        simon.horman@netronome.com, mlxsw@mellanox.com
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f66.google.com ([209.85.214.66]:34491 "EHLO
-        mail-it0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751445AbdEQMUA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 17 May 2017 08:20:00 -0400
-Received: by mail-it0-f66.google.com with SMTP id d68so1308934ita.1
-        for <netdev@vger.kernel.org>; Wed, 17 May 2017 05:19:59 -0700 (PDT)
-In-Reply-To: <20170517090803.4461-8-jiri@resnulli.us>
+Received: from mail-wr0-f194.google.com ([209.85.128.194]:35393 "EHLO
+        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753015AbdEQMZc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 17 May 2017 08:25:32 -0400
+Received: by mail-wr0-f194.google.com with SMTP id g12so1567257wrg.2
+        for <netdev@vger.kernel.org>; Wed, 17 May 2017 05:25:31 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <ae02e4e8-3047-cd42-9c53-a2a38f8c28df@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 17-05-17 05:08 AM, Jiri Pirko wrote:
-> From: Jiri Pirko <jiri@mellanox.com>
+Wed, May 17, 2017 at 02:18:00PM CEST, jhs@mojatatu.com wrote:
+>On 17-05-17 05:07 AM, Jiri Pirko wrote:
+>> From: Jiri Pirko <jiri@mellanox.com>
+>> 
+>> Introduce struct tcf_chain object and set of helpers around it. Wraps up
+>> insertion, deletion and search in the filter chain.
+>> 
+>> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+>> ---
 >
-> Since there will be multiple chains to dump, push chain dumping code to
-> a separate function.
+>[..]
+>> +
+>> +static void
+>> +tcf_chain_filter_chain_ptr_set(struct tcf_chain *chain,
+>> +			       struct tcf_proto __rcu **p_filter_chain)
+>> +
 >
-> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+>What are the rules for this? Common coding style is:
+>static void tcf_chain_filter_chain_ptr_set(struct tcf_chain *chain,
+>                                           struct tcf_proto ..
 
-Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
+When this would not fit 80 cols (this case), you need to wrap the
+text in front of the function name. That is exacly what I did.
 
-cheers,
-jamal
+
+>
+>I am sure that struct tcf_proto __rcu **p_filter_chain would
+>probably hit boundary of 80 chars - but it would look cleaner
+>to be consistent.
+>
+>Otherwise:
+>Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
+>
+>cheers,
+>jamal
+>
