@@ -1,47 +1,77 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch][IPv6] Fix wrong routing mechanism for Link Local IPv6
- packets
-Date: Wed, 17 May 2017 11:39:48 -0400 (EDT)
-Message-ID: <20170517.113948.1940714175629191091.davem@davemloft.net>
-References: <MWHPR1201MB01730F7F4A6BE57ADFB92EAFCAE60@MWHPR1201MB0173.namprd12.prod.outlook.com>
+Subject: Re: [PATCH v2] neighbour: update neigh timestamps iff update is
+ effective
+Date: Wed, 17 May 2017 11:42:08 -0400 (EDT)
+Message-ID: <20170517.114208.19816687746845673.davem@davemloft.net>
+References: <20170515.131023.1878814687849300375.davem@davemloft.net>
+        <20170516154424.12864-1-ihrachys@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: mulmer@cradlepoint.com
+Cc: ja@ssi.bg, netdev@vger.kernel.org
+To: ihrachys@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:34026 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:34038 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750969AbdEQPjv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 17 May 2017 11:39:51 -0400
-In-Reply-To: <MWHPR1201MB01730F7F4A6BE57ADFB92EAFCAE60@MWHPR1201MB0173.namprd12.prod.outlook.com>
+        with ESMTP id S1750969AbdEQPmK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 17 May 2017 11:42:10 -0400
+In-Reply-To: <20170516154424.12864-1-ihrachys@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Michael Ulmer <mulmer@cradlepoint.com>
-Date: Tue, 16 May 2017 15:37:39 +0000
+From: Ihar Hrachyshka <ihrachys@redhat.com>
+Date: Tue, 16 May 2017 08:44:24 -0700
 
-> Blast from the past. 10 years back Wei Dong submitted the patch found (amongst several places) here:
-> http://lists.openwall.net/netdev/2007/01/30/20
+> It's a common practice to send gratuitous ARPs after moving an
+> IP address to another device to speed up healing of a service. To
+> fulfill service availability constraints, the timing of network peers
+> updating their caches to point to a new location of an IP address can be
+> particularly important.
 > 
-> Problem:
-> I have a firewall rule that DNATs ipv6 traffic from a destination address to ::1. The route lookup gives me the Main table & forwards that DNAT'd traffic instead of sending it to local process.
+> Sometimes neigh_update calls won't touch neither lladdr nor state, for
+> example if an update arrives in locktime interval. The neigh->updated
+> value is tested by the protocol specific neigh code, which in turn
+> will influence whether NEIGH_UPDATE_F_OVERRIDE gets set in the
+> call to neigh_update() or not. As a result, we may effectively ignore
+> the update request, bailing out of touching the neigh entry, except that
+> we still bump its timestamps inside neigh_update.
 > 
-> Example:
-> Looking at this from a netfilter point of view, a client (IP of fd00::5) requests a web page at [2000::25:0:0:1]:8080. The firewall rule DNATs it to ::1 (note that I threw a -j TRACE in raw's REROUTING).
-> TRACE: nat:PREROUTING:rule:2 SRC=fd00::5 DST=2000::25:0:0:1
-> TRACE: mangle:FORWARD:rule:1 SRC=fd00::5 DST=::1
+> This may be a problem for updates arriving in quick succession. For
+> example, consider the following scenario:
 > 
-> The patch is verbatim (as is the subject line for this
-> email). Traffic DNAT'd to ::1 now goes to mangle's INPUT chain after
-> routing decision. I'm not sure why it was removed--I'm assuming it
-> was an accident--as I can't find a record in the mailing list
-> archive.
+> A service is moved to another device with its IP address. The new device
+> sends three gratuitous ARP requests into the network with ~1 seconds
+> interval between them. Just before the first request arrives to one of
+> network peer nodes, its neigh entry for the IP address transitions from
+> STALE to DELAY.  This transition, among other things, updates
+> neigh->updated. Once the kernel receives the first gratuitous ARP, it
+> ignores it because its arrival time is inside the locktime interval. The
+> kernel still bumps neigh->updated. Then the second gratuitous ARP
+> request arrives, and it's also ignored because it's still in the (new)
+> locktime interval. Same happens for the third request. The node
+> eventually heals itself (after delay_first_probe_time seconds since the
+> initial transition to DELAY state), but it just wasted some time and
+> require a new ARP request/reply round trip. This unfortunate behaviour
+> both puts more load on the network, as well as reduces service
+> availability.
+> 
+> This patch changes neigh_update so that it bumps neigh->updated (as well
+> as neigh->confirmed) only once we are sure that either lladdr or entry
+> state will change). In the scenario described above, it means that the
+> second gratuitous ARP request will actually update the entry lladdr.
+> 
+> Ideally, we would update the neigh entry on the very first gratuitous
+> ARP request. The locktime mechanism is designed to ignore ARP updates in
+> a short timeframe after a previous ARP update was honoured by the kernel
+> layer. This would require tracking timestamps for state transitions
+> separately from timestamps when actual updates are received. This would
+> probably involve changes in neighbour struct. Therefore, the patch
+> doesn't tackle the issue of the first gratuitous APR ignored, leaving
+> it for a follow-up.
+> 
+> Signed-off-by: Ihar Hrachyshka <ihrachys@redhat.com>
+> ---
+> v2: added more details to commit message to explain relation between arp
+>     and neigh code.
 
-It's not by accident, he received feedback from Yoshifuji and suggested
-alternative ways to fix his problem:
-
-http://marc.info/?l=linux-netdev&m=117020569620697&w=2
-
-In fact, Yoshifuji stated that some of the behaviors are indeed
-intentional.
+Applied, thanks for documenting things better.
