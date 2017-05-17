@@ -1,68 +1,68 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net v2] selftests/bpf: fix broken build due to types.h
-Date: Thu, 18 May 2017 01:15:43 +0200
-Message-ID: <591CD99F.1060807@iogearbox.net>
-References: <20170517221805.1593973-1-yhs@fb.com>       <591CD540.1040305@iogearbox.net> <20170517.190149.1446382466519323776.davem@davemloft.net>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [patch net-next v4 06/10] net: sched: introduce helpers to work
+ with filter chains
+Date: Wed, 17 May 2017 16:17:08 -0700
+Message-ID: <1495063028.31562.24.camel@perches.com>
+References: <20170517090803.4461-1-jiri@resnulli.us>
+         <20170517090803.4461-7-jiri@resnulli.us>
+         <ae02e4e8-3047-cd42-9c53-a2a38f8c28df@mojatatu.com>
+         <20170517122528.GA9557@nanopsycho>
+         <5270a876-6362-6c80-9911-8f929634edd1@mojatatu.com>
+         <20170517124446.GB9557@nanopsycho>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: yhs@fb.com, ast@fb.com, netdev@vger.kernel.org, kernel-team@fb.com
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+        xiyou.wangcong@gmail.com, dsa@cumulusnetworks.com,
+        edumazet@google.com, stephen@networkplumber.org,
+        daniel@iogearbox.net, alexander.h.duyck@intel.com,
+        simon.horman@netronome.com, mlxsw@mellanox.com
+To: Jiri Pirko <jiri@resnulli.us>, Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:45437 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752971AbdEQXPx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 17 May 2017 19:15:53 -0400
-In-Reply-To: <20170517.190149.1446382466519323776.davem@davemloft.net>
+Received: from smtprelay0116.hostedemail.com ([216.40.44.116]:35580 "EHLO
+        smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1753011AbdEQXRS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 17 May 2017 19:17:18 -0400
+In-Reply-To: <20170517124446.GB9557@nanopsycho>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/18/2017 01:01 AM, David Miller wrote:
-> From: Daniel Borkmann <daniel@iogearbox.net>
-> Date: Thu, 18 May 2017 00:57:04 +0200
->
->> On 05/18/2017 12:18 AM, Yonghong Song wrote:
->>> Commit 0a5539f66133 ("bpf: Provide a linux/types.h override
->>> for bpf selftests.") caused a build failure for
->>> tools/testing/selftest/bpf
->>> because of some missing types:
->>>       $ make -C tools/testing/selftests/bpf/
->>>       ...
->>>       In file included from
->>>       /home/yhs/work/net-next/tools/testing/selftests/bpf/test_pkt_access.c:8:
->>>       ../../../include/uapi/linux/bpf.h:170:3: error: unknown type name
->>>       '__aligned_u64'
->>>                       __aligned_u64   key;
->>>       ...
->>>       /usr/include/linux/swab.h:160:8: error: unknown type name
->>>       '__always_inline'
->>>       static __always_inline __u16 __swab16p(const __u16 *p)
->>>       ...
->>> The type __aligned_u64 is defined in linux:include/uapi/linux/types.h.
->>>
->>> The fix is to copy missing type definition into
->>> tools/testing/selftests/bpf/include/uapi/linux/types.h.
->>> Adding additional include "string.h" resolves __always_inline issue.
->>>
->>> Fixes: 0a5539f66133 ("bpf: Provide a linux/types.h override for bpf
->>> selftests.")
->>> Signed-off-by: Yonghong Song <yhs@fb.com>
->>
->> Can you elaborate why string.h specifically? Can't we define the
->> __always_inline ourselves?
->
-> That way it comes from compiler.h
->
-> Probably it would have been better to have the BPF linux/types.h bring
-> it in.
+On Wed, 2017-05-17 at 14:44 +0200, Jiri Pirko wrote:
+> Wed, May 17, 2017 at 02:39:05PM CEST, jhs@mojatatu.com wrote:
+> > On 17-05-17 08:25 AM, Jiri Pirko wrote:
+> > > Wed, May 17, 2017 at 02:18:00PM CEST, jhs@mojatatu.com wrote:
+> > > > On 17-05-17 05:07 AM, Jiri Pirko wrote:
+> > > > > From: Jiri Pirko <jiri@mellanox.com>
+> > > > > 
+> > > > > Introduce struct tcf_chain object and set of helpers around it. Wraps up
+> > > > > insertion, deletion and search in the filter chain.
+> > > > > 
+> > > > > Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+> > > > > ---
+> > > > 
+> > > > [..]
+> > > > > +
+> > > > > +static void
+> > > > > +tcf_chain_filter_chain_ptr_set(struct tcf_chain *chain,
+> > > > > +			       struct tcf_proto __rcu **p_filter_chain)
+> > > > > +
+> > > > 
+> > > > What are the rules for this? Common coding style is:
+> > > > static void tcf_chain_filter_chain_ptr_set(struct tcf_chain *chain,
+> > > >                                           struct tcf_proto ..
+> > > 
+> > > When this would not fit 80 cols (this case), you need to wrap the
+> > > text in front of the function name. That is exacly what I did.
+> > > 
+> > 
+> > That i understand.
+> > The question is: what does scripture dictate on conflict?
+> > Should a function signature always follow coding style and
+> > allow for exceeding 80 chars or the 80 chars rules trumps?
+> 
+> Definitelly 80 chars rules trumps here.
 
-Would have made it a bit more clear at least.
+Disagree.
+80 columns is just a "strongly preferred" limit.
 
-> Sorry I applied this so quickly, I wanted this regression fixed as fast
-> as possible.
-
-Ok, no problem.
-
-Btw, 0day kernel testing bot is from now on running BPF selftests
-as well as part of their regression tests. Fengguang confirmed this
-today after integrating this.
+Clarity for a human reader trumps everything else.
