@@ -1,302 +1,78 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH net-next V5 9/9] vhost_net: try batch dequing from skb array
-Date: Wed, 17 May 2017 12:14:45 +0800
-Message-ID: <1494994485-12994-10-git-send-email-jasowang@redhat.com>
+Subject: [PATCH net-next V5 7/9] tun: support receiving skb through msg_control
+Date: Wed, 17 May 2017 12:14:43 +0800
+Message-ID: <1494994485-12994-8-git-send-email-jasowang@redhat.com>
 References: <1494994485-12994-1-git-send-email-jasowang@redhat.com>
 Cc: Jason Wang <jasowang@redhat.com>
 To: mst@redhat.com, netdev@vger.kernel.org,
         linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:42414 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:57936 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753375AbdEQEPn (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 17 May 2017 00:15:43 -0400
+        id S1753348AbdEQEPi (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 17 May 2017 00:15:38 -0400
 In-Reply-To: <1494994485-12994-1-git-send-email-jasowang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We used to dequeue one skb during recvmsg() from skb_array, this could
-be inefficient because of the bad cache utilization and spinlock
-touching for each packet. This patch tries to batch them by calling
-batch dequeuing helpers explicitly on the exported skb array and pass
-the skb back through msg_control for underlayer socket to finish the
-userspace copying. Batch dequeuing is also the requirement for more
-batching improvement on receive path.
-
-Tests were done by pktgen on tap with XDP1 in guest. Host is Intel(R)
-Xeon(R) CPU E5-2650 0 @ 2.00GHz.
-
-rx batch | pps
-
-0   2.25Mpps
-1   2.33Mpps (+3.56%)
-4   2.33Mpps (+3.56%)
-16  2.35Mpps (+4.44%)
-64  2.42Mpps (+7.56%) <- Default rx batching
-128 2.40Mpps (+6.67%)
-256 2.38Mpps (+5.78%)
+This patch makes tun_recvmsg() can receive from skb from its caller
+through msg_control. Vhost_net will be the first user.
 
 Signed-off-by: Jason Wang <jasowang@redhat.com>
 ---
- drivers/vhost/net.c | 128 +++++++++++++++++++++++++++++++++++++++++++++++++---
- 1 file changed, 122 insertions(+), 6 deletions(-)
+ drivers/net/tun.c | 18 ++++++++++--------
+ 1 file changed, 10 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-index f61f852..e3d7ea1 100644
---- a/drivers/vhost/net.c
-+++ b/drivers/vhost/net.c
-@@ -28,6 +28,8 @@
- #include <linux/if_macvlan.h>
- #include <linux/if_tap.h>
- #include <linux/if_vlan.h>
-+#include <linux/skb_array.h>
-+#include <linux/skbuff.h>
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index 3cbfc5c..f8041f9c 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -1510,9 +1510,8 @@ static struct sk_buff *tun_ring_recv(struct tun_file *tfile, int noblock,
  
- #include <net/sock.h>
+ static ssize_t tun_do_read(struct tun_struct *tun, struct tun_file *tfile,
+ 			   struct iov_iter *to,
+-			   int noblock)
++			   int noblock, struct sk_buff *skb)
+ {
+-	struct sk_buff *skb;
+ 	ssize_t ret;
+ 	int err;
  
-@@ -85,6 +87,13 @@ struct vhost_net_ubuf_ref {
- 	struct vhost_virtqueue *vq;
- };
+@@ -1521,10 +1520,12 @@ static ssize_t tun_do_read(struct tun_struct *tun, struct tun_file *tfile,
+ 	if (!iov_iter_count(to))
+ 		return 0;
  
-+#define VHOST_RX_BATCH 64
-+struct vhost_net_buf {
-+	struct sk_buff **queue;
-+	int tail;
-+	int head;
-+};
-+
- struct vhost_net_virtqueue {
- 	struct vhost_virtqueue vq;
- 	size_t vhost_hlen;
-@@ -99,6 +108,8 @@ struct vhost_net_virtqueue {
- 	/* Reference counting for outstanding ubufs.
- 	 * Protected by vq mutex. Writers must also take device mutex. */
- 	struct vhost_net_ubuf_ref *ubufs;
-+	struct skb_array *rx_array;
-+	struct vhost_net_buf rxq;
- };
- 
- struct vhost_net {
-@@ -117,6 +128,71 @@ struct vhost_net {
- 
- static unsigned vhost_net_zcopy_mask __read_mostly;
- 
-+static void *vhost_net_buf_get_ptr(struct vhost_net_buf *rxq)
-+{
-+	if (rxq->tail != rxq->head)
-+		return rxq->queue[rxq->head];
-+	else
-+		return NULL;
-+}
-+
-+static int vhost_net_buf_get_size(struct vhost_net_buf *rxq)
-+{
-+	return rxq->tail - rxq->head;
-+}
-+
-+static int vhost_net_buf_is_empty(struct vhost_net_buf *rxq)
-+{
-+	return rxq->tail == rxq->head;
-+}
-+
-+static void *vhost_net_buf_consume(struct vhost_net_buf *rxq)
-+{
-+	void *ret = vhost_net_buf_get_ptr(rxq);
-+	++rxq->head;
-+	return ret;
-+}
-+
-+static int vhost_net_buf_produce(struct vhost_net_virtqueue *nvq)
-+{
-+	struct vhost_net_buf *rxq = &nvq->rxq;
-+
-+	rxq->head = 0;
-+	rxq->tail = skb_array_consume_batched(nvq->rx_array, rxq->queue,
-+					      VHOST_RX_BATCH);
-+	return rxq->tail;
-+}
-+
-+static void vhost_net_buf_unproduce(struct vhost_net_virtqueue *nvq)
-+{
-+	struct vhost_net_buf *rxq = &nvq->rxq;
-+
-+	if (nvq->rx_array && !vhost_net_buf_is_empty(rxq)) {
-+		skb_array_unconsume(nvq->rx_array, rxq->queue + rxq->head,
-+				    vhost_net_buf_get_size(rxq));
-+		rxq->head = rxq->tail = 0;
+-	/* Read frames from ring */
+-	skb = tun_ring_recv(tfile, noblock, &err);
+-	if (!skb)
+-		return err;
++	if (!skb) {
++		/* Read frames from ring */
++		skb = tun_ring_recv(tfile, noblock, &err);
++		if (!skb)
++			return err;
 +	}
-+}
-+
-+static int vhost_net_buf_peek(struct vhost_net_virtqueue *nvq)
-+{
-+	struct vhost_net_buf *rxq = &nvq->rxq;
-+
-+	if (!vhost_net_buf_is_empty(rxq))
-+		goto out;
-+
-+	if (!vhost_net_buf_produce(nvq))
-+		return 0;
-+
-+out:
-+	return __skb_array_len_with_tag(vhost_net_buf_get_ptr(rxq));
-+}
-+
-+static void vhost_net_buf_init(struct vhost_net_buf *rxq)
-+{
-+	rxq->head = rxq->tail = 0;
-+}
-+
- static void vhost_net_enable_zcopy(int vq)
- {
- 	vhost_net_zcopy_mask |= 0x1 << vq;
-@@ -201,6 +277,7 @@ static void vhost_net_vq_reset(struct vhost_net *n)
- 		n->vqs[i].ubufs = NULL;
- 		n->vqs[i].vhost_hlen = 0;
- 		n->vqs[i].sock_hlen = 0;
-+		vhost_net_buf_init(&n->vqs[i].rxq);
+ 
+ 	ret = tun_put_user(tun, tfile, skb, to);
+ 	if (unlikely(ret < 0))
+@@ -1544,7 +1545,7 @@ static ssize_t tun_chr_read_iter(struct kiocb *iocb, struct iov_iter *to)
+ 
+ 	if (!tun)
+ 		return -EBADFD;
+-	ret = tun_do_read(tun, tfile, to, file->f_flags & O_NONBLOCK);
++	ret = tun_do_read(tun, tfile, to, file->f_flags & O_NONBLOCK, NULL);
+ 	ret = min_t(ssize_t, ret, len);
+ 	if (ret > 0)
+ 		iocb->ki_pos = ret;
+@@ -1646,7 +1647,8 @@ static int tun_recvmsg(struct socket *sock, struct msghdr *m, size_t total_len,
+ 					 SOL_PACKET, TUN_TX_TIMESTAMP);
+ 		goto out;
  	}
- 
- }
-@@ -503,15 +580,14 @@ static void handle_tx(struct vhost_net *net)
- 	mutex_unlock(&vq->mutex);
- }
- 
--static int peek_head_len(struct sock *sk)
-+static int peek_head_len(struct vhost_net_virtqueue *rvq, struct sock *sk)
- {
--	struct socket *sock = sk->sk_socket;
- 	struct sk_buff *head;
- 	int len = 0;
- 	unsigned long flags;
- 
--	if (sock->ops->peek_len)
--		return sock->ops->peek_len(sock);
-+	if (rvq->rx_array)
-+		return vhost_net_buf_peek(rvq);
- 
- 	spin_lock_irqsave(&sk->sk_receive_queue.lock, flags);
- 	head = skb_peek(&sk->sk_receive_queue);
-@@ -537,10 +613,11 @@ static int sk_has_rx_data(struct sock *sk)
- 
- static int vhost_net_rx_peek_head_len(struct vhost_net *net, struct sock *sk)
- {
-+	struct vhost_net_virtqueue *rvq = &net->vqs[VHOST_NET_VQ_RX];
- 	struct vhost_net_virtqueue *nvq = &net->vqs[VHOST_NET_VQ_TX];
- 	struct vhost_virtqueue *vq = &nvq->vq;
- 	unsigned long uninitialized_var(endtime);
--	int len = peek_head_len(sk);
-+	int len = peek_head_len(rvq, sk);
- 
- 	if (!len && vq->busyloop_timeout) {
- 		/* Both tx vq and rx socket were polled here */
-@@ -561,7 +638,7 @@ static int vhost_net_rx_peek_head_len(struct vhost_net *net, struct sock *sk)
- 			vhost_poll_queue(&vq->poll);
- 		mutex_unlock(&vq->mutex);
- 
--		len = peek_head_len(sk);
-+		len = peek_head_len(rvq, sk);
- 	}
- 
- 	return len;
-@@ -699,6 +776,8 @@ static void handle_rx(struct vhost_net *net)
- 		/* On error, stop handling until the next kick. */
- 		if (unlikely(headcount < 0))
- 			goto out;
-+		if (nvq->rx_array)
-+			msg.msg_control = vhost_net_buf_consume(&nvq->rxq);
- 		/* On overrun, truncate and discard */
- 		if (unlikely(headcount > UIO_MAXIOV)) {
- 			iov_iter_init(&msg.msg_iter, READ, vq->iov, 1, 1);
-@@ -815,6 +894,7 @@ static int vhost_net_open(struct inode *inode, struct file *f)
- 	struct vhost_net *n;
- 	struct vhost_dev *dev;
- 	struct vhost_virtqueue **vqs;
-+	struct sk_buff **queue;
- 	int i;
- 
- 	n = kvmalloc(sizeof *n, GFP_KERNEL | __GFP_REPEAT);
-@@ -826,6 +906,15 @@ static int vhost_net_open(struct inode *inode, struct file *f)
- 		return -ENOMEM;
- 	}
- 
-+	queue = kmalloc_array(VHOST_RX_BATCH, sizeof(struct sk_buff *),
-+			      GFP_KERNEL);
-+	if (!queue) {
-+		kfree(vqs);
-+		kvfree(n);
-+		return -ENOMEM;
-+	}
-+	n->vqs[VHOST_NET_VQ_RX].rxq.queue = queue;
-+
- 	dev = &n->dev;
- 	vqs[VHOST_NET_VQ_TX] = &n->vqs[VHOST_NET_VQ_TX].vq;
- 	vqs[VHOST_NET_VQ_RX] = &n->vqs[VHOST_NET_VQ_RX].vq;
-@@ -838,6 +927,7 @@ static int vhost_net_open(struct inode *inode, struct file *f)
- 		n->vqs[i].done_idx = 0;
- 		n->vqs[i].vhost_hlen = 0;
- 		n->vqs[i].sock_hlen = 0;
-+		vhost_net_buf_init(&n->vqs[i].rxq);
- 	}
- 	vhost_dev_init(dev, vqs, VHOST_NET_VQ_MAX);
- 
-@@ -853,11 +943,14 @@ static struct socket *vhost_net_stop_vq(struct vhost_net *n,
- 					struct vhost_virtqueue *vq)
- {
- 	struct socket *sock;
-+	struct vhost_net_virtqueue *nvq =
-+		container_of(vq, struct vhost_net_virtqueue, vq);
- 
- 	mutex_lock(&vq->mutex);
- 	sock = vq->private_data;
- 	vhost_net_disable_vq(n, vq);
- 	vq->private_data = NULL;
-+	vhost_net_buf_unproduce(nvq);
- 	mutex_unlock(&vq->mutex);
- 	return sock;
- }
-@@ -912,6 +1005,7 @@ static int vhost_net_release(struct inode *inode, struct file *f)
- 	/* We do an extra flush before freeing memory,
- 	 * since jobs can re-queue themselves. */
- 	vhost_net_flush(n);
-+	kfree(n->vqs[VHOST_NET_VQ_RX].rxq.queue);
- 	kfree(n->dev.vqs);
- 	kvfree(n);
- 	return 0;
-@@ -950,6 +1044,25 @@ static struct socket *get_raw_socket(int fd)
- 	return ERR_PTR(r);
- }
- 
-+static struct skb_array *get_tap_skb_array(int fd)
-+{
-+	struct skb_array *array;
-+	struct file *file = fget(fd);
-+
-+	if (!file)
-+		return NULL;
-+	array = tun_get_skb_array(file);
-+	if (!IS_ERR(array))
-+		goto out;
-+	array = tap_get_skb_array(file);
-+	if (!IS_ERR(array))
-+		goto out;
-+	array = NULL;
-+out:
-+	fput(file);
-+	return array;
-+}
-+
- static struct socket *get_tap_socket(int fd)
- {
- 	struct file *file = fget(fd);
-@@ -1026,6 +1139,9 @@ static long vhost_net_set_backend(struct vhost_net *n, unsigned index, int fd)
- 
- 		vhost_net_disable_vq(n, vq);
- 		vq->private_data = sock;
-+		vhost_net_buf_unproduce(nvq);
-+		if (index == VHOST_NET_VQ_RX)
-+			nvq->rx_array = get_tap_skb_array(fd);
- 		r = vhost_vq_init_access(vq);
- 		if (r)
- 			goto err_used;
+-	ret = tun_do_read(tun, tfile, &m->msg_iter, flags & MSG_DONTWAIT);
++	ret = tun_do_read(tun, tfile, &m->msg_iter, flags & MSG_DONTWAIT,
++			  m->msg_control);
+ 	if (ret > (ssize_t)total_len) {
+ 		m->msg_flags |= MSG_TRUNC;
+ 		ret = flags & MSG_TRUNC ? ret : total_len;
 -- 
 2.7.4
