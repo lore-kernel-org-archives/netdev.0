@@ -1,65 +1,71 @@
-From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-Subject: [net-intel-i40e] question about assignment overwrite
-Date: Wed, 17 May 2017 15:48:58 -0500
-Message-ID: <20170517154858.Horde.xMvsIEhHNSGu52mfyp7HA3R@gator4166.hostgator.com>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next 2/3] net: dsa: mv88e6xxx: mv88e6390X SERDES support
+Date: Wed, 17 May 2017 16:49:32 -0400
+Message-ID: <877f1f8azn.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+References: <1495051512-13554-1-git-send-email-andrew@lunn.ch> <1495051512-13554-3-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed; DelSp=Yes
-Cc: intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: netdev <netdev@vger.kernel.org>, nikita.yoush@cogentembedded.com,
+        Andrew Lunn <andrew@lunn.ch>
+To: Andrew Lunn <andrew@lunn.ch>, David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:50146 "EHLO
+        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752996AbdEQUv1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 17 May 2017 16:51:27 -0400
+In-Reply-To: <1495051512-13554-3-git-send-email-andrew@lunn.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+Hi Andrew,
+
+Andrew Lunn <andrew@lunn.ch> writes:
+
+> -static int mv88e6xxx_phy_read(struct mv88e6xxx_chip *chip, int phy,
+> -			      int reg, u16 *val)
+> +int mv88e6xxx_phy_read(struct mv88e6xxx_chip *chip, int phy,
+> +		       int reg, u16 *val)
+>  {
+>  	int addr = phy; /* PHY devices addresses start at 0x0 */
+>  	struct mii_bus *bus;
+> @@ -265,8 +265,8 @@ static int mv88e6xxx_phy_read(struct mv88e6xxx_chip *chip, int phy,
+>  	return chip->info->ops->phy_read(chip, bus, addr, reg, val);
+>  }
+>  
+> -static int mv88e6xxx_phy_write(struct mv88e6xxx_chip *chip, int phy,
+> -			       int reg, u16 val)
+> +int mv88e6xxx_phy_write(struct mv88e6xxx_chip *chip, int phy,
+> +			int reg, u16 val)
+
+Please add a very first patch which expose the mv88e6xxx_phy_ (and page_
+of patch 1/3) PHY related code in new phy.[ch] files. These are the
+missing specific files for the PHY Registers sets ;-)
+
+> +	if (chip->info->ops->serdes_power)
+> +		return chip->info->ops->serdes_power(chip, port, true);
+> +
+> +	return 0;
+>  }
+>  
+>  static int mv88e6xxx_setup_message_port(struct mv88e6xxx_chip *chip, int port)
+> @@ -2068,15 +2071,6 @@ static int mv88e6xxx_setup_port(struct mv88e6xxx_chip *chip, int port)
+>  	if (err)
+>  		return err;
+>  
+> -	/* If this port is connected to a SerDes, make sure the SerDes is
+> -	 * powered up.
+> -	 */
+> -	if (chip->info->ops->serdes_power) {
+> -		err = chip->info->ops->serdes_power(chip, port, true);
+> -		if (err)
+> -			return err;
+> -	}
+> -
+
+All 3 patches moves this call around. Can we place it right once, the
+first time a mv88e6xxx_serdes_power() helper is added?
 
 
-Hello everybody,
+Thank you,
 
-While looking into Coverity ID 1408956 I ran into the following piece  
-of code at drivers/net/ethernet/intel/i40e/i40e_main.c:8807:
-
-8807        if (pf->hw.mac.type == I40E_MAC_X722) {
-8808                pf->flags |= I40E_FLAG_RSS_AQ_CAPABLE
-8809                             | I40E_FLAG_128_QP_RSS_CAPABLE
-8810                             | I40E_FLAG_HW_ATR_EVICT_CAPABLE
-8811                             | I40E_FLAG_OUTER_UDP_CSUM_CAPABLE
-8812                             | I40E_FLAG_WB_ON_ITR_CAPABLE
-8813                             | I40E_FLAG_MULTIPLE_TCP_UDP_RSS_PCTYPE
-8814                             | I40E_FLAG_NO_PCI_LINK_CHECK
-8815                             | I40E_FLAG_USE_SET_LLDP_MIB
-8816                             | I40E_FLAG_GENEVE_OFFLOAD_CAPABLE
-8817                             | I40E_FLAG_PTP_L4_CAPABLE
-8818                             | I40E_FLAG_WOL_MC_MAGIC_PKT_WAKE;
-8819        } else if ((pf->hw.aq.api_maj_ver > 1) ||
-8820                   ((pf->hw.aq.api_maj_ver == 1) &&
-8821                    (pf->hw.aq.api_min_ver > 4))) {
-8822                /* Supported in FW API version higher than 1.4 */
-8823                pf->flags |= I40E_FLAG_GENEVE_OFFLOAD_CAPABLE;
-8824                pf->flags = I40E_FLAG_HW_ATR_EVICT_CAPABLE;
-8825        } else {
-8826                pf->flags = I40E_FLAG_HW_ATR_EVICT_CAPABLE;
-8827        }
-
-The issue here is that the assignment at line 8823 is overwritten by  
-the code at line 8824.
-
-I'm suspicious that line 8824 should be remove and a patch like the  
-following can be applied:
-
-index d5c9c9e..48ffa73 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -8821,7 +8821,6 @@ static int i40e_sw_init(struct i40e_pf *pf)
-                     (pf->hw.aq.api_min_ver > 4))) {
-                 /* Supported in FW API version higher than 1.4 */
-                 pf->flags |= I40E_FLAG_GENEVE_OFFLOAD_CAPABLE;
--               pf->flags = I40E_FLAG_HW_ATR_EVICT_CAPABLE;
-         } else {
-                 pf->flags = I40E_FLAG_HW_ATR_EVICT_CAPABLE;
-         }
-
-What do you think?
-
-Thanks!
---
-Gustavo A. R. Silva
+        Vivien
