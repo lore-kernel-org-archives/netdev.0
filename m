@@ -1,7 +1,7 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH v2 08/10] rt2x00: convert rt2x00_eeprom_read return type
-Date: Wed, 17 May 2017 16:47:00 +0200
-Message-ID: <20170517144702.1381136-9-arnd@arndb.de>
+Subject: [PATCH v2 03/10] rt2x00: convert rt2x00_rf_read return type
+Date: Wed, 17 May 2017 16:46:55 +0200
+Message-ID: <20170517144702.1381136-4-arnd@arndb.de>
 References: <20170517144702.1381136-1-arnd@arndb.de>
 Cc: Arnd Bergmann <arnd@arndb.de>,
         Stanislaw Gruszka <sgruszka@redhat.com>,
@@ -18,591 +18,181 @@ Cc: Arnd Bergmann <arnd@arndb.de>,
         Jes Sorensen <jes.sorensen@gmail.com>,
         Tom Psyborg <pozega.tomislav@gmail.com>
 To: linux-wireless <linux-wireless@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.kundenserver.de ([217.72.192.74]:60775 "EHLO
+        mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754468AbdEQOrv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 17 May 2017 10:47:51 -0400
 In-Reply-To: <20170517144702.1381136-1-arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is a semi-automated conversion to change rt2x00_eeprom_read()
+This is a semi-automated conversion to change rt2x00_rf_read()
 to return the register contents instead of passing them by value,
 resulting in much better object code. The majority of the patch
 was done using:
 
-sed -i 's:\(\<rt2x00_eeprom_read\>(.*, .*\), &\(.*\));:\2 = \1);:' \
-   -i 's:= _\(rt2x00_eeprom_read\):= \1:' drivers/net/wireless/ralink/rt2x00/*
+sed -i 's:\(\<rt2x00_rf_read\>(.*, .*\), &\(.*\));:\2 = \1);:' \
+	drivers/net/wireless/ralink/rt2x00/rt*
 
 Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 ---
- drivers/net/wireless/ralink/rt2x00/rt2400pci.c |  8 +++---
- drivers/net/wireless/ralink/rt2x00/rt2500pci.c | 16 ++++++------
- drivers/net/wireless/ralink/rt2x00/rt2500usb.c | 34 +++++++++++++-------------
- drivers/net/wireless/ralink/rt2x00/rt2800lib.c |  6 ++---
- drivers/net/wireless/ralink/rt2x00/rt2x00.h    | 10 ++------
- drivers/net/wireless/ralink/rt2x00/rt61pci.c   | 28 ++++++++++-----------
- drivers/net/wireless/ralink/rt2x00/rt73usb.c   | 28 ++++++++++-----------
- 7 files changed, 62 insertions(+), 68 deletions(-)
+ drivers/net/wireless/ralink/rt2x00/rt2400pci.c |  2 +-
+ drivers/net/wireless/ralink/rt2x00/rt2500pci.c |  4 ++--
+ drivers/net/wireless/ralink/rt2x00/rt2500usb.c |  4 ++--
+ drivers/net/wireless/ralink/rt2x00/rt2800lib.c |  2 +-
+ drivers/net/wireless/ralink/rt2x00/rt2x00.h    | 11 ++---------
+ drivers/net/wireless/ralink/rt2x00/rt61pci.c   | 10 +++++-----
+ drivers/net/wireless/ralink/rt2x00/rt73usb.c   | 10 +++++-----
+ 7 files changed, 18 insertions(+), 25 deletions(-)
 
 diff --git a/drivers/net/wireless/ralink/rt2x00/rt2400pci.c b/drivers/net/wireless/ralink/rt2x00/rt2400pci.c
-index 0ab3d571aba4..73b919838a61 100644
+index 3ba9a1674e1d..d41832292db2 100644
 --- a/drivers/net/wireless/ralink/rt2x00/rt2400pci.c
 +++ b/drivers/net/wireless/ralink/rt2x00/rt2400pci.c
-@@ -178,7 +178,7 @@ static const struct rt2x00debug rt2400pci_rt2x00debug = {
- 		.word_count	= CSR_REG_SIZE / sizeof(u32),
+@@ -199,7 +199,7 @@ static const struct rt2x00debug rt2400pci_rt2x00debug = {
+ 		.word_count	= BBP_SIZE / sizeof(u8),
  	},
- 	.eeprom	= {
--		.read		= _rt2x00_eeprom_read,
-+		.read		= rt2x00_eeprom_read,
- 		.write		= rt2x00_eeprom_write,
- 		.word_base	= EEPROM_BASE,
- 		.word_size	= sizeof(u16),
-@@ -950,7 +950,7 @@ static int rt2400pci_init_bbp(struct rt2x00_dev *rt2x00dev)
- 	rt2400pci_bbp_write(rt2x00dev, 31, 0x00);
- 
- 	for (i = 0; i < EEPROM_BBP_SIZE; i++) {
--		rt2x00_eeprom_read(rt2x00dev, EEPROM_BBP_START + i, &eeprom);
-+		eeprom = rt2x00_eeprom_read(rt2x00dev, EEPROM_BBP_START + i);
- 
- 		if (eeprom != 0xffff && eeprom != 0x0000) {
- 			reg_id = rt2x00_get_field16(eeprom, EEPROM_BBP_REG_ID);
-@@ -1464,7 +1464,7 @@ static int rt2400pci_validate_eeprom(struct rt2x00_dev *rt2x00dev)
- 	mac = rt2x00_eeprom_addr(rt2x00dev, EEPROM_MAC_ADDR_0);
- 	rt2x00lib_set_mac_address(rt2x00dev, mac);
- 
--	rt2x00_eeprom_read(rt2x00dev, EEPROM_ANTENNA, &word);
-+	word = rt2x00_eeprom_read(rt2x00dev, EEPROM_ANTENNA);
- 	if (word == 0xffff) {
- 		rt2x00_err(rt2x00dev, "Invalid EEPROM data detected\n");
- 		return -EINVAL;
-@@ -1482,7 +1482,7 @@ static int rt2400pci_init_eeprom(struct rt2x00_dev *rt2x00dev)
- 	/*
- 	 * Read EEPROM word for configuration.
- 	 */
--	rt2x00_eeprom_read(rt2x00dev, EEPROM_ANTENNA, &eeprom);
-+	eeprom = rt2x00_eeprom_read(rt2x00dev, EEPROM_ANTENNA);
- 
- 	/*
- 	 * Identify RF chipset.
+ 	.rf	= {
+-		.read		= _rt2x00_rf_read,
++		.read		= rt2x00_rf_read,
+ 		.write		= rt2400pci_rf_write,
+ 		.word_base	= RF_BASE,
+ 		.word_size	= sizeof(u32),
 diff --git a/drivers/net/wireless/ralink/rt2x00/rt2500pci.c b/drivers/net/wireless/ralink/rt2x00/rt2500pci.c
-index a4e2f7b8adf1..5fcee4855720 100644
+index d9b061b73e83..232feba0773f 100644
 --- a/drivers/net/wireless/ralink/rt2x00/rt2500pci.c
 +++ b/drivers/net/wireless/ralink/rt2x00/rt2500pci.c
-@@ -178,7 +178,7 @@ static const struct rt2x00debug rt2500pci_rt2x00debug = {
- 		.word_count	= CSR_REG_SIZE / sizeof(u32),
+@@ -199,7 +199,7 @@ static const struct rt2x00debug rt2500pci_rt2x00debug = {
+ 		.word_count	= BBP_SIZE / sizeof(u8),
  	},
- 	.eeprom	= {
--		.read		= _rt2x00_eeprom_read,
-+		.read		= rt2x00_eeprom_read,
- 		.write		= rt2x00_eeprom_write,
- 		.word_base	= EEPROM_BASE,
- 		.word_size	= sizeof(u16),
-@@ -1104,7 +1104,7 @@ static int rt2500pci_init_bbp(struct rt2x00_dev *rt2x00dev)
- 	rt2500pci_bbp_write(rt2x00dev, 62, 0x10);
+ 	.rf	= {
+-		.read		= _rt2x00_rf_read,
++		.read		= rt2x00_rf_read,
+ 		.write		= rt2500pci_rf_write,
+ 		.word_base	= RF_BASE,
+ 		.word_size	= sizeof(u32),
+@@ -556,7 +556,7 @@ static void rt2500pci_config_txpower(struct rt2x00_dev *rt2x00dev,
+ {
+ 	u32 rf3;
  
- 	for (i = 0; i < EEPROM_BBP_SIZE; i++) {
--		rt2x00_eeprom_read(rt2x00dev, EEPROM_BBP_START + i, &eeprom);
-+		eeprom = rt2x00_eeprom_read(rt2x00dev, EEPROM_BBP_START + i);
- 
- 		if (eeprom != 0xffff && eeprom != 0x0000) {
- 			reg_id = rt2x00_get_field16(eeprom, EEPROM_BBP_REG_ID);
-@@ -1590,7 +1590,7 @@ static int rt2500pci_validate_eeprom(struct rt2x00_dev *rt2x00dev)
- 	mac = rt2x00_eeprom_addr(rt2x00dev, EEPROM_MAC_ADDR_0);
- 	rt2x00lib_set_mac_address(rt2x00dev, mac);
- 
--	rt2x00_eeprom_read(rt2x00dev, EEPROM_ANTENNA, &word);
-+	word = rt2x00_eeprom_read(rt2x00dev, EEPROM_ANTENNA);
- 	if (word == 0xffff) {
- 		rt2x00_set_field16(&word, EEPROM_ANTENNA_NUM, 2);
- 		rt2x00_set_field16(&word, EEPROM_ANTENNA_TX_DEFAULT,
-@@ -1606,7 +1606,7 @@ static int rt2500pci_validate_eeprom(struct rt2x00_dev *rt2x00dev)
- 		rt2x00_eeprom_dbg(rt2x00dev, "Antenna: 0x%04x\n", word);
- 	}
- 
--	rt2x00_eeprom_read(rt2x00dev, EEPROM_NIC, &word);
-+	word = rt2x00_eeprom_read(rt2x00dev, EEPROM_NIC);
- 	if (word == 0xffff) {
- 		rt2x00_set_field16(&word, EEPROM_NIC_CARDBUS_ACCEL, 0);
- 		rt2x00_set_field16(&word, EEPROM_NIC_DYN_BBP_TUNE, 0);
-@@ -1615,7 +1615,7 @@ static int rt2500pci_validate_eeprom(struct rt2x00_dev *rt2x00dev)
- 		rt2x00_eeprom_dbg(rt2x00dev, "NIC: 0x%04x\n", word);
- 	}
- 
--	rt2x00_eeprom_read(rt2x00dev, EEPROM_CALIBRATE_OFFSET, &word);
-+	word = rt2x00_eeprom_read(rt2x00dev, EEPROM_CALIBRATE_OFFSET);
- 	if (word == 0xffff) {
- 		rt2x00_set_field16(&word, EEPROM_CALIBRATE_OFFSET_RSSI,
- 				   DEFAULT_RSSI_OFFSET);
-@@ -1636,7 +1636,7 @@ static int rt2500pci_init_eeprom(struct rt2x00_dev *rt2x00dev)
- 	/*
- 	 * Read EEPROM word for configuration.
- 	 */
--	rt2x00_eeprom_read(rt2x00dev, EEPROM_ANTENNA, &eeprom);
-+	eeprom = rt2x00_eeprom_read(rt2x00dev, EEPROM_ANTENNA);
- 
- 	/*
- 	 * Identify RF chipset.
-@@ -1692,14 +1692,14 @@ static int rt2500pci_init_eeprom(struct rt2x00_dev *rt2x00dev)
- 	/*
- 	 * Check if the BBP tuning should be enabled.
- 	 */
--	rt2x00_eeprom_read(rt2x00dev, EEPROM_NIC, &eeprom);
-+	eeprom = rt2x00_eeprom_read(rt2x00dev, EEPROM_NIC);
- 	if (!rt2x00_get_field16(eeprom, EEPROM_NIC_DYN_BBP_TUNE))
- 		__set_bit(CAPABILITY_LINK_TUNING, &rt2x00dev->cap_flags);
- 
- 	/*
- 	 * Read the RSSI <-> dBm offset information.
- 	 */
--	rt2x00_eeprom_read(rt2x00dev, EEPROM_CALIBRATE_OFFSET, &eeprom);
-+	eeprom = rt2x00_eeprom_read(rt2x00dev, EEPROM_CALIBRATE_OFFSET);
- 	rt2x00dev->rssi_offset =
- 	    rt2x00_get_field16(eeprom, EEPROM_CALIBRATE_OFFSET_RSSI);
- 
+-	rt2x00_rf_read(rt2x00dev, 3, &rf3);
++	rf3 = rt2x00_rf_read(rt2x00dev, 3);
+ 	rt2x00_set_field32(&rf3, RF3_TXPOWER, TXPOWER_TO_DEV(txpower));
+ 	rt2500pci_rf_write(rt2x00dev, 3, rf3);
+ }
 diff --git a/drivers/net/wireless/ralink/rt2x00/rt2500usb.c b/drivers/net/wireless/ralink/rt2x00/rt2500usb.c
-index 37c6684db4de..4497385a4fea 100644
+index 5bd160f732de..9cff9ddafb72 100644
 --- a/drivers/net/wireless/ralink/rt2x00/rt2500usb.c
 +++ b/drivers/net/wireless/ralink/rt2x00/rt2500usb.c
-@@ -241,7 +241,7 @@ static const struct rt2x00debug rt2500usb_rt2x00debug = {
- 		.word_count	= CSR_REG_SIZE / sizeof(u16),
+@@ -268,7 +268,7 @@ static const struct rt2x00debug rt2500usb_rt2x00debug = {
+ 		.word_count	= BBP_SIZE / sizeof(u8),
  	},
- 	.eeprom	= {
--		.read		= _rt2x00_eeprom_read,
-+		.read		= rt2x00_eeprom_read,
- 		.write		= rt2x00_eeprom_write,
- 		.word_base	= EEPROM_BASE,
- 		.word_size	= sizeof(u16),
-@@ -703,19 +703,19 @@ static void rt2500usb_reset_tuner(struct rt2x00_dev *rt2x00dev,
- 	u16 eeprom;
- 	u16 value;
+ 	.rf	= {
+-		.read		= _rt2x00_rf_read,
++		.read		= rt2x00_rf_read,
+ 		.write		= rt2500usb_rf_write,
+ 		.word_base	= RF_BASE,
+ 		.word_size	= sizeof(u32),
+@@ -639,7 +639,7 @@ static void rt2500usb_config_txpower(struct rt2x00_dev *rt2x00dev,
+ {
+ 	u32 rf3;
  
--	rt2x00_eeprom_read(rt2x00dev, EEPROM_BBPTUNE_R24, &eeprom);
-+	eeprom = rt2x00_eeprom_read(rt2x00dev, EEPROM_BBPTUNE_R24);
- 	value = rt2x00_get_field16(eeprom, EEPROM_BBPTUNE_R24_LOW);
- 	rt2500usb_bbp_write(rt2x00dev, 24, value);
- 
--	rt2x00_eeprom_read(rt2x00dev, EEPROM_BBPTUNE_R25, &eeprom);
-+	eeprom = rt2x00_eeprom_read(rt2x00dev, EEPROM_BBPTUNE_R25);
- 	value = rt2x00_get_field16(eeprom, EEPROM_BBPTUNE_R25_LOW);
- 	rt2500usb_bbp_write(rt2x00dev, 25, value);
- 
--	rt2x00_eeprom_read(rt2x00dev, EEPROM_BBPTUNE_R61, &eeprom);
-+	eeprom = rt2x00_eeprom_read(rt2x00dev, EEPROM_BBPTUNE_R61);
- 	value = rt2x00_get_field16(eeprom, EEPROM_BBPTUNE_R61_LOW);
- 	rt2500usb_bbp_write(rt2x00dev, 61, value);
- 
--	rt2x00_eeprom_read(rt2x00dev, EEPROM_BBPTUNE_VGC, &eeprom);
-+	eeprom = rt2x00_eeprom_read(rt2x00dev, EEPROM_BBPTUNE_VGC);
- 	value = rt2x00_get_field16(eeprom, EEPROM_BBPTUNE_VGCUPPER);
- 	rt2500usb_bbp_write(rt2x00dev, 17, value);
- 
-@@ -949,7 +949,7 @@ static int rt2500usb_init_bbp(struct rt2x00_dev *rt2x00dev)
- 	rt2500usb_bbp_write(rt2x00dev, 75, 0xff);
- 
- 	for (i = 0; i < EEPROM_BBP_SIZE; i++) {
--		rt2x00_eeprom_read(rt2x00dev, EEPROM_BBP_START + i, &eeprom);
-+		eeprom = rt2x00_eeprom_read(rt2x00dev, EEPROM_BBP_START + i);
- 
- 		if (eeprom != 0xffff && eeprom != 0x0000) {
- 			reg_id = rt2x00_get_field16(eeprom, EEPROM_BBP_REG_ID);
-@@ -1339,7 +1339,7 @@ static int rt2500usb_validate_eeprom(struct rt2x00_dev *rt2x00dev)
- 	mac = rt2x00_eeprom_addr(rt2x00dev, EEPROM_MAC_ADDR_0);
- 	rt2x00lib_set_mac_address(rt2x00dev, mac);
- 
--	rt2x00_eeprom_read(rt2x00dev, EEPROM_ANTENNA, &word);
-+	word = rt2x00_eeprom_read(rt2x00dev, EEPROM_ANTENNA);
- 	if (word == 0xffff) {
- 		rt2x00_set_field16(&word, EEPROM_ANTENNA_NUM, 2);
- 		rt2x00_set_field16(&word, EEPROM_ANTENNA_TX_DEFAULT,
-@@ -1355,7 +1355,7 @@ static int rt2500usb_validate_eeprom(struct rt2x00_dev *rt2x00dev)
- 		rt2x00_eeprom_dbg(rt2x00dev, "Antenna: 0x%04x\n", word);
- 	}
- 
--	rt2x00_eeprom_read(rt2x00dev, EEPROM_NIC, &word);
-+	word = rt2x00_eeprom_read(rt2x00dev, EEPROM_NIC);
- 	if (word == 0xffff) {
- 		rt2x00_set_field16(&word, EEPROM_NIC_CARDBUS_ACCEL, 0);
- 		rt2x00_set_field16(&word, EEPROM_NIC_DYN_BBP_TUNE, 0);
-@@ -1364,7 +1364,7 @@ static int rt2500usb_validate_eeprom(struct rt2x00_dev *rt2x00dev)
- 		rt2x00_eeprom_dbg(rt2x00dev, "NIC: 0x%04x\n", word);
- 	}
- 
--	rt2x00_eeprom_read(rt2x00dev, EEPROM_CALIBRATE_OFFSET, &word);
-+	word = rt2x00_eeprom_read(rt2x00dev, EEPROM_CALIBRATE_OFFSET);
- 	if (word == 0xffff) {
- 		rt2x00_set_field16(&word, EEPROM_CALIBRATE_OFFSET_RSSI,
- 				   DEFAULT_RSSI_OFFSET);
-@@ -1373,7 +1373,7 @@ static int rt2500usb_validate_eeprom(struct rt2x00_dev *rt2x00dev)
- 				  word);
- 	}
- 
--	rt2x00_eeprom_read(rt2x00dev, EEPROM_BBPTUNE, &word);
-+	word = rt2x00_eeprom_read(rt2x00dev, EEPROM_BBPTUNE);
- 	if (word == 0xffff) {
- 		rt2x00_set_field16(&word, EEPROM_BBPTUNE_THRESHOLD, 45);
- 		rt2x00_eeprom_write(rt2x00dev, EEPROM_BBPTUNE, word);
-@@ -1387,7 +1387,7 @@ static int rt2500usb_validate_eeprom(struct rt2x00_dev *rt2x00dev)
- 	bbp = rt2500usb_bbp_read(rt2x00dev, 17);
- 	bbp -= 6;
- 
--	rt2x00_eeprom_read(rt2x00dev, EEPROM_BBPTUNE_VGC, &word);
-+	word = rt2x00_eeprom_read(rt2x00dev, EEPROM_BBPTUNE_VGC);
- 	if (word == 0xffff) {
- 		rt2x00_set_field16(&word, EEPROM_BBPTUNE_VGCUPPER, 0x40);
- 		rt2x00_set_field16(&word, EEPROM_BBPTUNE_VGCLOWER, bbp);
-@@ -1398,7 +1398,7 @@ static int rt2500usb_validate_eeprom(struct rt2x00_dev *rt2x00dev)
- 		rt2x00_eeprom_write(rt2x00dev, EEPROM_BBPTUNE_VGC, word);
- 	}
- 
--	rt2x00_eeprom_read(rt2x00dev, EEPROM_BBPTUNE_R17, &word);
-+	word = rt2x00_eeprom_read(rt2x00dev, EEPROM_BBPTUNE_R17);
- 	if (word == 0xffff) {
- 		rt2x00_set_field16(&word, EEPROM_BBPTUNE_R17_LOW, 0x48);
- 		rt2x00_set_field16(&word, EEPROM_BBPTUNE_R17_HIGH, 0x41);
-@@ -1406,7 +1406,7 @@ static int rt2500usb_validate_eeprom(struct rt2x00_dev *rt2x00dev)
- 		rt2x00_eeprom_dbg(rt2x00dev, "BBPtune r17: 0x%04x\n", word);
- 	}
- 
--	rt2x00_eeprom_read(rt2x00dev, EEPROM_BBPTUNE_R24, &word);
-+	word = rt2x00_eeprom_read(rt2x00dev, EEPROM_BBPTUNE_R24);
- 	if (word == 0xffff) {
- 		rt2x00_set_field16(&word, EEPROM_BBPTUNE_R24_LOW, 0x40);
- 		rt2x00_set_field16(&word, EEPROM_BBPTUNE_R24_HIGH, 0x80);
-@@ -1414,7 +1414,7 @@ static int rt2500usb_validate_eeprom(struct rt2x00_dev *rt2x00dev)
- 		rt2x00_eeprom_dbg(rt2x00dev, "BBPtune r24: 0x%04x\n", word);
- 	}
- 
--	rt2x00_eeprom_read(rt2x00dev, EEPROM_BBPTUNE_R25, &word);
-+	word = rt2x00_eeprom_read(rt2x00dev, EEPROM_BBPTUNE_R25);
- 	if (word == 0xffff) {
- 		rt2x00_set_field16(&word, EEPROM_BBPTUNE_R25_LOW, 0x40);
- 		rt2x00_set_field16(&word, EEPROM_BBPTUNE_R25_HIGH, 0x50);
-@@ -1422,7 +1422,7 @@ static int rt2500usb_validate_eeprom(struct rt2x00_dev *rt2x00dev)
- 		rt2x00_eeprom_dbg(rt2x00dev, "BBPtune r25: 0x%04x\n", word);
- 	}
- 
--	rt2x00_eeprom_read(rt2x00dev, EEPROM_BBPTUNE_R61, &word);
-+	word = rt2x00_eeprom_read(rt2x00dev, EEPROM_BBPTUNE_R61);
- 	if (word == 0xffff) {
- 		rt2x00_set_field16(&word, EEPROM_BBPTUNE_R61_LOW, 0x60);
- 		rt2x00_set_field16(&word, EEPROM_BBPTUNE_R61_HIGH, 0x6d);
-@@ -1442,7 +1442,7 @@ static int rt2500usb_init_eeprom(struct rt2x00_dev *rt2x00dev)
- 	/*
- 	 * Read EEPROM word for configuration.
- 	 */
--	rt2x00_eeprom_read(rt2x00dev, EEPROM_ANTENNA, &eeprom);
-+	eeprom = rt2x00_eeprom_read(rt2x00dev, EEPROM_ANTENNA);
- 
- 	/*
- 	 * Identify RF chipset.
-@@ -1508,7 +1508,7 @@ static int rt2500usb_init_eeprom(struct rt2x00_dev *rt2x00dev)
- 	/*
- 	 * Read the RSSI <-> dBm offset information.
- 	 */
--	rt2x00_eeprom_read(rt2x00dev, EEPROM_CALIBRATE_OFFSET, &eeprom);
-+	eeprom = rt2x00_eeprom_read(rt2x00dev, EEPROM_CALIBRATE_OFFSET);
- 	rt2x00dev->rssi_offset =
- 	    rt2x00_get_field16(eeprom, EEPROM_CALIBRATE_OFFSET_RSSI);
- 
+-	rt2x00_rf_read(rt2x00dev, 3, &rf3);
++	rf3 = rt2x00_rf_read(rt2x00dev, 3);
+ 	rt2x00_set_field32(&rf3, RF3_TXPOWER, TXPOWER_TO_DEV(txpower));
+ 	rt2500usb_rf_write(rt2x00dev, 3, rf3);
+ }
 diff --git a/drivers/net/wireless/ralink/rt2x00/rt2800lib.c b/drivers/net/wireless/ralink/rt2x00/rt2800lib.c
-index 35c1206ed6ac..7998cc196ee4 100644
+index 9b8c19dcdb2c..fef53d6a888a 100644
 --- a/drivers/net/wireless/ralink/rt2x00/rt2800lib.c
 +++ b/drivers/net/wireless/ralink/rt2x00/rt2800lib.c
-@@ -416,7 +416,7 @@ static void rt2800_eeprom_read(struct rt2x00_dev *rt2x00dev,
- 	unsigned int index;
- 
- 	index = rt2800_eeprom_word_index(rt2x00dev, word);
--	rt2x00_eeprom_read(rt2x00dev, index, data);
-+	*data = rt2x00_eeprom_read(rt2x00dev, index);
- }
- 
- static void rt2800_eeprom_write(struct rt2x00_dev *rt2x00dev,
-@@ -436,7 +436,7 @@ static void rt2800_eeprom_read_from_array(struct rt2x00_dev *rt2x00dev,
- 	unsigned int index;
- 
- 	index = rt2800_eeprom_word_index(rt2x00dev, array);
--	rt2x00_eeprom_read(rt2x00dev, index + offset, data);
-+	*data = rt2x00_eeprom_read(rt2x00dev, index + offset);
- }
- 
- static int rt2800_enable_wlan_rt3290(struct rt2x00_dev *rt2x00dev)
-@@ -1244,7 +1244,7 @@ const struct rt2x00debug rt2800_rt2x00debug = {
- 		/* NOTE: The local EEPROM access functions can't
- 		 * be used here, use the generic versions instead.
- 		 */
--		.read		= _rt2x00_eeprom_read,
-+		.read		= rt2x00_eeprom_read,
- 		.write		= rt2x00_eeprom_write,
- 		.word_base	= EEPROM_BASE,
- 		.word_size	= sizeof(u16),
+@@ -1265,7 +1265,7 @@ const struct rt2x00debug rt2800_rt2x00debug = {
+ 		.word_count	= BBP_SIZE / sizeof(u8),
+ 	},
+ 	.rf	= {
+-		.read		= _rt2x00_rf_read,
++		.read		= rt2x00_rf_read,
+ 		.write		= rt2800_rf_write,
+ 		.word_base	= RF_BASE,
+ 		.word_size	= sizeof(u32),
 diff --git a/drivers/net/wireless/ralink/rt2x00/rt2x00.h b/drivers/net/wireless/ralink/rt2x00/rt2x00.h
-index 36791f7ae2ce..1f38c338ca7a 100644
+index f2ae33bf2ef2..36791f7ae2ce 100644
 --- a/drivers/net/wireless/ralink/rt2x00/rt2x00.h
 +++ b/drivers/net/wireless/ralink/rt2x00/rt2x00.h
-@@ -1072,14 +1072,8 @@ static inline void *rt2x00_eeprom_addr(struct rt2x00_dev *rt2x00dev,
- 	return (void *)&rt2x00dev->eeprom[word];
- }
- 
--static inline void rt2x00_eeprom_read(struct rt2x00_dev *rt2x00dev,
--				      const unsigned int word, u16 *data)
+@@ -1049,15 +1049,8 @@ struct rt2x00_bar_list_entry {
+  * Generic RF access.
+  * The RF is being accessed by word index.
+  */
+-static inline void rt2x00_rf_read(struct rt2x00_dev *rt2x00dev,
+-				  const unsigned int word, u32 *data)
 -{
--	*data = le16_to_cpu(rt2x00dev->eeprom[word]);
+-	BUG_ON(word < 1 || word > rt2x00dev->ops->rf_size / sizeof(u32));
+-	*data = rt2x00dev->rf[word - 1];
 -}
 -
--static inline u16 _rt2x00_eeprom_read(struct rt2x00_dev *rt2x00dev,
--				      const unsigned int word)
-+static inline u16 rt2x00_eeprom_read(struct rt2x00_dev *rt2x00dev,
-+				     const unsigned int word)
+-static inline u32 _rt2x00_rf_read(struct rt2x00_dev *rt2x00dev,
+-				  const unsigned int word)
++static inline u32 rt2x00_rf_read(struct rt2x00_dev *rt2x00dev,
++				 const unsigned int word)
  {
- 	return le16_to_cpu(rt2x00dev->eeprom[word]);
- }
+ 	BUG_ON(word < 1 || word > rt2x00dev->ops->rf_size / sizeof(u32));
+ 	return rt2x00dev->rf[word - 1];
 diff --git a/drivers/net/wireless/ralink/rt2x00/rt61pci.c b/drivers/net/wireless/ralink/rt2x00/rt61pci.c
-index bd6ed943af3d..d5b8051466b4 100644
+index efe8a766b251..147d1d2cc0a6 100644
 --- a/drivers/net/wireless/ralink/rt2x00/rt61pci.c
 +++ b/drivers/net/wireless/ralink/rt2x00/rt61pci.c
-@@ -216,7 +216,7 @@ static const struct rt2x00debug rt61pci_rt2x00debug = {
- 		.word_count	= CSR_REG_SIZE / sizeof(u32),
+@@ -236,7 +236,7 @@ static const struct rt2x00debug rt61pci_rt2x00debug = {
+ 		.word_count	= BBP_SIZE / sizeof(u8),
  	},
- 	.eeprom	= {
--		.read		= _rt2x00_eeprom_read,
-+		.read		= rt2x00_eeprom_read,
- 		.write		= rt2x00_eeprom_write,
- 		.word_base	= EEPROM_BASE,
- 		.word_size	= sizeof(u16),
-@@ -853,13 +853,13 @@ static void rt61pci_config_lna_gain(struct rt2x00_dev *rt2x00dev,
- 		if (rt2x00_has_cap_external_lna_bg(rt2x00dev))
- 			lna_gain += 14;
+ 	.rf	= {
+-		.read		= _rt2x00_rf_read,
++		.read		= rt2x00_rf_read,
+ 		.write		= rt61pci_rf_write,
+ 		.word_base	= RF_BASE,
+ 		.word_size	= sizeof(u32),
+@@ -922,10 +922,10 @@ static void rt61pci_config_txpower(struct rt2x00_dev *rt2x00dev,
+ {
+ 	struct rf_channel rf;
  
--		rt2x00_eeprom_read(rt2x00dev, EEPROM_RSSI_OFFSET_BG, &eeprom);
-+		eeprom = rt2x00_eeprom_read(rt2x00dev, EEPROM_RSSI_OFFSET_BG);
- 		lna_gain -= rt2x00_get_field16(eeprom, EEPROM_RSSI_OFFSET_BG_1);
- 	} else {
- 		if (rt2x00_has_cap_external_lna_a(rt2x00dev))
- 			lna_gain += 14;
+-	rt2x00_rf_read(rt2x00dev, 1, &rf.rf1);
+-	rt2x00_rf_read(rt2x00dev, 2, &rf.rf2);
+-	rt2x00_rf_read(rt2x00dev, 3, &rf.rf3);
+-	rt2x00_rf_read(rt2x00dev, 4, &rf.rf4);
++	rf.rf1 = rt2x00_rf_read(rt2x00dev, 1);
++	rf.rf2 = rt2x00_rf_read(rt2x00dev, 2);
++	rf.rf3 = rt2x00_rf_read(rt2x00dev, 3);
++	rf.rf4 = rt2x00_rf_read(rt2x00dev, 4);
  
--		rt2x00_eeprom_read(rt2x00dev, EEPROM_RSSI_OFFSET_A, &eeprom);
-+		eeprom = rt2x00_eeprom_read(rt2x00dev, EEPROM_RSSI_OFFSET_A);
- 		lna_gain -= rt2x00_get_field16(eeprom, EEPROM_RSSI_OFFSET_A_1);
- 	}
- 
-@@ -1698,7 +1698,7 @@ static int rt61pci_init_bbp(struct rt2x00_dev *rt2x00dev)
- 	rt61pci_bbp_write(rt2x00dev, 107, 0x04);
- 
- 	for (i = 0; i < EEPROM_BBP_SIZE; i++) {
--		rt2x00_eeprom_read(rt2x00dev, EEPROM_BBP_START + i, &eeprom);
-+		eeprom = rt2x00_eeprom_read(rt2x00dev, EEPROM_BBP_START + i);
- 
- 		if (eeprom != 0xffff && eeprom != 0x0000) {
- 			reg_id = rt2x00_get_field16(eeprom, EEPROM_BBP_REG_ID);
-@@ -2417,7 +2417,7 @@ static int rt61pci_validate_eeprom(struct rt2x00_dev *rt2x00dev)
- 	mac = rt2x00_eeprom_addr(rt2x00dev, EEPROM_MAC_ADDR_0);
- 	rt2x00lib_set_mac_address(rt2x00dev, mac);
- 
--	rt2x00_eeprom_read(rt2x00dev, EEPROM_ANTENNA, &word);
-+	word = rt2x00_eeprom_read(rt2x00dev, EEPROM_ANTENNA);
- 	if (word == 0xffff) {
- 		rt2x00_set_field16(&word, EEPROM_ANTENNA_NUM, 2);
- 		rt2x00_set_field16(&word, EEPROM_ANTENNA_TX_DEFAULT,
-@@ -2432,7 +2432,7 @@ static int rt61pci_validate_eeprom(struct rt2x00_dev *rt2x00dev)
- 		rt2x00_eeprom_dbg(rt2x00dev, "Antenna: 0x%04x\n", word);
- 	}
- 
--	rt2x00_eeprom_read(rt2x00dev, EEPROM_NIC, &word);
-+	word = rt2x00_eeprom_read(rt2x00dev, EEPROM_NIC);
- 	if (word == 0xffff) {
- 		rt2x00_set_field16(&word, EEPROM_NIC_ENABLE_DIVERSITY, 0);
- 		rt2x00_set_field16(&word, EEPROM_NIC_TX_DIVERSITY, 0);
-@@ -2445,7 +2445,7 @@ static int rt61pci_validate_eeprom(struct rt2x00_dev *rt2x00dev)
- 		rt2x00_eeprom_dbg(rt2x00dev, "NIC: 0x%04x\n", word);
- 	}
- 
--	rt2x00_eeprom_read(rt2x00dev, EEPROM_LED, &word);
-+	word = rt2x00_eeprom_read(rt2x00dev, EEPROM_LED);
- 	if (word == 0xffff) {
- 		rt2x00_set_field16(&word, EEPROM_LED_LED_MODE,
- 				   LED_MODE_DEFAULT);
-@@ -2453,7 +2453,7 @@ static int rt61pci_validate_eeprom(struct rt2x00_dev *rt2x00dev)
- 		rt2x00_eeprom_dbg(rt2x00dev, "Led: 0x%04x\n", word);
- 	}
- 
--	rt2x00_eeprom_read(rt2x00dev, EEPROM_FREQ, &word);
-+	word = rt2x00_eeprom_read(rt2x00dev, EEPROM_FREQ);
- 	if (word == 0xffff) {
- 		rt2x00_set_field16(&word, EEPROM_FREQ_OFFSET, 0);
- 		rt2x00_set_field16(&word, EEPROM_FREQ_SEQ, 0);
-@@ -2461,7 +2461,7 @@ static int rt61pci_validate_eeprom(struct rt2x00_dev *rt2x00dev)
- 		rt2x00_eeprom_dbg(rt2x00dev, "Freq: 0x%04x\n", word);
- 	}
- 
--	rt2x00_eeprom_read(rt2x00dev, EEPROM_RSSI_OFFSET_BG, &word);
-+	word = rt2x00_eeprom_read(rt2x00dev, EEPROM_RSSI_OFFSET_BG);
- 	if (word == 0xffff) {
- 		rt2x00_set_field16(&word, EEPROM_RSSI_OFFSET_BG_1, 0);
- 		rt2x00_set_field16(&word, EEPROM_RSSI_OFFSET_BG_2, 0);
-@@ -2477,7 +2477,7 @@ static int rt61pci_validate_eeprom(struct rt2x00_dev *rt2x00dev)
- 		rt2x00_eeprom_write(rt2x00dev, EEPROM_RSSI_OFFSET_BG, word);
- 	}
- 
--	rt2x00_eeprom_read(rt2x00dev, EEPROM_RSSI_OFFSET_A, &word);
-+	word = rt2x00_eeprom_read(rt2x00dev, EEPROM_RSSI_OFFSET_A);
- 	if (word == 0xffff) {
- 		rt2x00_set_field16(&word, EEPROM_RSSI_OFFSET_A_1, 0);
- 		rt2x00_set_field16(&word, EEPROM_RSSI_OFFSET_A_2, 0);
-@@ -2505,7 +2505,7 @@ static int rt61pci_init_eeprom(struct rt2x00_dev *rt2x00dev)
- 	/*
- 	 * Read EEPROM word for configuration.
- 	 */
--	rt2x00_eeprom_read(rt2x00dev, EEPROM_ANTENNA, &eeprom);
-+	eeprom = rt2x00_eeprom_read(rt2x00dev, EEPROM_ANTENNA);
- 
- 	/*
- 	 * Identify RF chipset.
-@@ -2552,7 +2552,7 @@ static int rt61pci_init_eeprom(struct rt2x00_dev *rt2x00dev)
- 	/*
- 	 * Read frequency offset and RF programming sequence.
- 	 */
--	rt2x00_eeprom_read(rt2x00dev, EEPROM_FREQ, &eeprom);
-+	eeprom = rt2x00_eeprom_read(rt2x00dev, EEPROM_FREQ);
- 	if (rt2x00_get_field16(eeprom, EEPROM_FREQ_SEQ))
- 		__set_bit(CAPABILITY_RF_SEQUENCE, &rt2x00dev->cap_flags);
- 
-@@ -2561,7 +2561,7 @@ static int rt61pci_init_eeprom(struct rt2x00_dev *rt2x00dev)
- 	/*
- 	 * Read external LNA informations.
- 	 */
--	rt2x00_eeprom_read(rt2x00dev, EEPROM_NIC, &eeprom);
-+	eeprom = rt2x00_eeprom_read(rt2x00dev, EEPROM_NIC);
- 
- 	if (rt2x00_get_field16(eeprom, EEPROM_NIC_EXTERNAL_LNA_A))
- 		__set_bit(CAPABILITY_EXTERNAL_LNA_A, &rt2x00dev->cap_flags);
-@@ -2592,7 +2592,7 @@ static int rt61pci_init_eeprom(struct rt2x00_dev *rt2x00dev)
- 	 * switch to default led mode.
- 	 */
- #ifdef CONFIG_RT2X00_LIB_LEDS
--	rt2x00_eeprom_read(rt2x00dev, EEPROM_LED, &eeprom);
-+	eeprom = rt2x00_eeprom_read(rt2x00dev, EEPROM_LED);
- 	value = rt2x00_get_field16(eeprom, EEPROM_LED_LED_MODE);
- 
- 	rt61pci_init_led(rt2x00dev, &rt2x00dev->led_radio, LED_TYPE_RADIO);
+ 	rt61pci_config_channel(rt2x00dev, &rf, txpower);
+ }
 diff --git a/drivers/net/wireless/ralink/rt2x00/rt73usb.c b/drivers/net/wireless/ralink/rt2x00/rt73usb.c
-index 87742f370eea..b736982c0126 100644
+index 5db174922120..a36dee1a4f20 100644
 --- a/drivers/net/wireless/ralink/rt2x00/rt73usb.c
 +++ b/drivers/net/wireless/ralink/rt2x00/rt73usb.c
-@@ -161,7 +161,7 @@ static const struct rt2x00debug rt73usb_rt2x00debug = {
- 		.word_count	= CSR_REG_SIZE / sizeof(u32),
+@@ -181,7 +181,7 @@ static const struct rt2x00debug rt73usb_rt2x00debug = {
+ 		.word_count	= BBP_SIZE / sizeof(u8),
  	},
- 	.eeprom	= {
--		.read		= _rt2x00_eeprom_read,
-+		.read		= rt2x00_eeprom_read,
- 		.write		= rt2x00_eeprom_write,
- 		.word_base	= EEPROM_BASE,
- 		.word_size	= sizeof(u16),
-@@ -743,10 +743,10 @@ static void rt73usb_config_lna_gain(struct rt2x00_dev *rt2x00dev,
- 		if (rt2x00_has_cap_external_lna_bg(rt2x00dev))
- 			lna_gain += 14;
+ 	.rf	= {
+-		.read		= _rt2x00_rf_read,
++		.read		= rt2x00_rf_read,
+ 		.write		= rt73usb_rf_write,
+ 		.word_base	= RF_BASE,
+ 		.word_size	= sizeof(u32),
+@@ -805,10 +805,10 @@ static void rt73usb_config_txpower(struct rt2x00_dev *rt2x00dev,
+ {
+ 	struct rf_channel rf;
  
--		rt2x00_eeprom_read(rt2x00dev, EEPROM_RSSI_OFFSET_BG, &eeprom);
-+		eeprom = rt2x00_eeprom_read(rt2x00dev, EEPROM_RSSI_OFFSET_BG);
- 		lna_gain -= rt2x00_get_field16(eeprom, EEPROM_RSSI_OFFSET_BG_1);
- 	} else {
--		rt2x00_eeprom_read(rt2x00dev, EEPROM_RSSI_OFFSET_A, &eeprom);
-+		eeprom = rt2x00_eeprom_read(rt2x00dev, EEPROM_RSSI_OFFSET_A);
- 		lna_gain -= rt2x00_get_field16(eeprom, EEPROM_RSSI_OFFSET_A_1);
- 	}
+-	rt2x00_rf_read(rt2x00dev, 1, &rf.rf1);
+-	rt2x00_rf_read(rt2x00dev, 2, &rf.rf2);
+-	rt2x00_rf_read(rt2x00dev, 3, &rf.rf3);
+-	rt2x00_rf_read(rt2x00dev, 4, &rf.rf4);
++	rf.rf1 = rt2x00_rf_read(rt2x00dev, 1);
++	rf.rf2 = rt2x00_rf_read(rt2x00dev, 2);
++	rf.rf3 = rt2x00_rf_read(rt2x00dev, 3);
++	rf.rf4 = rt2x00_rf_read(rt2x00dev, 4);
  
-@@ -1346,7 +1346,7 @@ static int rt73usb_init_bbp(struct rt2x00_dev *rt2x00dev)
- 	rt73usb_bbp_write(rt2x00dev, 107, 0x04);
- 
- 	for (i = 0; i < EEPROM_BBP_SIZE; i++) {
--		rt2x00_eeprom_read(rt2x00dev, EEPROM_BBP_START + i, &eeprom);
-+		eeprom = rt2x00_eeprom_read(rt2x00dev, EEPROM_BBP_START + i);
- 
- 		if (eeprom != 0xffff && eeprom != 0x0000) {
- 			reg_id = rt2x00_get_field16(eeprom, EEPROM_BBP_REG_ID);
-@@ -1771,7 +1771,7 @@ static int rt73usb_validate_eeprom(struct rt2x00_dev *rt2x00dev)
- 	mac = rt2x00_eeprom_addr(rt2x00dev, EEPROM_MAC_ADDR_0);
- 	rt2x00lib_set_mac_address(rt2x00dev, mac);
- 
--	rt2x00_eeprom_read(rt2x00dev, EEPROM_ANTENNA, &word);
-+	word = rt2x00_eeprom_read(rt2x00dev, EEPROM_ANTENNA);
- 	if (word == 0xffff) {
- 		rt2x00_set_field16(&word, EEPROM_ANTENNA_NUM, 2);
- 		rt2x00_set_field16(&word, EEPROM_ANTENNA_TX_DEFAULT,
-@@ -1786,14 +1786,14 @@ static int rt73usb_validate_eeprom(struct rt2x00_dev *rt2x00dev)
- 		rt2x00_eeprom_dbg(rt2x00dev, "Antenna: 0x%04x\n", word);
- 	}
- 
--	rt2x00_eeprom_read(rt2x00dev, EEPROM_NIC, &word);
-+	word = rt2x00_eeprom_read(rt2x00dev, EEPROM_NIC);
- 	if (word == 0xffff) {
- 		rt2x00_set_field16(&word, EEPROM_NIC_EXTERNAL_LNA, 0);
- 		rt2x00_eeprom_write(rt2x00dev, EEPROM_NIC, word);
- 		rt2x00_eeprom_dbg(rt2x00dev, "NIC: 0x%04x\n", word);
- 	}
- 
--	rt2x00_eeprom_read(rt2x00dev, EEPROM_LED, &word);
-+	word = rt2x00_eeprom_read(rt2x00dev, EEPROM_LED);
- 	if (word == 0xffff) {
- 		rt2x00_set_field16(&word, EEPROM_LED_POLARITY_RDY_G, 0);
- 		rt2x00_set_field16(&word, EEPROM_LED_POLARITY_RDY_A, 0);
-@@ -1809,7 +1809,7 @@ static int rt73usb_validate_eeprom(struct rt2x00_dev *rt2x00dev)
- 		rt2x00_eeprom_dbg(rt2x00dev, "Led: 0x%04x\n", word);
- 	}
- 
--	rt2x00_eeprom_read(rt2x00dev, EEPROM_FREQ, &word);
-+	word = rt2x00_eeprom_read(rt2x00dev, EEPROM_FREQ);
- 	if (word == 0xffff) {
- 		rt2x00_set_field16(&word, EEPROM_FREQ_OFFSET, 0);
- 		rt2x00_set_field16(&word, EEPROM_FREQ_SEQ, 0);
-@@ -1817,7 +1817,7 @@ static int rt73usb_validate_eeprom(struct rt2x00_dev *rt2x00dev)
- 		rt2x00_eeprom_dbg(rt2x00dev, "Freq: 0x%04x\n", word);
- 	}
- 
--	rt2x00_eeprom_read(rt2x00dev, EEPROM_RSSI_OFFSET_BG, &word);
-+	word = rt2x00_eeprom_read(rt2x00dev, EEPROM_RSSI_OFFSET_BG);
- 	if (word == 0xffff) {
- 		rt2x00_set_field16(&word, EEPROM_RSSI_OFFSET_BG_1, 0);
- 		rt2x00_set_field16(&word, EEPROM_RSSI_OFFSET_BG_2, 0);
-@@ -1833,7 +1833,7 @@ static int rt73usb_validate_eeprom(struct rt2x00_dev *rt2x00dev)
- 		rt2x00_eeprom_write(rt2x00dev, EEPROM_RSSI_OFFSET_BG, word);
- 	}
- 
--	rt2x00_eeprom_read(rt2x00dev, EEPROM_RSSI_OFFSET_A, &word);
-+	word = rt2x00_eeprom_read(rt2x00dev, EEPROM_RSSI_OFFSET_A);
- 	if (word == 0xffff) {
- 		rt2x00_set_field16(&word, EEPROM_RSSI_OFFSET_A_1, 0);
- 		rt2x00_set_field16(&word, EEPROM_RSSI_OFFSET_A_2, 0);
-@@ -1861,7 +1861,7 @@ static int rt73usb_init_eeprom(struct rt2x00_dev *rt2x00dev)
- 	/*
- 	 * Read EEPROM word for configuration.
- 	 */
--	rt2x00_eeprom_read(rt2x00dev, EEPROM_ANTENNA, &eeprom);
-+	eeprom = rt2x00_eeprom_read(rt2x00dev, EEPROM_ANTENNA);
- 
- 	/*
- 	 * Identify RF chipset.
-@@ -1907,13 +1907,13 @@ static int rt73usb_init_eeprom(struct rt2x00_dev *rt2x00dev)
- 	/*
- 	 * Read frequency offset.
- 	 */
--	rt2x00_eeprom_read(rt2x00dev, EEPROM_FREQ, &eeprom);
-+	eeprom = rt2x00_eeprom_read(rt2x00dev, EEPROM_FREQ);
- 	rt2x00dev->freq_offset = rt2x00_get_field16(eeprom, EEPROM_FREQ_OFFSET);
- 
- 	/*
- 	 * Read external LNA informations.
- 	 */
--	rt2x00_eeprom_read(rt2x00dev, EEPROM_NIC, &eeprom);
-+	eeprom = rt2x00_eeprom_read(rt2x00dev, EEPROM_NIC);
- 
- 	if (rt2x00_get_field16(eeprom, EEPROM_NIC_EXTERNAL_LNA)) {
- 		__set_bit(CAPABILITY_EXTERNAL_LNA_A, &rt2x00dev->cap_flags);
-@@ -1924,7 +1924,7 @@ static int rt73usb_init_eeprom(struct rt2x00_dev *rt2x00dev)
- 	 * Store led settings, for correct led behaviour.
- 	 */
- #ifdef CONFIG_RT2X00_LIB_LEDS
--	rt2x00_eeprom_read(rt2x00dev, EEPROM_LED, &eeprom);
-+	eeprom = rt2x00_eeprom_read(rt2x00dev, EEPROM_LED);
- 
- 	rt73usb_init_led(rt2x00dev, &rt2x00dev->led_radio, LED_TYPE_RADIO);
- 	rt73usb_init_led(rt2x00dev, &rt2x00dev->led_assoc, LED_TYPE_ASSOC);
+ 	rt73usb_config_channel(rt2x00dev, &rf, txpower);
+ }
 -- 
 2.9.0
