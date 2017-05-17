@@ -1,42 +1,61 @@
-From: Oliver Neukum <oneukum-IBi9RG/b67k@public.gmane.org>
-Subject: Re: [RFC V1 1/1] net: cdc_ncm: Reduce memory use when kernel memory
- low
-Date: Wed, 17 May 2017 09:44:20 +0200
-Message-ID: <1495007060.30577.8.camel@suse.com>
-References: <1494956480-6127-1-git-send-email-jim_baxter@mentor.com>
-         <1494956480-6127-2-git-send-email-jim_baxter@mentor.com>
-         <87shk4fynp.fsf@miraculix.mork.no>
+From: Greentime Hu <green.hu@gmail.com>
+Subject: [PATCH v5] net: ethernet: faraday: To support device tree usage.
+Date: Wed, 17 May 2017 15:28:19 +0800
+Message-ID: <20170517072810.GA4324@app09>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: =?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn-yOkvZcmFvRU@public.gmane.org>,
-        Jim Baxter <jim_baxter-nmGgyN9QBj3QT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <87shk4fynp.fsf-3F4PFWf5pNjpjLOzFPqGjWGXanvQGlWp@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+To: green.hu@gmail.com, netdev@vger.kernel.org,
+        devicetree@vger.kernel.org, andrew@lunn.ch, arnd@arndb.de,
+        jiri@resnulli.us, linux-kernel@vger.kernel.org,
+        f.fainelli@gmail.com, robh+dt@kernel.org, mark.rutland@arm.com,
+        davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Am Dienstag, den 16.05.2017, 20:24 +0200 schrieb Bjørn Mork:
-> 
-> I must say that I don't like the additional complexity added here.  If
-> there are memory issues and you can reduce the buffer size to
-> USB_CDC_NCM_NTB_MIN_OUT_SIZE, then why don't you just set a lower tx_max
-> buffer size in the first place?
-> 
->   echo 2048 > /sys/class/net/wwan0/cdc_ncm/tx_max
-> 
+To support device tree usage for ftmac100.
 
-Hi,
+Signed-off-by: Greentime Hu <green.hu@gmail.com>
+---
+Changes in v5:
+  - Nothing changed in this patch and I have committed faraday,ftmac.txt.
+Changes in v4:
+  - Use the same binding document to describe the same faraday ethernet controller and add faraday to vendor-prefixes.txt.
+Changes in v3:
+  - Nothing changed in this patch but I have committed andestech to vendor-prefixes.txt.
+Changes in v2:
+  - Change atmac100_of_ids to ftmac100_of_ids
+---
+ drivers/net/ethernet/faraday/ftmac100.c |    7 +++++++
+ 1 file changed, 7 insertions(+)
 
-that would hurt performance across the board though.
-Can we trigger memory compactation earlier?
-
-	Regards
-		Oliver
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/ethernet/faraday/ftmac100.c b/drivers/net/ethernet/faraday/ftmac100.c
+index 6ac336b..1536356 100644
+--- a/drivers/net/ethernet/faraday/ftmac100.c
++++ b/drivers/net/ethernet/faraday/ftmac100.c
+@@ -1174,11 +1174,17 @@ static int ftmac100_remove(struct platform_device *pdev)
+ 	return 0;
+ }
+ 
++static const struct of_device_id ftmac100_of_ids[] = {
++	{ .compatible = "andestech,atmac100" },
++	{ }
++};
++
+ static struct platform_driver ftmac100_driver = {
+ 	.probe		= ftmac100_probe,
+ 	.remove		= ftmac100_remove,
+ 	.driver		= {
+ 		.name	= DRV_NAME,
++		.of_match_table = ftmac100_of_ids
+ 	},
+ };
+ 
+@@ -1202,3 +1208,4 @@ static void __exit ftmac100_exit(void)
+ MODULE_AUTHOR("Po-Yu Chuang <ratbert@faraday-tech.com>");
+ MODULE_DESCRIPTION("FTMAC100 driver");
+ MODULE_LICENSE("GPL");
++MODULE_DEVICE_TABLE(of, ftmac100_of_ids);
+-- 
+1.7.9.5
