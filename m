@@ -1,98 +1,49 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCH net-next 3/3] dsa: mv88e6xxx: Enable/Disable SERDES on port enable/disable
-Date: Wed, 17 May 2017 22:05:12 +0200
-Message-ID: <1495051512-13554-4-git-send-email-andrew@lunn.ch>
-References: <1495051512-13554-1-git-send-email-andrew@lunn.ch>
-Cc: netdev <netdev@vger.kernel.org>, nikita.yoush@cogentembedded.com,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        Andrew Lunn <andrew@lunn.ch>
-To: David Miller <davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 00/15] tcp: TCP TS option use 1 ms clock
+Date: Wed, 17 May 2017 16:06:22 -0400 (EDT)
+Message-ID: <20170517.160622.1668271289507037704.davem@davemloft.net>
+References: <20170516210014.31176-1-edumazet@google.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: ncardwell@google.com, ycheng@google.com, soheil@google.com,
+        weiwan@google.com, netdev@vger.kernel.org, eric.dumazet@gmail.com
+To: edumazet@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:34773 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753501AbdEQUGJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 17 May 2017 16:06:09 -0400
-In-Reply-To: <1495051512-13554-1-git-send-email-andrew@lunn.ch>
+Received: from shards.monkeyblade.net ([184.105.139.130]:36178 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753011AbdEQUGY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 17 May 2017 16:06:24 -0400
+In-Reply-To: <20170516210014.31176-1-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Implement the port enable/disable callbacks, which enable/disable the
-SERDES interfaces, if applicable. This should save a bit of
-power/heat.
+From: Eric Dumazet <edumazet@google.com>
+Date: Tue, 16 May 2017 13:59:59 -0700
 
-Signed-off-by: Andrew Lunn <andrew@lunn.ch>
----
- drivers/net/dsa/mv88e6xxx/chip.c | 44 ++++++++++++++++++++++++++++++++++++----
- 1 file changed, 40 insertions(+), 4 deletions(-)
+> TCP Timestamps option is defined in RFC 7323
+> 
+> Traditionally on linux, it has been tied to the internal
+> 'jiffy' variable, because it had been a cheap and good enough
+> generator.
+> 
+> Unfortunately some distros use HZ=250 or even HZ=100 leading
+> to not very useful TCP timestamps.
+> 
+> For TCP flows in the DC, Google has used usec resolution for more
+> than two years with great success [1].
+> RCVBUF autotuning is more precise.
+> 
+> This series converts tp->tcp_mstamp to a plain u64 value storing
+> a 1 usec TCP clock.
+> 
+> This choice will allow us to upstream the 1 usec TS option as
+> discussed in IETF 97.
+> 
+> Kathleen Nichols [2] and others advocate for 1ms TS clocks for
+> network analysis. (1ms being the lowest value supported by RFC 7323.)
+> 
+> [1] https://www.ietf.org/proceedings/97/slides/slides-97-tcpm-tcp-options-for-low-latency-00.pdf
+> [2] http://netseminar.stanford.edu/seminars/02_02_17.pdf
 
-diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-index 067f64dcf1b6..c002869acaab 100644
---- a/drivers/net/dsa/mv88e6xxx/chip.c
-+++ b/drivers/net/dsa/mv88e6xxx/chip.c
-@@ -1996,9 +1996,6 @@ static int mv88e6xxx_setup_port_mode(struct mv88e6xxx_chip *chip, int port)
- 	if (chip->info->tag_protocol == DSA_TAG_PROTO_EDSA)
- 		return mv88e6xxx_set_port_mode_edsa(chip, port);
- 
--	if (chip->info->ops->serdes_power)
--		return chip->info->ops->serdes_power(chip, port, true);
--
- 	return 0;
- }
- 
-@@ -2168,7 +2165,44 @@ static int mv88e6xxx_setup_port(struct mv88e6xxx_chip *chip, int port)
- 	/* Default VLAN ID and priority: don't set a default VLAN
- 	 * ID, and set the default packet priority to zero.
- 	 */
--	return mv88e6xxx_port_write(chip, port, PORT_DEFAULT_VLAN, 0x0000);
-+	err = mv88e6xxx_port_write(chip, port, PORT_DEFAULT_VLAN, 0x0000);
-+	if (err)
-+		return err;
-+
-+	/* Enable the SERDES interface for DSA and CPU ports. Normal
-+	 * ports SERDES are enabled when the port is enabled, thus
-+	 * saving a bit of power.
-+	 */
-+	if ((dsa_is_cpu_port(ds, port) || dsa_is_dsa_port(ds, port)) &&
-+	    chip->info->ops->serdes_power)
-+		err = chip->info->ops->serdes_power(chip, port, true);
-+
-+	return err;
-+}
-+
-+static int mv88e6xxx_port_enable(struct dsa_switch *ds, int port,
-+				 struct phy_device *phydev)
-+{
-+	struct mv88e6xxx_chip *chip = ds->priv;
-+	int err = 0;
-+
-+	mutex_lock(&chip->reg_lock);
-+	if (chip->info->ops->serdes_power)
-+		err = chip->info->ops->serdes_power(chip, port, true);
-+	mutex_unlock(&chip->reg_lock);
-+
-+	return err;
-+}
-+
-+static void mv88e6xxx_port_disable(struct dsa_switch *ds, int port,
-+				   struct phy_device *phydev)
-+{
-+	struct mv88e6xxx_chip *chip = ds->priv;
-+
-+	mutex_lock(&chip->reg_lock);
-+	if (chip->info->ops->serdes_power)
-+		chip->info->ops->serdes_power(chip, port, false);
-+	mutex_unlock(&chip->reg_lock);
- }
- 
- static int mv88e6xxx_g1_set_switch_mac(struct mv88e6xxx_chip *chip, u8 *addr)
-@@ -4023,6 +4057,8 @@ static const struct dsa_switch_ops mv88e6xxx_switch_ops = {
- 	.get_strings		= mv88e6xxx_get_strings,
- 	.get_ethtool_stats	= mv88e6xxx_get_ethtool_stats,
- 	.get_sset_count		= mv88e6xxx_get_sset_count,
-+	.port_enable		= mv88e6xxx_port_enable,
-+	.port_disable		= mv88e6xxx_port_disable,
- 	.set_eee		= mv88e6xxx_set_eee,
- 	.get_eee		= mv88e6xxx_get_eee,
- 	.get_eeprom_len		= mv88e6xxx_get_eeprom_len,
--- 
-2.11.0
+Series applied, thanks Eric.
