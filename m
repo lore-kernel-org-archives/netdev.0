@@ -1,72 +1,92 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 1/7] skbuff: add stub to help computing
- crc32c on SCTP packets
-Date: Wed, 17 May 2017 12:08:03 -0400 (EDT)
-Message-ID: <20170517.120803.1777244523172583336.davem@davemloft.net>
-References: <cover.1494946940.git.dcaratti@redhat.com>
-        <970ffbc429b9297c3038f12f4b9cad1afbdbc375.1494946940.git.dcaratti@redhat.com>
+From: walter harms <wharms@bfs.de>
+Subject: Re: [PATCH] hdlcdrv: fix divide error bug if bitrate is 0
+Date: Wed, 17 May 2017 18:08:11 +0200
+Message-ID: <591C756B.8060109@bfs.de>
+References: <20170517123549.22659-1-firogm@gmail.com> <591C493B.6060908@bfs.de> <20170517134246.GA24874@snow>
+Reply-To: wharms@bfs.de
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-        alexander.duyck@gmail.com, tom@herbertland.com,
-        David.Laight@ACULAB.COM, marcelo.leitner@gmail.com
-To: dcaratti@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:34240 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751398AbdEQQIK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 17 May 2017 12:08:10 -0400
-In-Reply-To: <970ffbc429b9297c3038f12f4b9cad1afbdbc375.1494946940.git.dcaratti@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-hams@vger.kernel.org, netdev@vger.kernel.org
+To: Firo Yang <firogm@gmail.com>
+Return-path: <linux-hams-owner@vger.kernel.org>
+In-Reply-To: <20170517134246.GA24874@snow>
+Sender: linux-hams-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Davide Caratti <dcaratti@redhat.com>
-Date: Tue, 16 May 2017 18:27:45 +0200
 
-> @@ -2243,6 +2243,30 @@ __wsum skb_copy_and_csum_bits(const struct sk_buff *skb, int offset,
->  }
->  EXPORT_SYMBOL(skb_copy_and_csum_bits);
->  
-> +static __wsum warn_crc32c_csum_update(const void *buff, int len, __wsum sum)
-> +{
-> +	net_warn_ratelimited(
-> +		"%s: attempt to compute crc32c without libcrc32c.ko\n",
-> +		__func__);
-> +	return 0;
-> +}
-> +
-> +static __wsum warn_crc32c_csum_combine(__wsum csum, __wsum csum2,
-> +				       int offset, int len)
-> +{
-> +	net_warn_ratelimited(
-> +		"%s: attempt to compute crc32c without libcrc32c.ko\n",
-> +		__func__);
-> +	return 0;
-> +}
-> +
-> +const struct skb_checksum_ops *crc32c_csum_stub __read_mostly =
-> +	&(struct skb_checksum_ops) {
-> +	.update  = warn_crc32c_csum_update,
-> +	.combine = warn_crc32c_csum_combine,
-> +};
-> +EXPORT_SYMBOL(crc32c_csum_stub);
 
-Please, if you are going to do this, declare things in a more
-traditional and canonical way:
+Am 17.05.2017 15:42, schrieb Firo Yang:
+> On Wed, May 17, 2017 at 02:59:39PM +0200, walter harms wrote:
+>>
+>>
+>> Am 17.05.2017 14:35, schrieb Firo Yang:
+>>> The divisor s->par.bitrate will always be 0 until initialized by
+>>> ndo_open() and hdlcdrv_open().
+>>>
+>>> In order to fix this divide zero error, check whether the netdevice
+>>> was opened by ndo_open() before performing divide.
+>>>
+>>> Reported-by: Dmitry Vyukov <dvyukov@google.com>
+>>> Signed-off-by: Firo Yang <firogm@gmail.com>
+>>> ---
+>>>  drivers/net/hamradio/hdlcdrv.c | 2 +-
+>>>  1 file changed, 1 insertion(+), 1 deletion(-)
+>>>
+>>> diff --git a/drivers/net/hamradio/hdlcdrv.c b/drivers/net/hamradio/hdlcdrv.c
+>>> index 8c3633c..3c783fd 100644
+>>> --- a/drivers/net/hamradio/hdlcdrv.c
+>>> +++ b/drivers/net/hamradio/hdlcdrv.c
+>>> @@ -574,7 +574,7 @@ static int hdlcdrv_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+>>>  		break;		
+>>>  
+>>>  	case HDLCDRVCTL_CALIBRATE:
+>>> -		if(!capable(CAP_SYS_RAWIO))
+>>> +		if (!capable(CAP_SYS_RAWIO) || !netif_running(dev))
+>>>  			return -EPERM;
+>>>  		if (bi.data.calibrate > INT_MAX / s->par.bitrate)
+>>>  			return -EINVAL;
+>>
+>> I would still check for s->par.bitrate > 0 later changes may affect the setting of it
+>> and it is much more obvious.
+> 
+> I think 0 is not valid value for bitrate, so we should check it in
+> other places, like what ser12_open() did:
+> 429         if (bc->baud < 300 || bc->baud > 4800) {
+> 430                 printk(KERN_INFO "baycom_ser_fdx: invalid baudrate "
+> 431                                 "(300...4800)\n");
+> 432                 return -EINVAL;
+> 433         }
+> ...
+> 440         bc->hdrv.par.bitrate = bc->baud;
 
-static const struct skb_checksum_ops default_crc32c_ops = {
-	.update  = warn_crc32c_csum_update,
-	.combine = warn_crc32c_csum_combine,
-};
 
-const struct skb_checksum_ops *crc32c_csum_stub __read_mostly =
-	&default_crc32c_ops;
+I do not want to say you change is not valid but i have learned that it is better to
+have an obvious check that to rely on hidden knowledge.
 
-> +static const struct skb_checksum_ops *crc32c_csum_ops __read_mostly =
-> +	&(struct skb_checksum_ops) {
-> +	.update  = sctp_csum_update,
-> +	.combine = sctp_csum_combine,
-> +};
 
-Likewise.
+> 
+>>
+>> Also perhaps !netif_running(dev) should better return ENODEV.
+> 
+> However, the 'dev' truly exists in this circumstance.
+> 
+
+yes and i do not feel good with that but "no permission" will lead
+any enduser into a search for user rights.
+
+
+
+re,
+ wh
+
+
+> Thanks,
+> Firo
+> 
+>>
+>>
+>> just my 2 cents,
+>> re,
+>> wh
+>>
