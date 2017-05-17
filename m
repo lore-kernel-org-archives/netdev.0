@@ -1,7 +1,7 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH v2 02/10] rt2x00: convert rt2800_rfcsr_read return type
-Date: Wed, 17 May 2017 16:46:54 +0200
-Message-ID: <20170517144702.1381136-3-arnd@arndb.de>
+Subject: [PATCH v2 10/10] rt2x00: convert rt2x00_desc_read return type
+Date: Wed, 17 May 2017 16:47:02 +0200
+Message-ID: <20170517144702.1381136-11-arnd@arndb.de>
 References: <20170517144702.1381136-1-arnd@arndb.de>
 Cc: Arnd Bergmann <arnd@arndb.de>,
         Stanislaw Gruszka <sgruszka@redhat.com>,
@@ -18,1057 +18,666 @@ Cc: Arnd Bergmann <arnd@arndb.de>,
         Jes Sorensen <jes.sorensen@gmail.com>,
         Tom Psyborg <pozega.tomislav@gmail.com>
 To: linux-wireless <linux-wireless@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.kundenserver.de ([212.227.17.13]:57848 "EHLO
+        mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754435AbdEQOrv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 17 May 2017 10:47:51 -0400
 In-Reply-To: <20170517144702.1381136-1-arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-With CONFIG_KASAN enabled and gcc-7, we get a warning about rather high
-stack usage (with a private patch set I have to turn on this warning,
-which I intend to get into the next kernel release):
-
-wireless/ralink/rt2x00/rt2800lib.c: In function 'rt2800_bw_filter_calibration':
-wireless/ralink/rt2x00/rt2800lib.c:7990:1: error: the frame size of 2144 bytes is larger than 1536 bytes [-Werror=frame-larger-than=]
-
-The problem is that KASAN inserts a redzone around each local variable
-that gets passed by reference, and the newly added function has a lot
-of them.
-
-This is a semi-automated conversion to change rt2800_rfcsr_read to return
+This is a semi-automated conversion to change rt2x00_desc_read to return
 the register contents instead of passing them by value, resulting in
 much better object code. The majority of the patch was done using:
 
-sed -i 's:\(rt2800_rfcsr_read(.*, .*\), &\(.*\));:\2 = \1);:' \
-    -i 's:\(rt2800_rfcsr_read_bank(.*, .*\), &\(.*\));:\2 = \1);:' \
-        drivers/net/wireless/ralink/rt2x00/rt2800lib.c
+sed -i 's:\(\<rt2x00_desc_read\>(.*, .*\), &\(.*\));:\2 = \1);:' \
+    -i 's:\(\<_rt2x00_desc_read\>(.*, .*\), &\(.*\));:\2 = \1);:' \
+drivers/net/wireless/ralink/rt2x00/rt*
 
-Fixes: 41977e86c984 ("rt2x00: add support for MT7620")
 Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 ---
- drivers/net/wireless/ralink/rt2x00/rt2800lib.c | 322 ++++++++++++-------------
- 1 file changed, 158 insertions(+), 164 deletions(-)
+ drivers/net/wireless/ralink/rt2x00/rt2400pci.c   | 32 +++++++++++-----------
+ drivers/net/wireless/ralink/rt2x00/rt2500pci.c   | 26 +++++++++---------
+ drivers/net/wireless/ralink/rt2x00/rt2500usb.c   | 14 +++++-----
+ drivers/net/wireless/ralink/rt2x00/rt2800lib.c   | 12 ++++-----
+ drivers/net/wireless/ralink/rt2x00/rt2800mmio.c  | 14 +++++-----
+ drivers/net/wireless/ralink/rt2x00/rt2800usb.c   |  8 +++---
+ drivers/net/wireless/ralink/rt2x00/rt2x00queue.h | 12 +++------
+ drivers/net/wireless/ralink/rt2x00/rt61pci.c     | 34 ++++++++++++------------
+ drivers/net/wireless/ralink/rt2x00/rt73usb.c     | 18 ++++++-------
+ 9 files changed, 83 insertions(+), 87 deletions(-)
 
+diff --git a/drivers/net/wireless/ralink/rt2x00/rt2400pci.c b/drivers/net/wireless/ralink/rt2x00/rt2400pci.c
+index 73b919838a61..0bc8b0249c57 100644
+--- a/drivers/net/wireless/ralink/rt2x00/rt2400pci.c
++++ b/drivers/net/wireless/ralink/rt2x00/rt2400pci.c
+@@ -728,11 +728,11 @@ static bool rt2400pci_get_entry_state(struct queue_entry *entry)
+ 	u32 word;
+ 
+ 	if (entry->queue->qid == QID_RX) {
+-		rt2x00_desc_read(entry_priv->desc, 0, &word);
++		word = rt2x00_desc_read(entry_priv->desc, 0);
+ 
+ 		return rt2x00_get_field32(word, RXD_W0_OWNER_NIC);
+ 	} else {
+-		rt2x00_desc_read(entry_priv->desc, 0, &word);
++		word = rt2x00_desc_read(entry_priv->desc, 0);
+ 
+ 		return (rt2x00_get_field32(word, TXD_W0_OWNER_NIC) ||
+ 		        rt2x00_get_field32(word, TXD_W0_VALID));
+@@ -746,19 +746,19 @@ static void rt2400pci_clear_entry(struct queue_entry *entry)
+ 	u32 word;
+ 
+ 	if (entry->queue->qid == QID_RX) {
+-		rt2x00_desc_read(entry_priv->desc, 2, &word);
++		word = rt2x00_desc_read(entry_priv->desc, 2);
+ 		rt2x00_set_field32(&word, RXD_W2_BUFFER_LENGTH, entry->skb->len);
+ 		rt2x00_desc_write(entry_priv->desc, 2, word);
+ 
+-		rt2x00_desc_read(entry_priv->desc, 1, &word);
++		word = rt2x00_desc_read(entry_priv->desc, 1);
+ 		rt2x00_set_field32(&word, RXD_W1_BUFFER_ADDRESS, skbdesc->skb_dma);
+ 		rt2x00_desc_write(entry_priv->desc, 1, word);
+ 
+-		rt2x00_desc_read(entry_priv->desc, 0, &word);
++		word = rt2x00_desc_read(entry_priv->desc, 0);
+ 		rt2x00_set_field32(&word, RXD_W0_OWNER_NIC, 1);
+ 		rt2x00_desc_write(entry_priv->desc, 0, word);
+ 	} else {
+-		rt2x00_desc_read(entry_priv->desc, 0, &word);
++		word = rt2x00_desc_read(entry_priv->desc, 0);
+ 		rt2x00_set_field32(&word, TXD_W0_VALID, 0);
+ 		rt2x00_set_field32(&word, TXD_W0_OWNER_NIC, 0);
+ 		rt2x00_desc_write(entry_priv->desc, 0, word);
+@@ -1113,16 +1113,16 @@ static void rt2400pci_write_tx_desc(struct queue_entry *entry,
+ 	/*
+ 	 * Start writing the descriptor words.
+ 	 */
+-	rt2x00_desc_read(txd, 1, &word);
++	word = rt2x00_desc_read(txd, 1);
+ 	rt2x00_set_field32(&word, TXD_W1_BUFFER_ADDRESS, skbdesc->skb_dma);
+ 	rt2x00_desc_write(txd, 1, word);
+ 
+-	rt2x00_desc_read(txd, 2, &word);
++	word = rt2x00_desc_read(txd, 2);
+ 	rt2x00_set_field32(&word, TXD_W2_BUFFER_LENGTH, txdesc->length);
+ 	rt2x00_set_field32(&word, TXD_W2_DATABYTE_COUNT, txdesc->length);
+ 	rt2x00_desc_write(txd, 2, word);
+ 
+-	rt2x00_desc_read(txd, 3, &word);
++	word = rt2x00_desc_read(txd, 3);
+ 	rt2x00_set_field32(&word, TXD_W3_PLCP_SIGNAL, txdesc->u.plcp.signal);
+ 	rt2x00_set_field32(&word, TXD_W3_PLCP_SIGNAL_REGNUM, 5);
+ 	rt2x00_set_field32(&word, TXD_W3_PLCP_SIGNAL_BUSY, 1);
+@@ -1131,7 +1131,7 @@ static void rt2400pci_write_tx_desc(struct queue_entry *entry,
+ 	rt2x00_set_field32(&word, TXD_W3_PLCP_SERVICE_BUSY, 1);
+ 	rt2x00_desc_write(txd, 3, word);
+ 
+-	rt2x00_desc_read(txd, 4, &word);
++	word = rt2x00_desc_read(txd, 4);
+ 	rt2x00_set_field32(&word, TXD_W4_PLCP_LENGTH_LOW,
+ 			   txdesc->u.plcp.length_low);
+ 	rt2x00_set_field32(&word, TXD_W3_PLCP_LENGTH_LOW_REGNUM, 8);
+@@ -1147,7 +1147,7 @@ static void rt2400pci_write_tx_desc(struct queue_entry *entry,
+ 	 * the device, whereby the device may take hold of the TXD before we
+ 	 * finished updating it.
+ 	 */
+-	rt2x00_desc_read(txd, 0, &word);
++	word = rt2x00_desc_read(txd, 0);
+ 	rt2x00_set_field32(&word, TXD_W0_OWNER_NIC, 1);
+ 	rt2x00_set_field32(&word, TXD_W0_VALID, 1);
+ 	rt2x00_set_field32(&word, TXD_W0_MORE_FRAG,
+@@ -1228,10 +1228,10 @@ static void rt2400pci_fill_rxdone(struct queue_entry *entry,
+ 	u32 rx_low;
+ 	u32 rx_high;
+ 
+-	rt2x00_desc_read(entry_priv->desc, 0, &word0);
+-	rt2x00_desc_read(entry_priv->desc, 2, &word2);
+-	rt2x00_desc_read(entry_priv->desc, 3, &word3);
+-	rt2x00_desc_read(entry_priv->desc, 4, &word4);
++	word0 = rt2x00_desc_read(entry_priv->desc, 0);
++	word2 = rt2x00_desc_read(entry_priv->desc, 2);
++	word3 = rt2x00_desc_read(entry_priv->desc, 3);
++	word4 = rt2x00_desc_read(entry_priv->desc, 4);
+ 
+ 	if (rt2x00_get_field32(word0, RXD_W0_CRC_ERROR))
+ 		rxdesc->flags |= RX_FLAG_FAILED_FCS_CRC;
+@@ -1285,7 +1285,7 @@ static void rt2400pci_txdone(struct rt2x00_dev *rt2x00dev,
+ 	while (!rt2x00queue_empty(queue)) {
+ 		entry = rt2x00queue_get_entry(queue, Q_INDEX_DONE);
+ 		entry_priv = entry->priv_data;
+-		rt2x00_desc_read(entry_priv->desc, 0, &word);
++		word = rt2x00_desc_read(entry_priv->desc, 0);
+ 
+ 		if (rt2x00_get_field32(word, TXD_W0_OWNER_NIC) ||
+ 		    !rt2x00_get_field32(word, TXD_W0_VALID))
+diff --git a/drivers/net/wireless/ralink/rt2x00/rt2500pci.c b/drivers/net/wireless/ralink/rt2x00/rt2500pci.c
+index 5fcee4855720..1ff5434798ec 100644
+--- a/drivers/net/wireless/ralink/rt2x00/rt2500pci.c
++++ b/drivers/net/wireless/ralink/rt2x00/rt2500pci.c
+@@ -817,11 +817,11 @@ static bool rt2500pci_get_entry_state(struct queue_entry *entry)
+ 	u32 word;
+ 
+ 	if (entry->queue->qid == QID_RX) {
+-		rt2x00_desc_read(entry_priv->desc, 0, &word);
++		word = rt2x00_desc_read(entry_priv->desc, 0);
+ 
+ 		return rt2x00_get_field32(word, RXD_W0_OWNER_NIC);
+ 	} else {
+-		rt2x00_desc_read(entry_priv->desc, 0, &word);
++		word = rt2x00_desc_read(entry_priv->desc, 0);
+ 
+ 		return (rt2x00_get_field32(word, TXD_W0_OWNER_NIC) ||
+ 		        rt2x00_get_field32(word, TXD_W0_VALID));
+@@ -835,15 +835,15 @@ static void rt2500pci_clear_entry(struct queue_entry *entry)
+ 	u32 word;
+ 
+ 	if (entry->queue->qid == QID_RX) {
+-		rt2x00_desc_read(entry_priv->desc, 1, &word);
++		word = rt2x00_desc_read(entry_priv->desc, 1);
+ 		rt2x00_set_field32(&word, RXD_W1_BUFFER_ADDRESS, skbdesc->skb_dma);
+ 		rt2x00_desc_write(entry_priv->desc, 1, word);
+ 
+-		rt2x00_desc_read(entry_priv->desc, 0, &word);
++		word = rt2x00_desc_read(entry_priv->desc, 0);
+ 		rt2x00_set_field32(&word, RXD_W0_OWNER_NIC, 1);
+ 		rt2x00_desc_write(entry_priv->desc, 0, word);
+ 	} else {
+-		rt2x00_desc_read(entry_priv->desc, 0, &word);
++		word = rt2x00_desc_read(entry_priv->desc, 0);
+ 		rt2x00_set_field32(&word, TXD_W0_VALID, 0);
+ 		rt2x00_set_field32(&word, TXD_W0_OWNER_NIC, 0);
+ 		rt2x00_desc_write(entry_priv->desc, 0, word);
+@@ -1266,18 +1266,18 @@ static void rt2500pci_write_tx_desc(struct queue_entry *entry,
+ 	/*
+ 	 * Start writing the descriptor words.
+ 	 */
+-	rt2x00_desc_read(txd, 1, &word);
++	word = rt2x00_desc_read(txd, 1);
+ 	rt2x00_set_field32(&word, TXD_W1_BUFFER_ADDRESS, skbdesc->skb_dma);
+ 	rt2x00_desc_write(txd, 1, word);
+ 
+-	rt2x00_desc_read(txd, 2, &word);
++	word = rt2x00_desc_read(txd, 2);
+ 	rt2x00_set_field32(&word, TXD_W2_IV_OFFSET, IEEE80211_HEADER);
+ 	rt2x00_set_field32(&word, TXD_W2_AIFS, entry->queue->aifs);
+ 	rt2x00_set_field32(&word, TXD_W2_CWMIN, entry->queue->cw_min);
+ 	rt2x00_set_field32(&word, TXD_W2_CWMAX, entry->queue->cw_max);
+ 	rt2x00_desc_write(txd, 2, word);
+ 
+-	rt2x00_desc_read(txd, 3, &word);
++	word = rt2x00_desc_read(txd, 3);
+ 	rt2x00_set_field32(&word, TXD_W3_PLCP_SIGNAL, txdesc->u.plcp.signal);
+ 	rt2x00_set_field32(&word, TXD_W3_PLCP_SERVICE, txdesc->u.plcp.service);
+ 	rt2x00_set_field32(&word, TXD_W3_PLCP_LENGTH_LOW,
+@@ -1286,7 +1286,7 @@ static void rt2500pci_write_tx_desc(struct queue_entry *entry,
+ 			   txdesc->u.plcp.length_high);
+ 	rt2x00_desc_write(txd, 3, word);
+ 
+-	rt2x00_desc_read(txd, 10, &word);
++	word = rt2x00_desc_read(txd, 10);
+ 	rt2x00_set_field32(&word, TXD_W10_RTS,
+ 			   test_bit(ENTRY_TXD_RTS_FRAME, &txdesc->flags));
+ 	rt2x00_desc_write(txd, 10, word);
+@@ -1296,7 +1296,7 @@ static void rt2500pci_write_tx_desc(struct queue_entry *entry,
+ 	 * the device, whereby the device may take hold of the TXD before we
+ 	 * finished updating it.
+ 	 */
+-	rt2x00_desc_read(txd, 0, &word);
++	word = rt2x00_desc_read(txd, 0);
+ 	rt2x00_set_field32(&word, TXD_W0_OWNER_NIC, 1);
+ 	rt2x00_set_field32(&word, TXD_W0_VALID, 1);
+ 	rt2x00_set_field32(&word, TXD_W0_MORE_FRAG,
+@@ -1371,8 +1371,8 @@ static void rt2500pci_fill_rxdone(struct queue_entry *entry,
+ 	u32 word0;
+ 	u32 word2;
+ 
+-	rt2x00_desc_read(entry_priv->desc, 0, &word0);
+-	rt2x00_desc_read(entry_priv->desc, 2, &word2);
++	word0 = rt2x00_desc_read(entry_priv->desc, 0);
++	word2 = rt2x00_desc_read(entry_priv->desc, 2);
+ 
+ 	if (rt2x00_get_field32(word0, RXD_W0_CRC_ERROR))
+ 		rxdesc->flags |= RX_FLAG_FAILED_FCS_CRC;
+@@ -1413,7 +1413,7 @@ static void rt2500pci_txdone(struct rt2x00_dev *rt2x00dev,
+ 	while (!rt2x00queue_empty(queue)) {
+ 		entry = rt2x00queue_get_entry(queue, Q_INDEX_DONE);
+ 		entry_priv = entry->priv_data;
+-		rt2x00_desc_read(entry_priv->desc, 0, &word);
++		word = rt2x00_desc_read(entry_priv->desc, 0);
+ 
+ 		if (rt2x00_get_field32(word, TXD_W0_OWNER_NIC) ||
+ 		    !rt2x00_get_field32(word, TXD_W0_VALID))
+diff --git a/drivers/net/wireless/ralink/rt2x00/rt2500usb.c b/drivers/net/wireless/ralink/rt2x00/rt2500usb.c
+index 4497385a4fea..529e05999abb 100644
+--- a/drivers/net/wireless/ralink/rt2x00/rt2500usb.c
++++ b/drivers/net/wireless/ralink/rt2x00/rt2500usb.c
+@@ -1074,7 +1074,7 @@ static void rt2500usb_write_tx_desc(struct queue_entry *entry,
+ 	/*
+ 	 * Start writing the descriptor words.
+ 	 */
+-	rt2x00_desc_read(txd, 0, &word);
++	word = rt2x00_desc_read(txd, 0);
+ 	rt2x00_set_field32(&word, TXD_W0_RETRY_LIMIT, txdesc->retry_limit);
+ 	rt2x00_set_field32(&word, TXD_W0_MORE_FRAG,
+ 			   test_bit(ENTRY_TXD_MORE_FRAG, &txdesc->flags));
+@@ -1092,14 +1092,14 @@ static void rt2500usb_write_tx_desc(struct queue_entry *entry,
+ 	rt2x00_set_field32(&word, TXD_W0_KEY_ID, txdesc->key_idx);
+ 	rt2x00_desc_write(txd, 0, word);
+ 
+-	rt2x00_desc_read(txd, 1, &word);
++	word = rt2x00_desc_read(txd, 1);
+ 	rt2x00_set_field32(&word, TXD_W1_IV_OFFSET, txdesc->iv_offset);
+ 	rt2x00_set_field32(&word, TXD_W1_AIFS, entry->queue->aifs);
+ 	rt2x00_set_field32(&word, TXD_W1_CWMIN, entry->queue->cw_min);
+ 	rt2x00_set_field32(&word, TXD_W1_CWMAX, entry->queue->cw_max);
+ 	rt2x00_desc_write(txd, 1, word);
+ 
+-	rt2x00_desc_read(txd, 2, &word);
++	word = rt2x00_desc_read(txd, 2);
+ 	rt2x00_set_field32(&word, TXD_W2_PLCP_SIGNAL, txdesc->u.plcp.signal);
+ 	rt2x00_set_field32(&word, TXD_W2_PLCP_SERVICE, txdesc->u.plcp.service);
+ 	rt2x00_set_field32(&word, TXD_W2_PLCP_LENGTH_LOW,
+@@ -1247,8 +1247,8 @@ static void rt2500usb_fill_rxdone(struct queue_entry *entry,
+ 	/*
+ 	 * It is now safe to read the descriptor on all architectures.
+ 	 */
+-	rt2x00_desc_read(rxd, 0, &word0);
+-	rt2x00_desc_read(rxd, 1, &word1);
++	word0 = rt2x00_desc_read(rxd, 0);
++	word1 = rt2x00_desc_read(rxd, 1);
+ 
+ 	if (rt2x00_get_field32(word0, RXD_W0_CRC_ERROR))
+ 		rxdesc->flags |= RX_FLAG_FAILED_FCS_CRC;
+@@ -1260,8 +1260,8 @@ static void rt2500usb_fill_rxdone(struct queue_entry *entry,
+ 		rxdesc->cipher_status = RX_CRYPTO_FAIL_KEY;
+ 
+ 	if (rxdesc->cipher != CIPHER_NONE) {
+-		_rt2x00_desc_read(rxd, 2, &rxdesc->iv[0]);
+-		_rt2x00_desc_read(rxd, 3, &rxdesc->iv[1]);
++		rxdesc->iv[0] = _rt2x00_desc_read(rxd, 2);
++		rxdesc->iv[1] = _rt2x00_desc_read(rxd, 3);
+ 		rxdesc->dev_flags |= RXDONE_CRYPTO_IV;
+ 
+ 		/* ICV is located at the end of frame */
 diff --git a/drivers/net/wireless/ralink/rt2x00/rt2800lib.c b/drivers/net/wireless/ralink/rt2x00/rt2800lib.c
-index 87cfc135e564..9b8c19dcdb2c 100644
+index 5063169b7794..6e2e760d98b1 100644
 --- a/drivers/net/wireless/ralink/rt2x00/rt2800lib.c
 +++ b/drivers/net/wireless/ralink/rt2x00/rt2800lib.c
-@@ -203,10 +203,11 @@ static void rt2800_rfcsr_write_dccal(struct rt2x00_dev *rt2x00dev,
- 	rt2800_rfcsr_write_bank(rt2x00dev, 7, reg, value);
- }
+@@ -785,7 +785,7 @@ void rt2800_write_tx_data(struct queue_entry *entry,
+ 	/*
+ 	 * Initialize TX Info descriptor
+ 	 */
+-	rt2x00_desc_read(txwi, 0, &word);
++	word = rt2x00_desc_read(txwi, 0);
+ 	rt2x00_set_field32(&word, TXWI_W0_FRAG,
+ 			   test_bit(ENTRY_TXD_MORE_FRAG, &txdesc->flags));
+ 	rt2x00_set_field32(&word, TXWI_W0_MIMO_PS,
+@@ -807,7 +807,7 @@ void rt2800_write_tx_data(struct queue_entry *entry,
+ 	rt2x00_set_field32(&word, TXWI_W0_PHYMODE, txdesc->rate_mode);
+ 	rt2x00_desc_write(txwi, 0, word);
  
--static void rt2800_rfcsr_read(struct rt2x00_dev *rt2x00dev,
--			      const unsigned int word, u8 *value)
-+static u8 rt2800_rfcsr_read(struct rt2x00_dev *rt2x00dev,
-+			    const unsigned int word)
- {
- 	u32 reg;
-+	u8 value;
+-	rt2x00_desc_read(txwi, 1, &word);
++	word = rt2x00_desc_read(txwi, 1);
+ 	rt2x00_set_field32(&word, TXWI_W1_ACK,
+ 			   test_bit(ENTRY_TXD_ACK, &txdesc->flags));
+ 	rt2x00_set_field32(&word, TXWI_W1_NSEQ,
+@@ -885,12 +885,12 @@ void rt2800_process_rxwi(struct queue_entry *entry,
+ 	__le32 *rxwi = (__le32 *) entry->skb->data;
+ 	u32 word;
  
- 	mutex_lock(&rt2x00dev->csr_mutex);
+-	rt2x00_desc_read(rxwi, 0, &word);
++	word = rt2x00_desc_read(rxwi, 0);
  
-@@ -232,7 +233,7 @@ static void rt2800_rfcsr_read(struct rt2x00_dev *rt2x00dev,
- 			WAIT_FOR_RFCSR_MT7620(rt2x00dev, &reg);
- 		}
+ 	rxdesc->cipher = rt2x00_get_field32(word, RXWI_W0_UDF);
+ 	rxdesc->size = rt2x00_get_field32(word, RXWI_W0_MPDU_TOTAL_BYTE_COUNT);
  
--		*value = rt2x00_get_field32(reg, RF_CSR_CFG_DATA_MT7620);
-+		value = rt2x00_get_field32(reg, RF_CSR_CFG_DATA_MT7620);
- 		break;
+-	rt2x00_desc_read(rxwi, 1, &word);
++	word = rt2x00_desc_read(rxwi, 1);
  
- 	default:
-@@ -247,17 +248,19 @@ static void rt2800_rfcsr_read(struct rt2x00_dev *rt2x00dev,
- 			WAIT_FOR_RFCSR(rt2x00dev, &reg);
- 		}
+ 	if (rt2x00_get_field32(word, RXWI_W1_SHORT_GI))
+ 		rxdesc->enc_flags |= RX_ENC_FLAG_SHORT_GI;
+@@ -911,7 +911,7 @@ void rt2800_process_rxwi(struct queue_entry *entry,
+ 	if (rxdesc->rate_mode == RATE_MODE_CCK)
+ 		rxdesc->signal &= ~0x8;
  
--		*value = rt2x00_get_field32(reg, RF_CSR_CFG_DATA);
-+		value = rt2x00_get_field32(reg, RF_CSR_CFG_DATA);
- 		break;
- 	}
+-	rt2x00_desc_read(rxwi, 2, &word);
++	word = rt2x00_desc_read(rxwi, 2);
  
- 	mutex_unlock(&rt2x00dev->csr_mutex);
-+
-+	return value;
- }
+ 	/*
+ 	 * Convert descriptor AGC value to RSSI value.
+@@ -972,7 +972,7 @@ void rt2800_txdone_entry(struct queue_entry *entry, u32 status, __le32 *txwi,
+ 	 * Obtain the status about this packet.
+ 	 */
+ 	txdesc.flags = 0;
+-	rt2x00_desc_read(txwi, 0, &word);
++	word = rt2x00_desc_read(txwi, 0);
  
--static void rt2800_rfcsr_read_bank(struct rt2x00_dev *rt2x00dev, const u8 bank,
--				   const unsigned int reg, u8 *value)
-+static u8 rt2800_rfcsr_read_bank(struct rt2x00_dev *rt2x00dev, const u8 bank,
-+				 const unsigned int reg)
- {
--	rt2800_rfcsr_read(rt2x00dev, (reg | (bank << 6)), value);
-+	return rt2800_rfcsr_read(rt2x00dev, (reg | (bank << 6)));
- }
+ 	mcs = rt2x00_get_field32(word, TXWI_W0_MCS);
+ 	ampdu = rt2x00_get_field32(word, TXWI_W0_AMPDU);
+diff --git a/drivers/net/wireless/ralink/rt2x00/rt2800mmio.c b/drivers/net/wireless/ralink/rt2x00/rt2800mmio.c
+index 70ad20691bff..ee5276e233fa 100644
+--- a/drivers/net/wireless/ralink/rt2x00/rt2800mmio.c
++++ b/drivers/net/wireless/ralink/rt2x00/rt2800mmio.c
+@@ -109,7 +109,7 @@ void rt2800mmio_fill_rxdone(struct queue_entry *entry,
+ 	__le32 *rxd = entry_priv->desc;
+ 	u32 word;
  
- static void rt2800_rf_write(struct rt2x00_dev *rt2x00dev,
-@@ -1234,15 +1237,6 @@ static u8 _rt2800_bbp_read(struct rt2x00_dev *rt2x00dev, const unsigned int word
- 	return value;
- }
+-	rt2x00_desc_read(rxd, 3, &word);
++	word = rt2x00_desc_read(rxd, 3);
  
--static u8 _rt2800_rfcsr_read(struct rt2x00_dev *rt2x00dev, const unsigned int word)
--{
--	u8 value;
--
--	rt2800_rfcsr_read(rt2x00dev, word, &value);
--
--	return value;
--}
--
- const struct rt2x00debug rt2800_rt2x00debug = {
- 	.owner	= THIS_MODULE,
- 	.csr	= {
-@@ -1278,7 +1272,7 @@ const struct rt2x00debug rt2800_rt2x00debug = {
- 		.word_count	= RF_SIZE / sizeof(u32),
- 	},
- 	.rfcsr	= {
--		.read		= _rt2800_rfcsr_read,
-+		.read		= rt2800_rfcsr_read,
- 		.write		= rt2800_rfcsr_write,
- 		.word_base	= RFCSR_BASE,
- 		.word_size	= sizeof(u8),
-@@ -2090,7 +2084,7 @@ static void rt2800_freq_cal_mode1(struct rt2x00_dev *rt2x00dev)
- 	freq_offset = rt2x00_get_field8(rt2x00dev->freq_offset, RFCSR17_CODE);
- 	freq_offset = min_t(u8, freq_offset, FREQ_OFFSET_BOUND);
+ 	if (rt2x00_get_field32(word, RXD_W3_CRC_ERROR))
+ 		rxdesc->flags |= RX_FLAG_FAILED_FCS_CRC;
+@@ -175,7 +175,7 @@ static bool rt2800mmio_txdone_entry_check(struct queue_entry *entry, u32 status)
+ 	wcid = rt2x00_get_field32(status, TX_STA_FIFO_WCID);
  
--	rt2800_rfcsr_read(rt2x00dev, 17, &rfcsr);
-+	rfcsr = rt2800_rfcsr_read(rt2x00dev, 17);
- 	prev_rfcsr = rfcsr;
+ 	txwi = rt2800_drv_get_txwi(entry);
+-	rt2x00_desc_read(txwi, 1, &word);
++	word = rt2x00_desc_read(txwi, 1);
+ 	tx_wcid = rt2x00_get_field32(word, TXWI_W1_WIRELESS_CLI_ID);
  
- 	rt2x00_set_field8(&rfcsr, RFCSR17_CODE, freq_offset);
-@@ -2192,23 +2186,23 @@ static void rt2800_config_channel_rf3xxx(struct rt2x00_dev *rt2x00dev,
+ 	return (tx_wcid == wcid);
+@@ -696,11 +696,11 @@ bool rt2800mmio_get_entry_state(struct queue_entry *entry)
+ 	u32 word;
  
- 	rt2800_rfcsr_write(rt2x00dev, 2, rf->rf1);
+ 	if (entry->queue->qid == QID_RX) {
+-		rt2x00_desc_read(entry_priv->desc, 1, &word);
++		word = rt2x00_desc_read(entry_priv->desc, 1);
  
--	rt2800_rfcsr_read(rt2x00dev, 3, &rfcsr);
-+	rfcsr = rt2800_rfcsr_read(rt2x00dev, 3);
- 	rt2x00_set_field8(&rfcsr, RFCSR3_K, rf->rf3);
- 	rt2800_rfcsr_write(rt2x00dev, 3, rfcsr);
- 
--	rt2800_rfcsr_read(rt2x00dev, 6, &rfcsr);
-+	rfcsr = rt2800_rfcsr_read(rt2x00dev, 6);
- 	rt2x00_set_field8(&rfcsr, RFCSR6_R1, rf->rf2);
- 	rt2800_rfcsr_write(rt2x00dev, 6, rfcsr);
- 
--	rt2800_rfcsr_read(rt2x00dev, 12, &rfcsr);
-+	rfcsr = rt2800_rfcsr_read(rt2x00dev, 12);
- 	rt2x00_set_field8(&rfcsr, RFCSR12_TX_POWER, info->default_power1);
- 	rt2800_rfcsr_write(rt2x00dev, 12, rfcsr);
- 
--	rt2800_rfcsr_read(rt2x00dev, 13, &rfcsr);
-+	rfcsr = rt2800_rfcsr_read(rt2x00dev, 13);
- 	rt2x00_set_field8(&rfcsr, RFCSR13_TX_POWER, info->default_power2);
- 	rt2800_rfcsr_write(rt2x00dev, 13, rfcsr);
- 
--	rt2800_rfcsr_read(rt2x00dev, 1, &rfcsr);
-+	rfcsr = rt2800_rfcsr_read(rt2x00dev, 1);
- 	rt2x00_set_field8(&rfcsr, RFCSR1_RX0_PD, 0);
- 	rt2x00_set_field8(&rfcsr, RFCSR1_RX1_PD,
- 			  rt2x00dev->default_ant.rx_chain_num <= 1);
-@@ -2221,7 +2215,7 @@ static void rt2800_config_channel_rf3xxx(struct rt2x00_dev *rt2x00dev,
- 			  rt2x00dev->default_ant.tx_chain_num <= 2);
- 	rt2800_rfcsr_write(rt2x00dev, 1, rfcsr);
- 
--	rt2800_rfcsr_read(rt2x00dev, 23, &rfcsr);
-+	rfcsr = rt2800_rfcsr_read(rt2x00dev, 23);
- 	rt2x00_set_field8(&rfcsr, RFCSR23_FREQ_OFFSET, rt2x00dev->freq_offset);
- 	rt2800_rfcsr_write(rt2x00dev, 23, rfcsr);
- 
-@@ -2238,19 +2232,19 @@ static void rt2800_config_channel_rf3xxx(struct rt2x00_dev *rt2x00dev,
- 		}
- 	}
- 
--	rt2800_rfcsr_read(rt2x00dev, 24, &rfcsr);
-+	rfcsr = rt2800_rfcsr_read(rt2x00dev, 24);
- 	rt2x00_set_field8(&rfcsr, RFCSR24_TX_CALIB, calib_tx);
- 	rt2800_rfcsr_write(rt2x00dev, 24, rfcsr);
- 
--	rt2800_rfcsr_read(rt2x00dev, 31, &rfcsr);
-+	rfcsr = rt2800_rfcsr_read(rt2x00dev, 31);
- 	rt2x00_set_field8(&rfcsr, RFCSR31_RX_CALIB, calib_rx);
- 	rt2800_rfcsr_write(rt2x00dev, 31, rfcsr);
- 
--	rt2800_rfcsr_read(rt2x00dev, 7, &rfcsr);
-+	rfcsr = rt2800_rfcsr_read(rt2x00dev, 7);
- 	rt2x00_set_field8(&rfcsr, RFCSR7_RF_TUNING, 1);
- 	rt2800_rfcsr_write(rt2x00dev, 7, rfcsr);
- 
--	rt2800_rfcsr_read(rt2x00dev, 30, &rfcsr);
-+	rfcsr = rt2800_rfcsr_read(rt2x00dev, 30);
- 	rt2x00_set_field8(&rfcsr, RFCSR30_RF_CALIBRATION, 1);
- 	rt2800_rfcsr_write(rt2x00dev, 30, rfcsr);
- 
-@@ -2280,7 +2274,7 @@ static void rt2800_config_channel_rf3052(struct rt2x00_dev *rt2x00dev,
- 	rt2800_rfcsr_write(rt2x00dev, 2, rf->rf1);
- 	rt2800_rfcsr_write(rt2x00dev, 3, rf->rf3);
- 
--	rt2800_rfcsr_read(rt2x00dev, 6, &rfcsr);
-+	rfcsr = rt2800_rfcsr_read(rt2x00dev, 6);
- 	rt2x00_set_field8(&rfcsr, RFCSR6_R1, rf->rf2);
- 	if (rf->channel <= 14)
- 		rt2x00_set_field8(&rfcsr, RFCSR6_TXDIV, 2);
-@@ -2288,14 +2282,14 @@ static void rt2800_config_channel_rf3052(struct rt2x00_dev *rt2x00dev,
- 		rt2x00_set_field8(&rfcsr, RFCSR6_TXDIV, 1);
- 	rt2800_rfcsr_write(rt2x00dev, 6, rfcsr);
- 
--	rt2800_rfcsr_read(rt2x00dev, 5, &rfcsr);
-+	rfcsr = rt2800_rfcsr_read(rt2x00dev, 5);
- 	if (rf->channel <= 14)
- 		rt2x00_set_field8(&rfcsr, RFCSR5_R1, 1);
- 	else
- 		rt2x00_set_field8(&rfcsr, RFCSR5_R1, 2);
- 	rt2800_rfcsr_write(rt2x00dev, 5, rfcsr);
- 
--	rt2800_rfcsr_read(rt2x00dev, 12, &rfcsr);
-+	rfcsr = rt2800_rfcsr_read(rt2x00dev, 12);
- 	if (rf->channel <= 14) {
- 		rt2x00_set_field8(&rfcsr, RFCSR12_DR0, 3);
- 		rt2x00_set_field8(&rfcsr, RFCSR12_TX_POWER,
-@@ -2308,7 +2302,7 @@ static void rt2800_config_channel_rf3052(struct rt2x00_dev *rt2x00dev,
- 	}
- 	rt2800_rfcsr_write(rt2x00dev, 12, rfcsr);
- 
--	rt2800_rfcsr_read(rt2x00dev, 13, &rfcsr);
-+	rfcsr = rt2800_rfcsr_read(rt2x00dev, 13);
- 	if (rf->channel <= 14) {
- 		rt2x00_set_field8(&rfcsr, RFCSR13_DR0, 3);
- 		rt2x00_set_field8(&rfcsr, RFCSR13_TX_POWER,
-@@ -2321,7 +2315,7 @@ static void rt2800_config_channel_rf3052(struct rt2x00_dev *rt2x00dev,
- 	}
- 	rt2800_rfcsr_write(rt2x00dev, 13, rfcsr);
- 
--	rt2800_rfcsr_read(rt2x00dev, 1, &rfcsr);
-+	rfcsr = rt2800_rfcsr_read(rt2x00dev, 1);
- 	rt2x00_set_field8(&rfcsr, RFCSR1_RX0_PD, 0);
- 	rt2x00_set_field8(&rfcsr, RFCSR1_TX0_PD, 0);
- 	rt2x00_set_field8(&rfcsr, RFCSR1_RX1_PD, 0);
-@@ -2354,7 +2348,7 @@ static void rt2800_config_channel_rf3052(struct rt2x00_dev *rt2x00dev,
- 	}
- 	rt2800_rfcsr_write(rt2x00dev, 1, rfcsr);
- 
--	rt2800_rfcsr_read(rt2x00dev, 23, &rfcsr);
-+	rfcsr = rt2800_rfcsr_read(rt2x00dev, 23);
- 	rt2x00_set_field8(&rfcsr, RFCSR23_FREQ_OFFSET, rt2x00dev->freq_offset);
- 	rt2800_rfcsr_write(rt2x00dev, 23, rfcsr);
- 
-@@ -2384,7 +2378,7 @@ static void rt2800_config_channel_rf3052(struct rt2x00_dev *rt2x00dev,
- 		rt2800_rfcsr_write(rt2x00dev, 27, 0x00);
- 		rt2800_rfcsr_write(rt2x00dev, 29, 0x9b);
+ 		return (!rt2x00_get_field32(word, RXD_W1_DMA_DONE));
  	} else {
--		rt2800_rfcsr_read(rt2x00dev, 7, &rfcsr);
-+		rfcsr = rt2800_rfcsr_read(rt2x00dev, 7);
- 		rt2x00_set_field8(&rfcsr, RFCSR7_BIT2, 1);
- 		rt2x00_set_field8(&rfcsr, RFCSR7_BIT3, 0);
- 		rt2x00_set_field8(&rfcsr, RFCSR7_BIT4, 1);
-@@ -2425,7 +2419,7 @@ static void rt2800_config_channel_rf3052(struct rt2x00_dev *rt2x00dev,
- 		rt2x00_set_field32(&reg, GPIO_CTRL_VAL7, 0);
- 	rt2800_register_write(rt2x00dev, GPIO_CTRL, reg);
+-		rt2x00_desc_read(entry_priv->desc, 1, &word);
++		word = rt2x00_desc_read(entry_priv->desc, 1);
  
--	rt2800_rfcsr_read(rt2x00dev, 7, &rfcsr);
-+	rfcsr = rt2800_rfcsr_read(rt2x00dev, 7);
- 	rt2x00_set_field8(&rfcsr, RFCSR7_RF_TUNING, 1);
- 	rt2800_rfcsr_write(rt2x00dev, 7, rfcsr);
- }
-@@ -2468,11 +2462,11 @@ static void rt2800_config_channel_rf3053(struct rt2x00_dev *rt2x00dev,
- 	rt2800_rfcsr_write(rt2x00dev, 8, rf->rf1);
- 	rt2800_rfcsr_write(rt2x00dev, 9, rf->rf3 & 0xf);
- 
--	rt2800_rfcsr_read(rt2x00dev, 11, &rfcsr);
-+	rfcsr = rt2800_rfcsr_read(rt2x00dev, 11);
- 	rt2x00_set_field8(&rfcsr, RFCSR11_R, (rf->rf2 & 0x3));
- 	rt2800_rfcsr_write(rt2x00dev, 11, rfcsr);
- 
--	rt2800_rfcsr_read(rt2x00dev, 11, &rfcsr);
-+	rfcsr = rt2800_rfcsr_read(rt2x00dev, 11);
- 	rt2x00_set_field8(&rfcsr, RFCSR11_PLL_IDOH, 1);
- 	if (rf->channel <= 14)
- 		rt2x00_set_field8(&rfcsr, RFCSR11_PLL_MOD, 1);
-@@ -2480,7 +2474,7 @@ static void rt2800_config_channel_rf3053(struct rt2x00_dev *rt2x00dev,
- 		rt2x00_set_field8(&rfcsr, RFCSR11_PLL_MOD, 2);
- 	rt2800_rfcsr_write(rt2x00dev, 11, rfcsr);
- 
--	rt2800_rfcsr_read(rt2x00dev, 53, &rfcsr);
-+	rfcsr = rt2800_rfcsr_read(rt2x00dev, 53);
- 	if (rf->channel <= 14) {
- 		rfcsr = 0;
- 		rt2x00_set_field8(&rfcsr, RFCSR53_TX_POWER,
-@@ -2495,7 +2489,7 @@ static void rt2800_config_channel_rf3053(struct rt2x00_dev *rt2x00dev,
+ 		return (!rt2x00_get_field32(word, TXD_W1_DMA_DONE));
  	}
- 	rt2800_rfcsr_write(rt2x00dev, 53, rfcsr);
+@@ -715,11 +715,11 @@ void rt2800mmio_clear_entry(struct queue_entry *entry)
+ 	u32 word;
  
--	rt2800_rfcsr_read(rt2x00dev, 55, &rfcsr);
-+	rfcsr = rt2800_rfcsr_read(rt2x00dev, 55);
- 	if (rf->channel <= 14) {
- 		rfcsr = 0;
- 		rt2x00_set_field8(&rfcsr, RFCSR55_TX_POWER,
-@@ -2510,7 +2504,7 @@ static void rt2800_config_channel_rf3053(struct rt2x00_dev *rt2x00dev,
- 	}
- 	rt2800_rfcsr_write(rt2x00dev, 55, rfcsr);
+ 	if (entry->queue->qid == QID_RX) {
+-		rt2x00_desc_read(entry_priv->desc, 0, &word);
++		word = rt2x00_desc_read(entry_priv->desc, 0);
+ 		rt2x00_set_field32(&word, RXD_W0_SDP0, skbdesc->skb_dma);
+ 		rt2x00_desc_write(entry_priv->desc, 0, word);
  
--	rt2800_rfcsr_read(rt2x00dev, 54, &rfcsr);
-+	rfcsr = rt2800_rfcsr_read(rt2x00dev, 54);
- 	if (rf->channel <= 14) {
- 		rfcsr = 0;
- 		rt2x00_set_field8(&rfcsr, RFCSR54_TX_POWER,
-@@ -2525,7 +2519,7 @@ static void rt2800_config_channel_rf3053(struct rt2x00_dev *rt2x00dev,
- 	}
- 	rt2800_rfcsr_write(rt2x00dev, 54, rfcsr);
+-		rt2x00_desc_read(entry_priv->desc, 1, &word);
++		word = rt2x00_desc_read(entry_priv->desc, 1);
+ 		rt2x00_set_field32(&word, RXD_W1_DMA_DONE, 0);
+ 		rt2x00_desc_write(entry_priv->desc, 1, word);
  
--	rt2800_rfcsr_read(rt2x00dev, 1, &rfcsr);
-+	rfcsr = rt2800_rfcsr_read(rt2x00dev, 1);
- 	rt2x00_set_field8(&rfcsr, RFCSR1_RX0_PD, 0);
- 	rt2x00_set_field8(&rfcsr, RFCSR1_TX0_PD, 0);
- 	rt2x00_set_field8(&rfcsr, RFCSR1_RX1_PD, 0);
-@@ -2577,7 +2571,7 @@ static void rt2800_config_channel_rf3053(struct rt2x00_dev *rt2x00dev,
- 	/* NOTE: the reference driver does not writes the new value
- 	 * back to RFCSR 32
- 	 */
--	rt2800_rfcsr_read(rt2x00dev, 32, &rfcsr);
-+	rfcsr = rt2800_rfcsr_read(rt2x00dev, 32);
- 	rt2x00_set_field8(&rfcsr, RFCSR32_TX_AGC_FC, txrx_agc_fc);
- 
- 	if (rf->channel <= 14)
-@@ -2586,34 +2580,34 @@ static void rt2800_config_channel_rf3053(struct rt2x00_dev *rt2x00dev,
- 		rfcsr = 0x80;
- 	rt2800_rfcsr_write(rt2x00dev, 31, rfcsr);
- 
--	rt2800_rfcsr_read(rt2x00dev, 30, &rfcsr);
-+	rfcsr = rt2800_rfcsr_read(rt2x00dev, 30);
- 	rt2x00_set_field8(&rfcsr, RFCSR30_TX_H20M, txrx_h20m);
- 	rt2x00_set_field8(&rfcsr, RFCSR30_RX_H20M, txrx_h20m);
- 	rt2800_rfcsr_write(rt2x00dev, 30, rfcsr);
- 
- 	/* Band selection */
--	rt2800_rfcsr_read(rt2x00dev, 36, &rfcsr);
-+	rfcsr = rt2800_rfcsr_read(rt2x00dev, 36);
- 	if (rf->channel <= 14)
- 		rt2x00_set_field8(&rfcsr, RFCSR36_RF_BS, 1);
- 	else
- 		rt2x00_set_field8(&rfcsr, RFCSR36_RF_BS, 0);
- 	rt2800_rfcsr_write(rt2x00dev, 36, rfcsr);
- 
--	rt2800_rfcsr_read(rt2x00dev, 34, &rfcsr);
-+	rfcsr = rt2800_rfcsr_read(rt2x00dev, 34);
- 	if (rf->channel <= 14)
- 		rfcsr = 0x3c;
- 	else
- 		rfcsr = 0x20;
- 	rt2800_rfcsr_write(rt2x00dev, 34, rfcsr);
- 
--	rt2800_rfcsr_read(rt2x00dev, 12, &rfcsr);
-+	rfcsr = rt2800_rfcsr_read(rt2x00dev, 12);
- 	if (rf->channel <= 14)
- 		rfcsr = 0x1a;
- 	else
- 		rfcsr = 0x12;
- 	rt2800_rfcsr_write(rt2x00dev, 12, rfcsr);
- 
--	rt2800_rfcsr_read(rt2x00dev, 6, &rfcsr);
-+	rfcsr = rt2800_rfcsr_read(rt2x00dev, 6);
- 	if (rf->channel >= 1 && rf->channel <= 14)
- 		rt2x00_set_field8(&rfcsr, RFCSR6_VCO_IC, 1);
- 	else if (rf->channel >= 36 && rf->channel <= 64)
-@@ -2624,7 +2618,7 @@ static void rt2800_config_channel_rf3053(struct rt2x00_dev *rt2x00dev,
- 		rt2x00_set_field8(&rfcsr, RFCSR6_VCO_IC, 1);
- 	rt2800_rfcsr_write(rt2x00dev, 6, rfcsr);
- 
--	rt2800_rfcsr_read(rt2x00dev, 30, &rfcsr);
-+	rfcsr = rt2800_rfcsr_read(rt2x00dev, 30);
- 	rt2x00_set_field8(&rfcsr, RFCSR30_RX_VCM, 2);
- 	rt2800_rfcsr_write(rt2x00dev, 30, rfcsr);
- 
-@@ -2638,11 +2632,11 @@ static void rt2800_config_channel_rf3053(struct rt2x00_dev *rt2x00dev,
- 		rt2800_rfcsr_write(rt2x00dev, 13, 0x23);
- 	}
- 
--	rt2800_rfcsr_read(rt2x00dev, 51, &rfcsr);
-+	rfcsr = rt2800_rfcsr_read(rt2x00dev, 51);
- 	rt2x00_set_field8(&rfcsr, RFCSR51_BITS01, 1);
- 	rt2800_rfcsr_write(rt2x00dev, 51, rfcsr);
- 
--	rt2800_rfcsr_read(rt2x00dev, 51, &rfcsr);
-+	rfcsr = rt2800_rfcsr_read(rt2x00dev, 51);
- 	if (rf->channel <= 14) {
- 		rt2x00_set_field8(&rfcsr, RFCSR51_BITS24, 5);
- 		rt2x00_set_field8(&rfcsr, RFCSR51_BITS57, 3);
-@@ -2652,7 +2646,7 @@ static void rt2800_config_channel_rf3053(struct rt2x00_dev *rt2x00dev,
- 	}
- 	rt2800_rfcsr_write(rt2x00dev, 51, rfcsr);
- 
--	rt2800_rfcsr_read(rt2x00dev, 49, &rfcsr);
-+	rfcsr = rt2800_rfcsr_read(rt2x00dev, 49);
- 	if (rf->channel <= 14)
- 		rt2x00_set_field8(&rfcsr, RFCSR49_TX_LO1_IC, 3);
- 	else
-@@ -2663,11 +2657,11 @@ static void rt2800_config_channel_rf3053(struct rt2x00_dev *rt2x00dev,
- 
- 	rt2800_rfcsr_write(rt2x00dev, 49, rfcsr);
- 
--	rt2800_rfcsr_read(rt2x00dev, 50, &rfcsr);
-+	rfcsr = rt2800_rfcsr_read(rt2x00dev, 50);
- 	rt2x00_set_field8(&rfcsr, RFCSR50_TX_LO1_EN, 0);
- 	rt2800_rfcsr_write(rt2x00dev, 50, rfcsr);
- 
--	rt2800_rfcsr_read(rt2x00dev, 57, &rfcsr);
-+	rfcsr = rt2800_rfcsr_read(rt2x00dev, 57);
- 	if (rf->channel <= 14)
- 		rt2x00_set_field8(&rfcsr, RFCSR57_DRV_CC, 0x1b);
- 	else
-@@ -2683,7 +2677,7 @@ static void rt2800_config_channel_rf3053(struct rt2x00_dev *rt2x00dev,
- 	}
- 
- 	/* Initiate VCO calibration */
--	rt2800_rfcsr_read(rt2x00dev, 3, &rfcsr);
-+	rfcsr = rt2800_rfcsr_read(rt2x00dev, 3);
- 	if (rf->channel <= 14) {
- 		rt2x00_set_field8(&rfcsr, RFCSR3_VCOCAL_EN, 1);
+@@ -730,7 +730,7 @@ void rt2800mmio_clear_entry(struct queue_entry *entry)
+ 		rt2x00mmio_register_write(rt2x00dev, RX_CRX_IDX,
+ 					  entry->entry_idx);
  	} else {
-@@ -2739,11 +2733,11 @@ static void rt2800_config_channel_rf3290(struct rt2x00_dev *rt2x00dev,
- 
- 	rt2800_rfcsr_write(rt2x00dev, 8, rf->rf1);
- 	rt2800_rfcsr_write(rt2x00dev, 9, rf->rf3);
--	rt2800_rfcsr_read(rt2x00dev, 11, &rfcsr);
-+	rfcsr = rt2800_rfcsr_read(rt2x00dev, 11);
- 	rt2x00_set_field8(&rfcsr, RFCSR11_R, rf->rf2);
- 	rt2800_rfcsr_write(rt2x00dev, 11, rfcsr);
- 
--	rt2800_rfcsr_read(rt2x00dev, 49, &rfcsr);
-+	rfcsr = rt2800_rfcsr_read(rt2x00dev, 49);
- 	if (info->default_power1 > POWER_BOUND)
- 		rt2x00_set_field8(&rfcsr, RFCSR49_TX, POWER_BOUND);
- 	else
-@@ -2793,7 +2787,7 @@ static void rt2800_config_channel_rf3322(struct rt2x00_dev *rt2x00dev,
- 
- 	rt2800_freq_cal_mode1(rt2x00dev);
- 
--	rt2800_rfcsr_read(rt2x00dev, 1, &rfcsr);
-+	rfcsr = rt2800_rfcsr_read(rt2x00dev, 1);
- 	rt2x00_set_field8(&rfcsr, RFCSR1_RX0_PD, 1);
- 	rt2x00_set_field8(&rfcsr, RFCSR1_TX0_PD, 1);
- 
-@@ -2824,11 +2818,11 @@ static void rt2800_config_channel_rf53xx(struct rt2x00_dev *rt2x00dev,
- 
- 	rt2800_rfcsr_write(rt2x00dev, 8, rf->rf1);
- 	rt2800_rfcsr_write(rt2x00dev, 9, rf->rf3);
--	rt2800_rfcsr_read(rt2x00dev, 11, &rfcsr);
-+	rfcsr = rt2800_rfcsr_read(rt2x00dev, 11);
- 	rt2x00_set_field8(&rfcsr, RFCSR11_R, rf->rf2);
- 	rt2800_rfcsr_write(rt2x00dev, 11, rfcsr);
- 
--	rt2800_rfcsr_read(rt2x00dev, 49, &rfcsr);
-+	rfcsr = rt2800_rfcsr_read(rt2x00dev, 49);
- 	if (info->default_power1 > POWER_BOUND)
- 		rt2x00_set_field8(&rfcsr, RFCSR49_TX, POWER_BOUND);
- 	else
-@@ -2836,7 +2830,7 @@ static void rt2800_config_channel_rf53xx(struct rt2x00_dev *rt2x00dev,
- 	rt2800_rfcsr_write(rt2x00dev, 49, rfcsr);
- 
- 	if (rt2x00_rt(rt2x00dev, RT5392)) {
--		rt2800_rfcsr_read(rt2x00dev, 50, &rfcsr);
-+		rfcsr = rt2800_rfcsr_read(rt2x00dev, 50);
- 		if (info->default_power2 > POWER_BOUND)
- 			rt2x00_set_field8(&rfcsr, RFCSR50_TX, POWER_BOUND);
- 		else
-@@ -2845,7 +2839,7 @@ static void rt2800_config_channel_rf53xx(struct rt2x00_dev *rt2x00dev,
- 		rt2800_rfcsr_write(rt2x00dev, 50, rfcsr);
+-		rt2x00_desc_read(entry_priv->desc, 1, &word);
++		word = rt2x00_desc_read(entry_priv->desc, 1);
+ 		rt2x00_set_field32(&word, TXD_W1_DMA_DONE, 1);
+ 		rt2x00_desc_write(entry_priv->desc, 1, word);
  	}
- 
--	rt2800_rfcsr_read(rt2x00dev, 1, &rfcsr);
-+	rfcsr = rt2800_rfcsr_read(rt2x00dev, 1);
- 	if (rt2x00_rt(rt2x00dev, RT5392)) {
- 		rt2x00_set_field8(&rfcsr, RFCSR1_RX1_PD, 1);
- 		rt2x00_set_field8(&rfcsr, RFCSR1_TX1_PD, 1);
-@@ -2937,13 +2931,13 @@ static void rt2800_config_channel_rf55xx(struct rt2x00_dev *rt2x00dev,
- 	/* Order of values on rf_channel entry: N, K, mod, R */
- 	rt2800_rfcsr_write(rt2x00dev, 8, rf->rf1 & 0xff);
- 
--	rt2800_rfcsr_read(rt2x00dev,  9, &rfcsr);
-+	rfcsr = rt2800_rfcsr_read(rt2x00dev,  9);
- 	rt2x00_set_field8(&rfcsr, RFCSR9_K, rf->rf2 & 0xf);
- 	rt2x00_set_field8(&rfcsr, RFCSR9_N, (rf->rf1 & 0x100) >> 8);
- 	rt2x00_set_field8(&rfcsr, RFCSR9_MOD, ((rf->rf3 - 8) & 0x4) >> 2);
- 	rt2800_rfcsr_write(rt2x00dev, 9, rfcsr);
- 
--	rt2800_rfcsr_read(rt2x00dev, 11, &rfcsr);
-+	rfcsr = rt2800_rfcsr_read(rt2x00dev, 11);
- 	rt2x00_set_field8(&rfcsr, RFCSR11_R, rf->rf4 - 1);
- 	rt2x00_set_field8(&rfcsr, RFCSR11_MOD, (rf->rf3 - 8) & 0x3);
- 	rt2800_rfcsr_write(rt2x00dev, 11, rfcsr);
-@@ -3111,7 +3105,7 @@ static void rt2800_config_channel_rf55xx(struct rt2x00_dev *rt2x00dev,
- 		ep_reg = 0x3;
- 	}
- 
--	rt2800_rfcsr_read(rt2x00dev, 49, &rfcsr);
-+	rfcsr = rt2800_rfcsr_read(rt2x00dev, 49);
- 	if (info->default_power1 > power_bound)
- 		rt2x00_set_field8(&rfcsr, RFCSR49_TX, power_bound);
- 	else
-@@ -3120,7 +3114,7 @@ static void rt2800_config_channel_rf55xx(struct rt2x00_dev *rt2x00dev,
- 		rt2x00_set_field8(&rfcsr, RFCSR49_EP, ep_reg);
- 	rt2800_rfcsr_write(rt2x00dev, 49, rfcsr);
- 
--	rt2800_rfcsr_read(rt2x00dev, 50, &rfcsr);
-+	rfcsr = rt2800_rfcsr_read(rt2x00dev, 50);
- 	if (info->default_power2 > power_bound)
- 		rt2x00_set_field8(&rfcsr, RFCSR50_TX, power_bound);
- 	else
-@@ -3129,7 +3123,7 @@ static void rt2800_config_channel_rf55xx(struct rt2x00_dev *rt2x00dev,
- 		rt2x00_set_field8(&rfcsr, RFCSR50_EP, ep_reg);
- 	rt2800_rfcsr_write(rt2x00dev, 50, rfcsr);
- 
--	rt2800_rfcsr_read(rt2x00dev, 1, &rfcsr);
-+	rfcsr = rt2800_rfcsr_read(rt2x00dev, 1);
- 	rt2x00_set_field8(&rfcsr, RFCSR1_RF_BLOCK_EN, 1);
- 	rt2x00_set_field8(&rfcsr, RFCSR1_PLL_PD, 1);
- 
-@@ -3162,7 +3156,7 @@ static void rt2800_config_channel_rf55xx(struct rt2x00_dev *rt2x00dev,
- 	rt2800_freq_cal_mode1(rt2x00dev);
- 
- 	/* TODO merge with others */
--	rt2800_rfcsr_read(rt2x00dev, 3, &rfcsr);
-+	rfcsr = rt2800_rfcsr_read(rt2x00dev, 3);
- 	rt2x00_set_field8(&rfcsr, RFCSR3_VCOCAL_EN, 1);
- 	rt2800_rfcsr_write(rt2x00dev, 3, rfcsr);
- 
-@@ -3204,7 +3198,7 @@ static void rt2800_config_channel_rf7620(struct rt2x00_dev *rt2x00dev,
- 	/* Rdiv setting (set 0x03 if Xtal==20)
- 	 * R13[1:0]
+diff --git a/drivers/net/wireless/ralink/rt2x00/rt2800usb.c b/drivers/net/wireless/ralink/rt2x00/rt2800usb.c
+index 75555f806905..04a7debddb64 100644
+--- a/drivers/net/wireless/ralink/rt2x00/rt2800usb.c
++++ b/drivers/net/wireless/ralink/rt2x00/rt2800usb.c
+@@ -456,7 +456,7 @@ static void rt2800usb_write_tx_desc(struct queue_entry *entry,
+ 	/*
+ 	 * Initialize TXINFO descriptor
  	 */
--	rt2800_rfcsr_read(rt2x00dev, 13, &rfcsr);
-+	rfcsr = rt2800_rfcsr_read(rt2x00dev, 13);
- 	rt2x00_set_field8(&rfcsr, RFCSR13_RDIV_MT7620,
- 			  rt2800_clk_is_20mhz(rt2x00dev) ? 3 : 0);
- 	rt2800_rfcsr_write(rt2x00dev, 13, rfcsr);
-@@ -3213,25 +3207,25 @@ static void rt2800_config_channel_rf7620(struct rt2x00_dev *rt2x00dev,
- 	 * R20[7:0] in rf->rf1
- 	 * R21[0] always 0
+-	rt2x00_desc_read(txi, 0, &word);
++	word = rt2x00_desc_read(txi, 0);
+ 
+ 	/*
+ 	 * The size of TXINFO_W0_USB_DMA_TX_PKT_LEN is
+@@ -527,7 +527,7 @@ static bool rt2800usb_txdone_entry_check(struct queue_entry *entry, u32 reg)
  	 */
--	rt2800_rfcsr_read(rt2x00dev, 20, &rfcsr);
-+	rfcsr = rt2800_rfcsr_read(rt2x00dev, 20);
- 	rfcsr = (rf->rf1 & 0x00ff);
- 	rt2800_rfcsr_write(rt2x00dev, 20, rfcsr);
+ 	txwi = rt2800usb_get_txwi(entry);
  
--	rt2800_rfcsr_read(rt2x00dev, 21, &rfcsr);
-+	rfcsr = rt2800_rfcsr_read(rt2x00dev, 21);
- 	rt2x00_set_field8(&rfcsr, RFCSR21_BIT1, 0);
- 	rt2800_rfcsr_write(rt2x00dev, 21, rfcsr);
- 
- 	/* K setting (always 0)
- 	 * R16[3:0] (RF PLL freq selection)
+-	rt2x00_desc_read(txwi, 1, &word);
++	word = rt2x00_desc_read(txwi, 1);
+ 	tx_wcid = rt2x00_get_field32(word, TXWI_W1_WIRELESS_CLI_ID);
+ 	tx_ack  = rt2x00_get_field32(word, TXWI_W1_ACK);
+ 	tx_pid  = rt2x00_get_field32(word, TXWI_W1_PACKETID);
+@@ -652,7 +652,7 @@ static void rt2800usb_fill_rxdone(struct queue_entry *entry,
+ 	 * | RXINFO | RXWI | header | L2 pad | payload | pad | RXD | USB pad |
+ 	 *          |<------------ rx_pkt_len -------------->|
  	 */
--	rt2800_rfcsr_read(rt2x00dev, 16, &rfcsr);
-+	rfcsr = rt2800_rfcsr_read(rt2x00dev, 16);
- 	rt2x00_set_field8(&rfcsr, RFCSR16_RF_PLL_FREQ_SEL_MT7620, 0);
- 	rt2800_rfcsr_write(rt2x00dev, 16, rfcsr);
+-	rt2x00_desc_read(rxi, 0, &word);
++	word = rt2x00_desc_read(rxi, 0);
+ 	rx_pkt_len = rt2x00_get_field32(word, RXINFO_W0_USB_DMA_RX_PKT_LEN);
  
- 	/* D setting (always 0)
- 	 * R22[2:0] (D=15, R22[2:0]=<111>)
+ 	/*
+@@ -676,7 +676,7 @@ static void rt2800usb_fill_rxdone(struct queue_entry *entry,
+ 	/*
+ 	 * It is now safe to read the descriptor on all architectures.
  	 */
--	rt2800_rfcsr_read(rt2x00dev, 22, &rfcsr);
-+	rfcsr = rt2800_rfcsr_read(rt2x00dev, 22);
- 	rt2x00_set_field8(&rfcsr, RFCSR22_FREQPLAN_D_MT7620, 0);
- 	rt2800_rfcsr_write(rt2x00dev, 22, rfcsr);
+-	rt2x00_desc_read(rxd, 0, &word);
++	word = rt2x00_desc_read(rxd, 0);
  
-@@ -3240,40 +3234,40 @@ static void rt2800_config_channel_rf7620(struct rt2x00_dev *rt2x00dev,
- 	 *      R18<7:0> in rf->rf3
- 	 *      R19<1:0> in rf->rf4
- 	 */
--	rt2800_rfcsr_read(rt2x00dev, 17, &rfcsr);
-+	rfcsr = rt2800_rfcsr_read(rt2x00dev, 17);
- 	rfcsr = rf->rf2;
- 	rt2800_rfcsr_write(rt2x00dev, 17, rfcsr);
- 
--	rt2800_rfcsr_read(rt2x00dev, 18, &rfcsr);
-+	rfcsr = rt2800_rfcsr_read(rt2x00dev, 18);
- 	rfcsr = rf->rf3;
- 	rt2800_rfcsr_write(rt2x00dev, 18, rfcsr);
- 
--	rt2800_rfcsr_read(rt2x00dev, 19, &rfcsr);
-+	rfcsr = rt2800_rfcsr_read(rt2x00dev, 19);
- 	rt2x00_set_field8(&rfcsr, RFCSR19_K, rf->rf4);
- 	rt2800_rfcsr_write(rt2x00dev, 19, rfcsr);
- 
- 	/* Default: XO=20MHz , SDM mode */
--	rt2800_rfcsr_read(rt2x00dev, 16, &rfcsr);
-+	rfcsr = rt2800_rfcsr_read(rt2x00dev, 16);
- 	rt2x00_set_field8(&rfcsr, RFCSR16_SDM_MODE_MT7620, 0x80);
- 	rt2800_rfcsr_write(rt2x00dev, 16, rfcsr);
- 
--	rt2800_rfcsr_read(rt2x00dev, 21, &rfcsr);
-+	rfcsr = rt2800_rfcsr_read(rt2x00dev, 21);
- 	rt2x00_set_field8(&rfcsr, RFCSR21_BIT8, 1);
- 	rt2800_rfcsr_write(rt2x00dev, 21, rfcsr);
- 
--	rt2800_rfcsr_read(rt2x00dev, 1, &rfcsr);
-+	rfcsr = rt2800_rfcsr_read(rt2x00dev, 1);
- 	rt2x00_set_field8(&rfcsr, RFCSR1_TX2_EN_MT7620,
- 			  rt2x00dev->default_ant.tx_chain_num != 1);
- 	rt2800_rfcsr_write(rt2x00dev, 1, rfcsr);
- 
--	rt2800_rfcsr_read(rt2x00dev, 2, &rfcsr);
-+	rfcsr = rt2800_rfcsr_read(rt2x00dev, 2);
- 	rt2x00_set_field8(&rfcsr, RFCSR2_TX2_EN_MT7620,
- 			  rt2x00dev->default_ant.tx_chain_num != 1);
- 	rt2x00_set_field8(&rfcsr, RFCSR2_RX2_EN_MT7620,
- 			  rt2x00dev->default_ant.rx_chain_num != 1);
- 	rt2800_rfcsr_write(rt2x00dev, 2, rfcsr);
- 
--	rt2800_rfcsr_read(rt2x00dev, 42, &rfcsr);
-+	rfcsr = rt2800_rfcsr_read(rt2x00dev, 42);
- 	rt2x00_set_field8(&rfcsr, RFCSR42_TX2_EN_MT7620,
- 			  rt2x00dev->default_ant.tx_chain_num != 1);
- 	rt2800_rfcsr_write(rt2x00dev, 42, rfcsr);
-@@ -3301,7 +3295,7 @@ static void rt2800_config_channel_rf7620(struct rt2x00_dev *rt2x00dev,
- 		rt2800_rfcsr_write_dccal(rt2x00dev, 59, 0x28);
- 	}
- 
--	rt2800_rfcsr_read(rt2x00dev, 28, &rfcsr);
-+	rfcsr = rt2800_rfcsr_read(rt2x00dev, 28);
- 	rt2x00_set_field8(&rfcsr, RFCSR28_CH11_HT40,
- 			  conf_is_ht40(conf) && (rf->channel == 11));
- 	rt2800_rfcsr_write(rt2x00dev, 28, rfcsr);
-@@ -3314,36 +3308,36 @@ static void rt2800_config_channel_rf7620(struct rt2x00_dev *rt2x00dev,
- 			rx_agc_fc = drv_data->rx_calibration_bw20;
- 			tx_agc_fc = drv_data->tx_calibration_bw20;
- 		}
--		rt2800_rfcsr_read_bank(rt2x00dev, 5, 6, &rfcsr);
-+		rfcsr = rt2800_rfcsr_read_bank(rt2x00dev, 5, 6);
- 		rfcsr &= (~0x3F);
- 		rfcsr |= rx_agc_fc;
- 		rt2800_rfcsr_write_bank(rt2x00dev, 5, 6, rfcsr);
--		rt2800_rfcsr_read_bank(rt2x00dev, 5, 7, &rfcsr);
-+		rfcsr = rt2800_rfcsr_read_bank(rt2x00dev, 5, 7);
- 		rfcsr &= (~0x3F);
- 		rfcsr |= rx_agc_fc;
- 		rt2800_rfcsr_write_bank(rt2x00dev, 5, 7, rfcsr);
--		rt2800_rfcsr_read_bank(rt2x00dev, 7, 6, &rfcsr);
-+		rfcsr = rt2800_rfcsr_read_bank(rt2x00dev, 7, 6);
- 		rfcsr &= (~0x3F);
- 		rfcsr |= rx_agc_fc;
- 		rt2800_rfcsr_write_bank(rt2x00dev, 7, 6, rfcsr);
--		rt2800_rfcsr_read_bank(rt2x00dev, 7, 7, &rfcsr);
-+		rfcsr = rt2800_rfcsr_read_bank(rt2x00dev, 7, 7);
- 		rfcsr &= (~0x3F);
- 		rfcsr |= rx_agc_fc;
- 		rt2800_rfcsr_write_bank(rt2x00dev, 7, 7, rfcsr);
- 
--		rt2800_rfcsr_read_bank(rt2x00dev, 5, 58, &rfcsr);
-+		rfcsr = rt2800_rfcsr_read_bank(rt2x00dev, 5, 58);
- 		rfcsr &= (~0x3F);
- 		rfcsr |= tx_agc_fc;
- 		rt2800_rfcsr_write_bank(rt2x00dev, 5, 58, rfcsr);
--		rt2800_rfcsr_read_bank(rt2x00dev, 5, 59, &rfcsr);
-+		rfcsr = rt2800_rfcsr_read_bank(rt2x00dev, 5, 59);
- 		rfcsr &= (~0x3F);
- 		rfcsr |= tx_agc_fc;
- 		rt2800_rfcsr_write_bank(rt2x00dev, 5, 59, rfcsr);
--		rt2800_rfcsr_read_bank(rt2x00dev, 7, 58, &rfcsr);
-+		rfcsr = rt2800_rfcsr_read_bank(rt2x00dev, 7, 58);
- 		rfcsr &= (~0x3F);
- 		rfcsr |= tx_agc_fc;
- 		rt2800_rfcsr_write_bank(rt2x00dev, 7, 58, rfcsr);
--		rt2800_rfcsr_read_bank(rt2x00dev, 7, 59, &rfcsr);
-+		rfcsr = rt2800_rfcsr_read_bank(rt2x00dev, 7, 59);
- 		rfcsr &= (~0x3F);
- 		rfcsr |= tx_agc_fc;
- 		rt2800_rfcsr_write_bank(rt2x00dev, 7, 59, rfcsr);
-@@ -3615,7 +3609,7 @@ static void rt2800_config_channel(struct rt2x00_dev *rt2x00dev,
- 	    rt2x00_rf(rt2x00dev, RF5372) ||
- 	    rt2x00_rf(rt2x00dev, RF5390) ||
- 	    rt2x00_rf(rt2x00dev, RF5392)) {
--		rt2800_rfcsr_read(rt2x00dev, 30, &rfcsr);
-+		rfcsr = rt2800_rfcsr_read(rt2x00dev, 30);
- 		if (rt2x00_rf(rt2x00dev, RF3322)) {
- 			rt2x00_set_field8(&rfcsr, RF3322_RFCSR30_TX_H20M,
- 					  conf_is_ht40(conf));
-@@ -3629,7 +3623,7 @@ static void rt2800_config_channel(struct rt2x00_dev *rt2x00dev,
- 		}
- 		rt2800_rfcsr_write(rt2x00dev, 30, rfcsr);
- 
--		rt2800_rfcsr_read(rt2x00dev, 3, &rfcsr);
-+		rfcsr = rt2800_rfcsr_read(rt2x00dev, 3);
- 		rt2x00_set_field8(&rfcsr, RFCSR3_VCOCAL_EN, 1);
- 		rt2800_rfcsr_write(rt2x00dev, 3, rfcsr);
- 	}
-@@ -4882,7 +4876,7 @@ void rt2800_vco_calibration(struct rt2x00_dev *rt2x00dev)
- 	case RF3022:
- 	case RF3320:
- 	case RF3052:
--		rt2800_rfcsr_read(rt2x00dev, 7, &rfcsr);
-+		rfcsr = rt2800_rfcsr_read(rt2x00dev, 7);
- 		rt2x00_set_field8(&rfcsr, RFCSR7_RF_TUNING, 1);
- 		rt2800_rfcsr_write(rt2x00dev, 7, rfcsr);
- 		break;
-@@ -4897,7 +4891,7 @@ void rt2800_vco_calibration(struct rt2x00_dev *rt2x00dev)
- 	case RF5390:
- 	case RF5392:
- 	case RF5592:
--		rt2800_rfcsr_read(rt2x00dev, 3, &rfcsr);
-+		rfcsr = rt2800_rfcsr_read(rt2x00dev, 3);
- 		rt2x00_set_field8(&rfcsr, RFCSR3_VCOCAL_EN, 1);
- 		rt2800_rfcsr_write(rt2x00dev, 3, rfcsr);
- 		min_sleep = 1000;
-@@ -4905,7 +4899,7 @@ void rt2800_vco_calibration(struct rt2x00_dev *rt2x00dev)
- 	case RF7620:
- 		rt2800_rfcsr_write(rt2x00dev, 5, 0x40);
- 		rt2800_rfcsr_write(rt2x00dev, 4, 0x0C);
--		rt2800_rfcsr_read(rt2x00dev, 4, &rfcsr);
-+		rfcsr = rt2800_rfcsr_read(rt2x00dev, 4);
- 		rt2x00_set_field8(&rfcsr, RFCSR4_VCOCAL_EN, 1);
- 		rt2800_rfcsr_write(rt2x00dev, 4, rfcsr);
- 		min_sleep = 2000;
-@@ -6633,11 +6627,11 @@ static u8 rt2800_init_rx_filter(struct rt2x00_dev *rt2x00dev, bool bw40,
- 	rt2x00_set_field8(&bbp, BBP4_BANDWIDTH, 2 * bw40);
- 	rt2800_bbp_write(rt2x00dev, 4, bbp);
- 
--	rt2800_rfcsr_read(rt2x00dev, 31, &rfcsr);
-+	rfcsr = rt2800_rfcsr_read(rt2x00dev, 31);
- 	rt2x00_set_field8(&rfcsr, RFCSR31_RX_H20M, bw40);
- 	rt2800_rfcsr_write(rt2x00dev, 31, rfcsr);
- 
--	rt2800_rfcsr_read(rt2x00dev, 22, &rfcsr);
-+	rfcsr = rt2800_rfcsr_read(rt2x00dev, 22);
- 	rt2x00_set_field8(&rfcsr, RFCSR22_BASEBAND_LOOPBACK, 1);
- 	rt2800_rfcsr_write(rt2x00dev, 22, rfcsr);
- 
-@@ -6686,7 +6680,7 @@ static void rt2800_rf_init_calibration(struct rt2x00_dev *rt2x00dev,
+ 	if (rt2x00_get_field32(word, RXD_W0_CRC_ERROR))
+ 		rxdesc->flags |= RX_FLAG_FAILED_FCS_CRC;
+diff --git a/drivers/net/wireless/ralink/rt2x00/rt2x00queue.h b/drivers/net/wireless/ralink/rt2x00/rt2x00queue.h
+index 6055f36211b9..a15bae29917b 100644
+--- a/drivers/net/wireless/ralink/rt2x00/rt2x00queue.h
++++ b/drivers/net/wireless/ralink/rt2x00/rt2x00queue.h
+@@ -642,11 +642,10 @@ static inline int rt2x00queue_dma_timeout(struct queue_entry *entry)
+  * _rt2x00_desc_read - Read a word from the hardware descriptor.
+  * @desc: Base descriptor address
+  * @word: Word index from where the descriptor should be read.
+- * @value: Address where the descriptor value should be written into.
+  */
+-static inline void _rt2x00_desc_read(__le32 *desc, const u8 word, __le32 *value)
++static inline __le32 _rt2x00_desc_read(__le32 *desc, const u8 word)
  {
- 	u8 rfcsr;
- 
--	rt2800_rfcsr_read(rt2x00dev, rf_reg, &rfcsr);
-+	rfcsr = rt2800_rfcsr_read(rt2x00dev, rf_reg);
- 	rt2x00_set_field8(&rfcsr, FIELD8(0x80), 1);
- 	rt2800_rfcsr_write(rt2x00dev, rf_reg, rfcsr);
- 	msleep(1);
-@@ -6728,7 +6722,7 @@ static void rt2800_rx_filter_calibration(struct rt2x00_dev *rt2x00dev)
- 	 */
- 	rt2800_bbp_write(rt2x00dev, 24, 0);
- 
--	rt2800_rfcsr_read(rt2x00dev, 22, &rfcsr);
-+	rfcsr = rt2800_rfcsr_read(rt2x00dev, 22);
- 	rt2x00_set_field8(&rfcsr, RFCSR22_BASEBAND_LOOPBACK, 0);
- 	rt2800_rfcsr_write(rt2x00dev, 22, rfcsr);
- 
-@@ -6746,7 +6740,7 @@ static void rt2800_normal_mode_setup_3xxx(struct rt2x00_dev *rt2x00dev)
- 	u8 min_gain, rfcsr, bbp;
- 	u16 eeprom;
- 
--	rt2800_rfcsr_read(rt2x00dev, 17, &rfcsr);
-+	rfcsr = rt2800_rfcsr_read(rt2x00dev, 17);
- 
- 	rt2x00_set_field8(&rfcsr, RFCSR17_TX_LO1_EN, 0);
- 	if (rt2x00_rt(rt2x00dev, RT3070) ||
-@@ -6777,7 +6771,7 @@ static void rt2800_normal_mode_setup_3xxx(struct rt2x00_dev *rt2x00dev)
- 	}
- 
- 	if (rt2x00_rt(rt2x00dev, RT3070)) {
--		rt2800_rfcsr_read(rt2x00dev, 27, &rfcsr);
-+		rfcsr = rt2800_rfcsr_read(rt2x00dev, 27);
- 		if (rt2x00_rt_rev_lt(rt2x00dev, RT3070, REV_RT3070F))
- 			rt2x00_set_field8(&rfcsr, RFCSR27_R1, 3);
- 		else
-@@ -6789,7 +6783,7 @@ static void rt2800_normal_mode_setup_3xxx(struct rt2x00_dev *rt2x00dev)
- 	} else if (rt2x00_rt(rt2x00dev, RT3071) ||
- 		   rt2x00_rt(rt2x00dev, RT3090) ||
- 		   rt2x00_rt(rt2x00dev, RT3390)) {
--		rt2800_rfcsr_read(rt2x00dev, 1, &rfcsr);
-+		rfcsr = rt2800_rfcsr_read(rt2x00dev, 1);
- 		rt2x00_set_field8(&rfcsr, RFCSR1_RF_BLOCK_EN, 1);
- 		rt2x00_set_field8(&rfcsr, RFCSR1_RX0_PD, 0);
- 		rt2x00_set_field8(&rfcsr, RFCSR1_TX0_PD, 0);
-@@ -6797,15 +6791,15 @@ static void rt2800_normal_mode_setup_3xxx(struct rt2x00_dev *rt2x00dev)
- 		rt2x00_set_field8(&rfcsr, RFCSR1_TX1_PD, 1);
- 		rt2800_rfcsr_write(rt2x00dev, 1, rfcsr);
- 
--		rt2800_rfcsr_read(rt2x00dev, 15, &rfcsr);
-+		rfcsr = rt2800_rfcsr_read(rt2x00dev, 15);
- 		rt2x00_set_field8(&rfcsr, RFCSR15_TX_LO2_EN, 0);
- 		rt2800_rfcsr_write(rt2x00dev, 15, rfcsr);
- 
--		rt2800_rfcsr_read(rt2x00dev, 20, &rfcsr);
-+		rfcsr = rt2800_rfcsr_read(rt2x00dev, 20);
- 		rt2x00_set_field8(&rfcsr, RFCSR20_RX_LO1_EN, 0);
- 		rt2800_rfcsr_write(rt2x00dev, 20, rfcsr);
- 
--		rt2800_rfcsr_read(rt2x00dev, 21, &rfcsr);
-+		rfcsr = rt2800_rfcsr_read(rt2x00dev, 21);
- 		rt2x00_set_field8(&rfcsr, RFCSR21_RX_LO2_EN, 0);
- 		rt2800_rfcsr_write(rt2x00dev, 21, rfcsr);
- 	}
-@@ -6817,30 +6811,30 @@ static void rt2800_normal_mode_setup_3593(struct rt2x00_dev *rt2x00dev)
- 	u8 rfcsr;
- 	u8 tx_gain;
- 
--	rt2800_rfcsr_read(rt2x00dev, 50, &rfcsr);
-+	rfcsr = rt2800_rfcsr_read(rt2x00dev, 50);
- 	rt2x00_set_field8(&rfcsr, RFCSR50_TX_LO2_EN, 0);
- 	rt2800_rfcsr_write(rt2x00dev, 50, rfcsr);
- 
--	rt2800_rfcsr_read(rt2x00dev, 51, &rfcsr);
-+	rfcsr = rt2800_rfcsr_read(rt2x00dev, 51);
- 	tx_gain = rt2x00_get_field8(drv_data->txmixer_gain_24g,
- 				    RFCSR17_TXMIXER_GAIN);
- 	rt2x00_set_field8(&rfcsr, RFCSR51_BITS24, tx_gain);
- 	rt2800_rfcsr_write(rt2x00dev, 51, rfcsr);
- 
--	rt2800_rfcsr_read(rt2x00dev, 38, &rfcsr);
-+	rfcsr = rt2800_rfcsr_read(rt2x00dev, 38);
- 	rt2x00_set_field8(&rfcsr, RFCSR38_RX_LO1_EN, 0);
- 	rt2800_rfcsr_write(rt2x00dev, 38, rfcsr);
- 
--	rt2800_rfcsr_read(rt2x00dev, 39, &rfcsr);
-+	rfcsr = rt2800_rfcsr_read(rt2x00dev, 39);
- 	rt2x00_set_field8(&rfcsr, RFCSR39_RX_LO2_EN, 0);
- 	rt2800_rfcsr_write(rt2x00dev, 39, rfcsr);
- 
--	rt2800_rfcsr_read(rt2x00dev, 1, &rfcsr);
-+	rfcsr = rt2800_rfcsr_read(rt2x00dev, 1);
- 	rt2x00_set_field8(&rfcsr, RFCSR1_RF_BLOCK_EN, 1);
- 	rt2x00_set_field8(&rfcsr, RFCSR1_PLL_PD, 1);
- 	rt2800_rfcsr_write(rt2x00dev, 1, rfcsr);
- 
--	rt2800_rfcsr_read(rt2x00dev, 30, &rfcsr);
-+	rfcsr = rt2800_rfcsr_read(rt2x00dev, 30);
- 	rt2x00_set_field8(&rfcsr, RFCSR30_RX_VCM, 2);
- 	rt2800_rfcsr_write(rt2x00dev, 30, rfcsr);
- 
-@@ -6861,17 +6855,17 @@ static void rt2800_normal_mode_setup_5xxx(struct rt2x00_dev *rt2x00dev)
- 		rt2x00_set_field8(&reg, BBP138_TX_DAC1, 1);
- 	rt2800_bbp_write(rt2x00dev, 138, reg);
- 
--	rt2800_rfcsr_read(rt2x00dev, 38, &reg);
-+	reg = rt2800_rfcsr_read(rt2x00dev, 38);
- 	rt2x00_set_field8(&reg, RFCSR38_RX_LO1_EN, 0);
- 	rt2800_rfcsr_write(rt2x00dev, 38, reg);
- 
--	rt2800_rfcsr_read(rt2x00dev, 39, &reg);
-+	reg = rt2800_rfcsr_read(rt2x00dev, 39);
- 	rt2x00_set_field8(&reg, RFCSR39_RX_LO2_EN, 0);
- 	rt2800_rfcsr_write(rt2x00dev, 39, reg);
- 
- 	rt2800_bbp4_mac_if_ctrl(rt2x00dev);
- 
--	rt2800_rfcsr_read(rt2x00dev, 30, &reg);
-+	reg = rt2800_rfcsr_read(rt2x00dev, 30);
- 	rt2x00_set_field8(&reg, RFCSR30_RX_VCM, 2);
- 	rt2800_rfcsr_write(rt2x00dev, 30, reg);
+-	*value = desc[word];
++	return desc[word];
  }
-@@ -6952,7 +6946,7 @@ static void rt2800_init_rfcsr_30xx(struct rt2x00_dev *rt2x00dev)
- 		   rt2x00_rt(rt2x00dev, RT3090)) {
- 		rt2800_rfcsr_write(rt2x00dev, 31, 0x14);
  
--		rt2800_rfcsr_read(rt2x00dev, 6, &rfcsr);
-+		rfcsr = rt2800_rfcsr_read(rt2x00dev, 6);
- 		rt2x00_set_field8(&rfcsr, RFCSR6_R2, 1);
- 		rt2800_rfcsr_write(rt2x00dev, 6, rfcsr);
+ /**
+@@ -654,13 +653,10 @@ static inline void _rt2x00_desc_read(__le32 *desc, const u8 word, __le32 *value)
+  * function will take care of the byte ordering.
+  * @desc: Base descriptor address
+  * @word: Word index from where the descriptor should be read.
+- * @value: Address where the descriptor value should be written into.
+  */
+-static inline void rt2x00_desc_read(__le32 *desc, const u8 word, u32 *value)
++static inline u32 rt2x00_desc_read(__le32 *desc, const u8 word)
+ {
+-	__le32 tmp;
+-	_rt2x00_desc_read(desc, word, &tmp);
+-	*value = le32_to_cpu(tmp);
++	return le32_to_cpu(_rt2x00_desc_read(desc, word));
+ }
  
-@@ -7038,7 +7032,7 @@ static void rt2800_init_rfcsr_3290(struct rt2x00_dev *rt2x00dev)
- 	rt2800_rfcsr_write(rt2x00dev, 60, 0x45);
- 	rt2800_rfcsr_write(rt2x00dev, 61, 0xc1);
+ /**
+diff --git a/drivers/net/wireless/ralink/rt2x00/rt61pci.c b/drivers/net/wireless/ralink/rt2x00/rt61pci.c
+index d5b8051466b4..234310200759 100644
+--- a/drivers/net/wireless/ralink/rt2x00/rt61pci.c
++++ b/drivers/net/wireless/ralink/rt2x00/rt61pci.c
+@@ -1386,11 +1386,11 @@ static bool rt61pci_get_entry_state(struct queue_entry *entry)
+ 	u32 word;
  
--	rt2800_rfcsr_read(rt2x00dev, 29, &rfcsr);
-+	rfcsr = rt2800_rfcsr_read(rt2x00dev, 29);
- 	rt2x00_set_field8(&rfcsr, RFCSR29_RSSI_GAIN, 3);
- 	rt2800_rfcsr_write(rt2x00dev, 29, rfcsr);
+ 	if (entry->queue->qid == QID_RX) {
+-		rt2x00_desc_read(entry_priv->desc, 0, &word);
++		word = rt2x00_desc_read(entry_priv->desc, 0);
  
-@@ -7236,7 +7230,7 @@ static void rt2800_init_rfcsr_3572(struct rt2x00_dev *rt2x00dev)
- 	rt2800_rfcsr_write(rt2x00dev, 30, 0x09);
- 	rt2800_rfcsr_write(rt2x00dev, 31, 0x10);
+ 		return rt2x00_get_field32(word, RXD_W0_OWNER_NIC);
+ 	} else {
+-		rt2x00_desc_read(entry_priv->desc, 0, &word);
++		word = rt2x00_desc_read(entry_priv->desc, 0);
  
--	rt2800_rfcsr_read(rt2x00dev, 6, &rfcsr);
-+	rfcsr = rt2800_rfcsr_read(rt2x00dev, 6);
- 	rt2x00_set_field8(&rfcsr, RFCSR6_R2, 1);
- 	rt2800_rfcsr_write(rt2x00dev, 6, rfcsr);
+ 		return (rt2x00_get_field32(word, TXD_W0_OWNER_NIC) ||
+ 		        rt2x00_get_field32(word, TXD_W0_VALID));
+@@ -1404,16 +1404,16 @@ static void rt61pci_clear_entry(struct queue_entry *entry)
+ 	u32 word;
  
-@@ -7350,13 +7344,13 @@ static void rt2800_init_rfcsr_3593(struct rt2x00_dev *rt2x00dev)
+ 	if (entry->queue->qid == QID_RX) {
+-		rt2x00_desc_read(entry_priv->desc, 5, &word);
++		word = rt2x00_desc_read(entry_priv->desc, 5);
+ 		rt2x00_set_field32(&word, RXD_W5_BUFFER_PHYSICAL_ADDRESS,
+ 				   skbdesc->skb_dma);
+ 		rt2x00_desc_write(entry_priv->desc, 5, word);
  
- 	/* Initiate calibration */
- 	/* TODO: use rt2800_rf_init_calibration ? */
--	rt2800_rfcsr_read(rt2x00dev, 2, &rfcsr);
-+	rfcsr = rt2800_rfcsr_read(rt2x00dev, 2);
- 	rt2x00_set_field8(&rfcsr, RFCSR2_RESCAL_EN, 1);
- 	rt2800_rfcsr_write(rt2x00dev, 2, rfcsr);
+-		rt2x00_desc_read(entry_priv->desc, 0, &word);
++		word = rt2x00_desc_read(entry_priv->desc, 0);
+ 		rt2x00_set_field32(&word, RXD_W0_OWNER_NIC, 1);
+ 		rt2x00_desc_write(entry_priv->desc, 0, word);
+ 	} else {
+-		rt2x00_desc_read(entry_priv->desc, 0, &word);
++		word = rt2x00_desc_read(entry_priv->desc, 0);
+ 		rt2x00_set_field32(&word, TXD_W0_VALID, 0);
+ 		rt2x00_set_field32(&word, TXD_W0_OWNER_NIC, 0);
+ 		rt2x00_desc_write(entry_priv->desc, 0, word);
+@@ -1879,7 +1879,7 @@ static void rt61pci_write_tx_desc(struct queue_entry *entry,
+ 	/*
+ 	 * Start writing the descriptor words.
+ 	 */
+-	rt2x00_desc_read(txd, 1, &word);
++	word = rt2x00_desc_read(txd, 1);
+ 	rt2x00_set_field32(&word, TXD_W1_HOST_Q_ID, entry->queue->qid);
+ 	rt2x00_set_field32(&word, TXD_W1_AIFSN, entry->queue->aifs);
+ 	rt2x00_set_field32(&word, TXD_W1_CWMIN, entry->queue->cw_min);
+@@ -1890,7 +1890,7 @@ static void rt61pci_write_tx_desc(struct queue_entry *entry,
+ 	rt2x00_set_field32(&word, TXD_W1_BUFFER_COUNT, 1);
+ 	rt2x00_desc_write(txd, 1, word);
  
- 	rt2800_freq_cal_mode1(rt2x00dev);
+-	rt2x00_desc_read(txd, 2, &word);
++	word = rt2x00_desc_read(txd, 2);
+ 	rt2x00_set_field32(&word, TXD_W2_PLCP_SIGNAL, txdesc->u.plcp.signal);
+ 	rt2x00_set_field32(&word, TXD_W2_PLCP_SERVICE, txdesc->u.plcp.service);
+ 	rt2x00_set_field32(&word, TXD_W2_PLCP_LENGTH_LOW,
+@@ -1904,7 +1904,7 @@ static void rt61pci_write_tx_desc(struct queue_entry *entry,
+ 		_rt2x00_desc_write(txd, 4, skbdesc->iv[1]);
+ 	}
  
--	rt2800_rfcsr_read(rt2x00dev, 18, &rfcsr);
-+	rfcsr = rt2800_rfcsr_read(rt2x00dev, 18);
- 	rt2x00_set_field8(&rfcsr, RFCSR18_XO_TUNE_BYPASS, 1);
- 	rt2800_rfcsr_write(rt2x00dev, 18, rfcsr);
+-	rt2x00_desc_read(txd, 5, &word);
++	word = rt2x00_desc_read(txd, 5);
+ 	rt2x00_set_field32(&word, TXD_W5_PID_TYPE, entry->queue->qid);
+ 	rt2x00_set_field32(&word, TXD_W5_PID_SUBTYPE, entry->entry_idx);
+ 	rt2x00_set_field32(&word, TXD_W5_TX_POWER,
+@@ -1913,12 +1913,12 @@ static void rt61pci_write_tx_desc(struct queue_entry *entry,
+ 	rt2x00_desc_write(txd, 5, word);
  
-@@ -7698,7 +7692,7 @@ static int rt2800_rf_lp_config(struct rt2x00_dev *rt2x00dev, bool btxcal)
+ 	if (entry->queue->qid != QID_BEACON) {
+-		rt2x00_desc_read(txd, 6, &word);
++		word = rt2x00_desc_read(txd, 6);
+ 		rt2x00_set_field32(&word, TXD_W6_BUFFER_PHYSICAL_ADDRESS,
+ 				   skbdesc->skb_dma);
+ 		rt2x00_desc_write(txd, 6, word);
  
- 	rt2800_register_write(rt2x00dev, RF_BYPASS0, 0x06);
+-		rt2x00_desc_read(txd, 11, &word);
++		word = rt2x00_desc_read(txd, 11);
+ 		rt2x00_set_field32(&word, TXD_W11_BUFFER_LENGTH0,
+ 				   txdesc->length);
+ 		rt2x00_desc_write(txd, 11, word);
+@@ -1929,7 +1929,7 @@ static void rt61pci_write_tx_desc(struct queue_entry *entry,
+ 	 * the device, whereby the device may take hold of the TXD before we
+ 	 * finished updating it.
+ 	 */
+-	rt2x00_desc_read(txd, 0, &word);
++	word = rt2x00_desc_read(txd, 0);
+ 	rt2x00_set_field32(&word, TXD_W0_OWNER_NIC, 1);
+ 	rt2x00_set_field32(&word, TXD_W0_VALID, 1);
+ 	rt2x00_set_field32(&word, TXD_W0_MORE_FRAG,
+@@ -2095,8 +2095,8 @@ static void rt61pci_fill_rxdone(struct queue_entry *entry,
+ 	u32 word0;
+ 	u32 word1;
  
--	rt2800_rfcsr_read_bank(rt2x00dev, 5, 17, &rf_val);
-+	rf_val = rt2800_rfcsr_read_bank(rt2x00dev, 5, 17);
- 	rf_val |= 0x80;
- 	rt2800_rfcsr_write_bank(rt2x00dev, 5, 17, rf_val);
+-	rt2x00_desc_read(entry_priv->desc, 0, &word0);
+-	rt2x00_desc_read(entry_priv->desc, 1, &word1);
++	word0 = rt2x00_desc_read(entry_priv->desc, 0);
++	word1 = rt2x00_desc_read(entry_priv->desc, 1);
  
-@@ -7706,11 +7700,11 @@ static int rt2800_rf_lp_config(struct rt2x00_dev *rt2x00dev, bool btxcal)
- 		rt2800_rfcsr_write_bank(rt2x00dev, 5, 18, 0xC1);
- 		rt2800_rfcsr_write_bank(rt2x00dev, 5, 19, 0x20);
- 		rt2800_rfcsr_write_bank(rt2x00dev, 5, 20, 0x02);
--		rt2800_rfcsr_read_bank(rt2x00dev, 5, 3, &rf_val);
-+		rf_val = rt2800_rfcsr_read_bank(rt2x00dev, 5, 3);
- 		rf_val &= (~0x3F);
- 		rf_val |= 0x3F;
- 		rt2800_rfcsr_write_bank(rt2x00dev, 5, 3, rf_val);
--		rt2800_rfcsr_read_bank(rt2x00dev, 5, 4, &rf_val);
-+		rf_val = rt2800_rfcsr_read_bank(rt2x00dev, 5, 4);
- 		rf_val &= (~0x3F);
- 		rf_val |= 0x3F;
- 		rt2800_rfcsr_write_bank(rt2x00dev, 5, 4, rf_val);
-@@ -7719,11 +7713,11 @@ static int rt2800_rf_lp_config(struct rt2x00_dev *rt2x00dev, bool btxcal)
- 		rt2800_rfcsr_write_bank(rt2x00dev, 5, 18, 0xF1);
- 		rt2800_rfcsr_write_bank(rt2x00dev, 5, 19, 0x18);
- 		rt2800_rfcsr_write_bank(rt2x00dev, 5, 20, 0x02);
--		rt2800_rfcsr_read_bank(rt2x00dev, 5, 3, &rf_val);
-+		rf_val = rt2800_rfcsr_read_bank(rt2x00dev, 5, 3);
- 		rf_val &= (~0x3F);
- 		rf_val |= 0x34;
- 		rt2800_rfcsr_write_bank(rt2x00dev, 5, 3, rf_val);
--		rt2800_rfcsr_read_bank(rt2x00dev, 5, 4, &rf_val);
-+		rf_val = rt2800_rfcsr_read_bank(rt2x00dev, 5, 4);
- 		rf_val &= (~0x3F);
- 		rf_val |= 0x34;
- 		rt2800_rfcsr_write_bank(rt2x00dev, 5, 4, rf_val);
-@@ -7789,51 +7783,51 @@ static void rt2800_bw_filter_calibration(struct rt2x00_dev *rt2x00dev,
- 	rt2800_bbp_dcoc_read(rt2x00dev, 2, &savebbp159r2);
+ 	if (rt2x00_get_field32(word0, RXD_W0_CRC_ERROR))
+ 		rxdesc->flags |= RX_FLAG_FAILED_FCS_CRC;
+@@ -2105,11 +2105,11 @@ static void rt61pci_fill_rxdone(struct queue_entry *entry,
+ 	rxdesc->cipher_status = rt2x00_get_field32(word0, RXD_W0_CIPHER_ERROR);
  
- 	/* Save RF registers */
--	rt2800_rfcsr_read_bank(rt2x00dev, 5, 0, &saverfb5r00);
--	rt2800_rfcsr_read_bank(rt2x00dev, 5, 1, &saverfb5r01);
--	rt2800_rfcsr_read_bank(rt2x00dev, 5, 3, &saverfb5r03);
--	rt2800_rfcsr_read_bank(rt2x00dev, 5, 4, &saverfb5r04);
--	rt2800_rfcsr_read_bank(rt2x00dev, 5, 5, &saverfb5r05);
--	rt2800_rfcsr_read_bank(rt2x00dev, 5, 6, &saverfb5r06);
--	rt2800_rfcsr_read_bank(rt2x00dev, 5, 7, &saverfb5r07);
--	rt2800_rfcsr_read_bank(rt2x00dev, 5, 8, &saverfb5r08);
--	rt2800_rfcsr_read_bank(rt2x00dev, 5, 17, &saverfb5r17);
--	rt2800_rfcsr_read_bank(rt2x00dev, 5, 18, &saverfb5r18);
--	rt2800_rfcsr_read_bank(rt2x00dev, 5, 19, &saverfb5r19);
--	rt2800_rfcsr_read_bank(rt2x00dev, 5, 20, &saverfb5r20);
--
--	rt2800_rfcsr_read_bank(rt2x00dev, 5, 37, &saverfb5r37);
--	rt2800_rfcsr_read_bank(rt2x00dev, 5, 38, &saverfb5r38);
--	rt2800_rfcsr_read_bank(rt2x00dev, 5, 39, &saverfb5r39);
--	rt2800_rfcsr_read_bank(rt2x00dev, 5, 40, &saverfb5r40);
--	rt2800_rfcsr_read_bank(rt2x00dev, 5, 41, &saverfb5r41);
--	rt2800_rfcsr_read_bank(rt2x00dev, 5, 42, &saverfb5r42);
--	rt2800_rfcsr_read_bank(rt2x00dev, 5, 43, &saverfb5r43);
--	rt2800_rfcsr_read_bank(rt2x00dev, 5, 44, &saverfb5r44);
--	rt2800_rfcsr_read_bank(rt2x00dev, 5, 45, &saverfb5r45);
--	rt2800_rfcsr_read_bank(rt2x00dev, 5, 46, &saverfb5r46);
--
--	rt2800_rfcsr_read_bank(rt2x00dev, 5, 58, &saverfb5r58);
--	rt2800_rfcsr_read_bank(rt2x00dev, 5, 59, &saverfb5r59);
--
--	rt2800_rfcsr_read_bank(rt2x00dev, 5, 0, &rf_val);
-+	saverfb5r00 = rt2800_rfcsr_read_bank(rt2x00dev, 5, 0);
-+	saverfb5r01 = rt2800_rfcsr_read_bank(rt2x00dev, 5, 1);
-+	saverfb5r03 = rt2800_rfcsr_read_bank(rt2x00dev, 5, 3);
-+	saverfb5r04 = rt2800_rfcsr_read_bank(rt2x00dev, 5, 4);
-+	saverfb5r05 = rt2800_rfcsr_read_bank(rt2x00dev, 5, 5);
-+	saverfb5r06 = rt2800_rfcsr_read_bank(rt2x00dev, 5, 6);
-+	saverfb5r07 = rt2800_rfcsr_read_bank(rt2x00dev, 5, 7);
-+	saverfb5r08 = rt2800_rfcsr_read_bank(rt2x00dev, 5, 8);
-+	saverfb5r17 = rt2800_rfcsr_read_bank(rt2x00dev, 5, 17);
-+	saverfb5r18 = rt2800_rfcsr_read_bank(rt2x00dev, 5, 18);
-+	saverfb5r19 = rt2800_rfcsr_read_bank(rt2x00dev, 5, 19);
-+	saverfb5r20 = rt2800_rfcsr_read_bank(rt2x00dev, 5, 20);
-+
-+	saverfb5r37 = rt2800_rfcsr_read_bank(rt2x00dev, 5, 37);
-+	saverfb5r38 = rt2800_rfcsr_read_bank(rt2x00dev, 5, 38);
-+	saverfb5r39 = rt2800_rfcsr_read_bank(rt2x00dev, 5, 39);
-+	saverfb5r40 = rt2800_rfcsr_read_bank(rt2x00dev, 5, 40);
-+	saverfb5r41 = rt2800_rfcsr_read_bank(rt2x00dev, 5, 41);
-+	saverfb5r42 = rt2800_rfcsr_read_bank(rt2x00dev, 5, 42);
-+	saverfb5r43 = rt2800_rfcsr_read_bank(rt2x00dev, 5, 43);
-+	saverfb5r44 = rt2800_rfcsr_read_bank(rt2x00dev, 5, 44);
-+	saverfb5r45 = rt2800_rfcsr_read_bank(rt2x00dev, 5, 45);
-+	saverfb5r46 = rt2800_rfcsr_read_bank(rt2x00dev, 5, 46);
-+
-+	saverfb5r58 = rt2800_rfcsr_read_bank(rt2x00dev, 5, 58);
-+	saverfb5r59 = rt2800_rfcsr_read_bank(rt2x00dev, 5, 59);
-+
-+	rf_val = rt2800_rfcsr_read_bank(rt2x00dev, 5, 0);
- 	rf_val |= 0x3;
- 	rt2800_rfcsr_write_bank(rt2x00dev, 5, 0, rf_val);
+ 	if (rxdesc->cipher != CIPHER_NONE) {
+-		_rt2x00_desc_read(entry_priv->desc, 2, &rxdesc->iv[0]);
+-		_rt2x00_desc_read(entry_priv->desc, 3, &rxdesc->iv[1]);
++		rxdesc->iv[0] = _rt2x00_desc_read(entry_priv->desc, 2);
++		rxdesc->iv[1] = _rt2x00_desc_read(entry_priv->desc, 3);
+ 		rxdesc->dev_flags |= RXDONE_CRYPTO_IV;
  
--	rt2800_rfcsr_read_bank(rt2x00dev, 5, 1, &rf_val);
-+	rf_val = rt2800_rfcsr_read_bank(rt2x00dev, 5, 1);
- 	rf_val |= 0x1;
- 	rt2800_rfcsr_write_bank(rt2x00dev, 5, 1, rf_val);
+-		_rt2x00_desc_read(entry_priv->desc, 4, &rxdesc->icv);
++		rxdesc->icv = _rt2x00_desc_read(entry_priv->desc, 4);
+ 		rxdesc->dev_flags |= RXDONE_CRYPTO_ICV;
  
- 	cnt = 0;
- 	do {
- 		usleep_range(500, 2000);
--		rt2800_rfcsr_read_bank(rt2x00dev, 5, 1, &rf_val);
-+		rf_val = rt2800_rfcsr_read_bank(rt2x00dev, 5, 1);
- 		if (((rf_val & 0x1) == 0x00) || (cnt == 40))
- 			break;
- 		cnt++;
- 	} while (cnt < 40);
+ 		/*
+@@ -2198,7 +2198,7 @@ static void rt61pci_txdone(struct rt2x00_dev *rt2x00dev)
  
--	rt2800_rfcsr_read_bank(rt2x00dev, 5, 0, &rf_val);
-+	rf_val = rt2800_rfcsr_read_bank(rt2x00dev, 5, 0);
- 	rf_val &= (~0x3);
- 	rf_val |= 0x1;
- 	rt2800_rfcsr_write_bank(rt2x00dev, 5, 0, rf_val);
-@@ -7862,7 +7856,7 @@ static void rt2800_bw_filter_calibration(struct rt2x00_dev *rt2x00dev,
- 				filter_target = rx_filter_target_40m;
- 		}
+ 		entry = &queue->entries[index];
+ 		entry_priv = entry->priv_data;
+-		rt2x00_desc_read(entry_priv->desc, 0, &word);
++		word = rt2x00_desc_read(entry_priv->desc, 0);
  
--		rt2800_rfcsr_read_bank(rt2x00dev, 5, 8, &rf_val);
-+		rf_val = rt2800_rfcsr_read_bank(rt2x00dev, 5, 8);
- 		rf_val &= (~0x04);
- 		if (loop == 1)
- 			rf_val |= 0x4;
-@@ -7874,18 +7868,18 @@ static void rt2800_bw_filter_calibration(struct rt2x00_dev *rt2x00dev,
- 		rt2800_rf_lp_config(rt2x00dev, btxcal);
- 		if (btxcal) {
- 			tx_agc_fc = 0;
--			rt2800_rfcsr_read_bank(rt2x00dev, 5, 58, &rf_val);
-+			rf_val = rt2800_rfcsr_read_bank(rt2x00dev, 5, 58);
- 			rf_val &= (~0x7F);
- 			rt2800_rfcsr_write_bank(rt2x00dev, 5, 58, rf_val);
--			rt2800_rfcsr_read_bank(rt2x00dev, 5, 59, &rf_val);
-+			rf_val = rt2800_rfcsr_read_bank(rt2x00dev, 5, 59);
- 			rf_val &= (~0x7F);
- 			rt2800_rfcsr_write_bank(rt2x00dev, 5, 59, rf_val);
- 		} else {
- 			rx_agc_fc = 0;
--			rt2800_rfcsr_read_bank(rt2x00dev, 5, 6, &rf_val);
-+			rf_val = rt2800_rfcsr_read_bank(rt2x00dev, 5, 6);
- 			rf_val &= (~0x7F);
- 			rt2800_rfcsr_write_bank(rt2x00dev, 5, 6, rf_val);
--			rt2800_rfcsr_read_bank(rt2x00dev, 5, 7, &rf_val);
-+			rf_val = rt2800_rfcsr_read_bank(rt2x00dev, 5, 7);
- 			rf_val &= (~0x7F);
- 			rt2800_rfcsr_write_bank(rt2x00dev, 5, 7, rf_val);
- 		}
-@@ -7905,20 +7899,20 @@ static void rt2800_bw_filter_calibration(struct rt2x00_dev *rt2x00dev,
- 		rt2800_bbp_dcoc_write(rt2x00dev, 2, bbp_val);
- do_cal:
- 		if (btxcal) {
--			rt2800_rfcsr_read_bank(rt2x00dev, 5, 58, &rf_val);
-+			rf_val = rt2800_rfcsr_read_bank(rt2x00dev, 5, 58);
- 			rf_val &= (~0x7F);
- 			rf_val |= tx_agc_fc;
- 			rt2800_rfcsr_write_bank(rt2x00dev, 5, 58, rf_val);
--			rt2800_rfcsr_read_bank(rt2x00dev, 5, 59, &rf_val);
-+			rf_val = rt2800_rfcsr_read_bank(rt2x00dev, 5, 59);
- 			rf_val &= (~0x7F);
- 			rf_val |= tx_agc_fc;
- 			rt2800_rfcsr_write_bank(rt2x00dev, 5, 59, rf_val);
- 		} else {
--			rt2800_rfcsr_read_bank(rt2x00dev, 5, 6, &rf_val);
-+			rf_val = rt2800_rfcsr_read_bank(rt2x00dev, 5, 6);
- 			rf_val &= (~0x7F);
- 			rf_val |= rx_agc_fc;
- 			rt2800_rfcsr_write_bank(rt2x00dev, 5, 6, rf_val);
--			rt2800_rfcsr_read_bank(rt2x00dev, 5, 7, &rf_val);
-+			rf_val = rt2800_rfcsr_read_bank(rt2x00dev, 5, 7);
- 			rf_val &= (~0x7F);
- 			rf_val |= rx_agc_fc;
- 			rt2800_rfcsr_write_bank(rt2x00dev, 5, 7, rf_val);
+ 		if (rt2x00_get_field32(word, TXD_W0_OWNER_NIC) ||
+ 		    !rt2x00_get_field32(word, TXD_W0_VALID))
+diff --git a/drivers/net/wireless/ralink/rt2x00/rt73usb.c b/drivers/net/wireless/ralink/rt2x00/rt73usb.c
+index b736982c0126..fd913222abd1 100644
+--- a/drivers/net/wireless/ralink/rt2x00/rt73usb.c
++++ b/drivers/net/wireless/ralink/rt2x00/rt73usb.c
+@@ -1462,7 +1462,7 @@ static void rt73usb_write_tx_desc(struct queue_entry *entry,
+ 	/*
+ 	 * Start writing the descriptor words.
+ 	 */
+-	rt2x00_desc_read(txd, 0, &word);
++	word = rt2x00_desc_read(txd, 0);
+ 	rt2x00_set_field32(&word, TXD_W0_BURST,
+ 			   test_bit(ENTRY_TXD_BURST, &txdesc->flags));
+ 	rt2x00_set_field32(&word, TXD_W0_VALID, 1);
+@@ -1488,7 +1488,7 @@ static void rt73usb_write_tx_desc(struct queue_entry *entry,
+ 	rt2x00_set_field32(&word, TXD_W0_CIPHER_ALG, txdesc->cipher);
+ 	rt2x00_desc_write(txd, 0, word);
+ 
+-	rt2x00_desc_read(txd, 1, &word);
++	word = rt2x00_desc_read(txd, 1);
+ 	rt2x00_set_field32(&word, TXD_W1_HOST_Q_ID, entry->queue->qid);
+ 	rt2x00_set_field32(&word, TXD_W1_AIFSN, entry->queue->aifs);
+ 	rt2x00_set_field32(&word, TXD_W1_CWMIN, entry->queue->cw_min);
+@@ -1498,7 +1498,7 @@ static void rt73usb_write_tx_desc(struct queue_entry *entry,
+ 			   test_bit(ENTRY_TXD_GENERATE_SEQ, &txdesc->flags));
+ 	rt2x00_desc_write(txd, 1, word);
+ 
+-	rt2x00_desc_read(txd, 2, &word);
++	word = rt2x00_desc_read(txd, 2);
+ 	rt2x00_set_field32(&word, TXD_W2_PLCP_SIGNAL, txdesc->u.plcp.signal);
+ 	rt2x00_set_field32(&word, TXD_W2_PLCP_SERVICE, txdesc->u.plcp.service);
+ 	rt2x00_set_field32(&word, TXD_W2_PLCP_LENGTH_LOW,
+@@ -1512,7 +1512,7 @@ static void rt73usb_write_tx_desc(struct queue_entry *entry,
+ 		_rt2x00_desc_write(txd, 4, skbdesc->iv[1]);
+ 	}
+ 
+-	rt2x00_desc_read(txd, 5, &word);
++	word = rt2x00_desc_read(txd, 5);
+ 	rt2x00_set_field32(&word, TXD_W5_TX_POWER,
+ 			   TXPOWER_TO_DEV(entry->queue->rt2x00dev->tx_power));
+ 	rt2x00_set_field32(&word, TXD_W5_WAITING_DMA_DONE_INT, 1);
+@@ -1694,8 +1694,8 @@ static void rt73usb_fill_rxdone(struct queue_entry *entry,
+ 	/*
+ 	 * It is now safe to read the descriptor on all architectures.
+ 	 */
+-	rt2x00_desc_read(rxd, 0, &word0);
+-	rt2x00_desc_read(rxd, 1, &word1);
++	word0 = rt2x00_desc_read(rxd, 0);
++	word1 = rt2x00_desc_read(rxd, 1);
+ 
+ 	if (rt2x00_get_field32(word0, RXD_W0_CRC_ERROR))
+ 		rxdesc->flags |= RX_FLAG_FAILED_FCS_CRC;
+@@ -1704,11 +1704,11 @@ static void rt73usb_fill_rxdone(struct queue_entry *entry,
+ 	rxdesc->cipher_status = rt2x00_get_field32(word0, RXD_W0_CIPHER_ERROR);
+ 
+ 	if (rxdesc->cipher != CIPHER_NONE) {
+-		_rt2x00_desc_read(rxd, 2, &rxdesc->iv[0]);
+-		_rt2x00_desc_read(rxd, 3, &rxdesc->iv[1]);
++		rxdesc->iv[0] = _rt2x00_desc_read(rxd, 2);
++		rxdesc->iv[1] = _rt2x00_desc_read(rxd, 3);
+ 		rxdesc->dev_flags |= RXDONE_CRYPTO_IV;
+ 
+-		_rt2x00_desc_read(rxd, 4, &rxdesc->icv);
++		rxdesc->icv = _rt2x00_desc_read(rxd, 4);
+ 		rxdesc->dev_flags |= RXDONE_CRYPTO_ICV;
+ 
+ 		/*
 -- 
 2.9.0
