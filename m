@@ -1,132 +1,47 @@
-From: Edward Cree <ecree@solarflare.com>
-Subject: Re: [PATCH v2 1/3] bpf: Use 1<<16 as ceiling for immediate alignment
- in verifier.
-Date: Wed, 17 May 2017 16:33:27 +0100
-Message-ID: <e873f261-e1c1-c344-3d72-254623e0c91a@solarflare.com>
-References: <20170515.120431.1588221938554447723.davem@davemloft.net>
- <754f2c39-fdb0-2407-c2f2-aa36d506d202@solarflare.com>
- <f2bff26d-8b4d-c6a2-23c9-9db198569e40@fb.com>
- <50288778-10f6-7201-c979-bfe4635831fc@solarflare.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Patch][IPv6] Fix wrong routing mechanism for Link Local IPv6
+ packets
+Date: Wed, 17 May 2017 11:39:48 -0400 (EDT)
+Message-ID: <20170517.113948.1940714175629191091.davem@davemloft.net>
+References: <MWHPR1201MB01730F7F4A6BE57ADFB92EAFCAE60@MWHPR1201MB0173.namprd12.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: <alexei.starovoitov@gmail.com>, <netdev@vger.kernel.org>
-To: Alexei Starovoitov <ast@fb.com>,
-        David Miller <davem@davemloft.net>, <daniel@iogearbox.net>
+Cc: netdev@vger.kernel.org
+To: mulmer@cradlepoint.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dispatch1-us1.ppe-hosted.com ([67.231.154.164]:37313 "EHLO
-        dispatch1-us1.ppe-hosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1750969AbdEQPdl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 17 May 2017 11:33:41 -0400
-In-Reply-To: <50288778-10f6-7201-c979-bfe4635831fc@solarflare.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:34026 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750969AbdEQPjv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 17 May 2017 11:39:51 -0400
+In-Reply-To: <MWHPR1201MB01730F7F4A6BE57ADFB92EAFCAE60@MWHPR1201MB0173.namprd12.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 17/05/17 15:00, Edward Cree wrote:
-> OTOH the 'track known 1s as well' might work in a nice generic way
->  and cover all bases, I'll have to experiment a bit with that.
+From: Michael Ulmer <mulmer@cradlepoint.com>
+Date: Tue, 16 May 2017 15:37:39 +0000
+
+> Blast from the past. 10 years back Wei Dong submitted the patch found (amongst several places) here:
+> http://lists.openwall.net/netdev/2007/01/30/20
 > 
-> -Ed
+> Problem:
+> I have a firewall rule that DNATs ipv6 traffic from a destination address to ::1. The route lookup gives me the Main table & forwards that DNAT'd traffic instead of sending it to local process.
+> 
+> Example:
+> Looking at this from a netfilter point of view, a client (IP of fd00::5) requests a web page at [2000::25:0:0:1]:8080. The firewall rule DNATs it to ::1 (note that I threw a -j TRACE in raw's REROUTING).
+> TRACE: nat:PREROUTING:rule:2 SRC=fd00::5 DST=2000::25:0:0:1
+> TRACE: mangle:FORWARD:rule:1 SRC=fd00::5 DST=::1
+> 
+> The patch is verbatim (as is the subject line for this
+> email). Traffic DNAT'd to ::1 now goes to mangle's INPUT chain after
+> routing decision. I'm not sure why it was removed--I'm assuming it
+> was an accident--as I can't find a record in the mailing list
+> archive.
 
-So I did some experiments (in Python, script follows) and found that
- indeed this does appear to work, at least for addition and shifts.
-The idea is that we have a 0s mask and a 1s mask; for bits that are
- unknown, the 0s mask is set and the 1s mask is cleared.  So a
- completely unknown variable has masks (~0, 0), then if you shift it
- left 2 you get (~3, 0) - just shift both masks.  A constant x has
- masks (x, x) - all the 0s are known 0s and all the 1s are known 1s.
-Addition is a bit more complicated: we compute the 'unknown bits'
- mask, by XORing the 0s and 1s masks together, of each addend.  Then
- we add the corresponding masks from each addend together, and force
- the 'unknown' bits to the appropriate values in each mask.
-So given (a1, b1) and (a2, b2), we compute m1 = a1 ^ b1,
- m2 = a2 ^ b2, and m = m1 | m2.  Then a = (a1 + a2) | m, and
- b = (b1 + b2) & ~m.
-As a worked example, 2 + (x << 2) + 14:
- 2 => (2, 2) constant
- x => (~0, 0) unknown
- x << 2 => (~3, 0)
- 2 + (x << 2): add (2, 2) with (~3, 0)
-    m1 = 0, m2 = ~3, m = ~3
-    a = (2 + ~3) | ~3 = ~1 | ~3 = ~1
-    b = (2 + 0) & ~~3 = 2 & 3 = 2
-    so (~1, 2), which means "...xx10"
-now add 14: add (~1, 2) with (14, 14)
-    m1 = ~3, m2 = 0, m = ~3
-    a = (~1 + 14) | ~3 = 12 | ~3 = ~3
-    b = (2 + 14) & ~~3 = 16 & 3 = 0
-    so (~3, 0), which means "...xx00"
-and the result is 4-byte aligned.
+It's not by accident, he received feedback from Yoshifuji and suggested
+alternative ways to fix his problem:
 
--Ed
+http://marc.info/?l=linux-netdev&m=117020569620697&w=2
 
-PS. Beware of bugs in the following code; I have only tested it, not
- proved it correct.
-
---8<--
-
-#!/usr/bin/python2
-
-def cpl(x):
-    return (~x)&0xff
-
-class AlignedNumber(object):
-    def __init__(self, mask0=0xff, mask1=0):
-        """mask0 has 0s for bits known to be 0, 1s otherwise.
-        mask1 has 1s for bits known to be 1, 0s otherwise.
-        Thus a bit which is set in mask0 and cleared in mask1 is an 'unknown'
-        bit, while a bit which is cleared in mask0 and set in mask1 is a bug.
-        """
-        self.masks = (mask0 & 0xff, mask1 & 0xff)
-        self.validate()
-    @classmethod
-    def const(cls, value):
-        """All bits are known, so both masks equal value."""
-        return cls(value, value)
-    def validate(self):
-        # Check for bits 'known' to be both 0 and 1
-        assert not (cpl(self.masks[0]) & self.masks[1]), self.masks
-        # Check unknown bits don't follow known bits
-        assert self.mx | ((self.mx - 1) & 0xff) == 0xff, self.masks
-    def __str__(self):
-        return ':'.join(map(bin, self.masks))
-    def __lshift__(self, sh):
-        """Shift both masks left, low bits become 'known 0'"""
-        return self.__class__(self.masks[0] << sh, self.masks[1] << sh)
-    def __rshift__(self, sh):
-        """Shift 1s into mask0; high bits become 'unknown'.
-        While strictly speaking they may be known 0 if we're tracking the full
-        word and doing unsigned shifts, having known bits before unknown bits
-        breaks the addition code."""
-        return self.__class__(cpl(cpl(self.masks[0]) >> sh), self.masks[1] >> sh)
-    @property
-    def mx(self):
-        """Mask of unknown bits"""
-        return self.masks[0] ^ self.masks[1]
-    def __add__(self, other):
-        """OR the mx values together.  Unknown bits could cause carries, so we
-        just assume that they can carry all the way to the left (thus we keep
-        our mx masks in the form 1...10...0.
-        Then, add our 0- and 1-masks, and force the bits of the combined mx
-        mask to the unknown state."""
-        if isinstance(other, int):
-            return self + AlignedNumber.const(other)
-        assert isinstance(other, AlignedNumber), other
-        m = self.mx | other.mx
-        return self.__class__((self.masks[0] + other.masks[0]) | m,
-                              (self.masks[1] + other.masks[1]) & cpl(m))
-    def is_aligned(self, bits):
-        """We are 2^n-aligned iff the bottom n bits are known-0."""
-        mask = (1 << bits) - 1
-        return not (self.masks[0] & mask)
-
-if __name__ == '__main__':
-    a = AlignedNumber.const(2)
-    b = AlignedNumber() << 2
-    c = AlignedNumber.const(14)
-    print a, b, c
-    print a + b, a + b + c
-    assert (a + b + c).is_aligned(2)
-    d = (AlignedNumber() << 4) >> 2
-    print d
-    assert d.is_aligned(2)
+In fact, Yoshifuji stated that some of the behaviors are indeed
+intentional.
