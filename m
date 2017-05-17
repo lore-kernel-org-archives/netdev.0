@@ -1,92 +1,67 @@
-From: Andrei Vagin <avagin@openvz.org>
-Subject: [PATCH net-next] net: fix __skb_try_recv_from_queue to return the old behavior
-Date: Tue, 16 May 2017 21:47:10 -0700
-Message-ID: <20170517044710.28300-1-avagin@openvz.org>
-Cc: netdev@vger.kernel.org, Andrei Vagin <avagin@openvz.org>,
-        Paolo Abeni <pabeni@redhat.com>,
-        Eric Dumazet <edumazet@google.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next v3 02/10] net: sched: introduce tcf block
+ infractructure
+Date: Wed, 17 May 2017 07:42:51 +0200
+Message-ID: <20170517054251.GA1832@nanopsycho>
+References: <20170516172802.1317-1-jiri@resnulli.us>
+ <20170516172802.1317-3-jiri@resnulli.us>
+ <CAM_iQpW1wsvyg_v2Vy9Bg33f5iT9_c8kNdgn+0CXkAbVCs8=ew@mail.gmail.com>
+ <20170516.173404.1930033807247247443.davem@davemloft.net>
+ <CAM_iQpUZKjR1SXVaHNq4fRiiFx8-X=mjK+k=4TDvxd5CuK4gyw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        David Ahern <dsa@cumulusnetworks.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Stephen Hemminger <stephen@networkplumber.org>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Alexander Duyck <alexander.h.duyck@intel.com>,
+        Simon Horman <simon.horman@netronome.com>, mlxsw@mellanox.com
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:36201 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751531AbdEQErY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 17 May 2017 00:47:24 -0400
-Received: by mail-pf0-f193.google.com with SMTP id n23so271520pfb.3
-        for <netdev@vger.kernel.org>; Tue, 16 May 2017 21:47:23 -0700 (PDT)
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:34859 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751104AbdEQFmz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 17 May 2017 01:42:55 -0400
+Received: by mail-wm0-f68.google.com with SMTP id v4so913185wmb.2
+        for <netdev@vger.kernel.org>; Tue, 16 May 2017 22:42:55 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <CAM_iQpUZKjR1SXVaHNq4fRiiFx8-X=mjK+k=4TDvxd5CuK4gyw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This function has to return NULL on a error case, because there is a
-separate error variable.
+Wed, May 17, 2017 at 12:34:04AM CEST, xiyou.wangcong@gmail.com wrote:
+>On Tue, May 16, 2017 at 2:34 PM, David Miller <davem@davemloft.net> wrote:
+>> From: Cong Wang <xiyou.wangcong@gmail.com>
+>> Date: Tue, 16 May 2017 13:51:30 -0700
+>>
+>>> On Tue, May 16, 2017 at 10:27 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+>>>> +int tcf_block_get(struct tcf_block **p_block,
+>>>> +                 struct tcf_proto __rcu **p_filter_chain)
+>>>> +{
+>>>> +       struct tcf_block *block = kzalloc(sizeof(*block), GFP_KERNEL);
+>>>> +
+>>>> +       if (!block)
+>>>> +               return -ENOMEM;
+>>>> +       block->p_filter_chain = p_filter_chain;
+>>>> +       *p_block = block;
+>>>> +       return 0;
+>>>> +}
+>>>> +EXPORT_SYMBOL(tcf_block_get);
+>>>
+>>>
+>>> XXX_get() is usually for refcnt'ing, here you only allocate
+>>> a block, so please rename it to tcf_block_alloc().
+>>
+>> Later in the series he adds refcounting to these objects.
+>>
+>> He explained this to Jamal too.
+>
+>I have read all patches, unless I miss something, block itself
+>is not refcn'ted, only chains are, so it makes no sense to get
+>a block, right?
 
-The offset has to be changed only if skb is returned
-
-Cc: Paolo Abeni <pabeni@redhat.com>
-Cc: Eric Dumazet <edumazet@google.com>
-Cc: David S. Miller <davem@davemloft.net>
-Fixes: 65101aeca522 ("net/sock: factor out dequeue/peek with offset cod")
-Signed-off-by: Andrei Vagin <avagin@openvz.org>
----
- net/core/datagram.c | 14 ++++++++------
- 1 file changed, 8 insertions(+), 6 deletions(-)
-
-diff --git a/net/core/datagram.c b/net/core/datagram.c
-index a4592b4..bc46118 100644
---- a/net/core/datagram.c
-+++ b/net/core/datagram.c
-@@ -170,20 +170,21 @@ struct sk_buff *__skb_try_recv_from_queue(struct sock *sk,
- 					  struct sk_buff **last)
- {
- 	struct sk_buff *skb;
-+	int _off = *off;
- 
- 	*last = queue->prev;
- 	skb_queue_walk(queue, skb) {
- 		if (flags & MSG_PEEK) {
--			if (*off >= skb->len && (skb->len || *off ||
-+			if (_off >= skb->len && (skb->len || _off ||
- 						 skb->peeked)) {
--				*off -= skb->len;
-+				_off -= skb->len;
- 				continue;
- 			}
- 			if (!skb->len) {
- 				skb = skb_set_peeked(skb);
- 				if (unlikely(IS_ERR(skb))) {
- 					*err = PTR_ERR(skb);
--					return skb;
-+					return NULL;
- 				}
- 			}
- 			*peeked = 1;
-@@ -193,6 +194,7 @@ struct sk_buff *__skb_try_recv_from_queue(struct sock *sk,
- 			if (destructor)
- 				destructor(sk, skb);
- 		}
-+		*off = _off;
- 		return skb;
- 	}
- 	return NULL;
-@@ -253,8 +255,6 @@ struct sk_buff *__skb_try_recv_datagram(struct sock *sk, unsigned int flags,
- 
- 	*peeked = 0;
- 	do {
--		int _off = *off;
--
- 		/* Again only user level code calls this function, so nothing
- 		 * interrupt level will suddenly eat the receive_queue.
- 		 *
-@@ -263,8 +263,10 @@ struct sk_buff *__skb_try_recv_datagram(struct sock *sk, unsigned int flags,
- 		 */
- 		spin_lock_irqsave(&queue->lock, cpu_flags);
- 		skb = __skb_try_recv_from_queue(sk, queue, flags, destructor,
--						peeked, &_off, err, last);
-+						peeked, off, &error, last);
- 		spin_unlock_irqrestore(&queue->lock, cpu_flags);
-+		if (error)
-+			goto no_packet;
- 		if (skb)
- 			return skb;
- 
--- 
-2.9.3
+It's not in this series. I just prepare the design so later on I can
+easily add the block sharing between qdiscs.
