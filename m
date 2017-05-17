@@ -1,62 +1,44 @@
 From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH 2/6] wl1251: Use request_firmware_prefer_user() for
- loading NVS calibration data
-Date: Wed, 17 May 2017 15:22:30 +0200
-Message-ID: <1495027350.2442.12.camel@sipsolutions.net>
-References: <0fd90416-f33c-a6be-14fd-5e964583e9cb@broadcom.com>
-         <20170515231339.GF17314@wotan.suse.de>
-         <1495022766.2442.1.camel@sipsolutions.net> <20170517125335.GG10015@pali>
-         <1495026290.2442.6.camel@sipsolutions.net> <20170517132131.GH10015@pali>
-         (sfid-20170517_152143_910249_81751B88)
+Subject: Re: 'iw events' stops receiving events after a while on 4.9 + hacks
+Date: Wed, 17 May 2017 15:30:35 +0200
+Message-ID: <1495027835.2442.13.camel@sipsolutions.net>
+References: <d82d191e-8ede-68c6-c9e0-c381dc874d36@candelatech.com>
+         <20170517100844.GC2849@medion.lan> (sfid-20170517_120840_185521_D3BC3321)
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 8bit
-Cc: "Luis R. Rodriguez" <mcgrof@kernel.org>,
-        Arend Van Spriel <arend.vanspriel@broadcom.com>,
-        Pavel Machek <pavel@ucw.cz>, Daniel Wagner <wagi@monom.org>,
-        Tom Gundersen <teg@jklm.no>,
-        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        David Gnedt <david.gnedt@davizone.at>,
-        Tony Lindgren <tony@atomide.com>,
-        Sebastian Reichel <sre@kernel.org>,
-        Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>,
-        Aaro Koskinen <aaro.koskinen@iki.fi>,
-        Takashi Iwai <tiwai@suse.de>,
-        AKASHI Takahiro <takahiro.akashi@linaro.org>,
-        David Woodhouse <dwmw2@infradead.org>,
-        Bjorn Andersson <bjorn.andersson@linaro.org>,
-        Grazvydas Ignotas <notasas@gmail.com>,
-        linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
-        netdev@vger.kernel.org,
-        =?UTF-8?
-To: Pali =?ISO-8859-1?Q?Roh=E1r?= <pali.rohar@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170517132131.GH10015@pali> (sfid-20170517_152143_910249_81751B88)
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>,
+        "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>
+To: Bastian Bittorf <bb@npl.de>, Ben Greear <greearb@candelatech.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from s3.sipsolutions.net ([5.9.151.49]:40838 "EHLO sipsolutions.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754696AbdEQNai (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 17 May 2017 09:30:38 -0400
+In-Reply-To: <20170517100844.GC2849@medion.lan> (sfid-20170517_120840_185521_D3BC3321)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2017-05-17 at 15:21 +0200, Pali Rohár wrote:
-> On Wednesday 17 May 2017 15:04:50 Johannes Berg wrote:
-> > On Wed, 2017-05-17 at 14:53 +0200, Pali Rohár wrote:
-> > 
-> > > > In fact, why should the *driver* care either? IOW - why should
-> > > > "request_firmware_prefer_user()" even exist?
-> > > 
-> > > There are default/example NVS data, which are stored in
-> > > /lib/firmware
-> > > and installed by linux-firmware package.
-> > 
-> > [...]
-> > 
-> > Oh, so you're saying you want this to invert the order ... Ok, that
-> > makes some sense.
+On Wed, 2017-05-17 at 12:08 +0200, Bastian Bittorf wrote:
+> * Ben Greear <greearb@candelatech.com> [17.05.2017 11:51]:
+> > I have been keeping an 'iw events' program running with a perl
+> > script gathering its
+> > output and post-processing it.  This has been working for several
+> > years on 4.7 and earlier
+> > kernels, but when testing on 4.9 overnight, I notice that 'iw
+> > events' is not showing any input.  'strace' shows
+> > that it is waiting on recvmsg.  If I start a second 'iw events'
+> > then it will get
+> > wifi events as expected.
 > 
-> Yes! I thought that this fact can be understood from commit message.
-> If not, I can change it, but provide how to improve it.
+> me too, also seen on 4.4 - i'am happy for debug ideas.
 
-It probably can, I was only Cc'ed later :)
+I've never seen this.
 
-Sorry for the noise.
+Does it happen when it's very long-running? Or when there are lots of
+events?
+
+Perhaps something in the socket buffer accounting is going wrong, so
+that it's slowly decreasing to 0?
 
 johannes
