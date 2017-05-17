@@ -1,39 +1,42 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCH net-next 0/3] net: dsa: mv88e6xxx: Add basic SERDES support
-Date: Wed, 17 May 2017 22:05:09 +0200
-Message-ID: <1495051512-13554-1-git-send-email-andrew@lunn.ch>
-Cc: netdev <netdev@vger.kernel.org>, nikita.yoush@cogentembedded.com,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        Andrew Lunn <andrew@lunn.ch>
-To: David Miller <davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: [PATCH] sch_dsmark: Fix uninitialized variable warning.
+Date: Wed, 17 May 2017 16:05:33 -0400 (EDT)
+Message-ID: <20170517.160533.910802621092127012.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jiri@mellanox.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:34763 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751725AbdEQUFc (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 17 May 2017 16:05:32 -0400
+Received: from shards.monkeyblade.net ([184.105.139.130]:36158 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752968AbdEQUFg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 17 May 2017 16:05:36 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Some of the Marvell switches are SERDES interface, which must be
-powered up before packets can be passed. This is particularly true on
-the 6390, where the SERDES defaults to down, probably to save power.
 
-This series refactors the existing SERDES support for the 6352, and
-adds 6390 support.
+We still need to initialize err to -EINVAL for
+the case where 'opt' is NULL in dsmark_init().
 
-Andrew Lunn (3):
-  net: dsa: mv88e6xxx: Refactor mv88e6352 SERDES code into an op
-  net: dsa: mv88e6xxx: mv88e6390X SERDES support
-  dsa: mv88e6xxx: Enable/Disable SERDES on port enable/disable
+Fixes: 6529eaba33f0 ("net: sched: introduce tcf block infractructure")
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/sched/sch_dsmark.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
- drivers/net/dsa/mv88e6xxx/Makefile    |   1 +
- drivers/net/dsa/mv88e6xxx/chip.c      | 120 +++++++++---------
- drivers/net/dsa/mv88e6xxx/mv88e6xxx.h |  39 +++---
- drivers/net/dsa/mv88e6xxx/serdes.c    | 231 ++++++++++++++++++++++++++++++++++
- drivers/net/dsa/mv88e6xxx/serdes.h    |  45 +++++++
- 5 files changed, 351 insertions(+), 85 deletions(-)
- create mode 100644 drivers/net/dsa/mv88e6xxx/serdes.c
- create mode 100644 drivers/net/dsa/mv88e6xxx/serdes.h
-
+diff --git a/net/sched/sch_dsmark.c b/net/sched/sch_dsmark.c
+index ba45102..7ccdd82 100644
+--- a/net/sched/sch_dsmark.c
++++ b/net/sched/sch_dsmark.c
+@@ -333,7 +333,7 @@ static int dsmark_init(struct Qdisc *sch, struct nlattr *opt)
+ {
+ 	struct dsmark_qdisc_data *p = qdisc_priv(sch);
+ 	struct nlattr *tb[TCA_DSMARK_MAX + 1];
+-	int err;
++	int err = -EINVAL;
+ 	u32 default_index = NO_DEFAULT_INDEX;
+ 	u16 indices;
+ 	int i;
 -- 
-2.11.0
+2.7.4
