@@ -1,16 +1,16 @@
 From: ZIMBRA <sargentoaldea@saludstgo.cl>
 Subject: Alerte
-Date: Wed, 17 May 2017 02:36:07 -0400 (CLT)
-Message-ID: <129099760.1719231.1495002967653.JavaMail.zimbra@saludstgo.cl>
+Date: Wed, 17 May 2017 02:36:14 -0400 (CLT)
+Message-ID: <817132006.1719250.1495002974177.JavaMail.zimbra@saludstgo.cl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 8BIT
 To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [200.54.218.100] ([200.54.218.100]:59280 "HELO
+Received: from [200.54.218.100] ([200.54.218.100]:60284 "HELO
         mail.saludstgo.cl" rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org
-        with SMTP id S1752259AbdEQHjf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 17 May 2017 03:39:35 -0400
+        with SMTP id S1752368AbdEQHkI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 17 May 2017 03:40:08 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
