@@ -1,56 +1,142 @@
-From: Ganesh Goudar <ganeshgr@chelsio.com>
-Subject: [PATCH net] cxgb4: update latest firmware version supported
-Date: Thu, 18 May 2017 00:08:16 +0530
-Message-ID: <1495046296-9009-1-git-send-email-ganeshgr@chelsio.com>
-Cc: nirranjan@chelsio.com, indranil@chelsio.com,
-        Ganesh Goudar <ganeshgr@chelsio.com>
-To: netdev@vger.kernel.org, davem@davemloft.net
+From: Andrei Vagin <avagin@openvz.org>
+Subject: [PATCH net-next v2] net: fix __skb_try_recv_from_queue to return the old behavior
+Date: Wed, 17 May 2017 11:39:05 -0700
+Message-ID: <20170517183905.10971-1-avagin@openvz.org>
+References: <1495011889.2644.5.camel@redhat.com>
+Cc: netdev@vger.kernel.org, Andrei Vagin <avagin@openvz.org>,
+        Paolo Abeni <pabeni@redhat.com>,
+        Eric Dumazet <edumazet@google.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.32.117.8]:18750 "EHLO
-        stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751348AbdEQSjB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 17 May 2017 14:39:01 -0400
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:33168 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752968AbdEQSjO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 17 May 2017 14:39:14 -0400
+Received: by mail-wm0-f66.google.com with SMTP id y10so5622143wmh.0
+        for <netdev@vger.kernel.org>; Wed, 17 May 2017 11:39:13 -0700 (PDT)
+In-Reply-To: <1495011889.2644.5.camel@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Change t4fw_version.h to update latest firmware version
-number to 1.16.43.0.
+This function has to return NULL on a error case, because there is a
+separate error variable.
 
-Signed-off-by: Ganesh Goudar <ganeshgr@chelsio.com>
+The offset has to be changed only if skb is returned
+
+v2: fix udp code to not use an extra variable
+
+Cc: Paolo Abeni <pabeni@redhat.com>
+Cc: Eric Dumazet <edumazet@google.com>
+Cc: David S. Miller <davem@davemloft.net>
+Fixes: 65101aeca522 ("net/sock: factor out dequeue/peek with offset cod")
+Signed-off-by: Andrei Vagin <avagin@openvz.org>
 ---
- drivers/net/ethernet/chelsio/cxgb4/t4fw_version.h | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ net/core/datagram.c | 14 ++++++++------
+ net/ipv4/udp.c      | 12 +++---------
+ 2 files changed, 11 insertions(+), 15 deletions(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4fw_version.h b/drivers/net/ethernet/chelsio/cxgb4/t4fw_version.h
-index fa37644..3549d387 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4fw_version.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4fw_version.h
-@@ -37,7 +37,7 @@
+diff --git a/net/core/datagram.c b/net/core/datagram.c
+index a4592b4..bc46118 100644
+--- a/net/core/datagram.c
++++ b/net/core/datagram.c
+@@ -170,20 +170,21 @@ struct sk_buff *__skb_try_recv_from_queue(struct sock *sk,
+ 					  struct sk_buff **last)
+ {
+ 	struct sk_buff *skb;
++	int _off = *off;
  
- #define T4FW_VERSION_MAJOR 0x01
- #define T4FW_VERSION_MINOR 0x10
--#define T4FW_VERSION_MICRO 0x21
-+#define T4FW_VERSION_MICRO 0x2B
- #define T4FW_VERSION_BUILD 0x00
+ 	*last = queue->prev;
+ 	skb_queue_walk(queue, skb) {
+ 		if (flags & MSG_PEEK) {
+-			if (*off >= skb->len && (skb->len || *off ||
++			if (_off >= skb->len && (skb->len || _off ||
+ 						 skb->peeked)) {
+-				*off -= skb->len;
++				_off -= skb->len;
+ 				continue;
+ 			}
+ 			if (!skb->len) {
+ 				skb = skb_set_peeked(skb);
+ 				if (unlikely(IS_ERR(skb))) {
+ 					*err = PTR_ERR(skb);
+-					return skb;
++					return NULL;
+ 				}
+ 			}
+ 			*peeked = 1;
+@@ -193,6 +194,7 @@ struct sk_buff *__skb_try_recv_from_queue(struct sock *sk,
+ 			if (destructor)
+ 				destructor(sk, skb);
+ 		}
++		*off = _off;
+ 		return skb;
+ 	}
+ 	return NULL;
+@@ -253,8 +255,6 @@ struct sk_buff *__skb_try_recv_datagram(struct sock *sk, unsigned int flags,
  
- #define T4FW_MIN_VERSION_MAJOR 0x01
-@@ -46,7 +46,7 @@
+ 	*peeked = 0;
+ 	do {
+-		int _off = *off;
+-
+ 		/* Again only user level code calls this function, so nothing
+ 		 * interrupt level will suddenly eat the receive_queue.
+ 		 *
+@@ -263,8 +263,10 @@ struct sk_buff *__skb_try_recv_datagram(struct sock *sk, unsigned int flags,
+ 		 */
+ 		spin_lock_irqsave(&queue->lock, cpu_flags);
+ 		skb = __skb_try_recv_from_queue(sk, queue, flags, destructor,
+-						peeked, &_off, err, last);
++						peeked, off, &error, last);
+ 		spin_unlock_irqrestore(&queue->lock, cpu_flags);
++		if (error)
++			goto no_packet;
+ 		if (skb)
+ 			return skb;
  
- #define T5FW_VERSION_MAJOR 0x01
- #define T5FW_VERSION_MINOR 0x10
--#define T5FW_VERSION_MICRO 0x21
-+#define T5FW_VERSION_MICRO 0x2B
- #define T5FW_VERSION_BUILD 0x00
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 7bd56c9..278e707 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -1465,16 +1465,13 @@ struct sk_buff *__skb_recv_udp(struct sock *sk, unsigned int flags,
+ 		error = -EAGAIN;
+ 		*peeked = 0;
+ 		do {
+-			int _off = *off;
+-
+ 			spin_lock_bh(&queue->lock);
+ 			skb = __skb_try_recv_from_queue(sk, queue, flags,
+ 							udp_skb_destructor,
+-							peeked, &_off, err,
++							peeked, off, err,
+ 							&last);
+ 			if (skb) {
+ 				spin_unlock_bh(&queue->lock);
+-				*off = _off;
+ 				return skb;
+ 			}
  
- #define T5FW_MIN_VERSION_MAJOR 0x00
-@@ -55,7 +55,7 @@
+@@ -1488,20 +1485,17 @@ struct sk_buff *__skb_recv_udp(struct sock *sk, unsigned int flags,
+ 			 * the sk_receive_queue lock if fwd memory scheduling
+ 			 * is needed.
+ 			 */
+-			_off = *off;
+ 			spin_lock(&sk_queue->lock);
+ 			skb_queue_splice_tail_init(sk_queue, queue);
  
- #define T6FW_VERSION_MAJOR 0x01
- #define T6FW_VERSION_MINOR 0x10
--#define T6FW_VERSION_MICRO 0x21
-+#define T6FW_VERSION_MICRO 0x2B
- #define T6FW_VERSION_BUILD 0x00
+ 			skb = __skb_try_recv_from_queue(sk, queue, flags,
+ 							udp_skb_dtor_locked,
+-							peeked, &_off, err,
++							peeked, off, err,
+ 							&last);
+ 			spin_unlock(&sk_queue->lock);
+ 			spin_unlock_bh(&queue->lock);
+-			if (skb) {
+-				*off = _off;
++			if (skb)
+ 				return skb;
+-			}
  
- #define T6FW_MIN_VERSION_MAJOR 0x00
+ busy_check:
+ 			if (!sk_can_busy_loop(sk))
 -- 
-2.1.0
+2.9.3
