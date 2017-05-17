@@ -1,98 +1,64 @@
-From: Mauro Carvalho Chehab <mchehab@s-opensource.com>
-Subject: Re: [PATCH 00/36] Convert DocBook documents to ReST
-Date: Mon, 15 May 2017 14:41:03 -0300
-Message-ID: <20170515144103.306189d6@vento.lan>
-References: <cover.1494596071.git.mchehab@s-opensource.com>
- <20170515111141.0fcd5ee6@lwn.net>
+From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
+Subject: RE: [PATCH net 5/5] qede: Split PF/VF ndos.
+Date: Wed, 17 May 2017 06:16:46 +0000
+Message-ID: <CY1PR0701MB20094B9857D89E463608F3B98DE70@CY1PR0701MB2009.namprd07.prod.outlook.com>
+References: <1494331671-16273-1-git-send-email-Yuval.Mintz@cavium.com>
+ <1494331671-16273-6-git-send-email-Yuval.Mintz@cavium.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Lunn <andrew@lunn.ch>, alsa-devel@alsa-project.org,
- Linux Doc Mailing List <linux-doc@vger.kernel.org>,
- Takashi Iwai <tiwai@suse.de>, Jan Kiszka <jan.kiszka@siemens.com>, "Herton R.
- Krzesinski" <herton@redhat.com>, Alexei Starovoitov <ast@kernel.org>,
- Takashi Iwai <tiwai@suse.com>, "J. Bruce
- Fields" <bfields@fieldses.org>, linux-ide@vger.kernel.org,
- Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org,
- Jeff Layton <jlayton@poochiereds.net>, Jan Kara <jack@suse.com>,
- Soheil Hassas Yeganeh <soheil@google.com>, linux-s390@vger.kernel.org,
- Florian Fainelli <f.fainelli@gmail.com>,
- "James E.J. Bottomley" <jejb@linux.vnet.ibm.com>,
- Herbert Xu <herbert@gondor.apana.org.au>, linux-scsi@vger.kernel.org,
- Ursula Braun <ubraun@linux.vnet.ibm.com>,
- "Rafael J. Wysocki" <rafael.j.wysocki@intel.com>,
- Peter Zijlstra <peterz@infradead.org>, Julian Anastasov <ja@ssi.bg>,
- Ingo
-To: Jonathan Corbet <corbet@lwn.net>
-Return-path: <alsa-devel-bounces@alsa-project.org>
-In-Reply-To: <20170515111141.0fcd5ee6@lwn.net>
-List-Unsubscribe: <http://mailman.alsa-project.org/mailman/options/alsa-devel>,
- <mailto:alsa-devel-request@alsa-project.org?subject=unsubscribe>
-List-Archive: <http://mailman.alsa-project.org/pipermail/alsa-devel/>
-List-Post: <mailto:alsa-devel@alsa-project.org>
-List-Help: <mailto:alsa-devel-request@alsa-project.org?subject=help>
-List-Subscribe: <http://mailman.alsa-project.org/mailman/listinfo/alsa-devel>,
- <mailto:alsa-devel-request@alsa-project.org?subject=subscribe>
-Errors-To: alsa-devel-bounces@alsa-project.org
-Sender: alsa-devel-bounces@alsa-project.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: quoted-printable
+To: "davem@davemloft.net" <davem@davemloft.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bn3nam01on0082.outbound.protection.outlook.com ([104.47.33.82]:59802
+        "EHLO NAM01-BN3-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1750784AbdEQGQs (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 17 May 2017 02:16:48 -0400
+In-Reply-To: <1494331671-16273-6-git-send-email-Yuval.Mintz@cavium.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Em Mon, 15 May 2017 11:11:41 -0600
-Jonathan Corbet <corbet@lwn.net> escreveu:
+> PFs and VFs share the same structure of NDOs today, and the VFs explicitl=
+y
+> fails the ndo_xdp() callback stating it doesn't support XDP.
+>=20
+> This results in lots of:
+>=20
+>   [qede_xdp:1032(enp131s2)]VFs don't support XDP
+>   ------------[ cut here ]------------
+>   WARNING: CPU: 4 PID: 1426 at net/core/rtnetlink.c:1637
+> rtnl_dump_ifinfo+0x354/0x3c0
+>   ...
+>   Call Trace:
+>     ? __alloc_skb+0x9b/0x1d0
+>     netlink_dump+0x122/0x290
+>     netlink_recvmsg+0x27d/0x430
+>     sock_recvmsg+0x3d/0x50
+>   ...
+>=20
+> As every dump request for the VF interface info would fail due to
+> rtnl_xdp_fill() returning an error code.
+>=20
+> To resolve this, introduce a subset of the NDOs meant for the VF in a
+> seperate structure and register that one instead for VFs, and omit the
+> ndo_xdp initialization.
+>=20
+> Fixes: 40b8c45492ef ("qede: Prevent VFs from using XDP")
+> Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
 
-> On Fri, 12 May 2017 10:59:43 -0300
-> Mauro Carvalho Chehab <mchehab@s-opensource.com> wrote:
-> 
-> > This patch series convert the following books from
-> > DocBook to ReST:
-> > 
-> >    - filesystems
-> >    - kernel-hacking
-> >    - kernel-locking
-> >    - kgdb
-> >    - libata
-> >    - networking
-> >    - rapidio
-> >    - s390-drivers
-> >    - scsi
-> >    - w1
-> >    - z8530book
-> > 
-> > It also adjusts some Sphinx-pedantic errors/warnings on
-> > some kernel-doc markups.
-> > 
-> > I also added some patches here to add PDF output for all
-> > existing ReST books.  
-> 
-> So I've been through the series (including digging out the parts that
-> weren't sent to me).  
-> 
-> > I did my best to check if what's there is not too outdated, but
-> > the best is if the subsystem maintainers could check it.  
-> 
-> That has been my real concern with those remaining books; many of them
-> have not been touched in any significant way in at least ten years. Just
-> shoveling a bunch of stuff into RST doesn't really solve the problem that
-> Documentation/ is an unorganized jumble of sometimes highly outdated
-> documentation.
+I'm currently working on adding XDP support for qede VFs.
+Problem is there's quite a bit of IOV infrastructure involved in this,
+and legacy [well, current] PFs would prevent their VFs from utilizing it.
 
-True. Yet, on the checks I did, on the books that have API descriptions,
-the C domain references still exist. On the books that just have
-kernel-doc tags, I wouldn't expect any changes there, as the API
-changes should be, instead, at the C code.
+Once I have it ready, if I'd add back the ndo_xdp unconditionally for VFs,
+then when working over legacy PFs above issue would resurface.
 
-So, I guess that it is not that bad, and, by having them in ReST will
-make them easier to be updated, as ReST is basically ascii with benefits.
+Looking at my alternatives for solving this, I can't see any 'good' options=
+ -
+it seems mightily unorthodox to modify net_device_ops, I.e., add/remove
+an NDO function-pointer based on some device property, and having
+multiple ops declared for the sake of a single feature seems unscalable.
 
-> But, then, I guess there's value in having a disorganized jumble that
-> depends on only one fragile toolchain rather than two :)  So maybe we
-> should just do this.
-> 
-> I only had one real comment with the series beyond the general stuff
-> here.  I see Markus had a few.  When the tweaks are done, can you send me
-> a series for the stuff I can apply, and I'll do it?
-
-Sure, I'm addressing the comments and will send you a new series.
-
-Thanks,
-Mauro
+Any better solutions?
