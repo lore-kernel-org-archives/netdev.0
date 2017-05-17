@@ -1,44 +1,74 @@
-From: Firo Yang <firogm@gmail.com>
-Subject: [PATCH] hdlcdrv: fix divide error bug if bitrate is 0
-Date: Wed, 17 May 2017 20:35:49 +0800
-Message-ID: <20170517123549.22659-1-firogm@gmail.com>
-Cc: davem@davemloft.net, gregkh@linuxfoundation.org,
-        linux-hams@vger.kernel.org, netdev@vger.kernel.org,
-        dvyukov@google.com, syzkaller@googlegroups.com,
-        Firo Yang <firogm@gmail.com>
-To: t.sailer@alumni.ethz.ch
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [patch net-next v4 06/10] net: sched: introduce helpers to work
+ with filter chains
+Date: Wed, 17 May 2017 08:39:05 -0400
+Message-ID: <5270a876-6362-6c80-9911-8f929634edd1@mojatatu.com>
+References: <20170517090803.4461-1-jiri@resnulli.us>
+ <20170517090803.4461-7-jiri@resnulli.us>
+ <ae02e4e8-3047-cd42-9c53-a2a38f8c28df@mojatatu.com>
+ <20170517122528.GA9557@nanopsycho>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+        xiyou.wangcong@gmail.com, dsa@cumulusnetworks.com,
+        edumazet@google.com, stephen@networkplumber.org,
+        daniel@iogearbox.net, alexander.h.duyck@intel.com,
+        simon.horman@netronome.com, mlxsw@mellanox.com, joe@perches.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:32784 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751991AbdEQMgJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 17 May 2017 08:36:09 -0400
+Received: from mail-io0-f193.google.com ([209.85.223.193]:34326 "EHLO
+        mail-io0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752067AbdEQMjN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 17 May 2017 08:39:13 -0400
+Received: by mail-io0-f193.google.com with SMTP id 12so1280029iol.1
+        for <netdev@vger.kernel.org>; Wed, 17 May 2017 05:39:08 -0700 (PDT)
+In-Reply-To: <20170517122528.GA9557@nanopsycho>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The divisor s->par.bitrate will always be 0 until initialized by
-ndo_open() and hdlcdrv_open().
+On 17-05-17 08:25 AM, Jiri Pirko wrote:
+> Wed, May 17, 2017 at 02:18:00PM CEST, jhs@mojatatu.com wrote:
+>> On 17-05-17 05:07 AM, Jiri Pirko wrote:
+>>> From: Jiri Pirko <jiri@mellanox.com>
+>>>
+>>> Introduce struct tcf_chain object and set of helpers around it. Wraps up
+>>> insertion, deletion and search in the filter chain.
+>>>
+>>> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+>>> ---
+>>
+>> [..]
+>>> +
+>>> +static void
+>>> +tcf_chain_filter_chain_ptr_set(struct tcf_chain *chain,
+>>> +			       struct tcf_proto __rcu **p_filter_chain)
+>>> +
+>>
+>> What are the rules for this? Common coding style is:
+>> static void tcf_chain_filter_chain_ptr_set(struct tcf_chain *chain,
+>>                                           struct tcf_proto ..
+>
+> When this would not fit 80 cols (this case), you need to wrap the
+> text in front of the function name. That is exacly what I did.
+>
 
-In order to fix this divide zero error, check whether the netdevice
-was opened by ndo_open() before performing divide.
+That i understand.
+The question is: what does scripture dictate on conflict?
+Should a function signature always follow coding style and
+allow for exceeding 80 chars or the 80 chars rules trumps?
 
-Reported-by: Dmitry Vyukov <dvyukov@google.com>
-Signed-off-by: Firo Yang <firogm@gmail.com>
----
- drivers/net/hamradio/hdlcdrv.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+cheers,
+jamal
 
-diff --git a/drivers/net/hamradio/hdlcdrv.c b/drivers/net/hamradio/hdlcdrv.c
-index 8c3633c..3c783fd 100644
---- a/drivers/net/hamradio/hdlcdrv.c
-+++ b/drivers/net/hamradio/hdlcdrv.c
-@@ -574,7 +574,7 @@ static int hdlcdrv_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
- 		break;		
- 
- 	case HDLCDRVCTL_CALIBRATE:
--		if(!capable(CAP_SYS_RAWIO))
-+		if (!capable(CAP_SYS_RAWIO) || !netif_running(dev))
- 			return -EPERM;
- 		if (bi.data.calibrate > INT_MAX / s->par.bitrate)
- 			return -EINVAL;
--- 
-2.9.4
+>>
+>> I am sure that struct tcf_proto __rcu **p_filter_chain would
+>> probably hit boundary of 80 chars - but it would look cleaner
+>> to be consistent.
+>>
+>> Otherwise:
+>> Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
+>>
+>> cheers,
+>> jamal
+>>
