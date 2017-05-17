@@ -1,51 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ipv6: Prevent overrun when parsing v6 header
- options
-Date: Wed, 17 May 2017 14:57:30 -0400 (EDT)
-Message-ID: <20170517.145730.76726417606716563.davem@davemloft.net>
-References: <20170516183623.84966-1-kraigatgoog@gmail.com>
+Subject: Re: [PATCH net] net: fix compile error in skb_orphan_partial()
+Date: Wed, 17 May 2017 15:11:20 -0400 (EDT)
+Message-ID: <20170517.151120.2266257434113805990.davem@davemloft.net>
+References: <f63533e7-edd3-4c0d-ddff-e3409d15abc6@infradead.org>
+        <CAP=VYLoYkz1HE4yOHVGQvBanDtpkWhtHBMvbeuyd8PtNFCivRQ@mail.gmail.com>
+        <1494966473.6465.13.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: andreyknvl@google.com, netdev@vger.kernel.org
-To: kraigatgoog@gmail.com
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: paul.gortmaker@windriver.com, rdunlap@infradead.org,
+        sfr@canb.auug.org.au, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:35506 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:35668 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750944AbdEQS5u (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 17 May 2017 14:57:50 -0400
-In-Reply-To: <20170516183623.84966-1-kraigatgoog@gmail.com>
+        with ESMTP id S1751442AbdEQTLW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 17 May 2017 15:11:22 -0400
+In-Reply-To: <1494966473.6465.13.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Craig Gallek <kraigatgoog@gmail.com>
-Date: Tue, 16 May 2017 14:36:23 -0400
-
-> From: Craig Gallek <kraig@google.com>
-> 
-> The KASAN warning repoted below was discovered with a syzkaller
-> program.  The reproducer is basically:
->   int s = socket(AF_INET6, SOCK_RAW, NEXTHDR_HOP);
->   send(s, &one_byte_of_data, 1, MSG_MORE);
->   send(s, &more_than_mtu_bytes_data, 2000, 0);
-> 
-> The socket() call sets the nexthdr field of the v6 header to
-> NEXTHDR_HOP, the first send call primes the payload with a non zero
-> byte of data, and the second send call triggers the fragmentation path.
-> 
-> The fragmentation code tries to parse the header options in order
-> to figure out where to insert the fragment option.  Since nexthdr points
-> to an invalid option, the calculation of the size of the network header
-> can made to be much larger than the linear section of the skb and data
-> is read outside of it.
-> 
-> This fix makes ip6_find_1stfrag return an error if it detects
-> running out-of-bounds.
- ...
-> Reported-by: Andrey Konovalov <andreyknvl@google.com>
-> Signed-off-by: Craig Gallek <kraig@google.com>
-
-Since this is a reasonably serious bug I'm going to apply this
-to 'net' and queue it up for -stable.
-
-Thanks.
+RnJvbTogRXJpYyBEdW1hemV0IDxlcmljLmR1bWF6ZXRAZ21haWwuY29tPg0KRGF0ZTogVHVlLCAx
+NiBNYXkgMjAxNyAxMzoyNzo1MyAtMDcwMA0KDQo+IEZyb206IEVyaWMgRHVtYXpldCA8ZWR1bWF6
+ZXRAZ29vZ2xlLmNvbT4NCj4gDQo+IElmIENPTkZJR19JTkVUIGlzIG5vdCBzZXQsIG5ldC9jb3Jl
+L3NvY2suYyBjYW4gbm90IGNvbXBpbGUgOg0KPiANCj4gbmV0L2NvcmUvc29jay5jOiBJbiBmdW5j
+dGlvbiChc2tiX29ycGhhbl9wYXJ0aWFsojoNCj4gbmV0L2NvcmUvc29jay5jOjE4MTA6MjogZXJy
+b3I6IGltcGxpY2l0IGRlY2xhcmF0aW9uIG9mIGZ1bmN0aW9uDQo+IKFza2JfaXNfdGNwX3B1cmVf
+YWNroiBbLVdlcnJvcj1pbXBsaWNpdC1mdW5jdGlvbi1kZWNsYXJhdGlvbl0NCj4gICBpZiAoc2ti
+X2lzX3RjcF9wdXJlX2Fjayhza2IpKQ0KPiAgIF4NCj4gDQo+IEZpeCB0aGlzIGJ5IGFsd2F5cyBp
+bmNsdWRpbmcgPG5ldC90Y3AuaD4NCj4gDQo+IEZpeGVzOiBmNmJhOGQzM2NmYmIgKCJuZXRlbTog
+Zml4IHNrYl9vcnBoYW5fcGFydGlhbCgpIikNCj4gU2lnbmVkLW9mZi1ieTogRXJpYyBEdW1hemV0
+IDxlZHVtYXpldEBnb29nbGUuY29tPg0KPiBSZXBvcnRlZC1ieTogUGF1bCBHb3J0bWFrZXIgPHBh
+dWwuZ29ydG1ha2VyQHdpbmRyaXZlci5jb20+DQo+IFJlcG9ydGVkLWJ5OiBSYW5keSBEdW5sYXAg
+PHJkdW5sYXBAaW5mcmFkZWFkLm9yZz4NCj4gUmVwb3J0ZWQtYnk6IFN0ZXBoZW4gUm90aHdlbGwg
+PHNmckBjYW5iLmF1dWcub3JnLmF1Pg0KDQpBcHBsaWVkIGFuZCBxdWV1ZWQgdXAgZm9yIC1zdGFi
+bGUsIHRoYW5rcyBFcmljLg0K
