@@ -1,126 +1,101 @@
-From: linzhang <xiaolou4617@gmail.com>
-Subject: [PATCH net v3] net: x25: fix one potential use-after-free issue
-Date: Wed, 17 May 2017 12:05:07 +0800
-Message-ID: <1494993907-22727-1-git-send-email-xiaolou4617@gmail.com>
-Cc: linux-x25@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, linzhang <xiaolou4617@gmail.com>
-To: andrew.hendry@gmail.com, davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jason Wang <jasowang@redhat.com>
+Subject: [PATCH net-next V5 1/9] ptr_ring: add ptr_ring_unconsume
+Date: Wed, 17 May 2017 12:14:37 +0800
+Message-ID: <1494994485-12994-2-git-send-email-jasowang@redhat.com>
+References: <1494994485-12994-1-git-send-email-jasowang@redhat.com>
+Cc: Jason Wang <jasowang@redhat.com>
+To: mst@redhat.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:33852 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750969AbdEQEPU (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 17 May 2017 00:15:20 -0400
+In-Reply-To: <1494994485-12994-1-git-send-email-jasowang@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The function x25_init is not properly unregister related resources
-on error handler.It is will result in kernel oops if x25_init init
-failed, so add properly unregister call on error handler.
+From: "Michael S. Tsirkin" <mst@redhat.com>
 
-Also, i adjust the coding style and make x25_register_sysctl properly
-return failure.
+Applications that consume a batch of entries in one go
+can benefit from ability to return some of them back
+into the ring.
 
-Signed-off-by: linzhang <xiaolou4617@gmail.com>
+Add an API for that - assuming there's space. If there's no space
+naturally can't do this and have to drop entries, but this implies ring
+is full so we'd likely drop some anyway.
+
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+Signed-off-by: Jason Wang <jasowang@redhat.com>
 ---
+ include/linux/ptr_ring.h | 55 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 55 insertions(+)
 
-changelog:
-
-v1 -> v2:
-	* make x25_register_sysctl properly return failure
-
-v2 -> v3:
-	* keep the same lables as v1
-	* fix missing semicolon
-
----
- include/net/x25.h        |  4 ++--
- net/x25/af_x25.c         | 24 ++++++++++++++++--------
- net/x25/sysctl_net_x25.c |  5 ++++-
- 3 files changed, 22 insertions(+), 11 deletions(-)
-
-diff --git a/include/net/x25.h b/include/net/x25.h
-index c383aa4..6d30a01 100644
---- a/include/net/x25.h
-+++ b/include/net/x25.h
-@@ -298,10 +298,10 @@ int x25_decode(struct sock *, struct sk_buff *, int *, int *, int *, int *,
- 
- /* sysctl_net_x25.c */
- #ifdef CONFIG_SYSCTL
--void x25_register_sysctl(void);
-+int x25_register_sysctl(void);
- void x25_unregister_sysctl(void);
- #else
--static inline void x25_register_sysctl(void) {};
-+static inline int x25_register_sysctl(void) { return 0; };
- static inline void x25_unregister_sysctl(void) {};
- #endif /* CONFIG_SYSCTL */
- 
-diff --git a/net/x25/af_x25.c b/net/x25/af_x25.c
-index 8b911c2..5a1a98d 100644
---- a/net/x25/af_x25.c
-+++ b/net/x25/af_x25.c
-@@ -1791,32 +1791,40 @@ void x25_kill_by_neigh(struct x25_neigh *nb)
- 
- static int __init x25_init(void)
- {
--	int rc = proto_register(&x25_proto, 0);
-+	int rc;
- 
--	if (rc != 0)
-+	rc = proto_register(&x25_proto, 0);
-+	if (rc)
- 		goto out;
- 
- 	rc = sock_register(&x25_family_ops);
--	if (rc != 0)
-+	if (rc)
- 		goto out_proto;
- 
- 	dev_add_pack(&x25_packet_type);
- 
- 	rc = register_netdevice_notifier(&x25_dev_notifier);
--	if (rc != 0)
-+	if (rc)
- 		goto out_sock;
- 
--	pr_info("Linux Version 0.2\n");
-+	rc = x25_register_sysctl();
-+	if (rc)
-+		goto out_dev;
- 
--	x25_register_sysctl();
- 	rc = x25_proc_init();
--	if (rc != 0)
--		goto out_dev;
-+	if (rc)
-+		goto out_sysctl;
-+
-+	pr_info("Linux Version 0.2\n");
-+
- out:
- 	return rc;
-+out_sysctl:
-+	x25_unregister_sysctl();
- out_dev:
- 	unregister_netdevice_notifier(&x25_dev_notifier);
- out_sock:
-+	dev_remove_pack(&x25_packet_type);
- 	sock_unregister(AF_X25);
- out_proto:
- 	proto_unregister(&x25_proto);
-diff --git a/net/x25/sysctl_net_x25.c b/net/x25/sysctl_net_x25.c
-index a06dfe1..ba078c8 100644
---- a/net/x25/sysctl_net_x25.c
-+++ b/net/x25/sysctl_net_x25.c
-@@ -73,9 +73,12 @@
- 	{ },
- };
- 
--void __init x25_register_sysctl(void)
-+int __init x25_register_sysctl(void)
- {
- 	x25_table_header = register_net_sysctl(&init_net, "net/x25", x25_table);
-+	if (!x25_table_header)
-+		return -ENOMEM;
-+	return 0;
+diff --git a/include/linux/ptr_ring.h b/include/linux/ptr_ring.h
+index 6b2e0dd..796b90f 100644
+--- a/include/linux/ptr_ring.h
++++ b/include/linux/ptr_ring.h
+@@ -403,6 +403,61 @@ static inline int ptr_ring_init(struct ptr_ring *r, int size, gfp_t gfp)
+ 	return 0;
  }
  
- void x25_unregister_sysctl(void)
++/*
++ * Return entries into ring. Destroy entries that don't fit.
++ *
++ * Note: this is expected to be a rare slow path operation.
++ *
++ * Note: producer lock is nested within consumer lock, so if you
++ * resize you must make sure all uses nest correctly.
++ * In particular if you consume ring in interrupt or BH context, you must
++ * disable interrupts/BH when doing so.
++ */
++static inline void ptr_ring_unconsume(struct ptr_ring *r, void **batch, int n,
++				      void (*destroy)(void *))
++{
++	unsigned long flags;
++	int head;
++
++	spin_lock_irqsave(&r->consumer_lock, flags);
++	spin_lock(&r->producer_lock);
++
++	if (!r->size)
++		goto done;
++
++	/*
++	 * Clean out buffered entries (for simplicity). This way following code
++	 * can test entries for NULL and if not assume they are valid.
++	 */
++	head = r->consumer_head - 1;
++	while (likely(head >= r->consumer_tail))
++		r->queue[head--] = NULL;
++	r->consumer_tail = r->consumer_head;
++
++	/*
++	 * Go over entries in batch, start moving head back and copy entries.
++	 * Stop when we run into previously unconsumed entries.
++	 */
++	while (n) {
++		head = r->consumer_head - 1;
++		if (head < 0)
++			head = r->size - 1;
++		if (r->queue[head]) {
++			/* This batch entry will have to be destroyed. */
++			goto done;
++		}
++		r->queue[head] = batch[--n];
++		r->consumer_tail = r->consumer_head = head;
++	}
++
++done:
++	/* Destroy all entries left in the batch. */
++	while (n)
++		destroy(batch[--n]);
++	spin_unlock(&r->producer_lock);
++	spin_unlock_irqrestore(&r->consumer_lock, flags);
++}
++
+ static inline void **__ptr_ring_swap_queue(struct ptr_ring *r, void **queue,
+ 					   int size, gfp_t gfp,
+ 					   void (*destroy)(void *))
 -- 
-1.8.3.1
+2.7.4
