@@ -1,21 +1,42 @@
-From: ZIMBRA <sargentoaldea@saludstgo.cl>
-Subject: Alerte
-Date: Wed, 17 May 2017 02:36:14 -0400 (CLT)
-Message-ID: <817132006.1719250.1495002974177.JavaMail.zimbra@saludstgo.cl>
+From: Oliver Neukum <oneukum-IBi9RG/b67k@public.gmane.org>
+Subject: Re: [RFC V1 1/1] net: cdc_ncm: Reduce memory use when kernel memory
+ low
+Date: Wed, 17 May 2017 09:44:20 +0200
+Message-ID: <1495007060.30577.8.camel@suse.com>
+References: <1494956480-6127-1-git-send-email-jim_baxter@mentor.com>
+         <1494956480-6127-2-git-send-email-jim_baxter@mentor.com>
+         <87shk4fynp.fsf@miraculix.mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8BIT
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from [200.54.218.100] ([200.54.218.100]:60284 "HELO
-        mail.saludstgo.cl" rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org
-        with SMTP id S1752368AbdEQHkI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 17 May 2017 03:40:08 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: =?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn-yOkvZcmFvRU@public.gmane.org>,
+        Jim Baxter <jim_baxter-nmGgyN9QBj3QT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <87shk4fynp.fsf-3F4PFWf5pNjpjLOzFPqGjWGXanvQGlWp@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-LA MISE À JOUR DU COMPTE EST EN COURS, FÉZ-VOUS PARTIE AUJOURD'HUI POUR UN FONCTIONNEMENT DE COMPTE PARFAIT. CLIQUEZ SUR LE LIEN CI-DESSOUS ET Mettez à jour votre compte IMMÉDIATEMENT.
+Am Dienstag, den 16.05.2017, 20:24 +0200 schrieb Bjørn Mork:
+> 
+> I must say that I don't like the additional complexity added here.  If
+> there are memory issues and you can reduce the buffer size to
+> USB_CDC_NCM_NTB_MIN_OUT_SIZE, then why don't you just set a lower tx_max
+> buffer size in the first place?
+> 
+>   echo 2048 > /sys/class/net/wwan0/cdc_ncm/tx_max
+> 
 
-http://kssdjklssja.tripod.com/
+Hi,
 
-ZIMBRA WEBMASTER
+that would hurt performance across the board though.
+Can we trigger memory compactation earlier?
+
+	Regards
+		Oliver
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
