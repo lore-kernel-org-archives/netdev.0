@@ -1,60 +1,52 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: [PATCH net-next] net: make struct dst_entry::dev first member
-Date: Wed, 17 May 2017 19:31:39 +0300
-Message-ID: <20170517163138.GA5269@avx2>
+From: Edward Cree <ecree@solarflare.com>
+Subject: Re: [PATCH v2 1/3] bpf: Use 1<<16 as ceiling for immediate alignment
+ in verifier.
+Date: Wed, 17 May 2017 18:00:03 +0100
+Message-ID: <fae2fc09-d26e-213a-cd9d-1699db691515@solarflare.com>
+References: <754f2c39-fdb0-2407-c2f2-aa36d506d202@solarflare.com>
+ <f2bff26d-8b4d-c6a2-23c9-9db198569e40@fb.com>
+ <50288778-10f6-7201-c979-bfe4635831fc@solarflare.com>
+ <20170517.121313.1437427582437926345.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: <ast@fb.com>, <daniel@iogearbox.net>,
+        <alexei.starovoitov@gmail.com>, <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:36096 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751900AbdEQQbo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 17 May 2017 12:31:44 -0400
-Received: by mail-wm0-f65.google.com with SMTP id k15so3449341wmh.3
-        for <netdev@vger.kernel.org>; Wed, 17 May 2017 09:31:43 -0700 (PDT)
-Content-Disposition: inline
+Received: from dispatch1-us1.ppe-hosted.com ([67.231.154.164]:42778 "EHLO
+        dispatch1-us1.ppe-hosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S932150AbdEQRAV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 17 May 2017 13:00:21 -0400
+In-Reply-To: <20170517.121313.1437427582437926345.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-struct dst_entry::dev is used most often. Move it so it can be
-accessed without imm8 offset on x86_64.
+On 17/05/17 17:13, David Miller wrote:
+> Both cases are common in real BPF programs.  The offsets really are
+> necessary.  It's funny because initially I tried to implement this
+> without the auxiliary offset and it simply doesn't work. :-)
+> 
+> We always have to track when you've seen the offset that cancels out
+> the NET_IP_ALIGN.  And as stated it can occur both before and after
+> variable offsets have been introduced.
+> 
+> You have to catch both:
+> 
+> 	ptr += variable;
+> 	ptr += 14;
+> 
+> and:
+> 
+> 	ptr += 14;
+> 	ptr += variable; /* align = 4 */
+> 
+> And always see at the end that "NET_IP_ALIGN + offsets" will
+> be properly 4 byte aligned.
 
-	add/remove: 0/0 grow/shrink: 9/239 up/down: 52/-413 (-361)
-	function                                     old     new   delta
-	dst_rcu_free                                 126     138     +12
-	fnhe_flush_routes                            211     219      +8
-	rt_set_nexthop                               747     754      +7
-	rt_cache_route                                85      91      +6
-	rt6_release                                  209     215      +6
-	dst_release                                  107     111      +4
-	dst_destroy_rcu                               29      33      +4
-	dn_dst_check_expire                          329     333      +4
-	dn_insert_route                              484     485      +1
-	xfrm_resolve_and_create_bundle              2991    2990      -1
-					...
-	ip_route_me_harder                          1163    1157      -6
-	__ip_append_data.isra                       2730    2724      -6
-	ip6_forward                                 3052    3045      -7
-	callforward_do_filter                        659     651      -8
-	dst_gc_task                                  571     549     -22
+Did you see the algorithms I posted with two masks?  Effectively they
+ are tracking the 'quotient' and 'remainder', but in a was that might
+ be easier to manipulate (bit-twiddly etc.) than the aux offset.  I
+ think they handle both the above cases, in a nicely general way.
 
-Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
----
-
- include/net/dst.h |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
---- a/include/net/dst.h
-+++ b/include/net/dst.h
-@@ -31,9 +31,9 @@
- struct sk_buff;
- 
- struct dst_entry {
-+	struct net_device       *dev;
- 	struct rcu_head		rcu_head;
- 	struct dst_entry	*child;
--	struct net_device       *dev;
- 	struct  dst_ops	        *ops;
- 	unsigned long		_metrics;
- 	unsigned long           expires;
+-Ed
