@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 2/3] net: dsa: include switchdev.h only once
-Date: Wed, 17 May 2017 15:46:04 -0400
-Message-ID: <20170517194605.31639-3-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 3/3] net: dsa: use switchdev_obj_dump_cb_t everywhere
+Date: Wed, 17 May 2017 15:46:05 -0400
+Message-ID: <20170517194605.31639-4-vivien.didelot@savoirfairelinux.com>
 References: <20170517194605.31639-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
@@ -9,139 +9,196 @@ Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         Andrew Lunn <andrew@lunn.ch>,
         Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:44730 "EHLO
-        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751957AbdEQTsQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 17 May 2017 15:48:16 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20170517194605.31639-1-vivien.didelot@savoirfairelinux.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-DSA drivers and core use switchdev. Include switchdev.h only once, in
-the dsa.h public header, so that inclusion in DSA drivers or forward
-declarations of switchdev structures in not necessary anymore.
+Now that the DSA public header includes switchdev.h, use the provided
+switchdev_obj_dump_cb_t typedef for the object dump callback.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- drivers/net/dsa/b53/b53_common.c | 1 -
- drivers/net/dsa/bcm_sf2.c        | 1 -
- drivers/net/dsa/dsa_loop.c       | 1 -
- drivers/net/dsa/mt7530.c         | 1 -
- drivers/net/dsa/mv88e6xxx/chip.c | 1 -
- drivers/net/dsa/qca8k.c          | 1 -
- include/net/dsa.h                | 7 +------
- net/dsa/slave.c                  | 1 -
- 8 files changed, 1 insertion(+), 13 deletions(-)
+ drivers/net/dsa/b53/b53_common.c |  6 +++---
+ drivers/net/dsa/b53/b53_priv.h   |  4 ++--
+ drivers/net/dsa/dsa_loop.c       |  2 +-
+ drivers/net/dsa/mt7530.c         |  2 +-
+ drivers/net/dsa/mv88e6xxx/chip.c | 10 +++++-----
+ drivers/net/dsa/qca8k.c          |  2 +-
+ include/net/dsa.h                |  6 +++---
+ 7 files changed, 16 insertions(+), 16 deletions(-)
 
 diff --git a/drivers/net/dsa/b53/b53_common.c b/drivers/net/dsa/b53/b53_common.c
-index 658a12c888a8..fbc3eb17c7a3 100644
+index fbc3eb17c7a3..fa099ed41652 100644
 --- a/drivers/net/dsa/b53/b53_common.c
 +++ b/drivers/net/dsa/b53/b53_common.c
-@@ -29,7 +29,6 @@
- #include <linux/etherdevice.h>
- #include <linux/if_bridge.h>
- #include <net/dsa.h>
--#include <net/switchdev.h>
+@@ -1055,7 +1055,7 @@ EXPORT_SYMBOL(b53_vlan_del);
  
- #include "b53_regs.h"
- #include "b53_priv.h"
-diff --git a/drivers/net/dsa/bcm_sf2.c b/drivers/net/dsa/bcm_sf2.c
-index 215d41c1e71f..687a8bae5d73 100644
---- a/drivers/net/dsa/bcm_sf2.c
-+++ b/drivers/net/dsa/bcm_sf2.c
-@@ -28,7 +28,6 @@
- #include <linux/if_bridge.h>
- #include <linux/brcmphy.h>
- #include <linux/etherdevice.h>
--#include <net/switchdev.h>
- #include <linux/platform_data/b53.h>
+ int b53_vlan_dump(struct dsa_switch *ds, int port,
+ 		  struct switchdev_obj_port_vlan *vlan,
+-		  int (*cb)(struct switchdev_obj *obj))
++		  switchdev_obj_dump_cb_t *cb)
+ {
+ 	struct b53_device *dev = ds->priv;
+ 	u16 vid, vid_start = 0, pvid;
+@@ -1284,7 +1284,7 @@ static void b53_arl_search_rd(struct b53_device *dev, u8 idx,
+ static int b53_fdb_copy(struct net_device *dev, int port,
+ 			const struct b53_arl_entry *ent,
+ 			struct switchdev_obj_port_fdb *fdb,
+-			int (*cb)(struct switchdev_obj *obj))
++			switchdev_obj_dump_cb_t *cb)
+ {
+ 	if (!ent->is_valid)
+ 		return 0;
+@@ -1301,7 +1301,7 @@ static int b53_fdb_copy(struct net_device *dev, int port,
  
- #include "bcm_sf2.h"
+ int b53_fdb_dump(struct dsa_switch *ds, int port,
+ 		 struct switchdev_obj_port_fdb *fdb,
+-		 int (*cb)(struct switchdev_obj *obj))
++		 switchdev_obj_dump_cb_t *cb)
+ {
+ 	struct b53_device *priv = ds->priv;
+ 	struct net_device *dev = ds->ports[port].netdev;
+diff --git a/drivers/net/dsa/b53/b53_priv.h b/drivers/net/dsa/b53/b53_priv.h
+index a9dc90a01438..155a9c48c317 100644
+--- a/drivers/net/dsa/b53/b53_priv.h
++++ b/drivers/net/dsa/b53/b53_priv.h
+@@ -395,7 +395,7 @@ int b53_vlan_del(struct dsa_switch *ds, int port,
+ 		 const struct switchdev_obj_port_vlan *vlan);
+ int b53_vlan_dump(struct dsa_switch *ds, int port,
+ 		  struct switchdev_obj_port_vlan *vlan,
+-		  int (*cb)(struct switchdev_obj *obj));
++		  switchdev_obj_dump_cb_t *cb);
+ int b53_fdb_prepare(struct dsa_switch *ds, int port,
+ 		    const struct switchdev_obj_port_fdb *fdb,
+ 		    struct switchdev_trans *trans);
+@@ -406,7 +406,7 @@ int b53_fdb_del(struct dsa_switch *ds, int port,
+ 		const struct switchdev_obj_port_fdb *fdb);
+ int b53_fdb_dump(struct dsa_switch *ds, int port,
+ 		 struct switchdev_obj_port_fdb *fdb,
+-		 int (*cb)(struct switchdev_obj *obj));
++		 switchdev_obj_dump_cb_t *cb);
+ int b53_mirror_add(struct dsa_switch *ds, int port,
+ 		   struct dsa_mall_mirror_tc_entry *mirror, bool ingress);
+ void b53_mirror_del(struct dsa_switch *ds, int port,
 diff --git a/drivers/net/dsa/dsa_loop.c b/drivers/net/dsa/dsa_loop.c
-index a19e1781e9bb..6afab16d13dd 100644
+index 6afab16d13dd..5edf07beb9d2 100644
 --- a/drivers/net/dsa/dsa_loop.c
 +++ b/drivers/net/dsa/dsa_loop.c
-@@ -17,7 +17,6 @@
- #include <linux/workqueue.h>
- #include <linux/module.h>
- #include <linux/if_bridge.h>
--#include <net/switchdev.h>
- #include <net/dsa.h>
+@@ -187,7 +187,7 @@ static int dsa_loop_port_vlan_del(struct dsa_switch *ds, int port,
  
- #include "dsa_loop.h"
+ static int dsa_loop_port_vlan_dump(struct dsa_switch *ds, int port,
+ 				   struct switchdev_obj_port_vlan *vlan,
+-				   int (*cb)(struct switchdev_obj *obj))
++				   switchdev_obj_dump_cb_t *cb)
+ {
+ 	struct dsa_loop_priv *ps = ds->priv;
+ 	struct mii_bus *bus = ps->bus;
 diff --git a/drivers/net/dsa/mt7530.c b/drivers/net/dsa/mt7530.c
-index b070c167e70f..1bcbe15870ed 100644
+index 1bcbe15870ed..4d2f45153ede 100644
 --- a/drivers/net/dsa/mt7530.c
 +++ b/drivers/net/dsa/mt7530.c
-@@ -28,7 +28,6 @@
- #include <linux/reset.h>
- #include <linux/gpio/consumer.h>
- #include <net/dsa.h>
--#include <net/switchdev.h>
- 
- #include "mt7530.h"
- 
+@@ -853,7 +853,7 @@ mt7530_port_fdb_del(struct dsa_switch *ds, int port,
+ static int
+ mt7530_port_fdb_dump(struct dsa_switch *ds, int port,
+ 		     struct switchdev_obj_port_fdb *fdb,
+-		     int (*cb)(struct switchdev_obj *obj))
++		     switchdev_obj_dump_cb_t *cb)
+ {
+ 	struct mt7530_priv *priv = ds->priv;
+ 	struct mt7530_fdb _fdb = { 0 };
 diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-index d034d8cd7d22..386d878569ed 100644
+index 386d878569ed..41de250dbcc3 100644
 --- a/drivers/net/dsa/mv88e6xxx/chip.c
 +++ b/drivers/net/dsa/mv88e6xxx/chip.c
-@@ -32,7 +32,6 @@
- #include <linux/gpio/consumer.h>
- #include <linux/phy.h>
- #include <net/dsa.h>
--#include <net/switchdev.h>
+@@ -1268,7 +1268,7 @@ static int mv88e6xxx_vtu_loadpurge(struct mv88e6xxx_chip *chip,
  
- #include "mv88e6xxx.h"
- #include "global1.h"
+ static int mv88e6xxx_port_vlan_dump(struct dsa_switch *ds, int port,
+ 				    struct switchdev_obj_port_vlan *vlan,
+-				    int (*cb)(struct switchdev_obj *obj))
++				    switchdev_obj_dump_cb_t *cb)
+ {
+ 	struct mv88e6xxx_chip *chip = ds->priv;
+ 	struct mv88e6xxx_vtu_entry next = {
+@@ -1699,7 +1699,7 @@ static int mv88e6xxx_port_fdb_del(struct dsa_switch *ds, int port,
+ static int mv88e6xxx_port_db_dump_fid(struct mv88e6xxx_chip *chip,
+ 				      u16 fid, u16 vid, int port,
+ 				      struct switchdev_obj *obj,
+-				      int (*cb)(struct switchdev_obj *obj))
++				      switchdev_obj_dump_cb_t *cb)
+ {
+ 	struct mv88e6xxx_atu_entry addr;
+ 	int err;
+@@ -1754,7 +1754,7 @@ static int mv88e6xxx_port_db_dump_fid(struct mv88e6xxx_chip *chip,
+ 
+ static int mv88e6xxx_port_db_dump(struct mv88e6xxx_chip *chip, int port,
+ 				  struct switchdev_obj *obj,
+-				  int (*cb)(struct switchdev_obj *obj))
++				  switchdev_obj_dump_cb_t *cb)
+ {
+ 	struct mv88e6xxx_vtu_entry vlan = {
+ 		.vid = chip->info->max_vid,
+@@ -1791,7 +1791,7 @@ static int mv88e6xxx_port_db_dump(struct mv88e6xxx_chip *chip, int port,
+ 
+ static int mv88e6xxx_port_fdb_dump(struct dsa_switch *ds, int port,
+ 				   struct switchdev_obj_port_fdb *fdb,
+-				   int (*cb)(struct switchdev_obj *obj))
++				   switchdev_obj_dump_cb_t *cb)
+ {
+ 	struct mv88e6xxx_chip *chip = ds->priv;
+ 	int err;
+@@ -4037,7 +4037,7 @@ static int mv88e6xxx_port_mdb_del(struct dsa_switch *ds, int port,
+ 
+ static int mv88e6xxx_port_mdb_dump(struct dsa_switch *ds, int port,
+ 				   struct switchdev_obj_port_mdb *mdb,
+-				   int (*cb)(struct switchdev_obj *obj))
++				   switchdev_obj_dump_cb_t *cb)
+ {
+ 	struct mv88e6xxx_chip *chip = ds->priv;
+ 	int err;
 diff --git a/drivers/net/dsa/qca8k.c b/drivers/net/dsa/qca8k.c
-index 942b9ac7f92a..149f109dbffb 100644
+index 149f109dbffb..0f6a011d8ed1 100644
 --- a/drivers/net/dsa/qca8k.c
 +++ b/drivers/net/dsa/qca8k.c
-@@ -18,7 +18,6 @@
- #include <linux/phy.h>
- #include <linux/netdevice.h>
- #include <net/dsa.h>
--#include <net/switchdev.h>
- #include <linux/of_net.h>
- #include <linux/of_platform.h>
- #include <linux/if_bridge.h>
+@@ -872,7 +872,7 @@ qca8k_port_fdb_del(struct dsa_switch *ds, int port,
+ static int
+ qca8k_port_fdb_dump(struct dsa_switch *ds, int port,
+ 		    struct switchdev_obj_port_fdb *fdb,
+-		    int (*cb)(struct switchdev_obj *obj))
++		    switchdev_obj_dump_cb_t *cb)
+ {
+ 	struct qca8k_priv *priv = (struct qca8k_priv *)ds->priv;
+ 	struct qca8k_fdb _fdb = { 0 };
 diff --git a/include/net/dsa.h b/include/net/dsa.h
-index 118a8bd2fd9a..61984895a9ad 100644
+index 61984895a9ad..beb69a6e705f 100644
 --- a/include/net/dsa.h
 +++ b/include/net/dsa.h
-@@ -20,6 +20,7 @@
- #include <linux/of.h>
- #include <linux/ethtool.h>
- #include <net/devlink.h>
-+#include <net/switchdev.h>
+@@ -404,7 +404,7 @@ struct dsa_switch_ops {
+ 				 const struct switchdev_obj_port_vlan *vlan);
+ 	int	(*port_vlan_dump)(struct dsa_switch *ds, int port,
+ 				  struct switchdev_obj_port_vlan *vlan,
+-				  int (*cb)(struct switchdev_obj *obj));
++				  switchdev_obj_dump_cb_t *cb);
  
- struct tc_action;
- struct phy_device;
-@@ -284,12 +285,6 @@ static inline u8 dsa_upstream_port(struct dsa_switch *ds)
- 		return ds->rtable[dst->cpu_dp->ds->index];
- }
+ 	/*
+ 	 * Forwarding database
+@@ -419,7 +419,7 @@ struct dsa_switch_ops {
+ 				const struct switchdev_obj_port_fdb *fdb);
+ 	int	(*port_fdb_dump)(struct dsa_switch *ds, int port,
+ 				 struct switchdev_obj_port_fdb *fdb,
+-				 int (*cb)(struct switchdev_obj *obj));
++				  switchdev_obj_dump_cb_t *cb);
  
--struct switchdev_trans;
--struct switchdev_obj;
--struct switchdev_obj_port_fdb;
--struct switchdev_obj_port_mdb;
--struct switchdev_obj_port_vlan;
--
- #define DSA_NOTIFIER_BRIDGE_JOIN		1
- #define DSA_NOTIFIER_BRIDGE_LEAVE		2
+ 	/*
+ 	 * Multicast database
+@@ -434,7 +434,7 @@ struct dsa_switch_ops {
+ 				const struct switchdev_obj_port_mdb *mdb);
+ 	int	(*port_mdb_dump)(struct dsa_switch *ds, int port,
+ 				 struct switchdev_obj_port_mdb *mdb,
+-				 int (*cb)(struct switchdev_obj *obj));
++				  switchdev_obj_dump_cb_t *cb);
  
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index fb13c5d7d587..91236d602301 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -18,7 +18,6 @@
- #include <linux/mdio.h>
- #include <linux/list.h>
- #include <net/rtnetlink.h>
--#include <net/switchdev.h>
- #include <net/pkt_cls.h>
- #include <net/tc_act/tc_mirred.h>
- #include <linux/if_bridge.h>
+ 	/*
+ 	 * RXNFC
 -- 
 2.13.0
