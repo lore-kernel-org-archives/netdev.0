@@ -1,70 +1,92 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH net-next V5 0/9] vhost_net rx batch dequeuing
-Date: Wed, 17 May 2017 12:14:36 +0800
-Message-ID: <1494994485-12994-1-git-send-email-jasowang@redhat.com>
-Cc: Jason Wang <jasowang@redhat.com>
-To: mst@redhat.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Andrei Vagin <avagin@openvz.org>
+Subject: [PATCH net-next] net: fix __skb_try_recv_from_queue to return the old behavior
+Date: Tue, 16 May 2017 21:47:10 -0700
+Message-ID: <20170517044710.28300-1-avagin@openvz.org>
+Cc: netdev@vger.kernel.org, Andrei Vagin <avagin@openvz.org>,
+        Paolo Abeni <pabeni@redhat.com>,
+        Eric Dumazet <edumazet@google.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:36201 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751531AbdEQErY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 17 May 2017 00:47:24 -0400
+Received: by mail-pf0-f193.google.com with SMTP id n23so271520pfb.3
+        for <netdev@vger.kernel.org>; Tue, 16 May 2017 21:47:23 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This series tries to implement rx batching for vhost-net. This is done
-by batching the dequeuing from skb_array which was exported by
-underlayer socket and pass the sbk back through msg_control to finish
-userspace copying. This is also the requirement for more batching
-implemention on rx path.
+This function has to return NULL on a error case, because there is a
+separate error variable.
 
-Tests shows at most 7.56% improvment bon rx pps on top of batch
-zeroing and no obvious changes for TCP_STREAM/TCP_RR result.
+The offset has to be changed only if skb is returned
 
-Please review.
+Cc: Paolo Abeni <pabeni@redhat.com>
+Cc: Eric Dumazet <edumazet@google.com>
+Cc: David S. Miller <davem@davemloft.net>
+Fixes: 65101aeca522 ("net/sock: factor out dequeue/peek with offset cod")
+Signed-off-by: Andrei Vagin <avagin@openvz.org>
+---
+ net/core/datagram.c | 14 ++++++++------
+ 1 file changed, 8 insertions(+), 6 deletions(-)
 
-Thanks
-
-Changes from V4:
-- drop batch zeroing patch
-- renew the performance numbers
-- move skb pointer array out of vhost_net structure
-
-Changes from V3:
-- add batch zeroing patch to fix the build warnings
-
-Changes from V2:
-- rebase to net-next HEAD
-- use unconsume helpers to put skb back on releasing
-- introduce and use vhost_net internal buffer helpers
-- renew performance numbers on top of batch zeroing
-
-Changes from V1:
-- switch to use for() in __ptr_ring_consume_batched()
-- rename peek_head_len_batched() to fetch_skbs()
-- use skb_array_consume_batched() instead of
-  skb_array_consume_batched_bh() since no consumer run in bh
-- drop the lockless peeking patch since skb_array could be resized, so
-  it's not safe to call lockless one
-
-Jason Wang (8):
-  skb_array: introduce skb_array_unconsume
-  ptr_ring: introduce batch dequeuing
-  skb_array: introduce batch dequeuing
-  tun: export skb_array
-  tap: export skb_array
-  tun: support receiving skb through msg_control
-  tap: support receiving skb from msg_control
-  vhost_net: try batch dequing from skb array
-
-Michael S. Tsirkin (1):
-  ptr_ring: add ptr_ring_unconsume
-
- drivers/net/tap.c         |  25 +++++++--
- drivers/net/tun.c         |  31 ++++++++---
- drivers/vhost/net.c       | 128 +++++++++++++++++++++++++++++++++++++++++++---
- include/linux/if_tap.h    |   5 ++
- include/linux/if_tun.h    |   5 ++
- include/linux/ptr_ring.h  | 120 +++++++++++++++++++++++++++++++++++++++++++
- include/linux/skb_array.h |  31 +++++++++++
- 7 files changed, 327 insertions(+), 18 deletions(-)
-
+diff --git a/net/core/datagram.c b/net/core/datagram.c
+index a4592b4..bc46118 100644
+--- a/net/core/datagram.c
++++ b/net/core/datagram.c
+@@ -170,20 +170,21 @@ struct sk_buff *__skb_try_recv_from_queue(struct sock *sk,
+ 					  struct sk_buff **last)
+ {
+ 	struct sk_buff *skb;
++	int _off = *off;
+ 
+ 	*last = queue->prev;
+ 	skb_queue_walk(queue, skb) {
+ 		if (flags & MSG_PEEK) {
+-			if (*off >= skb->len && (skb->len || *off ||
++			if (_off >= skb->len && (skb->len || _off ||
+ 						 skb->peeked)) {
+-				*off -= skb->len;
++				_off -= skb->len;
+ 				continue;
+ 			}
+ 			if (!skb->len) {
+ 				skb = skb_set_peeked(skb);
+ 				if (unlikely(IS_ERR(skb))) {
+ 					*err = PTR_ERR(skb);
+-					return skb;
++					return NULL;
+ 				}
+ 			}
+ 			*peeked = 1;
+@@ -193,6 +194,7 @@ struct sk_buff *__skb_try_recv_from_queue(struct sock *sk,
+ 			if (destructor)
+ 				destructor(sk, skb);
+ 		}
++		*off = _off;
+ 		return skb;
+ 	}
+ 	return NULL;
+@@ -253,8 +255,6 @@ struct sk_buff *__skb_try_recv_datagram(struct sock *sk, unsigned int flags,
+ 
+ 	*peeked = 0;
+ 	do {
+-		int _off = *off;
+-
+ 		/* Again only user level code calls this function, so nothing
+ 		 * interrupt level will suddenly eat the receive_queue.
+ 		 *
+@@ -263,8 +263,10 @@ struct sk_buff *__skb_try_recv_datagram(struct sock *sk, unsigned int flags,
+ 		 */
+ 		spin_lock_irqsave(&queue->lock, cpu_flags);
+ 		skb = __skb_try_recv_from_queue(sk, queue, flags, destructor,
+-						peeked, &_off, err, last);
++						peeked, off, &error, last);
+ 		spin_unlock_irqrestore(&queue->lock, cpu_flags);
++		if (error)
++			goto no_packet;
+ 		if (skb)
+ 			return skb;
+ 
 -- 
-2.7.4
+2.9.3
