@@ -1,101 +1,37 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH net-next V5 1/9] ptr_ring: add ptr_ring_unconsume
-Date: Wed, 17 May 2017 12:14:37 +0800
-Message-ID: <1494994485-12994-2-git-send-email-jasowang@redhat.com>
+Subject: [PATCH net-next V5 2/9] skb_array: introduce skb_array_unconsume
+Date: Wed, 17 May 2017 12:14:38 +0800
+Message-ID: <1494994485-12994-3-git-send-email-jasowang@redhat.com>
 References: <1494994485-12994-1-git-send-email-jasowang@redhat.com>
 Cc: Jason Wang <jasowang@redhat.com>
 To: mst@redhat.com, netdev@vger.kernel.org,
         linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:33852 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750969AbdEQEPU (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 17 May 2017 00:15:20 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1494994485-12994-1-git-send-email-jasowang@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "Michael S. Tsirkin" <mst@redhat.com>
-
-Applications that consume a batch of entries in one go
-can benefit from ability to return some of them back
-into the ring.
-
-Add an API for that - assuming there's space. If there's no space
-naturally can't do this and have to drop entries, but this implies ring
-is full so we'd likely drop some anyway.
-
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 Signed-off-by: Jason Wang <jasowang@redhat.com>
 ---
- include/linux/ptr_ring.h | 55 ++++++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 55 insertions(+)
+ include/linux/skb_array.h | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
-diff --git a/include/linux/ptr_ring.h b/include/linux/ptr_ring.h
-index 6b2e0dd..796b90f 100644
---- a/include/linux/ptr_ring.h
-+++ b/include/linux/ptr_ring.h
-@@ -403,6 +403,61 @@ static inline int ptr_ring_init(struct ptr_ring *r, int size, gfp_t gfp)
- 	return 0;
+diff --git a/include/linux/skb_array.h b/include/linux/skb_array.h
+index f4dfade..79850b6 100644
+--- a/include/linux/skb_array.h
++++ b/include/linux/skb_array.h
+@@ -156,6 +156,12 @@ static void __skb_array_destroy_skb(void *ptr)
+ 	kfree_skb(ptr);
  }
  
-+/*
-+ * Return entries into ring. Destroy entries that don't fit.
-+ *
-+ * Note: this is expected to be a rare slow path operation.
-+ *
-+ * Note: producer lock is nested within consumer lock, so if you
-+ * resize you must make sure all uses nest correctly.
-+ * In particular if you consume ring in interrupt or BH context, you must
-+ * disable interrupts/BH when doing so.
-+ */
-+static inline void ptr_ring_unconsume(struct ptr_ring *r, void **batch, int n,
-+				      void (*destroy)(void *))
++static inline void skb_array_unconsume(struct skb_array *a,
++				       struct sk_buff **skbs, int n)
 +{
-+	unsigned long flags;
-+	int head;
-+
-+	spin_lock_irqsave(&r->consumer_lock, flags);
-+	spin_lock(&r->producer_lock);
-+
-+	if (!r->size)
-+		goto done;
-+
-+	/*
-+	 * Clean out buffered entries (for simplicity). This way following code
-+	 * can test entries for NULL and if not assume they are valid.
-+	 */
-+	head = r->consumer_head - 1;
-+	while (likely(head >= r->consumer_tail))
-+		r->queue[head--] = NULL;
-+	r->consumer_tail = r->consumer_head;
-+
-+	/*
-+	 * Go over entries in batch, start moving head back and copy entries.
-+	 * Stop when we run into previously unconsumed entries.
-+	 */
-+	while (n) {
-+		head = r->consumer_head - 1;
-+		if (head < 0)
-+			head = r->size - 1;
-+		if (r->queue[head]) {
-+			/* This batch entry will have to be destroyed. */
-+			goto done;
-+		}
-+		r->queue[head] = batch[--n];
-+		r->consumer_tail = r->consumer_head = head;
-+	}
-+
-+done:
-+	/* Destroy all entries left in the batch. */
-+	while (n)
-+		destroy(batch[--n]);
-+	spin_unlock(&r->producer_lock);
-+	spin_unlock_irqrestore(&r->consumer_lock, flags);
++	ptr_ring_unconsume(&a->ring, (void **)skbs, n, __skb_array_destroy_skb);
 +}
 +
- static inline void **__ptr_ring_swap_queue(struct ptr_ring *r, void **queue,
- 					   int size, gfp_t gfp,
- 					   void (*destroy)(void *))
+ static inline int skb_array_resize(struct skb_array *a, int size, gfp_t gfp)
+ {
+ 	return ptr_ring_resize(&a->ring, size, gfp, __skb_array_destroy_skb);
 -- 
 2.7.4
