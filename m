@@ -1,64 +1,60 @@
-From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
-Subject: RE: [PATCH net 5/5] qede: Split PF/VF ndos.
-Date: Wed, 17 May 2017 06:16:46 +0000
-Message-ID: <CY1PR0701MB20094B9857D89E463608F3B98DE70@CY1PR0701MB2009.namprd07.prod.outlook.com>
-References: <1494331671-16273-1-git-send-email-Yuval.Mintz@cavium.com>
- <1494331671-16273-6-git-send-email-Yuval.Mintz@cavium.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-To: "davem@davemloft.net" <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+From: Tobias Jungel <tobias.jungel@bisdn.de>
+Subject: [PATCH v4] bridge: netlink: check vlan_default_pvid range
+Date: Wed, 17 May 2017 09:29:12 +0200
+Message-ID: <20170517072912.13063-1-tobias.jungel@bisdn.de>
+To: Sabrina Dubroca <sd@queasysnail.net>,
+        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+        Stephen Hemminger <stephen@networkplumber.org>,
+        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn3nam01on0082.outbound.protection.outlook.com ([104.47.33.82]:59802
-        "EHLO NAM01-BN3-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1750784AbdEQGQs (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 17 May 2017 02:16:48 -0400
-In-Reply-To: <1494331671-16273-6-git-send-email-Yuval.Mintz@cavium.com>
-Content-Language: en-US
+Received: from mx.bisdn.de ([185.27.182.31]:47492 "EHLO mx.bisdn.de"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753172AbdEQH3k (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 17 May 2017 03:29:40 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> PFs and VFs share the same structure of NDOs today, and the VFs explicitl=
-y
-> fails the ndo_xdp() callback stating it doesn't support XDP.
->=20
-> This results in lots of:
->=20
->   [qede_xdp:1032(enp131s2)]VFs don't support XDP
->   ------------[ cut here ]------------
->   WARNING: CPU: 4 PID: 1426 at net/core/rtnetlink.c:1637
-> rtnl_dump_ifinfo+0x354/0x3c0
->   ...
->   Call Trace:
->     ? __alloc_skb+0x9b/0x1d0
->     netlink_dump+0x122/0x290
->     netlink_recvmsg+0x27d/0x430
->     sock_recvmsg+0x3d/0x50
->   ...
->=20
-> As every dump request for the VF interface info would fail due to
-> rtnl_xdp_fill() returning an error code.
->=20
-> To resolve this, introduce a subset of the NDOs meant for the VF in a
-> seperate structure and register that one instead for VFs, and omit the
-> ndo_xdp initialization.
->=20
-> Fixes: 40b8c45492ef ("qede: Prevent VFs from using XDP")
-> Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
+Currently it is allowed to set the default pvid of a bridge to a value
+above VLAN_VID_MASK (0xfff). This patch adds a check to br_validate and
+returns -EINVAL in case the pvid is out of bounds.
 
-I'm currently working on adding XDP support for qede VFs.
-Problem is there's quite a bit of IOV infrastructure involved in this,
-and legacy [well, current] PFs would prevent their VFs from utilizing it.
+Reproduce by calling:
 
-Once I have it ready, if I'd add back the ndo_xdp unconditionally for VFs,
-then when working over legacy PFs above issue would resurface.
+[root@test ~]# ip l a type bridge
+[root@test ~]# ip l a type dummy
+[root@test ~]# ip l s bridge0 type bridge vlan_filtering 1
+[root@test ~]# ip l s bridge0 type bridge vlan_default_pvid 9999
+[root@test ~]# ip l s dummy0 master bridge0
+[root@test ~]# bridge vlan
+port	vlan ids
+bridge0	 9999 PVID Egress Untagged
 
-Looking at my alternatives for solving this, I can't see any 'good' options=
- -
-it seems mightily unorthodox to modify net_device_ops, I.e., add/remove
-an NDO function-pointer based on some device property, and having
-multiple ops declared for the sake of a single feature seems unscalable.
+dummy0	 9999 PVID Egress Untagged
 
-Any better solutions?
+Fixes: 0f963b7592ef ("bridge: netlink: add support for default_pvid")
+Acked-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Signed-off-by: Tobias Jungel <tobias.jungel@bisdn.de>
+---
+ net/bridge/br_netlink.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
+index c5ce774..574f788 100644
+--- a/net/bridge/br_netlink.c
++++ b/net/bridge/br_netlink.c
+@@ -835,6 +835,13 @@ static int br_validate(struct nlattr *tb[], struct nlattr *data[])
+ 			return -EPROTONOSUPPORT;
+ 		}
+ 	}
++
++	if (data[IFLA_BR_VLAN_DEFAULT_PVID]) {
++		__u16 defpvid = nla_get_u16(data[IFLA_BR_VLAN_DEFAULT_PVID]);
++
++		if (defpvid >= VLAN_VID_MASK)
++			return -EINVAL;
++	}
+ #endif
+ 
+ 	return 0;
+-- 
+2.9.4
