@@ -1,54 +1,58 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next v3 05/10] net: sched: move TC_H_MAJ macro call
- into tcf_auto_prio
-Date: Wed, 17 May 2017 14:53:47 +0200
-Message-ID: <20170517125347.GC9557@nanopsycho>
-References: <20170516172802.1317-1-jiri@resnulli.us>
- <20170516172802.1317-6-jiri@resnulli.us>
- <CAM_iQpXUY03tfi1RHLx0EnT5ZP1xPNdo4xGmUUiSKvRtSg44vw@mail.gmail.com>
- <20170516210346.GS1939@nanopsycho.orion>
- <CAM_iQpUcoK04Xim8PbHg3GVykhioCA1MrBd3Ddd7HERaVYELQg@mail.gmail.com>
- <20170517054752.GB1832@nanopsycho>
- <e4614c93-16c9-427c-838d-4e752276cbe0@mojatatu.com>
+From: walter harms <wharms@bfs.de>
+Subject: Re: [PATCH] hdlcdrv: fix divide error bug if bitrate is 0
+Date: Wed, 17 May 2017 14:59:39 +0200
+Message-ID: <591C493B.6060908@bfs.de>
+References: <20170517123549.22659-1-firogm@gmail.com>
+Reply-To: wharms@bfs.de
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>,
-        David Ahern <dsa@cumulusnetworks.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Stephen Hemminger <stephen@networkplumber.org>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Alexander Duyck <alexander.h.duyck@intel.com>,
-        Simon Horman <simon.horman@netronome.com>, mlxsw@mellanox.com
-To: Jamal Hadi Salim <jhs@mojatatu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:36338 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754463AbdEQMxt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 17 May 2017 08:53:49 -0400
-Received: by mail-wm0-f65.google.com with SMTP id k15so2018251wmh.3
-        for <netdev@vger.kernel.org>; Wed, 17 May 2017 05:53:49 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <e4614c93-16c9-427c-838d-4e752276cbe0@mojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: t.sailer@alumni.ethz.ch, davem@davemloft.net,
+        gregkh@linuxfoundation.org, linux-hams@vger.kernel.org,
+        netdev@vger.kernel.org, dvyukov@google.com,
+        syzkaller@googlegroups.com
+To: Firo Yang <firogm@gmail.com>
+Return-path: <linux-hams-owner@vger.kernel.org>
+In-Reply-To: <20170517123549.22659-1-firogm@gmail.com>
+Sender: linux-hams-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Wed, May 17, 2017 at 02:47:47PM CEST, jhs@mojatatu.com wrote:
->On 17-05-17 01:47 AM, Jiri Pirko wrote:
->> Wed, May 17, 2017 at 12:38:08AM CEST, xiyou.wangcong@gmail.com wrote:
->
->[..]
->> > 
->> > tcf_auto_major_prio()?
->> 
->> That makes no sense. prio is passed from user in upper 2 bytes (god
->> knows why but that is how it is).
->
->I am not sure it is any god's decision ;-> Unless you think the creator
->of this semantic is a god which in some circles is blasphemy ;->
->
->16 bits for prio: 16 bits for proto - what is the problem?
 
-Should have been a struct, at least. But as you know, I always prefer
-a Netlink attr :)
+
+Am 17.05.2017 14:35, schrieb Firo Yang:
+> The divisor s->par.bitrate will always be 0 until initialized by
+> ndo_open() and hdlcdrv_open().
+> 
+> In order to fix this divide zero error, check whether the netdevice
+> was opened by ndo_open() before performing divide.
+> 
+> Reported-by: Dmitry Vyukov <dvyukov@google.com>
+> Signed-off-by: Firo Yang <firogm@gmail.com>
+> ---
+>  drivers/net/hamradio/hdlcdrv.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/hamradio/hdlcdrv.c b/drivers/net/hamradio/hdlcdrv.c
+> index 8c3633c..3c783fd 100644
+> --- a/drivers/net/hamradio/hdlcdrv.c
+> +++ b/drivers/net/hamradio/hdlcdrv.c
+> @@ -574,7 +574,7 @@ static int hdlcdrv_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+>  		break;		
+>  
+>  	case HDLCDRVCTL_CALIBRATE:
+> -		if(!capable(CAP_SYS_RAWIO))
+> +		if (!capable(CAP_SYS_RAWIO) || !netif_running(dev))
+>  			return -EPERM;
+>  		if (bi.data.calibrate > INT_MAX / s->par.bitrate)
+>  			return -EINVAL;
+
+I would still check for s->par.bitrate > 0 later changes may affect the setting of it
+and it is much more obvious.
+
+Also perhaps !netif_running(dev) should better return ENODEV.
+
+
+just my 2 cents,
+re,
+ wh
+
