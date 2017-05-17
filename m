@@ -1,51 +1,103 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [patch net-next v3 05/10] net: sched: move TC_H_MAJ macro call
- into tcf_auto_prio
-Date: Wed, 17 May 2017 08:47:47 -0400
-Message-ID: <e4614c93-16c9-427c-838d-4e752276cbe0@mojatatu.com>
-References: <20170516172802.1317-1-jiri@resnulli.us>
- <20170516172802.1317-6-jiri@resnulli.us>
- <CAM_iQpXUY03tfi1RHLx0EnT5ZP1xPNdo4xGmUUiSKvRtSg44vw@mail.gmail.com>
- <20170516210346.GS1939@nanopsycho.orion>
- <CAM_iQpUcoK04Xim8PbHg3GVykhioCA1MrBd3Ddd7HERaVYELQg@mail.gmail.com>
- <20170517054752.GB1832@nanopsycho>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>,
-        David Ahern <dsa@cumulusnetworks.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Stephen Hemminger <stephen@networkplumber.org>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Alexander Duyck <alexander.h.duyck@intel.com>,
-        Simon Horman <simon.horman@netronome.com>, mlxsw@mellanox.com
-To: Jiri Pirko <jiri@resnulli.us>, Cong Wang <xiyou.wangcong@gmail.com>
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: [PATCH net] udp: make *udp*_queue_rcv_skb() functions static
+Date: Wed, 17 May 2017 14:52:16 +0200
+Message-ID: <8c68f6f2fb91313ab71606e42c4d3d4c561b73a9.1495024097.git.pabeni@redhat.com>
+Cc: "David S. Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f172.google.com ([209.85.223.172]:34442 "EHLO
-        mail-io0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751704AbdEQMru (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 17 May 2017 08:47:50 -0400
-Received: by mail-io0-f172.google.com with SMTP id k91so8311425ioi.1
-        for <netdev@vger.kernel.org>; Wed, 17 May 2017 05:47:50 -0700 (PDT)
-In-Reply-To: <20170517054752.GB1832@nanopsycho>
+Received: from mx1.redhat.com ([209.132.183.28]:58212 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751704AbdEQMwa (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 17 May 2017 08:52:30 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 17-05-17 01:47 AM, Jiri Pirko wrote:
-> Wed, May 17, 2017 at 12:38:08AM CEST, xiyou.wangcong@gmail.com wrote:
+Since the udp memory accounting refactor, we don't need any more
+to export the *udp*_queue_rcv_skb(). Make them static and fix
+a couple of sparse warnings:
 
-[..]
->>
->> tcf_auto_major_prio()?
->
-> That makes no sense. prio is passed from user in upper 2 bytes (god
-> knows why but that is how it is).
+net/ipv4/udp.c:1615:5: warning: symbol 'udp_queue_rcv_skb' was not
+declared. Should it be static?
+net/ipv6/udp.c:572:5: warning: symbol 'udpv6_queue_rcv_skb' was not
+declared. Should it be static?
 
-I am not sure it is any god's decision ;-> Unless you think the creator
-of this semantic is a god which in some circles is blasphemy ;->
+Fixes: 850cbaddb52d ("udp: use it's own memory accounting schema")
+Fixes: c915fe13cbaa ("udplite: fix NULL pointer dereference")
+Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+---
+ net/ipv4/udp.c      | 4 ++--
+ net/ipv4/udp_impl.h | 1 -
+ net/ipv6/udp.c      | 4 ++--
+ net/ipv6/udp_impl.h | 1 -
+ 4 files changed, 4 insertions(+), 6 deletions(-)
 
-16 bits for prio: 16 bits for proto - what is the problem?
-
-cheers,
-jamal
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index ea6e4cf..1d6219b 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -1612,7 +1612,7 @@ static void udp_v4_rehash(struct sock *sk)
+ 	udp_lib_rehash(sk, new_hash);
+ }
+ 
+-int __udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
++static int __udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
+ {
+ 	int rc;
+ 
+@@ -1657,7 +1657,7 @@ EXPORT_SYMBOL(udp_encap_enable);
+  * Note that in the success and error cases, the skb is assumed to
+  * have either been requeued or freed.
+  */
+-int udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
++static int udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
+ {
+ 	struct udp_sock *up = udp_sk(sk);
+ 	int is_udplite = IS_UDPLITE(sk);
+diff --git a/net/ipv4/udp_impl.h b/net/ipv4/udp_impl.h
+index feb50a1..a8cf8c6 100644
+--- a/net/ipv4/udp_impl.h
++++ b/net/ipv4/udp_impl.h
+@@ -25,7 +25,6 @@ int udp_recvmsg(struct sock *sk, struct msghdr *msg, size_t len, int noblock,
+ 		int flags, int *addr_len);
+ int udp_sendpage(struct sock *sk, struct page *page, int offset, size_t size,
+ 		 int flags);
+-int __udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb);
+ void udp_destroy_sock(struct sock *sk);
+ 
+ #ifdef CONFIG_PROC_FS
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index 04862ab..06ec39b 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -526,7 +526,7 @@ void __udp6_lib_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
+ 	return;
+ }
+ 
+-int __udpv6_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
++static int __udpv6_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
+ {
+ 	int rc;
+ 
+@@ -569,7 +569,7 @@ void udpv6_encap_enable(void)
+ }
+ EXPORT_SYMBOL(udpv6_encap_enable);
+ 
+-int udpv6_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
++static int udpv6_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
+ {
+ 	struct udp_sock *up = udp_sk(sk);
+ 	int is_udplite = IS_UDPLITE(sk);
+diff --git a/net/ipv6/udp_impl.h b/net/ipv6/udp_impl.h
+index e78bdc7..f180b3d 100644
+--- a/net/ipv6/udp_impl.h
++++ b/net/ipv6/udp_impl.h
+@@ -26,7 +26,6 @@ int compat_udpv6_getsockopt(struct sock *sk, int level, int optname,
+ int udpv6_sendmsg(struct sock *sk, struct msghdr *msg, size_t len);
+ int udpv6_recvmsg(struct sock *sk, struct msghdr *msg, size_t len, int noblock,
+ 		  int flags, int *addr_len);
+-int __udpv6_queue_rcv_skb(struct sock *sk, struct sk_buff *skb);
+ void udpv6_destroy_sock(struct sock *sk);
+ 
+ #ifdef CONFIG_PROC_FS
+-- 
+2.9.4
