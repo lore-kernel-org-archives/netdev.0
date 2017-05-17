@@ -1,54 +1,66 @@
 From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH 2/6] wl1251: Use request_firmware_prefer_user() for
- loading NVS calibration data
-Date: Wed, 17 May 2017 15:04:50 +0200
-Message-ID: <1495026290.2442.6.camel@sipsolutions.net>
-References: <0fd90416-f33c-a6be-14fd-5e964583e9cb@broadcom.com>
-         <20170515231339.GF17314@wotan.suse.de>
-         <1495022766.2442.1.camel@sipsolutions.net> <20170517125335.GG10015@pali>
-         (sfid-20170517_145339_432681_02EC3F26)
+Subject: Re: [PATCH 1/2] wcn36xx: Pass used skb to ieee80211_tx_status()
+Date: Wed, 17 May 2017 15:14:27 +0200
+Message-ID: <1495026867.2442.9.camel@sipsolutions.net>
+References: <20170426220444.10539-1-bjorn.andersson@linaro.org>
+         <1493281332.2529.1.camel@sipsolutions.net>     <20170428234247.GQ15143@minitux>
+         <87fugkrchl.fsf@kamboji.qca.qualcomm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: "Luis R. Rodriguez" <mcgrof@kernel.org>,
-        Arend Van Spriel <arend.vanspriel@broadcom.com>,
-        Pavel Machek <pavel@ucw.cz>, Daniel Wagner <wagi@monom.org>,
-        Tom Gundersen <teg@jklm.no>,
-        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        David Gnedt <david.gnedt@davizone.at>,
-        Tony Lindgren <tony@atomide.com>,
-        Sebastian Reichel <sre@kernel.org>,
-        Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>,
-        Aaro Koskinen <aaro.koskinen@iki.fi>,
-        Takashi Iwai <tiwai@suse.de>,
-        AKASHI Takahiro <takahiro.akashi@linaro.org>,
-        David Woodhouse <dwmw2@infradead.org>,
-        Bjorn Andersson <bjorn.andersson@linaro.org>,
-        Grazvydas Ignotas <notasas@gmail.com>,
-        linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
-        netdev@vger.kernel.org,
-        =?UTF-8?
-To: Pali =?ISO-8859-1?Q?Roh=E1r?= <pali.rohar@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170517125335.GG10015@pali> (sfid-20170517_145339_432681_02EC3F26)
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: "k.eugene.e@gmail.com" <k.eugene.e@gmail.com>,
+        Andy Gross <andy.gross@linaro.org>,
+        David Brown <david.brown@linaro.org>,
+        "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+        "linux-arm-kernel@lists.infradead.org"
+        <linux-arm-kernel@lists.infradead.org>,
+        "linux-arm-msm@vger.kernel.org" <linux-arm-msm@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "linux-soc@vger.kernel.org" <linux-soc@vger.kernel.org>,
+        "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "wcn36xx@lists.infradead.org" <wcn36xx@lists.infradead.org>,
+        "nicolas.dechesne@linaro.org" <nicolas.dechesne@linaro.org>
+To: Kalle Valo <kvalo@qca.qualcomm.com>,
+        Bjorn Andersson <bjorn.andersson@linaro.org>
+Return-path: <linux-arm-msm-owner@vger.kernel.org>
+In-Reply-To: <87fugkrchl.fsf@kamboji.qca.qualcomm.com>
+Sender: linux-arm-msm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2017-05-17 at 14:53 +0200, Pali Rohár wrote:
-
-> > In fact, why should the *driver* care either? IOW - why should
-> > "request_firmware_prefer_user()" even exist?
+On Thu, 2017-05-04 at 13:13 +0000, Kalle Valo wrote:
 > 
-> There are default/example NVS data, which are stored in /lib/firmware
-> and installed by linux-firmware package.
-[...]
+> > > This code intentionally checked if TX status was requested, and
+> > > if not then it doesn't go to the effort of building it.
+> > > 
+> > 
+> > What I'm finding puzzling is the fact that the only caller of
+> > ieee80211_led_tx() is ieee80211_tx_status() and it seems like
+> > drivers, such as ath10k, call this for each packet handled - but
+> > I'm likely missing something.
 
-Oh, so you're saying you want this to invert the order ... Ok, that
-makes some sense.
+Yes, many drivers do call it for each packet, and as such, this
+deficiency was never noted.
 
-I still hope that all other requests will eventually fall back to user
-loading though, I think that's important to system integration in
-general.
+> > > As it is with your patch, it'll go and report the TX status
+> > > without any
+> > > TX status information - which is handled in
+> > > wcn36xx_dxe_tx_ack_ind()
+> > > for those frames needing it.
+> > > 
+> > 
+> > Right, it doesn't sound desired. However, during normal operation
+> > I'm not seeing IEEE80211_TX_CTL_REQ_TX_STATUS being set and as such
+> > ieee80211_led_tx() is never called.
+> 
+> So what's the conclusion? How do we get leds working?
+
+Well, frankly, I never thought the TX LED was a super good idea - but
+it had been supported by the original code IIRC, so never removed. Some
+people like frantic blinking I guess ;-)
+
+But I think the problem also applies to the throughput trigger thing,
+so perhaps we need to stick some LED feedback calls into other places,
+like _noskb() or provide an extra way to do it?
 
 johannes
