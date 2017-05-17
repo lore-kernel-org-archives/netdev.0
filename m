@@ -1,10 +1,10 @@
 From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [patch net-next v4 06/10] net: sched: introduce helpers to work
- with filter chains
-Date: Wed, 17 May 2017 08:18:00 -0400
-Message-ID: <ae02e4e8-3047-cd42-9c53-a2a38f8c28df@mojatatu.com>
+Subject: Re: [patch net-next v4 07/10] net: sched: push chain dump to a
+ separate function
+Date: Wed, 17 May 2017 08:19:57 -0400
+Message-ID: <29988d6f-a1b0-50f1-5aba-575d0f880805@mojatatu.com>
 References: <20170517090803.4461-1-jiri@resnulli.us>
- <20170517090803.4461-7-jiri@resnulli.us>
+ <20170517090803.4461-8-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
@@ -15,41 +15,24 @@ Cc: davem@davemloft.net, xiyou.wangcong@gmail.com,
         mlxsw@mellanox.com
 To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f193.google.com ([209.85.223.193]:34061 "EHLO
-        mail-io0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750795AbdEQMSD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 17 May 2017 08:18:03 -0400
-Received: by mail-io0-f193.google.com with SMTP id 12so1228846iol.1
-        for <netdev@vger.kernel.org>; Wed, 17 May 2017 05:18:03 -0700 (PDT)
-In-Reply-To: <20170517090803.4461-7-jiri@resnulli.us>
+Received: from mail-it0-f66.google.com ([209.85.214.66]:34491 "EHLO
+        mail-it0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751445AbdEQMUA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 17 May 2017 08:20:00 -0400
+Received: by mail-it0-f66.google.com with SMTP id d68so1308934ita.1
+        for <netdev@vger.kernel.org>; Wed, 17 May 2017 05:19:59 -0700 (PDT)
+In-Reply-To: <20170517090803.4461-8-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 17-05-17 05:07 AM, Jiri Pirko wrote:
+On 17-05-17 05:08 AM, Jiri Pirko wrote:
 > From: Jiri Pirko <jiri@mellanox.com>
 >
-> Introduce struct tcf_chain object and set of helpers around it. Wraps up
-> insertion, deletion and search in the filter chain.
+> Since there will be multiple chains to dump, push chain dumping code to
+> a separate function.
 >
 > Signed-off-by: Jiri Pirko <jiri@mellanox.com>
-> ---
 
-[..]
-> +
-> +static void
-> +tcf_chain_filter_chain_ptr_set(struct tcf_chain *chain,
-> +			       struct tcf_proto __rcu **p_filter_chain)
-> +
-
-What are the rules for this? Common coding style is:
-static void tcf_chain_filter_chain_ptr_set(struct tcf_chain *chain,
-                                            struct tcf_proto ..
-
-I am sure that struct tcf_proto __rcu **p_filter_chain would
-probably hit boundary of 80 chars - but it would look cleaner
-to be consistent.
-
-Otherwise:
 Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
 
 cheers,
