@@ -1,73 +1,42 @@
-From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-Subject: [net-realtek-btcoexist] question about identical code for different
- branches
-Date: Wed, 17 May 2017 16:52:32 -0500
-Message-ID: <20170517165232.Horde.v4lHW1-r73ZYdz2POOdERBa@gator4166.hostgator.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed; DelSp=Yes
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Larry Finger <Larry.Finger@lwfinger.net>,
-        Chaoming Li <chaoming_li@realsil.com.cn>,
-        Kalle Valo <kvalo@codeaurora.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+From: Matthias Kaehlcke <mka-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+Subject: [PATCH] net1080: Mark nc_dump_ttl() as __maybe_unused
+Date: Wed, 17 May 2017 15:17:08 -0700
+Message-ID: <20170517221708.183212-1-mka@chromium.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Matthias Kaehlcke <mka-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+To: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+The function is not used, but it looks useful for debugging. Adding the
+attribute fixes the following clang warning:
 
-Hello everybody,
+drivers/net/usb/net1080.c:271:20: error: unused function
+    'nc_dump_ttl' [-Werror,-Wunused-function]
 
-While looking into Coverity ID 1362263 I ran into the following piece  
-of code at  
-drivers/net/wireless/realtek/rtlwifi/btcoexist/halbtcoutsrc.c:1000:
+Signed-off-by: Matthias Kaehlcke <mka-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+---
+ drivers/net/usb/net1080.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-1000void exhalbtc_set_ant_num(struct rtl_priv *rtlpriv, u8 type, u8 ant_num)
-1001{
-1002        if (BT_COEX_ANT_TYPE_PG == type) {
-1003                gl_bt_coexist.board_info.pg_ant_num = ant_num;
-1004                gl_bt_coexist.board_info.btdm_ant_num = ant_num;
-1005                /* The antenna position:
-1006                 * Main (default) or Aux for pgAntNum=2 && btdmAntNum =1.
-1007                 * The antenna position should be determined by
-1008                 * auto-detect mechanism.
-1009                 * The following is assumed to main,
-1010                 * and those must be modified
-1011                 * if y auto-detect mechanism is ready
-1012                 */
-1013                if ((gl_bt_coexist.board_info.pg_ant_num == 2) &&
-1014                    (gl_bt_coexist.board_info.btdm_ant_num == 1))
-1015                        gl_bt_coexist.board_info.btdm_ant_pos =
-1016                                                        
-BTC_ANTENNA_AT_MAIN_PORT;
-1017                else
-1018                        gl_bt_coexist.board_info.btdm_ant_pos =
-1019                                                        
-BTC_ANTENNA_AT_MAIN_PORT;
-1020        } else if (BT_COEX_ANT_TYPE_ANTDIV == type) {
-1021                gl_bt_coexist.board_info.btdm_ant_num = ant_num;
-1022                gl_bt_coexist.board_info.btdm_ant_pos =
-1023                                                        
-BTC_ANTENNA_AT_MAIN_PORT;
-1024        } else if (type == BT_COEX_ANT_TYPE_DETECTED) {
-1025                gl_bt_coexist.board_info.btdm_ant_num = ant_num;
-1026                if (rtlpriv->cfg->mod_params->ant_sel == 1)
-1027                        gl_bt_coexist.board_info.btdm_ant_pos =
-1028                                BTC_ANTENNA_AT_AUX_PORT;
-1029                else
-1030                        gl_bt_coexist.board_info.btdm_ant_pos =
-1031                                BTC_ANTENNA_AT_MAIN_PORT;
-1032        }
-1033}
+diff --git a/drivers/net/usb/net1080.c b/drivers/net/usb/net1080.c
+index 4cbdb1307f3e..7ade2119f462 100644
+--- a/drivers/net/usb/net1080.c
++++ b/drivers/net/usb/net1080.c
+@@ -268,7 +268,7 @@ static inline void nc_dump_status(struct usbnet *dev, u16 status)
+ #define	TTL_OTHER(ttl)	(0x00ff & (ttl >> 8))
+ #define MK_TTL(this,other)	((u16)(((other)<<8)|(0x00ff&(this))))
+ 
+-static inline void nc_dump_ttl(struct usbnet *dev, u16 ttl)
++static inline void __maybe_unused nc_dump_ttl(struct usbnet *dev, u16 ttl)
+ {
+ 	netif_dbg(dev, link, dev->net, "net1080 %s-%s ttl 0x%x this = %d, other = %d\n",
+ 		  dev->udev->bus->bus_name, dev->udev->devpath,
+-- 
+2.13.0.303.g4ebf302169-goog
 
-The issue is that lines of code 1015-1016 and 1018-1019 are identical  
-for different branches.
-
-My question here is if one of those assignments should be modified, or  
-the entire _if_ statement replaced and the function refactored?
-
-I'd really appreciate any comment on this.
-
-Thank you!
 --
-Gustavo A. R. Silva
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
