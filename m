@@ -1,89 +1,65 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH net-next 3/3] dsa: mv88e6xxx: Enable/Disable SERDES on port enable/disable
-Date: Wed, 17 May 2017 16:44:03 -0400
-Message-ID: <87a86b8b8s.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
-References: <1495051512-13554-1-git-send-email-andrew@lunn.ch> <1495051512-13554-4-git-send-email-andrew@lunn.ch>
+From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+Subject: [net-intel-i40e] question about assignment overwrite
+Date: Wed, 17 May 2017 15:48:58 -0500
+Message-ID: <20170517154858.Horde.xMvsIEhHNSGu52mfyp7HA3R@gator4166.hostgator.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev <netdev@vger.kernel.org>, nikita.yoush@cogentembedded.com,
-        Andrew Lunn <andrew@lunn.ch>
-To: Andrew Lunn <andrew@lunn.ch>, David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:49646 "EHLO
-        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751398AbdEQUp5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 17 May 2017 16:45:57 -0400
-In-Reply-To: <1495051512-13554-4-git-send-email-andrew@lunn.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8; format=flowed; DelSp=Yes
+Cc: intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Andrew,
 
-Good patchset overall, some comments below.
+Hello everybody,
 
-Andrew Lunn <andrew@lunn.ch> writes:
+While looking into Coverity ID 1408956 I ran into the following piece  
+of code at drivers/net/ethernet/intel/i40e/i40e_main.c:8807:
 
-> @@ -2168,7 +2165,44 @@ static int mv88e6xxx_setup_port(struct mv88e6xxx_chip *chip, int port)
->  	/* Default VLAN ID and priority: don't set a default VLAN
->  	 * ID, and set the default packet priority to zero.
->  	 */
-> -	return mv88e6xxx_port_write(chip, port, PORT_DEFAULT_VLAN, 0x0000);
-> +	err = mv88e6xxx_port_write(chip, port, PORT_DEFAULT_VLAN, 0x0000);
-> +	if (err)
-> +		return err;
-> +
-> +	/* Enable the SERDES interface for DSA and CPU ports. Normal
-> +	 * ports SERDES are enabled when the port is enabled, thus
-> +	 * saving a bit of power.
-> +	 */
-> +	if ((dsa_is_cpu_port(ds, port) || dsa_is_dsa_port(ds, port)) &&
-> +	    chip->info->ops->serdes_power)
-> +		err = chip->info->ops->serdes_power(chip, port, true);
+8807        if (pf->hw.mac.type == I40E_MAC_X722) {
+8808                pf->flags |= I40E_FLAG_RSS_AQ_CAPABLE
+8809                             | I40E_FLAG_128_QP_RSS_CAPABLE
+8810                             | I40E_FLAG_HW_ATR_EVICT_CAPABLE
+8811                             | I40E_FLAG_OUTER_UDP_CSUM_CAPABLE
+8812                             | I40E_FLAG_WB_ON_ITR_CAPABLE
+8813                             | I40E_FLAG_MULTIPLE_TCP_UDP_RSS_PCTYPE
+8814                             | I40E_FLAG_NO_PCI_LINK_CHECK
+8815                             | I40E_FLAG_USE_SET_LLDP_MIB
+8816                             | I40E_FLAG_GENEVE_OFFLOAD_CAPABLE
+8817                             | I40E_FLAG_PTP_L4_CAPABLE
+8818                             | I40E_FLAG_WOL_MC_MAGIC_PKT_WAKE;
+8819        } else if ((pf->hw.aq.api_maj_ver > 1) ||
+8820                   ((pf->hw.aq.api_maj_ver == 1) &&
+8821                    (pf->hw.aq.api_min_ver > 4))) {
+8822                /* Supported in FW API version higher than 1.4 */
+8823                pf->flags |= I40E_FLAG_GENEVE_OFFLOAD_CAPABLE;
+8824                pf->flags = I40E_FLAG_HW_ATR_EVICT_CAPABLE;
+8825        } else {
+8826                pf->flags = I40E_FLAG_HW_ATR_EVICT_CAPABLE;
+8827        }
 
-Please provide a wrapper like this in chip.c in patch 1/3:
+The issue here is that the assignment at line 8823 is overwritten by  
+the code at line 8824.
 
-    static int mv88e6xxx_serdes_power()
-    {
-        if (chip->info->ops->serdes_power)
-            return chip->info->ops->serdes_power();
+I'm suspicious that line 8824 should be remove and a patch like the  
+following can be applied:
 
-        return 0;
-    }
+index d5c9c9e..48ffa73 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -8821,7 +8821,6 @@ static int i40e_sw_init(struct i40e_pf *pf)
+                     (pf->hw.aq.api_min_ver > 4))) {
+                 /* Supported in FW API version higher than 1.4 */
+                 pf->flags |= I40E_FLAG_GENEVE_OFFLOAD_CAPABLE;
+-               pf->flags = I40E_FLAG_HW_ATR_EVICT_CAPABLE;
+         } else {
+                 pf->flags = I40E_FLAG_HW_ATR_EVICT_CAPABLE;
+         }
 
-So that we don't check chip->info->ops that many times.
+What do you think?
 
-> +
-> +	return err;
-> +}
-> +
-> +static int mv88e6xxx_port_enable(struct dsa_switch *ds, int port,
-> +				 struct phy_device *phydev)
-> +{
-> +	struct mv88e6xxx_chip *chip = ds->priv;
-> +	int err = 0;
-> +
-> +	mutex_lock(&chip->reg_lock);
-> +	if (chip->info->ops->serdes_power)
-> +		err = chip->info->ops->serdes_power(chip, port, true);
-> +	mutex_unlock(&chip->reg_lock);
-> +
-> +	return err;
-> +}
-> +
-> +static void mv88e6xxx_port_disable(struct dsa_switch *ds, int port,
-> +				   struct phy_device *phydev)
-> +{
-> +	struct mv88e6xxx_chip *chip = ds->priv;
-> +
-> +	mutex_lock(&chip->reg_lock);
-> +	if (chip->info->ops->serdes_power)
-> +		chip->info->ops->serdes_power(chip, port, false);
-> +	mutex_unlock(&chip->reg_lock);
->  }
-
-Also please split this in 2 patchs, one which setups serdes with the
-port, one which implements port_enable/disable DSA ops.
-
-Thanks,
-
-        Vivien
+Thanks!
+--
+Gustavo A. R. Silva
