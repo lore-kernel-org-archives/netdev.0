@@ -1,146 +1,176 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [Patch RFC net-next] net: usb: r8152: Fix rx_bytes/tx_bytes to
- include FCS
-Date: Wed, 17 May 2017 15:28:38 -0700
-Message-ID: <286d107e-2380-f8e9-3edf-c949707ea235@gmail.com>
-References: <1495052615-14360-1-git-send-email-andrew@lunn.ch>
+From: Parav Pandit <parav@mellanox.com>
+Subject: RE: [PATCH] net/smc: mark as BROKEN due to remote memory exposure
+Date: Wed, 17 May 2017 22:37:47 +0000
+Message-ID: <VI1PR0502MB3008604A216B388A440A8B53D1E70@VI1PR0502MB3008.eurprd05.prod.outlook.com>
+References: <1494955244.3259.130.camel@redhat.com>
+         <20170516.133644.850927380166261577.davem@davemloft.net>
+         <1494957802.3259.131.camel@redhat.com>
+         <20170516.145249.871010194359061722.davem@davemloft.net>
+         <1494962899.3259.141.camel@redhat.com>
+ <1495053467.2240.29.camel@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, hayeswang <hayeswang@realtek.com>,
-        Mario Limonciello <mario_limonciello@dell.com>
-To: Andrew Lunn <andrew@lunn.ch>, David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "Bart.VanAssche@sandisk.com" <Bart.VanAssche@sandisk.com>,
+        "torvalds@linux-foundation.org" <torvalds@linux-foundation.org>,
+        "hch@lst.de" <hch@lst.de>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
+        "stable@vger.kernel.org" <stable@vger.kernel.org>,
+        "ubraun@linux.vnet.ibm.com" <ubraun@linux.vnet.ibm.com>
+To: Doug Ledford <dledford@redhat.com>,
+        David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f196.google.com ([209.85.128.196]:33090 "EHLO
-        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754113AbdEQW2o (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 17 May 2017 18:28:44 -0400
-Received: by mail-wr0-f196.google.com with SMTP id w50so3768045wrc.0
-        for <netdev@vger.kernel.org>; Wed, 17 May 2017 15:28:43 -0700 (PDT)
-In-Reply-To: <1495052615-14360-1-git-send-email-andrew@lunn.ch>
+Received: from mail-db5eur01on0076.outbound.protection.outlook.com ([104.47.2.76]:44545
+        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1753725AbdEQWiC (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 17 May 2017 18:38:02 -0400
+In-Reply-To: <1495053467.2240.29.camel@redhat.com>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/17/2017 01:23 PM, Andrew Lunn wrote:
-> The statistics counters rx_bytes and tx_bytes don't include the
-> Ethernet Frame Check Sequence. The hardware appears to calculate it on
-> send, so it is not part of the URB passed to the device, and on
-> receive it was not being copied into the skb.
-> 
-> Fix the rx_bytes/tx_bytes counters, and copy the FCS into the skb so
-> tools like wireshark can see it.
-> 
-> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
-> ---
-> RFC for the following points:
-> 
-> I run automatic tests on Ethernet switches supported by DSA. I have a
-> test host with many Ethernet interfaces which i connect to switch
-> ports. Some are quad Ethernet PCIe cards, using the Intel e1000e
-> driver. Some are USB-Ethernet dongles using the asix driver. And i
-> have some USB-Ethernet dongles using the r8152. The e1000e, asix and
-> DSA itself all give consistent rx_bytes and tx_bytes statistics. The
-> r8152 consistently returns counters which are 4 bytes per frame lower,
-> which results in some test failures.
-> 
-> Is it defined somewhere what should be included in rx_bytes/tx_bytes?
-> Should the FCS be included?
-> 
-> This is considered a user API change? The meaning of the counters are
-> going to be slightly different after this patch. I could be breaking
-> somebody else's tests :-(
-
-I am afraid that we won't be able to enforce a consistent behavior,
-because the HW itself is not consistent, both on the NIC and on the
-switch side.
-
-For instance, whether your switch's MIB counters do include FCS, Marvell
-tags, or not is going to be highly dependent on how the HW is designed,
-whether the MIB counter logic is before, or after in the packet ingress
-path.
-
-Some NICs also allow passing the CRC frame up the stack (e.g:
-NETIF_F_RXFCS), in which case, we should probably report the FCS as part
-of skb->len, because that's what the stack is going to be given.
-
-So I am afraid that as far as your tests are going to work, you will
-need to have some logic that knows what kind of switch driver/HW is
-used, whether to expect FCS/tag lengths reported, just like you will
-have to have the same thing on the initiator of the tests....
-
-> ---
->  drivers/net/usb/r8152.c | 5 ++---
->  1 file changed, 2 insertions(+), 3 deletions(-)
-> 
-> diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-> index ddc62cb69be8..4081a2cd8b1b 100644
-> --- a/drivers/net/usb/r8152.c
-> +++ b/drivers/net/usb/r8152.c
-> @@ -1228,7 +1228,7 @@ static void write_bulk_callback(struct urb *urb)
->  		stats->tx_errors += agg->skb_num;
->  	} else {
->  		stats->tx_packets += agg->skb_num;
-> -		stats->tx_bytes += agg->skb_len;
-> +		stats->tx_bytes += agg->skb_len + CRC_SIZE;
->  	}
-> 
->  	spin_lock(&tp->tx_lock);
-> @@ -1826,7 +1826,6 @@ static int rx_bottom(struct r8152 *tp, int budget)
->  			if (urb->actual_length < len_used)
->  				break;
-> 
-> -			pkt_len -= CRC_SIZE;
->  			rx_data += sizeof(struct rx_desc);
-> 
->  			skb = napi_alloc_skb(napi, pkt_len);
-> @@ -1850,7 +1849,7 @@ static int rx_bottom(struct r8152 *tp, int budget)
->  			}
-> 
->  find_next_rx:
-> -			rx_data = rx_agg_align(rx_data + pkt_len + CRC_SIZE);
-> +			rx_data = rx_agg_align(rx_data + pkt_len);
->  			rx_desc = (struct rx_desc *)rx_data;
->  			len_used = (int)(rx_data - (u8 *)agg->head);
->  			len_used += sizeof(struct rx_desc);
-> --
-> 2.11.0
-> ---
->  drivers/net/usb/r8152.c | 5 ++---
->  1 file changed, 2 insertions(+), 3 deletions(-)
-> 
-> diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-> index ddc62cb69be8..4081a2cd8b1b 100644
-> --- a/drivers/net/usb/r8152.c
-> +++ b/drivers/net/usb/r8152.c
-> @@ -1228,7 +1228,7 @@ static void write_bulk_callback(struct urb *urb)
->  		stats->tx_errors += agg->skb_num;
->  	} else {
->  		stats->tx_packets += agg->skb_num;
-> -		stats->tx_bytes += agg->skb_len;
-> +		stats->tx_bytes += agg->skb_len + CRC_SIZE;
->  	}
->  
->  	spin_lock(&tp->tx_lock);
-> @@ -1826,7 +1826,6 @@ static int rx_bottom(struct r8152 *tp, int budget)
->  			if (urb->actual_length < len_used)
->  				break;
->  
-> -			pkt_len -= CRC_SIZE;
->  			rx_data += sizeof(struct rx_desc);
->  
->  			skb = napi_alloc_skb(napi, pkt_len);
-> @@ -1850,7 +1849,7 @@ static int rx_bottom(struct r8152 *tp, int budget)
->  			}
->  
->  find_next_rx:
-> -			rx_data = rx_agg_align(rx_data + pkt_len + CRC_SIZE);
-> +			rx_data = rx_agg_align(rx_data + pkt_len);
->  			rx_desc = (struct rx_desc *)rx_data;
->  			len_used = (int)(rx_data - (u8 *)agg->head);
->  			len_used += sizeof(struct rx_desc);
-> 
-
-
--- 
-Florian
+SGkgRG91ZywNCg0KPiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBsaW51eC1y
+ZG1hLW93bmVyQHZnZXIua2VybmVsLm9yZyBbbWFpbHRvOmxpbnV4LXJkbWEtDQo+IG93bmVyQHZn
+ZXIua2VybmVsLm9yZ10gT24gQmVoYWxmIE9mIERvdWcgTGVkZm9yZA0KPiBTZW50OiBXZWRuZXNk
+YXksIE1heSAxNywgMjAxNyAzOjM4IFBNDQo+IFRvOiBEYXZpZCBNaWxsZXIgPGRhdmVtQGRhdmVt
+bG9mdC5uZXQ+DQo+IENjOiBCYXJ0LlZhbkFzc2NoZUBzYW5kaXNrLmNvbTsgdG9ydmFsZHNAbGlu
+dXgtZm91bmRhdGlvbi5vcmc7DQo+IGhjaEBsc3QuZGU7IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7
+IGxpbnV4LXJkbWFAdmdlci5rZXJuZWwub3JnOw0KPiBzdGFibGVAdmdlci5rZXJuZWwub3JnOyB1
+YnJhdW5AbGludXgudm5ldC5pYm0uY29tDQo+IFN1YmplY3Q6IFJlOiBbUEFUQ0hdIG5ldC9zbWM6
+IG1hcmsgYXMgQlJPS0VOIGR1ZSB0byByZW1vdGUgbWVtb3J5DQo+IGV4cG9zdXJlDQo+IA0KPiBP
+biBUdWUsIDIwMTctMDUtMTYgYXQgMTU6MjggLTA0MDAsIERvdWcgTGVkZm9yZCB3cm90ZToNCj4g
+PiBJIGhhZG4ndCByZWFsaXplZCBFWFBFUklNRU5UQUwgd2FzIGdvbmUuIMKgV2hpY2ggaXMgdG9v
+IGJhZCwgYmVjYXVzZQ0KPiA+IHRoYXQncyBlbnRpcmVseSBhcHByb3ByaWF0ZSBpbiB0aGlzIGNh
+c2UsIGFuZCB3b3VsZCBoYXZlIGhhZCB0aGUNCj4gPiBkZXNpcmVkIHNpZGUgZWZmZWN0IG9mIGtl
+ZXBpbmcgaXQgb3V0IG9mIGFueSBub24tY3V0dGluZyBlZGdlIGRpc3Ryb3MNCj4gPiBhbmQgd2Fy
+bmluZyBwZW9wbGUgb2YgcG9zc2libGUgQVBJIGNoYW5nZXMuIMKgV2l0aCBFWFBFUklNRU5UQUwg
+Z29uZSwNCj4gPiB0aGUgY2xvc2VzdCB0aGluZyB3ZSBoYXZlIGlzIGRyaXZlcnMvc3RhZ2luZywg
+c2luY2UgdGhhdCB0ZW5kcyB0bw0KPiA+IGltcGx5IHNvbWUgb2YgdGhlIHNhbWUgY29uc2VxdWVu
+Y2VzLiDCoEkga25vdyB5b3UgdGhpbmsgQlJPS0VOIGlzDQo+ID4gb3Zlcmx5IGhhcnNoLCBidXQg
+SSdtIG5vdCBzdXJlIHdlIHNob3VsZCBqdXN0IGRvIG5vdGhpbmcuIMKgSG93IGFib3V0DQo+ID4g
+d2UgdGFrZSBhIGZldyBkYXlzIHRvIGxldCBzb21lIG9mIHRoZSBSRE1BIHBlb3BsZSBjbG9zZWx5
+IHJldmlldyB0aGUNCj4gPiAxNDMgcGFnZQ0KPiA+IChlZ2FkcyEpIHJmYyAoaHR0cDovL3d3dy5y
+ZmMtZWRpdG9yLm9yZy9pbmZvL3JmYzc2MDkpIHRvIHNlZSBpZiB3ZQ0KPiA+IHRoaW5rIGl0IGNh
+biBiZSBmaXhlZCB0byB1c2UgbXVsdGlwbGUgbGluayBsYXllcnMgd2l0aCB0aGUgZXhpc3RpbmcN
+Cj4gPiBBUEkgaW4gcGxhY2Ugb3IgaWYgaXQgd2lsbCByZXF1aXJlIHNvbWV0aGluZyBvdGhlciB0
+aGFuIEFGX1NNQy4gwqBJZiB3ZQ0KPiA+IG5lZWQgdG8gYnJlYWsgQVBJLCB0aGVuIEkgdGhpbmsg
+d2Ugc2hvdWxkIGVpdGhlciBmaXggaXQgQVNBUCBhbmQgc2VuZA0KPiA+IHRoYXQgZml4IHRvIHRo
+ZSA0LjExIHN0YWJsZSBzZXJpZXMgKHdoaWNoIHByb2JhYmx5IHZpb2xhdGVzIHRoZQ0KPiA+IG5v
+cm1hdGl2ZSBzdGFibGUgcGF0Y2ggc2l6ZS9zY29wZSkgb3IgaWYgdGhlIGZpeCB3aWxsIHRha2Ug
+bG9uZ2VyIHRoYW4NCj4gPiB0aGlzIGtlcm5lbCBjeWNsZSwgdGhlbiBtb3ZlIGl0IHRvIHN0YWdp
+bmcgYm90aCBoZXJlIGFuZCBpbiA0LjExDQo+ID4gc3RhYmxlLCBhbmQgZml4IGl0IHRoZXJlIGFu
+ZCB0aGVuIG1vdmUgaXQgYmFjay4gwqBTb21ldGhpbmcgbGlrZSB0aGF0DQo+ID4gd291bGQgcHJl
+dmVudCB0aGUga2luZCBvZiBBUEkgZmxhcHBhZ2Ugd2Ugb3VnaHQgbm90IGRvLi4uLg0KPiANCj4g
+U28sIEkndmUgc2tpbW1lZCB0aGUgZW50aXJlIFJGQywgZm9jdXNpbmcgb24gdGhpbmdzIHdlcmUg
+SSBuZWVkZWQgdG8uDQo+IMKgSGVyZSdzIG15IHRha2Ugb24gaXQ6DQo+IA0KPiBJdCB3b3VsZCBo
+YXZlIGJlZW4gYmV0dGVyIHdpdGggQUZfSU5FVC9BRl9JTkVUNiBhbmQgYW4gb3B0aW9uIHRvIGVu
+YWJsZQ0KPiBTTUMgdGhhbiBBRl9TTUMuIMKgVGhlIGZpcnN0IGltcGxlbWVudGF0aW9uIHNpbXBs
+eSBhc3N1bWVzIEFGX0lORVQgaW4NCj4gdGhlIHByZXNlbmNlIG9mIEFGX1NNQy4gwqBXaGVuIElQ
+djYgc3VwcG9ydCBpcyBhZGRlZCwgc29tZSBzb3J0IG9mDQo+IGd1ZXNzaW5nIGxvZ2ljIHdpbGwg
+aGF2ZSB0byBiZSBwdXQgaW4gcGxhY2UgdG8gdHJ5IGFuZCBkZXRlcm1pbmUgaWYgYW4NCj4gQUZf
+U01DIGFkZHJlc3MgaXMgYWN0dWFsbHkgQUZfSU5FVCBvciBBRl9JTkVUNiBzaW5jZSB3ZSB3b24n
+dCBoYXZlIGENCj4gZ3VhcmFudGVlZCB3YXkgb2YgdGVsbGluZy4gwqBBcHBzIGNhbiB1c2Ugc3Ry
+dWN0IHNvY2thZGRyX3N0b3JhZ2UgYXMgdGhlaXINCj4gbm9ybWFsIGVsZW1lbnQgdG8gc3RpY2sg
+dGhlIGFkZHJlc3MgaW50bywgYW5kIGNvdWxkIHJlbHkgb24gdGhlIGtlcm5lbCB0bw0KPiBpbnRl
+cnByZXQgaXQgcHJvcGVybHkgYmFzZWQgb24gdGhlIEFGX0lORVQvQUZfSU5FVDYgZGlmZmVyZW50
+aWF0aW9uLCBhbmQNCj4gdGhpcyBicmVha3MgdGhhdC4gwqBUaGUgUkZDIGdpdmVzICpzb21lKiB0
+aG91Z2h0IHRvIGFkZGluZyBJUHY2IGluIHRoZQ0KPiBmdXR1cmUsIGJ1dCBub3QgYSBsb3QuIMKg
+SXQgbWF5IGJlIHRoYXQgdGhlIGFuc3dlciBpcyB0aGF0IGluIHRoZSBmdXR1cmUsIElQdjYNCj4g
+c3VwcG9ydCBpcyBlbmFibGVkIGJ5IG1ha2luZyB0aGUgSVB2NiBBUEkgYmUNCj4gQUZfSU5FVDYg
+KyBzZXRzb2Nrb3B0KFNNQykgb3IgdGhlIGVxdWl2YWxlbnQuIMKgSWYgdGhhdCdzIHRoZSBjYXNl
+LCB0aGVuIEkNCj4gd291bGQgc3VnZ2VzdCBtYWtpbmcgdGhlIGxhdGVyIEFQSSBzcGVjaWZpY2Fs
+bHkgY2FsbCBvdXQgQUZfSU5FVCArDQo+IHNldHNvY2tvcHQoU01DKSBiZSBpZGVudGljYWwgdG8g
+QUZfU01DLg0KPiANCg0KV2hhdCBhcmUgdGhlIHNob3J0Y29taW5ncyBpbiBteSBwcm9wb3NhbCBb
+MV0gd2hpY2ggSSBhbSByZWl0ZXJhdGluZyBiZWxvdy4NCkJhcnQgYWxzbyBzdWdnZXN0ZWQgdG8g
+ZGVmaW5lIG5ldyBzdHJlYW0gcHJvdG9jb2wgZm9yIFNNQyBzaW1pbGFyIHRvIFNDVFAuDQoNCihh
+KSBhZGRyZXNzIGZhbWlseSBzaG91bGQgYmUgZWl0aGVyIEFGX0lORVQgb3IgQUZfSU5FVDYNCihi
+KSBzb2NrZXQoKSBBUEkgdG8gaW50cm9kdWNlIG5ldyBwcm90b2NvbCBhcyBQUk9UT19TTUMgZm9y
+IGluIHNvY2tldCgpIHN5c3RlbSBjYWxsLg0KDQpXaXRoIHRoaXMgdGhlcmUgaXMgbm8gYWRkaXRp
+b25hbCBzZXRzb2Nrb3AoKSBuZWVkZWQuDQoNCldpdGggdGhpcyAtIHVzZXIgc3BhY2UgYXBwbGlj
+YXRpb25zLCBkbyBnZXRhZGRyaW5mbygpIHdpdGggaGludCBhcw0KaGludHMuYWlfZmFtaWx5ICA9
+IEFGX0lORVQ7DQpoaW50cy5haV9zb2NrdHlwZSA9IFNPQ0tfU1RSRUFNOw0KDQpnZXRhZGRyaW5m
+bygpIHJldHVybnMgYmFjayBib3RoIHRoZSBwcm90b2NvbHMgVENQIGFuZCBTTUMuDQpGYW1vdXMg
+ZGF0YWJhc2UgYXBwbGljYXRpb24gc3VjaCBhcyBSZWRpcyBjbGllbnQgaXRlcmF0ZXMgb3ZlciBh
+bGwgZW50cmllcyBvZiBnZXRhZGRyaW5mbygpIGFuZCBlc3RhYmxpc2hlcyBjb25uZWN0aW9uIHRv
+IHNlcnZlcnMuDQoNClRoZXJlIGFyZSBmZXcgYWR2YW50YWdlcyBvZiB0aGlzIGludGVyZmFjZS4N
+CjEuIE5vIGNoYW5nZSBpbiBhbnkgbWFrZWZpbGUgb2YgYXBwbGljYXRpb25zIG5lZWRlZCAtIHVu
+bGVzcyB1c2VyIHdhbnRzIHRvIHNwZWNpZnkgZXhwbGljaXRseSB0aGF0IGl0IHdhbnRzIHRvIGZv
+cmNlIFNNQyBwcm90b2NvbC4NCjIuIE5vIG5lZWQgdG8gZG8gTERfTElCUkFSWV9QUkVMT0FELCAo
+d2hpY2ggd29uJ3Qgd29yayBhbnl3YXkgYmVjYXVzZSBiaW5kKCkgY29ubmVjdCgpIG9mIFNNQyBj
+aGVja3MgZm9yIEFGX0lORVQpLg0KMy4gTm8gbWFqb3IgY2hhbmdlcyB0byBnbGliYyB0byBwcm9j
+ZXNzIEFGX1NNQyBkaWZmZXJlbnRseQ0KZ2xpYmMgcmVmZXJlbmNlcyBJUFBST1RPX1RDUCBhdCAy
+MiBwbGFjZXMuIChjb21wYXJlIHRvIEFGX0lORVQgYXQgMTQwKyBwbGFjZXMpLg0KQSBsb3Qgc2lt
+cGxlciB0ZXN0IG1hdHJpeCBmb3IgZ2xpYmMgZm9yIG5ldyBwcm90b2NvbA0KNS4gTm8gbmVlZCB0
+byByZWNvbXBpbGUgYXBwbGljYXRpb25zLCBhcyBsb25nIGFzIGdldGFkZHJpbmZvIHJldHVybnMg
+YWxsIHN0cmVhbWluZyBwcm90b2NvbHMgKFRDUCwgU01DKQ0KNi4gZm9yIGFwcGxpY2F0aW9ucyB0
+byBtYWtlIHVzZSBvZiBzZXRzb2Nrb3B0KCkgaXQgbmVlZHMgYW5vdGhlciBrbm9iIGFuZCBoaW50
+IGZyb20gb3RoZXIgcGxhY2VzLCB3aGljaCBjYW4gYmUgYXZvaWRlZCBiZWNhdXNlIFNNQyBUQ1Ag
+b3B0aW9uIG5lZ290aWF0ZXMgd2l0aCByZW1vdGUgZW5kDQoNCkFuZCByZXByZXNlbnRpbmcgbmV3
+IHByb3RvY29sIGFzIG5ldyBwcm90b2NvbCBmb3IgYSBnaXZlbiBhZGRyZXNzIGZhbWlseSBhcHBl
+YXJzIGNvcnJlY3QsIGNvbXBhcmUgdG8gc2V0dGluZyBzb2NrZXQgb3B0aW9ucy4NCg0KVG9vbHMg
+bGlrZSBDUklVIG9yIHNpbWlsYXIgdG9vbCBtaWdodCBmaW5kIGEgcmFjZSBjb25kaXRpb25zIC0g
+d2hlbiBpdCBxdWVyaWVzIHNvY2tldCBvcHRpb24sIFNNQyB3YXMgbm90IHNldCwgYnV0IGxhdGVy
+IG9uIFNNQyB3YXMgc2V0LCBhbmQgZG9lcyBpbmNvcnJlY3QgaGFuZGxpbmcuDQpTZXR0aW5nIHNv
+Y2tldCgpIHdpdGggU01DIHByb3RvY29sIG1ha2VzIGl0IGVhc2llciB0byB1bmRlcnN0YW5kIGlu
+IHRoaXMgYXJlYSBhcyB3ZWxsLg0KDQpJIGhhdmUgYWRkaXRpb25hbCBwcm9wb3NhbCBmb3IgbGlu
+ayBncm91cHMsIHJlc291cmNlIGNyZWF0aW9uIGFyZWEuIEkgd2lsbCB0YWtlIHRoYXQgdXAgYWZ0
+ZXIgdGhpcyBkaXNjdXNzaW9uLg0KDQpbMV0gaHR0cHM6Ly9wYXRjaHdvcmsua2VybmVsLm9yZy9w
+YXRjaC85NzE5Mzc1Lw0KDQo+IFRoZSBwcm90b2NvbCBpbmNsdWRlZCBhIHZlcnNpb24gaGVhZGVy
+IGluIHRoZSBuZWdvdGF0aW9uIG1lc3NhZ2VzLg0KPiDCoFRoaXMgaXMgZ29vZCBhcyBpdCBhbGxv
+d3MgdXMgdG8gYWxtb3N0IGltbWVkaWF0ZWx5IHN0YXJ0IHdvcmsgb24gdmVyc2lvbiAyDQo+IHRo
+YXQgZml4ZXMgdGhlIHNob3J0Y29taW5ncyBvZiB2ZXJzaW9uIDEgd2hpbGUgbWFpbnRhaW5pbmcg
+YmFjaw0KPiBjb21wYXRpYmlsaXR5Lg0KPiANCj4gQWZ0ZXIgcmVhZGluZyB0aGUgUkZDLCBJIGNh
+biBzZWUgd2h5IHRoZXkgb25seSBzdXBwb3J0IG9uZSBsaW5rIGxheWVyOg0KPiBSb0NFLiDCoFRo
+ZSBpc3N1ZSBoZXJlIGlzIHRoYXQgdGhleSBwdW50ZWQgb24gdGhlIGhhcmQgaXNzdWUgb2YgZG9p
+bmcgYW55IHNvcnQNCj4gb2Ygd29yayB0byBkZXRlcm1pbmUgaWYgc2VjdXJpdHkgcmVzdHJpY3Rp
+b25zIG9uIHRoZSBUQ1AgY29ubmVjdGlvbiBzaG91bGQNCj4gYWxzbyBiZSBhcHBsaWVkIHRvIHRo
+ZSBSRE1BIGNvbm5lY3Rpb24uIMKgVGhlIFJGQyBiYXNpY2FsbHkgc2F5cyAidGhlIFJvQ0UNCj4g
+bGluayBuZWVkcyB0byBoYXZlIHRoZSBzYW1lIHBoeXNpY2FsIHJlc3RyaWN0aW9ucyAodmxhbikg
+YXMgdGhlIFRDUC9JUCBsaW5rIHNvDQo+IHRoYXQgdGhlIHNlY3VyaXR5IGxpbWl0YXRpb25zIGFy
+ZSB0aGUgc2FtZSIgYmVjYXVzZSB0aGV5IGRvbid0IGRvIGFueXRoaW5nDQo+IHRvIGNoZWNrIHRo
+ZW0gZXNzZW50aWFsbHkuDQo+IMKgRm9yIHYyIG9mIHRoZSBwcm90b2NvbCwgYW5kIGZvciBkaWZm
+ZXJlbnQgbGluayBsYXllciBzdXBwb3J0LCB0aGlzIGlzIG5vIGxvbmdlcg0KPiBzdWZmaWNpZW50
+LCBzbyB0aGVyZSB3aWxsIGJlIHNpZ25pZmljYW50IHdvcmsgdG8gZGV0ZXJtaW5lIHRoZSBzZWN1
+cml0eSBjb250ZXh0DQo+IG9mIHNwZWNpZmljIFRDUCBjb25uZWN0aW9ucyBhbmQgdGhlbiBtYWtl
+IHN1cmUgdGhhdCB0aGV5IG1lZXQgdGhlIHNlY3VyaXR5DQo+IGNvbnRleHQgb2YgdGhlIFJETUEg
+bGlua3MgYWxsb3dlZC4NCj4gDQo+IEFkZGl0aW9uYWxseSwgdGhlIHNhbWUgaXMgbGlrZWx5IHRv
+IGJlIHRydWUgaW4gdGVybXMgb2YgU0VMaW51eCBvcHRpb25zLiDCoFRoZQ0KPiBhZGRpdGlvbiBv
+ZiB0aGUgSUIvT1BBIGxpbmsgbGF5ZXJzIHdpbGwgdGhyb3cgYSBiaXQgb2YgYSBtb25rZXkgd3Jl
+bmNoIGluDQo+IHRoaW5ncyBiZWNhdXNlIHRoZSBTRUxpbnV4IGNvbnRyb2wgb3ZlciB0aG9zZSBs
+aW5rcyBpcyBzbGlnaHRseSBkaWZmZXJlbnQgdGhhbg0KPiBhIG5vcm1hbCBUQ1AvSVAgU0VMaW51
+eCBjb250cm9sLiDCoEZvciBpbnN0YW5jZSwgeW91IG1pZ2h0IGNyZWF0ZSBydWxlcyBhYm91dA0K
+PiBwcm9jZXNzZXMgYW5kIHBvcnRzIHRvIG1ha2Ugc3VyZSB0aGF0IHRoZSBodHRwZCBkYWVtb24g
+Y2FuIG9ubHkgYWNjZXNzDQo+IHNwZWNpZmljIHBvcnRzIG9uIFRDUC9JUCwgYnV0IG9uIElCL09Q
+QSB5b3Ugd291bGQgbmVlZCB0byBjcmVhdGUgcHJvY2Vzcw0KPiBhbmQgUF9LZXkgcnVsZXMgYXMg
+SUIvT1BBIGRvbid0IGhhdmUgdGhlIHNhbWUgcG9ydCBsZXZlbCBzZW1hbnRpY3MsIGFuZA0KPiBp
+dCdzIHRoZSBQX0tleSBvbiBjb21tdW5pY2F0aW9ucyB0aGF0IGlzIGVuZm9yY2VkIG5ldHdvcmsg
+d2lkZSwgaW5jbHVkaW5nDQo+IGluIHRoZSBzd2l0Y2hlcywgc28gY29udHJvbGxpbmcgd2hhdCBQ
+X0tleSBhIHByb2Nlc3MgY2FuIHNlbmQvcmVjZWl2ZSBvbiBpcw0KPiB5b3VyIGJlc3Qgd2F5IHRv
+IGxpbWl0IHdoYXQgYSBwcm9jZXNzIGNhbiBkby4gwqBUcmFuc2xhdGlvbiBmcm9tIG9uZSB0byB0
+aGUNCj4gb3RoZXIgbWlnaHQgYmUgcmF0aGVyIGRpZmZpY3VsdCB0byBkbyBpbiBhbnkgc29ydCBv
+ZiBhdXRvbWF0ZWQgZmFzaGlvbi4NCj4gDQo+IFRoZXJlIG1pZ2h0IGhhdmUgdG8gYmUgc29tZSBh
+ZGRpdGlvbmFsIHdvcmsgdG8gZ2V0IHRoaXMgdG8gcHJvcGVybHkNCj4gYWNjb3VudCBpdGVtcyBm
+b3IgdGhlIFJETUEgY29udHJvbCBncm91cCBlbGVtZW50cyB0aGF0IHdlcmUgcmVjZW50bHkNCj4g
+dGFrZW4gaW50byB0aGUga2VybmVsLg0KPiANCj4gRmluYWxseSwgdGhlIFJETUEgc3Vic3lzdGVt
+IGlzIGluIHRoZSBwcm9jZXNzIG9mIHN3aXRjaGluZyB0byBzdHJ1Y3R1cmVkDQo+IG9wdGlvbiBw
+cm9jZXNzaW5nIHNpbWlsYXIgdG8gaG93IG5ldGxpbmsgZG9lcyBpdC4gwqBGb3IgdmVyc2lvbiAy
+IG9mIHRoaXMNCj4gcHJvdG9jb2wsIHNpbmNlIGl0IHdpbGwgYmUgaW50ZXJhY3Rpbmcgd2l0aCB0
+aGUgUkRNQSBjb3JlIGluIG1hbnkgd2F5cywgd2lsbA0KPiBiZSBzaW1wbGVyIGlmIGl0IHN3aXRj
+aGVzIHRoZSBvbi13aXJlIG5lZ290aWF0aW9uIHBhY2tldHMgdG8gZm9sbG93IHRoZSBzYW1lDQo+
+IG1ldGhvZHMgYXMgdGhhdCB3aWxsIGFsbG93IHJldXNlIG9mIGNvZGUgdGhhdCBpdCB3aWxsIGhh
+dmUgdG8gaGF2ZSBmb3INCj4gcHJvcGVybHkgZGVhbGluZyB3aXRoIHRoZSBSRE1BIHN1YnN5c3Rl
+bSBpbiB0aGUgZnV0dXJlLg0KPiANCj4gU28sIEknbSBmaW5lIHdpdGggaXQgYmVpbmcgbGVmdCBh
+cyBpcyBzaW5jZSB5b3UgYWNjZXB0ZWQgdGhlIHBhdGNoIHRoYXQgbWFrZXMNCj4gbm90ZSBvZiB0
+aGUgbWVtb3J5IHJlZ2lzdHJhdGlvbiBpbnNlY3VyaXR5IGluIHRoZSBLY29uZmlnIHRleHQuDQo+
+IMKgVGhlIGZhY3QgdGhhdCB0aGlzIGlzIGEgdmVyc2lvbmVkIHByb3RvY29sIG1lYW5zIHRoYXQg
+d2UgY2FuIGZpeCB0aGUgdGhpbmdzDQo+IHdlIHNlZSBhcyBiZWluZyB3cm9uZyB3aXRob3V0IGhh
+dmluZyB0byBoYXZlIGl0IGFsbCByaWdodCBmcm9tIHRoZSB2ZXJ5DQo+IHN0YXJ0LCBpdCBjYW4g
+YmUgZG9uZSBpbmNyZW1lbnRhbGx5Lg0KPiANCj4gLS0NCj4gRG91ZyBMZWRmb3JkIDxkbGVkZm9y
+ZEByZWRoYXQuY29tPg0KPiDCoCDCoCBHUEcgS2V5SUQ6IEI4MjZBMzMzMEU1NzJGREQNCj4gDQo+
+IEtleSBmaW5nZXJwcmludCA9IEFFNkIgMUJEQSAxMjJCIDIzQjQgMjY1QiDCoDEyNzQgQjgyNiBB
+MzMzIDBFNTcgMkZERA0KPiANCj4gLS0NCj4gVG8gdW5zdWJzY3JpYmUgZnJvbSB0aGlzIGxpc3Q6
+IHNlbmQgdGhlIGxpbmUgInVuc3Vic2NyaWJlIGxpbnV4LXJkbWEiIGluIHRoZQ0KPiBib2R5IG9m
+IGEgbWVzc2FnZSB0byBtYWpvcmRvbW9Admdlci5rZXJuZWwub3JnIE1vcmUgbWFqb3Jkb21vIGlu
+Zm8NCj4gYXQgIGh0dHA6Ly92Z2VyLmtlcm5lbC5vcmcvbWFqb3Jkb21vLWluZm8uaHRtbA0K
