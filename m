@@ -1,61 +1,72 @@
-From: Greentime Hu <green.hu@gmail.com>
-Subject: [PATCH v5] net: ethernet: faraday: To support device tree usage.
-Date: Wed, 17 May 2017 15:28:19 +0800
-Message-ID: <20170517072810.GA4324@app09>
+From: Alexander Alemayhu <alexander@alemayhu.com>
+Subject: Re: [PATCH v1] samples/bpf: Add a .gitignore for binaries
+Date: Wed, 17 May 2017 10:18:44 +0200
+Message-ID: <20170517081844.GA4447@gmail.com>
+References: <20170212212356.11675-1-mic@digikod.net>
+ <8277c7cc-8f44-40ec-1f7e-53c404d84292@cumulusnetworks.com>
+ <bd91cc8d-4683-4c4c-e672-7dce5da28183@digikod.net>
+ <ad02fd5c-6812-8f1b-b348-b2ec81b9524b@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: green.hu@gmail.com, netdev@vger.kernel.org,
-        devicetree@vger.kernel.org, andrew@lunn.ch, arnd@arndb.de,
-        jiri@resnulli.us, linux-kernel@vger.kernel.org,
-        f.fainelli@gmail.com, robh+dt@kernel.org, mark.rutland@arm.com,
-        davem@davemloft.net
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: =?iso-8859-1?Q?Micka=EBl_Sala=FCn?= <mic@digikod.net>,
+        David Ahern <dsa@cumulusnetworks.com>,
+        Alexei Starovoitov <ast@fb.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        linux-kernel@vger.kernel.org,
+        Arnaldo Carvalho de Melo <acme@redhat.com>,
+        Wang Nan <wangnan0@huawei.com>, netdev@vger.kernel.org
+To: David Ahern <dsahern@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
+In-Reply-To: <ad02fd5c-6812-8f1b-b348-b2ec81b9524b@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-To support device tree usage for ftmac100.
+On Tue, May 16, 2017 at 04:27:36PM -0700, David Ahern wrote:
+> 
+> The problem stems from the fact that bpf samples do not really fall into
+> the 'hostprogs' category (see "4 Host Program support" in
+> Documentation/kbuild/makefiles.txt). Fixing samples/bpf to not rely on
+> it is the better long term solution. Building of tools/ for example does
+> not rely on it so there is an existing example of leveraging kernel
+> headers without the overhead.
++1
 
-Signed-off-by: Greentime Hu <green.hu@gmail.com>
----
-Changes in v5:
-  - Nothing changed in this patch and I have committed faraday,ftmac.txt.
-Changes in v4:
-  - Use the same binding document to describe the same faraday ethernet controller and add faraday to vendor-prefixes.txt.
-Changes in v3:
-  - Nothing changed in this patch but I have committed andestech to vendor-prefixes.txt.
-Changes in v2:
-  - Change atmac100_of_ids to ftmac100_of_ids
----
- drivers/net/ethernet/faraday/ftmac100.c |    7 +++++++
- 1 file changed, 7 insertions(+)
+I have looked into this but found it to be not easy and all attempts to
+change the Makefile has resulted in obscure errors :/
 
-diff --git a/drivers/net/ethernet/faraday/ftmac100.c b/drivers/net/ethernet/faraday/ftmac100.c
-index 6ac336b..1536356 100644
---- a/drivers/net/ethernet/faraday/ftmac100.c
-+++ b/drivers/net/ethernet/faraday/ftmac100.c
-@@ -1174,11 +1174,17 @@ static int ftmac100_remove(struct platform_device *pdev)
- 	return 0;
- }
+Getting clang to output in a different directory was easy[0], but I guess
+this is not the right approach either. Have you tried making the change?
+
+
+[0]:
+diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
+index 6c7468eb3684..79268d310ba5 100644
+--- a/samples/bpf/Makefile
++++ b/samples/bpf/Makefile
+@@ -1,6 +1,13 @@
+ # kbuild trick to avoid linker error. Can be omitted if a module is built.
+ obj- := dummy.o
  
-+static const struct of_device_id ftmac100_of_ids[] = {
-+	{ .compatible = "andestech,atmac100" },
-+	{ }
-+};
++ifndef O
++  OUTPUT := $(shell pwd)/samples/bpf/_build/
++else
++  OUTPUT := $O/
++endif
++$(shell mkdir -p $(OUTPUT))
 +
- static struct platform_driver ftmac100_driver = {
- 	.probe		= ftmac100_probe,
- 	.remove		= ftmac100_remove,
- 	.driver		= {
- 		.name	= DRV_NAME,
-+		.of_match_table = ftmac100_of_ids
- 	},
- };
- 
-@@ -1202,3 +1208,4 @@ static void __exit ftmac100_exit(void)
- MODULE_AUTHOR("Po-Yu Chuang <ratbert@faraday-tech.com>");
- MODULE_DESCRIPTION("FTMAC100 driver");
- MODULE_LICENSE("GPL");
-+MODULE_DEVICE_TABLE(of, ftmac100_of_ids);
+ # List of programs to build
+ hostprogs-y := test_lru_dist
+ hostprogs-y += sock_example
+@@ -190,4 +197,4 @@ $(obj)/%.o: $(src)/%.c
+ 		-Wno-gnu-variable-sized-type-not-at-end \
+ 		-Wno-address-of-packed-member -Wno-tautological-compare \
+ 		-Wno-unknown-warning-option \
+-		-O2 -emit-llvm -c $< -o -| $(LLC) -march=bpf -filetype=obj -o $@
++		-O2 -emit-llvm -c $< -o -| $(LLC) -march=bpf -filetype=obj -o $(OUTPUT)$(shell basename $@)
+
 -- 
-1.7.9.5
+Mit freundlichen Grüßen
+
+Alexander Alemayhu
