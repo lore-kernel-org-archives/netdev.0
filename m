@@ -1,58 +1,54 @@
-From: walter harms <wharms@bfs.de>
-Subject: Re: [PATCH] hdlcdrv: fix divide error bug if bitrate is 0
-Date: Wed, 17 May 2017 14:59:39 +0200
-Message-ID: <591C493B.6060908@bfs.de>
-References: <20170517123549.22659-1-firogm@gmail.com>
-Reply-To: wharms@bfs.de
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH 2/6] wl1251: Use request_firmware_prefer_user() for
+ loading NVS calibration data
+Date: Wed, 17 May 2017 15:04:50 +0200
+Message-ID: <1495026290.2442.6.camel@sipsolutions.net>
+References: <0fd90416-f33c-a6be-14fd-5e964583e9cb@broadcom.com>
+         <20170515231339.GF17314@wotan.suse.de>
+         <1495022766.2442.1.camel@sipsolutions.net> <20170517125335.GG10015@pali>
+         (sfid-20170517_145339_432681_02EC3F26)
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: t.sailer@alumni.ethz.ch, davem@davemloft.net,
-        gregkh@linuxfoundation.org, linux-hams@vger.kernel.org,
-        netdev@vger.kernel.org, dvyukov@google.com,
-        syzkaller@googlegroups.com
-To: Firo Yang <firogm@gmail.com>
-Return-path: <linux-hams-owner@vger.kernel.org>
-In-Reply-To: <20170517123549.22659-1-firogm@gmail.com>
-Sender: linux-hams-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: "Luis R. Rodriguez" <mcgrof@kernel.org>,
+        Arend Van Spriel <arend.vanspriel@broadcom.com>,
+        Pavel Machek <pavel@ucw.cz>, Daniel Wagner <wagi@monom.org>,
+        Tom Gundersen <teg@jklm.no>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        David Gnedt <david.gnedt@davizone.at>,
+        Tony Lindgren <tony@atomide.com>,
+        Sebastian Reichel <sre@kernel.org>,
+        Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>,
+        Aaro Koskinen <aaro.koskinen@iki.fi>,
+        Takashi Iwai <tiwai@suse.de>,
+        AKASHI Takahiro <takahiro.akashi@linaro.org>,
+        David Woodhouse <dwmw2@infradead.org>,
+        Bjorn Andersson <bjorn.andersson@linaro.org>,
+        Grazvydas Ignotas <notasas@gmail.com>,
+        linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
+        netdev@vger.kernel.org,
+        =?UTF-8?
+To: Pali =?ISO-8859-1?Q?Roh=E1r?= <pali.rohar@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170517125335.GG10015@pali> (sfid-20170517_145339_432681_02EC3F26)
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Wed, 2017-05-17 at 14:53 +0200, Pali Rohár wrote:
 
-
-Am 17.05.2017 14:35, schrieb Firo Yang:
-> The divisor s->par.bitrate will always be 0 until initialized by
-> ndo_open() and hdlcdrv_open().
+> > In fact, why should the *driver* care either? IOW - why should
+> > "request_firmware_prefer_user()" even exist?
 > 
-> In order to fix this divide zero error, check whether the netdevice
-> was opened by ndo_open() before performing divide.
-> 
-> Reported-by: Dmitry Vyukov <dvyukov@google.com>
-> Signed-off-by: Firo Yang <firogm@gmail.com>
-> ---
->  drivers/net/hamradio/hdlcdrv.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/hamradio/hdlcdrv.c b/drivers/net/hamradio/hdlcdrv.c
-> index 8c3633c..3c783fd 100644
-> --- a/drivers/net/hamradio/hdlcdrv.c
-> +++ b/drivers/net/hamradio/hdlcdrv.c
-> @@ -574,7 +574,7 @@ static int hdlcdrv_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
->  		break;		
->  
->  	case HDLCDRVCTL_CALIBRATE:
-> -		if(!capable(CAP_SYS_RAWIO))
-> +		if (!capable(CAP_SYS_RAWIO) || !netif_running(dev))
->  			return -EPERM;
->  		if (bi.data.calibrate > INT_MAX / s->par.bitrate)
->  			return -EINVAL;
+> There are default/example NVS data, which are stored in /lib/firmware
+> and installed by linux-firmware package.
+[...]
 
-I would still check for s->par.bitrate > 0 later changes may affect the setting of it
-and it is much more obvious.
+Oh, so you're saying you want this to invert the order ... Ok, that
+makes some sense.
 
-Also perhaps !netif_running(dev) should better return ENODEV.
+I still hope that all other requests will eventually fall back to user
+loading though, I think that's important to system integration in
+general.
 
-
-just my 2 cents,
-re,
- wh
-
+johannes
