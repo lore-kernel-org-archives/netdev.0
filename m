@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v4 07/10] net: sched: push chain dump to a separate function
-Date: Wed, 17 May 2017 11:08:00 +0200
-Message-ID: <20170517090803.4461-8-jiri@resnulli.us>
+Subject: [patch net-next v4 10/10] net: sched: add termination action to allow goto chain
+Date: Wed, 17 May 2017 11:08:03 +0200
+Message-ID: <20170517090803.4461-11-jiri@resnulli.us>
 References: <20170517090803.4461-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
         dsa@cumulusnetworks.com, edumazet@google.com,
@@ -10,149 +10,166 @@ Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
         mlxsw@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f195.google.com ([209.85.128.195]:35096 "EHLO
-        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753063AbdEQJIR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 17 May 2017 05:08:17 -0400
-Received: by mail-wr0-f195.google.com with SMTP id g12so759187wrg.2
-        for <netdev@vger.kernel.org>; Wed, 17 May 2017 02:08:16 -0700 (PDT)
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:36436 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754061AbdEQJIV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 17 May 2017 05:08:21 -0400
+Received: by mail-wm0-f65.google.com with SMTP id k15so568781wmh.3
+        for <netdev@vger.kernel.org>; Wed, 17 May 2017 02:08:20 -0700 (PDT)
 In-Reply-To: <20170517090803.4461-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-Since there will be multiple chains to dump, push chain dumping code to
-a separate function.
+Introduce new type of termination action called "goto_chain". This allows
+user to specify a chain to be processed. This action type is
+then processed as a return value in tcf_classify loop in similar
+way as "reclassify" is, only it does not reset to the first filter
+in chain but rather reset to the first filter of the desired chain.
 
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- net/sched/cls_api.c | 95 +++++++++++++++++++++++++++++------------------------
- 1 file changed, 52 insertions(+), 43 deletions(-)
+ include/net/act_api.h        |  1 +
+ include/net/sch_generic.h    |  9 +++++++--
+ include/uapi/linux/pkt_cls.h |  1 +
+ net/sched/act_api.c          | 40 ++++++++++++++++++++++++++++++++++++++++
+ net/sched/cls_api.c          |  6 +++++-
+ 5 files changed, 54 insertions(+), 3 deletions(-)
 
-diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
-index fee3d7f..63aa2ea 100644
---- a/net/sched/cls_api.c
-+++ b/net/sched/cls_api.c
-@@ -640,21 +640,65 @@ static int tcf_node_dump(struct tcf_proto *tp, unsigned long n,
- 			     RTM_NEWTFILTER);
- }
+diff --git a/include/net/act_api.h b/include/net/act_api.h
+index b22c6f3..26ffd83 100644
+--- a/include/net/act_api.h
++++ b/include/net/act_api.h
+@@ -42,6 +42,7 @@ struct tc_action {
+ 	struct gnet_stats_basic_cpu __percpu *cpu_bstats;
+ 	struct gnet_stats_queue __percpu *cpu_qstats;
+ 	struct tc_cookie	*act_cookie;
++	struct tcf_chain	*goto_chain;
+ };
+ #define tcf_head	common.tcfa_head
+ #define tcf_index	common.tcfa_index
+diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
+index 569b565..3688501 100644
+--- a/include/net/sch_generic.h
++++ b/include/net/sch_generic.h
+@@ -193,8 +193,13 @@ struct Qdisc_ops {
  
-+static void tcf_chain_dump(struct tcf_chain *chain, struct sk_buff *skb,
-+			   struct netlink_callback *cb,
-+			   long index_start, long *p_index)
+ 
+ struct tcf_result {
+-	unsigned long	class;
+-	u32		classid;
++	union {
++		struct {
++			unsigned long	class;
++			u32		classid;
++		};
++		const struct tcf_proto *goto_tp;
++	};
+ };
+ 
+ struct tcf_proto_ops {
+diff --git a/include/uapi/linux/pkt_cls.h b/include/uapi/linux/pkt_cls.h
+index d613be3..1b9aa9e 100644
+--- a/include/uapi/linux/pkt_cls.h
++++ b/include/uapi/linux/pkt_cls.h
+@@ -51,6 +51,7 @@ enum {
+ 	(((combined) & (~TC_ACT_EXT_VAL_MASK)) == opcode)
+ 
+ #define TC_ACT_JUMP __TC_ACT_EXT(1)
++#define TC_ACT_GOTO_CHAIN __TC_ACT_EXT(2)
+ 
+ /* Action type identifiers*/
+ enum {
+diff --git a/net/sched/act_api.c b/net/sched/act_api.c
+index e389eb4..0ecf2a8 100644
+--- a/net/sched/act_api.c
++++ b/net/sched/act_api.c
+@@ -28,6 +28,31 @@
+ #include <net/act_api.h>
+ #include <net/netlink.h>
+ 
++static int tcf_action_goto_chain_init(struct tc_action *a, struct tcf_proto *tp)
 +{
-+	struct net *net = sock_net(skb->sk);
-+	struct tcmsg *tcm = nlmsg_data(cb->nlh);
-+	struct tcf_dump_args arg;
-+	struct tcf_proto *tp;
++	u32 chain_index = a->tcfa_action & TC_ACT_EXT_VAL_MASK;
 +
-+	for (tp = rtnl_dereference(chain->filter_chain);
-+	     tp; tp = rtnl_dereference(tp->next), (*p_index)++) {
-+		if (*p_index < index_start)
-+			continue;
-+		if (TC_H_MAJ(tcm->tcm_info) &&
-+		    TC_H_MAJ(tcm->tcm_info) != tp->prio)
-+			continue;
-+		if (TC_H_MIN(tcm->tcm_info) &&
-+		    TC_H_MIN(tcm->tcm_info) != tp->protocol)
-+			continue;
-+		if (*p_index > index_start)
-+			memset(&cb->args[1], 0,
-+			       sizeof(cb->args) - sizeof(cb->args[0]));
-+		if (cb->args[1] == 0) {
-+			if (tcf_fill_node(net, skb, tp, 0,
-+					  NETLINK_CB(cb->skb).portid,
-+					  cb->nlh->nlmsg_seq, NLM_F_MULTI,
-+					  RTM_NEWTFILTER) <= 0)
-+				break;
-+
-+			cb->args[1] = 1;
-+		}
-+		if (!tp->ops->walk)
-+			continue;
-+		arg.w.fn = tcf_node_dump;
-+		arg.skb = skb;
-+		arg.cb = cb;
-+		arg.w.stop = 0;
-+		arg.w.skip = cb->args[1] - 1;
-+		arg.w.count = 0;
-+		tp->ops->walk(tp, &arg.w);
-+		cb->args[1] = arg.w.count + 1;
-+		if (arg.w.stop)
-+			break;
-+	}
++	if (!tp)
++		return -EINVAL;
++	a->goto_chain = tcf_chain_get(tp->chain->block, chain_index);
++	if (!a->goto_chain)
++		return -ENOMEM;
++	return 0;
 +}
 +
- /* called with RTNL */
- static int tc_dump_tfilter(struct sk_buff *skb, struct netlink_callback *cb)
++static void tcf_action_goto_chain_fini(struct tc_action *a)
++{
++	tcf_chain_put(a->goto_chain);
++}
++
++static void tcf_action_goto_chain_exec(const struct tc_action *a,
++				       struct tcf_result *res)
++{
++	const struct tcf_chain *chain = a->goto_chain;
++
++	res->goto_tp = rcu_dereference_bh(chain->filter_chain);
++}
++
+ static void free_tcf(struct rcu_head *head)
  {
- 	struct net *net = sock_net(skb->sk);
--	int t;
--	int s_t;
- 	struct net_device *dev;
- 	struct Qdisc *q;
- 	struct tcf_block *block;
--	struct tcf_proto *tp;
- 	struct tcf_chain *chain;
- 	struct tcmsg *tcm = nlmsg_data(cb->nlh);
- 	unsigned long cl = 0;
- 	const struct Qdisc_class_ops *cops;
--	struct tcf_dump_args arg;
-+	long index_start;
-+	long index;
+ 	struct tc_action *p = container_of(head, struct tc_action, tcfa_rcu);
+@@ -39,6 +64,8 @@ static void free_tcf(struct rcu_head *head)
+ 		kfree(p->act_cookie->data);
+ 		kfree(p->act_cookie);
+ 	}
++	if (p->goto_chain)
++		tcf_action_goto_chain_fini(p);
  
- 	if (nlmsg_len(cb->nlh) < sizeof(*tcm))
- 		return skb->len;
-@@ -683,45 +727,10 @@ static int tc_dump_tfilter(struct sk_buff *skb, struct netlink_callback *cb)
- 		goto errout;
- 	chain = block->chain;
+ 	kfree(p);
+ }
+@@ -465,6 +492,8 @@ int tcf_action_exec(struct sk_buff *skb, struct tc_action **actions,
+ 				else /* faulty graph, stop pipeline */
+ 					return TC_ACT_OK;
+ 			}
++		} else if (TC_ACT_EXT_CMP(ret, TC_ACT_GOTO_CHAIN)) {
++			tcf_action_goto_chain_exec(a, res);
+ 		}
  
--	s_t = cb->args[0];
--
--	for (tp = rtnl_dereference(chain->filter_chain), t = 0;
--	     tp; tp = rtnl_dereference(tp->next), t++) {
--		if (t < s_t)
--			continue;
--		if (TC_H_MAJ(tcm->tcm_info) &&
--		    TC_H_MAJ(tcm->tcm_info) != tp->prio)
--			continue;
--		if (TC_H_MIN(tcm->tcm_info) &&
--		    TC_H_MIN(tcm->tcm_info) != tp->protocol)
--			continue;
--		if (t > s_t)
--			memset(&cb->args[1], 0,
--			       sizeof(cb->args)-sizeof(cb->args[0]));
--		if (cb->args[1] == 0) {
--			if (tcf_fill_node(net, skb, tp, 0,
--					  NETLINK_CB(cb->skb).portid,
--					  cb->nlh->nlmsg_seq, NLM_F_MULTI,
--					  RTM_NEWTFILTER) <= 0)
--				break;
--
--			cb->args[1] = 1;
--		}
--		if (tp->ops->walk == NULL)
--			continue;
--		arg.w.fn = tcf_node_dump;
--		arg.skb = skb;
--		arg.cb = cb;
--		arg.w.stop = 0;
--		arg.w.skip = cb->args[1] - 1;
--		arg.w.count = 0;
--		tp->ops->walk(tp, &arg.w);
--		cb->args[1] = arg.w.count + 1;
--		if (arg.w.stop)
--			break;
--	}
--
--	cb->args[0] = t;
-+	index_start = cb->args[0];
-+	index = 0;
-+	tcf_chain_dump(chain, skb, cb, index_start, &index);
-+	cb->args[0] = index;
+ 		if (ret != TC_ACT_PIPE)
+@@ -657,6 +686,17 @@ struct tc_action *tcf_action_init_1(struct net *net, struct tcf_proto *tp,
+ 	if (err != ACT_P_CREATED)
+ 		module_put(a_o->owner);
  
- errout:
- 	if (cl)
++	if (TC_ACT_EXT_CMP(a->tcfa_action, TC_ACT_GOTO_CHAIN)) {
++		err = tcf_action_goto_chain_init(a, tp);
++		if (err) {
++			LIST_HEAD(actions);
++
++			list_add_tail(&a->list, &actions);
++			tcf_action_destroy(&actions, bind);
++			return ERR_PTR(err);
++		}
++	}
++
+ 	return a;
+ 
+ err_mod:
+diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
+index 9e0c4bb..4020b8d 100644
+--- a/net/sched/cls_api.c
++++ b/net/sched/cls_api.c
+@@ -307,8 +307,12 @@ int tcf_classify(struct sk_buff *skb, const struct tcf_proto *tp,
+ 
+ 		err = tp->classify(skb, tp, res);
+ #ifdef CONFIG_NET_CLS_ACT
+-		if (unlikely(err == TC_ACT_RECLASSIFY && !compat_mode))
++		if (unlikely(err == TC_ACT_RECLASSIFY && !compat_mode)) {
+ 			goto reset;
++		} else if (unlikely(TC_ACT_EXT_CMP(err, TC_ACT_GOTO_CHAIN))) {
++			old_tp = res->goto_tp;
++			goto reset;
++		}
+ #endif
+ 		if (err >= 0)
+ 			return err;
 -- 
 2.9.3
