@@ -1,72 +1,73 @@
-From: Ihar Hrachyshka <ihrachys@redhat.com>
-Subject: [PATCH 2/2] arp: always override existing neigh entries with gratuitous ARP
-Date: Wed, 17 May 2017 14:33:07 -0700
-Message-ID: <8d14e8bd5c4d988f073eb14307bbb8491896414c.1495056542.git.ihrachys@redhat.com>
-References: <cover.1495056542.git.ihrachys@redhat.com>
-Cc: Ihar Hrachyshka <ihrachys@redhat.com>, netdev@vger.kernel.org
-To: davem@davemloft.net, ja@ssi.bg
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:6065 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753847AbdEQVdn (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 17 May 2017 17:33:43 -0400
-In-Reply-To: <cover.1495056542.git.ihrachys@redhat.com>
-In-Reply-To: <cover.1495056542.git.ihrachys@redhat.com>
-References: <cover.1495056542.git.ihrachys@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+Subject: [net-realtek-btcoexist] question about identical code for different
+ branches
+Date: Wed, 17 May 2017 16:52:32 -0500
+Message-ID: <20170517165232.Horde.v4lHW1-r73ZYdz2POOdERBa@gator4166.hostgator.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed; DelSp=Yes
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Larry Finger <Larry.Finger@lwfinger.net>,
+        Chaoming Li <chaoming_li@realsil.com.cn>,
+        Kalle Valo <kvalo@codeaurora.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Currently, when arp_accept is 1, we always override existing neigh
-entries with incoming gratuitous ARP replies. Otherwise, we override
-them only if new replies satisfy _locktime_ conditional (packets arrive
-not earlier than _locktime_ seconds since the last update to the neigh
-entry).
 
-The idea behind locktime is to pick the very first (=> close) reply
-received in a unicast burst when ARP proxies are used. This helps to
-avoid ARP thrashing where Linux would switch back and forth from one
-proxy to another.
+Hello everybody,
 
-This logic has nothing to do with gratuitous ARP replies that are
-generally not aligned in time when multiple IP address carriers send
-them into network.
+While looking into Coverity ID 1362263 I ran into the following piece  
+of code at  
+drivers/net/wireless/realtek/rtlwifi/btcoexist/halbtcoutsrc.c:1000:
 
-This patch enforces overriding of existing neigh entries by all incoming
-gratuitous ARP packets, irrespective of their time of arrival. This will
-make the kernel honour all incoming gratuitous ARP packets.
+1000void exhalbtc_set_ant_num(struct rtl_priv *rtlpriv, u8 type, u8 ant_num)
+1001{
+1002        if (BT_COEX_ANT_TYPE_PG == type) {
+1003                gl_bt_coexist.board_info.pg_ant_num = ant_num;
+1004                gl_bt_coexist.board_info.btdm_ant_num = ant_num;
+1005                /* The antenna position:
+1006                 * Main (default) or Aux for pgAntNum=2 && btdmAntNum =1.
+1007                 * The antenna position should be determined by
+1008                 * auto-detect mechanism.
+1009                 * The following is assumed to main,
+1010                 * and those must be modified
+1011                 * if y auto-detect mechanism is ready
+1012                 */
+1013                if ((gl_bt_coexist.board_info.pg_ant_num == 2) &&
+1014                    (gl_bt_coexist.board_info.btdm_ant_num == 1))
+1015                        gl_bt_coexist.board_info.btdm_ant_pos =
+1016                                                        
+BTC_ANTENNA_AT_MAIN_PORT;
+1017                else
+1018                        gl_bt_coexist.board_info.btdm_ant_pos =
+1019                                                        
+BTC_ANTENNA_AT_MAIN_PORT;
+1020        } else if (BT_COEX_ANT_TYPE_ANTDIV == type) {
+1021                gl_bt_coexist.board_info.btdm_ant_num = ant_num;
+1022                gl_bt_coexist.board_info.btdm_ant_pos =
+1023                                                        
+BTC_ANTENNA_AT_MAIN_PORT;
+1024        } else if (type == BT_COEX_ANT_TYPE_DETECTED) {
+1025                gl_bt_coexist.board_info.btdm_ant_num = ant_num;
+1026                if (rtlpriv->cfg->mod_params->ant_sel == 1)
+1027                        gl_bt_coexist.board_info.btdm_ant_pos =
+1028                                BTC_ANTENNA_AT_AUX_PORT;
+1029                else
+1030                        gl_bt_coexist.board_info.btdm_ant_pos =
+1031                                BTC_ANTENNA_AT_MAIN_PORT;
+1032        }
+1033}
 
-Signed-off-by: Ihar Hrachyshka <ihrachys@redhat.com>
----
- net/ipv4/arp.c | 14 +++++++-------
- 1 file changed, 7 insertions(+), 7 deletions(-)
+The issue is that lines of code 1015-1016 and 1018-1019 are identical  
+for different branches.
 
-diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
-index 3f06201..97ea9d8 100644
---- a/net/ipv4/arp.c
-+++ b/net/ipv4/arp.c
-@@ -858,16 +858,16 @@ static int arp_process(struct net *net, struct sock *sk, struct sk_buff *skb)
- 
- 	n = __neigh_lookup(&arp_tbl, &sip, dev, 0);
- 
--	if (IN_DEV_ARP_ACCEPT(in_dev)) {
--		unsigned int addr_type = inet_addr_type_dev_table(net, dev, sip);
--
--		/* Unsolicited ARP is not accepted by default.
--		   It is possible, that this option should be enabled for some
--		   devices (strip is candidate)
--		 */
-+	if (n || IN_DEV_ARP_ACCEPT(in_dev)) {
-+		addr_type = inet_addr_type_dev_table(net, dev, sip);
- 		is_garp = arp_is_garp(dev, addr_type, arp->ar_op,
- 				      sip, tip, sha, tha);
-+	}
- 
-+	if (IN_DEV_ARP_ACCEPT(in_dev)) {
-+		/* It is possible, that this option should be enabled for some
-+		 * devices (strip is candidate)
-+		 */
- 		if (!n &&
- 		    ((arp->ar_op == htons(ARPOP_REPLY)  &&
- 				addr_type == RTN_UNICAST) || is_garp))
--- 
-2.9.3
+My question here is if one of those assignments should be modified, or  
+the entire _if_ statement replaced and the function refactored?
+
+I'd really appreciate any comment on this.
+
+Thank you!
+--
+Gustavo A. R. Silva
