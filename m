@@ -1,68 +1,60 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 1/3] bpf: Use 1<<16 as ceiling for immediate
- alignment in verifier.
-Date: Wed, 17 May 2017 12:13:13 -0400 (EDT)
-Message-ID: <20170517.121313.1437427582437926345.davem@davemloft.net>
-References: <754f2c39-fdb0-2407-c2f2-aa36d506d202@solarflare.com>
-        <f2bff26d-8b4d-c6a2-23c9-9db198569e40@fb.com>
-        <50288778-10f6-7201-c979-bfe4635831fc@solarflare.com>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: [PATCH net-next] net: make struct dst_entry::dev first member
+Date: Wed, 17 May 2017 19:31:39 +0300
+Message-ID: <20170517163138.GA5269@avx2>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ast@fb.com, daniel@iogearbox.net, alexei.starovoitov@gmail.com,
-        netdev@vger.kernel.org
-To: ecree@solarflare.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:34298 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752075AbdEQQNP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 17 May 2017 12:13:15 -0400
-In-Reply-To: <50288778-10f6-7201-c979-bfe4635831fc@solarflare.com>
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:36096 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751900AbdEQQbo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 17 May 2017 12:31:44 -0400
+Received: by mail-wm0-f65.google.com with SMTP id k15so3449341wmh.3
+        for <netdev@vger.kernel.org>; Wed, 17 May 2017 09:31:43 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Edward Cree <ecree@solarflare.com>
-Date: Wed, 17 May 2017 15:00:04 +0100
+struct dst_entry::dev is used most often. Move it so it can be
+accessed without imm8 offset on x86_64.
 
-> On 16/05/17 23:53, Alexei Starovoitov wrote:
->> following this line of thinking it feels that it should be possible
->> to get rid of 'aux_off' and 'aux_off_align' and simplify the code.
->> I mean we can always do
->> dst_reg->min_align = min(dst_reg->min_align, src_reg->min_align);
->>
->> and don't use 'off' as part of alignment checks at all.
-> Problem with this approach, of course, is that (say) NET_IP_ALIGN +
->  sizeof(ethhdr) = 16 is muchly aligned, whereas if you turn all
->  constants into alignments you think you're only 2-byte aligned.
-> I think you have to track exact offsets when you can, and only turn
->  into an alignment when you introduce a variable.
-> Of course it can still be fooled by e.g. 2 + (x << 2) + 14, which it
->  will think is only 2-aligned when really it's 4-aligned, but unless
->  you want to start tracking 'bits known to be 1' as well as 'bits
->  known to be 0', I think you just accept that alignment tracking
->  isn't commutative.  The obvious cases (ihl << 2 and so) will work
->  when written the obvious way, unless the compiler does something
->  perverse.
-> OTOH the 'track known 1s as well' might work in a nice generic way
->  and cover all bases, I'll have to experiment a bit with that.
+	add/remove: 0/0 grow/shrink: 9/239 up/down: 52/-413 (-361)
+	function                                     old     new   delta
+	dst_rcu_free                                 126     138     +12
+	fnhe_flush_routes                            211     219      +8
+	rt_set_nexthop                               747     754      +7
+	rt_cache_route                                85      91      +6
+	rt6_release                                  209     215      +6
+	dst_release                                  107     111      +4
+	dst_destroy_rcu                               29      33      +4
+	dn_dst_check_expire                          329     333      +4
+	dn_insert_route                              484     485      +1
+	xfrm_resolve_and_create_bundle              2991    2990      -1
+					...
+	ip_route_me_harder                          1163    1157      -6
+	__ip_append_data.isra                       2730    2724      -6
+	ip6_forward                                 3052    3045      -7
+	callforward_do_filter                        659     651      -8
+	dst_gc_task                                  571     549     -22
 
-Both cases are common in real BPF programs.  The offsets really are
-necessary.  It's funny because initially I tried to implement this
-without the auxiliary offset and it simply doesn't work. :-)
+Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+---
 
-We always have to track when you've seen the offset that cancels out
-the NET_IP_ALIGN.  And as stated it can occur both before and after
-variable offsets have been introduced.
+ include/net/dst.h |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-You have to catch both:
-
-	ptr += variable;
-	ptr += 14;
-
-and:
-
-	ptr += 14;
-	ptr += variable; /* align = 4 */
-
-And always see at the end that "NET_IP_ALIGN + offsets" will
-be properly 4 byte aligned.
+--- a/include/net/dst.h
++++ b/include/net/dst.h
+@@ -31,9 +31,9 @@
+ struct sk_buff;
+ 
+ struct dst_entry {
++	struct net_device       *dev;
+ 	struct rcu_head		rcu_head;
+ 	struct dst_entry	*child;
+-	struct net_device       *dev;
+ 	struct  dst_ops	        *ops;
+ 	unsigned long		_metrics;
+ 	unsigned long           expires;
