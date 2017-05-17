@@ -1,103 +1,69 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: [PATCH net] udp: make *udp*_queue_rcv_skb() functions static
-Date: Wed, 17 May 2017 14:52:16 +0200
-Message-ID: <8c68f6f2fb91313ab71606e42c4d3d4c561b73a9.1495024097.git.pabeni@redhat.com>
-Cc: "David S. Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
+From: Pali =?utf-8?B?Um9ow6Fy?= <pali.rohar@gmail.com>
+Subject: Re: [PATCH 2/6] wl1251: Use request_firmware_prefer_user() for
+ loading NVS calibration data
+Date: Wed, 17 May 2017 14:53:35 +0200
+Message-ID: <20170517125335.GG10015@pali>
+References: <0fd90416-f33c-a6be-14fd-5e964583e9cb@broadcom.com>
+ <20170515231339.GF17314@wotan.suse.de>
+ <1495022766.2442.1.camel@sipsolutions.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: "Luis R. Rodriguez" <mcgrof@kernel.org>,
+        Arend Van Spriel <arend.vanspriel@broadcom.com>,
+        Pavel Machek <pavel@ucw.cz>, Daniel Wagner <wagi@monom.org>,
+        Tom Gundersen <teg@jklm.no>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        David Gnedt <david.gnedt@davizone.at>,
+        Tony Lindgren <tony@atomide.com>,
+        Sebastian Reichel <sre@kernel.org>,
+        Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>,
+        Aaro Koskinen <aaro.koskinen@iki.fi>,
+        Takashi Iwai <tiwai@suse.de>,
+        AKASHI Takahiro <takahiro.akashi@linaro.org>,
+        David Woodhouse <dwmw2@infradead.org>,
+        Bjorn Andersson <bjorn.andersson@linaro.org>,
+        Grazvydas Ignotas <notasas@gmail.com>,
+        linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
+        netdev@vger.kernel.org,
+        =?utf-8?
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:58212 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751704AbdEQMwa (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 17 May 2017 08:52:30 -0400
+Received: from mail-wr0-f193.google.com ([209.85.128.193]:35163 "EHLO
+        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751607AbdEQMxk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 17 May 2017 08:53:40 -0400
+Content-Disposition: inline
+In-Reply-To: <1495022766.2442.1.camel@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since the udp memory accounting refactor, we don't need any more
-to export the *udp*_queue_rcv_skb(). Make them static and fix
-a couple of sparse warnings:
+On Wednesday 17 May 2017 14:06:06 Johannes Berg wrote:
+> On Tue, 2017-05-16 at 01:13 +0200, Luis R. Rodriguez wrote:
+> > > > Now for N900 case there is a similar scenario
+> > > > alhtough it has additional requirement to go to user-space due to
+> > > > need to use a proprietary library to obtain the NVS calibration
+> > > > data. My thought: Why should firmware_class care?
+> > 
+> > Agreed.
+> 
+> In fact, why should the *driver* care either? IOW - why should
+> "request_firmware_prefer_user()" even exist?
 
-net/ipv4/udp.c:1615:5: warning: symbol 'udp_queue_rcv_skb' was not
-declared. Should it be static?
-net/ipv6/udp.c:572:5: warning: symbol 'udpv6_queue_rcv_skb' was not
-declared. Should it be static?
+There are default/example NVS data, which are stored in /lib/firmware
+and installed by linux-firmware package. Those example calibration data
+should not be used for real usage, but Pavel told us that on N900 they
+are enough for working WIFI connection. They does not contain valid MAC
+address, so kernel should generate some (random?).
 
-Fixes: 850cbaddb52d ("udp: use it's own memory accounting schema")
-Fixes: c915fe13cbaa ("udplite: fix NULL pointer dereference")
-Signed-off-by: Paolo Abeni <pabeni@redhat.com>
----
- net/ipv4/udp.c      | 4 ++--
- net/ipv4/udp_impl.h | 1 -
- net/ipv6/udp.c      | 4 ++--
- net/ipv6/udp_impl.h | 1 -
- 4 files changed, 4 insertions(+), 6 deletions(-)
+So kernel driver should get NVS calibration data from userspace (which
+know how where to get or how to prepare them) and in case userspace do
+not have it, then we can try fallback to those example data (as people
+reported us they can be useful instead of non-working WIFI).
 
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index ea6e4cf..1d6219b 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -1612,7 +1612,7 @@ static void udp_v4_rehash(struct sock *sk)
- 	udp_lib_rehash(sk, new_hash);
- }
- 
--int __udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
-+static int __udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
- {
- 	int rc;
- 
-@@ -1657,7 +1657,7 @@ EXPORT_SYMBOL(udp_encap_enable);
-  * Note that in the success and error cases, the skb is assumed to
-  * have either been requeued or freed.
-  */
--int udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
-+static int udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
- {
- 	struct udp_sock *up = udp_sk(sk);
- 	int is_udplite = IS_UDPLITE(sk);
-diff --git a/net/ipv4/udp_impl.h b/net/ipv4/udp_impl.h
-index feb50a1..a8cf8c6 100644
---- a/net/ipv4/udp_impl.h
-+++ b/net/ipv4/udp_impl.h
-@@ -25,7 +25,6 @@ int udp_recvmsg(struct sock *sk, struct msghdr *msg, size_t len, int noblock,
- 		int flags, int *addr_len);
- int udp_sendpage(struct sock *sk, struct page *page, int offset, size_t size,
- 		 int flags);
--int __udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb);
- void udp_destroy_sock(struct sock *sk);
- 
- #ifdef CONFIG_PROC_FS
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index 04862ab..06ec39b 100644
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -526,7 +526,7 @@ void __udp6_lib_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
- 	return;
- }
- 
--int __udpv6_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
-+static int __udpv6_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
- {
- 	int rc;
- 
-@@ -569,7 +569,7 @@ void udpv6_encap_enable(void)
- }
- EXPORT_SYMBOL(udpv6_encap_enable);
- 
--int udpv6_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
-+static int udpv6_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
- {
- 	struct udp_sock *up = udp_sk(sk);
- 	int is_udplite = IS_UDPLITE(sk);
-diff --git a/net/ipv6/udp_impl.h b/net/ipv6/udp_impl.h
-index e78bdc7..f180b3d 100644
---- a/net/ipv6/udp_impl.h
-+++ b/net/ipv6/udp_impl.h
-@@ -26,7 +26,6 @@ int compat_udpv6_getsockopt(struct sock *sk, int level, int optname,
- int udpv6_sendmsg(struct sock *sk, struct msghdr *msg, size_t len);
- int udpv6_recvmsg(struct sock *sk, struct msghdr *msg, size_t len, int noblock,
- 		  int flags, int *addr_len);
--int __udpv6_queue_rcv_skb(struct sock *sk, struct sk_buff *skb);
- void udpv6_destroy_sock(struct sock *sk);
- 
- #ifdef CONFIG_PROC_FS
+And that fallback is working by direct firmware loading from kernel.
+
 -- 
-2.9.4
+Pali Rohár
+pali.rohar@gmail.com
