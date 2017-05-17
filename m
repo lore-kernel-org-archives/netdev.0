@@ -1,132 +1,50 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v4 09/10] net: sched: push tp down to action init
-Date: Wed, 17 May 2017 11:08:02 +0200
-Message-ID: <20170517090803.4461-10-jiri@resnulli.us>
-References: <20170517090803.4461-1-jiri@resnulli.us>
-Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
-        dsa@cumulusnetworks.com, edumazet@google.com,
-        stephen@networkplumber.org, daniel@iogearbox.net,
-        alexander.h.duyck@intel.com, simon.horman@netronome.com,
-        mlxsw@mellanox.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:33912 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753730AbdEQJIU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 17 May 2017 05:08:20 -0400
-Received: by mail-wm0-f65.google.com with SMTP id d127so1938624wmf.1
-        for <netdev@vger.kernel.org>; Wed, 17 May 2017 02:08:19 -0700 (PDT)
-In-Reply-To: <20170517090803.4461-1-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: Re: [PATCH] udp: make function udp_skb_dtor_locked static
+Date: Wed, 17 May 2017 11:19:33 +0200
+Message-ID: <1495012773.2644.7.camel@redhat.com>
+References: <20170517085036.15261-1-colin.king@canonical.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Colin King <colin.king@canonical.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <20170517085036.15261-1-colin.king@canonical.com>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jiri Pirko <jiri@mellanox.com>
+On Wed, 2017-05-17 at 09:50 +0100, Colin King wrote:
+> From: Colin Ian King <colin.king@canonical.com>
+> 
+> Function udp_skb_dtor_locked does not need to be in global scope
+> so make it static to fix sparse warning:
+> 
+> net/ipv4/udp.c: warning: symbol 'udp_skb_dtor_locked' was not
+> declared. Should it be static?
+> 
+> Fixes: 6dfb4367cd911d ("udp: keep the sk_receive_queue held when splicing")
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+> ---
+>  net/ipv4/udp.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+> index 7bd56c9889b3..922a62d45714 100644
+> --- a/net/ipv4/udp.c
+> +++ b/net/ipv4/udp.c
+> @@ -1218,7 +1218,7 @@ void udp_skb_destructor(struct sock *sk, struct sk_buff *skb)
+>  EXPORT_SYMBOL(udp_skb_destructor);
+>  
+>  /* as above, but the caller held the rx queue lock, too */
+> -void udp_skb_dtor_locked(struct sock *sk, struct sk_buff *skb)
+> +static void udp_skb_dtor_locked(struct sock *sk, struct sk_buff *skb)
+>  {
+>  	udp_rmem_release(sk, skb->dev_scratch, 1, true);
+>  }
 
-Tp pointer will be needed by the next patch in order to get the chain.
-
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
----
- include/net/act_api.h | 12 ++++++------
- net/sched/act_api.c   | 15 ++++++++-------
- net/sched/cls_api.c   |  9 +++++----
- 3 files changed, 19 insertions(+), 17 deletions(-)
-
-diff --git a/include/net/act_api.h b/include/net/act_api.h
-index cfa2ae3..b22c6f3 100644
---- a/include/net/act_api.h
-+++ b/include/net/act_api.h
-@@ -180,12 +180,12 @@ int tcf_unregister_action(struct tc_action_ops *a,
- int tcf_action_destroy(struct list_head *actions, int bind);
- int tcf_action_exec(struct sk_buff *skb, struct tc_action **actions,
- 		    int nr_actions, struct tcf_result *res);
--int tcf_action_init(struct net *net, struct nlattr *nla,
--				  struct nlattr *est, char *n, int ovr,
--				  int bind, struct list_head *);
--struct tc_action *tcf_action_init_1(struct net *net, struct nlattr *nla,
--				    struct nlattr *est, char *n, int ovr,
--				    int bind);
-+int tcf_action_init(struct net *net, struct tcf_proto *tp, struct nlattr *nla,
-+		    struct nlattr *est, char *name, int ovr, int bind,
-+		    struct list_head *actions);
-+struct tc_action *tcf_action_init_1(struct net *net, struct tcf_proto *tp,
-+				    struct nlattr *nla, struct nlattr *est,
-+				    char *name, int ovr, int bind);
- int tcf_action_dump(struct sk_buff *skb, struct list_head *, int, int);
- int tcf_action_dump_old(struct sk_buff *skb, struct tc_action *a, int, int);
- int tcf_action_dump_1(struct sk_buff *skb, struct tc_action *a, int, int);
-diff --git a/net/sched/act_api.c b/net/sched/act_api.c
-index a90e8f3..e389eb4 100644
---- a/net/sched/act_api.c
-+++ b/net/sched/act_api.c
-@@ -570,9 +570,9 @@ static struct tc_cookie *nla_memdup_cookie(struct nlattr **tb)
- 	return c;
- }
- 
--struct tc_action *tcf_action_init_1(struct net *net, struct nlattr *nla,
--				    struct nlattr *est, char *name, int ovr,
--				    int bind)
-+struct tc_action *tcf_action_init_1(struct net *net, struct tcf_proto *tp,
-+				    struct nlattr *nla, struct nlattr *est,
-+				    char *name, int ovr, int bind)
- {
- 	struct tc_action *a;
- 	struct tc_action_ops *a_o;
-@@ -680,8 +680,9 @@ static void cleanup_a(struct list_head *actions, int ovr)
- 		a->tcfa_refcnt--;
- }
- 
--int tcf_action_init(struct net *net, struct nlattr *nla, struct nlattr *est,
--		    char *name, int ovr, int bind, struct list_head *actions)
-+int tcf_action_init(struct net *net, struct tcf_proto *tp, struct nlattr *nla,
-+		    struct nlattr *est, char *name, int ovr, int bind,
-+		    struct list_head *actions)
- {
- 	struct nlattr *tb[TCA_ACT_MAX_PRIO + 1];
- 	struct tc_action *act;
-@@ -693,7 +694,7 @@ int tcf_action_init(struct net *net, struct nlattr *nla, struct nlattr *est,
- 		return err;
- 
- 	for (i = 1; i <= TCA_ACT_MAX_PRIO && tb[i]; i++) {
--		act = tcf_action_init_1(net, tb[i], est, name, ovr, bind);
-+		act = tcf_action_init_1(net, tp, tb[i], est, name, ovr, bind);
- 		if (IS_ERR(act)) {
- 			err = PTR_ERR(act);
- 			goto err;
-@@ -1020,7 +1021,7 @@ static int tcf_action_add(struct net *net, struct nlattr *nla,
- 	int ret = 0;
- 	LIST_HEAD(actions);
- 
--	ret = tcf_action_init(net, nla, NULL, NULL, ovr, 0, &actions);
-+	ret = tcf_action_init(net, NULL, nla, NULL, NULL, ovr, 0, &actions);
- 	if (ret)
- 		return ret;
- 
-diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
-index adacaf2..9e0c4bb 100644
---- a/net/sched/cls_api.c
-+++ b/net/sched/cls_api.c
-@@ -832,8 +832,9 @@ int tcf_exts_validate(struct net *net, struct tcf_proto *tp, struct nlattr **tb,
- 		struct tc_action *act;
- 
- 		if (exts->police && tb[exts->police]) {
--			act = tcf_action_init_1(net, tb[exts->police], rate_tlv,
--						"police", ovr, TCA_ACT_BIND);
-+			act = tcf_action_init_1(net, tp, tb[exts->police],
-+						rate_tlv, "police", ovr,
-+						TCA_ACT_BIND);
- 			if (IS_ERR(act))
- 				return PTR_ERR(act);
- 
-@@ -844,8 +845,8 @@ int tcf_exts_validate(struct net *net, struct tcf_proto *tp, struct nlattr **tb,
- 			LIST_HEAD(actions);
- 			int err, i = 0;
- 
--			err = tcf_action_init(net, tb[exts->action], rate_tlv,
--					      NULL, ovr, TCA_ACT_BIND,
-+			err = tcf_action_init(net, tp, tb[exts->action],
-+					      rate_tlv, NULL, ovr, TCA_ACT_BIND,
- 					      &actions);
- 			if (err)
- 				return err;
--- 
-2.9.3
+Acked-by: Paolo Abeni <pabeni@redhat.com>
