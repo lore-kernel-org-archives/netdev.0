@@ -1,47 +1,69 @@
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Subject: [PATCH net-next] ibmvnic: fix missing unlock on error in __ibmvnic_reset()
-Date: Thu, 18 May 2017 15:24:52 +0000
-Message-ID: <20170518152452.8606-1-weiyj.lk@gmail.com>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: [PATCH net-next 3/6] net: bridge: break if __br_mdb_del fails
+Date: Thu, 18 May 2017 18:25:11 +0300
+Message-ID: <1211f3cb-c5f5-a9bd-638b-bfcb99fd1bed@cumulusnetworks.com>
+References: <20170517212709.6473-1-vivien.didelot@savoirfairelinux.com>
+ <20170517212709.6473-4-vivien.didelot@savoirfairelinux.com>
+ <5d8f53ea-a9de-7c76-f088-48c5357cb2a2@cumulusnetworks.com>
+ <877f1edwxp.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Wei Yongjun <weiyongjun1@huawei.com>,
-        linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-        Paul Mackerras <paulus@samba.org>,
-        Michael Ellerman <mpe@ellerman.id.au>,
-        Thomas Falcon <tlfalcon@linux.vnet.ibm.com>,
-        John Allen <jallen@linux.vnet.ibm.com>,
-        Nathan Fontenot <nfont@linux.vnet.ibm.com>
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Stephen Hemminger <stephen@networkplumber.org>,
+        "moderated list:ETHERNET BRIDGE" <bridge@lists.linux-foundation.org>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:36724 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932767AbdERPZC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 18 May 2017 11:25:02 -0400
-Received: by mail-pf0-f193.google.com with SMTP id n23so6157212pfb.3
-        for <netdev@vger.kernel.org>; Thu, 18 May 2017 08:25:02 -0700 (PDT)
+Received: from mail-wm0-f54.google.com ([74.125.82.54]:35357 "EHLO
+        mail-wm0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934161AbdERPZO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 18 May 2017 11:25:14 -0400
+Received: by mail-wm0-f54.google.com with SMTP id b84so205864121wmh.0
+        for <netdev@vger.kernel.org>; Thu, 18 May 2017 08:25:13 -0700 (PDT)
+In-Reply-To: <877f1edwxp.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Yongjun <weiyongjun1@huawei.com>
+On 5/18/17 6:08 PM, Vivien Didelot wrote:
+> Hi Nikolay,
+> 
+> Nikolay Aleksandrov <nikolay@cumulusnetworks.com> writes:
+> 
+>>>    			err = __br_mdb_del(br, entry);
+>>> -			if (!err)
+>>> -				__br_mdb_notify(dev, p, entry, RTM_DELMDB);
+>>> +			if (err)
+>>> +				break;
+>>> +			__br_mdb_notify(dev, p, entry, RTM_DELMDB);
+>>>    		}
+>>>    	} else {
+>>>    		err = __br_mdb_del(br, entry);
+>>>
+>>
+>> This can potentially break user-space scripts that rely on the best-effort
+>> behaviour, this is the normal "delete without vid & enabled vlan filtering".
+>> You can check the fdb delete code which does the same, this was intentional.
+>>
+>> You can add an mdb entry without a vid to all vlans, add a vlan and then try
+>> to remove it from all vlans where it is present - with this patch obviously
+>> that will fail at the new vlan.
+> 
+> OK good to know. That intention wasn't obvious. I can make __br_mdb_del
+> return void instead? What about the rest of the patchset if I do so?
+> 
+> Thanks,
+> 
+>          Vivien
+> 
 
-Add the missing unlock before return from function __ibmvnic_reset()
-in the error handling case.
+If you make it return void we will not be able to return proper error value
+when doing a single operation (the else case). About the rest I see only some
+minor style issues, I'll comment on the respective patches. Another minor nit is 
+using switch() instead of if/else for the message types but that is really up to 
+you, I don't mind either way. :-)
 
-Fixes: ed651a10875f ("ibmvnic: Updated reset handling")
-Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
----
- drivers/net/ethernet/ibm/ibmvnic.c | 1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/drivers/net/ethernet/ibm/ibmvnic.c b/drivers/net/ethernet/ibm/ibmvnic.c
-index 4f2d329..27f7933 100644
---- a/drivers/net/ethernet/ibm/ibmvnic.c
-+++ b/drivers/net/ethernet/ibm/ibmvnic.c
-@@ -1313,6 +1313,7 @@ static void __ibmvnic_reset(struct work_struct *work)
- 
- 	if (rc) {
- 		free_all_rwi(adapter);
-+		mutex_unlock(&adapter->reset_lock);
- 		return;
- 	}
+Cheers,
+  Nik
