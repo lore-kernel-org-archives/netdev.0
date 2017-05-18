@@ -1,84 +1,74 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH v2 net-next 1/2] include: linux: Add helper function to
- check phy interface mode
-Date: Thu, 18 May 2017 15:19:58 -0700
-Message-ID: <0c55a097-564d-58ea-8e64-d642a1d8fad7@gmail.com>
-References: <1495145624-29463-1-git-send-email-isubramanian@apm.com>
- <1495145624-29463-2-git-send-email-isubramanian@apm.com>
+Subject: Re: [PATCH] of_mdio: Fix broken PHY IRQ in case of probe deferral
+Date: Thu, 18 May 2017 15:21:39 -0700
+Message-ID: <08a89dd5-b707-8b8f-b8e1-e20b9ed630b7@gmail.com>
+References: <1495112345-24795-1-git-send-email-geert+renesas@glider.be>
+ <f0ed61c3-062b-cec6-fe19-7412231e8ef1@gmail.com>
+ <CAMuHMdWYeSzofU57LmT_M3KkcHhvjfJy7nkHvcXkKzOYmvhqqA@mail.gmail.com>
+ <20170518193453.GB13759@lunn.ch>
+ <CAMuHMdV+jfh=EGt3SvjtrtVfWQ6P8ofp_JxeQZjRrSEfDWs5hA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: andrew@lunn.ch, patches@apm.com, linux-arm-kernel@lists.infradead.org
-To: Iyappan Subramanian <isubramanian@apm.com>, davem@davemloft.net,
- netdev@vger.kernel.org
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1495145624-29463-2-git-send-email-isubramanian@apm.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: Geert Uytterhoeven <geert+renesas@glider.be>,
+        Rob Herring <robh+dt@kernel.org>,
+        Frank Rowand <frowand.list@gmail.com>,
+        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+        Linux-Renesas <linux-renesas-soc@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Geert Uytterhoeven <geert@linux-m68k.org>,
+        Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+In-Reply-To: <CAMuHMdV+jfh=EGt3SvjtrtVfWQ6P8ofp_JxeQZjRrSEfDWs5hA@mail.gmail.com>
 Content-Language: en-US
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Sender: linux-renesas-soc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 05/18/2017 03:13 PM, Iyappan Subramanian wrote:
-> Added helper function that checks phy_mode is RGMII (all variants)
-> 'bool phy_interface_mode_is_rgmii(phy_interface_t mode)'
+On 05/18/2017 01:36 PM, Geert Uytterhoeven wrote:
+> Hi Andrew,
 > 
-> Changed the following function, to use the above.
-> 'bool phy_interface_is_rgmii(struct phy_device *phydev)'
+> On Thu, May 18, 2017 at 9:34 PM, Andrew Lunn <andrew@lunn.ch> wrote:
+>>>> This most certainly works fine in the simple case where you have one PHY
+>>>> hanging off the MDIO bus, now what happens if you have several?
+>>>>
+>>>> Presumably, the first PHY that returns EPROBE_DEFER will make the entire
+>>>> bus registration return EPROB_DEFER as well, and so on, and so forth,
+>>>> but I am not sure if we will be properly unwinding the successful
+>>>> registration of PHYs that either don't have an interrupt, or did not
+>>>> return EPROBE_DEFER.
+>>>>
+>>>> It should be possible to mimic this behavior by using the fixed PHY, and
+>>>> possibly the dsa_loop.c driver which would create 4 ports, expecting 4
+>>>> fixed PHYs to be present.
+>>>
+>>> mdiobus_unregister(), called from of_mdiobus_register() on failure,
+>>> should do the unwinding, right?
+>>>
+>>> And when the driver is reprobed, all PHYs are reprobed, until they all
+>>> succeed.
+>>
+>> That is the theory. I looked at that while reviewing the patch. But
+>> this has probably not been tested in anger. It would be good to test
+>> this properly, with not just the first PHY returning -EPROBE_DEFER, to
+>> really test the unwind.
 > 
-> Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
-> Suggested-by: Florian Fainelli <f.fainelli@gmail.com>
-> Suggested-by: Andrew Lunn <andrew@lunn.ch>
-
-Not sure why you have chosen include: linux as the subject since all
-changes done to that file typically had the "phy: " prefix, but the code
-changes are fine, thanks!
-
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
-
-> ---
->  include/linux/phy.h | 14 ++++++++++++--
->  1 file changed, 12 insertions(+), 2 deletions(-)
+> Unfortunately I don't have a board with multiple PHYs, so I cannot test
+> that case.
 > 
-> diff --git a/include/linux/phy.h b/include/linux/phy.h
-> index 54ef458..5a808a2 100644
-> --- a/include/linux/phy.h
-> +++ b/include/linux/phy.h
-> @@ -716,14 +716,24 @@ static inline bool phy_is_internal(struct phy_device *phydev)
->  }
->  
->  /**
-> + * phy_interface_mode_is_rgmii - Convenience function for testing if a
-> + * PHY interface mode is RGMII (all variants)
-> + * @mode: the phy_interface_t enum
-> + */
-> +static inline bool phy_interface_mode_is_rgmii(phy_interface_t mode)
-> +{
-> +	return mode >= PHY_INTERFACE_MODE_RGMII &&
-> +		mode <= PHY_INTERFACE_MODE_RGMII_TXID;
-> +};
-> +
-> +/**
->   * phy_interface_is_rgmii - Convenience function for testing if a PHY interface
->   * is RGMII (all variants)
->   * @phydev: the phy_device struct
->   */
->  static inline bool phy_interface_is_rgmii(struct phy_device *phydev)
->  {
-> -	return phydev->interface >= PHY_INTERFACE_MODE_RGMII &&
-> -		phydev->interface <= PHY_INTERFACE_MODE_RGMII_TXID;
-> +	return phy_interface_mode_is_rgmii(phydev->interface);
->  };
->  
->  /*
-> 
+> Does unbinding/rebinding a network driver with multiple PHYs currently
+> work? Or module unload/reload?
 
+Usually there is a strict 1:1 mapping between a network device (not
+driver) and a PHY device, switch drivers however, would have multiple
+PHYs (one per port, aka net_deice).
 
+NB: binding and unbinding of PHYs is pretty broken at the moment though,
+because there is a complete disconnect between what the Ethernet MAC
+expects, and the state in which the PHY is. I had some patches to fix
+that, but this turned out to be playing whack-a-mole which I typically
+suck at.
 -- 
 Florian
