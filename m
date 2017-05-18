@@ -1,33 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] liquidio: make the spinlock octeon_devices_lock static
-Date: Thu, 18 May 2017 11:24:51 -0400 (EDT)
-Message-ID: <20170518.112451.1077297322113539139.davem@davemloft.net>
-References: <20170518091401.13013-1-colin.king@canonical.com>
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Subject: [PATCH net-next] ibmvnic: fix missing unlock on error in __ibmvnic_reset()
+Date: Thu, 18 May 2017 15:24:52 +0000
+Message-ID: <20170518152452.8606-1-weiyj.lk@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: derek.chickles@caviumnetworks.com,
-        satananda.burla@caviumnetworks.com,
-        felix.manlunas@caviumnetworks.com,
-        raghu.vatsavayi@caviumnetworks.com, netdev@vger.kernel.org,
-        kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: colin.king@canonical.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170518091401.13013-1-colin.king@canonical.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Wei Yongjun <weiyongjun1@huawei.com>,
+        linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org
+To: Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+        Paul Mackerras <paulus@samba.org>,
+        Michael Ellerman <mpe@ellerman.id.au>,
+        Thomas Falcon <tlfalcon@linux.vnet.ibm.com>,
+        John Allen <jallen@linux.vnet.ibm.com>,
+        Nathan Fontenot <nfont@linux.vnet.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:36724 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932767AbdERPZC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 18 May 2017 11:25:02 -0400
+Received: by mail-pf0-f193.google.com with SMTP id n23so6157212pfb.3
+        for <netdev@vger.kernel.org>; Thu, 18 May 2017 08:25:02 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Colin King <colin.king@canonical.com>
-Date: Thu, 18 May 2017 10:14:01 +0100
+From: Wei Yongjun <weiyongjun1@huawei.com>
 
-> From: Colin Ian King <colin.king@canonical.com>
-> 
-> octeon_devices_lock can be made static as it does not need to be
-> in global scope.
-> 
-> Cleans up sparse warning: "warning: symbol 'octeon_devices_lock'
-> was not declared. Should it be static?"
-> 
-> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+Add the missing unlock before return from function __ibmvnic_reset()
+in the error handling case.
 
-Applied.
+Fixes: ed651a10875f ("ibmvnic: Updated reset handling")
+Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
+---
+ drivers/net/ethernet/ibm/ibmvnic.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/net/ethernet/ibm/ibmvnic.c b/drivers/net/ethernet/ibm/ibmvnic.c
+index 4f2d329..27f7933 100644
+--- a/drivers/net/ethernet/ibm/ibmvnic.c
++++ b/drivers/net/ethernet/ibm/ibmvnic.c
+@@ -1313,6 +1313,7 @@ static void __ibmvnic_reset(struct work_struct *work)
+ 
+ 	if (rc) {
+ 		free_all_rwi(adapter);
++		mutex_unlock(&adapter->reset_lock);
+ 		return;
+ 	}
