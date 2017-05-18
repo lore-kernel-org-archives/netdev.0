@@ -1,89 +1,40 @@
-From: Bjorn Andersson <bjorn.andersson@linaro.org>
-Subject: Re: [PATCH 1/2] wcn36xx: Pass used skb to ieee80211_tx_status()
-Date: Wed, 17 May 2017 22:05:38 -0700
-Message-ID: <20170518050538.GL12920@tuxbook>
-References: <20170426220444.10539-1-bjorn.andersson@linaro.org>
- <1493281332.2529.1.camel@sipsolutions.net>
- <20170428234247.GQ15143@minitux>
- <87fugkrchl.fsf@kamboji.qca.qualcomm.com>
- <1495026867.2442.9.camel@sipsolutions.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 0/7] crypto: aesni: provide generic gcm(aes)
+Date: Thu, 18 May 2017 13:28:00 +0800
+Message-ID: <20170518052800.GF32485@gondor.apana.org.au>
+References: <cover.1493395785.git.sd@queasysnail.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Kalle Valo <kvalo@qca.qualcomm.com>,
-        "k.eugene.e@gmail.com" <k.eugene.e@gmail.com>,
-        Andy Gross <andy.gross@linaro.org>,
-        David Brown <david.brown@linaro.org>,
-        "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-        "linux-arm-kernel@lists.infradead.org"
-        <linux-arm-kernel@lists.infradead.org>,
-        "linux-arm-msm@vger.kernel.org" <linux-arm-msm@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "linux-soc@vger.kernel.org" <linux-soc@vger.kernel.org>,
-        "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "wcn36xx@lists.infradead.org" <wcn36xx@lists.infradead.org>,
-        "nicolas.dechesne@linaro.org" <nicolas.dechesne@linaro.org>
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: netdev@vger.kernel.org,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        Thomas Gleixner <tglx@linutronix.de>,
+        Ingo Molnar <mingo@redhat.com>,
+        "H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org,
+        linux-crypto@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Sabrina Dubroca <sd@queasysnail.net>
+Return-path: <linux-crypto-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1495026867.2442.9.camel@sipsolutions.net>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <cover.1493395785.git.sd@queasysnail.net>
+Sender: linux-crypto-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed 17 May 06:14 PDT 2017, Johannes Berg wrote:
-
-> On Thu, 2017-05-04 at 13:13 +0000, Kalle Valo wrote:
-> > 
-> > > > This code intentionally checked if TX status was requested, and
-> > > > if not then it doesn't go to the effort of building it.
-> > > > 
-> > > 
-> > > What I'm finding puzzling is the fact that the only caller of
-> > > ieee80211_led_tx() is ieee80211_tx_status() and it seems like
-> > > drivers, such as ath10k, call this for each packet handled - but
-> > > I'm likely missing something.
+On Fri, Apr 28, 2017 at 06:11:55PM +0200, Sabrina Dubroca wrote:
+> The current aesni AES-GCM implementation only offers support for
+> rfc4106(gcm(aes)).  This makes some things a little bit simpler
+> (handling of associated data and authentication tag), but it means
+> that non-IPsec users of gcm(aes) have to rely on
+> gcm_base(ctr-aes-aesni,ghash-clmulni), which is much slower.
 > 
-> Yes, many drivers do call it for each packet, and as such, this
-> deficiency was never noted.
+> This patchset adds handling of all valid authentication tag lengths
+> and of any associated data length to the assembly code, and exposes a
+> generic gcm(aes) AEAD algorithm to the crypto API.
 > 
-> > > > As it is with your patch, it'll go and report the TX status
-> > > > without any
-> > > > TX status information - which is handled in
-> > > > wcn36xx_dxe_tx_ack_ind()
-> > > > for those frames needing it.
-> > > > 
-> > > 
-> > > Right, it doesn't sound desired. However, during normal operation
-> > > I'm not seeing IEEE80211_TX_CTL_REQ_TX_STATUS being set and as such
-> > > ieee80211_led_tx() is never called.
-> > 
-> > So what's the conclusion? How do we get leds working?
-> 
-> Well, frankly, I never thought the TX LED was a super good idea - but
-> it had been supported by the original code IIRC, so never removed. Some
-> people like frantic blinking I guess ;-)
-> 
+> With these patches, performance of MACsec on a single core increases
+> by 40% (from 4.5Gbps to around 6.3Gbps).
 
-It seems very important to a lot of people...
-
-
-But if ieee80211_free_txskb() is the counterpart of
-ieee80211_tx_status() then we should be able to push the
-ieee80211_led_tx() call down into ieee80211_report_used_skb() and handle
-both cases.
-
-The ieee80211_free_txskb() seems to be used in various cases where we
-discard skbs, but perhaps this is not an issue in reality.
-
-> But I think the problem also applies to the throughput trigger thing,
-> so perhaps we need to stick some LED feedback calls into other places,
-> like _noskb() or provide an extra way to do it?
-> 
-
-Looking around it seems that we either have a call to free_txskb() or
-one of the tx_status(); where the _noskb() would need some special
-handling. Are there others or would it be reasonable to add a call in
-this one "special" case?
-
-Regards,
-Bjorn
+All patches applied.  Thanks.
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
