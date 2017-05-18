@@ -1,61 +1,32 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [PATCH] cdc-ether: divorce initialisation with a filter reset and a generic method
-Date: Thu, 18 May 2017 12:09:11 +0200
-Message-ID: <8737c2eat4.fsf@miraculix.mork.no>
-References: <20170518082328.10094-1-oneukum@suse.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net] bpf: adjust verifier heuristics
+Date: Thu, 18 May 2017 12:34:58 +0200
+Message-ID: <591D78D2.6080004@iogearbox.net>
+References: <57a6fc1f937d985a5851016221c98a29fb1cc46a.1495068621.git.daniel@iogearbox.net> <20170517.225637.2083628580374404255.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Oliver Neukum <oneukum@suse.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: ast@fb.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:60509 "EHLO canardo.mork.no"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1755194AbdERKK3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 18 May 2017 06:10:29 -0400
-In-Reply-To: <20170518082328.10094-1-oneukum@suse.com> (Oliver Neukum's
-        message of "Thu, 18 May 2017 10:23:28 +0200")
+Received: from www62.your-server.de ([213.133.104.62]:36843 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752689AbdERKfF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 18 May 2017 06:35:05 -0400
+In-Reply-To: <20170517.225637.2083628580374404255.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Oliver Neukum <oneukum@suse.com> writes:
+On 05/18/2017 04:56 AM, David Miller wrote:
+[...]
+> Ok, applied, but we should continue trying to make the pruner
+> more effective.
 
-> @@ -417,7 +434,7 @@ int usbnet_cdc_bind(struct usbnet *dev, struct usb_in=
-terface *intf)
->  	BUILD_BUG_ON((sizeof(((struct usbnet *)0)->data)
->  			< sizeof(struct cdc_state)));
->=20=20
-> -	status =3D usbnet_generic_cdc_bind(dev, intf);
-> +	status =3D usbnet_ether_cdc_bind(dev, intf);
->  	if (status < 0)
->  		return status;
->=20=20
-> @@ -472,7 +489,6 @@ static void usbnet_cdc_zte_status(struct usbnet *dev,=
- struct urb *urb)
->=20=20
->  	if (urb->actual_length < sizeof(*event))
->  		return;
-> -
->  	event =3D urb->transfer_buffer;
->=20=20
->  	if (event->bNotificationType !=3D USB_CDC_NOTIFY_NETWORK_CONNECTION) {
-> @@ -493,7 +509,7 @@ static void usbnet_cdc_zte_status(struct usbnet *dev,=
- struct urb *urb)
->  static const struct driver_info	cdc_info =3D {
->  	.description =3D	"CDC Ethernet Device",
->  	.flags =3D	FLAG_ETHER | FLAG_POINTTOPOINT,
-> -	.bind =3D		usbnet_cdc_bind,
-> +	.bind =3D		usbnet_ether_cdc_bind,
->  	.unbind =3D	usbnet_cdc_unbind,
->  	.status =3D	usbnet_cdc_status,
->  	.set_rx_mode =3D	usbnet_cdc_update_filter,
+Yeah, agree, I was planning to look into states_equal() for
+the current alignment tracking we do and what we can optimize
+resp. what needs to be fixed there on pruning side for -net
+tree with regards to my prior mail on that. If you haven't
+started, I could look into this next Monday at latest.
 
-
-I didn't quite get this.  You change the call in usbnet_cdc_bind() from
-usbnet_generic_cdc_bind() to usbnet_ether_cdc_bind(), which I believe is
-fine.  But then you update the .bind hook to point to usbnet_ether_cdc_bind.
-Why?  The only effect I can see is that usbnet_get_ethernet_addr() is
-skipped. That can't be correct?
-
-
-Bj=C3=B8rn
+Thanks,
+Daniel
