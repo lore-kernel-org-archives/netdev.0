@@ -1,81 +1,100 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [PATCH] ravb: add wake-on-lan support via magic packet
-Date: Thu, 18 May 2017 10:52:25 +0200
-Message-ID: <CAMuHMdVzRKTtDE=+hBkde+zFyYOb54iKesSGbJVJ2j_-HPZ+wQ@mail.gmail.com>
-References: <CAMuHMdUXqWJMh7syd3muMs8v9wx5bJNRj_3+xEAXTQTfAv0BFA@mail.gmail.com>
- <20170512125853.GH31437@bigcity.dyn.berto.se> <20170512143242.GA13939@bigcity.dyn.berto.se>
- <CAMuHMdU+uiiZfh5u+tL_bVJinhP-c0_iF4ZQh8=9NHN+aqUs=Q@mail.gmail.com>
- <20170512211222.GI31437@bigcity.dyn.berto.se> <CAMuHMdWZ8XLX0Zu0D54Ex+3RaFNm_fJyFQvyo+qz10HpB2nGqQ@mail.gmail.com>
- <20170516090214.GA30768@bigcity.dyn.berto.se> <CAMuHMdVkitTgVmUrPu5+z2JwnwHop4bJ5anMq1SmCeFfV=OxQg@mail.gmail.com>
- <20170516110145.GA27247@verge.net.au> <CAMuHMdV9fjYvV=axAkp5WQbXTbZSXg5+g=HNubzPYSRwmStiWg@mail.gmail.com>
- <20170516121604.GF15597@bigcity.dyn.berto.se>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: pull-request: can-next 2017-05-18
+Date: Thu, 18 May 2017 10:56:31 +0200
+Message-ID: <28d10e0b-bc7a-de01-8fd7-9eb3c1f70f3c@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-Cc: Simon Horman <horms@verge.net.au>,
-        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Linux-Renesas <linux-renesas-soc@vger.kernel.org>
-To: =?UTF-8?Q?Niklas_S=C3=B6derlund?= <niklas.soderlund@ragnatech.se>
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-In-Reply-To: <20170516121604.GF15597@bigcity.dyn.berto.se>
-Sender: linux-renesas-soc-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha512;
+ protocol="application/pgp-signature";
+ boundary="mkq4mIvFgsRwE8WH0vKxtqSad8or68oP1"
+Cc: David Miller <davem@davemloft.net>,
+        "kernel@pengutronix.de" <kernel@pengutronix.de>,
+        "linux-can@vger.kernel.org" <linux-can@vger.kernel.org>
+To: netdev@vger.kernel.org
+Return-path: <linux-can-owner@vger.kernel.org>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Niklas,
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--mkq4mIvFgsRwE8WH0vKxtqSad8or68oP1
+Content-Type: multipart/mixed; boundary="CTgi3gkxnALGqvtgs9CgpDaPaOiSDBwe5";
+ protected-headers="v1"
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+To: netdev@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>,
+ "kernel@pengutronix.de" <kernel@pengutronix.de>,
+ "linux-can@vger.kernel.org" <linux-can@vger.kernel.org>
+Message-ID: <28d10e0b-bc7a-de01-8fd7-9eb3c1f70f3c@pengutronix.de>
+Subject: pull-request: can-next 2017-05-18
 
-On Tue, May 16, 2017 at 2:16 PM, Niklas S=C3=B6derlund
-<niklas.soderlund@ragnatech.se> wrote:
-> On 2017-05-16 13:36:21 +0200, Geert Uytterhoeven wrote:
->> On Tue, May 16, 2017 at 1:01 PM, Simon Horman <horms@verge.net.au> wrote=
-:
->> > Is there some way for - e.g. the driver - to not enable WoL on Gen3 So=
-Cs
->> > until the clock issues is sorted out? I'm quite happy to enable featur=
-es
->> > where they work; not so much where they don't.
->>
->> Agreed.
->>
->> One workaround could be to disable/enable the module clock in the WoL
->> resume path, to make sure it is enabled.  Once the enable count reaches
->> 0, CCF will know it's disabled, and will really enable next time.
->> You may need a double disable/double enable though, without testing I
->> don't know remember the enable count is 1 or 2 at that point (due to PM
->> runtime).
->
-> I thought about this but it feels like such a hack I did not dare
-> suggest it :-) But at the same time it would be nice to enable WoL for
-> the s2idle use-case where it works. Only resume from PSCI with WoL
-> enabled that is broken, and WoL in PSCI suspend will never work :-)
+--CTgi3gkxnALGqvtgs9CgpDaPaOiSDBwe5
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
 
-Indeed.
+Hello David,
 
-> How about I add another patch in v2 on-top of this that adds the clock
-> disable/enable hack? That way it's clear that this is a workaround and
-> once we have support for suspend/resume in CPG/MSSR just that patch can
-> be reverted? Or is it cleaner to fold it in to this patch with a big
-> comment that this is a workaround? Or is it maybe better to hold of on
-> this until CPG/MSSR supports suspend/resume?
+this is a pull request of 4 patches for net-next/master.
 
-Personally, I would have no problems of having the workaround integrated (a=
-nd
-documented, of course) in the WoL patch, as it avoids having broken PSCI
-suspend in between WoL-without-workaround and a separate workaround.
+All 4 patches are by Quentin Schulz, they add deep deep Suspend/Resume
+support to the m_can driver.
 
-It's not that dissimilar from the initial R-Car Gen3 support patch limiting
-ravb to 100 Mbps.
+regards,
+Marc
 
-Gr{oetje,eeting}s,
+---
 
-                        Geert
+The following changes since commit 1fc4d180b3c6bed0e7f5160bcd553aec895949=
+62:
 
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k=
-.org
+  Merge branch 'phy-marvell-cleanups' (2017-05-17 16:27:52 -0400)
 
-In personal conversations with technical people, I call myself a hacker. Bu=
-t
-when I'm talking to journalists I just say "programmer" or something like t=
-hat.
-                                -- Linus Torvalds
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/mkl/linux-can-next.git ta=
+gs/linux-can-next-for-4.13-20170518
+
+for you to fetch changes up to d14ccea0e71a55ad02bf4e1cb378bbece282d5cf:
+
+  can: m_can: add deep Suspend/Resume support (2017-05-18 10:32:48 +0200)=
+
+
+----------------------------------------------------------------
+linux-can-next-for-4.13-20170518
+
+----------------------------------------------------------------
+Quentin Schulz (4):
+      can: m_can: move Message RAM initialization to function
+      can: m_can: make m_can_start and m_can_stop symmetric
+      can: m_can: factorize clock gating and ungating
+      can: m_can: add deep Suspend/Resume support
+
+ drivers/net/can/m_can/m_can.c | 87 ++++++++++++++++++++++++++-----------=
+------
+ 1 file changed, 53 insertions(+), 34 deletions(-)
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--CTgi3gkxnALGqvtgs9CgpDaPaOiSDBwe5--
+
+--mkq4mIvFgsRwE8WH0vKxtqSad8or68oP1
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQEzBAEBCgAdFiEE4bay/IylYqM/npjQHv7KIOw4HPYFAlkdYcAACgkQHv7KIOw4
+HPZr9Af/UWVZBNv5wza3EvOUAetNdg0DMiaGasLn7pd3GKzm3cbEmsneJrwnFBff
+TH3h3c0/XgbwGzWLUH8BjKo7Z323/f1Ly+OR1Cfdw7XzOBfYEmoLQjMncDstsmuB
+3VrEzMVeKbw3Yt7dkluu+yHAiie4HNLZt6TeE9SZNx7/tnJzCRe+YZTWGxKrMkG+
+f7AvPO9FczAwmz2pVX7yjyyhuknS5E2NEbFONpcfwJ0njBu+JgqAQN3qZ6BT2AF8
+Z+KdJsnRczekEgpeOXoxisK/O5RCRFg6Td1VY1WEZdumIjAvQxHLPRkacApcdv9y
+JdCLP2AkfRLC1BQGmFQnj0ckW5fvcA==
+=3UNB
+-----END PGP SIGNATURE-----
+
+--mkq4mIvFgsRwE8WH0vKxtqSad8or68oP1--
