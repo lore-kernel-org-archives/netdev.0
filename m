@@ -1,97 +1,41 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: [PATCH net-next 5/6] net: bridge: get msgtype from
- nlmsghdr in mdb ops
-Date: Thu, 18 May 2017 18:28:46 +0300
-Message-ID: <ee5d9736-72ec-f4fd-8e9b-2c4179687e16@cumulusnetworks.com>
-References: <20170517212709.6473-1-vivien.didelot@savoirfairelinux.com>
-	<20170517212709.6473-6-vivien.didelot@savoirfairelinux.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: sched: fix a use-after-free error on chain on the
+ error exit path
+Date: Thu, 18 May 2017 11:31:26 -0400 (EDT)
+Message-ID: <20170518.113126.77172400948863631.davem@davemloft.net>
+References: <20170518140702.6072-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "moderated list:ETHERNET BRIDGE" <bridge@lists.linux-foundation.org>,
-	kernel@savoirfairelinux.com, linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-	netdev@vger.kernel.org
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <20170517212709.6473-6-vivien.didelot@savoirfairelinux.com>
-Content-Language: en-US
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Cc: jhs@mojatatu.com, xiyou.wangcong@gmail.com, jiri@resnulli.us,
+        netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: colin.king@canonical.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170518140702.6072-1-colin.king@canonical.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 5/18/17 12:27 AM, Vivien Didelot wrote:
-> Retrieve the message type from the nlmsghdr structure instead of
-> hardcoding it in both br_mdb_add and br_mdb_del.
+From: Colin King <colin.king@canonical.com>
+Date: Thu, 18 May 2017 15:07:02 +0100
+
+> From: Colin Ian King <colin.king@canonical.com>
 > 
-> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-> ---
->   net/bridge/br_mdb.c | 10 ++++++----
->   1 file changed, 6 insertions(+), 4 deletions(-)
+> Set chain to null after the call to tcf_chain_destroy so that we don't
+> call tcf_chain_put on the error exit path, thus avoiding a use-after-free
+> error.
 > 
-> diff --git a/net/bridge/br_mdb.c b/net/bridge/br_mdb.c
-> index a72d5e6f339f..d280b20587cb 100644
-> --- a/net/bridge/br_mdb.c
-> +++ b/net/bridge/br_mdb.c
-> @@ -569,6 +569,7 @@ static int br_mdb_add(struct sk_buff *skb, struct nlmsghdr *nlh,
->   	struct net_bridge_port *p;
->   	struct net_bridge_vlan *v;
->   	struct net_bridge *br;
-> +	int msgtype = nlh->nlmsg_type;
-
-minor nits:
-nlmsg_type is a u16, also please keep the order and arrange these from longest 
-to shortest
-
->   	int err;
->   
->   	err = br_mdb_parse(skb, nlh, &dev, &entry);
-> @@ -595,12 +596,12 @@ static int br_mdb_add(struct sk_buff *skb, struct nlmsghdr *nlh,
->   	if (br_vlan_enabled(br) && vg && entry->vid == 0) {
->   		list_for_each_entry(v, &vg->vlan_list, vlist) {
->   			entry->vid = v->vid;
-> -			err = __br_mdb_do(p, entry, RTM_NEWMDB);
-> +			err = __br_mdb_do(p, entry, msgtype);
->   			if (err)
->   				break;
->   		}
->   	} else {
-> -		err = __br_mdb_do(p, entry, RTM_NEWMDB);
-> +		err = __br_mdb_do(p, entry, msgtype);
->   	}
->   
->   	return err;
-> @@ -677,6 +678,7 @@ static int br_mdb_del(struct sk_buff *skb, struct nlmsghdr *nlh,
->   	struct net_bridge_port *p;
->   	struct net_bridge_vlan *v;
->   	struct net_bridge *br;
-> +	int msgtype = nlh->nlmsg_type;
-
-same here
-
->   	int err;
->   
->   	err = br_mdb_parse(skb, nlh, &dev, &entry);
-> @@ -703,12 +705,12 @@ static int br_mdb_del(struct sk_buff *skb, struct nlmsghdr *nlh,
->   	if (br_vlan_enabled(br) && vg && entry->vid == 0) {
->   		list_for_each_entry(v, &vg->vlan_list, vlist) {
->   			entry->vid = v->vid;
-> -			err = __br_mdb_do(p, entry, RTM_DELMDB);
-> +			err = __br_mdb_do(p, entry, msgtype);
->   			if (err)
->   				break;
->   		}
->   	} else {
-> -		err = __br_mdb_do(p, entry, RTM_DELMDB);
-> +		err = __br_mdb_do(p, entry, msgtype);
->   	}
->   
->   	return err;
+> Detected by CoverityScan, CID#1436357 ("Use after free")
 > 
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+
+Colin, you really need to make some adjustments to how you are submitting
+these kinds of patches.
+
+First of all, you must indicate the target tree in your Subject line
+as "[PATCH net-next] " in this case.
+
+Also, you need to add an appropriate Fixes: tag right before your
+signoff.
+
+Thank you.
