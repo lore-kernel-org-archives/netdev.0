@@ -1,46 +1,34 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH] ip6_tunnel, ip6_gre: fix setting of DSCP on
- encapsulated packets
-Date: Wed, 17 May 2017 18:18:00 -0700
-Message-ID: <20170517181800.07788dd8@xeon-e3>
-References: <5fba416f3f644db2b1f51e54724ef6ba@XCH15-07-02.nw.nos.boeing.com>
+From: Alexei Starovoitov <ast@fb.com>
+Subject: Re: [PATCH v2 1/3] bpf: Use 1<<16 as ceiling for immediate alignment
+ in verifier.
+Date: Wed, 17 May 2017 18:18:55 -0700
+Message-ID: <a2936291-b279-0b3f-94be-73cb1bbaa47e@fb.com>
+References: <f2bff26d-8b4d-c6a2-23c9-9db198569e40@fb.com>
+ <50288778-10f6-7201-c979-bfe4635831fc@solarflare.com>
+ <e873f261-e1c1-c344-3d72-254623e0c91a@solarflare.com>
+ <20170517.201633.1413407173876329751.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="windows-1252"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "I-Dawson, Peter A" <Peter.A.Dawson@boeing.com>
+Cc: <daniel@iogearbox.net>, <alexei.starovoitov@gmail.com>,
+        <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>, <ecree@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f174.google.com ([209.85.192.174]:35677 "EHLO
-        mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753916AbdERBSK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 17 May 2017 21:18:10 -0400
-Received: by mail-pf0-f174.google.com with SMTP id n23so15490082pfb.2
-        for <netdev@vger.kernel.org>; Wed, 17 May 2017 18:18:09 -0700 (PDT)
-In-Reply-To: <5fba416f3f644db2b1f51e54724ef6ba@XCH15-07-02.nw.nos.boeing.com>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:35266 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1753916AbdERBTS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 17 May 2017 21:19:18 -0400
+In-Reply-To: <20170517.201633.1413407173876329751.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 18 May 2017 01:11:01 +0000
-"I-Dawson, Peter A" <Peter.A.Dawson@boeing.com> wrote:
+On 5/17/17 5:16 PM, David Miller wrote:
+> BTW, we track something similar already in reg->imm which tracks how
+> many high order bits are known to be cleared in the register.  It is
+> used to avoid potential overflow for packet pointer accesses.  I bet
+> we can subsume that into this facility as well.
 
-> This fix addresses two problems in the way the DSCP field is formulated on the
->  encapsulating header of IPv6 tunnels.
-> This fix addresses Bug 195661. https://bugzilla.kernel.org/show_bug.cgi?id=195661 
-> 
-> 1) The IPv6 tunneling code was manipulating the DSCP field of the encapsulating
->  packet using the 32b flowlabel. Since the flowlabel is only the lower 20b it
->  was incorrect to assume that the upper 12b containing the DSCP and ECN fields
->  would remain intact when formulating the encapsulating header. This fix
->  handles the 'inherit' and 'fixed-value' DSCP cases explicitly using the extant
->  dsfield u8 variable.
-> 
-> 2) The use of INET_ECN_encapsulate(0, dsfield) in ip6_tnl_xmit was incorrect
->  and resulted in the DSCP value always being set to 0.
-> ---
->  net/ipv6/ip6_gre.c    | 18 ++++++++++--------
->  net/ipv6/ip6_tunnel.c | 28 +++++++++++++++++-----------
->  2 files changed, 27 insertions(+), 19 deletions(-)
-
-This patch looks correct, but has trivial style issues like using spaces
-instead of tabs and other junk.  Please run checkpatch.pl, look at the
-results and resubmit.
+yeah, reg->imm tracks zero upper bits in very simplistic way.
+For alignment checking it seems we need to track lower zeros
+and ones. If Edward's algorithm can be adopted to track both
+that would be double win indeed.
