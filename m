@@ -1,62 +1,70 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: Re: [PATCH v5 net-next 4/7] net: add new control message for incoming
- HW-timestamped packets
-Date: Thu, 18 May 2017 16:20:53 -0400
-Message-ID: <CAF=yD-+FCccqtF0oeqeph=dvrUJ8Byd8q_uWqZk+zvxYYtC_Fw@mail.gmail.com>
-References: <20170518140738.19617-1-mlichvar@redhat.com> <20170518140738.19617-5-mlichvar@redhat.com>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: Re: [PATCH] of_mdio: Fix broken PHY IRQ in case of probe deferral
+Date: Thu, 18 May 2017 22:36:13 +0200
+Message-ID: <CAMuHMdV+jfh=EGt3SvjtrtVfWQ6P8ofp_JxeQZjRrSEfDWs5hA@mail.gmail.com>
+References: <1495112345-24795-1-git-send-email-geert+renesas@glider.be>
+ <f0ed61c3-062b-cec6-fe19-7412231e8ef1@gmail.com> <CAMuHMdWYeSzofU57LmT_M3KkcHhvjfJy7nkHvcXkKzOYmvhqqA@mail.gmail.com>
+ <20170518193453.GB13759@lunn.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: Network Development <netdev@vger.kernel.org>,
-        Richard Cochran <richardcochran@gmail.com>,
-        Willem de Bruijn <willemb@google.com>
-To: Miroslav Lichvar <mlichvar@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f65.google.com ([209.85.218.65]:36161 "EHLO
-        mail-oi0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753069AbdERUVe (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 18 May 2017 16:21:34 -0400
-Received: by mail-oi0-f65.google.com with SMTP id w138so9225622oiw.3
-        for <netdev@vger.kernel.org>; Thu, 18 May 2017 13:21:34 -0700 (PDT)
-In-Reply-To: <20170518140738.19617-5-mlichvar@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+        Geert Uytterhoeven <geert+renesas@glider.be>,
+        Rob Herring <robh+dt@kernel.org>,
+        Frank Rowand <frowand.list@gmail.com>,
+        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+        Linux-Renesas <linux-renesas-soc@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+In-Reply-To: <20170518193453.GB13759@lunn.ch>
+Sender: linux-renesas-soc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, May 18, 2017 at 10:07 AM, Miroslav Lichvar <mlichvar@redhat.com> wrote:
-> Add SOF_TIMESTAMPING_OPT_PKTINFO option to request a new control message
-> for incoming packets with hardware timestamps. It contains the index of
-> the real interface which received the packet and the length of the
-> packet at layer 2.
->
-> The index is useful with bonding, bridges and other interfaces, where
-> IP_PKTINFO doesn't allow applications to determine which PHC made the
-> timestamp. With the L2 length (and link speed) it is possible to
-> transpose preamble timestamps to trailer timestamps, which are used in
-> the NTP protocol.
->
-> While this information could be provided by two new socket options
-> independently from timestamping, it doesn't look like they would be very
-> useful. With this option any performance impact is limited to hardware
-> timestamping.
->
-> Use dev_get_by_napi_id() to get the device and its index. On kernels
-> with disabled CONFIG_NET_RX_BUSY_POLL or drivers not using NAPI, a zero
-> index will be returned in the control message.
->
-> CC: Richard Cochran <richardcochran@gmail.com>
-> CC: Willem de Bruijn <willemb@google.com>
-> Signed-off-by: Miroslav Lichvar <mlichvar@redhat.com>
+Hi Andrew,
 
-Acked-by: Willem de Bruijn <willemb@google.com>
+On Thu, May 18, 2017 at 9:34 PM, Andrew Lunn <andrew@lunn.ch> wrote:
+>> > This most certainly works fine in the simple case where you have one PHY
+>> > hanging off the MDIO bus, now what happens if you have several?
+>> >
+>> > Presumably, the first PHY that returns EPROBE_DEFER will make the entire
+>> > bus registration return EPROB_DEFER as well, and so on, and so forth,
+>> > but I am not sure if we will be properly unwinding the successful
+>> > registration of PHYs that either don't have an interrupt, or did not
+>> > return EPROBE_DEFER.
+>> >
+>> > It should be possible to mimic this behavior by using the fixed PHY, and
+>> > possibly the dsa_loop.c driver which would create 4 ports, expecting 4
+>> > fixed PHYs to be present.
+>>
+>> mdiobus_unregister(), called from of_mdiobus_register() on failure,
+>> should do the unwinding, right?
+>>
+>> And when the driver is reprobed, all PHYs are reprobed, until they all
+>> succeed.
+>
+> That is the theory. I looked at that while reviewing the patch. But
+> this has probably not been tested in anger. It would be good to test
+> this properly, with not just the first PHY returning -EPROBE_DEFER, to
+> really test the unwind.
 
-> +SOF_TIMESTAMPING_OPT_PKTINFO:
-> +
-> +  Enable the SCM_TIMESTAMPING_PKTINFO control message for incoming
-> +  packets with hardware timestamps. The message contains struct
-> +  scm_ts_pktinfo, which supplies the index of the real interface which
-> +  received the packet and its length at layer 2. A valid (non-zero)
-> +  interface index will be returned only if CONFIG_NET_RX_BUSY_POLL is
-> +  enabled and the driver is using NAPI.
+Unfortunately I don't have a board with multiple PHYs, so I cannot test
+that case.
 
-It is probably good to explicitly call out that the remaining two fields
-are reserved and undefined. To stress that applications cannot be
-overly pedantic and start failing if these become non-zero.
+Does unbinding/rebinding a network driver with multiple PHYs currently
+work? Or module unload/reload?
+
+That should exercise a similar code path.
+
+Gr{oetje,eeting}s,
+
+                        Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+                                -- Linus Torvalds
