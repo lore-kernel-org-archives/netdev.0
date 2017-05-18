@@ -1,102 +1,77 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 1/3] bpf: Use 1<<16 as ceiling for immediate
- alignment in verifier.
-Date: Wed, 17 May 2017 20:16:33 -0400 (EDT)
-Message-ID: <20170517.201633.1413407173876329751.davem@davemloft.net>
-References: <f2bff26d-8b4d-c6a2-23c9-9db198569e40@fb.com>
-        <50288778-10f6-7201-c979-bfe4635831fc@solarflare.com>
-        <e873f261-e1c1-c344-3d72-254623e0c91a@solarflare.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ast@fb.com, daniel@iogearbox.net, alexei.starovoitov@gmail.com,
-        netdev@vger.kernel.org
-To: ecree@solarflare.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:38034 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753107AbdERAQh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 17 May 2017 20:16:37 -0400
-In-Reply-To: <e873f261-e1c1-c344-3d72-254623e0c91a@solarflare.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Eric Anholt <eric-WhKQ6XTQaPysTnJN9+BGXg@public.gmane.org>
+Subject: [PATCH v3] net: dsa: b53: Add compatible strings for the Cygnus-family BCM11360.
+Date: Wed, 17 May 2017 17:32:12 -0700
+Message-ID: <20170518003212.4028-1-eric@anholt.net>
+Cc: linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        bcm-kernel-feedback-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, Ray Jui <rjui-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+        Scott Branden <sbranden-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+        Jon Mason <jonmason-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+        Eric Anholt <eric-WhKQ6XTQaPysTnJN9+BGXg@public.gmane.org>
+To: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Vivien Didelot <vivien.didelot-4ysUXcep3aM1wj+D4I0NRVaTQe2KTcn/@public.gmane.org>,
+        Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Edward Cree <ecree@solarflare.com>
-Date: Wed, 17 May 2017 16:33:27 +0100
+Cygnus is a small family of SoCs, of which we currently have
+devicetree for BCM11360 and BCM58300.  The 11360's B53 is mostly the
+same as 58xx, just requiring a tiny bit of setup that was previously
+missing.
 
-> So I did some experiments (in Python, script follows) and found that
->  indeed this does appear to work, at least for addition and shifts.
-> The idea is that we have a 0s mask and a 1s mask; for bits that are
->  unknown, the 0s mask is set and the 1s mask is cleared.  So a
->  completely unknown variable has masks (~0, 0), then if you shift it
->  left 2 you get (~3, 0) - just shift both masks.  A constant x has
->  masks (x, x) - all the 0s are known 0s and all the 1s are known 1s.
-> Addition is a bit more complicated: we compute the 'unknown bits'
->  mask, by XORing the 0s and 1s masks together, of each addend.  Then
->  we add the corresponding masks from each addend together, and force
->  the 'unknown' bits to the appropriate values in each mask.
-> So given (a1, b1) and (a2, b2), we compute m1 = a1 ^ b1,
->  m2 = a2 ^ b2, and m = m1 | m2.  Then a = (a1 + a2) | m, and
->  b = (b1 + b2) & ~m.
-> As a worked example, 2 + (x << 2) + 14:
->  2 => (2, 2) constant
->  x => (~0, 0) unknown
->  x << 2 => (~3, 0)
->  2 + (x << 2): add (2, 2) with (~3, 0)
->     m1 = 0, m2 = ~3, m = ~3
->     a = (2 + ~3) | ~3 = ~1 | ~3 = ~1
->     b = (2 + 0) & ~~3 = 2 & 3 = 2
->     so (~1, 2), which means "...xx10"
-> now add 14: add (~1, 2) with (14, 14)
->     m1 = ~3, m2 = 0, m = ~3
->     a = (~1 + 14) | ~3 = 12 | ~3 = ~3
->     b = (2 + 14) & ~~3 = 16 & 3 = 0
->     so (~3, 0), which means "...xx00"
-> and the result is 4-byte aligned.
+Signed-off-by: Eric Anholt <eric-WhKQ6XTQaPysTnJN9+BGXg@public.gmane.org>
+Reviewed-by: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Acked-by: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+---
 
-Ok, I'm starting to digest this.  If it works it's a nice universal
-way to handle alignment tracking, that's for sure.
+v2: Reorder the entry in the docs (suggestion by Scott Branden), add
+    missing '"'
+v3: Resend now that 4.12-rc1 is out.
 
-So, in C, addition (a += b) is something like:
+ Documentation/devicetree/bindings/net/dsa/b53.txt | 3 +++
+ drivers/net/dsa/b53/b53_srab.c                    | 2 ++
+ 2 files changed, 5 insertions(+)
 
-struct bpf_reg_bits {
-        u64 zero_bits;
-        u64 one_bits;
-};
+diff --git a/Documentation/devicetree/bindings/net/dsa/b53.txt b/Documentation/devicetree/bindings/net/dsa/b53.txt
+index d6c6e41648d4..eb679e92d525 100644
+--- a/Documentation/devicetree/bindings/net/dsa/b53.txt
++++ b/Documentation/devicetree/bindings/net/dsa/b53.txt
+@@ -13,6 +13,9 @@ Required properties:
+       "brcm,bcm5397"
+       "brcm,bcm5398"
+ 
++  For the BCM11360 SoC, must be:
++      "brcm,bcm11360-srab" and the mandatory "brcm,cygnus-srab" string
++
+   For the BCM5310x SoCs with an integrated switch, must be one of:
+       "brcm,bcm53010-srab"
+       "brcm,bcm53011-srab"
+diff --git a/drivers/net/dsa/b53/b53_srab.c b/drivers/net/dsa/b53/b53_srab.c
+index 8a62b6a69703..c37ffd1b6833 100644
+--- a/drivers/net/dsa/b53/b53_srab.c
++++ b/drivers/net/dsa/b53/b53_srab.c
+@@ -364,6 +364,7 @@ static const struct of_device_id b53_srab_of_match[] = {
+ 	{ .compatible = "brcm,bcm53018-srab" },
+ 	{ .compatible = "brcm,bcm53019-srab" },
+ 	{ .compatible = "brcm,bcm5301x-srab" },
++	{ .compatible = "brcm,bcm11360-srab", .data = (void *)BCM58XX_DEVICE_ID },
+ 	{ .compatible = "brcm,bcm58522-srab", .data = (void *)BCM58XX_DEVICE_ID },
+ 	{ .compatible = "brcm,bcm58525-srab", .data = (void *)BCM58XX_DEVICE_ID },
+ 	{ .compatible = "brcm,bcm58535-srab", .data = (void *)BCM58XX_DEVICE_ID },
+@@ -371,6 +372,7 @@ static const struct of_device_id b53_srab_of_match[] = {
+ 	{ .compatible = "brcm,bcm58623-srab", .data = (void *)BCM58XX_DEVICE_ID },
+ 	{ .compatible = "brcm,bcm58625-srab", .data = (void *)BCM58XX_DEVICE_ID },
+ 	{ .compatible = "brcm,bcm88312-srab", .data = (void *)BCM58XX_DEVICE_ID },
++	{ .compatible = "brcm,cygnus-srab", .data = (void *)BCM58XX_DEVICE_ID },
+ 	{ .compatible = "brcm,nsp-srab", .data = (void *)BCM58XX_DEVICE_ID },
+ 	{ /* sentinel */ },
+ };
+-- 
+2.11.0
 
-static void add_update_bits(struct bpf_reg_bits *a, struct bpf_reg_bits *b)
-{
-        u64 m_zeros, m_ones, m_all;
-
-        m_zeros = a->zero_bits ^ b->zero_bits;
-        m_ones = a->one_bits ^ b->one_bits;
-        m_all = m_zeros | m_ones;
-
-        a->zero_bits = (a->zero_bits + b->zero_bits) | m_all;
-        a->one_bits = (a->one_bits + b->zero_bits) & ~m_all;
-}
-
-Then, is subtraction merely:
-
-static void sub_update_bits(struct bpf_reg_bits *a, struct bpf_reg_bits *b)
-{
-        u64 m_zeros, m_ones, m_all;
-
-        m_zeros = a->zero_bits ^ b->zero_bits;
-        m_ones = a->one_bits ^ b->one_bits;
-        m_all = m_zeros | m_ones;
-
-        a->zero_bits = (a->zero_bits - b->zero_bits) | m_all;
-        a->one_bits = (a->one_bits - b->zero_bits) & ~m_all;
-}
-
-Or is something different needed?
-
-What about multiplication?  AND should be easy too.
-
-BTW, we track something similar already in reg->imm which tracks how
-many high order bits are known to be cleared in the register.  It is
-used to avoid potential overflow for packet pointer accesses.  I bet
-we can subsume that into this facility as well.
-
-Thanks for all of your suggestions so far.
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
