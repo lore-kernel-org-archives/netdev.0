@@ -1,38 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] e1000e: Don't return uninitialized stats
-Date: Thu, 18 May 2017 10:46:14 -0400 (EDT)
-Message-ID: <20170518.104614.1739169308591707817.davem@davemloft.net>
-References: <20170425175433.ykc6ilm6uo7e6my2@f1.synalogic.ca>
-        <20170517202413.18321-1-bpoirier@suse.com>
+Subject: Re: [PATCH] net1080: Mark nc_dump_ttl() as __maybe_unused
+Date: Thu, 18 May 2017 10:48:08 -0400 (EDT)
+Message-ID: <20170518.104808.963734375405821959.davem@davemloft.net>
+References: <20170517221708.183212-1-mka@chromium.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jeffrey.t.kirsher@intel.com, s.priebe@profihost.ag,
-        intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
-        pmenzel@molgen.mpg.de, sasha.neftin@intel.com,
-        aaron.f.brown@intel.com, stephen@networkplumber.org
-To: bpoirier@suse.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:43672 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756532AbdEROqW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 18 May 2017 10:46:22 -0400
-In-Reply-To: <20170517202413.18321-1-bpoirier@suse.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: mka@chromium.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170517221708.183212-1-mka@chromium.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Benjamin Poirier <bpoirier@suse.com>
-Date: Wed, 17 May 2017 16:24:13 -0400
+From: Matthias Kaehlcke <mka@chromium.org>
+Date: Wed, 17 May 2017 15:17:08 -0700
 
-> Some statistics passed to ethtool are garbage because e1000e_get_stats64()
-> doesn't write them, for example: tx_heartbeat_errors. This leaks kernel
-> memory to userspace and confuses users.
+> The function is not used, but it looks useful for debugging. Adding the
+> attribute fixes the following clang warning:
 > 
-> Do like ixgbe and use dev_get_stats() which first zeroes out
-> rtnl_link_stats64.
+> drivers/net/usb/net1080.c:271:20: error: unused function
+>     'nc_dump_ttl' [-Werror,-Wunused-function]
 > 
-> Fixes: 5944701df90d ("net: remove useless memset's in drivers get_stats64")
-> Reported-by: Stefan Priebe <s.priebe@profihost.ag>
-> Signed-off-by: Benjamin Poirier <bpoirier@suse.com>
+> Signed-off-by: Matthias Kaehlcke <mka@chromium.org>
 
-Jeff, please be sure to pick this up, thanks.
+For this and the r8152 patch, I definitely prefer that the function is
+removed.
+
+If someone needs them, they can pull it out of the GIT history.
