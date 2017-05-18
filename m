@@ -1,46 +1,46 @@
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Subject: [PATCH net-next] xfrm: Make function xfrm_dev_register static
-Date: Thu, 18 May 2017 15:51:38 +0000
-Message-ID: <20170518155138.19962-1-weiyj.lk@gmail.com>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [SPAM]Re: [PATCH net-next 5/6] net: bridge: get
+	msgtype from nlmsghdr	in mdb ops
+Date: Thu, 18 May 2017 11:53:34 -0400
+Message-ID: <87efvmf9fl.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+References: <20170517212709.6473-1-vivien.didelot@savoirfairelinux.com>
+	<20170517212709.6473-6-vivien.didelot@savoirfairelinux.com>
+	<ee5d9736-72ec-f4fd-8e9b-2c4179687e16@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Wei Yongjun <weiyongjun1@huawei.com>, netdev@vger.kernel.org
-To: Steffen Klassert <steffen.klassert@secunet.com>,
-        Herbert Xu <herbert@gondor.apana.org.au>,
-        "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:33747 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933310AbdERPv4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 18 May 2017 11:51:56 -0400
-Received: by mail-pg0-f65.google.com with SMTP id s62so6447375pgc.0
-        for <netdev@vger.kernel.org>; Thu, 18 May 2017 08:51:56 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: "moderated list:ETHERNET BRIDGE" <bridge@lists.linux-foundation.org>,
+	kernel@savoirfairelinux.com, linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
+To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>, netdev@vger.kernel.org
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <ee5d9736-72ec-f4fd-8e9b-2c4179687e16@cumulusnetworks.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Wei Yongjun <weiyongjun1@huawei.com>
+Hi Nikolay,
 
-Fixes the following sparse warning:
+Nikolay Aleksandrov <nikolay@cumulusnetworks.com> writes:
 
-net/xfrm/xfrm_device.c:141:5: warning:
- symbol 'xfrm_dev_register' was not declared. Should it be static?
+>> +	int msgtype = nlh->nlmsg_type;
+>
+> minor nits:
+> nlmsg_type is a u16, also please keep the order and arrange these from longest 
+> to shortest
 
-Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
----
- net/xfrm/xfrm_device.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+The reverse christmas tree \o/
 
-diff --git a/net/xfrm/xfrm_device.c b/net/xfrm/xfrm_device.c
-index 8ec8a3f..50ec733 100644
---- a/net/xfrm/xfrm_device.c
-+++ b/net/xfrm/xfrm_device.c
-@@ -138,7 +138,7 @@ bool xfrm_dev_offload_ok(struct sk_buff *skb, struct xfrm_state *x)
- }
- EXPORT_SYMBOL_GPL(xfrm_dev_offload_ok);
- 
--int xfrm_dev_register(struct net_device *dev)
-+static int xfrm_dev_register(struct net_device *dev)
- {
- 	if ((dev->features & NETIF_F_HW_ESP) && !dev->xfrmdev_ops)
- 		return NOTIFY_BAD;
+Hum, __br_mdb_notify takes an int type, and struct nlmsghdr defines it
+as a __u16. Does u16 still make sense here instead of int?
+
+
+Thanks,
+
+        Vivien
