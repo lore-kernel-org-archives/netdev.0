@@ -1,161 +1,104 @@
 From: Miroslav Lichvar <mlichvar@redhat.com>
-Subject: [PATCH v4 net-next 4/7] net: add new control message for incoming HW-timestamped packets
-Date: Thu, 18 May 2017 15:06:53 +0200
-Message-ID: <20170518130656.24163-5-mlichvar@redhat.com>
+Subject: [PATCH v4 net-next 7/7] net: ethernet: update drivers to make both SW and HW TX timestamps
+Date: Thu, 18 May 2017 15:06:56 +0200
+Message-ID: <20170518130656.24163-8-mlichvar@redhat.com>
 References: <20170518130656.24163-1-mlichvar@redhat.com>
 Cc: Richard Cochran <richardcochran@gmail.com>,
         Willem de Bruijn <willemb@google.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:55842 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:4536 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1756086AbdERNHE (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 18 May 2017 09:07:04 -0400
+        id S1756113AbdERNHH (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 18 May 2017 09:07:07 -0400
 In-Reply-To: <20170518130656.24163-1-mlichvar@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add SOF_TIMESTAMPING_OPT_PKTINFO option to request a new control message
-for incoming packets with hardware timestamps. It contains the index of
-the real interface which received the packet and the length of the
-packet at layer 2.
-
-The index is useful with bonding, bridges and other interfaces, where
-IP_PKTINFO doesn't allow applications to determine which PHC made the
-timestamp. With the L2 length (and link speed) it is possible to
-transpose preamble timestamps to trailer timestamps, which are used in
-the NTP protocol.
-
-While this information could be provided by two new socket options
-independently from timestamping, it doesn't look like they would be very
-useful. With this option any performance impact is limited to hardware
-timestamping.
-
-Use dev_get_by_napi_id() to get the device and its index. On kernels
-with disabled CONFIG_NET_RX_BUSY_POLL or drivers not using NAPI, a zero
-index will be returned in the control message.
+Some drivers were calling the skb_tx_timestamp() function only when
+a hardware timestamp was not requested. Now that applications can use
+the SOF_TIMESTAMPING_OPT_TX_SWHW option to request both software and
+hardware timestamps, the drivers need to be modified to unconditionally
+call skb_tx_timestamp().
 
 CC: Richard Cochran <richardcochran@gmail.com>
 CC: Willem de Bruijn <willemb@google.com>
 Signed-off-by: Miroslav Lichvar <mlichvar@redhat.com>
 ---
- Documentation/networking/timestamping.txt |  9 +++++++++
- include/uapi/asm-generic/socket.h         |  2 ++
- include/uapi/linux/net_tstamp.h           | 11 ++++++++++-
- net/socket.c                              | 27 ++++++++++++++++++++++++++-
- 4 files changed, 47 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/amd/xgbe/xgbe-drv.c          | 3 +--
+ drivers/net/ethernet/intel/e1000e/netdev.c        | 4 ++--
+ drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c   | 3 +--
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 6 ++----
+ 4 files changed, 6 insertions(+), 10 deletions(-)
 
-diff --git a/Documentation/networking/timestamping.txt b/Documentation/networking/timestamping.txt
-index 96f5069..600c6bf 100644
---- a/Documentation/networking/timestamping.txt
-+++ b/Documentation/networking/timestamping.txt
-@@ -193,6 +193,15 @@ SOF_TIMESTAMPING_OPT_STATS:
-   the transmit timestamps, such as how long a certain block of
-   data was limited by peer's receiver window.
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
+index 89b21d7..5a2ad9c 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
+@@ -1391,8 +1391,7 @@ static void xgbe_prep_tx_tstamp(struct xgbe_prv_data *pdata,
+ 		spin_unlock_irqrestore(&pdata->tstamp_lock, flags);
+ 	}
  
-+SOF_TIMESTAMPING_OPT_PKTINFO:
-+
-+  Enable the SCM_TIMESTAMPING_PKTINFO control message for incoming
-+  packets with hardware timestamps. The message contains struct
-+  scm_ts_pktinfo, which supplies the index of the real interface which
-+  received the packet and its length at layer 2. A valid (non-zero)
-+  interface index will be returned only if CONFIG_NET_RX_BUSY_POLL is
-+  enabled and the driver is using NAPI.
-+
- New applications are encouraged to pass SOF_TIMESTAMPING_OPT_ID to
- disambiguate timestamps and SOF_TIMESTAMPING_OPT_TSONLY to operate
- regardless of the setting of sysctl net.core.tstamp_allow_data.
-diff --git a/include/uapi/asm-generic/socket.h b/include/uapi/asm-generic/socket.h
-index 2b48856..a5f6e81 100644
---- a/include/uapi/asm-generic/socket.h
-+++ b/include/uapi/asm-generic/socket.h
-@@ -100,4 +100,6 @@
- 
- #define SO_COOKIE		57
- 
-+#define SCM_TIMESTAMPING_PKTINFO	58
-+
- #endif /* __ASM_GENERIC_SOCKET_H */
-diff --git a/include/uapi/linux/net_tstamp.h b/include/uapi/linux/net_tstamp.h
-index 0749fb1..dee74d3 100644
---- a/include/uapi/linux/net_tstamp.h
-+++ b/include/uapi/linux/net_tstamp.h
-@@ -9,6 +9,7 @@
- #ifndef _NET_TIMESTAMPING_H
- #define _NET_TIMESTAMPING_H
- 
-+#include <linux/types.h>
- #include <linux/socket.h>   /* for SO_TIMESTAMPING */
- 
- /* SO_TIMESTAMPING gets an integer bit field comprised of these values */
-@@ -26,8 +27,9 @@ enum {
- 	SOF_TIMESTAMPING_OPT_CMSG = (1<<10),
- 	SOF_TIMESTAMPING_OPT_TSONLY = (1<<11),
- 	SOF_TIMESTAMPING_OPT_STATS = (1<<12),
-+	SOF_TIMESTAMPING_OPT_PKTINFO = (1<<13),
- 
--	SOF_TIMESTAMPING_LAST = SOF_TIMESTAMPING_OPT_STATS,
-+	SOF_TIMESTAMPING_LAST = SOF_TIMESTAMPING_OPT_PKTINFO,
- 	SOF_TIMESTAMPING_MASK = (SOF_TIMESTAMPING_LAST - 1) |
- 				 SOF_TIMESTAMPING_LAST
- };
-@@ -130,4 +132,11 @@ enum hwtstamp_rx_filters {
- 	HWTSTAMP_FILTER_NTP_ALL,
- };
- 
-+/* SCM_TIMESTAMPING_PKTINFO control message */
-+struct scm_ts_pktinfo {
-+	__u32 if_index;
-+	__u32 pkt_length;
-+	__u32 reserved[2];
-+};
-+
- #endif /* _NET_TIMESTAMPING_H */
-diff --git a/net/socket.c b/net/socket.c
-index c2564eb..ee1f4ec 100644
---- a/net/socket.c
-+++ b/net/socket.c
-@@ -662,6 +662,27 @@ static bool skb_is_err_queue(const struct sk_buff *skb)
- 	return skb->pkt_type == PACKET_OUTGOING;
+-	if (!XGMAC_GET_BITS(packet->attributes, TX_PACKET_ATTRIBUTES, PTP))
+-		skb_tx_timestamp(skb);
++	skb_tx_timestamp(skb);
  }
  
-+static void put_ts_pktinfo(struct msghdr *msg, struct sk_buff *skb)
-+{
-+	struct scm_ts_pktinfo ts_pktinfo;
-+	struct net_device *orig_dev;
-+	int ifindex = 0;
+ static void xgbe_prep_vlan(struct sk_buff *skb, struct xgbe_packet_data *packet)
+diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+index 0ff9295..6ed3bc4 100644
+--- a/drivers/net/ethernet/intel/e1000e/netdev.c
++++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+@@ -5868,10 +5868,10 @@ static netdev_tx_t e1000_xmit_frame(struct sk_buff *skb,
+ 			adapter->tx_hwtstamp_skb = skb_get(skb);
+ 			adapter->tx_hwtstamp_start = jiffies;
+ 			schedule_work(&adapter->tx_hwtstamp_work);
+-		} else {
+-			skb_tx_timestamp(skb);
+ 		}
+ 
++		skb_tx_timestamp(skb);
 +
-+	if (!skb_mac_header_was_set(skb))
-+		return;
-+
-+	rcu_read_lock();
-+	orig_dev = dev_get_by_napi_id(skb_napi_id(skb));
-+	if (orig_dev)
-+		ifindex = orig_dev->ifindex;
-+	rcu_read_unlock();
-+
-+	ts_pktinfo.if_index = ifindex;
-+	ts_pktinfo.pkt_length = skb->len - skb_mac_offset(skb);
-+	put_cmsg(msg, SOL_SOCKET, SCM_TIMESTAMPING_PKTINFO,
-+		 sizeof(ts_pktinfo), &ts_pktinfo);
-+}
-+
- /*
-  * called from sock_recv_timestamp() if sock_flag(sk, SOCK_RCVTSTAMP)
-  */
-@@ -699,8 +720,12 @@ void __sock_recv_timestamp(struct msghdr *msg, struct sock *sk,
- 		empty = 0;
- 	if (shhwtstamps &&
- 	    (sk->sk_tsflags & SOF_TIMESTAMPING_RAW_HARDWARE) &&
--	    ktime_to_timespec_cond(shhwtstamps->hwtstamp, tss.ts + 2))
-+	    ktime_to_timespec_cond(shhwtstamps->hwtstamp, tss.ts + 2)) {
- 		empty = 0;
-+		if ((sk->sk_tsflags & SOF_TIMESTAMPING_OPT_PKTINFO) &&
-+		    !skb_is_err_queue(skb))
-+			put_ts_pktinfo(msg, skb);
-+	}
- 	if (!empty) {
- 		put_cmsg(msg, SOL_SOCKET,
- 			 SCM_TIMESTAMPING, sizeof(tss), &tss);
+ 		netdev_sent_queue(netdev, skb->len);
+ 		e1000_tx_queue(tx_ring, tx_flags, count);
+ 		/* Make sure there is space in the ring for the next send. */
+diff --git a/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c b/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c
+index 1e59435..89831ad 100644
+--- a/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c
++++ b/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c
+@@ -1418,8 +1418,7 @@ static netdev_tx_t sxgbe_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		priv->hw->desc->tx_enable_tstamp(first_desc);
+ 	}
+ 
+-	if (!tqueue->hwts_tx_en)
+-		skb_tx_timestamp(skb);
++	skb_tx_timestamp(skb);
+ 
+ 	priv->hw->dma->enable_dma_transmission(priv->ioaddr, txq_index);
+ 
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index cce862b..27c12e7 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -2880,8 +2880,7 @@ static netdev_tx_t stmmac_tso_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		priv->xstats.tx_set_ic_bit++;
+ 	}
+ 
+-	if (!priv->hwts_tx_en)
+-		skb_tx_timestamp(skb);
++	skb_tx_timestamp(skb);
+ 
+ 	if (unlikely((skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP) &&
+ 		     priv->hwts_tx_en)) {
+@@ -3084,8 +3083,7 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		priv->xstats.tx_set_ic_bit++;
+ 	}
+ 
+-	if (!priv->hwts_tx_en)
+-		skb_tx_timestamp(skb);
++	skb_tx_timestamp(skb);
+ 
+ 	/* Ready to fill the first descriptor and set the OWN bit w/o any
+ 	 * problems because all the descriptors are actually ready to be
 -- 
 2.9.3
