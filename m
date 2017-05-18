@@ -1,111 +1,104 @@
-From: Richard Guy Briggs <rgb@tricolour.ca>
-Subject: Re: [PATCH] xfrm: fix state migration replay sequence numbers
-Date: Thu, 18 May 2017 11:55:14 -0400
-Message-ID: <20170518155514.GA17152@tricolour.ca>
-References: <20170518143953.GA64905@AntonyAntony.local>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH] of_mdio: Fix broken PHY IRQ in case of probe deferral
+Date: Thu, 18 May 2017 18:09:43 +0200
+Message-ID: <20170518160943.GC707@lunn.ch>
+References: <1495112345-24795-1-git-send-email-geert+renesas@glider.be>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Herbert Xu <herbert@gondor.apana.org.au>,
-        Steffen Klassert <steffen.klassert@secunet.com>
-To: Antony Antony <antony@phenome.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from toccata2.tricolour.ca ([204.225.221.17]:37800 "EHLO
-        toccata2.tricolour.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755189AbdERQFj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 18 May 2017 12:05:39 -0400
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+        Rob Herring <robh+dt@kernel.org>,
+        Frank Rowand <frowand.list@gmail.com>,
+        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+        netdev@vger.kernel.org, devicetree@vger.kernel.org,
+        linux-renesas-soc@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Geert Uytterhoeven <geert+renesas@glider.be>
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20170518143953.GA64905@AntonyAntony.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1495112345-24795-1-git-send-email-geert+renesas@glider.be>
+Sender: linux-renesas-soc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 2017-05-18 16:39, Antony Antony wrote:
-> During xfrm migration replay and preplay sequence numbers are not 
-> copied from the previous state. 
+On Thu, May 18, 2017 at 02:59:05PM +0200, Geert Uytterhoeven wrote:
+> If an Ethernet PHY is initialized before the interrupt controller it is
+> connected to, a message like the following is printed:
 > 
-> Here is tcpdump output showing the problem.
-> 10.0.10.46 is running vanilla kernel, IKE/IPsec responder.
-> After the migration it sent wrong sequence number, reset to 1.
-> The migration is from 10.0.0.52 to 10.0.0.53.
+>     irq: no irq domain found for /interrupt-controller@e61c0000 !
 > 
-> IP 10.0.0.52.4500 > 10.0.10.46.4500: UDP-encap: ESP(spi=0x43ef462d,seq=0x7cf), length 136
-> IP 10.0.10.46.4500 > 10.0.0.52.4500: UDP-encap: ESP(spi=0xca1c282d,seq=0x7cf), length 136
-> IP 10.0.0.52.4500 > 10.0.10.46.4500: UDP-encap: ESP(spi=0x43ef462d,seq=0x7d0), length 136
-> IP 10.0.10.46.4500 > 10.0.0.52.4500: UDP-encap: ESP(spi=0xca1c282d,seq=0x7d0), length 136
+> However, the actual error is ignored, leading to a non-functional (-1)
+> PHY interrupt later:
 > 
-> IP 10.0.0.53.4500 > 10.0.10.46.4500: NONESP-encap: isakmp: child_sa  inf2[I]
-> IP 10.0.10.46.4500 > 10.0.0.53.4500: NONESP-encap: isakmp: child_sa  inf2[R]
-> IP 10.0.0.53.4500 > 10.0.10.46.4500: NONESP-encap: isakmp: child_sa  inf2[I]
-> IP 10.0.10.46.4500 > 10.0.0.53.4500: NONESP-encap: isakmp: child_sa  inf2[R]
+>     Micrel KSZ8041RNLI ee700000.ethernet-ffffffff:01: attached PHY driver [Micrel KSZ8041RNLI] (mii_bus:phy_addr=ee700000.ethernet-ffffffff:01, irq=-1)
 > 
-> IP 10.0.0.53.4500 > 10.0.10.46.4500: UDP-encap: ESP(spi=0x43ef462d,seq=0x7d1), length 136
+> Depending on whether the PHY driver will fall back to polling, Ethernet
+> may or may not work.
 > 
-> NOTE: next sequence is wrong 0x1
+> To fix this:
+>   1. Switch of_mdiobus_register_phy() from irq_of_parse_and_map() to
+>      of_irq_get().
+>      Unlike the former, the latter returns -EPROBE_DEFER if the
+>      interrupt controller is not yet available, so this condition can be
+>      detected.
+>      Other errors are handled the same as before, i.e. use the passed
+>      mdio->irq[addr] as interrupt.
+>   2. Propagate and handle errors from of_mdiobus_register_phy() and
+>      of_mdiobus_register_device().
 > 
-> IP 10.0.10.46.4500 > 10.0.0.53.4500: UDP-encap: ESP(spi=0xca1c282d,seq=0x1), length 136
-> IP 10.0.0.53.4500 > 10.0.10.46.4500: UDP-encap: ESP(spi=0x43ef462d,seq=0x7d2), length 136
-> IP 10.0.10.46.4500 > 10.0.0.53.4500: UDP-encap: ESP(spi=0xca1c282d,seq=0x2), length 136
-> 
-> The attached patch fix it by copying replay and preplay.
-> 
-> regards,
-> -antony
-> 
-> Antony Antony (1):
->   xfrm: fix state migration replay sequence numbers
-> 
->  net/xfrm/xfrm_state.c | 2 ++
->  1 file changed, 2 insertions(+)
-> 
-> -- 
-> 2.9.3
-> 
-
-> >From 1241e8b4c38ad2bf7399599165f763af38aba8d9 Mon Sep 17 00:00:00 2001
-> From: Antony Antony <antony@phenome.org>
-> Date: Thu, 18 May 2017 12:19:32 +0200
-> Subject: [PATCH] xfrm: fix state migration copy replay sequence numbers
-> To: netdev@vger.kernel.org, Herbert Xu <herbert@gondor.apana.org.au>, Steffen Klassert <steffen.klassert@secunet.com>
-> Cc: Richard Guy Briggs <rgb@tricolour.ca>
-> 
-> During xfrm migration copy replay and preplay sequence numbers
-> from the previous state.
-> 
-> Signed-off-by: Antony Antony <antony@phenome.org>
+> Signed-off-by: Geert Uytterhoeven <geert+renesas@glider.be>
 > ---
->  net/xfrm/xfrm_state.c | 2 ++
->  1 file changed, 2 insertions(+)
+> Seen on r8a7791/koelsch when using the new CPG/MSSR clock driver.
+> I assume it always happened on RZ/G1 in mainline.
+> ---
+>  drivers/of/of_mdio.c | 39 +++++++++++++++++++++++++++------------
+>  1 file changed, 27 insertions(+), 12 deletions(-)
 > 
-> diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-> index fc3c5aa..2e291bc 100644
-> --- a/net/xfrm/xfrm_state.c
-> +++ b/net/xfrm/xfrm_state.c
-> @@ -1383,6 +1383,8 @@ static struct xfrm_state *xfrm_state_clone(struct xfrm_state *orig)
->  	x->curlft.add_time = orig->curlft.add_time;
->  	x->km.state = orig->km.state;
->  	x->km.seq = orig->km.seq;
-> +	x->replay = orig->replay;
-> +	x->preplay = orig->preplay;
+> diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
+> index 7e4c80f9b6cda0d3..f9ac2893f56184be 100644
+> --- a/drivers/of/of_mdio.c
+> +++ b/drivers/of/of_mdio.c
+> @@ -44,7 +44,7 @@ static int of_get_phy_id(struct device_node *device, u32 *phy_id)
+>  	return -EINVAL;
+>  }
 >  
->  	return x;
+> -static void of_mdiobus_register_phy(struct mii_bus *mdio,
+> +static int of_mdiobus_register_phy(struct mii_bus *mdio,
+>  				    struct device_node *child, u32 addr)
+>  {
+>  	struct phy_device *phy;
+> @@ -60,9 +60,13 @@ static void of_mdiobus_register_phy(struct mii_bus *mdio,
+>  	else
+>  		phy = get_phy_device(mdio, addr, is_c45);
+>  	if (IS_ERR(phy))
+> -		return;
+> +		return PTR_ERR(phy);
 >  
-> -- 
-> 2.9.3
+> -	rc = irq_of_parse_and_map(child, 0);
+> +	rc = of_irq_get(child, 0);
+> +	if (rc == -EPROBE_DEFER) {
+> +		phy_device_free(phy);
+> +		return rc;
+> +	}
 
-This looks reasonable to me.  With a bit more out-of-band information from
-Antony and Paul Wouters we have:
+Maybe this should be consistent. All other places there is an error,
+you return it. Here however, you only return the error if it is
+EPROBE_DEFER.
 
-https://tools.ietf.org/html/rfc4555#section-3.5
-
-so while it is not explicit about what is to be copied, it only indicates that
-the IPsec SA is to be updated with the new address whereas this implementation
-creates a new IPsec SA and copies over the values, missing some.
-
-(Note: using "git format-patch --cover-letter --cc ... -o <dir>" and "git
-send-email --to ... <dir>" work really well together.)
-
-Reviewed-by: Richard Guy Briggs <rgb@tricolour.ca>
+	Andrew
 
 
-
-
-	slainte mhath, RGB
+>  	if (rc > 0) {
+>  		phy->irq = rc;
+>  		mdio->irq[addr] = rc;
+> @@ -84,22 +88,23 @@ static void of_mdiobus_register_phy(struct mii_bus *mdio,
+>  	if (rc) {
+>  		phy_device_free(phy);
+>  		of_node_put(child);
+> -		return;
+> +		return rc;
+>  	}
+>  
+>  	dev_dbg(&mdio->dev, "registered phy %s at address %i\n",
+>  		child->name, addr);
+> +	return 0;
+>  }
+>  
