@@ -1,103 +1,108 @@
-From: Yonghong Song <yhs@fb.com>
-Subject: Re: [PATCH net v2] selftests/bpf: fix broken build due to types.h
-Date: Wed, 17 May 2017 17:46:14 -0700
-Message-ID: <78eb5911-d001-d27a-18ef-86d47aa2f2ff@fb.com>
-References: <20170517221805.1593973-1-yhs@fb.com>
- <591CD540.1040305@iogearbox.net>
- <20170517.190149.1446382466519323776.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <ast@fb.com>, <netdev@vger.kernel.org>, <kernel-team@fb.com>
-To: David Miller <davem@davemloft.net>, <daniel@iogearbox.net>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH net] bpf: adjust verifier heuristics
+Date: Thu, 18 May 2017 03:00:06 +0200
+Message-ID: <57a6fc1f937d985a5851016221c98a29fb1cc46a.1495068621.git.daniel@iogearbox.net>
+Cc: ast@fb.com, netdev@vger.kernel.org,
+        Daniel Borkmann <daniel@iogearbox.net>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:43969 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1752971AbdERAqk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 17 May 2017 20:46:40 -0400
-In-Reply-To: <20170517.190149.1446382466519323776.davem@davemloft.net>
-Content-Language: en-US
+Received: from www62.your-server.de ([213.133.104.62]:54955 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752721AbdERBAR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 17 May 2017 21:00:17 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Current limits with regards to processing program paths do not
+really reflect today's needs anymore due to programs becoming
+more complex and verifier smarter, keeping track of more data
+such as const ALU operations, alignment tracking, spilling of
+PTR_TO_MAP_VALUE_ADJ registers, and other features allowing for
+smarter matching of what LLVM generates.
 
+This also comes with the side-effect that we result in fewer
+opportunities to prune search states and thus often need to do
+more work to prove safety than in the past due to different
+register states and stack layout where we mismatch. Generally,
+it's quite hard to determine what caused a sudden increase in
+complexity, it could be caused by something as trivial as a
+single branch somewhere at the beginning of the program where
+LLVM assigned a stack slot that is marked differently throughout
+other branches and thus causing a mismatch, where verifier
+then needs to prove safety for the whole rest of the program.
+Subsequently, programs with even less than half the insn size
+limit can get rejected. We noticed that while some programs
+load fine under pre 4.11, they get rejected due to hitting
+limits on more recent kernels. We saw that in the vast majority
+of cases (90+%) pruning failed due to register mismatches. In
+case of stack mismatches, majority of cases failed due to
+different stack slot types (invalid, spill, misc) rather than
+differences in spilled registers.
 
-On 5/17/17 4:01 PM, David Miller wrote:
-> From: Daniel Borkmann <daniel@iogearbox.net>
-> Date: Thu, 18 May 2017 00:57:04 +0200
-> 
->> On 05/18/2017 12:18 AM, Yonghong Song wrote:
->>> Commit 0a5539f66133 ("bpf: Provide a linux/types.h override
->>> for bpf selftests.") caused a build failure for
->>> tools/testing/selftest/bpf
->>> because of some missing types:
->>>       $ make -C tools/testing/selftests/bpf/
->>>       ...
->>>       In file included from
->>>       /home/yhs/work/net-next/tools/testing/selftests/bpf/test_pkt_access.c:8:
->>>       ../../../include/uapi/linux/bpf.h:170:3: error: unknown type name
->>>       '__aligned_u64'
->>>                       __aligned_u64   key;
->>>       ...
->>>       /usr/include/linux/swab.h:160:8: error: unknown type name
->>>       '__always_inline'
->>>       static __always_inline __u16 __swab16p(const __u16 *p)
->>>       ...
->>> The type __aligned_u64 is defined in linux:include/uapi/linux/types.h.
->>>
->>> The fix is to copy missing type definition into
->>> tools/testing/selftests/bpf/include/uapi/linux/types.h.
->>> Adding additional include "string.h" resolves __always_inline issue.
->>>
->>> Fixes: 0a5539f66133 ("bpf: Provide a linux/types.h override for bpf
->>> selftests.")
->>> Signed-off-by: Yonghong Song <yhs@fb.com>
->>
->> Can you elaborate why string.h specifically? Can't we define the
->> __always_inline ourselves?
-> 
-> That way it comes from compiler.h
+This patch makes pruning more aggressive by also adding markers
+that sit at conditional jumps as well. Currently, we only mark
+jump targets for pruning. For example in direct packet access,
+these are usually error paths where we bail out. We found that
+adding these markers, it can reduce number of processed insns
+by up to 30%. Another option is to ignore reg->id in probing
+PTR_TO_MAP_VALUE_OR_NULL registers, which can help pruning
+slightly as well by up to 7% observed complexity reduction as
+stand-alone. Meaning, if a previous path with register type
+PTR_TO_MAP_VALUE_OR_NULL for map X was found to be safe, then
+in the current state a PTR_TO_MAP_VALUE_OR_NULL register for
+the same map X must be safe as well. Last but not least the
+patch also adds a scheduling point and bumps the current limit
+for instructions to be processed to a more adequate value.
 
-Just a little bit correction. The __always_inline is not from 
-compiler.h. The compiler.h is inside kernel source tree. Currently,
-programs in selftests do not directly referencing kernel header
-files (except test_verifier trying to do with alignment)
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+Acked-by: Alexei Starovoitov <ast@kernel.org>
+---
+ kernel/bpf/verifier.c | 12 +++++++++++-
+ 1 file changed, 11 insertions(+), 1 deletion(-)
 
-======
-#ifdef HAVE_GENHDR
-# include "autoconf.h"
-#else
-# if defined(__i386) || defined(__x86_64) || defined(__s390x__) || 
-defined(__aarch64__)
-#  define CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS 1
-# endif
-#endif
-=====
-(The above part may be gone soon with recent alignment tracking patch)
-
-[yhs@localhost include]$ pwd
-/usr/include
-[yhs@localhost include]$ find . -name "compiler.h"
-[yhs@localhost include]$
-
-The __always_inline comes from sys/cdefs.h
-sys/cdefs.h:# define __always_inline __inline __attribute__ 
-((__always_inline))
-
-The following is the include chain leading to __always_inline:
-string.h
-    features.h
-       sys/cdefs.h
-
-Yes, it is deeply embedded in chain of header files and hard
-to figure out intuitively....
-
-Yonghong
-
-> 
-> Probably it would have been better to have the BPF linux/types.h bring
-> it in.
-> 
-> Sorry I applied this so quickly, I wanted this regression fixed as fast
-> as possible.
-> 
+diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+index 39f2dcb..1eddb71 100644
+--- a/kernel/bpf/verifier.c
++++ b/kernel/bpf/verifier.c
+@@ -140,7 +140,7 @@ struct bpf_verifier_stack_elem {
+ 	struct bpf_verifier_stack_elem *next;
+ };
+ 
+-#define BPF_COMPLEXITY_LIMIT_INSNS	65536
++#define BPF_COMPLEXITY_LIMIT_INSNS	98304
+ #define BPF_COMPLEXITY_LIMIT_STACK	1024
+ 
+ #define BPF_MAP_PTR_POISON ((void *)0xeB9F + POISON_POINTER_DELTA)
+@@ -2640,6 +2640,7 @@ static int check_cfg(struct bpf_verifier_env *env)
+ 				env->explored_states[t + 1] = STATE_LIST_MARK;
+ 		} else {
+ 			/* conditional jump with two edges */
++			env->explored_states[t] = STATE_LIST_MARK;
+ 			ret = push_insn(t, t + 1, FALLTHROUGH, env);
+ 			if (ret == 1)
+ 				goto peek_stack;
+@@ -2798,6 +2799,12 @@ static bool states_equal(struct bpf_verifier_env *env,
+ 		     rcur->type != NOT_INIT))
+ 			continue;
+ 
++		/* Don't care about the reg->id in this case. */
++		if (rold->type == PTR_TO_MAP_VALUE_OR_NULL &&
++		    rcur->type == PTR_TO_MAP_VALUE_OR_NULL &&
++		    rold->map_ptr == rcur->map_ptr)
++			continue;
++
+ 		if (rold->type == PTR_TO_PACKET && rcur->type == PTR_TO_PACKET &&
+ 		    compare_ptrs_to_packet(rold, rcur))
+ 			continue;
+@@ -2932,6 +2939,9 @@ static int do_check(struct bpf_verifier_env *env)
+ 			goto process_bpf_exit;
+ 		}
+ 
++		if (need_resched())
++			cond_resched();
++
+ 		if (log_level > 1 || (log_level && do_print_state)) {
+ 			if (log_level > 1)
+ 				verbose("%d:", insn_idx);
+-- 
+1.9.3
