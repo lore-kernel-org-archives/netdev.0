@@ -1,31 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] qed: Remove unused including <linux/version.h>
-Date: Thu, 18 May 2017 15:19:03 -0400 (EDT)
-Message-ID: <20170518.151903.1887079306855217703.davem@davemloft.net>
-References: <20170518152629.12503-1-weiyj.lk@gmail.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net-next] net/mlx5e: Fix possible memory leak
+Date: Thu, 18 May 2017 15:19:09 -0400 (EDT)
+Message-ID: <20170518.151909.1042064929995125830.davem@davemloft.net>
+References: <20170518153441.24398-1-weiyj.lk@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Yuval.Mintz@cavium.com, Ariel.Elior@cavium.com,
-        weiyongjun1@huawei.com, everest-linux-l2@cavium.com,
-        netdev@vger.kernel.org
-To: weiyj.lk@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:46568 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932262AbdERTTG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 18 May 2017 15:19:06 -0400
-In-Reply-To: <20170518152629.12503-1-weiyj.lk@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+        hadarh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, weiyongjun1-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: weiyj.lk-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170518153441.24398-1-weiyj.lk-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Date: Thu, 18 May 2017 15:26:29 +0000
+From: Wei Yongjun <weiyj.lk-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date: Thu, 18 May 2017 15:34:41 +0000
 
-> From: Wei Yongjun <weiyongjun1@huawei.com>
+> From: Wei Yongjun <weiyongjun1-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
 > 
-> Remove including <linux/version.h> that is not needed.
+> 'encap_header' is malloced and should be freed before leaving from
+> the error handling cases, otherwise it will cause memory leak.
 > 
-> Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
+> Fixes: 232c001398ae ("net/mlx5e: Add support to neighbour update flow")
+> Signed-off-by: Wei Yongjun <weiyongjun1-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
 
 Applied.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
