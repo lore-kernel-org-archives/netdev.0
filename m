@@ -1,54 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] qed: Utilize FW 8.20.0.0
-Date: Thu, 18 May 2017 10:43:00 -0400 (EDT)
-Message-ID: <20170518.104300.795177460216894201.davem@davemloft.net>
-References: <1495049920-22782-1-git-send-email-Yuval.Mintz@cavium.com>
-        <20170518.103428.1194147893495615244.davem@davemloft.net>
+Subject: Re: [PATCH v2] e1000e: Don't return uninitialized stats
+Date: Thu, 18 May 2017 10:46:14 -0400 (EDT)
+Message-ID: <20170518.104614.1739169308591707817.davem@davemloft.net>
+References: <20170425175433.ykc6ilm6uo7e6my2@f1.synalogic.ca>
+        <20170517202413.18321-1-bpoirier@suse.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, linux-scsi@vger.kernel.org,
-        Chad.Dupuis@cavium.com, Ram.Amrani@cavium.com,
-        Tomer.Tayar@cavium.com, Manish.Rangankar@cavium.com
-To: Yuval.Mintz@cavium.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jeffrey.t.kirsher@intel.com, s.priebe@profihost.ag,
+        intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
+        pmenzel@molgen.mpg.de, sasha.neftin@intel.com,
+        aaron.f.brown@intel.com, stephen@networkplumber.org
+To: bpoirier@suse.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:43632 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:43672 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932494AbdEROnH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 18 May 2017 10:43:07 -0400
-In-Reply-To: <20170518.103428.1194147893495615244.davem@davemloft.net>
+        with ESMTP id S1756532AbdEROqW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 18 May 2017 10:46:22 -0400
+In-Reply-To: <20170517202413.18321-1-bpoirier@suse.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogVGh1LCAxOCBN
-YXkgMjAxNyAxMDozNDoyOCAtMDQwMCAoRURUKQ0KDQo+IEZyb206IFl1dmFsIE1pbnR6IDxZdXZh
-bC5NaW50ekBjYXZpdW0uY29tPg0KPiBEYXRlOiBXZWQsIDE3IE1heSAyMDE3IDIyOjM4OjQwICsw
-MzAwDQo+IA0KPj4gVGhpcyBwdXNoZXMgcWVkIFthbmQgYXMgcmVzdWx0LCBhbGwgcWVkKiBkcml2
-ZXJzXSBpbnRvIHVzaW5nIDguMjAuMC4wDQo+PiBmaXJtd2FyZS4gVGhlIGNoYW5nZXMgYXJlIG1v
-c3RseSBjb250YWluZWQgaW4gcWVkIHdpdGggbWlub3IgY2hhbmdlcw0KPj4gdG8gcWVkaSBkdWUg
-dG8gc29tZSBIU0kgY2hhbmdlcy4NCj4+IA0KPj4gQ29udGVudC13aXNlLCB0aGUgZmlybXdhcmUg
-Y29udGFpbnMgZml4ZXMgdG8gdmFyaW91cyBpc3N1ZXMgZXhwb3NlZA0KPj4gc2luY2UgdGhlIHJl
-bGVhc2Ugb2YgdGhlIHByZXZpb3VzIGZpcm13YXJlLCBpbmNsdWRpbmc6DQo+PiAgLSBDb3JyZWN0
-cyBpU0NTSSBmYXN0IHJldHJhbnNtaXQgd2hlbiBkYXRhIGRpZ2VzdCBpcyBlbmFibGVkLg0KPj4g
-IC0gU3RvcCBkcmFpbmluZyBwYWNrZXRzIHdoZW4gcmVjZWl2aW5nIHNldmVyYWwgY29uc2VjdXRp
-dmUgUEZDcy4NCj4+ICAtIFByZXZlbnQgcG9zc2libGUgYXNzZXJ0aW9uIHdoZW4gY29uc2VjdXRp
-dmVseSBvcGVuaW5nL2Nsb3NpbmcNCj4+ICAgIG1hbnkgY29ubmVjdGlvbnMuDQo+PiAgLSBQcmV2
-ZW50IHBvc3NpYmxlIGFzc2VydGlvbiBkdWUgdG8gdG9vIGxvbmcgQkRRIGZldGNoIHRpbWUuDQo+
-PiANCj4+IEluIGFkZGl0aW9uLCB0aGUgbmV3IGZpcm13YXJlIHdvdWxkIGFsbG93IHVzIHRvIGxh
-dGVyIGFkZCBpV0FSUCBzdXBwb3J0DQo+PiBpbiBxZWQgYW5kIHFlZHIuDQo+PiANCj4+IFNpZ25l
-ZC1vZmYtYnk6IENoYWQgRHVwdWlzIDxDaGFkLkR1cHVpc0BjYXZpdW0uY29tPg0KPj4gU2lnbmVk
-LW9mZi1ieTogUmFtIEFtcmFuaSA8UmFtLkFtcmFuaUBjYXZpdW0uY29tPg0KPj4gU2lnbmVkLW9m
-Zi1ieTogVG9tZXIgVGF5YXIgPFRvbWVyLlRheWFyQGNhdml1bS5jb20+DQo+PiBTaWduZWQtb2Zm
-LWJ5OiBNYW5pc2ggUmFuZ2Fua2FyIDxNYW5pc2guUmFuZ2Fua2FyQGNhdml1bS5jb20+DQo+PiBT
-aWduZWQtb2ZmLWJ5OiBZdXZhbCBNaW50eiA8WXV2YWwuTWludHpAY2F2aXVtLmNvbT4NCj4gDQo+
-IEFwcGxpZWQuDQoNCkFjdHVhbGx5IEkgaGFkIHRvIHJldmVydC4gIFBsZWFzZSBsb29rIGF0IHRo
-ZSBjb21waWxlciBvdXRwdXQgYmVmb3JlDQpzdWJtaXR0aW5nIGNoYW5nZXM6DQoNCmRyaXZlcnMv
-bmV0L2V0aGVybmV0L3Fsb2dpYy9xZWQvcWVkX2RlYnVnLmM6IEluIGZ1bmN0aW9uIKFxZWRfZ3Jj
-X2R1bXCiOg0KZHJpdmVycy9uZXQvZXRoZXJuZXQvcWxvZ2ljL3FlZC9xZWRfZGVidWcuYzoyNDI1
-OjY6IHdhcm5pbmc6IKFhZGRyoiBtYXkgYmUgdXNlZCB1bmluaXRpYWxpemVkIGluIHRoaXMgZnVu
-Y3Rpb24gWy1XbWF5YmUtdW5pbml0aWFsaXplZF0NCiAgdTMyIGJ5dGVfYWRkciA9IERXT1JEU19U
-T19CWVRFUyhhZGRyKSwgb2Zmc2V0ID0gMCwgaTsNCiAgICAgIF4NCmRyaXZlcnMvbmV0L2V0aGVy
-bmV0L3Fsb2dpYy9xZWQvcWVkX2RlYnVnLmM6MzUzNDo3OiBub3RlOiChYWRkcqIgd2FzIGRlY2xh
-cmVkIGhlcmUNCiAgIHUzMiBhZGRyLCBzaXplID0gUlNTX1JFR19SU1NfUkFNX0RBVEFfU0laRTsN
-CiAgICAgICBeDQoNCidhZGRyJyBpcyBuZXZlciwgZXZlciwgYXNzaWduZWQgYSB2YWx1ZSwgeWV0
-IGl0IGlzIHBhc3NlZCBpbnRvIGEgZnVuY3Rpb24gYXMgYW4NCmFyZ3VtZW50Lg0K
+From: Benjamin Poirier <bpoirier@suse.com>
+Date: Wed, 17 May 2017 16:24:13 -0400
+
+> Some statistics passed to ethtool are garbage because e1000e_get_stats64()
+> doesn't write them, for example: tx_heartbeat_errors. This leaks kernel
+> memory to userspace and confuses users.
+> 
+> Do like ixgbe and use dev_get_stats() which first zeroes out
+> rtnl_link_stats64.
+> 
+> Fixes: 5944701df90d ("net: remove useless memset's in drivers get_stats64")
+> Reported-by: Stefan Priebe <s.priebe@profihost.ag>
+> Signed-off-by: Benjamin Poirier <bpoirier@suse.com>
+
+Jeff, please be sure to pick this up, thanks.
