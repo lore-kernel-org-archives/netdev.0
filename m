@@ -1,66 +1,75 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [RFC] iproute: Add support for extended ack to rtnl_talk
-Date: Thu, 18 May 2017 12:02:07 +0200
-Message-ID: <591D711F.1000906@iogearbox.net>
-References: <20170503235638.31116-1-stephen@networkplumber.org> <590AF624.6090808@iogearbox.net>        <7315b681-9c78-4bc1-ab74-64509ab5887d@gmail.com>        <20170504.104103.1628291573330660235.davem@davemloft.net>       <20170504094356.66590a9a@xeon-e3>       <20170504204318.GB21130@orbyte.nwl.cc>  <f847c8d4-a6c0-66ab-0ac0-d83d6ea96a00@gmail.com> <20170516093625.178caf3f@xeon-e3>
+From: Oliver Neukum <oneukum@suse.com>
+Subject: Re: [RFC V1 1/1] net: cdc_ncm: Reduce memory use when kernel memory
+ low
+Date: Thu, 18 May 2017 12:01:52 +0200
+Message-ID: <1495101712.6672.4.camel@suse.com>
+References: <1494956480-6127-1-git-send-email-jim_baxter@mentor.com>
+         <1494956480-6127-2-git-send-email-jim_baxter@mentor.com>
+         <87shk4fynp.fsf@miraculix.mork.no>
+         <20170517.141819.1307166900606639947.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Phil Sutter <phil@nwl.cc>, David Miller <davem@davemloft.net>,
-        netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>,
-        David Ahern <dsahern@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:60174 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753994AbdERKCT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 18 May 2017 06:02:19 -0400
-In-Reply-To: <20170516093625.178caf3f@xeon-e3>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: jim_baxter@mentor.com, linux-kernel@vger.kernel.org,
+        linux-usb@vger.kernel.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>, bjorn@mork.no
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170517.141819.1307166900606639947.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 05/16/2017 06:36 PM, Stephen Hemminger wrote:
-> On Sat, 13 May 2017 19:29:57 -0600
-> David Ahern <dsahern@gmail.com> wrote:
->
->> On 5/4/17 2:43 PM, Phil Sutter wrote:
->>> So in summary, given that very little change happens to iproute2's
->>> internal libnetlink, I don't see much urge to make it use libmnl as
->>> backend. In my opinion it just adds another potential source of errors.
->>>
->>> Eventually this should be a maintainer level decision, though. :)
->>
->> What is the decision on this?
->
-> I am waiting for a longer before committing anything. This was to allow
-> for a wider range of distribution maintainer feedback.
->
-> The most likely outcome is that for 4.12 is to use libmnl for extended ack.
-> And continue to support building without mnl with loss of functionality.
->
-> As far as conversion of all of iproute2 to libmnl. I have better things
-> to do... But for new functionality like extended ack, devlink, tipc, using
-> libmnl is easy, safe and it works well. I will continue to not accept
-> new  code that depends on the other library (libnl). That has come up
-> a couple of times.
+Am Mittwoch, den 17.05.2017, 14:18 -0400 schrieb David Miller:
+> From: Bjørn Mork <bjorn@mork.no>
+> Date: Tue, 16 May 2017 20:24:10 +0200
+> 
+> > Jim Baxter <jim_baxter@mentor.com> writes:
+> > 
+> >> The CDC-NCM driver can require large amounts of memory to create
+> >> skb's and this can be a problem when the memory becomes fragmented.
+> >>
+> >> This especially affects embedded systems that have constrained
+> >> resources but wish to maximise the throughput of CDC-NCM with 16KiB
+> >> NTB's.
+> >>
+> >> The issue is after running for a while the kernel memory can become
+> >> fragmented and it needs compacting.
+> >> If the NTB allocation is needed before the memory has been compacted
+> >> the atomic allocation can fail which can cause increased latency,
+> >> large re-transmissions or disconnections depending upon the data
+> >> being transmitted at the time.
+> >> This situation occurs for less than a second until the kernel has
+> >> compacted the memory but the failed devices can take a lot longer to
+> >> recover from the failed TX packets.
+> >>
+> >> To ease this temporary situation I modified the CDC-NCM TX path to
+> >> temporarily switch into a reduced memory mode which allocates an NTB
+> >> that will fit into a USB_CDC_NCM_NTB_MIN_OUT_SIZE (default 2048 Bytes)
+> >> sized memory block and only transmit NTB's with a single network frame
+> >> until the memory situation is resolved.
+> >> Once the memory is compacted the CDC-NCM data can resume transmitting
+> >> at the normal tx_max rate once again.
+> > 
+> > I must say that I don't like the additional complexity added here.  If
+> > there are memory issues and you can reduce the buffer size to
+> > USB_CDC_NCM_NTB_MIN_OUT_SIZE, then why don't you just set a lower tx_max
+> > buffer size in the first place?
+> > 
+> >   echo 2048 > /sys/class/net/wwan0/cdc_ncm/tx_max
+> 
+> When there isn't memory pressure this will hurt performance of
+> course.
+> 
+> It is a quite common paradigm to back down to 0 order memory requests
+> when higher order ones fail, so this isn't such a bad change from the
+> perspective.
+> 
+> However, one negative about it is that when the system is under memory
+> stress it doesn't help at all to keep attemping high order allocations
+> when the system hasn't recovered yet.  In fact, this can make it
+> worse.
 
-So effectively this means libmnl has to be used for new stuff, noone
-has time to do the work to convert the existing tooling over (which
-by itself might be a challenge in testing everything to make sure
-there are no regressions) given there's not much activity around
-lib/libnetlink.c anyway, and existing users not using libmnl today
-won't see/notice new improvements on netlink side when they do an
-upgrade. So we'll be stuck with that dual library mess pretty much
-for a very long time. :(
+This makes me wonder why there is no notifier chain for this.
+Or am I just too stupid to find it?
 
-If there's such high desire to use libmnl (?), can't there be a
-one time effort wrapping the core netlink code over, making a hard
-cut for everyone where from one release to another the dependency
-becomes really mandatory rather than optional? That's more work
-initially, but still seems a lot better than growing a wild mix
-of both over time where users see different behavior of the tools
-depending on their setup. (This could perhaps also make actual
-conversion much harder later on.)
-
-Can't you add that lib conversion as a Google summer of code project,
-so that someone is actively taking care of that initial work?
+	Regards
+		Oliver
