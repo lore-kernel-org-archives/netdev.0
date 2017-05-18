@@ -1,66 +1,60 @@
-From: Oliver Neukum <oneukum@suse.com>
-Subject: Re: [PATCH] cdc-ether: divorce initialisation with a filter reset
- and a generic method
-Date: Thu, 18 May 2017 12:36:34 +0200
-Message-ID: <1495103794.6672.5.camel@suse.com>
-References: <20170518082328.10094-1-oneukum@suse.com>
-         <8737c2eat4.fsf@miraculix.mork.no>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: =?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net] mlxsw: spectrum: Avoid possible NULL pointer dereference
+Date: Thu, 18 May 2017 13:03:52 +0200
+Message-ID: <20170518110352.14807-1-jiri@resnulli.us>
+Cc: davem@davemloft.net, idosch@mellanox.com, mlxsw@mellanox.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:46501 "EHLO mx1.suse.de"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1754508AbdERKiF (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 18 May 2017 06:38:05 -0400
-In-Reply-To: <8737c2eat4.fsf@miraculix.mork.no>
+Received: from mail-wr0-f195.google.com ([209.85.128.195]:32859 "EHLO
+        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934263AbdERLD4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 18 May 2017 07:03:56 -0400
+Received: by mail-wr0-f195.google.com with SMTP id w50so5716207wrc.0
+        for <netdev@vger.kernel.org>; Thu, 18 May 2017 04:03:56 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Am Donnerstag, den 18.05.2017, 12:09 +0200 schrieb Bjørn Mork:
-> Oliver Neukum <oneukum@suse.com> writes:
-> 
-> > 
-> > @@ -417,7 +434,7 @@ int usbnet_cdc_bind(struct usbnet *dev, struct usb_interface *intf)
-> >  	BUILD_BUG_ON((sizeof(((struct usbnet *)0)->data)
-> >  			< sizeof(struct cdc_state)));
-> >  
-> > -	status = usbnet_generic_cdc_bind(dev, intf);
-> > +	status = usbnet_ether_cdc_bind(dev, intf);
-> >  	if (status < 0)
-> >  		return status;
-> >  
-> > @@ -472,7 +489,6 @@ static void usbnet_cdc_zte_status(struct usbnet *dev, struct urb *urb)
-> >  
-> >  	if (urb->actual_length < sizeof(*event))
-> >  		return;
-> > -
-> >  	event = urb->transfer_buffer;
-> >  
-> >  	if (event->bNotificationType != USB_CDC_NOTIFY_NETWORK_CONNECTION) {
-> > @@ -493,7 +509,7 @@ static void usbnet_cdc_zte_status(struct usbnet *dev, struct urb *urb)
-> >  static const struct driver_info	cdc_info = {
-> >  	.description =	"CDC Ethernet Device",
-> >  	.flags =	FLAG_ETHER | FLAG_POINTTOPOINT,
-> > -	.bind =		usbnet_cdc_bind,
-> > +	.bind =		usbnet_ether_cdc_bind,
-> >  	.unbind =	usbnet_cdc_unbind,
-> >  	.status =	usbnet_cdc_status,
-> >  	.set_rx_mode =	usbnet_cdc_update_filter,
-> 
-> 
-> I didn't quite get this.  You change the call in usbnet_cdc_bind() from
-> usbnet_generic_cdc_bind() to usbnet_ether_cdc_bind(), which I believe is
-> fine.  But then you update the .bind hook to point to usbnet_ether_cdc_bind.
-> Why?  The only effect I can see is that usbnet_get_ethernet_addr() is
-> skipped. That can't be correct?
+From: Ido Schimmel <idosch@mellanox.com>
 
-You are right. I am an idiot. I wanted to target RNDIS and missed totally.
-Thanks.
+In case we got an FDB notification for a port that doesn't exist we
+execute an FDB entry delete to prevent it from re-appearing the next
+time we poll for notifications.
 
-Dave please trash the patch.
+If the operation failed we would trigger a NULL pointer dereference as
+'mlxsw_sp_port' is NULL.
 
-	Regards
-		Oliver
+Fix it by reporting the error using the underlying bus device instead.
+
+Fixes: 12f1501e7511 ("mlxsw: spectrum: remove FDB entry in case we get unknown object notification")
+Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
+index 0d8411f..f4bb0c0 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
+@@ -1497,8 +1497,7 @@ static void mlxsw_sp_fdb_notify_mac_process(struct mlxsw_sp *mlxsw_sp,
+ 	err = mlxsw_sp_port_fdb_uc_op(mlxsw_sp, local_port, mac, fid,
+ 				      adding, true);
+ 	if (err) {
+-		if (net_ratelimit())
+-			netdev_err(mlxsw_sp_port->dev, "Failed to set FDB entry\n");
++		dev_err_ratelimited(mlxsw_sp->bus_info->dev, "Failed to set FDB entry\n");
+ 		return;
+ 	}
+ 
+@@ -1558,8 +1557,7 @@ static void mlxsw_sp_fdb_notify_mac_lag_process(struct mlxsw_sp *mlxsw_sp,
+ 	err = mlxsw_sp_port_fdb_uc_lag_op(mlxsw_sp, lag_id, mac, fid, lag_vid,
+ 					  adding, true);
+ 	if (err) {
+-		if (net_ratelimit())
+-			netdev_err(mlxsw_sp_port->dev, "Failed to set FDB entry\n");
++		dev_err_ratelimited(mlxsw_sp->bus_info->dev, "Failed to set FDB entry\n");
+ 		return;
+ 	}
+ 
+-- 
+2.9.3
