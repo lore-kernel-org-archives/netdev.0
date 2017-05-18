@@ -1,38 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2] net: fix __skb_try_recv_from_queue to
- return the old behavior
-Date: Thu, 18 May 2017 10:33:19 -0400 (EDT)
-Message-ID: <20170518.103319.1210941190107364339.davem@davemloft.net>
-References: <1495011889.2644.5.camel@redhat.com>
-        <20170517183905.10971-1-avagin@openvz.org>
+Subject: Re: [PATCH net-next] qed: Utilize FW 8.20.0.0
+Date: Thu, 18 May 2017 10:34:28 -0400 (EDT)
+Message-ID: <20170518.103428.1194147893495615244.davem@davemloft.net>
+References: <1495049920-22782-1-git-send-email-Yuval.Mintz@cavium.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, pabeni@redhat.com, edumazet@google.com
-To: avagin@openvz.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:43536 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755400AbdEROdU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 18 May 2017 10:33:20 -0400
-In-Reply-To: <20170517183905.10971-1-avagin@openvz.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-scsi@vger.kernel.org,
+        Chad.Dupuis@cavium.com, Ram.Amrani@cavium.com,
+        Tomer.Tayar@cavium.com, Manish.Rangankar@cavium.com
+To: Yuval.Mintz@cavium.com
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <1495049920-22782-1-git-send-email-Yuval.Mintz@cavium.com>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Andrei Vagin <avagin@openvz.org>
-Date: Wed, 17 May 2017 11:39:05 -0700
+From: Yuval Mintz <Yuval.Mintz@cavium.com>
+Date: Wed, 17 May 2017 22:38:40 +0300
 
-> This function has to return NULL on a error case, because there is a
-> separate error variable.
+> This pushes qed [and as result, all qed* drivers] into using 8.20.0.0
+> firmware. The changes are mostly contained in qed with minor changes
+> to qedi due to some HSI changes.
 > 
-> The offset has to be changed only if skb is returned
+> Content-wise, the firmware contains fixes to various issues exposed
+> since the release of the previous firmware, including:
+>  - Corrects iSCSI fast retransmit when data digest is enabled.
+>  - Stop draining packets when receiving several consecutive PFCs.
+>  - Prevent possible assertion when consecutively opening/closing
+>    many connections.
+>  - Prevent possible assertion due to too long BDQ fetch time.
 > 
-> v2: fix udp code to not use an extra variable
+> In addition, the new firmware would allow us to later add iWARP support
+> in qed and qedr.
 > 
-> Cc: Paolo Abeni <pabeni@redhat.com>
-> Cc: Eric Dumazet <edumazet@google.com>
-> Cc: David S. Miller <davem@davemloft.net>
-> Fixes: 65101aeca522 ("net/sock: factor out dequeue/peek with offset cod")
-> Signed-off-by: Andrei Vagin <avagin@openvz.org>
+> Signed-off-by: Chad Dupuis <Chad.Dupuis@cavium.com>
+> Signed-off-by: Ram Amrani <Ram.Amrani@cavium.com>
+> Signed-off-by: Tomer Tayar <Tomer.Tayar@cavium.com>
+> Signed-off-by: Manish Rangankar <Manish.Rangankar@cavium.com>
+> Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
 
 Applied.
