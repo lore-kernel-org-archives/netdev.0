@@ -1,128 +1,62 @@
-From: Davide Caratti <dcaratti@redhat.com>
-Subject: [PATCH net-next v3 4/7] net: use skb->csum_not_inet to identify packets needing crc32c
-Date: Thu, 18 May 2017 15:44:40 +0200
-Message-ID: <b65e4810e79591f404497c93defc04eb27abec75.1495112302.git.dcaratti@redhat.com>
-References: <cover.1495112301.git.dcaratti@redhat.com>
-Cc: Alexander Duyck <alexander.duyck@gmail.com>,
-        Tom Herbert <tom@herbertland.com>,
-        David Laight <David.Laight@ACULAB.COM>,
-        "David S. Miller" <davem@davemloft.net>,
-        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-To: linux-sctp@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:58234 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1755226AbdERNpC (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 18 May 2017 09:45:02 -0400
-In-Reply-To: <cover.1495112301.git.dcaratti@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: [PATCH net-next 3/6] net: bridge: break if
+	__br_mdb_del fails
+Date: Thu, 18 May 2017 16:45:32 +0300
+Message-ID: <5d8f53ea-a9de-7c76-f088-48c5357cb2a2@cumulusnetworks.com>
+References: <20170517212709.6473-1-vivien.didelot@savoirfairelinux.com>
+	<20170517212709.6473-4-vivien.didelot@savoirfairelinux.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "moderated list:ETHERNET BRIDGE" <bridge@lists.linux-foundation.org>,
+	kernel@savoirfairelinux.com, linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+	netdev@vger.kernel.org
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <20170517212709.6473-4-vivien.didelot@savoirfairelinux.com>
+Content-Language: en-US
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-skb->csum_not_inet carries the indication on which algorithm is needed to
-compute checksum on skb in the transmit path, when skb->ip_summed is equal
-to CHECKSUM_PARTIAL. If skb carries a SCTP packet and crc32c hasn't been
-yet written in L4 header, skb->csum_not_inet is assigned to 1; otherwise,
-assume Internet Checksum is needed and thus set skb->csum_not_inet to 0.
+On 5/18/17 12:27 AM, Vivien Didelot wrote:
+> Be symmetric with br_mdb_add and break if __br_mdb_del returns an error.
+> 
+> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+> ---
+>   net/bridge/br_mdb.c | 5 +++--
+>   1 file changed, 3 insertions(+), 2 deletions(-)
+> 
+> diff --git a/net/bridge/br_mdb.c b/net/bridge/br_mdb.c
+> index d20a01622b20..24eeeefb4179 100644
+> --- a/net/bridge/br_mdb.c
+> +++ b/net/bridge/br_mdb.c
+> @@ -688,8 +688,9 @@ static int br_mdb_del(struct sk_buff *skb, struct nlmsghdr *nlh,
+>   		list_for_each_entry(v, &vg->vlan_list, vlist) {
+>   			entry->vid = v->vid;
+>   			err = __br_mdb_del(br, entry);
+> -			if (!err)
+> -				__br_mdb_notify(dev, p, entry, RTM_DELMDB);
+> +			if (err)
+> +				break;
+> +			__br_mdb_notify(dev, p, entry, RTM_DELMDB);
+>   		}
+>   	} else {
+>   		err = __br_mdb_del(br, entry);
+> 
 
-Suggested-by: Tom Herbert <tom@herbertland.com>
-Signed-off-by: Davide Caratti <dcaratti@redhat.com>
-Acked-by: Tom Herbert <tom@herbertland.com>
----
- include/linux/skbuff.h | 16 +++++++++-------
- net/core/dev.c         |  1 +
- net/sched/act_csum.c   |  1 +
- net/sctp/offload.c     |  1 +
- net/sctp/output.c      |  1 +
- 5 files changed, 13 insertions(+), 7 deletions(-)
+This can potentially break user-space scripts that rely on the best-effort
+behaviour, this is the normal "delete without vid & enabled vlan filtering".
+You can check the fdb delete code which does the same, this was intentional.
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index c38f890..a43d208 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -189,12 +189,13 @@
-  *
-  *   NETIF_F_SCTP_CRC - This feature indicates that a device is capable of
-  *     offloading the SCTP CRC in a packet. To perform this offload the stack
-- *     will set ip_summed to CHECKSUM_PARTIAL and set csum_start and csum_offset
-- *     accordingly. Note the there is no indication in the skbuff that the
-- *     CHECKSUM_PARTIAL refers to an SCTP checksum, a driver that supports
-- *     both IP checksum offload and SCTP CRC offload must verify which offload
-- *     is configured for a packet presumably by inspecting packet headers; in
-- *     case, skb_crc32c_csum_help is provided to compute CRC on SCTP packets.
-+ *     will set set csum_start and csum_offset accordingly, set ip_summed to
-+ *     CHECKSUM_PARTIAL and set csum_not_inet to 1, to provide an indication in
-+ *     the skbuff that the CHECKSUM_PARTIAL refers to CRC32c.
-+ *     A driver that supports both IP checksum offload and SCTP CRC32c offload
-+ *     must verify which offload is configured for a packet by testing the
-+ *     value of skb->csum_not_inet; skb_crc32c_csum_help is provided to resolve
-+ *     CHECKSUM_PARTIAL on skbs where csum_not_inet is set to 1.
-  *
-  *   NETIF_F_FCOE_CRC - This feature indicates that a device is capable of
-  *     offloading the FCOE CRC in a packet. To perform this offload the stack
-@@ -557,6 +558,7 @@ typedef unsigned char *sk_buff_data_t;
-  *	@wifi_acked_valid: wifi_acked was set
-  *	@wifi_acked: whether frame was acked on wifi or not
-  *	@no_fcs:  Request NIC to treat last 4 bytes as Ethernet FCS
-+ *	@csum_not_inet: use CRC32c to resolve CHECKSUM_PARTIAL
-  *	@dst_pending_confirm: need to confirm neighbour
-   *	@napi_id: id of the NAPI struct this skb came from
-  *	@secmark: security marking
-@@ -685,7 +687,7 @@ struct sk_buff {
- 	__u8			csum_valid:1;
- 	__u8			csum_complete_sw:1;
- 	__u8			csum_level:2;
--	__u8			__csum_bad_unused:1; /* one bit hole */
-+	__u8			csum_not_inet:1;
- 
- 	__u8			dst_pending_confirm:1;
- #ifdef CONFIG_IPV6_NDISC_NODETYPE
-diff --git a/net/core/dev.c b/net/core/dev.c
-index f0281ff..71107d1 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2649,6 +2649,7 @@ int skb_crc32c_csum_help(struct sk_buff *skb)
- 						  crc32c_csum_stub));
- 	*(__le32 *)(skb->data + offset) = crc32c_csum;
- 	skb->ip_summed = CHECKSUM_NONE;
-+	skb->csum_not_inet = 0;
- out:
- 	return ret;
- }
-diff --git a/net/sched/act_csum.c b/net/sched/act_csum.c
-index ab6fdbd..3317a2f 100644
---- a/net/sched/act_csum.c
-+++ b/net/sched/act_csum.c
-@@ -350,6 +350,7 @@ static int tcf_csum_sctp(struct sk_buff *skb, unsigned int ihl,
- 	sctph->checksum = sctp_compute_cksum(skb,
- 					     skb_network_offset(skb) + ihl);
- 	skb->ip_summed = CHECKSUM_NONE;
-+	skb->csum_not_inet = 0;
- 
- 	return 1;
- }
-diff --git a/net/sctp/offload.c b/net/sctp/offload.c
-index b671984..275925b 100644
---- a/net/sctp/offload.c
-+++ b/net/sctp/offload.c
-@@ -35,6 +35,7 @@
- static __le32 sctp_gso_make_checksum(struct sk_buff *skb)
- {
- 	skb->ip_summed = CHECKSUM_NONE;
-+	skb->csum_not_inet = 0;
- 	return sctp_compute_cksum(skb, skb_transport_offset(skb));
- }
- 
-diff --git a/net/sctp/output.c b/net/sctp/output.c
-index 1409a87..e2edf2e 100644
---- a/net/sctp/output.c
-+++ b/net/sctp/output.c
-@@ -538,6 +538,7 @@ static int sctp_packet_pack(struct sctp_packet *packet,
- 	} else {
- chksum:
- 		head->ip_summed = CHECKSUM_PARTIAL;
-+		head->csum_not_inet = 1;
- 		head->csum_start = skb_transport_header(head) - head->head;
- 		head->csum_offset = offsetof(struct sctphdr, checksum);
- 	}
--- 
-2.7.4
+You can add an mdb entry without a vid to all vlans, add a vlan and then try
+to remove it from all vlans where it is present - with this patch obviously
+that will fail at the new vlan.
