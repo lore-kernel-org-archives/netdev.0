@@ -1,47 +1,84 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 15/15] tcp: switch TCP TS option (RFC 7323) to
- 1ms clock
-Date: Thu, 18 May 2017 05:33:45 -0700
-Message-ID: <1495110825.6465.22.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20170516210014.31176-1-edumazet@google.com>
-         <20170516210014.31176-16-edumazet@google.com>
+From: Oliver Neukum <oneukum@suse.com>
+Subject: [RFC]RNDIS filter issue
+Date: Thu, 18 May 2017 14:38:05 +0200
+Message-ID: <1495111085.6672.7.camel@suse.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S . Miller" <davem@davemloft.net>,
-        Neal Cardwell <ncardwell@google.com>,
-        Yuchung Cheng <ycheng@google.com>,
-        Soheil Hassas Yeganeh <soheil@google.com>,
-        Wei Wang <weiwan@google.com>, netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <edumazet@google.com>
+Content-Type: multipart/mixed; boundary="=-YoRD3ShSROFPb3qC4MpE"
+Cc: netdev@vger.kernel.org
+To: =?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:34629 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751221AbdERMds (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 18 May 2017 08:33:48 -0400
-Received: by mail-pg0-f66.google.com with SMTP id u187so5848680pgb.1
-        for <netdev@vger.kernel.org>; Thu, 18 May 2017 05:33:47 -0700 (PDT)
-In-Reply-To: <20170516210014.31176-16-edumazet@google.com>
+Received: from mx2.suse.de ([195.135.220.15]:34439 "EHLO mx1.suse.de"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1754308AbdERMjg (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 18 May 2017 08:39:36 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2017-05-16 at 14:00 -0700, Eric Dumazet wrote:
-> TCP Timestamps option is defined in RFC 7323
-> 
-> Traditionally on linux, it has been tied to the internal
-> 'jiffies' variable, because it had been a cheap and good enough
-> generator.
 
-...
+--=-YoRD3ShSROFPb3qC4MpE
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
 
-> @@ -3003,7 +3004,7 @@ void tcp_rearm_rto(struct sock *sk)
->  			struct sk_buff *skb = tcp_write_queue_head(sk);
->  			const u32 rto_time_stamp =
->  				tcp_skb_timestamp(skb) + rto;
-> -			s32 delta = (s32)(rto_time_stamp - tcp_time_stamp);
-> +			s32 delta = (s32)(rto_time_stamp - tcp_jiffies32);
->  			/* delta may not be positive if the socket is locked
->  			 * when the retrans timer fires and is rescheduled.
->  			 */
+Hi,
 
-RTO is broken, I will send a fix after tests.
+now, as this patch is conceptually not my thing, here for review.
+
+	Regards
+		Oliver
+
+--=-YoRD3ShSROFPb3qC4MpE
+Content-Disposition: attachment;
+	filename*0=0001-cdc-ether-divorce-initialisation-with-a-filter-reset.pat;
+	filename*1=ch
+Content-Transfer-Encoding: base64
+Content-Type: text/x-patch;
+	name="0001-cdc-ether-divorce-initialisation-with-a-filter-reset.patch";
+	charset="UTF-8"
+
+RnJvbSBmOGY3NzU4MTdiNmYzYmQ2MzZlM2I0NWNiMzRkYjRhZjI3OTQ5MmZmIE1vbiBTZXAgMTcg
+MDA6MDA6MDAgMjAwMQpGcm9tOiBPbGl2ZXIgTmV1a3VtIDxvbmV1a3VtQHN1c2UuY29tPgpEYXRl
+OiBXZWQsIDE3IE1heSAyMDE3IDExOjQwOjEyICswMjAwClN1YmplY3Q6IFtQQVRDSF0gY2RjLWV0
+aGVyOiBkaXZvcmNlIGluaXRpYWxpc2F0aW9uIHdpdGggYSBmaWx0ZXIgcmVzZXQgYW5kIGEKIGdl
+bmVyaWMgbWV0aG9kCgpTb21lIGRldmljZXMgbmVlZCB0aGVpciBtdWx0aWNhc3QgZmlsdGVyIHJl
+c2V0IGJ1dCBvdGhlcnMgYXJlIGNyYXNoZWQgYnkgdGhhdC4KU28gdGhlIG1ldGhvZHMgbmVlZCB0
+byBiZSBzZXBhcmF0ZWQuCgpTaWduZWQtb2ZmLWJ5OiBPbGl2ZXIgTmV1a3VtIDxvbmV1a3VtQHN1
+c2UuY29tPgpSZXBvcnRlZC1ieTogIlJpZGd3YXksIEtlaXRoIiA8a3JpZGd3YXlAaGFycmlzLmNv
+bT4KLS0tCiBkcml2ZXJzL25ldC91c2IvY2RjX2V0aGVyLmMgfCAzMiArKysrKysrKysrKysrKysr
+KysrKysrKystLS0tLS0tLQogMSBmaWxlIGNoYW5nZWQsIDI0IGluc2VydGlvbnMoKyksIDggZGVs
+ZXRpb25zKC0pCgpkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvdXNiL2NkY19ldGhlci5jIGIvZHJp
+dmVycy9uZXQvdXNiL2NkY19ldGhlci5jCmluZGV4IGYzYWU4OGZkZjMzMi4uMzExZjZkZjU3MzE2
+IDEwMDY0NAotLS0gYS9kcml2ZXJzL25ldC91c2IvY2RjX2V0aGVyLmMKKysrIGIvZHJpdmVycy9u
+ZXQvdXNiL2NkY19ldGhlci5jCkBAIC0zMTAsNiArMzEwLDI2IEBAIGludCB1c2JuZXRfZ2VuZXJp
+Y19jZGNfYmluZChzdHJ1Y3QgdXNibmV0ICpkZXYsIHN0cnVjdCB1c2JfaW50ZXJmYWNlICppbnRm
+KQogCQlyZXR1cm4gLUVOT0RFVjsKIAl9CiAKKwlyZXR1cm4gMDsKKworYmFkX2Rlc2M6CisJZGV2
+X2luZm8oJmRldi0+dWRldi0+ZGV2LCAiYmFkIENEQyBkZXNjcmlwdG9yc1xuIik7CisJcmV0dXJu
+IC1FTk9ERVY7Cit9CitFWFBPUlRfU1lNQk9MX0dQTCh1c2JuZXRfZ2VuZXJpY19jZGNfYmluZCk7
+CisKKworLyogbGlrZSB1c2JuZXRfZ2VuZXJpY19jZGNfYmluZCgpIGJ1dCBoYW5kbGVzIGZpbHRl
+ciBpbml0aWFsaXphdGlvbgorICogY29ycmVjdGx5CisgKi8KK2ludCB1c2JuZXRfZXRoZXJfY2Rj
+X2JpbmQoc3RydWN0IHVzYm5ldCAqZGV2LCBzdHJ1Y3QgdXNiX2ludGVyZmFjZSAqaW50ZikKK3sK
+KwlpbnQgcnY7CisKKwlydiA9IHVzYm5ldF9nZW5lcmljX2NkY19iaW5kKGRldiwgaW50Zik7CisJ
+aWYgKHJ2IDwgMCkKKwkJZ290byBiYWlsX291dDsKKwogCS8qIFNvbWUgZGV2aWNlcyBkb24ndCBp
+bml0aWFsaXNlIHByb3Blcmx5LiBJbiBwYXJ0aWN1bGFyCiAJICogdGhlIHBhY2tldCBmaWx0ZXIg
+aXMgbm90IHJlc2V0LiBUaGVyZSBhcmUgZGV2aWNlcyB0aGF0CiAJICogZG9uJ3QgZG8gcmVzZXQg
+YWxsIHRoZSB3YXkuIFNvIHRoZSBwYWNrZXQgZmlsdGVyIHNob3VsZApAQCAtMzE3LDEzICszMzcs
+MTAgQEAgaW50IHVzYm5ldF9nZW5lcmljX2NkY19iaW5kKHN0cnVjdCB1c2JuZXQgKmRldiwgc3Ry
+dWN0IHVzYl9pbnRlcmZhY2UgKmludGYpCiAJICovCiAJdXNibmV0X2NkY191cGRhdGVfZmlsdGVy
+KGRldik7CiAKLQlyZXR1cm4gMDsKLQotYmFkX2Rlc2M6Ci0JZGV2X2luZm8oJmRldi0+dWRldi0+
+ZGV2LCAiYmFkIENEQyBkZXNjcmlwdG9yc1xuIik7Ci0JcmV0dXJuIC1FTk9ERVY7CitiYWlsX291
+dDoKKwlyZXR1cm4gcnY7CiB9Ci1FWFBPUlRfU1lNQk9MX0dQTCh1c2JuZXRfZ2VuZXJpY19jZGNf
+YmluZCk7CitFWFBPUlRfU1lNQk9MX0dQTCh1c2JuZXRfZXRoZXJfY2RjX2JpbmQpOwogCiB2b2lk
+IHVzYm5ldF9jZGNfdW5iaW5kKHN0cnVjdCB1c2JuZXQgKmRldiwgc3RydWN0IHVzYl9pbnRlcmZh
+Y2UgKmludGYpCiB7CkBAIC00MTcsNyArNDM0LDcgQEAgaW50IHVzYm5ldF9jZGNfYmluZChzdHJ1
+Y3QgdXNibmV0ICpkZXYsIHN0cnVjdCB1c2JfaW50ZXJmYWNlICppbnRmKQogCUJVSUxEX0JVR19P
+Tigoc2l6ZW9mKCgoc3RydWN0IHVzYm5ldCAqKTApLT5kYXRhKQogCQkJPCBzaXplb2Yoc3RydWN0
+IGNkY19zdGF0ZSkpKTsKIAotCXN0YXR1cyA9IHVzYm5ldF9nZW5lcmljX2NkY19iaW5kKGRldiwg
+aW50Zik7CisJc3RhdHVzID0gdXNibmV0X2V0aGVyX2NkY19iaW5kKGRldiwgaW50Zik7CiAJaWYg
+KHN0YXR1cyA8IDApCiAJCXJldHVybiBzdGF0dXM7CiAKQEAgLTQ3Miw3ICs0ODksNiBAQCBzdGF0
+aWMgdm9pZCB1c2JuZXRfY2RjX3p0ZV9zdGF0dXMoc3RydWN0IHVzYm5ldCAqZGV2LCBzdHJ1Y3Qg
+dXJiICp1cmIpCiAKIAlpZiAodXJiLT5hY3R1YWxfbGVuZ3RoIDwgc2l6ZW9mKCpldmVudCkpCiAJ
+CXJldHVybjsKLQogCWV2ZW50ID0gdXJiLT50cmFuc2Zlcl9idWZmZXI7CiAKIAlpZiAoZXZlbnQt
+PmJOb3RpZmljYXRpb25UeXBlICE9IFVTQl9DRENfTk9USUZZX05FVFdPUktfQ09OTkVDVElPTikg
+ewotLSAKMi4xMi4wCgo=
+
+
+--=-YoRD3ShSROFPb3qC4MpE--
