@@ -1,104 +1,58 @@
 From: Miroslav Lichvar <mlichvar@redhat.com>
-Subject: [PATCH v5 net-next 7/7] net: ethernet: update drivers to make both SW and HW TX timestamps
-Date: Thu, 18 May 2017 16:07:38 +0200
-Message-ID: <20170518140738.19617-8-mlichvar@redhat.com>
+Subject: [PATCH v5 net-next 1/7] net: define receive timestamp filter for NTP
+Date: Thu, 18 May 2017 16:07:32 +0200
+Message-ID: <20170518140738.19617-2-mlichvar@redhat.com>
 References: <20170518140738.19617-1-mlichvar@redhat.com>
 Cc: Richard Cochran <richardcochran@gmail.com>,
         Willem de Bruijn <willemb@google.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:60358 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:2024 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1756092AbdEROHs (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 18 May 2017 10:07:48 -0400
+        id S1755760AbdEROH5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 18 May 2017 10:07:57 -0400
 In-Reply-To: <20170518140738.19617-1-mlichvar@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Some drivers were calling the skb_tx_timestamp() function only when
-a hardware timestamp was not requested. Now that applications can use
-the SOF_TIMESTAMPING_OPT_TX_SWHW option to request both software and
-hardware timestamps, the drivers need to be modified to unconditionally
-call skb_tx_timestamp().
+Add HWTSTAMP_FILTER_NTP_ALL to the hwtstamp_rx_filters enum for
+timestamping of NTP packets. There is currently only one driver
+(phyter) that could support it directly.
 
 CC: Richard Cochran <richardcochran@gmail.com>
 CC: Willem de Bruijn <willemb@google.com>
 Signed-off-by: Miroslav Lichvar <mlichvar@redhat.com>
 ---
- drivers/net/ethernet/amd/xgbe/xgbe-drv.c          | 3 +--
- drivers/net/ethernet/intel/e1000e/netdev.c        | 4 ++--
- drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c   | 3 +--
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 6 ++----
- 4 files changed, 6 insertions(+), 10 deletions(-)
+ include/uapi/linux/net_tstamp.h | 3 +++
+ net/core/dev_ioctl.c            | 2 ++
+ 2 files changed, 5 insertions(+)
 
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
-index 89b21d7..5a2ad9c 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
-@@ -1391,8 +1391,7 @@ static void xgbe_prep_tx_tstamp(struct xgbe_prv_data *pdata,
- 		spin_unlock_irqrestore(&pdata->tstamp_lock, flags);
- 	}
- 
--	if (!XGMAC_GET_BITS(packet->attributes, TX_PACKET_ATTRIBUTES, PTP))
--		skb_tx_timestamp(skb);
-+	skb_tx_timestamp(skb);
- }
- 
- static void xgbe_prep_vlan(struct sk_buff *skb, struct xgbe_packet_data *packet)
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index 0ff9295..6ed3bc4 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -5868,10 +5868,10 @@ static netdev_tx_t e1000_xmit_frame(struct sk_buff *skb,
- 			adapter->tx_hwtstamp_skb = skb_get(skb);
- 			adapter->tx_hwtstamp_start = jiffies;
- 			schedule_work(&adapter->tx_hwtstamp_work);
--		} else {
--			skb_tx_timestamp(skb);
- 		}
- 
-+		skb_tx_timestamp(skb);
+diff --git a/include/uapi/linux/net_tstamp.h b/include/uapi/linux/net_tstamp.h
+index 464dcca..0749fb1 100644
+--- a/include/uapi/linux/net_tstamp.h
++++ b/include/uapi/linux/net_tstamp.h
+@@ -125,6 +125,9 @@ enum hwtstamp_rx_filters {
+ 	HWTSTAMP_FILTER_PTP_V2_SYNC,
+ 	/* PTP v2/802.AS1, any layer, Delay_req packet */
+ 	HWTSTAMP_FILTER_PTP_V2_DELAY_REQ,
 +
- 		netdev_sent_queue(netdev, skb->len);
- 		e1000_tx_queue(tx_ring, tx_flags, count);
- 		/* Make sure there is space in the ring for the next send. */
-diff --git a/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c b/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c
-index 1e59435..89831ad 100644
---- a/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c
-+++ b/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c
-@@ -1418,8 +1418,7 @@ static netdev_tx_t sxgbe_xmit(struct sk_buff *skb, struct net_device *dev)
- 		priv->hw->desc->tx_enable_tstamp(first_desc);
++	/* NTP, UDP, all versions and packet modes */
++	HWTSTAMP_FILTER_NTP_ALL,
+ };
+ 
+ #endif /* _NET_TIMESTAMPING_H */
+diff --git a/net/core/dev_ioctl.c b/net/core/dev_ioctl.c
+index b94b1d2..8f036a7 100644
+--- a/net/core/dev_ioctl.c
++++ b/net/core/dev_ioctl.c
+@@ -227,6 +227,8 @@ static int net_hwtstamp_validate(struct ifreq *ifr)
+ 	case HWTSTAMP_FILTER_PTP_V2_DELAY_REQ:
+ 		rx_filter_valid = 1;
+ 		break;
++	case HWTSTAMP_FILTER_NTP_ALL:
++		break;
  	}
  
--	if (!tqueue->hwts_tx_en)
--		skb_tx_timestamp(skb);
-+	skb_tx_timestamp(skb);
- 
- 	priv->hw->dma->enable_dma_transmission(priv->ioaddr, txq_index);
- 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index cce862b..27c12e7 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -2880,8 +2880,7 @@ static netdev_tx_t stmmac_tso_xmit(struct sk_buff *skb, struct net_device *dev)
- 		priv->xstats.tx_set_ic_bit++;
- 	}
- 
--	if (!priv->hwts_tx_en)
--		skb_tx_timestamp(skb);
-+	skb_tx_timestamp(skb);
- 
- 	if (unlikely((skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP) &&
- 		     priv->hwts_tx_en)) {
-@@ -3084,8 +3083,7 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
- 		priv->xstats.tx_set_ic_bit++;
- 	}
- 
--	if (!priv->hwts_tx_en)
--		skb_tx_timestamp(skb);
-+	skb_tx_timestamp(skb);
- 
- 	/* Ready to fill the first descriptor and set the OWN bit w/o any
- 	 * problems because all the descriptors are actually ready to be
+ 	if (!tx_type_valid || !rx_filter_valid)
 -- 
 2.9.3
