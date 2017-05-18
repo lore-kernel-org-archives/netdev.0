@@ -1,115 +1,60 @@
-From: Miroslav Lichvar <mlichvar@redhat.com>
-Subject: [PATCH v4 net-next 3/7] net: add function to retrieve original skb device using NAPI ID
-Date: Thu, 18 May 2017 15:06:52 +0200
-Message-ID: <20170518130656.24163-4-mlichvar@redhat.com>
-References: <20170518130656.24163-1-mlichvar@redhat.com>
-Cc: Richard Cochran <richardcochran@gmail.com>,
-        Willem de Bruijn <willemb@google.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:60956 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1756134AbdERNHC (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 18 May 2017 09:07:02 -0400
-In-Reply-To: <20170518130656.24163-1-mlichvar@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Laurent Pinchart <laurent.pinchart@ideasonboard.com>
+Subject: Re: [PATCH 1/2] sh_eth: Use platform device for printing before register_netdev()
+Date: Thu, 18 May 2017 16:08:03 +0300
+Message-ID: <1924994.oxPFtnWdQK@avalon>
+References: <1495112495-25086-1-git-send-email-geert+renesas@glider.be>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        Laurent Pinchart <laurent.pinchart+renesas@ideasonboard.com>,
+        netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org
+To: Geert Uytterhoeven <geert+renesas@glider.be>
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+In-Reply-To: <1495112495-25086-1-git-send-email-geert+renesas@glider.be>
+Sender: linux-renesas-soc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Since commit b68581778cd0 ("net: Make skb->skb_iif always track
-skb->dev") skbs don't have the original index of the interface which
-received the packet. This information is now needed for a new control
-message related to hardware timestamping.
+Hi Geert,
 
-Instead of adding a new field to skb, we can find the device by the NAPI
-ID if it is available, i.e. CONFIG_NET_RX_BUSY_POLL is enabled and the
-driver is using NAPI. Add dev_get_by_napi_id() and also skb_napi_id() to
-hide the CONFIG_NET_RX_BUSY_POLL ifdef.
+Thank you for the patch.
 
-CC: Richard Cochran <richardcochran@gmail.com>
-Suggested-by: Willem de Bruijn <willemb@google.com>
-Acked-by: Willem de Bruijn <willemb@google.com>
-Signed-off-by: Miroslav Lichvar <mlichvar@redhat.com>
----
- include/linux/netdevice.h |  1 +
- include/linux/skbuff.h    |  9 +++++++++
- net/core/dev.c            | 26 ++++++++++++++++++++++++++
- 3 files changed, 36 insertions(+)
+On Thursday 18 May 2017 15:01:34 Geert Uytterhoeven wrote:
+> The MDIO initialization failure message is printed using the network
+> device, before it has been registered, leading to:
+> 
+>      (null): failed to initialise MDIO
+> 
+> Use the platform device instead to fix this:
+> 
+>     sh-eth ee700000.ethernet: failed to initialise MDIO
+> 
+> Fixes: daacf03f0bbfefee ("sh_eth: Register MDIO bus before registering the
+> network device")
+> Signed-off-by: Geert Uytterhoeven <geert+renesas@glider.be>
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 3f39d27..b6c36d5 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -2456,6 +2456,7 @@ static inline int dev_recursion_level(void)
- struct net_device *dev_get_by_index(struct net *net, int ifindex);
- struct net_device *__dev_get_by_index(struct net *net, int ifindex);
- struct net_device *dev_get_by_index_rcu(struct net *net, int ifindex);
-+struct net_device *dev_get_by_napi_id(unsigned int napi_id);
- int netdev_get_name(struct net *net, char *name, int ifindex);
- int dev_restart(struct net_device *dev);
- int skb_gro_receive(struct sk_buff **head, struct sk_buff *skb);
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 7c0cb2c..1f8028c 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -855,6 +855,15 @@ static inline bool skb_pkt_type_ok(u32 ptype)
- 	return ptype <= PACKET_OTHERHOST;
- }
- 
-+static inline unsigned int skb_napi_id(const struct sk_buff *skb)
-+{
-+#ifdef CONFIG_NET_RX_BUSY_POLL
-+	return skb->napi_id;
-+#else
-+	return 0;
-+#endif
-+}
-+
- void kfree_skb(struct sk_buff *skb);
- void kfree_skb_list(struct sk_buff *segs);
- void skb_tx_error(struct sk_buff *skb);
-diff --git a/net/core/dev.c b/net/core/dev.c
-index acd594c..6d3c452 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -162,6 +162,7 @@ static int netif_rx_internal(struct sk_buff *skb);
- static int call_netdevice_notifiers_info(unsigned long val,
- 					 struct net_device *dev,
- 					 struct netdev_notifier_info *info);
-+static struct napi_struct *napi_by_id(unsigned int napi_id);
- 
- /*
-  * The @dev_base_head list is protected by @dev_base_lock and the rtnl
-@@ -866,6 +867,31 @@ struct net_device *dev_get_by_index(struct net *net, int ifindex)
- EXPORT_SYMBOL(dev_get_by_index);
- 
- /**
-+ *	dev_get_by_napi_id - find a device by napi_id
-+ *	@napi_id: ID of the NAPI struct
-+ *
-+ *	Search for an interface by NAPI ID. Returns %NULL if the device
-+ *	is not found or a pointer to the device. The device has not had
-+ *	its reference counter increased so the caller must be careful
-+ *	about locking. The caller must hold RCU lock.
-+ */
-+
-+struct net_device *dev_get_by_napi_id(unsigned int napi_id)
-+{
-+	struct napi_struct *napi;
-+
-+	WARN_ON_ONCE(!rcu_read_lock_held());
-+
-+	if (napi_id < MIN_NAPI_ID)
-+		return NULL;
-+
-+	napi = napi_by_id(napi_id);
-+
-+	return napi ? napi->dev : NULL;
-+}
-+EXPORT_SYMBOL(dev_get_by_napi_id);
-+
-+/**
-  *	netdev_get_name - get a netdevice name, knowing its ifindex.
-  *	@net: network namespace
-  *	@name: a pointer to the buffer where the name will be stored.
+Reviewed-by: Laurent Pinchart <laurent.pinchart@ideasonboard.com>
+
+> ---
+>  drivers/net/ethernet/renesas/sh_eth.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/ethernet/renesas/sh_eth.c
+> b/drivers/net/ethernet/renesas/sh_eth.c index
+> f68c4db656eda846..c85222b02754f5a7 100644
+> --- a/drivers/net/ethernet/renesas/sh_eth.c
+> +++ b/drivers/net/ethernet/renesas/sh_eth.c
+> @@ -3220,7 +3220,7 @@ static int sh_eth_drv_probe(struct platform_device
+> *pdev) /* MDIO bus init */
+>  	ret = sh_mdio_init(mdp, pd);
+>  	if (ret) {
+> -		dev_err(&ndev->dev, "failed to initialise MDIO\n");
+> +		dev_err(&pdev->dev, "failed to initialise MDIO\n");
+>  		goto out_release;
+>  	}
+
 -- 
-2.9.3
+Regards,
+
+Laurent Pinchart
