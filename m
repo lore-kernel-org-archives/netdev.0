@@ -1,38 +1,26 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH v3] net: dsa: b53: Add compatible strings for the
- Cygnus-family BCM11360.
-Date: Thu, 18 May 2017 11:02:03 -0400 (EDT)
-Message-ID: <20170518.110203.1473505625966088377.davem@davemloft.net>
-References: <20170518003212.4028-1-eric@anholt.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch net 0/2] mlxsw: couple of fixes
+Date: Thu, 18 May 2017 11:05:56 -0400 (EDT)
+Message-ID: <20170518.110556.262558356401624769.davem@davemloft.net>
+References: <20170518071853.12279-1-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, vivien.didelot-4ysUXcep3aM1wj+D4I0NRVaTQe2KTcn/@public.gmane.org,
-        andrew-g2DYL2Zd6BY@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
-        mark.rutland-5wv7dgnIgG8@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        bcm-kernel-feedback-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, rjui-dY08KVG/lbpWk0Htik3J/w@public.gmane.org,
-        sbranden-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, jonmason-dY08KVG/lbpWk0Htik3J/w@public.gmane.org
-To: eric-WhKQ6XTQaPysTnJN9+BGXg@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170518003212.4028-1-eric-WhKQ6XTQaPysTnJN9+BGXg@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, idosch@mellanox.com, arkadis@mellanox.com,
+        mlxsw@mellanox.com
+To: jiri@resnulli.us
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:44022 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932643AbdERPGC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 18 May 2017 11:06:02 -0400
+In-Reply-To: <20170518071853.12279-1-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Eric Anholt <eric-WhKQ6XTQaPysTnJN9+BGXg@public.gmane.org>
-Date: Wed, 17 May 2017 17:32:12 -0700
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Thu, 18 May 2017 09:18:51 +0200
 
-> Cygnus is a small family of SoCs, of which we currently have
-> devicetree for BCM11360 and BCM58300.  The 11360's B53 is mostly the
-> same as 58xx, just requiring a tiny bit of setup that was previously
-> missing.
-> 
-> Signed-off-by: Eric Anholt <eric-WhKQ6XTQaPysTnJN9+BGXg@public.gmane.org>
-> Reviewed-by: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> Acked-by: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+> Couple of fixes from Arkadi
 
-Applied to net-next, thanks.
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Series applied.
