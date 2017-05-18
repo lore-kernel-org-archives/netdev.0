@@ -1,66 +1,97 @@
-From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
-Subject: RE: [PATCH net-next] qed: Utilize FW 8.20.0.0
-Date: Thu, 18 May 2017 15:28:21 +0000
-Message-ID: <BLUPR0701MB20044DA1ADB765CB620121778DE40@BLUPR0701MB2004.namprd07.prod.outlook.com>
-References: <1495049920-22782-1-git-send-email-Yuval.Mintz@cavium.com>
-        <20170518.103428.1194147893495615244.davem@davemloft.net>
- <20170518.104300.795177460216894201.davem@davemloft.net>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: [PATCH net-next 5/6] net: bridge: get msgtype from
+ nlmsghdr in mdb ops
+Date: Thu, 18 May 2017 18:28:46 +0300
+Message-ID: <ee5d9736-72ec-f4fd-8e9b-2c4179687e16@cumulusnetworks.com>
+References: <20170517212709.6473-1-vivien.didelot@savoirfairelinux.com>
+	<20170517212709.6473-6-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-7"
-Content-Transfer-Encoding: quoted-printable
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>,
-        "Dupuis, Chad" <Chad.Dupuis@cavium.com>,
-        "Amrani, Ram" <Ram.Amrani@cavium.com>,
-        "Tayar, Tomer" <Tomer.Tayar@cavium.com>,
-        "Rangankar, Manish" <Manish.Rangankar@cavium.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <20170518.104300.795177460216894201.davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "moderated list:ETHERNET BRIDGE" <bridge@lists.linux-foundation.org>,
+	kernel@savoirfairelinux.com, linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+	netdev@vger.kernel.org
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <20170517212709.6473-6-vivien.didelot@savoirfairelinux.com>
 Content-Language: en-US
-Sender: linux-scsi-owner@vger.kernel.org
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-> >> This pushes qed [and as result, all qed* drivers] into using 8.20.0.0
-> >> firmware. The changes are mostly contained in qed with minor changes
-> >> to qedi due to some HSI changes.
-> >>
-> >> Content-wise, the firmware contains fixes to various issues exposed
-> >> since the release of the previous firmware, including:
-> >>  - Corrects iSCSI fast retransmit when data digest is enabled.
-> >>  - Stop draining packets when receiving several consecutive PFCs.
-> >>  - Prevent possible assertion when consecutively opening/closing
-> >>    many connections.
-> >>  - Prevent possible assertion due to too long BDQ fetch time.
-> >>
-> >> In addition, the new firmware would allow us to later add iWARP
-> >> support in qed and qedr.
-> >>
-> >> Signed-off-by: Chad Dupuis <Chad.Dupuis@cavium.com>
-> >> Signed-off-by: Ram Amrani <Ram.Amrani@cavium.com>
-> >> Signed-off-by: Tomer Tayar <Tomer.Tayar@cavium.com>
-> >> Signed-off-by: Manish Rangankar <Manish.Rangankar@cavium.com>
-> >> Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
-> >
-> > Applied.
->=20
-> Actually I had to revert.  Please look at the compiler output before
-> submitting changes:
->=20
-> drivers/net/ethernet/qlogic/qed/qed_debug.c: In function =A1qed_grc_dump=
-=A2:
-> drivers/net/ethernet/qlogic/qed/qed_debug.c:2425:6: warning: =A1addr=A2 m=
-ay
-> be used uninitialized in this function [-Wmaybe-uninitialized]
->   u32 byte_addr =3D DWORDS_TO_BYTES(addr), offset =3D 0, i;
->       ^
-> drivers/net/ethernet/qlogic/qed/qed_debug.c:3534:7: note: =A1addr=A2 was
-> declared here
->    u32 addr, size =3D RSS_REG_RSS_RAM_DATA_SIZE;
->        ^
->=20
-> 'addr' is never, ever, assigned a value, yet it is passed into a function=
- as an
-> argument.
+On 5/18/17 12:27 AM, Vivien Didelot wrote:
+> Retrieve the message type from the nlmsghdr structure instead of
+> hardcoding it in both br_mdb_add and br_mdb_del.
+> 
+> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+> ---
+>   net/bridge/br_mdb.c | 10 ++++++----
+>   1 file changed, 6 insertions(+), 4 deletions(-)
+> 
+> diff --git a/net/bridge/br_mdb.c b/net/bridge/br_mdb.c
+> index a72d5e6f339f..d280b20587cb 100644
+> --- a/net/bridge/br_mdb.c
+> +++ b/net/bridge/br_mdb.c
+> @@ -569,6 +569,7 @@ static int br_mdb_add(struct sk_buff *skb, struct nlmsghdr *nlh,
+>   	struct net_bridge_port *p;
+>   	struct net_bridge_vlan *v;
+>   	struct net_bridge *br;
+> +	int msgtype = nlh->nlmsg_type;
 
-Sorry about that. Will send v2 [hopefully] later today.
+minor nits:
+nlmsg_type is a u16, also please keep the order and arrange these from longest 
+to shortest
+
+>   	int err;
+>   
+>   	err = br_mdb_parse(skb, nlh, &dev, &entry);
+> @@ -595,12 +596,12 @@ static int br_mdb_add(struct sk_buff *skb, struct nlmsghdr *nlh,
+>   	if (br_vlan_enabled(br) && vg && entry->vid == 0) {
+>   		list_for_each_entry(v, &vg->vlan_list, vlist) {
+>   			entry->vid = v->vid;
+> -			err = __br_mdb_do(p, entry, RTM_NEWMDB);
+> +			err = __br_mdb_do(p, entry, msgtype);
+>   			if (err)
+>   				break;
+>   		}
+>   	} else {
+> -		err = __br_mdb_do(p, entry, RTM_NEWMDB);
+> +		err = __br_mdb_do(p, entry, msgtype);
+>   	}
+>   
+>   	return err;
+> @@ -677,6 +678,7 @@ static int br_mdb_del(struct sk_buff *skb, struct nlmsghdr *nlh,
+>   	struct net_bridge_port *p;
+>   	struct net_bridge_vlan *v;
+>   	struct net_bridge *br;
+> +	int msgtype = nlh->nlmsg_type;
+
+same here
+
+>   	int err;
+>   
+>   	err = br_mdb_parse(skb, nlh, &dev, &entry);
+> @@ -703,12 +705,12 @@ static int br_mdb_del(struct sk_buff *skb, struct nlmsghdr *nlh,
+>   	if (br_vlan_enabled(br) && vg && entry->vid == 0) {
+>   		list_for_each_entry(v, &vg->vlan_list, vlist) {
+>   			entry->vid = v->vid;
+> -			err = __br_mdb_do(p, entry, RTM_DELMDB);
+> +			err = __br_mdb_do(p, entry, msgtype);
+>   			if (err)
+>   				break;
+>   		}
+>   	} else {
+> -		err = __br_mdb_do(p, entry, RTM_DELMDB);
+> +		err = __br_mdb_do(p, entry, msgtype);
+>   	}
+>   
+>   	return err;
+> 
