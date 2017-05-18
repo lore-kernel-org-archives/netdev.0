@@ -1,40 +1,101 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 0/7] crypto: aesni: provide generic gcm(aes)
-Date: Thu, 18 May 2017 13:28:00 +0800
-Message-ID: <20170518052800.GF32485@gondor.apana.org.au>
-References: <cover.1493395785.git.sd@queasysnail.net>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [net-intel-i40e] question about assignment overwrite
+Date: Wed, 17 May 2017 22:49:11 -0700
+Message-ID: <1495086551.46489.1.camel@intel.com>
+References: <20170517154858.Horde.xMvsIEhHNSGu52mfyp7HA3R@gator4166.hostgator.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        Thomas Gleixner <tglx@linutronix.de>,
-        Ingo Molnar <mingo@redhat.com>,
-        "H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org,
-        linux-crypto@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Sabrina Dubroca <sd@queasysnail.net>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <cover.1493395785.git.sd@queasysnail.net>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg="pgp-sha256";
+        protocol="application/pgp-signature"; boundary="=-Oc3/+GCnskuEQvLKrbxz"
+Cc: intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga14.intel.com ([192.55.52.115]:38001 "EHLO mga14.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752572AbdERFtO (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 18 May 2017 01:49:14 -0400
+In-Reply-To: <20170517154858.Horde.xMvsIEhHNSGu52mfyp7HA3R@gator4166.hostgator.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 28, 2017 at 06:11:55PM +0200, Sabrina Dubroca wrote:
-> The current aesni AES-GCM implementation only offers support for
-> rfc4106(gcm(aes)).  This makes some things a little bit simpler
-> (handling of associated data and authentication tag), but it means
-> that non-IPsec users of gcm(aes) have to rely on
-> gcm_base(ctr-aes-aesni,ghash-clmulni), which is much slower.
-> 
-> This patchset adds handling of all valid authentication tag lengths
-> and of any associated data length to the assembly code, and exposes a
-> generic gcm(aes) AEAD algorithm to the crypto API.
-> 
-> With these patches, performance of MACsec on a single core increases
-> by 40% (from 4.5Gbps to around 6.3Gbps).
 
-All patches applied.  Thanks.
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--=-Oc3/+GCnskuEQvLKrbxz
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: base64
+
+T24gV2VkLCAyMDE3LTA1LTE3IGF0IDE1OjQ4IC0wNTAwLCBHdXN0YXZvIEEuIFIuIFNpbHZhIHdy
+b3RlOgo+IFdoaWxlIGxvb2tpbmcgaW50byBDb3Zlcml0eSBJRCAxNDA4OTU2IEkgcmFuIGludG8g
+dGhlIGZvbGxvd2luZwo+IHBpZWNlwqDCoAo+IG9mIGNvZGUgYXQgZHJpdmVycy9uZXQvZXRoZXJu
+ZXQvaW50ZWwvaTQwZS9pNDBlX21haW4uYzo4ODA3Ogo+IAo+IDg4MDfCoMKgwqDCoMKgwqDCoCBp
+ZiAocGYtPmh3Lm1hYy50eXBlID09IEk0MEVfTUFDX1g3MjIpIHsKPiA4ODA4wqDCoMKgwqDCoMKg
+wqDCoMKgwqDCoMKgwqDCoMKgIHBmLT5mbGFncyB8PSBJNDBFX0ZMQUdfUlNTX0FRX0NBUEFCTEUK
+PiA4ODA5wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
+oMKgwqAgfCBJNDBFX0ZMQUdfMTI4X1FQX1JTU19DQVBBQkxFCj4gODgxMMKgwqDCoMKgwqDCoMKg
+wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgIHwgSTQwRV9GTEFHX0hX
+X0FUUl9FVklDVF9DQVBBQkxFCj4gODgxMcKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
+wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgIHwgSTQwRV9GTEFHX09VVEVSX1VEUF9DU1VNX0NBUEFC
+TEUKPiA4ODEywqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
+wqDCoMKgwqAgfCBJNDBFX0ZMQUdfV0JfT05fSVRSX0NBUEFCTEUKPiA4ODEzwqDCoMKgwqDCoMKg
+wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqAgfAo+IEk0MEVfRkxB
+R19NVUxUSVBMRV9UQ1BfVURQX1JTU19QQ1RZUEUKPiA4ODE0wqDCoMKgwqDCoMKgwqDCoMKgwqDC
+oMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqAgfCBJNDBFX0ZMQUdfTk9fUENJX0xJ
+TktfQ0hFQ0sKPiA4ODE1wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
+wqDCoMKgwqDCoMKgwqAgfCBJNDBFX0ZMQUdfVVNFX1NFVF9MTERQX01JQgo+IDg4MTbCoMKgwqDC
+oMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoCB8IEk0MEVf
+RkxBR19HRU5FVkVfT0ZGTE9BRF9DQVBBQkxFCj4gODgxN8KgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
+oMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgIHwgSTQwRV9GTEFHX1BUUF9MNF9DQVBB
+QkxFCj4gODgxOMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
+oMKgwqDCoMKgIHwgSTQwRV9GTEFHX1dPTF9NQ19NQUdJQ19QS1RfV0FLRTsKPiA4ODE5wqDCoMKg
+wqDCoMKgwqAgfSBlbHNlIGlmICgocGYtPmh3LmFxLmFwaV9tYWpfdmVyID4gMSkgfHwKPiA4ODIw
+wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgICgocGYtPmh3LmFxLmFwaV9tYWpf
+dmVyID09IDEpICYmCj4gODgyMcKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
+IChwZi0+aHcuYXEuYXBpX21pbl92ZXIgPiA0KSkpIHsKPiA4ODIywqDCoMKgwqDCoMKgwqDCoMKg
+wqDCoMKgwqDCoMKgIC8qIFN1cHBvcnRlZCBpbiBGVyBBUEkgdmVyc2lvbiBoaWdoZXIgdGhhbiAx
+LjQgKi8KPiA4ODIzwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgIHBmLT5mbGFncyB8PSBJ
+NDBFX0ZMQUdfR0VORVZFX09GRkxPQURfQ0FQQUJMRTsKPiA4ODI0wqDCoMKgwqDCoMKgwqDCoMKg
+wqDCoMKgwqDCoMKgIHBmLT5mbGFncyA9IEk0MEVfRkxBR19IV19BVFJfRVZJQ1RfQ0FQQUJMRTsK
+PiA4ODI1wqDCoMKgwqDCoMKgwqAgfSBlbHNlIHsKPiA4ODI2wqDCoMKgwqDCoMKgwqDCoMKgwqDC
+oMKgwqDCoMKgIHBmLT5mbGFncyA9IEk0MEVfRkxBR19IV19BVFJfRVZJQ1RfQ0FQQUJMRTsKPiA4
+ODI3wqDCoMKgwqDCoMKgwqAgfQo+IAo+IFRoZSBpc3N1ZSBoZXJlIGlzIHRoYXQgdGhlIGFzc2ln
+bm1lbnQgYXQgbGluZSA4ODIzIGlzIG92ZXJ3cml0dGVuCj4gYnnCoMKgCj4gdGhlIGNvZGUgYXQg
+bGluZSA4ODI0Lgo+IAo+IEknbSBzdXNwaWNpb3VzIHRoYXQgbGluZSA4ODI0IHNob3VsZCBiZSBy
+ZW1vdmUgYW5kIGEgcGF0Y2ggbGlrZSB0aGXCoMKgCj4gZm9sbG93aW5nIGNhbiBiZSBhcHBsaWVk
+Ogo+IAo+IGluZGV4IGQ1YzljOWUuLjQ4ZmZhNzMgMTAwNjQ0Cj4gLS0tIGEvZHJpdmVycy9uZXQv
+ZXRoZXJuZXQvaW50ZWwvaTQwZS9pNDBlX21haW4uYwo+ICsrKyBiL2RyaXZlcnMvbmV0L2V0aGVy
+bmV0L2ludGVsL2k0MGUvaTQwZV9tYWluLmMKPiBAQCAtODgyMSw3ICs4ODIxLDYgQEAgc3RhdGlj
+IGludCBpNDBlX3N3X2luaXQoc3RydWN0IGk0MGVfcGYgKnBmKQo+IMKgwqDCoMKgwqDCoMKgwqDC
+oMKgwqDCoMKgwqDCoMKgwqDCoMKgwqAgKHBmLT5ody5hcS5hcGlfbWluX3ZlciA+IDQpKSkgewo+
+IMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgIC8qIFN1cHBvcnRlZCBpbiBGVyBBUEkg
+dmVyc2lvbiBoaWdoZXIgdGhhbiAxLjQgKi8KPiDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
+wqDCoCBwZi0+ZmxhZ3MgfD0gSTQwRV9GTEFHX0dFTkVWRV9PRkZMT0FEX0NBUEFCTEU7Cj4gLcKg
+wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqAgcGYtPmZsYWdzID0gSTQwRV9GTEFHX0hXX0FUUl9F
+VklDVF9DQVBBQkxFOwo+IMKgwqDCoMKgwqDCoMKgwqAgfSBlbHNlIHsKPiDCoMKgwqDCoMKgwqDC
+oMKgwqDCoMKgwqDCoMKgwqDCoCBwZi0+ZmxhZ3MgPSBJNDBFX0ZMQUdfSFdfQVRSX0VWSUNUX0NB
+UEFCTEU7Cj4gwqDCoMKgwqDCoMKgwqDCoCB9Cj4gCj4gV2hhdCBkbyB5b3UgdGhpbms/CgpUaGlz
+IGlzc3VlIGlzIGFscmVhZHkgZml4ZWQgaW4gbXkgZGV2LXF1ZXVlIGJyYW5jaCBvbiBteSBuZXh0
+LXF1ZXVlCnRyZWUu
+
+
+--=-Oc3/+GCnskuEQvLKrbxz
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIzBAABCAAdFiEEiTyZWz+nnTrOJ1LZ5W/vlVpL7c4FAlkdNdcACgkQ5W/vlVpL
+7c4tmg//fxyJW3LMS3JUVt/JllIyOR3O/gjF4CDGRTEpguLKQTJV9IQnuI0Rxhzz
+b7r6DwRbsWXpXITfQehhUMoliKVvGon+19Kpp0Ku3JLkt8/YSFJc3IMONR3bZUXH
+uZEin/BxXOhxcFUg17LyRabkbEbf2tJ8LmdBeoCUWflYHV5aLu0lSAT0EhfIih5N
+aHZb2XH3otbHJ5NjKng1/T/E6RjJG5Z0sD3DZL2xvYx54GXJ4gcsDxUa4ID+Ja/e
+7DtIqZAo9wj87n/yk//TwoxTo8VBpPx5zUcTnDSqwp9o+hf4bfuJCfoRoVX9pI3C
+4VR1RsNtZnCiajUtdvtKP+ZttsdRCTeNTtOZ+mFDbOHkpEyAyN9ROrdJFOctdkbl
+zHylrKZjnkdYLmcpr9w8mD4S3cL/3SGa3gDO0dGgIjYXPXQDXR+j5YjU9mVE7pA5
+EbNoLG1uhyfm4EKvcIb54koS+AuBomUPN2CYWxGcYbwRqSPAd8UXf646XoeA3ANR
+w/A/vOljIR6BnNBq5iOZvX8tXiTqwj96gcOzVMr79rbUVjLeuSAqmlxzkfe9ZEuO
+5x25bHVAiu/WkGuPjo76Py9/qv1OSXWR6Q94ZuCnfbZPwqXwAEu6uLQRGuGOUqgO
+zomdwSOEDE4nQIR2RrB6CI0KWeDd6xzZxNpeOGkd1flVeg+yaiI=
+=r/f+
+-----END PGP SIGNATURE-----
+
+--=-Oc3/+GCnskuEQvLKrbxz--
