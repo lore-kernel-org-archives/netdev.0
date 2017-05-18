@@ -1,41 +1,55 @@
-From: Soheil Hassas Yeganeh <soheil@google.com>
-Subject: Re: [PATCH net-next] tcp: fix tcp_rearm_rto()
-Date: Thu, 18 May 2017 12:55:49 -0400
-Message-ID: <CACSApvZ6ohkO7tvU65SCFHy2FWoMppKaPST-3nWMimSruQO16w@mail.gmail.com>
-References: <20170516210014.31176-1-edumazet@google.com> <20170516210014.31176-16-edumazet@google.com>
- <1495110825.6465.22.camel@edumazet-glaptop3.roam.corp.google.com> <1495124158.6465.30.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [Patch RFC net-next] net: usb: r8152: Fix rx_bytes/tx_bytes to
+ include FCS
+Date: Thu, 18 May 2017 10:00:36 -0700
+Message-ID: <b020ca48-d19a-9281-ee8a-d29038ee2b96@gmail.com>
+References: <1495052615-14360-1-git-send-email-andrew@lunn.ch>
+ <286d107e-2380-f8e9-3edf-c949707ea235@gmail.com>
+ <20170518150925.GB707@lunn.ch>
+ <20170518.112256.671702749693595449.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Eric Dumazet <edumazet@google.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        Neal Cardwell <ncardwell@google.com>,
-        Yuchung Cheng <ycheng@google.com>,
-        Wei Wang <weiwan@google.com>, netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, hayeswang@realtek.com,
+        mario_limonciello@dell.com
+To: David Miller <davem@davemloft.net>, andrew@lunn.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f171.google.com ([209.85.223.171]:35442 "EHLO
-        mail-io0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932635AbdERQ4b (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 18 May 2017 12:56:31 -0400
-Received: by mail-io0-f171.google.com with SMTP id f102so32235981ioi.2
-        for <netdev@vger.kernel.org>; Thu, 18 May 2017 09:56:31 -0700 (PDT)
-In-Reply-To: <1495124158.6465.30.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-wm0-f46.google.com ([74.125.82.46]:37217 "EHLO
+        mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933350AbdERRAm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 18 May 2017 13:00:42 -0400
+Received: by mail-wm0-f46.google.com with SMTP id d127so59330456wmf.0
+        for <netdev@vger.kernel.org>; Thu, 18 May 2017 10:00:42 -0700 (PDT)
+In-Reply-To: <20170518.112256.671702749693595449.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 18, 2017 at 12:15 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> From: Eric Dumazet <edumazet@google.com>
->
-> skbs in (re)transmit queue no longer have a copy of jiffies
-> at the time of the transmit : skb->skb_mstamp is now in usec unit,
-> with no correlation to tcp_jiffies32.
->
-> We have to convert rto from jiffies to usec, compute a time difference
-> in usec, then convert the delta to HZ units.
->
-> Fixes: 9a568de4818d ("tcp: switch TCP TS option (RFC 7323) to 1ms clock")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+On 05/18/2017 08:22 AM, David Miller wrote:
+> From: Andrew Lunn <andrew@lunn.ch>
+> Date: Thu, 18 May 2017 17:09:25 +0200
+> 
+>> Since these are software counters, they can be consistent. From a
+>> practical point of view, i doubt they ever will all be consistent,
+>> there are simply too many drivers to test and change if
+>> needed. However, for the ones somebody cares about, they can be made
+>> consistent.
+>>
+>> I care about r8152, and would like to make it consistent with asix,
+>> dsa, e1000e.
+> 
+> No objection from me for making software counters consistent.
+> 
 
-Acked-by: Soheil Hassas Yeganeh <soheil@google.com>
+No objection for me as well, but I think we need to agree on what these
+software counters represent, since there are several cases:
 
-Thank you for the quick fix, Eric!
+- BQL cares about bytes sent on the wire, so that should not include
+pre/appended descriptors nor the FCS (nor the Ethernet preamble),
+tx_bytes should be equivalent to that
+
+- if we don't include the FCS on transmit, why should we include it on
+receive? rx_bytes should have the same rules as tx_bytes: no
+status/descriptor bytes, no FCS etc.
+-- 
+Florian
