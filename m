@@ -1,48 +1,57 @@
 From: Matthias Kaehlcke <mka@chromium.org>
-Subject: [PATCH] r8152: Remove unused function usb_ocp_read()
-Date: Thu, 18 May 2017 10:45:33 -0700
-Message-ID: <20170518174533.79413-1-mka@chromium.org>
+Subject: [PATCH] net1080: Remove unused function nc_dump_ttl()
+Date: Thu, 18 May 2017 10:57:19 -0700
+Message-ID: <20170518175719.103143-1-mka@chromium.org>
 Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org,
         linux-kernel@vger.kernel.org, Matthias Kaehlcke <mka@chromium.org>
-To: "David S . Miller" <davem@davemloft.net>,
-        hayeswang <hayeswang@realtek.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f178.google.com ([209.85.192.178]:33631 "EHLO
-        mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755059AbdERRpk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 18 May 2017 13:45:40 -0400
-Received: by mail-pf0-f178.google.com with SMTP id e193so27293507pfh.0
-        for <netdev@vger.kernel.org>; Thu, 18 May 2017 10:45:40 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: "David S . Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 The function is not used, removing it fixes the following warning when
 building with clang:
 
-drivers/net/usb/r8152.c:825:5: error: unused function 'usb_ocp_read'
-    [-Werror,-Wunused-function]
+drivers/net/usb/net1080.c:271:20: error: unused function
+    'nc_dump_ttl' [-Werror,-Wunused-function]
+
+Also remove the definition of TTL_THIS, which is only used in
+nc_dump_ttl()
 
 Signed-off-by: Matthias Kaehlcke <mka@chromium.org>
 ---
- drivers/net/usb/r8152.c | 6 ------
- 1 file changed, 6 deletions(-)
+ drivers/net/usb/net1080.c | 9 ---------
+ 1 file changed, 9 deletions(-)
 
-diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index ddc62cb69be8..e902df9595b9 100644
---- a/drivers/net/usb/r8152.c
-+++ b/drivers/net/usb/r8152.c
-@@ -841,12 +841,6 @@ int pla_ocp_write(struct r8152 *tp, u16 index, u16 byteen, u16 size, void *data)
- }
+diff --git a/drivers/net/usb/net1080.c b/drivers/net/usb/net1080.c
+index 4cbdb1307f3e..3202c19df83d 100644
+--- a/drivers/net/usb/net1080.c
++++ b/drivers/net/usb/net1080.c
+@@ -264,17 +264,9 @@ static inline void nc_dump_status(struct usbnet *dev, u16 status)
+  * TTL register
+  */
  
- static inline
--int usb_ocp_read(struct r8152 *tp, u16 index, u16 size, void *data)
+-#define	TTL_THIS(ttl)	(0x00ff & ttl)
+ #define	TTL_OTHER(ttl)	(0x00ff & (ttl >> 8))
+ #define MK_TTL(this,other)	((u16)(((other)<<8)|(0x00ff&(this))))
+ 
+-static inline void nc_dump_ttl(struct usbnet *dev, u16 ttl)
 -{
--	return generic_ocp_read(tp, index, size, data, MCU_TYPE_USB);
+-	netif_dbg(dev, link, dev->net, "net1080 %s-%s ttl 0x%x this = %d, other = %d\n",
+-		  dev->udev->bus->bus_name, dev->udev->devpath,
+-		  ttl, TTL_THIS(ttl), TTL_OTHER(ttl));
 -}
 -
--static inline
- int usb_ocp_write(struct r8152 *tp, u16 index, u16 byteen, u16 size, void *data)
- {
- 	return generic_ocp_write(tp, index, byteen, size, data, MCU_TYPE_USB);
+ /*-------------------------------------------------------------------------*/
+ 
+ static int net1080_reset(struct usbnet *dev)
+@@ -308,7 +300,6 @@ static int net1080_reset(struct usbnet *dev)
+ 		goto done;
+ 	}
+ 	ttl = vp;
+-	// nc_dump_ttl(dev, ttl);
+ 
+ 	nc_register_write(dev, REG_TTL,
+ 			MK_TTL(NC_READ_TTL_MS, TTL_OTHER(ttl)) );
 -- 
 2.13.0.303.g4ebf302169-goog
