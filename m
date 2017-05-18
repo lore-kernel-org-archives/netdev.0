@@ -1,147 +1,66 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: Re: [PATCH net-next v2] net: fix __skb_try_recv_from_queue to
- return the old behavior
-Date: Thu, 18 May 2017 11:53:56 +0200
-Message-ID: <1495101236.2479.8.camel@redhat.com>
-References: <1495011889.2644.5.camel@redhat.com>
-         <20170517183905.10971-1-avagin@openvz.org>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [RFC] iproute: Add support for extended ack to rtnl_talk
+Date: Thu, 18 May 2017 12:02:07 +0200
+Message-ID: <591D711F.1000906@iogearbox.net>
+References: <20170503235638.31116-1-stephen@networkplumber.org> <590AF624.6090808@iogearbox.net>        <7315b681-9c78-4bc1-ab74-64509ab5887d@gmail.com>        <20170504.104103.1628291573330660235.davem@davemloft.net>       <20170504094356.66590a9a@xeon-e3>       <20170504204318.GB21130@orbyte.nwl.cc>  <f847c8d4-a6c0-66ab-0ac0-d83d6ea96a00@gmail.com> <20170516093625.178caf3f@xeon-e3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>
-To: Andrei Vagin <avagin@openvz.org>,
-        "David S. Miller" <davem@davemloft.net>
+Cc: Phil Sutter <phil@nwl.cc>, David Miller <davem@davemloft.net>,
+        netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>,
+        David Ahern <dsahern@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:59804 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751782AbdERJx7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 18 May 2017 05:53:59 -0400
-In-Reply-To: <20170517183905.10971-1-avagin@openvz.org>
+Received: from www62.your-server.de ([213.133.104.62]:60174 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753994AbdERKCT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 18 May 2017 06:02:19 -0400
+In-Reply-To: <20170516093625.178caf3f@xeon-e3>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2017-05-17 at 11:39 -0700, Andrei Vagin wrote:
-> This function has to return NULL on a error case, because there is a
-> separate error variable.
-> 
-> The offset has to be changed only if skb is returned
-> 
-> v2: fix udp code to not use an extra variable
-> 
-> Cc: Paolo Abeni <pabeni@redhat.com>
-> Cc: Eric Dumazet <edumazet@google.com>
-> Cc: David S. Miller <davem@davemloft.net>
-> Fixes: 65101aeca522 ("net/sock: factor out dequeue/peek with offset cod")
-> Signed-off-by: Andrei Vagin <avagin@openvz.org>
-> ---
->  net/core/datagram.c | 14 ++++++++------
->  net/ipv4/udp.c      | 12 +++---------
->  2 files changed, 11 insertions(+), 15 deletions(-)
-> 
-> diff --git a/net/core/datagram.c b/net/core/datagram.c
-> index a4592b4..bc46118 100644
-> --- a/net/core/datagram.c
-> +++ b/net/core/datagram.c
-> @@ -170,20 +170,21 @@ struct sk_buff *__skb_try_recv_from_queue(struct sock *sk,
->  					  struct sk_buff **last)
->  {
->  	struct sk_buff *skb;
-> +	int _off = *off;
->  
->  	*last = queue->prev;
->  	skb_queue_walk(queue, skb) {
->  		if (flags & MSG_PEEK) {
-> -			if (*off >= skb->len && (skb->len || *off ||
-> +			if (_off >= skb->len && (skb->len || _off ||
->  						 skb->peeked)) {
-> -				*off -= skb->len;
-> +				_off -= skb->len;
->  				continue;
->  			}
->  			if (!skb->len) {
->  				skb = skb_set_peeked(skb);
->  				if (unlikely(IS_ERR(skb))) {
->  					*err = PTR_ERR(skb);
-> -					return skb;
-> +					return NULL;
->  				}
->  			}
->  			*peeked = 1;
-> @@ -193,6 +194,7 @@ struct sk_buff *__skb_try_recv_from_queue(struct sock *sk,
->  			if (destructor)
->  				destructor(sk, skb);
->  		}
-> +		*off = _off;
->  		return skb;
->  	}
->  	return NULL;
-> @@ -253,8 +255,6 @@ struct sk_buff *__skb_try_recv_datagram(struct sock *sk, unsigned int flags,
->  
->  	*peeked = 0;
->  	do {
-> -		int _off = *off;
-> -
->  		/* Again only user level code calls this function, so nothing
->  		 * interrupt level will suddenly eat the receive_queue.
->  		 *
-> @@ -263,8 +263,10 @@ struct sk_buff *__skb_try_recv_datagram(struct sock *sk, unsigned int flags,
->  		 */
->  		spin_lock_irqsave(&queue->lock, cpu_flags);
->  		skb = __skb_try_recv_from_queue(sk, queue, flags, destructor,
-> -						peeked, &_off, err, last);
-> +						peeked, off, &error, last);
->  		spin_unlock_irqrestore(&queue->lock, cpu_flags);
-> +		if (error)
-> +			goto no_packet;
->  		if (skb)
->  			return skb;
->  
-> diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-> index 7bd56c9..278e707 100644
-> --- a/net/ipv4/udp.c
-> +++ b/net/ipv4/udp.c
-> @@ -1465,16 +1465,13 @@ struct sk_buff *__skb_recv_udp(struct sock *sk, unsigned int flags,
->  		error = -EAGAIN;
->  		*peeked = 0;
->  		do {
-> -			int _off = *off;
-> -
->  			spin_lock_bh(&queue->lock);
->  			skb = __skb_try_recv_from_queue(sk, queue, flags,
->  							udp_skb_destructor,
-> -							peeked, &_off, err,
-> +							peeked, off, err,
->  							&last);
->  			if (skb) {
->  				spin_unlock_bh(&queue->lock);
-> -				*off = _off;
->  				return skb;
->  			}
->  
-> @@ -1488,20 +1485,17 @@ struct sk_buff *__skb_recv_udp(struct sock *sk, unsigned int flags,
->  			 * the sk_receive_queue lock if fwd memory scheduling
->  			 * is needed.
->  			 */
-> -			_off = *off;
->  			spin_lock(&sk_queue->lock);
->  			skb_queue_splice_tail_init(sk_queue, queue);
->  
->  			skb = __skb_try_recv_from_queue(sk, queue, flags,
->  							udp_skb_dtor_locked,
-> -							peeked, &_off, err,
-> +							peeked, off, err,
->  							&last);
->  			spin_unlock(&sk_queue->lock);
->  			spin_unlock_bh(&queue->lock);
-> -			if (skb) {
-> -				*off = _off;
-> +			if (skb)
->  				return skb;
-> -			}
->  
->  busy_check:
->  			if (!sk_can_busy_loop(sk))
+On 05/16/2017 06:36 PM, Stephen Hemminger wrote:
+> On Sat, 13 May 2017 19:29:57 -0600
+> David Ahern <dsahern@gmail.com> wrote:
+>
+>> On 5/4/17 2:43 PM, Phil Sutter wrote:
+>>> So in summary, given that very little change happens to iproute2's
+>>> internal libnetlink, I don't see much urge to make it use libmnl as
+>>> backend. In my opinion it just adds another potential source of errors.
+>>>
+>>> Eventually this should be a maintainer level decision, though. :)
+>>
+>> What is the decision on this?
+>
+> I am waiting for a longer before committing anything. This was to allow
+> for a wider range of distribution maintainer feedback.
+>
+> The most likely outcome is that for 4.12 is to use libmnl for extended ack.
+> And continue to support building without mnl with loss of functionality.
+>
+> As far as conversion of all of iproute2 to libmnl. I have better things
+> to do... But for new functionality like extended ack, devlink, tipc, using
+> libmnl is easy, safe and it works well. I will continue to not accept
+> new  code that depends on the other library (libnl). That has come up
+> a couple of times.
 
-LGTM, thanks!
+So effectively this means libmnl has to be used for new stuff, noone
+has time to do the work to convert the existing tooling over (which
+by itself might be a challenge in testing everything to make sure
+there are no regressions) given there's not much activity around
+lib/libnetlink.c anyway, and existing users not using libmnl today
+won't see/notice new improvements on netlink side when they do an
+upgrade. So we'll be stuck with that dual library mess pretty much
+for a very long time. :(
 
-Acked-by: Paolo Abeni <pabeni@redhat.com>
+If there's such high desire to use libmnl (?), can't there be a
+one time effort wrapping the core netlink code over, making a hard
+cut for everyone where from one release to another the dependency
+becomes really mandatory rather than optional? That's more work
+initially, but still seems a lot better than growing a wild mix
+of both over time where users see different behavior of the tools
+depending on their setup. (This could perhaps also make actual
+conversion much harder later on.)
+
+Can't you add that lib conversion as a Google summer of code project,
+so that someone is actively taking care of that initial work?
