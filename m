@@ -1,82 +1,157 @@
-From: Julia Lawall <julia.lawall@lip6.fr>
-Subject: [net:master 9/12] net/ipv6/ip6_offload.c:120:7-21: WARNING: Unsigned
- expression compared with zero: unfrag_ip6hlen < 0 (fwd)
-Date: Thu, 18 May 2017 10:01:07 +0800 (SGT)
-Message-ID: <alpine.DEB.2.20.1705181000150.3833@hadrien>
+From: Peter Dawson <petedaws@gmail.com>
+Subject: Re: [PATCH] ip6_tunnel, ip6_gre: fix setting of DSCP on encapsulated packets
+Date: Thu, 18 May 2017 12:49:01 +1000
+Message-ID: <CANX4UBcureLm+7wkC1C6=ZvV4JNTKzSCvzv-hV=w77O_WF4ntA@mail.gmail.com>
+References: <5fba416f3f644db2b1f51e54724ef6ba@XCH15-07-02.nw.nos.boeing.com>
+ <20170517181800.07788dd8@xeon-e3> <579256095bc540bab2668f55a6a2c25b@XCH15-07-02.nw.nos.boeing.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: netdev@vger.kernel.org, kbuild-all@01.org
-To: Craig Gallek <kraig@google.com>
+Content-Type: multipart/mixed; boundary="001a114c81de8724ba054fc3721c"
+Cc: netdev@vger.kernel.org
+To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail3-relais-sop.national.inria.fr ([192.134.164.104]:61546
-        "EHLO mail3-relais-sop.national.inria.fr" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1753143AbdERCBk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 17 May 2017 22:01:40 -0400
+Received: from mail-yw0-f180.google.com ([209.85.161.180]:34893 "EHLO
+        mail-yw0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753553AbdERCtD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 17 May 2017 22:49:03 -0400
+Received: by mail-yw0-f180.google.com with SMTP id l74so14892846ywe.2
+        for <netdev@vger.kernel.org>; Wed, 17 May 2017 19:49:02 -0700 (PDT)
+In-Reply-To: <579256095bc540bab2668f55a6a2c25b@XCH15-07-02.nw.nos.boeing.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+--001a114c81de8724ba054fc3721c
+Content-Type: text/plain; charset="UTF-8"
 
-It may be worth checking on these.  The code context is shown in the first
-case (line 120).  For the others, at least it gives the line numbers.
+>> This fix addresses two problems in the way the DSCP field is
+>> formulated on the  encapsulating header of IPv6 tunnels.
+>> This fix addresses Bug 195661.
+>> https://bugzilla.kernel.org/show_bug.cgi?id=195661
+>>
+>> 1) The IPv6 tunneling code was manipulating the DSCP field of the
+>> encapsulating  packet using the 32b flowlabel. Since the flowlabel is
+>> only the lower 20b it  was incorrect to assume that the upper 12b
+>> containing the DSCP and ECN fields  would remain intact when
+>> formulating the encapsulating header. This fix  handles the 'inherit'
+>> and 'fixed-value' DSCP cases explicitly using the extant  dsfield u8 variable.
+>>
+>> 2) The use of INET_ECN_encapsulate(0, dsfield) in ip6_tnl_xmit was
+>> incorrect  and resulted in the DSCP value always being set to 0.
+>> ---
+>>  net/ipv6/ip6_gre.c    | 18 ++++++++++--------
+>>  net/ipv6/ip6_tunnel.c | 28 +++++++++++++++++-----------
+>>  2 files changed, 27 insertions(+), 19 deletions(-)
+>
+> This patch looks correct, but has trivial style issues like using spaces instead of tabs and other junk.  Please run checkpatch.pl, look at the results and resubmit.
 
-julia
+Thanks.  I've run checkpatch.pl over this updated file with no errors.
+Regards
+Peter
 
----------- Forwarded message ----------
-Date: Thu, 18 May 2017 09:07:31 +0800
-From: kbuild test robot <fengguang.wu@intel.com>
-To: kbuild@01.org
-Cc: Julia Lawall <julia.lawall@lip6.fr>
-Subject: [net:master 9/12] net/ipv6/ip6_offload.c:120:7-21: WARNING: Unsigned
-    expression compared with zero: unfrag_ip6hlen < 0
+--001a114c81de8724ba054fc3721c
+Content-Type: text/x-diff; charset="US-ASCII"; name="tunnel_inherit.patch"
+Content-Disposition: attachment; filename="tunnel_inherit.patch"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_j2ttfyen1
 
-CC: kbuild-all@01.org
-CC: netdev@vger.kernel.org
-TO: Craig Gallek <kraig@google.com>
-
-tree:   https://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git master
-head:   579f1d926c66cc0bd3bd87b1fe2e091084b07430
-commit: 2423496af35d94a87156b063ea5cedffc10a70a1 [9/12] ipv6: Prevent overrun when parsing v6 header options
-:::::: branch date: 2 hours ago
-:::::: commit date: 6 hours ago
-
->> net/ipv6/ip6_offload.c:120:7-21: WARNING: Unsigned expression compared with zero: unfrag_ip6hlen < 0
---
->> net/ipv6/ip6_output.c:601:5-9: WARNING: Unsigned expression compared with zero: hlen < 0
---
->> net/ipv6/udp_offload.c:94:6-20: WARNING: Unsigned expression compared with zero: unfrag_ip6hlen < 0
-
-git remote add net https://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git
-git remote update net
-git checkout 2423496af35d94a87156b063ea5cedffc10a70a1
-vim +120 net/ipv6/ip6_offload.c
-
-d1da932e Vlad Yasevich        2012-11-15  104
-07b26c94 Steffen Klassert     2016-09-19  105  	gso_partial = !!(skb_shinfo(segs)->gso_type & SKB_GSO_PARTIAL);
-07b26c94 Steffen Klassert     2016-09-19  106
-d1da932e Vlad Yasevich        2012-11-15  107  	for (skb = segs; skb; skb = skb->next) {
-d3e5e006 Eric Dumazet         2013-10-20  108  		ipv6h = (struct ipv6hdr *)(skb_mac_header(skb) + nhoff);
-07b26c94 Steffen Klassert     2016-09-19  109  		if (gso_partial)
-802ab55a Alexander Duyck      2016-04-10  110  			payload_len = skb_shinfo(skb)->gso_size +
-802ab55a Alexander Duyck      2016-04-10  111  				      SKB_GSO_CB(skb)->data_offset +
-802ab55a Alexander Duyck      2016-04-10  112  				      skb->head - (unsigned char *)(ipv6h + 1);
-802ab55a Alexander Duyck      2016-04-10  113  		else
-802ab55a Alexander Duyck      2016-04-10  114  			payload_len = skb->len - nhoff - sizeof(*ipv6h);
-802ab55a Alexander Duyck      2016-04-10  115  		ipv6h->payload_len = htons(payload_len);
-d3e5e006 Eric Dumazet         2013-10-20  116  		skb->network_header = (u8 *)ipv6h - skb->head;
-d3e5e006 Eric Dumazet         2013-10-20  117
-91a48a2e Hannes Frederic Sowa 2014-02-24  118  		if (udpfrag) {
-d1da932e Vlad Yasevich        2012-11-15  119  			unfrag_ip6hlen = ip6_find_1stfragopt(skb, &prevhdr);
-2423496a Craig Gallek         2017-05-16 @120  			if (unfrag_ip6hlen < 0)
-2423496a Craig Gallek         2017-05-16  121  				return ERR_PTR(unfrag_ip6hlen);
-d3e5e006 Eric Dumazet         2013-10-20  122  			fptr = (struct frag_hdr *)((u8 *)ipv6h + unfrag_ip6hlen);
-d1da932e Vlad Yasevich        2012-11-15  123  			fptr->frag_off = htons(offset);
-53b24b8f Ian Morris           2015-03-29  124  			if (skb->next)
-d1da932e Vlad Yasevich        2012-11-15  125  				fptr->frag_off |= htons(IP6_MF);
-d1da932e Vlad Yasevich        2012-11-15  126  			offset += (ntohs(ipv6h->payload_len) -
-d1da932e Vlad Yasevich        2012-11-15  127  				   sizeof(struct frag_hdr));
-d1da932e Vlad Yasevich        2012-11-15  128  		}
-
----
-0-DAY kernel test infrastructure                Open Source Technology Center
-https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
+RnJvbSBmMTJhZGIyNjVmNjgzZDUzYWUwNzE3MjVlNjU3ZGFiMTdkMjZlZDhkIE1vbiBTZXAgMTcg
+MDA6MDA6MDAgMjAwMQpGcm9tOiBQZXRlciBEYXdzb24gPHBldGVyLmEuZGF3c29uQGJvZWluZy5j
+b20+CkRhdGU6IFRodSwgMTggTWF5IDIwMTcgMTE6NTI6MjIgKzEwMDAKU3ViamVjdDogW1BBVENI
+XSBpcDZfdHVubmVsLCBpcDZfZ3JlOiBmaXggc2V0dGluZyBvZiBEU0NQIG9uIGVuY2Fwc3VsYXRl
+ZAogcGFja2V0cwoKVGhpcyBmaXggYWRkcmVzc2VzIHR3byBwcm9ibGVtcyBpbiB0aGUgd2F5IHRo
+ZSBEU0NQIGZpZWxkIGlzIGZvcm11bGF0ZWQKIG9uIHRoZSBlbmNhcHN1bGF0aW5nIGhlYWRlciBv
+ZiBJUHY2IHR1bm5lbHMuClRoaXMgZml4IGFkZHJlc3NlcyBCdWcgMTk1NjYxLgoKMSkgVGhlIElQ
+djYgdHVubmVsaW5nIGNvZGUgd2FzIG1hbmlwdWxhdGluZyB0aGUgRFNDUCBmaWVsZCBvZiB0aGUK
+IGVuY2Fwc3VsYXRpbmcgcGFja2V0IHVzaW5nIHRoZSAzMmIgZmxvd2xhYmVsLiBTaW5jZSB0aGUg
+Zmxvd2xhYmVsIGlzCiBvbmx5IHRoZSBsb3dlciAyMGIgaXQgd2FzIGluY29ycmVjdCB0byBhc3N1
+bWUgdGhhdCB0aGUgdXBwZXIgMTJiCiBjb250YWluaW5nIHRoZSBEU0NQIGFuZCBFQ04gZmllbGRz
+IHdvdWxkIHJlbWFpbiBpbnRhY3Qgd2hlbiBmb3JtdWxhdGluZwogdGhlIGVuY2Fwc3VsYXRpbmcg
+aGVhZGVyLiBUaGlzIGZpeCBoYW5kbGVzIHRoZSAnaW5oZXJpdCcgYW5kCiAnZml4ZWQtdmFsdWUn
+IERTQ1AgY2FzZXMgZXhwbGljaXRseSB1c2luZyB0aGUgZXh0YW50IGRzZmllbGQgdTggdmFyaWFi
+bGUuCgoyKSBUaGUgdXNlIG9mIElORVRfRUNOX2VuY2Fwc3VsYXRlKDAsIGRzZmllbGQpIGluIGlw
+Nl90bmxfeG1pdCB3YXMKIGluY29ycmVjdCBhbmQgcmVzdWx0ZWQgaW4gdGhlIERTQ1AgdmFsdWUg
+YWx3YXlzIGJlaW5nIHNldCB0byAwLgoKU2lnbmVkLW9mZi1ieTogUGV0ZXIgRGF3c29uIDxwZXRl
+ci5hLmRhd3NvbkBib2VpbmcuY29tPgotLS0KIG5ldC9pcHY2L2lwNl9ncmUuYyAgICB8IDEzICsr
+KysrKystLS0tLS0KIG5ldC9pcHY2L2lwNl90dW5uZWwuYyB8IDIxICsrKysrKysrKysrKystLS0t
+LS0tLQogMiBmaWxlcyBjaGFuZ2VkLCAyMCBpbnNlcnRpb25zKCspLCAxNCBkZWxldGlvbnMoLSkK
+CmRpZmYgLS1naXQgYS9uZXQvaXB2Ni9pcDZfZ3JlLmMgYi9uZXQvaXB2Ni9pcDZfZ3JlLmMKaW5k
+ZXggOGQxMjhiYS4uMGM1YjRjYWEgMTAwNjQ0Ci0tLSBhL25ldC9pcHY2L2lwNl9ncmUuYworKysg
+Yi9uZXQvaXB2Ni9pcDZfZ3JlLmMKQEAgLTUzNywxMSArNTM3LDEwIEBAIHN0YXRpYyBpbmxpbmUg
+aW50IGlwNmdyZV94bWl0X2lwdjQoc3RydWN0IHNrX2J1ZmYgKnNrYiwgc3RydWN0IG5ldF9kZXZp
+Y2UgKmRldikKIAogCW1lbWNweSgmZmw2LCAmdC0+ZmwudS5pcDYsIHNpemVvZihmbDYpKTsKIAot
+CWRzZmllbGQgPSBpcHY0X2dldF9kc2ZpZWxkKGlwaCk7Ci0KIAlpZiAodC0+cGFybXMuZmxhZ3Mg
+JiBJUDZfVE5MX0ZfVVNFX09SSUdfVENMQVNTKQotCQlmbDYuZmxvd2xhYmVsIHw9IGh0b25sKChf
+X3UzMilpcGgtPnRvcyA8PCBJUFY2X1RDTEFTU19TSElGVCkKLQkJCQkJICAmIElQVjZfVENMQVNT
+X01BU0s7CisJCWRzZmllbGQgPSBpcHY0X2dldF9kc2ZpZWxkKGlwaCk7CisJZWxzZQorCQlkc2Zp
+ZWxkID0gaXA2X3RjbGFzcyh0LT5wYXJtcy5mbG93aW5mbyk7CiAJaWYgKHQtPnBhcm1zLmZsYWdz
+ICYgSVA2X1ROTF9GX1VTRV9PUklHX0ZXTUFSSykKIAkJZmw2LmZsb3dpNl9tYXJrID0gc2tiLT5t
+YXJrOwogCWVsc2UKQEAgLTU5OCw5ICs1OTcsMTEgQEAgc3RhdGljIGlubGluZSBpbnQgaXA2Z3Jl
+X3htaXRfaXB2NihzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBzdHJ1Y3QgbmV0X2RldmljZSAqZGV2KQog
+CiAJbWVtY3B5KCZmbDYsICZ0LT5mbC51LmlwNiwgc2l6ZW9mKGZsNikpOwogCi0JZHNmaWVsZCA9
+IGlwdjZfZ2V0X2RzZmllbGQoaXB2NmgpOwogCWlmICh0LT5wYXJtcy5mbGFncyAmIElQNl9UTkxf
+Rl9VU0VfT1JJR19UQ0xBU1MpCi0JCWZsNi5mbG93bGFiZWwgfD0gKCooX19iZTMyICopIGlwdjZo
+ICYgSVBWNl9UQ0xBU1NfTUFTSyk7CisJCWRzZmllbGQgPSBpcHY2X2dldF9kc2ZpZWxkKGlwdjZo
+KTsKKwllbHNlCisJCWRzZmllbGQgPSBpcDZfdGNsYXNzKHQtPnBhcm1zLmZsb3dpbmZvKTsKKwog
+CWlmICh0LT5wYXJtcy5mbGFncyAmIElQNl9UTkxfRl9VU0VfT1JJR19GTE9XTEFCRUwpCiAJCWZs
+Ni5mbG93bGFiZWwgfD0gaXA2X2Zsb3dsYWJlbChpcHY2aCk7CiAJaWYgKHQtPnBhcm1zLmZsYWdz
+ICYgSVA2X1ROTF9GX1VTRV9PUklHX0ZXTUFSSykKZGlmZiAtLWdpdCBhL25ldC9pcHY2L2lwNl90
+dW5uZWwuYyBiL25ldC9pcHY2L2lwNl90dW5uZWwuYwppbmRleCA2ZWIyYWU1Li43YWU2YzUwIDEw
+MDY0NAotLS0gYS9uZXQvaXB2Ni9pcDZfdHVubmVsLmMKKysrIGIvbmV0L2lwdjYvaXA2X3R1bm5l
+bC5jCkBAIC0xMTk2LDcgKzExOTYsNyBAQCBpbnQgaXA2X3RubF94bWl0KHN0cnVjdCBza19idWZm
+ICpza2IsIHN0cnVjdCBuZXRfZGV2aWNlICpkZXYsIF9fdTggZHNmaWVsZCwKIAlza2JfcHVzaChz
+a2IsIHNpemVvZihzdHJ1Y3QgaXB2NmhkcikpOwogCXNrYl9yZXNldF9uZXR3b3JrX2hlYWRlcihz
+a2IpOwogCWlwdjZoID0gaXB2Nl9oZHIoc2tiKTsKLQlpcDZfZmxvd19oZHIoaXB2NmgsIElORVRf
+RUNOX2VuY2Fwc3VsYXRlKDAsIGRzZmllbGQpLAorCWlwNl9mbG93X2hkcihpcHY2aCwgZHNmaWVs
+ZCwKIAkJICAgICBpcDZfbWFrZV9mbG93bGFiZWwobmV0LCBza2IsIGZsNi0+Zmxvd2xhYmVsLCB0
+cnVlLCBmbDYpKTsKIAlpcHY2aC0+aG9wX2xpbWl0ID0gaG9wX2xpbWl0OwogCWlwdjZoLT5uZXh0
+aGRyID0gcHJvdG87CkBAIC0xMjMxLDggKzEyMzEsNiBAQCBpcDRpcDZfdG5sX3htaXQoc3RydWN0
+IHNrX2J1ZmYgKnNrYiwgc3RydWN0IG5ldF9kZXZpY2UgKmRldikKIAlpZiAodHByb3RvICE9IElQ
+UFJPVE9fSVBJUCAmJiB0cHJvdG8gIT0gMCkKIAkJcmV0dXJuIC0xOwogCi0JZHNmaWVsZCA9IGlw
+djRfZ2V0X2RzZmllbGQoaXBoKTsKLQogCWlmICh0LT5wYXJtcy5jb2xsZWN0X21kKSB7CiAJCXN0
+cnVjdCBpcF90dW5uZWxfaW5mbyAqdHVuX2luZm87CiAJCWNvbnN0IHN0cnVjdCBpcF90dW5uZWxf
+a2V5ICprZXk7CkBAIC0xMjQ2LDYgKzEyNDQsNyBAQCBpcDRpcDZfdG5sX3htaXQoc3RydWN0IHNr
+X2J1ZmYgKnNrYiwgc3RydWN0IG5ldF9kZXZpY2UgKmRldikKIAkJZmw2LmZsb3dpNl9wcm90byA9
+IElQUFJPVE9fSVBJUDsKIAkJZmw2LmRhZGRyID0ga2V5LT51LmlwdjYuZHN0OwogCQlmbDYuZmxv
+d2xhYmVsID0ga2V5LT5sYWJlbDsKKwkJZHNmaWVsZCA9IGlwNl90Y2xhc3Moa2V5LT5sYWJlbCk7
+CiAJfSBlbHNlIHsKIAkJaWYgKCEodC0+cGFybXMuZmxhZ3MgJiBJUDZfVE5MX0ZfSUdOX0VOQ0FQ
+X0xJTUlUKSkKIAkJCWVuY2FwX2xpbWl0ID0gdC0+cGFybXMuZW5jYXBfbGltaXQ7CkBAIC0xMjU0
+LDggKzEyNTMsOSBAQCBpcDRpcDZfdG5sX3htaXQoc3RydWN0IHNrX2J1ZmYgKnNrYiwgc3RydWN0
+IG5ldF9kZXZpY2UgKmRldikKIAkJZmw2LmZsb3dpNl9wcm90byA9IElQUFJPVE9fSVBJUDsKIAog
+CQlpZiAodC0+cGFybXMuZmxhZ3MgJiBJUDZfVE5MX0ZfVVNFX09SSUdfVENMQVNTKQotCQkJZmw2
+LmZsb3dsYWJlbCB8PSBodG9ubCgoX191MzIpaXBoLT50b3MgPDwgSVBWNl9UQ0xBU1NfU0hJRlQp
+Ci0JCQkJCSAmIElQVjZfVENMQVNTX01BU0s7CisJCQlkc2ZpZWxkID0gaXB2NF9nZXRfZHNmaWVs
+ZChpcGgpOworCQllbHNlCisJCQlkc2ZpZWxkID0gaXA2X3RjbGFzcyh0LT5wYXJtcy5mbG93aW5m
+byk7CiAJCWlmICh0LT5wYXJtcy5mbGFncyAmIElQNl9UTkxfRl9VU0VfT1JJR19GV01BUkspCiAJ
+CQlmbDYuZmxvd2k2X21hcmsgPSBza2ItPm1hcms7CiAJCWVsc2UKQEAgLTEyNjcsNiArMTI2Nyw4
+IEBAIGlwNGlwNl90bmxfeG1pdChzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBzdHJ1Y3QgbmV0X2Rldmlj
+ZSAqZGV2KQogCWlmIChpcHR1bm5lbF9oYW5kbGVfb2ZmbG9hZHMoc2tiLCBTS0JfR1NPX0lQWElQ
+NikpCiAJCXJldHVybiAtMTsKIAorCWRzZmllbGQgPSBJTkVUX0VDTl9lbmNhcHN1bGF0ZShkc2Zp
+ZWxkLCBpcHY0X2dldF9kc2ZpZWxkKGlwaCkpOworCiAJc2tiX3NldF9pbm5lcl9pcHByb3RvKHNr
+YiwgSVBQUk9UT19JUElQKTsKIAogCWVyciA9IGlwNl90bmxfeG1pdChza2IsIGRldiwgZHNmaWVs
+ZCwgJmZsNiwgZW5jYXBfbGltaXQsICZtdHUsCkBAIC0xMzAwLDggKzEzMDIsNiBAQCBpcDZpcDZf
+dG5sX3htaXQoc3RydWN0IHNrX2J1ZmYgKnNrYiwgc3RydWN0IG5ldF9kZXZpY2UgKmRldikKIAkg
+ICAgaXA2X3RubF9hZGRyX2NvbmZsaWN0KHQsIGlwdjZoKSkKIAkJcmV0dXJuIC0xOwogCi0JZHNm
+aWVsZCA9IGlwdjZfZ2V0X2RzZmllbGQoaXB2NmgpOwotCiAJaWYgKHQtPnBhcm1zLmNvbGxlY3Rf
+bWQpIHsKIAkJc3RydWN0IGlwX3R1bm5lbF9pbmZvICp0dW5faW5mbzsKIAkJY29uc3Qgc3RydWN0
+IGlwX3R1bm5lbF9rZXkgKmtleTsKQEAgLTEzMTUsNiArMTMxNSw3IEBAIGlwNmlwNl90bmxfeG1p
+dChzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBzdHJ1Y3QgbmV0X2RldmljZSAqZGV2KQogCQlmbDYuZmxv
+d2k2X3Byb3RvID0gSVBQUk9UT19JUFY2OwogCQlmbDYuZGFkZHIgPSBrZXktPnUuaXB2Ni5kc3Q7
+CiAJCWZsNi5mbG93bGFiZWwgPSBrZXktPmxhYmVsOworCQlkc2ZpZWxkID0gaXA2X3RjbGFzcyhr
+ZXktPmxhYmVsKTsKIAl9IGVsc2UgewogCQlvZmZzZXQgPSBpcDZfdG5sX3BhcnNlX3Rsdl9lbmNf
+bGltKHNrYiwgc2tiX25ldHdvcmtfaGVhZGVyKHNrYikpOwogCQkvKiBpcDZfdG5sX3BhcnNlX3Rs
+dl9lbmNfbGltKCkgbWlnaHQgaGF2ZSByZWFsbG9jYXRlZCBza2ItPmhlYWQgKi8KQEAgLTEzMzcs
+NyArMTMzOCw5IEBAIGlwNmlwNl90bmxfeG1pdChzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBzdHJ1Y3Qg
+bmV0X2RldmljZSAqZGV2KQogCQlmbDYuZmxvd2k2X3Byb3RvID0gSVBQUk9UT19JUFY2OwogCiAJ
+CWlmICh0LT5wYXJtcy5mbGFncyAmIElQNl9UTkxfRl9VU0VfT1JJR19UQ0xBU1MpCi0JCQlmbDYu
+Zmxvd2xhYmVsIHw9ICgqKF9fYmUzMiAqKWlwdjZoICYgSVBWNl9UQ0xBU1NfTUFTSyk7CisJCQlk
+c2ZpZWxkID0gaXB2Nl9nZXRfZHNmaWVsZChpcHY2aCk7CisJCWVsc2UKKwkJCWRzZmllbGQgPSBp
+cDZfdGNsYXNzKHQtPnBhcm1zLmZsb3dpbmZvKTsKIAkJaWYgKHQtPnBhcm1zLmZsYWdzICYgSVA2
+X1ROTF9GX1VTRV9PUklHX0ZMT1dMQUJFTCkKIAkJCWZsNi5mbG93bGFiZWwgfD0gaXA2X2Zsb3ds
+YWJlbChpcHY2aCk7CiAJCWlmICh0LT5wYXJtcy5mbGFncyAmIElQNl9UTkxfRl9VU0VfT1JJR19G
+V01BUkspCkBAIC0xMzUxLDYgKzEzNTQsOCBAQCBpcDZpcDZfdG5sX3htaXQoc3RydWN0IHNrX2J1
+ZmYgKnNrYiwgc3RydWN0IG5ldF9kZXZpY2UgKmRldikKIAlpZiAoaXB0dW5uZWxfaGFuZGxlX29m
+ZmxvYWRzKHNrYiwgU0tCX0dTT19JUFhJUDYpKQogCQlyZXR1cm4gLTE7CiAKKwlkc2ZpZWxkID0g
+SU5FVF9FQ05fZW5jYXBzdWxhdGUoZHNmaWVsZCwgaXB2Nl9nZXRfZHNmaWVsZChpcHY2aCkpOwor
+CiAJc2tiX3NldF9pbm5lcl9pcHByb3RvKHNrYiwgSVBQUk9UT19JUFY2KTsKIAogCWVyciA9IGlw
+Nl90bmxfeG1pdChza2IsIGRldiwgZHNmaWVsZCwgJmZsNiwgZW5jYXBfbGltaXQsICZtdHUsCi0t
+IAoyLjcuNAoK
+--001a114c81de8724ba054fc3721c--
