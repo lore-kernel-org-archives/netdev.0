@@ -1,77 +1,103 @@
-From: Eric Anholt <eric-WhKQ6XTQaPysTnJN9+BGXg@public.gmane.org>
-Subject: [PATCH v3] net: dsa: b53: Add compatible strings for the Cygnus-family BCM11360.
-Date: Wed, 17 May 2017 17:32:12 -0700
-Message-ID: <20170518003212.4028-1-eric@anholt.net>
-Cc: linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        bcm-kernel-feedback-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, Ray Jui <rjui-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-        Scott Branden <sbranden-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-        Jon Mason <jonmason-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-        Eric Anholt <eric-WhKQ6XTQaPysTnJN9+BGXg@public.gmane.org>
-To: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Vivien Didelot <vivien.didelot-4ysUXcep3aM1wj+D4I0NRVaTQe2KTcn/@public.gmane.org>,
-        Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Yonghong Song <yhs@fb.com>
+Subject: Re: [PATCH net v2] selftests/bpf: fix broken build due to types.h
+Date: Wed, 17 May 2017 17:46:14 -0700
+Message-ID: <78eb5911-d001-d27a-18ef-86d47aa2f2ff@fb.com>
+References: <20170517221805.1593973-1-yhs@fb.com>
+ <591CD540.1040305@iogearbox.net>
+ <20170517.190149.1446382466519323776.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <ast@fb.com>, <netdev@vger.kernel.org>, <kernel-team@fb.com>
+To: David Miller <davem@davemloft.net>, <daniel@iogearbox.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:43969 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1752971AbdERAqk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 17 May 2017 20:46:40 -0400
+In-Reply-To: <20170517.190149.1446382466519323776.davem@davemloft.net>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Cygnus is a small family of SoCs, of which we currently have
-devicetree for BCM11360 and BCM58300.  The 11360's B53 is mostly the
-same as 58xx, just requiring a tiny bit of setup that was previously
-missing.
 
-Signed-off-by: Eric Anholt <eric-WhKQ6XTQaPysTnJN9+BGXg@public.gmane.org>
-Reviewed-by: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Acked-by: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
----
 
-v2: Reorder the entry in the docs (suggestion by Scott Branden), add
-    missing '"'
-v3: Resend now that 4.12-rc1 is out.
+On 5/17/17 4:01 PM, David Miller wrote:
+> From: Daniel Borkmann <daniel@iogearbox.net>
+> Date: Thu, 18 May 2017 00:57:04 +0200
+> 
+>> On 05/18/2017 12:18 AM, Yonghong Song wrote:
+>>> Commit 0a5539f66133 ("bpf: Provide a linux/types.h override
+>>> for bpf selftests.") caused a build failure for
+>>> tools/testing/selftest/bpf
+>>> because of some missing types:
+>>>       $ make -C tools/testing/selftests/bpf/
+>>>       ...
+>>>       In file included from
+>>>       /home/yhs/work/net-next/tools/testing/selftests/bpf/test_pkt_access.c:8:
+>>>       ../../../include/uapi/linux/bpf.h:170:3: error: unknown type name
+>>>       '__aligned_u64'
+>>>                       __aligned_u64   key;
+>>>       ...
+>>>       /usr/include/linux/swab.h:160:8: error: unknown type name
+>>>       '__always_inline'
+>>>       static __always_inline __u16 __swab16p(const __u16 *p)
+>>>       ...
+>>> The type __aligned_u64 is defined in linux:include/uapi/linux/types.h.
+>>>
+>>> The fix is to copy missing type definition into
+>>> tools/testing/selftests/bpf/include/uapi/linux/types.h.
+>>> Adding additional include "string.h" resolves __always_inline issue.
+>>>
+>>> Fixes: 0a5539f66133 ("bpf: Provide a linux/types.h override for bpf
+>>> selftests.")
+>>> Signed-off-by: Yonghong Song <yhs@fb.com>
+>>
+>> Can you elaborate why string.h specifically? Can't we define the
+>> __always_inline ourselves?
+> 
+> That way it comes from compiler.h
 
- Documentation/devicetree/bindings/net/dsa/b53.txt | 3 +++
- drivers/net/dsa/b53/b53_srab.c                    | 2 ++
- 2 files changed, 5 insertions(+)
+Just a little bit correction. The __always_inline is not from 
+compiler.h. The compiler.h is inside kernel source tree. Currently,
+programs in selftests do not directly referencing kernel header
+files (except test_verifier trying to do with alignment)
 
-diff --git a/Documentation/devicetree/bindings/net/dsa/b53.txt b/Documentation/devicetree/bindings/net/dsa/b53.txt
-index d6c6e41648d4..eb679e92d525 100644
---- a/Documentation/devicetree/bindings/net/dsa/b53.txt
-+++ b/Documentation/devicetree/bindings/net/dsa/b53.txt
-@@ -13,6 +13,9 @@ Required properties:
-       "brcm,bcm5397"
-       "brcm,bcm5398"
- 
-+  For the BCM11360 SoC, must be:
-+      "brcm,bcm11360-srab" and the mandatory "brcm,cygnus-srab" string
-+
-   For the BCM5310x SoCs with an integrated switch, must be one of:
-       "brcm,bcm53010-srab"
-       "brcm,bcm53011-srab"
-diff --git a/drivers/net/dsa/b53/b53_srab.c b/drivers/net/dsa/b53/b53_srab.c
-index 8a62b6a69703..c37ffd1b6833 100644
---- a/drivers/net/dsa/b53/b53_srab.c
-+++ b/drivers/net/dsa/b53/b53_srab.c
-@@ -364,6 +364,7 @@ static const struct of_device_id b53_srab_of_match[] = {
- 	{ .compatible = "brcm,bcm53018-srab" },
- 	{ .compatible = "brcm,bcm53019-srab" },
- 	{ .compatible = "brcm,bcm5301x-srab" },
-+	{ .compatible = "brcm,bcm11360-srab", .data = (void *)BCM58XX_DEVICE_ID },
- 	{ .compatible = "brcm,bcm58522-srab", .data = (void *)BCM58XX_DEVICE_ID },
- 	{ .compatible = "brcm,bcm58525-srab", .data = (void *)BCM58XX_DEVICE_ID },
- 	{ .compatible = "brcm,bcm58535-srab", .data = (void *)BCM58XX_DEVICE_ID },
-@@ -371,6 +372,7 @@ static const struct of_device_id b53_srab_of_match[] = {
- 	{ .compatible = "brcm,bcm58623-srab", .data = (void *)BCM58XX_DEVICE_ID },
- 	{ .compatible = "brcm,bcm58625-srab", .data = (void *)BCM58XX_DEVICE_ID },
- 	{ .compatible = "brcm,bcm88312-srab", .data = (void *)BCM58XX_DEVICE_ID },
-+	{ .compatible = "brcm,cygnus-srab", .data = (void *)BCM58XX_DEVICE_ID },
- 	{ .compatible = "brcm,nsp-srab", .data = (void *)BCM58XX_DEVICE_ID },
- 	{ /* sentinel */ },
- };
--- 
-2.11.0
+======
+#ifdef HAVE_GENHDR
+# include "autoconf.h"
+#else
+# if defined(__i386) || defined(__x86_64) || defined(__s390x__) || 
+defined(__aarch64__)
+#  define CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS 1
+# endif
+#endif
+=====
+(The above part may be gone soon with recent alignment tracking patch)
 
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+[yhs@localhost include]$ pwd
+/usr/include
+[yhs@localhost include]$ find . -name "compiler.h"
+[yhs@localhost include]$
+
+The __always_inline comes from sys/cdefs.h
+sys/cdefs.h:# define __always_inline __inline __attribute__ 
+((__always_inline))
+
+The following is the include chain leading to __always_inline:
+string.h
+    features.h
+       sys/cdefs.h
+
+Yes, it is deeply embedded in chain of header files and hard
+to figure out intuitively....
+
+Yonghong
+
+> 
+> Probably it would have been better to have the BPF linux/types.h bring
+> it in.
+> 
+> Sorry I applied this so quickly, I wanted this regression fixed as fast
+> as possible.
+> 
