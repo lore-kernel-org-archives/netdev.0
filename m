@@ -1,59 +1,38 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: [SPAM]Re: [PATCH net-next 5/6] net: bridge: get
- msgtype from nlmsghdr in mdb ops
-Date: Thu, 18 May 2017 20:01:12 +0300
-Message-ID: <7f4c1954-bf78-9160-64d0-ed45cad388e6@cumulusnetworks.com>
-References: <20170517212709.6473-1-vivien.didelot@savoirfairelinux.com>
-	<20170517212709.6473-6-vivien.didelot@savoirfairelinux.com>
-	<ee5d9736-72ec-f4fd-8e9b-2c4179687e16@cumulusnetworks.com>
-	<87efvmf9fl.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] tcp: fix tcp_rearm_rto()
+Date: Thu, 18 May 2017 13:20:59 -0400 (EDT)
+Message-ID: <20170518.132059.1279235795595365192.davem@davemloft.net>
+References: <20170516210014.31176-16-edumazet@google.com>
+        <1495110825.6465.22.camel@edumazet-glaptop3.roam.corp.google.com>
+        <1495124158.6465.30.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "moderated list:ETHERNET BRIDGE" <bridge@lists.linux-foundation.org>,
-	kernel@savoirfairelinux.com, linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-	netdev@vger.kernel.org
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <87efvmf9fl.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
-Content-Language: en-US
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: edumazet@google.com, ncardwell@google.com, ycheng@google.com,
+        soheil@google.com, weiwan@google.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:45340 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933159AbdERRVE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 18 May 2017 13:21:04 -0400
+In-Reply-To: <1495124158.6465.30.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 5/18/17 6:53 PM, Vivien Didelot wrote:
-> Hi Nikolay,
-> 
-> Nikolay Aleksandrov <nikolay@cumulusnetworks.com> writes:
-> 
->>> +	int msgtype = nlh->nlmsg_type;
->>
->> minor nits:
->> nlmsg_type is a u16, also please keep the order and arrange these from longest
->> to shortest
-> 
-> The reverse christmas tree \o/
-> 
-> Hum, __br_mdb_notify takes an int type, and struct nlmsghdr defines it
-> as a __u16. Does u16 still make sense here instead of int?
-> 
-> 
-> Thanks,
-> 
->          Vivien
-> 
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 18 May 2017 09:15:58 -0700
 
-Either way is fine as long as the value is unchanged, and since the rest of
-the code uses an int then lets be consistent and leave it or if you decide 
-change all.
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> skbs in (re)transmit queue no longer have a copy of jiffies
+> at the time of the transmit : skb->skb_mstamp is now in usec unit,
+> with no correlation to tcp_jiffies32.
+> 
+> We have to convert rto from jiffies to usec, compute a time difference
+> in usec, then convert the delta to HZ units.
+> 
+> Fixes: 9a568de4818d ("tcp: switch TCP TS option (RFC 7323) to 1ms clock")
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Cheers,
-  Nik
+Applied, thanks Eric.
