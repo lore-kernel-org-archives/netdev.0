@@ -1,31 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net,stable] qmi_wwan: add another Lenovo EM74xx device
- ID
-Date: Thu, 18 May 2017 10:25:20 -0400 (EDT)
-Message-ID: <20170518.102520.443372921704705110.davem@davemloft.net>
-References: <20170517143141.28483-1-bjorn@mork.no>
+Subject: Re: [PATCH net-next 1/8] net/wan/fsl_ucc_hdlc: cleanup debug traces
+Date: Thu, 18 May 2017 10:29:09 -0400 (EDT)
+Message-ID: <20170518.102909.1182288374811078961.davem@davemloft.net>
+References: <20170517152439.8817-1-holger.brunck@keymile.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
-Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org
-To: bjorn@mork.no
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, qiang.zhao@nxp.com
+To: holger.brunck@keymile.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:43364 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:43406 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755864AbdEROZW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 18 May 2017 10:25:22 -0400
-In-Reply-To: <20170517143141.28483-1-bjorn@mork.no>
+        with ESMTP id S1756089AbdERO3M (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 18 May 2017 10:29:12 -0400
+In-Reply-To: <20170517152439.8817-1-holger.brunck@keymile.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bjørn Mork <bjorn@mork.no>
-Date: Wed, 17 May 2017 16:31:41 +0200
+From: Holger Brunck <holger.brunck@keymile.com>
+Date: Wed, 17 May 2017 17:24:32 +0200
 
-> In their infinite wisdom, and never ending quest for end user frustration,
-> Lenovo has decided to use a new USB device ID for the wwan modules in
-> their 2017 laptops.  The actual hardware is still the Sierra Wireless
-> EM7455 or EM7430, depending on region.
+> Some of the tracing seems to be remaining traces for basic driver
+> development. They can be removed now, as they cause noisy printouts.
 > 
-> Signed-off-by: Bjørn Mork <bjorn@mork.no>
+> Signed-off-by: Holger Brunck <holger.brunck@keymile.com>
+> Cc: Zhao Qiang <qiang.zhao@nxp.com>
 
-Applied and queued up for -stable, thank you.
+Applied.
