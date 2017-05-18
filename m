@@ -1,68 +1,126 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] bpf: adjust verifier heuristics
-Date: Wed, 17 May 2017 22:56:37 -0400 (EDT)
-Message-ID: <20170517.225637.2083628580374404255.davem@davemloft.net>
-References: <57a6fc1f937d985a5851016221c98a29fb1cc46a.1495068621.git.daniel@iogearbox.net>
+Subject: Re: [net:master 9/12] net/ipv6/ip6_offload.c:120:7-21: WARNING:
+ Unsigned expression compared with zero: unfrag_ip6hlen < 0 (fwd)
+Date: Wed, 17 May 2017 22:58:31 -0400 (EDT)
+Message-ID: <20170517.225831.2041930111066229998.davem@davemloft.net>
+References: <alpine.DEB.2.20.1705181000150.3833@hadrien>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ast@fb.com, netdev@vger.kernel.org
-To: daniel@iogearbox.net
+Cc: kraig@google.com, netdev@vger.kernel.org, kbuild-all@01.org
+To: julia.lawall@lip6.fr
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:39056 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:39084 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753717AbdERC4l (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 17 May 2017 22:56:41 -0400
-In-Reply-To: <57a6fc1f937d985a5851016221c98a29fb1cc46a.1495068621.git.daniel@iogearbox.net>
+        with ESMTP id S1753359AbdERC6d (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 17 May 2017 22:58:33 -0400
+In-Reply-To: <alpine.DEB.2.20.1705181000150.3833@hadrien>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann <daniel@iogearbox.net>
-Date: Thu, 18 May 2017 03:00:06 +0200
+From: Julia Lawall <julia.lawall@lip6.fr>
+Date: Thu, 18 May 2017 10:01:07 +0800 (SGT)
 
-> Current limits with regards to processing program paths do not
-> really reflect today's needs anymore due to programs becoming
-> more complex and verifier smarter, keeping track of more data
-> such as const ALU operations, alignment tracking, spilling of
-> PTR_TO_MAP_VALUE_ADJ registers, and other features allowing for
-> smarter matching of what LLVM generates.
-> 
-> This also comes with the side-effect that we result in fewer
-> opportunities to prune search states and thus often need to do
-> more work to prove safety than in the past due to different
-> register states and stack layout where we mismatch. Generally,
-> it's quite hard to determine what caused a sudden increase in
-> complexity, it could be caused by something as trivial as a
-> single branch somewhere at the beginning of the program where
-> LLVM assigned a stack slot that is marked differently throughout
-> other branches and thus causing a mismatch, where verifier
-> then needs to prove safety for the whole rest of the program.
-> Subsequently, programs with even less than half the insn size
-> limit can get rejected. We noticed that while some programs
-> load fine under pre 4.11, they get rejected due to hitting
-> limits on more recent kernels. We saw that in the vast majority
-> of cases (90+%) pruning failed due to register mismatches. In
-> case of stack mismatches, majority of cases failed due to
-> different stack slot types (invalid, spill, misc) rather than
-> differences in spilled registers.
-> 
-> This patch makes pruning more aggressive by also adding markers
-> that sit at conditional jumps as well. Currently, we only mark
-> jump targets for pruning. For example in direct packet access,
-> these are usually error paths where we bail out. We found that
-> adding these markers, it can reduce number of processed insns
-> by up to 30%. Another option is to ignore reg->id in probing
-> PTR_TO_MAP_VALUE_OR_NULL registers, which can help pruning
-> slightly as well by up to 7% observed complexity reduction as
-> stand-alone. Meaning, if a previous path with register type
-> PTR_TO_MAP_VALUE_OR_NULL for map X was found to be safe, then
-> in the current state a PTR_TO_MAP_VALUE_OR_NULL register for
-> the same map X must be safe as well. Last but not least the
-> patch also adds a scheduling point and bumps the current limit
-> for instructions to be processed to a more adequate value.
-> 
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-> Acked-by: Alexei Starovoitov <ast@kernel.org>
+> It may be worth checking on these.  The code context is shown in the first
+> case (line 120).  For the others, at least it gives the line numbers.
+ ...
+>>> net/ipv6/ip6_offload.c:120:7-21: WARNING: Unsigned expression compared with zero: unfrag_ip6hlen < 0
+> --
+>>> net/ipv6/ip6_output.c:601:5-9: WARNING: Unsigned expression compared with zero: hlen < 0
+> --
+>>> net/ipv6/udp_offload.c:94:6-20: WARNING: Unsigned expression compared with zero: unfrag_ip6hlen < 0
 
-Ok, applied, but we should continue trying to make the pruner
-more effective.
+Sigh, this is worse than the bug the commit introducing these warnings
+was trying to fix.
+
+I've pushed the following:
+
+====================
+ipv6: Check ip6_find_1stfragopt() return value properly.
+
+Do not use unsigned variables to see if it returns a negative
+error or not.
+
+Fixes: 2423496af35d ("ipv6: Prevent overrun when parsing v6 header options")
+Reported-by: Julia Lawall <julia.lawall@lip6.fr>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/ipv6/ip6_offload.c | 9 ++++-----
+ net/ipv6/ip6_output.c  | 7 +++----
+ net/ipv6/udp_offload.c | 8 +++++---
+ 3 files changed, 12 insertions(+), 12 deletions(-)
+
+diff --git a/net/ipv6/ip6_offload.c b/net/ipv6/ip6_offload.c
+index eab36ab..280268f 100644
+--- a/net/ipv6/ip6_offload.c
++++ b/net/ipv6/ip6_offload.c
+@@ -63,7 +63,6 @@ static struct sk_buff *ipv6_gso_segment(struct sk_buff *skb,
+ 	const struct net_offload *ops;
+ 	int proto;
+ 	struct frag_hdr *fptr;
+-	unsigned int unfrag_ip6hlen;
+ 	unsigned int payload_len;
+ 	u8 *prevhdr;
+ 	int offset = 0;
+@@ -116,10 +115,10 @@ static struct sk_buff *ipv6_gso_segment(struct sk_buff *skb,
+ 		skb->network_header = (u8 *)ipv6h - skb->head;
+ 
+ 		if (udpfrag) {
+-			unfrag_ip6hlen = ip6_find_1stfragopt(skb, &prevhdr);
+-			if (unfrag_ip6hlen < 0)
+-				return ERR_PTR(unfrag_ip6hlen);
+-			fptr = (struct frag_hdr *)((u8 *)ipv6h + unfrag_ip6hlen);
++			int err = ip6_find_1stfragopt(skb, &prevhdr);
++			if (err < 0)
++				return ERR_PTR(err);
++			fptr = (struct frag_hdr *)((u8 *)ipv6h + err);
+ 			fptr->frag_off = htons(offset);
+ 			if (skb->next)
+ 				fptr->frag_off |= htons(IP6_MF);
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index 01deecd..d4a31be 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -597,11 +597,10 @@ int ip6_fragment(struct net *net, struct sock *sk, struct sk_buff *skb,
+ 	int ptr, offset = 0, err = 0;
+ 	u8 *prevhdr, nexthdr = 0;
+ 
+-	hlen = ip6_find_1stfragopt(skb, &prevhdr);
+-	if (hlen < 0) {
+-		err = hlen;
++	err = ip6_find_1stfragopt(skb, &prevhdr);
++	if (err < 0)
+ 		goto fail;
+-	}
++	hlen = err;
+ 	nexthdr = *prevhdr;
+ 
+ 	mtu = ip6_skb_dst_mtu(skb);
+diff --git a/net/ipv6/udp_offload.c b/net/ipv6/udp_offload.c
+index b348cff..a2267f8 100644
+--- a/net/ipv6/udp_offload.c
++++ b/net/ipv6/udp_offload.c
+@@ -29,6 +29,7 @@ static struct sk_buff *udp6_ufo_fragment(struct sk_buff *skb,
+ 	u8 frag_hdr_sz = sizeof(struct frag_hdr);
+ 	__wsum csum;
+ 	int tnl_hlen;
++	int err;
+ 
+ 	mss = skb_shinfo(skb)->gso_size;
+ 	if (unlikely(skb->len <= mss))
+@@ -90,9 +91,10 @@ static struct sk_buff *udp6_ufo_fragment(struct sk_buff *skb,
+ 		/* Find the unfragmentable header and shift it left by frag_hdr_sz
+ 		 * bytes to insert fragment header.
+ 		 */
+-		unfrag_ip6hlen = ip6_find_1stfragopt(skb, &prevhdr);
+-		if (unfrag_ip6hlen < 0)
+-			return ERR_PTR(unfrag_ip6hlen);
++		err = ip6_find_1stfragopt(skb, &prevhdr);
++		if (err < 0)
++			return ERR_PTR(err);
++		unfrag_ip6hlen = err;
+ 		nexthdr = *prevhdr;
+ 		*prevhdr = NEXTHDR_FRAGMENT;
+ 		unfrag_len = (skb_network_header(skb) - skb_mac_header(skb)) +
+-- 
+2.7.4
