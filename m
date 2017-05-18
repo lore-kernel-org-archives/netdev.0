@@ -1,81 +1,99 @@
-From: gregkh <gregkh@linuxfoundation.org>
-Subject: Re: stable/linux-4.10.y build: 203 builds: 3 failed, 200 passed, 3
- errors, 5 warnings (v4.10.16)
-Date: Thu, 18 May 2017 10:15:03 +0200
-Message-ID: <20170518081503.GB31512@kroah.com>
-References: <5918603a.118d1c0a.d6026.6b1a@mx.google.com>
- <CAK8P3a2gFXScsizfvd-2=yEWBvPoE7L-r5CCf63MzPuWejPzAQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "kernelci.org bot" <bot@kernelci.org>,
-        Kernel Build Reports Mailman List
-        <kernel-build-reports@lists.linaro.org>,
-        Eric Dumazet <edumazet@google.com>, stable@vger.kernel.org,
-        Networking <netdev@vger.kernel.org>
-To: Arnd Bergmann <arnd@arndb.de>
+From: Oliver Neukum <oneukum@suse.com>
+Subject: [PATCH] cdc-ether: divorce initialisation with a filter reset and a generic method
+Date: Thu, 18 May 2017 10:23:28 +0200
+Message-ID: <20170518082328.10094-1-oneukum@suse.com>
+Cc: Oliver Neukum <oneukum@suse.com>
+To: davem@davemloft.net, netdev@vger.kernel.org, bjorn@mork.no
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.linuxfoundation.org ([140.211.169.12]:37758 "EHLO
-        mail.linuxfoundation.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751680AbdERIPN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 18 May 2017 04:15:13 -0400
-Content-Disposition: inline
-In-Reply-To: <CAK8P3a2gFXScsizfvd-2=yEWBvPoE7L-r5CCf63MzPuWejPzAQ@mail.gmail.com>
+Received: from mx2.suse.de ([195.135.220.15]:60287 "EHLO mx1.suse.de"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1754275AbdERIZL (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 18 May 2017 04:25:11 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 15, 2017 at 02:57:08PM +0200, Arnd Bergmann wrote:
-> On Sun, May 14, 2017 at 3:48 PM, kernelci.org bot <bot@kernelci.org> wrote:
-> >
-> > stable/linux-4.10.y build: 203 builds: 3 failed, 200 passed, 3 errors, 5 warnings (v4.10.16)
-> > Full Build Summary: https://kernelci.org/build/stable/branch/linux-4.10.y/kernel/v4.10.16/
-> > Tree: stable
-> > Branch: linux-4.10.y
-> > Git Describe: v4.10.16
-> > Git Commit: 6e8e9958691907e8d7eb3b2107619dddbdaeb175
-> > Git URL: http://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git
-> > Built: 4 unique architectures
-> >
-> > Build Failures Detected:
-> >
-> > arm: gcc version 5.3.1 20160412 (Linaro GCC 5.3-2016.05)
-> > spear3xx_defconfig FAIL
-> > spear6xx_defconfig FAIL
-> > tct_hammer_defconfig FAIL
-> > Errors summary:
-> > 3 net/core/skbuff.c:1575:37: error: 'sock_edemux' undeclared (first use in this function)
-> > Warnings summary:
-> 
-> This is a regression against v4.10.15, caused by the backport of
-> c21b48cc1bbf ("net: adjust skb->truesize in ___pskb_trim()") by Eric
-> Dumazet.
-> 
-> Part of another commit that Eric did earlier fixes it:
-> 
-> 158f323b9868 ("net: adjust skb->truesize in pskb_expand_head()")
-> --- a/include/net/sock.h
-> +++ b/include/net/sock.h
-> @@ -1534,7 +1534,7 @@ void sock_efree(struct sk_buff *skb);
->  #ifdef CONFIG_INET
->  void sock_edemux(struct sk_buff *skb);
->  #else
-> -#define sock_edemux(skb) sock_efree(skb)
-> +#define sock_edemux sock_efree
->  #endif
-> 
->  int sock_setsockopt(struct socket *sock, int level, int op,
-> 
-> This commit is not marked 'Cc: stable' upstream, but is referenced
-> in the one that was backported and looks like it might be appropriate
-> for stable as well. Eric, can you clarify?
+Some devices need their multicast filter reset but others are crashed by that.
+So the methods need to be separated.
 
-Ok, if this is true, can someone provide me with a working backport of
-this patch?  As it is, it does not apply cleanly, and I don't know how
-to resolve the merge error.
+Signed-off-by: Oliver Neukum <oneukum@suse.com>
+Reported-by: "Ridgway, Keith" <kridgway@harris.com>
+---
+ drivers/net/usb/cdc_ether.c | 34 +++++++++++++++++++++++++---------
+ 1 file changed, 25 insertions(+), 9 deletions(-)
 
-Or, we can just not worry about it, as I'm only going to do one more
-4.10-stable release, this week, before we throw it away and never care
-about it again :)
-
-thanks,
-
-greg k-h
+diff --git a/drivers/net/usb/cdc_ether.c b/drivers/net/usb/cdc_ether.c
+index f3ae88fdf332..70d823043803 100644
+--- a/drivers/net/usb/cdc_ether.c
++++ b/drivers/net/usb/cdc_ether.c
+@@ -310,6 +310,26 @@ int usbnet_generic_cdc_bind(struct usbnet *dev, struct usb_interface *intf)
+ 		return -ENODEV;
+ 	}
+ 
++	return 0;
++
++bad_desc:
++	dev_info(&dev->udev->dev, "bad CDC descriptors\n");
++	return -ENODEV;
++}
++EXPORT_SYMBOL_GPL(usbnet_generic_cdc_bind);
++
++
++/* like usbnet_generic_cdc_bind() but handles filter initialization
++ * correctly
++ */
++int usbnet_ether_cdc_bind(struct usbnet *dev, struct usb_interface *intf)
++{
++	int rv;
++
++	rv = usbnet_generic_cdc_bind(dev, intf);
++	if (rv < 0)
++		goto bail_out;
++
+ 	/* Some devices don't initialise properly. In particular
+ 	 * the packet filter is not reset. There are devices that
+ 	 * don't do reset all the way. So the packet filter should
+@@ -317,13 +337,10 @@ int usbnet_generic_cdc_bind(struct usbnet *dev, struct usb_interface *intf)
+ 	 */
+ 	usbnet_cdc_update_filter(dev);
+ 
+-	return 0;
+-
+-bad_desc:
+-	dev_info(&dev->udev->dev, "bad CDC descriptors\n");
+-	return -ENODEV;
++bail_out:
++	return rv;
+ }
+-EXPORT_SYMBOL_GPL(usbnet_generic_cdc_bind);
++EXPORT_SYMBOL_GPL(usbnet_ether_cdc_bind);
+ 
+ void usbnet_cdc_unbind(struct usbnet *dev, struct usb_interface *intf)
+ {
+@@ -417,7 +434,7 @@ int usbnet_cdc_bind(struct usbnet *dev, struct usb_interface *intf)
+ 	BUILD_BUG_ON((sizeof(((struct usbnet *)0)->data)
+ 			< sizeof(struct cdc_state)));
+ 
+-	status = usbnet_generic_cdc_bind(dev, intf);
++	status = usbnet_ether_cdc_bind(dev, intf);
+ 	if (status < 0)
+ 		return status;
+ 
+@@ -472,7 +489,6 @@ static void usbnet_cdc_zte_status(struct usbnet *dev, struct urb *urb)
+ 
+ 	if (urb->actual_length < sizeof(*event))
+ 		return;
+-
+ 	event = urb->transfer_buffer;
+ 
+ 	if (event->bNotificationType != USB_CDC_NOTIFY_NETWORK_CONNECTION) {
+@@ -493,7 +509,7 @@ static void usbnet_cdc_zte_status(struct usbnet *dev, struct urb *urb)
+ static const struct driver_info	cdc_info = {
+ 	.description =	"CDC Ethernet Device",
+ 	.flags =	FLAG_ETHER | FLAG_POINTTOPOINT,
+-	.bind =		usbnet_cdc_bind,
++	.bind =		usbnet_ether_cdc_bind,
+ 	.unbind =	usbnet_cdc_unbind,
+ 	.status =	usbnet_cdc_status,
+ 	.set_rx_mode =	usbnet_cdc_update_filter,
+-- 
+2.12.0
