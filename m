@@ -1,46 +1,70 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [SPAM]Re: [PATCH net-next 5/6] net: bridge: get
-	msgtype from nlmsghdr	in mdb ops
-Date: Thu, 18 May 2017 11:53:34 -0400
-Message-ID: <87efvmf9fl.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
-References: <20170517212709.6473-1-vivien.didelot@savoirfairelinux.com>
-	<20170517212709.6473-6-vivien.didelot@savoirfairelinux.com>
-	<ee5d9736-72ec-f4fd-8e9b-2c4179687e16@cumulusnetworks.com>
+From: Yuval Shaia <yuval.shaia@oracle.com>
+Subject: Re: [PATCH net-next] net/mlx5e: Fix possible memory leak
+Date: Thu, 18 May 2017 18:58:10 +0300
+Message-ID: <20170518155807.GC10691@yuval-lap>
+References: <20170518153441.24398-1-weiyj.lk@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: "moderated list:ETHERNET BRIDGE" <bridge@lists.linux-foundation.org>,
-	kernel@savoirfairelinux.com, linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>, netdev@vger.kernel.org
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <ee5d9736-72ec-f4fd-8e9b-2c4179687e16@cumulusnetworks.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Saeed Mahameed <saeedm@mellanox.com>,
+        Matan Barak <matanb@mellanox.com>,
+        Leon Romanovsky <leonro@mellanox.com>,
+        Hadar Hen Zion <hadarh@mellanox.com>,
+        Wei Yongjun <weiyongjun1@huawei.com>, netdev@vger.kernel.org,
+        linux-rdma@vger.kernel.org
+To: Wei Yongjun <weiyj.lk@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from userp1040.oracle.com ([156.151.31.81]:17029 "EHLO
+        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752823AbdERP6m (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 18 May 2017 11:58:42 -0400
+Content-Disposition: inline
+In-Reply-To: <20170518153441.24398-1-weiyj.lk@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Nikolay,
+On Thu, May 18, 2017 at 03:34:41PM +0000, Wei Yongjun wrote:
+> From: Wei Yongjun <weiyongjun1@huawei.com>
+> 
+> 'encap_header' is malloced and should be freed before leaving from
+> the error handling cases, otherwise it will cause memory leak.
+> 
+> Fixes: 232c001398ae ("net/mlx5e: Add support to neighbour update flow")
+> Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
+> ---
+>  drivers/net/ethernet/mellanox/mlx5/core/en_tc.c | 8 ++++----
+>  1 file changed, 4 insertions(+), 4 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+> index 11c27e4..a72ecbc 100644
+> --- a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+> +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+> @@ -1404,8 +1404,8 @@ static int mlx5e_create_encap_header_ipv4(struct mlx5e_priv *priv,
+>  
+>  	if (!(nud_state & NUD_VALID)) {
+>  		neigh_event_send(n, NULL);
+> -		neigh_release(n);
+> -		return -EAGAIN;
+> +		err = -EAGAIN;
+> +		goto out;
+>  	}
+>  
+>  	err = mlx5_encap_alloc(priv->mdev, e->tunnel_type,
+> @@ -1510,8 +1510,8 @@ static int mlx5e_create_encap_header_ipv6(struct mlx5e_priv *priv,
+>  
+>  	if (!(nud_state & NUD_VALID)) {
+>  		neigh_event_send(n, NULL);
+> -		neigh_release(n);
+> -		return -EAGAIN;
+> +		err = -EAGAIN;
+> +		goto out;
+>  	}
 
-Nikolay Aleksandrov <nikolay@cumulusnetworks.com> writes:
+Reviewed-by: Yuval Shaia <yuval.shaia@oracle.com>
 
->> +	int msgtype = nlh->nlmsg_type;
->
-> minor nits:
-> nlmsg_type is a u16, also please keep the order and arrange these from longest 
-> to shortest
-
-The reverse christmas tree \o/
-
-Hum, __br_mdb_notify takes an int type, and struct nlmsghdr defines it
-as a __u16. Does u16 still make sense here instead of int?
-
-
-Thanks,
-
-        Vivien
+>  
+>  	err = mlx5_encap_alloc(priv->mdev, e->tunnel_type,
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
