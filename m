@@ -1,45 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: make struct net_device::tx_queue_len
- unsigned int
-Date: Thu, 18 May 2017 10:20:01 -0400 (EDT)
-Message-ID: <20170518.102001.715764939763640042.davem@davemloft.net>
-References: <20170517103044.GA28488@avx2>
+Subject: Re: [PATCH net] udp: make *udp*_queue_rcv_skb() functions static
+Date: Thu, 18 May 2017 10:23:46 -0400 (EDT)
+Message-ID: <20170518.102346.370962163449596599.davem@davemloft.net>
+References: <8c68f6f2fb91313ab71606e42c4d3d4c561b73a9.1495024097.git.pabeni@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: adobriyan@gmail.com
+To: pabeni@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:43298 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:43328 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755323AbdEROUD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 18 May 2017 10:20:03 -0400
-In-Reply-To: <20170517103044.GA28488@avx2>
+        with ESMTP id S1756300AbdEROXt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 18 May 2017 10:23:49 -0400
+In-Reply-To: <8c68f6f2fb91313ab71606e42c4d3d4c561b73a9.1495024097.git.pabeni@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Date: Wed, 17 May 2017 13:30:44 +0300
+From: Paolo Abeni <pabeni@redhat.com>
+Date: Wed, 17 May 2017 14:52:16 +0200
 
-> 4 billion packet queue is something unthinkable so use 32-bit value
-> for now.
+> Since the udp memory accounting refactor, we don't need any more
+> to export the *udp*_queue_rcv_skb(). Make them static and fix
+> a couple of sparse warnings:
 > 
-> Space savings on x86_64:
+> net/ipv4/udp.c:1615:5: warning: symbol 'udp_queue_rcv_skb' was not
+> declared. Should it be static?
+> net/ipv6/udp.c:572:5: warning: symbol 'udpv6_queue_rcv_skb' was not
+> declared. Should it be static?
 > 
-> 	add/remove: 0/0 grow/shrink: 3/70 up/down: 16/-131 (-115)
-> 	function                                     old     new   delta
-> 	change_tx_queue_len                           94     108     +14
-> 	qdisc_create                                1176    1177      +1
-> 	alloc_netdev_mqs                            1124    1125      +1
-> 	xenvif_alloc                                 533     532      -1
-> 	x25_asy_setup                                167     166      -1
-> 			...
-> 	tun_queue_resize                             945     940      -5
-> 	pfifo_fast_enqueue                           167     162      -5
-> 	qfq_init_qdisc                               168     158     -10
-> 	tap_queue_resize                             810     799     -11
-> 	transmit                                     719     698     -21
-> 
-> Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+> Fixes: 850cbaddb52d ("udp: use it's own memory accounting schema")
+> Fixes: c915fe13cbaa ("udplite: fix NULL pointer dereference")
+> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
 
 Applied.
