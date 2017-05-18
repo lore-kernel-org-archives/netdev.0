@@ -1,38 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tcp: fix tcp_rearm_rto()
-Date: Thu, 18 May 2017 13:20:59 -0400 (EDT)
-Message-ID: <20170518.132059.1279235795595365192.davem@davemloft.net>
-References: <20170516210014.31176-16-edumazet@google.com>
-        <1495110825.6465.22.camel@edumazet-glaptop3.roam.corp.google.com>
-        <1495124158.6465.30.camel@edumazet-glaptop3.roam.corp.google.com>
+Subject: Re: [PATCH v2 net-next] qed: Utilize FW 8.20.0.0
+Date: Thu, 18 May 2017 13:22:05 -0400 (EDT)
+Message-ID: <20170518.132205.1455499711242570929.davem@davemloft.net>
+References: <1495125664-23412-1-git-send-email-Yuval.Mintz@cavium.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: edumazet@google.com, ncardwell@google.com, ycheng@google.com,
-        soheil@google.com, weiwan@google.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:45340 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933159AbdERRVE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 18 May 2017 13:21:04 -0400
-In-Reply-To: <1495124158.6465.30.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-scsi@vger.kernel.org,
+        Chad.Dupuis@cavium.com, Ram.Amrani@cavium.com,
+        Tomer.Tayar@cavium.com, Manish.Rangankar@cavium.com
+To: Yuval.Mintz@cavium.com
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <1495125664-23412-1-git-send-email-Yuval.Mintz@cavium.com>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 18 May 2017 09:15:58 -0700
+From: Yuval Mintz <Yuval.Mintz@cavium.com>
+Date: Thu, 18 May 2017 19:41:04 +0300
 
-> From: Eric Dumazet <edumazet@google.com>
+> This pushes qed [and as result, all qed* drivers] into using 8.20.0.0
+> firmware. The changes are mostly contained in qed with minor changes
+> to qedi due to some HSI changes.
 > 
-> skbs in (re)transmit queue no longer have a copy of jiffies
-> at the time of the transmit : skb->skb_mstamp is now in usec unit,
-> with no correlation to tcp_jiffies32.
+> Content-wise, the firmware contains fixes to various issues exposed
+> since the release of the previous firmware, including:
+>  - Corrects iSCSI fast retransmit when data digest is enabled.
+>  - Stop draining packets when receiving several consecutive PFCs.
+>  - Prevent possible assertion when consecutively opening/closing
+>    many connections.
+>  - Prevent possible assertion due to too long BDQ fetch time.
 > 
-> We have to convert rto from jiffies to usec, compute a time difference
-> in usec, then convert the delta to HZ units.
+> In addition, the new firmware would allow us to later add iWARP support
+> in qed and qedr.
 > 
-> Fixes: 9a568de4818d ("tcp: switch TCP TS option (RFC 7323) to 1ms clock")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Changes from previous version
+> -----------------------------
+>  - V2: Fix warning in qed_debug.c 
+> 
+> Signed-off-by: Chad Dupuis <Chad.Dupuis@cavium.com>
+> Signed-off-by: Ram Amrani <Ram.Amrani@cavium.com>
+> Signed-off-by: Tomer Tayar <Tomer.Tayar@cavium.com>
+> Signed-off-by: Manish Rangankar <Manish.Rangankar@cavium.com>
+> Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
 
-Applied, thanks Eric.
+Applied, hopefully this one goes more smoothly.
+
+Thanks.
