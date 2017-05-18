@@ -1,157 +1,200 @@
-From: Peter Dawson <petedaws@gmail.com>
-Subject: Re: [PATCH] ip6_tunnel, ip6_gre: fix setting of DSCP on encapsulated packets
-Date: Thu, 18 May 2017 12:49:01 +1000
-Message-ID: <CANX4UBcureLm+7wkC1C6=ZvV4JNTKzSCvzv-hV=w77O_WF4ntA@mail.gmail.com>
-References: <5fba416f3f644db2b1f51e54724ef6ba@XCH15-07-02.nw.nos.boeing.com>
- <20170517181800.07788dd8@xeon-e3> <579256095bc540bab2668f55a6a2c25b@XCH15-07-02.nw.nos.boeing.com>
+From: Alexei Starovoitov <ast@fb.com>
+Subject: Re: [PATCH v2 1/3] bpf: Use 1<<16 as ceiling for immediate alignment
+ in verifier.
+Date: Wed, 17 May 2017 19:48:00 -0700
+Message-ID: <97910214-213c-c5c6-4a02-adc16cd836aa@fb.com>
+References: <20170515.120431.1588221938554447723.davem@davemloft.net>
+ <754f2c39-fdb0-2407-c2f2-aa36d506d202@solarflare.com>
+ <f2bff26d-8b4d-c6a2-23c9-9db198569e40@fb.com>
+ <50288778-10f6-7201-c979-bfe4635831fc@solarflare.com>
+ <e873f261-e1c1-c344-3d72-254623e0c91a@solarflare.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="001a114c81de8724ba054fc3721c"
-Cc: netdev@vger.kernel.org
-To: stephen@networkplumber.org
+Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <alexei.starovoitov@gmail.com>, <netdev@vger.kernel.org>
+To: Edward Cree <ecree@solarflare.com>,
+        David Miller <davem@davemloft.net>,
+        Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f180.google.com ([209.85.161.180]:34893 "EHLO
-        mail-yw0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753553AbdERCtD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 17 May 2017 22:49:03 -0400
-Received: by mail-yw0-f180.google.com with SMTP id l74so14892846ywe.2
-        for <netdev@vger.kernel.org>; Wed, 17 May 2017 19:49:02 -0700 (PDT)
-In-Reply-To: <579256095bc540bab2668f55a6a2c25b@XCH15-07-02.nw.nos.boeing.com>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:43531 "EHLO
+        mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1753868AbdERCtG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 17 May 2017 22:49:06 -0400
+In-Reply-To: <e873f261-e1c1-c344-3d72-254623e0c91a@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---001a114c81de8724ba054fc3721c
-Content-Type: text/plain; charset="UTF-8"
-
->> This fix addresses two problems in the way the DSCP field is
->> formulated on the  encapsulating header of IPv6 tunnels.
->> This fix addresses Bug 195661.
->> https://bugzilla.kernel.org/show_bug.cgi?id=195661
+On 5/17/17 8:33 AM, Edward Cree wrote:
+> On 17/05/17 15:00, Edward Cree wrote:
+>> OTOH the 'track known 1s as well' might work in a nice generic way
+>>  and cover all bases, I'll have to experiment a bit with that.
 >>
->> 1) The IPv6 tunneling code was manipulating the DSCP field of the
->> encapsulating  packet using the 32b flowlabel. Since the flowlabel is
->> only the lower 20b it  was incorrect to assume that the upper 12b
->> containing the DSCP and ECN fields  would remain intact when
->> formulating the encapsulating header. This fix  handles the 'inherit'
->> and 'fixed-value' DSCP cases explicitly using the extant  dsfield u8 variable.
->>
->> 2) The use of INET_ECN_encapsulate(0, dsfield) in ip6_tnl_xmit was
->> incorrect  and resulted in the DSCP value always being set to 0.
->> ---
->>  net/ipv6/ip6_gre.c    | 18 ++++++++++--------
->>  net/ipv6/ip6_tunnel.c | 28 +++++++++++++++++-----------
->>  2 files changed, 27 insertions(+), 19 deletions(-)
+>> -Ed
 >
-> This patch looks correct, but has trivial style issues like using spaces instead of tabs and other junk.  Please run checkpatch.pl, look at the results and resubmit.
+> So I did some experiments (in Python, script follows) and found that
+>  indeed this does appear to work, at least for addition and shifts.
+> The idea is that we have a 0s mask and a 1s mask; for bits that are
+>  unknown, the 0s mask is set and the 1s mask is cleared.  So a
+>  completely unknown variable has masks (~0, 0), then if you shift it
+>  left 2 you get (~3, 0) - just shift both masks.  A constant x has
+>  masks (x, x) - all the 0s are known 0s and all the 1s are known 1s.
+> Addition is a bit more complicated: we compute the 'unknown bits'
+>  mask, by XORing the 0s and 1s masks together, of each addend.  Then
+>  we add the corresponding masks from each addend together, and force
+>  the 'unknown' bits to the appropriate values in each mask.
+> So given (a1, b1) and (a2, b2), we compute m1 = a1 ^ b1,
+>  m2 = a2 ^ b2, and m = m1 | m2.  Then a = (a1 + a2) | m, and
+>  b = (b1 + b2) & ~m.
+> As a worked example, 2 + (x << 2) + 14:
+>  2 => (2, 2) constant
+>  x => (~0, 0) unknown
+>  x << 2 => (~3, 0)
+>  2 + (x << 2): add (2, 2) with (~3, 0)
+>     m1 = 0, m2 = ~3, m = ~3
+>     a = (2 + ~3) | ~3 = ~1 | ~3 = ~1
+>     b = (2 + 0) & ~~3 = 2 & 3 = 2
+>     so (~1, 2), which means "...xx10"
+> now add 14: add (~1, 2) with (14, 14)
+>     m1 = ~3, m2 = 0, m = ~3
+>     a = (~1 + 14) | ~3 = 12 | ~3 = ~3
+>     b = (2 + 14) & ~~3 = 16 & 3 = 0
+>     so (~3, 0), which means "...xx00"
+> and the result is 4-byte aligned.
+>
+> -Ed
+>
+> PS. Beware of bugs in the following code; I have only tested it, not
+>  proved it correct.
+>
+> --8<--
+>
+> #!/usr/bin/python2
+>
+> def cpl(x):
+>     return (~x)&0xff
+>
+> class AlignedNumber(object):
+>     def __init__(self, mask0=0xff, mask1=0):
+>         """mask0 has 0s for bits known to be 0, 1s otherwise.
+>         mask1 has 1s for bits known to be 1, 0s otherwise.
+>         Thus a bit which is set in mask0 and cleared in mask1 is an 'unknown'
+>         bit, while a bit which is cleared in mask0 and set in mask1 is a bug.
+>         """
+>         self.masks = (mask0 & 0xff, mask1 & 0xff)
+>         self.validate()
+>     @classmethod
+>     def const(cls, value):
+>         """All bits are known, so both masks equal value."""
+>         return cls(value, value)
+>     def validate(self):
+>         # Check for bits 'known' to be both 0 and 1
+>         assert not (cpl(self.masks[0]) & self.masks[1]), self.masks
+>         # Check unknown bits don't follow known bits
+>         assert self.mx | ((self.mx - 1) & 0xff) == 0xff, self.masks
+>     def __str__(self):
+>         return ':'.join(map(bin, self.masks))
+>     def __lshift__(self, sh):
+>         """Shift both masks left, low bits become 'known 0'"""
+>         return self.__class__(self.masks[0] << sh, self.masks[1] << sh)
+>     def __rshift__(self, sh):
+>         """Shift 1s into mask0; high bits become 'unknown'.
+>         While strictly speaking they may be known 0 if we're tracking the full
+>         word and doing unsigned shifts, having known bits before unknown bits
+>         breaks the addition code."""
+>         return self.__class__(cpl(cpl(self.masks[0]) >> sh), self.masks[1] >> sh)
+>     @property
+>     def mx(self):
+>         """Mask of unknown bits"""
+>         return self.masks[0] ^ self.masks[1]
+>     def __add__(self, other):
+>         """OR the mx values together.  Unknown bits could cause carries, so we
+>         just assume that they can carry all the way to the left (thus we keep
+>         our mx masks in the form 1...10...0.
+>         Then, add our 0- and 1-masks, and force the bits of the combined mx
+>         mask to the unknown state."""
+>         if isinstance(other, int):
+>             return self + AlignedNumber.const(other)
+>         assert isinstance(other, AlignedNumber), other
+>         m = self.mx | other.mx
+>         return self.__class__((self.masks[0] + other.masks[0]) | m,
+>                               (self.masks[1] + other.masks[1]) & cpl(m))
+>     def is_aligned(self, bits):
+>         """We are 2^n-aligned iff the bottom n bits are known-0."""
+>         mask = (1 << bits) - 1
+>         return not (self.masks[0] & mask)
+>
+> if __name__ == '__main__':
+>     a = AlignedNumber.const(2)
+>     b = AlignedNumber() << 2
+>     c = AlignedNumber.const(14)
+>     print a, b, c
+>     print a + b, a + b + c
+>     assert (a + b + c).is_aligned(2)
 
-Thanks.  I've run checkpatch.pl over this updated file with no errors.
-Regards
-Peter
+that bit was confusing to me.
+is_aligned(2) checks that number is 4 byte aligned :)
 
---001a114c81de8724ba054fc3721c
-Content-Type: text/x-diff; charset="US-ASCII"; name="tunnel_inherit.patch"
-Content-Disposition: attachment; filename="tunnel_inherit.patch"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_j2ttfyen1
+Would it be easier to represent this logic via (mask_of_unknown, value)
+instead of (mask0, mask1) ?
+Where mask_of_unknown has 1s for unknown bits and 0 for known bits
+in the value. Then arithmetic operations will be easier to visualize.
+Like:
+(mask1, val1) + (mask2, val2) = (mask1 | mask2, val1 + val2)
 
-RnJvbSBmMTJhZGIyNjVmNjgzZDUzYWUwNzE3MjVlNjU3ZGFiMTdkMjZlZDhkIE1vbiBTZXAgMTcg
-MDA6MDA6MDAgMjAwMQpGcm9tOiBQZXRlciBEYXdzb24gPHBldGVyLmEuZGF3c29uQGJvZWluZy5j
-b20+CkRhdGU6IFRodSwgMTggTWF5IDIwMTcgMTE6NTI6MjIgKzEwMDAKU3ViamVjdDogW1BBVENI
-XSBpcDZfdHVubmVsLCBpcDZfZ3JlOiBmaXggc2V0dGluZyBvZiBEU0NQIG9uIGVuY2Fwc3VsYXRl
-ZAogcGFja2V0cwoKVGhpcyBmaXggYWRkcmVzc2VzIHR3byBwcm9ibGVtcyBpbiB0aGUgd2F5IHRo
-ZSBEU0NQIGZpZWxkIGlzIGZvcm11bGF0ZWQKIG9uIHRoZSBlbmNhcHN1bGF0aW5nIGhlYWRlciBv
-ZiBJUHY2IHR1bm5lbHMuClRoaXMgZml4IGFkZHJlc3NlcyBCdWcgMTk1NjYxLgoKMSkgVGhlIElQ
-djYgdHVubmVsaW5nIGNvZGUgd2FzIG1hbmlwdWxhdGluZyB0aGUgRFNDUCBmaWVsZCBvZiB0aGUK
-IGVuY2Fwc3VsYXRpbmcgcGFja2V0IHVzaW5nIHRoZSAzMmIgZmxvd2xhYmVsLiBTaW5jZSB0aGUg
-Zmxvd2xhYmVsIGlzCiBvbmx5IHRoZSBsb3dlciAyMGIgaXQgd2FzIGluY29ycmVjdCB0byBhc3N1
-bWUgdGhhdCB0aGUgdXBwZXIgMTJiCiBjb250YWluaW5nIHRoZSBEU0NQIGFuZCBFQ04gZmllbGRz
-IHdvdWxkIHJlbWFpbiBpbnRhY3Qgd2hlbiBmb3JtdWxhdGluZwogdGhlIGVuY2Fwc3VsYXRpbmcg
-aGVhZGVyLiBUaGlzIGZpeCBoYW5kbGVzIHRoZSAnaW5oZXJpdCcgYW5kCiAnZml4ZWQtdmFsdWUn
-IERTQ1AgY2FzZXMgZXhwbGljaXRseSB1c2luZyB0aGUgZXh0YW50IGRzZmllbGQgdTggdmFyaWFi
-bGUuCgoyKSBUaGUgdXNlIG9mIElORVRfRUNOX2VuY2Fwc3VsYXRlKDAsIGRzZmllbGQpIGluIGlw
-Nl90bmxfeG1pdCB3YXMKIGluY29ycmVjdCBhbmQgcmVzdWx0ZWQgaW4gdGhlIERTQ1AgdmFsdWUg
-YWx3YXlzIGJlaW5nIHNldCB0byAwLgoKU2lnbmVkLW9mZi1ieTogUGV0ZXIgRGF3c29uIDxwZXRl
-ci5hLmRhd3NvbkBib2VpbmcuY29tPgotLS0KIG5ldC9pcHY2L2lwNl9ncmUuYyAgICB8IDEzICsr
-KysrKystLS0tLS0KIG5ldC9pcHY2L2lwNl90dW5uZWwuYyB8IDIxICsrKysrKysrKysrKystLS0t
-LS0tLQogMiBmaWxlcyBjaGFuZ2VkLCAyMCBpbnNlcnRpb25zKCspLCAxNCBkZWxldGlvbnMoLSkK
-CmRpZmYgLS1naXQgYS9uZXQvaXB2Ni9pcDZfZ3JlLmMgYi9uZXQvaXB2Ni9pcDZfZ3JlLmMKaW5k
-ZXggOGQxMjhiYS4uMGM1YjRjYWEgMTAwNjQ0Ci0tLSBhL25ldC9pcHY2L2lwNl9ncmUuYworKysg
-Yi9uZXQvaXB2Ni9pcDZfZ3JlLmMKQEAgLTUzNywxMSArNTM3LDEwIEBAIHN0YXRpYyBpbmxpbmUg
-aW50IGlwNmdyZV94bWl0X2lwdjQoc3RydWN0IHNrX2J1ZmYgKnNrYiwgc3RydWN0IG5ldF9kZXZp
-Y2UgKmRldikKIAogCW1lbWNweSgmZmw2LCAmdC0+ZmwudS5pcDYsIHNpemVvZihmbDYpKTsKIAot
-CWRzZmllbGQgPSBpcHY0X2dldF9kc2ZpZWxkKGlwaCk7Ci0KIAlpZiAodC0+cGFybXMuZmxhZ3Mg
-JiBJUDZfVE5MX0ZfVVNFX09SSUdfVENMQVNTKQotCQlmbDYuZmxvd2xhYmVsIHw9IGh0b25sKChf
-X3UzMilpcGgtPnRvcyA8PCBJUFY2X1RDTEFTU19TSElGVCkKLQkJCQkJICAmIElQVjZfVENMQVNT
-X01BU0s7CisJCWRzZmllbGQgPSBpcHY0X2dldF9kc2ZpZWxkKGlwaCk7CisJZWxzZQorCQlkc2Zp
-ZWxkID0gaXA2X3RjbGFzcyh0LT5wYXJtcy5mbG93aW5mbyk7CiAJaWYgKHQtPnBhcm1zLmZsYWdz
-ICYgSVA2X1ROTF9GX1VTRV9PUklHX0ZXTUFSSykKIAkJZmw2LmZsb3dpNl9tYXJrID0gc2tiLT5t
-YXJrOwogCWVsc2UKQEAgLTU5OCw5ICs1OTcsMTEgQEAgc3RhdGljIGlubGluZSBpbnQgaXA2Z3Jl
-X3htaXRfaXB2NihzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBzdHJ1Y3QgbmV0X2RldmljZSAqZGV2KQog
-CiAJbWVtY3B5KCZmbDYsICZ0LT5mbC51LmlwNiwgc2l6ZW9mKGZsNikpOwogCi0JZHNmaWVsZCA9
-IGlwdjZfZ2V0X2RzZmllbGQoaXB2NmgpOwogCWlmICh0LT5wYXJtcy5mbGFncyAmIElQNl9UTkxf
-Rl9VU0VfT1JJR19UQ0xBU1MpCi0JCWZsNi5mbG93bGFiZWwgfD0gKCooX19iZTMyICopIGlwdjZo
-ICYgSVBWNl9UQ0xBU1NfTUFTSyk7CisJCWRzZmllbGQgPSBpcHY2X2dldF9kc2ZpZWxkKGlwdjZo
-KTsKKwllbHNlCisJCWRzZmllbGQgPSBpcDZfdGNsYXNzKHQtPnBhcm1zLmZsb3dpbmZvKTsKKwog
-CWlmICh0LT5wYXJtcy5mbGFncyAmIElQNl9UTkxfRl9VU0VfT1JJR19GTE9XTEFCRUwpCiAJCWZs
-Ni5mbG93bGFiZWwgfD0gaXA2X2Zsb3dsYWJlbChpcHY2aCk7CiAJaWYgKHQtPnBhcm1zLmZsYWdz
-ICYgSVA2X1ROTF9GX1VTRV9PUklHX0ZXTUFSSykKZGlmZiAtLWdpdCBhL25ldC9pcHY2L2lwNl90
-dW5uZWwuYyBiL25ldC9pcHY2L2lwNl90dW5uZWwuYwppbmRleCA2ZWIyYWU1Li43YWU2YzUwIDEw
-MDY0NAotLS0gYS9uZXQvaXB2Ni9pcDZfdHVubmVsLmMKKysrIGIvbmV0L2lwdjYvaXA2X3R1bm5l
-bC5jCkBAIC0xMTk2LDcgKzExOTYsNyBAQCBpbnQgaXA2X3RubF94bWl0KHN0cnVjdCBza19idWZm
-ICpza2IsIHN0cnVjdCBuZXRfZGV2aWNlICpkZXYsIF9fdTggZHNmaWVsZCwKIAlza2JfcHVzaChz
-a2IsIHNpemVvZihzdHJ1Y3QgaXB2NmhkcikpOwogCXNrYl9yZXNldF9uZXR3b3JrX2hlYWRlcihz
-a2IpOwogCWlwdjZoID0gaXB2Nl9oZHIoc2tiKTsKLQlpcDZfZmxvd19oZHIoaXB2NmgsIElORVRf
-RUNOX2VuY2Fwc3VsYXRlKDAsIGRzZmllbGQpLAorCWlwNl9mbG93X2hkcihpcHY2aCwgZHNmaWVs
-ZCwKIAkJICAgICBpcDZfbWFrZV9mbG93bGFiZWwobmV0LCBza2IsIGZsNi0+Zmxvd2xhYmVsLCB0
-cnVlLCBmbDYpKTsKIAlpcHY2aC0+aG9wX2xpbWl0ID0gaG9wX2xpbWl0OwogCWlwdjZoLT5uZXh0
-aGRyID0gcHJvdG87CkBAIC0xMjMxLDggKzEyMzEsNiBAQCBpcDRpcDZfdG5sX3htaXQoc3RydWN0
-IHNrX2J1ZmYgKnNrYiwgc3RydWN0IG5ldF9kZXZpY2UgKmRldikKIAlpZiAodHByb3RvICE9IElQ
-UFJPVE9fSVBJUCAmJiB0cHJvdG8gIT0gMCkKIAkJcmV0dXJuIC0xOwogCi0JZHNmaWVsZCA9IGlw
-djRfZ2V0X2RzZmllbGQoaXBoKTsKLQogCWlmICh0LT5wYXJtcy5jb2xsZWN0X21kKSB7CiAJCXN0
-cnVjdCBpcF90dW5uZWxfaW5mbyAqdHVuX2luZm87CiAJCWNvbnN0IHN0cnVjdCBpcF90dW5uZWxf
-a2V5ICprZXk7CkBAIC0xMjQ2LDYgKzEyNDQsNyBAQCBpcDRpcDZfdG5sX3htaXQoc3RydWN0IHNr
-X2J1ZmYgKnNrYiwgc3RydWN0IG5ldF9kZXZpY2UgKmRldikKIAkJZmw2LmZsb3dpNl9wcm90byA9
-IElQUFJPVE9fSVBJUDsKIAkJZmw2LmRhZGRyID0ga2V5LT51LmlwdjYuZHN0OwogCQlmbDYuZmxv
-d2xhYmVsID0ga2V5LT5sYWJlbDsKKwkJZHNmaWVsZCA9IGlwNl90Y2xhc3Moa2V5LT5sYWJlbCk7
-CiAJfSBlbHNlIHsKIAkJaWYgKCEodC0+cGFybXMuZmxhZ3MgJiBJUDZfVE5MX0ZfSUdOX0VOQ0FQ
-X0xJTUlUKSkKIAkJCWVuY2FwX2xpbWl0ID0gdC0+cGFybXMuZW5jYXBfbGltaXQ7CkBAIC0xMjU0
-LDggKzEyNTMsOSBAQCBpcDRpcDZfdG5sX3htaXQoc3RydWN0IHNrX2J1ZmYgKnNrYiwgc3RydWN0
-IG5ldF9kZXZpY2UgKmRldikKIAkJZmw2LmZsb3dpNl9wcm90byA9IElQUFJPVE9fSVBJUDsKIAog
-CQlpZiAodC0+cGFybXMuZmxhZ3MgJiBJUDZfVE5MX0ZfVVNFX09SSUdfVENMQVNTKQotCQkJZmw2
-LmZsb3dsYWJlbCB8PSBodG9ubCgoX191MzIpaXBoLT50b3MgPDwgSVBWNl9UQ0xBU1NfU0hJRlQp
-Ci0JCQkJCSAmIElQVjZfVENMQVNTX01BU0s7CisJCQlkc2ZpZWxkID0gaXB2NF9nZXRfZHNmaWVs
-ZChpcGgpOworCQllbHNlCisJCQlkc2ZpZWxkID0gaXA2X3RjbGFzcyh0LT5wYXJtcy5mbG93aW5m
-byk7CiAJCWlmICh0LT5wYXJtcy5mbGFncyAmIElQNl9UTkxfRl9VU0VfT1JJR19GV01BUkspCiAJ
-CQlmbDYuZmxvd2k2X21hcmsgPSBza2ItPm1hcms7CiAJCWVsc2UKQEAgLTEyNjcsNiArMTI2Nyw4
-IEBAIGlwNGlwNl90bmxfeG1pdChzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBzdHJ1Y3QgbmV0X2Rldmlj
-ZSAqZGV2KQogCWlmIChpcHR1bm5lbF9oYW5kbGVfb2ZmbG9hZHMoc2tiLCBTS0JfR1NPX0lQWElQ
-NikpCiAJCXJldHVybiAtMTsKIAorCWRzZmllbGQgPSBJTkVUX0VDTl9lbmNhcHN1bGF0ZShkc2Zp
-ZWxkLCBpcHY0X2dldF9kc2ZpZWxkKGlwaCkpOworCiAJc2tiX3NldF9pbm5lcl9pcHByb3RvKHNr
-YiwgSVBQUk9UT19JUElQKTsKIAogCWVyciA9IGlwNl90bmxfeG1pdChza2IsIGRldiwgZHNmaWVs
-ZCwgJmZsNiwgZW5jYXBfbGltaXQsICZtdHUsCkBAIC0xMzAwLDggKzEzMDIsNiBAQCBpcDZpcDZf
-dG5sX3htaXQoc3RydWN0IHNrX2J1ZmYgKnNrYiwgc3RydWN0IG5ldF9kZXZpY2UgKmRldikKIAkg
-ICAgaXA2X3RubF9hZGRyX2NvbmZsaWN0KHQsIGlwdjZoKSkKIAkJcmV0dXJuIC0xOwogCi0JZHNm
-aWVsZCA9IGlwdjZfZ2V0X2RzZmllbGQoaXB2NmgpOwotCiAJaWYgKHQtPnBhcm1zLmNvbGxlY3Rf
-bWQpIHsKIAkJc3RydWN0IGlwX3R1bm5lbF9pbmZvICp0dW5faW5mbzsKIAkJY29uc3Qgc3RydWN0
-IGlwX3R1bm5lbF9rZXkgKmtleTsKQEAgLTEzMTUsNiArMTMxNSw3IEBAIGlwNmlwNl90bmxfeG1p
-dChzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBzdHJ1Y3QgbmV0X2RldmljZSAqZGV2KQogCQlmbDYuZmxv
-d2k2X3Byb3RvID0gSVBQUk9UT19JUFY2OwogCQlmbDYuZGFkZHIgPSBrZXktPnUuaXB2Ni5kc3Q7
-CiAJCWZsNi5mbG93bGFiZWwgPSBrZXktPmxhYmVsOworCQlkc2ZpZWxkID0gaXA2X3RjbGFzcyhr
-ZXktPmxhYmVsKTsKIAl9IGVsc2UgewogCQlvZmZzZXQgPSBpcDZfdG5sX3BhcnNlX3Rsdl9lbmNf
-bGltKHNrYiwgc2tiX25ldHdvcmtfaGVhZGVyKHNrYikpOwogCQkvKiBpcDZfdG5sX3BhcnNlX3Rs
-dl9lbmNfbGltKCkgbWlnaHQgaGF2ZSByZWFsbG9jYXRlZCBza2ItPmhlYWQgKi8KQEAgLTEzMzcs
-NyArMTMzOCw5IEBAIGlwNmlwNl90bmxfeG1pdChzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBzdHJ1Y3Qg
-bmV0X2RldmljZSAqZGV2KQogCQlmbDYuZmxvd2k2X3Byb3RvID0gSVBQUk9UT19JUFY2OwogCiAJ
-CWlmICh0LT5wYXJtcy5mbGFncyAmIElQNl9UTkxfRl9VU0VfT1JJR19UQ0xBU1MpCi0JCQlmbDYu
-Zmxvd2xhYmVsIHw9ICgqKF9fYmUzMiAqKWlwdjZoICYgSVBWNl9UQ0xBU1NfTUFTSyk7CisJCQlk
-c2ZpZWxkID0gaXB2Nl9nZXRfZHNmaWVsZChpcHY2aCk7CisJCWVsc2UKKwkJCWRzZmllbGQgPSBp
-cDZfdGNsYXNzKHQtPnBhcm1zLmZsb3dpbmZvKTsKIAkJaWYgKHQtPnBhcm1zLmZsYWdzICYgSVA2
-X1ROTF9GX1VTRV9PUklHX0ZMT1dMQUJFTCkKIAkJCWZsNi5mbG93bGFiZWwgfD0gaXA2X2Zsb3ds
-YWJlbChpcHY2aCk7CiAJCWlmICh0LT5wYXJtcy5mbGFncyAmIElQNl9UTkxfRl9VU0VfT1JJR19G
-V01BUkspCkBAIC0xMzUxLDYgKzEzNTQsOCBAQCBpcDZpcDZfdG5sX3htaXQoc3RydWN0IHNrX2J1
-ZmYgKnNrYiwgc3RydWN0IG5ldF9kZXZpY2UgKmRldikKIAlpZiAoaXB0dW5uZWxfaGFuZGxlX29m
-ZmxvYWRzKHNrYiwgU0tCX0dTT19JUFhJUDYpKQogCQlyZXR1cm4gLTE7CiAKKwlkc2ZpZWxkID0g
-SU5FVF9FQ05fZW5jYXBzdWxhdGUoZHNmaWVsZCwgaXB2Nl9nZXRfZHNmaWVsZChpcHY2aCkpOwor
-CiAJc2tiX3NldF9pbm5lcl9pcHByb3RvKHNrYiwgSVBQUk9UT19JUFY2KTsKIAogCWVyciA9IGlw
-Nl90bmxfeG1pdChza2IsIGRldiwgZHNmaWVsZCwgJmZsNiwgZW5jYXBfbGltaXQsICZtdHUsCi0t
-IAoyLjcuNAoK
---001a114c81de8724ba054fc3721c--
+Here is your modified script:
+#!/usr/bin/python2
+
+class AlignedNumber(object):
+     def __init__(self, mask=0xff, value=0):
+         # mask has 1s for unknown bits, 0s for known bits in value
+         self.masks = (mask & 0xff, value & 0xff)
+     @classmethod
+     def const(cls, value):
+         # All bits are known, hence mask = 0
+         return cls(0, value)
+     def __str__(self):
+         return ':'.join(map(bin, self.masks))
+     def __lshift__(self, sh):
+         return self.__class__(self.masks[0] << sh, self.masks[1] << sh)
+     def __rshift__(self, sh):
+         return self.__class__(self.masks[0] >> sh, self.masks[1] >> sh)
+     def __add__(self, other):
+         if isinstance(other, int):
+             return self + AlignedNumber.const(other)
+         assert isinstance(other, AlignedNumber), other
+         return self.__class__(self.masks[0] | other.masks[0],
+                               self.masks[1] + other.masks[1])
+     def is_aligned(self, bits):
+         """We are 2^n-aligned iff the bottom n bits are known-0."""
+         mask = (1 << bits) - 1
+         # assume all unknown bits are 1 for alignment checking purpose
+         m = self.masks[0] | self.masks[1]
+         return not (self.masks[0] & mask)
+
+if __name__ == '__main__':
+     a = AlignedNumber.const(2)
+     b = AlignedNumber() << 2
+     c = AlignedNumber.const(14)
+     print a, b, c
+     print a + b, a + b + c
+     assert (a + b + c).is_aligned(2)
+     d = (AlignedNumber() << 4) >> 2
+     print d
+     assert d.is_aligned(2)
+
+
+As far as upper bits we can tweak the algorithm to eat into
+one or more bits of known bits due to carry.
+Like
+00xx11 + 00xx11 = 0xxx10
+we will eat only one bit (second from left) and the highest bit
+is known to stay zero, since carry can only compromise 2nd from left.
+Such logic should work for sparse representation of unknown bits too
+Like:
+10xx01xx10 +
+01xx01xx00 =
+xxxx1xxx10
+both upper two bits would be unknown, but only one middle bit becomes
+unknown.
+In typical case (that verifier tracks today) a bunch of upper bits will
+be zero, so worst case we will be eating one bit at a time.
