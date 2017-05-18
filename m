@@ -1,46 +1,48 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next] drivers: net: xgene: Check all RGMII phy mode
- variants
-Date: Thu, 18 May 2017 15:02:20 +0200
-Message-ID: <20170518130220.GA32503@lunn.ch>
-References: <1495051550-28961-1-git-send-email-isubramanian@apm.com>
- <20170517202633.GA14413@lunn.ch>
- <CAFopSPTP07TFcgc8pACQDF4ZXHOftUMBqBCgF4hVpAmUt0cCWw@mail.gmail.com>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: [RFC]RNDIS filter issue
+Date: Thu, 18 May 2017 15:02:30 +0200
+Message-ID: <87lgpuco7t.fsf@miraculix.mork.no>
+References: <1495111085.6672.7.camel@suse.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Iyappan Subramanian <isubramanian@apm.com>,
-        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        linux-arm-kernel@lists.infradead.org, patches <patches@apm.com>
-To: Quan Nguyen <qnguyen@apm.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev@vger.kernel.org
+To: Oliver Neukum <oneukum@suse.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:35468 "EHLO vps0.lunn.ch"
+Received: from canardo.mork.no ([148.122.252.1]:58257 "EHLO canardo.mork.no"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754620AbdERNCZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 18 May 2017 09:02:25 -0400
-Content-Disposition: inline
-In-Reply-To: <CAFopSPTP07TFcgc8pACQDF4ZXHOftUMBqBCgF4hVpAmUt0cCWw@mail.gmail.com>
+        id S1754011AbdERNDs (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 18 May 2017 09:03:48 -0400
+In-Reply-To: <1495111085.6672.7.camel@suse.com> (Oliver Neukum's message of
+        "Thu, 18 May 2017 14:38:05 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Hi Andrew,
-> 
-> Our purpose is to handle our internal pdata->phy_mode, so
-> phy_interface_is_rgmii(phydev) seems not to fit.
-> Instead, we're working on the below:
-> 
-> +bool is_xgene_enet_phy_mode_rgmii(struct net_device *ndev)
-> +{
-> +       struct xgene_enet_pdata *pdata = netdev_priv(ndev);
-> +
-> +       return pdata->phy_mode >= PHY_INTERFACE_MODE_RGMII &&
-> +              pdata->phy_mode <= PHY_INTERFACE_MODE_RGMII_TXID;
-> +}
-> +
+Oliver Neukum <oneukum@suse.com> writes:
 
-This is very generic, can could be used by other drivers. I prefer
-what Florian suggested, have a generic helper which takes phy_mode as
-a parameters. And then modify phy_interface_is_rgmii() to use this
-helper.
+> @@ -472,7 +489,6 @@ static void usbnet_cdc_zte_status(struct usbnet *dev,=
+ struct urb *urb)
+>=20=20
+>  	if (urb->actual_length < sizeof(*event))
+>  		return;
+> -
+>  	event =3D urb->transfer_buffer;
+>=20=20
+>  	if (event->bNotificationType !=3D USB_CDC_NOTIFY_NETWORK_CONNECTION) {
 
-	Andrew
+
+Spurious whitespace.
+
+And building gives:
+
+ /usr/local/src/git/linux/drivers/net/usb/cdc_ether.c:325:5: warning: symbo=
+l 'usbnet_ether_cdc_bind' was not declared. Should it be static?
+
+and maybe it should?  There is no use for it in any other module, yet.
+Or you could declare it in usbnet.h, I guess.  Your choice.
+
+Looks good to me if those two minor issues are fixed.  But do note that
+I currently don't have any way to test this on real hardware...
+
+
+Bj=C3=B8rn
