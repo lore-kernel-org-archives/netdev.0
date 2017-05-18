@@ -1,51 +1,48 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH] of_mdio: Fix broken PHY IRQ in case of probe deferral
-Date: Thu, 18 May 2017 21:34:53 +0200
-Message-ID: <20170518193453.GB13759@lunn.ch>
-References: <1495112345-24795-1-git-send-email-geert+renesas@glider.be>
- <f0ed61c3-062b-cec6-fe19-7412231e8ef1@gmail.com>
- <CAMuHMdWYeSzofU57LmT_M3KkcHhvjfJy7nkHvcXkKzOYmvhqqA@mail.gmail.com>
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: Re: [PATCH v5 net-next 5/7] net: fix documentation of struct scm_timestamping
+Date: Thu, 18 May 2017 15:38:30 -0400
+Message-ID: <CAF=yD-JGUw6pryNV3YevFMxC5=1A62qujAfFO7LjQi2LtsSg4g@mail.gmail.com>
+References: <20170518140738.19617-1-mlichvar@redhat.com> <20170518140738.19617-6-mlichvar@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-        Geert Uytterhoeven <geert+renesas@glider.be>,
-        Rob Herring <robh+dt@kernel.org>,
-        Frank Rowand <frowand.list@gmail.com>,
-        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-        Linux-Renesas <linux-renesas-soc@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Geert Uytterhoeven <geert@linux-m68k.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAMuHMdWYeSzofU57LmT_M3KkcHhvjfJy7nkHvcXkKzOYmvhqqA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: Network Development <netdev@vger.kernel.org>,
+        Richard Cochran <richardcochran@gmail.com>,
+        Willem de Bruijn <willemb@google.com>
+To: Miroslav Lichvar <mlichvar@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f66.google.com ([209.85.218.66]:33560 "EHLO
+        mail-oi0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932516AbdERTjQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 18 May 2017 15:39:16 -0400
+Received: by mail-oi0-f66.google.com with SMTP id h4so9069962oib.0
+        for <netdev@vger.kernel.org>; Thu, 18 May 2017 12:39:16 -0700 (PDT)
+In-Reply-To: <20170518140738.19617-6-mlichvar@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> > This most certainly works fine in the simple case where you have one PHY
-> > hanging off the MDIO bus, now what happens if you have several?
-> >
-> > Presumably, the first PHY that returns EPROBE_DEFER will make the entire
-> > bus registration return EPROB_DEFER as well, and so on, and so forth,
-> > but I am not sure if we will be properly unwinding the successful
-> > registration of PHYs that either don't have an interrupt, or did not
-> > return EPROBE_DEFER.
-> >
-> > It should be possible to mimic this behavior by using the fixed PHY, and
-> > possibly the dsa_loop.c driver which would create 4 ports, expecting 4
-> > fixed PHYs to be present.
-> 
-> mdiobus_unregister(), called from of_mdiobus_register() on failure,
-> should do the unwinding, right?
-> 
-> And when the driver is reprobed, all PHYs are reprobed, until they all
-> succeed.
+On Thu, May 18, 2017 at 10:07 AM, Miroslav Lichvar <mlichvar@redhat.com> wrote:
+> The scm_timestamping struct may return multiple non-zero fields, e.g.
+> when both software and hardware RX timestamping is enabled, or when the
+> SO_TIMESTAMP(NS) option is combined with SCM_TIMESTAMPING and a false
+> software timestamp is generated in the recvmsg() call in order to always
+> return a SCM_TIMESTAMP(NS) message.
+>
+> CC: Richard Cochran <richardcochran@gmail.com>
+> CC: Willem de Bruijn <willemb@google.com>
+> Signed-off-by: Miroslav Lichvar <mlichvar@redhat.com>
 
-That is the theory. I looked at that while reviewing the patch. But
-this has probably not been tested in anger. It would be good to test
-this properly, with not just the first PHY returning -EPROBE_DEFER, to
-really test the unwind.
+Thanks for adding this!
 
-    Andrew
+> +Note that if the SO_TIMESTAMP or SO_TIMESTAMPNS option is enabled
+> +together with SO_TIMESTAMPING using SOF_TIMESTAMPING_SOFTWARE, a false
+> +software timestamp will be generated in the recvmsg() call and passed
+> +in ts[0] when a real software timestamp is missing.
+
+With receive software timestamping this is expected behavior? I would make
+explicit that this happens even on tx timestamps.
+
+> For this reason it
+> +is not recommended to combine SO_TIMESTAMP(NS) with SO_TIMESTAMPING.
+
+And I'd remove this. The extra timestamp is harmless, and we may be missing
+other reasons why someone would want to enable both on the same socket.
