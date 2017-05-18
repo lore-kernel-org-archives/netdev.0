@@ -1,42 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] qed: Utilize FW 8.20.0.0
-Date: Thu, 18 May 2017 10:34:28 -0400 (EDT)
-Message-ID: <20170518.103428.1194147893495615244.davem@davemloft.net>
-References: <1495049920-22782-1-git-send-email-Yuval.Mintz@cavium.com>
+Subject: Re: [PATCH net-next 0/3] net: dsa: headers cleanup
+Date: Thu, 18 May 2017 10:36:37 -0400 (EDT)
+Message-ID: <20170518.103637.731007825504911583.davem@davemloft.net>
+References: <20170517194605.31639-1-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-scsi@vger.kernel.org,
-        Chad.Dupuis@cavium.com, Ram.Amrani@cavium.com,
-        Tomer.Tayar@cavium.com, Manish.Rangankar@cavium.com
-To: Yuval.Mintz@cavium.com
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <1495049920-22782-1-git-send-email-Yuval.Mintz@cavium.com>
-Sender: linux-scsi-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@savoirfairelinux.com, f.fainelli@gmail.com, andrew@lunn.ch
+To: vivien.didelot@savoirfairelinux.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170517194605.31639-1-vivien.didelot@savoirfairelinux.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Yuval Mintz <Yuval.Mintz@cavium.com>
-Date: Wed, 17 May 2017 22:38:40 +0300
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Date: Wed, 17 May 2017 15:46:02 -0400
 
-> This pushes qed [and as result, all qed* drivers] into using 8.20.0.0
-> firmware. The changes are mostly contained in qed with minor changes
-> to qedi due to some HSI changes.
+> The DSA core files share a common private header file. Include the DSA
+> public header there instead of independently in each core source file.
 > 
-> Content-wise, the firmware contains fixes to various issues exposed
-> since the release of the previous firmware, including:
->  - Corrects iSCSI fast retransmit when data digest is enabled.
->  - Stop draining packets when receiving several consecutive PFCs.
->  - Prevent possible assertion when consecutively opening/closing
->    many connections.
->  - Prevent possible assertion due to too long BDQ fetch time.
-> 
-> In addition, the new firmware would allow us to later add iWARP support
-> in qed and qedr.
-> 
-> Signed-off-by: Chad Dupuis <Chad.Dupuis@cavium.com>
-> Signed-off-by: Ram Amrani <Ram.Amrani@cavium.com>
-> Signed-off-by: Tomer Tayar <Tomer.Tayar@cavium.com>
-> Signed-off-by: Manish Rangankar <Manish.Rangankar@cavium.com>
-> Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
+> DSA core and its drivers use switchdev, thus include switchdev.h in the
+> public DSA header. This allows us to get rid of the forward declaration
+> and use typedef defined by switchdev.
 
-Applied.
+This looks fine, series applied, thanks.
