@@ -1,38 +1,37 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: rtlwifi: fix spelling mistake: "Pairwiase" -> "Pairwise"
-Date: Thu, 18 May 2017 14:14:39 +0000 (UTC)
-Message-ID: <20170518141439.6909C60F68@smtp.codeaurora.org>
-References: <20170503225543.10296-1-colin.king@canonical.com>
+From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Subject: Re: rtlwifi: rtl8723ae: fix spelling mistake: "Coexistance" ->
+ "Coexistence"
+Date: Thu, 18 May 2017 14:15:22 +0000 (UTC)
+Message-ID: <20170518141522.BBDC360F73@smtp.codeaurora.org>
+References: <20170513223702.19748-1-colin.king@canonical.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Larry Finger <Larry.Finger@lwfinger.net>,
-        Chaoming Li <chaoming_li@realsil.com.cn>,
-        Joe Perches <joe@perches.com>,
-        Ping-Ke Shih <pkshih@realtek.com>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: Colin Ian King <colin.king@canonical.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:45302 "EHLO
-        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754347AbdEROOk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 18 May 2017 10:14:40 -0400
-In-Reply-To: <20170503225543.10296-1-colin.king@canonical.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>,
+        Chaoming Li <chaoming_li-kXabqFNEczNtrwSWzY7KCg@public.gmane.org>,
+        Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>,
+        Christian Engelmayer <cengelma-RbZlAiThDcE@public.gmane.org>,
+        Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170513223702.19748-1-colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Colin Ian King <colin.king@canonical.com> wrote:
-> From: Colin Ian King <colin.king@canonical.com>
+Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org> wrote:
+> From: Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
 > 
-> trivial fixes to spelling mistakes in RT_TRACE messages.
+> Trivial fix to spelling mistake in RT_TRACE text
 > 
-> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+> Signed-off-by: Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
 
 Patch applied to wireless-drivers-next.git, thanks.
 
-6b9e6f62552e rtlwifi: fix spelling mistake: "Pairwiase" -> "Pairwise"
+e8dc072dd50d rtlwifi: rtl8723ae: fix spelling mistake: "Coexistance" -> "Coexistence"
 
 -- 
-https://patchwork.kernel.org/patch/9710495/
+https://patchwork.kernel.org/patch/9725457/
 
 https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
