@@ -1,70 +1,81 @@
 From: Ihar Hrachyshka <ihrachys@redhat.com>
-Subject: [PATCH v2 4/4] arp: always override existing neigh entries with gratuitous ARP
-Date: Thu, 18 May 2017 12:41:21 -0700
-Message-ID: <e6632af3eda7467c9a61402e8561cef7d6b9d02b.1495136258.git.ihrachys@redhat.com>
+Subject: [PATCH v2 2/4] arp: decompose is_garp logic into a separate function
+Date: Thu, 18 May 2017 12:41:19 -0700
+Message-ID: <481737abe7a375a7efe125f4e76a998dd670a2df.1495136258.git.ihrachys@redhat.com>
 References: <cover.1495136258.git.ihrachys@redhat.com>
 Cc: Ihar Hrachyshka <ihrachys@redhat.com>, netdev@vger.kernel.org
 To: davem@davemloft.net, ja@ssi.bg
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:48350 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:41604 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932441AbdERTll (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 18 May 2017 15:41:41 -0400
+        id S932300AbdERTlj (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 18 May 2017 15:41:39 -0400
 In-Reply-To: <cover.1495136258.git.ihrachys@redhat.com>
 In-Reply-To: <cover.1495136258.git.ihrachys@redhat.com>
 References: <cover.1495136258.git.ihrachys@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently, when arp_accept is 1, we always override existing neigh
-entries with incoming gratuitous ARP replies. Otherwise, we override
-them only if new replies satisfy _locktime_ conditional (packets arrive
-not earlier than _locktime_ seconds since the last update to the neigh
-entry).
-
-The idea behind locktime is to pick the very first (=> close) reply
-received in a unicast burst when ARP proxies are used. This helps to
-avoid ARP thrashing where Linux would switch back and forth from one
-proxy to another.
-
-This logic has nothing to do with gratuitous ARP replies that are
-generally not aligned in time when multiple IP address carriers send
-them into network.
-
-This patch enforces overriding of existing neigh entries by all incoming
-gratuitous ARP packets, irrespective of their time of arrival. This will
-make the kernel honour all incoming gratuitous ARP packets.
+The code is quite involving already to earn a separate function for
+itself. If anything, it helps arp_process readability.
 
 Signed-off-by: Ihar Hrachyshka <ihrachys@redhat.com>
 ---
- net/ipv4/arp.c | 9 +++++----
- 1 file changed, 5 insertions(+), 4 deletions(-)
+ net/ipv4/arp.c | 35 +++++++++++++++++++++++------------
+ 1 file changed, 23 insertions(+), 12 deletions(-)
 
 diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
-index c22103c..ae96e6f 100644
+index 053492a..ca6e1e6 100644
 --- a/net/ipv4/arp.c
 +++ b/net/ipv4/arp.c
-@@ -863,16 +863,17 @@ static int arp_process(struct net *net, struct sock *sk, struct sk_buff *skb)
+@@ -641,6 +641,27 @@ void arp_xmit(struct sk_buff *skb)
+ }
+ EXPORT_SYMBOL(arp_xmit);
  
- 	n = __neigh_lookup(&arp_tbl, &sip, dev, 0);
- 
--	if (IN_DEV_ARP_ACCEPT(in_dev)) {
-+	if (n || IN_DEV_ARP_ACCEPT(in_dev)) {
- 		addr_type = -1;
-+		is_garp = arp_is_garp(net, dev, &addr_type, arp->ar_op,
-+				      sip, tip, sha, tha);
-+	}
- 
-+	if (IN_DEV_ARP_ACCEPT(in_dev)) {
- 		/* Unsolicited ARP is not accepted by default.
++static bool arp_is_garp(struct net_device *dev, int addr_type,
++			__be16 ar_op,
++			__be32 sip, __be32 tip,
++			unsigned char *sha, unsigned char *tha)
++{
++	bool is_garp = tip == sip && addr_type == RTN_UNICAST;
++
++	/* Gratuitous ARP _replies_ also require target hwaddr to be
++	 * the same as source.
++	 */
++	if (is_garp && ar_op == htons(ARPOP_REPLY))
++		is_garp =
++			/* IPv4 over IEEE 1394 doesn't provide target
++			 * hardware address field in its ARP payload.
++			 */
++			tha &&
++			!memcmp(tha, sha, dev->addr_len);
++
++	return is_garp;
++}
++
+ /*
+  *	Process an arp request.
+  */
+@@ -844,18 +865,8 @@ static int arp_process(struct net *net, struct sock *sk, struct sk_buff *skb)
  		   It is possible, that this option should be enabled for some
  		   devices (strip is candidate)
  		 */
--		is_garp = arp_is_garp(net, dev, &addr_type, arp->ar_op,
--				      sip, tip, sha, tha);
+-		is_garp = tip == sip && addr_type == RTN_UNICAST;
 -
+-		/* Gratuitous ARP _replies_ also require target hwaddr to be
+-		 * the same as source.
+-		 */
+-		if (is_garp && arp->ar_op == htons(ARPOP_REPLY))
+-			is_garp =
+-				/* IPv4 over IEEE 1394 doesn't provide target
+-				 * hardware address field in its ARP payload.
+-				 */
+-				tha &&
+-				!memcmp(tha, sha, dev->addr_len);
++		is_garp = arp_is_garp(dev, addr_type, arp->ar_op,
++				      sip, tip, sha, tha);
+ 
  		if (!n &&
- 		    (is_garp ||
- 		     (arp->ar_op == htons(ARPOP_REPLY) &&
+ 		    ((arp->ar_op == htons(ARPOP_REPLY)  &&
 -- 
 2.9.3
