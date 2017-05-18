@@ -1,66 +1,54 @@
-From: Quan Nguyen <qnguyen@apm.com>
-Subject: Re: [PATCH net-next] drivers: net: xgene: Check all RGMII phy mode variants
-Date: Thu, 18 May 2017 11:39:48 +0700
-Message-ID: <CAFopSPTP07TFcgc8pACQDF4ZXHOftUMBqBCgF4hVpAmUt0cCWw@mail.gmail.com>
-References: <1495051550-28961-1-git-send-email-isubramanian@apm.com> <20170517202633.GA14413@lunn.ch>
+From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
+Subject: RE: [PATCH net 5/5] qede: Split PF/VF ndos.
+Date: Thu, 18 May 2017 04:58:25 +0000
+Message-ID: <BLUPR0701MB20042DD110A79E49C2BC0DD78DE40@BLUPR0701MB2004.namprd07.prod.outlook.com>
+References: <1494331671-16273-1-git-send-email-Yuval.Mintz@cavium.com>
+        <1494331671-16273-6-git-send-email-Yuval.Mintz@cavium.com>
+        <CY1PR0701MB20094B9857D89E463608F3B98DE70@CY1PR0701MB2009.namprd07.prod.outlook.com>
+ <20170517.111007.1089356716021925537.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Iyappan Subramanian <isubramanian@apm.com>,
-        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        linux-arm-kernel@lists.infradead.org, patches <patches@apm.com>
-To: Andrew Lunn <andrew@lunn.ch>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f43.google.com ([74.125.83.43]:34203 "EHLO
-        mail-pg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751155AbdEREju (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 18 May 2017 00:39:50 -0400
-Received: by mail-pg0-f43.google.com with SMTP id u28so16872288pgn.1
-        for <netdev@vger.kernel.org>; Wed, 17 May 2017 21:39:49 -0700 (PDT)
-In-Reply-To: <20170517202633.GA14413@lunn.ch>
+Received: from mail-bn3nam01on0072.outbound.protection.outlook.com ([104.47.33.72]:14976
+        "EHLO NAM01-BN3-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1752529AbdERE62 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 18 May 2017 00:58:28 -0400
+In-Reply-To: <20170517.111007.1089356716021925537.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 18, 2017 at 3:26 AM, Andrew Lunn <andrew@lunn.ch> wrote:
->> +bool is_xgene_enet_phy_mode_rgmii(struct net_device *ndev)
->> +{
->> +     struct xgene_enet_pdata *pdata = netdev_priv(ndev);
->> +     int phy_mode = pdata->phy_mode;
->> +     bool ret;
->> +
->> +     ret = phy_mode == PHY_INTERFACE_MODE_RGMII ||
->> +           phy_mode == PHY_INTERFACE_MODE_RGMII_ID ||
->> +           phy_mode == PHY_INTERFACE_MODE_RGMII_RXID ||
->> +           phy_mode == PHY_INTERFACE_MODE_RGMII_TXID;
->> +
->> +     return ret;
->> +}
->
-> include/linux/phy.h:
->
-> /**
->  * phy_interface_is_rgmii - Convenience function for testing if a PHY interface
->  * is RGMII (all variants)
->  * @phydev: the phy_device struct
->  */
-> static inline bool phy_interface_is_rgmii(struct phy_device *phydev)
-> {
->         return phydev->interface >= PHY_INTERFACE_MODE_RGMII &&
->                 phydev->interface <= PHY_INTERFACE_MODE_RGMII_TXID;
-> };
->
+> > Looking at my alternatives for solving this, I can't see any 'good'
+> > options - it seems mightily unorthodox to modify net_device_ops, I.e.,
+> > add/remove an NDO function-pointer based on some device property, and
+> > having multiple ops declared for the sake of a single feature seems
+> > unscalable.
+>=20
+> Multiple ops is the only thing that works right now.
 
-Hi Andrew,
+What about something like -=20
 
-Our purpose is to handle our internal pdata->phy_mode, so
-phy_interface_is_rgmii(phydev) seems not to fit.
-Instead, we're working on the below:
+diff --git a/drivers/net/ethernet/qlogic/qede/qede_filter.c b/drivers/net/e=
+thernet/qlogic/qede/qede_filter.c
+index 333876c..7450c8b 100644
+--- a/drivers/net/ethernet/qlogic/qede/qede_filter.c
++++ b/drivers/net/ethernet/qlogic/qede/qede_filter.c
+@@ -1028,6 +1028,13 @@ int qede_xdp(struct net_device *dev, struct netdev_x=
+dp *xdp)
+ {
+        struct qede_dev *edev =3D netdev_priv(dev);
 
-+bool is_xgene_enet_phy_mode_rgmii(struct net_device *ndev)
-+{
-+       struct xgene_enet_pdata *pdata = netdev_priv(ndev);
++       /* Not all VFs can support XDP; But we can't fail the query */
++       if ((<Actual condition to determine XDP support>) {
++               if (xdp->command =3D=3D XDP_QUERY_PROG)
++                       return 0;
++               return -EOPNOTSUPP;
++       }
 +
-+       return pdata->phy_mode >= PHY_INTERFACE_MODE_RGMII &&
-+              pdata->phy_mode <= PHY_INTERFACE_MODE_RGMII_TXID;
-+}
-+
+        switch (xdp->command) {
+        case XDP_SETUP_PROG:
+                return qede_xdp_set(edev, xdp->prog);
