@@ -1,294 +1,117 @@
-From: Girish Moodalbail <girish.moodalbail@oracle.com>
-Subject: Re: [PATCH net-next] geneve: add rtnl changelink support
-Date: Thu, 18 May 2017 08:15:54 -0700
-Message-ID: <f3f81e80-7b2b-45e8-1f65-f9144479a798@oracle.com>
-References: <1494870424-22699-1-git-send-email-girish.moodalbail@oracle.com>
- <CAOrHB_CRBWb2odpyFBaZS0sJ=zK=ve4d8LRp0iVNJehghmsBGQ@mail.gmail.com>
+From: Stefan Schmidt <stefan@osg.samsung.com>
+Subject: Re: [PATCH] net: ieee802154: fix net_device reference release too
+ early
+Date: Thu, 18 May 2017 17:14:59 +0200
+Message-ID: <20170518151458.GB3311@work>
+References: <1495093807-11000-1-git-send-email-xiaolou4617@gmail.com>
+ <20170518131359.GA3311@work>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        Joe Stringer <joe@ovn.org>, Jiri Benc <jbenc@redhat.com>
-To: Pravin Shelar <pshelar@ovn.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linzhang <xiaolou4617@gmail.com>, aar@pengutronix.de,
+        davem@davemloft.net, linux-wpan@vger.kernel.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Stefan Schmidt <stefan@osg.samsung.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:22061 "EHLO
-        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932643AbdERPQB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 18 May 2017 11:16:01 -0400
-In-Reply-To: <CAOrHB_CRBWb2odpyFBaZS0sJ=zK=ve4d8LRp0iVNJehghmsBGQ@mail.gmail.com>
+Received: from ec2-52-27-115-49.us-west-2.compute.amazonaws.com ([52.27.115.49]:41288
+        "EHLO osg.samsung.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S932643AbdERPR7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 18 May 2017 11:17:59 -0400
+Content-Disposition: inline
+In-Reply-To: <20170518131359.GA3311@work>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-TL DR; There is indeed a race between geneve_changelink() and geneve transmit 
-path w.r.t attributes being changed and the old value of those attributes being 
-used in the transmit patch. I will resubmit V2 of the patch with those issues 
-addressed. Thanks!
+Hello.
 
-Please see in-line for my other comments..
+On Thu, 2017-05-18 at 15:14, Stefan Schmidt wrote:
+> Hello.
+> 
+> On Thu, 2017-05-18 at 15:50, linzhang wrote:
+> > This patch fixes the kernel oops when release net_device reference in 
+> > advance. In function raw_sendmsg(i think the dgram_sendmsg has the same 
+> > problem), there is a race condition between dev_put and dev_queue_xmit
+> > when the device is gong that maybe lead to dev_queue_ximt to see
+> > an illegal net_device pointer.
+> > 
+> 
+> You have a test case to reproduce this oops? I fear I have not seen
+> one.
 
->
->> Signed-off-by: Girish Moodalbail <girish.moodalbail@oracle.com>
->> ---
->>  drivers/net/geneve.c | 149 ++++++++++++++++++++++++++++++++++++++++-----------
->>  1 file changed, 117 insertions(+), 32 deletions(-)
->>
-> ...
->> @@ -1169,45 +1181,58 @@ static void init_tnl_info(struct ip_tunnel_info *info, __u16 dst_port)
->>         info->key.tp_dst = htons(dst_port);
->>  }
->>
->> -static int geneve_newlink(struct net *net, struct net_device *dev,
->> -                         struct nlattr *tb[], struct nlattr *data[])
->> +static int geneve_nl2info(struct net_device *dev, struct nlattr *tb[],
->> +                         struct nlattr *data[], struct ip_tunnel_info *info,
->> +                         bool *metadata, bool *use_udp6_rx_checksums,
->> +                         bool changelink)
->>  {
->> -       bool use_udp6_rx_checksums = false;
->> -       struct ip_tunnel_info info;
->> -       bool metadata = false;
->> +       struct geneve_dev *geneve = netdev_priv(dev);
->>
->> -       init_tnl_info(&info, GENEVE_UDP_PORT);
->> +       if (changelink) {
->> +               /* if changelink operation, start with old existing info */
->> +               memcpy(info, &geneve->info, sizeof(*info));
->> +               *metadata = geneve->collect_md;
->> +               *use_udp6_rx_checksums = geneve->use_udp6_rx_checksums;
->> +       } else {
->> +               init_tnl_info(info, GENEVE_UDP_PORT);
->> +       }
->>
->>         if (data[IFLA_GENEVE_REMOTE] && data[IFLA_GENEVE_REMOTE6])
->>                 return -EINVAL;
->>
->>         if (data[IFLA_GENEVE_REMOTE]) {
->> -               info.key.u.ipv4.dst =
->> +               info->key.u.ipv4.dst =
->>                         nla_get_in_addr(data[IFLA_GENEVE_REMOTE]);
->>
->> -               if (IN_MULTICAST(ntohl(info.key.u.ipv4.dst))) {
->> +               if (IN_MULTICAST(ntohl(info->key.u.ipv4.dst))) {
->>                         netdev_dbg(dev, "multicast remote is unsupported\n");
->>                         return -EINVAL;
->>                 }
->> +               if (changelink &&
->> +                   ip_tunnel_info_af(&geneve->info) == AF_INET6) {
->> +                       info->mode &= ~IP_TUNNEL_INFO_IPV6;
->> +                       info->key.tun_flags &= ~TUNNEL_CSUM;
->> +                       *use_udp6_rx_checksums = false;
->> +               }
-> This allows changelink to change ipv4 address but there are no changes
-> made to the geneve tunnel port hash table after this update.
+If you have a test case handy adding it to the commit would be handy. If you do
+not have one around we can do without.
 
-The following code in geneve_changelink() does what you are asking for
+> > So i think that dev_put should be behind of the dev_queue_xmit.
+> > 
+> > Also, explicit set skb->sk is needless, sock_alloc_send_skb is
+> > already set it.
+> 
+> You could have put this fixup in a different patch.
 
-+    if (!geneve_dst_addr_equal(&geneve->info, &info))
-+        dst_cache_reset(&info.dst_cache);
+I actually would request you to split this into two patches. One for the
+removal of the sk setting and one for the race condition fix.
 
-geneve_nl2info() accrues all the allowed changes to be made and captures it in 
-ip_tunnel_info structure and then the above code in geneve_changelink() ensures 
-that all the route cache associated with the old remote address are released 
-when the next lookup occurs.
+> > Signed-off-by: linzhang <xiaolou4617@gmail.com>
+> 
+> This looks more like a username instead of a real name. If you have Lin
+> Zhang as you English real name that would be better here. :)
 
-> We also
-> need to check to see if there is any conflicts with existing ports.
+This would be also appreciated.
 
-This is not needed since we don't support changing the remote port.
+> > ---
+> >  net/ieee802154/socket.c | 10 ++++------
+> >  1 file changed, 4 insertions(+), 6 deletions(-)
+> > 
+> > diff --git a/net/ieee802154/socket.c b/net/ieee802154/socket.c
+> > index eedba76..a60658c 100644
+> > --- a/net/ieee802154/socket.c
+> > +++ b/net/ieee802154/socket.c
+> > @@ -301,15 +301,14 @@ static int raw_sendmsg(struct sock *sk, struct msghdr *msg, size_t size)
+> >  		goto out_skb;
+> >  
+> >  	skb->dev = dev;
+> > -	skb->sk  = sk;
+> >  	skb->protocol = htons(ETH_P_IEEE802154);
+> >  
+> > -	dev_put(dev);
+> > -
+> >  	err = dev_queue_xmit(skb);
+> >  	if (err > 0)
+> >  		err = net_xmit_errno(err);
+> >  
+> > +	dev_put(dev);
+> > +
+> >  	return err ?: size;
+> >  
+> >  out_skb:
+> > @@ -690,15 +689,14 @@ static int dgram_sendmsg(struct sock *sk, struct msghdr *msg, size_t size)
+> >  		goto out_skb;
+> >  
+> >  	skb->dev = dev;
+> > -	skb->sk  = sk;
+> >  	skb->protocol = htons(ETH_P_IEEE802154);
+> >  
+> > -	dev_put(dev);
+> > -
+> >  	err = dev_queue_xmit(skb);
+> >  	if (err > 0)
+> >  		err = net_xmit_errno(err);
+> >  
+> > +	dev_put(dev);
+> > +
+> >  	return err ?: size;
+> 
+> Going to give this a test ride here now.
 
->
-> What is the barrier between the rx/tx threads and changelink process?
+I gave it a ride in my testbed and I encountered no problems. While I have never
+seen the race and oops myself doing the dev_put before the xmit can surely lead to
+such a race and the fix is valid.
 
-There is an issue here like you pointed out (thanks!). Will fix that issue.
+Once you have done the changes requested above and re-submit your two patches you can
+add my
 
->
->>         }
->>
->>         if (data[IFLA_GENEVE_REMOTE6]) {
->>   #if IS_ENABLED(CONFIG_IPV6)
->> -               info.mode = IP_TUNNEL_INFO_IPV6;
->> -               info.key.u.ipv6.dst =
->> +               info->mode = IP_TUNNEL_INFO_IPV6;
->> +               info->key.u.ipv6.dst =
->>                         nla_get_in6_addr(data[IFLA_GENEVE_REMOTE6]);
->>
->> -               if (ipv6_addr_type(&info.key.u.ipv6.dst) &
->> +               if (ipv6_addr_type(&info->key.u.ipv6.dst) &
->>                     IPV6_ADDR_LINKLOCAL) {
->>                         netdev_dbg(dev, "link-local remote is unsupported\n");
->>                         return -EINVAL;
->>                 }
->> -               if (ipv6_addr_is_multicast(&info.key.u.ipv6.dst)) {
->> +               if (ipv6_addr_is_multicast(&info->key.u.ipv6.dst)) {
->>                         netdev_dbg(dev, "multicast remote is unsupported\n");
->>                         return -EINVAL;
->>                 }
->> -               info.key.tun_flags |= TUNNEL_CSUM;
->> -               use_udp6_rx_checksums = true;
->> +               info->key.tun_flags |= TUNNEL_CSUM;
->> +               *use_udp6_rx_checksums = true;
-> Same here. We need to check/fix the geneve tunnel hash table according
-> to new IP address.
+Acked-by: Stefan Schmidt <stefan@osg.samsung.com>
 
-This is taken care by the call to dst_cache_reset() whenever the remote address 
-changes. This function already takes care of races and contentions....
+to both of them.
 
-------------8<-----------------8<------
-/**
-  *      dst_cache_reset - invalidate the cache contents
-  *      @dst_cache: the cache
-  *
-  *      This do not free the cached dst to avoid races and contentions.
-  *      the dst will be freed on later cache lookup.
-  */
-static inline void dst_cache_reset(struct dst_cache *dst_cache)
-{
-         dst_cache->reset_ts = jiffies;
-}
-------------8<-----------------8<------
-
-.... by setting reset_ts to current value of jiffies. After this, when we call 
-dst_cache_get_ip4() to get a route entry for geneve packet we ensure that cache 
-is old/obsolete/invalid/incorrect through the following check in that function
-
-------------8<-----------------8<------
-         if (unlikely(!time_after(idst->refresh_ts, dst_cache->reset_ts) ||
-                      (dst->obsolete && !dst->ops->check(dst, idst->cookie)))) {
-                 dst_cache_per_cpu_dst_set(idst, NULL, 0);
-                 dst_release(dst);
-                 goto fail;
-         }
-------------8<-----------------8<------
-
->
->>  #else
->>                 return -EPFNOSUPPORT;
->>  #endif
->> @@ -1216,48 +1241,107 @@ static int geneve_newlink(struct net *net, struct net_device *dev,
-> ...
->>
->> -       if (data[IFLA_GENEVE_PORT])
->> -               info.key.tp_dst = nla_get_be16(data[IFLA_GENEVE_PORT]);
->> +       if (data[IFLA_GENEVE_PORT]) {
->> +               if (changelink)
->> +                       return -EOPNOTSUPP;
->> +               info->key.tp_dst = nla_get_be16(data[IFLA_GENEVE_PORT]);
->> +       }
->> +
->> +       if (data[IFLA_GENEVE_COLLECT_METADATA]) {
->> +               if (changelink)
->> +                       return -EOPNOTSUPP;
-> Rather than blindly returning error here it should check if the
-> changelink is changing existing configuration.
-
-I would like to start by saying that I have kept the same semantic as 
-vxlan_changelink() here to keep the operations consistent across geneve and 
-vxlan links.
-
-Furthermore, will this not give a semantic that we do support changing metadata 
-to an user? For example: Assume that there already existed geneve datalink with 
-metadata enabled, now if I do
-
-     # ip link set gen0 type geneve id 100 metadata
-
-it will return success giving an idea that '[no]metadata' attribute is 
-modifiable. So, when they try to do
-
-      # ip link set gen0 type geneve id 100 nometadata
-
-it will fail.
-
->
->> +               *metadata = true;
->> +       }
->> +
->> +       if (data[IFLA_GENEVE_UDP_CSUM]) {
->> +               if (changelink)
->> +                       return -EOPNOTSUPP;
->> +               if (nla_get_u8(data[IFLA_GENEVE_UDP_CSUM]))
->> +                       info->key.tun_flags |= TUNNEL_CSUM;
->> +       }
->> +
-> same here.
-
-please see above
-
->
->> +       if (data[IFLA_GENEVE_UDP_ZERO_CSUM6_TX]) {
->> +               if (changelink)
->> +                       return -EOPNOTSUPP;
->> +               if (nla_get_u8(data[IFLA_GENEVE_UDP_ZERO_CSUM6_TX]))
->> +                       info->key.tun_flags &= ~TUNNEL_CSUM;
-> same here.
-
-please see above
-
->
->> +       }
->>
->> -       if (data[IFLA_GENEVE_COLLECT_METADATA])
->> -               metadata = true;
->> +       if (data[IFLA_GENEVE_UDP_ZERO_CSUM6_RX]) {
->> +               if (changelink)
->> +                       return -EOPNOTSUPP;
->> +               if (nla_get_u8(data[IFLA_GENEVE_UDP_ZERO_CSUM6_RX]))
->> +                       *use_udp6_rx_checksums = false;
->> +       }
->>
->> -       if (data[IFLA_GENEVE_UDP_CSUM] &&
->> -           nla_get_u8(data[IFLA_GENEVE_UDP_CSUM]))
->> -               info.key.tun_flags |= TUNNEL_CSUM;
->> +       return 0;
->> +}
->>
->> -       if (data[IFLA_GENEVE_UDP_ZERO_CSUM6_TX] &&
->> -           nla_get_u8(data[IFLA_GENEVE_UDP_ZERO_CSUM6_TX]))
->> -               info.key.tun_flags &= ~TUNNEL_CSUM;
->> +static int geneve_newlink(struct net *net, struct net_device *dev,
->> +                         struct nlattr *tb[], struct nlattr *data[])
->> +{
->> +       bool use_udp6_rx_checksums = false;
->> +       struct ip_tunnel_info info;
->> +       bool metadata = false;
->> +       int err;
->>
->> -       if (data[IFLA_GENEVE_UDP_ZERO_CSUM6_RX] &&
->> -           nla_get_u8(data[IFLA_GENEVE_UDP_ZERO_CSUM6_RX]))
->> -               use_udp6_rx_checksums = false;
->> +       err = geneve_nl2info(dev, tb, data, &info, &metadata,
->> +                            &use_udp6_rx_checksums, false);
->> +       if (err)
->> +               return err;
->>
->>         return geneve_configure(net, dev, &info, metadata, use_udp6_rx_checksums);
->>  }
->>
->> +static int geneve_changelink(struct net_device *dev, struct nlattr *tb[],
->> +                            struct nlattr *data[])
->> +{
->> +       struct geneve_dev *geneve = netdev_priv(dev);
->> +       struct ip_tunnel_info info;
->> +       bool metadata = false;
->> +       bool use_udp6_rx_checksums = false;
->> +       int err;
->> +
->> +       err = geneve_nl2info(dev, tb, data, &info, &metadata,
->> +                            &use_udp6_rx_checksums, true);
->> +       if (err)
->> +               return err;
->> +
->> +       if (!geneve_dst_addr_equal(&geneve->info, &info))
->> +               dst_cache_reset(&info.dst_cache);
->> +       geneve->info = info;
-> This would just overwrite dst-cache, which could leak the percpu
-> cached dst-entry objects.
-
-It will not. The ip_tunnel_info`dst_cache is a struct with a pointer to per_cpu 
-struct and reset_ts. We copy this structure at the beginning of 
-geneve_changelink() and this is done under rtnl_lock(). That 
-ip_tunnel_info`dst_cache`per_cpu struct doesn't change throughout the operation 
-but only reset_ts is set to 'jiffies' if the remote address changes.
-
-Thanks,
-~Girish
+regards
+Stefan Schmidt
