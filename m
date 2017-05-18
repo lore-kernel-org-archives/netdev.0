@@ -1,70 +1,72 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [PATCH] of_mdio: Fix broken PHY IRQ in case of probe deferral
-Date: Thu, 18 May 2017 22:36:13 +0200
-Message-ID: <CAMuHMdV+jfh=EGt3SvjtrtVfWQ6P8ofp_JxeQZjRrSEfDWs5hA@mail.gmail.com>
-References: <1495112345-24795-1-git-send-email-geert+renesas@glider.be>
- <f0ed61c3-062b-cec6-fe19-7412231e8ef1@gmail.com> <CAMuHMdWYeSzofU57LmT_M3KkcHhvjfJy7nkHvcXkKzOYmvhqqA@mail.gmail.com>
- <20170518193453.GB13759@lunn.ch>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH v2 2/4] arp: decompose is_garp logic into a separate
+ function
+Date: Thu, 18 May 2017 23:49:39 +0300 (EEST)
+Message-ID: <alpine.LFD.2.20.1705182342140.4645@ja.home.ssi.bg>
+References: <cover.1495136258.git.ihrachys@redhat.com> <481737abe7a375a7efe125f4e76a998dd670a2df.1495136258.git.ihrachys@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-        Geert Uytterhoeven <geert+renesas@glider.be>,
-        Rob Herring <robh+dt@kernel.org>,
-        Frank Rowand <frowand.list@gmail.com>,
-        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-        Linux-Renesas <linux-renesas-soc@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-In-Reply-To: <20170518193453.GB13759@lunn.ch>
-Sender: linux-renesas-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Ihar Hrachyshka <ihrachys@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ja.ssi.bg ([178.16.129.10]:54362 "EHLO ja.ssi.bg"
+        rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+        id S932157AbdERUuc (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 18 May 2017 16:50:32 -0400
+In-Reply-To: <481737abe7a375a7efe125f4e76a998dd670a2df.1495136258.git.ihrachys@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Andrew,
 
-On Thu, May 18, 2017 at 9:34 PM, Andrew Lunn <andrew@lunn.ch> wrote:
->> > This most certainly works fine in the simple case where you have one PHY
->> > hanging off the MDIO bus, now what happens if you have several?
->> >
->> > Presumably, the first PHY that returns EPROBE_DEFER will make the entire
->> > bus registration return EPROB_DEFER as well, and so on, and so forth,
->> > but I am not sure if we will be properly unwinding the successful
->> > registration of PHYs that either don't have an interrupt, or did not
->> > return EPROBE_DEFER.
->> >
->> > It should be possible to mimic this behavior by using the fixed PHY, and
->> > possibly the dsa_loop.c driver which would create 4 ports, expecting 4
->> > fixed PHYs to be present.
->>
->> mdiobus_unregister(), called from of_mdiobus_register() on failure,
->> should do the unwinding, right?
->>
->> And when the driver is reprobed, all PHYs are reprobed, until they all
->> succeed.
->
-> That is the theory. I looked at that while reviewing the patch. But
-> this has probably not been tested in anger. It would be good to test
-> this properly, with not just the first PHY returning -EPROBE_DEFER, to
-> really test the unwind.
+	Hello,
 
-Unfortunately I don't have a board with multiple PHYs, so I cannot test
-that case.
+On Thu, 18 May 2017, Ihar Hrachyshka wrote:
 
-Does unbinding/rebinding a network driver with multiple PHYs currently
-work? Or module unload/reload?
+> The code is quite involving already to earn a separate function for
+> itself. If anything, it helps arp_process readability.
+> 
+> Signed-off-by: Ihar Hrachyshka <ihrachys@redhat.com>
+> ---
+>  net/ipv4/arp.c | 35 +++++++++++++++++++++++------------
+>  1 file changed, 23 insertions(+), 12 deletions(-)
+> 
+> diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
+> index 053492a..ca6e1e6 100644
+> --- a/net/ipv4/arp.c
+> +++ b/net/ipv4/arp.c
+> @@ -641,6 +641,27 @@ void arp_xmit(struct sk_buff *skb)
+>  }
+>  EXPORT_SYMBOL(arp_xmit);
+>  
+> +static bool arp_is_garp(struct net_device *dev, int addr_type,
+> +			__be16 ar_op,
+> +			__be32 sip, __be32 tip,
+> +			unsigned char *sha, unsigned char *tha)
+> +{
+> +	bool is_garp = tip == sip && addr_type == RTN_UNICAST;
+> +
+> +	/* Gratuitous ARP _replies_ also require target hwaddr to be
+> +	 * the same as source.
+> +	 */
+> +	if (is_garp && ar_op == htons(ARPOP_REPLY))
+> +		is_garp =
+> +			/* IPv4 over IEEE 1394 doesn't provide target
+> +			 * hardware address field in its ARP payload.
+> +			 */
+> +			tha &&
 
-That should exercise a similar code path.
+	All 4 patches look ok to me with only a small problem
+which comes from patch already included in kernel. I see
+that GARP replies can not work for 1394, is_garp will be
+cleared. May be 'tha' check should be moved in if expression,
+for example:
 
-Gr{oetje,eeting}s,
+	if (is_garp && ar_op == htons(ARPOP_REPLY) && tha)
+		is_garp = !memcmp(tha, sha, dev->addr_len);
 
-                        Geert
+> +			!memcmp(tha, sha, dev->addr_len);
+> +
+> +	return is_garp;
+> +}
 
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
-
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
+Regards
