@@ -1,65 +1,48 @@
-From: Nathan Fontenot <nfont@linux.vnet.ibm.com>
-Subject: Re: [PATCH net-next] ibmvnic: fix missing unlock on error in
- __ibmvnic_reset()
-Date: Thu, 18 May 2017 12:29:36 -0500
-Message-ID: <2a9bde84-eb86-c964-7be8-2018eae45d7b@linux.vnet.ibm.com>
-References: <20170518152452.8606-1-weiyj.lk@gmail.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [Patch RFC net-next] net: usb: r8152: Fix rx_bytes/tx_bytes to
+ include FCS
+Date: Thu, 18 May 2017 19:33:39 +0200
+Message-ID: <20170518173339.GF707@lunn.ch>
+References: <1495052615-14360-1-git-send-email-andrew@lunn.ch>
+ <286d107e-2380-f8e9-3edf-c949707ea235@gmail.com>
+ <20170518150925.GB707@lunn.ch>
+ <20170518.112256.671702749693595449.davem@davemloft.net>
+ <b020ca48-d19a-9281-ee8a-d29038ee2b96@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Wei Yongjun <weiyongjun1@huawei.com>,
-        linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org
-To: Wei Yongjun <weiyj.lk@gmail.com>,
-        Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-        Paul Mackerras <paulus@samba.org>,
-        Michael Ellerman <mpe@ellerman.id.au>,
-        Thomas Falcon <tlfalcon@linux.vnet.ibm.com>,
-        John Allen <jallen@linux.vnet.ibm.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+        hayeswang@realtek.com, mario_limonciello@dell.com
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:45050 "EHLO
-        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1751974AbdERR3m (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 18 May 2017 13:29:42 -0400
-Received: from pps.filterd (m0098420.ppops.net [127.0.0.1])
-        by mx0b-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v4IHSjEu066649
-        for <netdev@vger.kernel.org>; Thu, 18 May 2017 13:29:41 -0400
-Received: from e15.ny.us.ibm.com (e15.ny.us.ibm.com [129.33.205.205])
-        by mx0b-001b2d01.pphosted.com with ESMTP id 2ahcfdu541-1
-        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Thu, 18 May 2017 13:29:41 -0400
-Received: from localhost
-        by e15.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-        for <netdev@vger.kernel.org> from <nfont@linux.vnet.ibm.com>;
-        Thu, 18 May 2017 13:29:40 -0400
-In-Reply-To: <20170518152452.8606-1-weiyj.lk@gmail.com>
-Content-Language: en-US
+Received: from vps0.lunn.ch ([178.209.37.122]:35955 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753623AbdERRdp (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 18 May 2017 13:33:45 -0400
+Content-Disposition: inline
+In-Reply-To: <b020ca48-d19a-9281-ee8a-d29038ee2b96@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/18/2017 10:24 AM, Wei Yongjun wrote:
-> From: Wei Yongjun <weiyongjun1@huawei.com>
-> 
-> Add the missing unlock before return from function __ibmvnic_reset()
-> in the error handling case.
-> 
-> Fixes: ed651a10875f ("ibmvnic: Updated reset handling")
-> Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
+Hi Florian
 
-Reviewed-by: Nathan Fontenot <nfont@linux.vnet.ibm.com>
+I agree we should define this, and we can add it to
+Documentation/ABI/testing/sysfs-class-net-statistics
 
-> ---
->  drivers/net/ethernet/ibm/ibmvnic.c | 1 +
->  1 file changed, 1 insertion(+)
-> 
-> diff --git a/drivers/net/ethernet/ibm/ibmvnic.c b/drivers/net/ethernet/ibm/ibmvnic.c
-> index 4f2d329..27f7933 100644
-> --- a/drivers/net/ethernet/ibm/ibmvnic.c
-> +++ b/drivers/net/ethernet/ibm/ibmvnic.c
-> @@ -1313,6 +1313,7 @@ static void __ibmvnic_reset(struct work_struct *work)
-> 
->  	if (rc) {
->  		free_all_rwi(adapter);
-> +		mutex_unlock(&adapter->reset_lock);
->  		return;
->  	}
-> 
+> - BQL cares about bytes sent on the wire, so that should not include
+> pre/appended descriptors nor the FCS (nor the Ethernet preamble),
+> tx_bytes should be equivalent to that
+
+Can you point me at some documentation/code which shows this?
+
+pre/appended descriptors i can understand, since it does not make it
+to the wire. FCS does. Preamble and inter-frame gap also does make it
+to the wire, and contributes to the overall load on the medium. But i
+would expect BQL is tolerant to this. We are talking about an error of
+about 0.26% for a full MTU frame if FCS is included when it should not
+be.
+
+If BQL really does care about not including the FCS, we probably have
+a lot less to do. People should of audited their code when they added
+support for BQL :-)
+
+    Andrew
