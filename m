@@ -1,7 +1,7 @@
 From: Davide Caratti <dcaratti@redhat.com>
-Subject: [PATCH net-next v3 3/7] sk_buff: remove support for csum_bad in sk_buff
-Date: Thu, 18 May 2017 15:44:39 +0200
-Message-ID: <1054ff2d2d41c8f985cf4e64438c09d00f7d3a35.1495112302.git.dcaratti@redhat.com>
+Subject: [PATCH net-next v3 2/7] net: introduce skb_crc32c_csum_help
+Date: Thu, 18 May 2017 15:44:38 +0200
+Message-ID: <9ff09cf012d39dbd9245e1f39d502ffc63801567.1495112301.git.dcaratti@redhat.com>
 References: <cover.1495112301.git.dcaratti@redhat.com>
 Cc: Alexander Duyck <alexander.duyck@gmail.com>,
         Tom Herbert <tom@herbertland.com>,
@@ -10,177 +10,114 @@ Cc: Alexander Duyck <alexander.duyck@gmail.com>,
         Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 To: linux-sctp@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:38622 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:44062 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1755029AbdERNpA (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S1754936AbdERNpA (ORCPT <rfc822;netdev@vger.kernel.org>);
         Thu, 18 May 2017 09:45:00 -0400
 In-Reply-To: <cover.1495112301.git.dcaratti@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This bit was introduced with commit 5a21232983aa ("net: Support for
-csum_bad in skbuff") to reduce the stack workload when processing RX
-packets carrying a wrong Internet Checksum. Up to now, only one driver and
-GRO core are setting it.
+skb_crc32c_csum_help is like skb_checksum_help, but it is designed for
+checksumming SCTP packets using crc32c (see RFC3309), provided that
+libcrc32c.ko has been loaded before. In case libcrc32c is not loaded,
+invoking skb_crc32c_csum_help on a skb results in one the following
+printouts:
 
-Suggested-by: Tom Herbert <tom@herbertland.com>
+warn_crc32c_csum_update: attempt to compute crc32c without libcrc32c.ko
+warn_crc32c_csum_combine: attempt to compute crc32c without libcrc32c.ko
+
 Signed-off-by: Davide Caratti <dcaratti@redhat.com>
 ---
- drivers/net/ethernet/aquantia/atlantic/aq_ring.c |  2 +-
- include/linux/netdevice.h                        |  4 +---
- include/linux/skbuff.h                           | 23 ++---------------------
- net/bridge/netfilter/nft_reject_bridge.c         |  5 +----
- net/core/dev.c                                   |  3 ---
- net/ipv4/netfilter/nf_reject_ipv4.c              |  2 +-
- net/ipv6/netfilter/nf_reject_ipv6.c              |  3 ---
- 7 files changed, 6 insertions(+), 36 deletions(-)
+ include/linux/netdevice.h |  1 +
+ include/linux/skbuff.h    |  3 ++-
+ net/core/dev.c            | 41 +++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 44 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_ring.c b/drivers/net/ethernet/aquantia/atlantic/aq_ring.c
-index 3a8a4aa..9a08179 100644
---- a/drivers/net/ethernet/aquantia/atlantic/aq_ring.c
-+++ b/drivers/net/ethernet/aquantia/atlantic/aq_ring.c
-@@ -223,7 +223,7 @@ int aq_ring_rx_clean(struct aq_ring_s *self, int *work_done, int budget)
- 		skb->protocol = eth_type_trans(skb, ndev);
- 		if (unlikely(buff->is_cso_err)) {
- 			++self->stats.rx.errors;
--			__skb_mark_checksum_bad(skb);
-+			skb->ip_summed = CHECKSUM_NONE;
- 		} else {
- 			if (buff->is_ip_cso) {
- 				__skb_incr_checksum_unnecessary(skb);
 diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 442650b..970a255 100644
+index 3f39d27..442650b 100644
 --- a/include/linux/netdevice.h
 +++ b/include/linux/netdevice.h
-@@ -2573,9 +2573,7 @@ static inline void skb_gro_incr_csum_unnecessary(struct sk_buff *skb)
- 	if (__skb_gro_checksum_validate_needed(skb, zero_okay, check))	\
- 		__ret = __skb_gro_checksum_validate_complete(skb,	\
- 				compute_pseudo(skb, proto));		\
--	if (__ret)							\
--		__skb_mark_checksum_bad(skb);				\
--	else								\
-+	if (!__ret)							\
- 		skb_gro_incr_csum_unnecessary(skb);			\
- 	__ret;								\
- })
+@@ -3931,6 +3931,7 @@ void netdev_rss_key_fill(void *buffer, size_t len);
+ 
+ int dev_get_nest_level(struct net_device *dev);
+ int skb_checksum_help(struct sk_buff *skb);
++int skb_crc32c_csum_help(struct sk_buff *skb);
+ struct sk_buff *__skb_gso_segment(struct sk_buff *skb,
+ 				  netdev_features_t features, bool tx_path);
+ struct sk_buff *skb_mac_gso_segment(struct sk_buff *skb,
 diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 62d6296..c38f890 100644
+index b1f46a0..62d6296 100644
 --- a/include/linux/skbuff.h
 +++ b/include/linux/skbuff.h
-@@ -685,7 +685,7 @@ struct sk_buff {
- 	__u8			csum_valid:1;
- 	__u8			csum_complete_sw:1;
- 	__u8			csum_level:2;
--	__u8			csum_bad:1;
-+	__u8			__csum_bad_unused:1; /* one bit hole */
- 
- 	__u8			dst_pending_confirm:1;
- #ifdef CONFIG_IPV6_NDISC_NODETYPE
-@@ -3336,21 +3336,6 @@ static inline void __skb_incr_checksum_unnecessary(struct sk_buff *skb)
- 	}
- }
- 
--static inline void __skb_mark_checksum_bad(struct sk_buff *skb)
--{
--	/* Mark current checksum as bad (typically called from GRO
--	 * path). In the case that ip_summed is CHECKSUM_NONE
--	 * this must be the first checksum encountered in the packet.
--	 * When ip_summed is CHECKSUM_UNNECESSARY, this is the first
--	 * checksum after the last one validated. For UDP, a zero
--	 * checksum can not be marked as bad.
--	 */
--
--	if (skb->ip_summed == CHECKSUM_NONE ||
--	    skb->ip_summed == CHECKSUM_UNNECESSARY)
--		skb->csum_bad = 1;
--}
--
- /* Check if we need to perform checksum complete validation.
+@@ -193,7 +193,8 @@
+  *     accordingly. Note the there is no indication in the skbuff that the
+  *     CHECKSUM_PARTIAL refers to an SCTP checksum, a driver that supports
+  *     both IP checksum offload and SCTP CRC offload must verify which offload
+- *     is configured for a packet presumably by inspecting packet headers.
++ *     is configured for a packet presumably by inspecting packet headers; in
++ *     case, skb_crc32c_csum_help is provided to compute CRC on SCTP packets.
   *
-  * Returns true if checksum complete is needed, false otherwise
-@@ -3404,9 +3389,6 @@ static inline __sum16 __skb_checksum_validate_complete(struct sk_buff *skb,
- 			skb->csum_valid = 1;
- 			return 0;
- 		}
--	} else if (skb->csum_bad) {
--		/* ip_summed == CHECKSUM_NONE in this case */
--		return (__force __sum16)1;
- 	}
- 
- 	skb->csum = psum;
-@@ -3466,8 +3448,7 @@ static inline __wsum null_compute_pseudo(struct sk_buff *skb, int proto)
- 
- static inline bool __skb_checksum_convert_check(struct sk_buff *skb)
- {
--	return (skb->ip_summed == CHECKSUM_NONE &&
--		skb->csum_valid && !skb->csum_bad);
-+	return (skb->ip_summed == CHECKSUM_NONE && skb->csum_valid);
- }
- 
- static inline void __skb_checksum_convert(struct sk_buff *skb,
-diff --git a/net/bridge/netfilter/nft_reject_bridge.c b/net/bridge/netfilter/nft_reject_bridge.c
-index 346ef6b..c16dd3a 100644
---- a/net/bridge/netfilter/nft_reject_bridge.c
-+++ b/net/bridge/netfilter/nft_reject_bridge.c
-@@ -111,7 +111,7 @@ static void nft_reject_br_send_v4_unreach(struct net *net,
- 	__wsum csum;
- 	u8 proto;
- 
--	if (oldskb->csum_bad || !nft_bridge_iphdr_validate(oldskb))
-+	if (!nft_bridge_iphdr_validate(oldskb))
- 		return;
- 
- 	/* IP header checks: fragment. */
-@@ -226,9 +226,6 @@ static bool reject6_br_csum_ok(struct sk_buff *skb, int hook)
- 	__be16 fo;
- 	u8 proto = ip6h->nexthdr;
- 
--	if (skb->csum_bad)
--		return false;
--
- 	if (skb_csum_unnecessary(skb))
- 		return true;
- 
+  *   NETIF_F_FCOE_CRC - This feature indicates that a device is capable of
+  *     offloading the FCOE CRC in a packet. To perform this offload the stack
 diff --git a/net/core/dev.c b/net/core/dev.c
-index 8356d5f..f0281ff 100644
+index acd594c..8356d5f 100644
 --- a/net/core/dev.c
 +++ b/net/core/dev.c
-@@ -4678,9 +4678,6 @@ static enum gro_result dev_gro_receive(struct napi_struct *napi, struct sk_buff
- 	if (netif_elide_gro(skb->dev))
- 		goto normal;
+@@ -143,6 +143,7 @@
+ #include <linux/hrtimer.h>
+ #include <linux/netfilter_ingress.h>
+ #include <linux/crash_dump.h>
++#include <linux/sctp.h>
  
--	if (skb->csum_bad)
--		goto normal;
--
- 	gro_list_prepare(napi, skb);
+ #include "net-sysfs.h"
  
- 	rcu_read_lock();
-diff --git a/net/ipv4/netfilter/nf_reject_ipv4.c b/net/ipv4/netfilter/nf_reject_ipv4.c
-index 7cd8d0d..6f8d9e5 100644
---- a/net/ipv4/netfilter/nf_reject_ipv4.c
-+++ b/net/ipv4/netfilter/nf_reject_ipv4.c
-@@ -172,7 +172,7 @@ void nf_send_unreach(struct sk_buff *skb_in, int code, int hook)
- 	struct iphdr *iph = ip_hdr(skb_in);
- 	u8 proto;
+@@ -2612,6 +2613,46 @@ int skb_checksum_help(struct sk_buff *skb)
+ }
+ EXPORT_SYMBOL(skb_checksum_help);
  
--	if (skb_in->csum_bad || iph->frag_off & htons(IP_OFFSET))
-+	if (iph->frag_off & htons(IP_OFFSET))
- 		return;
- 
- 	if (skb_csum_unnecessary(skb_in)) {
-diff --git a/net/ipv6/netfilter/nf_reject_ipv6.c b/net/ipv6/netfilter/nf_reject_ipv6.c
-index eedee5d..f63b18e 100644
---- a/net/ipv6/netfilter/nf_reject_ipv6.c
-+++ b/net/ipv6/netfilter/nf_reject_ipv6.c
-@@ -220,9 +220,6 @@ static bool reject6_csum_ok(struct sk_buff *skb, int hook)
- 	__be16 fo;
- 	u8 proto;
- 
--	if (skb->csum_bad)
--		return false;
--
- 	if (skb_csum_unnecessary(skb))
- 		return true;
- 
++int skb_crc32c_csum_help(struct sk_buff *skb)
++{
++	__le32 crc32c_csum;
++	int ret = 0, offset, start;
++
++	if (skb->ip_summed != CHECKSUM_PARTIAL)
++		goto out;
++
++	if (unlikely(skb_is_gso(skb)))
++		goto out;
++
++	/* Before computing a checksum, we should make sure no frag could
++	 * be modified by an external entity : checksum could be wrong.
++	 */
++	if (unlikely(skb_has_shared_frag(skb))) {
++		ret = __skb_linearize(skb);
++		if (ret)
++			goto out;
++	}
++	start = skb_checksum_start_offset(skb);
++	offset = start + offsetof(struct sctphdr, checksum);
++	if (WARN_ON_ONCE(offset >= skb_headlen(skb))) {
++		ret = -EINVAL;
++		goto out;
++	}
++	if (skb_cloned(skb) &&
++	    !skb_clone_writable(skb, offset + sizeof(__le32))) {
++		ret = pskb_expand_head(skb, 0, 0, GFP_ATOMIC);
++		if (ret)
++			goto out;
++	}
++	crc32c_csum = cpu_to_le32(~__skb_checksum(skb, start,
++						  skb->len - start, ~(__u32)0,
++						  crc32c_csum_stub));
++	*(__le32 *)(skb->data + offset) = crc32c_csum;
++	skb->ip_summed = CHECKSUM_NONE;
++out:
++	return ret;
++}
++
+ __be16 skb_network_protocol(struct sk_buff *skb, int *depth)
+ {
+ 	__be16 type = skb->protocol;
 -- 
 2.7.4
