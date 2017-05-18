@@ -1,38 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] sh_eth: Do not print an error message for probe
- deferral
-Date: Thu, 18 May 2017 11:21:27 -0400 (EDT)
-Message-ID: <20170518.112127.1028575897478969091.davem@davemloft.net>
-References: <1495112495-25086-1-git-send-email-geert+renesas@glider.be>
-        <1495112495-25086-2-git-send-email-geert+renesas@glider.be>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] of_mdio: Fix broken PHY IRQ in case of probe deferral
+Date: Thu, 18 May 2017 11:21:45 -0400 (EDT)
+Message-ID: <20170518.112145.1364316716714361952.davem@davemloft.net>
+References: <1495112345-24795-1-git-send-email-geert+renesas@glider.be>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sergei.shtylyov@cogentembedded.com,
-        laurent.pinchart+renesas@ideasonboard.com, netdev@vger.kernel.org,
-        linux-renesas-soc@vger.kernel.org
-To: geert+renesas@glider.be
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:44290 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932767AbdERPV3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 18 May 2017 11:21:29 -0400
-In-Reply-To: <1495112495-25086-2-git-send-email-geert+renesas@glider.be>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: andrew-g2DYL2Zd6BY@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
+        frowand.list-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org,
+        sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-renesas-soc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: geert+renesas-gXvu3+zWzMSzQB+pC5nmwQ@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1495112345-24795-1-git-send-email-geert+renesas-gXvu3+zWzMSzQB+pC5nmwQ@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Geert Uytterhoeven <geert+renesas@glider.be>
-Date: Thu, 18 May 2017 15:01:35 +0200
+From: Geert Uytterhoeven <geert+renesas-gXvu3+zWzMSzQB+pC5nmwQ@public.gmane.org>
+Date: Thu, 18 May 2017 14:59:05 +0200
 
-> EPROBE_DEFER is not an error, hence printing an error message like
+> If an Ethernet PHY is initialized before the interrupt controller it is
+> connected to, a message like the following is printed:
 > 
->     sh-eth ee700000.ethernet: failed to initialise MDIO
+>     irq: no irq domain found for /interrupt-controller@e61c0000 !
 > 
-> may confuse the user.
+> However, the actual error is ignored, leading to a non-functional (-1)
+> PHY interrupt later:
 > 
-> To fix this, suppress the error message in case of probe deferral.
-> While at it, shorten the message, and add the actual error code.
+>     Micrel KSZ8041RNLI ee700000.ethernet-ffffffff:01: attached PHY driver [Micrel KSZ8041RNLI] (mii_bus:phy_addr=ee700000.ethernet-ffffffff:01, irq=-1)
 > 
-> Signed-off-by: Geert Uytterhoeven <geert+renesas@glider.be>
+> Depending on whether the PHY driver will fall back to polling, Ethernet
+> may or may not work.
+> 
+> To fix this:
+>   1. Switch of_mdiobus_register_phy() from irq_of_parse_and_map() to
+>      of_irq_get().
+>      Unlike the former, the latter returns -EPROBE_DEFER if the
+>      interrupt controller is not yet available, so this condition can be
+>      detected.
+>      Other errors are handled the same as before, i.e. use the passed
+>      mdio->irq[addr] as interrupt.
+>   2. Propagate and handle errors from of_mdiobus_register_phy() and
+>      of_mdiobus_register_device().
+> 
+> Signed-off-by: Geert Uytterhoeven <geert+renesas-gXvu3+zWzMSzQB+pC5nmwQ@public.gmane.org>
 
-Applied.
+Florian or someone similarly knowledgable, please review.
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
