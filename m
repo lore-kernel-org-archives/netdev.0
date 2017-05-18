@@ -1,37 +1,45 @@
-From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Subject: Re: rtlwifi: rtl8723ae: fix spelling mistake: "Coexistance" ->
- "Coexistence"
-Date: Thu, 18 May 2017 14:15:22 +0000 (UTC)
-Message-ID: <20170518141522.BBDC360F73@smtp.codeaurora.org>
-References: <20170513223702.19748-1-colin.king@canonical.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v4] bridge: netlink: check vlan_default_pvid range
+Date: Thu, 18 May 2017 10:15:23 -0400 (EDT)
+Message-ID: <20170518.101523.630814087615670528.davem@davemloft.net>
+References: <20170517072912.13063-1-tobias.jungel@bisdn.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>,
-        Chaoming Li <chaoming_li-kXabqFNEczNtrwSWzY7KCg@public.gmane.org>,
-        Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>,
-        Christian Engelmayer <cengelma-RbZlAiThDcE@public.gmane.org>,
-        Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170513223702.19748-1-colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: sd@queasysnail.net, nikolay@cumulusnetworks.com,
+        stephen@networkplumber.org, netdev@vger.kernel.org
+To: tobias.jungel@bisdn.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:43238 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756053AbdEROPZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 18 May 2017 10:15:25 -0400
+In-Reply-To: <20170517072912.13063-1-tobias.jungel@bisdn.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org> wrote:
-> From: Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+From: Tobias Jungel <tobias.jungel@bisdn.de>
+Date: Wed, 17 May 2017 09:29:12 +0200
+
+> Currently it is allowed to set the default pvid of a bridge to a value
+> above VLAN_VID_MASK (0xfff). This patch adds a check to br_validate and
+> returns -EINVAL in case the pvid is out of bounds.
 > 
-> Trivial fix to spelling mistake in RT_TRACE text
+> Reproduce by calling:
 > 
-> Signed-off-by: Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+> [root@test ~]# ip l a type bridge
+> [root@test ~]# ip l a type dummy
+> [root@test ~]# ip l s bridge0 type bridge vlan_filtering 1
+> [root@test ~]# ip l s bridge0 type bridge vlan_default_pvid 9999
+> [root@test ~]# ip l s dummy0 master bridge0
+> [root@test ~]# bridge vlan
+> port	vlan ids
+> bridge0	 9999 PVID Egress Untagged
+> 
+> dummy0	 9999 PVID Egress Untagged
+> 
+> Fixes: 0f963b7592ef ("bridge: netlink: add support for default_pvid")
+> Acked-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+> Signed-off-by: Tobias Jungel <tobias.jungel@bisdn.de>
 
-Patch applied to wireless-drivers-next.git, thanks.
-
-e8dc072dd50d rtlwifi: rtl8723ae: fix spelling mistake: "Coexistance" -> "Coexistence"
-
--- 
-https://patchwork.kernel.org/patch/9725457/
-
-https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
+Applied and queued up for -stable, thank you.
