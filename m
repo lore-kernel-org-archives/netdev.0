@@ -1,34 +1,82 @@
-From: Alexei Starovoitov <ast@fb.com>
-Subject: Re: [PATCH v2 1/3] bpf: Use 1<<16 as ceiling for immediate alignment
- in verifier.
-Date: Wed, 17 May 2017 18:18:55 -0700
-Message-ID: <a2936291-b279-0b3f-94be-73cb1bbaa47e@fb.com>
-References: <f2bff26d-8b4d-c6a2-23c9-9db198569e40@fb.com>
- <50288778-10f6-7201-c979-bfe4635831fc@solarflare.com>
- <e873f261-e1c1-c344-3d72-254623e0c91a@solarflare.com>
- <20170517.201633.1413407173876329751.davem@davemloft.net>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: [net-realtek-btcoexist] question about identical code for
+ different branches
+Date: Wed, 17 May 2017 20:38:58 -0500
+Message-ID: <14834066-9820-a2cc-9c98-eebb9b89e7fe@lwfinger.net>
+References: <20170517165232.Horde.v4lHW1-r73ZYdz2POOdERBa@gator4166.hostgator.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: <daniel@iogearbox.net>, <alexei.starovoitov@gmail.com>,
-        <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>, <ecree@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:35266 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1753916AbdERBTS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 17 May 2017 21:19:18 -0400
-In-Reply-To: <20170517.201633.1413407173876329751.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, Pkshih <pkshih@realtek.com>
+To: "Gustavo A. R. Silva" <garsilva@embeddedor.com>,
+        Chaoming Li <chaoming_li@realsil.com.cn>,
+        Kalle Valo <kvalo@codeaurora.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170517165232.Horde.v4lHW1-r73ZYdz2POOdERBa@gator4166.hostgator.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 5/17/17 5:16 PM, David Miller wrote:
-> BTW, we track something similar already in reg->imm which tracks how
-> many high order bits are known to be cleared in the register.  It is
-> used to avoid potential overflow for packet pointer accesses.  I bet
-> we can subsume that into this facility as well.
+On 05/17/2017 04:52 PM, Gustavo A. R. Silva wrote:
+> 
+> Hello everybody,
+> 
+> While looking into Coverity ID 1362263 I ran into the following piece of code at 
+> drivers/net/wireless/realtek/rtlwifi/btcoexist/halbtcoutsrc.c:1000:
+> 
+> 1000void exhalbtc_set_ant_num(struct rtl_priv *rtlpriv, u8 type, u8 ant_num)
+> 1001{
+> 1002        if (BT_COEX_ANT_TYPE_PG == type) {
+> 1003                gl_bt_coexist.board_info.pg_ant_num = ant_num;
+> 1004                gl_bt_coexist.board_info.btdm_ant_num = ant_num;
+> 1005                /* The antenna position:
+> 1006                 * Main (default) or Aux for pgAntNum=2 && btdmAntNum =1.
+> 1007                 * The antenna position should be determined by
+> 1008                 * auto-detect mechanism.
+> 1009                 * The following is assumed to main,
+> 1010                 * and those must be modified
+> 1011                 * if y auto-detect mechanism is ready
+> 1012                 */
+> 1013                if ((gl_bt_coexist.board_info.pg_ant_num == 2) &&
+> 1014                    (gl_bt_coexist.board_info.btdm_ant_num == 1))
+> 1015                        gl_bt_coexist.board_info.btdm_ant_pos =
+> 1016                                                       
+> BTC_ANTENNA_AT_MAIN_PORT;
+> 1017                else
+> 1018                        gl_bt_coexist.board_info.btdm_ant_pos =
+> 1019                                                       
+> BTC_ANTENNA_AT_MAIN_PORT;
+> 1020        } else if (BT_COEX_ANT_TYPE_ANTDIV == type) {
+> 1021                gl_bt_coexist.board_info.btdm_ant_num = ant_num;
+> 1022                gl_bt_coexist.board_info.btdm_ant_pos =
+> 1023                                                       
+> BTC_ANTENNA_AT_MAIN_PORT;
+> 1024        } else if (type == BT_COEX_ANT_TYPE_DETECTED) {
+> 1025                gl_bt_coexist.board_info.btdm_ant_num = ant_num;
+> 1026                if (rtlpriv->cfg->mod_params->ant_sel == 1)
+> 1027                        gl_bt_coexist.board_info.btdm_ant_pos =
+> 1028                                BTC_ANTENNA_AT_AUX_PORT;
+> 1029                else
+> 1030                        gl_bt_coexist.board_info.btdm_ant_pos =
+> 1031                                BTC_ANTENNA_AT_MAIN_PORT;
+> 1032        }
+> 1033}
+> 
+> The issue is that lines of code 1015-1016 and 1018-1019 are identical for 
+> different branches.
+> 
+> My question here is if one of those assignments should be modified, or the 
+> entire _if_ statement replaced and the function refactored?
+> 
+> I'd really appreciate any comment on this.
+> 
+> Thank you!
+> -- 
+> Gustavo A. R. Silva
 
-yeah, reg->imm tracks zero upper bits in very simplistic way.
-For alignment checking it seems we need to track lower zeros
-and ones. If Edward's algorithm can be adopted to track both
-that would be double win indeed.
+Gustavo,
+
+Thanks for the notification. I will discuss with Realtek as to the proper fix.
+
+Larry
