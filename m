@@ -1,56 +1,56 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [Patch RFC net-next] net: usb: r8152: Fix rx_bytes/tx_bytes to
- include FCS
-Date: Thu, 18 May 2017 17:09:25 +0200
-Message-ID: <20170518150925.GB707@lunn.ch>
-References: <1495052615-14360-1-git-send-email-andrew@lunn.ch>
- <286d107e-2380-f8e9-3edf-c949707ea235@gmail.com>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next 3/6] net: bridge: break if
+	__br_mdb_del	fails
+Date: Thu, 18 May 2017 11:08:50 -0400
+Message-ID: <877f1edwxp.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+References: <20170517212709.6473-1-vivien.didelot@savoirfairelinux.com>
+	<20170517212709.6473-4-vivien.didelot@savoirfairelinux.com>
+	<5d8f53ea-a9de-7c76-f088-48c5357cb2a2@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        hayeswang <hayeswang@realtek.com>,
-        Mario Limonciello <mario_limonciello@dell.com>
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:35652 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932227AbdERPJ3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 18 May 2017 11:09:29 -0400
-Content-Disposition: inline
-In-Reply-To: <286d107e-2380-f8e9-3edf-c949707ea235@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: "moderated list:ETHERNET BRIDGE" <bridge@lists.linux-foundation.org>,
+	kernel@savoirfairelinux.com, linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
+To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>, netdev@vger.kernel.org
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <5d8f53ea-a9de-7c76-f088-48c5357cb2a2@cumulusnetworks.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-> I am afraid that we won't be able to enforce a consistent behavior,
-> because the HW itself is not consistent, both on the NIC and on the
-> switch side.
+Hi Nikolay,
 
-Hi Florian
+Nikolay Aleksandrov <nikolay@cumulusnetworks.com> writes:
 
-I agree with that, for MIB counters. They tend to come direct from the
-hardware.
+>>   			err = __br_mdb_del(br, entry);
+>> -			if (!err)
+>> -				__br_mdb_notify(dev, p, entry, RTM_DELMDB);
+>> +			if (err)
+>> +				break;
+>> +			__br_mdb_notify(dev, p, entry, RTM_DELMDB);
+>>   		}
+>>   	} else {
+>>   		err = __br_mdb_del(br, entry);
+>> 
+>
+> This can potentially break user-space scripts that rely on the best-effort
+> behaviour, this is the normal "delete without vid & enabled vlan filtering".
+> You can check the fdb delete code which does the same, this was intentional.
+>
+> You can add an mdb entry without a vid to all vlans, add a vlan and then try
+> to remove it from all vlans where it is present - with this patch obviously
+> that will fail at the new vlan.
 
-However, rx_bytes and tx_bytes are not from the hardware. They are
-software stats, kept by the drivers. Just grep in driver/net/ethernet
-and you see:
+OK good to know. That intention wasn't obvious. I can make __br_mdb_del
+return void instead? What about the rest of the patchset if I do so?
 
-broadcom/bcmsysport.c:		        ndev->stats.rx_bytes += len;
-broadcom/sb1250-mac.c:			dev->stats.rx_bytes += len;
-mellanox/mlx5/core/en_main.c:		s->rx_bytes	+= rq_stats->bytes;
-microchip/encx24j600.c:			dev->stats.rx_bytes += rsv->len;
-neterion/vxge/vxge-main.c:		net_stats->rx_bytes += bytes;
-nuvoton/w90p910_ether.c:		dev->stats.rx_bytes += length;
+Thanks,
 
-etc.
-
-Since these are software counters, they can be consistent. From a
-practical point of view, i doubt they ever will all be consistent,
-there are simply too many drivers to test and change if
-needed. However, for the ones somebody cares about, they can be made
-consistent.
-
-I care about r8152, and would like to make it consistent with asix,
-dsa, e1000e.
-
-     Andrew
+        Vivien
