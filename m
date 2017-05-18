@@ -1,115 +1,58 @@
 From: Miroslav Lichvar <mlichvar@redhat.com>
-Subject: [PATCH v5 net-next 3/7] net: add function to retrieve original skb device using NAPI ID
-Date: Thu, 18 May 2017 16:07:34 +0200
-Message-ID: <20170518140738.19617-4-mlichvar@redhat.com>
+Subject: [PATCH v5 net-next 5/7] net: fix documentation of struct scm_timestamping
+Date: Thu, 18 May 2017 16:07:36 +0200
+Message-ID: <20170518140738.19617-6-mlichvar@redhat.com>
 References: <20170518140738.19617-1-mlichvar@redhat.com>
 Cc: Richard Cochran <richardcochran@gmail.com>,
         Willem de Bruijn <willemb@google.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:59710 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:50905 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1756111AbdEROHz (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 18 May 2017 10:07:55 -0400
+        id S1756108AbdEROHv (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 18 May 2017 10:07:51 -0400
 In-Reply-To: <20170518140738.19617-1-mlichvar@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since commit b68581778cd0 ("net: Make skb->skb_iif always track
-skb->dev") skbs don't have the original index of the interface which
-received the packet. This information is now needed for a new control
-message related to hardware timestamping.
-
-Instead of adding a new field to skb, we can find the device by the NAPI
-ID if it is available, i.e. CONFIG_NET_RX_BUSY_POLL is enabled and the
-driver is using NAPI. Add dev_get_by_napi_id() and also skb_napi_id() to
-hide the CONFIG_NET_RX_BUSY_POLL ifdef.
+The scm_timestamping struct may return multiple non-zero fields, e.g.
+when both software and hardware RX timestamping is enabled, or when the
+SO_TIMESTAMP(NS) option is combined with SCM_TIMESTAMPING and a false
+software timestamp is generated in the recvmsg() call in order to always
+return a SCM_TIMESTAMP(NS) message.
 
 CC: Richard Cochran <richardcochran@gmail.com>
-Suggested-by: Willem de Bruijn <willemb@google.com>
-Acked-by: Willem de Bruijn <willemb@google.com>
+CC: Willem de Bruijn <willemb@google.com>
 Signed-off-by: Miroslav Lichvar <mlichvar@redhat.com>
 ---
- include/linux/netdevice.h |  1 +
- include/linux/skbuff.h    |  9 +++++++++
- net/core/dev.c            | 26 ++++++++++++++++++++++++++
- 3 files changed, 36 insertions(+)
+ Documentation/networking/timestamping.txt | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 3f39d27..b6c36d5 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -2456,6 +2456,7 @@ static inline int dev_recursion_level(void)
- struct net_device *dev_get_by_index(struct net *net, int ifindex);
- struct net_device *__dev_get_by_index(struct net *net, int ifindex);
- struct net_device *dev_get_by_index_rcu(struct net *net, int ifindex);
-+struct net_device *dev_get_by_napi_id(unsigned int napi_id);
- int netdev_get_name(struct net *net, char *name, int ifindex);
- int dev_restart(struct net_device *dev);
- int skb_gro_receive(struct sk_buff **head, struct sk_buff *skb);
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 7c0cb2c..1f8028c 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -855,6 +855,15 @@ static inline bool skb_pkt_type_ok(u32 ptype)
- 	return ptype <= PACKET_OTHERHOST;
- }
+diff --git a/Documentation/networking/timestamping.txt b/Documentation/networking/timestamping.txt
+index 600c6bf..74b7c61 100644
+--- a/Documentation/networking/timestamping.txt
++++ b/Documentation/networking/timestamping.txt
+@@ -321,7 +321,7 @@ struct scm_timestamping {
+ };
  
-+static inline unsigned int skb_napi_id(const struct sk_buff *skb)
-+{
-+#ifdef CONFIG_NET_RX_BUSY_POLL
-+	return skb->napi_id;
-+#else
-+	return 0;
-+#endif
-+}
-+
- void kfree_skb(struct sk_buff *skb);
- void kfree_skb_list(struct sk_buff *segs);
- void skb_tx_error(struct sk_buff *skb);
-diff --git a/net/core/dev.c b/net/core/dev.c
-index acd594c..6d3c452 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -162,6 +162,7 @@ static int netif_rx_internal(struct sk_buff *skb);
- static int call_netdevice_notifiers_info(unsigned long val,
- 					 struct net_device *dev,
- 					 struct netdev_notifier_info *info);
-+static struct napi_struct *napi_by_id(unsigned int napi_id);
+ The structure can return up to three timestamps. This is a legacy
+-feature. Only one field is non-zero at any time. Most timestamps
++feature. At least one field is non-zero at any time. Most timestamps
+ are passed in ts[0]. Hardware timestamps are passed in ts[2].
  
- /*
-  * The @dev_base_head list is protected by @dev_base_lock and the rtnl
-@@ -866,6 +867,31 @@ struct net_device *dev_get_by_index(struct net *net, int ifindex)
- EXPORT_SYMBOL(dev_get_by_index);
+ ts[1] used to hold hardware timestamps converted to system time.
+@@ -330,6 +330,12 @@ a HW PTP clock source, to allow time conversion in userspace and
+ optionally synchronize system time with a userspace PTP stack such
+ as linuxptp. For the PTP clock API, see Documentation/ptp/ptp.txt.
  
- /**
-+ *	dev_get_by_napi_id - find a device by napi_id
-+ *	@napi_id: ID of the NAPI struct
-+ *
-+ *	Search for an interface by NAPI ID. Returns %NULL if the device
-+ *	is not found or a pointer to the device. The device has not had
-+ *	its reference counter increased so the caller must be careful
-+ *	about locking. The caller must hold RCU lock.
-+ */
++Note that if the SO_TIMESTAMP or SO_TIMESTAMPNS option is enabled
++together with SO_TIMESTAMPING using SOF_TIMESTAMPING_SOFTWARE, a false
++software timestamp will be generated in the recvmsg() call and passed
++in ts[0] when a real software timestamp is missing. For this reason it
++is not recommended to combine SO_TIMESTAMP(NS) with SO_TIMESTAMPING.
 +
-+struct net_device *dev_get_by_napi_id(unsigned int napi_id)
-+{
-+	struct napi_struct *napi;
-+
-+	WARN_ON_ONCE(!rcu_read_lock_held());
-+
-+	if (napi_id < MIN_NAPI_ID)
-+		return NULL;
-+
-+	napi = napi_by_id(napi_id);
-+
-+	return napi ? napi->dev : NULL;
-+}
-+EXPORT_SYMBOL(dev_get_by_napi_id);
-+
-+/**
-  *	netdev_get_name - get a netdevice name, knowing its ifindex.
-  *	@net: network namespace
-  *	@name: a pointer to the buffer where the name will be stored.
+ 2.1.1 Transmit timestamps with MSG_ERRQUEUE
+ 
+ For transmit timestamps the outgoing packet is looped back to the
 -- 
 2.9.3
