@@ -1,102 +1,54 @@
-From: Antony Antony <antony@phenome.org>
-Subject: [PATCH] xfrm: fix state migration replay sequence numbers
-Date: Thu, 18 May 2017 16:39:53 +0200
-Message-ID: <20170518143953.GA64905@AntonyAntony.local>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] qed: Utilize FW 8.20.0.0
+Date: Thu, 18 May 2017 10:43:00 -0400 (EDT)
+Message-ID: <20170518.104300.795177460216894201.davem@davemloft.net>
+References: <1495049920-22782-1-git-send-email-Yuval.Mintz@cavium.com>
+        <20170518.103428.1194147893495615244.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="45Z9DzgjV8m4Oswq"
-Cc: Richard Guy Briggs <rgb@tricolour.ca>,
-        Antony Antony <antony@phenome.org>
-To: netdev@vger.kernel.org, Herbert Xu <herbert@gondor.apana.org.au>,
-        Steffen Klassert <steffen.klassert@secunet.com>
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, linux-scsi@vger.kernel.org,
+        Chad.Dupuis@cavium.com, Ram.Amrani@cavium.com,
+        Tomer.Tayar@cavium.com, Manish.Rangankar@cavium.com
+To: Yuval.Mintz@cavium.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lb3-smtp-cloud3.xs4all.net ([194.109.24.30]:54610 "EHLO
-        lb3-smtp-cloud3.xs4all.net" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S932593AbdEROkJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 18 May 2017 10:40:09 -0400
-Content-Disposition: inline
+Received: from shards.monkeyblade.net ([184.105.139.130]:43632 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932494AbdEROnH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 18 May 2017 10:43:07 -0400
+In-Reply-To: <20170518.103428.1194147893495615244.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
---45Z9DzgjV8m4Oswq
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-
-During xfrm migration replay and preplay sequence numbers are not 
-copied from the previous state. 
-
-Here is tcpdump output showing the problem.
-10.0.10.46 is running vanilla kernel, IKE/IPsec responder.
-After the migration it sent wrong sequence number, reset to 1.
-The migration is from 10.0.0.52 to 10.0.0.53.
-
-IP 10.0.0.52.4500 > 10.0.10.46.4500: UDP-encap: ESP(spi=0x43ef462d,seq=0x7cf), length 136
-IP 10.0.10.46.4500 > 10.0.0.52.4500: UDP-encap: ESP(spi=0xca1c282d,seq=0x7cf), length 136
-IP 10.0.0.52.4500 > 10.0.10.46.4500: UDP-encap: ESP(spi=0x43ef462d,seq=0x7d0), length 136
-IP 10.0.10.46.4500 > 10.0.0.52.4500: UDP-encap: ESP(spi=0xca1c282d,seq=0x7d0), length 136
-
-IP 10.0.0.53.4500 > 10.0.10.46.4500: NONESP-encap: isakmp: child_sa  inf2[I]
-IP 10.0.10.46.4500 > 10.0.0.53.4500: NONESP-encap: isakmp: child_sa  inf2[R]
-IP 10.0.0.53.4500 > 10.0.10.46.4500: NONESP-encap: isakmp: child_sa  inf2[I]
-IP 10.0.10.46.4500 > 10.0.0.53.4500: NONESP-encap: isakmp: child_sa  inf2[R]
-
-IP 10.0.0.53.4500 > 10.0.10.46.4500: UDP-encap: ESP(spi=0x43ef462d,seq=0x7d1), length 136
-
-NOTE: next sequence is wrong 0x1
-
-IP 10.0.10.46.4500 > 10.0.0.53.4500: UDP-encap: ESP(spi=0xca1c282d,seq=0x1), length 136
-IP 10.0.0.53.4500 > 10.0.10.46.4500: UDP-encap: ESP(spi=0x43ef462d,seq=0x7d2), length 136
-IP 10.0.10.46.4500 > 10.0.0.53.4500: UDP-encap: ESP(spi=0xca1c282d,seq=0x2), length 136
-
-The attached patch fix it by copying replay and preplay.
-
-regards,
--antony
-
-Antony Antony (1):
-  xfrm: fix state migration replay sequence numbers
-
- net/xfrm/xfrm_state.c | 2 ++
- 1 file changed, 2 insertions(+)
-
--- 
-2.9.3
-
-
---45Z9DzgjV8m4Oswq
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="0001-xfrm-fix-state-migration.patch"
-
->From 1241e8b4c38ad2bf7399599165f763af38aba8d9 Mon Sep 17 00:00:00 2001
-From: Antony Antony <antony@phenome.org>
-Date: Thu, 18 May 2017 12:19:32 +0200
-Subject: [PATCH] xfrm: fix state migration copy replay sequence numbers
-To: netdev@vger.kernel.org, Herbert Xu <herbert@gondor.apana.org.au>, Steffen Klassert <steffen.klassert@secunet.com>
-Cc: Richard Guy Briggs <rgb@tricolour.ca>
-
-During xfrm migration copy replay and preplay sequence numbers
-from the previous state.
-
-Signed-off-by: Antony Antony <antony@phenome.org>
----
- net/xfrm/xfrm_state.c | 2 ++
- 1 file changed, 2 insertions(+)
-
-diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index fc3c5aa..2e291bc 100644
---- a/net/xfrm/xfrm_state.c
-+++ b/net/xfrm/xfrm_state.c
-@@ -1383,6 +1383,8 @@ static struct xfrm_state *xfrm_state_clone(struct xfrm_state *orig)
- 	x->curlft.add_time = orig->curlft.add_time;
- 	x->km.state = orig->km.state;
- 	x->km.seq = orig->km.seq;
-+	x->replay = orig->replay;
-+	x->preplay = orig->preplay;
- 
- 	return x;
- 
--- 
-2.9.3
-
-
---45Z9DzgjV8m4Oswq--
+RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogVGh1LCAxOCBN
+YXkgMjAxNyAxMDozNDoyOCAtMDQwMCAoRURUKQ0KDQo+IEZyb206IFl1dmFsIE1pbnR6IDxZdXZh
+bC5NaW50ekBjYXZpdW0uY29tPg0KPiBEYXRlOiBXZWQsIDE3IE1heSAyMDE3IDIyOjM4OjQwICsw
+MzAwDQo+IA0KPj4gVGhpcyBwdXNoZXMgcWVkIFthbmQgYXMgcmVzdWx0LCBhbGwgcWVkKiBkcml2
+ZXJzXSBpbnRvIHVzaW5nIDguMjAuMC4wDQo+PiBmaXJtd2FyZS4gVGhlIGNoYW5nZXMgYXJlIG1v
+c3RseSBjb250YWluZWQgaW4gcWVkIHdpdGggbWlub3IgY2hhbmdlcw0KPj4gdG8gcWVkaSBkdWUg
+dG8gc29tZSBIU0kgY2hhbmdlcy4NCj4+IA0KPj4gQ29udGVudC13aXNlLCB0aGUgZmlybXdhcmUg
+Y29udGFpbnMgZml4ZXMgdG8gdmFyaW91cyBpc3N1ZXMgZXhwb3NlZA0KPj4gc2luY2UgdGhlIHJl
+bGVhc2Ugb2YgdGhlIHByZXZpb3VzIGZpcm13YXJlLCBpbmNsdWRpbmc6DQo+PiAgLSBDb3JyZWN0
+cyBpU0NTSSBmYXN0IHJldHJhbnNtaXQgd2hlbiBkYXRhIGRpZ2VzdCBpcyBlbmFibGVkLg0KPj4g
+IC0gU3RvcCBkcmFpbmluZyBwYWNrZXRzIHdoZW4gcmVjZWl2aW5nIHNldmVyYWwgY29uc2VjdXRp
+dmUgUEZDcy4NCj4+ICAtIFByZXZlbnQgcG9zc2libGUgYXNzZXJ0aW9uIHdoZW4gY29uc2VjdXRp
+dmVseSBvcGVuaW5nL2Nsb3NpbmcNCj4+ICAgIG1hbnkgY29ubmVjdGlvbnMuDQo+PiAgLSBQcmV2
+ZW50IHBvc3NpYmxlIGFzc2VydGlvbiBkdWUgdG8gdG9vIGxvbmcgQkRRIGZldGNoIHRpbWUuDQo+
+PiANCj4+IEluIGFkZGl0aW9uLCB0aGUgbmV3IGZpcm13YXJlIHdvdWxkIGFsbG93IHVzIHRvIGxh
+dGVyIGFkZCBpV0FSUCBzdXBwb3J0DQo+PiBpbiBxZWQgYW5kIHFlZHIuDQo+PiANCj4+IFNpZ25l
+ZC1vZmYtYnk6IENoYWQgRHVwdWlzIDxDaGFkLkR1cHVpc0BjYXZpdW0uY29tPg0KPj4gU2lnbmVk
+LW9mZi1ieTogUmFtIEFtcmFuaSA8UmFtLkFtcmFuaUBjYXZpdW0uY29tPg0KPj4gU2lnbmVkLW9m
+Zi1ieTogVG9tZXIgVGF5YXIgPFRvbWVyLlRheWFyQGNhdml1bS5jb20+DQo+PiBTaWduZWQtb2Zm
+LWJ5OiBNYW5pc2ggUmFuZ2Fua2FyIDxNYW5pc2guUmFuZ2Fua2FyQGNhdml1bS5jb20+DQo+PiBT
+aWduZWQtb2ZmLWJ5OiBZdXZhbCBNaW50eiA8WXV2YWwuTWludHpAY2F2aXVtLmNvbT4NCj4gDQo+
+IEFwcGxpZWQuDQoNCkFjdHVhbGx5IEkgaGFkIHRvIHJldmVydC4gIFBsZWFzZSBsb29rIGF0IHRo
+ZSBjb21waWxlciBvdXRwdXQgYmVmb3JlDQpzdWJtaXR0aW5nIGNoYW5nZXM6DQoNCmRyaXZlcnMv
+bmV0L2V0aGVybmV0L3Fsb2dpYy9xZWQvcWVkX2RlYnVnLmM6IEluIGZ1bmN0aW9uIKFxZWRfZ3Jj
+X2R1bXCiOg0KZHJpdmVycy9uZXQvZXRoZXJuZXQvcWxvZ2ljL3FlZC9xZWRfZGVidWcuYzoyNDI1
+OjY6IHdhcm5pbmc6IKFhZGRyoiBtYXkgYmUgdXNlZCB1bmluaXRpYWxpemVkIGluIHRoaXMgZnVu
+Y3Rpb24gWy1XbWF5YmUtdW5pbml0aWFsaXplZF0NCiAgdTMyIGJ5dGVfYWRkciA9IERXT1JEU19U
+T19CWVRFUyhhZGRyKSwgb2Zmc2V0ID0gMCwgaTsNCiAgICAgIF4NCmRyaXZlcnMvbmV0L2V0aGVy
+bmV0L3Fsb2dpYy9xZWQvcWVkX2RlYnVnLmM6MzUzNDo3OiBub3RlOiChYWRkcqIgd2FzIGRlY2xh
+cmVkIGhlcmUNCiAgIHUzMiBhZGRyLCBzaXplID0gUlNTX1JFR19SU1NfUkFNX0RBVEFfU0laRTsN
+CiAgICAgICBeDQoNCidhZGRyJyBpcyBuZXZlciwgZXZlciwgYXNzaWduZWQgYSB2YWx1ZSwgeWV0
+IGl0IGlzIHBhc3NlZCBpbnRvIGEgZnVuY3Rpb24gYXMgYW4NCmFyZ3VtZW50Lg0K
