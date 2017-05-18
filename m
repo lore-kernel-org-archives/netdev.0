@@ -1,84 +1,45 @@
-From: Oliver Neukum <oneukum@suse.com>
-Subject: [RFC]RNDIS filter issue
-Date: Thu, 18 May 2017 14:38:05 +0200
-Message-ID: <1495111085.6672.7.camel@suse.com>
+From: Craig Gallek <kraigatgoog@gmail.com>
+Subject: Re: [net:master 9/12] net/ipv6/ip6_offload.c:120:7-21: WARNING:
+ Unsigned expression compared with zero: unfrag_ip6hlen < 0 (fwd)
+Date: Thu, 18 May 2017 08:57:32 -0400
+Message-ID: <CAEfhGizhMTzOiPUPH978Fo9-K9eBhEOaAKHoDLVHYOtOF_c_HQ@mail.gmail.com>
+References: <alpine.DEB.2.20.1705181000150.3833@hadrien> <20170517.225831.2041930111066229998.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-YoRD3ShSROFPb3qC4MpE"
-Cc: netdev@vger.kernel.org
-To: =?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>
+Content-Type: text/plain; charset="UTF-8"
+Cc: julia.lawall@lip6.fr, netdev <netdev@vger.kernel.org>,
+        kbuild-all@01.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:34439 "EHLO mx1.suse.de"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1754308AbdERMjg (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 18 May 2017 08:39:36 -0400
+Received: from mail-qt0-f181.google.com ([209.85.216.181]:35775 "EHLO
+        mail-qt0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754641AbdERM5f (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 18 May 2017 08:57:35 -0400
+Received: by mail-qt0-f181.google.com with SMTP id v27so33048370qtg.2
+        for <netdev@vger.kernel.org>; Thu, 18 May 2017 05:57:35 -0700 (PDT)
+Received: from mail-qk0-f177.google.com (mail-qk0-f177.google.com. [209.85.220.177])
+        by smtp.gmail.com with ESMTPSA id c15sm3693902qte.25.2017.05.18.05.57.33
+        for <netdev@vger.kernel.org>
+        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
+        Thu, 18 May 2017 05:57:33 -0700 (PDT)
+Received: by mail-qk0-f177.google.com with SMTP id a72so34599517qkj.2
+        for <netdev@vger.kernel.org>; Thu, 18 May 2017 05:57:33 -0700 (PDT)
+In-Reply-To: <20170517.225831.2041930111066229998.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
---=-YoRD3ShSROFPb3qC4MpE
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-
-Hi,
-
-now, as this patch is conceptually not my thing, here for review.
-
-	Regards
-		Oliver
-
---=-YoRD3ShSROFPb3qC4MpE
-Content-Disposition: attachment;
-	filename*0=0001-cdc-ether-divorce-initialisation-with-a-filter-reset.pat;
-	filename*1=ch
-Content-Transfer-Encoding: base64
-Content-Type: text/x-patch;
-	name="0001-cdc-ether-divorce-initialisation-with-a-filter-reset.patch";
-	charset="UTF-8"
-
-RnJvbSBmOGY3NzU4MTdiNmYzYmQ2MzZlM2I0NWNiMzRkYjRhZjI3OTQ5MmZmIE1vbiBTZXAgMTcg
-MDA6MDA6MDAgMjAwMQpGcm9tOiBPbGl2ZXIgTmV1a3VtIDxvbmV1a3VtQHN1c2UuY29tPgpEYXRl
-OiBXZWQsIDE3IE1heSAyMDE3IDExOjQwOjEyICswMjAwClN1YmplY3Q6IFtQQVRDSF0gY2RjLWV0
-aGVyOiBkaXZvcmNlIGluaXRpYWxpc2F0aW9uIHdpdGggYSBmaWx0ZXIgcmVzZXQgYW5kIGEKIGdl
-bmVyaWMgbWV0aG9kCgpTb21lIGRldmljZXMgbmVlZCB0aGVpciBtdWx0aWNhc3QgZmlsdGVyIHJl
-c2V0IGJ1dCBvdGhlcnMgYXJlIGNyYXNoZWQgYnkgdGhhdC4KU28gdGhlIG1ldGhvZHMgbmVlZCB0
-byBiZSBzZXBhcmF0ZWQuCgpTaWduZWQtb2ZmLWJ5OiBPbGl2ZXIgTmV1a3VtIDxvbmV1a3VtQHN1
-c2UuY29tPgpSZXBvcnRlZC1ieTogIlJpZGd3YXksIEtlaXRoIiA8a3JpZGd3YXlAaGFycmlzLmNv
-bT4KLS0tCiBkcml2ZXJzL25ldC91c2IvY2RjX2V0aGVyLmMgfCAzMiArKysrKysrKysrKysrKysr
-KysrKysrKystLS0tLS0tLQogMSBmaWxlIGNoYW5nZWQsIDI0IGluc2VydGlvbnMoKyksIDggZGVs
-ZXRpb25zKC0pCgpkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvdXNiL2NkY19ldGhlci5jIGIvZHJp
-dmVycy9uZXQvdXNiL2NkY19ldGhlci5jCmluZGV4IGYzYWU4OGZkZjMzMi4uMzExZjZkZjU3MzE2
-IDEwMDY0NAotLS0gYS9kcml2ZXJzL25ldC91c2IvY2RjX2V0aGVyLmMKKysrIGIvZHJpdmVycy9u
-ZXQvdXNiL2NkY19ldGhlci5jCkBAIC0zMTAsNiArMzEwLDI2IEBAIGludCB1c2JuZXRfZ2VuZXJp
-Y19jZGNfYmluZChzdHJ1Y3QgdXNibmV0ICpkZXYsIHN0cnVjdCB1c2JfaW50ZXJmYWNlICppbnRm
-KQogCQlyZXR1cm4gLUVOT0RFVjsKIAl9CiAKKwlyZXR1cm4gMDsKKworYmFkX2Rlc2M6CisJZGV2
-X2luZm8oJmRldi0+dWRldi0+ZGV2LCAiYmFkIENEQyBkZXNjcmlwdG9yc1xuIik7CisJcmV0dXJu
-IC1FTk9ERVY7Cit9CitFWFBPUlRfU1lNQk9MX0dQTCh1c2JuZXRfZ2VuZXJpY19jZGNfYmluZCk7
-CisKKworLyogbGlrZSB1c2JuZXRfZ2VuZXJpY19jZGNfYmluZCgpIGJ1dCBoYW5kbGVzIGZpbHRl
-ciBpbml0aWFsaXphdGlvbgorICogY29ycmVjdGx5CisgKi8KK2ludCB1c2JuZXRfZXRoZXJfY2Rj
-X2JpbmQoc3RydWN0IHVzYm5ldCAqZGV2LCBzdHJ1Y3QgdXNiX2ludGVyZmFjZSAqaW50ZikKK3sK
-KwlpbnQgcnY7CisKKwlydiA9IHVzYm5ldF9nZW5lcmljX2NkY19iaW5kKGRldiwgaW50Zik7CisJ
-aWYgKHJ2IDwgMCkKKwkJZ290byBiYWlsX291dDsKKwogCS8qIFNvbWUgZGV2aWNlcyBkb24ndCBp
-bml0aWFsaXNlIHByb3Blcmx5LiBJbiBwYXJ0aWN1bGFyCiAJICogdGhlIHBhY2tldCBmaWx0ZXIg
-aXMgbm90IHJlc2V0LiBUaGVyZSBhcmUgZGV2aWNlcyB0aGF0CiAJICogZG9uJ3QgZG8gcmVzZXQg
-YWxsIHRoZSB3YXkuIFNvIHRoZSBwYWNrZXQgZmlsdGVyIHNob3VsZApAQCAtMzE3LDEzICszMzcs
-MTAgQEAgaW50IHVzYm5ldF9nZW5lcmljX2NkY19iaW5kKHN0cnVjdCB1c2JuZXQgKmRldiwgc3Ry
-dWN0IHVzYl9pbnRlcmZhY2UgKmludGYpCiAJICovCiAJdXNibmV0X2NkY191cGRhdGVfZmlsdGVy
-KGRldik7CiAKLQlyZXR1cm4gMDsKLQotYmFkX2Rlc2M6Ci0JZGV2X2luZm8oJmRldi0+dWRldi0+
-ZGV2LCAiYmFkIENEQyBkZXNjcmlwdG9yc1xuIik7Ci0JcmV0dXJuIC1FTk9ERVY7CitiYWlsX291
-dDoKKwlyZXR1cm4gcnY7CiB9Ci1FWFBPUlRfU1lNQk9MX0dQTCh1c2JuZXRfZ2VuZXJpY19jZGNf
-YmluZCk7CitFWFBPUlRfU1lNQk9MX0dQTCh1c2JuZXRfZXRoZXJfY2RjX2JpbmQpOwogCiB2b2lk
-IHVzYm5ldF9jZGNfdW5iaW5kKHN0cnVjdCB1c2JuZXQgKmRldiwgc3RydWN0IHVzYl9pbnRlcmZh
-Y2UgKmludGYpCiB7CkBAIC00MTcsNyArNDM0LDcgQEAgaW50IHVzYm5ldF9jZGNfYmluZChzdHJ1
-Y3QgdXNibmV0ICpkZXYsIHN0cnVjdCB1c2JfaW50ZXJmYWNlICppbnRmKQogCUJVSUxEX0JVR19P
-Tigoc2l6ZW9mKCgoc3RydWN0IHVzYm5ldCAqKTApLT5kYXRhKQogCQkJPCBzaXplb2Yoc3RydWN0
-IGNkY19zdGF0ZSkpKTsKIAotCXN0YXR1cyA9IHVzYm5ldF9nZW5lcmljX2NkY19iaW5kKGRldiwg
-aW50Zik7CisJc3RhdHVzID0gdXNibmV0X2V0aGVyX2NkY19iaW5kKGRldiwgaW50Zik7CiAJaWYg
-KHN0YXR1cyA8IDApCiAJCXJldHVybiBzdGF0dXM7CiAKQEAgLTQ3Miw3ICs0ODksNiBAQCBzdGF0
-aWMgdm9pZCB1c2JuZXRfY2RjX3p0ZV9zdGF0dXMoc3RydWN0IHVzYm5ldCAqZGV2LCBzdHJ1Y3Qg
-dXJiICp1cmIpCiAKIAlpZiAodXJiLT5hY3R1YWxfbGVuZ3RoIDwgc2l6ZW9mKCpldmVudCkpCiAJ
-CXJldHVybjsKLQogCWV2ZW50ID0gdXJiLT50cmFuc2Zlcl9idWZmZXI7CiAKIAlpZiAoZXZlbnQt
-PmJOb3RpZmljYXRpb25UeXBlICE9IFVTQl9DRENfTk9USUZZX05FVFdPUktfQ09OTkVDVElPTikg
-ewotLSAKMi4xMi4wCgo=
-
-
---=-YoRD3ShSROFPb3qC4MpE--
+On Wed, May 17, 2017 at 10:58 PM, David Miller <davem@davemloft.net> wrote:
+> From: Julia Lawall <julia.lawall@lip6.fr>
+> Date: Thu, 18 May 2017 10:01:07 +0800 (SGT)
+>
+>> It may be worth checking on these.  The code context is shown in the first
+>> case (line 120).  For the others, at least it gives the line numbers.
+>  ...
+>>>> net/ipv6/ip6_offload.c:120:7-21: WARNING: Unsigned expression compared with zero: unfrag_ip6hlen < 0
+>> --
+>>>> net/ipv6/ip6_output.c:601:5-9: WARNING: Unsigned expression compared with zero: hlen < 0
+>> --
+>>>> net/ipv6/udp_offload.c:94:6-20: WARNING: Unsigned expression compared with zero: unfrag_ip6hlen < 0
+>
+> Sigh, this is worse than the bug the commit introducing these warnings
+> was trying to fix.
+Thanks for the fix, sorry I missed this.
