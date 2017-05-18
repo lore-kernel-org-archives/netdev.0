@@ -1,46 +1,78 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: Re: [PATCH v1] samples/bpf: Add a .gitignore for binaries
-Date: Thu, 18 May 2017 13:03:31 -0700
-Message-ID: <1ce3f092-3552-173f-b26a-48ec81d49f55@gmail.com>
-References: <20170212212356.11675-1-mic@digikod.net>
- <8277c7cc-8f44-40ec-1f7e-53c404d84292@cumulusnetworks.com>
- <bd91cc8d-4683-4c4c-e672-7dce5da28183@digikod.net>
- <ad02fd5c-6812-8f1b-b348-b2ec81b9524b@gmail.com>
- <20170517081844.GA4447@gmail.com>
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: Re: [PATCH v4 net-next 6/7] net: allow simultaneous SW and HW
+ transmit timestamping
+Date: Thu, 18 May 2017 16:16:26 -0400
+Message-ID: <CAF=yD-KVwq+WXZNoZH+Vbs8-aMWF969AxzTqBZSKfFyDqszRNQ@mail.gmail.com>
+References: <20170518130656.24163-1-mlichvar@redhat.com> <20170518130656.24163-7-mlichvar@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: =?UTF-8?Q?Micka=c3=abl_Sala=c3=bcn?= <mic@digikod.net>,
-        Alexei Starovoitov <ast@fb.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        linux-kernel@vger.kernel.org,
-        Arnaldo Carvalho de Melo <acme@redhat.com>,
-        Wang Nan <wangnan0@huawei.com>, netdev@vger.kernel.org
-To: Alexander Alemayhu <alexander@alemayhu.com>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Network Development <netdev@vger.kernel.org>,
+        Richard Cochran <richardcochran@gmail.com>,
+        Willem de Bruijn <willemb@google.com>
+To: Miroslav Lichvar <mlichvar@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:33759 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753200AbdERUDe (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 18 May 2017 16:03:34 -0400
-In-Reply-To: <20170517081844.GA4447@gmail.com>
-Content-Language: en-US
+Received: from mail-oi0-f68.google.com ([209.85.218.68]:32919 "EHLO
+        mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755635AbdERURI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 18 May 2017 16:17:08 -0400
+Received: by mail-oi0-f68.google.com with SMTP id h4so9221886oib.0
+        for <netdev@vger.kernel.org>; Thu, 18 May 2017 13:17:07 -0700 (PDT)
+In-Reply-To: <20170518130656.24163-7-mlichvar@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 5/17/17 1:18 AM, Alexander Alemayhu wrote:
-> I have looked into this but found it to be not easy and all attempts to
-> change the Makefile has resulted in obscure errors :/
-> 
-> Getting clang to output in a different directory was easy[0], but I guess
-> this is not the right approach either. Have you tried making the change?
+On Thu, May 18, 2017 at 9:06 AM, Miroslav Lichvar <mlichvar@redhat.com> wrote:
+> Add SOF_TIMESTAMPING_OPT_TX_SWHW option to allow an outgoing packet to
+> be looped to the socket's error queue with a software timestamp even
+> when a hardware transmit timestamp is expected to be provided by the
+> driver.
+>
+> Applications using this option will receive two separate messages from
+> the error queue, one with a software timestamp and the other with a
+> hardware timestamp. As the hardware timestamp is saved to the shared skb
+> info, which may happen before the first message with software timestamp
+> is received by the application, the hardware timestamp is copied to the
+> SCM_TIMESTAMPING control message only when the skb has no software
+> timestamp or it is an incoming packet.
+>
+> While changing sw_tx_timestamp(), inline it in skb_tx_timestamp() as
+> there are no other users.
+>
+> CC: Richard Cochran <richardcochran@gmail.com>
+> CC: Willem de Bruijn <willemb@google.com>
+> Signed-off-by: Miroslav Lichvar <mlichvar@redhat.com>
+> ---
 
-spent an hour so a few weeks back. It is not trivial, but someone needs
-to find to fix it now.
+> +/* On transmit, software and hardware timestamps are returned independently.
+> + * As the two skb clones share the hardware timestamp, which may be updated
+> + * before the software timestamp is received, a hardware TX timestamp may be
+> + * returned only if there is no software TX timestamp. A false software
+> + * timestamp made for SOCK_RCVTSTAMP when a real timestamp is missing must
+> + * be ignored.
 
-perf is the example to use: you can build it from both top level kernel
-directory (e.g, make -C tools/perf O=/tmp/perf) and the perf directory
-(cd tools/perf; make O=/tmp/perf). Both are wanted for samples/bpf and
-it would be nice to keep the O= option as well.
+Please expand on why this case can be ignored. It is quite subtle. How about
+something like
 
-I don't have the time for the next few weeks. Perhaps mid-June I can
-take a look.
+*
+* A false software timestamp is one made inside the __sock_recv_timestamp
+* call itself. These are generated whenever SO_TIMESTAMP(NS) is enabled
+* on the socket, even when the timestamp reported is for another option, such
+* as hardware tx timestamp.
+*
+* Ignore these when deciding whether a timestamp source is hw or sw.
+*/
+
+And perhaps move the comment to the branch itself.
+
+> + */
+> +static bool skb_is_swtx_tstamp(const struct sk_buff *skb,
+> +                              const struct sock *sk, int false_tstamp)
+> +{
+> +       if (false_tstamp && sk->sk_tsflags & SOF_TIMESTAMPING_OPT_TX_SWHW)
+
+Also, why is it ignored only for the new mode?
+
+> +               return 0;
+> +
+> +       return skb->tstamp && skb_is_err_queue(skb);
+> +}
