@@ -1,69 +1,94 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: [PATCH net-next 3/6] net: bridge: break if __br_mdb_del fails
-Date: Thu, 18 May 2017 18:25:11 +0300
-Message-ID: <1211f3cb-c5f5-a9bd-638b-bfcb99fd1bed@cumulusnetworks.com>
-References: <20170517212709.6473-1-vivien.didelot@savoirfairelinux.com>
- <20170517212709.6473-4-vivien.didelot@savoirfairelinux.com>
- <5d8f53ea-a9de-7c76-f088-48c5357cb2a2@cumulusnetworks.com>
- <877f1edwxp.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Subject: [PATCH net-next] qed: Remove unused including <linux/version.h>
+Date: Thu, 18 May 2017 15:26:29 +0000
+Message-ID: <20170518152629.12503-1-weiyj.lk@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Stephen Hemminger <stephen@networkplumber.org>,
-        "moderated list:ETHERNET BRIDGE" <bridge@lists.linux-foundation.org>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+Cc: Wei Yongjun <weiyongjun1@huawei.com>, everest-linux-l2@cavium.com,
         netdev@vger.kernel.org
+To: Yuval Mintz <Yuval.Mintz@cavium.com>,
+        Ariel Elior <Ariel.Elior@cavium.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f54.google.com ([74.125.82.54]:35357 "EHLO
-        mail-wm0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934161AbdERPZO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 18 May 2017 11:25:14 -0400
-Received: by mail-wm0-f54.google.com with SMTP id b84so205864121wmh.0
-        for <netdev@vger.kernel.org>; Thu, 18 May 2017 08:25:13 -0700 (PDT)
-In-Reply-To: <877f1edwxp.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
-Content-Language: en-US
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:35170 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933863AbdERP0h (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 18 May 2017 11:26:37 -0400
+Received: by mail-pf0-f194.google.com with SMTP id u26so6179746pfd.2
+        for <netdev@vger.kernel.org>; Thu, 18 May 2017 08:26:36 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 5/18/17 6:08 PM, Vivien Didelot wrote:
-> Hi Nikolay,
-> 
-> Nikolay Aleksandrov <nikolay@cumulusnetworks.com> writes:
-> 
->>>    			err = __br_mdb_del(br, entry);
->>> -			if (!err)
->>> -				__br_mdb_notify(dev, p, entry, RTM_DELMDB);
->>> +			if (err)
->>> +				break;
->>> +			__br_mdb_notify(dev, p, entry, RTM_DELMDB);
->>>    		}
->>>    	} else {
->>>    		err = __br_mdb_del(br, entry);
->>>
->>
->> This can potentially break user-space scripts that rely on the best-effort
->> behaviour, this is the normal "delete without vid & enabled vlan filtering".
->> You can check the fdb delete code which does the same, this was intentional.
->>
->> You can add an mdb entry without a vid to all vlans, add a vlan and then try
->> to remove it from all vlans where it is present - with this patch obviously
->> that will fail at the new vlan.
-> 
-> OK good to know. That intention wasn't obvious. I can make __br_mdb_del
-> return void instead? What about the rest of the patchset if I do so?
-> 
-> Thanks,
-> 
->          Vivien
-> 
+From: Wei Yongjun <weiyongjun1@huawei.com>
 
-If you make it return void we will not be able to return proper error value
-when doing a single operation (the else case). About the rest I see only some
-minor style issues, I'll comment on the respective patches. Another minor nit is 
-using switch() instead of if/else for the message types but that is really up to 
-you, I don't mind either way. :-)
+Remove including <linux/version.h> that is not needed.
 
-Cheers,
-  Nik
+Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
+---
+ drivers/net/ethernet/qlogic/qed/qed_fcoe.c  | 1 -
+ drivers/net/ethernet/qlogic/qed/qed_iscsi.c | 1 -
+ drivers/net/ethernet/qlogic/qed/qed_l2.c    | 1 -
+ drivers/net/ethernet/qlogic/qed/qed_ll2.c   | 1 -
+ drivers/net/ethernet/qlogic/qed/qed_main.c  | 1 -
+ 5 files changed, 5 deletions(-)
+
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_fcoe.c b/drivers/net/ethernet/qlogic/qed/qed_fcoe.c
+index 21a58ff..690dd2b 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_fcoe.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_fcoe.c
+@@ -43,7 +43,6 @@
+ #include <linux/slab.h>
+ #include <linux/stddef.h>
+ #include <linux/string.h>
+-#include <linux/version.h>
+ #include <linux/workqueue.h>
+ #include <linux/errno.h>
+ #include <linux/list.h>
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_iscsi.c b/drivers/net/ethernet/qlogic/qed/qed_iscsi.c
+index 339c91d..f2fd09c 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_iscsi.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_iscsi.c
+@@ -44,7 +44,6 @@
+ #include <linux/slab.h>
+ #include <linux/stddef.h>
+ #include <linux/string.h>
+-#include <linux/version.h>
+ #include <linux/workqueue.h>
+ #include <linux/errno.h>
+ #include <linux/list.h>
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_l2.c b/drivers/net/ethernet/qlogic/qed/qed_l2.c
+index 746fed4..fab6e69 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_l2.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_l2.c
+@@ -43,7 +43,6 @@
+ #include <linux/slab.h>
+ #include <linux/stddef.h>
+ #include <linux/string.h>
+-#include <linux/version.h>
+ #include <linux/workqueue.h>
+ #include <linux/bitops.h>
+ #include <linux/bug.h>
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_ll2.c b/drivers/net/ethernet/qlogic/qed/qed_ll2.c
+index 09c8641..b04dfc4 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_ll2.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_ll2.c
+@@ -38,7 +38,6 @@
+ #include <linux/pci.h>
+ #include <linux/slab.h>
+ #include <linux/stddef.h>
+-#include <linux/version.h>
+ #include <linux/workqueue.h>
+ #include <net/ipv6.h>
+ #include <linux/bitops.h>
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_main.c b/drivers/net/ethernet/qlogic/qed/qed_main.c
+index 537d123..f286daa 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_main.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_main.c
+@@ -34,7 +34,6 @@
+ #include <linux/pci.h>
+ #include <linux/kernel.h>
+ #include <linux/slab.h>
+-#include <linux/version.h>
+ #include <linux/delay.h>
+ #include <asm/byteorder.h>
+ #include <linux/dma-mapping.h>
