@@ -1,90 +1,76 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [RFC V1 1/1] net: cdc_ncm: Reduce memory use when kernel memory low
-Date: Fri, 19 May 2017 15:55:55 +0200
-Message-ID: <87pof5rlw4.fsf@miraculix.mork.no>
-References: <1494956480-6127-1-git-send-email-jim_baxter@mentor.com>
-        <1494956480-6127-2-git-send-email-jim_baxter@mentor.com>
-        <063D6719AE5E284EB5DD2968C1650D6DCFFFAA5C@AcuExch.aculab.com>
+From: <Nisar.Sayed@microchip.com>
+Subject: [PATCH v2 net] smsc95xx: Support only IPv4 TCP/UDP csum offload
+Date: Fri, 19 May 2017 14:00:25 +0000
+Message-ID: <CE371C1263339941885964188A0225FA308E06@CHN-SV-EXMX03.mchp-main.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
-Cc: "'Jim Baxter'" <jim_baxter@mentor.com>,
-        "linux-usb\@vger.kernel.org" <linux-usb@vger.kernel.org>,
-        "netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel\@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        Oliver Neukum <oliver@neukum.org>
-To: David Laight <David.Laight@ACULAB.COM>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DCFFFAA5C@AcuExch.aculab.com>
-        (David Laight's message of "Fri, 19 May 2017 11:10:40 +0000")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <UNGLinuxDriver@microchip.com>, <steve.glendinning@shawell.net>,
+        <popcornmix@gmail.com>
+To: <netdev@vger.kernel.org>, <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from esa6.microchip.iphmx.com ([216.71.154.253]:45718 "EHLO
+        esa6.microchip.iphmx.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751406AbdESOAa (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 19 May 2017 10:00:30 -0400
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-David Laight <David.Laight@ACULAB.COM> writes:
+From: Nisar Sayed <Nisar.Sayed@microchip.com>
 
-> From: linux-usb-owner@vger.kernel.org [mailto:linux-usb-owner@vger.kernel=
-.org] On Behalf Of Jim Baxter
->> Sent: 16 May 2017 18:41
->>=20
->> The CDC-NCM driver can require large amounts of memory to create
->> skb's and this can be a problem when the memory becomes fragmented.
->>=20
->> This especially affects embedded systems that have constrained
->> resources but wish to maximise the throughput of CDC-NCM with 16KiB
->> NTB's.
->
-> Why is this driver copying multiple tx messages into a single skb.
+When TX checksum offload is used, if the computed checksum is 0 the
+LAN95xx device do not alter the checksum to 0xffff.  In the case of ipv4
+UDP checksum, it indicates to receiver that no checksum is calculated.
+Under ipv6, UDP checksum yields a result of zero must be changed to
+0xffff. Hence disabling checksum offload for ipv6 packets.
 
-Mostly becasue it already did that when I started messing with it, and I
-didn't know how to avoid that.
+Signed-off-by: Nisar Sayed <Nisar.Sayed@microchip.com>
 
-> Surely there are better ways to do this??
+Reported-by: popcorn mix <popcornmix@gmail.com>
+---
+Changes
+V2
+- Updated e-mail alias
+- Updated commit message and comments
 
-But I have been there thinking this exact thought a couple of times.
-Suggestions are appreciated.
+ drivers/net/usb/smsc95xx.c | 13 ++++++++++---
+ 1 file changed, 10 insertions(+), 3 deletions(-)
 
-> I think it is generating a 'multi-ethernet frame' URB with an
-> overall header for each URB and a header for each ethernet frame.
-
-With some negotiated alignment restrictions, and a linked list of frame
-pointer arrays.  But yes, that is basically it.
-
-(it's not always ethernet - with MBIM it can be IP or arbitrary as well,
-but I don't think that makes any difference)
-
-> Given that the USB stack allows multiple concurrent transmits I'm
-> surprised that batching large ethernet frames makes much difference.
-
-Me too.  Actually, I don't think it does.  The protocol was developed
-with specific device restrictions in mind. These might be invalid today.
-There is no reason to believe that using simple CDC ECM framing
-(i.e. one ethernet frame per URB) is any problem.
-
-> Also the USB target can't actually tell when URB that contain
-> multiples of the USB packet size end.
-> So it is possible to send a single NTB as multiple URB.
-
-Nice idea!  Never thought of that.  Yes, the driver could use a number
-smaller buffers regardless of the NTB size, by abusing the fact that the
-device will see them as a contigious USB transfer as long as they fall
-on USB packet boundaries.
-
-Started thinking about how to do this in practice.  It seemed obviously
-simply to jsut fire off the buffers as they fill up until the the max
-aggregation size or time has been exceeded.  But the header makes this
-harder than necessary.  It contains both a length and a pointer to the
-first frame pointer array (NDP).  So we will have to decide the size of
-the NTB and where to put the first NDP before sending the first USB
-packet. This is possible if we always go for the pad-to-max strategy.
-We'll also have to make some assumptions about the size of the NDP(s) as
-we add them, but we already do that so I don't think it is a big deal.
-
-Might be the way to go.
-
-Unless someone has a nice way to just collect a list of skbs and have
-them converted to proper framing on the fly when transmitting, without
-having to care about USB packet boundaries.
-
-
-
-Bj=C3=B8rn
+diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
+index 765400b..2dfca96 100644
+--- a/drivers/net/usb/smsc95xx.c
++++ b/drivers/net/usb/smsc95xx.c
+@@ -681,7 +681,7 @@ static int smsc95xx_set_features(struct net_device *netdev,
+ 	if (ret < 0)
+ 		return ret;
+ 
+-	if (features & NETIF_F_HW_CSUM)
++	if (features & NETIF_F_IP_CSUM)
+ 		read_buf |= Tx_COE_EN_;
+ 	else
+ 		read_buf &= ~Tx_COE_EN_;
+@@ -1279,12 +1279,19 @@ static int smsc95xx_bind(struct usbnet *dev, struct usb_interface *intf)
+ 
+ 	spin_lock_init(&pdata->mac_cr_lock);
+ 
++	/* LAN95xx devices do not alter the computed checksum of 0 to 0xffff.
++	 * RFC 2460, ipv6 UDP calculated checksum yields a result of zero must
++	 * be changed to 0xffff. RFC 768, ipv4 UDP computed checksum is zero,
++	 * it is transmitted as all ones. The zero transmitted checksum means
++	 * transmitter generated no checksum. Hence, enable csum offload only
++	 * for ipv4 packets.
++	 */
+ 	if (DEFAULT_TX_CSUM_ENABLE)
+-		dev->net->features |= NETIF_F_HW_CSUM;
++		dev->net->features |= NETIF_F_IP_CSUM;
+ 	if (DEFAULT_RX_CSUM_ENABLE)
+ 		dev->net->features |= NETIF_F_RXCSUM;
+ 
+-	dev->net->hw_features = NETIF_F_HW_CSUM | NETIF_F_RXCSUM;
++	dev->net->hw_features = NETIF_F_IP_CSUM | NETIF_F_RXCSUM;
+ 
+ 	smsc95xx_init_mac_address(dev);
+ 
+-- 
+1.9.1
