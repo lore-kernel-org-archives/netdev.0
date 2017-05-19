@@ -1,266 +1,102 @@
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next 02/13] nfp: make nfp_net alloc/init/cleanup/free not depend on netdevs
-Date: Fri, 19 May 2017 15:01:44 -0700
-Message-ID: <20170519220155.27857-3-jakub.kicinski@netronome.com>
-References: <20170519220155.27857-1-jakub.kicinski@netronome.com>
-Cc: kubakici@wp.pl, oss-drivers@netronome.com,
-        Jakub Kicinski <jakub.kicinski@netronome.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f53.google.com ([74.125.83.53]:32791 "EHLO
-        mail-pg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932338AbdESWCW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 19 May 2017 18:02:22 -0400
-Received: by mail-pg0-f53.google.com with SMTP id u187so43649260pgb.0
-        for <netdev@vger.kernel.org>; Fri, 19 May 2017 15:02:22 -0700 (PDT)
-In-Reply-To: <20170519220155.27857-1-jakub.kicinski@netronome.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jarod Wilson <jarod@redhat.com>
+Subject: Re: [PATCH net] bonding: fix randomly populated arp target array
+Date: Fri, 19 May 2017 18:14:05 -0400
+Message-ID: <8f60a5ea-7faf-3504-3898-e661a35ebc96@redhat.com>
+References: <20170519184646.42572-1-jarod@redhat.com>
+ <CAF2d9jiyCcqH=4Ls-GanJmLcMcjJzR=KEkqomFqVonrPv8QAPw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: linux-kernel@vger.kernel.org, Jay Vosburgh <j.vosburgh@gmail.com>,
+        Veaceslav Falico <vfalico@gmail.com>,
+        Andy Gospodarek <andy@greyhouse.net>,
+        linux-netdev <netdev@vger.kernel.org>, stable@vger.kernel.org
+To: =?UTF-8?B?TWFoZXNoIEJhbmRld2FyICjgpK7gpLngpYfgpLYg4KSs4KSC4KSh4KWH4KS1?=
+         =?UTF-8?B?4KS+4KSwKQ==?= <maheshb@google.com>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <CAF2d9jiyCcqH=4Ls-GanJmLcMcjJzR=KEkqomFqVonrPv8QAPw@mail.gmail.com>
+Content-Language: en-US
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-struct nfp_net represents a vNIC, we will be moving away from the
-requirement for every vNIC to have a netdev associated with it.
-Remove "netdev" from some function names and prefer passing
-struct nfp_net pointer as argument instead of struct net_device *.
+On 2017-05-19 4:38 PM, Mahesh Bandewar (महेश बंडेवार) wrote:
+> On Fri, May 19, 2017 at 11:46 AM, Jarod Wilson <jarod@redhat.com> wrote:
+>> In commit dc9c4d0fe023, the arp_target array moved from a static global
+>> to a local variable. By the nature of static globals, the array used to
+>> be initialized to all 0. At present, it's full of random data, which
+>> that gets interpreted as arp_target values, when none have actually been
+>> specified. Systems end up booting with spew along these lines:
+>>
+>> [   32.161783] IPv6: ADDRCONF(NETDEV_UP): lacp0: link is not ready
+>> [   32.168475] IPv6: ADDRCONF(NETDEV_UP): lacp0: link is not ready
+>> [   32.175089] 8021q: adding VLAN 0 to HW filter on device lacp0
+>> [   32.193091] IPv6: ADDRCONF(NETDEV_UP): lacp0: link is not ready
+>> [   32.204892] lacp0: Setting MII monitoring interval to 100
+>> [   32.211071] lacp0: Removing ARP target 216.124.228.17
+>> [   32.216824] lacp0: Removing ARP target 218.160.255.255
+>> [   32.222646] lacp0: Removing ARP target 185.170.136.184
+>> [   32.228496] lacp0: invalid ARP target 255.255.255.255 specified for removal
+>> [   32.236294] lacp0: option arp_ip_target: invalid value (-255.255.255.255)
+>> [   32.243987] lacp0: Removing ARP target 56.125.228.17
+>> [   32.249625] lacp0: Removing ARP target 218.160.255.255
+>> [   32.255432] lacp0: Removing ARP target 15.157.233.184
+>> [   32.261165] lacp0: invalid ARP target 255.255.255.255 specified for removal
+>> [   32.268939] lacp0: option arp_ip_target: invalid value (-255.255.255.255)
+>> [   32.276632] lacp0: Removing ARP target 16.0.0.0
+>> [   32.281755] lacp0: Removing ARP target 218.160.255.255
+>> [   32.287567] lacp0: Removing ARP target 72.125.228.17
+>> [   32.293165] lacp0: Removing ARP target 218.160.255.255
+>> [   32.298970] lacp0: Removing ARP target 8.125.228.17
+>> [   32.304458] lacp0: Removing ARP target 218.160.255.255
+>>
+>> None of these were actually specified as ARP targets, and the driver does
+>> seem to clean up the mess okay, but it's rather noisy and confusing, leaks
+>> values to userspace, and the 255.255.255.255 spew shows up even when debug
+>> prints are disabled.
+>>
+>> The fix: just zero out arp_target at init time.
+>>
+>> While we're in here, init arp_all_targets_value in the right place.
+>>
+>> Fixes: dc9c4d0fe023 ("bonding: reduce scope of some global variables")
+>> CC: Mahesh Bandewar <maheshb@google.com>
+>> CC: Jay Vosburgh <j.vosburgh@gmail.com>
+>> CC: Veaceslav Falico <vfalico@gmail.com>
+>> CC: Andy Gospodarek <andy@greyhouse.net>
+>> CC: netdev@vger.kernel.org
+>> CC: stable@vger.kernel.org
+>> Signed-off-by: Jarod Wilson <jarod@redhat.com>
+>> ---
+>>   drivers/net/bonding/bond_main.c | 5 ++---
+>>   1 file changed, 2 insertions(+), 3 deletions(-)
+>>
+>> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+>> index 2be78807fd6e..73313318399c 100644
+>> --- a/drivers/net/bonding/bond_main.c
+>> +++ b/drivers/net/bonding/bond_main.c
+>> @@ -4271,10 +4271,10 @@ static int bond_check_params(struct bond_params *params)
+>>          int arp_validate_value, fail_over_mac_value, primary_reselect_value, i;
+>>          struct bond_opt_value newval;
+>>          const struct bond_opt_value *valptr;
+>> -       int arp_all_targets_value;
+>> +       int arp_all_targets_value = 0;
+> 
+> I think this is unnecessary as long as the var is initialized before it's use.
 
-Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
-Reviewed-by: Simon Horman <simon.horman@netronome.com>
----
- drivers/net/ethernet/netronome/nfp/nfp_net.h       | 12 ++++----
- .../net/ethernet/netronome/nfp/nfp_net_common.c    | 35 ++++++++++------------
- drivers/net/ethernet/netronome/nfp/nfp_net_main.c  | 14 ++++-----
- .../net/ethernet/netronome/nfp/nfp_netvf_main.c    | 10 +++----
- 4 files changed, 35 insertions(+), 36 deletions(-)
+No, it's not part of the fix, it just irked me. The extra line is 
+completely unnecessary, less lines is good. Possibly shouldn't have 
+folded it into this fix, will respin and submit the cleanup another 
+time, if necessary.
 
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net.h b/drivers/net/ethernet/netronome/nfp/nfp_net.h
-index 7b9518cbe965..04609191ca88 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net.h
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net.h
-@@ -807,11 +807,13 @@ void nfp_net_get_fw_version(struct nfp_net_fw_version *fw_ver,
- 			    void __iomem *ctrl_bar);
- 
- struct nfp_net *
--nfp_net_netdev_alloc(struct pci_dev *pdev,
--		     unsigned int max_tx_rings, unsigned int max_rx_rings);
--void nfp_net_netdev_free(struct nfp_net *nn);
--int nfp_net_netdev_init(struct net_device *netdev);
--void nfp_net_netdev_clean(struct net_device *netdev);
-+nfp_net_alloc(struct pci_dev *pdev,
-+	      unsigned int max_tx_rings, unsigned int max_rx_rings);
-+void nfp_net_free(struct nfp_net *nn);
-+
-+int nfp_net_init(struct nfp_net *nn);
-+void nfp_net_clean(struct nfp_net *nn);
-+
- void nfp_net_set_ethtool_ops(struct net_device *netdev);
- void nfp_net_info(struct nfp_net *nn);
- int nfp_net_reconfig(struct nfp_net *nn, u32 update);
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-index da83e17b8b20..b427c95c5acd 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-@@ -516,11 +516,10 @@ nfp_net_rx_ring_init(struct nfp_net_rx_ring *rx_ring,
- 
- /**
-  * nfp_net_vecs_init() - Assign IRQs and setup rvecs.
-- * @netdev:   netdev structure
-+ * @nn:		NFP Network structure
-  */
--static void nfp_net_vecs_init(struct net_device *netdev)
-+static void nfp_net_vecs_init(struct nfp_net *nn)
- {
--	struct nfp_net *nn = netdev_priv(netdev);
- 	struct nfp_net_r_vector *r_vec;
- 	int r;
- 
-@@ -3087,7 +3086,7 @@ void nfp_net_info(struct nfp_net *nn)
- }
- 
- /**
-- * nfp_net_netdev_alloc() - Allocate netdev and related structure
-+ * nfp_net_alloc() - Allocate netdev and related structure
-  * @pdev:         PCI device
-  * @max_tx_rings: Maximum number of TX rings supported by device
-  * @max_rx_rings: Maximum number of RX rings supported by device
-@@ -3097,9 +3096,9 @@ void nfp_net_info(struct nfp_net *nn)
-  *
-  * Return: NFP Net device structure, or ERR_PTR on error.
-  */
--struct nfp_net *nfp_net_netdev_alloc(struct pci_dev *pdev,
--				     unsigned int max_tx_rings,
--				     unsigned int max_rx_rings)
-+struct nfp_net *nfp_net_alloc(struct pci_dev *pdev,
-+			      unsigned int max_tx_rings,
-+			      unsigned int max_rx_rings)
- {
- 	struct net_device *netdev;
- 	struct nfp_net *nn;
-@@ -3144,10 +3143,10 @@ struct nfp_net *nfp_net_netdev_alloc(struct pci_dev *pdev,
- }
- 
- /**
-- * nfp_net_netdev_free() - Undo what @nfp_net_netdev_alloc() did
-+ * nfp_net_free() - Undo what @nfp_net_alloc() did
-  * @nn:      NFP Net device to reconfigure
-  */
--void nfp_net_netdev_free(struct nfp_net *nn)
-+void nfp_net_free(struct nfp_net *nn)
- {
- 	free_netdev(nn->dp.netdev);
- }
-@@ -3221,14 +3220,14 @@ static void nfp_net_irqmod_init(struct nfp_net *nn)
- }
- 
- /**
-- * nfp_net_netdev_init() - Initialise/finalise the netdev structure
-- * @netdev:      netdev structure
-+ * nfp_net_init() - Initialise/finalise the nfp_net structure
-+ * @nn:		NFP Net device structure
-  *
-  * Return: 0 on success or negative errno on error.
-  */
--int nfp_net_netdev_init(struct net_device *netdev)
-+int nfp_net_init(struct nfp_net *nn)
- {
--	struct nfp_net *nn = netdev_priv(netdev);
-+	struct net_device *netdev = nn->dp.netdev;
- 	int err;
- 
- 	nn->dp.rx_dma_dir = DMA_FROM_DEVICE;
-@@ -3367,19 +3366,17 @@ int nfp_net_netdev_init(struct net_device *netdev)
- 	netif_carrier_off(netdev);
- 
- 	nfp_net_set_ethtool_ops(netdev);
--	nfp_net_vecs_init(netdev);
-+	nfp_net_vecs_init(nn);
- 
- 	return register_netdev(netdev);
- }
- 
- /**
-- * nfp_net_netdev_clean() - Undo what nfp_net_netdev_init() did.
-- * @netdev:      netdev structure
-+ * nfp_net_clean() - Undo what nfp_net_init() did.
-+ * @nn:		NFP Net device structure
-  */
--void nfp_net_netdev_clean(struct net_device *netdev)
-+void nfp_net_clean(struct nfp_net *nn)
- {
--	struct nfp_net *nn = netdev_priv(netdev);
--
- 	unregister_netdev(nn->dp.netdev);
- 
- 	if (nn->dp.xdp_prog)
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_main.c b/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
-index 16115973112c..55d916cb04fe 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
-@@ -277,7 +277,7 @@ static void nfp_net_pf_free_netdevs(struct nfp_pf *pf)
- 		list_del(&nn->port_list);
- 		pf->num_netdevs--;
- 
--		nfp_net_netdev_free(nn);
-+		nfp_net_free(nn);
- 	}
- }
- 
-@@ -294,7 +294,7 @@ nfp_net_pf_alloc_port_netdev(struct nfp_pf *pf, void __iomem *ctrl_bar,
- 	n_rx_rings = readl(ctrl_bar + NFP_NET_CFG_MAX_RXRINGS);
- 
- 	/* Allocate and initialise the netdev */
--	nn = nfp_net_netdev_alloc(pf->pdev, n_tx_rings, n_rx_rings);
-+	nn = nfp_net_alloc(pf->pdev, n_tx_rings, n_rx_rings);
- 	if (IS_ERR(nn))
- 		return nn;
- 
-@@ -326,7 +326,7 @@ nfp_net_pf_init_port_netdev(struct nfp_pf *pf, struct nfp_net *nn,
- 	 */
- 	nn->me_freq_mhz = 1200;
- 
--	err = nfp_net_netdev_init(nn->dp.netdev);
-+	err = nfp_net_init(nn);
- 	if (err)
- 		return err;
- 
-@@ -451,7 +451,7 @@ nfp_net_pf_spawn_netdevs(struct nfp_pf *pf,
- err_prev_deinit:
- 	list_for_each_entry_continue_reverse(nn, &pf->ports, port_list) {
- 		nfp_net_debugfs_dir_clean(&nn->debugfs_dir);
--		nfp_net_netdev_clean(nn->dp.netdev);
-+		nfp_net_clean(nn);
- 	}
- 	nfp_net_irqs_disable(pf->pdev);
- err_vec_free:
-@@ -518,11 +518,11 @@ static void nfp_net_refresh_netdevs(struct work_struct *work)
- 		nn_warn(nn, "Port config changed, unregistering. Reboot required before port will be operational again.\n");
- 
- 		nfp_net_debugfs_dir_clean(&nn->debugfs_dir);
--		nfp_net_netdev_clean(nn->dp.netdev);
-+		nfp_net_clean(nn);
- 
- 		list_del(&nn->port_list);
- 		pf->num_netdevs--;
--		nfp_net_netdev_free(nn);
-+		nfp_net_free(nn);
- 	}
- 
- 	if (list_empty(&pf->ports))
-@@ -693,7 +693,7 @@ void nfp_net_pci_remove(struct nfp_pf *pf)
- 	list_for_each_entry(nn, &pf->ports, port_list) {
- 		nfp_net_debugfs_dir_clean(&nn->debugfs_dir);
- 
--		nfp_net_netdev_clean(nn->dp.netdev);
-+		nfp_net_clean(nn);
- 	}
- 
- 	nfp_net_pf_free_netdevs(pf);
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_netvf_main.c b/drivers/net/ethernet/netronome/nfp/nfp_netvf_main.c
-index 86e61be6f35c..856a76bdfc24 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_netvf_main.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_netvf_main.c
-@@ -202,7 +202,7 @@ static int nfp_netvf_pci_probe(struct pci_dev *pdev,
- 	rx_bar_off = NFP_PCIE_QUEUE(startq);
- 
- 	/* Allocate and initialise the netdev */
--	nn = nfp_net_netdev_alloc(pdev, max_tx_rings, max_rx_rings);
-+	nn = nfp_net_alloc(pdev, max_tx_rings, max_rx_rings);
- 	if (IS_ERR(nn)) {
- 		err = PTR_ERR(nn);
- 		goto err_ctrl_unmap;
-@@ -283,7 +283,7 @@ static int nfp_netvf_pci_probe(struct pci_dev *pdev,
- 	 */
- 	nn->me_freq_mhz = 1200;
- 
--	err = nfp_net_netdev_init(nn->dp.netdev);
-+	err = nfp_net_init(nn);
- 	if (err)
- 		goto err_irqs_disable;
- 
-@@ -304,7 +304,7 @@ static int nfp_netvf_pci_probe(struct pci_dev *pdev,
- 	else
- 		iounmap(vf->q_bar);
- err_netdev_free:
--	nfp_net_netdev_free(nn);
-+	nfp_net_free(nn);
- err_ctrl_unmap:
- 	iounmap(ctrl_bar);
- err_pci_regions:
-@@ -328,7 +328,7 @@ static void nfp_netvf_pci_remove(struct pci_dev *pdev)
- 	nfp_net_debugfs_dir_clean(&nn->debugfs_dir);
- 	nfp_net_debugfs_dir_clean(&vf->ddir);
- 
--	nfp_net_netdev_clean(nn->dp.netdev);
-+	nfp_net_clean(nn);
- 
- 	nfp_net_irqs_disable(pdev);
- 
-@@ -340,7 +340,7 @@ static void nfp_netvf_pci_remove(struct pci_dev *pdev)
- 	}
- 	iounmap(nn->dp.ctrl_bar);
- 
--	nfp_net_netdev_free(nn);
-+	nfp_net_free(nn);
- 
- 	pci_release_regions(pdev);
- 	pci_disable_device(pdev);
+>>          u16 ad_actor_sys_prio = 0;
+>>          u16 ad_user_port_key = 0;
+>> -       __be32 arp_target[BOND_MAX_ARP_TARGETS];
+>> +       __be32 arp_target[BOND_MAX_ARP_TARGETS] = { 0 };
+> 
+> this is the only change required to avoid reported error.
+
+Absolutely correct.
+
 -- 
-2.11.0
+Jarod Wilson
+jarod@redhat.com
