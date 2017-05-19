@@ -1,73 +1,105 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH v2] e1000e: Don't return uninitialized stats
-Date: Fri, 19 May 2017 01:16:51 -0700
-Message-ID: <1495181811.2376.0.camel@intel.com>
-References: <20170425175433.ykc6ilm6uo7e6my2@f1.synalogic.ca>
-         <20170517202413.18321-1-bpoirier@suse.com>
-         <20170518.104614.1739169308591707817.davem@davemloft.net>
+From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Subject: Re: [PATCH net 1/3] vlan: Fix tcp checksums offloads for Q-in-Q vlan.
+Date: Fri, 19 May 2017 17:16:42 +0900
+Message-ID: <ec89c4d9-c6de-673a-2c7a-895804034857@lab.ntt.co.jp>
+References: <1495114265-23368-1-git-send-email-vyasevic@redhat.com>
+ <1495114265-23368-2-git-send-email-vyasevic@redhat.com>
+ <7593b180-9355-2c14-6cd8-b1e4f47a0ae6@lab.ntt.co.jp>
+ <95de0652-6d73-9885-875e-8c98d02bd419@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-        protocol="application/pgp-signature"; boundary="=-73tsMQzV5rvOLmN0wA1c"
-Cc: s.priebe@profihost.ag, intel-wired-lan@lists.osuosl.org,
-        netdev@vger.kernel.org, pmenzel@molgen.mpg.de,
-        sasha.neftin@intel.com, aaron.f.brown@intel.com,
-        stephen@networkplumber.org
-To: David Miller <davem@davemloft.net>, bpoirier@suse.com
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: mkubecek@suse.cz
+To: vyasevic@redhat.com, Vladislav Yasevich <vyasevich@gmail.com>,
+        netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga06.intel.com ([134.134.136.31]:38136 "EHLO mga06.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750818AbdESIQz (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 19 May 2017 04:16:55 -0400
-In-Reply-To: <20170518.104614.1739169308591707817.davem@davemloft.net>
+Received: from tama500.ecl.ntt.co.jp ([129.60.39.148]:53693 "EHLO
+        tama500.ecl.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751071AbdESIRU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 19 May 2017 04:17:20 -0400
+In-Reply-To: <95de0652-6d73-9885-875e-8c98d02bd419@redhat.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 2017/05/19 16:09, Vlad Yasevich wrote:
+> On 05/18/2017 10:13 PM, Toshiaki Makita wrote:
+>> On 2017/05/18 22:31, Vladislav Yasevich wrote:
+>>> It appears that since commit 8cb65d000, Q-in-Q vlans have been
+>>> broken.  The series that commit is part of enabled TSO and checksum
+>>> offloading on Q-in-Q vlans.  However, most HW we support can't handle
+>>> it.  To work around the issue, the above commit added a function that
+>>> turns off offloads on Q-in-Q devices, but it left the checksum offload.
+>>> That will cause issues with most older devices that supprort very basic
+>>> checksum offload capabilities as well as some newer devices (we've
+>>> reproduced te problem with both be2net and bnx).
+>>>
+>>> To solve this for everyone, turn off checksum offloading feature
+>>> by default when sending Q-in-Q traffic.  Devices that are proven to
+>>> work can provided a corrected ndo_features_check implemetation.
+>>>
+>>> Fixes: 8cb65d000 ("net: Move check for multiple vlans to drivers")
+>>> CC: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+>>> Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
+>>> ---
+>>>  include/linux/if_vlan.h | 1 -
+>>>  1 file changed, 1 deletion(-)
+>>>
+>>> diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
+>>> index 8d5fcd6..ae537f0 100644
+>>> --- a/include/linux/if_vlan.h
+>>> +++ b/include/linux/if_vlan.h
+>>> @@ -619,7 +619,6 @@ static inline netdev_features_t vlan_features_check(const struct sk_buff *skb,
+>>>  						     NETIF_F_SG |
+>>>  						     NETIF_F_HIGHDMA |
+>>>  						     NETIF_F_FRAGLIST |
+>>> -						     NETIF_F_HW_CSUM |
+>>>  						     NETIF_F_HW_VLAN_CTAG_TX |
+>>>  						     NETIF_F_HW_VLAN_STAG_TX);
+>>>  
+>>
+>> I guess HW_CSUM theoretically can handle Q-in-Q packets and the problem
+>> is IP_CSUM and IPV6_CSUM.
+>> So wouldn't it be better to leave HW_CSUM and drop IP_CSUM/IPV6_CSUM,
+>> i.e. change intersection into bitwise AND?
+>>
+> 
+> It wasn't really a problem before accelerations got enabled on q-in-q
+> vlans.
 
---=-73tsMQzV5rvOLmN0wA1c
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Right for stacked vlan device.
+But I think the check was there for packets from guests forwarded by
+bridge to vlan device so it was a problem before 8cb65d000.
 
-On Thu, 2017-05-18 at 10:46 -0400, David Miller wrote:
-> From: Benjamin Poirier <bpoirier@suse.com>
-> Date: Wed, 17 May 2017 16:24:13 -0400
->=20
-> > Some statistics passed to ethtool are garbage because
-> > e1000e_get_stats64()
-> > doesn't write them, for example: tx_heartbeat_errors. This leaks kernel
-> > memory to userspace and confuses users.
-> >=20
-> > Do like ixgbe and use dev_get_stats() which first zeroes out
-> > rtnl_link_stats64.
-> >=20
-> > Fixes: 5944701df90d ("net: remove useless memset's in drivers
-> > get_stats64")
-> > Reported-by: Stefan Priebe <s.priebe@profihost.ag>
-> > Signed-off-by: Benjamin Poirier <bpoirier@suse.com>
->=20
-> Jeff, please be sure to pick this up, thanks.
+>> The intersection was introduced in db115037bb57 ("net: fix checksum
+>> features handling in netif_skb_features()"), but I guess for this
+>> particular check the intersection was not needed.
+>>
+> 
+> So, to put it another way, leave the intersection with HW_CSUM in the mask,
+> and then do:
+> 
+>   return features & ~(NETIF_F_IP_CSUM|NETIF_F_IPV6_CSUM);
+> 
+> This might work, but it assumes that everyone who announce HW_CSUM can
+> do q-in-q vlans.  It's been a bit of a pain tracking this down and I'd rather
+> fix it for everyone and let individual driver authors verify that Q-in-Q works
+> correctly with HW checksum.  However, I am willing to do the above if
+> that's what people want.
 
-Yep, I have it in my tree, thanks.
---=-73tsMQzV5rvOLmN0wA1c
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
+At least HW_CSUM in the check was introduced intentionally.
+https://www.spinics.net/lists/netdev/msg152016.html
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
+And I think HW_CSUM should work with any packets.
+You know, include/linux/skbuff.h says
+>  *	NETIF_F_HW_CSUM	- The driver (or its device) is able to compute one
+>  *			  IP (one's complement) checksum for any combination
+>  *			  of protocols or protocol layering.
 
-iQIcBAABCgAGBQJZHqn0AAoJEOVv75VaS+3OeeQQAIOjVeb8KT8kWTEwWnI2tF+2
-3XcpHaXQ0G6l9u/6UyWCuPSbsSNBuUtsY3yO2BtInOJ2tSfcm8W9xJnSsFlLkoJn
-fkUA3Zm4dnMADAd3+OaZuxWMM73OtTqj8BWGNokcRni5uIvA2kOZ5YsXOVgNO/ZX
-6uKVJizlIwKI8xsyY+NNPEP8ujpkC3ysjGMmqtMw/aqz/0qd8rPmkEMn4Cj9cu6g
-NXG6D2u3beycdSdIlRDzmjD3q5b3XigSht3hsoNTsdPwf/EIrEAqXJBfEobZh7ut
-u+QUz5YUgR8WYODSPtLb9tkBPMsaiz/noEPjH/D0qVXs/f4aguzTsIqTGteX5bj4
-+aNOFsC1JzzO+tfxMQR736gU3/2Ci6r20oZkwrazpBQHMbNHwBbisjPa38PsWDxI
-L4VcqxQzCuCrEqNGrzF/D3JwuE7iP/tIK1bozwJAGFcj3Ppm1CgI1DSQnYZBSUHR
-7nxfDJAqGrCPFt+URRI9AqQmYTvbeXpE9FNyRJy/vdOtTD8iX88DrIsUitsak/No
-IZbQf90bnQKLnxdpuR9nOyXDtZtGDI8C0UtCe6emsZdS9Xq+SKqvxV3cLBLuZX9F
-04bUexSqrawM+nSk1wofDR+drju+7ccH/1WbB9c9OwrU0NfSeGpP3CPW7gmiEuaL
-FsFSwVSGeW0ojDEJ7m1m
-=ncLl
------END PGP SIGNATURE-----
+We should be able to safely enable it.
 
---=-73tsMQzV5rvOLmN0wA1c--
+...But you are so worried about layer2 protocol handling of HW_CSUM
+devices, I'm ok with disabling it for now.
+
+-- 
+Toshiaki Makita
