@@ -1,38 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tcp: warn on negative reordering values
-Date: Fri, 19 May 2017 16:56:23 -0400 (EDT)
-Message-ID: <20170519.165623.1073497552473620871.davem@davemloft.net>
-References: <20170516213903.78909-1-soheil.kdev@gmail.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net] fix BUG: scheduling while atomic in netlink broadcast
+Date: Fri, 19 May 2017 13:58:10 -0700
+Message-ID: <CAM_iQpWN36px=Kjbde-y93LboFMVxMVLPcFi9Hx=5fkvpo8ndA@mail.gmail.com>
+References: <CAN-7y0oY=LyeLTxhC5L+Vjy-NivmRJSBpqPP9+NYT7a=NFV0_A@mail.gmail.com>
+ <CAM_iQpXraspjEvh9Wy5jOscFz7zKS4Z3XsigxCJFJ5_RuCOnyw@mail.gmail.com> <CAN-7y0rZV-coOpOAzVGZoZB=Mzo4LP7Jpxx3wk+PX_jNMr_=iA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, soheil@google.com, ncardwell@google.com,
-        ycheng@google.com, edumazet@google.com
-To: soheil.kdev@gmail.com
+Content-Type: text/plain; charset="UTF-8"
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>
+To: Akshay Narayan <akshayn@mit.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:57502 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756801AbdESU4Z (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 19 May 2017 16:56:25 -0400
-In-Reply-To: <20170516213903.78909-1-soheil.kdev@gmail.com>
+Received: from mail-wm0-f47.google.com ([74.125.82.47]:34132 "EHLO
+        mail-wm0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932415AbdESU6g (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 19 May 2017 16:58:36 -0400
+Received: by mail-wm0-f47.google.com with SMTP id 123so2740900wmg.1
+        for <netdev@vger.kernel.org>; Fri, 19 May 2017 13:58:36 -0700 (PDT)
+In-Reply-To: <CAN-7y0rZV-coOpOAzVGZoZB=Mzo4LP7Jpxx3wk+PX_jNMr_=iA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Soheil Hassas Yeganeh <soheil.kdev@gmail.com>
-Date: Tue, 16 May 2017 17:39:02 -0400
+On Fri, May 19, 2017 at 11:47 AM, Akshay Narayan <akshayn@mit.edu> wrote:
+>> I don't want to defend the use of yield() but it looks like there is other
+>> problem.
+>
+> I believe this use of yield() should be replaced with cond_resched()
+> even if it turns out there is an unrelated problem.
 
-> From: Soheil Hassas Yeganeh <soheil@google.com>
-> 
-> Commit bafbb9c73241 ("tcp: eliminate negative reordering
-> in tcp_clean_rtx_queue") fixes an issue for negative
-> reordering metrics.
-> 
-> To be resilient to such errors, warn and return
-> when a negative metric is passed to tcp_update_reordering().
-> 
-> Signed-off-by: Soheil Hassas Yeganeh <soheil@google.com>
-> Signed-off-by: Neal Cardwell <ncardwell@google.com>
-> Signed-off-by: Yuchung Cheng <ycheng@google.com>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+Yeah, it is a different problem, because cond_resched() itself could
+sleep too so it doesn't fix the schedule-in-atomic problem, not to
+mention the kmalloc() would sleep.
 
-Applied, thanks.
+>
+>> Does this module call netlink_broadcast() with __GFP_DIRECT_RECLAIM
+>> in IRQ context? If so you should adjust the gfp flags.
+>
+> The module only calls netlink_broadcast() from a pluggable TCP
+> function; from my understanding this is not in the IRQ context. Full
+> trace, perhaps more clear, attached below.
+
+It is process context but with a spinlock (bh_lock_sock) held, so
+you still can't sleep. IOW, you have to pass a proper gfp flag to
+reflect this.
