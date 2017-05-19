@@ -1,41 +1,108 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH net-next] net: sched: provide stubs for
- tcf_chain_{get,put} for CONFIG_NET_CLS=n
-Date: Fri, 19 May 2017 09:50:51 -0700
-Message-ID: <CAM_iQpWkoSpWQipShKZP-J-7n79VHa+h5ibbdp0P28mYe7c_GA@mail.gmail.com>
-References: <01ab2339375fd161310945aa4eb77c3ecb46b26a.1495124042.git.sd@queasysnail.net>
+From: Xin Long <lucien.xin@gmail.com>
+Subject: Re: [PATCH net] bridge: fix hello and hold timers starting/stopping
+Date: Sat, 20 May 2017 00:51:42 +0800
+Message-ID: <CADvbK_eRRy5bXb1RN6p-DTp9cKp6MvCZGH8oL=gfhTrJ0URFqQ@mail.gmail.com>
+References: <20170519162543.31670-1-cera@cera.cz>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Jiri Pirko <jiri@mellanox.com>,
-        Jamal Hadi Salim <jhs@mojatatu.com>
-To: Sabrina Dubroca <sd@queasysnail.net>
+Cc: network dev <netdev@vger.kernel.org>, davem <davem@davemloft.net>,
+        sashok@cumulusnetworks.com,
+        Stephen Hemminger <stephen@networkplumber.org>,
+        bridge@lists.linux-foundation.org,
+        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+To: Ivan Vecera <cera@cera.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:35055 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750748AbdESQvR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 19 May 2017 12:51:17 -0400
-Received: by mail-wm0-f67.google.com with SMTP id v4so19411069wmb.2
-        for <netdev@vger.kernel.org>; Fri, 19 May 2017 09:51:17 -0700 (PDT)
-In-Reply-To: <01ab2339375fd161310945aa4eb77c3ecb46b26a.1495124042.git.sd@queasysnail.net>
+Received: from mail-qk0-f194.google.com ([209.85.220.194]:35794 "EHLO
+        mail-qk0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751105AbdESQvo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 19 May 2017 12:51:44 -0400
+Received: by mail-qk0-f194.google.com with SMTP id k74so10912751qke.2
+        for <netdev@vger.kernel.org>; Fri, 19 May 2017 09:51:43 -0700 (PDT)
+In-Reply-To: <20170519162543.31670-1-cera@cera.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 18, 2017 at 9:24 AM, Sabrina Dubroca <sd@queasysnail.net> wrote:
-> This also changes tcf_chain_get() to return an error pointer instead of
-> NULL, so that tcf_action_goto_chain_init() can differentiate memory
-> allocation failure from lack of support.
+On Sat, May 20, 2017 at 12:25 AM, Ivan Vecera <cera@cera.cz> wrote:
+> Current bridge code incorrectly handles starting/stopping of hello and
+> hold timers during STP enable/disable.
 >
-> Fixes: 5bc1701881e3 ("net: sched: introduce multichain support for filters")
-> Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
+> 1. Timers are stopped in br_stp_start() during NO_STP->USER_STP
+>    transition. This is not correct as the timers are stopped in NO_STP
+>    case.
+>
+> 2. Timers are started in br_stp_stop() during USER_STP->NO_STP transition.
+>    This is not also correct as the timers should be stopped in NO_STP
+>    state.
+>
+> 3. Timers are NOT stopped in br_stp_stop() during KERNEL_STP->NO_STP
+>    transition. They should be stopped as they are running in KERNEL_STP
+>    state and should not run in NO_STP case.
+>
+> The patch is a follow-up for "bridge: start hello_timer when enabling
+> KERNEL_STP in br_stp_start" patch from Xin Long.
+>
+> Cc: davem@davemloft.net
+> Cc: sashok@cumulusnetworks.com
+> Cc: stephen@networkplumber.org
+> Cc: bridge@lists.linux-foundation.org
+> Cc: lucien.xin@gmail.com
+> Cc: nikolay@cumulusnetworks.com
+> Signed-off-by: Ivan Vecera <cera@cera.cz>
 > ---
-> I'm not sure this EOPNOTSUPP is really necessary, ie if we can really
-> reach the tcf_action_goto_chain_init() call when CONFIG_NET_CLS=n.
-> If not, a simpler patch would add a tcf_chain_get() stub that just
-> returns NULL, as we wouldn't have to care about returning an incorrect
-> error code from tcf_action_goto_chain_init().
+>  net/bridge/br_stp_if.c | 15 +++++----------
+>  1 file changed, 5 insertions(+), 10 deletions(-)
+>
+> diff --git a/net/bridge/br_stp_if.c b/net/bridge/br_stp_if.c
+> index 0db8102995a5..f137ebf27755 100644
+> --- a/net/bridge/br_stp_if.c
+> +++ b/net/bridge/br_stp_if.c
+> @@ -150,7 +150,6 @@ static int br_stp_call_user(struct net_bridge *br, char *arg)
+>
+>  static void br_stp_start(struct net_bridge *br)
+>  {
+> -       struct net_bridge_port *p;
+>         int err = -ENOENT;
+>
+>         if (net_eq(dev_net(br->dev), &init_net))
+> @@ -169,11 +168,6 @@ static void br_stp_start(struct net_bridge *br)
+>         if (!err) {
+>                 br->stp_enabled = BR_USER_STP;
+>                 br_debug(br, "userspace STP started\n");
+> -
+> -               /* Stop hello and hold timers */
+> -               del_timer(&br->hello_timer);
+> -               list_for_each_entry(p, &br->port_list, list)
+> -                       del_timer(&p->hold_timer);
+>         } else {
+>                 br->stp_enabled = BR_KERNEL_STP;
+>                 br_debug(br, "using kernel STP\n");
+> @@ -197,13 +191,14 @@ static void br_stp_stop(struct net_bridge *br)
+>                         br_err(br, "failed to stop userspace STP (%d)\n", err);
+>
+>                 /* To start timers on any ports left in blocking */
+> -               mod_timer(&br->hello_timer, jiffies + br->hello_time);
+> -               list_for_each_entry(p, &br->port_list, list)
+> -                       mod_timer(&p->hold_timer,
+> -                                 round_jiffies(jiffies + BR_HOLD_TIME));
+>                 spin_lock_bh(&br->lock);
+>                 br_port_state_selection(br);
+>                 spin_unlock_bh(&br->lock);
+> +       } else {
+> +               /* BR_KERNEL_STP - stop hello and hold timers */
+> +               del_timer(&br->hello_timer);
+> +               list_for_each_entry(p, &br->port_list, list)
+> +                       del_timer(&p->hold_timer);
+I'm thinking, what if the timers are running when deleting them ?
+del_timer may not be going to delete it, and still have to stop itself
+next time when br->stp_enabled = BR_NO_STP.
 
+So do you think it's better to do nothing here and just leave it to be
+stopped by itself when checking br->stp_enabled  in
+br_hello_timer_expired ?
 
-I wonder if we should just make CONFIG_NET_CLS_ACT depending
-on CONFIG_NET_CLS. Although without filters we can still have
-standalone actions but no one can use them.
+>         }
+>
+>         br->stp_enabled = BR_NO_STP;
+> --
+> 2.13.0
+>
