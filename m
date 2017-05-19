@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 03/20] net: dsa: change scope of bridging code
-Date: Fri, 19 May 2017 17:00:38 -0400
-Message-ID: <20170519210055.9366-4-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 06/20] net: dsa: change scope of VLAN handlers
+Date: Fri, 19 May 2017 17:00:41 -0400
+Message-ID: <20170519210055.9366-7-vivien.didelot@savoirfairelinux.com>
 References: <20170519210055.9366-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
@@ -14,106 +14,104 @@ In-Reply-To: <20170519210055.9366-1-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Now that the bridge join and leave functions only deal with a DSA port,
-change their scope from the DSA slave net_device to the DSA generic
-dsa_port.
+Change the scope of the switchdev VLAN object handlers from the DSA
+slave device to the generic DSA port, so that the future port-wide API
+can also be used for other port types, such as CPU and DSA links.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- net/dsa/slave.c | 36 +++++++++++++++++-------------------
- 1 file changed, 17 insertions(+), 19 deletions(-)
+ net/dsa/slave.c | 40 ++++++++++++++++------------------------
+ 1 file changed, 16 insertions(+), 24 deletions(-)
 
 diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index 371f6d267917..1ad62ef8c261 100644
+index 0921d306aedf..de39da69fd33 100644
 --- a/net/dsa/slave.c
 +++ b/net/dsa/slave.c
-@@ -572,13 +572,11 @@ static int dsa_slave_port_obj_dump(struct net_device *dev,
- 	return err;
+@@ -254,12 +254,10 @@ static int dsa_slave_set_mac_address(struct net_device *dev, void *a)
+ 	return 0;
  }
  
--static int dsa_slave_bridge_port_join(struct net_device *dev,
--				      struct net_device *br)
-+static int dsa_port_bridge_join(struct dsa_port *dp, struct net_device *br)
+-static int dsa_slave_port_vlan_add(struct net_device *dev,
+-				   const struct switchdev_obj_port_vlan *vlan,
+-				   struct switchdev_trans *trans)
++static int dsa_port_vlan_add(struct dsa_port *dp,
++			     const struct switchdev_obj_port_vlan *vlan,
++			     struct switchdev_trans *trans)
  {
 -	struct dsa_slave_priv *p = netdev_priv(dev);
- 	struct dsa_notifier_bridge_info info = {
--		.sw_index = p->dp->ds->index,
--		.port = p->dp->index,
-+		.sw_index = dp->ds->index,
-+		.port = dp->index,
- 		.br = br,
- 	};
- 	int err;
-@@ -586,24 +584,22 @@ static int dsa_slave_bridge_port_join(struct net_device *dev,
- 	/* Here the port is already bridged. Reflect the current configuration
- 	 * so that drivers can program their chips accordingly.
- 	 */
--	p->dp->bridge_dev = br;
-+	dp->bridge_dev = br;
+-	struct dsa_port *dp = p->dp;
+ 	struct dsa_switch *ds = dp->ds;
  
--	err = dsa_port_notify(p->dp, DSA_NOTIFIER_BRIDGE_JOIN, &info);
-+	err = dsa_port_notify(dp, DSA_NOTIFIER_BRIDGE_JOIN, &info);
- 
- 	/* The bridging is rolled back on error */
- 	if (err)
--		p->dp->bridge_dev = NULL;
-+		dp->bridge_dev = NULL;
- 
- 	return err;
+ 	if (switchdev_trans_ph_prepare(trans)) {
+@@ -274,27 +272,25 @@ static int dsa_slave_port_vlan_add(struct net_device *dev,
+ 	return 0;
  }
  
--static void dsa_slave_bridge_port_leave(struct net_device *dev,
--					struct net_device *br)
-+static void dsa_port_bridge_leave(struct dsa_port *dp, struct net_device *br)
+-static int dsa_slave_port_vlan_del(struct net_device *dev,
+-				   const struct switchdev_obj_port_vlan *vlan)
++static int dsa_port_vlan_del(struct dsa_port *dp,
++			     const struct switchdev_obj_port_vlan *vlan)
  {
 -	struct dsa_slave_priv *p = netdev_priv(dev);
- 	struct dsa_notifier_bridge_info info = {
--		.sw_index = p->dp->ds->index,
--		.port = p->dp->index,
-+		.sw_index = dp->ds->index,
-+		.port = dp->index,
- 		.br = br,
- 	};
- 	int err;
-@@ -611,16 +607,16 @@ static void dsa_slave_bridge_port_leave(struct net_device *dev,
- 	/* Here the port is already unbridged. Reflect the current configuration
- 	 * so that drivers can program their chips accordingly.
- 	 */
--	p->dp->bridge_dev = NULL;
-+	dp->bridge_dev = NULL;
+-	struct dsa_switch *ds = p->dp->ds;
++	struct dsa_switch *ds = dp->ds;
  
--	err = dsa_port_notify(p->dp, DSA_NOTIFIER_BRIDGE_LEAVE, &info);
-+	err = dsa_port_notify(dp, DSA_NOTIFIER_BRIDGE_LEAVE, &info);
- 	if (err)
--		netdev_err(dev, "failed to notify DSA_NOTIFIER_BRIDGE_LEAVE\n");
-+		pr_err("DSA: failed to notify DSA_NOTIFIER_BRIDGE_LEAVE\n");
+ 	if (!ds->ops->port_vlan_del)
+ 		return -EOPNOTSUPP;
  
- 	/* Port left the bridge, put in BR_STATE_DISABLED by the bridge layer,
- 	 * so allow it to be in BR_STATE_FORWARDING to be kept functional
- 	 */
--	dsa_port_set_state_now(p->dp, BR_STATE_FORWARDING);
-+	dsa_port_set_state_now(dp, BR_STATE_FORWARDING);
+-	return ds->ops->port_vlan_del(ds, p->dp->index, vlan);
++	return ds->ops->port_vlan_del(ds, dp->index, vlan);
  }
  
- static int dsa_slave_port_attr_get(struct net_device *dev,
-@@ -1526,14 +1522,16 @@ static bool dsa_slave_dev_check(struct net_device *dev)
- static int dsa_slave_changeupper(struct net_device *dev,
- 				 struct netdev_notifier_changeupper_info *info)
+-static int dsa_slave_port_vlan_dump(struct net_device *dev,
+-				    struct switchdev_obj_port_vlan *vlan,
+-				    switchdev_obj_dump_cb_t *cb)
++static int dsa_port_vlan_dump(struct dsa_port *dp,
++			      struct switchdev_obj_port_vlan *vlan,
++			      switchdev_obj_dump_cb_t *cb)
  {
-+	struct dsa_slave_priv *p = netdev_priv(dev);
-+	struct dsa_port *dp = p->dp;
- 	int err = NOTIFY_DONE;
+-	struct dsa_slave_priv *p = netdev_priv(dev);
+-	struct dsa_switch *ds = p->dp->ds;
++	struct dsa_switch *ds = dp->ds;
  
- 	if (netif_is_bridge_master(info->upper_dev)) {
- 		if (info->linking) {
--			err = dsa_slave_bridge_port_join(dev, info->upper_dev);
-+			err = dsa_port_bridge_join(dp, info->upper_dev);
- 			err = notifier_from_errno(err);
- 		} else {
--			dsa_slave_bridge_port_leave(dev, info->upper_dev);
-+			dsa_port_bridge_leave(dp, info->upper_dev);
- 			err = NOTIFY_OK;
- 		}
- 	}
+ 	if (ds->ops->port_vlan_dump)
+-		return ds->ops->port_vlan_dump(ds, p->dp->index, vlan, cb);
++		return ds->ops->port_vlan_dump(ds, dp->index, vlan, cb);
+ 
+ 	return -EOPNOTSUPP;
+ }
+@@ -499,9 +495,8 @@ static int dsa_slave_port_obj_add(struct net_device *dev,
+ 		err = dsa_port_mdb_add(dp, SWITCHDEV_OBJ_PORT_MDB(obj), trans);
+ 		break;
+ 	case SWITCHDEV_OBJ_ID_PORT_VLAN:
+-		err = dsa_slave_port_vlan_add(dev,
+-					      SWITCHDEV_OBJ_PORT_VLAN(obj),
+-					      trans);
++		err = dsa_port_vlan_add(dp, SWITCHDEV_OBJ_PORT_VLAN(obj),
++					trans);
+ 		break;
+ 	default:
+ 		err = -EOPNOTSUPP;
+@@ -526,8 +521,7 @@ static int dsa_slave_port_obj_del(struct net_device *dev,
+ 		err = dsa_port_mdb_del(dp, SWITCHDEV_OBJ_PORT_MDB(obj));
+ 		break;
+ 	case SWITCHDEV_OBJ_ID_PORT_VLAN:
+-		err = dsa_slave_port_vlan_del(dev,
+-					      SWITCHDEV_OBJ_PORT_VLAN(obj));
++		err = dsa_port_vlan_del(dp, SWITCHDEV_OBJ_PORT_VLAN(obj));
+ 		break;
+ 	default:
+ 		err = -EOPNOTSUPP;
+@@ -553,9 +547,7 @@ static int dsa_slave_port_obj_dump(struct net_device *dev,
+ 		err = dsa_port_mdb_dump(dp, SWITCHDEV_OBJ_PORT_MDB(obj), cb);
+ 		break;
+ 	case SWITCHDEV_OBJ_ID_PORT_VLAN:
+-		err = dsa_slave_port_vlan_dump(dev,
+-					       SWITCHDEV_OBJ_PORT_VLAN(obj),
+-					       cb);
++		err = dsa_port_vlan_dump(dp, SWITCHDEV_OBJ_PORT_VLAN(obj), cb);
+ 		break;
+ 	default:
+ 		err = -EOPNOTSUPP;
 -- 
 2.13.0
