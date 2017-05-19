@@ -1,85 +1,203 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCH net 1/3] vlan: Fix tcp checksums offloads for Q-in-Q vlan.
-Date: Fri, 19 May 2017 03:09:46 -0400
-Message-ID: <95de0652-6d73-9885-875e-8c98d02bd419@redhat.com>
-References: <1495114265-23368-1-git-send-email-vyasevic@redhat.com>
- <1495114265-23368-2-git-send-email-vyasevic@redhat.com>
- <7593b180-9355-2c14-6cd8-b1e4f47a0ae6@lab.ntt.co.jp>
-Reply-To: vyasevic@redhat.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: mkubecek@suse.cz
-To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
-        Vladislav Yasevich <vyasevich@gmail.com>,
-        netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:52172 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751767AbdESHJy (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 19 May 2017 03:09:54 -0400
-In-Reply-To: <7593b180-9355-2c14-6cd8-b1e4f47a0ae6@lab.ntt.co.jp>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Corentin Labbe <clabbe.montjoie@gmail.com>
+Subject: [PATCH 4/4] net-next: stmmac: rework the speed selection
+Date: Fri, 19 May 2017 09:03:35 +0200
+Message-ID: <20170519070335.1604-5-clabbe.montjoie@gmail.com>
+References: <20170519070335.1604-1-clabbe.montjoie@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Corentin Labbe <clabbe.montjoie@gmail.com>
+To: peppe.cavallaro@st.com, alexandre.torgue@st.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170519070335.1604-1-clabbe.montjoie@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 05/18/2017 10:13 PM, Toshiaki Makita wrote:
-> On 2017/05/18 22:31, Vladislav Yasevich wrote:
->> It appears that since commit 8cb65d000, Q-in-Q vlans have been
->> broken.  The series that commit is part of enabled TSO and checksum
->> offloading on Q-in-Q vlans.  However, most HW we support can't handle
->> it.  To work around the issue, the above commit added a function that
->> turns off offloads on Q-in-Q devices, but it left the checksum offload.
->> That will cause issues with most older devices that supprort very basic
->> checksum offload capabilities as well as some newer devices (we've
->> reproduced te problem with both be2net and bnx).
->>
->> To solve this for everyone, turn off checksum offloading feature
->> by default when sending Q-in-Q traffic.  Devices that are proven to
->> work can provided a corrected ndo_features_check implemetation.
->>
->> Fixes: 8cb65d000 ("net: Move check for multiple vlans to drivers")
->> CC: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
->> Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
->> ---
->>  include/linux/if_vlan.h | 1 -
->>  1 file changed, 1 deletion(-)
->>
->> diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
->> index 8d5fcd6..ae537f0 100644
->> --- a/include/linux/if_vlan.h
->> +++ b/include/linux/if_vlan.h
->> @@ -619,7 +619,6 @@ static inline netdev_features_t vlan_features_check(const struct sk_buff *skb,
->>  						     NETIF_F_SG |
->>  						     NETIF_F_HIGHDMA |
->>  						     NETIF_F_FRAGLIST |
->> -						     NETIF_F_HW_CSUM |
->>  						     NETIF_F_HW_VLAN_CTAG_TX |
->>  						     NETIF_F_HW_VLAN_STAG_TX);
->>  
-> 
-> I guess HW_CSUM theoretically can handle Q-in-Q packets and the problem
-> is IP_CSUM and IPV6_CSUM.
-> So wouldn't it be better to leave HW_CSUM and drop IP_CSUM/IPV6_CSUM,
-> i.e. change intersection into bitwise AND?
-> 
+The current stmmac_adjust_link() part which handle speed have
+some if (has_platform) code and my dwmac-sun8i will add more of them.
 
-It wasn't really a problem before accelerations got enabled on q-in-q
-vlans.
+So we need to handle better speed selection.
+Moreover the struct link member speed and port are hard to guess their
+purpose. And their unique usage are to be combined for writing speed.
 
-> The intersection was introduced in db115037bb57 ("net: fix checksum
-> features handling in netif_skb_features()"), but I guess for this
-> particular check the intersection was not needed.
-> 
+So this patch replace speed/port by simpler
+speed10/speed100/speed1000/speed_mask variables.
 
-So, to put it another way, leave the intersection with HW_CSUM in the mask,
-and then do:
+In dwmac4_core_init and dwmac1000_core_init, port/speed value was used
+directly without using the struct link. This patch convert also their
+usage to speedxxx.
 
-  return features & ~(NETIF_F_IP_CSUM|NETIF_F_IPV6_CSUM);
+Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
+---
+ drivers/net/ethernet/stmicro/stmmac/common.h       |  8 ++++---
+ .../net/ethernet/stmicro/stmmac/dwmac1000_core.c   | 26 +++++++++++++---------
+ .../net/ethernet/stmicro/stmmac/dwmac100_core.c    |  6 +++--
+ drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c  | 26 +++++++++++++---------
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  | 21 ++++-------------
+ 5 files changed, 43 insertions(+), 44 deletions(-)
 
-This might work, but it assumes that everyone who announce HW_CSUM can
-do q-in-q vlans.  It's been a bit of a pain tracking this down and I'd rather
-fix it for everyone and let individual driver authors verify that Q-in-Q works
-correctly with HW checksum.  However, I am willing to do the above if
-that's what people want.
-
--vlad
+diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h b/drivers/net/ethernet/stmicro/stmmac/common.h
+index b7ce3fbb5375..e82b4b70b7be 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/common.h
++++ b/drivers/net/ethernet/stmicro/stmmac/common.h
+@@ -549,9 +549,11 @@ extern const struct stmmac_hwtimestamp stmmac_ptp;
+ extern const struct stmmac_mode_ops dwmac4_ring_mode_ops;
+ 
+ struct mac_link {
+-	int port;
+-	int duplex;
+-	int speed;
++	u32 speed_mask;
++	u32 speed10;
++	u32 speed100;
++	u32 speed1000;
++	u32 duplex;
+ };
+ 
+ struct mii_regs {
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
+index f3d9305e5f70..b8848a9d70c5 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
+@@ -45,15 +45,17 @@ static void dwmac1000_core_init(struct mac_device_info *hw, int mtu)
+ 	if (hw->ps) {
+ 		value |= GMAC_CONTROL_TE;
+ 
+-		if (hw->ps == SPEED_1000) {
+-			value &= ~GMAC_CONTROL_PS;
+-		} else {
+-			value |= GMAC_CONTROL_PS;
+-
+-			if (hw->ps == SPEED_10)
+-				value &= ~GMAC_CONTROL_FES;
+-			else
+-				value |= GMAC_CONTROL_FES;
++		value &= ~hw->link.speed_mask;
++		switch (hw->ps) {
++		case SPEED_1000:
++			value |= hw->link.speed1000;
++			break;
++		case SPEED_100:
++			value |= hw->link.speed100;
++			break;
++		case SPEED_10:
++			value |= hw->link.speed10;
++			break;
+ 		}
+ 	}
+ 
+@@ -531,9 +533,11 @@ struct mac_device_info *dwmac1000_setup(void __iomem *ioaddr, int mcbins,
+ 	mac->mac = &dwmac1000_ops;
+ 	mac->dma = &dwmac1000_dma_ops;
+ 
+-	mac->link.port = GMAC_CONTROL_PS;
+ 	mac->link.duplex = GMAC_CONTROL_DM;
+-	mac->link.speed = GMAC_CONTROL_FES;
++	mac->link.speed10 = GMAC_CONTROL_PS;
++	mac->link.speed100 = GMAC_CONTROL_PS | GMAC_CONTROL_FES;
++	mac->link.speed1000 = 0;
++	mac->link.speed_mask = GENMASK(15, 14);
+ 	mac->mii.addr = GMAC_MII_ADDR;
+ 	mac->mii.data = GMAC_MII_DATA;
+ 	mac->mii.addr_shift = 11;
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c
+index 1b3609105484..8ef517356313 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c
+@@ -175,9 +175,11 @@ struct mac_device_info *dwmac100_setup(void __iomem *ioaddr, int *synopsys_id)
+ 	mac->mac = &dwmac100_ops;
+ 	mac->dma = &dwmac100_dma_ops;
+ 
+-	mac->link.port = MAC_CONTROL_PS;
+ 	mac->link.duplex = MAC_CONTROL_F;
+-	mac->link.speed = 0;
++	mac->link.speed10 = 0;
++	mac->link.speed100 = 0;
++	mac->link.speed1000 = 0;
++	mac->link.speed_mask = MAC_CONTROL_PS;
+ 	mac->mii.addr = MAC_MII_ADDR;
+ 	mac->mii.data = MAC_MII_DATA;
+ 	mac->mii.addr_shift = 11;
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
+index 48793f2e9307..d371e18b122c 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
+@@ -35,15 +35,17 @@ static void dwmac4_core_init(struct mac_device_info *hw, int mtu)
+ 	if (hw->ps) {
+ 		value |= GMAC_CONFIG_TE;
+ 
+-		if (hw->ps == SPEED_1000) {
+-			value &= ~GMAC_CONFIG_PS;
+-		} else {
+-			value |= GMAC_CONFIG_PS;
+-
+-			if (hw->ps == SPEED_10)
+-				value &= ~GMAC_CONFIG_FES;
+-			else
+-				value |= GMAC_CONFIG_FES;
++		value &= hw->link.speed_mask;
++		switch (hw->ps) {
++		case SPEED_1000:
++			value |= hw->link.speed1000;
++			break;
++		case SPEED_100:
++			value |= hw->link.speed100;
++			break;
++		case SPEED_10:
++			value |= hw->link.speed10;
++			break;
+ 		}
+ 	}
+ 
+@@ -747,9 +749,11 @@ struct mac_device_info *dwmac4_setup(void __iomem *ioaddr, int mcbins,
+ 	if (mac->multicast_filter_bins)
+ 		mac->mcast_bits_log2 = ilog2(mac->multicast_filter_bins);
+ 
+-	mac->link.port = GMAC_CONFIG_PS;
+ 	mac->link.duplex = GMAC_CONFIG_DM;
+-	mac->link.speed = GMAC_CONFIG_FES;
++	mac->link.speed10 = GMAC_CONFIG_PS;
++	mac->link.speed100 = GMAC_CONFIG_FES | GMAC_CONFIG_PS;
++	mac->link.speed1000 = 0;
++	mac->link.speed_mask = GENMASK(15, 14);
+ 	mac->mii.addr = GMAC_MDIO_ADDR;
+ 	mac->mii.data = GMAC_MDIO_DATA;
+ 	mac->mii.addr_shift = 21;
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index a1ab52e29359..ab248c142d6f 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -811,29 +811,16 @@ static void stmmac_adjust_link(struct net_device *dev)
+ 
+ 		if (phydev->speed != priv->speed) {
+ 			new_state = 1;
++			ctrl &= ~priv->hw->link.speed_mask;
+ 			switch (phydev->speed) {
+ 			case SPEED_1000:
+-				if (priv->plat->has_gmac ||
+-				    priv->plat->has_gmac4)
+-					ctrl &= ~priv->hw->link.port;
++				ctrl |= priv->hw->link.speed1000;
+ 				break;
+ 			case SPEED_100:
+-				if (priv->plat->has_gmac ||
+-				    priv->plat->has_gmac4) {
+-					ctrl |= priv->hw->link.port;
+-					ctrl |= priv->hw->link.speed;
+-				} else {
+-					ctrl &= ~priv->hw->link.port;
+-				}
++				ctrl |= priv->hw->link.speed100;
+ 				break;
+ 			case SPEED_10:
+-				if (priv->plat->has_gmac ||
+-				    priv->plat->has_gmac4) {
+-					ctrl |= priv->hw->link.port;
+-					ctrl &= ~(priv->hw->link.speed);
+-				} else {
+-					ctrl &= ~priv->hw->link.port;
+-				}
++				ctrl |= priv->hw->link.speed10;
+ 				break;
+ 			default:
+ 				netif_warn(priv, link, priv->dev,
+-- 
+2.13.0
