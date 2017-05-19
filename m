@@ -1,137 +1,152 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 00/12] Netfilter/IPVS fixes for net
-Date: Fri, 19 May 2017 10:33:41 +0200
-Message-ID: <1495182833-2272-1-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 05/12] netfilter: nfnl_cthelper: reject del request if helper obj is in use
+Date: Fri, 19 May 2017 10:33:46 +0200
+Message-ID: <1495182833-2272-6-git-send-email-pablo@netfilter.org>
+References: <1495182833-2272-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:43908 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:44054 "EHLO mail.us.es"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751828AbdESIeR (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 19 May 2017 04:34:17 -0400
+        id S1751948AbdESIe3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 19 May 2017 04:34:29 -0400
 Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id 7FEB21DA08B
-        for <netdev@vger.kernel.org>; Fri, 19 May 2017 10:34:08 +0200 (CEST)
+        by mail.us.es (Postfix) with ESMTP id 62DC71DA0A9
+        for <netdev@vger.kernel.org>; Fri, 19 May 2017 10:34:16 +0200 (CEST)
 Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 67FFE10078C
-        for <netdev@vger.kernel.org>; Fri, 19 May 2017 10:34:08 +0200 (CEST)
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 438EFFF2E2
+        for <netdev@vger.kernel.org>; Fri, 19 May 2017 10:34:16 +0200 (CEST)
 Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id B66C4FF6FB
-        for <netdev@vger.kernel.org>; Fri, 19 May 2017 10:34:05 +0200 (CEST)
+        by antivirus1-rhel7.int (Postfix) with ESMTP id D346D1007AC
+        for <netdev@vger.kernel.org>; Fri, 19 May 2017 10:34:10 +0200 (CEST)
+In-Reply-To: <1495182833-2272-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+From: Liping Zhang <zlpnobody@gmail.com>
 
-The following patchset contains Netfilter/IPVS fixes for your net tree,
-they are:
+We can still delete the ct helper even if it is in use, this will cause
+a use-after-free error. In more detail, I mean:
+  # nfct helper add ssdp inet udp
+  # iptables -t raw -A OUTPUT -p udp -j CT --helper ssdp
+  # nfct helper delete ssdp //--> oops, succeed!
+  BUG: unable to handle kernel paging request at 000026ca
+  IP: 0x26ca
+  [...]
+  Call Trace:
+   ? ipv4_helper+0x62/0x80 [nf_conntrack_ipv4]
+   nf_hook_slow+0x21/0xb0
+   ip_output+0xe9/0x100
+   ? ip_fragment.constprop.54+0xc0/0xc0
+   ip_local_out+0x33/0x40
+   ip_send_skb+0x16/0x80
+   udp_send_skb+0x84/0x240
+   udp_sendmsg+0x35d/0xa50
 
-1) When using IPVS in direct-routing mode, normal traffic from the LVS
-   host to a back-end server is sometimes incorrectly NATed on the way
-   back into the LVS host. Patch to fix this from Julian Anastasov.
+So add reference count to fix this issue, if ct helper is used by
+others, reject the delete request.
 
-2) Calm down clang compilation warning in ctnetlink due to type
-   mismatch, from Matthias Kaehlcke.
+Apply this patch:
+  # nfct helper delete ssdp
+  nfct v1.4.3: netlink error: Device or resource busy
 
-3) Do not re-setup NAT for conntracks that are already confirmed, this
-   is fixing a problem that was introduced in the previous nf-next batch.
-   Patch from Liping Zhang.
+Signed-off-by: Liping Zhang <zlpnobody@gmail.com>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
+ include/net/netfilter/nf_conntrack_helper.h |  2 ++
+ net/netfilter/nf_conntrack_helper.c         |  6 ++++++
+ net/netfilter/nfnetlink_cthelper.c          | 17 +++++++++++------
+ 3 files changed, 19 insertions(+), 6 deletions(-)
 
-4) Do not allow conntrack helper removal from userspace cthelper
-   infrastructure if already in used. This comes with an initial patch
-   to introduce nf_conntrack_helper_put() that is required by this fix.
-   From Liping Zhang.
-
-5) Zero the pad when copying data to userspace, otherwise iptables fails
-   to remove rules. This is a follow up on the patchset that sorts out
-   the internal match/target structure pointer leak to userspace. Patch
-   from the same author, Willem de Bruijn. This also comes with a build
-   failure when CONFIG_COMPAT is not on, coming in the last patch of
-   this series.
-
-6) SYNPROXY crashes with conntrack entries that are created via
-   ctnetlink, more specifically via conntrackd state sync. Patch from
-   Eric Leblond.
-
-7) RCU safe iteration on set element dumping in nf_tables, from
-   Liping Zhang.
-
-8) Missing sanitization of immediate date for the bitwise and cmp
-   expressions in nf_tables.
-
-9) Refcounting logic for chain and objects from set elements does not
-   integrate into the nf_tables 2-phase commit protocol.
-
-10) Missing sanitization of target verdict in ebtables arpreply target,
-    from Gao Feng.
-
-You can pull these changes from:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git
-
-Thanks!
-
-----------------------------------------------------------------
-
-The following changes since commit 1c4d5f51a812a82de97beee24f48ed05c65ebda5:
-
-  vmxnet3: ensure that adapter is in proper state during force_close (2017-05-12 12:23:52 -0400)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git HEAD
-
-for you to fetch changes up to 751a9c763849f5859cb69ea44b0430d00672f637:
-
-  netfilter: xtables: fix build failure from COMPAT_XT_ALIGN outside CONFIG_COMPAT (2017-05-18 13:10:03 +0200)
-
-----------------------------------------------------------------
-Eric Leblond (1):
-      netfilter: synproxy: fix conntrackd interaction
-
-Gao Feng (1):
-      ebtables: arpreply: Add the standard target sanity check
-
-Julian Anastasov (1):
-      ipvs: SNAT packet replies only for NATed connections
-
-Liping Zhang (4):
-      netfilter: don't setup nat info for confirmed ct
-      netfilter: introduce nf_conntrack_helper_put helper function
-      netfilter: nfnl_cthelper: reject del request if helper obj is in use
-      netfilter: nf_tables: can't assume lock is acquired when dumping set elems
-
-Matthias Kaehlcke (1):
-      netfilter: ctnetlink: Make some parameters integer to avoid enum mismatch
-
-Pablo Neira Ayuso (3):
-      Merge tag 'ipvs-fixes-for-v4.12' of http://git.kernel.org/.../horms/ipvs
-      netfilter: nf_tables: missing sanitization in data from userspace
-      netfilter: nf_tables: revisit chain/object refcounting from elements
-
-Willem de Bruijn (2):
-      netfilter: xtables: zero padding in data_to_user
-      netfilter: xtables: fix build failure from COMPAT_XT_ALIGN outside CONFIG_COMPAT
-
- include/linux/netfilter/x_tables.h          |   2 +-
- include/linux/netfilter_bridge/ebtables.h   |   5 +
- include/net/netfilter/nf_conntrack_helper.h |   4 +
- include/net/netfilter/nf_tables.h           |   2 +-
- net/bridge/netfilter/ebt_arpreply.c         |   3 +
- net/bridge/netfilter/ebtables.c             |   9 +-
- net/netfilter/ipvs/ip_vs_core.c             |  19 +++-
- net/netfilter/nf_conntrack_helper.c         |  12 +++
- net/netfilter/nf_conntrack_netlink.c        |  11 +-
- net/netfilter/nf_nat_core.c                 |   4 +
- net/netfilter/nf_tables_api.c               | 160 ++++++++++++++++++++++------
- net/netfilter/nfnetlink_cthelper.c          |  17 +--
- net/netfilter/nft_bitwise.c                 |  19 +++-
- net/netfilter/nft_cmp.c                     |  12 ++-
- net/netfilter/nft_ct.c                      |   4 +-
- net/netfilter/nft_immediate.c               |   5 +-
- net/netfilter/nft_range.c                   |   4 +-
- net/netfilter/nft_set_hash.c                |   2 +-
- net/netfilter/x_tables.c                    |  24 +++--
- net/netfilter/xt_CT.c                       |   6 +-
- net/openvswitch/conntrack.c                 |   4 +-
- 21 files changed, 249 insertions(+), 79 deletions(-)
+diff --git a/include/net/netfilter/nf_conntrack_helper.h b/include/net/netfilter/nf_conntrack_helper.h
+index c1c12411103a..c519bb5b5bb8 100644
+--- a/include/net/netfilter/nf_conntrack_helper.h
++++ b/include/net/netfilter/nf_conntrack_helper.h
+@@ -9,6 +9,7 @@
+ 
+ #ifndef _NF_CONNTRACK_HELPER_H
+ #define _NF_CONNTRACK_HELPER_H
++#include <linux/refcount.h>
+ #include <net/netfilter/nf_conntrack.h>
+ #include <net/netfilter/nf_conntrack_extend.h>
+ #include <net/netfilter/nf_conntrack_expect.h>
+@@ -26,6 +27,7 @@ struct nf_conntrack_helper {
+ 	struct hlist_node hnode;	/* Internal use. */
+ 
+ 	char name[NF_CT_HELPER_NAME_LEN]; /* name of the module */
++	refcount_t refcnt;
+ 	struct module *me;		/* pointer to self */
+ 	const struct nf_conntrack_expect_policy *expect_policy;
+ 
+diff --git a/net/netfilter/nf_conntrack_helper.c b/net/netfilter/nf_conntrack_helper.c
+index e17006b6e434..7f6100ca63be 100644
+--- a/net/netfilter/nf_conntrack_helper.c
++++ b/net/netfilter/nf_conntrack_helper.c
+@@ -174,6 +174,10 @@ nf_conntrack_helper_try_module_get(const char *name, u16 l3num, u8 protonum)
+ #endif
+ 	if (h != NULL && !try_module_get(h->me))
+ 		h = NULL;
++	if (h != NULL && !refcount_inc_not_zero(&h->refcnt)) {
++		module_put(h->me);
++		h = NULL;
++	}
+ 
+ 	rcu_read_unlock();
+ 
+@@ -183,6 +187,7 @@ EXPORT_SYMBOL_GPL(nf_conntrack_helper_try_module_get);
+ 
+ void nf_conntrack_helper_put(struct nf_conntrack_helper *helper)
+ {
++	refcount_dec(&helper->refcnt);
+ 	module_put(helper->me);
+ }
+ EXPORT_SYMBOL_GPL(nf_conntrack_helper_put);
+@@ -423,6 +428,7 @@ int nf_conntrack_helper_register(struct nf_conntrack_helper *me)
+ 			}
+ 		}
+ 	}
++	refcount_set(&me->refcnt, 1);
+ 	hlist_add_head_rcu(&me->hnode, &nf_ct_helper_hash[h]);
+ 	nf_ct_helper_count++;
+ out:
+diff --git a/net/netfilter/nfnetlink_cthelper.c b/net/netfilter/nfnetlink_cthelper.c
+index 950bf6eadc65..be678a323598 100644
+--- a/net/netfilter/nfnetlink_cthelper.c
++++ b/net/netfilter/nfnetlink_cthelper.c
+@@ -686,6 +686,7 @@ static int nfnl_cthelper_del(struct net *net, struct sock *nfnl,
+ 		tuple_set = true;
+ 	}
+ 
++	ret = -ENOENT;
+ 	list_for_each_entry_safe(nlcth, n, &nfnl_cthelper_list, list) {
+ 		cur = &nlcth->helper;
+ 		j++;
+@@ -699,16 +700,20 @@ static int nfnl_cthelper_del(struct net *net, struct sock *nfnl,
+ 		     tuple.dst.protonum != cur->tuple.dst.protonum))
+ 			continue;
+ 
+-		found = true;
+-		nf_conntrack_helper_unregister(cur);
+-		kfree(cur->expect_policy);
++		if (refcount_dec_if_one(&cur->refcnt)) {
++			found = true;
++			nf_conntrack_helper_unregister(cur);
++			kfree(cur->expect_policy);
+ 
+-		list_del(&nlcth->list);
+-		kfree(nlcth);
++			list_del(&nlcth->list);
++			kfree(nlcth);
++		} else {
++			ret = -EBUSY;
++		}
+ 	}
+ 
+ 	/* Make sure we return success if we flush and there is no helpers */
+-	return (found || j == 0) ? 0 : -ENOENT;
++	return (found || j == 0) ? 0 : ret;
+ }
+ 
+ static const struct nla_policy nfnl_cthelper_policy[NFCTH_MAX+1] = {
+-- 
+2.1.4
