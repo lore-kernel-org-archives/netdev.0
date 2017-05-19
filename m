@@ -1,44 +1,77 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [RFC V1 1/1] net: cdc_ncm: Reduce memory use when kernel memory
- low
-Date: Fri, 19 May 2017 14:46:34 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DCFFFAC2B@AcuExch.aculab.com>
-References: <1494956480-6127-1-git-send-email-jim_baxter@mentor.com>
-        <1494956480-6127-2-git-send-email-jim_baxter@mentor.com>
-        <063D6719AE5E284EB5DD2968C1650D6DCFFFAA5C@AcuExch.aculab.com>
- <87pof5rlw4.fsf@miraculix.mork.no>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH net] bridge: start hello_timer when enabling KERNEL_STP
+ in br_stp_start
+Date: Fri, 19 May 2017 16:48:23 +0200
+Message-ID: <20170519144823.GF28091@breakpoint.cc>
+References: <6e78bfea3969ca1a937b37e28e796a3047b82615.1495203629.git.lucien.xin@gmail.com>
+ <cf69d5e5-1acf-2ed4-b6cc-fdb1236e7a66@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: 'Jim Baxter' <jim_baxter@mentor.com>,
-        "linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        Oliver Neukum <oliver@neukum.org>
-To: =?utf-8?B?J0Jqw7hybiBNb3JrJw==?= <bjorn@mork.no>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87pof5rlw4.fsf@miraculix.mork.no>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Xin Long <lucien.xin@gmail.com>,
+        network dev <netdev@vger.kernel.org>, davem@davemloft.net,
+        cera@cera.cz
+To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:60638 "EHLO
+        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751499AbdESOtO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 19 May 2017 10:49:14 -0400
+Content-Disposition: inline
+In-Reply-To: <cf69d5e5-1acf-2ed4-b6cc-fdb1236e7a66@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogQmrDuHJuIE1vcmsNCj4gU2VudDogMTkgTWF5IDIwMTcgMTQ6NTYNCi4uLg0KPiBVbmxl
-c3Mgc29tZW9uZSBoYXMgYSBuaWNlIHdheSB0byBqdXN0IGNvbGxlY3QgYSBsaXN0IG9mIHNrYnMg
-YW5kIGhhdmUNCj4gdGhlbSBjb252ZXJ0ZWQgdG8gcHJvcGVyIGZyYW1pbmcgb24gdGhlIGZseSB3
-aGVuIHRyYW5zbWl0dGluZywgd2l0aG91dA0KPiBoYXZpbmcgdG8gY2FyZSBhYm91dCBVU0IgcGFj
-a2V0IGJvdW5kYXJpZXMuDQoNCnNrYiBjYW4gYmUgbGlua2VkIGludG8gYXJiaXRyYXJ5IGNoYWlu
-cyAob3IgZXZlbiB0cmVlcyksIGJ1dCBJIHN1c3BlY3QNCnRoZSB1c2JuZXQgY29kZSB3b3VsZCBu
-ZWVkIHRvIGJlIHRhdWdodCBhYm91dCB0aGVtLg0KDQpGb3IgWEhDSSBpdCBpc24ndCB0b28gYmFk
-IGJlY2F1c2UgaXQgd2lsbCBkbyBhcmJpdHJhcnkgc2NhdHRlci1nYXRoZXINCihhcGFydCBmcm9t
-IHRoZSByaW5nIGVuZCkuDQpCdXQgSSBiZWxpZXZlIHRoZSBlYXJsaWVyIGNvbnRyb2xsZXJzIG9u
-bHkgc3VwcG9ydCBmcmFnbWVudHMgdGhhdA0KZW5kIG9uIHVzYiBwYWNrZXQgYm91bmRhcmllcy4N
-Cg0KSSBsb29rZWQgYXQgdGhlIHVzYm5ldCBjb2RlIGEgZmV3IHllYXJzIGFnbywgSSdtIHN1cmUg
-aXQgb3VnaHQgdG8NCmJlIHBvc3NpYmxlIHRvIHNob3J0Y3V0IG1vc3Qgb2YgdGhlIGNvZGUgdGhh
-dCB1c2VzIFVSQiBhbmQgZGlyZWN0bHkNCndyaXRlIHRvIHRoZSB4aGNpIChpbiBwYXJ0aWN1bGFy
-KSByaW5nIGRlc2NyaXB0b3JzLg0KDQpGb3IgcmVjZWl2ZSB5b3UgcHJvYmFibHkgd2FudCB0byBm
-ZWVkIHRoZSBVU0Igc3RhY2sgbXVsdGlwbGUgKHByb2JhYmx5KQ0KMmsgYnVmZmVycywgYW5kIGhh
-bmRsZSB0aGUgZGViYXRjaGluZyBpbnRvIGV0aGVybmV0IGZyYW1lcyB5b3Vyc2VsZi4NCg0KT25l
-IG9mIHRoZSBBU0lYIGRyaXZlcnMgdXNlZCB0byBiZSBwYXJ0aWN1bGFybHkgYmFkLCBpdCBhbGxv
-Y2F0ZWQgNjRrDQpza2IgZm9yIHJlY2VpdmUgKHRoZSBoYXJkd2FyZSBjYW4gbWVyZ2UgSVAgcGFj
-a2V0cykgYW5kIHRoZW4gaGFja2VkDQp0aGUgdHJ1ZV9zaXplIGJlZm9yZSBwYXNzaW5nIHVwc3Ry
-ZWFtLg0KDQoJRGF2aWQNCg0K
+Nikolay Aleksandrov <nikolay@cumulusnetworks.com> wrote:
+> On 5/19/17 5:20 PM, Xin Long wrote:
+> >Since commit 76b91c32dd86 ("bridge: stp: when using userspace stp stop
+> >kernel hello and hold timers"), bridge would not start hello_timer if
+> >stp_enabled is not KERNEL_STP when br_dev_open.
+> >
+> >The problem is even if users set stp_enabled with KERNEL_STP later,
+> >the timer will still not be started. It causes that KERNEL_STP can
+> >not really work. Users have to re-ifup the bridge to avoid this.
+> >
+> >This patch is to fix it by starting br->hello_timer when enabling
+> >KERNEL_STP in br_stp_start.
+> >
+> >As an improvement, it's also to start hello_timer again only when
+> >br->stp_enabled is KERNEL_STP in br_hello_timer_expired, there is
+> >no reason to start the timer again when it's NO_STP.
+> >
+> >Fixes: 76b91c32dd86 ("bridge: stp: when using userspace stp stop kernel hello and hold timers")
+> >Reported-by: Haidong Li <haili@redhat.com>
+> >Signed-off-by: Xin Long <lucien.xin@gmail.com>
+> >---
+> >  net/bridge/br_stp_if.c    | 1 +
+> >  net/bridge/br_stp_timer.c | 2 +-
+> >  2 files changed, 2 insertions(+), 1 deletion(-)
+> >
+> 
+> This doesn't make much sense to me, how do you change from USER_STP to
+> KERNEL_STP without first going through NO_STP ?
+
+This is easily rerpoduceable via:
+
+ip link add vethin1 type veth peer name vethout1
+ip link add vethin2 type veth peer name vethout2
+
+ip link set vethin1 up
+ip link set vethin2 up
+
+ip link set vethout1 up
+ip link set vethout2 up
+
+brctl addbr br0
+brctl addbr br1
+
+brctl stp br0 on
+brctl stp br1 on
+
+brctl addif br0 vethin1
+brctl addif br0 vethin2
+
+brctl addif br1 vethout1
+brctl addif br1 vethout2
+
+ip link set br0 up
+ip link set br1 up
