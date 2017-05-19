@@ -1,47 +1,55 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH] net: sched: fix a use-after-free error on chain on the
- error exit path
-Date: Fri, 19 May 2017 10:17:59 -0700
-Message-ID: <CAM_iQpX+aSOK8+K5eU1s=2LJzZgBdCvWBkhuT3ByZSqKWpSSvw@mail.gmail.com>
-References: <20170518140702.6072-1-colin.king@canonical.com>
+From: Xin Long <lucien.xin@gmail.com>
+Subject: Re: [PATCH net] bridge: fix hello and hold timers
+	starting/stopping
+Date: Sat, 20 May 2017 01:26:35 +0800
+Message-ID: <CADvbK_f5BHSep078a8cTNfYcnZmATnsX9nJDfb2ZTikcVnPZmA@mail.gmail.com>
+References: <20170519162543.31670-1-cera@cera.cz>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>, Jiri Pirko <jiri@resnulli.us>,
-        "David S . Miller" <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        kernel-janitors@vger.kernel.org,
-        LKML <linux-kernel@vger.kernel.org>
-To: Colin King <colin.king@canonical.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:33349 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750943AbdESRSV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 19 May 2017 13:18:21 -0400
-In-Reply-To: <20170518140702.6072-1-colin.king@canonical.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+	network dev <netdev@vger.kernel.org>,
+	bridge@lists.linux-foundation.org, davem <davem@davemloft.net>
+To: Ivan Vecera <cera@cera.cz>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <20170519162543.31670-1-cera@cera.cz>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, May 18, 2017 at 7:07 AM, Colin King <colin.king@canonical.com> wrote:
-> diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
-> index 4020b8d932a1..82ebdc3fcb2e 100644
-> --- a/net/sched/cls_api.c
-> +++ b/net/sched/cls_api.c
-> @@ -511,6 +511,7 @@ static int tc_ctl_tfilter(struct sk_buff *skb, struct nlmsghdr *n,
->         if (n->nlmsg_type == RTM_DELTFILTER && prio == 0) {
->                 tfilter_notify_chain(net, skb, n, chain, RTM_DELTFILTER);
->                 tcf_chain_destroy(chain);
+On Sat, May 20, 2017 at 12:25 AM, Ivan Vecera <cera@cera.cz> wrote:
+[...]
+> @@ -197,13 +191,14 @@ static void br_stp_stop(struct net_bridge *br)
+>                         br_err(br, "failed to stop userspace STP (%d)\n", err);
+>
+>                 /* To start timers on any ports left in blocking */
+> -               mod_timer(&br->hello_timer, jiffies + br->hello_time);
+> -               list_for_each_entry(p, &br->port_list, list)
+> -                       mod_timer(&p->hold_timer,
+> -                                 round_jiffies(jiffies + BR_HOLD_TIME));
+>                 spin_lock_bh(&br->lock);
+>                 br_port_state_selection(br);
+>                 spin_unlock_bh(&br->lock);
+> +       } else {
+> +               /* BR_KERNEL_STP - stop hello and hold timers */
+> +               del_timer(&br->hello_timer);
+> +               list_for_each_entry(p, &br->port_list, list)
+> +                       del_timer(&p->hold_timer);
+>         }
+>
+>         br->stp_enabled = BR_NO_STP;
+I have a question here, br->stp_enabled is not atomic, and it is being
+changed without holding br->lock here, while it may be checked in
+br_hello_timer_expired, is it safe ?
 
+(sorry if I misunderstood or overthought about it)
 
-Jiri, how does this work...? An action could hold a refcnt to a filter
-chain, but here you destroy a whole chain without respecting
-the refcnt???
-
-
-> +               chain = NULL;
->                 err = 0;
->                 goto errout;
-
-Colin, not your fault, I think we may miss something more serious
-when reviewing Jiri's patchset. ;)
-
-Thanks.
+> --
+> 2.13.0
+>
