@@ -1,197 +1,69 @@
-From: =?UTF-8?q?Remigiusz=20Ko=C5=82=C5=82=C4=85taj?=
-        <remigiusz.kollataj@mobica.com>
-Subject: [PATCH iproute2] ip: add handling for new CAN netlink interface
-Date: Fri, 19 May 2017 14:54:49 +0200
-Message-ID: <20170519125449.7214-1-remigiusz.kollataj@mobica.com>
+From: <kindergartenchaos2@gmail.com>
+Subject: (unknown)
+Date: Fri, 19 May 2017 12:56:21 -0000
+Message-ID: <149519858140.1559.2692314853352214117@asianet.co.th>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: remigiusz.kollataj@mobica.com, linux-can@vger.kernel.org
-To: netdev@vger.kernel.org
+Content-Type: application/zip; name="012614448.zip"
+Content-Transfer-Encoding: base64
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f47.google.com ([209.85.215.47]:34094 "EHLO
-        mail-lf0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754709AbdESMzn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 19 May 2017 08:55:43 -0400
-Received: by mail-lf0-f47.google.com with SMTP id 99so551201lfu.1
-        for <netdev@vger.kernel.org>; Fri, 19 May 2017 05:55:42 -0700 (PDT)
+Received: from 171-99-134-26.static.asianet.co.th ([171.99.134.26]:58436 "HELO
+        asianet.co.th" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+        id S1750728AbdESM4k (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 19 May 2017 08:56:40 -0400
+Subject: 
+Content-Disposition: attachment
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds handling for new CAN netlink interface introduced in
-4.11 kernel:
-- IFLA_CAN_TERMINATION,
-- IFLA_CAN_TERMINATION_CONST,
-- IFLA_CAN_BITRATE_CONST,
-- IFLA_CAN_DATA_BITRATE_CONST
-
-Output example:
-$ip -d link show can0
-6: can0: <NOARP,ECHO> mtu 16 qdisc noop state DOWN mode DEFAULT group default qlen 10
-    link/can  promiscuity 0
-    can state STOPPED (berr-counter tx 0 rx 0) restart-ms 0
-          bitrate 80000
-             [   20000,    33333,    50000,    80000,    83333,   100000,
-                125000,   150000,   175000,   200000,   225000,   250000,
-                275000,   300000,   500000,   625000,   800000,  1000000 ]
-          termination 0 [ 0, 120 ]
-          clock 0numtxqueues 1 numrxqueues 1 gso_max_size 65536 gso_max_segs 65535
-
-Signed-off-by: Remigiusz Kołłątaj <remigiusz.kollataj@mobica.com>
----
- ip/iplink_can.c | 98 ++++++++++++++++++++++++++++++++++++++++++++++++++++++---
- 1 file changed, 94 insertions(+), 4 deletions(-)
-
-diff --git a/ip/iplink_can.c b/ip/iplink_can.c
-index 20d4d37d..5df56b2b 100644
---- a/ip/iplink_can.c
-+++ b/ip/iplink_can.c
-@@ -41,6 +41,8 @@ static void print_usage(FILE *f)
- 		"\t[ restart-ms TIME-MS ]\n"
- 		"\t[ restart ]\n"
- 		"\n"
-+		"\t[ termination { 0..65535 } ]\n"
-+		"\n"
- 		"\tWhere: BITRATE	:= { 1..1000000 }\n"
- 		"\t	  SAMPLE-POINT	:= { 0.000..0.999 }\n"
- 		"\t	  TQ		:= { NUMBER }\n"
-@@ -220,6 +222,14 @@ static int can_parse_opt(struct link_util *lu, int argc, char **argv,
- 			if (get_u32(&val, *argv, 0))
- 				invarg("invalid \"restart-ms\" value\n", *argv);
- 			addattr32(n, 1024, IFLA_CAN_RESTART_MS, val);
-+		} else if (matches(*argv, "termination") == 0) {
-+			__u16 val;
-+
-+			NEXT_ARG();
-+			if (get_u16(&val, *argv, 0))
-+				invarg("invalid \"termination\" value\n",
-+				       *argv);
-+			addattr16(n, 1024, IFLA_CAN_TERMINATION, val);
- 		} else if (matches(*argv, "help") == 0) {
- 			usage();
- 			return -1;
-@@ -282,7 +292,8 @@ static void can_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
- 		fprintf(f, "restart-ms %d ", *restart_ms);
- 	}
- 
--	if (tb[IFLA_CAN_BITTIMING]) {
-+	/* bittiming is irrelevant if fixed bitrate is defined */
-+	if (tb[IFLA_CAN_BITTIMING] && !tb[IFLA_CAN_BITRATE_CONST]) {
- 		struct can_bittiming *bt = RTA_DATA(tb[IFLA_CAN_BITTIMING]);
- 
- 		fprintf(f, "\n	  bitrate %d sample-point %.3f ",
-@@ -292,7 +303,8 @@ static void can_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
- 			bt->sjw);
- 	}
- 
--	if (tb[IFLA_CAN_BITTIMING_CONST]) {
-+	/* bittiming const is irrelevant if fixed bitrate is defined */
-+	if (tb[IFLA_CAN_BITTIMING_CONST] && !tb[IFLA_CAN_BITRATE_CONST]) {
- 		struct can_bittiming_const *btc =
- 			RTA_DATA(tb[IFLA_CAN_BITTIMING_CONST]);
- 
-@@ -303,7 +315,37 @@ static void can_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
- 			btc->brp_min, btc->brp_max, btc->brp_inc);
- 	}
- 
--	if (tb[IFLA_CAN_DATA_BITTIMING]) {
-+	if (tb[IFLA_CAN_BITRATE_CONST]) {
-+		__u32 *bitrate_const = RTA_DATA(tb[IFLA_CAN_BITRATE_CONST]);
-+		int bitrate_cnt = RTA_PAYLOAD(tb[IFLA_CAN_BITRATE_CONST]) /
-+				  sizeof(*bitrate_const);
-+		int i;
-+		__u32 bitrate = 0;
-+
-+		if (tb[IFLA_CAN_BITTIMING]) {
-+			struct can_bittiming *bt =
-+			    RTA_DATA(tb[IFLA_CAN_BITTIMING]);
-+			bitrate = bt->bitrate;
-+		}
-+
-+		fprintf(f, "\n	  bitrate %u", bitrate);
-+		fprintf(f, "\n	     [");
-+
-+		for (i = 0; i < bitrate_cnt - 1; ++i) {
-+			/* This will keep lines below 80 signs */
-+			if (!(i % 6) && i)
-+				fprintf(f, "\n	      ");
-+
-+			fprintf(f, "%8u, ", bitrate_const[i]);
-+		}
-+
-+		if (!(i % 6) && i)
-+			fprintf(f, "\n	      ");
-+		fprintf(f, "%8u ]", bitrate_const[i]);
-+	}
-+
-+	/* data bittiming is irrelevant if fixed bitrate is defined */
-+	if (tb[IFLA_CAN_DATA_BITTIMING] && !tb[IFLA_CAN_DATA_BITRATE_CONST]) {
- 		struct can_bittiming *dbt =
- 			RTA_DATA(tb[IFLA_CAN_DATA_BITTIMING]);
- 
-@@ -315,7 +357,9 @@ static void can_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
- 			dbt->phase_seg2, dbt->sjw);
- 	}
- 
--	if (tb[IFLA_CAN_DATA_BITTIMING_CONST]) {
-+	/* data bittiming const is irrelevant if fixed bitrate is defined */
-+	if (tb[IFLA_CAN_DATA_BITTIMING_CONST] &&
-+	    !tb[IFLA_CAN_DATA_BITRATE_CONST]) {
- 		struct can_bittiming_const *dbtc =
- 			RTA_DATA(tb[IFLA_CAN_DATA_BITTIMING_CONST]);
- 
-@@ -326,6 +370,52 @@ static void can_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
- 			dbtc->brp_min, dbtc->brp_max, dbtc->brp_inc);
- 	}
- 
-+	if (tb[IFLA_CAN_DATA_BITRATE_CONST]) {
-+		__u32 *dbitrate_const =
-+		    RTA_DATA(tb[IFLA_CAN_DATA_BITRATE_CONST]);
-+		int dbitrate_cnt =
-+		    RTA_PAYLOAD(tb[IFLA_CAN_DATA_BITRATE_CONST]) /
-+		    sizeof(*dbitrate_const);
-+		int i;
-+		__u32 dbitrate = 0;
-+
-+		if (tb[IFLA_CAN_DATA_BITTIMING]) {
-+			struct can_bittiming *dbt =
-+			    RTA_DATA(tb[IFLA_CAN_DATA_BITTIMING]);
-+			dbitrate = dbt->bitrate;
-+		}
-+
-+		fprintf(f, "\n	  dbitrate %u", dbitrate);
-+		fprintf(f, "\n	     [");
-+
-+		for (i = 0; i < dbitrate_cnt - 1; ++i) {
-+			/* This will keep lines below 80 signs */
-+			if (!(i % 6) && i)
-+				fprintf(f, "\n	      ");
-+
-+			fprintf(f, "%8u, ", dbitrate_const[i]);
-+		}
-+
-+		if (!(i % 6) && i)
-+			fprintf(f, "\n	      ");
-+		fprintf(f, "%8u ]", dbitrate_const[i]);
-+	}
-+
-+	if (tb[IFLA_CAN_TERMINATION_CONST] && tb[IFLA_CAN_TERMINATION]) {
-+		__u16 *trm = RTA_DATA(tb[IFLA_CAN_TERMINATION]);
-+		__u16 *trm_const = RTA_DATA(tb[IFLA_CAN_TERMINATION_CONST]);
-+		int trm_cnt = RTA_PAYLOAD(tb[IFLA_CAN_TERMINATION_CONST]) /
-+			      sizeof(*trm_const);
-+		int i;
-+
-+		fprintf(f, "\n	  termination %hu [ ", *trm);
-+
-+		for (i = 0; i < trm_cnt - 1; ++i)
-+			fprintf(f, "%hu, ", trm_const[i]);
-+
-+		fprintf(f, "%hu ]", trm_const[i]);
-+	}
-+
- 	if (tb[IFLA_CAN_CLOCK]) {
- 		struct can_clock *clock = RTA_DATA(tb[IFLA_CAN_CLOCK]);
- 
--- 
-2.13.0
+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
+AAC5CgAAAAA=
