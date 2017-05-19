@@ -1,32 +1,35 @@
 From: Kalle Valo <kvalo@qca.qualcomm.com>
-Subject: Re: wil6210: use memdup_user
-Date: Fri, 19 May 2017 09:55:11 +0200
-Message-ID: <40e20134d5f74a06947c24f58893ce0f@euamsexm01a.eu.qualcomm.com>
-References: <b5b672573585b51a3acb37231f38db45f5873f60.1493781695.git.geliangtang@gmail.com>
+Subject: Re: [v2] ath9k: remove unnecessary code
+Date: Fri, 19 May 2017 09:58:17 +0200
+Message-ID: <e681a4945fe04738af9a9f58263f059d@euamsexm01a.eu.qualcomm.com>
+References: <20170509130430.GA22190@embeddedgus>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Maya Erez <qca_merez@qca.qualcomm.com>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        Geliang Tang <geliangtang@gmail.com>,
-        <linux-wireless@vger.kernel.org>, <wil6210@qca.qualcomm.com>,
-        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: Geliang Tang <geliangtang@gmail.com>
+Cc: <linux-wireless@vger.kernel.org>, <netdev@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>,
+        "Gustavo A. R. Silva" <garsilva@embeddedor.com>,
+        Arend Van Spriel <arend.vanspriel@broadcom.com>
+To: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <b5b672573585b51a3acb37231f38db45f5873f60.1493781695.git.geliangtang@gmail.com>
+In-Reply-To: <20170509130430.GA22190@embeddedgus>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Geliang Tang <geliangtang@gmail.com> wrote:
-> Use memdup_user() helper instead of open-coding to simplify the code.
+"Gustavo A. R. Silva" <garsilva@embeddedor.com> wrote:
+> The array field eeprom_data in struct th9k_platform_data
+> is a fixed size array so it can never be NULL.
 > 
-> Signed-off-by: Geliang Tang <geliangtang@gmail.com>
+> Addresses-Coverity-ID: 1364903
+> Cc: Arend Van Spriel <arend.vanspriel@broadcom.com>
+> Cc: Kalle Valo <kvalo@qca.qualcomm.com>
+> Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
 
 Patch applied to ath-next branch of ath.git, thanks.
 
-9a49290919e1 wil6210: use memdup_user
+641c1f4ab7f6 ath9k: remove unnecessary code
 
 -- 
-https://patchwork.kernel.org/patch/9715009/
+https://patchwork.kernel.org/patch/9717873/
 
 https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
