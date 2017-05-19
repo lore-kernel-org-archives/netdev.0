@@ -1,75 +1,70 @@
 From: Andrey Konovalov <andreyknvl@google.com>
-Subject: Re: drivers/net/hamradio: divide error in hdlcdrv_ioctl
-Date: Fri, 19 May 2017 02:29:23 +0200
-Message-ID: <CAAeHK+zFDn+nM-9VficdvFGJDGk5E5dUi+T_9S=kNsEHj0C9RA@mail.gmail.com>
-References: <CAAeHK+ya2sAtLmJ0VyP6e=13OXUw98dp1WdRFU=o5+xGFGPtbQ@mail.gmail.com>
- <20170517210740.20cbbb82@alans-desktop>
+Subject: Re: [[PATCH v1]] hdlcdrv: fix divide error bug if bitrate is 0
+Date: Fri, 19 May 2017 02:31:56 +0200
+Message-ID: <CAAeHK+yVcU-KPn7SC4WKKbXiVHGndoQQYPah1vKiwJnU8bC27w@mail.gmail.com>
+References: <1495080138-21695-1-git-send-email-firogm@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Alan Cox <alan@linux.intel.com>,
-        Thomas Osterried <thomas@osterried.de>,
-        Javier Martinez Canillas <javier@osg.samsung.com>,
-        David Howells <dhowells@redhat.com>,
-        Geliang Tang <geliangtang@gmail.com>,
+Cc: t.sailer@alumni.ethz.ch, wharms@bfs.de, linux-hams@vger.kernel.org,
         netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        syzkaller <syzkaller@googlegroups.com>,
         Dmitry Vyukov <dvyukov@google.com>,
-        Kostya Serebryany <kcc@google.com>
-To: Alan Cox <gnomes@lxorguk.ukuu.org.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170517210740.20cbbb82@alans-desktop>
-Sender: linux-kernel-owner@vger.kernel.org
+        syzkaller <syzkaller@googlegroups.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+To: Firo Yang <firogm@gmail.com>
+Return-path: <linux-hams-owner@vger.kernel.org>
+In-Reply-To: <1495080138-21695-1-git-send-email-firogm@gmail.com>
+Sender: linux-hams-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, May 17, 2017 at 10:07 PM, Alan Cox <gnomes@lxorguk.ukuu.org.uk> wrote:
-> On Tue, 16 May 2017 17:05:32 +0200
-> Andrey Konovalov <andreyknvl@google.com> wrote:
+On Thu, May 18, 2017 at 6:02 AM, Firo Yang <firogm@gmail.com> wrote:
+> The divisor s->par.bitrate will always be 0 until initialized by
+> ndo_open() and hdlcdrv_open().
 >
->> Hi,
->>
->> I've got the following error report while fuzzing the kernel with syzkaller.
->>
->> On commit 2ea659a9ef488125eb46da6eb571de5eae5c43f6 (4.12-rc1).
->>
->> A reproducer and .config are attached.
+> In order to fix this divide zero error, check whether the netdevice was
+> opened by ndo_open() before performing divide.And we also check the the
+> value of bitrate in case of bad setting of it.
 >
-> This should fix it.
+> Reported-by: Dmitry Vyukov <dvyukov@google.com>
+> Signed-off-by: Firo Yang <firogm@gmail.com>
 
-Hi Alan,
+Hi Firo,
 
-Someone else has already sent a couple of versions of a similar fix.
+Please reply to the original report thread when you send a fix, so
+other people won't start working on the same patch.
 
-https://patchwork.ozlabs.org/patch/763832/
+BTW, it was reported by me, but I don't think it's important.
 
 Thanks!
 
+> ---
+> v0->v1:
+>         Reviewed by walter harms <wharms@bfs.de>.
+>         Return ENODEV instead of EPERM if !netif_running(dev)
+>         Check if s->par.bitrate > 0.
 >
-> commit 37b3fa4b617681f00cfa1f76d6d7716cc6d9f79a
-> Author: Alan Cox <alan@llwyncelyn.cymru>
-> Date:   Wed May 17 21:04:27 2017 +0100
->
->     hdlcdrv: Fix division by zero when bitrate is unset
->
->     The code attempts to check for out of range calibration. What it forgets to do
->     is check for the 0 bitrate case. As a result the range check itself oopses the
->     kernel.
->
->     Found by Andrey Konovalov using Syzkaller.
->
->     Signed-off-by: Alan Cox <alan@linux.intel.com>
+>  drivers/net/hamradio/hdlcdrv.c | 4 ++++
+>  1 file changed, 4 insertions(+)
 >
 > diff --git a/drivers/net/hamradio/hdlcdrv.c b/drivers/net/hamradio/hdlcdrv.c
-> index 8c3633c..9f34a48 100644
+> index 8c3633c..b0f417f 100644
 > --- a/drivers/net/hamradio/hdlcdrv.c
 > +++ b/drivers/net/hamradio/hdlcdrv.c
-> @@ -576,7 +576,7 @@ static int hdlcdrv_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+> @@ -576,6 +576,10 @@ static int hdlcdrv_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 >         case HDLCDRVCTL_CALIBRATE:
 >                 if(!capable(CAP_SYS_RAWIO))
 >                         return -EPERM;
-> -               if (bi.data.calibrate > INT_MAX / s->par.bitrate)
-> +               if (!s->par.bitrate || bi.data.calibrate > INT_MAX / s->par.bitrate)
+> +               if (!netif_running(dev))
+> +                       return -ENODEV;
+> +               if (!(s->par.bitrate > 0))
+> +                       return -EINVAL;
+>                 if (bi.data.calibrate > INT_MAX / s->par.bitrate)
 >                         return -EINVAL;
 >                 s->hdlctx.calibrate = bi.data.calibrate * s->par.bitrate / 16;
->                 return 0;
+> --
+> 2.7.4
+>
+> --
+> You received this message because you are subscribed to the Google Groups "syzkaller" group.
+> To unsubscribe from this group and stop receiving emails from it, send an email to syzkaller+unsubscribe@googlegroups.com.
+> For more options, visit https://groups.google.com/d/optout.
