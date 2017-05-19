@@ -1,122 +1,81 @@
-From: Davide Caratti <dcaratti@redhat.com>
-Subject: [PATCH net] sctp: fix ICMP processing if skb is non-linear
-Date: Fri, 19 May 2017 17:34:46 +0200
-Message-ID: <cb2535a6a40a84684f26d7c7d26788cc3f8a2010.1495207495.git.dcaratti@redhat.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Xin Long <lucien.xin@gmail.com>
-To: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: [PATCH net] bridge: start hello_timer when enabling KERNEL_STP in
+ br_stp_start
+Date: Fri, 19 May 2017 18:41:26 +0300
+Message-ID: <42f98aed-707c-6f91-8767-ca34004ec730@cumulusnetworks.com>
+References: <6e78bfea3969ca1a937b37e28e796a3047b82615.1495203629.git.lucien.xin@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, cera@cera.cz,
+        Satish Ashok <sashok@cumulusnetworks.com>,
+        Stephen Hemminger <stephen@networkplumber.org>,
+        bridge@lists.linux-foundation.org
+To: Xin Long <lucien.xin@gmail.com>,
+        network dev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:52136 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751667AbdESPe4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 19 May 2017 11:34:56 -0400
+Received: from mail-wr0-f170.google.com ([209.85.128.170]:35977 "EHLO
+        mail-wr0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752810AbdESPla (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 19 May 2017 11:41:30 -0400
+Received: by mail-wr0-f170.google.com with SMTP id l50so19470660wrc.3
+        for <netdev@vger.kernel.org>; Fri, 19 May 2017 08:41:30 -0700 (PDT)
+In-Reply-To: <6e78bfea3969ca1a937b37e28e796a3047b82615.1495203629.git.lucien.xin@gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-when the ICMP packet is carried by a paged skb, sctp_err_lookup() may fail
-validation even if the payload contents match an open socket: as a
-consequence, sometimes ICMPs are wrongly ignored. Use skb_header_pointer()
-to retrieve encapsulated SCTP headers, to ensure that ICMP payloads are
-validated correctly, also when skbs are non-linear.
+On 5/19/17 5:20 PM, Xin Long wrote:
+> Since commit 76b91c32dd86 ("bridge: stp: when using userspace stp stop
+> kernel hello and hold timers"), bridge would not start hello_timer if
+> stp_enabled is not KERNEL_STP when br_dev_open.
+> 
+> The problem is even if users set stp_enabled with KERNEL_STP later,
+> the timer will still not be started. It causes that KERNEL_STP can
+> not really work. Users have to re-ifup the bridge to avoid this.
+> 
+> This patch is to fix it by starting br->hello_timer when enabling
+> KERNEL_STP in br_stp_start.
+> 
+> As an improvement, it's also to start hello_timer again only when
+> br->stp_enabled is KERNEL_STP in br_hello_timer_expired, there is
+> no reason to start the timer again when it's NO_STP.
+> 
+> Fixes: 76b91c32dd86 ("bridge: stp: when using userspace stp stop kernel hello and hold timers")
+> Reported-by: Haidong Li <haili@redhat.com>
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+> ---
+>   net/bridge/br_stp_if.c    | 1 +
+>   net/bridge/br_stp_timer.c | 2 +-
+>   2 files changed, 2 insertions(+), 1 deletion(-)
+> 
+> diff --git a/net/bridge/br_stp_if.c b/net/bridge/br_stp_if.c
+> index 08341d2..0db8102 100644
+> --- a/net/bridge/br_stp_if.c
+> +++ b/net/bridge/br_stp_if.c
+> @@ -179,6 +179,7 @@ static void br_stp_start(struct net_bridge *br)
+>   		br_debug(br, "using kernel STP\n");
+>   
+>   		/* To start timers on any ports left in blocking */
+> +		mod_timer(&br->hello_timer, jiffies + br->hello_time);
+>   		br_port_state_selection(br);
+>   	}
+>   
+> diff --git a/net/bridge/br_stp_timer.c b/net/bridge/br_stp_timer.c
+> index c98b3e5..60b6fe2 100644
+> --- a/net/bridge/br_stp_timer.c
+> +++ b/net/bridge/br_stp_timer.c
+> @@ -40,7 +40,7 @@ static void br_hello_timer_expired(unsigned long arg)
+>   	if (br->dev->flags & IFF_UP) {
+>   		br_config_bpdu_generation(br);
+>   
+> -		if (br->stp_enabled != BR_USER_STP)
+> +		if (br->stp_enabled == BR_KERNEL_STP)
+>   			mod_timer(&br->hello_timer,
+>   				  round_jiffies(jiffies + br->hello_time));
+>   	}
+> 
 
-Signed-off-by: Davide Caratti <dcaratti@redhat.com>
----
- include/net/sctp/sctp.h |  2 +-
- net/sctp/input.c        | 29 +++++++++++++++++++----------
- net/sctp/ipv6.c         |  2 +-
- 3 files changed, 21 insertions(+), 12 deletions(-)
++CC Bridge maintainers & fixes commit author
 
-diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
-index 069582e..1b8c16b 100644
---- a/include/net/sctp/sctp.h
-+++ b/include/net/sctp/sctp.h
-@@ -152,7 +152,7 @@ void sctp_v4_err(struct sk_buff *skb, u32 info);
- void sctp_hash_endpoint(struct sctp_endpoint *);
- void sctp_unhash_endpoint(struct sctp_endpoint *);
- struct sock *sctp_err_lookup(struct net *net, int family, struct sk_buff *,
--			     struct sctphdr *, struct sctp_association **,
-+			     struct sctp_association **,
- 			     struct sctp_transport **);
- void sctp_err_finish(struct sock *, struct sctp_transport *);
- void sctp_icmp_frag_needed(struct sock *, struct sctp_association *,
-diff --git a/net/sctp/input.c b/net/sctp/input.c
-index 0e06a27..7f3f983 100644
---- a/net/sctp/input.c
-+++ b/net/sctp/input.c
-@@ -469,19 +469,19 @@ void sctp_icmp_proto_unreachable(struct sock *sk,
- 
- /* Common lookup code for icmp/icmpv6 error handler. */
- struct sock *sctp_err_lookup(struct net *net, int family, struct sk_buff *skb,
--			     struct sctphdr *sctphdr,
- 			     struct sctp_association **app,
- 			     struct sctp_transport **tpp)
- {
-+	struct sctp_init_chunk _chunkhdr, *chunkhdr;
-+	struct sctphdr _sctphdr, *sctphdr;
- 	union sctp_addr saddr;
- 	union sctp_addr daddr;
- 	struct sctp_af *af;
- 	struct sock *sk = NULL;
- 	struct sctp_association *asoc;
- 	struct sctp_transport *transport = NULL;
--	struct sctp_init_chunk *chunkhdr;
--	__u32 vtag = ntohl(sctphdr->vtag);
--	int len = skb->len - ((void *)sctphdr - (void *)skb->data);
-+	int offset;
-+	__u32 vtag;
- 
- 	*app = NULL; *tpp = NULL;
- 
-@@ -515,14 +515,23 @@ struct sock *sctp_err_lookup(struct net *net, int family, struct sk_buff *skb,
- 	 * or the chunk type or the Initiate Tag does not match, silently
- 	 * discard the packet.
- 	 */
-+	offset = skb_transport_offset(skb);
-+	sctphdr = skb_header_pointer(skb, offset, sizeof(_sctphdr), &_sctphdr);
-+	if (unlikely(!sctphdr))
-+		goto out;
-+
-+	vtag = ntohl(sctphdr->vtag);
- 	if (vtag == 0) {
--		chunkhdr = (void *)sctphdr + sizeof(struct sctphdr);
--		if (len < sizeof(struct sctphdr) + sizeof(sctp_chunkhdr_t)
--			  + sizeof(__be32) ||
-+		offset += sizeof(_sctphdr);
-+		/* chunk header + first 4 octects of init header */
-+		chunkhdr = skb_header_pointer(skb, offset,
-+					      sizeof(struct sctp_chunkhdr) +
-+					      sizeof(__be32), &_chunkhdr);
-+		if (!chunkhdr ||
- 		    chunkhdr->chunk_hdr.type != SCTP_CID_INIT ||
--		    ntohl(chunkhdr->init_hdr.init_tag) != asoc->c.my_vtag) {
-+		    ntohl(chunkhdr->init_hdr.init_tag) != asoc->c.my_vtag)
- 			goto out;
--		}
-+
- 	} else if (vtag != asoc->c.peer_vtag) {
- 		goto out;
- 	}
-@@ -585,7 +594,7 @@ void sctp_v4_err(struct sk_buff *skb, __u32 info)
- 	savesctp = skb->transport_header;
- 	skb_reset_network_header(skb);
- 	skb_set_transport_header(skb, ihlen);
--	sk = sctp_err_lookup(net, AF_INET, skb, sctp_hdr(skb), &asoc, &transport);
-+	sk = sctp_err_lookup(net, AF_INET, skb, &asoc, &transport);
- 	/* Put back, the original values. */
- 	skb->network_header = saveip;
- 	skb->transport_header = savesctp;
-diff --git a/net/sctp/ipv6.c b/net/sctp/ipv6.c
-index 142b70e..d72c8d5 100644
---- a/net/sctp/ipv6.c
-+++ b/net/sctp/ipv6.c
-@@ -157,7 +157,7 @@ static void sctp_v6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
- 	savesctp = skb->transport_header;
- 	skb_reset_network_header(skb);
- 	skb_set_transport_header(skb, offset);
--	sk = sctp_err_lookup(net, AF_INET6, skb, sctp_hdr(skb), &asoc, &transport);
-+	sk = sctp_err_lookup(net, AF_INET6, skb, &asoc, &transport);
- 	/* Put back, the original pointers. */
- 	skb->network_header   = saveip;
- 	skb->transport_header = savesctp;
--- 
-2.7.4
+Acked-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
