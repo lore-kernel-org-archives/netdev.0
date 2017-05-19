@@ -1,25 +1,90 @@
-From: "MR. NEIL TROTTER" <"WWW."@yacht.ocn.ne.jp>
-Subject: HELLO!!!!!
-Date: Sat, 20 May 2017 00:55:13 +0900 (JST)
-Message-ID: <1255830385.14303209.1495209313684.JavaMail.root@yacht.ocn.ne.jp>
-Reply-To: "mr.neiltrotter121@outlook.com" <mr.neiltrotter121@outlook.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
-Content-Transfer-Encoding: 7bit
-To: unlisted-recipients:; (no To-header on input)
+From: Ivan Vecera <cera@cera.cz>
+Subject: [PATCH net] bridge: fix hello and hold timers starting/stopping
+Date: Fri, 19 May 2017 18:25:43 +0200
+Message-ID: <20170519162543.31670-1-cera@cera.cz>
+Cc: davem@davemloft.net, sashok@cumulusnetworks.com,
+        stephen@networkplumber.org, bridge@lists.linux-foundation.org,
+        lucien.xin@gmail.com, nikolay@cumulusnetworks.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mbkd0338.ocn.ad.jp ([153.149.236.39]:49454 "EHLO
-        mbkd0338.ocn.ad.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751165AbdESQQp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 19 May 2017 12:16:45 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:47112 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751208AbdESQZy (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 19 May 2017 12:25:54 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-HELLO!!!!!
+Current bridge code incorrectly handles starting/stopping of hello and
+hold timers during STP enable/disable.
 
-I am Mr  Neil Trotter, the current winner of 108  Euro millions jackpot, if you have received this email then you are of the lucky fellows to benefit from me,so do get back to me for a better understanding. Here is the website for proof
-http://www.huffingtonpost.co.uk/2014/03/18/neil-trotter-euromillions-winner_n_4984234.html}
-Contact Email;(mr.neiltrotter121@outlook.com)
+1. Timers are stopped in br_stp_start() during NO_STP->USER_STP
+   transition. This is not correct as the timers are stopped in NO_STP
+   case.
 
-THANKS,
-MR. NEIL TROTTER.
+2. Timers are started in br_stp_stop() during USER_STP->NO_STP transition.
+   This is not also correct as the timers should be stopped in NO_STP
+   state.
+
+3. Timers are NOT stopped in br_stp_stop() during KERNEL_STP->NO_STP
+   transition. They should be stopped as they are running in KERNEL_STP
+   state and should not run in NO_STP case.
+
+The patch is a follow-up for "bridge: start hello_timer when enabling
+KERNEL_STP in br_stp_start" patch from Xin Long.
+
+Cc: davem@davemloft.net
+Cc: sashok@cumulusnetworks.com
+Cc: stephen@networkplumber.org
+Cc: bridge@lists.linux-foundation.org
+Cc: lucien.xin@gmail.com
+Cc: nikolay@cumulusnetworks.com
+Signed-off-by: Ivan Vecera <cera@cera.cz>
+---
+ net/bridge/br_stp_if.c | 15 +++++----------
+ 1 file changed, 5 insertions(+), 10 deletions(-)
+
+diff --git a/net/bridge/br_stp_if.c b/net/bridge/br_stp_if.c
+index 0db8102995a5..f137ebf27755 100644
+--- a/net/bridge/br_stp_if.c
++++ b/net/bridge/br_stp_if.c
+@@ -150,7 +150,6 @@ static int br_stp_call_user(struct net_bridge *br, char *arg)
+ 
+ static void br_stp_start(struct net_bridge *br)
+ {
+-	struct net_bridge_port *p;
+ 	int err = -ENOENT;
+ 
+ 	if (net_eq(dev_net(br->dev), &init_net))
+@@ -169,11 +168,6 @@ static void br_stp_start(struct net_bridge *br)
+ 	if (!err) {
+ 		br->stp_enabled = BR_USER_STP;
+ 		br_debug(br, "userspace STP started\n");
+-
+-		/* Stop hello and hold timers */
+-		del_timer(&br->hello_timer);
+-		list_for_each_entry(p, &br->port_list, list)
+-			del_timer(&p->hold_timer);
+ 	} else {
+ 		br->stp_enabled = BR_KERNEL_STP;
+ 		br_debug(br, "using kernel STP\n");
+@@ -197,13 +191,14 @@ static void br_stp_stop(struct net_bridge *br)
+ 			br_err(br, "failed to stop userspace STP (%d)\n", err);
+ 
+ 		/* To start timers on any ports left in blocking */
+-		mod_timer(&br->hello_timer, jiffies + br->hello_time);
+-		list_for_each_entry(p, &br->port_list, list)
+-			mod_timer(&p->hold_timer,
+-				  round_jiffies(jiffies + BR_HOLD_TIME));
+ 		spin_lock_bh(&br->lock);
+ 		br_port_state_selection(br);
+ 		spin_unlock_bh(&br->lock);
++	} else {
++		/* BR_KERNEL_STP - stop hello and hold timers */
++		del_timer(&br->hello_timer);
++		list_for_each_entry(p, &br->port_list, list)
++			del_timer(&p->hold_timer);
+ 	}
+ 
+ 	br->stp_enabled = BR_NO_STP;
+-- 
+2.13.0
