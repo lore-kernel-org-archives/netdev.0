@@ -1,50 +1,74 @@
-From: Alexei Starovoitov <ast@fb.com>
-Subject: Re: [PATCH v2 1/3] bpf: Use 1<<16 as ceiling for immediate alignment
- in verifier.
-Date: Fri, 19 May 2017 07:55:16 -0700
-Message-ID: <db8cd2e8-9f51-dc8b-5e55-4c75d13d4858@fb.com>
-References: <20170515.120431.1588221938554447723.davem@davemloft.net>
- <754f2c39-fdb0-2407-c2f2-aa36d506d202@solarflare.com>
- <f2bff26d-8b4d-c6a2-23c9-9db198569e40@fb.com>
- <50288778-10f6-7201-c979-bfe4635831fc@solarflare.com>
- <e873f261-e1c1-c344-3d72-254623e0c91a@solarflare.com>
- <97910214-213c-c5c6-4a02-adc16cd836aa@fb.com>
- <c8e4ce49-5707-3d6d-c8c2-80dd8335d981@solarflare.com>
- <739ef342-728c-de57-c2a2-03fa85b3a246@solarflare.com>
- <17a1c4a2-68d7-0f8f-f009-b97706d67ceb@fb.com>
- <7402a02c-cb00-d48e-1d2a-ccb03356fb72@solarflare.com>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: [PATCH net] bridge: start hello_timer when enabling KERNEL_STP in
+ br_stp_start
+Date: Fri, 19 May 2017 17:57:42 +0300
+Message-ID: <026b6024-4ec8-5060-f19a-163ed485207c@cumulusnetworks.com>
+References: <6e78bfea3969ca1a937b37e28e796a3047b82615.1495203629.git.lucien.xin@gmail.com>
+ <cf69d5e5-1acf-2ed4-b6cc-fdb1236e7a66@cumulusnetworks.com>
+ <CA+Nub0YKgM7dMDYdi43sO2znVtCzToq0dAr5TFEb4Jmw+6zw+w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: <alexei.starovoitov@gmail.com>, <netdev@vger.kernel.org>
-To: Edward Cree <ecree@solarflare.com>,
-        David Miller <davem@davemloft.net>,
-        Daniel Borkmann <daniel@iogearbox.net>
+Cc: Xin Long <lucien.xin@gmail.com>,
+        network dev <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>
+To: ivan.vecera@cera.cz
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:37257 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1750817AbdESOzj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 19 May 2017 10:55:39 -0400
-In-Reply-To: <7402a02c-cb00-d48e-1d2a-ccb03356fb72@solarflare.com>
+Received: from mail-wm0-f44.google.com ([74.125.82.44]:37261 "EHLO
+        mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750783AbdESO5p (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 19 May 2017 10:57:45 -0400
+Received: by mail-wm0-f44.google.com with SMTP id d127so88886148wmf.0
+        for <netdev@vger.kernel.org>; Fri, 19 May 2017 07:57:44 -0700 (PDT)
+In-Reply-To: <CA+Nub0YKgM7dMDYdi43sO2znVtCzToq0dAr5TFEb4Jmw+6zw+w@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 5/19/17 7:21 AM, Edward Cree wrote:
-> I'm currently translating the algos to C.  But for the kernel patch,
->  I'll need to read & understand the existing verifier code, so it
->  might take a while :)  (I don't suppose there's any design document
->  or hacking-notes you could point me at?)
+On 5/19/17 5:51 PM, Ivan Vecera wrote:
+> 2017-05-19 16:45 GMT+02:00 Nikolay Aleksandrov <nikolay@cumulusnetworks.com>:
+>> On 5/19/17 5:20 PM, Xin Long wrote:
+>>>
+>>> Since commit 76b91c32dd86 ("bridge: stp: when using userspace stp stop
+>>> kernel hello and hold timers"), bridge would not start hello_timer if
+>>> stp_enabled is not KERNEL_STP when br_dev_open.
+>>>
+>>> The problem is even if users set stp_enabled with KERNEL_STP later,
+>>> the timer will still not be started. It causes that KERNEL_STP can
+>>> not really work. Users have to re-ifup the bridge to avoid this.
+>>>
+>>> This patch is to fix it by starting br->hello_timer when enabling
+>>> KERNEL_STP in br_stp_start.
+>>>
+>>> As an improvement, it's also to start hello_timer again only when
+>>> br->stp_enabled is KERNEL_STP in br_hello_timer_expired, there is
+>>> no reason to start the timer again when it's NO_STP.
+>>>
+>>> Fixes: 76b91c32dd86 ("bridge: stp: when using userspace stp stop kernel
+>>> hello and hold timers")
+>>> Reported-by: Haidong Li <haili@redhat.com>
+>>> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+>>> ---
+>>>    net/bridge/br_stp_if.c    | 1 +
+>>>    net/bridge/br_stp_timer.c | 2 +-
+>>>    2 files changed, 2 insertions(+), 1 deletion(-)
+>>>
+>>
+>> This doesn't make much sense to me, how do you change from USER_STP to
+>> KERNEL_STP without first going through NO_STP ?
+>>
+>> If you go through NO_STP then all will be fine because br_stp_stop will
+>> restart
+>> the timers if the previous val was USER_STP.
+>>
+> The problem occurs when KERNEL_STP is enabled if the bridge itself is already
+> up. Then the hello_timer is not started. If the hello and hold timers
+> should run only
+> when KERNEL_STP is used then there are another problematic places
+> (will send follow-up).
+> 
+> Ivan
+> 
 
-Dave just gave a good overview of the verifier:
-https://www.spinics.net/lists/xdp-newbies/msg00185.html
-
-Few more details in
-Documentation/networking/filter.txt
-and in top comments in kernel/bpf/verifier.c
-
-General bpf arch overview:
-http://docs.cilium.io/en/latest/bpf/#instruction-set
-
-> But I'll give it a go for sure.
-
-Thanks!
+Oh, the problem seems to be rather going from NO_STP -> KERNEL_STP only
+then, because you cannot do direct USER_STP -> KERNEL_STP.
