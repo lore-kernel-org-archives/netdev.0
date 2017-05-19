@@ -1,91 +1,113 @@
-From: Jarod Wilson <jarod@redhat.com>
-Subject: [PATCH net] bonding: fix randomly populated arp target array
-Date: Fri, 19 May 2017 14:46:46 -0400
-Message-ID: <20170519184646.42572-1-jarod@redhat.com>
-Cc: Jarod Wilson <jarod@redhat.com>,
-        Mahesh Bandewar <maheshb@google.com>,
-        Jay Vosburgh <j.vosburgh@gmail.com>,
-        Veaceslav Falico <vfalico@gmail.com>,
-        Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org,
-        stable@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <stable-owner@vger.kernel.org>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Akshay Narayan <akshayn@mit.edu>
+Subject: Re: [PATCH net] fix BUG: scheduling while atomic in netlink broadcast
+Date: Fri, 19 May 2017 14:47:01 -0400
+Message-ID: <CAN-7y0rZV-coOpOAzVGZoZB=Mzo4LP7Jpxx3wk+PX_jNMr_=iA@mail.gmail.com>
+References: <CAN-7y0oY=LyeLTxhC5L+Vjy-NivmRJSBpqPP9+NYT7a=NFV0_A@mail.gmail.com>
+ <CAM_iQpXraspjEvh9Wy5jOscFz7zKS4Z3XsigxCJFJ5_RuCOnyw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dmz-mailsec-scanner-6.mit.edu ([18.7.68.35]:63258 "EHLO
+        dmz-mailsec-scanner-6.mit.edu" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1755966AbdESSw2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 19 May 2017 14:52:28 -0400
+Received: from outgoing.mit.edu (outgoing-auth-1.mit.edu [18.9.28.11])
+        by mailhub-auth-1.mit.edu (8.13.8/8.9.2) with ESMTP id v4JIlO16026700
+        for <netdev@vger.kernel.org>; Fri, 19 May 2017 14:47:25 -0400
+Received: from mail-oi0-f41.google.com (mail-oi0-f41.google.com [209.85.218.41])
+        (authenticated bits=0)
+        (User authenticated as akshayn@ATHENA.MIT.EDU)
+        by outgoing.mit.edu (8.13.8/8.12.4) with ESMTP id v4JIlMqo028866
+        (version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
+        for <netdev@vger.kernel.org>; Fri, 19 May 2017 14:47:23 -0400
+Received: by mail-oi0-f41.google.com with SMTP id l18so102778257oig.2
+        for <netdev@vger.kernel.org>; Fri, 19 May 2017 11:47:23 -0700 (PDT)
+In-Reply-To: <CAM_iQpXraspjEvh9Wy5jOscFz7zKS4Z3XsigxCJFJ5_RuCOnyw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In commit dc9c4d0fe023, the arp_target array moved from a static global
-to a local variable. By the nature of static globals, the array used to
-be initialized to all 0. At present, it's full of random data, which
-that gets interpreted as arp_target values, when none have actually been
-specified. Systems end up booting with spew along these lines:
+> I don't want to defend the use of yield() but it looks like there is other
+> problem.
 
-[   32.161783] IPv6: ADDRCONF(NETDEV_UP): lacp0: link is not ready
-[   32.168475] IPv6: ADDRCONF(NETDEV_UP): lacp0: link is not ready
-[   32.175089] 8021q: adding VLAN 0 to HW filter on device lacp0
-[   32.193091] IPv6: ADDRCONF(NETDEV_UP): lacp0: link is not ready
-[   32.204892] lacp0: Setting MII monitoring interval to 100
-[   32.211071] lacp0: Removing ARP target 216.124.228.17
-[   32.216824] lacp0: Removing ARP target 218.160.255.255
-[   32.222646] lacp0: Removing ARP target 185.170.136.184
-[   32.228496] lacp0: invalid ARP target 255.255.255.255 specified for removal
-[   32.236294] lacp0: option arp_ip_target: invalid value (-255.255.255.255)
-[   32.243987] lacp0: Removing ARP target 56.125.228.17
-[   32.249625] lacp0: Removing ARP target 218.160.255.255
-[   32.255432] lacp0: Removing ARP target 15.157.233.184
-[   32.261165] lacp0: invalid ARP target 255.255.255.255 specified for removal
-[   32.268939] lacp0: option arp_ip_target: invalid value (-255.255.255.255)
-[   32.276632] lacp0: Removing ARP target 16.0.0.0
-[   32.281755] lacp0: Removing ARP target 218.160.255.255
-[   32.287567] lacp0: Removing ARP target 72.125.228.17
-[   32.293165] lacp0: Removing ARP target 218.160.255.255
-[   32.298970] lacp0: Removing ARP target 8.125.228.17
-[   32.304458] lacp0: Removing ARP target 218.160.255.255
+I believe this use of yield() should be replaced with cond_resched()
+even if it turns out there is an unrelated problem.
 
-None of these were actually specified as ARP targets, and the driver does
-seem to clean up the mess okay, but it's rather noisy and confusing, leaks
-values to userspace, and the 255.255.255.255 spew shows up even when debug
-prints are disabled.
+> Does this module call netlink_broadcast() with __GFP_DIRECT_RECLAIM
+> in IRQ context? If so you should adjust the gfp flags.
 
-The fix: just zero out arp_target at init time.
+The module only calls netlink_broadcast() from a pluggable TCP
+function; from my understanding this is not in the IRQ context. Full
+trace, perhaps more clear, attached below.
 
-While we're in here, init arp_all_targets_value in the right place.
-
-Fixes: dc9c4d0fe023 ("bonding: reduce scope of some global variables")
-CC: Mahesh Bandewar <maheshb@google.com>
-CC: Jay Vosburgh <j.vosburgh@gmail.com>
-CC: Veaceslav Falico <vfalico@gmail.com>
-CC: Andy Gospodarek <andy@greyhouse.net>
-CC: netdev@vger.kernel.org
-CC: stable@vger.kernel.org
-Signed-off-by: Jarod Wilson <jarod@redhat.com>
----
- drivers/net/bonding/bond_main.c | 5 ++---
- 1 file changed, 2 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 2be78807fd6e..73313318399c 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -4271,10 +4271,10 @@ static int bond_check_params(struct bond_params *params)
- 	int arp_validate_value, fail_over_mac_value, primary_reselect_value, i;
- 	struct bond_opt_value newval;
- 	const struct bond_opt_value *valptr;
--	int arp_all_targets_value;
-+	int arp_all_targets_value = 0;
- 	u16 ad_actor_sys_prio = 0;
- 	u16 ad_user_port_key = 0;
--	__be32 arp_target[BOND_MAX_ARP_TARGETS];
-+	__be32 arp_target[BOND_MAX_ARP_TARGETS] = { 0 };
- 	int arp_ip_count;
- 	int bond_mode	= BOND_MODE_ROUNDROBIN;
- 	int xmit_hashtype = BOND_XMIT_POLICY_LAYER2;
-@@ -4501,7 +4501,6 @@ static int bond_check_params(struct bond_params *params)
- 		arp_validate_value = 0;
- 	}
- 
--	arp_all_targets_value = 0;
- 	if (arp_all_targets) {
- 		bond_opt_initstr(&newval, arp_all_targets);
- 		valptr = bond_opt_parse(bond_opt_get(BOND_OPT_ARP_ALL_TARGETS),
--- 
-2.12.1
+May 19 14:30:44 ccp kernel: [  178.885546] BUG: scheduling while
+atomic: mm-link/3105/0x00000200
+May 19 14:30:44 ccp kernel: [  178.885552] Modules linked in:
+ipt_MASQUERADE nf_nat_masquerade_ipv4 iptable_nat nf_conntrack_ipv4
+nf_defrag_ipv4 nf_nat_ipv4 nf_nat libcrc32c xt_connmark nf_conntrack
+ccp(OE) crct10dif_pclmul crc32_pclmul
+ ghash_clmulni_intel snd_intel8x0 pcbc snd_ac97_codec joydev ac97_bus
+snd_pcm snd_seq_midi snd_seq_midi_event snd_rawmidi aesni_intel
+snd_seq aes_x86_64 crypto_simd snd_seq_device snd_timer snd input_leds
+i2c_piix4 glue_helper cryptd so
+undcore mac_hid serio_raw vboxvideo ttm drm_kms_helper drm fb_sys_fops
+syscopyarea sysfillrect sysimgblt vboxguest intel_rapl_perf parport_pc
+ppdev lp parport ip_tables x_tables autofs4 hid_generic usbhid hid
+e1000 ahci libahci psmouse
+fjes pata_acpi video
+May 19 14:30:44 ccp kernel: [  178.885665] CPU: 0 PID: 3105 Comm:
+mm-link Tainted: G        W  OE   4.10.0-21-generic #23-Ubuntu
+May 19 14:30:44 ccp kernel: [  178.885666] Hardware name: innotek GmbH
+VirtualBox/VirtualBox, BIOS VirtualBox 12/01/2006
+May 19 14:30:44 ccp kernel: [  178.885667] Call Trace:
+May 19 14:30:44 ccp kernel: [  178.885674]  dump_stack+0x63/0x81
+May 19 14:30:44 ccp kernel: [  178.885678]  __schedule_bug+0x54/0x70
+May 19 14:30:44 ccp kernel: [  178.885682]  __schedule+0x536/0x6f0
+May 19 14:30:44 ccp kernel: [  178.885685]  schedule+0x36/0x80
+May 19 14:30:44 ccp kernel: [  178.885687]  sys_sched_yield+0x4f/0x60
+May 19 14:30:44 ccp kernel: [  178.885688]  yield+0x33/0x40
+May 19 14:30:44 ccp kernel: [  178.885691]
+netlink_broadcast_filtered+0x29b/0x3c0
+May 19 14:30:44 ccp kernel: [  178.885692]  netlink_broadcast+0x1d/0x20
+May 19 14:30:44 ccp kernel: [  178.885697]  nl_sendmsg+0xb8/0x664 [ccp]
+May 19 14:30:44 ccp kernel: [  178.885699]  nl_send_ack_notif+0x7d/0x90 [ccp]
+May 19 14:30:44 ccp kernel: [  178.885702]  tcp_ccp_cong_avoid+0x69/0x70 [ccp]
+May 19 14:30:44 ccp kernel: [  178.885704]  tcp_ack+0x980/0xa60
+May 19 14:30:44 ccp kernel: [  178.885708]  tcp_rcv_state_process+0x2be/0xda0
+May 19 14:30:44 ccp kernel: [  178.885712]  ? security_sock_rcv_skb+0x3b/0x50
+May 19 14:30:44 ccp kernel: [  178.885715]  ? sk_filter_trim_cap+0x3b/0x270
+May 19 14:30:44 ccp kernel: [  178.885717]  tcp_v4_do_rcv+0xb2/0x200
+May 19 14:30:44 ccp kernel: [  178.885719]  tcp_v4_rcv+0x90a/0xa00
+May 19 14:30:44 ccp kernel: [  178.885722]  ip_local_deliver_finish+0x96/0x1c0
+May 19 14:30:44 ccp kernel: [  178.885725]  ip_local_deliver+0x6f/0xe0
+May 19 14:30:44 ccp kernel: [  178.885727]  ? ip_rcv_finish+0x3f0/0x3f0
+May 19 14:30:44 ccp kernel: [  178.885730]  ip_rcv_finish+0x118/0x3f0
+May 19 14:30:44 ccp kernel: [  178.885732]  ip_rcv+0x282/0x390
+May 19 14:30:44 ccp kernel: [  178.885735]  ? inet_del_offload+0x40/0x40
+May 19 14:30:44 ccp kernel: [  178.885737]  __netif_receive_skb_core+0x514/0xa40
+May 19 14:30:44 ccp kernel: [  178.885740]  ? __check_object_size+0x10/0x1d7
+May 19 14:30:44 ccp kernel: [  178.885742]  __netif_receive_skb+0x18/0x60
+May 19 14:30:44 ccp kernel: [  178.885744]  netif_receive_skb_internal+0x32/0xa0
+May 19 14:30:44 ccp kernel: [  178.885746]  netif_receive_skb+0x1c/0x70
+May 19 14:30:44 ccp kernel: [  178.885749]  tun_get_user+0x425/0x800
+May 19 14:30:44 ccp kernel: [  178.885751]  tun_chr_write_iter+0x57/0x70
+May 19 14:30:44 ccp kernel: [  178.885752]  new_sync_write+0xd5/0x130
+May 19 14:30:44 ccp kernel: [  178.885754]  __vfs_write+0x26/0x40
+May 19 14:30:44 ccp kernel: [  178.885756]  vfs_write+0xb5/0x1a0
+May 19 14:30:44 ccp kernel: [  178.885757]  SyS_write+0x55/0xc0
+May 19 14:30:44 ccp kernel: [  178.885760]  entry_SYSCALL_64_fastpath+0x1e/0xad
+May 19 14:30:44 ccp kernel: [  178.885762] RIP: 0033:0x7f8d9abbf670
+May 19 14:30:44 ccp kernel: [  178.885763] RSP: 002b:00007ffc2f16d8b8
+EFLAGS: 00000246 ORIG_RAX: 0000000000000001
+May 19 14:30:44 ccp kernel: [  178.885765] RAX: ffffffffffffffda RBX:
+00007ffc2f16dde0 RCX: 00007f8d9abbf670
+May 19 14:30:44 ccp kernel: [  178.885767] RDX: 0000000000000038 RSI:
+0000557403fd86e0 RDI: 0000000000000008
+May 19 14:30:44 ccp kernel: [  178.885768] RBP: 00007ffc2f16dcd0 R08:
+0000557403fd8d40 R09: 0000557403fd8690
+May 19 14:30:44 ccp kernel: [  178.885769] R10: 000e20d41e89a5c5 R11:
+0000000000000246 R12: 0000000000000108
+May 19 14:30:44 ccp kernel: [  178.885770] R13: 000000000000145c R14:
+00007ffc2f16dd98 R15: 0000000000000003
