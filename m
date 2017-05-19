@@ -1,95 +1,57 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net-next V5 0/9] vhost_net rx batch dequeuing
-Date: Fri, 19 May 2017 14:27:16 +0800
-Message-ID: <0d1dbf31-32c8-34b4-d8e8-48d04f2fc205@redhat.com>
-References: <1494994485-12994-1-git-send-email-jasowang@redhat.com>
- <20170517235738-mutt-send-email-mst@kernel.org>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH v2 00/10] rt2x00: rt2x00: improve calling conventions for
+ register accessors
+Date: Fri, 19 May 2017 08:50:33 +0200
+Message-ID: <CAK8P3a3YGxNBQq3RYucMCCvSyXOD8skF_Db-eba0PcBL4_P8Dg@mail.gmail.com>
+References: <20170517144702.1381136-1-arnd@arndb.de> <87r2zl8lvi.fsf@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170517235738-mutt-send-email-mst@kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: linux-wireless <linux-wireless@vger.kernel.org>,
+        Stanislaw Gruszka <sgruszka@redhat.com>,
+        David Miller <davem@davemloft.net>,
+        Helmut Schaa <helmut.schaa@googlemail.com>,
+        Daniel Golle <daniel@makrotopia.org>,
+        Mathias Kresin <dev@kresin.me>,
+        Johannes Berg <johannes.berg@intel.com>,
+        Serge Vasilugin <vasilugin@yandex.ru>,
+        Roman Yeryomin <roman@advem.lv>,
+        Networking <netdev@vger.kernel.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        Jes Sorensen <jes.sorensen@gmail.com>,
+        Tom Psyborg <pozega.tomislav@gmail.com>
+To: Kalle Valo <kvalo@codeaurora.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f66.google.com ([209.85.218.66]:33039 "EHLO
+        mail-oi0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750933AbdESGue (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 19 May 2017 02:50:34 -0400
+In-Reply-To: <87r2zl8lvi.fsf@codeaurora.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-
-On 2017年05月18日 04:59, Michael S. Tsirkin wrote:
-> On Wed, May 17, 2017 at 12:14:36PM +0800, Jason Wang wrote:
->> This series tries to implement rx batching for vhost-net. This is done
->> by batching the dequeuing from skb_array which was exported by
->> underlayer socket and pass the sbk back through msg_control to finish
->> userspace copying. This is also the requirement for more batching
->> implemention on rx path.
->>
->> Tests shows at most 7.56% improvment bon rx pps on top of batch
->> zeroing and no obvious changes for TCP_STREAM/TCP_RR result.
->>
->> Please review.
->>
->> Thanks
-> A surprisingly large gain for such as simple change.  It would be nice
-> to understand better why this helps - in particular, does the optimal
-> batch size change if ring is bigger or smaller?
-
-Will test, just want to confirm. You mean virtio ring not tx_queue_len here?
-
-Thanks
-
-> But let's merge it
-> meanwhile.
+On Fri, May 19, 2017 at 7:18 AM, Kalle Valo <kvalo@codeaurora.org> wrote:
+> Arnd Bergmann <arnd@arndb.de> writes:
 >
-> Series:
+>> I've managed to split up my long patch into a series of reasonble
+>> steps now.
+>>
+>> The first two are required to fix a regression from commit 41977e86c984
+>> ("rt2x00: add support for MT7620"), the rest are just cleanups to
+>> have a consistent state across all the register access functions.
 >
-> Acked-by: Michael S. Tsirkin <mst@redhat.com>
->
->
->
->> Changes from V4:
->> - drop batch zeroing patch
->> - renew the performance numbers
->> - move skb pointer array out of vhost_net structure
->>
->> Changes from V3:
->> - add batch zeroing patch to fix the build warnings
->>
->> Changes from V2:
->> - rebase to net-next HEAD
->> - use unconsume helpers to put skb back on releasing
->> - introduce and use vhost_net internal buffer helpers
->> - renew performance numbers on top of batch zeroing
->>
->> Changes from V1:
->> - switch to use for() in __ptr_ring_consume_batched()
->> - rename peek_head_len_batched() to fetch_skbs()
->> - use skb_array_consume_batched() instead of
->>    skb_array_consume_batched_bh() since no consumer run in bh
->> - drop the lockless peeking patch since skb_array could be resized, so
->>    it's not safe to call lockless one
->>
->> Jason Wang (8):
->>    skb_array: introduce skb_array_unconsume
->>    ptr_ring: introduce batch dequeuing
->>    skb_array: introduce batch dequeuing
->>    tun: export skb_array
->>    tap: export skb_array
->>    tun: support receiving skb through msg_control
->>    tap: support receiving skb from msg_control
->>    vhost_net: try batch dequing from skb array
->>
->> Michael S. Tsirkin (1):
->>    ptr_ring: add ptr_ring_unconsume
->>
->>   drivers/net/tap.c         |  25 +++++++--
->>   drivers/net/tun.c         |  31 ++++++++---
->>   drivers/vhost/net.c       | 128 +++++++++++++++++++++++++++++++++++++++++++---
->>   include/linux/if_tap.h    |   5 ++
->>   include/linux/if_tun.h    |   5 ++
->>   include/linux/ptr_ring.h  | 120 +++++++++++++++++++++++++++++++++++++++++++
->>   include/linux/skb_array.h |  31 +++++++++++
->>   7 files changed, 327 insertions(+), 18 deletions(-)
->>
->> -- 
->> 2.7.4
+> Can these all go to 4.13 or would you prefer me to push the first two
+> 4.12? Or what?
+
+I think you can reasonably argue either way: the second patch does
+fix a real bug that may or may not lead to an exploitable stack overflow
+when CONFIG_KASAN is enabled, which would be a reason to put it
+into 4.12. On the other hand, I have another 20 patches for similar
+(or worse) stack overflow issues with KASAN that I'm hoping to all
+get into 4.13 and backported into stable kernel later if necessary,
+so we could treat this one like the others.
+
+The only difference between this and the others is that in rt2x00 it
+is a regression against 4.11, while the others have all been present
+for a long time.
+
+      Arnd
