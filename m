@@ -1,58 +1,53 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net-next] cxgb4: fix incorrect cim_la output for T6
-Date: Fri, 19 May 2017 14:17:11 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DCFFFABCB@AcuExch.aculab.com>
-References: <1495188738-20546-1-git-send-email-ganeshgr@chelsio.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH net 3/3] virtio-net: enable TSO/checksum offloads for
+ Q-in-Q vlans
+Date: Fri, 19 May 2017 22:18:20 +0800
+Message-ID: <033399db-90b5-af13-5201-151008afef2a@redhat.com>
+References: <1495114265-23368-1-git-send-email-vyasevic@redhat.com>
+ <1495114265-23368-4-git-send-email-vyasevic@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "nirranjan@chelsio.com" <nirranjan@chelsio.com>,
-        "indranil@chelsio.com" <indranil@chelsio.com>
-To: 'Ganesh Goudar' <ganeshgr@chelsio.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "davem@davemloft.net" <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: Vladislav Yasevich <vyasevic@redhat.com>,
+        "Michael S. Tsirkin" <mst@redhat.com>,
+        virtualization@lists.linux-foundation.org
+To: Vladislav Yasevich <vyasevich@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out6.electric.net ([192.162.217.182]:51683 "EHLO
-        smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750749AbdESORR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 19 May 2017 10:17:17 -0400
-In-Reply-To: <1495188738-20546-1-git-send-email-ganeshgr@chelsio.com>
-Content-Language: en-US
+Received: from mx1.redhat.com ([209.132.183.28]:56774 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750933AbdESOSf (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 19 May 2017 10:18:35 -0400
+In-Reply-To: <1495114265-23368-4-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ganesh Goudar
-> Sent: 19 May 2017 11:12
-T6
-> 
-> take care of UpDbgLaRdPtr[0-3] restriction for T6
-> 
-> Signed-off-by: Ganesh Goudar <ganeshgr@chelsio.com>
+
+
+On 2017年05月18日 21:31, Vladislav Yasevich wrote:
+> Since virtio does not provide it's own ndo_features_check handler,
+> TSO, and now checksum offload, are disabled for stacked vlans.
+> Re-enable the support and let the host take care of it.  This
+> restores/improves Guest-to-Guest performance over Q-in-Q vlans.
+>
+> CC: "Michael S. Tsirkin" <mst@redhat.com>
+> CC: Jason Wang <jasowang@redhat.com>
+> CC: virtualization@lists.linux-foundation.org
+> Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
 > ---
->  drivers/net/ethernet/chelsio/cxgb4/t4_hw.c | 7 +++++++
->  1 file changed, 7 insertions(+)
-> 
-> diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-> index aded42b96..917b46b 100644
-> --- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-> +++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-> @@ -8268,6 +8268,13 @@ int t4_cim_read_la(struct adapter *adap, u32 *la_buf, unsigned int *wrptr)
->  		if (ret)
->  			break;
->  		idx = (idx + 1) & UPDBGLARDPTR_M;
-> +
-> +		/* Bits 0-3 of UpDbgLaRdPtr can be between 0000 to 1001 to
-> +		 * identify the 32-bit portion of the full 312-bit data
-> +		 */
-> +		if (is_t6(adap->params.chip))
-> +			while ((idx & 0xf) > 9)
-> +				idx = (idx + 1) % UPDBGLARDPTR_M;
+>   drivers/net/virtio_net.c | 1 +
+>   1 file changed, 1 insertion(+)
+>
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> index 8324a5e..341fb96 100644
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -2028,6 +2028,7 @@ static const struct net_device_ops virtnet_netdev = {
+>   	.ndo_poll_controller = virtnet_netpoll,
+>   #endif
+>   	.ndo_xdp		= virtnet_xdp,
+> +	.ndo_features_check	= passthru_features_check,
+>   };
+>   
+>   static void virtnet_config_changed_work(struct work_struct *work)
 
-Why the loop, maybe:
-		if (is_t6(adap->params.chip) && (idx & 0xf) >= 9)
-			idx = (idx & 0xf0) + 0x10;
-		else
-			idx++;
-		idx &= UPDBGLARDPTR_M;
-
-	David
+Acked-by: Jason Wang <jasowang@redhat.com>
