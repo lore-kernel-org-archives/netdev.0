@@ -1,66 +1,58 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCH net] bridge: start hello_timer when enabling KERNEL_STP in br_stp_start
-Date: Fri, 19 May 2017 22:20:29 +0800
-Message-ID: <6e78bfea3969ca1a937b37e28e796a3047b82615.1495203629.git.lucien.xin@gmail.com>
-Cc: davem@davemloft.net, nikolay@cumulusnetworks.com, cera@cera.cz
-To: network dev <netdev@vger.kernel.org>
+From: Edward Cree <ecree@solarflare.com>
+Subject: Re: [PATCH v2 1/3] bpf: Use 1<<16 as ceiling for immediate alignment
+ in verifier.
+Date: Fri, 19 May 2017 15:21:49 +0100
+Message-ID: <7402a02c-cb00-d48e-1d2a-ccb03356fb72@solarflare.com>
+References: <20170515.120431.1588221938554447723.davem@davemloft.net>
+ <754f2c39-fdb0-2407-c2f2-aa36d506d202@solarflare.com>
+ <f2bff26d-8b4d-c6a2-23c9-9db198569e40@fb.com>
+ <50288778-10f6-7201-c979-bfe4635831fc@solarflare.com>
+ <e873f261-e1c1-c344-3d72-254623e0c91a@solarflare.com>
+ <97910214-213c-c5c6-4a02-adc16cd836aa@fb.com>
+ <c8e4ce49-5707-3d6d-c8c2-80dd8335d981@solarflare.com>
+ <739ef342-728c-de57-c2a2-03fa85b3a246@solarflare.com>
+ <17a1c4a2-68d7-0f8f-f009-b97706d67ceb@fb.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: <alexei.starovoitov@gmail.com>, <netdev@vger.kernel.org>
+To: Alexei Starovoitov <ast@fb.com>,
+        David Miller <davem@davemloft.net>,
+        Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:35168 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750830AbdESOUj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 19 May 2017 10:20:39 -0400
-Received: by mail-pf0-f195.google.com with SMTP id u26so9732392pfd.2
-        for <netdev@vger.kernel.org>; Fri, 19 May 2017 07:20:39 -0700 (PDT)
+Received: from dispatch1-us1.ppe-hosted.com ([67.231.154.164]:40069 "EHLO
+        dispatch1-us1.ppe-hosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1750749AbdESOWF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 19 May 2017 10:22:05 -0400
+In-Reply-To: <17a1c4a2-68d7-0f8f-f009-b97706d67ceb@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since commit 76b91c32dd86 ("bridge: stp: when using userspace stp stop
-kernel hello and hold timers"), bridge would not start hello_timer if
-stp_enabled is not KERNEL_STP when br_dev_open.
+On 19/05/17 02:22, Alexei Starovoitov wrote:
+> In your .py I'd only change __str__(self) to print them in mask,value
+> as the order they're passed into constructor to make it easier to read. 
+Actually I was going to go the other way and change the ctor to take
+ value,mask.  But I agree they're inconsistent right now.
 
-The problem is even if users set stp_enabled with KERNEL_STP later,
-the timer will still not be started. It causes that KERNEL_STP can
-not really work. Users have to re-ifup the bridge to avoid this.
+> this mul algo I don't completely understand. It feels correct,
+> but I'm not sure we really need it for the kernel. 
+You're probably right; I was just driven by a completionist desire to
+ cover everything I could.
 
-This patch is to fix it by starting br->hello_timer when enabling
-KERNEL_STP in br_stp_start.
+> What I love about the whole thing that it works for access into
+> packet, access into map values and in the future for any other
+> variable length access.
+Sure, but don't start thinking it subsumes all the other checks.  We
+ will still need e.g. max/min tracking, because packet length isn't
+ always a power of 2.
 
-As an improvement, it's also to start hello_timer again only when
-br->stp_enabled is KERNEL_STP in br_hello_timer_expired, there is
-no reason to start the timer again when it's NO_STP.
+> Are you planning to work on the kernel patch for this algo?
+> Once we have it the verifier will be smarter regarding
+> alignment tracking than any compiler i know :) 
+I'm currently translating the algos to C.  But for the kernel patch,
+ I'll need to read & understand the existing verifier code, so it
+ might take a while :)  (I don't suppose there's any design document
+ or hacking-notes you could point me at?)
+But I'll give it a go for sure.
 
-Fixes: 76b91c32dd86 ("bridge: stp: when using userspace stp stop kernel hello and hold timers")
-Reported-by: Haidong Li <haili@redhat.com>
-Signed-off-by: Xin Long <lucien.xin@gmail.com>
----
- net/bridge/br_stp_if.c    | 1 +
- net/bridge/br_stp_timer.c | 2 +-
- 2 files changed, 2 insertions(+), 1 deletion(-)
-
-diff --git a/net/bridge/br_stp_if.c b/net/bridge/br_stp_if.c
-index 08341d2..0db8102 100644
---- a/net/bridge/br_stp_if.c
-+++ b/net/bridge/br_stp_if.c
-@@ -179,6 +179,7 @@ static void br_stp_start(struct net_bridge *br)
- 		br_debug(br, "using kernel STP\n");
- 
- 		/* To start timers on any ports left in blocking */
-+		mod_timer(&br->hello_timer, jiffies + br->hello_time);
- 		br_port_state_selection(br);
- 	}
- 
-diff --git a/net/bridge/br_stp_timer.c b/net/bridge/br_stp_timer.c
-index c98b3e5..60b6fe2 100644
---- a/net/bridge/br_stp_timer.c
-+++ b/net/bridge/br_stp_timer.c
-@@ -40,7 +40,7 @@ static void br_hello_timer_expired(unsigned long arg)
- 	if (br->dev->flags & IFF_UP) {
- 		br_config_bpdu_generation(br);
- 
--		if (br->stp_enabled != BR_USER_STP)
-+		if (br->stp_enabled == BR_KERNEL_STP)
- 			mod_timer(&br->hello_timer,
- 				  round_jiffies(jiffies + br->hello_time));
- 	}
--- 
-2.1.0
+-Ed
