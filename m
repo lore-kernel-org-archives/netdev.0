@@ -1,134 +1,66 @@
-From: Stefan Wahren <stefan.wahren-eS4NqCHxEME@public.gmane.org>
-Subject: Re: [PATCH v5 15/17] dt-bindings: qca7000: append UART interface to
- binding
-Date: Fri, 19 May 2017 09:13:53 +0200
-Message-ID: <53509108-fac2-8e8d-9279-ed54e8c1af3b@i2se.com>
-References: <1494406408-31760-1-git-send-email-stefan.wahren@i2se.com>
- <1494406408-31760-16-git-send-email-stefan.wahren@i2se.com>
- <1702237.66ccflAQAJ@kerker> <20170511194541.4e58cb7d@cakuba.netronome.com>
- <20170512061552.Horde.ggjCMHnIsr8LeADwTQwhnx7@www.mhei.heimpold.org>
- <20170511234342.575d9226@cakuba.netronome.com>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: [PATCH v2 00/10] rt2x00: rt2x00: improve calling conventions for register accessors
+Date: Fri, 19 May 2017 10:15:51 +0300
+Message-ID: <87efvlwc48.fsf@kamboji.qca.qualcomm.com>
+References: <20170517144702.1381136-1-arnd@arndb.de>
+        <87r2zl8lvi.fsf@codeaurora.org>
+        <CAK8P3a3YGxNBQq3RYucMCCvSyXOD8skF_Db-eba0PcBL4_P8Dg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Jakub Kicinski <kubakici-5tc4TXWwyLM@public.gmane.org>,
-        Michael Heimpold <mhei-Z/Lg1yOAjpkb1SvskN2V4Q@public.gmane.org>,
-        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-        Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-        Jiri Slaby <jslaby-IBi9RG/b67k@public.gmane.org>, linux-serial-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170511234342.575d9226-68UzVGuGftmUSpRRplVxJ1aTQe2KTcn/@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: linux-wireless <linux-wireless@vger.kernel.org>,
+        Stanislaw Gruszka <sgruszka@redhat.com>,
+        David Miller <davem@davemloft.net>,
+        Helmut Schaa <helmut.schaa@googlemail.com>,
+        Daniel Golle <daniel@makrotopia.org>,
+        Mathias Kresin <dev@kresin.me>,
+        Johannes Berg <johannes.berg@intel.com>,
+        Serge Vasilugin <vasilugin@yandex.ru>,
+        Roman Yeryomin <roman@advem.lv>,
+        Networking <netdev@vger.kernel.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        Jes Sorensen <jes.sorensen@gmail.com>,
+        Tom Psyborg <pozega.tomislav@gmail.com>
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.codeaurora.org ([198.145.29.96]:37910 "EHLO
+        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750788AbdESHQA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 19 May 2017 03:16:00 -0400
+In-Reply-To: <CAK8P3a3YGxNBQq3RYucMCCvSyXOD8skF_Db-eba0PcBL4_P8Dg@mail.gmail.com>
+        (Arnd Bergmann's message of "Fri, 19 May 2017 08:50:33 +0200")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Rob,
+Arnd Bergmann <arnd@arndb.de> writes:
 
-Am 12.05.2017 um 08:43 schrieb Jakub Kicinski:
-> On Fri, 12 May 2017 06:15:52 +0000, Michael Heimpold wrote:
->> Hi,
+> On Fri, May 19, 2017 at 7:18 AM, Kalle Valo <kvalo@codeaurora.org> wrote:
+>> Arnd Bergmann <arnd@arndb.de> writes:
 >>
->> Zitat von Jakub Kicinski <kubakici-5tc4TXWwyLM@public.gmane.org>:
+>>> I've managed to split up my long patch into a series of reasonble
+>>> steps now.
+>>>
+>>> The first two are required to fix a regression from commit 41977e86c984
+>>> ("rt2x00: add support for MT7620"), the rest are just cleanups to
+>>> have a consistent state across all the register access functions.
 >>
->>> On Thu, 11 May 2017 21:12:22 +0200, Michael Heimpold wrote:  
->>>> Am Mittwoch, 10. Mai 2017, 10:53:26 CEST schrieb Stefan Wahren:  
->>>>> This merges the serdev binding for the QCA7000 UART driver (Ethernet over
->>>>> UART) into the existing document.
->>>>>
->>>>> Signed-off-by: Stefan Wahren <stefan.wahren-eS4NqCHxEME@public.gmane.org>
->>>>> ---
->>>>>  .../devicetree/bindings/net/qca-qca7000.txt        | 32
->>>>> ++++++++++++++++++++++ 1 file changed, 32 insertions(+)
->>>>>
->>>>> diff --git a/Documentation/devicetree/bindings/net/qca-qca7000.txt
->>>>> b/Documentation/devicetree/bindings/net/qca-qca7000.txt index
->>>>> a37f656..08364c3 100644
->>>>> --- a/Documentation/devicetree/bindings/net/qca-qca7000.txt
->>>>> +++ b/Documentation/devicetree/bindings/net/qca-qca7000.txt
->>>>> @@ -54,3 +54,35 @@ ssp2: spi@80014000 {
->>>>>  		local-mac-address = [ A0 B0 C0 D0 E0 F0 ];
->>>>>  	};
->>>>>  };
->>>>> +
->>>>> +(b) Ethernet over UART
->>>>> +
->>>>> +In order to use the QCA7000 as UART slave it must be defined as    
->>>> a child of  
->>>>> a +UART master in the device tree. It is possible to preconfigure the UART
->>>>> +settings of the QCA7000 firmware, but it's not possible to change them
->>>>> during +runtime.
->>>>> +
->>>>> +Required properties:
->>>>> +- compatible        : Should be "qca,qca7000-uart"  
->>>> I already discussed this with Stefan off-list a little bit, but I would like
->>>> to bring this to a broader audience: I'm not sure whether the compatible
->>>> should contain the "-uart" suffix, because the hardware chip is the  
->>>> very same
->>>> QCA7000 chip which can also be used with SPI protocol.
->>>> The only difference is the loaded firmware within the chip which can either
->>>> speak SPI or UART protocol (but not both at the same time - due to shared
->>>> pins). So the hardware design decides which interface type is used.
->>>>
->>>> At the moment, this patch series adds a dedicated driver for the UART
->>>> protocol, in parallel to the existing SPI driver. So a different compatible
->>>> string is needed here to match against the new driver.
->>>>
->>>> An alternative approach would be to re-use the existing compatible string
->>>> "qca,qca7000" for both, the SPI and UART protocol, because a "smarter"
->>>> (combined) driver would detect which protocol to use. For example the driver
->>>> could check for spi-cpha and/or spi-cpol which are required for SPI  
->>>> protocol:
->>>> if these exists the driver could assume that SPI must be used, if both are
->>>> missing then UART protocol should be used.
->>>> (This way it would not be necessary to check whether the node is a child of
->>>> a SPI or UART master node - but maybe this is even easier - I don't know)
->>>>
->>>> Or in shorter words: my concern is that while "qca7000-uart" describes the
->>>> hardware, it's too closely coupled to the driver implementation. Having
->>>> some feedback of the experts would be nice :-)  
->>> I'm no expert, but devices which can do both I2C and SPI are quite
->>> common, and they usually have the same compatible string for both
->>> buses.  
->> do you have an example driver at hand? I only found GPIO mcp23s08 driver,
->> which can handle both I2C and SPI chips, but there are different compatible
->> strings used to distinguish several chip models.
-> I think drivers/tty/serial/sc16is7xx.c has the same strings, and some
-> Kconfig magic to work when either bus is enabled in .config.
+>> Can these all go to 4.13 or would you prefer me to push the first two
+>> 4.12? Or what?
 >
-> Quick grep shows there are couple more potential ones to look at:
+> I think you can reasonably argue either way: the second patch does
+> fix a real bug that may or may not lead to an exploitable stack overflow
+> when CONFIG_KASAN is enabled, which would be a reason to put it
+> into 4.12. On the other hand, I have another 20 patches for similar
+> (or worse) stack overflow issues with KASAN that I'm hoping to all
+> get into 4.13 and backported into stable kernel later if necessary,
+> so we could treat this one like the others.
 >
-> $ find . -name Kconfig | xargs grep -n 'SPI_MASTER.* I2C' 
-> ./drivers/tty/serial/Kconfig:1208:        depends on (SPI_MASTER && !I2C) || I2C
-> ./drivers/mfd/Kconfig:327:	depends on (SPI_MASTER || I2C)
-> ./drivers/iio/dac/Kconfig:10:	depends on (SPI_MASTER && I2C!=m) || I2C
-> ./drivers/iio/dac/Kconfig:34:	depends on (SPI_MASTER && I2C!=m) || I2C
-> ./drivers/iio/dac/Kconfig:57:	depends on (SPI_MASTER && I2C!=m) || I2C
-> ./drivers/gpio/Kconfig:1231:	depends on (SPI_MASTER && !I2C) || I2C
-> $ find . -name Kconfig | xargs grep -n 'I2C.*||.*SPI_MASTER' 
-> ./drivers/mfd/Kconfig:1094:	depends on (I2C=y || SPI_MASTER=y)
-> ./drivers/iio/gyro/Kconfig:55:	depends on (I2C || SPI_MASTER)
-> ./drivers/iio/gyro/Kconfig:107:	depends on (I2C || SPI_MASTER) && SYSFS
-> ./drivers/iio/accel/Kconfig:153:	depends on (I2C || SPI_MASTER) && SYSFS
-> ./drivers/iio/pressure/Kconfig:20:	depends on (I2C || SPI_MASTER)
-> ./drivers/iio/pressure/Kconfig:161:	depends on (I2C || SPI_MASTER) && SYSFS
-> ./drivers/iio/magnetometer/Kconfig:118:	depends on (I2C || SPI_MASTER) && SYSFS
->
-> drivers/mfd/mc13xxx-*.c seems to have the same strings.  The iio/dac drivers
-> don't support DT but do share names.  The MCP GPIO chip you mention indeed has
-> different product names based on the bus it's made for (0 vs s in the middle 
-> of the name), so I gather less relevant case?  drivers/iio/pressure/bmp280-*.c 
-> has the same strings, if I'm looking correctly... I didn't look at the others.
+> The only difference between this and the others is that in rt2x00 it
+> is a regression against 4.11, while the others have all been present
+> for a long time.
 
-are you okay with the suggestion to use the compatible "qca,qca7000" for
-both drivers?
+Having all of these in 4.12 sounds a bit excessive and splitting the set
+(the first two into 4.12 and the rest into 4.13) sounds too much work.
+So I would prefer to queue these to 4.13, if it's ok for everyone?
 
-Should we mark "qca,qca7000-spi" as deprecated?
-
-Regards
-Stefan
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-- 
+Kalle Valo
