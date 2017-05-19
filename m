@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 08/20] net: dsa: change scope of ageing time setter
-Date: Fri, 19 May 2017 17:00:43 -0400
-Message-ID: <20170519210055.9366-9-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 20/20] net: dsa: add VLAN notifier
+Date: Fri, 19 May 2017 17:00:55 -0400
+Message-ID: <20170519210055.9366-21-vivien.didelot@savoirfairelinux.com>
 References: <20170519210055.9366-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
@@ -14,68 +14,155 @@ In-Reply-To: <20170519210055.9366-1-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Change the scope of the switchdev bridge ageing time attribute setter
-from the DSA slave device to the generic DSA port, so that the future
-port-wide API can also be used for other port types, such as CPU and DSA
-links.
+Add two new DSA_NOTIFIER_VLAN_ADD and DSA_NOTIFIER_VLAN_DEL events to
+notify not only a single switch, but all switches of a the fabric when
+an VLAN entry is added or removed.
 
-Also ds->ports is now a contiguous array of dsa_port structures, thus
-their addresses cannot be NULL. Remove the useless check in
-dsa_fastest_ageing_time.
+For the moment, keep the current behavior and ignore other switches.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- net/dsa/slave.c | 16 +++++++---------
- 1 file changed, 7 insertions(+), 9 deletions(-)
+ net/dsa/dsa_priv.h | 10 ++++++++++
+ net/dsa/port.c     | 31 ++++++++++++++-----------------
+ net/dsa/switch.c   | 43 +++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 67 insertions(+), 17 deletions(-)
 
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index 216eb38a847d..b0150f79dcdd 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -412,21 +412,19 @@ static unsigned int dsa_fastest_ageing_time(struct dsa_switch *ds,
- 	for (i = 0; i < ds->num_ports; ++i) {
- 		struct dsa_port *dp = &ds->ports[i];
+diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
+index 2b60293b325c..1d52f9051d0e 100644
+--- a/net/dsa/dsa_priv.h
++++ b/net/dsa/dsa_priv.h
+@@ -24,6 +24,8 @@ enum {
+ 	DSA_NOTIFIER_FDB_DEL,
+ 	DSA_NOTIFIER_MDB_ADD,
+ 	DSA_NOTIFIER_MDB_DEL,
++	DSA_NOTIFIER_VLAN_ADD,
++	DSA_NOTIFIER_VLAN_DEL,
+ };
  
--		if (dp && dp->ageing_time && dp->ageing_time < ageing_time)
-+		if (dp->ageing_time && dp->ageing_time < ageing_time)
- 			ageing_time = dp->ageing_time;
- 	}
+ /* DSA_NOTIFIER_AGEING_TIME */
+@@ -56,6 +58,14 @@ struct dsa_notifier_mdb_info {
+ 	int port;
+ };
  
- 	return ageing_time;
++/* DSA_NOTIFIER_VLAN_* */
++struct dsa_notifier_vlan_info {
++	const struct switchdev_obj_port_vlan *vlan;
++	struct switchdev_trans *trans;
++	int sw_index;
++	int port;
++};
++
+ struct dsa_device_ops {
+ 	struct sk_buff *(*xmit)(struct sk_buff *skb, struct net_device *dev);
+ 	struct sk_buff *(*rcv)(struct sk_buff *skb, struct net_device *dev,
+diff --git a/net/dsa/port.c b/net/dsa/port.c
+index c7c4920e7bc9..c88c0cec8454 100644
+--- a/net/dsa/port.c
++++ b/net/dsa/port.c
+@@ -225,29 +225,26 @@ int dsa_port_vlan_add(struct dsa_port *dp,
+ 		      const struct switchdev_obj_port_vlan *vlan,
+ 		      struct switchdev_trans *trans)
+ {
+-	struct dsa_switch *ds = dp->ds;
+-
+-	if (switchdev_trans_ph_prepare(trans)) {
+-		if (!ds->ops->port_vlan_prepare || !ds->ops->port_vlan_add)
+-			return -EOPNOTSUPP;
+-
+-		return ds->ops->port_vlan_prepare(ds, dp->index, vlan, trans);
+-	}
+-
+-	ds->ops->port_vlan_add(ds, dp->index, vlan, trans);
+-
+-	return 0;
++	struct dsa_notifier_vlan_info info = {
++		.sw_index = dp->ds->index,
++		.port = dp->index,
++		.trans = trans,
++		.vlan = vlan,
++	};
++
++	return dsa_port_notify(dp, DSA_NOTIFIER_VLAN_ADD, &info);
  }
  
--static int dsa_slave_ageing_time(struct net_device *dev,
--				 const struct switchdev_attr *attr,
--				 struct switchdev_trans *trans)
-+static int dsa_port_ageing_time(struct dsa_port *dp, clock_t ageing_clock,
-+				struct switchdev_trans *trans)
+ int dsa_port_vlan_del(struct dsa_port *dp,
+ 		      const struct switchdev_obj_port_vlan *vlan)
  {
--	struct dsa_slave_priv *p = netdev_priv(dev);
--	struct dsa_switch *ds = p->dp->ds;
--	unsigned long ageing_jiffies = clock_t_to_jiffies(attr->u.ageing_time);
-+	unsigned long ageing_jiffies = clock_t_to_jiffies(ageing_clock);
- 	unsigned int ageing_time = jiffies_to_msecs(ageing_jiffies);
-+	struct dsa_switch *ds = dp->ds;
+-	struct dsa_switch *ds = dp->ds;
++	struct dsa_notifier_vlan_info info = {
++		.sw_index = dp->ds->index,
++		.port = dp->index,
++		.vlan = vlan,
++	};
  
- 	if (switchdev_trans_ph_prepare(trans)) {
- 		if (ds->ageing_time_min && ageing_time < ds->ageing_time_min)
-@@ -437,7 +435,7 @@ static int dsa_slave_ageing_time(struct net_device *dev,
- 	}
+-	if (!ds->ops->port_vlan_del)
+-		return -EOPNOTSUPP;
+-
+-	return ds->ops->port_vlan_del(ds, dp->index, vlan);
++	return dsa_port_notify(dp, DSA_NOTIFIER_VLAN_DEL, &info);
+ }
  
- 	/* Keep the fastest ageing time in case of multiple bridges */
--	p->dp->ageing_time = ageing_time;
-+	dp->ageing_time = ageing_time;
- 	ageing_time = dsa_fastest_ageing_time(ds, ageing_time);
+ int dsa_port_vlan_dump(struct dsa_port *dp,
+diff --git a/net/dsa/switch.c b/net/dsa/switch.c
+index b7e8e45869fc..c1e4b2d5a3ae 100644
+--- a/net/dsa/switch.c
++++ b/net/dsa/switch.c
+@@ -158,6 +158,43 @@ static int dsa_switch_mdb_del(struct dsa_switch *ds,
+ 	return ds->ops->port_mdb_del(ds, info->port, mdb);
+ }
  
- 	if (ds->ops->set_ageing_time)
-@@ -463,7 +461,7 @@ static int dsa_slave_port_attr_set(struct net_device *dev,
- 					      trans);
++static int dsa_switch_vlan_add(struct dsa_switch *ds,
++			       struct dsa_notifier_vlan_info *info)
++{
++	const struct switchdev_obj_port_vlan *vlan = info->vlan;
++	struct switchdev_trans *trans = info->trans;
++
++	/* Do not care yet about other switch chips of the fabric */
++	if (ds->index != info->sw_index)
++		return 0;
++
++	if (switchdev_trans_ph_prepare(trans)) {
++		if (!ds->ops->port_vlan_prepare || !ds->ops->port_vlan_add)
++			return -EOPNOTSUPP;
++
++		return ds->ops->port_vlan_prepare(ds, info->port, vlan, trans);
++	}
++
++	ds->ops->port_vlan_add(ds, info->port, vlan, trans);
++
++	return 0;
++}
++
++static int dsa_switch_vlan_del(struct dsa_switch *ds,
++			       struct dsa_notifier_vlan_info *info)
++{
++	const struct switchdev_obj_port_vlan *vlan = info->vlan;
++
++	/* Do not care yet about other switch chips of the fabric */
++	if (ds->index != info->sw_index)
++		return 0;
++
++	if (!ds->ops->port_vlan_del)
++		return -EOPNOTSUPP;
++
++	return ds->ops->port_vlan_del(ds, info->port, vlan);
++}
++
+ static int dsa_switch_event(struct notifier_block *nb,
+ 			    unsigned long event, void *info)
+ {
+@@ -186,6 +223,12 @@ static int dsa_switch_event(struct notifier_block *nb,
+ 	case DSA_NOTIFIER_MDB_DEL:
+ 		err = dsa_switch_mdb_del(ds, info);
  		break;
- 	case SWITCHDEV_ATTR_ID_BRIDGE_AGEING_TIME:
--		ret = dsa_slave_ageing_time(dev, attr, trans);
-+		ret = dsa_port_ageing_time(dp, attr->u.ageing_time, trans);
- 		break;
++	case DSA_NOTIFIER_VLAN_ADD:
++		err = dsa_switch_vlan_add(ds, info);
++		break;
++	case DSA_NOTIFIER_VLAN_DEL:
++		err = dsa_switch_vlan_del(ds, info);
++		break;
  	default:
- 		ret = -EOPNOTSUPP;
+ 		err = -EOPNOTSUPP;
+ 		break;
 -- 
 2.13.0
