@@ -1,64 +1,41 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net] bridge: fix hello and hold timers
-	starting/stopping
-Date: Fri, 19 May 2017 09:38:16 -0700
-Message-ID: <20170519093816.2b556a1b@xeon-e3>
-References: <20170519162543.31670-1-cera@cera.cz>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net-next] net: sched: provide stubs for
+ tcf_chain_{get,put} for CONFIG_NET_CLS=n
+Date: Fri, 19 May 2017 09:50:51 -0700
+Message-ID: <CAM_iQpWkoSpWQipShKZP-J-7n79VHa+h5ibbdp0P28mYe7c_GA@mail.gmail.com>
+References: <01ab2339375fd161310945aa4eb77c3ecb46b26a.1495124042.git.sd@queasysnail.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: lucien.xin@gmail.com, nikolay@cumulusnetworks.com, netdev@vger.kernel.org,
-	bridge@lists.linux-foundation.org, davem@davemloft.net
-To: Ivan Vecera <cera@cera.cz>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <20170519162543.31670-1-cera@cera.cz>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Jiri Pirko <jiri@mellanox.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>
+To: Sabrina Dubroca <sd@queasysnail.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:35055 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750748AbdESQvR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 19 May 2017 12:51:17 -0400
+Received: by mail-wm0-f67.google.com with SMTP id v4so19411069wmb.2
+        for <netdev@vger.kernel.org>; Fri, 19 May 2017 09:51:17 -0700 (PDT)
+In-Reply-To: <01ab2339375fd161310945aa4eb77c3ecb46b26a.1495124042.git.sd@queasysnail.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 19 May 2017 18:25:43 +0200
-Ivan Vecera <cera@cera.cz> wrote:
+On Thu, May 18, 2017 at 9:24 AM, Sabrina Dubroca <sd@queasysnail.net> wrote:
+> This also changes tcf_chain_get() to return an error pointer instead of
+> NULL, so that tcf_action_goto_chain_init() can differentiate memory
+> allocation failure from lack of support.
+>
+> Fixes: 5bc1701881e3 ("net: sched: introduce multichain support for filters")
+> Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
+> ---
+> I'm not sure this EOPNOTSUPP is really necessary, ie if we can really
+> reach the tcf_action_goto_chain_init() call when CONFIG_NET_CLS=n.
+> If not, a simpler patch would add a tcf_chain_get() stub that just
+> returns NULL, as we wouldn't have to care about returning an incorrect
+> error code from tcf_action_goto_chain_init().
 
-> Current bridge code incorrectly handles starting/stopping of hello and
-> hold timers during STP enable/disable.
-> 
-> 1. Timers are stopped in br_stp_start() during NO_STP->USER_STP
->    transition. This is not correct as the timers are stopped in NO_STP
->    case.
-> 
-> 2. Timers are started in br_stp_stop() during USER_STP->NO_STP transition.
->    This is not also correct as the timers should be stopped in NO_STP
->    state.
-> 
-> 3. Timers are NOT stopped in br_stp_stop() during KERNEL_STP->NO_STP
->    transition. They should be stopped as they are running in KERNEL_STP
->    state and should not run in NO_STP case.
-> 
-> The patch is a follow-up for "bridge: start hello_timer when enabling
-> KERNEL_STP in br_stp_start" patch from Xin Long.
-> 
-> Cc: davem@davemloft.net
-> Cc: sashok@cumulusnetworks.com
-> Cc: stephen@networkplumber.org
-> Cc: bridge@lists.linux-foundation.org
-> Cc: lucien.xin@gmail.com
-> Cc: nikolay@cumulusnetworks.com
-> Signed-off-by: Ivan Vecera <cera@cera.cz>
 
-Overall, this looks correct but the wording of commit message
-is too terse.
-
-It would be better to add a more complete description of the impact
-of this from a user's point of view. I am concerned that this
-might have other side effects.
-
-For example, what is the sequence of commands to validated this.
-
-What is the impact, should this go to stable?
+I wonder if we should just make CONFIG_NET_CLS_ACT depending
+on CONFIG_NET_CLS. Although without filters we can still have
+standalone actions but no one can use them.
