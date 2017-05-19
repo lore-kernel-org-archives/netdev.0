@@ -1,99 +1,181 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 09/12] netfilter: nf_tables: missing sanitization in data from userspace
-Date: Fri, 19 May 2017 10:33:50 +0200
-Message-ID: <1495182833-2272-10-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 08/12] netfilter: nf_tables: can't assume lock is acquired when dumping set elems
+Date: Fri, 19 May 2017 10:33:49 +0200
+Message-ID: <1495182833-2272-9-git-send-email-pablo@netfilter.org>
 References: <1495182833-2272-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:44050 "EHLO mail.us.es"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1755717AbdESIei (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 19 May 2017 04:34:38 -0400
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id 5B36B1DA0A7
-        for <netdev@vger.kernel.org>; Fri, 19 May 2017 10:34:16 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 3994CFF2E1
-        for <netdev@vger.kernel.org>; Fri, 19 May 2017 10:34:16 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id DDB4C10078A
-        for <netdev@vger.kernel.org>; Fri, 19 May 2017 10:34:13 +0200 (CEST)
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1495182833-2272-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Do not assume userspace always sends us NFT_DATA_VALUE for bitwise and
-cmp expressions. Although NFT_DATA_VERDICT does not make any sense, it
-is still possible to handcraft a netlink message using this incorrect
-data type.
+From: Liping Zhang <zlpnobody@gmail.com>
 
+When dumping the elements related to a specified set, we may invoke the
+nf_tables_dump_set with the NFNL_SUBSYS_NFTABLES lock not acquired. So
+we should use the proper rcu operation to avoid race condition, just
+like other nft dump operations.
+
+Signed-off-by: Liping Zhang <zlpnobody@gmail.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/nft_bitwise.c | 19 ++++++++++++++-----
- net/netfilter/nft_cmp.c     | 12 ++++++++++--
- 2 files changed, 24 insertions(+), 7 deletions(-)
+ net/netfilter/nf_tables_api.c | 78 +++++++++++++++++++++++++++++++------------
+ net/netfilter/nft_set_hash.c  |  2 +-
+ 2 files changed, 57 insertions(+), 23 deletions(-)
 
-diff --git a/net/netfilter/nft_bitwise.c b/net/netfilter/nft_bitwise.c
-index 877d9acd91ef..96bd4f325b0f 100644
---- a/net/netfilter/nft_bitwise.c
-+++ b/net/netfilter/nft_bitwise.c
-@@ -83,17 +83,26 @@ static int nft_bitwise_init(const struct nft_ctx *ctx,
- 			    tb[NFTA_BITWISE_MASK]);
- 	if (err < 0)
- 		return err;
--	if (d1.len != priv->len)
--		return -EINVAL;
-+	if (d1.len != priv->len) {
-+		err = -EINVAL;
-+		goto err1;
-+	}
+diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
+index 559225029740..5f4a4d48b871 100644
+--- a/net/netfilter/nf_tables_api.c
++++ b/net/netfilter/nf_tables_api.c
+@@ -3367,35 +3367,50 @@ static int nf_tables_dump_setelem(const struct nft_ctx *ctx,
+ 	return nf_tables_fill_setelem(args->skb, set, elem);
+ }
  
- 	err = nft_data_init(NULL, &priv->xor, sizeof(priv->xor), &d2,
- 			    tb[NFTA_BITWISE_XOR]);
- 	if (err < 0)
++struct nft_set_dump_ctx {
++	const struct nft_set	*set;
++	struct nft_ctx		ctx;
++};
++
+ static int nf_tables_dump_set(struct sk_buff *skb, struct netlink_callback *cb)
+ {
++	struct nft_set_dump_ctx *dump_ctx = cb->data;
+ 	struct net *net = sock_net(skb->sk);
+-	u8 genmask = nft_genmask_cur(net);
++	struct nft_af_info *afi;
++	struct nft_table *table;
+ 	struct nft_set *set;
+ 	struct nft_set_dump_args args;
+-	struct nft_ctx ctx;
+-	struct nlattr *nla[NFTA_SET_ELEM_LIST_MAX + 1];
++	bool set_found = false;
+ 	struct nfgenmsg *nfmsg;
+ 	struct nlmsghdr *nlh;
+ 	struct nlattr *nest;
+ 	u32 portid, seq;
+-	int event, err;
++	int event;
+ 
+-	err = nlmsg_parse(cb->nlh, sizeof(struct nfgenmsg), nla,
+-			  NFTA_SET_ELEM_LIST_MAX, nft_set_elem_list_policy,
+-			  NULL);
+-	if (err < 0)
 -		return err;
--	if (d2.len != priv->len)
--		return -EINVAL;
-+		goto err1;
-+	if (d2.len != priv->len) {
-+		err = -EINVAL;
-+		goto err2;
-+	}
++	rcu_read_lock();
++	list_for_each_entry_rcu(afi, &net->nft.af_info, list) {
++		if (afi != dump_ctx->ctx.afi)
++			continue;
  
- 	return 0;
-+err2:
-+	nft_data_uninit(&priv->xor, d2.type);
-+err1:
-+	nft_data_uninit(&priv->mask, d1.type);
-+	return err;
- }
+-	err = nft_ctx_init_from_elemattr(&ctx, net, cb->skb, cb->nlh,
+-					 (void *)nla, genmask);
+-	if (err < 0)
+-		return err;
++		list_for_each_entry_rcu(table, &afi->tables, list) {
++			if (table != dump_ctx->ctx.table)
++				continue;
  
- static int nft_bitwise_dump(struct sk_buff *skb, const struct nft_expr *expr)
-diff --git a/net/netfilter/nft_cmp.c b/net/netfilter/nft_cmp.c
-index 2b96effeadc1..8c9d0fb19118 100644
---- a/net/netfilter/nft_cmp.c
-+++ b/net/netfilter/nft_cmp.c
-@@ -201,10 +201,18 @@ nft_cmp_select_ops(const struct nft_ctx *ctx, const struct nlattr * const tb[])
- 	if (err < 0)
- 		return ERR_PTR(err);
- 
-+	if (desc.type != NFT_DATA_VALUE) {
-+		err = -EINVAL;
-+		goto err1;
+-	set = nf_tables_set_lookup(ctx.table, nla[NFTA_SET_ELEM_LIST_SET],
+-				   genmask);
+-	if (IS_ERR(set))
+-		return PTR_ERR(set);
++			list_for_each_entry_rcu(set, &table->sets, list) {
++				if (set == dump_ctx->set) {
++					set_found = true;
++					break;
++				}
++			}
++			break;
++		}
++		break;
 +	}
 +
- 	if (desc.len <= sizeof(u32) && op == NFT_CMP_EQ)
- 		return &nft_cmp_fast_ops;
--	else
--		return &nft_cmp_ops;
-+
-+	return &nft_cmp_ops;
-+err1:
-+	nft_data_uninit(&data, desc.type);
-+	return ERR_PTR(-EINVAL);
++	if (!set_found) {
++		rcu_read_unlock();
++		return -ENOENT;
++	}
+ 
+ 	event  = nfnl_msg_type(NFNL_SUBSYS_NFTABLES, NFT_MSG_NEWSETELEM);
+ 	portid = NETLINK_CB(cb->skb).portid;
+@@ -3407,11 +3422,11 @@ static int nf_tables_dump_set(struct sk_buff *skb, struct netlink_callback *cb)
+ 		goto nla_put_failure;
+ 
+ 	nfmsg = nlmsg_data(nlh);
+-	nfmsg->nfgen_family = ctx.afi->family;
++	nfmsg->nfgen_family = afi->family;
+ 	nfmsg->version      = NFNETLINK_V0;
+-	nfmsg->res_id	    = htons(ctx.net->nft.base_seq & 0xffff);
++	nfmsg->res_id	    = htons(net->nft.base_seq & 0xffff);
+ 
+-	if (nla_put_string(skb, NFTA_SET_ELEM_LIST_TABLE, ctx.table->name))
++	if (nla_put_string(skb, NFTA_SET_ELEM_LIST_TABLE, table->name))
+ 		goto nla_put_failure;
+ 	if (nla_put_string(skb, NFTA_SET_ELEM_LIST_SET, set->name))
+ 		goto nla_put_failure;
+@@ -3422,12 +3437,13 @@ static int nf_tables_dump_set(struct sk_buff *skb, struct netlink_callback *cb)
+ 
+ 	args.cb			= cb;
+ 	args.skb		= skb;
+-	args.iter.genmask	= nft_genmask_cur(ctx.net);
++	args.iter.genmask	= nft_genmask_cur(net);
+ 	args.iter.skip		= cb->args[0];
+ 	args.iter.count		= 0;
+ 	args.iter.err		= 0;
+ 	args.iter.fn		= nf_tables_dump_setelem;
+-	set->ops->walk(&ctx, set, &args.iter);
++	set->ops->walk(&dump_ctx->ctx, set, &args.iter);
++	rcu_read_unlock();
+ 
+ 	nla_nest_end(skb, nest);
+ 	nlmsg_end(skb, nlh);
+@@ -3441,9 +3457,16 @@ static int nf_tables_dump_set(struct sk_buff *skb, struct netlink_callback *cb)
+ 	return skb->len;
+ 
+ nla_put_failure:
++	rcu_read_unlock();
+ 	return -ENOSPC;
  }
  
- struct nft_expr_type nft_cmp_type __read_mostly = {
++static int nf_tables_dump_set_done(struct netlink_callback *cb)
++{
++	kfree(cb->data);
++	return 0;
++}
++
+ static int nf_tables_getsetelem(struct net *net, struct sock *nlsk,
+ 				struct sk_buff *skb, const struct nlmsghdr *nlh,
+ 				const struct nlattr * const nla[])
+@@ -3465,7 +3488,18 @@ static int nf_tables_getsetelem(struct net *net, struct sock *nlsk,
+ 	if (nlh->nlmsg_flags & NLM_F_DUMP) {
+ 		struct netlink_dump_control c = {
+ 			.dump = nf_tables_dump_set,
++			.done = nf_tables_dump_set_done,
+ 		};
++		struct nft_set_dump_ctx *dump_ctx;
++
++		dump_ctx = kmalloc(sizeof(*dump_ctx), GFP_KERNEL);
++		if (!dump_ctx)
++			return -ENOMEM;
++
++		dump_ctx->set = set;
++		dump_ctx->ctx = ctx;
++
++		c.data = dump_ctx;
+ 		return netlink_dump_start(nlsk, skb, nlh, &c);
+ 	}
+ 	return -EOPNOTSUPP;
+diff --git a/net/netfilter/nft_set_hash.c b/net/netfilter/nft_set_hash.c
+index 8ec086b6b56b..3d3a6df4ce70 100644
+--- a/net/netfilter/nft_set_hash.c
++++ b/net/netfilter/nft_set_hash.c
+@@ -222,7 +222,7 @@ static void nft_hash_walk(const struct nft_ctx *ctx, struct nft_set *set,
+ 	struct nft_set_elem elem;
+ 	int err;
+ 
+-	err = rhashtable_walk_init(&priv->ht, &hti, GFP_KERNEL);
++	err = rhashtable_walk_init(&priv->ht, &hti, GFP_ATOMIC);
+ 	iter->err = err;
+ 	if (err)
+ 		return;
 -- 
 2.1.4
+
