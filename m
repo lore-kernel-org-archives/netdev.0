@@ -1,106 +1,191 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 00/20] net: dsa: distribute switch events
-Date: Fri, 19 May 2017 17:00:35 -0400
-Message-ID: <20170519210055.9366-1-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 10/20] net: dsa: move bridging routines
+Date: Fri, 19 May 2017 17:00:45 -0400
+Message-ID: <20170519210055.9366-11-vivien.didelot@savoirfairelinux.com>
+References: <20170519210055.9366-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
         Florian Fainelli <f.fainelli@gmail.com>,
         Andrew Lunn <andrew@lunn.ch>,
         Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:48348 "EHLO
-        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932402AbdESVDQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 19 May 2017 17:03:16 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170519210055.9366-1-vivien.didelot@savoirfairelinux.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-DSA is by nature the support for a switch fabric, which can be composed
-of a single, or multiple interconnected Ethernet switch chips.
+Move the DSA port code which bridges a port in port.c, where it belongs.
 
-The current DSA core behavior is to identify the slave port targeted by
-a request (e.g. adding a VLAN entry), and program the switch chip to
-which it belongs accordingly.
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+---
+ net/dsa/dsa_priv.h |  2 ++
+ net/dsa/port.c     | 58 ++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ net/dsa/slave.c    | 57 -----------------------------------------------------
+ 3 files changed, 60 insertions(+), 57 deletions(-)
 
-This is problematic in a multi-chip environment, since all chips of a
-fabric must be aware of most configuration changes. Here are some
-concrete examples in a 3-chip environment:
-
-         [CPU].................... (mdio)
-    (eth0) |   :       :          :
-          _|_____    _______    _______
-         [__sw0__]--[__sw1__]--[__sw2__]
-          |  |  |    |  |  |    |  |  |
-          v  v  v    v  v  v    v  v  v
-          p1 p2 p3   p4 p5 p6   p7 p8 p9
-
-If you add a VLAN entry on p7, sw2 gets programmed, but frames won't
-reach the CPU interface in a VLAN filtered setup. sw0 and sw1 also need
-to be programmed. The same problem comes with MAC addresses (FDB, MDB),
-or ageing time changes for instance.
-
-This patch series uses the notification chain introduced for bridging,
-to notify not only bridge, but switchdev attributes and objects events
-to all switch chips of the fabric.
-
-An ugly debug message printing the ignored event and switch info in the
-code handling the switch VLAN events would give us:
-
-    # bridge vlan add dev p7 vid 42
-    sw0: ignoring DSA_NOTIFIER_VLAN_ADD for sw2 (prepare phase)
-    sw1: ignoring DSA_NOTIFIER_VLAN_ADD for sw2 (prepare phase)
-    sw0: ignoring DSA_NOTIFIER_VLAN_ADD for sw2 (commit phase)
-    sw1: ignoring DSA_NOTIFIER_VLAN_ADD for sw2 (commit phase)
-
-To achieve that, patches 1-8 change the scope of the bridge and
-switchdev callbacks from the DSA slave device to the generic DSA port,
-so that the port-wide API can be used later for switch ports not exposed
-to userspace, such as CPU and DSA links.
-
-Patches 9-15 move the DSA port specific functions in a new port.c file.
-
-Patches 16-20 introduce new events to notify the fabric about switchdev
-attributes and objects manipulation.
-
-This patch series only adds the plumbing to support a distributed
-configuration, but for the moment, each switch chip ignores events from
-other chips of the fabric, to keep the current behavior.
-
-The next patch series will add support for cross-chip configuration of
-bridge ageing time, VLAN and MAC address databases operations, etc.
-
-
-Vivien Didelot (20):
-  net: dsa: change scope of STP state setter
-  net: dsa: change scope of notifier call chain
-  net: dsa: change scope of bridging code
-  net: dsa: change scope of FDB handlers
-  net: dsa: change scope of MDB handlers
-  net: dsa: change scope of VLAN handlers
-  net: dsa: change scope of VLAN filtering setter
-  net: dsa: change scope of ageing time setter
-  net: dsa: move port state setters
-  net: dsa: move bridging routines
-  net: dsa: move VLAN filtering setter
-  net: dsa: move ageing time setter
-  net: dsa: move FDB handlers
-  net: dsa: move MDB handlers
-  net: dsa: move VLAN handlers
-  net: dsa: move notifier info to private header
-  net: dsa: add notifier for ageing time
-  net: dsa: add FDB notifier
-  net: dsa: add MDB notifier
-  net: dsa: add VLAN notifier
-
- include/net/dsa.h  |  10 --
- net/dsa/Makefile   |   2 +-
- net/dsa/dsa_priv.h |  83 +++++++++++++
- net/dsa/port.c     | 260 +++++++++++++++++++++++++++++++++++++++
- net/dsa/slave.c    | 354 +++++------------------------------------------------
- net/dsa/switch.c   | 175 ++++++++++++++++++++++++++
- 6 files changed, 547 insertions(+), 337 deletions(-)
- create mode 100644 net/dsa/port.c
-
+diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
+index cda218cd9b05..f0b6cd3c8a65 100644
+--- a/net/dsa/dsa_priv.h
++++ b/net/dsa/dsa_priv.h
+@@ -64,6 +64,8 @@ void dsa_legacy_unregister(void);
+ int dsa_port_set_state(struct dsa_port *dp, u8 state,
+ 		       struct switchdev_trans *trans);
+ void dsa_port_set_state_now(struct dsa_port *dp, u8 state);
++int dsa_port_bridge_join(struct dsa_port *dp, struct net_device *br);
++void dsa_port_bridge_leave(struct dsa_port *dp, struct net_device *br);
+ 
+ /* slave.c */
+ extern const struct dsa_device_ops notag_netdev_ops;
+diff --git a/net/dsa/port.c b/net/dsa/port.c
+index 6cc4704190fd..da8577fb3d07 100644
+--- a/net/dsa/port.c
++++ b/net/dsa/port.c
+@@ -11,9 +11,20 @@
+  */
+ 
+ #include <linux/if_bridge.h>
++#include <linux/notifier.h>
+ 
+ #include "dsa_priv.h"
+ 
++static int dsa_port_notify(struct dsa_port *dp, unsigned long e, void *v)
++{
++	struct raw_notifier_head *nh = &dp->ds->dst->nh;
++	int err;
++
++	err = raw_notifier_call_chain(nh, e, v);
++
++	return notifier_to_errno(err);
++}
++
+ int dsa_port_set_state(struct dsa_port *dp, u8 state,
+ 		       struct switchdev_trans *trans)
+ {
+@@ -53,3 +64,50 @@ void dsa_port_set_state_now(struct dsa_port *dp, u8 state)
+ 	if (err)
+ 		pr_err("DSA: failed to set STP state %u (%d)\n", state, err);
+ }
++
++int dsa_port_bridge_join(struct dsa_port *dp, struct net_device *br)
++{
++	struct dsa_notifier_bridge_info info = {
++		.sw_index = dp->ds->index,
++		.port = dp->index,
++		.br = br,
++	};
++	int err;
++
++	/* Here the port is already bridged. Reflect the current configuration
++	 * so that drivers can program their chips accordingly.
++	 */
++	dp->bridge_dev = br;
++
++	err = dsa_port_notify(dp, DSA_NOTIFIER_BRIDGE_JOIN, &info);
++
++	/* The bridging is rolled back on error */
++	if (err)
++		dp->bridge_dev = NULL;
++
++	return err;
++}
++
++void dsa_port_bridge_leave(struct dsa_port *dp, struct net_device *br)
++{
++	struct dsa_notifier_bridge_info info = {
++		.sw_index = dp->ds->index,
++		.port = dp->index,
++		.br = br,
++	};
++	int err;
++
++	/* Here the port is already unbridged. Reflect the current configuration
++	 * so that drivers can program their chips accordingly.
++	 */
++	dp->bridge_dev = NULL;
++
++	err = dsa_port_notify(dp, DSA_NOTIFIER_BRIDGE_LEAVE, &info);
++	if (err)
++		pr_err("DSA: failed to notify DSA_NOTIFIER_BRIDGE_LEAVE\n");
++
++	/* Port left the bridge, put in BR_STATE_DISABLED by the bridge layer,
++	 * so allow it to be in BR_STATE_FORWARDING to be kept functional
++	 */
++	dsa_port_set_state_now(dp, BR_STATE_FORWARDING);
++}
+diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+index 2c57c7205aa3..ab298c41b8e7 100644
+--- a/net/dsa/slave.c
++++ b/net/dsa/slave.c
+@@ -27,16 +27,6 @@
+ 
+ static bool dsa_slave_dev_check(struct net_device *dev);
+ 
+-static int dsa_port_notify(struct dsa_port *dp, unsigned long e, void *v)
+-{
+-	struct raw_notifier_head *nh = &dp->ds->dst->nh;
+-	int err;
+-
+-	err = raw_notifier_call_chain(nh, e, v);
+-
+-	return notifier_to_errno(err);
+-}
+-
+ /* slave mii_bus handling ***************************************************/
+ static int dsa_slave_phy_read(struct mii_bus *bus, int addr, int reg)
+ {
+@@ -514,53 +504,6 @@ static int dsa_slave_port_obj_dump(struct net_device *dev,
+ 	return err;
+ }
+ 
+-static int dsa_port_bridge_join(struct dsa_port *dp, struct net_device *br)
+-{
+-	struct dsa_notifier_bridge_info info = {
+-		.sw_index = dp->ds->index,
+-		.port = dp->index,
+-		.br = br,
+-	};
+-	int err;
+-
+-	/* Here the port is already bridged. Reflect the current configuration
+-	 * so that drivers can program their chips accordingly.
+-	 */
+-	dp->bridge_dev = br;
+-
+-	err = dsa_port_notify(dp, DSA_NOTIFIER_BRIDGE_JOIN, &info);
+-
+-	/* The bridging is rolled back on error */
+-	if (err)
+-		dp->bridge_dev = NULL;
+-
+-	return err;
+-}
+-
+-static void dsa_port_bridge_leave(struct dsa_port *dp, struct net_device *br)
+-{
+-	struct dsa_notifier_bridge_info info = {
+-		.sw_index = dp->ds->index,
+-		.port = dp->index,
+-		.br = br,
+-	};
+-	int err;
+-
+-	/* Here the port is already unbridged. Reflect the current configuration
+-	 * so that drivers can program their chips accordingly.
+-	 */
+-	dp->bridge_dev = NULL;
+-
+-	err = dsa_port_notify(dp, DSA_NOTIFIER_BRIDGE_LEAVE, &info);
+-	if (err)
+-		pr_err("DSA: failed to notify DSA_NOTIFIER_BRIDGE_LEAVE\n");
+-
+-	/* Port left the bridge, put in BR_STATE_DISABLED by the bridge layer,
+-	 * so allow it to be in BR_STATE_FORWARDING to be kept functional
+-	 */
+-	dsa_port_set_state_now(dp, BR_STATE_FORWARDING);
+-}
+-
+ static int dsa_slave_port_attr_get(struct net_device *dev,
+ 				   struct switchdev_attr *attr)
+ {
 -- 
 2.13.0
