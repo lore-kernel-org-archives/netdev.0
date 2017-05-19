@@ -1,44 +1,64 @@
-From: Jarod Wilson <jarod@redhat.com>
-Subject: Re: [PATCH net] bonding: fix accounting of active ports in 3ad
-Date: Fri, 19 May 2017 18:15:57 -0400
-Message-ID: <95c9a6b9-ac60-caa1-416d-c74e1aea08f4@redhat.com>
-References: <20170517151144.57865-1-jarod@redhat.com>
- <20170519.171417.473208349438307952.davem@davemloft.net>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [Intel-wired-lan] [PATCH 0/4] Configuring traffic classes via
+ new hardware offload mechanism in tc/mqprio
+Date: Fri, 19 May 2017 15:30:57 -0700
+Message-ID: <591F7221.3050303@gmail.com>
+References: <149524122523.11022.4541073724650541658.stgit@anamdev.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, j.vosburgh@gmail.com,
-        vfalico@gmail.com, andy@greyhouse.net, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+To: Amritha Nambiar <amritha.nambiar@intel.com>,
+        intel-wired-lan@lists.osuosl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:57202 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754862AbdESWP6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 19 May 2017 18:15:58 -0400
-In-Reply-To: <20170519.171417.473208349438307952.davem@davemloft.net>
-Content-Language: en-US
+Received: from mail-pf0-f179.google.com ([209.85.192.179]:36367 "EHLO
+        mail-pf0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750818AbdESWbJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 19 May 2017 18:31:09 -0400
+Received: by mail-pf0-f179.google.com with SMTP id m17so45695105pfg.3
+        for <netdev@vger.kernel.org>; Fri, 19 May 2017 15:31:08 -0700 (PDT)
+In-Reply-To: <149524122523.11022.4541073724650541658.stgit@anamdev.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2017-05-19 5:14 PM, David Miller wrote:
-> From: Jarod Wilson <jarod@redhat.com>
-> Date: Wed, 17 May 2017 11:11:44 -0400
+On 05/19/2017 05:58 PM, Amritha Nambiar wrote:
+> The following series introduces a new harware offload mode in
+> tc/mqprio where the TCs, the queue configurations and bandwidth rate
+> limits are offloaded to the hardware. The i40e driver enables the new
+> mqprio hardware offload mechanism factoring the TCs, queue
+> configuration and bandwidth rates by creating HW channel VSIs.
 > 
->> As of 7bb11dc9f59d and 0622cab0341c, bond slaves in a 3ad bond are not
->> removed from the aggregator when they are down, and the active slave count
->> is NOT equal to number of ports in the aggregator, but rather the number
->> of ports in the aggregator that are still enabled.
->   ...
->> Remedy it by using the same logic introduced in
->> 7bb11dc9f59d in __bond_3ad_get_active_agg_info(), so sysfs, procfs and
->    ^^^^^^^^^^^^
->> netlink all report the number of active ports.
+
+nice work, fix your time stamp and line wrapping though.
+
+
+> In this mode, the priority to traffic class mapping and the user
+> specified queue ranges are used to configure the traffic class when
+> the 'hw' option is set to 2. This is achieved by creating HW
+> channels(VSI). A new channel is created for each of the traffic class
+> configuration offloaded via mqprio framework except for the first TC
+> (TC0) which is for the main VSI. TC0 for the main VSI is also
+> reconfigured as per user provided queue parameters. Finally,
+> bandwidth rate limits are set on these traffic classes through the
+> mqprio offload framework by sending these rates in addition to the
+> number of TCs and the queue configurations.
+> Example:
+> # tc qdisc add dev eth0 root mqprio num_tc 2  map 0 0 0 0 1 1 1 1\
+>   queues 4@0 4@4 min_rate 0Mbit 0Mbit max_rate 55Mbit 60Mbit hw 2
 > 
-> I think you mean to reference commit 0622cab0341c here not 7bb11dc9f59d.
+> To dump the bandwidth rates:
+> 
+> # tc qdisc show dev eth0
+>   qdisc mqprio 804a: root  tc 2 map 0 0 0 0 1 1 1 1 0 0 0 0 0 0 0 0
+>                queues:(0:3) (4:7)
+>                min rates:0bit 0bit
+>                max rates:55Mbit 60Mbit
+> 
 
-D'oh, yes, you are entirely correct. Should I submit a v2 with that 
-correction?
+Looks reasonable to me thanks. Previously, rate limits were being set
+via dcbnl but I guess this interface is slightly nicer in that it puts
+all configuration in one spot. IMO it would be nice to push dcbnl users
+over to this.
 
--- 
-Jarod Wilson
-jarod@redhat.com
+Thanks,
+.John
