@@ -1,117 +1,51 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 06/20] net: dsa: change scope of VLAN handlers
-Date: Fri, 19 May 2017 17:00:41 -0400
-Message-ID: <20170519210055.9366-7-vivien.didelot@savoirfairelinux.com>
-References: <20170519210055.9366-1-vivien.didelot@savoirfairelinux.com>
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170519210055.9366-1-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: "Brown, Aaron F" <aaron.f.brown@intel.com>
+Subject: RE: [PATCH v2] e1000e: Don't return uninitialized stats
+Date: Fri, 19 May 2017 21:12:58 +0000
+Message-ID: <309B89C4C689E141A5FF6A0C5FB2118B8C5F9877@ORSMSX101.amr.corp.intel.com>
+References: <20170425175433.ykc6ilm6uo7e6my2@f1.synalogic.ca>
+         <20170517202413.18321-1-bpoirier@suse.com>
+         <20170518.104614.1739169308591707817.davem@davemloft.net>
+ <1495181811.2376.0.camel@intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "s.priebe@profihost.ag" <s.priebe@profihost.ag>,
+        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "pmenzel@molgen.mpg.de" <pmenzel@molgen.mpg.de>,
+        "Neftin, Sasha" <sasha.neftin@intel.com>,
+        "stephen@networkplumber.org" <stephen@networkplumber.org>
+To: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+        David Miller <davem@davemloft.net>,
+        "bpoirier@suse.com" <bpoirier@suse.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga05.intel.com ([192.55.52.43]:9948 "EHLO mga05.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1755220AbdESVM7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 19 May 2017 17:12:59 -0400
+In-Reply-To: <1495181811.2376.0.camel@intel.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Change the scope of the switchdev VLAN object handlers from the DSA
-slave device to the generic DSA port, so that the future port-wide API
-can also be used for other port types, such as CPU and DSA links.
-
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
----
- net/dsa/slave.c | 40 ++++++++++++++++------------------------
- 1 file changed, 16 insertions(+), 24 deletions(-)
-
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index 0921d306aedf..de39da69fd33 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -254,12 +254,10 @@ static int dsa_slave_set_mac_address(struct net_device *dev, void *a)
- 	return 0;
- }
- 
--static int dsa_slave_port_vlan_add(struct net_device *dev,
--				   const struct switchdev_obj_port_vlan *vlan,
--				   struct switchdev_trans *trans)
-+static int dsa_port_vlan_add(struct dsa_port *dp,
-+			     const struct switchdev_obj_port_vlan *vlan,
-+			     struct switchdev_trans *trans)
- {
--	struct dsa_slave_priv *p = netdev_priv(dev);
--	struct dsa_port *dp = p->dp;
- 	struct dsa_switch *ds = dp->ds;
- 
- 	if (switchdev_trans_ph_prepare(trans)) {
-@@ -274,27 +272,25 @@ static int dsa_slave_port_vlan_add(struct net_device *dev,
- 	return 0;
- }
- 
--static int dsa_slave_port_vlan_del(struct net_device *dev,
--				   const struct switchdev_obj_port_vlan *vlan)
-+static int dsa_port_vlan_del(struct dsa_port *dp,
-+			     const struct switchdev_obj_port_vlan *vlan)
- {
--	struct dsa_slave_priv *p = netdev_priv(dev);
--	struct dsa_switch *ds = p->dp->ds;
-+	struct dsa_switch *ds = dp->ds;
- 
- 	if (!ds->ops->port_vlan_del)
- 		return -EOPNOTSUPP;
- 
--	return ds->ops->port_vlan_del(ds, p->dp->index, vlan);
-+	return ds->ops->port_vlan_del(ds, dp->index, vlan);
- }
- 
--static int dsa_slave_port_vlan_dump(struct net_device *dev,
--				    struct switchdev_obj_port_vlan *vlan,
--				    switchdev_obj_dump_cb_t *cb)
-+static int dsa_port_vlan_dump(struct dsa_port *dp,
-+			      struct switchdev_obj_port_vlan *vlan,
-+			      switchdev_obj_dump_cb_t *cb)
- {
--	struct dsa_slave_priv *p = netdev_priv(dev);
--	struct dsa_switch *ds = p->dp->ds;
-+	struct dsa_switch *ds = dp->ds;
- 
- 	if (ds->ops->port_vlan_dump)
--		return ds->ops->port_vlan_dump(ds, p->dp->index, vlan, cb);
-+		return ds->ops->port_vlan_dump(ds, dp->index, vlan, cb);
- 
- 	return -EOPNOTSUPP;
- }
-@@ -499,9 +495,8 @@ static int dsa_slave_port_obj_add(struct net_device *dev,
- 		err = dsa_port_mdb_add(dp, SWITCHDEV_OBJ_PORT_MDB(obj), trans);
- 		break;
- 	case SWITCHDEV_OBJ_ID_PORT_VLAN:
--		err = dsa_slave_port_vlan_add(dev,
--					      SWITCHDEV_OBJ_PORT_VLAN(obj),
--					      trans);
-+		err = dsa_port_vlan_add(dp, SWITCHDEV_OBJ_PORT_VLAN(obj),
-+					trans);
- 		break;
- 	default:
- 		err = -EOPNOTSUPP;
-@@ -526,8 +521,7 @@ static int dsa_slave_port_obj_del(struct net_device *dev,
- 		err = dsa_port_mdb_del(dp, SWITCHDEV_OBJ_PORT_MDB(obj));
- 		break;
- 	case SWITCHDEV_OBJ_ID_PORT_VLAN:
--		err = dsa_slave_port_vlan_del(dev,
--					      SWITCHDEV_OBJ_PORT_VLAN(obj));
-+		err = dsa_port_vlan_del(dp, SWITCHDEV_OBJ_PORT_VLAN(obj));
- 		break;
- 	default:
- 		err = -EOPNOTSUPP;
-@@ -553,9 +547,7 @@ static int dsa_slave_port_obj_dump(struct net_device *dev,
- 		err = dsa_port_mdb_dump(dp, SWITCHDEV_OBJ_PORT_MDB(obj), cb);
- 		break;
- 	case SWITCHDEV_OBJ_ID_PORT_VLAN:
--		err = dsa_slave_port_vlan_dump(dev,
--					       SWITCHDEV_OBJ_PORT_VLAN(obj),
--					       cb);
-+		err = dsa_port_vlan_dump(dp, SWITCHDEV_OBJ_PORT_VLAN(obj), cb);
- 		break;
- 	default:
- 		err = -EOPNOTSUPP;
--- 
-2.13.0
+PiBGcm9tOiBLaXJzaGVyLCBKZWZmcmV5IFQNCj4gU2VudDogRnJpZGF5LCBNYXkgMTksIDIwMTcg
+MToxNyBBTQ0KPiBUbzogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0PjsgYnBvaXJp
+ZXJAc3VzZS5jb20NCj4gQ2M6IHMucHJpZWJlQHByb2ZpaG9zdC5hZzsgaW50ZWwtd2lyZWQtbGFu
+QGxpc3RzLm9zdW9zbC5vcmc7DQo+IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IHBtZW56ZWxAbW9s
+Z2VuLm1wZy5kZTsgTmVmdGluLCBTYXNoYQ0KPiA8c2FzaGEubmVmdGluQGludGVsLmNvbT47IEJy
+b3duLCBBYXJvbiBGIDxhYXJvbi5mLmJyb3duQGludGVsLmNvbT47DQo+IHN0ZXBoZW5AbmV0d29y
+a3BsdW1iZXIub3JnDQo+IFN1YmplY3Q6IFJlOiBbUEFUQ0ggdjJdIGUxMDAwZTogRG9uJ3QgcmV0
+dXJuIHVuaW5pdGlhbGl6ZWQgc3RhdHMNCj4gDQo+IE9uIFRodSwgMjAxNy0wNS0xOCBhdCAxMDo0
+NiAtMDQwMCwgRGF2aWQgTWlsbGVyIHdyb3RlOg0KPiA+IEZyb206IEJlbmphbWluIFBvaXJpZXIg
+PGJwb2lyaWVyQHN1c2UuY29tPg0KPiA+IERhdGU6IFdlZCwgMTcgTWF5IDIwMTcgMTY6MjQ6MTMg
+LTA0MDANCj4gPg0KPiA+ID4gU29tZSBzdGF0aXN0aWNzIHBhc3NlZCB0byBldGh0b29sIGFyZSBn
+YXJiYWdlIGJlY2F1c2UNCj4gPiA+IGUxMDAwZV9nZXRfc3RhdHM2NCgpDQo+ID4gPiBkb2Vzbid0
+IHdyaXRlIHRoZW0sIGZvciBleGFtcGxlOiB0eF9oZWFydGJlYXRfZXJyb3JzLiBUaGlzIGxlYWtz
+IGtlcm5lbA0KPiA+ID4gbWVtb3J5IHRvIHVzZXJzcGFjZSBhbmQgY29uZnVzZXMgdXNlcnMuDQo+
+ID4gPg0KPiA+ID4gRG8gbGlrZSBpeGdiZSBhbmQgdXNlIGRldl9nZXRfc3RhdHMoKSB3aGljaCBm
+aXJzdCB6ZXJvZXMgb3V0DQo+ID4gPiBydG5sX2xpbmtfc3RhdHM2NC4NCj4gPiA+DQo+ID4gPiBG
+aXhlczogNTk0NDcwMWRmOTBkICgibmV0OiByZW1vdmUgdXNlbGVzcyBtZW1zZXQncyBpbiBkcml2
+ZXJzDQo+ID4gPiBnZXRfc3RhdHM2NCIpDQo+ID4gPiBSZXBvcnRlZC1ieTogU3RlZmFuIFByaWVi
+ZSA8cy5wcmllYmVAcHJvZmlob3N0LmFnPg0KPiA+ID4gU2lnbmVkLW9mZi1ieTogQmVuamFtaW4g
+UG9pcmllciA8YnBvaXJpZXJAc3VzZS5jb20+DQoNClRlc3RlZC1ieTogQWFyb24gQnJvd24gPGFh
+cm9uLmYuYnJvd25AaW50ZWwuY29tPg0K
