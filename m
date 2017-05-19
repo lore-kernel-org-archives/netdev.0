@@ -1,53 +1,137 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 07/12] netfilter: synproxy: fix conntrackd interaction
-Date: Fri, 19 May 2017 10:33:48 +0200
-Message-ID: <1495182833-2272-8-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 06/12] netfilter: xtables: zero padding in data_to_user
+Date: Fri, 19 May 2017 10:33:47 +0200
+Message-ID: <1495182833-2272-7-git-send-email-pablo@netfilter.org>
 References: <1495182833-2272-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:44022 "EHLO mail.us.es"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754011AbdESIeW (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 19 May 2017 04:34:22 -0400
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+        by mail.us.es (Postfix) with ESMTP id 001F91DA0AD
+        for <netdev@vger.kernel.org>; Fri, 19 May 2017 10:34:14 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id E4AF9100790
+        for <netdev@vger.kernel.org>; Fri, 19 May 2017 10:34:13 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 9F933FF2F7
+        for <netdev@vger.kernel.org>; Fri, 19 May 2017 10:34:11 +0200 (CEST)
 In-Reply-To: <1495182833-2272-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Eric Leblond <eric@regit.org>
+From: Willem de Bruijn <willemb@google.com>
 
-This patch fixes the creation of connection tracking entry from
-netlink when synproxy is used. It was missing the addition of
-the synproxy extension.
+When looking up an iptables rule, the iptables binary compares the
+aligned match and target data (XT_ALIGN). In some cases this can
+exceed the actual data size to include padding bytes.
 
-This was causing kernel crashes when a conntrack entry created by
-conntrackd was used after the switch of traffic from active node
-to the passive node.
+Before commit f77bc5b23fb1 ("iptables: use match, target and data
+copy_to_user helpers") the malloc()ed bytes were overwritten by the
+kernel with kzalloced contents, zeroing the padding and making the
+comparison succeed. After this patch, the kernel copies and clears
+only data, leaving the padding bytes undefined.
 
-Signed-off-by: Eric Leblond <eric@regit.org>
+Extend the clear operation from data size to aligned data size to
+include the padding bytes, if any.
+
+Padding bytes can be observed in both match and target, and the bug
+triggered, by issuing a rule with match icmp and target ACCEPT:
+
+  iptables -t mangle -A INPUT -i lo -p icmp --icmp-type 1 -j ACCEPT
+  iptables -t mangle -D INPUT -i lo -p icmp --icmp-type 1 -j ACCEPT
+
+Fixes: f77bc5b23fb1 ("iptables: use match, target and data copy_to_user helpers")
+Reported-by: Paul Moore <pmoore@redhat.com>
+Reported-by: Richard Guy Briggs <rgb@redhat.com>
+Signed-off-by: Willem de Bruijn <willemb@google.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/nf_conntrack_netlink.c | 4 ++++
- 1 file changed, 4 insertions(+)
+ include/linux/netfilter/x_tables.h | 2 +-
+ net/bridge/netfilter/ebtables.c    | 9 ++++++---
+ net/netfilter/x_tables.c           | 9 ++++++---
+ 3 files changed, 13 insertions(+), 7 deletions(-)
 
-diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
-index fa752626029e..9799a50bc604 100644
---- a/net/netfilter/nf_conntrack_netlink.c
-+++ b/net/netfilter/nf_conntrack_netlink.c
-@@ -45,6 +45,8 @@
- #include <net/netfilter/nf_conntrack_zones.h>
- #include <net/netfilter/nf_conntrack_timestamp.h>
- #include <net/netfilter/nf_conntrack_labels.h>
-+#include <net/netfilter/nf_conntrack_seqadj.h>
-+#include <net/netfilter/nf_conntrack_synproxy.h>
- #ifdef CONFIG_NF_NAT_NEEDED
- #include <net/netfilter/nf_nat_core.h>
- #include <net/netfilter/nf_nat_l4proto.h>
-@@ -1827,6 +1829,8 @@ ctnetlink_create_conntrack(struct net *net,
- 	nf_ct_tstamp_ext_add(ct, GFP_ATOMIC);
- 	nf_ct_ecache_ext_add(ct, 0, 0, GFP_ATOMIC);
- 	nf_ct_labels_ext_add(ct);
-+	nfct_seqadj_ext_add(ct);
-+	nfct_synproxy_ext_add(ct);
+diff --git a/include/linux/netfilter/x_tables.h b/include/linux/netfilter/x_tables.h
+index be378cf47fcc..b3044c2c62cb 100644
+--- a/include/linux/netfilter/x_tables.h
++++ b/include/linux/netfilter/x_tables.h
+@@ -294,7 +294,7 @@ int xt_match_to_user(const struct xt_entry_match *m,
+ int xt_target_to_user(const struct xt_entry_target *t,
+ 		      struct xt_entry_target __user *u);
+ int xt_data_to_user(void __user *dst, const void *src,
+-		    int usersize, int size);
++		    int usersize, int size, int aligned_size);
  
- 	/* we must add conntrack extensions before confirmation. */
- 	ct->status |= IPS_CONFIRMED;
+ void *xt_copy_counters_from_user(const void __user *user, unsigned int len,
+ 				 struct xt_counters_info *info, bool compat);
+diff --git a/net/bridge/netfilter/ebtables.c b/net/bridge/netfilter/ebtables.c
+index 9ec0c9f908fa..9c6e619f452b 100644
+--- a/net/bridge/netfilter/ebtables.c
++++ b/net/bridge/netfilter/ebtables.c
+@@ -1373,7 +1373,8 @@ static inline int ebt_obj_to_user(char __user *um, const char *_name,
+ 	strlcpy(name, _name, sizeof(name));
+ 	if (copy_to_user(um, name, EBT_FUNCTION_MAXNAMELEN) ||
+ 	    put_user(datasize, (int __user *)(um + EBT_FUNCTION_MAXNAMELEN)) ||
+-	    xt_data_to_user(um + entrysize, data, usersize, datasize))
++	    xt_data_to_user(um + entrysize, data, usersize, datasize,
++			    XT_ALIGN(datasize)))
+ 		return -EFAULT;
+ 
+ 	return 0;
+@@ -1658,7 +1659,8 @@ static int compat_match_to_user(struct ebt_entry_match *m, void __user **dstptr,
+ 		if (match->compat_to_user(cm->data, m->data))
+ 			return -EFAULT;
+ 	} else {
+-		if (xt_data_to_user(cm->data, m->data, match->usersize, msize))
++		if (xt_data_to_user(cm->data, m->data, match->usersize, msize,
++				    COMPAT_XT_ALIGN(msize)))
+ 			return -EFAULT;
+ 	}
+ 
+@@ -1687,7 +1689,8 @@ static int compat_target_to_user(struct ebt_entry_target *t,
+ 		if (target->compat_to_user(cm->data, t->data))
+ 			return -EFAULT;
+ 	} else {
+-		if (xt_data_to_user(cm->data, t->data, target->usersize, tsize))
++		if (xt_data_to_user(cm->data, t->data, target->usersize, tsize,
++				    COMPAT_XT_ALIGN(tsize)))
+ 			return -EFAULT;
+ 	}
+ 
+diff --git a/net/netfilter/x_tables.c b/net/netfilter/x_tables.c
+index 8876b7da6884..d17769599c10 100644
+--- a/net/netfilter/x_tables.c
++++ b/net/netfilter/x_tables.c
+@@ -283,12 +283,13 @@ static int xt_obj_to_user(u16 __user *psize, u16 size,
+ 		       &U->u.user.revision, K->u.kernel.TYPE->revision)
+ 
+ int xt_data_to_user(void __user *dst, const void *src,
+-		    int usersize, int size)
++		    int usersize, int size, int aligned_size)
+ {
+ 	usersize = usersize ? : size;
+ 	if (copy_to_user(dst, src, usersize))
+ 		return -EFAULT;
+-	if (usersize != size && clear_user(dst + usersize, size - usersize))
++	if (usersize != aligned_size &&
++	    clear_user(dst + usersize, aligned_size - usersize))
+ 		return -EFAULT;
+ 
+ 	return 0;
+@@ -298,7 +299,9 @@ EXPORT_SYMBOL_GPL(xt_data_to_user);
+ #define XT_DATA_TO_USER(U, K, TYPE, C_SIZE)				\
+ 	xt_data_to_user(U->data, K->data,				\
+ 			K->u.kernel.TYPE->usersize,			\
+-			C_SIZE ? : K->u.kernel.TYPE->TYPE##size)
++			C_SIZE ? : K->u.kernel.TYPE->TYPE##size,	\
++			C_SIZE ? COMPAT_XT_ALIGN(C_SIZE) :		\
++				 XT_ALIGN(K->u.kernel.TYPE->TYPE##size))
+ 
+ int xt_match_to_user(const struct xt_entry_match *m,
+ 		     struct xt_entry_match __user *u)
 -- 
 2.1.4
-
