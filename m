@@ -1,67 +1,62 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH v2 00/10] rt2x00: rt2x00: improve calling conventions for
- register accessors
-Date: Fri, 19 May 2017 09:21:30 +0200
-Message-ID: <CAK8P3a39Op7oyLxP5YwRNhP4v=7d8rL1n0ftUswci_0FaOqybg@mail.gmail.com>
-References: <20170517144702.1381136-1-arnd@arndb.de> <87r2zl8lvi.fsf@codeaurora.org>
- <CAK8P3a3YGxNBQq3RYucMCCvSyXOD8skF_Db-eba0PcBL4_P8Dg@mail.gmail.com> <87efvlwc48.fsf@kamboji.qca.qualcomm.com>
+From: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
+Subject: [PATCH] e1000e: use disable_hardirq() also for MSIX vectors in
+ e1000_netpoll()
+Date: Fri, 19 May 2017 10:18:49 +0300
+Message-ID: <149517832870.37403.16008624383220981105.stgit@buzz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: linux-wireless <linux-wireless@vger.kernel.org>,
-        Stanislaw Gruszka <sgruszka@redhat.com>,
-        David Miller <davem@davemloft.net>,
-        Helmut Schaa <helmut.schaa@googlemail.com>,
-        Daniel Golle <daniel@makrotopia.org>,
-        Mathias Kresin <dev@kresin.me>,
-        Johannes Berg <johannes.berg@intel.com>,
-        Serge Vasilugin <vasilugin@yandex.ru>,
-        Roman Yeryomin <roman@advem.lv>,
-        Networking <netdev@vger.kernel.org>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        Jes Sorensen <jes.sorensen@gmail.com>,
-        Tom Psyborg <pozega.tomislav@gmail.com>
-To: Kalle Valo <kvalo@codeaurora.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Dave Jones <davej@codemonkey.org.uk>,
+        WANG Cong <xiyou.wangcong@gmail.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Sabrina Dubroca <sd@queasysnail.net>
+To: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f66.google.com ([209.85.218.66]:33470 "EHLO
-        mail-oi0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752320AbdESHVb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 19 May 2017 03:21:31 -0400
-In-Reply-To: <87efvlwc48.fsf@kamboji.qca.qualcomm.com>
+Received: from forwardcorp1g.cmail.yandex.net ([87.250.241.190]:48025 "EHLO
+        forwardcorp1g.cmail.yandex.net" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1750703AbdESH0I (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 19 May 2017 03:26:08 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 19, 2017 at 9:15 AM, Kalle Valo <kvalo@codeaurora.org> wrote:
-> Arnd Bergmann <arnd@arndb.de> writes:
->
->> On Fri, May 19, 2017 at 7:18 AM, Kalle Valo <kvalo@codeaurora.org> wrote:
->>> Arnd Bergmann <arnd@arndb.de> writes:
->>>
->>>> I've managed to split up my long patch into a series of reasonble
->>>> steps now.
->>>>
->>>> The first two are required to fix a regression from commit 41977e86c984
->>>> ("rt2x00: add support for MT7620"), the rest are just cleanups to
->>>> have a consistent state across all the register access functions.
->>>
->>> Can these all go to 4.13 or would you prefer me to push the first two
->>> 4.12? Or what?
->>
->> I think you can reasonably argue either way: the second patch does
->> fix a real bug that may or may not lead to an exploitable stack overflow
->> when CONFIG_KASAN is enabled, which would be a reason to put it
->> into 4.12. On the other hand, I have another 20 patches for similar
->> (or worse) stack overflow issues with KASAN that I'm hoping to all
->> get into 4.13 and backported into stable kernel later if necessary,
->> so we could treat this one like the others.
->>
->> The only difference between this and the others is that in rt2x00 it
->> is a regression against 4.11, while the others have all been present
->> for a long time.
->
-> Having all of these in 4.12 sounds a bit excessive and splitting the set
-> (the first two into 4.12 and the rest into 4.13) sounds too much work.
-> So I would prefer to queue these to 4.13, if it's ok for everyone?
+Replace disable_irq() which waits for threaded irq handlers with
+disable_hardirq() which waits only for hardirq part.
 
-Ok, sounds fine. Thanks,
+Signed-off-by: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
+Fixes: 311191297125 ("e1000: use disable_hardirq() for e1000_netpoll()")
+---
+ drivers/net/ethernet/intel/e1000e/netdev.c |   12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
 
-      Arnd
+diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+index b3679728caac..7f185f481b12 100644
+--- a/drivers/net/ethernet/intel/e1000e/netdev.c
++++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+@@ -6733,20 +6733,20 @@ static irqreturn_t e1000_intr_msix(int __always_unused irq, void *data)
+ 
+ 		vector = 0;
+ 		msix_irq = adapter->msix_entries[vector].vector;
+-		disable_irq(msix_irq);
+-		e1000_intr_msix_rx(msix_irq, netdev);
++		if (disable_hardirq(msix_irq))
++			e1000_intr_msix_rx(msix_irq, netdev);
+ 		enable_irq(msix_irq);
+ 
+ 		vector++;
+ 		msix_irq = adapter->msix_entries[vector].vector;
+-		disable_irq(msix_irq);
+-		e1000_intr_msix_tx(msix_irq, netdev);
++		if (disable_hardirq(msix_irq))
++			e1000_intr_msix_tx(msix_irq, netdev);
+ 		enable_irq(msix_irq);
+ 
+ 		vector++;
+ 		msix_irq = adapter->msix_entries[vector].vector;
+-		disable_irq(msix_irq);
+-		e1000_msix_other(msix_irq, netdev);
++		if (disable_hardirq(msix_irq))
++			e1000_msix_other(msix_irq, netdev);
+ 		enable_irq(msix_irq);
+ 	}
+ 
