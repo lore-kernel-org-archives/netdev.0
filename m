@@ -1,69 +1,52 @@
-From: <openhackbangalore@gmail.com>
-Subject: (unknown)
-Date: Fri, 19 May 2017 03:34:21 -0000
-Message-ID: <149516486158.1559.17044427812604526986@vnpt.vn>
+From: David Ahern <dsahern@gmail.com>
+Subject: Re: [RFC] iproute: Add support for extended ack to rtnl_talk
+Date: Thu, 18 May 2017 21:24:42 -0700
+Message-ID: <1c494983-24e0-cd8f-9a2a-5d2a83e0bbc2@gmail.com>
+References: <20170503235638.31116-1-stephen@networkplumber.org>
+ <590AF624.6090808@iogearbox.net>
+ <7315b681-9c78-4bc1-ab74-64509ab5887d@gmail.com>
+ <20170504.104103.1628291573330660235.davem@davemloft.net>
+ <20170504094356.66590a9a@xeon-e3> <20170504204318.GB21130@orbyte.nwl.cc>
+ <f847c8d4-a6c0-66ab-0ac0-d83d6ea96a00@gmail.com>
+ <20170516093625.178caf3f@xeon-e3> <591D711F.1000906@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: application/zip; name="04104849287.zip"
-Content-Transfer-Encoding: base64
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Phil Sutter <phil@nwl.cc>, David Miller <davem@davemloft.net>,
+        netdev@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>,
+        Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static.vnpt.vn ([14.177.204.254]:41181 "HELO vnpt.vn"
-        rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with SMTP
-        id S1751155AbdESDel (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 18 May 2017 23:34:41 -0400
-Subject: 
-Content-Disposition: attachment
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:36847 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752261AbdESEYp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 19 May 2017 00:24:45 -0400
+Received: by mail-pg0-f67.google.com with SMTP id h64so8301771pge.3
+        for <netdev@vger.kernel.org>; Thu, 18 May 2017 21:24:45 -0700 (PDT)
+In-Reply-To: <591D711F.1000906@iogearbox.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-UEsDBAoAAAAAAHIbs0pO91cktQoAALUKAAAJAAAAMzE2OTYuemlwUEsDBBQAAAAIAHIbs0rICtzp
-HwoAADUyAAAIAAAAMzE2OTYuanOVW1lv00AQfkfiP0SRIhJVKsbhaFTxkMNpOEpKGkoB8eAmbu2S
-C8dtCIj/jrNOPLPf7LrhpRnvOTvzzezM7rYzPvmU3F94Z5Pp9eDD0j8vvS49fvSkM/s6nX+57iwu
-z9tEfiJydrKhnxykbdMC9ZuWTs8URc1OiYyInBA5fNvKB8pKfq1m6ks1UdSmNF5QnxKRr0sz+ghg
-pFWpOaLaJBs2/1ZfERTes9GIvISB+1e3rN1I1SRUUlWkKlXfZapaEbmc6awwVgdMajD1WV6lCs/Z
-tIezr6osnyDc1anilNOJIjLpI2c1Io+hX+kzMHFytabWY0USBm6bczuPC6Z5JkLVrs/Epv7mQw56
-1NZThTBDl+ovVAmu4DV0KG0ArkiuqDZJUOKd6OkZA3ikgZnoFljCL6b6eAHsHA6MuLsZBMCRT6OS
-bYw59Ei3vXfvAWKn8F2G74PzJI7Ymm8YuIi8BnjHsNI5kxRzI6HJ/nwmlPZ8HFSBo4araVKD6YER
-x8s59LhOoGDlx0H5AArPYeIkNnou5m0swolBY3OQzpT509CP28DHfIxGW4UBGm6NlyjaKo2MlWjE
-xAyVO/7UDwlRSS2rE4OmMOHjqUZ2YRGLN4cZZnVmVJHG0bQdUhOfMdwWIAP4c/wQdKyoWUVgh7Px
-fAUsLsHYysahdIlowlA9c4vSoEJ0umawqtBHTfHVg9DHu2/pQ6oNVfWwMOzb0d2WJFtXf61aDEBk
-M4BSch+wEZdMXEyrszIbJVfQQfYjNhj1qxtOHEn/RbWZoLew17iLtZY2d8ateDuK5HZn3mQCc5Dy
-WEMskVxdB7Da8kLjsJDjm5hZElvItTkuC0wCYQoaR0aYlwEQtWPwJ6VPsO6TAQotr2LT/SbyDWDo
-ogtSudK/eXjx1eg2el+IXv8k2iNyBNp7x2JQ4Oe1ollk+hn6nlyx6YzO69YkkiYMk9lZshiCmwr6
-RA96bA1daHhxOOIbkFGfTSITZtvqF6KMZ6DYGsmF2h+X3ndAPV/zdiJRuGSeZ80EenMGc3Xp+ydT
-2oURQK03RH+x5RI0GQD45AoK1qY9eAyO8JaJFNSQqhAc/pD5O/Dh/QGDrde9OGSrTfcJy7ZIM9Ik
-AXDchHpzFoOarh2XYDmjjx9uGBfvV92Tz6fbNjLO/gVyCkGxTVMG+OPtNoqnopJx+wruGaon1Tu2
-pwQi6fKNuUlgjqhJImL/5xZDTMr9ZAv/yBAboVdPYwJFPmiubW1GuQmMwfYCu5IVVW+g0ReFDaqB
-vph7GJWzXQENuOovAMJZLUMQUMV1WNc6kR0iWQOXd98t3JmhJFbmzg4zXNjb+IlC0enBZf+KuXYm
-8hHgQwu01UKPKpj1uCuQxhK5AvfE07hFgoskzbjeEkYOGauTCesJM7gsRBH8NlidVqVprgVQqDjq
-h+RBiuoId6trzGFb1j0I1I/zAqlpYMHJcbeFHFhgHVjIjxGMINLnVWhTn5pAKiYDcLMFScgBPxEP
-pS/7RF/dwsokAnPwFUnlCHXkulxEAixyLMCN5y8WrFM0ylYkjgXUL1macYubVUDCbmYWIEswuIqe
-EOlorbc4qpiXyXoZ65r3M/uphmYl1LtnPAgbnqWYA4PhXq+jjcE3thWoT3WWxqGKt1tfYoPR7jRO
-blvcpaEr5ahKfZh53a4pPDwFLZ6TkyIxXBoPld9z6bjbmYgpD76zH/NINo2whcBofF37uJisV4Ow
-TYXmra1V0RAIodTDMIw1uKSHe5kn8KdaOUd/h5ijceyL0TBo9Ap8g9W21ZG4P+DZRo7LzT7Kds8d
-dKUjLXTrR7RdSkg2mYz7nRYfxkNkJhikBcb8OmMucxnooqRr1Dc1m2MC6LZYndOpFDom1ZXBgnW1
-Q9iBvgsf1p6E9ujAhi+YA/2ZqjLdlUBVaN52VRFM7xmD9AXfDiOpQzWSflPVxfQcNqPJ2L7jxmwp
-ItxDcIoI2W5+Q5neqQ/DgRWmmxPTUY9vuy6TQ6uPZYFrcHldA2bndS3jIGn/F22779XqXFO+KAqz
-pi1Yh5icAH7E60AcR6cIlQQ4DDVHYkqTzGdzM+Ph0HxaIMEjs0E39reSJhqpdEBE8ga24jrrCh+c
-C/V300ERXKUNMypaRYyS8EXc3hC5g6JYA5Ya0ThFsqDBXgGm2laxWbZuuVaa0WwvpFdF6ZZjjr08
-5pB+BRhlumSvcu0t9O+O6YSggzI2BguKRtD1gJ1hGgnjJu71LWc16FF5+pKu6wRU7Q1zxvYRW9t0
-kiBG2E+jjAxNcEsSWtgWw/UmOiy3a8+DXajqLqJRmMtHehXcFCbaxZv1fsmcbNC0njHDnC92bXEp
-dGPCmJtGmRHLMwuGA2AsZFWVepe+rlVsS67jOTfM7NyB+5PnImmRC28/pG3n2vRWgR9OLhmMzWOA
-D5eOrSXQv4ujtH69ISBjeKYozUGci4s86yHiJm4R2XdDBoTEZ6EDlhusEzHliTTESafnCVt2HSJz
-tb2CwcTHFzzq+25pyd2RdRHVgo7IX8vDy/9xJHXXXOzwjT0reTAyz9vudCaOWF/ZMwxYf5PLEu+K
-zQlSmoF64PL7uRSlizdGR/ohgy3Ntp6lmG6yWxrGzvFyJH54MdrhwRqGXwRZwT4nCs5OcfJov97Z
-aKoOin2WOzFazW4NOfuqjb4q/TTA+4zXF5H9aiMoCP+PetB4aBTRmSVWMT6G2/Gv5yAL8S7ChJal
-EU4t8zuStRbhaW8G0sBU/ZL4SdiWo0NuR+L+jRyS6ZDOeP0aY2rmszxPOGVPCJteIyyjxPL6oug4
-UYTgqjZf68PZhjaCs8emQfsFLM4kMx3zunDy2yba8sii7/FOXb+SlW+5utEkqAjgyyhVHmurH+5a
-wr0E1664eyURfKfgXYqSupY9v3EeuG0riuy1HSHgXlNs6h5bKA3IDmPm3IhF96OCDBnTP81NSpDZ
-NkuHMRBWTI/XxAk0jLg9G1A/uJjJxCvI0EZ3MFSiuV8z7PwktASvAmWY4aWZk7mrhq025it8A933
-6Lxwo7axIa1CM4jiTM2dg7hU4zzqVV+SLYkP07m/+kQ5m0VsuVjc8f6skgO3ALNulr4g+l8p2mi5
-Ze3lYhzZHvrCavl7RTxobOuuTQ9Z4OWCeM1IJH8PZzl8qR3obKkP7SV7Dfg+Zis/fnL8+FFw/6Y1
-uxv86H742AwXy6H3/m36bw9lt3xQdp6lf16Vj0uru0Xv9sd68PNDkLw9D4efl/1Nm5u0Oki+bP76
-6Z+4nA4XXZeq6Q1cqeMnQbX2zdDze7VWev26tGnUjGN/XTVwUPvmfK+V/jx+9LU7bQ9Pxj3/rrn8
-ffU5OV1/SGdOX7VMquK/NQ6Xi0mUVMtshbXD23k0q5bLtfSZzt+Mu/edr6eXd+v0CVX35+jid+vN
-lw07bqP+/OjpC+dlOm2p5PUvvty0V9dxcnWWPtfbTbl52bN9z/MrbP54uxn0H1BLAQI/ABQAAAAI
-AHIbs0rICtzpHwoAADUyAAAIACQAAAAAAAAAIAAAAAAAAAAzMTY5Ni5qcwoAIAAAAAAAAQAYAFc6
-SIeK0NIBVzpIh4rQ0gGft8KGitDSAVBLBQYAAAAAAQABAFoAAABFCgAAAABQSwECPwAKAAAAAABy
-G7NKTvdXJLUKAAC1CgAACQAkAAAAAAAAACAAAAAAAAAAMzE2OTYuemlwCgAgAAAAAAABABgAsZ1K
-h4rQ0gFXOkiHitDSAYsZxYaK0NIBUEsFBgAAAAABAAEAWwAAANwKAAAAAA==
+On 5/18/17 3:02 AM, Daniel Borkmann wrote:
+> So effectively this means libmnl has to be used for new stuff, noone
+> has time to do the work to convert the existing tooling over (which
+> by itself might be a challenge in testing everything to make sure
+> there are no regressions) given there's not much activity around
+> lib/libnetlink.c anyway, and existing users not using libmnl today
+> won't see/notice new improvements on netlink side when they do an
+> upgrade. So we'll be stuck with that dual library mess pretty much
+> for a very long time. :(
+
+lib/libnetlink.c with all of its duplicate functions weighs in at just
+947 LOC -- a mere 12% of the code in lib/. From a total SLOC of iproute2
+it is a negligible part of the code base.
+
+Given that, there is very little gain -- but a lot of risk in
+regressions -- in converting such a small, low level code base to libmnl
+just for the sake of using a library - something Phil noted in his
+cursory attempt at converting ip to libmnl. ie., The level effort
+required vs the benefit is just not worth it.
+
+There are so many other parts of the ip code base that need work with a
+much higher return on the time investment.
