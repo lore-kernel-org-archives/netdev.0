@@ -1,89 +1,41 @@
-From: Iyappan Subramanian <isubramanian@apm.com>
-Subject: Re: [PATCH v2 net-next 1/2] include: linux: Add helper function to
- check phy interface mode
-Date: Thu, 18 May 2017 21:34:42 -0700
-Message-ID: <CAKh23F=4+ecy07ODCtrTe1jAXN8e2wde52=uVau9-eyj7hBrMQ@mail.gmail.com>
-References: <1495145624-29463-1-git-send-email-isubramanian@apm.com>
- <1495145624-29463-2-git-send-email-isubramanian@apm.com> <0c55a097-564d-58ea-8e64-d642a1d8fad7@gmail.com>
+From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Subject: Re: [PATCH v2 00/10] rt2x00: rt2x00: improve calling conventions for register accessors
+Date: Fri, 19 May 2017 08:18:57 +0300
+Message-ID: <87r2zl8lvi.fsf@codeaurora.org>
+References: <20170517144702.1381136-1-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>,
-        "linux-arm-kernel@lists.infradead.org"
-        <linux-arm-kernel@lists.infradead.org>, patches <patches@apm.com>
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ua0-f182.google.com ([209.85.217.182]:34176 "EHLO
-        mail-ua0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750729AbdESEen (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 19 May 2017 00:34:43 -0400
-Received: by mail-ua0-f182.google.com with SMTP id u10so19613622uaf.1
-        for <netdev@vger.kernel.org>; Thu, 18 May 2017 21:34:43 -0700 (PDT)
-In-Reply-To: <0c55a097-564d-58ea-8e64-d642a1d8fad7@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Stanislaw Gruszka <sgruszka-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Helmut Schaa <helmut.schaa-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>,
+        Daniel Golle <daniel-g5gK2j5usbvCyp4qypjU+w@public.gmane.org>,
+        Mathias Kresin <dev-zg6vgJgm1sizQB+pC5nmwQ@public.gmane.org>,
+        Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+        Serge Vasilugin <vasilugin-o+MxOtu4lMCHXe+LvDLADg@public.gmane.org>,
+        Roman Yeryomin <roman-9zmcapQ0v8Q@public.gmane.org>,
+        Networking <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Jes Sorensen <jes.sorensen-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Tom Psyborg <pozega.tomislav-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170517144702.1381136-1-arnd-r2nGTMty4D4@public.gmane.org> (Arnd Bergmann's message
+        of "Wed, 17 May 2017 16:46:52 +0200")
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, May 18, 2017 at 3:19 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
-> On 05/18/2017 03:13 PM, Iyappan Subramanian wrote:
->> Added helper function that checks phy_mode is RGMII (all variants)
->> 'bool phy_interface_mode_is_rgmii(phy_interface_t mode)'
->>
->> Changed the following function, to use the above.
->> 'bool phy_interface_is_rgmii(struct phy_device *phydev)'
->>
->> Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
->> Suggested-by: Florian Fainelli <f.fainelli@gmail.com>
->> Suggested-by: Andrew Lunn <andrew@lunn.ch>
->
-> Not sure why you have chosen include: linux as the subject since all
-> changes done to that file typically had the "phy: " prefix, but the code
-> changes are fine, thanks!
+Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org> writes:
 
-Thanks Florian.  I'll keep that in mind for future header file patches.  :-)
+> I've managed to split up my long patch into a series of reasonble
+> steps now.
+>
+> The first two are required to fix a regression from commit 41977e86c984
+> ("rt2x00: add support for MT7620"), the rest are just cleanups to
+> have a consistent state across all the register access functions.
 
-For now, if David Miller requests for the subject line change, I'll
-re-post the patch.
+Can these all go to 4.13 or would you prefer me to push the first two
+4.12? Or what?
 
->
-> Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
->
->> ---
->>  include/linux/phy.h | 14 ++++++++++++--
->>  1 file changed, 12 insertions(+), 2 deletions(-)
->>
->> diff --git a/include/linux/phy.h b/include/linux/phy.h
->> index 54ef458..5a808a2 100644
->> --- a/include/linux/phy.h
->> +++ b/include/linux/phy.h
->> @@ -716,14 +716,24 @@ static inline bool phy_is_internal(struct phy_device *phydev)
->>  }
->>
->>  /**
->> + * phy_interface_mode_is_rgmii - Convenience function for testing if a
->> + * PHY interface mode is RGMII (all variants)
->> + * @mode: the phy_interface_t enum
->> + */
->> +static inline bool phy_interface_mode_is_rgmii(phy_interface_t mode)
->> +{
->> +     return mode >= PHY_INTERFACE_MODE_RGMII &&
->> +             mode <= PHY_INTERFACE_MODE_RGMII_TXID;
->> +};
->> +
->> +/**
->>   * phy_interface_is_rgmii - Convenience function for testing if a PHY interface
->>   * is RGMII (all variants)
->>   * @phydev: the phy_device struct
->>   */
->>  static inline bool phy_interface_is_rgmii(struct phy_device *phydev)
->>  {
->> -     return phydev->interface >= PHY_INTERFACE_MODE_RGMII &&
->> -             phydev->interface <= PHY_INTERFACE_MODE_RGMII_TXID;
->> +     return phy_interface_mode_is_rgmii(phydev->interface);
->>  };
->>
->>  /*
->>
->
->
-> --
-> Florian
+-- 
+Kalle Valo
