@@ -1,118 +1,52 @@
-From: Ivan Vecera <cera@cera.cz>
-Subject: Re: [PATCH net] bridge: start hello_timer when enabling KERNEL_STP in br_stp_start
-Date: Fri, 19 May 2017 17:17:34 +0200
-Message-ID: <CA+Nub0Y=CU8-=TA+XN04OcQ4A2KOAWjd6LqMdE4wT7MSxjzH2g@mail.gmail.com>
-References: <6e78bfea3969ca1a937b37e28e796a3047b82615.1495203629.git.lucien.xin@gmail.com>
- <cf69d5e5-1acf-2ed4-b6cc-fdb1236e7a66@cumulusnetworks.com>
- <CA+Nub0YKgM7dMDYdi43sO2znVtCzToq0dAr5TFEb4Jmw+6zw+w@mail.gmail.com>
- <026b6024-4ec8-5060-f19a-163ed485207c@cumulusnetworks.com>
- <CA+Nub0Zi6-2PL3+6v5r3t3CD6NowJY_j=bd+x4NA42KKiPPp7A@mail.gmail.com> <3c987d40-6e47-3d7c-c6b9-b46ee5afcd57@cumulusnetworks.com>
-Reply-To: ivan.vecera@cera.cz
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: Re: [PATCH v5 net-next 5/7] net: fix documentation of struct scm_timestamping
+Date: Fri, 19 May 2017 11:23:49 -0400
+Message-ID: <CAF=yD-+cnSTQjed3UuMrCk8yiHdweqxvXCfunqd=eKmEFHRfvw@mail.gmail.com>
+References: <20170518140738.19617-1-mlichvar@redhat.com> <20170518140738.19617-6-mlichvar@redhat.com>
+ <CAF=yD-JGUw6pryNV3YevFMxC5=1A62qujAfFO7LjQi2LtsSg4g@mail.gmail.com> <20170519101118.GD21003@localhost>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: Xin Long <lucien.xin@gmail.com>,
-        network dev <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>
-To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Cc: Network Development <netdev@vger.kernel.org>,
+        Richard Cochran <richardcochran@gmail.com>,
+        Willem de Bruijn <willemb@google.com>
+To: Miroslav Lichvar <mlichvar@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f65.google.com ([209.85.218.65]:34461 "EHLO
+Received: from mail-oi0-f65.google.com ([209.85.218.65]:33485 "EHLO
         mail-oi0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751667AbdESPRg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 19 May 2017 11:17:36 -0400
-Received: by mail-oi0-f65.google.com with SMTP id w10so12858383oif.1
-        for <netdev@vger.kernel.org>; Fri, 19 May 2017 08:17:36 -0700 (PDT)
-In-Reply-To: <3c987d40-6e47-3d7c-c6b9-b46ee5afcd57@cumulusnetworks.com>
+        with ESMTP id S1750783AbdESPYa (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 19 May 2017 11:24:30 -0400
+Received: by mail-oi0-f65.google.com with SMTP id h4so12895870oib.0
+        for <netdev@vger.kernel.org>; Fri, 19 May 2017 08:24:30 -0700 (PDT)
+In-Reply-To: <20170519101118.GD21003@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2017-05-19 17:05 GMT+02:00 Nikolay Aleksandrov <nikolay@cumulusnetworks.com>:
-> On 5/19/17 6:03 PM, Ivan Vecera wrote:
+On Fri, May 19, 2017 at 6:11 AM, Miroslav Lichvar <mlichvar@redhat.com> wrote:
+> On Thu, May 18, 2017 at 03:38:30PM -0400, Willem de Bruijn wrote:
+>> On Thu, May 18, 2017 at 10:07 AM, Miroslav Lichvar <mlichvar@redhat.com> wrote:
+>> > +Note that if the SO_TIMESTAMP or SO_TIMESTAMPNS option is enabled
+>> > +together with SO_TIMESTAMPING using SOF_TIMESTAMPING_SOFTWARE, a false
+>> > +software timestamp will be generated in the recvmsg() call and passed
+>> > +in ts[0] when a real software timestamp is missing.
 >>
->> 2017-05-19 16:57 GMT+02:00 Nikolay Aleksandrov
->> <nikolay@cumulusnetworks.com>:
->>>
->>> On 5/19/17 5:51 PM, Ivan Vecera wrote:
->>>>
->>>>
->>>> 2017-05-19 16:45 GMT+02:00 Nikolay Aleksandrov
->>>> <nikolay@cumulusnetworks.com>:
->>>>>
->>>>>
->>>>> On 5/19/17 5:20 PM, Xin Long wrote:
->>>>>>
->>>>>>
->>>>>>
->>>>>> Since commit 76b91c32dd86 ("bridge: stp: when using userspace stp stop
->>>>>> kernel hello and hold timers"), bridge would not start hello_timer if
->>>>>> stp_enabled is not KERNEL_STP when br_dev_open.
->>>>>>
->>>>>> The problem is even if users set stp_enabled with KERNEL_STP later,
->>>>>> the timer will still not be started. It causes that KERNEL_STP can
->>>>>> not really work. Users have to re-ifup the bridge to avoid this.
->>>>>>
->>>>>> This patch is to fix it by starting br->hello_timer when enabling
->>>>>> KERNEL_STP in br_stp_start.
->>>>>>
->>>>>> As an improvement, it's also to start hello_timer again only when
->>>>>> br->stp_enabled is KERNEL_STP in br_hello_timer_expired, there is
->>>>>> no reason to start the timer again when it's NO_STP.
->>>>>>
->>>>>> Fixes: 76b91c32dd86 ("bridge: stp: when using userspace stp stop
->>>>>> kernel
->>>>>> hello and hold timers")
->>>>>> Reported-by: Haidong Li <haili@redhat.com>
->>>>>> Signed-off-by: Xin Long <lucien.xin@gmail.com>
->>>>>> ---
->>>>>>     net/bridge/br_stp_if.c    | 1 +
->>>>>>     net/bridge/br_stp_timer.c | 2 +-
->>>>>>     2 files changed, 2 insertions(+), 1 deletion(-)
->>>>>>
->>>>>
->>>>> This doesn't make much sense to me, how do you change from USER_STP to
->>>>> KERNEL_STP without first going through NO_STP ?
->>>>>
->>>>> If you go through NO_STP then all will be fine because br_stp_stop will
->>>>> restart
->>>>> the timers if the previous val was USER_STP.
->>>>>
->>>> The problem occurs when KERNEL_STP is enabled if the bridge itself is
->>>> already
->>>> up. Then the hello_timer is not started. If the hello and hold timers
->>>> should run only
->>>> when KERNEL_STP is used then there are another problematic places
->>>> (will send follow-up).
->>>>
->>>> Ivan
->>>>
->>>
->>> Oh, the problem seems to be rather going from NO_STP -> KERNEL_STP only
->>> then, because you cannot do direct USER_STP -> KERNEL_STP.
->>>
->> No only NO_STP->KERNEL_STP but KERNEL_STP->NO_STP as well as
->> USER_STP->NO_STP:
->>
->> 1) NO_STP->KERNEL_STP issue
->> hello_timer should be started in br_stp_start() - this patch
->>
+>> With receive software timestamping this is expected behavior? I would make
+>> explicit that this happens even on tx timestamps.
 >
-> Right, I was talking only about this patch. By the way what about
-> the port hold_timers ? This patch only starts the hello_timer.
+> How about adding ", e.g. when receive timestamping is enabled
+> between receiving the message and the recvmsg() call, or it is a
+> message with a hardware transmit timestamp." ?
 
-The hold_timers should be started indirectly from br_transmit_config()
-called from
-br_config_bpdu_generation() called from hello_timer_expired() handler.
+Perhaps even more brief "This happens also on hardware tx timestamps."
 
-I.
+>> > For this reason it
+>> > +is not recommended to combine SO_TIMESTAMP(NS) with SO_TIMESTAMPING.
+>>
+>> And I'd remove this. The extra timestamp is harmless, and we may be missing
+>> other reasons why someone would want to enable both on the same socket.
+>
+> Ok. I'm just concerned people will inadvertently use the timestamp as
+> a real timestamp and then wonder why SW TX timestamping is so bad. I
+> have fallen into this trap.
 
->> 2) KERNEL_STP->NO_STP issue
->> hello timer and hold timers should be stopped (deleted) in br_stp_stop()
->>
->> 3) USER_STP->NO_STP issue
->> hello timer and hold timers should NOT be started in br_stp_stop()
->>
->
-> Yep, ack.
->
->> Ivan
->>
->
+So have I. It is equally surprising when only enabling SO_TIMESTAMP and
+observing out of order timestamps. It is certainly worth calling out.
