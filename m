@@ -1,168 +1,106 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 20/20] net: dsa: add VLAN notifier
-Date: Fri, 19 May 2017 17:00:55 -0400
-Message-ID: <20170519210055.9366-21-vivien.didelot@savoirfairelinux.com>
-References: <20170519210055.9366-1-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 00/20] net: dsa: distribute switch events
+Date: Fri, 19 May 2017 17:00:35 -0400
+Message-ID: <20170519210055.9366-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
         Florian Fainelli <f.fainelli@gmail.com>,
         Andrew Lunn <andrew@lunn.ch>,
         Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170519210055.9366-1-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:48348 "EHLO
+        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932402AbdESVDQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 19 May 2017 17:03:16 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add two new DSA_NOTIFIER_VLAN_ADD and DSA_NOTIFIER_VLAN_DEL events to
-notify not only a single switch, but all switches of a the fabric when
-an VLAN entry is added or removed.
+DSA is by nature the support for a switch fabric, which can be composed
+of a single, or multiple interconnected Ethernet switch chips.
 
-For the moment, keep the current behavior and ignore other switches.
+The current DSA core behavior is to identify the slave port targeted by
+a request (e.g. adding a VLAN entry), and program the switch chip to
+which it belongs accordingly.
 
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
----
- net/dsa/dsa_priv.h | 10 ++++++++++
- net/dsa/port.c     | 31 ++++++++++++++-----------------
- net/dsa/switch.c   | 43 +++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 67 insertions(+), 17 deletions(-)
+This is problematic in a multi-chip environment, since all chips of a
+fabric must be aware of most configuration changes. Here are some
+concrete examples in a 3-chip environment:
 
-diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
-index 2b60293b325c..1d52f9051d0e 100644
---- a/net/dsa/dsa_priv.h
-+++ b/net/dsa/dsa_priv.h
-@@ -24,6 +24,8 @@ enum {
- 	DSA_NOTIFIER_FDB_DEL,
- 	DSA_NOTIFIER_MDB_ADD,
- 	DSA_NOTIFIER_MDB_DEL,
-+	DSA_NOTIFIER_VLAN_ADD,
-+	DSA_NOTIFIER_VLAN_DEL,
- };
- 
- /* DSA_NOTIFIER_AGEING_TIME */
-@@ -56,6 +58,14 @@ struct dsa_notifier_mdb_info {
- 	int port;
- };
- 
-+/* DSA_NOTIFIER_VLAN_* */
-+struct dsa_notifier_vlan_info {
-+	const struct switchdev_obj_port_vlan *vlan;
-+	struct switchdev_trans *trans;
-+	int sw_index;
-+	int port;
-+};
-+
- struct dsa_device_ops {
- 	struct sk_buff *(*xmit)(struct sk_buff *skb, struct net_device *dev);
- 	struct sk_buff *(*rcv)(struct sk_buff *skb, struct net_device *dev,
-diff --git a/net/dsa/port.c b/net/dsa/port.c
-index c7c4920e7bc9..c88c0cec8454 100644
---- a/net/dsa/port.c
-+++ b/net/dsa/port.c
-@@ -225,29 +225,26 @@ int dsa_port_vlan_add(struct dsa_port *dp,
- 		      const struct switchdev_obj_port_vlan *vlan,
- 		      struct switchdev_trans *trans)
- {
--	struct dsa_switch *ds = dp->ds;
--
--	if (switchdev_trans_ph_prepare(trans)) {
--		if (!ds->ops->port_vlan_prepare || !ds->ops->port_vlan_add)
--			return -EOPNOTSUPP;
--
--		return ds->ops->port_vlan_prepare(ds, dp->index, vlan, trans);
--	}
--
--	ds->ops->port_vlan_add(ds, dp->index, vlan, trans);
--
--	return 0;
-+	struct dsa_notifier_vlan_info info = {
-+		.sw_index = dp->ds->index,
-+		.port = dp->index,
-+		.trans = trans,
-+		.vlan = vlan,
-+	};
-+
-+	return dsa_port_notify(dp, DSA_NOTIFIER_VLAN_ADD, &info);
- }
- 
- int dsa_port_vlan_del(struct dsa_port *dp,
- 		      const struct switchdev_obj_port_vlan *vlan)
- {
--	struct dsa_switch *ds = dp->ds;
-+	struct dsa_notifier_vlan_info info = {
-+		.sw_index = dp->ds->index,
-+		.port = dp->index,
-+		.vlan = vlan,
-+	};
- 
--	if (!ds->ops->port_vlan_del)
--		return -EOPNOTSUPP;
--
--	return ds->ops->port_vlan_del(ds, dp->index, vlan);
-+	return dsa_port_notify(dp, DSA_NOTIFIER_VLAN_DEL, &info);
- }
- 
- int dsa_port_vlan_dump(struct dsa_port *dp,
-diff --git a/net/dsa/switch.c b/net/dsa/switch.c
-index b7e8e45869fc..c1e4b2d5a3ae 100644
---- a/net/dsa/switch.c
-+++ b/net/dsa/switch.c
-@@ -158,6 +158,43 @@ static int dsa_switch_mdb_del(struct dsa_switch *ds,
- 	return ds->ops->port_mdb_del(ds, info->port, mdb);
- }
- 
-+static int dsa_switch_vlan_add(struct dsa_switch *ds,
-+			       struct dsa_notifier_vlan_info *info)
-+{
-+	const struct switchdev_obj_port_vlan *vlan = info->vlan;
-+	struct switchdev_trans *trans = info->trans;
-+
-+	/* Do not care yet about other switch chips of the fabric */
-+	if (ds->index != info->sw_index)
-+		return 0;
-+
-+	if (switchdev_trans_ph_prepare(trans)) {
-+		if (!ds->ops->port_vlan_prepare || !ds->ops->port_vlan_add)
-+			return -EOPNOTSUPP;
-+
-+		return ds->ops->port_vlan_prepare(ds, info->port, vlan, trans);
-+	}
-+
-+	ds->ops->port_vlan_add(ds, info->port, vlan, trans);
-+
-+	return 0;
-+}
-+
-+static int dsa_switch_vlan_del(struct dsa_switch *ds,
-+			       struct dsa_notifier_vlan_info *info)
-+{
-+	const struct switchdev_obj_port_vlan *vlan = info->vlan;
-+
-+	/* Do not care yet about other switch chips of the fabric */
-+	if (ds->index != info->sw_index)
-+		return 0;
-+
-+	if (!ds->ops->port_vlan_del)
-+		return -EOPNOTSUPP;
-+
-+	return ds->ops->port_vlan_del(ds, info->port, vlan);
-+}
-+
- static int dsa_switch_event(struct notifier_block *nb,
- 			    unsigned long event, void *info)
- {
-@@ -186,6 +223,12 @@ static int dsa_switch_event(struct notifier_block *nb,
- 	case DSA_NOTIFIER_MDB_DEL:
- 		err = dsa_switch_mdb_del(ds, info);
- 		break;
-+	case DSA_NOTIFIER_VLAN_ADD:
-+		err = dsa_switch_vlan_add(ds, info);
-+		break;
-+	case DSA_NOTIFIER_VLAN_DEL:
-+		err = dsa_switch_vlan_del(ds, info);
-+		break;
- 	default:
- 		err = -EOPNOTSUPP;
- 		break;
+         [CPU].................... (mdio)
+    (eth0) |   :       :          :
+          _|_____    _______    _______
+         [__sw0__]--[__sw1__]--[__sw2__]
+          |  |  |    |  |  |    |  |  |
+          v  v  v    v  v  v    v  v  v
+          p1 p2 p3   p4 p5 p6   p7 p8 p9
+
+If you add a VLAN entry on p7, sw2 gets programmed, but frames won't
+reach the CPU interface in a VLAN filtered setup. sw0 and sw1 also need
+to be programmed. The same problem comes with MAC addresses (FDB, MDB),
+or ageing time changes for instance.
+
+This patch series uses the notification chain introduced for bridging,
+to notify not only bridge, but switchdev attributes and objects events
+to all switch chips of the fabric.
+
+An ugly debug message printing the ignored event and switch info in the
+code handling the switch VLAN events would give us:
+
+    # bridge vlan add dev p7 vid 42
+    sw0: ignoring DSA_NOTIFIER_VLAN_ADD for sw2 (prepare phase)
+    sw1: ignoring DSA_NOTIFIER_VLAN_ADD for sw2 (prepare phase)
+    sw0: ignoring DSA_NOTIFIER_VLAN_ADD for sw2 (commit phase)
+    sw1: ignoring DSA_NOTIFIER_VLAN_ADD for sw2 (commit phase)
+
+To achieve that, patches 1-8 change the scope of the bridge and
+switchdev callbacks from the DSA slave device to the generic DSA port,
+so that the port-wide API can be used later for switch ports not exposed
+to userspace, such as CPU and DSA links.
+
+Patches 9-15 move the DSA port specific functions in a new port.c file.
+
+Patches 16-20 introduce new events to notify the fabric about switchdev
+attributes and objects manipulation.
+
+This patch series only adds the plumbing to support a distributed
+configuration, but for the moment, each switch chip ignores events from
+other chips of the fabric, to keep the current behavior.
+
+The next patch series will add support for cross-chip configuration of
+bridge ageing time, VLAN and MAC address databases operations, etc.
+
+
+Vivien Didelot (20):
+  net: dsa: change scope of STP state setter
+  net: dsa: change scope of notifier call chain
+  net: dsa: change scope of bridging code
+  net: dsa: change scope of FDB handlers
+  net: dsa: change scope of MDB handlers
+  net: dsa: change scope of VLAN handlers
+  net: dsa: change scope of VLAN filtering setter
+  net: dsa: change scope of ageing time setter
+  net: dsa: move port state setters
+  net: dsa: move bridging routines
+  net: dsa: move VLAN filtering setter
+  net: dsa: move ageing time setter
+  net: dsa: move FDB handlers
+  net: dsa: move MDB handlers
+  net: dsa: move VLAN handlers
+  net: dsa: move notifier info to private header
+  net: dsa: add notifier for ageing time
+  net: dsa: add FDB notifier
+  net: dsa: add MDB notifier
+  net: dsa: add VLAN notifier
+
+ include/net/dsa.h  |  10 --
+ net/dsa/Makefile   |   2 +-
+ net/dsa/dsa_priv.h |  83 +++++++++++++
+ net/dsa/port.c     | 260 +++++++++++++++++++++++++++++++++++++++
+ net/dsa/slave.c    | 354 +++++------------------------------------------------
+ net/dsa/switch.c   | 175 ++++++++++++++++++++++++++
+ 6 files changed, 547 insertions(+), 337 deletions(-)
+ create mode 100644 net/dsa/port.c
+
 -- 
 2.13.0
