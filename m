@@ -1,54 +1,70 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH] xfrm: fix state migration replay sequence numbers
-Date: Fri, 19 May 2017 11:59:37 +0200
-Message-ID: <20170519095937.GB22049@secunet.com>
-References: <20170518143953.GA64905@AntonyAntony.local>
+From: Miroslav Lichvar <mlichvar@redhat.com>
+Subject: Re: [PATCH v4 net-next 6/7] net: allow simultaneous SW and HW
+ transmit timestamping
+Date: Fri, 19 May 2017 12:00:40 +0200
+Message-ID: <20170519100040.GB21003@localhost>
+References: <20170518130656.24163-1-mlichvar@redhat.com>
+ <20170518130656.24163-7-mlichvar@redhat.com>
+ <CAF=yD-KVwq+WXZNoZH+Vbs8-aMWF969AxzTqBZSKfFyDqszRNQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>, Herbert Xu <herbert@gondor.apana.org.au>,
-        Richard Guy Briggs <rgb@tricolour.ca>
-To: Antony Antony <antony@phenome.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Network Development <netdev@vger.kernel.org>,
+        Richard Cochran <richardcochran@gmail.com>,
+        Willem de Bruijn <willemb@google.com>
+To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:58366 "EHLO a.mx.secunet.com"
+Received: from mx1.redhat.com ([209.132.183.28]:52590 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750805AbdESJ7k (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 19 May 2017 05:59:40 -0400
+        id S1751190AbdESKAn (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 19 May 2017 06:00:43 -0400
 Content-Disposition: inline
-In-Reply-To: <20170518143953.GA64905@AntonyAntony.local>
+In-Reply-To: <CAF=yD-KVwq+WXZNoZH+Vbs8-aMWF969AxzTqBZSKfFyDqszRNQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 18, 2017 at 04:39:53PM +0200, Antony Antony wrote:
-> During xfrm migration replay and preplay sequence numbers are not 
-> copied from the previous state. 
+On Thu, May 18, 2017 at 04:16:26PM -0400, Willem de Bruijn wrote:
+> On Thu, May 18, 2017 at 9:06 AM, Miroslav Lichvar <mlichvar@redhat.com> wrote:
+> > +/* On transmit, software and hardware timestamps are returned independently.
+> > + * As the two skb clones share the hardware timestamp, which may be updated
+> > + * before the software timestamp is received, a hardware TX timestamp may be
+> > + * returned only if there is no software TX timestamp. A false software
+> > + * timestamp made for SOCK_RCVTSTAMP when a real timestamp is missing must
+> > + * be ignored.
 > 
-> Here is tcpdump output showing the problem.
-> 10.0.10.46 is running vanilla kernel, IKE/IPsec responder.
-> After the migration it sent wrong sequence number, reset to 1.
-> The migration is from 10.0.0.52 to 10.0.0.53.
+> Please expand on why this case can be ignored. It is quite subtle. How about
+> something like
 > 
-> IP 10.0.0.52.4500 > 10.0.10.46.4500: UDP-encap: ESP(spi=0x43ef462d,seq=0x7cf), length 136
-> IP 10.0.10.46.4500 > 10.0.0.52.4500: UDP-encap: ESP(spi=0xca1c282d,seq=0x7cf), length 136
-> IP 10.0.0.52.4500 > 10.0.10.46.4500: UDP-encap: ESP(spi=0x43ef462d,seq=0x7d0), length 136
-> IP 10.0.10.46.4500 > 10.0.0.52.4500: UDP-encap: ESP(spi=0xca1c282d,seq=0x7d0), length 136
-> 
-> IP 10.0.0.53.4500 > 10.0.10.46.4500: NONESP-encap: isakmp: child_sa  inf2[I]
-> IP 10.0.10.46.4500 > 10.0.0.53.4500: NONESP-encap: isakmp: child_sa  inf2[R]
-> IP 10.0.0.53.4500 > 10.0.10.46.4500: NONESP-encap: isakmp: child_sa  inf2[I]
-> IP 10.0.10.46.4500 > 10.0.0.53.4500: NONESP-encap: isakmp: child_sa  inf2[R]
-> 
-> IP 10.0.0.53.4500 > 10.0.10.46.4500: UDP-encap: ESP(spi=0x43ef462d,seq=0x7d1), length 136
-> 
-> NOTE: next sequence is wrong 0x1
-> 
-> IP 10.0.10.46.4500 > 10.0.0.53.4500: UDP-encap: ESP(spi=0xca1c282d,seq=0x1), length 136
-> IP 10.0.0.53.4500 > 10.0.10.46.4500: UDP-encap: ESP(spi=0x43ef462d,seq=0x7d2), length 136
-> IP 10.0.10.46.4500 > 10.0.0.53.4500: UDP-encap: ESP(spi=0xca1c282d,seq=0x2), length 136
-> 
-> The attached patch fix it by copying replay and preplay.
+> *
+> * A false software timestamp is one made inside the __sock_recv_timestamp
+> * call itself. These are generated whenever SO_TIMESTAMP(NS) is enabled
+> * on the socket, even when the timestamp reported is for another option, such
+> * as hardware tx timestamp.
+> *
+> * Ignore these when deciding whether a timestamp source is hw or sw.
+> */
 
-The patch looks ok, but please do a v2 and put the above
-informations into the commit message. This is usefull
-information that we would loose otherwise.
+That seems a bit too verbose to me. :) Would the following work?
 
-Thanks!
+/* On transmit, software and hardware timestamps are returned independently.
+ * As the two skb clones share the hardware timestamp, which may be updated
+ * before the software timestamp is received, a hardware TX timestamp may be
+ * returned only if there is no software TX timestamp. Ignore false software
+ * timestamps, which may be made in the __sock_recv_timestamp() call when the
+ * option SO_TIMESTAMP(NS) is enabled on the socket, even when the skb has a
+ * hardware timestamp.
+ */
+
+> > +static bool skb_is_swtx_tstamp(const struct sk_buff *skb,
+> > +                              const struct sock *sk, int false_tstamp)
+> > +{
+> > +       if (false_tstamp && sk->sk_tsflags & SOF_TIMESTAMPING_OPT_TX_SWHW)
+> 
+> Also, why is it ignored only for the new mode?
+
+Good point. That should not be there. The function can be now reduced
+to a single line again. I originally tried a different approach,
+disabling false timestamps in the new mode, but then I thought it's
+better to not complicate it unnecessarily and keep it consistent.
+
+-- 
+Miroslav Lichvar
