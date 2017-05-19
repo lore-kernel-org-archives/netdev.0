@@ -1,58 +1,104 @@
 From: Miroslav Lichvar <mlichvar@redhat.com>
-Subject: [PATCH v6 net-next 5/7] net: fix documentation of struct scm_timestamping
-Date: Fri, 19 May 2017 17:52:39 +0200
-Message-ID: <20170519155241.15817-6-mlichvar@redhat.com>
+Subject: [PATCH v6 net-next 7/7] net: ethernet: update drivers to make both SW and HW TX timestamps
+Date: Fri, 19 May 2017 17:52:41 +0200
+Message-ID: <20170519155241.15817-8-mlichvar@redhat.com>
 References: <20170519155241.15817-1-mlichvar@redhat.com>
 Cc: Richard Cochran <richardcochran@gmail.com>,
         Willem de Bruijn <willemb@google.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:50610 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:45006 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1755902AbdESPwt (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 19 May 2017 11:52:49 -0400
+        id S1755866AbdESPwv (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 19 May 2017 11:52:51 -0400
 In-Reply-To: <20170519155241.15817-1-mlichvar@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The scm_timestamping struct may return multiple non-zero fields, e.g.
-when both software and hardware RX timestamping is enabled, or when the
-SO_TIMESTAMP(NS) option is combined with SCM_TIMESTAMPING and a false
-software timestamp is generated in the recvmsg() call in order to always
-return a SCM_TIMESTAMP(NS) message.
+Some drivers were calling the skb_tx_timestamp() function only when
+a hardware timestamp was not requested. Now that applications can use
+the SOF_TIMESTAMPING_OPT_TX_SWHW option to request both software and
+hardware timestamps, the drivers need to be modified to unconditionally
+call skb_tx_timestamp().
 
 CC: Richard Cochran <richardcochran@gmail.com>
 CC: Willem de Bruijn <willemb@google.com>
 Signed-off-by: Miroslav Lichvar <mlichvar@redhat.com>
 ---
- Documentation/networking/timestamping.txt | 8 +++++++-
- 1 file changed, 7 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/amd/xgbe/xgbe-drv.c          | 3 +--
+ drivers/net/ethernet/intel/e1000e/netdev.c        | 4 ++--
+ drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c   | 3 +--
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 6 ++----
+ 4 files changed, 6 insertions(+), 10 deletions(-)
 
-diff --git a/Documentation/networking/timestamping.txt b/Documentation/networking/timestamping.txt
-index ce11e3a..50eb0e5 100644
---- a/Documentation/networking/timestamping.txt
-+++ b/Documentation/networking/timestamping.txt
-@@ -322,7 +322,7 @@ struct scm_timestamping {
- };
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
+index 89b21d7..5a2ad9c 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
+@@ -1391,8 +1391,7 @@ static void xgbe_prep_tx_tstamp(struct xgbe_prv_data *pdata,
+ 		spin_unlock_irqrestore(&pdata->tstamp_lock, flags);
+ 	}
  
- The structure can return up to three timestamps. This is a legacy
--feature. Only one field is non-zero at any time. Most timestamps
-+feature. At least one field is non-zero at any time. Most timestamps
- are passed in ts[0]. Hardware timestamps are passed in ts[2].
+-	if (!XGMAC_GET_BITS(packet->attributes, TX_PACKET_ATTRIBUTES, PTP))
+-		skb_tx_timestamp(skb);
++	skb_tx_timestamp(skb);
+ }
  
- ts[1] used to hold hardware timestamps converted to system time.
-@@ -331,6 +331,12 @@ a HW PTP clock source, to allow time conversion in userspace and
- optionally synchronize system time with a userspace PTP stack such
- as linuxptp. For the PTP clock API, see Documentation/ptp/ptp.txt.
+ static void xgbe_prep_vlan(struct sk_buff *skb, struct xgbe_packet_data *packet)
+diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+index 0ff9295..6ed3bc4 100644
+--- a/drivers/net/ethernet/intel/e1000e/netdev.c
++++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+@@ -5868,10 +5868,10 @@ static netdev_tx_t e1000_xmit_frame(struct sk_buff *skb,
+ 			adapter->tx_hwtstamp_skb = skb_get(skb);
+ 			adapter->tx_hwtstamp_start = jiffies;
+ 			schedule_work(&adapter->tx_hwtstamp_work);
+-		} else {
+-			skb_tx_timestamp(skb);
+ 		}
  
-+Note that if the SO_TIMESTAMP or SO_TIMESTAMPNS option is enabled
-+together with SO_TIMESTAMPING using SOF_TIMESTAMPING_SOFTWARE, a false
-+software timestamp will be generated in the recvmsg() call and passed
-+in ts[0] when a real software timestamp is missing. This happens also
-+on hardware transmit timestamps.
++		skb_tx_timestamp(skb);
 +
- 2.1.1 Transmit timestamps with MSG_ERRQUEUE
+ 		netdev_sent_queue(netdev, skb->len);
+ 		e1000_tx_queue(tx_ring, tx_flags, count);
+ 		/* Make sure there is space in the ring for the next send. */
+diff --git a/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c b/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c
+index 1e59435..89831ad 100644
+--- a/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c
++++ b/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c
+@@ -1418,8 +1418,7 @@ static netdev_tx_t sxgbe_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		priv->hw->desc->tx_enable_tstamp(first_desc);
+ 	}
  
- For transmit timestamps the outgoing packet is looped back to the
+-	if (!tqueue->hwts_tx_en)
+-		skb_tx_timestamp(skb);
++	skb_tx_timestamp(skb);
+ 
+ 	priv->hw->dma->enable_dma_transmission(priv->ioaddr, txq_index);
+ 
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index cce862b..27c12e7 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -2880,8 +2880,7 @@ static netdev_tx_t stmmac_tso_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		priv->xstats.tx_set_ic_bit++;
+ 	}
+ 
+-	if (!priv->hwts_tx_en)
+-		skb_tx_timestamp(skb);
++	skb_tx_timestamp(skb);
+ 
+ 	if (unlikely((skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP) &&
+ 		     priv->hwts_tx_en)) {
+@@ -3084,8 +3083,7 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		priv->xstats.tx_set_ic_bit++;
+ 	}
+ 
+-	if (!priv->hwts_tx_en)
+-		skb_tx_timestamp(skb);
++	skb_tx_timestamp(skb);
+ 
+ 	/* Ready to fill the first descriptor and set the OWN bit w/o any
+ 	 * problems because all the descriptors are actually ready to be
 -- 
 2.9.3
