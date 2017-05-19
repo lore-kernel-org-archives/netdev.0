@@ -1,54 +1,196 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH v2 00/10] rt2x00: rt2x00: improve calling conventions for
- register accessors
-Date: Fri, 19 May 2017 14:20:03 +0200
-Message-ID: <CAK8P3a3MvoL=affLZNL7PsbRFFBOFf7eS8cGAg1JzmAsMB=02Q@mail.gmail.com>
-References: <20170517144702.1381136-1-arnd@arndb.de> <87r2zl8lvi.fsf@codeaurora.org>
- <CAKR_QVJGxWF8+ZGGn08XiOgpYVGSjwQwqJoP10fY_bjfRg-uzw@mail.gmail.com>
- <CAK8P3a3Y7rCvmJo062-5G07HGiT6x2MtvVV=dQAVBK0AiX0U_A@mail.gmail.com> <CAKR_QVLf5Yn3En2DD4Pwbc2+EKaO9xGB0qU3MWQrNWNjZkx1CA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Kalle Valo <kvalo@codeaurora.org>,
-        linux-wireless <linux-wireless@vger.kernel.org>,
-        Stanislaw Gruszka <sgruszka@redhat.com>,
-        David Miller <davem@davemloft.net>,
-        Helmut Schaa <helmut.schaa@googlemail.com>,
-        Daniel Golle <daniel@makrotopia.org>,
-        Mathias Kresin <dev@kresin.me>,
-        Johannes Berg <johannes.berg@intel.com>,
-        Serge Vasilugin <vasilugin@yandex.ru>,
-        Roman Yeryomin <roman@advem.lv>,
-        Networking <netdev@vger.kernel.org>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        Jes Sorensen <jes.sorensen@gmail.com>
-To: Tom Psyborg <pozega.tomislav@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAKR_QVLf5Yn3En2DD4Pwbc2+EKaO9xGB0qU3MWQrNWNjZkx1CA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Ganesh Goudar <ganeshgr@chelsio.com>
+Subject: [PATCH net-next] cxgb4 : retrieve port information from firmware
+Date: Fri, 19 May 2017 17:50:15 +0530
+Message-ID: <1495196415-22234-1-git-send-email-ganeshgr@chelsio.com>
+Cc: nirranjan@chelsio.com, indranil@chelsio.com,
+        Ganesh Goudar <ganeshgr@chelsio.com>,
+        Casey Leedom <leedom@chelsio.com>
+To: netdev@vger.kernel.org, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stargate.chelsio.com ([12.32.117.8]:37489 "EHLO
+        stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750954AbdESMUb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 19 May 2017 08:20:31 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 19, 2017 at 2:15 PM, Tom Psyborg <pozega.tomislav@gmail.com> wrote:
->
->
-> On 19 May 2017 at 08:55, Arnd Bergmann <arnd@arndb.de> wrote:
->>
->>
->> On which base version did you apply my patches? There may be a conflict
->> against patches that are in your tree but not yet in linux-next, as I
->> don't see
->> the warning and also see no reference to rt2800_bbp_read in rt2800lib.h
->>
->>       Arnd
->
->
->
-> it's not exactly base version, it is patched comapt-wireless in openwrt that
-> i applied your patches to (i had to fix some things manually) but these
-> warnings might appear because of recent mt7620 commit:
-> https://git.lede-project.org/?p=lede/dangole/staging.git;a=blob_plain;f=package/kernel/mac80211/patches/999-0001-rt2800mmio-use-BBP-register-21-to-reset-MT7620-BBP.patch;hb=f4f0d8efa2d55ada111ddcd502a51041364bd7e5
+issue get port information command to firmware to retrieve port
+information and update if it is different from what was last
+recorded and also add indication for supported link modes for
+firmware port types FW_PORT_TYPE_SFP28, FW_PORT_TYPE_KR_SFP28,
+FW_PORT_TYPE_CR4_QSFP.
 
-I suspect you just did an incorrect merge, and left an extra 'static'
-in front of the declaration in the header file when you modified the
-function prototype.
+Based on the original work by Casey Leedom <leedom@chelsio.com>
 
-      Arnd
+Signed-off-by: Casey Leedom <leedom@chelsio.com>
+Signed-off-by: Ganesh Goudar <ganeshgr@chelsio.com>
+---
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h         |  1 +
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_ethtool.c | 34 ++++++++++++++++++++--
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c    |  7 +++++
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c         | 30 +++++++++++++++++++
+ drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h      |  1 +
+ 5 files changed, 70 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+index e88c180..1cf3e2f 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+@@ -1551,6 +1551,7 @@ int t4_ofld_eq_free(struct adapter *adap, unsigned int mbox, unsigned int pf,
+ 		    unsigned int vf, unsigned int eqid);
+ int t4_sge_ctxt_flush(struct adapter *adap, unsigned int mbox);
+ void t4_handle_get_port_info(struct port_info *pi, const __be64 *rpl);
++int t4_update_port_info(struct port_info *pi);
+ int t4_handle_fw_rpl(struct adapter *adap, const __be64 *rpl);
+ void t4_db_full(struct adapter *adapter);
+ void t4_db_dropped(struct adapter *adapter);
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_ethtool.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_ethtool.c
+index 0ba7866..e9bab72 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_ethtool.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_ethtool.c
+@@ -500,7 +500,11 @@ static int from_fw_port_mod_type(enum fw_port_type port_type,
+ 	} else if (port_type == FW_PORT_TYPE_SFP ||
+ 		   port_type == FW_PORT_TYPE_QSFP_10G ||
+ 		   port_type == FW_PORT_TYPE_QSA ||
+-		   port_type == FW_PORT_TYPE_QSFP) {
++		   port_type == FW_PORT_TYPE_QSFP ||
++		   port_type == FW_PORT_TYPE_CR4_QSFP ||
++		   port_type == FW_PORT_TYPE_CR_QSFP ||
++		   port_type == FW_PORT_TYPE_CR2_QSFP ||
++		   port_type == FW_PORT_TYPE_SFP28) {
+ 		if (mod_type == FW_PORT_MOD_TYPE_LR ||
+ 		    mod_type == FW_PORT_MOD_TYPE_SR ||
+ 		    mod_type == FW_PORT_MOD_TYPE_ER ||
+@@ -511,6 +515,9 @@ static int from_fw_port_mod_type(enum fw_port_type port_type,
+ 			return PORT_DA;
+ 		else
+ 			return PORT_OTHER;
++	} else if (port_type == FW_PORT_TYPE_KR4_100G ||
++		   port_type == FW_PORT_TYPE_KR_SFP28) {
++		return PORT_NONE;
+ 	}
+ 
+ 	return PORT_OTHER;
+@@ -618,7 +625,21 @@ static void fw_caps_to_lmm(enum fw_port_type port_type,
+ 	case FW_PORT_TYPE_CR_QSFP:
+ 	case FW_PORT_TYPE_SFP28:
+ 		SET_LMM(FIBRE);
+-		SET_LMM(25000baseCR_Full);
++		FW_CAPS_TO_LMM(SPEED_1G, 1000baseT_Full);
++		FW_CAPS_TO_LMM(SPEED_10G, 10000baseT_Full);
++		FW_CAPS_TO_LMM(SPEED_25G, 25000baseCR_Full);
++		break;
++
++	case FW_PORT_TYPE_KR_SFP28:
++		SET_LMM(Backplane);
++		FW_CAPS_TO_LMM(SPEED_1G, 1000baseT_Full);
++		FW_CAPS_TO_LMM(SPEED_10G, 10000baseKR_Full);
++		FW_CAPS_TO_LMM(SPEED_25G, 25000baseKR_Full);
++		break;
++
++	case FW_PORT_TYPE_CR2_QSFP:
++		SET_LMM(FIBRE);
++		SET_LMM(50000baseSR2_Full);
+ 		break;
+ 
+ 	case FW_PORT_TYPE_KR4_100G:
+@@ -674,13 +695,20 @@ static unsigned int lmm_to_fw_caps(const unsigned long *link_mode_mask)
+ static int get_link_ksettings(struct net_device *dev,
+ 			      struct ethtool_link_ksettings *link_ksettings)
+ {
+-	const struct port_info *pi = netdev_priv(dev);
++	struct port_info *pi = netdev_priv(dev);
+ 	struct ethtool_link_settings *base = &link_ksettings->base;
+ 
+ 	ethtool_link_ksettings_zero_link_mode(link_ksettings, supported);
+ 	ethtool_link_ksettings_zero_link_mode(link_ksettings, advertising);
+ 	ethtool_link_ksettings_zero_link_mode(link_ksettings, lp_advertising);
+ 
++	/* For the nonce, the Firmware doesn't send up Port State changes
++	 * when the Virtual Interface attached to the Port is down.  So
++	 * if it's down, let's grab any changes.
++	 */
++	if (!netif_running(dev))
++		(void)t4_update_port_info(pi);
++
+ 	base->port = from_fw_port_mod_type(pi->port_type, pi->mod_type);
+ 
+ 	if (pi->mdio_addr >= 0) {
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index 4249ffb..2ae54d5 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -2245,6 +2245,13 @@ static int cxgb_open(struct net_device *dev)
+ 			return err;
+ 	}
+ 
++	/* It's possible that the basic port information could have
++	 * changed since we first read it.
++	 */
++	err = t4_update_port_info(pi);
++	if (err < 0)
++		return err;
++
+ 	err = link_start(dev);
+ 	if (!err)
+ 		netif_tx_start_all_queues(dev);
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+index aded42b96..b97ce4a 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+@@ -7355,11 +7355,41 @@ void t4_handle_get_port_info(struct port_info *pi, const __be64 *rpl)
+ 		lc->fc = fc;
+ 		lc->supported = be16_to_cpu(p->u.info.pcap);
+ 		lc->lp_advertising = be16_to_cpu(p->u.info.lpacap);
++
+ 		t4_os_link_changed(adap, pi->port_id, link_ok);
+ 	}
+ }
+ 
+ /**
++ *	t4_update_port_info - retrieve and update port information if changed
++ *	@pi: the port_info
++ *
++ *	We issue a Get Port Information Command to the Firmware and, if
++ *	successful, we check to see if anything is different from what we
++ *	last recorded and update things accordingly.
++ */
++int t4_update_port_info(struct port_info *pi)
++{
++	struct fw_port_cmd port_cmd;
++	int ret;
++
++	memset(&port_cmd, 0, sizeof(port_cmd));
++	port_cmd.op_to_portid = cpu_to_be32(FW_CMD_OP_V(FW_PORT_CMD) |
++					    FW_CMD_REQUEST_F | FW_CMD_READ_F |
++					    FW_PORT_CMD_PORTID_V(pi->port_id));
++	port_cmd.action_to_len16 = cpu_to_be32(
++		FW_PORT_CMD_ACTION_V(FW_PORT_ACTION_GET_PORT_INFO) |
++		FW_LEN16(port_cmd));
++	ret = t4_wr_mbox(pi->adapter, pi->adapter->mbox,
++			 &port_cmd, sizeof(port_cmd), &port_cmd);
++	if (ret)
++		return ret;
++
++	t4_handle_get_port_info(pi, (__be64 *)&port_cmd);
++	return 0;
++}
++
++/**
+  *      t4_handle_fw_rpl - process a FW reply message
+  *      @adap: the adapter
+  *      @rpl: start of the FW message
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h b/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
+index 251a35e..c65c33c 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
+@@ -2572,6 +2572,7 @@ enum fw_port_type {
+ 	FW_PORT_TYPE_CR_QSFP,
+ 	FW_PORT_TYPE_CR2_QSFP,
+ 	FW_PORT_TYPE_SFP28,
++	FW_PORT_TYPE_KR_SFP28,
+ 
+ 	FW_PORT_TYPE_NONE = FW_PORT_CMD_PTYPE_M
+ };
+-- 
+2.1.0
