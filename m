@@ -1,86 +1,54 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [RFC net-next PATCH 4/5] net: new XDP feature for reading HW
- rxhash from drivers
-Date: Fri, 19 May 2017 13:47:45 +0200
-Message-ID: <20170519134745.66eea15c@redhat.com>
-References: <149512205297.14733.15729847433404265933.stgit@firesoul>
-        <149512210827.14733.13997041998775151648.stgit@firesoul>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH v2 00/10] rt2x00: rt2x00: improve calling conventions for
+ register accessors
+Date: Fri, 19 May 2017 14:20:03 +0200
+Message-ID: <CAK8P3a3MvoL=affLZNL7PsbRFFBOFf7eS8cGAg1JzmAsMB=02Q@mail.gmail.com>
+References: <20170517144702.1381136-1-arnd@arndb.de> <87r2zl8lvi.fsf@codeaurora.org>
+ <CAKR_QVJGxWF8+ZGGn08XiOgpYVGSjwQwqJoP10fY_bjfRg-uzw@mail.gmail.com>
+ <CAK8P3a3Y7rCvmJo062-5G07HGiT6x2MtvVV=dQAVBK0AiX0U_A@mail.gmail.com> <CAKR_QVLf5Yn3En2DD4Pwbc2+EKaO9xGB0qU3MWQrNWNjZkx1CA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: John Fastabend <john.r.fastabend@intel.com>,
-        netdev@vger.kernel.org, brouer@redhat.com,
-        "xdp-newbies@vger.kernel.org" <xdp-newbies@vger.kernel.org>
-To: Daniel Borkmann <borkmann@iogearbox.net>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:35692 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751159AbdESLrw (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 19 May 2017 07:47:52 -0400
-In-Reply-To: <149512210827.14733.13997041998775151648.stgit@firesoul>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Kalle Valo <kvalo@codeaurora.org>,
+        linux-wireless <linux-wireless@vger.kernel.org>,
+        Stanislaw Gruszka <sgruszka@redhat.com>,
+        David Miller <davem@davemloft.net>,
+        Helmut Schaa <helmut.schaa@googlemail.com>,
+        Daniel Golle <daniel@makrotopia.org>,
+        Mathias Kresin <dev@kresin.me>,
+        Johannes Berg <johannes.berg@intel.com>,
+        Serge Vasilugin <vasilugin@yandex.ru>,
+        Roman Yeryomin <roman@advem.lv>,
+        Networking <netdev@vger.kernel.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        Jes Sorensen <jes.sorensen@gmail.com>
+To: Tom Psyborg <pozega.tomislav@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAKR_QVLf5Yn3En2DD4Pwbc2+EKaO9xGB0qU3MWQrNWNjZkx1CA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 18 May 2017 17:41:48 +0200
-Jesper Dangaard Brouer <brouer@redhat.com> wrote:
+On Fri, May 19, 2017 at 2:15 PM, Tom Psyborg <pozega.tomislav@gmail.com> wrote:
+>
+>
+> On 19 May 2017 at 08:55, Arnd Bergmann <arnd@arndb.de> wrote:
+>>
+>>
+>> On which base version did you apply my patches? There may be a conflict
+>> against patches that are in your tree but not yet in linux-next, as I
+>> don't see
+>> the warning and also see no reference to rt2800_bbp_read in rt2800lib.h
+>>
+>>       Arnd
+>
+>
+>
+> it's not exactly base version, it is patched comapt-wireless in openwrt that
+> i applied your patches to (i had to fix some things manually) but these
+> warnings might appear because of recent mt7620 commit:
+> https://git.lede-project.org/?p=lede/dangole/staging.git;a=blob_plain;f=package/kernel/mac80211/patches/999-0001-rt2800mmio-use-BBP-register-21-to-reset-MT7620-BBP.patch;hb=f4f0d8efa2d55ada111ddcd502a51041364bd7e5
 
-> Introducing a new XDP feature and associated bpf helper bpf_xdp_rxhash.
-> 
-> The rxhash and type allow filtering on packets without touching
-> packet memory.  The performance difference on my system with a
-> 100 Gbit/s mlx5 NIC is 12Mpps to 19Mpps.
+I suspect you just did an incorrect merge, and left an extra 'static'
+in front of the declaration in the header file when you modified the
+function prototype.
 
-The XDP/bpf program I use (called xdp_rxhash) for testing this feature
-is available via my github repo here:
-
- https://github.com/netoptimizer/prototype-kernel/blob/master/kernel/samples/bpf/xdp_rxhash_kern.c
- https://github.com/netoptimizer/prototype-kernel/blob/master/kernel/samples/bpf/xdp_rxhash_user.c
-
-The cmdline output looks like:
-
-$ sudo ./xdp_rxhash --dev mlx5p2 --sec 2 --notouch
-
-xdp-action     pps        pps-human-readable mem      
-XDP_ABORTED    19694682   19,694,682         2.000205  no_touch
-XDP_DROP       0          0                  2.000205  no_touch
-XDP_PASS       10         10                 2.000205  no_touch
-XDP_TX         0          0                  2.000205  no_touch
-rx_total       19694701   19,694,701         2.000205  no_touch
-
-hash_type:L3   pps        pps-human-readable sample-period
-Unknown        0          0                  2.000205
-IPv4           19694725   19,694,725         2.000205
-IPv6           0          0                  2.000205
-
-hash_type:L4   pps        pps-human-readable sample-period
-Unknown        10         10                 2.000205
-TCP            0          0                  2.000205
-UDP            19694697   19,694,697         2.000205
-
-^CInterrupted: Removing XDP program on ifindex:5 device:mlx5p2
-
-
-The 10 pps XDP_PASS is a ping command I rand at the same time. Notice
-how these ping-ICMP packets were categorized as L4=Unknown and L3=IPv4.
-The L4 categorization is usually UDP or TCP, but looking at driver-code
-it seems some HW support detecting other L4 types, like ICMP, SCTP, etc.
-
-
-$ sudo taskset -c 4 ping -i 0.1 -c 10000 198.18.100.1 -c 100 -q
-PING 198.18.100.1 (198.18.100.1) 56(84) bytes of data.
-
---- 198.18.100.1 ping statistics ---
-100 packets transmitted, 100 received, 0% packet loss, time 10294ms
-rtt min/avg/max/mdev = 0.010/0.071/0.113/0.043 ms
-
-
-p.s. xdp-newbies can via this commit find the links back to the netdev
-kernel RFC patches/mails:
- https://github.com/netoptimizer/prototype-kernel/commit/9647e1b563970
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  LinkedIn: http://www.linkedin.com/in/brouer
+      Arnd
