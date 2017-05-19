@@ -1,20 +1,58 @@
-From: Aisha Muammar Gaddafi <aishagaddafimuammar93@gmail.com>
-Subject: Good day my dear, please i need your assistant
-Date: Fri, 19 May 2017 14:09:03 +0000 (UTC)
-Message-ID: <1326458444.1869483.1495202943669@mail.yahoo.com>
-References: <1326458444.1869483.1495202943669.ref@mail.yahoo.com>
-Reply-To: Aisha Muammar Gaddafi <aishagaddafimuammar93@gmail.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net-next] cxgb4: fix incorrect cim_la output for T6
+Date: Fri, 19 May 2017 14:17:11 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DCFFFABCB@AcuExch.aculab.com>
+References: <1495188738-20546-1-git-send-email-ganeshgr@chelsio.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-To: unlisted-recipients:; (no To-header on input)
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "nirranjan@chelsio.com" <nirranjan@chelsio.com>,
+        "indranil@chelsio.com" <indranil@chelsio.com>
+To: 'Ganesh Goudar' <ganeshgr@chelsio.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "davem@davemloft.net" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sonic301-53.consmr.mail.sg3.yahoo.com ([106.10.242.116]:44405
-        "EHLO sonic301-53.consmr.mail.sg3.yahoo.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752303AbdESONG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 19 May 2017 10:13:06 -0400
+Received: from smtp-out6.electric.net ([192.162.217.182]:51683 "EHLO
+        smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750749AbdESORR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 19 May 2017 10:17:17 -0400
+In-Reply-To: <1495188738-20546-1-git-send-email-ganeshgr@chelsio.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-How are you doing today, Hope you are in perfect condition? Please i apologies with you to exercise a little patience and read through my letter i am contacting you for obvious reason and important business. My Name is Aisha Gaddafi,i am open minded person and easy going person romance and hard working, Please i really need to have a good relationship with you, i have some important discussion to discuss with you.There is information i would like you to keep very confidential, i will appreciate if you can reply me through my Private email address (aishamuammarg03@yahoo.com) for further discussion, I WILL BE VERY HAPPY IF YOU ACCEPT ME AS YOUR FRIEND,Thanks and God bless, this is just brief about me,hope to review the secret inner most part of me once i received from you.
-Aisha Gaddafi.
+From: Ganesh Goudar
+> Sent: 19 May 2017 11:12
+T6
+> 
+> take care of UpDbgLaRdPtr[0-3] restriction for T6
+> 
+> Signed-off-by: Ganesh Goudar <ganeshgr@chelsio.com>
+> ---
+>  drivers/net/ethernet/chelsio/cxgb4/t4_hw.c | 7 +++++++
+>  1 file changed, 7 insertions(+)
+> 
+> diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+> index aded42b96..917b46b 100644
+> --- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+> +++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+> @@ -8268,6 +8268,13 @@ int t4_cim_read_la(struct adapter *adap, u32 *la_buf, unsigned int *wrptr)
+>  		if (ret)
+>  			break;
+>  		idx = (idx + 1) & UPDBGLARDPTR_M;
+> +
+> +		/* Bits 0-3 of UpDbgLaRdPtr can be between 0000 to 1001 to
+> +		 * identify the 32-bit portion of the full 312-bit data
+> +		 */
+> +		if (is_t6(adap->params.chip))
+> +			while ((idx & 0xf) > 9)
+> +				idx = (idx + 1) % UPDBGLARDPTR_M;
+
+Why the loop, maybe:
+		if (is_t6(adap->params.chip) && (idx & 0xf) >= 9)
+			idx = (idx & 0xf0) + 0x10;
+		else
+			idx++;
+		idx &= UPDBGLARDPTR_M;
+
+	David
