@@ -1,105 +1,90 @@
-From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Subject: Re: [PATCH net 1/3] vlan: Fix tcp checksums offloads for Q-in-Q vlan.
-Date: Fri, 19 May 2017 17:16:42 +0900
-Message-ID: <ec89c4d9-c6de-673a-2c7a-895804034857@lab.ntt.co.jp>
-References: <1495114265-23368-1-git-send-email-vyasevic@redhat.com>
- <1495114265-23368-2-git-send-email-vyasevic@redhat.com>
- <7593b180-9355-2c14-6cd8-b1e4f47a0ae6@lab.ntt.co.jp>
- <95de0652-6d73-9885-875e-8c98d02bd419@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: mkubecek@suse.cz
-To: vyasevic@redhat.com, Vladislav Yasevich <vyasevich@gmail.com>,
-        netdev@vger.kernel.org
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [PATCH 03/12] netfilter: don't setup nat info for confirmed ct
+Date: Fri, 19 May 2017 10:33:44 +0200
+Message-ID: <1495182833-2272-4-git-send-email-pablo@netfilter.org>
+References: <1495182833-2272-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tama500.ecl.ntt.co.jp ([129.60.39.148]:53693 "EHLO
-        tama500.ecl.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751071AbdESIRU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 19 May 2017 04:17:20 -0400
-In-Reply-To: <95de0652-6d73-9885-875e-8c98d02bd419@redhat.com>
-Content-Language: en-US
+Received: from mail.us.es ([193.147.175.20]:43958 "EHLO mail.us.es"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753545AbdESIeU (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 19 May 2017 04:34:20 -0400
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+        by mail.us.es (Postfix) with ESMTP id E53781DA08A
+        for <netdev@vger.kernel.org>; Fri, 19 May 2017 10:34:11 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id CC773FF6FE
+        for <netdev@vger.kernel.org>; Fri, 19 May 2017 10:34:11 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 7DF6FFF6FE
+        for <netdev@vger.kernel.org>; Fri, 19 May 2017 10:34:09 +0200 (CEST)
+In-Reply-To: <1495182833-2272-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2017/05/19 16:09, Vlad Yasevich wrote:
-> On 05/18/2017 10:13 PM, Toshiaki Makita wrote:
->> On 2017/05/18 22:31, Vladislav Yasevich wrote:
->>> It appears that since commit 8cb65d000, Q-in-Q vlans have been
->>> broken.  The series that commit is part of enabled TSO and checksum
->>> offloading on Q-in-Q vlans.  However, most HW we support can't handle
->>> it.  To work around the issue, the above commit added a function that
->>> turns off offloads on Q-in-Q devices, but it left the checksum offload.
->>> That will cause issues with most older devices that supprort very basic
->>> checksum offload capabilities as well as some newer devices (we've
->>> reproduced te problem with both be2net and bnx).
->>>
->>> To solve this for everyone, turn off checksum offloading feature
->>> by default when sending Q-in-Q traffic.  Devices that are proven to
->>> work can provided a corrected ndo_features_check implemetation.
->>>
->>> Fixes: 8cb65d000 ("net: Move check for multiple vlans to drivers")
->>> CC: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
->>> Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
->>> ---
->>>  include/linux/if_vlan.h | 1 -
->>>  1 file changed, 1 deletion(-)
->>>
->>> diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
->>> index 8d5fcd6..ae537f0 100644
->>> --- a/include/linux/if_vlan.h
->>> +++ b/include/linux/if_vlan.h
->>> @@ -619,7 +619,6 @@ static inline netdev_features_t vlan_features_check(const struct sk_buff *skb,
->>>  						     NETIF_F_SG |
->>>  						     NETIF_F_HIGHDMA |
->>>  						     NETIF_F_FRAGLIST |
->>> -						     NETIF_F_HW_CSUM |
->>>  						     NETIF_F_HW_VLAN_CTAG_TX |
->>>  						     NETIF_F_HW_VLAN_STAG_TX);
->>>  
->>
->> I guess HW_CSUM theoretically can handle Q-in-Q packets and the problem
->> is IP_CSUM and IPV6_CSUM.
->> So wouldn't it be better to leave HW_CSUM and drop IP_CSUM/IPV6_CSUM,
->> i.e. change intersection into bitwise AND?
->>
-> 
-> It wasn't really a problem before accelerations got enabled on q-in-q
-> vlans.
+From: Liping Zhang <zlpnobody@gmail.com>
 
-Right for stacked vlan device.
-But I think the check was there for packets from guests forwarded by
-bridge to vlan device so it was a problem before 8cb65d000.
+We cannot setup nat info if the ct has been confirmed already, else,
+different cpu may race to handle the same ct. In extreme situation,
+we may hit the "BUG_ON(nf_nat_initialized(ct, maniptype))" in the
+nf_nat_setup_info.
 
->> The intersection was introduced in db115037bb57 ("net: fix checksum
->> features handling in netif_skb_features()"), but I guess for this
->> particular check the intersection was not needed.
->>
-> 
-> So, to put it another way, leave the intersection with HW_CSUM in the mask,
-> and then do:
-> 
->   return features & ~(NETIF_F_IP_CSUM|NETIF_F_IPV6_CSUM);
-> 
-> This might work, but it assumes that everyone who announce HW_CSUM can
-> do q-in-q vlans.  It's been a bit of a pain tracking this down and I'd rather
-> fix it for everyone and let individual driver authors verify that Q-in-Q works
-> correctly with HW checksum.  However, I am willing to do the above if
-> that's what people want.
+Also running the following commands will easily hit NF_CT_ASSERT in
+nf_conntrack_alter_reply:
+  # nft flush ruleset
+  # ping -c 2 -W 1 1.1.1.111 &
+  # nft add table t
+  # nft add chain t c {type nat hook postrouting priority 0 \;}
+  # nft add rule t c snat to 4.5.6.7
+  WARNING: CPU: 1 PID: 10065 at net/netfilter/nf_conntrack_core.c:1472
+  nf_conntrack_alter_reply+0x9a/0x1a0 [nf_conntrack]
+  [...]
+  Call Trace:
+   nf_nat_setup_info+0xad/0x840 [nf_nat]
+   ? deactivate_slab+0x65d/0x6c0
+   nft_nat_eval+0xcd/0x100 [nft_nat]
+   nft_do_chain+0xff/0x5d0 [nf_tables]
+   ? mark_held_locks+0x6f/0xa0
+   ? __local_bh_enable_ip+0x70/0xa0
+   ? trace_hardirqs_on_caller+0x11f/0x190
+   ? ipt_do_table+0x310/0x610
+   ? trace_hardirqs_on+0xd/0x10
+   ? __local_bh_enable_ip+0x70/0xa0
+   ? ipt_do_table+0x32b/0x610
+   ? __lock_acquire+0x2ac/0x1580
+   ? ipt_do_table+0x32b/0x610
+   nft_nat_do_chain+0x65/0x80 [nft_chain_nat_ipv4]
+   nf_nat_ipv4_fn+0x1ae/0x240 [nf_nat_ipv4]
+   nf_nat_ipv4_out+0x4a/0xf0 [nf_nat_ipv4]
+   nft_nat_ipv4_out+0x15/0x20 [nft_chain_nat_ipv4]
+   nf_hook_slow+0x2c/0xf0
+   ip_output+0x154/0x270
 
-At least HW_CSUM in the check was introduced intentionally.
-https://www.spinics.net/lists/netdev/msg152016.html
+So for the confirmed ct, just ignore it and return NF_ACCEPT.
 
-And I think HW_CSUM should work with any packets.
-You know, include/linux/skbuff.h says
->  *	NETIF_F_HW_CSUM	- The driver (or its device) is able to compute one
->  *			  IP (one's complement) checksum for any combination
->  *			  of protocols or protocol layering.
+Fixes: 9a08ecfe74d7 ("netfilter: don't attach a nat extension by default")
+Signed-off-by: Liping Zhang <zlpnobody@gmail.com>
+Acked-by: Florian Westphal <fw@strlen.de>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
+ net/netfilter/nf_nat_core.c | 4 ++++
+ 1 file changed, 4 insertions(+)
 
-We should be able to safely enable it.
-
-...But you are so worried about layer2 protocol handling of HW_CSUM
-devices, I'm ok with disabling it for now.
-
+diff --git a/net/netfilter/nf_nat_core.c b/net/netfilter/nf_nat_core.c
+index b48d6b5aae8a..ef0be325a0c6 100644
+--- a/net/netfilter/nf_nat_core.c
++++ b/net/netfilter/nf_nat_core.c
+@@ -409,6 +409,10 @@ nf_nat_setup_info(struct nf_conn *ct,
+ {
+ 	struct nf_conntrack_tuple curr_tuple, new_tuple;
+ 
++	/* Can't setup nat info for confirmed ct. */
++	if (nf_ct_is_confirmed(ct))
++		return NF_ACCEPT;
++
+ 	NF_CT_ASSERT(maniptype == NF_NAT_MANIP_SRC ||
+ 		     maniptype == NF_NAT_MANIP_DST);
+ 	BUG_ON(nf_nat_initialized(ct, maniptype));
 -- 
-Toshiaki Makita
+2.1.4
