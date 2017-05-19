@@ -1,217 +1,102 @@
-From: Amritha Nambiar <amritha.nambiar@intel.com>
-Subject: [PATCH 4/4] [next-queue]net: i40e: Add support to set max bandwidth
- rates for TCs offloaded via tc/mqprio
-Date: Fri, 19 May 2017 17:58:38 -0700
-Message-ID: <149524191856.11022.14942959596600821849.stgit@anamdev.jf.intel.com>
-References: <149524122523.11022.4541073724650541658.stgit@anamdev.jf.intel.com>
+From: =?UTF-8?B?TWFoZXNoIEJhbmRld2FyICjgpK7gpLngpYfgpLYg4KSs4KSC4KSh4KWH4KS14KS+4KSwKQ==?=
+        <maheshb@google.com>
+Subject: Re: [PATCH net] bonding: fix randomly populated arp target array
+Date: Fri, 19 May 2017 13:38:33 -0700
+Message-ID: <CAF2d9jiyCcqH=4Ls-GanJmLcMcjJzR=KEkqomFqVonrPv8QAPw@mail.gmail.com>
+References: <20170519184646.42572-1-jarod@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: alexander.h.duyck@intel.com, kiran.patil@intel.com,
-        amritha.nambiar@intel.com, sridhar.samudrala@intel.com,
-        mitch.a.williams@intel.com, neerav.parikh@intel.com,
-        jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org
-To: intel-wired-lan@lists.osuosl.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:40569 "EHLO mga14.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1756547AbdESU2f (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 19 May 2017 16:28:35 -0400
-In-Reply-To: <149524122523.11022.4541073724650541658.stgit@anamdev.jf.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: linux-kernel@vger.kernel.org, Jay Vosburgh <j.vosburgh@gmail.com>,
+        Veaceslav Falico <vfalico@gmail.com>,
+        Andy Gospodarek <andy@greyhouse.net>,
+        linux-netdev <netdev@vger.kernel.org>, stable@vger.kernel.org
+To: Jarod Wilson <jarod@redhat.com>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <20170519184646.42572-1-jarod@redhat.com>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch enables setting up maximum Tx rates for the traffic
-classes in i40e. The maximum rate offloaded to the hardware through
-the mqprio framework is configured for the VSI. Configuring
-minimum Tx rate limit is not supported in the device. The minimum
-usable value for Tx rate is 50Mbps.
+On Fri, May 19, 2017 at 11:46 AM, Jarod Wilson <jarod@redhat.com> wrote:
+> In commit dc9c4d0fe023, the arp_target array moved from a static global
+> to a local variable. By the nature of static globals, the array used to
+> be initialized to all 0. At present, it's full of random data, which
+> that gets interpreted as arp_target values, when none have actually been
+> specified. Systems end up booting with spew along these lines:
+>
+> [   32.161783] IPv6: ADDRCONF(NETDEV_UP): lacp0: link is not ready
+> [   32.168475] IPv6: ADDRCONF(NETDEV_UP): lacp0: link is not ready
+> [   32.175089] 8021q: adding VLAN 0 to HW filter on device lacp0
+> [   32.193091] IPv6: ADDRCONF(NETDEV_UP): lacp0: link is not ready
+> [   32.204892] lacp0: Setting MII monitoring interval to 100
+> [   32.211071] lacp0: Removing ARP target 216.124.228.17
+> [   32.216824] lacp0: Removing ARP target 218.160.255.255
+> [   32.222646] lacp0: Removing ARP target 185.170.136.184
+> [   32.228496] lacp0: invalid ARP target 255.255.255.255 specified for removal
+> [   32.236294] lacp0: option arp_ip_target: invalid value (-255.255.255.255)
+> [   32.243987] lacp0: Removing ARP target 56.125.228.17
+> [   32.249625] lacp0: Removing ARP target 218.160.255.255
+> [   32.255432] lacp0: Removing ARP target 15.157.233.184
+> [   32.261165] lacp0: invalid ARP target 255.255.255.255 specified for removal
+> [   32.268939] lacp0: option arp_ip_target: invalid value (-255.255.255.255)
+> [   32.276632] lacp0: Removing ARP target 16.0.0.0
+> [   32.281755] lacp0: Removing ARP target 218.160.255.255
+> [   32.287567] lacp0: Removing ARP target 72.125.228.17
+> [   32.293165] lacp0: Removing ARP target 218.160.255.255
+> [   32.298970] lacp0: Removing ARP target 8.125.228.17
+> [   32.304458] lacp0: Removing ARP target 218.160.255.255
+>
+> None of these were actually specified as ARP targets, and the driver does
+> seem to clean up the mess okay, but it's rather noisy and confusing, leaks
+> values to userspace, and the 255.255.255.255 spew shows up even when debug
+> prints are disabled.
+>
+> The fix: just zero out arp_target at init time.
+>
+> While we're in here, init arp_all_targets_value in the right place.
+>
+> Fixes: dc9c4d0fe023 ("bonding: reduce scope of some global variables")
+> CC: Mahesh Bandewar <maheshb@google.com>
+> CC: Jay Vosburgh <j.vosburgh@gmail.com>
+> CC: Veaceslav Falico <vfalico@gmail.com>
+> CC: Andy Gospodarek <andy@greyhouse.net>
+> CC: netdev@vger.kernel.org
+> CC: stable@vger.kernel.org
+> Signed-off-by: Jarod Wilson <jarod@redhat.com>
+> ---
+>  drivers/net/bonding/bond_main.c | 5 ++---
+>  1 file changed, 2 insertions(+), 3 deletions(-)
+>
+> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+> index 2be78807fd6e..73313318399c 100644
+> --- a/drivers/net/bonding/bond_main.c
+> +++ b/drivers/net/bonding/bond_main.c
+> @@ -4271,10 +4271,10 @@ static int bond_check_params(struct bond_params *params)
+>         int arp_validate_value, fail_over_mac_value, primary_reselect_value, i;
+>         struct bond_opt_value newval;
+>         const struct bond_opt_value *valptr;
+> -       int arp_all_targets_value;
+> +       int arp_all_targets_value = 0;
 
-Example:
-# tc qdisc add dev eth0 root mqprio num_tc 2  map 0 0 0 0 1 1 1 1\
-  queues 4@0 4@4 min_rate 0Mbit 0Mbit max_rate 55Mbit 60Mbit hw 2
+I think this is unnecessary as long as the var is initialized before it's use.
 
-To dump the bandwidth rates:
+>         u16 ad_actor_sys_prio = 0;
+>         u16 ad_user_port_key = 0;
+> -       __be32 arp_target[BOND_MAX_ARP_TARGETS];
+> +       __be32 arp_target[BOND_MAX_ARP_TARGETS] = { 0 };
 
-# tc qdisc show dev eth0
-qdisc mqprio 804a: root  tc 2 map 0 0 0 0 1 1 1 1 0 0 0 0 0 0 0 0
-             queues:(0:3) (4:7)
-             min rates:0bit 0bit
-             max rates:55Mbit 60Mbit
+this is the only change required to avoid reported error.
 
-Signed-off-by: Amritha Nambiar <amritha.nambiar@intel.com>
-Signed-off-by: Kiran Patil <kiran.patil@intel.com>
----
- drivers/net/ethernet/intel/i40e/i40e.h      |    2 +
- drivers/net/ethernet/intel/i40e/i40e_main.c |  102 ++++++++++++++++++++++++++-
- 2 files changed, 100 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-index a62f65a..83a060d 100644
---- a/drivers/net/ethernet/intel/i40e/i40e.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e.h
-@@ -346,6 +346,8 @@ struct i40e_channel {
- 	u8 enabled_tc;
- 	struct i40e_aqc_vsi_properties_data info;
- 
-+	u32 max_tx_rate;
-+
- 	/* track this channel belongs to which VSI */
- 	struct i40e_vsi *parent_vsi;
- };
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 7f61d4f..3261dab 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -69,6 +69,8 @@ static void i40e_rebuild(struct i40e_pf *pf, bool reinit, bool lock_acquired);
- static void i40e_fdir_sb_setup(struct i40e_pf *pf);
- static int i40e_veb_get_bw_info(struct i40e_veb *veb);
- static int i40e_vsi_config_rss(struct i40e_vsi *vsi);
-+static int i40e_set_bw_limit(struct i40e_vsi *vsi, u16 ch_seid,
-+			     u32 max_tx_rate);
- 
- /* i40e_pci_tbl - PCI Device ID Table
-  *
-@@ -5033,7 +5035,7 @@ static int i40e_vsi_configure_bw_alloc(struct i40e_vsi *vsi, u8 enabled_tc,
- 				       u8 *bw_share)
- {
- 	struct i40e_aqc_configure_vsi_tc_bw_data bw_data;
--	i40e_status ret;
-+	i40e_status ret = 0;
- 	int i;
- 
- 	bw_data.tc_valid_bits = enabled_tc;
-@@ -5041,8 +5043,20 @@ static int i40e_vsi_configure_bw_alloc(struct i40e_vsi *vsi, u8 enabled_tc,
- 		bw_data.tc_bw_credits[i] = bw_share[i];
- 
- 	if ((vsi->back->flags & I40E_FLAG_TC_MQPRIO) ||
--	    !vsi->mqprio_qopt.qopt.hw)
--		return 0;
-+	    !vsi->mqprio_qopt.qopt.hw) {
-+		if (vsi->mqprio_qopt.max_rate[0]) {
-+			u32 max_tx_rate = vsi->mqprio_qopt.max_rate[0];
-+
-+			max_tx_rate = (max_tx_rate * 8) / 1000000;
-+
-+			ret = i40e_set_bw_limit(vsi, vsi->seid, max_tx_rate);
-+			if (ret)
-+				dev_err(&vsi->back->pdev->dev,
-+					"Failed to set tx rate (%u Mbps) for vsi->seid %u, error code %d.\n",
-+					max_tx_rate, vsi->seid, ret);
-+		}
-+		return ret;
-+	}
- 
- 	ret = i40e_aq_config_vsi_tc_bw(&vsi->back->hw, vsi->seid, &bw_data,
- 				       NULL);
-@@ -5297,6 +5311,71 @@ static void i40e_remove_queue_channel(struct i40e_vsi *vsi)
- }
- 
- /**
-+ * i40e_set_bw_limit - setup BW limit based on max_tx_rate
-+ * @vsi: the VSI being setup
-+ * @ch_seid: seid of the channel (VSI)
-+ * @max_tx_rate: max TX rate to be configured as BW limit
-+ *
-+ * This function sets up BW limit for a given channel (ch_seid)
-+ * based on max TX rate specified.
-+ **/
-+static int i40e_set_bw_limit(struct i40e_vsi *vsi, u16 ch_seid, u32 max_tx_rate)
-+{
-+	struct i40e_pf *pf = vsi->back;
-+	int speed = 0;
-+	int ret = 0;
-+
-+	switch (pf->hw.phy.link_info.link_speed) {
-+	case I40E_LINK_SPEED_40GB:
-+		speed = 40000;
-+		break;
-+	case I40E_LINK_SPEED_20GB:
-+		speed = 20000;
-+		break;
-+	case I40E_LINK_SPEED_10GB:
-+		speed = 10000;
-+		break;
-+	case I40E_LINK_SPEED_1GB:
-+		speed = 1000;
-+		break;
-+	default:
-+		break;
-+	}
-+
-+	if (max_tx_rate > speed) {
-+		dev_err(&pf->pdev->dev,
-+			"Invalid tx rate %d specified for channel seid %d.",
-+			max_tx_rate, ch_seid);
-+		return -EINVAL;
-+	}
-+
-+	if ((max_tx_rate < 50) && (max_tx_rate > 0)) {
-+		dev_warn(&pf->pdev->dev,
-+			 "Setting tx rate to minimum usable value of 50Mbps.\n");
-+		max_tx_rate = 50;
-+	}
-+
-+#define I40E_BW_CREDIT_DIVISOR 50     /* 50Mbps per BW credit */
-+#define I40E_MAX_BW_INACTIVE_ACCUM 1
-+
-+	/* TX rate credits are in values of 50Mbps, 0 is disabled*/
-+	ret = i40e_aq_config_vsi_bw_limit(&pf->hw, ch_seid,
-+					  max_tx_rate / I40E_BW_CREDIT_DIVISOR,
-+					  I40E_MAX_BW_INACTIVE_ACCUM,
-+					  NULL);
-+	if (ret)
-+		dev_err(&pf->pdev->dev,
-+			"Failed set tx rate (%u Mbps) for vsi->seid %u, error code %d.\n",
-+			max_tx_rate, ch_seid, ret);
-+	else
-+		dev_info(&pf->pdev->dev,
-+			 "Set tx rate of %u Mbps (count of 50Mbps %u) for vsi->seid %u\n",
-+			 max_tx_rate, max_tx_rate / I40E_BW_CREDIT_DIVISOR,
-+			 ch_seid);
-+	return ret;
-+}
-+
-+/**
-  * i40e_is_any_channel - channel exist or not
-  * @vsi: ptr to VSI to which channels are associated with
-  *
-@@ -5882,6 +5961,11 @@ int i40e_create_queue_channel(struct i40e_vsi *vsi,
- 		 "Setup channel (id:%u) utilizing num_queues %d\n",
- 		 ch->seid, ch->num_queue_pairs);
- 
-+	/* configure VSI for BW limit */
-+	if (ch->max_tx_rate)
-+		if (i40e_set_bw_limit(vsi, ch->seid, ch->max_tx_rate))
-+			return -EINVAL;
-+
- 	/* in case of VF, this will be main SRIOV VSI */
- 	ch->parent_vsi = vsi;
- 
-@@ -5918,6 +6002,13 @@ static int i40e_configure_queue_channel(struct i40e_vsi *vsi)
- 				vsi->tc_config.tc_info[i].qcount;
- 			ch->base_queue =
- 				vsi->tc_config.tc_info[i].qoffset;
-+			ch->max_tx_rate =
-+				vsi->mqprio_qopt.max_rate[i];
-+
-+			/* Bandwidth limit through tc interface is in bytes/s,
-+			 * change to Mbit/s
-+			 */
-+			ch->max_tx_rate = (ch->max_tx_rate * 8) / 1000000;
- 
- 			list_add_tail(&ch->list, &vsi->ch_list);
- 
-@@ -6346,8 +6437,11 @@ int i40e_validate_mqprio_queue_mapping(struct i40e_vsi *vsi,
- 		if (!mqprio_qopt->qopt.count[i])
- 			return -EINVAL;
- 
--		if (mqprio_qopt->min_rate[i] || mqprio_qopt->max_rate[i])
-+		if (mqprio_qopt->min_rate[i]) {
-+			dev_err(&vsi->back->pdev->dev,
-+				"Invalid min tx rate (greater than 0) specified\n");
- 			return -EINVAL;
-+		}
- 
- 		if (i >= mqprio_qopt->qopt.num_tc - 1)
- 			break;
+>         int arp_ip_count;
+>         int bond_mode   = BOND_MODE_ROUNDROBIN;
+>         int xmit_hashtype = BOND_XMIT_POLICY_LAYER2;
+> @@ -4501,7 +4501,6 @@ static int bond_check_params(struct bond_params *params)
+>                 arp_validate_value = 0;
+>         }
+>
+> -       arp_all_targets_value = 0;
+>         if (arp_all_targets) {
+>                 bond_opt_initstr(&newval, arp_all_targets);
+>                 valptr = bond_opt_parse(bond_opt_get(BOND_OPT_ARP_ALL_TARGETS),
+> --
+> 2.12.1
+>
