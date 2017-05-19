@@ -1,31 +1,79 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next 0/2] Check all RGMII phy mode variants
-Date: Fri, 19 May 2017 19:42:14 -0400 (EDT)
-Message-ID: <20170519.194214.524202632096560137.davem@davemloft.net>
-References: <1495145624-29463-1-git-send-email-isubramanian@apm.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, f.fainelli@gmail.com, andrew@lunn.ch,
-        linux-arm-kernel@lists.infradead.org, patches@apm.com
-To: isubramanian@apm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:59258 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754052AbdESXm2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 19 May 2017 19:42:28 -0400
-In-Reply-To: <1495145624-29463-1-git-send-email-isubramanian@apm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jarod Wilson <jarod@redhat.com>
+Subject: [PATCH net v2] bonding: fix accounting of active ports in 3ad
+Date: Fri, 19 May 2017 19:43:45 -0400
+Message-ID: <20170519234345.44721-1-jarod@redhat.com>
+References: <20170517151144.57865-1-jarod@redhat.com>
+Cc: Jarod Wilson <jarod@redhat.com>,
+        Jay Vosburgh <j.vosburgh@gmail.com>,
+        Veaceslav Falico <vfalico@gmail.com>,
+        Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170517151144.57865-1-jarod@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Iyappan Subramanian <isubramanian@apm.com>
-Date: Thu, 18 May 2017 15:13:42 -0700
+As of 7bb11dc9f59d and 0622cab0341c, bond slaves in a 3ad bond are not
+removed from the aggregator when they are down, and the active slave count
+is NOT equal to number of ports in the aggregator, but rather the number
+of ports in the aggregator that are still enabled. The sysfs spew for
+bonding_show_ad_num_ports() has a comment that says "Show number of active
+802.3ad ports.", but it's currently showing total number of ports, both
+active and inactive. Remedy it by using the same logic introduced in
+0622cab0341c in __bond_3ad_get_active_agg_info(), so sysfs, procfs and
+netlink all report the number of active ports. Note that this means that
+IFLA_BOND_AD_INFO_NUM_PORTS really means NUM_ACTIVE_PORTS instead of
+NUM_PORTS, and thus perhaps should be renamed for clarity.
 
-> This patch set,
->      - adds phy_interface_mode_is_rgmii() helper function
->      - addresses review comment from previous patch set, by calling
->        phy_interface_mode_is_rgmii() to address all RGMII variants
-> 
-> Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
+Lightly tested on a dual i40e lacp bond, simulating link downs with an ip
+link set dev <slave2> down, was able to produce the state where I could
+see both in the same aggregator, but a number of ports count of 1.
 
-Series applied, thanks.
+MII Status: up
+Active Aggregator Info:
+        Aggregator ID: 1
+        Number of ports: 2 <---
+Slave Interface: ens10
+MII Status: up <---
+Aggregator ID: 1
+Slave Interface: ens11
+MII Status: up
+Aggregator ID: 1
+
+MII Status: up
+Active Aggregator Info:
+        Aggregator ID: 1
+        Number of ports: 1 <---
+Slave Interface: ens10
+MII Status: down <---
+Aggregator ID: 1
+Slave Interface: ens11
+MII Status: up
+Aggregator ID: 1
+
+CC: Jay Vosburgh <j.vosburgh@gmail.com>
+CC: Veaceslav Falico <vfalico@gmail.com>
+CC: Andy Gospodarek <andy@greyhouse.net>
+CC: netdev@vger.kernel.org
+Signed-off-by: Jarod Wilson <jarod@redhat.com>
+---
+v2: fix incorrect git sha reference, add more testing data
+
+ drivers/net/bonding/bond_3ad.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
+index c5fd4259da33..b44a6aeb346d 100644
+--- a/drivers/net/bonding/bond_3ad.c
++++ b/drivers/net/bonding/bond_3ad.c
+@@ -2577,7 +2577,7 @@ int __bond_3ad_get_active_agg_info(struct bonding *bond,
+ 		return -1;
+ 
+ 	ad_info->aggregator_id = aggregator->aggregator_identifier;
+-	ad_info->ports = aggregator->num_of_ports;
++	ad_info->ports = __agg_active_ports(aggregator);
+ 	ad_info->actor_key = aggregator->actor_oper_aggregator_key;
+ 	ad_info->partner_key = aggregator->partner_oper_aggregator_key;
+ 	ether_addr_copy(ad_info->partner_system,
+-- 
+2.12.1
