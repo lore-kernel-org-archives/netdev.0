@@ -1,55 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 1/3] bpf: Use 1<<16 as ceiling for immediate
- alignment in verifier.
-Date: Fri, 19 May 2017 19:16:15 -0400 (EDT)
-Message-ID: <20170519.191615.136362788931426782.davem@davemloft.net>
-References: <a0a47297-4765-3ba0-3ea2-013dda40e84a@solarflare.com>
-        <20170519.164154.368589666756458942.davem@davemloft.net>
-        <a4a1fe92-fa35-1d3f-1b3c-e094d715db2c@fb.com>
+Subject: Re: [PATCH net] bonding: fix accounting of active ports in 3ad
+Date: Fri, 19 May 2017 19:17:05 -0400 (EDT)
+Message-ID: <20170519.191705.577061587119695633.davem@davemloft.net>
+References: <20170517151144.57865-1-jarod@redhat.com>
+        <20170519.171417.473208349438307952.davem@davemloft.net>
+        <95c9a6b9-ac60-caa1-416d-c74e1aea08f4@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ecree@solarflare.com, daniel@iogearbox.net,
-        alexei.starovoitov@gmail.com, netdev@vger.kernel.org
-To: ast@fb.com
+Cc: linux-kernel@vger.kernel.org, j.vosburgh@gmail.com,
+        vfalico@gmail.com, andy@greyhouse.net, netdev@vger.kernel.org
+To: jarod@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:59076 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:59090 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751049AbdESXQT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 19 May 2017 19:16:19 -0400
-In-Reply-To: <a4a1fe92-fa35-1d3f-1b3c-e094d715db2c@fb.com>
+        with ESMTP id S1755250AbdESXRG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 19 May 2017 19:17:06 -0400
+In-Reply-To: <95c9a6b9-ac60-caa1-416d-c74e1aea08f4@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexei Starovoitov <ast@fb.com>
-Date: Fri, 19 May 2017 14:37:56 -0700
+From: Jarod Wilson <jarod@redhat.com>
+Date: Fri, 19 May 2017 18:15:57 -0400
 
-> On 5/19/17 1:41 PM, David Miller wrote:
->> From: Edward Cree <ecree@solarflare.com>
->> Date: Fri, 19 May 2017 18:17:42 +0100
->>
->>> One question: is there a way to build the verifier as userland code
->>>  (or at least as a module), or will I have to reboot every time I
->>>  want to test a change?
->>
->> There currently is no such machanism, you will have to reboot every
->> time.
->>
->> I have considered working on making the code buildable outside of the
->> kernel.  It shouldn't be too hard.
+> On 2017-05-19 5:14 PM, David Miller wrote:
+>> From: Jarod Wilson <jarod@redhat.com>
+>> Date: Wed, 17 May 2017 11:11:44 -0400
+>> 
+>>> As of 7bb11dc9f59d and 0622cab0341c, bond slaves in a 3ad bond are not
+>>> removed from the aggregator when they are down, and the active slave
+>>> count
+>>> is NOT equal to number of ports in the aggregator, but rather the
+>>> number
+>>> of ports in the aggregator that are still enabled.
+>>   ...
+>>> Remedy it by using the same logic introduced in
+>>> 7bb11dc9f59d in __bond_3ad_get_active_agg_info(), so sysfs, procfs and
+>>    ^^^^^^^^^^^^
+>>> netlink all report the number of active ports.
+>> I think you mean to reference commit 0622cab0341c here not
+>> 7bb11dc9f59d.
 > 
-> it's not hard.
-> We did it twice and both times abandoned.
-> First time to have 'user space verifier' to check programs before
-> loading and second time for fuzzing via llvm.
-> Abandoned since it diverges very quickly from kernel.
-> 
+> D'oh, yes, you are entirely correct. Should I submit a v2 with that
+> correction?
 
-Well, my idea was the create an environment in which kernel verifier.c
-could be built as-is.
-
-Maybe there would be some small compromises in verifier.c such as an
-ifdef test or two, but that should be it.
-
-It really is just a piece of what amounts to compiler infrastructure
-and not very kernel specific.
+Yes, please.
