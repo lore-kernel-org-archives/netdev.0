@@ -1,133 +1,91 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: Re: [PATCH net] sctp: fix ICMP processing if skb is non-linear
-Date: Sat, 20 May 2017 02:40:56 +0800
-Message-ID: <CADvbK_c81ju-D6h4TLm5_Lxvkaiw69Lt9TXR3Z_8gOJpQdXpXQ@mail.gmail.com>
-References: <cb2535a6a40a84684f26d7c7d26788cc3f8a2010.1495207495.git.dcaratti@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
-        "David S. Miller" <davem@davemloft.net>
-To: Davide Caratti <dcaratti@redhat.com>,
-        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f195.google.com ([209.85.216.195]:36589 "EHLO
-        mail-qt0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751049AbdESSlC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 19 May 2017 14:41:02 -0400
-In-Reply-To: <cb2535a6a40a84684f26d7c7d26788cc3f8a2010.1495207495.git.dcaratti@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jarod Wilson <jarod@redhat.com>
+Subject: [PATCH net] bonding: fix randomly populated arp target array
+Date: Fri, 19 May 2017 14:46:46 -0400
+Message-ID: <20170519184646.42572-1-jarod@redhat.com>
+Cc: Jarod Wilson <jarod@redhat.com>,
+        Mahesh Bandewar <maheshb@google.com>,
+        Jay Vosburgh <j.vosburgh@gmail.com>,
+        Veaceslav Falico <vfalico@gmail.com>,
+        Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org,
+        stable@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <stable-owner@vger.kernel.org>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, May 19, 2017 at 11:34 PM, Davide Caratti <dcaratti@redhat.com> wrote:
-> when the ICMP packet is carried by a paged skb, sctp_err_lookup() may fail
-> validation even if the payload contents match an open socket: as a
-> consequence, sometimes ICMPs are wrongly ignored. Use skb_header_pointer()
-> to retrieve encapsulated SCTP headers, to ensure that ICMP payloads are
-> validated correctly, also when skbs are non-linear.
->
-> Signed-off-by: Davide Caratti <dcaratti@redhat.com>
-> ---
->  include/net/sctp/sctp.h |  2 +-
->  net/sctp/input.c        | 29 +++++++++++++++++++----------
->  net/sctp/ipv6.c         |  2 +-
->  3 files changed, 21 insertions(+), 12 deletions(-)
->
-> diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
-> index 069582e..1b8c16b 100644
-> --- a/include/net/sctp/sctp.h
-> +++ b/include/net/sctp/sctp.h
-> @@ -152,7 +152,7 @@ void sctp_v4_err(struct sk_buff *skb, u32 info);
->  void sctp_hash_endpoint(struct sctp_endpoint *);
->  void sctp_unhash_endpoint(struct sctp_endpoint *);
->  struct sock *sctp_err_lookup(struct net *net, int family, struct sk_buff *,
-> -                            struct sctphdr *, struct sctp_association **,
-> +                            struct sctp_association **,
->                              struct sctp_transport **);
->  void sctp_err_finish(struct sock *, struct sctp_transport *);
->  void sctp_icmp_frag_needed(struct sock *, struct sctp_association *,
-> diff --git a/net/sctp/input.c b/net/sctp/input.c
-> index 0e06a27..7f3f983 100644
-> --- a/net/sctp/input.c
-> +++ b/net/sctp/input.c
-> @@ -469,19 +469,19 @@ void sctp_icmp_proto_unreachable(struct sock *sk,
->
->  /* Common lookup code for icmp/icmpv6 error handler. */
->  struct sock *sctp_err_lookup(struct net *net, int family, struct sk_buff *skb,
-> -                            struct sctphdr *sctphdr,
->                              struct sctp_association **app,
->                              struct sctp_transport **tpp)
->  {
-> +       struct sctp_init_chunk _chunkhdr, *chunkhdr;
-> +       struct sctphdr _sctphdr, *sctphdr;
->         union sctp_addr saddr;
->         union sctp_addr daddr;
->         struct sctp_af *af;
->         struct sock *sk = NULL;
->         struct sctp_association *asoc;
->         struct sctp_transport *transport = NULL;
-> -       struct sctp_init_chunk *chunkhdr;
-> -       __u32 vtag = ntohl(sctphdr->vtag);
-> -       int len = skb->len - ((void *)sctphdr - (void *)skb->data);
-> +       int offset;
-> +       __u32 vtag;
->
->         *app = NULL; *tpp = NULL;
->
-> @@ -515,14 +515,23 @@ struct sock *sctp_err_lookup(struct net *net, int family, struct sk_buff *skb,
->          * or the chunk type or the Initiate Tag does not match, silently
->          * discard the packet.
->          */
-> +       offset = skb_transport_offset(skb);
-> +       sctphdr = skb_header_pointer(skb, offset, sizeof(_sctphdr), &_sctphdr);
-> +       if (unlikely(!sctphdr))
-> +               goto out;
-> +
-> +       vtag = ntohl(sctphdr->vtag);
->         if (vtag == 0) {
-> -               chunkhdr = (void *)sctphdr + sizeof(struct sctphdr);
-> -               if (len < sizeof(struct sctphdr) + sizeof(sctp_chunkhdr_t)
-> -                         + sizeof(__be32) ||
-> +               offset += sizeof(_sctphdr);
-will be nice to delete this line, and use
-> +               /* chunk header + first 4 octects of init header */
-> +               chunkhdr = skb_header_pointer(skb, offset,
-chunkhdr = skb_header_pointer(skb, offset + sizeof(_sctphdr), ;)
-wdyt?
+In commit dc9c4d0fe023, the arp_target array moved from a static global
+to a local variable. By the nature of static globals, the array used to
+be initialized to all 0. At present, it's full of random data, which
+that gets interpreted as arp_target values, when none have actually been
+specified. Systems end up booting with spew along these lines:
 
-> +                                             sizeof(struct sctp_chunkhdr) +
-> +                                             sizeof(__be32), &_chunkhdr);
-> +               if (!chunkhdr ||
->                     chunkhdr->chunk_hdr.type != SCTP_CID_INIT ||
-> -                   ntohl(chunkhdr->init_hdr.init_tag) != asoc->c.my_vtag) {
-> +                   ntohl(chunkhdr->init_hdr.init_tag) != asoc->c.my_vtag)
->                         goto out;
-> -               }
-> +
->         } else if (vtag != asoc->c.peer_vtag) {
->                 goto out;
->         }
-> @@ -585,7 +594,7 @@ void sctp_v4_err(struct sk_buff *skb, __u32 info)
->         savesctp = skb->transport_header;
->         skb_reset_network_header(skb);
->         skb_set_transport_header(skb, ihlen);
-> -       sk = sctp_err_lookup(net, AF_INET, skb, sctp_hdr(skb), &asoc, &transport);
-> +       sk = sctp_err_lookup(net, AF_INET, skb, &asoc, &transport);
->         /* Put back, the original values. */
->         skb->network_header = saveip;
->         skb->transport_header = savesctp;
-> diff --git a/net/sctp/ipv6.c b/net/sctp/ipv6.c
-> index 142b70e..d72c8d5 100644
-> --- a/net/sctp/ipv6.c
-> +++ b/net/sctp/ipv6.c
-> @@ -157,7 +157,7 @@ static void sctp_v6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
->         savesctp = skb->transport_header;
->         skb_reset_network_header(skb);
->         skb_set_transport_header(skb, offset);
-> -       sk = sctp_err_lookup(net, AF_INET6, skb, sctp_hdr(skb), &asoc, &transport);
-> +       sk = sctp_err_lookup(net, AF_INET6, skb, &asoc, &transport);
->         /* Put back, the original pointers. */
->         skb->network_header   = saveip;
->         skb->transport_header = savesctp;
-> --
-> 2.7.4
->
+[   32.161783] IPv6: ADDRCONF(NETDEV_UP): lacp0: link is not ready
+[   32.168475] IPv6: ADDRCONF(NETDEV_UP): lacp0: link is not ready
+[   32.175089] 8021q: adding VLAN 0 to HW filter on device lacp0
+[   32.193091] IPv6: ADDRCONF(NETDEV_UP): lacp0: link is not ready
+[   32.204892] lacp0: Setting MII monitoring interval to 100
+[   32.211071] lacp0: Removing ARP target 216.124.228.17
+[   32.216824] lacp0: Removing ARP target 218.160.255.255
+[   32.222646] lacp0: Removing ARP target 185.170.136.184
+[   32.228496] lacp0: invalid ARP target 255.255.255.255 specified for removal
+[   32.236294] lacp0: option arp_ip_target: invalid value (-255.255.255.255)
+[   32.243987] lacp0: Removing ARP target 56.125.228.17
+[   32.249625] lacp0: Removing ARP target 218.160.255.255
+[   32.255432] lacp0: Removing ARP target 15.157.233.184
+[   32.261165] lacp0: invalid ARP target 255.255.255.255 specified for removal
+[   32.268939] lacp0: option arp_ip_target: invalid value (-255.255.255.255)
+[   32.276632] lacp0: Removing ARP target 16.0.0.0
+[   32.281755] lacp0: Removing ARP target 218.160.255.255
+[   32.287567] lacp0: Removing ARP target 72.125.228.17
+[   32.293165] lacp0: Removing ARP target 218.160.255.255
+[   32.298970] lacp0: Removing ARP target 8.125.228.17
+[   32.304458] lacp0: Removing ARP target 218.160.255.255
+
+None of these were actually specified as ARP targets, and the driver does
+seem to clean up the mess okay, but it's rather noisy and confusing, leaks
+values to userspace, and the 255.255.255.255 spew shows up even when debug
+prints are disabled.
+
+The fix: just zero out arp_target at init time.
+
+While we're in here, init arp_all_targets_value in the right place.
+
+Fixes: dc9c4d0fe023 ("bonding: reduce scope of some global variables")
+CC: Mahesh Bandewar <maheshb@google.com>
+CC: Jay Vosburgh <j.vosburgh@gmail.com>
+CC: Veaceslav Falico <vfalico@gmail.com>
+CC: Andy Gospodarek <andy@greyhouse.net>
+CC: netdev@vger.kernel.org
+CC: stable@vger.kernel.org
+Signed-off-by: Jarod Wilson <jarod@redhat.com>
+---
+ drivers/net/bonding/bond_main.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 2be78807fd6e..73313318399c 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -4271,10 +4271,10 @@ static int bond_check_params(struct bond_params *params)
+ 	int arp_validate_value, fail_over_mac_value, primary_reselect_value, i;
+ 	struct bond_opt_value newval;
+ 	const struct bond_opt_value *valptr;
+-	int arp_all_targets_value;
++	int arp_all_targets_value = 0;
+ 	u16 ad_actor_sys_prio = 0;
+ 	u16 ad_user_port_key = 0;
+-	__be32 arp_target[BOND_MAX_ARP_TARGETS];
++	__be32 arp_target[BOND_MAX_ARP_TARGETS] = { 0 };
+ 	int arp_ip_count;
+ 	int bond_mode	= BOND_MODE_ROUNDROBIN;
+ 	int xmit_hashtype = BOND_XMIT_POLICY_LAYER2;
+@@ -4501,7 +4501,6 @@ static int bond_check_params(struct bond_params *params)
+ 		arp_validate_value = 0;
+ 	}
+ 
+-	arp_all_targets_value = 0;
+ 	if (arp_all_targets) {
+ 		bond_opt_initstr(&newval, arp_all_targets);
+ 		valptr = bond_opt_parse(bond_opt_get(BOND_OPT_ARP_ALL_TARGETS),
+-- 
+2.12.1
