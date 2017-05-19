@@ -1,137 +1,142 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 06/12] netfilter: xtables: zero padding in data_to_user
-Date: Fri, 19 May 2017 10:33:47 +0200
-Message-ID: <1495182833-2272-7-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 04/12] netfilter: introduce nf_conntrack_helper_put helper function
+Date: Fri, 19 May 2017 10:33:45 +0200
+Message-ID: <1495182833-2272-5-git-send-email-pablo@netfilter.org>
 References: <1495182833-2272-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:44022 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:43992 "EHLO mail.us.es"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754011AbdESIeW (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 19 May 2017 04:34:22 -0400
+        id S1753687AbdESIeU (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 19 May 2017 04:34:20 -0400
 Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id 001F91DA0AD
-        for <netdev@vger.kernel.org>; Fri, 19 May 2017 10:34:14 +0200 (CEST)
+        by mail.us.es (Postfix) with ESMTP id 852C41DA0AC
+        for <netdev@vger.kernel.org>; Fri, 19 May 2017 10:34:12 +0200 (CEST)
 Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id E4AF9100790
-        for <netdev@vger.kernel.org>; Fri, 19 May 2017 10:34:13 +0200 (CEST)
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 72577FF2F9
+        for <netdev@vger.kernel.org>; Fri, 19 May 2017 10:34:12 +0200 (CEST)
 Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 9F933FF2F7
-        for <netdev@vger.kernel.org>; Fri, 19 May 2017 10:34:11 +0200 (CEST)
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 0A818FF137
+        for <netdev@vger.kernel.org>; Fri, 19 May 2017 10:34:10 +0200 (CEST)
 In-Reply-To: <1495182833-2272-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Willem de Bruijn <willemb@google.com>
+From: Liping Zhang <zlpnobody@gmail.com>
 
-When looking up an iptables rule, the iptables binary compares the
-aligned match and target data (XT_ALIGN). In some cases this can
-exceed the actual data size to include padding bytes.
+And convert module_put invocation to nf_conntrack_helper_put, this is
+prepared for the followup patch, which will add a refcnt for cthelper,
+so we can reject the deleting request when cthelper is in use.
 
-Before commit f77bc5b23fb1 ("iptables: use match, target and data
-copy_to_user helpers") the malloc()ed bytes were overwritten by the
-kernel with kzalloced contents, zeroing the padding and making the
-comparison succeed. After this patch, the kernel copies and clears
-only data, leaving the padding bytes undefined.
-
-Extend the clear operation from data size to aligned data size to
-include the padding bytes, if any.
-
-Padding bytes can be observed in both match and target, and the bug
-triggered, by issuing a rule with match icmp and target ACCEPT:
-
-  iptables -t mangle -A INPUT -i lo -p icmp --icmp-type 1 -j ACCEPT
-  iptables -t mangle -D INPUT -i lo -p icmp --icmp-type 1 -j ACCEPT
-
-Fixes: f77bc5b23fb1 ("iptables: use match, target and data copy_to_user helpers")
-Reported-by: Paul Moore <pmoore@redhat.com>
-Reported-by: Richard Guy Briggs <rgb@redhat.com>
-Signed-off-by: Willem de Bruijn <willemb@google.com>
+Signed-off-by: Liping Zhang <zlpnobody@gmail.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/linux/netfilter/x_tables.h | 2 +-
- net/bridge/netfilter/ebtables.c    | 9 ++++++---
- net/netfilter/x_tables.c           | 9 ++++++---
- 3 files changed, 13 insertions(+), 7 deletions(-)
+ include/net/netfilter/nf_conntrack_helper.h | 2 ++
+ net/netfilter/nf_conntrack_helper.c         | 6 ++++++
+ net/netfilter/nft_ct.c                      | 4 ++--
+ net/netfilter/xt_CT.c                       | 6 +++---
+ net/openvswitch/conntrack.c                 | 4 ++--
+ 5 files changed, 15 insertions(+), 7 deletions(-)
 
-diff --git a/include/linux/netfilter/x_tables.h b/include/linux/netfilter/x_tables.h
-index be378cf47fcc..b3044c2c62cb 100644
---- a/include/linux/netfilter/x_tables.h
-+++ b/include/linux/netfilter/x_tables.h
-@@ -294,7 +294,7 @@ int xt_match_to_user(const struct xt_entry_match *m,
- int xt_target_to_user(const struct xt_entry_target *t,
- 		      struct xt_entry_target __user *u);
- int xt_data_to_user(void __user *dst, const void *src,
--		    int usersize, int size);
-+		    int usersize, int size, int aligned_size);
+diff --git a/include/net/netfilter/nf_conntrack_helper.h b/include/net/netfilter/nf_conntrack_helper.h
+index e04fa7691e5d..c1c12411103a 100644
+--- a/include/net/netfilter/nf_conntrack_helper.h
++++ b/include/net/netfilter/nf_conntrack_helper.h
+@@ -79,6 +79,8 @@ struct nf_conntrack_helper *__nf_conntrack_helper_find(const char *name,
+ struct nf_conntrack_helper *nf_conntrack_helper_try_module_get(const char *name,
+ 							       u16 l3num,
+ 							       u8 protonum);
++void nf_conntrack_helper_put(struct nf_conntrack_helper *helper);
++
+ void nf_ct_helper_init(struct nf_conntrack_helper *helper,
+ 		       u16 l3num, u16 protonum, const char *name,
+ 		       u16 default_port, u16 spec_port, u32 id,
+diff --git a/net/netfilter/nf_conntrack_helper.c b/net/netfilter/nf_conntrack_helper.c
+index 3a60efa7799b..e17006b6e434 100644
+--- a/net/netfilter/nf_conntrack_helper.c
++++ b/net/netfilter/nf_conntrack_helper.c
+@@ -181,6 +181,12 @@ nf_conntrack_helper_try_module_get(const char *name, u16 l3num, u8 protonum)
+ }
+ EXPORT_SYMBOL_GPL(nf_conntrack_helper_try_module_get);
  
- void *xt_copy_counters_from_user(const void __user *user, unsigned int len,
- 				 struct xt_counters_info *info, bool compat);
-diff --git a/net/bridge/netfilter/ebtables.c b/net/bridge/netfilter/ebtables.c
-index 9ec0c9f908fa..9c6e619f452b 100644
---- a/net/bridge/netfilter/ebtables.c
-+++ b/net/bridge/netfilter/ebtables.c
-@@ -1373,7 +1373,8 @@ static inline int ebt_obj_to_user(char __user *um, const char *_name,
- 	strlcpy(name, _name, sizeof(name));
- 	if (copy_to_user(um, name, EBT_FUNCTION_MAXNAMELEN) ||
- 	    put_user(datasize, (int __user *)(um + EBT_FUNCTION_MAXNAMELEN)) ||
--	    xt_data_to_user(um + entrysize, data, usersize, datasize))
-+	    xt_data_to_user(um + entrysize, data, usersize, datasize,
-+			    XT_ALIGN(datasize)))
- 		return -EFAULT;
++void nf_conntrack_helper_put(struct nf_conntrack_helper *helper)
++{
++	module_put(helper->me);
++}
++EXPORT_SYMBOL_GPL(nf_conntrack_helper_put);
++
+ struct nf_conn_help *
+ nf_ct_helper_ext_add(struct nf_conn *ct,
+ 		     struct nf_conntrack_helper *helper, gfp_t gfp)
+diff --git a/net/netfilter/nft_ct.c b/net/netfilter/nft_ct.c
+index a34ceb38fc55..1678e9e75e8e 100644
+--- a/net/netfilter/nft_ct.c
++++ b/net/netfilter/nft_ct.c
+@@ -826,9 +826,9 @@ static void nft_ct_helper_obj_destroy(struct nft_object *obj)
+ 	struct nft_ct_helper_obj *priv = nft_obj_data(obj);
  
- 	return 0;
-@@ -1658,7 +1659,8 @@ static int compat_match_to_user(struct ebt_entry_match *m, void __user **dstptr,
- 		if (match->compat_to_user(cm->data, m->data))
- 			return -EFAULT;
- 	} else {
--		if (xt_data_to_user(cm->data, m->data, match->usersize, msize))
-+		if (xt_data_to_user(cm->data, m->data, match->usersize, msize,
-+				    COMPAT_XT_ALIGN(msize)))
- 			return -EFAULT;
+ 	if (priv->helper4)
+-		module_put(priv->helper4->me);
++		nf_conntrack_helper_put(priv->helper4);
+ 	if (priv->helper6)
+-		module_put(priv->helper6->me);
++		nf_conntrack_helper_put(priv->helper6);
+ }
+ 
+ static void nft_ct_helper_obj_eval(struct nft_object *obj,
+diff --git a/net/netfilter/xt_CT.c b/net/netfilter/xt_CT.c
+index bb7ad82dcd56..623ef37de886 100644
+--- a/net/netfilter/xt_CT.c
++++ b/net/netfilter/xt_CT.c
+@@ -96,7 +96,7 @@ xt_ct_set_helper(struct nf_conn *ct, const char *helper_name,
+ 
+ 	help = nf_ct_helper_ext_add(ct, helper, GFP_KERNEL);
+ 	if (help == NULL) {
+-		module_put(helper->me);
++		nf_conntrack_helper_put(helper);
+ 		return -ENOMEM;
  	}
  
-@@ -1687,7 +1689,8 @@ static int compat_target_to_user(struct ebt_entry_target *t,
- 		if (target->compat_to_user(cm->data, t->data))
- 			return -EFAULT;
- 	} else {
--		if (xt_data_to_user(cm->data, t->data, target->usersize, tsize))
-+		if (xt_data_to_user(cm->data, t->data, target->usersize, tsize,
-+				    COMPAT_XT_ALIGN(tsize)))
- 			return -EFAULT;
+@@ -263,7 +263,7 @@ static int xt_ct_tg_check(const struct xt_tgchk_param *par,
+ err4:
+ 	help = nfct_help(ct);
+ 	if (help)
+-		module_put(help->helper->me);
++		nf_conntrack_helper_put(help->helper);
+ err3:
+ 	nf_ct_tmpl_free(ct);
+ err2:
+@@ -346,7 +346,7 @@ static void xt_ct_tg_destroy(const struct xt_tgdtor_param *par,
+ 	if (ct) {
+ 		help = nfct_help(ct);
+ 		if (help)
+-			module_put(help->helper->me);
++			nf_conntrack_helper_put(help->helper);
+ 
+ 		nf_ct_netns_put(par->net, par->family);
+ 
+diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
+index bf602e33c40a..08679ebb3068 100644
+--- a/net/openvswitch/conntrack.c
++++ b/net/openvswitch/conntrack.c
+@@ -1123,7 +1123,7 @@ static int ovs_ct_add_helper(struct ovs_conntrack_info *info, const char *name,
+ 
+ 	help = nf_ct_helper_ext_add(info->ct, helper, GFP_KERNEL);
+ 	if (!help) {
+-		module_put(helper->me);
++		nf_conntrack_helper_put(helper);
+ 		return -ENOMEM;
  	}
  
-diff --git a/net/netfilter/x_tables.c b/net/netfilter/x_tables.c
-index 8876b7da6884..d17769599c10 100644
---- a/net/netfilter/x_tables.c
-+++ b/net/netfilter/x_tables.c
-@@ -283,12 +283,13 @@ static int xt_obj_to_user(u16 __user *psize, u16 size,
- 		       &U->u.user.revision, K->u.kernel.TYPE->revision)
- 
- int xt_data_to_user(void __user *dst, const void *src,
--		    int usersize, int size)
-+		    int usersize, int size, int aligned_size)
+@@ -1584,7 +1584,7 @@ void ovs_ct_free_action(const struct nlattr *a)
+ static void __ovs_ct_free_action(struct ovs_conntrack_info *ct_info)
  {
- 	usersize = usersize ? : size;
- 	if (copy_to_user(dst, src, usersize))
- 		return -EFAULT;
--	if (usersize != size && clear_user(dst + usersize, size - usersize))
-+	if (usersize != aligned_size &&
-+	    clear_user(dst + usersize, aligned_size - usersize))
- 		return -EFAULT;
- 
- 	return 0;
-@@ -298,7 +299,9 @@ EXPORT_SYMBOL_GPL(xt_data_to_user);
- #define XT_DATA_TO_USER(U, K, TYPE, C_SIZE)				\
- 	xt_data_to_user(U->data, K->data,				\
- 			K->u.kernel.TYPE->usersize,			\
--			C_SIZE ? : K->u.kernel.TYPE->TYPE##size)
-+			C_SIZE ? : K->u.kernel.TYPE->TYPE##size,	\
-+			C_SIZE ? COMPAT_XT_ALIGN(C_SIZE) :		\
-+				 XT_ALIGN(K->u.kernel.TYPE->TYPE##size))
- 
- int xt_match_to_user(const struct xt_entry_match *m,
- 		     struct xt_entry_match __user *u)
+ 	if (ct_info->helper)
+-		module_put(ct_info->helper->me);
++		nf_conntrack_helper_put(ct_info->helper);
+ 	if (ct_info->ct)
+ 		nf_ct_tmpl_free(ct_info->ct);
+ }
 -- 
 2.1.4
