@@ -1,85 +1,53 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [RFC net-next PATCH 3/5] net: introduce XDP driver features interface
-Date: Fri, 19 May 2017 19:13:29 +0200
-Message-ID: <591F27B9.9070003@iogearbox.net>
-References: <149512205297.14733.15729847433404265933.stgit@firesoul> <149512210317.14733.15039298820296846614.stgit@firesoul>
+From: Edward Cree <ecree@solarflare.com>
+Subject: Re: [PATCH v2 1/3] bpf: Use 1<<16 as ceiling for immediate alignment
+ in verifier.
+Date: Fri, 19 May 2017 18:17:42 +0100
+Message-ID: <a0a47297-4765-3ba0-3ea2-013dda40e84a@solarflare.com>
+References: <20170515.120431.1588221938554447723.davem@davemloft.net>
+ <754f2c39-fdb0-2407-c2f2-aa36d506d202@solarflare.com>
+ <f2bff26d-8b4d-c6a2-23c9-9db198569e40@fb.com>
+ <50288778-10f6-7201-c979-bfe4635831fc@solarflare.com>
+ <e873f261-e1c1-c344-3d72-254623e0c91a@solarflare.com>
+ <97910214-213c-c5c6-4a02-adc16cd836aa@fb.com>
+ <c8e4ce49-5707-3d6d-c8c2-80dd8335d981@solarflare.com>
+ <739ef342-728c-de57-c2a2-03fa85b3a246@solarflare.com>
+ <17a1c4a2-68d7-0f8f-f009-b97706d67ceb@fb.com>
+ <7402a02c-cb00-d48e-1d2a-ccb03356fb72@solarflare.com>
+ <db8cd2e8-9f51-dc8b-5e55-4c75d13d4858@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: John Fastabend <john.r.fastabend@intel.com>, netdev@vger.kernel.org
-To: Jesper Dangaard Brouer <brouer@redhat.com>,
-        Daniel Borkmann <borkmann@iogearbox.net>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Cc: <alexei.starovoitov@gmail.com>, <netdev@vger.kernel.org>
+To: Alexei Starovoitov <ast@fb.com>,
+        David Miller <davem@davemloft.net>,
+        Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:47751 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750881AbdESRNe (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 19 May 2017 13:13:34 -0400
-In-Reply-To: <149512210317.14733.15039298820296846614.stgit@firesoul>
+Received: from dispatch1-us1.ppe-hosted.com ([67.231.154.164]:36150 "EHLO
+        dispatch1-us1.ppe-hosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1750734AbdESRR4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 19 May 2017 13:17:56 -0400
+In-Reply-To: <db8cd2e8-9f51-dc8b-5e55-4c75d13d4858@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/18/2017 05:41 PM, Jesper Dangaard Brouer wrote:
-> There is a fundamental difference between normal eBPF programs
-> and (XDP) eBPF programs getting attached in a driver. For normal
-> eBPF programs it is easy to add a new bpf feature, like a bpf
-> helper, because is it strongly tied to the feature being
-> available in the current core kernel code.  When drivers invoke a
-> bpf_prog, then it is not sufficient to simply relying on whether
-> a bpf_helper exists or not.  When a driver haven't implemented a
-> given feature yet, then it is possible to expose uninitialized
-> parts of xdp_buff.  The driver pass in a pointer to xdp_buff,
-> usually "allocated" on the stack, which must not be exposed.
-
-When xdp_buff is being extended, then we should at least zero
-initialize all in-tree users that don't support or populate this
-field, thus that it's not uninitialized memory. Better would be
-to have a way to reject the prog in the first place until it's
-implemented (but further comments on feature bits below).
-
-> Only two user visible NETIF_F_XDP_* net_device feature flags are
-> exposed via ethtool (-k) seen as "xdp" and "xdp-partial".
-> The "xdp-partial" is detected when there is not feature equality
-> between kernel and driver, and a netdev_warn is given.
-
-I think having something like a NETIF_F_XDP_BIT for ethtool to
-indicate support as "xdp" is quite useful. Avoids having to grep
-the kernel tree for ndo_xdp callback. ;) A "xdp-partial" would
-still be unclear/confusing to the user whether his program loads
-or doesn't which is the only thing a user (or some loading infra)
-cares about eventually, so one still needs to go trying to load
-the XDP code to see whether that fails for the native case.
-
-> The idea is that XDP_DRV_* feature bits define a contract between
-> the driver and the kernel, giving a reliable way to know that XDP
-> features a driver promised to implement. Thus, knowing what bpf
-> side features are safe to allow.
+On 19/05/17 15:55, Alexei Starovoitov wrote:
+> On 5/19/17 7:21 AM, Edward Cree wrote:
+>> I'm currently translating the algos to C.  But for the kernel patch,
+>>  I'll need to read & understand the existing verifier code, so it
+>>  might take a while :)  (I don't suppose there's any design document
+>>  or hacking-notes you could point me at?)
 >
-> There are 3 levels of features: "required", "devel" and "optional".
+> Dave just gave a good overview of the verifier:
+> https://www.spinics.net/lists/xdp-newbies/msg00185.html
 >
-> The motivation is pushing driver vendors forward to support all
-> the new XDP features.  Once a given feature bit is moved into
-> the "required" features, the kernel will reject loading XDP
-> program if feature isn't implemented by driver.  Features under
-> developement, require help from the bpf infrastrucure to detect
-> when a given helper or direct-access is used, using a bpf_prog
-> bit to mark a need for the feature, and pulling in this bit in
-> the xdp_features_check().  When all drivers have implemented
-> a "devel" feature, it can be moved to the "required" feature and
-
-The problem is that once you add bits markers to bpf_prog like we
-used to do in the past, then as you do in patch 4/5 with the
-xdp_rxhash_needed bit, they will need to be turned /on/ unconditionally
-when a prog has tail calls.
-
-Meaning, xdp_features_check() would then bail out when you have
-XDP_DRV_F_RXHASH set. This has the effect that while XDP prog X
-was running fine on kernel Y, it will suddenly get rejected on
-later kernel (Y + 1), without using the feature (but tail calls).
-And more complex networking progs are likely to use tail calls,
-so that would break all of them unfortunately as they cannot load
-anymore.
-
-> the bpf_prog bit can be refurbished. The "optional" features are
-> for things that are handled safely runtime, but drivers will
-> still get flagged as "xdp-partial" if not implementing those.
+> Few more details in
+> Documentation/networking/filter.txt
+> and in top comments in kernel/bpf/verifier.c
+>
+> General bpf arch overview:
+> http://docs.cilium.io/en/latest/bpf/#instruction-set 
+Thanks for the links!  I'm digging into implementation now.
+One question: is there a way to build the verifier as userland code
+ (or at least as a module), or will I have to reboot every time I
+ want to test a change?
+-Ed
