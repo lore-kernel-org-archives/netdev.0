@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 16/20] net: dsa: move notifier info to private header
-Date: Fri, 19 May 2017 17:00:51 -0400
-Message-ID: <20170519210055.9366-17-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 14/20] net: dsa: move MDB handlers
+Date: Fri, 19 May 2017 17:00:49 -0400
+Message-ID: <20170519210055.9366-15-vivien.didelot@savoirfairelinux.com>
 References: <20170519210055.9366-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
@@ -14,64 +14,133 @@ In-Reply-To: <20170519210055.9366-1-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The DSA notifier events and info structure definitions are not meant for
-DSA drivers and users, but only used internally by the DSA core files.
-
-Move them from the public net/dsa.h file to the private dsa_priv.h file.
-
-Also use this opportunity to turn the events into an anonymous enum,
-because we don't care about the values, and this will prevent future
-conflicts when adding (and sorting) new events.
+Move the DSA port code which handles MDB objects in port.c, where it
+belongs.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- include/net/dsa.h  | 10 ----------
- net/dsa/dsa_priv.h | 12 ++++++++++++
- 2 files changed, 12 insertions(+), 10 deletions(-)
+ net/dsa/dsa_priv.h |  7 +++++++
+ net/dsa/port.c     | 40 ++++++++++++++++++++++++++++++++++++++++
+ net/dsa/slave.c    | 41 -----------------------------------------
+ 3 files changed, 47 insertions(+), 41 deletions(-)
 
-diff --git a/include/net/dsa.h b/include/net/dsa.h
-index 791fed62fb16..c0e567c0c824 100644
---- a/include/net/dsa.h
-+++ b/include/net/dsa.h
-@@ -285,16 +285,6 @@ static inline u8 dsa_upstream_port(struct dsa_switch *ds)
- 		return ds->rtable[dst->cpu_dp->ds->index];
- }
- 
--#define DSA_NOTIFIER_BRIDGE_JOIN		1
--#define DSA_NOTIFIER_BRIDGE_LEAVE		2
--
--/* DSA_NOTIFIER_BRIDGE_* */
--struct dsa_notifier_bridge_info {
--	struct net_device *br;
--	int sw_index;
--	int port;
--};
--
- struct dsa_switch_ops {
- 	/*
- 	 * Legacy probing.
 diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
-index 16021a891095..c19241eb094b 100644
+index d003a2554c7a..c2a595036746 100644
 --- a/net/dsa/dsa_priv.h
 +++ b/net/dsa/dsa_priv.h
-@@ -16,6 +16,18 @@
- #include <linux/netpoll.h>
- #include <net/dsa.h>
+@@ -77,6 +77,13 @@ int dsa_port_fdb_del(struct dsa_port *dp,
+ 		     const struct switchdev_obj_port_fdb *fdb);
+ int dsa_port_fdb_dump(struct dsa_port *dp, struct switchdev_obj_port_fdb *fdb,
+ 		      switchdev_obj_dump_cb_t *cb);
++int dsa_port_mdb_add(struct dsa_port *dp,
++		     const struct switchdev_obj_port_mdb *mdb,
++		     struct switchdev_trans *trans);
++int dsa_port_mdb_del(struct dsa_port *dp,
++		     const struct switchdev_obj_port_mdb *mdb);
++int dsa_port_mdb_dump(struct dsa_port *dp, struct switchdev_obj_port_mdb *mdb,
++		      switchdev_obj_dump_cb_t *cb);
  
-+enum {
-+	DSA_NOTIFIER_BRIDGE_JOIN,
-+	DSA_NOTIFIER_BRIDGE_LEAVE,
-+};
+ /* slave.c */
+ extern const struct dsa_device_ops notag_netdev_ops;
+diff --git a/net/dsa/port.c b/net/dsa/port.c
+index 18ec6d432152..4ed0124a8d4b 100644
+--- a/net/dsa/port.c
++++ b/net/dsa/port.c
+@@ -207,3 +207,43 @@ int dsa_port_fdb_dump(struct dsa_port *dp, struct switchdev_obj_port_fdb *fdb,
+ 
+ 	return -EOPNOTSUPP;
+ }
 +
-+/* DSA_NOTIFIER_BRIDGE_* */
-+struct dsa_notifier_bridge_info {
-+	struct net_device *br;
-+	int sw_index;
-+	int port;
-+};
++int dsa_port_mdb_add(struct dsa_port *dp,
++		     const struct switchdev_obj_port_mdb *mdb,
++		     struct switchdev_trans *trans)
++{
++	struct dsa_switch *ds = dp->ds;
 +
- struct dsa_device_ops {
- 	struct sk_buff *(*xmit)(struct sk_buff *skb, struct net_device *dev);
- 	struct sk_buff *(*rcv)(struct sk_buff *skb, struct net_device *dev,
++	if (switchdev_trans_ph_prepare(trans)) {
++		if (!ds->ops->port_mdb_prepare || !ds->ops->port_mdb_add)
++			return -EOPNOTSUPP;
++
++		return ds->ops->port_mdb_prepare(ds, dp->index, mdb, trans);
++	}
++
++	ds->ops->port_mdb_add(ds, dp->index, mdb, trans);
++
++	return 0;
++}
++
++int dsa_port_mdb_del(struct dsa_port *dp,
++		     const struct switchdev_obj_port_mdb *mdb)
++{
++	struct dsa_switch *ds = dp->ds;
++
++	if (ds->ops->port_mdb_del)
++		return ds->ops->port_mdb_del(ds, dp->index, mdb);
++
++	return -EOPNOTSUPP;
++}
++
++int dsa_port_mdb_dump(struct dsa_port *dp, struct switchdev_obj_port_mdb *mdb,
++		      switchdev_obj_dump_cb_t *cb)
++{
++	struct dsa_switch *ds = dp->ds;
++
++	if (ds->ops->port_mdb_dump)
++		return ds->ops->port_mdb_dump(ds, dp->index, mdb, cb);
++
++	return -EOPNOTSUPP;
++}
+diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+index d9b7bf759f44..9adcb8267d9a 100644
+--- a/net/dsa/slave.c
++++ b/net/dsa/slave.c
+@@ -245,47 +245,6 @@ static int dsa_port_vlan_dump(struct dsa_port *dp,
+ 	return -EOPNOTSUPP;
+ }
+ 
+-static int dsa_port_mdb_add(struct dsa_port *dp,
+-			    const struct switchdev_obj_port_mdb *mdb,
+-			    struct switchdev_trans *trans)
+-{
+-	struct dsa_switch *ds = dp->ds;
+-
+-	if (switchdev_trans_ph_prepare(trans)) {
+-		if (!ds->ops->port_mdb_prepare || !ds->ops->port_mdb_add)
+-			return -EOPNOTSUPP;
+-
+-		return ds->ops->port_mdb_prepare(ds, dp->index, mdb, trans);
+-	}
+-
+-	ds->ops->port_mdb_add(ds, dp->index, mdb, trans);
+-
+-	return 0;
+-}
+-
+-static int dsa_port_mdb_del(struct dsa_port *dp,
+-			    const struct switchdev_obj_port_mdb *mdb)
+-{
+-	struct dsa_switch *ds = dp->ds;
+-
+-	if (ds->ops->port_mdb_del)
+-		return ds->ops->port_mdb_del(ds, dp->index, mdb);
+-
+-	return -EOPNOTSUPP;
+-}
+-
+-static int dsa_port_mdb_dump(struct dsa_port *dp,
+-			     struct switchdev_obj_port_mdb *mdb,
+-			     switchdev_obj_dump_cb_t *cb)
+-{
+-	struct dsa_switch *ds = dp->ds;
+-
+-	if (ds->ops->port_mdb_dump)
+-		return ds->ops->port_mdb_dump(ds, dp->index, mdb, cb);
+-
+-	return -EOPNOTSUPP;
+-}
+-
+ static int dsa_slave_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+ {
+ 	struct dsa_slave_priv *p = netdev_priv(dev);
 -- 
 2.13.0
