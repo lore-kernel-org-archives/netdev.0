@@ -1,51 +1,35 @@
-From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Subject: Re: [PATCH v2 00/10] rt2x00: rt2x00: improve calling conventions for
- register accessors
-Date: Fri, 19 May 2017 08:55:21 +0200
-Message-ID: <CAK8P3a3Y7rCvmJo062-5G07HGiT6x2MtvVV=dQAVBK0AiX0U_A@mail.gmail.com>
-References: <20170517144702.1381136-1-arnd@arndb.de> <87r2zl8lvi.fsf@codeaurora.org>
- <CAKR_QVJGxWF8+ZGGn08XiOgpYVGSjwQwqJoP10fY_bjfRg-uzw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-        linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Stanislaw Gruszka <sgruszka-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Helmut Schaa <helmut.schaa-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>,
-        Daniel Golle <daniel-g5gK2j5usbvCyp4qypjU+w@public.gmane.org>,
-        Mathias Kresin <dev-zg6vgJgm1sizQB+pC5nmwQ@public.gmane.org>,
-        Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        Serge Vasilugin <vasilugin-o+MxOtu4lMCHXe+LvDLADg@public.gmane.org>,
-        Roman Yeryomin <roman-9zmcapQ0v8Q@public.gmane.org>,
-        Networking <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Jes Sorensen <jes.sorensen-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: Tom Psyborg <pozega.tomislav-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAKR_QVJGxWF8+ZGGn08XiOgpYVGSjwQwqJoP10fY_bjfRg-uzw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Corentin Labbe <clabbe.montjoie@gmail.com>
+Subject: [PATCH 1/4] net-next: stmmac: Convert new_state to bool
+Date: Fri, 19 May 2017 09:03:32 +0200
+Message-ID: <20170519070335.1604-2-clabbe.montjoie@gmail.com>
+References: <20170519070335.1604-1-clabbe.montjoie@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Corentin Labbe <clabbe.montjoie@gmail.com>
+To: peppe.cavallaro@st.com, alexandre.torgue@st.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170519070335.1604-1-clabbe.montjoie@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, May 19, 2017 at 8:44 AM, Tom Psyborg <pozega.tomislav-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
-> warning: 'rt2800_bbp_read' used but never defined
->  static u8 rt2800_bbp_read(struct rt2x00_dev *rt2x00dev,
->            ^
-> /home/ubuntu/Music/openwrt/build_dir/target-mipsel_24kc_musl-1.1.16/linux-ramips_mt7620/compat-wireless-2016-05-12/drivers/net/wireless/ralink/rt2x00/rt2800lib.h:262:13:
-> warning: 'rt2800_bbp_write' used but never defined
->  static void rt2800_bbp_write(struct rt2x00_dev *rt2x00dev,
->              ^
->   CC [M]
-> /home/ubuntu/Music/openwrt/build_dir/target-mipsel_24kc_musl-1.1.16/linux-ramips_mt7620/compat-wireless-2016-05-12/drivers/net/wireless/ralink/rt2x00/rt2800pci.o
-> In file included from
-> /home/ubuntu/Music/openwrt/build_dir/target-mipsel_24kc_musl-1.1.16/linux-ramips_mt7620/compat-wireless-2016-05-12/drivers/net/wireless/ralink/rt2x00/rt2800pci.c:43:0:
-> /home/ubuntu/Music/openwrt/build_dir/target-mipsel_24kc_musl-1.1.16/linux-ramips_mt7620/compat-wireless-2016-05-12/drivers/net/wireless/ralink/rt2x00/rt2800lib.h:259:11:
-> warning: 'rt2800_bbp_read' declared 'static' but never defined
-> [-Wunused-function]
->  static u8 rt2800_bbp_read(struct rt2x00_dev *rt2x00dev,
->            ^
+This patch convert new_state from int to bool since it store only 1 or 0
 
-On which base version did you apply my patches? There may be a conflict
-against patches that are in your tree but not yet in linux-next, as I don't see
-the warning and also see no reference to rt2800_bbp_read in rt2800lib.h
+Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
+---
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-      Arnd
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index 1da17cd519f6..2b778f63d1d5 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -785,7 +785,7 @@ static void stmmac_adjust_link(struct net_device *dev)
+ 	struct stmmac_priv *priv = netdev_priv(dev);
+ 	struct phy_device *phydev = dev->phydev;
+ 	unsigned long flags;
+-	int new_state = 0;
++	bool new_state = 0;
+ 
+ 	if (!phydev)
+ 		return;
+-- 
+2.13.0
