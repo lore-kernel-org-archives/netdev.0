@@ -1,95 +1,90 @@
-From: Toshiaki Makita <toshiaki.makita1@gmail.com>
-Subject: Re: [PATCH net 1/3] vlan: Fix tcp checksums offloads for Q-in-Q vlan.
-Date: Fri, 19 May 2017 22:31:41 +0900
-Message-ID: <77e89748-1bc2-d676-6d7a-720e947cde3d@gmail.com>
-References: <1495114265-23368-1-git-send-email-vyasevic@redhat.com>
- <1495114265-23368-2-git-send-email-vyasevic@redhat.com>
- <7593b180-9355-2c14-6cd8-b1e4f47a0ae6@lab.ntt.co.jp>
- <95de0652-6d73-9885-875e-8c98d02bd419@redhat.com>
- <ec89c4d9-c6de-673a-2c7a-895804034857@lab.ntt.co.jp>
- <1eeb2dc0-5877-0834-76af-677f6ca6b5d9@redhat.com>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: [RFC V1 1/1] net: cdc_ncm: Reduce memory use when kernel memory low
+Date: Fri, 19 May 2017 15:55:55 +0200
+Message-ID: <87pof5rlw4.fsf@miraculix.mork.no>
+References: <1494956480-6127-1-git-send-email-jim_baxter@mentor.com>
+        <1494956480-6127-2-git-send-email-jim_baxter@mentor.com>
+        <063D6719AE5E284EB5DD2968C1650D6DCFFFAA5C@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: mkubecek@suse.cz
-To: vyasevic@redhat.com,
-        Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
-        Vladislav Yasevich <vyasevich@gmail.com>,
-        netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:35383 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753606AbdESNbo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 19 May 2017 09:31:44 -0400
-Received: by mail-pf0-f194.google.com with SMTP id u26so9604007pfd.2
-        for <netdev@vger.kernel.org>; Fri, 19 May 2017 06:31:44 -0700 (PDT)
-In-Reply-To: <1eeb2dc0-5877-0834-76af-677f6ca6b5d9@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+Cc: "'Jim Baxter'" <jim_baxter@mentor.com>,
+        "linux-usb\@vger.kernel.org" <linux-usb@vger.kernel.org>,
+        "netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel\@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        Oliver Neukum <oliver@neukum.org>
+To: David Laight <David.Laight@ACULAB.COM>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DCFFFAA5C@AcuExch.aculab.com>
+        (David Laight's message of "Fri, 19 May 2017 11:10:40 +0000")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 17/05/19 (金) 18:53, Vlad Yasevich wrote:
-> On 05/19/2017 04:16 AM, Toshiaki Makita wrote:
->> On 2017/05/19 16:09, Vlad Yasevich wrote:
->>> On 05/18/2017 10:13 PM, Toshiaki Makita wrote:
->>>> On 2017/05/18 22:31, Vladislav Yasevich wrote:
->>>>> It appears that since commit 8cb65d000, Q-in-Q vlans have been
->>>>> broken.  The series that commit is part of enabled TSO and checksum
->>>>> offloading on Q-in-Q vlans.  However, most HW we support can't handle
->>>>> it.  To work around the issue, the above commit added a function that
->>>>> turns off offloads on Q-in-Q devices, but it left the checksum offload.
->>>>> That will cause issues with most older devices that supprort very basic
->>>>> checksum offload capabilities as well as some newer devices (we've
->>>>> reproduced te problem with both be2net and bnx).
->>>>>
->>>>> To solve this for everyone, turn off checksum offloading feature
->>>>> by default when sending Q-in-Q traffic.  Devices that are proven to
->>>>> work can provided a corrected ndo_features_check implemetation.
->>>>>
->>>>> Fixes: 8cb65d000 ("net: Move check for multiple vlans to drivers")
->>>>> CC: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
->>>>> Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
->>>>> ---
->>>>>  include/linux/if_vlan.h | 1 -
->>>>>  1 file changed, 1 deletion(-)
->>>>>
->>>>> diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
->>>>> index 8d5fcd6..ae537f0 100644
->>>>> --- a/include/linux/if_vlan.h
->>>>> +++ b/include/linux/if_vlan.h
->>>>> @@ -619,7 +619,6 @@ static inline netdev_features_t vlan_features_check(const struct sk_buff *skb,
->>>>>  						     NETIF_F_SG |
->>>>>  						     NETIF_F_HIGHDMA |
->>>>>  						     NETIF_F_FRAGLIST |
->>>>> -						     NETIF_F_HW_CSUM |
->>>>>  						     NETIF_F_HW_VLAN_CTAG_TX |
->>>>>  						     NETIF_F_HW_VLAN_STAG_TX);
->>>>>
->>>>
->>>> I guess HW_CSUM theoretically can handle Q-in-Q packets and the problem
->>>> is IP_CSUM and IPV6_CSUM.
->>>> So wouldn't it be better to leave HW_CSUM and drop IP_CSUM/IPV6_CSUM,
->>>> i.e. change intersection into bitwise AND?
->>>>
->>>
->>> It wasn't really a problem before accelerations got enabled on q-in-q
->>> vlans.
->>
->> Right for stacked vlan device.
->> But I think the check was there for packets from guests forwarded by
->> bridge to vlan device so it was a problem before 8cb65d000.
+David Laight <David.Laight@ACULAB.COM> writes:
+
+> From: linux-usb-owner@vger.kernel.org [mailto:linux-usb-owner@vger.kernel=
+.org] On Behalf Of Jim Baxter
+>> Sent: 16 May 2017 18:41
+>>=20
+>> The CDC-NCM driver can require large amounts of memory to create
+>> skb's and this can be a problem when the memory becomes fragmented.
+>>=20
+>> This especially affects embedded systems that have constrained
+>> resources but wish to maximise the throughput of CDC-NCM with 16KiB
+>> NTB's.
 >
-> Not really, since stacked vlans in guests wouldn't have accelerations on.
-> Haven't really tried a new guest on old hosts.  It might be an issue there...
+> Why is this driver copying multiple tx messages into a single skb.
 
-It's real. I'm now remembering that I came across a similar issue before 
-introducing 8cb65d000. The situation was that bridge (vlan_filtering) 
-adds a vlan tag to a frame which is already tagged by guests, or by a 
-vlan device on the top of the bridge (Note that virtio and bridge have 
-HW_CSUM in vlan_features). I addressed the problem in drivers side since 
-all the IP/IPV6_CSUM drivers I encountered the issue on are able to 
-notify devices of IP header offset. Now I checked be2net driver's code 
-and realized it doesn't provide IP offset so it makes sense to drop 
-IP/IPV6_CSUM by default. Anyway, kernels before 8cb65d000 have that 
-problem, not only after 8cb65d000.
+Mostly becasue it already did that when I started messing with it, and I
+didn't know how to avoid that.
 
-Toshiaki Makita
+> Surely there are better ways to do this??
+
+But I have been there thinking this exact thought a couple of times.
+Suggestions are appreciated.
+
+> I think it is generating a 'multi-ethernet frame' URB with an
+> overall header for each URB and a header for each ethernet frame.
+
+With some negotiated alignment restrictions, and a linked list of frame
+pointer arrays.  But yes, that is basically it.
+
+(it's not always ethernet - with MBIM it can be IP or arbitrary as well,
+but I don't think that makes any difference)
+
+> Given that the USB stack allows multiple concurrent transmits I'm
+> surprised that batching large ethernet frames makes much difference.
+
+Me too.  Actually, I don't think it does.  The protocol was developed
+with specific device restrictions in mind. These might be invalid today.
+There is no reason to believe that using simple CDC ECM framing
+(i.e. one ethernet frame per URB) is any problem.
+
+> Also the USB target can't actually tell when URB that contain
+> multiples of the USB packet size end.
+> So it is possible to send a single NTB as multiple URB.
+
+Nice idea!  Never thought of that.  Yes, the driver could use a number
+smaller buffers regardless of the NTB size, by abusing the fact that the
+device will see them as a contigious USB transfer as long as they fall
+on USB packet boundaries.
+
+Started thinking about how to do this in practice.  It seemed obviously
+simply to jsut fire off the buffers as they fill up until the the max
+aggregation size or time has been exceeded.  But the header makes this
+harder than necessary.  It contains both a length and a pointer to the
+first frame pointer array (NDP).  So we will have to decide the size of
+the NTB and where to put the first NDP before sending the first USB
+packet. This is possible if we always go for the pad-to-max strategy.
+We'll also have to make some assumptions about the size of the NDP(s) as
+we add them, but we already do that so I don't think it is a big deal.
+
+Might be the way to go.
+
+Unless someone has a nice way to just collect a list of skbs and have
+them converted to proper framing on the fly when transmitting, without
+having to care about USB packet boundaries.
+
+
+
+Bj=C3=B8rn
