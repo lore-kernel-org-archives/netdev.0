@@ -1,107 +1,63 @@
-From: Ivan Vecera <cera@cera.cz>
-Subject: Re: [PATCH net] bridge: fix hello and hold timers starting/stopping
-Date: Fri, 19 May 2017 18:55:44 +0200
-Message-ID: <CA+Nub0akfu7rgNAwbgvJMoRmP=jDCAbEVxxi7rGAuYDn6zcqgg@mail.gmail.com>
-References: <20170519162543.31670-1-cera@cera.cz> <CADvbK_eRRy5bXb1RN6p-DTp9cKp6MvCZGH8oL=gfhTrJ0URFqQ@mail.gmail.com>
-Reply-To: ivan.vecera@cera.cz
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: network dev <netdev@vger.kernel.org>, davem <davem@davemloft.net>,
-        sashok@cumulusnetworks.com,
-        Stephen Hemminger <stephen@networkplumber.org>,
-        bridge@lists.linux-foundation.org,
-        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-To: Xin Long <lucien.xin@gmail.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: [PATCH net-next 1/9] dcb: enforce minimum length on IEEE_APPS attribute
+Date: Fri, 19 May 2017 09:55:48 -0700
+Message-ID: <20170519165556.483-2-sthemmin@microsoft.com>
+References: <20170519165556.483-1-sthemmin@microsoft.com>
+Cc: netdev@vger.kernel.org, Stephen Hemminger <sthemmin@microsoft.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f66.google.com ([209.85.218.66]:35537 "EHLO
-        mail-oi0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750943AbdESQzq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 19 May 2017 12:55:46 -0400
-Received: by mail-oi0-f66.google.com with SMTP id m17so13292038oik.2
-        for <netdev@vger.kernel.org>; Fri, 19 May 2017 09:55:46 -0700 (PDT)
-In-Reply-To: <CADvbK_eRRy5bXb1RN6p-DTp9cKp6MvCZGH8oL=gfhTrJ0URFqQ@mail.gmail.com>
+Received: from mail-pf0-f171.google.com ([209.85.192.171]:35846 "EHLO
+        mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752999AbdESQ4G (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 19 May 2017 12:56:06 -0400
+Received: by mail-pf0-f171.google.com with SMTP id m17so42448457pfg.3
+        for <netdev@vger.kernel.org>; Fri, 19 May 2017 09:56:05 -0700 (PDT)
+In-Reply-To: <20170519165556.483-1-sthemmin@microsoft.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2017-05-19 18:51 GMT+02:00 Xin Long <lucien.xin@gmail.com>:
-> On Sat, May 20, 2017 at 12:25 AM, Ivan Vecera <cera@cera.cz> wrote:
->> Current bridge code incorrectly handles starting/stopping of hello and
->> hold timers during STP enable/disable.
->>
->> 1. Timers are stopped in br_stp_start() during NO_STP->USER_STP
->>    transition. This is not correct as the timers are stopped in NO_STP
->>    case.
->>
->> 2. Timers are started in br_stp_stop() during USER_STP->NO_STP transition.
->>    This is not also correct as the timers should be stopped in NO_STP
->>    state.
->>
->> 3. Timers are NOT stopped in br_stp_stop() during KERNEL_STP->NO_STP
->>    transition. They should be stopped as they are running in KERNEL_STP
->>    state and should not run in NO_STP case.
->>
->> The patch is a follow-up for "bridge: start hello_timer when enabling
->> KERNEL_STP in br_stp_start" patch from Xin Long.
->>
->> Cc: davem@davemloft.net
->> Cc: sashok@cumulusnetworks.com
->> Cc: stephen@networkplumber.org
->> Cc: bridge@lists.linux-foundation.org
->> Cc: lucien.xin@gmail.com
->> Cc: nikolay@cumulusnetworks.com
->> Signed-off-by: Ivan Vecera <cera@cera.cz>
->> ---
->>  net/bridge/br_stp_if.c | 15 +++++----------
->>  1 file changed, 5 insertions(+), 10 deletions(-)
->>
->> diff --git a/net/bridge/br_stp_if.c b/net/bridge/br_stp_if.c
->> index 0db8102995a5..f137ebf27755 100644
->> --- a/net/bridge/br_stp_if.c
->> +++ b/net/bridge/br_stp_if.c
->> @@ -150,7 +150,6 @@ static int br_stp_call_user(struct net_bridge *br, char *arg)
->>
->>  static void br_stp_start(struct net_bridge *br)
->>  {
->> -       struct net_bridge_port *p;
->>         int err = -ENOENT;
->>
->>         if (net_eq(dev_net(br->dev), &init_net))
->> @@ -169,11 +168,6 @@ static void br_stp_start(struct net_bridge *br)
->>         if (!err) {
->>                 br->stp_enabled = BR_USER_STP;
->>                 br_debug(br, "userspace STP started\n");
->> -
->> -               /* Stop hello and hold timers */
->> -               del_timer(&br->hello_timer);
->> -               list_for_each_entry(p, &br->port_list, list)
->> -                       del_timer(&p->hold_timer);
->>         } else {
->>                 br->stp_enabled = BR_KERNEL_STP;
->>                 br_debug(br, "using kernel STP\n");
->> @@ -197,13 +191,14 @@ static void br_stp_stop(struct net_bridge *br)
->>                         br_err(br, "failed to stop userspace STP (%d)\n", err);
->>
->>                 /* To start timers on any ports left in blocking */
->> -               mod_timer(&br->hello_timer, jiffies + br->hello_time);
->> -               list_for_each_entry(p, &br->port_list, list)
->> -                       mod_timer(&p->hold_timer,
->> -                                 round_jiffies(jiffies + BR_HOLD_TIME));
->>                 spin_lock_bh(&br->lock);
->>                 br_port_state_selection(br);
->>                 spin_unlock_bh(&br->lock);
->> +       } else {
->> +               /* BR_KERNEL_STP - stop hello and hold timers */
->> +               del_timer(&br->hello_timer);
->> +               list_for_each_entry(p, &br->port_list, list)
->> +                       del_timer(&p->hold_timer);
-> I'm thinking, what if the timers are running when deleting them ?
-> del_timer may not be going to delete it, and still have to stop itself
-> next time when br->stp_enabled = BR_NO_STP.
->
-> So do you think it's better to do nothing here and just leave it to be
-> stopped by itself when checking br->stp_enabled  in
-> br_hello_timer_expired ?
+Found by reviewing the warning about unused policy table.
+The code implies that it meant to check for size, but since
+it unrolled the loop for attribute validation that is never used.
+Instead do explicit check for attribute.
 
-Yes, this kind of "lazy stopping" could be safer.
+Compile tested only. Needs review by original author.
 
-I.
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+---
+ net/dcb/dcbnl.c | 11 +++++++----
+ 1 file changed, 7 insertions(+), 4 deletions(-)
+
+diff --git a/net/dcb/dcbnl.c b/net/dcb/dcbnl.c
+index 93106120f987..733f523707ac 100644
+--- a/net/dcb/dcbnl.c
++++ b/net/dcb/dcbnl.c
+@@ -178,10 +178,6 @@ static const struct nla_policy dcbnl_ieee_policy[DCB_ATTR_IEEE_MAX + 1] = {
+ 	[DCB_ATTR_IEEE_QCN_STATS]   = {.len = sizeof(struct ieee_qcn_stats)},
+ };
+ 
+-static const struct nla_policy dcbnl_ieee_app[DCB_ATTR_IEEE_APP_MAX + 1] = {
+-	[DCB_ATTR_IEEE_APP]	    = {.len = sizeof(struct dcb_app)},
+-};
+-
+ /* DCB number of traffic classes nested attributes. */
+ static const struct nla_policy dcbnl_featcfg_nest[DCB_FEATCFG_ATTR_MAX + 1] = {
+ 	[DCB_FEATCFG_ATTR_ALL]      = {.type = NLA_FLAG},
+@@ -1463,8 +1459,15 @@ static int dcbnl_ieee_set(struct net_device *netdev, struct nlmsghdr *nlh,
+ 
+ 		nla_for_each_nested(attr, ieee[DCB_ATTR_IEEE_APP_TABLE], rem) {
+ 			struct dcb_app *app_data;
++
+ 			if (nla_type(attr) != DCB_ATTR_IEEE_APP)
+ 				continue;
++
++			if (nla_len(attr) < sizeof(struct dcb_app)) {
++				err = -ERANGE;
++				goto err;
++			}
++
+ 			app_data = nla_data(attr);
+ 			if (ops->ieee_setapp)
+ 				err = ops->ieee_setapp(netdev, app_data);
+-- 
+2.11.0
