@@ -1,8 +1,8 @@
 From: <Woojung.Huh@microchip.com>
-Subject: [PATCH v3 net-next 2/5] phy: micrel: add Microchip KSZ 9477 Switch
- PHY support
-Date: Fri, 19 May 2017 22:57:15 +0000
-Message-ID: <9235D6609DB808459E95D78E17F2E43D40A7C02D@CHN-SV-EXMX02.mchp-main.com>
+Subject: [PATCH v3 net-next 4/5] dsa: Add spi support to Microchip KSZ
+ switches
+Date: Fri, 19 May 2017 22:57:19 +0000
+Message-ID: <9235D6609DB808459E95D78E17F2E43D40A7C042@CHN-SV-EXMX02.mchp-main.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
@@ -12,66 +12,103 @@ To: <andrew@lunn.ch>, <f.fainelli@gmail.com>,
         <vivien.didelot@savoirfairelinux.com>,
         <sergei.shtylyov@cogentembedded.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from esa1.microchip.iphmx.com ([68.232.147.91]:12402 "EHLO
-        esa1.microchip.iphmx.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757041AbdESW5Y (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 19 May 2017 18:57:24 -0400
+Received: from esa3.microchip.iphmx.com ([68.232.153.233]:49133 "EHLO
+        esa3.microchip.iphmx.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756137AbdESW6c (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 19 May 2017 18:58:32 -0400
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Woojung Huh <Woojung.Huh@microchip.com>
 
-Adding Microchip 9477 Phy included in KSZ9477 Switch.
+A sample SPI configuration for Microchip KSZ switches.
 
 Signed-off-by: Woojung Huh <Woojung.Huh@microchip.com>
-Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 ---
- drivers/net/phy/micrel.c   | 11 +++++++++++
- include/linux/micrel_phy.h |  2 ++
- 2 files changed, 13 insertions(+)
+ Documentation/devicetree/bindings/net/dsa/ksz.txt | 73 +++++++++++++++++++++++
+ 1 file changed, 73 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/net/dsa/ksz.txt
 
-diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
-index 4cfd541..46e80bc 100644
---- a/drivers/net/phy/micrel.c
-+++ b/drivers/net/phy/micrel.c
-@@ -20,6 +20,7 @@
-  *			   ksz8081, ksz8091,
-  *			   ksz8061,
-  *		Switch : ksz8873, ksz886x
-+ *			 ksz9477
-  */
- 
- #include <linux/kernel.h>
-@@ -996,6 +997,16 @@ static struct phy_driver ksphy_driver[] = {
- 	.read_status	= ksz8873mll_read_status,
- 	.suspend	= genphy_suspend,
- 	.resume		= genphy_resume,
-+}, {
-+	.phy_id		= PHY_ID_KSZ9477,
-+	.phy_id_mask	= MICREL_PHY_ID_MASK,
-+	.name		= "Microchip KSZ9477",
-+	.features	= PHY_GBIT_FEATURES,
-+	.config_init	= kszphy_config_init,
-+	.config_aneg	= genphy_config_aneg,
-+	.read_status	= genphy_read_status,
-+	.suspend	= genphy_suspend,
-+	.resume		= genphy_resume,
- } };
- 
- module_phy_driver(ksphy_driver);
-diff --git a/include/linux/micrel_phy.h b/include/linux/micrel_phy.h
-index f541da6..472fa4d 100644
---- a/include/linux/micrel_phy.h
-+++ b/include/linux/micrel_phy.h
-@@ -37,6 +37,8 @@
- 
- #define PHY_ID_KSZ8795		0x00221550
- 
-+#define	PHY_ID_KSZ9477		0x00221631
+diff --git a/Documentation/devicetree/bindings/net/dsa/ksz.txt b/Documentation/devicetree/bindings/net/dsa/ksz.txt
+new file mode 100644
+index 0000000..8a13966
+--- /dev/null
++++ b/Documentation/devicetree/bindings/net/dsa/ksz.txt
+@@ -0,0 +1,73 @@
++Microchip KSZ Series Ethernet switches
++==================================
 +
- /* struct phy_device dev_flags definitions */
- #define MICREL_PHY_50MHZ_CLK	0x00000001
- #define MICREL_PHY_FXEN		0x00000002
++Required properties:
++
++- compatible: For external switch chips, compatible string must be exactly one
++  of: "microchip,ksz9477"
++
++See Documentation/devicetree/bindings/dsa/dsa.txt for a list of additional
++required and optional properties.
++
++Examples:
++
++Ethernet switch connected via SPI to the host, CPU port wired to eth0:
++
++		eth0: ethernet@10001000 {
++			fixed-link {
++				reg = <7>
++				speed = <1000>;
++				duplex-full;
++			};
++		};
++
++		spi1: spi@f8008000 {
++			pinctrl-0 = <&pinctrl_spi_ksz>;
++			cs-gpios = <&pioC 25 0>;
++			id = <1>;
++			status = "okay";
++
++			ksz9477: ksz9477@0 {
++				compatible = "microchip,ksz9477";
++				reg = <0>;
++
++				spi-max-frequency = <44000000>;
++				spi-cpha;
++				spi-cpol;
++
++				status = "okay";
++				ports {
++					#address-cells = <1>;
++					#size-cells = <0>;
++					port@0 {
++						reg = <0>;
++						label = "lan1";
++					};
++					port@1 {
++						reg = <1>;
++						label = "lan2";
++					};
++					port@2 {
++						reg = <2>;
++						label = "lan3";
++					};
++					port@3 {
++						reg = <3>;
++						label = "lan4";
++					};
++					port@4 {
++						reg = <4>;
++						label = "lan5";
++					};
++					port@5 {
++						reg = <5>;
++						label = "cpu";
++						ethernet = <&eth0>;
++						fixed-link {
++							speed = <1000>;
++							full-duplex;
++						};
++					};
++				};
++			};
++		};
 -- 
 2.7.4
