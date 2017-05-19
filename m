@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 13/20] net: dsa: move FDB handlers
-Date: Fri, 19 May 2017 17:00:48 -0400
-Message-ID: <20170519210055.9366-14-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 15/20] net: dsa: move VLAN handlers
+Date: Fri, 19 May 2017 17:00:50 -0400
+Message-ID: <20170519210055.9366-16-vivien.didelot@savoirfairelinux.com>
 References: <20170519210055.9366-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
@@ -14,134 +14,135 @@ In-Reply-To: <20170519210055.9366-1-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Move the DSA port code which handles FDB objects in port.c, where it
+Move the DSA port code which handles VLAN objects in port.c, where it
 belongs.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- net/dsa/dsa_priv.h |  7 +++++++
- net/dsa/port.c     | 40 ++++++++++++++++++++++++++++++++++++++++
- net/dsa/slave.c    | 42 ------------------------------------------
- 3 files changed, 47 insertions(+), 42 deletions(-)
+ net/dsa/dsa_priv.h |  8 ++++++++
+ net/dsa/port.c     | 41 +++++++++++++++++++++++++++++++++++++++++
+ net/dsa/slave.c    | 41 -----------------------------------------
+ 3 files changed, 49 insertions(+), 41 deletions(-)
 
 diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
-index b0f9837bf5ed..d003a2554c7a 100644
+index c2a595036746..16021a891095 100644
 --- a/net/dsa/dsa_priv.h
 +++ b/net/dsa/dsa_priv.h
-@@ -70,6 +70,13 @@ int dsa_port_vlan_filtering(struct dsa_port *dp, bool vlan_filtering,
- 			    struct switchdev_trans *trans);
- int dsa_port_ageing_time(struct dsa_port *dp, clock_t ageing_clock,
- 			 struct switchdev_trans *trans);
-+int dsa_port_fdb_add(struct dsa_port *dp,
-+		     const struct switchdev_obj_port_fdb *fdb,
-+		     struct switchdev_trans *trans);
-+int dsa_port_fdb_del(struct dsa_port *dp,
-+		     const struct switchdev_obj_port_fdb *fdb);
-+int dsa_port_fdb_dump(struct dsa_port *dp, struct switchdev_obj_port_fdb *fdb,
-+		      switchdev_obj_dump_cb_t *cb);
+@@ -84,6 +84,14 @@ int dsa_port_mdb_del(struct dsa_port *dp,
+ 		     const struct switchdev_obj_port_mdb *mdb);
+ int dsa_port_mdb_dump(struct dsa_port *dp, struct switchdev_obj_port_mdb *mdb,
+ 		      switchdev_obj_dump_cb_t *cb);
++int dsa_port_vlan_add(struct dsa_port *dp,
++		      const struct switchdev_obj_port_vlan *vlan,
++		      struct switchdev_trans *trans);
++int dsa_port_vlan_del(struct dsa_port *dp,
++		      const struct switchdev_obj_port_vlan *vlan);
++int dsa_port_vlan_dump(struct dsa_port *dp,
++		       struct switchdev_obj_port_vlan *vlan,
++		       switchdev_obj_dump_cb_t *cb);
  
  /* slave.c */
  extern const struct dsa_device_ops notag_netdev_ops;
 diff --git a/net/dsa/port.c b/net/dsa/port.c
-index 3382fdc07a11..18ec6d432152 100644
+index 4ed0124a8d4b..f211b0dfb12d 100644
 --- a/net/dsa/port.c
 +++ b/net/dsa/port.c
-@@ -167,3 +167,43 @@ int dsa_port_ageing_time(struct dsa_port *dp, clock_t ageing_clock,
+@@ -247,3 +247,44 @@ int dsa_port_mdb_dump(struct dsa_port *dp, struct switchdev_obj_port_mdb *mdb,
  
- 	return 0;
+ 	return -EOPNOTSUPP;
  }
 +
-+int dsa_port_fdb_add(struct dsa_port *dp,
-+		     const struct switchdev_obj_port_fdb *fdb,
-+		     struct switchdev_trans *trans)
++int dsa_port_vlan_add(struct dsa_port *dp,
++		      const struct switchdev_obj_port_vlan *vlan,
++		      struct switchdev_trans *trans)
 +{
 +	struct dsa_switch *ds = dp->ds;
 +
 +	if (switchdev_trans_ph_prepare(trans)) {
-+		if (!ds->ops->port_fdb_prepare || !ds->ops->port_fdb_add)
++		if (!ds->ops->port_vlan_prepare || !ds->ops->port_vlan_add)
 +			return -EOPNOTSUPP;
 +
-+		return ds->ops->port_fdb_prepare(ds, dp->index, fdb, trans);
++		return ds->ops->port_vlan_prepare(ds, dp->index, vlan, trans);
 +	}
 +
-+	ds->ops->port_fdb_add(ds, dp->index, fdb, trans);
++	ds->ops->port_vlan_add(ds, dp->index, vlan, trans);
 +
 +	return 0;
 +}
 +
-+int dsa_port_fdb_del(struct dsa_port *dp,
-+		     const struct switchdev_obj_port_fdb *fdb)
++int dsa_port_vlan_del(struct dsa_port *dp,
++		      const struct switchdev_obj_port_vlan *vlan)
 +{
 +	struct dsa_switch *ds = dp->ds;
 +
-+	if (ds->ops->port_fdb_del)
++	if (!ds->ops->port_vlan_del)
 +		return -EOPNOTSUPP;
 +
-+	return ds->ops->port_fdb_del(ds, dp->index, fdb);
++	return ds->ops->port_vlan_del(ds, dp->index, vlan);
 +}
 +
-+int dsa_port_fdb_dump(struct dsa_port *dp, struct switchdev_obj_port_fdb *fdb,
-+		      switchdev_obj_dump_cb_t *cb)
++int dsa_port_vlan_dump(struct dsa_port *dp,
++		       struct switchdev_obj_port_vlan *vlan,
++		       switchdev_obj_dump_cb_t *cb)
 +{
 +	struct dsa_switch *ds = dp->ds;
 +
-+	if (ds->ops->port_fdb_dump)
-+		return ds->ops->port_fdb_dump(ds, dp->index, fdb, cb);
++	if (ds->ops->port_vlan_dump)
++		return ds->ops->port_vlan_dump(ds, dp->index, vlan, cb);
 +
 +	return -EOPNOTSUPP;
 +}
 diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index 1b0f396c4314..d9b7bf759f44 100644
+index 9adcb8267d9a..887e26695519 100644
 --- a/net/dsa/slave.c
 +++ b/net/dsa/slave.c
-@@ -245,48 +245,6 @@ static int dsa_port_vlan_dump(struct dsa_port *dp,
- 	return -EOPNOTSUPP;
+@@ -204,47 +204,6 @@ static int dsa_slave_set_mac_address(struct net_device *dev, void *a)
+ 	return 0;
  }
  
--static int dsa_port_fdb_add(struct dsa_port *dp,
--			    const struct switchdev_obj_port_fdb *fdb,
--			    struct switchdev_trans *trans)
+-static int dsa_port_vlan_add(struct dsa_port *dp,
+-			     const struct switchdev_obj_port_vlan *vlan,
+-			     struct switchdev_trans *trans)
 -{
 -	struct dsa_switch *ds = dp->ds;
 -
 -	if (switchdev_trans_ph_prepare(trans)) {
--		if (!ds->ops->port_fdb_prepare || !ds->ops->port_fdb_add)
+-		if (!ds->ops->port_vlan_prepare || !ds->ops->port_vlan_add)
 -			return -EOPNOTSUPP;
 -
--		return ds->ops->port_fdb_prepare(ds, dp->index, fdb, trans);
+-		return ds->ops->port_vlan_prepare(ds, dp->index, vlan, trans);
 -	}
 -
--	ds->ops->port_fdb_add(ds, dp->index, fdb, trans);
+-	ds->ops->port_vlan_add(ds, dp->index, vlan, trans);
 -
 -	return 0;
 -}
 -
--static int dsa_port_fdb_del(struct dsa_port *dp,
--			    const struct switchdev_obj_port_fdb *fdb)
+-static int dsa_port_vlan_del(struct dsa_port *dp,
+-			     const struct switchdev_obj_port_vlan *vlan)
 -{
 -	struct dsa_switch *ds = dp->ds;
--	int ret = -EOPNOTSUPP;
 -
--	if (ds->ops->port_fdb_del)
--		ret = ds->ops->port_fdb_del(ds, dp->index, fdb);
+-	if (!ds->ops->port_vlan_del)
+-		return -EOPNOTSUPP;
 -
--	return ret;
+-	return ds->ops->port_vlan_del(ds, dp->index, vlan);
 -}
 -
--static int dsa_port_fdb_dump(struct dsa_port *dp,
--			     struct switchdev_obj_port_fdb *fdb,
--			     switchdev_obj_dump_cb_t *cb)
+-static int dsa_port_vlan_dump(struct dsa_port *dp,
+-			      struct switchdev_obj_port_vlan *vlan,
+-			      switchdev_obj_dump_cb_t *cb)
 -{
 -	struct dsa_switch *ds = dp->ds;
 -
--	if (ds->ops->port_fdb_dump)
--		return ds->ops->port_fdb_dump(ds, dp->index, fdb, cb);
+-	if (ds->ops->port_vlan_dump)
+-		return ds->ops->port_vlan_dump(ds, dp->index, vlan, cb);
 -
 -	return -EOPNOTSUPP;
 -}
 -
- static int dsa_port_mdb_add(struct dsa_port *dp,
- 			    const struct switchdev_obj_port_mdb *mdb,
- 			    struct switchdev_trans *trans)
+ static int dsa_slave_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+ {
+ 	struct dsa_slave_priv *p = netdev_priv(dev);
 -- 
 2.13.0
