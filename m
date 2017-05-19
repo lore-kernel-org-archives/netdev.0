@@ -1,53 +1,66 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net 3/3] virtio-net: enable TSO/checksum offloads for
- Q-in-Q vlans
-Date: Fri, 19 May 2017 22:18:20 +0800
-Message-ID: <033399db-90b5-af13-5201-151008afef2a@redhat.com>
-References: <1495114265-23368-1-git-send-email-vyasevic@redhat.com>
- <1495114265-23368-4-git-send-email-vyasevic@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: Vladislav Yasevich <vyasevic@redhat.com>,
-        "Michael S. Tsirkin" <mst@redhat.com>,
-        virtualization@lists.linux-foundation.org
-To: Vladislav Yasevich <vyasevich@gmail.com>, netdev@vger.kernel.org
+From: Xin Long <lucien.xin@gmail.com>
+Subject: [PATCH net] bridge: start hello_timer when enabling KERNEL_STP in br_stp_start
+Date: Fri, 19 May 2017 22:20:29 +0800
+Message-ID: <6e78bfea3969ca1a937b37e28e796a3047b82615.1495203629.git.lucien.xin@gmail.com>
+Cc: davem@davemloft.net, nikolay@cumulusnetworks.com, cera@cera.cz
+To: network dev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:56774 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750933AbdESOSf (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 19 May 2017 10:18:35 -0400
-In-Reply-To: <1495114265-23368-4-git-send-email-vyasevic@redhat.com>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:35168 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750830AbdESOUj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 19 May 2017 10:20:39 -0400
+Received: by mail-pf0-f195.google.com with SMTP id u26so9732392pfd.2
+        for <netdev@vger.kernel.org>; Fri, 19 May 2017 07:20:39 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Since commit 76b91c32dd86 ("bridge: stp: when using userspace stp stop
+kernel hello and hold timers"), bridge would not start hello_timer if
+stp_enabled is not KERNEL_STP when br_dev_open.
 
+The problem is even if users set stp_enabled with KERNEL_STP later,
+the timer will still not be started. It causes that KERNEL_STP can
+not really work. Users have to re-ifup the bridge to avoid this.
 
-On 2017年05月18日 21:31, Vladislav Yasevich wrote:
-> Since virtio does not provide it's own ndo_features_check handler,
-> TSO, and now checksum offload, are disabled for stacked vlans.
-> Re-enable the support and let the host take care of it.  This
-> restores/improves Guest-to-Guest performance over Q-in-Q vlans.
->
-> CC: "Michael S. Tsirkin" <mst@redhat.com>
-> CC: Jason Wang <jasowang@redhat.com>
-> CC: virtualization@lists.linux-foundation.org
-> Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
-> ---
->   drivers/net/virtio_net.c | 1 +
->   1 file changed, 1 insertion(+)
->
-> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> index 8324a5e..341fb96 100644
-> --- a/drivers/net/virtio_net.c
-> +++ b/drivers/net/virtio_net.c
-> @@ -2028,6 +2028,7 @@ static const struct net_device_ops virtnet_netdev = {
->   	.ndo_poll_controller = virtnet_netpoll,
->   #endif
->   	.ndo_xdp		= virtnet_xdp,
-> +	.ndo_features_check	= passthru_features_check,
->   };
->   
->   static void virtnet_config_changed_work(struct work_struct *work)
+This patch is to fix it by starting br->hello_timer when enabling
+KERNEL_STP in br_stp_start.
 
-Acked-by: Jason Wang <jasowang@redhat.com>
+As an improvement, it's also to start hello_timer again only when
+br->stp_enabled is KERNEL_STP in br_hello_timer_expired, there is
+no reason to start the timer again when it's NO_STP.
+
+Fixes: 76b91c32dd86 ("bridge: stp: when using userspace stp stop kernel hello and hold timers")
+Reported-by: Haidong Li <haili@redhat.com>
+Signed-off-by: Xin Long <lucien.xin@gmail.com>
+---
+ net/bridge/br_stp_if.c    | 1 +
+ net/bridge/br_stp_timer.c | 2 +-
+ 2 files changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/net/bridge/br_stp_if.c b/net/bridge/br_stp_if.c
+index 08341d2..0db8102 100644
+--- a/net/bridge/br_stp_if.c
++++ b/net/bridge/br_stp_if.c
+@@ -179,6 +179,7 @@ static void br_stp_start(struct net_bridge *br)
+ 		br_debug(br, "using kernel STP\n");
+ 
+ 		/* To start timers on any ports left in blocking */
++		mod_timer(&br->hello_timer, jiffies + br->hello_time);
+ 		br_port_state_selection(br);
+ 	}
+ 
+diff --git a/net/bridge/br_stp_timer.c b/net/bridge/br_stp_timer.c
+index c98b3e5..60b6fe2 100644
+--- a/net/bridge/br_stp_timer.c
++++ b/net/bridge/br_stp_timer.c
+@@ -40,7 +40,7 @@ static void br_hello_timer_expired(unsigned long arg)
+ 	if (br->dev->flags & IFF_UP) {
+ 		br_config_bpdu_generation(br);
+ 
+-		if (br->stp_enabled != BR_USER_STP)
++		if (br->stp_enabled == BR_KERNEL_STP)
+ 			mod_timer(&br->hello_timer,
+ 				  round_jiffies(jiffies + br->hello_time));
+ 	}
+-- 
+2.1.0
