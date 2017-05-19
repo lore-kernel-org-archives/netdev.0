@@ -1,68 +1,46 @@
-From: Antony Antony <antony@phenome.org>
-Subject: [PATCH v2] xfrm: fix state migration copy replay sequence numbers
-Date: Fri, 19 May 2017 12:47:00 +0200
-Message-ID: <1495190820-14657-1-git-send-email-antony@phenome.org>
-References: <20170518143953.GA64905@AntonyAntony.local>
-Cc: Antony Antony <antony@phenome.org>,
-        Richard Guy Briggs <rgb@tricolour.ca>,
-        Herbert Xu <herbert@gondor.apana.org.au>,
-        Steffen Klassert <steffen.klassert@secunet.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from lb3-smtp-cloud2.xs4all.net ([194.109.24.29]:36146 "EHLO
-        lb3-smtp-cloud2.xs4all.net" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751143AbdESKrY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 19 May 2017 06:47:24 -0400
-In-Reply-To: <20170518143953.GA64905@AntonyAntony.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [RFC V1 1/1] net: cdc_ncm: Reduce memory use when kernel memory
+ low
+Date: Fri, 19 May 2017 11:10:40 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DCFFFAA5C@AcuExch.aculab.com>
+References: <1494956480-6127-1-git-send-email-jim_baxter@mentor.com>
+ <1494956480-6127-2-git-send-email-jim_baxter@mentor.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+To: 'Jim Baxter' <jim_baxter@mentor.com>,
+        "linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        Oliver Neukum <oliver@neukum.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1494956480-6127-2-git-send-email-jim_baxter@mentor.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-During xfrm migration copy replay and preplay sequence numbers
-from the previous state.
+From: linux-usb-owner@vger.kernel.org [mailto:linux-usb-owner@vger.kernel.org] On Behalf Of Jim Baxter
+> Sent: 16 May 2017 18:41
+> 
+> The CDC-NCM driver can require large amounts of memory to create
+> skb's and this can be a problem when the memory becomes fragmented.
+> 
+> This especially affects embedded systems that have constrained
+> resources but wish to maximise the throughput of CDC-NCM with 16KiB
+> NTB's.
 
-Here is a tcpdump output showing the problem.
-10.0.10.46 is running vanilla kernel, is the IKE/IPsec responder.
-After the migration it sent wrong sequence number, reset to 1.
-The migration is from 10.0.0.52 to 10.0.0.53.
+Why is this driver copying multiple tx messages into a single skb.
+Surely there are better ways to do this??
 
-IP 10.0.0.52.4500 > 10.0.10.46.4500: UDP-encap: ESP(spi=0x43ef462d,seq=0x7cf), length 136
-IP 10.0.10.46.4500 > 10.0.0.52.4500: UDP-encap: ESP(spi=0xca1c282d,seq=0x7cf), length 136
-IP 10.0.0.52.4500 > 10.0.10.46.4500: UDP-encap: ESP(spi=0x43ef462d,seq=0x7d0), length 136
-IP 10.0.10.46.4500 > 10.0.0.52.4500: UDP-encap: ESP(spi=0xca1c282d,seq=0x7d0), length 136
+I think it is generating a 'multi-ethernet frame' URB with an
+overall header for each URB and a header for each ethernet frame.
 
-IP 10.0.0.53.4500 > 10.0.10.46.4500: NONESP-encap: isakmp: child_sa  inf2[I]
-IP 10.0.10.46.4500 > 10.0.0.53.4500: NONESP-encap: isakmp: child_sa  inf2[R]
-IP 10.0.0.53.4500 > 10.0.10.46.4500: NONESP-encap: isakmp: child_sa  inf2[I]
-IP 10.0.10.46.4500 > 10.0.0.53.4500: NONESP-encap: isakmp: child_sa  inf2[R]
+Given that the USB stack allows multiple concurrent transmits I'm
+surprised that batching large ethernet frames makes much difference.
 
-IP 10.0.0.53.4500 > 10.0.10.46.4500: UDP-encap: ESP(spi=0x43ef462d,seq=0x7d1), length 136
+Also the USB target can't actually tell when URB that contain
+multiples of the USB packet size end.
+So it is possible to send a single NTB as multiple URB.
+Of course, the usb_net might have other ideas.
 
-NOTE: next sequence is wrong 0x1
-
-IP 10.0.10.46.4500 > 10.0.0.53.4500: UDP-encap: ESP(spi=0xca1c282d,seq=0x1), length 136
-IP 10.0.0.53.4500 > 10.0.10.46.4500: UDP-encap: ESP(spi=0x43ef462d,seq=0x7d2), length 136
-IP 10.0.10.46.4500 > 10.0.0.53.4500: UDP-encap: ESP(spi=0xca1c282d,seq=0x2), length 136
-
-Signed-off-by: Antony Antony <antony@phenome.org>
----
-Changes in v2:
-  - include tcpdump output showing the problem in the commit message.
-
- net/xfrm/xfrm_state.c | 2 ++
- 1 file changed, 2 insertions(+)
-
-diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index fc3c5aa..2e291bc 100644
---- a/net/xfrm/xfrm_state.c
-+++ b/net/xfrm/xfrm_state.c
-@@ -1383,6 +1383,8 @@ static struct xfrm_state *xfrm_state_clone(struct xfrm_state *orig)
- 	x->curlft.add_time = orig->curlft.add_time;
- 	x->km.state = orig->km.state;
- 	x->km.seq = orig->km.seq;
-+	x->replay = orig->replay;
-+	x->preplay = orig->preplay;
- 
- 	return x;
- 
--- 
-2.9.3
+	David
