@@ -1,65 +1,103 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 02/12] netfilter: ctnetlink: Make some parameters integer to avoid enum mismatch
-Date: Fri, 19 May 2017 10:33:43 +0200
-Message-ID: <1495182833-2272-3-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 01/12] ipvs: SNAT packet replies only for NATed connections
+Date: Fri, 19 May 2017 10:33:42 +0200
+Message-ID: <1495182833-2272-2-git-send-email-pablo@netfilter.org>
 References: <1495182833-2272-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:43950 "EHLO mail.us.es"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751948AbdESIeT (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 19 May 2017 04:34:19 -0400
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id 2A7B41DA0A4
-        for <netdev@vger.kernel.org>; Fri, 19 May 2017 10:34:11 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 1B0E3D1D81
-        for <netdev@vger.kernel.org>; Fri, 19 May 2017 10:34:11 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 5F7CCFF2FA
-        for <netdev@vger.kernel.org>; Fri, 19 May 2017 10:34:08 +0200 (CEST)
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1495182833-2272-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Matthias Kaehlcke <mka@chromium.org>
+From: Julian Anastasov <ja@ssi.bg>
 
-Not all parameters passed to ctnetlink_parse_tuple() and
-ctnetlink_exp_dump_tuple() match the enum type in the signatures of these
-functions. Since this is intended change the argument type of to be an
-unsigned integer value.
+We do not check if packet from real server is for NAT
+connection before performing SNAT. This causes problems
+for setups that use DR/TUN and allow local clients to
+access the real server directly, for example:
 
-Signed-off-by: Matthias Kaehlcke <mka@chromium.org>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+- local client in director creates IPVS-DR/TUN connection
+CIP->VIP and the request packets are routed to RIP.
+Talks are finished but IPVS connection is not expired yet.
+
+- second local client creates non-IPVS connection CIP->RIP
+with same reply tuple RIP->CIP and when replies are received
+on LOCAL_IN we wrongly assign them for the first client
+connection because RIP->CIP matches the reply direction.
+As result, IPVS SNATs replies for non-IPVS connections.
+
+The problem is more visible to local UDP clients but in rare
+cases it can happen also for TCP or remote clients when the
+real server sends the reply traffic via the director.
+
+So, better to be more precise for the reply traffic.
+As replies are not expected for DR/TUN connections, better
+to not touch them.
+
+Reported-by: Nick Moriarty <nick.moriarty@york.ac.uk>
+Tested-by: Nick Moriarty <nick.moriarty@york.ac.uk>
+Signed-off-by: Julian Anastasov <ja@ssi.bg>
+Signed-off-by: Simon Horman <horms@verge.net.au>
 ---
- net/netfilter/nf_conntrack_netlink.c | 7 +++----
- 1 file changed, 3 insertions(+), 4 deletions(-)
+ net/netfilter/ipvs/ip_vs_core.c | 19 ++++++++++++++-----
+ 1 file changed, 14 insertions(+), 5 deletions(-)
 
-diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
-index dcf561b5c97a..fa752626029e 100644
---- a/net/netfilter/nf_conntrack_netlink.c
-+++ b/net/netfilter/nf_conntrack_netlink.c
-@@ -1007,9 +1007,8 @@ static const struct nla_policy tuple_nla_policy[CTA_TUPLE_MAX+1] = {
- 
- static int
- ctnetlink_parse_tuple(const struct nlattr * const cda[],
--		      struct nf_conntrack_tuple *tuple,
--		      enum ctattr_type type, u_int8_t l3num,
--		      struct nf_conntrack_zone *zone)
-+		      struct nf_conntrack_tuple *tuple, u32 type,
-+		      u_int8_t l3num, struct nf_conntrack_zone *zone)
+diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
+index d2d7bdf1d510..ad99c1ceea6f 100644
+--- a/net/netfilter/ipvs/ip_vs_core.c
++++ b/net/netfilter/ipvs/ip_vs_core.c
+@@ -849,10 +849,8 @@ static int handle_response_icmp(int af, struct sk_buff *skb,
  {
- 	struct nlattr *tb[CTA_TUPLE_MAX+1];
- 	int err;
-@@ -2447,7 +2446,7 @@ static struct nfnl_ct_hook ctnetlink_glue_hook = {
+ 	unsigned int verdict = NF_DROP;
  
- static int ctnetlink_exp_dump_tuple(struct sk_buff *skb,
- 				    const struct nf_conntrack_tuple *tuple,
--				    enum ctattr_expect type)
-+				    u32 type)
- {
- 	struct nlattr *nest_parms;
+-	if (IP_VS_FWD_METHOD(cp) != 0) {
+-		pr_err("shouldn't reach here, because the box is on the "
+-		       "half connection in the tun/dr module.\n");
+-	}
++	if (IP_VS_FWD_METHOD(cp) != IP_VS_CONN_F_MASQ)
++		goto ignore_cp;
  
+ 	/* Ensure the checksum is correct */
+ 	if (!skb_csum_unnecessary(skb) && ip_vs_checksum_complete(skb, ihl)) {
+@@ -886,6 +884,8 @@ static int handle_response_icmp(int af, struct sk_buff *skb,
+ 		ip_vs_notrack(skb);
+ 	else
+ 		ip_vs_update_conntrack(skb, cp, 0);
++
++ignore_cp:
+ 	verdict = NF_ACCEPT;
+ 
+ out:
+@@ -1385,8 +1385,11 @@ ip_vs_out(struct netns_ipvs *ipvs, unsigned int hooknum, struct sk_buff *skb, in
+ 	 */
+ 	cp = pp->conn_out_get(ipvs, af, skb, &iph);
+ 
+-	if (likely(cp))
++	if (likely(cp)) {
++		if (IP_VS_FWD_METHOD(cp) != IP_VS_CONN_F_MASQ)
++			goto ignore_cp;
+ 		return handle_response(af, skb, pd, cp, &iph, hooknum);
++	}
+ 
+ 	/* Check for real-server-started requests */
+ 	if (atomic_read(&ipvs->conn_out_counter)) {
+@@ -1444,9 +1447,15 @@ ip_vs_out(struct netns_ipvs *ipvs, unsigned int hooknum, struct sk_buff *skb, in
+ 			}
+ 		}
+ 	}
++
++out:
+ 	IP_VS_DBG_PKT(12, af, pp, skb, iph.off,
+ 		      "ip_vs_out: packet continues traversal as normal");
+ 	return NF_ACCEPT;
++
++ignore_cp:
++	__ip_vs_conn_put(cp);
++	goto out;
+ }
+ 
+ /*
 -- 
 2.1.4
+
