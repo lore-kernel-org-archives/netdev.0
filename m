@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 09/20] net: dsa: move port state setters
-Date: Fri, 19 May 2017 17:00:44 -0400
-Message-ID: <20170519210055.9366-10-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 03/20] net: dsa: change scope of bridging code
+Date: Fri, 19 May 2017 17:00:38 -0400
+Message-ID: <20170519210055.9366-4-vivien.didelot@savoirfairelinux.com>
 References: <20170519210055.9366-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
@@ -14,157 +14,106 @@ In-Reply-To: <20170519210055.9366-1-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add a new port.c file to hold all DSA port-wide logic. This patch moves
-in the code which sets a port state.
+Now that the bridge join and leave functions only deal with a DSA port,
+change their scope from the DSA slave net_device to the DSA generic
+dsa_port.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- net/dsa/Makefile   |  2 +-
- net/dsa/dsa_priv.h |  5 +++++
- net/dsa/port.c     | 55 ++++++++++++++++++++++++++++++++++++++++++++++++++++++
- net/dsa/slave.c    | 40 ---------------------------------------
- 4 files changed, 61 insertions(+), 41 deletions(-)
- create mode 100644 net/dsa/port.c
+ net/dsa/slave.c | 36 +++++++++++++++++-------------------
+ 1 file changed, 17 insertions(+), 19 deletions(-)
 
-diff --git a/net/dsa/Makefile b/net/dsa/Makefile
-index f8c0251d1f43..90e5aa6f7d0f 100644
---- a/net/dsa/Makefile
-+++ b/net/dsa/Makefile
-@@ -1,6 +1,6 @@
- # the core
- obj-$(CONFIG_NET_DSA) += dsa_core.o
--dsa_core-y += dsa.o slave.o dsa2.o switch.o legacy.o
-+dsa_core-y += dsa.o dsa2.o legacy.o port.o slave.o switch.o
- 
- # tagging formats
- dsa_core-$(CONFIG_NET_DSA_TAG_BRCM) += tag_brcm.o
-diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
-index c274130e3ac9..cda218cd9b05 100644
---- a/net/dsa/dsa_priv.h
-+++ b/net/dsa/dsa_priv.h
-@@ -60,6 +60,11 @@ void dsa_cpu_port_ethtool_restore(struct dsa_switch *ds);
- int dsa_legacy_register(void);
- void dsa_legacy_unregister(void);
- 
-+/* port.c */
-+int dsa_port_set_state(struct dsa_port *dp, u8 state,
-+		       struct switchdev_trans *trans);
-+void dsa_port_set_state_now(struct dsa_port *dp, u8 state);
-+
- /* slave.c */
- extern const struct dsa_device_ops notag_netdev_ops;
- void dsa_slave_mii_bus_init(struct dsa_switch *ds);
-diff --git a/net/dsa/port.c b/net/dsa/port.c
-new file mode 100644
-index 000000000000..6cc4704190fd
---- /dev/null
-+++ b/net/dsa/port.c
-@@ -0,0 +1,55 @@
-+/*
-+ * Handling of a single switch port
-+ *
-+ * Copyright (c) 2017 Savoir-faire Linux Inc.
-+ *	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ */
-+
-+#include <linux/if_bridge.h>
-+
-+#include "dsa_priv.h"
-+
-+int dsa_port_set_state(struct dsa_port *dp, u8 state,
-+		       struct switchdev_trans *trans)
-+{
-+	struct dsa_switch *ds = dp->ds;
-+	int port = dp->index;
-+
-+	if (switchdev_trans_ph_prepare(trans))
-+		return ds->ops->port_stp_state_set ? 0 : -EOPNOTSUPP;
-+
-+	if (ds->ops->port_stp_state_set)
-+		ds->ops->port_stp_state_set(ds, port, state);
-+
-+	if (ds->ops->port_fast_age) {
-+		/* Fast age FDB entries or flush appropriate forwarding database
-+		 * for the given port, if we are moving it from Learning or
-+		 * Forwarding state, to Disabled or Blocking or Listening state.
-+		 */
-+
-+		if ((dp->stp_state == BR_STATE_LEARNING ||
-+		     dp->stp_state == BR_STATE_FORWARDING) &&
-+		    (state == BR_STATE_DISABLED ||
-+		     state == BR_STATE_BLOCKING ||
-+		     state == BR_STATE_LISTENING))
-+			ds->ops->port_fast_age(ds, port);
-+	}
-+
-+	dp->stp_state = state;
-+
-+	return 0;
-+}
-+
-+void dsa_port_set_state_now(struct dsa_port *dp, u8 state)
-+{
-+	int err;
-+
-+	err = dsa_port_set_state(dp, state, NULL);
-+	if (err)
-+		pr_err("DSA: failed to set STP state %u (%d)\n", state, err);
-+}
 diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index b0150f79dcdd..2c57c7205aa3 100644
+index 371f6d267917..1ad62ef8c261 100644
 --- a/net/dsa/slave.c
 +++ b/net/dsa/slave.c
-@@ -84,46 +84,6 @@ static inline bool dsa_port_is_bridged(struct dsa_port *dp)
- 	return !!dp->bridge_dev;
+@@ -572,13 +572,11 @@ static int dsa_slave_port_obj_dump(struct net_device *dev,
+ 	return err;
  }
  
--static int dsa_port_set_state(struct dsa_port *dp, u8 state,
--			      struct switchdev_trans *trans)
--{
--	struct dsa_switch *ds = dp->ds;
--	int port = dp->index;
--
--	if (switchdev_trans_ph_prepare(trans))
--		return ds->ops->port_stp_state_set ? 0 : -EOPNOTSUPP;
--
--	if (ds->ops->port_stp_state_set)
--		ds->ops->port_stp_state_set(ds, port, state);
--
--	if (ds->ops->port_fast_age) {
--		/* Fast age FDB entries or flush appropriate forwarding database
--		 * for the given port, if we are moving it from Learning or
--		 * Forwarding state, to Disabled or Blocking or Listening state.
--		 */
--
--		if ((dp->stp_state == BR_STATE_LEARNING ||
--		     dp->stp_state == BR_STATE_FORWARDING) &&
--		    (state == BR_STATE_DISABLED ||
--		     state == BR_STATE_BLOCKING ||
--		     state == BR_STATE_LISTENING))
--			ds->ops->port_fast_age(ds, port);
--	}
--
--	dp->stp_state = state;
--
--	return 0;
--}
--
--static void dsa_port_set_state_now(struct dsa_port *dp, u8 state)
--{
--	int err;
--
--	err = dsa_port_set_state(dp, state, NULL);
--	if (err)
--		pr_err("DSA: failed to set STP state %u (%d)\n", state, err);
--}
--
- static int dsa_slave_open(struct net_device *dev)
+-static int dsa_slave_bridge_port_join(struct net_device *dev,
+-				      struct net_device *br)
++static int dsa_port_bridge_join(struct dsa_port *dp, struct net_device *br)
  {
- 	struct dsa_slave_priv *p = netdev_priv(dev);
+-	struct dsa_slave_priv *p = netdev_priv(dev);
+ 	struct dsa_notifier_bridge_info info = {
+-		.sw_index = p->dp->ds->index,
+-		.port = p->dp->index,
++		.sw_index = dp->ds->index,
++		.port = dp->index,
+ 		.br = br,
+ 	};
+ 	int err;
+@@ -586,24 +584,22 @@ static int dsa_slave_bridge_port_join(struct net_device *dev,
+ 	/* Here the port is already bridged. Reflect the current configuration
+ 	 * so that drivers can program their chips accordingly.
+ 	 */
+-	p->dp->bridge_dev = br;
++	dp->bridge_dev = br;
+ 
+-	err = dsa_port_notify(p->dp, DSA_NOTIFIER_BRIDGE_JOIN, &info);
++	err = dsa_port_notify(dp, DSA_NOTIFIER_BRIDGE_JOIN, &info);
+ 
+ 	/* The bridging is rolled back on error */
+ 	if (err)
+-		p->dp->bridge_dev = NULL;
++		dp->bridge_dev = NULL;
+ 
+ 	return err;
+ }
+ 
+-static void dsa_slave_bridge_port_leave(struct net_device *dev,
+-					struct net_device *br)
++static void dsa_port_bridge_leave(struct dsa_port *dp, struct net_device *br)
+ {
+-	struct dsa_slave_priv *p = netdev_priv(dev);
+ 	struct dsa_notifier_bridge_info info = {
+-		.sw_index = p->dp->ds->index,
+-		.port = p->dp->index,
++		.sw_index = dp->ds->index,
++		.port = dp->index,
+ 		.br = br,
+ 	};
+ 	int err;
+@@ -611,16 +607,16 @@ static void dsa_slave_bridge_port_leave(struct net_device *dev,
+ 	/* Here the port is already unbridged. Reflect the current configuration
+ 	 * so that drivers can program their chips accordingly.
+ 	 */
+-	p->dp->bridge_dev = NULL;
++	dp->bridge_dev = NULL;
+ 
+-	err = dsa_port_notify(p->dp, DSA_NOTIFIER_BRIDGE_LEAVE, &info);
++	err = dsa_port_notify(dp, DSA_NOTIFIER_BRIDGE_LEAVE, &info);
+ 	if (err)
+-		netdev_err(dev, "failed to notify DSA_NOTIFIER_BRIDGE_LEAVE\n");
++		pr_err("DSA: failed to notify DSA_NOTIFIER_BRIDGE_LEAVE\n");
+ 
+ 	/* Port left the bridge, put in BR_STATE_DISABLED by the bridge layer,
+ 	 * so allow it to be in BR_STATE_FORWARDING to be kept functional
+ 	 */
+-	dsa_port_set_state_now(p->dp, BR_STATE_FORWARDING);
++	dsa_port_set_state_now(dp, BR_STATE_FORWARDING);
+ }
+ 
+ static int dsa_slave_port_attr_get(struct net_device *dev,
+@@ -1526,14 +1522,16 @@ static bool dsa_slave_dev_check(struct net_device *dev)
+ static int dsa_slave_changeupper(struct net_device *dev,
+ 				 struct netdev_notifier_changeupper_info *info)
+ {
++	struct dsa_slave_priv *p = netdev_priv(dev);
++	struct dsa_port *dp = p->dp;
+ 	int err = NOTIFY_DONE;
+ 
+ 	if (netif_is_bridge_master(info->upper_dev)) {
+ 		if (info->linking) {
+-			err = dsa_slave_bridge_port_join(dev, info->upper_dev);
++			err = dsa_port_bridge_join(dp, info->upper_dev);
+ 			err = notifier_from_errno(err);
+ 		} else {
+-			dsa_slave_bridge_port_leave(dev, info->upper_dev);
++			dsa_port_bridge_leave(dp, info->upper_dev);
+ 			err = NOTIFY_OK;
+ 		}
+ 	}
 -- 
 2.13.0
