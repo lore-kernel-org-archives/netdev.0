@@ -1,52 +1,44 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: ipsec doesn't route TCP with 4.11 kernel
-Date: Fri, 19 May 2017 12:03:42 +0200
-Message-ID: <20170519100342.GD22049@secunet.com>
-References: <CADJev78Cs0VBdagtfU-71pv3HHC5Vq41UXQee856aVbUqEqAYg@mail.gmail.com>
- <CAM_iQpWT5tF5+LpoTP98JNJ=440jEkxHFkn8=jtAsZgondN49A@mail.gmail.com>
- <20170427084238.GX2649@secunet.com>
- <CADJev7_=YEHmijGweqZvdATMQVuzwywEbBKweYvPurJfTEQRjQ@mail.gmail.com>
- <20170428071337.GG2649@secunet.com>
- <CADJev7_Tc0aRsPs0Q7Wijd-YBM39ZshitJpSo2yEqPVwag2X_Q@mail.gmail.com>
- <20170503081421.GL2649@secunet.com>
- <CADJev78iruiwBz6nSPgnaG0FPXruJ2Qv9qHpRxg1sm=mHG3RYw@mail.gmail.com>
+From: Miroslav Lichvar <mlichvar@redhat.com>
+Subject: Re: [PATCH v5 net-next 4/7] net: add new control message for
+ incoming HW-timestamped packets
+Date: Fri, 19 May 2017 12:04:28 +0200
+Message-ID: <20170519100428.GC21003@localhost>
+References: <20170518140738.19617-1-mlichvar@redhat.com>
+ <20170518140738.19617-5-mlichvar@redhat.com>
+ <CAF=yD-+FCccqtF0oeqeph=dvrUJ8Byd8q_uWqZk+zvxYYtC_Fw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        Herbert Xu <herbert@gondor.apana.org.au>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Don Bowman <db@donbowman.ca>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Network Development <netdev@vger.kernel.org>,
+        Richard Cochran <richardcochran@gmail.com>,
+        Willem de Bruijn <willemb@google.com>
+To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:55290 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1755246AbdESKEb (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 19 May 2017 06:04:31 -0400
 Content-Disposition: inline
-In-Reply-To: <CADJev78iruiwBz6nSPgnaG0FPXruJ2Qv9qHpRxg1sm=mHG3RYw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <CAF=yD-+FCccqtF0oeqeph=dvrUJ8Byd8q_uWqZk+zvxYYtC_Fw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 16, 2017 at 03:05:40PM -0400, Don Bowman wrote:
-> On 3 May 2017 at 04:14, Steffen Klassert <steffen.klassert@secunet.com> wrote:
-> > On Sat, Apr 29, 2017 at 08:39:34PM -0400, Don Bowman wrote:
-> >> On 28 April 2017 at 03:13, Steffen Klassert
-> >> <steffen.klassert@secunet.com> wrote:
-> >> > On Thu, Apr 27, 2017 at 06:13:38PM -0400, Don Bowman wrote:
-> >> >> On 27 April 2017 at 04:42, Steffen Klassert <steffen.klassert@secunet.com>
-> >> >> wrote:
-> >> >> > On Wed, Apr 26, 2017 at 10:01:34PM -0700, Cong Wang wrote:
-> >> >> >> (Cc'ing netdev and IPSec maintainers)
-> >> >> >>
-> >> >> >> On Tue, Apr 25, 2017 at 6:08 PM, Don Bowman <db@donbowman.ca> wrote:
-> >> >>
-> >>
-> >> <snip>
-> >>
-> >> confirmed, with this patch in place that the tcp functions properly.
-> >
-> > Thanks for testing!
-> >
-> > I'll make sure to get this fix into the mainline soon.
+On Thu, May 18, 2017 at 04:20:53PM -0400, Willem de Bruijn wrote:
+> On Thu, May 18, 2017 at 10:07 AM, Miroslav Lichvar <mlichvar@redhat.com> wrote:
+> > +SOF_TIMESTAMPING_OPT_PKTINFO:
+> > +
+> > +  Enable the SCM_TIMESTAMPING_PKTINFO control message for incoming
+> > +  packets with hardware timestamps. The message contains struct
+> > +  scm_ts_pktinfo, which supplies the index of the real interface which
+> > +  received the packet and its length at layer 2. A valid (non-zero)
+> > +  interface index will be returned only if CONFIG_NET_RX_BUSY_POLL is
+> > +  enabled and the driver is using NAPI.
 > 
-> Thanks. Let me know if there is any more assistance I can provide.
-> I've been running the patch for 2 weeks now on 3 machines.
+> It is probably good to explicitly call out that the remaining two fields
+> are reserved and undefined. To stress that applications cannot be
+> overly pedantic and start failing if these become non-zero.
 
-Thanks for testing!
-I plan to push it upstream at the beginning of te next week.
+Ok. I'm adding "The struct contains also two other fields, but they
+are reserved and undefined".
+
+-- 
+Miroslav Lichvar
