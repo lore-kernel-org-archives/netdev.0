@@ -1,318 +1,116 @@
-From: Sivakumar Krishnasamy <ksiva@linux.vnet.ibm.com>
-Subject: [PATCH net-next v2] ibmveth: Support to enable LSO/CSO for Trunk VEA.
-Date: Fri, 19 May 2017 05:30:38 -0400
-Message-ID: <1495186238-19058-1-git-send-email-ksiva@linux.vnet.ibm.com>
-References: <1491559079-10855-1-git-send-email-ksiva@linux.vnet.ibm.com>
-Cc: tlfalcon@linux.vnet.ibm.com, benh@kernel.crashing.org,
-        paulus@samba.org, mpe@ellerman.id.au,
-        linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org,
-        brking@linux.vnet.ibm.com, seroyer@linux.vnet.ibm.com,
-        bryantly@linux.vnet.ibm.com,
-        Sivakumar Krishnasamy <ksiva@linux.vnet.ibm.com>
-To: netdev@vger.kernel.org
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [PATCH net 1/3] vlan: Fix tcp checksums offloads for Q-in-Q vlan.
+Date: Fri, 19 May 2017 05:53:19 -0400
+Message-ID: <1eeb2dc0-5877-0834-76af-677f6ca6b5d9@redhat.com>
+References: <1495114265-23368-1-git-send-email-vyasevic@redhat.com>
+ <1495114265-23368-2-git-send-email-vyasevic@redhat.com>
+ <7593b180-9355-2c14-6cd8-b1e4f47a0ae6@lab.ntt.co.jp>
+ <95de0652-6d73-9885-875e-8c98d02bd419@redhat.com>
+ <ec89c4d9-c6de-673a-2c7a-895804034857@lab.ntt.co.jp>
+Reply-To: vyasevic@redhat.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: mkubecek@suse.cz
+To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
+        Vladislav Yasevich <vyasevich@gmail.com>,
+        netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:46119 "EHLO
-        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1751274AbdESJbB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 19 May 2017 05:31:01 -0400
-Received: from pps.filterd (m0098420.ppops.net [127.0.0.1])
-        by mx0b-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v4J9Tp4X060056
-        for <netdev@vger.kernel.org>; Fri, 19 May 2017 05:31:00 -0400
-Received: from e13.ny.us.ibm.com (e13.ny.us.ibm.com [129.33.205.203])
-        by mx0b-001b2d01.pphosted.com with ESMTP id 2ahx4er1vp-1
-        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Fri, 19 May 2017 05:31:00 -0400
-Received: from localhost
-        by e13.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-        for <netdev@vger.kernel.org> from <ksiva@linux.vnet.ibm.com>;
-        Fri, 19 May 2017 05:30:59 -0400
-In-Reply-To: <1491559079-10855-1-git-send-email-ksiva@linux.vnet.ibm.com>
+Received: from mx1.redhat.com ([209.132.183.28]:54006 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751861AbdESJxV (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 19 May 2017 05:53:21 -0400
+In-Reply-To: <ec89c4d9-c6de-673a-2c7a-895804034857@lab.ntt.co.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Current largesend and checksum offload feature in ibmveth driver,
- - Source VM sends the TCP packets with ip_summed field set as
-   CHECKSUM_PARTIAL and TCP pseudo header checksum is placed in
-   checksum field
- - CHECKSUM_PARTIAL flag in SKB will enable ibmveth driver to mark
-   "no checksum" and "checksum good" bits in transmit buffer descriptor
-   before the packet is delivered to pseries PowerVM Hypervisor
- - If ibmveth has largesend capability enabled, transmit buffer descriptors
-   are market accordingly before packet is delivered to Hypervisor
-   (along with mss value for packets with length > MSS)
- - Destination VM's ibmveth driver receives the packet with "checksum good"
-   bit set and so, SKB's ip_summed field is set with CHECKSUM_UNNECESSARY
- - If "largesend" bit was on, mss value is copied from receive descriptor
-   into SKB's gso_size and other flags are appropriately set for
-   packets > MSS size
- - The packet is now successfully delivered up the stack in destination VM
+On 05/19/2017 04:16 AM, Toshiaki Makita wrote:
+> On 2017/05/19 16:09, Vlad Yasevich wrote:
+>> On 05/18/2017 10:13 PM, Toshiaki Makita wrote:
+>>> On 2017/05/18 22:31, Vladislav Yasevich wrote:
+>>>> It appears that since commit 8cb65d000, Q-in-Q vlans have been
+>>>> broken.  The series that commit is part of enabled TSO and checksum
+>>>> offloading on Q-in-Q vlans.  However, most HW we support can't handle
+>>>> it.  To work around the issue, the above commit added a function that
+>>>> turns off offloads on Q-in-Q devices, but it left the checksum offload.
+>>>> That will cause issues with most older devices that supprort very basic
+>>>> checksum offload capabilities as well as some newer devices (we've
+>>>> reproduced te problem with both be2net and bnx).
+>>>>
+>>>> To solve this for everyone, turn off checksum offloading feature
+>>>> by default when sending Q-in-Q traffic.  Devices that are proven to
+>>>> work can provided a corrected ndo_features_check implemetation.
+>>>>
+>>>> Fixes: 8cb65d000 ("net: Move check for multiple vlans to drivers")
+>>>> CC: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+>>>> Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
+>>>> ---
+>>>>  include/linux/if_vlan.h | 1 -
+>>>>  1 file changed, 1 deletion(-)
+>>>>
+>>>> diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
+>>>> index 8d5fcd6..ae537f0 100644
+>>>> --- a/include/linux/if_vlan.h
+>>>> +++ b/include/linux/if_vlan.h
+>>>> @@ -619,7 +619,6 @@ static inline netdev_features_t vlan_features_check(const struct sk_buff *skb,
+>>>>  						     NETIF_F_SG |
+>>>>  						     NETIF_F_HIGHDMA |
+>>>>  						     NETIF_F_FRAGLIST |
+>>>> -						     NETIF_F_HW_CSUM |
+>>>>  						     NETIF_F_HW_VLAN_CTAG_TX |
+>>>>  						     NETIF_F_HW_VLAN_STAG_TX);
+>>>>  
+>>>
+>>> I guess HW_CSUM theoretically can handle Q-in-Q packets and the problem
+>>> is IP_CSUM and IPV6_CSUM.
+>>> So wouldn't it be better to leave HW_CSUM and drop IP_CSUM/IPV6_CSUM,
+>>> i.e. change intersection into bitwise AND?
+>>>
+>>
+>> It wasn't really a problem before accelerations got enabled on q-in-q
+>> vlans.
+> 
+> Right for stacked vlan device.
+> But I think the check was there for packets from guests forwarded by
+> bridge to vlan device so it was a problem before 8cb65d000.
 
-The offloads described above works fine for TCP communication among VMs in
-the same pseries server ( VM A <=> PowerVM Hypervisor <=> VM B )
+Not really, since stacked vlans in guests wouldn't have accelerations on.
+Haven't really tried a new guest on old hosts.  It might be an issue there...
 
-We are now enabling support for OVS in pseries PowerVM environment. One of
-our requirements is to have ibmveth driver configured in "Trunk" mode, when
-they are used with OVS. This is because, PowerVM Hypervisor will no more
-bridge the packets between VMs, instead the packets are delivered to
-IO Server which hosts OVS to bridge them between VMs or to external
-networks (flow shown below),
-  VM A <=> PowerVM Hypervisor <=> IO Server(OVS) <=> PowerVM Hypervisor
-                                                                   <=> VM B
-In "IO server" the packet is received by inbound Trunk ibmveth and then
-delivered to OVS, which is then bridged to outbound Trunk ibmveth (shown
-below),
-        Inbound Trunk ibmveth <=> OVS <=> Outbound Trunk ibmveth
+> 
+>>> The intersection was introduced in db115037bb57 ("net: fix checksum
+>>> features handling in netif_skb_features()"), but I guess for this
+>>> particular check the intersection was not needed.
+>>>
+>>
+>> So, to put it another way, leave the intersection with HW_CSUM in the mask,
+>> and then do:
+>>
+>>   return features & ~(NETIF_F_IP_CSUM|NETIF_F_IPV6_CSUM);
+>>
+>> This might work, but it assumes that everyone who announce HW_CSUM can
+>> do q-in-q vlans.  It's been a bit of a pain tracking this down and I'd rather
+>> fix it for everyone and let individual driver authors verify that Q-in-Q works
+>> correctly with HW checksum.  However, I am willing to do the above if
+>> that's what people want.
+> 
+> At least HW_CSUM in the check was introduced intentionally.
+> https://www.spinics.net/lists/netdev/msg152016.html
+> 
+> And I think HW_CSUM should work with any packets.
+> You know, include/linux/skbuff.h says
+>>  *	NETIF_F_HW_CSUM	- The driver (or its device) is able to compute one
+>>  *			  IP (one's complement) checksum for any combination
+>>  *			  of protocols or protocol layering.
+> 
+> We should be able to safely enable it.
+> 
+> ...But you are so worried about layer2 protocol handling of HW_CSUM
+> devices, I'm ok with disabling it for now.
+> 
 
-In this model, we hit the following issues which impacted the VM
-communication performance,
+It's a concern after running across this issue.  Granted, the few devices
+we've seen this bug on use IP/IPV6 checksum features.  I am hoping someone
+else might weigh in here.
 
- - Issue 1: ibmveth doesn't support largesend and checksum offload features
-   when configured as "Trunk". Driver has explicit checks to prevent
-   enabling these offloads.
-
- - Issue 2: SYN packet drops seen at destination VM. When the packet
-   originates, it has CHECKSUM_PARTIAL flag set and as it gets delivered to
-   IO server's inbound Trunk ibmveth, on validating "checksum good" bits
-   in ibmveth receive routine, SKB's ip_summed field is set with
-   CHECKSUM_UNNECESSARY flag. This packet is then bridged by OVS (or Linux
-   Bridge) and delivered to outbound Trunk ibmveth. At this point the
-   outbound ibmveth transmit routine will not set "no checksum" and
-   "checksum good" bits in transmit buffer descriptor, as it does so only
-   when the ip_summed field is CHECKSUM_PARTIAL. When this packet gets
-   delivered to destination VM, TCP layer receives the packet with checksum
-   value of 0 and with no checksum related flags in ip_summed field. This
-   leads to packet drops. So, TCP connections never goes through fine.
-
- - Issue 3: First packet of a TCP connection will be dropped, if there is
-   no OVS flow cached in datapath. OVS while trying to identify the flow,
-   computes the checksum. The computed checksum will be invalid at the
-   receiving end, as ibmveth transmit routine zeroes out the pseudo
-   checksum value in the packet. This leads to packet drop.
-
- - Issue 4: ibmveth driver doesn't have support for SKB's with frag_list.
-   When Physical NIC has GRO enabled and when OVS bridges these packets,
-   OVS vport send code will end up calling dev_queue_xmit, which in turn
-   calls validate_xmit_skb.
-   In validate_xmit_skb routine, the larger packets will get segmented into
-   MSS sized segments, if SKB has a frag_list and if the driver to which
-   they are delivered to doesn't support NETIF_F_FRAGLIST feature.
-
-This patch addresses the above four issues, thereby enabling end to end
-largesend and checksum offload support for better performance.
-
- - Fix for Issue 1 : Remove checks which prevent enabling TCP largesend and
-   checksum offloads.
- - Fix for Issue 2 : When ibmveth receives a packet with "checksum good"
-   bit set and if its configured in Trunk mode, set appropriate SKB fields
-   using skb_partial_csum_set (ip_summed field is set with
-   CHECKSUM_PARTIAL)
- - Fix for Issue 3: Recompute the pseudo header checksum before sending the
-   SKB up the stack.
- - Fix for Issue 4: Linearize the SKBs with frag_list. Though we end up
-   allocating buffers and copying data, this fix gives
-   upto 4X throughput increase.
-
-Note: All these fixes need to be dropped together as fixing just one of
-them will lead to other issues immediately (especially for Issues 1,2 & 3).
-
-Signed-off-by: Sivakumar Krishnasamy <ksiva@linux.vnet.ibm.com>
----
- drivers/net/ethernet/ibm/ibmveth.c | 107 ++++++++++++++++++++++++++++++-------
- drivers/net/ethernet/ibm/ibmveth.h |   1 +
- 2 files changed, 90 insertions(+), 18 deletions(-)
-
-diff --git a/drivers/net/ethernet/ibm/ibmveth.c b/drivers/net/ethernet/ibm/ibmveth.c
-index 72ab7b6..9a74c4e 100644
---- a/drivers/net/ethernet/ibm/ibmveth.c
-+++ b/drivers/net/ethernet/ibm/ibmveth.c
-@@ -46,6 +46,8 @@
- #include <asm/vio.h>
- #include <asm/iommu.h>
- #include <asm/firmware.h>
-+#include <net/tcp.h>
-+#include <net/ip6_checksum.h>
- 
- #include "ibmveth.h"
- 
-@@ -808,8 +810,7 @@ static int ibmveth_set_csum_offload(struct net_device *dev, u32 data)
- 
- 	ret = h_illan_attributes(adapter->vdev->unit_address, 0, 0, &ret_attr);
- 
--	if (ret == H_SUCCESS && !(ret_attr & IBMVETH_ILLAN_ACTIVE_TRUNK) &&
--	    !(ret_attr & IBMVETH_ILLAN_TRUNK_PRI_MASK) &&
-+	if (ret == H_SUCCESS &&
- 	    (ret_attr & IBMVETH_ILLAN_PADDED_PKT_CSUM)) {
- 		ret4 = h_illan_attributes(adapter->vdev->unit_address, clr_attr,
- 					 set_attr, &ret_attr);
-@@ -1040,6 +1041,15 @@ static netdev_tx_t ibmveth_start_xmit(struct sk_buff *skb,
- 	dma_addr_t dma_addr;
- 	unsigned long mss = 0;
- 
-+	/* veth doesn't handle frag_list, so linearize the skb.
-+	 * When GRO is enabled SKB's can have frag_list.
-+	 */
-+	if (adapter->is_active_trunk &&
-+	    skb_has_frag_list(skb) && __skb_linearize(skb)) {
-+		netdev->stats.tx_dropped++;
-+		goto out;
-+	}
-+
- 	/*
- 	 * veth handles a maximum of 6 segments including the header, so
- 	 * we have to linearize the skb if there are more than this.
-@@ -1064,9 +1074,6 @@ static netdev_tx_t ibmveth_start_xmit(struct sk_buff *skb,
- 
- 	desc_flags = IBMVETH_BUF_VALID;
- 
--	if (skb_is_gso(skb) && adapter->fw_large_send_support)
--		desc_flags |= IBMVETH_BUF_LRG_SND;
--
- 	if (skb->ip_summed == CHECKSUM_PARTIAL) {
- 		unsigned char *buf = skb_transport_header(skb) +
- 						skb->csum_offset;
-@@ -1076,6 +1083,9 @@ static netdev_tx_t ibmveth_start_xmit(struct sk_buff *skb,
- 		/* Need to zero out the checksum */
- 		buf[0] = 0;
- 		buf[1] = 0;
-+
-+		if (skb_is_gso(skb) && adapter->fw_large_send_support)
-+			desc_flags |= IBMVETH_BUF_LRG_SND;
- 	}
- 
- retry_bounce:
-@@ -1128,7 +1138,7 @@ retry_bounce:
- 		descs[i+1].fields.address = dma_addr;
- 	}
- 
--	if (skb_is_gso(skb)) {
-+	if (skb->ip_summed == CHECKSUM_PARTIAL && skb_is_gso(skb)) {
- 		if (adapter->fw_large_send_support) {
- 			mss = (unsigned long)skb_shinfo(skb)->gso_size;
- 			adapter->tx_large_packets++;
-@@ -1232,6 +1242,71 @@ static void ibmveth_rx_mss_helper(struct sk_buff *skb, u16 mss, int lrg_pkt)
- 	}
- }
- 
-+static void ibmveth_rx_csum_helper(struct sk_buff *skb,
-+				   struct ibmveth_adapter *adapter)
-+{
-+	struct iphdr *iph = NULL;
-+	struct ipv6hdr *iph6 = NULL;
-+	__be16 skb_proto = 0;
-+	u16 iphlen = 0;
-+	u16 iph_proto = 0;
-+	u16 tcphdrlen = 0;
-+
-+	skb_proto = be16_to_cpu(skb->protocol);
-+
-+	if (skb_proto == ETH_P_IP) {
-+		iph = (struct iphdr *)skb->data;
-+
-+		/* If the IP checksum is not offloaded and if the packet
-+		 *  is large send, the checksum must be rebuilt.
-+		 */
-+		if (iph->check == 0xffff) {
-+			iph->check = 0;
-+			iph->check = ip_fast_csum((unsigned char *)iph,
-+						  iph->ihl);
-+		}
-+
-+		iphlen = iph->ihl * 4;
-+		iph_proto = iph->protocol;
-+	} else if (skb_proto == ETH_P_IPV6) {
-+		iph6 = (struct ipv6hdr *)skb->data;
-+		iphlen = sizeof(struct ipv6hdr);
-+		iph_proto = iph6->nexthdr;
-+	}
-+
-+	/* In OVS environment, when a flow is not cached, specifically for a
-+	 * new TCP connection, the first packet information is passed up
-+	 * the user space for finding a flow. During this process, OVS computes
-+	 * checksum on the first packet when CHECKSUM_PARTIAL flag is set.
-+	 *
-+	 * Given that we zeroed out TCP checksum field in transmit path
-+	 * (refer ibmveth_start_xmit routine) as we set "no checksum bit",
-+	 * OVS computed checksum will be incorrect w/o TCP pseudo checksum
-+	 * in the packet. This leads to OVS dropping the packet and hence
-+	 * TCP retransmissions are seen.
-+	 *
-+	 * So, re-compute TCP pseudo header checksum.
-+	 */
-+	if (iph_proto == IPPROTO_TCP && adapter->is_active_trunk) {
-+		struct tcphdr *tcph = (struct tcphdr *)(skb->data + iphlen);
-+
-+		tcphdrlen = skb->len - iphlen;
-+
-+		/* Recompute TCP pseudo header checksum */
-+		if (skb_proto == ETH_P_IP)
-+			tcph->check = ~csum_tcpudp_magic(iph->saddr,
-+					iph->daddr, tcphdrlen, iph_proto, 0);
-+		else if (skb_proto == ETH_P_IPV6)
-+			tcph->check = ~csum_ipv6_magic(&iph6->saddr,
-+					&iph6->daddr, tcphdrlen, iph_proto, 0);
-+
-+		/* Setup SKB fields for checksum offload */
-+		skb_partial_csum_set(skb, iphlen,
-+				     offsetof(struct tcphdr, check));
-+		skb_reset_network_header(skb);
-+	}
-+}
-+
- static int ibmveth_poll(struct napi_struct *napi, int budget)
- {
- 	struct ibmveth_adapter *adapter =
-@@ -1239,7 +1314,6 @@ static int ibmveth_poll(struct napi_struct *napi, int budget)
- 	struct net_device *netdev = adapter->netdev;
- 	int frames_processed = 0;
- 	unsigned long lpar_rc;
--	struct iphdr *iph;
- 	u16 mss = 0;
- 
- restart_poll:
-@@ -1297,17 +1371,7 @@ restart_poll:
- 
- 			if (csum_good) {
- 				skb->ip_summed = CHECKSUM_UNNECESSARY;
--				if (be16_to_cpu(skb->protocol) == ETH_P_IP) {
--					iph = (struct iphdr *)skb->data;
--
--					/* If the IP checksum is not offloaded and if the packet
--					 *  is large send, the checksum must be rebuilt.
--					 */
--					if (iph->check == 0xffff) {
--						iph->check = 0;
--						iph->check = ip_fast_csum((unsigned char *)iph, iph->ihl);
--					}
--				}
-+				ibmveth_rx_csum_helper(skb, adapter);
- 			}
- 
- 			if (length > netdev->mtu + ETH_HLEN) {
-@@ -1626,6 +1690,13 @@ static int ibmveth_probe(struct vio_dev *dev, const struct vio_device_id *id)
- 		netdev->hw_features |= NETIF_F_TSO;
- 	}
- 
-+	adapter->is_active_trunk = false;
-+	if (ret == H_SUCCESS && (ret_attr & IBMVETH_ILLAN_ACTIVE_TRUNK)) {
-+		adapter->is_active_trunk = true;
-+		netdev->hw_features |= NETIF_F_FRAGLIST;
-+		netdev->features |= NETIF_F_FRAGLIST;
-+	}
-+
- 	netdev->min_mtu = IBMVETH_MIN_MTU;
- 	netdev->max_mtu = ETH_MAX_MTU;
- 
-diff --git a/drivers/net/ethernet/ibm/ibmveth.h b/drivers/net/ethernet/ibm/ibmveth.h
-index ed8780c..01c587f 100644
---- a/drivers/net/ethernet/ibm/ibmveth.h
-+++ b/drivers/net/ethernet/ibm/ibmveth.h
-@@ -156,6 +156,7 @@ struct ibmveth_adapter {
-     int pool_config;
-     int rx_csum;
-     int large_send;
-+    bool is_active_trunk;
-     void *bounce_buffer;
-     dma_addr_t bounce_buffer_dma;
- 
--- 
-2.7.4
+-vlad
