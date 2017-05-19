@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 07/20] net: dsa: change scope of VLAN filtering setter
-Date: Fri, 19 May 2017 17:00:42 -0400
-Message-ID: <20170519210055.9366-8-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 13/20] net: dsa: move FDB handlers
+Date: Fri, 19 May 2017 17:00:48 -0400
+Message-ID: <20170519210055.9366-14-vivien.didelot@savoirfairelinux.com>
 References: <20170519210055.9366-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
@@ -14,55 +14,134 @@ In-Reply-To: <20170519210055.9366-1-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Change the scope of the switchdev VLAN filtering attribute setter from
-the DSA slave device to the generic DSA port, so that the future
-port-wide API can also be used for other port types, such as CPU and DSA
-links.
+Move the DSA port code which handles FDB objects in port.c, where it
+belongs.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- net/dsa/slave.c | 15 +++++++--------
- 1 file changed, 7 insertions(+), 8 deletions(-)
+ net/dsa/dsa_priv.h |  7 +++++++
+ net/dsa/port.c     | 40 ++++++++++++++++++++++++++++++++++++++++
+ net/dsa/slave.c    | 42 ------------------------------------------
+ 3 files changed, 47 insertions(+), 42 deletions(-)
 
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index de39da69fd33..216eb38a847d 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -388,20 +388,18 @@ static int dsa_slave_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
- 	return -EOPNOTSUPP;
- }
+diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
+index b0f9837bf5ed..d003a2554c7a 100644
+--- a/net/dsa/dsa_priv.h
++++ b/net/dsa/dsa_priv.h
+@@ -70,6 +70,13 @@ int dsa_port_vlan_filtering(struct dsa_port *dp, bool vlan_filtering,
+ 			    struct switchdev_trans *trans);
+ int dsa_port_ageing_time(struct dsa_port *dp, clock_t ageing_clock,
+ 			 struct switchdev_trans *trans);
++int dsa_port_fdb_add(struct dsa_port *dp,
++		     const struct switchdev_obj_port_fdb *fdb,
++		     struct switchdev_trans *trans);
++int dsa_port_fdb_del(struct dsa_port *dp,
++		     const struct switchdev_obj_port_fdb *fdb);
++int dsa_port_fdb_dump(struct dsa_port *dp, struct switchdev_obj_port_fdb *fdb,
++		      switchdev_obj_dump_cb_t *cb);
  
--static int dsa_slave_vlan_filtering(struct net_device *dev,
--				    const struct switchdev_attr *attr,
--				    struct switchdev_trans *trans)
-+static int dsa_port_vlan_filtering(struct dsa_port *dp, bool vlan_filtering,
-+				   struct switchdev_trans *trans)
- {
--	struct dsa_slave_priv *p = netdev_priv(dev);
--	struct dsa_switch *ds = p->dp->ds;
-+	struct dsa_switch *ds = dp->ds;
- 
- 	/* bridge skips -EOPNOTSUPP, so skip the prepare phase */
- 	if (switchdev_trans_ph_prepare(trans))
- 		return 0;
- 
- 	if (ds->ops->port_vlan_filtering)
--		return ds->ops->port_vlan_filtering(ds, p->dp->index,
--						    attr->u.vlan_filtering);
-+		return ds->ops->port_vlan_filtering(ds, dp->index,
-+						    vlan_filtering);
+ /* slave.c */
+ extern const struct dsa_device_ops notag_netdev_ops;
+diff --git a/net/dsa/port.c b/net/dsa/port.c
+index 3382fdc07a11..18ec6d432152 100644
+--- a/net/dsa/port.c
++++ b/net/dsa/port.c
+@@ -167,3 +167,43 @@ int dsa_port_ageing_time(struct dsa_port *dp, clock_t ageing_clock,
  
  	return 0;
  }
-@@ -461,7 +459,8 @@ static int dsa_slave_port_attr_set(struct net_device *dev,
- 		ret = dsa_port_set_state(dp, attr->u.stp_state, trans);
- 		break;
- 	case SWITCHDEV_ATTR_ID_BRIDGE_VLAN_FILTERING:
--		ret = dsa_slave_vlan_filtering(dev, attr, trans);
-+		ret = dsa_port_vlan_filtering(dp, attr->u.vlan_filtering,
-+					      trans);
- 		break;
- 	case SWITCHDEV_ATTR_ID_BRIDGE_AGEING_TIME:
- 		ret = dsa_slave_ageing_time(dev, attr, trans);
++
++int dsa_port_fdb_add(struct dsa_port *dp,
++		     const struct switchdev_obj_port_fdb *fdb,
++		     struct switchdev_trans *trans)
++{
++	struct dsa_switch *ds = dp->ds;
++
++	if (switchdev_trans_ph_prepare(trans)) {
++		if (!ds->ops->port_fdb_prepare || !ds->ops->port_fdb_add)
++			return -EOPNOTSUPP;
++
++		return ds->ops->port_fdb_prepare(ds, dp->index, fdb, trans);
++	}
++
++	ds->ops->port_fdb_add(ds, dp->index, fdb, trans);
++
++	return 0;
++}
++
++int dsa_port_fdb_del(struct dsa_port *dp,
++		     const struct switchdev_obj_port_fdb *fdb)
++{
++	struct dsa_switch *ds = dp->ds;
++
++	if (ds->ops->port_fdb_del)
++		return -EOPNOTSUPP;
++
++	return ds->ops->port_fdb_del(ds, dp->index, fdb);
++}
++
++int dsa_port_fdb_dump(struct dsa_port *dp, struct switchdev_obj_port_fdb *fdb,
++		      switchdev_obj_dump_cb_t *cb)
++{
++	struct dsa_switch *ds = dp->ds;
++
++	if (ds->ops->port_fdb_dump)
++		return ds->ops->port_fdb_dump(ds, dp->index, fdb, cb);
++
++	return -EOPNOTSUPP;
++}
+diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+index 1b0f396c4314..d9b7bf759f44 100644
+--- a/net/dsa/slave.c
++++ b/net/dsa/slave.c
+@@ -245,48 +245,6 @@ static int dsa_port_vlan_dump(struct dsa_port *dp,
+ 	return -EOPNOTSUPP;
+ }
+ 
+-static int dsa_port_fdb_add(struct dsa_port *dp,
+-			    const struct switchdev_obj_port_fdb *fdb,
+-			    struct switchdev_trans *trans)
+-{
+-	struct dsa_switch *ds = dp->ds;
+-
+-	if (switchdev_trans_ph_prepare(trans)) {
+-		if (!ds->ops->port_fdb_prepare || !ds->ops->port_fdb_add)
+-			return -EOPNOTSUPP;
+-
+-		return ds->ops->port_fdb_prepare(ds, dp->index, fdb, trans);
+-	}
+-
+-	ds->ops->port_fdb_add(ds, dp->index, fdb, trans);
+-
+-	return 0;
+-}
+-
+-static int dsa_port_fdb_del(struct dsa_port *dp,
+-			    const struct switchdev_obj_port_fdb *fdb)
+-{
+-	struct dsa_switch *ds = dp->ds;
+-	int ret = -EOPNOTSUPP;
+-
+-	if (ds->ops->port_fdb_del)
+-		ret = ds->ops->port_fdb_del(ds, dp->index, fdb);
+-
+-	return ret;
+-}
+-
+-static int dsa_port_fdb_dump(struct dsa_port *dp,
+-			     struct switchdev_obj_port_fdb *fdb,
+-			     switchdev_obj_dump_cb_t *cb)
+-{
+-	struct dsa_switch *ds = dp->ds;
+-
+-	if (ds->ops->port_fdb_dump)
+-		return ds->ops->port_fdb_dump(ds, dp->index, fdb, cb);
+-
+-	return -EOPNOTSUPP;
+-}
+-
+ static int dsa_port_mdb_add(struct dsa_port *dp,
+ 			    const struct switchdev_obj_port_mdb *mdb,
+ 			    struct switchdev_trans *trans)
 -- 
 2.13.0
