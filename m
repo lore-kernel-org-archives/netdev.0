@@ -1,118 +1,115 @@
 From: Miroslav Lichvar <mlichvar@redhat.com>
-Subject: [PATCH v6 net-next 0/7] Extend socket timestamping API
-Date: Fri, 19 May 2017 17:52:34 +0200
-Message-ID: <20170519155241.15817-1-mlichvar@redhat.com>
+Subject: [PATCH v6 net-next 3/7] net: add function to retrieve original skb device using NAPI ID
+Date: Fri, 19 May 2017 17:52:37 +0200
+Message-ID: <20170519155241.15817-4-mlichvar@redhat.com>
+References: <20170519155241.15817-1-mlichvar@redhat.com>
 Cc: Richard Cochran <richardcochran@gmail.com>,
         Willem de Bruijn <willemb@google.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:39306 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:50594 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751916AbdESPwo (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 19 May 2017 11:52:44 -0400
+        id S1751916AbdESPwr (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 19 May 2017 11:52:47 -0400
+In-Reply-To: <20170519155241.15817-1-mlichvar@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Changes v5->v6:
-- fixed skb_is_swtx_tstamp() when OPT_TX_SWHW is disabled and improved
-  its description
-- improved OPT_PKTINFO documentation
-- improved scm_timestamping documentation
+Since commit b68581778cd0 ("net: Make skb->skb_iif always track
+skb->dev") skbs don't have the original index of the interface which
+received the packet. This information is now needed for a new control
+message related to hardware timestamping.
 
-Changes v4->v5:
-- fixed initialization of reserved fields in struct scm_ts_pktinfo
+Instead of adding a new field to skb, we can find the device by the NAPI
+ID if it is available, i.e. CONFIG_NET_RX_BUSY_POLL is enabled and the
+driver is using NAPI. Add dev_get_by_napi_id() and also skb_napi_id() to
+hide the CONFIG_NET_RX_BUSY_POLL ifdef.
 
-Changes v3->v4:
-- added reserved fields to struct scm_ts_pktinfo
-- replaced patch fixing false SW timestamps with a documentation fix
-- updated OPT_TX_SWHW patch to handle false SW timestamps
+CC: Richard Cochran <richardcochran@gmail.com>
+Suggested-by: Willem de Bruijn <willemb@google.com>
+Acked-by: Willem de Bruijn <willemb@google.com>
+Signed-off-by: Miroslav Lichvar <mlichvar@redhat.com>
+---
+ include/linux/netdevice.h |  1 +
+ include/linux/skbuff.h    |  9 +++++++++
+ net/core/dev.c            | 26 ++++++++++++++++++++++++++
+ 3 files changed, 36 insertions(+)
 
-Changes v2->v3:
-- modified struct scm_ts_pktinfo to use fixed-width integer types
-- added WARN_ON_ONCE for missing RCU lock in dev_get_by_napi_id()
-- modified dev_get_by_napi_id() to not return dev in unexpected branch
-- modified recv to return SCM_TIMESTAMPING_PKTINFO even if the interface
-  index is unknown
-
-Changes v1->v2:
-- added separate patch for new NAPI functions 
-- split code from __sock_recv_timestamp() for better readability
-- fixed RCU locking
-- fixed compiler warning (missing case in switch in first patch)
-- inline sw_tx_timestamp() in its only user
-
-Changes RFC->v1:
-- reworked SOF_TIMESTAMPING_OPT_PKTINFO patch to not add new fields to
-  skb shared info (net device is now looked up by napi_id), not require
-  any changes in drivers, and restrict the cmsg to incoming packets
-- renamed SOF_TIMESTAMPING_OPT_MULTIMSG to SOF_TIMESTAMPING_OPT_TX_SWHW
-  and fixed its description
-- moved struct scm_ts_pktinfo from errqueue.h to net_tstamp.h as it
-  can't be received from the error queue anymore
-- improved commit descriptions and removed incorrect comment
-
-This patchset adds new options to the timestamping API that will be
-useful for NTP implementations and possibly other applications.
-
-The first patch specifies a timestamp filter for NTP packets. The second
-patch updates drivers that can timestamp all packets, or need to list
-the filter as unsupported. There is no attempt to add the support to the
-phyter driver.
-
-The third patch adds two helper functions working with NAPI ID, which is
-needed by the next patch. The fourth patch adds a new option to get a
-new control message with the L2 length and interface index for incoming
-packets with hardware timestamps.
-
-The fifth patch fixes documentation on number of non-zero fields in
-scm_timestamping and warns about false software timestamps when
-SO_TIMESTAMP(NS) is combined with SCM_TIMESTAMPING.
-
-The sixth patch adds a new option to request both software and hardware
-timestamps for outgoing packets. The seventh patch updates drivers that
-assumed software timestamping cannot be used together with hardware
-timestamping.
-
-The patches have been tested on x86_64 machines with igb and e1000e
-drivers.
-
-Miroslav Lichvar (7):
-  net: define receive timestamp filter for NTP
-  net: ethernet: update drivers to handle HWTSTAMP_FILTER_NTP_ALL
-  net: add function to retrieve original skb device using NAPI ID
-  net: add new control message for incoming HW-timestamped packets
-  net: fix documentation of struct scm_timestamping
-  net: allow simultaneous SW and HW transmit timestamping
-  net: ethernet: update drivers to make both SW and HW TX timestamps
-
- Documentation/networking/timestamping.txt          | 26 +++++++++++-
- drivers/net/ethernet/amd/xgbe/xgbe-drv.c           |  4 +-
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c   |  1 +
- drivers/net/ethernet/cavium/liquidio/lio_main.c    |  1 +
- drivers/net/ethernet/cavium/liquidio/lio_vf_main.c |  1 +
- drivers/net/ethernet/cavium/octeon/octeon_mgmt.c   |  1 +
- drivers/net/ethernet/intel/e1000e/netdev.c         |  5 ++-
- drivers/net/ethernet/intel/i40e/i40e_ptp.c         |  1 +
- drivers/net/ethernet/intel/igb/igb_ptp.c           |  1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c       |  1 +
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c     |  1 +
- drivers/net/ethernet/mellanox/mlx5/core/en_clock.c |  1 +
- drivers/net/ethernet/neterion/vxge/vxge-main.c     |  1 +
- drivers/net/ethernet/qlogic/qede/qede_ptp.c        |  1 +
- drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c    |  3 +-
- drivers/net/ethernet/sfc/ef10.c                    |  1 +
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |  7 ++--
- drivers/net/ethernet/ti/cpsw.c                     |  1 +
- drivers/net/ethernet/tile/tilegx.c                 |  1 +
- include/linux/netdevice.h                          |  1 +
- include/linux/skbuff.h                             | 19 +++++----
- include/uapi/asm-generic/socket.h                  |  2 +
- include/uapi/linux/net_tstamp.h                    | 15 ++++++-
- net/core/dev.c                                     | 26 ++++++++++++
- net/core/dev_ioctl.c                               |  1 +
- net/core/skbuff.c                                  |  4 ++
- net/socket.c                                       | 47 ++++++++++++++++++++--
- 27 files changed, 151 insertions(+), 23 deletions(-)
-
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 3f39d27..b6c36d5 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -2456,6 +2456,7 @@ static inline int dev_recursion_level(void)
+ struct net_device *dev_get_by_index(struct net *net, int ifindex);
+ struct net_device *__dev_get_by_index(struct net *net, int ifindex);
+ struct net_device *dev_get_by_index_rcu(struct net *net, int ifindex);
++struct net_device *dev_get_by_napi_id(unsigned int napi_id);
+ int netdev_get_name(struct net *net, char *name, int ifindex);
+ int dev_restart(struct net_device *dev);
+ int skb_gro_receive(struct sk_buff **head, struct sk_buff *skb);
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 7c0cb2c..1f8028c 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -855,6 +855,15 @@ static inline bool skb_pkt_type_ok(u32 ptype)
+ 	return ptype <= PACKET_OTHERHOST;
+ }
+ 
++static inline unsigned int skb_napi_id(const struct sk_buff *skb)
++{
++#ifdef CONFIG_NET_RX_BUSY_POLL
++	return skb->napi_id;
++#else
++	return 0;
++#endif
++}
++
+ void kfree_skb(struct sk_buff *skb);
+ void kfree_skb_list(struct sk_buff *segs);
+ void skb_tx_error(struct sk_buff *skb);
+diff --git a/net/core/dev.c b/net/core/dev.c
+index acd594c..6d3c452 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -162,6 +162,7 @@ static int netif_rx_internal(struct sk_buff *skb);
+ static int call_netdevice_notifiers_info(unsigned long val,
+ 					 struct net_device *dev,
+ 					 struct netdev_notifier_info *info);
++static struct napi_struct *napi_by_id(unsigned int napi_id);
+ 
+ /*
+  * The @dev_base_head list is protected by @dev_base_lock and the rtnl
+@@ -866,6 +867,31 @@ struct net_device *dev_get_by_index(struct net *net, int ifindex)
+ EXPORT_SYMBOL(dev_get_by_index);
+ 
+ /**
++ *	dev_get_by_napi_id - find a device by napi_id
++ *	@napi_id: ID of the NAPI struct
++ *
++ *	Search for an interface by NAPI ID. Returns %NULL if the device
++ *	is not found or a pointer to the device. The device has not had
++ *	its reference counter increased so the caller must be careful
++ *	about locking. The caller must hold RCU lock.
++ */
++
++struct net_device *dev_get_by_napi_id(unsigned int napi_id)
++{
++	struct napi_struct *napi;
++
++	WARN_ON_ONCE(!rcu_read_lock_held());
++
++	if (napi_id < MIN_NAPI_ID)
++		return NULL;
++
++	napi = napi_by_id(napi_id);
++
++	return napi ? napi->dev : NULL;
++}
++EXPORT_SYMBOL(dev_get_by_napi_id);
++
++/**
+  *	netdev_get_name - get a netdevice name, knowing its ifindex.
+  *	@net: network namespace
+  *	@name: a pointer to the buffer where the name will be stored.
 -- 
 2.9.3
