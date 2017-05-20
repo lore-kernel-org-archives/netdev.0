@@ -1,79 +1,198 @@
-From: Jarod Wilson <jarod@redhat.com>
-Subject: [PATCH net v2] bonding: fix accounting of active ports in 3ad
-Date: Fri, 19 May 2017 19:43:45 -0400
-Message-ID: <20170519234345.44721-1-jarod@redhat.com>
-References: <20170517151144.57865-1-jarod@redhat.com>
-Cc: Jarod Wilson <jarod@redhat.com>,
-        Jay Vosburgh <j.vosburgh@gmail.com>,
-        Veaceslav Falico <vfalico@gmail.com>,
-        Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170517151144.57865-1-jarod@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH v3 net-next 1/5] dsa: add support for Microchip KSZ tail
+ tagging
+Date: Fri, 19 May 2017 17:02:58 -0700
+Message-ID: <11dd6b8d-855c-0c97-a10b-79b2b7865eeb@gmail.com>
+References: <9235D6609DB808459E95D78E17F2E43D40A7C018@CHN-SV-EXMX02.mchp-main.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+        UNGLinuxDriver@microchip.com
+To: Woojung.Huh@microchip.com, andrew@lunn.ch,
+        vivien.didelot@savoirfairelinux.com,
+        sergei.shtylyov@cogentembedded.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wr0-f196.google.com ([209.85.128.196]:34630 "EHLO
+        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932842AbdETADE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 19 May 2017 20:03:04 -0400
+Received: by mail-wr0-f196.google.com with SMTP id 6so4137969wrb.1
+        for <netdev@vger.kernel.org>; Fri, 19 May 2017 17:03:03 -0700 (PDT)
+In-Reply-To: <9235D6609DB808459E95D78E17F2E43D40A7C018@CHN-SV-EXMX02.mchp-main.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-As of 7bb11dc9f59d and 0622cab0341c, bond slaves in a 3ad bond are not
-removed from the aggregator when they are down, and the active slave count
-is NOT equal to number of ports in the aggregator, but rather the number
-of ports in the aggregator that are still enabled. The sysfs spew for
-bonding_show_ad_num_ports() has a comment that says "Show number of active
-802.3ad ports.", but it's currently showing total number of ports, both
-active and inactive. Remedy it by using the same logic introduced in
-0622cab0341c in __bond_3ad_get_active_agg_info(), so sysfs, procfs and
-netlink all report the number of active ports. Note that this means that
-IFLA_BOND_AD_INFO_NUM_PORTS really means NUM_ACTIVE_PORTS instead of
-NUM_PORTS, and thus perhaps should be renamed for clarity.
+On 05/19/2017 03:57 PM, Woojung.Huh@microchip.com wrote:
+> From: Woojung Huh <Woojung.Huh@microchip.com>
+> 
+> Adding support for the Microchip KSZ switch family tail tagging.
+> 
+> Signed-off-by: Woojung Huh <Woojung.Huh@microchip.com>
+> Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+> ---
+>  include/net/dsa.h  |   1 +
+>  net/dsa/Kconfig    |   3 ++
+>  net/dsa/Makefile   |   1 +
+>  net/dsa/dsa.c      |   3 ++
+>  net/dsa/dsa_priv.h |   3 ++
+>  net/dsa/tag_ksz.c  | 103 +++++++++++++++++++++++++++++++++++++++++++++++++++++
+>  6 files changed, 114 insertions(+)
+>  create mode 100644 net/dsa/tag_ksz.c
+> 
+> diff --git a/include/net/dsa.h b/include/net/dsa.h
+> index 791fed6..fbb00a6 100644
+> --- a/include/net/dsa.h
+> +++ b/include/net/dsa.h
+> @@ -31,6 +31,7 @@ enum dsa_tag_protocol {
+>  	DSA_TAG_PROTO_BRCM,
+>  	DSA_TAG_PROTO_DSA,
+>  	DSA_TAG_PROTO_EDSA,
+> +	DSA_TAG_PROTO_KSZ,
+>  	DSA_TAG_PROTO_LAN9303,
+>  	DSA_TAG_PROTO_MTK,
+>  	DSA_TAG_PROTO_QCA,
+> diff --git a/net/dsa/Kconfig b/net/dsa/Kconfig
+> index 297389b..cc5f8f9 100644
+> --- a/net/dsa/Kconfig
+> +++ b/net/dsa/Kconfig
+> @@ -25,6 +25,9 @@ config NET_DSA_TAG_DSA
+>  config NET_DSA_TAG_EDSA
+>  	bool
+>  
+> +config NET_DSA_TAG_KSZ
+> +	bool
+> +
+>  config NET_DSA_TAG_LAN9303
+>  	bool
+>  
+> diff --git a/net/dsa/Makefile b/net/dsa/Makefile
+> index f8c0251..b15141f 100644
+> --- a/net/dsa/Makefile
+> +++ b/net/dsa/Makefile
+> @@ -6,6 +6,7 @@ dsa_core-y += dsa.o slave.o dsa2.o switch.o legacy.o
+>  dsa_core-$(CONFIG_NET_DSA_TAG_BRCM) += tag_brcm.o
+>  dsa_core-$(CONFIG_NET_DSA_TAG_DSA) += tag_dsa.o
+>  dsa_core-$(CONFIG_NET_DSA_TAG_EDSA) += tag_edsa.o
+> +dsa_core-$(CONFIG_NET_DSA_TAG_KSZ) += tag_ksz.o
+>  dsa_core-$(CONFIG_NET_DSA_TAG_LAN9303) += tag_lan9303.o
+>  dsa_core-$(CONFIG_NET_DSA_TAG_MTK) += tag_mtk.o
+>  dsa_core-$(CONFIG_NET_DSA_TAG_QCA) += tag_qca.o
+> diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
+> index 3288a80..402459e 100644
+> --- a/net/dsa/dsa.c
+> +++ b/net/dsa/dsa.c
+> @@ -49,6 +49,9 @@ const struct dsa_device_ops *dsa_device_ops[DSA_TAG_LAST] = {
+>  #ifdef CONFIG_NET_DSA_TAG_EDSA
+>  	[DSA_TAG_PROTO_EDSA] = &edsa_netdev_ops,
+>  #endif
+> +#ifdef CONFIG_NET_DSA_TAG_KSZ
+> +	[DSA_TAG_PROTO_KSZ] = &ksz_netdev_ops,
+> +#endif
+>  #ifdef CONFIG_NET_DSA_TAG_LAN9303
+>  	[DSA_TAG_PROTO_LAN9303] = &lan9303_netdev_ops,
+>  #endif
+> diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
+> index c274130..6f23dfa 100644
+> --- a/net/dsa/dsa_priv.h
+> +++ b/net/dsa/dsa_priv.h
+> @@ -85,6 +85,9 @@ extern const struct dsa_device_ops dsa_netdev_ops;
+>  /* tag_edsa.c */
+>  extern const struct dsa_device_ops edsa_netdev_ops;
+>  
+> +/* tag_ksz.c */
+> +extern const struct dsa_device_ops ksz_netdev_ops;
+> +
+>  /* tag_lan9303.c */
+>  extern const struct dsa_device_ops lan9303_netdev_ops;
+>  
+> diff --git a/net/dsa/tag_ksz.c b/net/dsa/tag_ksz.c
+> new file mode 100644
+> index 0000000..cbc79b5
+> --- /dev/null
+> +++ b/net/dsa/tag_ksz.c
+> @@ -0,0 +1,103 @@
+> +/*
+> + * net/dsa/tag_ksz.c - Microchip KSZ Switch tag format handling
+> + * Copyright (c) 2017 Microchip Technology
+> + *
+> + * This program is free software; you can redistribute it and/or modify
+> + * it under the terms of the GNU General Public License as published by
+> + * the Free Software Foundation; either version 2 of the License, or
+> + * (at your option) any later version.
+> + */
+> +
+> +#include <linux/etherdevice.h>
+> +#include <linux/list.h>
+> +#include <linux/slab.h>
+> +#include <net/dsa.h>
+> +#include "dsa_priv.h"
+> +
+> +/* For Ingress (Host -> KSZ), 2 bytes are added before FCS.
+> + * ---------------------------------------------------------------------------
+> + * DA(6bytes)|SA(6bytes)|....|Data(nbytes)|tag0(1byte)|tag1(1byte)|FCS(4bytes)
+> + * ---------------------------------------------------------------------------
+> + * tag0 : Prioritization (not used now)
+> + * tag1 : each bit represents port (eg, 0x01=port1, 0x02=port2, 0x10=port5)
+> + *
+> + * For Egress (KSZ -> Host), 1 byte is added before FCS.
+> + * ---------------------------------------------------------------------------
+> + * DA(6bytes)|SA(6bytes)|....|Data(nbytes)|tag0(1byte)|FCS(4bytes)
+> + * ---------------------------------------------------------------------------
+> + * tag0 : zero-based value represents port
+> + *	  (eg, 0x00=port1, 0x02=port3, 0x06=port7)
+> + */
+> +
+> +#define	KSZ_INGRESS_TAG_LEN	2
+> +#define	KSZ_EGRESS_TAG_LEN	1
+> +
+> +static struct sk_buff *ksz_xmit(struct sk_buff *skb, struct net_device *dev)
+> +{
+> +	struct dsa_slave_priv *p = netdev_priv(dev);
+> +	struct sk_buff *nskb;
+> +	int padlen;
+> +	u8 *tag;
+> +
+> +	padlen = (skb->len >= ETH_ZLEN) ? 0 : ETH_ZLEN - skb->len;
+> +
+> +	if (skb_tailroom(skb) >= padlen + KSZ_INGRESS_TAG_LEN) {
+> +		nskb = skb;
+> +	} else {
+> +		nskb = alloc_skb(NET_IP_ALIGN + skb->len +
+> +				 padlen + KSZ_INGRESS_TAG_LEN, GFP_ATOMIC);
+> +		if (!nskb) {
+> +			kfree_skb(skb);
+> +			return NULL;
+> +		}
+> +		skb_reserve(nskb, NET_IP_ALIGN);
+> +
+> +		skb_reset_mac_header(nskb);
+> +		skb_set_network_header(nskb,
+> +				       skb_network_header(skb) - skb->head);
+> +		skb_set_transport_header(nskb,
+> +					 skb_transport_header(skb) - skb->head);
+> +		skb_copy_and_csum_dev(skb, skb_put(nskb, skb->len));
+> +		kfree_skb(skb);
+> +	}
+> +
+> +	if (padlen) {
+> +		u8 *pad = skb_put(nskb, padlen);
+> +
+> +		memset(pad, 0, padlen);
+> +	}
 
-Lightly tested on a dual i40e lacp bond, simulating link downs with an ip
-link set dev <slave2> down, was able to produce the state where I could
-see both in the same aggregator, but a number of ports count of 1.
+Can you use skb_put_padto() here instead of open coding this?
 
-MII Status: up
-Active Aggregator Info:
-        Aggregator ID: 1
-        Number of ports: 2 <---
-Slave Interface: ens10
-MII Status: up <---
-Aggregator ID: 1
-Slave Interface: ens11
-MII Status: up
-Aggregator ID: 1
+> +
+> +	tag = skb_put(nskb, KSZ_INGRESS_TAG_LEN);
+> +	tag[0] = 0;
+> +	tag[1] = 1 << p->dp->index; /* destnation port */
 
-MII Status: up
-Active Aggregator Info:
-        Aggregator ID: 1
-        Number of ports: 1 <---
-Slave Interface: ens10
-MII Status: down <---
-Aggregator ID: 1
-Slave Interface: ens11
-MII Status: up
-Aggregator ID: 1
+typo: destination port
 
-CC: Jay Vosburgh <j.vosburgh@gmail.com>
-CC: Veaceslav Falico <vfalico@gmail.com>
-CC: Andy Gospodarek <andy@greyhouse.net>
-CC: netdev@vger.kernel.org
-Signed-off-by: Jarod Wilson <jarod@redhat.com>
----
-v2: fix incorrect git sha reference, add more testing data
+With that fixed:
 
- drivers/net/bonding/bond_3ad.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
-index c5fd4259da33..b44a6aeb346d 100644
---- a/drivers/net/bonding/bond_3ad.c
-+++ b/drivers/net/bonding/bond_3ad.c
-@@ -2577,7 +2577,7 @@ int __bond_3ad_get_active_agg_info(struct bonding *bond,
- 		return -1;
- 
- 	ad_info->aggregator_id = aggregator->aggregator_identifier;
--	ad_info->ports = aggregator->num_of_ports;
-+	ad_info->ports = __agg_active_ports(aggregator);
- 	ad_info->actor_key = aggregator->actor_oper_aggregator_key;
- 	ad_info->partner_key = aggregator->partner_oper_aggregator_key;
- 	ether_addr_copy(ad_info->partner_system,
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
 -- 
-2.12.1
+Florian
