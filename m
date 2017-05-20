@@ -1,70 +1,114 @@
-From: Hangbin Liu <liuhangbin@gmail.com>
-Subject: Re: [PATCH net-next v2] bridge: fix hello and hold timers
- starting/stopping
-Date: Sat, 20 May 2017 15:47:48 +0800
-Message-ID: <20170520074748.GB12974@leo.usersys.redhat.com>
-References: <20170519173043.10201-1-cera@cera.cz>
- <20170520055720.GA12974@leo.usersys.redhat.com>
- <CA+Nub0aY6hjWeg8h2Qgx_c+yazh5WnA1u0D8bDtxChjWXsEHSw@mail.gmail.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [RFC net-next PATCH 3/5] net: introduce XDP driver features
+ interface
+Date: Sat, 20 May 2017 09:53:31 +0200
+Message-ID: <20170520095331.18c6be36@redhat.com>
+References: <149512205297.14733.15729847433404265933.stgit@firesoul>
+        <149512210317.14733.15039298820296846614.stgit@firesoul>
+        <591F27B9.9070003@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: network dev <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>, sashok@cumulusnetworks.com,
-        Stephen Hemminger <stephen@networkplumber.org>,
-        bridge@lists.linux-foundation.org, Xin Long <lucien.xin@gmail.com>,
-        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-To: ivan.vecera@cera.cz
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Daniel Borkmann <borkmann@iogearbox.net>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        John Fastabend <john.r.fastabend@intel.com>,
+        netdev@vger.kernel.org, brouer@redhat.com
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:35054 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751457AbdETHsB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 20 May 2017 03:48:01 -0400
-Received: by mail-pf0-f195.google.com with SMTP id u26so11797757pfd.2
-        for <netdev@vger.kernel.org>; Sat, 20 May 2017 00:48:00 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CA+Nub0aY6hjWeg8h2Qgx_c+yazh5WnA1u0D8bDtxChjWXsEHSw@mail.gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:59250 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753266AbdETHxi (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 20 May 2017 03:53:38 -0400
+In-Reply-To: <591F27B9.9070003@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, May 20, 2017 at 09:06:16AM +0200, Ivan Vecera wrote:
-> 2017-05-20 7:57 GMT+02:00 Hangbin Liu <liuhangbin@gmail.com>:
-> > On Fri, May 19, 2017 at 07:30:43PM +0200, Ivan Vecera wrote:
-> >> Current bridge code incorrectly handles starting/stopping of hello and
-> >> hold timers during STP enable/disable.
-> >>
-> >> 1. Timers are stopped in br_stp_start() during NO_STP->USER_STP
-> >>    transition. The timers are already stopped in NO_STP state so
-> >>    this is confusing no-op.
-> >
-> > Hi Ivan,
-> >
-> > Shouldn't we start hello timer in br_stp_start when NO_STP -> BR_KERNEL_STP ?
+On Fri, 19 May 2017 19:13:29 +0200
+Daniel Borkmann <daniel@iogearbox.net> wrote:
+
+> On 05/18/2017 05:41 PM, Jesper Dangaard Brouer wrote:
+> > There is a fundamental difference between normal eBPF programs
+> > and (XDP) eBPF programs getting attached in a driver. For normal
+> > eBPF programs it is easy to add a new bpf feature, like a bpf
+> > helper, because is it strongly tied to the feature being
+> > available in the current core kernel code.  When drivers invoke a
+> > bpf_prog, then it is not sufficient to simply relying on whether
+> > a bpf_helper exists or not.  When a driver haven't implemented a
+> > given feature yet, then it is possible to expose uninitialized
+> > parts of xdp_buff.  The driver pass in a pointer to xdp_buff,
+> > usually "allocated" on the stack, which must not be exposed.  
 > 
-> As Nikolay mentioned, this is fixed by
-> https://patchwork.ozlabs.org/patch/764685/
+> When xdp_buff is being extended, then we should at least zero
+> initialize all in-tree users that don't support or populate this
+> field, thus that it's not uninitialized memory. Better would be
+> to have a way to reject the prog in the first place until it's
+> implemented (but further comments on feature bits below).
 
-Ah, sorry. My mistake. I only saw xin's patch and your v2 patch. So I mixed
-them up and thought this is xin's V2 patch. That's why I wonder we didn't
-start hello timer in br_stp_start...
+Going down a path where we need to zero out the xdp_buff looks a lot
+like the sk_buff zeroing, which is the top perf cost associated with
+SKBs see[1].  XDP is is about not repeating the same issue we had with
+the SKB...
 
-Now I see your v1 patch with:
+[1] https://prototype-kernel.readthedocs.io/en/latest/blogposts/xdp25_eval_generic_xdp_tx.html#analyzing-build-skb-and-memset
 
-The patch is a follow-up for "bridge: start hello_timer when enabling
-KERNEL_STP in br_stp_start" patch from Xin Long."
 
-Sorry for mixed them up.
+> > Only two user visible NETIF_F_XDP_* net_device feature flags are
+> > exposed via ethtool (-k) seen as "xdp" and "xdp-partial".
+> > The "xdp-partial" is detected when there is not feature equality
+> > between kernel and driver, and a netdev_warn is given.  
 > 
-> >>
-> >> 2. During USER_STP->NO_STP transition the timers are started. This
-> >>    does not make sense and is confusion because the timer should not be
-> >>    active in NO_STP state.
+> I think having something like a NETIF_F_XDP_BIT for ethtool to
+> indicate support as "xdp" is quite useful. Avoids having to grep
+> the kernel tree for ndo_xdp callback. ;) A "xdp-partial" would
+> still be unclear/confusing to the user whether his program loads
+> or doesn't which is the only thing a user (or some loading infra)
+> cares about eventually, so one still needs to go trying to load
+> the XDP code to see whether that fails for the native case.
+
+Good that we agree on usefulness of the NETIF_F_XDP_BIT.  The
+"xdp-partial" or "xdp-challenged" is an early indication to the user
+that they should complain to the vendor.  I tried to keep it simple
+towards the user. Do you think every feature bit should be exposed to
+userspace?
+
+
+> > The idea is that XDP_DRV_* feature bits define a contract between
+> > the driver and the kernel, giving a reliable way to know that XDP
+> > features a driver promised to implement. Thus, knowing what bpf
+> > side features are safe to allow.
 > >
-> > Yes, but what about BR_KERNEL_STP -> NO_STP in function br_stp_stop() ?
+> > There are 3 levels of features: "required", "devel" and "optional".
+> >
+> > The motivation is pushing driver vendors forward to support all
+> > the new XDP features.  Once a given feature bit is moved into
+> > the "required" features, the kernel will reject loading XDP
+> > program if feature isn't implemented by driver.  Features under
+> > developement, require help from the bpf infrastrucure to detect
+> > when a given helper or direct-access is used, using a bpf_prog
+> > bit to mark a need for the feature, and pulling in this bit in
+> > the xdp_features_check().  When all drivers have implemented
+> > a "devel" feature, it can be moved to the "required" feature and  
 > 
-> The timer is lazily stopped by itself in its handler... or not rearmed
-> respectively.
+> The problem is that once you add bits markers to bpf_prog like we
+> used to do in the past, then as you do in patch 4/5 with the
+> xdp_rxhash_needed bit, they will need to be turned /on/ unconditionally
+> when a prog has tail calls.
 
-Yes, with xin's patch this timer will stoped by itself.
+Yes, with tail calls, we have to enable all features.  But that is a
+good thing, as it forces vendors to quickly implement all features.
+And it is no different from moving a feature into the "required" bits,
+once all drivers implement it.  It is only a limitation for tail calls,
+and something we can fix later (for handling this for tail calls).
 
-Thanks
-Hangbin
+BPF have some nice features of evaluating the input program
+"load-time", which is what I'm taking advantage of as an optimization
+here (let use this nice bpf property).   It is only tail calls that
+cannot evaluate this "load-time".  Thus, if you care about tail calls,
+supporting intermediate features, we could later fix that by adding a
+runtime feature check in the case of tail calls.
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  LinkedIn: http://www.linkedin.com/in/brouer
