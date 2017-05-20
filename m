@@ -1,102 +1,93 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: [PATCH 2/2] vhost/scsi: Delete error messages for failed memory
- allocations in five functions
-Date: Sat, 20 May 2017 16:32:17 +0200
-Message-ID: <babc429d-6440-92aa-e1d0-eee2636a8d0f@users.sourceforge.net>
-References: <bafa65e4-08fe-efdb-d836-7657e8a64749@users.sourceforge.net>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next v4] net: ipv6: fix code style error and warning
+ of ndisc.c
+Date: Sat, 20 May 2017 07:55:56 -0700
+Message-ID: <1495292156.2093.5.camel@perches.com>
+References: <1495288650-17072-1-git-send-email-cugyly@163.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-        kernel-janitors@vger.kernel.org, Wolfram Sang <wsa@the-dreams.de>
-To: kvm@vger.kernel.org, netdev@vger.kernel.org,
-        virtualization@lists.linux-foundation.org,
-        Jason Wang <jasowang@redhat.com>,
-        "Michael S. Tsirkin" <mst@redhat.com>
+Cc: "David S . Miller" <davem@davemloft.net>,
+        yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
+To: yuan linyu <cugyly@163.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.web.de ([212.227.17.11]:62629 "EHLO mout.web.de"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750760AbdETOcZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 20 May 2017 10:32:25 -0400
-In-Reply-To: <bafa65e4-08fe-efdb-d836-7657e8a64749@users.sourceforge.net>
-Content-Language: en-GB
+Received: from smtprelay0186.hostedemail.com ([216.40.44.186]:43899 "EHLO
+        smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1752621AbdETO4A (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 20 May 2017 10:56:00 -0400
+In-Reply-To: <1495288650-17072-1-git-send-email-cugyly@163.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Sat, 20 May 2017 15:50:30 +0200
+On Sat, 2017-05-20 at 21:57 +0800, yuan linyu wrote:
+> From: yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
+[]
+> diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+[]
+> @@ -240,13 +240,15 @@ struct ndisc_options *ndisc_parse_options(const struct net_device *dev,
+>  					  "%s: duplicated ND6 option found: type=%d\n",
+>  					  __func__, nd_opt->nd_opt_type);
+>  			} else {
+> -				ndopts->nd_opt_array[nd_opt->nd_opt_type] = nd_opt;
+> +				ndopts->nd_opt_array[nd_opt->nd_opt_type] =
+> +					nd_opt;
+>  			}
+>  			break;
+>  		case ND_OPT_PREFIX_INFO:
+>  			ndopts->nd_opts_pi_end = nd_opt;
+>  			if (!ndopts->nd_opt_array[nd_opt->nd_opt_type])
+> -				ndopts->nd_opt_array[nd_opt->nd_opt_type] = nd_opt;
+> +				ndopts->nd_opt_array[nd_opt->nd_opt_type] =
+> +					nd_opt;
+>  			break;
+>  #ifdef CONFIG_IPV6_ROUTE_INFO
+>  		case ND_OPT_ROUTE_INFO:
 
-Omit seven extra messages for memory allocation failures in these functions.
+If you are going to do these 80 column line length changes,
+(and they are not really useful or necessary here), perhaps
+it'd be better to use a temporary to reduce the line length.
 
-This issue was detected by using the Coccinelle software.
-
-Link: http://events.linuxfoundation.org/sites/events/files/slides/LCJ16-Refactor_Strings-WSang_0.pdf
-Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+Something like:
 ---
- drivers/vhost/scsi.c | 24 +++++++-----------------
- 1 file changed, 7 insertions(+), 17 deletions(-)
+ net/ipv6/ndisc.c | 20 ++++++++++++++------
+ 1 file changed, 14 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/vhost/scsi.c b/drivers/vhost/scsi.c
-index 650533916c19..49d07950e2e5 100644
---- a/drivers/vhost/scsi.c
-+++ b/drivers/vhost/scsi.c
-@@ -417,5 +417,4 @@ vhost_scsi_allocate_evt(struct vhost_scsi *vs,
- 	if (!evt) {
--		vq_err(vq, "Failed to allocate vhost_scsi_evt\n");
- 		vs->vs_events_missed = true;
- 		return NULL;
- 	}
-@@ -1722,21 +1721,15 @@ static int vhost_scsi_nexus_cb(struct se_portal_group *se_tpg,
--		if (!tv_cmd->tvc_sgl) {
--			pr_err("Unable to allocate tv_cmd->tvc_sgl\n");
-+		if (!tv_cmd->tvc_sgl)
- 			goto out;
--		}
- 
- 		tv_cmd->tvc_upages = kzalloc(sizeof(struct page *) *
- 				VHOST_SCSI_PREALLOC_UPAGES, GFP_KERNEL);
--		if (!tv_cmd->tvc_upages) {
--			pr_err("Unable to allocate tv_cmd->tvc_upages\n");
-+		if (!tv_cmd->tvc_upages)
- 			goto out;
--		}
- 
- 		tv_cmd->tvc_prot_sgl = kzalloc(sizeof(struct scatterlist) *
- 				VHOST_SCSI_PREALLOC_PROT_SGLS, GFP_KERNEL);
--		if (!tv_cmd->tvc_prot_sgl) {
--			pr_err("Unable to allocate tv_cmd->tvc_prot_sgl\n");
-+		if (!tv_cmd->tvc_prot_sgl)
- 			goto out;
--		}
- 	}
- 	return 0;
- out:
-@@ -1760,6 +1753,5 @@ static int vhost_scsi_make_nexus(struct vhost_scsi_tpg *tpg,
- 	if (!tv_nexus) {
- 		mutex_unlock(&tpg->tv_tpg_mutex);
--		pr_err("Unable to allocate struct vhost_scsi_nexus\n");
- 		return -ENOMEM;
- 	}
- 	/*
-@@ -1961,7 +1953,6 @@ vhost_scsi_make_tpg(struct se_wwn *wwn,
--	if (!tpg) {
--		pr_err("Unable to allocate struct vhost_scsi_tpg");
-+	if (!tpg)
- 		return ERR_PTR(-ENOMEM);
--	}
+diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+index d310dc41209a..a8521bc86795 100644
+--- a/net/ipv6/ndisc.c
++++ b/net/ipv6/ndisc.c
+@@ -234,20 +234,28 @@ struct ndisc_options *ndisc_parse_options(const struct net_device *dev,
+ 		case ND_OPT_TARGET_LL_ADDR:
+ 		case ND_OPT_MTU:
+ 		case ND_OPT_NONCE:
+-		case ND_OPT_REDIRECT_HDR:
+-			if (ndopts->nd_opt_array[nd_opt->nd_opt_type]) {
++		case ND_OPT_REDIRECT_HDR: {
++			struct nd_opt_hdr **hdr;
 +
- 	mutex_init(&tpg->tv_tpg_mutex);
- 	INIT_LIST_HEAD(&tpg->tv_tpg_list);
- 	tpg->tport = tport;
-@@ -2015,7 +2006,6 @@ vhost_scsi_make_tport(struct target_fabric_configfs *tf,
--	if (!tport) {
--		pr_err("Unable to allocate struct vhost_scsi_tport");
-+	if (!tport)
- 		return ERR_PTR(-ENOMEM);
--	}
++			hdr = &ndopts->nd_opt_array[nd_opt->nd_opt_type];
++			if (*hdr) {
+ 				ND_PRINTK(2, warn,
+ 					  "%s: duplicated ND6 option found: type=%d\n",
+ 					  __func__, nd_opt->nd_opt_type);
+ 			} else {
+-				ndopts->nd_opt_array[nd_opt->nd_opt_type] = nd_opt;
++				*hdr = nd_opt;
+ 			}
+ 			break;
+-		case ND_OPT_PREFIX_INFO:
++		}
++		case ND_OPT_PREFIX_INFO: {
++			struct nd_opt_hdr **hdr;
 +
- 	tport->tport_wwpn = wwpn;
- 	/*
- 	 * Determine the emulated Protocol Identifier and Target Port Name
--- 
-2.13.0
++			hdr = &ndopts->nd_opt_array[nd_opt->nd_opt_type];
+ 			ndopts->nd_opts_pi_end = nd_opt;
+-			if (!ndopts->nd_opt_array[nd_opt->nd_opt_type])
+-				ndopts->nd_opt_array[nd_opt->nd_opt_type] = nd_opt;
++			if (!*hdr)
++				*hdr = nd_opt;
+ 			break;
++		}
+ #ifdef CONFIG_IPV6_ROUTE_INFO
+ 		case ND_OPT_ROUTE_INFO:
+ 			ndopts->nd_opts_ri_end = nd_opt;
