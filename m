@@ -1,154 +1,74 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCH net] netfilter: do not hold dev in ipt_CLUSTERIP
-Date: Sat, 20 May 2017 17:08:06 +0800
-Message-ID: <cc6ebc3f8784d8d537737a1e18b443a2e0c7313a.1495271286.git.lucien.xin@gmail.com>
-Cc: davem@davemloft.net, fw@strlen.de
-To: network dev <netdev@vger.kernel.org>,
-        netfilter-devel@vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next 2/2] net/sched: fix filter flushing
+Date: Sat, 20 May 2017 15:01:32 +0200
+Message-ID: <20170520130132.1626-2-jiri@resnulli.us>
+References: <20170520130132.1626-1-jiri@resnulli.us>
+Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
+        edumazet@google.com, daniel@iogearbox.net,
+        simon.horman@netronome.com, mlxsw@mellanox.com,
+        colin.king@canonical.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:33160 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932254AbdETJIP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 20 May 2017 05:08:15 -0400
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:34638 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750814AbdETNBi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 20 May 2017 09:01:38 -0400
+Received: by mail-wm0-f65.google.com with SMTP id d127so22922240wmf.1
+        for <netdev@vger.kernel.org>; Sat, 20 May 2017 06:01:37 -0700 (PDT)
+In-Reply-To: <20170520130132.1626-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It's a terrible thing to hold dev in iptables target. When the dev is
-being removed, unregister_netdevice has to wait for the dev to become
-free. dmesg will keep logging the err:
+From: Jiri Pirko <jiri@mellanox.com>
 
-  kernel:unregister_netdevice: waiting for veth0_in to become free. \
-  Usage count = 1
+When user instructs to remove all filters from chain, we cannot destroy
+the chain as other actions may hold a reference. Also the put in errout
+would try to destroy it again. So instead, just walk the chain and remove
+all existing filters.
 
-until iptables rules with this target are removed manually.
-
-The worse thing is when deleting a netns, a virtual nic will be deleted
-instead of reset to init_net in default_device_ops exit/exit_batch. As
-it is earlier than to flush the iptables rules in iptable_filter_net_ops
-exit, unregister_netdevice will block to wait for the nic to become free.
-
-As unregister_netdevice is actually waiting for iptables rules flushing
-while iptables rules have to be flushed after unregister_netdevice. This
-'dead lock' will cause unregister_netdevice to block there forever. As
-the netns is not available to operate at that moment, iptables rules can
-not even be flushed manually either.
-
-The reproducer can be:
-
-  # ip netns add test
-  # ip link add veth0_in type veth peer name veth0_out
-  # ip link set veth0_in netns test
-  # ip netns exec test ip link set lo up
-  # ip netns exec test ip link set veth0_in up
-  # ip netns exec test iptables -I INPUT -d 1.2.3.4 -i veth0_in -j \
-    CLUSTERIP --new --clustermac 89:d4:47:eb:9a:fa --total-nodes 3 \
-    --local-node 1 --hashmode sourceip-sourceport
-  # ip netns del test
-
-This issue can be triggered by all virtual nics with ipt_CLUSTERIP.
-
-This patch is to fix it by not holding dev in ipt_CLUSTERIP, but only
-save dev->ifindex instead of dev. When removing the mc from the dev,
-it will get dev by c->ifindex through dev_get_by_index.
-
-Note that it doesn't save dev->name but dev->ifindex, as a dev->name
-can be changed, it will confuse ipt_CLUSTERIP.
-
-Reported-by: Jianlin Shi <jishi@redhat.com>
-Signed-off-by: Xin Long <lucien.xin@gmail.com>
+Fixes: 5bc1701881e3 ("net: sched: introduce multichain support for filters")
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- net/ipv4/netfilter/ipt_CLUSTERIP.c | 31 ++++++++++++++++++-------------
- 1 file changed, 18 insertions(+), 13 deletions(-)
+ net/sched/cls_api.c | 13 ++++++++++---
+ 1 file changed, 10 insertions(+), 3 deletions(-)
 
-diff --git a/net/ipv4/netfilter/ipt_CLUSTERIP.c b/net/ipv4/netfilter/ipt_CLUSTERIP.c
-index 038f293..d1adb2f 100644
---- a/net/ipv4/netfilter/ipt_CLUSTERIP.c
-+++ b/net/ipv4/netfilter/ipt_CLUSTERIP.c
-@@ -47,7 +47,7 @@ struct clusterip_config {
+diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
+index 85088ed..01a8b8b 100644
+--- a/net/sched/cls_api.c
++++ b/net/sched/cls_api.c
+@@ -201,15 +201,22 @@ static struct tcf_chain *tcf_chain_create(struct tcf_block *block,
+ 	return chain;
+ }
  
- 	__be32 clusterip;			/* the IP address */
- 	u_int8_t clustermac[ETH_ALEN];		/* the MAC address */
--	struct net_device *dev;			/* device */
-+	int ifindex;				/* device ifindex */
- 	u_int16_t num_total_nodes;		/* total number of nodes */
- 	unsigned long local_nodes;		/* node number array */
- 
-@@ -98,19 +98,23 @@ clusterip_config_put(struct clusterip_config *c)
-  * entry(rule) is removed, remove the config from lists, but don't free it
-  * yet, since proc-files could still be holding references */
- static inline void
--clusterip_config_entry_put(struct clusterip_config *c)
-+clusterip_config_entry_put(struct net *net, struct clusterip_config *c)
+-static void tcf_chain_destroy(struct tcf_chain *chain)
++static void tcf_chain_flush(struct tcf_chain *chain)
  {
--	struct net *net = dev_net(c->dev);
- 	struct clusterip_net *cn = net_generic(net, clusterip_net_id);
+ 	struct tcf_proto *tp;
  
- 	local_bh_disable();
- 	if (refcount_dec_and_lock(&c->entries, &cn->lock)) {
-+		struct net_device *dev;
-+
- 		list_del_rcu(&c->list);
- 		spin_unlock(&cn->lock);
- 		local_bh_enable();
- 
--		dev_mc_del(c->dev, c->clustermac);
--		dev_put(c->dev);
-+		dev = dev_get_by_index(net, c->ifindex);
-+		if (dev) {
-+			dev_mc_del(dev, c->clustermac);
-+			dev_put(dev);
-+		}
- 
- 		/* In case anyone still accesses the file, the open/close
- 		 * functions are also incrementing the refcount on their own,
-@@ -182,7 +186,7 @@ clusterip_config_init(const struct ipt_clusterip_tgt_info *i, __be32 ip,
- 	if (!c)
- 		return ERR_PTR(-ENOMEM);
- 
--	c->dev = dev;
-+	c->ifindex = dev->ifindex;
- 	c->clusterip = ip;
- 	memcpy(&c->clustermac, &i->clustermac, ETH_ALEN);
- 	c->num_total_nodes = i->num_total_nodes;
-@@ -427,12 +431,14 @@ static int clusterip_tg_check(const struct xt_tgchk_param *par)
- 			}
- 
- 			config = clusterip_config_init(cipinfo,
--							e->ip.dst.s_addr, dev);
-+						       e->ip.dst.s_addr, dev);
- 			if (IS_ERR(config)) {
- 				dev_put(dev);
- 				return PTR_ERR(config);
- 			}
--			dev_mc_add(config->dev, config->clustermac);
-+
-+			dev_mc_add(dev, config->clustermac);
-+			dev_put(dev);
- 		}
+-	list_del(&chain->list);
++	if (*chain->p_filter_chain)
++		RCU_INIT_POINTER(*chain->p_filter_chain, NULL);
+ 	while ((tp = rtnl_dereference(chain->filter_chain)) != NULL) {
+ 		RCU_INIT_POINTER(chain->filter_chain, tp->next);
+ 		tcf_proto_destroy(tp);
  	}
- 	cipinfo->config = config;
-@@ -458,7 +464,7 @@ static void clusterip_tg_destroy(const struct xt_tgdtor_param *par)
++}
++
++static void tcf_chain_destroy(struct tcf_chain *chain)
++{
++	list_del(&chain->list);
++	tcf_chain_flush(chain);
+ 	kfree(chain);
+ }
  
- 	/* if no more entries are referencing the config, remove it
- 	 * from the list and destroy the proc entry */
--	clusterip_config_entry_put(cipinfo->config);
-+	clusterip_config_entry_put(par->net, cipinfo->config);
+@@ -510,7 +517,7 @@ static int tc_ctl_tfilter(struct sk_buff *skb, struct nlmsghdr *n,
  
- 	clusterip_config_put(cipinfo->config);
- 
-@@ -558,10 +564,9 @@ arp_mangle(void *priv,
- 	 * addresses on different interfacs.  However, in the CLUSTERIP case
- 	 * this wouldn't work, since we didn't subscribe the mcast group on
- 	 * other interfaces */
--	if (c->dev != state->out) {
--		pr_debug("not mangling arp reply on different "
--			 "interface: cip'%s'-skb'%s'\n",
--			 c->dev->name, state->out->name);
-+	if (c->ifindex != state->out->ifindex) {
-+		pr_debug("not mangling arp reply on different interface: cip'%d'-skb'%d'\n",
-+			 c->ifindex, state->out->ifindex);
- 		clusterip_config_put(c);
- 		return NF_ACCEPT;
+ 	if (n->nlmsg_type == RTM_DELTFILTER && prio == 0) {
+ 		tfilter_notify_chain(net, skb, n, chain, RTM_DELTFILTER);
+-		tcf_chain_destroy(chain);
++		tcf_chain_flush(chain);
+ 		err = 0;
+ 		goto errout;
  	}
 -- 
-2.1.0
+2.9.3
