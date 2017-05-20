@@ -1,17 +1,17 @@
 From: yuan linyu <cugyly@163.com>
-Subject: [PATCH net-next v3] net: ipv6: fix code style error and warning of ndisc.c
-Date: Sat, 20 May 2017 21:43:24 +0800
-Message-ID: <1495287805-16716-1-git-send-email-cugyly@163.com>
+Subject: [PATCH net-next v4] net: ipv6: fix code style error and warning of ndisc.c
+Date: Sat, 20 May 2017 21:57:30 +0800
+Message-ID: <1495288650-17072-1-git-send-email-cugyly@163.com>
 Mime-Version: 1.0
 Content-Transfer-Encoding: 7bit
 Cc: "David S . Miller" <davem@davemloft.net>,
         yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from m12-18.163.com ([220.181.12.18]:53442 "EHLO m12-18.163.com"
+Received: from m12-14.163.com ([220.181.12.14]:34995 "EHLO m12-14.163.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752131AbdETNoS (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 20 May 2017 09:44:18 -0400
+        id S1755431AbdETN61 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 20 May 2017 09:58:27 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -23,7 +23,7 @@ Signed-off-by: yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
  1 file changed, 163 insertions(+), 147 deletions(-)
 
 diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
-index d310dc4..7528c4c 100644
+index d310dc4..df31f29 100644
 --- a/net/ipv6/ndisc.c
 +++ b/net/ipv6/ndisc.c
 @@ -12,8 +12,7 @@
@@ -310,8 +310,8 @@ index d310dc4..7528c4c 100644
 +		if (ipv6_chk_acast_addr(net, dev, &msg->target)) {
 +			is_acast_proxy = true;
 +		} else if (idev->cnf.forwarding &&
-+			 (net->ipv6.devconf_all->proxy_ndp ||
-+			  idev->cnf.proxy_ndp)) {
++			   (net->ipv6.devconf_all->proxy_ndp ||
++			    idev->cnf.proxy_ndp)) {
 +			is_router = pndisc_is_router(&msg->target, dev);
 +			if (is_router >= 0)
 +				is_acast_proxy = true;
