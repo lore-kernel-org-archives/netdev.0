@@ -1,142 +1,42 @@
-From: Hangbin Liu <liuhangbin@gmail.com>
-Subject: Re: [PATCH net-next v2] bridge: fix hello and hold timers
- starting/stopping
-Date: Sat, 20 May 2017 13:57:20 +0800
-Message-ID: <20170520055720.GA12974@leo.usersys.redhat.com>
-References: <20170519173043.10201-1-cera@cera.cz>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH net-next 6/9] xfrm: make xfrm_dev_register static
+Date: Sat, 20 May 2017 08:48:22 +0200
+Message-ID: <20170520064822.GM22049@secunet.com>
+References: <20170519165556.483-1-sthemmin@microsoft.com>
+ <20170519165556.483-7-sthemmin@microsoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-        sashok@cumulusnetworks.com, stephen@networkplumber.org,
-        bridge@lists.linux-foundation.org, lucien.xin@gmail.com,
-        nikolay@cumulusnetworks.com
-To: Ivan Vecera <cera@cera.cz>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+        Stephen Hemminger <sthemmin@microsoft.com>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:35991 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932254AbdETF5i (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 20 May 2017 01:57:38 -0400
-Received: by mail-pf0-f193.google.com with SMTP id n23so11567268pfb.3
-        for <netdev@vger.kernel.org>; Fri, 19 May 2017 22:57:38 -0700 (PDT)
+Received: from a.mx.secunet.com ([62.96.220.36]:49198 "EHLO a.mx.secunet.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752999AbdETGsZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 20 May 2017 02:48:25 -0400
 Content-Disposition: inline
-In-Reply-To: <20170519173043.10201-1-cera@cera.cz>
+In-Reply-To: <20170519165556.483-7-sthemmin@microsoft.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 19, 2017 at 07:30:43PM +0200, Ivan Vecera wrote:
-> Current bridge code incorrectly handles starting/stopping of hello and
-> hold timers during STP enable/disable.
+On Fri, May 19, 2017 at 09:55:53AM -0700, Stephen Hemminger wrote:
+> This function is only used in this file and should not be global.
 > 
-> 1. Timers are stopped in br_stp_start() during NO_STP->USER_STP
->    transition. The timers are already stopped in NO_STP state so
->    this is confusing no-op.
-
-Hi Ivan,
-
-Shouldn't we start hello timer in br_stp_start when NO_STP -> BR_KERNEL_STP ?
-> 
-> 2. During USER_STP->NO_STP transition the timers are started. This
->    does not make sense and is confusion because the timer should not be
->    active in NO_STP state.
-
-Yes, but what about BR_KERNEL_STP -> NO_STP in function br_stp_stop() ?
-> 
-> Cc: davem@davemloft.net
-> Cc: sashok@cumulusnetworks.com
-> Cc: stephen@networkplumber.org
-> Cc: bridge@lists.linux-foundation.org
-> Cc: lucien.xin@gmail.com
-> Cc: nikolay@cumulusnetworks.com
-> Signed-off-by: Ivan Vecera <cera@cera.cz>
+> Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
 > ---
->  net/bridge/br_stp_if.c | 11 -----------
->  1 file changed, 11 deletions(-)
+>  net/xfrm/xfrm_device.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
 > 
-> diff --git a/net/bridge/br_stp_if.c b/net/bridge/br_stp_if.c
-> index 08341d2aa9c9..a05027027513 100644
-> --- a/net/bridge/br_stp_if.c
-> +++ b/net/bridge/br_stp_if.c
-> @@ -150,7 +150,6 @@ static int br_stp_call_user(struct net_bridge *br, char *arg)
+> diff --git a/net/xfrm/xfrm_device.c b/net/xfrm/xfrm_device.c
+> index 8ec8a3fcf8d4..50ec73399b48 100644
+> --- a/net/xfrm/xfrm_device.c
+> +++ b/net/xfrm/xfrm_device.c
+> @@ -138,7 +138,7 @@ bool xfrm_dev_offload_ok(struct sk_buff *skb, struct xfrm_state *x)
+>  }
+>  EXPORT_SYMBOL_GPL(xfrm_dev_offload_ok);
 >  
->  static void br_stp_start(struct net_bridge *br)
->  {
-> -	struct net_bridge_port *p;
->  	int err = -ENOENT;
->  
->  	if (net_eq(dev_net(br->dev), &init_net))
-> @@ -169,11 +168,6 @@ static void br_stp_start(struct net_bridge *br)
->  	if (!err) {
->  		br->stp_enabled = BR_USER_STP;
->  		br_debug(br, "userspace STP started\n");
-> -
-> -		/* Stop hello and hold timers */
-> -		del_timer(&br->hello_timer);
-> -		list_for_each_entry(p, &br->port_list, list)
-> -			del_timer(&p->hold_timer);
+> -int xfrm_dev_register(struct net_device *dev)
+> +static int xfrm_dev_register(struct net_device *dev)
 
-I'm not sure if user space daemon will send bpdu or not? In comment
-76b91c32dd86 ("bridge: stp: when using userspace stp stop kernel hello and
-hold timers"). Nikolay said we should not handle it with BR_USER_STP.
-
->  	} else {
->  		br->stp_enabled = BR_KERNEL_STP;
->  		br_debug(br, "using kernel STP\n");
-> @@ -187,7 +181,6 @@ static void br_stp_start(struct net_bridge *br)
->  
->  static void br_stp_stop(struct net_bridge *br)
->  {
-> -	struct net_bridge_port *p;
->  	int err;
->  
->  	if (br->stp_enabled == BR_USER_STP) {
-> @@ -196,10 +189,6 @@ static void br_stp_stop(struct net_bridge *br)
->  			br_err(br, "failed to stop userspace STP (%d)\n", err);
->  
->  		/* To start timers on any ports left in blocking */
-> -		mod_timer(&br->hello_timer, jiffies + br->hello_time);
-> -		list_for_each_entry(p, &br->port_list, list)
-> -			mod_timer(&p->hold_timer,
-> -				  round_jiffies(jiffies + BR_HOLD_TIME));
-
-If we do not del hello_timer. after it expired in br_hello_timer_expired(),
-Our state is br->dev->flags & IFF_UP and br->stp_enabled == NO_STP, it will
-call mod_timer(&br->hello_timer, round_jiffies(jiffies + br->hello_time))
-and we will keep sending bpdu message even after stp stoped.
-
->  		spin_lock_bh(&br->lock);
->  		br_port_state_selection(br);
->  		spin_unlock_bh(&br->lock);
-> -- 
-
-So how about just like
-
-diff --git a/net/bridge/br_stp_if.c b/net/bridge/br_stp_if.c
-index d8ad73b..0198f62 100644
---- a/net/bridge/br_stp_if.c
-+++ b/net/bridge/br_stp_if.c
-@@ -183,6 +183,7 @@ static void br_stp_start(struct net_bridge *br)
-        } else {
-                br->stp_enabled = BR_KERNEL_STP;
-                br_debug(br, "using kernel STP\n");
-+               mod_timer(&br->hello_timer, jiffies + br->hello_time);
-
-                /* To start timers on any ports left in blocking */
-                br_port_state_selection(br);
-@@ -202,7 +203,6 @@ static void br_stp_stop(struct net_bridge *br)
-                        br_err(br, "failed to stop userspace STP (%d)\n", err);
-
-                /* To start timers on any ports left in blocking */
--               mod_timer(&br->hello_timer, jiffies + br->hello_time);
-                list_for_each_entry(p, &br->port_list, list)
-                        mod_timer(&p->hold_timer,
-                                  round_jiffies(jiffies + BR_HOLD_TIME));
-@@ -211,6 +211,7 @@ static void br_stp_stop(struct net_bridge *br)
-                spin_unlock_bh(&br->lock);
-        }
-
-+       del_timer_sync(&br->hello_timer);
-        br->stp_enabled = BR_NO_STP;
- }
-
-Thanks
-Hangbin
+I've applied a patch with this exact fix already to the
+ipsec-next tree yesterday.
