@@ -1,7 +1,7 @@
 From: yuan linyu <cugyly@163.com>
-Subject: [PATCH net-next v5] net: ipv6: fix code style error and warning of ndisc.c
-Date: Sun, 21 May 2017 08:55:54 +0800
-Message-ID: <1495328154-18653-1-git-send-email-cugyly@163.com>
+Subject: [PATCH net-next v6] net: ipv6: fix code style error and warning of ndisc.c
+Date: Sun, 21 May 2017 09:11:07 +0800
+Message-ID: <1495329067-19096-1-git-send-email-cugyly@163.com>
 Mime-Version: 1.0
 Content-Transfer-Encoding: 7bit
 Cc: "David S . Miller" <davem@davemloft.net>,
@@ -9,14 +9,20 @@ Cc: "David S . Miller" <davem@davemloft.net>,
         yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from m12-16.163.com ([220.181.12.16]:44957 "EHLO m12-16.163.com"
+Received: from m12-12.163.com ([220.181.12.12]:56768 "EHLO m12-12.163.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751457AbdEUA47 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 20 May 2017 20:56:59 -0400
+        id S1751782AbdEUBLw (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 20 May 2017 21:11:52 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
+
+CC: Joe Perches <joe@perches.com>
+Signed-off-by: yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
+---
+ net/ipv6/ndisc.c | 324 +++++++++++++++++++++++++++++--------------------------
+ 1 file changed, 173 insertions(+), 151 deletions(-)
 
 diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
 index d310dc4..5cf25bc 100644
