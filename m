@@ -1,50 +1,53 @@
 From: Yuval Mintz <Yuval.Mintz@cavium.com>
-Subject: [PATCH net-next 08/10] qed: Fix setting of Management bitfields
-Date: Sun, 21 May 2017 12:10:59 +0300
-Message-ID: <1495357860-28280-9-git-send-email-Yuval.Mintz@cavium.com>
+Subject: [PATCH net-next 09/10] qede: Support 1G advertisment.
+Date: Sun, 21 May 2017 12:11:00 +0300
+Message-ID: <1495357860-28280-10-git-send-email-Yuval.Mintz@cavium.com>
 References: <1495357860-28280-1-git-send-email-Yuval.Mintz@cavium.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: Tomer Tayar <Tomer.Tayar@cavium.com>,
+Cc: Sudarsana Reddy Kalluru <sudarsana.kalluru@cavium.com>,
+        "Sudarsana Reddy Kalluru" <Sudarsana.Kalluru@cavium.com>,
         Yuval Mintz <Yuval.Mintz@cavium.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-dm3nam03on0046.outbound.protection.outlook.com ([104.47.41.46]:35311
-        "EHLO NAM03-DM3-obe.outbound.protection.outlook.com"
+Received: from mail-sn1nam01on0060.outbound.protection.outlook.com ([104.47.32.60]:19376
+        "EHLO NAM01-SN1-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1752767AbdEUJMC (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 21 May 2017 05:12:02 -0400
+        id S1752959AbdEUJMN (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 21 May 2017 05:12:13 -0400
 In-Reply-To: <1495357860-28280-1-git-send-email-Yuval.Mintz@cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tomer Tayar <Tomer.Tayar@cavium.com>
+From: Sudarsana Reddy Kalluru <sudarsana.kalluru@cavium.com>
 
-The management firmware HSI contains masks which are already
-shifted to their right place, so QED_MFW_SET_FIELD() is clearing
-incorrect fields by shifting the mask by the offset.
+Some variants of adapters support the 1G speed capability. Need to
+allow the configuration of 1G speed if adapter supports it.
 
-Luckily, today we set the fields in an incrementing order [so we're
-not erasing any previously set fields], but this still needs fixing.
-
-Signed-off-by: Tomer Tayar <Tomer.Tayar@cavium.com>
+Signed-off-by: Sudarsana Reddy Kalluru <Sudarsana.Kalluru@cavium.com>
 Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
 ---
- drivers/net/ethernet/qlogic/qed/qed.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/qlogic/qede/qede_ethtool.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
 
-diff --git a/drivers/net/ethernet/qlogic/qed/qed.h b/drivers/net/ethernet/qlogic/qed/qed.h
-index 162cd7f..fd8cf31 100644
---- a/drivers/net/ethernet/qlogic/qed/qed.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed.h
-@@ -92,7 +92,7 @@ enum qed_coalescing_mode {
- 
- #define QED_MFW_SET_FIELD(name, field, value)				       \
- 	do {								       \
--		(name)	&= ~((field ## _MASK) << (field ## _SHIFT));	       \
-+		(name)	&= ~(field ## _MASK);	       \
- 		(name)	|= (((value) << (field ## _SHIFT)) & (field ## _MASK));\
- 	} while (0)
- 
+diff --git a/drivers/net/ethernet/qlogic/qede/qede_ethtool.c b/drivers/net/ethernet/qlogic/qede/qede_ethtool.c
+index 47ec4f3..6c76a12 100644
+--- a/drivers/net/ethernet/qlogic/qede/qede_ethtool.c
++++ b/drivers/net/ethernet/qlogic/qede/qede_ethtool.c
+@@ -506,6 +506,14 @@ static int qede_set_link_ksettings(struct net_device *dev,
+ 		params.autoneg = false;
+ 		params.forced_speed = base->speed;
+ 		switch (base->speed) {
++		case SPEED_1000:
++			if (!(current_link.supported_caps &
++			      QED_LM_1000baseT_Full_BIT)) {
++				DP_INFO(edev, "1G speed not supported\n");
++				return -EINVAL;
++			}
++			params.adv_speeds = QED_LM_1000baseT_Full_BIT;
++			break;
+ 		case SPEED_10000:
+ 			if (!(current_link.supported_caps &
+ 			      QED_LM_10000baseKR_Full_BIT)) {
 -- 
 1.9.3
