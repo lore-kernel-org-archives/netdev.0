@@ -1,29 +1,53 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 8/9] ipv6: drop unused variables in
- seg6_genl_dumphac
-Date: Sun, 21 May 2017 13:43:57 -0400 (EDT)
-Message-ID: <20170521.134357.2047892704931721755.davem@davemloft.net>
+Subject: Re: [PATCH net-next 9/9] ipv6: remove unused variables in esp6
+Date: Sun, 21 May 2017 13:44:36 -0400 (EDT)
+Message-ID: <20170521.134436.268347108365784579.davem@davemloft.net>
 References: <20170519165556.483-1-sthemmin@microsoft.com>
-        <20170519165556.483-9-sthemmin@microsoft.com>
+        <20170519165556.483-10-sthemmin@microsoft.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sthemmin@microsoft.com
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, sthemmin@microsoft.com,
+        steffen.klassert@secunet.com
 To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:45228 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:45244 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756855AbdEURn7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 21 May 2017 13:43:59 -0400
-In-Reply-To: <20170519165556.483-9-sthemmin@microsoft.com>
+        with ESMTP id S1755163AbdEURoi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 21 May 2017 13:44:38 -0400
+In-Reply-To: <20170519165556.483-10-sthemmin@microsoft.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <stephen@networkplumber.org>
-Date: Fri, 19 May 2017 09:55:55 -0700
-
-> THe seg6_pernet_data variable was set but never used.
-> 
-> Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
-
-Applied.
+RnJvbTogU3RlcGhlbiBIZW1taW5nZXIgPHN0ZXBoZW5AbmV0d29ya3BsdW1iZXIub3JnPg0KRGF0
+ZTogRnJpLCAxOSBNYXkgMjAxNyAwOTo1NTo1NiAtMDcwMA0KDQo+IFJlc29sdmVzIHdhcm5pbmdz
+Og0KPiBuZXQvaXB2Ni9lc3A2LmM6IEluIGZ1bmN0aW9uIKFlc3Bfc3NnX3VucmVmojoNCj4gbmV0
+L2lwdjYvZXNwNi5jOjEyMToxMDogd2FybmluZzogdmFyaWFibGUgoXNlcWhpoiBzZXQgYnV0IG5v
+dCB1c2VkIFstV3VudXNlZC1idXQtc2V0LXZhcmlhYmxlXQ0KPiBuZXQvaXB2Ni9lc3A2LmM6IElu
+IGZ1bmN0aW9uIKFlc3A2X291dHB1dF9oZWFkojoNCj4gbmV0L2lwdjYvZXNwNi5jOjIyNzoyMTog
+d2FybmluZzogdmFyaWFibGUgoWVzcGiiIHNldCBidXQgbm90IHVzZWQgWy1XdW51c2VkLWJ1dC1z
+ZXQtdmFyaWFibGVdDQo+IA0KPiBTaWduZWQtb2ZmLWJ5OiBTdGVwaGVuIEhlbW1pbmdlciA8c3Ro
+ZW1taW5AbWljcm9zb2Z0LmNvbT4NCg0KU3RlcGhlbiBwbGVhc2UgYWx3YXlzIENDOiB0aGUgSVBT
+RUMgbWFpbnRhaW5lciBmb3IgSVBTRUMgaW1wbGVtZW50YXRpb24NCmZpeGVzLg0KDQpTdGVmZmVu
+LCBwbGVhc2UgY29uc2lkZXIgdGFraW5nIHRoaXMgaW50byB5b3VyIHRyZWUuDQoNCj4gLS0tDQo+
+ICBuZXQvaXB2Ni9lc3A2LmMgfCA1IC0tLS0tDQo+ICAxIGZpbGUgY2hhbmdlZCwgNSBkZWxldGlv
+bnMoLSkNCj4gDQo+IGRpZmYgLS1naXQgYS9uZXQvaXB2Ni9lc3A2LmMgYi9uZXQvaXB2Ni9lc3A2
+LmMNCj4gaW5kZXggMWZlOTliYTgwNjZjLi41M2I2Yjg3MGI5MzUgMTAwNjQ0DQo+IC0tLSBhL25l
+dC9pcHY2L2VzcDYuYw0KPiArKysgYi9uZXQvaXB2Ni9lc3A2LmMNCj4gQEAgLTExOCw3ICsxMTgs
+NiBAQCBzdGF0aWMgaW5saW5lIHN0cnVjdCBzY2F0dGVybGlzdCAqZXNwX3JlcV9zZyhzdHJ1Y3Qg
+Y3J5cHRvX2FlYWQgKmFlYWQsDQo+ICANCj4gIHN0YXRpYyB2b2lkIGVzcF9zc2dfdW5yZWYoc3Ry
+dWN0IHhmcm1fc3RhdGUgKngsIHZvaWQgKnRtcCkNCj4gIHsNCj4gLQlfX2JlMzIgKnNlcWhpOw0K
+PiAgCXN0cnVjdCBjcnlwdG9fYWVhZCAqYWVhZCA9IHgtPmRhdGE7DQo+ICAJaW50IHNlcWhpbGVu
+ID0gMDsNCj4gIAl1OCAqaXY7DQo+IEBAIC0xMjgsNyArMTI3LDYgQEAgc3RhdGljIHZvaWQgZXNw
+X3NzZ191bnJlZihzdHJ1Y3QgeGZybV9zdGF0ZSAqeCwgdm9pZCAqdG1wKQ0KPiAgCWlmICh4LT5w
+cm9wcy5mbGFncyAmIFhGUk1fU1RBVEVfRVNOKQ0KPiAgCQlzZXFoaWxlbiArPSBzaXplb2YoX19i
+ZTMyKTsNCj4gIA0KPiAtCXNlcWhpID0gZXNwX3RtcF9zZXFoaSh0bXApOw0KPiAgCWl2ID0gZXNw
+X3RtcF9pdihhZWFkLCB0bXAsIHNlcWhpbGVuKTsNCj4gIAlyZXEgPSBlc3BfdG1wX3JlcShhZWFk
+LCBpdik7DQo+ICANCj4gQEAgLTIyNCwxMiArMjIyLDkgQEAgaW50IGVzcDZfb3V0cHV0X2hlYWQo
+c3RydWN0IHhmcm1fc3RhdGUgKngsIHN0cnVjdCBza19idWZmICpza2IsIHN0cnVjdCBlc3BfaW5m
+bw0KPiAgCXU4ICp2YWRkcjsNCj4gIAlpbnQgbmZyYWdzOw0KPiAgCXN0cnVjdCBwYWdlICpwYWdl
+Ow0KPiAtCXN0cnVjdCBpcF9lc3BfaGRyICplc3BoOw0KPiAgCXN0cnVjdCBza19idWZmICp0cmFp
+bGVyOw0KPiAgCWludCB0YWlsZW4gPSBlc3AtPnRhaWxlbjsNCj4gIA0KPiAtCWVzcGggPSBpcF9l
+c3BfaGRyKHNrYik7DQo+IC0NCj4gIAlpZiAoIXNrYl9jbG9uZWQoc2tiKSkgew0KPiAgCQlpZiAo
+dGFpbGVuIDw9IHNrYl9hdmFpbHJvb20oc2tiKSkgew0KPiAgCQkJbmZyYWdzID0gMTsNCj4gLS0g
+DQo+IDIuMTEuMA0KPiANCg==
