@@ -1,38 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] tcp: initialize rcv_mss to TCP_MIN_MSS instead of 0
-Date: Sun, 21 May 2017 13:25:47 -0400 (EDT)
-Message-ID: <20170521.132547.2153130831461643500.davem@davemloft.net>
-References: <20170518182233.100933-1-tracywwnj@gmail.com>
+Subject: Re: [PATCH v2 0/4] arp: always override existing neigh entries
+ with gratuitous ARP
+Date: Sun, 21 May 2017 13:27:14 -0400 (EDT)
+Message-ID: <20170521.132714.234436043096021169.davem@davemloft.net>
+References: <cover.1495136258.git.ihrachys@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ycheng@google.com, ncardwell@google.com,
-        edumazet@google.com
-To: weiwan@google.com
+Cc: ja@ssi.bg, netdev@vger.kernel.org
+To: ihrachys@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:45000 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:45006 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750788AbdEURZt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 21 May 2017 13:25:49 -0400
-In-Reply-To: <20170518182233.100933-1-tracywwnj@gmail.com>
+        with ESMTP id S1750788AbdEUR1Q (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 21 May 2017 13:27:16 -0400
+In-Reply-To: <cover.1495136258.git.ihrachys@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Wang <weiwan@google.com>
-Date: Thu, 18 May 2017 11:22:33 -0700
+From: Ihar Hrachyshka <ihrachys@redhat.com>
+Date: Thu, 18 May 2017 12:41:17 -0700
 
-> From: Wei Wang <weiwan@google.com>
+> This patchset is spurred by discussion started at
+> https://patchwork.ozlabs.org/patch/760372/ where we figured that there is no
+> real reason for enforcing override by gratuitous ARP packets only when
+> arp_accept is 1. Same should happen when it's 0 (the default value).
 > 
-> When tcp_disconnect() is called, inet_csk_delack_init() sets
-> icsk->icsk_ack.rcv_mss to 0.
-> This could potentially cause tcp_recvmsg() => tcp_cleanup_rbuf() =>
-> __tcp_select_window() call path to have division by 0 issue.
-> So this patch initializes rcv_mss to TCP_MIN_MSS instead of 0.
-> 
-> Reported-by: Andrey Konovalov  <andreyknvl@google.com>
-> Signed-off-by: Wei Wang <weiwan@google.com>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Signed-off-by: Neal Cardwell <ncardwell@google.com>
-> Signed-off-by: Yuchung Cheng <ycheng@google.com>
+> changelog v2: handled review comments by Julian Anastasov
+> - fixed a mistake in a comment;
+> - postponed addr_type calculation to as late as possible.
 
-Applied, thanks.
+Series applied, thanks.
+
+Please address the feedback from Julian about the ieee1394 change
+you put into ARP earlier.
+
+Thanks.
