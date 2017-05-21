@@ -1,38 +1,83 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: Re: [PATCH net-next v5] net: ipv6: fix code style error and warning
- of ndisc.c
-Date: Sun, 21 May 2017 10:17:47 -0600
-Message-ID: <77510dfe-4fc7-4446-9f1a-aea52342ecd1@gmail.com>
-References: <1495328154-18653-1-git-send-email-cugyly@163.com>
- <1495382708.2093.10.camel@perches.com>
+From: =?UTF-8?Q?Andreas_F=c3=a4rber?= <afaerber@suse.de>
+Subject: brcmfmac firmware issue on NanoPi K2
+Date: Sun, 21 May 2017 18:20:25 +0200
+Message-ID: <ab713116-ab12-5f87-1ecf-cae2e0d68b93@suse.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: "David S . Miller" <davem@davemloft.net>,
-        yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
-To: Joe Perches <joe@perches.com>, yuan linyu <cugyly@163.com>,
-        netdev@vger.kernel.org
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org,
+        technicalsupport <techsupport@friendlyarm.com>,
+        Arend Van Spriel <arend.vanspriel@broadcom.com>,
+        linux-amlogic <linux-amlogic@lists.infradead.org>
+To: linux-wireless@vger.kernel.org, brcm80211-dev-list.pdl@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:33361 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751583AbdEUQRu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 21 May 2017 12:17:50 -0400
-Received: by mail-pg0-f65.google.com with SMTP id s62so15031102pgc.0
-        for <netdev@vger.kernel.org>; Sun, 21 May 2017 09:17:49 -0700 (PDT)
-In-Reply-To: <1495382708.2093.10.camel@perches.com>
+Received: from mx2.suse.de ([195.135.220.15]:53287 "EHLO mx1.suse.de"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751583AbdEUQU1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 21 May 2017 12:20:27 -0400
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 5/21/17 10:05 AM, Joe Perches wrote:
-> But really, why bother?
-> 
-> Just because checkpatch bleats some message doesn't
-> mean it _has_ to be fixed.
-> 
-> Please strive to make the code more readable and
-> intelligible for _humans_.  Compilers don't care.
+Hello,
 
-+1
+The NanoPi K2 has an Ampak AP6212 SDIO module. brcmfmac driver loads
+brcmfmac43430-sdio.bin.
 
-broad cleanups like this make 'git blame' harder to use to find root causes.
+When using the firmware file from linux-firmware.git that openSUSE ships
+I get the following errors on 4.11.0 and next-20170519:
+
+[ 2103.618716] brcmfmac: brcmf_sdio_htclk: HT Avail timeout (1000000):
+clkctl 0x50
+[ 2104.668746] brcmfmac: brcmf_sdio_htclk: HT Avail timeout (1000000):
+clkctl 0x50
+[ 2105.678677] brcmfmac: brcmf_sdio_htclk: HT Avail timeout (1000000):
+clkctl 0x50
+
+If I overwrite /lib/firmware/brcm/bcm43430-sdio.bin with
+fw_bcm43438a0.bin from FriendlyARM's Android repository it suddenly works:
+
+[  +0.157738] brcmfmac: brcmf_c_preinit_dcmds: Firmware version = wl0:
+Jun  6 2014 14:50:39 version 7.10.226.49 (r) FWID 01-8962686a
+[  +0.160108] brcmfmac: brcmf_cfg80211_reg_notifier: not a ISO3166 code
+(0x30 0x30)
+
+I recall using the linux-firmware.git brcmfmac43430-sdio.bin file
+successfully on the Raspberry Pi 3 with a downstream (Leap 42.2) kernel.
+
+I've tested both nvram_ap6212.txt and nvram_ap6212a.txt, the latter has
+the following diff to nvram.txt:
+
+--- nvram_ap6212.txt    2017-05-21 04:24:40.372113426 +0200
++++ nvram_ap6212a.txt   2017-05-21 04:24:49.852116599 +0200
+@@ -1,4 +1,4 @@
+-#AP6212_NVRAM_V1.0_20140603
++#AP6212_NVRAM_V1.0.1_20160606
+ # 2.4 GHz, 20 MHz BW mode
+
+ # The following parameter values are just placeholders, need to be updated.
+@@ -51,4 +51,4 @@
+ muxenab=0x10
+ # CLDO PWM voltage settings - 0x4 - 1.1 volt
+ #cldo_pwm=0x4
+-
++glitch_based_crsmin=1
+
+https://github.com/friendlyarm/android_hardware_amlogic_wifi/tree/l-amlogic-gx-sync/bcm_ampak/config/6212
+
+* Does the linux-firmware.git brcmfmac43430-sdio.bin need a fix for AP6212?
+https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git/tree/brcm
+
+* Does the brcmfmac driver need to distinguish revisions in sdio.c as
+done for 43241, plus a separate firmware file?
+	BRCMF_FW_NVRAM_ENTRY(BRCM_CC_43430_CHIP_ID, 0xFFFFFFFF, 43430),
+
+* Any other ideas?
+
+Thanks,
+Andreas
+
+-- 
+SUSE Linux GmbH, Maxfeldstr. 5, 90409 Nürnberg, Germany
+GF: Felix Imendörffer, Jane Smithard, Graham Norton
+HRB 21284 (AG Nürnberg)
