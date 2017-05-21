@@ -1,7 +1,7 @@
 From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: [PATCH 4/5] atm: Use seq_puts() in lec_info()
-Date: Sun, 21 May 2017 22:17:31 +0200
-Message-ID: <4cd2b4a4-135a-0b79-9025-061c313d6cff@users.sourceforge.net>
+Subject: [PATCH 5/5] atm: Use seq_putc() in lec_info()
+Date: Sun, 21 May 2017 22:18:35 +0200
+Message-ID: <b8b850c0-4a70-c36e-dffa-0e7ea27498fb@users.sourceforge.net>
 References: <49543220-93e4-781c-877b-381277837152@users.sourceforge.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
@@ -14,17 +14,17 @@ To: netdev@vger.kernel.org,
         Jarod Wilson <jarod@redhat.com>,
         Javier Martinez Canillas <javier@osg.samsung.com>,
         Kees Cook <keescook@chromium.org>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <49543220-93e4-781c-877b-381277837152@users.sourceforge.net>
 Content-Language: en-GB
-Sender: kernel-janitors-owner@vger.kernel.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Sun, 21 May 2017 21:49:10 +0200
+Date: Sun, 21 May 2017 21:50:44 +0200
 
-A string which did not contain a data format specification should be put
-into a sequence. Thus use the corresponding function "seq_puts".
+A single space character should be put into a sequence.
+Thus use the corresponding function "seq_putc".
 
 This issue was detected by using the Coccinelle software.
 
@@ -34,18 +34,17 @@ Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/net/atm/lec.c b/net/atm/lec.c
-index ca3aec0c0743..752891434074 100644
+index 752891434074..1d4edf093987 100644
 --- a/net/atm/lec.c
 +++ b/net/atm/lec.c
-@@ -804,7 +804,7 @@ static void lec_info(struct seq_file *seq, struct lec_arp_table *entry)
- 	if (entry->vcc)
- 		seq_printf(seq, "%3d %3d ", entry->vcc->vpi, entry->vcc->vci);
- 	else
--		seq_printf(seq, "        ");
-+		seq_puts(seq, "        ");
- 	if (entry->recv_vcc) {
- 		seq_printf(seq, "     %3d %3d", entry->recv_vcc->vpi,
- 			   entry->recv_vcc->vci);
+@@ -796,7 +796,7 @@ static void lec_info(struct seq_file *seq, struct lec_arp_table *entry)
+ 
+ 	for (i = 0; i < ETH_ALEN; i++)
+ 		seq_printf(seq, "%2.2x", entry->mac_addr[i] & 0xff);
+-	seq_printf(seq, " ");
++	seq_putc(seq, ' ');
+ 	for (i = 0; i < ATM_ESA_LEN; i++)
+ 		seq_printf(seq, "%2.2x", entry->atm_addr[i] & 0xff);
+ 	seq_printf(seq, " %s %4.4x", lec_arp_get_status_string(entry->status),
 -- 
 2.13.0
-
