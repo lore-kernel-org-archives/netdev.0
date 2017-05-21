@@ -1,31 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/4] net-next: stmmac: Convert new_state to bool
-Date: Sun, 21 May 2017 13:28:15 -0400 (EDT)
-Message-ID: <20170521.132815.1029482185989797675.davem@davemloft.net>
-References: <20170519070335.1604-1-clabbe.montjoie@gmail.com>
-        <20170519070335.1604-2-clabbe.montjoie@gmail.com>
+Subject: Re: [PATCH net-next v2] ibmveth: Support to enable LSO/CSO for
+ Trunk VEA.
+Date: Sun, 21 May 2017 13:29:29 -0400 (EDT)
+Message-ID: <20170521.132929.2052425319566101841.davem@davemloft.net>
+References: <1491559079-10855-1-git-send-email-ksiva@linux.vnet.ibm.com>
+        <1495186238-19058-1-git-send-email-ksiva@linux.vnet.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: clabbe.montjoie@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:45018 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752959AbdEUR2R (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 21 May 2017 13:28:17 -0400
-In-Reply-To: <20170519070335.1604-2-clabbe.montjoie@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, tlfalcon@linux.vnet.ibm.com,
+        benh@kernel.crashing.org, paulus@samba.org, mpe@ellerman.id.au,
+        linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org,
+        brking@linux.vnet.ibm.com, seroyer@linux.vnet.ibm.com,
+        bryantly@linux.vnet.ibm.com
+To: ksiva@linux.vnet.ibm.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1495186238-19058-1-git-send-email-ksiva@linux.vnet.ibm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Corentin Labbe <clabbe.montjoie@gmail.com>
-Date: Fri, 19 May 2017 09:03:32 +0200
+From: Sivakumar Krishnasamy <ksiva@linux.vnet.ibm.com>
+Date: Fri, 19 May 2017 05:30:38 -0400
 
-> This patch convert new_state from int to bool since it store only 1 or 0
-> 
-> Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
+ ...
+> Signed-off-by: Sivakumar Krishnasamy <ksiva@linux.vnet.ibm.com>
 
-You must also change it to use the values "true" and "false" as well.
-
-Thanks.
+Applied, thanks for the more detailed commit message.
