@@ -1,95 +1,40 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH net-next v5] net: ipv6: fix code style error and warning
- of ndisc.c
-Date: Sun, 21 May 2017 09:05:08 -0700
-Message-ID: <1495382708.2093.10.camel@perches.com>
-References: <1495328154-18653-1-git-send-email-cugyly@163.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 8bit
-Cc: "David S . Miller" <davem@davemloft.net>,
-        yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
-To: yuan linyu <cugyly@163.com>, netdev@vger.kernel.org
+From: David Ahern <dsahern@gmail.com>
+Subject: [PATCH net-next 0/4] net: Add extack for route add/delete failures
+Date: Sun, 21 May 2017 10:12:01 -0600
+Message-ID: <20170521161205.36720-1-dsahern@gmail.com>
+Cc: David Ahern <dsahern@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0225.hostedemail.com ([216.40.44.225]:43102 "EHLO
-        smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1752276AbdEUQFL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 21 May 2017 12:05:11 -0400
-In-Reply-To: <1495328154-18653-1-git-send-email-cugyly@163.com>
+Received: from mail-pg0-f43.google.com ([74.125.83.43]:34825 "EHLO
+        mail-pg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756191AbdEUQMS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 21 May 2017 12:12:18 -0400
+Received: by mail-pg0-f43.google.com with SMTP id q125so57125936pgq.2
+        for <netdev@vger.kernel.org>; Sun, 21 May 2017 09:12:18 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2017-05-21 at 08:55 +0800, yuan linyu wrote:
-> From: yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
-> 
-> diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
-[]
-> @@ -512,7 +519,8 @@ void ndisc_send_na(struct net_device *dev, const struct in6_addr *daddr,
->  		in6_ifa_put(ifp);
->  	} else {
->  		if (ipv6_dev_get_saddr(dev_net(dev), dev, daddr,
-> -				       inet6_sk(dev_net(dev)->ipv6.ndisc_sk)->srcprefs,
-> +				       inet6_sk(dev_net(dev)->ipv6.ndisc_sk)->
-> +						srcprefs,
+Use the extack feature to improve error messages to user on route
+add and delete failures.
 
-This is not a good change as it puts a single dereference
-on multiple lines.
+David Ahern (4):
+  net: ipv4: Plumb extack through route add functions
+  net: ipv4: Add extack messages for route add failures
+  net: ipv6: Plumb extack through route add functions
+  net: ipv6: Add extack messages for route add failures
 
-> @@ -896,20 +910,19 @@ static void ndisc_recv_ns(struct sk_buff *skb)
->  	else
->  		NEIGH_CACHE_STAT_INC(&nd_tbl, rcv_probes_ucast);
->  
-> -	/*
-> -	 *	update / create cache entry
-> +	/*	update / create cache entry
->  	 *	for the source address
+ include/linux/netlink.h  |   5 ++
+ include/net/ip6_fib.h    |   3 +-
+ include/net/ip6_route.h  |   2 +-
+ include/net/ip_fib.h     |   3 +-
+ net/ipv4/fib_frontend.c  |  18 ++++---
+ net/ipv4/fib_lookup.h    |   3 +-
+ net/ipv4/fib_semantics.c | 133 ++++++++++++++++++++++++++++++++++++-----------
+ net/ipv4/fib_trie.c      |   4 +-
+ net/ipv6/addrconf.c      |   4 +-
+ net/ipv6/ip6_fib.c       |  18 +++++--
+ net/ipv6/route.c         |  97 ++++++++++++++++++++++------------
+ 11 files changed, 208 insertions(+), 82 deletions(-)
 
-Some of these comments could be single line
-
-> @@ -1003,30 +1016,31 @@ static void ndisc_recv_na(struct sk_buff *skb)
-[]
-> 		ndisc_update(dev, neigh, lladdr,
-> -			     msg->icmph.icmp6_solicited ? NUD_REACHABLE : NUD_STALE,
-> -			     NEIGH_UPDATE_F_WEAK_OVERRIDE|
-> -			     (msg->icmph.icmp6_override ? NEIGH_UPDATE_F_OVERRIDE : 0)|
-> -			     NEIGH_UPDATE_F_OVERRIDE_ISROUTER|
-> -			     (msg->icmph.icmp6_router ? NEIGH_UPDATE_F_ISROUTER : 0),
-> +			     msg->icmph.icmp6_solicited ?
-> +				NUD_REACHABLE : NUD_STALE,
-> +			     NEIGH_UPDATE_F_WEAK_OVERRIDE |
-> +			     (msg->icmph.icmp6_override ?
-> +				NEIGH_UPDATE_F_OVERRIDE : 0) |
-> +			     NEIGH_UPDATE_F_OVERRIDE_ISROUTER |
-> +			     (msg->icmph.icmp6_router ?
-> +				NEIGH_UPDATE_F_ISROUTER : 0),
->  			     NDISC_NEIGHBOUR_ADVERTISEMENT, &ndopts);
-
-This is much more difficult to read now and could
-be slightly improved by a temporary for msg->icmph,
-removing unnecessary parentheses or using multiple
-line tests for the flags argument of ndisc_update
-instead of the slightly difficult to read uses of
-multiple ternaries with bitwise ORs.
-
-Something like:
-
-	struct icmp6hdr *icmph = &msg->icmph;
-	u32 flags;
-[...]
-		flags = NEIGH_UPDATE_F_WEAK_OVERRIDE | NEIGH_UPDATE_F_OVERRIDE_ISROUTER;
-		if (icmph->icmp6_override)
-			flags |= NEIGH_UPDATE_F_OVERRIDE;
-		if (icmph->icmp6_router)
-			flags |= NEIGH_UPDATE_F_ISROUTER;
-
-		ndisc_update(dev, neigh, lladdr,
-			     icmph->icmp6_solicited ? NUD_REACHABLE : NUD_STALE,
-			     flags, NDISC_NEIGHBOUR_ADVERTISEMENT, &ndopts);
-
-But really, why bother?
-
-Just because checkpatch bleats some message doesn't
-mean it _has_ to be fixed.
-
-Please strive to make the code more readable and
-intelligible for _humans_.  Compilers don't care.
+-- 
+2.11.0 (Apple Git-81)
