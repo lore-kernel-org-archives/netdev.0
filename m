@@ -1,92 +1,46 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [RFC net-next PATCH 4/5] net: new XDP feature for reading HW
- rxhash from drivers
-Date: Sun, 21 May 2017 15:10:29 -0700
-Message-ID: <CALx6S34-4kQLQLkU9QRjyfZ808f_hXV4N+bh+XG8iu1BtQOUSA@mail.gmail.com>
-References: <149512205297.14733.15729847433404265933.stgit@firesoul>
- <149512210827.14733.13997041998775151648.stgit@firesoul> <CALx6S35Y3j=S7GpJ8=Z8E2X+106ToOV_bMeNsKHqG5JFtiC4Ag@mail.gmail.com>
- <20170521180435.56dcd76b@redhat.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH 00/12] Netfilter/IPVS fixes for net
+Date: Mon, 22 May 2017 00:25:38 +0200
+Message-ID: <20170521222538.GA2370@salvia>
+References: <1495182833-2272-1-git-send-email-pablo@netfilter.org>
+ <20170521.130033.1427773613973278051.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Daniel Borkmann <borkmann@iogearbox.net>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f194.google.com ([209.85.220.194]:35891 "EHLO
-        mail-qk0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757216AbdEUWKg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 21 May 2017 18:10:36 -0400
-Received: by mail-qk0-f194.google.com with SMTP id y128so16825111qka.3
-        for <netdev@vger.kernel.org>; Sun, 21 May 2017 15:10:30 -0700 (PDT)
-In-Reply-To: <20170521180435.56dcd76b@redhat.com>
+Received: from mail.us.es ([193.147.175.20]:58782 "EHLO mail.us.es"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1757259AbdEUWZm (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 21 May 2017 18:25:42 -0400
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+        by mail.us.es (Postfix) with ESMTP id B107713BB82
+        for <netdev@vger.kernel.org>; Mon, 22 May 2017 00:25:34 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id A270EFF2F1
+        for <netdev@vger.kernel.org>; Mon, 22 May 2017 00:25:34 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id A372DFF2D7
+        for <netdev@vger.kernel.org>; Mon, 22 May 2017 00:25:32 +0200 (CEST)
+Content-Disposition: inline
+In-Reply-To: <20170521.130033.1427773613973278051.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, May 21, 2017 at 9:04 AM, Jesper Dangaard Brouer
-<brouer@redhat.com> wrote:
-> On Sat, 20 May 2017 09:16:09 -0700
-> Tom Herbert <tom@herbertland.com> wrote:
->
->> > +/* XDP rxhash have an associated type, which is related to the RSS
->> > + * (Receive Side Scaling) standard, but NIC HW have different mapping
->> > + * and support. Thus, create mapping that is interesting for XDP.  XDP
->> > + * would primarly want insight into L3 and L4 protocol info.
->> > + *
->> > + * TODO: Likely need to get extended with "L3_IPV6_EX" due RSS standard
->> > + *
->> > + * The HASH_TYPE will be returned from bpf helper as the top 32-bit of
->> > + * the 64-bit rxhash (internally type stored in xdp_buff->flags).
->> > + */
->> > +#define XDP_HASH(x)            ((x) & ((1ULL << 32)-1))
->> > +#define XDP_HASH_TYPE(x)       ((x) >> 32)
->> > +
->> > +#define XDP_HASH_TYPE_L3_SHIFT 0
->> > +#define XDP_HASH_TYPE_L3_BITS  3
->> > +#define XDP_HASH_TYPE_L3_MASK  ((1ULL << XDP_HASH_TYPE_L3_BITS)-1)
->> > +#define XDP_HASH_TYPE_L3(x)    ((x) & XDP_HASH_TYPE_L3_MASK)
->> > +enum {
->> > +       XDP_HASH_TYPE_L3_IPV4 = 1,
->> > +       XDP_HASH_TYPE_L3_IPV6,
->> > +};
->> > +
->> > +#define XDP_HASH_TYPE_L4_SHIFT XDP_HASH_TYPE_L3_BITS
->> > +#define XDP_HASH_TYPE_L4_BITS  5
->> > +#define XDP_HASH_TYPE_L4_MASK                                          \
->> > +       (((1ULL << XDP_HASH_TYPE_L4_BITS)-1) << XDP_HASH_TYPE_L4_SHIFT)
->> > +#define XDP_HASH_TYPE_L4(x)    ((x) & XDP_HASH_TYPE_L4_MASK)
->> > +enum {
->> > +       _XDP_HASH_TYPE_L4_TCP = 1,
->> > +       _XDP_HASH_TYPE_L4_UDP,
->> > +};
->> > +#define XDP_HASH_TYPE_L4_TCP (_XDP_HASH_TYPE_L4_TCP << XDP_HASH_TYPE_L4_SHIFT)
->> > +#define XDP_HASH_TYPE_L4_UDP (_XDP_HASH_TYPE_L4_UDP << XDP_HASH_TYPE_L4_SHIFT)
->> > +
->> Hi Jesper,
->>
->> Why do we need these indicators for protocol specific hash? It seems
->> like L4 and L3 is useful differentiation and protocol agnostic (I'm
->> still holding out hope that SCTP will be deployed some day ;-) )
->
-> I'm not sure I understood the question fully, but let me try to answer
-> anyway.  To me it seems obvious that you would want to know the
-> protocol/L4 type, as this helps avoid hash collisions between UDP and
-> TCP flows.  I can easily imagine someone constructing an UDP packet
-> that could hash collide with a given TCP flow.
->
-> And yes, i40 support matching SCTP, and we will create a
-> XDP_HASH_TYPE_L4_SCTP when adding XDP rxhash support for that driver.
->
-But where would this information be used? We don't save it in skbuff,
-don't use it in RPS, RFS. RSS doesn't use it for packet steering so
-the hash collision problem already exists at the device level. If
-there is a collision problem between two protocols then maybe hash
-should be over 5-tuple instead...
+On Sun, May 21, 2017 at 01:00:33PM -0400, David Miller wrote:
+> From: Pablo Neira Ayuso <pablo@netfilter.org>
+> Date: Fri, 19 May 2017 10:33:41 +0200
+> 
+> > The following patchset contains Netfilter/IPVS fixes for your net tree,
+> > they are:
+>  ...
+> > You can pull these changes from:
+> > 
+> >   git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git
+> 
+> Pulled, thanks Pablo.
 
-Tom
+Thanks David!
 
-> --
-> Best regards,
->   Jesper Dangaard Brouer
->   MSc.CS, Principal Kernel Engineer at Red Hat
->   LinkedIn: http://www.linkedin.com/in/brouer
+Could you merge net into net-next as well? I have several patches for
+net-next that need to apply on these fixes. No rush BTW.
