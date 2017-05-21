@@ -1,74 +1,56 @@
 From: Yuval Mintz <Yuval.Mintz@cavium.com>
-Subject: [PATCH net-next 00/10] qed/qede updates
-Date: Sun, 21 May 2017 12:10:51 +0300
-Message-ID: <1495357860-28280-1-git-send-email-Yuval.Mintz@cavium.com>
+Subject: [PATCH net-next 01/10] qede: Allow WoL to activate by default
+Date: Sun, 21 May 2017 12:10:52 +0300
+Message-ID: <1495357860-28280-2-git-send-email-Yuval.Mintz@cavium.com>
+References: <1495357860-28280-1-git-send-email-Yuval.Mintz@cavium.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Yuval Mintz <Yuval.Mintz@cavium.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam01on0058.outbound.protection.outlook.com ([104.47.34.58]:43779
-        "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
+Received: from mail-by2nam03on0059.outbound.protection.outlook.com ([104.47.42.59]:29376
+        "EHLO NAM03-BY2-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751068AbdEUJLO (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 21 May 2017 05:11:14 -0400
+        id S1752421AbdEUJLS (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 21 May 2017 05:11:18 -0400
+In-Reply-To: <1495357860-28280-1-git-send-email-Yuval.Mintz@cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains some general minor fixes and enhancements:
+When management firmware declares that the device is WoL-capable,
+the default driver behavior would be to allow the management firmware
+to take the decision of whether it's actually needed or not.
 
- - #1, #2 and #9 correct small missing ethtool functionality.
- - #3, #6  and #8 correct minor issues in driver, but those are either
-   print-related or unexposed in existing code.
- - #4 adds proper support to TLB mode bonding.
- - #10 is meant to improve performance on varying cache-line sizes.
+Problem is ethtool interface doesn't have a 'default' kind
+of option, and user would see the interface WoL as disabled,
+which doesn't accurately reflect the actual configuration.
+More-so, if the user actually wants to explicitly disable WoL he'd have
+to first enable it [otherwise ethtool would block the command].
 
-Dave,
+Instead of allowing management to make the decision, enable WoL by
+default on all devices capable of it.
 
-Please consider applying this to `net-next'.
+Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
+---
+ drivers/net/ethernet/qlogic/qede/qede_main.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
-Thanks,
-Yuval
-
-Sudarsana Reddy Kalluru (3):
-  qede: Support 1G advertisment
-  qede: Honor user request for Tx buffers
-  qede: Add missing Status-block free
-
-Tomer Tayar (2):
-  qed: Revise alloc/setup/free flow
-  qed: Fix setting of Management bitfields
-
-Yuval Mintz (5):
-  qede: Allow WoL to activate by default
-  qede: Don't use an internal MAC field
-  qed: Correct print in iscsi error-flow
-  qede: qedr closure after setting state
-  qed: Cache alignemnt padding to match host
-
- drivers/net/ethernet/qlogic/qed/qed.h           |  2 +-
- drivers/net/ethernet/qlogic/qed/qed_dcbx.c      |  1 +
- drivers/net/ethernet/qlogic/qed/qed_dev.c       | 94 ++++++++++++-------------
- drivers/net/ethernet/qlogic/qed/qed_fcoe.c      | 23 +++---
- drivers/net/ethernet/qlogic/qed/qed_fcoe.h      | 22 ++----
- drivers/net/ethernet/qlogic/qed/qed_init_ops.c  |  4 ++
- drivers/net/ethernet/qlogic/qed/qed_int.c       |  3 +
- drivers/net/ethernet/qlogic/qed/qed_iscsi.c     | 24 ++++---
- drivers/net/ethernet/qlogic/qed/qed_iscsi.h     | 23 +++---
- drivers/net/ethernet/qlogic/qed/qed_ll2.c       | 21 +++---
- drivers/net/ethernet/qlogic/qed/qed_ll2.h       | 13 ++--
- drivers/net/ethernet/qlogic/qed/qed_mcp.c       |  1 +
- drivers/net/ethernet/qlogic/qed/qed_ooo.c       | 30 ++++----
- drivers/net/ethernet/qlogic/qed/qed_ooo.h       | 26 +++----
- drivers/net/ethernet/qlogic/qed/qed_reg_addr.h  |  1 +
- drivers/net/ethernet/qlogic/qed/qed_sp.h        | 32 +++------
- drivers/net/ethernet/qlogic/qed/qed_spq.c       | 54 ++++++++------
- drivers/net/ethernet/qlogic/qede/qede.h         |  1 -
- drivers/net/ethernet/qlogic/qede/qede_ethtool.c | 14 +++-
- drivers/net/ethernet/qlogic/qede/qede_filter.c  | 62 +++++++++-------
- drivers/net/ethernet/qlogic/qede/qede_fp.c      | 18 ++---
- drivers/net/ethernet/qlogic/qede/qede_main.c    | 29 +++++---
- 22 files changed, 269 insertions(+), 229 deletions(-)
-
+diff --git a/drivers/net/ethernet/qlogic/qede/qede_main.c b/drivers/net/ethernet/qlogic/qede/qede_main.c
+index 38b77bb..4a46052 100644
+--- a/drivers/net/ethernet/qlogic/qede/qede_main.c
++++ b/drivers/net/ethernet/qlogic/qede/qede_main.c
+@@ -618,6 +618,12 @@ static struct qede_dev *qede_alloc_etherdev(struct qed_dev *cdev,
+ 	memset(&edev->stats, 0, sizeof(edev->stats));
+ 	memcpy(&edev->dev_info, info, sizeof(*info));
+ 
++	/* As ethtool doesn't have the ability to show WoL behavior as
++	 * 'default', if device supports it declare it's enabled.
++	 */
++	if (edev->dev_info.common.wol_support)
++		edev->wol_enabled = true;
++
+ 	INIT_LIST_HEAD(&edev->vlan_list);
+ 
+ 	return edev;
 -- 
 1.9.3
