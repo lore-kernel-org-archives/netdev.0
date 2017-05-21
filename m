@@ -1,76 +1,74 @@
-From: kbuild test robot <lkp-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 4.4-only] openvswitch: clear sender cpu before
- forwarding packets
-Date: Sun, 21 May 2017 16:47:36 +0800
-Message-ID: <201705211641.mxT5Z8Ag%fengguang.wu@intel.com>
-References: <1494944710-7901-1-git-send-email-anoob.soman@citrix.com>
+From: Yuval Mintz <Yuval.Mintz@cavium.com>
+Subject: [PATCH net-next 00/10] qed/qede updates
+Date: Sun, 21 May 2017 12:10:51 +0300
+Message-ID: <1495357860-28280-1-git-send-email-Yuval.Mintz@cavium.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="y0ulUmNC+osPPQO6"
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kbuild-all-JC7UmRfGjtg@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: Anoob Soman <anoob.soman-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
-Return-path: <ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1494944710-7901-1-git-send-email-anoob.soman-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
-List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
-	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
-List-Post: <mailto:ovs-dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
-	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: Yuval Mintz <Yuval.Mintz@cavium.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-by2nam01on0058.outbound.protection.outlook.com ([104.47.34.58]:43779
+        "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751068AbdEUJLO (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 21 May 2017 05:11:14 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+This series contains some general minor fixes and enhancements:
 
---y0ulUmNC+osPPQO6
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+ - #1, #2 and #9 correct small missing ethtool functionality.
+ - #3, #6  and #8 correct minor issues in driver, but those are either
+   print-related or unexposed in existing code.
+ - #4 adds proper support to TLB mode bonding.
+ - #10 is meant to improve performance on varying cache-line sizes.
 
-Hi Anoob,
+Dave,
 
-[auto build test ERROR on v4.9-rc8]
-[also build test ERROR on next-20170519]
-[if your patch is applied to the wrong git tree, please drop us a note to help improve the system]
+Please consider applying this to `net-next'.
 
-url:    https://github.com/0day-ci/linux/commits/Anoob-Soman/openvswitch-clear-sender-cpu-before-forwarding-packets/20170519-111009
-config: x86_64-rhel (attached as .config)
-compiler: gcc-6 (Debian 6.2.0-3) 6.2.0 20160901
-reproduce:
-        # save the attached .config to linux build tree
-        make ARCH=x86_64 
+Thanks,
+Yuval
 
-All errors (new ones prefixed by >>):
+Sudarsana Reddy Kalluru (3):
+  qede: Support 1G advertisment
+  qede: Honor user request for Tx buffers
+  qede: Add missing Status-block free
 
-   net/openvswitch/vport.c: In function 'ovs_vport_send':
->> net/openvswitch/vport.c:513:2: error: implicit declaration of function 'skb_sender_cpu_clear' [-Werror=implicit-function-declaration]
-     skb_sender_cpu_clear(skb);
-     ^~~~~~~~~~~~~~~~~~~~
-   cc1: some warnings being treated as errors
+Tomer Tayar (2):
+  qed: Revise alloc/setup/free flow
+  qed: Fix setting of Management bitfields
 
-vim +/skb_sender_cpu_clear +513 net/openvswitch/vport.c
+Yuval Mintz (5):
+  qede: Allow WoL to activate by default
+  qede: Don't use an internal MAC field
+  qed: Correct print in iscsi error-flow
+  qede: qedr closure after setting state
+  qed: Cache alignemnt padding to match host
 
-   507					     packet_length(skb), mtu);
-   508			vport->dev->stats.tx_errors++;
-   509			goto drop;
-   510		}
-   511	
-   512		skb->dev = vport->dev;
- > 513		skb_sender_cpu_clear(skb);
-   514		vport->ops->send(skb);
-   515		return;
-   516	
+ drivers/net/ethernet/qlogic/qed/qed.h           |  2 +-
+ drivers/net/ethernet/qlogic/qed/qed_dcbx.c      |  1 +
+ drivers/net/ethernet/qlogic/qed/qed_dev.c       | 94 ++++++++++++-------------
+ drivers/net/ethernet/qlogic/qed/qed_fcoe.c      | 23 +++---
+ drivers/net/ethernet/qlogic/qed/qed_fcoe.h      | 22 ++----
+ drivers/net/ethernet/qlogic/qed/qed_init_ops.c  |  4 ++
+ drivers/net/ethernet/qlogic/qed/qed_int.c       |  3 +
+ drivers/net/ethernet/qlogic/qed/qed_iscsi.c     | 24 ++++---
+ drivers/net/ethernet/qlogic/qed/qed_iscsi.h     | 23 +++---
+ drivers/net/ethernet/qlogic/qed/qed_ll2.c       | 21 +++---
+ drivers/net/ethernet/qlogic/qed/qed_ll2.h       | 13 ++--
+ drivers/net/ethernet/qlogic/qed/qed_mcp.c       |  1 +
+ drivers/net/ethernet/qlogic/qed/qed_ooo.c       | 30 ++++----
+ drivers/net/ethernet/qlogic/qed/qed_ooo.h       | 26 +++----
+ drivers/net/ethernet/qlogic/qed/qed_reg_addr.h  |  1 +
+ drivers/net/ethernet/qlogic/qed/qed_sp.h        | 32 +++------
+ drivers/net/ethernet/qlogic/qed/qed_spq.c       | 54 ++++++++------
+ drivers/net/ethernet/qlogic/qede/qede.h         |  1 -
+ drivers/net/ethernet/qlogic/qede/qede_ethtool.c | 14 +++-
+ drivers/net/ethernet/qlogic/qede/qede_filter.c  | 62 +++++++++-------
+ drivers/net/ethernet/qlogic/qede/qede_fp.c      | 18 ++---
+ drivers/net/ethernet/qlogic/qede/qede_main.c    | 29 +++++---
+ 22 files changed, 269 insertions(+), 229 deletions(-)
 
----
-0-DAY kernel test infrastructure                Open Source Technology Center
-https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
-
---y0ulUmNC+osPPQO6
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-
---y0ulUmNC+osPPQO6--
+-- 
+1.9.3
