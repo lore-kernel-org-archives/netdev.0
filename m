@@ -1,172 +1,936 @@
 From: Yuval Mintz <Yuval.Mintz@cavium.com>
-Subject: [PATCH net-next 04/10] qede: Don't use an internal MAC field
-Date: Sun, 21 May 2017 12:10:55 +0300
-Message-ID: <1495357860-28280-5-git-send-email-Yuval.Mintz@cavium.com>
+Subject: [PATCH net-next 05/10] qed: Revise alloc/setup/free flow
+Date: Sun, 21 May 2017 12:10:56 +0300
+Message-ID: <1495357860-28280-6-git-send-email-Yuval.Mintz@cavium.com>
 References: <1495357860-28280-1-git-send-email-Yuval.Mintz@cavium.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: Yuval Mintz <Yuval.Mintz@cavium.com>
+Cc: Tomer Tayar <Tomer.Tayar@cavium.com>,
+        Yuval Mintz <Yuval.Mintz@cavium.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-sn1nam01on0089.outbound.protection.outlook.com ([104.47.32.89]:35040
-        "EHLO NAM01-SN1-obe.outbound.protection.outlook.com"
+Received: from mail-sn1nam02on0045.outbound.protection.outlook.com ([104.47.36.45]:34816
+        "EHLO NAM02-SN1-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1752637AbdEUJLi (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 21 May 2017 05:11:38 -0400
+        id S1752637AbdEUJLo (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 21 May 2017 05:11:44 -0400
 In-Reply-To: <1495357860-28280-1-git-send-email-Yuval.Mintz@cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Driver maintains its primary MAC in a private field which
-gets updated when ndo_dev_set_mac() gets called.
+From: Tomer Tayar <Tomer.Tayar@cavium.com>
 
-However, there are flows where the primary MAC of the device can change
-without said NDO being called [bond device in TLB mode configuring
-slaves' addresses], resulting in a configuration where there's a mismatch
-between what's apparent to user [the netdevice's value] and what's
-configured in the HW [the private value].
+Re-organize the logic that allocates and frees memory of various
+sub-components of the hw-function -
 
-As we don't have any real motivation of maintaining this
-private field, simply remove it and start using the netdevice's
-field instead.
+ a. No need to pass pointers to said structure as parameters;
+    The internal logic knows exactly where to find/set the data.
 
+ b. Nullify pointers after cleanup to prevent possible errors to
+    re-entrant code.
+
+Signed-off-by: Tomer Tayar <Tomer.Tayar@cavium.com>
 Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
 ---
- drivers/net/ethernet/qlogic/qede/qede.h        |  1 -
- drivers/net/ethernet/qlogic/qede/qede_filter.c | 62 ++++++++++++++++----------
- drivers/net/ethernet/qlogic/qede/qede_main.c   |  3 --
- 3 files changed, 38 insertions(+), 28 deletions(-)
+ drivers/net/ethernet/qlogic/qed/qed_dcbx.c     |  1 +
+ drivers/net/ethernet/qlogic/qed/qed_dev.c      | 79 +++++++++++---------------
+ drivers/net/ethernet/qlogic/qed/qed_fcoe.c     | 23 ++++----
+ drivers/net/ethernet/qlogic/qed/qed_fcoe.h     | 22 +++----
+ drivers/net/ethernet/qlogic/qed/qed_init_ops.c |  4 ++
+ drivers/net/ethernet/qlogic/qed/qed_int.c      |  3 +
+ drivers/net/ethernet/qlogic/qed/qed_iscsi.c    | 22 ++++---
+ drivers/net/ethernet/qlogic/qed/qed_iscsi.h    | 23 ++++----
+ drivers/net/ethernet/qlogic/qed/qed_ll2.c      | 21 ++++---
+ drivers/net/ethernet/qlogic/qed/qed_ll2.h      | 13 ++---
+ drivers/net/ethernet/qlogic/qed/qed_mcp.c      |  1 +
+ drivers/net/ethernet/qlogic/qed/qed_ooo.c      | 30 ++++++----
+ drivers/net/ethernet/qlogic/qed/qed_ooo.h      | 26 ++++-----
+ drivers/net/ethernet/qlogic/qed/qed_sp.h       | 32 ++++-------
+ drivers/net/ethernet/qlogic/qed/qed_spq.c      | 54 ++++++++++--------
+ 15 files changed, 177 insertions(+), 177 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qede/qede.h b/drivers/net/ethernet/qlogic/qede/qede.h
-index 9b4f08b..694c09b 100644
---- a/drivers/net/ethernet/qlogic/qede/qede.h
-+++ b/drivers/net/ethernet/qlogic/qede/qede.h
-@@ -197,7 +197,6 @@ struct qede_dev {
- #define QEDE_TSS_COUNT(edev)	((edev)->num_queues - (edev)->fp_num_rx)
- 
- 	struct qed_int_info		int_info;
--	unsigned char			primary_mac[ETH_ALEN];
- 
- 	/* Smaller private varaiant of the RTNL lock */
- 	struct mutex			qede_lock;
-diff --git a/drivers/net/ethernet/qlogic/qede/qede_filter.c b/drivers/net/ethernet/qlogic/qede/qede_filter.c
-index 333876c..13955a3 100644
---- a/drivers/net/ethernet/qlogic/qede/qede_filter.c
-+++ b/drivers/net/ethernet/qlogic/qede/qede_filter.c
-@@ -495,12 +495,16 @@ void qede_force_mac(void *dev, u8 *mac, bool forced)
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_dcbx.c b/drivers/net/ethernet/qlogic/qed/qed_dcbx.c
+index b7ca0e2..b83fe1d 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_dcbx.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_dcbx.c
+@@ -923,6 +923,7 @@ int qed_dcbx_info_alloc(struct qed_hwfn *p_hwfn)
+ void qed_dcbx_info_free(struct qed_hwfn *p_hwfn)
  {
- 	struct qede_dev *edev = dev;
- 
-+	__qede_lock(edev);
-+
- 	/* MAC hints take effect only if we haven't set one already */
--	if (is_valid_ether_addr(edev->ndev->dev_addr) && !forced)
-+	if (is_valid_ether_addr(edev->ndev->dev_addr) && !forced) {
-+		__qede_unlock(edev);
- 		return;
-+	}
- 
- 	ether_addr_copy(edev->ndev->dev_addr, mac);
--	ether_addr_copy(edev->primary_mac, mac);
-+	__qede_unlock(edev);
+ 	kfree(p_hwfn->p_dcbx_info);
++	p_hwfn->p_dcbx_info = NULL;
  }
  
- void qede_fill_rss_params(struct qede_dev *edev,
-@@ -1061,41 +1065,51 @@ int qede_set_mac_addr(struct net_device *ndev, void *p)
+ static void qed_dcbx_update_protocol_data(struct protocol_dcb_data *p_data,
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_dev.c b/drivers/net/ethernet/qlogic/qed/qed_dev.c
+index 463927f..3fc3b2e 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_dev.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_dev.c
+@@ -161,6 +161,7 @@ void qed_resc_free(struct qed_dev *cdev)
+ 	cdev->fw_data = NULL;
+ 
+ 	kfree(cdev->reset_stats);
++	cdev->reset_stats = NULL;
+ 
+ 	for_each_hwfn(cdev, i) {
+ 		struct qed_hwfn *p_hwfn = &cdev->hwfns[i];
+@@ -168,18 +169,18 @@ void qed_resc_free(struct qed_dev *cdev)
+ 		qed_cxt_mngr_free(p_hwfn);
+ 		qed_qm_info_free(p_hwfn);
+ 		qed_spq_free(p_hwfn);
+-		qed_eq_free(p_hwfn, p_hwfn->p_eq);
+-		qed_consq_free(p_hwfn, p_hwfn->p_consq);
++		qed_eq_free(p_hwfn);
++		qed_consq_free(p_hwfn);
+ 		qed_int_free(p_hwfn);
+ #ifdef CONFIG_QED_LL2
+-		qed_ll2_free(p_hwfn, p_hwfn->p_ll2_info);
++		qed_ll2_free(p_hwfn);
+ #endif
+ 		if (p_hwfn->hw_info.personality == QED_PCI_FCOE)
+-			qed_fcoe_free(p_hwfn, p_hwfn->p_fcoe_info);
++			qed_fcoe_free(p_hwfn);
+ 
+ 		if (p_hwfn->hw_info.personality == QED_PCI_ISCSI) {
+-			qed_iscsi_free(p_hwfn, p_hwfn->p_iscsi_info);
+-			qed_ooo_free(p_hwfn, p_hwfn->p_ooo_info);
++			qed_iscsi_free(p_hwfn);
++			qed_ooo_free(p_hwfn);
+ 		}
+ 		qed_iov_free(p_hwfn);
+ 		qed_dmae_info_free(p_hwfn);
+@@ -843,15 +844,7 @@ static int qed_alloc_qm_data(struct qed_hwfn *p_hwfn)
+ 
+ int qed_resc_alloc(struct qed_dev *cdev)
  {
- 	struct qede_dev *edev = netdev_priv(ndev);
- 	struct sockaddr *addr = p;
--	int rc;
--
--	ASSERT_RTNL(); /* @@@TBD To be removed */
-+	int rc = 0;
+-	struct qed_iscsi_info *p_iscsi_info;
+-	struct qed_fcoe_info *p_fcoe_info;
+-	struct qed_ooo_info *p_ooo_info;
+-#ifdef CONFIG_QED_LL2
+-	struct qed_ll2_info *p_ll2_info;
+-#endif
+ 	u32 rdma_tasks, excess_tasks;
+-	struct qed_consq *p_consq;
+-	struct qed_eq *p_eq;
+ 	u32 line_count;
+ 	int i, rc = 0;
  
--	DP_INFO(edev, "Set_mac_addr called\n");
-+	/* Make sure the state doesn't transition while changing the MAC.
-+	 * Also, all flows accessing the dev_addr field are doing that under
-+	 * this lock.
-+	 */
-+	__qede_lock(edev);
+@@ -956,45 +949,38 @@ int qed_resc_alloc(struct qed_dev *cdev)
+ 			DP_ERR(p_hwfn,
+ 			       "Cannot allocate 0x%x EQ elements. The maximum of a u16 chain is 0x%x\n",
+ 			       n_eqes, 0xFFFF);
+-			rc = -EINVAL;
+-			goto alloc_err;
++			goto alloc_no_mem;
+ 		}
  
- 	if (!is_valid_ether_addr(addr->sa_data)) {
- 		DP_NOTICE(edev, "The MAC address is not valid\n");
--		return -EFAULT;
-+		rc = -EFAULT;
-+		goto out;
- 	}
- 
- 	if (!edev->ops->check_mac(edev->cdev, addr->sa_data)) {
--		DP_NOTICE(edev, "qed prevents setting MAC\n");
--		return -EINVAL;
-+		DP_NOTICE(edev, "qed prevents setting MAC %pM\n",
-+			  addr->sa_data);
-+		rc = -EINVAL;
-+		goto out;
-+	}
-+
-+	if (edev->state == QEDE_STATE_OPEN) {
-+		/* Remove the previous primary mac */
-+		rc = qede_set_ucast_rx_mac(edev, QED_FILTER_XCAST_TYPE_DEL,
-+					   ndev->dev_addr);
+-		p_eq = qed_eq_alloc(p_hwfn, (u16) n_eqes);
+-		if (!p_eq)
+-			goto alloc_no_mem;
+-		p_hwfn->p_eq = p_eq;
++		rc = qed_eq_alloc(p_hwfn, (u16) n_eqes);
 +		if (rc)
-+			goto out;
++			goto alloc_err;
+ 
+-		p_consq = qed_consq_alloc(p_hwfn);
+-		if (!p_consq)
+-			goto alloc_no_mem;
+-		p_hwfn->p_consq = p_consq;
++		rc = qed_consq_alloc(p_hwfn);
++		if (rc)
++			goto alloc_err;
+ 
+ #ifdef CONFIG_QED_LL2
+ 		if (p_hwfn->using_ll2) {
+-			p_ll2_info = qed_ll2_alloc(p_hwfn);
+-			if (!p_ll2_info)
+-				goto alloc_no_mem;
+-			p_hwfn->p_ll2_info = p_ll2_info;
++			rc = qed_ll2_alloc(p_hwfn);
++			if (rc)
++				goto alloc_err;
+ 		}
+ #endif
+ 
+ 		if (p_hwfn->hw_info.personality == QED_PCI_FCOE) {
+-			p_fcoe_info = qed_fcoe_alloc(p_hwfn);
+-			if (!p_fcoe_info)
+-				goto alloc_no_mem;
+-			p_hwfn->p_fcoe_info = p_fcoe_info;
++			rc = qed_fcoe_alloc(p_hwfn);
++			if (rc)
++				goto alloc_err;
+ 		}
+ 
+ 		if (p_hwfn->hw_info.personality == QED_PCI_ISCSI) {
+-			p_iscsi_info = qed_iscsi_alloc(p_hwfn);
+-			if (!p_iscsi_info)
+-				goto alloc_no_mem;
+-			p_hwfn->p_iscsi_info = p_iscsi_info;
+-			p_ooo_info = qed_ooo_alloc(p_hwfn);
+-			if (!p_ooo_info)
+-				goto alloc_no_mem;
+-			p_hwfn->p_ooo_info = p_ooo_info;
++			rc = qed_iscsi_alloc(p_hwfn);
++			if (rc)
++				goto alloc_err;
++			rc = qed_ooo_alloc(p_hwfn);
++			if (rc)
++				goto alloc_err;
+ 		}
+ 
+ 		/* DMA info initialization */
+@@ -1033,8 +1019,8 @@ void qed_resc_setup(struct qed_dev *cdev)
+ 
+ 		qed_cxt_mngr_setup(p_hwfn);
+ 		qed_spq_setup(p_hwfn);
+-		qed_eq_setup(p_hwfn, p_hwfn->p_eq);
+-		qed_consq_setup(p_hwfn, p_hwfn->p_consq);
++		qed_eq_setup(p_hwfn);
++		qed_consq_setup(p_hwfn);
+ 
+ 		/* Read shadow of current MFW mailbox */
+ 		qed_mcp_read_mb(p_hwfn, p_hwfn->p_main_ptt);
+@@ -1047,14 +1033,14 @@ void qed_resc_setup(struct qed_dev *cdev)
+ 		qed_iov_setup(p_hwfn, p_hwfn->p_main_ptt);
+ #ifdef CONFIG_QED_LL2
+ 		if (p_hwfn->using_ll2)
+-			qed_ll2_setup(p_hwfn, p_hwfn->p_ll2_info);
++			qed_ll2_setup(p_hwfn);
+ #endif
+ 		if (p_hwfn->hw_info.personality == QED_PCI_FCOE)
+-			qed_fcoe_setup(p_hwfn, p_hwfn->p_fcoe_info);
++			qed_fcoe_setup(p_hwfn);
+ 
+ 		if (p_hwfn->hw_info.personality == QED_PCI_ISCSI) {
+-			qed_iscsi_setup(p_hwfn, p_hwfn->p_iscsi_info);
+-			qed_ooo_setup(p_hwfn, p_hwfn->p_ooo_info);
++			qed_iscsi_setup(p_hwfn);
++			qed_ooo_setup(p_hwfn);
+ 		}
+ 	}
+ }
+@@ -1968,6 +1954,7 @@ static void qed_hw_hwfn_free(struct qed_hwfn *p_hwfn)
+ {
+ 	qed_ptt_pool_free(p_hwfn);
+ 	kfree(p_hwfn->hw_info.p_igu_info);
++	p_hwfn->hw_info.p_igu_info = NULL;
+ }
+ 
+ /* Setup bar access */
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_fcoe.c b/drivers/net/ethernet/qlogic/qed/qed_fcoe.c
+index 21a58ff..970ad33 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_fcoe.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_fcoe.c
+@@ -539,7 +539,7 @@ static void __iomem *qed_fcoe_get_secondary_bdq_prod(struct qed_hwfn *p_hwfn,
+ 	}
+ }
+ 
+-struct qed_fcoe_info *qed_fcoe_alloc(struct qed_hwfn *p_hwfn)
++int qed_fcoe_alloc(struct qed_hwfn *p_hwfn)
+ {
+ 	struct qed_fcoe_info *p_fcoe_info;
+ 
+@@ -547,19 +547,21 @@ struct qed_fcoe_info *qed_fcoe_alloc(struct qed_hwfn *p_hwfn)
+ 	p_fcoe_info = kzalloc(sizeof(*p_fcoe_info), GFP_KERNEL);
+ 	if (!p_fcoe_info) {
+ 		DP_NOTICE(p_hwfn, "Failed to allocate qed_fcoe_info'\n");
+-		return NULL;
++		return -ENOMEM;
+ 	}
+ 	INIT_LIST_HEAD(&p_fcoe_info->free_list);
+-	return p_fcoe_info;
++
++	p_hwfn->p_fcoe_info = p_fcoe_info;
++	return 0;
+ }
+ 
+-void qed_fcoe_setup(struct qed_hwfn *p_hwfn, struct qed_fcoe_info *p_fcoe_info)
++void qed_fcoe_setup(struct qed_hwfn *p_hwfn)
+ {
+ 	struct fcoe_task_context *p_task_ctx = NULL;
+ 	int rc;
+ 	u32 i;
+ 
+-	spin_lock_init(&p_fcoe_info->lock);
++	spin_lock_init(&p_hwfn->p_fcoe_info->lock);
+ 	for (i = 0; i < p_hwfn->pf_params.fcoe_pf_params.num_tasks; i++) {
+ 		rc = qed_cxt_get_task_ctx(p_hwfn, i,
+ 					  QED_CTX_WORKING_MEM,
+@@ -577,15 +579,15 @@ void qed_fcoe_setup(struct qed_hwfn *p_hwfn, struct qed_fcoe_info *p_fcoe_info)
+ 	}
+ }
+ 
+-void qed_fcoe_free(struct qed_hwfn *p_hwfn, struct qed_fcoe_info *p_fcoe_info)
++void qed_fcoe_free(struct qed_hwfn *p_hwfn)
+ {
+ 	struct qed_fcoe_conn *p_conn = NULL;
+ 
+-	if (!p_fcoe_info)
++	if (!p_hwfn->p_fcoe_info)
+ 		return;
+ 
+-	while (!list_empty(&p_fcoe_info->free_list)) {
+-		p_conn = list_first_entry(&p_fcoe_info->free_list,
++	while (!list_empty(&p_hwfn->p_fcoe_info->free_list)) {
++		p_conn = list_first_entry(&p_hwfn->p_fcoe_info->free_list,
+ 					  struct qed_fcoe_conn, list_entry);
+ 		if (!p_conn)
+ 			break;
+@@ -593,7 +595,8 @@ void qed_fcoe_free(struct qed_hwfn *p_hwfn, struct qed_fcoe_info *p_fcoe_info)
+ 		qed_fcoe_free_connection(p_hwfn, p_conn);
  	}
  
- 	ether_addr_copy(ndev->dev_addr, addr->sa_data);
-+	DP_INFO(edev, "Setting device MAC to %pM\n", addr->sa_data);
- 
--	if (!netif_running(ndev))  {
--		DP_NOTICE(edev, "The device is currently down\n");
--		return 0;
-+	if (edev->state != QEDE_STATE_OPEN) {
-+		DP_VERBOSE(edev, NETIF_MSG_IFDOWN,
-+			   "The device is currently down\n");
-+		goto out;
- 	}
- 
--	/* Remove the previous primary mac */
--	rc = qede_set_ucast_rx_mac(edev, QED_FILTER_XCAST_TYPE_DEL,
--				   edev->primary_mac);
--	if (rc)
--		return rc;
--
--	edev->ops->common->update_mac(edev->cdev, addr->sa_data);
-+	edev->ops->common->update_mac(edev->cdev, ndev->dev_addr);
- 
--	/* Add MAC filter according to the new unicast HW MAC address */
--	ether_addr_copy(edev->primary_mac, ndev->dev_addr);
--	return qede_set_ucast_rx_mac(edev, QED_FILTER_XCAST_TYPE_ADD,
--				      edev->primary_mac);
-+	rc = qede_set_ucast_rx_mac(edev, QED_FILTER_XCAST_TYPE_ADD,
-+				   ndev->dev_addr);
-+out:
-+	__qede_unlock(edev);
-+	return rc;
+-	kfree(p_fcoe_info);
++	kfree(p_hwfn->p_fcoe_info);
++	p_hwfn->p_fcoe_info = NULL;
  }
  
  static int
-@@ -1200,7 +1214,7 @@ void qede_config_rx_mode(struct net_device *ndev)
- 	 * (configrue / leave the primary mac)
- 	 */
- 	rc = qede_set_ucast_rx_mac(edev, QED_FILTER_XCAST_TYPE_REPLACE,
--				   edev->primary_mac);
-+				   edev->ndev->dev_addr);
- 	if (rc)
- 		goto out;
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_fcoe.h b/drivers/net/ethernet/qlogic/qed/qed_fcoe.h
+index 472af34..027a76a 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_fcoe.h
++++ b/drivers/net/ethernet/qlogic/qed/qed_fcoe.h
+@@ -49,29 +49,21 @@ struct qed_fcoe_info {
+ };
  
-diff --git a/drivers/net/ethernet/qlogic/qede/qede_main.c b/drivers/net/ethernet/qlogic/qede/qede_main.c
-index aea9dcf..a66bdfe 100644
---- a/drivers/net/ethernet/qlogic/qede/qede_main.c
-+++ b/drivers/net/ethernet/qlogic/qede/qede_main.c
-@@ -1997,9 +1997,6 @@ static int qede_load(struct qede_dev *edev, enum qede_load_mode mode,
- 		goto err4;
- 	DP_INFO(edev, "Start VPORT, RXQ and TXQ succeeded\n");
+ #if IS_ENABLED(CONFIG_QED_FCOE)
+-struct qed_fcoe_info *qed_fcoe_alloc(struct qed_hwfn *p_hwfn);
++int qed_fcoe_alloc(struct qed_hwfn *p_hwfn);
  
--	/* Add primary mac and set Rx filters */
--	ether_addr_copy(edev->primary_mac, edev->ndev->dev_addr);
+-void qed_fcoe_setup(struct qed_hwfn *p_hwfn, struct qed_fcoe_info *p_fcoe_info);
++void qed_fcoe_setup(struct qed_hwfn *p_hwfn);
+ 
+-void qed_fcoe_free(struct qed_hwfn *p_hwfn, struct qed_fcoe_info *p_fcoe_info);
++void qed_fcoe_free(struct qed_hwfn *p_hwfn);
+ void qed_get_protocol_stats_fcoe(struct qed_dev *cdev,
+ 				 struct qed_mcp_fcoe_stats *stats);
+ #else /* CONFIG_QED_FCOE */
+-static inline struct qed_fcoe_info *
+-qed_fcoe_alloc(struct qed_hwfn *p_hwfn)
++static inline int qed_fcoe_alloc(struct qed_hwfn *p_hwfn)
+ {
+-	return NULL;
++	return -EINVAL;
+ }
+ 
+-static inline void qed_fcoe_setup(struct qed_hwfn *p_hwfn,
+-				  struct qed_fcoe_info *p_fcoe_info)
+-{
+-}
 -
- 	/* Program un-configured VLANs */
- 	qede_configure_vlan_filters(edev);
+-static inline void qed_fcoe_free(struct qed_hwfn *p_hwfn,
+-				 struct qed_fcoe_info *p_fcoe_info)
+-{
+-}
++static inline void qed_fcoe_setup(struct qed_hwfn *p_hwfn) {}
++static inline void qed_fcoe_free(struct qed_hwfn *p_hwfn) {}
  
+ static inline void qed_get_protocol_stats_fcoe(struct qed_dev *cdev,
+ 					       struct qed_mcp_fcoe_stats *stats)
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_init_ops.c b/drivers/net/ethernet/qlogic/qed/qed_init_ops.c
+index 4a2e7be..e3f3688 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_init_ops.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_init_ops.c
+@@ -158,6 +158,7 @@ int qed_init_alloc(struct qed_hwfn *p_hwfn)
+ 				    GFP_KERNEL);
+ 	if (!rt_data->init_val) {
+ 		kfree(rt_data->b_valid);
++		rt_data->b_valid = NULL;
+ 		return -ENOMEM;
+ 	}
+ 
+@@ -167,7 +168,9 @@ int qed_init_alloc(struct qed_hwfn *p_hwfn)
+ void qed_init_free(struct qed_hwfn *p_hwfn)
+ {
+ 	kfree(p_hwfn->rt_data.init_val);
++	p_hwfn->rt_data.init_val = NULL;
+ 	kfree(p_hwfn->rt_data.b_valid);
++	p_hwfn->rt_data.b_valid = NULL;
+ }
+ 
+ static int qed_init_array_dmae(struct qed_hwfn *p_hwfn,
+@@ -525,6 +528,7 @@ int qed_init_run(struct qed_hwfn *p_hwfn,
+ 	}
+ 
+ 	kfree(p_hwfn->unzip_buf);
++	p_hwfn->unzip_buf = NULL;
+ 	return rc;
+ }
+ 
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_int.c b/drivers/net/ethernet/qlogic/qed/qed_int.c
+index 40f057e..661412c 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_int.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_int.c
+@@ -2328,6 +2328,7 @@ static void qed_int_sb_attn_free(struct qed_hwfn *p_hwfn)
+ 				  SB_ATTN_ALIGNED_SIZE(p_hwfn),
+ 				  p_sb->sb_attn, p_sb->sb_phys);
+ 	kfree(p_sb);
++	p_hwfn->p_sb_attn = NULL;
+ }
+ 
+ static void qed_int_sb_attn_setup(struct qed_hwfn *p_hwfn,
+@@ -2679,6 +2680,7 @@ static void qed_int_sp_sb_free(struct qed_hwfn *p_hwfn)
+ 				  p_sb->sb_info.sb_virt,
+ 				  p_sb->sb_info.sb_phys);
+ 	kfree(p_sb);
++	p_hwfn->p_sp_sb = NULL;
+ }
+ 
+ static int qed_int_sp_sb_alloc(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt)
+@@ -3157,6 +3159,7 @@ static int qed_int_sp_dpc_alloc(struct qed_hwfn *p_hwfn)
+ static void qed_int_sp_dpc_free(struct qed_hwfn *p_hwfn)
+ {
+ 	kfree(p_hwfn->sp_dpc);
++	p_hwfn->sp_dpc = NULL;
+ }
+ 
+ int qed_int_alloc(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt)
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_iscsi.c b/drivers/net/ethernet/qlogic/qed/qed_iscsi.c
+index 3897ac0..ac3c692 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_iscsi.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_iscsi.c
+@@ -819,29 +819,32 @@ void qed_iscsi_free_connection(struct qed_hwfn *p_hwfn,
+ 	kfree(p_conn);
+ }
+ 
+-struct qed_iscsi_info *qed_iscsi_alloc(struct qed_hwfn *p_hwfn)
++int qed_iscsi_alloc(struct qed_hwfn *p_hwfn)
+ {
+ 	struct qed_iscsi_info *p_iscsi_info;
+ 
+ 	p_iscsi_info = kzalloc(sizeof(*p_iscsi_info), GFP_KERNEL);
+ 	if (!p_iscsi_info)
+-		return NULL;
++		return -ENOMEM;
+ 
+ 	INIT_LIST_HEAD(&p_iscsi_info->free_list);
+-	return p_iscsi_info;
++
++	p_hwfn->p_iscsi_info = p_iscsi_info;
++	return 0;
+ }
+ 
+-void qed_iscsi_setup(struct qed_hwfn *p_hwfn,
+-		     struct qed_iscsi_info *p_iscsi_info)
++void qed_iscsi_setup(struct qed_hwfn *p_hwfn)
+ {
+-	spin_lock_init(&p_iscsi_info->lock);
++	spin_lock_init(&p_hwfn->p_iscsi_info->lock);
+ }
+ 
+-void qed_iscsi_free(struct qed_hwfn *p_hwfn,
+-		    struct qed_iscsi_info *p_iscsi_info)
++void qed_iscsi_free(struct qed_hwfn *p_hwfn)
+ {
+ 	struct qed_iscsi_conn *p_conn = NULL;
+ 
++	if (!p_hwfn->p_iscsi_info)
++		return;
++
+ 	while (!list_empty(&p_hwfn->p_iscsi_info->free_list)) {
+ 		p_conn = list_first_entry(&p_hwfn->p_iscsi_info->free_list,
+ 					  struct qed_iscsi_conn, list_entry);
+@@ -851,7 +854,8 @@ void qed_iscsi_free(struct qed_hwfn *p_hwfn,
+ 		}
+ 	}
+ 
+-	kfree(p_iscsi_info);
++	kfree(p_hwfn->p_iscsi_info);
++	p_hwfn->p_iscsi_info = NULL;
+ }
+ 
+ static void _qed_iscsi_get_tstats(struct qed_hwfn *p_hwfn,
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_iscsi.h b/drivers/net/ethernet/qlogic/qed/qed_iscsi.h
+index ae98f77..225c75b 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_iscsi.h
++++ b/drivers/net/ethernet/qlogic/qed/qed_iscsi.h
+@@ -57,13 +57,11 @@ struct qed_iscsi_info {
+ #endif
+ 
+ #if IS_ENABLED(CONFIG_QED_ISCSI)
+-struct qed_iscsi_info *qed_iscsi_alloc(struct qed_hwfn *p_hwfn);
++int qed_iscsi_alloc(struct qed_hwfn *p_hwfn);
+ 
+-void qed_iscsi_setup(struct qed_hwfn *p_hwfn,
+-		     struct qed_iscsi_info *p_iscsi_info);
++void qed_iscsi_setup(struct qed_hwfn *p_hwfn);
+ 
+-void qed_iscsi_free(struct qed_hwfn *p_hwfn,
+-		    struct qed_iscsi_info *p_iscsi_info);
++void qed_iscsi_free(struct qed_hwfn *p_hwfn);
+ 
+ /**
+  * @brief - Fills provided statistics struct with statistics.
+@@ -74,12 +72,15 @@ void qed_iscsi_free(struct qed_hwfn *p_hwfn,
+ void qed_get_protocol_stats_iscsi(struct qed_dev *cdev,
+ 				  struct qed_mcp_iscsi_stats *stats);
+ #else /* IS_ENABLED(CONFIG_QED_ISCSI) */
+-static inline struct qed_iscsi_info *qed_iscsi_alloc(
+-		struct qed_hwfn *p_hwfn) { return NULL; }
+-static inline void qed_iscsi_setup(struct qed_hwfn *p_hwfn,
+-				   struct qed_iscsi_info *p_iscsi_info) {}
+-static inline void qed_iscsi_free(struct qed_hwfn *p_hwfn,
+-				 struct qed_iscsi_info *p_iscsi_info) {}
++static inline int qed_iscsi_alloc(struct qed_hwfn *p_hwfn)
++{
++	return -EINVAL;
++}
++
++static inline void qed_iscsi_setup(struct qed_hwfn *p_hwfn) {}
++
++static inline void qed_iscsi_free(struct qed_hwfn *p_hwfn) {}
++
+ static inline void
+ qed_get_protocol_stats_iscsi(struct qed_dev *cdev,
+ 			     struct qed_mcp_iscsi_stats *stats) {}
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_ll2.c b/drivers/net/ethernet/qlogic/qed/qed_ll2.c
+index 09c8641..917f6b7 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_ll2.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_ll2.c
+@@ -1921,7 +1921,7 @@ void qed_ll2_release_connection(struct qed_hwfn *p_hwfn, u8 connection_handle)
+ 	mutex_unlock(&p_ll2_conn->mutex);
+ }
+ 
+-struct qed_ll2_info *qed_ll2_alloc(struct qed_hwfn *p_hwfn)
++int qed_ll2_alloc(struct qed_hwfn *p_hwfn)
+ {
+ 	struct qed_ll2_info *p_ll2_connections;
+ 	u8 i;
+@@ -1931,28 +1931,31 @@ struct qed_ll2_info *qed_ll2_alloc(struct qed_hwfn *p_hwfn)
+ 				    sizeof(struct qed_ll2_info), GFP_KERNEL);
+ 	if (!p_ll2_connections) {
+ 		DP_NOTICE(p_hwfn, "Failed to allocate `struct qed_ll2'\n");
+-		return NULL;
++		return -ENOMEM;
+ 	}
+ 
+ 	for (i = 0; i < QED_MAX_NUM_OF_LL2_CONNECTIONS; i++)
+ 		p_ll2_connections[i].my_id = i;
+ 
+-	return p_ll2_connections;
++	p_hwfn->p_ll2_info = p_ll2_connections;
++	return 0;
+ }
+ 
+-void qed_ll2_setup(struct qed_hwfn *p_hwfn,
+-		   struct qed_ll2_info *p_ll2_connections)
++void qed_ll2_setup(struct qed_hwfn *p_hwfn)
+ {
+ 	int i;
+ 
+ 	for (i = 0; i < QED_MAX_NUM_OF_LL2_CONNECTIONS; i++)
+-		mutex_init(&p_ll2_connections[i].mutex);
++		mutex_init(&p_hwfn->p_ll2_info[i].mutex);
+ }
+ 
+-void qed_ll2_free(struct qed_hwfn *p_hwfn,
+-		  struct qed_ll2_info *p_ll2_connections)
++void qed_ll2_free(struct qed_hwfn *p_hwfn)
+ {
+-	kfree(p_ll2_connections);
++	if (!p_hwfn->p_ll2_info)
++		return;
++
++	kfree(p_hwfn->p_ll2_info);
++	p_hwfn->p_ll2_info = NULL;
+ }
+ 
+ static void _qed_ll2_get_tstats(struct qed_hwfn *p_hwfn,
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_ll2.h b/drivers/net/ethernet/qlogic/qed/qed_ll2.h
+index 31a4090..2c07d0e 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_ll2.h
++++ b/drivers/net/ethernet/qlogic/qed/qed_ll2.h
+@@ -306,27 +306,24 @@ int qed_ll2_get_stats(struct qed_hwfn *p_hwfn,
+  *
+  * @param p_hwfn
+  *
+- * @return pointer to alocated qed_ll2_info or NULL
++ * @return int
+  */
+-struct qed_ll2_info *qed_ll2_alloc(struct qed_hwfn *p_hwfn);
++int qed_ll2_alloc(struct qed_hwfn *p_hwfn);
+ 
+ /**
+  * @brief qed_ll2_setup - Inits LL2 connections set
+  *
+  * @param p_hwfn
+- * @param p_ll2_connections
+  *
+  */
+-void qed_ll2_setup(struct qed_hwfn *p_hwfn,
+-		   struct qed_ll2_info *p_ll2_connections);
++void qed_ll2_setup(struct qed_hwfn *p_hwfn);
+ 
+ /**
+  * @brief qed_ll2_free - Releases LL2 connections set
+  *
+  * @param p_hwfn
+- * @param p_ll2_connections
+  *
+  */
+-void qed_ll2_free(struct qed_hwfn *p_hwfn,
+-		  struct qed_ll2_info *p_ll2_connections);
++void qed_ll2_free(struct qed_hwfn *p_hwfn);
++
+ #endif
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_mcp.c b/drivers/net/ethernet/qlogic/qed/qed_mcp.c
+index 7266b36..b32e819 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_mcp.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_mcp.c
+@@ -177,6 +177,7 @@ int qed_mcp_free(struct qed_hwfn *p_hwfn)
+ 	}
+ 
+ 	kfree(p_hwfn->mcp_info);
++	p_hwfn->mcp_info = NULL;
+ 
+ 	return 0;
+ }
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_ooo.c b/drivers/net/ethernet/qlogic/qed/qed_ooo.c
+index db96670..0006365 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_ooo.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_ooo.c
+@@ -99,7 +99,7 @@ void qed_ooo_save_history_entry(struct qed_hwfn *p_hwfn,
+ 	p_history->head_idx++;
+ }
+ 
+-struct qed_ooo_info *qed_ooo_alloc(struct qed_hwfn *p_hwfn)
++int qed_ooo_alloc(struct qed_hwfn *p_hwfn)
+ {
+ 	u16 max_num_archipelagos = 0, cid_base;
+ 	struct qed_ooo_info *p_ooo_info;
+@@ -109,7 +109,7 @@ struct qed_ooo_info *qed_ooo_alloc(struct qed_hwfn *p_hwfn)
+ 	if (p_hwfn->hw_info.personality != QED_PCI_ISCSI) {
+ 		DP_NOTICE(p_hwfn,
+ 			  "Failed to allocate qed_ooo_info: unknown personality\n");
+-		return NULL;
++		return -EINVAL;
+ 	}
+ 
+ 	max_num_archipelagos = p_hwfn->pf_params.iscsi_pf_params.num_cons;
+@@ -119,12 +119,12 @@ struct qed_ooo_info *qed_ooo_alloc(struct qed_hwfn *p_hwfn)
+ 	if (!max_num_archipelagos) {
+ 		DP_NOTICE(p_hwfn,
+ 			  "Failed to allocate qed_ooo_info: unknown amount of connections\n");
+-		return NULL;
++		return -EINVAL;
+ 	}
+ 
+ 	p_ooo_info = kzalloc(sizeof(*p_ooo_info), GFP_KERNEL);
+ 	if (!p_ooo_info)
+-		return NULL;
++		return -ENOMEM;
+ 
+ 	p_ooo_info->cid_base = cid_base;
+ 	p_ooo_info->max_num_archipelagos = max_num_archipelagos;
+@@ -164,7 +164,8 @@ struct qed_ooo_info *qed_ooo_alloc(struct qed_hwfn *p_hwfn)
+ 
+ 	p_ooo_info->ooo_history.num_of_cqes = QED_MAX_NUM_OOO_HISTORY_ENTRIES;
+ 
+-	return p_ooo_info;
++	p_hwfn->p_ooo_info = p_ooo_info;
++	return 0;
+ 
+ no_history_mem:
+ 	kfree(p_ooo_info->p_archipelagos_mem);
+@@ -172,7 +173,7 @@ struct qed_ooo_info *qed_ooo_alloc(struct qed_hwfn *p_hwfn)
+ 	kfree(p_ooo_info->p_isles_mem);
+ no_isles_mem:
+ 	kfree(p_ooo_info);
+-	return NULL;
++	return -ENOMEM;
+ }
+ 
+ void qed_ooo_release_connection_isles(struct qed_hwfn *p_hwfn,
+@@ -249,19 +250,23 @@ void qed_ooo_release_all_isles(struct qed_hwfn *p_hwfn,
+ 				      &p_ooo_info->free_buffers_list);
+ }
+ 
+-void qed_ooo_setup(struct qed_hwfn *p_hwfn, struct qed_ooo_info *p_ooo_info)
++void qed_ooo_setup(struct qed_hwfn *p_hwfn)
+ {
+-	qed_ooo_release_all_isles(p_hwfn, p_ooo_info);
+-	memset(p_ooo_info->ooo_history.p_cqes, 0,
+-	       p_ooo_info->ooo_history.num_of_cqes *
++	qed_ooo_release_all_isles(p_hwfn, p_hwfn->p_ooo_info);
++	memset(p_hwfn->p_ooo_info->ooo_history.p_cqes, 0,
++	       p_hwfn->p_ooo_info->ooo_history.num_of_cqes *
+ 	       sizeof(struct ooo_opaque));
+-	p_ooo_info->ooo_history.head_idx = 0;
++	p_hwfn->p_ooo_info->ooo_history.head_idx = 0;
+ }
+ 
+-void qed_ooo_free(struct qed_hwfn *p_hwfn, struct qed_ooo_info *p_ooo_info)
++void qed_ooo_free(struct qed_hwfn *p_hwfn)
+ {
++	struct qed_ooo_info *p_ooo_info  = p_hwfn->p_ooo_info;
+ 	struct qed_ooo_buffer *p_buffer;
+ 
++	if (!p_ooo_info)
++		return;
++
+ 	qed_ooo_release_all_isles(p_hwfn, p_ooo_info);
+ 	while (!list_empty(&p_ooo_info->free_buffers_list)) {
+ 		p_buffer = list_first_entry(&p_ooo_info->free_buffers_list,
+@@ -282,6 +287,7 @@ void qed_ooo_free(struct qed_hwfn *p_hwfn, struct qed_ooo_info *p_ooo_info)
+ 	kfree(p_ooo_info->p_archipelagos_mem);
+ 	kfree(p_ooo_info->ooo_history.p_cqes);
+ 	kfree(p_ooo_info);
++	p_hwfn->p_ooo_info = NULL;
+ }
+ 
+ void qed_ooo_put_free_buffer(struct qed_hwfn *p_hwfn,
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_ooo.h b/drivers/net/ethernet/qlogic/qed/qed_ooo.h
+index 791ad0f..e8ed40b 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_ooo.h
++++ b/drivers/net/ethernet/qlogic/qed/qed_ooo.h
+@@ -88,7 +88,11 @@ void qed_ooo_save_history_entry(struct qed_hwfn *p_hwfn,
+ 				struct qed_ooo_info *p_ooo_info,
+ 				struct ooo_opaque *p_cqe);
+ 
+-struct qed_ooo_info *qed_ooo_alloc(struct qed_hwfn *p_hwfn);
++int qed_ooo_alloc(struct qed_hwfn *p_hwfn);
++
++void qed_ooo_setup(struct qed_hwfn *p_hwfn);
++
++void qed_ooo_free(struct qed_hwfn *p_hwfn);
+ 
+ void qed_ooo_release_connection_isles(struct qed_hwfn *p_hwfn,
+ 				      struct qed_ooo_info *p_ooo_info,
+@@ -97,10 +101,6 @@ void qed_ooo_release_connection_isles(struct qed_hwfn *p_hwfn,
+ void qed_ooo_release_all_isles(struct qed_hwfn *p_hwfn,
+ 			       struct qed_ooo_info *p_ooo_info);
+ 
+-void qed_ooo_setup(struct qed_hwfn *p_hwfn, struct qed_ooo_info *p_ooo_info);
+-
+-void qed_ooo_free(struct qed_hwfn *p_hwfn, struct qed_ooo_info *p_ooo_info);
+-
+ void qed_ooo_put_free_buffer(struct qed_hwfn *p_hwfn,
+ 			     struct qed_ooo_info *p_ooo_info,
+ 			     struct qed_ooo_buffer *p_buffer);
+@@ -140,8 +140,14 @@ static inline void qed_ooo_save_history_entry(struct qed_hwfn *p_hwfn,
+ 					      struct qed_ooo_info *p_ooo_info,
+ 					      struct ooo_opaque *p_cqe) {}
+ 
+-static inline struct qed_ooo_info *qed_ooo_alloc(
+-				struct qed_hwfn *p_hwfn) { return NULL; }
++static inline int qed_ooo_alloc(struct qed_hwfn *p_hwfn)
++{
++	return -EINVAL;
++}
++
++static inline void qed_ooo_setup(struct qed_hwfn *p_hwfn) {}
++
++static inline void qed_ooo_free(struct qed_hwfn *p_hwfn) {}
+ 
+ static inline void
+ qed_ooo_release_connection_isles(struct qed_hwfn *p_hwfn,
+@@ -152,12 +158,6 @@ static inline void qed_ooo_release_all_isles(struct qed_hwfn *p_hwfn,
+ 					     struct qed_ooo_info *p_ooo_info)
+ 					     {}
+ 
+-static inline void qed_ooo_setup(struct qed_hwfn *p_hwfn,
+-				 struct qed_ooo_info *p_ooo_info) {}
+-
+-static inline void qed_ooo_free(struct qed_hwfn *p_hwfn,
+-				struct qed_ooo_info *p_ooo_info) {}
+-
+ static inline void qed_ooo_put_free_buffer(struct qed_hwfn *p_hwfn,
+ 					   struct qed_ooo_info *p_ooo_info,
+ 					   struct qed_ooo_buffer *p_buffer) {}
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_sp.h b/drivers/net/ethernet/qlogic/qed/qed_sp.h
+index 3357bbe..c0b56b9 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_sp.h
++++ b/drivers/net/ethernet/qlogic/qed/qed_sp.h
+@@ -270,28 +270,23 @@ void qed_spq_return_entry(struct qed_hwfn *p_hwfn,
+  * @param p_hwfn
+  * @param num_elem number of elements in the eq
+  *
+- * @return struct qed_eq* - a newly allocated structure; NULL upon error.
++ * @return int
+  */
+-struct qed_eq *qed_eq_alloc(struct qed_hwfn *p_hwfn,
+-			    u16 num_elem);
++int qed_eq_alloc(struct qed_hwfn *p_hwfn, u16 num_elem);
+ 
+ /**
+- * @brief qed_eq_setup - Reset the SPQ to its start state.
++ * @brief qed_eq_setup - Reset the EQ to its start state.
+  *
+  * @param p_hwfn
+- * @param p_eq
+  */
+-void qed_eq_setup(struct qed_hwfn *p_hwfn,
+-		  struct qed_eq *p_eq);
++void qed_eq_setup(struct qed_hwfn *p_hwfn);
+ 
+ /**
+- * @brief qed_eq_deallocate - deallocates the given EQ struct.
++ * @brief qed_eq_free - deallocates the given EQ struct.
+  *
+  * @param p_hwfn
+- * @param p_eq
+  */
+-void qed_eq_free(struct qed_hwfn *p_hwfn,
+-		 struct qed_eq *p_eq);
++void qed_eq_free(struct qed_hwfn *p_hwfn);
+ 
+ /**
+  * @brief qed_eq_prod_update - update the FW with default EQ producer
+@@ -342,28 +337,23 @@ int qed_spq_completion(struct qed_hwfn *p_hwfn,
+  *
+  * @param p_hwfn
+  *
+- * @return struct qed_eq* - a newly allocated structure; NULL upon error.
++ * @return int
+  */
+-struct qed_consq *qed_consq_alloc(struct qed_hwfn *p_hwfn);
++int qed_consq_alloc(struct qed_hwfn *p_hwfn);
+ 
+ /**
+- * @brief qed_consq_setup - Reset the ConsQ to its start
+- *        state.
++ * @brief qed_consq_setup - Reset the ConsQ to its start state.
+  *
+  * @param p_hwfn
+- * @param p_eq
+  */
+-void qed_consq_setup(struct qed_hwfn *p_hwfn,
+-		     struct qed_consq *p_consq);
++void qed_consq_setup(struct qed_hwfn *p_hwfn);
+ 
+ /**
+  * @brief qed_consq_free - deallocates the given ConsQ struct.
+  *
+  * @param p_hwfn
+- * @param p_eq
+  */
+-void qed_consq_free(struct qed_hwfn *p_hwfn,
+-		    struct qed_consq *p_consq);
++void qed_consq_free(struct qed_hwfn *p_hwfn);
+ 
+ /**
+  * @file
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_spq.c b/drivers/net/ethernet/qlogic/qed/qed_spq.c
+index f6423a1..dede73f 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_spq.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_spq.c
+@@ -403,14 +403,14 @@ int qed_eq_completion(struct qed_hwfn *p_hwfn, void *cookie)
+ 	return rc;
+ }
+ 
+-struct qed_eq *qed_eq_alloc(struct qed_hwfn *p_hwfn, u16 num_elem)
++int qed_eq_alloc(struct qed_hwfn *p_hwfn, u16 num_elem)
+ {
+ 	struct qed_eq *p_eq;
+ 
+ 	/* Allocate EQ struct */
+ 	p_eq = kzalloc(sizeof(*p_eq), GFP_KERNEL);
+ 	if (!p_eq)
+-		return NULL;
++		return -ENOMEM;
+ 
+ 	/* Allocate and initialize EQ chain*/
+ 	if (qed_chain_alloc(p_hwfn->cdev,
+@@ -426,24 +426,28 @@ struct qed_eq *qed_eq_alloc(struct qed_hwfn *p_hwfn, u16 num_elem)
+ 	qed_int_register_cb(p_hwfn, qed_eq_completion,
+ 			    p_eq, &p_eq->eq_sb_index, &p_eq->p_fw_cons);
+ 
+-	return p_eq;
++	p_hwfn->p_eq = p_eq;
++	return 0;
+ 
+ eq_allocate_fail:
+-	qed_eq_free(p_hwfn, p_eq);
+-	return NULL;
++	kfree(p_eq);
++	return -ENOMEM;
+ }
+ 
+-void qed_eq_setup(struct qed_hwfn *p_hwfn, struct qed_eq *p_eq)
++void qed_eq_setup(struct qed_hwfn *p_hwfn)
+ {
+-	qed_chain_reset(&p_eq->chain);
++	qed_chain_reset(&p_hwfn->p_eq->chain);
+ }
+ 
+-void qed_eq_free(struct qed_hwfn *p_hwfn, struct qed_eq *p_eq)
++void qed_eq_free(struct qed_hwfn *p_hwfn)
+ {
+-	if (!p_eq)
++	if (!p_hwfn->p_eq)
+ 		return;
+-	qed_chain_free(p_hwfn->cdev, &p_eq->chain);
+-	kfree(p_eq);
++
++	qed_chain_free(p_hwfn->cdev, &p_hwfn->p_eq->chain);
++
++	kfree(p_hwfn->p_eq);
++	p_hwfn->p_eq = NULL;
+ }
+ 
+ /***************************************************************************
+@@ -583,8 +587,8 @@ void qed_spq_free(struct qed_hwfn *p_hwfn)
+ 	}
+ 
+ 	qed_chain_free(p_hwfn->cdev, &p_spq->chain);
+-	;
+ 	kfree(p_spq);
++	p_hwfn->p_spq = NULL;
+ }
+ 
+ int qed_spq_get_entry(struct qed_hwfn *p_hwfn, struct qed_spq_entry **pp_ent)
+@@ -934,14 +938,14 @@ int qed_spq_completion(struct qed_hwfn *p_hwfn,
+ 	return rc;
+ }
+ 
+-struct qed_consq *qed_consq_alloc(struct qed_hwfn *p_hwfn)
++int qed_consq_alloc(struct qed_hwfn *p_hwfn)
+ {
+ 	struct qed_consq *p_consq;
+ 
+ 	/* Allocate ConsQ struct */
+ 	p_consq = kzalloc(sizeof(*p_consq), GFP_KERNEL);
+ 	if (!p_consq)
+-		return NULL;
++		return -ENOMEM;
+ 
+ 	/* Allocate and initialize EQ chain*/
+ 	if (qed_chain_alloc(p_hwfn->cdev,
+@@ -952,22 +956,26 @@ struct qed_consq *qed_consq_alloc(struct qed_hwfn *p_hwfn)
+ 			    0x80, &p_consq->chain))
+ 		goto consq_allocate_fail;
+ 
+-	return p_consq;
++	p_hwfn->p_consq = p_consq;
++	return 0;
+ 
+ consq_allocate_fail:
+-	qed_consq_free(p_hwfn, p_consq);
+-	return NULL;
++	kfree(p_consq);
++	return -ENOMEM;
+ }
+ 
+-void qed_consq_setup(struct qed_hwfn *p_hwfn, struct qed_consq *p_consq)
++void qed_consq_setup(struct qed_hwfn *p_hwfn)
+ {
+-	qed_chain_reset(&p_consq->chain);
++	qed_chain_reset(&p_hwfn->p_consq->chain);
+ }
+ 
+-void qed_consq_free(struct qed_hwfn *p_hwfn, struct qed_consq *p_consq)
++void qed_consq_free(struct qed_hwfn *p_hwfn)
+ {
+-	if (!p_consq)
++	if (!p_hwfn->p_consq)
+ 		return;
+-	qed_chain_free(p_hwfn->cdev, &p_consq->chain);
+-	kfree(p_consq);
++
++	qed_chain_free(p_hwfn->cdev, &p_hwfn->p_consq->chain);
++
++	kfree(p_hwfn->p_consq);
++	p_hwfn->p_consq = NULL;
+ }
 -- 
 1.9.3
