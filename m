@@ -1,50 +1,46 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: [PATCH 5/5] atm: Use seq_putc() in lec_info()
-Date: Sun, 21 May 2017 22:18:35 +0200
-Message-ID: <b8b850c0-4a70-c36e-dffa-0e7ea27498fb@users.sourceforge.net>
-References: <49543220-93e4-781c-877b-381277837152@users.sourceforge.net>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next v5] net: ipv6: fix code style error and warning
+ of ndisc.c
+Date: Sun, 21 May 2017 14:14:38 -0700
+Message-ID: <1495401278.2093.12.camel@perches.com>
+References: <1495328154-18653-1-git-send-email-cugyly@163.com>
+         <1495382708.2093.10.camel@perches.com>
+         <77510dfe-4fc7-4446-9f1a-aea52342ecd1@gmail.com>
+         <20170521.125404.420857788471820007.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-        kernel-janitors@vger.kernel.org
-To: netdev@vger.kernel.org,
-        Augusto Mecking Caringi <augustocaringi@gmail.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Jarod Wilson <jarod@redhat.com>,
-        Javier Martinez Canillas <javier@osg.samsung.com>,
-        Kees Cook <keescook@chromium.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <49543220-93e4-781c-877b-381277837152@users.sourceforge.net>
-Content-Language: en-GB
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 8bit
+Cc: cugyly@163.com, netdev@vger.kernel.org,
+        Linyu.Yuan@alcatel-sbell.com.cn
+To: David Miller <davem@davemloft.net>, dsahern@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtprelay0156.hostedemail.com ([216.40.44.156]:58828 "EHLO
+        smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1755163AbdEUVOm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 21 May 2017 17:14:42 -0400
+In-Reply-To: <20170521.125404.420857788471820007.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Sun, 21 May 2017 21:50:44 +0200
+On Sun, 2017-05-21 at 12:54 -0400, David Miller wrote:
+> From: David Ahern <dsahern@gmail.com> Date: Sun, 21 May 2017 10:17:47 -0600
+> > On 5/21/17 10:05 AM, Joe Perches wrote:
+> >> But really, why bother?
+> >> 
+> >> Just because checkpatch bleats some message doesn't
+> >> mean it _has_ to be fixed.
+> >> 
+> >> Please strive to make the code more readable and
+> >> intelligible for _humans_.  Compilers don't care.
+> > 
+> > +1
+> > 
+> > broad cleanups like this make 'git blame' harder to use to find root causes.
 
-A single space character should be put into a sequence.
-Thus use the corresponding function "seq_putc".
+I don't have any issue with broad cleanups and I think
+the git blame argument is overblown.
 
-This issue was detected by using the Coccinelle software.
-
-Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
----
- net/atm/lec.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/atm/lec.c b/net/atm/lec.c
-index 752891434074..1d4edf093987 100644
---- a/net/atm/lec.c
-+++ b/net/atm/lec.c
-@@ -796,7 +796,7 @@ static void lec_info(struct seq_file *seq, struct lec_arp_table *entry)
- 
- 	for (i = 0; i < ETH_ALEN; i++)
- 		seq_printf(seq, "%2.2x", entry->mac_addr[i] & 0xff);
--	seq_printf(seq, " ");
-+	seq_putc(seq, ' ');
- 	for (i = 0; i < ATM_ESA_LEN; i++)
- 		seq_printf(seq, "%2.2x", entry->atm_addr[i] & 0xff);
- 	seq_printf(seq, " %s %4.4x", lec_arp_get_status_string(entry->status),
--- 
-2.13.0
+If and when broad cleanups are done, it's best if there
+is some other concurrent desire to improve logic, reduce
+object code size, and/or other code refactoring other
+than mere whitespace changes.
