@@ -1,36 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net] smsc95xx: Support only IPv4 TCP/UDP csum offload
-Date: Sun, 21 May 2017 13:32:19 -0400 (EDT)
-Message-ID: <20170521.133219.666611127277983923.davem@davemloft.net>
-References: <CE371C1263339941885964188A0225FA308E06@CHN-SV-EXMX03.mchp-main.com>
+Subject: Re: [PATCH net] bridge: start hello_timer when enabling KERNEL_STP
+ in br_stp_start
+Date: Sun, 21 May 2017 13:34:16 -0400 (EDT)
+Message-ID: <20170521.133416.722357246427267240.davem@davemloft.net>
+References: <6e78bfea3969ca1a937b37e28e796a3047b82615.1495203629.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, UNGLinuxDriver@microchip.com,
-        steve.glendinning@shawell.net, popcornmix@gmail.com
-To: Nisar.Sayed@microchip.com
+Cc: netdev@vger.kernel.org, nikolay@cumulusnetworks.com, cera@cera.cz
+To: lucien.xin@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:45068 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:45094 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753915AbdEURcV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 21 May 2017 13:32:21 -0400
-In-Reply-To: <CE371C1263339941885964188A0225FA308E06@CHN-SV-EXMX03.mchp-main.com>
+        with ESMTP id S1751233AbdEUReS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 21 May 2017 13:34:18 -0400
+In-Reply-To: <6e78bfea3969ca1a937b37e28e796a3047b82615.1495203629.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: <Nisar.Sayed@microchip.com>
-Date: Fri, 19 May 2017 14:00:25 +0000
+From: Xin Long <lucien.xin@gmail.com>
+Date: Fri, 19 May 2017 22:20:29 +0800
 
-> From: Nisar Sayed <Nisar.Sayed@microchip.com>
+> Since commit 76b91c32dd86 ("bridge: stp: when using userspace stp stop
+> kernel hello and hold timers"), bridge would not start hello_timer if
+> stp_enabled is not KERNEL_STP when br_dev_open.
 > 
-> When TX checksum offload is used, if the computed checksum is 0 the
-> LAN95xx device do not alter the checksum to 0xffff.  In the case of ipv4
-> UDP checksum, it indicates to receiver that no checksum is calculated.
-> Under ipv6, UDP checksum yields a result of zero must be changed to
-> 0xffff. Hence disabling checksum offload for ipv6 packets.
+> The problem is even if users set stp_enabled with KERNEL_STP later,
+> the timer will still not be started. It causes that KERNEL_STP can
+> not really work. Users have to re-ifup the bridge to avoid this.
 > 
-> Signed-off-by: Nisar Sayed <Nisar.Sayed@microchip.com>
+> This patch is to fix it by starting br->hello_timer when enabling
+> KERNEL_STP in br_stp_start.
 > 
-> Reported-by: popcorn mix <popcornmix@gmail.com>
+> As an improvement, it's also to start hello_timer again only when
+> br->stp_enabled is KERNEL_STP in br_hello_timer_expired, there is
+> no reason to start the timer again when it's NO_STP.
+> 
+> Fixes: 76b91c32dd86 ("bridge: stp: when using userspace stp stop kernel hello and hold timers")
+> Reported-by: Haidong Li <haili@redhat.com>
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
 
-Appied, thanks.
+Applied and queued up for -stable, thanks.
