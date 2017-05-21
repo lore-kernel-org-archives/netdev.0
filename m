@@ -1,51 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 05/13] nfp: introduce very minimal nfp_app
-Date: Sun, 21 May 2017 13:23:28 -0400 (EDT)
-Message-ID: <20170521.132328.352349689480345479.davem@davemloft.net>
-References: <20170519220155.27857-1-jakub.kicinski@netronome.com>
-        <20170519220155.27857-6-jakub.kicinski@netronome.com>
+Subject: Re: [PATCH net] tcp: initialize rcv_mss to TCP_MIN_MSS instead of 0
+Date: Sun, 21 May 2017 13:25:47 -0400 (EDT)
+Message-ID: <20170521.132547.2153130831461643500.davem@davemloft.net>
+References: <20170518182233.100933-1-tracywwnj@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kubakici@wp.pl, oss-drivers@netronome.com
-To: jakub.kicinski@netronome.com
+Cc: netdev@vger.kernel.org, ycheng@google.com, ncardwell@google.com,
+        edumazet@google.com
+To: weiwan@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:44982 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:45000 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750788AbdEURXc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 21 May 2017 13:23:32 -0400
-In-Reply-To: <20170519220155.27857-6-jakub.kicinski@netronome.com>
+        with ESMTP id S1750788AbdEURZt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 21 May 2017 13:25:49 -0400
+In-Reply-To: <20170518182233.100933-1-tracywwnj@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Date: Fri, 19 May 2017 15:01:47 -0700
+From: Wei Wang <weiwan@google.com>
+Date: Thu, 18 May 2017 11:22:33 -0700
 
-> Introduce a concept of an application.  For now it's just grouping
-> pointers and serving as a layer of indirection.  It will help us
-> weaken the dependency on nfp_net in ethtool code.  Later series
-> will flesh out support for different apps in the driver.
+> From: Wei Wang <weiwan@google.com>
 > 
-> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
-> Reviewed-by: Simon Horman <simon.horman@netronome.com>
- ...
-> +struct nfp_cpp *nfp_app_cpp(struct nfp_app *app)
-> +{
-> +	return app->cpp;
-> +}
-> +
-> +struct nfp_pf *nfp_app_pf(struct nfp_app *app)
-> +{
-> +	return app->pf;
-> +}
+> When tcp_disconnect() is called, inet_csk_delack_init() sets
+> icsk->icsk_ack.rcv_mss to 0.
+> This could potentially cause tcp_recvmsg() => tcp_cleanup_rbuf() =>
+> __tcp_select_window() call path to have division by 0 issue.
+> So this patch initializes rcv_mss to TCP_MIN_MSS instead of 0.
+> 
+> Reported-by: Andrey Konovalov  <andreyknvl@google.com>
+> Signed-off-by: Wei Wang <weiwan@google.com>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Neal Cardwell <ncardwell@google.com>
+> Signed-off-by: Yuchung Cheng <ycheng@google.com>
 
-Don't create real function calls just to dereference pointers
-like this.
-
-Instead, if you absolutely _must_ do stuff like this, put it into
-inline functions in a header file so that there is no overhead.
-
-But honestly I would just make the core dereference the struct members
-directly in the code and do away with these helpers.
-
-Thanks.
+Applied, thanks.
