@@ -1,28 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2] ibmveth: Support to enable LSO/CSO for
- Trunk VEA.
-Date: Sun, 21 May 2017 13:29:29 -0400 (EDT)
-Message-ID: <20170521.132929.2052425319566101841.davem@davemloft.net>
-References: <1491559079-10855-1-git-send-email-ksiva@linux.vnet.ibm.com>
-        <1495186238-19058-1-git-send-email-ksiva@linux.vnet.ibm.com>
+Subject: Re: [PATCH net-next] cxgb4 : retrieve port information from
+ firmware
+Date: Sun, 21 May 2017 13:30:48 -0400 (EDT)
+Message-ID: <20170521.133048.1562761637839702677.davem@davemloft.net>
+References: <1495196415-22234-1-git-send-email-ganeshgr@chelsio.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tlfalcon@linux.vnet.ibm.com,
-        benh@kernel.crashing.org, paulus@samba.org, mpe@ellerman.id.au,
-        linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org,
-        brking@linux.vnet.ibm.com, seroyer@linux.vnet.ibm.com,
-        bryantly@linux.vnet.ibm.com
-To: ksiva@linux.vnet.ibm.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1495186238-19058-1-git-send-email-ksiva@linux.vnet.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, nirranjan@chelsio.com,
+        indranil@chelsio.com, leedom@chelsio.com
+To: ganeshgr@chelsio.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:45060 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750788AbdEURat (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 21 May 2017 13:30:49 -0400
+In-Reply-To: <1495196415-22234-1-git-send-email-ganeshgr@chelsio.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sivakumar Krishnasamy <ksiva@linux.vnet.ibm.com>
-Date: Fri, 19 May 2017 05:30:38 -0400
+From: Ganesh Goudar <ganeshgr@chelsio.com>
+Date: Fri, 19 May 2017 17:50:15 +0530
 
- ...
-> Signed-off-by: Sivakumar Krishnasamy <ksiva@linux.vnet.ibm.com>
+> issue get port information command to firmware to retrieve port
+> information and update if it is different from what was last
+> recorded and also add indication for supported link modes for
+> firmware port types FW_PORT_TYPE_SFP28, FW_PORT_TYPE_KR_SFP28,
+> FW_PORT_TYPE_CR4_QSFP.
+> 
+> Based on the original work by Casey Leedom <leedom@chelsio.com>
+> 
+> Signed-off-by: Casey Leedom <leedom@chelsio.com>
+> Signed-off-by: Ganesh Goudar <ganeshgr@chelsio.com>
 
-Applied, thanks for the more detailed commit message.
+Applied.
