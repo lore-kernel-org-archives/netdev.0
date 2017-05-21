@@ -1,7 +1,7 @@
 From: Yuval Mintz <Yuval.Mintz@cavium.com>
-Subject: [PATCH net-next 02/10] qede: Honor user request for Tx buffers
-Date: Sun, 21 May 2017 12:10:53 +0300
-Message-ID: <1495357860-28280-3-git-send-email-Yuval.Mintz@cavium.com>
+Subject: [PATCH net-next 03/10] qede: Add missing Status-block free
+Date: Sun, 21 May 2017 12:10:54 +0300
+Message-ID: <1495357860-28280-4-git-send-email-Yuval.Mintz@cavium.com>
 References: <1495357860-28280-1-git-send-email-Yuval.Mintz@cavium.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,171 +9,57 @@ Cc: Sudarsana Reddy Kalluru <Sudarsana.Kalluru@cavium.com>,
         Yuval Mintz <Yuval.Mintz@cavium.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn3nam01on0044.outbound.protection.outlook.com ([104.47.33.44]:24352
-        "EHLO NAM01-BN3-obe.outbound.protection.outlook.com"
+Received: from mail-dm3nam03on0041.outbound.protection.outlook.com ([104.47.41.41]:26256
+        "EHLO NAM03-DM3-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1752421AbdEUJLZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 21 May 2017 05:11:25 -0400
+        id S1752421AbdEUJLf (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 21 May 2017 05:11:35 -0400
 In-Reply-To: <1495357860-28280-1-git-send-email-Yuval.Mintz@cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Sudarsana Reddy Kalluru <Sudarsana.Kalluru@cavium.com>
 
-Driver always allocates the maximal number of tx-buffers irrespective of
-actual Tx ring config.
+When destroying the datapath channels, qede doesn't notify qed of the
+released status blocks which were acquired during the initialization.
 
 Signed-off-by: Sudarsana Reddy Kalluru <Sudarsana.Kalluru@cavium.com>
 Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
 ---
- drivers/net/ethernet/qlogic/qede/qede_ethtool.c |  6 +++---
- drivers/net/ethernet/qlogic/qede/qede_fp.c      | 18 +++++++++---------
- drivers/net/ethernet/qlogic/qede/qede_main.c    |  6 +++---
- 3 files changed, 15 insertions(+), 15 deletions(-)
+ drivers/net/ethernet/qlogic/qede/qede_main.c | 11 +++++++----
+ 1 file changed, 7 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qede/qede_ethtool.c b/drivers/net/ethernet/qlogic/qede/qede_ethtool.c
-index 172b292..47ec4f3 100644
---- a/drivers/net/ethernet/qlogic/qede/qede_ethtool.c
-+++ b/drivers/net/ethernet/qlogic/qede/qede_ethtool.c
-@@ -1297,7 +1297,7 @@ static int qede_selftest_transmit_traffic(struct qede_dev *edev,
- 	}
- 
- 	/* Fill the entry in the SW ring and the BDs in the FW ring */
--	idx = txq->sw_tx_prod & NUM_TX_BDS_MAX;
-+	idx = txq->sw_tx_prod;
- 	txq->sw_tx_ring.skbs[idx].skb = skb;
- 	first_bd = qed_chain_produce(&txq->tx_pbl);
- 	memset(first_bd, 0, sizeof(*first_bd));
-@@ -1317,7 +1317,7 @@ static int qede_selftest_transmit_traffic(struct qede_dev *edev,
- 
- 	/* update the first BD with the actual num BDs */
- 	first_bd->data.nbds = 1;
--	txq->sw_tx_prod++;
-+	txq->sw_tx_prod = (txq->sw_tx_prod + 1) % txq->num_tx_buffers;
- 	/* 'next page' entries are counted in the producer value */
- 	val = cpu_to_le16(qed_chain_get_prod_idx(&txq->tx_pbl));
- 	txq->tx_db.data.bd_prod = val;
-@@ -1351,7 +1351,7 @@ static int qede_selftest_transmit_traffic(struct qede_dev *edev,
- 	first_bd = (struct eth_tx_1st_bd *)qed_chain_consume(&txq->tx_pbl);
- 	dma_unmap_single(&edev->pdev->dev, BD_UNMAP_ADDR(first_bd),
- 			 BD_UNMAP_LEN(first_bd), DMA_TO_DEVICE);
--	txq->sw_tx_cons++;
-+	txq->sw_tx_cons = (txq->sw_tx_cons + 1) % txq->num_tx_buffers;
- 	txq->sw_tx_ring.skbs[idx].skb = NULL;
- 
- 	return 0;
-diff --git a/drivers/net/ethernet/qlogic/qede/qede_fp.c b/drivers/net/ethernet/qlogic/qede/qede_fp.c
-index 7b6f41d..38c8265 100644
---- a/drivers/net/ethernet/qlogic/qede/qede_fp.c
-+++ b/drivers/net/ethernet/qlogic/qede/qede_fp.c
-@@ -99,7 +99,7 @@ int qede_alloc_rx_buffer(struct qede_rx_queue *rxq, bool allow_lazy)
- /* Unmap the data and free skb */
- int qede_free_tx_pkt(struct qede_dev *edev, struct qede_tx_queue *txq, int *len)
- {
--	u16 idx = txq->sw_tx_cons & NUM_TX_BDS_MAX;
-+	u16 idx = txq->sw_tx_cons;
- 	struct sk_buff *skb = txq->sw_tx_ring.skbs[idx].skb;
- 	struct eth_tx_1st_bd *first_bd;
- 	struct eth_tx_bd *tx_data_bd;
-@@ -156,7 +156,7 @@ static void qede_free_failed_tx_pkt(struct qede_tx_queue *txq,
- 				    struct eth_tx_1st_bd *first_bd,
- 				    int nbd, bool data_split)
- {
--	u16 idx = txq->sw_tx_prod & NUM_TX_BDS_MAX;
-+	u16 idx = txq->sw_tx_prod;
- 	struct sk_buff *skb = txq->sw_tx_ring.skbs[idx].skb;
- 	struct eth_tx_bd *tx_data_bd;
- 	int i, split_bd_len = 0;
-@@ -333,8 +333,8 @@ static int qede_xdp_xmit(struct qede_dev *edev, struct qede_fastpath *fp,
- 			 struct sw_rx_data *metadata, u16 padding, u16 length)
- {
- 	struct qede_tx_queue *txq = fp->xdp_tx;
--	u16 idx = txq->sw_tx_prod & NUM_TX_BDS_MAX;
- 	struct eth_tx_1st_bd *first_bd;
-+	u16 idx = txq->sw_tx_prod;
- 
- 	if (!qed_chain_get_elem_left(&txq->tx_pbl)) {
- 		txq->stopped_cnt++;
-@@ -363,7 +363,7 @@ static int qede_xdp_xmit(struct qede_dev *edev, struct qede_fastpath *fp,
- 
- 	txq->sw_tx_ring.xdp[idx].page = metadata->data;
- 	txq->sw_tx_ring.xdp[idx].mapping = metadata->mapping;
--	txq->sw_tx_prod++;
-+	txq->sw_tx_prod = (txq->sw_tx_prod + 1) % txq->num_tx_buffers;
- 
- 	/* Mark the fastpath for future XDP doorbell */
- 	fp->xdp_xmit = 1;
-@@ -393,14 +393,14 @@ static void qede_xdp_tx_int(struct qede_dev *edev, struct qede_tx_queue *txq)
- 
- 	while (hw_bd_cons != qed_chain_get_cons_idx(&txq->tx_pbl)) {
- 		qed_chain_consume(&txq->tx_pbl);
--		idx = txq->sw_tx_cons & NUM_TX_BDS_MAX;
-+		idx = txq->sw_tx_cons;
- 
- 		dma_unmap_page(&edev->pdev->dev,
- 			       txq->sw_tx_ring.xdp[idx].mapping,
- 			       PAGE_SIZE, DMA_BIDIRECTIONAL);
- 		__free_page(txq->sw_tx_ring.xdp[idx].page);
- 
--		txq->sw_tx_cons++;
-+		txq->sw_tx_cons = (txq->sw_tx_cons + 1) % txq->num_tx_buffers;
- 		txq->xmit_pkts++;
- 	}
- }
-@@ -430,7 +430,7 @@ static int qede_tx_int(struct qede_dev *edev, struct qede_tx_queue *txq)
- 
- 		bytes_compl += len;
- 		pkts_compl++;
--		txq->sw_tx_cons++;
-+		txq->sw_tx_cons = (txq->sw_tx_cons + 1) % txq->num_tx_buffers;
- 		txq->xmit_pkts++;
- 	}
- 
-@@ -1455,7 +1455,7 @@ netdev_tx_t qede_start_xmit(struct sk_buff *skb, struct net_device *ndev)
- #endif
- 
- 	/* Fill the entry in the SW ring and the BDs in the FW ring */
--	idx = txq->sw_tx_prod & NUM_TX_BDS_MAX;
-+	idx = txq->sw_tx_prod;
- 	txq->sw_tx_ring.skbs[idx].skb = skb;
- 	first_bd = (struct eth_tx_1st_bd *)
- 		   qed_chain_produce(&txq->tx_pbl);
-@@ -1639,7 +1639,7 @@ netdev_tx_t qede_start_xmit(struct sk_buff *skb, struct net_device *ndev)
- 	/* Advance packet producer only before sending the packet since mapping
- 	 * of pages may fail.
- 	 */
--	txq->sw_tx_prod++;
-+	txq->sw_tx_prod = (txq->sw_tx_prod + 1) % txq->num_tx_buffers;
- 
- 	/* 'next page' entries are counted in the producer value */
- 	txq->tx_db.data.bd_prod =
 diff --git a/drivers/net/ethernet/qlogic/qede/qede_main.c b/drivers/net/ethernet/qlogic/qede/qede_main.c
-index 4a46052..766bd37 100644
+index 766bd37..aea9dcf 100644
 --- a/drivers/net/ethernet/qlogic/qede/qede_main.c
 +++ b/drivers/net/ethernet/qlogic/qede/qede_main.c
-@@ -1304,12 +1304,12 @@ static int qede_alloc_mem_txq(struct qede_dev *edev, struct qede_tx_queue *txq)
+@@ -1072,12 +1072,15 @@ static int qede_set_num_queues(struct qede_dev *edev)
+ 	return rc;
+ }
  
- 	/* Allocate the parallel driver ring for Tx buffers */
- 	if (txq->is_xdp) {
--		size = sizeof(*txq->sw_tx_ring.xdp) * TX_RING_SIZE;
-+		size = sizeof(*txq->sw_tx_ring.xdp) * txq->num_tx_buffers;
- 		txq->sw_tx_ring.xdp = kzalloc(size, GFP_KERNEL);
- 		if (!txq->sw_tx_ring.xdp)
- 			goto err;
- 	} else {
--		size = sizeof(*txq->sw_tx_ring.skbs) * TX_RING_SIZE;
-+		size = sizeof(*txq->sw_tx_ring.skbs) * txq->num_tx_buffers;
- 		txq->sw_tx_ring.skbs = kzalloc(size, GFP_KERNEL);
- 		if (!txq->sw_tx_ring.skbs)
- 			goto err;
-@@ -1319,7 +1319,7 @@ static int qede_alloc_mem_txq(struct qede_dev *edev, struct qede_tx_queue *txq)
- 					    QED_CHAIN_USE_TO_CONSUME_PRODUCE,
- 					    QED_CHAIN_MODE_PBL,
- 					    QED_CHAIN_CNT_TYPE_U16,
--					    TX_RING_SIZE,
-+					    txq->num_tx_buffers,
- 					    sizeof(*p_virt), &txq->tx_pbl);
- 	if (rc)
- 		goto err;
+-static void qede_free_mem_sb(struct qede_dev *edev,
+-			     struct qed_sb_info *sb_info)
++static void qede_free_mem_sb(struct qede_dev *edev, struct qed_sb_info *sb_info,
++			     u16 sb_id)
+ {
+-	if (sb_info->sb_virt)
++	if (sb_info->sb_virt) {
++		edev->ops->common->sb_release(edev->cdev, sb_info, sb_id);
+ 		dma_free_coherent(&edev->pdev->dev, sizeof(*sb_info->sb_virt),
+ 				  (void *)sb_info->sb_virt, sb_info->sb_phys);
++		memset(sb_info, 0, sizeof(*sb_info));
++	}
+ }
+ 
+ /* This function allocates fast-path status block memory */
+@@ -1334,7 +1337,7 @@ static int qede_alloc_mem_txq(struct qede_dev *edev, struct qede_tx_queue *txq)
+ /* This function frees all memory of a single fp */
+ static void qede_free_mem_fp(struct qede_dev *edev, struct qede_fastpath *fp)
+ {
+-	qede_free_mem_sb(edev, fp->sb_info);
++	qede_free_mem_sb(edev, fp->sb_info, fp->id);
+ 
+ 	if (fp->type & QEDE_FASTPATH_RX)
+ 		qede_free_mem_rxq(edev, fp->rxq);
 -- 
 1.9.3
