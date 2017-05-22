@@ -1,40 +1,59 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next 08/20] net: dsa: change scope of ageing time
- setter
-Date: Mon, 22 May 2017 12:29:10 -0700
-Message-ID: <ed9cd9e7-da23-f841-f5a4-a1ba8e09db76@gmail.com>
-References: <20170519210055.9366-1-vivien.didelot@savoirfairelinux.com>
- <20170519210055.9366-9-vivien.didelot@savoirfairelinux.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Andrew Lunn <andrew@lunn.ch>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170519210055.9366-9-vivien.didelot@savoirfairelinux.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Govindarajulu Varadarajan <gvaradar@cisco.com>
+Subject: [PATCH net-next] enic: unmask intr only when napi is complete
+Date: Mon, 22 May 2017 12:19:48 -0700
+Message-ID: <20170522191948.1397-1-gvaradar@cisco.com>
+Cc: benve@cisco.com, Govindarajulu Varadarajan <gvaradar@cisco.com>
+To: netdev@vger.kernel.org, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from alln-iport-7.cisco.com ([173.37.142.94]:25905 "EHLO
+        alln-iport-7.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1758710AbdEVT3w (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 22 May 2017 15:29:52 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 05/19/2017 02:00 PM, Vivien Didelot wrote:
-> Change the scope of the switchdev bridge ageing time attribute setter
-> from the DSA slave device to the generic DSA port, so that the future
-> port-wide API can also be used for other port types, such as CPU and DSA
-> links.
-> 
-> Also ds->ports is now a contiguous array of dsa_port structures, thus
-> their addresses cannot be NULL. Remove the useless check in
-> dsa_fastest_ageing_time.
+In case of busy poll, napi_complete_done returns false and does not
+dequeue napi. In this case do not unmask the intr. We are guaranteed
+napi is called again. This reduces unnecessary iowrites.
 
-And you are also passing just the ageing time value, and not longer the
-full attribute, which is a nice simplification.
+Signed-off-by: Govindarajulu Varadarajan <gvaradar@cisco.com>
+---
+ drivers/net/ethernet/cisco/enic/enic_main.c | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
 
-> 
-> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+diff --git a/drivers/net/ethernet/cisco/enic/enic_main.c b/drivers/net/ethernet/cisco/enic/enic_main.c
+index 4b87beeabce1..6a9c8878aca0 100644
+--- a/drivers/net/ethernet/cisco/enic/enic_main.c
++++ b/drivers/net/ethernet/cisco/enic/enic_main.c
+@@ -1537,13 +1537,12 @@ static int enic_poll(struct napi_struct *napi, int budget)
+ 		 */
+ 		enic_calc_int_moderation(enic, &enic->rq[0]);
+ 
+-	if (rq_work_done < rq_work_to_do) {
++	if ((rq_work_done < budget) && napi_complete_done(napi, rq_work_done)) {
+ 
+ 		/* Some work done, but not enough to stay in polling,
+ 		 * exit polling
+ 		 */
+ 
+-		napi_complete_done(napi, rq_work_done);
+ 		if (enic->rx_coalesce_setting.use_adaptive_rx_coalesce)
+ 			enic_set_int_moderation(enic, &enic->rq[0]);
+ 		vnic_intr_unmask(&enic->intr[intr]);
+@@ -1663,13 +1662,12 @@ static int enic_poll_msix_rq(struct napi_struct *napi, int budget)
+ 		 */
+ 		enic_calc_int_moderation(enic, &enic->rq[rq]);
+ 
+-	if (work_done < work_to_do) {
++	if ((work_done < budget) && napi_complete_done(napi, work_done)) {
+ 
+ 		/* Some work done, but not enough to stay in polling,
+ 		 * exit polling
+ 		 */
+ 
+-		napi_complete_done(napi, work_done);
+ 		if (enic->rx_coalesce_setting.use_adaptive_rx_coalesce)
+ 			enic_set_int_moderation(enic, &enic->rq[rq]);
+ 		vnic_intr_unmask(&enic->intr[intr]);
 -- 
-Florian
+2.13.0
