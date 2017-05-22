@@ -1,56 +1,95 @@
-From: Jan Kiszka <jan.kiszka@siemens.com>
-Subject: Re: [PATCH 3/3] stmmac: pci: Use dmi_system_id table for retrieving
- PHY addresses
-Date: Mon, 22 May 2017 14:49:18 +0200
-Message-ID: <72ff21ba-f774-b3d5-23b4-e70095cedbef@siemens.com>
-References: <cover.1495451529.git.jan.kiszka@siemens.com>
- <c8e6966227a9c2981e822b2deac8c036651b088c.1495451529.git.jan.kiszka@siemens.com>
- <1495452830.2093.14.camel@perches.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Andy Shevchenko <andy.shevchenko@gmail.com>
-To: Joe Perches <joe@perches.com>,
-        Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-        Alexandre Torgue <alexandre.torgue@st.com>,
-        David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1495452830.2093.14.camel@perches.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Oliver Neukum <oneukum@suse.com>
+Subject: [PATCH v2] cdc-ether: divorce initialisation with a filter reset and a generic method
+Date: Mon, 22 May 2017 14:50:30 +0200
+Message-ID: <20170522125030.21266-1-oneukum@suse.com>
+Cc: Oliver Neukum <oneukum@suse.com>
+To: davem@davemloft.net, netdev@vger.kernel.org, bjorn@mork.no
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx2.suse.de ([195.135.220.15]:55349 "EHLO mx1.suse.de"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1750715AbdEVMwJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 22 May 2017 08:52:09 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2017-05-22 13:33, Joe Perches wrote:
-> On Mon, 2017-05-22 at 13:12 +0200, Jan Kiszka wrote:
->> Avoids reimplementation of DMI matching in stmmac_pci_find_phy_addr.
-> []
->> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
-> []
->> @@ -31,65 +31,78 @@
-> []
->> +static const struct stmmac_pci_dmi_data iot2040_stmmac_dmi_data[] = {
->>  	{
->> -		.name = "GalileoGen2",
->>  		.func = 6,
->>  		.phy_addr = 1,
->>  	},
->>  	{
->> -		.name = "SIMATIC IOT2000",
->> -		.asset_tag = "6ES7647-0AA00-0YA2",
->> -		.func = 6,
->> +		.func = 7,
-> 
-> Why change this from 6 to 7?
-> 
+Some devices need their multicast filter reset but others are crashed by that.
+So the methods need to be separated.
 
-The diff is confusing here: If you look at the outcome, we now have
-galileo_stmmac_dmi_data with function 6 only (also used for the
-IOT2020), and iot2040_stmmac_dmi_data with both function 6 and 7 (both
-MACs are wired up).
+Signed-off-by: Oliver Neukum <oneukum@suse.com>
+Reported-by: "Ridgway, Keith" <kridgway@harris.com>
+---
+ drivers/net/usb/cdc_ether.c | 31 ++++++++++++++++++++++++-------
+ include/linux/usb/usbnet.h  |  1 +
+ 2 files changed, 25 insertions(+), 7 deletions(-)
 
-Jan
-
+diff --git a/drivers/net/usb/cdc_ether.c b/drivers/net/usb/cdc_ether.c
+index f3ae88fdf332..8ab281b478f2 100644
+--- a/drivers/net/usb/cdc_ether.c
++++ b/drivers/net/usb/cdc_ether.c
+@@ -310,6 +310,26 @@ int usbnet_generic_cdc_bind(struct usbnet *dev, struct usb_interface *intf)
+ 		return -ENODEV;
+ 	}
+ 
++	return 0;
++
++bad_desc:
++	dev_info(&dev->udev->dev, "bad CDC descriptors\n");
++	return -ENODEV;
++}
++EXPORT_SYMBOL_GPL(usbnet_generic_cdc_bind);
++
++
++/* like usbnet_generic_cdc_bind() but handles filter initialization
++ * correctly
++ */
++int usbnet_ether_cdc_bind(struct usbnet *dev, struct usb_interface *intf)
++{
++	int rv;
++
++	rv = usbnet_generic_cdc_bind(dev, intf);
++	if (rv < 0)
++		goto bail_out;
++
+ 	/* Some devices don't initialise properly. In particular
+ 	 * the packet filter is not reset. There are devices that
+ 	 * don't do reset all the way. So the packet filter should
+@@ -317,13 +337,10 @@ int usbnet_generic_cdc_bind(struct usbnet *dev, struct usb_interface *intf)
+ 	 */
+ 	usbnet_cdc_update_filter(dev);
+ 
+-	return 0;
+-
+-bad_desc:
+-	dev_info(&dev->udev->dev, "bad CDC descriptors\n");
+-	return -ENODEV;
++bail_out:
++	return rv;
+ }
+-EXPORT_SYMBOL_GPL(usbnet_generic_cdc_bind);
++EXPORT_SYMBOL_GPL(usbnet_ether_cdc_bind);
+ 
+ void usbnet_cdc_unbind(struct usbnet *dev, struct usb_interface *intf)
+ {
+@@ -417,7 +434,7 @@ int usbnet_cdc_bind(struct usbnet *dev, struct usb_interface *intf)
+ 	BUILD_BUG_ON((sizeof(((struct usbnet *)0)->data)
+ 			< sizeof(struct cdc_state)));
+ 
+-	status = usbnet_generic_cdc_bind(dev, intf);
++	status = usbnet_ether_cdc_bind(dev, intf);
+ 	if (status < 0)
+ 		return status;
+ 
+diff --git a/include/linux/usb/usbnet.h b/include/linux/usb/usbnet.h
+index 7dffa5624ea6..97116379db5f 100644
+--- a/include/linux/usb/usbnet.h
++++ b/include/linux/usb/usbnet.h
+@@ -206,6 +206,7 @@ struct cdc_state {
+ };
+ 
+ extern int usbnet_generic_cdc_bind(struct usbnet *, struct usb_interface *);
++extern int usbnet_ether_cdc_bind(struct usbnet *dev, struct usb_interface *intf);
+ extern int usbnet_cdc_bind(struct usbnet *, struct usb_interface *);
+ extern void usbnet_cdc_unbind(struct usbnet *, struct usb_interface *);
+ extern void usbnet_cdc_status(struct usbnet *, struct urb *);
 -- 
-Siemens AG, Corporate Technology, CT RDA ITP SES-DE
-Corporate Competence Center Embedded Linux
+2.12.0
