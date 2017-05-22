@@ -1,90 +1,82 @@
-From: Enric Balletbo i Serra <enric.balletbo-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
-Subject: [PATCH] cfg80211: Be able to set bss expire time at config stage.
-Date: Mon, 22 May 2017 18:09:46 +0200
-Message-ID: <20170522160946.2057-1-enric.balletbo@collabora.com>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Dmitry Shmidt <dimitrysh-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-        helmut.schaa-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org
-To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-        "David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Rob Herring <robh+dt@kernel.org>
+Subject: Re: [PATCHv4] wlcore: add wl1285 compatible
+Date: Mon, 22 May 2017 11:11:49 -0500
+Message-ID: <CAL_JsqL91sruKNaWmVEqT+L_OCh5xFkkGY07mBBUmqkKHc5fQw@mail.gmail.com>
+References: <20170505141553.2605-1-sebastian.reichel@collabora.co.uk>
+ <8737bx5jgr.fsf@purkki.adurom.net> <20170522.103010.1779800840743690143.davem@davemloft.net>
+ <87wp99t0hj.fsf@kamboji.qca.qualcomm.com> <20170522152112.634mnsv65lryrmkp@earth>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: Kalle Valo <kvalo@codeaurora.org>,
+        David Miller <davem@davemloft.net>,
+        Tony Lindgren <tony@atomide.com>,
+        Marcel Holtmann <marcel@holtmann.org>,
+        linux-wireless <linux-wireless@vger.kernel.org>,
+        linux-omap <linux-omap@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        netdev <netdev@vger.kernel.org>
+To: Sebastian Reichel <sebastian.reichel@collabora.co.uk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170522152112.634mnsv65lryrmkp@earth>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The IEEE80211_SCAN_RESULT_EXPIRE value was modified several times in the
-past. Initially was set at 10 seconds (2a51931192), then increased at 15
-seconds (09f97e0fc4) and finally to 30 seconds (f9616e0f88) to cover the
-use case when a station is having heavy uplink traffic. On some devices,
-like Chromebooks, this value is decreased to 7 seconds to avoid stall
-results, and other devices prefer set to 15 seconds.
+On Mon, May 22, 2017 at 10:21 AM, Sebastian Reichel
+<sebastian.reichel@collabora.co.uk> wrote:
+> Hi,
+>
+> On Mon, May 22, 2017 at 05:44:24PM +0300, Kalle Valo wrote:
+>> David Miller <davem@davemloft.net> writes:
+>> > From: Kalle Valo <kvalo@codeaurora.org>
+>> > Date: Mon, 22 May 2017 12:28:20 +0300
+>> >
+>> >> Sebastian Reichel <sebastian.reichel@collabora.co.uk> writes:
+>> >>
+>> >>> Motorola Droid 4 uses a WL1285C. With differences between the
+>> >>> chips not being public let's add explicit binding for wl1285
+>> >>> instead of relying on wl1283 being very similar.
+>> >>>
+>> >>> Reviewed-by: Rob Herring <robh@kernel.org>
+>> >>> Acked-by: Kalle Valo <kvalo@codeaurora.org>
+>> >>> Acked-by: Tony Lindgren <tony@atomide.com>
+>> >>> Signed-off-by: Sebastian Reichel <sebastian.reichel@collabora.co.uk>
+>> >>> ---
+>> >>> Hi Dave,
+>> >>>
+>> >>> I previously send this in two patches, but its hard to apply without
+>> >>> requiring multiple kernel releases (the driver must be updated before
+>> >>> the DTS change). Since the actual change is not very complex Marcel
+>> >>> Holtmann & Tony Lindgren suggested, that I send this directly to you
+>> >>> in a single patch for inclusion into 4.12. This also means, that the
+>> >>> remaining series can be queued normally for 4.13.
+>> >>
+>> >> I noticed that Dave set this patch to Awaiting Upstream state on his
+>> >> patchwork:
+>> >>
+>> >> https://patchwork.ozlabs.org/patch/759042/
+>> >>
+>> >> Which makes me suspect that he is waiting me to apply this (as I
+>> >> normally apply wlcore patches). Dave, should I actually take this patch?
+>> >> What do you prefer?
+>> >
+>> > Anything that touches wireless drivers I defer to you, yes.
+>>
+>> Thanks, I'll take it then. Not sure why Sebastian was suggested to
+>> submit this patch via your tree in the first place.
+>>
+>> https://patchwork.kernel.org/patch/9713645/
+>
+> Thanks. The idea was to get into early 4.12-rc to avoid merge
+> conflicts in the droid 4 *.dts during 4.13 cycle. This strategy
+> obviously failed :)
 
-This simple patch tries to make the selection of this value a bit more
-flexible by being able to set the expire time at config stage. Most users
-can leave the default value set as 30 seconds, others can modify the value
-at config stage if they want lower or bigger values.
+First, I'm not sure why you combined everything. A maintainer can just
+as easily take a series as a single patch and we prefer binding doc,
+dts and driver changes all separate.
 
-Signed-off-by: Enric Balletbo i Serra <enric.balletbo-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
----
- net/wireless/Kconfig | 11 +++++++++++
- net/wireless/core.c  |  2 ++
- net/wireless/core.h  |  1 +
- net/wireless/scan.c  |  6 ++----
- 4 files changed, 16 insertions(+), 4 deletions(-)
+Second, the dts changes could go thru arm-soc and the driver change
+thru netdev. The binding doc can be thru either. There's no bisecting
+dependency and things shouldn't break. It just won't all work until
+you have both branches.
 
-diff --git a/net/wireless/Kconfig b/net/wireless/Kconfig
-index 6c60612..2a54e28 100644
---- a/net/wireless/Kconfig
-+++ b/net/wireless/Kconfig
-@@ -29,6 +29,17 @@ config CFG80211
- 
- 	  When built as a module it will be called cfg80211.
- 
-+config CFG80211_SCAN_RESULT_EXPIRE
-+	int "Scan completion time" if CFG80211
-+	default 30
-+	---help---
-+	  This value is the time in seconds the mac80211 scan method needs
-+	  to finish. An expiration time to 30 seconds should be sufficient
-+	  for most cases but for some other cases we might be interested in
-+	  tweak this value.
-+
-+	  If unsure, leave the default of 30.
-+
- config NL80211_TESTMODE
- 	bool "nl80211 testmode command"
- 	depends on CFG80211
-diff --git a/net/wireless/core.c b/net/wireless/core.c
-index 83ea164..2a5742c 100644
---- a/net/wireless/core.c
-+++ b/net/wireless/core.c
-@@ -499,6 +499,8 @@ struct wiphy *wiphy_new_nm(const struct cfg80211_ops *ops, int sizeof_priv,
- 
- 	init_waitqueue_head(&rdev->dev_wait);
- 
-+	rdev->scan_result_expire = CONFIG_CFG80211_SCAN_RESULT_EXPIRE;
-+
- 	/*
- 	 * Initialize wiphy parameters to IEEE 802.11 MIB default values.
- 	 * Fragmentation and RTS threshold are disabled by default with the
-diff --git a/net/wireless/core.h b/net/wireless/core.h
-index 6e809325..6a8a164 100644
---- a/net/wireless/core.h
-+++ b/net/wireless/core.h
-@@ -72,6 +72,7 @@ struct cfg80211_registered_device {
- 	struct rb_root bss_tree;
- 	u32 bss_generation;
- 	u32 bss_entries;
-+	unsigned int scan_result_expire;
- 	struct cfg80211_scan_request *scan_req; /* protected by RTNL */
- 	struct sk_buff *scan_msg;
- 	struct list_head sched_scan_req_list;
-diff --git a/net/wireless/scan.c b/net/wireless/scan.c
-index 14d5f0c..f0b55a9 100644
---- a/net/wireless/scan.c
-+++ b/net/wireless/scan.c
-@@ -70,8 +70,6 @@ module_param(bss_entries_limit, int, 0644);
- MODULE_PARM_DESC(bss_entries_limit,
-                  "limit to number of scan BSS entries (per wiphy, default 1000)");
- 
--#define IEEE80211_SCAN_RESULT_EXPIRE	(30 * HZ)
+Rob
