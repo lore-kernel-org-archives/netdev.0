@@ -1,43 +1,34 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next] net: sched: cls_matchall: fix null pointer dereference
-Date: Mon, 22 May 2017 16:46:13 +0200
-Message-ID: <20170522144613.22848-1-jiri@resnulli.us>
-Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
-        mlxsw@mellanox.com, colin.king@canonical.com, yotamg@mellanox.com
-To: netdev@vger.kernel.org
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: Re: RDS: TCP: Delete an error message for a failed memory allocation
+ in rds_tcp_init_net()
+Date: Mon, 22 May 2017 10:46:19 -0400
+Message-ID: <20170522144619.GB29434@oracle.com>
+References: <44b46c51-3665-5f14-dd3b-6e6f230258a7@users.sourceforge.net>
+ <5d523cf8-1540-e704-2301-a5e0205cb536@users.sourceforge.net>
+ <20170522142651.GA29434@oracle.com>
+ <1e1a5d08-34a7-1b88-80ac-c650c4ae76cf@users.sourceforge.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
+        rds-devel@oss.oracle.com, kernel-janitors@vger.kernel.org,
+        "David S. Miller" <davem@davemloft.net>,
+        Santosh Shilimkar <santosh.shilimkar@oracle.com>,
+        LKML <linux-kernel@vger.kernel.org>
+To: SF Markus Elfring <elfring@users.sourceforge.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f194.google.com ([209.85.128.194]:33052 "EHLO
-        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S935040AbdEVOqQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 22 May 2017 10:46:16 -0400
-Received: by mail-wr0-f194.google.com with SMTP id w50so7182756wrc.0
-        for <netdev@vger.kernel.org>; Mon, 22 May 2017 07:46:16 -0700 (PDT)
+Received: from userp1040.oracle.com ([156.151.31.81]:46557 "EHLO
+        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S935043AbdEVOqf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 22 May 2017 10:46:35 -0400
+Content-Disposition: inline
+In-Reply-To: <1e1a5d08-34a7-1b88-80ac-c650c4ae76cf@users.sourceforge.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@mellanox.com>
+> Do you find information from a Linux allocation failure report sufficient
+> for such an use case?
 
-Since the head is guaranteed by the check above to be null, the call_rcu
-would explode. Remove the previously logically dead code that was made
-logically very much alive and kicking.
+yes, I suppose that would cover the needed cases. 
+Your change looks good to me.
 
-Fixes: 985538eee06f ("net/sched: remove redundant null check on head")
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
----
- net/sched/cls_matchall.c | 1 -
- 1 file changed, 1 deletion(-)
-
-diff --git a/net/sched/cls_matchall.c b/net/sched/cls_matchall.c
-index dee469f..51859b8 100644
---- a/net/sched/cls_matchall.c
-+++ b/net/sched/cls_matchall.c
-@@ -203,7 +203,6 @@ static int mall_change(struct net *net, struct sk_buff *in_skb,
- 
- 	*arg = (unsigned long) head;
- 	rcu_assign_pointer(tp->root, new);
--	call_rcu(&head->rcu, mall_destroy_rcu);
- 	return 0;
- 
- err_replace_hw_filter:
--- 
-2.9.3
+Acked-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
