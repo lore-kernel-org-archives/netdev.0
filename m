@@ -1,44 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: set default value for somaxconn
-Date: Mon, 22 May 2017 14:18:09 -0400 (EDT)
-Message-ID: <20170522.141809.2056075174395561778.davem@davemloft.net>
-References: <20170522122241.28389-1-roman.kapl@sysgo.com>
+Subject: Re: [PATCH 0/3] stmmac: pci: Refactor DMI probing
+Date: Mon, 22 May 2017 14:23:11 -0400 (EDT)
+Message-ID: <20170522.142311.1866840567813370892.davem@davemloft.net>
+References: <cover.1495451529.git.jan.kiszka@siemens.com>
+        <20170522.123555.2260863464877381826.davem@davemloft.net>
+        <16d9bbf6-0579-f16c-4177-251fa3837a2a@siemens.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: roman.kapl@sysgo.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:54864 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933558AbdEVSSN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 22 May 2017 14:18:13 -0400
-In-Reply-To: <20170522122241.28389-1-roman.kapl@sysgo.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        andy.shevchenko@gmail.com
+To: jan.kiszka@siemens.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <16d9bbf6-0579-f16c-4177-251fa3837a2a@siemens.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Roman Kapl <roman.kapl@sysgo.com>
-Date: Mon, 22 May 2017 14:22:41 +0200
-
-> The default value for somaxconn is set in sysctl_core_net_init(), but this
-> function is not called when kernel is configured without CONFIG_SYSCTL.
-> 
-> This results in the kernel not being able to accept TCP connections,
-> because the backlog has zero size. Usually, the user ends up with:
-> "TCP: request_sock_TCP: Possible SYN flooding on port 7. Dropping request.  Check SNMP counters."
-> 
-> Before ef547f2ac16 (tcp: remove max_qlen_log), the effects were less
-> severe, because the backlog was always at least eight slots long.
-> 
-> Signed-off-by: Roman Kapl <roman.kapl@sysgo.com>
-
-I see the problem, but this changes behavior.
-
-Existing code will set somaxconn to the default value for every namespace
-that is created.
-
-But with you changes, any modification made to init_net's value will
-get inherited by any namespace created as a child thereafterwards.
-
-You really need to make this happen via pernet_operations, or even
-inside of setup_net().
+RnJvbTogSmFuIEtpc3prYSA8amFuLmtpc3prYUBzaWVtZW5zLmNvbT4NCkRhdGU6IE1vbiwgMjIg
+TWF5IDIwMTcgMTk6MDY6MDcgKzAyMDANCg0KPiBPbiAyMDE3LTA1LTIyIDE4OjM1LCBEYXZpZCBN
+aWxsZXIgd3JvdGU6DQo+PiBGcm9tOiBKYW4gS2lzemthIDxqYW4ua2lzemthQHNpZW1lbnMuY29t
+Pg0KPj4gRGF0ZTogTW9uLCAyMiBNYXkgMjAxNyAxMzoxMjowNiArMDIwMA0KPj4gDQo+Pj4gU29t
+ZSBjbGVhbnVwcyBvZiB0aGUgd2F5IHdlIHByb2JlIERNSSBwbGF0Zm9ybXMgaW4gdGhlIGRyaXZl
+ci4gUmVkdWNlcw0KPj4+IGEgYml0IG9mIG9wZW4tY29kaW5nIGFuZCBtYWtlcyB0aGUgbG9naWMg
+ZWFzaWVyIHJldXNhYmxlIGZvciBhbnkNCj4+PiBwb3RlbnRpYWwgRE1JIHBsYXRmb3JtICE9IFF1
+YXJrLg0KPj4+DQo+Pj4gVGVzdGVkIG9uIElPVDIwMDAgYW5kIEdhbGlsZW8gR2VuMi4NCj4+IA0K
+Pj4gVGhpcyBkb2Vzbid0IGNvbXBpbGU6DQo+PiANCj4+IGRyaXZlcnMvbmV0L2V0aGVybmV0L3N0
+bWljcm8vc3RtbWFjL3N0bW1hY19wY2kuYzoyODU6MzogZXJyb3I6IGluaXRpYWxpemVyIGVsZW1l
+bnQgaXMgbm90IGNvbXB1dGFibGUgYXQgbG9hZCB0aW1lDQo+PiAgICAoa2VybmVsX3Vsb25nX3Qp
+JnN0bW1hY19kZWZhdWx0X3NldHVwLA0KPj4gICAgXg0KPj4gZHJpdmVycy9uZXQvZXRoZXJuZXQv
+c3RtaWNyby9zdG1tYWMvc3RtbWFjX3BjaS5jOjI4NTozOiBub3RlOiAobmVhciBpbml0aWFsaXph
+dGlvbiBmb3IgoXN0bW1hY19pZF90YWJsZVswXS5jbGFzc6IpDQo+PiBkcml2ZXJzL25ldC9ldGhl
+cm5ldC9zdG1pY3JvL3N0bW1hYy9zdG1tYWNfcGNpLmM6Mjg5OjM6IGVycm9yOiBpbml0aWFsaXpl
+ciBlbGVtZW50IGlzIG5vdCBjb21wdXRhYmxlIGF0IGxvYWQgdGltZQ0KPj4gICAgKGtlcm5lbF91
+bG9uZ190KSZzdG1tYWNfZGVmYXVsdF9zZXR1cCwNCj4+ICAgIF4NCj4+IGRyaXZlcnMvbmV0L2V0
+aGVybmV0L3N0bWljcm8vc3RtbWFjL3N0bW1hY19wY2kuYzoyODk6Mzogbm90ZTogKG5lYXIgaW5p
+dGlhbGl6YXRpb24gZm9yIKFzdG1tYWNfaWRfdGFibGVbMV0uY2xhc3OiKQ0KPj4gc2NyaXB0cy9N
+YWtlZmlsZS5idWlsZDozMDI6IHJlY2lwZSBmb3IgdGFyZ2V0ICdkcml2ZXJzL25ldC9ldGhlcm5l
+dC9zdG1pY3JvL3N0bW1hYy9zdG1tYWNfcGNpLm8nIGZhaWxlZA0KPj4gbWFrZVs1XTogKioqIFtk
+cml2ZXJzL25ldC9ldGhlcm5ldC9zdG1pY3JvL3N0bW1hYy9zdG1tYWNfcGNpLm9dIEVycm9yIDEN
+Cj4+IA0KPiANCj4gSG1tLiBXaGljaCBhcmNoIGlzIHRoaXM/DQoNCng4Nl82NCwgYWxsbW9kY29u
+ZmlnDQo=
