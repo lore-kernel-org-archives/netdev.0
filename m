@@ -1,60 +1,33 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH 2/2] Add missing <sys/types.h> include
-Date: Mon, 22 May 2017 10:24:42 -0700
-Message-ID: <20170522102442.51d36c39@xeon-e3>
-References: <8afdd8babb9e82bcfde78e851b24b698436a6f9f.1495459674.git.baruch@tkos.co.il>
-        <5cdba9c8dc972d25219517ade6129faf73f459b3.1495459674.git.baruch@tkos.co.il>
+Subject: Re: New Coverity defect in BPF verifier
+Date: Mon, 22 May 2017 10:26:43 -0700
+Message-ID: <20170522102643.35a02b7d@xeon-e3>
+References: <20170522090512.38dbcefa@xeon-e3>
+        <20170522.121604.2157216252893063658.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev@vger.kernel.org,
-        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-To: Baruch Siach <baruch@tkos.co.il>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f179.google.com ([209.85.192.179]:33723 "EHLO
-        mail-pf0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1759608AbdEVRYu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 22 May 2017 13:24:50 -0400
-Received: by mail-pf0-f179.google.com with SMTP id e193so88579144pfh.0
-        for <netdev@vger.kernel.org>; Mon, 22 May 2017 10:24:50 -0700 (PDT)
-In-Reply-To: <5cdba9c8dc972d25219517ade6129faf73f459b3.1495459674.git.baruch@tkos.co.il>
+Received: from mail-pf0-f173.google.com ([209.85.192.173]:35490 "EHLO
+        mail-pf0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1759684AbdEVR0u (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 22 May 2017 13:26:50 -0400
+Received: by mail-pf0-f173.google.com with SMTP id n23so88519318pfb.2
+        for <netdev@vger.kernel.org>; Mon, 22 May 2017 10:26:50 -0700 (PDT)
+In-Reply-To: <20170522.121604.2157216252893063658.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 22 May 2017 16:27:54 +0300
-Baruch Siach <baruch@tkos.co.il> wrote:
+On Mon, 22 May 2017 12:16:04 -0400 (EDT)
+David Miller <davem@davemloft.net> wrote:
 
-> From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
->=20
-> The u_intXX_t types are defined in <sys/types.h>, so it should be
-> included before using those types. Otherwise, with certain C
-> libraries, the build fails with:
->=20
-> In file included from ../include/iptables.h:4:0,
->                  from m_ipt.c:18:
-> ../include/iptables_common.h:47:16: error: unknown type name =E2=80=98u_i=
-nt32_t=E2=80=99
->  #define __le32 u_int32_t
->=20
-> Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-> Signed-off-by: Baruch Siach <baruch@tkos.co.il>
-> ---
->  include/iptables_common.h | 2 ++
->  1 file changed, 2 insertions(+)
->=20
-> diff --git a/include/iptables_common.h b/include/iptables_common.h
-> index 9099667ffa6d..2c27a4b61fcd 100644
-> --- a/include/iptables_common.h
-> +++ b/include/iptables_common.h
-> @@ -43,6 +43,8 @@ extern char *lib_dir;
->    extern void init_extensions(void);
->  #endif
-> =20
-> +#include <sys/types.h>
-> +
->  #define __be32	u_int32_t
->  #define __le32	u_int32_t
->  #define __be16	u_int16_t
+> Stephen, if you had even lightly scanned netdev today, you can see
+> that we are discussing this already and there are at least two
+> patches proposed.
+> 
+> Thank you.
 
-This include file comes from netfilter, so not going to change it in iprout=
-e2 repo.
+Sorry hadn't gotten that far. Doing full scan of 100's of messages
+a day is not always possible.
