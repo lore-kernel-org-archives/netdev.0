@@ -1,63 +1,91 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: [PATCH 2/5] sctp: Delete an error message for a failed memory
- allocation in sctp_init()
-Date: Mon, 22 May 2017 13:56:58 -0300
-Message-ID: <20170522165658.GA4642@localhost.localdomain>
-References: <2845df67-d35d-536a-0a53-b2eb83fe1ba5@users.sourceforge.net>
- <7db0cb49-109b-88a6-532f-c591cc8ffa85@users.sourceforge.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-        "David S. Miller" <davem@davemloft.net>,
-        Neil Horman <nhorman@tuxdriver.com>,
-        Vlad Yasevich <vyasevich@gmail.com>,
-        LKML <linux-kernel@vger.kernel.org>,
-        kernel-janitors@vger.kernel.org
-To: SF Markus Elfring <elfring@users.sourceforge.net>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <7db0cb49-109b-88a6-532f-c591cc8ffa85@users.sourceforge.net>
-Sender: kernel-janitors-owner@vger.kernel.org
+From: Romain Perier <romain.perier@collabora.com>
+Subject: [PATCH v9 14/15] scsi: pmcraid: Replace PCI pool old API
+Date: Mon, 22 May 2017 18:49:06 +0200
+Message-ID: <20170522164907.22915-15-romain.perier@collabora.com>
+References: <20170522164907.22915-1-romain.perier@collabora.com>
+Cc: linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
+        linux-usb@vger.kernel.org, linux-scsi@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        Romain Perier <romain.perier@collabora.com>,
+        Peter Senna Tschudin <peter.senna@collabora.co.uk>
+To: Dan Williams <dan.j.williams@intel.com>,
+        Doug Ledford <dledford@redhat.com>,
+        Sean Hefty <sean.hefty@intel.com>,
+        Hal Rosenstock <hal.rosenstock@gmail.com>,
+        jeffrey.t.kirsher@intel.com,
+        "David S. Miller" <davem@davemloft.net>, stas.yakovlev@gmail.com,
+        "James E.J. Bottomley" <jejb@linux.vnet.ibm.com>,
+        "Martin K. Petersen" <martin.petersen@oracle.com>,
+        Felipe Balbi <balbi@kernel.org>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <20170522164907.22915-1-romain.perier@collabora.com>
+Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, May 22, 2017 at 06:38:21PM +0200, SF Markus Elfring wrote:
-> From: Markus Elfring <elfring@users.sourceforge.net>
-> Date: Mon, 22 May 2017 17:28:14 +0200
-> 
-> Omit an extra message for a memory allocation failure in this function.
-> 
-> This issue was detected by using the Coccinelle software.
-> 
-> Link: http://events.linuxfoundation.org/sites/events/files/slides/LCJ16-Refactor_Strings-WSang_0.pdf
-> Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
-> ---
->  net/sctp/protocol.c | 1 -
->  1 file changed, 1 deletion(-)
-> 
-> diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
-> index 2b1a6215bd2f..5e7c8a344770 100644
-> --- a/net/sctp/protocol.c
-> +++ b/net/sctp/protocol.c
-> @@ -1447,5 +1447,4 @@ static __init int sctp_init(void)
->  	if (!sctp_ep_hashtable) {
-> -		pr_err("Failed endpoint_hash alloc\n");
+The PCI pool API is deprecated. This commit replaces the PCI pool old
+API by the appropriate function with the DMA pool API.
 
-Okay but then why not also delete the one a few lines below this one:
-        if (!sctp_port_hashtable) {
-                pr_err("Failed bind hash alloc\n");
-                status = -ENOMEM;
-                goto err_bhash_alloc;
-        }
-Seems the same pattern to me.
+Signed-off-by: Romain Perier <romain.perier@collabora.com>
+Acked-by: Peter Senna Tschudin <peter.senna@collabora.com>
+Tested-by: Peter Senna Tschudin <peter.senna@collabora.com>
+---
+ drivers/scsi/pmcraid.c | 10 +++++-----
+ drivers/scsi/pmcraid.h |  2 +-
+ 2 files changed, 6 insertions(+), 6 deletions(-)
 
->  		status = -ENOMEM;
->  		goto err_ehash_alloc;
->  	}
-> -- 
-> 2.13.0
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+diff --git a/drivers/scsi/pmcraid.c b/drivers/scsi/pmcraid.c
+index 1cc814f1505a..1f8b1533d0c4 100644
+--- a/drivers/scsi/pmcraid.c
++++ b/drivers/scsi/pmcraid.c
+@@ -4655,13 +4655,13 @@ pmcraid_release_control_blocks(
+ 		return;
+ 
+ 	for (i = 0; i < max_index; i++) {
+-		pci_pool_free(pinstance->control_pool,
++		dma_pool_free(pinstance->control_pool,
+ 			      pinstance->cmd_list[i]->ioa_cb,
+ 			      pinstance->cmd_list[i]->ioa_cb_bus_addr);
+ 		pinstance->cmd_list[i]->ioa_cb = NULL;
+ 		pinstance->cmd_list[i]->ioa_cb_bus_addr = 0;
+ 	}
+-	pci_pool_destroy(pinstance->control_pool);
++	dma_pool_destroy(pinstance->control_pool);
+ 	pinstance->control_pool = NULL;
+ }
+ 
+@@ -4718,8 +4718,8 @@ static int pmcraid_allocate_control_blocks(struct pmcraid_instance *pinstance)
+ 		pinstance->host->unique_id);
+ 
+ 	pinstance->control_pool =
+-		pci_pool_create(pinstance->ctl_pool_name,
+-				pinstance->pdev,
++		dma_pool_create(pinstance->ctl_pool_name,
++				&pinstance->pdev->dev,
+ 				sizeof(struct pmcraid_control_block),
+ 				PMCRAID_IOARCB_ALIGNMENT, 0);
+ 
+@@ -4728,7 +4728,7 @@ static int pmcraid_allocate_control_blocks(struct pmcraid_instance *pinstance)
+ 
+ 	for (i = 0; i < PMCRAID_MAX_CMD; i++) {
+ 		pinstance->cmd_list[i]->ioa_cb =
+-			pci_pool_alloc(
++			dma_pool_alloc(
+ 				pinstance->control_pool,
+ 				GFP_KERNEL,
+ 				&(pinstance->cmd_list[i]->ioa_cb_bus_addr));
+diff --git a/drivers/scsi/pmcraid.h b/drivers/scsi/pmcraid.h
+index 01eb2bc16dc1..8bfac72a242b 100644
+--- a/drivers/scsi/pmcraid.h
++++ b/drivers/scsi/pmcraid.h
+@@ -755,7 +755,7 @@ struct pmcraid_instance {
+ 
+ 	/* structures related to command blocks */
+ 	struct kmem_cache *cmd_cachep;		/* cache for cmd blocks */
+-	struct pci_pool *control_pool;		/* pool for control blocks */
++	struct dma_pool *control_pool;		/* pool for control blocks */
+ 	char   cmd_pool_name[64];		/* name of cmd cache */
+ 	char   ctl_pool_name[64];		/* name of control cache */
+ 
+-- 
+2.11.0
