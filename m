@@ -1,30 +1,32 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: 4.12-RC2 BUG: scheduling while atomic: irq/47-iwlwifi
-Date: Mon, 22 May 2017 12:57:08 +0200
-Message-ID: <1495450628.2653.14.camel@sipsolutions.net>
-References: <a54f3f4f-2365-2154-ad18-82e4cd572aac@eikelenboom.it>
-         (sfid-20170522_124945_484427_F6127CF5)
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH net-next 9/9] ipv6: remove unused variables in esp6
+Date: Mon, 22 May 2017 12:59:32 +0200
+Message-ID: <20170522105932.GE2631@secunet.com>
+References: <20170519165556.483-1-sthemmin@microsoft.com>
+ <20170519165556.483-10-sthemmin@microsoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Sander Eikelenboom <linux-6SM94LqRVpn6gRhOQ7JHfg@public.gmane.org>,
-        linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Arend Van Spriel <arend.vanspriel-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <a54f3f4f-2365-2154-ad18-82e4cd572aac-6SM94LqRVpn6gRhOQ7JHfg@public.gmane.org> (sfid-20170522_124945_484427_F6127CF5)
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+        Stephen Hemminger <sthemmin@microsoft.com>
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([62.96.220.36]:50306 "EHLO a.mx.secunet.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752181AbdEVK7f (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 22 May 2017 06:59:35 -0400
+Content-Disposition: inline
+In-Reply-To: <20170519165556.483-10-sthemmin@microsoft.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2017-05-22 at 12:36 +0200, Sander Eikelenboom wrote:
-> Hi,
+On Fri, May 19, 2017 at 09:55:56AM -0700, Stephen Hemminger wrote:
+> Resolves warnings:
+> net/ipv6/esp6.c: In function ‘esp_ssg_unref’:
+> net/ipv6/esp6.c:121:10: warning: variable ‘seqhi’ set but not used [-Wunused-but-set-variable]
+> net/ipv6/esp6.c: In function ‘esp6_output_head’:
+> net/ipv6/esp6.c:227:21: warning: variable ‘esph’ set but not used [-Wunused-but-set-variable]
 > 
-> I encountered this splat with 4.12-RC2.
+> Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
 
-Ugh, yeah, I should've seen that in the review.
-
-Arend, please take a look at this. cfg80211_sched_scan_results() cannot
-sleep, so you can't rtnl_lock() in there. Looks like you can just rely
-on RCU though?
-
-johannes
+Applied to ipsec-next, thanks!
