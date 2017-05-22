@@ -1,45 +1,32 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2] bridge: fix hello and hold timers
- starting/stopping
-Date: Mon, 22 May 2017 14:41:30 -0400 (EDT)
-Message-ID: <20170522.144130.1968086500919533289.davem@davemloft.net>
-References: <20170519173043.10201-1-cera@cera.cz>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH] include stdint.h explicitly for UINT16_MAX)
+Date: Mon, 22 May 2017 11:44:53 -0700
+Message-ID: <20170522114453.2de34178@xeon-e3>
+References: <20170520212846.3534-1-raj.khem@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sashok@cumulusnetworks.com,
-        stephen@networkplumber.org, bridge@lists.linux-foundation.org,
-        lucien.xin@gmail.com, nikolay@cumulusnetworks.com
-To: cera@cera.cz
+Cc: netdev@vger.kernel.org
+To: Khem Raj <raj.khem@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:55040 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1760909AbdEVSlc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 22 May 2017 14:41:32 -0400
-In-Reply-To: <20170519173043.10201-1-cera@cera.cz>
+Received: from mail-pf0-f175.google.com ([209.85.192.175]:34185 "EHLO
+        mail-pf0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1760756AbdEVSpB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 22 May 2017 14:45:01 -0400
+Received: by mail-pf0-f175.google.com with SMTP id 9so90323142pfj.1
+        for <netdev@vger.kernel.org>; Mon, 22 May 2017 11:45:01 -0700 (PDT)
+In-Reply-To: <20170520212846.3534-1-raj.khem@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ivan Vecera <cera@cera.cz>
-Date: Fri, 19 May 2017 19:30:43 +0200
+On Sat, 20 May 2017 14:28:46 -0700
+Khem Raj <raj.khem@gmail.com> wrote:
 
-> Current bridge code incorrectly handles starting/stopping of hello and
-> hold timers during STP enable/disable.
+> Fixes
+> | tc_core.c:190:29: error: 'UINT16_MAX' undeclared (first use in this function); did you mean '__INT16_MAX__'?
+> |    if ((sz >> s->size_log) > UINT16_MAX) {
+> |                              ^~~~~~~~~~
 > 
-> 1. Timers are stopped in br_stp_start() during NO_STP->USER_STP
->    transition. The timers are already stopped in NO_STP state so
->    this is confusing no-op.
-> 
-> 2. During USER_STP->NO_STP transition the timers are started. This
->    does not make sense and is confusion because the timer should not be
->    active in NO_STP state.
-> 
-> Cc: davem@davemloft.net
-> Cc: sashok@cumulusnetworks.com
-> Cc: stephen@networkplumber.org
-> Cc: bridge@lists.linux-foundation.org
-> Cc: lucien.xin@gmail.com
-> Cc: nikolay@cumulusnetworks.com
-> Signed-off-by: Ivan Vecera <cera@cera.cz>
+> Signed-off-by: Khem Raj <raj.khem@gmail.com>
 
 Applied.
