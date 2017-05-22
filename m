@@ -1,45 +1,56 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: Re: [PATCH 2/2] vhost/scsi: Delete error messages for failed memory
-	allocations in five functions
-Date: Mon, 22 May 2017 15:38:33 +0300
-Message-ID: <20170522123833.asx2biaw4xaz4qpv@mwanda>
-References: <bafa65e4-08fe-efdb-d836-7657e8a64749@users.sourceforge.net>
-	<babc429d-6440-92aa-e1d0-eee2636a8d0f@users.sourceforge.net>
-	<20170522094320.GE12205@stefanha-x1.localdomain>
-	<557bdff4-6dc2-756d-0d59-9f688ef11f0a@users.sourceforge.net>
-	<20170522112320.GA22806@stefanha-x1.localdomain>
+From: Jan Kiszka <jan.kiszka@siemens.com>
+Subject: Re: [PATCH 3/3] stmmac: pci: Use dmi_system_id table for retrieving
+ PHY addresses
+Date: Mon, 22 May 2017 14:49:18 +0200
+Message-ID: <72ff21ba-f774-b3d5-23b4-e70095cedbef@siemens.com>
+References: <cover.1495451529.git.jan.kiszka@siemens.com>
+ <c8e6966227a9c2981e822b2deac8c036651b088c.1495451529.git.jan.kiszka@siemens.com>
+ <1495452830.2093.14.camel@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: kvm@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>,
-	netdev@vger.kernel.org, Wolfram Sang <wsa@the-dreams.de>,
-	kernel-janitors@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-	virtualization@lists.linux-foundation.org,
-	SF Markus Elfring <elfring@users.sourceforge.net>
-To: Stefan Hajnoczi <stefanha@gmail.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <20170522112320.GA22806@stefanha-x1.localdomain>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Andy Shevchenko <andy.shevchenko@gmail.com>
+To: Joe Perches <joe@perches.com>,
+        Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+        Alexandre Torgue <alexandre.torgue@st.com>,
+        David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1495452830.2093.14.camel@perches.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, May 22, 2017 at 12:23:20PM +0100, Stefan Hajnoczi wrote:
-> I'm not sure if kmalloc() and friends guarantee to show
-> a message (not just the first time, but for every failed allocation)?
->
+On 2017-05-22 13:33, Joe Perches wrote:
+> On Mon, 2017-05-22 at 13:12 +0200, Jan Kiszka wrote:
+>> Avoids reimplementation of DMI matching in stmmac_pci_find_phy_addr.
+> []
+>> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
+> []
+>> @@ -31,65 +31,78 @@
+> []
+>> +static const struct stmmac_pci_dmi_data iot2040_stmmac_dmi_data[] = {
+>>  	{
+>> -		.name = "GalileoGen2",
+>>  		.func = 6,
+>>  		.phy_addr = 1,
+>>  	},
+>>  	{
+>> -		.name = "SIMATIC IOT2000",
+>> -		.asset_tag = "6ES7647-0AA00-0YA2",
+>> -		.func = 6,
+>> +		.func = 7,
+> 
+> Why change this from 6 to 7?
+> 
 
-It prints multiple times, but it's ratelimited.  It can also be disabled
-using a config option.
+The diff is confusing here: If you look at the outcome, we now have
+galileo_stmmac_dmi_data with function 6 only (also used for the
+IOT2020), and iot2040_stmmac_dmi_data with both function 6 and 7 (both
+MACs are wired up).
 
-See slab_out_of_memory().
+Jan
 
-regards,
-dan carpenter
+-- 
+Siemens AG, Corporate Technology, CT RDA ITP SES-DE
+Corporate Competence Center Embedded Linux
