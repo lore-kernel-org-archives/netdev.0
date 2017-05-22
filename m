@@ -1,111 +1,96 @@
-From: <Woojung.Huh@microchip.com>
-Subject: RE: [PATCH v3 net-next 3/5] dsa: add DSA switch driver for
- Microchip KSZ9477
-Date: Mon, 22 May 2017 22:26:31 +0000
-Message-ID: <9235D6609DB808459E95D78E17F2E43D40A81286@CHN-SV-EXMX02.mchp-main.com>
-References: <9235D6609DB808459E95D78E17F2E43D40A7C023@CHN-SV-EXMX02.mchp-main.com>
- <20170522143134.GC29447@lunn.ch>
- <9235D6609DB808459E95D78E17F2E43D40A81210@CHN-SV-EXMX02.mchp-main.com>
- <20170522212757.GS29447@lunn.ch>
+From: Kees Cook <keescook@chromium.org>
+Subject: Re: [PATCH v4 next 2/3] modules:capabilities: automatic module
+ loading restriction
+Date: Mon, 22 May 2017 15:28:32 -0700
+Message-ID: <CAGXu5jL16KHWoddpT2tdnLrgrGM8vDxmTt=BSELf1Pqfquk3YA@mail.gmail.com>
+References: <1495454226-10027-1-git-send-email-tixxdz@gmail.com> <1495454226-10027-3-git-send-email-tixxdz@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <f.fainelli@gmail.com>, <vivien.didelot@savoirfairelinux.com>,
-        <sergei.shtylyov@cogentembedded.com>, <netdev@vger.kernel.org>,
-        <davem@davemloft.net>, <UNGLinuxDriver@microchip.com>
-To: <andrew@lunn.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from esa2.microchip.iphmx.com ([68.232.149.84]:49186 "EHLO
-        esa2.microchip.iphmx.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752012AbdEVW0d (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 22 May 2017 18:26:33 -0400
-In-Reply-To: <20170522212757.GS29447@lunn.ch>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: LKML <linux-kernel@vger.kernel.org>,
+        Network Development <netdev@vger.kernel.org>,
+        linux-security-module <linux-security-module@vger.kernel.org>,
+        "kernel-hardening@lists.openwall.com"
+        <kernel-hardening@lists.openwall.com>,
+        Andy Lutomirski <luto@kernel.org>,
+        Andrew Morton <akpm@linux-foundation.org>,
+        Rusty Russell <rusty@rustcorp.com.au>,
+        "Serge E. Hallyn" <serge@hallyn.com>, Jessica Yu <jeyu@redhat.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        James Morris <james.l.morris@oracle.com>,
+        Paul Moore <paul@paul-moore.com>,
+        Stephen Smalley <sds@tycho.nsa.gov>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
+        Ingo Molnar <mingo@kernel.org>,
+        Linux API <linux-api@vger.kernel.org>,
+        Dongsu Park <dpark@posteo.
+To: Djalal Harouni <tixxdz@gmail.com>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <1495454226-10027-3-git-send-email-tixxdz@gmail.com>
+Sender: owner-linux-security-module@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> > > > +static int get_vlan_table(struct dsa_switch *ds, u16 vid, u32
-> *vlan_table)
-> > > > +{
-> > > > +	struct ksz_device *dev = ds->priv;
-> > > > +	u8 data;
-> > > > +	int timeout = 1000;
-> > > > +
-> > > > +	ksz_write16(dev, REG_SW_VLAN_ENTRY_INDEX__2, vid &
-> > > VLAN_INDEX_M);
-> > > > +	ksz_write8(dev, REG_SW_VLAN_CTRL, VLAN_READ | VLAN_START);
-> > > > +
-> > > > +	/* wait to be cleared */
-> > > > +	data = 0;
-> > > > +	do {
-> > > > +		ksz_read8(dev, REG_SW_VLAN_CTRL, &data);
-> > > > +		if (!(data & VLAN_START))
-> > > > +			break;
-> > > > +		usleep_range(1, 10);
-> > > > +	} while (timeout-- > 0);
-> > > > +
-> > > > +	if (!timeout)
-> > > > +		return -ETIMEDOUT;
-> > > > +
-> > > > +	ksz_read32(dev, REG_SW_VLAN_ENTRY__4, &vlan_table[0]);
-> > > > +	ksz_read32(dev, REG_SW_VLAN_ENTRY_UNTAG__4,
-> > > &vlan_table[1]);
-> > > > +	ksz_read32(dev, REG_SW_VLAN_ENTRY_PORTS__4, &vlan_table[2]);
-> > > > +
-> > > > +	ksz_write8(dev, REG_SW_VLAN_CTRL, 0);
-> > > > +
-> > > > +	return 0;
-> > > > +}
-> > > > +
-> > > > +static int set_vlan_table(struct dsa_switch *ds, u16 vid, u32
-> *vlan_table)
-> > > > +{
-> > > > +	struct ksz_device *dev = ds->priv;
-> > > > +	u8 data;
-> > > > +	int timeout = 1000;
-> > > > +
-> > > > +	ksz_write32(dev, REG_SW_VLAN_ENTRY__4, vlan_table[0]);
-> > > > +	ksz_write32(dev, REG_SW_VLAN_ENTRY_UNTAG__4, vlan_table[1]);
-> > > > +	ksz_write32(dev, REG_SW_VLAN_ENTRY_PORTS__4, vlan_table[2]);
-> > > > +
-> > > > +	ksz_write16(dev, REG_SW_VLAN_ENTRY_INDEX__2, vid &
-> > > VLAN_INDEX_M);
-> > > > +	ksz_write8(dev, REG_SW_VLAN_CTRL, VLAN_START | VLAN_WRITE);
-> > > > +
-> > > > +	do {
-> > > > +		ksz_read8(dev, REG_SW_VLAN_CTRL, &data);
-> > > > +		if (!(data & VLAN_START))
-> > > > +			break;
-> > > > +		usleep_range(1, 10);
-> > > > +	} while (timeout-- > 0);
-> > > > +
-> > > > +	if (!timeout)
-> > > > +		return -ETIMEDOUT;
-> > > > +
-> > > > +	ksz_write8(dev, REG_SW_VLAN_CTRL, 0);
-> > > > +
-> > > > +	mutex_lock(&dev->vlancache_mutex);
-> > >
-> > > Humm. I think this is wrong. Shouldn't you hold the mutex while you
-> > > change the hardware as well as the cache. Otherwise there is a risk
-> > > your cache could be different to the hardware when you get a race
-> > > between two threads?
-> > Thanks for pointing this out.
-> > Rather than two separate mutex (H/W and vlancache), will put one HW
-> access mutex
-> > around get_vlan_table and set_vlan_table to cover vlancache access too.
-> Even though
-> > little bit overhead. How do you think?
-> 
-> I would move the mutex_lock(&dev->vlancache_mutex) to be beginning of
-> the function. It then protects both the hardware and the vlan cache,
-> and keeps them synchronised.
-> 
-Andrew,
+On Mon, May 22, 2017 at 4:57 AM, Djalal Harouni <tixxdz@gmail.com> wrote:
+> [...]
+> diff --git a/kernel/module.c b/kernel/module.c
+> index 4a3665f..ce7a146 100644
+> --- a/kernel/module.c
+> +++ b/kernel/module.c
+> @@ -282,6 +282,8 @@ module_param(sig_enforce, bool_enable_only, 0644);
+>
+>  /* Block module loading/unloading? */
+>  int modules_disabled = 0;
+> +int modules_autoload_mode = MODULES_AUTOLOAD_ALLOWED;
+> +const int modules_autoload_max = MODULES_AUTOLOAD_DISABLED;
+>  core_param(nomodule, modules_disabled, bint, 0);
+>
+>  /* Waiting for a module to finish initializing? */
+> @@ -4296,6 +4298,46 @@ struct module *__module_text_address(unsigned long addr)
+>  }
+>  EXPORT_SYMBOL_GPL(__module_text_address);
+>
+> +/**
+> + * may_autoload_module - Determine whether a module auto-load operation
+> + * is permitted
+> + * @kmod_name: The module name
+> + * @allow_cap: if positive, may allow to auto-load the module if this capability
+> + * is set
+> + *
+> + * Determine whether a module auto-load operation is allowed or not. The check
+> + * uses the sysctl "modules_autoload_mode" value.
+> + *
+> + * This allows to have more control on automatic module loading, and align it
+> + * with explicit load/unload module operations. The kernel contains several
+> + * modules, some of them are not updated often and may contain bugs and
+> + * vulnerabilities.
+> + *
+> + * The "allow_cap" is passed by callers to explicitly note that the module has
+> + * the appropriate alias and that the "allow_cap" capability is set. This is
+> + * for backward compatibility, the aim is to have a clear picture where:
+> + *
+> + * 1) Implicit module loading is allowed
+> + * 2) Implicit module loading as with the explicit one requires CAP_SYS_MODULE.
+> + * 3) Implicit module loading as with the explicit one can be disabled.
+> + *
+> + * Returns 0 if the module request is allowed or -EPERM if not.
+> + */
+> +int may_autoload_module(char *kmod_name, int allow_cap)
+> +{
+> +       if (modules_autoload_mode == MODULES_AUTOLOAD_ALLOWED)
+> +               return 0;
+> +       else if (modules_autoload_mode == MODULES_AUTOLOAD_PRIVILEGED) {
+> +               /* Check CAP_SYS_MODULE then allow_cap if valid */
+> +               if (capable(CAP_SYS_MODULE) ||
+> +                   (allow_cap > 0 && capable(allow_cap)))
 
-I believe mutex is needed in get_vlan_table() too.
-vlancache_mutex doesn't match exactly what it does, I would change name to
-vlan_mutex.
+With the allow_cap check already happening in my suggestion for
+__request_module(), it's not needed here. (In fact, it's not even
+really needed to plumb this into the hook, I don't think?
 
-Thanks.
-- Woojung
+Regardless, I remain a fan. :)
+
+-Kees
+
+-- 
+Kees Cook
+Pixel Security
