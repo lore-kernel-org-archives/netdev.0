@@ -1,61 +1,49 @@
-From: Andy Shevchenko <andy.shevchenko@gmail.com>
-Subject: Re: [PATCH 3/3] stmmac: pci: Use dmi_system_id table for retrieving
- PHY addresses
-Date: Mon, 22 May 2017 19:59:10 +0300
-Message-ID: <CAHp75VfDJEC1HYHX_ebONA26TmNWsCg8LLWaLQ3Xfttm6cPsXA@mail.gmail.com>
-References: <cover.1495451529.git.jan.kiszka@siemens.com> <c8e6966227a9c2981e822b2deac8c036651b088c.1495451529.git.jan.kiszka@siemens.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH] kernel: bpf: remove dead code
+Date: Mon, 22 May 2017 19:00:14 +0200
+Message-ID: <5923191E.30804@iogearbox.net>
+References: <20170522140746.GA10113@embeddedgus>        <20170522.103800.1354089494827582585.davem@davemloft.net>       <5922FB28.5070303@iogearbox.net> <20170522.122742.1326733219925627993.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-        Alexandre Torgue <alexandre.torgue@st.com>,
-        David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Jan Kiszka <jan.kiszka@siemens.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <c8e6966227a9c2981e822b2deac8c036651b088c.1495451529.git.jan.kiszka@siemens.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: garsilva@embeddedor.com, ast@kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:38094 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1759979AbdEVRAW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 22 May 2017 13:00:22 -0400
+In-Reply-To: <20170522.122742.1326733219925627993.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 22, 2017 at 2:12 PM, Jan Kiszka <jan.kiszka@siemens.com> wrote:
-> Avoids reimplementation of DMI matching in stmmac_pci_find_phy_addr.
+On 05/22/2017 06:27 PM, David Miller wrote:
+[...]
+> Ok I understand the issue now.  Thanks for explaining.
+>
+> I guess a hard-coded value of 2 and an adjusted comment above the
+> assignment of ip_align is the way to go.
+>
+> I'll push the following, thanks everyone:
+>
+> ====================
+> net: Make IP alignment calulations clearer.
+>
+> The assignmnet:
+>
+> 	ip_align = strict ? 2 : NET_IP_ALIGN;
+>
+> in compare_pkt_ptr_alignment() trips up Coverity because we can only
+> get to this code when strict is true, therefore ip_align will always
+> be 2 regardless of NET_IP_ALIGN's value.
+>
+> So just assign directly to '2' and explain the situation in the
+> comment above.
+>
+> Reported-by: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+> Signed-off-by: David S. Miller <davem@davemloft.net>
 
->  struct stmmac_pci_dmi_data {
-> -       const char *name;
-> -       const char *asset_tag;
-> -       unsigned int func;
-> +       int func;
->         int phy_addr;
->  };
+Yeah, that's fine, thanks!
 
-Perhaps
-  struct stmmac_pci_dmi_data {
-     unsigned int func;
-     int phy_addr;
-  };
-
-struct stmmac_pci_info {
-  struct stmmac_pci_dmi_data *data;
-  size_t nmaps;
- (*setup)(struct plat_stmmacenet_data *plat, struct stmmac_pci_info *info);
-};
-
-static const struct stmmac_pci_dmi_data galileo_stmmac_dmi_data[] = {
-        {
-                 .func = 6,
-                 .phy_addr = 1,
-        },
-};
-
-static struct stmmac_pci_info galileo_pci_info  = {
- .map = galileo_stmmac_dmi_data,
- .nmaps = ARRAY_SIZE(galileo_stmmac_dmi_data),
- .setup = quark_default_setup,
-}
-
-
-?
-
--- 
-With Best Regards,
-Andy Shevchenko
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
