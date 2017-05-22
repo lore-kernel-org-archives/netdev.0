@@ -1,96 +1,63 @@
-From: Kees Cook <keescook@chromium.org>
-Subject: Re: [PATCH v4 next 2/3] modules:capabilities: automatic module
- loading restriction
-Date: Mon, 22 May 2017 15:28:32 -0700
-Message-ID: <CAGXu5jL16KHWoddpT2tdnLrgrGM8vDxmTt=BSELf1Pqfquk3YA@mail.gmail.com>
-References: <1495454226-10027-1-git-send-email-tixxdz@gmail.com> <1495454226-10027-3-git-send-email-tixxdz@gmail.com>
+From: Alexei Starovoitov <ast@fb.com>
+Subject: [PATCH net-next 0/2] perf, bpf: add support for HW_CACHE and RAW events
+Date: Mon, 22 May 2017 15:48:38 -0700
+Message-ID: <20170522224840.810121-1-ast@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: LKML <linux-kernel@vger.kernel.org>,
-        Network Development <netdev@vger.kernel.org>,
-        linux-security-module <linux-security-module@vger.kernel.org>,
-        "kernel-hardening@lists.openwall.com"
-        <kernel-hardening@lists.openwall.com>,
-        Andy Lutomirski <luto@kernel.org>,
-        Andrew Morton <akpm@linux-foundation.org>,
-        Rusty Russell <rusty@rustcorp.com.au>,
-        "Serge E. Hallyn" <serge@hallyn.com>, Jessica Yu <jeyu@redhat.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        James Morris <james.l.morris@oracle.com>,
-        Paul Moore <paul@paul-moore.com>,
-        Stephen Smalley <sds@tycho.nsa.gov>,
-        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
-        Ingo Molnar <mingo@kernel.org>,
-        Linux API <linux-api@vger.kernel.org>,
-        Dongsu Park <dpark@posteo.
-To: Djalal Harouni <tixxdz@gmail.com>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <1495454226-10027-3-git-send-email-tixxdz@gmail.com>
-Sender: owner-linux-security-module@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: Peter Zijlstra <peterz@infradead.org>,
+        Brendan Gregg <bgregg@netflix.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Teng Qin <qinteng@fb.com>, <netdev@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>, <kernel-team@fb.com>
+To: "David S . Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:59057 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751349AbdEVWsm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 22 May 2017 18:48:42 -0400
+Received: from pps.filterd (m0044010.ppops.net [127.0.0.1])
+        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v4MMZHUe014655
+        for <netdev@vger.kernel.org>; Mon, 22 May 2017 15:48:42 -0700
+Received: from mail.thefacebook.com ([199.201.64.23])
+        by mx0a-00082601.pphosted.com with ESMTP id 2am439h1t7-1
+        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Mon, 22 May 2017 15:48:42 -0700
+Received: from facebook.com (2401:db00:11:d082:face:0:5:0)      by
+ mx-out.facebook.com (10.212.236.89) with ESMTP id
+ cd258a563f4011e7af430002c95209d8-ca7358f0 for <netdev@vger.kernel.org>;        Mon,
+ 22 May 2017 15:48:41 -0700
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 22, 2017 at 4:57 AM, Djalal Harouni <tixxdz@gmail.com> wrote:
-> [...]
-> diff --git a/kernel/module.c b/kernel/module.c
-> index 4a3665f..ce7a146 100644
-> --- a/kernel/module.c
-> +++ b/kernel/module.c
-> @@ -282,6 +282,8 @@ module_param(sig_enforce, bool_enable_only, 0644);
->
->  /* Block module loading/unloading? */
->  int modules_disabled = 0;
-> +int modules_autoload_mode = MODULES_AUTOLOAD_ALLOWED;
-> +const int modules_autoload_max = MODULES_AUTOLOAD_DISABLED;
->  core_param(nomodule, modules_disabled, bint, 0);
->
->  /* Waiting for a module to finish initializing? */
-> @@ -4296,6 +4298,46 @@ struct module *__module_text_address(unsigned long addr)
->  }
->  EXPORT_SYMBOL_GPL(__module_text_address);
->
-> +/**
-> + * may_autoload_module - Determine whether a module auto-load operation
-> + * is permitted
-> + * @kmod_name: The module name
-> + * @allow_cap: if positive, may allow to auto-load the module if this capability
-> + * is set
-> + *
-> + * Determine whether a module auto-load operation is allowed or not. The check
-> + * uses the sysctl "modules_autoload_mode" value.
-> + *
-> + * This allows to have more control on automatic module loading, and align it
-> + * with explicit load/unload module operations. The kernel contains several
-> + * modules, some of them are not updated often and may contain bugs and
-> + * vulnerabilities.
-> + *
-> + * The "allow_cap" is passed by callers to explicitly note that the module has
-> + * the appropriate alias and that the "allow_cap" capability is set. This is
-> + * for backward compatibility, the aim is to have a clear picture where:
-> + *
-> + * 1) Implicit module loading is allowed
-> + * 2) Implicit module loading as with the explicit one requires CAP_SYS_MODULE.
-> + * 3) Implicit module loading as with the explicit one can be disabled.
-> + *
-> + * Returns 0 if the module request is allowed or -EPERM if not.
-> + */
-> +int may_autoload_module(char *kmod_name, int allow_cap)
-> +{
-> +       if (modules_autoload_mode == MODULES_AUTOLOAD_ALLOWED)
-> +               return 0;
-> +       else if (modules_autoload_mode == MODULES_AUTOLOAD_PRIVILEGED) {
-> +               /* Check CAP_SYS_MODULE then allow_cap if valid */
-> +               if (capable(CAP_SYS_MODULE) ||
-> +                   (allow_cap > 0 && capable(allow_cap)))
+Patch 1: add support for HW_CACHE and RAW perf events to bpf:
+- similar to PERF_TYPE_RAW and PERF_TYPE_HARDWARE allow PERF_TYPE_HW_CACHE
+  events to be accessed via bpf_perf_event_read()
+- similar to PERF_TYPE_HARDWARE and PERF_TYPE_SOFTWARE allow bpf programs
+  to attch to PERF_TYPE_HW_CACHE and PERF_TYPE_RAW events as
+  BPF_PROG_TYPE_PERF_EVENT program type
 
-With the allow_cap check already happening in my suggestion for
-__request_module(), it's not needed here. (In fact, it's not even
-really needed to plumb this into the hook, I don't think?
+Patch 2: add tests for HW_CACHE and RAW events
 
-Regardless, I remain a fan. :)
+---
+Peter,
+please review patch 1. It looks trivial and as far as
+we can see nothing else needed. The existing perf+bpf infra
+covers it just fine.
 
--Kees
+Thanks!
+
+Teng Qin (2):
+  perf, bpf: add support for HW_CACHE and RAW events
+  samples/bpf: add samples for HW_CACHE / RAW events
+
+ kernel/bpf/arraymap.c          |   1 +
+ kernel/events/core.c           |   4 +-
+ kernel/trace/bpf_trace.c       |   1 +
+ samples/bpf/bpf_helpers.h      |   2 +-
+ samples/bpf/trace_event_user.c |  46 +++++++++++-
+ samples/bpf/tracex6_kern.c     |  28 ++++++--
+ samples/bpf/tracex6_user.c     | 155 +++++++++++++++++++++++++++++++----------
+ 7 files changed, 187 insertions(+), 50 deletions(-)
 
 -- 
-Kees Cook
-Pixel Security
+2.9.3
