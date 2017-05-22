@@ -1,95 +1,34 @@
-From: Oliver Neukum <oneukum@suse.com>
-Subject: [PATCH v2] cdc-ether: divorce initialisation with a filter reset and a generic method
-Date: Mon, 22 May 2017 14:50:30 +0200
-Message-ID: <20170522125030.21266-1-oneukum@suse.com>
-Cc: Oliver Neukum <oneukum@suse.com>
-To: davem@davemloft.net, netdev@vger.kernel.org, bjorn@mork.no
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:55349 "EHLO mx1.suse.de"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1750715AbdEVMwJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 22 May 2017 08:52:09 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Subject: [PATCH 0/2] NFC-digital: Adjustments for four function
+ implementations
+Date: Mon, 22 May 2017 14:57:42 +0200
+Message-ID: <7e27a76c-de7a-22ec-cf8a-31aee2000e29@users.sourceforge.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: LKML <linux-kernel@vger.kernel.org>,
+        kernel-janitors@vger.kernel.org
+To: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        "David S. Miller" <davem@davemloft.net>,
+        Samuel Ortiz <sameo@linux.intel.com>,
+        Thierry Escande <thierry.escande@collabora.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Language: en-GB
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Some devices need their multicast filter reset but others are crashed by that.
-So the methods need to be separated.
+From: Markus Elfring <elfring@users.sourceforge.net>
+Date: Mon, 22 May 2017 14:50:05 +0200
 
-Signed-off-by: Oliver Neukum <oneukum@suse.com>
-Reported-by: "Ridgway, Keith" <kridgway@harris.com>
----
- drivers/net/usb/cdc_ether.c | 31 ++++++++++++++++++++++++-------
- include/linux/usb/usbnet.h  |  1 +
- 2 files changed, 25 insertions(+), 7 deletions(-)
+Two update suggestions were taken into account
+from static source code analysis.
 
-diff --git a/drivers/net/usb/cdc_ether.c b/drivers/net/usb/cdc_ether.c
-index f3ae88fdf332..8ab281b478f2 100644
---- a/drivers/net/usb/cdc_ether.c
-+++ b/drivers/net/usb/cdc_ether.c
-@@ -310,6 +310,26 @@ int usbnet_generic_cdc_bind(struct usbnet *dev, struct usb_interface *intf)
- 		return -ENODEV;
- 	}
- 
-+	return 0;
-+
-+bad_desc:
-+	dev_info(&dev->udev->dev, "bad CDC descriptors\n");
-+	return -ENODEV;
-+}
-+EXPORT_SYMBOL_GPL(usbnet_generic_cdc_bind);
-+
-+
-+/* like usbnet_generic_cdc_bind() but handles filter initialization
-+ * correctly
-+ */
-+int usbnet_ether_cdc_bind(struct usbnet *dev, struct usb_interface *intf)
-+{
-+	int rv;
-+
-+	rv = usbnet_generic_cdc_bind(dev, intf);
-+	if (rv < 0)
-+		goto bail_out;
-+
- 	/* Some devices don't initialise properly. In particular
- 	 * the packet filter is not reset. There are devices that
- 	 * don't do reset all the way. So the packet filter should
-@@ -317,13 +337,10 @@ int usbnet_generic_cdc_bind(struct usbnet *dev, struct usb_interface *intf)
- 	 */
- 	usbnet_cdc_update_filter(dev);
- 
--	return 0;
--
--bad_desc:
--	dev_info(&dev->udev->dev, "bad CDC descriptors\n");
--	return -ENODEV;
-+bail_out:
-+	return rv;
- }
--EXPORT_SYMBOL_GPL(usbnet_generic_cdc_bind);
-+EXPORT_SYMBOL_GPL(usbnet_ether_cdc_bind);
- 
- void usbnet_cdc_unbind(struct usbnet *dev, struct usb_interface *intf)
- {
-@@ -417,7 +434,7 @@ int usbnet_cdc_bind(struct usbnet *dev, struct usb_interface *intf)
- 	BUILD_BUG_ON((sizeof(((struct usbnet *)0)->data)
- 			< sizeof(struct cdc_state)));
- 
--	status = usbnet_generic_cdc_bind(dev, intf);
-+	status = usbnet_ether_cdc_bind(dev, intf);
- 	if (status < 0)
- 		return status;
- 
-diff --git a/include/linux/usb/usbnet.h b/include/linux/usb/usbnet.h
-index 7dffa5624ea6..97116379db5f 100644
---- a/include/linux/usb/usbnet.h
-+++ b/include/linux/usb/usbnet.h
-@@ -206,6 +206,7 @@ struct cdc_state {
- };
- 
- extern int usbnet_generic_cdc_bind(struct usbnet *, struct usb_interface *);
-+extern int usbnet_ether_cdc_bind(struct usbnet *dev, struct usb_interface *intf);
- extern int usbnet_cdc_bind(struct usbnet *, struct usb_interface *);
- extern void usbnet_cdc_unbind(struct usbnet *, struct usb_interface *);
- extern void usbnet_cdc_status(struct usbnet *, struct urb *);
+Markus Elfring (2):
+  Improve a size determination in four functions
+  Delete an error message for a failed memory allocation in digital_in_send()
+
+ net/nfc/digital_core.c | 12 +++++-------
+ 1 file changed, 5 insertions(+), 7 deletions(-)
+
 -- 
-2.12.0
+2.13.0
