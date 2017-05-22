@@ -1,239 +1,167 @@
 From: Djalal Harouni <tixxdz@gmail.com>
-Subject: [PATCH v4 next 3/3] modules:capabilities: add a per-task modules auto-load mode
-Date: Mon, 22 May 2017 13:57:06 +0200
-Message-ID: <1495454226-10027-4-git-send-email-tixxdz@gmail.com>
+Subject: [PATCH v4 next 2/3] modules:capabilities: automatic module loading restriction
+Date: Mon, 22 May 2017 13:57:05 +0200
+Message-ID: <1495454226-10027-3-git-send-email-tixxdz@gmail.com>
 References: <1495454226-10027-1-git-send-email-tixxdz@gmail.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
-        James Morris <james.l.morris@oracle.com>,
-        Paul Moore <paul@paul-moore.com>,
-        Stephen Smalley <sds@tycho.nsa.gov>,
-        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>,
-        Ingo Molnar <mingo@kernel.org>,
-        Linux API <linux-api@vger.kernel.org>,
-        Dongsu Park <dpark@posteo.net>,
-        Casey Schaufler <casey@schaufler-ca.com>,
-        Jonathan Corbet <corbet@lwn.net>,
-        Arnaldo Carvalho de Melo <acme@redhat.com>,
-        Mauro Carvalho Chehab <mchehab@kernel.org>,
-        Peter Zijlstra <peterz@infradead.org>,
-        Zendyani <zendyani@gmail.com>, linux-doc@vger.kernel.org,
-        Al Viro <viro@zeniv.linux.org.uk>,
-        Ben Hutchings <ben.hutchings@codethink.co.uk>,
-        Djalal Harouni <tixxdz@gmail.com>
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        linux-security-module@vger.kernel.org,
-        kernel-hardening@lists.openwall.com,
-        Andy Lutomirski <luto@kernel.org>,
-        Kees Cook <keescook@chromium.org>,
-        Andrew Morton <akpm@linux-foundation.org>,
-        Rusty Russell <rusty@rustcorp.com.au>,
-        "Serge E. Hallyn" <serge@hallyn.com>, Jessica Yu <jeyu@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:36428 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757944AbdEVL6A (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 22 May 2017 07:58:00 -0400
+	James Morris <james.l.morris@oracle.com>,
+	Paul Moore <paul@paul-moore.com>,
+	Stephen Smalley <sds@tycho.nsa.gov>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>,
+	Ingo Molnar <mingo@kernel.org>,
+	Linux API <linux-api@vger.kernel.org>,
+	Dongsu Park <dpark@posteo.net>,
+	Casey Schaufler <casey@schaufler-ca.com>,
+	Jonathan Corbet <corbet@lwn.net>,
+	Arnaldo Carvalho de Melo <acme@redhat.com>,
+	Mauro Carvalho Chehab <mchehab@kernel.org>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Zendyani <zendyani@gmail.com>,
+	linux-doc@vger.kernel.org,
+	Al Viro <viro@zeniv.linux.org.uk>,
+	Ben Hutchings <ben.hutchings@codethink.co.uk>,
+	Djalal Harouni <tixxdz@gmail.com>
+To: linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org,
+	linux-security-module@vger.kernel.org,
+	kernel-hardening@lists.openwall.com,
+	Andy Lutomirski <luto@kernel.org>,
+	Kees Cook <keescook@chromium.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Rusty Russell <rusty@rustcorp.com.au>,
+	"Serge E. Hallyn" <serge@hallyn.com>,
+	Jessica Yu <jeyu@redhat.com>
+Return-path: <kernel-hardening-return-7962-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
+List-Post: <mailto:kernel-hardening@lists.openwall.com>
+List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
+List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
+List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
 In-Reply-To: <1495454226-10027-1-git-send-email-tixxdz@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Id: netdev.vger.kernel.org
 
-Previous patches added the global sysctl "modules_autoload_mode". This patch
-make it possible to support process trees, containers, and sandboxes by
-providing an inherited per-task "modules_autoload_mode" flag that cannot be
-re-enabled once disabled. This allows to restrict automatic module loading
-without affecting the rest of the system.
+Currently, an explicit call to load or unload kernel modules require
+CAP_SYS_MODULE capability. However unprivileged users have always been
+able to load some modules using the implicit auto-load operation. An
+automatic module loading happens when programs request a kernel feature
+from a module that is not loaded. In order to satisfy userspace, the
+kernel then automatically load all these required modules.
 
-Why we need this ?
+Historically, the kernel was always able to automatically load modules
+if they are not blacklisted. This is one of the most important and
+transparent operations of Linux, it allows to provide numerous other
+features as they are needed which is crucial for a better user experience.
+However, as Linux is popular now and used for different appliances some
+of these may need to control such operations. For such systems, recent
+needs showed that in some cases allowing to control automatic module
+loading is as important as the operation itself. Restricting unprivileged
+programs or attackers that abuse this feature to load unused modules or
+modules that contain bugs is a significant security measure.
 
-Usually a request to a kernel feature that is implemented by a module
-that is not loaded may trigger automatic module loading feature,
-allowing to transparently satisfy userspace, and provide numeours
-features as they are needed. In this case an implicit kernel module load
-operation happens.
+This allows administrators or some special programs to have the
+appropriate time to update and deny module autoloading in advance, then
+blacklist the corresponding ones. Not doing so may affect the global state
+of the machine, especially containers where some apps are moved from one
+context to another and not having such mechanisms may allow to expose
+and exploit the vulnerable parts to escape the container sandbox.
 
-In most cases to load or unload a kernel module, an explicit operation
-happens where programs are required to have CAP_SYS_MODULE capability to
-perform so. However, in general with implicit module loading, no
-capabilities are required as automatic module loading is one of the most
-important and transparent operations of Linux.
+Embedded or IoT devices also started to ship as containers using generic
+distros, some vendors do not have the appropriate time to make their own
+OS, hence, using base images is getting popular. These setups may include
+unnecessary modules that the final applications will not need. Untrusted
+access may abuse the module auto-load feature to expose vulnerabilities.
 
-Recent vulnerabilities showed that automatic module loading can be
-abused in order to expose more bugs. Some of these vulnerabilities are:
+As every code contains bugs or vulnerabilties, the following
+vulnerabilities that affected some features that are often compiled as
+modules could have been completely blocked, by restricting autoloading
+modules if the system does not need them.
 
+Past months:
 * DCCP use after free CVE-2017-6074 [1]
-  Unprivileged to local root PoC.
+  Unprivileged to local root.
 
 * XFRM framework CVE-2017-7184 [2]
-  As advertised it seems it was used to break Ubuntu at a security
+  As advertised it seems it was used to break Ubuntu on a security
   contest.
 
 * n_hldc CVE-2017-2636
 * L2TPv3 CVE-2016-10200
 
-Currently most of Linux code is in a form of modules, and not all
-modules are written or maintained in the same way. In a container or
-sandbox world, apps can be moved from one context to another or from
-one Linux system to another one, the ability to restrict some of these
-apps to load extra kernel modules will prevent exposing some kernel
-interfaces that have not been updated withing such systems.
+This is a short list. Fixing this is a high priority.
 
-The DCCP vulnerability CVE-2017-6074 that can be triggered by
-unprivileged, or CVE-2017-7184 in the XFRM framework are some recent
-real examples. CVE-2017-7184 was used to break Ubuntu at a security
-contest. Ubuntu is more of desktop distro, using a global switch to
-disable automatic module loading will harm users. Actually this design
-will always end up being ignored by such kind of systems that need to
-offer a competitive and interactive solution for their users.
+To improve the current status, this patch introduces "modules_autoload_mode"
+kernel sysctl flag. The flag controls modules auto-load feature and
+complements "modules_disabled" which apply to all modules operations.
+This new flag allows to control only automatic module loading and if it is
+allowed or not, aligning in the process the implicit operation with the
+explicit one where both now are covered by capabilities checks.
 
->From this and from observing how apps are being run, this patch
-introduces a per-task "modules_autoload_mode" to restrict automatic
-module loading. This offers the following advantages:
+The three modes that "modules_autoload_mode" support allow to provide
+restrictions on automatic module loading without breaking user
+experience.
 
-1) Automatic module loading is still available to the rest of the
-system.
+The sysctl flag is available at "/proc/sys/kernel/modules_autoload_mode"
 
-2) It is easy to use in containers and sandboxes. DCCP example could
-have been used to escape containers. The XFRM framework CVE-2017-7184
-needs CAP_NET_ADMIN, but attackers may start to target CAP_NET_ADMIN,
-a per-task flag will make it harder.
+When modules_autoload_mode is set to (0), the default, there are no
+restrictions.
 
-3) Suitable for desktop and more interactive Linux systems.
+When modules_autoload_mode is set to (1), processes must have
+CAP_SYS_MODULE to be able to trigger a module auto-load operation,
+or CAP_NET_ADMIN for modules with a 'netdev-%s' alias.
 
-4) Will allow in future to implement a per user policy.
-The user database format is old and not extensible, as discussed maybe
-with a modern format we may achieve the following:
+When modules_autoload_mode is set to (2), automatic module loading is
+disabled for all. Once set, this value can not be changed.
 
-User=djalal
-NewKernelFeatures=yes
+Notes on relation between "modules_disabled=0" and
+"modules_autoload_mode=2":
+1) Restricting automatic module loading does not interfere with
+explicit module load or unload operations.
 
-Which means that that interactive user will be allowed to load extra
-Linux features. Others, volatile accounts or guests can be easily
-blocked from doing so.
+2) New features provided by modules can be made available without
+rebooting the system.
 
-5) CAP_NET_ADMIN is useful, it handles lot of operations, at same time it
-started to look more like CAP_SYS_ADMIN which is overloaded. We need
-CAP_NET_ADMIN, containers need it, but at same time maybe we do not
-want programs running with it to load 'netdev-%s' modules. Having an
-extra per-task flag allow to discharge a bit CAP_NET_ADMIN and clearly
-target automatic module loading operations.
-
-Usage:
-------
-
-To set the per-task "modules_autoload_mode":
-
-        prctl(PR_SET_MODULES_AUTOLOAD_MODE, mode, 0, 0, 0);
-
-When a module auto-load request is triggered by current task, then the
-operation has first to satisfy the per-task access mode before attempting
-to implicitly load the module. Once set, this setting is inherited across
-fork, clone and execve.
-
-Prior to use, the task must call prctl(PR_SET_NO_NEW_PRIVS, 1) or run with
-CAP_SYS_ADMIN privileges in its namespace.  If these are not true, -EACCES
-will be returned.  This requirement ensures that unprivileged programs cannot
-affect the behaviour or surprise privileged children.
-
-The per-task "modules_autoload_mode" supports the following values:
-0       There are no restrictions, usually the default unless set
-        by parent.
-1       The task must have CAP_SYS_MODULE to be able to trigger a
-        module auto-load operation, or CAP_NET_ADMIN for modules with
-        a 'netdev-%s' alias.
-2       Automatic modules loading is disabled for the current task.
-
-The mode may only be increased, never decreased, thus ensuring that once
-applied, processes can never relax their setting. This make it easy for
-developers and users to handle.
-
-Note that even if the per-task "modules_autoload_mode" allows to auto-load
-the corresponding modules, automatic module loading may still fail due to
-the global sysctl "modules_autoload_mode". For more details please see
-Documentation/sysctl/kernel.txt, section "modules_autoload_mode".
-
-When a request to a kernel module is denied, the module name with the
-corresponding process name and its pid are logged. Administrators can use
-such information to explicitly load the appropriate modules.
+3) A bad version of a module can be unloaded and replaced with a
+better one without rebooting the system.
 
 The original idea of module auto-load restriction comes from
 'GRKERNSEC_MODHARDEN' config option.
 
-Testing per-task or per container setup
----------------------------------------
-
-The following tool can be used to test the feature:
-https://gist.githubusercontent.com/tixxdz/f6d77e5a45f9f8cfa4bcc0ab526ce5cf/raw/5f12f98e4dfc8a94f76b13dc290f077a153e74d8/pr_modules_autoload_mode_test.c
+Testing
+-------
 
 Example 1)
 
-Before patch:
+Before:
 $ lsmod | grep ipip -
 $ sudo ip tunnel add mytun mode ipip remote 10.0.2.100 local 10.0.2.15 ttl 255
 $ lsmod | grep ipip -
 ipip                   16384  0
 tunnel4                16384  1 ipip
 ip_tunnel              28672  1 ipip
-$ grep Modules /proc/self/status
-ModulesAutoloadMode:    0
+$ cat /proc/sys/kernel/modules_autoload_mode
+0
 
-After patch:
-Set task "modules_autoload_mode" to disabled.
+After:
 $ lsmod | grep ipip -
-$ grep Modules /proc/self/status
-ModulesAutoloadMode:    0
-$ su - root
-# ./pr_modules_autoload_mode_test 2
-task modules_autoload_mode: 2
-# grep Modules /proc/self/status
-ModulesAutoloadMode:    2
-# ip tunnel add mytun mode ipip remote 10.0.2.100 local 10.0.2.15 ttl 255
+# echo 2 > /proc/sys/kernel/modules_autoload_mode
+$ sudo ip tunnel add mytun mode ipip remote 10.0.2.100 local 10.0.2.15 ttl 255
 add tunnel "tunl0" failed: No such device
+$ dmesg
 ...
-[  634.954652] module: automatic module loading of netdev-tunl0 by "ip"[1560] was denied
-[  634.955775] module: automatic module loading of tunl0 by "ip"[1560] was denied
+[ 1876.378389] module: automatic module loading of netdev-tunl0 by "ip"[1453] was denied
+[ 1876.380994] module: automatic module loading of tunl0 by "ip"[1453] was denied
 ...
+$ lsmod | grep ipip -
+$
 
 Example 2)
 
-Sample with XFRM tunnel mode.
-
-Before patch:
-$ lsmod | grep xfrm -
-$ grep Modules /proc/self/status
-ModulesAutoloadMode:    0
-$ sudo ip xfrm state add src 10.0.2.100 dst 10.0.1.100 proto esp spi $id1 \
-> reqid $id2 mode tunnel auth "hmac(sha256)" $key1 enc "cbc(aes)" $key2
-$ lsmod | grep xfrm
-xfrm4_mode_tunnel      16384  2
-
-After patch:
-Set task "modules_autoload_mode" to disabled.
-$ lsmod | grep xfrm -
-$ grep Modules /proc/self/status
-ModulesAutoloadMode:    0
-$ su - root
-# ./pr_modules_autoload_mode_test 2
-task modules_autoload_mode: 2
-# grep Modules /proc/self/status
-ModulesAutoloadMode:    2
-# ip xfrm state add src 10.0.2.100 dst 10.0.1.100 proto esp spi $id1 \
-> reqid $id2 mode tunnel auth "hmac(sha256)" $key1 enc "cbc(aes)" $key2
-RTNETLINK answers: Protocol not supported
-...
-[ 3458.139490] module: automatic module loading of xfrm-mode-2-1 by "ip"[1506] was denied
-...
-
-Example 3)
-
-Here we use DCCP as an example since the public PoC was against it.
-
-DCCP use after free CVE-2017-6074 (unprivileged to local root):
+DCCP use after free CVE-2017-6074:
 The code path can be triggered by unprivileged, using the trigger.c
 program for DCCP use after free [3] and that was fixed by
 commit 5edabca9d4cff7f "dccp: fix freeing skb too early for IPV6_RECVPKTINFO".
 
-Before patch:
+Before:
 $ lsmod | grep dccp
 $ strace ./dccp_trigger
 ...
@@ -243,19 +171,11 @@ $ lsmod | grep dccp
 dccp_ipv6              24576  5
 dccp_ipv4              24576  5 dccp_ipv6
 dccp                  102400  2 dccp_ipv6,dccp_ipv4
-$ grep Modules /proc/self/status
-ModulesAutoloadMode:    0
 
-After patch:
-
-Set task "modules_autoload_mode" to 1, privileged mode.
+After:
+Only privileged:
+# echo 1 > /proc/sys/kernel/modules_autoload_mode
 $ lsmod | grep dccp
-$ ./pr_set_no_new_privs
-$ grep NoNewPrivs /proc/self/status
-NoNewPrivs:     1
-$ ./pr_modules_autoload_mode_test 1
-$ grep Modules /proc/self/status
-ModulesAutoloadMode:    1
 $ strace ./dccp_trigger
 ...
 socket(AF_INET6, SOCK_DCCP, IPPROTO_IP) = -1 ESOCKTNOSUPPORT (Socket type not supported)
@@ -263,33 +183,39 @@ socket(AF_INET6, SOCK_DCCP, IPPROTO_IP) = -1 ESOCKTNOSUPPORT (Socket type not su
 $ lsmod | grep dccp
 $ dmesg
 ...
-[ 4662.171994] module: automatic module loading of net-pf-10-proto-0-type-6 by "dccp_trigger"[1759] was denied
-[ 4662.177284] module: automatic module loading of net-pf-10-proto-0 by "dccp_trigger"[1759] was denied
-[ 4662.180181] module: automatic module loading of net-pf-10-proto-0-type-6 by "dccp_trigger"[1759] was denied
-[ 4662.181709] module: automatic module loading of net-pf-10-proto-0 by "dccp_trigger"[1759] was denied
+[  175.945063] module: automatic module loading of net-pf-10-proto-0-type-6 by "dccp_trigger"[1390] was denied
+[  175.947952] module: automatic module loading of net-pf-10-proto-0 by "dccp_trigger"[1390] was denied
+[  175.956061] module: automatic module loading of net-pf-10-proto-0-type-6 by "dccp_trigger"[1390] was denied
+[  175.959733] module: automatic module loading of net-pf-10-proto-0 by "dccp_trigger"[1390] was denied
 
-Set task "modules_autoload_mode" to 2, disabled mode.
+$ sudo strace ./dccp_trigger
+...
+socket(AF_INET6, SOCK_DCCP, IPPROTO_IP) = 3
+...
+$ lsmod | grep dccp
+dccp_ipv6              24576  6
+dccp_ipv4              24576  5 dccp_ipv6
+dccp                  102400  2 dccp_ipv6,dccp_ipv4
+
+Disable automatic module loading:
 $ lsmod | grep dccp
 $ su - root
-# ./pr_modules_autoload_mode_test 2
-task modules_autoload_mode: 2
-# grep Modules /proc/self/status
-ModulesAutoloadMode:    2
+# echo 2 > /proc/sys/kernel/modules_autoload_mode
 # strace ./dccp_trigger
 ...
 socket(AF_INET6, SOCK_DCCP, IPPROTO_IP) = -1 ESOCKTNOSUPPORT (Socket type not supported)
 ...
+$ lsmod | grep dccp
+$ dmesg
 ...
-[ 5154.218740] module: automatic module loading of net-pf-10-proto-0-type-6 by "dccp_trigger"[1873] was denied
-[ 5154.219828] module: automatic module loading of net-pf-10-proto-0 by "dccp_trigger"[1873] was denied
-[ 5154.221814] module: automatic module loading of net-pf-10-proto-0-type-6 by "dccp_trigger"[1873] was denied
-[ 5154.222731] module: automatic module loading of net-pf-10-proto-0 by "dccp_trigger"[1873] was denied
+[  126.596545] module: automatic module loading of net-pf-10-proto-0-type-6 by "dccp_trigger"[1291] was denied
+[  126.598800] module: automatic module loading of net-pf-10-proto-0 by "dccp_trigger"[1291] was denied
+[  126.601264] module: automatic module loading of net-pf-10-proto-0-type-6 by "dccp_trigger"[1291] was denied
+[  126.602839] module: automatic module loading of net-pf-10-proto-0 by "dccp_trigger"[1291] was denied
 
-As showed, this blocks automatic module loading per-task. This allows to
-provide a usable system, where only some sandboxed apps or containers will be
-restricted to trigger automatic module loading, other parts of the
-system can continue to use the system as it is which is the case of the
-desktop.
+As an example, this blocks abuses, DCCP still can be explicilty loaded by
+an administrator using modprobe, at same time automatic module loading is
+disabled forever.
 
 [1] http://www.openwall.com/lists/oss-security/2017/02/22/3
 [2] http://www.openwall.com/lists/oss-security/2017/03/29/2
@@ -300,472 +226,317 @@ Cc: Rusty Russell <rusty@rustcorp.com.au>
 Cc: James Morris <james.l.morris@oracle.com>
 Cc: Serge Hallyn <serge@hallyn.com>
 Cc: Andy Lutomirski <luto@kernel.org>
-Cc: Kees Cook <keescook@chromium.org>
+Suggested-by: Kees Cook <keescook@chromium.org>
 Signed-off-by: Djalal Harouni <tixxdz@gmail.com>
 ---
- Documentation/filesystems/proc.txt                 |   3 +
- Documentation/userspace-api/index.rst              |   1 +
- .../userspace-api/modules_autoload_mode.rst        | 115 +++++++++++++++++++++
- fs/proc/array.c                                    |   6 ++
- include/linux/init_task.h                          |   8 ++
- include/linux/module.h                             |  26 ++++-
- include/linux/sched.h                              |   5 +
- include/uapi/linux/prctl.h                         |   8 ++
- kernel/module.c                                    |  61 ++++++++++-
- security/commoncap.c                               |  38 ++++++-
- 10 files changed, 263 insertions(+), 8 deletions(-)
- create mode 100644 Documentation/userspace-api/modules_autoload_mode.rst
+ Documentation/sysctl/kernel.txt | 51 +++++++++++++++++++++++++++++++++++++++++
+ include/linux/module.h          | 19 ++++++++++++++-
+ include/linux/security.h        |  3 ++-
+ kernel/module.c                 | 42 +++++++++++++++++++++++++++++++++
+ kernel/sysctl.c                 | 40 ++++++++++++++++++++++++++++++++
+ security/commoncap.c            | 24 +++++++++++++++++++
+ 6 files changed, 177 insertions(+), 2 deletions(-)
 
-diff --git a/Documentation/filesystems/proc.txt b/Documentation/filesystems/proc.txt
-index adba21b..58127f0 100644
---- a/Documentation/filesystems/proc.txt
-+++ b/Documentation/filesystems/proc.txt
-@@ -194,6 +194,7 @@ read the file /proc/PID/status:
-   CapBnd: ffffffffffffffff
-   NoNewPrivs:     0
-   Seccomp:        0
-+  ModulesAutoloadMode:    0
-   voluntary_ctxt_switches:        0
-   nonvoluntary_ctxt_switches:     1
+diff --git a/Documentation/sysctl/kernel.txt b/Documentation/sysctl/kernel.txt
+index bac23c1..3cc6592 100644
+--- a/Documentation/sysctl/kernel.txt
++++ b/Documentation/sysctl/kernel.txt
+@@ -43,6 +43,7 @@ show up in /proc/sys/kernel:
+ - l2cr                        [ PPC only ]
+ - modprobe                    ==> Documentation/debugging-modules.txt
+ - modules_disabled
++- modules_autoload_mode
+ - msg_next_id		      [ sysv ipc ]
+ - msgmax
+ - msgmnb
+@@ -411,6 +412,56 @@ to false.  Generally used with the "kexec_load_disabled" toggle.
  
-@@ -267,6 +268,8 @@ Table 1-2: Contents of the status files (as of 4.8)
-  CapBnd                      bitmap of capabilities bounding set
-  NoNewPrivs                  no_new_privs, like prctl(PR_GET_NO_NEW_PRIV, ...)
-  Seccomp                     seccomp mode, like prctl(PR_GET_SECCOMP, ...)
-+ ModulesAutoloadMode         modules auto-load mode, like
-+                             prctl(PR_GET_MODULES_AUTOLOAD_MODE, ...)
-  Cpus_allowed                mask of CPUs on which this process may run
-  Cpus_allowed_list           Same as previous, but in "list format"
-  Mems_allowed                mask of memory nodes allowed to this process
-diff --git a/Documentation/userspace-api/index.rst b/Documentation/userspace-api/index.rst
-index 7b2eb1b..bfd51b7 100644
---- a/Documentation/userspace-api/index.rst
-+++ b/Documentation/userspace-api/index.rst
-@@ -17,6 +17,7 @@ place where this information is gathered.
-    :maxdepth: 2
+ ==============================================================
  
-    no_new_privs
-+   modules_autoload_mode
-    seccomp_filter
-    unshare
++modules_autoload_mode:
++
++A sysctl to control if modules auto-load feature is allowed or not.
++This sysctl complements "modules_disabled" which is for all module
++operations where this flag applies only to automatic module loading.
++Automatic module loading happens when programs request a kernel
++feature that is implemented by an unloaded module, the kernel
++automatically runs the program pointed by "modprobe" sysctl in order
++to load the corresponding module.
++
++Historically, the kernel was always able to automatically load modules
++if they are not blacklisted. This is one of the most important and
++transparent operations of Linux, it allows to provide numerous other
++features as they are needed which is crucial for a better user experience.
++However, as Linux is popular now and used for different appliances some
++of these may need to control such operations. For such systems, recent
++needs showed that in some cases allowing to control automatic module
++loading is as important as the operation itself. Restricting unprivileged
++programs or attackers that abuse this feature to load unused modules or
++modules that contain bugs is a significant security measure.
++
++The three modes that "modules_autoload_mode" support allow to provide
++restrictions on automatic module loading without breaking user
++experience.
++
++When modules_autoload_mode is set to (0), the default, there are no
++restrictions.
++
++When modules_autoload_mode is set to (1), processes must have
++CAP_SYS_MODULE to be able to trigger a module auto-load operation,
++or CAP_NET_ADMIN for modules with a 'netdev-%s' alias.
++
++When modules_autoload_mode is set to (2), automatic module loading is
++disabled for all. Once set, this value can not be changed.
++
++
++Notes on relation between "modules_disabled=0" and
++"modules_autoload_mode=2":
++1) Restricting automatic module loading does not interfere with
++explicit module load or unload operations.
++2) New features provided by modules can be made available without
++rebooting the system.
++3) A bad version of a module can be unloaded and replaced with a
++better one without rebooting the system.
++
++The original idea of module auto-load restriction comes from
++grsecurity 'GRKERNSEC_MODHARDEN' config option.
++
++==============================================================
++
+ msg_next_id, sem_next_id, and shm_next_id:
  
-diff --git a/Documentation/userspace-api/modules_autoload_mode.rst b/Documentation/userspace-api/modules_autoload_mode.rst
-new file mode 100644
-index 0000000..7355b00
---- /dev/null
-+++ b/Documentation/userspace-api/modules_autoload_mode.rst
-@@ -0,0 +1,115 @@
-+======================================
-+Per-task module auto-load restrictions
-+======================================
-+
-+
-+Introduction
-+============
-+
-+Usually a request to a kernel feature that is implemented by a module
-+that is not loaded may trigger automatic module loading feature, allowing
-+to transparently satisfy userspace, and provide numerous other features
-+as they are needed. In this case an implicit kernel module load
-+operation happens.
-+
-+In most cases to load or unload a kernel module, an explicit operation
-+happens where programs are required to have ``CAP_SYS_MODULE`` capability
-+to perform so. However, with implicit module loading, no capabilities are
-+required, or only ``CAP_NET_ADMIN`` in rare cases where the module has the
-+'netdev-%s' alias. Historically this was always the case as automatic
-+module loading is one of the most important and transparent operations
-+of Linux, users expect that their programs just work, yet, recent cases
-+showed that this can be abused by unprivileged users or attackers to load
-+modules that were not updated, or modules that contain bugs and
-+vulnerabilities.
-+
-+Currently most of Linux code is in a form of modules, hence, allowing to
-+control automatic module loading in some cases is as important as the
-+operation itself, especially in the context where Linux is used in
-+different appliances.
-+
-+Restricting automatic module loading allows administratros to have the
-+appropriate time to update or deny module autoloading in advance. In a
-+container or sandbox world where apps can be moved from one context to
-+another, the ability to restrict some containers or apps to load extra
-+kernel modules will prevent exposing some kernel interfaces that may not
-+receive the same care as some other parts of the core. The DCCP vulnerability
-+CVE-2017-6074 that can be triggered by unprivileged, or CVE-2017-7184
-+in the XFRM framework are some real examples where users or programs are
-+able to expose such kernel interfaces and escape their sandbox.
-+
-+The per-task ``modules_autoload_mode`` allow to restrict automatic module
-+loading per task, preventing the kernel from exposing more of its
-+interface. This is particularly useful for containers and sandboxes as
-+noted above, they are restricted from affecting the rest of the system
-+without affecting its functionality, automatic module loading is still
-+available for others.
-+
-+
-+Usage
-+=====
-+
-+When the kernel is compiled with modules support ``CONFIG_MODULES``, then:
-+
-+``PR_SET_MODULES_AUTOLOAD_MODE``:
-+        Set the current task ``modules_autoload_mode``. When a module
-+        auto-load request is triggered by current task, then the
-+        operation has first to satisfy the per-task access mode before
-+        attempting to implicitly load the module. As an example,
-+        automatic loading of modules that contain bugs or vulnerabilities
-+        can be restricted and unprivileged users can no longer abuse such
-+        interfaces. Once set, this setting is inherited across ``fork(2)``,
-+        ``clone(2)`` and ``execve(2)``.
-+
-+        Prior to use, the task must call ``prctl(PR_SET_NO_NEW_PRIVS, 1)``
-+        or run with ``CAP_SYS_ADMIN`` privileges in its namespace.  If
-+        these are not true, ``-EACCES`` will be returned.  This requirement
-+        ensures that unprivileged programs cannot affect the behaviour or
-+        surprise privileged children.
-+
-+        Usage:
-+                ``prctl(PR_SET_MODULES_AUTOLOAD_MODE, mode, 0, 0, 0);``
-+
-+        The 'mode' argument supports the following values:
-+        0       There are no restrictions, usually the default unless set
-+                by parent.
-+        1       The task must have ``CAP_SYS_MODULE`` to be able to trigger a
-+                module auto-load operation, or ``CAP_NET_ADMIN`` for modules
-+                with a 'netdev-%s' alias.
-+        2       Automatic modules loading is disabled for the current task.
-+
-+        The mode may only be increased, never decreased, thus ensuring
-+        that once applied, processes can never relax their setting.
-+
-+
-+        Returned values:
-+        0               On success.
-+        ``-EINVAL``     If 'mode' is not valid, or the operation is not
-+                        supported.
-+        ``-EACCES``     If task does not have ``CAP_SYS_ADMIN`` in its namespace
-+                        or is not running with ``no_new_privs``.
-+        ``-EPERM``      If 'mode' is less strict than current task
-+                        ``modules_autoload_mode``.
-+
-+
-+        Note that even if the per-task ``modules_autoload_mode`` allows to
-+        auto-load the corresponding modules, automatic module loading
-+        may still fail due to the global sysctl ``modules_autoload_mode``.
-+        For more details please see Documentation/sysctl/kernel.txt,
-+        section "modules_autoload_mode".
-+
-+
-+        When a request to a kernel module is denied, the module name with the
-+        corresponding process name and its pid are logged. Administrators can
-+        use such information to explicitly load the appropriate modules.
-+
-+
-+``PR_GET_MODULES_AUTOLOAD_MODE``:
-+        Return the current task ``modules_autoload_mode``.
-+
-+        Usage:
-+                ``prctl(PR_GET_MODULES_AUTOLOAD_MODE, 0, 0, 0, 0);``
-+
-+        Returned values:
-+        mode            The task's ``modules_autoload_mode``
-+        ``-ENOSYS``     If the kernel was compiled without ``CONFIG_MODULES``.
-diff --git a/fs/proc/array.c b/fs/proc/array.c
-index 88c3555..b2113e9 100644
---- a/fs/proc/array.c
-+++ b/fs/proc/array.c
-@@ -88,6 +88,7 @@
- #include <linux/string_helpers.h>
- #include <linux/user_namespace.h>
- #include <linux/fs_struct.h>
-+#include <linux/module.h>
- 
- #include <asm/pgtable.h>
- #include <asm/processor.h>
-@@ -346,10 +347,15 @@ static inline void task_cap(struct seq_file *m, struct task_struct *p)
- 
- static inline void task_seccomp(struct seq_file *m, struct task_struct *p)
- {
-+	int autoload = task_modules_autoload_mode(p);
-+
- 	seq_put_decimal_ull(m, "NoNewPrivs:\t", task_no_new_privs(p));
- #ifdef CONFIG_SECCOMP
- 	seq_put_decimal_ull(m, "\nSeccomp:\t", p->seccomp.mode);
- #endif
-+	if (autoload != -ENOSYS)
-+		seq_put_decimal_ull(m, "\nModulesAutoloadMode:\t", autoload);
-+
- 	seq_putc(m, '\n');
- }
- 
-diff --git a/include/linux/init_task.h b/include/linux/init_task.h
-index e049526..97fbb08 100644
---- a/include/linux/init_task.h
-+++ b/include/linux/init_task.h
-@@ -159,6 +159,13 @@ extern struct cred init_cred;
- # define INIT_CGROUP_SCHED(tsk)
- #endif
- 
-+#ifdef CONFIG_MODULES
-+# define INIT_MODULES_AUTOLOAD_MODE(tsk)				\
-+	.modules_autoload_mode = 0,
-+#else
-+# define INIT_MODULES_AUTOLOAD_MODE(tsk)
-+#endif
-+
- #ifdef CONFIG_PERF_EVENTS
- # define INIT_PERF_EVENTS(tsk)						\
- 	.perf_event_mutex = 						\
-@@ -257,6 +264,7 @@ extern struct cred init_cred;
- 	.tasks		= LIST_HEAD_INIT(tsk.tasks),			\
- 	INIT_PUSHABLE_TASKS(tsk)					\
- 	INIT_CGROUP_SCHED(tsk)						\
-+	INIT_MODULES_AUTOLOAD_MODE(tsk)					\
- 	.ptraced	= LIST_HEAD_INIT(tsk.ptraced),			\
- 	.ptrace_entry	= LIST_HEAD_INIT(tsk.ptrace_entry),		\
- 	.real_parent	= &tsk,						\
+ These three toggles allows to specify desired id for next allocated IPC
 diff --git a/include/linux/module.h b/include/linux/module.h
-index 9b64896..9f6ec47 100644
+index 21f5639..9b64896 100644
 --- a/include/linux/module.h
 +++ b/include/linux/module.h
-@@ -13,6 +13,7 @@
- #include <linux/kmod.h>
- #include <linux/init.h>
- #include <linux/elf.h>
-+#include <linux/sched.h>
- #include <linux/stringify.h>
- #include <linux/kobject.h>
- #include <linux/moduleparam.h>
-@@ -507,7 +508,16 @@ bool is_module_percpu_address(unsigned long addr);
+@@ -261,7 +261,16 @@ struct notifier_block;
+ 
+ #ifdef CONFIG_MODULES
+ 
+-extern int modules_disabled; /* for sysctl */
++enum {
++	MODULES_AUTOLOAD_ALLOWED	= 0,
++	MODULES_AUTOLOAD_PRIVILEGED	= 1,
++	MODULES_AUTOLOAD_DISABLED	= 2,
++};
++
++extern int modules_disabled; /* sysctl for explicit module load/unload */
++extern int modules_autoload_mode; /* sysctl for automatic module loading */
++extern const int modules_autoload_max; /* max value for modules_autoload_mode */
++
+ /* Get/put a kernel symbol (calls must be symmetric) */
+ void *__symbol_get(const char *symbol);
+ void *__symbol_get_gpl(const char *symbol);
+@@ -497,6 +506,9 @@ bool __is_module_percpu_address(unsigned long addr, unsigned long *can_addr);
+ bool is_module_percpu_address(unsigned long addr);
  bool is_module_text_address(unsigned long addr);
  
- /* Determine whether a module auto-load operation is permitted. */
--int may_autoload_module(char *kmod_name, int allow_cap);
-+int may_autoload_module(struct task_struct *task, char *kmod_name, int allow_cap);
++/* Determine whether a module auto-load operation is permitted. */
++int may_autoload_module(char *kmod_name, int allow_cap);
 +
-+/* Set modules_autoload_mode of current task */
-+int task_set_modules_autoload_mode(unsigned long value);
-+
-+/* Read task's modules_autoload_mode */
-+static inline int task_modules_autoload_mode(struct task_struct *task)
-+{
-+	return task->modules_autoload_mode;
-+}
- 
  static inline bool within_module_core(unsigned long addr,
  				      const struct module *mod)
-@@ -653,11 +663,23 @@ static inline bool is_livepatch_module(struct module *mod)
+ {
+@@ -641,6 +653,11 @@ static inline bool is_livepatch_module(struct module *mod)
  
  #else /* !CONFIG_MODULES... */
  
--static inline int may_autoload_module(char *kmod_name, int allow_cap)
-+static inline int may_autoload_module(struct task_struct *task, char *kmod_name,
-+				      int allow_cap)
- {
- 	return -ENOSYS;
- }
- 
-+int task_set_modules_autoload_mode(unsigned long value)
++static inline int may_autoload_module(char *kmod_name, int allow_cap)
 +{
 +	return -ENOSYS;
 +}
 +
-+static inline int task_modules_autoload_mode(struct task_struct *task)
-+{
-+	return -ENOSYS;
-+}
-+
-+static inline bool within_module_core(unsigned long addr,
  static inline struct module *__module_address(unsigned long addr)
  {
  	return NULL;
-diff --git a/include/linux/sched.h b/include/linux/sched.h
-index c533851..031a369 100644
---- a/include/linux/sched.h
-+++ b/include/linux/sched.h
-@@ -613,6 +613,11 @@ struct task_struct {
+diff --git a/include/linux/security.h b/include/linux/security.h
+index 2f4c9d3..90fe0cb 100644
+--- a/include/linux/security.h
++++ b/include/linux/security.h
+@@ -101,6 +101,7 @@ extern int cap_task_setscheduler(struct task_struct *p);
+ extern int cap_task_setioprio(struct task_struct *p, int ioprio);
+ extern int cap_task_setnice(struct task_struct *p, int nice);
+ extern int cap_vm_enough_memory(struct mm_struct *mm, long pages);
++extern int cap_kernel_module_request(char *kmod_name, int allow_cap);
  
- 	struct restart_block		restart_block;
+ struct msghdr;
+ struct sk_buff;
+@@ -928,7 +929,7 @@ static inline int security_kernel_create_files_as(struct cred *cred,
  
-+#ifdef CONFIG_MODULES
-+	/* per-task modules auto-load mode */
-+	unsigned			modules_autoload_mode:2;
-+#endif
-+
- 	pid_t				pid;
- 	pid_t				tgid;
- 
-diff --git a/include/uapi/linux/prctl.h b/include/uapi/linux/prctl.h
-index a8d0759..bf73607 100644
---- a/include/uapi/linux/prctl.h
-+++ b/include/uapi/linux/prctl.h
-@@ -197,4 +197,12 @@ struct prctl_mm_map {
- # define PR_CAP_AMBIENT_LOWER		3
- # define PR_CAP_AMBIENT_CLEAR_ALL	4
- 
-+/*
-+ * Control the per-task modules auto-load mode
-+ *
-+ * See Documentation/prctl/modules_autoload_mode.txt for more details.
-+ */
-+#define PR_SET_MODULES_AUTOLOAD_MODE	48
-+#define PR_GET_MODULES_AUTOLOAD_MODE	49
-+
- #endif /* _LINUX_PRCTL_H */
-diff --git a/kernel/module.c b/kernel/module.c
-index ce7a146..8739e4c 100644
---- a/kernel/module.c
-+++ b/kernel/module.c
-@@ -4301,12 +4301,15 @@ EXPORT_SYMBOL_GPL(__module_text_address);
- /**
-  * may_autoload_module - Determine whether a module auto-load operation
-  * is permitted
-+ * @task: The task performing the request
-  * @kmod_name: The module name
-  * @allow_cap: if positive, may allow to auto-load the module if this capability
-  * is set
-  *
-- * Determine whether a module auto-load operation is allowed or not. The check
-- * uses the sysctl "modules_autoload_mode" value.
-+ * Determine whether a module auto-load operation is allowed or not. First we
-+ * check if the task is allowed to perform the module auto-load request, we
-+ * check per-task "modules_autoload_mode", if the access is not denied, then
-+ * we check the global sysctl "modules_autoload_mode".
-  *
-  * This allows to have more control on automatic module loading, and align it
-  * with explicit load/unload module operations. The kernel contains several
-@@ -4323,11 +4326,14 @@ EXPORT_SYMBOL_GPL(__module_text_address);
-  *
-  * Returns 0 if the module request is allowed or -EPERM if not.
-  */
--int may_autoload_module(char *kmod_name, int allow_cap)
-+int may_autoload_module(struct task_struct *task, char *kmod_name, int allow_cap)
+ static inline int security_kernel_module_request(char *kmod_name, int allow_cap)
  {
--	if (modules_autoload_mode == MODULES_AUTOLOAD_ALLOWED)
-+	unsigned int autoload = max_t(unsigned int, modules_autoload_mode,
-+				      task->modules_autoload_mode);
-+
-+	if (autoload == MODULES_AUTOLOAD_ALLOWED)
- 		return 0;
--	else if (modules_autoload_mode == MODULES_AUTOLOAD_PRIVILEGED) {
-+	else if (autoload == MODULES_AUTOLOAD_PRIVILEGED) {
- 		/* Check CAP_SYS_MODULE then allow_cap if valid */
- 		if (capable(CAP_SYS_MODULE) ||
- 		    (allow_cap > 0 && capable(allow_cap)))
-@@ -4338,6 +4344,51 @@ int may_autoload_module(char *kmod_name, int allow_cap)
- 	return -EPERM;
+-	return 0;
++	return cap_kernel_module_request(kmod_name, allow_cap);
  }
  
+ static inline int security_kernel_read_file(struct file *file,
+diff --git a/kernel/module.c b/kernel/module.c
+index 4a3665f..ce7a146 100644
+--- a/kernel/module.c
++++ b/kernel/module.c
+@@ -282,6 +282,8 @@ module_param(sig_enforce, bool_enable_only, 0644);
+ 
+ /* Block module loading/unloading? */
+ int modules_disabled = 0;
++int modules_autoload_mode = MODULES_AUTOLOAD_ALLOWED;
++const int modules_autoload_max = MODULES_AUTOLOAD_DISABLED;
+ core_param(nomodule, modules_disabled, bint, 0);
+ 
+ /* Waiting for a module to finish initializing? */
+@@ -4296,6 +4298,46 @@ struct module *__module_text_address(unsigned long addr)
+ }
+ EXPORT_SYMBOL_GPL(__module_text_address);
+ 
 +/**
-+ * task_set_modules_autoload_mode - Set per-task modules auto-load mode
-+ * @value: Value to set "modules_autoload_mode" of current task
++ * may_autoload_module - Determine whether a module auto-load operation
++ * is permitted
++ * @kmod_name: The module name
++ * @allow_cap: if positive, may allow to auto-load the module if this capability
++ * is set
 + *
-+ * Set current task "modules_autoload_mode". The task has to have
-+ * CAP_SYS_ADMIN in its namespace or be running with no_new_privs. This
-+ * avoids scenarios where unprivileged tasks can affect the behaviour of
-+ * privilged children by restricting module features.
++ * Determine whether a module auto-load operation is allowed or not. The check
++ * uses the sysctl "modules_autoload_mode" value.
 + *
-+ * The task's "modules_autoload_mode" may only be increased, never decreased.
++ * This allows to have more control on automatic module loading, and align it
++ * with explicit load/unload module operations. The kernel contains several
++ * modules, some of them are not updated often and may contain bugs and
++ * vulnerabilities.
 + *
-+ * Returns 0 on success, -EINVAL if @value is not valid, -EACCES if task does
-+ * not have CAP_SYS_ADMIN in its namespace or is not running with no_new_privs,
-+ * and finally -EPERM if @value is less strict than current task
-+ * "modules_autoload_mode".
++ * The "allow_cap" is passed by callers to explicitly note that the module has
++ * the appropriate alias and that the "allow_cap" capability is set. This is
++ * for backward compatibility, the aim is to have a clear picture where:
 + *
++ * 1) Implicit module loading is allowed
++ * 2) Implicit module loading as with the explicit one requires CAP_SYS_MODULE.
++ * 3) Implicit module loading as with the explicit one can be disabled.
++ *
++ * Returns 0 if the module request is allowed or -EPERM if not.
 + */
-+int task_set_modules_autoload_mode(unsigned long value)
++int may_autoload_module(char *kmod_name, int allow_cap)
 +{
-+	if (value > MODULES_AUTOLOAD_DISABLED)
-+		return -EINVAL;
++	if (modules_autoload_mode == MODULES_AUTOLOAD_ALLOWED)
++		return 0;
++	else if (modules_autoload_mode == MODULES_AUTOLOAD_PRIVILEGED) {
++		/* Check CAP_SYS_MODULE then allow_cap if valid */
++		if (capable(CAP_SYS_MODULE) ||
++		    (allow_cap > 0 && capable(allow_cap)))
++		       return 0;
++	}
 +
-+	/*
-+	 * To set task "modules_autoload_mode" requires that the task has
-+	 * CAP_SYS_ADMIN in its namespace or be running with no_new_privs.
-+	 * This avoids scenarios where unprivileged tasks can affect the
-+	 * behaviour of privileged children by restricting module features.
-+	 */
-+	if (!task_no_new_privs(current) &&
-+	    security_capable_noaudit(current_cred(), current_user_ns(),
-+				     CAP_SYS_ADMIN) != 0)
-+		return -EACCES;
-+
-+	/*
-+	 * The "modules_autoload_mode" may only be increased, never decreased,
-+	 * ensuring that once applied, processes can never relax their settings.
-+	 */
-+	if (current->modules_autoload_mode > value)
-+		return -EPERM;
-+	else if (current->modules_autoload_mode < value)
-+		current->modules_autoload_mode = value;
-+
-+	return 0;
++	/* MODULES_AUTOLOAD_DISABLED or not enough caps */
++	return -EPERM;
 +}
 +
  /* Don't grab lock, we're oopsing. */
  void print_modules(void)
  {
+diff --git a/kernel/sysctl.c b/kernel/sysctl.c
+index 4dfba1a..727c6a7 100644
+--- a/kernel/sysctl.c
++++ b/kernel/sysctl.c
+@@ -186,6 +186,11 @@ static int proc_taint(struct ctl_table *table, int write,
+ 			       void __user *buffer, size_t *lenp, loff_t *ppos);
+ #endif
+ 
++#ifdef CONFIG_MODULES
++static int modules_autoload_dointvec_minmax(struct ctl_table *table, int write,
++				void __user *buffer, size_t *lenp, loff_t *ppos);
++#endif
++
+ #ifdef CONFIG_PRINTK
+ static int proc_dointvec_minmax_sysadmin(struct ctl_table *table, int write,
+ 				void __user *buffer, size_t *lenp, loff_t *ppos);
+@@ -661,6 +666,16 @@ static struct ctl_table kern_table[] = {
+ 		.extra1		= &one,
+ 		.extra2		= &one,
+ 	},
++	{
++		.procname	= "modules_autoload_mode",
++		.data		= &modules_autoload_mode,
++		.maxlen		= sizeof(int),
++		.mode		= 0644,
++		/* Handle pinning to max value */
++		.proc_handler	= modules_autoload_dointvec_minmax,
++		.extra1		= &zero,
++		.extra2		= (void *)&modules_autoload_max,
++	},
+ #endif
+ #ifdef CONFIG_UEVENT_HELPER
+ 	{
+@@ -2334,6 +2349,31 @@ static int proc_dointvec_minmax_sysadmin(struct ctl_table *table, int write,
+ }
+ #endif
+ 
++#ifdef CONFIG_MODULES
++static int modules_autoload_dointvec_minmax(struct ctl_table *table, int write,
++				void __user *buffer, size_t *lenp, loff_t *ppos)
++{
++	struct ctl_table t;
++
++	/*
++	 * Only CAP_SYS_MODULE in init user namespace are allowed to change this
++	 */
++	if (write && !capable(CAP_SYS_MODULE))
++		return -EPERM;
++
++	t = *table;
++	/*
++	 * If "modules_autoload_mode" already equals max value
++	 * MODULES_AUTOLOAD_DISABLED, then modules autoload is disabled
++	 * and can not be changed anymore.
++	 */
++	if (modules_autoload_mode == modules_autoload_max)
++		t.extra1 = t.extra2;
++
++	return proc_dointvec_minmax(&t, write, buffer, lenp, ppos);
++}
++#endif
++
+ struct do_proc_dointvec_minmax_conv_param {
+ 	int *min;
+ 	int *max;
 diff --git a/security/commoncap.c b/security/commoncap.c
-index d629d28..dbf0d51 100644
+index 7abebd7..d629d28 100644
 --- a/security/commoncap.c
 +++ b/security/commoncap.c
-@@ -886,6 +886,36 @@ static int cap_prctl_drop(unsigned long cap)
- 	return commit_creds(new);
+@@ -1069,6 +1069,29 @@ int cap_mmap_file(struct file *file, unsigned long reqprot,
+ 	return 0;
  }
  
-+/*
-+ * Implement PR_SET_MODULES_AUTOLOAD_MODE.
++/**
++ * cap_kernel_module_request - Determine whether a module auto-load is permitted
++ * @kmod_name: The module name
++ * @allow_cap: if positive, may allow to auto-load the module if this capability
++ * is set
 + *
-+ * Returns 0 on success, -ve on error.
++ * Determine whether a module should be automatically loaded.
++ * Returns 0 if the module request should be allowed, -EPERM if not.
 + */
-+static int pr_set_modules_autoload_mode(unsigned long arg2, unsigned long arg3,
-+					unsigned long arg4, unsigned long arg5)
++int cap_kernel_module_request(char *kmod_name, int allow_cap)
 +{
-+	if (arg3 || arg4 || arg5)
-+		return -EINVAL;
++	int ret;
++	char comm[sizeof(current->comm)];
 +
-+	return task_set_modules_autoload_mode(arg2);
++	ret = may_autoload_module(kmod_name, allow_cap);
++	if (ret < 0)
++		pr_notice_ratelimited(
++			"module: automatic module loading of %.64s by \"%s\"[%d] was denied\n",
++			kmod_name, get_task_comm(comm, current), current->pid);
++
++	return ret;
 +}
 +
-+/*
-+ * Implement PR_GET_MODULES_AUTOLOAD_MODE.
-+ *
-+ * Return current task "modules_autoload_mode", -ve on error.
-+ */
-+static inline int pr_get_modules_autoload_mode(unsigned long arg2,
-+					       unsigned long arg3,
-+					       unsigned long arg4,
-+					       unsigned long arg5)
-+{
-+	if (arg3 || arg4 || arg5)
-+		return -EINVAL;
-+
-+	return task_modules_autoload_mode(current);
-+}
-+
- /**
-  * cap_task_prctl - Implement process control functions for this security module
-  * @option: The process control function requested
-@@ -1016,6 +1046,12 @@ int cap_task_prctl(int option, unsigned long arg2, unsigned long arg3,
- 			return commit_creds(new);
- 		}
+ #ifdef CONFIG_SECURITY
  
-+	case PR_SET_MODULES_AUTOLOAD_MODE:
-+		return pr_set_modules_autoload_mode(arg2, arg3, arg4, arg5);
-+
-+	case PR_GET_MODULES_AUTOLOAD_MODE:
-+		return pr_get_modules_autoload_mode(arg2, arg3, arg4, arg5);
-+
- 	default:
- 		/* No functionality available - continue with default */
- 		return -ENOSYS;
-@@ -1083,7 +1119,7 @@ int cap_kernel_module_request(char *kmod_name, int allow_cap)
- 	int ret;
- 	char comm[sizeof(current->comm)];
+ struct security_hook_list capability_hooks[] __lsm_ro_after_init = {
+@@ -1090,6 +1113,7 @@ struct security_hook_list capability_hooks[] __lsm_ro_after_init = {
+ 	LSM_HOOK_INIT(task_setioprio, cap_task_setioprio),
+ 	LSM_HOOK_INIT(task_setnice, cap_task_setnice),
+ 	LSM_HOOK_INIT(vm_enough_memory, cap_vm_enough_memory),
++	LSM_HOOK_INIT(kernel_module_request, cap_kernel_module_request),
+ };
  
--	ret = may_autoload_module(kmod_name, allow_cap);
-+	ret = may_autoload_module(current, kmod_name, allow_cap);
- 	if (ret < 0)
- 		pr_notice_ratelimited(
- 			"module: automatic module loading of %.64s by \"%s\"[%d] was denied\n",
+ void __init capability_add_hooks(void)
 -- 
 2.10.2
