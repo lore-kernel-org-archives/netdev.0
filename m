@@ -1,59 +1,50 @@
-From: Arend Van Spriel <arend.vanspriel-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+From: Johannes Berg <johannes@sipsolutions.net>
 Subject: Re: 4.12-RC2 BUG: scheduling while atomic: irq/47-iwlwifi
-Date: Mon, 22 May 2017 23:02:34 +0200
-Message-ID: <532c257e-52a0-18c1-1afe-04d37c28e072@broadcom.com>
+Date: Mon, 22 May 2017 23:04:55 +0200
+Message-ID: <1495487095.26008.7.camel@sipsolutions.net>
 References: <a54f3f4f-2365-2154-ad18-82e4cd572aac@eikelenboom.it>
- <1495450628.2653.14.camel@sipsolutions.net>
- <764a929c-ce8a-c859-a49e-2f20cb05ae44@broadcom.com>
+         <1495450628.2653.14.camel@sipsolutions.net>
+         <764a929c-ce8a-c859-a49e-2f20cb05ae44@broadcom.com>
+         <532c257e-52a0-18c1-1afe-04d37c28e072@broadcom.com>
+         (sfid-20170522_230239_411441_5084F34F)
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-        Sander Eikelenboom <linux-6SM94LqRVpn6gRhOQ7JHfg@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <764a929c-ce8a-c859-a49e-2f20cb05ae44-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: linux-wireless <linux-wireless@vger.kernel.org>,
+        netdev@vger.kernel.org
+To: Arend Van Spriel <arend.vanspriel@broadcom.com>,
+        Sander Eikelenboom <linux@eikelenboom.it>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from s3.sipsolutions.net ([5.9.151.49]:55126 "EHLO sipsolutions.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S932957AbdEVVE6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 22 May 2017 17:04:58 -0400
+In-Reply-To: <532c257e-52a0-18c1-1afe-04d37c28e072@broadcom.com> (sfid-20170522_230239_411441_5084F34F)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Hi Arend,
 
+Sorry, I forgot that the original message wasn't Cc'ed to the wireless
+list, only netdev.
 
-On 22-5-2017 14:09, Arend van Spriel wrote:
-> On 5/22/2017 12:57 PM, Johannes Berg wrote:
->> On Mon, 2017-05-22 at 12:36 +0200, Sander Eikelenboom wrote:
->>> Hi,
->>>
->>> I encountered this splat with 4.12-RC2.
->>
->> Ugh, yeah, I should've seen that in the review.
->>
->> Arend, please take a look at this. cfg80211_sched_scan_results() cannot
->> sleep, so you can't rtnl_lock() in there. Looks like you can just rely
->> on RCU though?
+> +++ b/net/wireless/scan.c
+> @@ -322,9 +322,7 @@ static void cfg80211_del_sched_scan_req(struct
+> cfg80211_regi
+>  {
+>         struct cfg80211_sched_scan_request *pos;
 > 
-> I see. I think you are right on RCU. Don't have the code in front of me
-> now, but I think the lookup has an ASSERT_RTNL. Will look into it after
-> my monday meeting :-p
+> -       ASSERT_RTNL();
+> -
+> -       list_for_each_entry(pos, &rdev->sched_scan_req_list, list) {
+> +       list_for_each_entry_rcu(pos, &rdev->sched_scan_req_list,
+> list) {
 
-I realized I have a laptop lying around with intel 3160 wifi chip and
-tried to reproduce the issue. Did not run into the splat running
-4.12-rc1 from wireless-drivers-next repo. I did not get the email from
-Sander so I don't know any details.
+[snip]
 
-Here is what I changed based on the info Johannes provided. Can you
-please check if this get rid of the splat and let me know.
+This looks fine, but perhaps in the above we should have some kind of
+locking assertion, e.g.
 
-Regards,
-Arend
----
-diff --git a/net/wireless/scan.c b/net/wireless/scan.c
-index 14d5f0c..04833bb 100644
---- a/net/wireless/scan.c
-+++ b/net/wireless/scan.c
-@@ -322,9 +322,7 @@ static void cfg80211_del_sched_scan_req(struct
-cfg80211_regi
- {
-        struct cfg80211_sched_scan_request *pos;
+	WARN_ON_ONCE(!rcu_read_lock_held() && !lockdep_rtnl_is_held());
 
--       ASSERT_RTNL();
+johannes
