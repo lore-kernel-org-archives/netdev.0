@@ -1,65 +1,37 @@
-From: Chuck Lever <chuck.lever@oracle.com>
-Subject: Re: [PATCH] xprtrdma: Delete an error message for a failed memory allocation in xprt_rdma_bc_setup()
-Date: Mon, 22 May 2017 16:31:08 -0400
-Message-ID: <DC0EF67A-4AF8-415A-8EC0-F86F8E6F08FE@oracle.com>
-References: <3c3f0067-1438-129c-d921-e2c056d5776b@users.sourceforge.net>
-Mime-Version: 1.0 (Mac OS X Mail 9.3 \(3124\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: Linux NFS Mailing List <linux-nfs@vger.kernel.org>,
-        netdev@vger.kernel.org, Anna Schumaker <anna.schumaker@netapp.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        "J. Bruce Fields" <bfields@fieldses.org>,
-        Jeff Layton <jlayton@poochiereds.net>,
-        Trond Myklebust <trond.myklebust@primarydata.com>,
-        LKML <linux-kernel@vger.kernel.org>,
-        kernel-janitors@vger.kernel.org
-To: SF Markus Elfring <elfring@users.sourceforge.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <3c3f0067-1438-129c-d921-e2c056d5776b@users.sourceforge.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [patch iproute2 v2 repost 1/3] tc_filter: add support for chain
+ index
+Date: Mon, 22 May 2017 13:33:15 -0700
+Message-ID: <20170522133315.3490fe0a@xeon-e3>
+References: <20170516172802.1317-1-jiri@resnulli.us>
+        <20170516172937.1391-1-jiri@resnulli.us>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, jhs@mojatatu.com,
+        xiyou.wangcong@gmail.com, dsa@cumulusnetworks.com,
+        edumazet@google.com, daniel@iogearbox.net,
+        alexander.h.duyck@intel.com, simon.horman@netronome.com,
+        mlxsw@mellanox.com
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f178.google.com ([209.85.192.178]:34445 "EHLO
+        mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1758931AbdEVUdW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 22 May 2017 16:33:22 -0400
+Received: by mail-pf0-f178.google.com with SMTP id 9so92622618pfj.1
+        for <netdev@vger.kernel.org>; Mon, 22 May 2017 13:33:22 -0700 (PDT)
+In-Reply-To: <20170516172937.1391-1-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Tue, 16 May 2017 19:29:35 +0200
+Jiri Pirko <jiri@resnulli.us> wrote:
 
-> On May 22, 2017, at 4:24 PM, SF Markus Elfring <elfring@users.sourceforge.net> wrote:
+> From: Jiri Pirko <jiri@mellanox.com>
 > 
-> From: Markus Elfring <elfring@users.sourceforge.net>
-> Date: Mon, 22 May 2017 22:18:28 +0200
+> Allow user to put filter to a specific chain identified by index.
 > 
-> Omit an extra message for a memory allocation failure in this function.
-> 
-> This issue was detected by using the Coccinelle software.
-> 
-> Link: http://events.linuxfoundation.org/sites/events/files/slides/LCJ16-Refactor_Strings-WSang_0.pdf
-> Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 
-Reviewed-by: Chuck Lever <chuck.lever@oracle.com>
-
-
-> ---
-> net/sunrpc/xprtrdma/backchannel.c | 6 ++----
-> 1 file changed, 2 insertions(+), 4 deletions(-)
-> 
-> diff --git a/net/sunrpc/xprtrdma/backchannel.c b/net/sunrpc/xprtrdma/backchannel.c
-> index 24fedd4b117e..03f6b5840764 100644
-> --- a/net/sunrpc/xprtrdma/backchannel.c
-> +++ b/net/sunrpc/xprtrdma/backchannel.c
-> @@ -119,11 +119,9 @@ int xprt_rdma_bc_setup(struct rpc_xprt *xprt, unsigned int reqs)
-> 
-> 	for (i = 0; i < (reqs << 1); i++) {
-> 		rqst = kzalloc(sizeof(*rqst), GFP_KERNEL);
-> -		if (!rqst) {
-> -			pr_err("RPC:       %s: Failed to create bc rpc_rqst\n",
-> -			       __func__);
-> +		if (!rqst)
-> 			goto out_free;
-> -		}
-> +
-> 		dprintk("RPC:       %s: new rqst %p\n", __func__, rqst);
-> 
-> 		rqst->rq_xprt = &r_xprt->rx_xprt;
-> -- 
-> 2.13.0
-
---
-Chuck Lever
+Applied to net-next branch of iproute2
