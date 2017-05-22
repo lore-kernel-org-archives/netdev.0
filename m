@@ -1,38 +1,42 @@
-From: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
-Subject: Re: [PATCH] Bluetooth: Delete error messages for failed memory
- allocations in two functions
-Date: Mon, 22 May 2017 10:25:48 +0200
-Message-ID: <A01E2BDB-7FD3-4258-9F6F-941EFA76935E@holtmann.org>
-References: <0afbfdb7-48f1-4d15-d5bd-8ea40b1eb52a@users.sourceforge.net>
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: [PATCH 0/2] ieee802154: ca8210: Adjustments for two function
+ implementations
+Date: Mon, 22 May 2017 10:28:02 +0200
+Message-ID: <9247C8F0-7FA1-4D02-96D5-DFB9753D7C05@holtmann.org>
+References: <55fddbc7-28c4-8866-67d3-ff1ff1a4eeb7@users.sourceforge.net>
 Mime-Version: 1.0 (Mac OS X Mail 10.3 \(3273\))
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: "open list:BLUETOOTH DRIVERS" <linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        "Gustavo F. Padovan" <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>,
-        Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: SF Markus Elfring <elfring-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <0afbfdb7-48f1-4d15-d5bd-8ea40b1eb52a-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: linuxdev@cascoda.com, linux-wpan@vger.kernel.org,
+        Network Development <netdev@vger.kernel.org>,
+        Alexander Aring <aar@pengutronix.de>,
+        Harry Morris <h.morris@cascoda.com>,
+        Stefan Schmidt <stefan@osg.samsung.com>,
+        LKML <linux-kernel@vger.kernel.org>,
+        kernel-janitors@vger.kernel.org
+To: SF Markus Elfring <elfring@users.sourceforge.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from coyote.holtmann.net ([212.227.132.17]:33662 "EHLO
+        mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752994AbdEVI2E (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 22 May 2017 04:28:04 -0400
+In-Reply-To: <55fddbc7-28c4-8866-67d3-ff1ff1a4eeb7@users.sourceforge.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hallo Markus,
+Hi Markus,
 
-> Omit two extra messages for memory allocation failures in these functions.
+> Two update suggestions were taken into account
+> from static source code analysis.
 > 
-> This issue was detected by using the Coccinelle software.
+> Markus Elfring (2):
+>  Delete an error message for a failed memory allocation in ca8210_probe()
+>  Delete an error message for a failed memory allocation in ca8210_skb_rx()
 > 
-> Link: http://events.linuxfoundation.org/sites/events/files/slides/LCJ16-Refactor_Strings-WSang_0.pdf
-> Signed-off-by: Markus Elfring <elfring-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-> ---
-> net/bluetooth/ecdh_helper.c | 11 +++--------
-> 1 file changed, 3 insertions(+), 8 deletions(-)
+> drivers/net/ieee802154/ca8210.c | 9 ++-------
+> 1 file changed, 2 insertions(+), 7 deletions(-)
 
-patch has been applied to bluetooth-next tree.
+both patches have been applied to bluetooth-next tree.
 
 Regards
 
