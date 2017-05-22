@@ -1,7 +1,7 @@
 From: Romain Perier <romain.perier@collabora.com>
-Subject: [PATCH v9 09/15] scsi: csiostor: Replace PCI pool old API
-Date: Mon, 22 May 2017 18:49:01 +0200
-Message-ID: <20170522164907.22915-10-romain.perier@collabora.com>
+Subject: [PATCH v9 04/15] net: e100: Replace PCI pool old API
+Date: Mon, 22 May 2017 18:48:56 +0200
+Message-ID: <20170522164907.22915-5-romain.perier@collabora.com>
 References: <20170522164907.22915-1-romain.perier@collabora.com>
 Cc: linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
         linux-usb@vger.kernel.org, linux-scsi@vger.kernel.org,
@@ -18,99 +18,72 @@ To: Dan Williams <dan.j.williams@intel.com>,
         "Martin K. Petersen" <martin.petersen@oracle.com>,
         Felipe Balbi <balbi@kernel.org>,
         Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bhuna.collabora.co.uk ([46.235.227.227]:53733 "EHLO
-        bhuna.collabora.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S965060AbdEVQuS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 22 May 2017 12:50:18 -0400
+Return-path: <linux-scsi-owner@vger.kernel.org>
 In-Reply-To: <20170522164907.22915-1-romain.perier@collabora.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 The PCI pool API is deprecated. This commit replaces the PCI pool old
-API by the appropriate function with the DMA pool API. It also updates
-the name of some variables and the content of comments, accordingly.
+API by the appropriate function with the DMA pool API.
 
 Signed-off-by: Romain Perier <romain.perier@collabora.com>
-Reviewed-by: Peter Senna Tschudin <peter.senna@collabora.com>
+Acked-by: Peter Senna Tschudin <peter.senna@collabora.com>
+Acked-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Tested-by: Peter Senna Tschudin <peter.senna@collabora.com>
 ---
- drivers/scsi/csiostor/csio_hw.h   |  2 +-
- drivers/scsi/csiostor/csio_init.c | 11 ++++++-----
- drivers/scsi/csiostor/csio_scsi.c |  6 +++---
- 3 files changed, 10 insertions(+), 9 deletions(-)
+ drivers/net/ethernet/intel/e100.c | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/scsi/csiostor/csio_hw.h b/drivers/scsi/csiostor/csio_hw.h
-index 62758e830d3b..61c09daabb20 100644
---- a/drivers/scsi/csiostor/csio_hw.h
-+++ b/drivers/scsi/csiostor/csio_hw.h
-@@ -464,7 +464,7 @@ struct csio_hw {
- 	struct csio_pport	pport[CSIO_MAX_PPORTS];	/* Ports (XGMACs) */
- 	struct csio_hw_params	params;			/* Hw parameters */
+diff --git a/drivers/net/ethernet/intel/e100.c b/drivers/net/ethernet/intel/e100.c
+index 2b7323d392dc..d1002c21ce8c 100644
+--- a/drivers/net/ethernet/intel/e100.c
++++ b/drivers/net/ethernet/intel/e100.c
+@@ -607,7 +607,7 @@ struct nic {
+ 	struct mem *mem;
+ 	dma_addr_t dma_addr;
  
--	struct pci_pool		*scsi_pci_pool;		/* PCI pool for SCSI */
-+	struct dma_pool		*scsi_dma_pool;		/* DMA pool for SCSI */
- 	mempool_t		*mb_mempool;		/* Mailbox memory pool*/
- 	mempool_t		*rnode_mempool;		/* rnode memory pool */
+-	struct pci_pool *cbs_pool;
++	struct dma_pool *cbs_pool;
+ 	dma_addr_t cbs_dma_addr;
+ 	u8 adaptive_ifs;
+ 	u8 tx_threshold;
+@@ -1892,7 +1892,7 @@ static void e100_clean_cbs(struct nic *nic)
+ 			nic->cb_to_clean = nic->cb_to_clean->next;
+ 			nic->cbs_avail++;
+ 		}
+-		pci_pool_free(nic->cbs_pool, nic->cbs, nic->cbs_dma_addr);
++		dma_pool_free(nic->cbs_pool, nic->cbs, nic->cbs_dma_addr);
+ 		nic->cbs = NULL;
+ 		nic->cbs_avail = 0;
+ 	}
+@@ -1910,7 +1910,7 @@ static int e100_alloc_cbs(struct nic *nic)
+ 	nic->cb_to_use = nic->cb_to_send = nic->cb_to_clean = NULL;
+ 	nic->cbs_avail = 0;
  
-diff --git a/drivers/scsi/csiostor/csio_init.c b/drivers/scsi/csiostor/csio_init.c
-index ea0c31086cc6..d5fb016b5fc2 100644
---- a/drivers/scsi/csiostor/csio_init.c
-+++ b/drivers/scsi/csiostor/csio_init.c
-@@ -485,9 +485,10 @@ csio_resource_alloc(struct csio_hw *hw)
- 	if (!hw->rnode_mempool)
- 		goto err_free_mb_mempool;
- 
--	hw->scsi_pci_pool = pci_pool_create("csio_scsi_pci_pool", hw->pdev,
--					    CSIO_SCSI_RSP_LEN, 8, 0);
--	if (!hw->scsi_pci_pool)
-+	hw->scsi_dma_pool = dma_pool_create("csio_scsi_dma_pool",
-+					    &hw->pdev->dev, CSIO_SCSI_RSP_LEN,
-+					    8, 0);
-+	if (!hw->scsi_dma_pool)
- 		goto err_free_rn_pool;
- 
- 	return 0;
-@@ -505,8 +506,8 @@ csio_resource_alloc(struct csio_hw *hw)
- static void
- csio_resource_free(struct csio_hw *hw)
- {
--	pci_pool_destroy(hw->scsi_pci_pool);
--	hw->scsi_pci_pool = NULL;
-+	dma_pool_destroy(hw->scsi_dma_pool);
-+	hw->scsi_dma_pool = NULL;
- 	mempool_destroy(hw->rnode_mempool);
- 	hw->rnode_mempool = NULL;
- 	mempool_destroy(hw->mb_mempool);
-diff --git a/drivers/scsi/csiostor/csio_scsi.c b/drivers/scsi/csiostor/csio_scsi.c
-index a1ff75f1384f..dab0d3f9bee1 100644
---- a/drivers/scsi/csiostor/csio_scsi.c
-+++ b/drivers/scsi/csiostor/csio_scsi.c
-@@ -2445,7 +2445,7 @@ csio_scsim_init(struct csio_scsim *scm, struct csio_hw *hw)
- 
- 		/* Allocate Dma buffers for Response Payload */
- 		dma_buf = &ioreq->dma_buf;
--		dma_buf->vaddr = pci_pool_alloc(hw->scsi_pci_pool, GFP_KERNEL,
-+		dma_buf->vaddr = dma_pool_alloc(hw->scsi_dma_pool, GFP_KERNEL,
- 						&dma_buf->paddr);
- 		if (!dma_buf->vaddr) {
- 			csio_err(hw,
-@@ -2485,7 +2485,7 @@ csio_scsim_init(struct csio_scsim *scm, struct csio_hw *hw)
- 		ioreq = (struct csio_ioreq *)tmp;
- 
- 		dma_buf = &ioreq->dma_buf;
--		pci_pool_free(hw->scsi_pci_pool, dma_buf->vaddr,
-+		dma_pool_free(hw->scsi_dma_pool, dma_buf->vaddr,
- 			      dma_buf->paddr);
- 
- 		kfree(ioreq);
-@@ -2516,7 +2516,7 @@ csio_scsim_exit(struct csio_scsim *scm)
- 		ioreq = (struct csio_ioreq *)tmp;
- 
- 		dma_buf = &ioreq->dma_buf;
--		pci_pool_free(scm->hw->scsi_pci_pool, dma_buf->vaddr,
-+		dma_pool_free(scm->hw->scsi_dma_pool, dma_buf->vaddr,
- 			      dma_buf->paddr);
- 
- 		kfree(ioreq);
+-	nic->cbs = pci_pool_alloc(nic->cbs_pool, GFP_KERNEL,
++	nic->cbs = dma_pool_alloc(nic->cbs_pool, GFP_KERNEL,
+ 				  &nic->cbs_dma_addr);
+ 	if (!nic->cbs)
+ 		return -ENOMEM;
+@@ -2958,8 +2958,8 @@ static int e100_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 		netif_err(nic, probe, nic->netdev, "Cannot register net device, aborting\n");
+ 		goto err_out_free;
+ 	}
+-	nic->cbs_pool = pci_pool_create(netdev->name,
+-			   nic->pdev,
++	nic->cbs_pool = dma_pool_create(netdev->name,
++			   &nic->pdev->dev,
+ 			   nic->params.cbs.max * sizeof(struct cb),
+ 			   sizeof(u32),
+ 			   0);
+@@ -2999,7 +2999,7 @@ static void e100_remove(struct pci_dev *pdev)
+ 		unregister_netdev(netdev);
+ 		e100_free(nic);
+ 		pci_iounmap(pdev, nic->csr);
+-		pci_pool_destroy(nic->cbs_pool);
++		dma_pool_destroy(nic->cbs_pool);
+ 		free_netdev(netdev);
+ 		pci_release_regions(pdev);
+ 		pci_disable_device(pdev);
 -- 
 2.11.0
