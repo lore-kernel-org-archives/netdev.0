@@ -1,56 +1,30 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: Re: [PATCH 2/2] vhost/scsi: Delete error messages for failed memory
- allocations in five functions
-Date: Mon, 22 May 2017 12:50:39 +0200
-Message-ID: <557bdff4-6dc2-756d-0d59-9f688ef11f0a@users.sourceforge.net>
-References: <bafa65e4-08fe-efdb-d836-7657e8a64749@users.sourceforge.net>
- <babc429d-6440-92aa-e1d0-eee2636a8d0f@users.sourceforge.net>
- <20170522094320.GE12205@stefanha-x1.localdomain>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: Re: 4.12-RC2 BUG: scheduling while atomic: irq/47-iwlwifi
+Date: Mon, 22 May 2017 12:57:08 +0200
+Message-ID: <1495450628.2653.14.camel@sipsolutions.net>
+References: <a54f3f4f-2365-2154-ad18-82e4cd572aac@eikelenboom.it>
+         (sfid-20170522_124945_484427_F6127CF5)
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Jason Wang <jasowang@redhat.com>,
-        "Michael S. Tsirkin" <mst@redhat.com>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Wolfram Sang <wsa@the-dreams.de>
-To: Stefan Hajnoczi <stefanha@gmail.com>, kvm@vger.kernel.org,
-        netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-        kernel-janitors@vger.kernel.org
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <20170522094320.GE12205@stefanha-x1.localdomain>
-Content-Language: en-GB
-Sender: kvm-owner@vger.kernel.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Sander Eikelenboom <linux-6SM94LqRVpn6gRhOQ7JHfg@public.gmane.org>,
+        linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Arend Van Spriel <arend.vanspriel-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <a54f3f4f-2365-2154-ad18-82e4cd572aac-6SM94LqRVpn6gRhOQ7JHfg@public.gmane.org> (sfid-20170522_124945_484427_F6127CF5)
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
->> Link: http://events.linuxfoundation.org/sites/events/files/slides/LCJ16-Refactor_Strings-WSang_0.pdf
+On Mon, 2017-05-22 at 12:36 +0200, Sander Eikelenboom wrote:
+> Hi,
 > 
-> Please include an actual explanation for this change instead of linking
-> to slides.
+> I encountered this splat with 4.12-RC2.
 
-Do you care for a bit of code size reduction by removal of questionable
-error messages?
+Ugh, yeah, I should've seen that in the review.
 
+Arend, please take a look at this. cfg80211_sched_scan_results() cannot
+sleep, so you can't rtnl_lock() in there. Looks like you can just rely
+on RCU though?
 
-> Why are you trying to get rid of memory allocation failure messages?
-
-Do you find information from a Linux allocation failure report sufficient
-for any function implementations here?
-
-
->> +++ b/drivers/vhost/scsi.c
->> @@ -417,5 +417,4 @@ vhost_scsi_allocate_evt(struct vhost_scsi *vs,
->>  	if (!evt) {
->> -		vq_err(vq, "Failed to allocate vhost_scsi_evt\n");
-> 
-> #define vq_err(vq, fmt, ...) do {                                  \
->                 pr_debug(pr_fmt(fmt), ##__VA_ARGS__);       \
->                 if ((vq)->error_ctx)                               \
->                                 eventfd_signal((vq)->error_ctx, 1);\
->         } while (0)
-> 
-> You silently dropped the eventfd_signal() call.
-
-Do you prefer to preserve this special error handling then?
-
-Regards,
-Markus
+johannes
