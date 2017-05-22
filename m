@@ -1,69 +1,80 @@
-From: Stefan Hajnoczi <stefanha@redhat.com>
-Subject: Re: [Patch net] vsock: use new wait API for vsock_stream_sendmsg()
-Date: Mon, 22 May 2017 14:56:05 +0100
-Message-ID: <20170522135605.GC24772@stefanha-x1.localdomain>
-References: <1495218119-12358-1-git-send-email-xiyou.wangcong@gmail.com>
+From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
+Subject: Re: [PATCH] net: fec: add post PHY reset delay DT property
+Date: Mon, 22 May 2017 15:57:05 +0200
+Message-ID: <20170522135705.GB29447@lunn.ch>
+References: <20170522091517.6857-1-quentin.schulz@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-        protocol="application/pgp-signature"; boundary="lCAWRPmW1mITcIfM"
-Cc: netdev@vger.kernel.org, Jorgen Hansen <jhansen@vmware.com>,
-        "Michael S. Tsirkin" <mst@redhat.com>,
-        Claudio Imbrenda <imbrenda@linux.vnet.ibm.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:37768 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S933574AbdEVN4J (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 22 May 2017 09:56:09 -0400
-Content-Disposition: inline
-In-Reply-To: <1495218119-12358-1-git-send-email-xiyou.wangcong@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-
---lCAWRPmW1mITcIfM
 Content-Type: text/plain; charset=us-ascii
+Cc: fugang.duan-3arQi8VN3Tc@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org
+To: Quentin Schulz <quentin.schulz-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+In-Reply-To: <20170522091517.6857-1-quentin.schulz-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, May 19, 2017 at 11:21:59AM -0700, Cong Wang wrote:
-> As reported by Michal, vsock_stream_sendmsg() could still
-> sleep at vsock_stream_has_space() after prepare_to_wait():
->=20
->   vsock_stream_has_space
->     vmci_transport_stream_has_space
->       vmci_qpair_produce_free_space
->         qp_lock
->           qp_acquire_queue_mutex
->             mutex_lock
->=20
-> Just switch to the new wait API like we did for commit
-> d9dc8b0f8b4e ("net: fix sleeping for sk_wait_event()").
->=20
-> Reported-by: Michal Kubecek <mkubecek@suse.cz>
-> Cc: Stefan Hajnoczi <stefanha@redhat.com>
-> Cc: Jorgen Hansen <jhansen@vmware.com>
-> Cc: "Michael S. Tsirkin" <mst@redhat.com>
-> Cc: Claudio Imbrenda <imbrenda@linux.vnet.ibm.com>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+On Mon, May 22, 2017 at 11:15:17AM +0200, Quentin Schulz wrote:
+> Some PHY require to wait for a bit after the reset GPIO has been
+> toggled. This adds support for the DT property `phy-reset-post-delay`
+> which gives the delay in milliseconds to wait after reset.
+> 
+> If the DT property is not given, no delay is observed. Post reset delay
+> greater than 1000ms are invalid and are default to 1ms.
+
+Hi Quentin
+
+If it is invalid, please return -EINVAL.
+
+> Signed-off-by: Quentin Schulz <quentin.schulz-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
 > ---
->  net/vmw_vsock/af_vsock.c | 21 ++++++++-------------
->  1 file changed, 8 insertions(+), 13 deletions(-)
+>  Documentation/devicetree/bindings/net/fsl-fec.txt |  5 +++++
+>  drivers/net/ethernet/freescale/fec_main.c         | 17 +++++++++++++++--
+>  2 files changed, 20 insertions(+), 2 deletions(-)
+> 
+> diff --git a/Documentation/devicetree/bindings/net/fsl-fec.txt b/Documentation/devicetree/bindings/net/fsl-fec.txt
+> index a1e3693cca16..8795e8ca5793 100644
+> --- a/Documentation/devicetree/bindings/net/fsl-fec.txt
+> +++ b/Documentation/devicetree/bindings/net/fsl-fec.txt
+> @@ -15,6 +15,11 @@ Optional properties:
+>  - phy-reset-active-high : If present then the reset sequence using the GPIO
+>    specified in the "phy-reset-gpios" property is reversed (H=reset state,
+>    L=operation state).
+> +- phy-reset-post-delay : Post reset delay in milliseconds. If present then
+> +  a delay of phy-reset-post-delay milliseconds will be observed after the
+> +  phy-reset-gpios has been toggled. Can be omitted thus no delay is
+> +  observed. Delay is in range of 1ms to 1000ms. If given delay is higher
+> +  than 1000ms, 1ms delay is done instead.
+>  - phy-supply : regulator that powers the Ethernet PHY.
+>  - phy-handle : phandle to the PHY device connected to this device.
+>  - fixed-link : Assume a fixed link. See fixed-link.txt in the same directory.
+> diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+> index 56a563f90b0b..00a7fd0bcd59 100644
+> --- a/drivers/net/ethernet/freescale/fec_main.c
+> +++ b/drivers/net/ethernet/freescale/fec_main.c
+> @@ -3192,7 +3192,7 @@ static int fec_reset_phy(struct platform_device *pdev)
+>  {
+>  	int err, phy_reset;
+>  	bool active_high = false;
+> -	int msec = 1;
+> +	int msec = 1, phy_post_delay = 0;
+>  	struct device_node *np = pdev->dev.of_node;
+>  
+>  	if (!np)
+> @@ -3210,7 +3210,6 @@ static int fec_reset_phy(struct platform_device *pdev)
+>  		return 0;
+>  
+>  	active_high = of_property_read_bool(np, "phy-reset-active-high");
+> -
+>  	err = devm_gpio_request_one(&pdev->dev, phy_reset,
+>  			active_high ? GPIOF_OUT_INIT_HIGH : GPIOF_OUT_INIT_LOW,
+>  			"phy-reset");
 
-Reviewed-by: Stefan Hajnoczi <stefanha@redhat.com>
+No white space changes please.
 
---lCAWRPmW1mITcIfM
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQEcBAEBAgAGBQJZIu31AAoJEJykq7OBq3PI5pYIAMg0IpK3Qspkq5ZCVAAhX63Z
-3xgnmKKF5GJYmSmFS2P0ZMFxxICGwJAqQiv0uhf+JN03YNRX0/FPO00ES9noyXRN
-6wrnVkzChnKI2MNc++3BOKd9tFvbhy0H0JhSSKbmwS4QeTY4JqVYP9QtXptkuu+9
-Lm3rPTYgotbSBJ+eODcRBZ4zIVifiZPXPTWxuj0gJ+eHLS05HYyYPDqt9RjKCjEE
-kb9EV84InHTdiHcoPF22bW6/K0+iyF3odkHcLQEABYSFJTzAEGEjjnHOMRPzcjQh
-WIbZmmjpS9TSu+bLx27OFO0HXa1i2yNmYtKPYRS74Pf3385KR8AmI6xsBEz3ydo=
-=aXJa
------END PGP SIGNATURE-----
-
---lCAWRPmW1mITcIfM--
+   Andrew
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
