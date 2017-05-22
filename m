@@ -1,74 +1,52 @@
-From: Baruch Siach <baruch@tkos.co.il>
-Subject: Re: [PATCH 2/2] Add missing <sys/types.h> include
-Date: Mon, 22 May 2017 23:09:23 +0300
-Message-ID: <20170522200923.6kn25ulx5mtrv6gi@tarshish>
-References: <8afdd8babb9e82bcfde78e851b24b698436a6f9f.1495459674.git.baruch@tkos.co.il>
- <5cdba9c8dc972d25219517ade6129faf73f459b3.1495459674.git.baruch@tkos.co.il>
- <20170522102442.51d36c39@xeon-e3>
+From: =?UTF-8?Q?Lars_Erik_Storbuk=C3=A5s?= <storbukas.dev@gmail.com>
+Subject: Process phantom ECN event in TCP without CWR response
+Date: Mon, 22 May 2017 22:09:23 +0200
+Message-ID: <CAF0XkCBCitKOy8K5HE7adiZ3XQrm_VPLFNktrYGGk-Ot+-RCKQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org,
-        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from guitar.tcltek.co.il ([192.115.133.116]:41591 "EHLO
-        mx.tkos.co.il" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1760952AbdEVUJ2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 22 May 2017 16:09:28 -0400
-Content-Disposition: inline
-In-Reply-To: <20170522102442.51d36c39@xeon-e3>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+To: LKML <linux-kernel@vger.kernel.org>,
+        Netdev <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Stephen,
+I'm trying to generate phantom ECN events to (manually) decrease the
+transmission rate/throughput.
 
-On Mon, May 22, 2017 at 10:24:42AM -0700, Stephen Hemminger wrote:
-> On Mon, 22 May 2017 16:27:54 +0300
-> Baruch Siach <baruch@tkos.co.il> wrote:
-> 
-> > From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-> > 
-> > The u_intXX_t types are defined in <sys/types.h>, so it should be
-> > included before using those types. Otherwise, with certain C
-> > libraries, the build fails with:
-> > 
-> > In file included from ../include/iptables.h:4:0,
-> >                  from m_ipt.c:18:
-> > ../include/iptables_common.h:47:16: error: unknown type name ‘u_int32_t’
-> >  #define __le32 u_int32_t
-> > 
-> > Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-> > Signed-off-by: Baruch Siach <baruch@tkos.co.il>
-> > ---
-> >  include/iptables_common.h | 2 ++
-> >  1 file changed, 2 insertions(+)
-> > 
-> > diff --git a/include/iptables_common.h b/include/iptables_common.h
-> > index 9099667ffa6d..2c27a4b61fcd 100644
-> > --- a/include/iptables_common.h
-> > +++ b/include/iptables_common.h
-> > @@ -43,6 +43,8 @@ extern char *lib_dir;
-> >    extern void init_extensions(void);
-> >  #endif
-> >  
-> > +#include <sys/types.h>
-> > +
-> >  #define __be32	u_int32_t
-> >  #define __le32	u_int32_t
-> >  #define __be16	u_int16_t
-> 
-> This include file comes from netfilter, so not going to change it in iproute2 repo.
+The signals is meant to be generated and received on a single host. I
+don't want the ECN event to generate a CWR (Congestion Window Reduced)
+response to the sender. I'm trying to think of ways to avoid the TCP
+code from entering the part of an ECN event, where the response to the
+sender is generated.
 
-It turns out that this headers is unused since commit 5cd1adba79d33644 (Update 
-to current iptables headers). So this patch is no longer needed.
+I have thought of two (possible) solutions:
 
-iptables dropped this file in commit a3732db1280 (Moves all declarations in 
-iptables_common.h to xtables.h).
+1. Before the phantom ECN signal is generated, a FLAG is set,
+indicating that a phantom ECN event is coming. Before entering the
+part where the CWR response is generated, perform a check on whether
+the FLAG is set or not (if set - do not enter CWR part).
 
-baruch
+2. Instead of generating ECN signals (modify incoming packets), use a
+flag to indicate that the next incoming ACK is processed as if it were
+an ECN signal (except entering the CWR part).
 
--- 
-     http://baruch.siach.name/blog/                  ~. .~   Tk Open Systems
-=}------------------------------------------------ooO--U--Ooo------------{=
-   - baruch@tkos.co.il - tel: +972.52.368.4656, http://www.tkos.co.il -
+
+Any input on how to implement, or pointers for where to look for
+similar solutions is greatly appreciated.
+
+...
+
+For those who are interested in why I'm trying to achieve this:
+
+I'm working on the implementation of a Deadline Aware, Less than Best
+Effort framework. A framework for adding both LBE behaviour and
+awareness of =E2=80=9Csoft=E2=80=9D delivery deadlines to any congestion co=
+ntrol (CC)
+algorithm, whether loss-based, delay- based or explicit
+signaling-based. This effectively allows it to turn an arbitrary CC
+protocol into a scavenger protocol that dynamically adapts its sending
+rate to network conditions and remaining time before the deadline, to
+balance timeliness and transmission aggressiveness.
+
+/ Lars Erik Storbuk=C3=A5s (storbukas.dev@gmail.com)
