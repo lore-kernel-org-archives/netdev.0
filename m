@@ -1,83 +1,77 @@
-From: Stefan Hajnoczi <stefanha@gmail.com>
-Subject: Re: [PATCH 2/2] vhost/scsi: Delete error messages for failed memory
- allocations in five functions
-Date: Mon, 22 May 2017 12:23:20 +0100
-Message-ID: <20170522112320.GA22806@stefanha-x1.localdomain>
-References: <bafa65e4-08fe-efdb-d836-7657e8a64749@users.sourceforge.net>
- <babc429d-6440-92aa-e1d0-eee2636a8d0f@users.sourceforge.net>
- <20170522094320.GE12205@stefanha-x1.localdomain>
- <557bdff4-6dc2-756d-0d59-9f688ef11f0a@users.sourceforge.net>
+From: Yuval Mintz <Yuval.Mintz@cavium.com>
+Subject: [PATCH net-next 00/11] qed/qede: Mostly-cleanup series
+Date: Mon, 22 May 2017 14:32:00 +0300
+Message-ID: <1495452731-27171-1-git-send-email-Yuval.Mintz@cavium.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-        protocol="application/pgp-signature"; boundary="1yeeQ81UyVL57Vl7"
-Cc: kvm@vger.kernel.org, netdev@vger.kernel.org,
-        virtualization@lists.linux-foundation.org,
-        kernel-janitors@vger.kernel.org, Jason Wang <jasowang@redhat.com>,
-        "Michael S. Tsirkin" <mst@redhat.com>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Wolfram Sang <wsa@the-dreams.de>
-To: SF Markus Elfring <elfring@users.sourceforge.net>
+Content-Type: text/plain
+Cc: Yuval Mintz <Yuval.Mintz@cavium.com>
+To: <netdev@vger.kernel.org>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:33056 "EHLO
-        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751254AbdEVLXZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 22 May 2017 07:23:25 -0400
-Content-Disposition: inline
-In-Reply-To: <557bdff4-6dc2-756d-0d59-9f688ef11f0a@users.sourceforge.net>
+Received: from mail-by2nam03on0065.outbound.protection.outlook.com ([104.47.42.65]:63840
+        "EHLO NAM03-BY2-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1752680AbdEVLc3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 22 May 2017 07:32:29 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This series contains some cleanup of the qed and qede code:
+ - #1 contains mostly static/endian changes in order to allow qede to
+   pass sparse compilation cleanly.
+ - #2, #5 and #6 are either semantic or remove dead-code from driver.
+ - #9, #10 and #11 relate to printing and slightly change some APIs
+   between qed and the protocol drivers for that end [sharing the
+   interface names and information regarding device].
 
---1yeeQ81UyVL57Vl7
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+The rest of the patches are minor changes/fixes to various flows
+in qed.
 
-On Mon, May 22, 2017 at 12:50:39PM +0200, SF Markus Elfring wrote:
-> > Why are you trying to get rid of memory allocation failure messages?
->=20
-> Do you find information from a Linux allocation failure report sufficient
-> for any function implementations here?
+Dave,
 
-If kmalloc() and friends guarantee to print a warning and backtrace on
-every allocation failure, then there's no need for error messages in
-callers.
+Please consider applying this series to net-next.
 
-That seems like good justification that can go in the commit
-description, but I'm not sure if kmalloc() and friends guarantee to show
-a message (not just the first time, but for every failed allocation)?
+Thanks,
+Yuval
 
-> >> +++ b/drivers/vhost/scsi.c
-> >> @@ -417,5 +417,4 @@ vhost_scsi_allocate_evt(struct vhost_scsi *vs,
-> >>  	if (!evt) {
-> >> -		vq_err(vq, "Failed to allocate vhost_scsi_evt\n");
-> >=20
-> > #define vq_err(vq, fmt, ...) do {                                  \
-> >                 pr_debug(pr_fmt(fmt), ##__VA_ARGS__);       \
-> >                 if ((vq)->error_ctx)                               \
-> >                                 eventfd_signal((vq)->error_ctx, 1);\
-> >         } while (0)
-> >=20
-> > You silently dropped the eventfd_signal() call.
->=20
-> Do you prefer to preserve this special error handling then?
+Manish Chopra (2):
+  qede: Fix sparse warnings
+  qed: !main_ptt for tunnel configuration
 
-Yes, please leave vq_err() calls.
+Michal Kalderon (1):
+  qed: Enable RoCE parser searching on fp init
 
-Stefan
+Tomer Tayar (4):
+  qed: Log incorrectly installed board
+  qed: Drop the 's' from num_ports_in_engines
+  qed: Flush slowpath tasklet on stop
+  qed: Provide MBI information in dev_info
 
---1yeeQ81UyVL57Vl7
-Content-Type: application/pgp-signature; name="signature.asc"
+Yuval Mintz (4):
+  qed: Align DP_ERR style with other DP macros
+  qed: Remove BB_A0 references
+  qede: Log probe of PCI device
+  qed: Replace set_id() api with set_name()
 
------BEGIN PGP SIGNATURE-----
+ drivers/net/ethernet/qlogic/qed/qed.h             |  9 +---
+ drivers/net/ethernet/qlogic/qed/qed_dev.c         | 57 +++++++++++++----------
+ drivers/net/ethernet/qlogic/qed/qed_hsi.h         |  8 ++++
+ drivers/net/ethernet/qlogic/qed/qed_l2.c          | 17 ++++++-
+ drivers/net/ethernet/qlogic/qed/qed_main.c        | 26 ++++++++---
+ drivers/net/ethernet/qlogic/qed/qed_mcp.c         | 30 ++++++++++++
+ drivers/net/ethernet/qlogic/qed/qed_mcp.h         | 14 +++++-
+ drivers/net/ethernet/qlogic/qed/qed_ptp.c         |  4 +-
+ drivers/net/ethernet/qlogic/qed/qed_sp.h          |  3 ++
+ drivers/net/ethernet/qlogic/qed/qed_sp_commands.c | 14 ++++--
+ drivers/net/ethernet/qlogic/qed/qed_sriov.c       |  2 +-
+ drivers/net/ethernet/qlogic/qede/qede_dcbnl.c     |  1 -
+ drivers/net/ethernet/qlogic/qede/qede_ethtool.c   | 10 ++--
+ drivers/net/ethernet/qlogic/qede/qede_fp.c        | 25 +++++-----
+ drivers/net/ethernet/qlogic/qede/qede_main.c      | 44 +++++++++++++++--
+ drivers/net/ethernet/qlogic/qede/qede_roce.c      |  4 +-
+ drivers/scsi/qedf/qedf_main.c                     |  2 +-
+ drivers/scsi/qedi/qedi_main.c                     |  2 +-
+ include/linux/qed/qed_if.h                        | 33 +++++++++----
+ 19 files changed, 223 insertions(+), 82 deletions(-)
 
-iQEcBAEBAgAGBQJZIsooAAoJEJykq7OBq3PI48MH/2SBVJUIO7vINQTZv9NB3QY1
-hVDMY0sUVSJ3paY40CVqN6yRyVUc3UjO1UnhDVY8rVbLQsmfkC3BQibiARHTDbdM
-bczzrUq14IZ02R12gRrsfPUNOVmCZR7VdxkZ2U42h4TFqADx6UThHfMqv47aOZZU
-IDoafGkNLKkVI3U31Yd99J7KwIWN1U7Tes1Tt6M29vBgm7YgdE/QaW0mpk+Df2+O
-zZEONqjKC1DrI2etKnFUJ08w/eh0EtWEigPdrBK7G04b7atiVw6PK1fgKJ4mFn9u
-5/5xn/N52JcXKiUOotffPgY9WXmseBkGkEogBCuhyaayVc66fAD5l1neFx4X4eE=
-=0dh5
------END PGP SIGNATURE-----
-
---1yeeQ81UyVL57Vl7--
+-- 
+1.9.3
