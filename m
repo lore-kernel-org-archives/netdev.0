@@ -1,133 +1,161 @@
-From: Sebastian Reichel <sebastian.reichel-ZGY8ohtN/8pPYcu2f3hruQ@public.gmane.org>
-Subject: Re: [PATCHv4] wlcore: add wl1285 compatible
-Date: Mon, 22 May 2017 18:21:15 +0200
-Message-ID: <20170522162114.w4pw25pcecsm6lhi@earth>
-References: <20170505141553.2605-1-sebastian.reichel@collabora.co.uk>
- <8737bx5jgr.fsf@purkki.adurom.net>
- <20170522.103010.1779800840743690143.davem@davemloft.net>
- <87wp99t0hj.fsf@kamboji.qca.qualcomm.com>
- <20170522152112.634mnsv65lryrmkp@earth>
- <CAL_JsqL91sruKNaWmVEqT+L_OCh5xFkkGY07mBBUmqkKHc5fQw@mail.gmail.com>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: [PATCH] cfg80211: Be able to set bss expire time at config
+ stage.
+Date: Mon, 22 May 2017 11:21:51 -0500
+Message-ID: <1495470111.25557.9.camel@redhat.com>
+References: <20170522160946.2057-1-enric.balletbo@collabora.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
-        protocol="application/pgp-signature"; boundary="qudstgvlcj7ysmyi"
-Cc: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-        David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Tony Lindgren <tony-4v6yS6AI5VpBDgjK7y7TUQ@public.gmane.org>,
-        Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
-        linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        linux-omap <linux-omap-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <CAL_JsqL91sruKNaWmVEqT+L_OCh5xFkkGY07mBBUmqkKHc5fQw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Dmitry Shmidt <dimitrysh@google.com>,
+        helmut.schaa@googlemail.com
+To: Enric Balletbo i Serra <enric.balletbo@collabora.com>,
+        Johannes Berg <johannes@sipsolutions.net>,
+        "David S . Miller" <davem@davemloft.net>,
+        linux-wireless@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:52770 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S935367AbdEVQWA (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 22 May 2017 12:22:00 -0400
+In-Reply-To: <20170522160946.2057-1-enric.balletbo@collabora.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Mon, 2017-05-22 at 18:09 +0200, Enric Balletbo i Serra wrote:
+> The IEEE80211_SCAN_RESULT_EXPIRE value was modified several times in
+> the
+> past. Initially was set at 10 seconds (2a51931192), then increased at
+> 15
+> seconds (09f97e0fc4) and finally to 30 seconds (f9616e0f88) to cover
+> the
+> use case when a station is having heavy uplink traffic. On some
+> devices,
+> like Chromebooks, this value is decreased to 7 seconds to avoid stall
+> results, and other devices prefer set to 15 seconds.
 
---qudstgvlcj7ysmyi
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Couldn't userspace just look at NL80211_BSS_SEEN_MS_AGO to filter and
+create its own list?  Given that the kernel provides the information
+userspace needs to figure out the age of a particular BSS, it doesn't
+seem like there needs to be a kernel tunable for this.  Userspace can
+already avoid stale results.
 
-Hi,
+Also, different runtime situations might want different result ages,
+which wouldn't be possible if the kernel had a hardcoded maximum. 
+Furthermore, different userspace apps might be reading the same scan
+list, and they might have different ideas about staleness.
 
-On Mon, May 22, 2017 at 11:11:49AM -0500, Rob Herring wrote:
-> On Mon, May 22, 2017 at 10:21 AM, Sebastian Reichel
-> <sebastian.reichel-ZGY8ohtN/8pPYcu2f3hruQ@public.gmane.org> wrote:
-> > Hi,
-> >
-> > On Mon, May 22, 2017 at 05:44:24PM +0300, Kalle Valo wrote:
-> >> David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> writes:
-> >> > From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-> >> > Date: Mon, 22 May 2017 12:28:20 +0300
-> >> >
-> >> >> Sebastian Reichel <sebastian.reichel-ZGY8ohtN/8pPYcu2f3hruQ@public.gmane.org> writes:
-> >> >>
-> >> >>> Motorola Droid 4 uses a WL1285C. With differences between the
-> >> >>> chips not being public let's add explicit binding for wl1285
-> >> >>> instead of relying on wl1283 being very similar.
-> >> >>>
-> >> >>> Reviewed-by: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-> >> >>> Acked-by: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-> >> >>> Acked-by: Tony Lindgren <tony-4v6yS6AI5VpBDgjK7y7TUQ@public.gmane.org>
-> >> >>> Signed-off-by: Sebastian Reichel <sebastian.reichel-ZGY8ohtN/8oXa1LcwEujcA@public.gmane.org=
-k>
-> >> >>> ---
-> >> >>> Hi Dave,
-> >> >>>
-> >> >>> I previously send this in two patches, but its hard to apply witho=
-ut
-> >> >>> requiring multiple kernel releases (the driver must be updated bef=
-ore
-> >> >>> the DTS change). Since the actual change is not very complex Marcel
-> >> >>> Holtmann & Tony Lindgren suggested, that I send this directly to y=
-ou
-> >> >>> in a single patch for inclusion into 4.12. This also means, that t=
-he
-> >> >>> remaining series can be queued normally for 4.13.
-> >> >>
-> >> >> I noticed that Dave set this patch to Awaiting Upstream state on his
-> >> >> patchwork:
-> >> >>
-> >> >> https://patchwork.ozlabs.org/patch/759042/
-> >> >>
-> >> >> Which makes me suspect that he is waiting me to apply this (as I
-> >> >> normally apply wlcore patches). Dave, should I actually take this p=
-atch?
-> >> >> What do you prefer?
-> >> >
-> >> > Anything that touches wireless drivers I defer to you, yes.
-> >>
-> >> Thanks, I'll take it then. Not sure why Sebastian was suggested to
-> >> submit this patch via your tree in the first place.
-> >>
-> >> https://patchwork.kernel.org/patch/9713645/
-> >
-> > Thanks. The idea was to get into early 4.12-rc to avoid merge
-> > conflicts in the droid 4 *.dts during 4.13 cycle. This strategy
-> > obviously failed :)
->=20
-> First, I'm not sure why you combined everything. A maintainer can just
-> as easily take a series as a single patch and we prefer binding doc,
-> dts and driver changes all separate.
->=20
-> Second, the dts changes could go thru arm-soc and the driver change
-> thru netdev. The binding doc can be thru either. There's no bisecting
-> dependency and things shouldn't break. It just won't all work until
-> you have both branches.
+Or perhaps I misunderstand the problem, which could well be the case.
 
-This is only true for new devices. WLAN for droid4 works at the
-moment using incorrect compatible string. If *.dts is updated and
-driver is not yet updated WLAN does not work. IMHO that is a
-bisecting dependency.
+Dan
 
-It would have been fine to sneak the driver change into 4.12 and
-queue the *.dts change in 4.13, though. IIRC Tony suggest to make
-it one patch.
-
--- Sebastian
-
---qudstgvlcj7ysmyi
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQIzBAABCgAdFiEE72YNB0Y/i3JqeVQT2O7X88g7+poFAlkjD/gACgkQ2O7X88g7
-+potAQ//Zg4paFigzw/mj9gBU3ClP6Uok7Jh92nHYiOIzIb7AyWDhmz8oUJWwHU7
-Jpj1zO3ZJHx9SvEZ15UqZOEmzIvSZkJF9k6q8gxJLBMfEbQLQqtXvgjsBAlXq5Tk
-fEtDVFbpl+NDNGJZaVqy2D48pz0CCJ01QpDt+XeoVJjUkNmuoWb6VexZAEoKgE9i
-7j0hxHxhfxbyebFVxZD5tgzC3c7+kS2ev7PAQ8ugCjVn/uPcVOAO8GOXYO9vtBbD
-ZjNiDg51u5Qev0DRXHXZErbjgf/Exxyo9H+kRLzOTvEJuWYpWPeRvX9UOuH+KSPs
-4RMweYw/MCnpIFH/SMzBNVcxs4OfnF0EzjGHVw9rOXHcC5B2werltKq08mEaHsJk
-ukxqp+jsDUxiPiMqrYH3QjakNJ1Zvhs9Co1wdqoRP/5NI+JqWjxVCqxdKE30KkwH
-YIHnRV0BiSbcsIy25m+nWKInA3kIOEW8Z8o15s6I7Cfd+oXCZvhmpm5q4pU47k3P
-zz3w+Mi/VRAnOyi9JeKvUi0dSfWPmA0I+zk7kpLgHZouZWj87RgNg7aaaJozfPrZ
-vFDLZkxcJS8qEX8/EGIJ9SDX7zm1P+MACo4fjyjlGchd35uj2xDVUGqc3XFhcv3C
-dUpT2LjatyzAsTHPwnHLtf0CFIeVjHfTqqURE75C6FsKvZYEewE=
-=yoyo
------END PGP SIGNATURE-----
-
---qudstgvlcj7ysmyi--
+> This simple patch tries to make the selection of this value a bit
+> more
+> flexible by being able to set the expire time at config stage. Most
+> users
+> can leave the default value set as 30 seconds, others can modify the
+> value
+> at config stage if they want lower or bigger values.
+> 
+> Signed-off-by: Enric Balletbo i Serra <enric.balletbo@collabora.com>
+> ---
+>  net/wireless/Kconfig | 11 +++++++++++
+>  net/wireless/core.c  |  2 ++
+>  net/wireless/core.h  |  1 +
+>  net/wireless/scan.c  |  6 ++----
+>  4 files changed, 16 insertions(+), 4 deletions(-)
+> 
+> diff --git a/net/wireless/Kconfig b/net/wireless/Kconfig
+> index 6c60612..2a54e28 100644
+> --- a/net/wireless/Kconfig
+> +++ b/net/wireless/Kconfig
+> @@ -29,6 +29,17 @@ config CFG80211
+>  
+>  	  When built as a module it will be called cfg80211.
+>  
+> +config CFG80211_SCAN_RESULT_EXPIRE
+> +	int "Scan completion time" if CFG80211
+> +	default 30
+> +	---help---
+> +	  This value is the time in seconds the mac80211 scan method
+> needs
+> +	  to finish. An expiration time to 30 seconds should be
+> sufficient
+> +	  for most cases but for some other cases we might be
+> interested in
+> +	  tweak this value.
+> +
+> +	  If unsure, leave the default of 30.
+> +
+>  config NL80211_TESTMODE
+>  	bool "nl80211 testmode command"
+>  	depends on CFG80211
+> diff --git a/net/wireless/core.c b/net/wireless/core.c
+> index 83ea164..2a5742c 100644
+> --- a/net/wireless/core.c
+> +++ b/net/wireless/core.c
+> @@ -499,6 +499,8 @@ struct wiphy *wiphy_new_nm(const struct
+> cfg80211_ops *ops, int sizeof_priv,
+>  
+>  	init_waitqueue_head(&rdev->dev_wait);
+>  
+> +	rdev->scan_result_expire =
+> CONFIG_CFG80211_SCAN_RESULT_EXPIRE;
+> +
+>  	/*
+>  	 * Initialize wiphy parameters to IEEE 802.11 MIB default
+> values.
+>  	 * Fragmentation and RTS threshold are disabled by default
+> with the
+> diff --git a/net/wireless/core.h b/net/wireless/core.h
+> index 6e809325..6a8a164 100644
+> --- a/net/wireless/core.h
+> +++ b/net/wireless/core.h
+> @@ -72,6 +72,7 @@ struct cfg80211_registered_device {
+>  	struct rb_root bss_tree;
+>  	u32 bss_generation;
+>  	u32 bss_entries;
+> +	unsigned int scan_result_expire;
+>  	struct cfg80211_scan_request *scan_req; /* protected by RTNL
+> */
+>  	struct sk_buff *scan_msg;
+>  	struct list_head sched_scan_req_list;
+> diff --git a/net/wireless/scan.c b/net/wireless/scan.c
+> index 14d5f0c..f0b55a9 100644
+> --- a/net/wireless/scan.c
+> +++ b/net/wireless/scan.c
+> @@ -70,8 +70,6 @@ module_param(bss_entries_limit, int, 0644);
+>  MODULE_PARM_DESC(bss_entries_limit,
+>                   "limit to number of scan BSS entries (per wiphy,
+> default 1000)");
+>  
+> -#define IEEE80211_SCAN_RESULT_EXPIRE	(30 * HZ)
+> -
+>  static void bss_free(struct cfg80211_internal_bss *bss)
+>  {
+>  	struct cfg80211_bss_ies *ies;
+> @@ -476,7 +474,7 @@ void cfg80211_bss_age(struct
+> cfg80211_registered_device *rdev,
+>  
+>  void cfg80211_bss_expire(struct cfg80211_registered_device *rdev)
+>  {
+> -	__cfg80211_bss_expire(rdev, jiffies -
+> IEEE80211_SCAN_RESULT_EXPIRE);
+> +	__cfg80211_bss_expire(rdev, jiffies - rdev-
+> >scan_result_expire);
+>  }
+>  
+>  const u8 *cfg80211_find_ie_match(u8 eid, const u8 *ies, int len,
+> @@ -737,7 +735,7 @@ struct cfg80211_bss *cfg80211_get_bss(struct
+> wiphy *wiphy,
+>  		if (!is_valid_ether_addr(bss->pub.bssid))
+>  			continue;
+>  		/* Don't get expired BSS structs */
+> -		if (time_after(now, bss->ts +
+> IEEE80211_SCAN_RESULT_EXPIRE) &&
+> +		if (time_after(now, bss->ts + rdev-
+> >scan_result_expire) &&
+>  		    !atomic_read(&bss->hold))
+>  			continue;
+>  		if (is_bss(&bss->pub, bssid, ssid, ssid_len)) {
