@@ -1,43 +1,45 @@
-From: Arend van Spriel <arend.vanspriel@broadcom.com>
-Subject: Re: 4.12-RC2 BUG: scheduling while atomic: irq/47-iwlwifi
-Date: Mon, 22 May 2017 14:09:53 +0200
-Message-ID: <764a929c-ce8a-c859-a49e-2f20cb05ae44@broadcom.com>
-References: <a54f3f4f-2365-2154-ad18-82e4cd572aac@eikelenboom.it>
- <1495450628.2653.14.camel@sipsolutions.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Johannes Berg <johannes@sipsolutions.net>,
-        Sander Eikelenboom <linux@eikelenboom.it>,
-        linux-wireless <linux-wireless@vger.kernel.org>
+From: Roman Kapl <roman.kapl@sysgo.com>
+Subject: [PATCH] net: set default value for somaxconn
+Date: Mon, 22 May 2017 14:22:41 +0200
+Message-ID: <20170522122241.28389-1-roman.kapl@sysgo.com>
+Cc: Roman Kapl <roman.kapl@sysgo.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f171.google.com ([209.85.128.171]:33030 "EHLO
-        mail-wr0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1758647AbdEVMKJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 22 May 2017 08:10:09 -0400
-Received: by mail-wr0-f171.google.com with SMTP id w50so37276878wrc.0
-        for <netdev@vger.kernel.org>; Mon, 22 May 2017 05:09:55 -0700 (PDT)
-In-Reply-To: <1495450628.2653.14.camel@sipsolutions.net>
-Content-Language: en-GB
+Received: from mail.sysgo.com ([176.9.12.79]:46188 "EHLO mail.sysgo.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751127AbdEVMci (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 22 May 2017 08:32:38 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 5/22/2017 12:57 PM, Johannes Berg wrote:
-> On Mon, 2017-05-22 at 12:36 +0200, Sander Eikelenboom wrote:
->> Hi,
->>
->> I encountered this splat with 4.12-RC2.
-> 
-> Ugh, yeah, I should've seen that in the review.
-> 
-> Arend, please take a look at this. cfg80211_sched_scan_results() cannot
-> sleep, so you can't rtnl_lock() in there. Looks like you can just rely
-> on RCU though?
+The default value for somaxconn is set in sysctl_core_net_init(), but this
+function is not called when kernel is configured without CONFIG_SYSCTL.
 
-I see. I think you are right on RCU. Don't have the code in front of me 
-now, but I think the lookup has an ASSERT_RTNL. Will look into it after 
-my monday meeting :-p
+This results in the kernel not being able to accept TCP connections,
+because the backlog has zero size. Usually, the user ends up with:
+"TCP: request_sock_TCP: Possible SYN flooding on port 7. Dropping request.  Check SNMP counters."
 
-Regards,
-Arend
+Before ef547f2ac16 (tcp: remove max_qlen_log), the effects were less
+severe, because the backlog was always at least eight slots long.
+
+Signed-off-by: Roman Kapl <roman.kapl@sysgo.com>
+---
+ net/core/net_namespace.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
+index 1934efd..4f3bbff 100644
+--- a/net/core/net_namespace.c
++++ b/net/core/net_namespace.c
+@@ -37,6 +37,9 @@ EXPORT_SYMBOL_GPL(net_namespace_list);
+ struct net init_net = {
+ 	.count		= ATOMIC_INIT(1),
+ 	.dev_base_head	= LIST_HEAD_INIT(init_net.dev_base_head),
++	.core = {
++		.sysctl_somaxconn = SOMAXCONN,
++	},
+ };
+ EXPORT_SYMBOL(init_net);
+ 
+-- 
+2.10.1
