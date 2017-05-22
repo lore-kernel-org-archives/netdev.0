@@ -1,54 +1,94 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: network performance degradation in virtio_net in 4.12-rc
-Date: Mon, 22 May 2017 20:42:10 +0300
-Message-ID: <20170522203532-mutt-send-email-mst@kernel.org>
-References: <alpine.LRH.2.02.1705221003450.20076@file01.intranet.prod.int.rdu2.redhat.com>
+From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
+Subject: Re: [PATCH net-next 01/11] qede: Fix sparse warnings
+Date: Mon, 22 May 2017 17:44:12 +0000
+Message-ID: <BLUPR0701MB20043F202421D02E697198338DF80@BLUPR0701MB2004.namprd07.prod.outlook.com>
+References: <1495452731-27171-2-git-send-email-Yuval.Mintz@cavium.com>
+        <20170522.123804.1189830414503494485.davem@davemloft.net>
+        <BLUPR0701MB2004062F133B0DD22E817C6C8DF80@BLUPR0701MB2004.namprd07.prod.outlook.com>,<20170522.125430.1296201768191613727.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jason Wang <jasowang@redhat.com>, kvm@vger.kernel.org,
-        virtualization@lists.linux-foundation.org, netdev@vger.kernel.org
-To: Mikulas Patocka <mpatocka@redhat.com>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "Chopra, Manish" <Manish.Chopra@cavium.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:3979 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1758767AbdEVRmL (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 22 May 2017 13:42:11 -0400
-Content-Disposition: inline
-In-Reply-To: <alpine.LRH.2.02.1705221003450.20076@file01.intranet.prod.int.rdu2.redhat.com>
+Received: from mail-cys01nam02on0044.outbound.protection.outlook.com ([104.47.37.44]:3840
+        "EHLO NAM02-CY1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1757895AbdEVRoQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 22 May 2017 13:44:16 -0400
+In-Reply-To: <20170522.125430.1296201768191613727.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 22, 2017 at 10:25:19AM -0400, Mikulas Patocka wrote:
-> Hi
-> 
-> I see severe network performance degradation with the kernels 4.12-rc1 and 
-> 4.12-rc2 in the network virtio driver. Download rate drops down to about 
-> 100kB/s.
-> 
-> I bisected it and it is caused by patch 
-> d85b758f72b05a774045545f24d70980e3e9aac4 ("virtio_net: fix support for 
-> small rings"). When I revert this patch, the problem goes away.
-> 
-> The host is Debian Jessie with kernel 4.4.62, the guest is Debian Sid with 
-> kernel 4.12-rc.
-> 
-> Mikulas
+> >> Please.
+> >>=20
+> >> This is exactly the problem when such a terse commit message, or lack =
+of any
+> >> message at all as is the case here, occurs.
+> >>=20
+> >> I have no idea what removing this method assignment has to do with fix=
+ing
+> >> sparse warnings.
+> >=20
+> > It's currently defined twice in the qede_dcbnl_ops struct -
 
-Thanks for the report!
-I'm not sure what causes it on this host. I'll try to reproduce.
-Meanwhile, could you please locate this line of code:
-+               vi->rq[i].min_buf_len = mergeable_min_buf_len(vi, vi->rq[i].vq);
+> >Ok, so what's important is that you don't just post a patch with no
+> commit message, just saying "sparse warning fixes."
 
-and add something like
-	printk(KERN_ERR, "min buf = 0x%x expected 0x%x size 0x%x big %d\n",
-	       vi->rq[i].min_buf_len, GOOD_PACKET_LEN,
-	       virtqueue_get_vring_size(vi->rq[i].vq),
-	       (int)vi->big_packets);
+> At a minimum, if you're too lazy to explain what exactly each thing
+> is fixing, provide the sparse warnings you are eliminating in the
+> commit message.
 
-after it?
-Then boot and capture the output.
+Well, this time it was intentional lazines; Thought it would have been
+wasted reading. But sure, here it is:
 
-Thanks!
+drivers/net/ethernet/qlogic/qede/qede_fp.c:349:34: warning: invalid assignm=
+ent: |=3D
+drivers/net/ethernet/qlogic/qede/qede_fp.c:349:34:    left side has type re=
+stricted __le16
+drivers/net/ethernet/qlogic/qede/qede_fp.c:349:34:    right side has type i=
+nt
+drivers/net/ethernet/qlogic/qede/qede_fp.c:1516:50: warning: invalid assign=
+ment: |=3D
+drivers/net/ethernet/qlogic/qede/qede_fp.c:1516:50:    left side has type r=
+estricted __le16
+drivers/net/ethernet/qlogic/qede/qede_fp.c:1516:50:    right side has type =
+int
+drivers/net/ethernet/qlogic/qede/qede_fp.c:1525:50: warning: invalid assign=
+ment: ^=3D
+drivers/net/ethernet/qlogic/qede/qede_fp.c:1525:50:    left side has type r=
+estricted __le16
+drivers/net/ethernet/qlogic/qede/qede_fp.c:1525:50:    right side has type =
+int
+drivers/net/ethernet/qlogic/qede/qede_fp.c:1590:42: warning: invalid assign=
+ment: |=3D
+drivers/net/ethernet/qlogic/qede/qede_fp.c:1590:42:    left side has type r=
+estricted __le16
+drivers/net/ethernet/qlogic/qede/qede_fp.c:1590:42:    right side has type =
+unsigned int
+drivers/net/ethernet/qlogic/qede/qede_ethtool.c:1315:34: warning: invalid a=
+ssignment: |=3D
+drivers/net/ethernet/qlogic/qede/qede_ethtool.c:1315:34:    left side has t=
+ype restricted __le16
+drivers/net/ethernet/qlogic/qede/qede_ethtool.c:1315:34:    right side has =
+type int
+drivers/net/ethernet/qlogic/qede/qede_ethtool.c:1330:13: warning: incorrect=
+ type in assignment (different base types)
+drivers/net/ethernet/qlogic/qede/qede_ethtool.c:1330:13:    expected int [s=
+igned] [assigned] val
+drivers/net/ethernet/qlogic/qede/qede_ethtool.c:1330:13:    got restricted =
+__le16 [usertype] <noident>
+drivers/net/ethernet/qlogic/qede/qede_ethtool.c:1331:33: warning: incorrect=
+ type in assignment (different base types)
+drivers/net/ethernet/qlogic/qede/qede_ethtool.c:1331:33:    expected restri=
+cted __le16 [usertype] bd_prod
+drivers/net/ethernet/qlogic/qede/qede_ethtool.c:1331:33:    got int [signed=
+] [assigned] val
+drivers/net/ethernet/qlogic/qede/qede_roce.c:224:29: warning: symbol 'qede_=
+roce_get_free_event_node' was not declared. Should it be static?
 
--- 
-MST
+Do you want us to re-spin the series with the updated commit message?
+
+ =
