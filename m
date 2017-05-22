@@ -1,49 +1,45 @@
-From: Corentin Labbe <clabbe.montjoie@gmail.com>
-Subject: [PATCH v2 0/4] net-next: stmmac: rework the speed selection
-Date: Mon, 22 May 2017 14:33:43 +0200
-Message-ID: <20170522123347.5295-1-clabbe.montjoie@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Corentin Labbe <clabbe.montjoie@gmail.com>
-To: peppe.cavallaro@st.com, alexandre.torgue@st.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: Re: [PATCH 2/2] vhost/scsi: Delete error messages for failed memory
+	allocations in five functions
+Date: Mon, 22 May 2017 15:38:33 +0300
+Message-ID: <20170522123833.asx2biaw4xaz4qpv@mwanda>
+References: <bafa65e4-08fe-efdb-d836-7657e8a64749@users.sourceforge.net>
+	<babc429d-6440-92aa-e1d0-eee2636a8d0f@users.sourceforge.net>
+	<20170522094320.GE12205@stefanha-x1.localdomain>
+	<557bdff4-6dc2-756d-0d59-9f688ef11f0a@users.sourceforge.net>
+	<20170522112320.GA22806@stefanha-x1.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: kvm@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>,
+	netdev@vger.kernel.org, Wolfram Sang <wsa@the-dreams.de>,
+	kernel-janitors@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	virtualization@lists.linux-foundation.org,
+	SF Markus Elfring <elfring@users.sourceforge.net>
+To: Stefan Hajnoczi <stefanha@gmail.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <20170522112320.GA22806@stefanha-x1.localdomain>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-Hello
+On Mon, May 22, 2017 at 12:23:20PM +0100, Stefan Hajnoczi wrote:
+> I'm not sure if kmalloc() and friends guarantee to show
+> a message (not just the first time, but for every failed allocation)?
+>
 
-The current stmmac_adjust_link() part which handle speed have
-some if (has_platform) code and my dwmac-sun8i will add more of them.
+It prints multiple times, but it's ratelimited.  It can also be disabled
+using a config option.
 
-So we need to handle better speed selection.
-Moreover the struct link member speed and port are hard to guess their
-purpose. And their unique usage are to be combined for writing speed.
+See slab_out_of_memory().
 
-My first try was to create an adjust_link() in stmmac_ops but it duplicate some code
-
-The current solution is to have direct value for 10/100/1000 and a mask for them.
-
-The first 3 patchs fix some minor problem found in stmmac_adjust_link() and reported by Florian Fainelli in my previous serie.
-The last patch is the real work.
-
-This serie is tested on cubieboard2 (dwmac1000) and opipc (dwmac-sun8i).
-
-Regards
-
-Changes since v2:
-- use true/false for new_state in patch #1
-
-Corentin Labbe (4):
-  net: stmmac: Convert new_state to bool
-  net: stmmac: Remove unnecessary parenthesis
-  net: stmmac: use SPEED_xxx instead of raw value
-  net: stmmac: rework the speed selection
-
- drivers/net/ethernet/stmicro/stmmac/common.h       |  8 +++---
- .../net/ethernet/stmicro/stmmac/dwmac1000_core.c   | 26 ++++++++++--------
- .../net/ethernet/stmicro/stmmac/dwmac100_core.c    |  6 +++--
- drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c  | 26 ++++++++++--------
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  | 31 +++++++---------------
- 5 files changed, 48 insertions(+), 49 deletions(-)
-
--- 
-2.13.0
+regards,
+dan carpenter
