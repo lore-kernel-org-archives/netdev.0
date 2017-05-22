@@ -1,57 +1,138 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2] ip: add handling for new CAN netlink interface
-Date: Mon, 22 May 2017 13:37:05 -0700
-Message-ID: <20170522133705.57e13882@xeon-e3>
-References: <20170519125449.7214-1-remigiusz.kollataj@mobica.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [RFC net-next PATCH 4/5] net: new XDP feature for reading HW
+ rxhash from drivers
+Date: Mon, 22 May 2017 22:42:29 +0200
+Message-ID: <20170522224229.540ce059@redhat.com>
+References: <149512205297.14733.15729847433404265933.stgit@firesoul>
+        <149512210827.14733.13997041998775151648.stgit@firesoul>
+        <CALx6S35Y3j=S7GpJ8=Z8E2X+106ToOV_bMeNsKHqG5JFtiC4Ag@mail.gmail.com>
+        <20170521180435.56dcd76b@redhat.com>
+        <CALx6S34-4kQLQLkU9QRjyfZ808f_hXV4N+bh+XG8iu1BtQOUSA@mail.gmail.com>
+        <20170522083935.4d82174f@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org
-To: Remigiusz =?UTF-8?B?S2/FgsWCxIV0YWo=?=
-        <remigiusz.kollataj@mobica.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Daniel Borkmann <borkmann@iogearbox.net>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        brouer@redhat.com
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f182.google.com ([209.85.192.182]:34019 "EHLO
-        mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1762391AbdEVUhM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 22 May 2017 16:37:12 -0400
-Received: by mail-pf0-f182.google.com with SMTP id 9so92701513pfj.1
-        for <netdev@vger.kernel.org>; Mon, 22 May 2017 13:37:12 -0700 (PDT)
-In-Reply-To: <20170519125449.7214-1-remigiusz.kollataj@mobica.com>
+Received: from mx1.redhat.com ([209.132.183.28]:51796 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S933464AbdEVUmf (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 22 May 2017 16:42:35 -0400
+In-Reply-To: <20170522083935.4d82174f@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 19 May 2017 14:54:49 +0200
-Remigiusz Ko=C5=82=C5=82=C4=85taj         <remigiusz.kollataj@mobica.com> w=
-rote:
+On Mon, 22 May 2017 08:39:35 +0200
+Jesper Dangaard Brouer <brouer@redhat.com> wrote:
 
-> This patch adds handling for new CAN netlink interface introduced in
-> 4.11 kernel:
-> - IFLA_CAN_TERMINATION,
-> - IFLA_CAN_TERMINATION_CONST,
-> - IFLA_CAN_BITRATE_CONST,
-> - IFLA_CAN_DATA_BITRATE_CONST
->=20
-> Output example:
-> $ip -d link show can0
-> 6: can0: <NOARP,ECHO> mtu 16 qdisc noop state DOWN mode DEFAULT group def=
-ault qlen 10
->     link/can  promiscuity 0
->     can state STOPPED (berr-counter tx 0 rx 0) restart-ms 0
->           bitrate 80000
->              [   20000,    33333,    50000,    80000,    83333,   100000,
->                 125000,   150000,   175000,   200000,   225000,   250000,
->                 275000,   300000,   500000,   625000,   800000,  1000000 ]
->           termination 0 [ 0, 120 ]
->           clock 0numtxqueues 1 numrxqueues 1 gso_max_size 65536 gso_max_s=
-egs 65535
->=20
-> Signed-off-by: Remigiusz Ko=C5=82=C5=82=C4=85taj <remigiusz.kollataj@mobi=
-ca.com>
+> On Sun, 21 May 2017 15:10:29 -0700
+> Tom Herbert <tom@herbertland.com> wrote:
+> 
+> > On Sun, May 21, 2017 at 9:04 AM, Jesper Dangaard Brouer
+> > <brouer@redhat.com> wrote:  
+> > > On Sat, 20 May 2017 09:16:09 -0700
+> > > Tom Herbert <tom@herbertland.com> wrote:
+> > >    
+> > >> > +/* XDP rxhash have an associated type, which is related to the RSS
+> > >> > + * (Receive Side Scaling) standard, but NIC HW have different mapping
+> > >> > + * and support. Thus, create mapping that is interesting for XDP.  XDP
+> > >> > + * would primarly want insight into L3 and L4 protocol info.
+> > >> > + *
+> > >> > + * TODO: Likely need to get extended with "L3_IPV6_EX" due RSS standard
+> > >> > + *
+> > >> > + * The HASH_TYPE will be returned from bpf helper as the top 32-bit of
+> > >> > + * the 64-bit rxhash (internally type stored in xdp_buff->flags).
+> > >> > + */
+> > >> > +#define XDP_HASH(x)            ((x) & ((1ULL << 32)-1))
+> > >> > +#define XDP_HASH_TYPE(x)       ((x) >> 32)
+> > >> > +
+> > >> > +#define XDP_HASH_TYPE_L3_SHIFT 0
+> > >> > +#define XDP_HASH_TYPE_L3_BITS  3
+> > >> > +#define XDP_HASH_TYPE_L3_MASK  ((1ULL << XDP_HASH_TYPE_L3_BITS)-1)
+> > >> > +#define XDP_HASH_TYPE_L3(x)    ((x) & XDP_HASH_TYPE_L3_MASK)
+> > >> > +enum {
+> > >> > +       XDP_HASH_TYPE_L3_IPV4 = 1,
+> > >> > +       XDP_HASH_TYPE_L3_IPV6,
+> > >> > +};
+> > >> > +
+> > >> > +#define XDP_HASH_TYPE_L4_SHIFT XDP_HASH_TYPE_L3_BITS
+> > >> > +#define XDP_HASH_TYPE_L4_BITS  5
+> > >> > +#define XDP_HASH_TYPE_L4_MASK                                          \
+> > >> > +       (((1ULL << XDP_HASH_TYPE_L4_BITS)-1) << XDP_HASH_TYPE_L4_SHIFT)
+> > >> > +#define XDP_HASH_TYPE_L4(x)    ((x) & XDP_HASH_TYPE_L4_MASK)
+> > >> > +enum {
+> > >> > +       _XDP_HASH_TYPE_L4_TCP = 1,
+> > >> > +       _XDP_HASH_TYPE_L4_UDP,
+> > >> > +};
+> > >> > +#define XDP_HASH_TYPE_L4_TCP (_XDP_HASH_TYPE_L4_TCP << XDP_HASH_TYPE_L4_SHIFT)
+> > >> > +#define XDP_HASH_TYPE_L4_UDP (_XDP_HASH_TYPE_L4_UDP << XDP_HASH_TYPE_L4_SHIFT)
+> > >> > +    
+> > >> Hi Jesper,
+> > >>
+> > >> Why do we need these indicators for protocol specific hash? It seems
+> > >> like L4 and L3 is useful differentiation and protocol agnostic (I'm
+> > >> still holding out hope that SCTP will be deployed some day ;-) )    
+> > >
+> > > I'm not sure I understood the question fully, but let me try to answer
+> > > anyway.  To me it seems obvious that you would want to know the
+> > > protocol/L4 type, as this helps avoid hash collisions between UDP and
+> > > TCP flows.  I can easily imagine someone constructing an UDP packet
+> > > that could hash collide with a given TCP flow.
+> > >
+> > > And yes, i40 support matching SCTP, and we will create a
+> > > XDP_HASH_TYPE_L4_SCTP when adding XDP rxhash support for that driver.
+> > >    
+> > But where would this information be used? We don't save it in skbuff,
+> > don't use it in RPS, RFS. RSS doesn't use it for packet steering so
+> > the hash collision problem already exists at the device level. If
+> > there is a collision problem between two protocols then maybe hash
+> > should be over 5-tuple instead...  
+> 
+> One use-case (I heard at a customer) was that they had (web-)servers
+> that didn't serve any UDP traffic, thus they simply block/drop all
+> incoming UDP on the service NIC (as an ACL in the switch). (The servers
+> own DNS lookups and NTP goes through the management NIC to internal
+> DNS/NTP servers).
+> 
+> Another use-case: Inside an XDP/bpf program is can be used for
+> splitting protocol processing, into different tail calls, before even
+> touching packet-data.  I can imagine the bpf TCP handling code is
+> larger, thus an optimization is to have a separate tail call for the
+> UDP protocol handling.  One could also transfer/queue all TCP traffic
+> to other CPU(s) like RPS, just without touching packet memory.
+> 
+> 
+> This info is saved in the skb, but due to space constrains, it is
+> reduced to a single bit, namely skb->l4_hash, iif some
+> RSS-proto/XDP_HASH_TYPE_L4_* bit was set.  And the network stack do use
+> and react on this.
+ 
+I also want to mention another real-customer use-case.  Some
+deployments have a VXLAN based networks, but some NICs cannot
+understand VXLAN do cannot do proper RSS rx-hashing, which resulted in
+bad CPU scaling as all VXLAN packets gets delivered to the same CPU.
 
-What is output without the -d flag?
-In general iproute2 show commands are designed to be invertable.
-I.e the show command looks like the same command to set.
+Thus, I would like to implement recalculation of the RXHASH in XDP, as
+that would save me implementing yet another extension to the flow
+dissector, that the kernel would have to carry forever, while this is
+just a matter of NIC hashing getting improved.
 
-Printing the bitrates and the format of the state output looks quite differ=
-ent
-than the set command. Is it limited to detail (-d)?
+With the extra L3 and L4 info, I'm assuming that XDP_HASH_TYPE_L3(x)
+and XDP_HASH_TYPE_L4(x) will be zero for VXLAN as the NIC cannot
+identify this.  Thus, I can at an early stage know which packets needs
+to get a new rxhash.
+
+I've seen a similar problem with Q-in-Q double tagged VLANs, failing
+the RSS-hash distribution the same way...
+
+I hope that explains what this can be use for(?)
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  LinkedIn: http://www.linkedin.com/in/brouer
