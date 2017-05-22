@@ -1,147 +1,604 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next v2 10/13] nfp: provide linking on port structures
-Date: Mon, 22 May 2017 10:59:31 -0700
-Message-ID: <20170522175934.27447-11-jakub.kicinski@netronome.com>
+Subject: [PATCH net-next v2 03/13] nfp: rename netdev/port to vNIC
+Date: Mon, 22 May 2017 10:59:24 -0700
+Message-ID: <20170522175934.27447-4-jakub.kicinski@netronome.com>
 References: <20170522175934.27447-1-jakub.kicinski@netronome.com>
 Cc: oss-drivers@netronome.com,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f177.google.com ([209.85.192.177]:33451 "EHLO
-        mail-pf0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1760906AbdEVSBL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 22 May 2017 14:01:11 -0400
-Received: by mail-pf0-f177.google.com with SMTP id e193so89415943pfh.0
-        for <netdev@vger.kernel.org>; Mon, 22 May 2017 11:01:10 -0700 (PDT)
+Received: from mail-pf0-f176.google.com ([209.85.192.176]:33406 "EHLO
+        mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1760911AbdEVSBG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 22 May 2017 14:01:06 -0400
+Received: by mail-pf0-f176.google.com with SMTP id e193so89413751pfh.0
+        for <netdev@vger.kernel.org>; Mon, 22 May 2017 11:01:05 -0700 (PDT)
 In-Reply-To: <20170522175934.27447-1-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add link to nfp_ports to make it possible to iterate over all ports.
-This will come in handy when some ports may be representors.
+vNIC is a PCIe-side abstraction NFP firmwares supported by this
+driver use.  It was initially meant to represent a device port
+and therefore a netdev but today should be thought of as a way
+of grouping descriptor rings and associated state.  Advanced apps
+will have vNICs without netdevs and ports without a vNIC (using
+representors instead).
+
+Make sure code refers to vNICs as vNICs and not ports or netdevs.
+No functional changes.
 
 Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 Reviewed-by: Simon Horman <simon.horman@netronome.com>
 ---
- drivers/net/ethernet/netronome/nfp/nfp_main.c     |  1 +
- drivers/net/ethernet/netronome/nfp/nfp_main.h     |  2 ++
- drivers/net/ethernet/netronome/nfp/nfp_net_main.c | 15 ++++++---------
- drivers/net/ethernet/netronome/nfp/nfp_port.c     |  5 +++++
- drivers/net/ethernet/netronome/nfp/nfp_port.h     |  3 +++
- 5 files changed, 17 insertions(+), 9 deletions(-)
+ drivers/net/ethernet/netronome/nfp/nfp_main.c      |   2 +-
+ drivers/net/ethernet/netronome/nfp/nfp_main.h      |  22 +--
+ drivers/net/ethernet/netronome/nfp/nfp_net.h       |  10 +-
+ .../net/ethernet/netronome/nfp/nfp_net_debugfs.c   |   4 +-
+ drivers/net/ethernet/netronome/nfp/nfp_net_main.c  | 150 ++++++++++-----------
+ .../net/ethernet/netronome/nfp/nfp_netvf_main.c    |   4 +-
+ 6 files changed, 95 insertions(+), 97 deletions(-)
 
 diff --git a/drivers/net/ethernet/netronome/nfp/nfp_main.c b/drivers/net/ethernet/netronome/nfp/nfp_main.c
-index 9fbc7eedc017..bb586ce1ea06 100644
+index dde35dae35c5..9fbc7eedc017 100644
 --- a/drivers/net/ethernet/netronome/nfp/nfp_main.c
 +++ b/drivers/net/ethernet/netronome/nfp/nfp_main.c
-@@ -341,6 +341,7 @@ static int nfp_pci_probe(struct pci_dev *pdev,
+@@ -340,7 +340,7 @@ static int nfp_pci_probe(struct pci_dev *pdev,
+ 		err = -ENOMEM;
  		goto err_rel_regions;
  	}
- 	INIT_LIST_HEAD(&pf->vnics);
-+	INIT_LIST_HEAD(&pf->ports);
+-	INIT_LIST_HEAD(&pf->ports);
++	INIT_LIST_HEAD(&pf->vnics);
  	pci_set_drvdata(pdev, pf);
  	pf->pdev = pdev;
  
 diff --git a/drivers/net/ethernet/netronome/nfp/nfp_main.h b/drivers/net/ethernet/netronome/nfp/nfp_main.h
-index 3716ef6b8599..991c4cba0bbf 100644
+index b57de047b002..1ca1c61450c1 100644
 --- a/drivers/net/ethernet/netronome/nfp/nfp_main.h
 +++ b/drivers/net/ethernet/netronome/nfp/nfp_main.h
-@@ -70,6 +70,7 @@ struct nfp_eth_table;
-  * @max_data_vnics:	Number of data vNICs app firmware supports
-  * @num_vnics:		Number of vNICs spawned
-  * @vnics:		Linked list of vNIC structures (struct nfp_net)
-+ * @ports:		Linked list of port structures (struct nfp_port)
+@@ -57,27 +57,27 @@ struct nfp_eth_table;
+  * struct nfp_pf - NFP PF-specific device structure
+  * @pdev:		Backpointer to PCI device
+  * @cpp:		Pointer to the CPP handle
+- * @ctrl_area:		Pointer to the CPP area for the control BAR
++ * @data_vnic_bar:	Pointer to the CPP area for the data vNICs' BARs
+  * @tx_area:		Pointer to the CPP area for the TX queues
+  * @rx_area:		Pointer to the CPP area for the FL/RX queues
+- * @irq_entries:	Array of MSI-X entries for all ports
++ * @irq_entries:	Array of MSI-X entries for all vNICs
+  * @limit_vfs:		Number of VFs supported by firmware (~0 for PCI limit)
+  * @num_vfs:		Number of SR-IOV VFs enabled
+  * @fw_loaded:		Is the firmware loaded?
+  * @eth_tbl:		NSP ETH table
+  * @ddir:		Per-device debugfs directory
+- * @num_ports:		Number of adapter ports app firmware supports
+- * @num_netdevs:	Number of netdevs spawned
+- * @ports:		Linked list of port structures (struct nfp_net)
+- * @port_lock:		Protects @ports, @num_ports, @num_netdevs
++ * @max_data_vnics:	Number of data vNICs app firmware supports
++ * @num_vnics:		Number of vNICs spawned
++ * @vnics:		Linked list of vNIC structures (struct nfp_net)
   * @port_refresh_work:	Work entry for taking netdevs out
-  * @lock:		Protects all fields which may change after probe
++ * @lock:		Protects all fields which may change after probe
   */
-@@ -99,6 +100,7 @@ struct nfp_pf {
- 	unsigned int num_vnics;
+ struct nfp_pf {
+ 	struct pci_dev *pdev;
  
- 	struct list_head vnics;
-+	struct list_head ports;
+ 	struct nfp_cpp *cpp;
+ 
+-	struct nfp_cpp_area *ctrl_area;
++	struct nfp_cpp_area *data_vnic_bar;
+ 	struct nfp_cpp_area *tx_area;
+ 	struct nfp_cpp_area *rx_area;
+ 
+@@ -92,12 +92,12 @@ struct nfp_pf {
+ 
+ 	struct dentry *ddir;
+ 
+-	unsigned int num_ports;
+-	unsigned int num_netdevs;
++	unsigned int max_data_vnics;
++	unsigned int num_vnics;
+ 
+-	struct list_head ports;
++	struct list_head vnics;
  	struct work_struct port_refresh_work;
- 	struct mutex lock;
+-	struct mutex port_lock;
++	struct mutex lock;
  };
+ 
+ extern struct pci_driver nfp_netvf_pci_driver;
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net.h b/drivers/net/ethernet/netronome/nfp/nfp_net.h
+index 04609191ca88..1d41be9b2309 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_net.h
++++ b/drivers/net/ethernet/netronome/nfp/nfp_net.h
+@@ -84,7 +84,7 @@
+ #define NFP_NET_NON_Q_VECTORS		2
+ #define NFP_NET_IRQ_LSC_IDX		0
+ #define NFP_NET_IRQ_EXN_IDX		1
+-#define NFP_NET_MIN_PORT_IRQS		(NFP_NET_NON_Q_VECTORS + 1)
++#define NFP_NET_MIN_VNIC_IRQS		(NFP_NET_NON_Q_VECTORS + 1)
+ 
+ /* Queue/Ring definitions */
+ #define NFP_NET_MAX_TX_RINGS	64	/* Max. # of Tx rings per device */
+@@ -555,7 +555,7 @@ struct nfp_net_dp {
+  * @rx_bar:             Pointer to mapped FL/RX queues
+  * @debugfs_dir:	Device directory in debugfs
+  * @ethtool_dump_flag:	Ethtool dump flag
+- * @port_list:		Entry on device port list
++ * @vnic_list:		Entry on device vNIC list
+  * @pdev:		Backpointer to PCI device
+  * @cpp:		CPP device handle if available
+  * @eth_port:		Translated ETH Table port entry
+@@ -625,7 +625,7 @@ struct nfp_net {
+ 	struct dentry *debugfs_dir;
+ 	u32 ethtool_dump_flag;
+ 
+-	struct list_head port_list;
++	struct list_head vnic_list;
+ 
+ 	struct pci_dev *pdev;
+ 	struct nfp_cpp *cpp;
+@@ -842,7 +842,7 @@ void nfp_net_refresh_port_table(struct nfp_net *nn);
+ void nfp_net_debugfs_create(void);
+ void nfp_net_debugfs_destroy(void);
+ struct dentry *nfp_net_debugfs_device_add(struct pci_dev *pdev);
+-void nfp_net_debugfs_port_add(struct nfp_net *nn, struct dentry *ddir, int id);
++void nfp_net_debugfs_vnic_add(struct nfp_net *nn, struct dentry *ddir, int id);
+ void nfp_net_debugfs_dir_clean(struct dentry **dir);
+ #else
+ static inline void nfp_net_debugfs_create(void)
+@@ -859,7 +859,7 @@ static inline struct dentry *nfp_net_debugfs_device_add(struct pci_dev *pdev)
+ }
+ 
+ static inline void
+-nfp_net_debugfs_port_add(struct nfp_net *nn, struct dentry *ddir, int id)
++nfp_net_debugfs_vnic_add(struct nfp_net *nn, struct dentry *ddir, int id)
+ {
+ }
+ 
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_debugfs.c b/drivers/net/ethernet/netronome/nfp/nfp_net_debugfs.c
+index 4077c59bf782..6cf1b234eecd 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_net_debugfs.c
++++ b/drivers/net/ethernet/netronome/nfp/nfp_net_debugfs.c
+@@ -200,7 +200,7 @@ static const struct file_operations nfp_xdp_q_fops = {
+ 	.llseek = seq_lseek
+ };
+ 
+-void nfp_net_debugfs_port_add(struct nfp_net *nn, struct dentry *ddir, int id)
++void nfp_net_debugfs_vnic_add(struct nfp_net *nn, struct dentry *ddir, int id)
+ {
+ 	struct dentry *queues, *tx, *rx, *xdp;
+ 	char name[20];
+@@ -209,7 +209,7 @@ void nfp_net_debugfs_port_add(struct nfp_net *nn, struct dentry *ddir, int id)
+ 	if (IS_ERR_OR_NULL(nfp_dir))
+ 		return;
+ 
+-	sprintf(name, "port%d", id);
++	sprintf(name, "vnic%d", id);
+ 	nn->debugfs_dir = debugfs_create_dir(name, ddir);
+ 	if (IS_ERR_OR_NULL(nn->debugfs_dir))
+ 		return;
 diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_main.c b/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
-index e8d54b9b9b97..40ba5775ff79 100644
+index 55d916cb04fe..532371940fd6 100644
 --- a/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
 +++ b/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
-@@ -548,6 +548,7 @@ static void nfp_net_refresh_vnics(struct work_struct *work)
+@@ -197,10 +197,10 @@ static unsigned int nfp_net_pf_get_num_ports(struct nfp_pf *pf)
+ 		 nfp_cppcore_pcie_unit(pf->cpp));
+ 
+ 	val = nfp_rtsym_read_le(pf->cpp, name, &err);
+-	/* Default to one port */
++	/* Default to one port/vNIC */
+ 	if (err) {
+ 		if (err != -ENOENT)
+-			nfp_err(pf->cpp, "Unable to read adapter port count\n");
++			nfp_err(pf->cpp, "Unable to read adapter vNIC count\n");
+ 		val = 1;
+ 	}
+ 
+@@ -216,7 +216,7 @@ nfp_net_pf_total_qcs(struct nfp_pf *pf, void __iomem *ctrl_bar,
+ 	min_qc = readl(ctrl_bar + start_off);
+ 	max_qc = min_qc;
+ 
+-	for (i = 0; i < pf->num_ports; i++) {
++	for (i = 0; i < pf->max_data_vnics; i++) {
+ 		/* To make our lives simpler only accept configuration where
+ 		 * queues are allocated to PFs in order (queues of PFn all have
+ 		 * indexes lower than PFn+1).
+@@ -248,17 +248,17 @@ static u8 __iomem *nfp_net_pf_map_ctrl_bar(struct nfp_pf *pf)
+ 		return NULL;
+ 	}
+ 
+-	if (ctrl_sym->size < pf->num_ports * NFP_PF_CSR_SLICE_SIZE) {
++	if (ctrl_sym->size < pf->max_data_vnics * NFP_PF_CSR_SLICE_SIZE) {
+ 		dev_err(&pf->pdev->dev,
+-			"PF BAR0 too small to contain %d ports\n",
+-			pf->num_ports);
++			"PF BAR0 too small to contain %d vNICs\n",
++			pf->max_data_vnics);
+ 		return NULL;
+ 	}
+ 
+ 	ctrl_bar = nfp_net_map_area(pf->cpp, "net.ctrl",
+ 				    ctrl_sym->domain, ctrl_sym->target,
+ 				    ctrl_sym->addr, ctrl_sym->size,
+-				    &pf->ctrl_area);
++				    &pf->data_vnic_bar);
+ 	if (IS_ERR(ctrl_bar)) {
+ 		dev_err(&pf->pdev->dev, "Failed to map PF BAR0: %ld\n",
+ 			PTR_ERR(ctrl_bar));
+@@ -268,24 +268,24 @@ static u8 __iomem *nfp_net_pf_map_ctrl_bar(struct nfp_pf *pf)
+ 	return ctrl_bar;
+ }
+ 
+-static void nfp_net_pf_free_netdevs(struct nfp_pf *pf)
++static void nfp_net_pf_free_vnics(struct nfp_pf *pf)
+ {
+ 	struct nfp_net *nn;
+ 
+-	while (!list_empty(&pf->ports)) {
+-		nn = list_first_entry(&pf->ports, struct nfp_net, port_list);
+-		list_del(&nn->port_list);
+-		pf->num_netdevs--;
++	while (!list_empty(&pf->vnics)) {
++		nn = list_first_entry(&pf->vnics, struct nfp_net, vnic_list);
++		list_del(&nn->vnic_list);
++		pf->num_vnics--;
+ 
+ 		nfp_net_free(nn);
+ 	}
+ }
+ 
+ static struct nfp_net *
+-nfp_net_pf_alloc_port_netdev(struct nfp_pf *pf, void __iomem *ctrl_bar,
+-			     void __iomem *tx_bar, void __iomem *rx_bar,
+-			     int stride, struct nfp_net_fw_version *fw_ver,
+-			     struct nfp_eth_table_port *eth_port)
++nfp_net_pf_alloc_vnic(struct nfp_pf *pf, void __iomem *ctrl_bar,
++		      void __iomem *tx_bar, void __iomem *rx_bar,
++		      int stride, struct nfp_net_fw_version *fw_ver,
++		      struct nfp_eth_table_port *eth_port)
+ {
+ 	u32 n_tx_rings, n_rx_rings;
+ 	struct nfp_net *nn;
+@@ -293,7 +293,7 @@ nfp_net_pf_alloc_port_netdev(struct nfp_pf *pf, void __iomem *ctrl_bar,
+ 	n_tx_rings = readl(ctrl_bar + NFP_NET_CFG_MAX_TXRINGS);
+ 	n_rx_rings = readl(ctrl_bar + NFP_NET_CFG_MAX_RXRINGS);
+ 
+-	/* Allocate and initialise the netdev */
++	/* Allocate and initialise the vNIC */
+ 	nn = nfp_net_alloc(pf->pdev, n_tx_rings, n_rx_rings);
+ 	if (IS_ERR(nn))
+ 		return nn;
+@@ -312,8 +312,7 @@ nfp_net_pf_alloc_port_netdev(struct nfp_pf *pf, void __iomem *ctrl_bar,
+ }
+ 
+ static int
+-nfp_net_pf_init_port_netdev(struct nfp_pf *pf, struct nfp_net *nn,
+-			    unsigned int id)
++nfp_net_pf_init_vnic(struct nfp_pf *pf, struct nfp_net *nn, unsigned int id)
+ {
+ 	int err;
+ 
+@@ -330,7 +329,7 @@ nfp_net_pf_init_port_netdev(struct nfp_pf *pf, struct nfp_net *nn,
+ 	if (err)
+ 		return err;
+ 
+-	nfp_net_debugfs_port_add(nn, pf->ddir, id);
++	nfp_net_debugfs_vnic_add(nn, pf->ddir, id);
+ 
+ 	nfp_net_info(nn);
+ 
+@@ -338,9 +337,9 @@ nfp_net_pf_init_port_netdev(struct nfp_pf *pf, struct nfp_net *nn,
+ }
+ 
+ static int
+-nfp_net_pf_alloc_netdevs(struct nfp_pf *pf, void __iomem *ctrl_bar,
+-			 void __iomem *tx_bar, void __iomem *rx_bar,
+-			 int stride, struct nfp_net_fw_version *fw_ver)
++nfp_net_pf_alloc_vnics(struct nfp_pf *pf, void __iomem *ctrl_bar,
++		       void __iomem *tx_bar, void __iomem *rx_bar,
++		       int stride, struct nfp_net_fw_version *fw_ver)
+ {
+ 	u32 prev_tx_base, prev_rx_base, tgt_tx_base, tgt_rx_base;
+ 	struct nfp_eth_table_port *eth_port;
+@@ -351,7 +350,7 @@ nfp_net_pf_alloc_netdevs(struct nfp_pf *pf, void __iomem *ctrl_bar,
+ 	prev_tx_base = readl(ctrl_bar + NFP_NET_CFG_START_TXQ);
+ 	prev_rx_base = readl(ctrl_bar + NFP_NET_CFG_START_RXQ);
+ 
+-	for (i = 0; i < pf->num_ports; i++) {
++	for (i = 0; i < pf->max_data_vnics; i++) {
+ 		tgt_tx_base = readl(ctrl_bar + NFP_NET_CFG_START_TXQ);
+ 		tgt_rx_base = readl(ctrl_bar + NFP_NET_CFG_START_RXQ);
+ 		tx_bar += (tgt_tx_base - prev_tx_base) * NFP_QCP_QUEUE_ADDR_SZ;
+@@ -363,49 +362,48 @@ nfp_net_pf_alloc_netdevs(struct nfp_pf *pf, void __iomem *ctrl_bar,
+ 		if (eth_port && eth_port->override_changed) {
+ 			nfp_warn(pf->cpp, "Config changed for port #%d, reboot required before port will be operational\n", i);
+ 		} else {
+-			nn = nfp_net_pf_alloc_port_netdev(pf, ctrl_bar, tx_bar,
+-							  rx_bar, stride,
+-							  fw_ver, eth_port);
++			nn = nfp_net_pf_alloc_vnic(pf, ctrl_bar, tx_bar, rx_bar,
++						   stride, fw_ver, eth_port);
+ 			if (IS_ERR(nn)) {
+ 				err = PTR_ERR(nn);
+ 				goto err_free_prev;
+ 			}
+-			list_add_tail(&nn->port_list, &pf->ports);
+-			pf->num_netdevs++;
++			list_add_tail(&nn->vnic_list, &pf->vnics);
++			pf->num_vnics++;
+ 		}
+ 
+ 		ctrl_bar += NFP_PF_CSR_SLICE_SIZE;
+ 	}
+ 
+-	if (list_empty(&pf->ports))
++	if (list_empty(&pf->vnics))
+ 		return -ENODEV;
+ 
+ 	return 0;
+ 
+ err_free_prev:
+-	nfp_net_pf_free_netdevs(pf);
++	nfp_net_pf_free_vnics(pf);
+ 	return err;
+ }
+ 
+ static int
+-nfp_net_pf_spawn_netdevs(struct nfp_pf *pf,
+-			 void __iomem *ctrl_bar, void __iomem *tx_bar,
+-			 void __iomem *rx_bar, int stride,
+-			 struct nfp_net_fw_version *fw_ver)
++nfp_net_pf_spawn_vnics(struct nfp_pf *pf,
++		       void __iomem *ctrl_bar, void __iomem *tx_bar,
++		       void __iomem *rx_bar, int stride,
++		       struct nfp_net_fw_version *fw_ver)
+ {
+-	unsigned int id, wanted_irqs, num_irqs, ports_left, irqs_left;
++	unsigned int id, wanted_irqs, num_irqs, vnics_left, irqs_left;
+ 	struct nfp_net *nn;
+ 	int err;
+ 
+-	/* Allocate the netdevs and do basic init */
+-	err = nfp_net_pf_alloc_netdevs(pf, ctrl_bar, tx_bar, rx_bar,
+-				       stride, fw_ver);
++	/* Allocate the vnics and do basic init */
++	err = nfp_net_pf_alloc_vnics(pf, ctrl_bar, tx_bar, rx_bar,
++				     stride, fw_ver);
+ 	if (err)
+ 		return err;
+ 
+ 	/* Get MSI-X vectors */
+ 	wanted_irqs = 0;
+-	list_for_each_entry(nn, &pf->ports, port_list)
++	list_for_each_entry(nn, &pf->vnics, vnic_list)
+ 		wanted_irqs += NFP_NET_NON_Q_VECTORS + nn->dp.num_r_vecs;
+ 	pf->irq_entries = kcalloc(wanted_irqs, sizeof(*pf->irq_entries),
+ 				  GFP_KERNEL);
+@@ -415,7 +413,7 @@ nfp_net_pf_spawn_netdevs(struct nfp_pf *pf,
+ 	}
+ 
+ 	num_irqs = nfp_net_irqs_alloc(pf->pdev, pf->irq_entries,
+-				      NFP_NET_MIN_PORT_IRQS * pf->num_netdevs,
++				      NFP_NET_MIN_VNIC_IRQS * pf->num_vnics,
+ 				      wanted_irqs);
+ 	if (!num_irqs) {
+ 		nn_warn(nn, "Unable to allocate MSI-X Vectors. Exiting\n");
+@@ -423,23 +421,23 @@ nfp_net_pf_spawn_netdevs(struct nfp_pf *pf,
+ 		goto err_vec_free;
+ 	}
+ 
+-	/* Distribute IRQs to ports */
++	/* Distribute IRQs to vNICs */
+ 	irqs_left = num_irqs;
+-	ports_left = pf->num_netdevs;
+-	list_for_each_entry(nn, &pf->ports, port_list) {
++	vnics_left = pf->num_vnics;
++	list_for_each_entry(nn, &pf->vnics, vnic_list) {
+ 		unsigned int n;
+ 
+-		n = DIV_ROUND_UP(irqs_left, ports_left);
++		n = DIV_ROUND_UP(irqs_left, vnics_left);
+ 		nfp_net_irqs_assign(nn, &pf->irq_entries[num_irqs - irqs_left],
+ 				    n);
+ 		irqs_left -= n;
+-		ports_left--;
++		vnics_left--;
+ 	}
+ 
+-	/* Finish netdev init and register */
++	/* Finish vNIC init and register */
+ 	id = 0;
+-	list_for_each_entry(nn, &pf->ports, port_list) {
+-		err = nfp_net_pf_init_port_netdev(pf, nn, id);
++	list_for_each_entry(nn, &pf->vnics, vnic_list) {
++		err = nfp_net_pf_init_vnic(pf, nn, id);
+ 		if (err)
+ 			goto err_prev_deinit;
+ 
+@@ -449,7 +447,7 @@ nfp_net_pf_spawn_netdevs(struct nfp_pf *pf,
+ 	return 0;
+ 
+ err_prev_deinit:
+-	list_for_each_entry_continue_reverse(nn, &pf->ports, port_list) {
++	list_for_each_entry_continue_reverse(nn, &pf->vnics, vnic_list) {
+ 		nfp_net_debugfs_dir_clean(&nn->debugfs_dir);
+ 		nfp_net_clean(nn);
+ 	}
+@@ -457,7 +455,7 @@ nfp_net_pf_spawn_netdevs(struct nfp_pf *pf,
+ err_vec_free:
+ 	kfree(pf->irq_entries);
+ err_nn_free:
+-	nfp_net_pf_free_netdevs(pf);
++	nfp_net_pf_free_vnics(pf);
+ 	return err;
+ }
+ 
+@@ -470,23 +468,23 @@ static void nfp_net_pci_remove_finish(struct nfp_pf *pf)
+ 
+ 	nfp_cpp_area_release_free(pf->rx_area);
+ 	nfp_cpp_area_release_free(pf->tx_area);
+-	nfp_cpp_area_release_free(pf->ctrl_area);
++	nfp_cpp_area_release_free(pf->data_vnic_bar);
+ }
+ 
+-static void nfp_net_refresh_netdevs(struct work_struct *work)
++static void nfp_net_refresh_vnics(struct work_struct *work)
+ {
+ 	struct nfp_pf *pf = container_of(work, struct nfp_pf,
  					 port_refresh_work);
  	struct nfp_eth_table *eth_table;
  	struct nfp_net *nn, *next;
-+	struct nfp_port *port;
  
- 	mutex_lock(&pf->lock);
+-	mutex_lock(&pf->port_lock);
++	mutex_lock(&pf->lock);
  
-@@ -557,9 +558,8 @@ static void nfp_net_refresh_vnics(struct work_struct *work)
+ 	/* Check for nfp_net_pci_remove() racing against us */
+-	if (list_empty(&pf->ports))
++	if (list_empty(&pf->vnics))
+ 		goto out;
  
- 	/* Update state of all ports */
- 	rtnl_lock();
--	list_for_each_entry(nn, &pf->vnics, vnic_list)
--		if (nn->port)
--			clear_bit(NFP_PORT_CHANGED, &nn->port->flags);
-+	list_for_each_entry(port, &pf->ports, port_list)
-+		clear_bit(NFP_PORT_CHANGED, &port->flags);
+-	list_for_each_entry(nn, &pf->ports, port_list)
++	list_for_each_entry(nn, &pf->vnics, vnic_list)
+ 		nfp_net_link_changed_read_clear(nn);
  
  	eth_table = nfp_eth_read_ports(pf->cpp);
- 	if (!eth_table) {
-@@ -568,12 +568,9 @@ static void nfp_net_refresh_vnics(struct work_struct *work)
- 		goto out;
+@@ -496,7 +494,7 @@ static void nfp_net_refresh_netdevs(struct work_struct *work)
  	}
  
--	list_for_each_entry(nn, &pf->vnics, vnic_list) {
--		if (!__nfp_port_get_eth_port(nn->port))
--			continue;
--
--		nfp_net_eth_port_update(pf->cpp, nn->port, eth_table);
--	}
-+	list_for_each_entry(port, &pf->ports, port_list)
-+		if (__nfp_port_get_eth_port(port))
-+			nfp_net_eth_port_update(pf->cpp, port, eth_table);
- 	rtnl_unlock();
+ 	rtnl_lock();
+-	list_for_each_entry(nn, &pf->ports, port_list) {
++	list_for_each_entry(nn, &pf->vnics, vnic_list) {
+ 		if (!nn->eth_port)
+ 			continue;
+ 		nn->eth_port = nfp_net_find_port(eth_table,
+@@ -507,7 +505,7 @@ static void nfp_net_refresh_netdevs(struct work_struct *work)
+ 	kfree(pf->eth_tbl);
+ 	pf->eth_tbl = eth_table;
  
- 	kfree(eth_table);
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_port.c b/drivers/net/ethernet/netronome/nfp/nfp_port.c
-index 95726e01592d..295db04ccb05 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_port.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_port.c
-@@ -95,10 +95,15 @@ nfp_port_alloc(struct nfp_app *app, enum nfp_port_type type,
- 	port->type = type;
- 	port->app = app;
+-	list_for_each_entry_safe(nn, next, &pf->ports, port_list) {
++	list_for_each_entry_safe(nn, next, &pf->vnics, vnic_list) {
+ 		if (!nn->eth_port) {
+ 			nfp_warn(pf->cpp, "Warning: port not present after reconfig\n");
+ 			continue;
+@@ -520,15 +518,15 @@ static void nfp_net_refresh_netdevs(struct work_struct *work)
+ 		nfp_net_debugfs_dir_clean(&nn->debugfs_dir);
+ 		nfp_net_clean(nn);
  
-+	list_add_tail(&port->port_list, &app->pf->ports);
-+
- 	return port;
+-		list_del(&nn->port_list);
+-		pf->num_netdevs--;
++		list_del(&nn->vnic_list);
++		pf->num_vnics--;
+ 		nfp_net_free(nn);
+ 	}
+ 
+-	if (list_empty(&pf->ports))
++	if (list_empty(&pf->vnics))
+ 		nfp_net_pci_remove_finish(pf);
+ out:
+-	mutex_unlock(&pf->port_lock);
++	mutex_unlock(&pf->lock);
  }
  
- void nfp_port_free(struct nfp_port *port)
+ void nfp_net_refresh_port_table(struct nfp_net *nn)
+@@ -576,8 +574,8 @@ int nfp_net_pci_probe(struct nfp_pf *pf)
+ 	int stride;
+ 	int err;
+ 
+-	INIT_WORK(&pf->port_refresh_work, nfp_net_refresh_netdevs);
+-	mutex_init(&pf->port_lock);
++	INIT_WORK(&pf->port_refresh_work, nfp_net_refresh_vnics);
++	mutex_init(&pf->lock);
+ 
+ 	/* Verify that the board has completed initialization */
+ 	if (!nfp_is_ready(pf->cpp)) {
+@@ -585,8 +583,8 @@ int nfp_net_pci_probe(struct nfp_pf *pf)
+ 		return -EINVAL;
+ 	}
+ 
+-	mutex_lock(&pf->port_lock);
+-	pf->num_ports = nfp_net_pf_get_num_ports(pf);
++	mutex_lock(&pf->lock);
++	pf->max_data_vnics = nfp_net_pf_get_num_ports(pf);
+ 
+ 	ctrl_bar = nfp_net_pf_map_ctrl_bar(pf);
+ 	if (!ctrl_bar) {
+@@ -661,12 +659,12 @@ int nfp_net_pci_probe(struct nfp_pf *pf)
+ 
+ 	pf->ddir = nfp_net_debugfs_device_add(pf->pdev);
+ 
+-	err = nfp_net_pf_spawn_netdevs(pf, ctrl_bar, tx_bar, rx_bar,
+-				       stride, &fw_ver);
++	err = nfp_net_pf_spawn_vnics(pf, ctrl_bar, tx_bar, rx_bar,
++				     stride, &fw_ver);
+ 	if (err)
+ 		goto err_clean_ddir;
+ 
+-	mutex_unlock(&pf->port_lock);
++	mutex_unlock(&pf->lock);
+ 
+ 	return 0;
+ 
+@@ -676,9 +674,9 @@ int nfp_net_pci_probe(struct nfp_pf *pf)
+ err_unmap_tx:
+ 	nfp_cpp_area_release_free(pf->tx_area);
+ err_ctrl_unmap:
+-	nfp_cpp_area_release_free(pf->ctrl_area);
++	nfp_cpp_area_release_free(pf->data_vnic_bar);
+ err_unlock:
+-	mutex_unlock(&pf->port_lock);
++	mutex_unlock(&pf->lock);
+ 	return err;
+ }
+ 
+@@ -686,21 +684,21 @@ void nfp_net_pci_remove(struct nfp_pf *pf)
  {
-+	if (!port)
-+		return;
-+	list_del(&port->port_list);
- 	kfree(port);
+ 	struct nfp_net *nn;
+ 
+-	mutex_lock(&pf->port_lock);
+-	if (list_empty(&pf->ports))
++	mutex_lock(&pf->lock);
++	if (list_empty(&pf->vnics))
+ 		goto out;
+ 
+-	list_for_each_entry(nn, &pf->ports, port_list) {
++	list_for_each_entry(nn, &pf->vnics, vnic_list) {
+ 		nfp_net_debugfs_dir_clean(&nn->debugfs_dir);
+ 
+ 		nfp_net_clean(nn);
+ 	}
+ 
+-	nfp_net_pf_free_netdevs(pf);
++	nfp_net_pf_free_vnics(pf);
+ 
+ 	nfp_net_pci_remove_finish(pf);
+ out:
+-	mutex_unlock(&pf->port_lock);
++	mutex_unlock(&pf->lock);
+ 
+ 	cancel_work_sync(&pf->port_refresh_work);
  }
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_port.h b/drivers/net/ethernet/netronome/nfp/nfp_port.h
-index 47adacf88557..471fff1fc58f 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_port.h
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_port.h
-@@ -68,6 +68,7 @@ enum nfp_port_flags {
-  * @app:	backpointer to the app structure
-  * @eth_id:	for %NFP_PORT_PHYS_PORT port ID in NFP enumeration scheme
-  * @eth_port:	for %NFP_PORT_PHYS_PORT translated ETH Table port entry
-+ * @port_list:	entry on pf's list of ports
-  */
- struct nfp_port {
- 	struct net_device *netdev;
-@@ -79,6 +80,8 @@ struct nfp_port {
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_netvf_main.c b/drivers/net/ethernet/netronome/nfp/nfp_netvf_main.c
+index 856a76bdfc24..3f1c7f0f392e 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_netvf_main.c
++++ b/drivers/net/ethernet/netronome/nfp/nfp_netvf_main.c
+@@ -267,7 +267,7 @@ static int nfp_netvf_pci_probe(struct pci_dev *pdev,
+ 	nfp_netvf_get_mac_addr(nn);
  
- 	unsigned int eth_id;
- 	struct nfp_eth_table_port *eth_port;
-+
-+	struct list_head port_list;
- };
+ 	num_irqs = nfp_net_irqs_alloc(pdev, vf->irq_entries,
+-				      NFP_NET_MIN_PORT_IRQS,
++				      NFP_NET_MIN_VNIC_IRQS,
+ 				      NFP_NET_NON_Q_VECTORS +
+ 				      nn->dp.num_r_vecs);
+ 	if (!num_irqs) {
+@@ -289,7 +289,7 @@ static int nfp_netvf_pci_probe(struct pci_dev *pdev,
  
- struct nfp_port *nfp_port_from_netdev(struct net_device *netdev);
+ 	nfp_net_info(nn);
+ 	vf->ddir = nfp_net_debugfs_device_add(pdev);
+-	nfp_net_debugfs_port_add(nn, vf->ddir, 0);
++	nfp_net_debugfs_vnic_add(nn, vf->ddir, 0);
+ 
+ 	return 0;
+ 
 -- 
 2.11.0
