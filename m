@@ -1,93 +1,266 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next v2 01/13] nfp: add nfp_cppcore_pcie_unit() helper
-Date: Mon, 22 May 2017 10:59:22 -0700
-Message-ID: <20170522175934.27447-2-jakub.kicinski@netronome.com>
+Subject: [PATCH net-next v2 02/13] nfp: make nfp_net alloc/init/cleanup/free not depend on netdevs
+Date: Mon, 22 May 2017 10:59:23 -0700
+Message-ID: <20170522175934.27447-3-jakub.kicinski@netronome.com>
 References: <20170522175934.27447-1-jakub.kicinski@netronome.com>
 Cc: oss-drivers@netronome.com,
-        Simon Horman <simon.horman@netronome.com>
+        Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f176.google.com ([209.85.192.176]:33378 "EHLO
-        mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1760007AbdEVSBC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 22 May 2017 14:01:02 -0400
-Received: by mail-pf0-f176.google.com with SMTP id e193so89412344pfh.0
-        for <netdev@vger.kernel.org>; Mon, 22 May 2017 11:01:02 -0700 (PDT)
+Received: from mail-pf0-f179.google.com ([209.85.192.179]:35403 "EHLO
+        mail-pf0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1760906AbdEVSBE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 22 May 2017 14:01:04 -0400
+Received: by mail-pf0-f179.google.com with SMTP id n23so89315450pfb.2
+        for <netdev@vger.kernel.org>; Mon, 22 May 2017 11:01:04 -0700 (PDT)
 In-Reply-To: <20170522175934.27447-1-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Simon Horman <simon.horman@netronome.com>
+struct nfp_net represents a vNIC, we will be moving away from the
+requirement for every vNIC to have a netdev associated with it.
+Remove "netdev" from some function names and prefer passing
+struct nfp_net pointer as argument instead of struct net_device *.
 
-Add nfp_cppcore_pcie_unit() helper to retrieve the PCIE unit of a CPP
-handle and use the new helper as appropriate.
-
-Signed-off-by: Simon Horman <simon.horman@netronome.com>
-Reviewed-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+Reviewed-by: Simon Horman <simon.horman@netronome.com>
 ---
- drivers/net/ethernet/netronome/nfp/nfp_net_main.c    | 16 ++++------------
- drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cpp.h | 11 +++++++++++
- 2 files changed, 15 insertions(+), 12 deletions(-)
+ drivers/net/ethernet/netronome/nfp/nfp_net.h       | 12 ++++----
+ .../net/ethernet/netronome/nfp/nfp_net_common.c    | 35 ++++++++++------------
+ drivers/net/ethernet/netronome/nfp/nfp_net_main.c  | 14 ++++-----
+ .../net/ethernet/netronome/nfp/nfp_netvf_main.c    | 10 +++----
+ 4 files changed, 35 insertions(+), 36 deletions(-)
 
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net.h b/drivers/net/ethernet/netronome/nfp/nfp_net.h
+index 7b9518cbe965..04609191ca88 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_net.h
++++ b/drivers/net/ethernet/netronome/nfp/nfp_net.h
+@@ -807,11 +807,13 @@ void nfp_net_get_fw_version(struct nfp_net_fw_version *fw_ver,
+ 			    void __iomem *ctrl_bar);
+ 
+ struct nfp_net *
+-nfp_net_netdev_alloc(struct pci_dev *pdev,
+-		     unsigned int max_tx_rings, unsigned int max_rx_rings);
+-void nfp_net_netdev_free(struct nfp_net *nn);
+-int nfp_net_netdev_init(struct net_device *netdev);
+-void nfp_net_netdev_clean(struct net_device *netdev);
++nfp_net_alloc(struct pci_dev *pdev,
++	      unsigned int max_tx_rings, unsigned int max_rx_rings);
++void nfp_net_free(struct nfp_net *nn);
++
++int nfp_net_init(struct nfp_net *nn);
++void nfp_net_clean(struct nfp_net *nn);
++
+ void nfp_net_set_ethtool_ops(struct net_device *netdev);
+ void nfp_net_info(struct nfp_net *nn);
+ int nfp_net_reconfig(struct nfp_net *nn, u32 update);
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
+index da83e17b8b20..b427c95c5acd 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
++++ b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
+@@ -516,11 +516,10 @@ nfp_net_rx_ring_init(struct nfp_net_rx_ring *rx_ring,
+ 
+ /**
+  * nfp_net_vecs_init() - Assign IRQs and setup rvecs.
+- * @netdev:   netdev structure
++ * @nn:		NFP Network structure
+  */
+-static void nfp_net_vecs_init(struct net_device *netdev)
++static void nfp_net_vecs_init(struct nfp_net *nn)
+ {
+-	struct nfp_net *nn = netdev_priv(netdev);
+ 	struct nfp_net_r_vector *r_vec;
+ 	int r;
+ 
+@@ -3087,7 +3086,7 @@ void nfp_net_info(struct nfp_net *nn)
+ }
+ 
+ /**
+- * nfp_net_netdev_alloc() - Allocate netdev and related structure
++ * nfp_net_alloc() - Allocate netdev and related structure
+  * @pdev:         PCI device
+  * @max_tx_rings: Maximum number of TX rings supported by device
+  * @max_rx_rings: Maximum number of RX rings supported by device
+@@ -3097,9 +3096,9 @@ void nfp_net_info(struct nfp_net *nn)
+  *
+  * Return: NFP Net device structure, or ERR_PTR on error.
+  */
+-struct nfp_net *nfp_net_netdev_alloc(struct pci_dev *pdev,
+-				     unsigned int max_tx_rings,
+-				     unsigned int max_rx_rings)
++struct nfp_net *nfp_net_alloc(struct pci_dev *pdev,
++			      unsigned int max_tx_rings,
++			      unsigned int max_rx_rings)
+ {
+ 	struct net_device *netdev;
+ 	struct nfp_net *nn;
+@@ -3144,10 +3143,10 @@ struct nfp_net *nfp_net_netdev_alloc(struct pci_dev *pdev,
+ }
+ 
+ /**
+- * nfp_net_netdev_free() - Undo what @nfp_net_netdev_alloc() did
++ * nfp_net_free() - Undo what @nfp_net_alloc() did
+  * @nn:      NFP Net device to reconfigure
+  */
+-void nfp_net_netdev_free(struct nfp_net *nn)
++void nfp_net_free(struct nfp_net *nn)
+ {
+ 	free_netdev(nn->dp.netdev);
+ }
+@@ -3221,14 +3220,14 @@ static void nfp_net_irqmod_init(struct nfp_net *nn)
+ }
+ 
+ /**
+- * nfp_net_netdev_init() - Initialise/finalise the netdev structure
+- * @netdev:      netdev structure
++ * nfp_net_init() - Initialise/finalise the nfp_net structure
++ * @nn:		NFP Net device structure
+  *
+  * Return: 0 on success or negative errno on error.
+  */
+-int nfp_net_netdev_init(struct net_device *netdev)
++int nfp_net_init(struct nfp_net *nn)
+ {
+-	struct nfp_net *nn = netdev_priv(netdev);
++	struct net_device *netdev = nn->dp.netdev;
+ 	int err;
+ 
+ 	nn->dp.rx_dma_dir = DMA_FROM_DEVICE;
+@@ -3367,19 +3366,17 @@ int nfp_net_netdev_init(struct net_device *netdev)
+ 	netif_carrier_off(netdev);
+ 
+ 	nfp_net_set_ethtool_ops(netdev);
+-	nfp_net_vecs_init(netdev);
++	nfp_net_vecs_init(nn);
+ 
+ 	return register_netdev(netdev);
+ }
+ 
+ /**
+- * nfp_net_netdev_clean() - Undo what nfp_net_netdev_init() did.
+- * @netdev:      netdev structure
++ * nfp_net_clean() - Undo what nfp_net_init() did.
++ * @nn:		NFP Net device structure
+  */
+-void nfp_net_netdev_clean(struct net_device *netdev)
++void nfp_net_clean(struct nfp_net *nn)
+ {
+-	struct nfp_net *nn = netdev_priv(netdev);
+-
+ 	unregister_netdev(nn->dp.netdev);
+ 
+ 	if (nn->dp.xdp_prog)
 diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_main.c b/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
-index 8cb87cbe1120..16115973112c 100644
+index 16115973112c..55d916cb04fe 100644
 --- a/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
 +++ b/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
-@@ -190,15 +190,11 @@ nfp_net_find_port(struct nfp_eth_table *eth_tbl, unsigned int id)
- static unsigned int nfp_net_pf_get_num_ports(struct nfp_pf *pf)
- {
- 	char name[256];
--	u16 interface;
--	int pcie_pf;
- 	int err = 0;
- 	u64 val;
+@@ -277,7 +277,7 @@ static void nfp_net_pf_free_netdevs(struct nfp_pf *pf)
+ 		list_del(&nn->port_list);
+ 		pf->num_netdevs--;
  
--	interface = nfp_cpp_interface(pf->cpp);
--	pcie_pf = NFP_CPP_INTERFACE_UNIT_of(interface);
--
--	snprintf(name, sizeof(name), "nfd_cfg_pf%d_num_ports", pcie_pf);
-+	snprintf(name, sizeof(name), "nfd_cfg_pf%u_num_ports",
-+		 nfp_cppcore_pcie_unit(pf->cpp));
+-		nfp_net_netdev_free(nn);
++		nfp_net_free(nn);
+ 	}
+ }
  
- 	val = nfp_rtsym_read_le(pf->cpp, name, &err);
- 	/* Default to one port */
-@@ -241,13 +237,9 @@ static u8 __iomem *nfp_net_pf_map_ctrl_bar(struct nfp_pf *pf)
- 	const struct nfp_rtsym *ctrl_sym;
- 	u8 __iomem *ctrl_bar;
- 	char pf_symbol[256];
--	u16 interface;
--	int pcie_pf;
--
--	interface = nfp_cpp_interface(pf->cpp);
--	pcie_pf = NFP_CPP_INTERFACE_UNIT_of(interface);
+@@ -294,7 +294,7 @@ nfp_net_pf_alloc_port_netdev(struct nfp_pf *pf, void __iomem *ctrl_bar,
+ 	n_rx_rings = readl(ctrl_bar + NFP_NET_CFG_MAX_RXRINGS);
  
--	snprintf(pf_symbol, sizeof(pf_symbol), "_pf%d_net_bar0", pcie_pf);
-+	snprintf(pf_symbol, sizeof(pf_symbol), "_pf%u_net_bar0",
-+		 nfp_cppcore_pcie_unit(pf->cpp));
+ 	/* Allocate and initialise the netdev */
+-	nn = nfp_net_netdev_alloc(pf->pdev, n_tx_rings, n_rx_rings);
++	nn = nfp_net_alloc(pf->pdev, n_tx_rings, n_rx_rings);
+ 	if (IS_ERR(nn))
+ 		return nn;
  
- 	ctrl_sym = nfp_rtsym_lookup(pf->cpp, pf_symbol);
- 	if (!ctrl_sym) {
-diff --git a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cpp.h b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cpp.h
-index edecc0a27485..154b0b594184 100644
---- a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cpp.h
-+++ b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cpp.h
-@@ -289,6 +289,17 @@ int nfp_cpp_mutex_lock(struct nfp_cpp_mutex *mutex);
- int nfp_cpp_mutex_unlock(struct nfp_cpp_mutex *mutex);
- int nfp_cpp_mutex_trylock(struct nfp_cpp_mutex *mutex);
+@@ -326,7 +326,7 @@ nfp_net_pf_init_port_netdev(struct nfp_pf *pf, struct nfp_net *nn,
+ 	 */
+ 	nn->me_freq_mhz = 1200;
  
-+/**
-+ * nfp_cppcore_pcie_unit() - Get PCI Unit of a CPP handle
-+ * @cpp:	CPP handle
-+ *
-+ * Return: PCI unit for the NFP CPP handle
-+ */
-+static inline u8 nfp_cppcore_pcie_unit(struct nfp_cpp *cpp)
-+{
-+	return NFP_CPP_INTERFACE_UNIT_of(nfp_cpp_interface(cpp));
-+}
-+
- struct nfp_cpp_explicit;
+-	err = nfp_net_netdev_init(nn->dp.netdev);
++	err = nfp_net_init(nn);
+ 	if (err)
+ 		return err;
  
- struct nfp_cpp_explicit_command {
+@@ -451,7 +451,7 @@ nfp_net_pf_spawn_netdevs(struct nfp_pf *pf,
+ err_prev_deinit:
+ 	list_for_each_entry_continue_reverse(nn, &pf->ports, port_list) {
+ 		nfp_net_debugfs_dir_clean(&nn->debugfs_dir);
+-		nfp_net_netdev_clean(nn->dp.netdev);
++		nfp_net_clean(nn);
+ 	}
+ 	nfp_net_irqs_disable(pf->pdev);
+ err_vec_free:
+@@ -518,11 +518,11 @@ static void nfp_net_refresh_netdevs(struct work_struct *work)
+ 		nn_warn(nn, "Port config changed, unregistering. Reboot required before port will be operational again.\n");
+ 
+ 		nfp_net_debugfs_dir_clean(&nn->debugfs_dir);
+-		nfp_net_netdev_clean(nn->dp.netdev);
++		nfp_net_clean(nn);
+ 
+ 		list_del(&nn->port_list);
+ 		pf->num_netdevs--;
+-		nfp_net_netdev_free(nn);
++		nfp_net_free(nn);
+ 	}
+ 
+ 	if (list_empty(&pf->ports))
+@@ -693,7 +693,7 @@ void nfp_net_pci_remove(struct nfp_pf *pf)
+ 	list_for_each_entry(nn, &pf->ports, port_list) {
+ 		nfp_net_debugfs_dir_clean(&nn->debugfs_dir);
+ 
+-		nfp_net_netdev_clean(nn->dp.netdev);
++		nfp_net_clean(nn);
+ 	}
+ 
+ 	nfp_net_pf_free_netdevs(pf);
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_netvf_main.c b/drivers/net/ethernet/netronome/nfp/nfp_netvf_main.c
+index 86e61be6f35c..856a76bdfc24 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_netvf_main.c
++++ b/drivers/net/ethernet/netronome/nfp/nfp_netvf_main.c
+@@ -202,7 +202,7 @@ static int nfp_netvf_pci_probe(struct pci_dev *pdev,
+ 	rx_bar_off = NFP_PCIE_QUEUE(startq);
+ 
+ 	/* Allocate and initialise the netdev */
+-	nn = nfp_net_netdev_alloc(pdev, max_tx_rings, max_rx_rings);
++	nn = nfp_net_alloc(pdev, max_tx_rings, max_rx_rings);
+ 	if (IS_ERR(nn)) {
+ 		err = PTR_ERR(nn);
+ 		goto err_ctrl_unmap;
+@@ -283,7 +283,7 @@ static int nfp_netvf_pci_probe(struct pci_dev *pdev,
+ 	 */
+ 	nn->me_freq_mhz = 1200;
+ 
+-	err = nfp_net_netdev_init(nn->dp.netdev);
++	err = nfp_net_init(nn);
+ 	if (err)
+ 		goto err_irqs_disable;
+ 
+@@ -304,7 +304,7 @@ static int nfp_netvf_pci_probe(struct pci_dev *pdev,
+ 	else
+ 		iounmap(vf->q_bar);
+ err_netdev_free:
+-	nfp_net_netdev_free(nn);
++	nfp_net_free(nn);
+ err_ctrl_unmap:
+ 	iounmap(ctrl_bar);
+ err_pci_regions:
+@@ -328,7 +328,7 @@ static void nfp_netvf_pci_remove(struct pci_dev *pdev)
+ 	nfp_net_debugfs_dir_clean(&nn->debugfs_dir);
+ 	nfp_net_debugfs_dir_clean(&vf->ddir);
+ 
+-	nfp_net_netdev_clean(nn->dp.netdev);
++	nfp_net_clean(nn);
+ 
+ 	nfp_net_irqs_disable(pdev);
+ 
+@@ -340,7 +340,7 @@ static void nfp_netvf_pci_remove(struct pci_dev *pdev)
+ 	}
+ 	iounmap(nn->dp.ctrl_bar);
+ 
+-	nfp_net_netdev_free(nn);
++	nfp_net_free(nn);
+ 
+ 	pci_release_regions(pdev);
+ 	pci_disable_device(pdev);
 -- 
 2.11.0
