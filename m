@@ -1,7 +1,7 @@
 From: Romain Perier <romain.perier-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
-Subject: [PATCH v9 10/15] scsi: lpfc: Replace PCI pool old API
-Date: Mon, 22 May 2017 18:49:02 +0200
-Message-ID: <20170522164907.22915-11-romain.perier@collabora.com>
+Subject: [PATCH v9 11/15] scsi: megaraid: Replace PCI pool old API
+Date: Mon, 22 May 2017 18:49:03 +0200
+Message-ID: <20170522164907.22915-12-romain.perier@collabora.com>
 References: <20170522164907.22915-1-romain.perier@collabora.com>
 Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
         linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
@@ -18,561 +18,502 @@ To: Dan Williams <dan.j.williams-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
         "Martin K. Petersen" <martin.petersen-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
         Felipe Balbi <balbi-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
         Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 In-Reply-To: <20170522164907.22915-1-romain.perier-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
 The PCI pool API is deprecated. This commit replaces the PCI pool old
-API by the appropriate function with the DMA pool API. It also updates
-some comments, accordingly.
+API by the appropriate function with the DMA pool API.
 
 Signed-off-by: Romain Perier <romain.perier-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
 Reviewed-by: Peter Senna Tschudin <peter.senna-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
+Acked-by: Sumit Saxena <sumit.saxena-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
 ---
- drivers/scsi/lpfc/lpfc.h       | 16 ++++----
- drivers/scsi/lpfc/lpfc_init.c  | 16 ++++----
- drivers/scsi/lpfc/lpfc_mem.c   | 90 +++++++++++++++++++++---------------------
- drivers/scsi/lpfc/lpfc_nvme.c  |  6 +--
- drivers/scsi/lpfc/lpfc_nvmet.c |  4 +-
- drivers/scsi/lpfc/lpfc_scsi.c  | 12 +++---
- drivers/scsi/lpfc/lpfc_sli.c   |  6 +--
- 7 files changed, 75 insertions(+), 75 deletions(-)
+ drivers/scsi/megaraid/megaraid_mbox.c       | 33 +++++++--------
+ drivers/scsi/megaraid/megaraid_mm.c         | 32 +++++++-------
+ drivers/scsi/megaraid/megaraid_sas_base.c   | 29 +++++++------
+ drivers/scsi/megaraid/megaraid_sas_fusion.c | 66 +++++++++++++----------------
+ 4 files changed, 77 insertions(+), 83 deletions(-)
 
-diff --git a/drivers/scsi/lpfc/lpfc.h b/drivers/scsi/lpfc/lpfc.h
-index f2c0ba6ced78..0c98f3feafa5 100644
---- a/drivers/scsi/lpfc/lpfc.h
-+++ b/drivers/scsi/lpfc/lpfc.h
-@@ -944,14 +944,14 @@ struct lpfc_hba {
- 	struct list_head active_rrq_list;
- 	spinlock_t hbalock;
+diff --git a/drivers/scsi/megaraid/megaraid_mbox.c b/drivers/scsi/megaraid/megaraid_mbox.c
+index f0987f22ea70..7dfc2e29edcc 100644
+--- a/drivers/scsi/megaraid/megaraid_mbox.c
++++ b/drivers/scsi/megaraid/megaraid_mbox.c
+@@ -1153,8 +1153,8 @@ megaraid_mbox_setup_dma_pools(adapter_t *adapter)
  
--	/* pci_mem_pools */
--	struct pci_pool *lpfc_sg_dma_buf_pool;
--	struct pci_pool *lpfc_mbuf_pool;
--	struct pci_pool *lpfc_hrb_pool;	/* header receive buffer pool */
--	struct pci_pool *lpfc_drb_pool; /* data receive buffer pool */
--	struct pci_pool *lpfc_nvmet_drb_pool; /* data receive buffer pool */
--	struct pci_pool *lpfc_hbq_pool;	/* SLI3 hbq buffer pool */
--	struct pci_pool *txrdy_payload_pool;
-+	/* dma_mem_pools */
-+	struct dma_pool *lpfc_sg_dma_buf_pool;
-+	struct dma_pool *lpfc_mbuf_pool;
-+	struct dma_pool *lpfc_hrb_pool;	/* header receive buffer pool */
-+	struct dma_pool *lpfc_drb_pool; /* data receive buffer pool */
-+	struct dma_pool *lpfc_nvmet_drb_pool; /* data receive buffer pool */
-+	struct dma_pool *lpfc_hbq_pool;	/* SLI3 hbq buffer pool */
-+	struct dma_pool *txrdy_payload_pool;
- 	struct lpfc_dma_pool lpfc_mbuf_safety_pool;
  
- 	mempool_t *mbox_mem_pool;
-diff --git a/drivers/scsi/lpfc/lpfc_init.c b/drivers/scsi/lpfc/lpfc_init.c
-index 9add9473cae5..728d010ec2cc 100644
---- a/drivers/scsi/lpfc/lpfc_init.c
-+++ b/drivers/scsi/lpfc/lpfc_init.c
-@@ -3184,7 +3184,7 @@ lpfc_scsi_free(struct lpfc_hba *phba)
- 	list_for_each_entry_safe(sb, sb_next, &phba->lpfc_scsi_buf_list_put,
- 				 list) {
- 		list_del(&sb->list);
--		pci_pool_free(phba->lpfc_sg_dma_buf_pool, sb->data,
-+		dma_pool_free(phba->lpfc_sg_dma_buf_pool, sb->data,
- 			      sb->dma_handle);
- 		kfree(sb);
- 		phba->total_scsi_bufs--;
-@@ -3195,7 +3195,7 @@ lpfc_scsi_free(struct lpfc_hba *phba)
- 	list_for_each_entry_safe(sb, sb_next, &phba->lpfc_scsi_buf_list_get,
- 				 list) {
- 		list_del(&sb->list);
--		pci_pool_free(phba->lpfc_sg_dma_buf_pool, sb->data,
-+		dma_pool_free(phba->lpfc_sg_dma_buf_pool, sb->data,
- 			      sb->dma_handle);
- 		kfree(sb);
- 		phba->total_scsi_bufs--;
-@@ -3226,7 +3226,7 @@ lpfc_nvme_free(struct lpfc_hba *phba)
- 	list_for_each_entry_safe(lpfc_ncmd, lpfc_ncmd_next,
- 				 &phba->lpfc_nvme_buf_list_put, list) {
- 		list_del(&lpfc_ncmd->list);
--		pci_pool_free(phba->lpfc_sg_dma_buf_pool, lpfc_ncmd->data,
-+		dma_pool_free(phba->lpfc_sg_dma_buf_pool, lpfc_ncmd->data,
- 			      lpfc_ncmd->dma_handle);
- 		kfree(lpfc_ncmd);
- 		phba->total_nvme_bufs--;
-@@ -3237,7 +3237,7 @@ lpfc_nvme_free(struct lpfc_hba *phba)
- 	list_for_each_entry_safe(lpfc_ncmd, lpfc_ncmd_next,
- 				 &phba->lpfc_nvme_buf_list_get, list) {
- 		list_del(&lpfc_ncmd->list);
--		pci_pool_free(phba->lpfc_sg_dma_buf_pool, lpfc_ncmd->data,
-+		dma_pool_free(phba->lpfc_sg_dma_buf_pool, lpfc_ncmd->data,
- 			      lpfc_ncmd->dma_handle);
- 		kfree(lpfc_ncmd);
- 		phba->total_nvme_bufs--;
-@@ -3550,7 +3550,7 @@ lpfc_sli4_scsi_sgl_update(struct lpfc_hba *phba)
- 			list_remove_head(&scsi_sgl_list, psb,
- 					 struct lpfc_scsi_buf, list);
- 			if (psb) {
--				pci_pool_free(phba->lpfc_sg_dma_buf_pool,
-+				dma_pool_free(phba->lpfc_sg_dma_buf_pool,
- 					      psb->data, psb->dma_handle);
- 				kfree(psb);
- 			}
-@@ -3692,7 +3692,7 @@ lpfc_sli4_nvme_sgl_update(struct lpfc_hba *phba)
- 			list_remove_head(&nvme_sgl_list, lpfc_ncmd,
- 					 struct lpfc_nvme_buf, list);
- 			if (lpfc_ncmd) {
--				pci_pool_free(phba->lpfc_sg_dma_buf_pool,
-+				dma_pool_free(phba->lpfc_sg_dma_buf_pool,
- 					      lpfc_ncmd->data,
- 					      lpfc_ncmd->dma_handle);
- 				kfree(lpfc_ncmd);
-@@ -6741,8 +6741,8 @@ lpfc_create_shost(struct lpfc_hba *phba)
- 	if (phba->nvmet_support) {
- 		/* Only 1 vport (pport) will support NVME target */
- 		if (phba->txrdy_payload_pool == NULL) {
--			phba->txrdy_payload_pool = pci_pool_create(
--				"txrdy_pool", phba->pcidev,
-+			phba->txrdy_payload_pool = dma_pool_create(
-+				"txrdy_pool", &phba->pcidev->dev,
- 				TXRDY_PAYLOAD_LEN, 16, 0);
- 			if (phba->txrdy_payload_pool) {
- 				phba->targetport = NULL;
-diff --git a/drivers/scsi/lpfc/lpfc_mem.c b/drivers/scsi/lpfc/lpfc_mem.c
-index fcc05a1517c2..56faeb049b4a 100644
---- a/drivers/scsi/lpfc/lpfc_mem.c
-+++ b/drivers/scsi/lpfc/lpfc_mem.c
-@@ -97,8 +97,8 @@ lpfc_mem_alloc(struct lpfc_hba *phba, int align)
- 			i = SLI4_PAGE_SIZE;
+ 	// Allocate memory for 16-bytes aligned mailboxes
+-	raid_dev->mbox_pool_handle = pci_pool_create("megaraid mbox pool",
+-						adapter->pdev,
++	raid_dev->mbox_pool_handle = dma_pool_create("megaraid mbox pool",
++						&adapter->pdev->dev,
+ 						sizeof(mbox64_t) + 16,
+ 						16, 0);
  
- 		phba->lpfc_sg_dma_buf_pool =
--			pci_pool_create("lpfc_sg_dma_buf_pool",
--					phba->pcidev,
-+			dma_pool_create("lpfc_sg_dma_buf_pool",
-+					&phba->pcidev->dev,
- 					phba->cfg_sg_dma_buf_size,
- 					i, 0);
- 		if (!phba->lpfc_sg_dma_buf_pool)
-@@ -106,15 +106,15 @@ lpfc_mem_alloc(struct lpfc_hba *phba, int align)
+@@ -1164,7 +1164,7 @@ megaraid_mbox_setup_dma_pools(adapter_t *adapter)
  
- 	} else {
- 		phba->lpfc_sg_dma_buf_pool =
--			pci_pool_create("lpfc_sg_dma_buf_pool",
--					phba->pcidev, phba->cfg_sg_dma_buf_size,
-+			dma_pool_create("lpfc_sg_dma_buf_pool",
-+					&phba->pcidev->dev, phba->cfg_sg_dma_buf_size,
- 					align, 0);
+ 	mbox_pci_blk = raid_dev->mbox_pool;
+ 	for (i = 0; i < MBOX_MAX_SCSI_CMDS; i++) {
+-		mbox_pci_blk[i].vaddr = pci_pool_alloc(
++		mbox_pci_blk[i].vaddr = dma_pool_alloc(
+ 						raid_dev->mbox_pool_handle,
+ 						GFP_KERNEL,
+ 						&mbox_pci_blk[i].dma_addr);
+@@ -1181,8 +1181,8 @@ megaraid_mbox_setup_dma_pools(adapter_t *adapter)
+ 	 * share common memory pool. Passthru structures piggyback on memory
+ 	 * allocted to extended passthru since passthru is smaller of the two
+ 	 */
+-	raid_dev->epthru_pool_handle = pci_pool_create("megaraid mbox pthru",
+-			adapter->pdev, sizeof(mraid_epassthru_t), 128, 0);
++	raid_dev->epthru_pool_handle = dma_pool_create("megaraid mbox pthru",
++			&adapter->pdev->dev, sizeof(mraid_epassthru_t), 128, 0);
  
- 		if (!phba->lpfc_sg_dma_buf_pool)
- 			goto fail;
+ 	if (raid_dev->epthru_pool_handle == NULL) {
+ 		goto fail_setup_dma_pool;
+@@ -1190,7 +1190,7 @@ megaraid_mbox_setup_dma_pools(adapter_t *adapter)
+ 
+ 	epthru_pci_blk = raid_dev->epthru_pool;
+ 	for (i = 0; i < MBOX_MAX_SCSI_CMDS; i++) {
+-		epthru_pci_blk[i].vaddr = pci_pool_alloc(
++		epthru_pci_blk[i].vaddr = dma_pool_alloc(
+ 						raid_dev->epthru_pool_handle,
+ 						GFP_KERNEL,
+ 						&epthru_pci_blk[i].dma_addr);
+@@ -1202,8 +1202,8 @@ megaraid_mbox_setup_dma_pools(adapter_t *adapter)
+ 
+ 	// Allocate memory for each scatter-gather list. Request for 512 bytes
+ 	// alignment for each sg list
+-	raid_dev->sg_pool_handle = pci_pool_create("megaraid mbox sg",
+-					adapter->pdev,
++	raid_dev->sg_pool_handle = dma_pool_create("megaraid mbox sg",
++					&adapter->pdev->dev,
+ 					sizeof(mbox_sgl64) * MBOX_MAX_SG_SIZE,
+ 					512, 0);
+ 
+@@ -1213,7 +1213,7 @@ megaraid_mbox_setup_dma_pools(adapter_t *adapter)
+ 
+ 	sg_pci_blk = raid_dev->sg_pool;
+ 	for (i = 0; i < MBOX_MAX_SCSI_CMDS; i++) {
+-		sg_pci_blk[i].vaddr = pci_pool_alloc(
++		sg_pci_blk[i].vaddr = dma_pool_alloc(
+ 						raid_dev->sg_pool_handle,
+ 						GFP_KERNEL,
+ 						&sg_pci_blk[i].dma_addr);
+@@ -1249,29 +1249,26 @@ megaraid_mbox_teardown_dma_pools(adapter_t *adapter)
+ 
+ 	sg_pci_blk = raid_dev->sg_pool;
+ 	for (i = 0; i < MBOX_MAX_SCSI_CMDS && sg_pci_blk[i].vaddr; i++) {
+-		pci_pool_free(raid_dev->sg_pool_handle, sg_pci_blk[i].vaddr,
++		dma_pool_free(raid_dev->sg_pool_handle, sg_pci_blk[i].vaddr,
+ 			sg_pci_blk[i].dma_addr);
  	}
+-	if (raid_dev->sg_pool_handle)
+-		pci_pool_destroy(raid_dev->sg_pool_handle);
++	dma_pool_destroy(raid_dev->sg_pool_handle);
  
--	phba->lpfc_mbuf_pool = pci_pool_create("lpfc_mbuf_pool", phba->pcidev,
-+	phba->lpfc_mbuf_pool = dma_pool_create("lpfc_mbuf_pool", &phba->pcidev->dev,
- 							LPFC_BPL_SIZE,
- 							align, 0);
- 	if (!phba->lpfc_mbuf_pool)
-@@ -128,7 +128,7 @@ lpfc_mem_alloc(struct lpfc_hba *phba, int align)
- 	pool->max_count = 0;
- 	pool->current_count = 0;
- 	for ( i = 0; i < LPFC_MBUF_POOL_SIZE; i++) {
--		pool->elements[i].virt = pci_pool_alloc(phba->lpfc_mbuf_pool,
-+		pool->elements[i].virt = dma_pool_alloc(phba->lpfc_mbuf_pool,
- 				       GFP_KERNEL, &pool->elements[i].phys);
- 		if (!pool->elements[i].virt)
- 			goto fail_free_mbuf_pool;
-@@ -152,21 +152,21 @@ lpfc_mem_alloc(struct lpfc_hba *phba, int align)
- 						sizeof(struct lpfc_node_rrq));
- 		if (!phba->rrq_pool)
- 			goto fail_free_nlp_mem_pool;
--		phba->lpfc_hrb_pool = pci_pool_create("lpfc_hrb_pool",
--					      phba->pcidev,
-+		phba->lpfc_hrb_pool = dma_pool_create("lpfc_hrb_pool",
-+					      &phba->pcidev->dev,
- 					      LPFC_HDR_BUF_SIZE, align, 0);
- 		if (!phba->lpfc_hrb_pool)
- 			goto fail_free_rrq_mem_pool;
  
--		phba->lpfc_drb_pool = pci_pool_create("lpfc_drb_pool",
--					      phba->pcidev,
-+		phba->lpfc_drb_pool = dma_pool_create("lpfc_drb_pool",
-+					      &phba->pcidev->dev,
- 					      LPFC_DATA_BUF_SIZE, align, 0);
- 		if (!phba->lpfc_drb_pool)
- 			goto fail_free_hrb_pool;
- 		phba->lpfc_hbq_pool = NULL;
- 	} else {
--		phba->lpfc_hbq_pool = pci_pool_create("lpfc_hbq_pool",
--			phba->pcidev, LPFC_BPL_SIZE, align, 0);
-+		phba->lpfc_hbq_pool = dma_pool_create("lpfc_hbq_pool",
-+			&phba->pcidev->dev, LPFC_BPL_SIZE, align, 0);
- 		if (!phba->lpfc_hbq_pool)
- 			goto fail_free_nlp_mem_pool;
- 		phba->lpfc_hrb_pool = NULL;
-@@ -185,10 +185,10 @@ lpfc_mem_alloc(struct lpfc_hba *phba, int align)
- 
- 	return 0;
- fail_free_drb_pool:
--	pci_pool_destroy(phba->lpfc_drb_pool);
-+	dma_pool_destroy(phba->lpfc_drb_pool);
- 	phba->lpfc_drb_pool = NULL;
-  fail_free_hrb_pool:
--	pci_pool_destroy(phba->lpfc_hrb_pool);
-+	dma_pool_destroy(phba->lpfc_hrb_pool);
- 	phba->lpfc_hrb_pool = NULL;
-  fail_free_rrq_mem_pool:
- 	mempool_destroy(phba->rrq_pool);
-@@ -201,14 +201,14 @@ lpfc_mem_alloc(struct lpfc_hba *phba, int align)
- 	phba->mbox_mem_pool = NULL;
-  fail_free_mbuf_pool:
- 	while (i--)
--		pci_pool_free(phba->lpfc_mbuf_pool, pool->elements[i].virt,
-+		dma_pool_free(phba->lpfc_mbuf_pool, pool->elements[i].virt,
- 						 pool->elements[i].phys);
- 	kfree(pool->elements);
-  fail_free_lpfc_mbuf_pool:
--	pci_pool_destroy(phba->lpfc_mbuf_pool);
-+	dma_pool_destroy(phba->lpfc_mbuf_pool);
- 	phba->lpfc_mbuf_pool = NULL;
-  fail_free_dma_buf_pool:
--	pci_pool_destroy(phba->lpfc_sg_dma_buf_pool);
-+	dma_pool_destroy(phba->lpfc_sg_dma_buf_pool);
- 	phba->lpfc_sg_dma_buf_pool = NULL;
-  fail:
- 	return -ENOMEM;
-@@ -218,8 +218,8 @@ int
- lpfc_nvmet_mem_alloc(struct lpfc_hba *phba)
- {
- 	phba->lpfc_nvmet_drb_pool =
--		pci_pool_create("lpfc_nvmet_drb_pool",
--				phba->pcidev, LPFC_NVMET_DATA_BUF_SIZE,
-+		dma_pool_create("lpfc_nvmet_drb_pool",
-+				&phba->pcidev->dev, LPFC_NVMET_DATA_BUF_SIZE,
- 				SGL_ALIGN_SZ, 0);
- 	if (!phba->lpfc_nvmet_drb_pool) {
- 		lpfc_printf_log(phba, KERN_ERR, LOG_INIT,
-@@ -248,20 +248,20 @@ lpfc_mem_free(struct lpfc_hba *phba)
- 	/* Free HBQ pools */
- 	lpfc_sli_hbqbuf_free_all(phba);
- 	if (phba->lpfc_nvmet_drb_pool)
--		pci_pool_destroy(phba->lpfc_nvmet_drb_pool);
-+		dma_pool_destroy(phba->lpfc_nvmet_drb_pool);
- 	phba->lpfc_nvmet_drb_pool = NULL;
- 	if (phba->lpfc_drb_pool)
--		pci_pool_destroy(phba->lpfc_drb_pool);
-+		dma_pool_destroy(phba->lpfc_drb_pool);
- 	phba->lpfc_drb_pool = NULL;
- 	if (phba->lpfc_hrb_pool)
--		pci_pool_destroy(phba->lpfc_hrb_pool);
-+		dma_pool_destroy(phba->lpfc_hrb_pool);
- 	phba->lpfc_hrb_pool = NULL;
- 	if (phba->txrdy_payload_pool)
--		pci_pool_destroy(phba->txrdy_payload_pool);
-+		dma_pool_destroy(phba->txrdy_payload_pool);
- 	phba->txrdy_payload_pool = NULL;
- 
- 	if (phba->lpfc_hbq_pool)
--		pci_pool_destroy(phba->lpfc_hbq_pool);
-+		dma_pool_destroy(phba->lpfc_hbq_pool);
- 	phba->lpfc_hbq_pool = NULL;
- 
- 	if (phba->rrq_pool)
-@@ -282,15 +282,15 @@ lpfc_mem_free(struct lpfc_hba *phba)
- 
- 	/* Free MBUF memory pool */
- 	for (i = 0; i < pool->current_count; i++)
--		pci_pool_free(phba->lpfc_mbuf_pool, pool->elements[i].virt,
-+		dma_pool_free(phba->lpfc_mbuf_pool, pool->elements[i].virt,
- 			      pool->elements[i].phys);
- 	kfree(pool->elements);
- 
--	pci_pool_destroy(phba->lpfc_mbuf_pool);
-+	dma_pool_destroy(phba->lpfc_mbuf_pool);
- 	phba->lpfc_mbuf_pool = NULL;
- 
- 	/* Free DMA buffer memory pool */
--	pci_pool_destroy(phba->lpfc_sg_dma_buf_pool);
-+	dma_pool_destroy(phba->lpfc_sg_dma_buf_pool);
- 	phba->lpfc_sg_dma_buf_pool = NULL;
- 
- 	/* Free Device Data memory pool */
-@@ -379,7 +379,7 @@ lpfc_mem_free_all(struct lpfc_hba *phba)
-  * @handle: used to return the DMA-mapped address of the mbuf
-  *
-  * Description: Allocates a DMA-mapped buffer from the lpfc_mbuf_pool PCI pool.
-- * Allocates from generic pci_pool_alloc function first and if that fails and
-+ * Allocates from generic dma_pool_alloc function first and if that fails and
-  * mem_flags has MEM_PRI set (the only defined flag), returns an mbuf from the
-  * HBA's pool.
-  *
-@@ -397,7 +397,7 @@ lpfc_mbuf_alloc(struct lpfc_hba *phba, int mem_flags, dma_addr_t *handle)
- 	unsigned long iflags;
- 	void *ret;
- 
--	ret = pci_pool_alloc(phba->lpfc_mbuf_pool, GFP_KERNEL, handle);
-+	ret = dma_pool_alloc(phba->lpfc_mbuf_pool, GFP_KERNEL, handle);
- 
- 	spin_lock_irqsave(&phba->hbalock, iflags);
- 	if (!ret && (mem_flags & MEM_PRI) && pool->current_count) {
-@@ -433,7 +433,7 @@ __lpfc_mbuf_free(struct lpfc_hba * phba, void *virt, dma_addr_t dma)
- 		pool->elements[pool->current_count].phys = dma;
- 		pool->current_count++;
- 	} else {
--		pci_pool_free(phba->lpfc_mbuf_pool, virt, dma);
-+		dma_pool_free(phba->lpfc_mbuf_pool, virt, dma);
+ 	epthru_pci_blk = raid_dev->epthru_pool;
+ 	for (i = 0; i < MBOX_MAX_SCSI_CMDS && epthru_pci_blk[i].vaddr; i++) {
+-		pci_pool_free(raid_dev->epthru_pool_handle,
++		dma_pool_free(raid_dev->epthru_pool_handle,
+ 			epthru_pci_blk[i].vaddr, epthru_pci_blk[i].dma_addr);
  	}
+-	if (raid_dev->epthru_pool_handle)
+-		pci_pool_destroy(raid_dev->epthru_pool_handle);
++	dma_pool_destroy(raid_dev->epthru_pool_handle);
+ 
+ 
+ 	mbox_pci_blk = raid_dev->mbox_pool;
+ 	for (i = 0; i < MBOX_MAX_SCSI_CMDS && mbox_pci_blk[i].vaddr; i++) {
+-		pci_pool_free(raid_dev->mbox_pool_handle,
++		dma_pool_free(raid_dev->mbox_pool_handle,
+ 			mbox_pci_blk[i].vaddr, mbox_pci_blk[i].dma_addr);
+ 	}
+-	if (raid_dev->mbox_pool_handle)
+-		pci_pool_destroy(raid_dev->mbox_pool_handle);
++	dma_pool_destroy(raid_dev->mbox_pool_handle);
+ 
  	return;
  }
-@@ -470,7 +470,7 @@ lpfc_mbuf_free(struct lpfc_hba * phba, void *virt, dma_addr_t dma)
-  * @handle: used to return the DMA-mapped address of the nvmet_buf
-  *
-  * Description: Allocates a DMA-mapped buffer from the lpfc_sg_dma_buf_pool
-- * PCI pool.  Allocates from generic pci_pool_alloc function.
-+ * PCI pool.  Allocates from generic dma_pool_alloc function.
-  *
-  * Returns:
-  *   pointer to the allocated nvmet_buf on success
-@@ -481,7 +481,7 @@ lpfc_nvmet_buf_alloc(struct lpfc_hba *phba, int mem_flags, dma_addr_t *handle)
- {
- 	void *ret;
+diff --git a/drivers/scsi/megaraid/megaraid_mm.c b/drivers/scsi/megaraid/megaraid_mm.c
+index 4cf9ed96414f..2324dd87878e 100644
+--- a/drivers/scsi/megaraid/megaraid_mm.c
++++ b/drivers/scsi/megaraid/megaraid_mm.c
+@@ -574,7 +574,7 @@ mraid_mm_attach_buf(mraid_mmadp_t *adp, uioc_t *kioc, int xferlen)
  
--	ret = pci_pool_alloc(phba->lpfc_sg_dma_buf_pool, GFP_KERNEL, handle);
-+	ret = dma_pool_alloc(phba->lpfc_sg_dma_buf_pool, GFP_KERNEL, handle);
- 	return ret;
- }
+ 	kioc->pool_index	= right_pool;
+ 	kioc->free_buf		= 1;
+-	kioc->buf_vaddr 	= pci_pool_alloc(pool->handle, GFP_KERNEL,
++	kioc->buf_vaddr		= dma_pool_alloc(pool->handle, GFP_KERNEL,
+ 							&kioc->buf_paddr);
+ 	spin_unlock_irqrestore(&pool->lock, flags);
  
-@@ -497,7 +497,7 @@ lpfc_nvmet_buf_alloc(struct lpfc_hba *phba, int mem_flags, dma_addr_t *handle)
- void
- lpfc_nvmet_buf_free(struct lpfc_hba *phba, void *virt, dma_addr_t dma)
- {
--	pci_pool_free(phba->lpfc_sg_dma_buf_pool, virt, dma);
-+	dma_pool_free(phba->lpfc_sg_dma_buf_pool, virt, dma);
- }
+@@ -658,7 +658,7 @@ mraid_mm_dealloc_kioc(mraid_mmadp_t *adp, uioc_t *kioc)
+ 		 * not in use
+ 		 */
+ 		if (kioc->free_buf == 1)
+-			pci_pool_free(pool->handle, kioc->buf_vaddr, 
++			dma_pool_free(pool->handle, kioc->buf_vaddr,
+ 							kioc->buf_paddr);
+ 		else
+ 			pool->in_use = 0;
+@@ -940,8 +940,8 @@ mraid_mm_register_adp(mraid_mmadp_t *lld_adp)
+ 						GFP_KERNEL);
+ 	adapter->mbox_list	= kmalloc(sizeof(mbox64_t) * lld_adp->max_kioc,
+ 						GFP_KERNEL);
+-	adapter->pthru_dma_pool = pci_pool_create("megaraid mm pthru pool",
+-						adapter->pdev,
++	adapter->pthru_dma_pool = dma_pool_create("megaraid mm pthru pool",
++						&adapter->pdev->dev,
+ 						sizeof(mraid_passthru_t),
+ 						16, 0);
  
- /**
-@@ -522,7 +522,7 @@ lpfc_els_hbq_alloc(struct lpfc_hba *phba)
- 	if (!hbqbp)
- 		return NULL;
+@@ -970,7 +970,7 @@ mraid_mm_register_adp(mraid_mmadp_t *lld_adp)
  
--	hbqbp->dbuf.virt = pci_pool_alloc(phba->lpfc_hbq_pool, GFP_KERNEL,
-+	hbqbp->dbuf.virt = dma_pool_alloc(phba->lpfc_hbq_pool, GFP_KERNEL,
- 					  &hbqbp->dbuf.phys);
- 	if (!hbqbp->dbuf.virt) {
- 		kfree(hbqbp);
-@@ -547,7 +547,7 @@ lpfc_els_hbq_alloc(struct lpfc_hba *phba)
- void
- lpfc_els_hbq_free(struct lpfc_hba *phba, struct hbq_dmabuf *hbqbp)
- {
--	pci_pool_free(phba->lpfc_hbq_pool, hbqbp->dbuf.virt, hbqbp->dbuf.phys);
-+	dma_pool_free(phba->lpfc_hbq_pool, hbqbp->dbuf.virt, hbqbp->dbuf.phys);
- 	kfree(hbqbp);
+ 		kioc		= adapter->kioc_list + i;
+ 		kioc->cmdbuf	= (uint64_t)(unsigned long)(mbox_list + i);
+-		kioc->pthru32	= pci_pool_alloc(adapter->pthru_dma_pool,
++		kioc->pthru32	= dma_pool_alloc(adapter->pthru_dma_pool,
+ 						GFP_KERNEL, &kioc->pthru32_h);
+ 
+ 		if (!kioc->pthru32) {
+@@ -1006,7 +1006,7 @@ mraid_mm_register_adp(mraid_mmadp_t *lld_adp)
+ 	for (i = 0; i < lld_adp->max_kioc; i++) {
+ 		kioc = adapter->kioc_list + i;
+ 		if (kioc->pthru32) {
+-			pci_pool_free(adapter->pthru_dma_pool, kioc->pthru32,
++			dma_pool_free(adapter->pthru_dma_pool, kioc->pthru32,
+ 				kioc->pthru32_h);
+ 		}
+ 	}
+@@ -1016,8 +1016,7 @@ mraid_mm_register_adp(mraid_mmadp_t *lld_adp)
+ 	kfree(adapter->kioc_list);
+ 	kfree(adapter->mbox_list);
+ 
+-	if (adapter->pthru_dma_pool)
+-		pci_pool_destroy(adapter->pthru_dma_pool);
++	dma_pool_destroy(adapter->pthru_dma_pool);
+ 
+ 	kfree(adapter);
+ 
+@@ -1086,15 +1085,16 @@ mraid_mm_setup_dma_pools(mraid_mmadp_t *adp)
+ 		pool->buf_size = bufsize;
+ 		spin_lock_init(&pool->lock);
+ 
+-		pool->handle = pci_pool_create("megaraid mm data buffer",
+-						adp->pdev, bufsize, 16, 0);
++		pool->handle = dma_pool_create("megaraid mm data buffer",
++					       &adp->pdev->dev, bufsize, 16,
++					       0);
+ 
+ 		if (!pool->handle) {
+ 			goto dma_pool_setup_error;
+ 		}
+ 
+-		pool->vaddr = pci_pool_alloc(pool->handle, GFP_KERNEL,
+-							&pool->paddr);
++		pool->vaddr = dma_pool_alloc(pool->handle, GFP_KERNEL,
++					     &pool->paddr);
+ 
+ 		if (!pool->vaddr)
+ 			goto dma_pool_setup_error;
+@@ -1163,14 +1163,14 @@ mraid_mm_free_adp_resources(mraid_mmadp_t *adp)
+ 
+ 		kioc = adp->kioc_list + i;
+ 
+-		pci_pool_free(adp->pthru_dma_pool, kioc->pthru32,
++		dma_pool_free(adp->pthru_dma_pool, kioc->pthru32,
+ 				kioc->pthru32_h);
+ 	}
+ 
+ 	kfree(adp->kioc_list);
+ 	kfree(adp->mbox_list);
+ 
+-	pci_pool_destroy(adp->pthru_dma_pool);
++	dma_pool_destroy(adp->pthru_dma_pool);
+ 
+ 
  	return;
- }
-@@ -574,16 +574,16 @@ lpfc_sli4_rb_alloc(struct lpfc_hba *phba)
- 	if (!dma_buf)
- 		return NULL;
+@@ -1194,10 +1194,10 @@ mraid_mm_teardown_dma_pools(mraid_mmadp_t *adp)
+ 		if (pool->handle) {
  
--	dma_buf->hbuf.virt = pci_pool_alloc(phba->lpfc_hrb_pool, GFP_KERNEL,
-+	dma_buf->hbuf.virt = dma_pool_alloc(phba->lpfc_hrb_pool, GFP_KERNEL,
- 					    &dma_buf->hbuf.phys);
- 	if (!dma_buf->hbuf.virt) {
- 		kfree(dma_buf);
- 		return NULL;
+ 			if (pool->vaddr)
+-				pci_pool_free(pool->handle, pool->vaddr,
++				dma_pool_free(pool->handle, pool->vaddr,
+ 							pool->paddr);
+ 
+-			pci_pool_destroy(pool->handle);
++			dma_pool_destroy(pool->handle);
+ 			pool->handle = NULL;
+ 		}
  	}
--	dma_buf->dbuf.virt = pci_pool_alloc(phba->lpfc_drb_pool, GFP_KERNEL,
-+	dma_buf->dbuf.virt = dma_pool_alloc(phba->lpfc_drb_pool, GFP_KERNEL,
- 					    &dma_buf->dbuf.phys);
- 	if (!dma_buf->dbuf.virt) {
--		pci_pool_free(phba->lpfc_hrb_pool, dma_buf->hbuf.virt,
-+		dma_pool_free(phba->lpfc_hrb_pool, dma_buf->hbuf.virt,
- 			      dma_buf->hbuf.phys);
- 		kfree(dma_buf);
- 		return NULL;
-@@ -607,8 +607,8 @@ lpfc_sli4_rb_alloc(struct lpfc_hba *phba)
- void
- lpfc_sli4_rb_free(struct lpfc_hba *phba, struct hbq_dmabuf *dmab)
- {
--	pci_pool_free(phba->lpfc_hrb_pool, dmab->hbuf.virt, dmab->hbuf.phys);
--	pci_pool_free(phba->lpfc_drb_pool, dmab->dbuf.virt, dmab->dbuf.phys);
-+	dma_pool_free(phba->lpfc_hrb_pool, dmab->hbuf.virt, dmab->hbuf.phys);
-+	dma_pool_free(phba->lpfc_drb_pool, dmab->dbuf.virt, dmab->dbuf.phys);
- 	kfree(dmab);
- }
+diff --git a/drivers/scsi/megaraid/megaraid_sas_base.c b/drivers/scsi/megaraid/megaraid_sas_base.c
+index 316c3df0c3fd..4971adb08f26 100644
+--- a/drivers/scsi/megaraid/megaraid_sas_base.c
++++ b/drivers/scsi/megaraid/megaraid_sas_base.c
+@@ -3862,19 +3862,19 @@ static void megasas_teardown_frame_pool(struct megasas_instance *instance)
+ 		cmd = instance->cmd_list[i];
  
-@@ -634,16 +634,16 @@ lpfc_sli4_nvmet_alloc(struct lpfc_hba *phba)
- 	if (!dma_buf)
- 		return NULL;
+ 		if (cmd->frame)
+-			pci_pool_free(instance->frame_dma_pool, cmd->frame,
++			dma_pool_free(instance->frame_dma_pool, cmd->frame,
+ 				      cmd->frame_phys_addr);
  
--	dma_buf->hbuf.virt = pci_pool_alloc(phba->lpfc_hrb_pool, GFP_KERNEL,
-+	dma_buf->hbuf.virt = dma_pool_alloc(phba->lpfc_hrb_pool, GFP_KERNEL,
- 					    &dma_buf->hbuf.phys);
- 	if (!dma_buf->hbuf.virt) {
- 		kfree(dma_buf);
- 		return NULL;
+ 		if (cmd->sense)
+-			pci_pool_free(instance->sense_dma_pool, cmd->sense,
++			dma_pool_free(instance->sense_dma_pool, cmd->sense,
+ 				      cmd->sense_phys_addr);
  	}
--	dma_buf->dbuf.virt = pci_pool_alloc(phba->lpfc_nvmet_drb_pool,
-+	dma_buf->dbuf.virt = dma_pool_alloc(phba->lpfc_nvmet_drb_pool,
- 					    GFP_KERNEL, &dma_buf->dbuf.phys);
- 	if (!dma_buf->dbuf.virt) {
--		pci_pool_free(phba->lpfc_hrb_pool, dma_buf->hbuf.virt,
-+		dma_pool_free(phba->lpfc_hrb_pool, dma_buf->hbuf.virt,
- 			      dma_buf->hbuf.phys);
- 		kfree(dma_buf);
- 		return NULL;
-@@ -667,8 +667,8 @@ lpfc_sli4_nvmet_alloc(struct lpfc_hba *phba)
- void
- lpfc_sli4_nvmet_free(struct lpfc_hba *phba, struct rqb_dmabuf *dmab)
- {
--	pci_pool_free(phba->lpfc_hrb_pool, dmab->hbuf.virt, dmab->hbuf.phys);
--	pci_pool_free(phba->lpfc_nvmet_drb_pool,
-+	dma_pool_free(phba->lpfc_hrb_pool, dmab->hbuf.virt, dmab->hbuf.phys);
-+	dma_pool_free(phba->lpfc_nvmet_drb_pool,
- 		      dmab->dbuf.virt, dmab->dbuf.phys);
- 	kfree(dmab);
+ 
+ 	/*
+ 	 * Now destroy the pool itself
+ 	 */
+-	pci_pool_destroy(instance->frame_dma_pool);
+-	pci_pool_destroy(instance->sense_dma_pool);
++	dma_pool_destroy(instance->frame_dma_pool);
++	dma_pool_destroy(instance->sense_dma_pool);
+ 
+ 	instance->frame_dma_pool = NULL;
+ 	instance->sense_dma_pool = NULL;
+@@ -3925,22 +3925,24 @@ static int megasas_create_frame_pool(struct megasas_instance *instance)
+ 	/*
+ 	 * Use DMA pool facility provided by PCI layer
+ 	 */
+-	instance->frame_dma_pool = pci_pool_create("megasas frame pool",
+-					instance->pdev, instance->mfi_frame_size,
+-					256, 0);
++	instance->frame_dma_pool = dma_pool_create("megasas frame pool",
++						   &instance->pdev->dev,
++						   instance->mfi_frame_size,
++						   256, 0);
+ 
+ 	if (!instance->frame_dma_pool) {
+ 		dev_printk(KERN_DEBUG, &instance->pdev->dev, "failed to setup frame pool\n");
+ 		return -ENOMEM;
+ 	}
+ 
+-	instance->sense_dma_pool = pci_pool_create("megasas sense pool",
+-						   instance->pdev, 128, 4, 0);
++	instance->sense_dma_pool = dma_pool_create("megasas sense pool",
++						   &instance->pdev->dev, 128,
++						   4, 0);
+ 
+ 	if (!instance->sense_dma_pool) {
+ 		dev_printk(KERN_DEBUG, &instance->pdev->dev, "failed to setup sense pool\n");
+ 
+-		pci_pool_destroy(instance->frame_dma_pool);
++		dma_pool_destroy(instance->frame_dma_pool);
+ 		instance->frame_dma_pool = NULL;
+ 
+ 		return -ENOMEM;
+@@ -3955,10 +3957,10 @@ static int megasas_create_frame_pool(struct megasas_instance *instance)
+ 
+ 		cmd = instance->cmd_list[i];
+ 
+-		cmd->frame = pci_pool_alloc(instance->frame_dma_pool,
++		cmd->frame = dma_pool_alloc(instance->frame_dma_pool,
+ 					    GFP_KERNEL, &cmd->frame_phys_addr);
+ 
+-		cmd->sense = pci_pool_alloc(instance->sense_dma_pool,
++		cmd->sense = dma_pool_alloc(instance->sense_dma_pool,
+ 					    GFP_KERNEL, &cmd->sense_phys_addr);
+ 
+ 		/*
+@@ -3966,7 +3968,8 @@ static int megasas_create_frame_pool(struct megasas_instance *instance)
+ 		 * whatever has been allocated
+ 		 */
+ 		if (!cmd->frame || !cmd->sense) {
+-			dev_printk(KERN_DEBUG, &instance->pdev->dev, "pci_pool_alloc failed\n");
++			dev_printk(KERN_DEBUG, &instance->pdev->dev,
++				   "dma_pool_alloc failed\n");
+ 			megasas_teardown_frame_pool(instance);
+ 			return -ENOMEM;
+ 		}
+diff --git a/drivers/scsi/megaraid/megaraid_sas_fusion.c b/drivers/scsi/megaraid/megaraid_sas_fusion.c
+index f990ab4d45e1..70fcca17d8ab 100644
+--- a/drivers/scsi/megaraid/megaraid_sas_fusion.c
++++ b/drivers/scsi/megaraid/megaraid_sas_fusion.c
+@@ -313,22 +313,19 @@ megasas_free_cmds_fusion(struct megasas_instance *instance)
+ 		cmd = fusion->cmd_list[i];
+ 		if (cmd) {
+ 			if (cmd->sg_frame)
+-				pci_pool_free(fusion->sg_dma_pool, cmd->sg_frame,
+-				      cmd->sg_frame_phys_addr);
++				dma_pool_free(fusion->sg_dma_pool,
++					      cmd->sg_frame,
++					      cmd->sg_frame_phys_addr);
+ 			if (cmd->sense)
+-				pci_pool_free(fusion->sense_dma_pool, cmd->sense,
+-				      cmd->sense_phys_addr);
++				dma_pool_free(fusion->sense_dma_pool,
++					      cmd->sense, cmd->sense_phys_addr);
+ 		}
+ 	}
+ 
+-	if (fusion->sg_dma_pool) {
+-		pci_pool_destroy(fusion->sg_dma_pool);
+-		fusion->sg_dma_pool = NULL;
+-	}
+-	if (fusion->sense_dma_pool) {
+-		pci_pool_destroy(fusion->sense_dma_pool);
+-		fusion->sense_dma_pool = NULL;
+-	}
++	dma_pool_destroy(fusion->sg_dma_pool);
++	fusion->sg_dma_pool = NULL;
++	dma_pool_destroy(fusion->sense_dma_pool);
++	fusion->sense_dma_pool = NULL;
+ 
+ 
+ 	/* Reply Frame, Desc*/
+@@ -343,14 +340,11 @@ megasas_free_cmds_fusion(struct megasas_instance *instance)
+ 			fusion->request_alloc_sz, fusion->req_frames_desc,
+ 			fusion->req_frames_desc_phys);
+ 	if (fusion->io_request_frames)
+-		pci_pool_free(fusion->io_request_frames_pool,
++		dma_pool_free(fusion->io_request_frames_pool,
+ 			fusion->io_request_frames,
+ 			fusion->io_request_frames_phys);
+-	if (fusion->io_request_frames_pool) {
+-		pci_pool_destroy(fusion->io_request_frames_pool);
+-		fusion->io_request_frames_pool = NULL;
+-	}
+-
++	dma_pool_destroy(fusion->io_request_frames_pool);
++	fusion->io_request_frames_pool = NULL;
+ 
+ 	/* cmd_list */
+ 	for (i = 0; i < instance->max_mpt_cmds; i++)
+@@ -376,12 +370,12 @@ static int megasas_create_sg_sense_fusion(struct megasas_instance *instance)
+ 
+ 
+ 	fusion->sg_dma_pool =
+-			pci_pool_create("mr_sg", instance->pdev,
++			dma_pool_create("mr_sg", &instance->pdev->dev,
+ 				instance->max_chain_frame_sz,
+ 				MR_DEFAULT_NVME_PAGE_SIZE, 0);
+ 	/* SCSI_SENSE_BUFFERSIZE  = 96 bytes */
+ 	fusion->sense_dma_pool =
+-			pci_pool_create("mr_sense", instance->pdev,
++			dma_pool_create("mr_sense", &instance->pdev->dev,
+ 				SCSI_SENSE_BUFFERSIZE, 64, 0);
+ 
+ 	if (!fusion->sense_dma_pool || !fusion->sg_dma_pool) {
+@@ -395,10 +389,10 @@ static int megasas_create_sg_sense_fusion(struct megasas_instance *instance)
+ 	 */
+ 	for (i = 0; i < max_cmd; i++) {
+ 		cmd = fusion->cmd_list[i];
+-		cmd->sg_frame = pci_pool_alloc(fusion->sg_dma_pool,
++		cmd->sg_frame = dma_pool_alloc(fusion->sg_dma_pool,
+ 					GFP_KERNEL, &cmd->sg_frame_phys_addr);
+ 
+-		cmd->sense = pci_pool_alloc(fusion->sense_dma_pool,
++		cmd->sense = dma_pool_alloc(fusion->sense_dma_pool,
+ 					GFP_KERNEL, &cmd->sense_phys_addr);
+ 		if (!cmd->sg_frame || !cmd->sense) {
+ 			dev_err(&instance->pdev->dev,
+@@ -410,7 +404,7 @@ static int megasas_create_sg_sense_fusion(struct megasas_instance *instance)
+ 	/* create sense buffer for the raid 1/10 fp */
+ 	for (i = max_cmd; i < instance->max_mpt_cmds; i++) {
+ 		cmd = fusion->cmd_list[i];
+-		cmd->sense = pci_pool_alloc(fusion->sense_dma_pool,
++		cmd->sense = dma_pool_alloc(fusion->sense_dma_pool,
+ 			GFP_KERNEL, &cmd->sense_phys_addr);
+ 		if (!cmd->sense) {
+ 			dev_err(&instance->pdev->dev,
+@@ -475,7 +469,7 @@ megasas_alloc_request_fusion(struct megasas_instance *instance)
+ 	}
+ 
+ 	fusion->io_request_frames_pool =
+-			pci_pool_create("mr_ioreq", instance->pdev,
++			dma_pool_create("mr_ioreq", &instance->pdev->dev,
+ 				fusion->io_frames_alloc_sz, 16, 0);
+ 
+ 	if (!fusion->io_request_frames_pool) {
+@@ -485,7 +479,7 @@ megasas_alloc_request_fusion(struct megasas_instance *instance)
+ 	}
+ 
+ 	fusion->io_request_frames =
+-			pci_pool_alloc(fusion->io_request_frames_pool,
++			dma_pool_alloc(fusion->io_request_frames_pool,
+ 				GFP_KERNEL, &fusion->io_request_frames_phys);
+ 	if (!fusion->io_request_frames) {
+ 		dev_err(&instance->pdev->dev,
+@@ -505,7 +499,7 @@ megasas_alloc_reply_fusion(struct megasas_instance *instance)
+ 
+ 	count = instance->msix_vectors > 0 ? instance->msix_vectors : 1;
+ 	fusion->reply_frames_desc_pool =
+-			pci_pool_create("mr_reply", instance->pdev,
++			dma_pool_create("mr_reply", &instance->pdev->dev,
+ 				fusion->reply_alloc_sz * count, 16, 0);
+ 
+ 	if (!fusion->reply_frames_desc_pool) {
+@@ -515,7 +509,7 @@ megasas_alloc_reply_fusion(struct megasas_instance *instance)
+ 	}
+ 
+ 	fusion->reply_frames_desc[0] =
+-		pci_pool_alloc(fusion->reply_frames_desc_pool,
++		dma_pool_alloc(fusion->reply_frames_desc_pool,
+ 			GFP_KERNEL, &fusion->reply_frames_desc_phys[0]);
+ 	if (!fusion->reply_frames_desc[0]) {
+ 		dev_err(&instance->pdev->dev,
+@@ -558,8 +552,10 @@ megasas_alloc_rdpq_fusion(struct megasas_instance *instance)
+ 	memset(fusion->rdpq_virt, 0,
+ 			sizeof(struct MPI2_IOC_INIT_RDPQ_ARRAY_ENTRY) * MAX_MSIX_QUEUES_FUSION);
+ 	count = instance->msix_vectors > 0 ? instance->msix_vectors : 1;
+-	fusion->reply_frames_desc_pool = pci_pool_create("mr_rdpq",
+-							 instance->pdev, fusion->reply_alloc_sz, 16, 0);
++	fusion->reply_frames_desc_pool = dma_pool_create("mr_rdpq",
++							 &instance->pdev->dev,
++							 fusion->reply_alloc_sz,
++							 16, 0);
+ 
+ 	if (!fusion->reply_frames_desc_pool) {
+ 		dev_err(&instance->pdev->dev,
+@@ -569,7 +565,7 @@ megasas_alloc_rdpq_fusion(struct megasas_instance *instance)
+ 
+ 	for (i = 0; i < count; i++) {
+ 		fusion->reply_frames_desc[i] =
+-				pci_pool_alloc(fusion->reply_frames_desc_pool,
++				dma_pool_alloc(fusion->reply_frames_desc_pool,
+ 					GFP_KERNEL, &fusion->reply_frames_desc_phys[i]);
+ 		if (!fusion->reply_frames_desc[i]) {
+ 			dev_err(&instance->pdev->dev,
+@@ -597,13 +593,12 @@ megasas_free_rdpq_fusion(struct megasas_instance *instance) {
+ 
+ 	for (i = 0; i < MAX_MSIX_QUEUES_FUSION; i++) {
+ 		if (fusion->reply_frames_desc[i])
+-			pci_pool_free(fusion->reply_frames_desc_pool,
++			dma_pool_free(fusion->reply_frames_desc_pool,
+ 				fusion->reply_frames_desc[i],
+ 				fusion->reply_frames_desc_phys[i]);
+ 	}
+ 
+-	if (fusion->reply_frames_desc_pool)
+-		pci_pool_destroy(fusion->reply_frames_desc_pool);
++	dma_pool_destroy(fusion->reply_frames_desc_pool);
+ 
+ 	if (fusion->rdpq_virt)
+ 		pci_free_consistent(instance->pdev,
+@@ -619,12 +614,11 @@ megasas_free_reply_fusion(struct megasas_instance *instance) {
+ 	fusion = instance->ctrl_context;
+ 
+ 	if (fusion->reply_frames_desc[0])
+-		pci_pool_free(fusion->reply_frames_desc_pool,
++		dma_pool_free(fusion->reply_frames_desc_pool,
+ 			fusion->reply_frames_desc[0],
+ 			fusion->reply_frames_desc_phys[0]);
+ 
+-	if (fusion->reply_frames_desc_pool)
+-		pci_pool_destroy(fusion->reply_frames_desc_pool);
++	dma_pool_destroy(fusion->reply_frames_desc_pool);
+ 
  }
-diff --git a/drivers/scsi/lpfc/lpfc_nvme.c b/drivers/scsi/lpfc/lpfc_nvme.c
-index 8008c8205fb6..f83750934a42 100644
---- a/drivers/scsi/lpfc/lpfc_nvme.c
-+++ b/drivers/scsi/lpfc/lpfc_nvme.c
-@@ -1966,7 +1966,7 @@ lpfc_new_nvme_buf(struct lpfc_vport *vport, int num_to_alloc)
- 		 * pci bus space for an I/O. The DMA buffer includes the
- 		 * number of SGE's necessary to support the sg_tablesize.
- 		 */
--		lpfc_ncmd->data = pci_pool_alloc(phba->lpfc_sg_dma_buf_pool,
-+		lpfc_ncmd->data = dma_pool_alloc(phba->lpfc_sg_dma_buf_pool,
- 						 GFP_KERNEL,
- 						 &lpfc_ncmd->dma_handle);
- 		if (!lpfc_ncmd->data) {
-@@ -1977,7 +1977,7 @@ lpfc_new_nvme_buf(struct lpfc_vport *vport, int num_to_alloc)
  
- 		lxri = lpfc_sli4_next_xritag(phba);
- 		if (lxri == NO_XRI) {
--			pci_pool_free(phba->lpfc_sg_dma_buf_pool,
-+			dma_pool_free(phba->lpfc_sg_dma_buf_pool,
- 				      lpfc_ncmd->data, lpfc_ncmd->dma_handle);
- 			kfree(lpfc_ncmd);
- 			break;
-@@ -1988,7 +1988,7 @@ lpfc_new_nvme_buf(struct lpfc_vport *vport, int num_to_alloc)
- 		/* Allocate iotag for lpfc_ncmd->cur_iocbq. */
- 		iotag = lpfc_sli_next_iotag(phba, pwqeq);
- 		if (iotag == 0) {
--			pci_pool_free(phba->lpfc_sg_dma_buf_pool,
-+			dma_pool_free(phba->lpfc_sg_dma_buf_pool,
- 				      lpfc_ncmd->data, lpfc_ncmd->dma_handle);
- 			kfree(lpfc_ncmd);
- 			lpfc_printf_log(phba, KERN_ERR, LOG_NVME_IOERR,
-diff --git a/drivers/scsi/lpfc/lpfc_nvmet.c b/drivers/scsi/lpfc/lpfc_nvmet.c
-index 074a6b5e7763..f819a013f700 100644
---- a/drivers/scsi/lpfc/lpfc_nvmet.c
-+++ b/drivers/scsi/lpfc/lpfc_nvmet.c
-@@ -168,7 +168,7 @@ lpfc_nvmet_ctxbuf_post(struct lpfc_hba *phba, struct lpfc_nvmet_ctxbuf *ctx_buf)
- 	unsigned long iflag;
- 
- 	if (ctxp->txrdy) {
--		pci_pool_free(phba->txrdy_payload_pool, ctxp->txrdy,
-+		dma_pool_free(phba->txrdy_payload_pool, ctxp->txrdy,
- 			      ctxp->txrdy_phys);
- 		ctxp->txrdy = NULL;
- 		ctxp->txrdy_phys = 0;
-@@ -1837,7 +1837,7 @@ lpfc_nvmet_prep_fcp_wqe(struct lpfc_hba *phba,
- 
- 	case NVMET_FCOP_WRITEDATA:
- 		/* Words 0 - 2 : The first sg segment */
--		txrdy = pci_pool_alloc(phba->txrdy_payload_pool,
-+		txrdy = dma_pool_alloc(phba->txrdy_payload_pool,
- 				       GFP_KERNEL, &physaddr);
- 		if (!txrdy) {
- 			lpfc_printf_log(phba, KERN_ERR, LOG_NVME_IOERR,
-diff --git a/drivers/scsi/lpfc/lpfc_scsi.c b/drivers/scsi/lpfc/lpfc_scsi.c
-index 54fd0c81ceaf..b6c1a6f568bf 100644
---- a/drivers/scsi/lpfc/lpfc_scsi.c
-+++ b/drivers/scsi/lpfc/lpfc_scsi.c
-@@ -415,7 +415,7 @@ lpfc_new_scsi_buf_s3(struct lpfc_vport *vport, int num_to_alloc)
- 		 * struct fcp_cmnd, struct fcp_rsp and the number of bde's
- 		 * necessary to support the sg_tablesize.
- 		 */
--		psb->data = pci_pool_zalloc(phba->lpfc_sg_dma_buf_pool,
-+		psb->data = dma_pool_zalloc(phba->lpfc_sg_dma_buf_pool,
- 					GFP_KERNEL, &psb->dma_handle);
- 		if (!psb->data) {
- 			kfree(psb);
-@@ -426,7 +426,7 @@ lpfc_new_scsi_buf_s3(struct lpfc_vport *vport, int num_to_alloc)
- 		/* Allocate iotag for psb->cur_iocbq. */
- 		iotag = lpfc_sli_next_iotag(phba, &psb->cur_iocbq);
- 		if (iotag == 0) {
--			pci_pool_free(phba->lpfc_sg_dma_buf_pool,
-+			dma_pool_free(phba->lpfc_sg_dma_buf_pool,
- 				      psb->data, psb->dma_handle);
- 			kfree(psb);
- 			break;
-@@ -825,7 +825,7 @@ lpfc_new_scsi_buf_s4(struct lpfc_vport *vport, int num_to_alloc)
- 		 * for the struct fcp_cmnd, struct fcp_rsp and the number
- 		 * of bde's necessary to support the sg_tablesize.
- 		 */
--		psb->data = pci_pool_zalloc(phba->lpfc_sg_dma_buf_pool,
-+		psb->data = dma_pool_zalloc(phba->lpfc_sg_dma_buf_pool,
- 						GFP_KERNEL, &psb->dma_handle);
- 		if (!psb->data) {
- 			kfree(psb);
-@@ -838,7 +838,7 @@ lpfc_new_scsi_buf_s4(struct lpfc_vport *vport, int num_to_alloc)
- 		 */
- 		if (phba->cfg_enable_bg  && (((unsigned long)(psb->data) &
- 		    (unsigned long)(SLI4_PAGE_SIZE - 1)) != 0)) {
--			pci_pool_free(phba->lpfc_sg_dma_buf_pool,
-+			dma_pool_free(phba->lpfc_sg_dma_buf_pool,
- 				      psb->data, psb->dma_handle);
- 			kfree(psb);
- 			break;
-@@ -847,7 +847,7 @@ lpfc_new_scsi_buf_s4(struct lpfc_vport *vport, int num_to_alloc)
- 
- 		lxri = lpfc_sli4_next_xritag(phba);
- 		if (lxri == NO_XRI) {
--			pci_pool_free(phba->lpfc_sg_dma_buf_pool,
-+			dma_pool_free(phba->lpfc_sg_dma_buf_pool,
- 				      psb->data, psb->dma_handle);
- 			kfree(psb);
- 			break;
-@@ -856,7 +856,7 @@ lpfc_new_scsi_buf_s4(struct lpfc_vport *vport, int num_to_alloc)
- 		/* Allocate iotag for psb->cur_iocbq. */
- 		iotag = lpfc_sli_next_iotag(phba, &psb->cur_iocbq);
- 		if (iotag == 0) {
--			pci_pool_free(phba->lpfc_sg_dma_buf_pool,
-+			dma_pool_free(phba->lpfc_sg_dma_buf_pool,
- 				      psb->data, psb->dma_handle);
- 			kfree(psb);
- 			lpfc_printf_log(phba, KERN_ERR, LOG_FCP,
-diff --git a/drivers/scsi/lpfc/lpfc_sli.c b/drivers/scsi/lpfc/lpfc_sli.c
-index d6b184839bc2..e821b0182f9d 100644
---- a/drivers/scsi/lpfc/lpfc_sli.c
-+++ b/drivers/scsi/lpfc/lpfc_sli.c
-@@ -17025,7 +17025,7 @@ lpfc_sli4_mds_loopback_cmpl(struct lpfc_hba *phba, struct lpfc_iocbq *cmdiocb,
- 	struct lpfc_dmabuf *pcmd = cmdiocb->context2;
- 
- 	if (pcmd && pcmd->virt)
--		pci_pool_free(phba->lpfc_drb_pool, pcmd->virt, pcmd->phys);
-+		dma_pool_free(phba->lpfc_drb_pool, pcmd->virt, pcmd->phys);
- 	kfree(pcmd);
- 	lpfc_sli_release_iocbq(phba, cmdiocb);
- }
-@@ -17053,7 +17053,7 @@ lpfc_sli4_handle_mds_loopback(struct lpfc_vport *vport,
- 	/* Allocate buffer for command payload */
- 	pcmd = kmalloc(sizeof(struct lpfc_dmabuf), GFP_KERNEL);
- 	if (pcmd)
--		pcmd->virt = pci_pool_alloc(phba->lpfc_drb_pool, GFP_KERNEL,
-+		pcmd->virt = dma_pool_alloc(phba->lpfc_drb_pool, GFP_KERNEL,
- 					    &pcmd->phys);
- 	if (!pcmd || !pcmd->virt)
- 		goto exit;
-@@ -17102,7 +17102,7 @@ lpfc_sli4_handle_mds_loopback(struct lpfc_vport *vport,
- 	lpfc_printf_log(phba, KERN_WARNING, LOG_SLI,
- 			"2023 Unable to process MDS loopback frame\n");
- 	if (pcmd && pcmd->virt)
--		pci_pool_free(phba->lpfc_drb_pool, pcmd->virt, pcmd->phys);
-+		dma_pool_free(phba->lpfc_drb_pool, pcmd->virt, pcmd->phys);
- 	kfree(pcmd);
- 	lpfc_sli_release_iocbq(phba, iocbq);
- 	lpfc_in_buf_free(phba, &dmabuf->dbuf);
 -- 
 2.11.0
 
 --
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 More majordomo info at  http://vger.kernel.org/majordomo-info.html
