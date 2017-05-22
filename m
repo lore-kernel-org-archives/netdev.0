@@ -1,71 +1,50 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: arch: arm: bpf: Converting cBPF to eBPF for arm 32 bit
-Date: Mon, 22 May 2017 15:01:16 +0200
-Message-ID: <5922E11C.4070307@iogearbox.net>
-References: <CAHgaXdKsO2xoKYp7g91g+n+d_1KHSSByLjzBB-WjVXSjhB7qxw@mail.gmail.com> <20170510.212952.1440495072777358778.davem@davemloft.net> <CAHgaXdK8LEEUPm4jTRRzCnjwdWAauHmmB=caZsSFY8MmStH89Q@mail.gmail.com> <20170510.215218.2185526627014393313.davem@davemloft.net> <CAHgaXdKZ_v+iO7uqEDx7PA7D+xcp1FngGvJ1SRSsGXNQ-iWWDQ@mail.gmail.com> <CAHgaXdLJoVUXXGTYs7FYXay5wx=sA-O+=dYhX+r7AQT7vSNfGQ@mail.gmail.com> <CAGXu5j+2q4Wwfhuk_DnDaV894A9ZOD=A_AvAU_OZG6KQv0_KMg@mail.gmail.com> <CAHgaXdL7GcVzs+ANPke_NywhcgHbe_fzi1sTDEy+Ni1-o82GYQ@mail.gmail.com> <591A07A1.1030006@iogearbox.net> <CAHgaXdKKbRVSpX-036TXpV5z=1=QCnPoku0+CeHxHco8-aasPQ@mail.gmail.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH v2 1/4] net-next: stmmac: Convert new_state to bool
+Date: Mon, 22 May 2017 06:07:43 -0700
+Message-ID: <1495458463.2093.17.camel@perches.com>
+References: <20170522123347.5295-1-clabbe.montjoie@gmail.com>
+         <20170522123347.5295-2-clabbe.montjoie@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Kees Cook <keescook@chromium.org>,
-        David Miller <davem@davemloft.net>,
-        Mircea Gherzan <mgherzan@gmail.com>,
-        Network Development <netdev@vger.kernel.org>,
-        "kernel-hardening@lists.openwall.com"
-        <kernel-hardening@lists.openwall.com>,
-        "linux-arm-kernel@lists.infradead.org"
-        <linux-arm-kernel@lists.infradead.org>, ast@fb.com
-To: Shubham Bansal <illusionist.neo@gmail.com>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Corentin Labbe <clabbe.montjoie@gmail.com>, peppe.cavallaro@st.com,
+        alexandre.torgue@st.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:33660 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751722AbdEVNBc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 22 May 2017 09:01:32 -0400
-In-Reply-To: <CAHgaXdKKbRVSpX-036TXpV5z=1=QCnPoku0+CeHxHco8-aasPQ@mail.gmail.com>
+Received: from smtprelay0105.hostedemail.com ([216.40.44.105]:55895 "EHLO
+        smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1751312AbdEVNHr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 22 May 2017 09:07:47 -0400
+In-Reply-To: <20170522123347.5295-2-clabbe.montjoie@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/20/2017 10:01 PM, Shubham Bansal wrote:
-[...]
-> Before I send the patch, I have tested the JIT compiler on ARMv7 but
-> not on ARMv5 or ARMv6. So can you tell me which arch versions I should
-> test it for?
-> Also for my testing, CONFIG_FRAME_POINTER and CONFIG_CPU_BIG_ENDIAN
-> are both disabled. But I need to test JIT with these flags as well.
-> Whenever I put these flags in .config file, the arm kernel is not
-> getting compiler with these flags. Can you tell me why? If you need
-> more information regarding this, please let me know.
+On Mon, 2017-05-22 at 14:33 +0200, Corentin Labbe wrote:
+> This patch convert new_state from int to bool since it store only 1 or 0
+[]
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+[]
+> @@ -849,11 +849,11 @@ static void stmmac_adjust_link(struct net_device *dev)
+>  		writel(ctrl, priv->ioaddr + MAC_CTRL_REG);
+>  
+>  		if (!priv->oldlink) {
+> -			new_state = 1;
+> +			new_state = true;
+>  			priv->oldlink = 1;
+>  		}
+>  	} else if (priv->oldlink) {
+> -		new_state = 1;
+> +		new_state = true;
+>  		priv->oldlink = 0;
+>  		priv->speed = SPEED_UNKNOWN;
+>  		priv->oldduplex = DUPLEX_UNKNOWN;
 
-Maybe Mircea, Kees or someone from linux-arm-kernel can help you out
-on that.
+It seems oldlink could be bool as well.
 
-With regards to the below benchmark, I was mentioning how it compares
-to the interpreter. With only the numbers for jit it's hard to compare.
-So would be great to see the output for the following three cases:
-
-1) Interpreter:
-
-echo 0 > /proc/sys/net/core/bpf_jit_enable
-
-2) JIT enabled:
-
-echo 1 > /proc/sys/net/core/bpf_jit_enable
-
-3) JIT + blinding enabled:
-
-echo 1 > /proc/sys/net/core/bpf_jit_enable
-echo 2 > /proc/sys/net/core/bpf_jit_harden
-
-> With current config for ARMv7, benchmarks are :
->
-> [root@vexpress modules]# insmod test_bpf.ko
-> [   25.797766] test_bpf: #0 TAX jited:1 180 170 169 PASS
-> [   25.811395] test_bpf: #1 TXA jited:1 93 89 111 PASS
-> [   25.815073] test_bpf: #2 ADD_SUB_MUL_K jited:1 94 PASS
-> [   25.816779] test_bpf: #3 DIV_MOD_KX jited:1 983 PASS
-> [   25.827310] test_bpf: #4 AND_OR_LSH_K jited:1 94 93 PASS
-> [   25.829843] test_bpf: #5 LD_IMM_0 jited:1 83 PASS
-> [   25.831260] test_bpf: #6 LD_IND jited:1 338 266 305 PASS
-[...]
-
-Thanks,
-Daniel
+drivers/net/ethernet/stmicro/stmmac/stmmac.h:   int oldlink;
+drivers/net/ethernet/stmicro/stmmac/stmmac_main.c:              if (!priv->oldlink) {
+drivers/net/ethernet/stmicro/stmmac/stmmac_main.c:                      priv->oldlink = 1;
+drivers/net/ethernet/stmicro/stmmac/stmmac_main.c:      } else if (priv->oldlink) {
+drivers/net/ethernet/stmicro/stmmac/stmmac_main.c:              priv->oldlink = 0;
+drivers/net/ethernet/stmicro/stmmac/stmmac_main.c:      priv->oldlink = 0;
+drivers/net/ethernet/stmicro/stmmac/stmmac_main.c:      priv->oldlink = 0;
