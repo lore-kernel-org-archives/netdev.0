@@ -1,43 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/3] stmmac: pci: Refactor DMI probing
-Date: Mon, 22 May 2017 14:23:11 -0400 (EDT)
-Message-ID: <20170522.142311.1866840567813370892.davem@davemloft.net>
-References: <cover.1495451529.git.jan.kiszka@siemens.com>
-        <20170522.123555.2260863464877381826.davem@davemloft.net>
-        <16d9bbf6-0579-f16c-4177-251fa3837a2a@siemens.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [RFC net-next PATCH 2/5] mlx5: fix bug reading rss_hash_type
+ from CQE
+Date: Mon, 22 May 2017 20:27:40 +0200
+Message-ID: <20170522202740.6ed57978@redhat.com>
+References: <149512205297.14733.15729847433404265933.stgit@firesoul>
+        <149512209807.14733.12774004120782832472.stgit@firesoul>
+        <20170519.193818.1096111302686413939.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        andy.shevchenko@gmail.com
-To: jan.kiszka@siemens.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <16d9bbf6-0579-f16c-4177-251fa3837a2a@siemens.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: borkmann@iogearbox.net, alexei.starovoitov@gmail.com,
+        john.r.fastabend@intel.com, netdev@vger.kernel.org,
+        brouer@redhat.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:59596 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S933452AbdEVS14 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 22 May 2017 14:27:56 -0400
+In-Reply-To: <20170519.193818.1096111302686413939.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogSmFuIEtpc3prYSA8amFuLmtpc3prYUBzaWVtZW5zLmNvbT4NCkRhdGU6IE1vbiwgMjIg
-TWF5IDIwMTcgMTk6MDY6MDcgKzAyMDANCg0KPiBPbiAyMDE3LTA1LTIyIDE4OjM1LCBEYXZpZCBN
-aWxsZXIgd3JvdGU6DQo+PiBGcm9tOiBKYW4gS2lzemthIDxqYW4ua2lzemthQHNpZW1lbnMuY29t
-Pg0KPj4gRGF0ZTogTW9uLCAyMiBNYXkgMjAxNyAxMzoxMjowNiArMDIwMA0KPj4gDQo+Pj4gU29t
-ZSBjbGVhbnVwcyBvZiB0aGUgd2F5IHdlIHByb2JlIERNSSBwbGF0Zm9ybXMgaW4gdGhlIGRyaXZl
-ci4gUmVkdWNlcw0KPj4+IGEgYml0IG9mIG9wZW4tY29kaW5nIGFuZCBtYWtlcyB0aGUgbG9naWMg
-ZWFzaWVyIHJldXNhYmxlIGZvciBhbnkNCj4+PiBwb3RlbnRpYWwgRE1JIHBsYXRmb3JtICE9IFF1
-YXJrLg0KPj4+DQo+Pj4gVGVzdGVkIG9uIElPVDIwMDAgYW5kIEdhbGlsZW8gR2VuMi4NCj4+IA0K
-Pj4gVGhpcyBkb2Vzbid0IGNvbXBpbGU6DQo+PiANCj4+IGRyaXZlcnMvbmV0L2V0aGVybmV0L3N0
-bWljcm8vc3RtbWFjL3N0bW1hY19wY2kuYzoyODU6MzogZXJyb3I6IGluaXRpYWxpemVyIGVsZW1l
-bnQgaXMgbm90IGNvbXB1dGFibGUgYXQgbG9hZCB0aW1lDQo+PiAgICAoa2VybmVsX3Vsb25nX3Qp
-JnN0bW1hY19kZWZhdWx0X3NldHVwLA0KPj4gICAgXg0KPj4gZHJpdmVycy9uZXQvZXRoZXJuZXQv
-c3RtaWNyby9zdG1tYWMvc3RtbWFjX3BjaS5jOjI4NTozOiBub3RlOiAobmVhciBpbml0aWFsaXph
-dGlvbiBmb3IgoXN0bW1hY19pZF90YWJsZVswXS5jbGFzc6IpDQo+PiBkcml2ZXJzL25ldC9ldGhl
-cm5ldC9zdG1pY3JvL3N0bW1hYy9zdG1tYWNfcGNpLmM6Mjg5OjM6IGVycm9yOiBpbml0aWFsaXpl
-ciBlbGVtZW50IGlzIG5vdCBjb21wdXRhYmxlIGF0IGxvYWQgdGltZQ0KPj4gICAgKGtlcm5lbF91
-bG9uZ190KSZzdG1tYWNfZGVmYXVsdF9zZXR1cCwNCj4+ICAgIF4NCj4+IGRyaXZlcnMvbmV0L2V0
-aGVybmV0L3N0bWljcm8vc3RtbWFjL3N0bW1hY19wY2kuYzoyODk6Mzogbm90ZTogKG5lYXIgaW5p
-dGlhbGl6YXRpb24gZm9yIKFzdG1tYWNfaWRfdGFibGVbMV0uY2xhc3OiKQ0KPj4gc2NyaXB0cy9N
-YWtlZmlsZS5idWlsZDozMDI6IHJlY2lwZSBmb3IgdGFyZ2V0ICdkcml2ZXJzL25ldC9ldGhlcm5l
-dC9zdG1pY3JvL3N0bW1hYy9zdG1tYWNfcGNpLm8nIGZhaWxlZA0KPj4gbWFrZVs1XTogKioqIFtk
-cml2ZXJzL25ldC9ldGhlcm5ldC9zdG1pY3JvL3N0bW1hYy9zdG1tYWNfcGNpLm9dIEVycm9yIDEN
-Cj4+IA0KPiANCj4gSG1tLiBXaGljaCBhcmNoIGlzIHRoaXM/DQoNCng4Nl82NCwgYWxsbW9kY29u
-ZmlnDQo=
+On Fri, 19 May 2017 19:38:18 -0400 (EDT)
+David Miller <davem@davemloft.net> wrote:
+
+> From: Jesper Dangaard Brouer <brouer@redhat.com>
+> Date: Thu, 18 May 2017 17:41:38 +0200
+> 
+> > Masks for extracting part of the Completion Queue Entry (CQE)
+> > field rss_hash_type was swapped, namely CQE_RSS_HTYPE_IP and
+> > CQE_RSS_HTYPE_L4.
+> > 
+> > The bug resulted in setting skb->l4_hash, even-though the
+> > rss_hash_type indicated that hash was NOT computed over the
+> > L4 (UDP or TCP) part of the packet.
+> > 
+> > Added comments from the datasheet, to make it more clear what
+> > these masks are selecting.
+> > 
+> > Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>  
+> 
+> Please pass this along to the mlx5 developers as a standalone
+> bug fix for 'net', thank you.
+
+Done, send as separate patch.
+ http://patchwork.ozlabs.org/patch/765537/
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  LinkedIn: http://www.linkedin.com/in/brouer
