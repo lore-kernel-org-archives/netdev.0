@@ -1,38 +1,126 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 2/2] samples/bpf: add samples for HW_CACHE /
- RAW events
-Date: Mon, 22 May 2017 19:26:51 -0400 (EDT)
-Message-ID: <20170522.192651.252662920166760334.davem@davemloft.net>
-References: <20170522224840.810121-1-ast@fb.com>
-        <20170522224840.810121-3-ast@fb.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: peterz@infradead.org, bgregg@netflix.com, daniel@iogearbox.net,
-        qinteng@fb.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, kernel-team@fb.com
-To: ast@fb.com
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: [PATCH v2 netdev] net: phy: marvell: Limit errata to 88m1101
+Date: Tue, 23 May 2017 01:28:33 +0200
+Message-ID: <1495495713-28374-1-git-send-email-andrew@lunn.ch>
+Cc: Daniel Walker <danielwa@cisco.com>,
+        Harini Katakam <harini.katakam@xilinx.com>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:57120 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1759952AbdEVX04 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 22 May 2017 19:26:56 -0400
-In-Reply-To: <20170522224840.810121-3-ast@fb.com>
+Received: from vps0.lunn.ch ([178.209.37.122]:40478 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1758930AbdEVX3A (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 22 May 2017 19:29:00 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexei Starovoitov <ast@fb.com>
-Date: Mon, 22 May 2017 15:48:40 -0700
+The 88m1101 has an errata when configuring autoneg. However, it was
+being applied to many other Marvell PHYs as well. Limit its scope to
+just the 88m1101.
 
-> @@ -31,7 +31,7 @@ static unsigned long long (*bpf_get_current_uid_gid)(void) =
->  	(void *) BPF_FUNC_get_current_uid_gid;
->  static int (*bpf_get_current_comm)(void *buf, int buf_size) =
->  	(void *) BPF_FUNC_get_current_comm;
-> -static int (*bpf_perf_event_read)(void *map, int index) =
-> +static u64 (*bpf_perf_event_read)(void *map, u64 flags) =
->  	(void *) BPF_FUNC_perf_event_read;
+Fixes: 76884679c644 ("phylib: Add support for Marvell 88e1111S and 88e1145")
+Reported-by: Daniel Walker <danielwa@cisco.com>
+Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+---
 
-If the second argument really is "u64 flags", then please update
-the comments in tools/include/uapi/linux/bpf.h as well.
+v2:
+	Forgot netdev 
 
-Thank you.
+ drivers/net/phy/marvell.c | 67 ++++++++++++++++++++++++++---------------------
+ 1 file changed, 37 insertions(+), 30 deletions(-)
+
+diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
+index 88cd97b44ba6..77221d3f254f 100644
+--- a/drivers/net/phy/marvell.c
++++ b/drivers/net/phy/marvell.c
+@@ -267,35 +267,6 @@ static int marvell_config_aneg(struct phy_device *phydev)
+ {
+ 	int err;
+ 
+-	/* The Marvell PHY has an errata which requires
+-	 * that certain registers get written in order
+-	 * to restart autonegotiation
+-	 */
+-	err = phy_write(phydev, MII_BMCR, BMCR_RESET);
+-
+-	if (err < 0)
+-		return err;
+-
+-	err = phy_write(phydev, 0x1d, 0x1f);
+-	if (err < 0)
+-		return err;
+-
+-	err = phy_write(phydev, 0x1e, 0x200c);
+-	if (err < 0)
+-		return err;
+-
+-	err = phy_write(phydev, 0x1d, 0x5);
+-	if (err < 0)
+-		return err;
+-
+-	err = phy_write(phydev, 0x1e, 0);
+-	if (err < 0)
+-		return err;
+-
+-	err = phy_write(phydev, 0x1e, 0x100);
+-	if (err < 0)
+-		return err;
+-
+ 	err = marvell_set_polarity(phydev, phydev->mdix_ctrl);
+ 	if (err < 0)
+ 		return err;
+@@ -328,6 +299,42 @@ static int marvell_config_aneg(struct phy_device *phydev)
+ 	return 0;
+ }
+ 
++static int m88e1101_config_aneg(struct phy_device *phydev)
++{
++	int err;
++
++	/* This Marvell PHY has an errata which requires
++	 * that certain registers get written in order
++	 * to restart autonegotiation
++	 */
++	err = phy_write(phydev, MII_BMCR, BMCR_RESET);
++
++	if (err < 0)
++		return err;
++
++	err = phy_write(phydev, 0x1d, 0x1f);
++	if (err < 0)
++		return err;
++
++	err = phy_write(phydev, 0x1e, 0x200c);
++	if (err < 0)
++		return err;
++
++	err = phy_write(phydev, 0x1d, 0x5);
++	if (err < 0)
++		return err;
++
++	err = phy_write(phydev, 0x1e, 0);
++	if (err < 0)
++		return err;
++
++	err = phy_write(phydev, 0x1e, 0x100);
++	if (err < 0)
++		return err;
++
++	return marvell_config_aneg(phydev);
++}
++
+ static int m88e1111_config_aneg(struct phy_device *phydev)
+ {
+ 	int err;
+@@ -1960,7 +1967,7 @@ static struct phy_driver marvell_drivers[] = {
+ 		.flags = PHY_HAS_INTERRUPT,
+ 		.probe = marvell_probe,
+ 		.config_init = &marvell_config_init,
+-		.config_aneg = &marvell_config_aneg,
++		.config_aneg = &m88e1101_config_aneg,
+ 		.read_status = &genphy_read_status,
+ 		.ack_interrupt = &marvell_ack_interrupt,
+ 		.config_intr = &marvell_config_intr,
+-- 
+2.11.0
