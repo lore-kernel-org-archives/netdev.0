@@ -1,88 +1,69 @@
-From: Djalal Harouni <tixxdz-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [kernel-hardening] [PATCH v4 next 0/3] modules: automatic module
- loading restrictions
-Date: Mon, 22 May 2017 15:49:15 +0200
-Message-ID: <CAEiveUdqfMk4+vLg6TaEJNSGwoQHxYq0P4aqZoL4i9GgR3Vdtw@mail.gmail.com>
-References: <1495454226-10027-1-git-send-email-tixxdz@gmail.com> <20170522120848.GA3003@openwall.com>
+From: Stefan Hajnoczi <stefanha@redhat.com>
+Subject: Re: [Patch net] vsock: use new wait API for vsock_stream_sendmsg()
+Date: Mon, 22 May 2017 14:56:05 +0100
+Message-ID: <20170522135605.GC24772@stefanha-x1.localdomain>
+References: <1495218119-12358-1-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        LSM List <linux-security-module-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        kernel-hardening-ZwoEplunGu1jrUoiu81ncdBPR1lH4CV8@public.gmane.org,
-        Andy Lutomirski <luto-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
-        Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-        Rusty Russell <rusty-8n+1lVoiYb80n/F98K4Iww@public.gmane.org>,
-        "Serge E. Hallyn" <serge-A9i7LUbDfNHQT0dZR+AlfA@public.gmane.org>, Jessica Yu <jeyu-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        James Morris <james.l.morris-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
-        Paul Moore <paul-r2n+y4ga6xFZroRs9YW3xA@public.gmane.org>,
-        Stephen Smalley <sds-+05T5uksL2qpZYMLLGbcSA@public.gmane.org>,
-        Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-        Tetsuo Handa <penguin-kernel-1yMVhJb1mP/7nzcFbJAaVXf5DAMn2ifp@public.gmane.org>,
-        Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Dongsu Park <dpark-VwIFZPTo/vqsTnJN9+BGXg@public.gmane.org>,
-        Casey Schaufler <ca
-To: Solar Designer <solar-cxoSlKxDwOJWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170522120848.GA3003-cxoSlKxDwOJWk0Htik3J/w@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+        protocol="application/pgp-signature"; boundary="lCAWRPmW1mITcIfM"
+Cc: netdev@vger.kernel.org, Jorgen Hansen <jhansen@vmware.com>,
+        "Michael S. Tsirkin" <mst@redhat.com>,
+        Claudio Imbrenda <imbrenda@linux.vnet.ibm.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:37768 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S933574AbdEVN4J (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 22 May 2017 09:56:09 -0400
+Content-Disposition: inline
+In-Reply-To: <1495218119-12358-1-git-send-email-xiyou.wangcong@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Alexander,
 
-On Mon, May 22, 2017 at 2:08 PM, Solar Designer <solar-cxoSlKxDwOJWk0Htik3J/w@public.gmane.org> wrote:
-> Hi Djalal,
->
-> Thank you for your work on this!
->
-> On Mon, May 22, 2017 at 01:57:03PM +0200, Djalal Harouni wrote:
->> *) When modules_autoload_mode is set to (2), automatic module loading is
->> disabled for all. Once set, this value can not be changed.
->
-> What purpose does this securelevel-like property ("Once set, this value
-> can not be changed.") serve here?  I think this mode 2 is needed, but
-> without this extra property, which is bypassable by e.g. explicitly
-> loaded kernel modules anyway (and that's OK).
+--lCAWRPmW1mITcIfM
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-My reasoning about "Once set, this value can not be changed" is mainly for:
+On Fri, May 19, 2017 at 11:21:59AM -0700, Cong Wang wrote:
+> As reported by Michal, vsock_stream_sendmsg() could still
+> sleep at vsock_stream_has_space() after prepare_to_wait():
+>=20
+>   vsock_stream_has_space
+>     vmci_transport_stream_has_space
+>       vmci_qpair_produce_free_space
+>         qp_lock
+>           qp_acquire_queue_mutex
+>             mutex_lock
+>=20
+> Just switch to the new wait API like we did for commit
+> d9dc8b0f8b4e ("net: fix sleeping for sk_wait_event()").
+>=20
+> Reported-by: Michal Kubecek <mkubecek@suse.cz>
+> Cc: Stefan Hajnoczi <stefanha@redhat.com>
+> Cc: Jorgen Hansen <jhansen@vmware.com>
+> Cc: "Michael S. Tsirkin" <mst@redhat.com>
+> Cc: Claudio Imbrenda <imbrenda@linux.vnet.ibm.com>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> ---
+>  net/vmw_vsock/af_vsock.c | 21 ++++++++-------------
+>  1 file changed, 8 insertions(+), 13 deletions(-)
 
-If you have some systems where modules are not updated for any given
-reason, then the only one who will be able to load a module is an
-administrator, basically this is a shortcut for:
+Reviewed-by: Stefan Hajnoczi <stefanha@redhat.com>
 
-* Apps/services can run with CAP_NET_ADMIN but they are not allowed to
-auto-load 'netdev' modules.
+--lCAWRPmW1mITcIfM
+Content-Type: application/pgp-signature; name="signature.asc"
 
-* Explicitly loading modules can be guarded by seccomp filters *per*
-app, so even if these apps have
-  CAP_SYS_MODULE they won't be able to explicitly load modules, one
-has to remount some sysctl /proc/ entries read-only here and remove
-CAP_SYS_ADMIN for all apps anyway.
+-----BEGIN PGP SIGNATURE-----
 
-This mainly serves the purpose of these systems that do not receive
-updates, if I don't want to expose those kernel interfaces what should
-I do ? then if I want to unload old versions and replace them with new
-ones what operation should be allowed ? and only real root of the
-system can do it. Hence, the "Once set, this value can not be changed"
-is more of a shortcut, also the idea was put in my mind based on how
-"modules_disabled" is disabled forever, and some other interfaces. I
-would say: it is easy to handle a transition from 1) "hey this system
-is still up to date, some features should be exposed" to 2) "this
-system is not up to date anymore, only root should expose some
-features..."
+iQEcBAEBAgAGBQJZIu31AAoJEJykq7OBq3PI5pYIAMg0IpK3Qspkq5ZCVAAhX63Z
+3xgnmKKF5GJYmSmFS2P0ZMFxxICGwJAqQiv0uhf+JN03YNRX0/FPO00ES9noyXRN
+6wrnVkzChnKI2MNc++3BOKd9tFvbhy0H0JhSSKbmwS4QeTY4JqVYP9QtXptkuu+9
+Lm3rPTYgotbSBJ+eODcRBZ4zIVifiZPXPTWxuj0gJ+eHLS05HYyYPDqt9RjKCjEE
+kb9EV84InHTdiHcoPF22bW6/K0+iyF3odkHcLQEABYSFJTzAEGEjjnHOMRPzcjQh
+WIbZmmjpS9TSu+bLx27OFO0HXa1i2yNmYtKPYRS74Pf3385KR8AmI6xsBEz3ydo=
+=aXJa
+-----END PGP SIGNATURE-----
 
-Hmm, I am not sure if this answers your question ? :-)
-
-I definitively don't want to fall into "modules_disabled" trap where
-is it too strict! "Once set, this value can not be changed" means for
-some users do not set it otherwise the system is unusable...
-
-Maybe an extra "4" mode for that ? better get it right.
-
-Thanks!
-
--- 
-tixxdz
+--lCAWRPmW1mITcIfM--
