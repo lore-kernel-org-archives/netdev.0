@@ -1,237 +1,97 @@
-From: Romain Perier <romain.perier@collabora.com>
-Subject: [PATCH v9 12/15] scsi: mpt3sas: Replace PCI pool old API
-Date: Mon, 22 May 2017 18:49:04 +0200
-Message-ID: <20170522164907.22915-13-romain.perier@collabora.com>
-References: <20170522164907.22915-1-romain.perier@collabora.com>
-Cc: linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
-        linux-usb@vger.kernel.org, linux-scsi@vger.kernel.org,
-        linux-kernel@vger.kernel.org,
-        Romain Perier <romain.perier@collabora.com>,
-        Peter Senna Tschudin <peter.senna@collabora.co.uk>
-To: Dan Williams <dan.j.williams@intel.com>,
-        Doug Ledford <dledford@redhat.com>,
-        Sean Hefty <sean.hefty@intel.com>,
-        Hal Rosenstock <hal.rosenstock@gmail.com>,
-        jeffrey.t.kirsher@intel.com,
-        "David S. Miller" <davem@davemloft.net>, stas.yakovlev@gmail.com,
-        "James E.J. Bottomley" <jejb@linux.vnet.ibm.com>,
-        "Martin K. Petersen" <martin.petersen@oracle.com>,
-        Felipe Balbi <balbi@kernel.org>,
-        Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+From: Rob Herring <robh+dt@kernel.org>
+Subject: Re: [PATCHv4] wlcore: add wl1285 compatible
+Date: Mon, 22 May 2017 11:50:04 -0500
+Message-ID: <CAL_JsqLJ1F-2So4fSeVwR7RsUZZwMLv7HcnzHdKrOUGCU2F8+w@mail.gmail.com>
+References: <20170505141553.2605-1-sebastian.reichel@collabora.co.uk>
+ <8737bx5jgr.fsf@purkki.adurom.net> <20170522.103010.1779800840743690143.davem@davemloft.net>
+ <87wp99t0hj.fsf@kamboji.qca.qualcomm.com> <20170522152112.634mnsv65lryrmkp@earth>
+ <CAL_JsqL91sruKNaWmVEqT+L_OCh5xFkkGY07mBBUmqkKHc5fQw@mail.gmail.com> <20170522162114.w4pw25pcecsm6lhi@earth>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: Kalle Valo <kvalo@codeaurora.org>,
+        David Miller <davem@davemloft.net>,
+        Tony Lindgren <tony@atomide.com>,
+        Marcel Holtmann <marcel@holtmann.org>,
+        linux-wireless <linux-wireless@vger.kernel.org>,
+        linux-omap <linux-omap@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        netdev <netdev@vger.kernel.org>
+To: Sebastian Reichel <sebastian.reichel@collabora.co.uk>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170522164907.22915-1-romain.perier@collabora.com>
+In-Reply-To: <20170522162114.w4pw25pcecsm6lhi@earth>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The PCI pool API is deprecated. This commit replaces the PCI pool old
-API by the appropriate function with the DMA pool API.
+On Mon, May 22, 2017 at 11:21 AM, Sebastian Reichel
+<sebastian.reichel@collabora.co.uk> wrote:
+> Hi,
+>
+> On Mon, May 22, 2017 at 11:11:49AM -0500, Rob Herring wrote:
+>> On Mon, May 22, 2017 at 10:21 AM, Sebastian Reichel
+>> <sebastian.reichel@collabora.co.uk> wrote:
+>> > Hi,
+>> >
+>> > On Mon, May 22, 2017 at 05:44:24PM +0300, Kalle Valo wrote:
+>> >> David Miller <davem@davemloft.net> writes:
+>> >> > From: Kalle Valo <kvalo@codeaurora.org>
+>> >> > Date: Mon, 22 May 2017 12:28:20 +0300
+>> >> >
+>> >> >> Sebastian Reichel <sebastian.reichel@collabora.co.uk> writes:
+>> >> >>
+>> >> >>> Motorola Droid 4 uses a WL1285C. With differences between the
+>> >> >>> chips not being public let's add explicit binding for wl1285
+>> >> >>> instead of relying on wl1283 being very similar.
+>> >> >>>
+>> >> >>> Reviewed-by: Rob Herring <robh@kernel.org>
+>> >> >>> Acked-by: Kalle Valo <kvalo@codeaurora.org>
+>> >> >>> Acked-by: Tony Lindgren <tony@atomide.com>
+>> >> >>> Signed-off-by: Sebastian Reichel <sebastian.reichel@collabora.co.uk>
+>> >> >>> ---
+>> >> >>> Hi Dave,
+>> >> >>>
+>> >> >>> I previously send this in two patches, but its hard to apply without
+>> >> >>> requiring multiple kernel releases (the driver must be updated before
+>> >> >>> the DTS change). Since the actual change is not very complex Marcel
+>> >> >>> Holtmann & Tony Lindgren suggested, that I send this directly to you
+>> >> >>> in a single patch for inclusion into 4.12. This also means, that the
+>> >> >>> remaining series can be queued normally for 4.13.
+>> >> >>
+>> >> >> I noticed that Dave set this patch to Awaiting Upstream state on his
+>> >> >> patchwork:
+>> >> >>
+>> >> >> https://patchwork.ozlabs.org/patch/759042/
+>> >> >>
+>> >> >> Which makes me suspect that he is waiting me to apply this (as I
+>> >> >> normally apply wlcore patches). Dave, should I actually take this patch?
+>> >> >> What do you prefer?
+>> >> >
+>> >> > Anything that touches wireless drivers I defer to you, yes.
+>> >>
+>> >> Thanks, I'll take it then. Not sure why Sebastian was suggested to
+>> >> submit this patch via your tree in the first place.
+>> >>
+>> >> https://patchwork.kernel.org/patch/9713645/
+>> >
+>> > Thanks. The idea was to get into early 4.12-rc to avoid merge
+>> > conflicts in the droid 4 *.dts during 4.13 cycle. This strategy
+>> > obviously failed :)
+>>
+>> First, I'm not sure why you combined everything. A maintainer can just
+>> as easily take a series as a single patch and we prefer binding doc,
+>> dts and driver changes all separate.
+>>
+>> Second, the dts changes could go thru arm-soc and the driver change
+>> thru netdev. The binding doc can be thru either. There's no bisecting
+>> dependency and things shouldn't break. It just won't all work until
+>> you have both branches.
+>
+> This is only true for new devices. WLAN for droid4 works at the
+> moment using incorrect compatible string. If *.dts is updated and
+> driver is not yet updated WLAN does not work. IMHO that is a
+> bisecting dependency.
 
-Signed-off-by: Romain Perier <romain.perier@collabora.com>
-Reviewed-by: Peter Senna Tschudin <peter.senna@collabora.com>
----
- drivers/scsi/mpt3sas/mpt3sas_base.c | 73 +++++++++++++++++--------------------
- 1 file changed, 34 insertions(+), 39 deletions(-)
+True. That's also breaking compatibility if a new kernel doesn't work
+with an old DT. Is it just a compatible string change? If so, then
+just keep the old string as a fallback.
 
-diff --git a/drivers/scsi/mpt3sas/mpt3sas_base.c b/drivers/scsi/mpt3sas/mpt3sas_base.c
-index 18039bba26c4..1a5b6e40fb5c 100644
---- a/drivers/scsi/mpt3sas/mpt3sas_base.c
-+++ b/drivers/scsi/mpt3sas/mpt3sas_base.c
-@@ -3198,9 +3198,8 @@ _base_release_memory_pools(struct MPT3SAS_ADAPTER *ioc)
- 	}
- 
- 	if (ioc->sense) {
--		pci_pool_free(ioc->sense_dma_pool, ioc->sense, ioc->sense_dma);
--		if (ioc->sense_dma_pool)
--			pci_pool_destroy(ioc->sense_dma_pool);
-+		dma_pool_free(ioc->sense_dma_pool, ioc->sense, ioc->sense_dma);
-+		dma_pool_destroy(ioc->sense_dma_pool);
- 		dexitprintk(ioc, pr_info(MPT3SAS_FMT
- 			"sense_pool(0x%p): free\n",
- 			ioc->name, ioc->sense));
-@@ -3208,9 +3207,8 @@ _base_release_memory_pools(struct MPT3SAS_ADAPTER *ioc)
- 	}
- 
- 	if (ioc->reply) {
--		pci_pool_free(ioc->reply_dma_pool, ioc->reply, ioc->reply_dma);
--		if (ioc->reply_dma_pool)
--			pci_pool_destroy(ioc->reply_dma_pool);
-+		dma_pool_free(ioc->reply_dma_pool, ioc->reply, ioc->reply_dma);
-+		dma_pool_destroy(ioc->reply_dma_pool);
- 		dexitprintk(ioc, pr_info(MPT3SAS_FMT
- 			"reply_pool(0x%p): free\n",
- 			ioc->name, ioc->reply));
-@@ -3218,10 +3216,9 @@ _base_release_memory_pools(struct MPT3SAS_ADAPTER *ioc)
- 	}
- 
- 	if (ioc->reply_free) {
--		pci_pool_free(ioc->reply_free_dma_pool, ioc->reply_free,
-+		dma_pool_free(ioc->reply_free_dma_pool, ioc->reply_free,
- 		    ioc->reply_free_dma);
--		if (ioc->reply_free_dma_pool)
--			pci_pool_destroy(ioc->reply_free_dma_pool);
-+		dma_pool_destroy(ioc->reply_free_dma_pool);
- 		dexitprintk(ioc, pr_info(MPT3SAS_FMT
- 			"reply_free_pool(0x%p): free\n",
- 			ioc->name, ioc->reply_free));
-@@ -3232,7 +3229,7 @@ _base_release_memory_pools(struct MPT3SAS_ADAPTER *ioc)
- 		do {
- 			rps = &ioc->reply_post[i];
- 			if (rps->reply_post_free) {
--				pci_pool_free(
-+				dma_pool_free(
- 				    ioc->reply_post_free_dma_pool,
- 				    rps->reply_post_free,
- 				    rps->reply_post_free_dma);
-@@ -3244,8 +3241,7 @@ _base_release_memory_pools(struct MPT3SAS_ADAPTER *ioc)
- 		} while (ioc->rdpq_array_enable &&
- 			   (++i < ioc->reply_queue_count));
- 
--		if (ioc->reply_post_free_dma_pool)
--			pci_pool_destroy(ioc->reply_post_free_dma_pool);
-+		dma_pool_destroy(ioc->reply_post_free_dma_pool);
- 		kfree(ioc->reply_post);
- 	}
- 
-@@ -3266,12 +3262,11 @@ _base_release_memory_pools(struct MPT3SAS_ADAPTER *ioc)
- 	if (ioc->chain_lookup) {
- 		for (i = 0; i < ioc->chain_depth; i++) {
- 			if (ioc->chain_lookup[i].chain_buffer)
--				pci_pool_free(ioc->chain_dma_pool,
-+				dma_pool_free(ioc->chain_dma_pool,
- 				    ioc->chain_lookup[i].chain_buffer,
- 				    ioc->chain_lookup[i].chain_buffer_dma);
- 		}
--		if (ioc->chain_dma_pool)
--			pci_pool_destroy(ioc->chain_dma_pool);
-+		dma_pool_destroy(ioc->chain_dma_pool);
- 		free_pages((ulong)ioc->chain_lookup, ioc->chain_pages);
- 		ioc->chain_lookup = NULL;
- 	}
-@@ -3446,23 +3441,23 @@ _base_allocate_memory_pools(struct MPT3SAS_ADAPTER *ioc)
- 			ioc->name);
- 		goto out;
- 	}
--	ioc->reply_post_free_dma_pool = pci_pool_create("reply_post_free pool",
--	    ioc->pdev, sz, 16, 0);
-+	ioc->reply_post_free_dma_pool = dma_pool_create("reply_post_free pool",
-+	    &ioc->pdev->dev, sz, 16, 0);
- 	if (!ioc->reply_post_free_dma_pool) {
- 		pr_err(MPT3SAS_FMT
--		 "reply_post_free pool: pci_pool_create failed\n",
-+		 "reply_post_free pool: dma_pool_create failed\n",
- 		 ioc->name);
- 		goto out;
- 	}
- 	i = 0;
- 	do {
- 		ioc->reply_post[i].reply_post_free =
--		    pci_pool_alloc(ioc->reply_post_free_dma_pool,
-+		    dma_pool_alloc(ioc->reply_post_free_dma_pool,
- 		    GFP_KERNEL,
- 		    &ioc->reply_post[i].reply_post_free_dma);
- 		if (!ioc->reply_post[i].reply_post_free) {
- 			pr_err(MPT3SAS_FMT
--			"reply_post_free pool: pci_pool_alloc failed\n",
-+			"reply_post_free pool: dma_pool_alloc failed\n",
- 			ioc->name);
- 			goto out;
- 		}
-@@ -3577,15 +3572,15 @@ _base_allocate_memory_pools(struct MPT3SAS_ADAPTER *ioc)
- 			ioc->name);
- 		goto out;
- 	}
--	ioc->chain_dma_pool = pci_pool_create("chain pool", ioc->pdev,
-+	ioc->chain_dma_pool = dma_pool_create("chain pool", &ioc->pdev->dev,
- 	    ioc->chain_segment_sz, 16, 0);
- 	if (!ioc->chain_dma_pool) {
--		pr_err(MPT3SAS_FMT "chain_dma_pool: pci_pool_create failed\n",
-+		pr_err(MPT3SAS_FMT "chain_dma_pool: dma_pool_create failed\n",
- 			ioc->name);
- 		goto out;
- 	}
- 	for (i = 0; i < ioc->chain_depth; i++) {
--		ioc->chain_lookup[i].chain_buffer = pci_pool_alloc(
-+		ioc->chain_lookup[i].chain_buffer = dma_pool_alloc(
- 		    ioc->chain_dma_pool , GFP_KERNEL,
- 		    &ioc->chain_lookup[i].chain_buffer_dma);
- 		if (!ioc->chain_lookup[i].chain_buffer) {
-@@ -3630,17 +3625,17 @@ _base_allocate_memory_pools(struct MPT3SAS_ADAPTER *ioc)
- 
- 	/* sense buffers, 4 byte align */
- 	sz = ioc->scsiio_depth * SCSI_SENSE_BUFFERSIZE;
--	ioc->sense_dma_pool = pci_pool_create("sense pool", ioc->pdev, sz, 4,
--	    0);
-+	ioc->sense_dma_pool = dma_pool_create("sense pool", &ioc->pdev->dev, sz,
-+					      4, 0);
- 	if (!ioc->sense_dma_pool) {
--		pr_err(MPT3SAS_FMT "sense pool: pci_pool_create failed\n",
-+		pr_err(MPT3SAS_FMT "sense pool: dma_pool_create failed\n",
- 		    ioc->name);
- 		goto out;
- 	}
--	ioc->sense = pci_pool_alloc(ioc->sense_dma_pool , GFP_KERNEL,
-+	ioc->sense = dma_pool_alloc(ioc->sense_dma_pool, GFP_KERNEL,
- 	    &ioc->sense_dma);
- 	if (!ioc->sense) {
--		pr_err(MPT3SAS_FMT "sense pool: pci_pool_alloc failed\n",
-+		pr_err(MPT3SAS_FMT "sense pool: dma_pool_alloc failed\n",
- 		    ioc->name);
- 		goto out;
- 	}
-@@ -3654,17 +3649,17 @@ _base_allocate_memory_pools(struct MPT3SAS_ADAPTER *ioc)
- 
- 	/* reply pool, 4 byte align */
- 	sz = ioc->reply_free_queue_depth * ioc->reply_sz;
--	ioc->reply_dma_pool = pci_pool_create("reply pool", ioc->pdev, sz, 4,
--	    0);
-+	ioc->reply_dma_pool = dma_pool_create("reply pool", &ioc->pdev->dev, sz,
-+					      4, 0);
- 	if (!ioc->reply_dma_pool) {
--		pr_err(MPT3SAS_FMT "reply pool: pci_pool_create failed\n",
-+		pr_err(MPT3SAS_FMT "reply pool: dma_pool_create failed\n",
- 		    ioc->name);
- 		goto out;
- 	}
--	ioc->reply = pci_pool_alloc(ioc->reply_dma_pool , GFP_KERNEL,
-+	ioc->reply = dma_pool_alloc(ioc->reply_dma_pool, GFP_KERNEL,
- 	    &ioc->reply_dma);
- 	if (!ioc->reply) {
--		pr_err(MPT3SAS_FMT "reply pool: pci_pool_alloc failed\n",
-+		pr_err(MPT3SAS_FMT "reply pool: dma_pool_alloc failed\n",
- 		    ioc->name);
- 		goto out;
- 	}
-@@ -3680,17 +3675,17 @@ _base_allocate_memory_pools(struct MPT3SAS_ADAPTER *ioc)
- 
- 	/* reply free queue, 16 byte align */
- 	sz = ioc->reply_free_queue_depth * 4;
--	ioc->reply_free_dma_pool = pci_pool_create("reply_free pool",
--	    ioc->pdev, sz, 16, 0);
-+	ioc->reply_free_dma_pool = dma_pool_create("reply_free pool",
-+	    &ioc->pdev->dev, sz, 16, 0);
- 	if (!ioc->reply_free_dma_pool) {
--		pr_err(MPT3SAS_FMT "reply_free pool: pci_pool_create failed\n",
-+		pr_err(MPT3SAS_FMT "reply_free pool: dma_pool_create failed\n",
- 			ioc->name);
- 		goto out;
- 	}
--	ioc->reply_free = pci_pool_alloc(ioc->reply_free_dma_pool , GFP_KERNEL,
-+	ioc->reply_free = dma_pool_alloc(ioc->reply_free_dma_pool, GFP_KERNEL,
- 	    &ioc->reply_free_dma);
- 	if (!ioc->reply_free) {
--		pr_err(MPT3SAS_FMT "reply_free pool: pci_pool_alloc failed\n",
-+		pr_err(MPT3SAS_FMT "reply_free pool: dma_pool_alloc failed\n",
- 			ioc->name);
- 		goto out;
- 	}
-@@ -3708,7 +3703,7 @@ _base_allocate_memory_pools(struct MPT3SAS_ADAPTER *ioc)
- 	    ioc->config_page_sz, &ioc->config_page_dma);
- 	if (!ioc->config_page) {
- 		pr_err(MPT3SAS_FMT
--			"config page: pci_pool_alloc failed\n",
-+			"config page: dma_pool_alloc failed\n",
- 			ioc->name);
- 		goto out;
- 	}
--- 
-2.11.0
+Rob
