@@ -1,40 +1,106 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: [PATCH net-next] net: make struct inet_frags::qsize unsigned
-Date: Tue, 23 May 2017 00:20:26 +0300
-Message-ID: <20170522212026.GA28769@avx2>
+From: <Woojung.Huh@microchip.com>
+Subject: RE: [PATCH v3 net-next 3/5] dsa: add DSA switch driver for
+ Microchip KSZ9477
+Date: Mon, 22 May 2017 21:21:28 +0000
+Message-ID: <9235D6609DB808459E95D78E17F2E43D40A81210@CHN-SV-EXMX02.mchp-main.com>
+References: <9235D6609DB808459E95D78E17F2E43D40A7C023@CHN-SV-EXMX02.mchp-main.com>
+ <20170522143134.GC29447@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <f.fainelli@gmail.com>, <vivien.didelot@savoirfairelinux.com>,
+        <sergei.shtylyov@cogentembedded.com>, <netdev@vger.kernel.org>,
+        <davem@davemloft.net>, <UNGLinuxDriver@microchip.com>
+To: <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f66.google.com ([209.85.215.66]:36311 "EHLO
-        mail-lf0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S936015AbdEVVUb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 22 May 2017 17:20:31 -0400
-Received: by mail-lf0-f66.google.com with SMTP id h4so6455160lfj.3
-        for <netdev@vger.kernel.org>; Mon, 22 May 2017 14:20:30 -0700 (PDT)
-Content-Disposition: inline
+Received: from esa1.microchip.iphmx.com ([68.232.147.91]:18261 "EHLO
+        esa1.microchip.iphmx.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S936015AbdEVVVa (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 22 May 2017 17:21:30 -0400
+In-Reply-To: <20170522143134.GC29447@lunn.ch>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This field is sizeof of corresponding kmem_cache so it can't be negative.
+Hi Andres,
 
-Prepare for 32-bit kmem_cache_create().
+> > +static struct {
+> > +	int index;
+> > +	char string[ETH_GSTRING_LEN];
+> 
+> Hi Woojung
+> 
+> Since you need to respin for the skb_put_padto(), please make this
+> const.
+OK.
 
-Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
----
+> > +static int get_vlan_table(struct dsa_switch *ds, u16 vid, u32 *vlan_table)
+> > +{
+> > +	struct ksz_device *dev = ds->priv;
+> > +	u8 data;
+> > +	int timeout = 1000;
+> > +
+> > +	ksz_write16(dev, REG_SW_VLAN_ENTRY_INDEX__2, vid &
+> VLAN_INDEX_M);
+> > +	ksz_write8(dev, REG_SW_VLAN_CTRL, VLAN_READ | VLAN_START);
+> > +
+> > +	/* wait to be cleared */
+> > +	data = 0;
+> > +	do {
+> > +		ksz_read8(dev, REG_SW_VLAN_CTRL, &data);
+> > +		if (!(data & VLAN_START))
+> > +			break;
+> > +		usleep_range(1, 10);
+> > +	} while (timeout-- > 0);
+> > +
+> > +	if (!timeout)
+> > +		return -ETIMEDOUT;
+> > +
+> > +	ksz_read32(dev, REG_SW_VLAN_ENTRY__4, &vlan_table[0]);
+> > +	ksz_read32(dev, REG_SW_VLAN_ENTRY_UNTAG__4,
+> &vlan_table[1]);
+> > +	ksz_read32(dev, REG_SW_VLAN_ENTRY_PORTS__4, &vlan_table[2]);
+> > +
+> > +	ksz_write8(dev, REG_SW_VLAN_CTRL, 0);
+> > +
+> > +	return 0;
+> > +}
+> > +
+> > +static int set_vlan_table(struct dsa_switch *ds, u16 vid, u32 *vlan_table)
+> > +{
+> > +	struct ksz_device *dev = ds->priv;
+> > +	u8 data;
+> > +	int timeout = 1000;
+> > +
+> > +	ksz_write32(dev, REG_SW_VLAN_ENTRY__4, vlan_table[0]);
+> > +	ksz_write32(dev, REG_SW_VLAN_ENTRY_UNTAG__4, vlan_table[1]);
+> > +	ksz_write32(dev, REG_SW_VLAN_ENTRY_PORTS__4, vlan_table[2]);
+> > +
+> > +	ksz_write16(dev, REG_SW_VLAN_ENTRY_INDEX__2, vid &
+> VLAN_INDEX_M);
+> > +	ksz_write8(dev, REG_SW_VLAN_CTRL, VLAN_START | VLAN_WRITE);
+> > +
+> > +	do {
+> > +		ksz_read8(dev, REG_SW_VLAN_CTRL, &data);
+> > +		if (!(data & VLAN_START))
+> > +			break;
+> > +		usleep_range(1, 10);
+> > +	} while (timeout-- > 0);
+> > +
+> > +	if (!timeout)
+> > +		return -ETIMEDOUT;
+> > +
+> > +	ksz_write8(dev, REG_SW_VLAN_CTRL, 0);
+> > +
+> > +	mutex_lock(&dev->vlancache_mutex);
+> 
+> Humm. I think this is wrong. Shouldn't you hold the mutex while you
+> change the hardware as well as the cache. Otherwise there is a risk
+> your cache could be different to the hardware when you get a race
+> between two threads?
+Thanks for pointing this out.
+Rather than two separate mutex (H/W and vlancache), will put one HW access mutex
+around get_vlan_table and set_vlan_table to cover vlancache access too. Even though
+little bit overhead. How do you think?
 
- include/net/inet_frag.h |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
---- a/include/net/inet_frag.h
-+++ b/include/net/inet_frag.h
-@@ -92,7 +92,7 @@ struct inet_frags {
- 	 */
- 	u32			rnd;
- 	seqlock_t		rnd_seqlock;
--	int			qsize;
-+	unsigned int		qsize;
- 
- 	unsigned int		(*hashfn)(const struct inet_frag_queue *);
- 	bool			(*match)(const struct inet_frag_queue *q,
+- Woojung
