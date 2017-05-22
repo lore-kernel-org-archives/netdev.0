@@ -1,43 +1,32 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: Re: vhost/scsi: Delete error messages for failed memory allocations
-	in five functions
-Date: Mon, 22 May 2017 16:21:55 +0200
-Message-ID: <badc8e00-d5c1-58bc-6144-1ec6916f5c85@users.sourceforge.net>
-References: <bafa65e4-08fe-efdb-d836-7657e8a64749@users.sourceforge.net>
-	<babc429d-6440-92aa-e1d0-eee2636a8d0f@users.sourceforge.net>
-	<20170522094320.GE12205@stefanha-x1.localdomain>
-	<557bdff4-6dc2-756d-0d59-9f688ef11f0a@users.sourceforge.net>
-	<20170522112320.GA22806@stefanha-x1.localdomain>
-	<e6658e56-a2b0-4ecc-0a95-0ba193ff2c97@users.sourceforge.net>
-	<20170522140935.GB1021@stefanha-x1.localdomain>
+From: Mikulas Patocka <mpatocka@redhat.com>
+Subject: network performance degradation in virtio_net in 4.12-rc
+Date: Mon, 22 May 2017 10:25:19 -0400 (EDT)
+Message-ID: <alpine.LRH.2.02.1705221003450.20076@file01.intranet.prod.int.rdu2.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: kvm@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>,
-	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>,
-	virtualization@lists.linux-foundation.org
-To: Stefan Hajnoczi <stefanha@gmail.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20170522140935.GB1021@stefanha-x1.localdomain>
-Content-Language: en-GB
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: kvm@vger.kernel.org, virtualization@lists.linux-foundation.org,
+        netdev@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>,
+        Jason Wang <jasowang@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:37158 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S933994AbdEVOZX (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 22 May 2017 10:25:23 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> No objection from me but please make sure to keep vq_err().
+Hi
 
-How long should I wait before I may dare to send another variant for the
-discussed update suggestion?
+I see severe network performance degradation with the kernels 4.12-rc1 and 
+4.12-rc2 in the network virtio driver. Download rate drops down to about 
+100kB/s.
 
-Which commit message would be acceptable then for this update step?
+I bisected it and it is caused by patch 
+d85b758f72b05a774045545f24d70980e3e9aac4 ("virtio_net: fix support for 
+small rings"). When I revert this patch, the problem goes away.
 
-Regards,
-Markus
+The host is Debian Jessie with kernel 4.4.62, the guest is Debian Sid with 
+kernel 4.12-rc.
+
+Mikulas
