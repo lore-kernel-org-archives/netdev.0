@@ -1,32 +1,149 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH net-next 9/9] ipv6: remove unused variables in esp6
-Date: Mon, 22 May 2017 12:59:32 +0200
-Message-ID: <20170522105932.GE2631@secunet.com>
-References: <20170519165556.483-1-sthemmin@microsoft.com>
- <20170519165556.483-10-sthemmin@microsoft.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-        Stephen Hemminger <sthemmin@microsoft.com>
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:50306 "EHLO a.mx.secunet.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752181AbdEVK7f (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 22 May 2017 06:59:35 -0400
-Content-Disposition: inline
-In-Reply-To: <20170519165556.483-10-sthemmin@microsoft.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jan Kiszka <jan.kiszka@siemens.com>
+Subject: [PATCH 3/3] stmmac: pci: Use dmi_system_id table for retrieving PHY addresses
+Date: Mon, 22 May 2017 13:12:09 +0200
+Message-ID: <c8e6966227a9c2981e822b2deac8c036651b088c.1495451529.git.jan.kiszka@siemens.com>
+References: <cover.1495451529.git.jan.kiszka@siemens.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Andy Shevchenko <andy.shevchenko@gmail.com>
+To: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+        Alexandre Torgue <alexandre.torgue@st.com>,
+        David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1495451529.git.jan.kiszka@siemens.com>
+In-Reply-To: <cover.1495451529.git.jan.kiszka@siemens.com>
+References: <cover.1495451529.git.jan.kiszka@siemens.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, May 19, 2017 at 09:55:56AM -0700, Stephen Hemminger wrote:
-> Resolves warnings:
-> net/ipv6/esp6.c: In function ‘esp_ssg_unref’:
-> net/ipv6/esp6.c:121:10: warning: variable ‘seqhi’ set but not used [-Wunused-but-set-variable]
-> net/ipv6/esp6.c: In function ‘esp6_output_head’:
-> net/ipv6/esp6.c:227:21: warning: variable ‘esph’ set but not used [-Wunused-but-set-variable]
-> 
-> Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+Avoids reimplementation of DMI matching in stmmac_pci_find_phy_addr.
 
-Applied to ipsec-next, thanks!
+Signed-off-by: Jan Kiszka <jan.kiszka@siemens.com>
+---
+ drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c | 77 ++++++++++++++----------
+ 1 file changed, 45 insertions(+), 32 deletions(-)
+
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
+index ffa59b76e884..23ef235c6c0d 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
+@@ -31,65 +31,78 @@
+  * with PHY.
+  */
+ struct stmmac_pci_dmi_data {
+-	const char *name;
+-	const char *asset_tag;
+-	unsigned int func;
++	int func;
+ 	int phy_addr;
+ };
+ 
+ typedef int (*stmmac_setup)(struct pci_dev *, struct plat_stmmacenet_data *);
+ 
+-static struct stmmac_pci_dmi_data quark_pci_dmi_data[] = {
++static const struct stmmac_pci_dmi_data galileo_stmmac_dmi_data[] = {
+ 	{
+-		.name = "Galileo",
+ 		.func = 6,
+ 		.phy_addr = 1,
+ 	},
++	{-1, -1},
++};
++
++static const struct stmmac_pci_dmi_data iot2040_stmmac_dmi_data[] = {
+ 	{
+-		.name = "GalileoGen2",
+ 		.func = 6,
+ 		.phy_addr = 1,
+ 	},
+ 	{
+-		.name = "SIMATIC IOT2000",
+-		.asset_tag = "6ES7647-0AA00-0YA2",
+-		.func = 6,
++		.func = 7,
+ 		.phy_addr = 1,
+ 	},
++	{-1, -1},
++};
++
++static const struct dmi_system_id quark_pci_dmi[] = {
+ 	{
+-		.name = "SIMATIC IOT2000",
+-		.asset_tag = "6ES7647-0AA00-1YA2",
+-		.func = 6,
+-		.phy_addr = 1,
++		.matches = {
++			DMI_EXACT_MATCH(DMI_BOARD_NAME, "Galileo"),
++		},
++		.driver_data = (void *)galileo_stmmac_dmi_data,
+ 	},
+ 	{
+-		.name = "SIMATIC IOT2000",
+-		.asset_tag = "6ES7647-0AA00-1YA2",
+-		.func = 7,
+-		.phy_addr = 1,
++		.matches = {
++			DMI_EXACT_MATCH(DMI_BOARD_NAME, "GalileoGen2"),
++		},
++		.driver_data = (void *)galileo_stmmac_dmi_data,
++	},
++	{
++		.matches = {
++			DMI_EXACT_MATCH(DMI_BOARD_NAME, "SIMATIC IOT2000"),
++			DMI_EXACT_MATCH(DMI_BOARD_ASSET_TAG,
++					"6ES7647-0AA00-0YA2"),
++		},
++		.driver_data = (void *)galileo_stmmac_dmi_data,
++	},
++	{
++		.matches = {
++			DMI_EXACT_MATCH(DMI_BOARD_NAME, "SIMATIC IOT2000"),
++			DMI_EXACT_MATCH(DMI_BOARD_ASSET_TAG,
++					"6ES7647-0AA00-1YA2"),
++		},
++		.driver_data = (void *)iot2040_stmmac_dmi_data,
+ 	},
+ 	{}
+ };
+ 
+ static int stmmac_pci_find_phy_addr(struct pci_dev *pdev,
+-				    struct stmmac_pci_dmi_data *dmi_data)
++				    const struct dmi_system_id *dmi_list)
+ {
+-	const char *name = dmi_get_system_info(DMI_BOARD_NAME);
+-	const char *asset_tag = dmi_get_system_info(DMI_BOARD_ASSET_TAG);
+-	unsigned int func = PCI_FUNC(pdev->devfn);
+-	struct stmmac_pci_dmi_data *dmi;
++	const struct stmmac_pci_dmi_data *dmi_data;
++	const struct dmi_system_id *dmi_id;
++	int func = PCI_FUNC(pdev->devfn);
+ 
+-	if (!name)
++	dmi_id = dmi_first_match(dmi_list);
++	if (!dmi_id)
+ 		return -ENODEV;
+ 
+-	for (dmi = dmi_data; dmi->name && *dmi->name; dmi++) {
+-		if (!strcmp(dmi->name, name) && dmi->func == func) {
+-			/* If asset tag is provided, match on it as well. */
+-			if (dmi->asset_tag && strcmp(dmi->asset_tag, asset_tag))
+-				continue;
+-			return dmi->phy_addr;
+-		}
+-	}
++	for (dmi_data = dmi_id->driver_data; dmi_data->func >= 0; dmi_data++)
++		if (dmi_data->func == func)
++			return dmi_data->phy_addr;
+ 
+ 	return -ENODEV;
+ }
+@@ -153,7 +166,7 @@ static int quark_default_setup(struct pci_dev *pdev,
+ 	 * Refuse to load the driver and register net device if MAC controller
+ 	 * does not connect to any PHY interface.
+ 	 */
+-	ret = stmmac_pci_find_phy_addr(pdev, quark_pci_dmi_data);
++	ret = stmmac_pci_find_phy_addr(pdev, quark_pci_dmi);
+ 	if (ret < 0) {
+ 		/*
+ 		 * Galileo boards with old firmware don't support DMI. We always
+-- 
+2.12.0
