@@ -1,45 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] bonding: fix randomly populated arp target array
-Date: Mon, 22 May 2017 14:38:46 -0400 (EDT)
-Message-ID: <20170522.143846.1648727051789760165.davem@davemloft.net>
-References: <20170519184646.42572-1-jarod@redhat.com>
+Subject: Re: [Patch net] vsock: use new wait API for vsock_stream_sendmsg()
+Date: Mon, 22 May 2017 14:39:51 -0400 (EDT)
+Message-ID: <20170522.143951.945710292413025877.davem@davemloft.net>
+References: <1495218119-12358-1-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, maheshb@google.com,
-        j.vosburgh@gmail.com, vfalico@gmail.com, andy@greyhouse.net,
-        netdev@vger.kernel.org, stable@vger.kernel.org
-To: jarod@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170519184646.42572-1-jarod@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, stefanha@redhat.com, jhansen@vmware.com,
+        mst@redhat.com, imbrenda@linux.vnet.ibm.com
+To: xiyou.wangcong@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:55008 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1759362AbdEVSjx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 22 May 2017 14:39:53 -0400
+In-Reply-To: <1495218119-12358-1-git-send-email-xiyou.wangcong@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jarod Wilson <jarod@redhat.com>
-Date: Fri, 19 May 2017 14:46:46 -0400
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Date: Fri, 19 May 2017 11:21:59 -0700
 
-> In commit dc9c4d0fe023, the arp_target array moved from a static global
-> to a local variable. By the nature of static globals, the array used to
-> be initialized to all 0. At present, it's full of random data, which
-> that gets interpreted as arp_target values, when none have actually been
-> specified. Systems end up booting with spew along these lines:
- ...
-> None of these were actually specified as ARP targets, and the driver does
-> seem to clean up the mess okay, but it's rather noisy and confusing, leaks
-> values to userspace, and the 255.255.255.255 spew shows up even when debug
-> prints are disabled.
+> As reported by Michal, vsock_stream_sendmsg() could still
+> sleep at vsock_stream_has_space() after prepare_to_wait():
 > 
-> The fix: just zero out arp_target at init time.
+>   vsock_stream_has_space
+>     vmci_transport_stream_has_space
+>       vmci_qpair_produce_free_space
+>         qp_lock
+>           qp_acquire_queue_mutex
+>             mutex_lock
 > 
-> While we're in here, init arp_all_targets_value in the right place.
+> Just switch to the new wait API like we did for commit
+> d9dc8b0f8b4e ("net: fix sleeping for sk_wait_event()").
 > 
-> Fixes: dc9c4d0fe023 ("bonding: reduce scope of some global variables")
-> CC: Mahesh Bandewar <maheshb@google.com>
-> CC: Jay Vosburgh <j.vosburgh@gmail.com>
-> CC: Veaceslav Falico <vfalico@gmail.com>
-> CC: Andy Gospodarek <andy@greyhouse.net>
-> CC: netdev@vger.kernel.org
-> CC: stable@vger.kernel.org
-> Signed-off-by: Jarod Wilson <jarod@redhat.com>
+> Reported-by: Michal Kubecek <mkubecek@suse.cz>
+> Cc: Stefan Hajnoczi <stefanha@redhat.com>
+> Cc: Jorgen Hansen <jhansen@vmware.com>
+> Cc: "Michael S. Tsirkin" <mst@redhat.com>
+> Cc: Claudio Imbrenda <imbrenda@linux.vnet.ibm.com>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 
-Whoops... applied, thanks Jarod.
+Applied, thank you.
