@@ -1,52 +1,107 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCHv4] wlcore: add wl1285 compatible
-Date: Mon, 22 May 2017 10:30:10 -0400 (EDT)
-Message-ID: <20170522.103010.1779800840743690143.davem@davemloft.net>
-References: <20170505141553.2605-1-sebastian.reichel@collabora.co.uk>
-        <8737bx5jgr.fsf@purkki.adurom.net>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH v3 net-next 3/5] dsa: add DSA switch driver for Microchip
+ KSZ9477
+Date: Mon, 22 May 2017 16:31:34 +0200
+Message-ID: <20170522143134.GC29447@lunn.ch>
+References: <9235D6609DB808459E95D78E17F2E43D40A7C023@CHN-SV-EXMX02.mchp-main.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: sebastian.reichel-ZGY8ohtN/8pPYcu2f3hruQ@public.gmane.org, sre-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
-        tony-4v6yS6AI5VpBDgjK7y7TUQ@public.gmane.org, marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
-        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-omap-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <8737bx5jgr.fsf-5ukZ45wKbUHoml4zekdYB16hYfS7NtTn@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: f.fainelli@gmail.com, vivien.didelot@savoirfairelinux.com,
+        sergei.shtylyov@cogentembedded.com, netdev@vger.kernel.org,
+        davem@davemloft.net, UNGLinuxDriver@microchip.com
+To: Woojung.Huh@microchip.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:39394 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S933917AbdEVObk (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 22 May 2017 10:31:40 -0400
+Content-Disposition: inline
+In-Reply-To: <9235D6609DB808459E95D78E17F2E43D40A7C023@CHN-SV-EXMX02.mchp-main.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Date: Mon, 22 May 2017 12:28:20 +0300
+On Fri, May 19, 2017 at 10:57:12PM +0000, Woojung.Huh@microchip.com wrote:
 
-> Sebastian Reichel <sebastian.reichel-ZGY8ohtN/8pPYcu2f3hruQ@public.gmane.org> writes:
-> 
->> Motorola Droid 4 uses a WL1285C. With differences between the
->> chips not being public let's add explicit binding for wl1285
->> instead of relying on wl1283 being very similar.
->>
->> Reviewed-by: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
->> Acked-by: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
->> Acked-by: Tony Lindgren <tony-4v6yS6AI5VpBDgjK7y7TUQ@public.gmane.org>
->> Signed-off-by: Sebastian Reichel <sebastian.reichel-ZGY8ohtN/8pPYcu2f3hruQ@public.gmane.org>
->> ---
->> Hi Dave,
->>
->> I previously send this in two patches, but its hard to apply without
->> requiring multiple kernel releases (the driver must be updated before
->> the DTS change). Since the actual change is not very complex Marcel
->> Holtmann & Tony Lindgren suggested, that I send this directly to you
->> in a single patch for inclusion into 4.12. This also means, that the
->> remaining series can be queued normally for 4.13.
-> 
-> I noticed that Dave set this patch to Awaiting Upstream state on his
-> patchwork:
-> 
-> https://patchwork.ozlabs.org/patch/759042/
-> 
-> Which makes me suspect that he is waiting me to apply this (as I
-> normally apply wlcore patches). Dave, should I actually take this patch?
-> What do you prefer?
+> +static struct {
+> +	int index;
+> +	char string[ETH_GSTRING_LEN];
 
-Anything that touches wireless drivers I defer to you, yes.
+Hi Woojung
+
+Since you need to respin for the skb_put_padto(), please make this
+const.
+
+> +static int get_vlan_table(struct dsa_switch *ds, u16 vid, u32 *vlan_table)
+> +{
+> +	struct ksz_device *dev = ds->priv;
+> +	u8 data;
+> +	int timeout = 1000;
+> +
+> +	ksz_write16(dev, REG_SW_VLAN_ENTRY_INDEX__2, vid & VLAN_INDEX_M);
+> +	ksz_write8(dev, REG_SW_VLAN_CTRL, VLAN_READ | VLAN_START);
+> +
+> +	/* wait to be cleared */
+> +	data = 0;
+> +	do {
+> +		ksz_read8(dev, REG_SW_VLAN_CTRL, &data);
+> +		if (!(data & VLAN_START))
+> +			break;
+> +		usleep_range(1, 10);
+> +	} while (timeout-- > 0);
+> +
+> +	if (!timeout)
+> +		return -ETIMEDOUT;
+> +
+> +	ksz_read32(dev, REG_SW_VLAN_ENTRY__4, &vlan_table[0]);
+> +	ksz_read32(dev, REG_SW_VLAN_ENTRY_UNTAG__4, &vlan_table[1]);
+> +	ksz_read32(dev, REG_SW_VLAN_ENTRY_PORTS__4, &vlan_table[2]);
+> +
+> +	ksz_write8(dev, REG_SW_VLAN_CTRL, 0);
+> +
+> +	return 0;
+> +}
+> +
+> +static int set_vlan_table(struct dsa_switch *ds, u16 vid, u32 *vlan_table)
+> +{
+> +	struct ksz_device *dev = ds->priv;
+> +	u8 data;
+> +	int timeout = 1000;
+> +
+> +	ksz_write32(dev, REG_SW_VLAN_ENTRY__4, vlan_table[0]);
+> +	ksz_write32(dev, REG_SW_VLAN_ENTRY_UNTAG__4, vlan_table[1]);
+> +	ksz_write32(dev, REG_SW_VLAN_ENTRY_PORTS__4, vlan_table[2]);
+> +
+> +	ksz_write16(dev, REG_SW_VLAN_ENTRY_INDEX__2, vid & VLAN_INDEX_M);
+> +	ksz_write8(dev, REG_SW_VLAN_CTRL, VLAN_START | VLAN_WRITE);
+> +
+> +	do {
+> +		ksz_read8(dev, REG_SW_VLAN_CTRL, &data);
+> +		if (!(data & VLAN_START))
+> +			break;
+> +		usleep_range(1, 10);
+> +	} while (timeout-- > 0);
+> +
+> +	if (!timeout)
+> +		return -ETIMEDOUT;
+> +
+> +	ksz_write8(dev, REG_SW_VLAN_CTRL, 0);
+> +
+> +	mutex_lock(&dev->vlancache_mutex);
+
+Humm. I think this is wrong. Shouldn't you hold the mutex while you
+change the hardware as well as the cache. Otherwise there is a risk
+your cache could be different to the hardware when you get a race
+between two threads?
+
+> +
+> +	/* update vlan cache table */
+> +	dev->vlan_cache[vid].table[0] = vlan_table[0];
+> +	dev->vlan_cache[vid].table[1] = vlan_table[1];
+> +	dev->vlan_cache[vid].table[2] = vlan_table[2];
+> +
+> +	mutex_unlock(&dev->vlancache_mutex);
+> +
+> +	return 0;
+> +}
+
+  Andrew
