@@ -1,65 +1,81 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [PATCHv4] wlcore: add wl1285 compatible
-Date: Mon, 22 May 2017 12:28:20 +0300
-Message-ID: <8737bx5jgr.fsf@purkki.adurom.net>
-References: <20170505141553.2605-1-sebastian.reichel@collabora.co.uk>
+From: Stefan Hajnoczi <stefanha@gmail.com>
+Subject: Re: [PATCH 1/2] vhost/scsi: Improve a size determination in four
+	functions
+Date: Mon, 22 May 2017 10:37:02 +0100
+Message-ID: <20170522093702.GD12205@stefanha-x1.localdomain>
+References: <bafa65e4-08fe-efdb-d836-7657e8a64749@users.sourceforge.net>
+	<68e78c4b-9b18-7607-f8c8-327fdd51f20b@users.sourceforge.net>
 Mime-Version: 1.0
+Content-Type: multipart/mixed; boundary="===============8189218433752946298=="
+Cc: kvm@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>,
+	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>,
+	virtualization@lists.linux-foundation.org
+To: SF Markus Elfring <elfring@users.sourceforge.net>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <68e78c4b-9b18-7607-f8c8-327fdd51f20b@users.sourceforge.net>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
+
+
+--===============8189218433752946298==
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="sgneBHv3152wZ8jf"
+Content-Disposition: inline
+
+
+--sgneBHv3152wZ8jf
 Content-Type: text/plain; charset=us-ascii
-Cc: Sebastian Reichel <sre@kernel.org>,
-        Tony Lindgren <tony@atomide.com>,
-        Marcel Holtmann <marcel@holtmann.org>,
-        Rob Herring <robh+dt@kernel.org>,
-        linux-wireless@vger.kernel.org, linux-omap@vger.kernel.org,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>,
-        Sebastian Reichel <sebastian.reichel@collabora.co.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:45492 "EHLO
-        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757923AbdEVJ2a (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 22 May 2017 05:28:30 -0400
-In-Reply-To: <20170505141553.2605-1-sebastian.reichel@collabora.co.uk>
-        (Sebastian Reichel's message of "Fri, 5 May 2017 16:15:53 +0200")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Sebastian Reichel <sebastian.reichel@collabora.co.uk> writes:
-
-> Motorola Droid 4 uses a WL1285C. With differences between the
-> chips not being public let's add explicit binding for wl1285
-> instead of relying on wl1283 being very similar.
->
-> Reviewed-by: Rob Herring <robh@kernel.org>
-> Acked-by: Kalle Valo <kvalo@codeaurora.org>
-> Acked-by: Tony Lindgren <tony@atomide.com>
-> Signed-off-by: Sebastian Reichel <sebastian.reichel@collabora.co.uk>
+On Sat, May 20, 2017 at 04:31:13PM +0200, SF Markus Elfring wrote:
+> From: Markus Elfring <elfring@users.sourceforge.net>
+> Date: Sat, 20 May 2017 13:48:44 +0200
+>=20
+> Replace the specification of four data structures by pointer dereferences
+> as the parameter for the operator "sizeof" to make the corresponding size
+> determination a bit safer according to the Linux coding style convention.
+>=20
+> Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
 > ---
-> Hi Dave,
->
-> I previously send this in two patches, but its hard to apply without
-> requiring multiple kernel releases (the driver must be updated before
-> the DTS change). Since the actual change is not very complex Marcel
-> Holtmann & Tony Lindgren suggested, that I send this directly to you
-> in a single patch for inclusion into 4.12. This also means, that the
-> remaining series can be queued normally for 4.13.
+>  drivers/vhost/scsi.c | 9 ++++-----
+>  1 file changed, 4 insertions(+), 5 deletions(-)
 
-I noticed that Dave set this patch to Awaiting Upstream state on his
-patchwork:
+Reviewed-by: Stefan Hajnoczi <stefanha@redhat.com>
 
-https://patchwork.ozlabs.org/patch/759042/
+--sgneBHv3152wZ8jf
+Content-Type: application/pgp-signature; name="signature.asc"
 
-Which makes me suspect that he is waiting me to apply this (as I
-normally apply wlcore patches). Dave, should I actually take this patch?
-What do you prefer?
+-----BEGIN PGP SIGNATURE-----
 
-There's a small change to arm directory but I don't see that as a
-problem as Tony acked it:
+iQEcBAEBAgAGBQJZIrE+AAoJEJykq7OBq3PI7NUIAJRqk4L9pEmGl/h4UnMMo4sv
+oWi8DRxeI/X0z18VfHeIitB90AIHiH0nkhIYcjoIbA+BX+vI5iDHGeOg5oFkYoBs
+Jz7BMyA0PMD2ej2K4eQgvfK+hfieZMRUpLGcFwIzZnhJKZNUDwh1BLTnH7IyejgN
+x07PCKkWhiNXXzV9/lnXd62h1M0fTPEjvVZVC3wqtj+nMiUosqD26fSSNj4b6xnX
+QDhxIU/lvyPAXRx95FtjqzdbRe9apoT6r0T3/Y3QyZY+WmlCgBB4quascvWxKAq1
+LYf48MteIT30aZg0sHzj3avOmlnxyLmfdNSfQ2ip2F586bIAnYro8gBl+dBBkM0=
+=NEHr
+-----END PGP SIGNATURE-----
 
- Documentation/devicetree/bindings/net/wireless/ti,wlcore.txt | 1 +
- arch/arm/boot/dts/omap4-droid4-xt894.dts                     | 2 +-
- drivers/net/wireless/ti/wlcore/sdio.c                        | 1 +
- drivers/net/wireless/ti/wlcore/spi.c                         | 1 +
- 4 files changed, 4 insertions(+), 1 deletion(-)
+--sgneBHv3152wZ8jf--
 
--- 
-Kalle Valo
+--===============8189218433752946298==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+_______________________________________________
+Virtualization mailing list
+Virtualization@lists.linux-foundation.org
+https://lists.linuxfoundation.org/mailman/listinfo/virtualization
+--===============8189218433752946298==--
