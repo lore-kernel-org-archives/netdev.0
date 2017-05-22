@@ -1,266 +1,143 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next v2 02/13] nfp: make nfp_net alloc/init/cleanup/free not depend on netdevs
-Date: Mon, 22 May 2017 10:59:23 -0700
-Message-ID: <20170522175934.27447-3-jakub.kicinski@netronome.com>
+Subject: [PATCH net-next v2 06/13] nfp: disallow mixing vNICs with and without NSP port entry
+Date: Mon, 22 May 2017 10:59:27 -0700
+Message-ID: <20170522175934.27447-7-jakub.kicinski@netronome.com>
 References: <20170522175934.27447-1-jakub.kicinski@netronome.com>
 Cc: oss-drivers@netronome.com,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f179.google.com ([209.85.192.179]:35403 "EHLO
-        mail-pf0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1760906AbdEVSBE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 22 May 2017 14:01:04 -0400
-Received: by mail-pf0-f179.google.com with SMTP id n23so89315450pfb.2
-        for <netdev@vger.kernel.org>; Mon, 22 May 2017 11:01:04 -0700 (PDT)
+Received: from mail-pf0-f172.google.com ([209.85.192.172]:36443 "EHLO
+        mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1760915AbdEVSBI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 22 May 2017 14:01:08 -0400
+Received: by mail-pf0-f172.google.com with SMTP id m17so89350199pfg.3
+        for <netdev@vger.kernel.org>; Mon, 22 May 2017 11:01:08 -0700 (PDT)
 In-Reply-To: <20170522175934.27447-1-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-struct nfp_net represents a vNIC, we will be moving away from the
-requirement for every vNIC to have a netdev associated with it.
-Remove "netdev" from some function names and prefer passing
-struct nfp_net pointer as argument instead of struct net_device *.
+We only support core NIC apps which have vNICs for each physical port/
+split and no representors right now.  Enforce that either each vNIC has
+a NSP eth_table entry or if NSP port table is not available none do.
+
+One scenario this will prevent from happening is user force-loading
+wrong firmware file if FW app requires different firmwares per media
+config.
+
+While at it move some code to nfp_net_pf_alloc_vnic() to make it
+counter-match nfp_net_pf_free_vnic() better.
 
 Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 Reviewed-by: Simon Horman <simon.horman@netronome.com>
 ---
- drivers/net/ethernet/netronome/nfp/nfp_net.h       | 12 ++++----
- .../net/ethernet/netronome/nfp/nfp_net_common.c    | 35 ++++++++++------------
- drivers/net/ethernet/netronome/nfp/nfp_net_main.c  | 14 ++++-----
- .../net/ethernet/netronome/nfp/nfp_netvf_main.c    | 10 +++----
- 4 files changed, 35 insertions(+), 36 deletions(-)
+ drivers/net/ethernet/netronome/nfp/nfp_net_main.c | 52 ++++++++++++++---------
+ 1 file changed, 32 insertions(+), 20 deletions(-)
 
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net.h b/drivers/net/ethernet/netronome/nfp/nfp_net.h
-index 7b9518cbe965..04609191ca88 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net.h
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net.h
-@@ -807,11 +807,13 @@ void nfp_net_get_fw_version(struct nfp_net_fw_version *fw_ver,
- 			    void __iomem *ctrl_bar);
- 
- struct nfp_net *
--nfp_net_netdev_alloc(struct pci_dev *pdev,
--		     unsigned int max_tx_rings, unsigned int max_rx_rings);
--void nfp_net_netdev_free(struct nfp_net *nn);
--int nfp_net_netdev_init(struct net_device *netdev);
--void nfp_net_netdev_clean(struct net_device *netdev);
-+nfp_net_alloc(struct pci_dev *pdev,
-+	      unsigned int max_tx_rings, unsigned int max_rx_rings);
-+void nfp_net_free(struct nfp_net *nn);
-+
-+int nfp_net_init(struct nfp_net *nn);
-+void nfp_net_clean(struct nfp_net *nn);
-+
- void nfp_net_set_ethtool_ops(struct net_device *netdev);
- void nfp_net_info(struct nfp_net *nn);
- int nfp_net_reconfig(struct nfp_net *nn, u32 update);
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-index da83e17b8b20..b427c95c5acd 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-@@ -516,11 +516,10 @@ nfp_net_rx_ring_init(struct nfp_net_rx_ring *rx_ring,
- 
- /**
-  * nfp_net_vecs_init() - Assign IRQs and setup rvecs.
-- * @netdev:   netdev structure
-+ * @nn:		NFP Network structure
-  */
--static void nfp_net_vecs_init(struct net_device *netdev)
-+static void nfp_net_vecs_init(struct nfp_net *nn)
- {
--	struct nfp_net *nn = netdev_priv(netdev);
- 	struct nfp_net_r_vector *r_vec;
- 	int r;
- 
-@@ -3087,7 +3086,7 @@ void nfp_net_info(struct nfp_net *nn)
- }
- 
- /**
-- * nfp_net_netdev_alloc() - Allocate netdev and related structure
-+ * nfp_net_alloc() - Allocate netdev and related structure
-  * @pdev:         PCI device
-  * @max_tx_rings: Maximum number of TX rings supported by device
-  * @max_rx_rings: Maximum number of RX rings supported by device
-@@ -3097,9 +3096,9 @@ void nfp_net_info(struct nfp_net *nn)
-  *
-  * Return: NFP Net device structure, or ERR_PTR on error.
-  */
--struct nfp_net *nfp_net_netdev_alloc(struct pci_dev *pdev,
--				     unsigned int max_tx_rings,
--				     unsigned int max_rx_rings)
-+struct nfp_net *nfp_net_alloc(struct pci_dev *pdev,
-+			      unsigned int max_tx_rings,
-+			      unsigned int max_rx_rings)
- {
- 	struct net_device *netdev;
- 	struct nfp_net *nn;
-@@ -3144,10 +3143,10 @@ struct nfp_net *nfp_net_netdev_alloc(struct pci_dev *pdev,
- }
- 
- /**
-- * nfp_net_netdev_free() - Undo what @nfp_net_netdev_alloc() did
-+ * nfp_net_free() - Undo what @nfp_net_alloc() did
-  * @nn:      NFP Net device to reconfigure
-  */
--void nfp_net_netdev_free(struct nfp_net *nn)
-+void nfp_net_free(struct nfp_net *nn)
- {
- 	free_netdev(nn->dp.netdev);
- }
-@@ -3221,14 +3220,14 @@ static void nfp_net_irqmod_init(struct nfp_net *nn)
- }
- 
- /**
-- * nfp_net_netdev_init() - Initialise/finalise the netdev structure
-- * @netdev:      netdev structure
-+ * nfp_net_init() - Initialise/finalise the nfp_net structure
-+ * @nn:		NFP Net device structure
-  *
-  * Return: 0 on success or negative errno on error.
-  */
--int nfp_net_netdev_init(struct net_device *netdev)
-+int nfp_net_init(struct nfp_net *nn)
- {
--	struct nfp_net *nn = netdev_priv(netdev);
-+	struct net_device *netdev = nn->dp.netdev;
- 	int err;
- 
- 	nn->dp.rx_dma_dir = DMA_FROM_DEVICE;
-@@ -3367,19 +3366,17 @@ int nfp_net_netdev_init(struct net_device *netdev)
- 	netif_carrier_off(netdev);
- 
- 	nfp_net_set_ethtool_ops(netdev);
--	nfp_net_vecs_init(netdev);
-+	nfp_net_vecs_init(nn);
- 
- 	return register_netdev(netdev);
- }
- 
- /**
-- * nfp_net_netdev_clean() - Undo what nfp_net_netdev_init() did.
-- * @netdev:      netdev structure
-+ * nfp_net_clean() - Undo what nfp_net_init() did.
-+ * @nn:		NFP Net device structure
-  */
--void nfp_net_netdev_clean(struct net_device *netdev)
-+void nfp_net_clean(struct nfp_net *nn)
- {
--	struct nfp_net *nn = netdev_priv(netdev);
--
- 	unregister_netdev(nn->dp.netdev);
- 
- 	if (nn->dp.xdp_prog)
 diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_main.c b/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
-index 16115973112c..55d916cb04fe 100644
+index 1281e9019e92..8f267b1534e2 100644
 --- a/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
 +++ b/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
-@@ -277,7 +277,7 @@ static void nfp_net_pf_free_netdevs(struct nfp_pf *pf)
- 		list_del(&nn->port_list);
- 		pf->num_netdevs--;
+@@ -289,7 +289,7 @@ static struct nfp_net *
+ nfp_net_pf_alloc_vnic(struct nfp_pf *pf, void __iomem *ctrl_bar,
+ 		      void __iomem *tx_bar, void __iomem *rx_bar,
+ 		      int stride, struct nfp_net_fw_version *fw_ver,
+-		      struct nfp_eth_table_port *eth_port)
++		      unsigned int eth_id)
+ {
+ 	u32 n_tx_rings, n_rx_rings;
+ 	struct nfp_net *nn;
+@@ -310,7 +310,10 @@ nfp_net_pf_alloc_vnic(struct nfp_pf *pf, void __iomem *ctrl_bar,
+ 	nn->dp.is_vf = 0;
+ 	nn->stride_rx = stride;
+ 	nn->stride_tx = stride;
+-	nn->eth_port = eth_port;
++	nn->eth_port = nfp_net_find_port(pf->eth_tbl, eth_id);
++
++	pf->num_vnics++;
++	list_add_tail(&nn->vnic_list, &pf->vnics);
  
--		nfp_net_netdev_free(nn);
-+		nfp_net_free(nn);
- 	}
+ 	return nn;
  }
+@@ -346,11 +349,16 @@ nfp_net_pf_alloc_vnics(struct nfp_pf *pf, void __iomem *ctrl_bar,
+ 		       int stride, struct nfp_net_fw_version *fw_ver)
+ {
+ 	u32 prev_tx_base, prev_rx_base, tgt_tx_base, tgt_rx_base;
+-	struct nfp_eth_table_port *eth_port;
+ 	struct nfp_net *nn;
+ 	unsigned int i;
+ 	int err;
  
-@@ -294,7 +294,7 @@ nfp_net_pf_alloc_port_netdev(struct nfp_pf *pf, void __iomem *ctrl_bar,
- 	n_rx_rings = readl(ctrl_bar + NFP_NET_CFG_MAX_RXRINGS);
++	if (pf->eth_tbl && pf->max_data_vnics != pf->eth_tbl->count) {
++		nfp_err(pf->cpp, "ETH entries don't match vNICs (%d vs %d)\n",
++			pf->max_data_vnics, pf->eth_tbl->count);
++		return -EINVAL;
++	}
++
+ 	prev_tx_base = readl(ctrl_bar + NFP_NET_CFG_START_TXQ);
+ 	prev_rx_base = readl(ctrl_bar + NFP_NET_CFG_START_RXQ);
  
- 	/* Allocate and initialise the netdev */
--	nn = nfp_net_netdev_alloc(pf->pdev, n_tx_rings, n_rx_rings);
-+	nn = nfp_net_alloc(pf->pdev, n_tx_rings, n_rx_rings);
- 	if (IS_ERR(nn))
- 		return nn;
+@@ -362,21 +370,26 @@ nfp_net_pf_alloc_vnics(struct nfp_pf *pf, void __iomem *ctrl_bar,
+ 		prev_tx_base = tgt_tx_base;
+ 		prev_rx_base = tgt_rx_base;
  
-@@ -326,7 +326,7 @@ nfp_net_pf_init_port_netdev(struct nfp_pf *pf, struct nfp_net *nn,
- 	 */
- 	nn->me_freq_mhz = 1200;
+-		eth_port = nfp_net_find_port(pf->eth_tbl, i);
+-		if (eth_port && eth_port->override_changed) {
+-			nfp_warn(pf->cpp, "Config changed for port #%d, reboot required before port will be operational\n", i);
+-		} else {
+-			nn = nfp_net_pf_alloc_vnic(pf, ctrl_bar, tx_bar, rx_bar,
+-						   stride, fw_ver, eth_port);
+-			if (IS_ERR(nn)) {
+-				err = PTR_ERR(nn);
+-				goto err_free_prev;
+-			}
+-			list_add_tail(&nn->vnic_list, &pf->vnics);
+-			pf->num_vnics++;
++		nn = nfp_net_pf_alloc_vnic(pf, ctrl_bar, tx_bar, rx_bar,
++					   stride, fw_ver, i);
++		if (IS_ERR(nn)) {
++			err = PTR_ERR(nn);
++			goto err_free_prev;
+ 		}
  
--	err = nfp_net_netdev_init(nn->dp.netdev);
-+	err = nfp_net_init(nn);
- 	if (err)
- 		return err;
- 
-@@ -451,7 +451,7 @@ nfp_net_pf_spawn_netdevs(struct nfp_pf *pf,
- err_prev_deinit:
- 	list_for_each_entry_continue_reverse(nn, &pf->ports, port_list) {
- 		nfp_net_debugfs_dir_clean(&nn->debugfs_dir);
--		nfp_net_netdev_clean(nn->dp.netdev);
-+		nfp_net_clean(nn);
+ 		ctrl_bar += NFP_PF_CSR_SLICE_SIZE;
++
++		/* Check if vNIC has external port associated and cfg is OK */
++		if (pf->eth_tbl && !nn->eth_port) {
++			nfp_err(pf->cpp, "NSP port entries don't match vNICs (no entry for port #%d)\n", i);
++			err = -EINVAL;
++			goto err_free_prev;
++		}
++		if (nn->eth_port && nn->eth_port->override_changed) {
++			nfp_warn(pf->cpp, "Config changed for port #%d, reboot required before port will be operational\n", i);
++			nfp_net_pf_free_vnic(pf, nn);
++			continue;
++		}
  	}
- 	nfp_net_irqs_disable(pf->pdev);
- err_vec_free:
-@@ -518,11 +518,11 @@ static void nfp_net_refresh_netdevs(struct work_struct *work)
+ 
+ 	if (list_empty(&pf->vnics))
+@@ -517,6 +530,9 @@ static void nfp_net_refresh_vnics(struct work_struct *work)
+ 			continue;
+ 		nn->eth_port = nfp_net_find_port(eth_table,
+ 						 nn->eth_port->eth_index);
++		if (!nn->eth_port)
++			nfp_err(pf->cpp,
++				"Warning: port disappeared after reconfig\n");
+ 	}
+ 	rtnl_unlock();
+ 
+@@ -524,11 +540,7 @@ static void nfp_net_refresh_vnics(struct work_struct *work)
+ 	pf->eth_tbl = eth_table;
+ 
+ 	list_for_each_entry_safe(nn, next, &pf->vnics, vnic_list) {
+-		if (!nn->eth_port) {
+-			nfp_warn(pf->cpp, "Warning: port not present after reconfig\n");
+-			continue;
+-		}
+-		if (!nn->eth_port->override_changed)
++		if (nn->eth_port && !nn->eth_port->override_changed)
+ 			continue;
+ 
  		nn_warn(nn, "Port config changed, unregistering. Reboot required before port will be operational again.\n");
- 
- 		nfp_net_debugfs_dir_clean(&nn->debugfs_dir);
--		nfp_net_netdev_clean(nn->dp.netdev);
-+		nfp_net_clean(nn);
- 
- 		list_del(&nn->port_list);
- 		pf->num_netdevs--;
--		nfp_net_netdev_free(nn);
-+		nfp_net_free(nn);
- 	}
- 
- 	if (list_empty(&pf->ports))
-@@ -693,7 +693,7 @@ void nfp_net_pci_remove(struct nfp_pf *pf)
- 	list_for_each_entry(nn, &pf->ports, port_list) {
- 		nfp_net_debugfs_dir_clean(&nn->debugfs_dir);
- 
--		nfp_net_netdev_clean(nn->dp.netdev);
-+		nfp_net_clean(nn);
- 	}
- 
- 	nfp_net_pf_free_netdevs(pf);
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_netvf_main.c b/drivers/net/ethernet/netronome/nfp/nfp_netvf_main.c
-index 86e61be6f35c..856a76bdfc24 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_netvf_main.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_netvf_main.c
-@@ -202,7 +202,7 @@ static int nfp_netvf_pci_probe(struct pci_dev *pdev,
- 	rx_bar_off = NFP_PCIE_QUEUE(startq);
- 
- 	/* Allocate and initialise the netdev */
--	nn = nfp_net_netdev_alloc(pdev, max_tx_rings, max_rx_rings);
-+	nn = nfp_net_alloc(pdev, max_tx_rings, max_rx_rings);
- 	if (IS_ERR(nn)) {
- 		err = PTR_ERR(nn);
- 		goto err_ctrl_unmap;
-@@ -283,7 +283,7 @@ static int nfp_netvf_pci_probe(struct pci_dev *pdev,
- 	 */
- 	nn->me_freq_mhz = 1200;
- 
--	err = nfp_net_netdev_init(nn->dp.netdev);
-+	err = nfp_net_init(nn);
- 	if (err)
- 		goto err_irqs_disable;
- 
-@@ -304,7 +304,7 @@ static int nfp_netvf_pci_probe(struct pci_dev *pdev,
- 	else
- 		iounmap(vf->q_bar);
- err_netdev_free:
--	nfp_net_netdev_free(nn);
-+	nfp_net_free(nn);
- err_ctrl_unmap:
- 	iounmap(ctrl_bar);
- err_pci_regions:
-@@ -328,7 +328,7 @@ static void nfp_netvf_pci_remove(struct pci_dev *pdev)
- 	nfp_net_debugfs_dir_clean(&nn->debugfs_dir);
- 	nfp_net_debugfs_dir_clean(&vf->ddir);
- 
--	nfp_net_netdev_clean(nn->dp.netdev);
-+	nfp_net_clean(nn);
- 
- 	nfp_net_irqs_disable(pdev);
- 
-@@ -340,7 +340,7 @@ static void nfp_netvf_pci_remove(struct pci_dev *pdev)
- 	}
- 	iounmap(nn->dp.ctrl_bar);
- 
--	nfp_net_netdev_free(nn);
-+	nfp_net_free(nn);
- 
- 	pci_release_regions(pdev);
- 	pci_disable_device(pdev);
 -- 
 2.11.0
