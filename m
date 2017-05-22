@@ -1,36 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/3] stmmac: pci: Refactor DMI probing
-Date: Mon, 22 May 2017 12:35:55 -0400 (EDT)
-Message-ID: <20170522.123555.2260863464877381826.davem@davemloft.net>
-References: <cover.1495451529.git.jan.kiszka@siemens.com>
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Subject: [PATCH 0/5] net-SCTP: Adjustments for three function implementations
+Date: Mon, 22 May 2017 18:35:47 +0200
+Message-ID: <2845df67-d35d-536a-0a53-b2eb83fe1ba5@users.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        andy.shevchenko@gmail.com
-To: jan.kiszka@siemens.com
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: LKML <linux-kernel@vger.kernel.org>,
+        kernel-janitors@vger.kernel.org
+To: linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
+        "David S. Miller" <davem@davemloft.net>,
+        Neil Horman <nhorman@tuxdriver.com>,
+        Vlad Yasevich <vyasevich@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1495451529.git.jan.kiszka@siemens.com>
+Content-Language: en-GB
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-RnJvbTogSmFuIEtpc3prYSA8amFuLmtpc3prYUBzaWVtZW5zLmNvbT4NCkRhdGU6IE1vbiwgMjIg
-TWF5IDIwMTcgMTM6MTI6MDYgKzAyMDANCg0KPiBTb21lIGNsZWFudXBzIG9mIHRoZSB3YXkgd2Ug
-cHJvYmUgRE1JIHBsYXRmb3JtcyBpbiB0aGUgZHJpdmVyLiBSZWR1Y2VzDQo+IGEgYml0IG9mIG9w
-ZW4tY29kaW5nIGFuZCBtYWtlcyB0aGUgbG9naWMgZWFzaWVyIHJldXNhYmxlIGZvciBhbnkNCj4g
-cG90ZW50aWFsIERNSSBwbGF0Zm9ybSAhPSBRdWFyay4NCj4gDQo+IFRlc3RlZCBvbiBJT1QyMDAw
-IGFuZCBHYWxpbGVvIEdlbjIuDQoNClRoaXMgZG9lc24ndCBjb21waWxlOg0KDQpkcml2ZXJzL25l
-dC9ldGhlcm5ldC9zdG1pY3JvL3N0bW1hYy9zdG1tYWNfcGNpLmM6Mjg1OjM6IGVycm9yOiBpbml0
-aWFsaXplciBlbGVtZW50IGlzIG5vdCBjb21wdXRhYmxlIGF0IGxvYWQgdGltZQ0KICAgKGtlcm5l
-bF91bG9uZ190KSZzdG1tYWNfZGVmYXVsdF9zZXR1cCwNCiAgIF4NCmRyaXZlcnMvbmV0L2V0aGVy
-bmV0L3N0bWljcm8vc3RtbWFjL3N0bW1hY19wY2kuYzoyODU6Mzogbm90ZTogKG5lYXIgaW5pdGlh
-bGl6YXRpb24gZm9yIKFzdG1tYWNfaWRfdGFibGVbMF0uY2xhc3OiKQ0KZHJpdmVycy9uZXQvZXRo
-ZXJuZXQvc3RtaWNyby9zdG1tYWMvc3RtbWFjX3BjaS5jOjI4OTozOiBlcnJvcjogaW5pdGlhbGl6
-ZXIgZWxlbWVudCBpcyBub3QgY29tcHV0YWJsZSBhdCBsb2FkIHRpbWUNCiAgIChrZXJuZWxfdWxv
-bmdfdCkmc3RtbWFjX2RlZmF1bHRfc2V0dXAsDQogICBeDQpkcml2ZXJzL25ldC9ldGhlcm5ldC9z
-dG1pY3JvL3N0bW1hYy9zdG1tYWNfcGNpLmM6Mjg5OjM6IG5vdGU6IChuZWFyIGluaXRpYWxpemF0
-aW9uIGZvciChc3RtbWFjX2lkX3RhYmxlWzFdLmNsYXNzoikNCnNjcmlwdHMvTWFrZWZpbGUuYnVp
-bGQ6MzAyOiByZWNpcGUgZm9yIHRhcmdldCAnZHJpdmVycy9uZXQvZXRoZXJuZXQvc3RtaWNyby9z
-dG1tYWMvc3RtbWFjX3BjaS5vJyBmYWlsZWQNCm1ha2VbNV06ICoqKiBbZHJpdmVycy9uZXQvZXRo
-ZXJuZXQvc3RtaWNyby9zdG1tYWMvc3RtbWFjX3BjaS5vXSBFcnJvciAxDQo=
+From: Markus Elfring <elfring@users.sourceforge.net>
+Date: Mon, 22 May 2017 18:30:45 +0200
+
+A few update suggestions were taken into account
+from static source code analysis.
+
+Markus Elfring (5):
+  Use kmalloc_array() in sctp_init()
+  Delete an error message for a failed memory allocation in sctp_init()
+  Fix a typo in a comment line in sctp_init()
+  Improve a size determination in sctp_inetaddr_event()
+  Adjust one function call together with a variable assignment
+
+ net/sctp/protocol.c | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
+
+-- 
+2.13.0
