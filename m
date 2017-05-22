@@ -1,73 +1,40 @@
-From: Stefan Hajnoczi <stefanha@gmail.com>
-Subject: Re: vhost/scsi: Delete error messages for failed memory allocations
- in five functions
-Date: Mon, 22 May 2017 15:09:35 +0100
-Message-ID: <20170522140935.GB1021@stefanha-x1.localdomain>
-References: <bafa65e4-08fe-efdb-d836-7657e8a64749@users.sourceforge.net>
- <babc429d-6440-92aa-e1d0-eee2636a8d0f@users.sourceforge.net>
- <20170522094320.GE12205@stefanha-x1.localdomain>
- <557bdff4-6dc2-756d-0d59-9f688ef11f0a@users.sourceforge.net>
- <20170522112320.GA22806@stefanha-x1.localdomain>
- <e6658e56-a2b0-4ecc-0a95-0ba193ff2c97@users.sourceforge.net>
+From: SF Markus Elfring <elfring-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+Subject: [PATCH 0/3] RDS: Adjustments for two function implementations
+Date: Mon, 22 May 2017 16:10:18 +0200
+Message-ID: <44b46c51-3665-5f14-dd3b-6e6f230258a7@users.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-        protocol="application/pgp-signature"; boundary="PmA2V3Z32TCmWXqI"
-Cc: kvm@vger.kernel.org, netdev@vger.kernel.org,
-        virtualization@lists.linux-foundation.org,
-        kernel-janitors@vger.kernel.org, Jason Wang <jasowang@redhat.com>,
-        "Michael S. Tsirkin" <mst@redhat.com>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Wolfram Sang <wsa@the-dreams.de>
-To: SF Markus Elfring <elfring@users.sourceforge.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f51.google.com ([74.125.82.51]:35857 "EHLO
-        mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933798AbdEVOJj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 22 May 2017 10:09:39 -0400
-Content-Disposition: inline
-In-Reply-To: <e6658e56-a2b0-4ecc-0a95-0ba193ff2c97@users.sourceforge.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Santosh Shilimkar <santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
+        Sowmini Varadhan <sowmini.varadhan-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Language: en-GB
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+From: Markus Elfring <elfring-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+Date: Mon, 22 May 2017 16:02:03 +0200
 
---PmA2V3Z32TCmWXqI
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Three update suggestions were taken into account
+from static source code analysis.
 
-On Mon, May 22, 2017 at 01:34:34PM +0200, SF Markus Elfring wrote:
-> >> Do you find information from a Linux allocation failure report suffici=
-ent
-> >> for any function implementations here?
-> >=20
-> > If kmalloc() and friends guarantee to print a warning and backtrace on
-> > every allocation failure, then there's no need for error messages in
-> > callers.
-> >=20
-> > That seems like good justification that can go in the commit
-> > description, but I'm not sure if kmalloc() and friends guarantee to show
-> > a message (not just the first time, but for every failed allocation)?
->=20
-> I am also looking for a more complete and easier accessible documentation
-> for this aspect of the desired exception handling.
-> How would we like to resolve any remaining open issues there?
+Markus Elfring (3):
+  Delete an error message for a failed memory allocation in rds_ib_add_one()
+  Improve a size determination in rds_ib_add_one()
+  Delete an error message for a failed memory allocation in rds_tcp_init_net()
 
-No objection from me but please make sure to keep vq_err().
+ net/rds/ib.c  | 7 ++-----
+ net/rds/tcp.c | 5 ++---
+ 2 files changed, 4 insertions(+), 8 deletions(-)
 
-Stefan
+-- 
+2.13.0
 
---PmA2V3Z32TCmWXqI
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQEcBAEBAgAGBQJZIvEfAAoJEJykq7OBq3PIzOgIALqim5eeCJkJKaLpJ9iEuHqN
-3fjuMvsMf+ruIhoeHt1hOBIzpCsGF4M89L7suvthrL1uP/6kl3U+jnPwZ/KH/iCT
-eDgWZEpGsjPXhu3XAiPHDYp2YL4UwI4rGHyXw4tmozG//Sdqf9RspWpshElHsaAw
-FzQezmszkluXZ2EXmgXm1MsAVDKBR7Tcqtqp1Ep6pnKWv5ySmudvu6drUbUsYb1b
-tSxM786Gc2epTnIFUsNnyDI0WdZ0RG6XExd77bjojVoXUz5/Cqo9MqkAAIh2lriW
-OPvC1bWn45gKKN89n2MTrGdgrylZGUi00RSyVPaYmpeTKGP5uLFxi2+DLz6rLS8=
-=DO67
------END PGP SIGNATURE-----
-
---PmA2V3Z32TCmWXqI--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
