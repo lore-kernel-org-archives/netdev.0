@@ -1,31 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] kernel: bpf: remove dead code
-Date: Mon, 22 May 2017 10:38:00 -0400 (EDT)
-Message-ID: <20170522.103800.1354089494827582585.davem@davemloft.net>
-References: <20170522140746.GA10113@embeddedgus>
+From: <Woojung.Huh@microchip.com>
+Subject: RE: [PATCH v3 net-next 2/5] phy: micrel: add Microchip KSZ 9477
+ Switch PHY support
+Date: Mon, 22 May 2017 14:38:39 +0000
+Message-ID: <9235D6609DB808459E95D78E17F2E43D40A80CF8@CHN-SV-EXMX02.mchp-main.com>
+References: <9235D6609DB808459E95D78E17F2E43D40A7C02D@CHN-SV-EXMX02.mchp-main.com>
+ <20170522143249.GD29447@lunn.ch>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ast@kernel.org, daniel@iogearbox.net, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: garsilva@embeddedor.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170522140746.GA10113@embeddedgus>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <f.fainelli@gmail.com>, <vivien.didelot@savoirfairelinux.com>,
+        <sergei.shtylyov@cogentembedded.com>, <netdev@vger.kernel.org>,
+        <davem@davemloft.net>, <UNGLinuxDriver@microchip.com>
+To: <andrew@lunn.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from esa4.microchip.iphmx.com ([68.232.154.123]:12716 "EHLO
+        esa4.microchip.iphmx.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934401AbdEVOip (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 22 May 2017 10:38:45 -0400
+In-Reply-To: <20170522143249.GD29447@lunn.ch>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-Date: Mon, 22 May 2017 09:07:46 -0500
-
-> Execution cannot reach NET_IP_ALIGN inside the following statement:
-> ip_align = strict ? 2 : NET_IP_ALIGN
+> > Signed-off-by: Woojung Huh <Woojung.Huh@microchip.com>
+> > Signed-off-by: Andrew Lunn <andrew@lunn.ch>
 > 
-> Addresses-Coverity-ID: 1409762
-> Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
-> ---
-> NOTE: variable ip_align could also be removed and use value 2 directly.
+> Signed-off-by? I didn't contribute any code. It probably should be
+> 
+> Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+Andrew,
 
-Incorrect.
+Your reply on 5/13 was with "Signed-off" :)
+Will change to "Reviewed-by" in next patch.
 
-Some platforms define NET_IP_ALIGN to zero, so the code must remain
-as is.
+Woojung
