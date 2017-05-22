@@ -1,97 +1,41 @@
-From: Quentin Schulz <quentin.schulz-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-Subject: [PATCH] net: fec: add post PHY reset delay DT property
-Date: Mon, 22 May 2017 11:15:17 +0200
-Message-ID: <20170522091517.6857-1-quentin.schulz@free-electrons.com>
-Cc: Quentin Schulz <quentin.schulz-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org
-To: fugang.duan-3arQi8VN3Tc@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] Accept packets that the H.245 ALG can't process
+Date: Mon, 22 May 2017 12:25:06 +0300
+Message-ID: <6540ef8b-6848-fb2e-3479-a2bb3d553de4@cogentembedded.com>
+References: <20170522020753.16712-1-blair.steven@alliedtelesis.co.nz>
+ <20170522020753.16712-2-blair.steven@alliedtelesis.co.nz>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Blair Steven <blair.steven@alliedtelesis.co.nz>,
+        netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f54.google.com ([209.85.215.54]:36467 "EHLO
+        mail-lf0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752693AbdEVJZG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 22 May 2017 05:25:06 -0400
+Received: by mail-lf0-f54.google.com with SMTP id h4so27562811lfj.3
+        for <netdev@vger.kernel.org>; Mon, 22 May 2017 02:25:05 -0700 (PDT)
+In-Reply-To: <20170522020753.16712-2-blair.steven@alliedtelesis.co.nz>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Some PHY require to wait for a bit after the reset GPIO has been
-toggled. This adds support for the DT property `phy-reset-post-delay`
-which gives the delay in milliseconds to wait after reset.
+Hello!
 
-If the DT property is not given, no delay is observed. Post reset delay
-greater than 1000ms are invalid and are default to 1ms.
+On 5/22/2017 5:07 AM, Blair Steven wrote:
 
-Signed-off-by: Quentin Schulz <quentin.schulz-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
----
- Documentation/devicetree/bindings/net/fsl-fec.txt |  5 +++++
- drivers/net/ethernet/freescale/fec_main.c         | 17 +++++++++++++++--
- 2 files changed, 20 insertions(+), 2 deletions(-)
+> When two VoIP end points are configured differently (fast connect /
+> not fast connect) the ALG was failing to find a matching expectation
+> and dropping packets in one direction.
+>
+> Dropping packets not the job of an ALG, and as such the behaviour
 
-diff --git a/Documentation/devicetree/bindings/net/fsl-fec.txt b/Documentation/devicetree/bindings/net/fsl-fec.txt
-index a1e3693cca16..8795e8ca5793 100644
---- a/Documentation/devicetree/bindings/net/fsl-fec.txt
-+++ b/Documentation/devicetree/bindings/net/fsl-fec.txt
-@@ -15,6 +15,11 @@ Optional properties:
- - phy-reset-active-high : If present then the reset sequence using the GPIO
-   specified in the "phy-reset-gpios" property is reversed (H=reset state,
-   L=operation state).
-+- phy-reset-post-delay : Post reset delay in milliseconds. If present then
-+  a delay of phy-reset-post-delay milliseconds will be observed after the
-+  phy-reset-gpios has been toggled. Can be omitted thus no delay is
-+  observed. Delay is in range of 1ms to 1000ms. If given delay is higher
-+  than 1000ms, 1ms delay is done instead.
- - phy-supply : regulator that powers the Ethernet PHY.
- - phy-handle : phandle to the PHY device connected to this device.
- - fixed-link : Assume a fixed link. See fixed-link.txt in the same directory.
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index 56a563f90b0b..00a7fd0bcd59 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -3192,7 +3192,7 @@ static int fec_reset_phy(struct platform_device *pdev)
- {
- 	int err, phy_reset;
- 	bool active_high = false;
--	int msec = 1;
-+	int msec = 1, phy_post_delay = 0;
- 	struct device_node *np = pdev->dev.of_node;
- 
- 	if (!np)
-@@ -3210,7 +3210,6 @@ static int fec_reset_phy(struct platform_device *pdev)
- 		return 0;
- 
- 	active_high = of_property_read_bool(np, "phy-reset-active-high");
--
- 	err = devm_gpio_request_one(&pdev->dev, phy_reset,
- 			active_high ? GPIOF_OUT_INIT_HIGH : GPIOF_OUT_INIT_LOW,
- 			"phy-reset");
-@@ -3219,6 +3218,11 @@ static int fec_reset_phy(struct platform_device *pdev)
- 		return err;
- 	}
- 
-+	err = of_property_read_u32(np, "phy-reset-post-delay", &phy_post_delay);
-+	/* valid reset duration should be less than 1s */
-+	if (!err && phy_post_delay > 1000)
-+		phy_post_delay = 1;
-+
- 	if (msec > 20)
- 		msleep(msec);
- 	else
-@@ -3226,6 +3230,15 @@ static int fec_reset_phy(struct platform_device *pdev)
- 
- 	gpio_set_value_cansleep(phy_reset, !active_high);
- 
-+	if (!phy_post_delay)
-+		return 0;
-+
-+	if (phy_post_delay > 20)
-+		msleep(phy_post_delay);
-+	else
-+		usleep_range(phy_post_delay * 1000,
-+			     phy_post_delay * 1000 + 1000);
-+
- 	return 0;
- }
- #else /* CONFIG_OF */
--- 
-2.11.0
+    s/not/is not/. Perhaps could be fixed while applying...
 
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> has been changed to allow the packet to be send to the forwarding
+> engine.
+>
+> Signed-off-by: Blair Steven <blair.steven@alliedtelesis.co.nz>
+[...]
+
+MBR, Sergei
