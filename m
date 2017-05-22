@@ -1,7 +1,7 @@
 From: Romain Perier <romain.perier-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
-Subject: [PATCH v9 07/15] wireless: ipw2200: Replace PCI pool old API
-Date: Mon, 22 May 2017 18:48:59 +0200
-Message-ID: <20170522164907.22915-8-romain.perier@collabora.com>
+Subject: [PATCH v9 08/15] scsi: be2iscsi: Replace PCI pool old API
+Date: Mon, 22 May 2017 18:49:00 +0200
+Message-ID: <20170522164907.22915-9-romain.perier@collabora.com>
 References: <20170522164907.22915-1-romain.perier@collabora.com>
 Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
         linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
@@ -27,58 +27,82 @@ The PCI pool API is deprecated. This commit replaces the PCI pool old
 API by the appropriate function with the DMA pool API.
 
 Signed-off-by: Romain Perier <romain.perier-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
-Reviewed-by: Peter Senna Tschudin <peter.senna-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
+Acked-by: Peter Senna Tschudin <peter.senna-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
+Tested-by: Peter Senna Tschudin <peter.senna-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
 ---
- drivers/net/wireless/intel/ipw2x00/ipw2200.c | 13 +++++++------
- 1 file changed, 7 insertions(+), 6 deletions(-)
+ drivers/scsi/be2iscsi/be_iscsi.c | 6 +++---
+ drivers/scsi/be2iscsi/be_main.c  | 6 +++---
+ drivers/scsi/be2iscsi/be_main.h  | 2 +-
+ 3 files changed, 7 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/wireless/intel/ipw2x00/ipw2200.c b/drivers/net/wireless/intel/ipw2x00/ipw2200.c
-index bbc579b647b6..0ca2e0464477 100644
---- a/drivers/net/wireless/intel/ipw2x00/ipw2200.c
-+++ b/drivers/net/wireless/intel/ipw2x00/ipw2200.c
-@@ -3211,7 +3211,7 @@ static int ipw_load_firmware(struct ipw_priv *priv, u8 * data, size_t len)
- 	struct fw_chunk *chunk;
- 	int total_nr = 0;
- 	int i;
--	struct pci_pool *pool;
-+	struct dma_pool *pool;
- 	void **virts;
- 	dma_addr_t *phys;
+diff --git a/drivers/scsi/be2iscsi/be_iscsi.c b/drivers/scsi/be2iscsi/be_iscsi.c
+index 97dca4681784..43a80ce5ce6a 100644
+--- a/drivers/scsi/be2iscsi/be_iscsi.c
++++ b/drivers/scsi/be2iscsi/be_iscsi.c
+@@ -82,8 +82,8 @@ struct iscsi_cls_session *beiscsi_session_create(struct iscsi_endpoint *ep,
+ 		return NULL;
+ 	sess = cls_session->dd_data;
+ 	beiscsi_sess = sess->dd_data;
+-	beiscsi_sess->bhs_pool =  pci_pool_create("beiscsi_bhs_pool",
+-						   phba->pcidev,
++	beiscsi_sess->bhs_pool =  dma_pool_create("beiscsi_bhs_pool",
++						   &phba->pcidev->dev,
+ 						   sizeof(struct be_cmd_bhs),
+ 						   64, 0);
+ 	if (!beiscsi_sess->bhs_pool)
+@@ -108,7 +108,7 @@ void beiscsi_session_destroy(struct iscsi_cls_session *cls_session)
+ 	struct beiscsi_session *beiscsi_sess = sess->dd_data;
  
-@@ -3228,9 +3228,10 @@ static int ipw_load_firmware(struct ipw_priv *priv, u8 * data, size_t len)
- 		kfree(virts);
+ 	printk(KERN_INFO "In beiscsi_session_destroy\n");
+-	pci_pool_destroy(beiscsi_sess->bhs_pool);
++	dma_pool_destroy(beiscsi_sess->bhs_pool);
+ 	iscsi_session_teardown(cls_session);
+ }
+ 
+diff --git a/drivers/scsi/be2iscsi/be_main.c b/drivers/scsi/be2iscsi/be_main.c
+index f862332261f8..b4542e7e2ad5 100644
+--- a/drivers/scsi/be2iscsi/be_main.c
++++ b/drivers/scsi/be2iscsi/be_main.c
+@@ -4257,7 +4257,7 @@ static void beiscsi_cleanup_task(struct iscsi_task *task)
+ 	pwrb_context = &phwi_ctrlr->wrb_context[cri_index];
+ 
+ 	if (io_task->cmd_bhs) {
+-		pci_pool_free(beiscsi_sess->bhs_pool, io_task->cmd_bhs,
++		dma_pool_free(beiscsi_sess->bhs_pool, io_task->cmd_bhs,
+ 			      io_task->bhs_pa.u.a64.address);
+ 		io_task->cmd_bhs = NULL;
+ 		task->hdr = NULL;
+@@ -4374,7 +4374,7 @@ static int beiscsi_alloc_pdu(struct iscsi_task *task, uint8_t opcode)
+ 	struct beiscsi_session *beiscsi_sess = beiscsi_conn->beiscsi_sess;
+ 	dma_addr_t paddr;
+ 
+-	io_task->cmd_bhs = pci_pool_alloc(beiscsi_sess->bhs_pool,
++	io_task->cmd_bhs = dma_pool_alloc(beiscsi_sess->bhs_pool,
+ 					  GFP_ATOMIC, &paddr);
+ 	if (!io_task->cmd_bhs)
  		return -ENOMEM;
- 	}
--	pool = pci_pool_create("ipw2200", priv->pci_dev, CB_MAX_LENGTH, 0, 0);
-+	pool = dma_pool_create("ipw2200", &priv->pci_dev->dev, CB_MAX_LENGTH, 0,
-+			       0);
- 	if (!pool) {
--		IPW_ERROR("pci_pool_create failed\n");
-+		IPW_ERROR("dma_pool_create failed\n");
- 		kfree(phys);
- 		kfree(virts);
- 		return -ENOMEM;
-@@ -3255,7 +3256,7 @@ static int ipw_load_firmware(struct ipw_priv *priv, u8 * data, size_t len)
+@@ -4501,7 +4501,7 @@ static int beiscsi_alloc_pdu(struct iscsi_task *task, uint8_t opcode)
+ 	if (io_task->pwrb_handle)
+ 		free_wrb_handle(phba, pwrb_context, io_task->pwrb_handle);
+ 	io_task->pwrb_handle = NULL;
+-	pci_pool_free(beiscsi_sess->bhs_pool, io_task->cmd_bhs,
++	dma_pool_free(beiscsi_sess->bhs_pool, io_task->cmd_bhs,
+ 		      io_task->bhs_pa.u.a64.address);
+ 	io_task->cmd_bhs = NULL;
+ 	return -ENOMEM;
+diff --git a/drivers/scsi/be2iscsi/be_main.h b/drivers/scsi/be2iscsi/be_main.h
+index 338dbe0800c1..81ce3ffda968 100644
+--- a/drivers/scsi/be2iscsi/be_main.h
++++ b/drivers/scsi/be2iscsi/be_main.h
+@@ -438,7 +438,7 @@ struct beiscsi_hba {
+ 	 test_bit(BEISCSI_HBA_ONLINE, &phba->state))
  
- 		nr = (chunk_len + CB_MAX_LENGTH - 1) / CB_MAX_LENGTH;
- 		for (i = 0; i < nr; i++) {
--			virts[total_nr] = pci_pool_alloc(pool, GFP_KERNEL,
-+			virts[total_nr] = dma_pool_alloc(pool, GFP_KERNEL,
- 							 &phys[total_nr]);
- 			if (!virts[total_nr]) {
- 				ret = -ENOMEM;
-@@ -3299,9 +3300,9 @@ static int ipw_load_firmware(struct ipw_priv *priv, u8 * data, size_t len)
- 	}
-  out:
- 	for (i = 0; i < total_nr; i++)
--		pci_pool_free(pool, virts[i], phys[i]);
-+		dma_pool_free(pool, virts[i], phys[i]);
+ struct beiscsi_session {
+-	struct pci_pool *bhs_pool;
++	struct dma_pool *bhs_pool;
+ };
  
--	pci_pool_destroy(pool);
-+	dma_pool_destroy(pool);
- 	kfree(phys);
- 	kfree(virts);
- 
+ /**
 -- 
 2.11.0
 
