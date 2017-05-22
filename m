@@ -1,49 +1,116 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH] kernel: bpf: remove dead code
-Date: Mon, 22 May 2017 19:00:14 +0200
-Message-ID: <5923191E.30804@iogearbox.net>
-References: <20170522140746.GA10113@embeddedgus>        <20170522.103800.1354089494827582585.davem@davemloft.net>       <5922FB28.5070303@iogearbox.net> <20170522.122742.1326733219925627993.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: garsilva@embeddedor.com, ast@kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Romain Perier <romain.perier@collabora.com>
+Subject: [PATCH v9 09/15] scsi: csiostor: Replace PCI pool old API
+Date: Mon, 22 May 2017 18:49:01 +0200
+Message-ID: <20170522164907.22915-10-romain.perier@collabora.com>
+References: <20170522164907.22915-1-romain.perier@collabora.com>
+Cc: linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
+        linux-usb@vger.kernel.org, linux-scsi@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        Romain Perier <romain.perier@collabora.com>,
+        Peter Senna Tschudin <peter.senna@collabora.co.uk>
+To: Dan Williams <dan.j.williams@intel.com>,
+        Doug Ledford <dledford@redhat.com>,
+        Sean Hefty <sean.hefty@intel.com>,
+        Hal Rosenstock <hal.rosenstock@gmail.com>,
+        jeffrey.t.kirsher@intel.com,
+        "David S. Miller" <davem@davemloft.net>, stas.yakovlev@gmail.com,
+        "James E.J. Bottomley" <jejb@linux.vnet.ibm.com>,
+        "Martin K. Petersen" <martin.petersen@oracle.com>,
+        Felipe Balbi <balbi@kernel.org>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:38094 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1759979AbdEVRAW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 22 May 2017 13:00:22 -0400
-In-Reply-To: <20170522.122742.1326733219925627993.davem@davemloft.net>
+Received: from bhuna.collabora.co.uk ([46.235.227.227]:53733 "EHLO
+        bhuna.collabora.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S965060AbdEVQuS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 22 May 2017 12:50:18 -0400
+In-Reply-To: <20170522164907.22915-1-romain.perier@collabora.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/22/2017 06:27 PM, David Miller wrote:
-[...]
-> Ok I understand the issue now.  Thanks for explaining.
->
-> I guess a hard-coded value of 2 and an adjusted comment above the
-> assignment of ip_align is the way to go.
->
-> I'll push the following, thanks everyone:
->
-> ====================
-> net: Make IP alignment calulations clearer.
->
-> The assignmnet:
->
-> 	ip_align = strict ? 2 : NET_IP_ALIGN;
->
-> in compare_pkt_ptr_alignment() trips up Coverity because we can only
-> get to this code when strict is true, therefore ip_align will always
-> be 2 regardless of NET_IP_ALIGN's value.
->
-> So just assign directly to '2' and explain the situation in the
-> comment above.
->
-> Reported-by: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-> Signed-off-by: David S. Miller <davem@davemloft.net>
+The PCI pool API is deprecated. This commit replaces the PCI pool old
+API by the appropriate function with the DMA pool API. It also updates
+the name of some variables and the content of comments, accordingly.
 
-Yeah, that's fine, thanks!
+Signed-off-by: Romain Perier <romain.perier@collabora.com>
+Reviewed-by: Peter Senna Tschudin <peter.senna@collabora.com>
+---
+ drivers/scsi/csiostor/csio_hw.h   |  2 +-
+ drivers/scsi/csiostor/csio_init.c | 11 ++++++-----
+ drivers/scsi/csiostor/csio_scsi.c |  6 +++---
+ 3 files changed, 10 insertions(+), 9 deletions(-)
 
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+diff --git a/drivers/scsi/csiostor/csio_hw.h b/drivers/scsi/csiostor/csio_hw.h
+index 62758e830d3b..61c09daabb20 100644
+--- a/drivers/scsi/csiostor/csio_hw.h
++++ b/drivers/scsi/csiostor/csio_hw.h
+@@ -464,7 +464,7 @@ struct csio_hw {
+ 	struct csio_pport	pport[CSIO_MAX_PPORTS];	/* Ports (XGMACs) */
+ 	struct csio_hw_params	params;			/* Hw parameters */
+ 
+-	struct pci_pool		*scsi_pci_pool;		/* PCI pool for SCSI */
++	struct dma_pool		*scsi_dma_pool;		/* DMA pool for SCSI */
+ 	mempool_t		*mb_mempool;		/* Mailbox memory pool*/
+ 	mempool_t		*rnode_mempool;		/* rnode memory pool */
+ 
+diff --git a/drivers/scsi/csiostor/csio_init.c b/drivers/scsi/csiostor/csio_init.c
+index ea0c31086cc6..d5fb016b5fc2 100644
+--- a/drivers/scsi/csiostor/csio_init.c
++++ b/drivers/scsi/csiostor/csio_init.c
+@@ -485,9 +485,10 @@ csio_resource_alloc(struct csio_hw *hw)
+ 	if (!hw->rnode_mempool)
+ 		goto err_free_mb_mempool;
+ 
+-	hw->scsi_pci_pool = pci_pool_create("csio_scsi_pci_pool", hw->pdev,
+-					    CSIO_SCSI_RSP_LEN, 8, 0);
+-	if (!hw->scsi_pci_pool)
++	hw->scsi_dma_pool = dma_pool_create("csio_scsi_dma_pool",
++					    &hw->pdev->dev, CSIO_SCSI_RSP_LEN,
++					    8, 0);
++	if (!hw->scsi_dma_pool)
+ 		goto err_free_rn_pool;
+ 
+ 	return 0;
+@@ -505,8 +506,8 @@ csio_resource_alloc(struct csio_hw *hw)
+ static void
+ csio_resource_free(struct csio_hw *hw)
+ {
+-	pci_pool_destroy(hw->scsi_pci_pool);
+-	hw->scsi_pci_pool = NULL;
++	dma_pool_destroy(hw->scsi_dma_pool);
++	hw->scsi_dma_pool = NULL;
+ 	mempool_destroy(hw->rnode_mempool);
+ 	hw->rnode_mempool = NULL;
+ 	mempool_destroy(hw->mb_mempool);
+diff --git a/drivers/scsi/csiostor/csio_scsi.c b/drivers/scsi/csiostor/csio_scsi.c
+index a1ff75f1384f..dab0d3f9bee1 100644
+--- a/drivers/scsi/csiostor/csio_scsi.c
++++ b/drivers/scsi/csiostor/csio_scsi.c
+@@ -2445,7 +2445,7 @@ csio_scsim_init(struct csio_scsim *scm, struct csio_hw *hw)
+ 
+ 		/* Allocate Dma buffers for Response Payload */
+ 		dma_buf = &ioreq->dma_buf;
+-		dma_buf->vaddr = pci_pool_alloc(hw->scsi_pci_pool, GFP_KERNEL,
++		dma_buf->vaddr = dma_pool_alloc(hw->scsi_dma_pool, GFP_KERNEL,
+ 						&dma_buf->paddr);
+ 		if (!dma_buf->vaddr) {
+ 			csio_err(hw,
+@@ -2485,7 +2485,7 @@ csio_scsim_init(struct csio_scsim *scm, struct csio_hw *hw)
+ 		ioreq = (struct csio_ioreq *)tmp;
+ 
+ 		dma_buf = &ioreq->dma_buf;
+-		pci_pool_free(hw->scsi_pci_pool, dma_buf->vaddr,
++		dma_pool_free(hw->scsi_dma_pool, dma_buf->vaddr,
+ 			      dma_buf->paddr);
+ 
+ 		kfree(ioreq);
+@@ -2516,7 +2516,7 @@ csio_scsim_exit(struct csio_scsim *scm)
+ 		ioreq = (struct csio_ioreq *)tmp;
+ 
+ 		dma_buf = &ioreq->dma_buf;
+-		pci_pool_free(scm->hw->scsi_pci_pool, dma_buf->vaddr,
++		dma_pool_free(scm->hw->scsi_dma_pool, dma_buf->vaddr,
+ 			      dma_buf->paddr);
+ 
+ 		kfree(ioreq);
+-- 
+2.11.0
