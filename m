@@ -1,66 +1,74 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [Intel-wired-lan] [PATCH 0/4] Configuring traffic classes via new
- hardware offload mechanism in tc/mqprio
-Date: Sun, 21 May 2017 15:35:13 -0700
-Message-ID: <CAKgT0Ue6tDOE8L4thktyje-erGkVMmtO7zyp0FRgmRPYOppjQA@mail.gmail.com>
-References: <149524122523.11022.4541073724650541658.stgit@anamdev.jf.intel.com>
- <CAJ3xEMjTDW7sQ5CFmTyR5xMpin_WFFQg-S8imWMBpXWuS1zvVw@mail.gmail.com>
+From: <mari.kayhko@uef.fi>
+Subject: (unknown)
+Date: Mon, 22 May 2017 00:57:39 -0000
+Message-ID: <149541465971.15599.11751554971386792851@zaural.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Amritha Nambiar <amritha.nambiar@intel.com>,
-        intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
-        Linux Netdev List <netdev@vger.kernel.org>
-To: Or Gerlitz <gerlitz.or@gmail.com>
+Content-Type: application/zip; name="58679201840822.zip"
+Content-Transfer-Encoding: base64
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f53.google.com ([209.85.214.53]:37465 "EHLO
-        mail-it0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932467AbdEUWfP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 21 May 2017 18:35:15 -0400
-Received: by mail-it0-f53.google.com with SMTP id g126so70386305ith.0
-        for <netdev@vger.kernel.org>; Sun, 21 May 2017 15:35:14 -0700 (PDT)
-In-Reply-To: <CAJ3xEMjTDW7sQ5CFmTyR5xMpin_WFFQg-S8imWMBpXWuS1zvVw@mail.gmail.com>
+Received: from ws178.zone31-163-160.zaural.ru ([31.163.160.178]:47042 "HELO
+        zaural.ru" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with SMTP
+        id S1757001AbdEVA5o (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 21 May 2017 20:57:44 -0400
+Content-Disposition: attachment
+Subject: 
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, May 20, 2017 at 2:15 PM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
-> On Sat, May 20, 2017 at 3:58 AM, Amritha Nambiar
-> <amritha.nambiar@intel.com> wrote:
->> The following series introduces a new harware offload mode in tc/mqprio
->
-> Wait, we have already a HW QoS model introduced by John F and Co
-> couple of years ago,  right?
-
-I assume you are referring to the ETS portion of DCBX? If so then yes
-we have something there, but there is a fairly high level of
-complexity and dependencies in order to enable that. What we have in
-mind doesn't really fit with DCBX and the problem is the spec calls
-out that you really have to have support for DCBX in order to make use
-of ETS. What we are trying to do here is provide a lightweight way of
-doing this configuration similar to how mqprio was already providing a
-lightweight way of enabling multiple traffic classes.
-
-> Please elaborate in few sentence if you are extending it/replacing it,
-> why we want to do that and what are the implications on existing
-> applications UAPI wise.
-
-This is meant to be an extension of the existing structure. It can be
-ignored by the driver and instead only have the basic hw offload
-supported. In such a case the command will still return success but
-any rate limits and queue configuration can be ignored. In the case of
-the current implementation the queue configuration was already being
-ignored so we opted to re-purpose the "hw" flag so that if you pass a
-value greater than 1 and the driver doesn't recognize the value it has
-the option to just ignore the extra bits it doesn't recognize and
-return 1 as it did before for the hw flag in mqprio.
-
-> Below you just say in the new mode Qos is configured with knobs XYZ --
-> this is way not enough
-
-Can you clarify what you are asking for here? Amritha included an
-example in patch 1 of a command line that enabled 2 traffic classes
-with rate limits. Is there something more specific you are looking
-for?
-
-Thanks.
-
-- Alex
+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
