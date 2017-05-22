@@ -1,66 +1,63 @@
-From: Stefan Hajnoczi <stefanha@gmail.com>
-Subject: Re: [PATCH] vhost: Coalesce vq_err formats, pr_fmt misuse, add
- missing newlines
-Date: Mon, 22 May 2017 15:16:46 +0100
-Message-ID: <20170522141646.GC1021@stefanha-x1.localdomain>
-References: <0e8f84aec009831d34ccb2b4ed27364e78b07e02.1495449147.git.joe@perches.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: linux-next: build failure after merge of the net-next tree
+Date: Mon, 22 May 2017 10:17:15 -0400 (EDT)
+Message-ID: <20170522.101715.189946031965146268.davem@davemloft.net>
+References: <20170522111605.14f93676@canb.auug.org.au>
+        <20170521.231410.1999783448679718181.davem@davemloft.net>
+        <20170522134300.0bfd175a@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-        protocol="application/pgp-signature"; boundary="nmemrqcdn5VTmUEE"
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-        Jason Wang <jasowang@redhat.com>, kvm@vger.kernel.org,
-        virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Joe Perches <joe@perches.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:34477 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934564AbdEVOQu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 22 May 2017 10:16:50 -0400
-Content-Disposition: inline
-In-Reply-To: <0e8f84aec009831d34ccb2b4ed27364e78b07e02.1495449147.git.joe@perches.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
+        linux-kernel@vger.kernel.org, mlichvar@redhat.com,
+        willemb@google.com
+To: sfr@canb.auug.org.au
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20170522134300.0bfd175a@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Mon, 22 May 2017 13:43:00 +1000
 
---nmemrqcdn5VTmUEE
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+> Hi Dave,
+> 
+> On Sun, 21 May 2017 23:14:10 -0400 (EDT) David Miller <davem@davemloft.net> wrote:
+>>
+>> From: Stephen Rothwell <sfr@canb.auug.org.au>
+>> Date: Mon, 22 May 2017 11:16:05 +1000
+>> 
+>> > After merging the net-next tree, today's linux-next build (powerpc
+>> > ppc64_defconfig) failed like this:
+>> > 
+>> > net/socket.c: In function 'put_ts_pktinfo':
+>> > net/socket.c:695:28: error: 'SCM_TIMESTAMPING_PKTINFO' undeclared (first use in this function)
+>> >   put_cmsg(msg, SOL_SOCKET, SCM_TIMESTAMPING_PKTINFO,
+>> >                             ^
+>> > Caused by commit
+>> > 
+>> >   aad9c8c470f2 ("net: add new control message for incoming HW-timestamped packets")
+>> > 
+>> > This probably broke every architecture that has its own
+>> > arch/<arch>/include/uapi/asm/socket.h that does not include
+>> > include/uapi/asm-generic/socket.h :-(
+>> > 
+>> > I have used the net-next tree from next-20170519 for today.  
+>> 
+>> I've just pushed the following, thanks for the report:
+> 
+> Looks good except:
+> 
+>> diff --git a/arch/parisc/include/uapi/asm/socket.h b/arch/parisc/include/uapi/asm/socket.h
+>> index 5147018..784b871 100644
+>> --- a/arch/parisc/include/uapi/asm/socket.h
+>> +++ b/arch/parisc/include/uapi/asm/socket.h
+>> @@ -97,4 +97,6 @@
+>>  
+>>  #define SO_COOKIE		0x4032
+>>  
+>> +#define SCM_TIMESTAMPING_PKTINFO	58
+> 
+> Does this need to be 0x4033 (or something)?
 
-On Mon, May 22, 2017 at 03:33:43AM -0700, Joe Perches wrote:
-> vhost logging uses of vq_err has a few defects and style inconsistencies.
->=20
-> o pr_debug already uses pr_fmt so its use in vq_err is defective
->   however no #defines of pr_fmt exist in this code so no actual
->   defects exist
-> o vq_err uses need terminating newlines so add the missing ones
-> o Coalesce formats and realign arguments
->=20
-> Signed-off-by: Joe Perches <joe@perches.com>
-> ---
->  drivers/vhost/net.c   | 17 ++++++-------
->  drivers/vhost/scsi.c  | 17 ++++++-------
->  drivers/vhost/test.c  |  4 +--
->  drivers/vhost/vhost.c | 70 +++++++++++++++++++++++----------------------=
-------
->  drivers/vhost/vhost.h | 11 ++++----
->  5 files changed, 54 insertions(+), 65 deletions(-)
-
-Reviewed-by: Stefan Hajnoczi <stefanha@redhat.com>
-
---nmemrqcdn5VTmUEE
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQEcBAEBAgAGBQJZIvLOAAoJEJykq7OBq3PIpg4H/RfmmmtMDlNVLY6i9kHg0pQT
-25bZv0Nr6PjANJzOO+UxuPYK30nlzZU7iabJ9GB9dxZiy21CKIUO7yCJbvH2Mep/
-jO2pTjHVVGhdiYKa1RXqgzzelnhcRz4QZqe2ysg9e8AWbpk0w3SH1AJE2TBfSbTP
-X9Ew4NTlJimLEeVLQwriQNYvOKa80SPwUL0DrvYUWOVUVtF0S8wNIXT9BQCPRHp2
-m9cYMrb9FVitMIwHGcBCJoFzkIEZPWxuWyF0FR+BIk9fv9GluXvwehl941gmaxTD
-d7ghA/bIlK2Z4Zb4U/oUwYJ2Eqt8/V22xj5Dt+zNpGZVW3Mxl8X/q/gkwVbWwYk=
-=Wl4C
------END PGP SIGNATURE-----
-
---nmemrqcdn5VTmUEE--
+Good catch, I'll fix this up!
