@@ -1,53 +1,48 @@
-From: Baruch Siach <baruch@tkos.co.il>
-Subject: [PATCH 2/2] Add missing <sys/types.h> include
-Date: Mon, 22 May 2017 16:27:54 +0300
-Message-ID: <5cdba9c8dc972d25219517ade6129faf73f459b3.1495459674.git.baruch@tkos.co.il>
-References: <8afdd8babb9e82bcfde78e851b24b698436a6f9f.1495459674.git.baruch@tkos.co.il>
+From: Oliver Neukum <oneukum-IBi9RG/b67k@public.gmane.org>
+Subject: Re: [RFC V1 1/1] net: cdc_ncm: Reduce memory use when kernel memory
+ low
+Date: Mon, 22 May 2017 15:27:17 +0200
+Message-ID: <1495459637.11462.19.camel@suse.com>
+References: <1494956480-6127-1-git-send-email-jim_baxter@mentor.com>
+         <1494956480-6127-2-git-send-email-jim_baxter@mentor.com>
+         <063D6719AE5E284EB5DD2968C1650D6DCFFFAA5C@AcuExch.aculab.com>
+         <87pof5rlw4.fsf@miraculix.mork.no>
+         <063D6719AE5E284EB5DD2968C1650D6DCFFFAC2B@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-        Baruch Siach <baruch@tkos.co.il>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from guitar.tcltek.co.il ([192.115.133.116]:41567 "EHLO
-        mx.tkos.co.il" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1759660AbdEVN2H (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 22 May 2017 09:28:07 -0400
-In-Reply-To: <8afdd8babb9e82bcfde78e851b24b698436a6f9f.1495459674.git.baruch@tkos.co.il>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: 'Jim Baxter' <jim_baxter-nmGgyN9QBj3QT0dZR+AlfA@public.gmane.org>,
+        "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>,
+        =?ISO-8859-1?Q?=27Bj=F8rn?= Mork' <bjorn-yOkvZcmFvRU@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DCFFFAC2B-VkEWCZq2GCInGFn1LkZF6NBPR1lH4CV8@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Am Freitag, den 19.05.2017, 14:46 +0000 schrieb David Laight:
+> For XHCI it isn't too bad because it will do arbitrary scatter-gather
+> (apart from the ring end).
+> But I believe the earlier controllers only support fragments that
+> end on usb packet boundaries.
+> 
+> I looked at the usbnet code a few years ago, I'm sure it ought to
+> be possible to shortcut most of the code that uses URB and directly
+> write to the xhci (in particular) ring descriptors.
 
-The u_intXX_t types are defined in <sys/types.h>, so it should be
-included before using those types. Otherwise, with certain C
-libraries, the build fails with:
+Hi,
 
-In file included from ../include/iptables.h:4:0,
-                 from m_ipt.c:18:
-../include/iptables_common.h:47:16: error: unknown type name ‘u_int32_t’
- #define __le32 u_int32_t
+we cannot break the layering. URBs can support scatter/gather and
+that infrastructure must be used. And usbnet will work with sg used
+in skbs. What you should honor in general is not splitting packets.
+So 512 byte chunks.
 
-Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Signed-off-by: Baruch Siach <baruch@tkos.co.il>
----
- include/iptables_common.h | 2 ++
- 1 file changed, 2 insertions(+)
+	Regards
+		Oliver
 
-diff --git a/include/iptables_common.h b/include/iptables_common.h
-index 9099667ffa6d..2c27a4b61fcd 100644
---- a/include/iptables_common.h
-+++ b/include/iptables_common.h
-@@ -43,6 +43,8 @@ extern char *lib_dir;
-   extern void init_extensions(void);
- #endif
- 
-+#include <sys/types.h>
-+
- #define __be32	u_int32_t
- #define __le32	u_int32_t
- #define __be16	u_int16_t
--- 
-2.11.0
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
