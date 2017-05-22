@@ -1,60 +1,34 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: [PATCH] Bluetooth: Delete error messages for failed memory
- allocations in two functions
-Date: Mon, 22 May 2017 08:54:49 +0200
-Message-ID: <0afbfdb7-48f1-4d15-d5bd-8ea40b1eb52a@users.sourceforge.net>
+From: Oliver Neukum <oneukum@suse.com>
+Subject: Re: [PATCH 1/2] usbnet: Delete an error message for a failed memory
+ allocation in usbnet_write_cmd_async()
+Date: Mon, 22 May 2017 09:08:10 +0200
+Message-ID: <1495436890.11462.0.camel@suse.com>
+References: <a81c2551-ce6c-967d-1120-4307f95b1e65@users.sourceforge.net>
+         <3b831fce-93ed-c017-2549-967a39c2d1da@users.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-        kernel-janitors@vger.kernel.org
-To: linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
-        "David S. Miller" <davem@davemloft.net>,
-        Gustavo Padovan <gustavo@padovan.org>,
-        Johan Hedberg <johan.hedberg@gmail.com>,
-        Marcel Holtmann <marcel@holtmann.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Language: en-GB
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: kernel-janitors@vger.kernel.org,
+        LKML <linux-kernel@vger.kernel.org>
+To: SF Markus Elfring <elfring@users.sourceforge.net>,
+        linux-usb@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx2.suse.de ([195.135.220.15]:46463 "EHLO mx1.suse.de"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751137AbdEVHJs (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 22 May 2017 03:09:48 -0400
+In-Reply-To: <3b831fce-93ed-c017-2549-967a39c2d1da@users.sourceforge.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Mon, 22 May 2017 08:42:28 +0200
-
-Omit two extra messages for memory allocation failures in these functions.
-
-This issue was detected by using the Coccinelle software.
-
-Link: http://events.linuxfoundation.org/sites/events/files/slides/LCJ16-Refactor_Strings-WSang_0.pdf
-Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
----
- net/bluetooth/ecdh_helper.c | 11 +++--------
- 1 file changed, 3 insertions(+), 8 deletions(-)
-
-diff --git a/net/bluetooth/ecdh_helper.c b/net/bluetooth/ecdh_helper.c
-index 24d4e60f8c48..c7b1a9aee579 100644
---- a/net/bluetooth/ecdh_helper.c
-+++ b/net/bluetooth/ecdh_helper.c
-@@ -92,8 +92,6 @@ bool compute_ecdh_secret(const u8 public_key[64], const u8 private_key[32],
--	if (!buf) {
--		pr_err("alg: kpp: Failed to allocate %d bytes for buf\n",
--		       buf_len);
-+	if (!buf)
- 		goto free_req;
--	}
-+
- 	crypto_ecdh_encode_key(buf, buf_len, &p);
- 
- 	/* Set A private Key */
-@@ -173,8 +171,5 @@ bool generate_ecdh_keys(u8 public_key[64], u8 private_key[32])
--	if (!buf) {
--		pr_err("alg: kpp: Failed to allocate %d bytes for buf\n",
--		       buf_len);
-+	if (!buf)
- 		goto free_req;
--	}
- 
- 	do {
- 		if (tries++ >= max_tries)
--- 
-2.13.0
+Am Montag, den 22.05.2017, 07:09 +0200 schrieb SF Markus Elfring:
+> From: Markus Elfring <elfring@users.sourceforge.net>
+> Date: Mon, 22 May 2017 06:33:48 +0200
+> 
+> Omit an extra message for a memory allocation failure in this function.
+> 
+> This issue was detected by using the Coccinelle software.
+> 
+> Link: http://events.linuxfoundation.org/sites/events/files/slides/LCJ16-Refactor_Strings-WSang_0.pdf
+> Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+Acked-by: Oliver Neukum <oneukum@suse.com>
