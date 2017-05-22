@@ -1,94 +1,87 @@
-From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
-Subject: Re: [PATCH net-next 01/11] qede: Fix sparse warnings
-Date: Mon, 22 May 2017 17:44:12 +0000
-Message-ID: <BLUPR0701MB20043F202421D02E697198338DF80@BLUPR0701MB2004.namprd07.prod.outlook.com>
-References: <1495452731-27171-2-git-send-email-Yuval.Mintz@cavium.com>
-        <20170522.123804.1189830414503494485.davem@davemloft.net>
-        <BLUPR0701MB2004062F133B0DD22E817C6C8DF80@BLUPR0701MB2004.namprd07.prod.outlook.com>,<20170522.125430.1296201768191613727.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "Chopra, Manish" <Manish.Chopra@cavium.com>
-To: David Miller <davem@davemloft.net>
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Subject: [PATCH net-next v2 00/13] nfp: introduce nfp_port and nfp_app
+Date: Mon, 22 May 2017 10:59:21 -0700
+Message-ID: <20170522175934.27447-1-jakub.kicinski@netronome.com>
+Cc: oss-drivers@netronome.com,
+        Jakub Kicinski <jakub.kicinski@netronome.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-cys01nam02on0044.outbound.protection.outlook.com ([104.47.37.44]:3840
-        "EHLO NAM02-CY1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1757895AbdEVRoQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 22 May 2017 13:44:16 -0400
-In-Reply-To: <20170522.125430.1296201768191613727.davem@davemloft.net>
-Content-Language: en-US
+Received: from mail-pf0-f174.google.com ([209.85.192.174]:33374 "EHLO
+        mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1759987AbdEVSBC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 22 May 2017 14:01:02 -0400
+Received: by mail-pf0-f174.google.com with SMTP id e193so89412135pfh.0
+        for <netdev@vger.kernel.org>; Mon, 22 May 2017 11:01:02 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> >> Please.
-> >>=20
-> >> This is exactly the problem when such a terse commit message, or lack =
-of any
-> >> message at all as is the case here, occurs.
-> >>=20
-> >> I have no idea what removing this method assignment has to do with fix=
-ing
-> >> sparse warnings.
-> >=20
-> > It's currently defined twice in the qede_dcbnl_ops struct -
+Hi!
 
-> >Ok, so what's important is that you don't just post a patch with no
-> commit message, just saying "sparse warning fixes."
+This series builds foundation for upcoming development.  So far the nfp
+driver was focused on delivering basic NIC-like functionality.  We want
+to switch gears a bit going forward and support more advanced applications.
 
-> At a minimum, if you're too lazy to explain what exactly each thing
-> is fixing, provide the sparse warnings you are eliminating in the
-> commit message.
+First few patches are naming clean ups and reshuffling.  The two main 
+structures this series adds are nfp_port and nfp_app.  
 
-Well, this time it was intentional lazines; Thought it would have been
-wasted reading. But sure, here it is:
+nfp_port represents a device port, where port can mean external port,
+VF or PF.  For now only external port/MAC/PHY port is added.  nfp_port
+is supposed to make it easy to share ethtool and devlink code regardless
+of netdev type (full vNIC vs representors).
 
-drivers/net/ethernet/qlogic/qede/qede_fp.c:349:34: warning: invalid assignm=
-ent: |=3D
-drivers/net/ethernet/qlogic/qede/qede_fp.c:349:34:    left side has type re=
-stricted __le16
-drivers/net/ethernet/qlogic/qede/qede_fp.c:349:34:    right side has type i=
-nt
-drivers/net/ethernet/qlogic/qede/qede_fp.c:1516:50: warning: invalid assign=
-ment: |=3D
-drivers/net/ethernet/qlogic/qede/qede_fp.c:1516:50:    left side has type r=
-estricted __le16
-drivers/net/ethernet/qlogic/qede/qede_fp.c:1516:50:    right side has type =
-int
-drivers/net/ethernet/qlogic/qede/qede_fp.c:1525:50: warning: invalid assign=
-ment: ^=3D
-drivers/net/ethernet/qlogic/qede/qede_fp.c:1525:50:    left side has type r=
-estricted __le16
-drivers/net/ethernet/qlogic/qede/qede_fp.c:1525:50:    right side has type =
-int
-drivers/net/ethernet/qlogic/qede/qede_fp.c:1590:42: warning: invalid assign=
-ment: |=3D
-drivers/net/ethernet/qlogic/qede/qede_fp.c:1590:42:    left side has type r=
-estricted __le16
-drivers/net/ethernet/qlogic/qede/qede_fp.c:1590:42:    right side has type =
-unsigned int
-drivers/net/ethernet/qlogic/qede/qede_ethtool.c:1315:34: warning: invalid a=
-ssignment: |=3D
-drivers/net/ethernet/qlogic/qede/qede_ethtool.c:1315:34:    left side has t=
-ype restricted __le16
-drivers/net/ethernet/qlogic/qede/qede_ethtool.c:1315:34:    right side has =
-type int
-drivers/net/ethernet/qlogic/qede/qede_ethtool.c:1330:13: warning: incorrect=
- type in assignment (different base types)
-drivers/net/ethernet/qlogic/qede/qede_ethtool.c:1330:13:    expected int [s=
-igned] [assigned] val
-drivers/net/ethernet/qlogic/qede/qede_ethtool.c:1330:13:    got restricted =
-__le16 [usertype] <noident>
-drivers/net/ethernet/qlogic/qede/qede_ethtool.c:1331:33: warning: incorrect=
- type in assignment (different base types)
-drivers/net/ethernet/qlogic/qede/qede_ethtool.c:1331:33:    expected restri=
-cted __le16 [usertype] bd_prod
-drivers/net/ethernet/qlogic/qede/qede_ethtool.c:1331:33:    got int [signed=
-] [assigned] val
-drivers/net/ethernet/qlogic/qede/qede_roce.c:224:29: warning: symbol 'qede_=
-roce_get_free_event_node' was not declared. Should it be static?
+nfp_app is an abstraction which should allow easier development of new
+applications.  So far we have relied fully on port capabilities to detect
+which offloads and features are available.  The usual development model
+for NFP is that people start with one of our "core NIC" FW apps (C one, 
+or a macro assembler one) and build advanced functionality on top of that.
+Therefore basic netdev code is shared, but the higher-level logic is 
+usually more project specific.  The higher-level logic is also per-adapter
+rather than per-port, so creating per-adapter control entity makes sense.
+Hopefully the separation of lower-level netdev code and application logic
+will help us limit interdependencies and accelerate parallel projects
+(e.g. TC flower offloads vs eBPF offload).
 
-Do you want us to re-spin the series with the updated commit message?
+v2:
+ - don't hide definition of nfp_app to avoid silly function calls (Dave);
+ - reorder kdoc of nfp_main (Simon);
+ - make nfp_netdev_is_nfp_net() static inline as well.
 
- =
+Jakub Kicinski (12):
+  nfp: make nfp_net alloc/init/cleanup/free not depend on netdevs
+  nfp: rename netdev/port to vNIC
+  nfp: add nfp_net_pf_free_vnic() function
+  nfp: introduce very minimal nfp_app
+  nfp: disallow mixing vNICs with and without NSP port entry
+  nfp: introduce nfp_port
+  nfp: update port state in place
+  nfp: move refresh tracking into the port structure
+  nfp: provide linking on port structures
+  nfp: mark port state as stale after reconfig
+  nfp: mark port state as stale if update failed
+  nfp: refresh port state before reporting autonegotiation
+
+Simon Horman (1):
+  nfp: add nfp_cppcore_pcie_unit() helper
+
+ drivers/net/ethernet/netronome/nfp/Makefile        |   4 +-
+ drivers/net/ethernet/netronome/nfp/nfp_app.c       |  57 ++++
+ drivers/net/ethernet/netronome/nfp/nfp_app.h       |  56 ++++
+ drivers/net/ethernet/netronome/nfp/nfp_main.c      |   1 +
+ drivers/net/ethernet/netronome/nfp/nfp_main.h      |  25 +-
+ drivers/net/ethernet/netronome/nfp/nfp_net.h       |  44 +--
+ .../net/ethernet/netronome/nfp/nfp_net_common.c    |  76 ++---
+ .../net/ethernet/netronome/nfp/nfp_net_debugfs.c   |   4 +-
+ .../net/ethernet/netronome/nfp/nfp_net_ethtool.c   |  62 ++--
+ drivers/net/ethernet/netronome/nfp/nfp_net_main.c  | 346 ++++++++++++---------
+ .../net/ethernet/netronome/nfp/nfp_netvf_main.c    |  14 +-
+ drivers/net/ethernet/netronome/nfp/nfp_port.c      | 121 +++++++
+ drivers/net/ethernet/netronome/nfp/nfp_port.h      | 102 ++++++
+ .../net/ethernet/netronome/nfp/nfpcore/nfp_cpp.h   |  11 +
+ 14 files changed, 658 insertions(+), 265 deletions(-)
+ create mode 100644 drivers/net/ethernet/netronome/nfp/nfp_app.c
+ create mode 100644 drivers/net/ethernet/netronome/nfp/nfp_app.h
+ create mode 100644 drivers/net/ethernet/netronome/nfp/nfp_port.c
+ create mode 100644 drivers/net/ethernet/netronome/nfp/nfp_port.h
+
+-- 
+2.11.0
