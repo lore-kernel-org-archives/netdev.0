@@ -1,81 +1,60 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH 2/2] Add missing <sys/types.h> include
-Date: Mon, 22 May 2017 13:23:33 -0700
-Message-ID: <20170522132333.4240e32b@xeon-e3>
-References: <8afdd8babb9e82bcfde78e851b24b698436a6f9f.1495459674.git.baruch@tkos.co.il>
-        <5cdba9c8dc972d25219517ade6129faf73f459b3.1495459674.git.baruch@tkos.co.il>
-        <20170522102442.51d36c39@xeon-e3>
-        <20170522200923.6kn25ulx5mtrv6gi@tarshish>
+From: SF Markus Elfring <elfring-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+Subject: [PATCH] xprtrdma: Delete an error message for a failed memory
+ allocation in xprt_rdma_bc_setup()
+Date: Mon, 22 May 2017 22:24:17 +0200
+Message-ID: <3c3f0067-1438-129c-d921-e2c056d5776b@users.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev@vger.kernel.org,
-        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-To: Baruch Siach <baruch@tkos.co.il>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f173.google.com ([209.85.192.173]:33707 "EHLO
-        mail-pf0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932681AbdEVUXp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 22 May 2017 16:23:45 -0400
-Received: by mail-pf0-f173.google.com with SMTP id e193so92521435pfh.0
-        for <netdev@vger.kernel.org>; Mon, 22 May 2017 13:23:45 -0700 (PDT)
-In-Reply-To: <20170522200923.6kn25ulx5mtrv6gi@tarshish>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Anna Schumaker <anna.schumaker-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
+        Chuck Lever <chuck.lever-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
+        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
+        Jeff Layton <jlayton-vpEMnDpepFuMZCB2o+C8xQ@public.gmane.org>,
+        Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Language: en-GB
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 22 May 2017 23:09:23 +0300
-Baruch Siach <baruch@tkos.co.il> wrote:
+From: Markus Elfring <elfring-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+Date: Mon, 22 May 2017 22:18:28 +0200
 
-> Hi Stephen,
->=20
-> On Mon, May 22, 2017 at 10:24:42AM -0700, Stephen Hemminger wrote:
-> > On Mon, 22 May 2017 16:27:54 +0300
-> > Baruch Siach <baruch@tkos.co.il> wrote:
-> >  =20
-> > > From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-> > >=20
-> > > The u_intXX_t types are defined in <sys/types.h>, so it should be
-> > > included before using those types. Otherwise, with certain C
-> > > libraries, the build fails with:
-> > >=20
-> > > In file included from ../include/iptables.h:4:0,
-> > >                  from m_ipt.c:18:
-> > > ../include/iptables_common.h:47:16: error: unknown type name =E2=80=
-=98u_int32_t=E2=80=99
-> > >  #define __le32 u_int32_t
-> > >=20
-> > > Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-> > > Signed-off-by: Baruch Siach <baruch@tkos.co.il>
-> > > ---
-> > >  include/iptables_common.h | 2 ++
-> > >  1 file changed, 2 insertions(+)
-> > >=20
-> > > diff --git a/include/iptables_common.h b/include/iptables_common.h
-> > > index 9099667ffa6d..2c27a4b61fcd 100644
-> > > --- a/include/iptables_common.h
-> > > +++ b/include/iptables_common.h
-> > > @@ -43,6 +43,8 @@ extern char *lib_dir;
-> > >    extern void init_extensions(void);
-> > >  #endif
-> > > =20
-> > > +#include <sys/types.h>
-> > > +
-> > >  #define __be32	u_int32_t
-> > >  #define __le32	u_int32_t
-> > >  #define __be16	u_int16_t =20
-> >=20
-> > This include file comes from netfilter, so not going to change it in ip=
-route2 repo. =20
->=20
-> It turns out that this headers is unused since commit 5cd1adba79d33644 (U=
-pdate=20
-> to current iptables headers). So this patch is no longer needed.
->=20
-> iptables dropped this file in commit a3732db1280 (Moves all declarations =
-in=20
-> iptables_common.h to xtables.h).
->=20
-> baruch
->=20
+Omit an extra message for a memory allocation failure in this function.
 
-Ok removed the file
+This issue was detected by using the Coccinelle software.
+
+Link: http://events.linuxfoundation.org/sites/events/files/slides/LCJ16-Refactor_Strings-WSang_0.pdf
+Signed-off-by: Markus Elfring <elfring-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+---
+ net/sunrpc/xprtrdma/backchannel.c | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
+
+diff --git a/net/sunrpc/xprtrdma/backchannel.c b/net/sunrpc/xprtrdma/backchannel.c
+index 24fedd4b117e..03f6b5840764 100644
+--- a/net/sunrpc/xprtrdma/backchannel.c
++++ b/net/sunrpc/xprtrdma/backchannel.c
+@@ -119,11 +119,9 @@ int xprt_rdma_bc_setup(struct rpc_xprt *xprt, unsigned int reqs)
+ 
+ 	for (i = 0; i < (reqs << 1); i++) {
+ 		rqst = kzalloc(sizeof(*rqst), GFP_KERNEL);
+-		if (!rqst) {
+-			pr_err("RPC:       %s: Failed to create bc rpc_rqst\n",
+-			       __func__);
++		if (!rqst)
+ 			goto out_free;
+-		}
++
+ 		dprintk("RPC:       %s: new rqst %p\n", __func__, rqst);
+ 
+ 		rqst->rq_xprt = &r_xprt->rx_xprt;
+-- 
+2.13.0
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
