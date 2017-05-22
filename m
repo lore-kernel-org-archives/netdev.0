@@ -1,92 +1,97 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: [PATCH 3/3] net: pktgen: Adjust five checks for null pointers
-Date: Mon, 22 May 2017 11:14:37 +0200
-Message-ID: <9cbf8dea-1a36-9388-af71-9c07d788d0af@users.sourceforge.net>
-References: <79472009-7764-bb92-5f29-60bb21793cec@users.sourceforge.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-        kernel-janitors@vger.kernel.org
-To: netdev@vger.kernel.org, Alexey Dobriyan <adobriyan@gmail.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Eric Dumazet <edumazet@google.com>,
-        Florian Westphal <fw@strlen.de>,
-        =?UTF-8?B?R8O8bnRlciBSw7Zjaw==?= <linux@roeck-us.net>,
-        John Fastabend <john.fastabend@gmail.com>,
-        Paolo Abeni <pabeni@redhat.com>,
-        Willem de Bruijn <willemb@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <79472009-7764-bb92-5f29-60bb21793cec@users.sourceforge.net>
-Content-Language: en-GB
-Sender: linux-kernel-owner@vger.kernel.org
+From: Quentin Schulz <quentin.schulz-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+Subject: [PATCH] net: fec: add post PHY reset delay DT property
+Date: Mon, 22 May 2017 11:15:17 +0200
+Message-ID: <20170522091517.6857-1-quentin.schulz@free-electrons.com>
+Cc: Quentin Schulz <quentin.schulz-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org
+To: fugang.duan-3arQi8VN3Tc@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Mon, 22 May 2017 10:44:16 +0200
-MIME-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
+Some PHY require to wait for a bit after the reset GPIO has been
+toggled. This adds support for the DT property `phy-reset-post-delay`
+which gives the delay in milliseconds to wait after reset.
 
-The script “checkpatch.pl” pointed information out like the following.
+If the DT property is not given, no delay is observed. Post reset delay
+greater than 1000ms are invalid and are default to 1ms.
 
-Comparison to NULL could be written !…
-
-Thus fix the affected source code places.
-
-Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+Signed-off-by: Quentin Schulz <quentin.schulz-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
 ---
- net/core/pktgen.c | 10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
+ Documentation/devicetree/bindings/net/fsl-fec.txt |  5 +++++
+ drivers/net/ethernet/freescale/fec_main.c         | 17 +++++++++++++++--
+ 2 files changed, 20 insertions(+), 2 deletions(-)
 
-diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-index 51008ddc7af6..a28350c9ac67 100644
---- a/net/core/pktgen.c
-+++ b/net/core/pktgen.c
-@@ -1986,7 +1986,7 @@ static void pktgen_mark_device(const struct pktgen_net *pn, const char *ifname)
- 	while (1) {
+diff --git a/Documentation/devicetree/bindings/net/fsl-fec.txt b/Documentation/devicetree/bindings/net/fsl-fec.txt
+index a1e3693cca16..8795e8ca5793 100644
+--- a/Documentation/devicetree/bindings/net/fsl-fec.txt
++++ b/Documentation/devicetree/bindings/net/fsl-fec.txt
+@@ -15,6 +15,11 @@ Optional properties:
+ - phy-reset-active-high : If present then the reset sequence using the GPIO
+   specified in the "phy-reset-gpios" property is reversed (H=reset state,
+   L=operation state).
++- phy-reset-post-delay : Post reset delay in milliseconds. If present then
++  a delay of phy-reset-post-delay milliseconds will be observed after the
++  phy-reset-gpios has been toggled. Can be omitted thus no delay is
++  observed. Delay is in range of 1ms to 1000ms. If given delay is higher
++  than 1000ms, 1ms delay is done instead.
+ - phy-supply : regulator that powers the Ethernet PHY.
+ - phy-handle : phandle to the PHY device connected to this device.
+ - fixed-link : Assume a fixed link. See fixed-link.txt in the same directory.
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+index 56a563f90b0b..00a7fd0bcd59 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -3192,7 +3192,7 @@ static int fec_reset_phy(struct platform_device *pdev)
+ {
+ 	int err, phy_reset;
+ 	bool active_high = false;
+-	int msec = 1;
++	int msec = 1, phy_post_delay = 0;
+ 	struct device_node *np = pdev->dev.of_node;
  
- 		pkt_dev = __pktgen_NN_threads(pn, ifname, REMOVE);
--		if (pkt_dev == NULL)
-+		if (!pkt_dev)
- 			break;	/* success */
+ 	if (!np)
+@@ -3210,7 +3210,6 @@ static int fec_reset_phy(struct platform_device *pdev)
+ 		return 0;
  
- 		mutex_unlock(&pktgen_thread_lock);
-@@ -3274,7 +3274,7 @@ static struct pktgen_dev *next_to_run(struct pktgen_thread *t)
- 	list_for_each_entry_rcu(pkt_dev, &t->if_list, list) {
- 		if (!pkt_dev->running)
- 			continue;
--		if (best == NULL)
-+		if (!best)
- 			best = pkt_dev;
- 		else if (ktime_compare(pkt_dev->next_tx, best->next_tx) < 0)
- 			best = pkt_dev;
-@@ -3402,7 +3402,7 @@ static void pktgen_xmit(struct pktgen_dev *pkt_dev)
- 		kfree_skb(pkt_dev->skb);
- 
- 		pkt_dev->skb = fill_packet(odev, pkt_dev);
--		if (pkt_dev->skb == NULL) {
-+		if (!pkt_dev->skb) {
- 			pr_err("ERROR: couldn't allocate skb in fill_packet\n");
- 			schedule();
- 			pkt_dev->clone_count--;	/* back out increment, OOM */
-@@ -3685,7 +3685,7 @@ static int pktgen_add_device(struct pktgen_thread *t, const char *ifname)
- 	strcpy(pkt_dev->odevname, ifname);
- 	pkt_dev->flows = vzalloc_node(MAX_CFLOWS * sizeof(struct flow_state),
- 				      node);
--	if (pkt_dev->flows == NULL) {
-+	if (!pkt_dev->flows) {
- 		kfree(pkt_dev);
- 		return -ENOMEM;
+ 	active_high = of_property_read_bool(np, "phy-reset-active-high");
+-
+ 	err = devm_gpio_request_one(&pdev->dev, phy_reset,
+ 			active_high ? GPIOF_OUT_INIT_HIGH : GPIOF_OUT_INIT_LOW,
+ 			"phy-reset");
+@@ -3219,6 +3218,11 @@ static int fec_reset_phy(struct platform_device *pdev)
+ 		return err;
  	}
-@@ -3868,7 +3868,7 @@ static int __net_init pg_net_init(struct net *net)
- 		return -ENODEV;
- 	}
- 	pe = proc_create(PGCTRL, 0600, pn->proc_dir, &pktgen_fops);
--	if (pe == NULL) {
-+	if (!pe) {
- 		pr_err("cannot create %s procfs entry\n", PGCTRL);
- 		ret = -EINVAL;
- 		goto remove;
+ 
++	err = of_property_read_u32(np, "phy-reset-post-delay", &phy_post_delay);
++	/* valid reset duration should be less than 1s */
++	if (!err && phy_post_delay > 1000)
++		phy_post_delay = 1;
++
+ 	if (msec > 20)
+ 		msleep(msec);
+ 	else
+@@ -3226,6 +3230,15 @@ static int fec_reset_phy(struct platform_device *pdev)
+ 
+ 	gpio_set_value_cansleep(phy_reset, !active_high);
+ 
++	if (!phy_post_delay)
++		return 0;
++
++	if (phy_post_delay > 20)
++		msleep(phy_post_delay);
++	else
++		usleep_range(phy_post_delay * 1000,
++			     phy_post_delay * 1000 + 1000);
++
+ 	return 0;
+ }
+ #else /* CONFIG_OF */
 -- 
-2.13.0
+2.11.0
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
