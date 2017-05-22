@@ -1,7 +1,8 @@
 From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: [PATCH 1/3] net: pktgen: Improve four size determinations
-Date: Mon, 22 May 2017 11:12:55 +0200
-Message-ID: <08d6e27c-dcc3-5e24-7ec9-ba1587309658@users.sourceforge.net>
+Subject: [PATCH 2/3] net: pktgen: Delete an error message for a failed memory
+ allocation in pktgen_create_thread()
+Date: Mon, 22 May 2017 11:13:49 +0200
+Message-ID: <19b7151b-ce0d-54a9-c079-4d17c31c2339@users.sourceforge.net>
 References: <79472009-7764-bb92-5f29-60bb21793cec@users.sourceforge.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
@@ -16,55 +17,41 @@ To: netdev@vger.kernel.org, Alexey Dobriyan <adobriyan@gmail.com>,
         John Fastabend <john.fastabend@gmail.com>,
         Paolo Abeni <pabeni@redhat.com>,
         Willem de Bruijn <willemb@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.web.de ([212.227.15.3]:50715 "EHLO mout.web.de"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1757781AbdEVJOv (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 22 May 2017 05:14:51 -0400
 In-Reply-To: <79472009-7764-bb92-5f29-60bb21793cec@users.sourceforge.net>
 Content-Language: en-GB
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Mon, 22 May 2017 10:34:11 +0200
+Date: Mon, 22 May 2017 10:38:46 +0200
 
-Replace the specification of four data structures by pointer dereferences
-as the parameter for the operator "sizeof" to make the corresponding size
-determination a bit safer according to the Linux coding style convention.
+Omit an extra message for a memory allocation failure in this function.
 
+This issue was detected by using the Coccinelle software.
+
+Link: http://events.linuxfoundation.org/sites/events/files/slides/LCJ16-Refactor_Strings-WSang_0.pdf
 Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
 ---
- net/core/pktgen.c | 9 ++++-----
- 1 file changed, 4 insertions(+), 5 deletions(-)
+ net/core/pktgen.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
 
 diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-index 96947f5d41e4..c89f4ad21187 100644
+index c89f4ad21187..51008ddc7af6 100644
 --- a/net/core/pktgen.c
 +++ b/net/core/pktgen.c
-@@ -2995,10 +2995,10 @@ static struct sk_buff *fill_packet_ipv6(struct net_device *odev,
+@@ -3760,7 +3760,5 @@ static int __net_init pktgen_create_thread(int cpu, struct pktgen_net *pn)
+-	if (!t) {
+-		pr_err("ERROR: out of memory, can't create new thread\n");
++	if (!t)
+ 		return -ENOMEM;
+-	}
  
- 	skb_reset_mac_header(skb);
- 	skb_set_network_header(skb, skb->len);
--	iph = (struct ipv6hdr *) skb_put(skb, sizeof(struct ipv6hdr));
-+	iph = (struct ipv6hdr *)skb_put(skb, sizeof(*iph));
- 
- 	skb_set_transport_header(skb, skb->len);
--	udph = (struct udphdr *) skb_put(skb, sizeof(struct udphdr));
-+	udph = (struct udphdr *)skb_put(skb, sizeof(*udph));
- 	skb_set_queue_mapping(skb, queue_map);
- 	skb->priority = pkt_dev->skb_priority;
- 
-@@ -3678,5 +3678,5 @@ static int pktgen_add_device(struct pktgen_thread *t, const char *ifname)
- 		return -EBUSY;
- 	}
- 
--	pkt_dev = kzalloc_node(sizeof(struct pktgen_dev), GFP_KERNEL, node);
-+	pkt_dev = kzalloc_node(sizeof(*pkt_dev), GFP_KERNEL, node);
- 	if (!pkt_dev)
-@@ -3756,6 +3756,5 @@ static int __net_init pktgen_create_thread(int cpu, struct pktgen_net *pn)
- 	struct proc_dir_entry *pe;
- 	struct task_struct *p;
- 
--	t = kzalloc_node(sizeof(struct pktgen_thread), GFP_KERNEL,
--			 cpu_to_node(cpu));
-+	t = kzalloc_node(sizeof(*t), GFP_KERNEL, cpu_to_node(cpu));
- 	if (!t) {
+ 	mutex_init(&t->if_lock);
+ 	t->cpu = cpu;
 -- 
 2.13.0
