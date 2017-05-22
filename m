@@ -1,92 +1,56 @@
-From: Romain Perier <romain.perier@collabora.com>
-Subject: [PATCH v9 13/15] scsi: mvsas: Replace PCI pool old API
-Date: Mon, 22 May 2017 18:49:05 +0200
-Message-ID: <20170522164907.22915-14-romain.perier@collabora.com>
-References: <20170522164907.22915-1-romain.perier@collabora.com>
-Cc: linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
-        linux-usb@vger.kernel.org, linux-scsi@vger.kernel.org,
-        linux-kernel@vger.kernel.org,
-        Romain Perier <romain.perier@collabora.com>,
-        Peter Senna Tschudin <peter.senna@collabora.co.uk>
-To: Dan Williams <dan.j.williams@intel.com>,
-        Doug Ledford <dledford@redhat.com>,
-        Sean Hefty <sean.hefty@intel.com>,
-        Hal Rosenstock <hal.rosenstock@gmail.com>,
-        jeffrey.t.kirsher@intel.com,
-        "David S. Miller" <davem@davemloft.net>, stas.yakovlev@gmail.com,
-        "James E.J. Bottomley" <jejb@linux.vnet.ibm.com>,
-        "Martin K. Petersen" <martin.petersen@oracle.com>,
-        Felipe Balbi <balbi@kernel.org>,
-        Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170522164907.22915-1-romain.perier@collabora.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eric Garver <e@erig.me>
+Subject: Re: [PATCH net-next] geneve: always fill CSUM6_RX configuration
+Date: Mon, 22 May 2017 12:50:46 -0400
+Message-ID: <20170522165046.GQ9969@rhel7>
+References: <20170518195956.12686-1-e@erig.me>
+ <CAOrHB_CKLgriV3XjG1fBHvyB9GQQ3GXOT8+ggmtLXFz3cvj56Q@mail.gmail.com>
+ <20170520133503.GM9969@rhel7>
+ <CAOrHB_BnX9P9ONLvZcBj+M2_ZbOyGqtu+nYNuP5XBtJc2yUfMw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Pravin Shelar <pshelar@ovn.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:59316 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1758272AbdEVQuy (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 22 May 2017 12:50:54 -0400
+Content-Disposition: inline
+In-Reply-To: <CAOrHB_BnX9P9ONLvZcBj+M2_ZbOyGqtu+nYNuP5XBtJc2yUfMw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The PCI pool API is deprecated. This commit replaces the PCI pool old
-API by the appropriate function with the DMA pool API.
+On Sat, May 20, 2017 at 09:56:44PM -0700, Pravin Shelar wrote:
+> On Sat, May 20, 2017 at 6:35 AM, Eric Garver <e@erig.me> wrote:
+> > On Fri, May 19, 2017 at 06:57:46PM -0700, Pravin Shelar wrote:
+> >> On Thu, May 18, 2017 at 12:59 PM, Eric Garver <e@erig.me> wrote:
+> >> > CSMU6_RX is relevant for collect_metadata as well. As such leave it
+> >> > outside of the dev's IPv4/IPv6 checks.
+> >> >
+> >> Can you explain it bit? is this flag used with ipv4 tunnels?
+> >
+> > It's used with collect_metadata as both ipv4 and ipv6 sockets will be
+> > created.
+> >
+> > openvswitch recently gained support for creating tunnels with rtnetlink.
+> > It sets COLLECT_METADATA and CSUM6_RX. After create, it does a get to
+> > verify the device got created with all the requested configuration. The
+> > verify was failing due to CSUM6_RX not being returned.
+> >
+> > Since ip_tunnel_info_af() defaults to returning AF_INET, we fall into
+> > the IPv4 case and CSUM6_RX is never returned. Other relevant areas that
+> > call ip_tunnel_info_af() do so using the info from the skb, not the
+> > geneve_dev.
+> >
+> ok.
+> I think ip_tunnel_info_af() check is not right. it does not work in
+> case of collect_metadata.
+> Better fix would be check for genene->sock4 and genene->sock6 and
+> build the netlink skb accordingly.
 
-Signed-off-by: Romain Perier <romain.perier@collabora.com>
-Reviewed-by: Peter Senna Tschudin <peter.senna@collabora.com>
----
- drivers/scsi/mvsas/mv_init.c | 6 +++---
- drivers/scsi/mvsas/mv_sas.c  | 6 +++---
- 2 files changed, 6 insertions(+), 6 deletions(-)
+Agreed. That's a better idea.
 
-diff --git a/drivers/scsi/mvsas/mv_init.c b/drivers/scsi/mvsas/mv_init.c
-index 4e047b5001a6..1d53410334cc 100644
---- a/drivers/scsi/mvsas/mv_init.c
-+++ b/drivers/scsi/mvsas/mv_init.c
-@@ -125,8 +125,7 @@ static void mvs_free(struct mvs_info *mvi)
- 	else
- 		slot_nr = MVS_CHIP_SLOT_SZ;
- 
--	if (mvi->dma_pool)
--		pci_pool_destroy(mvi->dma_pool);
-+	dma_pool_destroy(mvi->dma_pool);
- 
- 	if (mvi->tx)
- 		dma_free_coherent(mvi->dev,
-@@ -296,7 +295,8 @@ static int mvs_alloc(struct mvs_info *mvi, struct Scsi_Host *shost)
- 		goto err_out;
- 
- 	sprintf(pool_name, "%s%d", "mvs_dma_pool", mvi->id);
--	mvi->dma_pool = pci_pool_create(pool_name, mvi->pdev, MVS_SLOT_BUF_SZ, 16, 0);
-+	mvi->dma_pool = dma_pool_create(pool_name, &mvi->pdev->dev,
-+					MVS_SLOT_BUF_SZ, 16, 0);
- 	if (!mvi->dma_pool) {
- 			printk(KERN_DEBUG "failed to create dma pool %s.\n", pool_name);
- 			goto err_out;
-diff --git a/drivers/scsi/mvsas/mv_sas.c b/drivers/scsi/mvsas/mv_sas.c
-index c7cc8035eacb..ee81d10252e0 100644
---- a/drivers/scsi/mvsas/mv_sas.c
-+++ b/drivers/scsi/mvsas/mv_sas.c
-@@ -790,7 +790,7 @@ static int mvs_task_prep(struct sas_task *task, struct mvs_info *mvi, int is_tmf
- 	slot->n_elem = n_elem;
- 	slot->slot_tag = tag;
- 
--	slot->buf = pci_pool_alloc(mvi->dma_pool, GFP_ATOMIC, &slot->buf_dma);
-+	slot->buf = dma_pool_alloc(mvi->dma_pool, GFP_ATOMIC, &slot->buf_dma);
- 	if (!slot->buf) {
- 		rc = -ENOMEM;
- 		goto err_out_tag;
-@@ -840,7 +840,7 @@ static int mvs_task_prep(struct sas_task *task, struct mvs_info *mvi, int is_tmf
- 	return rc;
- 
- err_out_slot_buf:
--	pci_pool_free(mvi->dma_pool, slot->buf, slot->buf_dma);
-+	dma_pool_free(mvi->dma_pool, slot->buf, slot->buf_dma);
- err_out_tag:
- 	mvs_tag_free(mvi, tag);
- err_out:
-@@ -918,7 +918,7 @@ static void mvs_slot_task_free(struct mvs_info *mvi, struct sas_task *task,
- 	}
- 
- 	if (slot->buf) {
--		pci_pool_free(mvi->dma_pool, slot->buf, slot->buf_dma);
-+		dma_pool_free(mvi->dma_pool, slot->buf, slot->buf_dma);
- 		slot->buf = NULL;
- 	}
- 	list_del_init(&slot->entry);
--- 
-2.11.0
+Lets drop this patch. I'll work on one to look at the actual sockets
+instead.
+
+Thanks Pravin.
