@@ -1,51 +1,52 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC V1 1/1] net: cdc_ncm: Reduce memory use when kernel
- memory low
-Date: Mon, 22 May 2017 11:54:26 -0400 (EDT)
-Message-ID: <20170522.115426.1239443379414364630.davem@davemloft.net>
-References: <87shk4fynp.fsf@miraculix.mork.no>
-        <20170517.141819.1307166900606639947.davem@davemloft.net>
-        <04bc5b49-9282-a6ca-2b95-fb8fc9750555@mentor.com>
+Subject: Re: [PATCH net] ipv6: fix out of bound writes in
+ __ip6_append_data()
+Date: Mon, 22 May 2017 11:48:34 -0400 (EDT)
+Message-ID: <20170522.114834.59066499542253617.davem@davemloft.net>
+References: <CANn89iJ4GJfrJvdzpMesGkUvYzJfUnMwbyPOzDxZdQDAJbkptg@mail.gmail.com>
+        <CAAeHK+xGCjM8oDCZcNXbaZZNqenREi4DUgHM5=Ab7GKrVEmO4Q@mail.gmail.com>
+        <1495228668.6465.44.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: bjorn@mork.no, linux-usb@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, oliver@neukum.org
-To: jim_baxter@mentor.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <04bc5b49-9282-a6ca-2b95-fb8fc9750555@mentor.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: andreyknvl@google.com, edumazet@google.com, idaifish@gmail.com,
+        netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:53488 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752864AbdEVPtl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 22 May 2017 11:49:41 -0400
+In-Reply-To: <1495228668.6465.44.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Baxter, Jim" <jim_baxter@mentor.com>
-Date: Mon, 22 May 2017 16:45:42 +0100
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 19 May 2017 14:17:48 -0700
 
-> From: David S. Miller (davem@davemloft.net)
-> Sent: Wed, 17 May 2017 14:18:19 -0400 
+> From: Eric Dumazet <edumazet@google.com>
 > 
->> 
->> When there isn't memory pressure this will hurt performance of
->> course.
->> 
->> It is a quite common paradigm to back down to 0 order memory requests
->> when higher order ones fail, so this isn't such a bad change from the
->> perspective.
->> 
->> However, one negative about it is that when the system is under memory
->> stress it doesn't help at all to keep attemping high order allocations
->> when the system hasn't recovered yet.  In fact, this can make it
->> worse.
->> 
+> Andrey Konovalov and idaifish@gmail.com reported crashes caused by
+> one skb shared_info being overwritten from __ip6_append_data()
 > 
-> Do you think the patch should be modified to extend the length of time
-> the 0 order memory requests with a time period of 1 minute for example?
+> Andrey program lead to following state :
 > 
-> Or do you feel the patch is not the correct way this should be performed?
+> copy -4200 datalen 2000 fraglen 2040 
+> maxfraglen 2040 alloclen 2048 transhdrlen 0 offset 0 fraggap 6200
+> 
+> The skb_copy_and_csum_bits(skb_prev, maxfraglen, data + transhdrlen,
+> fraggap, 0); is overwriting skb->head and skb_shared_info
+> 
+> Since we apparently detect this rare condition too late, move the
+> code earlier to even avoid allocating skb and risking crashes.
+> 
+> Once again, many thanks to Andrey and syzkaller team.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Reported-by: Andrey Konovalov <andreyknvl@google.com>
+> Tested-by: Andrey Konovalov <andreyknvl@google.com>
+> Reported-by: <idaifish@gmail.com>
 
-Unfortunately without a real notifier of some sort (there isn't one, and
-it isn't actually easy to come up with a clean way to do this which is
-probably why it doesn't exist yet in the first place) I really cannot
-recommend anything better.
+Looks good, applied and queued up for -stable.
 
-That being said, probably for the time being we should just backoff each
-and every request, always trying initially to do the higher order thing.
+Thanks Eric.
