@@ -1,143 +1,124 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next v2 06/13] nfp: disallow mixing vNICs with and without NSP port entry
-Date: Mon, 22 May 2017 10:59:27 -0700
-Message-ID: <20170522175934.27447-7-jakub.kicinski@netronome.com>
+Subject: [PATCH net-next v2 08/13] nfp: update port state in place
+Date: Mon, 22 May 2017 10:59:29 -0700
+Message-ID: <20170522175934.27447-9-jakub.kicinski@netronome.com>
 References: <20170522175934.27447-1-jakub.kicinski@netronome.com>
 Cc: oss-drivers@netronome.com,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f172.google.com ([209.85.192.172]:36443 "EHLO
-        mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1760915AbdEVSBI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 22 May 2017 14:01:08 -0400
-Received: by mail-pf0-f172.google.com with SMTP id m17so89350199pfg.3
-        for <netdev@vger.kernel.org>; Mon, 22 May 2017 11:01:08 -0700 (PDT)
+Received: from mail-pf0-f169.google.com ([209.85.192.169]:36451 "EHLO
+        mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1760925AbdEVSBO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 22 May 2017 14:01:14 -0400
+Received: by mail-pf0-f169.google.com with SMTP id m17so89350617pfg.3
+        for <netdev@vger.kernel.org>; Mon, 22 May 2017 11:01:09 -0700 (PDT)
 In-Reply-To: <20170522175934.27447-1-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We only support core NIC apps which have vNICs for each physical port/
-split and no representors right now.  Enforce that either each vNIC has
-a NSP eth_table entry or if NSP port table is not available none do.
-
-One scenario this will prevent from happening is user force-loading
-wrong firmware file if FW app requires different firmwares per media
-config.
-
-While at it move some code to nfp_net_pf_alloc_vnic() to make it
-counter-match nfp_net_pf_free_vnic() better.
+Always updating port state in place by overriding values in exiting
+pf->eth_tbl makes things easier to manage and allows us to have a
+common helper for both full and per-port refresh.
 
 Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 Reviewed-by: Simon Horman <simon.horman@netronome.com>
 ---
- drivers/net/ethernet/netronome/nfp/nfp_net_main.c | 52 ++++++++++++++---------
- 1 file changed, 32 insertions(+), 20 deletions(-)
+ drivers/net/ethernet/netronome/nfp/nfp_net_main.c | 54 +++++++++++++----------
+ 1 file changed, 30 insertions(+), 24 deletions(-)
 
 diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_main.c b/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
-index 1281e9019e92..8f267b1534e2 100644
+index 8e1e55187262..92037e3624ad 100644
 --- a/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
 +++ b/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
-@@ -289,7 +289,7 @@ static struct nfp_net *
- nfp_net_pf_alloc_vnic(struct nfp_pf *pf, void __iomem *ctrl_bar,
- 		      void __iomem *tx_bar, void __iomem *rx_bar,
- 		      int stride, struct nfp_net_fw_version *fw_ver,
--		      struct nfp_eth_table_port *eth_port)
-+		      unsigned int eth_id)
- {
- 	u32 n_tx_rings, n_rx_rings;
- 	struct nfp_net *nn;
-@@ -310,7 +310,10 @@ nfp_net_pf_alloc_vnic(struct nfp_pf *pf, void __iomem *ctrl_bar,
- 	nn->dp.is_vf = 0;
- 	nn->stride_rx = stride;
- 	nn->stride_tx = stride;
--	nn->eth_port = eth_port;
-+	nn->eth_port = nfp_net_find_port(pf->eth_tbl, eth_id);
-+
-+	pf->num_vnics++;
-+	list_add_tail(&nn->vnic_list, &pf->vnics);
- 
- 	return nn;
+@@ -518,6 +518,30 @@ static void nfp_net_pci_remove_finish(struct nfp_pf *pf)
+ 	nfp_cpp_area_release_free(pf->data_vnic_bar);
  }
-@@ -346,11 +349,16 @@ nfp_net_pf_alloc_vnics(struct nfp_pf *pf, void __iomem *ctrl_bar,
- 		       int stride, struct nfp_net_fw_version *fw_ver)
- {
- 	u32 prev_tx_base, prev_rx_base, tgt_tx_base, tgt_rx_base;
--	struct nfp_eth_table_port *eth_port;
- 	struct nfp_net *nn;
- 	unsigned int i;
- 	int err;
  
-+	if (pf->eth_tbl && pf->max_data_vnics != pf->eth_tbl->count) {
-+		nfp_err(pf->cpp, "ETH entries don't match vNICs (%d vs %d)\n",
-+			pf->max_data_vnics, pf->eth_tbl->count);
-+		return -EINVAL;
++static int
++nfp_net_eth_port_update(struct nfp_cpp *cpp, struct nfp_port *port,
++			struct nfp_eth_table *eth_table)
++{
++	struct nfp_eth_table_port *eth_port;
++
++	ASSERT_RTNL();
++
++	eth_port = nfp_net_find_port(eth_table, port->eth_id);
++	if (!eth_port) {
++		nfp_warn(cpp, "Warning: port #%d not present after reconfig\n",
++			 port->eth_id);
++		return -EIO;
++	}
++	if (eth_port->override_changed) {
++		nfp_warn(cpp, "Port #%d config changed, unregistering. Reboot required before port will be operational again.\n", port->eth_id);
++		port->type = NFP_PORT_INVALID;
 +	}
 +
- 	prev_tx_base = readl(ctrl_bar + NFP_NET_CFG_START_TXQ);
- 	prev_rx_base = readl(ctrl_bar + NFP_NET_CFG_START_RXQ);
- 
-@@ -362,21 +370,26 @@ nfp_net_pf_alloc_vnics(struct nfp_pf *pf, void __iomem *ctrl_bar,
- 		prev_tx_base = tgt_tx_base;
- 		prev_rx_base = tgt_rx_base;
- 
--		eth_port = nfp_net_find_port(pf->eth_tbl, i);
--		if (eth_port && eth_port->override_changed) {
--			nfp_warn(pf->cpp, "Config changed for port #%d, reboot required before port will be operational\n", i);
--		} else {
--			nn = nfp_net_pf_alloc_vnic(pf, ctrl_bar, tx_bar, rx_bar,
--						   stride, fw_ver, eth_port);
--			if (IS_ERR(nn)) {
--				err = PTR_ERR(nn);
--				goto err_free_prev;
--			}
--			list_add_tail(&nn->vnic_list, &pf->vnics);
--			pf->num_vnics++;
-+		nn = nfp_net_pf_alloc_vnic(pf, ctrl_bar, tx_bar, rx_bar,
-+					   stride, fw_ver, i);
-+		if (IS_ERR(nn)) {
-+			err = PTR_ERR(nn);
-+			goto err_free_prev;
- 		}
- 
- 		ctrl_bar += NFP_PF_CSR_SLICE_SIZE;
++	memcpy(port->eth_port, eth_port, sizeof(*eth_port));
 +
-+		/* Check if vNIC has external port associated and cfg is OK */
-+		if (pf->eth_tbl && !nn->eth_port) {
-+			nfp_err(pf->cpp, "NSP port entries don't match vNICs (no entry for port #%d)\n", i);
-+			err = -EINVAL;
-+			goto err_free_prev;
-+		}
-+		if (nn->eth_port && nn->eth_port->override_changed) {
-+			nfp_warn(pf->cpp, "Config changed for port #%d, reboot required before port will be operational\n", i);
-+			nfp_net_pf_free_vnic(pf, nn);
-+			continue;
-+		}
- 	}
- 
- 	if (list_empty(&pf->vnics))
-@@ -517,6 +530,9 @@ static void nfp_net_refresh_vnics(struct work_struct *work)
++	return 0;
++}
++
+ static void nfp_net_refresh_vnics(struct work_struct *work)
+ {
+ 	struct nfp_pf *pf = container_of(work, struct nfp_pf,
+@@ -544,23 +568,12 @@ static void nfp_net_refresh_vnics(struct work_struct *work)
+ 	list_for_each_entry(nn, &pf->vnics, vnic_list) {
+ 		if (!__nfp_port_get_eth_port(nn->port))
  			continue;
- 		nn->eth_port = nfp_net_find_port(eth_table,
- 						 nn->eth_port->eth_index);
-+		if (!nn->eth_port)
-+			nfp_err(pf->cpp,
-+				"Warning: port disappeared after reconfig\n");
+-		nn->port->eth_port = nfp_net_find_port(eth_table,
+-						       nn->port->eth_id);
+-		if (!nn->port->eth_port) {
+-			nfp_warn(pf->cpp, "Warning: port #%d not present after reconfig\n",
+-				 nn->port->eth_id);
+-			continue;
+-		}
+-		if (nn->port->eth_port->override_changed) {
+-			nfp_warn(pf->cpp, "Port config changed, unregistering. Reboot required before port will be operational again.\n");
+-			nn->port->type = NFP_PORT_INVALID;
+-			continue;
+-		}
++
++		nfp_net_eth_port_update(pf->cpp, nn->port, eth_table);
  	}
  	rtnl_unlock();
  
-@@ -524,11 +540,7 @@ static void nfp_net_refresh_vnics(struct work_struct *work)
- 	pf->eth_tbl = eth_table;
+-	kfree(pf->eth_tbl);
+-	pf->eth_tbl = eth_table;
++	kfree(eth_table);
  
  	list_for_each_entry_safe(nn, next, &pf->vnics, vnic_list) {
--		if (!nn->eth_port) {
--			nfp_warn(pf->cpp, "Warning: port not present after reconfig\n");
--			continue;
--		}
--		if (!nn->eth_port->override_changed)
-+		if (nn->eth_port && !nn->eth_port->override_changed)
- 			continue;
+ 		if (!nn->port || nn->port->type != NFP_PORT_INVALID)
+@@ -588,8 +601,8 @@ void nfp_net_refresh_port_table(struct nfp_port *port)
+ int nfp_net_refresh_eth_port(struct nfp_port *port)
+ {
+ 	struct nfp_cpp *cpp = port->app->cpp;
+-	struct nfp_eth_table_port *eth_port;
+ 	struct nfp_eth_table *eth_table;
++	int ret;
  
- 		nn_warn(nn, "Port config changed, unregistering. Reboot required before port will be operational again.\n");
+ 	eth_table = nfp_eth_read_ports(cpp);
+ 	if (!eth_table) {
+@@ -597,18 +610,11 @@ int nfp_net_refresh_eth_port(struct nfp_port *port)
+ 		return -EIO;
+ 	}
+ 
+-	eth_port = nfp_net_find_port(eth_table, port->eth_id);
+-	if (!eth_port) {
+-		nfp_err(cpp, "Error finding state of the port!\n");
+-		kfree(eth_table);
+-		return -EIO;
+-	}
+-
+-	memcpy(port->eth_port, eth_port, sizeof(*eth_port));
++	ret = nfp_net_eth_port_update(cpp, port, eth_table);
+ 
+ 	kfree(eth_table);
+ 
+-	return 0;
++	return ret;
+ }
+ 
+ /*
 -- 
 2.11.0
