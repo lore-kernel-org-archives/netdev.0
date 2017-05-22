@@ -1,74 +1,40 @@
-From: <mari.kayhko@uef.fi>
-Subject: (unknown)
-Date: Mon, 22 May 2017 00:57:39 -0000
-Message-ID: <149541465971.15599.11751554971386792851@zaural.ru>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: build failure after merge of the net-next tree
+Date: Mon, 22 May 2017 11:16:05 +1000
+Message-ID: <20170522111605.14f93676@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: application/zip; name="58679201840822.zip"
-Content-Transfer-Encoding: base64
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ws178.zone31-163-160.zaural.ru ([31.163.160.178]:47042 "HELO
-        zaural.ru" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with SMTP
-        id S1757001AbdEVA5o (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 21 May 2017 20:57:44 -0400
-Content-Disposition: attachment
-Subject: 
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Linux-Next Mailing List <linux-next@vger.kernel.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        Miroslav Lichvar <mlichvar@redhat.com>,
+        Willem de Bruijn <willemb@google.com>
+To: David Miller <davem@davemloft.net>,
+        Networking <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-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
+Hi all,
+
+After merging the net-next tree, today's linux-next build (powerpc
+ppc64_defconfig) failed like this:
+
+net/socket.c: In function 'put_ts_pktinfo':
+net/socket.c:695:28: error: 'SCM_TIMESTAMPING_PKTINFO' undeclared (first use in this function)
+  put_cmsg(msg, SOL_SOCKET, SCM_TIMESTAMPING_PKTINFO,
+                            ^
+
+Caused by commit
+
+  aad9c8c470f2 ("net: add new control message for incoming HW-timestamped packets")
+
+This probably broke every architecture that has its own
+arch/<arch>/include/uapi/asm/socket.h that does not include
+include/uapi/asm-generic/socket.h :-(
+
+I have used the net-next tree from next-20170519 for today.
+
+-- 
+Cheers,
+Stephen Rothwell
