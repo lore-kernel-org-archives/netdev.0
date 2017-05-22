@@ -1,52 +1,63 @@
-From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
-Subject: Re: [PATCH] net: fec: add post PHY reset delay DT property
-Date: Mon, 22 May 2017 16:43:01 +0200
-Message-ID: <20170522144301.GE29447@lunn.ch>
-References: <20170522091517.6857-1-quentin.schulz@free-electrons.com>
- <20170522135705.GB29447@lunn.ch>
- <f667da6e-d300-ec79-cc49-3808d9758a99@free-electrons.com>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: [PATCHv4] wlcore: add wl1285 compatible
+Date: Mon, 22 May 2017 17:44:24 +0300
+Message-ID: <87wp99t0hj.fsf@kamboji.qca.qualcomm.com>
+References: <20170505141553.2605-1-sebastian.reichel@collabora.co.uk>
+        <8737bx5jgr.fsf@purkki.adurom.net>
+        <20170522.103010.1779800840743690143.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: fugang.duan-3arQi8VN3Tc@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org
-To: Quentin Schulz <quentin.schulz-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <f667da6e-d300-ec79-cc49-3808d9758a99-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain
+Cc: sebastian.reichel@collabora.co.uk, sre@kernel.org,
+        tony@atomide.com, marcel@holtmann.org, robh+dt@kernel.org,
+        linux-wireless@vger.kernel.org, linux-omap@vger.kernel.org,
+        linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170522.103010.1779800840743690143.davem@davemloft.net> (David
+        Miller's message of "Mon, 22 May 2017 10:30:10 -0400 (EDT)")
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, May 22, 2017 at 04:00:47PM +0200, Quentin Schulz wrote:
-> Hi Andrew
-> 
-> On 22/05/2017 15:57, Andrew Lunn wrote:
-> > On Mon, May 22, 2017 at 11:15:17AM +0200, Quentin Schulz wrote:
-> >> Some PHY require to wait for a bit after the reset GPIO has been
-> >> toggled. This adds support for the DT property `phy-reset-post-delay`
-> >> which gives the delay in milliseconds to wait after reset.
-> >>
-> >> If the DT property is not given, no delay is observed. Post reset delay
-> >> greater than 1000ms are invalid and are default to 1ms.
-> > 
-> > Hi Quentin
-> > 
-> > If it is invalid, please return -EINVAL.
-> > 
-> 
-> Just copying the wording and behavior of phy-reset-duration. Should we
-> then change the behavior of phy-reset-duration as well to return -EINVAL
-> in that case or I just leave both as is?
+David Miller <davem@davemloft.net> writes:
 
-No, you cannot change phy-reset-duration. There could be device tree
-blobs out in the wild with invalid phy-reset-duration which silently
-get converted to 1000ms by the code. You cannot break them.
+> From: Kalle Valo <kvalo@codeaurora.org>
+> Date: Mon, 22 May 2017 12:28:20 +0300
+>
+>> Sebastian Reichel <sebastian.reichel@collabora.co.uk> writes:
+>> 
+>>> Motorola Droid 4 uses a WL1285C. With differences between the
+>>> chips not being public let's add explicit binding for wl1285
+>>> instead of relying on wl1283 being very similar.
+>>>
+>>> Reviewed-by: Rob Herring <robh@kernel.org>
+>>> Acked-by: Kalle Valo <kvalo@codeaurora.org>
+>>> Acked-by: Tony Lindgren <tony@atomide.com>
+>>> Signed-off-by: Sebastian Reichel <sebastian.reichel@collabora.co.uk>
+>>> ---
+>>> Hi Dave,
+>>>
+>>> I previously send this in two patches, but its hard to apply without
+>>> requiring multiple kernel releases (the driver must be updated before
+>>> the DTS change). Since the actual change is not very complex Marcel
+>>> Holtmann & Tony Lindgren suggested, that I send this directly to you
+>>> in a single patch for inclusion into 4.12. This also means, that the
+>>> remaining series can be queued normally for 4.13.
+>> 
+>> I noticed that Dave set this patch to Awaiting Upstream state on his
+>> patchwork:
+>> 
+>> https://patchwork.ozlabs.org/patch/759042/
+>> 
+>> Which makes me suspect that he is waiting me to apply this (as I
+>> normally apply wlcore patches). Dave, should I actually take this patch?
+>> What do you prefer?
+>
+> Anything that touches wireless drivers I defer to you, yes.
 
-However, you can prevent new additions which add invalid
-phy-reset-post-delay.
+Thanks, I'll take it then. Not sure why Sebastian was suggested to
+submit this patch via your tree in the first place.
 
-    Andrew
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+https://patchwork.kernel.org/patch/9713645/
+
+-- 
+Kalle Valo
