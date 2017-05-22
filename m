@@ -1,7 +1,7 @@
 From: Romain Perier <romain.perier-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
-Subject: [PATCH v9 06/15] mlx5: Replace PCI pool old API
-Date: Mon, 22 May 2017 18:48:58 +0200
-Message-ID: <20170522164907.22915-7-romain.perier@collabora.com>
+Subject: [PATCH v9 15/15] PCI: Remove PCI pool macro functions
+Date: Mon, 22 May 2017 18:49:07 +0200
+Message-ID: <20170522164907.22915-16-romain.perier@collabora.com>
 References: <20170522164907.22915-1-romain.perier@collabora.com>
 Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
         linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
@@ -18,89 +18,33 @@ To: Dan Williams <dan.j.williams-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
         "Martin K. Petersen" <martin.petersen-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
         Felipe Balbi <balbi-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
         Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 In-Reply-To: <20170522164907.22915-1-romain.perier-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-The PCI pool API is deprecated. This commit replaces the PCI pool old
-API by the appropriate function with the DMA pool API.
+Now that all the drivers use dma pool API, we can remove the macro
+functions for PCI pool.
 
 Signed-off-by: Romain Perier <romain.perier-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
 Reviewed-by: Peter Senna Tschudin <peter.senna-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
-Acked-by: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Tested-by: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/cmd.c | 11 ++++++-----
- include/linux/mlx5/driver.h                   |  2 +-
- 2 files changed, 7 insertions(+), 6 deletions(-)
+ include/linux/pci.h | 9 ---------
+ 1 file changed, 9 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
-index 5bdaf3d545b2..aae7d9207ff3 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
-@@ -1069,7 +1069,7 @@ static struct mlx5_cmd_mailbox *alloc_cmd_box(struct mlx5_core_dev *dev,
- 	if (!mailbox)
- 		return ERR_PTR(-ENOMEM);
+diff --git a/include/linux/pci.h b/include/linux/pci.h
+index 5026f2ae86db..413511feba61 100644
+--- a/include/linux/pci.h
++++ b/include/linux/pci.h
+@@ -1281,15 +1281,6 @@ int pci_set_vga_state(struct pci_dev *pdev, bool decode,
+ #include <linux/pci-dma.h>
+ #include <linux/dmapool.h>
  
--	mailbox->buf = pci_pool_zalloc(dev->cmd.pool, flags,
-+	mailbox->buf = dma_pool_zalloc(dev->cmd.pool, flags,
- 				       &mailbox->dma);
- 	if (!mailbox->buf) {
- 		mlx5_core_dbg(dev, "failed allocation\n");
-@@ -1084,7 +1084,7 @@ static struct mlx5_cmd_mailbox *alloc_cmd_box(struct mlx5_core_dev *dev,
- static void free_cmd_box(struct mlx5_core_dev *dev,
- 			 struct mlx5_cmd_mailbox *mailbox)
- {
--	pci_pool_free(dev->cmd.pool, mailbox->buf, mailbox->dma);
-+	dma_pool_free(dev->cmd.pool, mailbox->buf, mailbox->dma);
- 	kfree(mailbox);
- }
- 
-@@ -1704,7 +1704,8 @@ int mlx5_cmd_init(struct mlx5_core_dev *dev)
- 		return -EINVAL;
- 	}
- 
--	cmd->pool = pci_pool_create("mlx5_cmd", dev->pdev, size, align, 0);
-+	cmd->pool = dma_pool_create("mlx5_cmd", &dev->pdev->dev, size, align,
-+				    0);
- 	if (!cmd->pool)
- 		return -ENOMEM;
- 
-@@ -1794,7 +1795,7 @@ int mlx5_cmd_init(struct mlx5_core_dev *dev)
- 	free_cmd_page(dev, cmd);
- 
- err_free_pool:
--	pci_pool_destroy(cmd->pool);
-+	dma_pool_destroy(cmd->pool);
- 
- 	return err;
- }
-@@ -1808,6 +1809,6 @@ void mlx5_cmd_cleanup(struct mlx5_core_dev *dev)
- 	destroy_workqueue(cmd->wq);
- 	destroy_msg_cache(dev);
- 	free_cmd_page(dev, cmd);
--	pci_pool_destroy(cmd->pool);
-+	dma_pool_destroy(cmd->pool);
- }
- EXPORT_SYMBOL(mlx5_cmd_cleanup);
-diff --git a/include/linux/mlx5/driver.h b/include/linux/mlx5/driver.h
-index bcdf739ee41a..6b35111a74a1 100644
---- a/include/linux/mlx5/driver.h
-+++ b/include/linux/mlx5/driver.h
-@@ -284,7 +284,7 @@ struct mlx5_cmd {
- 	struct semaphore pages_sem;
- 	int	mode;
- 	struct mlx5_cmd_work_ent *ent_arr[MLX5_MAX_COMMANDS];
--	struct pci_pool *pool;
-+	struct dma_pool *pool;
- 	struct mlx5_cmd_debug dbg;
- 	struct cmd_msg_cache cache[MLX5_NUM_COMMAND_CACHES];
- 	int checksum_disabled;
--- 
-2.11.0
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-#define	pci_pool dma_pool
+-#define pci_pool_create(name, pdev, size, align, allocation) \
+-		dma_pool_create(name, &pdev->dev, size, align, allocation)
+-#define	pci_pool_destroy(pool) dma_pool_destroy(pool)
+-#define	pci_pool_alloc(pool, flags, handle) dma_pool_alloc(pool, flags, handle)
+-#define	pci_pool_zalloc(pool, flags, handle) \
+-		dma_pool_zalloc(pool, flags, handle)
+-#define	pci_pool_free(pool, vaddr, addr) dma_pool_free(pool, vaddr, addr)
