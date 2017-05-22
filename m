@@ -1,48 +1,101 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH] cfg80211: Be able to set bss expire time at config
- stage.
-Date: Mon, 22 May 2017 18:24:14 +0200
-Message-ID: <1495470254.26008.3.camel@sipsolutions.net>
-References: <20170522160946.2057-1-enric.balletbo@collabora.com>
-         <1495470111.25557.9.camel@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] kernel: bpf: remove dead code
+Date: Mon, 22 May 2017 12:27:42 -0400 (EDT)
+Message-ID: <20170522.122742.1326733219925627993.davem@davemloft.net>
+References: <20170522140746.GA10113@embeddedgus>
+        <20170522.103800.1354089494827582585.davem@davemloft.net>
+        <5922FB28.5070303@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Dmitry Shmidt <dimitrysh@google.com>,
-        helmut.schaa@googlemail.com
-To: Dan Williams <dcbw@redhat.com>,
-        Enric Balletbo i Serra <enric.balletbo@collabora.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        linux-wireless@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: garsilva@embeddedor.com, ast@kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: daniel@iogearbox.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1495470111.25557.9.camel@redhat.com>
+In-Reply-To: <5922FB28.5070303@iogearbox.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: Daniel Borkmann <daniel@iogearbox.net>
+Date: Mon, 22 May 2017 16:52:24 +0200
 
-> Couldn't userspace just look at NL80211_BSS_SEEN_MS_AGO to filter and
-> create its own list?  Given that the kernel provides the information
-> userspace needs to figure out the age of a particular BSS, it doesn't
-> seem like there needs to be a kernel tunable for this.  Userspace can
-> already avoid stale results.
-
-Yeah, I agree. It can also ask for a flush, so that old results are
-gone by the time the next scan returns. We don't have a flush operation
-without requesting a new scan, but I guess that could be added.
-
-> Also, different runtime situations might want different result ages,
-> which wouldn't be possible if the kernel had a hardcoded maximum. 
-> Furthermore, different userspace apps might be reading the same scan
-> list, and they might have different ideas about staleness.
+> On 05/22/2017 04:38 PM, David Miller wrote:
+>> From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+>> Date: Mon, 22 May 2017 09:07:46 -0500
+>>
+>>> Execution cannot reach NET_IP_ALIGN inside the following statement:
+>>> ip_align = strict ? 2 : NET_IP_ALIGN
+>>>
+>>> Addresses-Coverity-ID: 1409762
+>>> Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
+>>> ---
+>>> NOTE: variable ip_align could also be removed and use value 2
+>>> directly.
+>>
+>> Incorrect.
+>>
+>> Some platforms define NET_IP_ALIGN to zero, so the code must remain
+>> as is.
 > 
-> Or perhaps I misunderstand the problem, which could well be the case.
+> In the check_pkt_ptr_alignment(), when !strict you would already
+> return earlier from that function.
+> 
+> So, above test in ip_align will always give 2, meaning technically
+> the patch is correct, although hard-coded value less clean.
+> 
+> Perhaps something like the below to keep intentions more clear (and
+> it will get resolved during compile time anyway ...):
 
-No, I think this is perfectly right - userspace should be able to deal
-with this given the tools we gave it, or if not, we should probably
-just give it more tools instead of hardcoding the kernel configuration.
+Ok I understand the issue now.  Thanks for explaining.
 
-This value really just kinda needed to be an upper bound so that we
-don't start expiring entries while we're still scanning.
+I guess a hard-coded value of 2 and an adjusted comment above the
+assignment of ip_align is the way to go.
 
-johannes
+I'll push the following, thanks everyone:
+
+====================
+net: Make IP alignment calulations clearer.
+
+The assignmnet:
+
+	ip_align = strict ? 2 : NET_IP_ALIGN;
+
+in compare_pkt_ptr_alignment() trips up Coverity because we can only
+get to this code when strict is true, therefore ip_align will always
+be 2 regardless of NET_IP_ALIGN's value.
+
+So just assign directly to '2' and explain the situation in the
+comment above.
+
+Reported-by: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ kernel/bpf/verifier.c | 12 ++++++++----
+ 1 file changed, 8 insertions(+), 4 deletions(-)
+
+diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+index 1eddb71..c72cd41 100644
+--- a/kernel/bpf/verifier.c
++++ b/kernel/bpf/verifier.c
+@@ -808,11 +808,15 @@ static int check_pkt_ptr_alignment(const struct bpf_reg_state *reg,
+ 		reg_off += reg->aux_off;
+ 	}
+ 
+-	/* skb->data is NET_IP_ALIGN-ed, but for strict alignment checking
+-	 * we force this to 2 which is universally what architectures use
+-	 * when they don't set CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS.
++	/* For platforms that do not have a Kconfig enabling
++	 * CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS the value of
++	 * NET_IP_ALIGN is universally set to '2'.  And on platforms
++	 * that do set CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS, we get
++	 * to this code only in strict mode where we want to emulate
++	 * the NET_IP_ALIGN==2 checking.  Therefore use an
++	 * unconditional IP align value of '2'.
+ 	 */
+-	ip_align = strict ? 2 : NET_IP_ALIGN;
++	ip_align = 2;
+ 	if ((ip_align + reg_off + off) % size != 0) {
+ 		verbose("misaligned packet access off %d+%d+%d size %d\n",
+ 			ip_align, reg_off, off, size);
+-- 
+2.4.11
