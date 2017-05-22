@@ -1,107 +1,45 @@
-From: "Duyck, Alexander H" <alexander.h.duyck@intel.com>
-Subject: Re: [Intel-wired-lan] [PATCH 0/4] Configuring traffic classes via
- new hardware offload mechanism in tc/mqprio
-Date: Mon, 22 May 2017 16:40:34 +0000
-Message-ID: <1495471231.2562.9.camel@intel.com>
-References: <149524122523.11022.4541073724650541658.stgit@anamdev.jf.intel.com>
-         <CAJ3xEMjTDW7sQ5CFmTyR5xMpin_WFFQg-S8imWMBpXWuS1zvVw@mail.gmail.com>
-         <CAKgT0Ue6tDOE8L4thktyje-erGkVMmtO7zyp0FRgmRPYOppjQA@mail.gmail.com>
-         <CAJ3xEMhtgt4==-GbAWjT8fGMQhoRAzHhFbaVgrfWgJhSaxXr9g@mail.gmail.com>
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Subject: [PATCH 3/5] sctp: Fix a typo in a comment line in sctp_init()
+Date: Mon, 22 May 2017 18:39:29 +0200
+Message-ID: <9dca8ae4-fd7f-d1de-af7b-87b92bf6411a@users.sourceforge.net>
+References: <2845df67-d35d-536a-0a53-b2eb83fe1ba5@users.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>
-To: "gerlitz.or@gmail.com" <gerlitz.or@gmail.com>,
-        "alexander.duyck@gmail.com" <alexander.duyck@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:45562 "EHLO mga01.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S934724AbdEVQkl (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 22 May 2017 12:40:41 -0400
-In-Reply-To: <CAJ3xEMhtgt4==-GbAWjT8fGMQhoRAzHhFbaVgrfWgJhSaxXr9g@mail.gmail.com>
-Content-Language: en-US
-Content-ID: <54792EAA6A13034B85E05BB80D900B81@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: LKML <linux-kernel@vger.kernel.org>,
+        kernel-janitors@vger.kernel.org
+To: linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
+        "David S. Miller" <davem@davemloft.net>,
+        Neil Horman <nhorman@tuxdriver.com>,
+        Vlad Yasevich <vyasevich@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <2845df67-d35d-536a-0a53-b2eb83fe1ba5@users.sourceforge.net>
+Content-Language: en-GB
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-T24gTW9uLCAyMDE3LTA1LTIyIGF0IDA2OjI1ICswMzAwLCBPciBHZXJsaXR6IHdyb3RlOg0KPiBP
-biBNb24sIE1heSAyMiwgMjAxNyBhdCAxOjM1IEFNLCBBbGV4YW5kZXIgRHV5Y2sNCj4gPGFsZXhh
-bmRlci5kdXlja0BnbWFpbC5jb20+IHdyb3RlOg0KPiA+IA0KPiA+IE9uIFNhdCwgTWF5IDIwLCAy
-MDE3IGF0IDI6MTUgUE0sIE9yIEdlcmxpdHogPGdlcmxpdHoub3JAZ21haWwuY29tPiB3cm90ZToN
-Cj4gPiA+IA0KPiA+ID4gT24gU2F0LCBNYXkgMjAsIDIwMTcgYXQgMzo1OCBBTSwgQW1yaXRoYSBO
-YW1iaWFyDQo+ID4gPiA8YW1yaXRoYS5uYW1iaWFyQGludGVsLmNvbT4gd3JvdGU6DQo+ID4gPiA+
-IA0KPiA+ID4gPiBUaGUgZm9sbG93aW5nIHNlcmllcyBpbnRyb2R1Y2VzIGEgbmV3IGhhcndhcmUg
-b2ZmbG9hZCBtb2RlIGluIHRjL21xcHJpbw0KPiA+ID4gDQo+ID4gPiBXYWl0LCB3ZSBoYXZlIGFs
-cmVhZHkgYSBIVyBRb1MgbW9kZWwgaW50cm9kdWNlZCBieSBKb2huIEYgYW5kIENvDQo+ID4gPiBj
-b3VwbGUgb2YgeWVhcnMgYWdvLCAgcmlnaHQ/DQo+ID4gDQo+ID4gSSBhc3N1bWUgeW91IGFyZSBy
-ZWZlcnJpbmcgdG8gdGhlIEVUUyBwb3J0aW9uIG9mIERDQlg/IElmIHNvIHRoZW4geWVzDQo+ID4g
-d2UgaGF2ZSBzb21ldGhpbmcgdGhlcmUsIGJ1dCB0aGVyZSBpcyBhIGZhaXJseSBoaWdoIGxldmVs
-IG9mDQo+ID4gY29tcGxleGl0eSBhbmQgZGVwZW5kZW5jaWVzIGluIG9yZGVyIHRvIGVuYWJsZSB0
-aGF0LiBXaGF0IHdlIGhhdmUgaW4NCj4gPiBtaW5kIGRvZXNuJ3QgcmVhbGx5IGZpdCB3aXRoIERD
-QlggYW5kIHRoZSBwcm9ibGVtIGlzIHRoZSBzcGVjIGNhbGxzDQo+ID4gb3V0IHRoYXQgeW91IHJl
-YWxseSBoYXZlIHRvIGhhdmUgc3VwcG9ydCBmb3IgRENCWCBpbiBvcmRlciB0byBtYWtlIHVzZQ0K
-PiA+IG9mIEVUUy4gV2hhdCB3ZSBhcmUgdHJ5aW5nIHRvIGRvIGhlcmUgaXMgcHJvdmlkZSBhIGxp
-Z2h0d2VpZ2h0IHdheSBvZg0KPiA+IGRvaW5nIHRoaXMgY29uZmlndXJhdGlvbiBzaW1pbGFyIHRv
-IGhvdyBtcXByaW8gd2FzIGFscmVhZHkgcHJvdmlkaW5nIGENCj4gPiBsaWdodHdlaWdodCB3YXkg
-b2YgZW5hYmxpbmcgbXVsdGlwbGUgdHJhZmZpYyBjbGFzc2VzLg0KPiANCj4gVUFQSSB3aXNlLCB3
-ZSBhcmUgdGFsa2luZyBvbiBEQ0IsIG5vdCBEQ0JYLCByaWdodD8gdGhlIFgtcG9ydGlvbiBjb21l
-cw0KPiBpbnRvIHBsYXkgaWYgc29tZSB1c2VyLXNwYWNlIGVudGl0eSBydW4gTExEUCB0cmFmZmlj
-IGFuZCBjYWxscyBpbnRvDQo+IHRoZSBrZXJuZWwgdG8gY29uZmlndXJlIChzYXkpIEVUUy4gSWYg
-dGhlcmUgYXJlIHNvbWUgaXNzdWVzIHRvIHVzZSB0aGUNCj4gZXhpc3RpbmcgdXNlci1zcGFjZSB0
-b29sIChsbGRwYWQgdG9vbC9kYWVtb24pIHRvIGRvIERDQiB3aXRob3V0IFgsIG9uZQ0KPiBjYW4v
-c2hvdWxkIGZpeCB0aGVtIG9yIGludHJvZHVjZSBhbm90aGVyL3NpbXBsZXIgdG9vbCB0aGF0IGlu
-IGENCj4gbGlnaHR3ZWlnaHQgbWFubmVyIG9ubHkgY29uZmlndXJlcyB0aGluZ3Mgdy5vIGV4Y2hh
-bmdpbmcuDQo+IA0KPiBTbyB0byBjbGFyaWZ5LCB0aGUgZXNzZW5jZSBvZiB0aGlzIHNlcmllcyBp
-cyBpbnRyb2R1Y2luZyBhIDJuZCB3YXkgdG8NCj4gY29uZmlndXJlIEVUUyBhbmQgcmF0ZSBsaW1p
-dD8NCg0KU29ydCBvZi4gQmFzaWNhbGx5IHRoZSBpZGVhIGlzIHdlIGNhbiB1c2Ugc2V2ZXJhbCBk
-aWZmZXJlbnQgYXBwcm9hY2hlcw0KdG8gZW5hYmxlIHF1ZXVlIGNvbmZpZ3VyYXRpb24gYW5kIHJh
-dGUgbGltaXRzLiBTbyB3ZSBhcmUgYWRkaW5nIHR3bw0KcGllY2VzIG9mIGZ1bmN0aW9uYWxpdHku
-DQoNClRoZSBmaXJzdCBibG9jayBhbGxvd3MgZm9yIGNvbmZpZ3VyaW5nIHF1ZXVlIGNvdW50cyBh
-bmQgbGF5b3V0Lg0KSGlzdG9yaWNhbGx5IERDQi9EQ0JYIGhhc24ndCBhbGxvd2VkIHVzIHRvIHNw
-ZWNpZnkgdGhhdC4NCg0KVGhlIHNlY29uZCBiaXQgaXMgdGhhdCB3ZSBhZGRlZCBzdXBwb3J0IGZv
-ciByYXRlIGxpbWl0aW5nLiBJIGFtDQphY3R1YWxseSBiYXNpbmcgaXQgb24gd2hhdCB3ZSBoYWQg
-Zm9yIFNSLUlPViByYXRlIGxpbWl0aW5nIGFzIHRoYXQgaXMNCmhvdyB0aGlzIGlzIHdvcmtpbmcg
-aW4gaTQwZS4gSG93ZXZlciB0aGUgYmFzaWMgYXR0cmlidXRlcyB3ZSBhcmUgYWRkaW5nDQpzaG91
-bGQgd29yayBmb3IgbW9zdCBFVFMgdHlwZSB1c2UgY2FzZXMgdGhvdWdoIGl0IG1pZ2h0IG5lZWQg
-dG8gdXNlIHRoZQ0KbWluIHJhdGVzIGluc3RlYWQgb2YgdGhlIG1heCByYXRlcyBhcyB3ZSBkbyBp
-biBpNDBlLg0KDQo+ID4gDQo+ID4gPiANCj4gPiA+IFBsZWFzZSBlbGFib3JhdGUgaW4gZmV3IHNl
-bnRlbmNlIGlmIHlvdSBhcmUgZXh0ZW5kaW5nIGl0L3JlcGxhY2luZyBpdCwNCj4gPiA+IHdoeSB3
-ZSB3YW50IHRvIGRvIHRoYXQgYW5kIHdoYXQgYXJlIHRoZSBpbXBsaWNhdGlvbnMgb24gZXhpc3Rp
-bmcNCj4gPiA+IGFwcGxpY2F0aW9ucyBVQVBJIHdpc2UuDQo+IA0KPiA+IA0KPiA+IFRoaXMgaXMg
-bWVhbnQgdG8gYmUgYW4gZXh0ZW5zaW9uIG9mIHRoZSBleGlzdGluZyBzdHJ1Y3R1cmUuIEl0IGNh
-biBiZQ0KPiA+IGlnbm9yZWQgYnkgdGhlIGRyaXZlciBhbmQgaW5zdGVhZCBvbmx5IGhhdmUgdGhl
-IGJhc2ljIGh3IG9mZmxvYWQNCj4gPiBzdXBwb3J0ZWQuIEluIHN1Y2ggYSBjYXNlIHRoZSBjb21t
-YW5kIHdpbGwgc3RpbGwgcmV0dXJuIHN1Y2Nlc3MgYnV0DQo+ID4gYW55IHJhdGUgbGltaXRzIGFu
-ZCBxdWV1ZSBjb25maWd1cmF0aW9uIGNhbiBiZSBpZ25vcmVkLiBJbiB0aGUgY2FzZSBvZg0KPiA+
-IHRoZSBjdXJyZW50IGltcGxlbWVudGF0aW9uIHRoZSBxdWV1ZSBjb25maWd1cmF0aW9uIHdhcyBh
-bHJlYWR5IGJlaW5nDQo+ID4gaWdub3JlZCBzbyB3ZSBvcHRlZCB0byByZS1wdXJwb3NlIHRoZSAi
-aHciIGZsYWcgc28gdGhhdCBpZiB5b3UgcGFzcyBhDQo+ID4gdmFsdWUgZ3JlYXRlciB0aGFuIDEg
-YW5kIHRoZSBkcml2ZXIgZG9lc24ndCByZWNvZ25pemUgdGhlIHZhbHVlIGl0IGhhcw0KPiA+IHRo
-ZSBvcHRpb24gdG8ganVzdCBpZ25vcmUgdGhlIGV4dHJhIGJpdHMgaXQgZG9lc24ndCByZWNvZ25p
-emUgYW5kDQo+ID4gcmV0dXJuIDEgYXMgaXQgZGlkIGJlZm9yZSBmb3IgdGhlIGh3IGZsYWcgaW4g
-bXFwcmlvLg0KPiANCj4gU28gdGhlIHVzZXIgYXNrZWQgdG8gY29uZmlndXJlIHNvbWV0aGluZyBh
-bmQgdGhlIGtlcm5lbCByZXR1cm5lZA0KPiBzdWNjZXNzIGJ1dCB0aGUgY29uZmlnIHdhcyBub3Qg
-cGx1Z2dlZCB0byB0aGUgaHc/IHNvdW5kcyB0byBtZSBsaWtlDQo+IHBvc3NpYmxlIChwcm9iYWJs
-ZSkgc291cmNlIG9mIHRyb3VibGVzIGFuZCBjb21wbGFpbnRzLg0KDQpUaGF0IGlzIHBvc3NpYmxl
-LCBob3dldmVyIHRoZSBpc3N1ZSBhbHJlYWR5IGV4aXN0ZWQuIFRoZSBxdWV1ZQ0KY29uZmlndXJh
-dGlvbiBjb3VsZCBiZSBzcGVjaWZpZWQgd2l0aCB0aGUgbXFwcmlvIGNvbmZpZ3VyYXRpb24gYW5k
-IGJlDQp0b3RhbGx5IGlnbm9yZWQuIEkgb3B0ZWQgZm9yIGp1c3QgbWFpbnRhaW5pbmcgdGhlIGV4
-aXN0aW5nIGJlaGF2aW9yIGFuZA0KbW92aW5nIGZvcndhcmQgYW5kIHByb3ZpZGluZyBzb21lIGlu
-cHV0IHZpYSB0aGUgYWJpbGl0eSB0byByZXBvcnQgd2hhdA0KInZlcnNpb24iIG9mIHRoZSBoYXJk
-d2FyZSBvZmZsb2FkIHdlIGFyZSBzdXBwb3J0aW5nLg0KDQpUaGUgcGxhbiBpcyB0aGF0IGxlZ2Fj
-eSBkZXZpY2VzIGNhbiBmYWxsIGJhY2sgaW50byB0aGUgc2V0dXAgd2hlcmUgdGhleQ0Kc3VwcG9y
-dCBtb2RlIDEsIGhvd2V2ZXIgaWYgdGhleSBzdXBwb3J0IGh3IG1vZGUgMiB0aGVuIHdlIHdpbGwg
-ZmFpbCB0bw0KaW5pdGlhbGl6ZSBpZiB3ZSBkb24ndCBzdXBwb3J0IHNvbWV0aGluZyB0aGF0IGlz
-IGJlaW5nIHJlcXVlc3RlZC4NCg0KPiA+IA0KPiA+ID4gDQo+ID4gPiBCZWxvdyB5b3UganVzdCBz
-YXkgaW4gdGhlIG5ldyBtb2RlIFFvcyBpcyBjb25maWd1cmVkIHdpdGgga25vYnMgWFlaIC0tDQo+
-ID4gPiB0aGlzIGlzIHdheSBub3QgZW5vdWdoDQo+IA0KPiA+IA0KPiA+IENhbiB5b3UgY2xhcmlm
-eSB3aGF0IHlvdSBhcmUgYXNraW5nIGZvciBoZXJlPyBBbXJpdGhhIGluY2x1ZGVkIGFuDQo+ID4g
-ZXhhbXBsZSBpbiBwYXRjaCAxIG9mIGEgY29tbWFuZCBsaW5lIHRoYXQgZW5hYmxlZCAyIHRyYWZm
-aWMgY2xhc3Nlcw0KPiA+IHdpdGggcmF0ZSBsaW1pdHMuIElzIHRoZXJlIHNvbWV0aGluZyBtb3Jl
-IHNwZWNpZmljIHlvdSBhcmUgbG9va2luZyBmb3I/DQo+IA0KPiB5b3Ugd2VyZSByZWZlcnJpbmcg
-dG8gdGhlIHF1ZXN0aW9ucyBJIHBvc3RlZCwgc28gd2UgY2FuIGNvbnRpbnVlIHRoZQ0KPiBkaXNj
-dXNzaW9uIGZyb20gaGVyZS4NCj4gX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX18NCj4gSW50ZWwtd2lyZWQtbGFuIG1haWxpbmcgbGlzdA0KPiBJbnRlbC13aXJl
-ZC1sYW5Ab3N1b3NsLm9yZw0KPiBodHRwczovL2xpc3RzLm9zdW9zbC5vcmcvbWFpbG1hbi9saXN0
-aW5mby9pbnRlbC13aXJlZC1sYW4NCg==
+From: Markus Elfring <elfring@users.sourceforge.net>
+Date: Mon, 22 May 2017 17:43:44 +0200
+
+Add a missing character in this description.
+
+Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+---
+ net/sctp/protocol.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
+index 5e7c8a344770..64756c42cec9 100644
+--- a/net/sctp/protocol.c
++++ b/net/sctp/protocol.c
+@@ -1454,7 +1454,7 @@ static __init int sctp_init(void)
+ 	}
+ 
+ 	/* Allocate and initialize the SCTP port hash table.
+-	 * Note that order is initalized to start at the max sized
++	 * Note that order is initialized to start at the max sized
+ 	 * table we want to support.  If we can't get that many pages
+ 	 * reduce the order and try again
+ 	 */
+-- 
+2.13.0
