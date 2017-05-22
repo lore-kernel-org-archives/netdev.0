@@ -1,29 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net/wan/fsl_ucc_hdlc: fix muram allocation
- error
-Date: Mon, 22 May 2017 12:29:14 -0400 (EDT)
-Message-ID: <20170522.122914.1304409644415649924.davem@davemloft.net>
-References: <20170522073115.16393-1-holger.brunck@keymile.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH] cfg80211: Be able to set bss expire time at config
+ stage.
+Date: Mon, 22 May 2017 18:34:02 +0200
+Message-ID: <1495470842.26008.4.camel@sipsolutions.net>
+References: <20170522160946.2057-1-enric.balletbo@collabora.com>
+         <1495469954.26008.1.camel@sipsolutions.net>
+         (sfid-20170522_182014_038071_64240E1B)
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, qiang.zhao@nxp.com
-To: holger.brunck@keymile.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:53928 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932514AbdEVQ3P (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 22 May 2017 12:29:15 -0400
-In-Reply-To: <20170522073115.16393-1-holger.brunck@keymile.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Dmitry Shmidt <dimitrysh@google.com>,
+        helmut.schaa@googlemail.com
+To: Enric Balletbo i Serra <enric.balletbo@collabora.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        linux-wireless@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1495469954.26008.1.camel@sipsolutions.net> (sfid-20170522_182014_038071_64240E1B)
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Holger Brunck <holger.brunck@keymile.com>
-Date: Mon, 22 May 2017 09:31:15 +0200
-
-> sizeof(priv->ucc_pram) is 4 as it is the size of a pointer, but we want
-> to reserve space for the struct ucc_hdlc_param.
+On Mon, 2017-05-22 at 18:19 +0200, Johannes Berg wrote:
 > 
-> Signed-off-by: Holger Brunck <holger.brunck@keymile.com>
+> I'm not really all that convinced that we really need this -
+> userspace should just be using the flush thing more often, and then
+> it doesn't really matter.
+> 
+> However, maybe that doesn't really matter all that much.
 
-Applied.
+Actually, I changed my mind based on the discussion with Dan. This
+makes no sense, and since you've obviously never even tested this
+patch, you probably haven't thought about alternatives either.
+
+johannes
