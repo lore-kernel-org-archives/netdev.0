@@ -1,39 +1,47 @@
-From: Holger Brunck <holger.brunck@keymile.com>
-Subject: [PATCH net-next] net/wan/fsl_ucc_hdlc: fix muram allocation error
-Date: Mon, 22 May 2017 09:31:15 +0200
-Message-ID: <20170522073115.16393-1-holger.brunck@keymile.com>
-Cc: Holger Brunck <holger.brunck@keymile.com>,
-        Zhao Qiang <qiang.zhao@nxp.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-de.keymile.com ([195.8.104.250]:38018 "EHLO
-        mail-de.keymile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751503AbdEVHbl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 22 May 2017 03:31:41 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Subject: [PATCH] flowcache: Delete an error message for a failed memory
+ allocation in flow_cache_cpu_prepare()
+Date: Mon, 22 May 2017 09:33:07 +0200
+Message-ID: <308bd3f5-d4f8-068b-7110-f9499ea7624e@users.sourceforge.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: LKML <linux-kernel@vger.kernel.org>,
+        kernel-janitors@vger.kernel.org
+To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+        Herbert Xu <herbert@gondor.apana.org.au>,
+        Steffen Klassert <steffen.klassert@secunet.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Language: en-GB
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-sizeof(priv->ucc_pram) is 4 as it is the size of a pointer, but we want
-to reserve space for the struct ucc_hdlc_param.
+From: Markus Elfring <elfring@users.sourceforge.net>
+Date: Mon, 22 May 2017 09:19:51 +0200
 
-Signed-off-by: Holger Brunck <holger.brunck@keymile.com>
-Cc: Zhao Qiang <qiang.zhao@nxp.com>
+Omit an extra message for a memory allocation failure in this function.
+
+This issue was detected by using the Coccinelle software.
+
+Link: http://events.linuxfoundation.org/sites/events/files/slides/LCJ16-Refactor_Strings-WSang_0.pdf
+Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
 ---
- drivers/net/wan/fsl_ucc_hdlc.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/core/flow.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/wan/fsl_ucc_hdlc.c b/drivers/net/wan/fsl_ucc_hdlc.c
-index e9b2d687f150..33df76405b86 100644
---- a/drivers/net/wan/fsl_ucc_hdlc.c
-+++ b/drivers/net/wan/fsl_ucc_hdlc.c
-@@ -189,7 +189,7 @@ static int uhdlc_init(struct ucc_hdlc_private *priv)
- 	}
- 
- 	/* Alloc parameter ram for ucc hdlc */
--	priv->ucc_pram_offset = qe_muram_alloc(sizeof(priv->ucc_pram),
-+	priv->ucc_pram_offset = qe_muram_alloc(sizeof(struct ucc_hdlc_param),
- 				ALIGNMENT_OF_UCC_HDLC_PRAM);
- 
- 	if (priv->ucc_pram_offset < 0) {
+diff --git a/net/core/flow.c b/net/core/flow.c
+index f7f5d1932a27..08c851236b97 100644
+--- a/net/core/flow.c
++++ b/net/core/flow.c
+@@ -412,7 +412,6 @@ static int flow_cache_cpu_prepare(struct flow_cache *fc, int cpu)
+-		if (!fcp->hash_table) {
+-			pr_err("NET: failed to allocate flow cache sz %u\n", sz);
++		if (!fcp->hash_table)
+ 			return -ENOMEM;
+-		}
++
+ 		fcp->hash_rnd_recalc = 1;
+ 		fcp->hash_count = 0;
+ 		tasklet_init(&fcp->flush_tasklet, flow_cache_flush_tasklet, 0);
 -- 
-2.12.0.rc1
+2.13.0
