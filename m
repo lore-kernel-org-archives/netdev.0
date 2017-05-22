@@ -1,43 +1,38 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH v3 net-next 2/5] phy: micrel: add Microchip KSZ 9477
- Switch PHY support
-Date: Mon, 22 May 2017 16:44:50 +0200
-Message-ID: <20170522144450.GF29447@lunn.ch>
-References: <9235D6609DB808459E95D78E17F2E43D40A7C02D@CHN-SV-EXMX02.mchp-main.com>
- <20170522143249.GD29447@lunn.ch>
- <9235D6609DB808459E95D78E17F2E43D40A80CF8@CHN-SV-EXMX02.mchp-main.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 00/20] net: dsa: distribute switch events
+Date: Mon, 22 May 2017 10:45:57 -0400 (EDT)
+Message-ID: <20170522.104557.1244582147577060590.davem@davemloft.net>
+References: <20170519210055.9366-1-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: f.fainelli@gmail.com, vivien.didelot@savoirfairelinux.com,
-        sergei.shtylyov@cogentembedded.com, netdev@vger.kernel.org,
-        davem@davemloft.net, UNGLinuxDriver@microchip.com
-To: Woojung.Huh@microchip.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:39459 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S934997AbdEVOpD (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 22 May 2017 10:45:03 -0400
-Content-Disposition: inline
-In-Reply-To: <9235D6609DB808459E95D78E17F2E43D40A80CF8@CHN-SV-EXMX02.mchp-main.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@savoirfairelinux.com, f.fainelli@gmail.com, andrew@lunn.ch
+To: vivien.didelot@savoirfairelinux.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170519210055.9366-1-vivien.didelot@savoirfairelinux.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, May 22, 2017 at 02:38:39PM +0000, Woojung.Huh@microchip.com wrote:
-> > > Signed-off-by: Woojung Huh <Woojung.Huh@microchip.com>
-> > > Signed-off-by: Andrew Lunn <andrew@lunn.ch>
-> > 
-> > Signed-off-by? I didn't contribute any code. It probably should be
-> > 
-> > Reviewed-by: Andrew Lunn <andrew@lunn.ch>
-> Andrew,
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Date: Fri, 19 May 2017 17:00:35 -0400
+
+> DSA is by nature the support for a switch fabric, which can be composed
+> of a single, or multiple interconnected Ethernet switch chips.
 > 
-> Your reply on 5/13 was with "Signed-off" :)
+> The current DSA core behavior is to identify the slave port targeted by
+> a request (e.g. adding a VLAN entry), and program the switch chip to
+> which it belongs accordingly.
+> 
+> This is problematic in a multi-chip environment, since all chips of a
+> fabric must be aware of most configuration changes. Here are some
+> concrete examples in a 3-chip environment:
+ ...
+> This patch series uses the notification chain introduced for bridging,
+> to notify not only bridge, but switchdev attributes and objects events
+> to all switch chips of the fabric.
 
-O.K. My error then. Please feel free at ask me, if you think something
-i say is wrong...
+Andrew or Florian, can I get a review?
 
-> Will change to "Reviewed-by" in next patch.
-
-Thanks.
-
-	Andrew
+I audited the slave-->port transformations and they all look
+good.
