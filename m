@@ -1,80 +1,167 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [Intel-wired-lan] [PATCH 0/4] Configuring traffic classes via new
- hardware offload mechanism in tc/mqprio
-Date: Mon, 22 May 2017 06:25:53 +0300
-Message-ID: <CAJ3xEMhtgt4==-GbAWjT8fGMQhoRAzHhFbaVgrfWgJhSaxXr9g@mail.gmail.com>
-References: <149524122523.11022.4541073724650541658.stgit@anamdev.jf.intel.com>
- <CAJ3xEMjTDW7sQ5CFmTyR5xMpin_WFFQg-S8imWMBpXWuS1zvVw@mail.gmail.com> <CAKgT0Ue6tDOE8L4thktyje-erGkVMmtO7zyp0FRgmRPYOppjQA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Amritha Nambiar <amritha.nambiar@intel.com>,
-        intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
-        Linux Netdev List <netdev@vger.kernel.org>
-To: Alexander Duyck <alexander.duyck@gmail.com>
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: [PATCH net-next] net: define PKTINFO timestamping option in all archs
+Date: Sun, 21 May 2017 23:31:47 -0400
+Message-ID: <20170522033147.17264-1-willemdebruijn.kernel@gmail.com>
+Cc: davem@davemloft.net, mlichvar@redhat.com,
+        Willem de Bruijn <willemb@google.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f49.google.com ([209.85.218.49]:36425 "EHLO
-        mail-oi0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757163AbdEVDZy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 21 May 2017 23:25:54 -0400
-Received: by mail-oi0-f49.google.com with SMTP id h4so146058717oib.3
-        for <netdev@vger.kernel.org>; Sun, 21 May 2017 20:25:53 -0700 (PDT)
-In-Reply-To: <CAKgT0Ue6tDOE8L4thktyje-erGkVMmtO7zyp0FRgmRPYOppjQA@mail.gmail.com>
+Received: from mail-qk0-f196.google.com ([209.85.220.196]:33895 "EHLO
+        mail-qk0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756695AbdEVDbw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 21 May 2017 23:31:52 -0400
+Received: by mail-qk0-f196.google.com with SMTP id u75so17416741qka.1
+        for <netdev@vger.kernel.org>; Sun, 21 May 2017 20:31:52 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 22, 2017 at 1:35 AM, Alexander Duyck
-<alexander.duyck@gmail.com> wrote:
-> On Sat, May 20, 2017 at 2:15 PM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
->> On Sat, May 20, 2017 at 3:58 AM, Amritha Nambiar
->> <amritha.nambiar@intel.com> wrote:
->>> The following series introduces a new harware offload mode in tc/mqprio
->>
->> Wait, we have already a HW QoS model introduced by John F and Co
->> couple of years ago,  right?
->
-> I assume you are referring to the ETS portion of DCBX? If so then yes
-> we have something there, but there is a fairly high level of
-> complexity and dependencies in order to enable that. What we have in
-> mind doesn't really fit with DCBX and the problem is the spec calls
-> out that you really have to have support for DCBX in order to make use
-> of ETS. What we are trying to do here is provide a lightweight way of
-> doing this configuration similar to how mqprio was already providing a
-> lightweight way of enabling multiple traffic classes.
+From: Willem de Bruijn <willemb@google.com>
 
-UAPI wise, we are talking on DCB, not DCBX, right? the X-portion comes
-into play if some user-space entity run LLDP traffic and calls into
-the kernel to configure (say) ETS. If there are some issues to use the
-existing user-space tool (lldpad tool/daemon) to do DCB without X, one
-can/should fix them or introduce another/simpler tool that in a
-lightweight manner only configures things w.o exchanging.
+The newly introduced timestamping option SCM_TIMESTAMPING_PKTINFO
+is defined in asm-generic/socket.h. Also define it in the architecture
+specific versions.
 
-So to clarify, the essence of this series is introducing a 2nd way to
-configure ETS and rate limit?
+Fixes: aad9c8c470f2 ("net: add new control message for incoming HW-timestamped packets")
+Reported-by: Stephen Rothwell <sfr@canb.auug.org.au>
+CC: Miroslav Lichvar <mlichvar@redhat.com>
+Signed-off-by: Willem de Bruijn <willemb@google.com>
+---
+ arch/alpha/include/uapi/asm/socket.h   | 2 ++
+ arch/frv/include/uapi/asm/socket.h     | 2 ++
+ arch/ia64/include/uapi/asm/socket.h    | 2 ++
+ arch/m32r/include/uapi/asm/socket.h    | 2 ++
+ arch/mips/include/uapi/asm/socket.h    | 2 ++
+ arch/mn10300/include/uapi/asm/socket.h | 2 ++
+ arch/parisc/include/uapi/asm/socket.h  | 2 ++
+ arch/powerpc/include/uapi/asm/socket.h | 2 ++
+ arch/s390/include/uapi/asm/socket.h    | 2 ++
+ arch/sparc/include/uapi/asm/socket.h   | 2 ++
+ arch/xtensa/include/uapi/asm/socket.h  | 2 ++
+ 11 files changed, 22 insertions(+)
 
->> Please elaborate in few sentence if you are extending it/replacing it,
->> why we want to do that and what are the implications on existing
->> applications UAPI wise.
-
-> This is meant to be an extension of the existing structure. It can be
-> ignored by the driver and instead only have the basic hw offload
-> supported. In such a case the command will still return success but
-> any rate limits and queue configuration can be ignored. In the case of
-> the current implementation the queue configuration was already being
-> ignored so we opted to re-purpose the "hw" flag so that if you pass a
-> value greater than 1 and the driver doesn't recognize the value it has
-> the option to just ignore the extra bits it doesn't recognize and
-> return 1 as it did before for the hw flag in mqprio.
-
-So the user asked to configure something and the kernel returned
-success but the config was not plugged to the hw? sounds to me like
-possible (probable) source of troubles and complaints.
-
->> Below you just say in the new mode Qos is configured with knobs XYZ --
->> this is way not enough
-
-> Can you clarify what you are asking for here? Amritha included an
-> example in patch 1 of a command line that enabled 2 traffic classes
-> with rate limits. Is there something more specific you are looking for?
-
-you were referring to the questions I posted, so we can continue the
-discussion from here.
+diff --git a/arch/alpha/include/uapi/asm/socket.h b/arch/alpha/include/uapi/asm/socket.h
+index 148d7a32754e..0926de63a62b 100644
+--- a/arch/alpha/include/uapi/asm/socket.h
++++ b/arch/alpha/include/uapi/asm/socket.h
+@@ -105,4 +105,6 @@
+ 
+ #define SO_COOKIE		57
+ 
++#define SCM_TIMESTAMPING_PKTINFO	58
++
+ #endif /* _UAPI_ASM_SOCKET_H */
+diff --git a/arch/frv/include/uapi/asm/socket.h b/arch/frv/include/uapi/asm/socket.h
+index 1ccf45657472..e491ff08b9a9 100644
+--- a/arch/frv/include/uapi/asm/socket.h
++++ b/arch/frv/include/uapi/asm/socket.h
+@@ -98,5 +98,7 @@
+ 
+ #define SO_COOKIE		57
+ 
++#define SCM_TIMESTAMPING_PKTINFO	58
++
+ #endif /* _ASM_SOCKET_H */
+ 
+diff --git a/arch/ia64/include/uapi/asm/socket.h b/arch/ia64/include/uapi/asm/socket.h
+index 2c3f4b48042a..869372413333 100644
+--- a/arch/ia64/include/uapi/asm/socket.h
++++ b/arch/ia64/include/uapi/asm/socket.h
+@@ -107,4 +107,6 @@
+ 
+ #define SO_COOKIE		57
+ 
++#define SCM_TIMESTAMPING_PKTINFO	58
++
+ #endif /* _ASM_IA64_SOCKET_H */
+diff --git a/arch/m32r/include/uapi/asm/socket.h b/arch/m32r/include/uapi/asm/socket.h
+index ae6548d29a18..5d97890a8704 100644
+--- a/arch/m32r/include/uapi/asm/socket.h
++++ b/arch/m32r/include/uapi/asm/socket.h
+@@ -98,4 +98,6 @@
+ 
+ #define SO_COOKIE		57
+ 
++#define SCM_TIMESTAMPING_PKTINFO	58
++
+ #endif /* _ASM_M32R_SOCKET_H */
+diff --git a/arch/mips/include/uapi/asm/socket.h b/arch/mips/include/uapi/asm/socket.h
+index 3418ec9c1c50..365ff51f033a 100644
+--- a/arch/mips/include/uapi/asm/socket.h
++++ b/arch/mips/include/uapi/asm/socket.h
+@@ -116,4 +116,6 @@
+ 
+ #define SO_COOKIE		57
+ 
++#define SCM_TIMESTAMPING_PKTINFO	58
++
+ #endif /* _UAPI_ASM_SOCKET_H */
+diff --git a/arch/mn10300/include/uapi/asm/socket.h b/arch/mn10300/include/uapi/asm/socket.h
+index 4526e92301a6..d013c0da0256 100644
+--- a/arch/mn10300/include/uapi/asm/socket.h
++++ b/arch/mn10300/include/uapi/asm/socket.h
+@@ -98,4 +98,6 @@
+ 
+ #define SO_COOKIE		57
+ 
++#define SCM_TIMESTAMPING_PKTINFO	58
++
+ #endif /* _ASM_SOCKET_H */
+diff --git a/arch/parisc/include/uapi/asm/socket.h b/arch/parisc/include/uapi/asm/socket.h
+index 514701840bd9..b893ca14fade 100644
+--- a/arch/parisc/include/uapi/asm/socket.h
++++ b/arch/parisc/include/uapi/asm/socket.h
+@@ -97,4 +97,6 @@
+ 
+ #define SO_COOKIE		0x4032
+ 
++#define SCM_TIMESTAMPING_PKTINFO	0x4033
++
+ #endif /* _UAPI_ASM_SOCKET_H */
+diff --git a/arch/powerpc/include/uapi/asm/socket.h b/arch/powerpc/include/uapi/asm/socket.h
+index 58e2ec0310fc..bc4ca72faf99 100644
+--- a/arch/powerpc/include/uapi/asm/socket.h
++++ b/arch/powerpc/include/uapi/asm/socket.h
+@@ -105,4 +105,6 @@
+ 
+ #define SO_COOKIE		57
+ 
++#define SCM_TIMESTAMPING_PKTINFO	58
++
+ #endif	/* _ASM_POWERPC_SOCKET_H */
+diff --git a/arch/s390/include/uapi/asm/socket.h b/arch/s390/include/uapi/asm/socket.h
+index e8e5ecf673fd..fb9769d7e74e 100644
+--- a/arch/s390/include/uapi/asm/socket.h
++++ b/arch/s390/include/uapi/asm/socket.h
+@@ -104,4 +104,6 @@
+ 
+ #define SO_COOKIE		57
+ 
++#define SCM_TIMESTAMPING_PKTINFO	58
++
+ #endif /* _ASM_SOCKET_H */
+diff --git a/arch/sparc/include/uapi/asm/socket.h b/arch/sparc/include/uapi/asm/socket.h
+index 3f4ad19d9ec7..5d673302fd41 100644
+--- a/arch/sparc/include/uapi/asm/socket.h
++++ b/arch/sparc/include/uapi/asm/socket.h
+@@ -94,6 +94,8 @@
+ 
+ #define SO_COOKIE		0x003b
+ 
++#define SCM_TIMESTAMPING_PKTINFO	0x003c
++
+ /* Security levels - as per NRL IPv6 - don't actually do anything */
+ #define SO_SECURITY_AUTHENTICATION		0x5001
+ #define SO_SECURITY_ENCRYPTION_TRANSPORT	0x5002
+diff --git a/arch/xtensa/include/uapi/asm/socket.h b/arch/xtensa/include/uapi/asm/socket.h
+index 1eb6d2fe70d3..982c2533f912 100644
+--- a/arch/xtensa/include/uapi/asm/socket.h
++++ b/arch/xtensa/include/uapi/asm/socket.h
+@@ -109,4 +109,6 @@
+ 
+ #define SO_COOKIE		57
+ 
++#define SCM_TIMESTAMPING_PKTINFO	58
++
+ #endif	/* _XTENSA_SOCKET_H */
+-- 
+2.13.0.303.g4ebf302169-goog
