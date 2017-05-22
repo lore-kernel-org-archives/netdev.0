@@ -1,79 +1,63 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 01/11] qede: Fix sparse warnings
-Date: Mon, 22 May 2017 12:54:30 -0400 (EDT)
-Message-ID: <20170522.125430.1296201768191613727.davem@davemloft.net>
-References: <1495452731-27171-2-git-send-email-Yuval.Mintz@cavium.com>
-        <20170522.123804.1189830414503494485.davem@davemloft.net>
-        <BLUPR0701MB2004062F133B0DD22E817C6C8DF80@BLUPR0701MB2004.namprd07.prod.outlook.com>
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: [PATCH 2/5] sctp: Delete an error message for a failed memory
+ allocation in sctp_init()
+Date: Mon, 22 May 2017 13:56:58 -0300
+Message-ID: <20170522165658.GA4642@localhost.localdomain>
+References: <2845df67-d35d-536a-0a53-b2eb83fe1ba5@users.sourceforge.net>
+ <7db0cb49-109b-88a6-532f-c591cc8ffa85@users.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Manish.Chopra@cavium.com
-To: Yuval.Mintz@cavium.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:54156 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932956AbdEVQyc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 22 May 2017 12:54:32 -0400
-In-Reply-To: <BLUPR0701MB2004062F133B0DD22E817C6C8DF80@BLUPR0701MB2004.namprd07.prod.outlook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
+        "David S. Miller" <davem@davemloft.net>,
+        Neil Horman <nhorman@tuxdriver.com>,
+        Vlad Yasevich <vyasevich@gmail.com>,
+        LKML <linux-kernel@vger.kernel.org>,
+        kernel-janitors@vger.kernel.org
+To: SF Markus Elfring <elfring@users.sourceforge.net>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <7db0cb49-109b-88a6-532f-c591cc8ffa85@users.sourceforge.net>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
-Date: Mon, 22 May 2017 16:48:25 +0000
-
+On Mon, May 22, 2017 at 06:38:21PM +0200, SF Markus Elfring wrote:
+> From: Markus Elfring <elfring@users.sourceforge.net>
+> Date: Mon, 22 May 2017 17:28:14 +0200
 > 
+> Omit an extra message for a memory allocation failure in this function.
 > 
->> -----Original Message-----
->> From: David Miller [mailto:davem@davemloft.net]
->> Sent: Monday, May 22, 2017 7:38 PM
->> To: Mintz, Yuval <Yuval.Mintz@cavium.com>
->> Cc: netdev@vger.kernel.org; Chopra, Manish <Manish.Chopra@cavium.com>
->> Subject: Re: [PATCH net-next 01/11] qede: Fix sparse warnings
->> 
->> From: Yuval Mintz <Yuval.Mintz@cavium.com>
->> Date: Mon, 22 May 2017 14:32:01 +0300
->> 
->> > From: Manish Chopra <Manish.Chopra@cavium.com>
->> >
->> > Signed-off-by: Manish Chopra <Manish.Chopra@cavium.com>
->> > Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
->> > ---
->> >  drivers/net/ethernet/qlogic/qede/qede_dcbnl.c   |  1 -
->> >  drivers/net/ethernet/qlogic/qede/qede_ethtool.c | 10 ++++++----
->> >  drivers/net/ethernet/qlogic/qede/qede_fp.c      | 25 ++++++++++++++-------
->> ----
->> >  drivers/net/ethernet/qlogic/qede/qede_roce.c    |  4 ++--
->> >  4 files changed, 22 insertions(+), 18 deletions(-)
->> >
->> > diff --git a/drivers/net/ethernet/qlogic/qede/qede_dcbnl.c
->> > b/drivers/net/ethernet/qlogic/qede/qede_dcbnl.c
->> > index a9e7379..6e7747b 100644
->> > --- a/drivers/net/ethernet/qlogic/qede/qede_dcbnl.c
->> > +++ b/drivers/net/ethernet/qlogic/qede/qede_dcbnl.c
->> > @@ -313,7 +313,6 @@ static int qede_dcbnl_ieee_peer_getets(struct
->> net_device *netdev,
->> >  	.ieee_setets = qede_dcbnl_ieee_setets,
->> >  	.ieee_getapp = qede_dcbnl_ieee_getapp,
->> >  	.ieee_setapp = qede_dcbnl_ieee_setapp,
->> > -	.getdcbx = qede_dcbnl_getdcbx,
->> >  	.ieee_peer_getpfc = qede_dcbnl_ieee_peer_getpfc,
->> >  	.ieee_peer_getets = qede_dcbnl_ieee_peer_getets,
->> >  	.getstate = qede_dcbnl_getstate,
->> 
->> Please.
->> 
->> This is exactly the problem when such a terse commit message, or lack of any
->> message at all as is the case here, occurs.
->> 
->> I have no idea what removing this method assignment has to do with fixing
->> sparse warnings.
+> This issue was detected by using the Coccinelle software.
 > 
-> It's currently defined twice in the qede_dcbnl_ops struct -
+> Link: http://events.linuxfoundation.org/sites/events/files/slides/LCJ16-Refactor_Strings-WSang_0.pdf
+> Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+> ---
+>  net/sctp/protocol.c | 1 -
+>  1 file changed, 1 deletion(-)
+> 
+> diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
+> index 2b1a6215bd2f..5e7c8a344770 100644
+> --- a/net/sctp/protocol.c
+> +++ b/net/sctp/protocol.c
+> @@ -1447,5 +1447,4 @@ static __init int sctp_init(void)
+>  	if (!sctp_ep_hashtable) {
+> -		pr_err("Failed endpoint_hash alloc\n");
 
-Ok, so what's important is that you don't just post a patch with no
-commit message, just saying "sparse warning fixes."
+Okay but then why not also delete the one a few lines below this one:
+        if (!sctp_port_hashtable) {
+                pr_err("Failed bind hash alloc\n");
+                status = -ENOMEM;
+                goto err_bhash_alloc;
+        }
+Seems the same pattern to me.
 
-At a minimum, if you're too lazy to explain what exactly each thing
-is fixing, provide the sparse warnings you are eliminating in the
-commit message.
+>  		status = -ENOMEM;
+>  		goto err_ehash_alloc;
+>  	}
+> -- 
+> 2.13.0
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
