@@ -1,29 +1,39 @@
-From: Oliver Neukum <oneukum@suse.com>
-Subject: Re: [PATCH 2/2] usbnet: Improve a size determination in
- usbnet_write_cmd_async()
-Date: Mon, 22 May 2017 09:08:45 +0200
-Message-ID: <1495436925.11462.1.camel@suse.com>
-References: <a81c2551-ce6c-967d-1120-4307f95b1e65@users.sourceforge.net>
-         <d5ae61d4-8339-29e4-e91c-90ba644d69aa@users.sourceforge.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: kernel-janitors@vger.kernel.org,
-        LKML <linux-kernel@vger.kernel.org>
-To: SF Markus Elfring <elfring@users.sourceforge.net>,
-        linux-usb@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <d5ae61d4-8339-29e4-e91c-90ba644d69aa@users.sourceforge.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Holger Brunck <holger.brunck@keymile.com>
+Subject: [PATCH net-next] net/wan/fsl_ucc_hdlc: fix muram allocation error
+Date: Mon, 22 May 2017 09:31:15 +0200
+Message-ID: <20170522073115.16393-1-holger.brunck@keymile.com>
+Cc: Holger Brunck <holger.brunck@keymile.com>,
+        Zhao Qiang <qiang.zhao@nxp.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-de.keymile.com ([195.8.104.250]:38018 "EHLO
+        mail-de.keymile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751503AbdEVHbl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 22 May 2017 03:31:41 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Am Montag, den 22.05.2017, 07:10 +0200 schrieb SF Markus Elfring:
-> From: Markus Elfring <elfring@users.sourceforge.net>
-> Date: Mon, 22 May 2017 06:42:33 +0200
-> 
-> Replace the specification of a data structure by a pointer dereference
-> as the parameter for the operator "sizeof" to make the corresponding size
-> determination a bit safer according to the Linux coding style convention.
-> 
-> Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
-Acked-by: Oliver Neukum <oneukum@suse.com>
+sizeof(priv->ucc_pram) is 4 as it is the size of a pointer, but we want
+to reserve space for the struct ucc_hdlc_param.
+
+Signed-off-by: Holger Brunck <holger.brunck@keymile.com>
+Cc: Zhao Qiang <qiang.zhao@nxp.com>
+---
+ drivers/net/wan/fsl_ucc_hdlc.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/wan/fsl_ucc_hdlc.c b/drivers/net/wan/fsl_ucc_hdlc.c
+index e9b2d687f150..33df76405b86 100644
+--- a/drivers/net/wan/fsl_ucc_hdlc.c
++++ b/drivers/net/wan/fsl_ucc_hdlc.c
+@@ -189,7 +189,7 @@ static int uhdlc_init(struct ucc_hdlc_private *priv)
+ 	}
+ 
+ 	/* Alloc parameter ram for ucc hdlc */
+-	priv->ucc_pram_offset = qe_muram_alloc(sizeof(priv->ucc_pram),
++	priv->ucc_pram_offset = qe_muram_alloc(sizeof(struct ucc_hdlc_param),
+ 				ALIGNMENT_OF_UCC_HDLC_PRAM);
+ 
+ 	if (priv->ucc_pram_offset < 0) {
+-- 
+2.12.0.rc1
