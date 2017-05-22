@@ -1,45 +1,61 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [patch net-next 2/2] net/sched: fix filter flushing
-Date: Mon, 22 May 2017 14:04:58 -0700
-Message-ID: <CAM_iQpVvsMhTVh7P5qL19dhbWitPPwN0FcFKW9F0eDJAkr5ViQ@mail.gmail.com>
-References: <20170520130132.1626-1-jiri@resnulli.us> <20170520130132.1626-2-jiri@resnulli.us>
- <CAM_iQpWha6aCV3kOfCEFsBLNiC7LFTh=K=QaL17rH4=PUoeUmQ@mail.gmail.com>
- <20170521055416.GA1848@nanopsycho> <CAM_iQpVPuC-FQ3R4QNDCBWxrX5s7Q4bENxMU7+1LooCdHdMZhw@mail.gmail.com>
- <20170521191941.GA4278@nanopsycho> <CAM_iQpUj8C+Rt_Jm8J_DHXedHAg-_GaKUYgQwQ28hN-=zcB-5Q@mail.gmail.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH 2/2] at803x: double check SGMII side autoneg
+Date: Mon, 22 May 2017 23:09:27 +0200
+Message-ID: <20170522210927.GR29447@lunn.ch>
+References: <1477305654-11328-1-git-send-email-zefir.kurtisi@neratec.com>
+ <1477305654-11328-3-git-send-email-zefir.kurtisi@neratec.com>
+ <66de55da-7a5c-68b8-50d5-cab313ec0d6f@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Simon Horman <simon.horman@netronome.com>, mlxsw@mellanox.com,
-        Colin King <colin.king@canonical.com>
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset=us-ascii
+Cc: Zefir Kurtisi <zefir.kurtisi@neratec.com>, netdev@vger.kernel.org,
+        f.fainelli@gmail.com, David Miller <davem@davemloft.net>,
+        Manoj Iyer <manoj.iyer@canonical.com>, jhugo@codeaurora.org
+To: Timur Tabi <timur@codeaurora.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f53.google.com ([74.125.82.53]:32936 "EHLO
-        mail-wm0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933017AbdEVVFU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 22 May 2017 17:05:20 -0400
-Received: by mail-wm0-f53.google.com with SMTP id m7so10459917wmg.0
-        for <netdev@vger.kernel.org>; Mon, 22 May 2017 14:05:19 -0700 (PDT)
-In-Reply-To: <CAM_iQpUj8C+Rt_Jm8J_DHXedHAg-_GaKUYgQwQ28hN-=zcB-5Q@mail.gmail.com>
+Received: from vps0.lunn.ch ([178.209.37.122]:40354 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S935737AbdEVVJa (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 22 May 2017 17:09:30 -0400
+Content-Disposition: inline
+In-Reply-To: <66de55da-7a5c-68b8-50d5-cab313ec0d6f@codeaurora.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 22, 2017 at 1:54 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
-> On Sun, May 21, 2017 at 12:19 PM, Jiri Pirko <jiri@resnulli.us> wrote:
->>>You can't claim you really delete it as long as actions can still
->>>see it and dump it.
->>
->> No, user just wants to delete all the filters. That is done. User does
->> not care if the actual chain structure is there or not.
->>
->
-> Hmm, so users see a chain with no filters... Fair enough.
+On Mon, May 22, 2017 at 03:12:03PM -0500, Timur Tabi wrote:
+> On 10/24/2016 05:40 AM, Zefir Kurtisi wrote:
+> > This commit adds a wrapper function for at8031
+> > that in case of operating in SGMII mode double
+> > checks SGMII link state when generic aneg_done()
+> > succeeds. It prints a warning on failure but
+> > intentionally does not try to recover from this
+> > state. As a result, if you ever see a warning
+> > '803x_aneg_done: SGMII link is not ok' you will
+> > end up having an Ethernet link up but won't get
+> > any data through. This should not happen, if it
+> > does, please contact the module maintainer.
+> 
+> I'm getting bitten by this one again.  We're now have several systems that
+> are reporting the link failure ("803x_aneg_done: SGMII link is not ok"), and
+> the interface comes up but is not functional.  I believe this is expected.
+> 
+> The problem, however, is not because of the link failure.  Instead, the
+> problem is this:
+> 
+> > +	/* check if the SGMII link is OK. */
+> > +	if (!(phy_read(phydev, AT803X_PSSR) & AT803X_PSSR_MR_AN_COMPLETE)) {
+> > +		pr_warn("803x_aneg_done: SGMII link is not ok\n");
+> > +		aneg_done = 0;
+> 
+> Returning zero is what breaks the interface.  If I comment-out this last
+> line, so that at803x_aneg_done() returns BMSR_ANEGCOMPLETE instead, then
+> everything works.
 
-But since you remove the chain from the chain_list, it means
-users could not add new filters to this chain after flushing? And
-users could create a new chain with the same index??
+Are you using interrupts? Or polling?
 
-If so, you should instead keep it in the chain_list, although empty.
+If polling, it should come back again 1 second later and see if
+auto-neg has completed. Hopefully the SGMII side comes up eventually.
+
+If you are using interrupts, you need another interrupt when the SGMII
+side comes up, otherwise i think the state machine is stuck waiting.
+
+     Andrew
