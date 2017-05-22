@@ -1,33 +1,54 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: New Coverity defect in BPF verifier
-Date: Mon, 22 May 2017 10:26:43 -0700
-Message-ID: <20170522102643.35a02b7d@xeon-e3>
-References: <20170522090512.38dbcefa@xeon-e3>
-        <20170522.121604.2157216252893063658.davem@davemloft.net>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: network performance degradation in virtio_net in 4.12-rc
+Date: Mon, 22 May 2017 20:42:10 +0300
+Message-ID: <20170522203532-mutt-send-email-mst@kernel.org>
+References: <alpine.LRH.2.02.1705221003450.20076@file01.intranet.prod.int.rdu2.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jason Wang <jasowang@redhat.com>, kvm@vger.kernel.org,
+        virtualization@lists.linux-foundation.org, netdev@vger.kernel.org
+To: Mikulas Patocka <mpatocka@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f173.google.com ([209.85.192.173]:35490 "EHLO
-        mail-pf0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1759684AbdEVR0u (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 22 May 2017 13:26:50 -0400
-Received: by mail-pf0-f173.google.com with SMTP id n23so88519318pfb.2
-        for <netdev@vger.kernel.org>; Mon, 22 May 2017 10:26:50 -0700 (PDT)
-In-Reply-To: <20170522.121604.2157216252893063658.davem@davemloft.net>
+Received: from mx1.redhat.com ([209.132.183.28]:3979 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1758767AbdEVRmL (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 22 May 2017 13:42:11 -0400
+Content-Disposition: inline
+In-Reply-To: <alpine.LRH.2.02.1705221003450.20076@file01.intranet.prod.int.rdu2.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 22 May 2017 12:16:04 -0400 (EDT)
-David Miller <davem@davemloft.net> wrote:
-
-> Stephen, if you had even lightly scanned netdev today, you can see
-> that we are discussing this already and there are at least two
-> patches proposed.
+On Mon, May 22, 2017 at 10:25:19AM -0400, Mikulas Patocka wrote:
+> Hi
 > 
-> Thank you.
+> I see severe network performance degradation with the kernels 4.12-rc1 and 
+> 4.12-rc2 in the network virtio driver. Download rate drops down to about 
+> 100kB/s.
+> 
+> I bisected it and it is caused by patch 
+> d85b758f72b05a774045545f24d70980e3e9aac4 ("virtio_net: fix support for 
+> small rings"). When I revert this patch, the problem goes away.
+> 
+> The host is Debian Jessie with kernel 4.4.62, the guest is Debian Sid with 
+> kernel 4.12-rc.
+> 
+> Mikulas
 
-Sorry hadn't gotten that far. Doing full scan of 100's of messages
-a day is not always possible.
+Thanks for the report!
+I'm not sure what causes it on this host. I'll try to reproduce.
+Meanwhile, could you please locate this line of code:
++               vi->rq[i].min_buf_len = mergeable_min_buf_len(vi, vi->rq[i].vq);
+
+and add something like
+	printk(KERN_ERR, "min buf = 0x%x expected 0x%x size 0x%x big %d\n",
+	       vi->rq[i].min_buf_len, GOOD_PACKET_LEN,
+	       virtqueue_get_vring_size(vi->rq[i].vq),
+	       (int)vi->big_packets);
+
+after it?
+Then boot and capture the output.
+
+Thanks!
+
+-- 
+MST
