@@ -1,34 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 2/2] samples/bpf: add samples for HW_CACHE /
- RAW events
-Date: Mon, 22 May 2017 19:40:41 -0400 (EDT)
-Message-ID: <20170522.194041.936213399075786231.davem@davemloft.net>
-References: <20170522224840.810121-3-ast@fb.com>
-        <20170522.192651.252662920166760334.davem@davemloft.net>
-        <63c0ec55-9cb7-50a0-2020-fe17283e532b@fb.com>
+From: Kees Cook <keescook@chromium.org>
+Subject: Re: [kernel-hardening] [PATCH v4 next 0/3] modules: automatic module
+ loading restrictions
+Date: Mon, 22 May 2017 16:52:15 -0700
+Message-ID: <CAGXu5jJcMkknwoa+ZqXrDUTnA+Y603OEf4v=0WO3kz-NH-JwSA@mail.gmail.com>
+References: <1495454226-10027-1-git-send-email-tixxdz@gmail.com>
+ <20170522120848.GA3003@openwall.com> <CAEiveUdqfMk4+vLg6TaEJNSGwoQHxYq0P4aqZoL4i9GgR3Vdtw@mail.gmail.com>
+ <20170522164323.GA2048@openwall.com> <CAEiveUdb=yc5Gt_+pU_hfNdoNBP0JsUL1QUydNZgc2tD7n1h1w@mail.gmail.com>
+ <CAGXu5jKGnG74KE-k9JPaH1bNqT5nbVioaeu_5sAKQ+4kgp-0Ng@mail.gmail.com> <CALCETrXyf3vM+NdFNcjwaOZs1KFJomuTL0DobXoH9Z68k8dknQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: peterz@infradead.org, bgregg@netflix.com, daniel@iogearbox.net,
-        qinteng@fb.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, kernel-team@fb.com
-To: ast@fb.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:57246 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1760212AbdEVXkt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 22 May 2017 19:40:49 -0400
-In-Reply-To: <63c0ec55-9cb7-50a0-2020-fe17283e532b@fb.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Djalal Harouni <tixxdz@gmail.com>,
+        Solar Designer <solar@openwall.com>,
+        linux-kernel <linux-kernel@vger.kernel.org>,
+        Network Development <netdev@vger.kernel.org>,
+        LSM List <linux-security-module@vger.kernel.org>,
+        "kernel-hardening@lists.openwall.com"
+        <kernel-hardening@lists.openwall.com>,
+        Andrew Morton <akpm@linux-foundation.org>,
+        Rusty Russell <rusty@rustcorp.com.au>,
+        "Serge E. Hallyn" <serge@hallyn.com>, Jessica Yu <jeyu@redhat.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        James Morris <james.l.morris@oracle.com>,
+        Paul Moore <paul@paul-moore.com>,
+        Stephen Smalley <sds@tycho.nsa.gov>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
+        Ingo Molnar <mingo@kernel.org>,
+        Linux API <linux-api@vger.kernel.
+To: Andy Lutomirski <luto@kernel.org>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <CALCETrXyf3vM+NdFNcjwaOZs1KFJomuTL0DobXoH9Z68k8dknQ@mail.gmail.com>
+Sender: owner-linux-security-module@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Alexei Starovoitov <ast@fb.com>
-Date: Mon, 22 May 2017 16:35:07 -0700
+On Mon, May 22, 2017 at 4:38 PM, Andy Lutomirski <luto@kernel.org> wrote:
+> I think that having the un-resettable mode is unnecessary.  We should
+> have option that disables loading modules entirely and cannot be
+> unset.  (That means no explicit loads and not implicit loads.)  Maybe
+> we already have this.  Otherwise, tightening caps needed for implicit
+> loads should just be a normal yes/no setting IMO.
 
-> yet perf_event_read() is least documented. hmm.
->  * u64 bpf_perf_event_read(&map, index)
->  *     Return: Number events read or error code
-> 
-> that needs to be fixed.
+Yup, /proc/sys/kernel/modules_disabled already does this.
 
-That's exactly what I was talking about :-)
+-- 
+Kees Cook
+Pixel Security
