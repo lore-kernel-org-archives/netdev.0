@@ -1,40 +1,54 @@
-From: SF Markus Elfring <elfring-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-Subject: [PATCH 0/3] RDS: Adjustments for two function implementations
-Date: Mon, 22 May 2017 16:10:18 +0200
-Message-ID: <44b46c51-3665-5f14-dd3b-6e6f230258a7@users.sourceforge.net>
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Subject: [PATCH 1/3] RDS: IB: Delete an error message for a failed memory
+ allocation in rds_ib_add_one()
+Date: Mon, 22 May 2017 16:11:37 +0200
+Message-ID: <e3491aaa-f471-c67c-43dc-41d592159c8e@users.sourceforge.net>
+References: <44b46c51-3665-5f14-dd3b-6e6f230258a7@users.sourceforge.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Santosh Shilimkar <santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
-        Sowmini Varadhan <sowmini.varadhan-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: LKML <linux-kernel@vger.kernel.org>,
+        kernel-janitors@vger.kernel.org
+To: linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
+        rds-devel@oss.oracle.com, "David S. Miller" <davem@davemloft.net>,
+        Santosh Shilimkar <santosh.shilimkar@oracle.com>,
+        Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.web.de ([212.227.15.3]:58602 "EHLO mout.web.de"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S933734AbdEVOLy (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 22 May 2017 10:11:54 -0400
+In-Reply-To: <44b46c51-3665-5f14-dd3b-6e6f230258a7@users.sourceforge.net>
 Content-Language: en-GB
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Markus Elfring <elfring-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-Date: Mon, 22 May 2017 16:02:03 +0200
+From: Markus Elfring <elfring@users.sourceforge.net>
+Date: Mon, 22 May 2017 15:34:28 +0200
 
-Three update suggestions were taken into account
-from static source code analysis.
+Omit an extra message for a memory allocation failure in this function.
 
-Markus Elfring (3):
-  Delete an error message for a failed memory allocation in rds_ib_add_one()
-  Improve a size determination in rds_ib_add_one()
-  Delete an error message for a failed memory allocation in rds_tcp_init_net()
+This issue was detected by using the Coccinelle software.
 
- net/rds/ib.c  | 7 ++-----
- net/rds/tcp.c | 5 ++---
- 2 files changed, 4 insertions(+), 8 deletions(-)
+Link: http://events.linuxfoundation.org/sites/events/files/slides/LCJ16-Refactor_Strings-WSang_0.pdf
+Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+---
+ net/rds/ib.c | 5 +----
+ 1 file changed, 1 insertion(+), 4 deletions(-)
 
+diff --git a/net/rds/ib.c b/net/rds/ib.c
+index 7a64c8db81ab..c5514d058171 100644
+--- a/net/rds/ib.c
++++ b/net/rds/ib.c
+@@ -166,8 +166,5 @@ static void rds_ib_add_one(struct ib_device *device)
+-	if (!rds_ibdev->vector_load) {
+-		pr_err("RDS/IB: %s failed to allocate vector memory\n",
+-			__func__);
++	if (!rds_ibdev->vector_load)
+ 		goto put_dev;
+-	}
+ 
+ 	rds_ibdev->dev = device;
+ 	rds_ibdev->pd = ib_alloc_pd(device, 0);
 -- 
 2.13.0
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
