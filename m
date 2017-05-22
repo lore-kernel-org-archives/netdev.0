@@ -1,36 +1,54 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: [PATCH 0/5] net-SCTP: Adjustments for three function implementations
-Date: Mon, 22 May 2017 18:35:47 +0200
-Message-ID: <2845df67-d35d-536a-0a53-b2eb83fe1ba5@users.sourceforge.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 01/11] qede: Fix sparse warnings
+Date: Mon, 22 May 2017 12:38:04 -0400 (EDT)
+Message-ID: <20170522.123804.1189830414503494485.davem@davemloft.net>
+References: <1495452731-27171-1-git-send-email-Yuval.Mintz@cavium.com>
+        <1495452731-27171-2-git-send-email-Yuval.Mintz@cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-        kernel-janitors@vger.kernel.org
-To: linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-        "David S. Miller" <davem@davemloft.net>,
-        Neil Horman <nhorman@tuxdriver.com>,
-        Vlad Yasevich <vyasevich@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Language: en-GB
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, Manish.Chopra@cavium.com
+To: Yuval.Mintz@cavium.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:53994 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S935888AbdEVQiP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 22 May 2017 12:38:15 -0400
+In-Reply-To: <1495452731-27171-2-git-send-email-Yuval.Mintz@cavium.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Mon, 22 May 2017 18:30:45 +0200
+From: Yuval Mintz <Yuval.Mintz@cavium.com>
+Date: Mon, 22 May 2017 14:32:01 +0300
 
-A few update suggestions were taken into account
-from static source code analysis.
+> From: Manish Chopra <Manish.Chopra@cavium.com>
+> 
+> Signed-off-by: Manish Chopra <Manish.Chopra@cavium.com>
+> Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
+> ---
+>  drivers/net/ethernet/qlogic/qede/qede_dcbnl.c   |  1 -
+>  drivers/net/ethernet/qlogic/qede/qede_ethtool.c | 10 ++++++----
+>  drivers/net/ethernet/qlogic/qede/qede_fp.c      | 25 ++++++++++++++-----------
+>  drivers/net/ethernet/qlogic/qede/qede_roce.c    |  4 ++--
+>  4 files changed, 22 insertions(+), 18 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/qlogic/qede/qede_dcbnl.c b/drivers/net/ethernet/qlogic/qede/qede_dcbnl.c
+> index a9e7379..6e7747b 100644
+> --- a/drivers/net/ethernet/qlogic/qede/qede_dcbnl.c
+> +++ b/drivers/net/ethernet/qlogic/qede/qede_dcbnl.c
+> @@ -313,7 +313,6 @@ static int qede_dcbnl_ieee_peer_getets(struct net_device *netdev,
+>  	.ieee_setets = qede_dcbnl_ieee_setets,
+>  	.ieee_getapp = qede_dcbnl_ieee_getapp,
+>  	.ieee_setapp = qede_dcbnl_ieee_setapp,
+> -	.getdcbx = qede_dcbnl_getdcbx,
+>  	.ieee_peer_getpfc = qede_dcbnl_ieee_peer_getpfc,
+>  	.ieee_peer_getets = qede_dcbnl_ieee_peer_getets,
+>  	.getstate = qede_dcbnl_getstate,
 
-Markus Elfring (5):
-  Use kmalloc_array() in sctp_init()
-  Delete an error message for a failed memory allocation in sctp_init()
-  Fix a typo in a comment line in sctp_init()
-  Improve a size determination in sctp_inetaddr_event()
-  Adjust one function call together with a variable assignment
+Please.
 
- net/sctp/protocol.c | 12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
+This is exactly the problem when such a terse commit message, or lack
+of any message at all as is the case here, occurs.
 
--- 
-2.13.0
+I have no idea what removing this method assignment has to do with
+fixing sparse warnings.
