@@ -1,61 +1,46 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
 Subject: Re: linux-next: build failure after merge of the net-next tree
-Date: Mon, 22 May 2017 13:43:00 +1000
-Message-ID: <20170522134300.0bfd175a@canb.auug.org.au>
+Date: Sun, 21 May 2017 23:42:37 -0400
+Message-ID: <CAF=yD-LjjxR7VoXiNXid6e-c_zvVifc7wAnHxtSPeR+kyH8ung@mail.gmail.com>
 References: <20170522111605.14f93676@canb.auug.org.au>
-        <20170521.231410.1999783448679718181.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
-        linux-kernel@vger.kernel.org, mlichvar@redhat.com,
-        willemb@google.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Cc: David Miller <davem@davemloft.net>,
+        Networking <netdev@vger.kernel.org>,
+        Linux-Next Mailing List <linux-next@vger.kernel.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        Miroslav Lichvar <mlichvar@redhat.com>,
+        Willem de Bruijn <willemb@google.com>
+To: Stephen Rothwell <sfr@canb.auug.org.au>
 Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20170521.231410.1999783448679718181.davem@davemloft.net>
+In-Reply-To: <20170522111605.14f93676@canb.auug.org.au>
 Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Dave,
-
-On Sun, 21 May 2017 23:14:10 -0400 (EDT) David Miller <davem@davemloft.net> wrote:
+On Sun, May 21, 2017 at 9:16 PM, Stephen Rothwell <sfr@canb.auug.org.au> wrote:
+> Hi all,
 >
-> From: Stephen Rothwell <sfr@canb.auug.org.au>
-> Date: Mon, 22 May 2017 11:16:05 +1000
-> 
-> > After merging the net-next tree, today's linux-next build (powerpc
-> > ppc64_defconfig) failed like this:
-> > 
-> > net/socket.c: In function 'put_ts_pktinfo':
-> > net/socket.c:695:28: error: 'SCM_TIMESTAMPING_PKTINFO' undeclared (first use in this function)
-> >   put_cmsg(msg, SOL_SOCKET, SCM_TIMESTAMPING_PKTINFO,
-> >                             ^
-> > Caused by commit
-> > 
-> >   aad9c8c470f2 ("net: add new control message for incoming HW-timestamped packets")
-> > 
-> > This probably broke every architecture that has its own
-> > arch/<arch>/include/uapi/asm/socket.h that does not include
-> > include/uapi/asm-generic/socket.h :-(
-> > 
-> > I have used the net-next tree from next-20170519 for today.  
-> 
-> I've just pushed the following, thanks for the report:
+> After merging the net-next tree, today's linux-next build (powerpc
+> ppc64_defconfig) failed like this:
+>
+> net/socket.c: In function 'put_ts_pktinfo':
+> net/socket.c:695:28: error: 'SCM_TIMESTAMPING_PKTINFO' undeclared (first use in this function)
+>   put_cmsg(msg, SOL_SOCKET, SCM_TIMESTAMPING_PKTINFO,
+>                             ^
+>
+> Caused by commit
+>
+>   aad9c8c470f2 ("net: add new control message for incoming HW-timestamped packets")
+>
+> This probably broke every architecture that has its own
+> arch/<arch>/include/uapi/asm/socket.h that does not include
+> include/uapi/asm-generic/socket.h :-(
 
-Looks good except:
+Indeed. I added the architecture specific versions in patch
 
-> diff --git a/arch/parisc/include/uapi/asm/socket.h b/arch/parisc/include/uapi/asm/socket.h
-> index 5147018..784b871 100644
-> --- a/arch/parisc/include/uapi/asm/socket.h
-> +++ b/arch/parisc/include/uapi/asm/socket.h
-> @@ -97,4 +97,6 @@
->  
->  #define SO_COOKIE		0x4032
->  
-> +#define SCM_TIMESTAMPING_PKTINFO	58
+  http://patchwork.ozlabs.org/patch/765238/
 
-Does this need to be 0x4033 (or something)?
-
--- 
-Cheers,
-Stephen Rothwell
+That fixes the powerpc build for me. The new option is now
+defined in every file that also defines the last added such
+option SCM_TIMESTAMPING_OPT_STATS. Apologies for
+missing this earlier.
