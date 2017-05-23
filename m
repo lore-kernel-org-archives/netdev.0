@@ -1,40 +1,46 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: [PATCH] net: ieee802154: fix potential null pointer dereference
-Date: Tue, 23 May 2017 11:13:35 -0700
-Message-ID: <1B82BF85-7AA5-4A52-B0A8-7336DE963567@holtmann.org>
-References: <20170523181147.GA32714@embeddedgus>
-Mime-Version: 1.0 (Mac OS X Mail 10.3 \(3273\))
-Content-Type: text/plain; charset=us-ascii
+From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
+Subject: Re: [PATCH v6 net-next 17/17] net: qualcomm: add QCA7000 UART driver
+Date: Tue, 23 May 2017 20:16:44 +0200
+Message-ID: <053235ad-a963-6a09-ccb0-b643115dee00@gmx.de>
+References: <1495545173-22150-1-git-send-email-stefan.wahren@i2se.com>
+ <1495545173-22150-18-git-send-email-stefan.wahren@i2se.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: Harry Morris <h.morris@cascoda.com>, linuxdev@cascoda.com,
-        Alexander Aring <aar@pengutronix.de>,
-        Stefan Schmidt <stefan@osg.samsung.com>,
-        linux-wpan@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from coyote.holtmann.net ([212.227.132.17]:42873 "EHLO
-        mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S967057AbdEWSNm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 23 May 2017 14:13:42 -0400
-In-Reply-To: <20170523181147.GA32714@embeddedgus>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        Jiri Slaby <jslaby@suse.com>, Jakub Kicinski <kubakici@wp.pl>,
+        devicetree@vger.kernel.org, netdev@vger.kernel.org,
+        linux-serial@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Stefan Wahren <stefan.wahren@i2se.com>,
+        Rob Herring <robh+dt@kernel.org>,
+        Mark Rutland <mark.rutland@arm.com>,
+        "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1495545173-22150-18-git-send-email-stefan.wahren@i2se.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Gustavo,
+Hi,
 
-> Null check at line 918: if (!spi) {, implies spi might be NULL.
-> Function spi_get_drvdata() dereference pointer spi.
-> Move pointer priv assignment after the null check.
-> 
-> Addresses-Coverity-ID: 1408888
-> Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
-> ---
-> drivers/net/ieee802154/ca8210.c | 3 ++-
-> 1 file changed, 2 insertions(+), 1 deletion(-)
+On 23.05.2017 15:12, Stefan Wahren wrote:
 
-patch has been applied to bluetooth-next tree.
 
-Regards
+> +}
+> +
+> +static void qca_uart_remove(struct serdev_device *serdev)
+> +{
+> +	struct qcauart *qca = serdev_device_get_drvdata(serdev);
+> +
+> +	netif_carrier_off(qca->net_dev);
+> +	cancel_work_sync(&qca->tx_work);
+> +	unregister_netdev(qca->net_dev);
 
-Marcel
+Note that it is still possible that the tx work is queued right after cancel_work_sync()
+returned and before the net device is unregistered (and thus the check for the net device
+being up at the beginning of the tx work function is passed and the function is executed).
+I suggest to avoid this possible race by first unregistering the netdevice and then 
+calling cancel_work_sync().
+
+Regards,
+Lino 
