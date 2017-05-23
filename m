@@ -1,94 +1,96 @@
-From: Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
-Subject: Re: [PATCH] of_mdio: Fix broken PHY IRQ in case of probe deferral
-Date: Tue, 23 May 2017 11:36:47 +0200
-Message-ID: <CAMuHMdWWfaP8=H7H+UzrmOYpydi2mGLFGzuk9FQWJtEOug6u5g@mail.gmail.com>
-References: <1495112345-24795-1-git-send-email-geert+renesas@glider.be>
- <f0ed61c3-062b-cec6-fe19-7412231e8ef1@gmail.com> <CAMuHMdWYeSzofU57LmT_M3KkcHhvjfJy7nkHvcXkKzOYmvhqqA@mail.gmail.com>
- <20170518193453.GB13759@lunn.ch> <CAMuHMdV+jfh=EGt3SvjtrtVfWQ6P8ofp_JxeQZjRrSEfDWs5hA@mail.gmail.com>
- <08a89dd5-b707-8b8f-b8e1-e20b9ed630b7@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>,
-        Geert Uytterhoeven <geert+renesas-gXvu3+zWzMSzQB+pC5nmwQ@public.gmane.org>,
-        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Frank Rowand <frowand.list-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Thomas Petazzoni <thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
-        Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>,
-        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Linux-Renesas <linux-renesas-soc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+From: Quentin Schulz <quentin.schulz-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+Subject: [PATCH v2] net: fec: add post PHY reset delay DT property
+Date: Tue, 23 May 2017 11:48:08 +0200
+Message-ID: <20170523094808.11102-1-quentin.schulz@free-electrons.com>
+Cc: Quentin Schulz <quentin.schulz-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org
+To: fugang.duan-3arQi8VN3Tc@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org
 Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <08a89dd5-b707-8b8f-b8e1-e20b9ed630b7-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hi Florian,
+Some PHY require to wait for a bit after the reset GPIO has been
+toggled. This adds support for the DT property `phy-reset-post-delay`
+which gives the delay in milliseconds to wait after reset.
 
-On Fri, May 19, 2017 at 12:21 AM, Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
-> On 05/18/2017 01:36 PM, Geert Uytterhoeven wrote:
->> On Thu, May 18, 2017 at 9:34 PM, Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org> wrote:
->>>>> This most certainly works fine in the simple case where you have one PHY
->>>>> hanging off the MDIO bus, now what happens if you have several?
->>>>>
->>>>> Presumably, the first PHY that returns EPROBE_DEFER will make the entire
->>>>> bus registration return EPROB_DEFER as well, and so on, and so forth,
->>>>> but I am not sure if we will be properly unwinding the successful
->>>>> registration of PHYs that either don't have an interrupt, or did not
->>>>> return EPROBE_DEFER.
->>>>>
->>>>> It should be possible to mimic this behavior by using the fixed PHY, and
->>>>> possibly the dsa_loop.c driver which would create 4 ports, expecting 4
->>>>> fixed PHYs to be present.
->>>>
->>>> mdiobus_unregister(), called from of_mdiobus_register() on failure,
->>>> should do the unwinding, right?
->>>>
->>>> And when the driver is reprobed, all PHYs are reprobed, until they all
->>>> succeed.
->>>
->>> That is the theory. I looked at that while reviewing the patch. But
->>> this has probably not been tested in anger. It would be good to test
->>> this properly, with not just the first PHY returning -EPROBE_DEFER, to
->>> really test the unwind.
->>
->> Unfortunately I don't have a board with multiple PHYs, so I cannot test
->> that case.
+If the DT property is not given, no delay is observed. Post reset delay
+greater than 1000ms are invalid.
 
-I tried adding a few dummy PHYs in DT, but that didn't work.
+Signed-off-by: Quentin Schulz <quentin.schulz-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+---
 
-So how can we proceed?
+v2:
+  - return -EINVAL when phy-reset-post-delay is greater than 1000ms
+  instead of defaulting to 1ms,
+  - remove `default to 1ms` when phy-reset-post-delay > 1000Ms from DT
+  binding doc and commit log,
+  - move phy-reset-post-delay property reading before
+  devm_gpio_request_one(),
 
-I think the only way my patch can cause issues is because some systems
-may rely on EPROBE_DEFER errors being ignored.
+ Documentation/devicetree/bindings/net/fsl-fec.txt |  4 ++++
+ drivers/net/ethernet/freescale/fec_main.c         | 16 +++++++++++++++-
+ 2 files changed, 19 insertions(+), 1 deletion(-)
 
->> Does unbinding/rebinding a network driver with multiple PHYs currently
->> work? Or module unload/reload?
->
-> Usually there is a strict 1:1 mapping between a network device (not
-> driver) and a PHY device, switch drivers however, would have multiple
-> PHYs (one per port, aka net_deice).
->
-> NB: binding and unbinding of PHYs is pretty broken at the moment though,
-> because there is a complete disconnect between what the Ethernet MAC
-> expects, and the state in which the PHY is. I had some patches to fix
-> that, but this turned out to be playing whack-a-mole which I typically
-> suck at.
+diff --git a/Documentation/devicetree/bindings/net/fsl-fec.txt b/Documentation/devicetree/bindings/net/fsl-fec.txt
+index a1e3693cca16..6f55bdd52f8a 100644
+--- a/Documentation/devicetree/bindings/net/fsl-fec.txt
++++ b/Documentation/devicetree/bindings/net/fsl-fec.txt
+@@ -15,6 +15,10 @@ Optional properties:
+ - phy-reset-active-high : If present then the reset sequence using the GPIO
+   specified in the "phy-reset-gpios" property is reversed (H=reset state,
+   L=operation state).
++- phy-reset-post-delay : Post reset delay in milliseconds. If present then
++  a delay of phy-reset-post-delay milliseconds will be observed after the
++  phy-reset-gpios has been toggled. Can be omitted thus no delay is
++  observed. Delay is in range of 1ms to 1000ms. Other delays are invalid.
+ - phy-supply : regulator that powers the Ethernet PHY.
+ - phy-handle : phandle to the PHY device connected to this device.
+ - fixed-link : Assume a fixed link. See fixed-link.txt in the same directory.
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+index 56a563f90b0b..f7c8649fd28f 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -3192,7 +3192,7 @@ static int fec_reset_phy(struct platform_device *pdev)
+ {
+ 	int err, phy_reset;
+ 	bool active_high = false;
+-	int msec = 1;
++	int msec = 1, phy_post_delay = 0;
+ 	struct device_node *np = pdev->dev.of_node;
+ 
+ 	if (!np)
+@@ -3209,6 +3209,11 @@ static int fec_reset_phy(struct platform_device *pdev)
+ 	else if (!gpio_is_valid(phy_reset))
+ 		return 0;
+ 
++	err = of_property_read_u32(np, "phy-reset-post-delay", &phy_post_delay);
++	/* valid reset duration should be less than 1s */
++	if (!err && phy_post_delay > 1000)
++		return -EINVAL;
++
+ 	active_high = of_property_read_bool(np, "phy-reset-active-high");
+ 
+ 	err = devm_gpio_request_one(&pdev->dev, phy_reset,
+@@ -3226,6 +3231,15 @@ static int fec_reset_phy(struct platform_device *pdev)
+ 
+ 	gpio_set_value_cansleep(phy_reset, !active_high);
+ 
++	if (!phy_post_delay)
++		return 0;
++
++	if (phy_post_delay > 20)
++		msleep(phy_post_delay);
++	else
++		usleep_range(phy_post_delay * 1000,
++			     phy_post_delay * 1000 + 1000);
++
+ 	return 0;
+ }
+ #else /* CONFIG_OF */
+-- 
+2.11.0
 
-I didn't mean unbinding the PHY, but the network device.
-Don't you have the same issue with the state of PHYs as left by the bootloader?
-
-Gr{oetje,eeting}s,
-
-                        Geert
-
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org
-
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
 --
 To unsubscribe from this list: send the line "unsubscribe devicetree" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
