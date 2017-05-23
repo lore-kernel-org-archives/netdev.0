@@ -1,60 +1,56 @@
-From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [for-next 5/6] net/mlx5: Bump driver version
-Date: Tue, 23 May 2017 14:44:03 +0300
-Message-ID: <20170523114404.20387-6-saeedm@mellanox.com>
+From: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Subject: [for-next 6/6] IB/mlx5: Bump driver version
+Date: Tue, 23 May 2017 14:44:04 +0300
+Message-ID: <20170523114404.20387-7-saeedm@mellanox.com>
 References: <20170523114404.20387-1-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
-        Ilan Tayari <ilant@mellanox.com>,
-        Tariq Toukan <tariqt@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>,
-        Doug Ledford <dledford@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:51033 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1761588AbdEWLoK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 23 May 2017 07:44:10 -0400
-In-Reply-To: <20170523114404.20387-1-saeedm@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Ilan Tayari <ilant-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Tariq Toukan <tariqt-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170523114404.20387-1-saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Tariq Toukan <tariqt@mellanox.com>
+From: Tariq Toukan <tariqt-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
 
-Remove date and bump version for mlx5_core driver.
+Remove date and bump version for mlx5_ib driver.
 
-Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Signed-off-by: Tariq Toukan <tariqt-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Signed-off-by: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c | 2 +-
- drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h  | 3 +--
- 2 files changed, 2 insertions(+), 3 deletions(-)
+ drivers/infiniband/hw/mlx5/main.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-index e0dd1048c966..afa89dcf30a5 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-@@ -39,7 +39,7 @@ static void mlx5e_get_drvinfo(struct net_device *dev,
- 	struct mlx5_core_dev *mdev = priv->mdev;
+diff --git a/drivers/infiniband/hw/mlx5/main.c b/drivers/infiniband/hw/mlx5/main.c
+index b6991204e5df..42defaa0d6c6 100644
+--- a/drivers/infiniband/hw/mlx5/main.c
++++ b/drivers/infiniband/hw/mlx5/main.c
+@@ -60,8 +60,7 @@
+ #include "cmd.h"
  
- 	strlcpy(drvinfo->driver, DRIVER_NAME, sizeof(drvinfo->driver));
--	strlcpy(drvinfo->version, DRIVER_VERSION " (" DRIVER_RELDATE ")",
-+	strlcpy(drvinfo->version, DRIVER_VERSION,
- 		sizeof(drvinfo->version));
- 	snprintf(drvinfo->fw_version, sizeof(drvinfo->fw_version),
- 		 "%d.%d.%04d (%.16s)",
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h b/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
-index fbc6e9e9e305..cf69b42278df 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
-@@ -39,8 +39,7 @@
- #include <linux/if_link.h>
- 
- #define DRIVER_NAME "mlx5_core"
--#define DRIVER_VERSION "3.0-1"
--#define DRIVER_RELDATE  "January 2015"
+ #define DRIVER_NAME "mlx5_ib"
+-#define DRIVER_VERSION "2.2-1"
+-#define DRIVER_RELDATE	"Feb 2014"
 +#define DRIVER_VERSION "5.0-0"
  
- #define MLX5_TOTAL_VPORTS(mdev) (1 + pci_sriov_get_totalvfs(mdev->pdev))
+ MODULE_AUTHOR("Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>");
+ MODULE_DESCRIPTION("Mellanox Connect-IB HCA IB driver");
+@@ -70,7 +69,7 @@ MODULE_VERSION(DRIVER_VERSION);
  
+ static char mlx5_version[] =
+ 	DRIVER_NAME ": Mellanox Connect-IB Infiniband driver v"
+-	DRIVER_VERSION " (" DRIVER_RELDATE ")\n";
++	DRIVER_VERSION "\n";
+ 
+ enum {
+ 	MLX5_ATOMIC_SIZE_QP_8BYTES = 1 << 3,
 -- 
 2.11.0
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
