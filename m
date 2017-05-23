@@ -1,147 +1,112 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 7/8] mlxsw: spectrum: Validate firmware revision on init
-Date: Tue, 23 May 2017 21:56:29 +0200
-Message-ID: <20170523195630.6460-8-jiri@resnulli.us>
-References: <20170523195630.6460-1-jiri@resnulli.us>
-Cc: davem@davemloft.net, idosch@mellanox.com, yotamg@mellanox.com,
-        mlxsw@mellanox.com, Yuval.Mintz@cavium.com
-To: netdev@vger.kernel.org
+From: Jay Vosburgh <jay.vosburgh@canonical.com>
+Subject: Re: bond link state mismatch, rtnl_trylock() vs rtnl_lock()
+Date: Tue, 23 May 2017 13:13:32 -0700
+Message-ID: <1638.1495570412@famine>
+References: <24c0747b-df09-66da-f3ac-a393a5902a72@tintri.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Cc: netdev@vger.kernel.org
+To: Nithin Sujir <nsujir@tintri.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:34564 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S967265AbdEWT4n (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 23 May 2017 15:56:43 -0400
-Received: by mail-wm0-f67.google.com with SMTP id d127so41922439wmf.1
-        for <netdev@vger.kernel.org>; Tue, 23 May 2017 12:56:42 -0700 (PDT)
-In-Reply-To: <20170523195630.6460-1-jiri@resnulli.us>
+Received: from youngberry.canonical.com ([91.189.89.112]:53121 "EHLO
+        youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S936246AbdEWUNg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 23 May 2017 16:13:36 -0400
+In-reply-to: <24c0747b-df09-66da-f3ac-a393a5902a72@tintri.com>
+Content-ID: <1637.1495570412.1@famine>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yotam Gigi <yotamg@mellanox.com>
+Nithin Sujir <nsujir@tintri.com> wrote:
 
-Make the spectrum module check the current device firmware version, and if
-it is below the supported version, use the libfirmware API to request a
-firmware file with the supported firmware version and flash it to the
-device using the mlxfw module.
+>Hi,
+>We're encountering a problem in 4.4 LTS where, rarely, the bond link state
+>is not updated when the slave link changes.
+>
+>I've traced the issue to the arp monitor unable to get the rtnl lock. The
+>sequence resulting in failure is as below.
+>
+>bond_loadbalance_arp_mon() periodically called, if slave link is _down_,
+>it checks if the slave is sending/receiving packets. If it is, it sets
+>flags to be processed later down the function for bond link
+>update. However, it sets the slave->link right away.
+>
+>                if (slave->link != BOND_LINK_UP) {
+>                        if (bond_time_in_interval(bond, trans_start, 1) &&
+>                            bond_time_in_interval(bond, slave->last_rx,
+>1)) {
+>
+>                                slave->link  = BOND_LINK_UP;
+>                                slave_state_changed = 1;
+>
+>
+>Later down the function, it tries to get the rtnl_lock. If it doesn't get
+>it, it rearms and returns.
+>
+>        if (do_failover || slave_state_changed) {
+>                if (!rtnl_trylock())
+>                        goto re_arm; <-- returns here
+>
+>                if (slave_state_changed) {
+>                        bond_slave_state_change(bond);
+>
+>This is the problem. The next time this function is called, the
+>slave->link is already marked UP. And we will never update the bond link
+>state to UP.
 
-The firmware file names are expected to be of Mellanox Firmware Archive
-version 2 (MFA2) format and their name are expected to be in the following
-pattern: "mlxsw_spectrum-<major>.<minor>.<sub-minor>.mfa2".
+	This looks like an ARP monitor version of
 
-Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+commit de77ecd4ef02ca783f7762e04e92b3d0964be66b
+Author: Mahesh Bandewar <maheshb@google.com>
+Date:   Mon Mar 27 11:37:33 2017 -0700
+
+    bonding: improve link-status update in mii-monitoring
+
+	and probably needs a similar fix (possibly for both the
+loadbalance and active-backup ARP monitor cases).
+
+>Changing the rtnl_trylock() -> rtnl_lock() _does_ fix the issue.
+>
+>Is this the right way to fix it? If it is, I can submit this formally.
+
+	It's not the right way, unfortunately.
+
+	The reason for the rtnl_trylock is that there's a possible race
+against bond_close() -> bond_work_cancel_all() trying to cancel the
+arp_work workqueue item while it's running.  bond_close is called with
+RTNL held, so if it has RTNL and is waiting for the work function to
+complete, an rtnl_lock call here will deadlock.  Some of the trylock
+calls in bonding are commented to this effect, but not this one.
+
+	-J
+
+>What are the guidelines around using rtnl_lock() vs rtnl_trylock()? Some
+>places are using rtnl_lock() and other rtnl_trylock(). Sorry, I couldn't
+>find much via a google search or in Documentation/.
+>
+>Thanks,
+>Nithin.
+>
+>--------------------
+>
+>diff --git a/drivers/net/bonding/bond_main.c
+>b/drivers/net/bonding/bond_main.c
+>index 5dca77e..1f60503 100644
+>--- a/drivers/net/bonding/bond_main.c
+>+++ b/drivers/net/bonding/bond_main.c
+>@@ -2614,8 +2614,7 @@ static void bond_loadbalance_arp_mon(struct
+>work_struct *work)
+>        rcu_read_unlock();
+>
+>        if (do_failover || slave_state_changed) {
+>-               if (!rtnl_trylock())
+>-                       goto re_arm;
+>+               rtnl_lock();
+>
+>                if (slave_state_changed) {
+>                        bond_slave_state_change(bond);
+>
+>
+
 ---
- drivers/net/ethernet/mellanox/mlxsw/Kconfig    |  1 +
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 67 ++++++++++++++++++++++++++
- 2 files changed, 68 insertions(+)
-
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/Kconfig b/drivers/net/ethernet/mellanox/mlxsw/Kconfig
-index ef23eae..b9f80c2 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/Kconfig
-+++ b/drivers/net/ethernet/mellanox/mlxsw/Kconfig
-@@ -75,6 +75,7 @@ config MLXSW_SPECTRUM
- 	depends on MLXSW_CORE && MLXSW_PCI && NET_SWITCHDEV && VLAN_8021Q
- 	depends on PSAMPLE || PSAMPLE=n
- 	select PARMAN
-+	select MLXFW
- 	default m
- 	---help---
- 	  This driver supports Mellanox Technologies Spectrum Ethernet
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-index b533a53..9594e9d 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-@@ -70,6 +70,21 @@
- #include "spectrum_dpipe.h"
- #include "../mlxfw/mlxfw.h"
- 
-+#define MLXSW_FWREV_MAJOR 13
-+#define MLXSW_FWREV_MINOR 1420
-+#define MLXSW_FWREV_SUBMINOR 122
-+
-+static const struct mlxsw_fw_rev mlxsw_sp_supported_fw_rev = {
-+	.major = MLXSW_FWREV_MAJOR,
-+	.minor = MLXSW_FWREV_MINOR,
-+	.subminor = MLXSW_FWREV_SUBMINOR
-+};
-+
-+#define MLXSW_SP_FW_FILENAME \
-+	"mlxsw_spectrum-" __stringify(MLXSW_FWREV_MAJOR) \
-+	"." __stringify(MLXSW_FWREV_MINOR) \
-+	"." __stringify(MLXSW_FWREV_SUBMINOR) ".mfa2"
-+
- static const char mlxsw_sp_driver_name[] = "mlxsw_spectrum";
- static const char mlxsw_sp_driver_version[] = "1.0";
- 
-@@ -306,6 +321,51 @@ static const struct mlxfw_dev_ops mlxsw_sp_mlxfw_dev_ops = {
- 	.fsm_release		= mlxsw_sp_fsm_release
- };
- 
-+static bool mlxsw_sp_fw_rev_ge(const struct mlxsw_fw_rev *a,
-+			       const struct mlxsw_fw_rev *b)
-+{
-+	if (a->major != b->major)
-+		return a->major > b->major;
-+	if (a->minor != b->minor)
-+		return a->minor > b->minor;
-+	return a->subminor >= b->subminor;
-+}
-+
-+static int mlxsw_sp_fw_rev_validate(struct mlxsw_sp *mlxsw_sp)
-+{
-+	const struct mlxsw_fw_rev *rev = &mlxsw_sp->bus_info->fw_rev;
-+	struct mlxsw_sp_mlxfw_dev mlxsw_sp_mlxfw_dev = {
-+		.mlxfw_dev = {
-+			.ops = &mlxsw_sp_mlxfw_dev_ops,
-+			.psid = mlxsw_sp->bus_info->psid,
-+			.psid_size = strlen(mlxsw_sp->bus_info->psid),
-+		},
-+		.mlxsw_sp = mlxsw_sp
-+	};
-+	const struct firmware *firmware;
-+	int err;
-+
-+	if (mlxsw_sp_fw_rev_ge(rev, &mlxsw_sp_supported_fw_rev))
-+		return 0;
-+
-+	dev_info(mlxsw_sp->bus_info->dev, "The firmware version %d.%d.%d out of data\n",
-+		 rev->major, rev->minor, rev->subminor);
-+	dev_info(mlxsw_sp->bus_info->dev, "Upgrading firmware using file %s\n",
-+		 MLXSW_SP_FW_FILENAME);
-+
-+	err = request_firmware_direct(&firmware, MLXSW_SP_FW_FILENAME,
-+				      mlxsw_sp->bus_info->dev);
-+	if (err) {
-+		dev_err(mlxsw_sp->bus_info->dev, "Could not request firmware file %s\n",
-+			MLXSW_SP_FW_FILENAME);
-+		return err;
-+	}
-+
-+	err = mlxfw_firmware_flash(&mlxsw_sp_mlxfw_dev.mlxfw_dev, firmware);
-+	release_firmware(firmware);
-+	return err;
-+}
-+
- int mlxsw_sp_flow_counter_get(struct mlxsw_sp *mlxsw_sp,
- 			      unsigned int counter_index, u64 *packets,
- 			      u64 *bytes)
-@@ -3559,6 +3619,12 @@ static int mlxsw_sp_init(struct mlxsw_core *mlxsw_core,
- 	INIT_LIST_HEAD(&mlxsw_sp->fids);
- 	INIT_LIST_HEAD(&mlxsw_sp->vfids.list);
- 
-+	err = mlxsw_sp_fw_rev_validate(mlxsw_sp);
-+	if (err) {
-+		dev_err(mlxsw_sp->bus_info->dev, "Could not upgrade firmware\n");
-+		return err;
-+	}
-+
- 	err = mlxsw_sp_base_mac_get(mlxsw_sp);
- 	if (err) {
- 		dev_err(mlxsw_sp->bus_info->dev, "Failed to get base mac\n");
-@@ -4930,3 +4996,4 @@ MODULE_LICENSE("Dual BSD/GPL");
- MODULE_AUTHOR("Jiri Pirko <jiri@mellanox.com>");
- MODULE_DESCRIPTION("Mellanox Spectrum driver");
- MODULE_DEVICE_TABLE(pci, mlxsw_sp_pci_id_table);
-+MODULE_FIRMWARE(MLXSW_SP_FW_FILENAME);
--- 
-2.9.3
+	-Jay Vosburgh, jay.vosburgh@canonical.com
