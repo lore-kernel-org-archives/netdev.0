@@ -1,49 +1,68 @@
-From: Corentin Labbe <clabbe.montjoie@gmail.com>
-Subject: Re: [PATCH v2 4/4] net-next: stmmac: rework the speed selection
-Date: Tue, 23 May 2017 09:10:15 +0200
-Message-ID: <20170523071015.GA9279@Red>
-References: <20170522123347.5295-1-clabbe.montjoie@gmail.com>
- <20170522123347.5295-5-clabbe.montjoie@gmail.com>
- <20170522.144944.1978795354564077830.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next] net: sched: cls_api: make reclassify return all the way back to the original tp
+Date: Tue, 23 May 2017 09:11:59 +0200
+Message-ID: <20170523071159.1951-1-jiri@resnulli.us>
+Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
+        dsa@cumulusnetworks.com, edumazet@google.com, daniel@iogearbox.net,
+        alexander.h.duyck@intel.com, simon.horman@netronome.com,
+        mlxsw@mellanox.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f42.google.com ([74.125.82.42]:35515 "EHLO
-        mail-wm0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751318AbdEWHKZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 23 May 2017 03:10:25 -0400
-Content-Disposition: inline
-In-Reply-To: <20170522.144944.1978795354564077830.davem@davemloft.net>
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:35018 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S966019AbdEWHMC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 23 May 2017 03:12:02 -0400
+Received: by mail-wm0-f68.google.com with SMTP id g15so17591313wmc.2
+        for <netdev@vger.kernel.org>; Tue, 23 May 2017 00:12:02 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 22, 2017 at 02:49:44PM -0400, David Miller wrote:
-> From: Corentin Labbe <clabbe.montjoie@gmail.com>
-> Date: Mon, 22 May 2017 14:33:47 +0200
-> 
-> > -	mac->link.port = GMAC_CONTROL_PS;
-> >  	mac->link.duplex = GMAC_CONTROL_DM;
-> > -	mac->link.speed = GMAC_CONTROL_FES;
-> > +	mac->link.speed10 = GMAC_CONTROL_PS;
-> > +	mac->link.speed100 = GMAC_CONTROL_PS | GMAC_CONTROL_FES;
-> > +	mac->link.speed1000 = 0;
-> > +	mac->link.speed_mask = GENMASK(15, 14);
-> 
-> Neither GMAC_CONTROL_PS nor GMAC_CONTROL_FES are defined with
-> the GENMASK() macro.  So it is very confusing to see constant
-> bit specifications here in C code.
-> 
-> There are two ways to do this properly:
-> 
-> 1) Use "(GMAC_CONTROL_PS | GMAC_CONTROL_FES)"
-> 
-> 2) Define a new GMAC_CONTROL_SPDMASK to "GMAC_CONTROL_PS | GMAC_CONTROL_FES"
->    and use that here.
-> 
+From: Jiri Pirko <jiri@mellanox.com>
 
-Since dwmac100 use the #1, I will do the same on dwmac4/dwmac1000
+With the introduction of chain goto action, the reclassification would
+cause the re-iteration of the actual chain. It makes more sense to restart
+the whole thing and re-iterate starting from the original tp - start
+of chain 0.
 
-Thanks.
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+---
+ net/sched/cls_api.c | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
+
+diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
+index 01a8b8b..89fbb35 100644
+--- a/net/sched/cls_api.c
++++ b/net/sched/cls_api.c
+@@ -300,7 +300,8 @@ int tcf_classify(struct sk_buff *skb, const struct tcf_proto *tp,
+ 	__be16 protocol = tc_skb_protocol(skb);
+ #ifdef CONFIG_NET_CLS_ACT
+ 	const int max_reclassify_loop = 4;
+-	const struct tcf_proto *old_tp = tp;
++	const struct tcf_proto *orig_tp = tp;
++	const struct tcf_proto *first_tp;
+ 	int limit = 0;
+ 
+ reclassify:
+@@ -315,9 +316,10 @@ int tcf_classify(struct sk_buff *skb, const struct tcf_proto *tp,
+ 		err = tp->classify(skb, tp, res);
+ #ifdef CONFIG_NET_CLS_ACT
+ 		if (unlikely(err == TC_ACT_RECLASSIFY && !compat_mode)) {
++			first_tp = orig_tp;
+ 			goto reset;
+ 		} else if (unlikely(TC_ACT_EXT_CMP(err, TC_ACT_GOTO_CHAIN))) {
+-			old_tp = res->goto_tp;
++			first_tp = res->goto_tp;
+ 			goto reset;
+ 		}
+ #endif
+@@ -335,7 +337,7 @@ int tcf_classify(struct sk_buff *skb, const struct tcf_proto *tp,
+ 		return TC_ACT_SHOT;
+ 	}
+ 
+-	tp = old_tp;
++	tp = first_tp;
+ 	protocol = tc_skb_protocol(skb);
+ 	goto reclassify;
+ #endif
+-- 
+2.9.3
