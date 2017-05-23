@@ -1,48 +1,31 @@
-From: Lin Zhang <xiaolou4617@gmail.com>
-Subject: [PATCH net v2 1/2] net: ieee802154: remove explicit set skb->sk
-Date: Tue, 23 May 2017 13:21:05 +0800
-Message-ID: <1495516865-17019-1-git-send-email-xiaolou4617@gmail.com>
-Cc: linux-wpan@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, Lin Zhang <xiaolou4617@gmail.com>
-To: aar@pengutronix.de, stefan@osg.samsung.com, davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Xin Long <lucien.xin@gmail.com>
+Subject: [PATCH net 0/2] sctp: a bunch of fixes for processing dupcookie
+Date: Tue, 23 May 2017 13:28:53 +0800
+Message-ID: <cover.1495517205.git.lucien.xin@gmail.com>
+Cc: davem@davemloft.net,
+        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+        Neil Horman <nhorman@tuxdriver.com>
+To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:35607 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933158AbdEWF3E (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 23 May 2017 01:29:04 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Explicit set skb->sk is needless, sock_alloc_send_skb is already set it.
+After introducing transport hashtable and per stream info into sctp,
+some regressions were caused when processing dupcookie, this patchset
+is to fix them.
 
-Signed-off-by: Lin Zhang <xiaolou4617@gmail.com>
-Acked-by: Stefan Schmidt <stefan@osg.samsung.com>
----
-changelog:
+Xin Long (2):
+  sctp: fix stream update when processing dupcookie
+  sctp: set new_asoc temp when processing dupcookie
 
-v1 -> v2:
-        * split v1 into two patches, per Stefan Schmidt.
+ net/sctp/associola.c     |  4 +++-
+ net/sctp/sm_make_chunk.c | 13 ++++---------
+ net/sctp/sm_statefuns.c  |  3 +++
+ 3 files changed, 10 insertions(+), 10 deletions(-)
 
-Thanks to Stefan Schmidt for reviewing !
----
- net/ieee802154/socket.c | 2 --
- 1 file changed, 2 deletions(-)
-
-diff --git a/net/ieee802154/socket.c b/net/ieee802154/socket.c
-index eedba76..b01a1f0 100644
---- a/net/ieee802154/socket.c
-+++ b/net/ieee802154/socket.c
-@@ -301,7 +301,6 @@ static int raw_sendmsg(struct sock *sk, struct msghdr *msg, size_t size)
- 		goto out_skb;
- 
- 	skb->dev = dev;
--	skb->sk  = sk;
- 	skb->protocol = htons(ETH_P_IEEE802154);
- 
- 	dev_put(dev);
-@@ -690,7 +689,6 @@ static int dgram_sendmsg(struct sock *sk, struct msghdr *msg, size_t size)
- 		goto out_skb;
- 
- 	skb->dev = dev;
--	skb->sk  = sk;
- 	skb->protocol = htons(ETH_P_IEEE802154);
- 
- 	dev_put(dev);
 -- 
-1.8.3.1
+2.1.0
