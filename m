@@ -1,114 +1,98 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 1/5] net: flow_dissector: add support for dissection of tcp flags
-Date: Tue, 23 May 2017 18:40:44 +0200
-Message-ID: <20170523164048.16514-2-jiri@resnulli.us>
+Subject: [patch net-next v2 2/5] net/sched: flower: add support for matching on tcp flags
+Date: Tue, 23 May 2017 18:40:45 +0200
+Message-ID: <20170523164048.16514-3-jiri@resnulli.us>
 References: <20170523164048.16514-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
         simon.horman@netronome.com, mlxsw@mellanox.com, idosch@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:36025 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1763437AbdEWQkw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 23 May 2017 12:40:52 -0400
-Received: by mail-wm0-f65.google.com with SMTP id k15so39524004wmh.3
-        for <netdev@vger.kernel.org>; Tue, 23 May 2017 09:40:52 -0700 (PDT)
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:34138 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1764065AbdEWQk7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 23 May 2017 12:40:59 -0400
+Received: by mail-wm0-f66.google.com with SMTP id d127so40691693wmf.1
+        for <netdev@vger.kernel.org>; Tue, 23 May 2017 09:40:59 -0700 (PDT)
 In-Reply-To: <20170523164048.16514-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-Add support for dissection of tcp flags. Uses similar function call to
-tcp dissection function as arp, mpls and others.
+Benefit from the support of tcp flags dissection and allow user to
+insert rules matching on tcp flags.
 
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
-Acked-by: Or Gerlitz <ogerlitz@mellanox.com>
 ---
- include/net/flow_dissector.h |  9 +++++++++
- net/core/flow_dissector.c    | 29 +++++++++++++++++++++++++++++
- 2 files changed, 38 insertions(+)
+ include/uapi/linux/pkt_cls.h |  3 +++
+ net/sched/cls_flower.c       | 13 ++++++++++++-
+ 2 files changed, 15 insertions(+), 1 deletion(-)
 
-diff --git a/include/net/flow_dissector.h b/include/net/flow_dissector.h
-index 8d21d44..efe34eec 100644
---- a/include/net/flow_dissector.h
-+++ b/include/net/flow_dissector.h
-@@ -157,6 +157,14 @@ struct flow_dissector_key_eth_addrs {
- 	unsigned char src[ETH_ALEN];
+diff --git a/include/uapi/linux/pkt_cls.h b/include/uapi/linux/pkt_cls.h
+index 1b9aa9e..c6e8cf5 100644
+--- a/include/uapi/linux/pkt_cls.h
++++ b/include/uapi/linux/pkt_cls.h
+@@ -451,6 +451,9 @@ enum {
+ 	TCA_FLOWER_KEY_MPLS_TC,		/* u8 - 3 bits */
+ 	TCA_FLOWER_KEY_MPLS_LABEL,	/* be32 - 20 bits */
+ 
++	TCA_FLOWER_KEY_TCP_FLAGS,	/* be16 */
++	TCA_FLOWER_KEY_TCP_FLAGS_MASK,	/* be16 */
++
+ 	__TCA_FLOWER_MAX,
  };
  
-+/**
-+ * struct flow_dissector_key_tcp:
-+ * @flags: flags
-+ */
-+struct flow_dissector_key_tcp {
-+	__be16 flags;
-+};
-+
- enum flow_dissector_key_id {
- 	FLOW_DISSECTOR_KEY_CONTROL, /* struct flow_dissector_key_control */
- 	FLOW_DISSECTOR_KEY_BASIC, /* struct flow_dissector_key_basic */
-@@ -177,6 +185,7 @@ enum flow_dissector_key_id {
- 	FLOW_DISSECTOR_KEY_ENC_CONTROL, /* struct flow_dissector_key_control */
- 	FLOW_DISSECTOR_KEY_ENC_PORTS, /* struct flow_dissector_key_ports */
- 	FLOW_DISSECTOR_KEY_MPLS, /* struct flow_dissector_key_mpls */
-+	FLOW_DISSECTOR_KEY_TCP, /* struct flow_dissector_key_tcp */
+diff --git a/net/sched/cls_flower.c b/net/sched/cls_flower.c
+index ca526c0..fb74a47 100644
+--- a/net/sched/cls_flower.c
++++ b/net/sched/cls_flower.c
+@@ -49,6 +49,7 @@ struct fl_flow_key {
+ 	};
+ 	struct flow_dissector_key_ports enc_tp;
+ 	struct flow_dissector_key_mpls mpls;
++	struct flow_dissector_key_tcp tcp;
+ } __aligned(BITS_PER_LONG / 8); /* Ensure that we can do comparisons as longs. */
  
- 	FLOW_DISSECTOR_KEY_MAX,
+ struct fl_flow_mask_range {
+@@ -424,6 +425,8 @@ static const struct nla_policy fl_policy[TCA_FLOWER_MAX + 1] = {
+ 	[TCA_FLOWER_KEY_MPLS_BOS]	= { .type = NLA_U8 },
+ 	[TCA_FLOWER_KEY_MPLS_TC]	= { .type = NLA_U8 },
+ 	[TCA_FLOWER_KEY_MPLS_LABEL]	= { .type = NLA_U32 },
++	[TCA_FLOWER_KEY_TCP_FLAGS]	= { .type = NLA_U16 },
++	[TCA_FLOWER_KEY_TCP_FLAGS_MASK]	= { .type = NLA_U16 },
  };
-diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 28d94bc..5a45943 100644
---- a/net/core/flow_dissector.c
-+++ b/net/core/flow_dissector.c
-@@ -18,6 +18,7 @@
- #include <linux/stddef.h>
- #include <linux/if_ether.h>
- #include <linux/mpls.h>
-+#include <linux/tcp.h>
- #include <net/flow_dissector.h>
- #include <scsi/fc/fc_fcoe.h>
  
-@@ -342,6 +343,30 @@ __skb_flow_dissect_gre(const struct sk_buff *skb,
- 	return FLOW_DISSECT_RET_OUT_PROTO_AGAIN;
- }
- 
-+static void
-+__skb_flow_dissect_tcp(const struct sk_buff *skb,
-+		       struct flow_dissector *flow_dissector,
-+		       void *target_container, void *data, int thoff, int hlen)
-+{
-+	struct flow_dissector_key_tcp *key_tcp;
-+	struct tcphdr *th, _th;
-+
-+	if (!dissector_uses_key(flow_dissector, FLOW_DISSECTOR_KEY_TCP))
-+		return;
-+
-+	th = __skb_header_pointer(skb, thoff, sizeof(_th), data, hlen, &_th);
-+	if (!th)
-+		return;
-+
-+	if (unlikely(__tcp_hdrlen(th) < sizeof(_th)))
-+		return;
-+
-+	key_tcp = skb_flow_dissector_target(flow_dissector,
-+					    FLOW_DISSECTOR_KEY_TCP,
-+					    target_container);
-+	key_tcp->flags = (*(__be16 *) &tcp_flag_word(th) & htons(0x0FFF));
-+}
-+
- /**
-  * __skb_flow_dissect - extract the flow_keys struct and return it
-  * @skb: sk_buff to extract the flow from, can be NULL if the rest are specified
-@@ -683,6 +708,10 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
- 	case IPPROTO_MPLS:
- 		proto = htons(ETH_P_MPLS_UC);
- 		goto mpls;
-+	case IPPROTO_TCP:
-+		__skb_flow_dissect_tcp(skb, flow_dissector, target_container,
-+				       data, nhoff, hlen);
-+		break;
- 	default:
- 		break;
- 	}
+ static void fl_set_key_val(struct nlattr **tb,
+@@ -596,6 +599,9 @@ static int fl_set_key(struct net *net, struct nlattr **tb,
+ 		fl_set_key_val(tb, &key->tp.dst, TCA_FLOWER_KEY_TCP_DST,
+ 			       &mask->tp.dst, TCA_FLOWER_KEY_TCP_DST_MASK,
+ 			       sizeof(key->tp.dst));
++		fl_set_key_val(tb, &key->tcp.flags, TCA_FLOWER_KEY_TCP_FLAGS,
++			       &mask->tcp.flags, TCA_FLOWER_KEY_TCP_FLAGS_MASK,
++			       sizeof(key->tcp.flags));
+ 	} else if (key->basic.ip_proto == IPPROTO_UDP) {
+ 		fl_set_key_val(tb, &key->tp.src, TCA_FLOWER_KEY_UDP_SRC,
+ 			       &mask->tp.src, TCA_FLOWER_KEY_UDP_SRC_MASK,
+@@ -767,6 +773,8 @@ static void fl_init_dissector(struct cls_fl_head *head,
+ 	FL_KEY_SET_IF_MASKED(&mask->key, keys, cnt,
+ 			     FLOW_DISSECTOR_KEY_PORTS, tp);
+ 	FL_KEY_SET_IF_MASKED(&mask->key, keys, cnt,
++			     FLOW_DISSECTOR_KEY_TCP, tcp);
++	FL_KEY_SET_IF_MASKED(&mask->key, keys, cnt,
+ 			     FLOW_DISSECTOR_KEY_ICMP, icmp);
+ 	FL_KEY_SET_IF_MASKED(&mask->key, keys, cnt,
+ 			     FLOW_DISSECTOR_KEY_ARP, arp);
+@@ -1215,7 +1223,10 @@ static int fl_dump(struct net *net, struct tcf_proto *tp, unsigned long fh,
+ 			     sizeof(key->tp.src)) ||
+ 	     fl_dump_key_val(skb, &key->tp.dst, TCA_FLOWER_KEY_TCP_DST,
+ 			     &mask->tp.dst, TCA_FLOWER_KEY_TCP_DST_MASK,
+-			     sizeof(key->tp.dst))))
++			     sizeof(key->tp.dst)) ||
++	     fl_dump_key_val(skb, &key->tcp.flags, TCA_FLOWER_KEY_TCP_FLAGS,
++			     &mask->tcp.flags, TCA_FLOWER_KEY_TCP_FLAGS_MASK,
++			     sizeof(key->tcp.flags))))
+ 		goto nla_put_failure;
+ 	else if (key->basic.ip_proto == IPPROTO_UDP &&
+ 		 (fl_dump_key_val(skb, &key->tp.src, TCA_FLOWER_KEY_UDP_SRC,
 -- 
 2.9.3
