@@ -1,49 +1,178 @@
-From: Nithin Sujir <nsujir@tintri.com>
-Subject: Re: bond link state mismatch, rtnl_trylock() vs rtnl_lock()
-Date: Tue, 23 May 2017 14:35:41 -0700
-Message-ID: <31e5860d-7e66-0a2d-99d6-7cde623f9c3c@tintri.com>
-References: <24c0747b-df09-66da-f3ac-a393a5902a72@tintri.com>
- <CAF2d9jiUh2iVG4=igP0+e6dzZkff_h8u02taQts6hC2B2qsM2g@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: linux-netdev <netdev@vger.kernel.org>
-To: =?UTF-8?B?TWFoZXNoIEJhbmRld2FyICjgpK7gpLngpYfgpLYg4KSs4KSC4KSh4KWH4KS1?=
-         =?UTF-8?B?4KS+4KSwKQ==?= <maheshb@google.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch iproute2] tc: flower: add support for tcp flags
+Date: Tue, 23 May 2017 23:51:39 +0200
+Message-ID: <20170523215139.2019-1-jiri@resnulli.us>
+References: <20170523164048.16514-1-jiri@resnulli.us>
+Cc: davem@davemloft.net, idosch@mellanox.com, yotamg@mellanox.com,
+        mlxsw@mellanox.com, Yuval.Mintz@cavium.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0023b501.pphosted.com ([208.84.65.102]:60458 "EHLO
-        mx0a-0023b501.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1032794AbdEWVft (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 23 May 2017 17:35:49 -0400
-In-Reply-To: <CAF2d9jiUh2iVG4=igP0+e6dzZkff_h8u02taQts6hC2B2qsM2g@mail.gmail.com>
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:33707 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1031413AbdEWVvm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 23 May 2017 17:51:42 -0400
+Received: by mail-wm0-f68.google.com with SMTP id b84so26817904wmh.0
+        for <netdev@vger.kernel.org>; Tue, 23 May 2017 14:51:41 -0700 (PDT)
+In-Reply-To: <20170523164048.16514-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Jiri Pirko <jiri@mellanox.com>
 
+Allow user to insert a flower classifier filter rule which includes
+match for tcp flags.
 
-On 5/23/2017 2:30 PM, Mahesh Bandewar (महेश बंडेवार) wrote:
-> On Tue, May 23, 2017 at 12:32 PM, Nithin Sujir <nsujir@tintri.com> wrote:
->> diff --git a/drivers/net/bonding/bond_main.c
->> b/drivers/net/bonding/bond_main.c
->> index 5dca77e..1f60503 100644
->> --- a/drivers/net/bonding/bond_main.c
->> +++ b/drivers/net/bonding/bond_main.c
->> @@ -2614,8 +2614,7 @@ static void bond_loadbalance_arp_mon(struct
->> work_struct *work)
->>          rcu_read_unlock();
->>
->>          if (do_failover || slave_state_changed) {
->> -               if (!rtnl_trylock())
->> -                       goto re_arm;
->> +               rtnl_lock();
-> Nitin, you can't do this. The tryRTNL code is to prevent deadlock
-> during work-cancellation during bond_close().
-Thanks, Mahesh. Yes, Jay pointed me to your patch and I will take a look 
-at how to use a similar approach.
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+---
+v1->v2:
+- removed forgotten debug printout
+- fixed mask parsing as reported by Or
+---
+ include/linux/pkt_cls.h |  3 +++
+ man/man8/tc-flower.8    |  8 +++++++
+ tc/f_flower.c           | 62 +++++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 73 insertions(+)
 
-Nithin.
-
->>                  if (slave_state_changed) {
->>                          bond_slave_state_change(bond);
->>
->>
+diff --git a/include/linux/pkt_cls.h b/include/linux/pkt_cls.h
+index d613be3..ce9dfb9 100644
+--- a/include/linux/pkt_cls.h
++++ b/include/linux/pkt_cls.h
+@@ -450,6 +450,9 @@ enum {
+ 	TCA_FLOWER_KEY_MPLS_TC,		/* u8 - 3 bits */
+ 	TCA_FLOWER_KEY_MPLS_LABEL,	/* be32 - 20 bits */
+ 
++	TCA_FLOWER_KEY_TCP_FLAGS,	/* be16 */
++	TCA_FLOWER_KEY_TCP_FLAGS_MASK,	/* be16 */
++
+ 	__TCA_FLOWER_MAX,
+ };
+ 
+diff --git a/man/man8/tc-flower.8 b/man/man8/tc-flower.8
+index ba29065..7648079 100644
+--- a/man/man8/tc-flower.8
++++ b/man/man8/tc-flower.8
+@@ -35,6 +35,8 @@ flower \- flow based traffic control filter
+ .IR PREFIX " | { "
+ .BR dst_port " | " src_port " } "
+ .IR port_number " } | "
++.B tcp_flags
++.IR MASKED_TCP_FLAGS " | "
+ .B type
+ .IR MASKED_TYPE " | "
+ .B code
+@@ -136,6 +138,12 @@ Match on layer 4 protocol source or destination port number. Only available for
+ .BR ip_proto " values " udp ", " tcp  " and " sctp
+ which have to be specified in beforehand.
+ .TP
++.BI tcp_flags " MASKED_TCP_FLAGS"
++Match on TCP flags represented as 12bit bitfield in in hexadecimal format.
++A mask may be optionally provided to limit the bits which are matched. A mask
++is provided by following the value with a slash and then the mask. If the mask
++is missing then a match on all bits is assumed.
++.TP
+ .BI type " MASKED_TYPE"
+ .TQ
+ .BI code " MASKED_CODE"
+diff --git a/tc/f_flower.c b/tc/f_flower.c
+index ebc63ca..1b6b46e 100644
+--- a/tc/f_flower.c
++++ b/tc/f_flower.c
+@@ -57,6 +57,7 @@ static void explain(void)
+ 		"                       src_ip PREFIX |\n"
+ 		"                       dst_port PORT-NUMBER |\n"
+ 		"                       src_port PORT-NUMBER |\n"
++		"                       tcp_flags MASKED-TCP_FLAGS |\n"
+ 		"                       type MASKED-ICMP-TYPE |\n"
+ 		"                       code MASKED-ICMP-CODE |\n"
+ 		"                       arp_tip IPV4-PREFIX |\n"
+@@ -474,6 +475,41 @@ static int flower_parse_port(char *str, __u8 ip_proto,
+ 	return 0;
+ }
+ 
++#define TCP_FLAGS_MAX_MASK 0xfff
++
++static int flower_parse_tcp_flags(char *str, int flags_type, int mask_type,
++				  struct nlmsghdr *n)
++{
++	char *slash;
++	int ret, err = -1;
++	__u16 flags;
++
++	slash = strchr(str, '/');
++	if (slash)
++		*slash = '\0';
++
++	ret = get_u16(&flags, str, 16);
++	if (ret < 0 || flags & ~TCP_FLAGS_MAX_MASK)
++		goto err;
++
++	addattr16(n, MAX_MSG, flags_type, htons(flags));
++
++	if (slash) {
++		ret = get_u16(&flags, slash + 1, 16);
++		if (ret < 0 || flags & ~TCP_FLAGS_MAX_MASK)
++			goto err;
++	} else {
++		flags = TCP_FLAGS_MAX_MASK;
++	}
++	addattr16(n, MAX_MSG, mask_type, htons(flags));
++
++	err = 0;
++err:
++	if (slash)
++		*slash = '/';
++	return err;
++}
++
+ static int flower_parse_key_id(const char *str, int type, struct nlmsghdr *n)
+ {
+ 	int ret;
+@@ -671,6 +707,16 @@ static int flower_parse_opt(struct filter_util *qu, char *handle,
+ 				fprintf(stderr, "Illegal \"src_port\"\n");
+ 				return -1;
+ 			}
++		} else if (matches(*argv, "tcp_flags") == 0) {
++			NEXT_ARG();
++			ret = flower_parse_tcp_flags(*argv,
++						     TCA_FLOWER_KEY_TCP_FLAGS,
++						     TCA_FLOWER_KEY_TCP_FLAGS_MASK,
++						     n);
++			if (ret < 0) {
++				fprintf(stderr, "Illegal \"tcp_flags\"\n");
++				return -1;
++			}
+ 		} else if (matches(*argv, "type") == 0) {
+ 			NEXT_ARG();
+ 			ret = flower_parse_icmp(*argv, eth_type, ip_proto,
+@@ -1000,6 +1046,19 @@ static void flower_print_port(FILE *f, char *name, struct rtattr *attr)
+ 		fprintf(f, "\n  %s %d", name, rta_getattr_be16(attr));
+ }
+ 
++static void flower_print_tcp_flags(FILE *f, char *name,
++				  struct rtattr *flags_attr,
++				  struct rtattr *mask_attr)
++{
++	if (!flags_attr)
++		return;
++	fprintf(f, "\n  %s %x", name, rta_getattr_be16(flags_attr));
++	if (!mask_attr)
++		return;
++	fprintf(f, "/%x", rta_getattr_be16(mask_attr));
++}
++
++
+ static void flower_print_key_id(FILE *f, const char *name,
+ 				struct rtattr *attr)
+ {
+@@ -1110,6 +1169,9 @@ static int flower_print_opt(struct filter_util *qu, FILE *f,
+ 	if (nl_type >= 0)
+ 		flower_print_port(f, "src_port", tb[nl_type]);
+ 
++	flower_print_tcp_flags(f, "tcp_flags", tb[TCA_FLOWER_KEY_TCP_FLAGS],
++			       tb[TCA_FLOWER_KEY_TCP_FLAGS_MASK]);
++
+ 	nl_type = flower_icmp_attr_type(eth_type, ip_proto,
+ 					FLOWER_ICMP_FIELD_TYPE);
+ 	nl_mask_type = flower_icmp_attr_mask_type(eth_type, ip_proto,
+-- 
+2.9.3
