@@ -1,73 +1,109 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [net 8/8] net/mlx5: Tolerate irq_set_affinity_hint() failures
-Date: Tue, 23 May 2017 17:16:10 +0300
-Message-ID: <20170523141610.27833-9-saeedm@mellanox.com>
+Subject: [net 3/8] net/mlx5e: Allow TC csum offload if applied together with pedit action
+Date: Tue, 23 May 2017 17:16:05 +0300
+Message-ID: <20170523141610.27833-4-saeedm@mellanox.com>
 References: <20170523141610.27833-1-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Tariq Toukan <tariqt@mellanox.com>,
-        kernel-team@fb.com, Saeed Mahameed <saeedm@mellanox.com>
+Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
+        Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:44686 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:44677 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S966455AbdEWOQl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 23 May 2017 10:16:41 -0400
+        with ESMTP id S934078AbdEWOQb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 23 May 2017 10:16:31 -0400
 In-Reply-To: <20170523141610.27833-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tariq Toukan <tariqt@mellanox.com>
+From: Or Gerlitz <ogerlitz@mellanox.com>
 
-Add tolerance to failures of irq_set_affinity_hint().
-Its role is to give hints that optimizes performance,
-and should not block the driver load.
+When offloading header re-writes, the HW re-calculates the relevant L3/L4
+checksums. Hence, when upper layers (as done by OVS) ask for TC checksum action
+offload together with pedit offload, don't err. This command now works:
 
-In non-SMP systems, functionality is not available as
-there is a single core, and all these calls definitely
-fail.  Hence, do not call the function and avoid the
-warning prints.
+tc filter add dev ens1f0 protocol ip parent ffff: prio 20 flower skip_sw
+	ip_proto tcp dst_port 9001
+	action pedit ex munge tcp dport set 0x1234 pipe
+        action csum tcp
 
-Fixes: db058a186f98 ("net/mlx5_core: Set irq affinity hints")
-Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
-Cc: kernel-team@fb.com
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+Reported-by: Paul Blakey <paulb@mellanox.com>
+Reviewed-by: Paul Blakey <paulb@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/main.c | 15 ++++-----------
- 1 file changed, 4 insertions(+), 11 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en_tc.c | 39 +++++++++++++++++++++++++
+ 1 file changed, 39 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-index 0c123d571b4c..fe5546bb4153 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-@@ -612,7 +612,6 @@ static int mlx5_irq_set_affinity_hint(struct mlx5_core_dev *mdev, int i)
- 	struct mlx5_priv *priv  = &mdev->priv;
- 	struct msix_entry *msix = priv->msix_arr;
- 	int irq                 = msix[i + MLX5_EQ_VEC_COMP_BASE].vector;
--	int err;
- 
- 	if (!zalloc_cpumask_var(&priv->irq_info[i].mask, GFP_KERNEL)) {
- 		mlx5_core_warn(mdev, "zalloc_cpumask_var failed");
-@@ -622,18 +621,12 @@ static int mlx5_irq_set_affinity_hint(struct mlx5_core_dev *mdev, int i)
- 	cpumask_set_cpu(cpumask_local_spread(i, priv->numa_node),
- 			priv->irq_info[i].mask);
- 
--	err = irq_set_affinity_hint(irq, priv->irq_info[i].mask);
--	if (err) {
--		mlx5_core_warn(mdev, "irq_set_affinity_hint failed,irq 0x%.4x",
--			       irq);
--		goto err_clear_mask;
--	}
-+#ifdef CONFIG_SMP
-+	if (irq_set_affinity_hint(irq, priv->irq_info[i].mask))
-+		mlx5_core_warn(mdev, "irq_set_affinity_hint failed, irq 0x%.4x", irq);
-+#endif
- 
- 	return 0;
--
--err_clear_mask:
--	free_cpumask_var(priv->irq_info[i].mask);
--	return err;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+index a90dd26ea51c..9dd83c7e4c51 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+@@ -43,6 +43,7 @@
+ #include <net/tc_act/tc_vlan.h>
+ #include <net/tc_act/tc_tunnel_key.h>
+ #include <net/tc_act/tc_pedit.h>
++#include <net/tc_act/tc_csum.h>
+ #include <net/vxlan.h>
+ #include <net/arp.h>
+ #include "en.h"
+@@ -1109,6 +1110,28 @@ static int parse_tc_pedit_action(struct mlx5e_priv *priv,
+ 	return err;
  }
  
- static void mlx5_irq_clear_affinity_hint(struct mlx5_core_dev *mdev, int i)
++static bool csum_offload_supported(struct mlx5e_priv *priv, u32 action, u32 update_flags)
++{
++	u32 prot_flags = TCA_CSUM_UPDATE_FLAG_IPV4HDR | TCA_CSUM_UPDATE_FLAG_TCP |
++			 TCA_CSUM_UPDATE_FLAG_UDP;
++
++	/*  The HW recalcs checksums only if re-writing headers */
++	if (!(action & MLX5_FLOW_CONTEXT_ACTION_MOD_HDR)) {
++		netdev_warn(priv->netdev,
++			    "TC csum action is only offloaded with pedit\n");
++		return false;
++	}
++
++	if (update_flags & ~prot_flags) {
++		netdev_warn(priv->netdev,
++			    "can't offload TC csum action for some header/s - flags %#x\n",
++			    update_flags);
++		return false;
++	}
++
++	return true;
++}
++
+ static int parse_tc_nic_actions(struct mlx5e_priv *priv, struct tcf_exts *exts,
+ 				struct mlx5e_tc_flow_parse_attr *parse_attr,
+ 				struct mlx5e_tc_flow *flow)
+@@ -1149,6 +1172,14 @@ static int parse_tc_nic_actions(struct mlx5e_priv *priv, struct tcf_exts *exts,
+ 			continue;
+ 		}
+ 
++		if (is_tcf_csum(a)) {
++			if (csum_offload_supported(priv, attr->action,
++						   tcf_csum_update_flags(a)))
++				continue;
++
++			return -EOPNOTSUPP;
++		}
++
+ 		if (is_tcf_skbedit_mark(a)) {
+ 			u32 mark = tcf_skbedit_mark(a);
+ 
+@@ -1651,6 +1682,14 @@ static int parse_tc_fdb_actions(struct mlx5e_priv *priv, struct tcf_exts *exts,
+ 			continue;
+ 		}
+ 
++		if (is_tcf_csum(a)) {
++			if (csum_offload_supported(priv, attr->action,
++						   tcf_csum_update_flags(a)))
++				continue;
++
++			return -EOPNOTSUPP;
++		}
++
+ 		if (is_tcf_mirred_egress_redirect(a)) {
+ 			int ifindex = tcf_mirred_ifindex(a);
+ 			struct net_device *out_dev, *encap_dev = NULL;
 -- 
 2.11.0
