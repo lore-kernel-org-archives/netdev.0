@@ -1,100 +1,95 @@
-From: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH v9 06/15] mlx5: Replace PCI pool old API
-Date: Tue, 23 May 2017 12:28:53 +0300
-Message-ID: <20170523092853.GL17751@mtr-leonro.local>
-References: <20170522164907.22915-1-romain.perier@collabora.com>
- <20170522164907.22915-7-romain.perier@collabora.com>
- <20170523072743.GJ17751@mtr-leonro.local>
- <18745ec7-020a-a3d2-3e50-6a2405baaac2@collabora.com>
+From: Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
+Subject: Re: [PATCH] of_mdio: Fix broken PHY IRQ in case of probe deferral
+Date: Tue, 23 May 2017 11:36:47 +0200
+Message-ID: <CAMuHMdWWfaP8=H7H+UzrmOYpydi2mGLFGzuk9FQWJtEOug6u5g@mail.gmail.com>
+References: <1495112345-24795-1-git-send-email-geert+renesas@glider.be>
+ <f0ed61c3-062b-cec6-fe19-7412231e8ef1@gmail.com> <CAMuHMdWYeSzofU57LmT_M3KkcHhvjfJy7nkHvcXkKzOYmvhqqA@mail.gmail.com>
+ <20170518193453.GB13759@lunn.ch> <CAMuHMdV+jfh=EGt3SvjtrtVfWQ6P8ofp_JxeQZjRrSEfDWs5hA@mail.gmail.com>
+ <08a89dd5-b707-8b8f-b8e1-e20b9ed630b7@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-        protocol="application/pgp-signature"; boundary="EVh9lyqKgK19OcEf"
-Cc: Dan Williams <dan.j.williams-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, stas.yakovlev-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-        "James E.J. Bottomley" <jejb-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
-        "Martin K. Petersen" <martin.petersen-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
-        Felipe Balbi <balbi-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Peter Senna Tschudin <peter.senna-ZGY8ohtN/8pPYcu2f3hruQ@public.gmane.org>
-To: Romain Perier <romain.perier-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>,
-        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <18745ec7-020a-a3d2-3e50-6a2405baaac2-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>,
+        Geert Uytterhoeven <geert+renesas-gXvu3+zWzMSzQB+pC5nmwQ@public.gmane.org>,
+        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Frank Rowand <frowand.list-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Thomas Petazzoni <thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
+        Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>,
+        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Linux-Renesas <linux-renesas-soc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <08a89dd5-b707-8b8f-b8e1-e20b9ed630b7-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+Hi Florian,
 
---EVh9lyqKgK19OcEf
-Content-Type: text/plain; charset=iso-8859-1
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+On Fri, May 19, 2017 at 12:21 AM, Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+> On 05/18/2017 01:36 PM, Geert Uytterhoeven wrote:
+>> On Thu, May 18, 2017 at 9:34 PM, Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org> wrote:
+>>>>> This most certainly works fine in the simple case where you have one PHY
+>>>>> hanging off the MDIO bus, now what happens if you have several?
+>>>>>
+>>>>> Presumably, the first PHY that returns EPROBE_DEFER will make the entire
+>>>>> bus registration return EPROB_DEFER as well, and so on, and so forth,
+>>>>> but I am not sure if we will be properly unwinding the successful
+>>>>> registration of PHYs that either don't have an interrupt, or did not
+>>>>> return EPROBE_DEFER.
+>>>>>
+>>>>> It should be possible to mimic this behavior by using the fixed PHY, and
+>>>>> possibly the dsa_loop.c driver which would create 4 ports, expecting 4
+>>>>> fixed PHYs to be present.
+>>>>
+>>>> mdiobus_unregister(), called from of_mdiobus_register() on failure,
+>>>> should do the unwinding, right?
+>>>>
+>>>> And when the driver is reprobed, all PHYs are reprobed, until they all
+>>>> succeed.
+>>>
+>>> That is the theory. I looked at that while reviewing the patch. But
+>>> this has probably not been tested in anger. It would be good to test
+>>> this properly, with not just the first PHY returning -EPROBE_DEFER, to
+>>> really test the unwind.
+>>
+>> Unfortunately I don't have a board with multiple PHYs, so I cannot test
+>> that case.
 
-On Tue, May 23, 2017 at 10:53:36AM +0200, Romain Perier wrote:
-> Hello,
+I tried adding a few dummy PHYs in DT, but that didn't work.
+
+So how can we proceed?
+
+I think the only way my patch can cause issues is because some systems
+may rely on EPROBE_DEFER errors being ignored.
+
+>> Does unbinding/rebinding a network driver with multiple PHYs currently
+>> work? Or module unload/reload?
 >
+> Usually there is a strict 1:1 mapping between a network device (not
+> driver) and a PHY device, switch drivers however, would have multiple
+> PHYs (one per port, aka net_deice).
 >
-> Le 23/05/2017 =E0 09:27, Leon Romanovsky a =E9crit :
-> > On Mon, May 22, 2017 at 06:48:58PM +0200, Romain Perier wrote:
-> >> The PCI pool API is deprecated. This commit replaces the PCI pool old
-> >> API by the appropriate function with the DMA pool API.
-> >>
-> >> Signed-off-by: Romain Perier <romain.perier-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
-> >> Reviewed-by: Peter Senna Tschudin <peter.senna-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
-> >> Acked-by: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-> >> Tested-by: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-> >> ---
-> >>  drivers/net/ethernet/mellanox/mlx5/core/cmd.c | 11 ++++++-----
-> >>  include/linux/mlx5/driver.h                   |  2 +-
-> >>  2 files changed, 7 insertions(+), 6 deletions(-)
-> >>
-> > Who is supposed to merge this patch series?
-> >
-> > Acked-by: Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-> Each maintainer of the corresponding subsystem, can take a patch, I
-> guess. No ?
+> NB: binding and unbinding of PHYs is pretty broken at the moment though,
+> because there is a complete disconnect between what the Ethernet MAC
+> expects, and the state in which the PHY is. I had some patches to fix
+> that, but this turned out to be playing whack-a-mole which I typically
+> suck at.
 
-I wonder if they know that.
+I didn't mean unbinding the PHY, but the network device.
+Don't you have the same issue with the state of PHYs as left by the bootloader?
 
-Dave,
+Gr{oetje,eeting}s,
 
-Do you want us to resubmit mlx4/mlx5 patches as part of our general series,
-or do you prefer to grab them from this patch series?
+                        Geert
 
-Thanks
-
-
->
-> Romain
-
---EVh9lyqKgK19OcEf
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAlkkANUACgkQ5GN7iDZy
-WKdBSQ//akrEhgcSBBwwAKW/zMdcOs98lhPxnXXfTQBlOhDHlDtJXh/lGwHjP+/9
-kr0UjoTcv5y01F+CnLBwV3kJHvcPf8HAQ+QID29hNH9RmY7/0vNJ92MXyFWkeaJM
-o1oNMdnrDDdD5N/CYT0Bb9VMYpMeEcU6trs3G9cQkZ+58K13br3HO0z/JORmfrjq
-G59y64WJbS4XM48dD9xu9DfQY2Z2G57JmVk5luHw6Nef9OShd1tcjd0aBTWNLevH
-MVCUujcaBqLBvWuc79niFq8vMVzIg8jkeKQKxKOM6yzS0IEcudN3SYuLgVqiKd8A
-DqD/GHWfp1oUUzwin2BgrDsftdc35VsvtQrtgs8gHKoTY8g+X+7435tqy+zo2/QS
-Xrdo09S+YyDYAO5Ycvz2jWN54y55Qek0P+LtDFCUHW7IUK9RBtlAGceQrFEXkz4L
-gjudNrtD636SgfibSO/ExWHgahiwuCRaGOBIitJ1dp1EJsMcyHslzix1GtthX6ts
-1TnqzM5uzqVd0PAyZgkij8GV3UhK60acDhE5LnemKJozjjcVYtFW5OL3dPqJ5rVh
-r5ohPz+x2O70A2Tk47UepqZ/557jlH11evUZPIh8hzfy/5zpZf2YenG7PU2dzdo8
-TO0jDjdI/BGqwe2DPLyY2nARvH7myhRR2d/ELbVsd7lM6HG+4eA=
-=ncEe
------END PGP SIGNATURE-----
-
---EVh9lyqKgK19OcEf--
 --
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+                                -- Linus Torvalds
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 More majordomo info at  http://vger.kernel.org/majordomo-info.html
