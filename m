@@ -1,7 +1,7 @@
 From: Yuval Mintz <Yuval.Mintz@cavium.com>
-Subject: [PATCH v2 net-next 01/11] qede: Fix sparse warnings
-Date: Tue, 23 May 2017 09:41:18 +0300
-Message-ID: <1495521688-27669-2-git-send-email-Yuval.Mintz@cavium.com>
+Subject: [PATCH v2 net-next 03/11] qed: !main_ptt for tunnel configuration
+Date: Tue, 23 May 2017 09:41:20 +0300
+Message-ID: <1495521688-27669-4-git-send-email-Yuval.Mintz@cavium.com>
 References: <1495521688-27669-1-git-send-email-Yuval.Mintz@cavium.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,165 +9,186 @@ Cc: Manish Chopra <Manish.Chopra@cavium.com>,
         Yuval Mintz <Yuval.Mintz@cavium.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-sn1nam01on0062.outbound.protection.outlook.com ([104.47.32.62]:4848
+Received: from mail-sn1nam01on0053.outbound.protection.outlook.com ([104.47.32.53]:22013
         "EHLO NAM01-SN1-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1761791AbdEWGmP (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 23 May 2017 02:42:15 -0400
+        id S1761880AbdEWGm1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 23 May 2017 02:42:27 -0400
 In-Reply-To: <1495521688-27669-1-git-send-email-Yuval.Mintz@cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Manish Chopra <Manish.Chopra@cavium.com>
 
-Solves the following warning in qede -
- - Several cases of missing cpu_to_le16() conversions
- - Adds 'static' to one function declaration
- - Removes dcbnl operation that's currently getting populated twice
+Flows configuring tunnel ports in HW use the main_ptt which should
+be reserved for core-functionality.
 
 Signed-off-by: Manish Chopra <Manish.Chopra@cavium.com>
 Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
 ---
- drivers/net/ethernet/qlogic/qede/qede_dcbnl.c   |  1 -
- drivers/net/ethernet/qlogic/qede/qede_ethtool.c | 10 ++++++----
- drivers/net/ethernet/qlogic/qede/qede_fp.c      | 25 ++++++++++++++-----------
- drivers/net/ethernet/qlogic/qede/qede_roce.c    |  4 ++--
- 4 files changed, 22 insertions(+), 18 deletions(-)
+ drivers/net/ethernet/qlogic/qed/qed_dev.c         |  3 ++-
+ drivers/net/ethernet/qlogic/qed/qed_l2.c          | 17 +++++++++++++++--
+ drivers/net/ethernet/qlogic/qed/qed_sp.h          |  3 +++
+ drivers/net/ethernet/qlogic/qed/qed_sp_commands.c | 14 +++++++++-----
+ drivers/net/ethernet/qlogic/qed/qed_sriov.c       |  2 +-
+ 5 files changed, 30 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qede/qede_dcbnl.c b/drivers/net/ethernet/qlogic/qede/qede_dcbnl.c
-index a9e7379..6e7747b 100644
---- a/drivers/net/ethernet/qlogic/qede/qede_dcbnl.c
-+++ b/drivers/net/ethernet/qlogic/qede/qede_dcbnl.c
-@@ -313,7 +313,6 @@ static int qede_dcbnl_ieee_peer_getets(struct net_device *netdev,
- 	.ieee_setets = qede_dcbnl_ieee_setets,
- 	.ieee_getapp = qede_dcbnl_ieee_getapp,
- 	.ieee_setapp = qede_dcbnl_ieee_setapp,
--	.getdcbx = qede_dcbnl_getdcbx,
- 	.ieee_peer_getpfc = qede_dcbnl_ieee_peer_getpfc,
- 	.ieee_peer_getets = qede_dcbnl_ieee_peer_getets,
- 	.getstate = qede_dcbnl_getstate,
-diff --git a/drivers/net/ethernet/qlogic/qede/qede_ethtool.c b/drivers/net/ethernet/qlogic/qede/qede_ethtool.c
-index 6c76a12..6a03d3e 100644
---- a/drivers/net/ethernet/qlogic/qede/qede_ethtool.c
-+++ b/drivers/net/ethernet/qlogic/qede/qede_ethtool.c
-@@ -1290,7 +1290,8 @@ static int qede_selftest_transmit_traffic(struct qede_dev *edev,
- 	struct qede_tx_queue *txq = NULL;
- 	struct eth_tx_1st_bd *first_bd;
- 	dma_addr_t mapping;
--	int i, idx, val;
-+	int i, idx;
-+	u16 val;
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_dev.c b/drivers/net/ethernet/qlogic/qed/qed_dev.c
+index 3fc3b2e..9dd28ba 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_dev.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_dev.c
+@@ -1513,7 +1513,8 @@ static int qed_hw_init_pf(struct qed_hwfn *p_hwfn,
+ 		qed_int_igu_enable(p_hwfn, p_ptt, int_mode);
  
- 	for_each_queue(i) {
- 		if (edev->fp_array[i].type & QEDE_FASTPATH_TX) {
-@@ -1312,7 +1313,8 @@ static int qede_selftest_transmit_traffic(struct qede_dev *edev,
- 	val = 1 << ETH_TX_1ST_BD_FLAGS_START_BD_SHIFT;
- 	first_bd->data.bd_flags.bitfields = val;
- 	val = skb->len & ETH_TX_DATA_1ST_BD_PKT_LEN_MASK;
--	first_bd->data.bitfields |= (val << ETH_TX_DATA_1ST_BD_PKT_LEN_SHIFT);
-+	val = val << ETH_TX_DATA_1ST_BD_PKT_LEN_SHIFT;
-+	first_bd->data.bitfields |= cpu_to_le16(val);
+ 		/* send function start command */
+-		rc = qed_sp_pf_start(p_hwfn, p_tunn, p_hwfn->cdev->mf_mode,
++		rc = qed_sp_pf_start(p_hwfn, p_ptt, p_tunn,
++				     p_hwfn->cdev->mf_mode,
+ 				     allow_npar_tx_switch);
+ 		if (rc) {
+ 			DP_NOTICE(p_hwfn, "Function start ramrod failed\n");
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_l2.c b/drivers/net/ethernet/qlogic/qed/qed_l2.c
+index fab6e69..93dd781 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_l2.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_l2.c
+@@ -2300,14 +2300,25 @@ static int qed_tunn_configure(struct qed_dev *cdev,
  
- 	/* Map skb linear data for DMA and set in the first BD */
- 	mapping = dma_map_single(&edev->pdev->dev, skb->data,
-@@ -1327,8 +1329,8 @@ static int qede_selftest_transmit_traffic(struct qede_dev *edev,
- 	first_bd->data.nbds = 1;
- 	txq->sw_tx_prod = (txq->sw_tx_prod + 1) % txq->num_tx_buffers;
- 	/* 'next page' entries are counted in the producer value */
--	val = cpu_to_le16(qed_chain_get_prod_idx(&txq->tx_pbl));
--	txq->tx_db.data.bd_prod = val;
-+	val = qed_chain_get_prod_idx(&txq->tx_pbl);
-+	txq->tx_db.data.bd_prod = cpu_to_le16(val);
+ 	for_each_hwfn(cdev, i) {
+ 		struct qed_hwfn *hwfn = &cdev->hwfns[i];
++		struct qed_ptt *p_ptt;
+ 		struct qed_tunnel_info *tun;
  
- 	/* wmb makes sure that the BDs data is updated before updating the
- 	 * producer, otherwise FW may read old data from the BDs.
-diff --git a/drivers/net/ethernet/qlogic/qede/qede_fp.c b/drivers/net/ethernet/qlogic/qede/qede_fp.c
-index 38c8265..892eb98 100644
---- a/drivers/net/ethernet/qlogic/qede/qede_fp.c
-+++ b/drivers/net/ethernet/qlogic/qede/qede_fp.c
-@@ -335,6 +335,7 @@ static int qede_xdp_xmit(struct qede_dev *edev, struct qede_fastpath *fp,
- 	struct qede_tx_queue *txq = fp->xdp_tx;
- 	struct eth_tx_1st_bd *first_bd;
- 	u16 idx = txq->sw_tx_prod;
-+	u16 val;
+ 		tun = &hwfn->cdev->tunnel;
++		if (IS_PF(cdev)) {
++			p_ptt = qed_ptt_acquire(hwfn);
++			if (!p_ptt)
++				return -EAGAIN;
++		} else {
++			p_ptt = NULL;
++		}
  
- 	if (!qed_chain_get_elem_left(&txq->tx_pbl)) {
- 		txq->stopped_cnt++;
-@@ -346,9 +347,11 @@ static int qede_xdp_xmit(struct qede_dev *edev, struct qede_fastpath *fp,
- 	memset(first_bd, 0, sizeof(*first_bd));
- 	first_bd->data.bd_flags.bitfields =
- 	    BIT(ETH_TX_1ST_BD_FLAGS_START_BD_SHIFT);
--	first_bd->data.bitfields |=
--	    (length & ETH_TX_DATA_1ST_BD_PKT_LEN_MASK) <<
--	    ETH_TX_DATA_1ST_BD_PKT_LEN_SHIFT;
-+
-+	val = (length & ETH_TX_DATA_1ST_BD_PKT_LEN_MASK) <<
-+	       ETH_TX_DATA_1ST_BD_PKT_LEN_SHIFT;
-+
-+	first_bd->data.bitfields |= cpu_to_le16(val);
- 	first_bd->data.nbds = 1;
+-		rc = qed_sp_pf_update_tunn_cfg(hwfn, &tunn_info,
++		rc = qed_sp_pf_update_tunn_cfg(hwfn, p_ptt, &tunn_info,
+ 					       QED_SPQ_MODE_EBLOCK, NULL);
+-		if (rc)
++		if (rc) {
++			if (IS_PF(cdev))
++				qed_ptt_release(hwfn, p_ptt);
+ 			return rc;
++		}
  
- 	/* We can safely ignore the offset, as it's 0 for XDP */
-@@ -1424,7 +1427,7 @@ netdev_tx_t qede_start_xmit(struct sk_buff *skb, struct net_device *ndev)
- 	struct eth_tx_2nd_bd *second_bd = NULL;
- 	struct eth_tx_3rd_bd *third_bd = NULL;
- 	struct eth_tx_bd *tx_data_bd = NULL;
--	u16 txq_index;
-+	u16 txq_index, val = 0;
- 	u8 nbd = 0;
- 	dma_addr_t mapping;
- 	int rc, frag_idx = 0, ipv6_ext = 0;
-@@ -1513,8 +1516,8 @@ netdev_tx_t qede_start_xmit(struct sk_buff *skb, struct net_device *ndev)
- 		if (xmit_type & XMIT_ENC) {
- 			first_bd->data.bd_flags.bitfields |=
- 				1 << ETH_TX_1ST_BD_FLAGS_IP_CSUM_SHIFT;
--			first_bd->data.bitfields |=
--			    1 << ETH_TX_DATA_1ST_BD_TUNN_FLAG_SHIFT;
-+
-+			val |= (1 << ETH_TX_DATA_1ST_BD_TUNN_FLAG_SHIFT);
+ 		if (IS_PF_SRIOV(hwfn)) {
+ 			u16 vxlan_port, geneve_port;
+@@ -2324,6 +2335,8 @@ static int qed_tunn_configure(struct qed_dev *cdev,
+ 
+ 			qed_schedule_iov(hwfn, QED_IOV_WQ_BULLETIN_UPDATE_FLAG);
  		}
- 
- 		/* Legacy FW had flipped behavior in regard to this bit -
-@@ -1522,8 +1525,7 @@ netdev_tx_t qede_start_xmit(struct sk_buff *skb, struct net_device *ndev)
- 		 * packets when it didn't need to.
- 		 */
- 		if (unlikely(txq->is_legacy))
--			first_bd->data.bitfields ^=
--			    1 << ETH_TX_DATA_1ST_BD_TUNN_FLAG_SHIFT;
-+			val ^= (1 << ETH_TX_DATA_1ST_BD_TUNN_FLAG_SHIFT);
- 
- 		/* If the packet is IPv6 with extension header, indicate that
- 		 * to FW and pass few params, since the device cracker doesn't
-@@ -1587,11 +1589,12 @@ netdev_tx_t qede_start_xmit(struct sk_buff *skb, struct net_device *ndev)
- 			data_split = true;
- 		}
- 	} else {
--		first_bd->data.bitfields |=
--		    (skb->len & ETH_TX_DATA_1ST_BD_PKT_LEN_MASK) <<
--		    ETH_TX_DATA_1ST_BD_PKT_LEN_SHIFT;
-+		val |= ((skb->len & ETH_TX_DATA_1ST_BD_PKT_LEN_MASK) <<
-+			 ETH_TX_DATA_1ST_BD_PKT_LEN_SHIFT);
++		if (IS_PF(cdev))
++			qed_ptt_release(hwfn, p_ptt);
  	}
  
-+	first_bd->data.bitfields = cpu_to_le16(val);
-+
- 	/* Handle fragmented skb */
- 	/* special handle for frags inside 2nd and 3rd bds.. */
- 	while (tx_data_bd && frag_idx < skb_shinfo(skb)->nr_frags) {
-diff --git a/drivers/net/ethernet/qlogic/qede/qede_roce.c b/drivers/net/ethernet/qlogic/qede/qede_roce.c
-index f00657c..c0030fb 100644
---- a/drivers/net/ethernet/qlogic/qede/qede_roce.c
-+++ b/drivers/net/ethernet/qlogic/qede/qede_roce.c
-@@ -221,8 +221,8 @@ static void qede_roce_changeaddr(struct qede_dev *edev)
- 		qedr_drv->notify(edev->rdma_info.qedr_dev, QEDE_CHANGE_ADDR);
+ 	return 0;
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_sp.h b/drivers/net/ethernet/qlogic/qed/qed_sp.h
+index c0b56b9..ef77de4 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_sp.h
++++ b/drivers/net/ethernet/qlogic/qed/qed_sp.h
+@@ -391,6 +391,7 @@ int qed_sp_init_request(struct qed_hwfn *p_hwfn,
+  * to the internal RAM of the UStorm by the Function Start Ramrod.
+  *
+  * @param p_hwfn
++ * @param p_ptt
+  * @param p_tunn
+  * @param mode
+  * @param allow_npar_tx_switch
+@@ -399,6 +400,7 @@ int qed_sp_init_request(struct qed_hwfn *p_hwfn,
+  */
+ 
+ int qed_sp_pf_start(struct qed_hwfn *p_hwfn,
++		    struct qed_ptt *p_ptt,
+ 		    struct qed_tunnel_info *p_tunn,
+ 		    enum qed_mf_mode mode, bool allow_npar_tx_switch);
+ 
+@@ -432,6 +434,7 @@ int qed_sp_pf_start(struct qed_hwfn *p_hwfn,
+ int qed_sp_pf_stop(struct qed_hwfn *p_hwfn);
+ 
+ int qed_sp_pf_update_tunn_cfg(struct qed_hwfn *p_hwfn,
++			      struct qed_ptt *p_ptt,
+ 			      struct qed_tunnel_info *p_tunn,
+ 			      enum spq_mode comp_mode,
+ 			      struct qed_spq_comp_cb *p_comp_data);
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_sp_commands.c b/drivers/net/ethernet/qlogic/qed/qed_sp_commands.c
+index 5abcac6..ab09975 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_sp_commands.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_sp_commands.c
+@@ -253,17 +253,18 @@ static void qed_set_hw_tunn_mode(struct qed_hwfn *p_hwfn,
  }
  
--struct qede_roce_event_work *qede_roce_get_free_event_node(struct qede_dev
--							   *edev)
-+static struct qede_roce_event_work *
-+qede_roce_get_free_event_node(struct qede_dev *edev)
+ static void qed_set_hw_tunn_mode_port(struct qed_hwfn *p_hwfn,
++				      struct qed_ptt *p_ptt,
+ 				      struct qed_tunnel_info *p_tunn)
  {
- 	struct qede_roce_event_work *event_node = NULL;
- 	struct list_head *list_node = NULL;
+ 	if (p_tunn->vxlan_port.b_update_port)
+-		qed_set_vxlan_dest_port(p_hwfn, p_hwfn->p_main_ptt,
++		qed_set_vxlan_dest_port(p_hwfn, p_ptt,
+ 					p_tunn->vxlan_port.port);
+ 
+ 	if (p_tunn->geneve_port.b_update_port)
+-		qed_set_geneve_dest_port(p_hwfn, p_hwfn->p_main_ptt,
++		qed_set_geneve_dest_port(p_hwfn, p_ptt,
+ 					 p_tunn->geneve_port.port);
+ 
+-	qed_set_hw_tunn_mode(p_hwfn, p_hwfn->p_main_ptt, p_tunn);
++	qed_set_hw_tunn_mode(p_hwfn, p_ptt, p_tunn);
+ }
+ 
+ static void
+@@ -303,6 +304,7 @@ static void qed_set_hw_tunn_mode_port(struct qed_hwfn *p_hwfn,
+ }
+ 
+ int qed_sp_pf_start(struct qed_hwfn *p_hwfn,
++		    struct qed_ptt *p_ptt,
+ 		    struct qed_tunnel_info *p_tunn,
+ 		    enum qed_mf_mode mode, bool allow_npar_tx_switch)
+ {
+@@ -399,7 +401,8 @@ int qed_sp_pf_start(struct qed_hwfn *p_hwfn,
+ 	rc = qed_spq_post(p_hwfn, p_ent, NULL);
+ 
+ 	if (p_tunn)
+-		qed_set_hw_tunn_mode_port(p_hwfn, &p_hwfn->cdev->tunnel);
++		qed_set_hw_tunn_mode_port(p_hwfn, p_ptt,
++					  &p_hwfn->cdev->tunnel);
+ 
+ 	return rc;
+ }
+@@ -430,6 +433,7 @@ int qed_sp_pf_update(struct qed_hwfn *p_hwfn)
+ 
+ /* Set pf update ramrod command params */
+ int qed_sp_pf_update_tunn_cfg(struct qed_hwfn *p_hwfn,
++			      struct qed_ptt *p_ptt,
+ 			      struct qed_tunnel_info *p_tunn,
+ 			      enum spq_mode comp_mode,
+ 			      struct qed_spq_comp_cb *p_comp_data)
+@@ -464,7 +468,7 @@ int qed_sp_pf_update_tunn_cfg(struct qed_hwfn *p_hwfn,
+ 	if (rc)
+ 		return rc;
+ 
+-	qed_set_hw_tunn_mode_port(p_hwfn, &p_hwfn->cdev->tunnel);
++	qed_set_hw_tunn_mode_port(p_hwfn, p_ptt, &p_hwfn->cdev->tunnel);
+ 
+ 	return rc;
+ }
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_sriov.c b/drivers/net/ethernet/qlogic/qed/qed_sriov.c
+index f5ed54d..71e392f 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_sriov.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_sriov.c
+@@ -2209,7 +2209,7 @@ static void qed_iov_vf_mbx_update_tunn_param(struct qed_hwfn *p_hwfn,
+ 	if (b_update_required) {
+ 		u16 geneve_port;
+ 
+-		rc = qed_sp_pf_update_tunn_cfg(p_hwfn, &tunn,
++		rc = qed_sp_pf_update_tunn_cfg(p_hwfn, p_ptt, &tunn,
+ 					       QED_SPQ_MODE_EBLOCK, NULL);
+ 		if (rc)
+ 			status = PFVF_STATUS_FAILURE;
 -- 
 1.9.3
