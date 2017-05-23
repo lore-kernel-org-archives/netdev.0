@@ -1,127 +1,85 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] tcp: fix TCP_SYNCNT flakes
-Date: Tue, 23 May 2017 12:38:35 -0700
-Message-ID: <1495568315.6465.71.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Alexei Starovoitov <ast@fb.com>
+Subject: Re: Alignment in BPF verifier
+Date: Tue, 23 May 2017 12:45:59 -0700
+Message-ID: <ad2162c3-1286-ab35-464a-8d21a1adc94f@fb.com>
+References: <db8cd2e8-9f51-dc8b-5e55-4c75d13d4858@fb.com>
+ <a0a47297-4765-3ba0-3ea2-013dda40e84a@solarflare.com>
+ <bed5b512-6069-53cc-f128-05be05f89889@solarflare.com>
+ <20170519.163957.1950740987459934279.davem@davemloft.net>
+ <591F7A28.3020004@iogearbox.net>
+ <f882c40e-bd50-f08e-afd8-f6396fc24ebc@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="utf-8"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-        Soheil Hassas Yeganeh <soheil@google.com>,
-        Yuchung Cheng <ycheng@google.com>
-To: David Miller <davem@davemloft.net>
+Cc: <alexei.starovoitov@gmail.com>, <netdev@vger.kernel.org>
+To: Edward Cree <ecree@solarflare.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:33898 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S965180AbdEWTis (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 23 May 2017 15:38:48 -0400
-Received: by mail-pf0-f193.google.com with SMTP id w69so29585811pfk.1
-        for <netdev@vger.kernel.org>; Tue, 23 May 2017 12:38:38 -0700 (PDT)
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:45500 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1760218AbdEWTqU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 23 May 2017 15:46:20 -0400
+In-Reply-To: <f882c40e-bd50-f08e-afd8-f6396fc24ebc@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On 5/23/17 7:41 AM, Edward Cree wrote:
+> I'm still plugging away at this... it's going to be quite a big patch and
+>  rewrite a lot of stuff (and I'm not sure I'll be able to break it into
+>  smaller bisectable patches).
+> And of course I have more questions.  In check_packet_ptr_add(), we
+>  forbid adding a negative constant to a packet ptr.  Is there some
+>  principled reason for that, or is it just because the bounds checking is
+>  hard?  It seems like, if imm + reg->off > 0 (suitably carefully checked
+>  to avoid overflow etc.), then the subtraction should be legal.  Indeed,
+>  even if the reg->off (fixed part of offset) is zero, if the variable part
+>  is known (min_value) to be >= -imm, the subtraction should be safe.
 
-After the mentioned commit, some of our packetdrill tests became flaky.
+adding negative imm to pkt_ptr is ok, but what is the use case?
+Do you see llvm generating such code?
+I think if we try to track everything with the current shape of
+state pruning, the verifier will stop accepting old programs
+because it reaches complexity limit.
 
-TCP_SYNCNT socket option can limit the number of SYN retransmits.
+I think we need to rearchitect the whole thing.
+I was thinking of doing it compiler-style. Convert to ssa and
+do traditional data flow analysis, use-def chains, register liveness
+then pruning heuristics won't be necessary and verifier should be
+able to check everything in more or less single pass.
+Things like register liveness can be done without ssa. It can
+be used to augment existing pruning, since it will know which
+registers are dead, so they don't have to be compared, but it
+feels half-way. I'd rather go all the way.
 
-retransmits_timed_out() has to compare times computations based on
-local_clock() while timers are based on jiffies. With NTP adjustments
-and roundings we can observe 999 ms delay for 1000 ms timers.
-We end up sending one extra SYN packet.
+> On 20/05/17 00:05, Daniel Borkmann wrote:
+>> Besides PTR_TO_PACKET also PTR_TO_MAP_VALUE_OR_NULL uses it to
+>> track all registers (incl. spilled ones) with the same reg->id
+>> that originated from the same map lookup. After the reg type is
+>> then migrated to either PTR_TO_MAP_VALUE (resp. CONST_PTR_TO_MAP
+>> for map in map) or UNKNOWN_VALUE depending on the branch, the
+>> reg->id is then reset to 0 again. Whole reason for this is that
+>> LLVM generates code where it can move and/or spill a reg of type
+>> PTR_TO_MAP_VALUE_OR_NULL to other regs before we do the NULL
+>> test on it, and later on it expects that the spilled or moved
+>> regs work wrt access. So they're marked with an id and then all
+>> of them are type migrated. So here meaning of reg->id is different
+>> than in PTR_TO_PACKET case.
+> Hmm, that means that we can't do arithmetic on a
+>  PTR_TO_MAP_VALUE_OR_NULL, we have to convert it to a PTR_TO_MAP_VALUE
+>  first by NULL-checking it.  That's probably fine, but I can just about
+>  imagine some compiler optimisation reordering them.  Any reason not to
+>  split this out into a different reg->field, rather than overloading id?
 
-Gimmick added in commit 6fa12c850314 ("Revert Backoff [v3]: Calculate
-TCP's connection close threshold as a time value") makes no
-real sense for TCP_SYN_SENT sockets where no RTO backoff can happen at
-all.
+'id' is sort of like 'version' of a pointer and has the same meaning in
+both cases. How exactly do you see this split?
 
-Lets use a simpler logic for TCP_SYN_SENT sockets and remove @syn_set
-parameter from retransmits_timed_out()
+> Of course that would need (more) caution wrt. states_equal(), but it
+>  looks like I'll be mangling that a lot anyway - for instance, we don't
+>  want to just use memcmp() to compare alignments, we want to check that
+>  our alignment is stricter than the old alignment.  (Of course memcmp()
+>  is a conservative check, so the "memcmp() the whole reg_state" fast
+>  path can remain.)
 
-Fixes: 9a568de4818d ("tcp: switch TCP TS option (RFC 7323) to 1ms clock")
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Signed-off-by: Yuchung Cheng <ycheng@google.com>
----
- net/ipv4/tcp_timer.c |   26 +++++++++++---------------
- 1 file changed, 11 insertions(+), 15 deletions(-)
-
-diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
-index c4a35ba7f8ed0dac573c864900b081b4847927d8..c0feeeef962aa31401ee90f8bd015c2aae2ef932 100644
---- a/net/ipv4/tcp_timer.c
-+++ b/net/ipv4/tcp_timer.c
-@@ -139,21 +139,17 @@ static void tcp_mtu_probing(struct inet_connection_sock *icsk, struct sock *sk)
-  *  @timeout:  A custom timeout value.
-  *             If set to 0 the default timeout is calculated and used.
-  *             Using TCP_RTO_MIN and the number of unsuccessful retransmits.
-- *  @syn_set:  true if the SYN Bit was set.
-  *
-  * The default "timeout" value this function can calculate and use
-  * is equivalent to the timeout of a TCP Connection
-  * after "boundary" unsuccessful, exponentially backed-off
-- * retransmissions with an initial RTO of TCP_RTO_MIN or TCP_TIMEOUT_INIT if
-- * syn_set flag is set.
-- *
-+ * retransmissions with an initial RTO of TCP_RTO_MIN.
-  */
- static bool retransmits_timed_out(struct sock *sk,
- 				  unsigned int boundary,
--				  unsigned int timeout,
--				  bool syn_set)
-+				  unsigned int timeout)
- {
--	unsigned int rto_base = syn_set ? TCP_TIMEOUT_INIT : TCP_RTO_MIN;
-+	const unsigned int rto_base = TCP_RTO_MIN;
- 	unsigned int linear_backoff_thresh, start_ts;
- 
- 	if (!inet_csk(sk)->icsk_retransmits)
-@@ -181,8 +177,8 @@ static int tcp_write_timeout(struct sock *sk)
- 	struct inet_connection_sock *icsk = inet_csk(sk);
- 	struct tcp_sock *tp = tcp_sk(sk);
- 	struct net *net = sock_net(sk);
-+	bool expired, do_reset;
- 	int retry_until;
--	bool do_reset, syn_set = false;
- 
- 	if ((1 << sk->sk_state) & (TCPF_SYN_SENT | TCPF_SYN_RECV)) {
- 		if (icsk->icsk_retransmits) {
-@@ -196,9 +192,9 @@ static int tcp_write_timeout(struct sock *sk)
- 			sk_rethink_txhash(sk);
- 		}
- 		retry_until = icsk->icsk_syn_retries ? : net->ipv4.sysctl_tcp_syn_retries;
--		syn_set = true;
-+		expired = icsk->icsk_retransmits >= retry_until;
- 	} else {
--		if (retransmits_timed_out(sk, net->ipv4.sysctl_tcp_retries1, 0, 0)) {
-+		if (retransmits_timed_out(sk, net->ipv4.sysctl_tcp_retries1, 0)) {
- 			/* Some middle-boxes may black-hole Fast Open _after_
- 			 * the handshake. Therefore we conservatively disable
- 			 * Fast Open on this path on recurring timeouts after
-@@ -224,15 +220,15 @@ static int tcp_write_timeout(struct sock *sk)
- 
- 			retry_until = tcp_orphan_retries(sk, alive);
- 			do_reset = alive ||
--				!retransmits_timed_out(sk, retry_until, 0, 0);
-+				!retransmits_timed_out(sk, retry_until, 0);
- 
- 			if (tcp_out_of_resources(sk, do_reset))
- 				return 1;
- 		}
-+		expired = retransmits_timed_out(sk, retry_until,
-+						icsk->icsk_user_timeout);
- 	}
--
--	if (retransmits_timed_out(sk, retry_until,
--				  syn_set ? 0 : icsk->icsk_user_timeout, syn_set)) {
-+	if (expired) {
- 		/* Has it gone just too far? */
- 		tcp_write_err(sk);
- 		return 1;
-@@ -540,7 +536,7 @@ void tcp_retransmit_timer(struct sock *sk)
- 		icsk->icsk_rto = min(icsk->icsk_rto << 1, TCP_RTO_MAX);
- 	}
- 	inet_csk_reset_xmit_timer(sk, ICSK_TIME_RETRANS, icsk->icsk_rto, TCP_RTO_MAX);
--	if (retransmits_timed_out(sk, net->ipv4.sysctl_tcp_retries1 + 1, 0, 0))
-+	if (retransmits_timed_out(sk, net->ipv4.sysctl_tcp_retries1 + 1, 0))
- 		__sk_dst_reset(sk);
- 
- out:;
+yes. that would be good improvement. Not sure how much it will help
+the pruning though.
