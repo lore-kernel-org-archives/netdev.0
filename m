@@ -1,64 +1,39 @@
-From: Eric Garver <e@erig.me>
-Subject: [PATCH net-next] geneve: fix fill_info when using collect_metadata
-Date: Tue, 23 May 2017 18:37:27 -0400
-Message-ID: <20170523223727.15307-1-e@erig.me>
-Cc: pravin shelar <pshelar@ovn.org>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:42366 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1757598AbdEWWh2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 23 May 2017 18:37:28 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+Subject: [PATCH] net: fix potential null pointer dereference
+Date: Tue, 23 May 2017 18:18:37 -0500
+Message-ID: <20170523231837.GA9364@embeddedgus>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: osmocom-net-gprs@lists.osmocom.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+To: Pablo Neira Ayuso <pablo@netfilter.org>,
+        Harald Welte <laforge@gnumonks.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Since 9b4437a5b870 ("geneve: Unify LWT and netdev handling.") fill_info
-does not return UDP_ZERO_CSUM6_RX when using COLLECT_METADATA. This is
-because it uses ip_tunnel_info_af() with the device level info, which is
-not valid for COLLECT_METADATA.
+Add null check to avoid a potential null pointer dereference.
 
-Fix by checking for the presence of the actual sockets.
-
-Fixes: 9b4437a5b870 ("geneve: Unify LWT and netdev handling.")
-Signed-off-by: Eric Garver <e@erig.me>
+Addresses-Coverity-ID: 1408831
+Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
 ---
- drivers/net/geneve.c | 8 +++++---
- 1 file changed, 5 insertions(+), 3 deletions(-)
+ drivers/net/gtp.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
-index dec5d563ab19..959fd12d2e67 100644
---- a/drivers/net/geneve.c
-+++ b/drivers/net/geneve.c
-@@ -1293,7 +1293,7 @@ static int geneve_fill_info(struct sk_buff *skb, const struct net_device *dev)
- 	if (nla_put_u32(skb, IFLA_GENEVE_ID, vni))
- 		goto nla_put_failure;
+diff --git a/drivers/net/gtp.c b/drivers/net/gtp.c
+index 4fea1b3..7b652bb 100644
+--- a/drivers/net/gtp.c
++++ b/drivers/net/gtp.c
+@@ -873,7 +873,7 @@ static struct gtp_dev *gtp_find_dev(struct net *src_net, struct nlattr *nla[])
  
--	if (ip_tunnel_info_af(info) == AF_INET) {
-+	if (rtnl_dereference(geneve->sock4)) {
- 		if (nla_put_in_addr(skb, IFLA_GENEVE_REMOTE,
- 				    info->key.u.ipv4.dst))
- 			goto nla_put_failure;
-@@ -1302,8 +1302,10 @@ static int geneve_fill_info(struct sk_buff *skb, const struct net_device *dev)
- 			       !!(info->key.tun_flags & TUNNEL_CSUM)))
- 			goto nla_put_failure;
+ 	/* Check if there's an existing gtpX device to configure */
+ 	dev = dev_get_by_index_rcu(net, nla_get_u32(nla[GTPA_LINK]));
+-	if (dev->netdev_ops == &gtp_netdev_ops)
++	if (dev && dev->netdev_ops == &gtp_netdev_ops)
+ 		gtp = netdev_priv(dev);
  
-+	}
-+
- #if IS_ENABLED(CONFIG_IPV6)
--	} else {
-+	if (rtnl_dereference(geneve->sock6)) {
- 		if (nla_put_in6_addr(skb, IFLA_GENEVE_REMOTE6,
- 				     &info->key.u.ipv6.dst))
- 			goto nla_put_failure;
-@@ -1315,8 +1317,8 @@ static int geneve_fill_info(struct sk_buff *skb, const struct net_device *dev)
- 		if (nla_put_u8(skb, IFLA_GENEVE_UDP_ZERO_CSUM6_RX,
- 			       !geneve->use_udp6_rx_checksums))
- 			goto nla_put_failure;
--#endif
- 	}
-+#endif
- 
- 	if (nla_put_u8(skb, IFLA_GENEVE_TTL, info->key.ttl) ||
- 	    nla_put_u8(skb, IFLA_GENEVE_TOS, info->key.tos) ||
+ 	put_net(net);
 -- 
-2.12.0
+2.5.0
