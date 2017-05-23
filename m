@@ -1,135 +1,131 @@
-From: Stefan Wahren <stefan.wahren@i2se.com>
-Subject: [PATCH v6 net-next 11/17] net: qualcomm: prepare frame decoding for UART driver
-Date: Tue, 23 May 2017 15:12:47 +0200
-Message-ID: <1495545173-22150-12-git-send-email-stefan.wahren@i2se.com>
-References: <1495545173-22150-1-git-send-email-stefan.wahren@i2se.com>
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        Jiri Slaby <jslaby@suse.com>,
-        Lino Sanfilippo <LinoSanfilippo@gmx.de>,
-        Jakub Kicinski <kubakici@wp.pl>, devicetree@vger.kernel.org,
-        netdev@vger.kernel.org, linux-serial@vger.kernel.org,
-        linux-kernel@vger.kernel.org,
-        Stefan Wahren <stefan.wahren@i2se.com>
-To: Rob Herring <robh+dt@kernel.org>,
-        Mark Rutland <mark.rutland@arm.com>,
-        "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1495545173-22150-1-git-send-email-stefan.wahren@i2se.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Leon Romanovsky <leon@kernel.org>
+Subject: Re: [PATCH net] net/mlx4: Fix the check in attaching steering rules
+Date: Tue, 23 May 2017 16:15:13 +0300
+Message-ID: <20170523131513.GN17751@mtr-leonro.local>
+References: <1495543807-14956-1-git-send-email-tariqt@mellanox.com>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha256;
+        protocol="application/pgp-signature"; boundary="AQNmCumFClRcGgHG"
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        Eran Ben Elisha <eranbe@mellanox.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>,
+        Talat Batheesh <talatb@mellanox.com>
+To: Tariq Toukan <tariqt@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.kernel.org ([198.145.29.99]:33826 "EHLO mail.kernel.org"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S967585AbdEWNP1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 23 May 2017 09:15:27 -0400
+Content-Disposition: inline
+In-Reply-To: <1495543807-14956-1-git-send-email-tariqt@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Unfortunately the frame format is not exactly identical between SPI
-and UART. In case of SPI there is an additional HW length at the
-beginning. So store the initial state to make the decoding state machine
-more flexible and easy to extend for UART support.
 
-Signed-off-by: Stefan Wahren <stefan.wahren@i2se.com>
----
- drivers/net/ethernet/qualcomm/qca_7k_common.c | 12 ++++++------
- drivers/net/ethernet/qualcomm/qca_7k_common.h |  8 ++++++--
- drivers/net/ethernet/qualcomm/qca_spi.c       |  2 +-
- 3 files changed, 13 insertions(+), 9 deletions(-)
+--AQNmCumFClRcGgHG
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-diff --git a/drivers/net/ethernet/qualcomm/qca_7k_common.c b/drivers/net/ethernet/qualcomm/qca_7k_common.c
-index 6d17fbd..0d3daa9 100644
---- a/drivers/net/ethernet/qualcomm/qca_7k_common.c
-+++ b/drivers/net/ethernet/qualcomm/qca_7k_common.c
-@@ -83,7 +83,7 @@ qcafrm_fsm_decode(struct qcafrm_handle *handle, u8 *buf, u16 buf_len, u8 recv_by
- 
- 		if (recv_byte != 0x00) {
- 			/* first two bytes of length must be 0 */
--			handle->state = QCAFRM_HW_LEN0;
-+			handle->state = handle->init;
- 		}
- 		break;
- 	case QCAFRM_HW_LEN2:
-@@ -97,7 +97,7 @@ qcafrm_fsm_decode(struct qcafrm_handle *handle, u8 *buf, u16 buf_len, u8 recv_by
- 	case QCAFRM_WAIT_AA4:
- 		if (recv_byte != 0xAA) {
- 			ret = QCAFRM_NOHEAD;
--			handle->state = QCAFRM_HW_LEN0;
-+			handle->state = handle->init;
- 		} else {
- 			handle->state--;
- 		}
-@@ -119,7 +119,7 @@ qcafrm_fsm_decode(struct qcafrm_handle *handle, u8 *buf, u16 buf_len, u8 recv_by
- 		len = handle->offset;
- 		if (len > buf_len || len < QCAFRM_MIN_LEN) {
- 			ret = QCAFRM_INVLEN;
--			handle->state = QCAFRM_HW_LEN0;
-+			handle->state = handle->init;
- 		} else {
- 			handle->state = (enum qcafrm_state)(len + 1);
- 			/* Remaining number of bytes. */
-@@ -135,7 +135,7 @@ qcafrm_fsm_decode(struct qcafrm_handle *handle, u8 *buf, u16 buf_len, u8 recv_by
- 	case QCAFRM_WAIT_551:
- 		if (recv_byte != 0x55) {
- 			ret = QCAFRM_NOTAIL;
--			handle->state = QCAFRM_HW_LEN0;
-+			handle->state = handle->init;
- 		} else {
- 			handle->state = QCAFRM_WAIT_552;
- 		}
-@@ -143,11 +143,11 @@ qcafrm_fsm_decode(struct qcafrm_handle *handle, u8 *buf, u16 buf_len, u8 recv_by
- 	case QCAFRM_WAIT_552:
- 		if (recv_byte != 0x55) {
- 			ret = QCAFRM_NOTAIL;
--			handle->state = QCAFRM_HW_LEN0;
-+			handle->state = handle->init;
- 		} else {
- 			ret = handle->offset;
- 			/* Frame is fully received. */
--			handle->state = QCAFRM_HW_LEN0;
-+			handle->state = handle->init;
- 		}
- 		break;
- 	}
-diff --git a/drivers/net/ethernet/qualcomm/qca_7k_common.h b/drivers/net/ethernet/qualcomm/qca_7k_common.h
-index 5df7c65..07bdd6c 100644
---- a/drivers/net/ethernet/qualcomm/qca_7k_common.h
-+++ b/drivers/net/ethernet/qualcomm/qca_7k_common.h
-@@ -61,6 +61,7 @@
- #define QCAFRM_ERR_BASE -1000
- 
- enum qcafrm_state {
-+	/* HW length is only available on SPI */
- 	QCAFRM_HW_LEN0 = 0x8000,
- 	QCAFRM_HW_LEN1 = QCAFRM_HW_LEN0 - 1,
- 	QCAFRM_HW_LEN2 = QCAFRM_HW_LEN1 - 1,
-@@ -101,6 +102,8 @@ enum qcafrm_state {
- struct qcafrm_handle {
- 	/*  Current decoding state */
- 	enum qcafrm_state state;
-+	/* Initial state depends on connection type */
-+	enum qcafrm_state init;
- 
- 	/* Offset in buffer (borrowed for length too) */
- 	u16 offset;
-@@ -113,9 +116,10 @@ u16 qcafrm_create_header(u8 *buf, u16 len);
- 
- u16 qcafrm_create_footer(u8 *buf);
- 
--static inline void qcafrm_fsm_init(struct qcafrm_handle *handle)
-+static inline void qcafrm_fsm_init_spi(struct qcafrm_handle *handle)
- {
--	handle->state = QCAFRM_HW_LEN0;
-+	handle->init = QCAFRM_HW_LEN0;
-+	handle->state = handle->init;
- }
- 
- /*   Gather received bytes and try to extract a full Ethernet frame
-diff --git a/drivers/net/ethernet/qualcomm/qca_spi.c b/drivers/net/ethernet/qualcomm/qca_spi.c
-index 43cc7de..de78f60 100644
---- a/drivers/net/ethernet/qualcomm/qca_spi.c
-+++ b/drivers/net/ethernet/qualcomm/qca_spi.c
-@@ -638,7 +638,7 @@ qcaspi_netdev_open(struct net_device *dev)
- 	qca->intr_req = 1;
- 	qca->intr_svc = 0;
- 	qca->sync = QCASPI_SYNC_UNKNOWN;
--	qcafrm_fsm_init(&qca->frm_handle);
-+	qcafrm_fsm_init_spi(&qca->frm_handle);
- 
- 	qca->spi_thread = kthread_run((void *)qcaspi_spi_thread,
- 				      qca, "%s", dev->name);
--- 
-2.1.4
+On Tue, May 23, 2017 at 03:50:07PM +0300, Tariq Toukan wrote:
+> From: Talat Batheesh <talatb@mellanox.com>
+>
+> Our previous patch (cited below) introduced a regression
+> for RAW Eth QPs.
+>
+> Fix it by checking if the QP number provided by user-space
+> exists, hence allowing steering rules to be added for valid
+> QPs only.
+>
+> Fixes: 89c557687a32 ("net/mlx4_en: Avoid adding steering rules with ...")
+> Reported-by: Or Gerlitz <gerlitz.or@gmail.com>
+> Signed-off-by: Talat Batheesh <talatb@mellanox.com>
+> Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
+> ---
+>  drivers/net/ethernet/mellanox/mlx4/en_ethtool.c |  3 +--
+>  drivers/net/ethernet/mellanox/mlx4/qp.c         | 14 ++++++++++++++
+>  include/linux/mlx4/qp.h                         |  1 +
+>  3 files changed, 16 insertions(+), 2 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+> index ae5fdc2df654..00a7cd3dcc2e 100644
+> --- a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+> +++ b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+> @@ -1562,8 +1562,7 @@ static int mlx4_en_flow_replace(struct net_device *dev,
+>  		qpn = priv->drop_qp.qpn;
+>  	else if (cmd->fs.ring_cookie & EN_ETHTOOL_QP_ATTACH) {
+>  		qpn = cmd->fs.ring_cookie & (EN_ETHTOOL_QP_ATTACH - 1);
+> -		if (qpn < priv->rss_map.base_qpn ||
+> -		    qpn >= priv->rss_map.base_qpn + priv->rx_ring_num) {
+> +		if (!mlx4_qp_lookup(priv->mdev->dev, qpn)) {
+>  			en_warn(priv, "rxnfc: QP (0x%x) doesn't exist\n", qpn);
+>  			return -EINVAL;
+>  		}
+> diff --git a/drivers/net/ethernet/mellanox/mlx4/qp.c b/drivers/net/ethernet/mellanox/mlx4/qp.c
+> index 2d6abd4662b1..1eff2fe32a8b 100644
+> --- a/drivers/net/ethernet/mellanox/mlx4/qp.c
+> +++ b/drivers/net/ethernet/mellanox/mlx4/qp.c
+> @@ -384,6 +384,20 @@ static void mlx4_qp_free_icm(struct mlx4_dev *dev, int qpn)
+>  		__mlx4_qp_free_icm(dev, qpn);
+>  }
+>
+> +struct mlx4_qp *mlx4_qp_lookup(struct mlx4_dev *dev, u32 qpn)
+> +{
+> +	struct mlx4_qp_table *qp_table = &mlx4_priv(dev)->qp_table;
+> +	struct mlx4_qp *qp;
+> +
+> +	spin_lock(&qp_table->lock);
+> +
+> +	qp = __mlx4_qp_lookup(dev, qpn);
+> +
+> +	spin_unlock(&qp_table->lock);
+> +	return qp;
+> +}
+> +EXPORT_SYMBOL_GPL(mlx4_qp_lookup);
+
+Tariq,
+
+Why do you need this export and header fils? You are using this function in one place only.
+
+Thanks
+
+> +
+>  int mlx4_qp_alloc(struct mlx4_dev *dev, int qpn, struct mlx4_qp *qp, gfp_t gfp)
+>  {
+>  	struct mlx4_priv *priv = mlx4_priv(dev);
+> diff --git a/include/linux/mlx4/qp.h b/include/linux/mlx4/qp.h
+> index b4ee8f62ce8d..8e2828d48d7f 100644
+> --- a/include/linux/mlx4/qp.h
+> +++ b/include/linux/mlx4/qp.h
+> @@ -470,6 +470,7 @@ struct mlx4_update_qp_params {
+>  	u16	rate_val;
+>  };
+>
+> +struct mlx4_qp *mlx4_qp_lookup(struct mlx4_dev *dev, u32 qpn);
+>  int mlx4_update_qp(struct mlx4_dev *dev, u32 qpn,
+>  		   enum mlx4_update_qp_attr attr,
+>  		   struct mlx4_update_qp_params *params);
+> --
+> 1.8.3.1
+>
+
+--AQNmCumFClRcGgHG
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAlkkNeAACgkQ5GN7iDZy
+WKfa+g//SF1PBZHFXWFlDsFbnasfBlwwZG7IynGhc5esni+L0SgatZawIhrD49es
+0qutrO1dCQU513mag/gvqhH2TSyUr6yfGonh1dY5t/NHEKGUZA8OZNcFBD9KH6CV
+Vvw89g71cuKOYU2a5Diir7RaEDWnqQjAEAdH4kC2RkaSdbc0wEIvaKZtuPwhVIcm
+7TOYixKkEbzdGI2v0x+BGfoBLEBgevIvowPXPSkC1zlsfY8yPhPw+9CgjglC+Qes
+cbH+4DaHri9/Hcg/l3rFaxFI5dmG1Roejsrp9JM9pAwqwHac+QmA6a2lkVNrKSeC
+Urq9cM407vbHysXL1rAuYMXj0zyp2WivvKJTV+BjbxC7Z81S5V46gAZ3W3YO+oBx
+xOtwSC3UImPgz5ZiU1nLmjb9daiy5euYIWtenH5p3zO+0V9Uckv0WXPxf/J4aE4M
+hB5NjW6CnG+F/Px4YVbrSgc4HnyMcMzTJ+QI9vi5Nz88Cdrug8rqcau5G8G5rT/h
+sx3O3XTwz7tHW8jx01CJ0GH8Zqm8V0a7tWkfk6g7jTzr9jIEL+1f/HTFyMaCtG9W
+kPdft61ewhOOW0yu7gdfTAtFujZr6d+/Bwn7STNE8fJZXGg5UwRZguWE3IJouw9L
+ivjoS7RI7YpX+6acgxw9tzxHL5LHRU/R5iBCXMQpvjZntfkleZc=
+=iymV
+-----END PGP SIGNATURE-----
+
+--AQNmCumFClRcGgHG--
