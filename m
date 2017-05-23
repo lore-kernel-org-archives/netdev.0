@@ -1,92 +1,38 @@
-From: Franky Lin <franky.lin@broadcom.com>
-Subject: Re: [PATCH] brcmfmac: Fix kernel oops on resume when request firmware fails.
-Date: Tue, 23 May 2017 13:32:23 -0700
-Message-ID: <CA+8PC_cTs0_F6ZsrRRs4VqPEDSGmDtW-2Q=ZZz8an-bEehE-3w@mail.gmail.com>
-References: <20170523180733.26276-1-enric.balletbo@collabora.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH v2 0/4] arp: always override existing neigh entries with
+ gratuitous ARP
+Date: Tue, 23 May 2017 22:56:31 +0200
+Message-ID: <CAK8P3a162_RdXHLCPzg47+F7yadRGMDgFG_z5R6v65-heY1KAw@mail.gmail.com>
+References: <cover.1495136258.git.ihrachys@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: Arend van Spriel <arend.vanspriel@broadcom.com>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        linux-wireless@vger.kernel.org,
-        "open list:BROADCOM BRCM80211 IEEE802.11n WIRELESS DRIVER"
-        <brcm80211-dev-list.pdl@broadcom.com>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org,
-        Hante Meuleman <hante.meuleman@broadcom.com>,
-        Christian Daudt <csd@broadcom.com>
-To: Enric Balletbo i Serra <enric.balletbo@collabora.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170523180733.26276-1-enric.balletbo@collabora.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, ja@ssi.bg,
+        Networking <netdev@vger.kernel.org>
+To: Ihar Hrachyshka <ihrachys@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f67.google.com ([209.85.218.67]:35433 "EHLO
+        mail-oi0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1032799AbdEWU4c (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 23 May 2017 16:56:32 -0400
+Received: by mail-oi0-f67.google.com with SMTP id m17so29705249oik.2
+        for <netdev@vger.kernel.org>; Tue, 23 May 2017 13:56:32 -0700 (PDT)
+In-Reply-To: <cover.1495136258.git.ihrachys@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Enric,
+On Thu, May 18, 2017 at 9:41 PM, Ihar Hrachyshka <ihrachys@redhat.com> wrote:
+> This patchset is spurred by discussion started at
+> https://patchwork.ozlabs.org/patch/760372/ where we figured that there is no
+> real reason for enforcing override by gratuitous ARP packets only when
+> arp_accept is 1. Same should happen when it's 0 (the default value).
+>
+> changelog v2: handled review comments by Julian Anastasov
+> - fixed a mistake in a comment;
+> - postponed addr_type calculation to as late as possible.
 
-On Tue, May 23, 2017 at 11:07 AM, Enric Balletbo i Serra
-<enric.balletbo@collabora.com> wrote:
-> When request firmware fails, brcmf_ops_sdio_remove is being called and
-> brcmf_bus freed. In such circumstancies if you do a suspend/resume cycle
-> the kernel hangs on resume due a NULL pointer dereference in resume
-> function.
->
-> Steps to reproduce the problem:
->  - modprobe brcmfmac without the firmware
->      brcmfmac mmc1:0001:1: Direct firmware load for brcm/brcmfmac4354-sdio.bin
->      failed with error -2
->  - do a suspend/resume cycle (echo mem > /sys/power/state)
->
-> Protect against the NULL pointer derefence by checking if dev_get_drvdata
-> returned a valid pointer.
->
-> Signed-off-by: Enric Balletbo i Serra <enric.balletbo@collabora.com>
-> ---
-> I'm not sure about if this is the correct way to fix this but at least it
-> prevents the kernel to hang. From one side I'm not sure why suspend/resume
-> functions are called in such case and why the device is not removed from
-> the bus, from the other side I saw, that others drivers only unregisters
-> from sdio when the driver is removed so I supose this is the normal behavior.
->
+This seems to have caused a build warning:
 
-Thank you for reporting this. I also think these questions you listed
-should be answered before putting the null check in resume routine. I
-will dig deeper and share my finding on the thread.
+net/ipv4/arp.c:880:35: warning: 'addr_type' may be used uninitialized
+in this function [-Wmaybe-uninitialized]
 
-Regards,
-Franky
-
-> Cheers,
->  Enric
->
->  drivers/net/wireless/broadcom/brcm80211/brcmfmac/bcmsdh.c | 7 ++++---
->  1 file changed, 4 insertions(+), 3 deletions(-)
->
-> diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/bcmsdh.c b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/bcmsdh.c
-> index 9b970dc..aa0e7c2 100644
-> --- a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/bcmsdh.c
-> +++ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/bcmsdh.c
-> @@ -1274,14 +1274,16 @@ static int brcmf_ops_sdio_suspend(struct device *dev)
->  static int brcmf_ops_sdio_resume(struct device *dev)
->  {
->         struct brcmf_bus *bus_if = dev_get_drvdata(dev);
-> -       struct brcmf_sdio_dev *sdiodev = bus_if->bus_priv.sdio;
->         struct sdio_func *func = container_of(dev, struct sdio_func, dev);
->
->         brcmf_dbg(SDIO, "Enter: F%d\n", func->num);
->         if (func->num != SDIO_FUNC_2)
->                 return 0;
->
-> -       brcmf_sdiod_freezer_off(sdiodev);
-> +       if (!bus_if)
-> +               return 0;
-> +
-> +       brcmf_sdiod_freezer_off(bus_if->bus_priv.sdio);
->         return 0;
->  }
->
-> @@ -1319,4 +1321,3 @@ void brcmf_sdio_exit(void)
->
->         sdio_unregister_driver(&brcmf_sdmmc_driver);
->  }
-> -
-> --
-> 2.9.3
->
+       Arnd
