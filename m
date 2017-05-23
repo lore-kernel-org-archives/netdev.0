@@ -1,42 +1,38 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: Re: [patch net-next 2/5] net: flow_dissector: add support for
- dissection of tcp flags
-Date: Tue, 23 May 2017 18:18:33 +0300
-Message-ID: <29df9132-b171-58fc-e943-9d6654867c57@mellanox.com>
-References: <20170523143110.5006-1-jiri@resnulli.us>
- <20170523143110.5006-3-jiri@resnulli.us>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 netdev] net: phy: marvell: Limit errata to 88m1101
+Date: Tue, 23 May 2017 11:19:17 -0400 (EDT)
+Message-ID: <20170523.111917.1861537319570026837.davem@davemloft.net>
+References: <1495495713-28374-1-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>,
-        <jhs@mojatatu.com>, <xiyou.wangcong@gmail.com>,
-        <simon.horman@netronome.com>, <mlxsw@mellanox.com>,
-        <idosch@mellanox.com>
-To: Jiri Pirko <jiri@resnulli.us>
+Cc: danielwa@cisco.com, harini.katakam@xilinx.com,
+        f.fainelli@gmail.com, netdev@vger.kernel.org
+To: andrew@lunn.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ve1eur01on0071.outbound.protection.outlook.com ([104.47.1.71]:18661
-        "EHLO EUR01-VE1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S933289AbdEWPSm (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 23 May 2017 11:18:42 -0400
-In-Reply-To: <20170523143110.5006-3-jiri@resnulli.us>
+Received: from shards.monkeyblade.net ([184.105.139.130]:36198 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933289AbdEWPTV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 23 May 2017 11:19:21 -0400
+In-Reply-To: <1495495713-28374-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 5/23/2017 5:31 PM, Jiri Pirko wrote:
-> @@ -683,6 +708,12 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
->   	case IPPROTO_MPLS:
->   		proto = htons(ETH_P_MPLS_UC);
->   		goto mpls;
-> +	case IPPROTO_TCP:
-> +		__skb_flow_dissect_tcp(skb, flow_dissector, target_container,
-> +				       data, nhoff, hlen);
-> +		/* Regardless of the return value, continue to process TCP
-> +		 * ports dissection below.
-> +		 */
+From: Andrew Lunn <andrew@lunn.ch>
+Date: Tue, 23 May 2017 01:28:33 +0200
 
-the comment here is a bit misleading, since __skb_flow_dissect_tcp is void
+> The 88m1101 has an errata when configuring autoneg. However, it was
+> being applied to many other Marvell PHYs as well. Limit its scope to
+> just the 88m1101.
+> 
+> Fixes: 76884679c644 ("phylib: Add support for Marvell 88e1111S and 88e1145")
+> Reported-by: Daniel Walker <danielwa@cisco.com>
+> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
 
-other-wise
+This patch is targetting 'net' but you generated it against 'net-next'
+which had a comment formatting change made recently so this patch won't
+apply to 'net'.
 
-Acked-by: Or Gerlitz <ogerlitz@mellanox.com>
+Please respin against 'net'.
+
+Thanks.
