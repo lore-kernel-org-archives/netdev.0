@@ -1,75 +1,40 @@
-From: Bogdan Purcareata <bogdan.purcareata@nxp.com>
-Subject: [PATCH 1/2] net: phy: Update get_phy_c45_ids for Cortina PHYs
-Date: Tue, 23 May 2017 15:53:18 +0000
-Message-ID: <1495554799-23060-2-git-send-email-bogdan.purcareata@nxp.com>
-References: <1495554799-23060-1-git-send-email-bogdan.purcareata@nxp.com>
+From: Timur Tabi <timur@codeaurora.org>
+Subject: Re: [PATCH 2/2] at803x: double check SGMII side autoneg
+Date: Tue, 23 May 2017 10:54:57 -0500
+Message-ID: <a8415b8b-1713-053d-41d3-2577c5a53c8b@codeaurora.org>
+References: <1477305654-11328-1-git-send-email-zefir.kurtisi@neratec.com>
+ <1477305654-11328-3-git-send-email-zefir.kurtisi@neratec.com>
+ <66de55da-7a5c-68b8-50d5-cab313ec0d6f@codeaurora.org>
+ <20170522210927.GR29447@lunn.ch>
+ <0d9b30e5-40f3-82ba-a44a-2eb25b8d3094@codeaurora.org>
+ <20170522213206.GT29447@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain
-To: <andrew@lunn.ch>, <f.fainelli@gmail.com>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1495554799-23060-1-git-send-email-bogdan.purcareata@nxp.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Zefir Kurtisi <zefir.kurtisi@neratec.com>, netdev@vger.kernel.org,
+        f.fainelli@gmail.com, David Miller <davem@davemloft.net>,
+        Manoj Iyer <manoj.iyer@canonical.com>, jhugo@codeaurora.org
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.codeaurora.org ([198.145.29.96]:50370 "EHLO
+        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1759865AbdEWPzM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 23 May 2017 11:55:12 -0400
+In-Reply-To: <20170522213206.GT29447@lunn.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Complete the work started by the following patches
-5f6c99e0 net: phy: fix a bug in get_phy_c45_ids
-da1da284 net/phy: tune get_phy_c45_ids to support more c45 phy
+On 05/22/2017 04:32 PM, Andrew Lunn wrote:
+>> I'll have to test this, but what do I do if I don't get another interrupt?
+> It probably means interrupts cannot be used. Poll it.
 
-in order to properly get non-standard C45 10G PHY IDs (e.g. Cortina
-CS4340).
+I will test that to see what happens, but I believe the real problem is that
+the at803x driver is lying when it says that the link is not okay.  I think
+the link is okay, and that's why I'm not getting any more interrupts.  I
+don't think I should have to drop interrupt support in my MAC driver because
+one specific PHY driver is broken.
 
-Signed-off-by: Bogdan Purcareata <bogdan.purcareata@nxp.com>
----
- drivers/net/phy/phy_device.c | 10 ++++++----
- 1 file changed, 6 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-index 1219eea..fef5627 100644
---- a/drivers/net/phy/phy_device.c
-+++ b/drivers/net/phy/phy_device.c
-@@ -335,7 +335,7 @@ static int phy_bus_match(struct device *dev, struct device_driver *drv)
- 		return phydrv->match_phy_device(phydev);
- 
- 	if (phydev->is_c45) {
--		for (i = 1; i < num_ids; i++) {
-+		for (i = 0; i < num_ids; i++) {
- 			if (!(phydev->c45_ids.devices_in_package & (1 << i)))
- 				continue;
- 
-@@ -488,28 +488,30 @@ static int get_phy_c45_ids(struct mii_bus *bus, int addr, u32 *phy_id,
- 				*phy_id = 0xffffffff;
- 				return 0;
- 			} else {
-+				c45_ids->devices_in_package |= 1;
- 				break;
- 			}
- 		}
- 	}
- 
- 	/* Now probe Device Identifiers for each device present. */
--	for (i = 1; i < num_ids; i++) {
-+	for (i = 0; i < num_ids; i++) {
- 		if (!(c45_ids->devices_in_package & (1 << i)))
- 			continue;
- 
--		reg_addr = MII_ADDR_C45 | i << 16 | MII_PHYSID1;
-+		reg_addr = MII_ADDR_C45 | i << 16 | (i ? MII_PHYSID1 : 0);
- 		phy_reg = mdiobus_read(bus, addr, reg_addr);
- 		if (phy_reg < 0)
- 			return -EIO;
- 		c45_ids->device_ids[i] = (phy_reg & 0xffff) << 16;
- 
--		reg_addr = MII_ADDR_C45 | i << 16 | MII_PHYSID2;
-+		reg_addr = MII_ADDR_C45 | i << 16 | (i ? MII_PHYSID2 : 1);
- 		phy_reg = mdiobus_read(bus, addr, reg_addr);
- 		if (phy_reg < 0)
- 			return -EIO;
- 		c45_ids->device_ids[i] |= (phy_reg & 0xffff);
- 	}
-+
- 	*phy_id = 0;
- 	return 0;
- }
 -- 
-1.9.1
+Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm
+Technologies, Inc.  Qualcomm Technologies, Inc. is a member of the
+Code Aurora Forum, a Linux Foundation Collaborative Project.
