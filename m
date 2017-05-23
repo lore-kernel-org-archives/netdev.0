@@ -1,96 +1,29 @@
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next 3/4] nfp: calculate total port lanes for split
-Date: Tue, 23 May 2017 08:12:46 -0700
-Message-ID: <20170523151247.8535-4-jakub.kicinski@netronome.com>
-References: <20170523151247.8535-1-jakub.kicinski@netronome.com>
-Cc: oss-drivers@netronome.com,
-        Jakub Kicinski <jakub.kicinski@netronome.com>
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] net: make struct inet_frags::qsize unsigned
+Date: Tue, 23 May 2017 11:13:31 -0400 (EDT)
+Message-ID: <20170523.111331.2067215407179690550.davem@davemloft.net>
+References: <20170522212026.GA28769@avx2>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: adobriyan@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f171.google.com ([209.85.192.171]:36789 "EHLO
-        mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1764383AbdEWPNL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 23 May 2017 11:13:11 -0400
-Received: by mail-pf0-f171.google.com with SMTP id m17so117622325pfg.3
-        for <netdev@vger.kernel.org>; Tue, 23 May 2017 08:13:11 -0700 (PDT)
-In-Reply-To: <20170523151247.8535-1-jakub.kicinski@netronome.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:36084 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1764383AbdEWPNe (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 23 May 2017 11:13:34 -0400
+In-Reply-To: <20170522212026.GA28769@avx2>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-For port splitting we will need to know the total number of lanes
-in a port.  Calculate that based on eth_table information.
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Date: Tue, 23 May 2017 00:20:26 +0300
 
-Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
-Reviewed-by: Simon Horman <simon.horman@netronome.com>
----
- drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp.h     |  3 +++
- drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp_eth.c | 11 ++++++-----
- 2 files changed, 9 insertions(+), 5 deletions(-)
+> This field is sizeof of corresponding kmem_cache so it can't be negative.
+> 
+> Prepare for 32-bit kmem_cache_create().
+> 
+> Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
 
-diff --git a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp.h b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp.h
-index 36b21e4dc56d..84a1d20adae1 100644
---- a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp.h
-+++ b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp.h
-@@ -96,6 +96,7 @@ enum nfp_eth_aneg {
-  * @override_changed: is media reconfig pending?
-  *
-  * @port_type:	one of %PORT_* defines for ethtool
-+ * @port_lanes:	total number of lanes on the port (sum of lanes of all subports)
-  * @is_split:	is interface part of a split port
-  */
- struct nfp_eth_table {
-@@ -127,6 +128,8 @@ struct nfp_eth_table {
- 		/* Computed fields */
- 		u8 port_type;
- 
-+		unsigned int port_lanes;
-+
- 		bool is_split;
- 	} ports[0];
- };
-diff --git a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp_eth.c b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp_eth.c
-index 639438d8313a..b0f8785c064f 100644
---- a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp_eth.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp_eth.c
-@@ -186,17 +186,19 @@ nfp_eth_port_translate(struct nfp_nsp *nsp, const union eth_table_entry *src,
- }
- 
- static void
--nfp_eth_mark_split_ports(struct nfp_cpp *cpp, struct nfp_eth_table *table)
-+nfp_eth_calc_port_geometry(struct nfp_cpp *cpp, struct nfp_eth_table *table)
- {
- 	unsigned int i, j;
- 
- 	for (i = 0; i < table->count; i++)
- 		for (j = 0; j < table->count; j++) {
--			if (i == j)
--				continue;
- 			if (table->ports[i].label_port !=
- 			    table->ports[j].label_port)
- 				continue;
-+			table->ports[i].port_lanes += table->ports[j].lanes;
-+
-+			if (i == j)
-+				continue;
- 			if (table->ports[i].label_subport ==
- 			    table->ports[j].label_subport)
- 				nfp_warn(cpp,
-@@ -205,7 +207,6 @@ nfp_eth_mark_split_ports(struct nfp_cpp *cpp, struct nfp_eth_table *table)
- 					 table->ports[i].label_subport);
- 
- 			table->ports[i].is_split = true;
--			break;
- 		}
- }
- 
-@@ -289,7 +290,7 @@ __nfp_eth_read_ports(struct nfp_cpp *cpp, struct nfp_nsp *nsp)
- 			nfp_eth_port_translate(nsp, &entries[i], i,
- 					       &table->ports[j++]);
- 
--	nfp_eth_mark_split_ports(cpp, table);
-+	nfp_eth_calc_port_geometry(cpp, table);
- 	for (i = 0; i < table->count; i++)
- 		nfp_eth_calc_port_type(cpp, &table->ports[i]);
- 
--- 
-2.11.0
+Applied.
