@@ -1,220 +1,136 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 5/8] mlxsw: spectrum: Add the needed callbacks for mlxfw integration
-Date: Tue, 23 May 2017 21:56:27 +0200
-Message-ID: <20170523195630.6460-6-jiri@resnulli.us>
+Subject: [patch net-next v2 2/8] mlxsw: reg: Add Management Component Query Information register
+Date: Tue, 23 May 2017 21:56:24 +0200
+Message-ID: <20170523195630.6460-3-jiri@resnulli.us>
 References: <20170523195630.6460-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, yotamg@mellanox.com,
         mlxsw@mellanox.com, Yuval.Mintz@cavium.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:33240 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S967191AbdEWT4l (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 23 May 2017 15:56:41 -0400
-Received: by mail-wm0-f66.google.com with SMTP id b84so26154796wmh.0
-        for <netdev@vger.kernel.org>; Tue, 23 May 2017 12:56:40 -0700 (PDT)
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:35967 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S968110AbdEWT4g (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 23 May 2017 15:56:36 -0400
+Received: by mail-wm0-f65.google.com with SMTP id k15so40770271wmh.3
+        for <netdev@vger.kernel.org>; Tue, 23 May 2017 12:56:36 -0700 (PDT)
 In-Reply-To: <20170523195630.6460-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Yotam Gigi <yotamg@mellanox.com>
 
-The mlxfw module defines several needed callbacks in order to flash the
-device's firmware. As the mlxfw module is shared between several different
-drivers, those callbacks are the glue functionality that is responsible
-for hardware interaction. Add those callbacks using the MCQI, MCC, MCDA
-registers.
+The MCQI register queries information about firmware components. It will
+be needed by the mlxfw module to query various options about the
+components, such as their max size, alignment and max write size.
 
 Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
 Reviewed-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 166 +++++++++++++++++++++++++
- 1 file changed, 166 insertions(+)
+ drivers/net/ethernet/mellanox/mlxsw/reg.h | 84 +++++++++++++++++++++++++++++++
+ 1 file changed, 84 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-index 8a165bb..b533a53 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-@@ -68,6 +68,7 @@
- #include "txheader.h"
- #include "spectrum_cnt.h"
- #include "spectrum_dpipe.h"
-+#include "../mlxfw/mlxfw.h"
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
+index 83b277c..adb385f 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
+@@ -5643,6 +5643,89 @@ static inline void mlxsw_reg_mlcr_pack(char *payload, u8 local_port,
+ 					   MLXSW_REG_MLCR_DURATION_MAX : 0);
+ }
  
- static const char mlxsw_sp_driver_name[] = "mlxsw_spectrum";
- static const char mlxsw_sp_driver_version[] = "1.0";
-@@ -140,6 +141,171 @@ MLXSW_ITEM32(tx, hdr, fid, 0x08, 0, 16);
-  */
- MLXSW_ITEM32(tx, hdr, type, 0x0C, 0, 4);
- 
-+struct mlxsw_sp_mlxfw_dev {
-+	struct mlxfw_dev mlxfw_dev;
-+	struct mlxsw_sp *mlxsw_sp;
++/* MCQI - Management Component Query Information
++ * ---------------------------------------------
++ * This register allows querying information about firmware components.
++ */
++#define MLXSW_REG_MCQI_ID 0x9061
++#define MLXSW_REG_MCQI_BASE_LEN 0x18
++#define MLXSW_REG_MCQI_CAP_LEN 0x14
++#define MLXSW_REG_MCQI_LEN (MLXSW_REG_MCQI_BASE_LEN + MLXSW_REG_MCQI_CAP_LEN)
++
++MLXSW_REG_DEFINE(mcqi, MLXSW_REG_MCQI_ID, MLXSW_REG_MCQI_LEN);
++
++/* reg_mcqi_component_index
++ * Index of the accessed component.
++ * Access: Index
++ */
++MLXSW_ITEM32(reg, mcqi, component_index, 0x00, 0, 16);
++
++enum mlxfw_reg_mcqi_info_type {
++	MLXSW_REG_MCQI_INFO_TYPE_CAPABILITIES,
 +};
 +
-+static int mlxsw_sp_component_query(struct mlxfw_dev *mlxfw_dev,
-+				    u16 component_index, u32 *p_max_size,
-+				    u8 *p_align_bits, u16 *p_max_write_size)
++/* reg_mcqi_info_type
++ * Component properties set.
++ * Access: RW
++ */
++MLXSW_ITEM32(reg, mcqi, info_type, 0x08, 0, 5);
++
++/* reg_mcqi_offset
++ * The requested/returned data offset from the section start, given in bytes.
++ * Must be DWORD aligned.
++ * Access: RW
++ */
++MLXSW_ITEM32(reg, mcqi, offset, 0x10, 0, 32);
++
++/* reg_mcqi_data_size
++ * The requested/returned data size, given in bytes. If data_size is not DWORD
++ * aligned, the last bytes are zero padded.
++ * Access: RW
++ */
++MLXSW_ITEM32(reg, mcqi, data_size, 0x14, 0, 16);
++
++/* reg_mcqi_cap_max_component_size
++ * Maximum size for this component, given in bytes.
++ * Access: RO
++ */
++MLXSW_ITEM32(reg, mcqi, cap_max_component_size, 0x20, 0, 32);
++
++/* reg_mcqi_cap_log_mcda_word_size
++ * Log 2 of the access word size in bytes. Read and write access must be aligned
++ * to the word size. Write access must be done for an integer number of words.
++ * Access: RO
++ */
++MLXSW_ITEM32(reg, mcqi, cap_log_mcda_word_size, 0x24, 28, 4);
++
++/* reg_mcqi_cap_mcda_max_write_size
++ * Maximal write size for MCDA register
++ * Access: RO
++ */
++MLXSW_ITEM32(reg, mcqi, cap_mcda_max_write_size, 0x24, 0, 16);
++
++static inline void mlxsw_reg_mcqi_pack(char *payload, u16 component_index)
 +{
-+	struct mlxsw_sp_mlxfw_dev *mlxsw_sp_mlxfw_dev =
-+		container_of(mlxfw_dev, struct mlxsw_sp_mlxfw_dev, mlxfw_dev);
-+	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_mlxfw_dev->mlxsw_sp;
-+	char mcqi_pl[MLXSW_REG_MCQI_LEN];
-+	int err;
-+
-+	mlxsw_reg_mcqi_pack(mcqi_pl, component_index);
-+	err = mlxsw_reg_query(mlxsw_sp->core, MLXSW_REG(mcqi), mcqi_pl);
-+	if (err)
-+		return err;
-+	mlxsw_reg_mcqi_unpack(mcqi_pl, p_max_size, p_align_bits,
-+			      p_max_write_size);
-+
-+	*p_align_bits = max_t(u8, *p_align_bits, 2);
-+	*p_max_write_size = min_t(u16, *p_max_write_size,
-+				  MLXSW_REG_MCDA_MAX_DATA_LEN);
-+	return 0;
++	MLXSW_REG_ZERO(mcqi, payload);
++	mlxsw_reg_mcqi_component_index_set(payload, component_index);
++	mlxsw_reg_mcqi_info_type_set(payload,
++				     MLXSW_REG_MCQI_INFO_TYPE_CAPABILITIES);
++	mlxsw_reg_mcqi_offset_set(payload, 0);
++	mlxsw_reg_mcqi_data_size_set(payload, MLXSW_REG_MCQI_CAP_LEN);
 +}
 +
-+static int mlxsw_sp_fsm_lock(struct mlxfw_dev *mlxfw_dev, u32 *fwhandle)
++static inline void mlxsw_reg_mcqi_unpack(char *payload,
++					 u32 *p_cap_max_component_size,
++					 u8 *p_cap_log_mcda_word_size,
++					 u16 *p_cap_mcda_max_write_size)
 +{
-+	struct mlxsw_sp_mlxfw_dev *mlxsw_sp_mlxfw_dev =
-+		container_of(mlxfw_dev, struct mlxsw_sp_mlxfw_dev, mlxfw_dev);
-+	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_mlxfw_dev->mlxsw_sp;
-+	char mcc_pl[MLXSW_REG_MCC_LEN];
-+	u8 control_state;
-+	int err;
-+
-+	mlxsw_reg_mcc_pack(mcc_pl, 0, 0, 0, 0);
-+	err = mlxsw_reg_query(mlxsw_sp->core, MLXSW_REG(mcc), mcc_pl);
-+	if (err)
-+		return err;
-+
-+	mlxsw_reg_mcc_unpack(mcc_pl, fwhandle, NULL, &control_state);
-+	if (control_state != MLXFW_FSM_STATE_IDLE)
-+		return -EBUSY;
-+
-+	mlxsw_reg_mcc_pack(mcc_pl,
-+			   MLXSW_REG_MCC_INSTRUCTION_LOCK_UPDATE_HANDLE,
-+			   0, *fwhandle, 0);
-+	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(mcc), mcc_pl);
++	*p_cap_max_component_size =
++		mlxsw_reg_mcqi_cap_max_component_size_get(payload);
++	*p_cap_log_mcda_word_size =
++		mlxsw_reg_mcqi_cap_log_mcda_word_size_get(payload);
++	*p_cap_mcda_max_write_size =
++		mlxsw_reg_mcqi_cap_mcda_max_write_size_get(payload);
 +}
 +
-+static int mlxsw_sp_fsm_component_update(struct mlxfw_dev *mlxfw_dev,
-+					 u32 fwhandle, u16 component_index,
-+					 u32 component_size)
-+{
-+	struct mlxsw_sp_mlxfw_dev *mlxsw_sp_mlxfw_dev =
-+		container_of(mlxfw_dev, struct mlxsw_sp_mlxfw_dev, mlxfw_dev);
-+	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_mlxfw_dev->mlxsw_sp;
-+	char mcc_pl[MLXSW_REG_MCC_LEN];
-+
-+	mlxsw_reg_mcc_pack(mcc_pl, MLXSW_REG_MCC_INSTRUCTION_UPDATE_COMPONENT,
-+			   component_index, fwhandle, component_size);
-+	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(mcc), mcc_pl);
-+}
-+
-+static int mlxsw_sp_fsm_block_download(struct mlxfw_dev *mlxfw_dev,
-+				       u32 fwhandle, u8 *data, u16 size,
-+				       u32 offset)
-+{
-+	struct mlxsw_sp_mlxfw_dev *mlxsw_sp_mlxfw_dev =
-+		container_of(mlxfw_dev, struct mlxsw_sp_mlxfw_dev, mlxfw_dev);
-+	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_mlxfw_dev->mlxsw_sp;
-+	char mcda_pl[MLXSW_REG_MCDA_LEN];
-+
-+	mlxsw_reg_mcda_pack(mcda_pl, fwhandle, offset, size, data);
-+	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(mcda), mcda_pl);
-+}
-+
-+static int mlxsw_sp_fsm_component_verify(struct mlxfw_dev *mlxfw_dev,
-+					 u32 fwhandle, u16 component_index)
-+{
-+	struct mlxsw_sp_mlxfw_dev *mlxsw_sp_mlxfw_dev =
-+		container_of(mlxfw_dev, struct mlxsw_sp_mlxfw_dev, mlxfw_dev);
-+	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_mlxfw_dev->mlxsw_sp;
-+	char mcc_pl[MLXSW_REG_MCC_LEN];
-+
-+	mlxsw_reg_mcc_pack(mcc_pl, MLXSW_REG_MCC_INSTRUCTION_VERIFY_COMPONENT,
-+			   component_index, fwhandle, 0);
-+	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(mcc), mcc_pl);
-+}
-+
-+static int mlxsw_sp_fsm_activate(struct mlxfw_dev *mlxfw_dev, u32 fwhandle)
-+{
-+	struct mlxsw_sp_mlxfw_dev *mlxsw_sp_mlxfw_dev =
-+		container_of(mlxfw_dev, struct mlxsw_sp_mlxfw_dev, mlxfw_dev);
-+	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_mlxfw_dev->mlxsw_sp;
-+	char mcc_pl[MLXSW_REG_MCC_LEN];
-+
-+	mlxsw_reg_mcc_pack(mcc_pl, MLXSW_REG_MCC_INSTRUCTION_ACTIVATE, 0,
-+			   fwhandle, 0);
-+	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(mcc), mcc_pl);
-+}
-+
-+static int mlxsw_sp_fsm_query_state(struct mlxfw_dev *mlxfw_dev, u32 fwhandle,
-+				    enum mlxfw_fsm_state *fsm_state,
-+				    enum mlxfw_fsm_state_err *fsm_state_err)
-+{
-+	struct mlxsw_sp_mlxfw_dev *mlxsw_sp_mlxfw_dev =
-+		container_of(mlxfw_dev, struct mlxsw_sp_mlxfw_dev, mlxfw_dev);
-+	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_mlxfw_dev->mlxsw_sp;
-+	char mcc_pl[MLXSW_REG_MCC_LEN];
-+	u8 control_state;
-+	u8 error_code;
-+	int err;
-+
-+	mlxsw_reg_mcc_pack(mcc_pl, 0, 0, fwhandle, 0);
-+	err = mlxsw_reg_query(mlxsw_sp->core, MLXSW_REG(mcc), mcc_pl);
-+	if (err)
-+		return err;
-+
-+	mlxsw_reg_mcc_unpack(mcc_pl, NULL, &error_code, &control_state);
-+	*fsm_state = control_state;
-+	*fsm_state_err = min_t(enum mlxfw_fsm_state_err, error_code,
-+			       MLXFW_FSM_STATE_ERR_MAX);
-+	return 0;
-+}
-+
-+static void mlxsw_sp_fsm_cancel(struct mlxfw_dev *mlxfw_dev, u32 fwhandle)
-+{
-+	struct mlxsw_sp_mlxfw_dev *mlxsw_sp_mlxfw_dev =
-+		container_of(mlxfw_dev, struct mlxsw_sp_mlxfw_dev, mlxfw_dev);
-+	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_mlxfw_dev->mlxsw_sp;
-+	char mcc_pl[MLXSW_REG_MCC_LEN];
-+
-+	mlxsw_reg_mcc_pack(mcc_pl, MLXSW_REG_MCC_INSTRUCTION_CANCEL, 0,
-+			   fwhandle, 0);
-+	mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(mcc), mcc_pl);
-+}
-+
-+static void mlxsw_sp_fsm_release(struct mlxfw_dev *mlxfw_dev, u32 fwhandle)
-+{
-+	struct mlxsw_sp_mlxfw_dev *mlxsw_sp_mlxfw_dev =
-+		container_of(mlxfw_dev, struct mlxsw_sp_mlxfw_dev, mlxfw_dev);
-+	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_mlxfw_dev->mlxsw_sp;
-+	char mcc_pl[MLXSW_REG_MCC_LEN];
-+
-+	mlxsw_reg_mcc_pack(mcc_pl,
-+			   MLXSW_REG_MCC_INSTRUCTION_RELEASE_UPDATE_HANDLE, 0,
-+			   fwhandle, 0);
-+	mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(mcc), mcc_pl);
-+}
-+
-+static const struct mlxfw_dev_ops mlxsw_sp_mlxfw_dev_ops = {
-+	.component_query	= mlxsw_sp_component_query,
-+	.fsm_lock		= mlxsw_sp_fsm_lock,
-+	.fsm_component_update	= mlxsw_sp_fsm_component_update,
-+	.fsm_block_download	= mlxsw_sp_fsm_block_download,
-+	.fsm_component_verify	= mlxsw_sp_fsm_component_verify,
-+	.fsm_activate		= mlxsw_sp_fsm_activate,
-+	.fsm_query_state	= mlxsw_sp_fsm_query_state,
-+	.fsm_cancel		= mlxsw_sp_fsm_cancel,
-+	.fsm_release		= mlxsw_sp_fsm_release
-+};
-+
- int mlxsw_sp_flow_counter_get(struct mlxsw_sp *mlxsw_sp,
- 			      unsigned int counter_index, u64 *packets,
- 			      u64 *bytes)
+ /* MPSC - Monitoring Packet Sampling Configuration Register
+  * --------------------------------------------------------
+  * MPSC Register is used to configure the Packet Sampling mechanism.
+@@ -6221,6 +6304,7 @@ static const struct mlxsw_reg_info *mlxsw_reg_infos[] = {
+ 	MLXSW_REG(mpar),
+ 	MLXSW_REG(mlcr),
+ 	MLXSW_REG(mpsc),
++	MLXSW_REG(mcqi),
+ 	MLXSW_REG(mgpc),
+ 	MLXSW_REG(sbpr),
+ 	MLXSW_REG(sbcm),
 -- 
 2.9.3
