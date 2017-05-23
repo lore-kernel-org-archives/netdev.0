@@ -1,48 +1,50 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch iproute2 v2 repost 1/3] tc_filter: add support for chain
- index
-Date: Tue, 23 May 2017 15:40:42 +0200
-Message-ID: <20170523134042.GC1829@nanopsycho>
-References: <20170516172802.1317-1-jiri@resnulli.us>
- <20170516172937.1391-1-jiri@resnulli.us>
- <20170522133315.3490fe0a@xeon-e3>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, jhs@mojatatu.com,
-        xiyou.wangcong@gmail.com, dsa@cumulusnetworks.com,
-        edumazet@google.com, daniel@iogearbox.net,
-        alexander.h.duyck@intel.com, simon.horman@netronome.com,
-        mlxsw@mellanox.com
+From: Phil Sutter <phil@nwl.cc>
+Subject: [iproute PATCH] tc: m_xt: Prevent a segfault in libipt
+Date: Tue, 23 May 2017 15:40:57 +0200
+Message-ID: <20170523134057.23775-1-phil@nwl.cc>
+Cc: netdev@vger.kernel.org, Phil Sutter <psutter@redhat.com>
 To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:36065 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S967784AbdEWNkq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 23 May 2017 09:40:46 -0400
-Received: by mail-wm0-f65.google.com with SMTP id k15so38280456wmh.3
-        for <netdev@vger.kernel.org>; Tue, 23 May 2017 06:40:45 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20170522133315.3490fe0a@xeon-e3>
+Received: from orbyte.nwl.cc ([151.80.46.58]:50681 "EHLO mail.nwl.cc"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S967803AbdEWNlK (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 23 May 2017 09:41:10 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mon, May 22, 2017 at 10:33:15PM CEST, stephen@networkplumber.org wrote:
->On Tue, 16 May 2017 19:29:35 +0200
->Jiri Pirko <jiri@resnulli.us> wrote:
->
->> From: Jiri Pirko <jiri@mellanox.com>
->> 
->> Allow user to put filter to a specific chain identified by index.
->> 
->> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
->
->Applied to net-next branch of iproute2
+From: Phil Sutter <psutter@redhat.com>
 
-Looks like you missed the uapi part:
+This happens with NAT targets, such as SNAT, DNAT and MASQUERADE. These
+are still not usable with this patch, but at least tc doesn't crash
+anymore when one tries to use them.
 
-    CC       tc_filter.o
-tc_filter.c: In function ‘tc_filter_modify’:
-tc_filter.c:159:34: error: ‘TCA_CHAIN’ undeclared (first use in this function)
-   addattr32(&req.n, sizeof(req), TCA_CHAIN, chain_index);
-                                  ^~~~~~~~~
+Signed-off-by: Phil Sutter <phil@nwl.cc>
+---
+ tc/m_xt.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/tc/m_xt.c b/tc/m_xt.c
+index e59df8e10afef..ad52d239caf61 100644
+--- a/tc/m_xt.c
++++ b/tc/m_xt.c
+@@ -146,6 +146,9 @@ static int parse_ipt(struct action_util *a, int *argc_p,
+ 		     char ***argv_p, int tca_id, struct nlmsghdr *n)
+ {
+ 	struct xtables_target *m = NULL;
++#if XTABLES_VERSION_CODE >= 6
++	struct ipt_entry fw = {};
++#endif
+ 	struct rtattr *tail;
+ 
+ 	int c;
+@@ -206,7 +209,7 @@ static int parse_ipt(struct action_util *a, int *argc_p,
+ 		default:
+ #if XTABLES_VERSION_CODE >= 6
+ 			if (m != NULL && m->x6_parse != NULL) {
+-				xtables_option_tpcall(c, argv, 0, m, NULL);
++				xtables_option_tpcall(c, argv, 0, m, &fw);
+ #else
+ 			if (m != NULL && m->parse != NULL) {
+ 				m->parse(c - m->option_offset, argv, 0,
+-- 
+2.11.0
