@@ -1,34 +1,70 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net 0/3] BPF pruning follow-up
-Date: Tue, 23 May 2017 18:30:40 +0200
-Message-ID: <cover.1495556127.git.daniel@iogearbox.net>
-Cc: ast@fb.com, netdev@vger.kernel.org,
-        Daniel Borkmann <daniel@iogearbox.net>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:47611 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1763215AbdEWQbU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 23 May 2017 12:31:20 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Peter Zijlstra <peterz@infradead.org>
+Subject: Re: [PATCH net-next 1/2] perf, bpf: add support for HW_CACHE and RAW
+ events
+Date: Tue, 23 May 2017 18:31:34 +0200
+Message-ID: <20170523163134.saalqlizp5opc5tz@hirez.programming.kicks-ass.net>
+References: <20170522224840.810121-1-ast@fb.com>
+ <20170522224840.810121-2-ast@fb.com>
+ <20170523074247.esnr4fj2squn4w2d@hirez.programming.kicks-ass.net>
+ <b25f4d02-70c1-43ce-8bf1-9b89e573add6@fb.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S . Miller" <davem@davemloft.net>,
+        Brendan Gregg <bgregg@netflix.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Teng Qin <qinteng@fb.com>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, kernel-team@fb.com
+To: Alexei Starovoitov <ast@fb.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <b25f4d02-70c1-43ce-8bf1-9b89e573add6@fb.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Follow-up to fix incorrect pruning when alignment tracking is
-in use and to properly clear regs after call to not leave stale
-data behind. For details, please see individual patches.
+On Tue, May 23, 2017 at 07:38:08AM -0700, Alexei Starovoitov wrote:
+> On 5/23/17 12:42 AM, Peter Zijlstra wrote:
+> > On Mon, May 22, 2017 at 03:48:39PM -0700, Alexei Starovoitov wrote:
+> > > From: Teng Qin <qinteng@fb.com>
+> > > 
+> > > This commit adds support for attach BPF program to RAW and HW_CACHE type
+> > > events, and support for read HW_CACHE type event counters in BPF
+> > > program. Existing code logic already supports them, so this commit is
+> > > just update Enum value checks.
+> > 
+> > So what I'm missing is why they were not supported previously, and what
+> > changed to allow it now.
+> 
+> that code path simply wasn't tested previously. Nothing changed on
+> bpf side and on perf side.
+> Why it wasn't added on day one? There was no demand. Now people
+> use bpf more and more and few folks got confused that these types
+> of perf events were not supported, hence we're adding it.
 
-Thanks!
+OK. Is there anything stopping people from wanting to use the dynamic
+types, as found in:
 
-Daniel Borkmann (3):
-  bpf: fix incorrect pruning decision when alignment must be tracked
-  bpf: properly reset caller saved regs after helper call and ld_abs/ind
-  bpf: add various verifier test cases
+  /sys/bus/event_source/devices/*/type
 
- include/linux/filter.h                      |  10 ++
- kernel/bpf/verifier.c                       |  44 +++--
- tools/include/linux/filter.h                |  10 ++
- tools/testing/selftests/bpf/test_verifier.c | 239 +++++++++++++++++++++++++++-
- 4 files changed, 275 insertions(+), 28 deletions(-)
+?
 
--- 
-1.9.3
+In which case, do we want something like this instead?
+
+
+diff --git a/kernel/events/core.c b/kernel/events/core.c
+index 971f7259108f..4aa5f3011cf8 100644
+--- a/kernel/events/core.c
++++ b/kernel/events/core.c
+@@ -8063,12 +8063,8 @@ static int perf_event_set_bpf_prog(struct perf_event *event, u32 prog_fd)
+ 	bool is_kprobe, is_tracepoint;
+ 	struct bpf_prog *prog;
+ 
+-	if (event->attr.type == PERF_TYPE_HARDWARE ||
+-	    event->attr.type == PERF_TYPE_SOFTWARE)
+-		return perf_event_set_bpf_handler(event, prog_fd);
+-
+ 	if (event->attr.type != PERF_TYPE_TRACEPOINT)
+-		return -EINVAL;
++		return perf_event_set_bpf_handler(event, prog_fd);
+ 
+ 	if (event->tp_event->prog)
+ 		return -EEXIST;
