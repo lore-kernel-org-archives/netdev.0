@@ -1,43 +1,37 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH 2/2] at803x: double check SGMII side autoneg
-Date: Tue, 23 May 2017 18:07:22 +0200
-Message-ID: <20170523160722.GC21169@lunn.ch>
-References: <1477305654-11328-1-git-send-email-zefir.kurtisi@neratec.com>
- <1477305654-11328-3-git-send-email-zefir.kurtisi@neratec.com>
- <66de55da-7a5c-68b8-50d5-cab313ec0d6f@codeaurora.org>
- <20170522210927.GR29447@lunn.ch>
- <0d9b30e5-40f3-82ba-a44a-2eb25b8d3094@codeaurora.org>
- <20170522213206.GT29447@lunn.ch>
- <a8415b8b-1713-053d-41d3-2577c5a53c8b@codeaurora.org>
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Subject: Re: tipc: Delete error messages for failed memory allocations in
+ three functions
+Date: Tue, 23 May 2017 18:23:17 +0200
+Message-ID: <d07d0b1f-0038-e91d-4748-ea3e6dfb93f0@users.sourceforge.net>
+References: <7ac9d513-6f9f-a096-e68f-81a722c2723c@users.sourceforge.net>
+ <1495548133.2093.58.camel@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Zefir Kurtisi <zefir.kurtisi@neratec.com>, netdev@vger.kernel.org,
-        f.fainelli@gmail.com, David Miller <davem@davemloft.net>,
-        Manoj Iyer <manoj.iyer@canonical.com>, jhugo@codeaurora.org
-To: Timur Tabi <timur@codeaurora.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Jon Maloy <jon.maloy@ericsson.com>,
+        Ying Xue <ying.xue@windriver.com>,
+        LKML <linux-kernel@vger.kernel.org>,
+        kernel-janitors@vger.kernel.org
+To: Joe Perches <joe@perches.com>,
+        tipc-discussion@lists.sourceforge.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:41682 "EHLO vps0.lunn.ch"
+Received: from mout.web.de ([212.227.15.14]:59726 "EHLO mout.web.de"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S934937AbdEWQHb (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 23 May 2017 12:07:31 -0400
-Content-Disposition: inline
-In-Reply-To: <a8415b8b-1713-053d-41d3-2577c5a53c8b@codeaurora.org>
+        id S1758912AbdEWQXx (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 23 May 2017 12:23:53 -0400
+In-Reply-To: <1495548133.2093.58.camel@perches.com>
+Content-Language: en-GB
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 23, 2017 at 10:54:57AM -0500, Timur Tabi wrote:
-> On 05/22/2017 04:32 PM, Andrew Lunn wrote:
-> >> I'll have to test this, but what do I do if I don't get another interrupt?
-> > It probably means interrupts cannot be used. Poll it.
+> tipc_subseq_alloc does a kcalloc (memset to 0),
+> half of which is immediately overwritten.
 > 
-> I will test that to see what happens, but I believe the real problem is that
-> the at803x driver is lying when it says that the link is not okay.  I think
-> the link is okay, and that's why I'm not getting any more interrupts.  I
-> don't think I should have to drop interrupt support in my MAC driver because
-> one specific PHY driver is broken.
+> In other words, don't just blindly remove stuff,
+> understand what it does and improve it.
 
-If it turns out the PHY hardware is broken, the phy driver itself can
-force it back to polling by setting phydev->irq to PHY_POLL in its
-probe() function.
+Do you suggest another specific source code transformation pattern here?
 
-	Andrew
+Regards,
+Markus
