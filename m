@@ -1,361 +1,115 @@
 From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net 3/3] bpf: add various verifier test cases
-Date: Tue, 23 May 2017 18:30:43 +0200
-Message-ID: <0037b907eaf91857b56d02de7180e62894fac809.1495556127.git.daniel@iogearbox.net>
+Subject: [PATCH net 2/3] bpf: properly reset caller saved regs after helper call and ld_abs/ind
+Date: Tue, 23 May 2017 18:30:42 +0200
+Message-ID: <dcd1f7f37016429a726873fbf23f89b6f29c95aa.1495556127.git.daniel@iogearbox.net>
 References: <cover.1495556127.git.daniel@iogearbox.net>
 Cc: ast@fb.com, netdev@vger.kernel.org,
         Daniel Borkmann <daniel@iogearbox.net>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:47603 "EHLO
+Received: from www62.your-server.de ([213.133.104.62]:47601 "EHLO
         www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1762123AbdEWQbU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 23 May 2017 12:31:20 -0400
+        with ESMTP id S1752154AbdEWQbT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 23 May 2017 12:31:19 -0400
 In-Reply-To: <cover.1495556127.git.daniel@iogearbox.net>
 In-Reply-To: <cover.1495556127.git.daniel@iogearbox.net>
 References: <cover.1495556127.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds various verifier test cases:
-
-1) A test case for the pruning issue when tracking alignment
-   is used.
-2) Various PTR_TO_MAP_VALUE_OR_NULL tests to make sure pointer
-   arithmetic turns such register into UNKNOWN_VALUE type.
-3) Test cases for the special treatment of LD_ABS/LD_IND to
-   make sure verifier doesn't break calling convention here.
-   Latter is needed, since f.e. arm64 JIT uses r1 - r5 for
-   storing temporary data, so they really must be marked as
-   NOT_INIT.
+Currently, after performing helper calls, we clear all caller saved
+registers, that is r0 - r5 and fill r0 depending on struct bpf_func_proto
+specification. The way we reset these regs can affect pruning decisions
+in later paths, since we only reset register's imm to 0 and type to
+NOT_INIT. However, we leave out clearing of other variables such as id,
+min_value, max_value, etc, which can later on lead to pruning mismatches
+due to stale data.
 
 Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
 Acked-by: Alexei Starovoitov <ast@kernel.org>
 ---
- include/linux/filter.h                      |  10 ++
- tools/include/linux/filter.h                |  10 ++
- tools/testing/selftests/bpf/test_verifier.c | 239 +++++++++++++++++++++++++++-
- 3 files changed, 255 insertions(+), 4 deletions(-)
+ kernel/bpf/verifier.c | 37 ++++++++++++++++---------------------
+ 1 file changed, 16 insertions(+), 21 deletions(-)
 
-diff --git a/include/linux/filter.h b/include/linux/filter.h
-index 56197f8..62d948f 100644
---- a/include/linux/filter.h
-+++ b/include/linux/filter.h
-@@ -272,6 +272,16 @@
- 		.off   = OFF,					\
- 		.imm   = IMM })
- 
-+/* Unconditional jumps, goto pc + off16 */
-+
-+#define BPF_JMP_A(OFF)						\
-+	((struct bpf_insn) {					\
-+		.code  = BPF_JMP | BPF_JA,			\
-+		.dst_reg = 0,					\
-+		.src_reg = 0,					\
-+		.off   = OFF,					\
-+		.imm   = 0 })
-+
- /* Function call */
- 
- #define BPF_EMIT_CALL(FUNC)					\
-diff --git a/tools/include/linux/filter.h b/tools/include/linux/filter.h
-index 390d7c9..4ce25d4 100644
---- a/tools/include/linux/filter.h
-+++ b/tools/include/linux/filter.h
-@@ -208,6 +208,16 @@
- 		.off   = OFF,					\
- 		.imm   = IMM })
- 
-+/* Unconditional jumps, goto pc + off16 */
-+
-+#define BPF_JMP_A(OFF)						\
-+	((struct bpf_insn) {					\
-+		.code  = BPF_JMP | BPF_JA,			\
-+		.dst_reg = 0,					\
-+		.src_reg = 0,					\
-+		.off   = OFF,					\
-+		.imm   = 0 })
-+
- /* Function call */
- 
- #define BPF_EMIT_CALL(FUNC)					\
-diff --git a/tools/testing/selftests/bpf/test_verifier.c b/tools/testing/selftests/bpf/test_verifier.c
-index 3773562..cabb19b 100644
---- a/tools/testing/selftests/bpf/test_verifier.c
-+++ b/tools/testing/selftests/bpf/test_verifier.c
-@@ -49,6 +49,7 @@
- #define MAX_NR_MAPS	4
- 
- #define F_NEEDS_EFFICIENT_UNALIGNED_ACCESS	(1 << 0)
-+#define F_LOAD_WITH_STRICT_ALIGNMENT		(1 << 1)
- 
- struct bpf_test {
- 	const char *descr;
-@@ -2615,6 +2616,30 @@ struct test_val {
- 		.prog_type = BPF_PROG_TYPE_SCHED_CLS,
- 	},
- 	{
-+		"direct packet access: test17 (pruning, alignment)",
-+		.insns = {
-+			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
-+				    offsetof(struct __sk_buff, data)),
-+			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_1,
-+				    offsetof(struct __sk_buff, data_end)),
-+			BPF_LDX_MEM(BPF_W, BPF_REG_7, BPF_REG_1,
-+				    offsetof(struct __sk_buff, mark)),
-+			BPF_MOV64_REG(BPF_REG_0, BPF_REG_2),
-+			BPF_ALU64_IMM(BPF_ADD, BPF_REG_0, 14),
-+			BPF_JMP_IMM(BPF_JGT, BPF_REG_7, 1, 4),
-+			BPF_JMP_REG(BPF_JGT, BPF_REG_0, BPF_REG_3, 1),
-+			BPF_STX_MEM(BPF_W, BPF_REG_0, BPF_REG_0, -4),
-+			BPF_MOV64_IMM(BPF_REG_0, 0),
-+			BPF_EXIT_INSN(),
-+			BPF_ALU64_IMM(BPF_ADD, BPF_REG_0, 1),
-+			BPF_JMP_A(-6),
-+		},
-+		.errstr = "misaligned packet access off 2+15+-4 size 4",
-+		.result = REJECT,
-+		.prog_type = BPF_PROG_TYPE_SCHED_CLS,
-+		.flags = F_LOAD_WITH_STRICT_ALIGNMENT,
-+	},
-+	{
- 		"helper access to packet: test1, valid packet_ptr range",
- 		.insns = {
- 			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
-@@ -3341,6 +3366,70 @@ struct test_val {
- 		.prog_type = BPF_PROG_TYPE_SCHED_CLS
- 	},
- 	{
-+		"alu ops on ptr_to_map_value_or_null, 1",
-+		.insns = {
-+			BPF_MOV64_IMM(BPF_REG_1, 10),
-+			BPF_STX_MEM(BPF_DW, BPF_REG_10, BPF_REG_1, -8),
-+			BPF_MOV64_REG(BPF_REG_2, BPF_REG_10),
-+			BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -8),
-+			BPF_LD_MAP_FD(BPF_REG_1, 0),
-+			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0,
-+				     BPF_FUNC_map_lookup_elem),
-+			BPF_MOV64_REG(BPF_REG_4, BPF_REG_0),
-+			BPF_ALU64_IMM(BPF_ADD, BPF_REG_4, -2),
-+			BPF_ALU64_IMM(BPF_ADD, BPF_REG_4, 2),
-+			BPF_JMP_IMM(BPF_JEQ, BPF_REG_0, 0, 1),
-+			BPF_ST_MEM(BPF_DW, BPF_REG_4, 0, 0),
-+			BPF_EXIT_INSN(),
-+		},
-+		.fixup_map1 = { 4 },
-+		.errstr = "R4 invalid mem access",
-+		.result = REJECT,
-+		.prog_type = BPF_PROG_TYPE_SCHED_CLS
-+	},
-+	{
-+		"alu ops on ptr_to_map_value_or_null, 2",
-+		.insns = {
-+			BPF_MOV64_IMM(BPF_REG_1, 10),
-+			BPF_STX_MEM(BPF_DW, BPF_REG_10, BPF_REG_1, -8),
-+			BPF_MOV64_REG(BPF_REG_2, BPF_REG_10),
-+			BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -8),
-+			BPF_LD_MAP_FD(BPF_REG_1, 0),
-+			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0,
-+				     BPF_FUNC_map_lookup_elem),
-+			BPF_MOV64_REG(BPF_REG_4, BPF_REG_0),
-+			BPF_ALU64_IMM(BPF_AND, BPF_REG_4, -1),
-+			BPF_JMP_IMM(BPF_JEQ, BPF_REG_0, 0, 1),
-+			BPF_ST_MEM(BPF_DW, BPF_REG_4, 0, 0),
-+			BPF_EXIT_INSN(),
-+		},
-+		.fixup_map1 = { 4 },
-+		.errstr = "R4 invalid mem access",
-+		.result = REJECT,
-+		.prog_type = BPF_PROG_TYPE_SCHED_CLS
-+	},
-+	{
-+		"alu ops on ptr_to_map_value_or_null, 3",
-+		.insns = {
-+			BPF_MOV64_IMM(BPF_REG_1, 10),
-+			BPF_STX_MEM(BPF_DW, BPF_REG_10, BPF_REG_1, -8),
-+			BPF_MOV64_REG(BPF_REG_2, BPF_REG_10),
-+			BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -8),
-+			BPF_LD_MAP_FD(BPF_REG_1, 0),
-+			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0,
-+				     BPF_FUNC_map_lookup_elem),
-+			BPF_MOV64_REG(BPF_REG_4, BPF_REG_0),
-+			BPF_ALU64_IMM(BPF_LSH, BPF_REG_4, 1),
-+			BPF_JMP_IMM(BPF_JEQ, BPF_REG_0, 0, 1),
-+			BPF_ST_MEM(BPF_DW, BPF_REG_4, 0, 0),
-+			BPF_EXIT_INSN(),
-+		},
-+		.fixup_map1 = { 4 },
-+		.errstr = "R4 invalid mem access",
-+		.result = REJECT,
-+		.prog_type = BPF_PROG_TYPE_SCHED_CLS
-+	},
-+	{
- 		"invalid memory access with multiple map_lookup_elem calls",
- 		.insns = {
- 			BPF_MOV64_IMM(BPF_REG_1, 10),
-@@ -4937,7 +5026,149 @@ struct test_val {
- 		.fixup_map_in_map = { 3 },
- 		.errstr = "R1 type=map_value_or_null expected=map_ptr",
- 		.result = REJECT,
--	}
-+	},
-+	{
-+		"ld_abs: check calling conv, r1",
-+		.insns = {
-+			BPF_MOV64_REG(BPF_REG_6, BPF_REG_1),
-+			BPF_MOV64_IMM(BPF_REG_1, 0),
-+			BPF_LD_ABS(BPF_W, -0x200000),
-+			BPF_MOV64_REG(BPF_REG_0, BPF_REG_1),
-+			BPF_EXIT_INSN(),
-+		},
-+		.errstr = "R1 !read_ok",
-+		.result = REJECT,
-+	},
-+	{
-+		"ld_abs: check calling conv, r2",
-+		.insns = {
-+			BPF_MOV64_REG(BPF_REG_6, BPF_REG_1),
-+			BPF_MOV64_IMM(BPF_REG_2, 0),
-+			BPF_LD_ABS(BPF_W, -0x200000),
-+			BPF_MOV64_REG(BPF_REG_0, BPF_REG_2),
-+			BPF_EXIT_INSN(),
-+		},
-+		.errstr = "R2 !read_ok",
-+		.result = REJECT,
-+	},
-+	{
-+		"ld_abs: check calling conv, r3",
-+		.insns = {
-+			BPF_MOV64_REG(BPF_REG_6, BPF_REG_1),
-+			BPF_MOV64_IMM(BPF_REG_3, 0),
-+			BPF_LD_ABS(BPF_W, -0x200000),
-+			BPF_MOV64_REG(BPF_REG_0, BPF_REG_3),
-+			BPF_EXIT_INSN(),
-+		},
-+		.errstr = "R3 !read_ok",
-+		.result = REJECT,
-+	},
-+	{
-+		"ld_abs: check calling conv, r4",
-+		.insns = {
-+			BPF_MOV64_REG(BPF_REG_6, BPF_REG_1),
-+			BPF_MOV64_IMM(BPF_REG_4, 0),
-+			BPF_LD_ABS(BPF_W, -0x200000),
-+			BPF_MOV64_REG(BPF_REG_0, BPF_REG_4),
-+			BPF_EXIT_INSN(),
-+		},
-+		.errstr = "R4 !read_ok",
-+		.result = REJECT,
-+	},
-+	{
-+		"ld_abs: check calling conv, r5",
-+		.insns = {
-+			BPF_MOV64_REG(BPF_REG_6, BPF_REG_1),
-+			BPF_MOV64_IMM(BPF_REG_5, 0),
-+			BPF_LD_ABS(BPF_W, -0x200000),
-+			BPF_MOV64_REG(BPF_REG_0, BPF_REG_5),
-+			BPF_EXIT_INSN(),
-+		},
-+		.errstr = "R5 !read_ok",
-+		.result = REJECT,
-+	},
-+	{
-+		"ld_abs: check calling conv, r7",
-+		.insns = {
-+			BPF_MOV64_REG(BPF_REG_6, BPF_REG_1),
-+			BPF_MOV64_IMM(BPF_REG_7, 0),
-+			BPF_LD_ABS(BPF_W, -0x200000),
-+			BPF_MOV64_REG(BPF_REG_0, BPF_REG_7),
-+			BPF_EXIT_INSN(),
-+		},
-+		.result = ACCEPT,
-+	},
-+	{
-+		"ld_ind: check calling conv, r1",
-+		.insns = {
-+			BPF_MOV64_REG(BPF_REG_6, BPF_REG_1),
-+			BPF_MOV64_IMM(BPF_REG_1, 1),
-+			BPF_LD_IND(BPF_W, BPF_REG_1, -0x200000),
-+			BPF_MOV64_REG(BPF_REG_0, BPF_REG_1),
-+			BPF_EXIT_INSN(),
-+		},
-+		.errstr = "R1 !read_ok",
-+		.result = REJECT,
-+	},
-+	{
-+		"ld_ind: check calling conv, r2",
-+		.insns = {
-+			BPF_MOV64_REG(BPF_REG_6, BPF_REG_1),
-+			BPF_MOV64_IMM(BPF_REG_2, 1),
-+			BPF_LD_IND(BPF_W, BPF_REG_2, -0x200000),
-+			BPF_MOV64_REG(BPF_REG_0, BPF_REG_2),
-+			BPF_EXIT_INSN(),
-+		},
-+		.errstr = "R2 !read_ok",
-+		.result = REJECT,
-+	},
-+	{
-+		"ld_ind: check calling conv, r3",
-+		.insns = {
-+			BPF_MOV64_REG(BPF_REG_6, BPF_REG_1),
-+			BPF_MOV64_IMM(BPF_REG_3, 1),
-+			BPF_LD_IND(BPF_W, BPF_REG_3, -0x200000),
-+			BPF_MOV64_REG(BPF_REG_0, BPF_REG_3),
-+			BPF_EXIT_INSN(),
-+		},
-+		.errstr = "R3 !read_ok",
-+		.result = REJECT,
-+	},
-+	{
-+		"ld_ind: check calling conv, r4",
-+		.insns = {
-+			BPF_MOV64_REG(BPF_REG_6, BPF_REG_1),
-+			BPF_MOV64_IMM(BPF_REG_4, 1),
-+			BPF_LD_IND(BPF_W, BPF_REG_4, -0x200000),
-+			BPF_MOV64_REG(BPF_REG_0, BPF_REG_4),
-+			BPF_EXIT_INSN(),
-+		},
-+		.errstr = "R4 !read_ok",
-+		.result = REJECT,
-+	},
-+	{
-+		"ld_ind: check calling conv, r5",
-+		.insns = {
-+			BPF_MOV64_REG(BPF_REG_6, BPF_REG_1),
-+			BPF_MOV64_IMM(BPF_REG_5, 1),
-+			BPF_LD_IND(BPF_W, BPF_REG_5, -0x200000),
-+			BPF_MOV64_REG(BPF_REG_0, BPF_REG_5),
-+			BPF_EXIT_INSN(),
-+		},
-+		.errstr = "R5 !read_ok",
-+		.result = REJECT,
-+	},
-+	{
-+		"ld_ind: check calling conv, r7",
-+		.insns = {
-+			BPF_MOV64_REG(BPF_REG_6, BPF_REG_1),
-+			BPF_MOV64_IMM(BPF_REG_7, 1),
-+			BPF_LD_IND(BPF_W, BPF_REG_7, -0x200000),
-+			BPF_MOV64_REG(BPF_REG_0, BPF_REG_7),
-+			BPF_EXIT_INSN(),
-+		},
-+		.result = ACCEPT,
-+	},
+diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+index 4fddfe5..d31b3b4 100644
+--- a/kernel/bpf/verifier.c
++++ b/kernel/bpf/verifier.c
+@@ -463,19 +463,22 @@ static struct bpf_verifier_state *push_stack(struct bpf_verifier_env *env,
+ 	BPF_REG_0, BPF_REG_1, BPF_REG_2, BPF_REG_3, BPF_REG_4, BPF_REG_5
  };
  
- static int probe_filter_length(const struct bpf_insn *fp)
-@@ -5059,9 +5290,9 @@ static void do_test_single(struct bpf_test *test, bool unpriv,
++static void mark_reg_not_init(struct bpf_reg_state *regs, u32 regno)
++{
++	BUG_ON(regno >= MAX_BPF_REG);
++
++	memset(&regs[regno], 0, sizeof(regs[regno]));
++	regs[regno].type = NOT_INIT;
++	regs[regno].min_value = BPF_REGISTER_MIN_RANGE;
++	regs[regno].max_value = BPF_REGISTER_MAX_RANGE;
++}
++
+ static void init_reg_state(struct bpf_reg_state *regs)
+ {
+ 	int i;
  
- 	do_test_fixup(test, prog, map_fds);
+-	for (i = 0; i < MAX_BPF_REG; i++) {
+-		regs[i].type = NOT_INIT;
+-		regs[i].imm = 0;
+-		regs[i].min_value = BPF_REGISTER_MIN_RANGE;
+-		regs[i].max_value = BPF_REGISTER_MAX_RANGE;
+-		regs[i].min_align = 0;
+-		regs[i].aux_off = 0;
+-		regs[i].aux_off_align = 0;
+-	}
++	for (i = 0; i < MAX_BPF_REG; i++)
++		mark_reg_not_init(regs, i);
  
--	fd_prog = bpf_load_program(prog_type ? : BPF_PROG_TYPE_SOCKET_FILTER,
--				   prog, prog_len, "GPL", 0, bpf_vlog,
--				   sizeof(bpf_vlog));
-+	fd_prog = bpf_verify_program(prog_type ? : BPF_PROG_TYPE_SOCKET_FILTER,
-+				     prog, prog_len, test->flags & F_LOAD_WITH_STRICT_ALIGNMENT,
-+				     "GPL", 0, bpf_vlog, sizeof(bpf_vlog));
+ 	/* frame pointer */
+ 	regs[BPF_REG_FP].type = FRAME_PTR;
+@@ -1349,7 +1352,6 @@ static int check_call(struct bpf_verifier_env *env, int func_id, int insn_idx)
+ 	struct bpf_verifier_state *state = &env->cur_state;
+ 	const struct bpf_func_proto *fn = NULL;
+ 	struct bpf_reg_state *regs = state->regs;
+-	struct bpf_reg_state *reg;
+ 	struct bpf_call_arg_meta meta;
+ 	bool changes_data;
+ 	int i, err;
+@@ -1416,11 +1418,8 @@ static int check_call(struct bpf_verifier_env *env, int func_id, int insn_idx)
+ 	}
  
- 	expected_ret = unpriv && test->result_unpriv != UNDEF ?
- 		       test->result_unpriv : test->result;
+ 	/* reset caller saved regs */
+-	for (i = 0; i < CALLER_SAVED_REGS; i++) {
+-		reg = regs + caller_saved[i];
+-		reg->type = NOT_INIT;
+-		reg->imm = 0;
+-	}
++	for (i = 0; i < CALLER_SAVED_REGS; i++)
++		mark_reg_not_init(regs, caller_saved[i]);
+ 
+ 	/* update return register */
+ 	if (fn->ret_type == RET_INTEGER) {
+@@ -2448,7 +2447,6 @@ static int check_ld_abs(struct bpf_verifier_env *env, struct bpf_insn *insn)
+ {
+ 	struct bpf_reg_state *regs = env->cur_state.regs;
+ 	u8 mode = BPF_MODE(insn->code);
+-	struct bpf_reg_state *reg;
+ 	int i, err;
+ 
+ 	if (!may_access_skb(env->prog->type)) {
+@@ -2481,11 +2479,8 @@ static int check_ld_abs(struct bpf_verifier_env *env, struct bpf_insn *insn)
+ 	}
+ 
+ 	/* reset caller saved regs to unreadable */
+-	for (i = 0; i < CALLER_SAVED_REGS; i++) {
+-		reg = regs + caller_saved[i];
+-		reg->type = NOT_INIT;
+-		reg->imm = 0;
+-	}
++	for (i = 0; i < CALLER_SAVED_REGS; i++)
++		mark_reg_not_init(regs, caller_saved[i]);
+ 
+ 	/* mark destination R0 register as readable, since it contains
+ 	 * the value fetched from the packet
 -- 
 1.9.3
