@@ -1,34 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next 0/5] add tcp flags match support to flower and
- offload it
-Date: Tue, 23 May 2017 11:40:27 -0400 (EDT)
-Message-ID: <20170523.114027.525495248857730645.davem@davemloft.net>
-References: <20170523143110.5006-1-jiri@resnulli.us>
-        <20170523151120.GH1829@nanopsycho>
+From: "Neftin, Sasha" <sasha.neftin@intel.com>
+Subject: Re: [Intel-wired-lan] [PATCH] e1000e: use disable_hardirq() also for
+ MSIX vectors in e1000_netpoll()
+Date: Tue, 23 May 2017 18:43:48 +0300
+Message-ID: <889b47a8-6b52-bf90-6a0d-823e9b03361e@intel.com>
+References: <149517832870.37403.16008624383220981105.stgit@buzz>
+ <CAM_iQpUD9qJepFn-8M32+VcureTgM77-beY9=+tm0jC7Btkg7Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
-        simon.horman@netronome.com, mlxsw@mellanox.com, idosch@mellanox.com
-To: jiri@resnulli.us
+Cc: Dave Jones <davej@codemonkey.org.uk>,
+        Sabrina Dubroca <sd@queasysnail.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
+        Thomas Gleixner <tglx@linutronix.de>,
+        "David S. Miller" <davem@davemloft.net>
+To: Cong Wang <xiyou.wangcong@gmail.com>,
+        Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:36394 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1764591AbdEWPk2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 23 May 2017 11:40:28 -0400
-In-Reply-To: <20170523151120.GH1829@nanopsycho>
+Received: from mga05.intel.com ([192.55.52.43]:6545 "EHLO mga05.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1758583AbdEWPnw (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 23 May 2017 11:43:52 -0400
+In-Reply-To: <CAM_iQpUD9qJepFn-8M32+VcureTgM77-beY9=+tm0jC7Btkg7Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Tue, 23 May 2017 17:11:20 +0200
-
-> Tue, May 23, 2017 at 04:31:05PM CEST, jiri@resnulli.us wrote:
->>From: Jiri Pirko <jiri@mellanox.com>
+On 5/19/2017 21:34, Cong Wang wrote:
+> On Fri, May 19, 2017 at 12:18 AM, Konstantin Khlebnikov
+> <khlebnikov@yandex-team.ru> wrote:
+>> Replace disable_irq() which waits for threaded irq handlers with
+>> disable_hardirq() which waits only for hardirq part.
 >>
->>This patch adds support to dissect tcp flags, match on them using
->>flower classifier and offload such rules to mlxsw Spectrum devices.
-> 
-> I shifted the git format patch one commit. Will send v2. Sorry.
+>> Signed-off-by: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
+>> Fixes: 311191297125 ("e1000: use disable_hardirq() for e1000_netpoll()")
+> Thomas had a similar patch, I don't know why he never sends it
+> out formally. Anyway,
+>
+> Acked-by: Cong Wang <xiyou.wangcong@gmail.com>
+> _______________________________________________
+> Intel-wired-lan mailing list
+> Intel-wired-lan@osuosl.org
+> https://lists.osuosl.org/mailman/listinfo/intel-wired-lan
 
-Ok.
+Ack. Let's pick up this patch.
