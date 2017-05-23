@@ -1,41 +1,56 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC V1 1/1] net: cdc_ncm: Reduce memory use when kernel
- memory low
-Date: Tue, 23 May 2017 11:26:25 -0400 (EDT)
-Message-ID: <20170523.112625.33559883707681029.davem@davemloft.net>
-References: <04bc5b49-9282-a6ca-2b95-fb8fc9750555@mentor.com>
-        <20170522.115426.1239443379414364630.davem@davemloft.net>
-        <1495528968.2174.2.camel@suse.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH v9 06/15] mlx5: Replace PCI pool old API
+Date: Tue, 23 May 2017 11:26:58 -0400 (EDT)
+Message-ID: <20170523.112658.1479025487863881513.davem@davemloft.net>
+References: <20170522164907.22915-7-romain.perier@collabora.com>
+        <20170523072743.GJ17751@mtr-leonro.local>
+        <18745ec7-020a-a3d2-3e50-6a2405baaac2@collabora.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jim_baxter@mentor.com, bjorn@mork.no, linux-usb@vger.kernel.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: oneukum@suse.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:36272 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757861AbdEWP01 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 23 May 2017 11:26:27 -0400
-In-Reply-To: <1495528968.2174.2.camel@suse.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8BIT
+Cc: leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, dan.j.williams-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+        sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+        jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, stas.yakovlev-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+        jejb-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org, martin.petersen-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org,
+        balbi-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org,
+        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, peter.senna-ZGY8ohtN/8pPYcu2f3hruQ@public.gmane.org
+To: romain.perier-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <18745ec7-020a-a3d2-3e50-6a2405baaac2-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Oliver Neukum <oneukum@suse.com>
-Date: Tue, 23 May 2017 10:42:48 +0200
+From: Romain Perier <romain.perier-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
+Date: Tue, 23 May 2017 10:53:36 +0200
 
-> Am Montag, den 22.05.2017, 11:54 -0400 schrieb David Miller:
->> 
->> Unfortunately without a real notifier of some sort (there isn't one, and
->> it isn't actually easy to come up with a clean way to do this which is
->> probably why it doesn't exist yet in the first place) I really cannot
->> recommend anything better.
->> 
->> That being said, probably for the time being we should just backoff each
->> and every request, always trying initially to do the higher order thing.
+> Hello,
 > 
-> We could use a counter. After the first failure, do it once, after the
-> second twice and so on. And reset the counter as a higher order
-> allocation works. (just bound it somewhere)
+> 
+> Le 23/05/2017 à 09:27, Leon Romanovsky a écrit :
+>> On Mon, May 22, 2017 at 06:48:58PM +0200, Romain Perier wrote:
+>>> The PCI pool API is deprecated. This commit replaces the PCI pool old
+>>> API by the appropriate function with the DMA pool API.
+>>>
+>>> Signed-off-by: Romain Perier <romain.perier-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
+>>> Reviewed-by: Peter Senna Tschudin <peter.senna-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
+>>> Acked-by: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+>>> Tested-by: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+>>> ---
+>>>  drivers/net/ethernet/mellanox/mlx5/core/cmd.c | 11 ++++++-----
+>>>  include/linux/mlx5/driver.h                   |  2 +-
+>>>  2 files changed, 7 insertions(+), 6 deletions(-)
+>>>
+>> Who is supposed to merge this patch series?
+>>
+>> Acked-by: Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+> Each maintainer of the corresponding subsystem, can take a patch, I
+> guess. No ?
 
-So an exponential backoff, that might work.
+It might be easier to accumulate acks and you submit them as a series,
+in my opinion.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
