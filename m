@@ -1,37 +1,24 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: Re: tipc: Delete error messages for failed memory allocations in
- three functions
-Date: Tue, 23 May 2017 18:23:17 +0200
-Message-ID: <d07d0b1f-0038-e91d-4748-ea3e6dfb93f0@users.sourceforge.net>
-References: <7ac9d513-6f9f-a096-e68f-81a722c2723c@users.sourceforge.net>
- <1495548133.2093.58.camel@perches.com>
+From: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Subject: Re: [PATCH net-next v9 0/5] skb_to_sgvec hardening
+Date: Tue, 23 May 2017 18:24:25 +0200
+Message-ID: <CAHmME9ryv_=XfOHsYJRjSMEc1kcF_COaMNuq_pRya26Foy1ETQ@mail.gmail.com>
+References: <20170523160550.5203-1-Jason@zx2c4.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Jon Maloy <jon.maloy@ericsson.com>,
-        Ying Xue <ying.xue@windriver.com>,
-        LKML <linux-kernel@vger.kernel.org>,
-        kernel-janitors@vger.kernel.org
-To: Joe Perches <joe@perches.com>,
-        tipc-discussion@lists.sourceforge.net, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.web.de ([212.227.15.14]:59726 "EHLO mout.web.de"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1758912AbdEWQXx (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 23 May 2017 12:23:53 -0400
-In-Reply-To: <1495548133.2093.58.camel@perches.com>
-Content-Language: en-GB
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: LKML <linux-kernel@vger.kernel.org>,
+        Netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170523160550.5203-1-Jason@zx2c4.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> tipc_subseq_alloc does a kcalloc (memset to 0),
-> half of which is immediately overwritten.
-> 
-> In other words, don't just blindly remove stuff,
-> understand what it does and improve it.
+Hi List,
 
-Do you suggest another specific source code transformation pattern here?
+Could somebody do a holistic review of the series, or at least on
+individual commits that seem fine, and sign off on it, so that this
+can actually be merged? We're now at v9. I hope we can get this merged
+now, but if not, I'd like for v10 to finally land these changes.
 
 Regards,
-Markus
+Jason
