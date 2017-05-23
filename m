@@ -1,72 +1,178 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH net 1/3] vlan: Fix tcp checksums offloads for Q-in-Q vlan.
-Date: Tue, 23 May 2017 09:29:29 -0700
-Message-ID: <CAKgT0UfONzqdcaLGbwomhmRuvPvNWUsEszL6u+fGOo7bM5NirA@mail.gmail.com>
-References: <1495114265-23368-1-git-send-email-vyasevic@redhat.com>
- <1495114265-23368-2-git-send-email-vyasevic@redhat.com> <20170522.195921.1033609103219347751.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Vlad Yasevich <vyasevich@gmail.com>,
-        Netdev <netdev@vger.kernel.org>,
-        "vyasevic@redhat.com" <vyasevic@redhat.com>,
-        makita.toshiaki@lab.ntt.co.jp
-To: David Miller <davem@davemloft.net>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH net 1/3] bpf: fix incorrect pruning decision when alignment must be tracked
+Date: Tue, 23 May 2017 18:30:41 +0200
+Message-ID: <170aa8062f2c54186a6567b5be8fca0cddec53be.1495556127.git.daniel@iogearbox.net>
+References: <cover.1495556127.git.daniel@iogearbox.net>
+Cc: ast@fb.com, netdev@vger.kernel.org,
+        Daniel Borkmann <daniel@iogearbox.net>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f44.google.com ([209.85.214.44]:35440 "EHLO
-        mail-it0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757756AbdEWQ3b (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 23 May 2017 12:29:31 -0400
-Received: by mail-it0-f44.google.com with SMTP id c15so22783520ith.0
-        for <netdev@vger.kernel.org>; Tue, 23 May 2017 09:29:30 -0700 (PDT)
-In-Reply-To: <20170522.195921.1033609103219347751.davem@davemloft.net>
+Received: from www62.your-server.de ([213.133.104.62]:47610 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1763219AbdEWQbV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 23 May 2017 12:31:21 -0400
+In-Reply-To: <cover.1495556127.git.daniel@iogearbox.net>
+In-Reply-To: <cover.1495556127.git.daniel@iogearbox.net>
+References: <cover.1495556127.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 22, 2017 at 4:59 PM, David Miller <davem@davemloft.net> wrote:
-> From: Vladislav Yasevich <vyasevich@gmail.com>
-> Date: Thu, 18 May 2017 09:31:03 -0400
->
->> It appears that since commit 8cb65d000, Q-in-Q vlans have been
->> broken.  The series that commit is part of enabled TSO and checksum
->> offloading on Q-in-Q vlans.  However, most HW we support can't handle
->> it.  To work around the issue, the above commit added a function that
->> turns off offloads on Q-in-Q devices, but it left the checksum offload.
->> That will cause issues with most older devices that supprort very basic
->> checksum offload capabilities as well as some newer devices (we've
->> reproduced te problem with both be2net and bnx).
->>
->> To solve this for everyone, turn off checksum offloading feature
->> by default when sending Q-in-Q traffic.  Devices that are proven to
->> work can provided a corrected ndo_features_check implemetation.
->>
->> Fixes: 8cb65d000 ("net: Move check for multiple vlans to drivers")
->> CC: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
->> Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
->
-> This is a tough one.  I can certainly sympathize with your frustration
-> trying to track this down.
->
-> Clearing NETIF_F_HW_CSUM completely is the most conservative change.
->
-> However, for all the (perhaps many) cards upon which the checksumming
-> does work properly in Q-in-Q situations, this change could be
-> introducing non-trivial performance regressions.
->
-> So I think Toshiaki's suggestion to drop IP_CSUM and IPV6_CSUM is,
-> on balance, the best way forward.
->
-> Thanks.
+Currently, when we enforce alignment tracking on direct packet access,
+the verifier lets the following program pass despite doing a packet
+write with unaligned access:
 
-I would have to agree. I think we can simplify all this since all we
-are essentially looking at doing is dropping the
-netdev_features_intersect call and instead just do an AND instead of
-fuzzing for the other CSUM bits. That way we don't have to worry about
-systems that might only be able to handle frames that are IPv4/v6
-with one level of VLAN and should be able to support multiple levels
-of mixed headers.
+  0: (61) r2 = *(u32 *)(r1 +76)
+  1: (61) r3 = *(u32 *)(r1 +80)
+  2: (61) r7 = *(u32 *)(r1 +8)
+  3: (bf) r0 = r2
+  4: (07) r0 += 14
+  5: (25) if r7 > 0x1 goto pc+4
+   R0=pkt(id=0,off=14,r=0) R1=ctx R2=pkt(id=0,off=0,r=0)
+   R3=pkt_end R7=inv,min_value=0,max_value=1 R10=fp
+  6: (2d) if r0 > r3 goto pc+1
+   R0=pkt(id=0,off=14,r=14) R1=ctx R2=pkt(id=0,off=0,r=14)
+   R3=pkt_end R7=inv,min_value=0,max_value=1 R10=fp
+  7: (63) *(u32 *)(r0 -4) = r0
+  8: (b7) r0 = 0
+  9: (95) exit
 
-We probably should add a comment about HW_CSUM being the only one we
-can support as well so nobody comes back later and tries to revert the
-change.
+  from 6 to 8:
+   R0=pkt(id=0,off=14,r=0) R1=ctx R2=pkt(id=0,off=0,r=0)
+   R3=pkt_end R7=inv,min_value=0,max_value=1 R10=fp
+  8: (b7) r0 = 0
+  9: (95) exit
 
-- Alex
+  from 5 to 10:
+   R0=pkt(id=0,off=14,r=0) R1=ctx R2=pkt(id=0,off=0,r=0)
+   R3=pkt_end R7=inv,min_value=2 R10=fp
+  10: (07) r0 += 1
+  11: (05) goto pc-6
+  6: safe                           <----- here, wrongly found safe
+  processed 15 insns
+
+However, if we enforce a pruning mismatch by adding state into r8
+which is then being mismatched in states_equal(), we find that for
+the otherwise same program, the verifier detects a misaligned packet
+access when actually walking that path:
+
+  0: (61) r2 = *(u32 *)(r1 +76)
+  1: (61) r3 = *(u32 *)(r1 +80)
+  2: (61) r7 = *(u32 *)(r1 +8)
+  3: (b7) r8 = 1
+  4: (bf) r0 = r2
+  5: (07) r0 += 14
+  6: (25) if r7 > 0x1 goto pc+4
+   R0=pkt(id=0,off=14,r=0) R1=ctx R2=pkt(id=0,off=0,r=0)
+   R3=pkt_end R7=inv,min_value=0,max_value=1
+   R8=imm1,min_value=1,max_value=1,min_align=1 R10=fp
+  7: (2d) if r0 > r3 goto pc+1
+   R0=pkt(id=0,off=14,r=14) R1=ctx R2=pkt(id=0,off=0,r=14)
+   R3=pkt_end R7=inv,min_value=0,max_value=1
+   R8=imm1,min_value=1,max_value=1,min_align=1 R10=fp
+  8: (63) *(u32 *)(r0 -4) = r0
+  9: (b7) r0 = 0
+  10: (95) exit
+
+  from 7 to 9:
+   R0=pkt(id=0,off=14,r=0) R1=ctx R2=pkt(id=0,off=0,r=0)
+   R3=pkt_end R7=inv,min_value=0,max_value=1
+   R8=imm1,min_value=1,max_value=1,min_align=1 R10=fp
+  9: (b7) r0 = 0
+  10: (95) exit
+
+  from 6 to 11:
+   R0=pkt(id=0,off=14,r=0) R1=ctx R2=pkt(id=0,off=0,r=0)
+   R3=pkt_end R7=inv,min_value=2
+   R8=imm1,min_value=1,max_value=1,min_align=1 R10=fp
+  11: (07) r0 += 1
+  12: (b7) r8 = 0
+  13: (05) goto pc-7                <----- mismatch due to r8
+  7: (2d) if r0 > r3 goto pc+1
+   R0=pkt(id=0,off=15,r=15) R1=ctx R2=pkt(id=0,off=0,r=15)
+   R3=pkt_end R7=inv,min_value=2
+   R8=imm0,min_value=0,max_value=0,min_align=2147483648 R10=fp
+  8: (63) *(u32 *)(r0 -4) = r0
+  misaligned packet access off 2+15+-4 size 4
+
+The reason why we fail to see it in states_equal() is that the
+third test in compare_ptrs_to_packet() ...
+
+  if (old->off <= cur->off &&
+      old->off >= old->range && cur->off >= cur->range)
+          return true;
+
+... will let the above pass. The situation we run into is that
+old->off <= cur->off (14 <= 15), meaning that prior walked paths
+went with smaller offset, which was later used in the packet
+access after successful packet range check and found to be safe
+already.
+
+For example: Given is R0=pkt(id=0,off=0,r=0). Adding offset 14
+as in above program to it, results in R0=pkt(id=0,off=14,r=0)
+before the packet range test. Now, testing this against R3=pkt_end
+with 'if r0 > r3 goto out' will transform R0 into R0=pkt(id=0,off=14,r=14)
+for the case when we're within bounds. A write into the packet
+at offset *(u32 *)(r0 -4), that is, 2 + 14 -4, is valid and
+aligned (2 is for NET_IP_ALIGN). After processing this with
+all fall-through paths, we later on check paths from branches.
+When the above skb->mark test is true, then we jump near the
+end of the program, perform r0 += 1, and jump back to the
+'if r0 > r3 goto out' test we've visited earlier already. This
+time, R0 is of type R0=pkt(id=0,off=15,r=0), and we'll prune
+that part because this time we'll have a larger safe packet
+range, and we already found that with off=14 all further insn
+were already safe, so it's safe as well with a larger off.
+However, the problem is that the subsequent write into the packet
+with 2 + 15 -4 is then unaligned, and not caught by the alignment
+tracking. Note that min_align, aux_off, and aux_off_align were
+all 0 in this example.
+
+Since we cannot tell at this time what kind of packet access was
+performed in the prior walk and what minimal requirements it has
+(we might do so in the future, but that requires more complexity),
+fix it to disable this pruning case for strict alignment for now,
+and let the verifier do check such paths instead. With that applied,
+the test cases pass and reject the program due to misalignment.
+
+Fixes: d1174416747d ("bpf: Track alignment of register values in the verifier.")
+Reference: http://patchwork.ozlabs.org/patch/761909/
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+Acked-by: Alexei Starovoitov <ast@kernel.org>
+---
+ kernel/bpf/verifier.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+index c72cd41..4fddfe5 100644
+--- a/kernel/bpf/verifier.c
++++ b/kernel/bpf/verifier.c
+@@ -2696,7 +2696,8 @@ static int check_cfg(struct bpf_verifier_env *env)
+ /* the following conditions reduce the number of explored insns
+  * from ~140k to ~80k for ultra large programs that use a lot of ptr_to_packet
+  */
+-static bool compare_ptrs_to_packet(struct bpf_reg_state *old,
++static bool compare_ptrs_to_packet(struct bpf_verifier_env *env,
++				   struct bpf_reg_state *old,
+ 				   struct bpf_reg_state *cur)
+ {
+ 	if (old->id != cur->id)
+@@ -2739,7 +2740,7 @@ static bool compare_ptrs_to_packet(struct bpf_reg_state *old,
+ 	 * 'if (R4 > data_end)' and all further insn were already good with r=20,
+ 	 * so they will be good with r=30 and we can prune the search.
+ 	 */
+-	if (old->off <= cur->off &&
++	if (!env->strict_alignment && old->off <= cur->off &&
+ 	    old->off >= old->range && cur->off >= cur->range)
+ 		return true;
+ 
+@@ -2810,7 +2811,7 @@ static bool states_equal(struct bpf_verifier_env *env,
+ 			continue;
+ 
+ 		if (rold->type == PTR_TO_PACKET && rcur->type == PTR_TO_PACKET &&
+-		    compare_ptrs_to_packet(rold, rcur))
++		    compare_ptrs_to_packet(env, rold, rcur))
+ 			continue;
+ 
+ 		return false;
+-- 
+1.9.3
