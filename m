@@ -1,67 +1,44 @@
-From: Shubham Bansal <illusionist.neo@gmail.com>
-Subject: Re: arch: arm: bpf: Converting cBPF to eBPF for arm 32 bit
-Date: Tue, 23 May 2017 10:33:26 +0530
-Message-ID: <CAHgaXdKqt3mZmPG78w+4g_17D8EQoBgAZeuqM+MMsQg2f7apsw@mail.gmail.com>
-References: <CAHgaXdKsO2xoKYp7g91g+n+d_1KHSSByLjzBB-WjVXSjhB7qxw@mail.gmail.com>
- <20170510.212952.1440495072777358778.davem@davemloft.net> <CAHgaXdK8LEEUPm4jTRRzCnjwdWAauHmmB=caZsSFY8MmStH89Q@mail.gmail.com>
- <20170510.215218.2185526627014393313.davem@davemloft.net> <CAHgaXdKZ_v+iO7uqEDx7PA7D+xcp1FngGvJ1SRSsGXNQ-iWWDQ@mail.gmail.com>
- <CAHgaXdLJoVUXXGTYs7FYXay5wx=sA-O+=dYhX+r7AQT7vSNfGQ@mail.gmail.com>
- <CAGXu5j+2q4Wwfhuk_DnDaV894A9ZOD=A_AvAU_OZG6KQv0_KMg@mail.gmail.com>
- <CAHgaXdL7GcVzs+ANPke_NywhcgHbe_fzi1sTDEy+Ni1-o82GYQ@mail.gmail.com>
- <591A07A1.1030006@iogearbox.net> <CAHgaXdKKbRVSpX-036TXpV5z=1=QCnPoku0+CeHxHco8-aasPQ@mail.gmail.com>
- <CAGXu5j+k+NMQGmmhuW-4pHFd6agfndJfxQ9k--h+ZpsDBVB8ig@mail.gmail.com>
- <8c53012b-cb81-5228-de79-f55457d1cf69@gmail.com> <CAHgaXdL2qReJF1Aw08k3C+OiC-3AOy3VeYmQ1Hs7vKcrfGQnvA@mail.gmail.com>
- <CAGXu5jKwTDYeNQggezzSKkFzZQkroC+6SdBB0qUKh5crfNk8PA@mail.gmail.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next RFC] net: sched: cls_api: make reclassify return
+ all the way back to the original tp
+Date: Tue, 23 May 2017 07:15:02 +0200
+Message-ID: <20170523051502.GA1829@nanopsycho>
+References: <20170522150942.1703-1-jiri@resnulli.us>
+ <CAM_iQpUUfrCvaLUeEOyzCYg9_9sZ3URZeVaP13R7OTX9tLOQuQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        "kernel-hardening@lists.openwall.com"
-        <kernel-hardening@lists.openwall.com>,
-        Network Development <netdev@vger.kernel.org>, ast@fb.com,
-        Mircea Gherzan <mgherzan@gmail.com>,
+Content-Type: text/plain; charset=us-ascii
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
         David Miller <davem@davemloft.net>,
-        "linux-arm-kernel@lists.infradead.org"
-        <linux-arm-kernel@lists.infradead.org>,
-        Nicolas Schichan <nschichan@freebox.fr>, andrew@lunn.ch
-To: Kees Cook <keescook@chromium.org>
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        David Ahern <dsa@cumulusnetworks.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Stephen Hemminger <stephen@networkplumber.org>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Alexander Duyck <alexander.h.duyck@intel.com>,
+        Simon Horman <simon.horman@netronome.com>, mlxsw@mellanox.com
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f66.google.com ([209.85.218.66]:36707 "EHLO
-        mail-oi0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752007AbdEWFD2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 23 May 2017 01:03:28 -0400
-Received: by mail-oi0-f66.google.com with SMTP id w138so26123197oiw.3
-        for <netdev@vger.kernel.org>; Mon, 22 May 2017 22:03:27 -0700 (PDT)
-In-Reply-To: <CAGXu5jKwTDYeNQggezzSKkFzZQkroC+6SdBB0qUKh5crfNk8PA@mail.gmail.com>
+Received: from mail-wr0-f195.google.com ([209.85.128.195]:36774 "EHLO
+        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1761117AbdEWFPF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 23 May 2017 01:15:05 -0400
+Received: by mail-wr0-f195.google.com with SMTP id v42so8849542wrc.3
+        for <netdev@vger.kernel.org>; Mon, 22 May 2017 22:15:04 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <CAM_iQpUUfrCvaLUeEOyzCYg9_9sZ3URZeVaP13R7OTX9tLOQuQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Kees,
-
-I already have ARMv5 and ARMv6 code written. I just haven't tested it
-yet. Should i send the patch with those as well ?
-
-Best,
-Shubham Bansal
-
-
-On Tue, May 23, 2017 at 9:52 AM, Kees Cook <keescook@chromium.org> wrote:
-> On Mon, May 22, 2017 at 8:34 PM, Shubham Bansal
-> <illusionist.neo@gmail.com> wrote:
->> I would post them as soon as I test them on ARMv5 and ARMv6. If you
->> can help me with that, please let me know.
+Tue, May 23, 2017 at 01:57:47AM CEST, xiyou.wangcong@gmail.com wrote:
+>On Mon, May 22, 2017 at 8:09 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+>> From: Jiri Pirko <jiri@mellanox.com>
+>>
+>> With the introduction of chain goto action, the reclassification would
+>> cause the re-iteration of the actual chain. But it perhaps makes more
+>> sense to restart the whole thing. Thoughts?
 >
-> Please post what you have: it would be better to see what you've got
-> now in case additional changes are needed so you don't have to do it
-> again on v5 and v6. Also, it means other people with real v5 and v6
-> hardware could test for you if they were so inclined, and you won't
-> need to be blocked on doing the tests in qemu.
->
-> You can send it as an "RFC" in the subject, just to make sure people
-> know it's not considered fully done. :)
->
-> -Kees
->
-> --
-> Kees Cook
-> Pixel Security
+>I think reclassification is meant to restart the whole logic rather
+>than just one chain. So your patch makes sense to me, but not
+>sure if there is any corner case I miss.
+
+Agreed. Will send v1. Thanks
