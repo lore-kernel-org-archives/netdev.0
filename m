@@ -1,91 +1,46 @@
-From: Teng Qin <qinteng@fb.com>
-Subject: [PATCH net-next] bpf: update perf event helper function signature and
- documentation
-Date: Tue, 23 May 2017 00:39:34 +0000
-Message-ID: <E796EF36-C195-4FFA-AAA0-A1F9E7730349@fb.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Peter Zijlstra <peterz@infradead.org>,
-        Brendan Gregg <bgregg@netflix.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        Kernel Team <Kernel-team@fb.com>,
-        "Alexei Starovoitov" <ast@fb.com>
-To: "David S . Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Language: en-US
-Content-ID: <1ED13E5F2E3B0846B7CD9E1C75A6D01B@namprd15.prod.outlook.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: gfree.wind@vip.163.com
+Subject: [PATCH net-next] net: rfs: Don't reset RFS entries when nothing changed
+Date: Tue, 23 May 2017 08:45:11 +0800
+Message-ID: <1495500311-81095-1-git-send-email-gfree.wind@vip.163.com>
+Cc: Gao Feng <gfree.wind@vip.163.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-177180.vip.163.com ([123.58.177.180]:49161 "EHLO
+        mail-177180.vip.163.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S965422AbdEWApn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 22 May 2017 20:45:43 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogVGVuZyBRaW4gPHFpbnRlbmdAZmIuY29tPg0KDQpUaGlzIGNvbW1pdCB1cGRhdGVzIGZ1
-bmN0aW9uIHNpZ25hdHVyZSBvZiB0aGUgYnBmX3BlcmZfZXZlbnRfb3V0cHV0IGFuZA0KYnBmX3Bl
-cmZfZXZlbnRfcmVhZCBoZWxwZXJzIHRvIG1hdGNoIHRoZWlyIGltcGxlbWVudGF0aW9uLiBBbHNv
-IHVwZGF0ZXMNCnRoZWlyIGRvY3VtZW50YXRpb24gaW4gdGhlIGhlYWRlciBmaWxlcy4NCg0KU2ln
-bmVkLW9mZi1ieTogVGVuZyBRaW4gPHFpbnRlbmdAZmIuY29tPg0KQWNrZWQtYnk6IEFsZXhlaSBT
-dGFyb3ZvaXRvdiA8YXN0QGtlcm5lbC5vcmc+DQotLS0NCiBpbmNsdWRlL3VhcGkvbGludXgvYnBm
-LmggICAgICAgfCAxMSArKysrKysrLS0tLQ0KIHNhbXBsZXMvYnBmL2JwZl9oZWxwZXJzLmggICAg
-ICB8ICA1ICsrLS0tDQogdG9vbHMvaW5jbHVkZS91YXBpL2xpbnV4L2JwZi5oIHwgMTEgKysrKysr
-Ky0tLS0NCiAzIGZpbGVzIGNoYW5nZWQsIDE2IGluc2VydGlvbnMoKyksIDExIGRlbGV0aW9ucygt
-KQ0KDQpkaWZmIC0tZ2l0IGEvaW5jbHVkZS91YXBpL2xpbnV4L2JwZi5oIGIvaW5jbHVkZS91YXBp
-L2xpbnV4L2JwZi5oDQppbmRleCA5NGRmYTlkLi5lNzhhZWNlIDEwMDY0NA0KLS0tIGEvaW5jbHVk
-ZS91YXBpL2xpbnV4L2JwZi5oDQorKysgYi9pbmNsdWRlL3VhcGkvbGludXgvYnBmLmgNCkBAIC0z
-MTMsOCArMzEzLDExIEBAIHVuaW9uIGJwZl9hdHRyIHsNCiAgKiAgICAgQGZsYWdzOiByb29tIGZv
-ciBmdXR1cmUgZXh0ZW5zaW9ucw0KICAqICAgICBSZXR1cm46IDAgb24gc3VjY2VzcyBvciBuZWdh
-dGl2ZSBlcnJvcg0KICAqDQotICogdTY0IGJwZl9wZXJmX2V2ZW50X3JlYWQoJm1hcCwgaW5kZXgp
-DQotICogICAgIFJldHVybjogTnVtYmVyIGV2ZW50cyByZWFkIG9yIGVycm9yIGNvZGUNCisgKiB1
-NjQgYnBmX3BlcmZfZXZlbnRfcmVhZChtYXAsIGZsYWdzKQ0KKyAqICAgICByZWFkIHBlcmYgZXZl
-bnQgY291bnRlciB2YWx1ZQ0KKyAqICAgICBAbWFwOiBwb2ludGVyIHRvIHBlcmZfZXZlbnRfYXJy
-YXkgbWFwDQorICogICAgIEBmbGFnczogaW5kZXggb2YgZXZlbnQgaW4gdGhlIG1hcCBvciBiaXRt
-YXNrIGZsYWdzDQorICogICAgIFJldHVybjogdmFsdWUgb2YgcGVyZiBldmVudCBjb3VudGVyIHJl
-YWQgb3IgZXJyb3IgY29kZQ0KICAqDQogICogaW50IGJwZl9yZWRpcmVjdChpZmluZGV4LCBmbGFn
-cykNCiAgKiAgICAgcmVkaXJlY3QgdG8gYW5vdGhlciBuZXRkZXYNCkBAIC0zMjgsMTEgKzMzMSwx
-MSBAQCB1bmlvbiBicGZfYXR0ciB7DQogICogICAgIEBza2I6IHBvaW50ZXIgdG8gc2tiDQogICog
-ICAgIFJldHVybjogcmVhbG0gaWYgIT0gMA0KICAqDQotICogaW50IGJwZl9wZXJmX2V2ZW50X291
-dHB1dChjdHgsIG1hcCwgaW5kZXgsIGRhdGEsIHNpemUpDQorICogaW50IGJwZl9wZXJmX2V2ZW50
-X291dHB1dChjdHgsIG1hcCwgZmxhZ3MsIGRhdGEsIHNpemUpDQogICogICAgIG91dHB1dCBwZXJm
-IHJhdyBzYW1wbGUNCiAgKiAgICAgQGN0eDogc3RydWN0IHB0X3JlZ3MqDQogICogICAgIEBtYXA6
-IHBvaW50ZXIgdG8gcGVyZl9ldmVudF9hcnJheSBtYXANCi0gKiAgICAgQGluZGV4OiBpbmRleCBv
-ZiBldmVudCBpbiB0aGUgbWFwDQorICogICAgIEBmbGFnczogaW5kZXggb2YgZXZlbnQgaW4gdGhl
-IG1hcCBvciBiaXRtYXNrIGZsYWdzDQogICogICAgIEBkYXRhOiBkYXRhIG9uIHN0YWNrIHRvIGJl
-IG91dHB1dCBhcyByYXcgZGF0YQ0KICAqICAgICBAc2l6ZTogc2l6ZSBvZiBkYXRhDQogICogICAg
-IFJldHVybjogMCBvbiBzdWNjZXNzIG9yIG5lZ2F0aXZlIGVycm9yDQpkaWZmIC0tZ2l0IGEvc2Ft
-cGxlcy9icGYvYnBmX2hlbHBlcnMuaCBiL3NhbXBsZXMvYnBmL2JwZl9oZWxwZXJzLmgNCmluZGV4
-IDlhOWM5NWYuLmE5NGNlNDIgMTAwNjQ0DQotLS0gYS9zYW1wbGVzL2JwZi9icGZfaGVscGVycy5o
-DQorKysgYi9zYW1wbGVzL2JwZi9icGZfaGVscGVycy5oDQpAQCAtMzcsOSArMzcsOCBAQCBzdGF0
-aWMgaW50ICgqYnBmX2Nsb25lX3JlZGlyZWN0KSh2b2lkICpjdHgsIGludCBpZmluZGV4LCBpbnQg
-ZmxhZ3MpID0NCiAJKHZvaWQgKikgQlBGX0ZVTkNfY2xvbmVfcmVkaXJlY3Q7DQogc3RhdGljIGlu
-dCAoKmJwZl9yZWRpcmVjdCkoaW50IGlmaW5kZXgsIGludCBmbGFncykgPQ0KIAkodm9pZCAqKSBC
-UEZfRlVOQ19yZWRpcmVjdDsNCi1zdGF0aWMgaW50ICgqYnBmX3BlcmZfZXZlbnRfb3V0cHV0KSh2
-b2lkICpjdHgsIHZvaWQgKm1hcCwNCi0JCQkJICAgIHVuc2lnbmVkIGxvbmcgbG9uZyBmbGFncywg
-dm9pZCAqZGF0YSwNCi0JCQkJICAgIGludCBzaXplKSA9DQorc3RhdGljIGludCAoKmJwZl9wZXJm
-X2V2ZW50X291dHB1dCkodm9pZCAqY3R4LCB2b2lkICptYXAsIHU2NCBmbGFncywNCisJICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgIHZvaWQgKmRhdGEsIGludCBzaXplKSA9DQogCSh2b2lkICop
-IEJQRl9GVU5DX3BlcmZfZXZlbnRfb3V0cHV0Ow0KIHN0YXRpYyBpbnQgKCpicGZfZ2V0X3N0YWNr
-aWQpKHZvaWQgKmN0eCwgdm9pZCAqbWFwLCBpbnQgZmxhZ3MpID0NCiAJKHZvaWQgKikgQlBGX0ZV
-TkNfZ2V0X3N0YWNraWQ7DQpkaWZmIC0tZ2l0IGEvdG9vbHMvaW5jbHVkZS91YXBpL2xpbnV4L2Jw
-Zi5oIGIvdG9vbHMvaW5jbHVkZS91YXBpL2xpbnV4L2JwZi5oDQppbmRleCA5NGRmYTlkLi5lNzhh
-ZWNlIDEwMDY0NA0KLS0tIGEvdG9vbHMvaW5jbHVkZS91YXBpL2xpbnV4L2JwZi5oDQorKysgYi90
-b29scy9pbmNsdWRlL3VhcGkvbGludXgvYnBmLmgNCkBAIC0zMTMsOCArMzEzLDExIEBAIHVuaW9u
-IGJwZl9hdHRyIHsNCiAgKiAgICAgQGZsYWdzOiByb29tIGZvciBmdXR1cmUgZXh0ZW5zaW9ucw0K
-ICAqICAgICBSZXR1cm46IDAgb24gc3VjY2VzcyBvciBuZWdhdGl2ZSBlcnJvcg0KICAqDQotICog
-dTY0IGJwZl9wZXJmX2V2ZW50X3JlYWQoJm1hcCwgaW5kZXgpDQotICogICAgIFJldHVybjogTnVt
-YmVyIGV2ZW50cyByZWFkIG9yIGVycm9yIGNvZGUNCisgKiB1NjQgYnBmX3BlcmZfZXZlbnRfcmVh
-ZChtYXAsIGZsYWdzKQ0KKyAqICAgICByZWFkIHBlcmYgZXZlbnQgY291bnRlciB2YWx1ZQ0KKyAq
-ICAgICBAbWFwOiBwb2ludGVyIHRvIHBlcmZfZXZlbnRfYXJyYXkgbWFwDQorICogICAgIEBmbGFn
-czogaW5kZXggb2YgZXZlbnQgaW4gdGhlIG1hcCBvciBiaXRtYXNrIGZsYWdzDQorICogICAgIFJl
-dHVybjogdmFsdWUgb2YgcGVyZiBldmVudCBjb3VudGVyIHJlYWQgb3IgZXJyb3IgY29kZQ0KICAq
-DQogICogaW50IGJwZl9yZWRpcmVjdChpZmluZGV4LCBmbGFncykNCiAgKiAgICAgcmVkaXJlY3Qg
-dG8gYW5vdGhlciBuZXRkZXYNCkBAIC0zMjgsMTEgKzMzMSwxMSBAQCB1bmlvbiBicGZfYXR0ciB7
-DQogICogICAgIEBza2I6IHBvaW50ZXIgdG8gc2tiDQogICogICAgIFJldHVybjogcmVhbG0gaWYg
-IT0gMA0KICAqDQotICogaW50IGJwZl9wZXJmX2V2ZW50X291dHB1dChjdHgsIG1hcCwgaW5kZXgs
-IGRhdGEsIHNpemUpDQorICogaW50IGJwZl9wZXJmX2V2ZW50X291dHB1dChjdHgsIG1hcCwgZmxh
-Z3MsIGRhdGEsIHNpemUpDQogICogICAgIG91dHB1dCBwZXJmIHJhdyBzYW1wbGUNCiAgKiAgICAg
-QGN0eDogc3RydWN0IHB0X3JlZ3MqDQogICogICAgIEBtYXA6IHBvaW50ZXIgdG8gcGVyZl9ldmVu
-dF9hcnJheSBtYXANCi0gKiAgICAgQGluZGV4OiBpbmRleCBvZiBldmVudCBpbiB0aGUgbWFwDQor
-ICogICAgIEBmbGFnczogaW5kZXggb2YgZXZlbnQgaW4gdGhlIG1hcCBvciBiaXRtYXNrIGZsYWdz
-DQogICogICAgIEBkYXRhOiBkYXRhIG9uIHN0YWNrIHRvIGJlIG91dHB1dCBhcyByYXcgZGF0YQ0K
-ICAqICAgICBAc2l6ZTogc2l6ZSBvZiBkYXRhDQogICogICAgIFJldHVybjogMCBvbiBzdWNjZXNz
-IG9yIG5lZ2F0aXZlIGVycm9yDQotLSANCjIuOS4zDQoNCg0KDQo=
+From: Gao Feng <gfree.wind@vip.163.com>
+
+When the new RFS table size specified by sysctl equals the old one,
+there is nothing changed actually. So it is unnecessary to reset the
+RFS table entris.
+
+Signed-off-by: Gao Feng <gfree.wind@vip.163.com>
+---
+ net/core/sysctl_net_core.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/net/core/sysctl_net_core.c b/net/core/sysctl_net_core.c
+index ea23254..80b6a7e 100644
+--- a/net/core/sysctl_net_core.c
++++ b/net/core/sysctl_net_core.c
+@@ -69,11 +69,12 @@ static int rps_sock_flow_sysctl(struct ctl_table *table, int write,
+ 				}
+ 				rps_cpu_mask = roundup_pow_of_two(nr_cpu_ids) - 1;
+ 				sock_table->mask = size - 1;
++
++				for (i = 0; i < size; i++)
++					sock_table->ents[i] = RPS_NO_CPU;
+ 			} else
+ 				sock_table = orig_sock_table;
+ 
+-			for (i = 0; i < size; i++)
+-				sock_table->ents[i] = RPS_NO_CPU;
+ 		} else
+ 			sock_table = NULL;
+ 
+-- 
+1.9.1
