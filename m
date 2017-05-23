@@ -1,134 +1,220 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 3/8] mlxsw: reg: Add Management Component Control register
-Date: Tue, 23 May 2017 21:56:25 +0200
-Message-ID: <20170523195630.6460-4-jiri@resnulli.us>
+Subject: [patch net-next v2 5/8] mlxsw: spectrum: Add the needed callbacks for mlxfw integration
+Date: Tue, 23 May 2017 21:56:27 +0200
+Message-ID: <20170523195630.6460-6-jiri@resnulli.us>
 References: <20170523195630.6460-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, yotamg@mellanox.com,
         mlxsw@mellanox.com, Yuval.Mintz@cavium.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:33112 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S968114AbdEWT4i (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 23 May 2017 15:56:38 -0400
-Received: by mail-wm0-f65.google.com with SMTP id b84so26154537wmh.0
-        for <netdev@vger.kernel.org>; Tue, 23 May 2017 12:56:37 -0700 (PDT)
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:33240 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S967191AbdEWT4l (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 23 May 2017 15:56:41 -0400
+Received: by mail-wm0-f66.google.com with SMTP id b84so26154796wmh.0
+        for <netdev@vger.kernel.org>; Tue, 23 May 2017 12:56:40 -0700 (PDT)
 In-Reply-To: <20170523195630.6460-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Yotam Gigi <yotamg@mellanox.com>
 
-The MCC register allows controlling and querying the firmware flash state
-machine (FSM).
+The mlxfw module defines several needed callbacks in order to flash the
+device's firmware. As the mlxfw module is shared between several different
+drivers, those callbacks are the glue functionality that is responsible
+for hardware interaction. Add those callbacks using the MCQI, MCC, MCDA
+registers.
 
 Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
 Reviewed-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/reg.h | 83 +++++++++++++++++++++++++++++++
- 1 file changed, 83 insertions(+)
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 166 +++++++++++++++++++++++++
+ 1 file changed, 166 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-index adb385f..f3c768c 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-@@ -5726,6 +5726,88 @@ static inline void mlxsw_reg_mcqi_unpack(char *payload,
- 		mlxsw_reg_mcqi_cap_mcda_max_write_size_get(payload);
- }
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+index 8a165bb..b533a53 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+@@ -68,6 +68,7 @@
+ #include "txheader.h"
+ #include "spectrum_cnt.h"
+ #include "spectrum_dpipe.h"
++#include "../mlxfw/mlxfw.h"
  
-+/* MCC - Management Component Control
-+ * ----------------------------------
-+ * Controls the firmware component and updates the FSM.
-+ */
-+#define MLXSW_REG_MCC_ID 0x9062
-+#define MLXSW_REG_MCC_LEN 0x1C
-+
-+MLXSW_REG_DEFINE(mcc, MLXSW_REG_MCC_ID, MLXSW_REG_MCC_LEN);
-+
-+enum mlxsw_reg_mcc_instruction {
-+	MLXSW_REG_MCC_INSTRUCTION_LOCK_UPDATE_HANDLE = 0x01,
-+	MLXSW_REG_MCC_INSTRUCTION_RELEASE_UPDATE_HANDLE = 0x02,
-+	MLXSW_REG_MCC_INSTRUCTION_UPDATE_COMPONENT = 0x03,
-+	MLXSW_REG_MCC_INSTRUCTION_VERIFY_COMPONENT = 0x04,
-+	MLXSW_REG_MCC_INSTRUCTION_ACTIVATE = 0x06,
-+	MLXSW_REG_MCC_INSTRUCTION_CANCEL = 0x08,
+ static const char mlxsw_sp_driver_name[] = "mlxsw_spectrum";
+ static const char mlxsw_sp_driver_version[] = "1.0";
+@@ -140,6 +141,171 @@ MLXSW_ITEM32(tx, hdr, fid, 0x08, 0, 16);
+  */
+ MLXSW_ITEM32(tx, hdr, type, 0x0C, 0, 4);
+ 
++struct mlxsw_sp_mlxfw_dev {
++	struct mlxfw_dev mlxfw_dev;
++	struct mlxsw_sp *mlxsw_sp;
 +};
 +
-+/* reg_mcc_instruction
-+ * Command to be executed by the FSM.
-+ * Applicable for write operation only.
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, mcc, instruction, 0x00, 0, 8);
-+
-+/* reg_mcc_component_index
-+ * Index of the accessed component. Applicable only for commands that
-+ * refer to components. Otherwise, this field is reserved.
-+ * Access: Index
-+ */
-+MLXSW_ITEM32(reg, mcc, component_index, 0x04, 0, 16);
-+
-+/* reg_mcc_update_handle
-+ * Token representing the current flow executed by the FSM.
-+ * Access: WO
-+ */
-+MLXSW_ITEM32(reg, mcc, update_handle, 0x08, 0, 24);
-+
-+/* reg_mcc_error_code
-+ * Indicates the successful completion of the instruction, or the reason it
-+ * failed
-+ * Access: RO
-+ */
-+MLXSW_ITEM32(reg, mcc, error_code, 0x0C, 8, 8);
-+
-+/* reg_mcc_control_state
-+ * Current FSM state
-+ * Access: RO
-+ */
-+MLXSW_ITEM32(reg, mcc, control_state, 0x0C, 0, 4);
-+
-+/* reg_mcc_component_size
-+ * Component size in bytes. Valid for UPDATE_COMPONENT instruction. Specifying
-+ * the size may shorten the update time. Value 0x0 means that size is
-+ * unspecified.
-+ * Access: WO
-+ */
-+MLXSW_ITEM32(reg, mcc, component_size, 0x10, 0, 32);
-+
-+static inline void mlxsw_reg_mcc_pack(char *payload,
-+				      enum mlxsw_reg_mcc_instruction instr,
-+				      u16 component_index, u32 update_handle,
-+				      u32 component_size)
++static int mlxsw_sp_component_query(struct mlxfw_dev *mlxfw_dev,
++				    u16 component_index, u32 *p_max_size,
++				    u8 *p_align_bits, u16 *p_max_write_size)
 +{
-+	MLXSW_REG_ZERO(mcc, payload);
-+	mlxsw_reg_mcc_instruction_set(payload, instr);
-+	mlxsw_reg_mcc_component_index_set(payload, component_index);
-+	mlxsw_reg_mcc_update_handle_set(payload, update_handle);
-+	mlxsw_reg_mcc_component_size_set(payload, component_size);
++	struct mlxsw_sp_mlxfw_dev *mlxsw_sp_mlxfw_dev =
++		container_of(mlxfw_dev, struct mlxsw_sp_mlxfw_dev, mlxfw_dev);
++	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_mlxfw_dev->mlxsw_sp;
++	char mcqi_pl[MLXSW_REG_MCQI_LEN];
++	int err;
++
++	mlxsw_reg_mcqi_pack(mcqi_pl, component_index);
++	err = mlxsw_reg_query(mlxsw_sp->core, MLXSW_REG(mcqi), mcqi_pl);
++	if (err)
++		return err;
++	mlxsw_reg_mcqi_unpack(mcqi_pl, p_max_size, p_align_bits,
++			      p_max_write_size);
++
++	*p_align_bits = max_t(u8, *p_align_bits, 2);
++	*p_max_write_size = min_t(u16, *p_max_write_size,
++				  MLXSW_REG_MCDA_MAX_DATA_LEN);
++	return 0;
 +}
 +
-+static inline void mlxsw_reg_mcc_unpack(char *payload, u32 *p_update_handle,
-+					u8 *p_error_code, u8 *p_control_state)
++static int mlxsw_sp_fsm_lock(struct mlxfw_dev *mlxfw_dev, u32 *fwhandle)
 +{
-+	if (p_update_handle)
-+		*p_update_handle = mlxsw_reg_mcc_update_handle_get(payload);
-+	if (p_error_code)
-+		*p_error_code = mlxsw_reg_mcc_error_code_get(payload);
-+	if (p_control_state)
-+		*p_control_state = mlxsw_reg_mcc_control_state_get(payload);
++	struct mlxsw_sp_mlxfw_dev *mlxsw_sp_mlxfw_dev =
++		container_of(mlxfw_dev, struct mlxsw_sp_mlxfw_dev, mlxfw_dev);
++	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_mlxfw_dev->mlxsw_sp;
++	char mcc_pl[MLXSW_REG_MCC_LEN];
++	u8 control_state;
++	int err;
++
++	mlxsw_reg_mcc_pack(mcc_pl, 0, 0, 0, 0);
++	err = mlxsw_reg_query(mlxsw_sp->core, MLXSW_REG(mcc), mcc_pl);
++	if (err)
++		return err;
++
++	mlxsw_reg_mcc_unpack(mcc_pl, fwhandle, NULL, &control_state);
++	if (control_state != MLXFW_FSM_STATE_IDLE)
++		return -EBUSY;
++
++	mlxsw_reg_mcc_pack(mcc_pl,
++			   MLXSW_REG_MCC_INSTRUCTION_LOCK_UPDATE_HANDLE,
++			   0, *fwhandle, 0);
++	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(mcc), mcc_pl);
 +}
 +
- /* MPSC - Monitoring Packet Sampling Configuration Register
-  * --------------------------------------------------------
-  * MPSC Register is used to configure the Packet Sampling mechanism.
-@@ -6305,6 +6387,7 @@ static const struct mlxsw_reg_info *mlxsw_reg_infos[] = {
- 	MLXSW_REG(mlcr),
- 	MLXSW_REG(mpsc),
- 	MLXSW_REG(mcqi),
-+	MLXSW_REG(mcc),
- 	MLXSW_REG(mgpc),
- 	MLXSW_REG(sbpr),
- 	MLXSW_REG(sbcm),
++static int mlxsw_sp_fsm_component_update(struct mlxfw_dev *mlxfw_dev,
++					 u32 fwhandle, u16 component_index,
++					 u32 component_size)
++{
++	struct mlxsw_sp_mlxfw_dev *mlxsw_sp_mlxfw_dev =
++		container_of(mlxfw_dev, struct mlxsw_sp_mlxfw_dev, mlxfw_dev);
++	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_mlxfw_dev->mlxsw_sp;
++	char mcc_pl[MLXSW_REG_MCC_LEN];
++
++	mlxsw_reg_mcc_pack(mcc_pl, MLXSW_REG_MCC_INSTRUCTION_UPDATE_COMPONENT,
++			   component_index, fwhandle, component_size);
++	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(mcc), mcc_pl);
++}
++
++static int mlxsw_sp_fsm_block_download(struct mlxfw_dev *mlxfw_dev,
++				       u32 fwhandle, u8 *data, u16 size,
++				       u32 offset)
++{
++	struct mlxsw_sp_mlxfw_dev *mlxsw_sp_mlxfw_dev =
++		container_of(mlxfw_dev, struct mlxsw_sp_mlxfw_dev, mlxfw_dev);
++	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_mlxfw_dev->mlxsw_sp;
++	char mcda_pl[MLXSW_REG_MCDA_LEN];
++
++	mlxsw_reg_mcda_pack(mcda_pl, fwhandle, offset, size, data);
++	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(mcda), mcda_pl);
++}
++
++static int mlxsw_sp_fsm_component_verify(struct mlxfw_dev *mlxfw_dev,
++					 u32 fwhandle, u16 component_index)
++{
++	struct mlxsw_sp_mlxfw_dev *mlxsw_sp_mlxfw_dev =
++		container_of(mlxfw_dev, struct mlxsw_sp_mlxfw_dev, mlxfw_dev);
++	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_mlxfw_dev->mlxsw_sp;
++	char mcc_pl[MLXSW_REG_MCC_LEN];
++
++	mlxsw_reg_mcc_pack(mcc_pl, MLXSW_REG_MCC_INSTRUCTION_VERIFY_COMPONENT,
++			   component_index, fwhandle, 0);
++	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(mcc), mcc_pl);
++}
++
++static int mlxsw_sp_fsm_activate(struct mlxfw_dev *mlxfw_dev, u32 fwhandle)
++{
++	struct mlxsw_sp_mlxfw_dev *mlxsw_sp_mlxfw_dev =
++		container_of(mlxfw_dev, struct mlxsw_sp_mlxfw_dev, mlxfw_dev);
++	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_mlxfw_dev->mlxsw_sp;
++	char mcc_pl[MLXSW_REG_MCC_LEN];
++
++	mlxsw_reg_mcc_pack(mcc_pl, MLXSW_REG_MCC_INSTRUCTION_ACTIVATE, 0,
++			   fwhandle, 0);
++	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(mcc), mcc_pl);
++}
++
++static int mlxsw_sp_fsm_query_state(struct mlxfw_dev *mlxfw_dev, u32 fwhandle,
++				    enum mlxfw_fsm_state *fsm_state,
++				    enum mlxfw_fsm_state_err *fsm_state_err)
++{
++	struct mlxsw_sp_mlxfw_dev *mlxsw_sp_mlxfw_dev =
++		container_of(mlxfw_dev, struct mlxsw_sp_mlxfw_dev, mlxfw_dev);
++	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_mlxfw_dev->mlxsw_sp;
++	char mcc_pl[MLXSW_REG_MCC_LEN];
++	u8 control_state;
++	u8 error_code;
++	int err;
++
++	mlxsw_reg_mcc_pack(mcc_pl, 0, 0, fwhandle, 0);
++	err = mlxsw_reg_query(mlxsw_sp->core, MLXSW_REG(mcc), mcc_pl);
++	if (err)
++		return err;
++
++	mlxsw_reg_mcc_unpack(mcc_pl, NULL, &error_code, &control_state);
++	*fsm_state = control_state;
++	*fsm_state_err = min_t(enum mlxfw_fsm_state_err, error_code,
++			       MLXFW_FSM_STATE_ERR_MAX);
++	return 0;
++}
++
++static void mlxsw_sp_fsm_cancel(struct mlxfw_dev *mlxfw_dev, u32 fwhandle)
++{
++	struct mlxsw_sp_mlxfw_dev *mlxsw_sp_mlxfw_dev =
++		container_of(mlxfw_dev, struct mlxsw_sp_mlxfw_dev, mlxfw_dev);
++	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_mlxfw_dev->mlxsw_sp;
++	char mcc_pl[MLXSW_REG_MCC_LEN];
++
++	mlxsw_reg_mcc_pack(mcc_pl, MLXSW_REG_MCC_INSTRUCTION_CANCEL, 0,
++			   fwhandle, 0);
++	mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(mcc), mcc_pl);
++}
++
++static void mlxsw_sp_fsm_release(struct mlxfw_dev *mlxfw_dev, u32 fwhandle)
++{
++	struct mlxsw_sp_mlxfw_dev *mlxsw_sp_mlxfw_dev =
++		container_of(mlxfw_dev, struct mlxsw_sp_mlxfw_dev, mlxfw_dev);
++	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_mlxfw_dev->mlxsw_sp;
++	char mcc_pl[MLXSW_REG_MCC_LEN];
++
++	mlxsw_reg_mcc_pack(mcc_pl,
++			   MLXSW_REG_MCC_INSTRUCTION_RELEASE_UPDATE_HANDLE, 0,
++			   fwhandle, 0);
++	mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(mcc), mcc_pl);
++}
++
++static const struct mlxfw_dev_ops mlxsw_sp_mlxfw_dev_ops = {
++	.component_query	= mlxsw_sp_component_query,
++	.fsm_lock		= mlxsw_sp_fsm_lock,
++	.fsm_component_update	= mlxsw_sp_fsm_component_update,
++	.fsm_block_download	= mlxsw_sp_fsm_block_download,
++	.fsm_component_verify	= mlxsw_sp_fsm_component_verify,
++	.fsm_activate		= mlxsw_sp_fsm_activate,
++	.fsm_query_state	= mlxsw_sp_fsm_query_state,
++	.fsm_cancel		= mlxsw_sp_fsm_cancel,
++	.fsm_release		= mlxsw_sp_fsm_release
++};
++
+ int mlxsw_sp_flow_counter_get(struct mlxsw_sp *mlxsw_sp,
+ 			      unsigned int counter_index, u64 *packets,
+ 			      u64 *bytes)
 -- 
 2.9.3
