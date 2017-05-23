@@ -1,127 +1,134 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 8/9] mlxsw: spectrum: Validate firmware revision on init
-Date: Tue, 23 May 2017 08:53:00 +0200
-Message-ID: <20170523065301.1091-9-jiri@resnulli.us>
+Subject: [patch net-next 3/9] mlxsw: reg: Add Management Component Control register
+Date: Tue, 23 May 2017 08:52:55 +0200
+Message-ID: <20170523065301.1091-4-jiri@resnulli.us>
 References: <20170523065301.1091-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, yotamg@mellanox.com,
         mlxsw@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:33338 "EHLO
-        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1761569AbdEWGxR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 23 May 2017 02:53:17 -0400
-Received: by mail-wm0-f68.google.com with SMTP id b84so21295606wmh.0
-        for <netdev@vger.kernel.org>; Mon, 22 May 2017 23:53:16 -0700 (PDT)
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:35647 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1757285AbdEWGxK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 23 May 2017 02:53:10 -0400
+Received: by mail-wm0-f66.google.com with SMTP id g15so17507885wmc.2
+        for <netdev@vger.kernel.org>; Mon, 22 May 2017 23:53:09 -0700 (PDT)
 In-Reply-To: <20170523065301.1091-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Yotam Gigi <yotamg@mellanox.com>
 
-Make the spectrum module check the current device firmware version, and if
-it is below the supported version, use the libfirmware API to request a
-firmware file with the supported firmware version and flash it to the
-device using the mlxfw module.
-
-The firmware file names are expected to be of Mellanox Firmware Archive
-version 2 (MFA2) format and their name are expected to be in the following
-pattern: "mlxsw_spectrum-<major>.<minor>.<sub-minor>.mfa2".
+The MCC register allows controlling and querying the firmware flash state
+machine (FSM).
 
 Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
 Reviewed-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 59 ++++++++++++++++++++++++++
- 1 file changed, 59 insertions(+)
+ drivers/net/ethernet/mellanox/mlxsw/reg.h | 83 +++++++++++++++++++++++++++++++
+ 1 file changed, 83 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-index 9e189fc..c846b13 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-@@ -70,6 +70,21 @@
- #include "spectrum_dpipe.h"
- #include "../mlxfw/mlxfw.h"
- 
-+#define MLXSW_FWREV_MAJOR 13
-+#define MLXSW_FWREV_MINOR 1420
-+#define MLXSW_FWREV_SUBMINOR 122
-+
-+static const struct mlxsw_fw_rev mlxsw_sp_supported_fw_rev = {
-+	.major = MLXSW_FWREV_MAJOR,
-+	.minor = MLXSW_FWREV_MINOR,
-+	.subminor = MLXSW_FWREV_SUBMINOR
-+};
-+
-+#define MLXSW_SP_FW_FILENAME \
-+	"mlxsw_spectrum-" __stringify(MLXSW_FWREV_MAJOR) \
-+	"." __stringify(MLXSW_FWREV_MINOR) \
-+	"." __stringify(MLXSW_FWREV_SUBMINOR) ".mfa2"
-+
- static const char mlxsw_sp_driver_name[] = "mlxsw_spectrum";
- static const char mlxsw_sp_driver_version[] = "1.0";
- 
-@@ -321,6 +336,43 @@ static int mlxsw_sp_firmware_flash(struct mlxsw_sp *mlxsw_sp,
- 	return mlxfw_firmware_flash(&mlxsw_sp_mlxfw_dev.mlxfw_dev, firmware);
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
+index adb385f..f3c768c 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
+@@ -5726,6 +5726,88 @@ static inline void mlxsw_reg_mcqi_unpack(char *payload,
+ 		mlxsw_reg_mcqi_cap_mcda_max_write_size_get(payload);
  }
  
-+static bool mlxsw_sp_fw_rev_ge(const struct mlxsw_fw_rev *a,
-+			       const struct mlxsw_fw_rev *b)
++/* MCC - Management Component Control
++ * ----------------------------------
++ * Controls the firmware component and updates the FSM.
++ */
++#define MLXSW_REG_MCC_ID 0x9062
++#define MLXSW_REG_MCC_LEN 0x1C
++
++MLXSW_REG_DEFINE(mcc, MLXSW_REG_MCC_ID, MLXSW_REG_MCC_LEN);
++
++enum mlxsw_reg_mcc_instruction {
++	MLXSW_REG_MCC_INSTRUCTION_LOCK_UPDATE_HANDLE = 0x01,
++	MLXSW_REG_MCC_INSTRUCTION_RELEASE_UPDATE_HANDLE = 0x02,
++	MLXSW_REG_MCC_INSTRUCTION_UPDATE_COMPONENT = 0x03,
++	MLXSW_REG_MCC_INSTRUCTION_VERIFY_COMPONENT = 0x04,
++	MLXSW_REG_MCC_INSTRUCTION_ACTIVATE = 0x06,
++	MLXSW_REG_MCC_INSTRUCTION_CANCEL = 0x08,
++};
++
++/* reg_mcc_instruction
++ * Command to be executed by the FSM.
++ * Applicable for write operation only.
++ * Access: RW
++ */
++MLXSW_ITEM32(reg, mcc, instruction, 0x00, 0, 8);
++
++/* reg_mcc_component_index
++ * Index of the accessed component. Applicable only for commands that
++ * refer to components. Otherwise, this field is reserved.
++ * Access: Index
++ */
++MLXSW_ITEM32(reg, mcc, component_index, 0x04, 0, 16);
++
++/* reg_mcc_update_handle
++ * Token representing the current flow executed by the FSM.
++ * Access: WO
++ */
++MLXSW_ITEM32(reg, mcc, update_handle, 0x08, 0, 24);
++
++/* reg_mcc_error_code
++ * Indicates the successful completion of the instruction, or the reason it
++ * failed
++ * Access: RO
++ */
++MLXSW_ITEM32(reg, mcc, error_code, 0x0C, 8, 8);
++
++/* reg_mcc_control_state
++ * Current FSM state
++ * Access: RO
++ */
++MLXSW_ITEM32(reg, mcc, control_state, 0x0C, 0, 4);
++
++/* reg_mcc_component_size
++ * Component size in bytes. Valid for UPDATE_COMPONENT instruction. Specifying
++ * the size may shorten the update time. Value 0x0 means that size is
++ * unspecified.
++ * Access: WO
++ */
++MLXSW_ITEM32(reg, mcc, component_size, 0x10, 0, 32);
++
++static inline void mlxsw_reg_mcc_pack(char *payload,
++				      enum mlxsw_reg_mcc_instruction instr,
++				      u16 component_index, u32 update_handle,
++				      u32 component_size)
 +{
-+	if (a->major != b->major)
-+		return a->major > b->major;
-+	if (a->minor != b->minor)
-+		return a->minor > b->minor;
-+	return a->subminor >= b->subminor;
++	MLXSW_REG_ZERO(mcc, payload);
++	mlxsw_reg_mcc_instruction_set(payload, instr);
++	mlxsw_reg_mcc_component_index_set(payload, component_index);
++	mlxsw_reg_mcc_update_handle_set(payload, update_handle);
++	mlxsw_reg_mcc_component_size_set(payload, component_size);
 +}
 +
-+static int mlxsw_sp_fw_rev_validate(struct mlxsw_sp *mlxsw_sp)
++static inline void mlxsw_reg_mcc_unpack(char *payload, u32 *p_update_handle,
++					u8 *p_error_code, u8 *p_control_state)
 +{
-+	const struct mlxsw_fw_rev *rev = &mlxsw_sp->bus_info->fw_rev;
-+	const struct firmware *firmware;
-+	int err;
-+
-+	if (mlxsw_sp_fw_rev_ge(rev, &mlxsw_sp_supported_fw_rev))
-+		return 0;
-+
-+	dev_info(mlxsw_sp->bus_info->dev, "The firmware version %d.%d.%d out of data\n",
-+		 rev->major, rev->minor, rev->subminor);
-+	dev_info(mlxsw_sp->bus_info->dev, "Upgrading firmware using file %s\n",
-+		 MLXSW_SP_FW_FILENAME);
-+
-+	err = request_firmware_direct(&firmware, MLXSW_SP_FW_FILENAME,
-+				      mlxsw_sp->bus_info->dev);
-+	if (err) {
-+		dev_err(mlxsw_sp->bus_info->dev, "Could not request firmware file %s\n",
-+			MLXSW_SP_FW_FILENAME);
-+		return err;
-+	}
-+
-+	err = mlxsw_sp_firmware_flash(mlxsw_sp, firmware);
-+	release_firmware(firmware);
-+	return err;
++	if (p_update_handle)
++		*p_update_handle = mlxsw_reg_mcc_update_handle_get(payload);
++	if (p_error_code)
++		*p_error_code = mlxsw_reg_mcc_error_code_get(payload);
++	if (p_control_state)
++		*p_control_state = mlxsw_reg_mcc_control_state_get(payload);
 +}
 +
- int mlxsw_sp_flow_counter_get(struct mlxsw_sp *mlxsw_sp,
- 			      unsigned int counter_index, u64 *packets,
- 			      u64 *bytes)
-@@ -3600,6 +3652,12 @@ static int mlxsw_sp_init(struct mlxsw_core *mlxsw_core,
- 	INIT_LIST_HEAD(&mlxsw_sp->fids);
- 	INIT_LIST_HEAD(&mlxsw_sp->vfids.list);
- 
-+	err = mlxsw_sp_fw_rev_validate(mlxsw_sp);
-+	if (err) {
-+		dev_err(mlxsw_sp->bus_info->dev, "Could not upgrade firmware\n");
-+		return err;
-+	}
-+
- 	err = mlxsw_sp_base_mac_get(mlxsw_sp);
- 	if (err) {
- 		dev_err(mlxsw_sp->bus_info->dev, "Failed to get base mac\n");
-@@ -4971,3 +5029,4 @@ MODULE_LICENSE("Dual BSD/GPL");
- MODULE_AUTHOR("Jiri Pirko <jiri@mellanox.com>");
- MODULE_DESCRIPTION("Mellanox Spectrum driver");
- MODULE_DEVICE_TABLE(pci, mlxsw_sp_pci_id_table);
-+MODULE_FIRMWARE(MLXSW_SP_FW_FILENAME);
+ /* MPSC - Monitoring Packet Sampling Configuration Register
+  * --------------------------------------------------------
+  * MPSC Register is used to configure the Packet Sampling mechanism.
+@@ -6305,6 +6387,7 @@ static const struct mlxsw_reg_info *mlxsw_reg_infos[] = {
+ 	MLXSW_REG(mlcr),
+ 	MLXSW_REG(mpsc),
+ 	MLXSW_REG(mcqi),
++	MLXSW_REG(mcc),
+ 	MLXSW_REG(mgpc),
+ 	MLXSW_REG(sbpr),
+ 	MLXSW_REG(sbcm),
 -- 
 2.9.3
