@@ -1,38 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 netdev] net: phy: marvell: Limit errata to 88m1101
-Date: Tue, 23 May 2017 11:19:17 -0400 (EDT)
-Message-ID: <20170523.111917.1861537319570026837.davem@davemloft.net>
-References: <1495495713-28374-1-git-send-email-andrew@lunn.ch>
+From: Randy Dunlap <rdunlap@infradead.org>
+Subject: [PATCH] net/phy: fix mdio-octeon dependency and build
+Date: Tue, 23 May 2017 08:19:49 -0700
+Message-ID: <c37b4171-e3f2-c5cc-d734-6e1688c964f5@infradead.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: danielwa@cisco.com, harini.katakam@xilinx.com,
-        f.fainelli@gmail.com, netdev@vger.kernel.org
-To: andrew@lunn.ch
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:36198 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933289AbdEWPTV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 23 May 2017 11:19:21 -0400
-In-Reply-To: <1495495713-28374-1-git-send-email-andrew@lunn.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: LKML <linux-kernel@vger.kernel.org>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Andrew Lunn <andrew@lunn.ch>
-Date: Tue, 23 May 2017 01:28:33 +0200
+From: Randy Dunlap <rdunlap@infradead.org>
 
-> The 88m1101 has an errata when configuring autoneg. However, it was
-> being applied to many other Marvell PHYs as well. Limit its scope to
-> just the 88m1101.
-> 
-> Fixes: 76884679c644 ("phylib: Add support for Marvell 88e1111S and 88e1145")
-> Reported-by: Daniel Walker <danielwa@cisco.com>
-> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+Fix build errors by making this driver depend on OF_MDIO, like
+several other similar drivers do.
 
-This patch is targetting 'net' but you generated it against 'net-next'
-which had a comment formatting change made recently so this patch won't
-apply to 'net'.
+drivers/built-in.o: In function `octeon_mdiobus_remove':
+mdio-octeon.c:(.text+0x196ee0): undefined reference to `mdiobus_unregister'
+mdio-octeon.c:(.text+0x196ee8): undefined reference to `mdiobus_free'
+drivers/built-in.o: In function `octeon_mdiobus_probe':
+mdio-octeon.c:(.text+0x196f1d): undefined reference to `devm_mdiobus_alloc_size'
+mdio-octeon.c:(.text+0x196ffe): undefined reference to `of_mdiobus_register'
+mdio-octeon.c:(.text+0x197010): undefined reference to `mdiobus_free'
 
-Please respin against 'net'.
+Signed-off-by: Randy Dunlap <rdunlap@infradead.org>
+Cc:	Andrew Lunn <andrew@lunn.ch>
+Cc:	Florian Fainelli <f.fainelli@gmail.com>
+---
+ drivers/net/phy/Kconfig |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Thanks.
+Found in linux-next but applies to mainline also.
+
+--- linux-next-20170523.orig/drivers/net/phy/Kconfig
++++ linux-next-20170523/drivers/net/phy/Kconfig
+@@ -108,7 +108,7 @@ config MDIO_MOXART
+ config MDIO_OCTEON
+ 	tristate "Octeon and some ThunderX SOCs MDIO buses"
+ 	depends on 64BIT
+-	depends on HAS_IOMEM
++	depends on HAS_IOMEM && OF_MDIO
+ 	select MDIO_CAVIUM
+ 	help
+ 	  This module provides a driver for the Octeon and ThunderX MDIO
