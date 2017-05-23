@@ -1,56 +1,52 @@
-From: Daniel Walker <danielwa@cisco.com>
-Subject: Re: [PATCH v2 netdev] net: phy: marvell: Limit errata to 88m1101
-Date: Tue, 23 May 2017 07:00:10 -0700
-Message-ID: <c1e1255b-0a95-2af3-f7de-1eeee0ea54cc@cisco.com>
-References: <1495495713-28374-1-git-send-email-andrew@lunn.ch>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] tipc: Delete error messages for failed memory
+ allocations in three functions
+Date: Tue, 23 May 2017 07:02:13 -0700
+Message-ID: <1495548133.2093.58.camel@perches.com>
+References: <7ac9d513-6f9f-a096-e68f-81a722c2723c@users.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Harini Katakam <harini.katakam@xilinx.com>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        netdev <netdev@vger.kernel.org>
-To: Andrew Lunn <andrew@lunn.ch>, David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rcdn-iport-1.cisco.com ([173.37.86.72]:40095 "EHLO
-        rcdn-iport-1.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S966262AbdEWOAO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 23 May 2017 10:00:14 -0400
-In-Reply-To: <1495495713-28374-1-git-send-email-andrew@lunn.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: LKML <linux-kernel@vger.kernel.org>,
+        kernel-janitors@vger.kernel.org
+To: SF Markus Elfring <elfring@users.sourceforge.net>,
+        tipc-discussion@lists.sourceforge.net, netdev@vger.kernel.org,
+        "David S. Miller" <davem@davemloft.net>,
+        Jon Maloy <jon.maloy@ericsson.com>,
+        Ying Xue <ying.xue@windriver.com>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <7ac9d513-6f9f-a096-e68f-81a722c2723c@users.sourceforge.net>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 05/22/2017 04:28 PM, Andrew Lunn wrote:
-> The 88m1101 has an errata when configuring autoneg. However, it was
-> being applied to many other Marvell PHYs as well. Limit its scope to
-> just the 88m1101.
->
-> Fixes: 76884679c644 ("phylib: Add support for Marvell 88e1111S and 88e1145")
-> Reported-by: Daniel Walker <danielwa@cisco.com>
-> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
-> ---
->
-> v2:
-> 	Forgot netdev
->
->   drivers/net/phy/marvell.c | 67 ++++++++++++++++++++++++++---------------------
->   1 file changed, 37 insertions(+), 30 deletions(-)
->
-> diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
-> index 88cd97b44ba6..77221d3f254f 100644
-> --- a/drivers/net/phy/marvell.c
-> +++ b/drivers/net/phy/marvell.c
-> @@ -267,35 +267,6 @@ static int marvell_config_aneg(struct phy_device *phydev)
->   {
->   	int err;
->   
-> -	/* The Marvell PHY has an errata which requires
-> -	 * that certain registers get written in order
-> -	 * to restart autonegotiation
-> -	 */
-> -	err = phy_write(phydev, MII_BMCR, BMCR_RESET);
-> -
+On Tue, 2017-05-23 at 15:07 +0200, SF Markus Elfring wrote:
+> From: Markus Elfring <elfring@users.sourceforge.net>
+> Date: Tue, 23 May 2017 14:45:25 +0200
+> 
+> Omit four extra messages for memory allocation failures in these functions.
 
-It looks fine to me, but I'm not sure if this line BMCR_RESET was part 
-of the errata or the comment. I guess it's OK to assume it tho.
+This is fine but you should look to optimize or figure out
+whether optimization is desirable for the effective realloc.
 
-Danie.
+> diff --git a/net/tipc/name_table.c b/net/tipc/name_table.c
+[]
+> @@ -270,11 +268,9 @@ static struct publication *tipc_nameseq_insert_publ(struct net *net,
+>  		if (nseq->first_free == nseq->alloc) {
+>  			struct sub_seq *sseqs = tipc_subseq_alloc(nseq->alloc * 2);
+>  
+> -			if (!sseqs) {
+> -				pr_warn("Cannot publish {%u,%u,%u}, no memory\n",
+> -					type, lower, upper);
+> +			if (!sseqs)
+>  				return NULL;
+> -			}
+> +
+>  			memcpy(sseqs, nseq->sseqs,
+>  			       nseq->alloc * sizeof(struct sub_seq));
+
+tipc_subseq_alloc does a kcalloc (memset to 0),
+half of which is immediately overwritten.
+
+In other words, don't just blindly remove stuff,
+understand what it does and improve it.
+
