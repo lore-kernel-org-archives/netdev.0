@@ -1,45 +1,73 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: [PATCH net v2 1/2] net: ieee802154: remove explicit set skb->sk
-Date: Tue, 23 May 2017 11:06:26 -0700
-Message-ID: <B3524543-D8CC-4BC8-AE22-4C228C14BFB8@holtmann.org>
-References: <1495516865-17019-1-git-send-email-xiaolou4617@gmail.com>
-Mime-Version: 1.0 (Mac OS X Mail 10.3 \(3273\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Alexander Aring <aar@pengutronix.de>,
-        Stefan Schmidt <stefan@osg.samsung.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        linux-wpan@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Lin Zhang <xiaolou4617@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from coyote.holtmann.net ([212.227.132.17]:46256 "EHLO
-        mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1761012AbdEWSGc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 23 May 2017 14:06:32 -0400
-In-Reply-To: <1495516865-17019-1-git-send-email-xiaolou4617@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Enric Balletbo i Serra <enric.balletbo@collabora.com>
+Subject: [PATCH] brcmfmac: Fix kernel oops on resume when request firmware fails.
+Date: Tue, 23 May 2017 20:07:33 +0200
+Message-ID: <20170523180733.26276-1-enric.balletbo@collabora.com>
+Cc: brcm80211-dev-list.pdl@broadcom.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        Hante Meuleman <hante.meuleman@broadcom.com>,
+        Christian Daudt <csd@broadcom.com>
+To: Arend van Spriel <arend.vanspriel@broadcom.com>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        linux-wireless@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Lin,
+When request firmware fails, brcmf_ops_sdio_remove is being called and
+brcmf_bus freed. In such circumstancies if you do a suspend/resume cycle
+the kernel hangs on resume due a NULL pointer dereference in resume
+function.
 
-> Explicit set skb->sk is needless, sock_alloc_send_skb is already set it.
-> 
-> Signed-off-by: Lin Zhang <xiaolou4617@gmail.com>
-> Acked-by: Stefan Schmidt <stefan@osg.samsung.com>
-> ---
-> changelog:
-> 
-> v1 -> v2:
->        * split v1 into two patches, per Stefan Schmidt.
-> 
-> Thanks to Stefan Schmidt for reviewing !
-> ---
-> net/ieee802154/socket.c | 2 --
-> 1 file changed, 2 deletions(-)
+Steps to reproduce the problem:
+ - modprobe brcmfmac without the firmware
+     brcmfmac mmc1:0001:1: Direct firmware load for brcm/brcmfmac4354-sdio.bin
+     failed with error -2
+ - do a suspend/resume cycle (echo mem > /sys/power/state)
 
-patch has been applied to bluetooth-next tree.
+Protect against the NULL pointer derefence by checking if dev_get_drvdata
+returned a valid pointer.
 
-Regards
+Signed-off-by: Enric Balletbo i Serra <enric.balletbo@collabora.com>
+---
+I'm not sure about if this is the correct way to fix this but at least it
+prevents the kernel to hang. From one side I'm not sure why suspend/resume
+functions are called in such case and why the device is not removed from
+the bus, from the other side I saw, that others drivers only unregisters
+from sdio when the driver is removed so I supose this is the normal behavior.
 
-Marcel
+Cheers,
+ Enric
+
+ drivers/net/wireless/broadcom/brcm80211/brcmfmac/bcmsdh.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/bcmsdh.c b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/bcmsdh.c
+index 9b970dc..aa0e7c2 100644
+--- a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/bcmsdh.c
++++ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/bcmsdh.c
+@@ -1274,14 +1274,16 @@ static int brcmf_ops_sdio_suspend(struct device *dev)
+ static int brcmf_ops_sdio_resume(struct device *dev)
+ {
+ 	struct brcmf_bus *bus_if = dev_get_drvdata(dev);
+-	struct brcmf_sdio_dev *sdiodev = bus_if->bus_priv.sdio;
+ 	struct sdio_func *func = container_of(dev, struct sdio_func, dev);
+ 
+ 	brcmf_dbg(SDIO, "Enter: F%d\n", func->num);
+ 	if (func->num != SDIO_FUNC_2)
+ 		return 0;
+ 
+-	brcmf_sdiod_freezer_off(sdiodev);
++	if (!bus_if)
++		return 0;
++
++	brcmf_sdiod_freezer_off(bus_if->bus_priv.sdio);
+ 	return 0;
+ }
+ 
+@@ -1319,4 +1321,3 @@ void brcmf_sdio_exit(void)
+ 
+ 	sdio_unregister_driver(&brcmf_sdmmc_driver);
+ }
+-
+-- 
+2.9.3
