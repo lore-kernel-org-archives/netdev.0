@@ -1,138 +1,66 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH 2/5] xfrm: fix stack access out of bounds with CONFIG_XFRM_SUB_POLICY
-Date: Tue, 23 May 2017 07:33:41 +0200
-Message-ID: <1495517624-27096-3-git-send-email-steffen.klassert@secunet.com>
-References: <1495517624-27096-1-git-send-email-steffen.klassert@secunet.com>
+From: Kees Cook <keescook@chromium.org>
+Subject: Re: arch: arm: bpf: Converting cBPF to eBPF for arm 32 bit
+Date: Mon, 22 May 2017 22:35:20 -0700
+Message-ID: <CAGXu5jKDMUxRivMZdEQSBs81dkKRn5hRUiOz_wybCyphFFy+RQ@mail.gmail.com>
+References: <CAHgaXdKsO2xoKYp7g91g+n+d_1KHSSByLjzBB-WjVXSjhB7qxw@mail.gmail.com>
+ <20170510.212952.1440495072777358778.davem@davemloft.net> <CAHgaXdK8LEEUPm4jTRRzCnjwdWAauHmmB=caZsSFY8MmStH89Q@mail.gmail.com>
+ <20170510.215218.2185526627014393313.davem@davemloft.net> <CAHgaXdKZ_v+iO7uqEDx7PA7D+xcp1FngGvJ1SRSsGXNQ-iWWDQ@mail.gmail.com>
+ <CAHgaXdLJoVUXXGTYs7FYXay5wx=sA-O+=dYhX+r7AQT7vSNfGQ@mail.gmail.com>
+ <CAGXu5j+2q4Wwfhuk_DnDaV894A9ZOD=A_AvAU_OZG6KQv0_KMg@mail.gmail.com>
+ <CAHgaXdL7GcVzs+ANPke_NywhcgHbe_fzi1sTDEy+Ni1-o82GYQ@mail.gmail.com>
+ <591A07A1.1030006@iogearbox.net> <CAHgaXdKKbRVSpX-036TXpV5z=1=QCnPoku0+CeHxHco8-aasPQ@mail.gmail.com>
+ <CAGXu5j+k+NMQGmmhuW-4pHFd6agfndJfxQ9k--h+ZpsDBVB8ig@mail.gmail.com>
+ <8c53012b-cb81-5228-de79-f55457d1cf69@gmail.com> <CAHgaXdL2qReJF1Aw08k3C+OiC-3AOy3VeYmQ1Hs7vKcrfGQnvA@mail.gmail.com>
+ <CAGXu5jKwTDYeNQggezzSKkFzZQkroC+6SdBB0qUKh5crfNk8PA@mail.gmail.com> <CAHgaXdKqt3mZmPG78w+4g_17D8EQoBgAZeuqM+MMsQg2f7apsw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-        Steffen Klassert <steffen.klassert@secunet.com>,
-        <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        "kernel-hardening@lists.openwall.com"
+        <kernel-hardening@lists.openwall.com>,
+        Network Development <netdev@vger.kernel.org>, ast@fb.com,
+        Mircea Gherzan <mgherzan@gmail.com>,
+        David Miller <davem@davemloft.net>,
+        "linux-arm-kernel@lists.infradead.org"
+        <linux-arm-kernel@lists.infradead.org>,
+        Nicolas Schichan <nschichan@freebox.fr>, andrew@lunn.ch
+To: Shubham Bansal <illusionist.neo@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:45138 "EHLO a.mx.secunet.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S934697AbdEWFdy (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 23 May 2017 01:33:54 -0400
-In-Reply-To: <1495517624-27096-1-git-send-email-steffen.klassert@secunet.com>
+Received: from mail-it0-f46.google.com ([209.85.214.46]:36900 "EHLO
+        mail-it0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753820AbdEWFfW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 23 May 2017 01:35:22 -0400
+Received: by mail-it0-f46.google.com with SMTP id g126so13445191ith.0
+        for <netdev@vger.kernel.org>; Mon, 22 May 2017 22:35:21 -0700 (PDT)
+In-Reply-To: <CAHgaXdKqt3mZmPG78w+4g_17D8EQoBgAZeuqM+MMsQg2f7apsw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sabrina Dubroca <sd@queasysnail.net>
+On Mon, May 22, 2017 at 10:03 PM, Shubham Bansal
+<illusionist.neo@gmail.com> wrote:
+> On Tue, May 23, 2017 at 9:52 AM, Kees Cook <keescook@chromium.org> wrote:
+>> On Mon, May 22, 2017 at 8:34 PM, Shubham Bansal
+>> <illusionist.neo@gmail.com> wrote:
+>>> I would post them as soon as I test them on ARMv5 and ARMv6. If you
+>>> can help me with that, please let me know.
+>>
+>> Please post what you have: it would be better to see what you've got
+>> now in case additional changes are needed so you don't have to do it
+>> again on v5 and v6. Also, it means other people with real v5 and v6
+>> hardware could test for you if they were so inclined, and you won't
+>> need to be blocked on doing the tests in qemu.
+>>
+>> You can send it as an "RFC" in the subject, just to make sure people
+>> know it's not considered fully done. :)
+>
+> I already have ARMv5 and ARMv6 code written. I just haven't tested it
+> yet. Should i send the patch with those as well ?
 
-When CONFIG_XFRM_SUB_POLICY=y, xfrm_dst stores a copy of the flowi for
-that dst. Unfortunately, the code that allocates and fills this copy
-doesn't care about what type of flowi (flowi, flowi4, flowi6) gets
-passed. In multiple code paths (from raw_sendmsg, from TCP when
-replying to a FIN, in vxlan, geneve, and gre), the flowi that gets
-passed to xfrm is actually an on-stack flowi4, so we end up reading
-stuff from the stack past the end of the flowi4 struct.
+Sure, just to have a version up for people to examine. If there are
+bugs, that's fine, we'll iron them out.
 
-Since xfrm_dst->origin isn't used anywhere following commit
-ca116922afa8 ("xfrm: Eliminate "fl" and "pol" args to
-xfrm_bundle_ok()."), just get rid of it.  xfrm_dst->partner isn't used
-either, so get rid of that too.
+-Kees
 
-Fixes: 9d6ec938019c ("ipv4: Use flowi4 in public route lookup interfaces.")
-Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
-Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
----
- include/net/xfrm.h     | 10 ----------
- net/xfrm/xfrm_policy.c | 47 -----------------------------------------------
- 2 files changed, 57 deletions(-)
-
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index 6793a30c..7e7e2b0 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -979,10 +979,6 @@ struct xfrm_dst {
- 	struct flow_cache_object flo;
- 	struct xfrm_policy *pols[XFRM_POLICY_TYPE_MAX];
- 	int num_pols, num_xfrms;
--#ifdef CONFIG_XFRM_SUB_POLICY
--	struct flowi *origin;
--	struct xfrm_selector *partner;
--#endif
- 	u32 xfrm_genid;
- 	u32 policy_genid;
- 	u32 route_mtu_cached;
-@@ -998,12 +994,6 @@ static inline void xfrm_dst_destroy(struct xfrm_dst *xdst)
- 	dst_release(xdst->route);
- 	if (likely(xdst->u.dst.xfrm))
- 		xfrm_state_put(xdst->u.dst.xfrm);
--#ifdef CONFIG_XFRM_SUB_POLICY
--	kfree(xdst->origin);
--	xdst->origin = NULL;
--	kfree(xdst->partner);
--	xdst->partner = NULL;
--#endif
- }
- #endif
- 
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index b00a1d5..ed4e52d 100644
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -1797,43 +1797,6 @@ static struct dst_entry *xfrm_bundle_create(struct xfrm_policy *policy,
- 	goto out;
- }
- 
--#ifdef CONFIG_XFRM_SUB_POLICY
--static int xfrm_dst_alloc_copy(void **target, const void *src, int size)
--{
--	if (!*target) {
--		*target = kmalloc(size, GFP_ATOMIC);
--		if (!*target)
--			return -ENOMEM;
--	}
--
--	memcpy(*target, src, size);
--	return 0;
--}
--#endif
--
--static int xfrm_dst_update_parent(struct dst_entry *dst,
--				  const struct xfrm_selector *sel)
--{
--#ifdef CONFIG_XFRM_SUB_POLICY
--	struct xfrm_dst *xdst = (struct xfrm_dst *)dst;
--	return xfrm_dst_alloc_copy((void **)&(xdst->partner),
--				   sel, sizeof(*sel));
--#else
--	return 0;
--#endif
--}
--
--static int xfrm_dst_update_origin(struct dst_entry *dst,
--				  const struct flowi *fl)
--{
--#ifdef CONFIG_XFRM_SUB_POLICY
--	struct xfrm_dst *xdst = (struct xfrm_dst *)dst;
--	return xfrm_dst_alloc_copy((void **)&(xdst->origin), fl, sizeof(*fl));
--#else
--	return 0;
--#endif
--}
--
- static int xfrm_expand_policies(const struct flowi *fl, u16 family,
- 				struct xfrm_policy **pols,
- 				int *num_pols, int *num_xfrms)
-@@ -1905,16 +1868,6 @@ xfrm_resolve_and_create_bundle(struct xfrm_policy **pols, int num_pols,
- 
- 	xdst = (struct xfrm_dst *)dst;
- 	xdst->num_xfrms = err;
--	if (num_pols > 1)
--		err = xfrm_dst_update_parent(dst, &pols[1]->selector);
--	else
--		err = xfrm_dst_update_origin(dst, fl);
--	if (unlikely(err)) {
--		dst_free(dst);
--		XFRM_INC_STATS(net, LINUX_MIB_XFRMOUTBUNDLECHECKERROR);
--		return ERR_PTR(err);
--	}
--
- 	xdst->num_pols = num_pols;
- 	memcpy(xdst->pols, pols, sizeof(struct xfrm_policy *) * num_pols);
- 	xdst->policy_genid = atomic_read(&pols[0]->genid);
 -- 
-2.7.4
+Kees Cook
+Pixel Security
