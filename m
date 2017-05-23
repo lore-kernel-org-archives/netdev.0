@@ -1,47 +1,161 @@
-From: Kees Cook <keescook@chromium.org>
-Subject: Re: [PATCH 0/5] atm: Adjustments for some function implementations
-Date: Mon, 22 May 2017 21:32:27 -0700
-Message-ID: <CAGXu5jLGuH5-dkGd9_JFWAWHUSkubweb-WxD305=n3TORs3-uA@mail.gmail.com>
-References: <49543220-93e4-781c-877b-381277837152@users.sourceforge.net>
+From: Peter Dawson <petedaws@gmail.com>
+Subject: [PATCH net] ip6_tunnel, ip6_gre: fix setting of DSCP on
+ encapsulated packets
+Date: Tue, 23 May 2017 14:36:16 +1000
+Message-ID: <20170523143616.38116e8f@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Network Development <netdev@vger.kernel.org>,
-        Augusto Mecking Caringi <augustocaringi@gmail.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Jarod Wilson <jarod@redhat.com>,
-        Javier Martinez Canillas <javier@osg.samsung.com>,
-        LKML <linux-kernel@vger.kernel.org>,
-        kernel-janitors@vger.kernel.org
-To: SF Markus Elfring <elfring@users.sourceforge.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+To: "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>, stephen@networkplumber.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <49543220-93e4-781c-877b-381277837152@users.sourceforge.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, May 21, 2017 at 1:12 PM, SF Markus Elfring
-<elfring@users.sourceforge.net> wrote:
-> From: Markus Elfring <elfring@users.sourceforge.net>
-> Date: Sun, 21 May 2017 22:09:11 +0200
->
-> A few update suggestions were taken into account
-> from static source code analysis.
->
-> Markus Elfring (5):
->   Improve a size determination in four functions
->   Delete an error message for a failed memory allocation in make_entry()
->   Adjust 19 checks for null pointers
->   Use seq_puts() in lec_info()
->   Use seq_putc() in lec_info()
->
->  net/atm/lec.c | 55 +++++++++++++++++++++++++++----------------------------
->  1 file changed, 27 insertions(+), 28 deletions(-)
+This fix addresses two problems in the way the DSCP field is formulated
+ on the encapsulating header of IPv6 tunnels.
 
-These all look fine to me. Thanks!
+1) The IPv6 tunneling code was manipulating the DSCP field of the
+ encapsulating packet using the 32b flowlabel. Since the flowlabel is
+ only the lower 20b it was incorrect to assume that the upper 12b
+ containing the DSCP and ECN fields would remain intact when formulating
+ the encapsulating header. This fix handles the 'inherit' and
+ 'fixed-value' DSCP cases explicitly using the extant dsfield u8 variable.
 
-Reviewed-by: Kees Cook <keescook@chromium.org>
+2) The use of INET_ECN_encapsulate(0, dsfield) in ip6_tnl_xmit was
+ incorrect and resulted in the DSCP value always being set to 0.
 
--Kees
+Fixes: https://bugzilla.kernel.org/show_bug.cgi?id=195661
+Signed-off-by: Peter Dawson <peter.a.dawson@boeing.com>
+---
+ net/ipv6/ip6_gre.c    | 13 +++++++------
+ net/ipv6/ip6_tunnel.c | 21 +++++++++++++--------
+ 2 files changed, 20 insertions(+), 14 deletions(-)
 
+diff --git a/net/ipv6/ip6_gre.c b/net/ipv6/ip6_gre.c
+index 8d128ba..0c5b4caa 100644
+--- a/net/ipv6/ip6_gre.c
++++ b/net/ipv6/ip6_gre.c
+@@ -537,11 +537,10 @@ static inline int ip6gre_xmit_ipv4(struct sk_buff *skb, struct net_device *dev)
+ 
+ 	memcpy(&fl6, &t->fl.u.ip6, sizeof(fl6));
+ 
+-	dsfield = ipv4_get_dsfield(iph);
+-
+ 	if (t->parms.flags & IP6_TNL_F_USE_ORIG_TCLASS)
+-		fl6.flowlabel |= htonl((__u32)iph->tos << IPV6_TCLASS_SHIFT)
+-					  & IPV6_TCLASS_MASK;
++		dsfield = ipv4_get_dsfield(iph);
++	else
++		dsfield = ip6_tclass(t->parms.flowinfo);
+ 	if (t->parms.flags & IP6_TNL_F_USE_ORIG_FWMARK)
+ 		fl6.flowi6_mark = skb->mark;
+ 	else
+@@ -598,9 +597,11 @@ static inline int ip6gre_xmit_ipv6(struct sk_buff *skb, struct net_device *dev)
+ 
+ 	memcpy(&fl6, &t->fl.u.ip6, sizeof(fl6));
+ 
+-	dsfield = ipv6_get_dsfield(ipv6h);
+ 	if (t->parms.flags & IP6_TNL_F_USE_ORIG_TCLASS)
+-		fl6.flowlabel |= (*(__be32 *) ipv6h & IPV6_TCLASS_MASK);
++		dsfield = ipv6_get_dsfield(ipv6h);
++	else
++		dsfield = ip6_tclass(t->parms.flowinfo);
++
+ 	if (t->parms.flags & IP6_TNL_F_USE_ORIG_FLOWLABEL)
+ 		fl6.flowlabel |= ip6_flowlabel(ipv6h);
+ 	if (t->parms.flags & IP6_TNL_F_USE_ORIG_FWMARK)
+diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
+index 6eb2ae5..7ae6c50 100644
+--- a/net/ipv6/ip6_tunnel.c
++++ b/net/ipv6/ip6_tunnel.c
+@@ -1196,7 +1196,7 @@ int ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev, __u8 dsfield,
+ 	skb_push(skb, sizeof(struct ipv6hdr));
+ 	skb_reset_network_header(skb);
+ 	ipv6h = ipv6_hdr(skb);
+-	ip6_flow_hdr(ipv6h, INET_ECN_encapsulate(0, dsfield),
++	ip6_flow_hdr(ipv6h, dsfield,
+ 		     ip6_make_flowlabel(net, skb, fl6->flowlabel, true, fl6));
+ 	ipv6h->hop_limit = hop_limit;
+ 	ipv6h->nexthdr = proto;
+@@ -1231,8 +1231,6 @@ ip4ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	if (tproto != IPPROTO_IPIP && tproto != 0)
+ 		return -1;
+ 
+-	dsfield = ipv4_get_dsfield(iph);
+-
+ 	if (t->parms.collect_md) {
+ 		struct ip_tunnel_info *tun_info;
+ 		const struct ip_tunnel_key *key;
+@@ -1246,6 +1244,7 @@ ip4ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		fl6.flowi6_proto = IPPROTO_IPIP;
+ 		fl6.daddr = key->u.ipv6.dst;
+ 		fl6.flowlabel = key->label;
++		dsfield = ip6_tclass(key->label);
+ 	} else {
+ 		if (!(t->parms.flags & IP6_TNL_F_IGN_ENCAP_LIMIT))
+ 			encap_limit = t->parms.encap_limit;
+@@ -1254,8 +1253,9 @@ ip4ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		fl6.flowi6_proto = IPPROTO_IPIP;
+ 
+ 		if (t->parms.flags & IP6_TNL_F_USE_ORIG_TCLASS)
+-			fl6.flowlabel |= htonl((__u32)iph->tos << IPV6_TCLASS_SHIFT)
+-					 & IPV6_TCLASS_MASK;
++			dsfield = ipv4_get_dsfield(iph);
++		else
++			dsfield = ip6_tclass(t->parms.flowinfo);
+ 		if (t->parms.flags & IP6_TNL_F_USE_ORIG_FWMARK)
+ 			fl6.flowi6_mark = skb->mark;
+ 		else
+@@ -1267,6 +1267,8 @@ ip4ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	if (iptunnel_handle_offloads(skb, SKB_GSO_IPXIP6))
+ 		return -1;
+ 
++	dsfield = INET_ECN_encapsulate(dsfield, ipv4_get_dsfield(iph));
++
+ 	skb_set_inner_ipproto(skb, IPPROTO_IPIP);
+ 
+ 	err = ip6_tnl_xmit(skb, dev, dsfield, &fl6, encap_limit, &mtu,
+@@ -1300,8 +1302,6 @@ ip6ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	    ip6_tnl_addr_conflict(t, ipv6h))
+ 		return -1;
+ 
+-	dsfield = ipv6_get_dsfield(ipv6h);
+-
+ 	if (t->parms.collect_md) {
+ 		struct ip_tunnel_info *tun_info;
+ 		const struct ip_tunnel_key *key;
+@@ -1315,6 +1315,7 @@ ip6ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		fl6.flowi6_proto = IPPROTO_IPV6;
+ 		fl6.daddr = key->u.ipv6.dst;
+ 		fl6.flowlabel = key->label;
++		dsfield = ip6_tclass(key->label);
+ 	} else {
+ 		offset = ip6_tnl_parse_tlv_enc_lim(skb, skb_network_header(skb));
+ 		/* ip6_tnl_parse_tlv_enc_lim() might have reallocated skb->head */
+@@ -1337,7 +1338,9 @@ ip6ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		fl6.flowi6_proto = IPPROTO_IPV6;
+ 
+ 		if (t->parms.flags & IP6_TNL_F_USE_ORIG_TCLASS)
+-			fl6.flowlabel |= (*(__be32 *)ipv6h & IPV6_TCLASS_MASK);
++			dsfield = ipv6_get_dsfield(ipv6h);
++		else
++			dsfield = ip6_tclass(t->parms.flowinfo);
+ 		if (t->parms.flags & IP6_TNL_F_USE_ORIG_FLOWLABEL)
+ 			fl6.flowlabel |= ip6_flowlabel(ipv6h);
+ 		if (t->parms.flags & IP6_TNL_F_USE_ORIG_FWMARK)
+@@ -1351,6 +1354,8 @@ ip6ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	if (iptunnel_handle_offloads(skb, SKB_GSO_IPXIP6))
+ 		return -1;
+ 
++	dsfield = INET_ECN_encapsulate(dsfield, ipv6_get_dsfield(ipv6h));
++
+ 	skb_set_inner_ipproto(skb, IPPROTO_IPV6);
+ 
+ 	err = ip6_tnl_xmit(skb, dev, dsfield, &fl6, encap_limit, &mtu,
 -- 
-Kees Cook
-Pixel Security
+2.7.4
