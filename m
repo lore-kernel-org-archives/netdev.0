@@ -1,59 +1,45 @@
-From: Vladislav Yasevich <vyasevich@gmail.com>
-Subject: [PATCH V3 net 2/3] be2net: Fix offload features for Q-in-Q packets
-Date: Tue, 23 May 2017 13:38:42 -0400
-Message-ID: <1495561123-1819-3-git-send-email-vyasevic@redhat.com>
-References: <1495561123-1819-1-git-send-email-vyasevic@redhat.com>
-Cc: alexander.duyck@gmail.com, makita.toshiaki@lab.ntt.co.jp,
-        Vladislav Yasevich <vyasevic@redhat.com>,
-        Sathya Perla <sathya.perla@broadcom.com>,
-        Ajit Khaparde <ajit.khaparde@broadcom.com>,
-        Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>,
-        Somnath Kotur <somnath.kotur@broadcom.com>
-To: netdev@vger.kernel.org
+From: Edward Cree <ecree@solarflare.com>
+Subject: Re: Alignment in BPF verifier
+Date: Tue, 23 May 2017 18:43:48 +0100
+Message-ID: <748ff318-84dc-d338-67bd-2fd62ebcf3b8@solarflare.com>
+References: <db8cd2e8-9f51-dc8b-5e55-4c75d13d4858@fb.com>
+ <a0a47297-4765-3ba0-3ea2-013dda40e84a@solarflare.com>
+ <bed5b512-6069-53cc-f128-05be05f89889@solarflare.com>
+ <20170519.163957.1950740987459934279.davem@davemloft.net>
+ <591F7A28.3020004@iogearbox.net>
+ <f882c40e-bd50-f08e-afd8-f6396fc24ebc@solarflare.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: <ast@fb.com>, <alexei.starovoitov@gmail.com>,
+        <netdev@vger.kernel.org>
+To: Daniel Borkmann <daniel@iogearbox.net>,
+        David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f194.google.com ([209.85.216.194]:32981 "EHLO
-        mail-qt0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933876AbdEWRiy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 23 May 2017 13:38:54 -0400
-Received: by mail-qt0-f194.google.com with SMTP id a46so23135340qte.0
-        for <netdev@vger.kernel.org>; Tue, 23 May 2017 10:38:54 -0700 (PDT)
-In-Reply-To: <1495561123-1819-1-git-send-email-vyasevic@redhat.com>
+Received: from dispatch1-us1.ppe-hosted.com ([67.231.154.164]:49121 "EHLO
+        dispatch1-us1.ppe-hosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S933210AbdEWRoC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 23 May 2017 13:44:02 -0400
+In-Reply-To: <f882c40e-bd50-f08e-afd8-f6396fc24ebc@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-At least some of the be2net cards do not seem to be capabled
-of performing checksum offload computions on Q-in-Q packets.
-In these case, the recevied checksum on the remote is invalid
-and TCP syn packets are dropped.
+Another issue: it looks like the min/max_value handling for subtraction is
+ bogus.  In adjust_reg_min_max_vals() we have
+    if (dst_reg->min_value != BPF_REGISTER_MIN_RANGE)
+        dst_reg->min_value -= min_val;
+    if (dst_reg->max_value != BPF_REGISTER_MAX_RANGE)
+        dst_reg->max_value -= max_val;
+ where min_val and max_val refer to the src_reg.
+But surely they should be used the other way round; if (say) 2 <= R1 <= 6
+ and 1 <= R2 <= 4, then this will claim 1 <= (R1 - R2) <= 2, whereas really
+ (R1 - R2) could be anything from -2 to 5.
+This also means that the code just above the switch,
+    if (min_val == BPF_REGISTER_MIN_RANGE)
+        dst_reg->min_value = BPF_REGISTER_MIN_RANGE;
+    if (max_val == BPF_REGISTER_MAX_RANGE)
+        dst_reg->max_value = BPF_REGISTER_MAX_RANGE;
+ is wrong, since e.g. subtracting MAX_RANGE needs to blow our min_value,
+ not our max_value.
 
-This patch adds a call to check disbled acceleration features
-on Q-in-Q tagged traffic.
-
-CC: Sathya Perla <sathya.perla@broadcom.com>
-CC: Ajit Khaparde <ajit.khaparde@broadcom.com>
-CC: Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>
-CC: Somnath Kotur <somnath.kotur@broadcom.com>
-Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
----
- drivers/net/ethernet/emulex/benet/be_main.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index f3a09ab..4eee18c 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -5078,9 +5078,11 @@ static netdev_features_t be_features_check(struct sk_buff *skb,
- 	struct be_adapter *adapter = netdev_priv(dev);
- 	u8 l4_hdr = 0;
- 
--	/* The code below restricts offload features for some tunneled packets.
-+	/* The code below restricts offload features for some tunneled and
-+	 * Q-in-Q packets.
- 	 * Offload features for normal (non tunnel) packets are unchanged.
- 	 */
-+	features = vlan_features_check(skb, features);
- 	if (!skb->encapsulation ||
- 	    !(adapter->flags & BE_FLAGS_VXLAN_OFFLOADS))
- 		return features;
--- 
-2.7.4
+-Ed
