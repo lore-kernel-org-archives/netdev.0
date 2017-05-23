@@ -1,44 +1,41 @@
-From: Udo van den Heuvel <udovdh@xs4all.nl>
-Subject: Re: VIA velocity hang: how to find cause?
-Date: Tue, 23 May 2017 16:18:26 +0200
-Message-ID: <5ffda36b-27b7-4cbd-a0a0-5eb40c09b8bb@xs4all.nl>
-References: <f4959412-4faf-abee-69b7-2f416379390a@xs4all.nl>
+From: David Miller <davem@davemloft.net>
+Subject: Re: pull request (net): ipsec 2017-05-23
+Date: Tue, 23 May 2017 10:54:21 -0400 (EDT)
+Message-ID: <20170523.105421.498858429985702866.davem@davemloft.net>
+References: <1495517624-27096-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
+To: steffen.klassert@secunet.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pindarots.xs4all.nl ([82.161.210.87]:45774 "EHLO
-        pindarots.xs4all.nl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S968188AbdEWOtG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 23 May 2017 10:49:06 -0400
-Received: from surfplank2.hierzo (localhost.localdomain [127.0.0.1])
-        by pindarots.xs4all.nl (8.15.2/8.14.5) with ESMTPS id v4NEIQ92018396
-        (version=TLSv1.2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128 verify=NO)
-        for <netdev@vger.kernel.org>; Tue, 23 May 2017 16:18:26 +0200
-In-Reply-To: <f4959412-4faf-abee-69b7-2f416379390a@xs4all.nl>
+Received: from shards.monkeyblade.net ([184.105.139.130]:35784 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S968285AbdEWOy0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 23 May 2017 10:54:26 -0400
+In-Reply-To: <1495517624-27096-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Date: Tue, 23 May 2017 07:33:39 +0200
 
-The issue persists.
-If this is not the right venue, then where would I best go to ask
-questions to solve the issue?
+> 1) Fix wrong header offset for esp4 udpencap packets.
+> 
+> 2) Fix a stack access out of bounds when creating a bundle
+>    with sub policies. From Sabrina Dubroca.
+> 
+> 3) Fix slab-out-of-bounds in pfkey due to an incorrect
+>    sadb_x_sec_len calculation.
+> 
+> 4) We checked the wrong feature flags when taking down
+>    an interface with IPsec offload enabled.
+>    Fix from Ilan Tayari.
+> 
+> 5) Copy the anti replay sequence numbers when doing a state
+>    migration, otherwise we get out of sync with the sequence
+>    numbers. Fix from Antony Antony.
+> 
+> Please pull or let me know if there are problems.
 
-Kind regards,
-Udo
-
-On 03-03-17 13:56, Udo van den Heuvel wrote:
-> Hello,
-> 
-> I noticed at least twice that a VIA velocity interface stops functioning
-> without reason but is revived after and `ifdown eth0; ifup eth0`.
-> No errors are shown in dmesg or /var/log/messages w.r.t. the interface.
-> How to find the root cause?
-> 
-> This is with kernel 4.4.48 and .50.
-> 
-> Kind regards,
-> Udo
-> 
+Pulled, thank you.
