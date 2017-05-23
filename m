@@ -1,29 +1,30 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] enic: unmask intr only when napi is complete
-Date: Tue, 23 May 2017 11:06:08 -0400 (EDT)
-Message-ID: <20170523.110608.1602668006680330478.davem@davemloft.net>
-References: <20170522191948.1397-1-gvaradar@cisco.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next 0/5] add tcp flags match support to flower and
+ offload it
+Date: Tue, 23 May 2017 17:11:20 +0200
+Message-ID: <20170523151120.GH1829@nanopsycho>
+References: <20170523143110.5006-1-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, benve@cisco.com
-To: gvaradar@cisco.com
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
+        simon.horman@netronome.com, mlxsw@mellanox.com, idosch@mellanox.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:35998 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933515AbdEWPGM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 23 May 2017 11:06:12 -0400
-In-Reply-To: <20170522191948.1397-1-gvaradar@cisco.com>
+Received: from mail-wm0-f53.google.com ([74.125.82.53]:36749 "EHLO
+        mail-wm0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1764371AbdEWPLW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 23 May 2017 11:11:22 -0400
+Received: by mail-wm0-f53.google.com with SMTP id 7so28269564wmo.1
+        for <netdev@vger.kernel.org>; Tue, 23 May 2017 08:11:22 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20170523143110.5006-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Govindarajulu Varadarajan <gvaradar@cisco.com>
-Date: Mon, 22 May 2017 12:19:48 -0700
+Tue, May 23, 2017 at 04:31:05PM CEST, jiri@resnulli.us wrote:
+>From: Jiri Pirko <jiri@mellanox.com>
+>
+>This patch adds support to dissect tcp flags, match on them using
+>flower classifier and offload such rules to mlxsw Spectrum devices.
 
-> In case of busy poll, napi_complete_done returns false and does not
-> dequeue napi. In this case do not unmask the intr. We are guaranteed
-> napi is called again. This reduces unnecessary iowrites.
-> 
-> Signed-off-by: Govindarajulu Varadarajan <gvaradar@cisco.com>
-
-Looks good, applied, thank you.
+I shifted the git format patch one commit. Will send v2. Sorry.
