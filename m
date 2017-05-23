@@ -1,74 +1,37 @@
-From: Alexei Starovoitov <ast@fb.com>
-Subject: Re: [PATCH net-next 1/2] perf, bpf: add support for HW_CACHE and RAW
- events
-Date: Tue, 23 May 2017 10:05:05 -0700
-Message-ID: <36cf20a4-528e-6aa0-a440-2ed6ada9754f@fb.com>
-References: <20170522224840.810121-1-ast@fb.com>
- <20170522224840.810121-2-ast@fb.com>
- <20170523074247.esnr4fj2squn4w2d@hirez.programming.kicks-ass.net>
- <b25f4d02-70c1-43ce-8bf1-9b89e573add6@fb.com>
- <20170523163134.saalqlizp5opc5tz@hirez.programming.kicks-ass.net>
+From: administrador <administrator@ancol.com>
+Subject: =?utf-8?b?QVRFTkNJw5NO?=
+Date: Tue, 23 May 2017 20:32:37 +0530
+Message-ID: <20170523150301.4EDEF180112A17@mail.bawaslu.go.id>
+Reply-To: Sistemass_Adminss@mail2world.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S . Miller" <davem@davemloft.net>,
-        Brendan Gregg <bgregg@netflix.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Teng Qin <qinteng@fb.com>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>, <kernel-team@fb.com>
-To: Peter Zijlstra <peterz@infradead.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170523163134.saalqlizp5opc5tz@hirez.programming.kicks-ass.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: 8BIT
+To: Recipients <administrator@ancol.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.bawaslu.go.id ([103.249.227.154]:47114 "EHLO
+        mail.bawaslu.go.id" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752668AbdEWRJB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 23 May 2017 13:09:01 -0400
+Content-Description: Mail message body
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 5/23/17 9:31 AM, Peter Zijlstra wrote:
-> On Tue, May 23, 2017 at 07:38:08AM -0700, Alexei Starovoitov wrote:
->> On 5/23/17 12:42 AM, Peter Zijlstra wrote:
->>> On Mon, May 22, 2017 at 03:48:39PM -0700, Alexei Starovoitov wrote:
->>>> From: Teng Qin <qinteng@fb.com>
->>>>
->>>> This commit adds support for attach BPF program to RAW and HW_CACHE type
->>>> events, and support for read HW_CACHE type event counters in BPF
->>>> program. Existing code logic already supports them, so this commit is
->>>> just update Enum value checks.
->>>
->>> So what I'm missing is why they were not supported previously, and what
->>> changed to allow it now.
->>
->> that code path simply wasn't tested previously. Nothing changed on
->> bpf side and on perf side.
->> Why it wasn't added on day one? There was no demand. Now people
->> use bpf more and more and few folks got confused that these types
->> of perf events were not supported, hence we're adding it.
->
-> OK. Is there anything stopping people from wanting to use the dynamic
-> types, as found in:
->
->   /sys/bus/event_source/devices/*/type
->
-> ?
->
-> In which case, do we want something like this instead?
->
->
-> diff --git a/kernel/events/core.c b/kernel/events/core.c
-> index 971f7259108f..4aa5f3011cf8 100644
-> --- a/kernel/events/core.c
-> +++ b/kernel/events/core.c
-> @@ -8063,12 +8063,8 @@ static int perf_event_set_bpf_prog(struct perf_event *event, u32 prog_fd)
->  	bool is_kprobe, is_tracepoint;
->  	struct bpf_prog *prog;
->
-> -	if (event->attr.type == PERF_TYPE_HARDWARE ||
-> -	    event->attr.type == PERF_TYPE_SOFTWARE)
-> -		return perf_event_set_bpf_handler(event, prog_fd);
-> -
->  	if (event->attr.type != PERF_TYPE_TRACEPOINT)
-> -		return -EINVAL;
-> +		return perf_event_set_bpf_handler(event, prog_fd);
+ATENCIÓN;
 
-Good point. We were actually looking at how to deal with msr and cstate
-events. That should indeed address it.
-Will respin.
-Thanks for the feedback!
+Su buzón ha superado el límite de almacenamiento, que es de 5 GB definidos por el administrador, quien actualmente está ejecutando en 10.9GB, no puede ser capaz de enviar o recibir correo nuevo hasta que vuelva a validar su buzón de correo electrónico. Para revalidar su buzón de correo, envíe la siguiente información a continuación:
+
+nombre: 
+Nombre de usuario:
+contraseña:
+Confirmar contraseña:
+E-mail:
+teléfono
+
+Si usted no puede revalidar su buzón, el buzón se deshabilitará!
+
+Disculpa las molestias.
+ Código de verificación: es: 006524
+Correo Soporte Técnico © 2017
+
+¡gracias
+Sistemas administrador
