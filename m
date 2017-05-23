@@ -1,48 +1,45 @@
-From: Harini Katakam <harini.katakam@xilinx.com>
-Subject: RE: [PATCH v2 netdev] net: phy: marvell: Limit errata to 88m1101
-Date: Tue, 23 May 2017 05:49:33 +0000
-Message-ID: <A00F2239C6748D4289A006FCD55C6D126F1C6183@XAP-PVEXMBX01.xlnx.xilinx.com>
-References: <1495495713-28374-1-git-send-email-andrew@lunn.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: Daniel Walker <danielwa@cisco.com>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        netdev <netdev@vger.kernel.org>,
-        "harinikatakamlinux@gmail.com" <harinikatakamlinux@gmail.com>
-To: Andrew Lunn <andrew@lunn.ch>, David Miller <davem@davemloft.net>
+From: Xin Long <lucien.xin@gmail.com>
+Subject: [PATCH net-next] sctp: no need to check asoc_id before calling sctp_assoc_set_id
+Date: Tue, 23 May 2017 14:30:32 +0800
+Message-ID: <8ccb4ee656bcdfa790e4f3ee919bb300e4adc4cc.1495521032.git.lucien.xin@gmail.com>
+Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+        Neil Horman <nhorman@tuxdriver.com>, davem@davemloft.net
+To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-cys01nam02on0067.outbound.protection.outlook.com ([104.47.37.67]:56600
-        "EHLO NAM02-CY1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1761246AbdEWFtm (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 23 May 2017 01:49:42 -0400
-In-Reply-To: <1495495713-28374-1-git-send-email-andrew@lunn.ch>
-Content-Language: en-US
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:34960 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752502AbdEWGam (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 23 May 2017 02:30:42 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+sctp_assoc_set_id has already done the asoc_id check in the beginning
+when processing dupcook, no need to do the same check before calling
+it.
 
+Signed-off-by: Xin Long <lucien.xin@gmail.com>
+---
+ net/sctp/associola.c | 8 ++------
+ 1 file changed, 2 insertions(+), 6 deletions(-)
 
-> -----Original Message-----
-> From: Andrew Lunn [mailto:andrew@lunn.ch]
-> Sent: Tuesday, May 23, 2017 4:59 AM
-> To: David Miller <davem@davemloft.net>
-> Cc: Daniel Walker <danielwa@cisco.com>; Harini Katakam
-> <harinik@xilinx.com>; Florian Fainelli <f.fainelli@gmail.com>; netdev
-> <netdev@vger.kernel.org>; Andrew Lunn <andrew@lunn.ch>
-> Subject: [PATCH v2 netdev] net: phy: marvell: Limit errata to 88m1101
->=20
-> The 88m1101 has an errata when configuring autoneg. However, it was
-> being applied to many other Marvell PHYs as well. Limit its scope to
-> just the 88m1101.
->=20
-> Fixes: 76884679c644 ("phylib: Add support for Marvell 88e1111S and 88e114=
-5")
-> Reported-by: Daniel Walker <danielwa@cisco.com>
-> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
-
-Acked-by: Harini Katakam <harinik@xilinx.com>
-
-Regards,
-Harini
+diff --git a/net/sctp/associola.c b/net/sctp/associola.c
+index a9708da..ce2a3ec 100644
+--- a/net/sctp/associola.c
++++ b/net/sctp/associola.c
+@@ -1181,12 +1181,8 @@ void sctp_assoc_update(struct sctp_association *asoc,
+ 			new->stream = NULL;
+ 		}
+ 
+-		if (!asoc->assoc_id) {
+-			/* get a new association id since we don't have one
+-			 * yet.
+-			 */
+-			sctp_assoc_set_id(asoc, GFP_ATOMIC);
+-		}
++		/* get a new association id if we don't have one yet. */
++		sctp_assoc_set_id(asoc, GFP_ATOMIC);
+ 	}
+ 
+ 	/* SCTP-AUTH: Save the peer parameters from the new associations
+-- 
+2.1.0
