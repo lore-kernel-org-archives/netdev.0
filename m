@@ -1,55 +1,57 @@
-From: Kees Cook <keescook@google.com>
-Subject: Re: arch: arm: bpf: Converting cBPF to eBPF for arm 32 bit
-Date: Tue, 23 May 2017 12:32:59 -0700
-Message-ID: <CAGXu5j+DZ7+5zBh7s82AZPgDT=-WHo8bG6XwPT6SzaMtVMMn_Q@mail.gmail.com>
-References: <CAHgaXdKsO2xoKYp7g91g+n+d_1KHSSByLjzBB-WjVXSjhB7qxw@mail.gmail.com>
- <20170510.212952.1440495072777358778.davem@davemloft.net> <CAHgaXdK8LEEUPm4jTRRzCnjwdWAauHmmB=caZsSFY8MmStH89Q@mail.gmail.com>
- <20170510.215218.2185526627014393313.davem@davemloft.net> <CAHgaXdKZ_v+iO7uqEDx7PA7D+xcp1FngGvJ1SRSsGXNQ-iWWDQ@mail.gmail.com>
- <CAHgaXdLJoVUXXGTYs7FYXay5wx=sA-O+=dYhX+r7AQT7vSNfGQ@mail.gmail.com>
- <CAGXu5j+2q4Wwfhuk_DnDaV894A9ZOD=A_AvAU_OZG6KQv0_KMg@mail.gmail.com>
- <CAHgaXdL7GcVzs+ANPke_NywhcgHbe_fzi1sTDEy+Ni1-o82GYQ@mail.gmail.com>
- <591A07A1.1030006@iogearbox.net> <CAHgaXdKKbRVSpX-036TXpV5z=1=QCnPoku0+CeHxHco8-aasPQ@mail.gmail.com>
- <CAGXu5j+k+NMQGmmhuW-4pHFd6agfndJfxQ9k--h+ZpsDBVB8ig@mail.gmail.com>
- <8c53012b-cb81-5228-de79-f55457d1cf69@gmail.com> <CAHgaXdL2qReJF1Aw08k3C+OiC-3AOy3VeYmQ1Hs7vKcrfGQnvA@mail.gmail.com>
- <CAGXu5jKwTDYeNQggezzSKkFzZQkroC+6SdBB0qUKh5crfNk8PA@mail.gmail.com>
- <CAHgaXdKqt3mZmPG78w+4g_17D8EQoBgAZeuqM+MMsQg2f7apsw@mail.gmail.com>
- <CAGXu5jKDMUxRivMZdEQSBs81dkKRn5hRUiOz_wybCyphFFy+RQ@mail.gmail.com> <CAHgaXdJa9uJYO3bODuzDRaqOas0i=zMk0jioWFXKm_=UJRtVrw@mail.gmail.com>
+From: Stefan Wahren <stefan.wahren@i2se.com>
+Subject: Re: [PATCH v6 net-next 17/17] net: qualcomm: add QCA7000 UART
+ driver
+Date: Tue, 23 May 2017 21:38:08 +0200 (CEST)
+Message-ID: <1059621060.236992.1495568289051@email.1und1.de>
+References: <1495545173-22150-1-git-send-email-stefan.wahren@i2se.com>
+ <1495545173-22150-18-git-send-email-stefan.wahren@i2se.com>
+ <053235ad-a963-6a09-ccb0-b643115dee00@gmx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        "kernel-hardening@lists.openwall.com"
-        <kernel-hardening@lists.openwall.com>,
-        Network Development <netdev@vger.kernel.org>, ast@fb.com,
-        Mircea Gherzan <mgherzan@gmail.com>,
-        David Miller <davem@davemloft.net>,
-        "linux-arm-kernel@lists.infradead.org"
-        <linux-arm-kernel@lists.infradead.org>,
-        Nicolas Schichan <nschichan@freebox.fr>, andrew@lunn.ch
-To: Shubham Bansal <illusionist.neo@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f44.google.com ([209.85.214.44]:36345 "EHLO
-        mail-it0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S936183AbdEWTdG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 23 May 2017 15:33:06 -0400
-Received: by mail-it0-f44.google.com with SMTP id o5so25967353ith.1
-        for <netdev@vger.kernel.org>; Tue, 23 May 2017 12:33:06 -0700 (PDT)
-In-Reply-To: <CAHgaXdJa9uJYO3bODuzDRaqOas0i=zMk0jioWFXKm_=UJRtVrw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: linux-serial@vger.kernel.org, Jiri Slaby <jslaby@suse.com>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Jakub Kicinski <kubakici@wp.pl>, devicetree@vger.kernel.org
+To: Rob Herring <robh+dt@kernel.org>,
+        Mark Rutland <mark.rutland@arm.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Lino Sanfilippo <LinoSanfilippo@gmx.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <053235ad-a963-6a09-ccb0-b643115dee00@gmx.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, May 23, 2017 at 11:39 AM, Shubham Bansal
-<illusionist.neo@gmail.com> wrote:
-> Here is the patch I sent to the arm mailing list.
 
-Thanks for sending this!
+> Lino Sanfilippo <LinoSanfilippo@gmx.de> hat am 23. Mai 2017 um 20:16 geschrieben:
+> 
+> 
+> Hi,
+> 
+> On 23.05.2017 15:12, Stefan Wahren wrote:
+> 
+> 
+> > +}
+> > +
+> > +static void qca_uart_remove(struct serdev_device *serdev)
+> > +{
+> > +	struct qcauart *qca = serdev_device_get_drvdata(serdev);
+> > +
+> > +	netif_carrier_off(qca->net_dev);
+> > +	cancel_work_sync(&qca->tx_work);
+> > +	unregister_netdev(qca->net_dev);
+> 
+> Note that it is still possible that the tx work is queued right after cancel_work_sync()
+> returned and before the net device is unregistered (and thus the check for the net device
+> being up at the beginning of the tx work function is passed and the function is executed).
 
-I'm trying to figure out the best way to split this up, but the bulk
-of it (the actual JIT changes) seems like they need to all land at the
-same time. Any thoughts on this Daniel?
+Even if the carrier is off? Since i see this pattern in some drivers, can you please point me to a reference like a thread or something else?
 
--Kees
+> I suggest to avoid this possible race by first unregistering the netdevice and then 
+> calling cancel_work_sync().
 
--- 
-Kees Cook
-Pixel Security
+What makes you sure that's safe to unregister the netdev while the tx work queue is possibly active?
+
+> Regards,
+> Lino 
+>
