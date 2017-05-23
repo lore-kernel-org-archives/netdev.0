@@ -1,7 +1,7 @@
 From: Stefan Wahren <stefan.wahren@i2se.com>
-Subject: [PATCH v6 net-next 08/17] net: qualcomm: move qcaspi_tx_cmd to qca_spi.c
-Date: Tue, 23 May 2017 15:12:44 +0200
-Message-ID: <1495545173-22150-9-git-send-email-stefan.wahren@i2se.com>
+Subject: [PATCH v6 net-next 01/17] net: qualcomm: remove unnecessary includes
+Date: Tue, 23 May 2017 15:12:37 +0200
+Message-ID: <1495545173-22150-2-git-send-email-stefan.wahren@i2se.com>
 References: <1495545173-22150-1-git-send-email-stefan.wahren@i2se.com>
 Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
         Jiri Slaby <jslaby@suse.com>,
@@ -18,93 +18,28 @@ In-Reply-To: <1495545173-22150-1-git-send-email-stefan.wahren@i2se.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The function qcaspi_tx_cmd() is only called from qca_spi.c. So we better
-move it there.
+Most of the includes in qca_7k.c are unnecessary so we better remove them.
 
 Signed-off-by: Stefan Wahren <stefan.wahren@i2se.com>
 ---
- drivers/net/ethernet/qualcomm/qca_7k.c  | 24 ------------------------
- drivers/net/ethernet/qualcomm/qca_7k.h  |  1 -
- drivers/net/ethernet/qualcomm/qca_spi.c | 24 ++++++++++++++++++++++++
- 3 files changed, 24 insertions(+), 25 deletions(-)
+ drivers/net/ethernet/qualcomm/qca_7k.c | 4 ----
+ 1 file changed, 4 deletions(-)
 
 diff --git a/drivers/net/ethernet/qualcomm/qca_7k.c b/drivers/net/ethernet/qualcomm/qca_7k.c
-index 557d53c..aa90a1d 100644
+index f0066fb..557d53c 100644
 --- a/drivers/net/ethernet/qualcomm/qca_7k.c
 +++ b/drivers/net/ethernet/qualcomm/qca_7k.c
-@@ -119,27 +119,3 @@ qcaspi_write_register(struct qcaspi *qca, u16 reg, u16 value)
+@@ -23,11 +23,7 @@
+  *   kernel-based SPI device.
+  */
  
- 	return ret;
- }
--
--int
--qcaspi_tx_cmd(struct qcaspi *qca, u16 cmd)
--{
--	__be16 tx_data;
--	struct spi_message *msg = &qca->spi_msg1;
--	struct spi_transfer *transfer = &qca->spi_xfer1;
--	int ret;
--
--	tx_data = cpu_to_be16(cmd);
--	transfer->len = sizeof(tx_data);
--	transfer->tx_buf = &tx_data;
--	transfer->rx_buf = NULL;
--
--	ret = spi_sync(qca->spi_dev, msg);
--
--	if (!ret)
--		ret = msg->status;
--
--	if (ret)
--		qcaspi_spi_error(qca);
--
--	return ret;
--}
-diff --git a/drivers/net/ethernet/qualcomm/qca_7k.h b/drivers/net/ethernet/qualcomm/qca_7k.h
-index 4047f0a..27124c2 100644
---- a/drivers/net/ethernet/qualcomm/qca_7k.h
-+++ b/drivers/net/ethernet/qualcomm/qca_7k.h
-@@ -67,6 +67,5 @@
- void qcaspi_spi_error(struct qcaspi *qca);
- int qcaspi_read_register(struct qcaspi *qca, u16 reg, u16 *result);
- int qcaspi_write_register(struct qcaspi *qca, u16 reg, u16 value);
--int qcaspi_tx_cmd(struct qcaspi *qca, u16 cmd);
+-#include <linux/init.h>
+-#include <linux/module.h>
+-#include <linux/moduleparam.h>
+ #include <linux/spi/spi.h>
+-#include <linux/version.h>
  
- #endif /* _QCA_7K_H */
-diff --git a/drivers/net/ethernet/qualcomm/qca_spi.c b/drivers/net/ethernet/qualcomm/qca_spi.c
-index 7464628..50adc4f 100644
---- a/drivers/net/ethernet/qualcomm/qca_spi.c
-+++ b/drivers/net/ethernet/qualcomm/qca_spi.c
-@@ -192,6 +192,30 @@ qcaspi_read_legacy(struct qcaspi *qca, u8 *dst, u32 len)
- }
+ #include "qca_7k.h"
  
- static int
-+qcaspi_tx_cmd(struct qcaspi *qca, u16 cmd)
-+{
-+	__be16 tx_data;
-+	struct spi_message *msg = &qca->spi_msg1;
-+	struct spi_transfer *transfer = &qca->spi_xfer1;
-+	int ret;
-+
-+	tx_data = cpu_to_be16(cmd);
-+	transfer->len = sizeof(tx_data);
-+	transfer->tx_buf = &tx_data;
-+	transfer->rx_buf = NULL;
-+
-+	ret = spi_sync(qca->spi_dev, msg);
-+
-+	if (!ret)
-+		ret = msg->status;
-+
-+	if (ret)
-+		qcaspi_spi_error(qca);
-+
-+	return ret;
-+}
-+
-+static int
- qcaspi_tx_frame(struct qcaspi *qca, struct sk_buff *skb)
- {
- 	u32 count;
 -- 
 2.1.4
