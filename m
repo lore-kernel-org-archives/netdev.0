@@ -1,53 +1,72 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCHv2 net-next 0/5] net: dsa: mv88e6xxx: Add basic SERDES support
-Date: Tue, 23 May 2017 23:04:41 +0200
-Message-ID: <1495573486-31827-1-git-send-email-andrew@lunn.ch>
-Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
-To: David Miller <davem@davemloft.net>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next] net: dsa: support cross-chip ageing time
+Date: Tue, 23 May 2017 14:06:22 -0700
+Message-ID: <625bdf3b-c23e-9e8e-acda-abdadc25a69a@gmail.com>
+References: <20170523192059.1720-1-vivien.didelot@savoirfairelinux.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Andrew Lunn <andrew@lunn.ch>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:42143 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1161788AbdEWVG2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 23 May 2017 17:06:28 -0400
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:33365 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1162326AbdEWVGb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 23 May 2017 17:06:31 -0400
+In-Reply-To: <20170523192059.1720-1-vivien.didelot@savoirfairelinux.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Some of the Marvell switches are SERDES interface, which must be
-powered up before packets can be passed. This is particularly true on
-the 6390, where the SERDES defaults to down, probably to save power.
+On 05/23/2017 12:20 PM, Vivien Didelot wrote:
+> Now that the switchdev bridge ageing time attribute is propagated to all
+> switch chips of the fabric, each switch can check if the requested value
+> is valid and program itself, so that the whole fabric shares a common
+> ageing time setting.
+> 
+> This is especially needed for switch chips in between others, containing
+> no bridge port members but evidently used in the data path.
+> 
+> To achieve that, remove the condition which skips the other switches. We
+> also don't need to identify the target switch anymore, thus remove the
+> sw_index member of the dsa_notifier_ageing_time_info notifier structure.
+> 
+> On ZII Dev Rev B (with two 88E6352 and one 88E6185) and ZII Dev Rev C
+> (with two 88E6390X), we have the following hardware configuration:
+> 
+>     # ip link add name br0 type bridge
+>     # ip link set master br0 dev lan6
+>     br0: port 1(lan6) entered blocking state
+>     br0: port 1(lan6) entered disabled state
+>     # echo 2000 > /sys/class/net/br0/bridge/ageing_time
+> 
+> Before this patch:
+> 
+>     zii-rev-b# cat /sys/kernel/debug/mv88e6xxx/sw*/age_time
+>     300000
+>     300000
+>     15000
+> 
+>     zii-rev-c# cat /sys/kernel/debug/mv88e6xxx/sw*/age_time
+>     300000
+>     18750
+> 
+> After this patch:
+> 
+>     zii-rev-b# cat /sys/kernel/debug/mv88e6xxx/sw*/age_time
+>     15000
+>     15000
+>     15000
+> 
+>     zii-rev-c# cat /sys/kernel/debug/mv88e6xxx/sw*/age_time
+>     18750
+>     18750
+> 
+> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 
-This series refactors the existing SERDES support for the 6352, and
-adds 6390 support.
-
-v2:
-
-Split phy functions out into phy.[ch]
-Don't add MV88E6XXX_FLAG_G1_ATU_FID back again
-Move the serdes op up in mv88e6xxx_ops
-Move some #defines into serdes.h
-Add a mv88e6xxx_serdes_power()
-Don't keep moving calls to this helper around in the code
-
-Andrew Lunn (5):
-  net: dsa: mv88e6xxx: Move phy functions into phy.[ch]
-  net: dsa: mv88e6xxx: Refactor mv88e6352 SERDES code into an op
-  net: dsa: mv88e6xxx: Remove SERDES flag
-  net: dsa: mv88e6xxx: mv88e6390X SERDES support
-  dsa: mv88e6xxx: Enable/Disable SERDES on port enable/disable
-
- drivers/net/dsa/mv88e6xxx/Makefile    |   2 +
- drivers/net/dsa/mv88e6xxx/chip.c      | 315 ++++++----------------------------
- drivers/net/dsa/mv88e6xxx/mv88e6xxx.h |  31 +---
- drivers/net/dsa/mv88e6xxx/phy.c       | 232 +++++++++++++++++++++++++
- drivers/net/dsa/mv88e6xxx/phy.h       |  40 +++++
- drivers/net/dsa/mv88e6xxx/serdes.c    | 229 ++++++++++++++++++++++++
- drivers/net/dsa/mv88e6xxx/serdes.h    |  48 ++++++
- 7 files changed, 611 insertions(+), 286 deletions(-)
- create mode 100644 drivers/net/dsa/mv88e6xxx/phy.c
- create mode 100644 drivers/net/dsa/mv88e6xxx/phy.h
- create mode 100644 drivers/net/dsa/mv88e6xxx/serdes.c
- create mode 100644 drivers/net/dsa/mv88e6xxx/serdes.h
-
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
 -- 
-2.11.0
+Florian
