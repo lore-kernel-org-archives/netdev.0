@@ -1,170 +1,43 @@
-From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: [PATCH net-next v9 2/5] ipsec: check return value of skb_to_sgvec always
-Date: Tue, 23 May 2017 18:05:47 +0200
-Message-ID: <20170523160550.5203-3-Jason@zx2c4.com>
-References: <20170523160550.5203-1-Jason@zx2c4.com>
-Cc: "Jason A. Donenfeld" <Jason@zx2c4.com>,
-        Steffen Klassert <steffen.klassert@secunet.com>,
-        Herbert Xu <herbert@gondor.apana.org.au>
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170523160550.5203-1-Jason@zx2c4.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH 2/2] at803x: double check SGMII side autoneg
+Date: Tue, 23 May 2017 18:07:22 +0200
+Message-ID: <20170523160722.GC21169@lunn.ch>
+References: <1477305654-11328-1-git-send-email-zefir.kurtisi@neratec.com>
+ <1477305654-11328-3-git-send-email-zefir.kurtisi@neratec.com>
+ <66de55da-7a5c-68b8-50d5-cab313ec0d6f@codeaurora.org>
+ <20170522210927.GR29447@lunn.ch>
+ <0d9b30e5-40f3-82ba-a44a-2eb25b8d3094@codeaurora.org>
+ <20170522213206.GT29447@lunn.ch>
+ <a8415b8b-1713-053d-41d3-2577c5a53c8b@codeaurora.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Zefir Kurtisi <zefir.kurtisi@neratec.com>, netdev@vger.kernel.org,
+        f.fainelli@gmail.com, David Miller <davem@davemloft.net>,
+        Manoj Iyer <manoj.iyer@canonical.com>, jhugo@codeaurora.org
+To: Timur Tabi <timur@codeaurora.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:41682 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S934937AbdEWQHb (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 23 May 2017 12:07:31 -0400
+Content-Disposition: inline
+In-Reply-To: <a8415b8b-1713-053d-41d3-2577c5a53c8b@codeaurora.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Jason A. Donenfeld <Jason@zx2c4.com>
-Cc: Steffen Klassert <steffen.klassert@secunet.com>
-Cc: Herbert Xu <herbert@gondor.apana.org.au>
-Cc: "David S. Miller" <davem@davemloft.net>
----
- net/ipv4/ah4.c  |  8 ++++++--
- net/ipv4/esp4.c | 20 +++++++++++++-------
- net/ipv6/ah6.c  |  8 ++++++--
- net/ipv6/esp6.c | 20 +++++++++++++-------
- 4 files changed, 38 insertions(+), 18 deletions(-)
+On Tue, May 23, 2017 at 10:54:57AM -0500, Timur Tabi wrote:
+> On 05/22/2017 04:32 PM, Andrew Lunn wrote:
+> >> I'll have to test this, but what do I do if I don't get another interrupt?
+> > It probably means interrupts cannot be used. Poll it.
+> 
+> I will test that to see what happens, but I believe the real problem is that
+> the at803x driver is lying when it says that the link is not okay.  I think
+> the link is okay, and that's why I'm not getting any more interrupts.  I
+> don't think I should have to drop interrupt support in my MAC driver because
+> one specific PHY driver is broken.
 
-diff --git a/net/ipv4/ah4.c b/net/ipv4/ah4.c
-index 22377c8ff14b..e8f862358518 100644
---- a/net/ipv4/ah4.c
-+++ b/net/ipv4/ah4.c
-@@ -220,7 +220,9 @@ static int ah_output(struct xfrm_state *x, struct sk_buff *skb)
- 	ah->seq_no = htonl(XFRM_SKB_CB(skb)->seq.output.low);
- 
- 	sg_init_table(sg, nfrags + sglists);
--	skb_to_sgvec_nomark(skb, sg, 0, skb->len);
-+	err = skb_to_sgvec_nomark(skb, sg, 0, skb->len);
-+	if (unlikely(err < 0))
-+		goto out_free;
- 
- 	if (x->props.flags & XFRM_STATE_ESN) {
- 		/* Attach seqhi sg right after packet payload */
-@@ -393,7 +395,9 @@ static int ah_input(struct xfrm_state *x, struct sk_buff *skb)
- 	skb_push(skb, ihl);
- 
- 	sg_init_table(sg, nfrags + sglists);
--	skb_to_sgvec_nomark(skb, sg, 0, skb->len);
-+	err = skb_to_sgvec_nomark(skb, sg, 0, skb->len);
-+	if (unlikely(err < 0))
-+		goto out_free;
- 
- 	if (x->props.flags & XFRM_STATE_ESN) {
- 		/* Attach seqhi sg right after packet payload */
-diff --git a/net/ipv4/esp4.c b/net/ipv4/esp4.c
-index 65cc02bd82bc..392432860bb9 100644
---- a/net/ipv4/esp4.c
-+++ b/net/ipv4/esp4.c
-@@ -374,9 +374,11 @@ int esp_output_tail(struct xfrm_state *x, struct sk_buff *skb, struct esp_info *
- 	esp->esph = esph;
- 
- 	sg_init_table(sg, esp->nfrags);
--	skb_to_sgvec(skb, sg,
--		     (unsigned char *)esph - skb->data,
--		     assoclen + ivlen + esp->clen + alen);
-+	err = skb_to_sgvec(skb, sg,
-+		           (unsigned char *)esph - skb->data,
-+		           assoclen + ivlen + esp->clen + alen);
-+	if (unlikely(err < 0))
-+		goto error;
- 
- 	if (!esp->inplace) {
- 		int allocsize;
-@@ -400,9 +402,11 @@ int esp_output_tail(struct xfrm_state *x, struct sk_buff *skb, struct esp_info *
- 		spin_unlock_bh(&x->lock);
- 
- 		sg_init_table(dsg, skb_shinfo(skb)->nr_frags + 1);
--		skb_to_sgvec(skb, dsg,
--			     (unsigned char *)esph - skb->data,
--			     assoclen + ivlen + esp->clen + alen);
-+		err = skb_to_sgvec(skb, dsg,
-+			           (unsigned char *)esph - skb->data,
-+			           assoclen + ivlen + esp->clen + alen);
-+		if (unlikely(err < 0))
-+			goto error;
- 	}
- 
- 	if ((x->props.flags & XFRM_STATE_ESN))
-@@ -687,7 +691,9 @@ static int esp_input(struct xfrm_state *x, struct sk_buff *skb)
- 	esp_input_set_header(skb, seqhi);
- 
- 	sg_init_table(sg, nfrags);
--	skb_to_sgvec(skb, sg, 0, skb->len);
-+	err = skb_to_sgvec(skb, sg, 0, skb->len);
-+	if (unlikely(err < 0))
-+		goto out;
- 
- 	skb->ip_summed = CHECKSUM_NONE;
- 
-diff --git a/net/ipv6/ah6.c b/net/ipv6/ah6.c
-index dda6035e3b84..755f38271dd5 100644
---- a/net/ipv6/ah6.c
-+++ b/net/ipv6/ah6.c
-@@ -423,7 +423,9 @@ static int ah6_output(struct xfrm_state *x, struct sk_buff *skb)
- 	ah->seq_no = htonl(XFRM_SKB_CB(skb)->seq.output.low);
- 
- 	sg_init_table(sg, nfrags + sglists);
--	skb_to_sgvec_nomark(skb, sg, 0, skb->len);
-+	err = skb_to_sgvec_nomark(skb, sg, 0, skb->len);
-+	if (unlikely(err < 0))
-+		goto out_free;
- 
- 	if (x->props.flags & XFRM_STATE_ESN) {
- 		/* Attach seqhi sg right after packet payload */
-@@ -606,7 +608,9 @@ static int ah6_input(struct xfrm_state *x, struct sk_buff *skb)
- 	ip6h->hop_limit   = 0;
- 
- 	sg_init_table(sg, nfrags + sglists);
--	skb_to_sgvec_nomark(skb, sg, 0, skb->len);
-+	err = skb_to_sgvec_nomark(skb, sg, 0, skb->len);
-+	if (unlikely(err < 0))
-+		goto out_free;
- 
- 	if (x->props.flags & XFRM_STATE_ESN) {
- 		/* Attach seqhi sg right after packet payload */
-diff --git a/net/ipv6/esp6.c b/net/ipv6/esp6.c
-index 1fe99ba8066c..2ede4e459c4e 100644
---- a/net/ipv6/esp6.c
-+++ b/net/ipv6/esp6.c
-@@ -346,9 +346,11 @@ int esp6_output_tail(struct xfrm_state *x, struct sk_buff *skb, struct esp_info
- 	esph = esp_output_set_esn(skb, x, ip_esp_hdr(skb), seqhi);
- 
- 	sg_init_table(sg, esp->nfrags);
--	skb_to_sgvec(skb, sg,
--		     (unsigned char *)esph - skb->data,
--		     assoclen + ivlen + esp->clen + alen);
-+	err = skb_to_sgvec(skb, sg,
-+		           (unsigned char *)esph - skb->data,
-+		           assoclen + ivlen + esp->clen + alen);
-+	if (unlikely(err < 0))
-+		goto error;
- 
- 	if (!esp->inplace) {
- 		int allocsize;
-@@ -372,9 +374,11 @@ int esp6_output_tail(struct xfrm_state *x, struct sk_buff *skb, struct esp_info
- 		spin_unlock_bh(&x->lock);
- 
- 		sg_init_table(dsg, skb_shinfo(skb)->nr_frags + 1);
--		skb_to_sgvec(skb, dsg,
--			     (unsigned char *)esph - skb->data,
--			     assoclen + ivlen + esp->clen + alen);
-+		err = skb_to_sgvec(skb, dsg,
-+			           (unsigned char *)esph - skb->data,
-+			           assoclen + ivlen + esp->clen + alen);
-+		if (unlikely(err < 0))
-+			goto error;
- 	}
- 
- 	if ((x->props.flags & XFRM_STATE_ESN))
-@@ -618,7 +622,9 @@ static int esp6_input(struct xfrm_state *x, struct sk_buff *skb)
- 	esp_input_set_header(skb, seqhi);
- 
- 	sg_init_table(sg, nfrags);
--	skb_to_sgvec(skb, sg, 0, skb->len);
-+	ret = skb_to_sgvec(skb, sg, 0, skb->len);
-+	if (unlikely(ret < 0))
-+		goto out;
- 
- 	skb->ip_summed = CHECKSUM_NONE;
- 
--- 
-2.13.0
+If it turns out the PHY hardware is broken, the phy driver itself can
+force it back to polling by setting phydev->irq to PHY_POLL in its
+probe() function.
+
+	Andrew
