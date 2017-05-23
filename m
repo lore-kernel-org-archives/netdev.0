@@ -1,55 +1,91 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 1/3] vlan: Fix tcp checksums offloads for Q-in-Q
- vlan.
-Date: Mon, 22 May 2017 19:59:21 -0400 (EDT)
-Message-ID: <20170522.195921.1033609103219347751.davem@davemloft.net>
-References: <1495114265-23368-1-git-send-email-vyasevic@redhat.com>
-        <1495114265-23368-2-git-send-email-vyasevic@redhat.com>
+From: Teng Qin <qinteng@fb.com>
+Subject: [PATCH net-next] bpf: update perf event helper function signature and
+ documentation
+Date: Tue, 23 May 2017 00:39:34 +0000
+Message-ID: <E796EF36-C195-4FFA-AAA0-A1F9E7730349@fb.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, vyasevic@redhat.com,
-        makita.toshiaki@lab.ntt.co.jp
-To: vyasevich@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:57340 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1758818AbdEVX7X (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 22 May 2017 19:59:23 -0400
-In-Reply-To: <1495114265-23368-2-git-send-email-vyasevic@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Peter Zijlstra <peterz@infradead.org>,
+        Brendan Gregg <bgregg@netflix.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        Kernel Team <Kernel-team@fb.com>,
+        "Alexei Starovoitov" <ast@fb.com>
+To: "David S . Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Language: en-US
+Content-ID: <1ED13E5F2E3B0846B7CD9E1C75A6D01B@namprd15.prod.outlook.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Vladislav Yasevich <vyasevich@gmail.com>
-Date: Thu, 18 May 2017 09:31:03 -0400
-
-> It appears that since commit 8cb65d000, Q-in-Q vlans have been
-> broken.  The series that commit is part of enabled TSO and checksum
-> offloading on Q-in-Q vlans.  However, most HW we support can't handle
-> it.  To work around the issue, the above commit added a function that
-> turns off offloads on Q-in-Q devices, but it left the checksum offload.
-> That will cause issues with most older devices that supprort very basic
-> checksum offload capabilities as well as some newer devices (we've
-> reproduced te problem with both be2net and bnx).
-> 
-> To solve this for everyone, turn off checksum offloading feature
-> by default when sending Q-in-Q traffic.  Devices that are proven to
-> work can provided a corrected ndo_features_check implemetation.
-> 
-> Fixes: 8cb65d000 ("net: Move check for multiple vlans to drivers")
-> CC: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-> Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
-
-This is a tough one.  I can certainly sympathize with your frustration
-trying to track this down.
-
-Clearing NETIF_F_HW_CSUM completely is the most conservative change.
-
-However, for all the (perhaps many) cards upon which the checksumming
-does work properly in Q-in-Q situations, this change could be
-introducing non-trivial performance regressions.
-
-So I think Toshiaki's suggestion to drop IP_CSUM and IPV6_CSUM is,
-on balance, the best way forward.
-
-Thanks.
+RnJvbTogVGVuZyBRaW4gPHFpbnRlbmdAZmIuY29tPg0KDQpUaGlzIGNvbW1pdCB1cGRhdGVzIGZ1
+bmN0aW9uIHNpZ25hdHVyZSBvZiB0aGUgYnBmX3BlcmZfZXZlbnRfb3V0cHV0IGFuZA0KYnBmX3Bl
+cmZfZXZlbnRfcmVhZCBoZWxwZXJzIHRvIG1hdGNoIHRoZWlyIGltcGxlbWVudGF0aW9uLiBBbHNv
+IHVwZGF0ZXMNCnRoZWlyIGRvY3VtZW50YXRpb24gaW4gdGhlIGhlYWRlciBmaWxlcy4NCg0KU2ln
+bmVkLW9mZi1ieTogVGVuZyBRaW4gPHFpbnRlbmdAZmIuY29tPg0KQWNrZWQtYnk6IEFsZXhlaSBT
+dGFyb3ZvaXRvdiA8YXN0QGtlcm5lbC5vcmc+DQotLS0NCiBpbmNsdWRlL3VhcGkvbGludXgvYnBm
+LmggICAgICAgfCAxMSArKysrKysrLS0tLQ0KIHNhbXBsZXMvYnBmL2JwZl9oZWxwZXJzLmggICAg
+ICB8ICA1ICsrLS0tDQogdG9vbHMvaW5jbHVkZS91YXBpL2xpbnV4L2JwZi5oIHwgMTEgKysrKysr
+Ky0tLS0NCiAzIGZpbGVzIGNoYW5nZWQsIDE2IGluc2VydGlvbnMoKyksIDExIGRlbGV0aW9ucygt
+KQ0KDQpkaWZmIC0tZ2l0IGEvaW5jbHVkZS91YXBpL2xpbnV4L2JwZi5oIGIvaW5jbHVkZS91YXBp
+L2xpbnV4L2JwZi5oDQppbmRleCA5NGRmYTlkLi5lNzhhZWNlIDEwMDY0NA0KLS0tIGEvaW5jbHVk
+ZS91YXBpL2xpbnV4L2JwZi5oDQorKysgYi9pbmNsdWRlL3VhcGkvbGludXgvYnBmLmgNCkBAIC0z
+MTMsOCArMzEzLDExIEBAIHVuaW9uIGJwZl9hdHRyIHsNCiAgKiAgICAgQGZsYWdzOiByb29tIGZv
+ciBmdXR1cmUgZXh0ZW5zaW9ucw0KICAqICAgICBSZXR1cm46IDAgb24gc3VjY2VzcyBvciBuZWdh
+dGl2ZSBlcnJvcg0KICAqDQotICogdTY0IGJwZl9wZXJmX2V2ZW50X3JlYWQoJm1hcCwgaW5kZXgp
+DQotICogICAgIFJldHVybjogTnVtYmVyIGV2ZW50cyByZWFkIG9yIGVycm9yIGNvZGUNCisgKiB1
+NjQgYnBmX3BlcmZfZXZlbnRfcmVhZChtYXAsIGZsYWdzKQ0KKyAqICAgICByZWFkIHBlcmYgZXZl
+bnQgY291bnRlciB2YWx1ZQ0KKyAqICAgICBAbWFwOiBwb2ludGVyIHRvIHBlcmZfZXZlbnRfYXJy
+YXkgbWFwDQorICogICAgIEBmbGFnczogaW5kZXggb2YgZXZlbnQgaW4gdGhlIG1hcCBvciBiaXRt
+YXNrIGZsYWdzDQorICogICAgIFJldHVybjogdmFsdWUgb2YgcGVyZiBldmVudCBjb3VudGVyIHJl
+YWQgb3IgZXJyb3IgY29kZQ0KICAqDQogICogaW50IGJwZl9yZWRpcmVjdChpZmluZGV4LCBmbGFn
+cykNCiAgKiAgICAgcmVkaXJlY3QgdG8gYW5vdGhlciBuZXRkZXYNCkBAIC0zMjgsMTEgKzMzMSwx
+MSBAQCB1bmlvbiBicGZfYXR0ciB7DQogICogICAgIEBza2I6IHBvaW50ZXIgdG8gc2tiDQogICog
+ICAgIFJldHVybjogcmVhbG0gaWYgIT0gMA0KICAqDQotICogaW50IGJwZl9wZXJmX2V2ZW50X291
+dHB1dChjdHgsIG1hcCwgaW5kZXgsIGRhdGEsIHNpemUpDQorICogaW50IGJwZl9wZXJmX2V2ZW50
+X291dHB1dChjdHgsIG1hcCwgZmxhZ3MsIGRhdGEsIHNpemUpDQogICogICAgIG91dHB1dCBwZXJm
+IHJhdyBzYW1wbGUNCiAgKiAgICAgQGN0eDogc3RydWN0IHB0X3JlZ3MqDQogICogICAgIEBtYXA6
+IHBvaW50ZXIgdG8gcGVyZl9ldmVudF9hcnJheSBtYXANCi0gKiAgICAgQGluZGV4OiBpbmRleCBv
+ZiBldmVudCBpbiB0aGUgbWFwDQorICogICAgIEBmbGFnczogaW5kZXggb2YgZXZlbnQgaW4gdGhl
+IG1hcCBvciBiaXRtYXNrIGZsYWdzDQogICogICAgIEBkYXRhOiBkYXRhIG9uIHN0YWNrIHRvIGJl
+IG91dHB1dCBhcyByYXcgZGF0YQ0KICAqICAgICBAc2l6ZTogc2l6ZSBvZiBkYXRhDQogICogICAg
+IFJldHVybjogMCBvbiBzdWNjZXNzIG9yIG5lZ2F0aXZlIGVycm9yDQpkaWZmIC0tZ2l0IGEvc2Ft
+cGxlcy9icGYvYnBmX2hlbHBlcnMuaCBiL3NhbXBsZXMvYnBmL2JwZl9oZWxwZXJzLmgNCmluZGV4
+IDlhOWM5NWYuLmE5NGNlNDIgMTAwNjQ0DQotLS0gYS9zYW1wbGVzL2JwZi9icGZfaGVscGVycy5o
+DQorKysgYi9zYW1wbGVzL2JwZi9icGZfaGVscGVycy5oDQpAQCAtMzcsOSArMzcsOCBAQCBzdGF0
+aWMgaW50ICgqYnBmX2Nsb25lX3JlZGlyZWN0KSh2b2lkICpjdHgsIGludCBpZmluZGV4LCBpbnQg
+ZmxhZ3MpID0NCiAJKHZvaWQgKikgQlBGX0ZVTkNfY2xvbmVfcmVkaXJlY3Q7DQogc3RhdGljIGlu
+dCAoKmJwZl9yZWRpcmVjdCkoaW50IGlmaW5kZXgsIGludCBmbGFncykgPQ0KIAkodm9pZCAqKSBC
+UEZfRlVOQ19yZWRpcmVjdDsNCi1zdGF0aWMgaW50ICgqYnBmX3BlcmZfZXZlbnRfb3V0cHV0KSh2
+b2lkICpjdHgsIHZvaWQgKm1hcCwNCi0JCQkJICAgIHVuc2lnbmVkIGxvbmcgbG9uZyBmbGFncywg
+dm9pZCAqZGF0YSwNCi0JCQkJICAgIGludCBzaXplKSA9DQorc3RhdGljIGludCAoKmJwZl9wZXJm
+X2V2ZW50X291dHB1dCkodm9pZCAqY3R4LCB2b2lkICptYXAsIHU2NCBmbGFncywNCisJICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgIHZvaWQgKmRhdGEsIGludCBzaXplKSA9DQogCSh2b2lkICop
+IEJQRl9GVU5DX3BlcmZfZXZlbnRfb3V0cHV0Ow0KIHN0YXRpYyBpbnQgKCpicGZfZ2V0X3N0YWNr
+aWQpKHZvaWQgKmN0eCwgdm9pZCAqbWFwLCBpbnQgZmxhZ3MpID0NCiAJKHZvaWQgKikgQlBGX0ZV
+TkNfZ2V0X3N0YWNraWQ7DQpkaWZmIC0tZ2l0IGEvdG9vbHMvaW5jbHVkZS91YXBpL2xpbnV4L2Jw
+Zi5oIGIvdG9vbHMvaW5jbHVkZS91YXBpL2xpbnV4L2JwZi5oDQppbmRleCA5NGRmYTlkLi5lNzhh
+ZWNlIDEwMDY0NA0KLS0tIGEvdG9vbHMvaW5jbHVkZS91YXBpL2xpbnV4L2JwZi5oDQorKysgYi90
+b29scy9pbmNsdWRlL3VhcGkvbGludXgvYnBmLmgNCkBAIC0zMTMsOCArMzEzLDExIEBAIHVuaW9u
+IGJwZl9hdHRyIHsNCiAgKiAgICAgQGZsYWdzOiByb29tIGZvciBmdXR1cmUgZXh0ZW5zaW9ucw0K
+ICAqICAgICBSZXR1cm46IDAgb24gc3VjY2VzcyBvciBuZWdhdGl2ZSBlcnJvcg0KICAqDQotICog
+dTY0IGJwZl9wZXJmX2V2ZW50X3JlYWQoJm1hcCwgaW5kZXgpDQotICogICAgIFJldHVybjogTnVt
+YmVyIGV2ZW50cyByZWFkIG9yIGVycm9yIGNvZGUNCisgKiB1NjQgYnBmX3BlcmZfZXZlbnRfcmVh
+ZChtYXAsIGZsYWdzKQ0KKyAqICAgICByZWFkIHBlcmYgZXZlbnQgY291bnRlciB2YWx1ZQ0KKyAq
+ICAgICBAbWFwOiBwb2ludGVyIHRvIHBlcmZfZXZlbnRfYXJyYXkgbWFwDQorICogICAgIEBmbGFn
+czogaW5kZXggb2YgZXZlbnQgaW4gdGhlIG1hcCBvciBiaXRtYXNrIGZsYWdzDQorICogICAgIFJl
+dHVybjogdmFsdWUgb2YgcGVyZiBldmVudCBjb3VudGVyIHJlYWQgb3IgZXJyb3IgY29kZQ0KICAq
+DQogICogaW50IGJwZl9yZWRpcmVjdChpZmluZGV4LCBmbGFncykNCiAgKiAgICAgcmVkaXJlY3Qg
+dG8gYW5vdGhlciBuZXRkZXYNCkBAIC0zMjgsMTEgKzMzMSwxMSBAQCB1bmlvbiBicGZfYXR0ciB7
+DQogICogICAgIEBza2I6IHBvaW50ZXIgdG8gc2tiDQogICogICAgIFJldHVybjogcmVhbG0gaWYg
+IT0gMA0KICAqDQotICogaW50IGJwZl9wZXJmX2V2ZW50X291dHB1dChjdHgsIG1hcCwgaW5kZXgs
+IGRhdGEsIHNpemUpDQorICogaW50IGJwZl9wZXJmX2V2ZW50X291dHB1dChjdHgsIG1hcCwgZmxh
+Z3MsIGRhdGEsIHNpemUpDQogICogICAgIG91dHB1dCBwZXJmIHJhdyBzYW1wbGUNCiAgKiAgICAg
+QGN0eDogc3RydWN0IHB0X3JlZ3MqDQogICogICAgIEBtYXA6IHBvaW50ZXIgdG8gcGVyZl9ldmVu
+dF9hcnJheSBtYXANCi0gKiAgICAgQGluZGV4OiBpbmRleCBvZiBldmVudCBpbiB0aGUgbWFwDQor
+ICogICAgIEBmbGFnczogaW5kZXggb2YgZXZlbnQgaW4gdGhlIG1hcCBvciBiaXRtYXNrIGZsYWdz
+DQogICogICAgIEBkYXRhOiBkYXRhIG9uIHN0YWNrIHRvIGJlIG91dHB1dCBhcyByYXcgZGF0YQ0K
+ICAqICAgICBAc2l6ZTogc2l6ZSBvZiBkYXRhDQogICogICAgIFJldHVybjogMCBvbiBzdWNjZXNz
+IG9yIG5lZ2F0aXZlIGVycm9yDQotLSANCjIuOS4zDQoNCg0KDQo=
