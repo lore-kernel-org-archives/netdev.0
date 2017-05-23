@@ -1,31 +1,35 @@
-From: Ido Schimmel <idosch@mellanox.com>
-Subject: Re: [patch net-next 4/5] mlxsw: acl: Add tcp flags acl element
-Date: Tue, 23 May 2017 18:00:06 +0300
-Message-ID: <20170523150006.GA21769@splinter.mtl.com>
-References: <20170523143110.5006-1-jiri@resnulli.us>
- <20170523143110.5006-5-jiri@resnulli.us>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch net-next 1/2] net/sched: properly assign RCU pointer in
+ tcf_chain_tp_insert/remove
+Date: Tue, 23 May 2017 11:00:31 -0400 (EDT)
+Message-ID: <20170523.110031.1093066756614344593.davem@davemloft.net>
+References: <20170520130132.1626-1-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>,
-        <jhs@mojatatu.com>, <xiyou.wangcong@gmail.com>,
-        <simon.horman@netronome.com>, <mlxsw@mellanox.com>
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
+        edumazet@google.com, daniel@iogearbox.net,
+        simon.horman@netronome.com, mlxsw@mellanox.com,
+        colin.king@canonical.com
+To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-eopbgr50075.outbound.protection.outlook.com ([40.107.5.75]:6456
-        "EHLO EUR03-VE1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1753078AbdEWPAS (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 23 May 2017 11:00:18 -0400
-Content-Disposition: inline
-In-Reply-To: <20170523143110.5006-5-jiri@resnulli.us>
+Received: from shards.monkeyblade.net ([184.105.139.130]:35872 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1762534AbdEWPAn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 23 May 2017 11:00:43 -0400
+In-Reply-To: <20170520130132.1626-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 23, 2017 at 04:31:09PM +0200, Jiri Pirko wrote:
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Sat, 20 May 2017 15:01:31 +0200
+
 > From: Jiri Pirko <jiri@mellanox.com>
 > 
-> Define new element for tcp flags and place it into scratch area.
+> *p_filter_chain is rcu-dereferenced on reader path. So here in writer,
+> property assign the pointer.
 > 
+> Fixes: 2190d1d0944f ("net: sched: introduce helpers to work with filter chains")
 > Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 
-Reviewed-by: Ido Schimmel <idosch@mellanox.com>
+Applied.
