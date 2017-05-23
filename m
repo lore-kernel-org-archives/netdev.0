@@ -1,122 +1,60 @@
-From: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Subject: [pull request][for-next 0/6] Mellanox mlx5 updates 2017-05-23
-Date: Tue, 23 May 2017 14:43:58 +0300
-Message-ID: <20170523114404.20387-1-saeedm@mellanox.com>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Ilan Tayari <ilant-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Saeed Mahameed <saeedm@mellanox.com>
+Subject: [for-next 5/6] net/mlx5: Bump driver version
+Date: Tue, 23 May 2017 14:44:03 +0300
+Message-ID: <20170523114404.20387-6-saeedm@mellanox.com>
+References: <20170523114404.20387-1-saeedm@mellanox.com>
+Cc: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
+        Ilan Tayari <ilant@mellanox.com>,
+        Tariq Toukan <tariqt@mellanox.com>,
+        Saeed Mahameed <saeedm@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>,
+        Doug Ledford <dledford@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:51033 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1761588AbdEWLoK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 23 May 2017 07:44:10 -0400
+In-Reply-To: <20170523114404.20387-1-saeedm@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Dave and Doug,
+From: Tariq Toukan <tariqt@mellanox.com>
 
-This series introduces some small updates and FPGA support to the mlx5
-core/ethernet and IB drivers.
+Remove date and bump version for mlx5_core driver.
 
-For more details please see below.
-
-Please pull and let me know if there's any problem.
-
-Thanks,
-Saeed.
-
+Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
+ drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c | 2 +-
+ drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h  | 3 +--
+ 2 files changed, 2 insertions(+), 3 deletions(-)
 
-The following changes since commit 2ea659a9ef488125eb46da6eb571de5eae5c43f6:
-
-  Linux 4.12-rc1 (2017-05-13 13:19:49 -0700)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/mellanox/linux.git tags/mlx5-update-2017-05-23
-
-for you to fetch changes up to b359911d6608bd16888466184e8e8faeb63bd9eb:
-
-  IB/mlx5: Bump driver version (2017-05-14 14:24:19 +0300)
-
-----------------------------------------------------------------
-mlx5-update-2017-05-23
-
-First patch from Leon, came to remove the redundant usage of mlx5_vzalloc,
-and directly use kvzalloc across all mlx5 drivers.
-
-2nd patch from Noa, adds new device IDs into the supported devices list.
-
-3rd and 4th patches from Ilan are adding the basic infrastructure and
-support for Mellanox's mlx5 FPGA.
-
-Last two patches from Tariq came to modify the outdated driver version
-reported in ethtool and in mlx5_ib to more reflect the current driver state
-and remove the redundant date string reported in the version.
-
-Thanks,
-Saeed.
-
-----------------------------------------------------------------
-Ilan Tayari (2):
-      net/mlx5: Introduce trigger_health_work function
-      net/mlx5: FPGA, Add basic support for Innova
-
-Leon Romanovsky (1):
-      {net, IB}/mlx5: Replace mlx5_vzalloc with kvzalloc
-
-Noa Osherovich (1):
-      net/mlx5: Update the list of the PCI supported devices
-
-Tariq Toukan (2):
-      net/mlx5: Bump driver version
-      IB/mlx5: Bump driver version
-
- MAINTAINERS                                        |  10 +
- drivers/infiniband/hw/mlx5/cq.c                    |   6 +-
- drivers/infiniband/hw/mlx5/mad.c                   |   4 +-
- drivers/infiniband/hw/mlx5/main.c                  |  11 +-
- drivers/infiniband/hw/mlx5/mr.c                    |   2 +-
- drivers/infiniband/hw/mlx5/qp.c                    |  32 ++--
- drivers/infiniband/hw/mlx5/srq.c                   |   4 +-
- drivers/net/ethernet/mellanox/mlx5/core/Kconfig    |  10 +
- drivers/net/ethernet/mellanox/mlx5/core/Makefile   |   3 +
- drivers/net/ethernet/mellanox/mlx5/core/debugfs.c  |   2 +-
- drivers/net/ethernet/mellanox/mlx5/core/en_arfs.c  |   8 +-
- .../net/ethernet/mellanox/mlx5/core/en_common.c    |   4 +-
- .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   |   4 +-
- drivers/net/ethernet/mellanox/mlx5/core/en_fs.c    |  24 +--
- .../ethernet/mellanox/mlx5/core/en_fs_ethtool.c    |   2 +-
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c  |  33 ++--
- drivers/net/ethernet/mellanox/mlx5/core/en_tc.c    |   2 +-
- drivers/net/ethernet/mellanox/mlx5/core/eq.c       |  13 +-
- drivers/net/ethernet/mellanox/mlx5/core/eswitch.c  |  24 +--
- .../ethernet/mellanox/mlx5/core/eswitch_offloads.c |  13 +-
- drivers/net/ethernet/mellanox/mlx5/core/fpga/cmd.c |  64 +++++++
- drivers/net/ethernet/mellanox/mlx5/core/fpga/cmd.h |  59 ++++++
- .../net/ethernet/mellanox/mlx5/core/fpga/core.c    | 202 +++++++++++++++++++++
- .../net/ethernet/mellanox/mlx5/core/fpga/core.h    |  99 ++++++++++
- drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c   |   6 +-
- drivers/net/ethernet/mellanox/mlx5/core/fs_core.c  |  10 +-
- drivers/net/ethernet/mellanox/mlx5/core/health.c   |  32 ++--
- drivers/net/ethernet/mellanox/mlx5/core/ipoib.c    |   2 +-
- drivers/net/ethernet/mellanox/mlx5/core/main.c     |  21 ++-
- .../net/ethernet/mellanox/mlx5/core/mlx5_core.h    |   3 +-
- .../net/ethernet/mellanox/mlx5/core/pagealloc.c    |   4 +-
- drivers/net/ethernet/mellanox/mlx5/core/port.c     |   6 +-
- drivers/net/ethernet/mellanox/mlx5/core/qp.c       |   2 +-
- drivers/net/ethernet/mellanox/mlx5/core/srq.c      |  14 +-
- drivers/net/ethernet/mellanox/mlx5/core/transobj.c |   2 +-
- drivers/net/ethernet/mellanox/mlx5/core/vport.c    |  34 ++--
- include/linux/mlx5/device.h                        |   6 +
- include/linux/mlx5/driver.h                        |  11 +-
- include/linux/mlx5/mlx5_ifc.h                      |  11 +-
- include/linux/mlx5/mlx5_ifc_fpga.h                 | 144 +++++++++++++++
- 40 files changed, 779 insertions(+), 164 deletions(-)
- create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/fpga/cmd.c
- create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/fpga/cmd.h
- create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/fpga/core.c
- create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/fpga/core.h
- create mode 100644 include/linux/mlx5/mlx5_ifc_fpga.h
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+index e0dd1048c966..afa89dcf30a5 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+@@ -39,7 +39,7 @@ static void mlx5e_get_drvinfo(struct net_device *dev,
+ 	struct mlx5_core_dev *mdev = priv->mdev;
+ 
+ 	strlcpy(drvinfo->driver, DRIVER_NAME, sizeof(drvinfo->driver));
+-	strlcpy(drvinfo->version, DRIVER_VERSION " (" DRIVER_RELDATE ")",
++	strlcpy(drvinfo->version, DRIVER_VERSION,
+ 		sizeof(drvinfo->version));
+ 	snprintf(drvinfo->fw_version, sizeof(drvinfo->fw_version),
+ 		 "%d.%d.%04d (%.16s)",
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h b/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
+index fbc6e9e9e305..cf69b42278df 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
+@@ -39,8 +39,7 @@
+ #include <linux/if_link.h>
+ 
+ #define DRIVER_NAME "mlx5_core"
+-#define DRIVER_VERSION "3.0-1"
+-#define DRIVER_RELDATE  "January 2015"
++#define DRIVER_VERSION "5.0-0"
+ 
+ #define MLX5_TOTAL_VPORTS(mdev) (1 + pci_sriov_get_totalvfs(mdev->pdev))
+ 
+-- 
+2.11.0
