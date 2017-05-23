@@ -1,54 +1,59 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCH v2 net-next 1/2] Documentation: sysfs-class-net-statistics: Clarify rx_bytes and tx_bytes
-Date: Tue, 23 May 2017 23:10:57 +0200
-Message-ID: <1495573858-32346-2-git-send-email-andrew@lunn.ch>
+Subject: [PATCH v2 net-next 2/2] net: usb: r8152: Fix rx_bytes/tx_bytes to include FCS
+Date: Tue, 23 May 2017 23:10:58 +0200
+Message-ID: <1495573858-32346-3-git-send-email-andrew@lunn.ch>
 References: <1495573858-32346-1-git-send-email-andrew@lunn.ch>
 Cc: Florian Fainelli <f.fainelli@gmail.com>,
         hayeswang <hayeswang@realtek.com>,
         netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:42164 "EHLO vps0.lunn.ch"
+Received: from vps0.lunn.ch ([178.209.37.122]:42169 "EHLO vps0.lunn.ch"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1162002AbdEWVLi (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 23 May 2017 17:11:38 -0400
+        id S1162002AbdEWVLn (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 23 May 2017 17:11:43 -0400
 In-Reply-To: <1495573858-32346-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Document what is expected for the rx_bytes and tx_bytes statistics in
-/sys/class/net/<device>/statistics. The FCS should be included in the
-statistics. However, since this has been unclear until now, it is
-expected a number of drivers don't. But maybe with time they will.
+The statistics counters rx_bytes and tx_bytes don't include the
+Ethernet Frame Check Sequence. Fix the rx_bytes/tx_bytes counters to
+include the FCS, and include the received FCS in the skb.
 
 Signed-off-by: Andrew Lunn <andrew@lunn.ch>
 ---
- Documentation/ABI/testing/sysfs-class-net-statistics | 6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
+ drivers/net/usb/r8152.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
 
-diff --git a/Documentation/ABI/testing/sysfs-class-net-statistics b/Documentation/ABI/testing/sysfs-class-net-statistics
-index 397118de7b5e..a487cbb79458 100644
---- a/Documentation/ABI/testing/sysfs-class-net-statistics
-+++ b/Documentation/ABI/testing/sysfs-class-net-statistics
-@@ -21,7 +21,8 @@ Contact:	netdev@vger.kernel.org
- Description:
- 		Indicates the number of bytes received by this network device.
- 		See the network driver for the exact meaning of when this
--		value is incremented.
-+		value is incremented. However, for an Ethernet frame, it should
-+		include the Ethernet header, data, and frame check sum.
+diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
+index ddc62cb69be8..4081a2cd8b1b 100644
+--- a/drivers/net/usb/r8152.c
++++ b/drivers/net/usb/r8152.c
+@@ -1228,7 +1228,7 @@ static void write_bulk_callback(struct urb *urb)
+ 		stats->tx_errors += agg->skb_num;
+ 	} else {
+ 		stats->tx_packets += agg->skb_num;
+-		stats->tx_bytes += agg->skb_len;
++		stats->tx_bytes += agg->skb_len + CRC_SIZE;
+ 	}
  
- What:		/sys/class/<iface>/statistics/rx_compressed
- Date:		April 2005
-@@ -125,7 +126,8 @@ Description:
- 		device. See the network driver for the exact meaning of this
- 		value, in particular whether this accounts for all successfully
- 		transmitted packets or all packets that have been queued for
--		transmission.
-+		transmission. For an Ethernet frame, it should include the
-+		Ethernet header, data, and frame check sum.
+ 	spin_lock(&tp->tx_lock);
+@@ -1826,7 +1826,6 @@ static int rx_bottom(struct r8152 *tp, int budget)
+ 			if (urb->actual_length < len_used)
+ 				break;
  
- What:		/sys/class/<iface>/statistics/tx_carrier_errors
- Date:		April 2005
+-			pkt_len -= CRC_SIZE;
+ 			rx_data += sizeof(struct rx_desc);
+ 
+ 			skb = napi_alloc_skb(napi, pkt_len);
+@@ -1850,7 +1849,7 @@ static int rx_bottom(struct r8152 *tp, int budget)
+ 			}
+ 
+ find_next_rx:
+-			rx_data = rx_agg_align(rx_data + pkt_len + CRC_SIZE);
++			rx_data = rx_agg_align(rx_data + pkt_len);
+ 			rx_desc = (struct rx_desc *)rx_data;
+ 			len_used = (int)(rx_data - (u8 *)agg->head);
+ 			len_used += sizeof(struct rx_desc);
 -- 
 2.11.0
