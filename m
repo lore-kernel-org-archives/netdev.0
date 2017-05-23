@@ -1,34 +1,46 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: tipc: Delete error messages for failed memory allocations in
- three functions
-Date: Tue, 23 May 2017 09:39:37 -0700
-Message-ID: <1495557577.2093.66.camel@perches.com>
-References: <7ac9d513-6f9f-a096-e68f-81a722c2723c@users.sourceforge.net>
-         <1495548133.2093.58.camel@perches.com>
-         <d07d0b1f-0038-e91d-4748-ea3e6dfb93f0@users.sourceforge.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Jon Maloy <jon.maloy@ericsson.com>,
-        Ying Xue <ying.xue@windriver.com>,
-        LKML <linux-kernel@vger.kernel.org>,
-        kernel-janitors@vger.kernel.org
-To: SF Markus Elfring <elfring@users.sourceforge.net>,
-        tipc-discussion@lists.sourceforge.net, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <d07d0b1f-0038-e91d-4748-ea3e6dfb93f0@users.sourceforge.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next v2 0/5] add tcp flags match support to flower and offload it
+Date: Tue, 23 May 2017 18:40:43 +0200
+Message-ID: <20170523164048.16514-1-jiri@resnulli.us>
+Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
+        simon.horman@netronome.com, mlxsw@mellanox.com, idosch@mellanox.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:34107 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1759850AbdEWQkv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 23 May 2017 12:40:51 -0400
+Received: by mail-wm0-f68.google.com with SMTP id d127so40691252wmf.1
+        for <netdev@vger.kernel.org>; Tue, 23 May 2017 09:40:51 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2017-05-23 at 18:23 +0200, SF Markus Elfring wrote:
-> > tipc_subseq_alloc does a kcalloc (memset to 0),
-> > half of which is immediately overwritten.
-> > 
-> > In other words, don't just blindly remove stuff,
-> > understand what it does and improve it.
-> 
-> Do you suggest another specific source code transformation pattern here?
+From: Jiri Pirko <jiri@mellanox.com>
 
-For the somewhat hard-of-thinking,
-something like krealloc would do nicely.
+This patch adds support to dissect tcp flags, match on them using
+flower classifier and offload such rules to mlxsw Spectrum devices.
+
+---
+v1->v2:
+- removed no longer relevant comment from patch 1 as suggested by Or
+- sent correct patches this time
+
+Jiri Pirko (5):
+  net: flow_dissector: add support for dissection of tcp flags
+  net/sched: flower: add support for matching on tcp flags
+  mlxsw: acl: Add tcp flags acl element
+  mlxsw: spectrum: Add acl block containing tcp flags for ipv4
+  mlxsw: spectrum_flower: Add support for tcp flags
+
+ .../ethernet/mellanox/mlxsw/core_acl_flex_keys.h   |  2 ++
+ .../mellanox/mlxsw/spectrum_acl_flex_keys.h        |  6 +++++
+ .../ethernet/mellanox/mlxsw/spectrum_acl_tcam.c    |  1 +
+ .../net/ethernet/mellanox/mlxsw/spectrum_flower.c  | 30 ++++++++++++++++++++++
+ include/net/flow_dissector.h                       |  9 +++++++
+ include/uapi/linux/pkt_cls.h                       |  3 +++
+ net/core/flow_dissector.c                          | 29 +++++++++++++++++++++
+ net/sched/cls_flower.c                             | 13 +++++++++-
+ 8 files changed, 92 insertions(+), 1 deletion(-)
+
+-- 
+2.9.3
