@@ -1,36 +1,74 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH 1/2] net: phy: Update get_phy_c45_ids for Cortina PHYs
-Date: Tue, 23 May 2017 18:55:54 +0200
-Message-ID: <20170523165554.GB24029@lunn.ch>
-References: <1495554799-23060-1-git-send-email-bogdan.purcareata@nxp.com>
- <1495554799-23060-2-git-send-email-bogdan.purcareata@nxp.com>
- <20170523160353.GB21169@lunn.ch>
- <DB5PR04MB1240098B96F6EEF3730DF054EAF90@DB5PR04MB1240.eurprd04.prod.outlook.com>
+From: Alexei Starovoitov <ast@fb.com>
+Subject: Re: [PATCH net-next 1/2] perf, bpf: add support for HW_CACHE and RAW
+ events
+Date: Tue, 23 May 2017 10:05:05 -0700
+Message-ID: <36cf20a4-528e-6aa0-a440-2ed6ada9754f@fb.com>
+References: <20170522224840.810121-1-ast@fb.com>
+ <20170522224840.810121-2-ast@fb.com>
+ <20170523074247.esnr4fj2squn4w2d@hirez.programming.kicks-ass.net>
+ <b25f4d02-70c1-43ce-8bf1-9b89e573add6@fb.com>
+ <20170523163134.saalqlizp5opc5tz@hirez.programming.kicks-ass.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "f.fainelli@gmail.com" <f.fainelli@gmail.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Bogdan Purcareata <bogdan.purcareata@nxp.com>
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S . Miller" <davem@davemloft.net>,
+        Brendan Gregg <bgregg@netflix.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Teng Qin <qinteng@fb.com>, <netdev@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>, <kernel-team@fb.com>
+To: Peter Zijlstra <peterz@infradead.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <DB5PR04MB1240098B96F6EEF3730DF054EAF90@DB5PR04MB1240.eurprd04.prod.outlook.com>
+In-Reply-To: <20170523163134.saalqlizp5opc5tz@hirez.programming.kicks-ass.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> The patches mentioned in the commit message add _some_ support for
-> the Cortina PHYs - mainly checking for devices at additional
-> locations. Once they are found, the phy IDs must be read from custom
-> locations.
- 
-As a general principle, we don't add hacks in generic code to handle
-broken devices. We add generic mechanisms to work around the
-brokenness.
+On 5/23/17 9:31 AM, Peter Zijlstra wrote:
+> On Tue, May 23, 2017 at 07:38:08AM -0700, Alexei Starovoitov wrote:
+>> On 5/23/17 12:42 AM, Peter Zijlstra wrote:
+>>> On Mon, May 22, 2017 at 03:48:39PM -0700, Alexei Starovoitov wrote:
+>>>> From: Teng Qin <qinteng@fb.com>
+>>>>
+>>>> This commit adds support for attach BPF program to RAW and HW_CACHE type
+>>>> events, and support for read HW_CACHE type event counters in BPF
+>>>> program. Existing code logic already supports them, so this commit is
+>>>> just update Enum value checks.
+>>>
+>>> So what I'm missing is why they were not supported previously, and what
+>>> changed to allow it now.
+>>
+>> that code path simply wasn't tested previously. Nothing changed on
+>> bpf side and on perf side.
+>> Why it wasn't added on day one? There was no demand. Now people
+>> use bpf more and more and few folks got confused that these types
+>> of perf events were not supported, hence we're adding it.
+>
+> OK. Is there anything stopping people from wanting to use the dynamic
+> types, as found in:
+>
+>   /sys/bus/event_source/devices/*/type
+>
+> ?
+>
+> In which case, do we want something like this instead?
+>
+>
+> diff --git a/kernel/events/core.c b/kernel/events/core.c
+> index 971f7259108f..4aa5f3011cf8 100644
+> --- a/kernel/events/core.c
+> +++ b/kernel/events/core.c
+> @@ -8063,12 +8063,8 @@ static int perf_event_set_bpf_prog(struct perf_event *event, u32 prog_fd)
+>  	bool is_kprobe, is_tracepoint;
+>  	struct bpf_prog *prog;
+>
+> -	if (event->attr.type == PERF_TYPE_HARDWARE ||
+> -	    event->attr.type == PERF_TYPE_SOFTWARE)
+> -		return perf_event_set_bpf_handler(event, prog_fd);
+> -
+>  	if (event->attr.type != PERF_TYPE_TRACEPOINT)
+> -		return -EINVAL;
+> +		return perf_event_set_bpf_handler(event, prog_fd);
 
-In this case, by using ethernet-phy-id in the device tree, we are
-saying, this PHYs probing is totally borked, but we know it is there,
-at this address. Just load the driver.
-
-Please try to make ethernet-phy-id work.
-
-       Andrew
+Good point. We were actually looking at how to deal with msr and cstate
+events. That should indeed address it.
+Will respin.
+Thanks for the feedback!
