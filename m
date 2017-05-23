@@ -1,59 +1,81 @@
 From: Vladislav Yasevich <vyasevich@gmail.com>
-Subject: [PATCH V2 net 2/3] be2net: Fix offload features for Q-in-Q packets
-Date: Tue, 23 May 2017 12:53:11 -0400
-Message-ID: <1495558392-1238-3-git-send-email-vyasevic@redhat.com>
+Subject: [PATCH V2 net 1/3] vlan: Fix tcp checksum offloads in Q-in-Q vlans
+Date: Tue, 23 May 2017 12:53:10 -0400
+Message-ID: <1495558392-1238-2-git-send-email-vyasevic@redhat.com>
 References: <1495558392-1238-1-git-send-email-vyasevic@redhat.com>
 Cc: alexander.duyck@gmail.com, makita.toshiaki@lab.ntt.co.jp,
         Vladislav Yasevich <vyasevic@redhat.com>,
-        Sathya Perla <sathya.perla@broadcom.com>,
-        Ajit Khaparde <ajit.khaparde@broadcom.com>,
-        Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>,
-        Somnath Kotur <somnath.kotur@broadcom.com>
+        Michal Kubecek <mkubecek@suse.cz>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f195.google.com ([209.85.220.195]:36402 "EHLO
-        mail-qk0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1764148AbdEWQxX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 23 May 2017 12:53:23 -0400
-Received: by mail-qk0-f195.google.com with SMTP id y128so23535950qka.3
-        for <netdev@vger.kernel.org>; Tue, 23 May 2017 09:53:23 -0700 (PDT)
+Received: from mail-qt0-f195.google.com ([209.85.216.195]:36178 "EHLO
+        mail-qt0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750987AbdEWQxW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 23 May 2017 12:53:22 -0400
+Received: by mail-qt0-f195.google.com with SMTP id j13so22965298qta.3
+        for <netdev@vger.kernel.org>; Tue, 23 May 2017 09:53:21 -0700 (PDT)
 In-Reply-To: <1495558392-1238-1-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-At least some of the be2net cards do not seem to be capabled
-of performing checksum offload computions on Q-in-Q packets.
-In these case, the recevied checksum on the remote is invalid
-and TCP syn packets are dropped.
+It appears that TCP checksum offloading has been broken for
+Q-in-Q vlans.  The behavior was execerbated by the
+series that that enabled accleleration features on stacked
+vlans (commit afb0bc972b526 "Merge branch 'stacked_vlan_tso'")
 
-This patch adds a call to check disbled acceleration features
-on Q-in-Q tagged traffic.
+However, event without that series, it is possible to trigger
+this issue.  It just requires a lot more specialized configuration.
 
-CC: Sathya Perla <sathya.perla@broadcom.com>
-CC: Ajit Khaparde <ajit.khaparde@broadcom.com
-CC: Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>
-CC: Somnath Kotur <somnath.kotur@broadcom.com>
+The root cause is the interaction between how
+netdev_intersect_features() works, the features actualy set on
+the vlan devices and HW having the ability to run checksum with
+longer headers.
+
+The issue starts when netdev_interesect_features() replaces
+NETIF_F_HW_CSUM with a combination of NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM,
+if the HW advertises IP|IPV6 specific checksums.  This happens
+for tagged and multi-tagged packets.   However, HW that enables
+IP|IPV6 checksum offloading doesn't gurantee that packets with
+arbitrarily long headers can be checksummed.
+
+This patch disables IP|IPV6 checksums on the packet for multi-tagged
+packets.
+
+CC: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+CC: Michal Kubecek <mkubecek@suse.cz>
 Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
 ---
- drivers/net/ethernet/emulex/benet/be_main.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+ include/linux/if_vlan.h | 18 ++++++++++--------
+ 1 file changed, 10 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index f3a09ab..4eee18c 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -5078,9 +5078,11 @@ static netdev_features_t be_features_check(struct sk_buff *skb,
- 	struct be_adapter *adapter = netdev_priv(dev);
- 	u8 l4_hdr = 0;
+diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
+index 8d5fcd6..6686d0f 100644
+--- a/include/linux/if_vlan.h
++++ b/include/linux/if_vlan.h
+@@ -614,14 +614,16 @@ static inline bool skb_vlan_tagged_multi(const struct sk_buff *skb)
+ static inline netdev_features_t vlan_features_check(const struct sk_buff *skb,
+ 						    netdev_features_t features)
+ {
+-	if (skb_vlan_tagged_multi(skb))
+-		features = netdev_intersect_features(features,
+-						     NETIF_F_SG |
+-						     NETIF_F_HIGHDMA |
+-						     NETIF_F_FRAGLIST |
+-						     NETIF_F_HW_CSUM |
+-						     NETIF_F_HW_VLAN_CTAG_TX |
+-						     NETIF_F_HW_VLAN_STAG_TX);
++	if (skb_vlan_tagged_multi(skb)) {
++		/* In the case of multi-tagged packets, use a direct mask
++		 * instead of using netdev_interesect_features(), to make
++		 * sure that only devices supporting NETIF_F_HW_CSUM will
++		 * have checksum offloading support.  
++		 */
++		features &= NETIF_F_SG | NETIF_F_HIGHDMA | NETIF_F_HW_CSUM |
++			    NETIF_F_FRAGLIST | NETIF_F_HW_VLAN_CTAG_TX |
++			    NETIF_F_HW_VLAN_STAG_TX;
++	}
  
--	/* The code below restricts offload features for some tunneled packets.
-+	/* The code below restricts offload features for some tunneled and
-+	 * Q-in-Q packets.
- 	 * Offload features for normal (non tunnel) packets are unchanged.
- 	 */
-+	features = vlan_features_check(skb, features);
- 	if (!skb->encapsulation ||
- 	    !(adapter->flags & BE_FLAGS_VXLAN_OFFLOADS))
- 		return features;
+ 	return features;
+ }
 -- 
 2.7.4
