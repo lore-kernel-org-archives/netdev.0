@@ -1,1153 +1,933 @@
-From: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Subject: [for-next 1/6] {net, IB}/mlx5: Replace mlx5_vzalloc with kvzalloc
-Date: Tue, 23 May 2017 14:43:59 +0300
-Message-ID: <20170523114404.20387-2-saeedm@mellanox.com>
+From: Saeed Mahameed <saeedm@mellanox.com>
+Subject: [for-next 4/6] net/mlx5: FPGA, Add basic support for Innova
+Date: Tue, 23 May 2017 14:44:02 +0300
+Message-ID: <20170523114404.20387-5-saeedm@mellanox.com>
 References: <20170523114404.20387-1-saeedm@mellanox.com>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Ilan Tayari <ilant-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170523114404.20387-1-saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
+        Ilan Tayari <ilant@mellanox.com>,
+        Saeed Mahameed <saeedm@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>,
+        Doug Ledford <dledford@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:51040 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1761741AbdEWLoL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 23 May 2017 07:44:11 -0400
+In-Reply-To: <20170523114404.20387-1-saeedm@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+From: Ilan Tayari <ilant@mellanox.com>
 
-Commit a7c3e901a46f ("mm: introduce kv[mz]alloc helpers") added
-proper implementation of mlx5_vzalloc function to the MM core.
+Mellanox Innova is a NIC with ConnectX and an FPGA on the same
+board. The FPGA is a bump-on-the-wire and thus affects operation of
+the mlx5_core driver on the ConnectX ASIC.
 
-This made the mlx5_vzalloc function useless, so let's remove it.
+Add basic support for Innova in mlx5_core.
 
-Signed-off-by: Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Signed-off-by: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+This allows using the Innova card as a regular NIC, by detecting
+the FPGA capability bit, and verifying its load state before
+initializing ConnectX interfaces.
+
+Also detect FPGA fatal runtime failures and enter error state if
+they ever happen.
+
+All new FPGA-related logic is placed in its own subdirectory 'fpga',
+which may be built by selecting CONFIG_MLX5_FPGA.
+This prepares for further support of various Innova features in later
+patchsets.
+Additional details about hardware architecture will be provided as
+more features get submitted.
+
+Signed-off-by: Ilan Tayari <ilant@mellanox.com>
+Reviewed-by: Boris Pismenny <borisp@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/infiniband/hw/mlx5/cq.c                    |  6 ++--
- drivers/infiniband/hw/mlx5/mad.c                   |  4 +--
- drivers/infiniband/hw/mlx5/main.c                  |  6 ++--
- drivers/infiniband/hw/mlx5/mr.c                    |  2 +-
- drivers/infiniband/hw/mlx5/qp.c                    | 32 ++++++++++----------
- drivers/infiniband/hw/mlx5/srq.c                   |  4 +--
- drivers/net/ethernet/mellanox/mlx5/core/debugfs.c  |  2 +-
- drivers/net/ethernet/mellanox/mlx5/core/en_arfs.c  |  8 ++---
- .../net/ethernet/mellanox/mlx5/core/en_common.c    |  4 +--
- .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   |  2 +-
- drivers/net/ethernet/mellanox/mlx5/core/en_fs.c    | 24 ++++++---------
- .../ethernet/mellanox/mlx5/core/en_fs_ethtool.c    |  2 +-
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c  | 33 ++++++++++-----------
- drivers/net/ethernet/mellanox/mlx5/core/en_tc.c    |  2 +-
- drivers/net/ethernet/mellanox/mlx5/core/eq.c       |  2 +-
- drivers/net/ethernet/mellanox/mlx5/core/eswitch.c  | 24 ++++++---------
- .../ethernet/mellanox/mlx5/core/eswitch_offloads.c | 13 ++++-----
- drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c   |  6 ++--
- drivers/net/ethernet/mellanox/mlx5/core/fs_core.c  | 10 +++----
- drivers/net/ethernet/mellanox/mlx5/core/ipoib.c    |  2 +-
- .../net/ethernet/mellanox/mlx5/core/pagealloc.c    |  4 +--
- drivers/net/ethernet/mellanox/mlx5/core/port.c     |  6 ++--
- drivers/net/ethernet/mellanox/mlx5/core/qp.c       |  2 +-
- drivers/net/ethernet/mellanox/mlx5/core/srq.c      | 14 ++++-----
- drivers/net/ethernet/mellanox/mlx5/core/transobj.c |  2 +-
- drivers/net/ethernet/mellanox/mlx5/core/vport.c    | 34 +++++++++-------------
- include/linux/mlx5/driver.h                        |  5 ----
- 27 files changed, 111 insertions(+), 144 deletions(-)
+ MAINTAINERS                                        |  10 +
+ drivers/net/ethernet/mellanox/mlx5/core/Kconfig    |  10 +
+ drivers/net/ethernet/mellanox/mlx5/core/Makefile   |   3 +
+ drivers/net/ethernet/mellanox/mlx5/core/eq.c       |  11 ++
+ drivers/net/ethernet/mellanox/mlx5/core/fpga/cmd.c |  64 +++++++
+ drivers/net/ethernet/mellanox/mlx5/core/fpga/cmd.h |  59 ++++++
+ .../net/ethernet/mellanox/mlx5/core/fpga/core.c    | 202 +++++++++++++++++++++
+ .../net/ethernet/mellanox/mlx5/core/fpga/core.h    |  99 ++++++++++
+ drivers/net/ethernet/mellanox/mlx5/core/main.c     |  19 +-
+ include/linux/mlx5/device.h                        |   6 +
+ include/linux/mlx5/driver.h                        |   5 +
+ include/linux/mlx5/mlx5_ifc.h                      |  11 +-
+ include/linux/mlx5/mlx5_ifc_fpga.h                 | 144 +++++++++++++++
+ 13 files changed, 640 insertions(+), 3 deletions(-)
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/fpga/cmd.c
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/fpga/cmd.h
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/fpga/core.c
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/fpga/core.h
+ create mode 100644 include/linux/mlx5/mlx5_ifc_fpga.h
 
-diff --git a/drivers/infiniband/hw/mlx5/cq.c b/drivers/infiniband/hw/mlx5/cq.c
-index 94c049b62c2f..a384d72ea3cd 100644
---- a/drivers/infiniband/hw/mlx5/cq.c
-+++ b/drivers/infiniband/hw/mlx5/cq.c
-@@ -788,7 +788,7 @@ static int create_cq_user(struct mlx5_ib_dev *dev, struct ib_udata *udata,
- 
- 	*inlen = MLX5_ST_SZ_BYTES(create_cq_in) +
- 		 MLX5_FLD_SZ_BYTES(create_cq_in, pas[0]) * ncont;
--	*cqb = mlx5_vzalloc(*inlen);
-+	*cqb = kvzalloc(*inlen, GFP_KERNEL);
- 	if (!*cqb) {
- 		err = -ENOMEM;
- 		goto err_db;
-@@ -884,7 +884,7 @@ static int create_cq_kernel(struct mlx5_ib_dev *dev, struct mlx5_ib_cq *cq,
- 
- 	*inlen = MLX5_ST_SZ_BYTES(create_cq_in) +
- 		 MLX5_FLD_SZ_BYTES(create_cq_in, pas[0]) * cq->buf.buf.npages;
--	*cqb = mlx5_vzalloc(*inlen);
-+	*cqb = kvzalloc(*inlen, GFP_KERNEL);
- 	if (!*cqb) {
- 		err = -ENOMEM;
- 		goto err_buf;
-@@ -1314,7 +1314,7 @@ int mlx5_ib_resize_cq(struct ib_cq *ibcq, int entries, struct ib_udata *udata)
- 	inlen = MLX5_ST_SZ_BYTES(modify_cq_in) +
- 		MLX5_FLD_SZ_BYTES(modify_cq_in, pas[0]) * npas;
- 
--	in = mlx5_vzalloc(inlen);
-+	in = kvzalloc(inlen, GFP_KERNEL);
- 	if (!in) {
- 		err = -ENOMEM;
- 		goto ex_resize;
-diff --git a/drivers/infiniband/hw/mlx5/mad.c b/drivers/infiniband/hw/mlx5/mad.c
-index f1b56de64871..95db929bdc34 100644
---- a/drivers/infiniband/hw/mlx5/mad.c
-+++ b/drivers/infiniband/hw/mlx5/mad.c
-@@ -218,7 +218,7 @@ static int process_pma_cmd(struct ib_device *ibdev, u8 port_num,
- 			(struct ib_pma_portcounters_ext *)(out_mad->data + 40);
- 		int sz = MLX5_ST_SZ_BYTES(query_vport_counter_out);
- 
--		out_cnt = mlx5_vzalloc(sz);
-+		out_cnt = kvzalloc(sz, GFP_KERNEL);
- 		if (!out_cnt)
- 			return IB_MAD_RESULT_FAILURE;
- 
-@@ -231,7 +231,7 @@ static int process_pma_cmd(struct ib_device *ibdev, u8 port_num,
- 			(struct ib_pma_portcounters *)(out_mad->data + 40);
- 		int sz = MLX5_ST_SZ_BYTES(ppcnt_reg);
- 
--		out_cnt = mlx5_vzalloc(sz);
-+		out_cnt = kvzalloc(sz, GFP_KERNEL);
- 		if (!out_cnt)
- 			return IB_MAD_RESULT_FAILURE;
- 
-diff --git a/drivers/infiniband/hw/mlx5/main.c b/drivers/infiniband/hw/mlx5/main.c
-index d45772da0963..b6991204e5df 100644
---- a/drivers/infiniband/hw/mlx5/main.c
-+++ b/drivers/infiniband/hw/mlx5/main.c
-@@ -2263,7 +2263,7 @@ static struct mlx5_ib_flow_handler *create_flow_rule(struct mlx5_ib_dev *dev,
- 	if (!is_valid_attr(dev->mdev, flow_attr))
- 		return ERR_PTR(-EINVAL);
- 
--	spec = mlx5_vzalloc(sizeof(*spec));
-+	spec = kvzalloc(sizeof(*spec), GFP_KERNEL);
- 	handler = kzalloc(sizeof(*handler), GFP_KERNEL);
- 	if (!handler || !spec) {
- 		err = -ENOMEM;
-@@ -3456,7 +3456,7 @@ static int mlx5_ib_query_q_counters(struct mlx5_ib_dev *dev,
- 	__be32 val;
- 	int ret, i;
- 
--	out = mlx5_vzalloc(outlen);
-+	out = kvzalloc(outlen, GFP_KERNEL);
- 	if (!out)
- 		return -ENOMEM;
- 
-@@ -3485,7 +3485,7 @@ static int mlx5_ib_query_cong_counters(struct mlx5_ib_dev *dev,
- 	int ret, i;
- 	int offset = port->cnts.num_q_counters;
- 
--	out = mlx5_vzalloc(outlen);
-+	out = kvzalloc(outlen, GFP_KERNEL);
- 	if (!out)
- 		return -ENOMEM;
- 
-diff --git a/drivers/infiniband/hw/mlx5/mr.c b/drivers/infiniband/hw/mlx5/mr.c
-index 366433f71b58..763bb5b36144 100644
---- a/drivers/infiniband/hw/mlx5/mr.c
-+++ b/drivers/infiniband/hw/mlx5/mr.c
-@@ -1110,7 +1110,7 @@ static struct mlx5_ib_mr *reg_create(struct ib_mr *ibmr, struct ib_pd *pd,
- 
- 	inlen = MLX5_ST_SZ_BYTES(create_mkey_in) +
- 		sizeof(*pas) * ((npages + 1) / 2) * 2;
--	in = mlx5_vzalloc(inlen);
-+	in = kvzalloc(inlen, GFP_KERNEL);
- 	if (!in) {
- 		err = -ENOMEM;
- 		goto err_1;
-diff --git a/drivers/infiniband/hw/mlx5/qp.c b/drivers/infiniband/hw/mlx5/qp.c
-index 93959e1e43a3..d17aad0f54c0 100644
---- a/drivers/infiniband/hw/mlx5/qp.c
-+++ b/drivers/infiniband/hw/mlx5/qp.c
-@@ -823,7 +823,7 @@ static int create_user_qp(struct mlx5_ib_dev *dev, struct ib_pd *pd,
- 
- 	*inlen = MLX5_ST_SZ_BYTES(create_qp_in) +
- 		 MLX5_FLD_SZ_BYTES(create_qp_in, pas[0]) * ncont;
--	*in = mlx5_vzalloc(*inlen);
-+	*in = kvzalloc(*inlen, GFP_KERNEL);
- 	if (!*in) {
- 		err = -ENOMEM;
- 		goto err_umem;
-@@ -931,7 +931,7 @@ static int create_kernel_qp(struct mlx5_ib_dev *dev,
- 	qp->sq.qend = mlx5_get_send_wqe(qp, qp->sq.wqe_cnt);
- 	*inlen = MLX5_ST_SZ_BYTES(create_qp_in) +
- 		 MLX5_FLD_SZ_BYTES(create_qp_in, pas[0]) * qp->buf.npages;
--	*in = mlx5_vzalloc(*inlen);
-+	*in = kvzalloc(*inlen, GFP_KERNEL);
- 	if (!*in) {
- 		err = -ENOMEM;
- 		goto err_buf;
-@@ -1060,7 +1060,7 @@ static int create_raw_packet_qp_sq(struct mlx5_ib_dev *dev,
- 		return err;
- 
- 	inlen = MLX5_ST_SZ_BYTES(create_sq_in) + sizeof(u64) * ncont;
--	in = mlx5_vzalloc(inlen);
-+	in = kvzalloc(inlen, GFP_KERNEL);
- 	if (!in) {
- 		err = -ENOMEM;
- 		goto err_umem;
-@@ -1140,7 +1140,7 @@ static int create_raw_packet_qp_rq(struct mlx5_ib_dev *dev,
- 	u32 rq_pas_size = get_rq_pas_size(qpc);
- 
- 	inlen = MLX5_ST_SZ_BYTES(create_rq_in) + rq_pas_size;
--	in = mlx5_vzalloc(inlen);
-+	in = kvzalloc(inlen, GFP_KERNEL);
- 	if (!in)
- 		return -ENOMEM;
- 
-@@ -1193,7 +1193,7 @@ static int create_raw_packet_qp_tir(struct mlx5_ib_dev *dev,
- 	int err;
- 
- 	inlen = MLX5_ST_SZ_BYTES(create_tir_in);
--	in = mlx5_vzalloc(inlen);
-+	in = kvzalloc(inlen, GFP_KERNEL);
- 	if (!in)
- 		return -ENOMEM;
- 
-@@ -1372,7 +1372,7 @@ static int create_rss_raw_qp_tir(struct mlx5_ib_dev *dev, struct mlx5_ib_qp *qp,
- 	}
- 
- 	inlen = MLX5_ST_SZ_BYTES(create_tir_in);
--	in = mlx5_vzalloc(inlen);
-+	in = kvzalloc(inlen, GFP_KERNEL);
- 	if (!in)
- 		return -ENOMEM;
- 
-@@ -1633,7 +1633,7 @@ static int create_qp_common(struct mlx5_ib_dev *dev, struct ib_pd *pd,
- 		if (err)
- 			return err;
- 	} else {
--		in = mlx5_vzalloc(inlen);
-+		in = kvzalloc(inlen, GFP_KERNEL);
- 		if (!in)
- 			return -ENOMEM;
- 
-@@ -2164,7 +2164,7 @@ static int modify_raw_packet_eth_prio(struct mlx5_core_dev *dev,
- 	int err;
- 
- 	inlen = MLX5_ST_SZ_BYTES(modify_tis_in);
--	in = mlx5_vzalloc(inlen);
-+	in = kvzalloc(inlen, GFP_KERNEL);
- 	if (!in)
- 		return -ENOMEM;
- 
-@@ -2189,7 +2189,7 @@ static int modify_raw_packet_tx_affinity(struct mlx5_core_dev *dev,
- 	int err;
- 
- 	inlen = MLX5_ST_SZ_BYTES(modify_tis_in);
--	in = mlx5_vzalloc(inlen);
-+	in = kvzalloc(inlen, GFP_KERNEL);
- 	if (!in)
- 		return -ENOMEM;
- 
-@@ -2434,7 +2434,7 @@ static int modify_raw_packet_qp_rq(struct mlx5_ib_dev *dev,
- 	int err;
- 
- 	inlen = MLX5_ST_SZ_BYTES(modify_rq_in);
--	in = mlx5_vzalloc(inlen);
-+	in = kvzalloc(inlen, GFP_KERNEL);
- 	if (!in)
- 		return -ENOMEM;
- 
-@@ -2479,7 +2479,7 @@ static int modify_raw_packet_qp_sq(struct mlx5_core_dev *dev,
- 	int err;
- 
- 	inlen = MLX5_ST_SZ_BYTES(modify_sq_in);
--	in = mlx5_vzalloc(inlen);
-+	in = kvzalloc(inlen, GFP_KERNEL);
- 	if (!in)
- 		return -ENOMEM;
- 
-@@ -4294,7 +4294,7 @@ static int query_raw_packet_qp_sq_state(struct mlx5_ib_dev *dev,
- 	int err;
- 
- 	inlen = MLX5_ST_SZ_BYTES(query_sq_out);
--	out = mlx5_vzalloc(inlen);
-+	out = kvzalloc(inlen, GFP_KERNEL);
- 	if (!out)
- 		return -ENOMEM;
- 
-@@ -4321,7 +4321,7 @@ static int query_raw_packet_qp_rq_state(struct mlx5_ib_dev *dev,
- 	int err;
- 
- 	inlen = MLX5_ST_SZ_BYTES(query_rq_out);
--	out = mlx5_vzalloc(inlen);
-+	out = kvzalloc(inlen, GFP_KERNEL);
- 	if (!out)
- 		return -ENOMEM;
- 
-@@ -4625,7 +4625,7 @@ static int  create_rq(struct mlx5_ib_rwq *rwq, struct ib_pd *pd,
- 	dev = to_mdev(pd->device);
- 
- 	inlen = MLX5_ST_SZ_BYTES(create_rq_in) + sizeof(u64) * rwq->rq_num_pas;
--	in = mlx5_vzalloc(inlen);
-+	in = kvzalloc(inlen, GFP_KERNEL);
- 	if (!in)
- 		return -ENOMEM;
- 
-@@ -4855,7 +4855,7 @@ struct ib_rwq_ind_table *mlx5_ib_create_rwq_ind_table(struct ib_device *device,
- 		return ERR_PTR(-ENOMEM);
- 
- 	inlen = MLX5_ST_SZ_BYTES(create_rqt_in) + sizeof(u32) * sz;
--	in = mlx5_vzalloc(inlen);
-+	in = kvzalloc(inlen, GFP_KERNEL);
- 	if (!in) {
- 		err = -ENOMEM;
- 		goto err;
-@@ -4934,7 +4934,7 @@ int mlx5_ib_modify_wq(struct ib_wq *wq, struct ib_wq_attr *wq_attr,
- 		return -EOPNOTSUPP;
- 
- 	inlen = MLX5_ST_SZ_BYTES(modify_rq_in);
--	in = mlx5_vzalloc(inlen);
-+	in = kvzalloc(inlen, GFP_KERNEL);
- 	if (!in)
- 		return -ENOMEM;
- 
-diff --git a/drivers/infiniband/hw/mlx5/srq.c b/drivers/infiniband/hw/mlx5/srq.c
-index 7cb145f9a6db..43707b101f47 100644
---- a/drivers/infiniband/hw/mlx5/srq.c
-+++ b/drivers/infiniband/hw/mlx5/srq.c
-@@ -127,7 +127,7 @@ static int create_srq_user(struct ib_pd *pd, struct mlx5_ib_srq *srq,
- 		goto err_umem;
- 	}
- 
--	in->pas = mlx5_vzalloc(sizeof(*in->pas) * ncont);
-+	in->pas = kvzalloc(sizeof(*in->pas) * ncont, GFP_KERNEL);
- 	if (!in->pas) {
- 		err = -ENOMEM;
- 		goto err_umem;
-@@ -189,7 +189,7 @@ static int create_srq_kernel(struct mlx5_ib_dev *dev, struct mlx5_ib_srq *srq,
- 	}
- 
- 	mlx5_ib_dbg(dev, "srq->buf.page_shift = %d\n", srq->buf.page_shift);
--	in->pas = mlx5_vzalloc(sizeof(*in->pas) * srq->buf.npages);
-+	in->pas = kvzalloc(sizeof(*in->pas) * srq->buf.npages, GFP_KERNEL);
- 	if (!in->pas) {
- 		err = -ENOMEM;
- 		goto err_buf;
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/debugfs.c b/drivers/net/ethernet/mellanox/mlx5/core/debugfs.c
-index e94a9532e218..de40b6cfee95 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/debugfs.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/debugfs.c
-@@ -405,7 +405,7 @@ static u64 cq_read_field(struct mlx5_core_dev *dev, struct mlx5_core_cq *cq,
- 	u32 *out;
- 	int err;
- 
--	out = mlx5_vzalloc(outlen);
-+	out = kvzalloc(outlen, GFP_KERNEL);
- 	if (!out)
- 		return param;
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_arfs.c b/drivers/net/ethernet/mellanox/mlx5/core/en_arfs.c
-index c8a005326e30..f4017c06ddd2 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_arfs.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_arfs.c
-@@ -180,9 +180,8 @@ static int arfs_add_default_rule(struct mlx5e_priv *priv,
- 	struct mlx5_flow_spec *spec;
- 	int err = 0;
- 
--	spec = mlx5_vzalloc(sizeof(*spec));
-+	spec = kvzalloc(sizeof(*spec), GFP_KERNEL);
- 	if (!spec) {
--		netdev_err(priv->netdev, "%s: alloc failed\n", __func__);
- 		err = -ENOMEM;
- 		goto out;
- 	}
-@@ -237,7 +236,7 @@ static int arfs_create_groups(struct mlx5e_flow_table *ft,
- 
- 	ft->g = kcalloc(MLX5E_ARFS_NUM_GROUPS,
- 			sizeof(*ft->g), GFP_KERNEL);
--	in = mlx5_vzalloc(inlen);
-+	in = kvzalloc(inlen, GFP_KERNEL);
- 	if  (!in || !ft->g) {
- 		kvfree(ft->g);
- 		kvfree(in);
-@@ -481,9 +480,8 @@ static struct mlx5_flow_handle *arfs_add_rule(struct mlx5e_priv *priv,
- 	struct mlx5_flow_table *ft;
- 	int err = 0;
- 
--	spec = mlx5_vzalloc(sizeof(*spec));
-+	spec = kvzalloc(sizeof(*spec), GFP_KERNEL);
- 	if (!spec) {
--		netdev_err(priv->netdev, "%s: alloc failed\n", __func__);
- 		err = -ENOMEM;
- 		goto out;
- 	}
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_common.c b/drivers/net/ethernet/mellanox/mlx5/core/en_common.c
-index f1f17f7a3cd0..46e56ec4c26f 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_common.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_common.c
-@@ -65,7 +65,7 @@ static int mlx5e_create_mkey(struct mlx5_core_dev *mdev, u32 pdn,
- 	u32 *in;
- 	int err;
- 
--	in = mlx5_vzalloc(inlen);
-+	in = kvzalloc(inlen, GFP_KERNEL);
- 	if (!in)
- 		return -ENOMEM;
- 
-@@ -147,7 +147,7 @@ int mlx5e_refresh_tirs(struct mlx5e_priv *priv, bool enable_uc_lb)
- 
- 
- 	inlen = MLX5_ST_SZ_BYTES(modify_tir_in);
--	in = mlx5_vzalloc(inlen);
-+	in = kvzalloc(inlen, GFP_KERNEL);
- 	if (!in)
- 		goto out;
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-index ce7b09d72ff6..e0dd1048c966 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-@@ -1045,7 +1045,7 @@ static int mlx5e_set_rxfh(struct net_device *dev, const u32 *indir,
- 	    (hfunc != ETH_RSS_HASH_TOP))
- 		return -EINVAL;
- 
--	in = mlx5_vzalloc(inlen);
-+	in = kvzalloc(inlen, GFP_KERNEL);
- 	if (!in)
- 		return -ENOMEM;
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_fs.c b/drivers/net/ethernet/mellanox/mlx5/core/en_fs.c
-index 576d6787b484..936fc6d96c18 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_fs.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_fs.c
-@@ -218,11 +218,9 @@ static int mlx5e_add_vlan_rule(struct mlx5e_priv *priv,
- 	struct mlx5_flow_spec *spec;
- 	int err = 0;
- 
--	spec = mlx5_vzalloc(sizeof(*spec));
--	if (!spec) {
--		netdev_err(priv->netdev, "%s: alloc failed\n", __func__);
-+	spec = kvzalloc(sizeof(*spec), GFP_KERNEL);
-+	if (!spec)
- 		return -ENOMEM;
--	}
- 
- 	if (rule_type == MLX5E_VLAN_RULE_TYPE_MATCH_VID)
- 		mlx5e_vport_context_update_vlans(priv);
-@@ -660,11 +658,9 @@ mlx5e_generate_ttc_rule(struct mlx5e_priv *priv,
- 	struct mlx5_flow_spec *spec;
- 	int err = 0;
- 
--	spec = mlx5_vzalloc(sizeof(*spec));
--	if (!spec) {
--		netdev_err(priv->netdev, "%s: alloc failed\n", __func__);
-+	spec = kvzalloc(sizeof(*spec), GFP_KERNEL);
-+	if (!spec)
- 		return ERR_PTR(-ENOMEM);
--	}
- 
- 	if (proto) {
- 		spec->match_criteria_enable = MLX5_MATCH_OUTER_HEADERS;
-@@ -742,7 +738,7 @@ static int mlx5e_create_ttc_table_groups(struct mlx5e_ttc_table *ttc)
- 			sizeof(*ft->g), GFP_KERNEL);
- 	if (!ft->g)
- 		return -ENOMEM;
--	in = mlx5_vzalloc(inlen);
-+	in = kvzalloc(inlen, GFP_KERNEL);
- 	if (!in) {
- 		kfree(ft->g);
- 		return -ENOMEM;
-@@ -853,11 +849,9 @@ static int mlx5e_add_l2_flow_rule(struct mlx5e_priv *priv,
- 	u8 *mc_dmac;
- 	u8 *mv_dmac;
- 
--	spec = mlx5_vzalloc(sizeof(*spec));
--	if (!spec) {
--		netdev_err(priv->netdev, "%s: alloc failed\n", __func__);
-+	spec = kvzalloc(sizeof(*spec), GFP_KERNEL);
-+	if (!spec)
- 		return -ENOMEM;
--	}
- 
- 	mc_dmac = MLX5_ADDR_OF(fte_match_param, spec->match_criteria,
- 			       outer_headers.dmac_47_16);
-@@ -917,7 +911,7 @@ static int mlx5e_create_l2_table_groups(struct mlx5e_l2_table *l2_table)
- 	ft->g = kcalloc(MLX5E_NUM_L2_GROUPS, sizeof(*ft->g), GFP_KERNEL);
- 	if (!ft->g)
- 		return -ENOMEM;
--	in = mlx5_vzalloc(inlen);
-+	in = kvzalloc(inlen, GFP_KERNEL);
- 	if (!in) {
- 		kfree(ft->g);
- 		return -ENOMEM;
-@@ -1072,7 +1066,7 @@ static int mlx5e_create_vlan_table_groups(struct mlx5e_flow_table *ft)
- 	int inlen = MLX5_ST_SZ_BYTES(create_flow_group_in);
- 	int err;
- 
--	in = mlx5_vzalloc(inlen);
-+	in = kvzalloc(inlen, GFP_KERNEL);
- 	if (!in)
- 		return -ENOMEM;
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_fs_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_fs_ethtool.c
-index 85bf4a389295..bdd82c9b3992 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_fs_ethtool.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_fs_ethtool.c
-@@ -296,7 +296,7 @@ add_ethtool_flow_rule(struct mlx5e_priv *priv,
- 	struct mlx5_flow_handle *rule;
- 	int err = 0;
- 
--	spec = mlx5_vzalloc(sizeof(*spec));
-+	spec = kvzalloc(sizeof(*spec), GFP_KERNEL);
- 	if (!spec)
- 		return ERR_PTR(-ENOMEM);
- 	err = set_flow_attrs(spec->match_criteria, spec->match_value,
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index a61b71b6fff3..edc485e489cc 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -252,9 +252,9 @@ static void mlx5e_update_pport_counters(struct mlx5e_priv *priv)
- 	void *out;
- 	u32 *in;
- 
--	in = mlx5_vzalloc(sz);
-+	in = kvzalloc(sz, GFP_KERNEL);
- 	if (!in)
--		goto free_out;
-+		return;
- 
- 	MLX5_SET(ppcnt_reg, in, local_port, 1);
- 
-@@ -288,7 +288,6 @@ static void mlx5e_update_pport_counters(struct mlx5e_priv *priv)
- 				     MLX5_REG_PPCNT, 0, 0);
- 	}
- 
--free_out:
- 	kvfree(in);
- }
- 
-@@ -314,7 +313,7 @@ static void mlx5e_update_pcie_counters(struct mlx5e_priv *priv)
- 	if (!MLX5_CAP_MCAM_FEATURE(mdev, pcie_performance_group))
- 		return;
- 
--	in = mlx5_vzalloc(sz);
-+	in = kvzalloc(sz, GFP_KERNEL);
- 	if (!in)
- 		return;
- 
-@@ -503,7 +502,7 @@ static int mlx5e_create_umr_mkey(struct mlx5_core_dev *mdev,
- 	if (!MLX5E_VALID_NUM_MTTS(npages))
- 		return -EINVAL;
- 
--	in = mlx5_vzalloc(inlen);
-+	in = kvzalloc(inlen, GFP_KERNEL);
- 	if (!in)
- 		return -ENOMEM;
- 
-@@ -711,7 +710,7 @@ static int mlx5e_create_rq(struct mlx5e_rq *rq,
- 
- 	inlen = MLX5_ST_SZ_BYTES(create_rq_in) +
- 		sizeof(u64) * rq->wq_ctrl.buf.npages;
--	in = mlx5_vzalloc(inlen);
-+	in = kvzalloc(inlen, GFP_KERNEL);
- 	if (!in)
- 		return -ENOMEM;
- 
-@@ -748,7 +747,7 @@ static int mlx5e_modify_rq_state(struct mlx5e_rq *rq, int curr_state,
- 	int err;
- 
- 	inlen = MLX5_ST_SZ_BYTES(modify_rq_in);
--	in = mlx5_vzalloc(inlen);
-+	in = kvzalloc(inlen, GFP_KERNEL);
- 	if (!in)
- 		return -ENOMEM;
- 
-@@ -776,7 +775,7 @@ static int mlx5e_modify_rq_scatter_fcs(struct mlx5e_rq *rq, bool enable)
- 	int err;
- 
- 	inlen = MLX5_ST_SZ_BYTES(modify_rq_in);
--	in = mlx5_vzalloc(inlen);
-+	in = kvzalloc(inlen, GFP_KERNEL);
- 	if (!in)
- 		return -ENOMEM;
- 
-@@ -805,7 +804,7 @@ static int mlx5e_modify_rq_vsd(struct mlx5e_rq *rq, bool vsd)
- 	int err;
- 
- 	inlen = MLX5_ST_SZ_BYTES(modify_rq_in);
--	in = mlx5_vzalloc(inlen);
-+	in = kvzalloc(inlen, GFP_KERNEL);
- 	if (!in)
- 		return -ENOMEM;
- 
-@@ -1134,7 +1133,7 @@ static int mlx5e_create_sq(struct mlx5_core_dev *mdev,
- 
- 	inlen = MLX5_ST_SZ_BYTES(create_sq_in) +
- 		sizeof(u64) * csp->wq_ctrl->buf.npages;
--	in = mlx5_vzalloc(inlen);
-+	in = kvzalloc(inlen, GFP_KERNEL);
- 	if (!in)
- 		return -ENOMEM;
- 
-@@ -1182,7 +1181,7 @@ static int mlx5e_modify_sq(struct mlx5_core_dev *mdev, u32 sqn,
- 	int err;
- 
- 	inlen = MLX5_ST_SZ_BYTES(modify_sq_in);
--	in = mlx5_vzalloc(inlen);
-+	in = kvzalloc(inlen, GFP_KERNEL);
- 	if (!in)
- 		return -ENOMEM;
- 
-@@ -1496,7 +1495,7 @@ static int mlx5e_create_cq(struct mlx5e_cq *cq, struct mlx5e_cq_param *param)
- 
- 	inlen = MLX5_ST_SZ_BYTES(create_cq_in) +
- 		sizeof(u64) * cq->wq_ctrl.frag_buf.npages;
--	in = mlx5_vzalloc(inlen);
-+	in = kvzalloc(inlen, GFP_KERNEL);
- 	if (!in)
- 		return -ENOMEM;
- 
-@@ -2091,7 +2090,7 @@ mlx5e_create_rqt(struct mlx5e_priv *priv, int sz, struct mlx5e_rqt *rqt)
- 	int i;
- 
- 	inlen = MLX5_ST_SZ_BYTES(create_rqt_in) + sizeof(u32) * sz;
--	in = mlx5_vzalloc(inlen);
-+	in = kvzalloc(inlen, GFP_KERNEL);
- 	if (!in)
- 		return -ENOMEM;
- 
-@@ -2210,7 +2209,7 @@ int mlx5e_redirect_rqt(struct mlx5e_priv *priv, u32 rqtn, int sz,
- 	int err;
- 
- 	inlen = MLX5_ST_SZ_BYTES(modify_rqt_in) + sizeof(u32) * sz;
--	in = mlx5_vzalloc(inlen);
-+	in = kvzalloc(inlen, GFP_KERNEL);
- 	if (!in)
- 		return -ENOMEM;
- 
-@@ -2433,7 +2432,7 @@ static int mlx5e_modify_tirs_lro(struct mlx5e_priv *priv)
- 	int ix;
- 
- 	inlen = MLX5_ST_SZ_BYTES(modify_tir_in);
--	in = mlx5_vzalloc(inlen);
-+	in = kvzalloc(inlen, GFP_KERNEL);
- 	if (!in)
- 		return -ENOMEM;
- 
-@@ -2850,7 +2849,7 @@ int mlx5e_create_indirect_tirs(struct mlx5e_priv *priv)
- 	int tt;
- 
- 	inlen = MLX5_ST_SZ_BYTES(create_tir_in);
--	in = mlx5_vzalloc(inlen);
-+	in = kvzalloc(inlen, GFP_KERNEL);
- 	if (!in)
- 		return -ENOMEM;
- 
-@@ -2889,7 +2888,7 @@ int mlx5e_create_direct_tirs(struct mlx5e_priv *priv)
- 	int ix;
- 
- 	inlen = MLX5_ST_SZ_BYTES(create_tir_in);
--	in = mlx5_vzalloc(inlen);
-+	in = kvzalloc(inlen, GFP_KERNEL);
- 	if (!in)
- 		return -ENOMEM;
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
-index 11c27e4fadf6..66a9bd635176 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
-@@ -1738,7 +1738,7 @@ int mlx5e_configure_flower(struct mlx5e_priv *priv, __be16 protocol,
- 	}
- 
- 	flow = kzalloc(sizeof(*flow) + attr_size, GFP_KERNEL);
--	parse_attr = mlx5_vzalloc(sizeof(*parse_attr));
-+	parse_attr = kvzalloc(sizeof(*parse_attr), GFP_KERNEL);
- 	if (!parse_attr || !flow) {
- 		err = -ENOMEM;
- 		goto err_free;
+diff --git a/MAINTAINERS b/MAINTAINERS
+index f7d568b8f133..374ebf1b5d5d 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -8304,6 +8304,16 @@ W:	http://www.mellanox.com
+ Q:	http://patchwork.ozlabs.org/project/netdev/list/
+ F:	drivers/net/ethernet/mellanox/mlx5/core/en_*
+ 
++MELLANOX ETHERNET INNOVA DRIVER
++M:	Ilan Tayari <ilant@mellanox.com>
++R:	Boris Pismenny <borisp@mellanox.com>
++L:	netdev@vger.kernel.org
++S:	Supported
++W:	http://www.mellanox.com
++Q:	http://patchwork.ozlabs.org/project/netdev/list/
++F:	drivers/net/ethernet/mellanox/mlx5/core/fpga/*
++F:	include/linux/mlx5/mlx5_ifc_fpga.h
++
+ MELLANOX ETHERNET SWITCH DRIVERS
+ M:	Jiri Pirko <jiri@mellanox.com>
+ M:	Ido Schimmel <idosch@mellanox.com>
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/Kconfig b/drivers/net/ethernet/mellanox/mlx5/core/Kconfig
+index fc52d742b7f7..28cf88483ca4 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/Kconfig
++++ b/drivers/net/ethernet/mellanox/mlx5/core/Kconfig
+@@ -11,6 +11,16 @@ config MLX5_CORE
+ 	  Core driver for low level functionality of the ConnectX-4 and
+ 	  Connect-IB cards by Mellanox Technologies.
+ 
++config MLX5_FPGA
++        bool "Mellanox Technologies Innova support"
++        depends on MLX5_CORE
++        ---help---
++          Build support for the Innova family of network cards by Mellanox
++          Technologies. Innova network cards are comprised of a ConnectX chip
++          and an FPGA chip on one board. If you select this option, the
++          mlx5_core driver will include the Innova FPGA core and allow building
++          sandbox-specific client drivers.
++
+ config MLX5_CORE_EN
+ 	bool "Mellanox Technologies ConnectX-4 Ethernet support"
+ 	depends on NETDEVICES && ETHERNET && PCI && MLX5_CORE
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/Makefile b/drivers/net/ethernet/mellanox/mlx5/core/Makefile
+index 9e644615f07a..12556c03eec4 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/Makefile
++++ b/drivers/net/ethernet/mellanox/mlx5/core/Makefile
+@@ -1,10 +1,13 @@
+ obj-$(CONFIG_MLX5_CORE)		+= mlx5_core.o
++subdir-ccflags-y += -I$(src)
+ 
+ mlx5_core-y :=	main.o cmd.o debugfs.o fw.o eq.o uar.o pagealloc.o \
+ 		health.o mcg.o cq.o srq.o alloc.o qp.o port.o mr.o pd.o \
+ 		mad.o transobj.o vport.o sriov.o fs_cmd.o fs_core.o \
+ 		fs_counters.o rl.o lag.o dev.o
+ 
++mlx5_core-$(CONFIG_MLX5_FPGA) += fpga/cmd.o fpga/core.o
++
+ mlx5_core-$(CONFIG_MLX5_CORE_EN) += wq.o eswitch.o eswitch_offloads.o \
+ 		en_main.o en_common.o en_fs.o en_ethtool.o en_tx.o \
+ 		en_rx.o en_rx_am.o en_txrx.o en_clock.o vxlan.o \
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eq.c b/drivers/net/ethernet/mellanox/mlx5/core/eq.c
-index ea5d8d37a75c..df0034d8f48c 100644
+index df0034d8f48c..01d2cd7e4746 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/eq.c
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/eq.c
-@@ -548,7 +548,7 @@ int mlx5_create_map_eq(struct mlx5_core_dev *dev, struct mlx5_eq *eq, u8 vecidx,
- 	inlen = MLX5_ST_SZ_BYTES(create_eq_in) +
- 		MLX5_FLD_SZ_BYTES(create_eq_in, pas[0]) * eq->buf.npages;
- 
--	in = mlx5_vzalloc(inlen);
-+	in = kvzalloc(inlen, GFP_KERNEL);
- 	if (!in) {
- 		err = -ENOMEM;
- 		goto err_buf;
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
-index 2e34d95ea776..81dfcd90b1f5 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
-@@ -248,11 +248,10 @@ __esw_fdb_set_vport_rule(struct mlx5_eswitch *esw, u32 vport, bool rx_rule,
- 	if (rx_rule)
- 		match_header |= MLX5_MATCH_MISC_PARAMETERS;
- 
--	spec = mlx5_vzalloc(sizeof(*spec));
--	if (!spec) {
--		esw_warn(esw->dev, "FDB: Failed to alloc match parameters\n");
-+	spec = kvzalloc(sizeof(*spec), GFP_KERNEL);
-+	if (!spec)
- 		return NULL;
--	}
+@@ -35,6 +35,7 @@
+ #include <linux/mlx5/driver.h>
+ #include <linux/mlx5/cmd.h>
+ #include "mlx5_core.h"
++#include "fpga/core.h"
+ #ifdef CONFIG_MLX5_CORE_EN
+ #include "eswitch.h"
+ #endif
+@@ -156,6 +157,8 @@ static const char *eqe_type_str(u8 type)
+ 		return "MLX5_EVENT_TYPE_PAGE_FAULT";
+ 	case MLX5_EVENT_TYPE_PPS_EVENT:
+ 		return "MLX5_EVENT_TYPE_PPS_EVENT";
++	case MLX5_EVENT_TYPE_FPGA_ERROR:
++		return "MLX5_EVENT_TYPE_FPGA_ERROR";
+ 	default:
+ 		return "Unrecognized event";
+ 	}
+@@ -476,6 +479,11 @@ static irqreturn_t mlx5_eq_int(int irq, void *eq_ptr)
+ 			if (dev->event)
+ 				dev->event(dev, MLX5_DEV_EVENT_PPS, (unsigned long)eqe);
+ 			break;
 +
- 	dmac_v = MLX5_ADDR_OF(fte_match_param, spec->match_value,
- 			      outer_headers.dmac_47_16);
- 	dmac_c = MLX5_ADDR_OF(fte_match_param, spec->match_criteria,
-@@ -350,10 +349,9 @@ static int esw_create_legacy_fdb_table(struct mlx5_eswitch *esw, int nvports)
- 		return -EOPNOTSUPP;
++		case MLX5_EVENT_TYPE_FPGA_ERROR:
++			mlx5_fpga_event(dev, eqe->type, &eqe->data.raw);
++			break;
++
+ 		default:
+ 			mlx5_core_warn(dev, "Unhandled event 0x%x on EQ 0x%x\n",
+ 				       eqe->type, eq->eqn);
+@@ -693,6 +701,9 @@ int mlx5_start_eqs(struct mlx5_core_dev *dev)
+ 	if (MLX5_CAP_GEN(dev, pps))
+ 		async_event_mask |= (1ull << MLX5_EVENT_TYPE_PPS_EVENT);
+ 
++	if (MLX5_CAP_GEN(dev, fpga))
++		async_event_mask |= (1ull << MLX5_EVENT_TYPE_FPGA_ERROR);
++
+ 	err = mlx5_create_map_eq(dev, &table->cmd_eq, MLX5_EQ_VEC_CMD,
+ 				 MLX5_NUM_CMD_EQE, 1ull << MLX5_EVENT_TYPE_CMD,
+ 				 "mlx5_cmd_eq", MLX5_EQ_TYPE_ASYNC);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fpga/cmd.c b/drivers/net/ethernet/mellanox/mlx5/core/fpga/cmd.c
+new file mode 100644
+index 000000000000..99cba644b4fc
+--- /dev/null
++++ b/drivers/net/ethernet/mellanox/mlx5/core/fpga/cmd.c
+@@ -0,0 +1,64 @@
++/*
++ * Copyright (c) 2017, Mellanox Technologies. All rights reserved.
++ *
++ * This software is available to you under a choice of one of two
++ * licenses.  You may choose to be licensed under the terms of the GNU
++ * General Public License (GPL) Version 2, available from the file
++ * COPYING in the main directory of this source tree, or the
++ * OpenIB.org BSD license below:
++ *
++ *     Redistribution and use in source and binary forms, with or
++ *     without modification, are permitted provided that the following
++ *     conditions are met:
++ *
++ *      - Redistributions of source code must retain the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer.
++ *
++ *      - Redistributions in binary form must reproduce the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer in the documentation and/or other materials
++ *        provided with the distribution.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
++ */
++
++#include <linux/etherdevice.h>
++#include <linux/mlx5/cmd.h>
++#include <linux/mlx5/driver.h>
++
++#include "mlx5_core.h"
++#include "fpga/cmd.h"
++
++int mlx5_fpga_caps(struct mlx5_core_dev *dev, u32 *caps)
++{
++	u32 in[MLX5_ST_SZ_DW(fpga_cap)] = {0};
++
++	return mlx5_core_access_reg(dev, in, sizeof(in), caps,
++				    MLX5_ST_SZ_BYTES(fpga_cap),
++				    MLX5_REG_FPGA_CAP, 0, 0);
++}
++
++int mlx5_fpga_query(struct mlx5_core_dev *dev, struct mlx5_fpga_query *query)
++{
++	u32 in[MLX5_ST_SZ_DW(fpga_ctrl)] = {0};
++	u32 out[MLX5_ST_SZ_DW(fpga_ctrl)];
++	int err;
++
++	err = mlx5_core_access_reg(dev, in, sizeof(in), out, sizeof(out),
++				   MLX5_REG_FPGA_CTRL, 0, false);
++	if (err)
++		return err;
++
++	query->status = MLX5_GET(fpga_ctrl, out, status);
++	query->admin_image = MLX5_GET(fpga_ctrl, out, flash_select_admin);
++	query->oper_image = MLX5_GET(fpga_ctrl, out, flash_select_oper);
++	return 0;
++}
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fpga/cmd.h b/drivers/net/ethernet/mellanox/mlx5/core/fpga/cmd.h
+new file mode 100644
+index 000000000000..a74396a61bc3
+--- /dev/null
++++ b/drivers/net/ethernet/mellanox/mlx5/core/fpga/cmd.h
+@@ -0,0 +1,59 @@
++/*
++ * Copyright (c) 2017, Mellanox Technologies, Ltd.  All rights reserved.
++ *
++ * This software is available to you under a choice of one of two
++ * licenses.  You may choose to be licensed under the terms of the GNU
++ * General Public License (GPL) Version 2, available from the file
++ * COPYING in the main directory of this source tree, or the
++ * OpenIB.org BSD license below:
++ *
++ *     Redistribution and use in source and binary forms, with or
++ *     without modification, are permitted provided that the following
++ *     conditions are met:
++ *
++ *      - Redistributions of source code must retain the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer.
++ *
++ *      - Redistributions in binary form must reproduce the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer in the documentation and/or other materials
++ *        provided with the distribution.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
++ */
++
++#ifndef __MLX5_FPGA_H__
++#define __MLX5_FPGA_H__
++
++#include <linux/mlx5/driver.h>
++
++enum mlx5_fpga_image {
++	MLX5_FPGA_IMAGE_USER = 0,
++	MLX5_FPGA_IMAGE_FACTORY,
++};
++
++enum mlx5_fpga_status {
++	MLX5_FPGA_STATUS_SUCCESS = 0,
++	MLX5_FPGA_STATUS_FAILURE = 1,
++	MLX5_FPGA_STATUS_IN_PROGRESS = 2,
++	MLX5_FPGA_STATUS_NONE = 0xFFFF,
++};
++
++struct mlx5_fpga_query {
++	enum mlx5_fpga_image admin_image;
++	enum mlx5_fpga_image oper_image;
++	enum mlx5_fpga_status status;
++};
++
++int mlx5_fpga_caps(struct mlx5_core_dev *dev, u32 *caps);
++int mlx5_fpga_query(struct mlx5_core_dev *dev, struct mlx5_fpga_query *query);
++
++#endif /* __MLX5_FPGA_H__ */
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fpga/core.c b/drivers/net/ethernet/mellanox/mlx5/core/fpga/core.c
+new file mode 100644
+index 000000000000..d88b332e9669
+--- /dev/null
++++ b/drivers/net/ethernet/mellanox/mlx5/core/fpga/core.c
+@@ -0,0 +1,202 @@
++/*
++ * Copyright (c) 2017, Mellanox Technologies. All rights reserved.
++ *
++ * This software is available to you under a choice of one of two
++ * licenses.  You may choose to be licensed under the terms of the GNU
++ * General Public License (GPL) Version 2, available from the file
++ * COPYING in the main directory of this source tree, or the
++ * OpenIB.org BSD license below:
++ *
++ *     Redistribution and use in source and binary forms, with or
++ *     without modification, are permitted provided that the following
++ *     conditions are met:
++ *
++ *      - Redistributions of source code must retain the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer.
++ *
++ *      - Redistributions in binary form must reproduce the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer in the documentation and/or other materials
++ *        provided with the distribution.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
++ */
++
++#include <linux/module.h>
++#include <linux/etherdevice.h>
++#include <linux/mlx5/driver.h>
++
++#include "mlx5_core.h"
++#include "fpga/core.h"
++
++static const char *const mlx5_fpga_error_strings[] = {
++	"Null Syndrome",
++	"Corrupted DDR",
++	"Flash Timeout",
++	"Internal Link Error",
++	"Watchdog HW Failure",
++	"I2C Failure",
++	"Image Changed",
++	"Temperature Critical",
++};
++
++static struct mlx5_fpga_device *mlx5_fpga_device_alloc(void)
++{
++	struct mlx5_fpga_device *fdev = NULL;
++
++	fdev = kzalloc(sizeof(*fdev), GFP_KERNEL);
++	if (!fdev)
++		return NULL;
++
++	spin_lock_init(&fdev->state_lock);
++	fdev->state = MLX5_FPGA_STATUS_NONE;
++	return fdev;
++}
++
++static const char *mlx5_fpga_image_name(enum mlx5_fpga_image image)
++{
++	switch (image) {
++	case MLX5_FPGA_IMAGE_USER:
++		return "user";
++	case MLX5_FPGA_IMAGE_FACTORY:
++		return "factory";
++	default:
++		return "unknown";
++	}
++}
++
++static int mlx5_fpga_device_load_check(struct mlx5_fpga_device *fdev)
++{
++	struct mlx5_fpga_query query;
++	int err;
++
++	err = mlx5_fpga_query(fdev->mdev, &query);
++	if (err) {
++		mlx5_fpga_err(fdev, "Failed to query status: %d\n", err);
++		return err;
++	}
++
++	fdev->last_admin_image = query.admin_image;
++	fdev->last_oper_image = query.oper_image;
++
++	mlx5_fpga_dbg(fdev, "Status %u; Admin image %u; Oper image %u\n",
++		      query.status, query.admin_image, query.oper_image);
++
++	if (query.status != MLX5_FPGA_STATUS_SUCCESS) {
++		mlx5_fpga_err(fdev, "%s image failed to load; status %u\n",
++			      mlx5_fpga_image_name(fdev->last_oper_image),
++			      query.status);
++		return -EIO;
++	}
++
++	return 0;
++}
++
++int mlx5_fpga_device_start(struct mlx5_core_dev *mdev)
++{
++	struct mlx5_fpga_device *fdev = mdev->fpga;
++	unsigned long flags;
++	int err;
++
++	if (!fdev)
++		return 0;
++
++	err = mlx5_fpga_device_load_check(fdev);
++	if (err)
++		goto out;
++
++	err = mlx5_fpga_caps(fdev->mdev,
++			     fdev->mdev->caps.hca_cur[MLX5_CAP_FPGA]);
++	if (err)
++		goto out;
++
++	mlx5_fpga_info(fdev, "device %u; %s image, version %u\n",
++		       MLX5_CAP_FPGA(fdev->mdev, fpga_device),
++		       mlx5_fpga_image_name(fdev->last_oper_image),
++		       MLX5_CAP_FPGA(fdev->mdev, image_version));
++
++out:
++	spin_lock_irqsave(&fdev->state_lock, flags);
++	fdev->state = err ? MLX5_FPGA_STATUS_FAILURE : MLX5_FPGA_STATUS_SUCCESS;
++	spin_unlock_irqrestore(&fdev->state_lock, flags);
++	return err;
++}
++
++int mlx5_fpga_device_init(struct mlx5_core_dev *mdev)
++{
++	struct mlx5_fpga_device *fdev = NULL;
++
++	if (!MLX5_CAP_GEN(mdev, fpga)) {
++		mlx5_core_dbg(mdev, "FPGA capability not present\n");
++		return 0;
++	}
++
++	mlx5_core_dbg(mdev, "Initializing FPGA\n");
++
++	fdev = mlx5_fpga_device_alloc();
++	if (!fdev)
++		return -ENOMEM;
++
++	fdev->mdev = mdev;
++	mdev->fpga = fdev;
++
++	return 0;
++}
++
++void mlx5_fpga_device_cleanup(struct mlx5_core_dev *mdev)
++{
++	kfree(mdev->fpga);
++	mdev->fpga = NULL;
++}
++
++static const char *mlx5_fpga_syndrome_to_string(u8 syndrome)
++{
++	if (syndrome < ARRAY_SIZE(mlx5_fpga_error_strings))
++		return mlx5_fpga_error_strings[syndrome];
++	return "Unknown";
++}
++
++void mlx5_fpga_event(struct mlx5_core_dev *mdev, u8 event, void *data)
++{
++	struct mlx5_fpga_device *fdev = mdev->fpga;
++	const char *event_name;
++	bool teardown = false;
++	unsigned long flags;
++	u8 syndrome;
++
++	if (event != MLX5_EVENT_TYPE_FPGA_ERROR) {
++		mlx5_fpga_warn_ratelimited(fdev, "Unexpected event %u\n",
++					   event);
++		return;
++	}
++
++	syndrome = MLX5_GET(fpga_error_event, data, syndrome);
++	event_name = mlx5_fpga_syndrome_to_string(syndrome);
++
++	spin_lock_irqsave(&fdev->state_lock, flags);
++	switch (fdev->state) {
++	case MLX5_FPGA_STATUS_SUCCESS:
++		mlx5_fpga_warn(fdev, "Error %u: %s\n", syndrome, event_name);
++		teardown = true;
++		break;
++	default:
++		mlx5_fpga_warn_ratelimited(fdev, "Unexpected error event %u: %s\n",
++					   syndrome, event_name);
++	}
++	spin_unlock_irqrestore(&fdev->state_lock, flags);
++	/* We tear-down the card's interfaces and functionality because
++	 * the FPGA bump-on-the-wire is misbehaving and we lose ability
++	 * to communicate with the network. User may still be able to
++	 * recover by re-programming or debugging the FPGA
++	 */
++	if (teardown)
++		mlx5_trigger_health_work(fdev->mdev);
++}
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fpga/core.h b/drivers/net/ethernet/mellanox/mlx5/core/fpga/core.h
+new file mode 100644
+index 000000000000..c55044d66778
+--- /dev/null
++++ b/drivers/net/ethernet/mellanox/mlx5/core/fpga/core.h
+@@ -0,0 +1,99 @@
++/*
++ * Copyright (c) 2017, Mellanox Technologies, Ltd.  All rights reserved.
++ *
++ * This software is available to you under a choice of one of two
++ * licenses.  You may choose to be licensed under the terms of the GNU
++ * General Public License (GPL) Version 2, available from the file
++ * COPYING in the main directory of this source tree, or the
++ * OpenIB.org BSD license below:
++ *
++ *     Redistribution and use in source and binary forms, with or
++ *     without modification, are permitted provided that the following
++ *     conditions are met:
++ *
++ *      - Redistributions of source code must retain the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer.
++ *
++ *      - Redistributions in binary form must reproduce the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer in the documentation and/or other materials
++ *        provided with the distribution.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
++ */
++
++#ifndef __MLX5_FPGA_CORE_H__
++#define __MLX5_FPGA_CORE_H__
++
++#ifdef CONFIG_MLX5_FPGA
++
++#include "fpga/cmd.h"
++
++/* Represents an Innova device */
++struct mlx5_fpga_device {
++	struct mlx5_core_dev *mdev;
++	spinlock_t state_lock; /* Protects state transitions */
++	enum mlx5_fpga_status state;
++	enum mlx5_fpga_image last_admin_image;
++	enum mlx5_fpga_image last_oper_image;
++};
++
++#define mlx5_fpga_dbg(__adev, format, ...) \
++	dev_dbg(&(__adev)->mdev->pdev->dev, "FPGA: %s:%d:(pid %d): " format, \
++		 __func__, __LINE__, current->pid, ##__VA_ARGS__)
++
++#define mlx5_fpga_err(__adev, format, ...) \
++	dev_err(&(__adev)->mdev->pdev->dev, "FPGA: %s:%d:(pid %d): " format, \
++		__func__, __LINE__, current->pid, ##__VA_ARGS__)
++
++#define mlx5_fpga_warn(__adev, format, ...) \
++	dev_warn(&(__adev)->mdev->pdev->dev, "FPGA: %s:%d:(pid %d): " format, \
++		__func__, __LINE__, current->pid, ##__VA_ARGS__)
++
++#define mlx5_fpga_warn_ratelimited(__adev, format, ...) \
++	dev_warn_ratelimited(&(__adev)->mdev->pdev->dev, "FPGA: %s:%d: " \
++		format, __func__, __LINE__, ##__VA_ARGS__)
++
++#define mlx5_fpga_notice(__adev, format, ...) \
++	dev_notice(&(__adev)->mdev->pdev->dev, "FPGA: " format, ##__VA_ARGS__)
++
++#define mlx5_fpga_info(__adev, format, ...) \
++	dev_info(&(__adev)->mdev->pdev->dev, "FPGA: " format, ##__VA_ARGS__)
++
++int mlx5_fpga_device_init(struct mlx5_core_dev *mdev);
++void mlx5_fpga_device_cleanup(struct mlx5_core_dev *mdev);
++int mlx5_fpga_device_start(struct mlx5_core_dev *mdev);
++void mlx5_fpga_event(struct mlx5_core_dev *mdev, u8 event, void *data);
++
++#else
++
++static inline int mlx5_fpga_device_init(struct mlx5_core_dev *mdev)
++{
++	return 0;
++}
++
++static inline void mlx5_fpga_device_cleanup(struct mlx5_core_dev *mdev)
++{
++}
++
++static inline int mlx5_fpga_device_start(struct mlx5_core_dev *mdev)
++{
++	return 0;
++}
++
++static inline void mlx5_fpga_event(struct mlx5_core_dev *mdev, u8 event,
++				   void *data)
++{
++}
++
++#endif
++
++#endif /* __MLX5_FPGA_CORE_H__ */
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c b/drivers/net/ethernet/mellanox/mlx5/core/main.c
+index f933922d5cca..ad0202cef203 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
+@@ -56,6 +56,7 @@
+ #ifdef CONFIG_MLX5_CORE_EN
+ #include "eswitch.h"
+ #endif
++#include "fpga/core.h"
+ 
+ MODULE_AUTHOR("Eli Cohen <eli@mellanox.com>");
+ MODULE_DESCRIPTION("Mellanox Connect-IB, ConnectX-4 core driver");
+@@ -1113,10 +1114,16 @@ static int mlx5_load_one(struct mlx5_core_dev *dev, struct mlx5_priv *priv,
+ 		goto err_disable_msix;
  	}
  
--	flow_group_in = mlx5_vzalloc(inlen);
-+	flow_group_in = kvzalloc(inlen, GFP_KERNEL);
- 	if (!flow_group_in)
- 		return -ENOMEM;
--	memset(flow_group_in, 0, inlen);
- 
- 	table_size = BIT(MLX5_CAP_ESW_FLOWTABLE_FDB(dev, log_max_ft_size));
- 
-@@ -961,7 +959,7 @@ static int esw_vport_enable_egress_acl(struct mlx5_eswitch *esw,
- 		return -EOPNOTSUPP;
++	err = mlx5_fpga_device_init(dev);
++	if (err) {
++		dev_err(&pdev->dev, "fpga device init failed %d\n", err);
++		goto err_put_uars;
++	}
++
+ 	err = mlx5_start_eqs(dev);
+ 	if (err) {
+ 		dev_err(&pdev->dev, "Failed to start pages and async EQs\n");
+-		goto err_put_uars;
++		goto err_fpga_init;
  	}
  
--	flow_group_in = mlx5_vzalloc(inlen);
-+	flow_group_in = kvzalloc(inlen, GFP_KERNEL);
- 	if (!flow_group_in)
- 		return -ENOMEM;
- 
-@@ -1078,7 +1076,7 @@ static int esw_vport_enable_ingress_acl(struct mlx5_eswitch *esw,
- 		return -EOPNOTSUPP;
+ 	err = alloc_comp_eqs(dev);
+@@ -1147,6 +1154,12 @@ static int mlx5_load_one(struct mlx5_core_dev *dev, struct mlx5_priv *priv,
+ 		goto err_sriov;
  	}
  
--	flow_group_in = mlx5_vzalloc(inlen);
-+	flow_group_in = kvzalloc(inlen, GFP_KERNEL);
- 	if (!flow_group_in)
- 		return -ENOMEM;
- 
-@@ -1241,11 +1239,9 @@ static int esw_vport_ingress_config(struct mlx5_eswitch *esw,
- 		  "vport[%d] configure ingress rules, vlan(%d) qos(%d)\n",
- 		  vport->vport, vport->info.vlan, vport->info.qos);
- 
--	spec = mlx5_vzalloc(sizeof(*spec));
-+	spec = kvzalloc(sizeof(*spec), GFP_KERNEL);
- 	if (!spec) {
- 		err = -ENOMEM;
--		esw_warn(esw->dev, "vport[%d] configure ingress rules failed, err(%d)\n",
--			 vport->vport, err);
- 		goto out;
- 	}
- 
-@@ -1322,11 +1318,9 @@ static int esw_vport_egress_config(struct mlx5_eswitch *esw,
- 		  "vport[%d] configure egress rules, vlan(%d) qos(%d)\n",
- 		  vport->vport, vport->info.vlan, vport->info.qos);
- 
--	spec = mlx5_vzalloc(sizeof(*spec));
-+	spec = kvzalloc(sizeof(*spec), GFP_KERNEL);
- 	if (!spec) {
- 		err = -ENOMEM;
--		esw_warn(esw->dev, "vport[%d] configure egress rules failed, err(%d)\n",
--			 vport->vport, err);
- 		goto out;
- 	}
- 
-@@ -2158,7 +2152,7 @@ int mlx5_eswitch_get_vport_stats(struct mlx5_eswitch *esw,
- 	if (!LEGAL_VPORT(esw, vport))
- 		return -EINVAL;
- 
--	out = mlx5_vzalloc(outlen);
-+	out = kvzalloc(outlen, GFP_KERNEL);
- 	if (!out)
- 		return -ENOMEM;
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
-index f991f669047e..3795943ef2d1 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
-@@ -311,9 +311,8 @@ mlx5_eswitch_add_send_to_vport_rule(struct mlx5_eswitch *esw, int vport, u32 sqn
- 	struct mlx5_flow_spec *spec;
- 	void *misc;
- 
--	spec = mlx5_vzalloc(sizeof(*spec));
-+	spec = kvzalloc(sizeof(*spec), GFP_KERNEL);
- 	if (!spec) {
--		esw_warn(esw->dev, "FDB: Failed to alloc match parameters\n");
- 		flow_rule = ERR_PTR(-ENOMEM);
- 		goto out;
- 	}
-@@ -401,9 +400,8 @@ static int esw_add_fdb_miss_rule(struct mlx5_eswitch *esw)
- 	struct mlx5_flow_spec *spec;
- 	int err = 0;
- 
--	spec = mlx5_vzalloc(sizeof(*spec));
-+	spec = kvzalloc(sizeof(*spec), GFP_KERNEL);
- 	if (!spec) {
--		esw_warn(esw->dev, "FDB: Failed to alloc match parameters\n");
- 		err = -ENOMEM;
- 		goto out;
- 	}
-@@ -488,7 +486,7 @@ static int esw_create_offloads_fdb_tables(struct mlx5_eswitch *esw, int nvports)
- 	u32 *flow_group_in;
- 
- 	esw_debug(esw->dev, "Create offloads FDB Tables\n");
--	flow_group_in = mlx5_vzalloc(inlen);
-+	flow_group_in = kvzalloc(inlen, GFP_KERNEL);
- 	if (!flow_group_in)
- 		return -ENOMEM;
- 
-@@ -631,7 +629,7 @@ static int esw_create_vport_rx_group(struct mlx5_eswitch *esw)
- 	int err = 0;
- 	int nvports = priv->sriov.num_vfs + 2;
- 
--	flow_group_in = mlx5_vzalloc(inlen);
-+	flow_group_in = kvzalloc(inlen, GFP_KERNEL);
- 	if (!flow_group_in)
- 		return -ENOMEM;
- 
-@@ -675,9 +673,8 @@ mlx5_eswitch_create_vport_rx_rule(struct mlx5_eswitch *esw, int vport, u32 tirn)
- 	struct mlx5_flow_spec *spec;
- 	void *misc;
- 
--	spec = mlx5_vzalloc(sizeof(*spec));
-+	spec = kvzalloc(sizeof(*spec), GFP_KERNEL);
- 	if (!spec) {
--		esw_warn(esw->dev, "Failed to alloc match parameters\n");
- 		flow_rule = ERR_PTR(-ENOMEM);
- 		goto out;
- 	}
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c b/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c
-index 19e3d2fc2099..b27c59af9640 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c
-@@ -235,11 +235,9 @@ static int mlx5_cmd_set_fte(struct mlx5_core_dev *dev,
- 	u32 *in;
- 	int err;
- 
--	in = mlx5_vzalloc(inlen);
--	if (!in) {
--		mlx5_core_warn(dev, "failed to allocate inbox\n");
-+	in = kvzalloc(inlen, GFP_KERNEL);
-+	if (!in)
- 		return -ENOMEM;
--	}
- 
- 	MLX5_SET(set_fte_in, in, opcode, MLX5_CMD_OP_SET_FLOW_TABLE_ENTRY);
- 	MLX5_SET(set_fte_in, in, op_mod, opmod);
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
-index b8a176503d38..20a50f23fb1b 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
-@@ -376,11 +376,9 @@ static void del_rule(struct fs_node *node)
- 	int err;
- 	bool update_fte = false;
- 
--	match_value = mlx5_vzalloc(match_len);
--	if (!match_value) {
--		mlx5_core_warn(dev, "failed to allocate inbox\n");
-+	match_value = kvzalloc(match_len, GFP_KERNEL);
-+	if (!match_value)
- 		return;
--	}
- 
- 	fs_get_obj(rule, node);
- 	fs_get_obj(fte, rule->node.parent);
-@@ -1159,7 +1157,7 @@ static struct mlx5_flow_group *create_autogroup(struct mlx5_flow_table *ft,
- 	if (!ft->autogroup.active)
- 		return ERR_PTR(-ENOENT);
- 
--	in = mlx5_vzalloc(inlen);
-+	in = kvzalloc(inlen, GFP_KERNEL);
- 	if (!in)
- 		return ERR_PTR(-ENOMEM);
- 
-@@ -1778,7 +1776,7 @@ static struct mlx5_flow_root_namespace *create_root_ns(struct mlx5_flow_steering
- 	struct mlx5_flow_namespace *ns;
- 
- 	/* Create the root namespace */
--	root_ns = mlx5_vzalloc(sizeof(*root_ns));
-+	root_ns = kvzalloc(sizeof(*root_ns), GFP_KERNEL);
- 	if (!root_ns)
- 		return NULL;
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/ipoib.c b/drivers/net/ethernet/mellanox/mlx5/core/ipoib.c
-index 019c230da498..9b397fe3f159 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/ipoib.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/ipoib.c
-@@ -98,7 +98,7 @@ static int mlx5i_create_underlay_qp(struct mlx5_core_dev *mdev, struct mlx5_core
- 	void *qpc;
- 
- 	inlen = MLX5_ST_SZ_BYTES(create_qp_in);
--	in = mlx5_vzalloc(inlen);
-+	in = kvzalloc(inlen, GFP_KERNEL);
- 	if (!in)
- 		return -ENOMEM;
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c b/drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c
-index a57d5a81eb05..efcded7ca27a 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c
-@@ -279,7 +279,7 @@ static int give_pages(struct mlx5_core_dev *dev, u16 func_id, int npages,
- 	int i;
- 
- 	inlen += npages * MLX5_FLD_SZ_BYTES(manage_pages_in, pas[0]);
--	in = mlx5_vzalloc(inlen);
-+	in = kvzalloc(inlen, GFP_KERNEL);
- 	if (!in) {
- 		err = -ENOMEM;
- 		mlx5_core_warn(dev, "vzalloc failed %d\n", inlen);
-@@ -376,7 +376,7 @@ static int reclaim_pages(struct mlx5_core_dev *dev, u32 func_id, int npages,
- 		*nclaimed = 0;
- 
- 	outlen += npages * MLX5_FLD_SZ_BYTES(manage_pages_out, pas[0]);
--	out = mlx5_vzalloc(outlen);
-+	out = kvzalloc(outlen, GFP_KERNEL);
- 	if (!out)
- 		return -ENOMEM;
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/port.c b/drivers/net/ethernet/mellanox/mlx5/core/port.c
-index 141583daf5a2..1975d4388d4f 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/port.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/port.c
-@@ -47,8 +47,8 @@ int mlx5_core_access_reg(struct mlx5_core_dev *dev, void *data_in,
- 	u32 *in = NULL;
- 	void *data;
- 
--	in = mlx5_vzalloc(inlen);
--	out = mlx5_vzalloc(outlen);
-+	in = kvzalloc(inlen, GFP_KERNEL);
-+	out = kvzalloc(outlen, GFP_KERNEL);
- 	if (!in || !out)
- 		goto out;
- 
-@@ -454,7 +454,7 @@ int mlx5_core_query_ib_ppcnt(struct mlx5_core_dev *dev,
- 	u32 *in;
- 	int err;
- 
--	in  = mlx5_vzalloc(sz);
-+	in  = kvzalloc(sz, GFP_KERNEL);
- 	if (!in) {
- 		err = -ENOMEM;
- 		return err;
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/qp.c b/drivers/net/ethernet/mellanox/mlx5/core/qp.c
-index cbbcef2884be..573a6b27fed8 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/qp.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/qp.c
-@@ -527,7 +527,7 @@ int mlx5_core_query_out_of_buffer(struct mlx5_core_dev *dev, u16 counter_id,
- 	void *out;
- 	int err;
- 
--	out = mlx5_vzalloc(outlen);
-+	out = kvzalloc(outlen, GFP_KERNEL);
- 	if (!out)
- 		return -ENOMEM;
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/srq.c b/drivers/net/ethernet/mellanox/mlx5/core/srq.c
-index 3099630015d7..f774de6f5fcb 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/srq.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/srq.c
-@@ -162,7 +162,7 @@ static int create_srq_cmd(struct mlx5_core_dev *dev, struct mlx5_core_srq *srq,
- 
- 	pas_size  = get_pas_size(in);
- 	inlen	  = MLX5_ST_SZ_BYTES(create_srq_in) + pas_size;
--	create_in = mlx5_vzalloc(inlen);
-+	create_in = kvzalloc(inlen, GFP_KERNEL);
- 	if (!create_in)
- 		return -ENOMEM;
- 
-@@ -221,7 +221,7 @@ static int query_srq_cmd(struct mlx5_core_dev *dev, struct mlx5_core_srq *srq,
- 	void *srqc;
- 	int err;
- 
--	srq_out = mlx5_vzalloc(MLX5_ST_SZ_BYTES(query_srq_out));
-+	srq_out = kvzalloc(MLX5_ST_SZ_BYTES(query_srq_out), GFP_KERNEL);
- 	if (!srq_out)
- 		return -ENOMEM;
- 
-@@ -256,7 +256,7 @@ static int create_xrc_srq_cmd(struct mlx5_core_dev *dev,
- 
- 	pas_size  = get_pas_size(in);
- 	inlen	  = MLX5_ST_SZ_BYTES(create_xrc_srq_in) + pas_size;
--	create_in = mlx5_vzalloc(inlen);
-+	create_in = kvzalloc(inlen, GFP_KERNEL);
- 	if (!create_in)
- 		return -ENOMEM;
- 
-@@ -320,7 +320,7 @@ static int query_xrc_srq_cmd(struct mlx5_core_dev *dev,
- 	void *xrc_srqc;
- 	int err;
- 
--	xrcsrq_out = mlx5_vzalloc(MLX5_ST_SZ_BYTES(query_xrc_srq_out));
-+	xrcsrq_out = kvzalloc(MLX5_ST_SZ_BYTES(query_xrc_srq_out), GFP_KERNEL);
- 	if (!xrcsrq_out)
- 		return -ENOMEM;
- 	memset(xrcsrq_in, 0, sizeof(xrcsrq_in));
-@@ -357,7 +357,7 @@ static int create_rmp_cmd(struct mlx5_core_dev *dev, struct mlx5_core_srq *srq,
- 
- 	pas_size = get_pas_size(in);
- 	inlen = MLX5_ST_SZ_BYTES(create_rmp_in) + pas_size;
--	create_in = mlx5_vzalloc(inlen);
-+	create_in = kvzalloc(inlen, GFP_KERNEL);
- 	if (!create_in)
- 		return -ENOMEM;
- 
-@@ -390,7 +390,7 @@ static int arm_rmp_cmd(struct mlx5_core_dev *dev,
- 	void *bitmask;
- 	int err;
- 
--	in = mlx5_vzalloc(MLX5_ST_SZ_BYTES(modify_rmp_in));
-+	in = kvzalloc(MLX5_ST_SZ_BYTES(modify_rmp_in), GFP_KERNEL);
- 	if (!in)
- 		return -ENOMEM;
- 
-@@ -417,7 +417,7 @@ static int query_rmp_cmd(struct mlx5_core_dev *dev, struct mlx5_core_srq *srq,
- 	void *rmpc;
- 	int err;
- 
--	rmp_out =  mlx5_vzalloc(MLX5_ST_SZ_BYTES(query_rmp_out));
-+	rmp_out =  kvzalloc(MLX5_ST_SZ_BYTES(query_rmp_out), GFP_KERNEL);
- 	if (!rmp_out)
- 		return -ENOMEM;
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/transobj.c b/drivers/net/ethernet/mellanox/mlx5/core/transobj.c
-index a00ff49eec18..5e128d7a9ffd 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/transobj.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/transobj.c
-@@ -284,7 +284,7 @@ int mlx5_core_arm_rmp(struct mlx5_core_dev *dev, u32 rmpn, u16 lwm)
- 	void *bitmask;
- 	int  err;
- 
--	in = mlx5_vzalloc(MLX5_ST_SZ_BYTES(modify_rmp_in));
-+	in = kvzalloc(MLX5_ST_SZ_BYTES(modify_rmp_in), GFP_KERNEL);
- 	if (!in)
- 		return -ENOMEM;
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/vport.c b/drivers/net/ethernet/mellanox/mlx5/core/vport.c
-index 15c2294dd2b4..06019d00ab7b 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/vport.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/vport.c
-@@ -172,7 +172,7 @@ int mlx5_query_nic_vport_mac_address(struct mlx5_core_dev *mdev,
- 	u8 *out_addr;
- 	int err;
- 
--	out = mlx5_vzalloc(outlen);
-+	out = kvzalloc(outlen, GFP_KERNEL);
- 	if (!out)
- 		return -ENOMEM;
- 
-@@ -197,11 +197,9 @@ int mlx5_modify_nic_vport_mac_address(struct mlx5_core_dev *mdev,
- 	void *nic_vport_ctx;
- 	u8 *perm_mac;
- 
--	in = mlx5_vzalloc(inlen);
--	if (!in) {
--		mlx5_core_warn(mdev, "failed to allocate inbox\n");
-+	in = kvzalloc(inlen, GFP_KERNEL);
-+	if (!in)
- 		return -ENOMEM;
--	}
- 
- 	MLX5_SET(modify_nic_vport_context_in, in,
- 		 field_select.permanent_address, 1);
-@@ -231,7 +229,7 @@ int mlx5_query_nic_vport_mtu(struct mlx5_core_dev *mdev, u16 *mtu)
- 	u32 *out;
- 	int err;
- 
--	out = mlx5_vzalloc(outlen);
-+	out = kvzalloc(outlen, GFP_KERNEL);
- 	if (!out)
- 		return -ENOMEM;
- 
-@@ -251,7 +249,7 @@ int mlx5_modify_nic_vport_mtu(struct mlx5_core_dev *mdev, u16 mtu)
- 	void *in;
- 	int err;
- 
--	in = mlx5_vzalloc(inlen);
-+	in = kvzalloc(inlen, GFP_KERNEL);
- 	if (!in)
- 		return -ENOMEM;
- 
-@@ -501,7 +499,7 @@ int mlx5_query_nic_vport_system_image_guid(struct mlx5_core_dev *mdev,
- 	u32 *out;
- 	int outlen = MLX5_ST_SZ_BYTES(query_nic_vport_context_out);
- 
--	out = mlx5_vzalloc(outlen);
-+	out = kvzalloc(outlen, GFP_KERNEL);
- 	if (!out)
- 		return -ENOMEM;
- 
-@@ -521,7 +519,7 @@ int mlx5_query_nic_vport_node_guid(struct mlx5_core_dev *mdev, u64 *node_guid)
- 	u32 *out;
- 	int outlen = MLX5_ST_SZ_BYTES(query_nic_vport_context_out);
- 
--	out = mlx5_vzalloc(outlen);
-+	out = kvzalloc(outlen, GFP_KERNEL);
- 	if (!out)
- 		return -ENOMEM;
- 
-@@ -551,7 +549,7 @@ int mlx5_modify_nic_vport_node_guid(struct mlx5_core_dev *mdev,
- 	if (!MLX5_CAP_ESW(mdev, nic_vport_node_guid_modify))
- 		return -EOPNOTSUPP;
- 
--	in = mlx5_vzalloc(inlen);
-+	in = kvzalloc(inlen, GFP_KERNEL);
- 	if (!in)
- 		return -ENOMEM;
- 
-@@ -577,7 +575,7 @@ int mlx5_query_nic_vport_qkey_viol_cntr(struct mlx5_core_dev *mdev,
- 	u32 *out;
- 	int outlen = MLX5_ST_SZ_BYTES(query_nic_vport_context_out);
- 
--	out = mlx5_vzalloc(outlen);
-+	out = kvzalloc(outlen, GFP_KERNEL);
- 	if (!out)
- 		return -ENOMEM;
- 
-@@ -879,11 +877,9 @@ int mlx5_modify_nic_vport_promisc(struct mlx5_core_dev *mdev,
- 	int inlen = MLX5_ST_SZ_BYTES(modify_nic_vport_context_in);
- 	int err;
- 
--	in = mlx5_vzalloc(inlen);
--	if (!in) {
--		mlx5_core_err(mdev, "failed to allocate inbox\n");
-+	in = kvzalloc(inlen, GFP_KERNEL);
-+	if (!in)
- 		return -ENOMEM;
--	}
- 
- 	MLX5_SET(modify_nic_vport_context_in, in, field_select.promisc, 1);
- 	MLX5_SET(modify_nic_vport_context_in, in,
-@@ -913,11 +909,9 @@ static int mlx5_nic_vport_update_roce_state(struct mlx5_core_dev *mdev,
- 	int inlen = MLX5_ST_SZ_BYTES(modify_nic_vport_context_in);
- 	int err;
- 
--	in = mlx5_vzalloc(inlen);
--	if (!in) {
--		mlx5_core_warn(mdev, "failed to allocate inbox\n");
-+	in = kvzalloc(inlen, GFP_KERNEL);
-+	if (!in)
- 		return -ENOMEM;
--	}
- 
- 	MLX5_SET(modify_nic_vport_context_in, in, field_select.roce_en, 1);
- 	MLX5_SET(modify_nic_vport_context_in, in, nic_vport_context.roce_en,
-@@ -952,7 +946,7 @@ int mlx5_core_query_vport_counter(struct mlx5_core_dev *dev, u8 other_vport,
- 	int	err;
- 
- 	is_group_manager = MLX5_CAP_GEN(dev, vport_group_manager);
--	in = mlx5_vzalloc(in_sz);
-+	in = kvzalloc(in_sz, GFP_KERNEL);
- 	if (!in) {
- 		err = -ENOMEM;
- 		return err;
++	err = mlx5_fpga_device_start(dev);
++	if (err) {
++		dev_err(&pdev->dev, "fpga device start failed %d\n", err);
++		goto err_reg_dev;
++	}
++
+ 	if (mlx5_device_registered(dev)) {
+ 		mlx5_attach_device(dev);
+ 	} else {
+@@ -1182,6 +1195,9 @@ static int mlx5_load_one(struct mlx5_core_dev *dev, struct mlx5_priv *priv,
+ err_stop_eqs:
+ 	mlx5_stop_eqs(dev);
+ 
++err_fpga_init:
++	mlx5_fpga_device_cleanup(dev);
++
+ err_put_uars:
+ 	mlx5_put_uars_page(dev, priv->uar);
+ 
+@@ -1246,6 +1262,7 @@ static int mlx5_unload_one(struct mlx5_core_dev *dev, struct mlx5_priv *priv,
+ 	mlx5_irq_clear_affinity_hints(dev);
+ 	free_comp_eqs(dev);
+ 	mlx5_stop_eqs(dev);
++	mlx5_fpga_device_cleanup(dev);
+ 	mlx5_put_uars_page(dev, priv->uar);
+ 	mlx5_disable_msix(dev);
+ 	if (cleanup)
+diff --git a/include/linux/mlx5/device.h b/include/linux/mlx5/device.h
+index dd9a263ed368..786a43843da9 100644
+--- a/include/linux/mlx5/device.h
++++ b/include/linux/mlx5/device.h
+@@ -300,6 +300,8 @@ enum mlx5_event {
+ 
+ 	MLX5_EVENT_TYPE_PAGE_FAULT	   = 0xc,
+ 	MLX5_EVENT_TYPE_NIC_VPORT_CHANGE   = 0xd,
++
++	MLX5_EVENT_TYPE_FPGA_ERROR         = 0x20,
+ };
+ 
+ enum {
+@@ -967,6 +969,7 @@ enum mlx5_cap_type {
+ 	MLX5_CAP_RESERVED,
+ 	MLX5_CAP_VECTOR_CALC,
+ 	MLX5_CAP_QOS,
++	MLX5_CAP_FPGA,
+ 	/* NUM OF CAP Types */
+ 	MLX5_CAP_NUM
+ };
+@@ -1088,6 +1091,9 @@ enum mlx5_mcam_feature_groups {
+ #define MLX5_CAP_MCAM_FEATURE(mdev, fld) \
+ 	MLX5_GET(mcam_reg, (mdev)->caps.mcam, mng_feature_cap_mask.enhanced_features.fld)
+ 
++#define MLX5_CAP_FPGA(mdev, cap) \
++	MLX5_GET(fpga_cap, (mdev)->caps.hca_cur[MLX5_CAP_FPGA], cap)
++
+ enum {
+ 	MLX5_CMD_STAT_OK			= 0x0,
+ 	MLX5_CMD_STAT_INT_ERR			= 0x1,
 diff --git a/include/linux/mlx5/driver.h b/include/linux/mlx5/driver.h
-index bcdf739ee41a..c2740688d679 100644
+index a277bb36c21f..55bb712643cb 100644
 --- a/include/linux/mlx5/driver.h
 +++ b/include/linux/mlx5/driver.h
-@@ -890,11 +890,6 @@ static inline u16 cmdif_rev(struct mlx5_core_dev *dev)
- 	return ioread32be(&dev->iseg->cmdif_rev_fw_sub) >> 16;
- }
+@@ -108,6 +108,8 @@ enum {
+ 	MLX5_REG_QTCT		 = 0x400a,
+ 	MLX5_REG_DCBX_PARAM      = 0x4020,
+ 	MLX5_REG_DCBX_APP        = 0x4021,
++	MLX5_REG_FPGA_CAP	 = 0x4022,
++	MLX5_REG_FPGA_CTRL	 = 0x4023,
+ 	MLX5_REG_PCAP		 = 0x5001,
+ 	MLX5_REG_PMTU		 = 0x5003,
+ 	MLX5_REG_PTYS		 = 0x5004,
+@@ -761,6 +763,9 @@ struct mlx5_core_dev {
+ 	atomic_t		num_qps;
+ 	u32			issi;
+ 	struct mlx5e_resources  mlx5e_res;
++#ifdef CONFIG_MLX5_FPGA
++	struct mlx5_fpga_device *fpga;
++#endif
+ #ifdef CONFIG_RFS_ACCEL
+ 	struct cpu_rmap         *rmap;
+ #endif
+diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
+index 32de0724b400..6fa1eb6766af 100644
+--- a/include/linux/mlx5/mlx5_ifc.h
++++ b/include/linux/mlx5/mlx5_ifc.h
+@@ -32,6 +32,8 @@
+ #ifndef MLX5_IFC_H
+ #define MLX5_IFC_H
  
--static inline void *mlx5_vzalloc(unsigned long size)
--{
--	return kvzalloc(size, GFP_KERNEL);
--}
--
- static inline u32 mlx5_base_mkey(const u32 key)
- {
- 	return key & 0xffffff00u;
++#include "mlx5_ifc_fpga.h"
++
+ enum {
+ 	MLX5_EVENT_TYPE_CODING_COMPLETION_EVENTS                   = 0x0,
+ 	MLX5_EVENT_TYPE_CODING_PATH_MIGRATED_SUCCEEDED             = 0x1,
+@@ -56,7 +58,8 @@ enum {
+ 	MLX5_EVENT_TYPE_CODING_STALL_VL_EVENT                      = 0x1b,
+ 	MLX5_EVENT_TYPE_CODING_DROPPED_PACKET_LOGGED_EVENT         = 0x1f,
+ 	MLX5_EVENT_TYPE_CODING_COMMAND_INTERFACE_COMPLETION        = 0xa,
+-	MLX5_EVENT_TYPE_CODING_PAGE_REQUEST                        = 0xb
++	MLX5_EVENT_TYPE_CODING_PAGE_REQUEST                        = 0xb,
++	MLX5_EVENT_TYPE_CODING_FPGA_ERROR                          = 0x20,
+ };
+ 
+ enum {
+@@ -854,7 +857,8 @@ struct mlx5_ifc_cmd_hca_cap_bits {
+ 	u8         max_tc[0x4];
+ 	u8         reserved_at_1d0[0x1];
+ 	u8         dcbx[0x1];
+-	u8         reserved_at_1d2[0x4];
++	u8         reserved_at_1d2[0x3];
++	u8         fpga[0x1];
+ 	u8         rol_s[0x1];
+ 	u8         rol_g[0x1];
+ 	u8         reserved_at_1d8[0x1];
+@@ -2186,6 +2190,7 @@ union mlx5_ifc_hca_cap_union_bits {
+ 	struct mlx5_ifc_e_switch_cap_bits e_switch_cap;
+ 	struct mlx5_ifc_vector_calc_cap_bits vector_calc_cap;
+ 	struct mlx5_ifc_qos_cap_bits qos_cap;
++	struct mlx5_ifc_fpga_cap_bits fpga_cap;
+ 	u8         reserved_at_0[0x8000];
+ };
+ 
+@@ -8182,6 +8187,8 @@ union mlx5_ifc_ports_control_registers_document_bits {
+ 	struct mlx5_ifc_sltp_reg_bits sltp_reg;
+ 	struct mlx5_ifc_mtpps_reg_bits mtpps_reg;
+ 	struct mlx5_ifc_mtppse_reg_bits mtppse_reg;
++	struct mlx5_ifc_fpga_ctrl_bits fpga_ctrl_bits;
++	struct mlx5_ifc_fpga_cap_bits fpga_cap_bits;
+ 	u8         reserved_at_0[0x60e0];
+ };
+ 
+diff --git a/include/linux/mlx5/mlx5_ifc_fpga.h b/include/linux/mlx5/mlx5_ifc_fpga.h
+new file mode 100644
+index 000000000000..0032d10ac6cf
+--- /dev/null
++++ b/include/linux/mlx5/mlx5_ifc_fpga.h
+@@ -0,0 +1,144 @@
++/*
++ * Copyright (c) 2017, Mellanox Technologies, Ltd.  All rights reserved.
++ *
++ * This software is available to you under a choice of one of two
++ * licenses.  You may choose to be licensed under the terms of the GNU
++ * General Public License (GPL) Version 2, available from the file
++ * COPYING in the main directory of this source tree, or the
++ * OpenIB.org BSD license below:
++ *
++ *     Redistribution and use in source and binary forms, with or
++ *     without modification, are permitted provided that the following
++ *     conditions are met:
++ *
++ *      - Redistributions of source code must retain the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer.
++ *
++ *      - Redistributions in binary form must reproduce the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer in the documentation and/or other materials
++ *        provided with the distribution.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
++ */
++#ifndef MLX5_IFC_FPGA_H
++#define MLX5_IFC_FPGA_H
++
++struct mlx5_ifc_fpga_shell_caps_bits {
++	u8         max_num_qps[0x10];
++	u8         reserved_at_10[0x8];
++	u8         total_rcv_credits[0x8];
++
++	u8         reserved_at_20[0xe];
++	u8         qp_type[0x2];
++	u8         reserved_at_30[0x5];
++	u8         rae[0x1];
++	u8         rwe[0x1];
++	u8         rre[0x1];
++	u8         reserved_at_38[0x4];
++	u8         dc[0x1];
++	u8         ud[0x1];
++	u8         uc[0x1];
++	u8         rc[0x1];
++
++	u8         reserved_at_40[0x1a];
++	u8         log_ddr_size[0x6];
++
++	u8         max_fpga_qp_msg_size[0x20];
++
++	u8         reserved_at_80[0x180];
++};
++
++struct mlx5_ifc_fpga_cap_bits {
++	u8         fpga_id[0x8];
++	u8         fpga_device[0x18];
++
++	u8         register_file_ver[0x20];
++
++	u8         fpga_ctrl_modify[0x1];
++	u8         reserved_at_41[0x5];
++	u8         access_reg_query_mode[0x2];
++	u8         reserved_at_48[0x6];
++	u8         access_reg_modify_mode[0x2];
++	u8         reserved_at_50[0x10];
++
++	u8         reserved_at_60[0x20];
++
++	u8         image_version[0x20];
++
++	u8         image_date[0x20];
++
++	u8         image_time[0x20];
++
++	u8         shell_version[0x20];
++
++	u8         reserved_at_100[0x80];
++
++	struct mlx5_ifc_fpga_shell_caps_bits shell_caps;
++
++	u8         reserved_at_380[0x8];
++	u8         ieee_vendor_id[0x18];
++
++	u8         sandbox_product_version[0x10];
++	u8         sandbox_product_id[0x10];
++
++	u8         sandbox_basic_caps[0x20];
++
++	u8         reserved_at_3e0[0x10];
++	u8         sandbox_extended_caps_len[0x10];
++
++	u8         sandbox_extended_caps_addr[0x40];
++
++	u8         fpga_ddr_start_addr[0x40];
++
++	u8         fpga_cr_space_start_addr[0x40];
++
++	u8         fpga_ddr_size[0x20];
++
++	u8         fpga_cr_space_size[0x20];
++
++	u8         reserved_at_500[0x300];
++};
++
++struct mlx5_ifc_fpga_ctrl_bits {
++	u8         reserved_at_0[0x8];
++	u8         operation[0x8];
++	u8         reserved_at_10[0x8];
++	u8         status[0x8];
++
++	u8         reserved_at_20[0x8];
++	u8         flash_select_admin[0x8];
++	u8         reserved_at_30[0x8];
++	u8         flash_select_oper[0x8];
++
++	u8         reserved_at_40[0x40];
++};
++
++enum {
++	MLX5_FPGA_ERROR_EVENT_SYNDROME_CORRUPTED_DDR        = 0x1,
++	MLX5_FPGA_ERROR_EVENT_SYNDROME_FLASH_TIMEOUT        = 0x2,
++	MLX5_FPGA_ERROR_EVENT_SYNDROME_INTERNAL_LINK_ERROR  = 0x3,
++	MLX5_FPGA_ERROR_EVENT_SYNDROME_WATCHDOG_FAILURE     = 0x4,
++	MLX5_FPGA_ERROR_EVENT_SYNDROME_I2C_FAILURE          = 0x5,
++	MLX5_FPGA_ERROR_EVENT_SYNDROME_IMAGE_CHANGED        = 0x6,
++	MLX5_FPGA_ERROR_EVENT_SYNDROME_TEMPERATURE_CRITICAL = 0x7,
++};
++
++struct mlx5_ifc_fpga_error_event_bits {
++	u8         reserved_at_0[0x40];
++
++	u8         reserved_at_40[0x18];
++	u8         syndrome[0x8];
++
++	u8         reserved_at_60[0x80];
++};
++
++#endif /* MLX5_IFC_FPGA_H */
 -- 
 2.11.0
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
