@@ -1,65 +1,40 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH 1/2] net: phy: Update get_phy_c45_ids for Cortina PHYs
-Date: Tue, 23 May 2017 11:12:01 -0700
-Message-ID: <8768d0f5-6226-b3e0-b741-f742ff5ffee3@gmail.com>
-References: <1495554799-23060-1-git-send-email-bogdan.purcareata@nxp.com>
- <1495554799-23060-2-git-send-email-bogdan.purcareata@nxp.com>
- <20170523160353.GB21169@lunn.ch>
- <DB5PR04MB1240098B96F6EEF3730DF054EAF90@DB5PR04MB1240.eurprd04.prod.outlook.com>
- <20170523165554.GB24029@lunn.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Andrew Lunn <andrew@lunn.ch>,
-        Bogdan Purcareata <bogdan.purcareata@nxp.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170523165554.GB24029@lunn.ch>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: [PATCH] net: ieee802154: fix potential null pointer dereference
+Date: Tue, 23 May 2017 11:13:35 -0700
+Message-ID: <1B82BF85-7AA5-4A52-B0A8-7336DE963567@holtmann.org>
+References: <20170523181147.GA32714@embeddedgus>
+Mime-Version: 1.0 (Mac OS X Mail 10.3 \(3273\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Harry Morris <h.morris@cascoda.com>, linuxdev@cascoda.com,
+        Alexander Aring <aar@pengutronix.de>,
+        Stefan Schmidt <stefan@osg.samsung.com>,
+        linux-wpan@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from coyote.holtmann.net ([212.227.132.17]:42873 "EHLO
+        mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S967057AbdEWSNm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 23 May 2017 14:13:42 -0400
+In-Reply-To: <20170523181147.GA32714@embeddedgus>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 05/23/2017 09:55 AM, Andrew Lunn wrote:
->> The patches mentioned in the commit message add _some_ support for
->> the Cortina PHYs - mainly checking for devices at additional
->> locations. Once they are found, the phy IDs must be read from custom
->> locations.
->  
-> As a general principle, we don't add hacks in generic code to handle
-> broken devices. We add generic mechanisms to work around the
-> brokenness.
+Hi Gustavo,
+
+> Null check at line 918: if (!spi) {, implies spi might be NULL.
+> Function spi_get_drvdata() dereference pointer spi.
+> Move pointer priv assignment after the null check.
 > 
-> In this case, by using ethernet-phy-id in the device tree, we are
-> saying, this PHYs probing is totally borked, but we know it is there,
-> at this address. Just load the driver.
-> 
-> Please try to make ethernet-phy-id work.
+> Addresses-Coverity-ID: 1408888
+> Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
+> ---
+> drivers/net/ieee802154/ca8210.c | 3 ++-
+> 1 file changed, 2 insertions(+), 1 deletion(-)
 
-What Andrew is suggesting is to leverage the code in
-drivers/of/of_mdio.c which does the following:
+patch has been applied to bluetooth-next tree.
 
-       is_c45 = of_device_is_compatible(child,
-                                         "ethernet-phy-ieee802.3-c45");
+Regards
 
-        if (!is_c45 && !of_get_phy_id(child, &phy_id))
-                phy = phy_device_create(mdio, addr, phy_id, 0, NULL);
-        else
-                phy = get_phy_device(mdio, addr, is_c45);
-        if (IS_ERR(phy))
-                return;
-
-If you know the PHY ID, and you did put it in the PHY node's compatible
-string (in the format that of_get_phy_id() expects it to, and you also
-did not add "ethernet-phy-ieee802.3-c45") then the PHY library will
-directly create the PHY device, with the designated ID, at the specific
-address.
-
-While this works for clause 22 PHYs, I don't know if it also does for
-clause 45 PHYs, but as Andrew is suggesting, I would be more inclined
-into making this scheme work for all types (22 or 45) PHYs, rather than
-hacking the core code that tries to identify devices in packages.
-
-Can you give it a spin?
--- 
-Florian
+Marcel
