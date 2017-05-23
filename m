@@ -1,45 +1,59 @@
 From: Vladislav Yasevich <vyasevich@gmail.com>
-Subject: [PATCH V3 net 3/3] virtio-net: enable TSO/checksum offloads for Q-in-Q vlans
-Date: Tue, 23 May 2017 13:38:43 -0400
-Message-ID: <1495561123-1819-4-git-send-email-vyasevic@redhat.com>
+Subject: [PATCH V3 net 2/3] be2net: Fix offload features for Q-in-Q packets
+Date: Tue, 23 May 2017 13:38:42 -0400
+Message-ID: <1495561123-1819-3-git-send-email-vyasevic@redhat.com>
 References: <1495561123-1819-1-git-send-email-vyasevic@redhat.com>
 Cc: alexander.duyck@gmail.com, makita.toshiaki@lab.ntt.co.jp,
-        Vladislav Yasevich <vyasevic@redhat.com>
+        Vladislav Yasevich <vyasevic@redhat.com>,
+        Sathya Perla <sathya.perla@broadcom.com>,
+        Ajit Khaparde <ajit.khaparde@broadcom.com>,
+        Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>,
+        Somnath Kotur <somnath.kotur@broadcom.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f195.google.com ([209.85.216.195]:35998 "EHLO
-        mail-qt0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934436AbdEWRiz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 23 May 2017 13:38:55 -0400
-Received: by mail-qt0-f195.google.com with SMTP id j13so23134487qta.3
-        for <netdev@vger.kernel.org>; Tue, 23 May 2017 10:38:55 -0700 (PDT)
+Received: from mail-qt0-f194.google.com ([209.85.216.194]:32981 "EHLO
+        mail-qt0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933876AbdEWRiy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 23 May 2017 13:38:54 -0400
+Received: by mail-qt0-f194.google.com with SMTP id a46so23135340qte.0
+        for <netdev@vger.kernel.org>; Tue, 23 May 2017 10:38:54 -0700 (PDT)
 In-Reply-To: <1495561123-1819-1-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since virtio does not provide it's own ndo_features_check handler,
-TSO, and now checksum offload, are disabled for stacked vlans.
-Re-enable the support and let the host take care of it.  This
-restores/improves Guest-to-Guest performance over Q-in-Q vlans.
+At least some of the be2net cards do not seem to be capabled
+of performing checksum offload computions on Q-in-Q packets.
+In these case, the recevied checksum on the remote is invalid
+and TCP syn packets are dropped.
 
-Acked-by: Jason Wang <jasowang@redhat.com>
-Acked-by: Michael S. Tsirkin <mst@redhat.com>
+This patch adds a call to check disbled acceleration features
+on Q-in-Q tagged traffic.
+
+CC: Sathya Perla <sathya.perla@broadcom.com>
+CC: Ajit Khaparde <ajit.khaparde@broadcom.com>
+CC: Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>
+CC: Somnath Kotur <somnath.kotur@broadcom.com>
 Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
 ---
- drivers/net/virtio_net.c | 1 +
- 1 file changed, 1 insertion(+)
+ drivers/net/ethernet/emulex/benet/be_main.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index 665627c..ead7a58 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -2020,6 +2020,7 @@ static const struct net_device_ops virtnet_netdev = {
- 	.ndo_poll_controller = virtnet_netpoll,
- #endif
- 	.ndo_xdp		= virtnet_xdp,
-+	.ndo_features_check	= passthru_features_check,
- };
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index f3a09ab..4eee18c 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -5078,9 +5078,11 @@ static netdev_features_t be_features_check(struct sk_buff *skb,
+ 	struct be_adapter *adapter = netdev_priv(dev);
+ 	u8 l4_hdr = 0;
  
- static void virtnet_config_changed_work(struct work_struct *work)
+-	/* The code below restricts offload features for some tunneled packets.
++	/* The code below restricts offload features for some tunneled and
++	 * Q-in-Q packets.
+ 	 * Offload features for normal (non tunnel) packets are unchanged.
+ 	 */
++	features = vlan_features_check(skb, features);
+ 	if (!skb->encapsulation ||
+ 	    !(adapter->flags & BE_FLAGS_VXLAN_OFFLOADS))
+ 		return features;
 -- 
 2.7.4
