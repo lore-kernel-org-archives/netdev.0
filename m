@@ -1,106 +1,127 @@
-From: Stefan Wahren <stefan.wahren@i2se.com>
-Subject: [PATCH v6 net-next 12/17] net: qualcomm: make qca_7k_common a separate kernel module
-Date: Tue, 23 May 2017 15:12:48 +0200
-Message-ID: <1495545173-22150-13-git-send-email-stefan.wahren@i2se.com>
-References: <1495545173-22150-1-git-send-email-stefan.wahren@i2se.com>
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        Jiri Slaby <jslaby@suse.com>,
-        Lino Sanfilippo <LinoSanfilippo@gmx.de>,
-        Jakub Kicinski <kubakici@wp.pl>, devicetree@vger.kernel.org,
-        netdev@vger.kernel.org, linux-serial@vger.kernel.org,
-        linux-kernel@vger.kernel.org,
-        Stefan Wahren <stefan.wahren@i2se.com>
-To: Rob Herring <robh+dt@kernel.org>,
-        Mark Rutland <mark.rutland@arm.com>,
-        "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1495545173-22150-1-git-send-email-stefan.wahren@i2se.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
+Subject: RE: [patch net-next 0/9] mlxsw: Support firmware flash
+Date: Tue, 23 May 2017 13:18:18 +0000
+Message-ID: <BLUPR0701MB2004690F775AD57D3CACB1CC8DF90@BLUPR0701MB2004.namprd07.prod.outlook.com>
+References: <20170523065301.1091-1-jiri@resnulli.us>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+        "idosch@mellanox.com" <idosch@mellanox.com>,
+        "yotamg@mellanox.com" <yotamg@mellanox.com>,
+        "mlxsw@mellanox.com" <mlxsw@mellanox.com>,
+        Ben Hutchings <bhutchings@solarflare.com>
+To: Jiri Pirko <jiri@resnulli.us>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bn3nam01on0076.outbound.protection.outlook.com ([104.47.33.76]:28468
+        "EHLO NAM01-BN3-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S933646AbdEWNSV (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 23 May 2017 09:18:21 -0400
+In-Reply-To: <20170523065301.1091-1-jiri@resnulli.us>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In order to share common functions between QCA7000 SPI and UART protocol
-driver the qca_7k_common needs to be a separate kernel module.
+> Add support for device firmware flash on mlxsw spectrum. The firmware fil=
+es
+> are expected to be in the Mellanox Firmware Archive version 2 (MFA2)
+> format.
+>=20
+> The firmware flash can be triggered via "ethtool -f" or on driver initial=
+ization
+> time if the device firmware version does not meet the minimum firmware
+> version supported by the driver.
+>=20
+> Currently, to activate the newly flashed firmware, the user needs to rebo=
+ot
+> his system.
+>=20
+> The first patch introduces the mlxfw module, which implements common
+> logic needed for the firmware flash process on Mellanox products, such as
+> the
+> MFA2 format parsing and the firmware flash state machine logic. As the
+> module implements common logic which will be needed by various different
+> Mellanox drivers, it defines a set of callbacks needed to interact with t=
+he
+> specific device.
+>=20
+> Patches 1-5 implement the needed mlxfw callbacks in the mlxsw spectrum
+> driver.
+>=20
+> Patches 6-8 add the "ethtool -f" and the boot-time firmware upgrade on th=
+e
+> mlxsw spectrum driver.
 
-Signed-off-by: Stefan Wahren <stefan.wahren@i2se.com>
----
- drivers/net/ethernet/qualcomm/Kconfig         |  8 +++++++-
- drivers/net/ethernet/qualcomm/Makefile        |  5 +++--
- drivers/net/ethernet/qualcomm/qca_7k_common.c | 10 ++++++++++
- 3 files changed, 20 insertions(+), 3 deletions(-)
+When we tried using `ethtool -E' for qed we got burned for trying to use th=
+e magic
+value [1]. When we suggested extending it to allow some private data indica=
+tions,
+Ben claimed that this entire ethtool infrastructure is a thing of the past,
+and we should try using MTD instead - a claim no one bothered to counter.
 
-diff --git a/drivers/net/ethernet/qualcomm/Kconfig b/drivers/net/ethernet/qualcomm/Kconfig
-index d7720bf..b4c369d 100644
---- a/drivers/net/ethernet/qualcomm/Kconfig
-+++ b/drivers/net/ethernet/qualcomm/Kconfig
-@@ -16,7 +16,13 @@ config NET_VENDOR_QUALCOMM
- if NET_VENDOR_QUALCOMM
- 
- config QCA7000
--	tristate "Qualcomm Atheros QCA7000 support"
-+	tristate
-+	help
-+	  This enables support for the Qualcomm Atheros QCA7000.
-+
-+config QCA7000_SPI
-+	tristate "Qualcomm Atheros QCA7000 SPI support"
-+	select QCA7000
- 	depends on SPI_MASTER && OF
- 	---help---
- 	  This SPI protocol driver supports the Qualcomm Atheros QCA7000.
-diff --git a/drivers/net/ethernet/qualcomm/Makefile b/drivers/net/ethernet/qualcomm/Makefile
-index 5e17bf1..65556ca 100644
---- a/drivers/net/ethernet/qualcomm/Makefile
-+++ b/drivers/net/ethernet/qualcomm/Makefile
-@@ -2,7 +2,8 @@
- # Makefile for the Qualcomm network device drivers.
- #
- 
--obj-$(CONFIG_QCA7000) += qcaspi.o
--qcaspi-objs := qca_spi.o qca_7k_common.o qca_7k.o qca_debug.o
-+obj-$(CONFIG_QCA7000) += qca_7k_common.o
-+obj-$(CONFIG_QCA7000_SPI) += qcaspi.o
-+qcaspi-objs := qca_7k.o qca_debug.o qca_spi.o
- 
- obj-y += emac/
-diff --git a/drivers/net/ethernet/qualcomm/qca_7k_common.c b/drivers/net/ethernet/qualcomm/qca_7k_common.c
-index 0d3daa9..6b511f0 100644
---- a/drivers/net/ethernet/qualcomm/qca_7k_common.c
-+++ b/drivers/net/ethernet/qualcomm/qca_7k_common.c
-@@ -21,7 +21,9 @@
-  *   by an atheros frame while transmitted over a serial channel;
-  */
- 
-+#include <linux/init.h>
- #include <linux/kernel.h>
-+#include <linux/module.h>
- 
- #include "qca_7k_common.h"
- 
-@@ -46,6 +48,7 @@ qcafrm_create_header(u8 *buf, u16 length)
- 
- 	return QCAFRM_HEADER_LEN;
- }
-+EXPORT_SYMBOL_GPL(qcafrm_create_header);
- 
- u16
- qcafrm_create_footer(u8 *buf)
-@@ -57,6 +60,7 @@ qcafrm_create_footer(u8 *buf)
- 	buf[1] = 0x55;
- 	return QCAFRM_FOOTER_LEN;
- }
-+EXPORT_SYMBOL_GPL(qcafrm_create_footer);
- 
- /*   Gather received bytes and try to extract a full ethernet frame by
-  *   following a simple state machine.
-@@ -154,3 +158,9 @@ qcafrm_fsm_decode(struct qcafrm_handle *handle, u8 *buf, u16 buf_len, u8 recv_by
- 
- 	return ret;
- }
-+EXPORT_SYMBOL_GPL(qcafrm_fsm_decode);
-+
-+MODULE_DESCRIPTION("Qualcomm Atheros QCA7000 common");
-+MODULE_AUTHOR("Qualcomm Atheros Communications");
-+MODULE_AUTHOR("Stefan Wahren <stefan.wahren@i2se.com>");
-+MODULE_LICENSE("Dual BSD/GPL");
--- 
-2.1.4
+Creating proprietary file-formats, filling them with metadata and
+complementary driver state-machines could easily overcome the original
+obstacle we faced. But it raises the question of whether these APIs are
+valid or obsolete.
+
+[1] http://marc.info/?l=3Dlinux-netdev&m=3D146093513926921&w=3D4
+[2] http://marc.info/?l=3Dlinux-netdev&m=3D146514461214421&w=3D2
+
+> Patch 9 adds a fix needed for new firmware versions.
+>=20
+> Ido Schimmel (1):
+>   mlxsw: spectrum_router: Adjust RIF configuration for new firmware
+>     versions
+>=20
+> Yotam Gigi (8):
+>   Add the mlxfw module for Mellanox firmware flash process
+>   mlxsw: reg: Add Management Component Query Information register
+>   mlxsw: reg: Add Management Component Control register
+>   mlxsw: reg: Add Management Component Data Access register
+>   mlxsw: spectrum: Add the needed callbacks for mlxfw integration
+>   mlxsw: spectrum: Implement the ethtool flash_device callback
+>   mlxsw: core: Create the mlxsw_fw_rev struct
+>   mlxsw: spectrum: Validate firmware revision on init
+>=20
+>  MAINTAINERS                                        |   8 +
+>  drivers/net/ethernet/mellanox/Kconfig              |   1 +
+>  drivers/net/ethernet/mellanox/Makefile             |   1 +
+>  drivers/net/ethernet/mellanox/mlxfw/Kconfig        |   6 +
+>  drivers/net/ethernet/mellanox/mlxfw/Makefile       |   2 +
+>  drivers/net/ethernet/mellanox/mlxfw/mlxfw.h        | 102 ++++
+>  drivers/net/ethernet/mellanox/mlxfw/mlxfw_fsm.c    | 273 +++++++++
+>  drivers/net/ethernet/mellanox/mlxfw/mlxfw_mfa2.c   | 620
+> +++++++++++++++++++++
+>  drivers/net/ethernet/mellanox/mlxfw/mlxfw_mfa2.h   |  66 +++
+>  .../net/ethernet/mellanox/mlxfw/mlxfw_mfa2_file.h  |  60 ++
+>  .../ethernet/mellanox/mlxfw/mlxfw_mfa2_format.h    | 103 ++++
+>  .../net/ethernet/mellanox/mlxfw/mlxfw_mfa2_tlv.h   |  98 ++++
+>  .../ethernet/mellanox/mlxfw/mlxfw_mfa2_tlv_multi.c | 126 +++++
+> .../ethernet/mellanox/mlxfw/mlxfw_mfa2_tlv_multi.h |  71 +++
+>  drivers/net/ethernet/mellanox/mlxsw/Kconfig        |   1 +
+>  drivers/net/ethernet/mellanox/mlxsw/core.h         |  12 +-
+>  drivers/net/ethernet/mellanox/mlxsw/reg.h          | 219 ++++++++
+>  drivers/net/ethernet/mellanox/mlxsw/spectrum.c     | 266 +++++++++
+>  .../net/ethernet/mellanox/mlxsw/spectrum_router.c  |  22 +
+>  19 files changed, 2052 insertions(+), 5 deletions(-)  create mode 100644
+> drivers/net/ethernet/mellanox/mlxfw/Kconfig
+>  create mode 100644 drivers/net/ethernet/mellanox/mlxfw/Makefile
+>  create mode 100644 drivers/net/ethernet/mellanox/mlxfw/mlxfw.h
+>  create mode 100644 drivers/net/ethernet/mellanox/mlxfw/mlxfw_fsm.c
+>  create mode 100644 drivers/net/ethernet/mellanox/mlxfw/mlxfw_mfa2.c
+>  create mode 100644 drivers/net/ethernet/mellanox/mlxfw/mlxfw_mfa2.h
+>  create mode 100644
+> drivers/net/ethernet/mellanox/mlxfw/mlxfw_mfa2_file.h
+>  create mode 100644
+> drivers/net/ethernet/mellanox/mlxfw/mlxfw_mfa2_format.h
+>  create mode 100644
+> drivers/net/ethernet/mellanox/mlxfw/mlxfw_mfa2_tlv.h
+>  create mode 100644
+> drivers/net/ethernet/mellanox/mlxfw/mlxfw_mfa2_tlv_multi.c
+>  create mode 100644
+> drivers/net/ethernet/mellanox/mlxfw/mlxfw_mfa2_tlv_multi.h
+>=20
+> --
+> 2.9.3
