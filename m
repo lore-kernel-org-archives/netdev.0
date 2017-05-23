@@ -1,41 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull request (net): ipsec 2017-05-23
-Date: Tue, 23 May 2017 10:54:21 -0400 (EDT)
-Message-ID: <20170523.105421.498858429985702866.davem@davemloft.net>
-References: <1495517624-27096-1-git-send-email-steffen.klassert@secunet.com>
+From: Ido Schimmel <idosch@mellanox.com>
+Subject: Re: [patch net-next 4/5] mlxsw: acl: Add tcp flags acl element
+Date: Tue, 23 May 2017 18:00:06 +0300
+Message-ID: <20170523150006.GA21769@splinter.mtl.com>
+References: <20170523143110.5006-1-jiri@resnulli.us>
+ <20170523143110.5006-5-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
-To: steffen.klassert@secunet.com
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>,
+        <jhs@mojatatu.com>, <xiyou.wangcong@gmail.com>,
+        <simon.horman@netronome.com>, <mlxsw@mellanox.com>
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:35784 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S968285AbdEWOy0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 23 May 2017 10:54:26 -0400
-In-Reply-To: <1495517624-27096-1-git-send-email-steffen.klassert@secunet.com>
+Received: from mail-eopbgr50075.outbound.protection.outlook.com ([40.107.5.75]:6456
+        "EHLO EUR03-VE1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1753078AbdEWPAS (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 23 May 2017 11:00:18 -0400
+Content-Disposition: inline
+In-Reply-To: <20170523143110.5006-5-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Date: Tue, 23 May 2017 07:33:39 +0200
+On Tue, May 23, 2017 at 04:31:09PM +0200, Jiri Pirko wrote:
+> From: Jiri Pirko <jiri@mellanox.com>
+> 
+> Define new element for tcp flags and place it into scratch area.
+> 
+> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 
-> 1) Fix wrong header offset for esp4 udpencap packets.
-> 
-> 2) Fix a stack access out of bounds when creating a bundle
->    with sub policies. From Sabrina Dubroca.
-> 
-> 3) Fix slab-out-of-bounds in pfkey due to an incorrect
->    sadb_x_sec_len calculation.
-> 
-> 4) We checked the wrong feature flags when taking down
->    an interface with IPsec offload enabled.
->    Fix from Ilan Tayari.
-> 
-> 5) Copy the anti replay sequence numbers when doing a state
->    migration, otherwise we get out of sync with the sequence
->    numbers. Fix from Antony Antony.
-> 
-> Please pull or let me know if there are problems.
-
-Pulled, thank you.
+Reviewed-by: Ido Schimmel <idosch@mellanox.com>
