@@ -1,154 +1,37 @@
-From: Yuval Mintz <Yuval.Mintz@cavium.com>
-Subject: [PATCH v2 net-next 11/11] qed: Replace set_id() api with set_name()
-Date: Tue, 23 May 2017 09:41:28 +0300
-Message-ID: <1495521688-27669-12-git-send-email-Yuval.Mintz@cavium.com>
-References: <1495521688-27669-1-git-send-email-Yuval.Mintz@cavium.com>
+From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
+Subject: RE: [PATCH net-next 00/10] qed/qede updates
+Date: Tue, 23 May 2017 06:46:53 +0000
+Message-ID: <BLUPR0701MB2004B78FE1E4D2CB28BDFE6C8DF90@BLUPR0701MB2004.namprd07.prod.outlook.com>
+References: <1495357860-28280-1-git-send-email-Yuval.Mintz@cavium.com>
+ <20170521.130141.1217220690269746260.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Yuval Mintz <Yuval.Mintz@cavium.com>,
-        Manish Rangankar <Manish.Rangankar@cavium.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2nam02on0069.outbound.protection.outlook.com ([104.47.38.69]:56160
-        "EHLO NAM02-BL2-obe.outbound.protection.outlook.com"
+Received: from mail-dm3nam03on0053.outbound.protection.outlook.com ([104.47.41.53]:37184
+        "EHLO NAM03-DM3-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S965867AbdEWGnW (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 23 May 2017 02:43:22 -0400
-In-Reply-To: <1495521688-27669-1-git-send-email-Yuval.Mintz@cavium.com>
+        id S965905AbdEWGqz (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 23 May 2017 02:46:55 -0400
+In-Reply-To: <20170521.130141.1217220690269746260.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Current API between qed and protocol modules allows passing an
-additional private string - but it doesn't get utilized by qed
-anywhere.
+> >  - #1, #2 and #9 correct small missing ethtool functionality.
+> >  - #3, #6  and #8 correct minor issues in driver, but those are either
+> >    print-related or unexposed in existing code.
+> >  - #4 adds proper support to TLB mode bonding.
+> >  - #10 is meant to improve performance on varying cache-line sizes.
+> >
+> > Dave,
+> >
+> > Please consider applying this to `net-next'.
+>=20
+> Series applied, thank you.
 
-Clarify the API by removing it and renaming it 'set_name'.
-
-CC: Manish Rangankar <Manish.Rangankar@cavium.com>
-Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
----
- drivers/net/ethernet/qlogic/qed/qed.h        | 1 -
- drivers/net/ethernet/qlogic/qed/qed_main.c   | 9 +++------
- drivers/net/ethernet/qlogic/qede/qede_main.c | 4 ++--
- drivers/scsi/qedf/qedf_main.c                | 2 +-
- drivers/scsi/qedi/qedi_main.c                | 2 +-
- include/linux/qed/qed_if.h                   | 4 +---
- 6 files changed, 8 insertions(+), 14 deletions(-)
-
-diff --git a/drivers/net/ethernet/qlogic/qed/qed.h b/drivers/net/ethernet/qlogic/qed/qed.h
-index 2eb6031..e0becec 100644
---- a/drivers/net/ethernet/qlogic/qed/qed.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed.h
-@@ -638,7 +638,6 @@ struct qed_dev {
- 
- 	int				pcie_width;
- 	int				pcie_speed;
--	u8				ver_str[VER_SIZE];
- 
- 	/* Add MF related configuration */
- 	u8				mcp_rev;
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_main.c b/drivers/net/ethernet/qlogic/qed/qed_main.c
-index b5313c5..c5bb80b 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_main.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_main.c
-@@ -338,6 +338,7 @@ static struct qed_dev *qed_probe(struct pci_dev *pdev,
- 	if (!cdev)
- 		goto err0;
- 
-+	cdev->drv_type = DRV_ID_DRV_TYPE_LINUX;
- 	cdev->protocol = params->protocol;
- 
- 	if (params->is_vf)
-@@ -1128,17 +1129,13 @@ static int qed_slowpath_stop(struct qed_dev *cdev)
- 	return 0;
- }
- 
--static void qed_set_id(struct qed_dev *cdev, char name[NAME_SIZE],
--		       char ver_str[VER_SIZE])
-+static void qed_set_name(struct qed_dev *cdev, char name[NAME_SIZE])
- {
- 	int i;
- 
- 	memcpy(cdev->name, name, NAME_SIZE);
- 	for_each_hwfn(cdev, i)
- 		snprintf(cdev->hwfns[i].name, NAME_SIZE, "%s-%d", name, i);
--
--	memcpy(cdev->ver_str, ver_str, VER_SIZE);
--	cdev->drv_type = DRV_ID_DRV_TYPE_LINUX;
- }
- 
- static u32 qed_sb_init(struct qed_dev *cdev,
-@@ -1692,7 +1689,7 @@ static int qed_update_mtu(struct qed_dev *cdev, u16 mtu)
- 	.probe = &qed_probe,
- 	.remove = &qed_remove,
- 	.set_power_state = &qed_set_power_state,
--	.set_id = &qed_set_id,
-+	.set_name = &qed_set_name,
- 	.update_pf_params = &qed_update_pf_params,
- 	.slowpath_start = &qed_slowpath_start,
- 	.slowpath_stop = &qed_slowpath_stop,
-diff --git a/drivers/net/ethernet/qlogic/qede/qede_main.c b/drivers/net/ethernet/qlogic/qede/qede_main.c
-index d496ba7..00c7062 100644
---- a/drivers/net/ethernet/qlogic/qede/qede_main.c
-+++ b/drivers/net/ethernet/qlogic/qede/qede_main.c
-@@ -259,7 +259,7 @@ static int qede_netdev_event(struct notifier_block *this, unsigned long event,
- 		/* Notify qed of the name change */
- 		if (!edev->ops || !edev->ops->common)
- 			goto done;
--		edev->ops->common->set_id(edev->cdev, edev->ndev->name, "qede");
-+		edev->ops->common->set_name(edev->cdev, edev->ndev->name);
- 		break;
- 	case NETDEV_CHANGEADDR:
- 		edev = netdev_priv(ndev);
-@@ -967,7 +967,7 @@ static int __qede_probe(struct pci_dev *pdev, u32 dp_module, u8 dp_level,
- 		goto err4;
- 	}
- 
--	edev->ops->common->set_id(cdev, edev->ndev->name, DRV_MODULE_VERSION);
-+	edev->ops->common->set_name(cdev, edev->ndev->name);
- 
- 	/* PTP not supported on VFs */
- 	if (!is_vf)
-diff --git a/drivers/scsi/qedf/qedf_main.c b/drivers/scsi/qedf/qedf_main.c
-index a5c9734..b97405e 100644
---- a/drivers/scsi/qedf/qedf_main.c
-+++ b/drivers/scsi/qedf/qedf_main.c
-@@ -2954,7 +2954,7 @@ static int __qedf_probe(struct pci_dev *pdev, int mode)
- 		   "WWPN=%016llx.\n", qedf->wwnn, qedf->wwpn);
- 
- 	sprintf(host_buf, "host_%d", host->host_no);
--	qed_ops->common->set_id(qedf->cdev, host_buf, QEDF_VERSION);
-+	qed_ops->common->set_name(qedf->cdev, host_buf);
- 
- 
- 	/* Set xid max values */
-diff --git a/drivers/scsi/qedi/qedi_main.c b/drivers/scsi/qedi/qedi_main.c
-index 92775a8..073b305 100644
---- a/drivers/scsi/qedi/qedi_main.c
-+++ b/drivers/scsi/qedi/qedi_main.c
-@@ -1843,7 +1843,7 @@ static int __qedi_probe(struct pci_dev *pdev, int mode)
- 		  qedi->mac);
- 
- 	sprintf(host_buf, "host_%d", qedi->shost->host_no);
--	qedi_ops->common->set_id(qedi->cdev, host_buf, QEDI_MODULE_VERSION);
-+	qedi_ops->common->set_name(qedi->cdev, host_buf);
- 
- 	qedi_ops->register_ops(qedi->cdev, &qedi_cb_ops, qedi);
- 
-diff --git a/include/linux/qed/qed_if.h b/include/linux/qed/qed_if.h
-index b00e675..73c46d6 100644
---- a/include/linux/qed/qed_if.h
-+++ b/include/linux/qed/qed_if.h
-@@ -520,9 +520,7 @@ struct qed_common_ops {
- 	int		(*set_power_state)(struct qed_dev *cdev,
- 					   pci_power_t state);
- 
--	void		(*set_id)(struct qed_dev *cdev,
--				  char name[],
--				  char ver_str[]);
-+	void (*set_name) (struct qed_dev *cdev, char name[]);
- 
- 	/* Client drivers need to make this call before slowpath_start.
- 	 * PF params required for the call before slowpath_start is
--- 
-1.9.3
+Just noticed I never actually sent #10... [as a result, you've applied #1-#=
+9].
+Will send it 'again' in a later series.
