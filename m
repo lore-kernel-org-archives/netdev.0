@@ -1,42 +1,35 @@
 From: Kalle Valo <kvalo@qca.qualcomm.com>
-Subject: Re: wcn36xx: Close SMD channel on device removal
-Date: Tue, 23 May 2017 17:23:48 +0200
-Message-ID: <791ac0fefa814db68e482254b91e45ca@euamsexm01a.eu.qualcomm.com>
-References: <20170509043637.28179-1-bjorn.andersson@linaro.org>
+Subject: Re: [v2] ath10k: remove unnecessary code
+Date: Tue, 23 May 2017 17:25:41 +0200
+Message-ID: <b5d346a9f0fd483f96b7f0fff6174750@euamsexm01a.eu.qualcomm.com>
+References: <20170509125129.GA21962@embeddedgus>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Eugene Krasnikov <k.eugene.e@gmail.com>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        Eyal Ilsar <c_eilsar@qti.qualcomm.com>,
-        <wcn36xx@lists.infradead.org>, <linux-wireless@vger.kernel.org>,
-        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-        <linux-arm-msm@vger.kernel.org>
-To: Bjorn Andersson <bjorn.andersson@linaro.org>
+Cc: Arend Van Spriel <arend.vanspriel@broadcom.com>,
+        <netdev@vger.kernel.org>, <linux-wireless@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>, <ath10k@lists.infradead.org>,
+        "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+To: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170509043637.28179-1-bjorn.andersson@linaro.org>
+In-Reply-To: <20170509125129.GA21962@embeddedgus>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Bjorn Andersson <bjorn.andersson@linaro.org> wrote:
-> The SMD channel is not the primary WCNSS channel and must explicitly be
-> closed as the device is removed, or the channel will already by open on
-> a subsequent probe call in e.g. the case of reloading the kernel module.
+"Gustavo A. R. Silva" <garsilva@embeddedor.com> wrote:
+> The array fields in struct wmi_start_scan_arg that are checked here are
+> fixed size arrays so they can never be NULL.
 > 
-> This issue was introduced because I simplified the underlying SMD
-> implementation while the SMD adaptions of the driver sat on the mailing
-> list, but missed to update these patches. The patch does however only
-> apply back to the transition to rpmsg, hence the limited Fixes.
-> 
-> Fixes: 5052de8deff5 ("soc: qcom: smd: Transition client drivers from smd to rpmsg")
-> Reported-by: Eyal Ilsar <c_eilsar@qti.qualcomm.com>
-> Signed-off-by: Bjorn Andersson <bjorn.andersson@linaro.org>
+> Addresses-Coverity-ID: 1260031
+> Cc: Arend Van Spriel <arend.vanspriel@broadcom.com>
+> Cc: Kalle Valo <kvalo@qca.qualcomm.com>
+> Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
 
-Patch applied to ath-current branch of ath.git, thanks.
+Patch applied to ath-next branch of ath.git, thanks.
 
-efad8396e906 wcn36xx: Close SMD channel on device removal
+8c1f20815231 ath10k: remove unnecessary code
 
 -- 
-https://patchwork.kernel.org/patch/9717027/
+https://patchwork.kernel.org/patch/9717869/
 
 https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
