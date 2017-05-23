@@ -1,75 +1,35 @@
-From: <scotte@kincaidlaw.com>
-Subject: (unknown)
-Date: Tue, 23 May 2017 07:38:43 -0000
-Message-ID: <149552512339.26768.11242481184539761690@vnpt.vn>
+From: Peter Zijlstra <peterz@infradead.org>
+Subject: Re: [PATCH net-next 1/2] perf, bpf: add support for HW_CACHE and RAW
+ events
+Date: Tue, 23 May 2017 09:42:47 +0200
+Message-ID: <20170523074247.esnr4fj2squn4w2d@hirez.programming.kicks-ass.net>
+References: <20170522224840.810121-1-ast@fb.com>
+ <20170522224840.810121-2-ast@fb.com>
 Mime-Version: 1.0
-Content-Type: application/zip; name="615690.zip"
-Content-Transfer-Encoding: base64
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S . Miller" <davem@davemloft.net>,
+        Brendan Gregg <bgregg@netflix.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Teng Qin <qinteng@fb.com>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, kernel-team@fb.com
+To: Alexei Starovoitov <ast@fb.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static.vnpt.vn ([113.163.237.21]:50232 "HELO vnpt.vn"
-        rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with SMTP
-        id S933857AbdEWHiy (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 23 May 2017 03:38:54 -0400
-Subject: 
-Content-Disposition: attachment
+Received: from bombadil.infradead.org ([65.50.211.133]:38891 "EHLO
+        bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933857AbdEWHmz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 23 May 2017 03:42:55 -0400
+Content-Disposition: inline
+In-Reply-To: <20170522224840.810121-2-ast@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-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
-AAAAHAwAAAAA
+On Mon, May 22, 2017 at 03:48:39PM -0700, Alexei Starovoitov wrote:
+> From: Teng Qin <qinteng@fb.com>
+> 
+> This commit adds support for attach BPF program to RAW and HW_CACHE type
+> events, and support for read HW_CACHE type event counters in BPF
+> program. Existing code logic already supports them, so this commit is
+> just update Enum value checks.
+
+So what I'm missing is why they were not supported previously, and what
+changed to allow it now.
