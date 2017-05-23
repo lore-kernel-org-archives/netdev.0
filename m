@@ -1,95 +1,122 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH net 2/2] sctp: set new_asoc temp when processing dupcookie
-Date: Tue, 23 May 2017 07:26:48 -0400
-Message-ID: <20170523112648.GB11795@hmswarspite.think-freely.org>
-References: <cover.1495517205.git.lucien.xin@gmail.com>
- <dc8c3388836508aea0d4c834fd33a1fff9085532.1495517205.git.lucien.xin@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
-        davem@davemloft.net,
-        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-To: Xin Long <lucien.xin@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:59604 "EHLO
-        smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757843AbdEWL07 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 23 May 2017 07:26:59 -0400
-Content-Disposition: inline
-In-Reply-To: <dc8c3388836508aea0d4c834fd33a1fff9085532.1495517205.git.lucien.xin@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Subject: [pull request][for-next 0/6] Mellanox mlx5 updates 2017-05-23
+Date: Tue, 23 May 2017 14:43:58 +0300
+Message-ID: <20170523114404.20387-1-saeedm@mellanox.com>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Ilan Tayari <ilant-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, May 23, 2017 at 01:28:55PM +0800, Xin Long wrote:
-> After sctp changed to use transport hashtable, a transport would be
-> added into global hashtable when adding the peer to an asoc, then
-> the asoc can be got by searching the transport in the hashtbale.
-> 
-> The problem is when processing dupcookie in sctp_sf_do_5_2_4_dupcook,
-> a new asoc would be created. A peer with the same addr and port as
-> the one in the old asoc might be added into the new asoc, but fail
-> to be added into the hashtable, as they also belong to the same sk.
-> 
-> It causes that sctp's dupcookie processing can not really work.
-> 
-> Since the new asoc will be freed after copying it's information to
-> the old asoc, it's more like a temp asoc. So this patch is to fix
-> it by setting it as a temp asoc to avoid adding it's any transport
-> into the hashtable and also avoid allocing assoc_id.
-> 
-> An extra thing it has to do is to also alloc stream info for any
-> temp asoc, as sctp dupcookie process needs it to update old asoc.
-> But I don't think it would hurt something, as a temp asoc would
-> always be freed after finishing processing cookie echo packet.
-> 
-> Reported-by: Jianwen Ji <jiji@redhat.com>
-> Signed-off-by: Xin Long <lucien.xin@gmail.com>
-> ---
->  net/sctp/sm_make_chunk.c | 13 ++++---------
->  net/sctp/sm_statefuns.c  |  3 +++
->  2 files changed, 7 insertions(+), 9 deletions(-)
-> 
-> diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
-> index 8a08f13..92e332e 100644
-> --- a/net/sctp/sm_make_chunk.c
-> +++ b/net/sctp/sm_make_chunk.c
-> @@ -2454,16 +2454,11 @@ int sctp_process_init(struct sctp_association *asoc, struct sctp_chunk *chunk,
->  	 * stream sequence number shall be set to 0.
->  	 */
->  
-> -	/* Allocate storage for the negotiated streams if it is not a temporary
-> -	 * association.
-> -	 */
-> -	if (!asoc->temp) {
-> -		if (sctp_stream_init(asoc, gfp))
-> -			goto clean_up;
-> +	if (sctp_stream_init(asoc, gfp))
-> +		goto clean_up;
->  
-> -		if (sctp_assoc_set_id(asoc, gfp))
-> -			goto clean_up;
-> -	}
-> +	if (!asoc->temp && sctp_assoc_set_id(asoc, gfp))
-> +		goto clean_up;
->  
->  	/* ADDIP Section 4.1 ASCONF Chunk Procedures
->  	 *
-> diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
-> index 4f5e6cf..f863b55 100644
-> --- a/net/sctp/sm_statefuns.c
-> +++ b/net/sctp/sm_statefuns.c
-> @@ -2088,6 +2088,9 @@ sctp_disposition_t sctp_sf_do_5_2_4_dupcook(struct net *net,
->  		}
->  	}
->  
-> +	/* Set temp so that it won't be added into hashtable */
-> +	new_asoc->temp = 1;
-> +
->  	/* Compare the tie_tag in cookie with the verification tag of
->  	 * current association.
->  	 */
-> -- 
-> 2.1.0
-> 
-> 
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
+Hi Dave and Doug,
+
+This series introduces some small updates and FPGA support to the mlx5
+core/ethernet and IB drivers.
+
+For more details please see below.
+
+Please pull and let me know if there's any problem.
+
+Thanks,
+Saeed.
+
+---
+
+The following changes since commit 2ea659a9ef488125eb46da6eb571de5eae5c43f6:
+
+  Linux 4.12-rc1 (2017-05-13 13:19:49 -0700)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/mellanox/linux.git tags/mlx5-update-2017-05-23
+
+for you to fetch changes up to b359911d6608bd16888466184e8e8faeb63bd9eb:
+
+  IB/mlx5: Bump driver version (2017-05-14 14:24:19 +0300)
+
+----------------------------------------------------------------
+mlx5-update-2017-05-23
+
+First patch from Leon, came to remove the redundant usage of mlx5_vzalloc,
+and directly use kvzalloc across all mlx5 drivers.
+
+2nd patch from Noa, adds new device IDs into the supported devices list.
+
+3rd and 4th patches from Ilan are adding the basic infrastructure and
+support for Mellanox's mlx5 FPGA.
+
+Last two patches from Tariq came to modify the outdated driver version
+reported in ethtool and in mlx5_ib to more reflect the current driver state
+and remove the redundant date string reported in the version.
+
+Thanks,
+Saeed.
+
+----------------------------------------------------------------
+Ilan Tayari (2):
+      net/mlx5: Introduce trigger_health_work function
+      net/mlx5: FPGA, Add basic support for Innova
+
+Leon Romanovsky (1):
+      {net, IB}/mlx5: Replace mlx5_vzalloc with kvzalloc
+
+Noa Osherovich (1):
+      net/mlx5: Update the list of the PCI supported devices
+
+Tariq Toukan (2):
+      net/mlx5: Bump driver version
+      IB/mlx5: Bump driver version
+
+ MAINTAINERS                                        |  10 +
+ drivers/infiniband/hw/mlx5/cq.c                    |   6 +-
+ drivers/infiniband/hw/mlx5/mad.c                   |   4 +-
+ drivers/infiniband/hw/mlx5/main.c                  |  11 +-
+ drivers/infiniband/hw/mlx5/mr.c                    |   2 +-
+ drivers/infiniband/hw/mlx5/qp.c                    |  32 ++--
+ drivers/infiniband/hw/mlx5/srq.c                   |   4 +-
+ drivers/net/ethernet/mellanox/mlx5/core/Kconfig    |  10 +
+ drivers/net/ethernet/mellanox/mlx5/core/Makefile   |   3 +
+ drivers/net/ethernet/mellanox/mlx5/core/debugfs.c  |   2 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en_arfs.c  |   8 +-
+ .../net/ethernet/mellanox/mlx5/core/en_common.c    |   4 +-
+ .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   |   4 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en_fs.c    |  24 +--
+ .../ethernet/mellanox/mlx5/core/en_fs_ethtool.c    |   2 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c  |  33 ++--
+ drivers/net/ethernet/mellanox/mlx5/core/en_tc.c    |   2 +-
+ drivers/net/ethernet/mellanox/mlx5/core/eq.c       |  13 +-
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch.c  |  24 +--
+ .../ethernet/mellanox/mlx5/core/eswitch_offloads.c |  13 +-
+ drivers/net/ethernet/mellanox/mlx5/core/fpga/cmd.c |  64 +++++++
+ drivers/net/ethernet/mellanox/mlx5/core/fpga/cmd.h |  59 ++++++
+ .../net/ethernet/mellanox/mlx5/core/fpga/core.c    | 202 +++++++++++++++++++++
+ .../net/ethernet/mellanox/mlx5/core/fpga/core.h    |  99 ++++++++++
+ drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c   |   6 +-
+ drivers/net/ethernet/mellanox/mlx5/core/fs_core.c  |  10 +-
+ drivers/net/ethernet/mellanox/mlx5/core/health.c   |  32 ++--
+ drivers/net/ethernet/mellanox/mlx5/core/ipoib.c    |   2 +-
+ drivers/net/ethernet/mellanox/mlx5/core/main.c     |  21 ++-
+ .../net/ethernet/mellanox/mlx5/core/mlx5_core.h    |   3 +-
+ .../net/ethernet/mellanox/mlx5/core/pagealloc.c    |   4 +-
+ drivers/net/ethernet/mellanox/mlx5/core/port.c     |   6 +-
+ drivers/net/ethernet/mellanox/mlx5/core/qp.c       |   2 +-
+ drivers/net/ethernet/mellanox/mlx5/core/srq.c      |  14 +-
+ drivers/net/ethernet/mellanox/mlx5/core/transobj.c |   2 +-
+ drivers/net/ethernet/mellanox/mlx5/core/vport.c    |  34 ++--
+ include/linux/mlx5/device.h                        |   6 +
+ include/linux/mlx5/driver.h                        |  11 +-
+ include/linux/mlx5/mlx5_ifc.h                      |  11 +-
+ include/linux/mlx5/mlx5_ifc_fpga.h                 | 144 +++++++++++++++
+ 40 files changed, 779 insertions(+), 164 deletions(-)
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/fpga/cmd.c
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/fpga/cmd.h
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/fpga/core.c
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/fpga/core.h
+ create mode 100644 include/linux/mlx5/mlx5_ifc_fpga.h
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
