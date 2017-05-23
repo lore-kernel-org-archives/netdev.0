@@ -1,45 +1,97 @@
-From: Edward Cree <ecree@solarflare.com>
-Subject: Re: Alignment in BPF verifier
-Date: Tue, 23 May 2017 18:43:48 +0100
-Message-ID: <748ff318-84dc-d338-67bd-2fd62ebcf3b8@solarflare.com>
-References: <db8cd2e8-9f51-dc8b-5e55-4c75d13d4858@fb.com>
- <a0a47297-4765-3ba0-3ea2-013dda40e84a@solarflare.com>
- <bed5b512-6069-53cc-f128-05be05f89889@solarflare.com>
- <20170519.163957.1950740987459934279.davem@davemloft.net>
- <591F7A28.3020004@iogearbox.net>
- <f882c40e-bd50-f08e-afd8-f6396fc24ebc@solarflare.com>
+From: Sander Eikelenboom <linux@eikelenboom.it>
+Subject: Re: 4.12-RC2 BUG: scheduling while atomic: irq/47-iwlwifi
+Date: Tue, 23 May 2017 19:51:12 +0200
+Message-ID: <e8b61883-1f23-c94c-1740-b121aae70a2c@eikelenboom.it>
+References: <a54f3f4f-2365-2154-ad18-82e4cd572aac@eikelenboom.it>
+ <1495450628.2653.14.camel@sipsolutions.net>
+ <764a929c-ce8a-c859-a49e-2f20cb05ae44@broadcom.com>
+ <532c257e-52a0-18c1-1afe-04d37c28e072@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: <ast@fb.com>, <alexei.starovoitov@gmail.com>,
-        <netdev@vger.kernel.org>
-To: Daniel Borkmann <daniel@iogearbox.net>,
-        David Miller <davem@davemloft.net>
+Cc: linux-wireless <linux-wireless@vger.kernel.org>,
+        netdev@vger.kernel.org
+To: Arend Van Spriel <arend.vanspriel@broadcom.com>,
+        Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dispatch1-us1.ppe-hosted.com ([67.231.154.164]:49121 "EHLO
-        dispatch1-us1.ppe-hosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S933210AbdEWRoC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 23 May 2017 13:44:02 -0400
-In-Reply-To: <f882c40e-bd50-f08e-afd8-f6396fc24ebc@solarflare.com>
+Received: from server.eikelenboom.it ([91.121.65.215]:55930 "EHLO
+        server.eikelenboom.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S966493AbdEWRvZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 23 May 2017 13:51:25 -0400
+In-Reply-To: <532c257e-52a0-18c1-1afe-04d37c28e072@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Another issue: it looks like the min/max_value handling for subtraction is
- bogus.  In adjust_reg_min_max_vals() we have
-    if (dst_reg->min_value != BPF_REGISTER_MIN_RANGE)
-        dst_reg->min_value -= min_val;
-    if (dst_reg->max_value != BPF_REGISTER_MAX_RANGE)
-        dst_reg->max_value -= max_val;
- where min_val and max_val refer to the src_reg.
-But surely they should be used the other way round; if (say) 2 <= R1 <= 6
- and 1 <= R2 <= 4, then this will claim 1 <= (R1 - R2) <= 2, whereas really
- (R1 - R2) could be anything from -2 to 5.
-This also means that the code just above the switch,
-    if (min_val == BPF_REGISTER_MIN_RANGE)
-        dst_reg->min_value = BPF_REGISTER_MIN_RANGE;
-    if (max_val == BPF_REGISTER_MAX_RANGE)
-        dst_reg->max_value = BPF_REGISTER_MAX_RANGE;
- is wrong, since e.g. subtracting MAX_RANGE needs to blow our min_value,
- not our max_value.
+On 22/05/17 23:02, Arend Van Spriel wrote:
+> 
+> 
+> On 22-5-2017 14:09, Arend van Spriel wrote:
+>> On 5/22/2017 12:57 PM, Johannes Berg wrote:
+>>> On Mon, 2017-05-22 at 12:36 +0200, Sander Eikelenboom wrote:
+>>>> Hi,
+>>>>
+>>>> I encountered this splat with 4.12-RC2.
+>>>
+>>> Ugh, yeah, I should've seen that in the review.
+>>>
+>>> Arend, please take a look at this. cfg80211_sched_scan_results() cannot
+>>> sleep, so you can't rtnl_lock() in there. Looks like you can just rely
+>>> on RCU though?
+>>
+>> I see. I think you are right on RCU. Don't have the code in front of me
+>> now, but I think the lookup has an ASSERT_RTNL. Will look into it after
+>> my monday meeting :-p
+> 
+> I realized I have a laptop lying around with intel 3160 wifi chip and
+> tried to reproduce the issue. Did not run into the splat running
+> 4.12-rc1 from wireless-drivers-next repo. I did not get the email from
+> Sander so I don't know any details.
+> 
+> Here is what I changed based on the info Johannes provided. Can you
+> please check if this get rid of the splat and let me know.
 
--Ed
+Hi Arend,
+
+I ran your patch today, so far no issues.
+
+--
+Sander
+
+
+> Regards,
+> Arend
+> ---
+> diff --git a/net/wireless/scan.c b/net/wireless/scan.c
+> index 14d5f0c..04833bb 100644
+> --- a/net/wireless/scan.c
+> +++ b/net/wireless/scan.c
+> @@ -322,9 +322,7 @@ static void cfg80211_del_sched_scan_req(struct
+> cfg80211_regi
+>  {
+>         struct cfg80211_sched_scan_request *pos;
+> 
+> -       ASSERT_RTNL();
+> -
+> -       list_for_each_entry(pos, &rdev->sched_scan_req_list, list) {
+> +       list_for_each_entry_rcu(pos, &rdev->sched_scan_req_list, list) {
+>                 if (pos->reqid == reqid)
+>                         return pos;
+>         }
+> @@ -398,13 +396,13 @@ void cfg80211_sched_scan_results(struct wiphy
+> *wiphy, u64
+>         trace_cfg80211_sched_scan_results(wiphy, reqid);
+>         /* ignore if we're not scanning */
+> 
+> -       rtnl_lock();
+> +       rcu_read_lock();
+>         request = cfg80211_find_sched_scan_req(rdev, reqid);
+>         if (request) {
+>                 request->report_results = true;
+>                 queue_work(cfg80211_wq, &rdev->sched_scan_res_wk);
+>         }
+> -       rtnl_unlock();
+> +       rcu_read_unlock();
+>  }
+>  EXPORT_SYMBOL(cfg80211_sched_scan_results);
+> 
+> 
