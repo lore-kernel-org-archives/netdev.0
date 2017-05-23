@@ -1,59 +1,29 @@
-From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
-Subject: RE: [patch net-next 0/9] mlxsw: Support firmware flash
-Date: Tue, 23 May 2017 15:04:23 +0000
-Message-ID: <BLUPR0701MB2004EB2F32B4C8C42C5020458DF90@BLUPR0701MB2004.namprd07.prod.outlook.com>
-References: <20170523065301.1091-1-jiri@resnulli.us>
- <BLUPR0701MB2004690F775AD57D3CACB1CC8DF90@BLUPR0701MB2004.namprd07.prod.outlook.com>
- <ea7cf005-1f6c-aa87-db90-03d7c77c7d56@mellanox.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] enic: unmask intr only when napi is complete
+Date: Tue, 23 May 2017 11:06:08 -0400 (EDT)
+Message-ID: <20170523.110608.1602668006680330478.davem@davemloft.net>
+References: <20170522191948.1397-1-gvaradar@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-        "idosch@mellanox.com" <idosch@mellanox.com>,
-        "mlxsw@mellanox.com" <mlxsw@mellanox.com>,
-        Ben Hutchings <bhutchings@solarflare.com>
-To: Yotam Gigi <yotamg@mellanox.com>, Jiri Pirko <jiri@resnulli.us>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, benve@cisco.com
+To: gvaradar@cisco.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam01on0052.outbound.protection.outlook.com ([104.47.34.52]:23840
-        "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1762352AbdEWPE0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 23 May 2017 11:04:26 -0400
-In-Reply-To: <ea7cf005-1f6c-aa87-db90-03d7c77c7d56@mellanox.com>
-Content-Language: en-US
+Received: from shards.monkeyblade.net ([184.105.139.130]:35998 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933515AbdEWPGM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 23 May 2017 11:06:12 -0400
+In-Reply-To: <20170522191948.1397-1-gvaradar@cisco.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> >> Patches 6-8 add the "ethtool -f" and the boot-time firmware upgrade on
-> the
-> >> mlxsw spectrum driver.
-> > When we tried using `ethtool -E' for qed we got burned for trying to us=
-e
-> the magic
-> > value [1]. When we suggested extending it to allow some private data
-> indications,
-> > Ben claimed that this entire ethtool infrastructure is a thing of the p=
-ast,
-> > and we should try using MTD instead - a claim no one bothered to counte=
-r.
-> >
-> > Creating proprietary file-formats, filling them with metadata and
-> > complementary driver state-machines could easily overcome the original
-> > obstacle we faced. But it raises the question of whether these APIs are
-> > valid or obsolete.
->=20
-> The metadata in our format is needed to allow us to hold several firmware
-> images for several spectrum silicon variants in one file, hence the metad=
-ata
-> is used by the driver and does not get transferred to the device.
+From: Govindarajulu Varadarajan <gvaradar@cisco.com>
+Date: Mon, 22 May 2017 12:19:48 -0700
 
-Understood; Otherwise it would have been 'data' and not 'metadata'.
+> In case of busy poll, napi_complete_done returns false and does not
+> dequeue napi. In this case do not unmask the intr. We are guaranteed
+> napi is called again. This reduces unnecessary iowrites.
+> 
+> Signed-off-by: Govindarajulu Varadarajan <gvaradar@cisco.com>
 
->Our code can only be used to transfer firmware to the device, and cannot
-> be used to configure the device.
-
-Not sure what this refers to? The differences between '-f' and '-E'?
-Also, assuming you haven't started selling your adapters as persistent memo=
-ry
-for storage, what's the difference?
+Looks good, applied, thank you.
