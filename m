@@ -1,79 +1,34 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: Re: [patch net-next] net: sched: cls_api: make reclassify return all
- the way back to the original tp
-Date: Tue, 23 May 2017 13:50:39 +0200
-Message-ID: <20170523115037.GB25668@vergenet.net>
-References: <20170523071159.1951-1-jiri@resnulli.us>
+From: <Nisar.Sayed@microchip.com>
+Subject: RE: [PATCH v2 net] smsc95xx: Support only IPv4 TCP/UDP csum offload
+Date: Tue, 23 May 2017 12:06:09 +0000
+Message-ID: <CE371C1263339941885964188A0225FA30A119@CHN-SV-EXMX03.mchp-main.com>
+References: <CE371C1263339941885964188A0225FA308E06@CHN-SV-EXMX03.mchp-main.com>,<20170521.133219.666611127277983923.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, jhs@mojatatu.com,
-        xiyou.wangcong@gmail.com, dsa@cumulusnetworks.com,
-        edumazet@google.com, daniel@iogearbox.net,
-        alexander.h.duyck@intel.com, mlxsw@mellanox.com
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>, <UNGLinuxDriver@microchip.com>,
+        <steve.glendinning@shawell.net>, <popcornmix@gmail.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f46.google.com ([74.125.82.46]:37064 "EHLO
-        mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933847AbdEWLuo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 23 May 2017 07:50:44 -0400
-Received: by mail-wm0-f46.google.com with SMTP id d127so22740154wmf.0
-        for <netdev@vger.kernel.org>; Tue, 23 May 2017 04:50:44 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20170523071159.1951-1-jiri@resnulli.us>
+Received: from esa6.microchip.iphmx.com ([216.71.154.253]:55613 "EHLO
+        esa6.microchip.iphmx.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1763774AbdEWMGL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 23 May 2017 08:06:11 -0400
+In-Reply-To: <20170521.133219.666611127277983923.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 23, 2017 at 09:11:59AM +0200, Jiri Pirko wrote:
-> From: Jiri Pirko <jiri@mellanox.com>
+> > When TX checksum offload is used, if the computed checksum is 0 the
+> > LAN95xx device do not alter the checksum to 0xffff.  In the case of ipv4
+> > UDP checksum, it indicates to receiver that no checksum is calculated.
+> > Under ipv6, UDP checksum yields a result of zero must be changed to
+> > 0xffff. Hence disabling checksum offload for ipv6 packets.
+> >
+> > Signed-off-by: Nisar Sayed <Nisar.Sayed@microchip.com>
+> >
+> > Reported-by: popcorn mix <popcornmix@gmail.com>
 > 
-> With the introduction of chain goto action, the reclassification would
-> cause the re-iteration of the actual chain. It makes more sense to restart
-> the whole thing and re-iterate starting from the original tp - start
-> of chain 0.
-> 
-> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+> Appied, thanks.
 
-Reviewed-by: Simon Horman <simon.horman@netronome.com>
-
-> ---
->  net/sched/cls_api.c | 8 +++++---
->  1 file changed, 5 insertions(+), 3 deletions(-)
-> 
-> diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
-> index 01a8b8b..89fbb35 100644
-> --- a/net/sched/cls_api.c
-> +++ b/net/sched/cls_api.c
-> @@ -300,7 +300,8 @@ int tcf_classify(struct sk_buff *skb, const struct tcf_proto *tp,
->  	__be16 protocol = tc_skb_protocol(skb);
->  #ifdef CONFIG_NET_CLS_ACT
->  	const int max_reclassify_loop = 4;
-> -	const struct tcf_proto *old_tp = tp;
-> +	const struct tcf_proto *orig_tp = tp;
-> +	const struct tcf_proto *first_tp;
->  	int limit = 0;
->  
->  reclassify:
-> @@ -315,9 +316,10 @@ int tcf_classify(struct sk_buff *skb, const struct tcf_proto *tp,
->  		err = tp->classify(skb, tp, res);
->  #ifdef CONFIG_NET_CLS_ACT
->  		if (unlikely(err == TC_ACT_RECLASSIFY && !compat_mode)) {
-> +			first_tp = orig_tp;
->  			goto reset;
->  		} else if (unlikely(TC_ACT_EXT_CMP(err, TC_ACT_GOTO_CHAIN))) {
-> -			old_tp = res->goto_tp;
-> +			first_tp = res->goto_tp;
->  			goto reset;
->  		}
->  #endif
-> @@ -335,7 +337,7 @@ int tcf_classify(struct sk_buff *skb, const struct tcf_proto *tp,
->  		return TC_ACT_SHOT;
->  	}
->  
-> -	tp = old_tp;
-> +	tp = first_tp;
->  	protocol = tc_skb_protocol(skb);
->  	goto reclassify;
->  #endif
-> -- 
-> 2.9.3
-> 
+Thanks.
