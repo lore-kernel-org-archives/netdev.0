@@ -1,42 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] bpf: update perf event helper function
- signature and documentation
-Date: Mon, 22 May 2017 23:08:49 -0400 (EDT)
-Message-ID: <20170522.230849.1056416550811494880.davem@davemloft.net>
-References: <E796EF36-C195-4FFA-AAA0-A1F9E7730349@fb.com>
+From: "Gao Feng" <gfree.wind@vip.163.com>
+Subject: Re:Re: [PATCH net-next] net: rfs: Don't reset RFS entries when
+ nothing changed
+Date: Tue, 23 May 2017 11:10:50 +0800 (CST)
+Message-ID: <674b05dd.3918.15c33492315.Coremail.gfree.wind@vip.163.com>
+References: <1495500311-81095-1-git-send-email-gfree.wind@vip.163.com>
+ <20170522.230220.402998640470537222.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: peterz@infradead.org, bgregg@netflix.com, daniel@iogearbox.net,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Kernel-team@fb.com, ast@fb.com
-To: qinteng@fb.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <E796EF36-C195-4FFA-AAA0-A1F9E7730349@fb.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=GBK
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org
+To: "David Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from m174-177.vip.163.com ([123.58.177.174]:17524 "EHLO
+        m174-177.vip.163.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932968AbdEWDQH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 22 May 2017 23:16:07 -0400
+In-Reply-To: <20170522.230220.402998640470537222.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Teng Qin <qinteng@fb.com>
-Date: Tue, 23 May 2017 00:39:34 +0000
-
-> diff --git a/samples/bpf/bpf_helpers.h b/samples/bpf/bpf_helpers.h
-> index 9a9c95f..a94ce42 100644
-> --- a/samples/bpf/bpf_helpers.h
-> +++ b/samples/bpf/bpf_helpers.h
-> @@ -37,9 +37,8 @@ static int (*bpf_clone_redirect)(void *ctx, int ifindex, int flags) =
->  	(void *) BPF_FUNC_clone_redirect;
->  static int (*bpf_redirect)(int ifindex, int flags) =
->  	(void *) BPF_FUNC_redirect;
-> -static int (*bpf_perf_event_output)(void *ctx, void *map,
-> -				    unsigned long long flags, void *data,
-> -				    int size) =
-> +static int (*bpf_perf_event_output)(void *ctx, void *map, u64 flags,
-> +	                            void *data, int size) =
->  	(void *) BPF_FUNC_perf_event_output;
->  static int (*bpf_get_stackid)(void *ctx, void *map, int flags) =
->  	(void *) BPF_FUNC_get_stackid;
-
-I think we've been intentionally avoiding the use of "u64", "u32",
-etc. in this file.
-
-But what do I know.
+QXQgMjAxNy0wNS0yMyAxMTowMjoyMCwgIkRhdmlkIE1pbGxlciIgPGRhdmVtQGRhdmVtbG9mdC5u
+ZXQ+IHdyb3RlOgo+RnJvbTogZ2ZyZWUud2luZEB2aXAuMTYzLmNvbQo+RGF0ZTogVHVlLCAyMyBN
+YXkgMjAxNyAwODo0NToxMSArMDgwMAo+Cj4+IEZyb206IEdhbyBGZW5nIDxnZnJlZS53aW5kQHZp
+cC4xNjMuY29tPgo+PiAKPj4gV2hlbiB0aGUgbmV3IFJGUyB0YWJsZSBzaXplIHNwZWNpZmllZCBi
+eSBzeXNjdGwgZXF1YWxzIHRoZSBvbGQgb25lLAo+PiB0aGVyZSBpcyBub3RoaW5nIGNoYW5nZWQg
+YWN0dWFsbHkuIFNvIGl0IGlzIHVubmVjZXNzYXJ5IHRvIHJlc2V0IHRoZQo+PiBSRlMgdGFibGUg
+ZW50cmlzLgo+PiAKPj4gU2lnbmVkLW9mZi1ieTogR2FvIEZlbmcgPGdmcmVlLndpbmRAdmlwLjE2
+My5jb20+Cj4KPkl0IHNlZW1zIGxpa2UgYW4gaW50ZW50aW9uYWwgZmVhdHVyZSB0byBiZSBhYmxl
+IHRvIHJlc2V0IHRoZQo+dGFibGUgYnkgc2ltcGx5IHdyaXRpbmcgdGhlIHNhbWUgdmFsdWUgdG8g
+dGhlIHN5c2ZzIGtub2IuCj4KPkknbSBub3QgYXBwbHlpbmcgdGhpcywgc29ycnkuCgpJdCBpcyBv
+ay4KSSBqdXN0IHRob3VnaHQgbWF5YmUgaXQgd2FzIHVzZWQgdG8gcmVzZXQsIGJ1dCBJIGRpZG4n
+dCBmaW5kIGFueSBjb21tZW50IGFuZCB0aXBzIGJ5IGdvb2dsZS4KClJlZ2FyZHMKRmVuZwo=
