@@ -1,140 +1,107 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH v3 net] net: phy: marvell: Limit errata to 88m1101
-Date: Tue, 23 May 2017 11:55:22 -0700
-Message-ID: <499064b3-3157-2a3e-ef74-b49b6a5bd168@gmail.com>
-References: <1495554553-21118-1-git-send-email-andrew@lunn.ch>
+From: "Baxter, Jim" <jim_baxter@mentor.com>
+Subject: Re: [RFC V1 1/1] net: cdc_ncm: Reduce memory use when kernel memory
+ low
+Date: Tue, 23 May 2017 20:06:53 +0100
+Message-ID: <97db8a45-55ec-b68f-6f88-e934f67d31fc@mentor.com>
+References: <04bc5b49-9282-a6ca-2b95-fb8fc9750555@mentor.com>
+ <20170522.115426.1239443379414364630.davem@davemloft.net>
+ <1495528968.2174.2.camel@suse.com>
+ <20170523.112625.33559883707681029.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Andrew Lunn <andrew@lunn.ch>, David Miller <davem@davemloft.net>
+Cc: <bjorn@mork.no>, <linux-usb@vger.kernel.org>,
+        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: David Miller <davem@davemloft.net>, <oneukum@suse.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:32775 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1763775AbdEWSz2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 23 May 2017 14:55:28 -0400
-Received: by mail-wm0-f65.google.com with SMTP id b84so25766763wmh.0
-        for <netdev@vger.kernel.org>; Tue, 23 May 2017 11:55:27 -0700 (PDT)
-In-Reply-To: <1495554553-21118-1-git-send-email-andrew@lunn.ch>
-Content-Language: en-US
+Received: from relay1.mentorg.com ([192.94.38.131]:36638 "EHLO
+        relay1.mentorg.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1764279AbdEWTHC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 23 May 2017 15:07:02 -0400
+In-Reply-To: <20170523.112625.33559883707681029.davem@davemloft.net>
+Content-Language: en-GB
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/23/2017 08:49 AM, Andrew Lunn wrote:
-> The 88m1101 has an errata when configuring autoneg. However, it was
-> being applied to many other Marvell PHYs as well. Limit its scope to
-> just the 88m1101.
+From: David S. Miller (davem@davemloft.net)
+Sent: Tue, 23 May 2017 11:26:25 -0400 
+> From: Oliver Neukum <oneukum@suse.com>
+> Date: Tue, 23 May 2017 10:42:48 +0200
 > 
-> Fixes: 76884679c644 ("phylib: Add support for Marvell 88e1111S and 88e1145")
-> Reported-by: Daniel Walker <danielwa@cisco.com>
-> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
-> Acked-by: Harini Katakam <harinik@xilinx.com>
-
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
-
-it would be great to be put proper defines (at least for the registers)
-for what this work around accomplishes, anyone with the datasheet?
-
-> ---
+>>
+>> We could use a counter. After the first failure, do it once, after the
+>> second twice and so on. And reset the counter as a higher order
+>> allocation works. (just bound it somewhere)
 > 
-> v3: Rebase onto net.
-> 
-> drivers/net/phy/marvell.c | 66 ++++++++++++++++++++++++++---------------------
->  1 file changed, 37 insertions(+), 29 deletions(-)
-> 
-> diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
-> index 272b051a0199..9097e42bec2e 100644
-> --- a/drivers/net/phy/marvell.c
-> +++ b/drivers/net/phy/marvell.c
-> @@ -255,34 +255,6 @@ static int marvell_config_aneg(struct phy_device *phydev)
->  {
->  	int err;
->  
-> -	/* The Marvell PHY has an errata which requires
-> -	 * that certain registers get written in order
-> -	 * to restart autonegotiation */
-> -	err = phy_write(phydev, MII_BMCR, BMCR_RESET);
-> -
-> -	if (err < 0)
-> -		return err;
-> -
-> -	err = phy_write(phydev, 0x1d, 0x1f);
-> -	if (err < 0)
-> -		return err;
-> -
-> -	err = phy_write(phydev, 0x1e, 0x200c);
-> -	if (err < 0)
-> -		return err;
-> -
-> -	err = phy_write(phydev, 0x1d, 0x5);
-> -	if (err < 0)
-> -		return err;
-> -
-> -	err = phy_write(phydev, 0x1e, 0);
-> -	if (err < 0)
-> -		return err;
-> -
-> -	err = phy_write(phydev, 0x1e, 0x100);
-> -	if (err < 0)
-> -		return err;
-> -
->  	err = marvell_set_polarity(phydev, phydev->mdix_ctrl);
->  	if (err < 0)
->  		return err;
-> @@ -316,6 +288,42 @@ static int marvell_config_aneg(struct phy_device *phydev)
->  	return 0;
->  }
->  
-> +static int m88e1101_config_aneg(struct phy_device *phydev)
-> +{
-> +	int err;
-> +
-> +	/* This Marvell PHY has an errata which requires
-> +	 * that certain registers get written in order
-> +	 * to restart autonegotiation
-> +	 */
-> +	err = phy_write(phydev, MII_BMCR, BMCR_RESET);
-> +
-> +	if (err < 0)
-> +		return err;
-> +
-> +	err = phy_write(phydev, 0x1d, 0x1f);
-> +	if (err < 0)
-> +		return err;
-> +
-> +	err = phy_write(phydev, 0x1e, 0x200c);
-> +	if (err < 0)
-> +		return err;
-> +
-> +	err = phy_write(phydev, 0x1d, 0x5);
-> +	if (err < 0)
-> +		return err;
-> +
-> +	err = phy_write(phydev, 0x1e, 0);
-> +	if (err < 0)
-> +		return err;
-> +
-> +	err = phy_write(phydev, 0x1e, 0x100);
-> +	if (err < 0)
-> +		return err;
-> +
-> +	return marvell_config_aneg(phydev);
-> +}
-> +
->  static int m88e1111_config_aneg(struct phy_device *phydev)
->  {
->  	int err;
-> @@ -1892,7 +1900,7 @@ static struct phy_driver marvell_drivers[] = {
->  		.flags = PHY_HAS_INTERRUPT,
->  		.probe = marvell_probe,
->  		.config_init = &marvell_config_init,
-> -		.config_aneg = &marvell_config_aneg,
-> +		.config_aneg = &m88e1101_config_aneg,
->  		.read_status = &genphy_read_status,
->  		.ack_interrupt = &marvell_ack_interrupt,
->  		.config_intr = &marvell_config_intr,
+> So an exponential backoff, that might work.
 > 
 
+As an idea I have created this patch as an addition to the original patch
+in this series.
 
--- 
-Florian
+Would this be acceptable?
+
+At the moment I have capped the value at 10, does anyone think it needs to
+be much higher then that?
+
+Regards,
+Jim
+
+
+diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
+index c06d20f..0e40603 100644
+--- a/drivers/net/usb/cdc_ncm.c
++++ b/drivers/net/usb/cdc_ncm.c
+@@ -89,6 +89,8 @@ struct cdc_ncm_stats {
+        CDC_NCM_SIMPLE_STAT(rx_ntbs),
+ };
+ 
++#define CDC_NCM_LOW_MEM_MAX_CNT 10
++
+ static int cdc_ncm_get_sset_count(struct net_device __always_unused *netdev, int sset)
+ {
+        switch (sset) {
+@@ -1111,8 +1113,13 @@ struct sk_buff *
+ 
+        /* allocate a new OUT skb */
+        if (!skb_out) {
+-               ctx->tx_curr_size = ctx->tx_max;
+-               skb_out = alloc_skb(ctx->tx_curr_size, GFP_ATOMIC);
++               if (ctx->tx_low_mem_val == 0) {
++                       ctx->tx_curr_size = ctx->tx_max;
++                       skb_out = alloc_skb(ctx->tx_curr_size, GFP_ATOMIC);
++                       if (skb_out == NULL) {
++                               ctx->tx_low_mem_max_cnt = min(ctx->tx_low_mem_max_cnt + 1, CDC_NCM_LOW_MEM_MAX_CNT);
++                               ctx->tx_low_mem_val = ctx->tx_low_mem_max_cnt;
++               }
+                if (skb_out == NULL) {
+                        /* See if a very small allocation is possible.
+                         * We will send this packet immediately and hope
+@@ -1127,12 +1134,13 @@ struct sk_buff *
+ 
+                        /* No allocation possible so we will abort */
+                        if (skb_out == NULL) {
+-                               if (skb != NULL) {
++                               if (skb) {
+                                        dev_kfree_skb_any(skb);
+                                        dev->net->stats.tx_dropped++;
+                                }
+                                goto exit_no_skb;
+                        }
++                       ctx->tx_low_mem_val--;
+                }
+                /* fill out the initial 16-bit NTB header */
+                nth16 = (struct usb_cdc_ncm_nth16 *)memset(skb_put(skb_out, sizeof(struct usb_cdc_ncm_nth16)), 0, sizeof(struct usb_cdc_ncm_nth16));
+diff --git a/include/linux/usb/cdc_ncm.h b/include/linux/usb/cdc_ncm.h
+index 5162f38..25a0aed 100644
+--- a/include/linux/usb/cdc_ncm.h
++++ b/include/linux/usb/cdc_ncm.h
+@@ -118,6 +118,8 @@ struct cdc_ncm_ctx {
+        u32 rx_max;
+        u32 tx_max;
+        u32 tx_curr_size;
++       u32 tx_low_mem_max_cnt;
++       u32 tx_low_mem_val;
+        u32 max_datagram_size;
+        u16 tx_max_datagrams;
+        u16 tx_remainder;
