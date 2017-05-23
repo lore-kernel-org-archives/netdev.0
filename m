@@ -1,30 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next 0/9] mlxsw: Support firmware flash
-Date: Tue, 23 May 2017 11:38:59 -0400 (EDT)
-Message-ID: <20170523.113859.1803057381093280239.davem@davemloft.net>
-References: <ea7cf005-1f6c-aa87-db90-03d7c77c7d56@mellanox.com>
-        <BLUPR0701MB2004EB2F32B4C8C42C5020458DF90@BLUPR0701MB2004.namprd07.prod.outlook.com>
-        <fba5a440-ba1e-84bd-d2d2-d011406d3a4a@mellanox.com>
+Subject: Re: [patch net-next 0/5] add tcp flags match support to flower and
+ offload it
+Date: Tue, 23 May 2017 11:40:27 -0400 (EDT)
+Message-ID: <20170523.114027.525495248857730645.davem@davemloft.net>
+References: <20170523143110.5006-1-jiri@resnulli.us>
+        <20170523151120.GH1829@nanopsycho>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Yuval.Mintz@cavium.com, jiri@resnulli.us, netdev@vger.kernel.org,
-        idosch@mellanox.com, mlxsw@mellanox.com, bhutchings@solarflare.com
-To: yotamg@mellanox.com
+Cc: netdev@vger.kernel.org, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
+        simon.horman@netronome.com, mlxsw@mellanox.com, idosch@mellanox.com
+To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:36372 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:36394 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1761492AbdEWPjC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 23 May 2017 11:39:02 -0400
-In-Reply-To: <fba5a440-ba1e-84bd-d2d2-d011406d3a4a@mellanox.com>
+        with ESMTP id S1764591AbdEWPk2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 23 May 2017 11:40:28 -0400
+In-Reply-To: <20170523151120.GH1829@nanopsycho>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yotam Gigi <yotamg@mellanox.com>
-Date: Tue, 23 May 2017 18:14:15 +0300
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Tue, 23 May 2017 17:11:20 +0200
 
-> Sorry, I am not sure I understand. You think that drivers should not implement
-> ethtool's flash_device callback anymore? do you have an alternative for firmware
-> flash?
+> Tue, May 23, 2017 at 04:31:05PM CEST, jiri@resnulli.us wrote:
+>>From: Jiri Pirko <jiri@mellanox.com>
+>>
+>>This patch adds support to dissect tcp flags, match on them using
+>>flower classifier and offload such rules to mlxsw Spectrum devices.
+> 
+> I shifted the git format patch one commit. Will send v2. Sorry.
 
-As stated, export an MTD device.
+Ok.
