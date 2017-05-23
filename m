@@ -1,39 +1,62 @@
-From: Alexei Starovoitov <ast@fb.com>
-Subject: Re: [PATCH net-next 1/2] perf, bpf: add support for HW_CACHE and RAW
- events
-Date: Tue, 23 May 2017 07:38:08 -0700
-Message-ID: <b25f4d02-70c1-43ce-8bf1-9b89e573add6@fb.com>
-References: <20170522224840.810121-1-ast@fb.com>
- <20170522224840.810121-2-ast@fb.com>
- <20170523074247.esnr4fj2squn4w2d@hirez.programming.kicks-ass.net>
+From: Edward Cree <ecree@solarflare.com>
+Subject: Re: Alignment in BPF verifier
+Date: Tue, 23 May 2017 15:41:08 +0100
+Message-ID: <f882c40e-bd50-f08e-afd8-f6396fc24ebc@solarflare.com>
+References: <db8cd2e8-9f51-dc8b-5e55-4c75d13d4858@fb.com>
+ <a0a47297-4765-3ba0-3ea2-013dda40e84a@solarflare.com>
+ <bed5b512-6069-53cc-f128-05be05f89889@solarflare.com>
+ <20170519.163957.1950740987459934279.davem@davemloft.net>
+ <591F7A28.3020004@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: "David S . Miller" <davem@davemloft.net>,
-        Brendan Gregg <bgregg@netflix.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Teng Qin <qinteng@fb.com>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>, <kernel-team@fb.com>
-To: Peter Zijlstra <peterz@infradead.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170523074247.esnr4fj2squn4w2d@hirez.programming.kicks-ass.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <ast@fb.com>, <alexei.starovoitov@gmail.com>,
+        <netdev@vger.kernel.org>
+To: Daniel Borkmann <daniel@iogearbox.net>,
+        David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dispatch1-us1.ppe-hosted.com ([67.231.154.164]:37496 "EHLO
+        dispatch1-us1.ppe-hosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S965197AbdEWOlY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 23 May 2017 10:41:24 -0400
+In-Reply-To: <591F7A28.3020004@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 5/23/17 12:42 AM, Peter Zijlstra wrote:
-> On Mon, May 22, 2017 at 03:48:39PM -0700, Alexei Starovoitov wrote:
->> From: Teng Qin <qinteng@fb.com>
->>
->> This commit adds support for attach BPF program to RAW and HW_CACHE type
->> events, and support for read HW_CACHE type event counters in BPF
->> program. Existing code logic already supports them, so this commit is
->> just update Enum value checks.
->
-> So what I'm missing is why they were not supported previously, and what
-> changed to allow it now.
+I'm still plugging away at this... it's going to be quite a big patch and
+ rewrite a lot of stuff (and I'm not sure I'll be able to break it into
+ smaller bisectable patches).
+And of course I have more questions.  In check_packet_ptr_add(), we
+ forbid adding a negative constant to a packet ptr.  Is there some
+ principled reason for that, or is it just because the bounds checking is
+ hard?  It seems like, if imm + reg->off > 0 (suitably carefully checked
+ to avoid overflow etc.), then the subtraction should be legal.  Indeed,
+ even if the reg->off (fixed part of offset) is zero, if the variable part
+ is known (min_value) to be >= -imm, the subtraction should be safe.
 
-that code path simply wasn't tested previously. Nothing changed on
-bpf side and on perf side.
-Why it wasn't added on day one? There was no demand. Now people
-use bpf more and more and few folks got confused that these types
-of perf events were not supported, hence we're adding it.
+On 20/05/17 00:05, Daniel Borkmann wrote:
+> Besides PTR_TO_PACKET also PTR_TO_MAP_VALUE_OR_NULL uses it to
+> track all registers (incl. spilled ones) with the same reg->id
+> that originated from the same map lookup. After the reg type is
+> then migrated to either PTR_TO_MAP_VALUE (resp. CONST_PTR_TO_MAP
+> for map in map) or UNKNOWN_VALUE depending on the branch, the
+> reg->id is then reset to 0 again. Whole reason for this is that
+> LLVM generates code where it can move and/or spill a reg of type
+> PTR_TO_MAP_VALUE_OR_NULL to other regs before we do the NULL
+> test on it, and later on it expects that the spilled or moved
+> regs work wrt access. So they're marked with an id and then all
+> of them are type migrated. So here meaning of reg->id is different
+> than in PTR_TO_PACKET case.
+Hmm, that means that we can't do arithmetic on a
+ PTR_TO_MAP_VALUE_OR_NULL, we have to convert it to a PTR_TO_MAP_VALUE
+ first by NULL-checking it.  That's probably fine, but I can just about
+ imagine some compiler optimisation reordering them.  Any reason not to
+ split this out into a different reg->field, rather than overloading id?
+Of course that would need (more) caution wrt. states_equal(), but it
+ looks like I'll be mangling that a lot anyway - for instance, we don't
+ want to just use memcmp() to compare alignments, we want to check that
+ our alignment is stricter than the old alignment.  (Of course memcmp()
+ is a conservative check, so the "memcmp() the whole reg_state" fast
+ path can remain.)
+
+-Ed
