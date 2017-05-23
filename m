@@ -1,7 +1,7 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH 4/5] xfrm: Fix NETDEV_DOWN with IPSec offload
-Date: Tue, 23 May 2017 07:33:43 +0200
-Message-ID: <1495517624-27096-5-git-send-email-steffen.klassert@secunet.com>
+Subject: [PATCH 5/5] xfrm: fix state migration copy replay sequence numbers
+Date: Tue, 23 May 2017 07:33:44 +0200
+Message-ID: <1495517624-27096-6-git-send-email-steffen.klassert@secunet.com>
 References: <1495517624-27096-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,45 +10,61 @@ Cc: Herbert Xu <herbert@gondor.apana.org.au>,
         <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:45154 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([62.96.220.36]:45158 "EHLO a.mx.secunet.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S934700AbdEWFdy (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 23 May 2017 01:33:54 -0400
+        id S934866AbdEWFdz (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 23 May 2017 01:33:55 -0400
 In-Reply-To: <1495517624-27096-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ilan Tayari <ilant@mellanox.com>
+From: Antony Antony <antony@phenome.org>
 
-Upon NETDEV_DOWN event, all xfrm_state objects which are bound to
-the device are flushed.
+During xfrm migration copy replay and preplay sequence numbers
+from the previous state.
 
-The condition for this is wrong, though, testing dev->hw_features
-instead of dev->features. If a device has non-user-modifiable
-NETIF_F_HW_ESP, then its xfrm_state objects are not flushed,
-causing a crash later on after the device is deleted.
+Here is a tcpdump output showing the problem.
+10.0.10.46 is running vanilla kernel, is the IKE/IPsec responder.
+After the migration it sent wrong sequence number, reset to 1.
+The migration is from 10.0.0.52 to 10.0.0.53.
 
-Check dev->features instead of dev->hw_features.
+IP 10.0.0.52.4500 > 10.0.10.46.4500: UDP-encap: ESP(spi=0x43ef462d,seq=0x7cf), length 136
+IP 10.0.10.46.4500 > 10.0.0.52.4500: UDP-encap: ESP(spi=0xca1c282d,seq=0x7cf), length 136
+IP 10.0.0.52.4500 > 10.0.10.46.4500: UDP-encap: ESP(spi=0x43ef462d,seq=0x7d0), length 136
+IP 10.0.10.46.4500 > 10.0.0.52.4500: UDP-encap: ESP(spi=0xca1c282d,seq=0x7d0), length 136
 
-Fixes: d77e38e612a0 ("xfrm: Add an IPsec hardware offloading API")
-Signed-off-by: Ilan Tayari <ilant@mellanox.com>
+IP 10.0.0.53.4500 > 10.0.10.46.4500: NONESP-encap: isakmp: child_sa  inf2[I]
+IP 10.0.10.46.4500 > 10.0.0.53.4500: NONESP-encap: isakmp: child_sa  inf2[R]
+IP 10.0.0.53.4500 > 10.0.10.46.4500: NONESP-encap: isakmp: child_sa  inf2[I]
+IP 10.0.10.46.4500 > 10.0.0.53.4500: NONESP-encap: isakmp: child_sa  inf2[R]
+
+IP 10.0.0.53.4500 > 10.0.10.46.4500: UDP-encap: ESP(spi=0x43ef462d,seq=0x7d1), length 136
+
+NOTE: next sequence is wrong 0x1
+
+IP 10.0.10.46.4500 > 10.0.0.53.4500: UDP-encap: ESP(spi=0xca1c282d,seq=0x1), length 136
+IP 10.0.0.53.4500 > 10.0.10.46.4500: UDP-encap: ESP(spi=0x43ef462d,seq=0x7d2), length 136
+IP 10.0.10.46.4500 > 10.0.0.53.4500: UDP-encap: ESP(spi=0xca1c282d,seq=0x2), length 136
+
+Signed-off-by: Antony Antony <antony@phenome.org>
+Reviewed-by: Richard Guy Briggs <rgb@tricolour.ca>
 Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 ---
- net/xfrm/xfrm_device.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/xfrm/xfrm_state.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/net/xfrm/xfrm_device.c b/net/xfrm/xfrm_device.c
-index 8ec8a3f..574e6f3 100644
---- a/net/xfrm/xfrm_device.c
-+++ b/net/xfrm/xfrm_device.c
-@@ -170,7 +170,7 @@ static int xfrm_dev_feat_change(struct net_device *dev)
+diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
+index fc3c5aa..2e291bc 100644
+--- a/net/xfrm/xfrm_state.c
++++ b/net/xfrm/xfrm_state.c
+@@ -1383,6 +1383,8 @@ static struct xfrm_state *xfrm_state_clone(struct xfrm_state *orig)
+ 	x->curlft.add_time = orig->curlft.add_time;
+ 	x->km.state = orig->km.state;
+ 	x->km.seq = orig->km.seq;
++	x->replay = orig->replay;
++	x->preplay = orig->preplay;
  
- static int xfrm_dev_down(struct net_device *dev)
- {
--	if (dev->hw_features & NETIF_F_HW_ESP)
-+	if (dev->features & NETIF_F_HW_ESP)
- 		xfrm_dev_state_flush(dev_net(dev), dev, true);
+ 	return x;
  
- 	xfrm_garbage_collect(dev_net(dev));
 -- 
 2.7.4
