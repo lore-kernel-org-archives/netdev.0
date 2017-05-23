@@ -1,46 +1,78 @@
-From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
-Subject: Re: [PATCH v6 net-next 17/17] net: qualcomm: add QCA7000 UART driver
-Date: Tue, 23 May 2017 20:16:44 +0200
-Message-ID: <053235ad-a963-6a09-ccb0-b643115dee00@gmx.de>
-References: <1495545173-22150-1-git-send-email-stefan.wahren@i2se.com>
- <1495545173-22150-18-git-send-email-stefan.wahren@i2se.com>
+From: Xin Long <lucien.xin@gmail.com>
+Subject: Re: [PATCH net-next] sctp: no need to check asoc_id before calling sctp_assoc_set_id
+Date: Wed, 24 May 2017 02:25:01 +0800
+Message-ID: <CADvbK_cQZuin4duGayoJ1ecfyLmm+yS_FZ5e7QpB47bkbnY8-A@mail.gmail.com>
+References: <8ccb4ee656bcdfa790e4f3ee919bb300e4adc4cc.1495521032.git.lucien.xin@gmail.com>
+ <20170523180425.GH4642@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        Jiri Slaby <jslaby@suse.com>, Jakub Kicinski <kubakici@wp.pl>,
-        devicetree@vger.kernel.org, netdev@vger.kernel.org,
-        linux-serial@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Stefan Wahren <stefan.wahren@i2se.com>,
-        Rob Herring <robh+dt@kernel.org>,
-        Mark Rutland <mark.rutland@arm.com>,
-        "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1495545173-22150-18-git-send-email-stefan.wahren@i2se.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
+        Neil Horman <nhorman@tuxdriver.com>,
+        davem <davem@davemloft.net>
+To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f193.google.com ([209.85.220.193]:33546 "EHLO
+        mail-qk0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S965624AbdEWSZC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 23 May 2017 14:25:02 -0400
+In-Reply-To: <20170523180425.GH4642@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Wed, May 24, 2017 at 2:04 AM, Marcelo Ricardo Leitner
+<marcelo.leitner@gmail.com> wrote:
+[...]
+>
+> On Tue, May 23, 2017 at 02:30:32PM +0800, Xin Long wrote:
+>> sctp_assoc_set_id has already done the asoc_id check in the beginning
+>                   s/^^^^^^^^^^^^^^^^/does/
+> Very important to use the right tense here as otherwise it gives the
+> impression that the check was already made, which is not true.
+Sure, will change it and post v2.
+But may be later than another two patches in my hands.
 
-On 23.05.2017 15:12, Stefan Wahren wrote:
+>
+>> when processing dupcook, no need to do the same check before calling
+>                 s/^^^^^^^/dupcookie/
+Oh, can't believe it's still here ;)
+will correct it. thanks.
 
-
-> +}
-> +
-> +static void qca_uart_remove(struct serdev_device *serdev)
-> +{
-> +	struct qcauart *qca = serdev_device_get_drvdata(serdev);
-> +
-> +	netif_carrier_off(qca->net_dev);
-> +	cancel_work_sync(&qca->tx_work);
-> +	unregister_netdev(qca->net_dev);
-
-Note that it is still possible that the tx work is queued right after cancel_work_sync()
-returned and before the net device is unregistered (and thus the check for the net device
-being up at the beginning of the tx work function is passed and the function is executed).
-I suggest to avoid this possible race by first unregistering the netdevice and then 
-calling cancel_work_sync().
-
-Regards,
-Lino 
+>
+> other than this, LGTM, including the comment update.
+>
+>   Marcelo
+>
+>> it.
+>>
+>> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+>> ---
+>>  net/sctp/associola.c | 8 ++------
+>>  1 file changed, 2 insertions(+), 6 deletions(-)
+>>
+>> diff --git a/net/sctp/associola.c b/net/sctp/associola.c
+>> index a9708da..ce2a3ec 100644
+>> --- a/net/sctp/associola.c
+>> +++ b/net/sctp/associola.c
+>> @@ -1181,12 +1181,8 @@ void sctp_assoc_update(struct sctp_association *asoc,
+>>                       new->stream = NULL;
+>>               }
+>>
+>> -             if (!asoc->assoc_id) {
+>> -                     /* get a new association id since we don't have one
+>> -                      * yet.
+>> -                      */
+>> -                     sctp_assoc_set_id(asoc, GFP_ATOMIC);
+>> -             }
+>> +             /* get a new association id if we don't have one yet. */
+>> +             sctp_assoc_set_id(asoc, GFP_ATOMIC);
+>>       }
+>>
+>>       /* SCTP-AUTH: Save the peer parameters from the new associations
+>> --
+>> 2.1.0
+>>
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>>
