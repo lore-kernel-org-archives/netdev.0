@@ -1,7 +1,7 @@
 From: Stefan Wahren <stefan.wahren@i2se.com>
-Subject: [PATCH v6 net-next 15/17] dt-bindings: slave-device: add current-speed property
-Date: Tue, 23 May 2017 15:12:51 +0200
-Message-ID: <1495545173-22150-16-git-send-email-stefan.wahren@i2se.com>
+Subject: [PATCH v6 net-next 14/17] dt-bindings: qca7000: rename binding
+Date: Tue, 23 May 2017 15:12:50 +0200
+Message-ID: <1495545173-22150-15-git-send-email-stefan.wahren@i2se.com>
 References: <1495545173-22150-1-git-send-email-stefan.wahren@i2se.com>
 Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
         Jiri Slaby <jslaby@suse.com>,
@@ -13,43 +13,23 @@ Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
 To: Rob Herring <robh+dt@kernel.org>,
         Mark Rutland <mark.rutland@arm.com>,
         "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.17.24]:63943 "EHLO
-        mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S967523AbdEWNOr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 23 May 2017 09:14:47 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1495545173-22150-1-git-send-email-stefan.wahren@i2se.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This adds a new DT property to define the current baud rate of the
-slave device.
+Before we can merge the QCA7000 UART binding the document needs to be
+renamed.
 
 Signed-off-by: Stefan Wahren <stefan.wahren@i2se.com>
-Reviewed-by: Rob Herring <robh@kernel.org>
 ---
- Documentation/devicetree/bindings/serial/slave-device.txt | 9 +++++++++
- 1 file changed, 9 insertions(+)
+ .../devicetree/bindings/net/{qca-qca7000-spi.txt => qca,qca7000.txt}      | 0
+ 1 file changed, 0 insertions(+), 0 deletions(-)
+ rename Documentation/devicetree/bindings/net/{qca-qca7000-spi.txt => qca,qca7000.txt} (100%)
 
-diff --git a/Documentation/devicetree/bindings/serial/slave-device.txt b/Documentation/devicetree/bindings/serial/slave-device.txt
-index f660379..40110e0 100644
---- a/Documentation/devicetree/bindings/serial/slave-device.txt
-+++ b/Documentation/devicetree/bindings/serial/slave-device.txt
-@@ -21,6 +21,15 @@ Optional Properties:
- 		  can support. For example, a particular board has some signal
- 		  quality issue or the host processor can't support higher
- 		  baud rates.
-+- current-speed	: The current baud rate the device operates at. This should
-+		  only be present in case a driver has no chance to know
-+		  the baud rate of the slave device.
-+		  Examples:
-+		    * device supports auto-baud
-+		    * the rate is setup by a bootloader and there is no
-+		      way to reset the device
-+		    * device baud rate is configured by its firmware but
-+		      there is no way to request the actual settings
- 
- Example:
- 
+diff --git a/Documentation/devicetree/bindings/net/qca-qca7000-spi.txt b/Documentation/devicetree/bindings/net/qca,qca7000.txt
+similarity index 100%
+rename from Documentation/devicetree/bindings/net/qca-qca7000-spi.txt
+rename to Documentation/devicetree/bindings/net/qca,qca7000.txt
 -- 
 2.1.4
