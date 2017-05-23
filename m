@@ -1,224 +1,272 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next 2/4] nfp: register ports as devlink ports
-Date: Tue, 23 May 2017 08:12:45 -0700
-Message-ID: <20170523151247.8535-3-jakub.kicinski@netronome.com>
+Subject: [PATCH net-next 4/4] nfp: support port splitting via devlink
+Date: Tue, 23 May 2017 08:12:47 -0700
+Message-ID: <20170523151247.8535-5-jakub.kicinski@netronome.com>
 References: <20170523151247.8535-1-jakub.kicinski@netronome.com>
 Cc: oss-drivers@netronome.com,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f174.google.com ([209.85.192.174]:36785 "EHLO
-        mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1764389AbdEWPNM (ORCPT
+Received: from mail-pf0-f176.google.com ([209.85.192.176]:34318 "EHLO
+        mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1764390AbdEWPNM (ORCPT
         <rfc822;netdev@vger.kernel.org>); Tue, 23 May 2017 11:13:12 -0400
-Received: by mail-pf0-f174.google.com with SMTP id m17so117622108pfg.3
-        for <netdev@vger.kernel.org>; Tue, 23 May 2017 08:13:10 -0700 (PDT)
+Received: by mail-pf0-f176.google.com with SMTP id 9so117573434pfj.1
+        for <netdev@vger.kernel.org>; Tue, 23 May 2017 08:13:12 -0700 (PDT)
 In-Reply-To: <20170523151247.8535-1-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Extend nfp_port to contain devlink_port structures.  Register the
-ports to allow users inspecting device ports.
+Add support for configuring port split with devlink.  Add devlink
+callbacks to validate requested config and call NSP helpers.
+Getting the right nfp_port structure can be done with simple iteration.
 
 Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 Reviewed-by: Simon Horman <simon.horman@netronome.com>
 ---
- drivers/net/ethernet/netronome/nfp/nfp_devlink.c  | 49 +++++++++++++++++++++++
- drivers/net/ethernet/netronome/nfp/nfp_main.c     |  8 ++++
- drivers/net/ethernet/netronome/nfp/nfp_main.h     |  2 +
- drivers/net/ethernet/netronome/nfp/nfp_net_main.c | 34 ++++++++++++++++
- drivers/net/ethernet/netronome/nfp/nfp_port.h     |  8 ++++
- 5 files changed, 101 insertions(+)
+ drivers/net/ethernet/netronome/nfp/nfp_devlink.c  | 97 +++++++++++++++++++++++
+ drivers/net/ethernet/netronome/nfp/nfp_net_main.c | 23 ++++--
+ drivers/net/ethernet/netronome/nfp/nfp_port.c     | 19 +++++
+ drivers/net/ethernet/netronome/nfp/nfp_port.h     |  4 +
+ 4 files changed, 136 insertions(+), 7 deletions(-)
 
 diff --git a/drivers/net/ethernet/netronome/nfp/nfp_devlink.c b/drivers/net/ethernet/netronome/nfp/nfp_devlink.c
-index a8a52b3ff42b..b65c50c0d211 100644
+index b65c50c0d211..f001e3d60bd1 100644
 --- a/drivers/net/ethernet/netronome/nfp/nfp_devlink.c
 +++ b/drivers/net/ethernet/netronome/nfp/nfp_devlink.c
-@@ -31,9 +31,58 @@
+@@ -54,7 +54,104 @@ nfp_devlink_fill_eth_port(struct nfp_port *port,
+ 	return 0;
+ }
+ 
++static int
++nfp_devlink_fill_eth_port_from_id(struct nfp_pf *pf, unsigned int port_index,
++				  struct nfp_eth_table_port *copy)
++{
++	struct nfp_port *port;
++
++	port = nfp_port_from_id(pf, NFP_PORT_PHYS_PORT, port_index);
++
++	return nfp_devlink_fill_eth_port(port, copy);
++}
++
++static int
++nfp_devlink_set_lanes(struct nfp_pf *pf, unsigned int idx, unsigned int lanes)
++{
++	struct nfp_nsp *nsp;
++	int ret;
++
++	nsp = nfp_eth_config_start(pf->cpp, idx);
++	if (IS_ERR(nsp))
++		return PTR_ERR(nsp);
++
++	ret = __nfp_eth_set_split(nsp, lanes);
++	if (ret) {
++		nfp_eth_config_cleanup_end(nsp);
++		return ret;
++	}
++
++	ret = nfp_eth_config_commit_end(nsp);
++	if (ret < 0)
++		return ret;
++	if (ret) /* no change */
++		return 0;
++
++	return nfp_net_refresh_port_table_sync(pf);
++}
++
++static int
++nfp_devlink_port_split(struct devlink *devlink, unsigned int port_index,
++		       unsigned int count)
++{
++	struct nfp_pf *pf = devlink_priv(devlink);
++	struct nfp_eth_table_port eth_port;
++	int ret;
++
++	if (count < 2)
++		return -EINVAL;
++
++	mutex_lock(&pf->lock);
++
++	rtnl_lock();
++	ret = nfp_devlink_fill_eth_port_from_id(pf, port_index, &eth_port);
++	rtnl_unlock();
++	if (ret)
++		goto out;
++
++	if (eth_port.is_split || eth_port.port_lanes % count) {
++		ret = -EINVAL;
++		goto out;
++	}
++
++	ret = nfp_devlink_set_lanes(pf, eth_port.index,
++				    eth_port.port_lanes / count);
++out:
++	mutex_unlock(&pf->lock);
++
++	return ret;
++}
++
++static int
++nfp_devlink_port_unsplit(struct devlink *devlink, unsigned int port_index)
++{
++	struct nfp_pf *pf = devlink_priv(devlink);
++	struct nfp_eth_table_port eth_port;
++	int ret;
++
++	mutex_lock(&pf->lock);
++
++	rtnl_lock();
++	ret = nfp_devlink_fill_eth_port_from_id(pf, port_index, &eth_port);
++	rtnl_unlock();
++	if (ret)
++		goto out;
++
++	if (!eth_port.is_split) {
++		ret = -EINVAL;
++		goto out;
++	}
++
++	ret = nfp_devlink_set_lanes(pf, eth_port.index, eth_port.port_lanes);
++out:
++	mutex_unlock(&pf->lock);
++
++	return ret;
++}
++
+ const struct devlink_ops nfp_devlink_ops = {
++	.port_split		= nfp_devlink_port_split,
++	.port_unsplit		= nfp_devlink_port_unsplit,
+ };
+ 
+ int nfp_devlink_port_register(struct nfp_app *app, struct nfp_port *port)
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_main.c b/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
+index bf10c0a316f3..a50acca25cfa 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
++++ b/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
+@@ -43,6 +43,7 @@
+ #include <linux/etherdevice.h>
+ #include <linux/kernel.h>
+ #include <linux/init.h>
++#include <linux/lockdep.h>
+ #include <linux/pci.h>
+ #include <linux/pci_regs.h>
+ #include <linux/msi.h>
+@@ -543,19 +544,17 @@ nfp_net_eth_port_update(struct nfp_cpp *cpp, struct nfp_port *port,
+ 	return 0;
+ }
+ 
+-static void nfp_net_refresh_vnics(struct work_struct *work)
++int nfp_net_refresh_port_table_sync(struct nfp_pf *pf)
+ {
+-	struct nfp_pf *pf = container_of(work, struct nfp_pf,
+-					 port_refresh_work);
+ 	struct nfp_eth_table *eth_table;
+ 	struct nfp_net *nn, *next;
+ 	struct nfp_port *port;
+ 
+-	mutex_lock(&pf->lock);
++	lockdep_assert_held(&pf->lock);
+ 
+ 	/* Check for nfp_net_pci_remove() racing against us */
+ 	if (list_empty(&pf->vnics))
+-		goto out;
++		return 0;
+ 
+ 	/* Update state of all ports */
+ 	rtnl_lock();
+@@ -569,7 +568,7 @@ static void nfp_net_refresh_vnics(struct work_struct *work)
+ 				set_bit(NFP_PORT_CHANGED, &port->flags);
+ 		rtnl_unlock();
+ 		nfp_err(pf->cpp, "Error refreshing port config!\n");
+-		goto out;
++		return -EIO;
+ 	}
+ 
+ 	list_for_each_entry(port, &pf->ports, port_list)
+@@ -594,7 +593,17 @@ static void nfp_net_refresh_vnics(struct work_struct *work)
+ 
+ 	if (list_empty(&pf->vnics))
+ 		nfp_net_pci_remove_finish(pf);
+-out:
++
++	return 0;
++}
++
++static void nfp_net_refresh_vnics(struct work_struct *work)
++{
++	struct nfp_pf *pf = container_of(work, struct nfp_pf,
++					 port_refresh_work);
++
++	mutex_lock(&pf->lock);
++	nfp_net_refresh_port_table_sync(pf);
+ 	mutex_unlock(&pf->lock);
+ }
+ 
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_port.c b/drivers/net/ethernet/netronome/nfp/nfp_port.c
+index 3beed4167e2f..a17410ac01ab 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_port.c
++++ b/drivers/net/ethernet/netronome/nfp/nfp_port.c
+@@ -31,6 +31,8 @@
   * SOFTWARE.
   */
  
-+#include <linux/rtnetlink.h>
- #include <net/devlink.h>
- 
-+#include "nfpcore/nfp_nsp.h"
-+#include "nfp_app.h"
++#include <linux/lockdep.h>
++
+ #include "nfpcore/nfp_nsp.h"
+ #include "nfp_app.h"
  #include "nfp_main.h"
-+#include "nfp_port.h"
-+
-+static int
-+nfp_devlink_fill_eth_port(struct nfp_port *port,
-+			  struct nfp_eth_table_port *copy)
-+{
-+	struct nfp_eth_table_port *eth_port;
-+
-+	eth_port = __nfp_port_get_eth_port(port);
-+	if (!eth_port)
-+		return -EINVAL;
-+
-+	memcpy(copy, eth_port, sizeof(*eth_port));
-+
-+	return 0;
-+}
- 
- const struct devlink_ops nfp_devlink_ops = {
- };
-+
-+int nfp_devlink_port_register(struct nfp_app *app, struct nfp_port *port)
-+{
-+	struct nfp_eth_table_port eth_port;
-+	struct devlink *devlink;
-+	int ret;
-+
-+	rtnl_lock();
-+	ret = nfp_devlink_fill_eth_port(port, &eth_port);
-+	rtnl_unlock();
-+	if (ret)
-+		return ret;
-+
-+	devlink_port_type_eth_set(&port->dl_port, port->netdev);
-+	if (eth_port.is_split)
-+		devlink_port_split_set(&port->dl_port, eth_port.label_port);
-+
-+	devlink = priv_to_devlink(app->pf);
-+
-+	return devlink_port_register(devlink, &port->dl_port, port->eth_id);
-+}
-+
-+void nfp_devlink_port_unregister(struct nfp_port *port)
-+{
-+	/* Due to unpleasant lock ordering we may see the port go away before
-+	 * we have fully probed.
-+	 */
-+	if (port->dl_port.registered)
-+		devlink_port_unregister(&port->dl_port);
-+}
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_main.c b/drivers/net/ethernet/netronome/nfp/nfp_main.c
-index f22c8f083ab0..ea7c122092e7 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_main.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_main.c
-@@ -377,8 +377,14 @@ static int nfp_pci_probe(struct pci_dev *pdev,
- 	if (err)
- 		goto err_kill_ndevs;
- 
-+	err = nfp_net_devlink_register(pf);
-+	if (err)
-+		goto err_devlink_unregiser;
-+
- 	return 0;
- 
-+err_devlink_unregiser:
-+	devlink_unregister(devlink);
- err_kill_ndevs:
- 	nfp_net_pci_remove(pf);
- err_fw_unload:
-@@ -405,6 +411,8 @@ static void nfp_pci_remove(struct pci_dev *pdev)
- 
- 	devlink = priv_to_devlink(pf);
- 
-+	nfp_net_devlink_unregister(pf);
-+
- 	devlink_unregister(devlink);
- 
- 	nfp_net_pci_remove(pf);
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_main.h b/drivers/net/ethernet/netronome/nfp/nfp_main.h
-index 526db8029dea..7fdb9036f666 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_main.h
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_main.h
-@@ -112,5 +112,7 @@ extern const struct devlink_ops nfp_devlink_ops;
- 
- int nfp_net_pci_probe(struct nfp_pf *pf);
- void nfp_net_pci_remove(struct nfp_pf *pf);
-+int nfp_net_devlink_register(struct nfp_pf *pf);
-+void nfp_net_devlink_unregister(struct nfp_pf *pf);
- 
- #endif /* NFP_MAIN_H */
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_main.c b/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
-index dd1118c7e1a4..bf10c0a316f3 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
-@@ -584,6 +584,8 @@ static void nfp_net_refresh_vnics(struct work_struct *work)
- 		if (!nn->port || nn->port->type != NFP_PORT_INVALID)
- 			continue;
- 
-+		nfp_devlink_port_unregister(nn->port);
-+
- 		nfp_net_debugfs_dir_clean(&nn->debugfs_dir);
- 		nfp_net_clean(nn);
- 
-@@ -774,3 +776,35 @@ void nfp_net_pci_remove(struct nfp_pf *pf)
- 
- 	cancel_work_sync(&pf->port_refresh_work);
+@@ -48,6 +50,23 @@ struct nfp_port *nfp_port_from_netdev(struct net_device *netdev)
+ 	return nn->port;
  }
-+
-+int nfp_net_devlink_register(struct nfp_pf *pf)
-+{
-+	struct nfp_port *port;
-+	int err;
-+
-+	mutex_lock(&pf->lock);
-+	list_for_each_entry(port, &pf->ports, port_list) {
-+		err = nfp_devlink_port_register(pf->app, port);
-+		if (err)
-+			goto err_prev_ports_unreg;
-+	}
-+	mutex_unlock(&pf->lock);
-+
-+	return 0;
-+
-+err_prev_ports_unreg:
-+	list_for_each_entry_continue_reverse(port, &pf->ports, port_list)
-+		nfp_devlink_port_unregister(port);
-+	mutex_unlock(&pf->lock);
-+	return err;
-+}
-+
-+void nfp_net_devlink_unregister(struct nfp_pf *pf)
+ 
++struct nfp_port *
++nfp_port_from_id(struct nfp_pf *pf, enum nfp_port_type type, unsigned int id)
 +{
 +	struct nfp_port *port;
 +
-+	mutex_lock(&pf->lock);
++	lockdep_assert_held(&pf->lock);
++
++	if (type != NFP_PORT_PHYS_PORT)
++		return NULL;
++
 +	list_for_each_entry(port, &pf->ports, port_list)
-+		nfp_devlink_port_unregister(port);
-+	mutex_unlock(&pf->lock);
++		if (port->eth_id == id)
++			return port;
++
++	return NULL;
 +}
++
+ struct nfp_eth_table_port *__nfp_port_get_eth_port(struct nfp_port *port)
+ {
+ 	if (!port)
 diff --git a/drivers/net/ethernet/netronome/nfp/nfp_port.h b/drivers/net/ethernet/netronome/nfp/nfp_port.h
-index 641617de41cc..36a540b514be 100644
+index 36a540b514be..4d1a9b3fed41 100644
 --- a/drivers/net/ethernet/netronome/nfp/nfp_port.h
 +++ b/drivers/net/ethernet/netronome/nfp/nfp_port.h
-@@ -34,6 +34,8 @@
- #ifndef _NFP_PORT_H_
- #define _NFP_PORT_H_
+@@ -38,6 +38,7 @@
  
-+#include <net/devlink.h>
-+
  struct net_device;
  struct nfp_app;
++struct nfp_pf;
  struct nfp_port;
-@@ -66,6 +68,7 @@ enum nfp_port_flags {
-  * @type:	what port type does the entity represent
-  * @flags:	port flags
-  * @app:	backpointer to the app structure
-+ * @dl_port:	devlink port structure
-  * @eth_id:	for %NFP_PORT_PHYS_PORT port ID in NFP enumeration scheme
-  * @eth_port:	for %NFP_PORT_PHYS_PORT translated ETH Table port entry
-  * @port_list:	entry on pf's list of ports
-@@ -78,6 +81,8 @@ struct nfp_port {
  
- 	struct nfp_app *app;
+ /**
+@@ -90,6 +91,8 @@ struct nfp_port {
+ };
  
-+	struct devlink_port dl_port;
-+
- 	unsigned int eth_id;
- 	struct nfp_eth_table_port *eth_port;
+ struct nfp_port *nfp_port_from_netdev(struct net_device *netdev);
++struct nfp_port *
++nfp_port_from_id(struct nfp_pf *pf, enum nfp_port_type type, unsigned int id);
+ struct nfp_eth_table_port *__nfp_port_get_eth_port(struct nfp_port *port);
+ struct nfp_eth_table_port *nfp_port_get_eth_port(struct nfp_port *port);
  
-@@ -99,4 +104,7 @@ void nfp_port_free(struct nfp_port *port);
+@@ -103,6 +106,7 @@ void nfp_port_free(struct nfp_port *port);
+ 
  int nfp_net_refresh_eth_port(struct nfp_port *port);
  void nfp_net_refresh_port_table(struct nfp_port *port);
++int nfp_net_refresh_port_table_sync(struct nfp_pf *pf);
  
-+int nfp_devlink_port_register(struct nfp_app *app, struct nfp_port *port);
-+void nfp_devlink_port_unregister(struct nfp_port *port);
-+
- #endif
+ int nfp_devlink_port_register(struct nfp_app *app, struct nfp_port *port);
+ void nfp_devlink_port_unregister(struct nfp_port *port);
 -- 
 2.11.0
