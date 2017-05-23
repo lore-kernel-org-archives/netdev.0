@@ -1,164 +1,131 @@
-From: zhanglin496 <zhanglin496@163.com>
-Subject: Re: [PATCH] net: ieee802154: fix net_device reference release too
- early
-Date: Tue, 23 May 2017 09:45:08 +0800 (CST)
-Message-ID: <7b94cc3f.4acf.15c32faad0b.Coremail.zhanglin496@163.com>
+From: Andy Duan <fugang.duan-3arQi8VN3Tc@public.gmane.org>
+Subject: RE: [PATCH] net: fec: add post PHY reset delay DT property
+Date: Tue, 23 May 2017 02:04:43 +0000
+Message-ID: <VI1PR0401MB2271F7EB07C80F470D783B30FFF90@VI1PR0401MB2271.eurprd04.prod.outlook.com>
+References: <20170522091517.6857-1-quentin.schulz@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=GBK
-Content-Transfer-Encoding: base64
-Cc: aar@pengutronix.de, davem@davemloft.net,
-        linux-wpan@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: stefan@osg.samsung.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org"
+        <thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+To: Quentin Schulz <quentin.schulz-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
+        "robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org" <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        "mark.rutland-5wv7dgnIgG8@public.gmane.org" <mark.rutland-5wv7dgnIgG8@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170522091517.6857-1-quentin.schulz-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+Content-Language: en-US
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-SGVsbG8uCgpTb3JyeSB0b28gbGF0ZSB0byByZXBseS4KPgo+IEhlbGxvLgo+Cj4gT24gVGh1LCAy
-MDE3LTA1LTE4IGF0IDE1OjE0LCBTdGVmYW4gU2NobWlkdCB3cm90ZToKPiA+IEhlbGxvLgo+ID4K
-PiA+IE9uIFRodSwgMjAxNy0wNS0xOCBhdCAxNTo1MCwgbGluemhhbmcgd3JvdGU6Cj4gPiA+IFRo
-aXMgcGF0Y2ggZml4ZXMgdGhlIGtlcm5lbCBvb3BzIHdoZW4gcmVsZWFzZSBuZXRfZGV2aWNlIHJl
-ZmVyZW5jZSBpbgo+ID4gPiBhZHZhbmNlLiBJbiBmdW5jdGlvbiByYXdfc2VuZG1zZyhpIHRoaW5r
-IHRoZSBkZ3JhbV9zZW5kbXNnIGhhcyB0aGUgc2FtZQo+ID4gPiBwcm9ibGVtKSwgdGhlcmUgaXMg
-YSByYWNlIGNvbmRpdGlvbiBiZXR3ZWVuIGRldl9wdXQgYW5kIGRldl9xdWV1ZV94bWl0Cj4gPiA+
-IHdoZW4gdGhlIGRldmljZSBpcyBnb25nIHRoYXQgbWF5YmUgbGVhZCB0byBkZXZfcXVldWVfeGlt
-dCB0byBzZWUKPiA+ID4gYW4gaWxsZWdhbCBuZXRfZGV2aWNlIHBvaW50ZXIuCj4gPiA+Cj4gPgo+
-ID4gWW91IGhhdmUgYSB0ZXN0IGNhc2UgdG8gcmVwcm9kdWNlIHRoaXMgb29wcz8gSSBmZWFyIEkg
-aGF2ZSBub3Qgc2Vlbgo+ID4gb25lLgo+Cj4gSWYgeW91IGhhdmUgYSB0ZXN0IGNhc2UgaGFuZHkg
-YWRkaW5nIGl0IHRvIHRoZSBjb21taXQgd291bGQgYmUgaGFuZHkuIElmIHlvdSBkbwo+IG5vdCBo
-YXZlIG9uZSBhcm91bmQgd2UgY2FuIGRvIHdpdGhvdXQuCj4KCk15IHRlc3Qga2VybmVsIGlzIDMu
-MTMuMC0zMi4KQmVjYXN1ZSBpIGFtIG5vdCBoYXZlIGEgcmVhbCA4MDIxNTQgZGV2aWNlLCBzbyBp
-IGNoYW5nZSBsb3dwYW5fbmV3bGluawpmdW5jdGlvbiB0byB0aGlzOgoKICAgICAgICAvKiBmaW5k
-IGFuZCBob2xkIHJlYWwgd3BhbiBkZXZpY2UgKi8KICAgICAgICByZWFsX2RldiA9IGRldl9nZXRf
-YnlfaW5kZXgoc3JjX25ldCwgbmxhX2dldF91MzIodGJbSUZMQV9MSU5LXSkpOwogICAgICAgIGlm
-ICghcmVhbF9kZXYpCiAgICAgICAgICAgICAgICByZXR1cm4gLUVOT0RFVjsKLy8gICAgICBpZiAo
-cmVhbF9kZXYtPnR5cGUgIT0gQVJQSFJEX0lFRUU4MDIxNTQpIHsKLy8gICAgICAgICAgICAgIGRl
-dl9wdXQocmVhbF9kZXYpOwovLyAgICAgICAgICAgICAgcmV0dXJuIC1FSU5WQUw7Ci8vICAgICAg
-fQogICAgICAgIGxvd3Bhbl9kZXZfaW5mbyhkZXYpLT5yZWFsX2RldiA9IHJlYWxfZGV2OwogICAg
-ICAgIGxvd3Bhbl9kZXZfaW5mbyhkZXYpLT5mcmFnbWVudF90YWcgPSAwOwogICAgICAgIG11dGV4
-X2luaXQoJmxvd3Bhbl9kZXZfaW5mbyhkZXYpLT5kZXZfbGlzdF9tdHgpOwoKQWxzbywgaW4gb3Jk
-ZXIgdG8gc2ltdWxhdGUgcHJlZW1wdCwgaSBjaGFuZ2UgdGhlIHJhd19zZW5kbXNnIGZ1bmN0aW9u
-IHRvIHRoaXM6CgogICAgICAgIHNrYi0+ZGV2ID0gZGV2OwogICAgICAgIHNrYi0+c2sgID0gc2s7
-CiAgICAgICAgc2tiLT5wcm90b2NvbCA9IGh0b25zKEVUSF9QX0lFRUU4MDIxNTQpOwogICAgICAg
-IGRldl9wdXQoZGV2KTsKICAgICAgICAvL3NpbXVsYXRlIHByZWVtcHQKICAgICAgICBzY2hlZHVs
-ZV90aW1lb3V0X3VuaW50ZXJydXB0aWJsZSgzMCAqIEhaKTsKICAgICAgICBlcnIgPSBkZXZfcXVl
-dWVfeG1pdChza2IpOwogICAgICAgIGlmIChlcnIgPiAwKQogICAgICAgICAgICAgICAgZXJyID0g
-bmV0X3htaXRfZXJybm8oZXJyKTsKCmFuZCB0aGlzIGlzIG15IHVzZXJzcGFjZSB0ZXN0IGNvZGUg
-bmFtZWQgdGVzdF9zZW5kX2RhdGE6CgojaW5jbHVkZSA8c3RkaW8uaD4KI2luY2x1ZGUgPHN0cmlu
-Zy5oPgojaW5jbHVkZSA8ZXJybm8uaD4KI2luY2x1ZGUgPHN5cy90eXBlcy5oPgojaW5jbHVkZSA8
-c3lzL3NvY2tldC5oPgppbnQgbWFpbihpbnQgYXJnYywgY2hhciAqKmFyZ3YpCnsKICAgICAgICBj
-aGFyIGJ1ZlsxMjddOwogICAgICAgIGludCBzb2NrZmQ7CiAgICAgICAgc29ja2ZkID0gc29ja2V0
-KEFGX0lFRUU4MDIxNTQsIFNPQ0tfUkFXLCAwKTsKICAgICAgICBpZiAoc29ja2ZkIDwgMCkgewog
-ICAgICAgICAgICAgICAgcHJpbnRmKCJjcmVhdGUgc29ja2ZkIGVycm9yOiAlc1xuIiwgc3RyZXJy
-b3IoZXJybm8pKTsKICAgICAgICAgICAgICAgIHJldHVybiAtMTsKICAgICAgICB9CiAgICAgICAg
-c2VuZChzb2NrZmQsIGJ1Ziwgc2l6ZW9mKGJ1ZiksIDApOwogICAgICAgIHJldHVybiAwOwp9CgpU
-aGlzIGlzIG15IHRlc3QgY2FzZToKcm9vdEB6aGFuZ2xpbi14LWNvbXB1dGVyOn4vZGV2ZWxvcC84
-MDIxNTQjIHVuYW1lIC1hCkxpbnV4IHpoYW5nbGluLXgtY29tcHV0ZXIgMy4xMy4wLTMyLWdlbmVy
-aWMgIzU3LVVidW50dSBTTVAgVHVlIEp1bCAxNQowMzo1MTowOCBVVEMgMjAxNCB4ODZfNjQgeDg2
-XzY0IHg4Nl82NCBHTlUvTGludXgKcm9vdEB6aGFuZ2xpbi14LWNvbXB1dGVyOn4vZGV2ZWxvcC84
-MDIxNTQjIGlwIGxpbmsgYWRkIGxpbmsgZXRoMCBuYW1lCmxvd3BhbjAgdHlwZSBsb3dwYW4Kcm9v
-dEB6aGFuZ2xpbi14LWNvbXB1dGVyOn4vZGV2ZWxvcC84MDIxNTQjCi8va2VlcCB0aGUgbG93cGFu
-MCBkZXZpY2UgZG93bgpyb290QHpoYW5nbGluLXgtY29tcHV0ZXI6fi9kZXZlbG9wLzgwMjE1NCMg
-Li90ZXN0X3NlbmRfZGF0YSAmCi8vd2FpdCBhIHdoaWxlCnJvb3RAemhhbmdsaW4teC1jb21wdXRl
-cjp+L2RldmVsb3AvODAyMTU0IyBpcCBsaW5rIGRlbCBsaW5rIGRldiBsb3dwYW4wCi8vdGhlIGRl
-dmljZSBpcyBnb25lCi8vb29wcwpbMzgxLjMwMzMwN10gZ2VuZXJhbCBwcm90ZWN0aW9uIGZhdWx0
-OiAwMDAwIFsjMV1TTVAKWzM4MS4zMDM0MDddIE1vZHVsZXMgbGlua2VkIGluOiBhZl84MDIxNTQg
-Nmxvd3BhbiBibmVwIHJmY29tbQpibHVldG9vdGggbmxzX2lzbzg4NTlfMSBzbmRfaGRhX2NvZGVj
-X2hkbWkgc25kX2hkYV9jb2RlY19yZWFsdGVrCnJ0czUxMzkoQykgc25kX2hkYV9pbnRlbApzbmRf
-aGFkX2NvZGVjIHNuZF9od2RlcCBzbmRfcGNtIHNuZF9wYWdlX2FsbG9jIHNuZF9zZXFfbWlkaQpz
-bmRfc2VxX21pZGlfZXZlbnQgc25kX3Jhd21pZGkgc25kX3JlcSBpbnRlbF9yYXBsIHNuZF9zZXFf
-ZGV2aWNlCmNvcmV0ZW1wIGk5MTUga3ZtX2ludGVsCmt2bSBzbmRfdGltZXIgc25kIGNyY3QxMGRp
-Zl9wY2xtdWwgY3JjMzJfcGNsbXVsIGdoYXNoX2NsbXVsbmlfaW50ZWwKY3lwdGVkIGRybV9rbXNf
-aGVscGVyIGRybSBpMmNfYWxnb19iaXQgc291bmRjb3JlIHZpZGVvIG1hY19oaWQKcGFycG9ydF9w
-YyBwcGRldiBpcCBwYXJwb3J0IGhpZF9nZW5lcmljCnVzYmhpZCBoaWQgYWhjaSByODE2OSBtaWkg
-bGliYWhkaQpbMzgxLjMwNDI4Nl0gQ1BVOjEgUElEOiAyNTI0IENvbW1tOiAxIFRhaW50ZWQ6IEcg
-QyAwIDMuMTMuMC0zMi1nZW5lcmljCiM1Ny1VYnVudHUKWzM4MS4zMDQ0MDldIEhhcmR3YXJlIG5h
-bWU6IEhhaWVyIEhhaWVyIERUIENvbXB1dGVyL0hhaWVyIERUIENvZHB1dGVyLApCSU9TIEZJQlQx
-OUgwMl9YNjQgMDYvMDkvMjAxNApbMzgxLjMwNDU0Nl0gdGFza3M6IGZmZmYwMDAwOTY5NjVmYzAg
-dGk6IGZmZmZCMDAxMzc3OWMwMDAgdGFzay50aToKZmZmZkI4MDEzNzc5YzAwMApbMzgxLjMwNDY1
-OV0gUklQOiAwMDEwOls8ZmZmZmZmZmYwMTYyMWZlMT5dIFs8ZmZmZmZmZmY4MTYyMWZlMT5dCl9f
-ZGV2X3F1ZXVlX3hpbXQrMHg2MS8weDUwMApbMzgxLjMwNDc5OF0gUlNQOiAwMDE4OmZmZmZCODAx
-Mzc3OWRjYTAgRUZMQUdTOiAwMDAxMDIwMgpbMzgxLjMwNDg4MF0gUkFYOiAyNzJiMDMxZDU3NTY1
-MzUxIFJCWDogMDAwMDAwMDAwMDAwMDAwMCBSQ1g6IGZmZmY4ODAwOTY4ZjFhMDAKWzM4MS4zMDQ5
-ODddIFJEWDogMDAwMDAwMDAwMDAwMDAwMCBSU0k6IDAwMDAwMDAwMDAwMDAwMDAgUkRJOiBmZmZm
-ODgwMDk2OGYxYTAwClszODEuMzA1MDk1XSBSQlA6IGZmZmY4ZTAxMzc3M2RjZTAgUjA4OiAwMDAw
-MDAwMDAwMDAwMjY2IFIwOTogMDAwMDAwMDAwMDAwMDAwNApbMzgxLjMwNTIwMl0gUjEwOiAwMDAw
-MDAwMDAwMDAwMDA0IFIxMTogMDAwMDAwMDAwMDAwMDAwNSBSMTI6IGZmZmY4ODAxMzkwMmUwMDAK
-WzM4MS4zMDUzMTBdIFIxMzogMDAwMDAwMDAwMDAwMDA3ZiBSMTQ6IDAwMDAwMDAwMDAwMDAwN2Yg
-UjE1OiBmZmZmODgwMDk2OGYxYTAwClszODEuMzA1NDE4XSBGUzogIDAwMDA3ZmM1N2Y1MGY3NDAo
-MDAwMCkgR1M6IGZmZmY4ODAxM2ZjODAwMDAoMDAwMCkKa25sR1M6IDAwMDAwMDAwMDAwMDAwMDAK
-WzM4MS4zMDU1NDBdIENTOiAgMDAxMCBEUzogMDAwMCBFUzogMDAwMCBDUjA6IDAwMDAwMDAwODAw
-NTAwM2IKWzM4MS4zMDU2MjddIENSMjogMDAwMDdmYWQwODQxYzAwMCBDUjM6IDAwMDAwMDAxMzY4
-ZGQwMDAgQ1I0OiAwMDAwMDAwMDAwMTAwN2UwClszNjEuOTA1NzM0XSBTdGFjazoKWzM4MS4zMDU3
-NjhdICAwMDAwMDAwMDAwMjA1MmQwIDAwMDAwMDAwM2ZhY2IzMGEgZmZmZjg4MDEzNzc5ZGNjMApm
-ZmZmODgwMTM3NzY0MDAwClszODEuMzA1ODk4XSAgZmZmZjg4MDEzNzc5ZGU3MCAwMDAwMDAwMDAw
-MDAwMDdmIDAwMDAwMDAwMDAwMDAwN2YKZmZmZjg4MDEzOTAyZTAwMApbMzgxLjMwNjAyNl0gIGZm
-ZmY4ODAxMzc3OWRjZjAgZmZmZmZmZmY4MTYyMjQ5MCBmZmZmODgwMTM3NzlkZDM5CmZmZmZmZmZm
-YTAzYWY5ZjEKWzM4MS4zMDYxNTVdIENhbGwgVHJhY2U6ClszODEuMzA2MjAyXSAgWzxmZmZmZmZm
-ZjgxNjIyNDkwPl0gZGV2X3F1ZXVlX3htaXQrMHgxMC8weDIwClszODEuMzA2Mjk0XSAgWzxmZmZm
-ZmZmZmEwM2FmOWYxPl0gcmF3X3NlbmRtc2crMHgxYjEvMHgyNzAgW2FmXzgwMjE1NF0KWzM4MS4z
-MDYzOTZdICBbPGZmZmZmZmZmYTAzYWYwNTQ+XSBpZWVlODAyMTU0X3NvY2tfc2VuZG1zZysweDE0
-LzB4MjAgW2FmXzgwMjE1NF0KWzM4MS4zMDY1MTJdICBbPGZmZmZmZmZmODE2MDc5ZWI+XSBzb2Nr
-X3NlbmRtc2crMHg4Yi8weGMwClszODEuMzA2NjAwXSAgWzxmZmZmZmZmZjgxMWQ1MmE1Pl0gPyBf
-X2RfYWxsb2MrMHgyNS8weDE4MApbMzgxLjMwNjY4N10gIFs8ZmZmZmZmZmY4MTFhMWY1Nj5dID8g
-a21lbV9jYWNoZV9hbGxvY190cmFjZSsweDFjNi8weDFmMApbMzgxLjMwNjc5MV0gIFs8ZmZmZmZm
-ZmY4MTYwN2I5MT5dIFNZU0Nfc2VuZHRvKzB4MTIxLzB4MWMwClszODEuMzA2ODc4XSAgWzxmZmZm
-ZmZmZjgxMDlkZGY0Pl0gPyB2dGltZV9hY2NvdW50X3VzZXIreDU0LzB4NjAKWzM4MS4zMDY5NzVd
-ICBbPGZmZmZmZmZmODEwMjBkNDU+XSA/IHN5c2NhbGxfdHJhY2VfZW50ZXIrMHgxNDUvMHgyNTAK
-WzM4MS4zMDcwNzNdICBbPGZmZmZmZmZmODE2MDg2YWU+XSBTeVNfc2VuZHRvKzB4ZS8weDEwClsz
-ODEuMzA3MTU2XSAgWzxmZmZmZmZmZjgxNzJjODdmPl0gdHJhY2VzeXMrMHhlMS8weGU2ClszODEu
-MzA3MjMzXSBDb2RlOiBjNiBhMSBhNCBmZiA0MSA4YiA1NyA3OCA0OSA4YiA0NyAyMCA4NSBkMiA0
-OCA4YiA4MAo3OCAwNyAwMCAwMCA3NSAyMSA0OSA4YiA1NyAxOCA0OCA4NSBkMiA3NCAxOCA0OCA4
-NSBjMCA3NCAxMyA4YiA5MiBhYwowMSAwMCAwMCA8M2I+IDUwIDEwIDczIDA4IDhiIDQ0IDkwIDE0
-IDQxIDg5IDQ3IDc4IDQxIGY2IDg0IDI0IGQ1IDAwIDAwCjAwClszODEuMzA3ODAxXSBSSVAgWzxm
-ZmZmZmZmZjgxNjIxZmUxPl0gX2Rldl9xdWV1ZV94bWl0KzB4NjEvMHg1MDAKWzM4MS4zMDc5MDFd
-ICBSU1AgPGZmZmY4ODAxMzc3OWRjYTA+ClszODEuMzQ3NTEyXSBLZXJuZWwgcGFuaWMgLSBub3Qg
-c3luY2luZzogRmF0YWwgZXhjZXB0aW9uIGluIGludGVycnVwdApbMzgxLjM0Nzc0N10gZHJtX2tt
-c19oZWxwZXI6IHBhbmljIG9jY3VycmVkLCBzd2l0Y2hpbmcgYmFjayB0byB0ZXh0IGNvbnNvbGUK
-Cgo+ID4gPiBTbyBpIHRoaW5rIHRoYXQgZGV2X3B1dCBzaG91bGQgYmUgYmVoaW5kIG9mIHRoZSBk
-ZXZfcXVldWVfeG1pdC4KPiA+ID4KPiA+ID4gQWxzbywgZXhwbGljaXQgc2V0IHNrYi0+c2sgaXMg
-bmVlZGxlc3MsIHNvY2tfYWxsb2Nfc2VuZF9za2IgaXMKPiA+ID4gYWxyZWFkeSBzZXQgaXQuCj4g
-Pgo+ID4gWW91IGNvdWxkIGhhdmUgcHV0IHRoaXMgZml4dXAgaW4gYSBkaWZmZXJlbnQgcGF0Y2gu
-Cj4KClRoYW5rcywgaSB3aWxsIHJlcG9zdCBpdC4KCj4gSSBhY3R1YWxseSB3b3VsZCByZXF1ZXN0
-IHlvdSB0byBzcGxpdCB0aGlzIGludG8gdHdvIHBhdGNoZXMuIE9uZSBmb3IgdGhlCj4gcmVtb3Zh
-bCBvZiB0aGUgc2sgc2V0dGluZyBhbmQgb25lIGZvciB0aGUgcmFjZSBjb25kaXRpb24gZml4Lgo+
-Cj4gPiA+IFNpZ25lZC1vZmYtYnk6IGxpbnpoYW5nIDx4aWFvbG91NDYxN0BnbWFpbC5jb20+Cj4g
-Pgo+ID4gVGhpcyBsb29rcyBtb3JlIGxpa2UgYSB1c2VybmFtZSBpbnN0ZWFkIG9mIGEgcmVhbCBu
-YW1lLiBJZiB5b3UgaGF2ZSBMaW4KPiA+IFpoYW5nIGFzIHlvdSBFbmdsaXNoIHJlYWwgbmFtZSB0
-aGF0IHdvdWxkIGJlIGJldHRlciBoZXJlLiA6KQo+Cj4gVGhpcyB3b3VsZCBiZSBhbHNvIGFwcHJl
-Y2lhdGVkLgoKWWVzLCBteSByZWFsIG5hbWUgaXMgTGluIFpoYW5nLCBzb3JyeSB0byBtYWtlIHlv
-dSBjb25mdXNpb24uCgo+ID4gPiAtLS0KPiA+ID4gIG5ldC9pZWVlODAyMTU0L3NvY2tldC5jIHwg
-MTAgKysrKy0tLS0tLQo+ID4gPiAgMSBmaWxlIGNoYW5nZWQsIDQgaW5zZXJ0aW9ucygrKSwgNiBk
-ZWxldGlvbnMoLSkKPiA+ID4KPiA+ID4gZGlmZiAtLWdpdCBhL25ldC9pZWVlODAyMTU0L3NvY2tl
-dC5jIGIvbmV0L2llZWU4MDIxNTQvc29ja2V0LmMKPiA+ID4gaW5kZXggZWVkYmE3Ni4uYTYwNjU4
-YyAxMDA2NDQKPiA+ID4gLS0tIGEvbmV0L2llZWU4MDIxNTQvc29ja2V0LmMKPiA+ID4gKysrIGIv
-bmV0L2llZWU4MDIxNTQvc29ja2V0LmMKPiA+ID4gQEAgLTMwMSwxNSArMzAxLDE0IEBAIHN0YXRp
-YyBpbnQgcmF3X3NlbmRtc2coc3RydWN0IHNvY2sgKnNrLCBzdHJ1Y3QgbXNnaGRyICptc2csIHNp
-emVfdCBzaXplKQo+ID4gPiAgICAgICAgICAgICBnb3RvIG91dF9za2I7Cj4gPiA+Cj4gPiA+ICAg
-ICBza2ItPmRldiA9IGRldjsKPiA+ID4gLSAgIHNrYi0+c2sgID0gc2s7Cj4gPiA+ICAgICBza2It
-PnByb3RvY29sID0gaHRvbnMoRVRIX1BfSUVFRTgwMjE1NCk7Cj4gPiA+Cj4gPiA+IC0gICBkZXZf
-cHV0KGRldik7Cj4gPiA+IC0KPiA+ID4gICAgIGVyciA9IGRldl9xdWV1ZV94bWl0KHNrYik7Cj4g
-PiA+ICAgICBpZiAoZXJyID4gMCkKPiA+ID4gICAgICAgICAgICAgZXJyID0gbmV0X3htaXRfZXJy
-bm8oZXJyKTsKPiA+ID4KPiA+ID4gKyAgIGRldl9wdXQoZGV2KTsKPiA+ID4gKwo+ID4gPiAgICAg
-cmV0dXJuIGVyciA/OiBzaXplOwo+ID4gPgo+ID4gPiAgb3V0X3NrYjoKPiA+ID4gQEAgLTY5MCwx
-NSArNjg5LDE0IEBAIHN0YXRpYyBpbnQgZGdyYW1fc2VuZG1zZyhzdHJ1Y3Qgc29jayAqc2ssIHN0
-cnVjdCBtc2doZHIgKm1zZywgc2l6ZV90IHNpemUpCj4gPiA+ICAgICAgICAgICAgIGdvdG8gb3V0
-X3NrYjsKPiA+ID4KPiA+ID4gICAgIHNrYi0+ZGV2ID0gZGV2Owo+ID4gPiAtICAgc2tiLT5zayAg
-PSBzazsKPiA+ID4gICAgIHNrYi0+cHJvdG9jb2wgPSBodG9ucyhFVEhfUF9JRUVFODAyMTU0KTsK
-PiA+ID4KPiA+ID4gLSAgIGRldl9wdXQoZGV2KTsKPiA+ID4gLQo+ID4gPiAgICAgZXJyID0gZGV2
-X3F1ZXVlX3htaXQoc2tiKTsKPiA+ID4gICAgIGlmIChlcnIgPiAwKQo+ID4gPiAgICAgICAgICAg
-ICBlcnIgPSBuZXRfeG1pdF9lcnJubyhlcnIpOwo+ID4gPgo+ID4gPiArICAgZGV2X3B1dChkZXYp
-Owo+ID4gPiArCj4gPiA+ICAgICByZXR1cm4gZXJyID86IHNpemU7Cj4gPgo+ID4gR29pbmcgdG8g
-Z2l2ZSB0aGlzIGEgdGVzdCByaWRlIGhlcmUgbm93Lgo+Cj4gSSBnYXZlIGl0IGEgcmlkZSBpbiBt
-eSB0ZXN0YmVkIGFuZCBJIGVuY291bnRlcmVkIG5vIHByb2JsZW1zLiBXaGlsZSBJIGhhdmUgbmV2
-ZXIKPiBzZWVuIHRoZSByYWNlIGFuZCBvb3BzIG15c2VsZiBkb2luZyB0aGUgZGV2X3B1dCBiZWZv
-cmUgdGhlIHhtaXQgY2FuIHN1cmVseSBsZWFkIHRvCj4gc3VjaCBhIHJhY2UgYW5kIHRoZSBmaXgg
-aXMgdmFsaWQuCj4KPiBPbmNlIHlvdSBoYXZlIGRvbmUgdGhlIGNoYW5nZXMgcmVxdWVzdGVkIGFi
-b3ZlIGFuZCByZS1zdWJtaXQgeW91ciB0d28gcGF0Y2hlcyB5b3UgY2FuCj4gYWRkIG15Cj4KPiBB
-Y2tlZC1ieTogU3RlZmFuIFNjaG1pZHQgPHN0ZWZhbkBvc2cuc2Ftc3VuZy5jb20+Cj4KPiB0byBi
-b3RoIG9mIHRoZW0uCj4KPiByZWdhcmRzCj4gU3RlZmFuIFNjaG1pZHQKCkluIG15IG9waW5pb24s
-IHRoZXJlIGlzIGFsd2F5cyBleGlzdCBhIGNoYW5jZSB0aGF0IHRoZSBkZXZpY2UgaXMgZ29uZwpi
-ZWZvcmUgY2FsbCBkZXZfcXVldWVfeG1pdC4KCkkgdGhpbmsgdGhlIGxhdGVzdCBrZXJuZWwgaXMg
-aGF2ZSB0aGUgc2FtZSBwcm9ibGVtLiBJZiB5b3UgaGF2ZSBhIHJlYWwgODAyMTU0IGRldmljZSwg
-Cm1heWJlIHVzZSB0aGUgdGVzdCBjYXNlIGFzIGFib3ZlLCB0aGFua3MuCgpQbGVhc2UgZm9yZ2l2
-ZSBtZSBmb3IgbXkgd2VhayBFbmdsaXNoLgpUaGFua3MgZm9yIHJldmlld2luZyEKcmVnYXJkcwo=
+From: Quentin Schulz <quentin.schulz-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org> Sent: Monday, May =
+22, 2017 5:15 PM
+>Some PHY require to wait for a bit after the reset GPIO has been toggled. =
+This
+>adds support for the DT property `phy-reset-post-delay` which gives the de=
+lay
+>in milliseconds to wait after reset.
+>
+>If the DT property is not given, no delay is observed. Post reset delay gr=
+eater
+>than 1000ms are invalid and are default to 1ms.
+>
+>Signed-off-by: Quentin Schulz <quentin.schulz-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+>---
+> Documentation/devicetree/bindings/net/fsl-fec.txt |  5 +++++
+> drivers/net/ethernet/freescale/fec_main.c         | 17 +++++++++++++++--
+> 2 files changed, 20 insertions(+), 2 deletions(-)
+>
+>diff --git a/Documentation/devicetree/bindings/net/fsl-fec.txt
+>b/Documentation/devicetree/bindings/net/fsl-fec.txt
+>index a1e3693cca16..8795e8ca5793 100644
+>--- a/Documentation/devicetree/bindings/net/fsl-fec.txt
+>+++ b/Documentation/devicetree/bindings/net/fsl-fec.txt
+>@@ -15,6 +15,11 @@ Optional properties:
+> - phy-reset-active-high : If present then the reset sequence using the GP=
+IO
+>   specified in the "phy-reset-gpios" property is reversed (H=3Dreset stat=
+e,
+>   L=3Doperation state).
+>+- phy-reset-post-delay : Post reset delay in milliseconds. If present
+>+then
+>+  a delay of phy-reset-post-delay milliseconds will be observed after
+>+the
+>+  phy-reset-gpios has been toggled. Can be omitted thus no delay is
+>+  observed. Delay is in range of 1ms to 1000ms. If given delay is
+>+higher
+>+  than 1000ms, 1ms delay is done instead.
+> - phy-supply : regulator that powers the Ethernet PHY.
+> - phy-handle : phandle to the PHY device connected to this device.
+> - fixed-link : Assume a fixed link. See fixed-link.txt in the same direct=
+ory.
+>diff --git a/drivers/net/ethernet/freescale/fec_main.c
+>b/drivers/net/ethernet/freescale/fec_main.c
+>index 56a563f90b0b..00a7fd0bcd59 100644
+>--- a/drivers/net/ethernet/freescale/fec_main.c
+>+++ b/drivers/net/ethernet/freescale/fec_main.c
+>@@ -3192,7 +3192,7 @@ static int fec_reset_phy(struct platform_device
+>*pdev)  {
+> 	int err, phy_reset;
+> 	bool active_high =3D false;
+>-	int msec =3D 1;
+>+	int msec =3D 1, phy_post_delay =3D 0;
+> 	struct device_node *np =3D pdev->dev.of_node;
+>
+> 	if (!np)
+>@@ -3210,7 +3210,6 @@ static int fec_reset_phy(struct platform_device
+>*pdev)
+> 		return 0;
+>
+> 	active_high =3D of_property_read_bool(np, "phy-reset-active-high");
+>-
+
+No necessary change here.
+
+> 	err =3D devm_gpio_request_one(&pdev->dev, phy_reset,
+> 			active_high ? GPIOF_OUT_INIT_HIGH :
+>GPIOF_OUT_INIT_LOW,
+> 			"phy-reset");
+>@@ -3219,6 +3218,11 @@ static int fec_reset_phy(struct platform_device
+>*pdev)
+> 		return err;
+> 	}
+>
+>+	err =3D of_property_read_u32(np, "phy-reset-post-delay",
+>&phy_post_delay);
+>+	/* valid reset duration should be less than 1s */
+>+	if (!err && phy_post_delay > 1000)
+>+		phy_post_delay =3D 1;
+>+
+Put the dt parse before  . devm_gpio_request_one() that seems better.
+Others are fine.
+
+
+> 	if (msec > 20)
+> 		msleep(msec);
+> 	else
+>@@ -3226,6 +3230,15 @@ static int fec_reset_phy(struct platform_device
+>*pdev)
+>
+> 	gpio_set_value_cansleep(phy_reset, !active_high);
+>
+>+	if (!phy_post_delay)
+>+		return 0;
+>+
+>+	if (phy_post_delay > 20)
+>+		msleep(phy_post_delay);
+>+	else
+>+		usleep_range(phy_post_delay * 1000,
+>+			     phy_post_delay * 1000 + 1000);
+>+
+> 	return 0;
+> }
+> #else /* CONFIG_OF */
+>--
+>2.11.0
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
