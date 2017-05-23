@@ -1,10 +1,11 @@
 From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: [PATCH net-next v9 3/5] rxrpc: check return value of skb_to_sgvec always
-Date: Tue, 23 May 2017 18:05:48 +0200
-Message-ID: <20170523160550.5203-4-Jason@zx2c4.com>
+Subject: [PATCH net-next v9 2/5] ipsec: check return value of skb_to_sgvec always
+Date: Tue, 23 May 2017 18:05:47 +0200
+Message-ID: <20170523160550.5203-3-Jason@zx2c4.com>
 References: <20170523160550.5203-1-Jason@zx2c4.com>
 Cc: "Jason A. Donenfeld" <Jason@zx2c4.com>,
-        David Howells <dhowells@redhat.com>
+        Steffen Klassert <steffen.klassert@secunet.com>,
+        Herbert Xu <herbert@gondor.apana.org.au>
 To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
         davem@davemloft.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
@@ -13,68 +14,157 @@ Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Jason A. Donenfeld <Jason@zx2c4.com>
-Cc: David Howells <dhowells@redhat.com>
+Cc: Steffen Klassert <steffen.klassert@secunet.com>
+Cc: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: "David S. Miller" <davem@davemloft.net>
 ---
- net/rxrpc/rxkad.c | 19 ++++++++++++++-----
- 1 file changed, 14 insertions(+), 5 deletions(-)
+ net/ipv4/ah4.c  |  8 ++++++--
+ net/ipv4/esp4.c | 20 +++++++++++++-------
+ net/ipv6/ah6.c  |  8 ++++++--
+ net/ipv6/esp6.c | 20 +++++++++++++-------
+ 4 files changed, 38 insertions(+), 18 deletions(-)
 
-diff --git a/net/rxrpc/rxkad.c b/net/rxrpc/rxkad.c
-index 1bb9b2ccc267..29fe20ad04aa 100644
---- a/net/rxrpc/rxkad.c
-+++ b/net/rxrpc/rxkad.c
-@@ -227,7 +227,9 @@ static int rxkad_secure_packet_encrypt(const struct rxrpc_call *call,
- 	len &= ~(call->conn->size_align - 1);
+diff --git a/net/ipv4/ah4.c b/net/ipv4/ah4.c
+index 22377c8ff14b..e8f862358518 100644
+--- a/net/ipv4/ah4.c
++++ b/net/ipv4/ah4.c
+@@ -220,7 +220,9 @@ static int ah_output(struct xfrm_state *x, struct sk_buff *skb)
+ 	ah->seq_no = htonl(XFRM_SKB_CB(skb)->seq.output.low);
  
- 	sg_init_table(sg, nsg);
--	skb_to_sgvec(skb, sg, 0, len);
-+	err = skb_to_sgvec(skb, sg, 0, len);
+ 	sg_init_table(sg, nfrags + sglists);
+-	skb_to_sgvec_nomark(skb, sg, 0, skb->len);
++	err = skb_to_sgvec_nomark(skb, sg, 0, skb->len);
 +	if (unlikely(err < 0))
-+		goto out;
- 	skcipher_request_set_crypt(req, sg, sg, len, iv.x);
- 	crypto_skcipher_encrypt(req);
++		goto out_free;
  
-@@ -324,7 +326,7 @@ static int rxkad_verify_packet_1(struct rxrpc_call *call, struct sk_buff *skb,
- 	bool aborted;
- 	u32 data_size, buf;
- 	u16 check;
--	int nsg;
-+	int nsg, ret;
+ 	if (x->props.flags & XFRM_STATE_ESN) {
+ 		/* Attach seqhi sg right after packet payload */
+@@ -393,7 +395,9 @@ static int ah_input(struct xfrm_state *x, struct sk_buff *skb)
+ 	skb_push(skb, ihl);
  
- 	_enter("");
+ 	sg_init_table(sg, nfrags + sglists);
+-	skb_to_sgvec_nomark(skb, sg, 0, skb->len);
++	err = skb_to_sgvec_nomark(skb, sg, 0, skb->len);
++	if (unlikely(err < 0))
++		goto out_free;
  
-@@ -342,7 +344,9 @@ static int rxkad_verify_packet_1(struct rxrpc_call *call, struct sk_buff *skb,
- 		goto nomem;
+ 	if (x->props.flags & XFRM_STATE_ESN) {
+ 		/* Attach seqhi sg right after packet payload */
+diff --git a/net/ipv4/esp4.c b/net/ipv4/esp4.c
+index 65cc02bd82bc..392432860bb9 100644
+--- a/net/ipv4/esp4.c
++++ b/net/ipv4/esp4.c
+@@ -374,9 +374,11 @@ int esp_output_tail(struct xfrm_state *x, struct sk_buff *skb, struct esp_info *
+ 	esp->esph = esph;
  
- 	sg_init_table(sg, nsg);
--	skb_to_sgvec(skb, sg, offset, 8);
-+	ret = skb_to_sgvec(skb, sg, offset, 8);
-+	if (unlikely(ret < 0))
-+		return ret;
+ 	sg_init_table(sg, esp->nfrags);
+-	skb_to_sgvec(skb, sg,
+-		     (unsigned char *)esph - skb->data,
+-		     assoclen + ivlen + esp->clen + alen);
++	err = skb_to_sgvec(skb, sg,
++		           (unsigned char *)esph - skb->data,
++		           assoclen + ivlen + esp->clen + alen);
++	if (unlikely(err < 0))
++		goto error;
  
- 	/* start the decryption afresh */
- 	memset(&iv, 0, sizeof(iv));
-@@ -409,7 +413,7 @@ static int rxkad_verify_packet_2(struct rxrpc_call *call, struct sk_buff *skb,
- 	bool aborted;
- 	u32 data_size, buf;
- 	u16 check;
--	int nsg;
-+	int nsg, ret;
+ 	if (!esp->inplace) {
+ 		int allocsize;
+@@ -400,9 +402,11 @@ int esp_output_tail(struct xfrm_state *x, struct sk_buff *skb, struct esp_info *
+ 		spin_unlock_bh(&x->lock);
  
- 	_enter(",{%d}", skb->len);
- 
-@@ -434,7 +438,12 @@ static int rxkad_verify_packet_2(struct rxrpc_call *call, struct sk_buff *skb,
+ 		sg_init_table(dsg, skb_shinfo(skb)->nr_frags + 1);
+-		skb_to_sgvec(skb, dsg,
+-			     (unsigned char *)esph - skb->data,
+-			     assoclen + ivlen + esp->clen + alen);
++		err = skb_to_sgvec(skb, dsg,
++			           (unsigned char *)esph - skb->data,
++			           assoclen + ivlen + esp->clen + alen);
++		if (unlikely(err < 0))
++			goto error;
  	}
  
- 	sg_init_table(sg, nsg);
--	skb_to_sgvec(skb, sg, offset, len);
-+	ret = skb_to_sgvec(skb, sg, offset, len);
-+	if (unlikely(ret < 0)) {
-+		if (sg != _sg)
-+			kfree(sg);
-+		return ret;
-+	}
+ 	if ((x->props.flags & XFRM_STATE_ESN))
+@@ -687,7 +691,9 @@ static int esp_input(struct xfrm_state *x, struct sk_buff *skb)
+ 	esp_input_set_header(skb, seqhi);
  
- 	/* decrypt from the session key */
- 	token = call->conn->params.key->payload.data[0];
+ 	sg_init_table(sg, nfrags);
+-	skb_to_sgvec(skb, sg, 0, skb->len);
++	err = skb_to_sgvec(skb, sg, 0, skb->len);
++	if (unlikely(err < 0))
++		goto out;
+ 
+ 	skb->ip_summed = CHECKSUM_NONE;
+ 
+diff --git a/net/ipv6/ah6.c b/net/ipv6/ah6.c
+index dda6035e3b84..755f38271dd5 100644
+--- a/net/ipv6/ah6.c
++++ b/net/ipv6/ah6.c
+@@ -423,7 +423,9 @@ static int ah6_output(struct xfrm_state *x, struct sk_buff *skb)
+ 	ah->seq_no = htonl(XFRM_SKB_CB(skb)->seq.output.low);
+ 
+ 	sg_init_table(sg, nfrags + sglists);
+-	skb_to_sgvec_nomark(skb, sg, 0, skb->len);
++	err = skb_to_sgvec_nomark(skb, sg, 0, skb->len);
++	if (unlikely(err < 0))
++		goto out_free;
+ 
+ 	if (x->props.flags & XFRM_STATE_ESN) {
+ 		/* Attach seqhi sg right after packet payload */
+@@ -606,7 +608,9 @@ static int ah6_input(struct xfrm_state *x, struct sk_buff *skb)
+ 	ip6h->hop_limit   = 0;
+ 
+ 	sg_init_table(sg, nfrags + sglists);
+-	skb_to_sgvec_nomark(skb, sg, 0, skb->len);
++	err = skb_to_sgvec_nomark(skb, sg, 0, skb->len);
++	if (unlikely(err < 0))
++		goto out_free;
+ 
+ 	if (x->props.flags & XFRM_STATE_ESN) {
+ 		/* Attach seqhi sg right after packet payload */
+diff --git a/net/ipv6/esp6.c b/net/ipv6/esp6.c
+index 1fe99ba8066c..2ede4e459c4e 100644
+--- a/net/ipv6/esp6.c
++++ b/net/ipv6/esp6.c
+@@ -346,9 +346,11 @@ int esp6_output_tail(struct xfrm_state *x, struct sk_buff *skb, struct esp_info
+ 	esph = esp_output_set_esn(skb, x, ip_esp_hdr(skb), seqhi);
+ 
+ 	sg_init_table(sg, esp->nfrags);
+-	skb_to_sgvec(skb, sg,
+-		     (unsigned char *)esph - skb->data,
+-		     assoclen + ivlen + esp->clen + alen);
++	err = skb_to_sgvec(skb, sg,
++		           (unsigned char *)esph - skb->data,
++		           assoclen + ivlen + esp->clen + alen);
++	if (unlikely(err < 0))
++		goto error;
+ 
+ 	if (!esp->inplace) {
+ 		int allocsize;
+@@ -372,9 +374,11 @@ int esp6_output_tail(struct xfrm_state *x, struct sk_buff *skb, struct esp_info
+ 		spin_unlock_bh(&x->lock);
+ 
+ 		sg_init_table(dsg, skb_shinfo(skb)->nr_frags + 1);
+-		skb_to_sgvec(skb, dsg,
+-			     (unsigned char *)esph - skb->data,
+-			     assoclen + ivlen + esp->clen + alen);
++		err = skb_to_sgvec(skb, dsg,
++			           (unsigned char *)esph - skb->data,
++			           assoclen + ivlen + esp->clen + alen);
++		if (unlikely(err < 0))
++			goto error;
+ 	}
+ 
+ 	if ((x->props.flags & XFRM_STATE_ESN))
+@@ -618,7 +622,9 @@ static int esp6_input(struct xfrm_state *x, struct sk_buff *skb)
+ 	esp_input_set_header(skb, seqhi);
+ 
+ 	sg_init_table(sg, nfrags);
+-	skb_to_sgvec(skb, sg, 0, skb->len);
++	ret = skb_to_sgvec(skb, sg, 0, skb->len);
++	if (unlikely(ret < 0))
++		goto out;
+ 
+ 	skb->ip_summed = CHECKSUM_NONE;
+ 
 -- 
 2.13.0
