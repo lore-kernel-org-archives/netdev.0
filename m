@@ -1,7 +1,7 @@
 From: Stefan Wahren <stefan.wahren@i2se.com>
-Subject: [PATCH v6 net-next 09/17] net: qca_spi: Clarify MODULE_DESCRIPTION
-Date: Tue, 23 May 2017 15:12:45 +0200
-Message-ID: <1495545173-22150-10-git-send-email-stefan.wahren@i2se.com>
+Subject: [PATCH v6 net-next 03/17] net: qca_7k: Use BIT macro
+Date: Tue, 23 May 2017 15:12:39 +0200
+Message-ID: <1495545173-22150-4-git-send-email-stefan.wahren@i2se.com>
 References: <1495545173-22150-1-git-send-email-stefan.wahren@i2se.com>
 Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
         Jiri Slaby <jslaby@suse.com>,
@@ -18,26 +18,39 @@ In-Reply-To: <1495545173-22150-1-git-send-email-stefan.wahren@i2se.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Since this driver is specific to the QCA7000, we should make the module
-description more precisely.
+Use the BIT macro for the CONFIG and INT register values.
 
 Signed-off-by: Stefan Wahren <stefan.wahren@i2se.com>
 ---
- drivers/net/ethernet/qualcomm/qca_spi.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/qualcomm/qca_7k.h | 14 +++++++-------
+ 1 file changed, 7 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/ethernet/qualcomm/qca_spi.c b/drivers/net/ethernet/qualcomm/qca_spi.c
-index 50adc4f..ee90af3 100644
---- a/drivers/net/ethernet/qualcomm/qca_spi.c
-+++ b/drivers/net/ethernet/qualcomm/qca_spi.c
-@@ -999,7 +999,7 @@ static struct spi_driver qca_spi_driver = {
- };
- module_spi_driver(qca_spi_driver);
+diff --git a/drivers/net/ethernet/qualcomm/qca_7k.h b/drivers/net/ethernet/qualcomm/qca_7k.h
+index 1cad851..4047f0a 100644
+--- a/drivers/net/ethernet/qualcomm/qca_7k.h
++++ b/drivers/net/ethernet/qualcomm/qca_7k.h
+@@ -54,15 +54,15 @@
+ #define SPI_REG_ACTION_CTRL     0x1B00
  
--MODULE_DESCRIPTION("Qualcomm Atheros SPI Driver");
-+MODULE_DESCRIPTION("Qualcomm Atheros QCA7000 SPI Driver");
- MODULE_AUTHOR("Qualcomm Atheros Communications");
- MODULE_AUTHOR("Stefan Wahren <stefan.wahren@i2se.com>");
- MODULE_LICENSE("Dual BSD/GPL");
+ /*   SPI_CONFIG register definition;             */
+-#define QCASPI_SLAVE_RESET_BIT (1 << 6)
++#define QCASPI_SLAVE_RESET_BIT  BIT(6)
+ 
+ /*   INTR_CAUSE/ENABLE register definition.      */
+-#define SPI_INT_WRBUF_BELOW_WM (1 << 10)
+-#define SPI_INT_CPU_ON         (1 << 6)
+-#define SPI_INT_ADDR_ERR       (1 << 3)
+-#define SPI_INT_WRBUF_ERR      (1 << 2)
+-#define SPI_INT_RDBUF_ERR      (1 << 1)
+-#define SPI_INT_PKT_AVLBL      (1 << 0)
++#define SPI_INT_WRBUF_BELOW_WM  BIT(10)
++#define SPI_INT_CPU_ON          BIT(6)
++#define SPI_INT_ADDR_ERR        BIT(3)
++#define SPI_INT_WRBUF_ERR       BIT(2)
++#define SPI_INT_RDBUF_ERR       BIT(1)
++#define SPI_INT_PKT_AVLBL       BIT(0)
+ 
+ void qcaspi_spi_error(struct qcaspi *qca);
+ int qcaspi_read_register(struct qcaspi *qca, u16 reg, u16 *result);
 -- 
 2.1.4
