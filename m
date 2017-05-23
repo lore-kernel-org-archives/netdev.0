@@ -1,95 +1,110 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: [PATCH] tipc: Delete error messages for failed memory allocations in
- three functions
-Date: Tue, 23 May 2017 15:07:01 +0200
-Message-ID: <7ac9d513-6f9f-a096-e68f-81a722c2723c@users.sourceforge.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-        kernel-janitors@vger.kernel.org
-To: tipc-discussion@lists.sourceforge.net, netdev@vger.kernel.org,
-        "David S. Miller" <davem@davemloft.net>,
-        Jon Maloy <jon.maloy@ericsson.com>,
-        Ying Xue <ying.xue@windriver.com>
+From: Stefan Wahren <stefan.wahren@i2se.com>
+Subject: [PATCH v6 net-next 08/17] net: qualcomm: move qcaspi_tx_cmd to qca_spi.c
+Date: Tue, 23 May 2017 15:12:44 +0200
+Message-ID: <1495545173-22150-9-git-send-email-stefan.wahren@i2se.com>
+References: <1495545173-22150-1-git-send-email-stefan.wahren@i2se.com>
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        Jiri Slaby <jslaby@suse.com>,
+        Lino Sanfilippo <LinoSanfilippo@gmx.de>,
+        Jakub Kicinski <kubakici@wp.pl>, devicetree@vger.kernel.org,
+        netdev@vger.kernel.org, linux-serial@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        Stefan Wahren <stefan.wahren@i2se.com>
+To: Rob Herring <robh+dt@kernel.org>,
+        Mark Rutland <mark.rutland@arm.com>,
+        "David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Language: en-GB
+In-Reply-To: <1495545173-22150-1-git-send-email-stefan.wahren@i2se.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Tue, 23 May 2017 14:45:25 +0200
+The function qcaspi_tx_cmd() is only called from qca_spi.c. So we better
+move it there.
 
-Omit four extra messages for memory allocation failures in these functions.
-
-This issue was detected by using the Coccinelle software.
-
-Link: http://events.linuxfoundation.org/sites/events/files/slides/LCJ16-Refactor_Strings-WSang_0.pdf
-Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+Signed-off-by: Stefan Wahren <stefan.wahren@i2se.com>
 ---
- net/tipc/name_table.c | 15 ++++-----------
- net/tipc/node.c       |  5 ++---
- 2 files changed, 6 insertions(+), 14 deletions(-)
+ drivers/net/ethernet/qualcomm/qca_7k.c  | 24 ------------------------
+ drivers/net/ethernet/qualcomm/qca_7k.h  |  1 -
+ drivers/net/ethernet/qualcomm/qca_spi.c | 24 ++++++++++++++++++++++++
+ 3 files changed, 24 insertions(+), 25 deletions(-)
 
-diff --git a/net/tipc/name_table.c b/net/tipc/name_table.c
-index bd0aac87b41a..7e731af8a1a7 100644
---- a/net/tipc/name_table.c
-+++ b/net/tipc/name_table.c
-@@ -117,10 +117,8 @@ static struct publication *publ_create(u32 type, u32 lower, u32 upper,
- 				       u32 key)
+diff --git a/drivers/net/ethernet/qualcomm/qca_7k.c b/drivers/net/ethernet/qualcomm/qca_7k.c
+index 557d53c..aa90a1d 100644
+--- a/drivers/net/ethernet/qualcomm/qca_7k.c
++++ b/drivers/net/ethernet/qualcomm/qca_7k.c
+@@ -119,27 +119,3 @@ qcaspi_write_register(struct qcaspi *qca, u16 reg, u16 value)
+ 
+ 	return ret;
+ }
+-
+-int
+-qcaspi_tx_cmd(struct qcaspi *qca, u16 cmd)
+-{
+-	__be16 tx_data;
+-	struct spi_message *msg = &qca->spi_msg1;
+-	struct spi_transfer *transfer = &qca->spi_xfer1;
+-	int ret;
+-
+-	tx_data = cpu_to_be16(cmd);
+-	transfer->len = sizeof(tx_data);
+-	transfer->tx_buf = &tx_data;
+-	transfer->rx_buf = NULL;
+-
+-	ret = spi_sync(qca->spi_dev, msg);
+-
+-	if (!ret)
+-		ret = msg->status;
+-
+-	if (ret)
+-		qcaspi_spi_error(qca);
+-
+-	return ret;
+-}
+diff --git a/drivers/net/ethernet/qualcomm/qca_7k.h b/drivers/net/ethernet/qualcomm/qca_7k.h
+index 4047f0a..27124c2 100644
+--- a/drivers/net/ethernet/qualcomm/qca_7k.h
++++ b/drivers/net/ethernet/qualcomm/qca_7k.h
+@@ -67,6 +67,5 @@
+ void qcaspi_spi_error(struct qcaspi *qca);
+ int qcaspi_read_register(struct qcaspi *qca, u16 reg, u16 *result);
+ int qcaspi_write_register(struct qcaspi *qca, u16 reg, u16 value);
+-int qcaspi_tx_cmd(struct qcaspi *qca, u16 cmd);
+ 
+ #endif /* _QCA_7K_H */
+diff --git a/drivers/net/ethernet/qualcomm/qca_spi.c b/drivers/net/ethernet/qualcomm/qca_spi.c
+index 7464628..50adc4f 100644
+--- a/drivers/net/ethernet/qualcomm/qca_spi.c
++++ b/drivers/net/ethernet/qualcomm/qca_spi.c
+@@ -192,6 +192,30 @@ qcaspi_read_legacy(struct qcaspi *qca, u8 *dst, u32 len)
+ }
+ 
+ static int
++qcaspi_tx_cmd(struct qcaspi *qca, u16 cmd)
++{
++	__be16 tx_data;
++	struct spi_message *msg = &qca->spi_msg1;
++	struct spi_transfer *transfer = &qca->spi_xfer1;
++	int ret;
++
++	tx_data = cpu_to_be16(cmd);
++	transfer->len = sizeof(tx_data);
++	transfer->tx_buf = &tx_data;
++	transfer->rx_buf = NULL;
++
++	ret = spi_sync(qca->spi_dev, msg);
++
++	if (!ret)
++		ret = msg->status;
++
++	if (ret)
++		qcaspi_spi_error(qca);
++
++	return ret;
++}
++
++static int
+ qcaspi_tx_frame(struct qcaspi *qca, struct sk_buff *skb)
  {
- 	struct publication *publ = kzalloc(sizeof(*publ), GFP_ATOMIC);
--	if (publ == NULL) {
--		pr_warn("Publication creation failure, no memory\n");
-+	if (!publ)
- 		return NULL;
--	}
- 
- 	publ->type = type;
- 	publ->lower = lower;
-@@ -270,11 +268,9 @@ static struct publication *tipc_nameseq_insert_publ(struct net *net,
- 		if (nseq->first_free == nseq->alloc) {
- 			struct sub_seq *sseqs = tipc_subseq_alloc(nseq->alloc * 2);
- 
--			if (!sseqs) {
--				pr_warn("Cannot publish {%u,%u,%u}, no memory\n",
--					type, lower, upper);
-+			if (!sseqs)
- 				return NULL;
--			}
-+
- 			memcpy(sseqs, nseq->sseqs,
- 			       nseq->alloc * sizeof(struct sub_seq));
- 			kfree(nseq->sseqs);
-@@ -283,11 +279,8 @@ static struct publication *tipc_nameseq_insert_publ(struct net *net,
- 		}
- 
- 		info = kzalloc(sizeof(*info), GFP_ATOMIC);
--		if (!info) {
--			pr_warn("Cannot publish {%u,%u,%u}, no memory\n",
--				type, lower, upper);
-+		if (!info)
- 			return NULL;
--		}
- 
- 		INIT_LIST_HEAD(&info->node_list);
- 		INIT_LIST_HEAD(&info->cluster_list);
-diff --git a/net/tipc/node.c b/net/tipc/node.c
-index aeef8011ac7d..0c7f5f755a28 100644
---- a/net/tipc/node.c
-+++ b/net/tipc/node.c
-@@ -324,10 +324,9 @@ struct tipc_node *tipc_node_create(struct net *net, u32 addr, u16 capabilities)
- 		goto exit;
- 	}
- 	n = kzalloc(sizeof(*n), GFP_ATOMIC);
--	if (!n) {
--		pr_warn("Node creation failed, no memory\n");
-+	if (!n)
- 		goto exit;
--	}
-+
- 	n->addr = addr;
- 	n->net = net;
- 	n->capabilities = capabilities;
+ 	u32 count;
 -- 
-2.13.0
+2.1.4
