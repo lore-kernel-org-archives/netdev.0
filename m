@@ -1,62 +1,126 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCH net 1/3] vlan: Fix tcp checksums offloads for Q-in-Q vlan.
-Date: Tue, 23 May 2017 08:59:45 -0400
-Message-ID: <35dc2a59-7e6b-224d-49da-085d3f140fe7@redhat.com>
-References: <1495114265-23368-1-git-send-email-vyasevic@redhat.com>
- <1495114265-23368-2-git-send-email-vyasevic@redhat.com>
- <20170522.195921.1033609103219347751.davem@davemloft.net>
-Reply-To: vyasevic@redhat.com
+From: Djalal Harouni <tixxdz@gmail.com>
+Subject: Re: [PATCH v4 next 0/3] modules: automatic module
+ loading restrictions
+Date: Tue, 23 May 2017 15:02:38 +0200
+Message-ID: <CAEiveUdW_pRgPcQ0Rotwt+gaNEfoE6FyBp52Rb4TnhccBd1m6Q@mail.gmail.com>
+References: <1495454226-10027-1-git-send-email-tixxdz@gmail.com>
+ <20170522120848.GA3003@openwall.com> <CAEiveUdqfMk4+vLg6TaEJNSGwoQHxYq0P4aqZoL4i9GgR3Vdtw@mail.gmail.com>
+ <20170522164323.GA2048@openwall.com> <CAEiveUdb=yc5Gt_+pU_hfNdoNBP0JsUL1QUydNZgc2tD7n1h1w@mail.gmail.com>
+ <CAGXu5jKGnG74KE-k9JPaH1bNqT5nbVioaeu_5sAKQ+4kgp-0Ng@mail.gmail.com> <CALCETrXyf3vM+NdFNcjwaOZs1KFJomuTL0DobXoH9Z68k8dknQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, makita.toshiaki@lab.ntt.co.jp
-To: David Miller <davem@davemloft.net>, vyasevich@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:50890 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751308AbdEWM7x (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 23 May 2017 08:59:53 -0400
-In-Reply-To: <20170522.195921.1033609103219347751.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Kees Cook <keescook@chromium.org>, Solar Designer <solar@openwall.com>,
+	linux-kernel <linux-kernel@vger.kernel.org>, Network Development <netdev@vger.kernel.org>,
+	LSM List <linux-security-module@vger.kernel.org>,
+	"kernel-hardening@lists.openwall.com" <kernel-hardening@lists.openwall.com>,
+	Andrew Morton <akpm@linux-foundation.org>, Rusty Russell <rusty@rustcorp.com.au>,
+	"Serge E. Hallyn" <serge@hallyn.com>, Jessica Yu <jeyu@redhat.com>,
+	"David S. Miller" <davem@davemloft.net>, James Morris <james.l.morris@oracle.com>,
+	Paul Moore <paul@paul-moore.com>, Stephen Smalley <sds@tycho.nsa.gov>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>, Ingo Molnar <mingo@kernel.org>,
+	Linux API <linux-api@vger.kernel.org>, Dongsu Park <dpark@posteo.net>,
+	Casey Schaufler <casey@schaufler-ca.com>, Jonathan Corbet <corbet@lwn.net>,
+To: Andy Lutomirski <luto@kernel.org>
+Return-path: <kernel-hardening-return-7996-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
+List-Post: <mailto:kernel-hardening@lists.openwall.com>
+List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
+List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
+List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
+In-Reply-To: <CALCETrXyf3vM+NdFNcjwaOZs1KFJomuTL0DobXoH9Z68k8dknQ@mail.gmail.com>
+List-Id: netdev.vger.kernel.org
 
-On 05/22/2017 07:59 PM, David Miller wrote:
-> From: Vladislav Yasevich <vyasevich@gmail.com>
-> Date: Thu, 18 May 2017 09:31:03 -0400
-> 
->> It appears that since commit 8cb65d000, Q-in-Q vlans have been
->> broken.  The series that commit is part of enabled TSO and checksum
->> offloading on Q-in-Q vlans.  However, most HW we support can't handle
->> it.  To work around the issue, the above commit added a function that
->> turns off offloads on Q-in-Q devices, but it left the checksum offload.
->> That will cause issues with most older devices that supprort very basic
->> checksum offload capabilities as well as some newer devices (we've
->> reproduced te problem with both be2net and bnx).
+On Tue, May 23, 2017 at 1:38 AM, Andy Lutomirski <luto@kernel.org> wrote:
+> On Mon, May 22, 2017 at 4:07 PM, Kees Cook <keescook@chromium.org> wrote:
+>> On Mon, May 22, 2017 at 12:55 PM, Djalal Harouni <tixxdz@gmail.com> wrote:
+>>> On Mon, May 22, 2017 at 6:43 PM, Solar Designer <solar@openwall.com> wrote:
+>>>> On Mon, May 22, 2017 at 03:49:15PM +0200, Djalal Harouni wrote:
+>>>>> On Mon, May 22, 2017 at 2:08 PM, Solar Designer <solar@openwall.com> wrote:
+>>>>> > On Mon, May 22, 2017 at 01:57:03PM +0200, Djalal Harouni wrote:
+>>>>> >> *) When modules_autoload_mode is set to (2), automatic module loading is
+>>>>> >> disabled for all. Once set, this value can not be changed.
+>>>>> >
+>>>>> > What purpose does this securelevel-like property ("Once set, this value
+>>>>> > can not be changed.") serve here?  I think this mode 2 is needed, but
+>>>>> > without this extra property, which is bypassable by e.g. explicitly
+>>>>> > loaded kernel modules anyway (and that's OK).
+>>>>>
+>>>>> My reasoning about "Once set, this value can not be changed" is mainly for:
+>>>>>
+>>>>> If you have some systems where modules are not updated for any given
+>>>>> reason, then the only one who will be able to load a module is an
+>>>>> administrator, basically this is a shortcut for:
+>>>>>
+>>>>> * Apps/services can run with CAP_NET_ADMIN but they are not allowed to
+>>>>> auto-load 'netdev' modules.
+>>>>>
+>>>>> * Explicitly loading modules can be guarded by seccomp filters *per*
+>>>>> app, so even if these apps have
+>>>>>   CAP_SYS_MODULE they won't be able to explicitly load modules, one
+>>>>> has to remount some sysctl /proc/ entries read-only here and remove
+>>>>> CAP_SYS_ADMIN for all apps anyway.
+>>>>>
+>>>>> This mainly serves the purpose of these systems that do not receive
+>>>>> updates, if I don't want to expose those kernel interfaces what should
+>>>>> I do ? then if I want to unload old versions and replace them with new
+>>>>> ones what operation should be allowed ? and only real root of the
+>>>>> system can do it. Hence, the "Once set, this value can not be changed"
+>>>>> is more of a shortcut, also the idea was put in my mind based on how
+>>>>> "modules_disabled" is disabled forever, and some other interfaces. I
+>>>>> would say: it is easy to handle a transition from 1) "hey this system
+>>>>> is still up to date, some features should be exposed" to 2) "this
+>>>>> system is not up to date anymore, only root should expose some
+>>>>> features..."
+>>>>>
+>>>>> Hmm, I am not sure if this answers your question ? :-)
+>>>>
+>>>> This answers my question, but in a way that I summarize as "there's no
+>>>> good reason to include this securelevel-like property".
+>>>>
+>>>
+>>> Hmm, sorry I did forget to add in my previous comment that with such
+>>> systems, CAP_SYS_MODULE can be used to reset the
+>>> "modules_autoload_mode" sysctl back from mode 2 to mode 1, even if we
+>>> disable it privileged tasks can be triggered to overwrite the sysctl
+>>> flag and get it back unless /proc is read-only... that's one of the
+>>> points, it should not be so easy to relax it.
 >>
->> To solve this for everyone, turn off checksum offloading feature
->> by default when sending Q-in-Q traffic.  Devices that are proven to
->> work can provided a corrected ndo_features_check implemetation.
+>> I'm on the fence. For modules_disabled and Yama, it was tied to
+>> CAP_SYS_ADMIN, basically designed to be a at-boot setting that could
+>> not later be undone by an attacker gaining that privilege, keeping
+>> them out of either kernel memory or existing user process memory.
+>> Here, it's CAP_SYS_MODULE... it's hard to imagine the situation where
+>> a CAP_SYS_MODULE-capable process could write to this sysctl but NOT
+>> issue direct modprobe requests, but it's _possible_ via crazy symlink
+>> games to trick capable processes into writing to sysctls. We've seen
+>> this multiple times before, and it's a way for attackers to turn a
+>> single privileged write into a privileged exec.
 >>
->> Fixes: 8cb65d000 ("net: Move check for multiple vlans to drivers")
->> CC: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
->> Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
-> 
-> This is a tough one.  I can certainly sympathize with your frustration
-> trying to track this down.
-> 
-> Clearing NETIF_F_HW_CSUM completely is the most conservative change.
-> 
-> However, for all the (perhaps many) cards upon which the checksumming
-> does work properly in Q-in-Q situations, this change could be
-> introducing non-trivial performance regressions.
-> 
-> So I think Toshiaki's suggestion to drop IP_CSUM and IPV6_CSUM is,
-> on balance, the best way forward.
-> 
+>> I might turn the question around, though: why would we want to have it
+>> changeable at this setting?
+>>
+>> I'm fine leaving that piece off, either way.
+>
+> I think that having the un-resettable mode is unnecessary.  We should
+> have option that disables loading modules entirely and cannot be
+> unset.  (That means no explicit loads and not implicit loads.)  Maybe
+> we already have this.  Otherwise, tightening caps needed for implicit
+> loads should just be a normal yes/no setting IMO.
 
-Thanks.  I'll update and re-submit.
+Ok, so as requested by you and Alexander in the other email, I will
+remove the un-resettable property, if there is no general agreement,
+better leave it for future.
 
--vlad
+I would have preferred if it is "yes/no" (in systemd the module
+protection and other directives are also only 'yes/no').  But 1)
+backward compatibility for unprivileged loading, 2) capabilities:
+CAP_SYS_MODULE, CAP_NET_ADMIN use cases and exploits against
+CAP_NET_ADMIN modules, and finally 3) separate and disable implicit
+operation from the explicit one for various reasons that are noted in
+the commit log like explicitly load the good module version, concluded
+that we need three modes!
 
-> Thanks.
-> 
+Thanks!
+
+-- 
+tixxdz
