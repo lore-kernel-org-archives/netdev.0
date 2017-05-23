@@ -1,136 +1,105 @@
-From: Alexander Potapenko <glider@google.com>
-Subject: [PATCH] net: rtnetlink: bail out from rtnl_fdb_dump() on parse error
-Date: Tue, 23 May 2017 13:20:28 +0200
-Message-ID: <20170523112028.132630-1-glider@google.com>
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: dvyukov@google.com, kcc@google.com, edumazet@google.com,
-        davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: "Ridgway, Keith" <kridgway@harris.com>
+Subject: re: [PATCH v2] cdc-ether: divorce initialisation with a filter reset
+ and a generic method
+Date: Tue, 23 May 2017 11:08:28 +0000
+Message-ID: <f5bf63ad488043f8af6e2f2778d5c32e@ROCXCH13.cs.myharris.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rocxsmtpout1.harris.com ([192.158.6.51]:56010 "EHLO
+        rocxsmtp1.harris.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S935672AbdEWLXc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 23 May 2017 07:23:32 -0400
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-rtnl_fdb_dump() failed to check the result of nlmsg_parse(), which led
-to contents of |ifm| being uninitialized because nlh->nlmsglen was too
-small to accommodate |ifm|. The uninitialized data may affect some
-branches and result in unwanted effects, although kernel data doesn't
-seem to leak to the userspace directly.
+> Some devices need their multicast filter reset but others are crashed by that.
+> So the methods need to be separated.
+>
+> Signed-off-by: Oliver Neukum <oneukum@suse.com>
+> Reported-by: "Ridgway, Keith" <kridgway@harris.com>
 
-The bug has been detected with KMSAN and syzkaller.
+I have tested this patch with three different Harris radios and it fixes the problem we experienced with RNDIS.
+I don't have any CDC Ethernet devices to try.
+Tested-by: Keith Ridgway <kridgway@harris.com>
 
-Signed-off-by: Alexander Potapenko <glider@google.com>
----
-For the record, here is the KMSAN report:
-
-==================================================================
-BUG: KMSAN: use of unitialized memory in rtnl_fdb_dump+0x5dc/0x1000
-CPU: 0 PID: 1039 Comm: probe Not tainted 4.11.0-rc5+ #2727
-Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
-Call Trace:
- __dump_stack lib/dump_stack.c:16
- dump_stack+0x143/0x1b0 lib/dump_stack.c:52
- kmsan_report+0x12a/0x180 mm/kmsan/kmsan.c:1007
- __kmsan_warning_32+0x66/0xb0 mm/kmsan/kmsan_instr.c:491
- rtnl_fdb_dump+0x5dc/0x1000 net/core/rtnetlink.c:3230
- netlink_dump+0x84f/0x1190 net/netlink/af_netlink.c:2168
- __netlink_dump_start+0xc97/0xe50 net/netlink/af_netlink.c:2258
- netlink_dump_start ./include/linux/netlink.h:165
- rtnetlink_rcv_msg+0xae9/0xb40 net/core/rtnetlink.c:4094
- netlink_rcv_skb+0x339/0x5a0 net/netlink/af_netlink.c:2339
- rtnetlink_rcv+0x83/0xa0 net/core/rtnetlink.c:4110
- netlink_unicast_kernel net/netlink/af_netlink.c:1272
- netlink_unicast+0x13b7/0x1480 net/netlink/af_netlink.c:1298
- netlink_sendmsg+0x10b8/0x10f0 net/netlink/af_netlink.c:1844
- sock_sendmsg_nosec net/socket.c:633
- sock_sendmsg net/socket.c:643
- ___sys_sendmsg+0xd4b/0x10f0 net/socket.c:1997
- __sys_sendmsg net/socket.c:2031
- SYSC_sendmsg+0x2c6/0x3f0 net/socket.c:2042
- SyS_sendmsg+0x87/0xb0 net/socket.c:2038
- do_syscall_64+0x102/0x150 arch/x86/entry/common.c:285
- entry_SYSCALL64_slow_path+0x25/0x25 arch/x86/entry/entry_64.S:246
-RIP: 0033:0x401300
-RSP: 002b:00007ffc3b0e6d58 EFLAGS: 00000246 ORIG_RAX: 000000000000002e
-RAX: ffffffffffffffda RBX: 00000000004002b0 RCX: 0000000000401300
-RDX: 0000000000000000 RSI: 00007ffc3b0e6d80 RDI: 0000000000000003
-RBP: 00007ffc3b0e6e00 R08: 000000000000000b R09: 0000000000000004
-R10: 000000000000000d R11: 0000000000000246 R12: 0000000000000000
-R13: 00000000004065a0 R14: 0000000000406630 R15: 0000000000000000
-origin: 000000008fe00056
- save_stack_trace+0x59/0x60 arch/x86/kernel/stacktrace.c:59
- kmsan_save_stack_with_flags mm/kmsan/kmsan.c:352
- kmsan_internal_poison_shadow+0xb1/0x1a0 mm/kmsan/kmsan.c:247
- kmsan_poison_shadow+0x6d/0xc0 mm/kmsan/kmsan.c:260
- slab_alloc_node mm/slub.c:2743
- __kmalloc_node_track_caller+0x1f4/0x390 mm/slub.c:4349
- __kmalloc_reserve net/core/skbuff.c:138
- __alloc_skb+0x2cd/0x740 net/core/skbuff.c:231
- alloc_skb ./include/linux/skbuff.h:933
- netlink_alloc_large_skb net/netlink/af_netlink.c:1144
- netlink_sendmsg+0x934/0x10f0 net/netlink/af_netlink.c:1819
- sock_sendmsg_nosec net/socket.c:633
- sock_sendmsg net/socket.c:643
- ___sys_sendmsg+0xd4b/0x10f0 net/socket.c:1997
- __sys_sendmsg net/socket.c:2031
- SYSC_sendmsg+0x2c6/0x3f0 net/socket.c:2042
- SyS_sendmsg+0x87/0xb0 net/socket.c:2038
- do_syscall_64+0x102/0x150 arch/x86/entry/common.c:285
- return_from_SYSCALL_64+0x0/0x6a arch/x86/entry/entry_64.S:246
-==================================================================
-
-and the reproducer:
-
-==================================================================
-  #include <sys/socket.h>
-  #include <net/if_arp.h>
-  #include <linux/netlink.h>
-  #include <stdint.h>
-  
-  int main()
-  {
-    int sock = socket(PF_NETLINK, SOCK_DGRAM | SOCK_NONBLOCK, 0);
-    struct msghdr msg;
-    memset(&msg, 0, sizeof(msg));
-    char nlmsg_buf[32];
-    memset(nlmsg_buf, 0, sizeof(nlmsg_buf));
-    struct nlmsghdr *nlmsg = nlmsg_buf;
-    nlmsg->nlmsg_len = 0x11;
-    nlmsg->nlmsg_type = 0x1e; // RTM_NEWROUTE = RTM_BASE + 0x0e
-    // type = 0x0e = 1110b
-    // kind = 2
-    nlmsg->nlmsg_flags = 0x101; // NLM_F_ROOT | NLM_F_REQUEST
-    nlmsg->nlmsg_seq = 0;
-    nlmsg->nlmsg_pid = 0;
-    nlmsg_buf[16] = (char)7;
-    struct iovec iov;
-    iov.iov_base = nlmsg_buf;
-    iov.iov_len = 17;
-    msg.msg_iov = &iov;
-    msg.msg_iovlen = 1;
-    sendmsg(sock, &msg, 0);
-    return 0;
-  }
-==================================================================
----
- net/core/rtnetlink.c | 7 +++++--
- 1 file changed, 5 insertions(+), 2 deletions(-)
-
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 49a279a7cc15..9e2c0a7cb325 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -3231,8 +3231,11 @@ static int rtnl_fdb_dump(struct sk_buff *skb, struct netlink_callback *cb)
- 	int err = 0;
- 	int fidx = 0;
- 
--	if (nlmsg_parse(cb->nlh, sizeof(struct ifinfomsg), tb,
--			IFLA_MAX, ifla_policy, NULL) == 0) {
-+	err = nlmsg_parse(cb->nlh, sizeof(struct ifinfomsg), tb,
-+			  IFLA_MAX, ifla_policy, NULL);
-+	if (err < 0) {
-+		return -EINVAL;
-+	} else if (err == 0) {
- 		if (tb[IFLA_MASTER])
- 			br_idx = nla_get_u32(tb[IFLA_MASTER]);
- 	}
--- 
-2.13.0.219.gdb65acc882-goog
+> ---
+>  drivers/net/usb/cdc_ether.c | 31 ++++++++++++++++++++++++-------
+>  include/linux/usb/usbnet.h  |  1 +
+>  2 files changed, 25 insertions(+), 7 deletions(-)
+>
+> diff --git a/drivers/net/usb/cdc_ether.c b/drivers/net/usb/cdc_ether.c
+> index f3ae88fdf332..8ab281b478f2 100644
+> --- a/drivers/net/usb/cdc_ether.c
+> +++ b/drivers/net/usb/cdc_ether.c
+> @@ -310,6 +310,26 @@ int usbnet_generic_cdc_bind(struct usbnet *dev, struct usb_interface *intf)
+>  		return -ENODEV;
+>  	}
+>  
+> +	return 0;
+> +
+> +bad_desc:
+> +	dev_info(&dev->udev->dev, "bad CDC descriptors\n");
+> +	return -ENODEV;
+> +}
+> +EXPORT_SYMBOL_GPL(usbnet_generic_cdc_bind);
+> +
+> +
+> +/* like usbnet_generic_cdc_bind() but handles filter initialization
+> + * correctly
+> + */
+> +int usbnet_ether_cdc_bind(struct usbnet *dev, struct usb_interface *intf)
+> +{
+> +	int rv;
+> +
+> +	rv = usbnet_generic_cdc_bind(dev, intf);
+> +	if (rv < 0)
+> +		goto bail_out;
+> +
+>  	/* Some devices don't initialise properly. In particular
+>  	 * the packet filter is not reset. There are devices that
+>  	 * don't do reset all the way. So the packet filter should
+> @@ -317,13 +337,10 @@ int usbnet_generic_cdc_bind(struct usbnet *dev, struct usb_interface *intf)
+>  	 */
+>  	usbnet_cdc_update_filter(dev);
+>  
+> -	return 0;
+> -
+> -bad_desc:
+> -	dev_info(&dev->udev->dev, "bad CDC descriptors\n");
+> -	return -ENODEV;
+> +bail_out:
+> +	return rv;
+>  }
+> -EXPORT_SYMBOL_GPL(usbnet_generic_cdc_bind);
+> +EXPORT_SYMBOL_GPL(usbnet_ether_cdc_bind);
+>  
+>  void usbnet_cdc_unbind(struct usbnet *dev, struct usb_interface *intf)
+>  {
+> @@ -417,7 +434,7 @@ int usbnet_cdc_bind(struct usbnet *dev, struct usb_interface *intf)
+>  	BUILD_BUG_ON((sizeof(((struct usbnet *)0)->data)
+>  			< sizeof(struct cdc_state)));
+>  
+> -	status = usbnet_generic_cdc_bind(dev, intf);
+> +	status = usbnet_ether_cdc_bind(dev, intf);
+>  	if (status < 0)
+>  		return status;
+>  
+> diff --git a/include/linux/usb/usbnet.h b/include/linux/usb/usbnet.h
+> index 7dffa5624ea6..97116379db5f 100644
+> --- a/include/linux/usb/usbnet.h
+> +++ b/include/linux/usb/usbnet.h
+> @@ -206,6 +206,7 @@ struct cdc_state {
+>  };
+>  
+>  extern int usbnet_generic_cdc_bind(struct usbnet *, struct usb_interface *);
+> +extern int usbnet_ether_cdc_bind(struct usbnet *dev, struct usb_interface *intf);
+>  extern int usbnet_cdc_bind(struct usbnet *, struct usb_interface *);
+>  extern void usbnet_cdc_unbind(struct usbnet *, struct usb_interface *);
+>  extern void usbnet_cdc_status(struct usbnet *, struct urb *);
+> -- 
+> 2.12.0
+>
