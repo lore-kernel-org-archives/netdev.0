@@ -1,55 +1,89 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: pull-request: mac80211 2017-05-23
-Date: Tue, 23 May 2017 14:42:55 +0200
-Message-ID: <20170523124256.23463-1-johannes@sipsolutions.net>
-Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Tariq Toukan <tariqt@mellanox.com>
+Subject: [PATCH net] net/mlx4: Fix the check in attaching steering rules
+Date: Tue, 23 May 2017 15:50:07 +0300
+Message-ID: <1495543807-14956-1-git-send-email-tariqt@mellanox.com>
+Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>,
+        Talat Batheesh <talatb@mellanox.com>,
+        Tariq Toukan <tariqt@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:38972 "EHLO sipsolutions.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932348AbdEWMnC (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 23 May 2017 08:43:02 -0400
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:60906 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S965928AbdEWMup (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 23 May 2017 08:50:45 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+From: Talat Batheesh <talatb@mellanox.com>
 
-I have just two fixes here, one of the scheduled scan issue that
-Sander Eikelenboom found, and the other properly makes mesh more
-strictly check its extension headers.
+Our previous patch (cited below) introduced a regression
+for RAW Eth QPs.
 
-Please pull and let me know if there's any problem.
+Fix it by checking if the QP number provided by user-space
+exists, hence allowing steering rules to be added for valid
+QPs only.
 
-Thanks,
-johannes
+Fixes: 89c557687a32 ("net/mlx4_en: Avoid adding steering rules with ...")
+Reported-by: Or Gerlitz <gerlitz.or@gmail.com>
+Signed-off-by: Talat Batheesh <talatb@mellanox.com>
+Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/en_ethtool.c |  3 +--
+ drivers/net/ethernet/mellanox/mlx4/qp.c         | 14 ++++++++++++++
+ include/linux/mlx4/qp.h                         |  1 +
+ 3 files changed, 16 insertions(+), 2 deletions(-)
 
-
-
-The following changes since commit 29cee56c0be46ad01e78af104a06223c65ee0c67:
-
-  Merge tag 'mac80211-for-davem-2017-05-08' of git://git.kernel.org/pub/scm/linux/kernel/git/jberg/mac80211 (2017-05-08 16:02:23 -0400)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/jberg/mac80211.git tags/mac80211-for-davem-2017-05-23
-
-for you to fetch changes up to 1b57b6210f4e52904393be97c62122aae69bc8aa:
-
-  cfg80211: make cfg80211_sched_scan_results() work from atomic context (2017-05-23 14:36:46 +0200)
-
-----------------------------------------------------------------
-Just two fixes this time:
- * fix the scheduled scan "BUG: scheduling while atomic"
- * check mesh address extension flags more strictly
-
-----------------------------------------------------------------
-Arend Van Spriel (1):
-      cfg80211: make cfg80211_sched_scan_results() work from atomic context
-
-Rajkumar Manoharan (1):
-      mac80211: strictly check mesh address extension mode
-
- net/mac80211/rx.c   |  3 ++-
- net/wireless/scan.c |  8 ++++----
- net/wireless/util.c | 10 ++++++----
- 3 files changed, 12 insertions(+), 9 deletions(-)
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+index ae5fdc2df654..00a7cd3dcc2e 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+@@ -1562,8 +1562,7 @@ static int mlx4_en_flow_replace(struct net_device *dev,
+ 		qpn = priv->drop_qp.qpn;
+ 	else if (cmd->fs.ring_cookie & EN_ETHTOOL_QP_ATTACH) {
+ 		qpn = cmd->fs.ring_cookie & (EN_ETHTOOL_QP_ATTACH - 1);
+-		if (qpn < priv->rss_map.base_qpn ||
+-		    qpn >= priv->rss_map.base_qpn + priv->rx_ring_num) {
++		if (!mlx4_qp_lookup(priv->mdev->dev, qpn)) {
+ 			en_warn(priv, "rxnfc: QP (0x%x) doesn't exist\n", qpn);
+ 			return -EINVAL;
+ 		}
+diff --git a/drivers/net/ethernet/mellanox/mlx4/qp.c b/drivers/net/ethernet/mellanox/mlx4/qp.c
+index 2d6abd4662b1..1eff2fe32a8b 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/qp.c
++++ b/drivers/net/ethernet/mellanox/mlx4/qp.c
+@@ -384,6 +384,20 @@ static void mlx4_qp_free_icm(struct mlx4_dev *dev, int qpn)
+ 		__mlx4_qp_free_icm(dev, qpn);
+ }
+ 
++struct mlx4_qp *mlx4_qp_lookup(struct mlx4_dev *dev, u32 qpn)
++{
++	struct mlx4_qp_table *qp_table = &mlx4_priv(dev)->qp_table;
++	struct mlx4_qp *qp;
++
++	spin_lock(&qp_table->lock);
++
++	qp = __mlx4_qp_lookup(dev, qpn);
++
++	spin_unlock(&qp_table->lock);
++	return qp;
++}
++EXPORT_SYMBOL_GPL(mlx4_qp_lookup);
++
+ int mlx4_qp_alloc(struct mlx4_dev *dev, int qpn, struct mlx4_qp *qp, gfp_t gfp)
+ {
+ 	struct mlx4_priv *priv = mlx4_priv(dev);
+diff --git a/include/linux/mlx4/qp.h b/include/linux/mlx4/qp.h
+index b4ee8f62ce8d..8e2828d48d7f 100644
+--- a/include/linux/mlx4/qp.h
++++ b/include/linux/mlx4/qp.h
+@@ -470,6 +470,7 @@ struct mlx4_update_qp_params {
+ 	u16	rate_val;
+ };
+ 
++struct mlx4_qp *mlx4_qp_lookup(struct mlx4_dev *dev, u32 qpn);
+ int mlx4_update_qp(struct mlx4_dev *dev, u32 qpn,
+ 		   enum mlx4_update_qp_attr attr,
+ 		   struct mlx4_update_qp_params *params);
+-- 
+1.8.3.1
