@@ -1,45 +1,36 @@
-From: Vladislav Yasevich <vyasevich@gmail.com>
-Subject: [PATCH V2 net 3/3] virtio-net: enable TSO/checksum offloads for Q-in-Q vlans
-Date: Tue, 23 May 2017 12:53:12 -0400
-Message-ID: <1495558392-1238-4-git-send-email-vyasevic@redhat.com>
-References: <1495558392-1238-1-git-send-email-vyasevic@redhat.com>
-Cc: alexander.duyck@gmail.com, makita.toshiaki@lab.ntt.co.jp,
-        Vladislav Yasevich <vyasevic@redhat.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f194.google.com ([209.85.216.194]:35107 "EHLO
-        mail-qt0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1764339AbdEWQxa (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 23 May 2017 12:53:30 -0400
-Received: by mail-qt0-f194.google.com with SMTP id r58so22954711qtb.2
-        for <netdev@vger.kernel.org>; Tue, 23 May 2017 09:53:30 -0700 (PDT)
-In-Reply-To: <1495558392-1238-1-git-send-email-vyasevic@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH 1/2] net: phy: Update get_phy_c45_ids for Cortina PHYs
+Date: Tue, 23 May 2017 18:55:54 +0200
+Message-ID: <20170523165554.GB24029@lunn.ch>
+References: <1495554799-23060-1-git-send-email-bogdan.purcareata@nxp.com>
+ <1495554799-23060-2-git-send-email-bogdan.purcareata@nxp.com>
+ <20170523160353.GB21169@lunn.ch>
+ <DB5PR04MB1240098B96F6EEF3730DF054EAF90@DB5PR04MB1240.eurprd04.prod.outlook.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "f.fainelli@gmail.com" <f.fainelli@gmail.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Bogdan Purcareata <bogdan.purcareata@nxp.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <DB5PR04MB1240098B96F6EEF3730DF054EAF90@DB5PR04MB1240.eurprd04.prod.outlook.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Since virtio does not provide it's own ndo_features_check handler,
-TSO, and now checksum offload, are disabled for stacked vlans.
-Re-enable the support and let the host take care of it.  This
-restores/improves Guest-to-Guest performance over Q-in-Q vlans.
-
-Acked-by: Jason Wang <jasowang@redhat.com>
-Acked-by: Michael S. Tsirkin <mst@redhat.com>
-Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
----
- drivers/net/virtio_net.c | 1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index 665627c..ead7a58 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -2020,6 +2020,7 @@ static const struct net_device_ops virtnet_netdev = {
- 	.ndo_poll_controller = virtnet_netpoll,
- #endif
- 	.ndo_xdp		= virtnet_xdp,
-+	.ndo_features_check	= passthru_features_check,
- };
+> The patches mentioned in the commit message add _some_ support for
+> the Cortina PHYs - mainly checking for devices at additional
+> locations. Once they are found, the phy IDs must be read from custom
+> locations.
  
- static void virtnet_config_changed_work(struct work_struct *work)
--- 
-2.7.4
+As a general principle, we don't add hacks in generic code to handle
+broken devices. We add generic mechanisms to work around the
+brokenness.
+
+In this case, by using ethernet-phy-id in the device tree, we are
+saying, this PHYs probing is totally borked, but we know it is there,
+at this address. Just load the driver.
+
+Please try to make ethernet-phy-id work.
+
+       Andrew
