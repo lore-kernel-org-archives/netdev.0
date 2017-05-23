@@ -1,107 +1,40 @@
-From: Solar Designer <solar@openwall.com>
-Subject: Re: [kernel-hardening] [PATCH v4 next 0/3] modules: automatic module loading restrictions
-Date: Tue, 23 May 2017 09:48:08 +0200
-Message-ID: <20170523074808.GA4562@openwall.com>
-References: <1495454226-10027-1-git-send-email-tixxdz@gmail.com> <20170522120848.GA3003@openwall.com> <CAEiveUdqfMk4+vLg6TaEJNSGwoQHxYq0P4aqZoL4i9GgR3Vdtw@mail.gmail.com> <20170522164323.GA2048@openwall.com> <CAEiveUdb=yc5Gt_+pU_hfNdoNBP0JsUL1QUydNZgc2tD7n1h1w@mail.gmail.com> <CAGXu5jKGnG74KE-k9JPaH1bNqT5nbVioaeu_5sAKQ+4kgp-0Ng@mail.gmail.com>
+From: Oliver Neukum <oneukum@suse.com>
+Subject: Re: [RFC V1 1/1] net: cdc_ncm: Reduce memory use when kernel memory
+ low
+Date: Tue, 23 May 2017 10:42:48 +0200
+Message-ID: <1495528968.2174.2.camel@suse.com>
+References: <87shk4fynp.fsf@miraculix.mork.no>
+         <20170517.141819.1307166900606639947.davem@davemloft.net>
+         <04bc5b49-9282-a6ca-2b95-fb8fc9750555@mentor.com>
+         <20170522.115426.1239443379414364630.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Djalal Harouni <tixxdz@gmail.com>,
-        linux-kernel <linux-kernel@vger.kernel.org>,
-        Network Development <netdev@vger.kernel.org>,
-        LSM List <linux-security-module@vger.kernel.org>,
-        "kernel-hardening@lists.openwall.com"
-        <kernel-hardening@lists.openwall.com>,
-        Andy Lutomirski <luto@kernel.org>,
-        Andrew Morton <akpm@linux-foundation.org>,
-        Rusty Russell <rusty@rustcorp.com.au>,
-        "Serge E. Hallyn" <serge@hallyn.com>, Jessica Yu <jeyu@redhat.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        James Morris <james.l.morris@oracle.com>,
-        Paul Moore <paul@paul-moore.com>,
-        Stephen Smalley <sds@tycho.nsa.gov>,
-        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
-        Ingo Molnar <mingo@kernel.org>,
-        Linux API <linux-api@vger.kernel.or
-To: Kees Cook <keescook@chromium.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: bjorn@mork.no, linux-usb@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>, jim_baxter@mentor.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mother.openwall.net ([195.42.179.200]:60068 "HELO
-        mother.openwall.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with SMTP id S934208AbdEWHsp (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 23 May 2017 03:48:45 -0400
-Content-Disposition: inline
-In-Reply-To: <CAGXu5jKGnG74KE-k9JPaH1bNqT5nbVioaeu_5sAKQ+4kgp-0Ng@mail.gmail.com>
+Received: from mx2.suse.de ([195.135.220.15]:41824 "EHLO mx1.suse.de"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S933976AbdEWIoY (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 23 May 2017 04:44:24 -0400
+In-Reply-To: <20170522.115426.1239443379414364630.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> >>> On Mon, May 22, 2017 at 2:08 PM, Solar Designer <solar@openwall.com> wrote:
-> >>> > On Mon, May 22, 2017 at 01:57:03PM +0200, Djalal Harouni wrote:
-> >>> >> *) When modules_autoload_mode is set to (2), automatic module loading is
-> >>> >> disabled for all. Once set, this value can not be changed.
-> >>> >
-> >>> > What purpose does this securelevel-like property ("Once set, this value
-> >>> > can not be changed.") serve here?  I think this mode 2 is needed, but
-> >>> > without this extra property, which is bypassable by e.g. explicitly
-> >>> > loaded kernel modules anyway (and that's OK).
+Am Montag, den 22.05.2017, 11:54 -0400 schrieb David Miller:
+> 
+> Unfortunately without a real notifier of some sort (there isn't one, and
+> it isn't actually easy to come up with a clean way to do this which is
+> probably why it doesn't exist yet in the first place) I really cannot
+> recommend anything better.
+> 
+> That being said, probably for the time being we should just backoff each
+> and every request, always trying initially to do the higher order thing.
 
-On Mon, May 22, 2017 at 04:07:56PM -0700, Kees Cook wrote:
-> I'm on the fence. For modules_disabled and Yama, it was tied to
-> CAP_SYS_ADMIN, basically designed to be a at-boot setting that could
-> not later be undone by an attacker gaining that privilege, keeping
-> them out of either kernel memory or existing user process memory.
-> Here, it's CAP_SYS_MODULE... it's hard to imagine the situation where
-> a CAP_SYS_MODULE-capable process could write to this sysctl but NOT
-> issue direct modprobe requests, but it's _possible_ via crazy symlink
-> games to trick capable processes into writing to sysctls. We've seen
-> this multiple times before, and it's a way for attackers to turn a
-> single privileged write into a privileged exec.
+We could use a counter. After the first failure, do it once, after the
+second twice and so on. And reset the counter as a higher order
+allocation works. (just bound it somewhere)
 
-OK, tricking a process via crazy symlink games is finally a potentially
-valid reason.  The question then becomes: are there perhaps so many
-other important sysctl's, disk files, etc. (which the vulnerable capable
-process could similarly be tricked into writing) so that specifically
-resetting modules_autoload_mode isn't particularly lucrative?  I think
-that the answer to that is usually yes.  Another related question: do we
-really want to inconsistently single out a handful of sysctl's for this
-kind of extra protection?  I think not.
-
-I agree there are some other settings where being unable to reset them
-makes sense, but I think this isn't one of those.
-
-> I might turn the question around, though: why would we want to have it
-> changeable at this setting?
-
-Convenience for the sysadmin - being able to correct one's error (e.g.,
-wrong order of shell commands), respond to new findings (thought module
-autoloading was unneeded after some point, then found out some software
-relies on it), change one's mind, reuse a system differently than
-originally intended without a forced reboot.
-
-> I'm fine leaving that piece off, either way.
-
-I'm also fine with either decision.  I just thought I'd point out what
-looked weird to me.
-
-I think this is an important patch that should get in, but primarily
-for modules_autoload_mode=1, which many distros could make the default
-(and maybe the kernel eventually should?)
-
-For modules_autoload_mode=2, we already seem to have the equivalent of
-modprobe=/bin/true (or does it differ subtly, maybe in return values?),
-which I already use at startup on a GPU box like this (preloading
-modules so that the OpenCL backends wouldn't need the autoloading):
-
-nvidia-smi
-nvidia-modprobe -u -c=0
-#modprobe nvidia_uvm
-#modprobe fglrx
-
-sysctl -w kernel.modprobe=/bin/true
-sysctl -w kernel.hotplug=/bin/true
-
-but it's good to also have this supported more explicitly and more
-consistently through modules_autoload_mode=2 while we're at it.  So I
-support having this mode as well.  I just question the need to have it
-non-resettable.
-
-Alexander
+	Regards
+		Oliver
