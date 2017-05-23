@@ -1,112 +1,92 @@
-From: Jay Vosburgh <jay.vosburgh@canonical.com>
-Subject: Re: bond link state mismatch, rtnl_trylock() vs rtnl_lock()
-Date: Tue, 23 May 2017 13:13:32 -0700
-Message-ID: <1638.1495570412@famine>
-References: <24c0747b-df09-66da-f3ac-a393a5902a72@tintri.com>
+From: Franky Lin <franky.lin@broadcom.com>
+Subject: Re: [PATCH] brcmfmac: Fix kernel oops on resume when request firmware fails.
+Date: Tue, 23 May 2017 13:32:23 -0700
+Message-ID: <CA+8PC_cTs0_F6ZsrRRs4VqPEDSGmDtW-2Q=ZZz8an-bEehE-3w@mail.gmail.com>
+References: <20170523180733.26276-1-enric.balletbo@collabora.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: netdev@vger.kernel.org
-To: Nithin Sujir <nsujir@tintri.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:53121 "EHLO
-        youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S936246AbdEWUNg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 23 May 2017 16:13:36 -0400
-In-reply-to: <24c0747b-df09-66da-f3ac-a393a5902a72@tintri.com>
-Content-ID: <1637.1495570412.1@famine>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Arend van Spriel <arend.vanspriel@broadcom.com>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        linux-wireless@vger.kernel.org,
+        "open list:BROADCOM BRCM80211 IEEE802.11n WIRELESS DRIVER"
+        <brcm80211-dev-list.pdl@broadcom.com>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        Hante Meuleman <hante.meuleman@broadcom.com>,
+        Christian Daudt <csd@broadcom.com>
+To: Enric Balletbo i Serra <enric.balletbo@collabora.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170523180733.26276-1-enric.balletbo@collabora.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Nithin Sujir <nsujir@tintri.com> wrote:
+Hi Enric,
 
->Hi,
->We're encountering a problem in 4.4 LTS where, rarely, the bond link state
->is not updated when the slave link changes.
+On Tue, May 23, 2017 at 11:07 AM, Enric Balletbo i Serra
+<enric.balletbo@collabora.com> wrote:
+> When request firmware fails, brcmf_ops_sdio_remove is being called and
+> brcmf_bus freed. In such circumstancies if you do a suspend/resume cycle
+> the kernel hangs on resume due a NULL pointer dereference in resume
+> function.
 >
->I've traced the issue to the arp monitor unable to get the rtnl lock. The
->sequence resulting in failure is as below.
+> Steps to reproduce the problem:
+>  - modprobe brcmfmac without the firmware
+>      brcmfmac mmc1:0001:1: Direct firmware load for brcm/brcmfmac4354-sdio.bin
+>      failed with error -2
+>  - do a suspend/resume cycle (echo mem > /sys/power/state)
 >
->bond_loadbalance_arp_mon() periodically called, if slave link is _down_,
->it checks if the slave is sending/receiving packets. If it is, it sets
->flags to be processed later down the function for bond link
->update. However, it sets the slave->link right away.
+> Protect against the NULL pointer derefence by checking if dev_get_drvdata
+> returned a valid pointer.
 >
->                if (slave->link != BOND_LINK_UP) {
->                        if (bond_time_in_interval(bond, trans_start, 1) &&
->                            bond_time_in_interval(bond, slave->last_rx,
->1)) {
->
->                                slave->link  = BOND_LINK_UP;
->                                slave_state_changed = 1;
->
->
->Later down the function, it tries to get the rtnl_lock. If it doesn't get
->it, it rearms and returns.
->
->        if (do_failover || slave_state_changed) {
->                if (!rtnl_trylock())
->                        goto re_arm; <-- returns here
->
->                if (slave_state_changed) {
->                        bond_slave_state_change(bond);
->
->This is the problem. The next time this function is called, the
->slave->link is already marked UP. And we will never update the bond link
->state to UP.
-
-	This looks like an ARP monitor version of
-
-commit de77ecd4ef02ca783f7762e04e92b3d0964be66b
-Author: Mahesh Bandewar <maheshb@google.com>
-Date:   Mon Mar 27 11:37:33 2017 -0700
-
-    bonding: improve link-status update in mii-monitoring
-
-	and probably needs a similar fix (possibly for both the
-loadbalance and active-backup ARP monitor cases).
-
->Changing the rtnl_trylock() -> rtnl_lock() _does_ fix the issue.
->
->Is this the right way to fix it? If it is, I can submit this formally.
-
-	It's not the right way, unfortunately.
-
-	The reason for the rtnl_trylock is that there's a possible race
-against bond_close() -> bond_work_cancel_all() trying to cancel the
-arp_work workqueue item while it's running.  bond_close is called with
-RTNL held, so if it has RTNL and is waiting for the work function to
-complete, an rtnl_lock call here will deadlock.  Some of the trylock
-calls in bonding are commented to this effect, but not this one.
-
-	-J
-
->What are the guidelines around using rtnl_lock() vs rtnl_trylock()? Some
->places are using rtnl_lock() and other rtnl_trylock(). Sorry, I couldn't
->find much via a google search or in Documentation/.
->
->Thanks,
->Nithin.
->
->--------------------
->
->diff --git a/drivers/net/bonding/bond_main.c
->b/drivers/net/bonding/bond_main.c
->index 5dca77e..1f60503 100644
->--- a/drivers/net/bonding/bond_main.c
->+++ b/drivers/net/bonding/bond_main.c
->@@ -2614,8 +2614,7 @@ static void bond_loadbalance_arp_mon(struct
->work_struct *work)
->        rcu_read_unlock();
->
->        if (do_failover || slave_state_changed) {
->-               if (!rtnl_trylock())
->-                       goto re_arm;
->+               rtnl_lock();
->
->                if (slave_state_changed) {
->                        bond_slave_state_change(bond);
->
+> Signed-off-by: Enric Balletbo i Serra <enric.balletbo@collabora.com>
+> ---
+> I'm not sure about if this is the correct way to fix this but at least it
+> prevents the kernel to hang. From one side I'm not sure why suspend/resume
+> functions are called in such case and why the device is not removed from
+> the bus, from the other side I saw, that others drivers only unregisters
+> from sdio when the driver is removed so I supose this is the normal behavior.
 >
 
----
-	-Jay Vosburgh, jay.vosburgh@canonical.com
+Thank you for reporting this. I also think these questions you listed
+should be answered before putting the null check in resume routine. I
+will dig deeper and share my finding on the thread.
+
+Regards,
+Franky
+
+> Cheers,
+>  Enric
+>
+>  drivers/net/wireless/broadcom/brcm80211/brcmfmac/bcmsdh.c | 7 ++++---
+>  1 file changed, 4 insertions(+), 3 deletions(-)
+>
+> diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/bcmsdh.c b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/bcmsdh.c
+> index 9b970dc..aa0e7c2 100644
+> --- a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/bcmsdh.c
+> +++ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/bcmsdh.c
+> @@ -1274,14 +1274,16 @@ static int brcmf_ops_sdio_suspend(struct device *dev)
+>  static int brcmf_ops_sdio_resume(struct device *dev)
+>  {
+>         struct brcmf_bus *bus_if = dev_get_drvdata(dev);
+> -       struct brcmf_sdio_dev *sdiodev = bus_if->bus_priv.sdio;
+>         struct sdio_func *func = container_of(dev, struct sdio_func, dev);
+>
+>         brcmf_dbg(SDIO, "Enter: F%d\n", func->num);
+>         if (func->num != SDIO_FUNC_2)
+>                 return 0;
+>
+> -       brcmf_sdiod_freezer_off(sdiodev);
+> +       if (!bus_if)
+> +               return 0;
+> +
+> +       brcmf_sdiod_freezer_off(bus_if->bus_priv.sdio);
+>         return 0;
+>  }
+>
+> @@ -1319,4 +1321,3 @@ void brcmf_sdio_exit(void)
+>
+>         sdio_unregister_driver(&brcmf_sdmmc_driver);
+>  }
+> -
+> --
+> 2.9.3
+>
