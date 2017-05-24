@@ -1,53 +1,160 @@
-From: Stefan Wahren <stefan.wahren@i2se.com>
-Subject: Re: [PATCH v6 net-next 17/17] net: qualcomm: add QCA7000 UART driver
-Date: Wed, 24 May 2017 11:06:37 +0200
-Message-ID: <50e5a442-777f-1516-4e94-16db7fa28f8b@i2se.com>
-References: <1495545173-22150-1-git-send-email-stefan.wahren@i2se.com>
- <1495545173-22150-18-git-send-email-stefan.wahren@i2se.com>
- <053235ad-a963-6a09-ccb0-b643115dee00@gmx.de>
- <1059621060.236992.1495568289051@email.1und1.de>
- <41c7302e-b25c-9f57-470a-dd95200a060f@gmx.de>
+From: Bogdan Purcareata <bogdan.purcareata@nxp.com>
+Subject: [PATCH v2] drivers: phy: Add Cortina CS4340 driver
+Date: Wed, 24 May 2017 09:25:48 +0000
+Message-ID: <1495617948-13435-1-git-send-email-bogdan.purcareata@nxp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: linux-serial@vger.kernel.org, Jiri Slaby <jslaby@suse.com>,
-        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Jakub Kicinski <kubakici@wp.pl>, devicetree@vger.kernel.org
-To: Lino Sanfilippo <LinoSanfilippo@gmx.de>,
-        Rob Herring <robh+dt@kernel.org>,
-        Mark Rutland <mark.rutland@arm.com>,
-        "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain
+To: <andrew@lunn.ch>, <f.fainelli@gmail.com>, <netdev@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <41c7302e-b25c-9f57-470a-dd95200a060f@gmx.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Am 23.05.2017 um 23:01 schrieb Lino Sanfilippo:
-> On 23.05.2017 21:38, Stefan Wahren wrote:
->>> Lino Sanfilippo <LinoSanfilippo@gmx.de> hat am 23. Mai 2017 um 20:16 geschrieben:
->>>
->>> I suggest to avoid this possible race by first unregistering the netdevice and then 
->>> calling cancel_work_sync().
->> What makes you sure that's safe to unregister the netdev while the tx work queue is possibly active?
-> unregister_netdevice() calls netdev_close() if the interface is still up. netdev_close() calls flush_work()
-> so the unregistration is delayed until the tx work function is finished. Furthermore both close() and
-> tx work are synchronized by means of the qca->lock which also guarantees that unregister_netdevice() wont
-> be finished until the tx work is done.
->
+Add basic support for Cortina PHY drivers. Support only CS4340 for now.
+The phys are not compatible with IEEE 802.3 clause 45 registers. Implement
+proper read_status support, so that phy polling does not cause bus
+register access errors.
 
-Thanks for the explanation. I suspect there could be the same race
-between serdev_device_close() and the tx work queue.
+The driver should be described using the "ethernet-phy-id" device tree
+compatible.
 
-So i would propose a variant of your original suggestion:
+Signed-off-by: Bogdan Purcareata <bogdan.purcareata@nxp.com>
+---
+v1 -> v2:
+- Rename "mdio-cortina.c" to "cortina.c" since it's a phy driver.
+- Test probing based on the "ethernet-phy-id" compatible. In the previous
+  version, getting the phy_id via get_phy_c45_ids() involved an additional
+  hack. Drop that approach and document probing in the commit message.
 
-unregister_netdev(qca->net_dev);
+ drivers/net/phy/Kconfig   |  5 +++
+ drivers/net/phy/Makefile  |  1 +
+ drivers/net/phy/cortina.c | 90 +++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 96 insertions(+)
+ create mode 100644 drivers/net/phy/cortina.c
 
-/* Flush any pending characters in the driver. */
-serdev_device_close(serdev);
-cancel_work_sync(&qca->tx_work);
-
-Since we have the same pattern in the error path of the probe function,
-the same applies there.
-
-Stefan
+diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
+index 22dea7f..ad09e2d 100644
+--- a/drivers/net/phy/Kconfig
++++ b/drivers/net/phy/Kconfig
+@@ -240,6 +240,11 @@ config CICADA_PHY
+ 	---help---
+ 	  Currently supports the cis8204
+ 
++config CORTINA_PHY
++	tristate "Cortina quad-10G Ethernet PHY"
++	---help---
++	  Currently supports the CS4340 phy.
++
+ config DAVICOM_PHY
+ 	tristate "Davicom PHYs"
+ 	---help---
+diff --git a/drivers/net/phy/Makefile b/drivers/net/phy/Makefile
+index 79365be..0de3e20 100644
+--- a/drivers/net/phy/Makefile
++++ b/drivers/net/phy/Makefile
+@@ -47,6 +47,7 @@ obj-$(CONFIG_BCM_CYGNUS_PHY)	+= bcm-cygnus.o
+ obj-$(CONFIG_BCM_NET_PHYLIB)	+= bcm-phy-lib.o
+ obj-$(CONFIG_BROADCOM_PHY)	+= broadcom.o
+ obj-$(CONFIG_CICADA_PHY)	+= cicada.o
++obj-$(CONFIG_CORTINA_PHY)	+= cortina.o
+ obj-$(CONFIG_DAVICOM_PHY)	+= davicom.o
+ obj-$(CONFIG_DP83640_PHY)	+= dp83640.o
+ obj-$(CONFIG_DP83848_PHY)	+= dp83848.o
+diff --git a/drivers/net/phy/cortina.c b/drivers/net/phy/cortina.c
+new file mode 100644
+index 0000000..6f054ed
+--- /dev/null
++++ b/drivers/net/phy/cortina.c
+@@ -0,0 +1,90 @@
++/*
++ *    Based on code from Cortina Systems, Inc.
++ *
++ *    Copyright 2011 Cortina Systems, Inc.
++ *    Copyright 2017 NXP
++ *
++ *    This program is free software; you can redistribute it and/or modify
++ *    it under the terms of the GNU General Public License as published by
++ *    the Free Software Foundation; either version 2 of the License, or
++ *    (at your option) any later version.
++ *
++ *    This program is distributed in the hope that it will be useful,
++ *    but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ *    GNU General Public License for more details.
++ *
++ */
++#include <linux/module.h>
++#include <linux/phy.h>
++
++#define PHY_ID_CS4340	0x13e51002
++
++#define CORTINA_GPIO_GPIO_INTS				0x16D
++
++static int cortina_read_x(struct phy_device *phydev, int off, u16 regnum)
++{
++	return mdiobus_read(phydev->mdio.bus, phydev->mdio.addr + off,
++			    MII_ADDR_C45 | regnum);
++}
++
++static int cortina_read(struct phy_device *phydev, u16 regnum)
++{
++	return cortina_read_x(phydev, 0, regnum);
++}
++
++static int cortina_config_aneg(struct phy_device *phydev)
++{
++	phydev->supported = SUPPORTED_10000baseT_Full;
++	phydev->advertising = SUPPORTED_10000baseT_Full;
++
++	return 0;
++}
++
++static int cortina_read_status(struct phy_device *phydev)
++{
++	int gpio_int_status;
++	int ret = 0;
++
++	gpio_int_status = cortina_read(phydev, CORTINA_GPIO_GPIO_INTS);
++	if (gpio_int_status < 0) {
++		ret = gpio_int_status;
++		goto err;
++	}
++
++	if (gpio_int_status & 0x8) {
++		phydev->speed = SPEED_10000;
++		phydev->duplex = DUPLEX_FULL;
++		phydev->link = 1;
++	} else {
++		phydev->link = 0;
++	}
++
++err:
++	return ret;
++}
++
++static int cortina_soft_reset(struct phy_device *phydev)
++{
++	return 0;
++}
++
++static struct phy_driver cortina_driver[] = {
++{
++	.phy_id         = PHY_ID_CS4340,
++	.phy_id_mask    = 0xffffffff,
++	.name           = "Cortina CS4340",
++	.config_aneg    = cortina_config_aneg,
++	.read_status    = cortina_read_status,
++	.soft_reset     = cortina_soft_reset,
++},
++};
++
++module_phy_driver(cortina_driver);
++
++static struct mdio_device_id __maybe_unused cortina_tbl[] = {
++	{ PHY_ID_CS4340, 0xffffffff},
++	{},
++};
++
++MODULE_DEVICE_TABLE(mdio, cortina_tbl);
+-- 
+1.9.1
