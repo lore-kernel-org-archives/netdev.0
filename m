@@ -1,39 +1,34 @@
 From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [v3] libertas: Avoid reading past end of buffer
-Date: Wed, 24 May 2017 13:44:22 +0000 (UTC)
-Message-ID: <20170524134422.7230F60DD9@smtp.codeaurora.org>
-References: <20170515212640.GA45443@beast>
+Subject: Re: libertas: Remove function entry/exit debugging
+Date: Wed, 24 May 2017 13:44:58 +0000 (UTC)
+Message-ID: <20170524134459.07E53602B8@smtp.codeaurora.org>
+References: <20170515213317.GA45562@beast>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, Joe Perches <joe@perches.com>,
         libertas-dev@lists.infradead.org, linux-wireless@vger.kernel.org,
-        netdev@vger.kernel.org, Daniel Micay <danielmicay@gmail.com>,
         linux-kernel@vger.kernel.org
 To: Kees Cook <keescook@chromium.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170515212640.GA45443@beast>
+In-Reply-To: <20170515213317.GA45562@beast>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Kees Cook <keescook@chromium.org> wrote:
-> Using memcpy() from a string that is shorter than the length copied means
-> the destination buffer is being filled with arbitrary data from the kernel
-> rodata segment. Instead, redefine the stat strings to be ETH_GSTRING_LEN
-> sizes, like other drivers. This lets us use a single memcpy that does not
-> leak rodata contents. Additionally adjust indentation to keep checkpatch.pl
-> happy.
+> In at least one place, the enter/exit debugging was not being correctly
+> matched. Based on mailing list feedback, it was desired to drop all of
+> these in favor of using ftrace instead.
 > 
-> This was found with the future CONFIG_FORTIFY_SOURCE feature.
-> 
-> Cc: Daniel Micay <danielmicay@gmail.com>
+> Suggested-by: Joe Perches <joe@perches.com>
+> Suggested-by: Kalle Valo <kvalo@codeaurora.org>
 > Signed-off-by: Kees Cook <keescook@chromium.org>
 
 Patch applied to wireless-drivers-next.git, thanks.
 
-12e3c0433e8a libertas: Avoid reading past end of buffer
+4bc606af9fab libertas: Remove function entry/exit debugging
 
 -- 
-https://patchwork.kernel.org/patch/9727997/
+https://patchwork.kernel.org/patch/9728087/
 
 https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
