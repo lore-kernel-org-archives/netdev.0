@@ -1,119 +1,71 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [Intel-wired-lan] [PATCH 1/4] [next-queue]net: mqprio: Introduce
- new hardware offload mode in mqprio for offloading full TC configurations
-Date: Wed, 24 May 2017 14:59:59 -0700
-Message-ID: <CAKgT0UeKf37YKbw2bgZKXs4Or4aK6p64zRSNk9ZSnc=kp0_JCQ@mail.gmail.com>
-References: <149524122523.11022.4541073724650541658.stgit@anamdev.jf.intel.com>
- <149524190301.11022.16999010740843369111.stgit@anamdev.jf.intel.com>
+From: Timur Tabi <timur@codeaurora.org>
+Subject: Re: [PATCH 2/2] at803x: double check SGMII side autoneg
+Date: Wed, 24 May 2017 17:03:39 -0500
+Message-ID: <d0aa5ce2-d9d2-b8be-67f1-2e8e90929b8d@codeaurora.org>
+References: <20170523160722.GC21169@lunn.ch>
+ <3dc4f9cf-3172-0227-f03c-1ccfdad3e15e@codeaurora.org>
+ <a87a7309-e15e-286f-08d0-83535c094358@neratec.com>
+ <a88a111d-5e3a-0999-14ef-0ada06febb3f@codeaurora.org>
+ <20170524134021.GA26577@lunn.ch>
+ <8cf4ca6d-3e1e-3c9c-605f-5d6baf3c7588@codeaurora.org>
+ <20170524140929.GC26577@lunn.ch>
+ <c2a54e2e-a1b6-24b4-d125-95fa9648fe95@codeaurora.org>
+ <20170524193450.GC1788@lunn.ch>
+ <d6a23db1-2465-b315-f520-63aba0341fbe@quicinc.com>
+ <20170524211520.GJ1788@lunn.ch>
+ <45f80817-ec17-51c0-3816-f7c93e6aeeb9@quicinc.com>
+ <27f6d81d-50b1-a585-e251-2303957130d9@gmail.com>
+ <bde05752-8dcf-9c69-0677-39a12e67edeb@quicinc.com>
+ <500e4d46-977b-bb6f-9252-cb6990288a84@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
-        Netdev <netdev@vger.kernel.org>
-To: Amritha Nambiar <amritha.nambiar@intel.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Matthias May <matthias.may@neratec.com>,
+        Zefir Kurtisi <zefir.kurtisi@neratec.com>,
+        netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+        Manoj Iyer <manoj.iyer@canonical.com>, jhugo@codeaurora.org
+To: Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f65.google.com ([209.85.214.65]:33429 "EHLO
-        mail-it0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1033240AbdEXWAB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 24 May 2017 18:00:01 -0400
-Received: by mail-it0-f65.google.com with SMTP id l145so21291377ita.0
-        for <netdev@vger.kernel.org>; Wed, 24 May 2017 15:00:00 -0700 (PDT)
-In-Reply-To: <149524190301.11022.16999010740843369111.stgit@anamdev.jf.intel.com>
+Received: from smtp.codeaurora.org ([198.145.29.96]:53154 "EHLO
+        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1161117AbdEXWDn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 24 May 2017 18:03:43 -0400
+In-Reply-To: <500e4d46-977b-bb6f-9252-cb6990288a84@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 19, 2017 at 5:58 PM, Amritha Nambiar
-<amritha.nambiar@intel.com> wrote:
-> This patch introduces a new hardware offload mode in mqprio
-> which makes full use of the mqprio options, the TCs, the
-> queue configurations and the bandwidth rates for the TCs.
-> This is achieved by setting the value 2 for the "hw" option.
-> This new offload mode supports new attributes for traffic
-> class such as minimum and maximum values for bandwidth rate limits.
+On 05/24/2017 04:36 PM, Florian Fainelli wrote:
+> OK, and there is no way you can run into the following race condition:
 >
-> Introduces a new datastructure 'tc_mqprio_qopt_offload' for offloading
-> mqprio queue options and use this to be shared between the kernel and
-> device driver. This contains a copy of the exisiting datastructure
-> for mqprio queue options. This new datastructure can be extended when
-> adding new attributes for traffic class such as bandwidth rate limits. The
-> existing datastructure for mqprio queue options will be shared between the
-> kernel and userspace.
->
-> This patch enables configuring additional attributes associated
-> with a traffic class such as minimum and maximum bandwidth
-> rates and can be offloaded to the hardware in the new offload mode.
-> The min and max limits for bandwidth rates are provided
-> by the user along with the the TCs and the queue configurations
-> when creating the mqprio qdisc.
->
-> Example:
-> # tc qdisc add dev eth0 root mqprio num_tc 2  map 0 0 0 0 1 1 1 1\
->   queues 4@0 4@4 min_rate 0Mbit 0Mbit max_rate 55Mbit 60Mbit hw 2
->
-> To dump the bandwidth rates:
->
-> # tc qdisc show dev eth0
-> qdisc mqprio 804a: root  tc 2 map 0 0 0 0 1 1 1 1 0 0 0 0 0 0 0 0
->              queues:(0:3) (4:7)
->              min rates:0bit 0bit
->              max rates:55Mbit 60Mbit
->
-> Signed-off-by: Amritha Nambiar <amritha.nambiar@intel.com>
-> ---
->  include/linux/netdevice.h      |    2
->  include/net/pkt_cls.h          |    7 ++
->  include/uapi/linux/pkt_sched.h |   13 +++
->  net/sched/sch_mqprio.c         |  169 +++++++++++++++++++++++++++++++++++++---
->  4 files changed, 180 insertions(+), 11 deletions(-)
->
+> CPU				HW
+> MDIO read intent
+> 				polling starts
+> disable HW autopoll
+> 				polling continues
 
-[...]
+Disabling of the HW autopoll waits for the poll to actually stop before 
+continuing.  You can see the code here:
 
-> diff --git a/net/sched/sch_mqprio.c b/net/sched/sch_mqprio.c
-> index 0a4cf27..6457ec9 100644
-> --- a/net/sched/sch_mqprio.c
-> +++ b/net/sched/sch_mqprio.c
-> @@ -18,10 +18,13 @@
->  #include <net/netlink.h>
->  #include <net/pkt_sched.h>
->  #include <net/sch_generic.h>
-> +#include <net/pkt_cls.h>
->
->  struct mqprio_sched {
->         struct Qdisc            **qdiscs;
->         int hw_offload;
-> +       u32 flags;
-> +       u64 min_rate[TC_QOPT_MAX_QUEUE], max_rate[TC_QOPT_MAX_QUEUE];
->  };
->
->  static void mqprio_destroy(struct Qdisc *sch)
-> @@ -39,10 +42,21 @@ static void mqprio_destroy(struct Qdisc *sch)
->         }
->
->         if (priv->hw_offload && dev->netdev_ops->ndo_setup_tc) {
-> -               struct tc_mqprio_qopt offload = { 0 };
-> -               struct tc_to_netdev tc = { .type = TC_SETUP_MQPRIO,
-> -                                          { .mqprio = &offload } };
-> +               struct tc_mqprio_qopt_offload offload = { 0 };
+http://elixir.free-electrons.com/linux/latest/source/drivers/net/ethernet/qualcomm/emac/emac-phy.c#L102
 
-So this is currently throwing a warning when I pull these patches and
-build this with gcc 6.2. I think the correct setup is "offload = {{ 0
-}}" in order to indicate that we are initializing the inner structure
-and all other data to 0.
-
-> +               struct tc_to_netdev tc = { 0 };
+> MDIO read is done
+> 				MDIO read done
+> 				polling stops
+> MDIO read value returned
 >
-> +               switch (priv->hw_offload) {
-> +               case TC_MQPRIO_HW_OFFLOAD_TCS:
-> +                       tc.type = TC_SETUP_MQPRIO;
-> +                       tc.mqprio = &offload.qopt;
-> +                       break;
-> +               case TC_MQPRIO_HW_OFFLOAD:
-> +                       tc.type = TC_SETUP_MQPRIO_EXT;
-> +                       tc.mqprio_qopt = &offload;
-> +                       break;
-> +               default:
-> +                       return;
-> +               }
->                 dev->netdev_ops->ndo_setup_tc(dev, sch->handle, 0, &tc);
->         } else {
->                 netdev_set_num_tc(dev, 0);
+>
+> if you disable autopolling in HW this is guaranteed to immediately stop
+> by the time the register value is seen in HW and your I/O read/write
+> returns?
+
+It doesn't immediately stop, but the emac_phy_mdio_autopoll_disable() 
+function waits for the MDIO bus to not be busy.  But low-level details 
+of this feature are not documented, so who knows what it does exactly? 
+The original code that used this feature only supported one PHY and 
+never expected there to be any asynchronous MDIO transactios.
+
+-- 
+Qualcomm Innovation Center, Inc.
+The Qualcomm Innovation Center, Inc. is a member of the
+Code Aurora Forum, a Linux Foundation Collaborative Project.
