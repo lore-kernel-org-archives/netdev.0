@@ -1,75 +1,98 @@
-From: <bcohen@childrensnational.org>
-Subject: (unknown)
-Date: Wed, 24 May 2017 00:12:28 -0000
-Message-ID: <149558474808.6150.3671931549524153881@permonline.ru>
-Mime-Version: 1.0
-Content-Type: application/zip; name="07974248344583.zip"
-Content-Transfer-Encoding: base64
-To: <netdev@vger.kernel.org>
+From: Matthias Kaehlcke <mka@chromium.org>
+Subject: [PATCH] net: jme: Remove unused functions
+Date: Tue, 23 May 2017 17:27:51 -0700
+Message-ID: <20170524002751.172595-1-mka@chromium.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Douglas Anderson <dianders@chromium.org>,
+        Matthias Kaehlcke <mka@chromium.org>
+To: Guo-Fu Tseng <cooldavid@cooldavid.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 90.150.124.57.permonline.ru ([90.150.124.57]:35687 "HELO
-        permonline.ru" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-        with SMTP id S965509AbdEXAMc (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 23 May 2017 20:12:32 -0400
-Subject: 
-Content-Disposition: attachment
+Received: from mail-pf0-f180.google.com ([209.85.192.180]:35753 "EHLO
+        mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S965002AbdEXA2N (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 23 May 2017 20:28:13 -0400
+Received: by mail-pf0-f180.google.com with SMTP id n23so129621391pfb.2
+        for <netdev@vger.kernel.org>; Tue, 23 May 2017 17:28:12 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-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
-AAAAAA==
+The functions jme_restart_tx_engine(), jme_pause_rx() and
+jme_resume_rx() are not used. Removing them fixes the following warnings
+when building with clang:
+
+drivers/net/ethernet/jme.c:694:1: error: unused function
+    'jme_restart_tx_engine' [-Werror,-Wunused-function]
+
+drivers/net/ethernet/jme.c:2393:20: error: unused function
+    'jme_pause_rx' [-Werror,-Wunused-function]
+
+drivers/net/ethernet/jme.c:2406:20: error: unused function
+    'jme_resume_rx' [-Werror,-Wunused-function]
+
+Signed-off-by: Matthias Kaehlcke <mka@chromium.org>
+---
+ drivers/net/ethernet/jme.c | 42 ------------------------------------------
+ 1 file changed, 42 deletions(-)
+
+diff --git a/drivers/net/ethernet/jme.c b/drivers/net/ethernet/jme.c
+index f580b49e6b67..0e5083a48937 100644
+--- a/drivers/net/ethernet/jme.c
++++ b/drivers/net/ethernet/jme.c
+@@ -691,17 +691,6 @@ jme_enable_tx_engine(struct jme_adapter *jme)
+ }
+ 
+ static inline void
+-jme_restart_tx_engine(struct jme_adapter *jme)
+-{
+-	/*
+-	 * Restart TX Engine
+-	 */
+-	jwrite32(jme, JME_TXCS, jme->reg_txcs |
+-				TXCS_SELECT_QUEUE0 |
+-				TXCS_ENABLE);
+-}
+-
+-static inline void
+ jme_disable_tx_engine(struct jme_adapter *jme)
+ {
+ 	int i;
+@@ -2382,37 +2371,6 @@ jme_tx_timeout(struct net_device *netdev)
+ 	jme_reset_link(jme);
+ }
+ 
+-static inline void jme_pause_rx(struct jme_adapter *jme)
+-{
+-	atomic_dec(&jme->link_changing);
+-
+-	jme_set_rx_pcc(jme, PCC_OFF);
+-	if (test_bit(JME_FLAG_POLL, &jme->flags)) {
+-		JME_NAPI_DISABLE(jme);
+-	} else {
+-		tasklet_disable(&jme->rxclean_task);
+-		tasklet_disable(&jme->rxempty_task);
+-	}
+-}
+-
+-static inline void jme_resume_rx(struct jme_adapter *jme)
+-{
+-	struct dynpcc_info *dpi = &(jme->dpi);
+-
+-	if (test_bit(JME_FLAG_POLL, &jme->flags)) {
+-		JME_NAPI_ENABLE(jme);
+-	} else {
+-		tasklet_enable(&jme->rxclean_task);
+-		tasklet_enable(&jme->rxempty_task);
+-	}
+-	dpi->cur		= PCC_P1;
+-	dpi->attempt		= PCC_P1;
+-	dpi->cnt		= 0;
+-	jme_set_rx_pcc(jme, PCC_P1);
+-
+-	atomic_inc(&jme->link_changing);
+-}
+-
+ static void
+ jme_get_drvinfo(struct net_device *netdev,
+ 		     struct ethtool_drvinfo *info)
+-- 
+2.13.0.219.gdb65acc882-goog
