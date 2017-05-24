@@ -1,15 +1,15 @@
 From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net v2 2/5] bpf: properly reset caller saved regs after helper call and ld_abs/ind
-Date: Thu, 25 May 2017 01:05:06 +0200
-Message-ID: <fd8cb868cb43b79014d8c2748b351dd3475964e6.1495665905.git.daniel@iogearbox.net>
+Subject: [PATCH net v2 3/5] bpf: add bpf_clone_redirect to bpf_helper_changes_pkt_data
+Date: Thu, 25 May 2017 01:05:07 +0200
+Message-ID: <75df55a26a345e7718cb520fb1ccc6a02a4460d6.1495665905.git.daniel@iogearbox.net>
 References: <cover.1495665905.git.daniel@iogearbox.net>
 Cc: alexei.starovoitov@gmail.com, netdev@vger.kernel.org,
         Daniel Borkmann <daniel@iogearbox.net>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:40332 "EHLO
+Received: from www62.your-server.de ([213.133.104.62]:40341 "EHLO
         www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1032788AbdEXXFk (ORCPT
+        with ESMTP id S1033163AbdEXXFk (ORCPT
         <rfc822;netdev@vger.kernel.org>); Wed, 24 May 2017 19:05:40 -0400
 In-Reply-To: <cover.1495665905.git.daniel@iogearbox.net>
 In-Reply-To: <cover.1495665905.git.daniel@iogearbox.net>
@@ -17,99 +17,29 @@ References: <cover.1495665905.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently, after performing helper calls, we clear all caller saved
-registers, that is r0 - r5 and fill r0 depending on struct bpf_func_proto
-specification. The way we reset these regs can affect pruning decisions
-in later paths, since we only reset register's imm to 0 and type to
-NOT_INIT. However, we leave out clearing of other variables such as id,
-min_value, max_value, etc, which can later on lead to pruning mismatches
-due to stale data.
+The bpf_clone_redirect() still needs to be listed in
+bpf_helper_changes_pkt_data() since we call into
+bpf_try_make_head_writable() from there, thus we need
+to invalidate prior pkt regs as well.
 
+Fixes: 36bbef52c7eb ("bpf: direct packet write and access for helpers for clsact progs")
 Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
 Acked-by: Alexei Starovoitov <ast@kernel.org>
 ---
- kernel/bpf/verifier.c | 37 ++++++++++++++++---------------------
- 1 file changed, 16 insertions(+), 21 deletions(-)
+ net/core/filter.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
-index e37e06b..339c8a1 100644
---- a/kernel/bpf/verifier.c
-+++ b/kernel/bpf/verifier.c
-@@ -463,19 +463,22 @@ static struct bpf_verifier_state *push_stack(struct bpf_verifier_env *env,
- 	BPF_REG_0, BPF_REG_1, BPF_REG_2, BPF_REG_3, BPF_REG_4, BPF_REG_5
- };
- 
-+static void mark_reg_not_init(struct bpf_reg_state *regs, u32 regno)
-+{
-+	BUG_ON(regno >= MAX_BPF_REG);
-+
-+	memset(&regs[regno], 0, sizeof(regs[regno]));
-+	regs[regno].type = NOT_INIT;
-+	regs[regno].min_value = BPF_REGISTER_MIN_RANGE;
-+	regs[regno].max_value = BPF_REGISTER_MAX_RANGE;
-+}
-+
- static void init_reg_state(struct bpf_reg_state *regs)
- {
- 	int i;
- 
--	for (i = 0; i < MAX_BPF_REG; i++) {
--		regs[i].type = NOT_INIT;
--		regs[i].imm = 0;
--		regs[i].min_value = BPF_REGISTER_MIN_RANGE;
--		regs[i].max_value = BPF_REGISTER_MAX_RANGE;
--		regs[i].min_align = 0;
--		regs[i].aux_off = 0;
--		regs[i].aux_off_align = 0;
--	}
-+	for (i = 0; i < MAX_BPF_REG; i++)
-+		mark_reg_not_init(regs, i);
- 
- 	/* frame pointer */
- 	regs[BPF_REG_FP].type = FRAME_PTR;
-@@ -1346,7 +1349,6 @@ static int check_call(struct bpf_verifier_env *env, int func_id, int insn_idx)
- 	struct bpf_verifier_state *state = &env->cur_state;
- 	const struct bpf_func_proto *fn = NULL;
- 	struct bpf_reg_state *regs = state->regs;
--	struct bpf_reg_state *reg;
- 	struct bpf_call_arg_meta meta;
- 	bool changes_data;
- 	int i, err;
-@@ -1413,11 +1415,8 @@ static int check_call(struct bpf_verifier_env *env, int func_id, int insn_idx)
- 	}
- 
- 	/* reset caller saved regs */
--	for (i = 0; i < CALLER_SAVED_REGS; i++) {
--		reg = regs + caller_saved[i];
--		reg->type = NOT_INIT;
--		reg->imm = 0;
--	}
-+	for (i = 0; i < CALLER_SAVED_REGS; i++)
-+		mark_reg_not_init(regs, caller_saved[i]);
- 
- 	/* update return register */
- 	if (fn->ret_type == RET_INTEGER) {
-@@ -2445,7 +2444,6 @@ static int check_ld_abs(struct bpf_verifier_env *env, struct bpf_insn *insn)
- {
- 	struct bpf_reg_state *regs = env->cur_state.regs;
- 	u8 mode = BPF_MODE(insn->code);
--	struct bpf_reg_state *reg;
- 	int i, err;
- 
- 	if (!may_access_skb(env->prog->type)) {
-@@ -2478,11 +2476,8 @@ static int check_ld_abs(struct bpf_verifier_env *env, struct bpf_insn *insn)
- 	}
- 
- 	/* reset caller saved regs to unreadable */
--	for (i = 0; i < CALLER_SAVED_REGS; i++) {
--		reg = regs + caller_saved[i];
--		reg->type = NOT_INIT;
--		reg->imm = 0;
--	}
-+	for (i = 0; i < CALLER_SAVED_REGS; i++)
-+		mark_reg_not_init(regs, caller_saved[i]);
- 
- 	/* mark destination R0 register as readable, since it contains
- 	 * the value fetched from the packet
+diff --git a/net/core/filter.c b/net/core/filter.c
+index a253a61..a6bb95f 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -2281,6 +2281,7 @@ bool bpf_helper_changes_pkt_data(void *func)
+ 	    func == bpf_skb_change_head ||
+ 	    func == bpf_skb_change_tail ||
+ 	    func == bpf_skb_pull_data ||
++	    func == bpf_clone_redirect ||
+ 	    func == bpf_l3_csum_replace ||
+ 	    func == bpf_l4_csum_replace ||
+ 	    func == bpf_xdp_adjust_head)
 -- 
 1.9.3
