@@ -1,64 +1,54 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: [PATCH net-next 3/8] net: ipv4: Remove event arg to rt_fill_info
-Date: Wed, 24 May 2017 11:19:06 -0700
-Message-ID: <1495649951-30417-4-git-send-email-roopa@cumulusnetworks.com>
-References: <1495649951-30417-1-git-send-email-roopa@cumulusnetworks.com>
-Cc: netdev@vger.kernel.org, dsahern@gmail.com,
-        nikolay@cumulusnetworks.com
-To: davem@davemloft.net
+From: Timur Tabi <timur@codeaurora.org>
+Subject: Re: [PATCH 2/2] at803x: double check SGMII side autoneg
+Date: Wed, 24 May 2017 13:58:09 -0500
+Message-ID: <c2a54e2e-a1b6-24b4-d125-95fa9648fe95@codeaurora.org>
+References: <20170522210927.GR29447@lunn.ch>
+ <0d9b30e5-40f3-82ba-a44a-2eb25b8d3094@codeaurora.org>
+ <20170522213206.GT29447@lunn.ch>
+ <a8415b8b-1713-053d-41d3-2577c5a53c8b@codeaurora.org>
+ <20170523160722.GC21169@lunn.ch>
+ <3dc4f9cf-3172-0227-f03c-1ccfdad3e15e@codeaurora.org>
+ <a87a7309-e15e-286f-08d0-83535c094358@neratec.com>
+ <a88a111d-5e3a-0999-14ef-0ada06febb3f@codeaurora.org>
+ <20170524134021.GA26577@lunn.ch>
+ <8cf4ca6d-3e1e-3c9c-605f-5d6baf3c7588@codeaurora.org>
+ <20170524140929.GC26577@lunn.ch>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Matthias May <matthias.may@neratec.com>,
+        Zefir Kurtisi <zefir.kurtisi@neratec.com>,
+        netdev@vger.kernel.org, f.fainelli@gmail.com,
+        David Miller <davem@davemloft.net>,
+        Manoj Iyer <manoj.iyer@canonical.com>, jhugo@codeaurora.org
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f181.google.com ([209.85.192.181]:34557 "EHLO
-        mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933781AbdEXSTT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 24 May 2017 14:19:19 -0400
-Received: by mail-pf0-f181.google.com with SMTP id 9so143116533pfj.1
-        for <netdev@vger.kernel.org>; Wed, 24 May 2017 11:19:19 -0700 (PDT)
-In-Reply-To: <1495649951-30417-1-git-send-email-roopa@cumulusnetworks.com>
+Received: from smtp.codeaurora.org ([198.145.29.96]:38332 "EHLO
+        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754524AbdEXS6L (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 24 May 2017 14:58:11 -0400
+In-Reply-To: <20170524140929.GC26577@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Ahern <dsahern@gmail.com>
+On 05/24/2017 09:09 AM, Andrew Lunn wrote:
+> It could be, the copper side is up, but the SGMII side is down, at the
+> point at803x_aneg_done() is called. So it is correctly returning
+> 0. Sometime later the SGMII side goes up, but there is not a second
+> interrupt. Hence the phy core does not know that the full, 2 stage MAC
+> to PHY to peer PHY link is now up.
 
-rt_fill_info has 1 caller with the event set to RTM_NEWROUTE. Given that
-remove the arg and use RTM_NEWROUTE directly in rt_fill_info.
+Ok, I'm going to debug this some more.  It turns out that the MAC side of
+the SGMII link can send an interrupt when it thinks that auto-negotiation is
+done.  I might be able to use this.
 
-Signed-off-by: David Ahern <dsahern@gmail.com>
-Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
----
- net/ipv4/route.c | 7 +++----
- 1 file changed, 3 insertions(+), 4 deletions(-)
+What function should my MAC driver call when it wants the phy core to call
+at803x_aneg_done again to see if autonegotiation is done?
 
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index fe7b765..9699e9b 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -2536,7 +2536,7 @@ struct rtable *ip_route_output_flow(struct net *net, struct flowi4 *flp4,
- 
- static int rt_fill_info(struct net *net,  __be32 dst, __be32 src, u32 table_id,
- 			struct flowi4 *fl4, struct sk_buff *skb, u32 portid,
--			u32 seq, int event)
-+			u32 seq)
- {
- 	struct rtable *rt = skb_rtable(skb);
- 	struct rtmsg *r;
-@@ -2545,7 +2545,7 @@ static int rt_fill_info(struct net *net,  __be32 dst, __be32 src, u32 table_id,
- 	u32 error;
- 	u32 metrics[RTAX_MAX];
- 
--	nlh = nlmsg_put(skb, portid, seq, event, sizeof(*r), 0);
-+	nlh = nlmsg_put(skb, portid, seq, RTM_NEWROUTE, sizeof(*r), 0);
- 	if (!nlh)
- 		return -EMSGSIZE;
- 
-@@ -2745,8 +2745,7 @@ static int inet_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh,
- 		table_id = rt->rt_table_id;
- 
- 	err = rt_fill_info(net, dst, src, table_id, &fl4, skb,
--			   NETLINK_CB(in_skb).portid, nlh->nlmsg_seq,
--			   RTM_NEWROUTE);
-+			   NETLINK_CB(in_skb).portid, nlh->nlmsg_seq);
- 	if (err < 0)
- 		goto errout_free;
- 
+Also, is there a way for the MAC driver to know that at803x_aneg_done()
+previously returned 0, and that it needs to tell the phy core to check again?
+
 -- 
-1.9.1
+Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm
+Technologies, Inc.  Qualcomm Technologies, Inc. is a member of the
+Code Aurora Forum, a Linux Foundation Collaborative Project.
