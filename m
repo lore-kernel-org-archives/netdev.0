@@ -1,34 +1,59 @@
-From: Andrey Melnikov <temnota.am-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH net-next v3 5/5] net-next: dsa: add dsa support for
- Mediatek MT7530 switch
-Date: Wed, 24 May 2017 17:44:35 +0300
-Message-ID: <CA+PODjpRgZuSeqtCV3+LAHx4kMA8deA5ABzH-Gv7XjhEZY_H=w@mail.gmail.com>
-References: <1490780303-18598-1-git-send-email-sean.wang@mediatek.com>
- <1490780303-18598-6-git-send-email-sean.wang@mediatek.com>
- <hn6gvd-qp1.ln1@banana.localnet> <20170524132049.GB24980@lunn.ch>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCHv2 net-next 5/5] dsa: mv88e6xxx: Enable/Disable SERDES on port enable/disable
+Date: Wed, 24 May 2017 10:58:13 -0400
+Message-ID: <87tw4ati7u.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+References: <1495573486-31827-1-git-send-email-andrew@lunn.ch> <1495573486-31827-6-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-        Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
-To: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170524132049.GB24980-g2DYL2Zd6BY@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
+To: Andrew Lunn <andrew@lunn.ch>, David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:47794 "EHLO
+        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S940398AbdEXPAP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 24 May 2017 11:00:15 -0400
+In-Reply-To: <1495573486-31827-6-git-send-email-andrew@lunn.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-2017-05-24 16:20 GMT+03:00 Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>:
->> What about JUMBO frames and large MTU support? devlink support?
->
-> To get the driver merged, it is better to start small, a minimal set
-> of features. Other features can be added later. If these features are
-> important to you, please feel free to submit patches.
+Hi Andrew,
 
-There is no documentation from mediatek about this feature. Driver
-from SDK v4.x contains only switching 19'th bit in GDMA1_FWD_CFG and
-nothing more.
-So, how to write patches? Peeking random bits in random SOC config registers?
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Andrew Lunn <andrew@lunn.ch> writes:
+
+> +static int mv88e6xxx_port_enable(struct dsa_switch *ds, int port,
+> +				 struct phy_device *phydev)
+> +{
+> +	struct mv88e6xxx_chip *chip = ds->priv;
+> +	int err = 0;
+> +
+> +	mutex_lock(&chip->reg_lock);
+> +	if (chip->info->ops->serdes_power)
+> +		err = chip->info->ops->serdes_power(chip, port, true);
+> +	mutex_unlock(&chip->reg_lock);
+> +
+> +	return err;
+> +}
+
+Please use your new mv88e6xxx_serdes_power() helper here.
+
+> +
+> +static void mv88e6xxx_port_disable(struct dsa_switch *ds, int port,
+> +				   struct phy_device *phydev)
+> +{
+> +	struct mv88e6xxx_chip *chip = ds->priv;
+> +
+> +	mutex_lock(&chip->reg_lock);
+> +	if (chip->info->ops->serdes_power)
+> +		chip->info->ops->serdes_power(chip, port, false);
+> +	mutex_unlock(&chip->reg_lock);
+> +}
+
+Idem, please print a message in case of error as well:
+
+        if (mv88e6xxx_serdes_power())
+                dev_err(...)
+
+
+Thanks,
+
+        Vivien
