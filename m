@@ -1,57 +1,54 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next v9 5/5] virtio_net: check return value of
- skb_to_sgvec always
-Date: Wed, 24 May 2017 12:41:15 +0300
-Message-ID: <911d6dda-85de-ba8d-0c84-6a37e91523de@cogentembedded.com>
-References: <20170523160550.5203-1-Jason@zx2c4.com>
- <20170523160550.5203-6-Jason@zx2c4.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-        Jason Wang <jasowang@redhat.com>
-To: "Jason A. Donenfeld" <Jason@zx2c4.com>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, davem@davemloft.net
+From: Mateusz Jurczyk <mjurczyk@google.com>
+Subject: [PATCH] nfc: Fix the sockaddr length sanitization in llcp_sock_connect
+Date: Wed, 24 May 2017 12:26:20 +0200
+Message-ID: <20170524102620.13806-1-mjurczyk@google.com>
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, security@kernel.org
+To: Samuel Ortiz <sameo@linux.intel.com>,
+        "David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170523160550.5203-6-Jason@zx2c4.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello!
+Fix the sockaddr length verification in the connect() handler of NFC/LLCP
+sockets, to compare against the size of the actual structure expected on
+input (sockaddr_nfc_llcp) instead of its shorter version (sockaddr_nfc).
 
-On 5/23/2017 7:05 PM, Jason A. Donenfeld wrote:
+Both structures are defined in include/uapi/linux/nfc.h. The fields
+specific to the _llcp extended struct are as follows:
 
-> Signed-off-by: Jason A. Donenfeld <Jason@zx2c4.com>
-> Cc: "Michael S. Tsirkin" <mst@redhat.com>
-> Cc: Jason Wang <jasowang@redhat.com>
-> ---
->  drivers/net/virtio_net.c | 9 +++++++--
->  1 file changed, 7 insertions(+), 2 deletions(-)
->
-> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> index 9320d96a1632..13fbe4b349c2 100644
-> --- a/drivers/net/virtio_net.c
-> +++ b/drivers/net/virtio_net.c
-> @@ -1150,7 +1150,7 @@ static int xmit_skb(struct send_queue *sq, struct sk_buff *skb)
->  	struct virtio_net_hdr_mrg_rxbuf *hdr;
->  	const unsigned char *dest = ((struct ethhdr *)skb->data)->h_dest;
->  	struct virtnet_info *vi = sq->vq->vdev->priv;
-> -	unsigned num_sg;
-> +	int num_sg;
->  	unsigned hdr_len = vi->hdr_len;
->  	bool can_push;
->
-> @@ -1177,11 +1177,16 @@ static int xmit_skb(struct send_queue *sq, struct sk_buff *skb)
->  	if (can_push) {
->  		__skb_push(skb, hdr_len);
->  		num_sg = skb_to_sgvec(skb, sq->sg, 0, skb->len);
-> +                if (unlikely(num_sg < 0))
+   276		__u8 dsap; /* Destination SAP, if known */
+   277		__u8 ssap; /* Source SAP to be bound to */
+   278		char service_name[NFC_LLCP_MAX_SERVICE_NAME]; /* Service name URI */;
+   279		size_t service_name_len;
 
-    Please indent with tabs, like above and below.
+If the caller doesn't provide a sufficiently long sockaddr buffer, these
+fields remain uninitialized (and they currently originate from the stack
+frame of the top-level sys_connect handler). They are then copied by
+llcp_sock_connect() into internal storage (nfc_llcp_sock structure), and
+could be subsequently read back through the user-mode getsockname()
+function (handled by llcp_sock_getname()). This would result in the
+disclosure of up to ~70 uninitialized bytes from the kernel stack to
+user-mode clients capable of creating AFC_NFC sockets.
 
-> +			return num_sg;
->  		/* Pull header back to avoid skew in tx bytes calculations. */
->  		__skb_pull(skb, hdr_len);
-[...]
+Signed-off-by: Mateusz Jurczyk <mjurczyk@google.com>
+---
+ net/nfc/llcp_sock.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-MBR, Sergei
+diff --git a/net/nfc/llcp_sock.c b/net/nfc/llcp_sock.c
+index 2ffb18e73df6..d0d12bea65cb 100644
+--- a/net/nfc/llcp_sock.c
++++ b/net/nfc/llcp_sock.c
+@@ -662,8 +662,7 @@ static int llcp_sock_connect(struct socket *sock, struct sockaddr *_addr,
+ 
+ 	pr_debug("sock %p sk %p flags 0x%x\n", sock, sk, flags);
+ 
+-	if (!addr || len < sizeof(struct sockaddr_nfc) ||
+-	    addr->sa_family != AF_NFC)
++	if (!addr || len < sizeof(*addr) || addr->sa_family != AF_NFC)
+ 		return -EINVAL;
+ 
+ 	if (addr->service_name_len == 0 && addr->dsap == 0)
+-- 
+2.13.0.219.gdb65acc882-goog
