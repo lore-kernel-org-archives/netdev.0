@@ -1,55 +1,66 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCHv2 net-next 1/5] net: dsa: mv88e6xxx: Move phy functions into phy.[ch]
-Date: Wed, 24 May 2017 11:31:43 -0400
-Message-ID: <87lgpmfezk.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
-References: <1495573486-31827-1-git-send-email-andrew@lunn.ch> <1495573486-31827-2-git-send-email-andrew@lunn.ch>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
-To: Andrew Lunn <andrew@lunn.ch>, David Miller <davem@davemloft.net>
+From: Rami Rosen <rami.rosen@intel.com>
+Subject: [PATCH net-next] net/packet: remove unused parameter in prb_curr_blk_in_use().
+Date: Wed, 24 May 2017 18:34:11 +0300
+Message-ID: <1495640051-39181-1-git-send-email-rami.rosen@intel.com>
+Cc: netdev@vger.kernel.org, Rami Rosen <rami.rosen@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:50702 "EHLO
-        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1760072AbdEXPdo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 24 May 2017 11:33:44 -0400
-In-Reply-To: <1495573486-31827-2-git-send-email-andrew@lunn.ch>
+Received: from mga05.intel.com ([192.55.52.43]:5759 "EHLO mga05.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S937333AbdEXPeZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 24 May 2017 11:34:25 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Andrew,
+This patch removes unused parameter from prb_curr_blk_in_use() method
+in net/packet/af_packet.c.
 
-Andrew Lunn <andrew@lunn.ch> writes:
+Signed-off-by: Rami Rosen <rami.rosen@intel.com>
+---
+ net/packet/af_packet.c | 10 ++++------
+ 1 file changed, 4 insertions(+), 6 deletions(-)
 
-> The upcoming SERDES support will need to make use of PHY functions. Move
-> them out into a file of there own. No code changes.
-
-                          their
-
-[...]
-
-> +int mv88e6xxx_phy_page_get(struct mv88e6xxx_chip *chip, int phy, u8 page);
-> +void mv88e6xxx_phy_page_put(struct mv88e6xxx_chip *chip, int phy);
-
-I am not sure that you need to expose these functions. Can you confirm?
-
-> +int mv88e6xxx_phy_page_read(struct mv88e6xxx_chip *chip, int phy,
-> +			    u8 page, int reg, u16 *val);
-> +int mv88e6xxx_phy_page_write(struct mv88e6xxx_chip *chip, int phy,
-> +			     u8 page, int reg, u16 val);
-> +int mv88e6xxx_ppu_disable(struct mv88e6xxx_chip *chip);
-> +int mv88e6xxx_ppu_enable(struct mv88e6xxx_chip *chip);
-> +void mv88e6xxx_ppu_state_init(struct mv88e6xxx_chip *chip);
-> +void mv88e6xxx_ppu_state_destroy(struct mv88e6xxx_chip *chip);
-
-If we want to move all PHY-related functions and wrappers into phy.[ch],
-there are also mv88e6xxx_phy_init and mv88e6xxx_phy_destroy. This will
-make most mv88e6xxx_ppu_* code static.
-
-> +int mv88e6xxx_phy_ppu_read(struct mv88e6xxx_chip *chip, struct mii_bus *bus,
-> +			   int addr, int reg, u16 *val);
-> +int mv88e6xxx_phy_ppu_write(struct mv88e6xxx_chip *chip, struct mii_bus *bus,
-> +			    int addr, int reg, u16 val);
-
-Thanks,
-
-        Vivien
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index e3eeed1..82ca49f 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -196,8 +196,7 @@ static void *packet_previous_frame(struct packet_sock *po,
+ 		struct packet_ring_buffer *rb,
+ 		int status);
+ static void packet_increment_head(struct packet_ring_buffer *buff);
+-static int prb_curr_blk_in_use(struct tpacket_kbdq_core *,
+-			struct tpacket_block_desc *);
++static int prb_curr_blk_in_use(struct tpacket_block_desc *);
+ static void *prb_dispatch_next_block(struct tpacket_kbdq_core *,
+ 			struct packet_sock *);
+ static void prb_retire_current_block(struct tpacket_kbdq_core *,
+@@ -721,7 +720,7 @@ static void prb_retire_rx_blk_timer_expired(unsigned long data)
+ 			/* Case 1. Queue was frozen because user-space was
+ 			 *	   lagging behind.
+ 			 */
+-			if (prb_curr_blk_in_use(pkc, pbd)) {
++			if (prb_curr_blk_in_use(pbd)) {
+ 				/*
+ 				 * Ok, user-space is still behind.
+ 				 * So just refresh the timer.
+@@ -972,8 +971,7 @@ static void prb_retire_current_block(struct tpacket_kbdq_core *pkc,
+ 	}
+ }
+ 
+-static int prb_curr_blk_in_use(struct tpacket_kbdq_core *pkc,
+-				      struct tpacket_block_desc *pbd)
++static int prb_curr_blk_in_use(struct tpacket_block_desc *pbd)
+ {
+ 	return TP_STATUS_USER & BLOCK_STATUS(pbd);
+ }
+@@ -1064,7 +1062,7 @@ static void *__packet_lookup_frame_in_block(struct packet_sock *po,
+ 		 * Check if that last block which caused the queue to freeze,
+ 		 * is still in_use by user-space.
+ 		 */
+-		if (prb_curr_blk_in_use(pkc, pbd)) {
++		if (prb_curr_blk_in_use(pbd)) {
+ 			/* Can't record this packet */
+ 			return NULL;
+ 		} else {
+-- 
+2.7.4
