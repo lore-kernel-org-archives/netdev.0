@@ -1,52 +1,65 @@
-From: prashantkumar dhotre <prashantkumardhotre@gmail.com>
-Subject: Re: Why max netlink msg size is limited to 16k
-Date: Wed, 24 May 2017 11:28:54 +0530
-Message-ID: <CA+VDgmOGqY3RE5eUSMhT9wwnn2RnKFOAabCbzX7vdZOe4QC6qA@mail.gmail.com>
-References: <CA+VDgmNYc=djp6ab=n49CTpyvof8CPgHvXRst5Vnm706e-nRvQ@mail.gmail.com>
- <1492875381.6453.34.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Bogdan Purcareata <bogdan.purcareata@nxp.com>
+Subject: RE: [PATCH 1/2] net: phy: Update get_phy_c45_ids for Cortina PHYs
+Date: Wed, 24 May 2017 06:05:19 +0000
+Message-ID: <DB5PR04MB1240A0F8E519D1BE168C1332EAFE0@DB5PR04MB1240.eurprd04.prod.outlook.com>
+References: <1495554799-23060-1-git-send-email-bogdan.purcareata@nxp.com>
+ <1495554799-23060-2-git-send-email-bogdan.purcareata@nxp.com>
+ <20170523160353.GB21169@lunn.ch>
+ <DB5PR04MB1240098B96F6EEF3730DF054EAF90@DB5PR04MB1240.eurprd04.prod.outlook.com>
+ <20170523165554.GB24029@lunn.ch>
+ <8768d0f5-6226-b3e0-b741-f742ff5ffee3@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f194.google.com ([209.85.216.194]:36132 "EHLO
-        mail-qt0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S966242AbdEXF64 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 24 May 2017 01:58:56 -0400
-Received: by mail-qt0-f194.google.com with SMTP id j13so25090979qta.3
-        for <netdev@vger.kernel.org>; Tue, 23 May 2017 22:58:56 -0700 (PDT)
-In-Reply-To: <1492875381.6453.34.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <8768d0f5-6226-b3e0-b741-f742ff5ffee3@gmail.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Thanks
-Can I use NLM_F_MULTI netlink multipart msg flag to send large buffer ?
-I could not find example of that usage in sending case .
-
-I have a kernel module and tryng to send large buffer to user app.
-If I can use that flag, will kernel take care of splitting large
-buffer into small chunks and will kernel also send NLMSG_DONE type msg
-at end to user app?
-How should I handle in user app.
-Can you point me to few example please.
-
-On Sat, Apr 22, 2017 at 9:06 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Sat, 2017-04-22 at 19:43 +0530, prashantkumar dhotre wrote:
->> I am observing that max netlink msg that my kernel module can send to
->> user app is close to 16K.
->>
->> For larger sizes, genlmsg_unicast() succeeds but my app does not receive data.
->>
->> I have tried increasing RECV buffer size in my user app but that does not help.
->>
->> Regards
->
->
-> You need a kernel >= linux-4.9 to get about 32KB
->
-> Why is this limited ? Please read
->
-> https://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git/commit/?id=d35c99ff77ecb2eb239731b799386f3b3637a31e
->
->
->
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBGbG9yaWFuIEZhaW5lbGxpIFtt
+YWlsdG86Zi5mYWluZWxsaUBnbWFpbC5jb21dDQo+IFNlbnQ6IFR1ZXNkYXksIE1heSAyMywgMjAx
+NyA5OjEyIFBNDQo+IFRvOiBBbmRyZXcgTHVubiA8YW5kcmV3QGx1bm4uY2g+OyBCb2dkYW4gUHVy
+Y2FyZWF0YQ0KPiA8Ym9nZGFuLnB1cmNhcmVhdGFAbnhwLmNvbT4NCj4gQ2M6IG5ldGRldkB2Z2Vy
+Lmtlcm5lbC5vcmc7IGxpbnV4LWtlcm5lbEB2Z2VyLmtlcm5lbC5vcmcNCj4gU3ViamVjdDogUmU6
+IFtQQVRDSCAxLzJdIG5ldDogcGh5OiBVcGRhdGUgZ2V0X3BoeV9jNDVfaWRzIGZvciBDb3J0aW5h
+IFBIWXMNCj4gDQo+IE9uIDA1LzIzLzIwMTcgMDk6NTUgQU0sIEFuZHJldyBMdW5uIHdyb3RlOg0K
+PiA+PiBUaGUgcGF0Y2hlcyBtZW50aW9uZWQgaW4gdGhlIGNvbW1pdCBtZXNzYWdlIGFkZCBfc29t
+ZV8gc3VwcG9ydCBmb3INCj4gPj4gdGhlIENvcnRpbmEgUEhZcyAtIG1haW5seSBjaGVja2luZyBm
+b3IgZGV2aWNlcyBhdCBhZGRpdGlvbmFsDQo+ID4+IGxvY2F0aW9ucy4gT25jZSB0aGV5IGFyZSBm
+b3VuZCwgdGhlIHBoeSBJRHMgbXVzdCBiZSByZWFkIGZyb20gY3VzdG9tDQo+ID4+IGxvY2F0aW9u
+cy4NCj4gPg0KPiA+IEFzIGEgZ2VuZXJhbCBwcmluY2lwbGUsIHdlIGRvbid0IGFkZCBoYWNrcyBp
+biBnZW5lcmljIGNvZGUgdG8gaGFuZGxlDQo+ID4gYnJva2VuIGRldmljZXMuIFdlIGFkZCBnZW5l
+cmljIG1lY2hhbmlzbXMgdG8gd29yayBhcm91bmQgdGhlDQo+ID4gYnJva2VubmVzcy4NCj4gPg0K
+PiA+IEluIHRoaXMgY2FzZSwgYnkgdXNpbmcgZXRoZXJuZXQtcGh5LWlkIGluIHRoZSBkZXZpY2Ug
+dHJlZSwgd2UgYXJlDQo+ID4gc2F5aW5nLCB0aGlzIFBIWXMgcHJvYmluZyBpcyB0b3RhbGx5IGJv
+cmtlZCwgYnV0IHdlIGtub3cgaXQgaXMgdGhlcmUsDQo+ID4gYXQgdGhpcyBhZGRyZXNzLiBKdXN0
+IGxvYWQgdGhlIGRyaXZlci4NCj4gPg0KPiA+IFBsZWFzZSB0cnkgdG8gbWFrZSBldGhlcm5ldC1w
+aHktaWQgd29yay4NCj4gDQo+IFdoYXQgQW5kcmV3IGlzIHN1Z2dlc3RpbmcgaXMgdG8gbGV2ZXJh
+Z2UgdGhlIGNvZGUgaW4NCj4gZHJpdmVycy9vZi9vZl9tZGlvLmMgd2hpY2ggZG9lcyB0aGUgZm9s
+bG93aW5nOg0KPiANCj4gICAgICAgIGlzX2M0NSA9IG9mX2RldmljZV9pc19jb21wYXRpYmxlKGNo
+aWxkLA0KPiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICJldGhlcm5l
+dC1waHktaWVlZTgwMi4zLWM0NSIpOw0KPiANCj4gICAgICAgICBpZiAoIWlzX2M0NSAmJiAhb2Zf
+Z2V0X3BoeV9pZChjaGlsZCwgJnBoeV9pZCkpDQo+ICAgICAgICAgICAgICAgICBwaHkgPSBwaHlf
+ZGV2aWNlX2NyZWF0ZShtZGlvLCBhZGRyLCBwaHlfaWQsIDAsIE5VTEwpOw0KPiAgICAgICAgIGVs
+c2UNCj4gICAgICAgICAgICAgICAgIHBoeSA9IGdldF9waHlfZGV2aWNlKG1kaW8sIGFkZHIsIGlz
+X2M0NSk7DQo+ICAgICAgICAgaWYgKElTX0VSUihwaHkpKQ0KPiAgICAgICAgICAgICAgICAgcmV0
+dXJuOw0KPiANCj4gSWYgeW91IGtub3cgdGhlIFBIWSBJRCwgYW5kIHlvdSBkaWQgcHV0IGl0IGlu
+IHRoZSBQSFkgbm9kZSdzIGNvbXBhdGlibGUNCj4gc3RyaW5nIChpbiB0aGUgZm9ybWF0IHRoYXQg
+b2ZfZ2V0X3BoeV9pZCgpIGV4cGVjdHMgaXQgdG8sIGFuZCB5b3UgYWxzbw0KPiBkaWQgbm90IGFk
+ZCAiZXRoZXJuZXQtcGh5LWllZWU4MDIuMy1jNDUiKSB0aGVuIHRoZSBQSFkgbGlicmFyeSB3aWxs
+DQo+IGRpcmVjdGx5IGNyZWF0ZSB0aGUgUEhZIGRldmljZSwgd2l0aCB0aGUgZGVzaWduYXRlZCBJ
+RCwgYXQgdGhlIHNwZWNpZmljDQo+IGFkZHJlc3MuDQo+IA0KPiBXaGlsZSB0aGlzIHdvcmtzIGZv
+ciBjbGF1c2UgMjIgUEhZcywgSSBkb24ndCBrbm93IGlmIGl0IGFsc28gZG9lcyBmb3INCj4gY2xh
+dXNlIDQ1IFBIWXMsIGJ1dCBhcyBBbmRyZXcgaXMgc3VnZ2VzdGluZywgSSB3b3VsZCBiZSBtb3Jl
+IGluY2xpbmVkDQo+IGludG8gbWFraW5nIHRoaXMgc2NoZW1lIHdvcmsgZm9yIGFsbCB0eXBlcyAo
+MjIgb3IgNDUpIFBIWXMsIHJhdGhlciB0aGFuDQo+IGhhY2tpbmcgdGhlIGNvcmUgY29kZSB0aGF0
+IHRyaWVzIHRvIGlkZW50aWZ5IGRldmljZXMgaW4gcGFja2FnZXMuDQo+IA0KPiBDYW4geW91IGdp
+dmUgaXQgYSBzcGluPw0KDQpTdXJlLiBNeSBmaXJzdCB0aG91Z2h0IHdhcyB0byBsYXRjaCBvbnRv
+IHRoZSBjb2RlcGF0aCB0aGF0IGhhZCBzb21lIG1lbnRpb24gb2YgQ29ydGluYSBQSFlzLg0KDQpJ
+IHdpbGwgY2hlY2sgb2ZfZ2V0X3BoeV9pZCgpIGFuZCBzZWUgaWYgaXQgZG9lcyB0aGUgam9iLg0K
+DQpUaGFuayB5b3UhDQpCb2dkYW4NCg==
