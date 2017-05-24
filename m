@@ -1,52 +1,138 @@
-From: Alexei Starovoitov <ast@fb.com>
-Subject: Re: Alignment in BPF verifier
-Date: Tue, 23 May 2017 16:59:50 -0700
-Message-ID: <d4df095e-83bb-8bca-5fb5-7815cdc53d7c@fb.com>
-References: <db8cd2e8-9f51-dc8b-5e55-4c75d13d4858@fb.com>
- <a0a47297-4765-3ba0-3ea2-013dda40e84a@solarflare.com>
- <bed5b512-6069-53cc-f128-05be05f89889@solarflare.com>
- <20170519.163957.1950740987459934279.davem@davemloft.net>
- <591F7A28.3020004@iogearbox.net>
- <f882c40e-bd50-f08e-afd8-f6396fc24ebc@solarflare.com>
- <748ff318-84dc-d338-67bd-2fd62ebcf3b8@solarflare.com>
+From: Johan Hedberg <johan.hedberg@gmail.com>
+Subject: pull request: bluetooth-next 2017-05-23
+Date: Tue, 23 May 2017 17:11:20 -0700
+Message-ID: <20170524001120.GA3971@x1c.Skamania.guest>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <alexei.starovoitov@gmail.com>, <netdev@vger.kernel.org>,
-        Josef Bacik <jbacik@fb.com>
-To: Edward Cree <ecree@solarflare.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        David Miller <davem@davemloft.net>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+        protocol="application/pgp-signature"; boundary="YZ5djTAD1cGYuMQK"
+Cc: linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:45301 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S932943AbdEXAAd (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 23 May 2017 20:00:33 -0400
-In-Reply-To: <748ff318-84dc-d338-67bd-2fd62ebcf3b8@solarflare.com>
+Received: from mail-pf0-f173.google.com ([209.85.192.173]:35828 "EHLO
+        mail-pf0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753736AbdEXAL3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 23 May 2017 20:11:29 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 5/23/17 10:43 AM, Edward Cree wrote:
-> Another issue: it looks like the min/max_value handling for subtraction is
->  bogus.  In adjust_reg_min_max_vals() we have
->     if (dst_reg->min_value != BPF_REGISTER_MIN_RANGE)
->         dst_reg->min_value -= min_val;
->     if (dst_reg->max_value != BPF_REGISTER_MAX_RANGE)
->         dst_reg->max_value -= max_val;
->  where min_val and max_val refer to the src_reg.
-> But surely they should be used the other way round; if (say) 2 <= R1 <= 6
->  and 1 <= R2 <= 4, then this will claim 1 <= (R1 - R2) <= 2, whereas really
->  (R1 - R2) could be anything from -2 to 5.
-> This also means that the code just above the switch,
->     if (min_val == BPF_REGISTER_MIN_RANGE)
->         dst_reg->min_value = BPF_REGISTER_MIN_RANGE;
->     if (max_val == BPF_REGISTER_MAX_RANGE)
->         dst_reg->max_value = BPF_REGISTER_MAX_RANGE;
->  is wrong, since e.g. subtracting MAX_RANGE needs to blow our min_value,
->  not our max_value.
 
-right. good catch. I have a feeling we discussed similar thing before.
-May be some patch felt through the cracks.
-That's the reason the fancy verifier analysis is root only.
-I'm assuming you're going to send a fix?
-Thanks!
+--YZ5djTAD1cGYuMQK
+Content-Type: text/plain; charset=iso-8859-1
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+Hi Dave,
+
+Here's the first Bluetooth & 802.15.4 pull request targeting the 4.13
+kernel release.
+
+ - Bluetooth 5.0 improvements (Data Length Extensions and alternate PHY)
+ - Support for new Intel Bluetooth adapter [[8087:0aaa]
+ - Various fixes to ieee802154 code
+ - Various fixes to HCI UART code
+
+Please let me know if there are any issues pulling. Thanks.
+
+Johan
+
+---
+The following changes since commit 1fc4d180b3c6bed0e7f5160bcd553aec89594962:
+
+  Merge branch 'phy-marvell-cleanups' (2017-05-17 16:27:52 -0400)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/bluetooth/bluetooth-next.gi=
+t for-upstream
+
+for you to fetch changes up to 7dab5467647be42736dcabcd5d035c7b571f4653:
+
+  net: ieee802154: fix potential null pointer dereference (2017-05-23 20:12=
+:53 +0200)
+
+----------------------------------------------------------------
+Alexander Aring (1):
+      MAINTAINERS: update my mail address
+
+Dean Jenkins (1):
+      Bluetooth: hci_ldisc: Use rwlocking to avoid closing proto races
+
+Guodong Xu (1):
+      Bluetooth: hci_ll: Fix download_firmware() return when __hci_cmd_sync=
+ fails
+
+Gustavo A. R. Silva (1):
+      net: ieee802154: fix potential null pointer dereference
+
+J=FCrg Billeter (1):
+      Bluetooth: btintel: Add MODULE_FIRMWARE entries for iBT 3.5 controlle=
+rs
+
+Lin Zhang (2):
+      net: ieee802154: remove explicit set skb->sk
+      net: ieee802154: fix net_device reference release too early
+
+Loic Poulain (1):
+      Bluetooth: btwilink: Fix unexpected skb free
+
+Marcel Holtmann (5):
+      Bluetooth: Set LE Suggested Default Data Length to maximum
+      Bluetooth: Enable LE Channel Selection Algorithm event
+      Bluetooth: Enable LE PHY Update Complete event
+      Bluetooth: Set LE Default PHY preferences
+      Bluetooth: Skip vendor diagnostic configuration for HCI User Channel
+
+Markus Elfring (3):
+      Bluetooth: Delete error messages for failed memory allocations in two=
+ functions
+      ieee802154: ca8210: Delete an error message for a failed memory alloc=
+ation in ca8210_probe()
+      ieee802154: ca8210: Delete an error message for a failed memory alloc=
+ation in ca8210_skb_rx()
+
+Tedd Ho-Jeong An (1):
+      Bluetooth: Add support for Intel Bluetooth device 9460/9560 [8087:0aa=
+a]
+
+Tobias Regnery (2):
+      Bluetooth: hci_uart: fix kconfig dependency
+      Bluetooth: hci_nokia: select BT_HCIUART_H4
+
+ MAINTAINERS                     |  4 ++--
+ drivers/bluetooth/Kconfig       |  3 ++-
+ drivers/bluetooth/btintel.c     |  2 ++
+ drivers/bluetooth/btusb.c       |  4 ++++
+ drivers/bluetooth/btwilink.c    |  1 -
+ drivers/bluetooth/hci_ldisc.c   | 40 ++++++++++++++++++++++++++++++-----
+ drivers/bluetooth/hci_ll.c      |  1 +
+ drivers/bluetooth/hci_uart.h    |  1 +
+ drivers/net/ieee802154/ca8210.c | 12 ++++-------
+ include/net/bluetooth/hci.h     |  8 +++++++
+ net/bluetooth/ecdh_helper.c     | 11 +++-------
+ net/bluetooth/hci_core.c        | 46 ++++++++++++++++++++++++++++++++++++-=
+----
+ net/ieee802154/socket.c         | 10 ++++-----
+ 13 files changed, 107 insertions(+), 36 deletions(-)
+
+--YZ5djTAD1cGYuMQK
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIcBAEBAgAGBQJZJM+oAAoJECQj9vv5qNQSudIP/iej5TKN1QXWlRgFeJPy3f9d
+vsA0mNU8J5xK5B26N8V/9xhutu7vW7GIlS5xKu1I5vDGY9ZFw20qRXvYAtJXEuUF
+/5nQA2XpiTwVkwzvU/aoHZK7I4kuiWUJa0YEfeeLWVEf+P7APlkXPaDsokeesXbL
+IgRiGi3/KCvoOq0n/Ce8zBG2ehx0+qWLG/Bh/ItR9HZICKnjVZ9kVVLV16c195wt
+5zoPACippXiPSdV3KXQJTYsXX7vLA+3uWS6MIxqKo+F8VSptwtNfMDNNbDAQMCqB
+1wRKr6a1DKQADKnpVJ26SNpRclIwlL40XdaiaKNxDVzPJZPFndr8PomCV+lfq+BY
+vvdQbUCDVEDPdlkBKzrFpcA/i26JbZZ+HmZLZ6INIVbdL4rhswC58My+lJ3hIxuN
+E8v1ugOFeNaQ4Mb18y56j9CUYTtl52MXZDGq7eIPIjBbElGyTxlXFO+F/VjAmfwD
+vHwGLxj4SYQooFKDY4UZmECydKDiTUaQQzP5Dz51Xd7z+N9o7ONFo2YCvtSsQGtY
+2POxw6iqWLjn4RQm/dY7Paw662alH1854J2o3yB7xxEaYue6oQ4sKiaFnfkjkOLY
+GQeqf8D/rQ1+KPNirMa2/wGhsWUZA++7U7wzwPHXqqwJrg7w7cJVFwEOW+H4Ghex
+vM5bIAMwVbvwb598i+Cf
+=PJlE
+-----END PGP SIGNATURE-----
+
+--YZ5djTAD1cGYuMQK--
