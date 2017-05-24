@@ -1,40 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v6 net-next 01/17] net: qualcomm: remove unnecessary
- includes
-Date: Wed, 24 May 2017 16:42:40 -0400 (EDT)
-Message-ID: <20170524.164240.135034942764405181.davem@davemloft.net>
-References: <1495545173-22150-2-git-send-email-stefan.wahren@i2se.com>
-        <20170524.154111.404338711401048909.davem@davemloft.net>
-        <1746915556.279475.1495656327010@email.1und1.de>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next v9 5/5] virtio_net: check return value of
+ skb_to_sgvec always
+Date: Wed, 24 May 2017 23:46:01 +0300
+Message-ID: <f38acbfb-4401-acf6-6a62-9d7af426488d@cogentembedded.com>
+References: <20170523160550.5203-1-Jason@zx2c4.com>
+ <20170523160550.5203-6-Jason@zx2c4.com>
+ <911d6dda-85de-ba8d-0c84-6a37e91523de@cogentembedded.com>
+ <CAHmME9qg6_3PfKKarepCmp3yF6MTTQa0xwZPLz=EYKheTUYNdQ@mail.gmail.com>
+ <decd478f-0d5d-af6a-5b59-b710658ea16b@cogentembedded.com>
+ <CAHmME9obros-WAMC69VWrg=Djb_ZwKz9WyBVvKkAMHmC3N87SA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-serial@vger.kernel.org, jslaby@suse.com,
-        gregkh@linuxfoundation.org, netdev@vger.kernel.org,
-        robh+dt@kernel.org, linux-kernel@vger.kernel.org, kubakici@wp.pl,
-        mark.rutland@arm.com, LinoSanfilippo@gmx.de,
-        devicetree@vger.kernel.org
-To: stefan.wahren@i2se.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:50138 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1035738AbdEXUnC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 24 May 2017 16:43:02 -0400
-In-Reply-To: <1746915556.279475.1495656327010@email.1und1.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        David Miller <davem@davemloft.net>,
+        "Michael S. Tsirkin" <mst@redhat.com>,
+        Jason Wang <jasowang@redhat.com>
+To: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAHmME9obros-WAMC69VWrg=Djb_ZwKz9WyBVvKkAMHmC3N87SA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Stefan Wahren <stefan.wahren@i2se.com>
-Date: Wed, 24 May 2017 22:05:26 +0200 (CEST)
+On 05/24/2017 11:39 PM, Jason A. Donenfeld wrote:
 
-> AFAIK these ones above aren't necessary (no init, no kernel module,
-> no kernel parameter, no kernel version) for this C file. So i will
-> double check it.
+>>    I've only looked on the last 2 patches. You can add my:
+>>
+>> Reviewed-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+>>
+>> if you want. :-)
+>
+> Will do. For the series, or just for 5/5?
 
-You need the endianness translators like cpu_to_be32() or whatever,
-so you need to figure out where you are getting that once these
-explicit headers are removed.
+    5/5 only. :-)
 
-And see, it's probably hidden inside of the private header's includes.
-
-So we can't tell.
+MBR, Sergei
