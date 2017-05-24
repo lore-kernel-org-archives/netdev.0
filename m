@@ -1,99 +1,76 @@
-From: gfree.wind@vip.163.com
-Subject: [PATCH net-next] net: rps: Add the rfs_needed check when record flow hash
-Date: Wed, 24 May 2017 15:35:59 +0800
-Message-ID: <1495611359-118199-1-git-send-email-gfree.wind@vip.163.com>
-Cc: Gao Feng <gfree.wind@vip.163.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
+From: Roman Kapl <roman.kapl@sysgo.com>
+Subject: [PATCH v2] net: move somaxconn init from sysctl code
+Date: Wed, 24 May 2017 10:22:22 +0200
+Message-ID: <20170524082222.14208-1-roman.kapl@sysgo.com>
+Cc: Roman Kapl <roman.kapl@sysgo.com>
+To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-177180.vip.163.com ([123.58.177.180]:38394 "EHLO
-        mail-177180.vip.163.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S966667AbdEXHgU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 24 May 2017 03:36:20 -0400
+Received: from mail.sysgo.com ([176.9.12.79]:53102 "EHLO mail.sysgo.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S936668AbdEXIWZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 24 May 2017 04:22:25 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gao Feng <gfree.wind@vip.163.com>
+The default value for somaxconn is set in sysctl_core_net_init(), but this
+function is not called when kernel is configured without CONFIG_SYSCTL.
 
-There are two spots which invoke the sock_rps_record_flow_hash, one is
-sock_rps_record_flow which has already checked rfs_needed. But the other
-is tun_flow_update which doesn't check if the rfs is enabled.
+This results in the kernel not being able to accept TCP connections,
+because the backlog has zero size. Usually, the user ends up with:
+"TCP: request_sock_TCP: Possible SYN flooding on port 7. Dropping request.  Check SNMP counters."
+If SYN cookies are not enabled the connection is rejected.
 
-Now rename the original function sock_rps_record_flow_hash to
-_sock_rps_record_flow_hash, and add one helper func which checks the
-rfs_needed.
+Before ef547f2ac16 (tcp: remove max_qlen_log), the effects were less
+severe, because the backlog was always at least eight slots long.
 
-The perf result of two functions is following.
-When rfs is disabled, it could enhance 58% performance with checking
-rfs_needed.
-When rfs is enabled, the performanc is lower than current about 29%.
-
-Because the RFS is disabled by default. I think it is useful to tun
-driver.
-
-The follow is test statistics.
-test_rfs_check_rfs_key invokes _sock_rps_record_flow_hash 10000000 times.
-test_rfs_no_check_rfs_key invokes sock_rps_record_flow_hash 10000000 times
-too.
-The test function is running with bh disabled, and the cycles is measured
-by rdtscll.
-
-[ 1716.374630] rfs_needed:1
-[ 1716.388961] test_rfs_check_rfs_key costs 37119844 cycles
-[ 1716.404495] test_rfs_check_rfs_key costs 40229886 cycles
-[ 1716.419033] test_rfs_check_rfs_key costs 37668179 cycles
-[ 1716.432618] test_rfs_no_check_rfs_key costs 35181759 cycles
-[ 1716.443151] test_rfs_no_check_rfs_key costs 27290206 cycles
-[ 1716.453496] test_rfs_no_check_rfs_key costs 26797500 cycles
-
-[ 2635.215760] rfs_needed:0
-[ 2635.219079] test_rfs_check_rfs_key costs 8455450 cycles
-[ 2635.222381] test_rfs_check_rfs_key costs 8556322 cycles
-[ 2635.225761] test_rfs_check_rfs_key costs 8758388 cycles
-[ 2635.232230] test_rfs_no_check_rfs_key costs 16762130 cycles
-[ 2635.239942] test_rfs_no_check_rfs_key costs 19982679 cycles
-[ 2635.249172] test_rfs_no_check_rfs_key costs 23894840 cycles
-
-Signed-off-by: Gao Feng <gfree.wind@vip.163.com>
+Signed-off-by: Roman Kapl <roman.kapl@sysgo.com>
 ---
- include/net/sock.h | 12 ++++++++++--
- 1 file changed, 10 insertions(+), 2 deletions(-)
+ net/core/net_namespace.c   | 19 +++++++++++++++++++
+ net/core/sysctl_net_core.c |  2 --
+ 2 files changed, 19 insertions(+), 2 deletions(-)
 
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 3467d9e..584bb9a 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -910,7 +910,7 @@ static inline void sk_incoming_cpu_update(struct sock *sk)
- 	sk->sk_incoming_cpu = raw_smp_processor_id();
+diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
+index 1934efd..26bbfab 100644
+--- a/net/core/net_namespace.c
++++ b/net/core/net_namespace.c
+@@ -315,6 +315,25 @@ static __net_init int setup_net(struct net *net, struct user_namespace *user_ns)
+ 	goto out;
  }
  
--static inline void sock_rps_record_flow_hash(__u32 hash)
-+static inline void _sock_rps_record_flow_hash(__u32 hash)
- {
- #ifdef CONFIG_RPS
- 	struct rps_sock_flow_table *sock_flow_table;
-@@ -922,6 +922,14 @@ static inline void sock_rps_record_flow_hash(__u32 hash)
- #endif
- }
- 
-+static inline void sock_rps_record_flow_hash(__u32 hash)
++static int __net_init net_defaults_init_net(struct net *net)
 +{
-+#ifdef CONFIG_RPS
-+	if (static_key_false(&rfs_needed))
-+		_sock_rps_record_flow_hash(hash);
-+#endif
++	net->core.sysctl_somaxconn = SOMAXCONN;
++	return 0;
 +}
 +
- static inline void sock_rps_record_flow(const struct sock *sk)
++static struct pernet_operations net_defaults_ops = {
++	.init = net_defaults_init_net,
++};
++
++static __init int net_defaults_init(void)
++{
++	if (register_pernet_subsys(&net_defaults_ops))
++		panic("Cannot initialize net default settings");
++
++	return 0;
++}
++
++core_initcall(net_defaults_init);
+ 
+ #ifdef CONFIG_NET_NS
+ static struct ucounts *inc_net_namespaces(struct user_namespace *ns)
+diff --git a/net/core/sysctl_net_core.c b/net/core/sysctl_net_core.c
+index ea23254..b7cd9aa 100644
+--- a/net/core/sysctl_net_core.c
++++ b/net/core/sysctl_net_core.c
+@@ -479,8 +479,6 @@ static __net_init int sysctl_core_net_init(struct net *net)
  {
- #ifdef CONFIG_RPS
-@@ -937,7 +945,7 @@ static inline void sock_rps_record_flow(const struct sock *sk)
- 		 * [1] : sk_state and sk_prot are in the same cache line.
- 		 */
- 		if (sk->sk_state == TCP_ESTABLISHED)
--			sock_rps_record_flow_hash(sk->sk_rxhash);
-+			_sock_rps_record_flow_hash(sk->sk_rxhash);
- 	}
- #endif
- }
+ 	struct ctl_table *tbl;
+ 
+-	net->core.sysctl_somaxconn = SOMAXCONN;
+-
+ 	tbl = netns_core_table;
+ 	if (!net_eq(net, &init_net)) {
+ 		tbl = kmemdup(tbl, sizeof(netns_core_table), GFP_KERNEL);
 -- 
-1.9.1
+2.10.1
