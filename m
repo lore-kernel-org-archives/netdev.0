@@ -1,54 +1,40 @@
-From: Mateusz Jurczyk <mjurczyk@google.com>
-Subject: [PATCH] nfc: Fix the sockaddr length sanitization in llcp_sock_connect
-Date: Wed, 24 May 2017 12:26:20 +0200
-Message-ID: <20170524102620.13806-1-mjurczyk@google.com>
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, security@kernel.org
-To: Samuel Ortiz <sameo@linux.intel.com>,
-        "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Mateusz Jurczyk <mjurczyk-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH] nfc: Ensure presence of required attributes in the activate_target netlink handler
+Date: Wed, 24 May 2017 12:42:26 +0200
+Message-ID: <20170524104226.14841-1-mjurczyk@google.com>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, security-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
+To: Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Fix the sockaddr length verification in the connect() handler of NFC/LLCP
-sockets, to compare against the size of the actual structure expected on
-input (sockaddr_nfc_llcp) instead of its shorter version (sockaddr_nfc).
+Check that the NFC_ATTR_TARGET_INDEX and NFC_ATTR_PROTOCOLS attributes (in
+addition to NFC_ATTR_DEVICE_INDEX) are provided by the netlink client
+prior to accessing them. This prevents potential unhandled NULL pointer
+dereference exceptions which can be triggered by malicious user-mode
+programs, if they omit one or both of these attributes.
 
-Both structures are defined in include/uapi/linux/nfc.h. The fields
-specific to the _llcp extended struct are as follows:
-
-   276		__u8 dsap; /* Destination SAP, if known */
-   277		__u8 ssap; /* Source SAP to be bound to */
-   278		char service_name[NFC_LLCP_MAX_SERVICE_NAME]; /* Service name URI */;
-   279		size_t service_name_len;
-
-If the caller doesn't provide a sufficiently long sockaddr buffer, these
-fields remain uninitialized (and they currently originate from the stack
-frame of the top-level sys_connect handler). They are then copied by
-llcp_sock_connect() into internal storage (nfc_llcp_sock structure), and
-could be subsequently read back through the user-mode getsockname()
-function (handled by llcp_sock_getname()). This would result in the
-disclosure of up to ~70 uninitialized bytes from the kernel stack to
-user-mode clients capable of creating AFC_NFC sockets.
-
-Signed-off-by: Mateusz Jurczyk <mjurczyk@google.com>
+Signed-off-by: Mateusz Jurczyk <mjurczyk-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
 ---
- net/nfc/llcp_sock.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+ net/nfc/netlink.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-diff --git a/net/nfc/llcp_sock.c b/net/nfc/llcp_sock.c
-index 2ffb18e73df6..d0d12bea65cb 100644
---- a/net/nfc/llcp_sock.c
-+++ b/net/nfc/llcp_sock.c
-@@ -662,8 +662,7 @@ static int llcp_sock_connect(struct socket *sock, struct sockaddr *_addr,
+diff --git a/net/nfc/netlink.c b/net/nfc/netlink.c
+index 6b0850e63e09..b251fb936a27 100644
+--- a/net/nfc/netlink.c
++++ b/net/nfc/netlink.c
+@@ -907,7 +907,9 @@ static int nfc_genl_activate_target(struct sk_buff *skb, struct genl_info *info)
+ 	u32 device_idx, target_idx, protocol;
+ 	int rc;
  
- 	pr_debug("sock %p sk %p flags 0x%x\n", sock, sk, flags);
- 
--	if (!addr || len < sizeof(struct sockaddr_nfc) ||
--	    addr->sa_family != AF_NFC)
-+	if (!addr || len < sizeof(*addr) || addr->sa_family != AF_NFC)
+-	if (!info->attrs[NFC_ATTR_DEVICE_INDEX])
++	if (!info->attrs[NFC_ATTR_DEVICE_INDEX] ||
++	    !info->attrs[NFC_ATTR_TARGET_INDEX] ||
++	    !info->attrs[NFC_ATTR_PROTOCOLS])
  		return -EINVAL;
  
- 	if (addr->service_name_len == 0 && addr->dsap == 0)
+ 	device_idx = nla_get_u32(info->attrs[NFC_ATTR_DEVICE_INDEX]);
 -- 
 2.13.0.219.gdb65acc882-goog
