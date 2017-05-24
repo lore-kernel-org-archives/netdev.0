@@ -1,10 +1,8 @@
-From: Timur Tabi <timur@qti.qualcomm.com>
+From: Andrew Lunn <andrew@lunn.ch>
 Subject: Re: [PATCH 2/2] at803x: double check SGMII side autoneg
-Date: Wed, 24 May 2017 15:57:06 -0500
-Message-ID: <d6a23db1-2465-b315-f520-63aba0341fbe@quicinc.com>
-References: <20170522213206.GT29447@lunn.ch>
- <a8415b8b-1713-053d-41d3-2577c5a53c8b@codeaurora.org>
- <20170523160722.GC21169@lunn.ch>
+Date: Wed, 24 May 2017 23:15:20 +0200
+Message-ID: <20170524211520.GJ1788@lunn.ch>
+References: <20170523160722.GC21169@lunn.ch>
  <3dc4f9cf-3172-0227-f03c-1ccfdad3e15e@codeaurora.org>
  <a87a7309-e15e-286f-08d0-83535c094358@neratec.com>
  <a88a111d-5e3a-0999-14ef-0ada06febb3f@codeaurora.org>
@@ -13,66 +11,59 @@ References: <20170522213206.GT29447@lunn.ch>
  <20170524140929.GC26577@lunn.ch>
  <c2a54e2e-a1b6-24b4-d125-95fa9648fe95@codeaurora.org>
  <20170524193450.GC1788@lunn.ch>
+ <d6a23db1-2465-b315-f520-63aba0341fbe@quicinc.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: Matthias May <matthias.may@neratec.com>,
         Zefir Kurtisi <zefir.kurtisi@neratec.com>,
-        <netdev@vger.kernel.org>, <f.fainelli@gmail.com>,
+        netdev@vger.kernel.org, f.fainelli@gmail.com,
         David Miller <davem@davemloft.net>,
-        Manoj Iyer <manoj.iyer@canonical.com>, <jhugo@codeaurora.org>
-To: Andrew Lunn <andrew@lunn.ch>
+        Manoj Iyer <manoj.iyer@canonical.com>, jhugo@codeaurora.org
+To: Timur Tabi <timur@qti.qualcomm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wolverine02.qualcomm.com ([199.106.114.251]:29406 "EHLO
-        wolverine02.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754776AbdEXU5Q (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 24 May 2017 16:57:16 -0400
-In-Reply-To: <20170524193450.GC1788@lunn.ch>
+Received: from vps0.lunn.ch ([178.209.37.122]:43694 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1032657AbdEXVP3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 24 May 2017 17:15:29 -0400
+Content-Disposition: inline
+In-Reply-To: <d6a23db1-2465-b315-f520-63aba0341fbe@quicinc.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/24/2017 02:34 PM, Andrew Lunn wrote:
->> Ok, I'm going to debug this some more.  It turns out that the MAC side of
->> the SGMII link can send an interrupt when it thinks that auto-negotiation is
->> done.  I might be able to use this.
->
-> You can use this for your board. But it still leaves the phy driver
-> broken for everybody else.
+On Wed, May 24, 2017 at 03:57:06PM -0500, Timur Tabi wrote:
+> On 05/24/2017 02:34 PM, Andrew Lunn wrote:
+> >>Ok, I'm going to debug this some more.  It turns out that the MAC side of
+> >>the SGMII link can send an interrupt when it thinks that auto-negotiation is
+> >>done.  I might be able to use this.
+> >
+> >You can use this for your board. But it still leaves the phy driver
+> >broken for everybody else.
+> 
+> Wait, I thought you said the at803x driver was not broken, since it
+> returns 0 when the SGMII side of the link hasn't finished
+> auto-negotiating?
 
-Wait, I thought you said the at803x driver was not broken, since it 
-returns 0 when the SGMII side of the link hasn't finished auto-negotiating?
+It is correct so far. But to work, it needs to interrupt again once
+the SGMII side has come up. Only then have we link.
 
->> What function should my MAC driver call when it wants the phy core to call
->> at803x_aneg_done again to see if autonegotiation is done?
->
-> You want to trigger the PHY state machine. There is only one exported
-> API call to do this, phy_mac_interrupt(). But you are supposed to pass
-> the new link state. And your MAC driver has no idea of that, it does
-> not know if the copper side of the PHY is up.
+> My NIC has a feature called autopolling where it takes over the MDIO
+> bus and regularly polls the link state.  When it detects that the
+> link state has changed, it generates a MAC interrupt.  This is when
+> I call phy_mac_interrupt() normally.
 
-My NIC has a feature called autopolling where it takes over the MDIO bus 
-and regularly polls the link state.  When it detects that the link state 
-has changed, it generates a MAC interrupt.  This is when I call 
-phy_mac_interrupt() normally.
+Unfortunately, you need to keep this feature turned off. It will not
+respect the phydev mutex. It has no idea what page has been currently
+selected. It probably has no way to flip the page and see if the SGMII
+link is up. etc.
 
-I think I can use the SGMII interrupt to also call phy_mac_interrupt(). 
-The problem is the from the copper side, the link is already up, so if I 
-call phy_mac_interrupt() again and say the link is up, the phy core is 
-going to ignore that.
+> Can you tell my how PHY_HAS_INTERRUPT is supposed to work?  How does
+> the PHY send an interrupt?
 
-> So it might be better if you export phy_trigger_machine().
+Generally, the PHY interrupt pin is connected to a GPIO. You then use
+the GPIO as an interrupt source. So it has an interrupt number. Put
+that in phydev->irq, eg using the interrupts property in device tree.
+The core will register an interrupt handler, and enable the
+interrupt. When it receives an interrupt, it calls the phy driver to
+service the interrupt.
 
-I'll test that, but that does seem a bit hackish.
-
->> Also, is there a way for the MAC driver to know that at803x_aneg_done()
->> previously returned 0, and that it needs to tell the phy core to check again?
->
-> Not that i know of. The MAC layer is not supposed to be messing around
-> in the PHY layer. However, just triggering the PHY state machine
-> should be enough.
-
-Can you tell my how PHY_HAS_INTERRUPT is supposed to work?  How does the 
-PHY send an interrupt?
-
-I'm starting to think that my NIC's autopolling feature is not 
-compatible with phylib, and that I should use polling mode.
+	Andrew
