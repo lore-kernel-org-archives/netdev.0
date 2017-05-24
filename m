@@ -1,160 +1,39 @@
-From: Bogdan Purcareata <bogdan.purcareata@nxp.com>
-Subject: [PATCH v2] drivers: phy: Add Cortina CS4340 driver
-Date: Wed, 24 May 2017 09:25:48 +0000
-Message-ID: <1495617948-13435-1-git-send-email-bogdan.purcareata@nxp.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH] net: fix potential null pointer dereference
+Date: Wed, 24 May 2017 11:29:30 +0200
+Message-ID: <20170524092930.GA12351@salvia>
+References: <20170523231837.GA9364@embeddedgus>
 Mime-Version: 1.0
-Content-Type: text/plain
-To: <andrew@lunn.ch>, <f.fainelli@gmail.com>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Harald Welte <laforge@gnumonks.org>,
+        osmocom-net-gprs@lists.osmocom.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:56792 "EHLO mail.us.es"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1031781AbdEXJ3g (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 24 May 2017 05:29:36 -0400
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+        by mail.us.es (Postfix) with ESMTP id 3152C1EC2C1
+        for <netdev@vger.kernel.org>; Wed, 24 May 2017 11:29:28 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 20F611021BA
+        for <netdev@vger.kernel.org>; Wed, 24 May 2017 11:29:28 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 2ACE1FF6FC
+        for <netdev@vger.kernel.org>; Wed, 24 May 2017 11:29:24 +0200 (CEST)
+Content-Disposition: inline
+In-Reply-To: <20170523231837.GA9364@embeddedgus>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add basic support for Cortina PHY drivers. Support only CS4340 for now.
-The phys are not compatible with IEEE 802.3 clause 45 registers. Implement
-proper read_status support, so that phy polling does not cause bus
-register access errors.
+On Tue, May 23, 2017 at 06:18:37PM -0500, Gustavo A. R. Silva wrote:
+> Add null check to avoid a potential null pointer dereference.
+> 
+> Addresses-Coverity-ID: 1408831
+> Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
 
-The driver should be described using the "ethernet-phy-id" device tree
-compatible.
+Acked-by: Pablo Neira Ayuso <pablo@netfilter.org>
 
-Signed-off-by: Bogdan Purcareata <bogdan.purcareata@nxp.com>
----
-v1 -> v2:
-- Rename "mdio-cortina.c" to "cortina.c" since it's a phy driver.
-- Test probing based on the "ethernet-phy-id" compatible. In the previous
-  version, getting the phy_id via get_phy_c45_ids() involved an additional
-  hack. Drop that approach and document probing in the commit message.
-
- drivers/net/phy/Kconfig   |  5 +++
- drivers/net/phy/Makefile  |  1 +
- drivers/net/phy/cortina.c | 90 +++++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 96 insertions(+)
- create mode 100644 drivers/net/phy/cortina.c
-
-diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
-index 22dea7f..ad09e2d 100644
---- a/drivers/net/phy/Kconfig
-+++ b/drivers/net/phy/Kconfig
-@@ -240,6 +240,11 @@ config CICADA_PHY
- 	---help---
- 	  Currently supports the cis8204
- 
-+config CORTINA_PHY
-+	tristate "Cortina quad-10G Ethernet PHY"
-+	---help---
-+	  Currently supports the CS4340 phy.
-+
- config DAVICOM_PHY
- 	tristate "Davicom PHYs"
- 	---help---
-diff --git a/drivers/net/phy/Makefile b/drivers/net/phy/Makefile
-index 79365be..0de3e20 100644
---- a/drivers/net/phy/Makefile
-+++ b/drivers/net/phy/Makefile
-@@ -47,6 +47,7 @@ obj-$(CONFIG_BCM_CYGNUS_PHY)	+= bcm-cygnus.o
- obj-$(CONFIG_BCM_NET_PHYLIB)	+= bcm-phy-lib.o
- obj-$(CONFIG_BROADCOM_PHY)	+= broadcom.o
- obj-$(CONFIG_CICADA_PHY)	+= cicada.o
-+obj-$(CONFIG_CORTINA_PHY)	+= cortina.o
- obj-$(CONFIG_DAVICOM_PHY)	+= davicom.o
- obj-$(CONFIG_DP83640_PHY)	+= dp83640.o
- obj-$(CONFIG_DP83848_PHY)	+= dp83848.o
-diff --git a/drivers/net/phy/cortina.c b/drivers/net/phy/cortina.c
-new file mode 100644
-index 0000000..6f054ed
---- /dev/null
-+++ b/drivers/net/phy/cortina.c
-@@ -0,0 +1,90 @@
-+/*
-+ *    Based on code from Cortina Systems, Inc.
-+ *
-+ *    Copyright 2011 Cortina Systems, Inc.
-+ *    Copyright 2017 NXP
-+ *
-+ *    This program is free software; you can redistribute it and/or modify
-+ *    it under the terms of the GNU General Public License as published by
-+ *    the Free Software Foundation; either version 2 of the License, or
-+ *    (at your option) any later version.
-+ *
-+ *    This program is distributed in the hope that it will be useful,
-+ *    but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ *    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ *    GNU General Public License for more details.
-+ *
-+ */
-+#include <linux/module.h>
-+#include <linux/phy.h>
-+
-+#define PHY_ID_CS4340	0x13e51002
-+
-+#define CORTINA_GPIO_GPIO_INTS				0x16D
-+
-+static int cortina_read_x(struct phy_device *phydev, int off, u16 regnum)
-+{
-+	return mdiobus_read(phydev->mdio.bus, phydev->mdio.addr + off,
-+			    MII_ADDR_C45 | regnum);
-+}
-+
-+static int cortina_read(struct phy_device *phydev, u16 regnum)
-+{
-+	return cortina_read_x(phydev, 0, regnum);
-+}
-+
-+static int cortina_config_aneg(struct phy_device *phydev)
-+{
-+	phydev->supported = SUPPORTED_10000baseT_Full;
-+	phydev->advertising = SUPPORTED_10000baseT_Full;
-+
-+	return 0;
-+}
-+
-+static int cortina_read_status(struct phy_device *phydev)
-+{
-+	int gpio_int_status;
-+	int ret = 0;
-+
-+	gpio_int_status = cortina_read(phydev, CORTINA_GPIO_GPIO_INTS);
-+	if (gpio_int_status < 0) {
-+		ret = gpio_int_status;
-+		goto err;
-+	}
-+
-+	if (gpio_int_status & 0x8) {
-+		phydev->speed = SPEED_10000;
-+		phydev->duplex = DUPLEX_FULL;
-+		phydev->link = 1;
-+	} else {
-+		phydev->link = 0;
-+	}
-+
-+err:
-+	return ret;
-+}
-+
-+static int cortina_soft_reset(struct phy_device *phydev)
-+{
-+	return 0;
-+}
-+
-+static struct phy_driver cortina_driver[] = {
-+{
-+	.phy_id         = PHY_ID_CS4340,
-+	.phy_id_mask    = 0xffffffff,
-+	.name           = "Cortina CS4340",
-+	.config_aneg    = cortina_config_aneg,
-+	.read_status    = cortina_read_status,
-+	.soft_reset     = cortina_soft_reset,
-+},
-+};
-+
-+module_phy_driver(cortina_driver);
-+
-+static struct mdio_device_id __maybe_unused cortina_tbl[] = {
-+	{ PHY_ID_CS4340, 0xffffffff},
-+	{},
-+};
-+
-+MODULE_DEVICE_TABLE(mdio, cortina_tbl);
--- 
-1.9.1
+This is a fix for the net.git tree BTW.
