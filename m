@@ -1,55 +1,58 @@
-From: Edward Cree <ecree@solarflare.com>
-Subject: Re: Alignment in BPF verifier
-Date: Wed, 24 May 2017 14:46:19 +0100
-Message-ID: <65535d13-ce7e-56b9-807d-bf89d7d91ca9@solarflare.com>
-References: <db8cd2e8-9f51-dc8b-5e55-4c75d13d4858@fb.com>
- <a0a47297-4765-3ba0-3ea2-013dda40e84a@solarflare.com>
- <bed5b512-6069-53cc-f128-05be05f89889@solarflare.com>
- <20170519.163957.1950740987459934279.davem@davemloft.net>
- <591F7A28.3020004@iogearbox.net>
- <f882c40e-bd50-f08e-afd8-f6396fc24ebc@solarflare.com>
- <ad2162c3-1286-ab35-464a-8d21a1adc94f@fb.com>
- <5924A938.2090808@iogearbox.net>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: [v2,
+ 01/10] rt2x00: change function pointers for register accessors
+Date: Wed, 24 May 2017 13:46:41 +0000 (UTC)
+Message-ID: <20170524134641.96A31611D2@smtp.codeaurora.org>
+References: <20170517144702.1381136-2-arnd@arndb.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: <alexei.starovoitov@gmail.com>, <netdev@vger.kernel.org>
-To: Daniel Borkmann <daniel@iogearbox.net>,
-        Alexei Starovoitov <ast@fb.com>,
-        David Miller <davem@davemloft.net>
+Cc: linux-wireless <linux-wireless@vger.kernel.org>,
+        Arnd Bergmann <arnd@arndb.de>,
+        Stanislaw Gruszka <sgruszka@redhat.com>,
+        David Miller <davem@davemloft.net>,
+        Helmut Schaa <helmut.schaa@googlemail.com>,
+        Daniel Golle <daniel@makrotopia.org>,
+        Mathias Kresin <dev@kresin.me>,
+        Johannes Berg <johannes.berg@intel.com>,
+        Serge Vasilugin <vasilugin@yandex.ru>,
+        Roman Yeryomin <roman@advem.lv>,
+        Networking <netdev@vger.kernel.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        Jes Sorensen <jes.sorensen@gmail.com>,
+        Tom Psyborg <pozega.tomislav@gmail.com>
+To: Arnd Bergmann <arnd@arndb.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dispatch1-us1.ppe-hosted.com ([67.231.154.164]:49654 "EHLO
-        dispatch1-us1.ppe-hosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1757693AbdEXNqd (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 24 May 2017 09:46:33 -0400
-In-Reply-To: <5924A938.2090808@iogearbox.net>
+Received: from smtp.codeaurora.org ([198.145.29.96]:46844 "EHLO
+        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1758733AbdEXNqm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 24 May 2017 09:46:42 -0400
+In-Reply-To: <20170517144702.1381136-2-arnd@arndb.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 23/05/17 22:27, Daniel Borkmann wrote:
-> On 05/23/2017 09:45 PM, Alexei Starovoitov wrote:
->> On 5/23/17 7:41 AM, Edward Cree wrote:
->>> Hmm, that means that we can't do arithmetic on a
->>>  PTR_TO_MAP_VALUE_OR_NULL, we have to convert it to a PTR_TO_MAP_VALUE
->>>  first by NULL-checking it.  That's probably fine, but I can just about
->>>  imagine some compiler optimisation reordering them.  Any reason not to
->>>  split this out into a different reg->field, rather than overloading id?
->>
->> 'id' is sort of like 'version' of a pointer and has the same meaning in
->> both cases. How exactly do you see this split?
-I was thinking there would be reg->id and reg->map_id.  Both could share the
- env->id_gen, since that's not likely to run out, but they'd be separate
- fields so that a PTR_TO_MAP_VALUE_OR_NULL could say "this is either map_value
- plus a 4-byte-aligned offset less than 24, or NULL plus that same offset",
- and then if another pointer with the same map_id and no variable-offset part
- was NULL-checked, we could convert both pointers to PTR_TO_MAP_VALUE.  (I'm
- getting rid of PTR_TO_MAP_VALUE_ADJ in my patch, along with several other
- types, by taking the 'we have an offset' part out of the bpf_reg_type.)
-> So far we haven't run into this kind of optimization
-> from llvm side yet[...] Out of curiosity, did you run into it with llvm?
-No, purely theoretical.  I haven't even built/installed llvm yet, I'm just
- working with the bytecode in test_verifier.c for now.  I'm merely trying to
- not have restrictions that are unnecessary; but since allowing this kind of
- construct would take a non-zero amount of work, I'll file it for later.
+Arnd Bergmann <arnd@arndb.de> wrote:
+> This prepares the driver for changing all the 'read' register accessors
+> to return the value instead of passing it by reference. Since a lot
+> of them are used in callbacks, this takes care of the callbacks first,
+> adding a couple of helpers that will be removed again one at a time.
+> 
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 
--Ed
+10 patches applied to wireless-drivers-next.git, thanks.
+
+6b81745e36e3 rt2x00: change function pointers for register accessors
+16d571bb0fe6 rt2x00: convert rt2800_rfcsr_read return type
+aea8baa10ac5 rt2x00: convert rt2x00_rf_read return type
+3954b4e30609 rt2x00: convert rt2x00mmio_register_read return type
+48bde9c96972 rt2x00: convert rt2x00usb_register_read return type
+eebd68e7824b rt2x00: convert rt2800_register_read return type
+5fbbe378890f rt2x00: convert rt2*_bbp_read return type
+38651683aa98 rt2x00: convert rt2x00_eeprom_read return type
+5c6a25855cbd rt2x00: convert rt2800_eeprom_read return type
+b9b238726716 rt2x00: convert rt2x00_desc_read return type
+
+-- 
+https://patchwork.kernel.org/patch/9731331/
+
+https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
