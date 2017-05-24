@@ -1,29 +1,64 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull-request: mac80211 2017-05-23
-Date: Wed, 24 May 2017 15:32:36 -0400 (EDT)
-Message-ID: <20170524.153236.43848913276118039.davem@davemloft.net>
-References: <20170523124256.23463-1-johannes@sipsolutions.net>
+From: "Rosen, Rami" <rami.rosen@intel.com>
+Subject: RE: [PATCH net-next 1/8] net: ipv4: refactor
+ __ip_route_output_key_hash
+Date: Wed, 24 May 2017 19:33:33 +0000
+Message-ID: <9B0331B6EBBD0E4684FBFAEDA55776F93D54F8DF@HASMSX110.ger.corp.intel.com>
+References: <1495649951-30417-1-git-send-email-roopa@cumulusnetworks.com>
+ <1495649951-30417-2-git-send-email-roopa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
-To: johannes@sipsolutions.net
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "dsahern@gmail.com" <dsahern@gmail.com>,
+        "nikolay@cumulusnetworks.com" <nikolay@cumulusnetworks.com>
+To: Roopa Prabhu <roopa@cumulusnetworks.com>,
+        "davem@davemloft.net" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:49440 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1030840AbdEXTci (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 24 May 2017 15:32:38 -0400
-In-Reply-To: <20170523124256.23463-1-johannes@sipsolutions.net>
+Received: from mga04.intel.com ([192.55.52.120]:43178 "EHLO mga04.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1030907AbdEXTdh (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 24 May 2017 15:33:37 -0400
+In-Reply-To: <1495649951-30417-2-git-send-email-roopa@cumulusnetworks.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Johannes Berg <johannes@sipsolutions.net>
-Date: Tue, 23 May 2017 14:42:55 +0200
+Hi, Rupa /David Ahern,
 
-> I have just two fixes here, one of the scheduled scan issue that
-> Sander Eikelenboom found, and the other properly makes mesh more
-> strictly check its extension headers.
-> 
-> Please pull and let me know if there's any problem.
+First, thanks for this patch set!
 
-Pulled, thanks Johannes.
+Second, it seems to me that something might be incorrect here.
+
+You have these additions in this patch  (1/8):
+...
++struct rtable *ip_route_output_key_hash_rcu(struct net *net, struct flowi4 *flp,
++					    const struct sk_buff *skb,
++					    struct fib_result *res);
+...
++struct rtable *ip_route_output_key_hash(struct net *net, struct flowi4 *fl4,
++					const struct sk_buff *skb)
++{
++	struct fib_result res;
++	struct rtable *rth;
++
++	res.tclassid	= 0;
++	res.fi		= NULL;
++	res.table	= NULL;
++
++	rcu_read_lock();
++	rth = ip_route_output_key_hash_rcu(net, fl4, &res, mp_hash);
+ 	rcu_read_unlock();
++
+ 	return rth;
+ }
+-EXPORT_SYMBOL_GPL(__ip_route_output_key_hash);
++EXPORT_SYMBOL_GPL(ip_route_output_key_hash);
+ 
+
+So the third parameter to ip_route_output_key_hash_rcu() should be skb*, and the fourth parameter should be fib_result *. However, you do not pass the skb parameter 
+when calling ip_route_output_key_hash_rcu() in 
+ip_route_output_key_hash()  (in fact you don't use it at all),  and you pass mp_hash as the fourth parameter.
+
+Regards,
+Rami Rosen
+Intel Corporation
