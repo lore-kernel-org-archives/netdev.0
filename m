@@ -1,61 +1,66 @@
-From: Kees Cook <keescook-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH] nfc: Ensure presence of required attributes in the
- activate_target netlink handler
-Date: Wed, 24 May 2017 10:05:48 -0700
-Message-ID: <CAGXu5jK3aX-AFXCk9=hhX49scgGOHBYXocsNJb8u+ienMuM65g@mail.gmail.com>
-References: <20170524104226.14841-1-mjurczyk@google.com>
+From: Manohar Kumar <forwardinglnx@gmail.com>
+Subject: Re: Deleting a dynamic mac entry..
+Date: Wed, 24 May 2017 11:05:54 -0700
+Message-ID: <CA+N+6-xtSgQ4eDN7SBMg43WXEc=6quPNE4L1-3xjLuTMte0DSA@mail.gmail.com>
+References: <CA+N+6-xY7+coc6zFqzP665WMhbGFFMHOfre9wNxRAcSF2Bthzw@mail.gmail.com>
+ <e6143108-3eb4-6f6a-c58b-857722f706b9@lab.ntt.co.jp>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "security-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org" <security-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-To: Mateusz Jurczyk <mjurczyk-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170524104226.14841-1-mjurczyk-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org
+To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f196.google.com ([209.85.220.196]:34729 "EHLO
+        mail-qk0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932941AbdEXSF4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 24 May 2017 14:05:56 -0400
+Received: by mail-qk0-f196.google.com with SMTP id u75so27399065qka.1
+        for <netdev@vger.kernel.org>; Wed, 24 May 2017 11:05:55 -0700 (PDT)
+In-Reply-To: <e6143108-3eb4-6f6a-c58b-857722f706b9@lab.ntt.co.jp>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 24, 2017 at 3:42 AM, Mateusz Jurczyk <mjurczyk-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org> wrote:
-> Check that the NFC_ATTR_TARGET_INDEX and NFC_ATTR_PROTOCOLS attributes (in
-> addition to NFC_ATTR_DEVICE_INDEX) are provided by the netlink client
-> prior to accessing them. This prevents potential unhandled NULL pointer
-> dereference exceptions which can be triggered by malicious user-mode
-> programs, if they omit one or both of these attributes.
+Thanks, Toshiaki.
+
+What is the right way to set the default_pvid using the bridge command
+? I tried this, which fails..
+
+root@net-3:~# ip link set dev vxlan0 name untagged type vlan id 0
+RTNETLINK answers: Operation not supported
+root@net-3:~#
+
+All the interfaces in the bridge are untagged.
+
+thanks,
+Manohar.
+
+
+On Mon, May 22, 2017 at 8:17 PM, Toshiaki Makita
+<makita.toshiaki@lab.ntt.co.jp> wrote:
+> On 2017/05/21 11:28, Manohar Kumar wrote:
+>> Hello,
+>>
+>> In 3.19 the following bridge fdb command to delete a dynamically
+>> learned entry fails..
+>>
+>> root@net-3:~# bridge fdb show | grep 02:42:0a:ff:00:06
+>> 02:42:0a:ff:00:06 dev vxlan0 master br0
+>> root@net-3:~# bridge fdb del 02:42:0a:ff:00:06 dev vxlan0 master
+>> RTNETLINK answers: No such file or directory
+>>
+>> It works in 4.4.
+>>
+>> Can someone please point to the patch that made this change ?
 >
-> Signed-off-by: Mateusz Jurczyk <mjurczyk-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-
-Acked-by: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
-
--Kees
-
-> ---
->  net/nfc/netlink.c | 4 +++-
->  1 file changed, 3 insertions(+), 1 deletion(-)
+> 25d3b493a52d ("bridge: Fix inability to add non-vlan fdb entry") might
+> be what you are looking for, but you might want to do git-bisect to
+> track down any regression or fix.
 >
-> diff --git a/net/nfc/netlink.c b/net/nfc/netlink.c
-> index 6b0850e63e09..b251fb936a27 100644
-> --- a/net/nfc/netlink.c
-> +++ b/net/nfc/netlink.c
-> @@ -907,7 +907,9 @@ static int nfc_genl_activate_target(struct sk_buff *skb, struct genl_info *info)
->         u32 device_idx, target_idx, protocol;
->         int rc;
+>> In kernels without this patch is there an alternative to delete
+>> (actually I want to do it programmatically) dynamic mac entries ?
 >
-> -       if (!info->attrs[NFC_ATTR_DEVICE_INDEX])
-> +       if (!info->attrs[NFC_ATTR_DEVICE_INDEX] ||
-> +           !info->attrs[NFC_ATTR_TARGET_INDEX] ||
-> +           !info->attrs[NFC_ATTR_PROTOCOLS])
->                 return -EINVAL;
+> If 25d3b493a52d is causing your problem, set default_pvid to 0 in order
+> to disable default_pvid, and delete any vlans which is already
+> configured in bridge's vlan_filtering. Then, delete the fdb entry.
 >
->         device_idx = nla_get_u32(info->attrs[NFC_ATTR_DEVICE_INDEX]);
-> --
-> 2.13.0.219.gdb65acc882-goog
+> Toshiaki Makita
 >
-
-
-
--- 
-Kees Cook
-Pixel Security
