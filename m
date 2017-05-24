@@ -1,74 +1,101 @@
-From: Kees Cook <keescook-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH] nfc: Fix the sockaddr length sanitization in llcp_sock_connect
-Date: Wed, 24 May 2017 09:58:23 -0700
-Message-ID: <CAGXu5jJRXhJSC34vSc19mPQ9Wetf92daar71He0OXDUebXu0bA@mail.gmail.com>
-References: <20170524102620.13806-1-mjurczyk@google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "security-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org" <security-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-To: Mateusz Jurczyk <mjurczyk-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170524102620.13806-1-mjurczyk-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Wei Wang <weiwan@google.com>
+Subject: [PATCH net] tcp: avoid fastopen API to be used on AF_UNSPEC
+Date: Wed, 24 May 2017 09:59:31 -0700
+Message-ID: <20170524165931.22502-1-tracywwnj@gmail.com>
+Cc: Yuchung Cheng <ycheng@google.com>,
+        Vegard Nossum <vegard.nossum@oracle.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Wei Wang <weiwan@google.com>
+To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f169.google.com ([209.85.192.169]:35447 "EHLO
+        mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1164145AbdEXQ7q (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 24 May 2017 12:59:46 -0400
+Received: by mail-pf0-f169.google.com with SMTP id n23so142167494pfb.2
+        for <netdev@vger.kernel.org>; Wed, 24 May 2017 09:59:45 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 24, 2017 at 3:26 AM, Mateusz Jurczyk <mjurczyk-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org> wrote:
-> Fix the sockaddr length verification in the connect() handler of NFC/LLCP
-> sockets, to compare against the size of the actual structure expected on
-> input (sockaddr_nfc_llcp) instead of its shorter version (sockaddr_nfc).
->
-> Both structures are defined in include/uapi/linux/nfc.h. The fields
-> specific to the _llcp extended struct are as follows:
->
->    276          __u8 dsap; /* Destination SAP, if known */
->    277          __u8 ssap; /* Source SAP to be bound to */
->    278          char service_name[NFC_LLCP_MAX_SERVICE_NAME]; /* Service name URI */;
->    279          size_t service_name_len;
->
-> If the caller doesn't provide a sufficiently long sockaddr buffer, these
-> fields remain uninitialized (and they currently originate from the stack
-> frame of the top-level sys_connect handler). They are then copied by
-> llcp_sock_connect() into internal storage (nfc_llcp_sock structure), and
-> could be subsequently read back through the user-mode getsockname()
-> function (handled by llcp_sock_getname()). This would result in the
-> disclosure of up to ~70 uninitialized bytes from the kernel stack to
-> user-mode clients capable of creating AFC_NFC sockets.
->
-> Signed-off-by: Mateusz Jurczyk <mjurczyk-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+From: Wei Wang <weiwan@google.com>
 
-Acked-by: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+Fastopen API should be used to perform fastopen operations on the TCP
+socket. It does not make sense to use fastopen API to perform disconnect
+by calling it with AF_UNSPEC. The fastopen data path is also prone to
+race conditions and bugs when using with AF_UNSPEC.
 
--Kees
+One issue reported and analyzed by Vegard Nossum is as follows:
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+Thread A:                            Thread B:
+------------------------------------------------------------------------
+sendto()
+ - tcp_sendmsg()
+     - sk_stream_memory_free() = 0
+         - goto wait_for_sndbuf
+	     - sk_stream_wait_memory()
+	        - sk_wait_event() // sleep
+          |                          sendto(flags=MSG_FASTOPEN, dest_addr=AF_UNSPEC)
+	  |                           - tcp_sendmsg()
+	  |                              - tcp_sendmsg_fastopen()
+	  |                                 - __inet_stream_connect()
+	  |                                    - tcp_disconnect() //because of AF_UNSPEC
+	  |                                       - tcp_transmit_skb()// send RST
+	  |                                    - return 0; // no reconnect!
+	  |                           - sk_stream_wait_connect()
+	  |                                 - sock_error()
+	  |                                    - xchg(&sk->sk_err, 0)
+	  |                                    - return -ECONNRESET
+	- ... // wake up, see sk->sk_err == 0
+    - skb_entail() on TCP_CLOSE socket
 
-> ---
->  net/nfc/llcp_sock.c | 3 +--
->  1 file changed, 1 insertion(+), 2 deletions(-)
->
-> diff --git a/net/nfc/llcp_sock.c b/net/nfc/llcp_sock.c
-> index 2ffb18e73df6..d0d12bea65cb 100644
-> --- a/net/nfc/llcp_sock.c
-> +++ b/net/nfc/llcp_sock.c
-> @@ -662,8 +662,7 @@ static int llcp_sock_connect(struct socket *sock, struct sockaddr *_addr,
->
->         pr_debug("sock %p sk %p flags 0x%x\n", sock, sk, flags);
->
-> -       if (!addr || len < sizeof(struct sockaddr_nfc) ||
-> -           addr->sa_family != AF_NFC)
-> +       if (!addr || len < sizeof(*addr) || addr->sa_family != AF_NFC)
->                 return -EINVAL;
->
->         if (addr->service_name_len == 0 && addr->dsap == 0)
-> --
-> 2.13.0.219.gdb65acc882-goog
->
+If the connection is reopened then we will send a brand new SYN packet
+after thread A has already queued a buffer. At this point I think the
+socket internal state (sequence numbers etc.) becomes messed up.
 
+When the new connection is closed, the FIN-ACK is rejected because the
+sequence number is outside the window. The other side tries to
+retransmit,
+but __tcp_retransmit_skb() calls tcp_trim_head() on an empty skb which
+corrupts the skb data length and hits a BUG() in copy_and_csum_bits().
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+Hence, this patch adds a check for AF_UNSPEC in the fastopen data path
+and return EOPNOTSUPP to user if such case happens.
 
+Fixes: cf60af03ca4e7 ("tcp: Fast Open client - sendmsg(MSG_FASTOPEN)")
+Reported-by: Vegard Nossum <vegard.nossum@oracle.com>
+Signed-off-by: Wei Wang <weiwan@google.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/ipv4/tcp.c | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 60203f1c793e..fea7c4f2d36c 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -1161,9 +1161,12 @@ static int tcp_sendmsg_fastopen(struct sock *sk, struct msghdr *msg,
+ {
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 	struct inet_sock *inet = inet_sk(sk);
++	struct sockaddr *uaddr = msg->msg_name;
+ 	int err, flags;
+ 
+-	if (!(sysctl_tcp_fastopen & TFO_CLIENT_ENABLE))
++	if (!(sysctl_tcp_fastopen & TFO_CLIENT_ENABLE) ||
++	    (uaddr && msg->msg_namelen >= sizeof(uaddr->sa_family) &&
++	     uaddr->sa_family == AF_UNSPEC))
+ 		return -EOPNOTSUPP;
+ 	if (tp->fastopen_req)
+ 		return -EALREADY; /* Another Fast Open is in progress */
+@@ -1185,7 +1188,7 @@ static int tcp_sendmsg_fastopen(struct sock *sk, struct msghdr *msg,
+ 		}
+ 	}
+ 	flags = (msg->msg_flags & MSG_DONTWAIT) ? O_NONBLOCK : 0;
+-	err = __inet_stream_connect(sk->sk_socket, msg->msg_name,
++	err = __inet_stream_connect(sk->sk_socket, uaddr,
+ 				    msg->msg_namelen, flags, 1);
+ 	/* fastopen_req could already be freed in __inet_stream_connect
+ 	 * if the connection times out or gets rst
 -- 
-Kees Cook
-Pixel Security
+2.13.0.219.gdb65acc882-goog
