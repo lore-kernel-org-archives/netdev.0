@@ -1,54 +1,52 @@
-From: Myron Stowe <myron.stowe@redhat.com>
-Subject: [PATCH 2/2] net/mlx5e: Use device ID defines
-Date: Wed, 24 May 2017 16:47:52 -0600
-Message-ID: <20170524224752.24221.41019.stgit@amt.stowe>
-References: <20170524224734.24221.33787.stgit@amt.stowe>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: bhelgaas@google.com, saeedm@mellanox.com, noaos@mellanox.com,
-        tariqt@mellanox.com
-To: linux-pci@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <20170524224734.24221.33787.stgit@amt.stowe>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH net v2 0/5] Various BPF fixes
+Date: Thu, 25 May 2017 01:05:04 +0200
+Message-ID: <cover.1495665905.git.daniel@iogearbox.net>
+Cc: alexei.starovoitov@gmail.com, netdev@vger.kernel.org,
+        Daniel Borkmann <daniel@iogearbox.net>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:40295 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1031593AbdEXXFa (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 24 May 2017 19:05:30 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Use Mellanox device ID definitions in the mlx5 ID table so tools such as
-'grep' and 'cscope' can be used to help find related aspects.
+Follow-up to fix incorrect pruning when alignment tracking is
+in use and to properly clear regs after call to not leave stale
+data behind, also a fix that adds bpf_clone_redirect to the
+bpf_helper_changes_pkt_data helper and exposes correct map_flags
+for lpm map into fdinfo. For details, please see individual
+patches.
 
-No functional change intended.
+Thanks!
 
-Signed-off-by: Myron Stowe <myron.stowe@redhat.com>
----
- drivers/net/ethernet/mellanox/mlx5/core/main.c |   12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
+v1 -> v2:
+  - Reworked first patch so that env->strict_alignment is the
+    final indicator on whether we have to deal with strict
+    alignment rather than having CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS
+    checks on various locations, so only checking env->strict_alignment
+    is sufficient after that. Thanks for spotting, Dave!
+  - Added patch 3 and 4.
+  - Rest as is.
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-index 0c123d5..98642eb 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-@@ -1508,17 +1508,17 @@ static void shutdown(struct pci_dev *pdev)
- }
- 
- static const struct pci_device_id mlx5_core_pci_table[] = {
--	{ PCI_VDEVICE(MELLANOX, 0x1011) },			/* Connect-IB */
-+	{ PCI_VDEVICE(MELLANOX, PCI_DEVICE_ID_MELLANOX_CONNECTIB) },
- 	{ PCI_VDEVICE(MELLANOX, 0x1012), MLX5_PCI_DEV_IS_VF},	/* Connect-IB VF */
--	{ PCI_VDEVICE(MELLANOX, 0x1013) },			/* ConnectX-4 */
-+	{ PCI_VDEVICE(MELLANOX, PCI_DEVICE_ID_MELLANOX_CONNECTX4) },
- 	{ PCI_VDEVICE(MELLANOX, 0x1014), MLX5_PCI_DEV_IS_VF},	/* ConnectX-4 VF */
--	{ PCI_VDEVICE(MELLANOX, 0x1015) },			/* ConnectX-4LX */
-+	{ PCI_VDEVICE(MELLANOX, PCI_DEVICE_ID_MELLANOX_CONNECTX4_LX) },
- 	{ PCI_VDEVICE(MELLANOX, 0x1016), MLX5_PCI_DEV_IS_VF},	/* ConnectX-4LX VF */
--	{ PCI_VDEVICE(MELLANOX, 0x1017) },			/* ConnectX-5, PCIe 3.0 */
-+	{ PCI_VDEVICE(MELLANOX, PCI_DEVICE_ID_MELLANOX_CONNECTX5) },
- 	{ PCI_VDEVICE(MELLANOX, 0x1018), MLX5_PCI_DEV_IS_VF},	/* ConnectX-5 VF */
--	{ PCI_VDEVICE(MELLANOX, 0x1019) },			/* ConnectX-5 Ex */
-+	{ PCI_VDEVICE(MELLANOX, PCI_DEVICE_ID_MELLANOX_CONNECTX5_EX) },
- 	{ PCI_VDEVICE(MELLANOX, 0x101a), MLX5_PCI_DEV_IS_VF},	/* ConnectX-5 Ex VF */
--	{ PCI_VDEVICE(MELLANOX, 0x101b) },			/* ConnectX-6 */
-+	{ PCI_VDEVICE(MELLANOX, PCI_DEVICE_ID_MELLANOX_CONNECTX6) },
- 	{ PCI_VDEVICE(MELLANOX, 0x101c), MLX5_PCI_DEV_IS_VF},	/* ConnectX-6 VF */
- 	{ 0, }
- };
+Daniel Borkmann (5):
+  bpf: fix incorrect pruning decision when alignment must be tracked
+  bpf: properly reset caller saved regs after helper call and ld_abs/ind
+  bpf: add bpf_clone_redirect to bpf_helper_changes_pkt_data
+  bpf: fix wrong exposure of map_flags into fdinfo for lpm
+  bpf: add various verifier test cases
+
+ include/linux/filter.h                      |  10 ++
+ kernel/bpf/arraymap.c                       |   1 +
+ kernel/bpf/lpm_trie.c                       |   1 +
+ kernel/bpf/stackmap.c                       |   1 +
+ kernel/bpf/verifier.c                       |  56 +++----
+ net/core/filter.c                           |   1 +
+ tools/include/linux/filter.h                |  10 ++
+ tools/testing/selftests/bpf/test_verifier.c | 239 +++++++++++++++++++++++++++-
+ 8 files changed, 285 insertions(+), 34 deletions(-)
+
+-- 
+1.9.3
