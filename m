@@ -1,40 +1,44 @@
-From: Mateusz Jurczyk <mjurczyk-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH] nfc: Ensure presence of required attributes in the activate_target netlink handler
-Date: Wed, 24 May 2017 12:42:26 +0200
-Message-ID: <20170524104226.14841-1-mjurczyk@google.com>
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, security-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
-To: Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: "Andrey Jr. Melnikov" <temnota.am@gmail.com>
+Subject: Re: [PATCH net-next v3 5/5] net-next: dsa: add dsa support for Mediatek MT7530 switch
+Date: Wed, 24 May 2017 14:17:39 +0300
+Message-ID: <hn6gvd-qp1.ln1@banana.localnet>
+References: <1490780303-18598-1-git-send-email-sean.wang@mediatek.com> <1490780303-18598-6-git-send-email-sean.wang@mediatek.com>
+Cc: devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
+        linux-mediatek@lists.infradead.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [195.159.176.226] ([195.159.176.226]:44605 "EHLO
+        blaine.gmane.org" rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org
+        with ESMTP id S1764083AbdEXLdW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 24 May 2017 07:33:22 -0400
+Received: from list by blaine.gmane.org with local (Exim 4.84_2)
+        (envelope-from <linux-netdev-2@m.gmane.org>)
+        id 1dDUXN-0001Uk-7w
+        for netdev@vger.kernel.org; Wed, 24 May 2017 13:33:09 +0200
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Check that the NFC_ATTR_TARGET_INDEX and NFC_ATTR_PROTOCOLS attributes (in
-addition to NFC_ATTR_DEVICE_INDEX) are provided by the netlink client
-prior to accessing them. This prevents potential unhandled NULL pointer
-dereference exceptions which can be triggered by malicious user-mode
-programs, if they omit one or both of these attributes.
+In gmane.linux.kernel sean.wang@mediatek.com wrote:
+> From: Sean Wang <sean.wang@mediatek.com>
 
-Signed-off-by: Mateusz Jurczyk <mjurczyk-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
----
- net/nfc/netlink.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+> MT7530 is a 7-ports Gigabit Ethernet Switch that could be found on
+> Mediatek router platforms such as MT7623A or MT7623N platform which
+> includes 7-port Gigabit Ethernet MAC and 5-port Gigabit Ethernet PHY.
+> Among these ports, The port from 0 to 4 are the user ports connecting
+> with the remote devices while the port 5 and 6 are the CPU ports
+> connecting into Mediatek Ethernet GMAC.
 
-diff --git a/net/nfc/netlink.c b/net/nfc/netlink.c
-index 6b0850e63e09..b251fb936a27 100644
---- a/net/nfc/netlink.c
-+++ b/net/nfc/netlink.c
-@@ -907,7 +907,9 @@ static int nfc_genl_activate_target(struct sk_buff *skb, struct genl_info *info)
- 	u32 device_idx, target_idx, protocol;
- 	int rc;
- 
--	if (!info->attrs[NFC_ATTR_DEVICE_INDEX])
-+	if (!info->attrs[NFC_ATTR_DEVICE_INDEX] ||
-+	    !info->attrs[NFC_ATTR_TARGET_INDEX] ||
-+	    !info->attrs[NFC_ATTR_PROTOCOLS])
- 		return -EINVAL;
- 
- 	device_idx = nla_get_u32(info->attrs[NFC_ATTR_DEVICE_INDEX]);
--- 
-2.13.0.219.gdb65acc882-goog
+> For port 6, it can communicate with the CPU via Mediatek Ethernet GMAC
+> through either the TRGMII or RGMII which could be controlled by phy-mode
+> in the dt-bindings to specify which mode is preferred to use. And for
+> port 5, only RGMII can be specified. However, currently, only port 6 is
+> being supported in this DSA driver.
+
+> The driver is made with the reference to qca8k and other existing DSA
+> driver. The most of the essential callbacks of the DSA are already
+> support in the driver, including tag insert for user port distinguishing,
+> port control, bridge offloading, STP setup and ethtool operation to allow
+> DSA to model each user port into a standalone netdevice as the other DSA
+> driver had done.
+
+What about JUMBO frames and large MTU support? devlink support?
