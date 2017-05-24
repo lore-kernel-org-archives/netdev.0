@@ -1,36 +1,61 @@
-From: Bogdan Purcareata <bogdan.purcareata@nxp.com>
-Subject: RE: [PATCH v2] drivers: phy: Add Cortina CS4340 driver
-Date: Wed, 24 May 2017 17:04:21 +0000
-Message-ID: <DB5PR04MB124092E2C1805506DF875307EAFE0@DB5PR04MB1240.eurprd04.prod.outlook.com>
-References: <1495617948-13435-1-git-send-email-bogdan.purcareata@nxp.com>
- <20170524125830.GB24341@lunn.ch>
- <DB5PR04MB1240541B2CFB2C99ED519CDFEAFE0@DB5PR04MB1240.eurprd04.prod.outlook.com>
- <20170524142543.GD26577@lunn.ch>
- <DB5PR04MB124053B977F50D4A68C99D7BEAFE0@DB5PR04MB1240.eurprd04.prod.outlook.com>
- <1c7a1799-7b76-6e1d-5050-b4abb7855a94@gmail.com>
+From: Kees Cook <keescook-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH] nfc: Ensure presence of required attributes in the
+ activate_target netlink handler
+Date: Wed, 24 May 2017 10:05:48 -0700
+Message-ID: <CAGXu5jK3aX-AFXCk9=hhX49scgGOHBYXocsNJb8u+ienMuM65g@mail.gmail.com>
+References: <20170524104226.14841-1-mjurczyk@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Florian Fainelli <f.fainelli@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1c7a1799-7b76-6e1d-5050-b4abb7855a94@gmail.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "security-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org" <security-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+To: Mateusz Jurczyk <mjurczyk-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170524104226.14841-1-mjurczyk-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBGbG9yaWFuIEZhaW5lbGxpIFtt
-YWlsdG86Zi5mYWluZWxsaUBnbWFpbC5jb21dDQo+IFNlbnQ6IFdlZG5lc2RheSwgTWF5IDI0LCAy
-MDE3IDg6MDMgUE0NCj4gVG86IEJvZ2RhbiBQdXJjYXJlYXRhIDxib2dkYW4ucHVyY2FyZWF0YUBu
-eHAuY29tPjsgQW5kcmV3IEx1bm4NCj4gPGFuZHJld0BsdW5uLmNoPg0KPiBDYzogbmV0ZGV2QHZn
-ZXIua2VybmVsLm9yZzsgbGludXgta2VybmVsQHZnZXIua2VybmVsLm9yZw0KPiBTdWJqZWN0OiBS
-ZTogW1BBVENIIHYyXSBkcml2ZXJzOiBwaHk6IEFkZCBDb3J0aW5hIENTNDM0MCBkcml2ZXINCj4g
-DQo+IE9uIDA1LzI0LzIwMTcgMDc6MzQgQU0sIEJvZ2RhbiBQdXJjYXJlYXRhIHdyb3RlOg0KPiA+
-PiBZb3Ugc2hvdWxkIGRvIHRoYXQgYXMgd2VsbC4NCj4gPg0KPiA+IE9rYXksIEkgd2lsbCBpbmNs
-dWRlIHRoaXMgY2hlY2sgaW4gYSBwcm9iZSBmdW5jdGlvbiBpbiB2My4NCj4gDQo+IFdoZW4geW91
-IGRvIHNvLCBjYW4geW91IGNoYW5nZSB0aGUgc3ViamVjdCB0byBiZSBuZXQ6IHBoeTogQWRkIENv
-cnRpbmENCj4gQ1M0MzQwIGRyaXZlciBmb3IgdGhlIGRyaXZlciwgYW5kIHVzZSBkdC1iaW5kaW5n
-czogbmV0OiAgZm9yIHRoZSBEZXZpY2UNCj4gVHJlZSBiaW5kaW5nIHBhdGNoPw0KDQpXaWxsIGRv
-LCB0aGFua3MhDQpCb2dkYW4NCg==
+On Wed, May 24, 2017 at 3:42 AM, Mateusz Jurczyk <mjurczyk-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org> wrote:
+> Check that the NFC_ATTR_TARGET_INDEX and NFC_ATTR_PROTOCOLS attributes (in
+> addition to NFC_ATTR_DEVICE_INDEX) are provided by the netlink client
+> prior to accessing them. This prevents potential unhandled NULL pointer
+> dereference exceptions which can be triggered by malicious user-mode
+> programs, if they omit one or both of these attributes.
+>
+> Signed-off-by: Mateusz Jurczyk <mjurczyk-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+
+Acked-by: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+
+-Kees
+
+> ---
+>  net/nfc/netlink.c | 4 +++-
+>  1 file changed, 3 insertions(+), 1 deletion(-)
+>
+> diff --git a/net/nfc/netlink.c b/net/nfc/netlink.c
+> index 6b0850e63e09..b251fb936a27 100644
+> --- a/net/nfc/netlink.c
+> +++ b/net/nfc/netlink.c
+> @@ -907,7 +907,9 @@ static int nfc_genl_activate_target(struct sk_buff *skb, struct genl_info *info)
+>         u32 device_idx, target_idx, protocol;
+>         int rc;
+>
+> -       if (!info->attrs[NFC_ATTR_DEVICE_INDEX])
+> +       if (!info->attrs[NFC_ATTR_DEVICE_INDEX] ||
+> +           !info->attrs[NFC_ATTR_TARGET_INDEX] ||
+> +           !info->attrs[NFC_ATTR_PROTOCOLS])
+>                 return -EINVAL;
+>
+>         device_idx = nla_get_u32(info->attrs[NFC_ATTR_DEVICE_INDEX]);
+> --
+> 2.13.0.219.gdb65acc882-goog
+>
+
+
+
+-- 
+Kees Cook
+Pixel Security
