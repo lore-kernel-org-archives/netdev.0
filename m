@@ -1,27 +1,27 @@
-From: Stefan Wahren <stefan.wahren-eS4NqCHxEME@public.gmane.org>
-Subject: [PATCH v7 net-next 17/17] net: qualcomm: add QCA7000 UART driver
-Date: Wed, 24 May 2017 11:29:41 +0200
-Message-ID: <1495618181-1204-1-git-send-email-stefan.wahren@i2se.com>
+From: Stefan Wahren <stefan.wahren@i2se.com>
+Subject: [PATCH RESEND v7 net-next 17/17] net: qualcomm: add QCA7000 UART driver
+Date: Wed, 24 May 2017 11:32:10 +0200
+Message-ID: <1495618330-1314-1-git-send-email-stefan.wahren@i2se.com>
 References: <50e5a442-777f-1516-4e94-16db7fa28f8b@i2se.com>
-Cc: Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-        Jiri Slaby <jslaby-IBi9RG/b67k@public.gmane.org>,
-        Lino Sanfilippo <LinoSanfilippo-Mmb7MZpHnFY@public.gmane.org>,
-        Jakub Kicinski <kubakici-5tc4TXWwyLM@public.gmane.org>, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-serial-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Stefan Wahren <stefan.wahren-eS4NqCHxEME@public.gmane.org>
-To: Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <50e5a442-777f-1516-4e94-16db7fa28f8b-eS4NqCHxEME@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        Jiri Slaby <jslaby@suse.com>,
+        Lino Sanfilippo <LinoSanfilippo@gmx.de>,
+        Jakub Kicinski <kubakici@wp.pl>, devicetree@vger.kernel.org,
+        netdev@vger.kernel.org, linux-serial@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        Stefan Wahren <stefan.wahren@i2se.com>
+To: Rob Herring <robh+dt@kernel.org>,
+        Mark Rutland <mark.rutland@arm.com>,
+        "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <50e5a442-777f-1516-4e94-16db7fa28f8b@i2se.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 This patch adds the Ethernet over UART driver for the
 Qualcomm QCA7000 HomePlug GreenPHY.
 
-Signed-off-by: Stefan Wahren <stefan.wahren-eS4NqCHxEME@public.gmane.org>
+Signed-off-by: Stefan Wahren <stefan.wahren@i2se.com>
 ---
  drivers/net/ethernet/qualcomm/Kconfig         |  16 +
  drivers/net/ethernet/qualcomm/Makefile        |   2 +
@@ -29,6 +29,9 @@ Signed-off-by: Stefan Wahren <stefan.wahren-eS4NqCHxEME@public.gmane.org>
  drivers/net/ethernet/qualcomm/qca_uart.c      | 423 ++++++++++++++++++++++++++
  4 files changed, 447 insertions(+)
  create mode 100644 drivers/net/ethernet/qualcomm/qca_uart.c
+
+Changes in v7:
+* fix race between tx workqueue and device deregistration (reported by Lino)
 
 diff --git a/drivers/net/ethernet/qualcomm/Kconfig b/drivers/net/ethernet/qualcomm/Kconfig
 index b4c369d..877675a 100644
@@ -512,13 +515,8 @@ index 0000000..db6068c
 +
 +MODULE_DESCRIPTION("Qualcomm Atheros QCA7000 UART Driver");
 +MODULE_AUTHOR("Qualcomm Atheros Communications");
-+MODULE_AUTHOR("Stefan Wahren <stefan.wahren-eS4NqCHxEME@public.gmane.org>");
++MODULE_AUTHOR("Stefan Wahren <stefan.wahren@i2se.com>");
 +MODULE_LICENSE("Dual BSD/GPL");
 +MODULE_VERSION(QCAUART_DRV_VERSION);
 -- 
 2.1.4
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
