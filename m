@@ -1,65 +1,64 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH 2/2] at803x: double check SGMII side autoneg
-Date: Wed, 24 May 2017 21:34:50 +0200
-Message-ID: <20170524193450.GC1788@lunn.ch>
-References: <20170522213206.GT29447@lunn.ch>
- <a8415b8b-1713-053d-41d3-2577c5a53c8b@codeaurora.org>
- <20170523160722.GC21169@lunn.ch>
- <3dc4f9cf-3172-0227-f03c-1ccfdad3e15e@codeaurora.org>
- <a87a7309-e15e-286f-08d0-83535c094358@neratec.com>
- <a88a111d-5e3a-0999-14ef-0ada06febb3f@codeaurora.org>
- <20170524134021.GA26577@lunn.ch>
- <8cf4ca6d-3e1e-3c9c-605f-5d6baf3c7588@codeaurora.org>
- <20170524140929.GC26577@lunn.ch>
- <c2a54e2e-a1b6-24b4-d125-95fa9648fe95@codeaurora.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] net/mlx4: Fix the check in attaching steering rules
+Date: Wed, 24 May 2017 15:36:25 -0400 (EDT)
+Message-ID: <20170524.153625.1291847374941790972.davem@davemloft.net>
+References: <1495543807-14956-1-git-send-email-tariqt@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Matthias May <matthias.may@neratec.com>,
-        Zefir Kurtisi <zefir.kurtisi@neratec.com>,
-        netdev@vger.kernel.org, f.fainelli@gmail.com,
-        David Miller <davem@davemloft.net>,
-        Manoj Iyer <manoj.iyer@canonical.com>, jhugo@codeaurora.org
-To: Timur Tabi <timur@codeaurora.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, eranbe@mellanox.com, ogerlitz@mellanox.com,
+        talatb@mellanox.com
+To: tariqt@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:43606 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S936992AbdEXTez (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 24 May 2017 15:34:55 -0400
-Content-Disposition: inline
-In-Reply-To: <c2a54e2e-a1b6-24b4-d125-95fa9648fe95@codeaurora.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:49556 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1031209AbdEXTg1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 24 May 2017 15:36:27 -0400
+In-Reply-To: <1495543807-14956-1-git-send-email-tariqt@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 24, 2017 at 01:58:09PM -0500, Timur Tabi wrote:
-> On 05/24/2017 09:09 AM, Andrew Lunn wrote:
-> > It could be, the copper side is up, but the SGMII side is down, at the
-> > point at803x_aneg_done() is called. So it is correctly returning
-> > 0. Sometime later the SGMII side goes up, but there is not a second
-> > interrupt. Hence the phy core does not know that the full, 2 stage MAC
-> > to PHY to peer PHY link is now up.
-> 
-> Ok, I'm going to debug this some more.  It turns out that the MAC side of
-> the SGMII link can send an interrupt when it thinks that auto-negotiation is
-> done.  I might be able to use this.
+From: Tariq Toukan <tariqt@mellanox.com>
+Date: Tue, 23 May 2017 15:50:07 +0300
 
-You can use this for your board. But it still leaves the phy driver
-broken for everybody else.
- 
-> What function should my MAC driver call when it wants the phy core to call
-> at803x_aneg_done again to see if autonegotiation is done?
+> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+> index ae5fdc2df654..00a7cd3dcc2e 100644
+> --- a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+> +++ b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+> @@ -1562,8 +1562,7 @@ static int mlx4_en_flow_replace(struct net_device *dev,
+>  		qpn = priv->drop_qp.qpn;
+>  	else if (cmd->fs.ring_cookie & EN_ETHTOOL_QP_ATTACH) {
+>  		qpn = cmd->fs.ring_cookie & (EN_ETHTOOL_QP_ATTACH - 1);
+> -		if (qpn < priv->rss_map.base_qpn ||
+> -		    qpn >= priv->rss_map.base_qpn + priv->rx_ring_num) {
+> +		if (!mlx4_qp_lookup(priv->mdev->dev, qpn)) {
+>  			en_warn(priv, "rxnfc: QP (0x%x) doesn't exist\n", qpn);
+>  			return -EINVAL;
+>  		}
+> diff --git a/drivers/net/ethernet/mellanox/mlx4/qp.c b/drivers/net/ethernet/mellanox/mlx4/qp.c
+> index 2d6abd4662b1..1eff2fe32a8b 100644
+> --- a/drivers/net/ethernet/mellanox/mlx4/qp.c
+> +++ b/drivers/net/ethernet/mellanox/mlx4/qp.c
+> @@ -384,6 +384,20 @@ static void mlx4_qp_free_icm(struct mlx4_dev *dev, int qpn)
+>  		__mlx4_qp_free_icm(dev, qpn);
+>  }
+>  
+> +struct mlx4_qp *mlx4_qp_lookup(struct mlx4_dev *dev, u32 qpn)
+ ...
+> +EXPORT_SYMBOL_GPL(mlx4_qp_lookup);
+> +
 
-You want to trigger the PHY state machine. There is only one exported
-API call to do this, phy_mac_interrupt(). But you are supposed to pass
-the new link state. And your MAC driver has no idea of that, it does
-not know if the copper side of the PHY is up.
 
-So it might be better if you export phy_trigger_machine().
+This phony separation between MLX4_CORE and MLX4_EN is the only reason
+you need this unreasonable symbol export.
 
-> Also, is there a way for the MAC driver to know that at803x_aneg_done()
-> previously returned 0, and that it needs to tell the phy core to check again?
+I doubt you'll ever use this function anywhere outside of en_ethtool.c
+so this export is wasted space in the kernel image.  Probably compiler
+could inline it decently as well.
 
-Not that i know of. The MAC layer is not supposed to be messing around
-in the PHY layer. However, just triggering the PHY state machine
-should be enough.
-
-   Andrew
+So find another way to do this without the symbol export.  I don't
+really want to hear any stories about "clean separation" or whatever.
+What's happening here is exactly why this separate modules scheme
+results in ugly unreasonable code, and unnecessary gymnastics and
+wasted object space just to make routines available in one place from
+another.
