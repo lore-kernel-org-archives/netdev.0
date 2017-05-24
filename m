@@ -1,65 +1,119 @@
-From: Bogdan Purcareata <bogdan.purcareata@nxp.com>
-Subject: RE: [PATCH 1/2] net: phy: Update get_phy_c45_ids for Cortina PHYs
-Date: Wed, 24 May 2017 06:05:19 +0000
-Message-ID: <DB5PR04MB1240A0F8E519D1BE168C1332EAFE0@DB5PR04MB1240.eurprd04.prod.outlook.com>
-References: <1495554799-23060-1-git-send-email-bogdan.purcareata@nxp.com>
- <1495554799-23060-2-git-send-email-bogdan.purcareata@nxp.com>
- <20170523160353.GB21169@lunn.ch>
- <DB5PR04MB1240098B96F6EEF3730DF054EAF90@DB5PR04MB1240.eurprd04.prod.outlook.com>
- <20170523165554.GB24029@lunn.ch>
- <8768d0f5-6226-b3e0-b741-f742ff5ffee3@gmail.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [Patch net-next] net_sched: only create filter chains for new
+ filters/actions
+Date: Wed, 24 May 2017 08:37:52 +0200
+Message-ID: <20170524063752.GA1908@nanopsycho>
+References: <1495557757-31371-1-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Florian Fainelli <f.fainelli@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <8768d0f5-6226-b3e0-b741-f742ff5ffee3@gmail.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Jamal Hadi Salim <jhs@mojatatu.com>,
+        Jiri Pirko <jiri@mellanox.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:35887 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1757411AbdEXGhz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 24 May 2017 02:37:55 -0400
+Received: by mail-wm0-f68.google.com with SMTP id k15so43513374wmh.3
+        for <netdev@vger.kernel.org>; Tue, 23 May 2017 23:37:54 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1495557757-31371-1-git-send-email-xiyou.wangcong@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBGbG9yaWFuIEZhaW5lbGxpIFtt
-YWlsdG86Zi5mYWluZWxsaUBnbWFpbC5jb21dDQo+IFNlbnQ6IFR1ZXNkYXksIE1heSAyMywgMjAx
-NyA5OjEyIFBNDQo+IFRvOiBBbmRyZXcgTHVubiA8YW5kcmV3QGx1bm4uY2g+OyBCb2dkYW4gUHVy
-Y2FyZWF0YQ0KPiA8Ym9nZGFuLnB1cmNhcmVhdGFAbnhwLmNvbT4NCj4gQ2M6IG5ldGRldkB2Z2Vy
-Lmtlcm5lbC5vcmc7IGxpbnV4LWtlcm5lbEB2Z2VyLmtlcm5lbC5vcmcNCj4gU3ViamVjdDogUmU6
-IFtQQVRDSCAxLzJdIG5ldDogcGh5OiBVcGRhdGUgZ2V0X3BoeV9jNDVfaWRzIGZvciBDb3J0aW5h
-IFBIWXMNCj4gDQo+IE9uIDA1LzIzLzIwMTcgMDk6NTUgQU0sIEFuZHJldyBMdW5uIHdyb3RlOg0K
-PiA+PiBUaGUgcGF0Y2hlcyBtZW50aW9uZWQgaW4gdGhlIGNvbW1pdCBtZXNzYWdlIGFkZCBfc29t
-ZV8gc3VwcG9ydCBmb3INCj4gPj4gdGhlIENvcnRpbmEgUEhZcyAtIG1haW5seSBjaGVja2luZyBm
-b3IgZGV2aWNlcyBhdCBhZGRpdGlvbmFsDQo+ID4+IGxvY2F0aW9ucy4gT25jZSB0aGV5IGFyZSBm
-b3VuZCwgdGhlIHBoeSBJRHMgbXVzdCBiZSByZWFkIGZyb20gY3VzdG9tDQo+ID4+IGxvY2F0aW9u
-cy4NCj4gPg0KPiA+IEFzIGEgZ2VuZXJhbCBwcmluY2lwbGUsIHdlIGRvbid0IGFkZCBoYWNrcyBp
-biBnZW5lcmljIGNvZGUgdG8gaGFuZGxlDQo+ID4gYnJva2VuIGRldmljZXMuIFdlIGFkZCBnZW5l
-cmljIG1lY2hhbmlzbXMgdG8gd29yayBhcm91bmQgdGhlDQo+ID4gYnJva2VubmVzcy4NCj4gPg0K
-PiA+IEluIHRoaXMgY2FzZSwgYnkgdXNpbmcgZXRoZXJuZXQtcGh5LWlkIGluIHRoZSBkZXZpY2Ug
-dHJlZSwgd2UgYXJlDQo+ID4gc2F5aW5nLCB0aGlzIFBIWXMgcHJvYmluZyBpcyB0b3RhbGx5IGJv
-cmtlZCwgYnV0IHdlIGtub3cgaXQgaXMgdGhlcmUsDQo+ID4gYXQgdGhpcyBhZGRyZXNzLiBKdXN0
-IGxvYWQgdGhlIGRyaXZlci4NCj4gPg0KPiA+IFBsZWFzZSB0cnkgdG8gbWFrZSBldGhlcm5ldC1w
-aHktaWQgd29yay4NCj4gDQo+IFdoYXQgQW5kcmV3IGlzIHN1Z2dlc3RpbmcgaXMgdG8gbGV2ZXJh
-Z2UgdGhlIGNvZGUgaW4NCj4gZHJpdmVycy9vZi9vZl9tZGlvLmMgd2hpY2ggZG9lcyB0aGUgZm9s
-bG93aW5nOg0KPiANCj4gICAgICAgIGlzX2M0NSA9IG9mX2RldmljZV9pc19jb21wYXRpYmxlKGNo
-aWxkLA0KPiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICJldGhlcm5l
-dC1waHktaWVlZTgwMi4zLWM0NSIpOw0KPiANCj4gICAgICAgICBpZiAoIWlzX2M0NSAmJiAhb2Zf
-Z2V0X3BoeV9pZChjaGlsZCwgJnBoeV9pZCkpDQo+ICAgICAgICAgICAgICAgICBwaHkgPSBwaHlf
-ZGV2aWNlX2NyZWF0ZShtZGlvLCBhZGRyLCBwaHlfaWQsIDAsIE5VTEwpOw0KPiAgICAgICAgIGVs
-c2UNCj4gICAgICAgICAgICAgICAgIHBoeSA9IGdldF9waHlfZGV2aWNlKG1kaW8sIGFkZHIsIGlz
-X2M0NSk7DQo+ICAgICAgICAgaWYgKElTX0VSUihwaHkpKQ0KPiAgICAgICAgICAgICAgICAgcmV0
-dXJuOw0KPiANCj4gSWYgeW91IGtub3cgdGhlIFBIWSBJRCwgYW5kIHlvdSBkaWQgcHV0IGl0IGlu
-IHRoZSBQSFkgbm9kZSdzIGNvbXBhdGlibGUNCj4gc3RyaW5nIChpbiB0aGUgZm9ybWF0IHRoYXQg
-b2ZfZ2V0X3BoeV9pZCgpIGV4cGVjdHMgaXQgdG8sIGFuZCB5b3UgYWxzbw0KPiBkaWQgbm90IGFk
-ZCAiZXRoZXJuZXQtcGh5LWllZWU4MDIuMy1jNDUiKSB0aGVuIHRoZSBQSFkgbGlicmFyeSB3aWxs
-DQo+IGRpcmVjdGx5IGNyZWF0ZSB0aGUgUEhZIGRldmljZSwgd2l0aCB0aGUgZGVzaWduYXRlZCBJ
-RCwgYXQgdGhlIHNwZWNpZmljDQo+IGFkZHJlc3MuDQo+IA0KPiBXaGlsZSB0aGlzIHdvcmtzIGZv
-ciBjbGF1c2UgMjIgUEhZcywgSSBkb24ndCBrbm93IGlmIGl0IGFsc28gZG9lcyBmb3INCj4gY2xh
-dXNlIDQ1IFBIWXMsIGJ1dCBhcyBBbmRyZXcgaXMgc3VnZ2VzdGluZywgSSB3b3VsZCBiZSBtb3Jl
-IGluY2xpbmVkDQo+IGludG8gbWFraW5nIHRoaXMgc2NoZW1lIHdvcmsgZm9yIGFsbCB0eXBlcyAo
-MjIgb3IgNDUpIFBIWXMsIHJhdGhlciB0aGFuDQo+IGhhY2tpbmcgdGhlIGNvcmUgY29kZSB0aGF0
-IHRyaWVzIHRvIGlkZW50aWZ5IGRldmljZXMgaW4gcGFja2FnZXMuDQo+IA0KPiBDYW4geW91IGdp
-dmUgaXQgYSBzcGluPw0KDQpTdXJlLiBNeSBmaXJzdCB0aG91Z2h0IHdhcyB0byBsYXRjaCBvbnRv
-IHRoZSBjb2RlcGF0aCB0aGF0IGhhZCBzb21lIG1lbnRpb24gb2YgQ29ydGluYSBQSFlzLg0KDQpJ
-IHdpbGwgY2hlY2sgb2ZfZ2V0X3BoeV9pZCgpIGFuZCBzZWUgaWYgaXQgZG9lcyB0aGUgam9iLg0K
-DQpUaGFuayB5b3UhDQpCb2dkYW4NCg==
+Tue, May 23, 2017 at 06:42:37PM CEST, xiyou.wangcong@gmail.com wrote:
+>tcf_chain_get() always creates a new filter chain if not found
+>in existing ones. This is totally unnecessary when we get or
+>delete filters, new chain should be only created for new filters
+>(or new actions).
+>
+>Fixes: 5bc1701881e3 ("net: sched: introduce multichain support for filters")
+>Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+>Cc: Jiri Pirko <jiri@mellanox.com>
+>Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+>---
+> include/net/pkt_cls.h |  3 ++-
+> net/sched/act_api.c   |  2 +-
+> net/sched/cls_api.c   | 13 +++++++++----
+> 3 files changed, 12 insertions(+), 6 deletions(-)
+>
+>diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
+>index 2c213a6..f776229 100644
+>--- a/include/net/pkt_cls.h
+>+++ b/include/net/pkt_cls.h
+>@@ -18,7 +18,8 @@ int register_tcf_proto_ops(struct tcf_proto_ops *ops);
+> int unregister_tcf_proto_ops(struct tcf_proto_ops *ops);
+> 
+> #ifdef CONFIG_NET_CLS
+>-struct tcf_chain *tcf_chain_get(struct tcf_block *block, u32 chain_index);
+>+struct tcf_chain *tcf_chain_get(struct tcf_block *block, u32 chain_index,
+>+				bool create);
+> void tcf_chain_put(struct tcf_chain *chain);
+> int tcf_block_get(struct tcf_block **p_block,
+> 		  struct tcf_proto __rcu **p_filter_chain);
+>diff --git a/net/sched/act_api.c b/net/sched/act_api.c
+>index 0ecf2a8..aed6cf2 100644
+>--- a/net/sched/act_api.c
+>+++ b/net/sched/act_api.c
+>@@ -34,7 +34,7 @@ static int tcf_action_goto_chain_init(struct tc_action *a, struct tcf_proto *tp)
+> 
+> 	if (!tp)
+> 		return -EINVAL;
+>-	a->goto_chain = tcf_chain_get(tp->chain->block, chain_index);
+>+	a->goto_chain = tcf_chain_get(tp->chain->block, chain_index, true);
+> 	if (!a->goto_chain)
+> 		return -ENOMEM;
+> 	return 0;
+>diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
+>index 01a8b8b..23d2236 100644
+>--- a/net/sched/cls_api.c
+>+++ b/net/sched/cls_api.c
+>@@ -220,7 +220,8 @@ static void tcf_chain_destroy(struct tcf_chain *chain)
+> 	kfree(chain);
+> }
+> 
+>-struct tcf_chain *tcf_chain_get(struct tcf_block *block, u32 chain_index)
+>+struct tcf_chain *tcf_chain_get(struct tcf_block *block, u32 chain_index,
+>+				bool create)
+> {
+> 	struct tcf_chain *chain;
+> 
+>@@ -230,7 +231,10 @@ struct tcf_chain *tcf_chain_get(struct tcf_block *block, u32 chain_index)
+> 			return chain;
+> 		}
+> 	}
+>-	return tcf_chain_create(block, chain_index);
+>+	if (create)
+>+		return tcf_chain_create(block, chain_index);
+>+	else
+>+		return NULL;
+> }
+> EXPORT_SYMBOL(tcf_chain_get);
+> 
+>@@ -509,9 +513,10 @@ static int tc_ctl_tfilter(struct sk_buff *skb, struct nlmsghdr *n,
+> 		err = -EINVAL;
+> 		goto errout;
+> 	}
+>-	chain = tcf_chain_get(block, chain_index);
+>+	chain = tcf_chain_get(block, chain_index,
+>+			      n->nlmsg_type == RTM_NEWTFILTER);
+
+First of all, I really hate all these true/false arg dances. Totaly
+confusing all the time.
+
+
+
+> 	if (!chain) {
+>-		err = -ENOMEM;
+>+		err = n->nlmsg_type == RTM_NEWTFILTER ? -ENOMEM : -EINVAL;
+
+Confusing. Please do not obfuscate the code for a corner cases. Thanks.
+
+
+
+> 		goto errout;
+> 	}
+> 
+>-- 
+>2.5.5
+>
