@@ -1,40 +1,52 @@
-From: Ido Schimmel <idosch@mellanox.com>
-Subject: Re: [patch net-next v2 7/8] mlxsw: spectrum: Validate firmware
- revision on init
-Date: Wed, 24 May 2017 08:42:50 +0300
-Message-ID: <20170524054250.GB12582@splinter.mtl.com>
-References: <20170523195630.6460-1-jiri@resnulli.us>
- <20170523195630.6460-8-jiri@resnulli.us>
+From: prashantkumar dhotre <prashantkumardhotre@gmail.com>
+Subject: Re: Why max netlink msg size is limited to 16k
+Date: Wed, 24 May 2017 11:28:54 +0530
+Message-ID: <CA+VDgmOGqY3RE5eUSMhT9wwnn2RnKFOAabCbzX7vdZOe4QC6qA@mail.gmail.com>
+References: <CA+VDgmNYc=djp6ab=n49CTpyvof8CPgHvXRst5Vnm706e-nRvQ@mail.gmail.com>
+ <1492875381.6453.34.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>,
-        <yotamg@mellanox.com>, <mlxsw@mellanox.com>,
-        <Yuval.Mintz@cavium.com>
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset="UTF-8"
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-eopbgr30080.outbound.protection.outlook.com ([40.107.3.80]:50784
-        "EHLO EUR03-AM5-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S938289AbdEXFm6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 24 May 2017 01:42:58 -0400
-Content-Disposition: inline
-In-Reply-To: <20170523195630.6460-8-jiri@resnulli.us>
+Received: from mail-qt0-f194.google.com ([209.85.216.194]:36132 "EHLO
+        mail-qt0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S966242AbdEXF64 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 24 May 2017 01:58:56 -0400
+Received: by mail-qt0-f194.google.com with SMTP id j13so25090979qta.3
+        for <netdev@vger.kernel.org>; Tue, 23 May 2017 22:58:56 -0700 (PDT)
+In-Reply-To: <1492875381.6453.34.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 23, 2017 at 09:56:29PM +0200, Jiri Pirko wrote:
-> From: Yotam Gigi <yotamg@mellanox.com>
-> 
-> Make the spectrum module check the current device firmware version, and if
-> it is below the supported version, use the libfirmware API to request a
-> firmware file with the supported firmware version and flash it to the
-> device using the mlxfw module.
-> 
-> The firmware file names are expected to be of Mellanox Firmware Archive
-> version 2 (MFA2) format and their name are expected to be in the following
-> pattern: "mlxsw_spectrum-<major>.<minor>.<sub-minor>.mfa2".
-> 
-> Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
-> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+Thanks
+Can I use NLM_F_MULTI netlink multipart msg flag to send large buffer ?
+I could not find example of that usage in sending case .
 
-Reviewed-by: Ido Schimmel <idosch@mellanox.com>
+I have a kernel module and tryng to send large buffer to user app.
+If I can use that flag, will kernel take care of splitting large
+buffer into small chunks and will kernel also send NLMSG_DONE type msg
+at end to user app?
+How should I handle in user app.
+Can you point me to few example please.
+
+On Sat, Apr 22, 2017 at 9:06 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Sat, 2017-04-22 at 19:43 +0530, prashantkumar dhotre wrote:
+>> I am observing that max netlink msg that my kernel module can send to
+>> user app is close to 16K.
+>>
+>> For larger sizes, genlmsg_unicast() succeeds but my app does not receive data.
+>>
+>> I have tried increasing RECV buffer size in my user app but that does not help.
+>>
+>> Regards
+>
+>
+> You need a kernel >= linux-4.9 to get about 32KB
+>
+> Why is this limited ? Please read
+>
+> https://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git/commit/?id=d35c99ff77ecb2eb239731b799386f3b3637a31e
+>
+>
+>
