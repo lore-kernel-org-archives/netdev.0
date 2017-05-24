@@ -1,44 +1,185 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next 2/4] nfp: register ports as devlink ports
-Date: Wed, 24 May 2017 14:35:14 +0200
-Message-ID: <20170524123514.GB1908@nanopsycho>
-References: <20170523151247.8535-1-jakub.kicinski@netronome.com>
- <20170523151247.8535-3-jakub.kicinski@netronome.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH v2] drivers: phy: Add Cortina CS4340 driver
+Date: Wed, 24 May 2017 14:58:30 +0200
+Message-ID: <20170524125830.GB24341@lunn.ch>
+References: <1495617948-13435-1-git-send-email-bogdan.purcareata@nxp.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, oss-drivers@netronome.com
-To: Jakub Kicinski <jakub.kicinski@netronome.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f45.google.com ([74.125.82.45]:37811 "EHLO
-        mail-wm0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S940020AbdEXMfR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 24 May 2017 08:35:17 -0400
-Received: by mail-wm0-f45.google.com with SMTP id d127so66999506wmf.0
-        for <netdev@vger.kernel.org>; Wed, 24 May 2017 05:35:16 -0700 (PDT)
+Cc: f.fainelli@gmail.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Bogdan Purcareata <bogdan.purcareata@nxp.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20170523151247.8535-3-jakub.kicinski@netronome.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1495617948-13435-1-git-send-email-bogdan.purcareata@nxp.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Tue, May 23, 2017 at 05:12:45PM CEST, jakub.kicinski@netronome.com wrote:
->Extend nfp_port to contain devlink_port structures.  Register the
->ports to allow users inspecting device ports.
->
->Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
->Reviewed-by: Simon Horman <simon.horman@netronome.com>
->---
+On Wed, May 24, 2017 at 09:25:48AM +0000, Bogdan Purcareata wrote:
+> Add basic support for Cortina PHY drivers. Support only CS4340 for now.
+> The phys are not compatible with IEEE 802.3 clause 45 registers. Implement
+> proper read_status support, so that phy polling does not cause bus
+> register access errors.
+> 
+> The driver should be described using the "ethernet-phy-id" device tree
+> compatible.
 
-[...]
+Hi Bogdan
 
->+void nfp_devlink_port_unregister(struct nfp_port *port)
->+{
->+	/* Due to unpleasant lock ordering we may see the port go away before
->+	 * we have fully probed.
+Thanks for testing that ethernet-phy-id works.
 
-Could you elaborate on this a bit more please?
+I suggest you write a
+Documentation/devicetree/binding/net/phy/cortina.txt giving an example
+device tree node.
 
+> 
+> Signed-off-by: Bogdan Purcareata <bogdan.purcareata@nxp.com>
+> ---
+> v1 -> v2:
+> - Rename "mdio-cortina.c" to "cortina.c" since it's a phy driver.
+> - Test probing based on the "ethernet-phy-id" compatible. In the previous
+>   version, getting the phy_id via get_phy_c45_ids() involved an additional
+>   hack. Drop that approach and document probing in the commit message.
+> 
+>  drivers/net/phy/Kconfig   |  5 +++
+>  drivers/net/phy/Makefile  |  1 +
+>  drivers/net/phy/cortina.c | 90 +++++++++++++++++++++++++++++++++++++++++++++++
+>  3 files changed, 96 insertions(+)
+>  create mode 100644 drivers/net/phy/cortina.c
+> 
+> diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
+> index 22dea7f..ad09e2d 100644
+> --- a/drivers/net/phy/Kconfig
+> +++ b/drivers/net/phy/Kconfig
+> @@ -240,6 +240,11 @@ config CICADA_PHY
+>  	---help---
+>  	  Currently supports the cis8204
+>  
+> +config CORTINA_PHY
+> +	tristate "Cortina quad-10G Ethernet PHY"
+> +	---help---
+> +	  Currently supports the CS4340 phy.
+> +
+>  config DAVICOM_PHY
+>  	tristate "Davicom PHYs"
+>  	---help---
+> diff --git a/drivers/net/phy/Makefile b/drivers/net/phy/Makefile
+> index 79365be..0de3e20 100644
+> --- a/drivers/net/phy/Makefile
+> +++ b/drivers/net/phy/Makefile
+> @@ -47,6 +47,7 @@ obj-$(CONFIG_BCM_CYGNUS_PHY)	+= bcm-cygnus.o
+>  obj-$(CONFIG_BCM_NET_PHYLIB)	+= bcm-phy-lib.o
+>  obj-$(CONFIG_BROADCOM_PHY)	+= broadcom.o
+>  obj-$(CONFIG_CICADA_PHY)	+= cicada.o
+> +obj-$(CONFIG_CORTINA_PHY)	+= cortina.o
+>  obj-$(CONFIG_DAVICOM_PHY)	+= davicom.o
+>  obj-$(CONFIG_DP83640_PHY)	+= dp83640.o
+>  obj-$(CONFIG_DP83848_PHY)	+= dp83848.o
+> diff --git a/drivers/net/phy/cortina.c b/drivers/net/phy/cortina.c
+> new file mode 100644
+> index 0000000..6f054ed
+> --- /dev/null
+> +++ b/drivers/net/phy/cortina.c
+> @@ -0,0 +1,90 @@
+> +/*
+> + *    Based on code from Cortina Systems, Inc.
+> + *
+> + *    Copyright 2011 Cortina Systems, Inc.
+> + *    Copyright 2017 NXP
+> + *
+> + *    This program is free software; you can redistribute it and/or modify
+> + *    it under the terms of the GNU General Public License as published by
+> + *    the Free Software Foundation; either version 2 of the License, or
+> + *    (at your option) any later version.
+> + *
+> + *    This program is distributed in the hope that it will be useful,
+> + *    but WITHOUT ANY WARRANTY; without even the implied warranty of
+> + *    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+> + *    GNU General Public License for more details.
+> + *
+> + */
+> +#include <linux/module.h>
+> +#include <linux/phy.h>
+> +
+> +#define PHY_ID_CS4340	0x13e51002
+> +
+> +#define CORTINA_GPIO_GPIO_INTS				0x16D
+> +
+> +static int cortina_read_x(struct phy_device *phydev, int off, u16 regnum)
+> +{
+> +	return mdiobus_read(phydev->mdio.bus, phydev->mdio.addr + off,
+> +			    MII_ADDR_C45 | regnum);
+> +}
+> +
+> +static int cortina_read(struct phy_device *phydev, u16 regnum)
+> +{
+> +	return cortina_read_x(phydev, 0, regnum);
+> +}
+> +
+> +static int cortina_config_aneg(struct phy_device *phydev)
+> +{
+> +	phydev->supported = SUPPORTED_10000baseT_Full;
+> +	phydev->advertising = SUPPORTED_10000baseT_Full;
+> +
+> +	return 0;
+> +}
+> +
+> +static int cortina_read_status(struct phy_device *phydev)
+> +{
+> +	int gpio_int_status;
+> +	int ret = 0;
 
->+	 */
->+	if (port->dl_port.registered)
->+		devlink_port_unregister(&port->dl_port);
->+}
+I think there needs to be some explanation here. What exactly are you
+using to indicate link up? What does CORTINA_GPIO_GPIO_INTS mean?
+
+> +	gpio_int_status = cortina_read(phydev, CORTINA_GPIO_GPIO_INTS);
+> +	if (gpio_int_status < 0) {
+> +		ret = gpio_int_status;
+> +		goto err;
+> +	}
+> +
+> +	if (gpio_int_status & 0x8) {
+> +		phydev->speed = SPEED_10000;
+> +		phydev->duplex = DUPLEX_FULL;
+> +		phydev->link = 1;
+> +	} else {
+> +		phydev->link = 0;
+> +	}
+> +
+> +err:
+> +	return ret;
+> +}
+> +
+> +static int cortina_soft_reset(struct phy_device *phydev)
+> +{
+> +	return 0;
+> +}
+> +
+> +static struct phy_driver cortina_driver[] = {
+> +{
+> +	.phy_id         = PHY_ID_CS4340,
+> +	.phy_id_mask    = 0xffffffff,
+> +	.name           = "Cortina CS4340",
+> +	.config_aneg    = cortina_config_aneg,
+> +	.read_status    = cortina_read_status,
+> +	.soft_reset     = cortina_soft_reset,
+> +},
+> +};
+
+Having two } at the same indentation level seems odd. Please can you
+fix this.
+
+Thanks
+	Andrew
+
+> +
+> +module_phy_driver(cortina_driver);
+> +
+> +static struct mdio_device_id __maybe_unused cortina_tbl[] = {
+> +	{ PHY_ID_CS4340, 0xffffffff},
+> +	{},
+> +};
+> +
+> +MODULE_DEVICE_TABLE(mdio, cortina_tbl);
+> -- 
+> 1.9.1
+> 
