@@ -1,52 +1,213 @@
 From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net v2 0/5] Various BPF fixes
-Date: Thu, 25 May 2017 01:05:04 +0200
-Message-ID: <cover.1495665905.git.daniel@iogearbox.net>
+Subject: [PATCH net v2 1/5] bpf: fix incorrect pruning decision when alignment must be tracked
+Date: Thu, 25 May 2017 01:05:05 +0200
+Message-ID: <655cad41f4d3c94d1788282524d91239cc20fb28.1495665905.git.daniel@iogearbox.net>
+References: <cover.1495665905.git.daniel@iogearbox.net>
 Cc: alexei.starovoitov@gmail.com, netdev@vger.kernel.org,
         Daniel Borkmann <daniel@iogearbox.net>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:40295 "EHLO
+Received: from www62.your-server.de ([213.133.104.62]:40328 "EHLO
         www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1031593AbdEXXFa (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 24 May 2017 19:05:30 -0400
+        with ESMTP id S1031593AbdEXXFj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 24 May 2017 19:05:39 -0400
+In-Reply-To: <cover.1495665905.git.daniel@iogearbox.net>
+In-Reply-To: <cover.1495665905.git.daniel@iogearbox.net>
+References: <cover.1495665905.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Follow-up to fix incorrect pruning when alignment tracking is
-in use and to properly clear regs after call to not leave stale
-data behind, also a fix that adds bpf_clone_redirect to the
-bpf_helper_changes_pkt_data helper and exposes correct map_flags
-for lpm map into fdinfo. For details, please see individual
-patches.
+Currently, when we enforce alignment tracking on direct packet access,
+the verifier lets the following program pass despite doing a packet
+write with unaligned access:
 
-Thanks!
+  0: (61) r2 = *(u32 *)(r1 +76)
+  1: (61) r3 = *(u32 *)(r1 +80)
+  2: (61) r7 = *(u32 *)(r1 +8)
+  3: (bf) r0 = r2
+  4: (07) r0 += 14
+  5: (25) if r7 > 0x1 goto pc+4
+   R0=pkt(id=0,off=14,r=0) R1=ctx R2=pkt(id=0,off=0,r=0)
+   R3=pkt_end R7=inv,min_value=0,max_value=1 R10=fp
+  6: (2d) if r0 > r3 goto pc+1
+   R0=pkt(id=0,off=14,r=14) R1=ctx R2=pkt(id=0,off=0,r=14)
+   R3=pkt_end R7=inv,min_value=0,max_value=1 R10=fp
+  7: (63) *(u32 *)(r0 -4) = r0
+  8: (b7) r0 = 0
+  9: (95) exit
 
-v1 -> v2:
-  - Reworked first patch so that env->strict_alignment is the
-    final indicator on whether we have to deal with strict
-    alignment rather than having CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS
-    checks on various locations, so only checking env->strict_alignment
-    is sufficient after that. Thanks for spotting, Dave!
-  - Added patch 3 and 4.
-  - Rest as is.
+  from 6 to 8:
+   R0=pkt(id=0,off=14,r=0) R1=ctx R2=pkt(id=0,off=0,r=0)
+   R3=pkt_end R7=inv,min_value=0,max_value=1 R10=fp
+  8: (b7) r0 = 0
+  9: (95) exit
 
-Daniel Borkmann (5):
-  bpf: fix incorrect pruning decision when alignment must be tracked
-  bpf: properly reset caller saved regs after helper call and ld_abs/ind
-  bpf: add bpf_clone_redirect to bpf_helper_changes_pkt_data
-  bpf: fix wrong exposure of map_flags into fdinfo for lpm
-  bpf: add various verifier test cases
+  from 5 to 10:
+   R0=pkt(id=0,off=14,r=0) R1=ctx R2=pkt(id=0,off=0,r=0)
+   R3=pkt_end R7=inv,min_value=2 R10=fp
+  10: (07) r0 += 1
+  11: (05) goto pc-6
+  6: safe                           <----- here, wrongly found safe
+  processed 15 insns
 
- include/linux/filter.h                      |  10 ++
- kernel/bpf/arraymap.c                       |   1 +
- kernel/bpf/lpm_trie.c                       |   1 +
- kernel/bpf/stackmap.c                       |   1 +
- kernel/bpf/verifier.c                       |  56 +++----
- net/core/filter.c                           |   1 +
- tools/include/linux/filter.h                |  10 ++
- tools/testing/selftests/bpf/test_verifier.c | 239 +++++++++++++++++++++++++++-
- 8 files changed, 285 insertions(+), 34 deletions(-)
+However, if we enforce a pruning mismatch by adding state into r8
+which is then being mismatched in states_equal(), we find that for
+the otherwise same program, the verifier detects a misaligned packet
+access when actually walking that path:
 
+  0: (61) r2 = *(u32 *)(r1 +76)
+  1: (61) r3 = *(u32 *)(r1 +80)
+  2: (61) r7 = *(u32 *)(r1 +8)
+  3: (b7) r8 = 1
+  4: (bf) r0 = r2
+  5: (07) r0 += 14
+  6: (25) if r7 > 0x1 goto pc+4
+   R0=pkt(id=0,off=14,r=0) R1=ctx R2=pkt(id=0,off=0,r=0)
+   R3=pkt_end R7=inv,min_value=0,max_value=1
+   R8=imm1,min_value=1,max_value=1,min_align=1 R10=fp
+  7: (2d) if r0 > r3 goto pc+1
+   R0=pkt(id=0,off=14,r=14) R1=ctx R2=pkt(id=0,off=0,r=14)
+   R3=pkt_end R7=inv,min_value=0,max_value=1
+   R8=imm1,min_value=1,max_value=1,min_align=1 R10=fp
+  8: (63) *(u32 *)(r0 -4) = r0
+  9: (b7) r0 = 0
+  10: (95) exit
+
+  from 7 to 9:
+   R0=pkt(id=0,off=14,r=0) R1=ctx R2=pkt(id=0,off=0,r=0)
+   R3=pkt_end R7=inv,min_value=0,max_value=1
+   R8=imm1,min_value=1,max_value=1,min_align=1 R10=fp
+  9: (b7) r0 = 0
+  10: (95) exit
+
+  from 6 to 11:
+   R0=pkt(id=0,off=14,r=0) R1=ctx R2=pkt(id=0,off=0,r=0)
+   R3=pkt_end R7=inv,min_value=2
+   R8=imm1,min_value=1,max_value=1,min_align=1 R10=fp
+  11: (07) r0 += 1
+  12: (b7) r8 = 0
+  13: (05) goto pc-7                <----- mismatch due to r8
+  7: (2d) if r0 > r3 goto pc+1
+   R0=pkt(id=0,off=15,r=15) R1=ctx R2=pkt(id=0,off=0,r=15)
+   R3=pkt_end R7=inv,min_value=2
+   R8=imm0,min_value=0,max_value=0,min_align=2147483648 R10=fp
+  8: (63) *(u32 *)(r0 -4) = r0
+  misaligned packet access off 2+15+-4 size 4
+
+The reason why we fail to see it in states_equal() is that the
+third test in compare_ptrs_to_packet() ...
+
+  if (old->off <= cur->off &&
+      old->off >= old->range && cur->off >= cur->range)
+          return true;
+
+... will let the above pass. The situation we run into is that
+old->off <= cur->off (14 <= 15), meaning that prior walked paths
+went with smaller offset, which was later used in the packet
+access after successful packet range check and found to be safe
+already.
+
+For example: Given is R0=pkt(id=0,off=0,r=0). Adding offset 14
+as in above program to it, results in R0=pkt(id=0,off=14,r=0)
+before the packet range test. Now, testing this against R3=pkt_end
+with 'if r0 > r3 goto out' will transform R0 into R0=pkt(id=0,off=14,r=14)
+for the case when we're within bounds. A write into the packet
+at offset *(u32 *)(r0 -4), that is, 2 + 14 -4, is valid and
+aligned (2 is for NET_IP_ALIGN). After processing this with
+all fall-through paths, we later on check paths from branches.
+When the above skb->mark test is true, then we jump near the
+end of the program, perform r0 += 1, and jump back to the
+'if r0 > r3 goto out' test we've visited earlier already. This
+time, R0 is of type R0=pkt(id=0,off=15,r=0), and we'll prune
+that part because this time we'll have a larger safe packet
+range, and we already found that with off=14 all further insn
+were already safe, so it's safe as well with a larger off.
+However, the problem is that the subsequent write into the packet
+with 2 + 15 -4 is then unaligned, and not caught by the alignment
+tracking. Note that min_align, aux_off, and aux_off_align were
+all 0 in this example.
+
+Since we cannot tell at this time what kind of packet access was
+performed in the prior walk and what minimal requirements it has
+(we might do so in the future, but that requires more complexity),
+fix it to disable this pruning case for strict alignment for now,
+and let the verifier do check such paths instead. With that applied,
+the test cases pass and reject the program due to misalignment.
+
+Fixes: d1174416747d ("bpf: Track alignment of register values in the verifier.")
+Reference: http://patchwork.ozlabs.org/patch/761909/
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+Acked-by: Alexei Starovoitov <ast@kernel.org>
+---
+ kernel/bpf/verifier.c | 19 ++++++++++---------
+ 1 file changed, 10 insertions(+), 9 deletions(-)
+
+diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+index c72cd41..e37e06b 100644
+--- a/kernel/bpf/verifier.c
++++ b/kernel/bpf/verifier.c
+@@ -843,9 +843,6 @@ static int check_ptr_alignment(struct bpf_verifier_env *env,
+ {
+ 	bool strict = env->strict_alignment;
+ 
+-	if (!IS_ENABLED(CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS))
+-		strict = true;
+-
+ 	switch (reg->type) {
+ 	case PTR_TO_PACKET:
+ 		return check_pkt_ptr_alignment(reg, off, size, strict);
+@@ -2696,7 +2693,8 @@ static int check_cfg(struct bpf_verifier_env *env)
+ /* the following conditions reduce the number of explored insns
+  * from ~140k to ~80k for ultra large programs that use a lot of ptr_to_packet
+  */
+-static bool compare_ptrs_to_packet(struct bpf_reg_state *old,
++static bool compare_ptrs_to_packet(struct bpf_verifier_env *env,
++				   struct bpf_reg_state *old,
+ 				   struct bpf_reg_state *cur)
+ {
+ 	if (old->id != cur->id)
+@@ -2739,7 +2737,7 @@ static bool compare_ptrs_to_packet(struct bpf_reg_state *old,
+ 	 * 'if (R4 > data_end)' and all further insn were already good with r=20,
+ 	 * so they will be good with r=30 and we can prune the search.
+ 	 */
+-	if (old->off <= cur->off &&
++	if (!env->strict_alignment && old->off <= cur->off &&
+ 	    old->off >= old->range && cur->off >= cur->range)
+ 		return true;
+ 
+@@ -2810,7 +2808,7 @@ static bool states_equal(struct bpf_verifier_env *env,
+ 			continue;
+ 
+ 		if (rold->type == PTR_TO_PACKET && rcur->type == PTR_TO_PACKET &&
+-		    compare_ptrs_to_packet(rold, rcur))
++		    compare_ptrs_to_packet(env, rold, rcur))
+ 			continue;
+ 
+ 		return false;
+@@ -3588,10 +3586,10 @@ int bpf_check(struct bpf_prog **prog, union bpf_attr *attr)
+ 	} else {
+ 		log_level = 0;
+ 	}
+-	if (attr->prog_flags & BPF_F_STRICT_ALIGNMENT)
++
++	env->strict_alignment = !!(attr->prog_flags & BPF_F_STRICT_ALIGNMENT);
++	if (!IS_ENABLED(CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS))
+ 		env->strict_alignment = true;
+-	else
+-		env->strict_alignment = false;
+ 
+ 	ret = replace_map_fd_with_map_ptr(env);
+ 	if (ret < 0)
+@@ -3697,7 +3695,10 @@ int bpf_analyzer(struct bpf_prog *prog, const struct bpf_ext_analyzer_ops *ops,
+ 	mutex_lock(&bpf_verifier_lock);
+ 
+ 	log_level = 0;
++
+ 	env->strict_alignment = false;
++	if (!IS_ENABLED(CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS))
++		env->strict_alignment = true;
+ 
+ 	env->explored_states = kcalloc(env->prog->len,
+ 				       sizeof(struct bpf_verifier_state_list *),
 -- 
 1.9.3
