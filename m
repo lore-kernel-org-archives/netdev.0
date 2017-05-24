@@ -1,67 +1,40 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] rhashtable: Fix missing elements when inserting.
-Date: Wed, 24 May 2017 12:36:17 +0800
-Message-ID: <20170524043617.GA22594@gondor.apana.org.au>
-References: <20170524014950.3261-1-ap420073@gmail.com>
+From: Ido Schimmel <idosch@mellanox.com>
+Subject: Re: [patch net-next v2 7/8] mlxsw: spectrum: Validate firmware
+ revision on init
+Date: Wed, 24 May 2017 08:42:50 +0300
+Message-ID: <20170524054250.GB12582@splinter.mtl.com>
+References: <20170523195630.6460-1-jiri@resnulli.us>
+ <20170523195630.6460-8-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org, ap420073@gmail.com
-To: Taehee Yoo <ap420073@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>,
+        <yotamg@mellanox.com>, <mlxsw@mellanox.com>,
+        <Yuval.Mintz@cavium.com>
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [128.1.224.119] ([128.1.224.119]:48930 "EHLO deadmen.hmeau.com"
-        rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-        id S938071AbdEXEgf (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 24 May 2017 00:36:35 -0400
+Received: from mail-eopbgr30080.outbound.protection.outlook.com ([40.107.3.80]:50784
+        "EHLO EUR03-AM5-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S938289AbdEXFm6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 24 May 2017 01:42:58 -0400
 Content-Disposition: inline
-In-Reply-To: <20170524014950.3261-1-ap420073@gmail.com>
+In-Reply-To: <20170523195630.6460-8-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Taehee Yoo <ap420073@gmail.com> wrote:
-> rhltable_insert_key() inserts a node into list of element,
-> if node's key is duplicated, so that it becomes the chain of
-> element(as known as rhead). Also bucket table points that element directly.
-> If a inserted node's element chain is located at third,
-> rhltable misses first and second element chain.
-> This issue is causion of to failture the rhltable_remove().
+On Tue, May 23, 2017 at 09:56:29PM +0200, Jiri Pirko wrote:
+> From: Yotam Gigi <yotamg@mellanox.com>
 > 
-> After this patch, rhltable_insert_key() inserts a node into second of
-> element's list, so that rhlist do not misses elements.
+> Make the spectrum module check the current device firmware version, and if
+> it is below the supported version, use the libfirmware API to request a
+> firmware file with the supported firmware version and flash it to the
+> device using the mlxfw module.
 > 
-> Signed-off-by: Taehee Yoo <ap420073@gmail.com>
-
-I'm sorry but I don't understand your description of the problem.
-The new duplicate object is always inserted at the head of the
-list and therefore replaces the previous list head in the hash
-bucket chain.
-
-Do you have some code that reproduces the problem?
-
-> diff --git a/include/linux/rhashtable.h b/include/linux/rhashtable.h
-> index 7d56a7e..d3c24b9 100644
-> --- a/include/linux/rhashtable.h
-> +++ b/include/linux/rhashtable.h
-> @@ -762,11 +762,9 @@ static inline void *__rhashtable_insert_fast(
->                list = container_of(obj, struct rhlist_head, rhead);
->                plist = container_of(head, struct rhlist_head, rhead);
+> The firmware file names are expected to be of Mellanox Firmware Archive
+> version 2 (MFA2) format and their name are expected to be in the following
+> pattern: "mlxsw_spectrum-<major>.<minor>.<sub-minor>.mfa2".
 > 
-> -               RCU_INIT_POINTER(list->next, plist);
-> -               head = rht_dereference_bucket(head->next, tbl, hash);
-> -               RCU_INIT_POINTER(list->rhead.next, head);
-> -               rcu_assign_pointer(*pprev, obj);
-> -
-> +               RCU_INIT_POINTER(list->next, rht_dereference_bucket(plist->next,
-> +                                                                   tbl, hash));
-> +               RCU_INIT_POINTER(plist->next, list);
+> Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
+> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 
-Your second RCU_INIT_POINTER needs to be rcu_assign_pointer.
-
-Your approach of retaining the first duplicate object as the head
-of the list should work too but I don't really see any point in
-changing this.
-
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Reviewed-by: Ido Schimmel <idosch@mellanox.com>
