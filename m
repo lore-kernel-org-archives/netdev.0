@@ -1,80 +1,119 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH v2 0/4] arp: always override existing neigh entries with
- gratuitous ARP
-Date: Wed, 24 May 2017 23:57:37 +0200
-Message-ID: <CAK8P3a0AcshP-2L2icLwW+DHrn-0w+YsdOjob_34k0N-EHKGTQ@mail.gmail.com>
-References: <cover.1495136258.git.ihrachys@redhat.com> <CAK8P3a162_RdXHLCPzg47+F7yadRGMDgFG_z5R6v65-heY1KAw@mail.gmail.com>
- <23f8a3fa-3e7a-339a-2deb-76d20fe6483b@redhat.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [Intel-wired-lan] [PATCH 1/4] [next-queue]net: mqprio: Introduce
+ new hardware offload mode in mqprio for offloading full TC configurations
+Date: Wed, 24 May 2017 14:59:59 -0700
+Message-ID: <CAKgT0UeKf37YKbw2bgZKXs4Or4aK6p64zRSNk9ZSnc=kp0_JCQ@mail.gmail.com>
+References: <149524122523.11022.4541073724650541658.stgit@anamdev.jf.intel.com>
+ <149524190301.11022.16999010740843369111.stgit@anamdev.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: David Miller <davem@davemloft.net>, ja@ssi.bg,
-        Networking <netdev@vger.kernel.org>
-To: Ihar Hrachyshka <ihrachys@redhat.com>
+Cc: intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
+        Netdev <netdev@vger.kernel.org>
+To: Amritha Nambiar <amritha.nambiar@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f67.google.com ([209.85.218.67]:35968 "EHLO
-        mail-oi0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1036130AbdEXV5i (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 24 May 2017 17:57:38 -0400
-Received: by mail-oi0-f67.google.com with SMTP id w138so34796896oiw.3
-        for <netdev@vger.kernel.org>; Wed, 24 May 2017 14:57:38 -0700 (PDT)
-In-Reply-To: <23f8a3fa-3e7a-339a-2deb-76d20fe6483b@redhat.com>
+Received: from mail-it0-f65.google.com ([209.85.214.65]:33429 "EHLO
+        mail-it0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1033240AbdEXWAB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 24 May 2017 18:00:01 -0400
+Received: by mail-it0-f65.google.com with SMTP id l145so21291377ita.0
+        for <netdev@vger.kernel.org>; Wed, 24 May 2017 15:00:00 -0700 (PDT)
+In-Reply-To: <149524190301.11022.16999010740843369111.stgit@anamdev.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 24, 2017 at 11:32 PM, Ihar Hrachyshka <ihrachys@redhat.com> wrote:
-> On 05/23/2017 01:56 PM, Arnd Bergmann wrote:
->>
->> This seems to have caused a build warning:
->>
->> net/ipv4/arp.c:880:35: warning: 'addr_type' may be used uninitialized
->> in this function [-Wmaybe-uninitialized]
->>
-> Not sure. How do you reproduce it? I just did 'make net' in the latest tree
-> that includes the patch, and it doesn't trigger the failure. Also the code
-> logic prevents it to be uninitialized (it's always set to -1 or the actual
-> type value).
+On Fri, May 19, 2017 at 5:58 PM, Amritha Nambiar
+<amritha.nambiar@intel.com> wrote:
+> This patch introduces a new hardware offload mode in mqprio
+> which makes full use of the mqprio options, the TCs, the
+> queue configurations and the bandwidth rates for the TCs.
+> This is achieved by setting the value 2 for the "hw" option.
+> This new offload mode supports new attributes for traffic
+> class such as minimum and maximum values for bandwidth rate limits.
+>
+> Introduces a new datastructure 'tc_mqprio_qopt_offload' for offloading
+> mqprio queue options and use this to be shared between the kernel and
+> device driver. This contains a copy of the exisiting datastructure
+> for mqprio queue options. This new datastructure can be extended when
+> adding new attributes for traffic class such as bandwidth rate limits. The
+> existing datastructure for mqprio queue options will be shared between the
+> kernel and userspace.
+>
+> This patch enables configuring additional attributes associated
+> with a traffic class such as minimum and maximum bandwidth
+> rates and can be offloaded to the hardware in the new offload mode.
+> The min and max limits for bandwidth rates are provided
+> by the user along with the the TCs and the queue configurations
+> when creating the mqprio qdisc.
+>
+> Example:
+> # tc qdisc add dev eth0 root mqprio num_tc 2  map 0 0 0 0 1 1 1 1\
+>   queues 4@0 4@4 min_rate 0Mbit 0Mbit max_rate 55Mbit 60Mbit hw 2
+>
+> To dump the bandwidth rates:
+>
+> # tc qdisc show dev eth0
+> qdisc mqprio 804a: root  tc 2 map 0 0 0 0 1 1 1 1 0 0 0 0 0 0 0 0
+>              queues:(0:3) (4:7)
+>              min rates:0bit 0bit
+>              max rates:55Mbit 60Mbit
+>
+> Signed-off-by: Amritha Nambiar <amritha.nambiar@intel.com>
+> ---
+>  include/linux/netdevice.h      |    2
+>  include/net/pkt_cls.h          |    7 ++
+>  include/uapi/linux/pkt_sched.h |   13 +++
+>  net/sched/sch_mqprio.c         |  169 +++++++++++++++++++++++++++++++++++++---
+>  4 files changed, 180 insertions(+), 11 deletions(-)
+>
 
-I saw it reported by the kernelci build bot:
+[...]
 
-https://kernelci.org/build/id/5925b81859b514fb106b9590/logs/
+> diff --git a/net/sched/sch_mqprio.c b/net/sched/sch_mqprio.c
+> index 0a4cf27..6457ec9 100644
+> --- a/net/sched/sch_mqprio.c
+> +++ b/net/sched/sch_mqprio.c
+> @@ -18,10 +18,13 @@
+>  #include <net/netlink.h>
+>  #include <net/pkt_sched.h>
+>  #include <net/sch_generic.h>
+> +#include <net/pkt_cls.h>
+>
+>  struct mqprio_sched {
+>         struct Qdisc            **qdiscs;
+>         int hw_offload;
+> +       u32 flags;
+> +       u64 min_rate[TC_QOPT_MAX_QUEUE], max_rate[TC_QOPT_MAX_QUEUE];
+>  };
+>
+>  static void mqprio_destroy(struct Qdisc *sch)
+> @@ -39,10 +42,21 @@ static void mqprio_destroy(struct Qdisc *sch)
+>         }
+>
+>         if (priv->hw_offload && dev->netdev_ops->ndo_setup_tc) {
+> -               struct tc_mqprio_qopt offload = { 0 };
+> -               struct tc_to_netdev tc = { .type = TC_SETUP_MQPRIO,
+> -                                          { .mqprio = &offload } };
+> +               struct tc_mqprio_qopt_offload offload = { 0 };
 
-It happened on arm64 with 'make allmodconfig', but none of the other
-architectures or the other configurations on that architecture.
+So this is currently throwing a warning when I pull these patches and
+build this with gcc 6.2. I think the correct setup is "offload = {{ 0
+}}" in order to indicate that we are initializing the inner structure
+and all other data to 0.
 
-This kind of warning can be a real pain to shut up when the compiler
-gets it wrong. I haven't tested the latest kernel with your patch on my
-own build box yet, so I also haven't been able to reproduce it.
-Most likely, gcc gets confused when it needs to track the state of
-too many variables here (I certainly get confused when I read it too).
-
-My first attempt to resolve it would be:
-
-diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
-index ae96e6f3e0cb..39f26980a565 100644
---- a/net/ipv4/arp.c
-+++ b/net/ipv4/arp.c
-@@ -663,6 +663,8 @@ static bool arp_is_garp(struct net *net, struct
-net_device *dev,
-                *addr_type = inet_addr_type_dev_table(net, dev, sip);
-                if (*addr_type != RTN_UNICAST)
-                        is_garp = false;
-+       } else {
-+               *addr_type = -1;
-        }
-        return is_garp;
- }
-@@ -864,7 +866,6 @@ static int arp_process(struct net *net, struct
-sock *sk, struct sk_buff *skb)
-        n = __neigh_lookup(&arp_tbl, &sip, dev, 0);
-
-        if (n || IN_DEV_ARP_ACCEPT(in_dev)) {
--               addr_type = -1;
-                is_garp = arp_is_garp(net, dev, &addr_type, arp->ar_op,
-                                      sip, tip, sha, tha);
-        }
-
-but this clearly needs a lot of build testing to see if it's sufficient. Moving
-the initialization of addr_type=1 to the start of the function would
-certainly avoid the warning, but I suspect this would be incorrect here.
-
-        Arnd
+> +               struct tc_to_netdev tc = { 0 };
+>
+> +               switch (priv->hw_offload) {
+> +               case TC_MQPRIO_HW_OFFLOAD_TCS:
+> +                       tc.type = TC_SETUP_MQPRIO;
+> +                       tc.mqprio = &offload.qopt;
+> +                       break;
+> +               case TC_MQPRIO_HW_OFFLOAD:
+> +                       tc.type = TC_SETUP_MQPRIO_EXT;
+> +                       tc.mqprio_qopt = &offload;
+> +                       break;
+> +               default:
+> +                       return;
+> +               }
+>                 dev->netdev_ops->ndo_setup_tc(dev, sch->handle, 0, &tc);
+>         } else {
+>                 netdev_set_num_tc(dev, 0);
