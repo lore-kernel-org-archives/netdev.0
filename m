@@ -1,7 +1,8 @@
 From: Dave Watson <davejwatson@fb.com>
-Subject: [PATCH net-next 0/4] kernel TLS
-Date: Wed, 24 May 2017 09:26:33 -0700
-Message-ID: <20170524162633.GA24030@davejwatson-mba.local>
+Subject: [PATCH net-next 1/4] tcp: ULP infrastructure
+Date: Wed, 24 May 2017 09:26:46 -0700
+Message-ID: <20170524162646.GA24128@davejwatson-mba.local>
+References: <cover.1495642647.git.davejwatson@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
@@ -16,92 +17,374 @@ To: Ilya Lesokhin <ilyal@mellanox.com>,
         <herbert@gondor.apana.org.au>, <linux-crypto@vger.kernel.org>,
         Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:36662 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S939444AbdEXQ05 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 24 May 2017 12:26:57 -0400
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:39765 "EHLO
+        mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S967637AbdEXQ1I (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 24 May 2017 12:27:08 -0400
 Content-Disposition: inline
+In-Reply-To: <cover.1495642647.git.davejwatson@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series adds support for kernel TLS encryption over TCP sockets.
-A standard TCP socket is converted to a TLS socket using a setsockopt.
-Only symmetric crypto is done in the kernel, as well as TLS record
-framing.  The handshake remains in userspace, and the negotiated
-cipher keys/iv are provided to the TCP socket.
+Add the infrustructure for attaching Upper Layer Protocols (ULPs) over TCP
+sockets. Based on a similar infrastructure in tcp_cong.  The idea is that any
+ULP can add its own logic by changing the TCP proto_ops structure to its own
+methods.
 
-We implemented support for this API in OpenSSL 1.1.0, the code is
-available at https://github.com/Mellanox/tls-openssl/tree/master
+Example usage:
 
-It should work with any TLS library with similar modifications,
-a test tool using gnutls is here: https://github.com/Mellanox/tls-af_ktls_tool
+setsockopt(sock, SOL_TCP, TCP_ULP, "tls", sizeof("tls"));
 
-Changes from RFC V2:
+modules will call:
+tcp_register_ulp(&tcp_tls_ulp_ops);
 
-* Generic ULP (upper layer protocol) framework instead of TLS specific
-  setsockopts
-* Dropped Mellanox hardware patches, will come as separate series.
-  Framework will work for both.
+to register/unregister their ulp, with an init function and name.
 
-RFC V2:
+A list of registered ulps will be returned by tcp_get_available_ulp, which is
+hooked up to /proc.  Example:
 
-http://www.mail-archive.com/netdev@vger.kernel.org/msg160317.html
+$ cat /proc/sys/net/ipv4/tcp_available_ulp
+tls
 
-Changes from RFC V1:
+There is currently no functionality to remove or chain ULPs, but
+it should be possible to add these in the future if needed.
 
-* Socket based on changing TCP proto_ops instead of crypto framework
-* Merged code with Mellanox's hardware tls offload
-* Zerocopy sendmsg support added - sendpage/sendfile is no longer
-  necessary for zerocopy optimization
-
-RFC V1:
-
-http://www.mail-archive.com/netdev@vger.kernel.org/msg88021.html
-
-* Socket based on crypto userspace API framework, required two
-  sockets in userspace, one encrypted, one unencrypted.
-
-Paper: https://netdevconf.org/1.2/papers/ktls.pdf
-
-Aviad Yehezkel (1):
-  tcp: export do_tcp_sendpages and tcp_rate_check_app_limited functions
-
-Boris Pismenny (2):
-  tcp: ULP infrastructure
-  tls: Documentation
-
-Ilya Lesokhin (1):
-  tls: kernel TLS support
-
- Documentation/networking/tls.txt   | 120 ++++++
- MAINTAINERS                        |  10 +
- include/linux/socket.h             |   1 +
- include/net/inet_connection_sock.h |   4 +
- include/net/tcp.h                  |  27 ++
- include/net/tls.h                  | 223 +++++++++++
+Signed-off-by: Boris Pismenny <borisp@mellanox.com>
+Signed-off-by: Dave Watson <davejwatson@fb.com>
+---
+ include/net/inet_connection_sock.h |   4 ++
+ include/net/tcp.h                  |  25 +++++++
  include/uapi/linux/tcp.h           |   1 +
- include/uapi/linux/tls.h           |  79 ++++
- net/Kconfig                        |   1 +
- net/Makefile                       |   1 +
  net/ipv4/Makefile                  |   2 +-
- net/ipv4/sysctl_net_ipv4.c         |  25 ++
- net/ipv4/tcp.c                     |  33 +-
+ net/ipv4/sysctl_net_ipv4.c         |  25 +++++++
+ net/ipv4/tcp.c                     |  28 ++++++++
  net/ipv4/tcp_ipv4.c                |   2 +
- net/ipv4/tcp_rate.c                |   1 +
- net/ipv4/tcp_ulp.c                 | 134 +++++++
- net/tls/Kconfig                    |  12 +
- net/tls/Makefile                   |   7 +
- net/tls/tls_main.c                 | 450 +++++++++++++++++++++
- net/tls/tls_sw.c                   | 788 +++++++++++++++++++++++++++++++++++++
- 20 files changed, 1918 insertions(+), 3 deletions(-)
- create mode 100644 Documentation/networking/tls.txt
- create mode 100644 include/net/tls.h
- create mode 100644 include/uapi/linux/tls.h
+ net/ipv4/tcp_ulp.c                 | 134 +++++++++++++++++++++++++++++++++++++
+ 8 files changed, 220 insertions(+), 1 deletion(-)
  create mode 100644 net/ipv4/tcp_ulp.c
- create mode 100644 net/tls/Kconfig
- create mode 100644 net/tls/Makefile
- create mode 100644 net/tls/tls_main.c
- create mode 100644 net/tls/tls_sw.c
 
+diff --git a/include/net/inet_connection_sock.h b/include/net/inet_connection_sock.h
+index c7a5779..13e4c89 100644
+--- a/include/net/inet_connection_sock.h
++++ b/include/net/inet_connection_sock.h
+@@ -75,6 +75,8 @@ struct inet_connection_sock_af_ops {
+  * @icsk_pmtu_cookie	   Last pmtu seen by socket
+  * @icsk_ca_ops		   Pluggable congestion control hook
+  * @icsk_af_ops		   Operations which are AF_INET{4,6} specific
++ * @icsk_ulp_ops	   Pluggable ULP control hook
++ * @icsk_ulp_data	   ULP private data
+  * @icsk_ca_state:	   Congestion control state
+  * @icsk_retransmits:	   Number of unrecovered [RTO] timeouts
+  * @icsk_pending:	   Scheduled timer event
+@@ -97,6 +99,8 @@ struct inet_connection_sock {
+ 	__u32			  icsk_pmtu_cookie;
+ 	const struct tcp_congestion_ops *icsk_ca_ops;
+ 	const struct inet_connection_sock_af_ops *icsk_af_ops;
++	const struct tcp_ulp_ops  *icsk_ulp_ops;
++	void			  *icsk_ulp_data;
+ 	unsigned int		  (*icsk_sync_mss)(struct sock *sk, u32 pmtu);
+ 	__u8			  icsk_ca_state:6,
+ 				  icsk_ca_setsockopt:1,
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 82462db..fcc39f8 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -1992,4 +1992,29 @@ static inline void tcp_listendrop(const struct sock *sk)
+ 
+ enum hrtimer_restart tcp_pace_kick(struct hrtimer *timer);
+ 
++/*
++ * Interface for adding Upper Level Protocols over TCP
++ */
++
++#define TCP_ULP_NAME_MAX	16
++#define TCP_ULP_MAX		128
++#define TCP_ULP_BUF_MAX		(TCP_ULP_NAME_MAX*TCP_ULP_MAX)
++
++struct tcp_ulp_ops {
++	struct list_head	list;
++
++	/* initialize ulp */
++	int (*init)(struct sock *sk);
++	/* cleanup ulp */
++	void (*release)(struct sock *sk);
++
++	char		name[TCP_ULP_NAME_MAX];
++	struct module	*owner;
++};
++int tcp_register_ulp(struct tcp_ulp_ops *type);
++void tcp_unregister_ulp(struct tcp_ulp_ops *type);
++int tcp_set_ulp(struct sock *sk, const char *name);
++void tcp_get_available_ulp(char *buf, size_t len);
++void tcp_cleanup_ulp(struct sock *sk);
++
+ #endif	/* _TCP_H */
+diff --git a/include/uapi/linux/tcp.h b/include/uapi/linux/tcp.h
+index 38a2b07..8204dce 100644
+--- a/include/uapi/linux/tcp.h
++++ b/include/uapi/linux/tcp.h
+@@ -117,6 +117,7 @@ enum {
+ #define TCP_SAVED_SYN		28	/* Get SYN headers recorded for connection */
+ #define TCP_REPAIR_WINDOW	29	/* Get/set window parameters */
+ #define TCP_FASTOPEN_CONNECT	30	/* Attempt FastOpen with connect */
++#define TCP_ULP		31	/* Attach a ULP to a TCP connection */
+ 
+ struct tcp_repair_opt {
+ 	__u32	opt_code;
+diff --git a/net/ipv4/Makefile b/net/ipv4/Makefile
+index f83de23..afcb435 100644
+--- a/net/ipv4/Makefile
++++ b/net/ipv4/Makefile
+@@ -8,7 +8,7 @@ obj-y     := route.o inetpeer.o protocol.o \
+ 	     inet_timewait_sock.o inet_connection_sock.o \
+ 	     tcp.o tcp_input.o tcp_output.o tcp_timer.o tcp_ipv4.o \
+ 	     tcp_minisocks.o tcp_cong.o tcp_metrics.o tcp_fastopen.o \
+-	     tcp_rate.o tcp_recovery.o \
++	     tcp_rate.o tcp_recovery.o tcp_ulp.o \
+ 	     tcp_offload.o datagram.o raw.o udp.o udplite.o \
+ 	     udp_offload.o arp.o icmp.o devinet.o af_inet.o igmp.o \
+ 	     fib_frontend.o fib_semantics.o fib_trie.o fib_notifier.o \
+diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
+index 86957e9..6a40837c 100644
+--- a/net/ipv4/sysctl_net_ipv4.c
++++ b/net/ipv4/sysctl_net_ipv4.c
+@@ -360,6 +360,25 @@ static int proc_tfo_blackhole_detect_timeout(struct ctl_table *table,
+ 	ret = proc_dointvec_minmax(table, write, buffer, lenp, ppos);
+ 	if (write && ret == 0)
+ 		tcp_fastopen_active_timeout_reset();
++
++	return ret;
++}
++
++static int proc_tcp_available_ulp(struct ctl_table *ctl,
++				  int write,
++				  void __user *buffer, size_t *lenp,
++				  loff_t *ppos)
++{
++	struct ctl_table tbl = { .maxlen = TCP_ULP_BUF_MAX, };
++	int ret;
++
++	tbl.data = kmalloc(tbl.maxlen, GFP_USER);
++	if (!tbl.data)
++		return -ENOMEM;
++	tcp_get_available_ulp(tbl.data, TCP_ULP_BUF_MAX);
++	ret = proc_dostring(&tbl, write, buffer, lenp, ppos);
++	kfree(tbl.data);
++
+ 	return ret;
+ }
+ 
+@@ -707,6 +726,12 @@ static struct ctl_table ipv4_table[] = {
+ 		.proc_handler	= proc_dointvec_ms_jiffies,
+ 	},
+ 	{
++		.procname	= "tcp_available_ulp",
++		.maxlen		= TCP_ULP_BUF_MAX,
++		.mode		= 0444,
++		.proc_handler   = proc_tcp_available_ulp,
++	},
++	{
+ 		.procname	= "icmp_msgs_per_sec",
+ 		.data		= &sysctl_icmp_msgs_per_sec,
+ 		.maxlen		= sizeof(int),
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index aaf663a..9f06faa 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -2458,6 +2458,24 @@ static int do_tcp_setsockopt(struct sock *sk, int level,
+ 		release_sock(sk);
+ 		return err;
+ 	}
++	case TCP_ULP: {
++		char name[TCP_ULP_NAME_MAX];
++
++		if (optlen < 1)
++			return -EINVAL;
++
++		val = strncpy_from_user(name, optval,
++					min_t(long, TCP_ULP_NAME_MAX - 1,
++					      optlen));
++		if (val < 0)
++			return -EFAULT;
++		name[val] = 0;
++
++		lock_sock(sk);
++		err = tcp_set_ulp(sk, name);
++		release_sock(sk);
++		return err;
++	}
+ 	default:
+ 		/* fallthru */
+ 		break;
+@@ -3014,6 +3032,16 @@ static int do_tcp_getsockopt(struct sock *sk, int level,
+ 			return -EFAULT;
+ 		return 0;
+ 
++	case TCP_ULP:
++		if (get_user(len, optlen))
++			return -EFAULT;
++		len = min_t(unsigned int, len, TCP_ULP_NAME_MAX);
++		if (put_user(len, optlen))
++			return -EFAULT;
++		if (copy_to_user(optval, icsk->icsk_ulp_ops->name, len))
++			return -EFAULT;
++		return 0;
++
+ 	case TCP_THIN_LINEAR_TIMEOUTS:
+ 		val = tp->thin_lto;
+ 		break;
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 191b2f7..c2f5538 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -1860,6 +1860,8 @@ void tcp_v4_destroy_sock(struct sock *sk)
+ 
+ 	tcp_cleanup_congestion_control(sk);
+ 
++	tcp_cleanup_ulp(sk);
++
+ 	/* Cleanup up the write buffer. */
+ 	tcp_write_queue_purge(sk);
+ 
+diff --git a/net/ipv4/tcp_ulp.c b/net/ipv4/tcp_ulp.c
+new file mode 100644
+index 0000000..e2beb80
+--- /dev/null
++++ b/net/ipv4/tcp_ulp.c
+@@ -0,0 +1,134 @@
++/*
++ * Pluggable TCP upper layer protocol support.
++ *
++ * Copyright (c) 2016-2017, Mellanox Technologies. All rights reserved.
++ * Copyright (c) 2016-2017, Dave Watson <davejwatson@fb.com>. All rights reserved.
++ *
++ */
++
++#include<linux/module.h>
++#include <linux/mm.h>
++#include <linux/types.h>
++#include <linux/list.h>
++#include <linux/gfp.h>
++#include <net/tcp.h>
++
++static DEFINE_SPINLOCK(tcp_ulp_list_lock);
++static LIST_HEAD(tcp_ulp_list);
++
++/* Simple linear search, don't expect many entries! */
++static struct tcp_ulp_ops *tcp_ulp_find(const char *name)
++{
++	struct tcp_ulp_ops *e;
++
++	list_for_each_entry_rcu(e, &tcp_ulp_list, list) {
++		if (strcmp(e->name, name) == 0)
++			return e;
++	}
++
++	return NULL;
++}
++
++static const struct tcp_ulp_ops *__tcp_ulp_find_autoload(const char *name)
++{
++	const struct tcp_ulp_ops *ulp = NULL;
++
++	rcu_read_lock();
++	ulp = tcp_ulp_find(name);
++
++#ifdef CONFIG_MODULES
++	if (!ulp && capable(CAP_NET_ADMIN)) {
++		rcu_read_unlock();
++		request_module("%s", name);
++		rcu_read_lock();
++		ulp = tcp_ulp_find(name);
++	}
++#endif
++	if (!ulp || !try_module_get(ulp->owner))
++		ulp = NULL;
++
++	rcu_read_unlock();
++	return ulp;
++}
++
++/* Attach new upper layer protocol to the list
++ * of available protocols.
++ */
++int tcp_register_ulp(struct tcp_ulp_ops *ulp)
++{
++	int ret = 0;
++
++	spin_lock(&tcp_ulp_list_lock);
++	if (tcp_ulp_find(ulp->name)) {
++		pr_notice("%s already registered or non-unique name\n",
++			  ulp->name);
++		ret = -EEXIST;
++	} else {
++		list_add_tail_rcu(&ulp->list, &tcp_ulp_list);
++	}
++	spin_unlock(&tcp_ulp_list_lock);
++
++	return ret;
++}
++EXPORT_SYMBOL(tcp_register_ulp);
++
++void tcp_unregister_ulp(struct tcp_ulp_ops *ulp)
++{
++	spin_lock(&tcp_ulp_list_lock);
++	list_del_rcu(&ulp->list);
++	spin_unlock(&tcp_ulp_list_lock);
++
++	synchronize_rcu();
++}
++EXPORT_SYMBOL(tcp_unregister_ulp);
++
++/* Build string with list of available upper layer protocl values */
++void tcp_get_available_ulp(char *buf, size_t maxlen)
++{
++	struct tcp_ulp_ops *ulp_ops;
++	size_t offs = 0;
++
++	rcu_read_lock();
++	list_for_each_entry_rcu(ulp_ops, &tcp_ulp_list, list) {
++		offs += snprintf(buf + offs, maxlen - offs,
++				 "%s%s",
++				 offs == 0 ? "" : " ", ulp_ops->name);
++	}
++	rcu_read_unlock();
++}
++
++void tcp_cleanup_ulp(struct sock *sk)
++{
++	struct inet_connection_sock *icsk = inet_csk(sk);
++
++	if (!icsk->icsk_ulp_ops)
++		return;
++
++	if (icsk->icsk_ulp_ops->release)
++		icsk->icsk_ulp_ops->release(sk);
++	module_put(icsk->icsk_ulp_ops->owner);
++}
++
++/* Change upper layer protocol for socket */
++int tcp_set_ulp(struct sock *sk, const char *name)
++{
++	struct inet_connection_sock *icsk = inet_csk(sk);
++	const struct tcp_ulp_ops *ulp_ops;
++	int err = 0;
++
++	if (icsk->icsk_ulp_ops)
++		return -EEXIST;
++
++	ulp_ops = __tcp_ulp_find_autoload(name);
++	if (!ulp_ops)
++		err = -ENOENT;
++	else
++		err = ulp_ops->init(sk);
++
++	if (err)
++		goto out;
++
++	icsk->icsk_ulp_ops = ulp_ops;
++ out:
++	return err;
++}
 -- 
 2.9.3
