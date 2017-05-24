@@ -1,32 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 net] net: phy: marvell: Limit errata to 88m1101
-Date: Wed, 24 May 2017 15:49:40 -0400 (EDT)
-Message-ID: <20170524.154940.1077936120098835846.davem@davemloft.net>
-References: <1495554553-21118-1-git-send-email-andrew@lunn.ch>
+From: Eric Garver <e@erig.me>
+Subject: Re: [PATCH net-next] geneve: fix fill_info when using
+ collect_metadata
+Date: Wed, 24 May 2017 15:58:20 -0400
+Message-ID: <20170524195820.GE2211@dev-rhel7>
+References: <20170523223727.15307-1-e@erig.me>
+ <CAOrHB_CqAAWpHLuc+apQHbhL6SUS9bcKq3wW_TxbtWEWcgZrSA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: andrew@lunn.ch
+Content-Type: text/plain; charset=us-ascii
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Pravin Shelar <pshelar@ovn.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:49670 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S966669AbdEXTtm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 24 May 2017 15:49:42 -0400
-In-Reply-To: <1495554553-21118-1-git-send-email-andrew@lunn.ch>
+Received: from mx1.redhat.com ([209.132.183.28]:50576 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1030292AbdEXT6X (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 24 May 2017 15:58:23 -0400
+Content-Disposition: inline
+In-Reply-To: <CAOrHB_CqAAWpHLuc+apQHbhL6SUS9bcKq3wW_TxbtWEWcgZrSA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andrew Lunn <andrew@lunn.ch>
-Date: Tue, 23 May 2017 17:49:13 +0200
-
-> The 88m1101 has an errata when configuring autoneg. However, it was
-> being applied to many other Marvell PHYs as well. Limit its scope to
-> just the 88m1101.
+On Wed, May 24, 2017 at 12:20:36PM -0700, Pravin Shelar wrote:
+> On Tue, May 23, 2017 at 3:37 PM, Eric Garver <e@erig.me> wrote:
+> > Since 9b4437a5b870 ("geneve: Unify LWT and netdev handling.") fill_info
+> > does not return UDP_ZERO_CSUM6_RX when using COLLECT_METADATA. This is
+> > because it uses ip_tunnel_info_af() with the device level info, which is
+> > not valid for COLLECT_METADATA.
+> >
+> > Fix by checking for the presence of the actual sockets.
+> >
+> > Fixes: 9b4437a5b870 ("geneve: Unify LWT and netdev handling.")
+> > Signed-off-by: Eric Garver <e@erig.me>
+> Thanks for the patch.
 > 
-> Fixes: 76884679c644 ("phylib: Add support for Marvell 88e1111S and 88e1145")
-> Reported-by: Daniel Walker <danielwa@cisco.com>
-> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
-> Acked-by: Harini Katakam <harinik@xilinx.com>
+> Acked-by: Pravin B Shelar <pshelar@ovn.org>
+> 
+> 
+> I noticed that the MTU and encal_len calculation in geneve_configure()
+> also needs to be fixed for collect metadata case. Can you send patch
+> to fix it?
 
-Applied and queued up for -stable, thanks.
+Ah, yes. I'll take a look at those as well.
+
+Eric.
