@@ -1,44 +1,84 @@
-From: Eric Garver <e@erig.me>
-Subject: Re: [PATCH net-next] geneve: fix fill_info when using
- collect_metadata
-Date: Wed, 24 May 2017 15:58:20 -0400
-Message-ID: <20170524195820.GE2211@dev-rhel7>
-References: <20170523223727.15307-1-e@erig.me>
- <CAOrHB_CqAAWpHLuc+apQHbhL6SUS9bcKq3wW_TxbtWEWcgZrSA@mail.gmail.com>
+From: Stefan Wahren <stefan.wahren@i2se.com>
+Subject: Re: [PATCH v6 net-next 01/17] net: qualcomm: remove unnecessary
+ includes
+Date: Wed, 24 May 2017 22:05:26 +0200 (CEST)
+Message-ID: <1746915556.279475.1495656327010@email.1und1.de>
+References: <1495545173-22150-1-git-send-email-stefan.wahren@i2se.com>
+ <1495545173-22150-2-git-send-email-stefan.wahren@i2se.com>
+ <20170524.154111.404338711401048909.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Pravin Shelar <pshelar@ovn.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:50576 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1030292AbdEXT6X (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 24 May 2017 15:58:23 -0400
-Content-Disposition: inline
-In-Reply-To: <CAOrHB_CqAAWpHLuc+apQHbhL6SUS9bcKq3wW_TxbtWEWcgZrSA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: linux-serial@vger.kernel.org, jslaby@suse.com,
+        gregkh@linuxfoundation.org, netdev@vger.kernel.org,
+        robh+dt@kernel.org, linux-kernel@vger.kernel.org, kubakici@wp.pl,
+        mark.rutland@arm.com, LinoSanfilippo@gmx.de,
+        devicetree@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170524.154111.404338711401048909.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, May 24, 2017 at 12:20:36PM -0700, Pravin Shelar wrote:
-> On Tue, May 23, 2017 at 3:37 PM, Eric Garver <e@erig.me> wrote:
-> > Since 9b4437a5b870 ("geneve: Unify LWT and netdev handling.") fill_info
-> > does not return UDP_ZERO_CSUM6_RX when using COLLECT_METADATA. This is
-> > because it uses ip_tunnel_info_af() with the device level info, which is
-> > not valid for COLLECT_METADATA.
-> >
-> > Fix by checking for the presence of the actual sockets.
-> >
-> > Fixes: 9b4437a5b870 ("geneve: Unify LWT and netdev handling.")
-> > Signed-off-by: Eric Garver <e@erig.me>
-> Thanks for the patch.
-> 
-> Acked-by: Pravin B Shelar <pshelar@ovn.org>
+
+> David Miller <davem@davemloft.net> hat am 24. Mai 2017 um 21:41 geschrieben:
 > 
 > 
-> I noticed that the MTU and encal_len calculation in geneve_configure()
-> also needs to be fixed for collect metadata case. Can you send patch
-> to fix it?
+> From: Stefan Wahren <stefan.wahren@i2se.com>
+> Date: Tue, 23 May 2017 15:12:37 +0200
+> 
+> > Most of the includes in qca_7k.c are unnecessary so we better remove them.
+> > 
+> > Signed-off-by: Stefan Wahren <stefan.wahren@i2se.com>
+> > ---
+> >  drivers/net/ethernet/qualcomm/qca_7k.c | 4 ----
+> >  1 file changed, 4 deletions(-)
+> > 
+> > diff --git a/drivers/net/ethernet/qualcomm/qca_7k.c b/drivers/net/ethernet/qualcomm/qca_7k.c
+> > index f0066fb..557d53c 100644
+> > --- a/drivers/net/ethernet/qualcomm/qca_7k.c
+> > +++ b/drivers/net/ethernet/qualcomm/qca_7k.c
+> > @@ -23,11 +23,7 @@
+> >   *   kernel-based SPI device.
+> >   */
+> >  
+> > -#include <linux/init.h>
+> > -#include <linux/module.h>
+> > -#include <linux/moduleparam.h>
+> >  #include <linux/spi/spi.h>
+> > -#include <linux/version.h>
+> >  
+> >  #include "qca_7k.h"
+> >  
+> > -- 
+> > 2.1.4
+> > 
+> 
+> Changes like this drive me crazy.
+> 
+> The only reason you can remove those headers is because you are obtaining
+> things indirectly via qca_7k.h
+> 
+> And if that is indeed the case, you are also getting qca_spi.h which
+> in turn includes linux/spi/spi.h
+> 
+> So you could have removed that as well.
+> 
+> But seriously, it is so much harder to understand a driver and what
+> interfaces it needs via header files when you hide _all_ of it behind
+> these local private header files which just include _everything_
+> and then _every_ foo.c file in your driver gets _all_ of those kernel
+> headers whether they need it or not.
+> 
+> So if just one foo.c file needs 20 extra kernel headers than the rest
+> of the files in the driver, every foo.c file eats that cost of
+> including them.
+> 
+> I really don't like when drivers move in this direction for that
+> reason.  And at best, as described at the beginning of my response,
+> this change is incomplete.
+>
 
-Ah, yes. I'll take a look at those as well.
+The intension of this change wasn't to hide the includes into qca_7k.h
 
-Eric.
+AFAIK these ones above aren't necessary (no init, no kernel module, no kernel parameter, no kernel version) for this C file. So i will double check it.
