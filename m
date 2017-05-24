@@ -1,76 +1,57 @@
-From: Roman Kapl <roman.kapl@sysgo.com>
-Subject: [PATCH v2] net: move somaxconn init from sysctl code
-Date: Wed, 24 May 2017 10:22:22 +0200
-Message-ID: <20170524082222.14208-1-roman.kapl@sysgo.com>
-Cc: Roman Kapl <roman.kapl@sysgo.com>
-To: netdev@vger.kernel.org, davem@davemloft.net
+From: =?UTF-8?Q?Lars_Erik_Storbuk=C3=A5s?= <storbukas.dev@gmail.com>
+Subject: Process phantom ECN event in TCP without CWR response
+Date: Wed, 24 May 2017 10:45:01 +0200
+Message-ID: <CAF0XkCAFchar70B=b+TNXOD+jDoxGy6Ty9N4qhBP6ji9yipwDA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+To: Netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.sysgo.com ([176.9.12.79]:53102 "EHLO mail.sysgo.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S936668AbdEXIWZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 24 May 2017 04:22:25 -0400
+Received: from mail-it0-f47.google.com ([209.85.214.47]:37652 "EHLO
+        mail-it0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S939098AbdEXIpC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 24 May 2017 04:45:02 -0400
+Received: by mail-it0-f47.google.com with SMTP id g126so34935745ith.0
+        for <netdev@vger.kernel.org>; Wed, 24 May 2017 01:45:02 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The default value for somaxconn is set in sysctl_core_net_init(), but this
-function is not called when kernel is configured without CONFIG_SYSCTL.
+I'm trying to generate phantom ECN events to (manually) decrease the
+transmission rate/throughput.
 
-This results in the kernel not being able to accept TCP connections,
-because the backlog has zero size. Usually, the user ends up with:
-"TCP: request_sock_TCP: Possible SYN flooding on port 7. Dropping request.  Check SNMP counters."
-If SYN cookies are not enabled the connection is rejected.
+The signals is meant to be generated and received on a single host. I
+don't want the ECN event to generate a CWR (Congestion Window Reduced)
+response to the sender. I'm trying to think of ways to avoid the TCP
+code from entering the part of an ECN event, where the response to the
+sender is generated.
 
-Before ef547f2ac16 (tcp: remove max_qlen_log), the effects were less
-severe, because the backlog was always at least eight slots long.
+I have thought of two (possible) solutions:
 
-Signed-off-by: Roman Kapl <roman.kapl@sysgo.com>
----
- net/core/net_namespace.c   | 19 +++++++++++++++++++
- net/core/sysctl_net_core.c |  2 --
- 2 files changed, 19 insertions(+), 2 deletions(-)
+1. Before the phantom ECN signal is generated, a FLAG is set,
+indicating that a phantom ECN event is coming. Before entering the
+part where the CWR response is generated, perform a check on whether
+the FLAG is set or not (if set - do not enter CWR part).
 
-diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
-index 1934efd..26bbfab 100644
---- a/net/core/net_namespace.c
-+++ b/net/core/net_namespace.c
-@@ -315,6 +315,25 @@ static __net_init int setup_net(struct net *net, struct user_namespace *user_ns)
- 	goto out;
- }
- 
-+static int __net_init net_defaults_init_net(struct net *net)
-+{
-+	net->core.sysctl_somaxconn = SOMAXCONN;
-+	return 0;
-+}
-+
-+static struct pernet_operations net_defaults_ops = {
-+	.init = net_defaults_init_net,
-+};
-+
-+static __init int net_defaults_init(void)
-+{
-+	if (register_pernet_subsys(&net_defaults_ops))
-+		panic("Cannot initialize net default settings");
-+
-+	return 0;
-+}
-+
-+core_initcall(net_defaults_init);
- 
- #ifdef CONFIG_NET_NS
- static struct ucounts *inc_net_namespaces(struct user_namespace *ns)
-diff --git a/net/core/sysctl_net_core.c b/net/core/sysctl_net_core.c
-index ea23254..b7cd9aa 100644
---- a/net/core/sysctl_net_core.c
-+++ b/net/core/sysctl_net_core.c
-@@ -479,8 +479,6 @@ static __net_init int sysctl_core_net_init(struct net *net)
- {
- 	struct ctl_table *tbl;
- 
--	net->core.sysctl_somaxconn = SOMAXCONN;
--
- 	tbl = netns_core_table;
- 	if (!net_eq(net, &init_net)) {
- 		tbl = kmemdup(tbl, sizeof(netns_core_table), GFP_KERNEL);
--- 
-2.10.1
+2. Instead of generating ECN signals (modify incoming packets), use a
+flag to indicate that the next incoming ACK is processed as if it were
+an ECN signal (except entering the CWR part).
+
+
+Any input on how to implement, or pointers for where to look for
+similar solutions is greatly appreciated.
+
+...
+
+For those who are interested in why I'm trying to achieve this:
+
+I'm working on the implementation of a Deadline Aware, Less than Best
+Effort framework. A framework for adding both LBE behaviour and
+awareness of =E2=80=9Csoft=E2=80=9D delivery deadlines to any congestion co=
+ntrol (CC)
+algorithm, whether loss-based, delay- based or explicit
+signaling-based. This effectively allows it to turn an arbitrary CC
+protocol into a scavenger protocol that dynamically adapts its sending
+rate to network conditions and remaining time before the deadline, to
+balance timeliness and transmission aggressiveness.
+
+/ Lars Erik Storbuk=C3=A5s (storbukas.dev@gmail.com)
