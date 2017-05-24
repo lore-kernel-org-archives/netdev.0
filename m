@@ -1,132 +1,80 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [Intel-wired-lan] [PATCH 2/4] [next-queue]net: i40e: Add
- infrastructure for queue channel support with the TCs and queue
- configurations offloaded via mqprio scheduler
-Date: Wed, 24 May 2017 14:45:41 -0700
-Message-ID: <CAKgT0UdLNrnjuYxmrkD8V5N0V8gXMGLzGnaq-rRV_g0nE5HTJw@mail.gmail.com>
-References: <149524122523.11022.4541073724650541658.stgit@anamdev.jf.intel.com>
- <149524190808.11022.3222127507844771494.stgit@anamdev.jf.intel.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH v2 0/4] arp: always override existing neigh entries with
+ gratuitous ARP
+Date: Wed, 24 May 2017 23:57:37 +0200
+Message-ID: <CAK8P3a0AcshP-2L2icLwW+DHrn-0w+YsdOjob_34k0N-EHKGTQ@mail.gmail.com>
+References: <cover.1495136258.git.ihrachys@redhat.com> <CAK8P3a162_RdXHLCPzg47+F7yadRGMDgFG_z5R6v65-heY1KAw@mail.gmail.com>
+ <23f8a3fa-3e7a-339a-2deb-76d20fe6483b@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
-        Netdev <netdev@vger.kernel.org>
-To: Amritha Nambiar <amritha.nambiar@intel.com>
+Cc: David Miller <davem@davemloft.net>, ja@ssi.bg,
+        Networking <netdev@vger.kernel.org>
+To: Ihar Hrachyshka <ihrachys@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f195.google.com ([209.85.223.195]:32771 "EHLO
-        mail-io0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1032096AbdEXVpn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 24 May 2017 17:45:43 -0400
-Received: by mail-io0-f195.google.com with SMTP id m4so19400246ioe.0
-        for <netdev@vger.kernel.org>; Wed, 24 May 2017 14:45:43 -0700 (PDT)
-In-Reply-To: <149524190808.11022.3222127507844771494.stgit@anamdev.jf.intel.com>
+Received: from mail-oi0-f67.google.com ([209.85.218.67]:35968 "EHLO
+        mail-oi0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1036130AbdEXV5i (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 24 May 2017 17:57:38 -0400
+Received: by mail-oi0-f67.google.com with SMTP id w138so34796896oiw.3
+        for <netdev@vger.kernel.org>; Wed, 24 May 2017 14:57:38 -0700 (PDT)
+In-Reply-To: <23f8a3fa-3e7a-339a-2deb-76d20fe6483b@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 19, 2017 at 5:58 PM, Amritha Nambiar
-<amritha.nambiar@intel.com> wrote:
-> This patch sets up the infrastructure for offloading TCs and
-> queue configurations to the hardware by creating HW channels(VSI).
-> A new channel is created for each of the traffic class
-> configuration offloaded via mqprio framework except for the first TC
-> (TC0). TC0 for the main VSI is also reconfigured as per user provided
-> queue parameters. Queue counts that are not power-of-2 are handled by
-> reconfiguring RSS by reprogramming LUTs using the queue count value.
-> This patch also handles configuring the TX rings for the channels,
-> setting up the RX queue map for channel.
->
-> Also, the channels so created are removed and all the queue
-> configuration is set to default when the qdisc is detached from the
-> root of the device.
->
-> Signed-off-by: Amritha Nambiar <amritha.nambiar@intel.com>
-> Signed-off-by: Kiran Patil <kiran.patil@intel.com>
-> ---
->  drivers/net/ethernet/intel/i40e/i40e.h      |   36 +
->  drivers/net/ethernet/intel/i40e/i40e_main.c |  740 +++++++++++++++++++++++++++
->  drivers/net/ethernet/intel/i40e/i40e_txrx.h |    2
->  3 files changed, 771 insertions(+), 7 deletions(-)
->
-> diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-> index 395ca94..0915b02 100644
+On Wed, May 24, 2017 at 11:32 PM, Ihar Hrachyshka <ihrachys@redhat.com> wrote:
+> On 05/23/2017 01:56 PM, Arnd Bergmann wrote:
+>>
+>> This seems to have caused a build warning:
+>>
+>> net/ipv4/arp.c:880:35: warning: 'addr_type' may be used uninitialized
+>> in this function [-Wmaybe-uninitialized]
+>>
+> Not sure. How do you reproduce it? I just did 'make net' in the latest tree
+> that includes the patch, and it doesn't trigger the failure. Also the code
+> logic prevents it to be uninitialized (it's always set to -1 or the actual
+> type value).
 
-[...]
+I saw it reported by the kernelci build bot:
 
-> diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-> index 8d1d3b85..e1bea45 100644
-> --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-> +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+https://kernelci.org/build/id/5925b81859b514fb106b9590/logs/
 
-[...]
+It happened on arm64 with 'make allmodconfig', but none of the other
+architectures or the other configurations on that architecture.
 
-> +/**
-> + * i40e_create_queue_channel - function to create channel
-> + * @vsi: VSI to be configured
-> + * @ch: ptr to channel (it contains channel specific params)
-> + *
-> + * This function creates channel (VSI) using num_queues specified by user,
-> + * reconfigs RSS if needed.
-> + **/
-> +int i40e_create_queue_channel(struct i40e_vsi *vsi,
-> +                             struct i40e_channel *ch)
-> +{
-> +       struct i40e_pf *pf = vsi->back;
-> +       bool reconfig_rss;
-> +       int err;
-> +
-> +       if (!ch)
-> +               return -EINVAL;
-> +
-> +       if (!ch->num_queue_pairs) {
-> +               dev_err(&pf->pdev->dev, "Invalid num_queues requested: %d\n",
-> +                       ch->num_queue_pairs);
-> +               return -EINVAL;
-> +       }
-> +
-> +       /* validate user requested num_queues for channel */
-> +       err = i40e_validate_num_queues(pf, ch->num_queue_pairs, vsi,
-> +                                      &reconfig_rss);
-> +       if (err) {
-> +               dev_info(&pf->pdev->dev, "Failed to validate num_queues (%d)\n",
-> +                        ch->num_queue_pairs);
-> +               return -EINVAL;
-> +       }
-> +
-> +       /* By default we are in VEPA mode, if this is the first VF/VMDq
-> +        * VSI to be added switch to VEB mode.
-> +        */
-> +       if ((!(pf->flags & I40E_FLAG_VEB_MODE_ENABLED)) ||
-> +           (!i40e_is_any_channel(vsi))) {
-> +               if (!is_power_of_2(vsi->tc_config.tc_info[0].qcount)) {
-> +                       dev_info(&pf->pdev->dev,
-> +                                "Failed to create channel. Override queues (%u) not power of 2\n",
-> +                                vsi->tc_config.tc_info[0].qcount);
-> +                       return -EINVAL;
-> +               }
-> +
-> +               if (vsi->type == I40E_VSI_SRIOV) {
-> +                       if (!(pf->flags & I40E_FLAG_VEB_MODE_ENABLED)) {
-> +                               dev_info(&pf->pdev->dev,
-> +                                        "Expected to be VEB mode by this time\n");
-> +                               return -EINVAL;
-> +                       }
-> +               }
-> +               if (!(pf->flags & I40E_FLAG_VEB_MODE_ENABLED)) {
-> +                       pf->flags |= I40E_FLAG_VEB_MODE_ENABLED;
-> +
-> +                       if (vsi->type == I40E_VSI_MAIN) {
-> +                               if (pf->flags & I40E_FLAG_TC_MQPRIO)
-> +                                       i40e_do_reset(pf,
-> +                                       BIT_ULL(__I40E_PF_RESET_REQUESTED),
-> +                                                     true);
-> +                               else
-> +                                       i40e_do_reset_safe(pf,
-> +                                       BIT_ULL(__I40E_PF_RESET_REQUESTED));
+This kind of warning can be a real pain to shut up when the compiler
+gets it wrong. I haven't tested the latest kernel with your patch on my
+own build box yet, so I also haven't been able to reproduce it.
+Most likely, gcc gets confused when it needs to track the state of
+too many variables here (I certainly get confused when I read it too).
 
-So these BIT_ULL lines are triggering a check in checkpatch, and I
-have to say I don't really like this as it really is messed up in
-terms of formatting.
+My first attempt to resolve it would be:
 
-If nothing else you might want to look at defining a macro that
-replaces the line. That way you could still represent the same data
-without having to resort to misaligning things to make it under 80
-characters.
+diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
+index ae96e6f3e0cb..39f26980a565 100644
+--- a/net/ipv4/arp.c
++++ b/net/ipv4/arp.c
+@@ -663,6 +663,8 @@ static bool arp_is_garp(struct net *net, struct
+net_device *dev,
+                *addr_type = inet_addr_type_dev_table(net, dev, sip);
+                if (*addr_type != RTN_UNICAST)
+                        is_garp = false;
++       } else {
++               *addr_type = -1;
+        }
+        return is_garp;
+ }
+@@ -864,7 +866,6 @@ static int arp_process(struct net *net, struct
+sock *sk, struct sk_buff *skb)
+        n = __neigh_lookup(&arp_tbl, &sip, dev, 0);
+
+        if (n || IN_DEV_ARP_ACCEPT(in_dev)) {
+-               addr_type = -1;
+                is_garp = arp_is_garp(net, dev, &addr_type, arp->ar_op,
+                                      sip, tip, sha, tha);
+        }
+
+but this clearly needs a lot of build testing to see if it's sufficient. Moving
+the initialization of addr_type=1 to the start of the function would
+certainly avoid the warning, but I suspect this would be incorrect here.
+
+        Arnd
