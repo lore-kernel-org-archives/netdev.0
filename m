@@ -1,161 +1,60 @@
-From: Dave Watson <davejwatson@fb.com>
-Subject: [PATCH net-next 4/4] tls: Documentation
-Date: Wed, 24 May 2017 09:27:19 -0700
-Message-ID: <20170524162719.GA24240@davejwatson-mba.local>
-References: <cover.1495642647.git.davejwatson@fb.com>
+From: Alexei Starovoitov <ast@fb.com>
+Subject: Re: Alignment in BPF verifier
+Date: Wed, 24 May 2017 09:39:43 -0700
+Message-ID: <7b62dd5f-7cae-3aa7-5022-c1f2add9ee1a@fb.com>
+References: <db8cd2e8-9f51-dc8b-5e55-4c75d13d4858@fb.com>
+ <a0a47297-4765-3ba0-3ea2-013dda40e84a@solarflare.com>
+ <bed5b512-6069-53cc-f128-05be05f89889@solarflare.com>
+ <20170519.163957.1950740987459934279.davem@davemloft.net>
+ <591F7A28.3020004@iogearbox.net>
+ <f882c40e-bd50-f08e-afd8-f6396fc24ebc@solarflare.com>
+ <ad2162c3-1286-ab35-464a-8d21a1adc94f@fb.com>
+ <5924A938.2090808@iogearbox.net>
+ <65535d13-ce7e-56b9-807d-bf89d7d91ca9@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        <nmav@gnults.org>, <fridolin.pokorny@gmail.com>
-To: Ilya Lesokhin <ilyal@mellanox.com>,
-        Aviad Yehezkel <aviadye@mellanox.com>,
-        Boris Pismenny <borisp@mellanox.com>,
-        Liran Liss <liranl@mellanox.com>,
-        Matan Barak <matanb@mellanox.com>,
-        David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-        Tom Herbert <tom@herbertland.com>,
-        <herbert@gondor.apana.org.au>, <linux-crypto@vger.kernel.org>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <cover.1495642647.git.davejwatson@fb.com>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <alexei.starovoitov@gmail.com>, <netdev@vger.kernel.org>
+To: Edward Cree <ecree@solarflare.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:50833 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1763936AbdEXQkE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 24 May 2017 12:40:04 -0400
+In-Reply-To: <65535d13-ce7e-56b9-807d-bf89d7d91ca9@solarflare.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add documentation for the tcp ULP tls interface.
+On 5/24/17 6:46 AM, Edward Cree wrote:
+> On 23/05/17 22:27, Daniel Borkmann wrote:
+>> On 05/23/2017 09:45 PM, Alexei Starovoitov wrote:
+>>> On 5/23/17 7:41 AM, Edward Cree wrote:
+>>>> Hmm, that means that we can't do arithmetic on a
+>>>>  PTR_TO_MAP_VALUE_OR_NULL, we have to convert it to a PTR_TO_MAP_VALUE
+>>>>  first by NULL-checking it.  That's probably fine, but I can just about
+>>>>  imagine some compiler optimisation reordering them.  Any reason not to
+>>>>  split this out into a different reg->field, rather than overloading id?
+>>>
+>>> 'id' is sort of like 'version' of a pointer and has the same meaning in
+>>> both cases. How exactly do you see this split?
+> I was thinking there would be reg->id and reg->map_id.  Both could share the
+>  env->id_gen, since that's not likely to run out, but they'd be separate
+>  fields so that a PTR_TO_MAP_VALUE_OR_NULL could say "this is either map_value
+>  plus a 4-byte-aligned offset less than 24, or NULL plus that same offset",
+>  and then if another pointer with the same map_id and no variable-offset part
+>  was NULL-checked, we could convert both pointers to PTR_TO_MAP_VALUE.  (I'm
+>  getting rid of PTR_TO_MAP_VALUE_ADJ in my patch, along with several other
+>  types, by taking the 'we have an offset' part out of the bpf_reg_type.)
 
-Signed-off-by: Boris Pismenny <borisp@mellanox.com>
-Signed-off-by: Dave Watson <davejwatson@fb.com>
----
- Documentation/networking/tls.txt | 120 +++++++++++++++++++++++++++++++++++++++
- 1 file changed, 120 insertions(+)
- create mode 100644 Documentation/networking/tls.txt
+got it. makes sense.
 
-diff --git a/Documentation/networking/tls.txt b/Documentation/networking/tls.txt
-new file mode 100644
-index 0000000..7bfb256
---- /dev/null
-+++ b/Documentation/networking/tls.txt
-@@ -0,0 +1,120 @@
-+Overview
-+========
-+
-+Transport Layer Security (TLS) is a Upper Layer Protocol (ULP) that runs over
-+TCP. TLS provides end-to-end data integrity and confidentiality.
-+
-+User interface
-+==============
-+
-+Creating a TLS connection
-+-------------------------
-+
-+First create a new TCP socket and set the TLS ULP.
-+
-+  sock = socket(AF_INET, SOCK_STREAM, 0);
-+  setsockopt(sock, SOL_TCP, TCP_ULP, "tls", sizeof("tls"));
-+
-+Setting the TLS ULP allows us to set/get TLS socket options. Currently
-+only the symmetric encryption is handled in the kernel.  After the TLS
-+handshake is complete, we have all the parameters required to move the
-+data-path to the kernel. There is a separate socket option for moving
-+the transmit and the receive into the kernel.
-+
-+  /* From linux/tls.h */
-+  struct tls_crypto_info {
-+          unsigned short version;
-+          unsigned short cipher_type;
-+  };
-+
-+  struct tls12_crypto_info_aes_gcm_128 {
-+          struct tls_crypto_info info;
-+          unsigned char iv[TLS_CIPHER_AES_GCM_128_IV_SIZE];
-+          unsigned char key[TLS_CIPHER_AES_GCM_128_KEY_SIZE];
-+          unsigned char salt[TLS_CIPHER_AES_GCM_128_SALT_SIZE];
-+          unsigned char rec_seq[TLS_CIPHER_AES_GCM_128_REC_SEQ_SIZE];
-+  };
-+
-+
-+  struct tls12_crypto_info_aes_gcm_128 crypto_info;
-+
-+  crypto_info.info.version = TLS_1_2_VERSION;
-+  crypto_info.info.cipher_type = TLS_CIPHER_AES_GCM_128;
-+  memcpy(crypto_info.iv, iv_write, TLS_CIPHER_AES_GCM_128_IV_SIZE);
-+  memcpy(crypto_info.rec_seq, seq_number_write,
-+					TLS_CIPHER_AES_GCM_128_REC_SEQ_SIZE);
-+  memcpy(crypto_info.key, cipher_key_write, TLS_CIPHER_AES_GCM_128_KEY_SIZE);
-+  memcpy(crypto_info.salt, implicit_iv_write, TLS_CIPHER_AES_GCM_128_SALT_SIZE);
-+
-+  setsockopt(sock, SOL_TLS, TLS_TX, &crypto_info, sizeof(crypto_info));
-+
-+Sending TLS application data
-+----------------------------
-+
-+After setting the TLS_TX socket option all application data sent over this
-+socket is encrypted using TLS and the parameters provided in the socket option.
-+For example, we can send an encrypted hello world record as follows:
-+
-+  const char *msg = "hello world\n";
-+  send(sock, msg, strlen(msg));
-+
-+send() data is directly encrypted from the userspace buffer provided
-+to the encrypted kernel send buffer if possible.
-+
-+The sendfile system call will send the file's data over TLS records of maximum
-+length (2^14).
-+
-+  file = open(filename, O_RDONLY);
-+  fstat(file, &stat);
-+  sendfile(sock, file, &offset, stat.st_size);
-+
-+TLS records are created and sent after each send() call, unless
-+MSG_MORE is passed.  MSG_MORE will delay creation of a record until
-+MSG_MORE is not passed, or the maximum record size is reached.
-+
-+The kernel will need to allocate a buffer for the encrypted data.
-+This buffer is allocated at the time send() is called, such that
-+either the entire send() call will return -ENOMEM (or block waiting
-+for memory), or the encryption will always succeed.  If send() returns
-+-ENOMEM and some data was left on the socket buffer from a previous
-+call using MSG_MORE, the MSG_MORE data is left on the socket buffer.
-+
-+Send TLS control messages
-+-------------------------
-+
-+Other than application data, TLS has control messages such as alert
-+messages (record type 21) and handshake messages (record type 22), etc.
-+These messages can be sent over the socket by providing the TLS record type
-+via a CMSG. For example the following function sends @data of @length bytes
-+using a record of type @record_type.
-+
-+/* send TLS control message using record_type */
-+  static int klts_send_ctrl_message(int sock, unsigned char record_type,
-+                                  void *data, size_t length)
-+  {
-+        struct msghdr msg = {0};
-+        int cmsg_len = sizeof(record_type);
-+        struct cmsghdr *cmsg;
-+        char buf[CMSG_SPACE(cmsg_len)];
-+        struct iovec msg_iov;   /* Vector of data to send/receive into.  */
-+
-+        msg.msg_control = buf;
-+        msg.msg_controllen = sizeof(buf);
-+        cmsg = CMSG_FIRSTHDR(&msg);
-+        cmsg->cmsg_level = SOL_TLS;
-+        cmsg->cmsg_type = TLS_SET_RECORD_TYPE;
-+        cmsg->cmsg_len = CMSG_LEN(cmsg_len);
-+        *CMSG_DATA(cmsg) = record_type;
-+        msg.msg_controllen = cmsg->cmsg_len;
-+
-+        msg_iov.iov_base = data;
-+        msg_iov.iov_len = length;
-+        msg.msg_iov = &msg_iov;
-+        msg.msg_iovlen = 1;
-+
-+        return sendmsg(sock, &msg, 0);
-+  }
-+
-+Control message data should be provided unencrypted, and will be
-+encrypted by the kernel.  At a high level, the kernel TLS ULP is a
-+replacement for the record layer of a userspace TLS library.
--- 
-2.9.3
+>> So far we haven't run into this kind of optimization
+>> from llvm side yet[...] Out of curiosity, did you run into it with llvm?
+> No, purely theoretical.  I haven't even built/installed llvm yet, I'm just
+>  working with the bytecode in test_verifier.c for now.  I'm merely trying to
+>  not have restrictions that are unnecessary; but since allowing this kind of
+>  construct would take a non-zero amount of work, I'll file it for later.
+
+modern fedora/ubuntu come with llvm that has bpf backend by default.
