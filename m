@@ -1,139 +1,47 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH net-next 1/4] net/flow_dissector: add support for
- dissection of misc ip header fields
-Date: Thu, 25 May 2017 09:22:57 -0700
-Message-ID: <CALx6S36uJrFA+TO7RDaRAxZi0vuEEc90_TnWP8a2yNP+V3X2qQ@mail.gmail.com>
-References: <1495718679-20693-1-git-send-email-ogerlitz@mellanox.com> <1495718679-20693-2-git-send-email-ogerlitz@mellanox.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Alignment in BPF verifier
+Date: Thu, 25 May 2017 12:31:58 -0400 (EDT)
+Message-ID: <20170525.123158.1379700931139186123.davem@davemloft.net>
+References: <f882c40e-bd50-f08e-afd8-f6396fc24ebc@solarflare.com>
+        <ad2162c3-1286-ab35-464a-8d21a1adc94f@fb.com>
+        <5924A938.2090808@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Roi Dayan <roid@mellanox.com>, Paul Blakey <paulb@mellanox.com>
-To: Or Gerlitz <ogerlitz@mellanox.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: ast@fb.com, ecree@solarflare.com, alexei.starovoitov@gmail.com,
+        netdev@vger.kernel.org
+To: daniel@iogearbox.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:36223 "EHLO
-        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933221AbdEYQW7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 25 May 2017 12:22:59 -0400
-Received: by mail-wm0-f68.google.com with SMTP id k15so53041387wmh.3
-        for <netdev@vger.kernel.org>; Thu, 25 May 2017 09:22:58 -0700 (PDT)
-In-Reply-To: <1495718679-20693-2-git-send-email-ogerlitz@mellanox.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:58964 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1761171AbdEYQcA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 25 May 2017 12:32:00 -0400
+In-Reply-To: <5924A938.2090808@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 25, 2017 at 6:24 AM, Or Gerlitz <ogerlitz@mellanox.com> wrote:
-> Add support for dissection of ip tos and ttl and ipv6 traffic-class
-> and hoplimit. Both are dissected into the same struct.
->
-> Uses similar call to ip dissection function as with tcp, arp and others.
->
-> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
-> Reviewed-by: Jiri Pirko <jiri@mellanox.com>
-> ---
->  include/net/flow_dissector.h | 11 +++++++++++
->  net/core/flow_dissector.c    | 40 ++++++++++++++++++++++++++++++++++++++++
->  2 files changed, 51 insertions(+)
->
-> diff --git a/include/net/flow_dissector.h b/include/net/flow_dissector.h
-> index efe34eec..e2663e9 100644
-> --- a/include/net/flow_dissector.h
-> +++ b/include/net/flow_dissector.h
-> @@ -165,6 +165,16 @@ struct flow_dissector_key_tcp {
->         __be16 flags;
->  };
->
-> +/**
-> + * struct flow_dissector_key_ip:
-> + * @tos: tos
-> + * @ttl: ttl
-> + */
-> +struct flow_dissector_key_ip {
-> +       __u8    tos;
-> +       __u8    ttl;
-> +};
-> +
->  enum flow_dissector_key_id {
->         FLOW_DISSECTOR_KEY_CONTROL, /* struct flow_dissector_key_control */
->         FLOW_DISSECTOR_KEY_BASIC, /* struct flow_dissector_key_basic */
-> @@ -186,6 +196,7 @@ enum flow_dissector_key_id {
->         FLOW_DISSECTOR_KEY_ENC_PORTS, /* struct flow_dissector_key_ports */
->         FLOW_DISSECTOR_KEY_MPLS, /* struct flow_dissector_key_mpls */
->         FLOW_DISSECTOR_KEY_TCP, /* struct flow_dissector_key_tcp */
-> +       FLOW_DISSECTOR_KEY_IP, /* struct flow_dissector_key_ip */
->
->         FLOW_DISSECTOR_KEY_MAX,
->  };
-> diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-> index 5a45943..fc5fc45 100644
-> --- a/net/core/flow_dissector.c
-> +++ b/net/core/flow_dissector.c
-> @@ -367,6 +367,40 @@ __skb_flow_dissect_tcp(const struct sk_buff *skb,
->         key_tcp->flags = (*(__be16 *) &tcp_flag_word(th) & htons(0x0FFF));
->  }
->
-> +static void
-> +__skb_flow_dissect_ipv4(const struct sk_buff *skb,
-> +                       struct flow_dissector *flow_dissector,
-> +                       void *target_container, void *data, const struct iphdr *iph)
-> +{
-> +       struct flow_dissector_key_ip *key_ip;
-> +
-> +       if (!dissector_uses_key(flow_dissector, FLOW_DISSECTOR_KEY_IP))
-> +               return;
-> +
-> +       key_ip = skb_flow_dissector_target(flow_dissector,
-> +                                          FLOW_DISSECTOR_KEY_IP,
-> +                                          target_container);
-> +       key_ip->tos = iph->tos;
-> +       key_ip->ttl = iph->ttl;
+From: Daniel Borkmann <daniel@iogearbox.net>
+Date: Tue, 23 May 2017 23:27:20 +0200
 
-In an encapsulation this returns the tos and ttl of the encapsulated
-packet. Is that really useful to the caller? Seems more likely that
-they need the outer tos and ttl for forwarding.
+> On 05/23/2017 09:45 PM, Alexei Starovoitov wrote:
+>> On 5/23/17 7:41 AM, Edward Cree wrote:
+>>> Hmm, that means that we can't do arithmetic on a
+>>>  PTR_TO_MAP_VALUE_OR_NULL, we have to convert it to a PTR_TO_MAP_VALUE
+>>>  first by NULL-checking it.  That's probably fine, but I can just about
+>>>  imagine some compiler optimisation reordering them.  Any reason not to
+>>>  split this out into a different reg->field, rather than overloading
+>>>  id?
+>>
+>> 'id' is sort of like 'version' of a pointer and has the same meaning
+>> in
+>> both cases. How exactly do you see this split?
+> 
+> Also, same id is never reused once generated and later propagated
+> through regs. So far we haven't run into this kind of optimization
+> from llvm side yet, but others which led to requiring the id marker
+> (see 57a09bf0a416). I could imagine it might be needed at some point,
+> though where we later transition directly to PTR_TO_MAP_VALUE_ADJ
+> after NULL check. Out of curiosity, did you run into it with llvm?
 
-> +}
-> +
-> +static void
-> +__skb_flow_dissect_ipv6(const struct sk_buff *skb,
-> +                       struct flow_dissector *flow_dissector,
-> +                       void *target_container, void *data, const struct ipv6hdr *iph)
-> +{
-> +       struct flow_dissector_key_ip *key_ip;
-> +
-> +       if (!dissector_uses_key(flow_dissector, FLOW_DISSECTOR_KEY_IP))
-> +               return;
-> +
-> +       key_ip = skb_flow_dissector_target(flow_dissector,
-> +                                          FLOW_DISSECTOR_KEY_IP,
-> +                                          target_container);
-> +       key_ip->tos = ipv6_get_dsfield(iph);
-> +       key_ip->ttl = iph->hop_limit;
-> +}
-> +
->  /**
->   * __skb_flow_dissect - extract the flow_keys struct and return it
->   * @skb: sk_buff to extract the flow from, can be NULL if the rest are specified
-> @@ -469,6 +503,9 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
->                         }
->                 }
->
-> +               __skb_flow_dissect_ipv4(skb, flow_dissector,
-> +                                       target_container, data, iph);
-> +
->                 if (flags & FLOW_DISSECTOR_F_STOP_AT_L3)
->                         goto out_good;
->
-> @@ -514,6 +551,9 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
->                                 goto out_good;
->                 }
->
-> +               __skb_flow_dissect_ipv6(skb, flow_dissector,
-> +                                       target_container, data, iph);
-> +
->                 if (flags & FLOW_DISSECTOR_F_STOP_AT_L3)
->                         goto out_good;
->
-> --
-> 2.3.7
->
+We could handle this issue in find_good_pkt_pointers(), nothing prevents
+us from advancing state there for cases like Edward notes above.
