@@ -1,87 +1,66 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH v2 net-next 1/2] Documentation:
- sysfs-class-net-statistics: Clarify rx_bytes and tx_bytes
-Date: Thu, 25 May 2017 08:10:28 -0700
-Message-ID: <20170525081028.04b49ff3@xeon-e3>
-References: <1495573858-32346-1-git-send-email-andrew@lunn.ch>
-        <1495573858-32346-2-git-send-email-andrew@lunn.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        hayeswang <hayeswang@realtek.com>,
-        netdev <netdev@vger.kernel.org>
-To: Andrew Lunn <andrew@lunn.ch>
+From: Vladislav Yasevich <vyasevich@gmail.com>
+Subject: [PATCH v5 net-next 0/2] rtnetlink: Updates to rtnetlink_event()
+Date: Thu, 25 May 2017 11:31:53 -0400
+Message-ID: <1495726316-27626-1-git-send-email-vyasevic@redhat.com>
+Cc: dsahern@gmail.com, roopa@cumulusnetworks.com, jiri@resnulli.us,
+        vfalico@gmail.com, andy@greyhouse.net,
+        Vladislav Yasevich <vyasevic@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f172.google.com ([209.85.192.172]:33476 "EHLO
-        mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934176AbdEYPKg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 25 May 2017 11:10:36 -0400
-Received: by mail-pf0-f172.google.com with SMTP id e193so170099163pfh.0
-        for <netdev@vger.kernel.org>; Thu, 25 May 2017 08:10:36 -0700 (PDT)
-In-Reply-To: <1495573858-32346-2-git-send-email-andrew@lunn.ch>
+Received: from mail-qk0-f195.google.com ([209.85.220.195]:35735 "EHLO
+        mail-qk0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S935365AbdEYPcR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 25 May 2017 11:32:17 -0400
+Received: by mail-qk0-f195.google.com with SMTP id k74so30607823qke.2
+        for <netdev@vger.kernel.org>; Thu, 25 May 2017 08:32:17 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 23 May 2017 23:10:57 +0200
-Andrew Lunn <andrew@lunn.ch> wrote:
+This is a version 5 series came out of the conversation that started
+as a result my first attempt to add netdevice event info to netlink messages.
 
-> Document what is expected for the rx_bytes and tx_bytes statistics in
-> /sys/class/net/<device>/statistics. The FCS should be included in the
-> statistics. However, since this has been unclear until now, it is
-> expected a number of drivers don't. But maybe with time they will.
-> 
-> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
-> ---
->  Documentation/ABI/testing/sysfs-class-net-statistics | 6 ++++--
->  1 file changed, 4 insertions(+), 2 deletions(-)
-> 
-> diff --git a/Documentation/ABI/testing/sysfs-class-net-statistics b/Documentation/ABI/testing/sysfs-class-net-statistics
-> index 397118de7b5e..a487cbb79458 100644
-> --- a/Documentation/ABI/testing/sysfs-class-net-statistics
-> +++ b/Documentation/ABI/testing/sysfs-class-net-statistics
-> @@ -21,7 +21,8 @@ Contact:	netdev@vger.kernel.org
->  Description:
->  		Indicates the number of bytes received by this network device.
->  		See the network driver for the exact meaning of when this
-> -		value is incremented.
-> +		value is incremented. However, for an Ethernet frame, it should
-> +		include the Ethernet header, data, and frame check sum.
->  
->  What:		/sys/class/<iface>/statistics/rx_compressed
->  Date:		April 2005
-> @@ -125,7 +126,8 @@ Description:
->  		device. See the network driver for the exact meaning of this
->  		value, in particular whether this accounts for all successfully
->  		transmitted packets or all packets that have been queued for
-> -		transmission.
-> +		transmission. For an Ethernet frame, it should include the
-> +		Ethernet header, data, and frame check sum.
->  
->  What:		/sys/class/<iface>/statistics/tx_carrier_errors
->  Date:		April 2005
+First is the patch to add IFLA_EVENT attribute to the netlink message.  It
+supports only currently white-listed events.
+Like before, this is just an attribute that gets added to the rtnetlink
+message only when the messaged was generated as a result of a netdev event.
+In my case, this is necessary since I want to trap NETDEV_NOTIFY_PEERS
+event (also possibly NETDEV_RESEND_IGMP event) and perform certain actions
+in user space.  This is not possible since the messages generated as
+a result of netdev events do not usually contain any changed data.  They
+are just notifications.  This patch exposes this notification type to
+userspace.
 
-Sysfs statistics must match the netlink statistics. What matters is the
-values reported in netlink, proc, and sysfs are the same.
-Documenting the sysfs value here is nice but less important.
-I worry that some naive implementer or tester might expect sysfs values
-to follow different standard than other places.
+Second, I remove duplicate messages that a result of a change to bonding
+options.  If netlink is used to configure bonding options, 2 messages
+are generated, one as a result NETDEV_CHANGEINFODATA event triggered by
+bonding code and one a result of device state changes triggered by
+netdev_state_change (called from do_setlink).
 
-For devices the important thing is that rx and tx values match. I.e if
-FCS is counted on RX then it needs to get counted on Tx. I don't think
-FCS should be part of data  statistics since many devices are virtual
-and have no visible FCS.  For example if a packet is sent of virtio (no FCS)
-to host vhost (no FCS) and then through bridge to physical hardware
-which with your proposal does have FCS; all the data counts all matched.
 
-With the advent of overlay networks this gets even more confusing.
-Does overlay header count?
+V5: Rebased.  Added iproute2 patch to the series.
+V4:
+  * Removed the patch the removed NETDEV_CHANGENAME from event whitelist.
+    It doesn't trigger duplicate messages since name changes can only be
+    done while device is down and netdev_state_change() doesn't report
+    changes while device is down.
+  * Added a patch to clean-up duplicate messages on bonding option changes.
 
-Linux in general has followed the BSD model of NOT including FCS
-in device statistics. Some hardware vendors do include the FCS in
-their stats but that is really a porting bug.
+V3: Rebased.  Cleaned-up duplicate event.
 
-Unfortunately, even the router vendors can't agree on this.
-RFC 2665 says that FCS should be included, but BSD derived systems
-like Juniper do not. This is a mess.
+V2: Added missed events (from David Ahern)
+
+Vladislav Yasevich (2):
+  rtnl: Add support for netdev event to link messages
+  bonding: Prevent duplicate userspace notification
+
+ drivers/net/bonding/bond_main.c    |  3 +-
+ drivers/net/bonding/bond_options.c | 27 +++++++++++++++--
+ include/linux/rtnetlink.h          |  3 +-
+ include/net/bond_options.h         |  2 ++
+ include/uapi/linux/if_link.h       | 11 +++++++
+ net/core/dev.c                     |  2 +-
+ net/core/rtnetlink.c               | 62 ++++++++++++++++++++++++++++++++------
+ 7 files changed, 96 insertions(+), 14 deletions(-)
+
+-- 
+2.7.4
