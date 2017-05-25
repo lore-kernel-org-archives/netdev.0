@@ -1,102 +1,102 @@
-From: Ilan Tayari <ilant-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Subject: RE: [for-next 4/6] net/mlx5: FPGA, Add basic support for Innova
-Date: Thu, 25 May 2017 05:20:04 +0000
-Message-ID: <AM4PR0501MB1940885C2F1CEF4DDE4EA8D1DBFF0@AM4PR0501MB1940.eurprd05.prod.outlook.com>
-References: <20170523114404.20387-1-saeedm@mellanox.com>
- <20170523114404.20387-5-saeedm@mellanox.com>
- <20170524165059.42lmrwzzcxvi2sf7@ast-mbp>
+From: =?UTF-8?B?TWFoZXNoIEJhbmRld2FyICjgpK7gpLngpYfgpLYg4KSs4KSC4KSh4KWH4KS14KS+4KSwKQ==?=
+        <maheshb@google.com>
+Subject: Re: [PATCH] bonding: Don't update slave->link until ready to commit
+Date: Wed, 24 May 2017 22:38:25 -0700
+Message-ID: <CAF2d9jgD6mTUXSFSmXbwwy=FdrC0K0nLB-tKm-9cS699VeY7Sg@mail.gmail.com>
+References: <1495680317-11308-1-git-send-email-nsujir@tintri.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "jsorensen-b10kYP2dOMg@public.gmane.org" <jsorensen-b10kYP2dOMg@public.gmane.org>
-To: Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170524165059.42lmrwzzcxvi2sf7@ast-mbp>
-Content-Language: en-US
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: David Miller <davem@davemloft.net>,
+        linux-netdev <netdev@vger.kernel.org>,
+        Jay Vosburgh <jay.vosburgh@canonical.com>
+To: Nithin Nayak Sujir <nsujir@tintri.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f180.google.com ([209.85.223.180]:35417 "EHLO
+        mail-io0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1030766AbdEYFir (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 25 May 2017 01:38:47 -0400
+Received: by mail-io0-f180.google.com with SMTP id f102so130038247ioi.2
+        for <netdev@vger.kernel.org>; Wed, 24 May 2017 22:38:46 -0700 (PDT)
+In-Reply-To: <1495680317-11308-1-git-send-email-nsujir@tintri.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBBbGV4ZWkgU3Rhcm92b2l0b3Yg
-W21haWx0bzphbGV4ZWkuc3Rhcm92b2l0b3ZAZ21haWwuY29tXQ0KPiANCj4gT24gVHVlLCBNYXkg
-MjMsIDIwMTcgYXQgMDI6NDQ6MDJQTSArMDMwMCwgU2FlZWQgTWFoYW1lZWQgd3JvdGU6DQo+ID4g
-RnJvbTogSWxhbiBUYXlhcmkgPGlsYW50QG1lbGxhbm94LmNvbT4NCj4gPg0KPiA+IE1lbGxhbm94
-IElubm92YSBpcyBhIE5JQyB3aXRoIENvbm5lY3RYIGFuZCBhbiBGUEdBIG9uIHRoZSBzYW1lDQo+
-ID4gYm9hcmQuIFRoZSBGUEdBIGlzIGEgYnVtcC1vbi10aGUtd2lyZSBhbmQgdGh1cyBhZmZlY3Rz
-IG9wZXJhdGlvbiBvZg0KPiA+IHRoZSBtbHg1X2NvcmUgZHJpdmVyIG9uIHRoZSBDb25uZWN0WCBB
-U0lDLg0KPiA+DQo+ID4gQWRkIGJhc2ljIHN1cHBvcnQgZm9yIElubm92YSBpbiBtbHg1X2NvcmUu
-DQo+ID4NCj4gPiBUaGlzIGFsbG93cyB1c2luZyB0aGUgSW5ub3ZhIGNhcmQgYXMgYSByZWd1bGFy
-IE5JQywgYnkgZGV0ZWN0aW5nDQo+ID4gdGhlIEZQR0EgY2FwYWJpbGl0eSBiaXQsIGFuZCB2ZXJp
-ZnlpbmcgaXRzIGxvYWQgc3RhdGUgYmVmb3JlDQo+ID4gaW5pdGlhbGl6aW5nIENvbm5lY3RYIGlu
-dGVyZmFjZXMuDQo+IA0KPiBUaGF0IGRvZXNuJ3Qgc291bmQgbGlrZSBjeDQvY3g1IGh3IHRoYXQg
-bWx4NSBkcml2ZXIgc3VwcG9zZSB0byBzdXBwb3J0Lg0KDQpIaSBBbGV4ZWksDQpUaGFua3MgZm9y
-IHlvdXIgZmVlZGJhY2suDQpMZXQgbWUgYWRkcmVzcyB5b3VyIGNvbmNlcm5zLg0KDQpJIGRpZG4n
-dCBzdGF0ZSBpdCwgYnV0IHRoZSBjdXJyZW50IGl0ZXJhdGlvbnMgb2YgSW5ub3ZhIGNhcmRzIGlu
-Y2x1ZGUgdGhlDQpDb25uZWN0WC00TFggY2hpcCwgd2hpY2ggaXMgZXhhY3RseSB3aGF0IG1seDUg
-ZHJpdmVyIHN1cHBvcnRzLg0KDQpUaGUgUENJIGludGVyZmFjZSBpcyAqb25seSogdGhyb3VnaCB0
-aGUgQ29ubmVjdFggY2hpcCB3aXRoIHNvbWUgbmV3DQpGaXJtd2FyZSBjb21tYW5kcy4gVGhpcyBw
-YXRjaCBkb2Vzbid0IHJlZ2lzdGVyIGFueSBuZXcgUENJIGRldmljZSwgDQpzbyBpdCBkb2VzIG5v
-dCBtYWtlIHNlbnNlIHRvIGNyZWF0ZSBhIHNlcGFyYXRlIGRyaXZlci4NCg0KPiANCj4gPiBBbHNv
-IGRldGVjdCBGUEdBIGZhdGFsIHJ1bnRpbWUgZmFpbHVyZXMgYW5kIGVudGVyIGVycm9yIHN0YXRl
-IGlmDQo+ID4gdGhleSBldmVyIGhhcHBlbi4NCj4gPg0KPiA+IEFsbCBuZXcgRlBHQS1yZWxhdGVk
-IGxvZ2ljIGlzIHBsYWNlZCBpbiBpdHMgb3duIHN1YmRpcmVjdG9yeSAnZnBnYScsDQo+ID4gd2hp
-Y2ggbWF5IGJlIGJ1aWx0IGJ5IHNlbGVjdGluZyBDT05GSUdfTUxYNV9GUEdBLg0KPiA+IFRoaXMg
-cHJlcGFyZXMgZm9yIGZ1cnRoZXIgc3VwcG9ydCBvZiB2YXJpb3VzIElubm92YSBmZWF0dXJlcyBp
-biBsYXRlcg0KPiA+IHBhdGNoc2V0cy4NCj4gPiBBZGRpdGlvbmFsIGRldGFpbHMgYWJvdXQgaGFy
-ZHdhcmUgYXJjaGl0ZWN0dXJlIHdpbGwgYmUgcHJvdmlkZWQgYXMNCj4gPiBtb3JlIGZlYXR1cmVz
-IGdldCBzdWJtaXR0ZWQuDQo+ID4NCj4gPiBTaWduZWQtb2ZmLWJ5OiBJbGFuIFRheWFyaSA8aWxh
-bnRAbWVsbGFub3guY29tPg0KPiA+IFJldmlld2VkLWJ5OiBCb3JpcyBQaXNtZW5ueSA8Ym9yaXNw
-QG1lbGxhbm94LmNvbT4NCj4gPiBTaWduZWQtb2ZmLWJ5OiBTYWVlZCBNYWhhbWVlZCA8c2FlZWRt
-QG1lbGxhbm94LmNvbT4NCj4gPiAtLS0NCj4gPiAgTUFJTlRBSU5FUlMgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgfCAgMTAgKw0KPiA+ICBkcml2ZXJzL25ldC9ldGhlcm5l
-dC9tZWxsYW5veC9tbHg1L2NvcmUvS2NvbmZpZyAgICB8ICAxMCArDQo+ID4gIGRyaXZlcnMvbmV0
-L2V0aGVybmV0L21lbGxhbm94L21seDUvY29yZS9NYWtlZmlsZSAgIHwgICAzICsNCj4gPiAgZHJp
-dmVycy9uZXQvZXRoZXJuZXQvbWVsbGFub3gvbWx4NS9jb3JlL2VxLmMgICAgICAgfCAgMTEgKysN
-Cj4gPiAgZHJpdmVycy9uZXQvZXRoZXJuZXQvbWVsbGFub3gvbWx4NS9jb3JlL2ZwZ2EvY21kLmMg
-fCAgNjQgKysrKysrKw0KPiA+ICBkcml2ZXJzL25ldC9ldGhlcm5ldC9tZWxsYW5veC9tbHg1L2Nv
-cmUvZnBnYS9jbWQuaCB8ICA1OSArKysrKysNCj4gPiAgLi4uL25ldC9ldGhlcm5ldC9tZWxsYW5v
-eC9tbHg1L2NvcmUvZnBnYS9jb3JlLmMgICAgfCAyMDINCj4gKysrKysrKysrKysrKysrKysrKysr
-DQo+ID4gIC4uLi9uZXQvZXRoZXJuZXQvbWVsbGFub3gvbWx4NS9jb3JlL2ZwZ2EvY29yZS5oICAg
-IHwgIDk5ICsrKysrKysrKysNCj4gPiAgZHJpdmVycy9uZXQvZXRoZXJuZXQvbWVsbGFub3gvbWx4
-NS9jb3JlL21haW4uYyAgICAgfCAgMTkgKy0NCj4gPiAgaW5jbHVkZS9saW51eC9tbHg1L2Rldmlj
-ZS5oICAgICAgICAgICAgICAgICAgICAgICAgfCAgIDYgKw0KPiA+ICBpbmNsdWRlL2xpbnV4L21s
-eDUvZHJpdmVyLmggICAgICAgICAgICAgICAgICAgICAgICB8ICAgNSArDQo+ID4gIGluY2x1ZGUv
-bGludXgvbWx4NS9tbHg1X2lmYy5oICAgICAgICAgICAgICAgICAgICAgIHwgIDExICstDQo+ID4g
-IGluY2x1ZGUvbGludXgvbWx4NS9tbHg1X2lmY19mcGdhLmggICAgICAgICAgICAgICAgIHwgMTQ0
-DQo+ICsrKysrKysrKysrKysrKw0KPiA+ICAxMyBmaWxlcyBjaGFuZ2VkLCA2NDAgaW5zZXJ0aW9u
-cygrKSwgMyBkZWxldGlvbnMoLSkNCj4gDQo+IENhbiB5b3UgcHV0IGl0IGludG8gZGlmZmVyZW50
-IGRyaXZlcj8gRHVtcGluZyBldmVyeXRoaW5nIGludG8gYnkgZmFyDQo+IHRoZSBiaWdnZXN0IG5p
-YyBkcml2ZXIgYWxyZWFkeSBpcyBhbHJlYWR5IGh1Z2UgaGVhZGFjaGUgaW4gdGVybXMgb24NCj4g
-bWFpbnRhaW5hYmlsaXR5LCBkZWJ1Z2dpbmcgYW5kIGJhY2sgcG9ydHMuDQo+IExvb2sgYXQgaG93
-IGludGVsIHNwbGl0cyB0aGVpciBkcml2ZXJzLg0KPiBpeGdiLCBpeGdiZSwgaXhnYmV2ZiBhcmUg
-ZGlmZmVyZW50IGRyaXZlcnMgdGhvdWdodCB0aGV5IGhhdmUgYSBsb3QgaW4NCj4gY29tbW9uLiBP
-biBvbmUgc2lkZSBpdCdzIGEgYml0IG9mIGNvcHkgcGFzdGUsIGJ1dCBvbiB0aGUgb3RoZXIgc2lk
-ZQ0KPiBpdCBtYWtlcyBkcml2ZXJzIG11Y2ggZWFzaWVyIHRvIGRldmVsb3AgYW5kIG1haW50YWlu
-IGluZGVwZW5kZW50bHkuDQo+IENvbm5lY3RYLTYgY29kZSBhbmQgYW55IGZ1dHVyZSBodyBzdXBw
-b3J0IGRvZXNuJ3QgYmVsb25nIHRvDQo+IG1seDUgZHJpdmVyIGF0IGFsbC4NCg0KSWYgeW91IGJ1
-aWxkIHlvdXIgZHJpdmVyIHdpdGhvdXQgZXhwbGljaXRseSBlbmFibGluZyBDT05GSUdfTUxYNV9G
-UEdBPXkNCihkZWZhdWx0IGlzIE4pIHRoZW4geW91IGdldCBub25lIG9mIHRoaXMsIGFuZCB5b3Vy
-IGRyaXZlciBpcyBwcmFjdGljYWxseQ0KdGhlIHNhbWUgYXMgYmVmb3JlLg0KDQpUaGUgRlBHQSBh
-bmQgQ1ggb3BlcmF0aW9uIGlzIHZlcnkgdGlnaHRseSBpbnRlZ3JhdGVkLg0KSWYgeW91IGRvbid0
-IHdhbnQgYW55IG9mIHRoaXMsIHNpbXBseSBkb24ndCBvcHQtaW4gdG8gQ09ORklHX01MWDVfRlBH
-QS4NCg0KSWYgeW91IGRvIHdhbnQgdGhpcywgdGhlbiBzcGxpdHRpbmcgc29tZSBvZiB0aGUgbG9n
-aWMgdG8gYQ0Kc2VwYXJhdGUga2VybmVsIG9iamVjdCB3aWxsIG5vdCBnYWluIGFueXRoaW5nIHVz
-ZWZ1bCAobG9naWMgd291bGQgc3RheQ0KdGhlIHNhbWUpLCBhbmQganVzdCBwb2xsdXRlIHRoZSBl
-eHBvcnRlZCBzeW1ib2wgdGFibGUgYW5kIG9wZW4gdXAgdGhlIGRvb3INCmZvciBpc3N1ZXMgb2Yg
-aW50ZXItbW9kdWxlIGNvbXBhdGliaWxpdHkgYW5kIHNvIG9uLg0KDQpGdXJ0aGVybW9yZSwgdGhl
-IG5leHQgcGF0Y2hzZXQgd2lsbCBpbnRyb2R1Y2UgSVBTZWMgb2ZmbG9hZCBjYXBhYmlsaXRpZXMN
-CldoaWNoIGFyZSBkZWNsYXJlZCBpbiBuZXRkZXYtPmh3X2ZlYXR1cmVzLiBUaG9zZSBjYW5ub3Qg
-YmUgbW9kaWZpZWQNCmFmdGVyIHRoZSBuZXRkZXZpY2UgaXMgY3JlYXRlZCwgc28gYWxsIHRoZSBl
-eHRyYSBsb2dpYyBoYXMgdG8gYmUgDQppbnRlZ3JhdGVkIGludG8gdGhlIG1seDUgZXRoZXJuZXQg
-ZHJpdmVyLiBUaGlzIGlzIGFub3RoZXIgcmVhc29uIHdoeQ0KYSBzZXBhcmF0ZSBkcml2ZXIgaXMg
-YSBiYWQgaWRlYS4NCg0KV2Ugd2lsbCBpbmNsdWRlIGRldGFpbHMgYWJvdXQgdGhlIGJvYXJkIGFu
-ZCBob3cgdGhpbmdzIHdvcmsgaW4gdGhlDQpjb3ZlciBsZXR0ZXIgb2YgdGhlIElQU2VjIG9mZmxv
-YWQgcGF0Y2hzZXQuDQoNCklsYW4uDQo=
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+On Wed, May 24, 2017 at 7:45 PM, Nithin Nayak Sujir <nsujir@tintri.com> wrote:
+> In the loadbalance arp monitoring scheme, when a slave link change is
+> detected, the slave->link is immediately updated and slave_state_changed
+> is set. Later down the function, the rtnl_lock is acquired and the
+> changes are committed, updating the bond link state.
+>
+> However, the acquisition of the rtnl_lock can fail. The next time the
+> monitor runs, since slave->link is already updated, it determines that
+> link is unchanged. This results in the bond link state permanently out
+> of sync with the slave link.
+>
+> This patch modifies bond_loadbalance_arp_mon() to handle link changes
+> identical to bond_ab_arp_{inspect/commit}(). The new link state is
+> maintained in slave->new_link until we're ready to commit at which point
+> it's copied into slave->link.
+>
+> NOTE: miimon_{inspect/commit}() has a more complex state machine
+> requiring the use of the bond_{propose,commit}_link_state() functions
+> which maintains the intermediate state in slave->link_new_state. The arp
+> monitors don't require that.
+>
+> Testing: This bug is very easy to reproduce with the following steps.
+> 1. In a loop, toggle a slave link of a bond slave interface.
+> 2. In a separate loop, do ifconfig up/down of an unrelated interface to
+> create contention for rtnl_lock.
+> Within a few iterations, the bond link goes out of sync with the slave
+> link.
+>
+> Signed-off-by: Nithin Nayak Sujir <nsujir@tintri.com>
+Acked-by: Mahesh Bandewar <maheshb@google.com>
+> Cc: Mahesh Bandewar <maheshb@google.com>
+> Cc: Jay Vosburgh <jay.vosburgh@canonical.com>
+> ---
+>  drivers/net/bonding/bond_main.c | 11 +++++++++--
+>  1 file changed, 9 insertions(+), 2 deletions(-)
+>
+> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+> index 7331331..2359478b 100644
+> --- a/drivers/net/bonding/bond_main.c
+> +++ b/drivers/net/bonding/bond_main.c
+> @@ -2612,11 +2612,13 @@ static void bond_loadbalance_arp_mon(struct bonding *bond)
+>         bond_for_each_slave_rcu(bond, slave, iter) {
+>                 unsigned long trans_start = dev_trans_start(slave->dev);
+>
+> +               slave->new_link = BOND_LINK_NOCHANGE;
+> +
+>                 if (slave->link != BOND_LINK_UP) {
+>                         if (bond_time_in_interval(bond, trans_start, 1) &&
+>                             bond_time_in_interval(bond, slave->last_rx, 1)) {
+>
+> -                               slave->link  = BOND_LINK_UP;
+> +                               slave->new_link = BOND_LINK_UP;
+>                                 slave_state_changed = 1;
+>
+>                                 /* primary_slave has no meaning in round-robin
+> @@ -2643,7 +2645,7 @@ static void bond_loadbalance_arp_mon(struct bonding *bond)
+>                         if (!bond_time_in_interval(bond, trans_start, 2) ||
+>                             !bond_time_in_interval(bond, slave->last_rx, 2)) {
+>
+> -                               slave->link  = BOND_LINK_DOWN;
+> +                               slave->new_link = BOND_LINK_DOWN;
+>                                 slave_state_changed = 1;
+>
+>                                 if (slave->link_failure_count < UINT_MAX)
+> @@ -2674,6 +2676,11 @@ static void bond_loadbalance_arp_mon(struct bonding *bond)
+>                 if (!rtnl_trylock())
+>                         goto re_arm;
+>
+> +               bond_for_each_slave(bond, slave, iter) {
+> +                       if (slave->new_link != BOND_LINK_NOCHANGE)
+> +                               slave->link = slave->new_link;
+> +               }
+> +
+>                 if (slave_state_changed) {
+>                         bond_slave_state_change(bond);
+>                         if (BOND_MODE(bond) == BOND_MODE_XOR)
+> --
+> 2.8.2
+>
