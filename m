@@ -1,36 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net: move somaxconn init from sysctl code
-Date: Thu, 25 May 2017 13:12:31 -0400 (EDT)
-Message-ID: <20170525.131231.1655769528727713449.davem@davemloft.net>
-References: <20170524082222.14208-1-roman.kapl@sysgo.com>
+Subject: Re: [PATCH v7 net-next 17/17] net: qualcomm: add QCA7000 UART
+ driver
+Date: Thu, 25 May 2017 13:13:49 -0400 (EDT)
+Message-ID: <20170525.131349.1007553087594728300.davem@davemloft.net>
+References: <50e5a442-777f-1516-4e94-16db7fa28f8b@i2se.com>
+        <1495618181-1204-1-git-send-email-stefan.wahren@i2se.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: roman.kapl@sysgo.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:59490 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1035857AbdEYRMc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 25 May 2017 13:12:32 -0400
-In-Reply-To: <20170524082222.14208-1-roman.kapl@sysgo.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: robh+dt@kernel.org, mark.rutland@arm.com,
+        gregkh@linuxfoundation.org, jslaby@suse.com, LinoSanfilippo@gmx.de,
+        kubakici@wp.pl, devicetree@vger.kernel.org, netdev@vger.kernel.org,
+        linux-serial@vger.kernel.org, linux-kernel@vger.kernel.org
+To: stefan.wahren@i2se.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1495618181-1204-1-git-send-email-stefan.wahren@i2se.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Roman Kapl <roman.kapl@sysgo.com>
-Date: Wed, 24 May 2017 10:22:22 +0200
 
-> The default value for somaxconn is set in sysctl_core_net_init(), but this
-> function is not called when kernel is configured without CONFIG_SYSCTL.
-> 
-> This results in the kernel not being able to accept TCP connections,
-> because the backlog has zero size. Usually, the user ends up with:
-> "TCP: request_sock_TCP: Possible SYN flooding on port 7. Dropping request.  Check SNMP counters."
-> If SYN cookies are not enabled the connection is rejected.
-> 
-> Before ef547f2ac16 (tcp: remove max_qlen_log), the effects were less
-> severe, because the backlog was always at least eight slots long.
-> 
-> Signed-off-by: Roman Kapl <roman.kapl@sysgo.com>
+When you submit a new version of a patch within a patch series, you must
+always resubmit the entire series not just the patches which change.
 
-This looks better, applied, thanks.
+Thank you.
