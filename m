@@ -1,102 +1,85 @@
 From: Tariq Toukan <tariqt@mellanox.com>
-Subject: Re: [PATCH net V2] net/mlx4: Fix the check in attaching steering
- rules
-Date: Thu, 25 May 2017 17:23:41 +0300
-Message-ID: <841efc7a-96f3-ebd6-eccf-53cfbd759474@mellanox.com>
-References: <1495718470-10215-1-git-send-email-tariqt@mellanox.com>
+Subject: Re: [PATCH net] net/mlx4: Fix the check in attaching steering rules
+Date: Thu, 25 May 2017 17:26:27 +0300
+Message-ID: <e72d59ca-5145-2621-56cb-325501c07a14@mellanox.com>
+References: <1495543807-14956-1-git-send-email-tariqt@mellanox.com>
+ <20170524.153625.1291847374941790972.davem@davemloft.net>
+ <e6fc81fe-5eb6-0a6b-18df-90a018b687da@mellanox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-eopbgr10049.outbound.protection.outlook.com ([40.107.1.49]:56064
-        "EHLO EUR02-HE1-obe.outbound.protection.outlook.com"
+Received: from mail-ve1eur01on0059.outbound.protection.outlook.com ([104.47.1.59]:21903
+        "EHLO EUR01-VE1-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S933167AbdEYOXt (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 25 May 2017 10:23:49 -0400
-In-Reply-To: <1495718470-10215-1-git-send-email-tariqt@mellanox.com>
+        id S966338AbdEYO0f (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 25 May 2017 10:26:35 -0400
+In-Reply-To: <e6fc81fe-5eb6-0a6b-18df-90a018b687da@mellanox.com>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-On 25/05/2017 4:21 PM, Tariq Toukan wrote:
-> From: Talat Batheesh <talatb@mellanox.com>
->
-> Our previous patch (cited below) introduced a regression
-> for RAW Eth QPs.
->
-> Fix it by checking if the QP number provided by user-space
-> exists, hence allowing steering rules to be added for valid
-> QPs only.
->
-> Fixes: 89c557687a32 ("net/mlx4_en: Avoid adding steering rules with ...")
-> Reported-by: Or Gerlitz <gerlitz.or@gmail.com>
-> Signed-off-by: Talat Batheesh <talatb@mellanox.com>
-> Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
-> Acked-by: Or Gerlitz <ogerlitz@mellanox.com>
-> Reviewed-by: Leon Romanovsky <leonro@mellanox.com>
-> ---
-> v2:
-> * Removed unnecessary EXPORT_SYMBOL_GPL.
 
-My bad, this doesn't work.
-Please ignore patch.
+On 25/05/2017 4:07 PM, Tariq Toukan wrote:
+>
+> On 24/05/2017 10:36 PM, David Miller wrote:
+>> From: Tariq Toukan <tariqt@mellanox.com>
+>> Date: Tue, 23 May 2017 15:50:07 +0300
+>>
+>>> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c 
+>>> b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+>>> index ae5fdc2df654..00a7cd3dcc2e 100644
+>>> --- a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+>>> +++ b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+>>> @@ -1562,8 +1562,7 @@ static int mlx4_en_flow_replace(struct 
+>>> net_device *dev,
+>>>           qpn = priv->drop_qp.qpn;
+>>>       else if (cmd->fs.ring_cookie & EN_ETHTOOL_QP_ATTACH) {
+>>>           qpn = cmd->fs.ring_cookie & (EN_ETHTOOL_QP_ATTACH - 1);
+>>> -        if (qpn < priv->rss_map.base_qpn ||
+>>> -            qpn >= priv->rss_map.base_qpn + priv->rx_ring_num) {
+>>> +        if (!mlx4_qp_lookup(priv->mdev->dev, qpn)) {
+>>>               en_warn(priv, "rxnfc: QP (0x%x) doesn't exist\n", qpn);
+>>>               return -EINVAL;
+>>>           }
+>>> diff --git a/drivers/net/ethernet/mellanox/mlx4/qp.c 
+>>> b/drivers/net/ethernet/mellanox/mlx4/qp.c
+>>> index 2d6abd4662b1..1eff2fe32a8b 100644
+>>> --- a/drivers/net/ethernet/mellanox/mlx4/qp.c
+>>> +++ b/drivers/net/ethernet/mellanox/mlx4/qp.c
+>>> @@ -384,6 +384,20 @@ static void mlx4_qp_free_icm(struct mlx4_dev 
+>>> *dev, int qpn)
+>>>           __mlx4_qp_free_icm(dev, qpn);
+>>>   }
+>>>   +struct mlx4_qp *mlx4_qp_lookup(struct mlx4_dev *dev, u32 qpn)
+>>   ...
+>>> +EXPORT_SYMBOL_GPL(mlx4_qp_lookup);
+>>> +
+>>
+>> This phony separation between MLX4_CORE and MLX4_EN is the only reason
+>> you need this unreasonable symbol export.
+>>
+>> I doubt you'll ever use this function anywhere outside of en_ethtool.c
+>> so this export is wasted space in the kernel image. Probably compiler
+>> could inline it decently as well.
+>>
+>> So find another way to do this without the symbol export.  I don't
+>> really want to hear any stories about "clean separation" or whatever.
+>> What's happening here is exactly why this separate modules scheme
+>> results in ugly unreasonable code, and unnecessary gymnastics and
+>> wasted object space just to make routines available in one place from
+>> another.
+>
+> I see. I'll remove this EXPORT_SYMBOL_GPL and send a re-spin shortly.
+> Function will still be accessible within EN driver, as mlx4_en.h 
+> includes qp.h.
+>
+Hmm, my bad, this doesn't work.
+Please ignore V2.
 
+> Regards,
+> Tariq
 >
->   drivers/net/ethernet/mellanox/mlx4/en_ethtool.c |  3 +--
->   drivers/net/ethernet/mellanox/mlx4/qp.c         | 13 +++++++++++++
->   include/linux/mlx4/qp.h                         |  1 +
->   3 files changed, 15 insertions(+), 2 deletions(-)
->
-> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-> index ae5fdc2df654..00a7cd3dcc2e 100644
-> --- a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-> +++ b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-> @@ -1562,8 +1562,7 @@ static int mlx4_en_flow_replace(struct net_device *dev,
->   		qpn = priv->drop_qp.qpn;
->   	else if (cmd->fs.ring_cookie & EN_ETHTOOL_QP_ATTACH) {
->   		qpn = cmd->fs.ring_cookie & (EN_ETHTOOL_QP_ATTACH - 1);
-> -		if (qpn < priv->rss_map.base_qpn ||
-> -		    qpn >= priv->rss_map.base_qpn + priv->rx_ring_num) {
-> +		if (!mlx4_qp_lookup(priv->mdev->dev, qpn)) {
->   			en_warn(priv, "rxnfc: QP (0x%x) doesn't exist\n", qpn);
->   			return -EINVAL;
->   		}
-> diff --git a/drivers/net/ethernet/mellanox/mlx4/qp.c b/drivers/net/ethernet/mellanox/mlx4/qp.c
-> index 2d6abd4662b1..ad92d2311478 100644
-> --- a/drivers/net/ethernet/mellanox/mlx4/qp.c
-> +++ b/drivers/net/ethernet/mellanox/mlx4/qp.c
-> @@ -384,6 +384,19 @@ static void mlx4_qp_free_icm(struct mlx4_dev *dev, int qpn)
->   		__mlx4_qp_free_icm(dev, qpn);
->   }
->   
-> +struct mlx4_qp *mlx4_qp_lookup(struct mlx4_dev *dev, u32 qpn)
-> +{
-> +	struct mlx4_qp_table *qp_table = &mlx4_priv(dev)->qp_table;
-> +	struct mlx4_qp *qp;
-> +
-> +	spin_lock(&qp_table->lock);
-> +
-> +	qp = __mlx4_qp_lookup(dev, qpn);
-> +
-> +	spin_unlock(&qp_table->lock);
-> +	return qp;
-> +}
-> +
->   int mlx4_qp_alloc(struct mlx4_dev *dev, int qpn, struct mlx4_qp *qp, gfp_t gfp)
->   {
->   	struct mlx4_priv *priv = mlx4_priv(dev);
-> diff --git a/include/linux/mlx4/qp.h b/include/linux/mlx4/qp.h
-> index b4ee8f62ce8d..8e2828d48d7f 100644
-> --- a/include/linux/mlx4/qp.h
-> +++ b/include/linux/mlx4/qp.h
-> @@ -470,6 +470,7 @@ struct mlx4_update_qp_params {
->   	u16	rate_val;
->   };
->   
-> +struct mlx4_qp *mlx4_qp_lookup(struct mlx4_dev *dev, u32 qpn);
->   int mlx4_update_qp(struct mlx4_dev *dev, u32 qpn,
->   		   enum mlx4_update_qp_attr attr,
->   		   struct mlx4_update_qp_params *params);
