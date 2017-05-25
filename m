@@ -1,74 +1,87 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] net: rps: Add the rfs_needed check when record
- flow hash
-Date: Thu, 25 May 2017 07:55:03 -0700
-Message-ID: <1495724103.6465.98.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1495611359-118199-1-git-send-email-gfree.wind@vip.163.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH v2 net-next 1/2] Documentation:
+ sysfs-class-net-statistics: Clarify rx_bytes and tx_bytes
+Date: Thu, 25 May 2017 08:10:28 -0700
+Message-ID: <20170525081028.04b49ff3@xeon-e3>
+References: <1495573858-32346-1-git-send-email-andrew@lunn.ch>
+        <1495573858-32346-2-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: gfree.wind@vip.163.com
+Cc: David Miller <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        hayeswang <hayeswang@realtek.com>,
+        netdev <netdev@vger.kernel.org>
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:35168 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757320AbdEYOzH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 25 May 2017 10:55:07 -0400
-Received: by mail-pf0-f193.google.com with SMTP id u26so39786100pfd.2
-        for <netdev@vger.kernel.org>; Thu, 25 May 2017 07:55:07 -0700 (PDT)
-In-Reply-To: <1495611359-118199-1-git-send-email-gfree.wind@vip.163.com>
+Received: from mail-pf0-f172.google.com ([209.85.192.172]:33476 "EHLO
+        mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934176AbdEYPKg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 25 May 2017 11:10:36 -0400
+Received: by mail-pf0-f172.google.com with SMTP id e193so170099163pfh.0
+        for <netdev@vger.kernel.org>; Thu, 25 May 2017 08:10:36 -0700 (PDT)
+In-Reply-To: <1495573858-32346-2-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2017-05-24 at 15:35 +0800, gfree.wind@vip.163.com wrote:
-> From: Gao Feng <gfree.wind@vip.163.com>
-> 
-> There are two spots which invoke the sock_rps_record_flow_hash, one is
-> sock_rps_record_flow which has already checked rfs_needed. But the other
-> is tun_flow_update which doesn't check if the rfs is enabled.
-> 
-> Now rename the original function sock_rps_record_flow_hash to
-> _sock_rps_record_flow_hash, and add one helper func which checks the
-> rfs_needed.
-> 
-> The perf result of two functions is following.
-> When rfs is disabled, it could enhance 58% performance with checking
-> rfs_needed.
-> When rfs is enabled, the performanc is lower than current about 29%.
-> 
-> Because the RFS is disabled by default. I think it is useful to tun
-> driver.
-> 
-> The follow is test statistics.
+On Tue, 23 May 2017 23:10:57 +0200
+Andrew Lunn <andrew@lunn.ch> wrote:
 
-> Signed-off-by: Gao Feng <gfree.wind@vip.163.com>
+> Document what is expected for the rx_bytes and tx_bytes statistics in
+> /sys/class/net/<device>/statistics. The FCS should be included in the
+> statistics. However, since this has been unclear until now, it is
+> expected a number of drivers don't. But maybe with time they will.
+> 
+> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
 > ---
->  include/net/sock.h | 12 ++++++++++--
->  1 file changed, 10 insertions(+), 2 deletions(-)
+>  Documentation/ABI/testing/sysfs-class-net-statistics | 6 ++++--
+>  1 file changed, 4 insertions(+), 2 deletions(-)
 > 
-> diff --git a/include/net/sock.h b/include/net/sock.h
-> index 3467d9e..584bb9a 100644
-> --- a/include/net/sock.h
-> +++ b/include/net/sock.h
-> @@ -910,7 +910,7 @@ static inline void sk_incoming_cpu_update(struct sock *sk)
->  	sk->sk_incoming_cpu = raw_smp_processor_id();
->  }
+> diff --git a/Documentation/ABI/testing/sysfs-class-net-statistics b/Documentation/ABI/testing/sysfs-class-net-statistics
+> index 397118de7b5e..a487cbb79458 100644
+> --- a/Documentation/ABI/testing/sysfs-class-net-statistics
+> +++ b/Documentation/ABI/testing/sysfs-class-net-statistics
+> @@ -21,7 +21,8 @@ Contact:	netdev@vger.kernel.org
+>  Description:
+>  		Indicates the number of bytes received by this network device.
+>  		See the network driver for the exact meaning of when this
+> -		value is incremented.
+> +		value is incremented. However, for an Ethernet frame, it should
+> +		include the Ethernet header, data, and frame check sum.
 >  
-> -static inline void sock_rps_record_flow_hash(__u32 hash)
-> +static inline void _sock_rps_record_flow_hash(__u32 hash)
->  {
->  #ifdef CONFIG_RPS
->  	struct rps_sock_flow_table *sock_flow_table;
-> @@ -922,6 +922,14 @@ static inline void sock_rps_record_flow_hash(__u32 hash)
->  #endif
->  }
+>  What:		/sys/class/<iface>/statistics/rx_compressed
+>  Date:		April 2005
+> @@ -125,7 +126,8 @@ Description:
+>  		device. See the network driver for the exact meaning of this
+>  		value, in particular whether this accounts for all successfully
+>  		transmitted packets or all packets that have been queued for
+> -		transmission.
+> +		transmission. For an Ethernet frame, it should include the
+> +		Ethernet header, data, and frame check sum.
 >  
-> +static inline void sock_rps_record_flow_hash(__u32 hash)
-> +{
-> +#ifdef CONFIG_RPS
-> +	if (static_key_false(&rfs_needed))
-> +		_sock_rps_record_flow_hash(hash);
-> +#endif
+>  What:		/sys/class/<iface>/statistics/tx_carrier_errors
+>  Date:		April 2005
 
-Seems that after your patch, sock_rps_record_flow_hash() is no longer
-needed/used.
+Sysfs statistics must match the netlink statistics. What matters is the
+values reported in netlink, proc, and sysfs are the same.
+Documenting the sysfs value here is nice but less important.
+I worry that some naive implementer or tester might expect sysfs values
+to follow different standard than other places.
+
+For devices the important thing is that rx and tx values match. I.e if
+FCS is counted on RX then it needs to get counted on Tx. I don't think
+FCS should be part of data  statistics since many devices are virtual
+and have no visible FCS.  For example if a packet is sent of virtio (no FCS)
+to host vhost (no FCS) and then through bridge to physical hardware
+which with your proposal does have FCS; all the data counts all matched.
+
+With the advent of overlay networks this gets even more confusing.
+Does overlay header count?
+
+Linux in general has followed the BSD model of NOT including FCS
+in device statistics. Some hardware vendors do include the FCS in
+their stats but that is really a porting bug.
+
+Unfortunately, even the router vendors can't agree on this.
+RFC 2665 says that FCS should be included, but BSD derived systems
+like Juniper do not. This is a mess.
