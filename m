@@ -1,44 +1,37 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: Re: [PATCH net-next 8/8] net: ipv6: RTM_GETROUTE: return matched fib
- result when requested
-Date: Thu, 25 May 2017 10:00:36 -0600
-Message-ID: <5917C4F8-5C96-4BE9-B276-2875561D5A60@gmail.com>
-References: <1495649951-30417-1-git-send-email-roopa@cumulusnetworks.com>
- <1495649951-30417-9-git-send-email-roopa@cumulusnetworks.com>
- <2106987d-7c19-b739-0103-97af3a3071da@gmail.com>
- <CAJieiUh+GAtOGZv4UU_gcn5isA6DSqaFj_EXzA24qBK7vJz4AQ@mail.gmail.com>
-Mime-Version: 1.0 (Mac OS X Mail 10.3 \(3273\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: quoted-printable
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-To: Roopa Prabhu <roopa@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:34178 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S938517AbdEYQAo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 25 May 2017 12:00:44 -0400
-Received: by mail-pf0-f193.google.com with SMTP id w69so40096433pfk.1
-        for <netdev@vger.kernel.org>; Thu, 25 May 2017 09:00:44 -0700 (PDT)
-In-Reply-To: <CAJieiUh+GAtOGZv4UU_gcn5isA6DSqaFj_EXzA24qBK7vJz4AQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [pull request][for-next 0/6] Mellanox mlx5 updates 2017-05-23
+Date: Thu, 25 May 2017 12:02:20 -0400 (EDT)
+Message-ID: <20170525.120220.1812199263503283242.davem@davemloft.net>
+References: <20170523114404.20387-1-saeedm@mellanox.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ilant-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org
+To: saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170523114404.20387-1-saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+From: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Date: Tue, 23 May 2017 14:43:58 +0300
 
-> On May 25, 2017, at 9:54 AM, Roopa Prabhu <roopa@cumulusnetworks.com> =
-wrote:
->=20
->>=20
->> I'd prefer to see the typecasts go away and use container_of to go =
-from
->> dst_entry to rt6_info. I realize some of this is movement of existing
->> code, but better to clean up as we go.
->>=20
->=20
-> ack. But that is pretty much all of ipv6 code. so, seems better done
-> with an incremental cleanup patch.
->=20
+> Hi Dave and Doug,
+> 
+> This series introduces some small updates and FPGA support to the mlx5
+> core/ethernet and IB drivers.
+> 
+> For more details please see below.
+> 
+> Please pull and let me know if there's any problem.
 
-For the rest of the ipv6 code, yes. We can do the right thing now for =
-new code and changes to existing code.=
+Ok, I've pulled this into net-next.
+
+Doug let me know if there are any merge hassles we need to coordinate on.
+
+Thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
