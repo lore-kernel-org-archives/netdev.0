@@ -1,44 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] arp: fixed -Wuninitialized compiler warning
-Date: Thu, 25 May 2017 13:38:57 -0400 (EDT)
-Message-ID: <20170525.133857.899186405679934528.davem@davemloft.net>
-References: <20170524221935.11167-1-ihrachys@redhat.com>
+Subject: Re: [PATCH net] sky2: Do not deadlock on sky2_hw_down
+Date: Thu, 25 May 2017 13:42:05 -0400 (EDT)
+Message-ID: <20170525.134205.884395652948196578.davem@davemloft.net>
+References: <20170524224353.124692-1-jemele@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ja@ssi.bg, netdev@vger.kernel.org
-To: ihrachys@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:59864 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S969916AbdEYRi6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 25 May 2017 13:38:58 -0400
-In-Reply-To: <20170524221935.11167-1-ihrachys@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, jemele@google.com, mlindner@marvell.com,
+        stephen@networkplumber.org, linux-kernel@vger.kernel.org
+To: jemele@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170524224353.124692-1-jemele@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ihar Hrachyshka <ihrachys@redhat.com>
-Date: Wed, 24 May 2017 15:19:35 -0700
+From: Joshua Emele <jemele@gmail.com>
+Date: Wed, 24 May 2017 15:43:18 -0700
 
-> Commit 7d472a59c0e5ec117220a05de6b370447fb6cb66 ("arp: always override
-> existing neigh entries with gratuitous ARP") introduced a compiler
-> warning:
+> From: Joshua Emele <jemele@google.com>
 > 
-> net/ipv4/arp.c:880:35: warning: 'addr_type' may be used uninitialized in
-> this function [-Wmaybe-uninitialized]
+> The sky2_hw_down uses sky2_tx_complete to free pending frames stuck in
+> the HW queue. Because sky2_hw_down can be called from a process context,
+> the call to u64_stats_update_begin can result in deadlock.
 > 
-> While the code logic seems to be correct and doesn't allow the variable
-> to be used uninitialized, and the warning is not consistently
-> reproducible, it's still worth fixing it for other people not to waste
-> time looking at the warning in case it pops up in the build environment.
-> Yes, compiler is probably at fault, but we will need to accommodate.
-> 
-> Fixes: 7d472a59c0e5ec117220a05de6b370447fb6cb66
-> Signed-off-by: Ihar Hrachyshka <ihrachys@redhat.com>
+> Because the statistics do not require update as part of the sky2_hw_down
+> sequence, prevent the update to avoid the deadlock.
 
-Applied, but please in the future format your Fixes: tag properly
-which should have been:
+I disagree.  Taking the interface down should cause events in the
+statistics to be lost.
 
-Fixes: 7d472a59c0e5 ("arp: always override existing neigh entries with gratuitous ARP")
+You're going to have to find a way to fix this without eliding
+the stats increments.
 
 Thanks.
