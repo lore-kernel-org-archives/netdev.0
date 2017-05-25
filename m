@@ -1,335 +1,209 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCH v3 net-next 1/5] net: dsa: mv88e6xxx: Move phy functions into phy.[ch]
-Date: Fri, 26 May 2017 01:03:20 +0200
-Message-ID: <1495753404-29943-2-git-send-email-andrew@lunn.ch>
+Subject: [PATCH v3 net-next 2/5] net: dsa: mv88e6xxx: Refactor mv88e6352 SERDES code into an op
+Date: Fri, 26 May 2017 01:03:21 +0200
+Message-ID: <1495753404-29943-3-git-send-email-andrew@lunn.ch>
 References: <1495753404-29943-1-git-send-email-andrew@lunn.ch>
 Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
         netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:45077 "EHLO vps0.lunn.ch"
+Received: from vps0.lunn.ch ([178.209.37.122]:45082 "EHLO vps0.lunn.ch"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1165913AbdEYXEG (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 25 May 2017 19:04:06 -0400
+        id S1165913AbdEYXEi (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 25 May 2017 19:04:38 -0400
 In-Reply-To: <1495753404-29943-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The upcoming SERDES support will need to make use of PHY functions. Move
-them out into a file of there own. No code changes.
+The mv88e6390 family has a different SERDES implementation. Refactor
+the mv88e6352 code into an ops function, so we can later add the
+mv88e6390 code.
 
 Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+Reviewed-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- drivers/net/dsa/mv88e6xxx/Makefile    |   1 +
- drivers/net/dsa/mv88e6xxx/chip.c      | 233 +-------------------------------
- drivers/net/dsa/mv88e6xxx/mv88e6xxx.h |   2 +-
- drivers/net/dsa/mv88e6xxx/phy.c       | 246 ++++++++++++++++++++++++++++++++++
- drivers/net/dsa/mv88e6xxx/phy.h       |  37 +++++
- 5 files changed, 287 insertions(+), 232 deletions(-)
- create mode 100644 drivers/net/dsa/mv88e6xxx/phy.c
- create mode 100644 drivers/net/dsa/mv88e6xxx/phy.h
+ drivers/net/dsa/mv88e6xxx/Makefile    |  1 +
+ drivers/net/dsa/mv88e6xxx/chip.c      | 64 +++++++++---------------------
+ drivers/net/dsa/mv88e6xxx/mv88e6xxx.h |  6 +--
+ drivers/net/dsa/mv88e6xxx/serdes.c    | 75 +++++++++++++++++++++++++++++++++++
+ drivers/net/dsa/mv88e6xxx/serdes.h    | 24 +++++++++++
+ 5 files changed, 122 insertions(+), 48 deletions(-)
+ create mode 100644 drivers/net/dsa/mv88e6xxx/serdes.c
+ create mode 100644 drivers/net/dsa/mv88e6xxx/serdes.h
 
 diff --git a/drivers/net/dsa/mv88e6xxx/Makefile b/drivers/net/dsa/mv88e6xxx/Makefile
-index 6edd869c8d6f..e4372eaf3bc5 100644
+index e4372eaf3bc5..5cd5551461e3 100644
 --- a/drivers/net/dsa/mv88e6xxx/Makefile
 +++ b/drivers/net/dsa/mv88e6xxx/Makefile
-@@ -4,4 +4,5 @@ mv88e6xxx-objs += global1.o
- mv88e6xxx-objs += global1_atu.o
- mv88e6xxx-objs += global1_vtu.o
+@@ -6,3 +6,4 @@ mv88e6xxx-objs += global1_vtu.o
  mv88e6xxx-$(CONFIG_NET_DSA_MV88E6XXX_GLOBAL2) += global2.o
-+mv88e6xxx-objs += phy.o
+ mv88e6xxx-objs += phy.o
  mv88e6xxx-objs += port.o
++mv88e6xxx-objs += serdes.o
 diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-index 41de250dbcc3..724f3b09e077 100644
+index 724f3b09e077..bc7b345d91d3 100644
 --- a/drivers/net/dsa/mv88e6xxx/chip.c
 +++ b/drivers/net/dsa/mv88e6xxx/chip.c
-@@ -36,6 +36,7 @@
- #include "mv88e6xxx.h"
- #include "global1.h"
+@@ -38,6 +38,7 @@
  #include "global2.h"
-+#include "phy.h"
+ #include "phy.h"
  #include "port.h"
++#include "serdes.h"
  
  static void assert_reg_lock(struct mv88e6xxx_chip *chip)
-@@ -221,21 +222,7 @@ int mv88e6xxx_write(struct mv88e6xxx_chip *chip, int addr, int reg, u16 val)
- 	return 0;
- }
- 
--static int mv88e6165_phy_read(struct mv88e6xxx_chip *chip,
--			      struct mii_bus *bus,
--			      int addr, int reg, u16 *val)
--{
--	return mv88e6xxx_read(chip, addr, reg, val);
--}
--
--static int mv88e6165_phy_write(struct mv88e6xxx_chip *chip,
--			       struct mii_bus *bus,
--			       int addr, int reg, u16 val)
--{
--	return mv88e6xxx_write(chip, addr, reg, val);
--}
--
--static struct mii_bus *mv88e6xxx_default_mdio_bus(struct mv88e6xxx_chip *chip)
-+struct mii_bus *mv88e6xxx_default_mdio_bus(struct mv88e6xxx_chip *chip)
  {
- 	struct mv88e6xxx_mdio_bus *mdio_bus;
- 
-@@ -247,94 +234,6 @@ static struct mii_bus *mv88e6xxx_default_mdio_bus(struct mv88e6xxx_chip *chip)
+@@ -234,18 +235,6 @@ struct mii_bus *mv88e6xxx_default_mdio_bus(struct mv88e6xxx_chip *chip)
  	return mdio_bus->bus;
  }
  
--static int mv88e6xxx_phy_read(struct mv88e6xxx_chip *chip, int phy,
--			      int reg, u16 *val)
+-static int mv88e6xxx_serdes_read(struct mv88e6xxx_chip *chip, int reg, u16 *val)
 -{
--	int addr = phy; /* PHY devices addresses start at 0x0 */
--	struct mii_bus *bus;
--
--	bus = mv88e6xxx_default_mdio_bus(chip);
--	if (!bus)
--		return -EOPNOTSUPP;
--
--	if (!chip->info->ops->phy_read)
--		return -EOPNOTSUPP;
--
--	return chip->info->ops->phy_read(chip, bus, addr, reg, val);
+-	return mv88e6xxx_phy_page_read(chip, ADDR_SERDES, SERDES_PAGE_FIBER,
+-				       reg, val);
 -}
 -
--static int mv88e6xxx_phy_write(struct mv88e6xxx_chip *chip, int phy,
--			       int reg, u16 val)
+-static int mv88e6xxx_serdes_write(struct mv88e6xxx_chip *chip, int reg, u16 val)
 -{
--	int addr = phy; /* PHY devices addresses start at 0x0 */
--	struct mii_bus *bus;
--
--	bus = mv88e6xxx_default_mdio_bus(chip);
--	if (!bus)
--		return -EOPNOTSUPP;
--
--	if (!chip->info->ops->phy_write)
--		return -EOPNOTSUPP;
--
--	return chip->info->ops->phy_write(chip, bus, addr, reg, val);
+-	return mv88e6xxx_phy_page_write(chip, ADDR_SERDES, SERDES_PAGE_FIBER,
+-					reg, val);
 -}
 -
--static int mv88e6xxx_phy_page_get(struct mv88e6xxx_chip *chip, int phy, u8 page)
--{
--	if (!mv88e6xxx_has(chip, MV88E6XXX_FLAG_PHY_PAGE))
--		return -EOPNOTSUPP;
--
--	return mv88e6xxx_phy_write(chip, phy, PHY_PAGE, page);
--}
--
--static void mv88e6xxx_phy_page_put(struct mv88e6xxx_chip *chip, int phy)
--{
--	int err;
--
--	/* Restore PHY page Copper 0x0 for access via the registered MDIO bus */
--	err = mv88e6xxx_phy_write(chip, phy, PHY_PAGE, PHY_PAGE_COPPER);
--	if (unlikely(err)) {
--		dev_err(chip->dev, "failed to restore PHY %d page Copper (%d)\n",
--			phy, err);
--	}
--}
--
--static int mv88e6xxx_phy_page_read(struct mv88e6xxx_chip *chip, int phy,
--				   u8 page, int reg, u16 *val)
--{
--	int err;
--
--	/* There is no paging for registers 22 */
--	if (reg == PHY_PAGE)
--		return -EINVAL;
--
--	err = mv88e6xxx_phy_page_get(chip, phy, page);
--	if (!err) {
--		err = mv88e6xxx_phy_read(chip, phy, reg, val);
--		mv88e6xxx_phy_page_put(chip, phy);
--	}
--
--	return err;
--}
--
--static int mv88e6xxx_phy_page_write(struct mv88e6xxx_chip *chip, int phy,
--				    u8 page, int reg, u16 val)
--{
--	int err;
--
--	/* There is no paging for registers 22 */
--	if (reg == PHY_PAGE)
--		return -EINVAL;
--
--	err = mv88e6xxx_phy_page_get(chip, phy, page);
--	if (!err) {
--		err = mv88e6xxx_phy_write(chip, phy, PHY_PAGE, page);
--		mv88e6xxx_phy_page_put(chip, phy);
--	}
--
--	return err;
--}
--
- static int mv88e6xxx_serdes_read(struct mv88e6xxx_chip *chip, int reg, u16 *val)
+ static void mv88e6xxx_g1_irq_mask(struct irq_data *d)
  {
- 	return mv88e6xxx_phy_page_read(chip, ADDR_SERDES, SERDES_PAGE_FIBER,
-@@ -560,122 +459,6 @@ int mv88e6xxx_update(struct mv88e6xxx_chip *chip, int addr, int reg, u16 update)
- 	return mv88e6xxx_write(chip, addr, reg, val);
+ 	struct mv88e6xxx_chip *chip = irq_data_get_irq_chip_data(d);
+@@ -1733,24 +1722,6 @@ static int mv88e6xxx_switch_reset(struct mv88e6xxx_chip *chip)
+ 	return mv88e6xxx_software_reset(chip);
  }
  
--static int mv88e6xxx_ppu_disable(struct mv88e6xxx_chip *chip)
+-static int mv88e6xxx_serdes_power_on(struct mv88e6xxx_chip *chip)
 -{
--	if (!chip->info->ops->ppu_disable)
--		return 0;
+-	u16 val;
+-	int err;
 -
--	return chip->info->ops->ppu_disable(chip);
--}
+-	/* Clear Power Down bit */
+-	err = mv88e6xxx_serdes_read(chip, MII_BMCR, &val);
+-	if (err)
+-		return err;
 -
--static int mv88e6xxx_ppu_enable(struct mv88e6xxx_chip *chip)
--{
--	if (!chip->info->ops->ppu_enable)
--		return 0;
--
--	return chip->info->ops->ppu_enable(chip);
--}
--
--static void mv88e6xxx_ppu_reenable_work(struct work_struct *ugly)
--{
--	struct mv88e6xxx_chip *chip;
--
--	chip = container_of(ugly, struct mv88e6xxx_chip, ppu_work);
--
--	mutex_lock(&chip->reg_lock);
--
--	if (mutex_trylock(&chip->ppu_mutex)) {
--		if (mv88e6xxx_ppu_enable(chip) == 0)
--			chip->ppu_disabled = 0;
--		mutex_unlock(&chip->ppu_mutex);
+-	if (val & BMCR_PDOWN) {
+-		val &= ~BMCR_PDOWN;
+-		err = mv88e6xxx_serdes_write(chip, MII_BMCR, val);
 -	}
 -
--	mutex_unlock(&chip->reg_lock);
+-	return err;
 -}
 -
--static void mv88e6xxx_ppu_reenable_timer(unsigned long _ps)
--{
--	struct mv88e6xxx_chip *chip = (void *)_ps;
--
--	schedule_work(&chip->ppu_work);
--}
--
--static int mv88e6xxx_ppu_access_get(struct mv88e6xxx_chip *chip)
--{
--	int ret;
--
--	mutex_lock(&chip->ppu_mutex);
--
--	/* If the PHY polling unit is enabled, disable it so that
--	 * we can access the PHY registers.  If it was already
--	 * disabled, cancel the timer that is going to re-enable
--	 * it.
--	 */
--	if (!chip->ppu_disabled) {
--		ret = mv88e6xxx_ppu_disable(chip);
--		if (ret < 0) {
--			mutex_unlock(&chip->ppu_mutex);
--			return ret;
+ static int mv88e6xxx_set_port_mode(struct mv88e6xxx_chip *chip, int port,
+ 				   enum mv88e6xxx_frame_mode frame, u16 egress,
+ 				   u16 etype)
+@@ -1832,6 +1803,15 @@ static int mv88e6xxx_setup_egress_floods(struct mv88e6xxx_chip *chip, int port)
+ 	return 0;
+ }
+ 
++static int mv88e6xxx_serdes_power(struct mv88e6xxx_chip *chip, int port,
++				  bool on)
++{
++	if (chip->info->ops->serdes_power)
++		return chip->info->ops->serdes_power(chip, port, on);
++
++	return 0;
++}
++
+ static int mv88e6xxx_setup_port(struct mv88e6xxx_chip *chip, int port)
+ {
+ 	struct dsa_switch *ds = chip->ds;
+@@ -1882,22 +1862,12 @@ static int mv88e6xxx_setup_port(struct mv88e6xxx_chip *chip, int port)
+ 	if (err)
+ 		return err;
+ 
+-	/* If this port is connected to a SerDes, make sure the SerDes is not
+-	 * powered down.
++	/* If this port is connected to a SerDes, make sure the SerDes is
++	 * powered up.
+ 	 */
+-	if (mv88e6xxx_has(chip, MV88E6XXX_FLAGS_SERDES)) {
+-		err = mv88e6xxx_port_read(chip, port, PORT_STATUS, &reg);
+-		if (err)
+-			return err;
+-		reg &= PORT_STATUS_CMODE_MASK;
+-		if ((reg == PORT_STATUS_CMODE_100BASE_X) ||
+-		    (reg == PORT_STATUS_CMODE_1000BASE_X) ||
+-		    (reg == PORT_STATUS_CMODE_SGMII)) {
+-			err = mv88e6xxx_serdes_power_on(chip);
+-			if (err < 0)
+-				return err;
 -		}
--		chip->ppu_disabled = 1;
--	} else {
--		del_timer(&chip->ppu_timer);
--		ret = 0;
 -	}
--
--	return ret;
--}
--
--static void mv88e6xxx_ppu_access_put(struct mv88e6xxx_chip *chip)
--{
--	/* Schedule a timer to re-enable the PHY polling unit. */
--	mod_timer(&chip->ppu_timer, jiffies + msecs_to_jiffies(10));
--	mutex_unlock(&chip->ppu_mutex);
--}
--
--static void mv88e6xxx_ppu_state_init(struct mv88e6xxx_chip *chip)
--{
--	mutex_init(&chip->ppu_mutex);
--	INIT_WORK(&chip->ppu_work, mv88e6xxx_ppu_reenable_work);
--	setup_timer(&chip->ppu_timer, mv88e6xxx_ppu_reenable_timer,
--		    (unsigned long)chip);
--}
--
--static void mv88e6xxx_ppu_state_destroy(struct mv88e6xxx_chip *chip)
--{
--	del_timer_sync(&chip->ppu_timer);
--}
--
--static int mv88e6xxx_phy_ppu_read(struct mv88e6xxx_chip *chip,
--				  struct mii_bus *bus,
--				  int addr, int reg, u16 *val)
--{
--	int err;
--
--	err = mv88e6xxx_ppu_access_get(chip);
--	if (!err) {
--		err = mv88e6xxx_read(chip, addr, reg, val);
--		mv88e6xxx_ppu_access_put(chip);
--	}
--
--	return err;
--}
--
--static int mv88e6xxx_phy_ppu_write(struct mv88e6xxx_chip *chip,
--				   struct mii_bus *bus,
--				   int addr, int reg, u16 val)
--{
--	int err;
--
--	err = mv88e6xxx_ppu_access_get(chip);
--	if (!err) {
--		err = mv88e6xxx_write(chip, addr, reg, val);
--		mv88e6xxx_ppu_access_put(chip);
--	}
--
--	return err;
--}
--
- static int mv88e6xxx_port_setup_mac(struct mv88e6xxx_chip *chip, int port,
- 				    int link, int speed, int duplex,
- 				    phy_interface_t mode)
-@@ -3914,18 +3697,6 @@ static struct mv88e6xxx_chip *mv88e6xxx_alloc_chip(struct device *dev)
- 	return chip;
- }
++	err = mv88e6xxx_serdes_power(chip, port, true);
++	if (err)
++		return err;
  
--static void mv88e6xxx_phy_init(struct mv88e6xxx_chip *chip)
--{
--	if (chip->info->ops->ppu_enable && chip->info->ops->ppu_disable)
--		mv88e6xxx_ppu_state_init(chip);
--}
--
--static void mv88e6xxx_phy_destroy(struct mv88e6xxx_chip *chip)
--{
--	if (chip->info->ops->ppu_enable && chip->info->ops->ppu_disable)
--		mv88e6xxx_ppu_state_destroy(chip);
--}
--
- static int mv88e6xxx_smi_init(struct mv88e6xxx_chip *chip,
- 			      struct mii_bus *bus, int sw_addr)
- {
+ 	/* Port Control 2: don't force a good FCS, set the maximum frame size to
+ 	 * 10240 bytes, disable 802.1q tags checking, don't discard tagged or
+@@ -2662,6 +2632,7 @@ static const struct mv88e6xxx_ops mv88e6172_ops = {
+ 	.reset = mv88e6352_g1_reset,
+ 	.vtu_getnext = mv88e6352_g1_vtu_getnext,
+ 	.vtu_loadpurge = mv88e6352_g1_vtu_loadpurge,
++	.serdes_power = mv88e6352_serdes_power,
+ };
+ 
+ static const struct mv88e6xxx_ops mv88e6175_ops = {
+@@ -2726,6 +2697,7 @@ static const struct mv88e6xxx_ops mv88e6176_ops = {
+ 	.reset = mv88e6352_g1_reset,
+ 	.vtu_getnext = mv88e6352_g1_vtu_getnext,
+ 	.vtu_loadpurge = mv88e6352_g1_vtu_loadpurge,
++	.serdes_power = mv88e6352_serdes_power,
+ };
+ 
+ static const struct mv88e6xxx_ops mv88e6185_ops = {
+@@ -2882,6 +2854,7 @@ static const struct mv88e6xxx_ops mv88e6240_ops = {
+ 	.reset = mv88e6352_g1_reset,
+ 	.vtu_getnext = mv88e6352_g1_vtu_getnext,
+ 	.vtu_loadpurge = mv88e6352_g1_vtu_loadpurge,
++	.serdes_power = mv88e6352_serdes_power,
+ };
+ 
+ static const struct mv88e6xxx_ops mv88e6290_ops = {
+@@ -3104,6 +3077,7 @@ static const struct mv88e6xxx_ops mv88e6352_ops = {
+ 	.reset = mv88e6352_g1_reset,
+ 	.vtu_getnext = mv88e6352_g1_vtu_getnext,
+ 	.vtu_loadpurge = mv88e6352_g1_vtu_loadpurge,
++	.serdes_power = mv88e6352_serdes_power,
+ };
+ 
+ static const struct mv88e6xxx_ops mv88e6390_ops = {
 diff --git a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-index 77236cd72df2..45b387c780a8 100644
+index 45b387c780a8..fb996491b111 100644
 --- a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
 +++ b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-@@ -942,5 +942,5 @@ int mv88e6xxx_write(struct mv88e6xxx_chip *chip, int addr, int reg, u16 val);
- int mv88e6xxx_update(struct mv88e6xxx_chip *chip, int addr, int reg,
- 		     u16 update);
- int mv88e6xxx_wait(struct mv88e6xxx_chip *chip, int addr, int reg, u16 mask);
+@@ -37,9 +37,6 @@
+ #define PHY_PAGE		0x16
+ #define PHY_PAGE_COPPER		0x00
+ 
+-#define ADDR_SERDES		0x0f
+-#define SERDES_PAGE_FIBER	0x01
 -
-+struct mii_bus *mv88e6xxx_default_mdio_bus(struct mv88e6xxx_chip *chip);
- #endif
-diff --git a/drivers/net/dsa/mv88e6xxx/phy.c b/drivers/net/dsa/mv88e6xxx/phy.c
+ #define PORT_STATUS		0x00
+ #define PORT_STATUS_PAUSE_EN	BIT(15)
+ #define PORT_STATUS_MY_PAUSE	BIT(14)
+@@ -884,6 +881,9 @@ struct mv88e6xxx_ops {
+ 	/* Can be either in g1 or g2, so don't use a prefix */
+ 	int (*mgmt_rsvd2cpu)(struct mv88e6xxx_chip *chip);
+ 
++	/* Power on/off a SERDES interface */
++	int (*serdes_power)(struct mv88e6xxx_chip *chip, int port, bool on);
++
+ 	/* VLAN Translation Unit operations */
+ 	int (*vtu_getnext)(struct mv88e6xxx_chip *chip,
+ 			   struct mv88e6xxx_vtu_entry *entry);
+diff --git a/drivers/net/dsa/mv88e6xxx/serdes.c b/drivers/net/dsa/mv88e6xxx/serdes.c
 new file mode 100644
-index 000000000000..0e6c72b93c8f
+index 000000000000..235f5f0c30ae
 --- /dev/null
-+++ b/drivers/net/dsa/mv88e6xxx/phy.c
-@@ -0,0 +1,246 @@
++++ b/drivers/net/dsa/mv88e6xxx/serdes.c
+@@ -0,0 +1,75 @@
 +/*
-+ * Marvell 88e6xxx Ethernet switch PHY and PPU support
++ * Marvell 88E6xxx SERDES manipulation, via SMI bus
 + *
 + * Copyright (c) 2008 Marvell Semiconductor
 + *
@@ -341,251 +215,80 @@ index 000000000000..0e6c72b93c8f
 + * (at your option) any later version.
 + */
 +
-+#include <linux/mdio.h>
-+#include <linux/module.h>
-+#include <net/dsa.h>
++#include <linux/mii.h>
 +
 +#include "mv88e6xxx.h"
 +#include "phy.h"
++#include "port.h"
++#include "serdes.h"
 +
-+int mv88e6165_phy_read(struct mv88e6xxx_chip *chip, struct mii_bus *bus,
-+		       int addr, int reg, u16 *val)
++static int mv88e6352_serdes_read(struct mv88e6xxx_chip *chip, int reg,
++				 u16 *val)
 +{
-+	return mv88e6xxx_read(chip, addr, reg, val);
++	return mv88e6xxx_phy_page_read(chip, MV88E6352_ADDR_SERDES,
++				       MV88E6352_SERDES_PAGE_FIBER,
++				       reg, val);
 +}
 +
-+int mv88e6165_phy_write(struct mv88e6xxx_chip *chip, struct mii_bus *bus,
-+			int addr, int reg, u16 val)
++static int mv88e6352_serdes_write(struct mv88e6xxx_chip *chip, int reg,
++				  u16 val)
 +{
-+	return mv88e6xxx_write(chip, addr, reg, val);
++	return mv88e6xxx_phy_page_write(chip, MV88E6352_ADDR_SERDES,
++					MV88E6352_SERDES_PAGE_FIBER,
++					reg, val);
 +}
 +
-+int mv88e6xxx_phy_read(struct mv88e6xxx_chip *chip, int phy, int reg, u16 *val)
++static int mv88e6352_serdes_power_set(struct mv88e6xxx_chip *chip, bool on)
 +{
-+	int addr = phy; /* PHY devices addresses start at 0x0 */
-+	struct mii_bus *bus;
-+
-+	bus = mv88e6xxx_default_mdio_bus(chip);
-+	if (!bus)
-+		return -EOPNOTSUPP;
-+
-+	if (!chip->info->ops->phy_read)
-+		return -EOPNOTSUPP;
-+
-+	return chip->info->ops->phy_read(chip, bus, addr, reg, val);
-+}
-+
-+int mv88e6xxx_phy_write(struct mv88e6xxx_chip *chip, int phy, int reg, u16 val)
-+{
-+	int addr = phy; /* PHY devices addresses start at 0x0 */
-+	struct mii_bus *bus;
-+
-+	bus = mv88e6xxx_default_mdio_bus(chip);
-+	if (!bus)
-+		return -EOPNOTSUPP;
-+
-+	if (!chip->info->ops->phy_write)
-+		return -EOPNOTSUPP;
-+
-+	return chip->info->ops->phy_write(chip, bus, addr, reg, val);
-+}
-+
-+static int mv88e6xxx_phy_page_get(struct mv88e6xxx_chip *chip, int phy, u8 page)
-+{
-+	if (!mv88e6xxx_has(chip, MV88E6XXX_FLAG_PHY_PAGE))
-+		return -EOPNOTSUPP;
-+
-+	return mv88e6xxx_phy_write(chip, phy, PHY_PAGE, page);
-+}
-+
-+static void mv88e6xxx_phy_page_put(struct mv88e6xxx_chip *chip, int phy)
-+{
++	u16 val, new_val;
 +	int err;
 +
-+	/* Restore PHY page Copper 0x0 for access via the registered
-+	 * MDIO bus
-+	 */
-+	err = mv88e6xxx_phy_write(chip, phy, PHY_PAGE, PHY_PAGE_COPPER);
-+	if (unlikely(err)) {
-+		dev_err(chip->dev,
-+			"failed to restore PHY %d page Copper (%d)\n",
-+			phy, err);
-+	}
-+}
++	err = mv88e6352_serdes_read(chip, MII_BMCR, &val);
++	if (err)
++		return err;
 +
-+int mv88e6xxx_phy_page_read(struct mv88e6xxx_chip *chip, int phy,
-+			    u8 page, int reg, u16 *val)
-+{
-+	int err;
++	if (on)
++		new_val = val & ~BMCR_PDOWN;
++	else
++		new_val = val | BMCR_PDOWN;
 +
-+	/* There is no paging for registers 22 */
-+	if (reg == PHY_PAGE)
-+		return -EINVAL;
-+
-+	err = mv88e6xxx_phy_page_get(chip, phy, page);
-+	if (!err) {
-+		err = mv88e6xxx_phy_read(chip, phy, reg, val);
-+		mv88e6xxx_phy_page_put(chip, phy);
-+	}
++	if (val != new_val)
++		err = mv88e6352_serdes_write(chip, MII_BMCR, new_val);
 +
 +	return err;
 +}
 +
-+int mv88e6xxx_phy_page_write(struct mv88e6xxx_chip *chip, int phy,
-+			     u8 page, int reg, u16 val)
++int mv88e6352_serdes_power(struct mv88e6xxx_chip *chip, int port, bool on)
 +{
 +	int err;
++	u8 cmode;
 +
-+	/* There is no paging for registers 22 */
-+	if (reg == PHY_PAGE)
-+		return -EINVAL;
++	err = mv88e6xxx_port_get_cmode(chip, port, &cmode);
++	if (err)
++		return err;
 +
-+	err = mv88e6xxx_phy_page_get(chip, phy, page);
-+	if (!err) {
-+		err = mv88e6xxx_phy_write(chip, phy, PHY_PAGE, page);
-+		mv88e6xxx_phy_page_put(chip, phy);
++	if ((cmode == PORT_STATUS_CMODE_100BASE_X) ||
++	    (cmode == PORT_STATUS_CMODE_1000BASE_X) ||
++	    (cmode == PORT_STATUS_CMODE_SGMII)) {
++		err = mv88e6352_serdes_power_set(chip, on);
++		if (err < 0)
++			return err;
 +	}
 +
-+	return err;
++	return 0;
 +}
-+
-+static int mv88e6xxx_ppu_disable(struct mv88e6xxx_chip *chip)
-+{
-+	if (!chip->info->ops->ppu_disable)
-+		return 0;
-+
-+	return chip->info->ops->ppu_disable(chip);
-+}
-+
-+int mv88e6xxx_ppu_enable(struct mv88e6xxx_chip *chip)
-+{
-+	if (!chip->info->ops->ppu_enable)
-+		return 0;
-+
-+	return chip->info->ops->ppu_enable(chip);
-+}
-+
-+static void mv88e6xxx_ppu_reenable_work(struct work_struct *ugly)
-+{
-+	struct mv88e6xxx_chip *chip;
-+
-+	chip = container_of(ugly, struct mv88e6xxx_chip, ppu_work);
-+
-+	mutex_lock(&chip->reg_lock);
-+
-+	if (mutex_trylock(&chip->ppu_mutex)) {
-+		if (mv88e6xxx_ppu_enable(chip) == 0)
-+			chip->ppu_disabled = 0;
-+		mutex_unlock(&chip->ppu_mutex);
-+	}
-+
-+	mutex_unlock(&chip->reg_lock);
-+}
-+
-+static void mv88e6xxx_ppu_reenable_timer(unsigned long _ps)
-+{
-+	struct mv88e6xxx_chip *chip = (void *)_ps;
-+
-+	schedule_work(&chip->ppu_work);
-+}
-+
-+static int mv88e6xxx_ppu_access_get(struct mv88e6xxx_chip *chip)
-+{
-+	int ret;
-+
-+	mutex_lock(&chip->ppu_mutex);
-+
-+	/* If the PHY polling unit is enabled, disable it so that
-+	 * we can access the PHY registers.  If it was already
-+	 * disabled, cancel the timer that is going to re-enable
-+	 * it.
-+	 */
-+	if (!chip->ppu_disabled) {
-+		ret = mv88e6xxx_ppu_disable(chip);
-+		if (ret < 0) {
-+			mutex_unlock(&chip->ppu_mutex);
-+			return ret;
-+		}
-+		chip->ppu_disabled = 1;
-+	} else {
-+		del_timer(&chip->ppu_timer);
-+		ret = 0;
-+	}
-+
-+	return ret;
-+}
-+
-+static void mv88e6xxx_ppu_access_put(struct mv88e6xxx_chip *chip)
-+{
-+	/* Schedule a timer to re-enable the PHY polling unit. */
-+	mod_timer(&chip->ppu_timer, jiffies + msecs_to_jiffies(10));
-+	mutex_unlock(&chip->ppu_mutex);
-+}
-+
-+static void mv88e6xxx_ppu_state_init(struct mv88e6xxx_chip *chip)
-+{
-+	mutex_init(&chip->ppu_mutex);
-+	INIT_WORK(&chip->ppu_work, mv88e6xxx_ppu_reenable_work);
-+	setup_timer(&chip->ppu_timer, mv88e6xxx_ppu_reenable_timer,
-+		    (unsigned long)chip);
-+}
-+
-+static void mv88e6xxx_ppu_state_destroy(struct mv88e6xxx_chip *chip)
-+{
-+	del_timer_sync(&chip->ppu_timer);
-+}
-+
-+int mv88e6xxx_phy_ppu_read(struct mv88e6xxx_chip *chip, struct mii_bus *bus,
-+			   int addr, int reg, u16 *val)
-+{
-+	int err;
-+
-+	err = mv88e6xxx_ppu_access_get(chip);
-+	if (!err) {
-+		err = mv88e6xxx_read(chip, addr, reg, val);
-+		mv88e6xxx_ppu_access_put(chip);
-+	}
-+
-+	return err;
-+}
-+
-+int mv88e6xxx_phy_ppu_write(struct mv88e6xxx_chip *chip, struct mii_bus *bus,
-+			    int addr, int reg, u16 val)
-+{
-+	int err;
-+
-+	err = mv88e6xxx_ppu_access_get(chip);
-+	if (!err) {
-+		err = mv88e6xxx_write(chip, addr, reg, val);
-+		mv88e6xxx_ppu_access_put(chip);
-+	}
-+
-+	return err;
-+}
-+
-+void mv88e6xxx_phy_init(struct mv88e6xxx_chip *chip)
-+{
-+	if (chip->info->ops->ppu_enable && chip->info->ops->ppu_disable)
-+		mv88e6xxx_ppu_state_init(chip);
-+}
-+
-+void mv88e6xxx_phy_destroy(struct mv88e6xxx_chip *chip)
-+{
-+	if (chip->info->ops->ppu_enable && chip->info->ops->ppu_disable)
-+		mv88e6xxx_ppu_state_destroy(chip);
-+}
-diff --git a/drivers/net/dsa/mv88e6xxx/phy.h b/drivers/net/dsa/mv88e6xxx/phy.h
+diff --git a/drivers/net/dsa/mv88e6xxx/serdes.h b/drivers/net/dsa/mv88e6xxx/serdes.h
 new file mode 100644
-index 000000000000..0961d781b726
+index 000000000000..a690be09ac52
 --- /dev/null
-+++ b/drivers/net/dsa/mv88e6xxx/phy.h
-@@ -0,0 +1,37 @@
++++ b/drivers/net/dsa/mv88e6xxx/serdes.h
+@@ -0,0 +1,24 @@
 +/*
-+ * Marvell 88E6xxx PHY access
++ * Marvell 88E6xxx SERDES manipulation, via SMI bus
 + *
 + * Copyright (c) 2008 Marvell Semiconductor
 + *
-+ * Copyright (c) 2017 Andrew Lunn <andrew@lunn.ch>
++ * Copyright (c) 2016 Andrew Lunn <andrew@lunn.ch>
 + *
 + * This program is free software; you can redistribute it and/or modify
 + * it under the terms of the GNU General Public License as published by
@@ -593,29 +296,16 @@ index 000000000000..0961d781b726
 + * (at your option) any later version.
 + */
 +
-+#ifndef _MV88E6XXX_PHY_H
-+#define _MV88E6XXX_PHY_H
++#ifndef _MV88E6XXX_SERDES_H
++#define _MV88E6XXX_SERDES_H
 +
-+int mv88e6165_phy_read(struct mv88e6xxx_chip *chip, struct mii_bus *bus,
-+		       int addr, int reg, u16 *val);
-+int mv88e6165_phy_write(struct mv88e6xxx_chip *chip, struct mii_bus *bus,
-+			int addr, int reg, u16 val);
-+int mv88e6xxx_phy_read(struct mv88e6xxx_chip *chip, int phy,
-+		       int reg, u16 *val);
-+int mv88e6xxx_phy_write(struct mv88e6xxx_chip *chip, int phy,
-+			int reg, u16 val);
-+int mv88e6xxx_phy_page_read(struct mv88e6xxx_chip *chip, int phy,
-+			    u8 page, int reg, u16 *val);
-+int mv88e6xxx_phy_page_write(struct mv88e6xxx_chip *chip, int phy,
-+			     u8 page, int reg, u16 val);
-+int mv88e6xxx_phy_ppu_read(struct mv88e6xxx_chip *chip, struct mii_bus *bus,
-+			   int addr, int reg, u16 *val);
-+int mv88e6xxx_phy_ppu_write(struct mv88e6xxx_chip *chip, struct mii_bus *bus,
-+			    int addr, int reg, u16 val);
-+int mv88e6xxx_ppu_enable(struct mv88e6xxx_chip *chip);
-+void mv88e6xxx_phy_init(struct mv88e6xxx_chip *chip);
-+void mv88e6xxx_phy_destroy(struct mv88e6xxx_chip *chip);
++#include "mv88e6xxx.h"
 +
-+#endif /*_MV88E6XXX_PHY_H */
++#define MV88E6352_ADDR_SERDES		0x0f
++#define MV88E6352_SERDES_PAGE_FIBER	0x01
++
++int mv88e6352_serdes_power(struct mv88e6xxx_chip *chip, int port, bool on);
++
++#endif
 -- 
 2.11.0
