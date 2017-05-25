@@ -1,45 +1,65 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next v2 0/3] net: phy: Create sysfs reciprocal links for attached_dev/phydev
-Date: Thu, 25 May 2017 09:21:40 -0700
-Message-ID: <20170525162143.18319-1-f.fainelli@gmail.com>
+Subject: [PATCH net-next v2 1/3] net: phy: Create sysfs reciprocal links for attached_dev/phydev
+Date: Thu, 25 May 2017 09:21:41 -0700
+Message-ID: <20170525162143.18319-2-f.fainelli@gmail.com>
+References: <20170525162143.18319-1-f.fainelli@gmail.com>
 Cc: davem@davemloft.net, andrew@lunn.ch,
         Florian Fainelli <f.fainelli@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f196.google.com ([209.85.216.196]:36182 "EHLO
-        mail-qt0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1165401AbdEYQVt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 25 May 2017 12:21:49 -0400
-Received: by mail-qt0-f196.google.com with SMTP id j13so30767326qta.3
-        for <netdev@vger.kernel.org>; Thu, 25 May 2017 09:21:48 -0700 (PDT)
+Received: from mail-qk0-f194.google.com ([209.85.220.194]:33702 "EHLO
+        mail-qk0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1165402AbdEYQVu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 25 May 2017 12:21:50 -0400
+Received: by mail-qk0-f194.google.com with SMTP id o85so30718329qkh.0
+        for <netdev@vger.kernel.org>; Thu, 25 May 2017 09:21:49 -0700 (PDT)
+In-Reply-To: <20170525162143.18319-1-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David, Andrew,
+There is currently no way for a program scanning /sys to know whether a
+network device is attached to a particular PHY device, just like the PHY
+device is not pointed back to its attached network device.
 
-This patch series addresses a device topology shortcoming where a program
-scanning /sys would not be able to establish a mapping between the network
-device and the PHY device.
+Create a symbolic link in the network device's namespace named "phydev"
+which points to the PHY device and create a symbolic link in the PHY
+device's namespace named "attached_dev" that points back to the network
+device. These links are set up during phy_attach_direct() and removed
+during phy_detach() for symetry.
 
-In the process it turned out that no PHY device documentation existed for
-sysfs attributes.
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ drivers/net/phy/phy_device.c | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
 
-Thanks!
-
-Changes in v2:
-
-- document possible phy_interface values in sysfs-class-net-phydev
-
-Florian Fainelli (3):
-  net: phy: Create sysfs reciprocal links for attached_dev/phydev
-  net: sysfs: Document "phydev" symbolic link
-  net: sysfs: Document PHY device sysfs attributes
-
- Documentation/ABI/testing/sysfs-class-net        |  8 ++++++
- Documentation/ABI/testing/sysfs-class-net-phydev | 36 ++++++++++++++++++++++++
- drivers/net/phy/phy_device.c                     | 11 ++++++++
- 3 files changed, 55 insertions(+)
- create mode 100644 Documentation/ABI/testing/sysfs-class-net-phydev
-
+diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+index 1219eeab69d1..8151477c7027 100644
+--- a/drivers/net/phy/phy_device.c
++++ b/drivers/net/phy/phy_device.c
+@@ -960,6 +960,15 @@ int phy_attach_direct(struct net_device *dev, struct phy_device *phydev,
+ 
+ 	phydev->attached_dev = dev;
+ 	dev->phydev = phydev;
++	err = sysfs_create_link(&phydev->mdio.dev.kobj, &dev->dev.kobj,
++				"attached_dev");
++	if (err)
++		goto error;
++
++	err = sysfs_create_link(&dev->dev.kobj, &phydev->mdio.dev.kobj,
++				"phydev");
++	if (err)
++		goto error;
+ 
+ 	phydev->dev_flags = flags;
+ 
+@@ -1050,6 +1059,8 @@ void phy_detach(struct phy_device *phydev)
+ 	struct mii_bus *bus;
+ 	int i;
+ 
++	sysfs_remove_link(&dev->dev.kobj, "phydev");
++	sysfs_remove_link(&phydev->mdio.dev.kobj, "attached_dev");
+ 	phydev->attached_dev->phydev = NULL;
+ 	phydev->attached_dev = NULL;
+ 	phy_suspend(phydev);
 -- 
 2.9.3
