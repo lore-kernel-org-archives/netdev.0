@@ -1,37 +1,42 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [pull request][for-next 0/6] Mellanox mlx5 updates 2017-05-23
-Date: Thu, 25 May 2017 12:02:20 -0400 (EDT)
-Message-ID: <20170525.120220.1812199263503283242.davem@davemloft.net>
-References: <20170523114404.20387-1-saeedm@mellanox.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] bpf: update perf event helper function
+ signature and documentation
+Date: Thu, 25 May 2017 12:07:35 -0400 (EDT)
+Message-ID: <20170525.120735.2136402827310294315.davem@davemloft.net>
+References: <E796EF36-C195-4FFA-AAA0-A1F9E7730349@fb.com>
+        <20170522.230849.1056416550811494880.davem@davemloft.net>
+        <BB53B290-EED3-4B92-8D2D-33954D7B6C68@fb.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ilant-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org
-To: saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170523114404.20387-1-saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: peterz@infradead.org, bgregg@netflix.com, daniel@iogearbox.net,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Kernel-team@fb.com, ast@fb.com
+To: qinteng@fb.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <BB53B290-EED3-4B92-8D2D-33954D7B6C68@fb.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Date: Tue, 23 May 2017 14:43:58 +0300
-
-> Hi Dave and Doug,
-> 
-> This series introduces some small updates and FPGA support to the mlx5
-> core/ethernet and IB drivers.
-> 
-> For more details please see below.
-> 
-> Please pull and let me know if there's any problem.
-
-Ok, I've pulled this into net-next.
-
-Doug let me know if there are any merge hassles we need to coordinate on.
-
-Thanks.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+RnJvbTogVGVuZyBRaW4gPHFpbnRlbmdAZmIuY29tPg0KRGF0ZTogVHVlLCAyMyBNYXkgMjAxNyAw
+MzoxNzozMSArMDAwMA0KDQo+IEFsZXhlaSBzYWlkIGl0IHdhcyBkdWUgdG8gQ2xhbmcgbm90IHRh
+a2luZyB1NjQsIHUzMiBldGMuIGZvciBjb21waWxhdGlvbi4NCj4gSSBkaWRuonQga25vdyB0aGUg
+Y29udGV4dCBhbmQganVzdCB1c2VkIHRoZW0uIEJ1dCBhcHBhcmVudGx5LCBzb21ldGhpbmcNCj4g
+Y2hhbmdlZCBhbmQgbm93IHRoZXkgYnVpbGQgYW5kIHJ1biBPSy4uLi4uLg0KDQpUaGVzZSB0eXBl
+cyBhcmUgJTEwMCBjb21waWxlciBhZ25vc3RpYy4gIENsYW5nIGRvZXNuJ3QgY2FyZS4gIEFsbA0K
+Y29tcGlsZXJzIGNhbiB1bmRlcnN0YW5kOg0KDQoJdHlwZWRlZiB1bnNpZ25lZCBpbnQgdTMyOw0K
+DQpTbyBpdCdzIG5vdCBhIENsYW5nIHNwZWNpZmljIGlzc3VlLg0KDQpUaGUgcHJvYmxlbSBjb3Vs
+ZCBvbmx5IGhhdmUgdG8gZG8gd2l0aCB3aGV0aGVyIHRoZSB0eXBlcyBnZXQgdHlwZGVmJ2QNCm9y
+IG5vdCB3aXRoIHRoZSBoZWFkZXIgZmlsZXMgdGhhdCBhcmUgdXNlZCBpbiBjb25qdW5jdGlvbiB3
+aXRoIHRoZQ0KZmlsZSB3ZSBhcmUgdGFsa2luZyBhYm91dCBoZXJlLg0KDQpBbmQgaWYgd2UgZG8g
+Z2V0IGEgcHJvcGVyIHNldCBvZiBkZWZpbmVzIGZyb20gbGludXgvdHlwZXMuaCB0aGVzZSBkYXlz
+DQp3ZSBzaG91bGQ6DQoNCjEpIE1ha2UgdGhhdCBleHBsaWNpdCwgYnkgaW5jbHVkaW5nIGxpbnV4
+L3R5cGVzLmggaW4gYnBmX2hlbHBlcnMuaA0KDQoyKSBVc2UgdGhvc2UgdHlwZXMgdW5pdmVyc2Fs
+bHkgaW4gdGhpcyBmaWxlIHdoZXJlIHdlIHdlcmUgYXZvaWRpbmcNCiAgIGRvaW5nIHNvDQoNClRo
+aXMgaGVhZGVyIGZpbGUgYWxzbyB1c2VzICJTRUMiIGFuZCBleHBlY3RzIHRvIGdldCB0aGlzIGRl
+ZmluaXRpb24NCmltcGxpY2l0bHksIGFuZCB0aGVyZWZvcmUgdGhlcmUgaXMgYW5vdGhlciBoZWFk
+ZXIgZmlsZSB0aGF0DQpicGZfaGVscGVycy5oIG11c3QgaW5jbHVkZSBpbiBvcmRlciB0byBleHBs
+aWNpdGx5IGFuZCByZWxpYWJseSBoYXZlDQp0aGF0IGRlZmluaXRpb24uDQoNCkp1c3QgY2hhbmdp
+bmcgb25lIHByb3RvdHlwZSwgYW5kIHJlbHlpbmcgb24gZ2V0dGluZyB0aGUgdHlwZXMNCmluZGly
+ZWN0bHkgYnkgb3RoZXIgaGVhZGVyIGZpbGVzIGluY2x1ZGluZyBieSB3aG9ldmVyIGluY3VkZXMN
+CmJwZl9oZWxwZXJzLmggaXMgbm90IHRoZSB3YXkgdG8gZ28uDQoNClRoYW5rcy4NCg0K
