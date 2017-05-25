@@ -1,44 +1,36 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [RFC] skbuff: introduce skb_put_zero()
-Date: Thu, 25 May 2017 13:01:17 -0400 (EDT)
-Message-ID: <20170525.130117.551364108206528221.davem@davemloft.net>
-References: <20170524070747.18573-1-johannes@sipsolutions.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3 0/5] net-next: stmmac: rework the speed selection
+Date: Thu, 25 May 2017 13:08:53 -0400 (EDT)
+Message-ID: <20170525.130853.606472240884291471.davem@davemloft.net>
+References: <20170524071647.7921-1-clabbe.montjoie@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
-To: johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170524070747.18573-1-johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: clabbe.montjoie@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170524071647.7921-1-clabbe.montjoie@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Date: Wed, 24 May 2017 09:07:47 +0200
+From: Corentin Labbe <clabbe.montjoie@gmail.com>
+Date: Wed, 24 May 2017 09:16:42 +0200
 
-> From: Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+> The current stmmac_adjust_link() part which handle speed have
+> some if (has_platform) code and my dwmac-sun8i will add more of them.
 > 
-> This pattern was introduced a number of times in mac80211 just now,
-> and since it's present in a number of other places it makes sense
-> to add a little helper for it.
+> So we need to handle better speed selection.
+> Moreover the struct link member speed and port are hard to guess their
+> purpose. And their unique usage are to be combined for writing speed.
 > 
-> The transformations of all code were done with the following spatch:
+> My first try was to create an adjust_link() in stmmac_ops but it duplicate some code
 > 
-> @@
-> identifier p;
-> expression len;
-> expression skb;
-> @@
-> -p = skb_put(skb, len);
-> -memset(p, 0, len);
-> +p = skb_put_zero(skb, len);
+> The current solution is to have direct value for 10/100/1000 and a mask for them.
 > 
-> Signed-off-by: Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-> ---
-> NB: the patch won't apply to net-next because a few of the mac80211
->     users don't exist there yet
+> The first 4 patchs fix some minor problem found in stmmac_adjust_link() and reported by Florian Fainelli in my previous serie.
+> The last patch is the real work.
+> 
+> This series is tested on cubieboard2 (dwmac1000) and opipc (dwmac-sun8i).
 
-Acked-by: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-
-No objections, feel free to push this in via your mac80211 tree.
+Series applied.
