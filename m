@@ -1,49 +1,69 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next 3/3] net: sysfs: Document PHY device sysfs
- attributes
-Date: Wed, 24 May 2017 17:03:23 -0700
-Message-ID: <dcb7ac35-d6da-0d0d-dbcd-99f79473af0f@gmail.com>
-References: <20170524193354.10739-1-f.fainelli@gmail.com>
- <20170524193354.10739-4-f.fainelli@gmail.com> <20170524201018.GH1788@lunn.ch>
- <00fd6fec-29a2-9a54-085b-95f775610d3b@gmail.com>
+From: David Ahern <dsahern@gmail.com>
+Subject: Re: [PATCH net-next 1/8] net: ipv4: refactor
+ __ip_route_output_key_hash
+Date: Wed, 24 May 2017 19:10:28 -0600
+Message-ID: <692be183-cb75-fe33-605b-e458b10ef240@gmail.com>
+References: <1495649951-30417-1-git-send-email-roopa@cumulusnetworks.com>
+ <1495649951-30417-2-git-send-email-roopa@cumulusnetworks.com>
+ <9B0331B6EBBD0E4684FBFAEDA55776F93D54F8DF@HASMSX110.ger.corp.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Andrew Lunn <andrew@lunn.ch>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "nikolay@cumulusnetworks.com" <nikolay@cumulusnetworks.com>
+To: "Rosen, Rami" <rami.rosen@intel.com>,
+        Roopa Prabhu <roopa@cumulusnetworks.com>,
+        "davem@davemloft.net" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f193.google.com ([209.85.216.193]:34830 "EHLO
-        mail-qt0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1161578AbdEYAD1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 24 May 2017 20:03:27 -0400
-Received: by mail-qt0-f193.google.com with SMTP id r58so28336629qtb.2
-        for <netdev@vger.kernel.org>; Wed, 24 May 2017 17:03:27 -0700 (PDT)
-In-Reply-To: <00fd6fec-29a2-9a54-085b-95f775610d3b@gmail.com>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:36132 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1161347AbdEYBKf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 24 May 2017 21:10:35 -0400
+Received: by mail-pf0-f193.google.com with SMTP id n23so35508386pfb.3
+        for <netdev@vger.kernel.org>; Wed, 24 May 2017 18:10:35 -0700 (PDT)
+In-Reply-To: <9B0331B6EBBD0E4684FBFAEDA55776F93D54F8DF@HASMSX110.ger.corp.intel.com>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/24/2017 04:07 PM, Florian Fainelli wrote:
-> Hi Andrew,
+On 5/24/17 1:33 PM, Rosen, Rami wrote:
+> Hi, Rupa /David Ahern,
 > 
-> On 05/24/2017 01:10 PM, Andrew Lunn wrote:
->>> +What:		/sys/class/mdio_bus/<bus>/<device>/phy_interface
->>> +Date:		February 2014
->>> +KernelVersion:	3.15
->>> +Contact:	netdev@vger.kernel.org
->>> +Description:
->>> +		String value indicating the PHY interface, possible
->>> +		values are in include/linux/phy.h function phy_modes.
->>
->> Hi Florian
->>
->> Does this suggest that these strings should be moved to
->> include/uapi/linux/phy.h?
+> First, thanks for this patch set!
 > 
-> Humm, I suppose we could do that, although I am not sure ally sure what
-> we would be putting in there (at least for now).
+> Second, it seems to me that something might be incorrect here.
+> 
+> You have these additions in this patch  (1/8):
+> ...
+> +struct rtable *ip_route_output_key_hash_rcu(struct net *net, struct flowi4 *flp,
+> +					    const struct sk_buff *skb,
+> +					    struct fib_result *res);
+> ...
+> +struct rtable *ip_route_output_key_hash(struct net *net, struct flowi4 *fl4,
+> +					const struct sk_buff *skb)
+> +{
+> +	struct fib_result res;
+> +	struct rtable *rth;
+> +
+> +	res.tclassid	= 0;
+> +	res.fi		= NULL;
+> +	res.table	= NULL;
+> +
+> +	rcu_read_lock();
+> +	rth = ip_route_output_key_hash_rcu(net, fl4, &res, mp_hash);
+>  	rcu_read_unlock();
+> +
+>  	return rth;
+>  }
+> -EXPORT_SYMBOL_GPL(__ip_route_output_key_hash);
+> +EXPORT_SYMBOL_GPL(ip_route_output_key_hash);
+>  
+> 
+> So the third parameter to ip_route_output_key_hash_rcu() should be skb*, and the fourth parameter should be fib_result *. However, you do not pass the skb parameter 
+> when calling ip_route_output_key_hash_rcu() in 
+> ip_route_output_key_hash()  (in fact you don't use it at all),  and you pass mp_hash as the fourth parameter.
 
-I actually prefer to put the possible values in the sysfs documentation
-files instead of in a UAPI header. Will submit a v2.
--- 
-Florian
+Yep, it's a problem with the forward port of the first round of patches.
+
+Roopa: in include/net/route.h, __ip_route_output_key_hash should be
+removed as well.
