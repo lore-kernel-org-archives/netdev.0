@@ -1,25 +1,77 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v7 net-next 17/17] net: qualcomm: add QCA7000 UART
- driver
-Date: Thu, 25 May 2017 13:13:49 -0400 (EDT)
-Message-ID: <20170525.131349.1007553087594728300.davem@davemloft.net>
-References: <50e5a442-777f-1516-4e94-16db7fa28f8b@i2se.com>
-        <1495618181-1204-1-git-send-email-stefan.wahren@i2se.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: robh+dt@kernel.org, mark.rutland@arm.com,
-        gregkh@linuxfoundation.org, jslaby@suse.com, LinoSanfilippo@gmx.de,
-        kubakici@wp.pl, devicetree@vger.kernel.org, netdev@vger.kernel.org,
-        linux-serial@vger.kernel.org, linux-kernel@vger.kernel.org
-To: stefan.wahren@i2se.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1495618181-1204-1-git-send-email-stefan.wahren@i2se.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Davide Caratti <dcaratti@redhat.com>
+Subject: [PATCH net v2] sctp: fix ICMP processing if skb is non-linear
+Date: Thu, 25 May 2017 19:14:56 +0200
+Message-ID: <d0cd7c2e4b9329ec23e48aed94bf2fbf94554f44.1495730857.git.dcaratti@redhat.com>
+Cc: Xin Long <lucien.xin@gmail.com>,
+        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+        "David S . Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:56914 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1031883AbdEYRPL (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 25 May 2017 13:15:11 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+sometimes ICMP replies to INIT chunks are ignored by the client, even if
+the encapsulated SCTP headers match an open socket. This happens when the
+ICMP packet is carried by a paged skb: use skb_header_pointer() to read
+packet contents beyond the SCTP header, so that chunk header and initiate
+tag are validated correctly.
 
-When you submit a new version of a patch within a patch series, you must
-always resubmit the entire series not just the patches which change.
+v2:
+- don't use skb_header_pointer() to read the transport header, since
+  icmp_socket_deliver() already puts these 8 bytes in the linear area.
+- change commit message to make specific reference to INIT chunks.
 
-Thank you.
+Signed-off-by: Davide Caratti <dcaratti@redhat.com>
+---
+ net/sctp/input.c | 16 +++++++++-------
+ 1 file changed, 9 insertions(+), 7 deletions(-)
+
+diff --git a/net/sctp/input.c b/net/sctp/input.c
+index 0e06a27..ba9ad32 100644
+--- a/net/sctp/input.c
++++ b/net/sctp/input.c
+@@ -473,15 +473,14 @@ struct sock *sctp_err_lookup(struct net *net, int family, struct sk_buff *skb,
+ 			     struct sctp_association **app,
+ 			     struct sctp_transport **tpp)
+ {
++	struct sctp_init_chunk *chunkhdr, _chunkhdr;
+ 	union sctp_addr saddr;
+ 	union sctp_addr daddr;
+ 	struct sctp_af *af;
+ 	struct sock *sk = NULL;
+ 	struct sctp_association *asoc;
+ 	struct sctp_transport *transport = NULL;
+-	struct sctp_init_chunk *chunkhdr;
+ 	__u32 vtag = ntohl(sctphdr->vtag);
+-	int len = skb->len - ((void *)sctphdr - (void *)skb->data);
+ 
+ 	*app = NULL; *tpp = NULL;
+ 
+@@ -516,13 +515,16 @@ struct sock *sctp_err_lookup(struct net *net, int family, struct sk_buff *skb,
+ 	 * discard the packet.
+ 	 */
+ 	if (vtag == 0) {
+-		chunkhdr = (void *)sctphdr + sizeof(struct sctphdr);
+-		if (len < sizeof(struct sctphdr) + sizeof(sctp_chunkhdr_t)
+-			  + sizeof(__be32) ||
++		/* chunk header + first 4 octects of init header */
++		chunkhdr = skb_header_pointer(skb, skb_transport_offset(skb) +
++					      sizeof(struct sctphdr),
++					      sizeof(struct sctp_chunkhdr) +
++					      sizeof(__be32), &_chunkhdr);
++		if (!chunkhdr ||
+ 		    chunkhdr->chunk_hdr.type != SCTP_CID_INIT ||
+-		    ntohl(chunkhdr->init_hdr.init_tag) != asoc->c.my_vtag) {
++		    ntohl(chunkhdr->init_hdr.init_tag) != asoc->c.my_vtag)
+ 			goto out;
+-		}
++
+ 	} else if (vtag != asoc->c.peer_vtag) {
+ 		goto out;
+ 	}
+-- 
+2.9.4
