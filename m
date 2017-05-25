@@ -1,85 +1,74 @@
-From: Tariq Toukan <tariqt@mellanox.com>
-Subject: Re: [PATCH net] net/mlx4: Fix the check in attaching steering rules
-Date: Thu, 25 May 2017 17:26:27 +0300
-Message-ID: <e72d59ca-5145-2621-56cb-325501c07a14@mellanox.com>
-References: <1495543807-14956-1-git-send-email-tariqt@mellanox.com>
- <20170524.153625.1291847374941790972.davem@davemloft.net>
- <e6fc81fe-5eb6-0a6b-18df-90a018b687da@mellanox.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] net: rps: Add the rfs_needed check when record
+ flow hash
+Date: Thu, 25 May 2017 07:55:03 -0700
+Message-ID: <1495724103.6465.98.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1495611359-118199-1-git-send-email-gfree.wind@vip.163.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: gfree.wind@vip.163.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ve1eur01on0059.outbound.protection.outlook.com ([104.47.1.59]:21903
-        "EHLO EUR01-VE1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S966338AbdEYO0f (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 25 May 2017 10:26:35 -0400
-In-Reply-To: <e6fc81fe-5eb6-0a6b-18df-90a018b687da@mellanox.com>
-Content-Language: en-US
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:35168 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1757320AbdEYOzH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 25 May 2017 10:55:07 -0400
+Received: by mail-pf0-f193.google.com with SMTP id u26so39786100pfd.2
+        for <netdev@vger.kernel.org>; Thu, 25 May 2017 07:55:07 -0700 (PDT)
+In-Reply-To: <1495611359-118199-1-git-send-email-gfree.wind@vip.163.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, 2017-05-24 at 15:35 +0800, gfree.wind@vip.163.com wrote:
+> From: Gao Feng <gfree.wind@vip.163.com>
+> 
+> There are two spots which invoke the sock_rps_record_flow_hash, one is
+> sock_rps_record_flow which has already checked rfs_needed. But the other
+> is tun_flow_update which doesn't check if the rfs is enabled.
+> 
+> Now rename the original function sock_rps_record_flow_hash to
+> _sock_rps_record_flow_hash, and add one helper func which checks the
+> rfs_needed.
+> 
+> The perf result of two functions is following.
+> When rfs is disabled, it could enhance 58% performance with checking
+> rfs_needed.
+> When rfs is enabled, the performanc is lower than current about 29%.
+> 
+> Because the RFS is disabled by default. I think it is useful to tun
+> driver.
+> 
+> The follow is test statistics.
 
+> Signed-off-by: Gao Feng <gfree.wind@vip.163.com>
+> ---
+>  include/net/sock.h | 12 ++++++++++--
+>  1 file changed, 10 insertions(+), 2 deletions(-)
+> 
+> diff --git a/include/net/sock.h b/include/net/sock.h
+> index 3467d9e..584bb9a 100644
+> --- a/include/net/sock.h
+> +++ b/include/net/sock.h
+> @@ -910,7 +910,7 @@ static inline void sk_incoming_cpu_update(struct sock *sk)
+>  	sk->sk_incoming_cpu = raw_smp_processor_id();
+>  }
+>  
+> -static inline void sock_rps_record_flow_hash(__u32 hash)
+> +static inline void _sock_rps_record_flow_hash(__u32 hash)
+>  {
+>  #ifdef CONFIG_RPS
+>  	struct rps_sock_flow_table *sock_flow_table;
+> @@ -922,6 +922,14 @@ static inline void sock_rps_record_flow_hash(__u32 hash)
+>  #endif
+>  }
+>  
+> +static inline void sock_rps_record_flow_hash(__u32 hash)
+> +{
+> +#ifdef CONFIG_RPS
+> +	if (static_key_false(&rfs_needed))
+> +		_sock_rps_record_flow_hash(hash);
+> +#endif
 
-On 25/05/2017 4:07 PM, Tariq Toukan wrote:
->
-> On 24/05/2017 10:36 PM, David Miller wrote:
->> From: Tariq Toukan <tariqt@mellanox.com>
->> Date: Tue, 23 May 2017 15:50:07 +0300
->>
->>> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c 
->>> b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
->>> index ae5fdc2df654..00a7cd3dcc2e 100644
->>> --- a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
->>> +++ b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
->>> @@ -1562,8 +1562,7 @@ static int mlx4_en_flow_replace(struct 
->>> net_device *dev,
->>>           qpn = priv->drop_qp.qpn;
->>>       else if (cmd->fs.ring_cookie & EN_ETHTOOL_QP_ATTACH) {
->>>           qpn = cmd->fs.ring_cookie & (EN_ETHTOOL_QP_ATTACH - 1);
->>> -        if (qpn < priv->rss_map.base_qpn ||
->>> -            qpn >= priv->rss_map.base_qpn + priv->rx_ring_num) {
->>> +        if (!mlx4_qp_lookup(priv->mdev->dev, qpn)) {
->>>               en_warn(priv, "rxnfc: QP (0x%x) doesn't exist\n", qpn);
->>>               return -EINVAL;
->>>           }
->>> diff --git a/drivers/net/ethernet/mellanox/mlx4/qp.c 
->>> b/drivers/net/ethernet/mellanox/mlx4/qp.c
->>> index 2d6abd4662b1..1eff2fe32a8b 100644
->>> --- a/drivers/net/ethernet/mellanox/mlx4/qp.c
->>> +++ b/drivers/net/ethernet/mellanox/mlx4/qp.c
->>> @@ -384,6 +384,20 @@ static void mlx4_qp_free_icm(struct mlx4_dev 
->>> *dev, int qpn)
->>>           __mlx4_qp_free_icm(dev, qpn);
->>>   }
->>>   +struct mlx4_qp *mlx4_qp_lookup(struct mlx4_dev *dev, u32 qpn)
->>   ...
->>> +EXPORT_SYMBOL_GPL(mlx4_qp_lookup);
->>> +
->>
->> This phony separation between MLX4_CORE and MLX4_EN is the only reason
->> you need this unreasonable symbol export.
->>
->> I doubt you'll ever use this function anywhere outside of en_ethtool.c
->> so this export is wasted space in the kernel image. Probably compiler
->> could inline it decently as well.
->>
->> So find another way to do this without the symbol export.  I don't
->> really want to hear any stories about "clean separation" or whatever.
->> What's happening here is exactly why this separate modules scheme
->> results in ugly unreasonable code, and unnecessary gymnastics and
->> wasted object space just to make routines available in one place from
->> another.
->
-> I see. I'll remove this EXPORT_SYMBOL_GPL and send a re-spin shortly.
-> Function will still be accessible within EN driver, as mlx4_en.h 
-> includes qp.h.
->
-Hmm, my bad, this doesn't work.
-Please ignore V2.
-
-> Regards,
-> Tariq
->
+Seems that after your patch, sock_rps_record_flow_hash() is no longer
+needed/used.
