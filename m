@@ -1,124 +1,104 @@
 From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: [PATCH net-next v2 4/8] net: ipv4: Convert inet_rtm_getroute to rcu versions of route lookup
-Date: Thu, 25 May 2017 10:42:36 -0700
-Message-ID: <1495734160-47659-5-git-send-email-roopa@cumulusnetworks.com>
+Subject: [PATCH net-next v2 8/8] net: ipv6: RTM_GETROUTE: return matched fib result when requested
+Date: Thu, 25 May 2017 10:42:40 -0700
+Message-ID: <1495734160-47659-9-git-send-email-roopa@cumulusnetworks.com>
 References: <1495734160-47659-1-git-send-email-roopa@cumulusnetworks.com>
 Cc: netdev@vger.kernel.org, nikolay@cumulusnetworks.com
 To: davem@davemloft.net, dsahern@gmail.com, rami.rosen@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f177.google.com ([209.85.192.177]:34304 "EHLO
-        mail-pf0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S969967AbdEYRnI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 25 May 2017 13:43:08 -0400
-Received: by mail-pf0-f177.google.com with SMTP id 9so173477869pfj.1
-        for <netdev@vger.kernel.org>; Thu, 25 May 2017 10:43:08 -0700 (PDT)
+Received: from mail-pf0-f179.google.com ([209.85.192.179]:34916 "EHLO
+        mail-pf0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S969966AbdEYRnK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 25 May 2017 13:43:10 -0400
+Received: by mail-pf0-f179.google.com with SMTP id n23so173595072pfb.2
+        for <netdev@vger.kernel.org>; Thu, 25 May 2017 10:43:10 -0700 (PDT)
 In-Reply-To: <1495734160-47659-1-git-send-email-roopa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Ahern <dsahern@gmail.com>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
 
-Convert inet_rtm_getroute to use ip_route_input_rcu and
-ip_route_output_key_hash_rcu passing the fib_result arg to both.
-The rcu lock is held through the creation of the response, so the
-rtable/dst does not need to be attached to the skb and is passed
-to rt_fill_info directly.
+This patch adds support to return matched fib result when RTM_F_FIB_MATCH
+flag is specified in RTM_GETROUTE request. This is useful for user-space
+applications/controllers wanting to query a matching route.
 
-In converting from ip_route_output_key to ip_route_output_key_hash_rcu
-the xfrm_lookup_route in ip_route_output_flow is dropped since
-flowi4_proto is not set for a route get request.
-
-Signed-off-by: David Ahern <dsahern@gmail.com>
 Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
 ---
- net/ipv4/route.c | 21 +++++++++++++--------
- 1 file changed, 13 insertions(+), 8 deletions(-)
+ net/ipv6/route.c | 34 ++++++++++++++++++++++++++--------
+ 1 file changed, 26 insertions(+), 8 deletions(-)
 
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index d8fcecc..1fa9127 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -2534,11 +2534,11 @@ struct rtable *ip_route_output_flow(struct net *net, struct flowi4 *flp4,
- }
- EXPORT_SYMBOL_GPL(ip_route_output_flow);
- 
-+/* called with rcu_read_lock held */
- static int rt_fill_info(struct net *net,  __be32 dst, __be32 src, u32 table_id,
- 			struct flowi4 *fl4, struct sk_buff *skb, u32 portid,
--			u32 seq)
-+			u32 seq, struct rtable *rt)
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 80bda31..2fe84bd 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -3607,11 +3607,13 @@ static int inet6_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh,
  {
--	struct rtable *rt = skb_rtable(skb);
- 	struct rtmsg *r;
- 	struct nlmsghdr *nlh;
- 	unsigned long expires = 0;
-@@ -2653,6 +2653,7 @@ static int inet_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh,
  	struct net *net = sock_net(in_skb->sk);
- 	struct rtmsg *rtm;
  	struct nlattr *tb[RTA_MAX+1];
-+	struct fib_result res = {};
- 	struct rtable *rt = NULL;
- 	struct flowi4 fl4;
- 	__be32 dst = 0;
-@@ -2709,10 +2710,12 @@ static int inet_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh,
- 	fl4.flowi4_mark = mark;
- 	fl4.flowi4_uid = uid;
++	int err, iif = 0, oif = 0;
++	struct dst_entry *dst;
+ 	struct rt6_info *rt;
+ 	struct sk_buff *skb;
+ 	struct rtmsg *rtm;
+ 	struct flowi6 fl6;
+-	int err, iif = 0, oif = 0;
++	bool fibmatch;
  
-+	rcu_read_lock();
-+
- 	if (iif) {
- 		struct net_device *dev;
+ 	err = nlmsg_parse(nlh, sizeof(*rtm), tb, RTA_MAX, rtm_ipv6_policy,
+ 			  extack);
+@@ -3622,6 +3624,7 @@ static int inet6_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh,
+ 	memset(&fl6, 0, sizeof(fl6));
+ 	rtm = nlmsg_data(nlh);
+ 	fl6.flowlabel = ip6_make_flowinfo(rtm->rtm_tos, 0);
++	fibmatch = !!(rtm->rtm_flags & RTM_F_FIB_MATCH);
  
--		dev = __dev_get_by_index(net, iif);
-+		dev = dev_get_by_index_rcu(net, iif);
- 		if (!dev) {
- 			err = -ENODEV;
- 			goto errout_free;
-@@ -2721,14 +2724,14 @@ static int inet_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh,
- 		skb->protocol	= htons(ETH_P_IP);
- 		skb->dev	= dev;
- 		skb->mark	= mark;
--		err = ip_route_input(skb, dst, src, rtm->rtm_tos, dev);
-+		err = ip_route_input_rcu(skb, dst, src, rtm->rtm_tos,
-+					 dev, &res);
+ 	if (tb[RTA_SRC]) {
+ 		if (nla_len(tb[RTA_SRC]) < sizeof(struct in6_addr))
+@@ -3667,12 +3670,23 @@ static int inet6_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh,
+ 		if (!ipv6_addr_any(&fl6.saddr))
+ 			flags |= RT6_LOOKUP_F_HAS_SADDR;
  
- 		rt = skb_rtable(skb);
- 		if (err == 0 && rt->dst.error)
- 			err = -rt->dst.error;
+-		rt = (struct rt6_info *)ip6_route_input_lookup(net, dev, &fl6,
+-							       flags);
++		if (!fibmatch)
++			dst = ip6_route_input_lookup(net, dev, &fl6, flags);
  	} else {
--		rt = ip_route_output_key(net, &fl4);
--
-+		rt = ip_route_output_key_hash_rcu(net, &fl4, &res, skb);
- 		err = 0;
- 		if (IS_ERR(rt))
- 			err = PTR_ERR(rt);
-@@ -2737,7 +2740,6 @@ static int inet_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh,
- 	if (err)
- 		goto errout_free;
+ 		fl6.flowi6_oif = oif;
  
--	skb_dst_set(skb, &rt->dst);
- 	if (rtm->rtm_flags & RTM_F_NOTIFY)
- 		rt->rt_flags |= RTCF_NOTIFY;
- 
-@@ -2745,15 +2747,18 @@ static int inet_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh,
- 		table_id = rt->rt_table_id;
- 
- 	err = rt_fill_info(net, dst, src, table_id, &fl4, skb,
--			   NETLINK_CB(in_skb).portid, nlh->nlmsg_seq);
-+			   NETLINK_CB(in_skb).portid, nlh->nlmsg_seq, rt);
- 	if (err < 0)
- 		goto errout_free;
- 
-+	rcu_read_unlock();
+-		rt = (struct rt6_info *)ip6_route_output(net, NULL, &fl6);
++		if (!fibmatch)
++			dst = ip6_route_output(net, NULL, &fl6);
++	}
 +
- 	err = rtnl_unicast(skb, net, NETLINK_CB(in_skb).portid);
- errout:
- 	return err;
++	if (fibmatch)
++		dst = ip6_route_lookup(net, &fl6, 0);
++
++	rt = container_of(dst, struct rt6_info, dst);
++	if (rt->dst.error) {
++		err = rt->dst.error;
++		ip6_rt_put(rt);
++		goto errout;
+ 	}
  
- errout_free:
-+	rcu_read_unlock();
- 	kfree_skb(skb);
- 	goto errout;
- }
+ 	if (rt == net->ipv6.ip6_null_entry) {
+@@ -3689,10 +3703,14 @@ static int inet6_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh,
+ 	}
+ 
+ 	skb_dst_set(skb, &rt->dst);
+-
+-	err = rt6_fill_node(net, skb, rt, &fl6.daddr, &fl6.saddr, iif,
+-			    RTM_NEWROUTE, NETLINK_CB(in_skb).portid,
+-			    nlh->nlmsg_seq, 0);
++	if (fibmatch)
++		err = rt6_fill_node(net, skb, rt, NULL, NULL, iif,
++				    RTM_NEWROUTE, NETLINK_CB(in_skb).portid,
++				    nlh->nlmsg_seq, 0);
++	else
++		err = rt6_fill_node(net, skb, rt, &fl6.daddr, &fl6.saddr, iif,
++				    RTM_NEWROUTE, NETLINK_CB(in_skb).portid,
++				    nlh->nlmsg_seq, 0);
+ 	if (err < 0) {
+ 		kfree_skb(skb);
+ 		goto errout;
 -- 
 1.9.1
