@@ -1,33 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv2 net-next 1/5] net: dsa: mv88e6xxx: Move phy functions
- into phy.[ch]
-Date: Thu, 25 May 2017 12:35:23 -0400 (EDT)
-Message-ID: <20170525.123523.1266499465656377430.davem@davemloft.net>
-References: <1495573486-31827-1-git-send-email-andrew@lunn.ch>
-        <1495573486-31827-2-git-send-email-andrew@lunn.ch>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next v2 0/3] net: phy: Create sysfs reciprocal links
+ for attached_dev/phydev
+Date: Thu, 25 May 2017 18:42:27 +0200
+Message-ID: <20170525164227.GB18357@lunn.ch>
+References: <20170525162143.18319-1-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: vivien.didelot@savoirfairelinux.com, netdev@vger.kernel.org
-To: andrew@lunn.ch
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:59006 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751861AbdEYQfY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 25 May 2017 12:35:24 -0400
-In-Reply-To: <1495573486-31827-2-git-send-email-andrew@lunn.ch>
+Received: from vps0.lunn.ch ([178.209.37.122]:44640 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S936076AbdEYQma (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 25 May 2017 12:42:30 -0400
+Content-Disposition: inline
+In-Reply-To: <20170525162143.18319-1-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andrew Lunn <andrew@lunn.ch>
-Date: Tue, 23 May 2017 23:04:42 +0200
-
-> The upcoming SERDES support will need to make use of PHY functions. Move
-> them out into a file of there own. No code changes.
+On Thu, May 25, 2017 at 09:21:40AM -0700, Florian Fainelli wrote:
+> Hi David, Andrew,
 > 
-> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+> This patch series addresses a device topology shortcoming where a program
+> scanning /sys would not be able to establish a mapping between the network
+> device and the PHY device.
+> 
+> In the process it turned out that no PHY device documentation existed for
+> sysfs attributes.
+> 
+> Thanks!
 
-Please unexport mv88e6xxx_phy_page_get and mv88e6xxx_phy_page_put, as noted
-by Vivien they are not used outside of phy.c
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 
-Thank you.
+    Andrew
