@@ -1,45 +1,37 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] tcp: better validation of received ack
- sequences
-Date: Thu, 25 May 2017 09:50:51 -0700
-Message-ID: <1495731051.6465.100.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <fbb92f49-5eca-f411-dcab-253d2a222623@science.ru.nl>
-         <1495578286.6465.90.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20170525.124817.1960721450872387047.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] geneve: fix fill_info when using
+ collect_metadata
+Date: Thu, 25 May 2017 12:51:50 -0400 (EDT)
+Message-ID: <20170525.125150.1579581244845816863.davem@davemloft.net>
+References: <20170523223727.15307-1-e@erig.me>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: p.fiterau-brostean@science.ru.nl, netdev@vger.kernel.org,
-        F.Vaandrager@cs.ru.nl, ncardwell@google.com, ycheng@google.com,
-        soheil@google.com
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, pshelar@ovn.org
+To: e@erig.me
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:33641 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S942744AbdEYQu6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 25 May 2017 12:50:58 -0400
-Received: by mail-pf0-f196.google.com with SMTP id f27so40373675pfe.0
-        for <netdev@vger.kernel.org>; Thu, 25 May 2017 09:50:58 -0700 (PDT)
-In-Reply-To: <20170525.124817.1960721450872387047.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([184.105.139.130]:59176 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1034889AbdEYQwC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 25 May 2017 12:52:02 -0400
+In-Reply-To: <20170523223727.15307-1-e@erig.me>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2017-05-25 at 12:48 -0400, David Miller wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Tue, 23 May 2017 15:24:46 -0700
+From: Eric Garver <e@erig.me>
+Date: Tue, 23 May 2017 18:37:27 -0400
+
+> Since 9b4437a5b870 ("geneve: Unify LWT and netdev handling.") fill_info
+> does not return UDP_ZERO_CSUM6_RX when using COLLECT_METADATA. This is
+> because it uses ip_tunnel_info_af() with the device level info, which is
+> not valid for COLLECT_METADATA.
 > 
-> > Add a FLAG_NO_CHALLENGE_ACK so that tcp_rcv_state_process()
-> > can choose to send a challenge ACK and discard the packet instead
-> > of wrongly change socket state.
+> Fix by checking for the presence of the actual sockets.
 > 
-> Applied, but the tests end up being double-negatives so it might
-> have been easier to understand if the flag was a positive rather
-> than a negative value.
+> Fixes: 9b4437a5b870 ("geneve: Unify LWT and netdev handling.")
+> Signed-off-by: Eric Garver <e@erig.me>
 
-I thought of this (and was in fact one of the patch I sent for internal
-review at Google), but this was changing all tcp_ack() calls instead of
-a single one ?
+Please target bug fixes at 'net' not 'net-next' unless the bug only
+exists in 'net-next'.
 
-Or maybe I am missing some easier way ?
-
-Thanks
+I've applied this to 'net' and queued it up for -stable.
