@@ -1,57 +1,64 @@
-From: Lin Zhang <xiaolou4617@gmail.com>
-Subject: [PATCH] net: llc: add lock_sock in llc_ui_bind to avoid a race condition
-Date: Thu, 25 May 2017 14:07:18 +0800
-Message-ID: <1495692438-9781-1-git-send-email-xiaolou4617@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Lin Zhang <xiaolou4617@gmail.com>
-To: davem@davemloft.net
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next v2 0/8] mlxsw: Support firmware flash
+Date: Thu, 25 May 2017 08:15:12 +0200
+Message-ID: <20170525061512.GA1909@nanopsycho>
+References: <20170523195630.6460-1-jiri@resnulli.us>
+ <20170524.163328.672261790569871029.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, idosch@mellanox.com, yotamg@mellanox.com,
+        mlxsw@mellanox.com, Yuval.Mintz@cavium.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:36674 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1162203AbdEYGH0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 25 May 2017 02:07:26 -0400
+Received: from mail-wr0-f181.google.com ([209.85.128.181]:34192 "EHLO
+        mail-wr0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1162865AbdEYGPP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 25 May 2017 02:15:15 -0400
+Received: by mail-wr0-f181.google.com with SMTP id j27so12557187wre.1
+        for <netdev@vger.kernel.org>; Wed, 24 May 2017 23:15:15 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20170524.163328.672261790569871029.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There is a race condition in llc_ui_bind if two or more processes/threads 
-try to bind a same socket.
+Wed, May 24, 2017 at 10:33:28PM CEST, davem@davemloft.net wrote:
+>From: Jiri Pirko <jiri@resnulli.us>
+>Date: Tue, 23 May 2017 21:56:22 +0200
+>
+>> From: Jiri Pirko <jiri@mellanox.com>
+>> 
+>> Add support for device firmware flash on mlxsw spectrum. The firmware files
+>> are expected to be in the Mellanox Firmware Archive version 2 (MFA2)
+>> format.
+>> 
+>> The firmware flash is triggered on driver initialization time if the device
+>> firmware version does not meet the minimum firmware version supported by
+>> the driver.
+>> 
+>> Currently, to activate the newly flashed firmware, the user needs to
+>> reboot his system.
+>> 
+>> The first patch introduces the mlxfw module, which implements common logic
+>> needed for the firmware flash process on Mellanox products, such as the
+>> MFA2 format parsing and the firmware flash state machine logic. As the
+>> module implements common logic which will be needed by various different
+>> Mellanox drivers, it defines a set of callbacks needed to interact with the
+>> specific device.
+>> 
+>> Patches 1-5 implement the needed mlxfw callbacks in the mlxsw spectrum
+>> driver.
+>> 
+>> Patches 6 and 7 add boot-time firmware upgrade on the mlxsw spectrum
+>> driver.
+>> 
+>> Patch 8 adds a fix needed for new firmware versions.
+>
+>Series applied, although I hope you sort out the user interface
+>soon otherwise most of this is completely dead unused code.
 
-If more processes/threads bind a same socket success that will lead to 
-two problems, one is this action is not what we expected, another is 
-will lead to kernel in unstable status or oops(in my simple test case, 
-cause llc2.ko can't unload).
+No dead code. The flashing is used internally from the driver on the
+modprobe time. We are looking into the user interface at the moment.
+Thanks.
 
-The current code is test SOCK_ZAPPED bit to avoid a process to 
-bind a same socket twice but that is can't avoid more processes/threads 
-try to bind a same socket at the same time.
-
-So, add lock_sock in llc_ui_bind like others, such as llc_ui_connect.
-
-Signed-off-by: Lin Zhang <xiaolou4617@gmail.com>
----
- net/llc/af_llc.c | 3 +++
- 1 file changed, 3 insertions(+)
-
-diff --git a/net/llc/af_llc.c b/net/llc/af_llc.c
-index 8364fe5..c38d16f 100644
---- a/net/llc/af_llc.c
-+++ b/net/llc/af_llc.c
-@@ -311,6 +311,8 @@ static int llc_ui_bind(struct socket *sock, struct sockaddr *uaddr, int addrlen)
- 	int rc = -EINVAL;
- 
- 	dprintk("%s: binding %02X\n", __func__, addr->sllc_sap);
-+
-+	lock_sock(sk);
- 	if (unlikely(!sock_flag(sk, SOCK_ZAPPED) || addrlen != sizeof(*addr)))
- 		goto out;
- 	rc = -EAFNOSUPPORT;
-@@ -382,6 +384,7 @@ static int llc_ui_bind(struct socket *sock, struct sockaddr *uaddr, int addrlen)
- out_put:
- 	llc_sap_put(sap);
- out:
-+	release_sock(sk);
- 	return rc;
- }
- 
--- 
-1.8.3.1
+>
+>Thanks.
