@@ -1,80 +1,75 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next 8/8] net: ipv6: RTM_GETROUTE: return matched fib
- result when requested
-Date: Thu, 25 May 2017 08:54:57 -0700
-Message-ID: <CAJieiUh+GAtOGZv4UU_gcn5isA6DSqaFj_EXzA24qBK7vJz4AQ@mail.gmail.com>
-References: <1495649951-30417-1-git-send-email-roopa@cumulusnetworks.com>
- <1495649951-30417-9-git-send-email-roopa@cumulusnetworks.com> <2106987d-7c19-b739-0103-97af3a3071da@gmail.com>
+From: Myron Stowe <mstowe@redhat.com>
+Subject: Re: [PATCH 0/2] Replace driver's usage of hard-coded device IDs to
+ #defines
+Date: Thu, 25 May 2017 09:56:55 -0600
+Message-ID: <20170525095655.3a577ea2@zim>
+References: <20170524224734.24221.33787.stgit@amt.stowe>
+        <20170524.200249.1492095559302424098.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-To: David Ahern <dsahern@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f52.google.com ([209.85.213.52]:34521 "EHLO
-        mail-vk0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S936574AbdEYPy6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 25 May 2017 11:54:58 -0400
-Received: by mail-vk0-f52.google.com with SMTP id y190so93937665vkc.1
-        for <netdev@vger.kernel.org>; Thu, 25 May 2017 08:54:58 -0700 (PDT)
-In-Reply-To: <2106987d-7c19-b739-0103-97af3a3071da@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: myron.stowe@redhat.com, linux-pci@vger.kernel.org,
+        netdev@vger.kernel.org, bhelgaas@google.com, saeedm@mellanox.com,
+        noaos@mellanox.com, tariqt@mellanox.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <20170524.200249.1492095559302424098.davem@davemloft.net>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, May 24, 2017 at 7:35 PM, David Ahern <dsahern@gmail.com> wrote:
-> Since you have to do a v2 ...
->
-> On 5/24/17 12:19 PM, Roopa Prabhu wrote:
->> @@ -3622,6 +3623,7 @@ static int inet6_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh,
->>       memset(&fl6, 0, sizeof(fl6));
->>       rtm = nlmsg_data(nlh);
->>       fl6.flowlabel = ip6_make_flowinfo(rtm->rtm_tos, 0);
->> +     fibmatch = (rtm->rtm_flags & RTM_F_FIB_MATCH) ? true : false;
-> this is typically done as !!(rtm->rtm_flags & RTM_F_FIB_MATCH)
+On Wed, 24 May 2017 20:02:49 -0400 (EDT)
+David Miller <davem@davemloft.net> wrote:
 
-ack,
+> From: Myron Stowe <myron.stowe@redhat.com>
+> Date: Wed, 24 May 2017 16:47:34 -0600
+> 
+> > Noa Osherovich introduced a series of new Mellanox device ID
+> > definitions to help differentiate specific controllers that needed
+> > INTx masking quirks [1].
+> > 
+> > Bjorn Helgaas followed on, using the device ID definitions Noa
+> > provided to replace hard-coded values within the mxl4 ID table [2].
+> >     
+> > This patch continues along similar lines, adding a few additional
+> > Mellanox device ID definitions and converting the net/mlx5e
+> > driver's mlx5 ID table to use the defines so tools like 'grep' and
+> > 'cscope' can be used to help identify relationships with other
+> > aspects (such as INTx masking).  
+> 
+> If you're adding pci_ids.h defines, it's only valid to do so if you
+> actually use the defines in more than one location.
+> 
+> This patch series is not doing that.
 
+Hi David,
 
->>
->>       if (tb[RTA_SRC]) {
->>               if (nla_len(tb[RTA_SRC]) < sizeof(struct in6_addr))
->> @@ -3667,12 +3669,27 @@ static int inet6_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh,
->>               if (!ipv6_addr_any(&fl6.saddr))
->>                       flags |= RT6_LOOKUP_F_HAS_SADDR;
->>
->> -             rt = (struct rt6_info *)ip6_route_input_lookup(net, dev, &fl6,
->> -                                                            flags);
->> +             if (!fibmatch)
->> +                     rt = (struct rt6_info *)ip6_route_input_lookup(net, dev,
->> +                                                                    &fl6,
->> +                                                                    flags);
->>       } else {
->>               fl6.flowi6_oif = oif;
->>
->> -             rt = (struct rt6_info *)ip6_route_output(net, NULL, &fl6);
->> +             if (!fibmatch)
->> +                     rt = (struct rt6_info *)ip6_route_output_flags(net,
->> +                                                                    NULL,
->> +                                                                    &fl6, 0);
->> +     }
->> +
->> +     if (fibmatch) {
->> +             rt = (struct rt6_info *)ip6_route_lookup(net, &fl6, 0);
->> +             if (rt->dst.error) {
->> +                     err = rt->dst.error;
->> +                     ip6_rt_put(rt);
->> +                     goto errout;
->> +             }
->> +
->
-> I'd prefer to see the typecasts go away and use container_of to go from
-> dst_entry to rt6_info. I realize some of this is movement of existing
-> code, but better to clean up as we go.
->
+Yes, now that you mention that again I do vaguely remember past
+conversations stating similar constraints which is a little odd as
+Noa's series did exactly that.  It was Bjorn, in a separate patch, that
+made the connection to the driver with commit c19e4b9037f
+("net/mlx4_core: Use device ID defines") [1] and even after such, some
+of the introduced #defines are still currently singular in usage.
 
-ack. But that is pretty much all of ipv6 code. so, seems better done
-with an incremental cleanup patch.
+Anyway, the part I'm interested in is creating a more transparent
+association between the Mellanox controllers that need the INTx masking
+quirk and their drivers, something that remains very opaque currently
+for a few of the remaining instances (PCI_DEVICE_ID_MELLANOX_CONNECTIB,
+PCI_DEVICE_ID_MELLANOX_CONNECTX4, and
+PCI_DEVICE_ID_MELLANOX_CONNECTX4_LX).
+
+I'd like to hear back from others as to whether or not there is truly
+concern about adding the #defines such as I submitted with singular
+usages and if so I can re-submit a more focused patch which would
+effectively be the first three substitutions in "[PATCH 2/2] net/mlx5e:
+Use device ID defines".
 
 
-thanks for the review.
+[1] Perhaps Noa's submission had a similar discussion as while it was
+a separate series from which Bjorn then made the connection to the
+driver, all the patches came in via the same merge commit 25831571419
+("Merge branch 'pci/virtualization' into next").
+
+
+ Thanks for your
+feedback,
+ Myron
