@@ -1,92 +1,85 @@
-From: Felix Manlunas <felix.manlunas@cavium.com>
-Subject: [PATCH net-next] liquidio: fix rare pci_driver.probe failure of VF
- driver
-Date: Thu, 25 May 2017 10:42:14 -0700
-Message-ID: <20170525174214.GA1444@felix-thinkpad.cavium.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
-        derek.chickles@cavium.com, satananda.burla@cavium.com,
-        prasad.kanneganti@cavium.com
-To: davem@davemloft.net
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: [PATCH net-next v2 0/8] net: extend RTM_GETROUTE to return fib result
+Date: Thu, 25 May 2017 10:42:32 -0700
+Message-ID: <1495734160-47659-1-git-send-email-roopa@cumulusnetworks.com>
+Cc: netdev@vger.kernel.org, nikolay@cumulusnetworks.com
+To: davem@davemloft.net, dsahern@gmail.com, rami.rosen@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-cys01nam02on0074.outbound.protection.outlook.com ([104.47.37.74]:9486
-        "EHLO NAM02-CY1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S966879AbdEYRmh (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 25 May 2017 13:42:37 -0400
-Content-Disposition: inline
+Received: from mail-pf0-f171.google.com ([209.85.192.171]:36694 "EHLO
+        mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S966879AbdEYRnE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 25 May 2017 13:43:04 -0400
+Received: by mail-pf0-f171.google.com with SMTP id m17so173582302pfg.3
+        for <netdev@vger.kernel.org>; Thu, 25 May 2017 10:43:04 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Prasad Kanneganti <prasad.kanneganti@cavium.com>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
 
-There's a rare pci_driver.probe failure of the VF driver that's caused by
-PF/VF handshake going out of sync.  The culprit is octeon_mbox_write() who
-ignores an ack timeout condition; it just keeps unconditionally writing all
-elements of mbox_cmd->data[] even when the other side is not ready for
-them.  Fix it by making each write of mbox_cmd->data[i] conditional to
-having previously received an ack.
+This series adds a new RTM_F_FIB_MATCH flag to return matched fib result
+with RTM_GETROUTE. This is useful for applications and protocols in
+userspace wanting to query the selected route.
 
-Also fix the octeon_mbox_state enum such that each state gets a unique
-value.  Also add ULL suffix to numeric literals in macro definitions.
+examples (with patched iproute2):
+ipv4:
+----
+$ip route show
+default via 192.168.0.2 dev eth0
+10.0.14.0/24
+        nexthop via 172.16.0.3  dev dummy0 weight 1
+        nexthop via 172.16.1.3  dev dummy1 weight 1
 
-Signed-off-by: Prasad Kanneganti <prasad.kanneganti@cavium.com>
-Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
----
- drivers/net/ethernet/cavium/liquidio/octeon_mailbox.c |  5 ++++-
- drivers/net/ethernet/cavium/liquidio/octeon_mailbox.h | 12 ++++++------
- 2 files changed, 10 insertions(+), 7 deletions(-)
+$ip route get 10.0.14.2
+10.0.14.2 via 172.16.1.3 dev dummy1  src 172.16.1.1 
+    cache 
 
-diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_mailbox.c b/drivers/net/ethernet/cavium/liquidio/octeon_mailbox.c
-index 5cca73b..57af7df 100644
---- a/drivers/net/ethernet/cavium/liquidio/octeon_mailbox.c
-+++ b/drivers/net/ethernet/cavium/liquidio/octeon_mailbox.c
-@@ -178,7 +178,10 @@ int octeon_mbox_write(struct octeon_device *oct,
- 					break;
- 				}
- 			}
--			writeq(mbox_cmd->data[i], mbox->mbox_write_reg);
-+			if (ret == OCTEON_MBOX_STATUS_SUCCESS)
-+				writeq(mbox_cmd->data[i], mbox->mbox_write_reg);
-+			else
-+				break;
- 		}
- 	}
- 
-diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_mailbox.h b/drivers/net/ethernet/cavium/liquidio/octeon_mailbox.h
-index c9376fe..1def22a 100644
---- a/drivers/net/ethernet/cavium/liquidio/octeon_mailbox.h
-+++ b/drivers/net/ethernet/cavium/liquidio/octeon_mailbox.h
-@@ -20,16 +20,16 @@
- 
- /* Macros for Mail Box Communication */
- 
--#define OCTEON_MBOX_DATA_MAX	32
-+#define OCTEON_MBOX_DATA_MAX		32
- 
- #define OCTEON_VF_ACTIVE		0x1
- #define OCTEON_VF_FLR_REQUEST		0x2
- #define OCTEON_PF_CHANGED_VF_MACADDR	0x4
- 
- /*Macro for Read acknowldgement*/
--#define OCTEON_PFVFACK			0xffffffffffffffff
--#define OCTEON_PFVFSIG			0x1122334455667788
--#define OCTEON_PFVFERR			0xDEADDEADDEADDEAD
-+#define OCTEON_PFVFACK			0xffffffffffffffffULL
-+#define OCTEON_PFVFSIG			0x1122334455667788ULL
-+#define OCTEON_PFVFERR			0xDEADDEADDEADDEADULL
- 
- #define LIO_MBOX_WRITE_WAIT_CNT         1000
- #define LIO_MBOX_WRITE_WAIT_TIME        msecs_to_jiffies(1)
-@@ -74,8 +74,8 @@ enum octeon_mbox_state {
- 	OCTEON_MBOX_STATE_REQUEST_RECEIVED = 4,
- 	OCTEON_MBOX_STATE_RESPONSE_PENDING = 8,
- 	OCTEON_MBOX_STATE_RESPONSE_RECEIVING = 16,
--	OCTEON_MBOX_STATE_RESPONSE_RECEIVED = 16,
--	OCTEON_MBOX_STATE_ERROR = 32
-+	OCTEON_MBOX_STATE_RESPONSE_RECEIVED = 32,
-+	OCTEON_MBOX_STATE_ERROR = 64
- };
- 
- struct octeon_mbox {
+$ip route get fibmatch 10.0.14.2
+10.0.14.0/24
+        nexthop via 172.16.0.3  dev dummy0 weight 1
+        nexthop via 172.16.1.3  dev dummy1 weight 1
+
+ipv6:
+----
+$ip -6 route show
+2001:db9:100::/120  metric 1024 
+        nexthop via 2001:db8:2::2  dev dummy0 weight 1
+        nexthop via 2001:db8:12::2  dev dummy1 weight 1
+
+$ip -6 route get 2001:db9:100::1
+2001:db9:100::1 from :: via 2001:db8:12::2 dev dummy1  src 2001:db8:12::1  metric 1024  pref medium
+
+$ip -6 route get fibmatch 2001:db9:100::1
+2001:db9:100::/120  metric 1024 
+        nexthop via 2001:db8:12::2  dev dummy1 weight 1
+        nexthop via 2001:db8:2::2  dev dummy0 weight 1
+
+v2:
+        - pick up new forward port of patch-01 from david
+        - inet6_rtm_getroute: use container_of for rt6_info to
+          dst conversion
+
+David Ahern (5):
+  net: ipv4: refactor __ip_route_output_key_hash
+  net: ipv4: refactor ip_route_input_noref
+  net: ipv4: Remove event arg to rt_fill_info
+  net: ipv4: Convert inet_rtm_getroute to rcu versions of route lookup
+  net: ipv4: Save trie prefix to fib lookup result
+
+Roopa Prabhu (3):
+  net: ipv4: add new RTM_F_FIB_MATCH flag for use with RTM_GETROUTE
+  net: ipv4: RTM_GETROUTE: return matched fib result when
+    RTM_F_FIB_MATCH flag present
+  net: ipv6: RTM_GETROUTE: return matched fib result when
+    RTM_F_FIB_MATCH flag present
+
+ include/net/ip_fib.h           |   1 +
+ include/net/route.h            |  10 ++-
+ include/uapi/linux/rtnetlink.h |   1 +
+ net/ipv4/fib_trie.c            |   1 +
+ net/ipv4/icmp.c                |   2 +-
+ net/ipv4/route.c               | 160 ++++++++++++++++++++++++-----------------
+ net/ipv6/route.c               |  11 ++-
+ 7 files changed, 116 insertions(+), 70 deletions(-)
+
+-- 
+1.9.1
