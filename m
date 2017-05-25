@@ -1,129 +1,167 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCH v2 net-next 1/4] net: phy: marvell: #defines for copper and fibre pages
-Date: Thu, 25 May 2017 21:42:05 +0200
-Message-ID: <1495741328-25001-2-git-send-email-andrew@lunn.ch>
-References: <1495741328-25001-1-git-send-email-andrew@lunn.ch>
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-        netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
-To: David Miller <davem@davemloft.net>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next 6/6] net: mpls: minor cleanups
+Date: Thu, 25 May 2017 12:46:07 -0700
+Message-ID: <1495741567.29207.18.camel@perches.com>
+References: <20170525035442.51407-1-dsahern@gmail.com>
+         <20170525035442.51407-7-dsahern@gmail.com>
+         <20170525.145631.1427287907712541949.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com
+To: David Miller <davem@davemloft.net>, dsahern@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:44929 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S936895AbdEYTnz (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 25 May 2017 15:43:55 -0400
-In-Reply-To: <1495741328-25001-1-git-send-email-andrew@lunn.ch>
+Received: from smtprelay0051.hostedemail.com ([216.40.44.51]:42382 "EHLO
+        smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1036675AbdEYTqM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 25 May 2017 15:46:12 -0400
+In-Reply-To: <20170525.145631.1427287907712541949.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Replace magic numbers for PHY pages with symbolic names.
+On Thu, 2017-05-25 at 14:56 -0400, David Miller wrote:
+> From: David Ahern <dsahern@gmail.com>
+> Date: Wed, 24 May 2017 21:54:42 -0600
+> 
+> > Noticed these doing the extack support:
+> > - nla_get_via is only used in af_mpls.c so remove from internal.h
+>  ...
+> > @@ -43,6 +43,9 @@ static void rtmsg_lfib(int event, u32 label, struct mpls_route *rt,
+> >                      struct nlmsghdr *nlh, struct net *net, u32 portid,
+> >                      unsigned int nlm_flags);
+> >  
+> > +static int nla_get_via(const struct nlattr *nla, u8 *via_alen, u8 *via_table,
+> > +                    u8 via[], struct netlink_ext_ack *extack);
+> > +
+> >  static struct mpls_route *mpls_route_input_rcu(struct net *net, unsigned index)
+> >  {
+> >       struct mpls_route *rt = NULL;
+> 
+> David, please mark the actual defintion static as well.
+> 
+> I'm surprised the compiler accepts this, but it does :-)
 
-Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+As well, the function should be reordered
+in the file to avoid the prototype.
+
+Something like:
 ---
- drivers/net/phy/marvell.c | 22 +++++++++++-----------
- 1 file changed, 11 insertions(+), 11 deletions(-)
+ net/mpls/af_mpls.c  | 84 ++++++++++++++++++++++++++---------------------------
+ net/mpls/internal.h |  2 --
+ 2 files changed, 42 insertions(+), 44 deletions(-)
 
-diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
-index 88cd97b44ba6..bb067026353a 100644
---- a/drivers/net/phy/marvell.c
-+++ b/drivers/net/phy/marvell.c
-@@ -650,7 +650,7 @@ static int m88e1116r_config_init(struct phy_device *phydev)
- 
- 	mdelay(500);
- 
--	err = marvell_set_page(phydev, 0);
-+	err = marvell_set_page(phydev, MII_M1111_COPPER);
- 	if (err < 0)
- 		return err;
- 
-@@ -662,7 +662,7 @@ static int m88e1116r_config_init(struct phy_device *phydev)
- 	if (err < 0)
- 		return err;
- 
--	err = marvell_set_page(phydev, 2);
-+	err = marvell_set_page(phydev, MII_88E1121_PHY_MSCR_PAGE);
- 	if (err < 0)
- 		return err;
- 	temp = phy_read(phydev, MII_M1116R_CONTROL_REG_MAC);
-@@ -671,7 +671,7 @@ static int m88e1116r_config_init(struct phy_device *phydev)
- 	err = phy_write(phydev, MII_M1116R_CONTROL_REG_MAC, temp);
- 	if (err < 0)
- 		return err;
--	err = marvell_set_page(phydev, 0);
-+	err = marvell_set_page(phydev, MII_M1111_COPPER);
- 	if (err < 0)
- 		return err;
- 
-@@ -892,7 +892,7 @@ static int m88e1510_config_init(struct phy_device *phydev)
- 			return err;
- 
- 		/* Reset page selection */
--		err = marvell_set_page(phydev, 0);
-+		err = marvell_set_page(phydev, MII_M1111_COPPER);
- 		if (err < 0)
- 			return err;
- 	}
-@@ -922,7 +922,7 @@ static int m88e1118_config_init(struct phy_device *phydev)
- 	int err;
- 
- 	/* Change address */
--	err = marvell_set_page(phydev, 2);
-+	err = marvell_set_page(phydev, MII_88E1121_PHY_MSCR_PAGE);
- 	if (err < 0)
- 		return err;
- 
-@@ -932,7 +932,7 @@ static int m88e1118_config_init(struct phy_device *phydev)
- 		return err;
- 
- 	/* Change address */
--	err = marvell_set_page(phydev, 3);
-+	err = marvell_set_page(phydev, MII_88E1318S_PHY_LED_PAGE);
- 	if (err < 0)
- 		return err;
- 
-@@ -949,7 +949,7 @@ static int m88e1118_config_init(struct phy_device *phydev)
- 		return err;
- 
- 	/* Reset address */
--	err = marvell_set_page(phydev, 0);
-+	err = marvell_set_page(phydev, MII_M1111_COPPER);
- 	if (err < 0)
- 		return err;
- 
-@@ -961,7 +961,7 @@ static int m88e1149_config_init(struct phy_device *phydev)
- 	int err;
- 
- 	/* Change address */
--	err = marvell_set_page(phydev, 2);
-+	err = marvell_set_page(phydev, MII_88E1121_PHY_MSCR_PAGE);
- 	if (err < 0)
- 		return err;
- 
-@@ -975,7 +975,7 @@ static int m88e1149_config_init(struct phy_device *phydev)
- 		return err;
- 
- 	/* Reset address */
--	err = marvell_set_page(phydev, 0);
-+	err = marvell_set_page(phydev, MII_M1111_COPPER);
- 	if (err < 0)
- 		return err;
- 
-@@ -1409,7 +1409,7 @@ static void m88e1318_get_wol(struct phy_device *phydev,
- 	    MII_88E1318S_PHY_WOL_CTRL_MAGIC_PACKET_MATCH_ENABLE)
- 		wol->wolopts |= WAKE_MAGIC;
- 
--	if (marvell_set_page(phydev, 0x00) < 0)
-+	if (marvell_set_page(phydev, MII_M1111_COPPER) < 0)
- 		return;
- }
- 
-@@ -1422,7 +1422,7 @@ static int m88e1318_set_wol(struct phy_device *phydev,
- 
- 	if (wol->wolopts & WAKE_MAGIC) {
- 		/* Explicitly switch to page 0x00, just to be sure */
--		err = marvell_set_page(phydev, 0x00);
-+		err = marvell_set_page(phydev, MII_M1111_COPPER);
- 		if (err < 0)
- 			return err;
- 
--- 
-2.11.0
+diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
+index 257ec66009da..9b534dc25b9b 100644
+--- a/net/mpls/af_mpls.c
++++ b/net/mpls/af_mpls.c
+@@ -718,6 +718,48 @@ static int mpls_nh_build_from_cfg(struct mpls_route_config *cfg,
+ 	return err;
+ }
+ 
++static int nla_get_via(const struct nlattr *nla, u8 *via_alen,
++		       u8 *via_table, u8 via_addr[])
++{
++	struct rtvia *via = nla_data(nla);
++	int err = -EINVAL;
++	int alen;
++
++	if (nla_len(nla) < offsetof(struct rtvia, rtvia_addr))
++		goto errout;
++	alen = nla_len(nla) -
++			offsetof(struct rtvia, rtvia_addr);
++	if (alen > MAX_VIA_ALEN)
++		goto errout;
++
++	/* Validate the address family */
++	switch (via->rtvia_family) {
++	case AF_PACKET:
++		*via_table = NEIGH_LINK_TABLE;
++		break;
++	case AF_INET:
++		*via_table = NEIGH_ARP_TABLE;
++		if (alen != 4)
++			goto errout;
++		break;
++	case AF_INET6:
++		*via_table = NEIGH_ND_TABLE;
++		if (alen != 16)
++			goto errout;
++		break;
++	default:
++		/* Unsupported address family */
++		goto errout;
++	}
++
++	memcpy(via_addr, via->rtvia_addr, alen);
++	*via_alen = alen;
++	err = 0;
++
++errout:
++	return err;
++}
++
+ static int mpls_nh_build(struct net *net, struct mpls_route *rt,
+ 			 struct mpls_nh *nh, int oif, struct nlattr *via,
+ 			 struct nlattr *newdst, u8 max_labels)
+@@ -1594,48 +1636,6 @@ int nla_get_labels(const struct nlattr *nla,
+ }
+ EXPORT_SYMBOL_GPL(nla_get_labels);
+ 
+-int nla_get_via(const struct nlattr *nla, u8 *via_alen,
+-		u8 *via_table, u8 via_addr[])
+-{
+-	struct rtvia *via = nla_data(nla);
+-	int err = -EINVAL;
+-	int alen;
+-
+-	if (nla_len(nla) < offsetof(struct rtvia, rtvia_addr))
+-		goto errout;
+-	alen = nla_len(nla) -
+-			offsetof(struct rtvia, rtvia_addr);
+-	if (alen > MAX_VIA_ALEN)
+-		goto errout;
+-
+-	/* Validate the address family */
+-	switch (via->rtvia_family) {
+-	case AF_PACKET:
+-		*via_table = NEIGH_LINK_TABLE;
+-		break;
+-	case AF_INET:
+-		*via_table = NEIGH_ARP_TABLE;
+-		if (alen != 4)
+-			goto errout;
+-		break;
+-	case AF_INET6:
+-		*via_table = NEIGH_ND_TABLE;
+-		if (alen != 16)
+-			goto errout;
+-		break;
+-	default:
+-		/* Unsupported address family */
+-		goto errout;
+-	}
+-
+-	memcpy(via_addr, via->rtvia_addr, alen);
+-	*via_alen = alen;
+-	err = 0;
+-
+-errout:
+-	return err;
+-}
+-
+ static int rtm_to_route_config(struct sk_buff *skb,  struct nlmsghdr *nlh,
+ 			       struct mpls_route_config *cfg)
+ {
+diff --git a/net/mpls/internal.h b/net/mpls/internal.h
+index 4db6a5971322..b431c6d3893f 100644
+--- a/net/mpls/internal.h
++++ b/net/mpls/internal.h
+@@ -204,8 +204,6 @@ int nla_put_labels(struct sk_buff *skb, int attrtype,  u8 labels,
+ 		   const u32 label[]);
+ int nla_get_labels(const struct nlattr *nla, u8 max_labels, u8 *labels,
+ 		   u32 label[]);
+-int nla_get_via(const struct nlattr *nla, u8 *via_alen, u8 *via_table,
+-		u8 via[]);
+ bool mpls_output_possible(const struct net_device *dev);
+ unsigned int mpls_dev_mtu(const struct net_device *dev);
+ bool mpls_pkt_too_big(const struct sk_buff *skb, unsigned int mtu);
