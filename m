@@ -1,117 +1,73 @@
-From: "Chickles, Derek" <Derek.Chickles@cavium.com>
-Subject: RE: [PATCH net-next] liquidio: fix rare pci_driver.probe failure of
- VF driver
-Date: Thu, 25 May 2017 17:52:11 +0000
-Message-ID: <MWHPR07MB294348660180CD854B818B2DF3FF0@MWHPR07MB2943.namprd07.prod.outlook.com>
-References: <20170525174214.GA1444@felix-thinkpad.cavium.com>
+From: Felix Manlunas <felix.manlunas@cavium.com>
+Subject: [PATCH net-next] liquidio: fix inaccurate count of napi-processed rx
+ packets reported to Octeon
+Date: Thu, 25 May 2017 10:54:29 -0700
+Message-ID: <20170525175429.GA1476@felix-thinkpad.cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "Vatsavayi, Raghu" <Raghu.Vatsavayi@cavium.com>,
-        "Burla, Satananda" <Satananda.Burla@cavium.com>,
-        "Kanneganti, Prasad" <Prasad.Kanneganti@cavium.com>
-To: "Manlunas, Felix" <Felix.Manlunas@cavium.com>,
-        "davem@davemloft.net" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
+        derek.chickles@cavium.com, satananda.burla@cavium.com,
+        prasad.kanneganti@cavium.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2nam02on0040.outbound.protection.outlook.com ([104.47.38.40]:11229
-        "EHLO NAM02-BL2-obe.outbound.protection.outlook.com"
+Received: from mail-co1nam03on0052.outbound.protection.outlook.com ([104.47.40.52]:30544
+        "EHLO NAM03-CO1-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1765145AbdEYRwQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 25 May 2017 13:52:16 -0400
-In-Reply-To: <20170525174214.GA1444@felix-thinkpad.cavium.com>
-Content-Language: en-US
+        id S970127AbdEYRyv (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 25 May 2017 13:54:51 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Looks good to me.
+From: Prasad Kanneganti <prasad.kanneganti@cavium.com>
 
-Derek
+lio_enable_irq (called by napi poll) is reporting to Octeon an inaccurate
+count of processed rx packets causing Octeon to eventually stop forwarding
+packets to the host.  Fix it by using this formula for an accurate count:
 
-> -----Original Message-----
-> From: Manlunas, Felix
-> Sent: Thursday, May 25, 2017 10:42 AM
-> To: davem@davemloft.net
-> Cc: netdev@vger.kernel.org; Vatsavayi, Raghu <Raghu.Vatsavayi@cavium.com>=
-;
-> Chickles, Derek <Derek.Chickles@cavium.com>; Burla, Satananda
-> <Satananda.Burla@cavium.com>; Kanneganti, Prasad
-> <Prasad.Kanneganti@cavium.com>
-> Subject: [PATCH net-next] liquidio: fix rare pci_driver.probe failure of
-> VF driver
->=20
-> From: Prasad Kanneganti <prasad.kanneganti@cavium.com>
->=20
-> There's a rare pci_driver.probe failure of the VF driver that's caused by
-> PF/VF handshake going out of sync.  The culprit is octeon_mbox_write() wh=
-o
-> ignores an ack timeout condition; it just keeps unconditionally writing
-> all elements of mbox_cmd->data[] even when the other side is not ready fo=
-r
-> them.  Fix it by making each write of mbox_cmd->data[i] conditional to
-> having previously received an ack.
->=20
-> Also fix the octeon_mbox_state enum such that each state gets a unique
-> value.  Also add ULL suffix to numeric literals in macro definitions.
->=20
-> Signed-off-by: Prasad Kanneganti <prasad.kanneganti@cavium.com>
-> Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
-> ---
->  drivers/net/ethernet/cavium/liquidio/octeon_mailbox.c |  5 ++++-
-> drivers/net/ethernet/cavium/liquidio/octeon_mailbox.h | 12 ++++++------
->  2 files changed, 10 insertions(+), 7 deletions(-)
->=20
-> diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_mailbox.c
-> b/drivers/net/ethernet/cavium/liquidio/octeon_mailbox.c
-> index 5cca73b..57af7df 100644
-> --- a/drivers/net/ethernet/cavium/liquidio/octeon_mailbox.c
-> +++ b/drivers/net/ethernet/cavium/liquidio/octeon_mailbox.c
-> @@ -178,7 +178,10 @@ int octeon_mbox_write(struct octeon_device *oct,
->  					break;
->  				}
->  			}
-> -			writeq(mbox_cmd->data[i], mbox->mbox_write_reg);
-> +			if (ret =3D=3D OCTEON_MBOX_STATUS_SUCCESS)
-> +				writeq(mbox_cmd->data[i], mbox->mbox_write_reg);
-> +			else
-> +				break;
->  		}
->  	}
->=20
-> diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_mailbox.h
-> b/drivers/net/ethernet/cavium/liquidio/octeon_mailbox.h
-> index c9376fe..1def22a 100644
-> --- a/drivers/net/ethernet/cavium/liquidio/octeon_mailbox.h
-> +++ b/drivers/net/ethernet/cavium/liquidio/octeon_mailbox.h
-> @@ -20,16 +20,16 @@
->=20
->  /* Macros for Mail Box Communication */
->=20
-> -#define OCTEON_MBOX_DATA_MAX	32
-> +#define OCTEON_MBOX_DATA_MAX		32
->=20
->  #define OCTEON_VF_ACTIVE		0x1
->  #define OCTEON_VF_FLR_REQUEST		0x2
->  #define OCTEON_PF_CHANGED_VF_MACADDR	0x4
->=20
->  /*Macro for Read acknowldgement*/
-> -#define OCTEON_PFVFACK			0xffffffffffffffff
-> -#define OCTEON_PFVFSIG			0x1122334455667788
-> -#define OCTEON_PFVFERR			0xDEADDEADDEADDEAD
-> +#define OCTEON_PFVFACK			0xffffffffffffffffULL
-> +#define OCTEON_PFVFSIG			0x1122334455667788ULL
-> +#define OCTEON_PFVFERR			0xDEADDEADDEADDEADULL
->=20
->  #define LIO_MBOX_WRITE_WAIT_CNT         1000
->  #define LIO_MBOX_WRITE_WAIT_TIME        msecs_to_jiffies(1)
-> @@ -74,8 +74,8 @@ enum octeon_mbox_state {
->  	OCTEON_MBOX_STATE_REQUEST_RECEIVED =3D 4,
->  	OCTEON_MBOX_STATE_RESPONSE_PENDING =3D 8,
->  	OCTEON_MBOX_STATE_RESPONSE_RECEIVING =3D 16,
-> -	OCTEON_MBOX_STATE_RESPONSE_RECEIVED =3D 16,
-> -	OCTEON_MBOX_STATE_ERROR =3D 32
-> +	OCTEON_MBOX_STATE_RESPONSE_RECEIVED =3D 32,
-> +	OCTEON_MBOX_STATE_ERROR =3D 64
->  };
->=20
->  struct octeon_mbox {
+    processed rx packets = droq->pkt_count - droq->pkts_pending
+
+Also increase SOFT_COMMAND_BUFFER_SIZE to match what the firmware expects.
+
+Signed-off-by: Prasad Kanneganti <prasad.kanneganti@cavium.com>
+Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
+---
+ drivers/net/ethernet/cavium/liquidio/octeon_device.c | 6 ++++--
+ drivers/net/ethernet/cavium/liquidio/octeon_iq.h     | 2 +-
+ 2 files changed, 5 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_device.c b/drivers/net/ethernet/cavium/liquidio/octeon_device.c
+index b5be707..3b7cc93 100644
+--- a/drivers/net/ethernet/cavium/liquidio/octeon_device.c
++++ b/drivers/net/ethernet/cavium/liquidio/octeon_device.c
+@@ -1429,13 +1429,15 @@ int lio_get_device_id(void *dev)
+ void lio_enable_irq(struct octeon_droq *droq, struct octeon_instr_queue *iq)
+ {
+ 	u64 instr_cnt;
++	u32 pkts_pend;
+ 	struct octeon_device *oct = NULL;
+ 
+ 	/* the whole thing needs to be atomic, ideally */
+ 	if (droq) {
++		pkts_pend = (u32)atomic_read(&droq->pkts_pending);
+ 		spin_lock_bh(&droq->lock);
+-		writel(droq->pkt_count, droq->pkts_sent_reg);
+-		droq->pkt_count = 0;
++		writel(droq->pkt_count - pkts_pend, droq->pkts_sent_reg);
++		droq->pkt_count = pkts_pend;
+ 		/* this write needs to be flushed before we release the lock */
+ 		mmiowb();
+ 		spin_unlock_bh(&droq->lock);
+diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_iq.h b/drivers/net/ethernet/cavium/liquidio/octeon_iq.h
+index 5063a12..5c3c8da 100644
+--- a/drivers/net/ethernet/cavium/liquidio/octeon_iq.h
++++ b/drivers/net/ethernet/cavium/liquidio/octeon_iq.h
+@@ -251,7 +251,7 @@ union octeon_instr_64B {
+ 
+ /** The size of each buffer in soft command buffer pool
+  */
+-#define  SOFT_COMMAND_BUFFER_SIZE	1536
++#define  SOFT_COMMAND_BUFFER_SIZE	2048
+ 
+ struct octeon_soft_command {
+ 	/** Soft command buffer info. */
