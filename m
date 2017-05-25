@@ -1,42 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] bpf: update perf event helper function
- signature and documentation
-Date: Thu, 25 May 2017 12:07:35 -0400 (EDT)
-Message-ID: <20170525.120735.2136402827310294315.davem@davemloft.net>
-References: <E796EF36-C195-4FFA-AAA0-A1F9E7730349@fb.com>
-        <20170522.230849.1056416550811494880.davem@davemloft.net>
-        <BB53B290-EED3-4B92-8D2D-33954D7B6C68@fb.com>
+Subject: Re: [PATCH net] ip6_tunnel, ip6_gre: fix setting of DSCP on
+ encapsulated packets
+Date: Thu, 25 May 2017 12:11:17 -0400 (EDT)
+Message-ID: <20170525.121117.810915705354733044.davem@davemloft.net>
+References: <20170523143616.38116e8f@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: peterz@infradead.org, bgregg@netflix.com, daniel@iogearbox.net,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Kernel-team@fb.com, ast@fb.com
-To: qinteng@fb.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <BB53B290-EED3-4B92-8D2D-33954D7B6C68@fb.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+        kaber@trash.net, stephen@networkplumber.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: petedaws@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:58538 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934424AbdEYQLT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 25 May 2017 12:11:19 -0400
+In-Reply-To: <20170523143616.38116e8f@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogVGVuZyBRaW4gPHFpbnRlbmdAZmIuY29tPg0KRGF0ZTogVHVlLCAyMyBNYXkgMjAxNyAw
-MzoxNzozMSArMDAwMA0KDQo+IEFsZXhlaSBzYWlkIGl0IHdhcyBkdWUgdG8gQ2xhbmcgbm90IHRh
-a2luZyB1NjQsIHUzMiBldGMuIGZvciBjb21waWxhdGlvbi4NCj4gSSBkaWRuonQga25vdyB0aGUg
-Y29udGV4dCBhbmQganVzdCB1c2VkIHRoZW0uIEJ1dCBhcHBhcmVudGx5LCBzb21ldGhpbmcNCj4g
-Y2hhbmdlZCBhbmQgbm93IHRoZXkgYnVpbGQgYW5kIHJ1biBPSy4uLi4uLg0KDQpUaGVzZSB0eXBl
-cyBhcmUgJTEwMCBjb21waWxlciBhZ25vc3RpYy4gIENsYW5nIGRvZXNuJ3QgY2FyZS4gIEFsbA0K
-Y29tcGlsZXJzIGNhbiB1bmRlcnN0YW5kOg0KDQoJdHlwZWRlZiB1bnNpZ25lZCBpbnQgdTMyOw0K
-DQpTbyBpdCdzIG5vdCBhIENsYW5nIHNwZWNpZmljIGlzc3VlLg0KDQpUaGUgcHJvYmxlbSBjb3Vs
-ZCBvbmx5IGhhdmUgdG8gZG8gd2l0aCB3aGV0aGVyIHRoZSB0eXBlcyBnZXQgdHlwZGVmJ2QNCm9y
-IG5vdCB3aXRoIHRoZSBoZWFkZXIgZmlsZXMgdGhhdCBhcmUgdXNlZCBpbiBjb25qdW5jdGlvbiB3
-aXRoIHRoZQ0KZmlsZSB3ZSBhcmUgdGFsa2luZyBhYm91dCBoZXJlLg0KDQpBbmQgaWYgd2UgZG8g
-Z2V0IGEgcHJvcGVyIHNldCBvZiBkZWZpbmVzIGZyb20gbGludXgvdHlwZXMuaCB0aGVzZSBkYXlz
-DQp3ZSBzaG91bGQ6DQoNCjEpIE1ha2UgdGhhdCBleHBsaWNpdCwgYnkgaW5jbHVkaW5nIGxpbnV4
-L3R5cGVzLmggaW4gYnBmX2hlbHBlcnMuaA0KDQoyKSBVc2UgdGhvc2UgdHlwZXMgdW5pdmVyc2Fs
-bHkgaW4gdGhpcyBmaWxlIHdoZXJlIHdlIHdlcmUgYXZvaWRpbmcNCiAgIGRvaW5nIHNvDQoNClRo
-aXMgaGVhZGVyIGZpbGUgYWxzbyB1c2VzICJTRUMiIGFuZCBleHBlY3RzIHRvIGdldCB0aGlzIGRl
-ZmluaXRpb24NCmltcGxpY2l0bHksIGFuZCB0aGVyZWZvcmUgdGhlcmUgaXMgYW5vdGhlciBoZWFk
-ZXIgZmlsZSB0aGF0DQpicGZfaGVscGVycy5oIG11c3QgaW5jbHVkZSBpbiBvcmRlciB0byBleHBs
-aWNpdGx5IGFuZCByZWxpYWJseSBoYXZlDQp0aGF0IGRlZmluaXRpb24uDQoNCkp1c3QgY2hhbmdp
-bmcgb25lIHByb3RvdHlwZSwgYW5kIHJlbHlpbmcgb24gZ2V0dGluZyB0aGUgdHlwZXMNCmluZGly
-ZWN0bHkgYnkgb3RoZXIgaGVhZGVyIGZpbGVzIGluY2x1ZGluZyBieSB3aG9ldmVyIGluY3VkZXMN
-CmJwZl9oZWxwZXJzLmggaXMgbm90IHRoZSB3YXkgdG8gZ28uDQoNClRoYW5rcy4NCg0K
+From: Peter Dawson <petedaws@gmail.com>
+Date: Tue, 23 May 2017 14:36:16 +1000
+
+> Fixes: https://bugzilla.kernel.org/show_bug.cgi?id=195661
+
+This is not the correct way to use the Fixes: tag.
+
+You should specify the commit that introduced the regression
+between 4.9.x and 4.10.x, and that you are fixing here.
+
+The correct format for the commit references is the 12 initial digits
+of the SHA1_ID of the commit, followed by a space, followed by the
+commit log message header line text enclosed in parentheses and
+double quotes with no line breaks whatsoever.
+
+Thank you.
