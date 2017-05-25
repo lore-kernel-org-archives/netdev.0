@@ -1,75 +1,68 @@
-From: Myron Stowe <mstowe@redhat.com>
-Subject: Re: [PATCH 0/2] Replace driver's usage of hard-coded device IDs to
- #defines
-Date: Thu, 25 May 2017 09:56:55 -0600
-Message-ID: <20170525095655.3a577ea2@zim>
-References: <20170524224734.24221.33787.stgit@amt.stowe>
-        <20170524.200249.1492095559302424098.davem@davemloft.net>
+From: tndave <tushar.n.dave@oracle.com>
+Subject: Re: [PATCH] i40e: Fix incorrect pf->flags
+Date: Thu, 25 May 2017 09:00:24 -0700
+Message-ID: <4b4638a9-a995-de0a-cdcd-97c891e1b6b3@oracle.com>
+References: <1495242112-14835-1-git-send-email-tushar.n.dave@oracle.com>
+ <1495703624.49259.39.camel@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: myron.stowe@redhat.com, linux-pci@vger.kernel.org,
-        netdev@vger.kernel.org, bhelgaas@google.com, saeedm@mellanox.com,
-        noaos@mellanox.com, tariqt@mellanox.com
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <20170524.200249.1492095559302424098.davem@davemloft.net>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-On Wed, 24 May 2017 20:02:49 -0400 (EDT)
-David Miller <davem@davemloft.net> wrote:
-
-> From: Myron Stowe <myron.stowe@redhat.com>
-> Date: Wed, 24 May 2017 16:47:34 -0600
-> 
-> > Noa Osherovich introduced a series of new Mellanox device ID
-> > definitions to help differentiate specific controllers that needed
-> > INTx masking quirks [1].
-> > 
-> > Bjorn Helgaas followed on, using the device ID definitions Noa
-> > provided to replace hard-coded values within the mxl4 ID table [2].
-> >     
-> > This patch continues along similar lines, adding a few additional
-> > Mellanox device ID definitions and converting the net/mlx5e
-> > driver's mlx5 ID table to use the defines so tools like 'grep' and
-> > 'cscope' can be used to help identify relationships with other
-> > aspects (such as INTx masking).  
-> 
-> If you're adding pci_ids.h defines, it's only valid to do so if you
-> actually use the defines in more than one location.
-> 
-> This patch series is not doing that.
-
-Hi David,
-
-Yes, now that you mention that again I do vaguely remember past
-conversations stating similar constraints which is a little odd as
-Noa's series did exactly that.  It was Bjorn, in a separate patch, that
-made the connection to the driver with commit c19e4b9037f
-("net/mlx4_core: Use device ID defines") [1] and even after such, some
-of the introduced #defines are still currently singular in usage.
-
-Anyway, the part I'm interested in is creating a more transparent
-association between the Mellanox controllers that need the INTx masking
-quirk and their drivers, something that remains very opaque currently
-for a few of the remaining instances (PCI_DEVICE_ID_MELLANOX_CONNECTIB,
-PCI_DEVICE_ID_MELLANOX_CONNECTX4, and
-PCI_DEVICE_ID_MELLANOX_CONNECTX4_LX).
-
-I'd like to hear back from others as to whether or not there is truly
-concern about adding the #defines such as I submitted with singular
-usages and if so I can re-submit a more focused patch which would
-effectively be the first three substitutions in "[PATCH 2/2] net/mlx5e:
-Use device ID defines".
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+        intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from aserp1040.oracle.com ([141.146.126.69]:48226 "EHLO
+        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S942555AbdEYQBQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 25 May 2017 12:01:16 -0400
+In-Reply-To: <1495703624.49259.39.camel@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-[1] Perhaps Noa's submission had a similar discussion as while it was
-a separate series from which Bjorn then made the connection to the
-driver, all the patches came in via the same merge commit 25831571419
-("Merge branch 'pci/virtualization' into next").
 
+On 05/25/2017 02:13 AM, Jeff Kirsher wrote:
+> On Fri, 2017-05-19 at 18:01 -0700, Tushar Dave wrote:
+>> Fix bug introduced by 'commit 47994c119a36e ("i40e: remove
+>> hw_disabled_flags in favor of using separate flag bits")' that
+>> mistakenly wipes out pf->flags.
+>>
+>> Signed-off-by: Tushar Dave <tushar.n.dave@oracle.com>
+>> ---
+>>  drivers/net/ethernet/intel/i40e/i40e_main.c | 4 ++--
+>>  1 file changed, 2 insertions(+), 2 deletions(-)
+>
+> :-(
+> Not even close to applying, I even tried to apply by hand but the patch
+> was not near the same as my branch in my tree.  I will forgive this
+> second instance of a patch generated on different tree/branch, but I
+> really must insist that you use my tree & branch if you need/want to
+> make changes to Intel wired LAN driver changes.
+Apology Jeff. I used Dave's net tree.
+Now onwards, I will use your 'net-queue:dev_queue' for bug fixes and
+'next-queue:dev_queue' for developmental changes to Intel Ethernet drivers.
 
- Thanks for your
-feedback,
- Myron
+Being this patch a bug fix, I will send v2 based off your git tree
+'net-queue' on branch 'dev_queue'. Hope that is okay?
+
+Thanks.
+
+-Tushar
+>
+>>
+>> diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c
+>> b/drivers/net/ethernet/intel/i40e/i40e_main.c
+>> index d5c9c9e..6b98d34 100644
+>> --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
+>> +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+>> @@ -8821,9 +8821,9 @@ static int i40e_sw_init(struct i40e_pf *pf)
+>>  		    (pf->hw.aq.api_min_ver > 4))) {
+>>  		/* Supported in FW API version higher than 1.4 */
+>>  		pf->flags |= I40E_FLAG_GENEVE_OFFLOAD_CAPABLE;
+>> -		pf->flags = I40E_FLAG_HW_ATR_EVICT_CAPABLE;
+>> +		pf->flags |= I40E_FLAG_HW_ATR_EVICT_CAPABLE;
+>>  	} else {
+>> -		pf->flags = I40E_FLAG_HW_ATR_EVICT_CAPABLE;
+>> +		pf->flags |= I40E_FLAG_HW_ATR_EVICT_CAPABLE;
+>>  	}
+>>
+>>  	pf->eeprom_version = 0xDEAD;
