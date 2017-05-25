@@ -1,117 +1,141 @@
-From: Vladislav Yasevich <vyasevich@gmail.com>
-Subject: [PATCH V5 2/2] bonding: Prevent duplicate userspace notification
-Date: Thu, 25 May 2017 11:31:55 -0400
-Message-ID: <1495726316-27626-3-git-send-email-vyasevic@redhat.com>
-References: <1495726316-27626-1-git-send-email-vyasevic@redhat.com>
-Cc: dsahern@gmail.com, roopa@cumulusnetworks.com, jiri@resnulli.us,
-        vfalico@gmail.com, andy@greyhouse.net,
-        Vladislav Yasevich <vyasevic@redhat.com>
-To: netdev@vger.kernel.org
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH net-next 1/4] net/flow_dissector: add support for
+ dissection of misc ip header fields
+Date: Thu, 25 May 2017 08:42:21 -0700
+Message-ID: <CALx6S379RzD+t=mDHgs+u-BrWgd7Jt4W_C-kNarA7t+HwEJ3jQ@mail.gmail.com>
+References: <1495718679-20693-1-git-send-email-ogerlitz@mellanox.com> <1495718679-20693-2-git-send-email-ogerlitz@mellanox.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Roi Dayan <roid@mellanox.com>, Paul Blakey <paulb@mellanox.com>
+To: Or Gerlitz <ogerlitz@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f196.google.com ([209.85.220.196]:34285 "EHLO
-        mail-qk0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S965246AbdEYPcU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 25 May 2017 11:32:20 -0400
-Received: by mail-qk0-f196.google.com with SMTP id u75so30503316qka.1
-        for <netdev@vger.kernel.org>; Thu, 25 May 2017 08:32:20 -0700 (PDT)
-In-Reply-To: <1495726316-27626-1-git-send-email-vyasevic@redhat.com>
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:35929 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1762180AbdEYPmX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 25 May 2017 11:42:23 -0400
+Received: by mail-wm0-f67.google.com with SMTP id k15so52769129wmh.3
+        for <netdev@vger.kernel.org>; Thu, 25 May 2017 08:42:23 -0700 (PDT)
+In-Reply-To: <1495718679-20693-2-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Whenever a user changes bonding options, a NETDEV_CHANGEINFODATA
-notificatin is generated which results in a rtnelink message to
-be sent.  While runnig 'ip monitor', we can actually see 2 messages,
-one a result of the event, and the other a result of state change
-that is generated bo netdev_state_change().  However, this is not
-always the case. If bonding changes were done via sysfs or ifenslave
-(old ioctl interface), then only 1 message is seen.
+On Thu, May 25, 2017 at 6:24 AM, Or Gerlitz <ogerlitz@mellanox.com> wrote:
+> Add support for dissection of ip tos and ttl and ipv6 traffic-class
+> and hoplimit. Both are dissected into the same struct.
+>
+> Uses similar call to ip dissection function as with tcp, arp and others.
+>
+> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+> Reviewed-by: Jiri Pirko <jiri@mellanox.com>
+> ---
+>  include/net/flow_dissector.h | 11 +++++++++++
+>  net/core/flow_dissector.c    | 40 ++++++++++++++++++++++++++++++++++++++++
+>  2 files changed, 51 insertions(+)
+>
+> diff --git a/include/net/flow_dissector.h b/include/net/flow_dissector.h
+> index efe34eec..e2663e9 100644
+> --- a/include/net/flow_dissector.h
+> +++ b/include/net/flow_dissector.h
+> @@ -165,6 +165,16 @@ struct flow_dissector_key_tcp {
+>         __be16 flags;
+>  };
+>
+> +/**
+> + * struct flow_dissector_key_ip:
+> + * @tos: tos
+> + * @ttl: ttl
+> + */
+> +struct flow_dissector_key_ip {
+> +       __u8    tos;
+> +       __u8    ttl;
+> +};
+> +
 
-This patch removes duplicate messages in the case of using netlink
-to configure bonding.  It introduceds a separte function that
-triggers a netdev event and uses that function in the syfs and ioctl
-cases.
+Looks like yet more complexity be piled onto flow dissector. Instead
+of splitting out individual fields can we just return a pointer to the
+IP header and let the caller extract the fields they're interested in?
 
-This was discovered while auditing all the different envents and
-continues the effort of cleaning up duplicated netlink messages.
+Tom
 
-Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
----
- drivers/net/bonding/bond_main.c    |  3 ++-
- drivers/net/bonding/bond_options.c | 27 +++++++++++++++++++++++++--
- include/net/bond_options.h         |  2 ++
- 3 files changed, 29 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 7331331..d7aa137 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -3481,7 +3481,8 @@ static int bond_do_ioctl(struct net_device *bond_dev, struct ifreq *ifr, int cmd
- 	case BOND_CHANGE_ACTIVE_OLD:
- 	case SIOCBONDCHANGEACTIVE:
- 		bond_opt_initstr(&newval, slave_dev->name);
--		res = __bond_opt_set(bond, BOND_OPT_ACTIVE_SLAVE, &newval);
-+		res = __bond_opt_set_notify(bond, BOND_OPT_ACTIVE_SLAVE,
-+					    &newval);
- 		break;
- 	default:
- 		res = -EOPNOTSUPP;
-diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
-index 1bcbb89..8ca6833 100644
---- a/drivers/net/bonding/bond_options.c
-+++ b/drivers/net/bonding/bond_options.c
-@@ -673,7 +673,30 @@ int __bond_opt_set(struct bonding *bond,
- out:
- 	if (ret)
- 		bond_opt_error_interpret(bond, opt, ret, val);
--	else if (bond->dev->reg_state == NETREG_REGISTERED)
-+
-+	return ret;
-+}
-+/**
-+ * __bond_opt_set_notify - set a bonding option
-+ * @bond: target bond device
-+ * @option: option to set
-+ * @val: value to set it to
-+ *
-+ * This function is used to change the bond's option value and trigger
-+ * a notification to user sapce. It can be used for both enabling/changing
-+ * an option and for disabling it. RTNL lock must be obtained before calling
-+ * this function.
-+ */
-+int __bond_opt_set_notify(struct bonding *bond,
-+			  unsigned int option, struct bond_opt_value *val)
-+{
-+	int ret = -ENOENT;
-+
-+	ASSERT_RTNL();
-+
-+	ret = __bond_opt_set(bond, option, val);
-+
-+	if (!ret && (bond->dev->reg_state == NETREG_REGISTERED))
- 		call_netdevice_notifiers(NETDEV_CHANGEINFODATA, bond->dev);
- 
- 	return ret;
-@@ -696,7 +719,7 @@ int bond_opt_tryset_rtnl(struct bonding *bond, unsigned int option, char *buf)
- 	if (!rtnl_trylock())
- 		return restart_syscall();
- 	bond_opt_initstr(&optval, buf);
--	ret = __bond_opt_set(bond, option, &optval);
-+	ret = __bond_opt_set_notify(bond, option, &optval);
- 	rtnl_unlock();
- 
- 	return ret;
-diff --git a/include/net/bond_options.h b/include/net/bond_options.h
-index 1797235..d79d28f 100644
---- a/include/net/bond_options.h
-+++ b/include/net/bond_options.h
-@@ -104,6 +104,8 @@ struct bond_option {
- 
- int __bond_opt_set(struct bonding *bond, unsigned int option,
- 		   struct bond_opt_value *val);
-+int __bond_opt_set_notify(struct bonding *bond, unsigned int option,
-+			  struct bond_opt_value *val);
- int bond_opt_tryset_rtnl(struct bonding *bond, unsigned int option, char *buf);
- 
- const struct bond_opt_value *bond_opt_parse(const struct bond_option *opt,
--- 
-2.7.4
+>  enum flow_dissector_key_id {
+>         FLOW_DISSECTOR_KEY_CONTROL, /* struct flow_dissector_key_control */
+>         FLOW_DISSECTOR_KEY_BASIC, /* struct flow_dissector_key_basic */
+> @@ -186,6 +196,7 @@ enum flow_dissector_key_id {
+>         FLOW_DISSECTOR_KEY_ENC_PORTS, /* struct flow_dissector_key_ports */
+>         FLOW_DISSECTOR_KEY_MPLS, /* struct flow_dissector_key_mpls */
+>         FLOW_DISSECTOR_KEY_TCP, /* struct flow_dissector_key_tcp */
+> +       FLOW_DISSECTOR_KEY_IP, /* struct flow_dissector_key_ip */
+>
+>         FLOW_DISSECTOR_KEY_MAX,
+>  };
+> diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
+> index 5a45943..fc5fc45 100644
+> --- a/net/core/flow_dissector.c
+> +++ b/net/core/flow_dissector.c
+> @@ -367,6 +367,40 @@ __skb_flow_dissect_tcp(const struct sk_buff *skb,
+>         key_tcp->flags = (*(__be16 *) &tcp_flag_word(th) & htons(0x0FFF));
+>  }
+>
+> +static void
+> +__skb_flow_dissect_ipv4(const struct sk_buff *skb,
+> +                       struct flow_dissector *flow_dissector,
+> +                       void *target_container, void *data, const struct iphdr *iph)
+> +{
+> +       struct flow_dissector_key_ip *key_ip;
+> +
+> +       if (!dissector_uses_key(flow_dissector, FLOW_DISSECTOR_KEY_IP))
+> +               return;
+> +
+> +       key_ip = skb_flow_dissector_target(flow_dissector,
+> +                                          FLOW_DISSECTOR_KEY_IP,
+> +                                          target_container);
+> +       key_ip->tos = iph->tos;
+> +       key_ip->ttl = iph->ttl;
+> +}
+> +
+> +static void
+> +__skb_flow_dissect_ipv6(const struct sk_buff *skb,
+> +                       struct flow_dissector *flow_dissector,
+> +                       void *target_container, void *data, const struct ipv6hdr *iph)
+> +{
+> +       struct flow_dissector_key_ip *key_ip;
+> +
+> +       if (!dissector_uses_key(flow_dissector, FLOW_DISSECTOR_KEY_IP))
+> +               return;
+> +
+> +       key_ip = skb_flow_dissector_target(flow_dissector,
+> +                                          FLOW_DISSECTOR_KEY_IP,
+> +                                          target_container);
+> +       key_ip->tos = ipv6_get_dsfield(iph);
+> +       key_ip->ttl = iph->hop_limit;
+> +}
+> +
+>  /**
+>   * __skb_flow_dissect - extract the flow_keys struct and return it
+>   * @skb: sk_buff to extract the flow from, can be NULL if the rest are specified
+> @@ -469,6 +503,9 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
+>                         }
+>                 }
+>
+> +               __skb_flow_dissect_ipv4(skb, flow_dissector,
+> +                                       target_container, data, iph);
+> +
+>                 if (flags & FLOW_DISSECTOR_F_STOP_AT_L3)
+>                         goto out_good;
+>
+> @@ -514,6 +551,9 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
+>                                 goto out_good;
+>                 }
+>
+> +               __skb_flow_dissect_ipv6(skb, flow_dissector,
+> +                                       target_container, data, iph);
+> +
+>                 if (flags & FLOW_DISSECTOR_F_STOP_AT_L3)
+>                         goto out_good;
+>
+> --
+> 2.3.7
+>
