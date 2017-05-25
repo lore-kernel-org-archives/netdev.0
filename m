@@ -1,42 +1,117 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v2 0/5] Various BPF fixes
-Date: Thu, 25 May 2017 13:45:26 -0400 (EDT)
-Message-ID: <20170525.134526.1519650285082936067.davem@davemloft.net>
-References: <cover.1495665905.git.daniel@iogearbox.net>
+From: "Chickles, Derek" <Derek.Chickles@cavium.com>
+Subject: RE: [PATCH net-next] liquidio: fix rare pci_driver.probe failure of
+ VF driver
+Date: Thu, 25 May 2017 17:52:11 +0000
+Message-ID: <MWHPR07MB294348660180CD854B818B2DF3FF0@MWHPR07MB2943.namprd07.prod.outlook.com>
+References: <20170525174214.GA1444@felix-thinkpad.cavium.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: alexei.starovoitov@gmail.com, netdev@vger.kernel.org,
-        ecree@solarflare.com
-To: daniel@iogearbox.net
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "Vatsavayi, Raghu" <Raghu.Vatsavayi@cavium.com>,
+        "Burla, Satananda" <Satananda.Burla@cavium.com>,
+        "Kanneganti, Prasad" <Prasad.Kanneganti@cavium.com>
+To: "Manlunas, Felix" <Felix.Manlunas@cavium.com>,
+        "davem@davemloft.net" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:59978 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S966687AbdEYRp2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 25 May 2017 13:45:28 -0400
-In-Reply-To: <cover.1495665905.git.daniel@iogearbox.net>
+Received: from mail-bl2nam02on0040.outbound.protection.outlook.com ([104.47.38.40]:11229
+        "EHLO NAM02-BL2-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1765145AbdEYRwQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 25 May 2017 13:52:16 -0400
+In-Reply-To: <20170525174214.GA1444@felix-thinkpad.cavium.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann <daniel@iogearbox.net>
-Date: Thu, 25 May 2017 01:05:04 +0200
+Looks good to me.
 
-> Follow-up to fix incorrect pruning when alignment tracking is
-> in use and to properly clear regs after call to not leave stale
-> data behind, also a fix that adds bpf_clone_redirect to the
-> bpf_helper_changes_pkt_data helper and exposes correct map_flags
-> for lpm map into fdinfo. For details, please see individual
-> patches.
-> 
-> v1 -> v2:
->   - Reworked first patch so that env->strict_alignment is the
->     final indicator on whether we have to deal with strict
->     alignment rather than having CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS
->     checks on various locations, so only checking env->strict_alignment
->     is sufficient after that. Thanks for spotting, Dave!
->   - Added patch 3 and 4.
->   - Rest as is.
+Derek
 
-Series applied, thanks Daniel.
-
-Hmmm, this is likely to conflict with Edwards's work...
+> -----Original Message-----
+> From: Manlunas, Felix
+> Sent: Thursday, May 25, 2017 10:42 AM
+> To: davem@davemloft.net
+> Cc: netdev@vger.kernel.org; Vatsavayi, Raghu <Raghu.Vatsavayi@cavium.com>=
+;
+> Chickles, Derek <Derek.Chickles@cavium.com>; Burla, Satananda
+> <Satananda.Burla@cavium.com>; Kanneganti, Prasad
+> <Prasad.Kanneganti@cavium.com>
+> Subject: [PATCH net-next] liquidio: fix rare pci_driver.probe failure of
+> VF driver
+>=20
+> From: Prasad Kanneganti <prasad.kanneganti@cavium.com>
+>=20
+> There's a rare pci_driver.probe failure of the VF driver that's caused by
+> PF/VF handshake going out of sync.  The culprit is octeon_mbox_write() wh=
+o
+> ignores an ack timeout condition; it just keeps unconditionally writing
+> all elements of mbox_cmd->data[] even when the other side is not ready fo=
+r
+> them.  Fix it by making each write of mbox_cmd->data[i] conditional to
+> having previously received an ack.
+>=20
+> Also fix the octeon_mbox_state enum such that each state gets a unique
+> value.  Also add ULL suffix to numeric literals in macro definitions.
+>=20
+> Signed-off-by: Prasad Kanneganti <prasad.kanneganti@cavium.com>
+> Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
+> ---
+>  drivers/net/ethernet/cavium/liquidio/octeon_mailbox.c |  5 ++++-
+> drivers/net/ethernet/cavium/liquidio/octeon_mailbox.h | 12 ++++++------
+>  2 files changed, 10 insertions(+), 7 deletions(-)
+>=20
+> diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_mailbox.c
+> b/drivers/net/ethernet/cavium/liquidio/octeon_mailbox.c
+> index 5cca73b..57af7df 100644
+> --- a/drivers/net/ethernet/cavium/liquidio/octeon_mailbox.c
+> +++ b/drivers/net/ethernet/cavium/liquidio/octeon_mailbox.c
+> @@ -178,7 +178,10 @@ int octeon_mbox_write(struct octeon_device *oct,
+>  					break;
+>  				}
+>  			}
+> -			writeq(mbox_cmd->data[i], mbox->mbox_write_reg);
+> +			if (ret =3D=3D OCTEON_MBOX_STATUS_SUCCESS)
+> +				writeq(mbox_cmd->data[i], mbox->mbox_write_reg);
+> +			else
+> +				break;
+>  		}
+>  	}
+>=20
+> diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_mailbox.h
+> b/drivers/net/ethernet/cavium/liquidio/octeon_mailbox.h
+> index c9376fe..1def22a 100644
+> --- a/drivers/net/ethernet/cavium/liquidio/octeon_mailbox.h
+> +++ b/drivers/net/ethernet/cavium/liquidio/octeon_mailbox.h
+> @@ -20,16 +20,16 @@
+>=20
+>  /* Macros for Mail Box Communication */
+>=20
+> -#define OCTEON_MBOX_DATA_MAX	32
+> +#define OCTEON_MBOX_DATA_MAX		32
+>=20
+>  #define OCTEON_VF_ACTIVE		0x1
+>  #define OCTEON_VF_FLR_REQUEST		0x2
+>  #define OCTEON_PF_CHANGED_VF_MACADDR	0x4
+>=20
+>  /*Macro for Read acknowldgement*/
+> -#define OCTEON_PFVFACK			0xffffffffffffffff
+> -#define OCTEON_PFVFSIG			0x1122334455667788
+> -#define OCTEON_PFVFERR			0xDEADDEADDEADDEAD
+> +#define OCTEON_PFVFACK			0xffffffffffffffffULL
+> +#define OCTEON_PFVFSIG			0x1122334455667788ULL
+> +#define OCTEON_PFVFERR			0xDEADDEADDEADDEADULL
+>=20
+>  #define LIO_MBOX_WRITE_WAIT_CNT         1000
+>  #define LIO_MBOX_WRITE_WAIT_TIME        msecs_to_jiffies(1)
+> @@ -74,8 +74,8 @@ enum octeon_mbox_state {
+>  	OCTEON_MBOX_STATE_REQUEST_RECEIVED =3D 4,
+>  	OCTEON_MBOX_STATE_RESPONSE_PENDING =3D 8,
+>  	OCTEON_MBOX_STATE_RESPONSE_RECEIVING =3D 16,
+> -	OCTEON_MBOX_STATE_RESPONSE_RECEIVED =3D 16,
+> -	OCTEON_MBOX_STATE_ERROR =3D 32
+> +	OCTEON_MBOX_STATE_RESPONSE_RECEIVED =3D 32,
+> +	OCTEON_MBOX_STATE_ERROR =3D 64
+>  };
+>=20
+>  struct octeon_mbox {
