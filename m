@@ -1,94 +1,74 @@
-From: Nithin Nayak Sujir <nsujir@tintri.com>
-Subject: [PATCH] bonding: Don't update slave->link until ready to commit
-Date: Wed, 24 May 2017 19:45:17 -0700
-Message-ID: <1495680317-11308-1-git-send-email-nsujir@tintri.com>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next 1/8] net: ipv4: refactor __ip_route_output_key_hash
+Date: Wed, 24 May 2017 20:05:08 -0700
+Message-ID: <CAJieiUhUhTLLrqjmVEzvRXc48tUtNO6ka4RFwWH7DhyVk3DATw@mail.gmail.com>
+References: <1495649951-30417-1-git-send-email-roopa@cumulusnetworks.com>
+ <1495649951-30417-2-git-send-email-roopa@cumulusnetworks.com>
+ <9B0331B6EBBD0E4684FBFAEDA55776F93D54F8DF@HASMSX110.ger.corp.intel.com> <692be183-cb75-fe33-605b-e458b10ef240@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org, Nithin Nayak Sujir <nsujir@tintri.com>,
-        Mahesh Bandewar <maheshb@google.com>,
-        Jay Vosburgh <jay.vosburgh@canonical.com>
-To: davem@davemloft.net
+Content-Type: text/plain; charset="UTF-8"
+Cc: "Rosen, Rami" <rami.rosen@intel.com>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "nikolay@cumulusnetworks.com" <nikolay@cumulusnetworks.com>
+To: David Ahern <dsahern@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0023b501.pphosted.com ([148.163.159.175]:47721 "EHLO
-        mx0a-0023b501.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S932535AbdEYCpw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 24 May 2017 22:45:52 -0400
+Received: from mail-ua0-f170.google.com ([209.85.217.170]:34395 "EHLO
+        mail-ua0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S937754AbdEYDFK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 24 May 2017 23:05:10 -0400
+Received: by mail-ua0-f170.google.com with SMTP id u10so108292705uaf.1
+        for <netdev@vger.kernel.org>; Wed, 24 May 2017 20:05:09 -0700 (PDT)
+In-Reply-To: <692be183-cb75-fe33-605b-e458b10ef240@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In the loadbalance arp monitoring scheme, when a slave link change is
-detected, the slave->link is immediately updated and slave_state_changed
-is set. Later down the function, the rtnl_lock is acquired and the
-changes are committed, updating the bond link state.
+On Wed, May 24, 2017 at 6:10 PM, David Ahern <dsahern@gmail.com> wrote:
+> On 5/24/17 1:33 PM, Rosen, Rami wrote:
+>> Hi, Rupa /David Ahern,
+>>
+>> First, thanks for this patch set!
+>>
+>> Second, it seems to me that something might be incorrect here.
+>>
+>> You have these additions in this patch  (1/8):
+>> ...
+>> +struct rtable *ip_route_output_key_hash_rcu(struct net *net, struct flowi4 *flp,
+>> +                                         const struct sk_buff *skb,
+>> +                                         struct fib_result *res);
+>> ...
+>> +struct rtable *ip_route_output_key_hash(struct net *net, struct flowi4 *fl4,
+>> +                                     const struct sk_buff *skb)
+>> +{
+>> +     struct fib_result res;
+>> +     struct rtable *rth;
+>> +
+>> +     res.tclassid    = 0;
+>> +     res.fi          = NULL;
+>> +     res.table       = NULL;
+>> +
+>> +     rcu_read_lock();
+>> +     rth = ip_route_output_key_hash_rcu(net, fl4, &res, mp_hash);
+>>       rcu_read_unlock();
+>> +
+>>       return rth;
+>>  }
+>> -EXPORT_SYMBOL_GPL(__ip_route_output_key_hash);
+>> +EXPORT_SYMBOL_GPL(ip_route_output_key_hash);
+>>
+>>
+>> So the third parameter to ip_route_output_key_hash_rcu() should be skb*, and the fourth parameter should be fib_result *. However, you do not pass the skb parameter
+>> when calling ip_route_output_key_hash_rcu() in
+>> ip_route_output_key_hash()  (in fact you don't use it at all),  and you pass mp_hash as the fourth parameter.
+>
+> Yep, it's a problem with the forward port of the first round of patches.
 
-However, the acquisition of the rtnl_lock can fail. The next time the
-monitor runs, since slave->link is already updated, it determines that
-link is unchanged. This results in the bond link state permanently out
-of sync with the slave link.
+yep,
 
-This patch modifies bond_loadbalance_arp_mon() to handle link changes
-identical to bond_ab_arp_{inspect/commit}(). The new link state is
-maintained in slave->new_link until we're ready to commit at which point
-it's copied into slave->link.
+>
+> Roopa: in include/net/route.h, __ip_route_output_key_hash should be
+> removed as well.
 
-NOTE: miimon_{inspect/commit}() has a more complex state machine
-requiring the use of the bond_{propose,commit}_link_state() functions
-which maintains the intermediate state in slave->link_new_state. The arp
-monitors don't require that.
+ack, thanks Rami and david.
 
-Testing: This bug is very easy to reproduce with the following steps.
-1. In a loop, toggle a slave link of a bond slave interface.
-2. In a separate loop, do ifconfig up/down of an unrelated interface to
-create contention for rtnl_lock.
-Within a few iterations, the bond link goes out of sync with the slave
-link.
-
-Signed-off-by: Nithin Nayak Sujir <nsujir@tintri.com>
-Cc: Mahesh Bandewar <maheshb@google.com>
-Cc: Jay Vosburgh <jay.vosburgh@canonical.com>
----
- drivers/net/bonding/bond_main.c | 11 +++++++++--
- 1 file changed, 9 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 7331331..2359478b 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -2612,11 +2612,13 @@ static void bond_loadbalance_arp_mon(struct bonding *bond)
- 	bond_for_each_slave_rcu(bond, slave, iter) {
- 		unsigned long trans_start = dev_trans_start(slave->dev);
- 
-+		slave->new_link = BOND_LINK_NOCHANGE;
-+
- 		if (slave->link != BOND_LINK_UP) {
- 			if (bond_time_in_interval(bond, trans_start, 1) &&
- 			    bond_time_in_interval(bond, slave->last_rx, 1)) {
- 
--				slave->link  = BOND_LINK_UP;
-+				slave->new_link = BOND_LINK_UP;
- 				slave_state_changed = 1;
- 
- 				/* primary_slave has no meaning in round-robin
-@@ -2643,7 +2645,7 @@ static void bond_loadbalance_arp_mon(struct bonding *bond)
- 			if (!bond_time_in_interval(bond, trans_start, 2) ||
- 			    !bond_time_in_interval(bond, slave->last_rx, 2)) {
- 
--				slave->link  = BOND_LINK_DOWN;
-+				slave->new_link = BOND_LINK_DOWN;
- 				slave_state_changed = 1;
- 
- 				if (slave->link_failure_count < UINT_MAX)
-@@ -2674,6 +2676,11 @@ static void bond_loadbalance_arp_mon(struct bonding *bond)
- 		if (!rtnl_trylock())
- 			goto re_arm;
- 
-+		bond_for_each_slave(bond, slave, iter) {
-+			if (slave->new_link != BOND_LINK_NOCHANGE)
-+				slave->link = slave->new_link;
-+		}
-+
- 		if (slave_state_changed) {
- 			bond_slave_state_change(bond);
- 			if (BOND_MODE(bond) == BOND_MODE_XOR)
--- 
-2.8.2
+will fix it in v2.
