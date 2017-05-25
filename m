@@ -1,95 +1,68 @@
-From: Suresh Reddy <suresh.reddy@broadcom.com>
-Subject: [PATCH net-next 1/2] be2net: Fix UE detection logic for BE3
-Date: Wed, 24 May 2017 22:24:38 -0400
-Message-ID: <1495679079-12025-2-git-send-email-suresh.reddy@broadcom.com>
-References: <Suresh.Reddy@broadcom.com>
- <1495679079-12025-1-git-send-email-suresh.reddy@broadcom.com>
-Cc: Suresh Reddy <suresh.reddy@broadcom.com>
-To: netdev@vger.kernel.org
+From: David Ahern <dsahern@gmail.com>
+Subject: Re: [PATCH net-next 8/8] net: ipv6: RTM_GETROUTE: return matched fib
+ result when requested
+Date: Wed, 24 May 2017 20:35:24 -0600
+Message-ID: <2106987d-7c19-b739-0103-97af3a3071da@gmail.com>
+References: <1495649951-30417-1-git-send-email-roopa@cumulusnetworks.com>
+ <1495649951-30417-9-git-send-email-roopa@cumulusnetworks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, nikolay@cumulusnetworks.com
+To: Roopa Prabhu <roopa@cumulusnetworks.com>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lpdvsmtp02.broadcom.com ([192.19.232.149]:56951 "EHLO
-        relay.smtp.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932343AbdEYCab (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 24 May 2017 22:30:31 -0400
-In-Reply-To: <1495679079-12025-1-git-send-email-suresh.reddy@broadcom.com>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:36501 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S937786AbdEYCf2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 24 May 2017 22:35:28 -0400
+Received: by mail-pf0-f194.google.com with SMTP id n23so35932903pfb.3
+        for <netdev@vger.kernel.org>; Wed, 24 May 2017 19:35:27 -0700 (PDT)
+In-Reply-To: <1495649951-30417-9-git-send-email-roopa@cumulusnetworks.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On certain platforms BE3 chips may indicate spurious UEs (unrecoverable
-error). Because of the UE detection logic was disabled in the driver
-for BE3 chips. Because of this, even in cases of a real UE,
-a failover will not occur. This patch re-enables UE detection on BE3
-and if a UE is detected, reads the POST register. If the POST register,
-reports either a FAT_LOG_STATE or a ARMFW_UE, then it means that a valid
-UE occurred in the chip.
+Since you have to do a v2 ...
 
-Signed-off-by: Suresh Reddy <suresh.reddy@broadcom.com>
----
- drivers/net/ethernet/emulex/benet/be_hw.h   |  3 +++
- drivers/net/ethernet/emulex/benet/be_main.c | 27 +++++++++++++++++++--------
- 2 files changed, 22 insertions(+), 8 deletions(-)
+On 5/24/17 12:19 PM, Roopa Prabhu wrote:
+> @@ -3622,6 +3623,7 @@ static int inet6_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh,
+>  	memset(&fl6, 0, sizeof(fl6));
+>  	rtm = nlmsg_data(nlh);
+>  	fl6.flowlabel = ip6_make_flowinfo(rtm->rtm_tos, 0);
+> +	fibmatch = (rtm->rtm_flags & RTM_F_FIB_MATCH) ? true : false;
+this is typically done as !!(rtm->rtm_flags & RTM_F_FIB_MATCH)
+>  
+>  	if (tb[RTA_SRC]) {
+>  		if (nla_len(tb[RTA_SRC]) < sizeof(struct in6_addr))
+> @@ -3667,12 +3669,27 @@ static int inet6_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh,
+>  		if (!ipv6_addr_any(&fl6.saddr))
+>  			flags |= RT6_LOOKUP_F_HAS_SADDR;
+>  
+> -		rt = (struct rt6_info *)ip6_route_input_lookup(net, dev, &fl6,
+> -							       flags);
+> +		if (!fibmatch)
+> +			rt = (struct rt6_info *)ip6_route_input_lookup(net, dev,
+> +								       &fl6,
+> +								       flags);
+>  	} else {
+>  		fl6.flowi6_oif = oif;
+>  
+> -		rt = (struct rt6_info *)ip6_route_output(net, NULL, &fl6);
+> +		if (!fibmatch)
+> +			rt = (struct rt6_info *)ip6_route_output_flags(net,
+> +								       NULL,
+> +								       &fl6, 0);
+> +	}
+> +
+> +	if (fibmatch) {
+> +		rt = (struct rt6_info *)ip6_route_lookup(net, &fl6, 0);
+> +		if (rt->dst.error) {
+> +			err = rt->dst.error;
+> +			ip6_rt_put(rt);
+> +			goto errout;
+> +		}
+> +
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_hw.h b/drivers/net/ethernet/emulex/benet/be_hw.h
-index 36e4232..c967f45 100644
---- a/drivers/net/ethernet/emulex/benet/be_hw.h
-+++ b/drivers/net/ethernet/emulex/benet/be_hw.h
-@@ -49,6 +49,9 @@
- #define POST_STAGE_BE_RESET		0x3 /* Host wants to reset chip */
- #define POST_STAGE_ARMFW_RDY		0xc000	/* FW is done with POST */
- #define POST_STAGE_RECOVERABLE_ERR	0xE000	/* Recoverable err detected */
-+/* FW has detected a UE and is dumping FAT log data */
-+#define POST_STAGE_FAT_LOG_START       0x0D00
-+#define POST_STAGE_ARMFW_UE            0xF000  /*FW has asserted an UE*/
- 
- /* Lancer SLIPORT registers */
- #define SLIPORT_STATUS_OFFSET		0x404
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index f3a09ab..8000551 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -3241,8 +3241,9 @@ void be_detect_error(struct be_adapter *adapter)
- {
- 	u32 ue_lo = 0, ue_hi = 0, ue_lo_mask = 0, ue_hi_mask = 0;
- 	u32 sliport_status = 0, sliport_err1 = 0, sliport_err2 = 0;
--	u32 i;
- 	struct device *dev = &adapter->pdev->dev;
-+	u16 val;
-+	u32 i;
- 
- 	if (be_check_error(adapter, BE_ERROR_HW))
- 		return;
-@@ -3280,15 +3281,25 @@ void be_detect_error(struct be_adapter *adapter)
- 		ue_lo = (ue_lo & ~ue_lo_mask);
- 		ue_hi = (ue_hi & ~ue_hi_mask);
- 
--		/* On certain platforms BE hardware can indicate spurious UEs.
--		 * Allow HW to stop working completely in case of a real UE.
--		 * Hence not setting the hw_error for UE detection.
--		 */
--
- 		if (ue_lo || ue_hi) {
-+			/* On certain platforms BE3 hardware can indicate
-+			 * spurious UEs. In case of a UE in the chip,
-+			 * the POST register correctly reports either a
-+			 * FAT_LOG_START state (FW is currently dumping
-+			 * FAT log data) or a ARMFW_UE state. Check for the
-+			 * above states to ascertain if the UE is valid or not.
-+			 */
-+			if (BE3_chip(adapter)) {
-+				val = be_POST_stage_get(adapter);
-+				if ((val & POST_STAGE_FAT_LOG_START)
-+				     != POST_STAGE_FAT_LOG_START &&
-+				    (val & POST_STAGE_ARMFW_UE)
-+				     != POST_STAGE_ARMFW_UE)
-+					return;
-+			}
-+
- 			dev_err(dev, "Error detected in the adapter");
--			if (skyhawk_chip(adapter))
--				be_set_error(adapter, BE_ERROR_UE);
-+			be_set_error(adapter, BE_ERROR_UE);
- 
- 			for (i = 0; ue_lo; ue_lo >>= 1, i++) {
- 				if (ue_lo & 1)
--- 
-1.8.3.1
+I'd prefer to see the typecasts go away and use container_of to go from
+dst_entry to rt6_info. I realize some of this is movement of existing
+code, but better to clean up as we go.
