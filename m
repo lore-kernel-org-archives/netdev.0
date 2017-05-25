@@ -1,93 +1,72 @@
-From: Tariq Toukan <tariqt@mellanox.com>
-Subject: [PATCH net V2] net/mlx4: Fix the check in attaching steering rules
-Date: Thu, 25 May 2017 16:21:10 +0300
-Message-ID: <1495718470-10215-1-git-send-email-tariqt@mellanox.com>
-Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>,
-        Talat Batheesh <talatb@mellanox.com>,
-        Tariq Toukan <tariqt@mellanox.com>
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH net-next 4/4] net/mlx5e: Offload TC matching on ip tos / traffic-class
+Date: Thu, 25 May 2017 16:24:39 +0300
+Message-ID: <1495718679-20693-5-git-send-email-ogerlitz@mellanox.com>
+References: <1495718679-20693-1-git-send-email-ogerlitz@mellanox.com>
+Cc: netdev@vger.kernel.org, Saeed Mahameed <saeedm@mellanox.com>,
+        Roi Dayan <roid@mellanox.com>,
+        Paul Blakey <paulb@mellanox.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:52796 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:53784 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1424118AbdEYNWm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 25 May 2017 09:22:42 -0400
+        with ESMTP id S1750913AbdEYNYp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 25 May 2017 09:24:45 -0400
+In-Reply-To: <1495718679-20693-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Talat Batheesh <talatb@mellanox.com>
+Enable offloading of TC matching on ipv4 tos or ipv6 traffic-class.
 
-Our previous patch (cited below) introduced a regression
-for RAW Eth QPs.
-
-Fix it by checking if the QP number provided by user-space
-exists, hence allowing steering rules to be added for valid
-QPs only.
-
-Fixes: 89c557687a32 ("net/mlx4_en: Avoid adding steering rules with ...")
-Reported-by: Or Gerlitz <gerlitz.or@gmail.com>
-Signed-off-by: Talat Batheesh <talatb@mellanox.com>
-Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
-Acked-by: Or Gerlitz <ogerlitz@mellanox.com>
-Reviewed-by: Leon Romanovsky <leonro@mellanox.com>
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 ---
-v2:
-* Removed unnecessary EXPORT_SYMBOL_GPL.
+ drivers/net/ethernet/mellanox/mlx5/core/en_tc.c | 26 ++++++++++++++++++++++++-
+ 1 file changed, 25 insertions(+), 1 deletion(-)
 
- drivers/net/ethernet/mellanox/mlx4/en_ethtool.c |  3 +--
- drivers/net/ethernet/mellanox/mlx4/qp.c         | 13 +++++++++++++
- include/linux/mlx4/qp.h                         |  1 +
- 3 files changed, 15 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-index ae5fdc2df654..00a7cd3dcc2e 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-@@ -1562,8 +1562,7 @@ static int mlx4_en_flow_replace(struct net_device *dev,
- 		qpn = priv->drop_qp.qpn;
- 	else if (cmd->fs.ring_cookie & EN_ETHTOOL_QP_ATTACH) {
- 		qpn = cmd->fs.ring_cookie & (EN_ETHTOOL_QP_ATTACH - 1);
--		if (qpn < priv->rss_map.base_qpn ||
--		    qpn >= priv->rss_map.base_qpn + priv->rx_ring_num) {
-+		if (!mlx4_qp_lookup(priv->mdev->dev, qpn)) {
- 			en_warn(priv, "rxnfc: QP (0x%x) doesn't exist\n", qpn);
- 			return -EINVAL;
- 		}
-diff --git a/drivers/net/ethernet/mellanox/mlx4/qp.c b/drivers/net/ethernet/mellanox/mlx4/qp.c
-index 2d6abd4662b1..ad92d2311478 100644
---- a/drivers/net/ethernet/mellanox/mlx4/qp.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/qp.c
-@@ -384,6 +384,19 @@ static void mlx4_qp_free_icm(struct mlx4_dev *dev, int qpn)
- 		__mlx4_qp_free_icm(dev, qpn);
- }
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+index 8e856cd..f8403fd 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+@@ -581,7 +581,8 @@ static int __parse_cls_flower(struct mlx5e_priv *priv,
+ 	      BIT(FLOW_DISSECTOR_KEY_ENC_IPV6_ADDRS) |
+ 	      BIT(FLOW_DISSECTOR_KEY_ENC_PORTS)	|
+ 	      BIT(FLOW_DISSECTOR_KEY_ENC_CONTROL) |
+-	      BIT(FLOW_DISSECTOR_KEY_TCP))) {
++	      BIT(FLOW_DISSECTOR_KEY_TCP) |
++	      BIT(FLOW_DISSECTOR_KEY_IP))) {
+ 		netdev_warn(priv->netdev, "Unsupported key used: 0x%x\n",
+ 			    f->dissector->used_keys);
+ 		return -EOPNOTSUPP;
+@@ -808,6 +809,29 @@ static int __parse_cls_flower(struct mlx5e_priv *priv,
+ 			*min_inline = MLX5_INLINE_MODE_TCP_UDP;
+ 	}
  
-+struct mlx4_qp *mlx4_qp_lookup(struct mlx4_dev *dev, u32 qpn)
-+{
-+	struct mlx4_qp_table *qp_table = &mlx4_priv(dev)->qp_table;
-+	struct mlx4_qp *qp;
++	if (dissector_uses_key(f->dissector, FLOW_DISSECTOR_KEY_IP)) {
++		struct flow_dissector_key_ip *key =
++			skb_flow_dissector_target(f->dissector,
++						  FLOW_DISSECTOR_KEY_IP,
++						  f->key);
++		struct flow_dissector_key_ip *mask =
++			skb_flow_dissector_target(f->dissector,
++						  FLOW_DISSECTOR_KEY_IP,
++						  f->mask);
 +
-+	spin_lock(&qp_table->lock);
++		MLX5_SET(fte_match_set_lyr_2_4, headers_c, ip_ecn, mask->tos & 0x3);
++		MLX5_SET(fte_match_set_lyr_2_4, headers_v, ip_ecn, key->tos & 0x3);
 +
-+	qp = __mlx4_qp_lookup(dev, qpn);
++		MLX5_SET(fte_match_set_lyr_2_4, headers_c, ip_dscp, mask->tos >> 2);
++		MLX5_SET(fte_match_set_lyr_2_4, headers_v, ip_dscp, key->tos  >> 2);
 +
-+	spin_unlock(&qp_table->lock);
-+	return qp;
-+}
++		if (mask->tos)
++			*min_inline = MLX5_INLINE_MODE_IP;
 +
- int mlx4_qp_alloc(struct mlx4_dev *dev, int qpn, struct mlx4_qp *qp, gfp_t gfp)
- {
- 	struct mlx4_priv *priv = mlx4_priv(dev);
-diff --git a/include/linux/mlx4/qp.h b/include/linux/mlx4/qp.h
-index b4ee8f62ce8d..8e2828d48d7f 100644
---- a/include/linux/mlx4/qp.h
-+++ b/include/linux/mlx4/qp.h
-@@ -470,6 +470,7 @@ struct mlx4_update_qp_params {
- 	u16	rate_val;
- };
- 
-+struct mlx4_qp *mlx4_qp_lookup(struct mlx4_dev *dev, u32 qpn);
- int mlx4_update_qp(struct mlx4_dev *dev, u32 qpn,
- 		   enum mlx4_update_qp_attr attr,
- 		   struct mlx4_update_qp_params *params);
++		if (mask->ttl) /* currently not supported */
++			return -EOPNOTSUPP;
++	}
++
+ 	if (dissector_uses_key(f->dissector, FLOW_DISSECTOR_KEY_TCP)) {
+ 		struct flow_dissector_key_tcp *key =
+ 			skb_flow_dissector_target(f->dissector,
 -- 
-1.8.3.1
+2.3.7
