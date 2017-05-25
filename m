@@ -1,45 +1,53 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ibmvnic: Enable TSO support
-Date: Thu, 25 May 2017 14:49:35 -0400 (EDT)
-Message-ID: <20170525.144935.732861960034229990.davem@davemloft.net>
-References: <1495679366-7149-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
-        <20170525.144626.1787511445330790842.davem@davemloft.net>
+Subject: Re: [PATCH] bonding: Don't update slave->link until ready to commit
+Date: Thu, 25 May 2017 14:50:40 -0400 (EDT)
+Message-ID: <20170525.145040.1004688199988361146.davem@davemloft.net>
+References: <1495680317-11308-1-git-send-email-nsujir@tintri.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nfont@linux.vnet.ibm.com,
-        jallen@linux.vnet.ibm.com
-To: tlfalcon@linux.vnet.ibm.com
+Cc: netdev@vger.kernel.org, maheshb@google.com,
+        jay.vosburgh@canonical.com
+To: nsujir@tintri.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:60496 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:60528 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1030309AbdEYSth (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 25 May 2017 14:49:37 -0400
-In-Reply-To: <20170525.144626.1787511445330790842.davem@davemloft.net>
+        with ESMTP id S1759115AbdEYSul (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 25 May 2017 14:50:41 -0400
+In-Reply-To: <1495680317-11308-1-git-send-email-nsujir@tintri.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Thu, 25 May 2017 14:46:26 -0400 (EDT)
+From: Nithin Nayak Sujir <nsujir@tintri.com>
+Date: Wed, 24 May 2017 19:45:17 -0700
 
-> From: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
-> Date: Wed, 24 May 2017 21:29:26 -0500
+> In the loadbalance arp monitoring scheme, when a slave link change is
+> detected, the slave->link is immediately updated and slave_state_changed
+> is set. Later down the function, the rtnl_lock is acquired and the
+> changes are committed, updating the bond link state.
 > 
->> The feature is also enabled by a module parameter.
->> This parameter is necessary because TSO can not easily be
->> enabled or disabled in firmware without reinitializing the driver.
+> However, the acquisition of the rtnl_lock can fail. The next time the
+> monitor runs, since slave->link is already updated, it determines that
+> link is unchanged. This results in the bond link state permanently out
+> of sync with the slave link.
 > 
-> Sorry, this is unacceptable.  When I say no module parameters,
-> I really really mean it.
+> This patch modifies bond_loadbalance_arp_mon() to handle link changes
+> identical to bond_ab_arp_{inspect/commit}(). The new link state is
+> maintained in slave->new_link until we're ready to commit at which point
+> it's copied into slave->link.
 > 
-> Users should not be burdoned with having to know a special knob for
-> every driver in order to adjust what is a generic feature.
+> NOTE: miimon_{inspect/commit}() has a more complex state machine
+> requiring the use of the bond_{propose,commit}_link_state() functions
+> which maintains the intermediate state in slave->link_new_state. The arp
+> monitors don't require that.
 > 
-> You'll have to find another way to accomodate this.
+> Testing: This bug is very easy to reproduce with the following steps.
+> 1. In a loop, toggle a slave link of a bond slave interface.
+> 2. In a separate loop, do ifconfig up/down of an unrelated interface to
+> create contention for rtnl_lock.
+> Within a few iterations, the bond link goes out of sync with the slave
+> link.
+> 
+> Signed-off-by: Nithin Nayak Sujir <nsujir@tintri.com>
 
-Also, TSO helps without SG only because you haven't implemented
-support for xmit_more in this driver to decrease the number of
-doorball updates and VM enters.
-
-I bet if you added xmit_more support, TSO wouldn't give you much
-if any performance boost if you have to linearize.
+Applied, thank you.
