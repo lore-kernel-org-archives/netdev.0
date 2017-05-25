@@ -1,68 +1,44 @@
-From: tndave <tushar.n.dave@oracle.com>
-Subject: Re: [PATCH] i40e: Fix incorrect pf->flags
-Date: Thu, 25 May 2017 09:00:24 -0700
-Message-ID: <4b4638a9-a995-de0a-cdcd-97c891e1b6b3@oracle.com>
-References: <1495242112-14835-1-git-send-email-tushar.n.dave@oracle.com>
- <1495703624.49259.39.camel@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-        intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org
+From: David Ahern <dsahern@gmail.com>
+Subject: Re: [PATCH net-next 8/8] net: ipv6: RTM_GETROUTE: return matched fib
+ result when requested
+Date: Thu, 25 May 2017 10:00:36 -0600
+Message-ID: <5917C4F8-5C96-4BE9-B276-2875561D5A60@gmail.com>
+References: <1495649951-30417-1-git-send-email-roopa@cumulusnetworks.com>
+ <1495649951-30417-9-git-send-email-roopa@cumulusnetworks.com>
+ <2106987d-7c19-b739-0103-97af3a3071da@gmail.com>
+ <CAJieiUh+GAtOGZv4UU_gcn5isA6DSqaFj_EXzA24qBK7vJz4AQ@mail.gmail.com>
+Mime-Version: 1.0 (Mac OS X Mail 10.3 \(3273\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: quoted-printable
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+To: Roopa Prabhu <roopa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:48226 "EHLO
-        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S942555AbdEYQBQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 25 May 2017 12:01:16 -0400
-In-Reply-To: <1495703624.49259.39.camel@intel.com>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:34178 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S938517AbdEYQAo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 25 May 2017 12:00:44 -0400
+Received: by mail-pf0-f193.google.com with SMTP id w69so40096433pfk.1
+        for <netdev@vger.kernel.org>; Thu, 25 May 2017 09:00:44 -0700 (PDT)
+In-Reply-To: <CAJieiUh+GAtOGZv4UU_gcn5isA6DSqaFj_EXzA24qBK7vJz4AQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
+> On May 25, 2017, at 9:54 AM, Roopa Prabhu <roopa@cumulusnetworks.com> =
+wrote:
+>=20
+>>=20
+>> I'd prefer to see the typecasts go away and use container_of to go =
+from
+>> dst_entry to rt6_info. I realize some of this is movement of existing
+>> code, but better to clean up as we go.
+>>=20
+>=20
+> ack. But that is pretty much all of ipv6 code. so, seems better done
+> with an incremental cleanup patch.
+>=20
 
-On 05/25/2017 02:13 AM, Jeff Kirsher wrote:
-> On Fri, 2017-05-19 at 18:01 -0700, Tushar Dave wrote:
->> Fix bug introduced by 'commit 47994c119a36e ("i40e: remove
->> hw_disabled_flags in favor of using separate flag bits")' that
->> mistakenly wipes out pf->flags.
->>
->> Signed-off-by: Tushar Dave <tushar.n.dave@oracle.com>
->> ---
->>  drivers/net/ethernet/intel/i40e/i40e_main.c | 4 ++--
->>  1 file changed, 2 insertions(+), 2 deletions(-)
->
-> :-(
-> Not even close to applying, I even tried to apply by hand but the patch
-> was not near the same as my branch in my tree.  I will forgive this
-> second instance of a patch generated on different tree/branch, but I
-> really must insist that you use my tree & branch if you need/want to
-> make changes to Intel wired LAN driver changes.
-Apology Jeff. I used Dave's net tree.
-Now onwards, I will use your 'net-queue:dev_queue' for bug fixes and
-'next-queue:dev_queue' for developmental changes to Intel Ethernet drivers.
-
-Being this patch a bug fix, I will send v2 based off your git tree
-'net-queue' on branch 'dev_queue'. Hope that is okay?
-
-Thanks.
-
--Tushar
->
->>
->> diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c
->> b/drivers/net/ethernet/intel/i40e/i40e_main.c
->> index d5c9c9e..6b98d34 100644
->> --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
->> +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
->> @@ -8821,9 +8821,9 @@ static int i40e_sw_init(struct i40e_pf *pf)
->>  		    (pf->hw.aq.api_min_ver > 4))) {
->>  		/* Supported in FW API version higher than 1.4 */
->>  		pf->flags |= I40E_FLAG_GENEVE_OFFLOAD_CAPABLE;
->> -		pf->flags = I40E_FLAG_HW_ATR_EVICT_CAPABLE;
->> +		pf->flags |= I40E_FLAG_HW_ATR_EVICT_CAPABLE;
->>  	} else {
->> -		pf->flags = I40E_FLAG_HW_ATR_EVICT_CAPABLE;
->> +		pf->flags |= I40E_FLAG_HW_ATR_EVICT_CAPABLE;
->>  	}
->>
->>  	pf->eeprom_version = 0xDEAD;
+For the rest of the ipv6 code, yes. We can do the right thing now for =
+new code and changes to existing code.=
