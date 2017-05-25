@@ -1,63 +1,124 @@
 From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: [PATCH net-next v2 3/8] net: ipv4: Remove event arg to rt_fill_info
-Date: Thu, 25 May 2017 10:42:35 -0700
-Message-ID: <1495734160-47659-4-git-send-email-roopa@cumulusnetworks.com>
+Subject: [PATCH net-next v2 4/8] net: ipv4: Convert inet_rtm_getroute to rcu versions of route lookup
+Date: Thu, 25 May 2017 10:42:36 -0700
+Message-ID: <1495734160-47659-5-git-send-email-roopa@cumulusnetworks.com>
 References: <1495734160-47659-1-git-send-email-roopa@cumulusnetworks.com>
 Cc: netdev@vger.kernel.org, nikolay@cumulusnetworks.com
 To: davem@davemloft.net, dsahern@gmail.com, rami.rosen@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f181.google.com ([209.85.192.181]:36711 "EHLO
-        mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S969989AbdEYRnG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 25 May 2017 13:43:06 -0400
-Received: by mail-pf0-f181.google.com with SMTP id m17so173583142pfg.3
-        for <netdev@vger.kernel.org>; Thu, 25 May 2017 10:43:06 -0700 (PDT)
+Received: from mail-pf0-f177.google.com ([209.85.192.177]:34304 "EHLO
+        mail-pf0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S969967AbdEYRnI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 25 May 2017 13:43:08 -0400
+Received: by mail-pf0-f177.google.com with SMTP id 9so173477869pfj.1
+        for <netdev@vger.kernel.org>; Thu, 25 May 2017 10:43:08 -0700 (PDT)
 In-Reply-To: <1495734160-47659-1-git-send-email-roopa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: David Ahern <dsahern@gmail.com>
 
-rt_fill_info has 1 caller with the event set to RTM_NEWROUTE. Given that
-remove the arg and use RTM_NEWROUTE directly in rt_fill_info.
+Convert inet_rtm_getroute to use ip_route_input_rcu and
+ip_route_output_key_hash_rcu passing the fib_result arg to both.
+The rcu lock is held through the creation of the response, so the
+rtable/dst does not need to be attached to the skb and is passed
+to rt_fill_info directly.
+
+In converting from ip_route_output_key to ip_route_output_key_hash_rcu
+the xfrm_lookup_route in ip_route_output_flow is dropped since
+flowi4_proto is not set for a route get request.
 
 Signed-off-by: David Ahern <dsahern@gmail.com>
 Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
 ---
- net/ipv4/route.c | 7 +++----
- 1 file changed, 3 insertions(+), 4 deletions(-)
+ net/ipv4/route.c | 21 +++++++++++++--------
+ 1 file changed, 13 insertions(+), 8 deletions(-)
 
 diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 1dc8fd1..d8fcecc 100644
+index d8fcecc..1fa9127 100644
 --- a/net/ipv4/route.c
 +++ b/net/ipv4/route.c
-@@ -2536,7 +2536,7 @@ struct rtable *ip_route_output_flow(struct net *net, struct flowi4 *flp4,
+@@ -2534,11 +2534,11 @@ struct rtable *ip_route_output_flow(struct net *net, struct flowi4 *flp4,
+ }
+ EXPORT_SYMBOL_GPL(ip_route_output_flow);
  
++/* called with rcu_read_lock held */
  static int rt_fill_info(struct net *net,  __be32 dst, __be32 src, u32 table_id,
  			struct flowi4 *fl4, struct sk_buff *skb, u32 portid,
--			u32 seq, int event)
-+			u32 seq)
+-			u32 seq)
++			u32 seq, struct rtable *rt)
  {
- 	struct rtable *rt = skb_rtable(skb);
+-	struct rtable *rt = skb_rtable(skb);
  	struct rtmsg *r;
-@@ -2545,7 +2545,7 @@ static int rt_fill_info(struct net *net,  __be32 dst, __be32 src, u32 table_id,
- 	u32 error;
- 	u32 metrics[RTAX_MAX];
+ 	struct nlmsghdr *nlh;
+ 	unsigned long expires = 0;
+@@ -2653,6 +2653,7 @@ static int inet_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh,
+ 	struct net *net = sock_net(in_skb->sk);
+ 	struct rtmsg *rtm;
+ 	struct nlattr *tb[RTA_MAX+1];
++	struct fib_result res = {};
+ 	struct rtable *rt = NULL;
+ 	struct flowi4 fl4;
+ 	__be32 dst = 0;
+@@ -2709,10 +2710,12 @@ static int inet_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh,
+ 	fl4.flowi4_mark = mark;
+ 	fl4.flowi4_uid = uid;
  
--	nlh = nlmsg_put(skb, portid, seq, event, sizeof(*r), 0);
-+	nlh = nlmsg_put(skb, portid, seq, RTM_NEWROUTE, sizeof(*r), 0);
- 	if (!nlh)
- 		return -EMSGSIZE;
++	rcu_read_lock();
++
+ 	if (iif) {
+ 		struct net_device *dev;
  
-@@ -2745,8 +2745,7 @@ static int inet_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh,
+-		dev = __dev_get_by_index(net, iif);
++		dev = dev_get_by_index_rcu(net, iif);
+ 		if (!dev) {
+ 			err = -ENODEV;
+ 			goto errout_free;
+@@ -2721,14 +2724,14 @@ static int inet_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh,
+ 		skb->protocol	= htons(ETH_P_IP);
+ 		skb->dev	= dev;
+ 		skb->mark	= mark;
+-		err = ip_route_input(skb, dst, src, rtm->rtm_tos, dev);
++		err = ip_route_input_rcu(skb, dst, src, rtm->rtm_tos,
++					 dev, &res);
+ 
+ 		rt = skb_rtable(skb);
+ 		if (err == 0 && rt->dst.error)
+ 			err = -rt->dst.error;
+ 	} else {
+-		rt = ip_route_output_key(net, &fl4);
+-
++		rt = ip_route_output_key_hash_rcu(net, &fl4, &res, skb);
+ 		err = 0;
+ 		if (IS_ERR(rt))
+ 			err = PTR_ERR(rt);
+@@ -2737,7 +2740,6 @@ static int inet_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh,
+ 	if (err)
+ 		goto errout_free;
+ 
+-	skb_dst_set(skb, &rt->dst);
+ 	if (rtm->rtm_flags & RTM_F_NOTIFY)
+ 		rt->rt_flags |= RTCF_NOTIFY;
+ 
+@@ -2745,15 +2747,18 @@ static int inet_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh,
  		table_id = rt->rt_table_id;
  
  	err = rt_fill_info(net, dst, src, table_id, &fl4, skb,
--			   NETLINK_CB(in_skb).portid, nlh->nlmsg_seq,
--			   RTM_NEWROUTE);
-+			   NETLINK_CB(in_skb).portid, nlh->nlmsg_seq);
+-			   NETLINK_CB(in_skb).portid, nlh->nlmsg_seq);
++			   NETLINK_CB(in_skb).portid, nlh->nlmsg_seq, rt);
  	if (err < 0)
  		goto errout_free;
  
++	rcu_read_unlock();
++
+ 	err = rtnl_unicast(skb, net, NETLINK_CB(in_skb).portid);
+ errout:
+ 	return err;
+ 
+ errout_free:
++	rcu_read_unlock();
+ 	kfree_skb(skb);
+ 	goto errout;
+ }
 -- 
 1.9.1
