@@ -1,50 +1,78 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next 1/2] Documentation:
- sysfs-class-net-statistics: Clarify rx_bytes and tx_bytes
-Date: Thu, 25 May 2017 12:43:05 -0400 (EDT)
-Message-ID: <20170525.124305.764605105083674654.davem@davemloft.net>
-References: <1495573858-32346-1-git-send-email-andrew@lunn.ch>
-        <1495573858-32346-2-git-send-email-andrew@lunn.ch>
+Subject: Re: [PATCH net-next 2/4] net: phy: marvell: More hidden page
+ changes refactored
+Date: Thu, 25 May 2017 12:46:03 -0400 (EDT)
+Message-ID: <20170525.124603.1937819669219575888.davem@davemloft.net>
+References: <1495574697-501-1-git-send-email-andrew@lunn.ch>
+        <1495574697-501-3-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: f.fainelli@gmail.com, hayeswang@realtek.com, netdev@vger.kernel.org
+Cc: f.fainelli@gmail.com, netdev@vger.kernel.org
 To: andrew@lunn.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:59096 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:59118 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751861AbdEYQnH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 25 May 2017 12:43:07 -0400
-In-Reply-To: <1495573858-32346-2-git-send-email-andrew@lunn.ch>
+        with ESMTP id S942640AbdEYQqE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 25 May 2017 12:46:04 -0400
+In-Reply-To: <1495574697-501-3-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Andrew Lunn <andrew@lunn.ch>
-Date: Tue, 23 May 2017 23:10:57 +0200
+Date: Tue, 23 May 2017 23:24:55 +0200
 
-> Document what is expected for the rx_bytes and tx_bytes statistics in
-> /sys/class/net/<device>/statistics. The FCS should be included in the
-> statistics. However, since this has been unclear until now, it is
-> expected a number of drivers don't. But maybe with time they will.
+> EXT_ADDR_PAGE is the same meaning as MII_MARVELL_PHY_PAGE, i.e. change
+> page. Replace it will calls to the helpers.
 > 
 > Signed-off-by: Andrew Lunn <andrew@lunn.ch>
 
-Precedence has not been very kind to us here.
+Sorry to ding you on this but...
 
-Also, we really I want drivers doing the simplest thing possible,
-which on transmit is:
+> @@ -1556,12 +1552,19 @@ static int m88e1121_get_temp(struct phy_device *phydev, long *temp)
+>  {
+>  	int ret;
+>  	int val;
+> +	int oldpage;
 
-	tx_bytes += skb->len;
+Reverse christmas tree.
 
-Not:
+> @@ -1671,12 +1674,19 @@ static const struct hwmon_chip_info m88e1121_hwmon_chip_info = {
+>  static int m88e1510_get_temp(struct phy_device *phydev, long *temp)
+>  {
+>  	int ret;
+> +	int oldpage;
+>  
+>  	*temp = 0;
 
-	tx_bytes += skb->len + ETH_FCS_LEN;
+Likewise.
 
-I understand the problem you're trying to tackle, but software stats
-should be for software state, and that state is emphatically skb->len
+> @@ -1696,12 +1706,18 @@ static int m88e1510_get_temp(struct phy_device *phydev, long *temp)
+>  int m88e1510_get_temp_critical(struct phy_device *phydev, long *temp)
+>  {
+>  	int ret;
+> +	int oldpage;
+>  
+>  	*temp = 0;
 
-So if we are to strive for software statistic "consistency" it should
-be against the software part of the packet, not the software part
-"plus X and Y link layer stuff no visible in the software packet".
+Likewise.
 
-Thanks.
+> @@ -1724,10 +1740,17 @@ int m88e1510_get_temp_critical(struct phy_device *phydev, long *temp)
+>  int m88e1510_set_temp_critical(struct phy_device *phydev, long temp)
+>  {
+>  	int ret;
+> +	int oldpage;
+
+Likewise.
+
+> @@ -1751,12 +1774,19 @@ int m88e1510_set_temp_critical(struct phy_device *phydev, long temp)
+>  int m88e1510_get_temp_alarm(struct phy_device *phydev, long *alarm)
+>  {
+>  	int ret;
+> +	int oldpage;
+
+Likewise.
+
+Otherwise this patch series looks fine to me.
+
+THanks.
