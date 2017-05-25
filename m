@@ -1,126 +1,37 @@
-From: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
-Subject: [PATCH net-next] ibmvnic: Enable TSO support
-Date: Wed, 24 May 2017 21:29:26 -0500
-Message-ID: <1495679366-7149-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
-Cc: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>,
-        Nathan Fontenot <nfont@linux.vnet.ibm.com>,
-        John Allen <jallen@linux.vnet.ibm.com>
+From: Suresh Reddy <suresh.reddy@broadcom.com>
+Subject: [PATCH net-next 2/2] be2net: Update the driver version to 11.4.0.0
+Date: Wed, 24 May 2017 22:24:39 -0400
+Message-ID: <1495679079-12025-3-git-send-email-suresh.reddy@broadcom.com>
+References: <Suresh.Reddy@broadcom.com>
+ <1495679079-12025-1-git-send-email-suresh.reddy@broadcom.com>
+Cc: Suresh Reddy <suresh.reddy@broadcom.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:58866 "EHLO
-        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S932343AbdEYC3c (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 24 May 2017 22:29:32 -0400
-Received: from pps.filterd (m0098396.ppops.net [127.0.0.1])
-        by mx0a-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v4P2T1RS067490
-        for <netdev@vger.kernel.org>; Wed, 24 May 2017 22:29:32 -0400
-Received: from e16.ny.us.ibm.com (e16.ny.us.ibm.com [129.33.205.206])
-        by mx0a-001b2d01.pphosted.com with ESMTP id 2ankhhduge-1
-        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Wed, 24 May 2017 22:29:32 -0400
-Received: from localhost
-        by e16.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-        for <netdev@vger.kernel.org> from <tlfalcon@linux.vnet.ibm.com>;
-        Wed, 24 May 2017 22:29:30 -0400
+Received: from lpdvsmtp02.broadcom.com ([192.19.232.149]:56950 "EHLO
+        relay.smtp.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932236AbdEYCab (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 24 May 2017 22:30:31 -0400
+In-Reply-To: <1495679079-12025-1-git-send-email-suresh.reddy@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Enable TSO in the ibmvnic driver. Scatter-gather is also enabled,
-though there currently is no support for scatter-gather in
-vNIC-compatible hardware, resulting in forced linearization
-of all fragmented SKB's. Though not ideal, given the throughput
-improvement gained by enabling TSO, it has been decided
-that this is an acceptable tradeoff.
-
-The feature is also enabled by a module parameter.
-This parameter is necessary because TSO can not easily be
-enabled or disabled in firmware without reinitializing the driver.
-
-CC: Nathan Fontenot <nfont@linux.vnet.ibm.com>
-CC: John Allen <jallen@linux.vnet.ibm.com>
-Signed-off-by: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
+Signed-off-by: Suresh Reddy <suresh.reddy@broadcom.com>
 ---
- drivers/net/ethernet/ibm/ibmvnic.c | 39 +++++++++++++++++++++++++++++++++++---
- 1 file changed, 36 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/emulex/benet/be.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/ibm/ibmvnic.c b/drivers/net/ethernet/ibm/ibmvnic.c
-index abe2b6e..64e8d50 100644
---- a/drivers/net/ethernet/ibm/ibmvnic.c
-+++ b/drivers/net/ethernet/ibm/ibmvnic.c
-@@ -81,6 +81,11 @@
- static const char ibmvnic_driver_name[] = "ibmvnic";
- static const char ibmvnic_driver_string[] = "IBM System i/p Virtual NIC Driver";
+diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
+index 5056624..674cf9d 100644
+--- a/drivers/net/ethernet/emulex/benet/be.h
++++ b/drivers/net/ethernet/emulex/benet/be.h
+@@ -37,7 +37,7 @@
+ #include "be_hw.h"
+ #include "be_roce.h"
  
-+static int large_send_offload;
-+module_param(large_send_offload, bool, 0644);
-+MODULE_PARM_DESC(large_send_offload,
-+		 "Determines whether large send offload is enabled");
-+
- MODULE_AUTHOR("Santiago Leon <santi_leon@yahoo.com>");
- MODULE_DESCRIPTION("IBM System i/p Virtual NIC Driver");
- MODULE_LICENSE("GPL");
-@@ -1025,6 +1030,17 @@ static int ibmvnic_xmit(struct sk_buff *skb, struct net_device *netdev)
- 		goto out;
- 	}
- 
-+	/* All scatter-gather SKB's will be linearized for the time being, but
-+	 * scatter-gather is only enabled if the user wishes to use TSO.
-+	 */
-+	if (skb_shinfo(skb)->nr_frags && __skb_linearize(skb)) {
-+		dev_kfree_skb_any(skb);
-+		tx_send_failed++;
-+		tx_dropped++;
-+		ret = NETDEV_TX_OK;
-+		goto out;
-+	}
-+
- 	tx_pool = &adapter->tx_pool[queue_num];
- 	tx_scrq = adapter->tx_scrq[queue_num];
- 	txq = netdev_get_tx_queue(netdev, skb_get_queue_mapping(skb));
-@@ -1082,6 +1098,11 @@ static int ibmvnic_xmit(struct sk_buff *skb, struct net_device *netdev)
- 		tx_crq.v1.flags1 |= IBMVNIC_TX_CHKSUM_OFFLOAD;
- 		hdrs += 2;
- 	}
-+	if (skb_is_gso(skb)) {
-+		tx_crq.v1.flags1 |= IBMVNIC_TX_LSO;
-+		tx_crq.v1.mss = cpu_to_be16(skb_shinfo(skb)->gso_size);
-+		hdrs += 2;
-+	}
- 	/* determine if l2/3/4 headers are sent to firmware */
- 	if ((*hdrs >> 7) & 1 &&
- 	    (skb->protocol == htons(ETH_P_IP) ||
-@@ -2629,10 +2650,10 @@ static void handle_query_ip_offload_rsp(struct ibmvnic_adapter *adapter)
- 	adapter->ip_offload_ctrl.udp_ipv4_chksum = buf->udp_ipv4_chksum;
- 	adapter->ip_offload_ctrl.tcp_ipv6_chksum = buf->tcp_ipv6_chksum;
- 	adapter->ip_offload_ctrl.udp_ipv6_chksum = buf->udp_ipv6_chksum;
-+	adapter->ip_offload_ctrl.large_tx_ipv4 = buf->large_tx_ipv4;
-+	adapter->ip_offload_ctrl.large_tx_ipv6 = buf->large_tx_ipv6;
- 
--	/* large_tx/rx disabled for now, additional features needed */
--	adapter->ip_offload_ctrl.large_tx_ipv4 = 0;
--	adapter->ip_offload_ctrl.large_tx_ipv6 = 0;
-+	/* large_rx disabled for now, additional features needed */
- 	adapter->ip_offload_ctrl.large_rx_ipv4 = 0;
- 	adapter->ip_offload_ctrl.large_rx_ipv6 = 0;
- 
-@@ -2648,6 +2669,18 @@ static void handle_query_ip_offload_rsp(struct ibmvnic_adapter *adapter)
- 	    (NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM)))
- 		adapter->netdev->features |= NETIF_F_RXCSUM;
- 
-+	if (large_send_offload) {
-+		/* Scatter-gather is not currently supported by firmware.
-+		 * It will only be enabled to support TSO operations.
-+		 */
-+		adapter->netdev->features = NETIF_F_SG;
-+
-+		if (buf->large_tx_ipv4)
-+			adapter->netdev->features |= NETIF_F_TSO;
-+		if (buf->large_tx_ipv6)
-+			adapter->netdev->features |= NETIF_F_TSO6;
-+	}
-+
- 	memset(&crq, 0, sizeof(crq));
- 	crq.control_ip_offload.first = IBMVNIC_CRQ_CMD;
- 	crq.control_ip_offload.cmd = CONTROL_IP_OFFLOAD;
+-#define DRV_VER			"11.1.0.0"
++#define DRV_VER			"11.4.0.0"
+ #define DRV_NAME		"be2net"
+ #define BE_NAME			"Emulex BladeEngine2"
+ #define BE3_NAME		"Emulex BladeEngine3"
 -- 
 1.8.3.1
