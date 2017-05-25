@@ -1,87 +1,83 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next 2/4] nfp: register ports as devlink ports
-Date: Thu, 25 May 2017 10:20:26 +0200
-Message-ID: <20170525082026.GC1909@nanopsycho>
-References: <20170523151247.8535-1-jakub.kicinski@netronome.com>
- <20170523151247.8535-3-jakub.kicinski@netronome.com>
- <20170524123514.GB1908@nanopsycho>
- <20170524122413.702e0eef@cakuba.netronome.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH] i40e: Fix incorrect pf->flags
+Date: Thu, 25 May 2017 02:13:44 -0700
+Message-ID: <1495703624.49259.39.camel@intel.com>
+References: <1495242112-14835-1-git-send-email-tushar.n.dave@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, oss-drivers@netronome.com
-To: Jakub Kicinski <kubakici@wp.pl>
+Content-Type: multipart/signed; micalg="pgp-sha256";
+        protocol="application/pgp-signature"; boundary="=-HLG64JqF4O+L1u6JPD2m"
+To: Tushar Dave <tushar.n.dave@oracle.com>,
+        intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f195.google.com ([209.85.128.195]:33852 "EHLO
-        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1423687AbdEYIU3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 25 May 2017 04:20:29 -0400
-Received: by mail-wr0-f195.google.com with SMTP id 6so11865943wrb.1
-        for <netdev@vger.kernel.org>; Thu, 25 May 2017 01:20:28 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20170524122413.702e0eef@cakuba.netronome.com>
+Received: from mga02.intel.com ([134.134.136.20]:44268 "EHLO mga02.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S942139AbdEYJN4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 25 May 2017 05:13:56 -0400
+In-Reply-To: <1495242112-14835-1-git-send-email-tushar.n.dave@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wed, May 24, 2017 at 09:24:13PM CEST, kubakici@wp.pl wrote:
->On Wed, 24 May 2017 14:35:14 +0200, Jiri Pirko wrote:
->> >+void nfp_devlink_port_unregister(struct nfp_port *port)
->> >+{
->> >+	/* Due to unpleasant lock ordering we may see the port go away before
->> >+	 * we have fully probed.  
->> 
->> Could you elaborate on this a bit more please?
->
->It's partially due to peculiarities of the management FW more than
->kernel stuff.  Unfortunately some ethtool media config requires reboot
->to be applied, so we print a friendly message to the logs and
->unregister the associated netdevs.  Which means once netdevs get
->registered ports may go away.
->
->Enter devlink, I need the ability to grab the adapater lock in
->split/unsplit callbacks to find the ports, which implies having to drop
->that lock before I register devlink.  And only after I register devlink
->can I register the ports.
->
->I could do init without registering anything, drop the adapter lock,
->register devlink, and then grab the adapter lock back and register
->devlink ports and netdevs.  But there is another issue...
->
->Since I look for ports on a list maintained in the adapter struct,
->driver code doesn't care if devlink_port has been registered or not.
->The moment devlink is registered, split/unsplit requests will be
->accepted - potentially trying to unregister devlink_port before the
->register could happen.
->
->Further down the line, also, the eswitch mode setting is coming.  Which
->means the moment I register devlink itself ports will get shuffled (due
->to the plan of registering VFs as ports :)). 
->
->I feel like registering devlink should be the last action of the
->driver, really.  My plan was to keep that simple if() for now, and once
->we get to extending devlink with SR-IOV stuff also add the ability to
->pre-register ports.  Allow registering ports on not-yet-registered
->devlink (probably put them on a private list within struct devlink).
->This would make devlink_register() a single point when everything
->devlink becomes visible, atomically, instead of devlink itself coming
->first and then ports following.
->
->Does that make sense?  Am I misreading the code (again :S)?
 
-Well in mlxsw, we internally maintain a list of port and we assign a
-pointer to the port struct only after all is initialized:
+--=-HLG64JqF4O+L1u6JPD2m
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-...
-mlxsw_sp->ports[local_port] = mlxsw_sp_port;
-err = register_netdev(dev);
-...
+On Fri, 2017-05-19 at 18:01 -0700, Tushar Dave wrote:
+> Fix bug introduced by 'commit 47994c119a36e ("i40e: remove
+> hw_disabled_flags in favor of using separate flag bits")' that
+> mistakenly wipes out pf->flags.
+>=20
+> Signed-off-by: Tushar Dave <tushar.n.dave@oracle.com>
+> ---
+>  drivers/net/ethernet/intel/i40e/i40e_main.c | 4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
 
-Then in split, we check:
-mlxsw_sp_port = mlxsw_sp->ports[local_port];
-if (!mlxsw_sp_port) {
-        dev_err(mlxsw_sp->bus_info->dev, "Port number \"%d\" does not exist\n",
-                local_port);
-        return -EINVAL;
-}
+:-(
+Not even close to applying, I even tried to apply by hand but the patch
+was not near the same as my branch in my tree.  I will forgive this
+second instance of a patch generated on different tree/branch, but I
+really must insist that you use my tree & branch if you need/want to
+make changes to Intel wired LAN driver changes.
 
-I guess that you can do something similar. You should ensure that split
-won't happen for half-initialized ports.
+>=20
+> diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c
+> b/drivers/net/ethernet/intel/i40e/i40e_main.c
+> index d5c9c9e..6b98d34 100644
+> --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
+> +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+> @@ -8821,9 +8821,9 @@ static int i40e_sw_init(struct i40e_pf *pf)
+>  		    (pf->hw.aq.api_min_ver > 4))) {
+>  		/* Supported in FW API version higher than 1.4 */
+>  		pf->flags |=3D I40E_FLAG_GENEVE_OFFLOAD_CAPABLE;
+> -		pf->flags =3D I40E_FLAG_HW_ATR_EVICT_CAPABLE;
+> +		pf->flags |=3D I40E_FLAG_HW_ATR_EVICT_CAPABLE;
+>  	} else {
+> -		pf->flags =3D I40E_FLAG_HW_ATR_EVICT_CAPABLE;
+> +		pf->flags |=3D I40E_FLAG_HW_ATR_EVICT_CAPABLE;
+>  	}
+> =20
+>  	pf->eeprom_version =3D 0xDEAD;
+
+--=-HLG64JqF4O+L1u6JPD2m
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIzBAABCAAdFiEEiTyZWz+nnTrOJ1LZ5W/vlVpL7c4FAlkmoEgACgkQ5W/vlVpL
+7c7JsxAAhXFAJfkgsLbRx0Qx4bC6ZD/3YEaFObGRVYeQlIhiQnN2jjKa9snSL6W4
+do1suhcsZbpcd05DkYcjM7JuhlRvQxlDFpuaEfGV8ywmouMqAURJnoGNpFGIjV3u
+5F6JDBouWdsoiHyQ1nYyJyKwfPw6wnJKyBqmjiDO8sbeZUaob7/L21wneAS67iOu
+mGuYshC+te9mGAsRZdzQsaf1J1zUSN+ERdV3biK+XYYqVHZE0ngXEkv7ZHbAFl50
+0frl6QauKU8D+dSD3yffq/DMKFw5GE4w9WGz4DSuCHzdHMQdEINSirKWU804ZtrJ
+kdaJNeFsI4MrV3JXbuvBaOkOM+tGkMv9QN1yw88n1esi6Nzxqm6z8faldeg9f8+4
+h7V3Dis53R2DuVKagxECPwNzo1a5CcV0z4nLDEw6n7NDsF6aKhysMqb2/RlShubN
+DguMkrYaQYBIdngOhzi52ZE+k4TuZosisYEK3maJ6tsRMS4YBogNV9/Ky6L0F55P
+R0it8OCAyFtDuaxyX1vuwUWWtBvKVchGIwtAFl7UhSXZH3B0G5EUY/ctAxb6YMYt
+4geL6mRsQCBJxZXxUYry33fmpLHSHrXaBtZuQ1KEaL7NsKZPLPJ7RDBfITuUBATo
+zQQBqSipY6Bq7P3we3LuOOec4k0WcAds0ojzmNpgtW5SkWCIIm8=
+=0411
+-----END PGP SIGNATURE-----
+
+--=-HLG64JqF4O+L1u6JPD2m--
