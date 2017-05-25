@@ -1,29 +1,95 @@
 From: Suresh Reddy <suresh.reddy@broadcom.com>
-Subject: [PATCH net-next 0/2] be2net: patch-set
-Date: Wed, 24 May 2017 22:24:37 -0400
-Message-ID: <1495679079-12025-1-git-send-email-suresh.reddy@broadcom.com>
+Subject: [PATCH net-next 1/2] be2net: Fix UE detection logic for BE3
+Date: Wed, 24 May 2017 22:24:38 -0400
+Message-ID: <1495679079-12025-2-git-send-email-suresh.reddy@broadcom.com>
 References: <Suresh.Reddy@broadcom.com>
+ <1495679079-12025-1-git-send-email-suresh.reddy@broadcom.com>
 Cc: Suresh Reddy <suresh.reddy@broadcom.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lpdvsmtp02.broadcom.com ([192.19.232.149]:56953 "EHLO
+Received: from lpdvsmtp02.broadcom.com ([192.19.232.149]:56951 "EHLO
         relay.smtp.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932341AbdEYCab (ORCPT
+        with ESMTP id S932343AbdEYCab (ORCPT
         <rfc822;netdev@vger.kernel.org>); Wed, 24 May 2017 22:30:31 -0400
-In-Reply-To: <Suresh.Reddy@broadcom.com>
+In-Reply-To: <1495679079-12025-1-git-send-email-suresh.reddy@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave, Please consider applying these two patches to net-next
+On certain platforms BE3 chips may indicate spurious UEs (unrecoverable
+error). Because of the UE detection logic was disabled in the driver
+for BE3 chips. Because of this, even in cases of a real UE,
+a failover will not occur. This patch re-enables UE detection on BE3
+and if a UE is detected, reads the POST register. If the POST register,
+reports either a FAT_LOG_STATE or a ARMFW_UE, then it means that a valid
+UE occurred in the chip.
 
-Suresh Reddy (2):
-  be2net: Fix UE detection logic for BE3
-  be2net: Update the driver version to 11.4.0.0
-
- drivers/net/ethernet/emulex/benet/be.h      |  2 +-
+Signed-off-by: Suresh Reddy <suresh.reddy@broadcom.com>
+---
  drivers/net/ethernet/emulex/benet/be_hw.h   |  3 +++
  drivers/net/ethernet/emulex/benet/be_main.c | 27 +++++++++++++++++++--------
- 3 files changed, 23 insertions(+), 9 deletions(-)
+ 2 files changed, 22 insertions(+), 8 deletions(-)
 
+diff --git a/drivers/net/ethernet/emulex/benet/be_hw.h b/drivers/net/ethernet/emulex/benet/be_hw.h
+index 36e4232..c967f45 100644
+--- a/drivers/net/ethernet/emulex/benet/be_hw.h
++++ b/drivers/net/ethernet/emulex/benet/be_hw.h
+@@ -49,6 +49,9 @@
+ #define POST_STAGE_BE_RESET		0x3 /* Host wants to reset chip */
+ #define POST_STAGE_ARMFW_RDY		0xc000	/* FW is done with POST */
+ #define POST_STAGE_RECOVERABLE_ERR	0xE000	/* Recoverable err detected */
++/* FW has detected a UE and is dumping FAT log data */
++#define POST_STAGE_FAT_LOG_START       0x0D00
++#define POST_STAGE_ARMFW_UE            0xF000  /*FW has asserted an UE*/
+ 
+ /* Lancer SLIPORT registers */
+ #define SLIPORT_STATUS_OFFSET		0x404
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index f3a09ab..8000551 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -3241,8 +3241,9 @@ void be_detect_error(struct be_adapter *adapter)
+ {
+ 	u32 ue_lo = 0, ue_hi = 0, ue_lo_mask = 0, ue_hi_mask = 0;
+ 	u32 sliport_status = 0, sliport_err1 = 0, sliport_err2 = 0;
+-	u32 i;
+ 	struct device *dev = &adapter->pdev->dev;
++	u16 val;
++	u32 i;
+ 
+ 	if (be_check_error(adapter, BE_ERROR_HW))
+ 		return;
+@@ -3280,15 +3281,25 @@ void be_detect_error(struct be_adapter *adapter)
+ 		ue_lo = (ue_lo & ~ue_lo_mask);
+ 		ue_hi = (ue_hi & ~ue_hi_mask);
+ 
+-		/* On certain platforms BE hardware can indicate spurious UEs.
+-		 * Allow HW to stop working completely in case of a real UE.
+-		 * Hence not setting the hw_error for UE detection.
+-		 */
+-
+ 		if (ue_lo || ue_hi) {
++			/* On certain platforms BE3 hardware can indicate
++			 * spurious UEs. In case of a UE in the chip,
++			 * the POST register correctly reports either a
++			 * FAT_LOG_START state (FW is currently dumping
++			 * FAT log data) or a ARMFW_UE state. Check for the
++			 * above states to ascertain if the UE is valid or not.
++			 */
++			if (BE3_chip(adapter)) {
++				val = be_POST_stage_get(adapter);
++				if ((val & POST_STAGE_FAT_LOG_START)
++				     != POST_STAGE_FAT_LOG_START &&
++				    (val & POST_STAGE_ARMFW_UE)
++				     != POST_STAGE_ARMFW_UE)
++					return;
++			}
++
+ 			dev_err(dev, "Error detected in the adapter");
+-			if (skyhawk_chip(adapter))
+-				be_set_error(adapter, BE_ERROR_UE);
++			be_set_error(adapter, BE_ERROR_UE);
+ 
+ 			for (i = 0; ue_lo; ue_lo >>= 1, i++) {
+ 				if (ue_lo & 1)
 -- 
 1.8.3.1
