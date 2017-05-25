@@ -1,169 +1,65 @@
-From: Peter Dawson <petedaws@gmail.com>
-Subject: [PATCH net,v2] ip6_tunnel, ip6_gre: fix setting of DSCP on
- encapsulated packets
-Date: Fri, 26 May 2017 06:35:18 +1000
-Message-ID: <20170526063518.612f51f9@udesktop>
-References: <20170523143616.38116e8f@gmail.com>
+From: Jes Sorensen <jsorensen-b10kYP2dOMg@public.gmane.org>
+Subject: Re: [for-next 4/6] net/mlx5: FPGA, Add basic support for Innova
+Date: Thu, 25 May 2017 16:48:22 -0400
+Message-ID: <00716e5a-8b51-0b3f-a1b8-1bb7b346a66a@fb.com>
+References: <20170523114404.20387-1-saeedm@mellanox.com>
+ <20170523114404.20387-5-saeedm@mellanox.com>
+ <20170524165059.42lmrwzzcxvi2sf7@ast-mbp>
+ <AM4PR0501MB1940885C2F1CEF4DDE4EA8D1DBFF0@AM4PR0501MB1940.eurprd05.prod.outlook.com>
+ <CALzJLG-B_tAmASn_SMmPNiucq-tTpywHniRTkb4N32oGF6Y3Ng@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="utf-8"; format=flowed
 Content-Transfer-Encoding: 7bit
-To: "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>, stephen@networkplumber.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170523143616.38116e8f@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Saeed Mahameed <saeedm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>,
+        Ilan Tayari <ilant-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CALzJLG-B_tAmASn_SMmPNiucq-tTpywHniRTkb4N32oGF6Y3Ng-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Content-Language: en-US
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This fix addresses two problems in the way the DSCP field is formulated
- on the encapsulating header of IPv6 tunnels.
-Bugzilla: https://bugzilla.kernel.org/show_bug.cgi?id=195661
+On 05/25/2017 06:40 AM, Saeed Mahameed wrote:
+> On Thu, May 25, 2017 at 8:20 AM, Ilan Tayari <ilant-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org> wrote:
+>>> -----Original Message-----
+>>> Can you put it into different driver? Dumping everything into by far
+>>> the biggest nic driver already is already huge headache in terms on
+>>> maintainability, debugging and back ports.
+>>> Look at how intel splits their drivers.
+>>> ixgb, ixgbe, ixgbevf are different drivers thought they have a lot in
+>>> common. On one side it's a bit of copy paste, but on the other side
+> 
+> I don't think the ixgb example is the same, simply  ixgb, ixgbe,
+> ixgbevf have different PCI IDs
+> and even different SW/FW interfaces. On the other hand, same mlx5
+> driver can support all of
+> ConnetX4/5/6 device IDs with the same code flows, same interfaces.
+> 
+>>> it makes drivers much easier to develop and maintain independently.
+>>> ConnectX-6 code and any future hw support doesn't belong to
+>>> mlx5 driver at all.
+> 
+> Sorry i must disagree with you on this for the same reasons Ilan mentioned.
+> We can perfectly achieve the same with modular driver design all under the
+> same .ko module, with some kconfig flags to reduce the amount of code/features
+> this .ko provides.
 
-1) The IPv6 tunneling code was manipulating the DSCP field of the
- encapsulating packet using the 32b flowlabel. Since the flowlabel is
- only the lower 20b it was incorrect to assume that the upper 12b
- containing the DSCP and ECN fields would remain intact when formulating
- the encapsulating header. This fix handles the 'inherit' and
- 'fixed-value' DSCP cases explicitly using the extant dsfield u8 variable.
+If I get this right, the FPGA is independent and could in theory be used 
+for non network stuff. It really should have it's own driver in that 
+case, and you should provide accessor functionality via the mlx5 driver.
 
-2) The use of INET_ECN_encapsulate(0, dsfield) in ip6_tnl_xmit was
- incorrect and resulted in the DSCP value always being set to 0.
+We have this with other devices in the kernel where a primary device 
+driver provides an interface for an additional sub-driver to access 
+another device behind it. Like bt-coexist in some of the wifi drivers 
+allowing access to a bluetooth device behind it.
 
-Commit 90427ef5d2a4 ("ipv6: fix flow labels when the traffic class 
- is non-0") caused the regression by masking out the flowlabel
- which exposed the incorrect handling of the DSCP portion of the 
- flowlabel in ip6_tunnel and ip6_gre.
-
-Fixes: 90427ef5d2a4 ("ipv6: fix flow labels when the traffic class is non-0")
-Signed-off-by: Peter Dawson <peter.a.dawson@boeing.com>
----
- net/ipv6/ip6_gre.c    | 13 +++++++------
- net/ipv6/ip6_tunnel.c | 21 +++++++++++++--------
- 2 files changed, 20 insertions(+), 14 deletions(-)
-
-diff --git a/net/ipv6/ip6_gre.c b/net/ipv6/ip6_gre.c
-index 8d128ba..0c5b4caa 100644
---- a/net/ipv6/ip6_gre.c
-+++ b/net/ipv6/ip6_gre.c
-@@ -537,11 +537,10 @@ static inline int ip6gre_xmit_ipv4(struct sk_buff *skb, struct net_device *dev)
- 
- 	memcpy(&fl6, &t->fl.u.ip6, sizeof(fl6));
- 
--	dsfield = ipv4_get_dsfield(iph);
--
- 	if (t->parms.flags & IP6_TNL_F_USE_ORIG_TCLASS)
--		fl6.flowlabel |= htonl((__u32)iph->tos << IPV6_TCLASS_SHIFT)
--					  & IPV6_TCLASS_MASK;
-+		dsfield = ipv4_get_dsfield(iph);
-+	else
-+		dsfield = ip6_tclass(t->parms.flowinfo);
- 	if (t->parms.flags & IP6_TNL_F_USE_ORIG_FWMARK)
- 		fl6.flowi6_mark = skb->mark;
- 	else
-@@ -598,9 +597,11 @@ static inline int ip6gre_xmit_ipv6(struct sk_buff *skb, struct net_device *dev)
- 
- 	memcpy(&fl6, &t->fl.u.ip6, sizeof(fl6));
- 
--	dsfield = ipv6_get_dsfield(ipv6h);
- 	if (t->parms.flags & IP6_TNL_F_USE_ORIG_TCLASS)
--		fl6.flowlabel |= (*(__be32 *) ipv6h & IPV6_TCLASS_MASK);
-+		dsfield = ipv6_get_dsfield(ipv6h);
-+	else
-+		dsfield = ip6_tclass(t->parms.flowinfo);
-+
- 	if (t->parms.flags & IP6_TNL_F_USE_ORIG_FLOWLABEL)
- 		fl6.flowlabel |= ip6_flowlabel(ipv6h);
- 	if (t->parms.flags & IP6_TNL_F_USE_ORIG_FWMARK)
-diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
-index 6eb2ae5..7ae6c50 100644
---- a/net/ipv6/ip6_tunnel.c
-+++ b/net/ipv6/ip6_tunnel.c
-@@ -1196,7 +1196,7 @@ int ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev, __u8 dsfield,
- 	skb_push(skb, sizeof(struct ipv6hdr));
- 	skb_reset_network_header(skb);
- 	ipv6h = ipv6_hdr(skb);
--	ip6_flow_hdr(ipv6h, INET_ECN_encapsulate(0, dsfield),
-+	ip6_flow_hdr(ipv6h, dsfield,
- 		     ip6_make_flowlabel(net, skb, fl6->flowlabel, true, fl6));
- 	ipv6h->hop_limit = hop_limit;
- 	ipv6h->nexthdr = proto;
-@@ -1231,8 +1231,6 @@ ip4ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev)
- 	if (tproto != IPPROTO_IPIP && tproto != 0)
- 		return -1;
- 
--	dsfield = ipv4_get_dsfield(iph);
--
- 	if (t->parms.collect_md) {
- 		struct ip_tunnel_info *tun_info;
- 		const struct ip_tunnel_key *key;
-@@ -1246,6 +1244,7 @@ ip4ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev)
- 		fl6.flowi6_proto = IPPROTO_IPIP;
- 		fl6.daddr = key->u.ipv6.dst;
- 		fl6.flowlabel = key->label;
-+		dsfield = ip6_tclass(key->label);
- 	} else {
- 		if (!(t->parms.flags & IP6_TNL_F_IGN_ENCAP_LIMIT))
- 			encap_limit = t->parms.encap_limit;
-@@ -1254,8 +1253,9 @@ ip4ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev)
- 		fl6.flowi6_proto = IPPROTO_IPIP;
- 
- 		if (t->parms.flags & IP6_TNL_F_USE_ORIG_TCLASS)
--			fl6.flowlabel |= htonl((__u32)iph->tos << IPV6_TCLASS_SHIFT)
--					 & IPV6_TCLASS_MASK;
-+			dsfield = ipv4_get_dsfield(iph);
-+		else
-+			dsfield = ip6_tclass(t->parms.flowinfo);
- 		if (t->parms.flags & IP6_TNL_F_USE_ORIG_FWMARK)
- 			fl6.flowi6_mark = skb->mark;
- 		else
-@@ -1267,6 +1267,8 @@ ip4ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev)
- 	if (iptunnel_handle_offloads(skb, SKB_GSO_IPXIP6))
- 		return -1;
- 
-+	dsfield = INET_ECN_encapsulate(dsfield, ipv4_get_dsfield(iph));
-+
- 	skb_set_inner_ipproto(skb, IPPROTO_IPIP);
- 
- 	err = ip6_tnl_xmit(skb, dev, dsfield, &fl6, encap_limit, &mtu,
-@@ -1300,8 +1302,6 @@ ip6ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev)
- 	    ip6_tnl_addr_conflict(t, ipv6h))
- 		return -1;
- 
--	dsfield = ipv6_get_dsfield(ipv6h);
--
- 	if (t->parms.collect_md) {
- 		struct ip_tunnel_info *tun_info;
- 		const struct ip_tunnel_key *key;
-@@ -1315,6 +1315,7 @@ ip6ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev)
- 		fl6.flowi6_proto = IPPROTO_IPV6;
- 		fl6.daddr = key->u.ipv6.dst;
- 		fl6.flowlabel = key->label;
-+		dsfield = ip6_tclass(key->label);
- 	} else {
- 		offset = ip6_tnl_parse_tlv_enc_lim(skb, skb_network_header(skb));
- 		/* ip6_tnl_parse_tlv_enc_lim() might have reallocated skb->head */
-@@ -1337,7 +1338,9 @@ ip6ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev)
- 		fl6.flowi6_proto = IPPROTO_IPV6;
- 
- 		if (t->parms.flags & IP6_TNL_F_USE_ORIG_TCLASS)
--			fl6.flowlabel |= (*(__be32 *)ipv6h & IPV6_TCLASS_MASK);
-+			dsfield = ipv6_get_dsfield(ipv6h);
-+		else
-+			dsfield = ip6_tclass(t->parms.flowinfo);
- 		if (t->parms.flags & IP6_TNL_F_USE_ORIG_FLOWLABEL)
- 			fl6.flowlabel |= ip6_flowlabel(ipv6h);
- 		if (t->parms.flags & IP6_TNL_F_USE_ORIG_FWMARK)
-@@ -1351,6 +1354,8 @@ ip6ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev)
- 	if (iptunnel_handle_offloads(skb, SKB_GSO_IPXIP6))
- 		return -1;
- 
-+	dsfield = INET_ECN_encapsulate(dsfield, ipv6_get_dsfield(ipv6h));
-+
- 	skb_set_inner_ipproto(skb, IPPROTO_IPV6);
- 
- 	err = ip6_tnl_xmit(skb, dev, dsfield, &fl6, encap_limit, &mtu,
--- 
-2.7.4
+Jes
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
