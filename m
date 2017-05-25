@@ -1,35 +1,50 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next v2 0/3] net: phy: Create sysfs reciprocal links
- for attached_dev/phydev
-Date: Thu, 25 May 2017 18:42:27 +0200
-Message-ID: <20170525164227.GB18357@lunn.ch>
-References: <20170525162143.18319-1-f.fainelli@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 net-next 1/2] Documentation:
+ sysfs-class-net-statistics: Clarify rx_bytes and tx_bytes
+Date: Thu, 25 May 2017 12:43:05 -0400 (EDT)
+Message-ID: <20170525.124305.764605105083674654.davem@davemloft.net>
+References: <1495573858-32346-1-git-send-email-andrew@lunn.ch>
+        <1495573858-32346-2-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Florian Fainelli <f.fainelli@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: f.fainelli@gmail.com, hayeswang@realtek.com, netdev@vger.kernel.org
+To: andrew@lunn.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:44640 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S936076AbdEYQma (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 25 May 2017 12:42:30 -0400
-Content-Disposition: inline
-In-Reply-To: <20170525162143.18319-1-f.fainelli@gmail.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:59096 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751861AbdEYQnH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 25 May 2017 12:43:07 -0400
+In-Reply-To: <1495573858-32346-2-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 25, 2017 at 09:21:40AM -0700, Florian Fainelli wrote:
-> Hi David, Andrew,
-> 
-> This patch series addresses a device topology shortcoming where a program
-> scanning /sys would not be able to establish a mapping between the network
-> device and the PHY device.
-> 
-> In the process it turned out that no PHY device documentation existed for
-> sysfs attributes.
-> 
-> Thanks!
+From: Andrew Lunn <andrew@lunn.ch>
+Date: Tue, 23 May 2017 23:10:57 +0200
 
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+> Document what is expected for the rx_bytes and tx_bytes statistics in
+> /sys/class/net/<device>/statistics. The FCS should be included in the
+> statistics. However, since this has been unclear until now, it is
+> expected a number of drivers don't. But maybe with time they will.
+> 
+> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
 
-    Andrew
+Precedence has not been very kind to us here.
+
+Also, we really I want drivers doing the simplest thing possible,
+which on transmit is:
+
+	tx_bytes += skb->len;
+
+Not:
+
+	tx_bytes += skb->len + ETH_FCS_LEN;
+
+I understand the problem you're trying to tackle, but software stats
+should be for software state, and that state is emphatically skb->len
+
+So if we are to strive for software statistic "consistency" it should
+be against the software part of the packet, not the software part
+"plus X and Y link layer stuff no visible in the software packet".
+
+Thanks.
