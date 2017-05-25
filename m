@@ -1,7 +1,7 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next 1/4] net/flow_dissector: add support for dissection of misc ip header fields
-Date: Thu, 25 May 2017 16:24:36 +0300
-Message-ID: <1495718679-20693-2-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net-next 3/4] net/mlx5e: Offload TC matching on tcp flags
+Date: Thu, 25 May 2017 16:24:38 +0300
+Message-ID: <1495718679-20693-4-git-send-email-ogerlitz@mellanox.com>
 References: <1495718679-20693-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, Saeed Mahameed <saeedm@mellanox.com>,
         Roi Dayan <roid@mellanox.com>,
@@ -9,119 +9,60 @@ Cc: netdev@vger.kernel.org, Saeed Mahameed <saeedm@mellanox.com>,
         Or Gerlitz <ogerlitz@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:53783 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:53785 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1750988AbdEYNYp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 25 May 2017 09:24:45 -0400
+        with ESMTP id S1751605AbdEYNYq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 25 May 2017 09:24:46 -0400
 In-Reply-To: <1495718679-20693-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add support for dissection of ip tos and ttl and ipv6 traffic-class
-and hoplimit. Both are dissected into the same struct.
-
-Uses similar call to ip dissection function as with tcp, arp and others.
+Enable offloading of TC matching on tcp flags.
 
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
-Reviewed-by: Jiri Pirko <jiri@mellanox.com>
 ---
- include/net/flow_dissector.h | 11 +++++++++++
- net/core/flow_dissector.c    | 40 ++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 51 insertions(+)
+ drivers/net/ethernet/mellanox/mlx5/core/en_tc.c | 22 +++++++++++++++++++++-
+ 1 file changed, 21 insertions(+), 1 deletion(-)
 
-diff --git a/include/net/flow_dissector.h b/include/net/flow_dissector.h
-index efe34eec..e2663e9 100644
---- a/include/net/flow_dissector.h
-+++ b/include/net/flow_dissector.h
-@@ -165,6 +165,16 @@ struct flow_dissector_key_tcp {
- 	__be16 flags;
- };
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+index a72ecbc..8e856cd 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+@@ -580,7 +580,8 @@ static int __parse_cls_flower(struct mlx5e_priv *priv,
+ 	      BIT(FLOW_DISSECTOR_KEY_ENC_IPV4_ADDRS) |
+ 	      BIT(FLOW_DISSECTOR_KEY_ENC_IPV6_ADDRS) |
+ 	      BIT(FLOW_DISSECTOR_KEY_ENC_PORTS)	|
+-	      BIT(FLOW_DISSECTOR_KEY_ENC_CONTROL))) {
++	      BIT(FLOW_DISSECTOR_KEY_ENC_CONTROL) |
++	      BIT(FLOW_DISSECTOR_KEY_TCP))) {
+ 		netdev_warn(priv->netdev, "Unsupported key used: 0x%x\n",
+ 			    f->dissector->used_keys);
+ 		return -EOPNOTSUPP;
+@@ -807,6 +808,25 @@ static int __parse_cls_flower(struct mlx5e_priv *priv,
+ 			*min_inline = MLX5_INLINE_MODE_TCP_UDP;
+ 	}
  
-+/**
-+ * struct flow_dissector_key_ip:
-+ * @tos: tos
-+ * @ttl: ttl
-+ */
-+struct flow_dissector_key_ip {
-+	__u8	tos;
-+	__u8	ttl;
-+};
++	if (dissector_uses_key(f->dissector, FLOW_DISSECTOR_KEY_TCP)) {
++		struct flow_dissector_key_tcp *key =
++			skb_flow_dissector_target(f->dissector,
++						  FLOW_DISSECTOR_KEY_TCP,
++						  f->key);
++		struct flow_dissector_key_tcp *mask =
++			skb_flow_dissector_target(f->dissector,
++						  FLOW_DISSECTOR_KEY_TCP,
++						  f->mask);
 +
- enum flow_dissector_key_id {
- 	FLOW_DISSECTOR_KEY_CONTROL, /* struct flow_dissector_key_control */
- 	FLOW_DISSECTOR_KEY_BASIC, /* struct flow_dissector_key_basic */
-@@ -186,6 +196,7 @@ enum flow_dissector_key_id {
- 	FLOW_DISSECTOR_KEY_ENC_PORTS, /* struct flow_dissector_key_ports */
- 	FLOW_DISSECTOR_KEY_MPLS, /* struct flow_dissector_key_mpls */
- 	FLOW_DISSECTOR_KEY_TCP, /* struct flow_dissector_key_tcp */
-+	FLOW_DISSECTOR_KEY_IP, /* struct flow_dissector_key_ip */
- 
- 	FLOW_DISSECTOR_KEY_MAX,
- };
-diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 5a45943..fc5fc45 100644
---- a/net/core/flow_dissector.c
-+++ b/net/core/flow_dissector.c
-@@ -367,6 +367,40 @@ __skb_flow_dissect_tcp(const struct sk_buff *skb,
- 	key_tcp->flags = (*(__be16 *) &tcp_flag_word(th) & htons(0x0FFF));
++		MLX5_SET(fte_match_set_lyr_2_4, headers_c, tcp_flags,
++			 ntohs(mask->flags));
++		MLX5_SET(fte_match_set_lyr_2_4, headers_v, tcp_flags,
++			 ntohs(key->flags));
++
++		if (mask->flags)
++			*min_inline = MLX5_INLINE_MODE_TCP_UDP;
++	}
++
+ 	return 0;
  }
- 
-+static void
-+__skb_flow_dissect_ipv4(const struct sk_buff *skb,
-+			struct flow_dissector *flow_dissector,
-+			void *target_container, void *data, const struct iphdr *iph)
-+{
-+	struct flow_dissector_key_ip *key_ip;
-+
-+	if (!dissector_uses_key(flow_dissector, FLOW_DISSECTOR_KEY_IP))
-+		return;
-+
-+	key_ip = skb_flow_dissector_target(flow_dissector,
-+					   FLOW_DISSECTOR_KEY_IP,
-+					   target_container);
-+	key_ip->tos = iph->tos;
-+	key_ip->ttl = iph->ttl;
-+}
-+
-+static void
-+__skb_flow_dissect_ipv6(const struct sk_buff *skb,
-+			struct flow_dissector *flow_dissector,
-+			void *target_container, void *data, const struct ipv6hdr *iph)
-+{
-+	struct flow_dissector_key_ip *key_ip;
-+
-+	if (!dissector_uses_key(flow_dissector, FLOW_DISSECTOR_KEY_IP))
-+		return;
-+
-+	key_ip = skb_flow_dissector_target(flow_dissector,
-+					   FLOW_DISSECTOR_KEY_IP,
-+					   target_container);
-+	key_ip->tos = ipv6_get_dsfield(iph);
-+	key_ip->ttl = iph->hop_limit;
-+}
-+
- /**
-  * __skb_flow_dissect - extract the flow_keys struct and return it
-  * @skb: sk_buff to extract the flow from, can be NULL if the rest are specified
-@@ -469,6 +503,9 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
- 			}
- 		}
- 
-+		__skb_flow_dissect_ipv4(skb, flow_dissector,
-+					target_container, data, iph);
-+
- 		if (flags & FLOW_DISSECTOR_F_STOP_AT_L3)
- 			goto out_good;
- 
-@@ -514,6 +551,9 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
- 				goto out_good;
- 		}
- 
-+		__skb_flow_dissect_ipv6(skb, flow_dissector,
-+					target_container, data, iph);
-+
- 		if (flags & FLOW_DISSECTOR_F_STOP_AT_L3)
- 			goto out_good;
  
 -- 
 2.3.7
