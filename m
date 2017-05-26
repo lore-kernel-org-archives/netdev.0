@@ -1,64 +1,62 @@
-From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Subject: Re: Deleting a dynamic mac entry..
-Date: Fri, 26 May 2017 17:15:15 +0900
-Message-ID: <45967005-7501-6c96-eb95-f83c5f631277@lab.ntt.co.jp>
-References: <CA+N+6-xY7+coc6zFqzP665WMhbGFFMHOfre9wNxRAcSF2Bthzw@mail.gmail.com>
-	<e6143108-3eb4-6f6a-c58b-857722f706b9@lab.ntt.co.jp>
-	<CA+N+6-xtSgQ4eDN7SBMg43WXEc=6quPNE4L1-3xjLuTMte0DSA@mail.gmail.com>
-	<fbf9c273-d326-c26e-593f-ccf139bc0049@lab.ntt.co.jp>
-	<CA+N+6-wErt=9XX6u8tPnLbb2DrLqADOnCBn3mDe=qvxCoLCFyg@mail.gmail.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next v2 0/6] nfp: devlink port implementation
+Date: Fri, 26 May 2017 10:25:32 +0200
+Message-ID: <20170526082532.GC1898@nanopsycho>
+References: <20170526080336.32689-1-jakub.kicinski@netronome.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org
-To: Manohar Kumar <forwardinglnx@gmail.com>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <CA+N+6-wErt=9XX6u8tPnLbb2DrLqADOnCBn3mDe=qvxCoLCFyg@mail.gmail.com>
-Content-Language: en-US
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, oss-drivers@netronome.com
+To: Jakub Kicinski <jakub.kicinski@netronome.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:34973 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1759576AbdEZIZf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 26 May 2017 04:25:35 -0400
+Received: by mail-wm0-f68.google.com with SMTP id g15so2328787wmc.2
+        for <netdev@vger.kernel.org>; Fri, 26 May 2017 01:25:35 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20170526080336.32689-1-jakub.kicinski@netronome.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2017/05/26 14:08, Manohar Kumar wrote:
-> On Wed, May 24, 2017 at 6:11 PM, Toshiaki Makita
-> <makita.toshiaki@lab.ntt.co.jp> wrote:
->> On 2017/05/25 3:05, Manohar Kumar wrote:
->>> Thanks, Toshiaki.
->>>
->>> What is the right way to set the default_pvid using the bridge command
->>> ? I tried this, which fails..
->>>
->>> root@net-3:~# ip link set dev vxlan0 name untagged type vlan id 0
->>> RTNETLINK answers: Operation not supported
->>> root@net-3:~#
->>>
->>> All the interfaces in the bridge are untagged.
->>
->> # ip link set br0 down
->> # echo 0 > /sys/class/net/br0/bridge/default_pvid
->>
-> 
-> I have the bridge inside a network namespace. There is no
-> /sys/class/net entry for the bridge interface inside the namespace.
-> 
-> I see online references to this concept of 'tagged' sysfs directories
-> to support namespaces. But its not clear how to access the sysfs
-> entries for a particular namespace.
+Fri, May 26, 2017 at 10:03:30AM CEST, jakub.kicinski@netronome.com wrote:
+>Hi!
+>
+>This series adds basic devlink support.  The operations we can perform
+>are port show and port split/unsplit.
+>
+>v2:
+>Register devlink first, and then register all the ports.  Port {,un}split
+>searches the port list, which is protected by a mutex.  If port split
+>is requested before ports are registered we will simply not find the port
+>and return -EINVAL.
 
-Did you remount /sys after entering netns?
-If not, remount /sys or use "ip netns" which automatically do it.
-
-> Is there any other way to set the default_pvid for the bridge
-> interface inside namespace ?
-
-No, as of 3.19.
+Looks fine to me now. Thanks!
 
 
-Toshiaki Makita
+>
+>Jakub Kicinski (5):
+>  nfp: move mutex init out of net code
+>  nfp: add helper for cleaning up vNICs
+>  nfp: register ports as devlink ports
+>  nfp: calculate total port lanes for split
+>  nfp: support port splitting via devlink
+>
+>Simon Horman (1):
+>  nfp: add devlink support
+>
+> drivers/net/ethernet/netronome/nfp/Makefile        |   1 +
+> drivers/net/ethernet/netronome/nfp/nfp_devlink.c   | 181 +++++++++++++++++++++
+> drivers/net/ethernet/netronome/nfp/nfp_main.c      |  28 +++-
+> drivers/net/ethernet/netronome/nfp/nfp_main.h      |   3 +
+> drivers/net/ethernet/netronome/nfp/nfp_net_main.c  |  61 ++++---
+> drivers/net/ethernet/netronome/nfp/nfp_port.c      |  19 +++
+> drivers/net/ethernet/netronome/nfp/nfp_port.h      |  12 ++
+> .../net/ethernet/netronome/nfp/nfpcore/nfp_nsp.h   |   3 +
+> .../ethernet/netronome/nfp/nfpcore/nfp_nsp_eth.c   |  11 +-
+> 9 files changed, 289 insertions(+), 30 deletions(-)
+> create mode 100644 drivers/net/ethernet/netronome/nfp/nfp_devlink.c
+>
+>-- 
+>2.11.0
+>
