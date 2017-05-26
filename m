@@ -1,39 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] liquidio: fix inaccurate count of
- napi-processed rx packets reported to Octeon
-Date: Fri, 26 May 2017 14:42:41 -0400 (EDT)
-Message-ID: <20170526.144241.1366515927726150516.davem@davemloft.net>
-References: <20170525175429.GA1476@felix-thinkpad.cavium.com>
+Subject: Re: [PATCH v2 net-next 0/4] More marvell phy cleanups
+Date: Fri, 26 May 2017 14:45:06 -0400 (EDT)
+Message-ID: <20170526.144506.1223446037417985810.davem@davemloft.net>
+References: <1495741328-25001-1-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
-        derek.chickles@cavium.com, satananda.burla@cavium.com,
-        prasad.kanneganti@cavium.com
-To: felix.manlunas@cavium.com
+Cc: f.fainelli@gmail.com, netdev@vger.kernel.org
+To: andrew@lunn.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:43412 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:43470 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1948613AbdEZSmn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 26 May 2017 14:42:43 -0400
-In-Reply-To: <20170525175429.GA1476@felix-thinkpad.cavium.com>
+        with ESMTP id S1754261AbdEZSpH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 26 May 2017 14:45:07 -0400
+In-Reply-To: <1495741328-25001-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Felix Manlunas <felix.manlunas@cavium.com>
-Date: Thu, 25 May 2017 10:54:29 -0700
+From: Andrew Lunn <andrew@lunn.ch>
+Date: Thu, 25 May 2017 21:42:04 +0200
 
-> From: Prasad Kanneganti <prasad.kanneganti@cavium.com>
+> This patchset continues the cleanup of the Marvell PHY driver.  These
+> phys use pages to allow more than the 32 registers that fit into the
+> MDIO address space. Cleanup the code used for changing pages.
 > 
-> lio_enable_irq (called by napi poll) is reporting to Octeon an inaccurate
-> count of processed rx packets causing Octeon to eventually stop forwarding
-> packets to the host.  Fix it by using this formula for an accurate count:
-> 
->     processed rx packets = droq->pkt_count - droq->pkts_pending
-> 
-> Also increase SOFT_COMMAND_BUFFER_SIZE to match what the firmware expects.
-> 
-> Signed-off-by: Prasad Kanneganti <prasad.kanneganti@cavium.com>
-> Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
+> v2
+> Reverse christmas tree
 
-Applied.
+Series applied, thank you Andrew.
