@@ -1,89 +1,60 @@
-From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
-Subject: Re: [for-next 4/6] net/mlx5: FPGA, Add basic support for Innova
-Date: Fri, 26 May 2017 11:29:37 +0300
-Message-ID: <CALzJLG9YNpagdJAcrh6O0jJhZWtsck6KigRtVxyjkArTm=82ew@mail.gmail.com>
-References: <20170523114404.20387-1-saeedm@mellanox.com> <20170523114404.20387-5-saeedm@mellanox.com>
- <20170524165059.42lmrwzzcxvi2sf7@ast-mbp> <AM4PR0501MB1940885C2F1CEF4DDE4EA8D1DBFF0@AM4PR0501MB1940.eurprd05.prod.outlook.com>
- <CALzJLG-B_tAmASn_SMmPNiucq-tTpywHniRTkb4N32oGF6Y3Ng@mail.gmail.com> <00716e5a-8b51-0b3f-a1b8-1bb7b346a66a@fb.com>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: [patch net-next 01/18] bridge: Export VLAN filtering state
+Date: Fri, 26 May 2017 11:55:18 +0300
+Message-ID: <b2edc91e-d7cf-a667-2b00-5722ed09a2a6@cumulusnetworks.com>
+References: <20170526063740.8909-1-jiri@resnulli.us>
+ <20170526063740.8909-2-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Ilan Tayari <ilant@mellanox.com>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Doug Ledford <dledford@redhat.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>
-To: Jes Sorensen <jsorensen@fb.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, idosch@mellanox.com, mlxsw@mellanox.com,
+        stephen@networkplumber.org
+To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f169.google.com ([209.85.220.169]:35995 "EHLO
-        mail-qk0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S970874AbdEZIaI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 26 May 2017 04:30:08 -0400
-Received: by mail-qk0-f169.google.com with SMTP id u75so2485404qka.3
-        for <netdev@vger.kernel.org>; Fri, 26 May 2017 01:30:08 -0700 (PDT)
-In-Reply-To: <00716e5a-8b51-0b3f-a1b8-1bb7b346a66a@fb.com>
+Received: from mail-wm0-f45.google.com ([74.125.82.45]:35100 "EHLO
+        mail-wm0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S967663AbdEZIzG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 26 May 2017 04:55:06 -0400
+Received: by mail-wm0-f45.google.com with SMTP id b84so121667052wmh.0
+        for <netdev@vger.kernel.org>; Fri, 26 May 2017 01:55:05 -0700 (PDT)
+In-Reply-To: <20170526063740.8909-2-jiri@resnulli.us>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 25, 2017 at 11:48 PM, Jes Sorensen <jsorensen@fb.com> wrote:
-> On 05/25/2017 06:40 AM, Saeed Mahameed wrote:
->>
->> On Thu, May 25, 2017 at 8:20 AM, Ilan Tayari <ilant@mellanox.com> wrote:
->>>>
->>>> -----Original Message-----
->>>> Can you put it into different driver? Dumping everything into by far
->>>> the biggest nic driver already is already huge headache in terms on
->>>> maintainability, debugging and back ports.
->>>> Look at how intel splits their drivers.
->>>> ixgb, ixgbe, ixgbevf are different drivers thought they have a lot in
->>>> common. On one side it's a bit of copy paste, but on the other side
->>
->>
->> I don't think the ixgb example is the same, simply  ixgb, ixgbe,
->> ixgbevf have different PCI IDs
->> and even different SW/FW interfaces. On the other hand, same mlx5
->> driver can support all of
->> ConnetX4/5/6 device IDs with the same code flows, same interfaces.
->>
->>>> it makes drivers much easier to develop and maintain independently.
->>>> ConnectX-6 code and any future hw support doesn't belong to
->>>> mlx5 driver at all.
->>
->>
->> Sorry i must disagree with you on this for the same reasons Ilan
->> mentioned.
->> We can perfectly achieve the same with modular driver design all under the
->> same .ko module, with some kconfig flags to reduce the amount of
->> code/features
->> this .ko provides.
->
->
-> If I get this right, the FPGA is independent and could in theory be used for
-> non network stuff. It really should have it's own driver in that case, and
-> you should provide accessor functionality via the mlx5 driver.
->
+On 5/26/17 9:37 AM, Jiri Pirko wrote:
+> From: Ido Schimmel <idosch@mellanox.com>
+> 
+> It's useful for drivers supporting bridge offload to be able to query
+> the bridge's VLAN filtering state.
+> 
+> Currently, upon enslavement to a bridge master, the offloading driver
+> will only learn about the bridge's VLAN filtering state after the bridge
+> device was already linked with its slave.
+> 
+> Being able to query the bridge's VLAN filtering state allows such
+> drivers to forbid enslavement in case resource couldn't be allocated for
+> a VLAN-aware bridge and also choose the correct initialization routine
+> for the enslaved port, which is dependent on the bridge type.
+> 
+> Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+> ---
+>   include/linux/if_bridge.h | 9 +++++++++
+>   net/bridge/br_if.c        | 2 +-
+>   net/bridge/br_mdb.c       | 4 ++--
+>   net/bridge/br_netlink.c   | 2 +-
+>   net/bridge/br_private.h   | 9 ---------
+>   net/bridge/br_vlan.c      | 8 ++++++++
+>   6 files changed, 21 insertions(+), 13 deletions(-)
+> 
 
-Hi Jes,
+I must say this bridge -> dev -> bridge looks weird from the bridge POV.
+Since exports like this seem to be increasing I think it'd be nice to
+make some API that can be queried instead of exporting symbols for each
+bridge option or attribute. In this case maybe a simpler solution would've
+been only a new exported symbol for external users.
 
-No, It is clearly stated in the commit message :
+The patch itself looks good to me.
 
-"The FPGA is a bump-on-the-wire and thus affects operation of
-the mlx5_core driver on the ConnectX ASIC."
-
-Which means mlx5 FPGA user can only write logic which affects only
-packets going in/out
-A ConnectX chip - so it is only network stuff -.
-
-> We have this with other devices in the kernel where a primary device driver
-> provides an interface for an additional sub-driver to access another device
-> behind it. Like bt-coexist in some of the wifi drivers allowing access to a
-> bluetooth device behind it.
->
-
-Blutooth over wifi or vise versa is a very good example to what you
-are requesting.
-But, it doesn't fit to what we are trying to do here. mlx5 FGPA is a
-ConnectX card feature, not a new protocol.
-
-> Jes
+Reviewed-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
