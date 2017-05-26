@@ -1,94 +1,38 @@
-From: Dennis Dalessandro <dennis.dalessandro-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [for-next 5/6] net/mlx5: Bump driver version
-Date: Fri, 26 May 2017 12:55:22 -0400
-Message-ID: <ee23ad82-4a2e-8546-d41b-11f979b127bb@intel.com>
-References: <20170523114404.20387-1-saeedm@mellanox.com>
- <20170523114404.20387-6-saeedm@mellanox.com>
- <3733699c-480b-a1aa-14e1-4f27f86cfead@intel.com>
- <CALzJLG_ha-XiPAMnoKrUgm_EwPx2yH0T2y4EBRfrWNYSZi1cTg@mail.gmail.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [Patch net-next] net_sched: only create filter chains for new filters/actions
+Date: Fri, 26 May 2017 09:55:25 -0700
+Message-ID: <CAM_iQpUJcK0ZSqK8=a_D9dBw1OED++A=bC9-UUov4ng0mMpJUg@mail.gmail.com>
+References: <1495557757-31371-1-git-send-email-xiyou.wangcong@gmail.com>
+ <20170525.121456.221336477222052018.davem@davemloft.net> <20170526055352.GA1898@nanopsycho>
+ <20170526.105443.1489276661727770629.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Ilan Tayari <ilant-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Tariq Toukan <tariqt-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-To: Saeed Mahameed <saeedm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CALzJLG_ha-XiPAMnoKrUgm_EwPx2yH0T2y4EBRfrWNYSZi1cTg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Content-Language: en-US
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: Jiri Pirko <jiri@resnulli.us>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Jiri Pirko <jiri@mellanox.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f44.google.com ([74.125.82.44]:38763 "EHLO
+        mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S944373AbdEZQzq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 26 May 2017 12:55:46 -0400
+Received: by mail-wm0-f44.google.com with SMTP id e127so26110873wmg.1
+        for <netdev@vger.kernel.org>; Fri, 26 May 2017 09:55:46 -0700 (PDT)
+In-Reply-To: <20170526.105443.1489276661727770629.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 5/26/2017 12:35 PM, Saeed Mahameed wrote:
-> On Fri, May 26, 2017 at 3:56 PM, Dennis Dalessandro
-> <dennis.dalessandro-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org> wrote:
->> On 5/23/2017 7:44 AM, Saeed Mahameed wrote:
->>>
->>> From: Tariq Toukan <tariqt-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
->>>
->>> Remove date and bump version for mlx5_core driver.
->>>
->>> Signed-off-by: Tariq Toukan <tariqt-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
->>> Signed-off-by: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
->>
->>
->> So I just complained about the bnxt_re doing this. I guess I need to raise a
->> flag here too. Now to be clear I'm not against doing this version stuff. I'm
->> against using it for some internal tracking that is meaningless to the
->> kernel community.
->>
->> There is no detail in your commit message as to what this driver version is
->> used for. Can you please explain how your use of driver version is valid
->> while theirs is not?
->>
-> 
-> Hi Denny,
-> 
-> We don't use this for internal or any kind of tracking at all, if you
-> look at the driver change log, we hardly touch the version if at all !
-> 
-> but since we decided to remove the date since it is very misleading
-> and we got some complaints that some think they have an old driver
-> just because of the date, also we bumped the version so it would align
-> with our drivers external package (OFED).
+On Fri, May 26, 2017 at 7:54 AM, David Miller <davem@davemloft.net> wrote:
+> And I also didn't find the boolean logic hard to understand at all.
+>
+> It is in fact a very common pattern to pass a "create" boolean into
+> lookup functions, to tell them whether to create a new object on
+> lookup failure or not.  And then also to control that boolean via
+> what kind of netlink request we are processing.
 
-To me that's not a reason to include something in the kernel. At least 
-your external package is something that is available and not an internal 
-development process, but still probably no interest to anyone in the kernel.
++10
 
-> Anyway i don't think we are going to change this frequently or even use it.
-
-> But if you are that much against touching this ethtool field, why
-> don't you just jump into the mud and remove it from the tree, I
-> imagine it is really hard for you to watch for patches doing this and
-> nack them on the list.
-
-I have no interest in policing that. I complained about the other driver 
-because I know patches like that were NAKed by Greg KH in the past 
-(ours). I'd rather not see the rdma subsystem keep making the same 
-mistakes is all. We want to improve our standing in the community after 
-all. As I said I'm not personally against it as evidenced by our driver.
-
->> I realize Dave has already pulled this and I'm not asking for it to be
->> reverted but maybe some discussion will help guide future patch submissions
->> which do this stuff.
->>
-> 
-> Sure, although i don't think we are going to use those version fields
-> in the future,
-> please allow me to ask, how do you do your driver versioning ? how do
-> you track things ?
-> and what is your future vision regarding ethool->drv_version ?
-
-That's just the thing, we don't do anything with it either really. I'm 
-trying to justify its existence to myself and if you folks had some whiz 
-bang idea for a driver version I was interested in hearing what it was.
-
--Denny
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+It is a widely used pattern among the kernel source code.
+I'd be surprised if an experienced kernel developer is not
+aware of this pattern. ;)
