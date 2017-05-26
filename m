@@ -1,140 +1,98 @@
-From: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
-Subject: [PATCH net-next v3] ibmvnic: Enable TSO support
-Date: Fri, 26 May 2017 11:15:46 -0500
-Message-ID: <1495815346-5638-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
-Cc: davem@davemloft.net, Thomas Falcon <tlfalcon@linux.vnet.ibm.com>,
-        Nathan Fontenot <nfont@linux.vnet.ibm.com>,
-        John Allen <jallen@linux.vnet.ibm.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:57293 "EHLO
-        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1753037AbdEZQP4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 26 May 2017 12:15:56 -0400
-Received: from pps.filterd (m0098410.ppops.net [127.0.0.1])
-        by mx0a-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v4QGEllN050721
-        for <netdev@vger.kernel.org>; Fri, 26 May 2017 12:15:55 -0400
-Received: from e37.co.us.ibm.com (e37.co.us.ibm.com [32.97.110.158])
-        by mx0a-001b2d01.pphosted.com with ESMTP id 2apknxba5a-1
-        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Fri, 26 May 2017 12:15:55 -0400
-Received: from localhost
-        by e37.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-        for <netdev@vger.kernel.org> from <tlfalcon@linux.vnet.ibm.com>;
-        Fri, 26 May 2017 10:15:54 -0600
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jan Kiszka <jan.kiszka@siemens.com>
+Subject: [PATCH v2 1/6] stmmac: pci: Make stmmac_pci_info structure constant
+Date: Fri, 26 May 2017 18:07:48 +0200
+Message-ID: <8f8369a31e4d2770e29e46a7d05ffe760151a8a0.1495814872.git.jan.kiszka@siemens.com>
+References: <cover.1495814872.git.jan.kiszka@siemens.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Andy Shevchenko <andy.shevchenko@gmail.com>
+To: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+        Alexandre Torgue <alexandre.torgue@st.com>,
+        David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1495814872.git.jan.kiszka@siemens.com>
+In-Reply-To: <cover.1495814872.git.jan.kiszka@siemens.com>
+References: <cover.1495814872.git.jan.kiszka@siemens.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Enable TSO in the ibmvnic driver. Scatter-gather is also enabled,
-though there currently is no support for scatter-gather in
-vNIC-compatible hardware, resulting in forced linearization
-of all fragmented SKB's. Though not ideal, given the throughput
-improvement gained by enabling TSO, it has been decided
-that this is an acceptable tradeoff.
+By removing the PCI device reference from the structure and passing it
+as parameters to the interested functions, we can make quark_pci_info
+const.
 
-The feature is also enabled by a module parameter.
-This parameter is necessary because TSO can not easily be
-enabled or disabled in firmware without reinitializing the driver.
-
-CC: Nathan Fontenot <nfont@linux.vnet.ibm.com>
-CC: John Allen <jallen@linux.vnet.ibm.com>
-Signed-off-by: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
+Signed-off-by: Jan Kiszka <jan.kiszka@siemens.com>
 ---
-v3: Remove module parameter, TSO will be set through ethtool
-    include ibmvnic_fix_features to manage scatter-gather
-v2: Fix kbuild robot warning from module parameter init
----
- drivers/net/ethernet/ibm/ibmvnic.c | 42 +++++++++++++++++++++++++++++++++++---
- 1 file changed, 39 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c | 23 +++++++++++------------
+ 1 file changed, 11 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/net/ethernet/ibm/ibmvnic.c b/drivers/net/ethernet/ibm/ibmvnic.c
-index abe2b6e..b1f4a95 100644
---- a/drivers/net/ethernet/ibm/ibmvnic.c
-+++ b/drivers/net/ethernet/ibm/ibmvnic.c
-@@ -149,6 +149,20 @@ struct ibmvnic_stat {
- 	{"internal_mac_rx_errors", IBMVNIC_STAT_OFF(internal_mac_rx_errors)},
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
+index 22f910795be4..0efe42659a37 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
+@@ -38,17 +38,17 @@ struct stmmac_pci_dmi_data {
  };
  
-+static netdev_features_t ibmvnic_fix_features(struct net_device *dev,
-+					      netdev_features_t features)
-+{
-+	/* Scatter-gather is not currently supported by firmware.
-+	 * It will only be enabled to support TSO operations.
-+	 */
-+	if (!(features & (NETIF_F_TSO | NETIF_F_TSO6)))
-+		features &= ~NETIF_F_SG;
-+	else
-+		features |= NETIF_F_SG;
-+
-+	return features;
-+}
-+
- static long h_reg_sub_crq(unsigned long unit_address, unsigned long token,
- 			  unsigned long length, unsigned long *number,
- 			  unsigned long *irq)
-@@ -1025,6 +1039,17 @@ static int ibmvnic_xmit(struct sk_buff *skb, struct net_device *netdev)
- 		goto out;
- 	}
+ struct stmmac_pci_info {
+-	struct pci_dev *pdev;
+-	int (*setup)(struct plat_stmmacenet_data *plat,
+-		     struct stmmac_pci_info *info);
++	int (*setup)(struct pci_dev *pdev, struct plat_stmmacenet_data *plat,
++		     const struct stmmac_pci_info *info);
+ 	struct stmmac_pci_dmi_data *dmi;
+ };
  
-+	/* All scatter-gather SKB's will be linearized for the time being, but
-+	 * scatter-gather is only enabled if the user wishes to use TSO.
-+	 */
-+	if (skb_shinfo(skb)->nr_frags && __skb_linearize(skb)) {
-+		dev_kfree_skb_any(skb);
-+		tx_send_failed++;
-+		tx_dropped++;
-+		ret = NETDEV_TX_OK;
-+		goto out;
-+	}
-+
- 	tx_pool = &adapter->tx_pool[queue_num];
- 	tx_scrq = adapter->tx_scrq[queue_num];
- 	txq = netdev_get_tx_queue(netdev, skb_get_queue_mapping(skb));
-@@ -1082,6 +1107,11 @@ static int ibmvnic_xmit(struct sk_buff *skb, struct net_device *netdev)
- 		tx_crq.v1.flags1 |= IBMVNIC_TX_CHKSUM_OFFLOAD;
- 		hdrs += 2;
- 	}
-+	if (skb_is_gso(skb)) {
-+		tx_crq.v1.flags1 |= IBMVNIC_TX_LSO;
-+		tx_crq.v1.mss = cpu_to_be16(skb_shinfo(skb)->gso_size);
-+		hdrs += 2;
-+	}
- 	/* determine if l2/3/4 headers are sent to firmware */
- 	if ((*hdrs >> 7) & 1 &&
- 	    (skb->protocol == htons(ETH_P_IP) ||
-@@ -1520,6 +1550,7 @@ static void ibmvnic_netpoll_controller(struct net_device *dev)
- 	.ndo_set_mac_address	= ibmvnic_set_mac,
- 	.ndo_validate_addr	= eth_validate_addr,
- 	.ndo_tx_timeout		= ibmvnic_tx_timeout,
-+	.ndo_fix_features	= ibmvnic_fix_features,
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	.ndo_poll_controller	= ibmvnic_netpoll_controller,
- #endif
-@@ -2629,10 +2660,10 @@ static void handle_query_ip_offload_rsp(struct ibmvnic_adapter *adapter)
- 	adapter->ip_offload_ctrl.udp_ipv4_chksum = buf->udp_ipv4_chksum;
- 	adapter->ip_offload_ctrl.tcp_ipv6_chksum = buf->tcp_ipv6_chksum;
- 	adapter->ip_offload_ctrl.udp_ipv6_chksum = buf->udp_ipv6_chksum;
-+	adapter->ip_offload_ctrl.large_tx_ipv4 = buf->large_tx_ipv4;
-+	adapter->ip_offload_ctrl.large_tx_ipv6 = buf->large_tx_ipv6;
+-static int stmmac_pci_find_phy_addr(struct stmmac_pci_info *info)
++static int stmmac_pci_find_phy_addr(struct pci_dev *pdev,
++				    const struct stmmac_pci_info *info)
+ {
+ 	const char *name = dmi_get_system_info(DMI_BOARD_NAME);
+ 	const char *asset_tag = dmi_get_system_info(DMI_BOARD_ASSET_TAG);
+-	unsigned int func = PCI_FUNC(info->pdev->devfn);
++	unsigned int func = PCI_FUNC(pdev->devfn);
+ 	struct stmmac_pci_dmi_data *dmi;
  
--	/* large_tx/rx disabled for now, additional features needed */
--	adapter->ip_offload_ctrl.large_tx_ipv4 = 0;
--	adapter->ip_offload_ctrl.large_tx_ipv6 = 0;
-+	/* large_rx disabled for now, additional features needed */
- 	adapter->ip_offload_ctrl.large_rx_ipv4 = 0;
- 	adapter->ip_offload_ctrl.large_rx_ipv6 = 0;
+ 	/*
+@@ -114,10 +114,10 @@ static void stmmac_default_data(struct plat_stmmacenet_data *plat)
+ 	/* TODO: AXI */
+ }
  
-@@ -2648,6 +2679,11 @@ static void handle_query_ip_offload_rsp(struct ibmvnic_adapter *adapter)
- 	    (NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM)))
- 		adapter->netdev->features |= NETIF_F_RXCSUM;
+-static int quark_default_data(struct plat_stmmacenet_data *plat,
+-			      struct stmmac_pci_info *info)
++static int quark_default_data(struct pci_dev *pdev,
++			      struct plat_stmmacenet_data *plat,
++			      const struct stmmac_pci_info *info)
+ {
+-	struct pci_dev *pdev = info->pdev;
+ 	int ret;
  
-+	if (buf->large_tx_ipv4)
-+		adapter->netdev->hw_features |= NETIF_F_TSO;
-+	if (buf->large_tx_ipv6)
-+		adapter->netdev->hw_features |= NETIF_F_TSO6;
-+
- 	memset(&crq, 0, sizeof(crq));
- 	crq.control_ip_offload.first = IBMVNIC_CRQ_CMD;
- 	crq.control_ip_offload.cmd = CONTROL_IP_OFFLOAD;
+ 	/* Set common default data first */
+@@ -127,7 +127,7 @@ static int quark_default_data(struct plat_stmmacenet_data *plat,
+ 	 * Refuse to load the driver and register net device if MAC controller
+ 	 * does not connect to any PHY interface.
+ 	 */
+-	ret = stmmac_pci_find_phy_addr(info);
++	ret = stmmac_pci_find_phy_addr(pdev, info);
+ 	if (ret < 0)
+ 		return ret;
+ 
+@@ -175,7 +175,7 @@ static struct stmmac_pci_dmi_data quark_pci_dmi_data[] = {
+ 	{}
+ };
+ 
+-static struct stmmac_pci_info quark_pci_info = {
++static const struct stmmac_pci_info quark_pci_info = {
+ 	.setup = quark_default_data,
+ 	.dmi = quark_pci_dmi_data,
+ };
+@@ -237,9 +237,8 @@ static int stmmac_pci_probe(struct pci_dev *pdev,
+ 	pci_set_master(pdev);
+ 
+ 	if (info) {
+-		info->pdev = pdev;
+ 		if (info->setup) {
+-			ret = info->setup(plat, info);
++			ret = info->setup(pdev, plat, info);
+ 			if (ret)
+ 				return ret;
+ 		}
 -- 
-1.8.3.1
+2.12.0
