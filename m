@@ -1,66 +1,140 @@
-From: Jakub Kicinski <kubakici@wp.pl>
-Subject: Re: [for-next 5/6] net/mlx5: Bump driver version
-Date: Fri, 26 May 2017 14:53:18 -0700
-Message-ID: <20170526145318.7fd8c8e2@cakuba.netronome.com>
-References: <20170523114404.20387-1-saeedm@mellanox.com>
-        <20170523114404.20387-6-saeedm@mellanox.com>
-        <3733699c-480b-a1aa-14e1-4f27f86cfead@intel.com>
-        <CALzJLG_ha-XiPAMnoKrUgm_EwPx2yH0T2y4EBRfrWNYSZi1cTg@mail.gmail.com>
-        <ee23ad82-4a2e-8546-d41b-11f979b127bb@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Saeed Mahameed <saeedm@dev.mellanox.co.il>,
-        Saeed Mahameed <saeedm@mellanox.com>,
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 2/3] net: dsa: mv88e6xxx: rename PHY PPU accessors
+Date: Fri, 26 May 2017 18:03:06 -0400
+Message-ID: <20170526220307.23503-3-vivien.didelot@savoirfairelinux.com>
+References: <20170526220307.23503-1-vivien.didelot@savoirfairelinux.com>
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
-        Doug Ledford <dledford@redhat.com>,
-        Linux Netdev List <netdev@vger.kernel.org>,
-        linux-rdma@vger.kernel.org, Ilan Tayari <ilant@mellanox.com>,
-        Tariq Toukan <tariqt@mellanox.com>
-To: Dennis Dalessandro <dennis.dalessandro@intel.com>
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx3.wp.pl ([212.77.101.9]:56855 "EHLO mx3.wp.pl"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1948760AbdEZVxf (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 26 May 2017 17:53:35 -0400
-In-Reply-To: <ee23ad82-4a2e-8546-d41b-11f979b127bb@intel.com>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:48758 "EHLO
+        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1948778AbdEZWFm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 26 May 2017 18:05:42 -0400
+In-Reply-To: <20170526220307.23503-1-vivien.didelot@savoirfairelinux.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 26 May 2017 12:55:22 -0400, Dennis Dalessandro wrote:
-> >> I realize Dave has already pulled this and I'm not asking for it to be
-> >> reverted but maybe some discussion will help guide future patch submissions
-> >> which do this stuff.
-> >>  
-> > 
-> > Sure, although i don't think we are going to use those version fields
-> > in the future,
-> > please allow me to ask, how do you do your driver versioning ? how do
-> > you track things ?
-> > and what is your future vision regarding ethool->drv_version ?  
-> 
-> That's just the thing, we don't do anything with it either really. I'm 
-> trying to justify its existence to myself and if you folks had some whiz 
-> bang idea for a driver version I was interested in hearing what it was.
+Make it clear that mv88e6xxx_phy_ppu_{read,write} are an implementation
+of the .phy_{read,write} operations, by renaming them with the mv88e6185
+prefix, since 88E6185 it is the reference switch model supported in an
+upstream board (ZII Dev Rev B), which makes use of them.
 
-FWIW I put VERMAGIC_STRING in drv_version:
+Distinguish the signatures of implementation specific and generic PHY
+functions in the phy.h header.
 
-# ethtool -i p4p1
-driver: nfp
-version: 4.12.0-rc2-perf-00282-gc42dfc79
-...
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+---
+ drivers/net/dsa/mv88e6xxx/chip.c | 16 ++++++++--------
+ drivers/net/dsa/mv88e6xxx/phy.c  |  4 ++--
+ drivers/net/dsa/mv88e6xxx/phy.h  | 11 +++++++----
+ 3 files changed, 17 insertions(+), 14 deletions(-)
 
-I think I got that idea from Felix Fietkau.  The backport-ified version
-of the driver [1] uses git hash and "o-o-t" sting:
-
-# ethtool -i p4p1
-driver: nfp
-version: 49e5c6abf5b2 (o-o-t)
-...
-
-So it's pretty easy to tell which driver the customer is using.  I
-could probably throw in the output of $(git rev-list --count HEAD) to
-have an automatic monotonically increasing "version" when built
-out-of-tree, hm...
-
-[1] https://github.com/Netronome/nfp-drv-kmods
+diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
+index 7f5f44f89389..070e82ac6132 100644
+--- a/drivers/net/dsa/mv88e6xxx/chip.c
++++ b/drivers/net/dsa/mv88e6xxx/chip.c
+@@ -2371,8 +2371,8 @@ static int mv88e6xxx_set_eeprom(struct dsa_switch *ds,
+ static const struct mv88e6xxx_ops mv88e6085_ops = {
+ 	/* MV88E6XXX_FAMILY_6097 */
+ 	.set_switch_mac = mv88e6xxx_g1_set_switch_mac,
+-	.phy_read = mv88e6xxx_phy_ppu_read,
+-	.phy_write = mv88e6xxx_phy_ppu_write,
++	.phy_read = mv88e6185_phy_ppu_read,
++	.phy_write = mv88e6185_phy_ppu_write,
+ 	.port_set_link = mv88e6xxx_port_set_link,
+ 	.port_set_duplex = mv88e6xxx_port_set_duplex,
+ 	.port_set_speed = mv88e6185_port_set_speed,
+@@ -2402,8 +2402,8 @@ static const struct mv88e6xxx_ops mv88e6085_ops = {
+ static const struct mv88e6xxx_ops mv88e6095_ops = {
+ 	/* MV88E6XXX_FAMILY_6095 */
+ 	.set_switch_mac = mv88e6xxx_g1_set_switch_mac,
+-	.phy_read = mv88e6xxx_phy_ppu_read,
+-	.phy_write = mv88e6xxx_phy_ppu_write,
++	.phy_read = mv88e6185_phy_ppu_read,
++	.phy_write = mv88e6185_phy_ppu_write,
+ 	.port_set_link = mv88e6xxx_port_set_link,
+ 	.port_set_duplex = mv88e6xxx_port_set_duplex,
+ 	.port_set_speed = mv88e6185_port_set_speed,
+@@ -2480,8 +2480,8 @@ static const struct mv88e6xxx_ops mv88e6123_ops = {
+ static const struct mv88e6xxx_ops mv88e6131_ops = {
+ 	/* MV88E6XXX_FAMILY_6185 */
+ 	.set_switch_mac = mv88e6xxx_g1_set_switch_mac,
+-	.phy_read = mv88e6xxx_phy_ppu_read,
+-	.phy_write = mv88e6xxx_phy_ppu_write,
++	.phy_read = mv88e6185_phy_ppu_read,
++	.phy_write = mv88e6185_phy_ppu_write,
+ 	.port_set_link = mv88e6xxx_port_set_link,
+ 	.port_set_duplex = mv88e6xxx_port_set_duplex,
+ 	.port_set_speed = mv88e6185_port_set_speed,
+@@ -2727,8 +2727,8 @@ static const struct mv88e6xxx_ops mv88e6176_ops = {
+ static const struct mv88e6xxx_ops mv88e6185_ops = {
+ 	/* MV88E6XXX_FAMILY_6185 */
+ 	.set_switch_mac = mv88e6xxx_g1_set_switch_mac,
+-	.phy_read = mv88e6xxx_phy_ppu_read,
+-	.phy_write = mv88e6xxx_phy_ppu_write,
++	.phy_read = mv88e6185_phy_ppu_read,
++	.phy_write = mv88e6185_phy_ppu_write,
+ 	.port_set_link = mv88e6xxx_port_set_link,
+ 	.port_set_duplex = mv88e6xxx_port_set_duplex,
+ 	.port_set_speed = mv88e6185_port_set_speed,
+diff --git a/drivers/net/dsa/mv88e6xxx/phy.c b/drivers/net/dsa/mv88e6xxx/phy.c
+index b865b1e2b103..19e0128257e5 100644
+--- a/drivers/net/dsa/mv88e6xxx/phy.c
++++ b/drivers/net/dsa/mv88e6xxx/phy.c
+@@ -202,7 +202,7 @@ static void mv88e6xxx_ppu_state_destroy(struct mv88e6xxx_chip *chip)
+ 	del_timer_sync(&chip->ppu_timer);
+ }
+ 
+-int mv88e6xxx_phy_ppu_read(struct mv88e6xxx_chip *chip, struct mii_bus *bus,
++int mv88e6185_phy_ppu_read(struct mv88e6xxx_chip *chip, struct mii_bus *bus,
+ 			   int addr, int reg, u16 *val)
+ {
+ 	int err;
+@@ -216,7 +216,7 @@ int mv88e6xxx_phy_ppu_read(struct mv88e6xxx_chip *chip, struct mii_bus *bus,
+ 	return err;
+ }
+ 
+-int mv88e6xxx_phy_ppu_write(struct mv88e6xxx_chip *chip, struct mii_bus *bus,
++int mv88e6185_phy_ppu_write(struct mv88e6xxx_chip *chip, struct mii_bus *bus,
+ 			    int addr, int reg, u16 val)
+ {
+ 	int err;
+diff --git a/drivers/net/dsa/mv88e6xxx/phy.h b/drivers/net/dsa/mv88e6xxx/phy.h
+index dfa98549dfcd..91fe3c3e9aea 100644
+--- a/drivers/net/dsa/mv88e6xxx/phy.h
++++ b/drivers/net/dsa/mv88e6xxx/phy.h
+@@ -14,10 +14,17 @@
+ #ifndef _MV88E6XXX_PHY_H
+ #define _MV88E6XXX_PHY_H
+ 
++/* PHY Registers accesses implementations */
+ int mv88e6165_phy_read(struct mv88e6xxx_chip *chip, struct mii_bus *bus,
+ 		       int addr, int reg, u16 *val);
+ int mv88e6165_phy_write(struct mv88e6xxx_chip *chip, struct mii_bus *bus,
+ 			int addr, int reg, u16 val);
++int mv88e6185_phy_ppu_read(struct mv88e6xxx_chip *chip, struct mii_bus *bus,
++			   int addr, int reg, u16 *val);
++int mv88e6185_phy_ppu_write(struct mv88e6xxx_chip *chip, struct mii_bus *bus,
++			    int addr, int reg, u16 val);
++
++/* Generic PHY operations */
+ int mv88e6xxx_phy_read(struct mv88e6xxx_chip *chip, int phy,
+ 		       int reg, u16 *val);
+ int mv88e6xxx_phy_write(struct mv88e6xxx_chip *chip, int phy,
+@@ -26,10 +33,6 @@ int mv88e6xxx_phy_page_read(struct mv88e6xxx_chip *chip, int phy,
+ 			    u8 page, int reg, u16 *val);
+ int mv88e6xxx_phy_page_write(struct mv88e6xxx_chip *chip, int phy,
+ 			     u8 page, int reg, u16 val);
+-int mv88e6xxx_phy_ppu_read(struct mv88e6xxx_chip *chip, struct mii_bus *bus,
+-			   int addr, int reg, u16 *val);
+-int mv88e6xxx_phy_ppu_write(struct mv88e6xxx_chip *chip, struct mii_bus *bus,
+-			    int addr, int reg, u16 val);
+ void mv88e6xxx_phy_init(struct mv88e6xxx_chip *chip);
+ void mv88e6xxx_phy_destroy(struct mv88e6xxx_chip *chip);
+ int mv88e6xxx_phy_setup(struct mv88e6xxx_chip *chip);
+-- 
+2.13.0
