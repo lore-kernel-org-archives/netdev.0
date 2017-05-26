@@ -1,77 +1,66 @@
-From: Jes Sorensen <jes.sorensen@gmail.com>
-Subject: [PATCH 2/7] mlx5: eswitch vlan functionality is only called if SRIOV_OFFLOADS is set
-Date: Fri, 26 May 2017 17:16:19 -0400
-Message-ID: <20170526211624.23133-3-jsorensen@fb.com>
-References: <20170526211624.23133-1-jsorensen@fb.com>
-Cc: kernel-team@fb.com, saeedm@mellanox.com, ilant@mellanox.com,
-        Jes Sorensen <jsorensen@fb.com>
-To: netdev@vger.kernel.org
+From: Jakub Kicinski <kubakici@wp.pl>
+Subject: Re: [for-next 5/6] net/mlx5: Bump driver version
+Date: Fri, 26 May 2017 14:53:18 -0700
+Message-ID: <20170526145318.7fd8c8e2@cakuba.netronome.com>
+References: <20170523114404.20387-1-saeedm@mellanox.com>
+        <20170523114404.20387-6-saeedm@mellanox.com>
+        <3733699c-480b-a1aa-14e1-4f27f86cfead@intel.com>
+        <CALzJLG_ha-XiPAMnoKrUgm_EwPx2yH0T2y4EBRfrWNYSZi1cTg@mail.gmail.com>
+        <ee23ad82-4a2e-8546-d41b-11f979b127bb@intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Saeed Mahameed <saeedm@dev.mellanox.co.il>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Doug Ledford <dledford@redhat.com>,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        linux-rdma@vger.kernel.org, Ilan Tayari <ilant@mellanox.com>,
+        Tariq Toukan <tariqt@mellanox.com>
+To: Dennis Dalessandro <dennis.dalessandro@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yb0-f193.google.com ([209.85.213.193]:35379 "EHLO
-        mail-yb0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1948719AbdEZVQf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 26 May 2017 17:16:35 -0400
-Received: by mail-yb0-f193.google.com with SMTP id 130so684659ybl.2
-        for <netdev@vger.kernel.org>; Fri, 26 May 2017 14:16:35 -0700 (PDT)
-In-Reply-To: <20170526211624.23133-1-jsorensen@fb.com>
+Received: from mx3.wp.pl ([212.77.101.9]:56855 "EHLO mx3.wp.pl"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1948760AbdEZVxf (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 26 May 2017 17:53:35 -0400
+In-Reply-To: <ee23ad82-4a2e-8546-d41b-11f979b127bb@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This allows not compiling this code if eswitch offloads are disabled.
+On Fri, 26 May 2017 12:55:22 -0400, Dennis Dalessandro wrote:
+> >> I realize Dave has already pulled this and I'm not asking for it to be
+> >> reverted but maybe some discussion will help guide future patch submissions
+> >> which do this stuff.
+> >>  
+> > 
+> > Sure, although i don't think we are going to use those version fields
+> > in the future,
+> > please allow me to ask, how do you do your driver versioning ? how do
+> > you track things ?
+> > and what is your future vision regarding ethool->drv_version ?  
+> 
+> That's just the thing, we don't do anything with it either really. I'm 
+> trying to justify its existence to myself and if you folks had some whiz 
+> bang idea for a driver version I was interested in hearing what it was.
 
-Signed-off-by: Jes Sorensen <jsorensen@fb.com>
----
- drivers/net/ethernet/mellanox/mlx5/core/eswitch.h          | 13 +++++++++++++
- drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c |  2 ++
- 2 files changed, 15 insertions(+)
+FWIW I put VERMAGIC_STRING in drv_version:
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
-index de4e5e8..2bf5299 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
-@@ -338,10 +338,23 @@ void mlx5_eswitch_unregister_vport_rep(struct mlx5_eswitch *esw,
- 				       int vport_index);
- struct net_device *mlx5_eswitch_get_uplink_netdev(struct mlx5_eswitch *esw);
- 
-+#ifdef CONFIG_MLX5_EN_ESWITCH_OFFLOADS
- int mlx5_eswitch_add_vlan_action(struct mlx5_eswitch *esw,
- 				 struct mlx5_esw_flow_attr *attr);
- int mlx5_eswitch_del_vlan_action(struct mlx5_eswitch *esw,
- 				 struct mlx5_esw_flow_attr *attr);
-+#else
-+static inline int mlx5_eswitch_add_vlan_action(struct mlx5_eswitch *esw,
-+					       struct mlx5_esw_flow_attr *attr)
-+{
-+	return -EOPNOTSUPP;
-+}
-+static inline int mlx5_eswitch_del_vlan_action(struct mlx5_eswitch *esw,
-+					       struct mlx5_esw_flow_attr *attr)
-+{
-+	return -EOPNOTSUPP;
-+}
-+#endif
- int __mlx5_eswitch_set_vport_vlan(struct mlx5_eswitch *esw,
- 				  int vport, u16 vlan, u8 qos, u8 set_flags);
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
-index e78dec1..8d0af1f 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
-@@ -122,6 +122,7 @@ mlx5_eswitch_del_offloaded_rule(struct mlx5_eswitch *esw,
- 	esw->offloads.num_flows--;
- }
- 
-+#ifdef CONFIG_MLX5_EN_ESWITCH_OFFLOADS
- static int esw_set_global_vlan_pop(struct mlx5_eswitch *esw, u8 val)
- {
- 	struct mlx5_eswitch_rep *rep;
-@@ -301,6 +302,7 @@ int mlx5_eswitch_del_vlan_action(struct mlx5_eswitch *esw,
- out:
- 	return err;
- }
-+#endif
- 
- static struct mlx5_flow_handle *
- mlx5_eswitch_add_send_to_vport_rule(struct mlx5_eswitch *esw, int vport, u32 sqn)
--- 
-2.9.4
+# ethtool -i p4p1
+driver: nfp
+version: 4.12.0-rc2-perf-00282-gc42dfc79
+...
+
+I think I got that idea from Felix Fietkau.  The backport-ified version
+of the driver [1] uses git hash and "o-o-t" sting:
+
+# ethtool -i p4p1
+driver: nfp
+version: 49e5c6abf5b2 (o-o-t)
+...
+
+So it's pretty easy to tell which driver the customer is using.  I
+could probably throw in the output of $(git rev-list --count HEAD) to
+have an automatic monotonically increasing "version" when built
+out-of-tree, hm...
+
+[1] https://github.com/Netronome/nfp-drv-kmods
