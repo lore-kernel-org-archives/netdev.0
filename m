@@ -1,36 +1,50 @@
-From: "Gao Feng" <gfree.wind@vip.163.com>
-Subject: Re:Re: [PATCH net-next] net: rps: Add the rfs_needed check when
- record flow hash
-Date: Fri, 26 May 2017 08:32:53 +0800 (CST)
-Message-ID: <232a9725.7cb5.15c422b9d3b.Coremail.gfree.wind@vip.163.com>
-References: <1495611359-118199-1-git-send-email-gfree.wind@vip.163.com>
- <20170525.131141.1106125565617394205.davem@davemloft.net>
+From: David Daney <david.daney@cavium.com>
+Subject: [PATCH 0/5] MIPS: Implement eBPF JIT.
+Date: Thu, 25 May 2017 17:38:21 -0700
+Message-ID: <20170526003826.10834-1-david.daney@cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=GBK
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org
-To: "David Miller" <davem@davemloft.net>,
-        "Eric Dumazet" <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from m171-177.vip.163.com ([123.58.177.171]:43200 "EHLO
-        m171-177.vip.163.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S936174AbdEZAdG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 25 May 2017 20:33:06 -0400
-In-Reply-To: <20170525.131141.1106125565617394205.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: Markos Chandras <markos.chandras@imgtec.com>,
+        David Daney <david.daney@cavium.com>
+To: Alexei Starovoitov <ast@kernel.org>,
+        Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, linux-mips@linux-mips.org,
+        ralf@linux-mips.org
+Return-path: <linux-mips-bounce@linux-mips.org>
+Sender: linux-mips-bounce@linux-mips.org
+Errors-to: linux-mips-bounce@linux-mips.org
+List-help: <mailto:ecartis@linux-mips.org?Subject=help>
+List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
+List-software: Ecartis version 1.0.0
+List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
+List-owner: <mailto:ralf@linux-mips.org>
+List-post: <mailto:linux-mips@linux-mips.org>
+List-archive: <http://www.linux-mips.org/archives/linux-mips/>
+List-Id: netdev.vger.kernel.org
 
-SGkgRGF2aWQgJiBFcmljLAoKQXQgMjAxNy0wNS0yNiAwMToxMTo0MSwgIkRhdmlkIE1pbGxlciIg
-PGRhdmVtQGRhdmVtbG9mdC5uZXQ+IHdyb3RlOgo+RnJvbTogZ2ZyZWUud2luZEB2aXAuMTYzLmNv
-bQo+RGF0ZTogV2VkLCAyNCBNYXkgMjAxNyAxNTozNTo1OSArMDgwMAo+Cj4+ICAKPj4gK3N0YXRp
-YyBpbmxpbmUgdm9pZCBzb2NrX3Jwc19yZWNvcmRfZmxvd19oYXNoKF9fdTMyIGhhc2gpCj4+ICt7
-Cj4+ICsjaWZkZWYgQ09ORklHX1JQUwo+PiArCWlmIChzdGF0aWNfa2V5X2ZhbHNlKCZyZnNfbmVl
-ZGVkKSkKPj4gKwkJX3NvY2tfcnBzX3JlY29yZF9mbG93X2hhc2goaGFzaCk7Cj4+ICsjZW5kaWYK
-Pj4gK30KPj4gKwo+Cj5UaGlzIGlzIG5vIGxvbmdlciB1c2VkLgo+Cj5JZiB5b3UgaGF2ZSBzb21l
-IHBsYW5zIHRvIHVzZSBpdCBpbiBhbm90aGVyIGNvbnRleHQsIHlvdSBhYnNvbHV0ZWx5IF9NVVNU
-Xwo+cG9zdCB0aGlzIGNoYW5nZSBpbnNpZGUgb2YgYSBwYXRjaCBzZXJpZXMgdGhhdCBhZGRzIHRo
-ZSBuZXcgdXNlciBhcyB3ZWxsLgo+Cj5PdGhlcndpc2UgaXQgaXMgaW1wb3NzaWJsZSB0byBkZXRl
-cm1pbmUgdGhlIGNvcnJlY3RuZXNzIGFuZAo+YXBwcm9wcmlhdGVuZXNzIG9mIHlvdXIgY2hhbmdl
-cy4KPgo+VGhhbmtzLgoKVGhlIHNvY2tfcnBzX3JlY29yZF9mbG93X2hhc2ggaXMgc3RpbGwgdXNl
-ZCBub3cuClRoZXJlIGlzIG9ubHkgb25lIGNhbGxlciB3aGljaCBpcyB0dW5fZmxvd191cGRhdGUg
-aW4gZmlsZSB0dW4uYy4KCkJlc3QgUmVnYXJkcwpGZW5nCgo=
+The first four patches improve MIPS uasm in preparation for use by the
+JIT.  The final patch is the eBPF JIT implementation.
+
+I am CCing netdev@ and the BPF maintainers for their comments, but
+would expect Ralf to merge via the MIPS tree if and when it all looks
+good.
+
+David Daney (5):
+  MIPS: Optimize uasm insn lookup.
+  MIPS: Correctly define DBSHFL type instruction opcodes.
+  MIPS: Add some instructions to uasm.
+  MIPS: Sort uasm enum opcode elements.
+  MIPS: Add support for eBPF JIT.
+
+ arch/mips/Kconfig                 |    1 +
+ arch/mips/include/asm/uasm.h      |   28 +
+ arch/mips/include/uapi/asm/inst.h |    9 +-
+ arch/mips/mm/uasm-micromips.c     |  188 +++--
+ arch/mips/mm/uasm-mips.c          |  236 +++---
+ arch/mips/mm/uasm.c               |   59 +-
+ arch/mips/net/bpf_jit.c           | 1627 ++++++++++++++++++++++++++++++++++++-
+ arch/mips/net/bpf_jit.h           |    7 +
+ 8 files changed, 1930 insertions(+), 225 deletions(-)
+
+-- 
+2.9.4
