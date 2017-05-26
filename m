@@ -1,47 +1,84 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: Re: [PATCH V5 1/2] rtnl: Add support for netdev event to link
- messages
-Date: Fri, 26 May 2017 14:04:00 -0600
-Message-ID: <5d8f7bc5-bf2d-19f3-a27a-5a56f1273a6f@gmail.com>
-References: <1495726316-27626-1-git-send-email-vyasevic@redhat.com>
- <1495726316-27626-2-git-send-email-vyasevic@redhat.com>
- <0d252e48-cbd0-5d5d-1e30-9c7e79ea9d01@gmail.com>
- <9e56d973-450e-7dfe-5a33-23922d449cd5@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: roopa@cumulusnetworks.com, jiri@resnulli.us, vfalico@gmail.com,
-        andy@greyhouse.net
-To: vyasevic@redhat.com, Vladislav Yasevich <vyasevich@gmail.com>,
-        netdev@vger.kernel.org
+From: Jes Sorensen <jes.sorensen@gmail.com>
+Subject: [PATCH 3/7] mlx5: Disable {add,del}_offloaded_rule() code if eswitch offloads are disabled
+Date: Fri, 26 May 2017 17:16:20 -0400
+Message-ID: <20170526211624.23133-4-jsorensen@fb.com>
+References: <20170526211624.23133-1-jsorensen@fb.com>
+Cc: kernel-team@fb.com, saeedm@mellanox.com, ilant@mellanox.com,
+        Jes Sorensen <jsorensen@fb.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:33416 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934332AbdEZUED (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 26 May 2017 16:04:03 -0400
-Received: by mail-pf0-f196.google.com with SMTP id f27so5050050pfe.0
-        for <netdev@vger.kernel.org>; Fri, 26 May 2017 13:04:03 -0700 (PDT)
-In-Reply-To: <9e56d973-450e-7dfe-5a33-23922d449cd5@redhat.com>
-Content-Language: en-US
+Received: from mail-yw0-f195.google.com ([209.85.161.195]:33279 "EHLO
+        mail-yw0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1948717AbdEZVQe (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 26 May 2017 17:16:34 -0400
+Received: by mail-yw0-f195.google.com with SMTP id y64so1358382ywe.0
+        for <netdev@vger.kernel.org>; Fri, 26 May 2017 14:16:34 -0700 (PDT)
+In-Reply-To: <20170526211624.23133-1-jsorensen@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 5/26/17 2:01 PM, Vlad Yasevich wrote:
->> Also, generically the IFLA_EVENT attribute should be considered
->> independent of NETDEV_ events.
->>
->> For example, userspace should be notified if the speed / duplex for a
->> device changes, so we could have another one of these -- e.g.,
->> IFLA_EVENT_SPEED -- that does not correlate to NETDEV_SPEED since
->> nothing internal to the network stack cares about speed changes, or
->> perhaps more generically it is IFLA_EVENT_LINK_SETTING.
->>
-> 
-> Ok.  We could do a translation between netdev event and IFLA_EVENT attribute value
-> earlier (say in rtnetlink_event) and pass that along.  This would allow calls
-> from other places, assuming proper IFLA_EVENT attribute value and translation
-> is defined.
-> 
-> Would that address your concerns?
+This code will not be called if CONFIG_MLX5_EN_ESWITCH_OFFLOADS is disabled.
 
-yes. that code re-factoring can be done when it is needed.
+Signed-off-by: Jes Sorensen <jsorensen@fb.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch.h       | 17 +++++++++++++++++
+ .../net/ethernet/mellanox/mlx5/core/eswitch_offloads.c  |  2 +-
+ 2 files changed, 18 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
+index 2bf5299..c2b0c02 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
+@@ -286,6 +286,7 @@ int mlx5_eswitch_get_vport_stats(struct mlx5_eswitch *esw,
+ struct mlx5_flow_spec;
+ struct mlx5_esw_flow_attr;
+ 
++#ifdef CONFIG_MLX5_EN_ESWITCH_OFFLOADS
+ struct mlx5_flow_handle *
+ mlx5_eswitch_add_offloaded_rule(struct mlx5_eswitch *esw,
+ 				struct mlx5_flow_spec *spec,
+@@ -294,6 +295,22 @@ void
+ mlx5_eswitch_del_offloaded_rule(struct mlx5_eswitch *esw,
+ 				struct mlx5_flow_handle *rule,
+ 				struct mlx5_esw_flow_attr *attr);
++#else
++static inline struct mlx5_flow_handle *
++mlx5_eswitch_add_offloaded_rule(struct mlx5_eswitch *esw,
++				struct mlx5_flow_spec *spec,
++				struct mlx5_esw_flow_attr *attr)
++{
++	return ERR_PTR(-EOPNOTSUPP);
++}
++static inline void
++mlx5_eswitch_del_offloaded_rule(struct mlx5_eswitch *esw,
++				struct mlx5_flow_handle *rule,
++				struct mlx5_esw_flow_attr *attr)
++{
++	return;
++}
++#endif
+ 
+ struct mlx5_flow_handle *
+ mlx5_eswitch_create_vport_rx_rule(struct mlx5_eswitch *esw, int vport, u32 tirn);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
+index 8d0af1f..12505ba 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
+@@ -43,6 +43,7 @@ enum {
+ 	FDB_SLOW_PATH
+ };
+ 
++#ifdef CONFIG_MLX5_EN_ESWITCH_OFFLOADS
+ struct mlx5_flow_handle *
+ mlx5_eswitch_add_offloaded_rule(struct mlx5_eswitch *esw,
+ 				struct mlx5_flow_spec *spec,
+@@ -122,7 +123,6 @@ mlx5_eswitch_del_offloaded_rule(struct mlx5_eswitch *esw,
+ 	esw->offloads.num_flows--;
+ }
+ 
+-#ifdef CONFIG_MLX5_EN_ESWITCH_OFFLOADS
+ static int esw_set_global_vlan_pop(struct mlx5_eswitch *esw, u8 val)
+ {
+ 	struct mlx5_eswitch_rep *rep;
+-- 
+2.9.4
