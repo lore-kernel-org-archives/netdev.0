@@ -1,49 +1,62 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [Patch net-next] net_sched: only create filter chains for new
- filters/actions
-Date: Fri, 26 May 2017 07:53:52 +0200
-Message-ID: <20170526055352.GA1898@nanopsycho>
-References: <1495557757-31371-1-git-send-email-xiyou.wangcong@gmail.com>
- <20170525.121456.221336477222052018.davem@davemloft.net>
+From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH net-next v3 5/5] net-next: dsa: add dsa support for Mediatek MT7530 switch
+Date: Thu, 25 May 2017 22:54:32 -0700
+Message-ID: <043CDC76-3C57-4F54-97B6-896591A11CB3@gmail.com>
+References: <1490780303-18598-1-git-send-email-sean.wang@mediatek.com> <1490780303-18598-6-git-send-email-sean.wang@mediatek.com> <hn6gvd-qp1.ln1@banana.localnet>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: xiyou.wangcong@gmail.com, netdev@vger.kernel.org, jhs@mojatatu.com,
-        jiri@mellanox.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:36119 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S965226AbdEZFxz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 26 May 2017 01:53:55 -0400
-Received: by mail-wm0-f66.google.com with SMTP id k15so1456623wmh.3
-        for <netdev@vger.kernel.org>; Thu, 25 May 2017 22:53:55 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20170525.121456.221336477222052018.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+ charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+To: "Andrey Jr. Melnikov" <temnota.am-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <hn6gvd-qp1.ln1-f2MyMQbBE8IG/9ncUZ6upg@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Thu, May 25, 2017 at 06:14:56PM CEST, davem@davemloft.net wrote:
->From: Cong Wang <xiyou.wangcong@gmail.com>
->Date: Tue, 23 May 2017 09:42:37 -0700
+On May 24, 2017 4:17:39 AM PDT, "Andrey Jr=2E Melnikov" <temnota=2Eam@gmail=
+=2Ecom> wrote:
+>In gmane=2Elinux=2Ekernel sean=2Ewang@mediatek=2Ecom wrote:
+>> From: Sean Wang <sean=2Ewang@mediatek=2Ecom>
 >
->> tcf_chain_get() always creates a new filter chain if not found
->> in existing ones. This is totally unnecessary when we get or
->> delete filters, new chain should be only created for new filters
->> (or new actions).
->> 
->> Fixes: 5bc1701881e3 ("net: sched: introduce multichain support for filters")
->> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
->> Cc: Jiri Pirko <jiri@mellanox.com>
->> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+>> MT7530 is a 7-ports Gigabit Ethernet Switch that could be found on
+>> Mediatek router platforms such as MT7623A or MT7623N platform which
+>> includes 7-port Gigabit Ethernet MAC and 5-port Gigabit Ethernet PHY=2E
+>> Among these ports, The port from 0 to 4 are the user ports connecting
+>> with the remote devices while the port 5 and 6 are the CPU ports
+>> connecting into Mediatek Ethernet GMAC=2E
 >
->Indeed, get and delete requests should not create new objects, ever.
+>> For port 6, it can communicate with the CPU via Mediatek Ethernet
+>GMAC
+>> through either the TRGMII or RGMII which could be controlled by
+>phy-mode
+>> in the dt-bindings to specify which mode is preferred to use=2E And for
+>> port 5, only RGMII can be specified=2E However, currently, only port 6
+>is
+>> being supported in this DSA driver=2E
 >
->I have pretty much no idea why Jiri is making such a big fuss about
->this change, to be quite honest. :-)
+>> The driver is made with the reference to qca8k and other existing DSA
+>> driver=2E The most of the essential callbacks of the DSA are already
+>> support in the driver, including tag insert for user port
+>distinguishing,
+>> port control, bridge offloading, STP setup and ethtool operation to
+>allow
+>> DSA to model each user port into a standalone netdevice as the other
+>DSA
+>> driver had done=2E
+>
+>What about JUMBO frames and large MTU support? devlink support?
 
-Because it makes already hard to read code even worse, for *no* benefit.
-That's why.
+We don't have a ndo_change_mtu callback implemented for DSA network device=
+s but that is probably how we should do it=2E Regarding devlink, Andrew add=
+ed basic support for it but unlike mlxsw it is currently of mild interest=
+=2E Do you have something specific in mind with devlink?
 
-
->
->Applied, thanks Cong.
+--=20
+Florian
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
