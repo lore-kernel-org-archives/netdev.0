@@ -1,62 +1,75 @@
-From: =?UTF-8?B?5ZCJ6Jek6Iux5piO?= <hideaki.yoshifuji@miraclelinux.com>
-Subject: Re: [PATCH net-next 1/2] net: ndisc.c: fix coding style issue
-Date: Sat, 27 May 2017 02:25:32 +0900
-Message-ID: <CAPA1RqB1_ObcZc_rgE6HN+-PzsabWd2X=swGbkPxVLrzY60MKg@mail.gmail.com>
-References: <1495805019-2919-1-git-send-email-cugyly@163.com>
- <CAPA1RqDqyZicNWM8arSvMfQjmy_A=LLEjtTwH8KTza4WwQ_dsg@mail.gmail.com> <1495806932.5755.4.camel@163.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net] ipv4: add reference counting to metrics
+Date: Fri, 26 May 2017 10:26:27 -0700
+Message-ID: <CAM_iQpXpbYAEFFf=Z=dh3ZR8KHysXD-MRScnC7pJUjx=8Z2siw@mail.gmail.com>
+References: <1493934857-6693-1-git-send-email-xiyou.wangcong@gmail.com>
+ <1494370451.7796.93.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1494371348.7796.95.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAM_iQpU+fXO7eFroAYMv6vqDzCK_ZYXjrTPAMfoDR2BDqaK9rQ@mail.gmail.com>
+ <alpine.LFD.2.20.1705100937330.1938@ja.home.ssi.bg> <CAM_iQpX22qTqo4yfM_Je1bvJHxjAGK_tvm5KgQSnJzsYq7K55Q@mail.gmail.com>
+ <alpine.LFD.2.20.1705102141320.1928@ja.home.ssi.bg> <CAM_iQpW0fJJXPS=FoTf-o4f5-mOC=mZYNP8=uqiUOmvX+CDwWw@mail.gmail.com>
+ <CAM_iQpWxDKHF4N1xor7qj+5s91GrctgcGnzN0buw18qs7__-gQ@mail.gmail.com>
+ <alpine.LFD.2.20.1705120659370.1811@ja.home.ssi.bg> <CAM_iQpVQSMd_LYMqm3EauRRgJhfkW=zsdvKRf4-YcGWwSufuvQ@mail.gmail.com>
+ <alpine.LFD.2.20.1705122151001.2835@ja.home.ssi.bg> <CAM_iQpXtWUZoGS_KEqfZc+ZbzYxaF1hbAV7H9Qd82=r4auJojw@mail.gmail.com>
+ <alpine.LFD.2.20.1705152317090.4002@ja.home.ssi.bg> <CAM_iQpWAjTJL54h_Pdg3DigjEK4kQdSz0pmAks6ByoP67ROOFg@mail.gmail.com>
+ <alpine.LFD.2.20.1705160955310.1856@ja.home.ssi.bg> <CAM_iQpVuqBkQxq=g4n5t33Gv0mxR_S0iOtQxgBHKceam8pmwfQ@mail.gmail.com>
+ <CAM_iQpVBKjwqmU1p-xLYwy=032fewdCfDetaSxC+aQoE=dgMfQ@mail.gmail.com>
+ <1495572267.6465.79.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAM_iQpX0X3h4Sf+bHUXdJgBqUTxNat0FBT0PeRpLYWju9ci59Q@mail.gmail.com>
+ <CANn89i+mPR+7-AVO2Dsd=KfO=COOVY42AKjwEs=0=GUCML6HUQ@mail.gmail.com>
+ <CAM_iQpUfLmN3yWsCfpx4ZTptBnuYFNuY5CjBKdwoDpvH5K8P=w@mail.gmail.com>
+ <1495665921.6465.95.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1495747655.6465.113.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAM_iQpWDnNz5u9Jtk0MAywNs=N4F8ogvT3bRji3vYj1Tfk830g@mail.gmail.com> <CANn89i+_TqFHa9dNFFSbe6msYaWyWr7RfN7_LURs+XL9gd94Pw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-Cc: network dev <netdev@vger.kernel.org>,
-        "David S . Miller" <davem@davemloft.net>,
-        Joe Perches <joe@perches.com>, David Ahern <dsahern@gmail.com>,
-        yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>,
-        YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: cugyly@163.com
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+        David Miller <davem@davemloft.net>,
+        Andrey Konovalov <andreyknvl@google.com>,
+        Julian Anastasov <ja@ssi.bg>, netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <edumazet@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f173.google.com ([209.85.223.173]:36275 "EHLO
-        mail-io0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752354AbdEZRZy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 26 May 2017 13:25:54 -0400
-Received: by mail-io0-f173.google.com with SMTP id o12so13339614iod.3
-        for <netdev@vger.kernel.org>; Fri, 26 May 2017 10:25:54 -0700 (PDT)
-In-Reply-To: <1495806932.5755.4.camel@163.com>
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:34309 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1948350AbdEZR0t (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 26 May 2017 13:26:49 -0400
+Received: by mail-wm0-f67.google.com with SMTP id d127so5089896wmf.1
+        for <netdev@vger.kernel.org>; Fri, 26 May 2017 10:26:48 -0700 (PDT)
+In-Reply-To: <CANn89i+_TqFHa9dNFFSbe6msYaWyWr7RfN7_LURs+XL9gd94Pw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
-
-2017-05-26 22:55 GMT+09:00 yuan linyu <cugyly@163.com>:
-> On =E4=BA=94, 2017-05-26 at 22:45 +0900, =E5=90=89=E8=97=A4=E8=8B=B1=E6=
-=98=8E wrote:
->> Hi,
->>
->> 2017-05-26 22:23 GMT+09:00 yuan linyu <cugyly@163.com>:
->> >
->> > From: yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
->> >
->> > Signed-off-by: yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
->> > ---
->> >  net/ipv6/ndisc.c | 109 ++++++++++++++++++++++++++++------------------=
----------
->> >  1 file changed, 55 insertions(+), 54 deletions(-)
->> Sorry, I don't think this kind of change for style is good
->> bacause this makes effort of  backport more difficult.
-> hi, i can't understand.
-> if any change of this code you decide to backport, it need effort,
-> not only important fix.
+On Fri, May 26, 2017 at 10:13 AM, Eric Dumazet <edumazet@google.com> wrote:
+> On Fri, May 26, 2017 at 10:08 AM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+>> On Thu, May 25, 2017 at 2:27 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
 >
-> do I miss your point ?
-
-Please let us minimize our effort when doing so.
-
-If the style is not changed, we have more chance to apply the patch
-itself on top of old tree.
-
-Thank you.
-
+>> Just one nit below.
 >>
->> --yoshfuji
+>>> -const u32 dst_default_metrics[RTAX_MAX + 1] = {
+>>> +const struct dst_metrics dst_default_metrics = {
+>>>         /* This initializer is needed to force linker to place this variable
+>>>          * into const section. Otherwise it might end into bss section.
+>>>          * We really want to avoid false sharing on this variable, and catch
+>>>          * any writes on it.
+>>>          */
+>>> -       [RTAX_MAX] = 0xdeadbeef,
+>>> +       .refcnt = ATOMIC_INIT(1),
+>>>  };
 >>
+>> The code comment above is no longer needed since
+>> we have to initialize refcnt to 1, instead of merely for const
+>> section.
 >
+> I believe the comment is still needed, because normally we make sure
+> dst_default_metrics.refcnt is never touched (incremened nor
+> decremented)
 >
+> So its value should not really matter ?
+
+Oh, you're right, we always have the check on != &dst_default_metrics.
+
+
+>
+> I found that ATOMIC_INIT(1) was less ugly than the 0xdeadbeef
+
+Of course.
