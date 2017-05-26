@@ -1,80 +1,89 @@
 From: Jes Sorensen <jes.sorensen@gmail.com>
-Subject: [PATCH 5/7] mlx5: Stub out create_vport_rx_rule when eswitch_offloads disabled
-Date: Fri, 26 May 2017 17:16:22 -0400
-Message-ID: <20170526211624.23133-6-jsorensen@fb.com>
+Subject: [PATCH 4/7] mlx5: Stub out eswitch offload vport functions
+Date: Fri, 26 May 2017 17:16:21 -0400
+Message-ID: <20170526211624.23133-5-jsorensen@fb.com>
 References: <20170526211624.23133-1-jsorensen@fb.com>
 Cc: kernel-team@fb.com, saeedm@mellanox.com, ilant@mellanox.com,
         Jes Sorensen <jsorensen@fb.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yb0-f193.google.com ([209.85.213.193]:36410 "EHLO
-        mail-yb0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1948722AbdEZVQh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 26 May 2017 17:16:37 -0400
-Received: by mail-yb0-f193.google.com with SMTP id n198so686173yba.3
-        for <netdev@vger.kernel.org>; Fri, 26 May 2017 14:16:37 -0700 (PDT)
+Received: from mail-yw0-f196.google.com ([209.85.161.196]:36655 "EHLO
+        mail-yw0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1948721AbdEZVQg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 26 May 2017 17:16:36 -0400
+Received: by mail-yw0-f196.google.com with SMTP id h82so1353241ywb.3
+        for <netdev@vger.kernel.org>; Fri, 26 May 2017 14:16:36 -0700 (PDT)
 In-Reply-To: <20170526211624.23133-1-jsorensen@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-One more vport related function to disable.
+This code isn't called if CONFIG_MLX5_EN_ESWITCH_OFFLOADS isn't enabled
 
 Signed-off-by: Jes Sorensen <jsorensen@fb.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/eswitch.h          | 11 ++++++++---
- drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c |  2 +-
- 2 files changed, 9 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch.h    | 20 +++++++++++++++++++-
+ .../ethernet/mellanox/mlx5/core/eswitch_offloads.c   |  2 ++
+ 2 files changed, 21 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
-index 6397384..9a395f3 100644
+index c2b0c02..6397384 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
-@@ -295,6 +295,9 @@ void
- mlx5_eswitch_del_offloaded_rule(struct mlx5_eswitch *esw,
- 				struct mlx5_flow_handle *rule,
- 				struct mlx5_esw_flow_attr *attr);
-+struct mlx5_flow_handle *
-+mlx5_eswitch_create_vport_rx_rule(struct mlx5_eswitch *esw, int vport, u32 tirn);
-+
- #else
- static inline struct mlx5_flow_handle *
- mlx5_eswitch_add_offloaded_rule(struct mlx5_eswitch *esw,
-@@ -310,11 +313,13 @@ mlx5_eswitch_del_offloaded_rule(struct mlx5_eswitch *esw,
- {
- 	return;
- }
-+static inline struct mlx5_flow_handle *
-+mlx5_eswitch_create_vport_rx_rule(struct mlx5_eswitch *esw, int vport, u32 tirn)
-+{
-+	return ERR_PTR(-EOPNOTSUPP);
-+}
- #endif
+@@ -348,6 +348,7 @@ int mlx5_devlink_eswitch_inline_mode_get(struct devlink *devlink, u8 *mode);
+ int mlx5_eswitch_inline_mode_get(struct mlx5_eswitch *esw, int nvfs, u8 *mode);
+ int mlx5_devlink_eswitch_encap_mode_set(struct devlink *devlink, u8 encap);
+ int mlx5_devlink_eswitch_encap_mode_get(struct devlink *devlink, u8 *encap);
++#ifdef CONFIG_MLX5_EN_ESWITCH_OFFLOADS
+ void mlx5_eswitch_register_vport_rep(struct mlx5_eswitch *esw,
+ 				     int vport_index,
+ 				     struct mlx5_eswitch_rep *rep);
+@@ -355,12 +356,29 @@ void mlx5_eswitch_unregister_vport_rep(struct mlx5_eswitch *esw,
+ 				       int vport_index);
+ struct net_device *mlx5_eswitch_get_uplink_netdev(struct mlx5_eswitch *esw);
  
--struct mlx5_flow_handle *
--mlx5_eswitch_create_vport_rx_rule(struct mlx5_eswitch *esw, int vport, u32 tirn);
--
- enum {
- 	SET_VLAN_STRIP	= BIT(0),
- 	SET_VLAN_INSERT	= BIT(1)
+-#ifdef CONFIG_MLX5_EN_ESWITCH_OFFLOADS
+ int mlx5_eswitch_add_vlan_action(struct mlx5_eswitch *esw,
+ 				 struct mlx5_esw_flow_attr *attr);
+ int mlx5_eswitch_del_vlan_action(struct mlx5_eswitch *esw,
+ 				 struct mlx5_esw_flow_attr *attr);
+ #else
++static inline void
++mlx5_eswitch_register_vport_rep(struct mlx5_eswitch *esw, int vport_index,
++				struct mlx5_eswitch_rep *rep)
++{
++	return;
++}
++static inline void
++mlx5_eswitch_unregister_vport_rep(struct mlx5_eswitch *esw, int vport_index)
++{
++	return;
++}
++
++static inline struct net_device *
++mlx5_eswitch_get_uplink_netdev(struct mlx5_eswitch *esw)
++{
++	return NULL;
++}
++
+ static inline int mlx5_eswitch_add_vlan_action(struct mlx5_eswitch *esw,
+ 					       struct mlx5_esw_flow_attr *attr)
+ {
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
-index 9278a33..2bda8f5 100644
+index 12505ba..9278a33 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
-@@ -670,7 +670,6 @@ static void esw_destroy_vport_rx_group(struct mlx5_eswitch *esw)
- {
- 	mlx5_destroy_flow_group(esw->offloads.vport_rx_group);
+@@ -1126,6 +1126,7 @@ int mlx5_devlink_eswitch_encap_mode_get(struct devlink *devlink, u8 *encap)
+ 	return 0;
  }
--#endif
  
- struct mlx5_flow_handle *
- mlx5_eswitch_create_vport_rx_rule(struct mlx5_eswitch *esw, int vport, u32 tirn)
-@@ -710,6 +709,7 @@ mlx5_eswitch_create_vport_rx_rule(struct mlx5_eswitch *esw, int vport, u32 tirn)
- 	kvfree(spec);
- 	return flow_rule;
++#ifdef CONFIG_MLX5_EN_ESWITCH_OFFLOADS
+ void mlx5_eswitch_register_vport_rep(struct mlx5_eswitch *esw,
+ 				     int vport_index,
+ 				     struct mlx5_eswitch_rep *__rep)
+@@ -1170,3 +1171,4 @@ struct net_device *mlx5_eswitch_get_uplink_netdev(struct mlx5_eswitch *esw)
+ 	rep = &offloads->vport_reps[UPLINK_REP_INDEX];
+ 	return rep->netdev;
  }
 +#endif
- 
- static int esw_offloads_start(struct mlx5_eswitch *esw)
- {
 -- 
 2.9.4
