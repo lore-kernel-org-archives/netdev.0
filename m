@@ -1,75 +1,83 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH net] ipv4: add reference counting to metrics
-Date: Fri, 26 May 2017 10:26:27 -0700
-Message-ID: <CAM_iQpXpbYAEFFf=Z=dh3ZR8KHysXD-MRScnC7pJUjx=8Z2siw@mail.gmail.com>
-References: <1493934857-6693-1-git-send-email-xiyou.wangcong@gmail.com>
- <1494370451.7796.93.camel@edumazet-glaptop3.roam.corp.google.com>
- <1494371348.7796.95.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAM_iQpU+fXO7eFroAYMv6vqDzCK_ZYXjrTPAMfoDR2BDqaK9rQ@mail.gmail.com>
- <alpine.LFD.2.20.1705100937330.1938@ja.home.ssi.bg> <CAM_iQpX22qTqo4yfM_Je1bvJHxjAGK_tvm5KgQSnJzsYq7K55Q@mail.gmail.com>
- <alpine.LFD.2.20.1705102141320.1928@ja.home.ssi.bg> <CAM_iQpW0fJJXPS=FoTf-o4f5-mOC=mZYNP8=uqiUOmvX+CDwWw@mail.gmail.com>
- <CAM_iQpWxDKHF4N1xor7qj+5s91GrctgcGnzN0buw18qs7__-gQ@mail.gmail.com>
- <alpine.LFD.2.20.1705120659370.1811@ja.home.ssi.bg> <CAM_iQpVQSMd_LYMqm3EauRRgJhfkW=zsdvKRf4-YcGWwSufuvQ@mail.gmail.com>
- <alpine.LFD.2.20.1705122151001.2835@ja.home.ssi.bg> <CAM_iQpXtWUZoGS_KEqfZc+ZbzYxaF1hbAV7H9Qd82=r4auJojw@mail.gmail.com>
- <alpine.LFD.2.20.1705152317090.4002@ja.home.ssi.bg> <CAM_iQpWAjTJL54h_Pdg3DigjEK4kQdSz0pmAks6ByoP67ROOFg@mail.gmail.com>
- <alpine.LFD.2.20.1705160955310.1856@ja.home.ssi.bg> <CAM_iQpVuqBkQxq=g4n5t33Gv0mxR_S0iOtQxgBHKceam8pmwfQ@mail.gmail.com>
- <CAM_iQpVBKjwqmU1p-xLYwy=032fewdCfDetaSxC+aQoE=dgMfQ@mail.gmail.com>
- <1495572267.6465.79.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAM_iQpX0X3h4Sf+bHUXdJgBqUTxNat0FBT0PeRpLYWju9ci59Q@mail.gmail.com>
- <CANn89i+mPR+7-AVO2Dsd=KfO=COOVY42AKjwEs=0=GUCML6HUQ@mail.gmail.com>
- <CAM_iQpUfLmN3yWsCfpx4ZTptBnuYFNuY5CjBKdwoDpvH5K8P=w@mail.gmail.com>
- <1495665921.6465.95.camel@edumazet-glaptop3.roam.corp.google.com>
- <1495747655.6465.113.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAM_iQpWDnNz5u9Jtk0MAywNs=N4F8ogvT3bRji3vYj1Tfk830g@mail.gmail.com> <CANn89i+_TqFHa9dNFFSbe6msYaWyWr7RfN7_LURs+XL9gd94Pw@mail.gmail.com>
+From: Douglas Caetano dos Santos <douglascs@taghos.com.br>
+Subject: [PATCH] tcp: reinitialize MTU probing when setting MSS in a TCP
+ repair
+Date: Fri, 26 May 2017 14:28:00 -0300
+Message-ID: <c5033bad-805d-c3f6-3de4-38ab5d3d84e8@taghos.com.br>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-        David Miller <davem@davemloft.net>,
-        Andrey Konovalov <andreyknvl@google.com>,
-        Julian Anastasov <ja@ssi.bg>, netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <edumazet@google.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>,
+        Pavel Emelyanov <xemul@parallels.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:34309 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1948350AbdEZR0t (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 26 May 2017 13:26:49 -0400
-Received: by mail-wm0-f67.google.com with SMTP id d127so5089896wmf.1
-        for <netdev@vger.kernel.org>; Fri, 26 May 2017 10:26:48 -0700 (PDT)
-In-Reply-To: <CANn89i+_TqFHa9dNFFSbe6msYaWyWr7RfN7_LURs+XL9gd94Pw@mail.gmail.com>
+Received: from smtp862.redehostenvio.com.br ([187.84.239.76]:45084 "EHLO
+        smtp862.redehostenvio.com.br" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1756623AbdEZR23 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 26 May 2017 13:28:29 -0400
+Received: by smtp837.redehostenvio.com.br id h51j4e29co8r for <netdev@vger.kernel.org>; Fri, 26 May 2017 14:30:42 -0300 (envelope-from <douglascs@taghos.com.br>)
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 26, 2017 at 10:13 AM, Eric Dumazet <edumazet@google.com> wrote:
-> On Fri, May 26, 2017 at 10:08 AM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
->> On Thu, May 25, 2017 at 2:27 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->
->> Just one nit below.
->>
->>> -const u32 dst_default_metrics[RTAX_MAX + 1] = {
->>> +const struct dst_metrics dst_default_metrics = {
->>>         /* This initializer is needed to force linker to place this variable
->>>          * into const section. Otherwise it might end into bss section.
->>>          * We really want to avoid false sharing on this variable, and catch
->>>          * any writes on it.
->>>          */
->>> -       [RTAX_MAX] = 0xdeadbeef,
->>> +       .refcnt = ATOMIC_INIT(1),
->>>  };
->>
->> The code comment above is no longer needed since
->> we have to initialize refcnt to 1, instead of merely for const
->> section.
->
-> I believe the comment is still needed, because normally we make sure
-> dst_default_metrics.refcnt is never touched (incremened nor
-> decremented)
->
-> So its value should not really matter ?
+From: Douglas Caetano dos Santos <douglascs@taghos.com.br>
 
-Oh, you're right, we always have the check on != &dst_default_metrics.
+MTU probing initialization occurred only at connect() and at SYN or
+SYN-ACK reception, but the former sets MSS to either the default or the
+user set value (through TCP_MAXSEG sockopt) and the latter never happens
+with repaired sockets.
 
+The result was that, with MTU probing enabled and unless TCP_MAXSEG
+sockopt was used before connect(), probing would be stuck at
+tcp_base_mss value until tcp_probe_interval seconds have passed.
 
->
-> I found that ATOMIC_INIT(1) was less ugly than the 0xdeadbeef
+Signed-off-by: Douglas Caetano dos Santos <douglascs@taghos.com.br>
+---
+I'm not sure if there are any side effects doing this, so comments are welcome
+as always.
 
-Of course.
+Also, I changed the function's argument from struct tcp_sock to struct sock
+because I couldn't find any inverse of tcp_sk() funciton and thought that using
+"&tp->inet_conn.icsk_inet.sk" or "(struct sock *)tp" would be worse.
+
+ net/ipv4/tcp.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 842b575f8fdd..d782637e595e 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -2378,9 +2378,10 @@ static int tcp_repair_set_window(struct tcp_sock *tp, char __user *optbuf, int l
+ 	return 0;
+ }
+ 
+-static int tcp_repair_options_est(struct tcp_sock *tp,
++static int tcp_repair_options_est(struct sock *sk,
+ 		struct tcp_repair_opt __user *optbuf, unsigned int len)
+ {
++	struct tcp_sock *tp = tcp_sk(sk);
+ 	struct tcp_repair_opt opt;
+ 
+ 	while (len >= sizeof(opt)) {
+@@ -2393,6 +2394,7 @@ static int tcp_repair_options_est(struct tcp_sock *tp,
+ 		switch (opt.opt_code) {
+ 		case TCPOPT_MSS:
+ 			tp->rx_opt.mss_clamp = opt.opt_val;
++			tcp_mtup_init(sk);
+ 			break;
+ 		case TCPOPT_WINDOW:
+ 			{
+@@ -2552,7 +2554,7 @@ static int do_tcp_setsockopt(struct sock *sk, int level,
+ 		if (!tp->repair)
+ 			err = -EINVAL;
+ 		else if (sk->sk_state == TCP_ESTABLISHED)
+-			err = tcp_repair_options_est(tp,
++			err = tcp_repair_options_est(sk,
+ 					(struct tcp_repair_opt __user *)optval,
+ 					optlen);
+ 		else
+-- 
+2.12.2
