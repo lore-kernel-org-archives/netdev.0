@@ -1,37 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v2] sctp: fix ICMP processing if skb is non-linear
-Date: Fri, 26 May 2017 14:42:29 -0400 (EDT)
-Message-ID: <20170526.144229.378338079766962924.davem@davemloft.net>
-References: <d0cd7c2e4b9329ec23e48aed94bf2fbf94554f44.1495730857.git.dcaratti@redhat.com>
+Subject: Re: [PATCH net-next] liquidio: fix rare pci_driver.probe failure
+ of VF driver
+Date: Fri, 26 May 2017 14:42:35 -0400 (EDT)
+Message-ID: <20170526.144235.1508311899416004009.davem@davemloft.net>
+References: <20170525174214.GA1444@felix-thinkpad.cavium.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-        lucien.xin@gmail.com, marcelo.leitner@gmail.com
-To: dcaratti@redhat.com
+Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
+        derek.chickles@cavium.com, satananda.burla@cavium.com,
+        prasad.kanneganti@cavium.com
+To: felix.manlunas@cavium.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:43398 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:43406 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756784AbdEZSmc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 26 May 2017 14:42:32 -0400
-In-Reply-To: <d0cd7c2e4b9329ec23e48aed94bf2fbf94554f44.1495730857.git.dcaratti@redhat.com>
+        with ESMTP id S1948612AbdEZSmh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 26 May 2017 14:42:37 -0400
+In-Reply-To: <20170525174214.GA1444@felix-thinkpad.cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Davide Caratti <dcaratti@redhat.com>
-Date: Thu, 25 May 2017 19:14:56 +0200
+From: Felix Manlunas <felix.manlunas@cavium.com>
+Date: Thu, 25 May 2017 10:42:14 -0700
 
-> sometimes ICMP replies to INIT chunks are ignored by the client, even if
-> the encapsulated SCTP headers match an open socket. This happens when the
-> ICMP packet is carried by a paged skb: use skb_header_pointer() to read
-> packet contents beyond the SCTP header, so that chunk header and initiate
-> tag are validated correctly.
+> From: Prasad Kanneganti <prasad.kanneganti@cavium.com>
 > 
-> v2:
-> - don't use skb_header_pointer() to read the transport header, since
->   icmp_socket_deliver() already puts these 8 bytes in the linear area.
-> - change commit message to make specific reference to INIT chunks.
+> There's a rare pci_driver.probe failure of the VF driver that's caused by
+> PF/VF handshake going out of sync.  The culprit is octeon_mbox_write() who
+> ignores an ack timeout condition; it just keeps unconditionally writing all
+> elements of mbox_cmd->data[] even when the other side is not ready for
+> them.  Fix it by making each write of mbox_cmd->data[i] conditional to
+> having previously received an ack.
 > 
-> Signed-off-by: Davide Caratti <dcaratti@redhat.com>
+> Also fix the octeon_mbox_state enum such that each state gets a unique
+> value.  Also add ULL suffix to numeric literals in macro definitions.
+> 
+> Signed-off-by: Prasad Kanneganti <prasad.kanneganti@cavium.com>
+> Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
 
-Applied and queued up for -stable, thanks.
+Applied.
