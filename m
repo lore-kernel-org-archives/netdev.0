@@ -1,109 +1,53 @@
-From: Nathan Fontenot <nfont@linux.vnet.ibm.com>
-Subject: [PATCH net-next 11/11] ibmvnic: Reset sub-crqs during driver reset
-Date: Fri, 26 May 2017 10:31:12 -0400
-Message-ID: <20170526143111.63648.18053.stgit@ltcalpine2-lp14.aus.stglabs.ibm.com>
-References: <20170526142523.63648.62938.stgit@ltcalpine2-lp14.aus.stglabs.ibm.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: please revert. Was: [for-next 4/6] net/mlx5: FPGA, Add basic
+ support for Innova
+Date: Fri, 26 May 2017 10:51:18 -0400 (EDT)
+Message-ID: <20170526.105118.1248551991513045375.davem@davemloft.net>
+References: <20170526035830.mrnmxosh262bwjcr@ast-mbp>
+        <20170526.001327.1776674102154218120.davem@davemloft.net>
+        <20170526044057.qpk3stulth5tfxcx@ast-mbp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, tlfalcon@linux.vnet.ibm.com,
-        jallen@linux.vnet.ibm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:59418 "EHLO
-        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1030634AbdEZOm5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 26 May 2017 10:42:57 -0400
-Received: from pps.filterd (m0098413.ppops.net [127.0.0.1])
-        by mx0b-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v4QEe3Ue026903
-        for <netdev@vger.kernel.org>; Fri, 26 May 2017 10:42:56 -0400
-Received: from e15.ny.us.ibm.com (e15.ny.us.ibm.com [129.33.205.205])
-        by mx0b-001b2d01.pphosted.com with ESMTP id 2apjnfjmxe-1
-        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Fri, 26 May 2017 10:42:56 -0400
-Received: from localhost
-        by e15.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-        for <netdev@vger.kernel.org> from <nfont@linux.vnet.ibm.com>;
-        Fri, 26 May 2017 10:42:55 -0400
-In-Reply-To: <20170526142523.63648.62938.stgit@ltcalpine2-lp14.aus.stglabs.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170526044057.qpk3stulth5tfxcx@ast-mbp>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-When the ibmvnic driver is resetting, we can just reset the sub crqs
-instead of releasing all of their resources and re-allocting them.
+From: Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date: Thu, 25 May 2017 21:40:59 -0700
 
-Signed-off-by: Nathan Fontenot <nfont@linux.vnet.ibm.com>
----
- drivers/net/ethernet/ibm/ibmvnic.c |   46 ++++++++++++++++++++++++++++++++++--
- 1 file changed, 43 insertions(+), 3 deletions(-)
+> On Fri, May 26, 2017 at 12:13:27AM -0400, David Miller wrote:
+>> From: Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+>> Date: Thu, 25 May 2017 20:58:32 -0700
+>> 
+>> > Dave, please revert this Innova fpga stuff.
+>> > I think you pushed it by accident, since it was mixed with
+>> > other valid changes.
+>> > The discussion didn't conclude.
+>> > Myself and Jes are clearly against such changes.
+>> > It definitely needs more discussion and wider consensus.
+>> 
+>> Why don't you finish your discussion, then I can revert or leave it in
+>> there?
+> 
+> Not really. What you're saying is 'shut up. mellanox can do
+> whatever they like as long as it's hidden behind pcie id'.
 
-diff --git a/drivers/net/ethernet/ibm/ibmvnic.c b/drivers/net/ethernet/ibm/ibmvnic.c
-index 5661a04..8dcf580 100644
---- a/drivers/net/ethernet/ibm/ibmvnic.c
-+++ b/drivers/net/ethernet/ibm/ibmvnic.c
-@@ -1320,8 +1320,6 @@ static int do_reset(struct ibmvnic_adapter *adapter,
- 		 */
- 		adapter->state = VNIC_PROBED;
- 
--		release_sub_crqs(adapter);
--
- 		rc = ibmvnic_init(adapter);
- 		if (rc)
- 			return 0;
-@@ -1728,6 +1726,45 @@ static void ibmvnic_get_ethtool_stats(struct net_device *dev,
- 
- /* Routines for managing CRQs/sCRQs  */
- 
-+static int reset_one_sub_crq_queue(struct ibmvnic_adapter *adapter,
-+				   struct ibmvnic_sub_crq_queue *scrq)
-+{
-+	int rc;
-+
-+	if (scrq->irq) {
-+		free_irq(scrq->irq, scrq);
-+		irq_dispose_mapping(scrq->irq);
-+		scrq->irq = 0;
-+	}
-+
-+	memset(scrq->msgs, 0, 2 * PAGE_SIZE);
-+	scrq->cur = 0;
-+
-+	rc = h_reg_sub_crq(adapter->vdev->unit_address, scrq->msg_token,
-+			   4 * PAGE_SIZE, &scrq->crq_num, &scrq->hw_irq);
-+	return rc;
-+}
-+
-+static int reset_sub_crq_queues(struct ibmvnic_adapter *adapter)
-+{
-+	int i, rc;
-+
-+	for (i = 0; i < adapter->req_tx_queues; i++) {
-+		rc = reset_one_sub_crq_queue(adapter, adapter->tx_scrq[i]);
-+		if (rc)
-+			return rc;
-+	}
-+
-+	for (i = 0; i < adapter->req_rx_queues; i++) {
-+		rc = reset_one_sub_crq_queue(adapter, adapter->rx_scrq[i]);
-+		if (rc)
-+			return rc;
-+	}
-+
-+	rc = init_sub_crq_irqs(adapter);
-+	return rc;
-+}
-+
- static void release_sub_crq_queue(struct ibmvnic_adapter *adapter,
- 				  struct ibmvnic_sub_crq_queue *scrq)
- {
-@@ -3607,7 +3644,10 @@ static int ibmvnic_init(struct ibmvnic_adapter *adapter)
- 		return -1;
- 	}
- 
--	rc = init_sub_crqs(adapter);
-+	if (adapter->resetting)
-+		rc = reset_sub_crq_queues(adapter);
-+	else
-+		rc = init_sub_crqs(adapter);
- 	if (rc) {
- 		dev_err(dev, "Initialization of sub crqs failed\n");
- 		release_crq_queue(adapter);
+No, what I'm saying is, discuss things.
+
+And if in the end you agree with Mellanox, we don't have flapping of
+the change in and out of the tree over and over.
+
+My understanding is that this FPGA offloads processing the data
+stream, which in a way is not much different than JIT'ing eBPF
+onto Netronome cpus. :-)
+
+Maybe the programming interface is different, maybe all the algorithms
+are implemented in discrete ASICs, but effect is quite similar.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
