@@ -1,51 +1,52 @@
-From: Bogdan Purcareata <bogdan.purcareata@nxp.com>
-Subject: [PATCH v3 2/2] dt-bindings: net: Add Cortina device tree bindings
-Date: Fri, 26 May 2017 07:58:39 +0000
-Message-ID: <1495785519-1468-3-git-send-email-bogdan.purcareata@nxp.com>
-References: <1495785519-1468-1-git-send-email-bogdan.purcareata@nxp.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-To: <andrew@lunn.ch>, <f.fainelli@gmail.com>, <netdev@vger.kernel.org>,
-        <devicetree@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1495785519-1468-1-git-send-email-bogdan.purcareata@nxp.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Subject: [PATCH net-next v2 0/6] nfp: devlink port implementation
+Date: Fri, 26 May 2017 01:03:30 -0700
+Message-ID: <20170526080336.32689-1-jakub.kicinski@netronome.com>
+Cc: jiri@resnulli.us, oss-drivers@netronome.com,
+        Jakub Kicinski <jakub.kicinski@netronome.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f175.google.com ([209.85.192.175]:35121 "EHLO
+        mail-pf0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932725AbdEZIDw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 26 May 2017 04:03:52 -0400
+Received: by mail-pf0-f175.google.com with SMTP id n23so4724798pfb.2
+        for <netdev@vger.kernel.org>; Fri, 26 May 2017 01:03:52 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add device tree description info for Cortina 10G phy devices.
+Hi!
 
-Signed-off-by: Bogdan Purcareata <bogdan.purcareata@nxp.com>
----
-Patch introduced in v3 of the patchset.
+This series adds basic devlink support.  The operations we can perform
+are port show and port split/unsplit.
 
- Documentation/devicetree/bindings/net/cortina.txt | 19 +++++++++++++++++++
- 1 file changed, 19 insertions(+)
- create mode 100644 Documentation/devicetree/bindings/net/cortina.txt
+v2:
+Register devlink first, and then register all the ports.  Port {,un}split
+searches the port list, which is protected by a mutex.  If port split
+is requested before ports are registered we will simply not find the port
+and return -EINVAL.
 
-diff --git a/Documentation/devicetree/bindings/net/cortina.txt b/Documentation/devicetree/bindings/net/cortina.txt
-new file mode 100644
-index 0000000..006a1ee
---- /dev/null
-+++ b/Documentation/devicetree/bindings/net/cortina.txt
-@@ -0,0 +1,19 @@
-+Cortina Phy Driver Device Tree Bindings
-+---------------------------------------
-+
-+The driver supports the Cortina Electronic Dispersion Compensation (EDC)
-+devices, equipped with clock and data recovery (CDR) circuits. These
-+devices make use of registers that are not compatible with Clause 45 or
-+Clause 22, therefore they need to be described using the
-+"ethernet-phy-id" compatible.
-+
-+Since the driver only implements  polling mode support, interrupts info
-+can be skipped.
-+
-+Example (CS4340 phy):
-+	mdio {
-+		cs4340_phy@1 {
-+			compatible = "ethernet-phy-id13e5.1002";
-+			reg = <0x10>;
-+		};
-+	};
+Jakub Kicinski (5):
+  nfp: move mutex init out of net code
+  nfp: add helper for cleaning up vNICs
+  nfp: register ports as devlink ports
+  nfp: calculate total port lanes for split
+  nfp: support port splitting via devlink
+
+Simon Horman (1):
+  nfp: add devlink support
+
+ drivers/net/ethernet/netronome/nfp/Makefile        |   1 +
+ drivers/net/ethernet/netronome/nfp/nfp_devlink.c   | 181 +++++++++++++++++++++
+ drivers/net/ethernet/netronome/nfp/nfp_main.c      |  28 +++-
+ drivers/net/ethernet/netronome/nfp/nfp_main.h      |   3 +
+ drivers/net/ethernet/netronome/nfp/nfp_net_main.c  |  61 ++++---
+ drivers/net/ethernet/netronome/nfp/nfp_port.c      |  19 +++
+ drivers/net/ethernet/netronome/nfp/nfp_port.h      |  12 ++
+ .../net/ethernet/netronome/nfp/nfpcore/nfp_nsp.h   |   3 +
+ .../ethernet/netronome/nfp/nfpcore/nfp_nsp_eth.c   |  11 +-
+ 9 files changed, 289 insertions(+), 30 deletions(-)
+ create mode 100644 drivers/net/ethernet/netronome/nfp/nfp_devlink.c
+
 -- 
-1.9.1
+2.11.0
