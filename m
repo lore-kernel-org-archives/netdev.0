@@ -1,59 +1,54 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net] sky2: Do not deadlock on sky2_hw_down
-Date: Fri, 26 May 2017 08:43:08 -0700
-Message-ID: <20170526084308.091a41cb@xeon-e3>
-References: <20170525105458.539dedba@xeon-e3>
-        <CALH_86T3YW=VOCACJ+659GxZQQLtVafRpUTqQagWUdcsPDPH=A@mail.gmail.com>
-        <20170525150502.4fe5c506@xeon-e3>
-        <20170525.235830.986562840550889246.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 3/4] tls: kernel TLS support
+Date: Fri, 26 May 2017 08:49:52 -0700
+Message-ID: <1495813792.6465.120.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <cover.1495642647.git.davejwatson@fb.com>
+         <20170524162708.GA24215@davejwatson-mba.local>
+         <1495808219.6465.118.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20170526.111852.235696953256744250.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: jemele@gmail.com, jemele@acm.org, netdev@vger.kernel.org,
-        jemele@google.com, mlindner@marvell.com,
-        linux-kernel@vger.kernel.org
+Cc: davejwatson@fb.com, ilyal@mellanox.com, aviadye@mellanox.com,
+        borisp@mellanox.com, liranl@mellanox.com, matanb@mellanox.com,
+        netdev@vger.kernel.org, tom@herbertland.com,
+        herbert@gondor.apana.org.au, linux-crypto@vger.kernel.org,
+        hannes@stressinduktion.org, alexei.starovoitov@gmail.com,
+        nmav@gnults.org, fridolin.pokorny@gmail.com
 To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f180.google.com ([209.85.192.180]:35076 "EHLO
-        mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S943742AbdEZPnN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 26 May 2017 11:43:13 -0400
-Received: by mail-pf0-f180.google.com with SMTP id n23so14966031pfb.2
-        for <netdev@vger.kernel.org>; Fri, 26 May 2017 08:43:13 -0700 (PDT)
-In-Reply-To: <20170525.235830.986562840550889246.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <20170526.111852.235696953256744250.davem@davemloft.net>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 25 May 2017 23:58:30 -0400 (EDT)
-David Miller <davem@davemloft.net> wrote:
-
-> From: Stephen Hemminger <stephen@networkplumber.org>
-> Date: Thu, 25 May 2017 15:05:02 -0700
+On Fri, 2017-05-26 at 11:18 -0400, David Miller wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Fri, 26 May 2017 07:16:59 -0700
 > 
-> > Ok, the issue is that lockdep is being stupid and thinking that
-> > seqcount's behave like locks.  
+> > On Wed, 2017-05-24 at 09:27 -0700, Dave Watson wrote:
+> >> Software implementation of transport layer security, implemented using ULP
+> >> infrastructure.  tcp proto_ops are replaced with tls equivalents of sendmsg and
+> >> sendpage.
+> > 
+> > ...
+> > 
+> >> +
+> >> +int tls_sw_sendmsg(struct sock *sk, struct msghdr *msg, size_t size)
+> >> +{
+> > 	...
+> >> +
+> >> +	lock_sock(sk);
+> >> +
+> >> +	/* Only one writer at a time is allowed */
+> >> +	if (sk->sk_write_pending)
+> >> +		return -EBUSY;
+> > 
+> > Ouch...
 > 
-> Well.. they do.  That's why they have that annotation.
+> Well, as I understand it, it is the same restriction userspace must
+> itself enforce either in the application or in the SSL library.
 
-Your right, but it has some lock like properties because
-the seqcount's assumption about odd and even values.
+The problem here is to lock_sock(sk), then returning without releasing
+the socket.
 
-Lockdep is reporting that accessing a sequence count with softirq disabled
-and in another case with softirq enabled is a problem. 
-
-Potential race theoretical race:
-
-
- seqcount_begin()             ++count
-  ...
-		---> IRQ
-                --->   Soft IRQ
-                                    seqcount_begin()  ++count
-					update stats
-				    seqcount_end() ++count
-      Anything doing seqcount read during this softirq 
-      will spin thinking still in critical section
-
-But for this case of statistics, there is nothing reading statistics in softirq
-context so it can't happen. Lockdep needs to be smarter to know that.
-Simplest way to shut this up is to just disable softirq during the cleanup.
+Some basic lock imbalance really.
