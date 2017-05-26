@@ -1,76 +1,78 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH 5/5] MIPS: Add support for eBPF JIT.
-Date: Thu, 25 May 2017 19:23:02 -0700
-Message-ID: <20170526022300.c4gtxhqt3tyiukz2@ast-mbp>
-References: <20170526003826.10834-1-david.daney@cavium.com>
- <20170526003826.10834-6-david.daney@cavium.com>
+From: Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [for-next 4/6] net/mlx5: FPGA, Add basic support for Innova
+Date: Thu, 25 May 2017 20:07:08 -0700
+Message-ID: <20170526030701.du4345mbprhcwjyi@ast-mbp>
+References: <20170523114404.20387-1-saeedm@mellanox.com>
+ <20170523114404.20387-5-saeedm@mellanox.com>
+ <20170524165059.42lmrwzzcxvi2sf7@ast-mbp>
+ <AM4PR0501MB1940885C2F1CEF4DDE4EA8D1DBFF0@AM4PR0501MB1940.eurprd05.prod.outlook.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Alexei Starovoitov <ast@kernel.org>,
-        Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, linux-mips@linux-mips.org,
-        ralf@linux-mips.org, Markos Chandras <markos.chandras@imgtec.com>
-To: David Daney <david.daney@cavium.com>
-Return-path: <linux-mips-bounce@linux-mips.org>
+Cc: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "jsorensen-b10kYP2dOMg@public.gmane.org" <jsorensen-b10kYP2dOMg@public.gmane.org>
+To: Ilan Tayari <ilant-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <20170526003826.10834-6-david.daney@cavium.com>
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
-List-help: <mailto:ecartis@linux-mips.org?Subject=help>
-List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
-List-software: Ecartis version 1.0.0
-List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
-List-owner: <mailto:ralf@linux-mips.org>
-List-post: <mailto:linux-mips@linux-mips.org>
-List-archive: <http://www.linux-mips.org/archives/linux-mips/>
+In-Reply-To: <AM4PR0501MB1940885C2F1CEF4DDE4EA8D1DBFF0-dp/nxUn679gfNUYDR5dMTsDSnupUy6xnnBOFsp37pqbUKgpGm//BTAC/G2K4zDHf@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, May 25, 2017 at 05:38:26PM -0700, David Daney wrote:
-> Since the eBPF machine has 64-bit registers, we only support this in
-> 64-bit kernels.  As of the writing of this commit log test-bpf is showing:
+On Thu, May 25, 2017 at 05:20:04AM +0000, Ilan Tayari wrote:
 > 
->   test_bpf: Summary: 316 PASSED, 0 FAILED, [308/308 JIT'ed]
-> 
-> All current test cases are successfully compiled.
-> 
-> Signed-off-by: David Daney <david.daney@cavium.com>
-> ---
->  arch/mips/Kconfig       |    1 +
->  arch/mips/net/bpf_jit.c | 1627 ++++++++++++++++++++++++++++++++++++++++++++++-
->  arch/mips/net/bpf_jit.h |    7 +
->  3 files changed, 1633 insertions(+), 2 deletions(-)
+> If you do want this, then splitting some of the logic to a
+> separate kernel object will not gain anything useful (logic would stay
+> the same), and just pollute the exported symbol table and open up the door
+> for issues of inter-module compatibility and so on.
 
-Great stuff. I wonder what is the performance difference
-interpreter vs JIT
+in other words instead of properly designing inter-module api
+you just want to add everything into one giant 'driver'
+because it's easier to do so. Understandable, but it leads
+to unmaintainable device infrastructure long term.
 
-> + * eBPF stack frame will be something like:
-> + *
-> + *  Entry $sp ------>   +--------------------------------+
-> + *                      |   $ra  (optional)              |
-> + *                      +--------------------------------+
-> + *                      |   $s0  (optional)              |
-> + *                      +--------------------------------+
-> + *                      |   $s1  (optional)              |
-> + *                      +--------------------------------+
-> + *                      |   $s2  (optional)              |
-> + *                      +--------------------------------+
-> + *                      |   $s3  (optional)              |
-> + *                      +--------------------------------+
-> + *                      |   tmp-storage  (if $ra saved)  |
-> + * $sp + tmp_offset --> +--------------------------------+ <--BPF_REG_10
-> + *                      |   BPF_REG_10 relative storage  |
-> + *                      |    MAX_BPF_STACK (optional)    |
-> + *                      |      .                         |
-> + *                      |      .                         |
-> + *                      |      .                         |
-> + *     $sp -------->    +--------------------------------+
-> + *
-> + * If BPF_REG_10 is never referenced, then the MAX_BPF_STACK sized
-> + * area is not allocated.
-> + */
+> Furthermore, the next patchset will introduce IPSec offload capabilities
+> Which are declared in netdev->hw_features. Those cannot be modified
+> after the netdevice is created, so all the extra logic has to be 
+> integrated into the mlx5 ethernet driver. This is another reason why
+> a separate driver is a bad idea.
 
-It's especially great to see that you've put the tmp storage
-above program stack and made the stack allocation optional.
-At the moment I'm working on reducing bpf program stack size,
-so that JIT and interpreter can use only the stack they need.
-Looking at this JIT code only minimal changes will be needed.
+that increases my concerns even more.
+ipsec offload is a new feature for new hw, yet you're trying to
+hide it in the mlx5 'driver'.
+
+mlx5 already supports cx4/cx4-lx/cx5 and not even released cx6.
+All of them have different feature sets.
+The only common piece is driver/fw cmd interface and _some_ aspects
+of rx/tx descriptors. Everything else is different.
+cx4-lx doesn't have infiniband and rdma, yet there is a ton of code
+in the driver that deals with it.
+cx5 has fancy storage interfaces for nvme, etc I don't think they
+are part of the mlx5 'driver' yet. Are you going to dump them
+in there as well?
+Take a look at the simplest feature-wise cx4-lx. It has
+eswitch which is full l2 switch with mac table, drop policy,
+counters and such. Yet kernel knows nothing about it.
+Everything is hidden in mlx5 'driver' with its own special
+interfaces to manage it.
+Now you want to hide fpga with custom logic behind mlx5 'driver'
+and manage it through mlx5 interfaces?
+That's not acceptable.
+mlx fpga got to have generic kernel representation that intel
+and other fpga vendors can use.
+
+mlx5 driver has to be modularized and since it's not too late
+cx6 support has to be removed from it.
+Thankfully only few cx6 pci ids were added to mlx5, but driver
+knows nothing about cx6 features, so we can properly design it.
+
+Since driver/fw interface is common between cx4+ this part
+can be moved into mlx_core.ko or done as library
+the way chelsio did it in libcxgb.
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
