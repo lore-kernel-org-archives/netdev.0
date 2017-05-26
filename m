@@ -1,68 +1,44 @@
 From: <Woojung.Huh@microchip.com>
 Subject: RE: [PATCH net-next 1/3] net: phy: Create sysfs reciprocal links
  for attached_dev/phydev
-Date: Fri, 26 May 2017 23:52:26 +0000
-Message-ID: <9235D6609DB808459E95D78E17F2E43D40A9DACE@CHN-SV-EXMX02.mchp-main.com>
+Date: Fri, 26 May 2017 23:34:33 +0000
+Message-ID: <9235D6609DB808459E95D78E17F2E43D40A9DAA2@CHN-SV-EXMX02.mchp-main.com>
 References: <20170524193354.10739-1-f.fainelli@gmail.com>
  <20170524193354.10739-2-f.fainelli@gmail.com>
- <9235D6609DB808459E95D78E17F2E43D40A9DAA2@CHN-SV-EXMX02.mchp-main.com>
- <d2d97683-3fcc-6603-09e1-13818464de18@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
 Cc: <davem@davemloft.net>, <andrew@lunn.ch>
 To: <f.fainelli@gmail.com>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from esa1.microchip.iphmx.com ([68.232.147.91]:52185 "EHLO
-        esa1.microchip.iphmx.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1948861AbdEZXw1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 26 May 2017 19:52:27 -0400
-In-Reply-To: <d2d97683-3fcc-6603-09e1-13818464de18@gmail.com>
+Received: from esa6.microchip.iphmx.com ([216.71.154.253]:49020 "EHLO
+        esa6.microchip.iphmx.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1948842AbdEZXeu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 26 May 2017 19:34:50 -0400
+In-Reply-To: <20170524193354.10739-2-f.fainelli@gmail.com>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SGkgRmxvcmlhbiwNCg0KPiA+IEkga25ldyB0aGF0IGl0IGlzIGFwcGxpZWQgdG8gbmV0LW5leHQu
-DQo+ID4gSG93ZXZlciwgc3lzZnNfY3JlYXRlX2xpbmsoKSBmYWlscyB3aGVuIGZpeGVkIHBoeQ0K
-PiAoZHJpdmVycy9uZXQvcGh5L2ZpeGVkX3BoeS5jKQ0KPiA+IERvIHlvdSBoYXZlIGEgY2hhbmNl
-IHRvIHRlc3Qgd2l0aCBpdD8NCj4gDQo+IEkgZGlkLCBteSBtYWluIHRlc3Qgc3lzdGVtIChCQ003
-NDQ1IHcvIGJjbV9zZjIpIGhhcyBvbmUgbm9ybWFsIFBIWQ0KPiBkcml2ZXIgYW5kIDMgZml4ZWQg
-UEhZcyAoaW5jbHVkaW5nIG9uZSBmb3IgdGhlIENQVSBwb3J0L21hc3RlciBuZXRkZXYpLA0KPiBz
-ZWUgYmVsb3cuDQo+IA0KPiBXaGF0IGtpbmQgb2YgZXJyb3IgZG8geW91IGdldCBoZXJlPw0Kc3lz
-ZnNfY3JlYXRlX2xpbmsoKSByZXR1cm5zIC0yICgtRU5PRU5UKS4NCg0KPiANCj4gIyBscyAtbCAv
-c3lzL2NsYXNzL25ldC9ncGh5L3BoeWRldg0KPiBscnd4cnd4cnd4ICAgIDEgcm9vdCAgICAgcm9v
-dCAgICAgICAgICAgICAwIEphbiAgMSAwMDowMA0KPiAvc3lzL2NsYXNzL25ldC9ncGh5L3BoeWRl
-diAtPg0KPiAuLi8uLi8uLi9mMGI0MDNjMC5tZGlvL21kaW9fYnVzL2YwYjQwM2MwLm1kaW8vZjBi
-NDAzYzAubWRpbzowNQ0KPiAjIGxzIC1sIC9zeXMvY2xhc3MvbmV0LyovcGh5ZGV2DQo+IGxyd3hy
-d3hyd3ggICAgMSByb290ICAgICByb290ICAgICAgICAgICAgIDAgSmFuICAxIDAwOjAxDQo+IC9z
-eXMvY2xhc3MvbmV0L2V0aDAvcGh5ZGV2IC0+IC4uLy4uLy4uLy4uL0ZpeGVkIE1ESU8NCj4gYnVz
-LjAvbWRpb19idXMvZml4ZWQtMC9maXhlZC0wOjAwDQo+IGxyd3hyd3hyd3ggICAgMSByb290ICAg
-ICByb290ICAgICAgICAgICAgIDAgSmFuICAxIDAwOjAwDQo+IC9zeXMvY2xhc3MvbmV0L2dwaHkv
-cGh5ZGV2IC0+DQo+IC4uLy4uLy4uL2YwYjQwM2MwLm1kaW8vbWRpb19idXMvZjBiNDAzYzAubWRp
-by9mMGI0MDNjMC5tZGlvOjA1DQo+IGxyd3hyd3hyd3ggICAgMSByb290ICAgICByb290ICAgICAg
-ICAgICAgIDAgSmFuICAxIDAwOjAxDQo+IC9zeXMvY2xhc3MvbmV0L21vY2EvcGh5ZGV2IC0+IC4u
-Ly4uLy4uLy4uLy4uL0ZpeGVkIE1ESU8NCj4gYnVzLjAvbWRpb19idXMvZml4ZWQtMC9maXhlZC0w
-OjAyDQo+IGxyd3hyd3hyd3ggICAgMSByb290ICAgICByb290ICAgICAgICAgICAgIDAgSmFuICAx
-IDAwOjAxDQo+IC9zeXMvY2xhc3MvbmV0L3JnbWlpXzEvcGh5ZGV2IC0+IC4uLy4uLy4uL21kaW9f
-YnVzL3NmMi0xL3NmMi0xOjAwDQo+IGxyd3hyd3hyd3ggICAgMSByb290ICAgICByb290ICAgICAg
-ICAgICAgIDAgSmFuICAxIDAwOjAxDQo+IC9zeXMvY2xhc3MvbmV0L3JnbWlpXzIvcGh5ZGV2IC0+
-IC4uLy4uLy4uLy4uLy4uL0ZpeGVkIE1ESU8NCj4gYnVzLjAvbWRpb19idXMvZml4ZWQtMC9maXhl
-ZC0wOjAxDQo+IA0KPiAjIGxzIC1sIC9zeXMvY2xhc3MvbWRpb19idXMvZml4ZWQtMC8qL2F0dGFj
-aGVkX2Rldg0KPiBscnd4cnd4cnd4ICAgIDEgcm9vdCAgICAgcm9vdCAgICAgICAgICAgICAwIEph
-biAgMSAwMDowMQ0KPiAvc3lzL2NsYXNzL21kaW9fYnVzL2ZpeGVkLTAvZml4ZWQtMDowMC9hdHRh
-Y2hlZF9kZXYgLT4NCj4gLi4vLi4vLi4vLi4vcmRiL2YwNGEwMDAwLmV0aGVybmV0L25ldC9ldGgw
-DQo+IGxyd3hyd3hyd3ggICAgMSByb290ICAgICByb290ICAgICAgICAgICAgIDAgSmFuICAxIDAw
-OjAyDQo+IC9zeXMvY2xhc3MvbWRpb19idXMvZml4ZWQtMC9maXhlZC0wOjAxL2F0dGFjaGVkX2Rl
-diAtPg0KPiAuLi8uLi8uLi8uLi9yZGIvcmRiOnN3aXRjaF90b3BAZjBiMDAwMDAvZjBiMDAwMDAu
-ZXRoZXJuZXRfc3dpdGNoL25ldC9yZ20NCj4gaWlfMg0KPiBscnd4cnd4cnd4ICAgIDEgcm9vdCAg
-ICAgcm9vdCAgICAgICAgICAgICAwIEphbiAgMSAwMDowMg0KPiAvc3lzL2NsYXNzL21kaW9fYnVz
-L2ZpeGVkLTAvZml4ZWQtMDowMi9hdHRhY2hlZF9kZXYgLT4NCj4gLi4vLi4vLi4vLi4vcmRiL3Jk
-Yjpzd2l0Y2hfdG9wQGYwYjAwMDAwL2YwYjAwMDAwLmV0aGVybmV0X3N3aXRjaC9uZXQvbW9jDQo+
-IGENCj4gDQo+ICMgbHMgLWwgL3N5cy9jbGFzcy9tZGlvX2J1cy9mMGI0MDNjMC5tZGlvL2YwYjQw
-M2MwLm1kaW9cOjA1L2F0dGFjaGVkX2Rldg0KPiBscnd4cnd4cnd4ICAgIDEgcm9vdCAgICAgcm9v
-dCAgICAgICAgICAgICAwIEphbiAgMSAwMDowMg0KPiAvc3lzL2NsYXNzL21kaW9fYnVzL2YwYjQw
-M2MwLm1kaW8vZjBiNDAzYzAubWRpbzowNS9hdHRhY2hlZF9kZXYgLT4NCj4gLi4vLi4vLi4vLi4v
-ZjBiMDAwMDAuZXRoZXJuZXRfc3dpdGNoL25ldC9ncGh5DQoNCi9zeXMvY2xhc3MvbWRpb19idXMv
-ZGV2aWNlcy9maXhlZC0wOjAwLyogZXhpc3RzLg0KQnV0IG5vdCAvc3lzL2NsYXNzL25ldC9ldGgw
-Li4gYmVjYXVzZSBFdGhlcm5ldCBkcml2ZXIgaW5pdGlhbGl6YXRpb24gZmFpbGVkLg0KDQotIFdv
-b2p1bmcNCg==
+> @@ -960,6 +960,15 @@ int phy_attach_direct(struct net_device *dev, struct
+> phy_device *phydev,
+> 
+>  	phydev->attached_dev = dev;
+>  	dev->phydev = phydev;
+> +	err = sysfs_create_link(&phydev->mdio.dev.kobj, &dev->dev.kobj,
+> +				"attached_dev");
+> +	if (err)
+> +		goto error;
+> +
+> +	err = sysfs_create_link(&dev->dev.kobj, &phydev->mdio.dev.kobj,
+> +				"phydev");
+> +	if (err)
+> +		goto error;
+> 
+Florian,
+
+I knew that it is applied to net-next.
+However, sysfs_create_link() fails when fixed phy (drivers/net/phy/fixed_phy.c)
+Do you have a chance to test with it?
+
+- Woojung
