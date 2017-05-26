@@ -1,45 +1,75 @@
-From: <Woojung.Huh@microchip.com>
-Subject: RE: [PATCH net-next 1/3] net: phy: Create sysfs reciprocal links
- for attached_dev/phydev
-Date: Sat, 27 May 2017 00:43:16 +0000
-Message-ID: <9235D6609DB808459E95D78E17F2E43D40A9DB14@CHN-SV-EXMX02.mchp-main.com>
-References: <20170524193354.10739-1-f.fainelli@gmail.com>
- <20170524193354.10739-2-f.fainelli@gmail.com>
- <9235D6609DB808459E95D78E17F2E43D40A9DAA2@CHN-SV-EXMX02.mchp-main.com>
- <d2d97683-3fcc-6603-09e1-13818464de18@gmail.com>
- <9235D6609DB808459E95D78E17F2E43D40A9DACE@CHN-SV-EXMX02.mchp-main.com>
- <44f24fbd-5093-faa2-02cd-f8d4d835b59d@gmail.com>
- <9235D6609DB808459E95D78E17F2E43D40A9DAF6@CHN-SV-EXMX02.mchp-main.com>
- <05a159af-6689-70db-9506-09059a09f1a5@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: <davem@davemloft.net>, <andrew@lunn.ch>
-To: <f.fainelli@gmail.com>, <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from esa6.microchip.iphmx.com ([216.71.154.253]:3307 "EHLO
-        esa6.microchip.iphmx.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1948892AbdE0AnS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 26 May 2017 20:43:18 -0400
-In-Reply-To: <05a159af-6689-70db-9506-09059a09f1a5@gmail.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next] net: dsa: mv88e6xxx: handle SERDES error appropriately
+Date: Fri, 26 May 2017 18:02:42 -0400
+Message-ID: <20170526220242.23353-1-vivien.didelot@savoirfairelinux.com>
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-SGkgRmxvcmlhbiwNCiANCj4gT0ssIHNvIGhlcmUgaXMgd2hhdCBpcyBoYXBwZW5pbmc6IG1hY2Jf
-bWlpX2luaXQoKSBjYWxscyBtYWNiX21paV9wcm9iZSgpDQo+IGFuZCBzbyBieSB0aGUgdGltZSB3
-ZSBjYWxsIHBoeV9jb25uZWN0X2RpcmVjdCgpLCB3ZSBoYXZlIG5vdCBjYWxsZWQNCj4gcmVnaXN0
-ZXJfbmV0ZGV2aWNlKCkgeWV0LCBuZXRkZXZfcmVnaXN0ZXJfa29iamVjdCgpIGhhcyBub3QgYmVl
-biBjYWxsZWQNCj4gZWl0aGVyLCBhbmQgc28gc3lzZnNfY3JlYXRlX2xpbmsoKSBmYWlscy4uLi4N
-CkkganVzdCBmb3VuZCBzYW1lIHRoaW5nLg0KWWVzLCByZWdpc3Rlcl9uZXRkZXYoKSB3YXMgbm90
-IGNhbGxlZCBhdCBwaHlfY29ubmVjdF9kaXJlY3QoKSB0aW1lLiANCg0KPiBMZXQgbWUgdGhpbmsg
-YWJvdXQgYSB3YXkgdG8gc29sdmUgdGhhdCwgZXZlbiB0aG91Z2ggSSBhbSBsZWFuaW5nIHRvd2Fy
-ZHMNCj4gaWdub3JpbmcgdGhlIGVycm9ycyBmcm9tIHN5c2ZzX2NyZWF0ZV9saW5rKCkgcmF0aGVy
-IHRoYW4gZml4aW5nIGVhY2ggYW5kDQo+IGV2ZXJ5IEV0aGVybmV0IGRyaXZlciB0byBtYWtlIGl0
-IHByb2JlIGl0cyBNSUkgYnVzICphZnRlciogY2FsbGluZw0KPiByZWdpc3Rlcl9uZXRkZXZpY2Uo
-KS4uLi4NCkFncmVlLg0KIA0KPiA+DQo+ID4gV2hhdCBpcyBkcml2ZXIgeW91IGFyZSB0ZXN0aW5n
-PyBJIGNhbiBjaGVjayB0aGUgZmlsZS4NCj4gDQo+IERyaXZlcnMgaW52b2x2ZWQgYXJlIHRoZSBm
-b2xsb3dpbmc6DQo+IA0KPiBkcml2ZXJzL25ldC9ldGhlcm5ldC9icm9hZGNvbS9iY21zeXNwb3J0
-LmMsDQo+IGRyaXZlcnMvbmV0L2RzYS9iY21fc2YyLmMNCj4gZHJpdmVycy9uZXQvZXRoZXJuZXQv
-YnJvYWRjb20vZ2VuZXQvDQo+IGRyaXZlcnMvbmV0L3BoeS9iY203eHh4LmMNClRoYW5rcyBmb3Ig
-bGlzdCBvZiBmaWxlcy4NCg0KLSBXb29qdW5nDQo=
+mv88e6xxx_serdes_power returns an error, so no need to print an error
+message inside of it. Rather print it in its caller when the error is
+ignored, which is in the mv88e6xxx_port_disable void function.
+
+Catch and return its error in the counterpart mv88e6xxx_port_enable.
+
+Fixes: 04aca9938255 ("dsa: mv88e6xxx: Enable/Disable SERDES on port enable/disable")
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+---
+ drivers/net/dsa/mv88e6xxx/chip.c | 19 +++++++------------
+ 1 file changed, 7 insertions(+), 12 deletions(-)
+
+diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
+index c2f38f6770aa..742c0eae7fa3 100644
+--- a/drivers/net/dsa/mv88e6xxx/chip.c
++++ b/drivers/net/dsa/mv88e6xxx/chip.c
+@@ -1806,16 +1806,10 @@ static int mv88e6xxx_setup_egress_floods(struct mv88e6xxx_chip *chip, int port)
+ static int mv88e6xxx_serdes_power(struct mv88e6xxx_chip *chip, int port,
+ 				  bool on)
+ {
+-	int err = 0;
++	if (chip->info->ops->serdes_power)
++		return chip->info->ops->serdes_power(chip, port, on);
+ 
+-	if (chip->info->ops->serdes_power) {
+-		err = chip->info->ops->serdes_power(chip, port, on);
+-		if (err)
+-			dev_err(chip->dev,
+-				"Failed to change SERDES power: %d\n", err);
+-	}
+-
+-	return err;
++	return 0;
+ }
+ 
+ static int mv88e6xxx_setup_port(struct mv88e6xxx_chip *chip, int port)
+@@ -1982,10 +1976,10 @@ static int mv88e6xxx_port_enable(struct dsa_switch *ds, int port,
+ 				 struct phy_device *phydev)
+ {
+ 	struct mv88e6xxx_chip *chip = ds->priv;
+-	int err = 0;
++	int err;
+ 
+ 	mutex_lock(&chip->reg_lock);
+-	mv88e6xxx_serdes_power(chip, port, true);
++	err = mv88e6xxx_serdes_power(chip, port, true);
+ 	mutex_unlock(&chip->reg_lock);
+ 
+ 	return err;
+@@ -1997,7 +1991,8 @@ static void mv88e6xxx_port_disable(struct dsa_switch *ds, int port,
+ 	struct mv88e6xxx_chip *chip = ds->priv;
+ 
+ 	mutex_lock(&chip->reg_lock);
+-	mv88e6xxx_serdes_power(chip, port, false);
++	if (mv88e6xxx_serdes_power(chip, port, false))
++		dev_err(chip->dev, "failed to power off SERDES\n");
+ 	mutex_unlock(&chip->reg_lock);
+ }
+ 
+-- 
+2.13.0
