@@ -1,229 +1,278 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 07/18] mlxsw: spectrum: Don't lose bridge port device during enslavement
-Date: Fri, 26 May 2017 08:37:29 +0200
-Message-ID: <20170526063740.8909-8-jiri@resnulli.us>
+Subject: [patch net-next 05/18] mlxsw: spectrum: Change signature of FID leave function
+Date: Fri, 26 May 2017 08:37:27 +0200
+Message-ID: <20170526063740.8909-6-jiri@resnulli.us>
 References: <20170526063740.8909-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, mlxsw@mellanox.com,
         stephen@networkplumber.org, nikolay@cumulusnetworks.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:35407 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933815AbdEZGhx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 26 May 2017 02:37:53 -0400
-Received: by mail-wm0-f66.google.com with SMTP id g15so1684004wmc.2
-        for <netdev@vger.kernel.org>; Thu, 25 May 2017 23:37:52 -0700 (PDT)
+Received: from mail-lf0-f68.google.com ([209.85.215.68]:33800 "EHLO
+        mail-lf0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S935579AbdEZGhv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 26 May 2017 02:37:51 -0400
+Received: by mail-lf0-f68.google.com with SMTP id q24so170409lfb.1
+        for <netdev@vger.kernel.org>; Thu, 25 May 2017 23:37:50 -0700 (PDT)
 In-Reply-To: <20170526063740.8909-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ido Schimmel <idosch@mellanox.com>
 
-Currently, when port netdevs (or their uppers) are enslaved to a bridge,
-we simply propagate the CHANGEUPPER event all the way down and lose the
-context of the actual netdevice used as the bridge port.
+When a vPort is destroyed, it leaves the FID it's currently mapped to
+(if any) and drops the reference. The FID's leave function expects to
+get the vPort as its argument, but this will have to change when the
+vPort model is retired.
 
-This leads to a lot of information hanging off the ports (and vPorts),
-which doesn't logically belong there, such as mrouter indication and
-unknown unicast flood state.
+Change the function signature to expect a Port-VLAN struct instead and
+patch the call sites accordingly.
 
-Following patches are going to put the mlxsw_sp_port struct on diet and
-instead introduce a bridge port struct, where the above mentioned
-information belongs. But in order to do that, we need to be able to
-determine the bridge port netdevice, so propagate it down.
+The code introduced in this patch will be removed later in the patchset,
+but this intermediary step is required in order to ease the code review.
 
 Signed-off-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 67 +++++++++++++++++---------
- 1 file changed, 44 insertions(+), 23 deletions(-)
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c     | 42 +++++++++++++++-------
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.h     |  3 +-
+ .../net/ethernet/mellanox/mlxsw/spectrum_router.c  | 23 +++++++-----
+ 3 files changed, 47 insertions(+), 21 deletions(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-index e04d2ed..29d9439 100644
+index 6f5f011..acc3a1a 100644
 --- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
 +++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-@@ -4026,6 +4026,7 @@ static void mlxsw_sp_master_bridge_dec(struct mlxsw_sp *mlxsw_sp)
- }
+@@ -1574,7 +1574,7 @@ static int mlxsw_sp_port_kill_vid(struct net_device *dev,
+ 	 */
+ 	f = mlxsw_sp_vport_fid_get(mlxsw_sp_vport);
+ 	if (f && !WARN_ON(!f->leave))
+-		f->leave(mlxsw_sp_vport);
++		f->leave(mlxsw_sp_port_vlan);
  
- static int mlxsw_sp_port_bridge_join(struct mlxsw_sp_port *mlxsw_sp_port,
-+				     struct net_device *brport_dev,
- 				     struct net_device *br_dev)
+ 	mlxsw_sp_port_vport_destroy(mlxsw_sp_vport);
+ 
+@@ -4192,6 +4192,7 @@ static void
+ mlxsw_sp_port_pvid_vport_lag_join(struct mlxsw_sp_port *mlxsw_sp_port,
+ 				  struct net_device *lag_dev, u16 lag_id)
  {
- 	struct net_device *dev = mlxsw_sp_port->dev;
-@@ -4053,7 +4054,9 @@ static int mlxsw_sp_port_bridge_join(struct mlxsw_sp_port *mlxsw_sp_port,
- 	return 0;
- }
++	struct mlxsw_sp_port_vlan *mlxsw_sp_port_vlan;
+ 	struct mlxsw_sp_port *mlxsw_sp_vport;
+ 	struct mlxsw_sp_fid *f;
  
--static void mlxsw_sp_port_bridge_leave(struct mlxsw_sp_port *mlxsw_sp_port)
-+static void mlxsw_sp_port_bridge_leave(struct mlxsw_sp_port *mlxsw_sp_port,
-+				       struct net_device *brport_dev,
-+				       struct net_device *br_dev)
+@@ -4199,12 +4200,13 @@ mlxsw_sp_port_pvid_vport_lag_join(struct mlxsw_sp_port *mlxsw_sp_port,
+ 	if (WARN_ON(!mlxsw_sp_vport))
+ 		return;
+ 
++	mlxsw_sp_port_vlan = mlxsw_sp_port_vlan_find_by_vid(mlxsw_sp_port, 1);
+ 	/* If vPort is assigned a RIF, then leave it since it's no
+ 	 * longer valid.
+ 	 */
+ 	f = mlxsw_sp_vport_fid_get(mlxsw_sp_vport);
+ 	if (f)
+-		f->leave(mlxsw_sp_vport);
++		f->leave(mlxsw_sp_port_vlan);
+ 
+ 	mlxsw_sp_vport->lag_id = lag_id;
+ 	mlxsw_sp_vport->lagged = 1;
+@@ -4214,6 +4216,7 @@ mlxsw_sp_port_pvid_vport_lag_join(struct mlxsw_sp_port *mlxsw_sp_port,
+ static void
+ mlxsw_sp_port_pvid_vport_lag_leave(struct mlxsw_sp_port *mlxsw_sp_port)
  {
- 	struct net_device *dev = mlxsw_sp_port->dev;
++	struct mlxsw_sp_port_vlan *mlxsw_sp_port_vlan;
+ 	struct mlxsw_sp_port *mlxsw_sp_vport;
+ 	struct mlxsw_sp_fid *f;
  
-@@ -4302,7 +4305,7 @@ static void mlxsw_sp_port_lag_leave(struct mlxsw_sp_port *mlxsw_sp_port,
+@@ -4221,9 +4224,10 @@ mlxsw_sp_port_pvid_vport_lag_leave(struct mlxsw_sp_port *mlxsw_sp_port)
+ 	if (WARN_ON(!mlxsw_sp_vport))
+ 		return;
  
- 	if (mlxsw_sp_port->bridged) {
- 		mlxsw_sp_port_active_vlans_del(mlxsw_sp_port);
--		mlxsw_sp_port_bridge_leave(mlxsw_sp_port);
-+		mlxsw_sp_port_bridge_leave(mlxsw_sp_port, NULL, NULL);
- 	}
++	mlxsw_sp_port_vlan = mlxsw_sp_port_vlan_find_by_vid(mlxsw_sp_port, 1);
+ 	f = mlxsw_sp_vport_fid_get(mlxsw_sp_vport);
+ 	if (f)
+-		f->leave(mlxsw_sp_vport);
++		f->leave(mlxsw_sp_port_vlan);
  
- 	if (lag->ref_count == 1)
-@@ -4439,7 +4442,8 @@ static void mlxsw_sp_port_ovs_leave(struct mlxsw_sp_port *mlxsw_sp_port)
- 	mlxsw_sp_port_vp_mode_set(mlxsw_sp_port, false);
+ 	mlxsw_sp_vport->dev = mlxsw_sp_port->dev;
+ 	mlxsw_sp_vport->lagged = 0;
+@@ -4652,7 +4656,8 @@ static int mlxsw_sp_vfid_op(struct mlxsw_sp *mlxsw_sp, u16 fid, bool create)
+ 	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(sfmr), sfmr_pl);
  }
  
--static int mlxsw_sp_netdevice_port_upper_event(struct net_device *dev,
-+static int mlxsw_sp_netdevice_port_upper_event(struct net_device *lower_dev,
-+					       struct net_device *dev,
- 					       unsigned long event, void *ptr)
+-static void mlxsw_sp_vport_vfid_leave(struct mlxsw_sp_port *mlxsw_sp_vport);
++static void
++mlxsw_sp_port_vlan_vfid_leave(struct mlxsw_sp_port_vlan *mlxsw_sp_port_vlan);
+ 
+ static struct mlxsw_sp_fid *mlxsw_sp_vfid_create(struct mlxsw_sp *mlxsw_sp,
+ 						 struct net_device *br_dev)
+@@ -4679,7 +4684,7 @@ static struct mlxsw_sp_fid *mlxsw_sp_vfid_create(struct mlxsw_sp *mlxsw_sp,
+ 	if (!f)
+ 		goto err_allocate_vfid;
+ 
+-	f->leave = mlxsw_sp_vport_vfid_leave;
++	f->leave = mlxsw_sp_port_vlan_vfid_leave;
+ 	f->fid = fid;
+ 	f->dev = br_dev;
+ 
+@@ -4767,17 +4772,22 @@ static int mlxsw_sp_vport_vfid_join(struct mlxsw_sp_port *mlxsw_sp_vport,
+ 	return err;
+ }
+ 
+-static void mlxsw_sp_vport_vfid_leave(struct mlxsw_sp_port *mlxsw_sp_vport)
++static void
++mlxsw_sp_port_vlan_vfid_leave(struct mlxsw_sp_port_vlan *mlxsw_sp_port_vlan)
  {
- 	struct netdev_notifier_changeupper_info *info;
-@@ -4492,9 +4496,12 @@ static int mlxsw_sp_netdevice_port_upper_event(struct net_device *dev,
- 		} else if (netif_is_bridge_master(upper_dev)) {
- 			if (info->linking)
- 				err = mlxsw_sp_port_bridge_join(mlxsw_sp_port,
-+								lower_dev,
- 								upper_dev);
- 			else
--				mlxsw_sp_port_bridge_leave(mlxsw_sp_port);
-+				mlxsw_sp_port_bridge_leave(mlxsw_sp_port,
-+							   lower_dev,
-+							   upper_dev);
- 		} else if (netif_is_lag_master(upper_dev)) {
- 			if (info->linking)
- 				err = mlxsw_sp_port_lag_join(mlxsw_sp_port,
-@@ -4541,15 +4548,18 @@ static int mlxsw_sp_netdevice_port_lower_event(struct net_device *dev,
- 	return 0;
- }
+-	struct mlxsw_sp_fid *f = mlxsw_sp_vport_fid_get(mlxsw_sp_vport);
+-	struct mlxsw_sp_port *mlxsw_sp_port;
++	struct mlxsw_sp_port *mlxsw_sp_port = mlxsw_sp_port_vlan->mlxsw_sp_port;
++	struct mlxsw_sp_port *mlxsw_sp_vport;
++	u16 vid = mlxsw_sp_port_vlan->vid;
++	struct mlxsw_sp_fid *f;
++
++	mlxsw_sp_vport = mlxsw_sp_port_vport_find(mlxsw_sp_port, vid);
++	f = mlxsw_sp_vport_fid_get(mlxsw_sp_vport);
  
--static int mlxsw_sp_netdevice_port_event(struct net_device *dev,
-+static int mlxsw_sp_netdevice_port_event(struct net_device *lower_dev,
-+					 struct net_device *port_dev,
- 					 unsigned long event, void *ptr)
- {
- 	switch (event) {
- 	case NETDEV_PRECHANGEUPPER:
- 	case NETDEV_CHANGEUPPER:
--		return mlxsw_sp_netdevice_port_upper_event(dev, event, ptr);
-+		return mlxsw_sp_netdevice_port_upper_event(lower_dev, port_dev,
-+							   event, ptr);
- 	case NETDEV_CHANGELOWERSTATE:
--		return mlxsw_sp_netdevice_port_lower_event(dev, event, ptr);
-+		return mlxsw_sp_netdevice_port_lower_event(port_dev, event,
-+							   ptr);
- 	}
+ 	netdev_dbg(mlxsw_sp_vport->dev, "Left FID=%d\n", f->fid);
  
- 	return 0;
-@@ -4564,7 +4574,8 @@ static int mlxsw_sp_netdevice_lag_event(struct net_device *lag_dev,
+ 	mlxsw_sp_vport_fid_set(mlxsw_sp_vport, NULL);
+ 	f->ref_count--;
  
- 	netdev_for_each_lower_dev(lag_dev, dev, iter) {
- 		if (mlxsw_sp_port_dev_check(dev)) {
--			ret = mlxsw_sp_netdevice_port_event(dev, event, ptr);
-+			ret = mlxsw_sp_netdevice_port_event(lag_dev, dev, event,
-+							    ptr);
- 			if (ret)
- 				return ret;
- 		}
-@@ -4807,6 +4818,7 @@ mlxsw_sp_port_vlan_vfid_leave(struct mlxsw_sp_port_vlan *mlxsw_sp_port_vlan)
- }
- 
- static int mlxsw_sp_vport_bridge_join(struct mlxsw_sp_port *mlxsw_sp_vport,
-+				      struct net_device *brport_dev,
- 				      struct net_device *br_dev)
+-	mlxsw_sp_port = mlxsw_sp_vport_port(mlxsw_sp_vport);
+ 	if (mlxsw_sp_port->nr_port_vid_map == 1)
+ 		mlxsw_sp_port_vlan_mode_trans(mlxsw_sp_port);
+ 	mlxsw_sp_port->nr_port_vid_map--;
+@@ -4797,11 +4807,15 @@ static int mlxsw_sp_vport_bridge_join(struct mlxsw_sp_port *mlxsw_sp_vport,
  {
  	struct mlxsw_sp_fid *f = mlxsw_sp_vport_fid_get(mlxsw_sp_vport);
-@@ -4848,7 +4860,9 @@ static int mlxsw_sp_vport_bridge_join(struct mlxsw_sp_port *mlxsw_sp_vport,
+ 	u16 vid = mlxsw_sp_vport_vid_get(mlxsw_sp_vport);
++	struct mlxsw_sp_port_vlan *mlxsw_sp_port_vlan;
+ 	struct net_device *dev = mlxsw_sp_vport->dev;
++	struct mlxsw_sp_port *mlxsw_sp_port;
+ 	int err;
+ 
++	mlxsw_sp_port = mlxsw_sp_vport_port(mlxsw_sp_vport);
++	mlxsw_sp_port_vlan = mlxsw_sp_port_vlan_find_by_vid(mlxsw_sp_port, vid);
+ 	if (f && !WARN_ON(!f->leave))
+-		f->leave(mlxsw_sp_vport);
++		f->leave(mlxsw_sp_port_vlan);
+ 
+ 	err = mlxsw_sp_vport_vfid_join(mlxsw_sp_vport, br_dev);
+ 	if (err) {
+@@ -4826,17 +4840,21 @@ static int mlxsw_sp_vport_bridge_join(struct mlxsw_sp_port *mlxsw_sp_vport,
+ 	return 0;
+ 
+ err_port_vid_learning_set:
+-	mlxsw_sp_vport_vfid_leave(mlxsw_sp_vport);
++	mlxsw_sp_port_vlan_vfid_leave(mlxsw_sp_port_vlan);
  	return err;
  }
  
--static void mlxsw_sp_vport_bridge_leave(struct mlxsw_sp_port *mlxsw_sp_vport)
-+static void mlxsw_sp_vport_bridge_leave(struct mlxsw_sp_port *mlxsw_sp_vport,
-+					struct net_device *brport_dev,
-+					struct net_device *br_dev)
+ static void mlxsw_sp_vport_bridge_leave(struct mlxsw_sp_port *mlxsw_sp_vport)
  {
  	u16 vid = mlxsw_sp_vport_vid_get(mlxsw_sp_vport);
- 	struct mlxsw_sp_port_vlan *mlxsw_sp_port_vlan;
-@@ -4885,9 +4899,10 @@ mlxsw_sp_port_master_bridge_check(const struct mlxsw_sp_port *mlxsw_sp_port,
- 	return true;
++	struct mlxsw_sp_port_vlan *mlxsw_sp_port_vlan;
++	struct mlxsw_sp_port *mlxsw_sp_port;
+ 
+ 	mlxsw_sp_port_vid_learning_set(mlxsw_sp_vport, vid, false);
+ 
+-	mlxsw_sp_vport_vfid_leave(mlxsw_sp_vport);
++	mlxsw_sp_port = mlxsw_sp_vport_port(mlxsw_sp_vport);
++	mlxsw_sp_port_vlan = mlxsw_sp_port_vlan_find_by_vid(mlxsw_sp_port, vid);
++	mlxsw_sp_port_vlan_vfid_leave(mlxsw_sp_port_vlan);
+ 
+ 	mlxsw_sp_vport->learning = 0;
+ 	mlxsw_sp_vport->learning_sync = 0;
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+index c4ac648..b72ecf3 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+@@ -70,6 +70,7 @@
+ #define MLXSW_SP_KVD_LINEAR_SIZE 65536 /* entries */
+ #define MLXSW_SP_KVD_GRANULARITY 128
+ 
++struct mlxsw_sp_port_vlan;
+ struct mlxsw_sp_port;
+ struct mlxsw_sp_rif;
+ 
+@@ -79,7 +80,7 @@ struct mlxsw_sp_upper {
+ };
+ 
+ struct mlxsw_sp_fid {
+-	void (*leave)(struct mlxsw_sp_port *mlxsw_sp_vport);
++	void (*leave)(struct mlxsw_sp_port_vlan *mlxsw_sp_port_vlan);
+ 	struct list_head list;
+ 	unsigned int ref_count;
+ 	struct net_device *dev;
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+index cb5e86a..6a1de24 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+@@ -2945,7 +2945,8 @@ static int mlxsw_sp_vport_rif_sp_op(struct mlxsw_sp_port *mlxsw_sp_vport,
+ 	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(ritr), ritr_pl);
  }
  
--static int mlxsw_sp_netdevice_vport_event(struct net_device *dev,
--					  unsigned long event, void *ptr,
--					  u16 vid)
-+static int mlxsw_sp_netdevice_port_vlan_event(struct net_device *vlan_dev,
-+					      struct net_device *dev,
-+					      unsigned long event, void *ptr,
-+					      u16 vid)
+-static void mlxsw_sp_vport_rif_sp_leave(struct mlxsw_sp_port *mlxsw_sp_vport);
++static void
++mlxsw_sp_port_vlan_rif_sp_leave(struct mlxsw_sp_port_vlan *mlxsw_sp_port_vlan);
+ 
+ static u16 mlxsw_sp_rif_sp_to_fid(u16 rif_index)
  {
- 	struct mlxsw_sp_port *mlxsw_sp_port = netdev_priv(dev);
- 	struct netdev_notifier_changeupper_info *info = ptr;
-@@ -4919,9 +4934,12 @@ static int mlxsw_sp_netdevice_vport_event(struct net_device *dev,
- 		if (netif_is_bridge_master(upper_dev)) {
- 			if (info->linking)
- 				err = mlxsw_sp_vport_bridge_join(mlxsw_sp_vport,
-+								 vlan_dev,
- 								 upper_dev);
- 			else
--				mlxsw_sp_vport_bridge_leave(mlxsw_sp_vport);
-+				mlxsw_sp_vport_bridge_leave(mlxsw_sp_vport,
-+							    vlan_dev,
-+							    upper_dev);
- 		} else {
- 			err = -EINVAL;
- 			WARN_ON(1);
-@@ -4932,9 +4950,10 @@ static int mlxsw_sp_netdevice_vport_event(struct net_device *dev,
+@@ -2961,7 +2962,7 @@ mlxsw_sp_rfid_alloc(u16 fid, struct net_device *l3_dev)
+ 	if (!f)
+ 		return NULL;
+ 
+-	f->leave = mlxsw_sp_vport_rif_sp_leave;
++	f->leave = mlxsw_sp_port_vlan_rif_sp_leave;
+ 	f->ref_count = 0;
+ 	f->dev = l3_dev;
+ 	f->fid = fid;
+@@ -3156,18 +3157,22 @@ static int mlxsw_sp_vport_rif_sp_join(struct mlxsw_sp_port *mlxsw_sp_vport,
  	return err;
  }
  
--static int mlxsw_sp_netdevice_lag_vport_event(struct net_device *lag_dev,
--					      unsigned long event, void *ptr,
--					      u16 vid)
-+static int mlxsw_sp_netdevice_lag_port_vlan_event(struct net_device *vlan_dev,
-+						  struct net_device *lag_dev,
-+						  unsigned long event,
-+						  void *ptr, u16 vid)
+-static void mlxsw_sp_vport_rif_sp_leave(struct mlxsw_sp_port *mlxsw_sp_vport)
++static void
++mlxsw_sp_port_vlan_rif_sp_leave(struct mlxsw_sp_port_vlan *mlxsw_sp_port_vlan)
  {
- 	struct net_device *dev;
- 	struct list_head *iter;
-@@ -4942,8 +4961,9 @@ static int mlxsw_sp_netdevice_lag_vport_event(struct net_device *lag_dev,
+-	struct mlxsw_sp_fid *f = mlxsw_sp_vport_fid_get(mlxsw_sp_vport);
+-	u16 vid = mlxsw_sp_vport_vid_get(mlxsw_sp_vport);
+-	struct mlxsw_sp_port *mlxsw_sp_port;
++	struct mlxsw_sp_port *mlxsw_sp_port = mlxsw_sp_port_vlan->mlxsw_sp_port;
++	struct mlxsw_sp_port *mlxsw_sp_vport;
++	u16 vid = mlxsw_sp_port_vlan->vid;
++	struct mlxsw_sp_fid *f;
++
++	mlxsw_sp_vport = mlxsw_sp_port_vport_find(mlxsw_sp_port, vid);
++	f = mlxsw_sp_vport_fid_get(mlxsw_sp_vport);
  
- 	netdev_for_each_lower_dev(lag_dev, dev, iter) {
- 		if (mlxsw_sp_port_dev_check(dev)) {
--			ret = mlxsw_sp_netdevice_vport_event(dev, event, ptr,
--							     vid);
-+			ret = mlxsw_sp_netdevice_port_vlan_event(vlan_dev, dev,
-+								 event, ptr,
-+								 vid);
- 			if (ret)
- 				return ret;
- 		}
-@@ -4959,11 +4979,12 @@ static int mlxsw_sp_netdevice_vlan_event(struct net_device *vlan_dev,
- 	u16 vid = vlan_dev_vlan_id(vlan_dev);
+ 	netdev_dbg(mlxsw_sp_vport->dev, "Left FID=%d\n", f->fid);
  
- 	if (mlxsw_sp_port_dev_check(real_dev))
--		return mlxsw_sp_netdevice_vport_event(real_dev, event, ptr,
--						      vid);
-+		return mlxsw_sp_netdevice_port_vlan_event(vlan_dev, real_dev,
-+							  event, ptr, vid);
- 	else if (netif_is_lag_master(real_dev))
--		return mlxsw_sp_netdevice_lag_vport_event(real_dev, event, ptr,
--							  vid);
-+		return mlxsw_sp_netdevice_lag_port_vlan_event(vlan_dev,
-+							      real_dev, event,
-+							      ptr, vid);
+ 	f->ref_count--;
+ 	mlxsw_sp_vport_fid_set(mlxsw_sp_vport, NULL);
  
- 	return 0;
- }
-@@ -4988,7 +5009,7 @@ static int mlxsw_sp_netdevice_event(struct notifier_block *unused,
- 	else if (mlxsw_sp_is_vrf_event(event, ptr))
- 		err = mlxsw_sp_netdevice_vrf_event(dev, event, ptr);
- 	else if (mlxsw_sp_port_dev_check(dev))
--		err = mlxsw_sp_netdevice_port_event(dev, event, ptr);
-+		err = mlxsw_sp_netdevice_port_event(dev, dev, event, ptr);
- 	else if (netif_is_lag_master(dev))
- 		err = mlxsw_sp_netdevice_lag_event(dev, event, ptr);
- 	else if (netif_is_bridge_master(dev))
+-	mlxsw_sp_port = mlxsw_sp_vport_port(mlxsw_sp_vport);
+ 	if (mlxsw_sp_port->nr_port_vid_map == 1)
+ 		mlxsw_sp_port_vlan_mode_trans(mlxsw_sp_port);
+ 	mlxsw_sp_port->nr_port_vid_map--;
+@@ -3183,17 +3188,19 @@ static int mlxsw_sp_inetaddr_vport_event(struct net_device *l3_dev,
+ 					 unsigned long event, u16 vid)
+ {
+ 	struct mlxsw_sp_port *mlxsw_sp_port = netdev_priv(port_dev);
++	struct mlxsw_sp_port_vlan *mlxsw_sp_port_vlan;
+ 	struct mlxsw_sp_port *mlxsw_sp_vport;
+ 
+ 	mlxsw_sp_vport = mlxsw_sp_port_vport_find(mlxsw_sp_port, vid);
+ 	if (WARN_ON(!mlxsw_sp_vport))
+ 		return -EINVAL;
++	mlxsw_sp_port_vlan = mlxsw_sp_port_vlan_find_by_vid(mlxsw_sp_port, vid);
+ 
+ 	switch (event) {
+ 	case NETDEV_UP:
+ 		return mlxsw_sp_vport_rif_sp_join(mlxsw_sp_vport, l3_dev);
+ 	case NETDEV_DOWN:
+-		mlxsw_sp_vport_rif_sp_leave(mlxsw_sp_vport);
++		mlxsw_sp_port_vlan_rif_sp_leave(mlxsw_sp_port_vlan);
+ 		break;
+ 	}
+ 
 -- 
 2.9.3
