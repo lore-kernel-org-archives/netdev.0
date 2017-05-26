@@ -1,107 +1,147 @@
-From: Wei Sun <wsun@cse.unl.edu>
-Subject: A bug report for Linux TCP congestion control algorithms
-Date: Fri, 26 May 2017 01:08:34 -0500
-Message-ID: <CAMN46fP_a_Jti_rcLze=7yoaDroQ7qn8kek9HMKtFEQpbm7R3A@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="94eb2c0550aeec439c0550672a1b"
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next 00/18] mlxsw: Improve extensibility
+Date: Fri, 26 May 2017 08:37:22 +0200
+Message-ID: <20170526063740.8909-1-jiri@resnulli.us>
+Cc: davem@davemloft.net, idosch@mellanox.com, mlxsw@mellanox.com,
+        stephen@networkplumber.org, nikolay@cumulusnetworks.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f177.google.com ([209.85.220.177]:33557 "EHLO
-        mail-qk0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1030445AbdEZGIg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 26 May 2017 02:08:36 -0400
-Received: by mail-qk0-f177.google.com with SMTP id y201so898773qka.0
-        for <netdev@vger.kernel.org>; Thu, 25 May 2017 23:08:36 -0700 (PDT)
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:35095 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1762092AbdEZGhn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 26 May 2017 02:37:43 -0400
+Received: by mail-wm0-f67.google.com with SMTP id g15so1683391wmc.2
+        for <netdev@vger.kernel.org>; Thu, 25 May 2017 23:37:43 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---94eb2c0550aeec439c0550672a1b
-Content-Type: text/plain; charset="UTF-8"
+From: Jiri Pirko <jiri@mellanox.com>
 
-Hi there,
+Ido says:
 
-we find a special case for Linux TCP undo operations where
-tp->snd_cwnd could be extremely large (e.g., 4294967294) by two
-consecutive cwnd undo operations when using
-reno/veno/vegas/highspeed/HTCP/yeah/westwood/hybla/illinois/scalable/lp
-congestion control algorithms in the latest long-term kernel 4.9.
+Since the initial introduction of the bridge offload in commit
+56ade8fe3fe1 ("mlxsw: spectrum: Add initial support for Spectrum ASIC")
+the per-port struct was used to store both physical properties of the
+port as well as logical bridge properties such as learning and active
+VLANs in the VLAN-aware bridge.
 
-e.g., a simple trace for sender-side tcp state variables
-cwnd               ssthresh              ca_state
-10                   2147483647            0
-10                   2147483647            0
-1                           5                        4
-11                    2147483647           4                   first
-undo operation
-4294967294    2147483647           0                   second undo operation
-4294967294    2147483647           0
+The above resulted in a bloated struct and code that is getting
+increasingly difficult to extend when stacked devices are taken into
+account as well as more advanced use cases such as IGMP snooping.
 
+Due to the incremental development nature of this driver as well as the
+complexity of the underlying hardware, subsequent design decisions failed
+to generalize the FID and RIF resources, which could've benefited from
+a more generic design, resulting in consolidated code paths and better
+extensibility with regards to future ASICs and use cases.
 
-By debugging the code, we find that the second undo operation was
-triggered by F-RTO mechanism without checking current tp->undo_marker.
+This patchset tries to solve both of these design problems, as they're
+tightly coupled. To ease the code review, the changes are done in a
+bottom-up manner, in which the port struct is the first to be patched,
+then the FIDs the ports are mapped to and finally the RIFs configured on
+top.
 
-The case should be existing for all kernel versions depending on F-RTO
-internals (i.e., this bug exists for kernels 4.10 and earlier)
+The first half of the patchset gradually moves away from the previous
+design to a design that is more in sync with the underlying hardware and
+which clearly separates between hardware-specific structs and logical
+ones such as a bridge port.
 
-Just Let you know in case of some vulnerabilities as it is not hard to
-trigger this specific case.
+All the bridge-specific information is removed from the port struct, as
+well as the list of VLAN devices ("vPorts") configured on top of it.
+Instead, a linked list of VLANs is introduced, which allows each VLAN
+to hold a state, such as mapping to a particular FID and membership in
+a bridge. The data structures are depicted in the following figure:
+ 
+                                  mlxsw_sp_bridge_device
+                                       +----------+
+                                       |          |
+                                  +----+          |
+                                  |    |          |
+                                  |    +----------+
+                                  |
+             mlxsw_sp_bridge_port |
+                 +----------+     |
+                 |          |     |
+              +-->          +-----+--> ..
+              |  |          |
+              |  +----+-----+
+              |       |
+              |       v
+              | mlxsw_sp_bridge_vlan
+              |  +----------+
+              |  | vid X    |
+              |  |          +--> ..
+              |  |          |
+              |  +----+-----+
+              |       |
+              +--+----v-----+
+                 | vid X    |
+              +--+          +--> ..
+              |  |          |
+mlxsw_sp_port |  +----------+
++----------+  | mlxsw_sp_port_vlan
+|          |  |
+|          +--+
+|          |
++----------+
 
-Attached is a simple Google's packetdrill script to trigger it and a
-possible patch to fix it. Thanks
+This model allows us to consolidate many of the code paths relating to
+VLAN-aware and VLAN-unaware bridges, as the latter is simply represented
+using a bridge port with a VLAN list size of one. Another advantage of
+the model is that it's easy to extend it with future per-VLAN
+attributes - such as mrouter indication - by merely pushing these down
+from the bridge port struct to the bridge VLAN one.
 
---94eb2c0550aeec439c0550672a1b
-Content-Type: text/plain; charset="US-ASCII"; name="path.diff"
-Content-Disposition: attachment; filename="path.diff"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_j35g20gf0
+The second half of the patchset builds on top of previous work and
+prepares the driver for the common FID and RIF cores, which are finally
+implemented in the last two patches. These exploit the fact that despite
+the different kinds of FIDs and RIFs, they do share a common object on
+which the core operations can operate on.
 
-ZGlmZiAtLWdpdCBhL25ldC9pcHY0L3RjcF9pbnB1dC5jIGIvbmV0L2lwdjQvdGNwX2lucHV0LmMK
-aW5kZXggNzcyN2ZmZS4uZGEyMzIyMSAxMDA2NDQKLS0tIGEvbmV0L2lwdjQvdGNwX2lucHV0LmMK
-KysrIGIvbmV0L2lwdjQvdGNwX2lucHV0LmMKQEAgLTI3MzMsNyArMjczMyw3IEBAIHN0YXRpYyB2
-b2lkIHRjcF9wcm9jZXNzX2xvc3Moc3RydWN0IHNvY2sgKnNrLCBpbnQgZmxhZywgYm9vbCBpc19k
-dXBhY2ssCiAJCSAqIGxvc3QsIGkuZS4sIG5ldmVyLXJldHJhbnNtaXR0ZWQgZGF0YSBhcmUgKHMp
-YWNrZWQuCiAJCSAqLwogCQlpZiAoKGZsYWcgJiBGTEFHX09SSUdfU0FDS19BQ0tFRCkgJiYKLQkJ
-ICAgIHRjcF90cnlfdW5kb19sb3NzKHNrLCB0cnVlKSkKKwkJICAgIHRjcF90cnlfdW5kb19sb3Nz
-KHNrLCB0cC0+dW5kb19tYXJrZXIpKQogCQkJcmV0dXJuOwogCiAJCWlmIChhZnRlcih0cC0+c25k
-X254dCwgdHAtPmhpZ2hfc2VxKSkgewo=
---94eb2c0550aeec439c0550672a1b
-Content-Type: application/octet-stream; name="reproduce.pkt"
-Content-Disposition: attachment; filename="reproduce.pkt"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_j35g20go1
+By hiding both objects from the rest of the driver and modeling their
+operations using a VFT, it'll be easier to extend the driver for future
+use cases such as VXLAN.
 
-LyoqKioqKioqKioqKioqKgpBIHNpbXBlIHNjcmlwdCB0byB0cmlnZ2VyIHRoZSBidWcKdXNhZ2U6
-CjEuIERvd25sb2FkIHBhY2tldGRyaWxsIHRvb2wgKGh0dHBzOi8vZ2l0aHViLmNvbS9nb29nbGUv
-cGFja2V0ZHJpbGwvdHJlZS9tYXN0ZXIvZ3Rlc3RzL25ldC9wYWNrZXRkcmlsbCkgYW5kIHRoZW4g
-cnVuIHRoaXMgc2NyaXB0CjIuIHN1ZG8gLi9wYWNrZXRkcmlsbCByZXByb2R1Y2UucGt0IC0tdG9s
-ZXJhbmNlX3VzZWNzPTEwMDAwMAoKb3V0cHV0OgoxMCAyMTQ3NDgzNjQ3IDAKMTAgMjE0NzQ4MzY0
-NyAwCjEgNSA0CjExIDIxNDc0ODM2NDcgNAo0Mjk0OTY3Mjk0IDIxNDc0ODM2NDcgMAo0Mjk0OTY3
-Mjk0IDIxNDc0ODM2NDcgMAoqKioqKioqKioqKioqKioqKi8KCgorMCBgc3lzY3RsIC1xIG5ldC5p
-cHY0LnRjcF9jb25nZXN0aW9uX2NvbnRyb2w9cmVub2AgIC8vIGFsc28gZm9yIHZlbm8vdmVnYXMv
-aGlnaHNwZWVkL0hUQ1AveWVhaC93ZXN0d29vZC9oeWJsYS9pbGxpbm9pcy9zY2FsYWJsZSBpbiBs
-cCBpbiBrZXJuZWxzIDQuMTAob25seSByZW5vIGFuZCBodGNwKSBhbmQgZWFybGllcihhbGwpCisw
-IGBzeXNjdGwgLXEgbmV0LmlwdjQudGNwX2ZydG89MWAgLy8gZGVmYXVsdDogdGNwX2ZydG8gPSAx
-IChpLmUuLCB0aGUgYnVnIGV4aXN0cyB3aGVuIGVuYWJsaW5nIGZydG8pCiswIGBldGh0b29sIC1L
-IHR1bjAgZ3NvIG9mZiB0c28gb2ZmYCAvLyBjb25maWd1cmVkIGZvciBwYWNrZXRkcmlsbCB1c2UK
-Ci8vIEVzdGFibGlzaCBhIGNvbm5lY3Rpb24uCjAuMDAwIHNvY2tldCguLi4sIFNPQ0tfU1RSRUFN
-LCBJUFBST1RPX1RDUCkgPSAzCjAuMDAwIHNldHNvY2tvcHQoMywgU09MX1NPQ0tFVCwgU09fUkVV
-U0VBRERSLCBbMV0sIDQpID0gMAowLjAwMCBiaW5kKDMsIC4uLiwgLi4uKSA9IDAKMC4wMDAgbGlz
-dGVuKDMsIDEpID0gMAoKMC4xMDAgPCBTIDA6MCgwKSB3aW4gNDIzNDAgPG1zcyAxNDYwLG5vcCxu
-b3AsVFMgdmFsIDEwMCBlY3IgMCxub3Asd3NjYWxlIDEyPgowLjEwMCA+IFMuIDA6MCgwKSBhY2sg
-MSA8bXNzIDE0NjAgLG5vcCxub3AsVFMgdmFsIDEwMCBlY3IgMTAwLCBub3AsIHdzY2FsZSA3Pgow
-LjExMCA8IC4gMToxKDApIGFjayAxICB3aW4gMTEwMCA8bm9wLG5vcCxUUyB2YWwgMTEwIGVjciAx
-MDA+IAowLjEyMCBhY2NlcHQoMywgLi4uLCAuLi4pID0gNAowLjEzICV7IHByaW50IHRjcGlfc25k
-X2N3bmQsdGNwaV9zbmRfc3N0aHJlc2gsIHRjcGlfY2Ffc3RhdGV9JQoKLy8gU2VuZCAxMCBNU1Mu
-CjAuMjAwIHdyaXRlKDQsIC4uLiwgMTQ2MDApID0gMTQ2MDAKMC4yMDAgPiAuIDE6MTQ0OSgxNDQ4
-KSBhY2sgMSA8bm9wLG5vcCxUUyB2YWwgMTIwIGVjciAxMTA+CjAuMjAwICAleyBwcmludCB0Y3Bp
-X3NuZF9jd25kLHRjcGlfc25kX3NzdGhyZXNoLCB0Y3BpX2NhX3N0YXRlfSUKCjAuNjAgICV7IHBy
-aW50IHRjcGlfc25kX2N3bmQsdGNwaV9zbmRfc3N0aHJlc2gsIHRjcGlfY2Ffc3RhdGV9JQowLjYw
-IDwgLiAxOjEoMCkgYWNrIDE0NDkgd2luIDExIDxub3Asbm9wLFRTIHZhbCA2MDAgZWNyIDEyMD4K
-MC42MCAgJXsgcHJpbnQgdGNwaV9zbmRfY3duZCx0Y3BpX3NuZF9zc3RocmVzaCwgdGNwaV9jYV9z
-dGF0ZX0lCjAuNzAgPCAuIDE6MSgwKSBhY2sgMjg5NyB3aW4gMTEgPG5vcCxub3AsVFMgdmFsIDcw
-MCBlY3IgMTIwPgowLjcwICV7IHByaW50IHRjcGlfc25kX2N3bmQsdGNwaV9zbmRfc3N0aHJlc2gs
-IHRjcGlfY2Ffc3RhdGV9JQowLjgwIDwgLiAxOjEoMCkgYWNrIDQzNDYgd2luIDExIDxub3Asbm9w
-LFRTIHZhbCA4MDAgZWNyIDEyMD4KMC44MCAleyBwcmludCB0Y3BpX3NuZF9jd25kLHRjcGlfc25k
-X3NzdGhyZXNoLCB0Y3BpX2NhX3N0YXRlfSUKCjEuMCBgc3lzY3RsIC1xIG5ldC5pcHY0LnRjcF9j
-b25nZXN0aW9uX2NvbnRyb2w9Y3ViaWNgLy8gY2hhbmdlIHRvIGRlZmF1bHQgdmFsdWUgYWdpYW4K
---94eb2c0550aeec439c0550672a1b--
+Tested using following LNST recipes:
+https://github.com/jpirko/lnst/tree/master/recipes/switchdev
+
+Ido Schimmel (18):
+  bridge: Export VLAN filtering state
+  bridge: Export multicast enabled state
+  mlxsw: spectrum: Set port's mode according to FID mappings
+  mlxsw: spectrum: Introduce Port-VLAN structure
+  mlxsw: spectrum: Change signature of FID leave function
+  mlxsw: spectrum_router: Replace vPorts with Port-VLAN
+  mlxsw: spectrum: Don't lose bridge port device during enslavement
+  mlxsw: spectrum: Don't create FIDs upon creation of VLAN uppers
+  mlxsw: spectrum: Replace vPorts with Port-VLAN
+  mlxsw: spectrum_router: Allocate FID prior to RIF configuration
+  mlxsw: spectrum_router: Allocate RIF prior to its configuration
+  mlxsw: spectrum_router: Extend the RIF struct
+  mlxsw: spectrum_router: Configure RIFs based on RIF struct
+  mlxsw: spectrum_router: Destroy RIF only based on its struct
+  mlxsw: spectrum_router: Flood packets to router after RIF creation
+  mlxsw: spectrum_router: Determine VR first when creating RIF
+  mlxsw: spectrum: Implement common FID core
+  mlxsw: spectrum_router: Implement common RIF core
+
+ drivers/net/ethernet/mellanox/mlxsw/Makefile       |    3 +-
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c     |  974 ++----------
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.h     |  240 ++-
+ drivers/net/ethernet/mellanox/mlxsw/spectrum_acl.c |   17 +
+ drivers/net/ethernet/mellanox/mlxsw/spectrum_fid.c |  992 ++++++++++++
+ .../net/ethernet/mellanox/mlxsw/spectrum_flower.c  |    6 +-
+ .../net/ethernet/mellanox/mlxsw/spectrum_router.c  |  746 +++++----
+ .../ethernet/mellanox/mlxsw/spectrum_switchdev.c   | 1662 +++++++++++++-------
+ include/linux/if_bridge.h                          |   14 +
+ net/bridge/br_if.c                                 |    2 +-
+ net/bridge/br_mdb.c                                |    4 +-
+ net/bridge/br_multicast.c                          |    8 +
+ net/bridge/br_netlink.c                            |    2 +-
+ net/bridge/br_private.h                            |    9 -
+ net/bridge/br_vlan.c                               |    8 +
+ 15 files changed, 2787 insertions(+), 1900 deletions(-)
+ create mode 100644 drivers/net/ethernet/mellanox/mlxsw/spectrum_fid.c
+
+-- 
+2.9.3
