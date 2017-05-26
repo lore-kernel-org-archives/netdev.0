@@ -1,62 +1,94 @@
-From: Yuchung Cheng <ycheng@google.com>
-Subject: Re: A bug report for Linux TCP congestion control algorithms
-Date: Fri, 26 May 2017 09:51:58 -0700
-Message-ID: <CAK6E8=fHMNmAvxhpi3A5Wgf7UJ=UivUShL6nD62SK=g8BfdVMw@mail.gmail.com>
-References: <CAMN46fP_a_Jti_rcLze=7yoaDroQ7qn8kek9HMKtFEQpbm7R3A@mail.gmail.com>
+From: Dennis Dalessandro <dennis.dalessandro-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [for-next 5/6] net/mlx5: Bump driver version
+Date: Fri, 26 May 2017 12:55:22 -0400
+Message-ID: <ee23ad82-4a2e-8546-d41b-11f979b127bb@intel.com>
+References: <20170523114404.20387-1-saeedm@mellanox.com>
+ <20170523114404.20387-6-saeedm@mellanox.com>
+ <3733699c-480b-a1aa-14e1-4f27f86cfead@intel.com>
+ <CALzJLG_ha-XiPAMnoKrUgm_EwPx2yH0T2y4EBRfrWNYSZi1cTg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: netdev <netdev@vger.kernel.org>
-To: Wei Sun <wsun@cse.unl.edu>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f45.google.com ([209.85.214.45]:34011 "EHLO
-        mail-it0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S944335AbdEZQx1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 26 May 2017 12:53:27 -0400
-Received: by mail-it0-f45.google.com with SMTP id a10so3137076itg.1
-        for <netdev@vger.kernel.org>; Fri, 26 May 2017 09:52:39 -0700 (PDT)
-In-Reply-To: <CAMN46fP_a_Jti_rcLze=7yoaDroQ7qn8kek9HMKtFEQpbm7R3A@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Ilan Tayari <ilant-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Tariq Toukan <tariqt-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+To: Saeed Mahameed <saeedm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CALzJLG_ha-XiPAMnoKrUgm_EwPx2yH0T2y4EBRfrWNYSZi1cTg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Content-Language: en-US
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, May 25, 2017 at 11:08 PM, Wei Sun <wsun@cse.unl.edu> wrote:
->
-> Hi there,
->
-> we find a special case for Linux TCP undo operations where
-> tp->snd_cwnd could be extremely large (e.g., 4294967294) by two
-> consecutive cwnd undo operations when using
-> reno/veno/vegas/highspeed/HTCP/yeah/westwood/hybla/illinois/scalable/lp
-> congestion control algorithms in the latest long-term kernel 4.9.
->
-> e.g., a simple trace for sender-side tcp state variables
-> cwnd               ssthresh              ca_state
-> 10                   2147483647            0
-> 10                   2147483647            0
-> 1                           5                        4
-> 11                    2147483647           4                   first
-> undo operation
-> 4294967294    2147483647           0                   second undo operation
-> 4294967294    2147483647           0
->
->
-> By debugging the code, we find that the second undo operation was
-> triggered by F-RTO mechanism without checking current tp->undo_marker.
->
-> The case should be existing for all kernel versions depending on F-RTO
-> internals (i.e., this bug exists for kernels 4.10 and earlier)
-Thanks for discovering that. Note this issue is addressed by
+On 5/26/2017 12:35 PM, Saeed Mahameed wrote:
+> On Fri, May 26, 2017 at 3:56 PM, Dennis Dalessandro
+> <dennis.dalessandro-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org> wrote:
+>> On 5/23/2017 7:44 AM, Saeed Mahameed wrote:
+>>>
+>>> From: Tariq Toukan <tariqt-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+>>>
+>>> Remove date and bump version for mlx5_core driver.
+>>>
+>>> Signed-off-by: Tariq Toukan <tariqt-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+>>> Signed-off-by: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+>>
+>>
+>> So I just complained about the bnxt_re doing this. I guess I need to raise a
+>> flag here too. Now to be clear I'm not against doing this version stuff. I'm
+>> against using it for some internal tracking that is meaningless to the
+>> kernel community.
+>>
+>> There is no detail in your commit message as to what this driver version is
+>> used for. Can you please explain how your use of driver version is valid
+>> while theirs is not?
+>>
+> 
+> Hi Denny,
+> 
+> We don't use this for internal or any kind of tracking at all, if you
+> look at the driver change log, we hardly touch the version if at all !
+> 
+> but since we decided to remove the date since it is very misleading
+> and we got some complaints that some think they have an old driver
+> just because of the date, also we bumped the version so it would align
+> with our drivers external package (OFED).
 
-commit 89fe18e44f7ee5ab1c90d0dff5835acee7751427
-Author: Yuchung Cheng <ycheng@google.com>
-Date:   Thu Jan 12 22:11:37 2017 -0800
+To me that's not a reason to include something in the kernel. At least 
+your external package is something that is available and not an internal 
+development process, but still probably no interest to anyone in the kernel.
 
-    tcp: extend F-RTO to catch more spurious timeouts
+> Anyway i don't think we are going to change this frequently or even use it.
 
+> But if you are that much against touching this ethtool field, why
+> don't you just jump into the mud and remove it from the tree, I
+> imagine it is really hard for you to watch for patches doing this and
+> nack them on the list.
 
->
->
-> Just Let you know in case of some vulnerabilities as it is not hard to
-> trigger this specific case.
->
-> Attached is a simple Google's packetdrill script to trigger it and a
-> possible patch to fix it. Thanks
+I have no interest in policing that. I complained about the other driver 
+because I know patches like that were NAKed by Greg KH in the past 
+(ours). I'd rather not see the rdma subsystem keep making the same 
+mistakes is all. We want to improve our standing in the community after 
+all. As I said I'm not personally against it as evidenced by our driver.
+
+>> I realize Dave has already pulled this and I'm not asking for it to be
+>> reverted but maybe some discussion will help guide future patch submissions
+>> which do this stuff.
+>>
+> 
+> Sure, although i don't think we are going to use those version fields
+> in the future,
+> please allow me to ask, how do you do your driver versioning ? how do
+> you track things ?
+> and what is your future vision regarding ethool->drv_version ?
+
+That's just the thing, we don't do anything with it either really. I'm 
+trying to justify its existence to myself and if you folks had some whiz 
+bang idea for a driver version I was interested in hearing what it was.
+
+-Denny
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
