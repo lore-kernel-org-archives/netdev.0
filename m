@@ -1,8 +1,8 @@
 From: Nathan Fontenot <nfont@linux.vnet.ibm.com>
-Subject: [PATCH net-next 07/11] ibmvnic: Deactivate RX pool buffer
- replenishment on H_CLOSED
-Date: Fri, 26 May 2017 10:30:48 -0400
-Message-ID: <20170526143048.63648.46534.stgit@ltcalpine2-lp14.aus.stglabs.ibm.com>
+Subject: [PATCH net-next 08/11] ibmvnic: Check adapter state during
+ ibmvnic_poll
+Date: Fri, 26 May 2017 10:30:54 -0400
+Message-ID: <20170526143054.63648.25863.stgit@ltcalpine2-lp14.aus.stglabs.ibm.com>
 References: <20170526142523.63648.62938.stgit@ltcalpine2-lp14.aus.stglabs.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,78 +10,58 @@ Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org, tlfalcon@linux.vnet.ibm.com,
         jallen@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:58106 "EHLO
-        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1030490AbdEZOmd (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 26 May 2017 10:42:33 -0400
-Received: from pps.filterd (m0098413.ppops.net [127.0.0.1])
-        by mx0b-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v4QEe35S026948
-        for <netdev@vger.kernel.org>; Fri, 26 May 2017 10:42:33 -0400
-Received: from e15.ny.us.ibm.com (e15.ny.us.ibm.com [129.33.205.205])
-        by mx0b-001b2d01.pphosted.com with ESMTP id 2apjnfjmf9-1
+Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:38637 "EHLO
+        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1765077AbdEZOmj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 26 May 2017 10:42:39 -0400
+Received: from pps.filterd (m0098393.ppops.net [127.0.0.1])
+        by mx0a-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v4QEdnIE005717
+        for <netdev@vger.kernel.org>; Fri, 26 May 2017 10:42:39 -0400
+Received: from e17.ny.us.ibm.com (e17.ny.us.ibm.com [129.33.205.207])
+        by mx0a-001b2d01.pphosted.com with ESMTP id 2ap8vrgf3m-1
         (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Fri, 26 May 2017 10:42:32 -0400
+        for <netdev@vger.kernel.org>; Fri, 26 May 2017 10:42:39 -0400
 Received: from localhost
-        by e15.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        by e17.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
         for <netdev@vger.kernel.org> from <nfont@linux.vnet.ibm.com>;
-        Fri, 26 May 2017 10:42:32 -0400
+        Fri, 26 May 2017 10:42:38 -0400
 In-Reply-To: <20170526142523.63648.62938.stgit@ltcalpine2-lp14.aus.stglabs.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
+We do not want to process any receive frames if the ibmvnic_poll
+routine is invoked while a reset is in process. Also, before
+replenishing the rx pools in the ibmvnic_poll, we want to
+make sure the adapter is not in the process of closing.
 
-If H_CLOSED is returned, halt RX buffer replenishment activity
-until firmware sends a notification that the driver can reset.
-
-Signed-off-by: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
+Signed-off-by: Nathan Fontenot <nfont@linux.vnet.ibm.com>
 ---
- drivers/net/ethernet/ibm/ibmvnic.c |   21 +++++++++++++++++++++
- 1 file changed, 21 insertions(+)
+ drivers/net/ethernet/ibm/ibmvnic.c |    8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/net/ethernet/ibm/ibmvnic.c b/drivers/net/ethernet/ibm/ibmvnic.c
-index 1c3f1ed..47421e4 100644
+index 47421e4..760352f 100644
 --- a/drivers/net/ethernet/ibm/ibmvnic.c
 +++ b/drivers/net/ethernet/ibm/ibmvnic.c
-@@ -200,6 +200,15 @@ static void free_long_term_buff(struct ibmvnic_adapter *adapter,
- 	dma_free_coherent(dev, ltb->size, ltb->buff, ltb->addr);
- }
+@@ -1435,6 +1435,10 @@ static int ibmvnic_poll(struct napi_struct *napi, int budget)
+ 	struct ibmvnic_adapter *adapter = netdev_priv(netdev);
+ 	int scrq_num = (int)(napi - adapter->napi);
+ 	int frames_processed = 0;
++
++	if (adapter->resetting)
++		return 0;
++
+ restart_poll:
+ 	while (frames_processed < budget) {
+ 		struct sk_buff *skb;
+@@ -1493,7 +1497,9 @@ static int ibmvnic_poll(struct napi_struct *napi, int budget)
+ 		netdev->stats.rx_bytes += length;
+ 		frames_processed++;
+ 	}
+-	replenish_rx_pool(adapter, &adapter->rx_pool[scrq_num]);
++
++	if (adapter->state != VNIC_CLOSING)
++		replenish_rx_pool(adapter, &adapter->rx_pool[scrq_num]);
  
-+static void deactivate_rx_pools(struct ibmvnic_adapter *adapter)
-+{
-+	int i;
-+
-+	for (i = 0; i < be32_to_cpu(adapter->login_rsp_buf->num_rxadd_subcrqs);
-+	     i++)
-+		adapter->rx_pool[i].active = 0;
-+}
-+
- static void replenish_rx_pool(struct ibmvnic_adapter *adapter,
- 			      struct ibmvnic_rx_pool *pool)
- {
-@@ -217,6 +226,9 @@ static void replenish_rx_pool(struct ibmvnic_adapter *adapter,
- 	int index;
- 	int i;
- 
-+	if (!pool->active)
-+		return;
-+
- 	handle_array = (u64 *)((u8 *)(adapter->login_rsp_buf) +
- 				      be32_to_cpu(adapter->login_rsp_buf->
- 				      off_rxadd_subcrqs));
-@@ -287,6 +299,15 @@ static void replenish_rx_pool(struct ibmvnic_adapter *adapter,
- 	dev_kfree_skb_any(skb);
- 	adapter->replenish_add_buff_failure++;
- 	atomic_add(buffers_added, &pool->available);
-+
-+	if (lpar_rc == H_CLOSED) {
-+		/* Disable buffer pool replenishment and report carrier off if
-+		 * queue is closed. Firmware guarantees that a signal will
-+		 * be sent to the driver, triggering a reset.
-+		 */
-+		deactivate_rx_pools(adapter);
-+		netif_carrier_off(adapter->netdev);
-+	}
- }
- 
- static void replenish_pools(struct ibmvnic_adapter *adapter)
+ 	if (frames_processed < budget) {
+ 		enable_scrq_irq(adapter, adapter->rx_scrq[scrq_num]);
