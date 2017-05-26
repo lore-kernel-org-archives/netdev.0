@@ -1,83 +1,78 @@
-From: Douglas Caetano dos Santos <douglascs@taghos.com.br>
-Subject: [PATCH] tcp: reinitialize MTU probing when setting MSS in a TCP
- repair
-Date: Fri, 26 May 2017 14:28:00 -0300
-Message-ID: <c5033bad-805d-c3f6-3de4-38ab5d3d84e8@taghos.com.br>
+From: Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [for-next 4/6] net/mlx5: FPGA, Add basic support for Innova
+Date: Fri, 26 May 2017 10:56:25 -0700
+Message-ID: <20170526175624.5xxflpf24je5673h@ast-mbp>
+References: <20170523114404.20387-1-saeedm@mellanox.com>
+ <20170523114404.20387-5-saeedm@mellanox.com>
+ <20170524165059.42lmrwzzcxvi2sf7@ast-mbp>
+ <AM4PR0501MB1940885C2F1CEF4DDE4EA8D1DBFF0@AM4PR0501MB1940.eurprd05.prod.outlook.com>
+ <20170526030701.du4345mbprhcwjyi@ast-mbp>
+ <CALzJLG98D=3yMJV_q4sjVNG41AERFRU+6rwqQJsxnRuVeDTPdA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>,
-        Pavel Emelyanov <xemul@parallels.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp862.redehostenvio.com.br ([187.84.239.76]:45084 "EHLO
-        smtp862.redehostenvio.com.br" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1756623AbdEZR23 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 26 May 2017 13:28:29 -0400
-Received: by smtp837.redehostenvio.com.br id h51j4e29co8r for <netdev@vger.kernel.org>; Fri, 26 May 2017 14:30:42 -0300 (envelope-from <douglascs@taghos.com.br>)
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Ilan Tayari <ilant-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "jsorensen-b10kYP2dOMg@public.gmane.org" <jsorensen-b10kYP2dOMg@public.gmane.org>,
+        Andy Shevchenko <andy.shevchenko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        linux-fpga-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Alan Tull <atull-yzvPICuk2ABMcg4IHK0kFoH6Mc4MB0Vx@public.gmane.org>, yi1.li-VuQAYsv1563Yd54FQh9/CA@public.gmane.org
+To: Saeed Mahameed <saeedm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <CALzJLG98D=3yMJV_q4sjVNG41AERFRU+6rwqQJsxnRuVeDTPdA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Douglas Caetano dos Santos <douglascs@taghos.com.br>
+On Fri, May 26, 2017 at 11:59:26AM +0300, Saeed Mahameed wrote:
+> 
+> And for FPGA support, we did it correctly this time, all the new code
+> is under mlx5/core/fgpa ..
 
-MTU probing initialization occurred only at connect() and at SYN or
-SYN-ACK reception, but the former sets MSS to either the default or the
-user set value (through TCP_MAXSEG sockopt) and the latter never happens
-with repaired sockets.
+s/correctly/incorrectly/ ?
 
-The result was that, with MTU probing enabled and unless TCP_MAXSEG
-sockopt was used before connect(), probing would be stuck at
-tcp_base_mss value until tcp_probe_interval seconds have passed.
+> Well, this is a well known dilemma, if one has a new feature and has no sandbox
+> area to put it in the first phase, it is better to start from the most
+> common place
+> for that feature which is the originating place, before defining
+> APIs/infrastructures,
+> until the feature is complete and every body is happy about it.
 
-Signed-off-by: Douglas Caetano dos Santos <douglascs@taghos.com.br>
----
-I'm not sure if there are any side effects doing this, so comments are welcome
-as always.
+There is driver/fpga to manage fpga, but mlx fpga+nic combo
+will be managed via mlx5/core/fpga/
 
-Also, I changed the function's argument from struct tcp_sock to struct sock
-because I couldn't find any inverse of tcp_sk() funciton and thought that using
-"&tp->inet_conn.icsk_inet.sk" or "(struct sock *)tp" would be worse.
+Adding fpga folks for visibility.
 
- net/ipv4/tcp.c | 6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
+> 1. eswitch is a very integral steering feature of the ConnectX family
+> and is valid for all ConnectX4/lx/5/6 .. cards.
 
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 842b575f8fdd..d782637e595e 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -2378,9 +2378,10 @@ static int tcp_repair_set_window(struct tcp_sock *tp, char __user *optbuf, int l
- 	return 0;
- }
- 
--static int tcp_repair_options_est(struct tcp_sock *tp,
-+static int tcp_repair_options_est(struct sock *sk,
- 		struct tcp_repair_opt __user *optbuf, unsigned int len)
- {
-+	struct tcp_sock *tp = tcp_sk(sk);
- 	struct tcp_repair_opt opt;
- 
- 	while (len >= sizeof(opt)) {
-@@ -2393,6 +2394,7 @@ static int tcp_repair_options_est(struct tcp_sock *tp,
- 		switch (opt.opt_code) {
- 		case TCPOPT_MSS:
- 			tp->rx_opt.mss_clamp = opt.opt_val;
-+			tcp_mtup_init(sk);
- 			break;
- 		case TCPOPT_WINDOW:
- 			{
-@@ -2552,7 +2554,7 @@ static int do_tcp_setsockopt(struct sock *sk, int level,
- 		if (!tp->repair)
- 			err = -EINVAL;
- 		else if (sk->sk_state == TCP_ESTABLISHED)
--			err = tcp_repair_options_est(tp,
-+			err = tcp_repair_options_est(sk,
- 					(struct tcp_repair_opt __user *)optval,
- 					optlen);
- 		else
--- 
-2.12.2
+and kernel has no visibility into it and mlx has no incentive to expose it,
+since community needs to agree on api whereas hiding in the driver
+is 'mlx territory' and much easier to push arbitrary patches to.
+
+> "The FPGA is a bump-on-the-wire and thus affects operation of
+> the mlx5_core driver on the ConnectX ASIC."
+> 
+> This is not a general purpose FPGA ! it even doesn't have a PCI Id or
+> it is own PCI function.
+> it simply allows the ConnectX Chip user to inspect/inject or run user
+> specif login on traffic going in/out of the chip.
+
+... and bluefield arm cpus are not general purpose cpus and
+only used to offload networking just like this fpga?
+
+> But i agree with you some serious API brainstorming should be
+> considered, but not at this stage,
+> this patch only tells the ConnectX card (if you have FPGA, please enable it).
+
+serious api discussion needs be done before things like eswitch, fpga
+exposed to users otherwise we end up in the eswitch situation that
+drops packets based on its own invisible logic, but with hidden fpga
+it will be even more obscure.
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
