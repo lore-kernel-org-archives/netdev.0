@@ -1,103 +1,84 @@
-From: David Daney <ddaney@caviumnetworks.com>
-Subject: Re: [PATCH 5/5] MIPS: Add support for eBPF JIT.
-Date: Fri, 26 May 2017 12:20:32 -0700
-Message-ID: <9fcd54f8-ab2f-84aa-7db4-2165b746d7c3@caviumnetworks.com>
-References: <20170526003826.10834-1-david.daney@cavium.com>
- <20170526003826.10834-6-david.daney@cavium.com>
- <5928463C.5000204@iogearbox.net>
- <e9c9348f-aa61-4384-e065-ba6bafc0bc13@caviumnetworks.com>
- <59287D71.6000307@iogearbox.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch net-next 00/18] mlxsw: Improve extensibility
+Date: Fri, 26 May 2017 15:20:35 -0400 (EDT)
+Message-ID: <20170526.152035.708896761272676930.davem@davemloft.net>
+References: <20170526063740.8909-1-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Markos Chandras <markos.chandras@imgtec.com>
-To: Daniel Borkmann <daniel@iogearbox.net>,
-        David Daney <david.daney@cavium.com>,
-        Alexei Starovoitov <ast@kernel.org>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, linux-mips@linux-mips.org,
-        ralf@linux-mips.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <59287D71.6000307@iogearbox.net>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, idosch@mellanox.com, mlxsw@mellanox.com,
+        stephen@networkplumber.org, nikolay@cumulusnetworks.com
+To: jiri@resnulli.us
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:43756 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754180AbdEZTUi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 26 May 2017 15:20:38 -0400
+In-Reply-To: <20170526063740.8909-1-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 05/26/2017 12:09 PM, Daniel Borkmann wrote:
-> On 05/26/2017 05:39 PM, David Daney wrote:
->> On 05/26/2017 08:14 AM, Daniel Borkmann wrote:
->>> On 05/26/2017 02:38 AM, David Daney wrote:
->>>> Since the eBPF machine has 64-bit registers, we only support this in
->>>> 64-bit kernels.  As of the writing of this commit log test-bpf is 
->>>> showing:
->>>>
->>>>    test_bpf: Summary: 316 PASSED, 0 FAILED, [308/308 JIT'ed]
->>>>
->>>> All current test cases are successfully compiled.
->>>>
->>>> Signed-off-by: David Daney <david.daney@cavium.com>
->>>
->>> Awesome work!
->>>
->>> Did you also manage to run tools/testing/selftests/bpf/ fine with
->>> the JIT enabled?
->>
->> I haven't done that yet, I will before the next revision.
->>
->>> [...]
->>>> +struct bpf_prog *bpf_int_jit_compile(struct bpf_prog *prog)
->>>> +{
->>>> +    struct jit_ctx ctx;
->>>> +    unsigned int alloc_size;
->>>> +
->>>> +    /* Only 64-bit kernel supports eBPF */
->>>> +    if (!IS_ENABLED(CONFIG_64BIT) || !bpf_jit_enable)
->>>
->>> Isn't this already reflected by the following?
->>>
->>>    select HAVE_EBPF_JIT if (64BIT && !CPU_MICROMIPS)
->>
->> Not exactly.  The eBPF JIT is in the same file as the classic-BPF JIT, 
->> so when HAVE_EBPF_JIT is false this will indeed never be called.  But 
->> the kernel would otherwise contain all the JIT code.
->>
->> By putting in !IS_ENABLED(CONFIG_64BIT) we allow gcc to eliminate all 
->> the dead code when compiling the JITs.
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Fri, 26 May 2017 08:37:22 +0200
+
+> Ido says:
 > 
-> Side-effect would still be that for cBPF you go through the cBPF
-> JIT instead of letting the kernel convert all cBPF to eBPF and
-> later on go through your eBPF JIT. If you still prefer to have
-> everything in one single file and let gcc eliminate dead code
-> then you can just do single line change ...
+> Since the initial introduction of the bridge offload in commit
+> 56ade8fe3fe1 ("mlxsw: spectrum: Add initial support for Spectrum ASIC")
+> the per-port struct was used to store both physical properties of the
+> port as well as logical bridge properties such as learning and active
+> VLANs in the VLAN-aware bridge.
 > 
-> void bpf_jit_compile(struct bpf_prog *fp)
-> {
->          struct jit_ctx ctx;
->          unsigned int alloc_size, tmp_idx;
+> The above resulted in a bloated struct and code that is getting
+> increasingly difficult to extend when stacked devices are taken into
+> account as well as more advanced use cases such as IGMP snooping.
 > 
->          if (IS_ENABLED(CONFIG_HAVE_EBPF_JIT) || !bpf_jit_enable)
->                  return;
-
-Yes.  In fact I did that for testing.
-
-The cBPF JIT generates smaller code for:
-
-test_bpf: #274 BPF_MAXINSNS: ld_abs+get_processor_id jited:1 44128 PASS
-
-When we attempt to use the eBPF JIT for this, some of the MIPS branch 
-instructions cannot reach their targets (+- 32K instructions).  I didn't 
-feel like fixing the code generation quite yet to handle branches that 
-span more than 32K instructions, so I left the cBPF in place so I could 
-claim that all of the test cases were JITed :-)
-
-For the next revision of the patch I will revisit this.
-
-David.
-
->          [...]
-> }
+> Due to the incremental development nature of this driver as well as the
+> complexity of the underlying hardware, subsequent design decisions failed
+> to generalize the FID and RIF resources, which could've benefited from
+> a more generic design, resulting in consolidated code paths and better
+> extensibility with regards to future ASICs and use cases.
 > 
-> ... and bpf_prog_ebpf_jited() et al wouldn't need to be changed
-> in the core, which are used in kallsyms, and kernel will then
-> also be able to automatically JIT all of seccomp-BPF and the
-> missing cBPF extensions we have through the eBPF JIT w/o extra
-> work.
+> This patchset tries to solve both of these design problems, as they're
+> tightly coupled. To ease the code review, the changes are done in a
+> bottom-up manner, in which the port struct is the first to be patched,
+> then the FIDs the ports are mapped to and finally the RIFs configured on
+> top.
+> 
+> The first half of the patchset gradually moves away from the previous
+> design to a design that is more in sync with the underlying hardware and
+> which clearly separates between hardware-specific structs and logical
+> ones such as a bridge port.
+> 
+> All the bridge-specific information is removed from the port struct, as
+> well as the list of VLAN devices ("vPorts") configured on top of it.
+> Instead, a linked list of VLANs is introduced, which allows each VLAN
+> to hold a state, such as mapping to a particular FID and membership in
+> a bridge. The data structures are depicted in the following figure:
+ ...
+> This model allows us to consolidate many of the code paths relating to
+> VLAN-aware and VLAN-unaware bridges, as the latter is simply represented
+> using a bridge port with a VLAN list size of one. Another advantage of
+> the model is that it's easy to extend it with future per-VLAN
+> attributes - such as mrouter indication - by merely pushing these down
+> from the bridge port struct to the bridge VLAN one.
+> 
+> The second half of the patchset builds on top of previous work and
+> prepares the driver for the common FID and RIF cores, which are finally
+> implemented in the last two patches. These exploit the fact that despite
+> the different kinds of FIDs and RIFs, they do share a common object on
+> which the core operations can operate on.
+> 
+> By hiding both objects from the rest of the driver and modeling their
+> operations using a VFT, it'll be easier to extend the driver for future
+> use cases such as VXLAN.
+> 
+> Tested using following LNST recipes:
+> https://github.com/jpirko/lnst/tree/master/recipes/switchdev
+
+Nice cleanups and consolidation, but like Nikolay I'm not so sure
+about all the exports.
+
+It might even be cleaner (believe it or not) to have the bridge
+structure (or at least a subset of it) be something public that
+drivers can query using inline helpers.
