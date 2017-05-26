@@ -1,61 +1,61 @@
-From: David Daney <david.daney@cavium.com>
-Subject: [PATCH 2/5] MIPS: Correctly define DBSHFL type instruction opcodes.
-Date: Thu, 25 May 2017 17:38:23 -0700
-Message-ID: <20170526003826.10834-3-david.daney@cavium.com>
-References: <20170526003826.10834-1-david.daney@cavium.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Markos Chandras <markos.chandras@imgtec.com>,
-        David Daney <david.daney@cavium.com>
-To: Alexei Starovoitov <ast@kernel.org>,
-        Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, linux-mips@linux-mips.org,
-        ralf@linux-mips.org
-Return-path: <linux-mips-bounce@linux-mips.org>
-In-Reply-To: <20170526003826.10834-1-david.daney@cavium.com>
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
-List-help: <mailto:ecartis@linux-mips.org?Subject=help>
-List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
-List-software: Ecartis version 1.0.0
-List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
-List-owner: <mailto:ralf@linux-mips.org>
-List-post: <mailto:linux-mips@linux-mips.org>
-List-archive: <http://www.linux-mips.org/archives/linux-mips/>
+From: Shawn Lin <shawn.lin-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
+Subject: [PATCH] mwifiex: simplify the code around ra_list
+Date: Fri, 26 May 2017 09:41:49 +0800
+Message-ID: <1495762909-46795-1-git-send-email-shawn.lin@rock-chips.com>
+Cc: Xinming Hu <huxm-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Shawn Lin <shawn.lin-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
+To: Amitkumar Karwar <amitkarwar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-DSHD was incorrectly classified as being BSHFL, and DSHD was missing
-altogether.
+We don't need to check if the list is empty separately
+as we could use list_first_entry_or_null to cover it.
 
-Signed-off-by: David Daney <david.daney@cavium.com>
+Signed-off-by: Shawn Lin <shawn.lin-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
 ---
- arch/mips/include/uapi/asm/inst.h | 9 ++++++++-
- 1 file changed, 8 insertions(+), 1 deletion(-)
 
-diff --git a/arch/mips/include/uapi/asm/inst.h b/arch/mips/include/uapi/asm/inst.h
-index b5e46ae..e5f5385 100644
---- a/arch/mips/include/uapi/asm/inst.h
-+++ b/arch/mips/include/uapi/asm/inst.h
-@@ -276,12 +276,19 @@ enum lx_func {
-  */
- enum bshfl_func {
- 	wsbh_op = 0x2,
--	dshd_op = 0x5,
- 	seb_op  = 0x10,
- 	seh_op  = 0x18,
- };
+ drivers/net/wireless/marvell/mwifiex/tdls.c | 7 ++-----
+ drivers/net/wireless/marvell/mwifiex/wmm.c  | 8 ++------
+ 2 files changed, 4 insertions(+), 11 deletions(-)
+
+diff --git a/drivers/net/wireless/marvell/mwifiex/tdls.c b/drivers/net/wireless/marvell/mwifiex/tdls.c
+index 7d0d3ff..d76ce87 100644
+--- a/drivers/net/wireless/marvell/mwifiex/tdls.c
++++ b/drivers/net/wireless/marvell/mwifiex/tdls.c
+@@ -55,11 +55,8 @@ static void mwifiex_restore_tdls_packets(struct mwifiex_private *priv,
+ 			tx_info->flags |= MWIFIEX_BUF_FLAG_TDLS_PKT;
+ 		} else {
+ 			tid_list = &priv->wmm.tid_tbl_ptr[tid_down].ra_list;
+-			if (!list_empty(tid_list))
+-				ra_list = list_first_entry(tid_list,
+-					      struct mwifiex_ra_list_tbl, list);
+-			else
+-				ra_list = NULL;
++			ra_list = list_first_entry_or_null(tid_list,
++					struct mwifiex_ra_list_tbl, list);
+ 			tx_info->flags &= ~MWIFIEX_BUF_FLAG_TDLS_PKT;
+ 		}
  
- /*
-+ * DBSHFL opcodes
-+ */
-+enum dbshfl_func {
-+	dsbh_op = 0x2,
-+	dshd_op = 0x5,
-+};
-+
-+/*
-  * MSA minor opcodes.
-  */
- enum msa_func {
+diff --git a/drivers/net/wireless/marvell/mwifiex/wmm.c b/drivers/net/wireless/marvell/mwifiex/wmm.c
+index e4ff3b9..744b014 100644
+--- a/drivers/net/wireless/marvell/mwifiex/wmm.c
++++ b/drivers/net/wireless/marvell/mwifiex/wmm.c
+@@ -868,12 +868,8 @@ struct mwifiex_ra_list_tbl *
+ 			return;
+ 		default:
+ 			list_head = priv->wmm.tid_tbl_ptr[tid_down].ra_list;
+-			if (!list_empty(&list_head))
+-				ra_list = list_first_entry(
+-					&list_head, struct mwifiex_ra_list_tbl,
+-					list);
+-			else
+-				ra_list = NULL;
++			ra_list = list_first_entry_or_null(&list_head,
++					struct mwifiex_ra_list_tbl, list);
+ 			break;
+ 		}
+ 	} else {
 -- 
-2.9.4
+1.9.1
