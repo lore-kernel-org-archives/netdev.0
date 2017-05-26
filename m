@@ -1,69 +1,108 @@
-From: Ido Schimmel <idosch@mellanox.com>
-Subject: Re: [patch net-next 01/18] bridge: Export VLAN filtering state
-Date: Fri, 26 May 2017 17:02:00 +0300
-Message-ID: <20170526140200.GA1037@splinter>
-References: <20170526063740.8909-1-jiri@resnulli.us>
- <20170526063740.8909-2-jiri@resnulli.us>
- <b2edc91e-d7cf-a667-2b00-5722ed09a2a6@cumulusnetworks.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next 2/2] net: ndisc.c: minor code improvement
+Date: Fri, 26 May 2017 07:05:27 -0700
+Message-ID: <1495807527.29207.28.camel@perches.com>
+References: <1495805052-2974-1-git-send-email-cugyly@163.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Jiri Pirko <jiri@resnulli.us>, <netdev@vger.kernel.org>,
-        <davem@davemloft.net>, <mlxsw@mellanox.com>,
-        <stephen@networkplumber.org>
-To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: "David S . Miller" <davem@davemloft.net>,
+        David Ahern <dsahern@gmail.com>,
+        yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
+To: yuan linyu <cugyly@163.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-eopbgr20042.outbound.protection.outlook.com ([40.107.2.42]:43952
-        "EHLO EUR02-VE1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1947850AbdEZOCI (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 26 May 2017 10:02:08 -0400
-Content-Disposition: inline
-In-Reply-To: <b2edc91e-d7cf-a667-2b00-5722ed09a2a6@cumulusnetworks.com>
+Received: from smtprelay0031.hostedemail.com ([216.40.44.31]:45381 "EHLO
+        smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S940578AbdEZOFd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 26 May 2017 10:05:33 -0400
+In-Reply-To: <1495805052-2974-1-git-send-email-cugyly@163.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Nik,
-
-On Fri, May 26, 2017 at 11:55:18AM +0300, Nikolay Aleksandrov wrote:
-> On 5/26/17 9:37 AM, Jiri Pirko wrote:
-> > From: Ido Schimmel <idosch@mellanox.com>
-> > 
-> > It's useful for drivers supporting bridge offload to be able to query
-> > the bridge's VLAN filtering state.
-> > 
-> > Currently, upon enslavement to a bridge master, the offloading driver
-> > will only learn about the bridge's VLAN filtering state after the bridge
-> > device was already linked with its slave.
-> > 
-> > Being able to query the bridge's VLAN filtering state allows such
-> > drivers to forbid enslavement in case resource couldn't be allocated for
-> > a VLAN-aware bridge and also choose the correct initialization routine
-> > for the enslaved port, which is dependent on the bridge type.
-> > 
-> > Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-> > Signed-off-by: Jiri Pirko <jiri@mellanox.com>
-> > ---
-> >   include/linux/if_bridge.h | 9 +++++++++
-> >   net/bridge/br_if.c        | 2 +-
-> >   net/bridge/br_mdb.c       | 4 ++--
-> >   net/bridge/br_netlink.c   | 2 +-
-> >   net/bridge/br_private.h   | 9 ---------
-> >   net/bridge/br_vlan.c      | 8 ++++++++
-> >   6 files changed, 21 insertions(+), 13 deletions(-)
-> > 
+On Fri, 2017-05-26 at 21:24 +0800, yuan linyu wrote:
+> From: yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
 > 
-> I must say this bridge -> dev -> bridge looks weird from the bridge POV.
-> Since exports like this seem to be increasing I think it'd be nice to
-> make some API that can be queried instead of exporting symbols for each
-> bridge option or attribute. In this case maybe a simpler solution would've
-> been only a new exported symbol for external users.
+> on x86_64, text size decrease 80 bytes
 
-It seemed more logical to me to export the existing function, but I can
-instead leave it as-is and introduce a new symbol. I'll wait for more
-comments and send a v2 if deemed necessary.
+You are sending whitespace and code reduction changes.
 
-> The patch itself looks good to me.
+Please send the object code size reduction changes
+as a separate patch from the whitespace only changes.
+
+> Signed-off-by: yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
+> ---
+>  net/ipv6/ndisc.c | 32 ++++++++++++++++----------------
+>  1 file changed, 16 insertions(+), 16 deletions(-)
 > 
-> Reviewed-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-
-Thanks for reviewing!
+> diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+> index 292c827..ee9b12c 100644
+> --- a/net/ipv6/ndisc.c
+> +++ b/net/ipv6/ndisc.c
+> @@ -147,17 +147,16 @@ void __ndisc_fill_addr_option(struct sk_buff *skb, int type, void *data,
+>  
+>  	opt[0] = type;
+>  	opt[1] = space >> 3;
+> +	opt   += 2;
+>  
+> -	memset(opt + 2, 0, pad);
+> +	memset(opt, 0, pad);
+>  	opt   += pad;
+>  	space -= pad;
+>  
+> -	memcpy(opt + 2, data, data_len);
+> -	data_len += 2;
+> +	memcpy(opt, data, data_len);
+>  	opt += data_len;
+>  	space -= data_len;
+> -	if (space > 0)
+> -		memset(opt, 0, space);
+> +	memset(opt, 0, space);
+>  }
+>  EXPORT_SYMBOL_GPL(__ndisc_fill_addr_option);
+>  
+> @@ -997,6 +996,7 @@ static void ndisc_recv_na(struct sk_buff *skb)
+>  	if (neigh) {
+>  		u8 old_flags = neigh->flags;
+>  		struct net *net = dev_net(dev);
+> +		u32 flags;
+>  
+>  		if (neigh->nud_state & NUD_FAILED)
+>  			goto out;
+> @@ -1013,13 +1013,14 @@ static void ndisc_recv_na(struct sk_buff *skb)
+>  			goto out;
+>  		}
+>  
+> +		flags = NEIGH_UPDATE_F_WEAK_OVERRIDE | NEIGH_UPDATE_F_OVERRIDE_ISROUTER;
+> +		if (msg->icmph.icmp6_override)
+> +			flags |= NEIGH_UPDATE_F_OVERRIDE;
+> +		if (msg->icmph.icmp6_router)
+> +			flags |= NEIGH_UPDATE_F_ISROUTER;
+>  		ndisc_update(dev, neigh, lladdr,
+>  			     msg->icmph.icmp6_solicited ? NUD_REACHABLE : NUD_STALE,
+> -			     NEIGH_UPDATE_F_WEAK_OVERRIDE|
+> -			     (msg->icmph.icmp6_override ? NEIGH_UPDATE_F_OVERRIDE : 0)|
+> -			     NEIGH_UPDATE_F_OVERRIDE_ISROUTER|
+> -			     (msg->icmph.icmp6_router ? NEIGH_UPDATE_F_ISROUTER : 0),
+> -			     NDISC_NEIGHBOUR_ADVERTISEMENT, &ndopts);
+> +			     flags, NDISC_NEIGHBOUR_ADVERTISEMENT, &ndopts);
+>  
+>  		if ((old_flags & ~neigh->flags) & NTF_ROUTER) {
+>  			/*
+> @@ -1217,12 +1218,11 @@ static void ndisc_router_discovery(struct sk_buff *skb)
+>  	 * received RA message (RFC 2462) -- yoshfuji
+>  	 */
+>  	old_if_flags = in6_dev->if_flags;
+> -	in6_dev->if_flags = (in6_dev->if_flags & ~(IF_RA_MANAGED |
+> -				IF_RA_OTHERCONF)) |
+> -				(ra_msg->icmph.icmp6_addrconf_managed ?
+> -					IF_RA_MANAGED : 0) |
+> -				(ra_msg->icmph.icmp6_addrconf_other ?
+> -					IF_RA_OTHERCONF : 0);
+> +	in6_dev->if_flags &= ~(IF_RA_MANAGED | IF_RA_OTHERCONF);
+> +	if (ra_msg->icmph.icmp6_addrconf_managed)
+> +		in6_dev->if_flags |= IF_RA_MANAGED;
+> +	if (ra_msg->icmph.icmp6_addrconf_other)
+> +		in6_dev->if_flags |= IF_RA_OTHERCONF;
+>  
+>  	if (old_if_flags != in6_dev->if_flags)
+>  		send_ifinfo_notify = true;
