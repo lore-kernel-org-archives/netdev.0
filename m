@@ -1,61 +1,76 @@
-From: Shawn Lin <shawn.lin-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
-Subject: [PATCH] mwifiex: simplify the code around ra_list
-Date: Fri, 26 May 2017 09:41:49 +0800
-Message-ID: <1495762909-46795-1-git-send-email-shawn.lin@rock-chips.com>
-Cc: Xinming Hu <huxm-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Shawn Lin <shawn.lin-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
-To: Amitkumar Karwar <amitkarwar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH 5/5] MIPS: Add support for eBPF JIT.
+Date: Thu, 25 May 2017 19:23:02 -0700
+Message-ID: <20170526022300.c4gtxhqt3tyiukz2@ast-mbp>
+References: <20170526003826.10834-1-david.daney@cavium.com>
+ <20170526003826.10834-6-david.daney@cavium.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Alexei Starovoitov <ast@kernel.org>,
+        Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, linux-mips@linux-mips.org,
+        ralf@linux-mips.org, Markos Chandras <markos.chandras@imgtec.com>
+To: David Daney <david.daney@cavium.com>
+Return-path: <linux-mips-bounce@linux-mips.org>
+Content-Disposition: inline
+In-Reply-To: <20170526003826.10834-6-david.daney@cavium.com>
+Sender: linux-mips-bounce@linux-mips.org
+Errors-to: linux-mips-bounce@linux-mips.org
+List-help: <mailto:ecartis@linux-mips.org?Subject=help>
+List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
+List-software: Ecartis version 1.0.0
+List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
+List-owner: <mailto:ralf@linux-mips.org>
+List-post: <mailto:linux-mips@linux-mips.org>
+List-archive: <http://www.linux-mips.org/archives/linux-mips/>
 List-Id: netdev.vger.kernel.org
 
-We don't need to check if the list is empty separately
-as we could use list_first_entry_or_null to cover it.
+On Thu, May 25, 2017 at 05:38:26PM -0700, David Daney wrote:
+> Since the eBPF machine has 64-bit registers, we only support this in
+> 64-bit kernels.  As of the writing of this commit log test-bpf is showing:
+> 
+>   test_bpf: Summary: 316 PASSED, 0 FAILED, [308/308 JIT'ed]
+> 
+> All current test cases are successfully compiled.
+> 
+> Signed-off-by: David Daney <david.daney@cavium.com>
+> ---
+>  arch/mips/Kconfig       |    1 +
+>  arch/mips/net/bpf_jit.c | 1627 ++++++++++++++++++++++++++++++++++++++++++++++-
+>  arch/mips/net/bpf_jit.h |    7 +
+>  3 files changed, 1633 insertions(+), 2 deletions(-)
 
-Signed-off-by: Shawn Lin <shawn.lin-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
----
+Great stuff. I wonder what is the performance difference
+interpreter vs JIT
 
- drivers/net/wireless/marvell/mwifiex/tdls.c | 7 ++-----
- drivers/net/wireless/marvell/mwifiex/wmm.c  | 8 ++------
- 2 files changed, 4 insertions(+), 11 deletions(-)
+> + * eBPF stack frame will be something like:
+> + *
+> + *  Entry $sp ------>   +--------------------------------+
+> + *                      |   $ra  (optional)              |
+> + *                      +--------------------------------+
+> + *                      |   $s0  (optional)              |
+> + *                      +--------------------------------+
+> + *                      |   $s1  (optional)              |
+> + *                      +--------------------------------+
+> + *                      |   $s2  (optional)              |
+> + *                      +--------------------------------+
+> + *                      |   $s3  (optional)              |
+> + *                      +--------------------------------+
+> + *                      |   tmp-storage  (if $ra saved)  |
+> + * $sp + tmp_offset --> +--------------------------------+ <--BPF_REG_10
+> + *                      |   BPF_REG_10 relative storage  |
+> + *                      |    MAX_BPF_STACK (optional)    |
+> + *                      |      .                         |
+> + *                      |      .                         |
+> + *                      |      .                         |
+> + *     $sp -------->    +--------------------------------+
+> + *
+> + * If BPF_REG_10 is never referenced, then the MAX_BPF_STACK sized
+> + * area is not allocated.
+> + */
 
-diff --git a/drivers/net/wireless/marvell/mwifiex/tdls.c b/drivers/net/wireless/marvell/mwifiex/tdls.c
-index 7d0d3ff..d76ce87 100644
---- a/drivers/net/wireless/marvell/mwifiex/tdls.c
-+++ b/drivers/net/wireless/marvell/mwifiex/tdls.c
-@@ -55,11 +55,8 @@ static void mwifiex_restore_tdls_packets(struct mwifiex_private *priv,
- 			tx_info->flags |= MWIFIEX_BUF_FLAG_TDLS_PKT;
- 		} else {
- 			tid_list = &priv->wmm.tid_tbl_ptr[tid_down].ra_list;
--			if (!list_empty(tid_list))
--				ra_list = list_first_entry(tid_list,
--					      struct mwifiex_ra_list_tbl, list);
--			else
--				ra_list = NULL;
-+			ra_list = list_first_entry_or_null(tid_list,
-+					struct mwifiex_ra_list_tbl, list);
- 			tx_info->flags &= ~MWIFIEX_BUF_FLAG_TDLS_PKT;
- 		}
- 
-diff --git a/drivers/net/wireless/marvell/mwifiex/wmm.c b/drivers/net/wireless/marvell/mwifiex/wmm.c
-index e4ff3b9..744b014 100644
---- a/drivers/net/wireless/marvell/mwifiex/wmm.c
-+++ b/drivers/net/wireless/marvell/mwifiex/wmm.c
-@@ -868,12 +868,8 @@ struct mwifiex_ra_list_tbl *
- 			return;
- 		default:
- 			list_head = priv->wmm.tid_tbl_ptr[tid_down].ra_list;
--			if (!list_empty(&list_head))
--				ra_list = list_first_entry(
--					&list_head, struct mwifiex_ra_list_tbl,
--					list);
--			else
--				ra_list = NULL;
-+			ra_list = list_first_entry_or_null(&list_head,
-+					struct mwifiex_ra_list_tbl, list);
- 			break;
- 		}
- 	} else {
--- 
-1.9.1
+It's especially great to see that you've put the tmp storage
+above program stack and made the stack allocation optional.
+At the moment I'm working on reducing bpf program stack size,
+so that JIT and interpreter can use only the stack they need.
+Looking at this JIT code only minimal changes will be needed.
