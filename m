@@ -1,93 +1,48 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: [PATCH v2 net-next 6/9] net: mpls: Pull common label check into helper
-Date: Sat, 27 May 2017 16:19:30 -0600
-Message-ID: <20170527221933.57644-7-dsahern@gmail.com>
-References: <20170527221933.57644-1-dsahern@gmail.com>
-Cc: roopa@cumulusnetworks.com, David Ahern <dsahern@gmail.com>
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/2] Document and use eeprom-length property
+Date: Sat, 27 May 2017 18:42:34 -0400 (EDT)
+Message-ID: <20170527.184234.1719294969155143427.davem@davemloft.net>
+References: <1495755884-31341-1-git-send-email-andrew@lunn.ch>
+        <20170526.150242.515745885812232154.davem@davemloft.net>
+        <20170527081332.GB4528@dragon>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: andrew@lunn.ch, netdev@vger.kernel.org,
+        linux-arm-kernel@lists.infradead.org,
+        vivien.didelot@savoirfairelinux.com
+To: shawnguo@kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:35434 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750854AbdE0WTx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 27 May 2017 18:19:53 -0400
-Received: by mail-pf0-f193.google.com with SMTP id u26so8199791pfd.2
-        for <netdev@vger.kernel.org>; Sat, 27 May 2017 15:19:48 -0700 (PDT)
-In-Reply-To: <20170527221933.57644-1-dsahern@gmail.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:52404 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750750AbdE0Wmj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 27 May 2017 18:42:39 -0400
+In-Reply-To: <20170527081332.GB4528@dragon>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-mpls_route_add and mpls_route_del have the same checks on the label.
-Move to a helper. Avoid duplicate extack messages in the next patch.
+From: Shawn Guo <shawnguo@kernel.org>
+Date: Sat, 27 May 2017 16:13:34 +0800
 
-Signed-off-by: David Ahern <dsahern@gmail.com>
----
- net/mpls/af_mpls.c | 32 +++++++++++++++++---------------
- 1 file changed, 17 insertions(+), 15 deletions(-)
+> On Fri, May 26, 2017 at 03:02:42PM -0400, David Miller wrote:
+>> From: Andrew Lunn <andrew@lunn.ch>
+>> Date: Fri, 26 May 2017 01:44:42 +0200
+>> 
+>> > The mv88e6xxx switch driver allows the size of the attached EEPROM to
+>> > be described in DT. This property is missing from the binding
+>> > documentation. Add it. And make use of it on the ZII Devel B board.
+>> > 
+>> > David, Shawn, please could you talk amongs yourself to decide who
+>> > takes what.
+>> 
+>> I can take this if it works for Shawn, otherwise I'm also fine if Shawn
+>> takes it and if so feel free to add my:
+>> 
+>> Acked-by: David S. Miller <davem@davemloft.net>
+> 
+> Hi David,
+> 
+> I see these two patches can be applied separately, so I picked up 2/2
+> and left 1/2 to you.
 
-diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
-index f3830951fb1c..726eafecc793 100644
---- a/net/mpls/af_mpls.c
-+++ b/net/mpls/af_mpls.c
-@@ -856,6 +856,19 @@ static int mpls_nh_build_multi(struct mpls_route_config *cfg,
- 	return err;
- }
- 
-+static bool mpls_label_ok(struct net *net, unsigned int index)
-+{
-+	/* Reserved labels may not be set */
-+	if (index < MPLS_LABEL_FIRST_UNRESERVED)
-+		return false;
-+
-+	/* The full 20 bit range may not be supported. */
-+	if (index >= net->mpls.platform_labels)
-+		return false;
-+
-+	return true;
-+}
-+
- static int mpls_route_add(struct mpls_route_config *cfg)
- {
- 	struct mpls_route __rcu **platform_label;
-@@ -875,12 +888,7 @@ static int mpls_route_add(struct mpls_route_config *cfg)
- 		index = find_free_label(net);
- 	}
- 
--	/* Reserved labels may not be set */
--	if (index < MPLS_LABEL_FIRST_UNRESERVED)
--		goto errout;
--
--	/* The full 20 bit range may not be supported. */
--	if (index >= net->mpls.platform_labels)
-+	if (!mpls_label_ok(net, index))
- 		goto errout;
- 
- 	/* Append makes no sense with mpls */
-@@ -952,12 +960,7 @@ static int mpls_route_del(struct mpls_route_config *cfg)
- 
- 	index = cfg->rc_label;
- 
--	/* Reserved labels may not be removed */
--	if (index < MPLS_LABEL_FIRST_UNRESERVED)
--		goto errout;
--
--	/* The full 20 bit range may not be supported */
--	if (index >= net->mpls.platform_labels)
-+	if (!mpls_label_ok(net, index))
- 		goto errout;
- 
- 	mpls_route_update(net, index, NULL, &cfg->rc_nlinfo);
-@@ -1735,10 +1738,9 @@ static int rtm_to_route_config(struct sk_buff *skb,  struct nlmsghdr *nlh,
- 					   &cfg->rc_label, NULL))
- 				goto errout;
- 
--			/* Reserved labels may not be set */
--			if (cfg->rc_label < MPLS_LABEL_FIRST_UNRESERVED)
-+			if (!mpls_label_ok(cfg->rc_nlinfo.nl_net,
-+					   cfg->rc_label))
- 				goto errout;
--
- 			break;
- 		}
- 		case RTA_VIA:
--- 
-2.11.0 (Apple Git-81)
+Ok I applied 1/2, thanks.
