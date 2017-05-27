@@ -1,56 +1,84 @@
-From: Jes Sorensen <jes.sorensen@gmail.com>
-Subject: [PATCH 0/7] mlx5: Make eswitch_offloads a compile option
-Date: Fri, 26 May 2017 17:16:17 -0400
-Message-ID: <20170526211624.23133-1-jsorensen@fb.com>
-Cc: kernel-team@fb.com, saeedm@mellanox.com, ilant@mellanox.com,
-        Jes Sorensen <jsorensen@fb.com>
-To: netdev@vger.kernel.org
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next 1/3] net: phy: Create sysfs reciprocal links for
+ attached_dev/phydev
+Date: Fri, 26 May 2017 20:22:16 -0700
+Message-ID: <6ccadb96-bdbb-a789-234c-374bf18d5162@gmail.com>
+References: <20170524193354.10739-1-f.fainelli@gmail.com>
+ <20170524193354.10739-2-f.fainelli@gmail.com>
+ <9235D6609DB808459E95D78E17F2E43D40A9DAA2@CHN-SV-EXMX02.mchp-main.com>
+ <d2d97683-3fcc-6603-09e1-13818464de18@gmail.com>
+ <9235D6609DB808459E95D78E17F2E43D40A9DACE@CHN-SV-EXMX02.mchp-main.com>
+ <44f24fbd-5093-faa2-02cd-f8d4d835b59d@gmail.com>
+ <9235D6609DB808459E95D78E17F2E43D40A9DAF6@CHN-SV-EXMX02.mchp-main.com>
+ <05a159af-6689-70db-9506-09059a09f1a5@gmail.com>
+ <9235D6609DB808459E95D78E17F2E43D40A9DB14@CHN-SV-EXMX02.mchp-main.com>
+ <0413eb98-61cc-2fca-a4d6-7f4ef91843ba@gmail.com>
+ <9235D6609DB808459E95D78E17F2E43D40A9DB32@CHN-SV-EXMX02.mchp-main.com>
+ <dc4a3f50-3ff3-e690-9893-0575ddea42f6@gmail.com>
+ <9235D6609DB808459E95D78E17F2E43D40A9DB6A@CHN-SV-EXMX02.mchp-main.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 8bit
+Cc: davem@davemloft.net, andrew@lunn.ch
+To: Woojung.Huh@microchip.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f196.google.com ([209.85.161.196]:33279 "EHLO
-        mail-yw0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1948718AbdEZVQe (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 26 May 2017 17:16:34 -0400
-Received: by mail-yw0-f196.google.com with SMTP id y64so1358383ywe.0
-        for <netdev@vger.kernel.org>; Fri, 26 May 2017 14:16:34 -0700 (PDT)
+Received: from mail-oi0-f68.google.com ([209.85.218.68]:34170 "EHLO
+        mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751391AbdE0DWT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 26 May 2017 23:22:19 -0400
+Received: by mail-oi0-f68.google.com with SMTP id w10so4361377oif.1
+        for <netdev@vger.kernel.org>; Fri, 26 May 2017 20:22:19 -0700 (PDT)
+In-Reply-To: <9235D6609DB808459E95D78E17F2E43D40A9DB6A@CHN-SV-EXMX02.mchp-main.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
-
-This changes the code to allow for eswitch_offloads to be compile time
-option, reducing the size of the driver module for those who do not
-need it.
-
-The patches do it step by step by introducing stubs and then finally
-gets rid of all the #ifdefs once the code can compile and link without
-including eswitch_offloads.o
-
-Unlike the patches that were discussed on the list back in January,
-this does not try to remove eswitch support. It simply allows the
-offloads to be disabled.
-
-Cheers,
-Jes
 
 
-Jes Sorensen (7):
-  mlx5: Allow support for eswitch offloads to be disabled
-  mlx5: eswitch vlan functionality is only called if SRIOV_OFFLOADS is
-    set
-  mlx5: Disable {add,del}_offloaded_rule() code if eswitch offloads are
-    disabled
-  mlx5: Stub out eswitch offload vport functions
-  mlx5: Stub out create_vport_rx_rule when eswitch_offloads disabled
-  mlx5: Stub out sqs2vport functions
-  mlx5: Do not build eswitch_offloads if CONFIG_MLX5_EN_ESWITCH_OFFLOADS
-    is set
+On 05/26/2017 06:31 PM, Woojung.Huh@microchip.com wrote:
+>>
+>> Yes, that's a very valid point, how about we even do this:
+>>
+>> diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+>> index f84414b8f2ee..dc666ec13651 100644
+>> --- a/drivers/net/phy/phy_device.c
+>> +++ b/drivers/net/phy/phy_device.c
+>> @@ -960,15 +960,21 @@ int phy_attach_direct(struct net_device *dev,
+>> struct phy_device *phydev,
+>>
+>>         phydev->attached_dev = dev;
+>>         dev->phydev = phydev;
+>> +
+>> +       /* Some Ethernet drivers try to connect to a PHY device before
+>> +        * calling register_netdevice() -> netdev_register_kobject() and
+>> +        * does the dev->dev.kobj initialization. Here we only check for
+>> +        * success which indicates that the network device kobject is
+>> +        * ready.
+>> +        */
+>>         err = sysfs_create_link(&phydev->mdio.dev.kobj, &dev->dev.kobj,
+>>                                 "attached_dev");
+>> -       if (err)
+>> -               goto error;
+>> -
+>> -       err = sysfs_create_link(&dev->dev.kobj, &phydev->mdio.dev.kobj,
+>> -                               "phydev");
+>> -       if (err)
+>> -               goto error;
+>> +       if (!err) {
+>> +               err = sysfs_create_link(&dev->dev.kobj,
+>> &phydev->mdio.dev.kobj,
+>> +                                       "phydev");
+>> +               if (err)
+>> +                       goto error;
+>> +       }
+>>
+>>         phydev->dev_flags = flags;
+>>
+> Looks better and clean.
+> 
+> How about sysfs_remove_link() in phy_detach()?
 
- drivers/net/ethernet/mellanox/mlx5/core/Kconfig    | 10 +++
- drivers/net/ethernet/mellanox/mlx5/core/Makefile   |  4 +-
- drivers/net/ethernet/mellanox/mlx5/core/eswitch.h  | 80 +++++++++++++++++++++-
- .../ethernet/mellanox/mlx5/core/eswitch_offloads.c |  1 +
- drivers/net/ethernet/mellanox/mlx5/core/main.c     |  2 +-
- 5 files changed, 94 insertions(+), 3 deletions(-)
-
+Good catch, I was able to reproduce the situation in which macb calls
+phy_connect_direct(), will submit a patch shortly. Thanks!
 -- 
-2.9.4
+Florian
