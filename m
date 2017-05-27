@@ -1,9 +1,8 @@
 From: Andy Shevchenko <andy.shevchenko@gmail.com>
-Subject: Re: [PATCH v2 2/6] stmmac: pci: Use stmmac_pci_info for all devices
-Date: Sat, 27 May 2017 16:16:43 +0300
-Message-ID: <CAHp75VdeO62CCX3YhjBQaprGi7iY+6m5QtcX-CcXj2LpASTrPA@mail.gmail.com>
-References: <cover.1495814872.git.jan.kiszka@siemens.com> <dc0eaa024838f4ef34913aed63315771ac81dcc1.1495814872.git.jan.kiszka@siemens.com>
- <CAHp75Ve=CJ-ZRmaAFX+tezMJ4u11v=ptrDDORF485f3_iFEWeg@mail.gmail.com>
+Subject: Re: [PATCH v2 3/6] stmmac: pci: Make stmmac_pci_find_phy_addr truly generic
+Date: Sat, 27 May 2017 16:25:29 +0300
+Message-ID: <CAHp75VdMB3pYBfvz40xZoDd8Ey162RN+moy3X2OZ_cBf3wW2rg@mail.gmail.com>
+References: <cover.1495814872.git.jan.kiszka@siemens.com> <61af7f05bb92da3220ed5799dfa5bb84e102f067.1495814872.git.jan.kiszka@siemens.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
@@ -12,35 +11,45 @@ Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
         netdev <netdev@vger.kernel.org>,
         "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
 To: Jan Kiszka <jan.kiszka@siemens.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAHp75Ve=CJ-ZRmaAFX+tezMJ4u11v=ptrDDORF485f3_iFEWeg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f180.google.com ([209.85.220.180]:35211 "EHLO
+        mail-qk0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756626AbdE0NZb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 27 May 2017 09:25:31 -0400
+In-Reply-To: <61af7f05bb92da3220ed5799dfa5bb84e102f067.1495814872.git.jan.kiszka@siemens.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, May 27, 2017 at 4:13 PM, Andy Shevchenko
-<andy.shevchenko@gmail.com> wrote:
-> On Fri, May 26, 2017 at 7:07 PM, Jan Kiszka <jan.kiszka@siemens.com> wrote:
->> Make stmmac_default_data compatible with stmmac_pci_info.setup and use
->> an info structure for all devices. This allows to make the probing more
->> regular.
+On Fri, May 26, 2017 at 7:07 PM, Jan Kiszka <jan.kiszka@siemens.com> wrote:
+> Move the special case for the early Galileo firmware into
+> quark_default_setup. This allows to use stmmac_pci_find_phy_addr for
+> non-quark cases.
 
-> Or converting defines first to PCI_DEVICE_ID_*
+>         ret = stmmac_pci_find_phy_addr(pdev, info);
+> -       if (ret < 0)
+> -               return ret;
+> +       if (ret < 0) {
+> +               /*
+> +                * Galileo boards with old firmware don't support DMI. We always
+> +                * use 1 here as PHY address, so at least the first found MAC
+> +                * controller would be probed.
+> +                */
+> +               if (!dmi_get_system_info(DMI_BOARD_NAME))
+> +                       ret = 1;
+> +               else
+> +                       return ret;
 
-It looks even for previously mentioned approach we need to rename
-constants first.
+Perhaps
 
-> and
->
-> #define STMMAC_DEVICE(_vid, _did, info) {       \
->        PCI_DEVICE(PCI_VENDOR_ID_##_vid, PCI_DEVICE_ID_##_did),
->          \
->
-> which I like even better.
+/* Return error to the caller on DMI enabled boards */
+if (dmi_...)
+ return ret;
+/*
+ * Comment goes here, I suppose.
+ */
+ret = 1;
 
-Or even
- #define STMMAC_DEVICE(_vid, _did, info) {       \
-        PCI_VDEVICE(_vid, PCI_DEVICE_ID_##_did),        \
-
+> +       }
 
 -- 
 With Best Regards,
