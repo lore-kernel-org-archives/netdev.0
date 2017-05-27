@@ -1,42 +1,34 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next v2 0/8] net: extend RTM_GETROUTE to return fib result
-Date: Fri, 26 May 2017 23:00:27 -0700
-Message-ID: <CAJieiUiK=G1B-LnNH_=MYjFjqQVWu2n15a9Tg5fi_fyvSDpcFQ@mail.gmail.com>
-References: <1495734160-47659-1-git-send-email-roopa@cumulusnetworks.com> <20170526.141838.790479821297151569.davem@davemloft.net>
+From: Shawn Guo <shawnguo@kernel.org>
+Subject: Re: [PATCH 2/2] ARM: VF610: ZII devel b: Add switch eeprom-length
+ properties
+Date: Sat, 27 May 2017 16:10:38 +0800
+Message-ID: <20170527081036.GA4528@dragon>
+References: <1495755884-31341-1-git-send-email-andrew@lunn.ch>
+ <1495755884-31341-3-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: David Ahern <dsahern@gmail.com>, Rami Rosen <rami.rosen@intel.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        linux ARM <linux-arm-kernel@lists.infradead.org>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f53.google.com ([209.85.213.53]:35808 "EHLO
-        mail-vk0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751324AbdE0GA2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 27 May 2017 02:00:28 -0400
-Received: by mail-vk0-f53.google.com with SMTP id h16so13578127vkd.2
-        for <netdev@vger.kernel.org>; Fri, 26 May 2017 23:00:28 -0700 (PDT)
-In-Reply-To: <20170526.141838.790479821297151569.davem@davemloft.net>
+Received: from mail.kernel.org ([198.145.29.99]:47080 "EHLO mail.kernel.org"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751951AbdE0ILf (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 27 May 2017 04:11:35 -0400
+Content-Disposition: inline
+In-Reply-To: <1495755884-31341-3-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 26, 2017 at 11:18 AM, David Miller <davem@davemloft.net> wrote:
-> From: Roopa Prabhu <roopa@cumulusnetworks.com>
-> Date: Thu, 25 May 2017 10:42:32 -0700
->
->> This series adds a new RTM_F_FIB_MATCH flag to return matched fib result
->> with RTM_GETROUTE. This is useful for applications and protocols in
->> userspace wanting to query the selected route.
->
-> Looks good, series applied, thanks.
->
+On Fri, May 26, 2017 at 01:44:44AM +0200, Andrew Lunn wrote:
+> Two of the Ethernet switches on this board have EEPROMs connected.
+> Add the eeprom-length property to the device tree, making it possible
+> to access the EEPROM using ethtool -e.
+> 
+> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
 
-thank you.
+Applied with a bit update on subject prefix.  Thanks.
 
-> Have you considered taking this further and allowing one to see which
-> nexthop a route lookup picked?
-
-since the default RTM_GETROUTE output gives most of the attributes
-from the resolved dst,
-have not considered adding more to it yet...but certainly can if
-needed in the future.
+Shawn
