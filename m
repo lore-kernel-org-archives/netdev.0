@@ -1,55 +1,66 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: Re: [PATCH net-next v2 0/8] net: extend RTM_GETROUTE to return fib
- result
-Date: Sat, 27 May 2017 08:02:40 -0600
-Message-ID: <8d6cf942-6d24-2cbc-bf5b-650d570927bb@gmail.com>
-References: <1495734160-47659-1-git-send-email-roopa@cumulusnetworks.com>
- <20170526.141838.790479821297151569.davem@davemloft.net>
- <CAJieiUiK=G1B-LnNH_=MYjFjqQVWu2n15a9Tg5fi_fyvSDpcFQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Rami Rosen <rami.rosen@intel.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-To: Roopa Prabhu <roopa@cumulusnetworks.com>,
-        David Miller <davem@davemloft.net>
+From: Vladislav Yasevich <vyasevich@gmail.com>
+Subject: [PATCH V6 net-next 0/2] rtnetlink: Updates to rtnetlink_event()
+Date: Sat, 27 May 2017 10:14:33 -0400
+Message-ID: <1495894476-9726-1-git-send-email-vyasevic@redhat.com>
+Cc: dsahern@gmail.com, roopa@cumulusnetworks.com, jiri@resnulli.us,
+        vfalico@gmail.com, andy@greyhouse.net,
+        Vladislav Yasevich <vyasevic@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:35772 "EHLO
-        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756711AbdE0OCt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 27 May 2017 10:02:49 -0400
-Received: by mail-pg0-f67.google.com with SMTP id i63so1615690pgd.2
-        for <netdev@vger.kernel.org>; Sat, 27 May 2017 07:02:49 -0700 (PDT)
-In-Reply-To: <CAJieiUiK=G1B-LnNH_=MYjFjqQVWu2n15a9Tg5fi_fyvSDpcFQ@mail.gmail.com>
-Content-Language: en-US
+Received: from mail-qt0-f193.google.com ([209.85.216.193]:36117 "EHLO
+        mail-qt0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756594AbdE0OOu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 27 May 2017 10:14:50 -0400
+Received: by mail-qt0-f193.google.com with SMTP id j13so4568935qta.3
+        for <netdev@vger.kernel.org>; Sat, 27 May 2017 07:14:50 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 5/27/17 12:00 AM, Roopa Prabhu wrote:
-> On Fri, May 26, 2017 at 11:18 AM, David Miller <davem@davemloft.net> wrote:
->> From: Roopa Prabhu <roopa@cumulusnetworks.com>
->> Date: Thu, 25 May 2017 10:42:32 -0700
->>
->>> This series adds a new RTM_F_FIB_MATCH flag to return matched fib result
->>> with RTM_GETROUTE. This is useful for applications and protocols in
->>> userspace wanting to query the selected route.
->>
->> Looks good, series applied, thanks.
->>
-> 
-> thank you.
-> 
->> Have you considered taking this further and allowing one to see which
->> nexthop a route lookup picked?
-> 
-> since the default RTM_GETROUTE output gives most of the attributes
-> from the resolved dst,
-> have not considered adding more to it yet...but certainly can if
-> needed in the future.
-> 
+First is the patch to add IFLA_EVENT attribute to the netlink message.  It
+supports only currently white-listed events.
+Like before, this is just an attribute that gets added to the rtnetlink
+message only when the messaged was generated as a result of a netdev event.
+In my case, this is necessary since I want to trap NETDEV_NOTIFY_PEERS
+event (also possibly NETDEV_RESEND_IGMP event) and perform certain actions
+in user space.  This is not possible since the messages generated as
+a result of netdev events do not usually contain any changed data.  They
+are just notifications.  This patch exposes this notification type to
+userspace.
 
-One extension is to pass in prefix and length (plus any options to such
-as metric to uniquely discriminate a route) and get back the route
-entry. It is needed to retrieve the BPF code for routes with a bpf
-encap. This patch set makes it easier.
+Second, I remove duplicate messages that a result of a change to bonding
+options.  If netlink is used to configure bonding options, 2 messages
+are generated, one as a result NETDEV_CHANGEINFODATA event triggered by
+bonding code and one a result of device state changes triggered by
+netdev_state_change (called from do_setlink).
+
+
+V6: Updated names and refactored to make it less tied to netdev events.
+    (From David Ahern)
+V5: Rebased.  Added iproute2 patch to the series.
+V4:
+  * Removed the patch the removed NETDEV_CHANGENAME from event whitelist.
+    It doesn't trigger duplicate messages since name changes can only be
+    done while device is down and netdev_state_change() doesn't report
+    changes while device is down.
+  * Added a patch to clean-up duplicate messages on bonding option changes.
+
+V3: Rebased.  Cleaned-up duplicate event.
+
+V2: Added missed events (from David Ahern)
+
+
+Vladislav Yasevich (2):
+  rtnl: Add support for netdev event to link messages
+  bonding: Prevent duplicate userspace notification
+
+ drivers/net/bonding/bond_main.c    |  3 +-
+ drivers/net/bonding/bond_options.c | 27 ++++++++++++++--
+ include/linux/rtnetlink.h          |  3 +-
+ include/net/bond_options.h         |  2 ++
+ include/uapi/linux/if_link.h       | 11 +++++++
+ net/core/dev.c                     |  2 +-
+ net/core/rtnetlink.c               | 65 ++++++++++++++++++++++++++++++++------
+ 7 files changed, 99 insertions(+), 14 deletions(-)
+
+-- 
+2.7.4
