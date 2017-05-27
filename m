@@ -1,61 +1,75 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next] net: dsa: b53: remove unused dev argument
-Date: Fri, 26 May 2017 18:07:37 -0400
-Message-ID: <20170526220737.24579-1-vivien.didelot@savoirfairelinux.com>
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: <Woojung.Huh@microchip.com>
+Subject: RE: [PATCH net-next 1/3] net: phy: Create sysfs reciprocal links
+ for attached_dev/phydev
+Date: Sat, 27 May 2017 01:31:36 +0000
+Message-ID: <9235D6609DB808459E95D78E17F2E43D40A9DB6A@CHN-SV-EXMX02.mchp-main.com>
+References: <20170524193354.10739-1-f.fainelli@gmail.com>
+ <20170524193354.10739-2-f.fainelli@gmail.com>
+ <9235D6609DB808459E95D78E17F2E43D40A9DAA2@CHN-SV-EXMX02.mchp-main.com>
+ <d2d97683-3fcc-6603-09e1-13818464de18@gmail.com>
+ <9235D6609DB808459E95D78E17F2E43D40A9DACE@CHN-SV-EXMX02.mchp-main.com>
+ <44f24fbd-5093-faa2-02cd-f8d4d835b59d@gmail.com>
+ <9235D6609DB808459E95D78E17F2E43D40A9DAF6@CHN-SV-EXMX02.mchp-main.com>
+ <05a159af-6689-70db-9506-09059a09f1a5@gmail.com>
+ <9235D6609DB808459E95D78E17F2E43D40A9DB14@CHN-SV-EXMX02.mchp-main.com>
+ <0413eb98-61cc-2fca-a4d6-7f4ef91843ba@gmail.com>
+ <9235D6609DB808459E95D78E17F2E43D40A9DB32@CHN-SV-EXMX02.mchp-main.com>
+ <dc4a3f50-3ff3-e690-9893-0575ddea42f6@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <davem@davemloft.net>, <andrew@lunn.ch>
+To: <f.fainelli@gmail.com>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from esa2.microchip.iphmx.com ([68.232.149.84]:5506 "EHLO
+        esa2.microchip.iphmx.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932375AbdE0Bbi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 26 May 2017 21:31:38 -0400
+In-Reply-To: <dc4a3f50-3ff3-e690-9893-0575ddea42f6@gmail.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The port net device passed to b53_fdb_copy is not used. Remove it.
+> 
+> Yes, that's a very valid point, how about we even do this:
+> 
+> diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+> index f84414b8f2ee..dc666ec13651 100644
+> --- a/drivers/net/phy/phy_device.c
+> +++ b/drivers/net/phy/phy_device.c
+> @@ -960,15 +960,21 @@ int phy_attach_direct(struct net_device *dev,
+> struct phy_device *phydev,
+> 
+>         phydev->attached_dev = dev;
+>         dev->phydev = phydev;
+> +
+> +       /* Some Ethernet drivers try to connect to a PHY device before
+> +        * calling register_netdevice() -> netdev_register_kobject() and
+> +        * does the dev->dev.kobj initialization. Here we only check for
+> +        * success which indicates that the network device kobject is
+> +        * ready.
+> +        */
+>         err = sysfs_create_link(&phydev->mdio.dev.kobj, &dev->dev.kobj,
+>                                 "attached_dev");
+> -       if (err)
+> -               goto error;
+> -
+> -       err = sysfs_create_link(&dev->dev.kobj, &phydev->mdio.dev.kobj,
+> -                               "phydev");
+> -       if (err)
+> -               goto error;
+> +       if (!err) {
+> +               err = sysfs_create_link(&dev->dev.kobj,
+> &phydev->mdio.dev.kobj,
+> +                                       "phydev");
+> +               if (err)
+> +                       goto error;
+> +       }
+> 
+>         phydev->dev_flags = flags;
+> 
+Looks better and clean.
 
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
----
- drivers/net/dsa/b53/b53_common.c | 8 +++-----
- 1 file changed, 3 insertions(+), 5 deletions(-)
+How about sysfs_remove_link() in phy_detach()?
 
-diff --git a/drivers/net/dsa/b53/b53_common.c b/drivers/net/dsa/b53/b53_common.c
-index fa099ed41652..6a5648a9cb09 100644
---- a/drivers/net/dsa/b53/b53_common.c
-+++ b/drivers/net/dsa/b53/b53_common.c
-@@ -1281,8 +1281,7 @@ static void b53_arl_search_rd(struct b53_device *dev, u8 idx,
- 	b53_arl_to_entry(ent, mac_vid, fwd_entry);
- }
- 
--static int b53_fdb_copy(struct net_device *dev, int port,
--			const struct b53_arl_entry *ent,
-+static int b53_fdb_copy(int port, const struct b53_arl_entry *ent,
- 			struct switchdev_obj_port_fdb *fdb,
- 			switchdev_obj_dump_cb_t *cb)
- {
-@@ -1304,7 +1303,6 @@ int b53_fdb_dump(struct dsa_switch *ds, int port,
- 		 switchdev_obj_dump_cb_t *cb)
- {
- 	struct b53_device *priv = ds->priv;
--	struct net_device *dev = ds->ports[port].netdev;
- 	struct b53_arl_entry results[2];
- 	unsigned int count = 0;
- 	int ret;
-@@ -1320,13 +1318,13 @@ int b53_fdb_dump(struct dsa_switch *ds, int port,
- 			return ret;
- 
- 		b53_arl_search_rd(priv, 0, &results[0]);
--		ret = b53_fdb_copy(dev, port, &results[0], fdb, cb);
-+		ret = b53_fdb_copy(port, &results[0], fdb, cb);
- 		if (ret)
- 			return ret;
- 
- 		if (priv->num_arl_entries > 2) {
- 			b53_arl_search_rd(priv, 1, &results[1]);
--			ret = b53_fdb_copy(dev, port, &results[1], fdb, cb);
-+			ret = b53_fdb_copy(port, &results[1], fdb, cb);
- 			if (ret)
- 				return ret;
- 
--- 
-2.13.0
+- Woojung
