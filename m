@@ -1,165 +1,65 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next] net: dsa: remove dev arg of dsa_register_switch
-Date: Fri, 26 May 2017 18:12:51 -0400
-Message-ID: <20170526221251.14972-1-vivien.didelot@savoirfairelinux.com>
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-To: netdev@vger.kernel.org
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [patch iproute2 v2 repost 1/3] tc_filter: add support for chain
+ index
+Date: Fri, 26 May 2017 17:11:37 -0700
+Message-ID: <20170526171137.0acccbc5@xeon-e3>
+References: <20170516172802.1317-1-jiri@resnulli.us>
+        <20170516172937.1391-1-jiri@resnulli.us>
+        <20170522133315.3490fe0a@xeon-e3>
+        <20170523134042.GC1829@nanopsycho>
+        <59288675.4040009@iogearbox.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
+        davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
+        dsa@cumulusnetworks.com, edumazet@google.com,
+        alexander.h.duyck@intel.com, simon.horman@netronome.com,
+        mlxsw@mellanox.com
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:49316 "EHLO
-        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1948794AbdEZWO5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 26 May 2017 18:14:57 -0400
+Received: from mail-pg0-f44.google.com ([74.125.83.44]:33418 "EHLO
+        mail-pg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1948874AbdE0ALl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 26 May 2017 20:11:41 -0400
+Received: by mail-pg0-f44.google.com with SMTP id u187so358373pgb.0
+        for <netdev@vger.kernel.org>; Fri, 26 May 2017 17:11:41 -0700 (PDT)
+In-Reply-To: <59288675.4040009@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The current dsa_register_switch function takes a useless struct device
-pointer argument, which always equals ds->dev.
+On Fri, 26 May 2017 21:48:05 +0200
+Daniel Borkmann <daniel@iogearbox.net> wrote:
 
-Drivers either call it with ds->dev, or with the same device pointer
-passed to dsa_switch_alloc, which ends up being assigned to ds->dev.
+> On 05/23/2017 03:40 PM, Jiri Pirko wrote:
+> > Mon, May 22, 2017 at 10:33:15PM CEST, stephen@networkplumber.org wrote:=
+ =20
+> [...]
+> >> Applied to net-next branch of iproute2 =20
+> >
+> > Looks like you missed the uapi part:
+> >
+> >      CC       tc_filter.o
+> > tc_filter.c: In function =E2=80=98tc_filter_modify=E2=80=99:
+> > tc_filter.c:159:34: error: =E2=80=98TCA_CHAIN=E2=80=99 undeclared (firs=
+t use in this function)
+> >     addattr32(&req.n, sizeof(req), TCA_CHAIN, chain_index);
+> >                                    ^~~~~~~~~ =20
+>=20
+> Looks like still unresolved in the iproute2 -net-next branch ...
 
-This patch removes the second argument of the dsa_register_switch and
-_dsa_register_switch functions.
+On the net-next branch include/linux/rtnetlink.h now has TCA_CHAIN, and eve=
+rything
+builds fine.  You may have local changes or be using different includes
 
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
----
- drivers/net/dsa/b53/b53_common.c |  2 +-
- drivers/net/dsa/dsa_loop.c       |  2 +-
- drivers/net/dsa/lan9303-core.c   |  2 +-
- drivers/net/dsa/mt7530.c         |  2 +-
- drivers/net/dsa/mv88e6xxx/chip.c |  2 +-
- drivers/net/dsa/qca8k.c          |  2 +-
- include/net/dsa.h                |  2 +-
- net/dsa/dsa2.c                   | 10 +++++-----
- 8 files changed, 12 insertions(+), 12 deletions(-)
-
-diff --git a/drivers/net/dsa/b53/b53_common.c b/drivers/net/dsa/b53/b53_common.c
-index fa099ed41652..37bd6bd3b8d0 100644
---- a/drivers/net/dsa/b53/b53_common.c
-+++ b/drivers/net/dsa/b53/b53_common.c
-@@ -1991,7 +1991,7 @@ int b53_switch_register(struct b53_device *dev)
- 
- 	pr_info("found switch: %s, rev %i\n", dev->name, dev->core_rev);
- 
--	return dsa_register_switch(dev->ds, dev->ds->dev);
-+	return dsa_register_switch(dev->ds);
- }
- EXPORT_SYMBOL(b53_switch_register);
- 
-diff --git a/drivers/net/dsa/dsa_loop.c b/drivers/net/dsa/dsa_loop.c
-index 5edf07beb9d2..79e62593ff4e 100644
---- a/drivers/net/dsa/dsa_loop.c
-+++ b/drivers/net/dsa/dsa_loop.c
-@@ -271,7 +271,7 @@ static int dsa_loop_drv_probe(struct mdio_device *mdiodev)
- 
- 	dev_set_drvdata(&mdiodev->dev, ds);
- 
--	return dsa_register_switch(ds, ds->dev);
-+	return dsa_register_switch(ds);
- }
- 
- static void dsa_loop_drv_remove(struct mdio_device *mdiodev)
-diff --git a/drivers/net/dsa/lan9303-core.c b/drivers/net/dsa/lan9303-core.c
-index c8b2423c8ef7..cd76e61f1fca 100644
---- a/drivers/net/dsa/lan9303-core.c
-+++ b/drivers/net/dsa/lan9303-core.c
-@@ -802,7 +802,7 @@ static int lan9303_register_switch(struct lan9303 *chip)
- 	chip->ds->ops = &lan9303_switch_ops;
- 	chip->ds->phys_mii_mask = chip->phy_addr_sel_strap ? 0xe : 0x7;
- 
--	return dsa_register_switch(chip->ds, chip->dev);
-+	return dsa_register_switch(chip->ds);
- }
- 
- static void lan9303_probe_reset_gpio(struct lan9303 *chip,
-diff --git a/drivers/net/dsa/mt7530.c b/drivers/net/dsa/mt7530.c
-index 4d2f45153ede..25e00d5e0eec 100644
---- a/drivers/net/dsa/mt7530.c
-+++ b/drivers/net/dsa/mt7530.c
-@@ -1080,7 +1080,7 @@ mt7530_probe(struct mdio_device *mdiodev)
- 	mutex_init(&priv->reg_mutex);
- 	dev_set_drvdata(&mdiodev->dev, priv);
- 
--	return dsa_register_switch(priv->ds, &mdiodev->dev);
-+	return dsa_register_switch(priv->ds);
- }
- 
- static void
-diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-index c2f38f6770aa..5e992a5745b0 100644
---- a/drivers/net/dsa/mv88e6xxx/chip.c
-+++ b/drivers/net/dsa/mv88e6xxx/chip.c
-@@ -3892,7 +3892,7 @@ static int mv88e6xxx_register_switch(struct mv88e6xxx_chip *chip)
- 
- 	dev_set_drvdata(dev, ds);
- 
--	return dsa_register_switch(ds, dev);
-+	return dsa_register_switch(ds);
- }
- 
- static void mv88e6xxx_unregister_switch(struct mv88e6xxx_chip *chip)
-diff --git a/drivers/net/dsa/qca8k.c b/drivers/net/dsa/qca8k.c
-index 0f6a011d8ed1..b3bee7eab45f 100644
---- a/drivers/net/dsa/qca8k.c
-+++ b/drivers/net/dsa/qca8k.c
-@@ -958,7 +958,7 @@ qca8k_sw_probe(struct mdio_device *mdiodev)
- 	mutex_init(&priv->reg_mutex);
- 	dev_set_drvdata(&mdiodev->dev, priv);
- 
--	return dsa_register_switch(priv->ds, &mdiodev->dev);
-+	return dsa_register_switch(priv->ds);
- }
- 
- static void
-diff --git a/include/net/dsa.h b/include/net/dsa.h
-index c0e567c0c824..d9bd6939229a 100644
---- a/include/net/dsa.h
-+++ b/include/net/dsa.h
-@@ -480,7 +480,7 @@ static inline bool netdev_uses_dsa(struct net_device *dev)
- 
- struct dsa_switch *dsa_switch_alloc(struct device *dev, size_t n);
- void dsa_unregister_switch(struct dsa_switch *ds);
--int dsa_register_switch(struct dsa_switch *ds, struct device *dev);
-+int dsa_register_switch(struct dsa_switch *ds);
- #ifdef CONFIG_PM_SLEEP
- int dsa_switch_suspend(struct dsa_switch *ds);
- int dsa_switch_resume(struct dsa_switch *ds);
-diff --git a/net/dsa/dsa2.c b/net/dsa/dsa2.c
-index 4301f52e4f5a..c0a4576db4a2 100644
---- a/net/dsa/dsa2.c
-+++ b/net/dsa/dsa2.c
-@@ -686,10 +686,10 @@ static struct device_node *dsa_get_ports(struct dsa_switch *ds,
- 	return ports;
- }
- 
--static int _dsa_register_switch(struct dsa_switch *ds, struct device *dev)
-+static int _dsa_register_switch(struct dsa_switch *ds)
- {
--	struct dsa_chip_data *pdata = dev->platform_data;
--	struct device_node *np = dev->of_node;
-+	struct dsa_chip_data *pdata = ds->dev->platform_data;
-+	struct device_node *np = ds->dev->of_node;
- 	struct dsa_switch_tree *dst;
- 	struct device_node *ports;
- 	u32 tree, index;
-@@ -803,12 +803,12 @@ struct dsa_switch *dsa_switch_alloc(struct device *dev, size_t n)
- }
- EXPORT_SYMBOL_GPL(dsa_switch_alloc);
- 
--int dsa_register_switch(struct dsa_switch *ds, struct device *dev)
-+int dsa_register_switch(struct dsa_switch *ds)
- {
- 	int err;
- 
- 	mutex_lock(&dsa2_mutex);
--	err = _dsa_register_switch(ds, dev);
-+	err = _dsa_register_switch(ds);
- 	mutex_unlock(&dsa2_mutex);
- 
- 	return err;
--- 
-2.13.0
+$ git grep TCA_CHAIN
+include/linux/rtnetlink.h:      TCA_CHAIN,
+tc/tc_filter.c:         addattr32(&req.n, sizeof(req), TCA_CHAIN, chain_ind=
+ex);
+tc/tc_filter.c: if (tb[TCA_CHAIN]) {
+tc/tc_filter.c:         __u32 chain_index =3D rta_getattr_u32(tb[TCA_CHAIN]=
+);
+tc/tc_filter.c:         addattr32(&req.n, sizeof(req), TCA_CHAIN, chain_ind=
+ex);
+tc/tc_filter.c:         addattr32(&req.n, sizeof(req), TCA_CHAIN, chain_ind=
+ex);
