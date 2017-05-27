@@ -1,54 +1,59 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: Re: [PATCH V6 net-next 2/2] bonding: Prevent duplicate userspace
- notification
-Date: Sat, 27 May 2017 15:41:57 -0600
-Message-ID: <0feb66f9-ccce-0358-f866-b3228982e3cf@gmail.com>
-References: <1495894476-9726-1-git-send-email-vyasevic@redhat.com>
- <1495894476-9726-3-git-send-email-vyasevic@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: roopa@cumulusnetworks.com, jiri@resnulli.us, vfalico@gmail.com,
-        andy@greyhouse.net, Vladislav Yasevich <vyasevic@redhat.com>,
-        David Ahern <dsa@cumulusnetworks.com>
-To: Vladislav Yasevich <vyasevich@gmail.com>, netdev@vger.kernel.org
+From: Bjorn Andersson <bjorn.andersson@linaro.org>
+Subject: [PATCH v2] mac80211: Invoke TX LED in more code paths
+Date: Sat, 27 May 2017 14:59:27 -0700
+Message-ID: <20170527215927.7726-1-bjorn.andersson@linaro.org>
+Cc: linux-wireless@vger.kernel.org (open list:MAC80211),
+        netdev@vger.kernel.org (open list:NETWORKING [GENERAL]),
+        linux-kernel@vger.kernel.org (open list),
+        linux-arm-msm@vger.kernel.org
+To: Kalle Valo <kvalo@codeaurora.org>,
+        Johannes Berg <johannes@sipsolutions.net>,
+        "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:34799 "EHLO
-        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750750AbdE0VmB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 27 May 2017 17:42:01 -0400
-Received: by mail-pg0-f67.google.com with SMTP id u187so2401689pgb.1
-        for <netdev@vger.kernel.org>; Sat, 27 May 2017 14:42:01 -0700 (PDT)
-In-Reply-To: <1495894476-9726-3-git-send-email-vyasevic@redhat.com>
-Content-Language: en-US
+Received: from mail-pg0-f45.google.com ([74.125.83.45]:33308 "EHLO
+        mail-pg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750751AbdE0V7c (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 27 May 2017 17:59:32 -0400
+Received: by mail-pg0-f45.google.com with SMTP id u187so7943214pgb.0
+        for <netdev@vger.kernel.org>; Sat, 27 May 2017 14:59:31 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 5/27/17 8:14 AM, Vladislav Yasevich wrote:
-> Whenever a user changes bonding options, a NETDEV_CHANGEINFODATA
-> notificatin is generated which results in a rtnelink message to
-> be sent.  While runnig 'ip monitor', we can actually see 2 messages,
-> one a result of the event, and the other a result of state change
-> that is generated bo netdev_state_change().  However, this is not
-> always the case. If bonding changes were done via sysfs or ifenslave
-> (old ioctl interface), then only 1 message is seen.
-> 
-> This patch removes duplicate messages in the case of using netlink
-> to configure bonding.  It introduceds a separte function that
-> triggers a netdev event and uses that function in the syfs and ioctl
-> cases.
-> 
-> This was discovered while auditing all the different envents and
-> continues the effort of cleaning up duplicated netlink messages.
-> 
-> CC: David Ahern <dsa@cumulusnetworks.com>
-> CC: Jiri Pirko <jiri@resnulli.us>
-> Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
-> ---
->  drivers/net/bonding/bond_main.c    |  3 ++-
->  drivers/net/bonding/bond_options.c | 27 +++++++++++++++++++++++++--
->  include/net/bond_options.h         |  2 ++
->  3 files changed, 29 insertions(+), 3 deletions(-)
-> 
+ieee80211_tx_status() is only one of the possible ways a driver can
+report a handled packet, some drivers call this for every packet while
+others calls it rarely or never.
 
-Acked-by: David Ahern <dsahern@gmail.com>
+In order to invoke the TX LED in the non-status reporting cases this
+patch pushes the call to ieee80211_led_tx() into
+ieee80211_report_used_skb(), which is shared between the various code
+paths.
+
+Signed-off-by: Bjorn Andersson <bjorn.andersson@linaro.org>
+---
+ net/mac80211/status.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/net/mac80211/status.c b/net/mac80211/status.c
+index be47ac5cd8c8..a9fa6ee57e8f 100644
+--- a/net/mac80211/status.c
++++ b/net/mac80211/status.c
+@@ -546,6 +546,8 @@ static void ieee80211_report_used_skb(struct ieee80211_local *local,
+ 		skb->wifi_acked_valid = 1;
+ 		skb->wifi_acked = acked;
+ 	}
++
++	ieee80211_led_tx(local);
+ }
+ 
+ /*
+@@ -823,8 +825,6 @@ static void __ieee80211_tx_status(struct ieee80211_hw *hw,
+ 		}
+ 	}
+ 
+-	ieee80211_led_tx(local);
+-
+ 	/* SNMP counters
+ 	 * Fragments are passed to low-level drivers as separate skbs, so these
+ 	 * are actually fragments, not frames. Update frame counters only for
+-- 
+2.12.0
