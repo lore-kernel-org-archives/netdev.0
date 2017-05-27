@@ -1,157 +1,164 @@
 From: David Ahern <dsahern@gmail.com>
-Subject: [PATCH v2 net-next 8/9] net: mpls: Make nla_get_via in af_mpls.c
-Date: Sat, 27 May 2017 16:19:32 -0600
-Message-ID: <20170527221933.57644-9-dsahern@gmail.com>
+Subject: [PATCH v2 net-next 3/9] net: lwtunnel: Add extack to encap attr validation
+Date: Sat, 27 May 2017 16:19:27 -0600
+Message-ID: <20170527221933.57644-4-dsahern@gmail.com>
 References: <20170527221933.57644-1-dsahern@gmail.com>
 Cc: roopa@cumulusnetworks.com, David Ahern <dsahern@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:35442 "EHLO
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:36796 "EHLO
         mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750825AbdE0WTv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 27 May 2017 18:19:51 -0400
-Received: by mail-pf0-f194.google.com with SMTP id u26so8199849pfd.2
-        for <netdev@vger.kernel.org>; Sat, 27 May 2017 15:19:51 -0700 (PDT)
+        with ESMTP id S1750761AbdE0WTn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 27 May 2017 18:19:43 -0400
+Received: by mail-pf0-f194.google.com with SMTP id n23so8200127pfb.3
+        for <netdev@vger.kernel.org>; Sat, 27 May 2017 15:19:43 -0700 (PDT)
 In-Reply-To: <20170527221933.57644-1-dsahern@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-nla_get_via is only used in af_mpls.c. Remove declaration from internal.h
-and move up in af_mpls.c before first use. Code move only; no
-functional change intended.
+Pass extack down to lwtunnel_valid_encap_type and
+lwtunnel_valid_encap_type_attr. Add messages for unknown
+or unsupported encap types.
 
 Signed-off-by: David Ahern <dsahern@gmail.com>
 ---
- net/mpls/af_mpls.c  | 96 ++++++++++++++++++++++++++---------------------------
- net/mpls/internal.h |  2 --
- 2 files changed, 48 insertions(+), 50 deletions(-)
+ include/net/lwtunnel.h  | 13 +++++++++----
+ net/core/lwtunnel.c     | 18 +++++++++++++-----
+ net/ipv4/fib_frontend.c |  6 ++++--
+ net/ipv6/route.c        |  4 ++--
+ 4 files changed, 28 insertions(+), 13 deletions(-)
 
-diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
-index 0133d1ad9032..a953fcf169ba 100644
---- a/net/mpls/af_mpls.c
-+++ b/net/mpls/af_mpls.c
-@@ -684,6 +684,54 @@ static int mpls_nh_assign_dev(struct net *net, struct mpls_route *rt,
- 	return err;
+diff --git a/include/net/lwtunnel.h b/include/net/lwtunnel.h
+index ebfe237aad7e..ca6f002774ef 100644
+--- a/include/net/lwtunnel.h
++++ b/include/net/lwtunnel.h
+@@ -107,8 +107,10 @@ int lwtunnel_encap_add_ops(const struct lwtunnel_encap_ops *op,
+ 			   unsigned int num);
+ int lwtunnel_encap_del_ops(const struct lwtunnel_encap_ops *op,
+ 			   unsigned int num);
+-int lwtunnel_valid_encap_type(u16 encap_type);
+-int lwtunnel_valid_encap_type_attr(struct nlattr *attr, int len);
++int lwtunnel_valid_encap_type(u16 encap_type,
++			      struct netlink_ext_ack *extack);
++int lwtunnel_valid_encap_type_attr(struct nlattr *attr, int len,
++				   struct netlink_ext_ack *extack);
+ int lwtunnel_build_state(u16 encap_type,
+ 			 struct nlattr *encap,
+ 			 unsigned int family, const void *cfg,
+@@ -172,11 +174,14 @@ static inline int lwtunnel_encap_del_ops(const struct lwtunnel_encap_ops *op,
+ 	return -EOPNOTSUPP;
  }
  
-+static int nla_get_via(const struct nlattr *nla, u8 *via_alen, u8 *via_table,
-+		       u8 via_addr[], struct netlink_ext_ack *extack)
-+{
-+	struct rtvia *via = nla_data(nla);
-+	int err = -EINVAL;
-+	int alen;
-+
-+	if (nla_len(nla) < offsetof(struct rtvia, rtvia_addr)) {
-+		NL_SET_ERR_MSG_ATTR(extack, nla,
-+				    "Invalid attribute length for RTA_VIA");
-+		goto errout;
-+	}
-+	alen = nla_len(nla) -
-+			offsetof(struct rtvia, rtvia_addr);
-+	if (alen > MAX_VIA_ALEN) {
-+		NL_SET_ERR_MSG_ATTR(extack, nla,
-+				    "Invalid address length for RTA_VIA");
-+		goto errout;
-+	}
-+
-+	/* Validate the address family */
-+	switch (via->rtvia_family) {
-+	case AF_PACKET:
-+		*via_table = NEIGH_LINK_TABLE;
-+		break;
-+	case AF_INET:
-+		*via_table = NEIGH_ARP_TABLE;
-+		if (alen != 4)
-+			goto errout;
-+		break;
-+	case AF_INET6:
-+		*via_table = NEIGH_ND_TABLE;
-+		if (alen != 16)
-+			goto errout;
-+		break;
-+	default:
-+		/* Unsupported address family */
-+		goto errout;
-+	}
-+
-+	memcpy(via_addr, via->rtvia_addr, alen);
-+	*via_alen = alen;
-+	err = 0;
-+
-+errout:
-+	return err;
-+}
-+
- static int mpls_nh_build_from_cfg(struct mpls_route_config *cfg,
- 				  struct mpls_route *rt)
+-static inline int lwtunnel_valid_encap_type(u16 encap_type)
++static inline int lwtunnel_valid_encap_type(u16 encap_type,
++					    struct netlink_ext_ack *extack)
  {
-@@ -1641,54 +1689,6 @@ int nla_get_labels(const struct nlattr *nla, u8 max_labels, u8 *labels,
++	NL_SET_ERR_MSG(extack, "CONFIG_LWTUNNEL is not enabled in this kernel");
+ 	return -EOPNOTSUPP;
  }
- EXPORT_SYMBOL_GPL(nla_get_labels);
+-static inline int lwtunnel_valid_encap_type_attr(struct nlattr *attr, int len)
++static inline int lwtunnel_valid_encap_type_attr(struct nlattr *attr, int len,
++						 struct netlink_ext_ack *extack)
+ {
+ 	/* return 0 since we are not walking attr looking for
+ 	 * RTA_ENCAP_TYPE attribute on nexthops.
+diff --git a/net/core/lwtunnel.c b/net/core/lwtunnel.c
+index cfae3d5fe11f..ab840386a74d 100644
+--- a/net/core/lwtunnel.c
++++ b/net/core/lwtunnel.c
+@@ -126,14 +126,16 @@ int lwtunnel_build_state(u16 encap_type,
+ }
+ EXPORT_SYMBOL(lwtunnel_build_state);
  
--int nla_get_via(const struct nlattr *nla, u8 *via_alen, u8 *via_table,
--		u8 via_addr[], struct netlink_ext_ack *extack)
--{
--	struct rtvia *via = nla_data(nla);
--	int err = -EINVAL;
--	int alen;
--
--	if (nla_len(nla) < offsetof(struct rtvia, rtvia_addr)) {
--		NL_SET_ERR_MSG_ATTR(extack, nla,
--				    "Invalid attribute length for RTA_VIA");
--		goto errout;
--	}
--	alen = nla_len(nla) -
--			offsetof(struct rtvia, rtvia_addr);
--	if (alen > MAX_VIA_ALEN) {
--		NL_SET_ERR_MSG_ATTR(extack, nla,
--				    "Invalid address length for RTA_VIA");
--		goto errout;
--	}
--
--	/* Validate the address family */
--	switch (via->rtvia_family) {
--	case AF_PACKET:
--		*via_table = NEIGH_LINK_TABLE;
--		break;
--	case AF_INET:
--		*via_table = NEIGH_ARP_TABLE;
--		if (alen != 4)
--			goto errout;
--		break;
--	case AF_INET6:
--		*via_table = NEIGH_ND_TABLE;
--		if (alen != 16)
--			goto errout;
--		break;
--	default:
--		/* Unsupported address family */
--		goto errout;
--	}
--
--	memcpy(via_addr, via->rtvia_addr, alen);
--	*via_alen = alen;
--	err = 0;
--
--errout:
--	return err;
--}
--
- static int rtm_to_route_config(struct sk_buff *skb,
- 			       struct nlmsghdr *nlh,
- 			       struct mpls_route_config *cfg,
-diff --git a/net/mpls/internal.h b/net/mpls/internal.h
-index a015a6a1143b..cf65aec2e551 100644
---- a/net/mpls/internal.h
-+++ b/net/mpls/internal.h
-@@ -204,8 +204,6 @@ int nla_put_labels(struct sk_buff *skb, int attrtype,  u8 labels,
- 		   const u32 label[]);
- int nla_get_labels(const struct nlattr *nla, u8 max_labels, u8 *labels,
- 		   u32 label[], struct netlink_ext_ack *extack);
--int nla_get_via(const struct nlattr *nla, u8 *via_alen, u8 *via_table,
--		u8 via[], struct netlink_ext_ack *extack);
- bool mpls_output_possible(const struct net_device *dev);
- unsigned int mpls_dev_mtu(const struct net_device *dev);
- bool mpls_pkt_too_big(const struct sk_buff *skb, unsigned int mtu);
+-int lwtunnel_valid_encap_type(u16 encap_type)
++int lwtunnel_valid_encap_type(u16 encap_type, struct netlink_ext_ack *extack)
+ {
+ 	const struct lwtunnel_encap_ops *ops;
+ 	int ret = -EINVAL;
+ 
+ 	if (encap_type == LWTUNNEL_ENCAP_NONE ||
+-	    encap_type > LWTUNNEL_ENCAP_MAX)
++	    encap_type > LWTUNNEL_ENCAP_MAX) {
++		NL_SET_ERR_MSG(extack, "Unknown lwt encapsulation type");
+ 		return ret;
++	}
+ 
+ 	rcu_read_lock();
+ 	ops = rcu_dereference(lwtun_encaps[encap_type]);
+@@ -153,11 +155,16 @@ int lwtunnel_valid_encap_type(u16 encap_type)
+ 		}
+ 	}
+ #endif
+-	return ops ? 0 : -EOPNOTSUPP;
++	ret = ops ? 0 : -EOPNOTSUPP;
++	if (ret < 0)
++		NL_SET_ERR_MSG(extack, "lwt encapsulation type not supported");
++
++	return ret;
+ }
+ EXPORT_SYMBOL(lwtunnel_valid_encap_type);
+ 
+-int lwtunnel_valid_encap_type_attr(struct nlattr *attr, int remaining)
++int lwtunnel_valid_encap_type_attr(struct nlattr *attr, int remaining,
++				   struct netlink_ext_ack *extack)
+ {
+ 	struct rtnexthop *rtnh = (struct rtnexthop *)attr;
+ 	struct nlattr *nla_entype;
+@@ -174,7 +181,8 @@ int lwtunnel_valid_encap_type_attr(struct nlattr *attr, int remaining)
+ 			if (nla_entype) {
+ 				encap_type = nla_get_u16(nla_entype);
+ 
+-				if (lwtunnel_valid_encap_type(encap_type) != 0)
++				if (lwtunnel_valid_encap_type(encap_type,
++							      extack) != 0)
+ 					return -EOPNOTSUPP;
+ 			}
+ 		}
+diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
+index 715b7967d8ea..4e678fa892dd 100644
+--- a/net/ipv4/fib_frontend.c
++++ b/net/ipv4/fib_frontend.c
+@@ -685,7 +685,8 @@ static int rtm_to_fib_config(struct net *net, struct sk_buff *skb,
+ 			break;
+ 		case RTA_MULTIPATH:
+ 			err = lwtunnel_valid_encap_type_attr(nla_data(attr),
+-							     nla_len(attr));
++							     nla_len(attr),
++							     extack);
+ 			if (err < 0)
+ 				goto errout;
+ 			cfg->fc_mp = nla_data(attr);
+@@ -702,7 +703,8 @@ static int rtm_to_fib_config(struct net *net, struct sk_buff *skb,
+ 			break;
+ 		case RTA_ENCAP_TYPE:
+ 			cfg->fc_encap_type = nla_get_u16(attr);
+-			err = lwtunnel_valid_encap_type(cfg->fc_encap_type);
++			err = lwtunnel_valid_encap_type(cfg->fc_encap_type,
++							extack);
+ 			if (err < 0)
+ 				goto errout;
+ 			break;
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 2fe84bdc4e60..524a76b5206e 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -3016,7 +3016,7 @@ static int rtm_to_fib6_config(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 		cfg->fc_mp_len = nla_len(tb[RTA_MULTIPATH]);
+ 
+ 		err = lwtunnel_valid_encap_type_attr(cfg->fc_mp,
+-						     cfg->fc_mp_len);
++						     cfg->fc_mp_len, extack);
+ 		if (err < 0)
+ 			goto errout;
+ 	}
+@@ -3035,7 +3035,7 @@ static int rtm_to_fib6_config(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 	if (tb[RTA_ENCAP_TYPE]) {
+ 		cfg->fc_encap_type = nla_get_u16(tb[RTA_ENCAP_TYPE]);
+ 
+-		err = lwtunnel_valid_encap_type(cfg->fc_encap_type);
++		err = lwtunnel_valid_encap_type(cfg->fc_encap_type, extack);
+ 		if (err < 0)
+ 			goto errout;
+ 	}
 -- 
 2.11.0 (Apple Git-81)
