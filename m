@@ -1,62 +1,56 @@
-From: =?UTF-8?Q?Lars_Erik_Storbuk=C3=A5s?= <storbukas.dev@gmail.com>
-Subject: TCP get SND_CWND change on loss event
-Date: Sat, 27 May 2017 14:12:22 +0200
-Message-ID: <CAF0XkCANsVVYBeaD8A=Y5NR_=SF=11Vto75HD+O45RGZD2tKYQ@mail.gmail.com>
+From: Andy Shevchenko <andy.shevchenko@gmail.com>
+Subject: Re: [PATCH v2 2/6] stmmac: pci: Use stmmac_pci_info for all devices
+Date: Sat, 27 May 2017 16:13:58 +0300
+Message-ID: <CAHp75Ve=CJ-ZRmaAFX+tezMJ4u11v=ptrDDORF485f3_iFEWeg@mail.gmail.com>
+References: <cover.1495814872.git.jan.kiszka@siemens.com> <dc0eaa024838f4ef34913aed63315771ac81dcc1.1495814872.git.jan.kiszka@siemens.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-To: Netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f50.google.com ([209.85.214.50]:38553 "EHLO
-        mail-it0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756540AbdE0MMX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 27 May 2017 08:12:23 -0400
-Received: by mail-it0-f50.google.com with SMTP id r63so8650615itc.1
-        for <netdev@vger.kernel.org>; Sat, 27 May 2017 05:12:23 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+        Alexandre Torgue <alexandre.torgue@st.com>,
+        David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Jan Kiszka <jan.kiszka@siemens.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <dc0eaa024838f4ef34913aed63315771ac81dcc1.1495814872.git.jan.kiszka@siemens.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-I want to store the value of snd_cwnd when a congestion event occurs
-(value before snd_cwnd is reduced), and the new value of snd_cwnd (the
-value it has been reduced to). In other words: the congestion window
-before and after a congestion event occurs.
+On Fri, May 26, 2017 at 7:07 PM, Jan Kiszka <jan.kiszka@siemens.com> wrote:
+> Make stmmac_default_data compatible with stmmac_pci_info.setup and use
+> an info structure for all devices. This allows to make the probing more
+> regular.
 
-I'm uncertain where (and how) it would be logical to implement this. I
-have found two possible locations in the tcp_input.c where (I think)
-it could be implemented:
 
-static void tcp_cong_control(...) {
- ...
-  if (tcp_in_cwnd_reduction(sk)) {
-    struct tcp_sock *tp =3D tcp_sk(sk);
-    prior_congestion_window =3D tp->snd_cwnd;
+> +#define STMMAC_DEVICE(vendor_id, dev_id, info) {       \
+> +       PCI_DEVICE(vendor_id, dev_id),                  \
 
-    /* Reduce cwnd if state mandates */
-    tcp_cwnd_reduction(sk, acked_sacked, flag);
+Perhaps
 
-    reduced_congestion_window =3D tp->snd_cwnd;
-  }
- ...
-}
+#define STMMAC_DEVICE(_vid, _did, info) {       \
+       PCI_DEVICE(PCI_VENDOR_ID_##_vid, _did),                  \
 
-or
+Or converting defines first to PCI_DEVICE_ID_*
+and
 
-static void tcp_fastretrans_alert(...) {
-  ...
-  default:
-    ...
-    struct tcp_sock *tp =3D tcp_sk(sk);
-    prior_congestion_window =3D tp->snd_cwnd;
+#define STMMAC_DEVICE(_vid, _did, info) {       \
+       PCI_DEVICE(PCI_VENDOR_ID_##_vid, PCI_DEVICE_ID_##_did),
+         \
 
-    /* Otherwise enter Recovery state */
-    tcp_enter_recovery(sk, (flag & FLAG_ECE));
-    fast_rexmit =3D 1;
+which I like even better.
 
-    reduced_congestion_window =3D tp->snd_cwnd;
-  ...
-}
+> +       .driver_data = (kernel_ulong_t)&info            \
+> +       }
+> +
+>  static const struct pci_device_id stmmac_id_table[] = {
+> -       {PCI_DEVICE(STMMAC_VENDOR_ID, STMMAC_DEVICE_ID)},
+> -       {PCI_DEVICE(PCI_VENDOR_ID_STMICRO, PCI_DEVICE_ID_STMICRO_MAC)},
+> -       {PCI_VDEVICE(INTEL, STMMAC_QUARK_ID), (kernel_ulong_t)&quark_pci_info},
+> +       STMMAC_DEVICE(STMMAC_VENDOR_ID, STMMAC_DEVICE_ID, stmmac_pci_info),
+> +       STMMAC_DEVICE(PCI_VENDOR_ID_STMICRO, PCI_DEVICE_ID_STMICRO_MAC,
+> +                     stmmac_pci_info),
+> +       STMMAC_DEVICE(PCI_VENDOR_ID_INTEL, STMMAC_QUARK_ID, quark_pci_info),
 
-Does anyone have advice on where (and how) to implement this? Does any
-of the proposed solutions above seem logical?
-
-/ Lars Erik Storbuk=C3=A5s
+-- 
+With Best Regards,
+Andy Shevchenko
