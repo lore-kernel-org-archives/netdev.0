@@ -1,157 +1,240 @@
 From: David Ahern <dsahern@gmail.com>
-Subject: [PATCH iproute2 3/4] ip address: Change print_linkinfo_brief to take filter as an input
-Date: Sat, 27 May 2017 17:34:49 -0600
-Message-ID: <20170527233450.58015-4-dsahern@gmail.com>
+Subject: [PATCH iproute2 4/4] ip vrf: Add show command
+Date: Sat, 27 May 2017 17:34:50 -0600
+Message-ID: <20170527233450.58015-5-dsahern@gmail.com>
 References: <20170527233450.58015-1-dsahern@gmail.com>
 Cc: David Ahern <dsahern@gmail.com>
 To: netdev@vger.kernel.org, stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:36675 "EHLO
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:36681 "EHLO
         mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750751AbdE0Xe7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 27 May 2017 19:34:59 -0400
-Received: by mail-pg0-f67.google.com with SMTP id h64so2561447pge.3
-        for <netdev@vger.kernel.org>; Sat, 27 May 2017 16:34:59 -0700 (PDT)
+        with ESMTP id S1750791AbdE0XfC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 27 May 2017 19:35:02 -0400
+Received: by mail-pg0-f67.google.com with SMTP id h64so2561506pge.3
+        for <netdev@vger.kernel.org>; Sat, 27 May 2017 16:35:01 -0700 (PDT)
 In-Reply-To: <20170527233450.58015-1-dsahern@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Change print_linkinfo_brief to take the filter as an input arg.
-If the arg is NULL, use the global filter in ipaddress.c.
+Add show command to list all configured VRF and their table ids.
 
 Signed-off-by: David Ahern <dsahern@gmail.com>
 ---
- ip/ip_common.h |  3 ++-
- ip/ipaddress.c | 35 ++++++++++++++++++++---------------
- ip/iplink.c    |  2 +-
- 3 files changed, 23 insertions(+), 17 deletions(-)
+ ip/ipvrf.c        | 153 ++++++++++++++++++++++++++++++++++++++++++++++++++++--
+ man/man8/ip-vrf.8 |  11 ++++
+ 2 files changed, 159 insertions(+), 5 deletions(-)
 
-diff --git a/ip/ip_common.h b/ip/ip_common.h
-index 2b3cf7049b65..77e9dd06b864 100644
---- a/ip/ip_common.h
-+++ b/ip/ip_common.h
-@@ -22,7 +22,8 @@ int get_operstate(const char *name);
- int print_linkinfo(const struct sockaddr_nl *who,
- 		   struct nlmsghdr *n, void *arg);
- int print_linkinfo_brief(const struct sockaddr_nl *who,
--			 struct nlmsghdr *n, void *arg);
-+			 struct nlmsghdr *n, void *arg,
-+			 struct link_filter *filter);
- int print_addrinfo(const struct sockaddr_nl *who,
- 		   struct nlmsghdr *n, void *arg);
- int print_addrlabel(const struct sockaddr_nl *who,
-diff --git a/ip/ipaddress.c b/ip/ipaddress.c
-index 3e2c38a8e53e..4900dce09df8 100644
---- a/ip/ipaddress.c
-+++ b/ip/ipaddress.c
-@@ -634,7 +634,8 @@ static void print_link_stats(FILE *fp, struct nlmsghdr *n)
+diff --git a/ip/ipvrf.c b/ip/ipvrf.c
+index 0f611b44b78a..0094cf8557cd 100644
+--- a/ip/ipvrf.c
++++ b/ip/ipvrf.c
+@@ -32,9 +32,12 @@
+ 
+ #define CGRP_PROC_FILE  "/cgroup.procs"
+ 
++static struct link_filter vrf_filter;
++
+ static void usage(void)
+ {
+-	fprintf(stderr, "Usage: ip vrf exec [NAME] cmd ...\n");
++	fprintf(stderr, "Usage: ip vrf show [NAME] ...\n");
++	fprintf(stderr, "       ip vrf exec [NAME] cmd ...\n");
+ 	fprintf(stderr, "       ip vrf identify [PID]\n");
+ 	fprintf(stderr, "       ip vrf pids [NAME]\n");
+ 
+@@ -467,13 +470,148 @@ void vrf_reset(void)
+ 	vrf_switch("default");
  }
  
- int print_linkinfo_brief(const struct sockaddr_nl *who,
--				struct nlmsghdr *n, void *arg)
-+			 struct nlmsghdr *n, void *arg,
-+			 struct link_filter *pfilter)
- {
- 	FILE *fp = (FILE *)arg;
- 	struct ifinfomsg *ifi = NLMSG_DATA(n);
-@@ -651,9 +652,12 @@ int print_linkinfo_brief(const struct sockaddr_nl *who,
- 	if (len < 0)
- 		return -1;
- 
--	if (filter.ifindex && ifi->ifi_index != filter.ifindex)
-+	if (!pfilter)
-+		pfilter = &filter;
+-int do_ipvrf(int argc, char **argv)
++static int ipvrf_filter_req(struct nlmsghdr *nlh, int reqlen)
++{
++	struct rtattr *linkinfo;
++	int err;
 +
-+	if (pfilter->ifindex && ifi->ifi_index != pfilter->ifindex)
- 		return -1;
--	if (filter.up && !(ifi->ifi_flags&IFF_UP))
-+	if (pfilter->up && !(ifi->ifi_flags&IFF_UP))
- 		return -1;
- 
- 	parse_rtattr(tb, IFLA_MAX, IFLA_RTA(ifi), len);
-@@ -664,30 +668,30 @@ int print_linkinfo_brief(const struct sockaddr_nl *who,
- 		name = rta_getattr_str(tb[IFLA_IFNAME]);
++	if (vrf_filter.kind) {
++		linkinfo = addattr_nest(nlh, reqlen, IFLA_LINKINFO);
++
++		err = addattr_l(nlh, reqlen, IFLA_INFO_KIND, vrf_filter.kind,
++				strlen(vrf_filter.kind));
++		if (err)
++			return err;
++
++		addattr_nest_end(nlh, linkinfo);
++	}
++
++	return 0;
++}
++
++/* input arg is linkinfo */
++static __u32 vrf_table_linkinfo(struct rtattr *li[])
++{
++	struct rtattr *attr[IFLA_VRF_MAX + 1];
++
++	if (li[IFLA_INFO_DATA]) {
++		parse_rtattr_nested(attr, IFLA_VRF_MAX, li[IFLA_INFO_DATA]);
++
++		if (attr[IFLA_VRF_TABLE])
++			return rta_getattr_u32(attr[IFLA_VRF_TABLE]);
++	}
++
++	return 0;
++}
++
++static int ipvrf_print(struct nlmsghdr *n)
++{
++	struct ifinfomsg *ifi = NLMSG_DATA(n);
++	struct rtattr *tb[IFLA_MAX+1];
++	struct rtattr *li[IFLA_INFO_MAX+1];
++	int len = n->nlmsg_len;
++	const char *name;
++	__u32 tb_id;
++
++	len -= NLMSG_LENGTH(sizeof(*ifi));
++	if (len < 0)
++		return 0;
++
++	if (vrf_filter.ifindex && vrf_filter.ifindex != ifi->ifi_index)
++		return 0;
++
++	parse_rtattr(tb, IFLA_MAX, IFLA_RTA(ifi), len);
++
++	/* kernel does not support filter by master device */
++	if (tb[IFLA_MASTER]) {
++		int master = *(int *)RTA_DATA(tb[IFLA_MASTER]);
++
++		if (vrf_filter.master && master != vrf_filter.master)
++			return 0;
++	}
++
++	if (!tb[IFLA_IFNAME]) {
++		fprintf(stderr,
++			"BUG: device with ifindex %d has nil ifname\n",
++			ifi->ifi_index);
++		return 0;
++	}
++	name = rta_getattr_str(tb[IFLA_IFNAME]);
++
++	/* missing LINKINFO means not VRF. e.g., kernel does not
++	 * support filtering on kind, so userspace needs to handle
++	 */
++	if (!tb[IFLA_LINKINFO])
++		return 0;
++
++	parse_rtattr_nested(li, IFLA_INFO_MAX, tb[IFLA_LINKINFO]);
++
++	if (!li[IFLA_INFO_KIND])
++		return 0;
++
++	if (strcmp(RTA_DATA(li[IFLA_INFO_KIND]), "vrf"))
++		return 0;
++
++	tb_id = vrf_table_linkinfo(li);
++	if (!tb_id) {
++		fprintf(stderr,
++			"BUG: VRF %s is missing table id\n", name);
++		return 0;
++	}
++
++	printf("%-16s %5u", name, tb_id);
++
++	printf("\n");
++	return 1;
++}
++
++static int ipvrf_show(int argc, char **argv)
+ {
+-	if (argc == 0) {
+-		fprintf(stderr, "No command given. Try \"ip vrf help\".\n");
+-		exit(-1);
++	struct nlmsg_chain linfo = { NULL, NULL};
++	int rc = 0;
++
++	vrf_filter.kind = "vrf";
++
++	if (argc > 1)
++		usage();
++
++	if (argc == 1) {
++		__u32 tb_id;
++
++		tb_id = ipvrf_get_table(argv[0]);
++		if (!tb_id) {
++			fprintf(stderr, "Invalid VRF\n");
++			return 1;
++		}
++		printf("%s %u\n", argv[0], tb_id);
++		return 0;
  	}
  
--	if (filter.label &&
--	    (!filter.family || filter.family == AF_PACKET) &&
--	    fnmatch(filter.label, RTA_DATA(tb[IFLA_IFNAME]), 0))
-+	if (pfilter->label &&
-+	    (!pfilter->family || pfilter->family == AF_PACKET) &&
-+	    fnmatch(pfilter->label, RTA_DATA(tb[IFLA_IFNAME]), 0))
- 		return -1;
++	if (ip_linkaddr_list(0, ipvrf_filter_req, &linfo, NULL) == 0) {
++		struct nlmsg_list *l;
++		unsigned nvrf = 0;
++		int n;
++
++		n = printf("%-16s  %5s\n", "Name", "Table");
++		printf("%.*s\n", n-1, "-----------------------");
++		for (l = linfo.head; l; l = l->next)
++			nvrf += ipvrf_print(&l->h);
++
++		if (!nvrf)
++			printf("No VRF has been configured\n");
++	} else
++		rc = 1;
++
++	free_nlmsg_chain(&linfo);
++
++	return rc;
++}
++
++int do_ipvrf(int argc, char **argv)
++{
++	if (argc == 0)
++		return ipvrf_show(0, NULL);
++
+ 	if (matches(*argv, "identify") == 0)
+ 		return ipvrf_identify(argc-1, argv+1);
  
- 	if (tb[IFLA_GROUP]) {
- 		int group = rta_getattr_u32(tb[IFLA_GROUP]);
+@@ -483,6 +621,11 @@ int do_ipvrf(int argc, char **argv)
+ 	if (matches(*argv, "exec") == 0)
+ 		return ipvrf_exec(argc-1, argv+1);
  
--		if (filter.group != -1 && group != filter.group)
-+		if (pfilter->group != -1 && group != pfilter->group)
- 			return -1;
- 	}
++	if (matches(*argv, "show") == 0 ||
++	    matches(*argv, "lst") == 0 ||
++	    matches(*argv, "list") == 0)
++		return ipvrf_show(argc-1, argv+1);
++
+ 	if (matches(*argv, "help") == 0)
+ 		usage();
  
- 	if (tb[IFLA_MASTER]) {
- 		int master = rta_getattr_u32(tb[IFLA_MASTER]);
+diff --git a/man/man8/ip-vrf.8 b/man/man8/ip-vrf.8
+index 57a7c7692ce8..187893393be2 100644
+--- a/man/man8/ip-vrf.8
++++ b/man/man8/ip-vrf.8
+@@ -13,6 +13,10 @@ ip-vrf \- run a command against a vrf
+ .sp
  
--		if (filter.master > 0 && master != filter.master)
-+		if (pfilter->master > 0 && master != pfilter->master)
- 			return -1;
--	} else if (filter.master > 0)
-+	} else if (pfilter->master > 0)
- 		return -1;
+ .ti -8
++.BR "ip vrf show"
++.RI "[ " NAME " ]"
++
++.ti -8
+ .BR "ip vrf identify"
+ .RI "[ " PID " ]"
  
--	if (filter.kind && match_link_kind(tb, filter.kind, 0))
-+	if (pfilter->kind && match_link_kind(tb, pfilter->kind, 0))
- 		return -1;
+@@ -45,6 +49,13 @@ is a helper to run a command against a specific VRF with the VRF association
+ inherited parent to child.
  
--	if (filter.slave_kind && match_link_kind(tb, filter.slave_kind, 1))
-+	if (pfilter->slave_kind && match_link_kind(tb, pfilter->slave_kind, 1))
- 		return -1;
- 
- 	if (n->nlmsg_type == RTM_DELLINK)
-@@ -713,7 +717,7 @@ int print_linkinfo_brief(const struct sockaddr_nl *who,
- 	if (tb[IFLA_OPERSTATE])
- 		print_operstate(fp, rta_getattr_u8(tb[IFLA_OPERSTATE]));
- 
--	if (filter.family == AF_PACKET) {
-+	if (pfilter->family == AF_PACKET) {
- 		SPRINT_BUF(b1);
- 		if (tb[IFLA_ADDRESS]) {
- 			color_fprintf(fp, COLOR_MAC, "%s ",
-@@ -724,10 +728,10 @@ int print_linkinfo_brief(const struct sockaddr_nl *who,
- 		}
- 	}
- 
--	if (filter.family == AF_PACKET)
-+	if (pfilter->family == AF_PACKET)
- 		print_link_flags(fp, ifi->ifi_flags, m_flag);
- 
--	if (filter.family == AF_PACKET)
-+	if (pfilter->family == AF_PACKET)
- 		fprintf(fp, "\n");
- 	fflush(fp);
- 	return 0;
-@@ -1736,7 +1740,8 @@ static int ipaddr_list_flush_or_save(int argc, char **argv, int action)
- 		struct ifinfomsg *ifi = NLMSG_DATA(&l->h);
- 
- 		if (brief) {
--			if (print_linkinfo_brief(NULL, &l->h, stdout) == 0)
-+			if (print_linkinfo_brief(NULL, &l->h,
-+						 stdout, NULL) == 0)
- 				if (filter.family != AF_PACKET)
- 					print_selected_addrinfo(ifi,
- 								ainfo->head,
-diff --git a/ip/iplink.c b/ip/iplink.c
-index ae1c70ebcc81..58af402cc5eb 100644
---- a/ip/iplink.c
-+++ b/ip/iplink.c
-@@ -1036,7 +1036,7 @@ int iplink_get(unsigned int flags, char *name, __u32 filt_mask)
- 		return -2;
- 
- 	if (brief)
--		print_linkinfo_brief(NULL, &answer.n, stdout);
-+		print_linkinfo_brief(NULL, &answer.n, stdout, NULL);
- 	else
- 		print_linkinfo(NULL, &answer.n, stdout);
- 
+ .TP
++.B ip vrf show [ NAME ] - Show all configured VRF
++.sp
++This command lists all VRF and their corresponding table ids. If NAME is
++given, then only that VRF and table id is shown. The latter command is
++useful for scripting where the table id for a VRF is needed.
++
++.TP
+ .B ip vrf exec [ NAME ] cmd ... - Run cmd against the named VRF
+ .sp
+ This command allows applications that are VRF unaware to be run against
 -- 
 2.11.0 (Apple Git-81)
