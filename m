@@ -1,37 +1,60 @@
 From: Vladislav Yasevich <vyasevich@gmail.com>
-Subject: [PATCH V6 net-next iproute] ip: Add support for netdev events to monitor
-Date: Sat, 27 May 2017 10:14:36 -0400
-Message-ID: <1495894476-9726-4-git-send-email-vyasevic@redhat.com>
+Subject: [PATCH V6 net-next 1/2] rtnl: Add support for netdev event to link messages
+Date: Sat, 27 May 2017 10:14:34 -0400
+Message-ID: <1495894476-9726-2-git-send-email-vyasevic@redhat.com>
 References: <1495894476-9726-1-git-send-email-vyasevic@redhat.com>
 Cc: dsahern@gmail.com, roopa@cumulusnetworks.com, jiri@resnulli.us,
         vfalico@gmail.com, andy@greyhouse.net,
         Vladislav Yasevich <vyasevic@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f193.google.com ([209.85.216.193]:33962 "EHLO
+Received: from mail-qt0-f193.google.com ([209.85.216.193]:36126 "EHLO
         mail-qt0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757292AbdE0OOz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 27 May 2017 10:14:55 -0400
-Received: by mail-qt0-f193.google.com with SMTP id l39so4577888qtb.1
-        for <netdev@vger.kernel.org>; Sat, 27 May 2017 07:14:55 -0700 (PDT)
+        with ESMTP id S1756891AbdE0OOw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 27 May 2017 10:14:52 -0400
+Received: by mail-qt0-f193.google.com with SMTP id j13so4569001qta.3
+        for <netdev@vger.kernel.org>; Sat, 27 May 2017 07:14:51 -0700 (PDT)
 In-Reply-To: <1495894476-9726-1-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add IFLA_EVENT handling so that event types can be viewed with
-'monitor' command.  This gives a little more information for why
-a given message was receivied.
+When netdev events happen, a rtnetlink_event() handler will send
+messages for every event in it's white list.  These messages contain
+current information about a particular device, but they do not include
+the iformation about which event just happened.  So, it is impossible
+to tell what just happend for these events.
+
+This patch adds a new extension to RTM_NEWLINK message called IFLA_EVENT
+that would have an encoding of event that triggered this
+message.  This would allow the the message consumer to easily determine
+if it needs to perform certain actions.
 
 Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
 ---
- include/linux/if_link.h | 11 +++++++++++
- ip/ipaddress.c          | 21 +++++++++++++++++++++
- 2 files changed, 32 insertions(+)
+ include/linux/rtnetlink.h    |  3 +-
+ include/uapi/linux/if_link.h | 11 ++++++++
+ net/core/dev.c               |  2 +-
+ net/core/rtnetlink.c         | 65 ++++++++++++++++++++++++++++++++++++++------
+ 4 files changed, 70 insertions(+), 11 deletions(-)
 
-diff --git a/include/linux/if_link.h b/include/linux/if_link.h
-index 5a3a048..c0a6769 100644
---- a/include/linux/if_link.h
-+++ b/include/linux/if_link.h
+diff --git a/include/linux/rtnetlink.h b/include/linux/rtnetlink.h
+index 57e5484..dea59c8 100644
+--- a/include/linux/rtnetlink.h
++++ b/include/linux/rtnetlink.h
+@@ -18,7 +18,8 @@ extern int rtnl_put_cacheinfo(struct sk_buff *skb, struct dst_entry *dst,
+ 
+ void rtmsg_ifinfo(int type, struct net_device *dev, unsigned change, gfp_t flags);
+ struct sk_buff *rtmsg_ifinfo_build_skb(int type, struct net_device *dev,
+-				       unsigned change, gfp_t flags);
++				       unsigned change, u32 event,
++				       gfp_t flags);
+ void rtmsg_ifinfo_send(struct sk_buff *skb, struct net_device *dev,
+ 		       gfp_t flags);
+ 
+diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
+index 15ac203..8ed679f 100644
+--- a/include/uapi/linux/if_link.h
++++ b/include/uapi/linux/if_link.h
 @@ -157,6 +157,7 @@ enum {
  	IFLA_GSO_MAX_SIZE,
  	IFLA_PAD,
@@ -40,7 +63,7 @@ index 5a3a048..c0a6769 100644
  	__IFLA_MAX
  };
  
-@@ -909,4 +910,14 @@ enum {
+@@ -911,4 +912,14 @@ enum {
  
  #define IFLA_XDP_MAX (__IFLA_XDP_MAX - 1)
  
@@ -48,51 +71,175 @@ index 5a3a048..c0a6769 100644
 +	IFLA_EVENT_NONE,
 +	IFLA_EVENT_REBOOT,		/* internal reset / reboot */
 +	IFLA_EVENT_FEATURES,		/* change in offload features */
-+	IFLA_EVENT_BONDING_FAILOVER,	/* hange in active slave */
++	IFLA_EVENT_BONDING_FAILOVER,	/* change in active slave */
 +	IFLA_EVENT_NOTIFY_PEERS,	/* re-sent grat. arp/ndisc */
 +	IFLA_EVENT_IGMP_RESEND,		/* re-sent IGMP JOIN */
 +	IFLA_EVENT_BONDING_OPTIONS,	/* change in bonding options */
 +};
 +
- #endif /* _LINUX_IF_LINK_H */
-diff --git a/ip/ipaddress.c b/ip/ipaddress.c
-index b8d9c7d..c6e7413 100644
---- a/ip/ipaddress.c
-+++ b/ip/ipaddress.c
-@@ -753,6 +753,24 @@ int print_linkinfo_brief(const struct sockaddr_nl *who,
- 	return 0;
+ #endif /* _UAPI_LINUX_IF_LINK_H */
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 3d98fbf..06e0a74 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -7084,7 +7084,7 @@ static void rollback_registered_many(struct list_head *head)
+ 
+ 		if (!dev->rtnl_link_ops ||
+ 		    dev->rtnl_link_state == RTNL_LINK_INITIALIZED)
+-			skb = rtmsg_ifinfo_build_skb(RTM_DELLINK, dev, ~0U,
++			skb = rtmsg_ifinfo_build_skb(RTM_DELLINK, dev, ~0U, 0,
+ 						     GFP_KERNEL);
+ 
+ 		/*
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index dab2834..07218eb 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -941,6 +941,7 @@ static noinline size_t if_nlmsg_size(const struct net_device *dev,
+ 	       + nla_total_size(MAX_PHYS_ITEM_ID_LEN) /* IFLA_PHYS_SWITCH_ID */
+ 	       + nla_total_size(IFNAMSIZ) /* IFLA_PHYS_PORT_NAME */
+ 	       + rtnl_xdp_size() /* IFLA_XDP */
++	       + nla_total_size(4)  /* IFLA_EVENT */
+ 	       + nla_total_size(1); /* IFLA_PROTO_DOWN */
+ 
+ }
+@@ -1282,9 +1283,40 @@ static int rtnl_xdp_fill(struct sk_buff *skb, struct net_device *dev)
+ 	return err;
  }
  
-+static const char *netdev_events[] = {"NONE",
-+				      "REBOOT",
-+				      "FEATURE CHANGE",
-+				      "BONDING FAILOVER",
-+				      "NOTIFY PEERS",
-+				      "RESEND IGMP",
-+				      "BONDING OPTION"};
-+
-+static void print_dev_event(FILE *f, __u32 event)
++static u32 rtnl_get_event(unsigned long event)
 +{
-+	if (event >= ARRAY_SIZE(netdev_events))
-+		fprintf(f, "event %d ", event);
-+	else {
-+		if (event)
-+			fprintf(f, "event %s ", netdev_events[event]);
++	u32 rtnl_event_type = IFLA_EVENT_NONE;
++
++	switch (event) {
++	case NETDEV_REBOOT:
++		rtnl_event_type = IFLA_EVENT_REBOOT;
++		break;
++	case NETDEV_FEAT_CHANGE:
++		rtnl_event_type = IFLA_EVENT_FEATURES;
++		break;
++	case NETDEV_BONDING_FAILOVER:
++		rtnl_event_type = IFLA_EVENT_BONDING_FAILOVER;
++		break;
++	case NETDEV_NOTIFY_PEERS:
++		rtnl_event_type = IFLA_EVENT_NOTIFY_PEERS;
++		break;
++	case NETDEV_RESEND_IGMP:
++		rtnl_event_type = IFLA_EVENT_IGMP_RESEND;
++		break;
++	case NETDEV_CHANGEINFODATA:
++		rtnl_event_type = IFLA_EVENT_BONDING_OPTIONS;
++		break;
++	default:
++		break;
 +	}
++
++	return rtnl_event_type;
 +}
 +
- int print_linkinfo(const struct sockaddr_nl *who,
- 		   struct nlmsghdr *n, void *arg)
+ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
+ 			    int type, u32 pid, u32 seq, u32 change,
+-			    unsigned int flags, u32 ext_filter_mask)
++			    unsigned int flags, u32 ext_filter_mask,
++			    u32 event)
  {
-@@ -858,6 +876,9 @@ int print_linkinfo(const struct sockaddr_nl *who,
- 	if (filter.showqueue)
- 		print_queuelen(fp, tb);
+ 	struct ifinfomsg *ifm;
+ 	struct nlmsghdr *nlh;
+@@ -1333,6 +1365,11 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
+ 	    nla_put_u8(skb, IFLA_PROTO_DOWN, dev->proto_down))
+ 		goto nla_put_failure;
  
-+	if (tb[IFLA_EVENT])
-+		print_dev_event(fp, rta_getattr_u32(tb[IFLA_EVENT]));
++	if (event != IFLA_EVENT_NONE) {
++		if (nla_put_u32(skb, IFLA_EVENT, event))
++			goto nla_put_failure;
++	}
 +
- 	if (!filter.family || filter.family == AF_PACKET || show_details) {
- 		SPRINT_BUF(b1);
- 		fprintf(fp, "%s", _SL_);
+ 	if (rtnl_fill_link_ifmap(skb, dev))
+ 		goto nla_put_failure;
+ 
+@@ -1467,6 +1504,7 @@ static const struct nla_policy ifla_policy[IFLA_MAX+1] = {
+ 	[IFLA_LINK_NETNSID]	= { .type = NLA_S32 },
+ 	[IFLA_PROTO_DOWN]	= { .type = NLA_U8 },
+ 	[IFLA_XDP]		= { .type = NLA_NESTED },
++	[IFLA_EVENT]		= { .type = NLA_U32 },
+ };
+ 
+ static const struct nla_policy ifla_info_policy[IFLA_INFO_MAX+1] = {
+@@ -1626,7 +1664,7 @@ static int rtnl_dump_ifinfo(struct sk_buff *skb, struct netlink_callback *cb)
+ 					       NETLINK_CB(cb->skb).portid,
+ 					       cb->nlh->nlmsg_seq, 0,
+ 					       flags,
+-					       ext_filter_mask);
++					       ext_filter_mask, 0);
+ 
+ 			if (err < 0) {
+ 				if (likely(skb->len))
+@@ -2736,7 +2774,7 @@ static int rtnl_getlink(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 		return -ENOBUFS;
+ 
+ 	err = rtnl_fill_ifinfo(nskb, dev, RTM_NEWLINK, NETLINK_CB(skb).portid,
+-			       nlh->nlmsg_seq, 0, 0, ext_filter_mask);
++			       nlh->nlmsg_seq, 0, 0, ext_filter_mask, 0);
+ 	if (err < 0) {
+ 		/* -EMSGSIZE implies BUG in if_nlmsg_size */
+ 		WARN_ON(err == -EMSGSIZE);
+@@ -2808,7 +2846,8 @@ static int rtnl_dump_all(struct sk_buff *skb, struct netlink_callback *cb)
+ }
+ 
+ struct sk_buff *rtmsg_ifinfo_build_skb(int type, struct net_device *dev,
+-				       unsigned int change, gfp_t flags)
++				       unsigned int change,
++				       u32 event, gfp_t flags)
+ {
+ 	struct net *net = dev_net(dev);
+ 	struct sk_buff *skb;
+@@ -2819,7 +2858,7 @@ struct sk_buff *rtmsg_ifinfo_build_skb(int type, struct net_device *dev,
+ 	if (skb == NULL)
+ 		goto errout;
+ 
+-	err = rtnl_fill_ifinfo(skb, dev, type, 0, 0, change, 0, 0);
++	err = rtnl_fill_ifinfo(skb, dev, type, 0, 0, change, 0, 0, event);
+ 	if (err < 0) {
+ 		/* -EMSGSIZE implies BUG in if_nlmsg_size() */
+ 		WARN_ON(err == -EMSGSIZE);
+@@ -2840,18 +2879,25 @@ void rtmsg_ifinfo_send(struct sk_buff *skb, struct net_device *dev, gfp_t flags)
+ 	rtnl_notify(skb, net, 0, RTNLGRP_LINK, NULL, flags);
+ }
+ 
+-void rtmsg_ifinfo(int type, struct net_device *dev, unsigned int change,
+-		  gfp_t flags)
++static void rtmsg_ifinfo_event(int type, struct net_device *dev,
++			       unsigned int change, u32 event,
++			       gfp_t flags)
+ {
+ 	struct sk_buff *skb;
+ 
+ 	if (dev->reg_state != NETREG_REGISTERED)
+ 		return;
+ 
+-	skb = rtmsg_ifinfo_build_skb(type, dev, change, flags);
++	skb = rtmsg_ifinfo_build_skb(type, dev, change, event, flags);
+ 	if (skb)
+ 		rtmsg_ifinfo_send(skb, dev, flags);
+ }
++
++void rtmsg_ifinfo(int type, struct net_device *dev, unsigned int change,
++		  gfp_t flags)
++{
++	rtmsg_ifinfo_event(type, dev, change, IFLA_EVENT_NONE, flags);
++}
+ EXPORT_SYMBOL(rtmsg_ifinfo);
+ 
+ static int nlmsg_populate_fdb_fill(struct sk_buff *skb,
+@@ -4165,7 +4211,8 @@ static int rtnetlink_event(struct notifier_block *this, unsigned long event, voi
+ 	case NETDEV_NOTIFY_PEERS:
+ 	case NETDEV_RESEND_IGMP:
+ 	case NETDEV_CHANGEINFODATA:
+-		rtmsg_ifinfo(RTM_NEWLINK, dev, 0, GFP_KERNEL);
++		rtmsg_ifinfo_event(RTM_NEWLINK, dev, 0, rtnl_get_event(event),
++				   GFP_KERNEL);
+ 		break;
+ 	default:
+ 		break;
 -- 
 2.7.4
