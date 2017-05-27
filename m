@@ -1,8 +1,8 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next 1/3] net: phy: Create sysfs reciprocal links for
- attached_dev/phydev
-Date: Fri, 26 May 2017 17:46:07 -0700
-Message-ID: <0413eb98-61cc-2fca-a4d6-7f4ef91843ba@gmail.com>
+From: <Woojung.Huh@microchip.com>
+Subject: RE: [PATCH net-next 1/3] net: phy: Create sysfs reciprocal links
+ for attached_dev/phydev
+Date: Sat, 27 May 2017 01:00:57 +0000
+Message-ID: <9235D6609DB808459E95D78E17F2E43D40A9DB32@CHN-SV-EXMX02.mchp-main.com>
 References: <20170524193354.10739-1-f.fainelli@gmail.com>
  <20170524193354.10739-2-f.fainelli@gmail.com>
  <9235D6609DB808459E95D78E17F2E43D40A9DAA2@CHN-SV-EXMX02.mchp-main.com>
@@ -12,79 +12,70 @@ References: <20170524193354.10739-1-f.fainelli@gmail.com>
  <9235D6609DB808459E95D78E17F2E43D40A9DAF6@CHN-SV-EXMX02.mchp-main.com>
  <05a159af-6689-70db-9506-09059a09f1a5@gmail.com>
  <9235D6609DB808459E95D78E17F2E43D40A9DB14@CHN-SV-EXMX02.mchp-main.com>
+ <0413eb98-61cc-2fca-a4d6-7f4ef91843ba@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, andrew@lunn.ch
-To: Woojung.Huh@microchip.com, netdev@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: <davem@davemloft.net>, <andrew@lunn.ch>
+To: <f.fainelli@gmail.com>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:33332 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1948894AbdE0AqO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 26 May 2017 20:46:14 -0400
-Received: by mail-pf0-f195.google.com with SMTP id f27so5906364pfe.0
-        for <netdev@vger.kernel.org>; Fri, 26 May 2017 17:46:14 -0700 (PDT)
-In-Reply-To: <9235D6609DB808459E95D78E17F2E43D40A9DB14@CHN-SV-EXMX02.mchp-main.com>
+Received: from esa1.microchip.iphmx.com ([68.232.147.91]:12869 "EHLO
+        esa1.microchip.iphmx.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S944979AbdE0BA7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 26 May 2017 21:00:59 -0400
+In-Reply-To: <0413eb98-61cc-2fca-a4d6-7f4ef91843ba@gmail.com>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Woojung,
-
-On 05/26/2017 05:43 PM, Woojung.Huh@microchip.com wrote:
-> Hi Florian,
->  
->> OK, so here is what is happening: macb_mii_init() calls macb_mii_probe()
->> and so by the time we call phy_connect_direct(), we have not called
->> register_netdevice() yet, netdev_register_kobject() has not been called
->> either, and so sysfs_create_link() fails....
-> I just found same thing.
-> Yes, register_netdev() was not called at phy_connect_direct() time. 
-> 
->> Let me think about a way to solve that, even though I am leaning towards
->> ignoring the errors from sysfs_create_link() rather than fixing each and
->> every Ethernet driver to make it probe its MII bus *after* calling
->> register_netdevice()....
-> Agree.
-
-Thanks, would the following work for you? I don't want to do something
-more complex than that, although, if we really wanted to see this
-information, we could imagine having netdev_register_kobject() check
-whether phydev->dev.kobj is valid, and set the symbolic link at that
-point... The problem with that approach is that we are no longer
-symetrical within the core PHYLIB code (phy_attach_direct and phy_detach).
-
-Let me know if this works so I can make a formal submission:
-
-diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-index f84414b8f2ee..daad816ee1d1 100644
---- a/drivers/net/phy/phy_device.c
-+++ b/drivers/net/phy/phy_device.c
-@@ -960,14 +960,20 @@ int phy_attach_direct(struct net_device *dev,
-struct phy_device *phydev,
-
-        phydev->attached_dev = dev;
-        dev->phydev = phydev;
-+
-+       /* Some Ethernet drivers try to connect to a PHY device before
-+        * calling register_netdevice(). register_netdevice() does
-ultimately
-+        * lead to netdev_register_kobject() which would do the
-dev->dev.kobj
-+        * initialization. Here we explicitly ignore those particular errors
-+        */
-        err = sysfs_create_link(&phydev->mdio.dev.kobj, &dev->dev.kobj,
-                                "attached_dev");
--       if (err)
-+       if (err && err != -ENOENT)
-                goto error;
-
-        err = sysfs_create_link(&dev->dev.kobj, &phydev->mdio.dev.kobj,
-                                "phydev");
--       if (err)
-+       if (err && err != -ENOENT)
-                goto error;
-
-        phydev->dev_flags = flags;
--- 
-Florian
+SGkgRmxvcmlhbiwNCj4gPj4gT0ssIHNvIGhlcmUgaXMgd2hhdCBpcyBoYXBwZW5pbmc6IG1hY2Jf
+bWlpX2luaXQoKSBjYWxscyBtYWNiX21paV9wcm9iZSgpDQo+ID4+IGFuZCBzbyBieSB0aGUgdGlt
+ZSB3ZSBjYWxsIHBoeV9jb25uZWN0X2RpcmVjdCgpLCB3ZSBoYXZlIG5vdCBjYWxsZWQNCj4gPj4g
+cmVnaXN0ZXJfbmV0ZGV2aWNlKCkgeWV0LCBuZXRkZXZfcmVnaXN0ZXJfa29iamVjdCgpIGhhcyBu
+b3QgYmVlbiBjYWxsZWQNCj4gPj4gZWl0aGVyLCBhbmQgc28gc3lzZnNfY3JlYXRlX2xpbmsoKSBm
+YWlscy4uLi4NCj4gPiBJIGp1c3QgZm91bmQgc2FtZSB0aGluZy4NCj4gPiBZZXMsIHJlZ2lzdGVy
+X25ldGRldigpIHdhcyBub3QgY2FsbGVkIGF0IHBoeV9jb25uZWN0X2RpcmVjdCgpIHRpbWUuDQo+
+ID4NCj4gPj4gTGV0IG1lIHRoaW5rIGFib3V0IGEgd2F5IHRvIHNvbHZlIHRoYXQsIGV2ZW4gdGhv
+dWdoIEkgYW0gbGVhbmluZyB0b3dhcmRzDQo+ID4+IGlnbm9yaW5nIHRoZSBlcnJvcnMgZnJvbSBz
+eXNmc19jcmVhdGVfbGluaygpIHJhdGhlciB0aGFuIGZpeGluZyBlYWNoIGFuZA0KPiA+PiBldmVy
+eSBFdGhlcm5ldCBkcml2ZXIgdG8gbWFrZSBpdCBwcm9iZSBpdHMgTUlJIGJ1cyAqYWZ0ZXIqIGNh
+bGxpbmcNCj4gPj4gcmVnaXN0ZXJfbmV0ZGV2aWNlKCkuLi4uDQo+ID4gQWdyZWUuDQo+IA0KPiBU
+aGFua3MsIHdvdWxkIHRoZSBmb2xsb3dpbmcgd29yayBmb3IgeW91PyBJIGRvbid0IHdhbnQgdG8g
+ZG8gc29tZXRoaW5nDQo+IG1vcmUgY29tcGxleCB0aGFuIHRoYXQsIGFsdGhvdWdoLCBpZiB3ZSBy
+ZWFsbHkgd2FudGVkIHRvIHNlZSB0aGlzDQo+IGluZm9ybWF0aW9uLCB3ZSBjb3VsZCBpbWFnaW5l
+IGhhdmluZyBuZXRkZXZfcmVnaXN0ZXJfa29iamVjdCgpIGNoZWNrDQo+IHdoZXRoZXIgcGh5ZGV2
+LT5kZXYua29iaiBpcyB2YWxpZCwgYW5kIHNldCB0aGUgc3ltYm9saWMgbGluayBhdCB0aGF0DQo+
+IHBvaW50Li4uIFRoZSBwcm9ibGVtIHdpdGggdGhhdCBhcHByb2FjaCBpcyB0aGF0IHdlIGFyZSBu
+byBsb25nZXINCj4gc3ltZXRyaWNhbCB3aXRoaW4gdGhlIGNvcmUgUEhZTElCIGNvZGUgKHBoeV9h
+dHRhY2hfZGlyZWN0IGFuZCBwaHlfZGV0YWNoKS4NCj4NCj4gTGV0IG1lIGtub3cgaWYgdGhpcyB3
+b3JrcyBzbyBJIGNhbiBtYWtlIGEgZm9ybWFsIHN1Ym1pc3Npb246DQo+IA0KPiBkaWZmIC0tZ2l0
+IGEvZHJpdmVycy9uZXQvcGh5L3BoeV9kZXZpY2UuYyBiL2RyaXZlcnMvbmV0L3BoeS9waHlfZGV2
+aWNlLmMNCj4gaW5kZXggZjg0NDE0YjhmMmVlLi5kYWFkODE2ZWUxZDEgMTAwNjQ0DQo+IC0tLSBh
+L2RyaXZlcnMvbmV0L3BoeS9waHlfZGV2aWNlLmMNCj4gKysrIGIvZHJpdmVycy9uZXQvcGh5L3Bo
+eV9kZXZpY2UuYw0KPiBAQCAtOTYwLDE0ICs5NjAsMjAgQEAgaW50IHBoeV9hdHRhY2hfZGlyZWN0
+KHN0cnVjdCBuZXRfZGV2aWNlICpkZXYsDQo+IHN0cnVjdCBwaHlfZGV2aWNlICpwaHlkZXYsDQo+
+IA0KPiAgICAgICAgIHBoeWRldi0+YXR0YWNoZWRfZGV2ID0gZGV2Ow0KPiAgICAgICAgIGRldi0+
+cGh5ZGV2ID0gcGh5ZGV2Ow0KPiArDQo+ICsgICAgICAgLyogU29tZSBFdGhlcm5ldCBkcml2ZXJz
+IHRyeSB0byBjb25uZWN0IHRvIGEgUEhZIGRldmljZSBiZWZvcmUNCj4gKyAgICAgICAgKiBjYWxs
+aW5nIHJlZ2lzdGVyX25ldGRldmljZSgpLiByZWdpc3Rlcl9uZXRkZXZpY2UoKSBkb2VzDQo+IHVs
+dGltYXRlbHkNCj4gKyAgICAgICAgKiBsZWFkIHRvIG5ldGRldl9yZWdpc3Rlcl9rb2JqZWN0KCkg
+d2hpY2ggd291bGQgZG8gdGhlDQo+IGRldi0+ZGV2LmtvYmoNCj4gKyAgICAgICAgKiBpbml0aWFs
+aXphdGlvbi4gSGVyZSB3ZSBleHBsaWNpdGx5IGlnbm9yZSB0aG9zZSBwYXJ0aWN1bGFyIGVycm9y
+cw0KPiArICAgICAgICAqLw0KPiAgICAgICAgIGVyciA9IHN5c2ZzX2NyZWF0ZV9saW5rKCZwaHlk
+ZXYtPm1kaW8uZGV2LmtvYmosICZkZXYtPmRldi5rb2JqLA0KPiAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICJhdHRhY2hlZF9kZXYiKTsNCj4gLSAgICAgICBpZiAoZXJyKQ0KPiArICAg
+ICAgIGlmIChlcnIgJiYgZXJyICE9IC1FTk9FTlQpDQo+ICAgICAgICAgICAgICAgICBnb3RvIGVy
+cm9yOw0KVGhpcyBvbmUgZmluZS4gSG93ZXZlciwgbmV4dCBvbmUgcmV0dXJucyAtMTQgKC1FRkFV
+TFQpDQoNCj4gICAgICAgICBlcnIgPSBzeXNmc19jcmVhdGVfbGluaygmZGV2LT5kZXYua29iaiwg
+JnBoeWRldi0+bWRpby5kZXYua29iaiwNCj4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAicGh5ZGV2Iik7DQo+IC0gICAgICAgaWYgKGVycikNCj4gKyAgICAgICBpZiAoZXJyICYmIGVy
+ciAhPSAtRU5PRU5UKQ0KPiAgICAgICAgICAgICAgICAgZ290byBlcnJvcjsNCk5vIG5lZWQgdG8g
+Y2FsbCAybmQgc3lzZnNfY3JlYXRlX2xpbmsoKSwgaG93IGFib3V0IGZvbGxvd2luZz8NCg0KCWVy
+ciA9IHN5c2ZzX2NyZWF0ZV9saW5rKCZwaHlkZXYtPm1kaW8uZGV2LmtvYmosICZkZXYtPmRldi5r
+b2JqLA0KIAkJCQkiYXR0YWNoZWRfZGV2Iik7DQotCWlmIChlcnIpDQorCWlmIChlcnIgJiYgZXJy
+ICE9IC1FTk9FTlQpDQogCQlnb3RvIGVycm9yOw0KIA0KLQllcnIgPSBzeXNmc19jcmVhdGVfbGlu
+aygmZGV2LT5kZXYua29iaiwgJnBoeWRldi0+bWRpby5kZXYua29iaiwNCi0JCQkJInBoeWRldiIp
+Ow0KLQlpZiAoZXJyKQ0KLQkJZ290byBlcnJvcjsNCisJaWYgKCFlcnIpIHsNCisJCWVyciA9IHN5
+c2ZzX2NyZWF0ZV9saW5rKCZkZXYtPmRldi5rb2JqLCAmcGh5ZGV2LT5tZGlvLmRldi5rb2JqLA0K
+KwkJCQkJInBoeWRldiIpOw0KKwkJaWYgKGVycikNCisJCQlnb3RvIGVycm9yOw0KKwl9DQogDQog
+CXBoeWRldi0+ZGV2X2ZsYWdzID0gZmxhZ3M7DQoNCi0gV29vanVuZw0K
