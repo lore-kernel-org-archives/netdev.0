@@ -1,78 +1,52 @@
-From: Jan Kiszka <jan.kiszka@siemens.com>
-Subject: Re: [PATCH v2 5/6] stmmac: pci: Use dmi_system_id table for
- retrieving PHY addresses
-Date: Sun, 28 May 2017 18:52:40 +0200
-Message-ID: <9a0753a2-eb4d-5f9f-34a8-f1774593c28d@siemens.com>
-References: <cover.1495814872.git.jan.kiszka@siemens.com>
- <6e12b2e63c7eaab6db937a99fedf79ec806d176f.1495814872.git.jan.kiszka@siemens.com>
- <CAHp75VeLVs6LK=_=e_2B+huZLENe6V-8SMNLiEEi+4h_uqmvMg@mail.gmail.com>
+From: Kees Cook <keescook@chromium.org>
+Subject: Re: [PATCH v2 08/20] randstruct: Whitelist NIU struct page overloading
+Date: Sun, 28 May 2017 10:35:34 -0700
+Message-ID: <CAGXu5jKTDs=1gU_QQjkHFr_XWF0vZgCDrtYHOjm0i1k1Kn8uKA@mail.gmail.com>
+References: <1495829844-69341-1-git-send-email-keescook@chromium.org>
+ <1495829844-69341-9-git-send-email-keescook@chromium.org> <20170528081541.GE22193@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-        Alexandre Torgue <alexandre.torgue@st.com>,
-        David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Andy Shevchenko <andy.shevchenko@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from goliath.siemens.de ([192.35.17.28]:39378 "EHLO
-        goliath.siemens.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750941AbdE1Qww (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 28 May 2017 12:52:52 -0400
-In-Reply-To: <CAHp75VeLVs6LK=_=e_2B+huZLENe6V-8SMNLiEEi+4h_uqmvMg@mail.gmail.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+Cc: "kernel-hardening@lists.openwall.com" <kernel-hardening@lists.openwall.com>,
+	"David S . Miller" <davem@davemloft.net>, Laura Abbott <labbott@redhat.com>,
+	"x86@kernel.org" <x86@kernel.org>, LKML <linux-kernel@vger.kernel.org>
+To: Christoph Hellwig <hch@infradead.org>, linux-mm@vger.kernel.org,
+	Network Development <netdev@vger.kernel.org>
+Return-path: <kernel-hardening-return-8093-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
+List-Post: <mailto:kernel-hardening@lists.openwall.com>
+List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
+List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
+List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
+Sender: keescook@google.com
+In-Reply-To: <20170528081541.GE22193@infradead.org>
+List-Id: netdev.vger.kernel.org
 
-On 2017-05-27 15:28, Andy Shevchenko wrote:
-> On Fri, May 26, 2017 at 7:07 PM, Jan Kiszka <jan.kiszka@siemens.com> wrote:
->> Avoids reimplementation of DMI matching in stmmac_pci_find_phy_addr.
-> 
->>  struct stmmac_pci_dmi_data {
->> -       const char *name;
->> -       const char *asset_tag;
->> -       unsigned int func;
->> +       int func;
->>         int phy_addr;
->>  };
-> 
-> Can we leave unsigned type here...
-> 
->> -static struct stmmac_pci_dmi_data quark_pci_dmi_data[] = {
->> +static const struct stmmac_pci_dmi_data galileo_stmmac_dmi_data[] = {
-> 
->> +       {-1, -1},
->> +};
-> 
->> +static const struct stmmac_pci_dmi_data iot2040_stmmac_dmi_data[] = {
-> 
->> +       {-1, -1},
->> +};
-> 
-> ...and avoid this not so standard terminators?
+On Sun, May 28, 2017 at 1:15 AM, Christoph Hellwig <hch@infradead.org> wrot=
+e:
+> On Fri, May 26, 2017 at 01:17:12PM -0700, Kees Cook wrote:
+>> The NIU ethernet driver intentionally stores a page struct pointer on
+>> top of the "mapping" field. Whitelist this case:
+>>
+>> drivers/net/ethernet/sun/niu.c: In function =E2=80=98niu_rx_pkt_ignore=
+=E2=80=99:
+>> drivers/net/ethernet/sun/niu.c:3402:10: note: found mismatched ssa struc=
+t pointer types: =E2=80=98struct page=E2=80=99 and =E2=80=98struct address_=
+space=E2=80=99
+>>
+>>     *link =3D (struct page *) page->mapping;
+>>     ~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+>>
+>> Cc: David S. Miller <davem@davemloft.net>
+>> Signed-off-by: Kees Cook <keescook@chromium.org>
+>
+> The driver really needs to stop doing this anyway.  It would be good
+> to send this out to linux-mm and netdev to come up with a better scheme.
 
-0 is a valid PCI function, thus can't be use as terminator. Therefore I
-chose -1 as an obviously invalid value.
+Added to To. :) I couldn't understand why it was doing what it was
+doing, hence the whitelist entry.
 
-> 
->> +               .matches = {
->> +                       DMI_EXACT_MATCH(DMI_BOARD_NAME, "GalileoGen2"),
->> +               },
-> 
->> +               .driver_data = (void *)galileo_stmmac_dmi_data,
-> 
-> Can't be slightly better
-> 
->              .driver_data = &galileo_stmmac_dmi_data,
-> 
-> ?
-> 
+-Kees
 
-Interesting, that removes the "const" as well. OK.
-
-Jan
-
--- 
-Siemens AG, Corporate Technology, CT RDA ITP SES-DE
-Corporate Competence Center Embedded Linux
+--=20
+Kees Cook
+Pixel Security
