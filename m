@@ -1,47 +1,34 @@
-From: Adel Fuchs <adelfuchs@gmail.com>
-Subject: Error with printk and bpf_trace_printk
-Date: Sun, 28 May 2017 17:48:20 +0300
-Message-ID: <CAErYV9EJtbgaWn4KAeoADxnHgj7S+vFdHgu78Y2PxNuhpWrANw@mail.gmail.com>
+From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
+Subject: RE: [PATCH net-next 02/12] nfp: set driver VF limit
+Date: Sun, 28 May 2017 14:49:58 +0000
+Message-ID: <BLUPR0701MB200496130E22B9820F7C1D858DF20@BLUPR0701MB2004.namprd07.prod.outlook.com>
+References: <20170528003411.17603-1-jakub.kicinski@netronome.com>
+ <20170528003411.17603-3-jakub.kicinski@netronome.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "oss-drivers@netronome.com" <oss-drivers@netronome.com>
+To: Jakub Kicinski <jakub.kicinski@netronome.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f44.google.com ([209.85.213.44]:35669 "EHLO
-        mail-vk0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750791AbdE1OsV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 28 May 2017 10:48:21 -0400
-Received: by mail-vk0-f44.google.com with SMTP id w1so2078620vkd.2
-        for <netdev@vger.kernel.org>; Sun, 28 May 2017 07:48:21 -0700 (PDT)
+Received: from mail-sn1nam02on0081.outbound.protection.outlook.com ([104.47.36.81]:31150
+        "EHLO NAM02-SN1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1750825AbdE1OuB (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 28 May 2017 10:50:01 -0400
+In-Reply-To: <20170528003411.17603-3-jakub.kicinski@netronome.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+>  	pf->limit_vfs =3D nfp_rtsym_read_le(pf->cpp, "nfd_vf_cfg_max_vfs",
+> &err);
+>  	if (!err)
+> -		return;
+> +		return pci_sriov_set_totalvfs(pf->pdev, pf->limit_vfs);
 
-I have a working eBPF program, and I'm trying to add outputs to it.
-I'm not able to use both printk and bpf_trace_printk functions. I get
-this error:
+While you're at it, If you're going to enforce the limit at the PCI level,
+shouldn't you retire 'limit_vfs' altogether?
 
-ELF contains non-map related relo data in entry 0 pointing to section
-8! Compiler bug?!
-
-Prog section 'ingress' rejected: Invalid argument (22)!
- - Type:         3
- - Instructions: 16 (0 over limit)
- - License:      GPL
-
-Verifier analysis:
-
-0: (bf) r6 = r1
-1: (18) r1 = 0x0
-3: (85) call bpf_unspec#0
-unknown func bpf_unspec#0
-
-Error fetching program/map!
-Failed to retrieve (e)BPF data!
-
-Are there certain "includes" that I need to add?
-In addition, I'm not sure I'm using the function correctly. I just
-wrote: printk("hi")
-
-Thanks!
-Adel
+BTW, under which conditions would you expect to find a difference
+in the maximal number of VFs?
