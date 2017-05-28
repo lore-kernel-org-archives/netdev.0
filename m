@@ -1,82 +1,497 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next 12/12] nfp: don't keep count for free buffers delayed kick
-Date: Sat, 27 May 2017 17:34:11 -0700
-Message-ID: <20170528003411.17603-13-jakub.kicinski@netronome.com>
+Subject: [PATCH net-next 08/12] nfp: add hwmon support
+Date: Sat, 27 May 2017 17:34:07 -0700
+Message-ID: <20170528003411.17603-9-jakub.kicinski@netronome.com>
 References: <20170528003411.17603-1-jakub.kicinski@netronome.com>
 Cc: oss-drivers@netronome.com,
+        David Brunecz <david.brunecz@netronome.com>,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f51.google.com ([74.125.83.51]:33975 "EHLO
-        mail-pg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750871AbdE1Ae4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 27 May 2017 20:34:56 -0400
-Received: by mail-pg0-f51.google.com with SMTP id u28so8595744pgn.1
-        for <netdev@vger.kernel.org>; Sat, 27 May 2017 17:34:51 -0700 (PDT)
+Received: from mail-pg0-f44.google.com ([74.125.83.44]:36698 "EHLO
+        mail-pg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750814AbdE1Aes (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 27 May 2017 20:34:48 -0400
+Received: by mail-pg0-f44.google.com with SMTP id x64so8594496pgd.3
+        for <netdev@vger.kernel.org>; Sat, 27 May 2017 17:34:48 -0700 (PDT)
 In-Reply-To: <20170528003411.17603-1-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We only kick RX free buffer queue controller every NFP_NET_FL_BATCH
-(currently 16) entries.  This means that we will always kick the QC
-when write ring index is divisable by NFP_NET_FL_BATCH.  There is
-no need to keep counts.
+From: David Brunecz <david.brunecz@netronome.com>
 
+Add support for retrieving temperature and power sensor and limits via NSP.
+
+Signed-off-by: David Brunecz <david.brunecz@netronome.com>
 Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 ---
- drivers/net/ethernet/netronome/nfp/nfp_net.h        | 3 ---
- drivers/net/ethernet/netronome/nfp/nfp_net_common.c | 7 ++-----
- 2 files changed, 2 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/netronome/nfp/Makefile        |   1 +
+ drivers/net/ethernet/netronome/nfp/nfp_hwmon.c     | 190 +++++++++++++++++++++
+ drivers/net/ethernet/netronome/nfp/nfp_main.c      |  21 ++-
+ drivers/net/ethernet/netronome/nfp/nfp_main.h      |  10 ++
+ drivers/net/ethernet/netronome/nfp/nfpcore/nfp.h   |   2 +
+ .../net/ethernet/netronome/nfp/nfpcore/nfp_nsp.c   |   8 +
+ .../net/ethernet/netronome/nfp/nfpcore/nfp_nsp.h   |  12 ++
+ .../ethernet/netronome/nfp/nfpcore/nfp_nsp_cmds.c  |  47 ++++-
+ 8 files changed, 284 insertions(+), 7 deletions(-)
+ create mode 100644 drivers/net/ethernet/netronome/nfp/nfp_hwmon.c
 
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net.h b/drivers/net/ethernet/netronome/nfp/nfp_net.h
-index 7882d2604835..cb7114309656 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net.h
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net.h
-@@ -328,8 +328,6 @@ struct nfp_net_rx_buf {
-  * @idx:        Ring index from Linux's perspective
-  * @fl_qcidx:   Queue Controller Peripheral (QCP) queue index for the freelist
-  * @qcp_fl:     Pointer to base of the QCP freelist queue
-- * @wr_ptr_add: Accumulated number of buffers to add to QCP write pointer
-- *              (used for free list batching)
-  * @rxbufs:     Array of transmitted FL/RX buffers
-  * @rxds:       Virtual address of FL/RX ring in host memory
-  * @dma:        DMA address of the FL/RX ring
-@@ -343,7 +341,6 @@ struct nfp_net_rx_ring {
- 	u32 rd_p;
+diff --git a/drivers/net/ethernet/netronome/nfp/Makefile b/drivers/net/ethernet/netronome/nfp/Makefile
+index 95f6b97b5d71..83039c65e061 100644
+--- a/drivers/net/ethernet/netronome/nfp/Makefile
++++ b/drivers/net/ethernet/netronome/nfp/Makefile
+@@ -16,6 +16,7 @@ nfp-objs := \
+ 	    nfpcore/nfp_target.o \
+ 	    nfp_app.o \
+ 	    nfp_devlink.o \
++	    nfp_hwmon.o \
+ 	    nfp_main.o \
+ 	    nfp_net_common.o \
+ 	    nfp_net_ethtool.o \
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_hwmon.c b/drivers/net/ethernet/netronome/nfp/nfp_hwmon.c
+new file mode 100644
+index 000000000000..bef58ee37c3a
+--- /dev/null
++++ b/drivers/net/ethernet/netronome/nfp/nfp_hwmon.c
+@@ -0,0 +1,190 @@
++/*
++ * Copyright (C) 2017 Netronome Systems, Inc.
++ *
++ * This software is dual licensed under the GNU General License Version 2,
++ * June 1991 as shown in the file COPYING in the top-level directory of this
++ * source tree or the BSD 2-Clause License provided below.  You have the
++ * option to license this software under the complete terms of either license.
++ *
++ * The BSD 2-Clause License:
++ *
++ *     Redistribution and use in source and binary forms, with or
++ *     without modification, are permitted provided that the following
++ *     conditions are met:
++ *
++ *      1. Redistributions of source code must retain the above
++ *         copyright notice, this list of conditions and the following
++ *         disclaimer.
++ *
++ *      2. Redistributions in binary form must reproduce the above
++ *         copyright notice, this list of conditions and the following
++ *         disclaimer in the documentation and/or other materials
++ *         provided with the distribution.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
++ */
++
++#include <linux/kernel.h>
++#include <linux/bitops.h>
++#include <linux/hwmon.h>
++
++#include "nfpcore/nfp_cpp.h"
++#include "nfpcore/nfp_nsp.h"
++#include "nfp_main.h"
++
++#define NFP_TEMP_MAX		(95 * 1000)
++#define NFP_TEMP_CRIT		(105 * 1000)
++
++#define NFP_POWER_MAX		(25 * 1000 * 1000)
++
++static int nfp_hwmon_sensor_id(enum hwmon_sensor_types type, int channel)
++{
++	if (type == hwmon_temp)
++		return NFP_SENSOR_CHIP_TEMPERATURE;
++	if (type == hwmon_power)
++		return NFP_SENSOR_ASSEMBLY_POWER + channel;
++	return -EINVAL;
++}
++
++static int
++nfp_hwmon_read(struct device *dev, enum hwmon_sensor_types type, u32 attr,
++	       int channel, long *val)
++{
++	static const struct {
++		enum hwmon_sensor_types type;
++		u32 attr;
++		long val;
++	} const_vals[] = {
++		{ hwmon_temp,	hwmon_temp_max,		NFP_TEMP_MAX },
++		{ hwmon_temp,	hwmon_temp_crit,	NFP_TEMP_CRIT },
++		{ hwmon_power,	hwmon_power_max,	NFP_POWER_MAX },
++	};
++	struct nfp_pf *pf = dev_get_drvdata(dev);
++	enum nfp_nsp_sensor_id id;
++	int err, i;
++
++	for (i = 0; i < ARRAY_SIZE(const_vals); i++)
++		if (const_vals[i].type == type && const_vals[i].attr == attr) {
++			*val = const_vals[i].val;
++			return 0;
++		}
++
++	err = nfp_hwmon_sensor_id(type, channel);
++	if (err < 0)
++		return err;
++	id = err;
++
++	if (!(pf->nspi->sensor_mask & BIT(id)))
++		return -EOPNOTSUPP;
++
++	if (type == hwmon_temp && attr == hwmon_temp_input)
++		return nfp_hwmon_read_sensor(pf->cpp, id, val);
++	if (type == hwmon_power && attr == hwmon_power_input)
++		return nfp_hwmon_read_sensor(pf->cpp, id, val);
++
++	return -EINVAL;
++}
++
++static umode_t
++nfp_hwmon_is_visible(const void *data, enum hwmon_sensor_types type, u32 attr,
++		     int channel)
++{
++	if (type == hwmon_temp) {
++		switch (attr) {
++		case hwmon_temp_input:
++		case hwmon_temp_crit:
++		case hwmon_temp_max:
++			return 0444;
++		}
++	} else if (type == hwmon_power) {
++		switch (attr) {
++		case hwmon_power_input:
++		case hwmon_power_max:
++			return 0444;
++		}
++	}
++	return 0;
++}
++
++static u32 nfp_chip_config[] = {
++	HWMON_C_REGISTER_TZ,
++	0
++};
++
++static const struct hwmon_channel_info nfp_chip = {
++	.type = hwmon_chip,
++	.config = nfp_chip_config,
++};
++
++static u32 nfp_temp_config[] = {
++	HWMON_T_INPUT | HWMON_T_MAX | HWMON_T_CRIT,
++	0
++};
++
++static const struct hwmon_channel_info nfp_temp = {
++	.type = hwmon_temp,
++	.config = nfp_temp_config,
++};
++
++static u32 nfp_power_config[] = {
++	HWMON_P_INPUT | HWMON_P_MAX,
++	HWMON_P_INPUT,
++	HWMON_P_INPUT,
++	0
++};
++
++static const struct hwmon_channel_info nfp_power = {
++	.type = hwmon_power,
++	.config = nfp_power_config,
++};
++
++static const struct hwmon_channel_info *nfp_hwmon_info[] = {
++	&nfp_chip,
++	&nfp_temp,
++	&nfp_power,
++	NULL
++};
++
++static const struct hwmon_ops nfp_hwmon_ops = {
++	.is_visible = nfp_hwmon_is_visible,
++	.read = nfp_hwmon_read,
++};
++
++static const struct hwmon_chip_info nfp_chip_info = {
++	.ops = &nfp_hwmon_ops,
++	.info = nfp_hwmon_info,
++};
++
++int nfp_hwmon_register(struct nfp_pf *pf)
++{
++	if (!IS_REACHABLE(CONFIG_HWMON))
++		return 0;
++
++	if (!pf->nspi) {
++		nfp_warn(pf->cpp, "not registering HWMON (no NSP info)\n");
++		return 0;
++	}
++	if (!pf->nspi->sensor_mask) {
++		nfp_info(pf->cpp,
++			 "not registering HWMON (NSP doesn't report sensors)\n");
++		return 0;
++	}
++
++	pf->hwmon_dev = hwmon_device_register_with_info(&pf->pdev->dev, "nfp",
++							pf, &nfp_chip_info,
++							NULL);
++	return PTR_ERR_OR_ZERO(pf->hwmon_dev);
++}
++
++void nfp_hwmon_unregister(struct nfp_pf *pf)
++{
++	if (pf->hwmon_dev)
++		hwmon_device_unregister(pf->hwmon_dev);
++}
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_main.c b/drivers/net/ethernet/netronome/nfp/nfp_main.c
+index ba174e163834..68cd34d5a9fb 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_main.c
++++ b/drivers/net/ethernet/netronome/nfp/nfp_main.c
+@@ -257,7 +257,6 @@ nfp_fw_load(struct pci_dev *pdev, struct nfp_pf *pf, struct nfp_nsp *nsp)
  
- 	u32 idx;
--	u32 wr_ptr_add;
+ static int nfp_nsp_init(struct pci_dev *pdev, struct nfp_pf *pf)
+ {
+-	struct nfp_nsp_identify *nspi;
+ 	struct nfp_nsp *nsp;
+ 	int err;
  
- 	int fl_qcidx;
- 	u8 __iomem *qcp_fl;
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-index 68013d048e9d..c9a140376621 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-@@ -1212,14 +1212,12 @@ static void nfp_net_rx_give_one(const struct nfp_net_dp *dp,
- 			      dma_addr + dp->rx_dma_off);
+@@ -274,11 +273,9 @@ static int nfp_nsp_init(struct pci_dev *pdev, struct nfp_pf *pf)
  
- 	rx_ring->wr_p++;
--	rx_ring->wr_ptr_add++;
--	if (rx_ring->wr_ptr_add >= NFP_NET_FL_BATCH) {
-+	if (!(rx_ring->wr_p % NFP_NET_FL_BATCH)) {
- 		/* Update write pointer of the freelist queue. Make
- 		 * sure all writes are flushed before telling the hardware.
- 		 */
- 		wmb();
--		nfp_qcp_wr_ptr_add(rx_ring->qcp_fl, rx_ring->wr_ptr_add);
--		rx_ring->wr_ptr_add = 0;
-+		nfp_qcp_wr_ptr_add(rx_ring->qcp_fl, NFP_NET_FL_BATCH);
- 	}
- }
+ 	pf->eth_tbl = __nfp_eth_read_ports(pf->cpp, nsp);
  
-@@ -1245,7 +1243,6 @@ static void nfp_net_rx_ring_reset(struct nfp_net_rx_ring *rx_ring)
- 	memset(rx_ring->rxds, 0, sizeof(*rx_ring->rxds) * rx_ring->cnt);
- 	rx_ring->wr_p = 0;
- 	rx_ring->rd_p = 0;
--	rx_ring->wr_ptr_add = 0;
- }
+-	nspi = __nfp_nsp_identify(nsp);
+-	if (nspi) {
+-		dev_info(&pdev->dev, "BSP: %s\n", nspi->version);
+-		kfree(nspi);
+-	}
++	pf->nspi = __nfp_nsp_identify(nsp);
++	if (pf->nspi)
++		dev_info(&pdev->dev, "BSP: %s\n", pf->nspi->version);
+ 
+ 	err = nfp_fw_load(pdev, pf, nsp);
+ 	if (err < 0) {
+@@ -383,14 +380,23 @@ static int nfp_pci_probe(struct pci_dev *pdev,
+ 	if (err)
+ 		goto err_sriov_unlimit;
+ 
++	err = nfp_hwmon_register(pf);
++	if (err) {
++		dev_err(&pdev->dev, "Failed to register hwmon info\n");
++		goto err_net_remove;
++	}
++
+ 	return 0;
+ 
++err_net_remove:
++	nfp_net_pci_remove(pf);
+ err_sriov_unlimit:
+ 	pci_sriov_set_totalvfs(pf->pdev, 0);
+ err_fw_unload:
+ 	if (pf->fw_loaded)
+ 		nfp_fw_unload(pf);
+ 	kfree(pf->eth_tbl);
++	kfree(pf->nspi);
+ err_devlink_unreg:
+ 	devlink_unregister(devlink);
+ err_cpp_free:
+@@ -412,6 +418,8 @@ static void nfp_pci_remove(struct pci_dev *pdev)
+ 	struct nfp_pf *pf = pci_get_drvdata(pdev);
+ 	struct devlink *devlink;
+ 
++	nfp_hwmon_unregister(pf);
++
+ 	devlink = priv_to_devlink(pf);
+ 
+ 	nfp_net_pci_remove(pf);
+@@ -428,6 +436,7 @@ static void nfp_pci_remove(struct pci_dev *pdev)
+ 	nfp_cpp_free(pf->cpp);
+ 
+ 	kfree(pf->eth_tbl);
++	kfree(pf->nspi);
+ 	mutex_destroy(&pf->lock);
+ 	devlink_free(devlink);
+ 	pci_release_regions(pdev);
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_main.h b/drivers/net/ethernet/netronome/nfp/nfp_main.h
+index 526db8029dea..20fad76da5aa 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_main.h
++++ b/drivers/net/ethernet/netronome/nfp/nfp_main.h
+@@ -47,12 +47,14 @@
+ #include <linux/workqueue.h>
+ 
+ struct dentry;
++struct device;
+ struct devlink_ops;
+ struct pci_dev;
+ 
+ struct nfp_cpp;
+ struct nfp_cpp_area;
+ struct nfp_eth_table;
++struct nfp_nsp_identify;
  
  /**
+  * struct nfp_pf - NFP PF-specific device structure
+@@ -67,6 +69,8 @@ struct nfp_eth_table;
+  * @num_vfs:		Number of SR-IOV VFs enabled
+  * @fw_loaded:		Is the firmware loaded?
+  * @eth_tbl:		NSP ETH table
++ * @nspi:		NSP identification info
++ * @hwmon_dev:		pointer to hwmon device
+  * @ddir:		Per-device debugfs directory
+  * @max_data_vnics:	Number of data vNICs app firmware supports
+  * @num_vnics:		Number of vNICs spawned
+@@ -94,6 +98,9 @@ struct nfp_pf {
+ 	bool fw_loaded;
+ 
+ 	struct nfp_eth_table *eth_tbl;
++	struct nfp_nsp_identify *nspi;
++
++	struct device *hwmon_dev;
+ 
+ 	struct dentry *ddir;
+ 
+@@ -113,4 +120,7 @@ extern const struct devlink_ops nfp_devlink_ops;
+ int nfp_net_pci_probe(struct nfp_pf *pf);
+ void nfp_net_pci_remove(struct nfp_pf *pf);
+ 
++int nfp_hwmon_register(struct nfp_pf *pf);
++void nfp_hwmon_unregister(struct nfp_pf *pf);
++
+ #endif /* NFP_MAIN_H */
+diff --git a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp.h b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp.h
+index 4df2ce261b3f..94641b4c2c55 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp.h
++++ b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp.h
+@@ -64,6 +64,8 @@ int nfp_nsp_read_eth_table(struct nfp_nsp *state, void *buf, unsigned int size);
+ int nfp_nsp_write_eth_table(struct nfp_nsp *state,
+ 			    const void *buf, unsigned int size);
+ int nfp_nsp_read_identify(struct nfp_nsp *state, void *buf, unsigned int size);
++int nfp_nsp_read_sensors(struct nfp_nsp *state, unsigned int sensor_mask,
++			 void *buf, unsigned int size);
+ 
+ /* Implemented in nfp_resource.c */
+ 
+diff --git a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp.c b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp.c
+index 58cc3d532769..eefdb756d74e 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp.c
++++ b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp.c
+@@ -93,6 +93,7 @@ enum nfp_nsp_cmd {
+ 	SPCODE_FW_LOAD		= 6, /* Load fw from buffer, len in option */
+ 	SPCODE_ETH_RESCAN	= 7, /* Rescan ETHs, write ETH_TABLE to buf */
+ 	SPCODE_ETH_CONTROL	= 8, /* Update media config from buffer */
++	SPCODE_NSP_SENSORS	= 12, /* Read NSP sensor(s) */
+ 	SPCODE_NSP_IDENTIFY	= 13, /* Read NSP version */
+ };
+ 
+@@ -506,3 +507,10 @@ int nfp_nsp_read_identify(struct nfp_nsp *state, void *buf, unsigned int size)
+ 	return nfp_nsp_command_buf(state, SPCODE_NSP_IDENTIFY, size, NULL, 0,
+ 				   buf, size);
+ }
++
++int nfp_nsp_read_sensors(struct nfp_nsp *state, unsigned int sensor_mask,
++			 void *buf, unsigned int size)
++{
++	return nfp_nsp_command_buf(state, SPCODE_NSP_SENSORS, sensor_mask,
++				   NULL, 0, buf, size);
++}
+diff --git a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp.h b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp.h
+index 84a1d20adae1..26d7dcea4fd9 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp.h
++++ b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp.h
+@@ -160,6 +160,7 @@ int __nfp_eth_set_split(struct nfp_nsp *nsp, unsigned int lanes);
+  * @primary:      version of primarary bootloader
+  * @secondary:    version id of secondary bootloader
+  * @nsp:          version id of NSP
++ * @sensor_mask:  mask of present sensors available on NIC
+  */
+ struct nfp_nsp_identify {
+ 	char version[40];
+@@ -170,8 +171,19 @@ struct nfp_nsp_identify {
+ 	u16 primary;
+ 	u16 secondary;
+ 	u16 nsp;
++	u64 sensor_mask;
+ };
+ 
+ struct nfp_nsp_identify *__nfp_nsp_identify(struct nfp_nsp *nsp);
+ 
++enum nfp_nsp_sensor_id {
++	NFP_SENSOR_CHIP_TEMPERATURE,
++	NFP_SENSOR_ASSEMBLY_POWER,
++	NFP_SENSOR_ASSEMBLY_12V_POWER,
++	NFP_SENSOR_ASSEMBLY_3V3_POWER,
++};
++
++int nfp_hwmon_read_sensor(struct nfp_cpp *cpp, enum nfp_nsp_sensor_id id,
++			  long *val);
++
+ #endif
+diff --git a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp_cmds.c b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp_cmds.c
+index e7a263de3731..5d362f87af08 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp_cmds.c
++++ b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp_cmds.c
+@@ -46,7 +46,8 @@ struct nsp_identify {
+ 	__le16 primary;
+ 	__le16 secondary;
+ 	__le16 nsp;
+-	__le16 reserved;
++	u8 reserved[6];
++	__le64 sensor_mask;
+ };
+ 
+ struct nfp_nsp_identify *__nfp_nsp_identify(struct nfp_nsp *nsp)
+@@ -82,8 +83,52 @@ struct nfp_nsp_identify *__nfp_nsp_identify(struct nfp_nsp *nsp)
+ 	nspi->primary = le16_to_cpu(ni->primary);
+ 	nspi->secondary = le16_to_cpu(ni->secondary);
+ 	nspi->nsp = le16_to_cpu(ni->nsp);
++	nspi->sensor_mask = le64_to_cpu(ni->sensor_mask);
+ 
+ exit_free:
+ 	kfree(ni);
+ 	return nspi;
+ }
++
++struct nfp_sensors {
++	__le32 chip_temp;
++	__le32 assembly_power;
++	__le32 assembly_12v_power;
++	__le32 assembly_3v3_power;
++};
++
++int nfp_hwmon_read_sensor(struct nfp_cpp *cpp, enum nfp_nsp_sensor_id id,
++			  long *val)
++{
++	struct nfp_sensors s;
++	struct nfp_nsp *nsp;
++	int ret;
++
++	nsp = nfp_nsp_open(cpp);
++	if (IS_ERR(nsp))
++		return PTR_ERR(nsp);
++
++	ret = nfp_nsp_read_sensors(nsp, BIT(id), &s, sizeof(s));
++	nfp_nsp_close(nsp);
++
++	if (ret < 0)
++		return ret;
++
++	switch (id) {
++	case NFP_SENSOR_CHIP_TEMPERATURE:
++		*val = le32_to_cpu(s.chip_temp);
++		break;
++	case NFP_SENSOR_ASSEMBLY_POWER:
++		*val = le32_to_cpu(s.assembly_power);
++		break;
++	case NFP_SENSOR_ASSEMBLY_12V_POWER:
++		*val = le32_to_cpu(s.assembly_12v_power);
++		break;
++	case NFP_SENSOR_ASSEMBLY_3V3_POWER:
++		*val = le32_to_cpu(s.assembly_3v3_power);
++		break;
++	default:
++		return -EINVAL;
++	}
++	return 0;
++}
 -- 
 2.11.0
