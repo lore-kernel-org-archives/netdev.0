@@ -1,96 +1,182 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next 02/12] nfp: set driver VF limit
-Date: Sat, 27 May 2017 17:34:01 -0700
-Message-ID: <20170528003411.17603-3-jakub.kicinski@netronome.com>
+Subject: [PATCH net-next 05/12] nfp: support long reads and writes with the cpp helpers
+Date: Sat, 27 May 2017 17:34:04 -0700
+Message-ID: <20170528003411.17603-6-jakub.kicinski@netronome.com>
 References: <20170528003411.17603-1-jakub.kicinski@netronome.com>
 Cc: oss-drivers@netronome.com,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f177.google.com ([209.85.192.177]:34468 "EHLO
-        mail-pf0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750777AbdE1Aeo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 27 May 2017 20:34:44 -0400
-Received: by mail-pf0-f177.google.com with SMTP id 9so32597312pfj.1
-        for <netdev@vger.kernel.org>; Sat, 27 May 2017 17:34:43 -0700 (PDT)
+Received: from mail-pg0-f52.google.com ([74.125.83.52]:33969 "EHLO
+        mail-pg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750814AbdE1Aeq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 27 May 2017 20:34:46 -0400
+Received: by mail-pg0-f52.google.com with SMTP id u28so8595382pgn.1
+        for <netdev@vger.kernel.org>; Sat, 27 May 2017 17:34:46 -0700 (PDT)
 In-Reply-To: <20170528003411.17603-1-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PCI subsystem has support for drivers limiting the number of VFs
-available below what the IOV capability claims.  Make use of it.
+nfp_cpp_{read,write}() helpers perform device memory mapping (setting
+the PCIe -> NOC translation BARs) and accessing it.  They, however,
+currently implicitly expect that the length of entire operation will
+fit in one BAR translation window.  There is a number of 16MB windows
+available, and we don't really need to access such large areas today.
 
-While at it remove the #ifdef/#endif on CONFIG_PCI_IOV, it was
-there to avoid unnecessary warnings in case device read failed
-but kernel doesn't have SR-IOV support anyway.  Device reads
-should not fail.
+If the user, however, manages to trick the driver into making a big
+mapping (e.g. by providing a huge fake FW file), the driver will
+print a warning saying "No suitable BAR found for request" and a
+stack trace - which most users find concerning.
+
+To be future-proof and not scare users with warnings, make the
+nfp_cpp_{read,write}() helpers do accesses chunk by chunk if the area
+size is large.  Set the notion of "large" to 2MB, which is the size
+of the smallest BAR window.
 
 Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 ---
- drivers/net/ethernet/netronome/nfp/nfp_main.c | 23 +++++++++++++++--------
- 1 file changed, 15 insertions(+), 8 deletions(-)
+ .../net/ethernet/netronome/nfp/nfpcore/nfp_cpp.h   |  3 +
+ .../ethernet/netronome/nfp/nfpcore/nfp_cppcore.c   | 87 +++++++++++++++++-----
+ 2 files changed, 72 insertions(+), 18 deletions(-)
 
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_main.c b/drivers/net/ethernet/netronome/nfp/nfp_main.c
-index f22f56c9218f..ba174e163834 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_main.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_main.c
-@@ -73,20 +73,22 @@ static const struct pci_device_id nfp_pci_device_ids[] = {
- };
- MODULE_DEVICE_TABLE(pci, nfp_pci_device_ids);
+diff --git a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cpp.h b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cpp.h
+index 154b0b594184..8d46b9acb69f 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cpp.h
++++ b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cpp.h
+@@ -42,6 +42,7 @@
  
--static void nfp_pcie_sriov_read_nfd_limit(struct nfp_pf *pf)
-+static int nfp_pcie_sriov_read_nfd_limit(struct nfp_pf *pf)
- {
--#ifdef CONFIG_PCI_IOV
- 	int err;
+ #include <linux/ctype.h>
+ #include <linux/types.h>
++#include <linux/sizes.h>
  
- 	pf->limit_vfs = nfp_rtsym_read_le(pf->cpp, "nfd_vf_cfg_max_vfs", &err);
- 	if (!err)
--		return;
-+		return pci_sriov_set_totalvfs(pf->pdev, pf->limit_vfs);
+ #ifndef NFP_SUBSYS
+ #define NFP_SUBSYS "nfp"
+@@ -59,6 +60,8 @@
+ #define PCI_64BIT_BAR_COUNT             3
  
- 	pf->limit_vfs = ~0;
-+	pci_sriov_set_totalvfs(pf->pdev, 0); /* 0 is unset */
- 	/* Allow any setting for backwards compatibility if symbol not found */
--	if (err != -ENOENT)
--		nfp_warn(pf->cpp, "Warning: VF limit read failed: %d\n", err);
--#endif
-+	if (err == -ENOENT)
-+		return 0;
-+
-+	nfp_warn(pf->cpp, "Warning: VF limit read failed: %d\n", err);
-+	return err;
+ #define NFP_CPP_NUM_TARGETS             16
++/* Max size of area it should be safe to request */
++#define NFP_CPP_SAFE_AREA_SIZE		SZ_2M
+ 
+ struct device;
+ 
+diff --git a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cppcore.c b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cppcore.c
+index e2abba4c3a3f..5672d309d07d 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cppcore.c
++++ b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cppcore.c
+@@ -924,18 +924,9 @@ area_cache_put(struct nfp_cpp *cpp, struct nfp_cpp_area_cache *cache)
+ 	mutex_unlock(&cpp->area_cache_mutex);
  }
  
- static int nfp_pcie_sriov_enable(struct pci_dev *pdev, int num_vfs)
-@@ -373,14 +375,18 @@ static int nfp_pci_probe(struct pci_dev *pdev,
- 	if (err)
- 		goto err_devlink_unreg;
+-/**
+- * nfp_cpp_read() - read from CPP target
+- * @cpp:		CPP handle
+- * @destination:	CPP id
+- * @address:		offset into CPP target
+- * @kernel_vaddr:	kernel buffer for result
+- * @length:		number of bytes to read
+- *
+- * Return: length of io, or -ERRNO
+- */
+-int nfp_cpp_read(struct nfp_cpp *cpp, u32 destination,
+-		 unsigned long long address, void *kernel_vaddr, size_t length)
++static int __nfp_cpp_read(struct nfp_cpp *cpp, u32 destination,
++			  unsigned long long address, void *kernel_vaddr,
++			  size_t length)
+ {
+ 	struct nfp_cpp_area_cache *cache;
+ 	struct nfp_cpp_area *area;
+@@ -968,18 +959,43 @@ int nfp_cpp_read(struct nfp_cpp *cpp, u32 destination,
+ }
  
--	nfp_pcie_sriov_read_nfd_limit(pf);
-+	err = nfp_pcie_sriov_read_nfd_limit(pf);
-+	if (err)
-+		goto err_fw_unload;
+ /**
+- * nfp_cpp_write() - write to CPP target
++ * nfp_cpp_read() - read from CPP target
+  * @cpp:		CPP handle
+  * @destination:	CPP id
+  * @address:		offset into CPP target
+- * @kernel_vaddr:	kernel buffer to read from
+- * @length:		number of bytes to write
++ * @kernel_vaddr:	kernel buffer for result
++ * @length:		number of bytes to read
+  *
+  * Return: length of io, or -ERRNO
+  */
+-int nfp_cpp_write(struct nfp_cpp *cpp, u32 destination,
+-		  unsigned long long address,
+-		  const void *kernel_vaddr, size_t length)
++int nfp_cpp_read(struct nfp_cpp *cpp, u32 destination,
++		 unsigned long long address, void *kernel_vaddr,
++		 size_t length)
++{
++	size_t n, offset;
++	int ret;
++
++	for (offset = 0; offset < length; offset += n) {
++		unsigned long long r_addr = address + offset;
++
++		/* make first read smaller to align to safe window */
++		n = min_t(size_t, length - offset,
++			  ALIGN(r_addr + 1, NFP_CPP_SAFE_AREA_SIZE) - r_addr);
++
++		ret = __nfp_cpp_read(cpp, destination, address + offset,
++				     kernel_vaddr + offset, n);
++		if (ret < 0)
++			return ret;
++		if (ret != n)
++			return offset + n;
++	}
++
++	return length;
++}
++
++static int __nfp_cpp_write(struct nfp_cpp *cpp, u32 destination,
++			   unsigned long long address,
++			   const void *kernel_vaddr, size_t length)
+ {
+ 	struct nfp_cpp_area_cache *cache;
+ 	struct nfp_cpp_area *area;
+@@ -1011,6 +1027,41 @@ int nfp_cpp_write(struct nfp_cpp *cpp, u32 destination,
+ 	return err;
+ }
  
- 	err = nfp_net_pci_probe(pf);
- 	if (err)
--		goto err_fw_unload;
-+		goto err_sriov_unlimit;
- 
- 	return 0;
- 
-+err_sriov_unlimit:
-+	pci_sriov_set_totalvfs(pf->pdev, 0);
- err_fw_unload:
- 	if (pf->fw_loaded)
- 		nfp_fw_unload(pf);
-@@ -411,6 +417,7 @@ static void nfp_pci_remove(struct pci_dev *pdev)
- 	nfp_net_pci_remove(pf);
- 
- 	nfp_pcie_sriov_disable(pdev);
-+	pci_sriov_set_totalvfs(pf->pdev, 0);
- 
- 	devlink_unregister(devlink);
- 
++/**
++ * nfp_cpp_write() - write to CPP target
++ * @cpp:		CPP handle
++ * @destination:	CPP id
++ * @address:		offset into CPP target
++ * @kernel_vaddr:	kernel buffer to read from
++ * @length:		number of bytes to write
++ *
++ * Return: length of io, or -ERRNO
++ */
++int nfp_cpp_write(struct nfp_cpp *cpp, u32 destination,
++		  unsigned long long address,
++		  const void *kernel_vaddr, size_t length)
++{
++	size_t n, offset;
++	int ret;
++
++	for (offset = 0; offset < length; offset += n) {
++		unsigned long long w_addr = address + offset;
++
++		/* make first write smaller to align to safe window */
++		n = min_t(size_t, length - offset,
++			  ALIGN(w_addr + 1, NFP_CPP_SAFE_AREA_SIZE) - w_addr);
++
++		ret = __nfp_cpp_write(cpp, destination, address + offset,
++				      kernel_vaddr + offset, n);
++		if (ret < 0)
++			return ret;
++		if (ret != n)
++			return offset + n;
++	}
++
++	return length;
++}
++
+ /* Return the correct CPP address, and fixup xpb_addr as needed. */
+ static u32 nfp_xpb_to_cpp(struct nfp_cpp *cpp, u32 *xpb_addr)
+ {
 -- 
 2.11.0
