@@ -1,64 +1,50 @@
-From: Jes Sorensen <jes.sorensen@gmail.com>
-Subject: Re: [PATCH 7/7] mlx5: Do not build eswitch_offloads if
- CONFIG_MLX5_EN_ESWITCH_OFFLOADS is set
-Date: Sat, 27 May 2017 22:23:58 -0400
-Message-ID: <e7c36f4e-788a-89dd-e92e-e6a31004758a@gmail.com>
-References: <20170526211624.23133-1-jsorensen@fb.com>
- <20170526211624.23133-8-jsorensen@fb.com>
- <CAJ3xEMgeBaE9q6sucXtOQTBLAvZvf_d0eGvMsGbVa2vWc21R-Q@mail.gmail.com>
+From: David Ahern <dsahern@gmail.com>
+Subject: Re: [PATCH v2 net-next 3/9] net: lwtunnel: Add extack to encap attr
+ validation
+Date: Sat, 27 May 2017 20:44:17 -0600
+Message-ID: <c2dabec6-073d-923e-263e-e029fcb23f97@gmail.com>
+References: <201705280846.ceaILiWY%fengguang.wu@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-        Kernel Team <kernel-team@fb.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Ilan Tayari <ilant@mellanox.com>,
-        Jes Sorensen <jsorensen@fb.com>
-To: Or Gerlitz <gerlitz.or@gmail.com>
+Cc: kbuild-all@01.org, netdev@vger.kernel.org,
+        roopa@cumulusnetworks.com
+To: kbuild test robot <lkp@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f193.google.com ([209.85.161.193]:35154 "EHLO
-        mail-yw0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750762AbdE1CYH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 27 May 2017 22:24:07 -0400
-Received: by mail-yw0-f193.google.com with SMTP id p144so2735042ywp.2
-        for <netdev@vger.kernel.org>; Sat, 27 May 2017 19:24:07 -0700 (PDT)
-In-Reply-To: <CAJ3xEMgeBaE9q6sucXtOQTBLAvZvf_d0eGvMsGbVa2vWc21R-Q@mail.gmail.com>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:35960 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750762AbdE1CoY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 27 May 2017 22:44:24 -0400
+Received: by mail-pf0-f194.google.com with SMTP id n23so8552484pfb.3
+        for <netdev@vger.kernel.org>; Sat, 27 May 2017 19:44:24 -0700 (PDT)
+In-Reply-To: <201705280846.ceaILiWY%fengguang.wu@intel.com>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/27/2017 05:02 PM, Or Gerlitz wrote:
-> On Sat, May 27, 2017 at 12:16 AM, Jes Sorensen <jes.sorensen@gmail.com> wrote:
->> This gets rid of the temporary #ifdef spaghetti and allows the code to
->> compile without offload support enabled.
+On 5/27/17 7:02 PM, kbuild test robot wrote:
+> Hi David,
 > 
-> Hi Jes,
+> [auto build test ERROR on net-next/master]
 > 
-> I am pretty sure we can do that exercise you're up to without any
-> spaghetti cooking and even put more code under that CONFIG directive
-> (en_rep.c), I'll take that with Saeed.
+> url:    https://github.com/0day-ci/linux/commits/David-Ahern/net-another-round-of-extack-handling-for-routing/20170528-062659
+> config: ia64-allmodconfig (attached as .config)
+> compiler: ia64-linux-gcc (GCC) 6.2.0
+> reproduce:
+>         wget https://raw.githubusercontent.com/01org/lkp-tests/master/sbin/make.cross -O ~/bin/make.cross
+>         chmod +x ~/bin/make.cross
+>         # save the attached .config to linux build tree
+>         make.cross ARCH=ia64 
+> 
+> Note: the linux-review/David-Ahern/net-another-round-of-extack-handling-for-routing/20170528-062659 HEAD 44d11f94ccbe86e1a088f83a49ef3ca473118ad8 builds fine.
+>       It only hurts bisectibility.
+> 
+> All errors (new ones prefixed by >>):
+> 
+>    ERROR: "ia64_delay_loop" [drivers/spi/spi-thunderx.ko] undefined!
+>>> ERROR: "ia64_delay_loop" [drivers/net/phy/mdio-cavium.ko] undefined!
 
-Hi Or,
+Appears to be a false positive. I do not modify anything related to
+delay loops and none of this code is arch specific.
 
-I want to avoid adding #ifdef CONFIG_foo to the main code in order to 
-keep it readable. I did it gradually to make sure I didn't break 
-anything and to allow for it to be bisected in case something did break. 
-If we can move out more code from places like en_rep.c into 
-eswitch_offload.c and get it disabled that way that would be great, but 
-I like to limit the number of #ifdefs we add to the actual code.
-
-> Just wondering, you are motivated by a wish to put some mlx5
-> functionalities under their own CONFIG directives which could be
-> useful when backporting the latest upstream driver into older kernel
-> and being able not to deal with parts of it, right? in that respect,
-> are you using SRIOV but not the offloads mode?
-
-The motivation is two-fold, the primary is to be able to disable 
-features not being used for those who compile a custom kernel and who 
-wish to reduce the codebase compiled. It also makes it more flexible 
-when back porting the code to older kernels since it is easier to pick 
-out a smaller subset. I was going to look into making TC support etc. 
-optional next, but I wanted to have a discussion about this patchset first.
-
-Cheers,
-Jes
+kbuild guys: can you clarify?
