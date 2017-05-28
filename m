@@ -1,54 +1,90 @@
-From: Yotam Gigi <yotamg@mellanox.com>
-Subject: Re: [patch net-next 0/9] mlxsw: Support firmware flash
-Date: Sun, 28 May 2017 10:26:49 +0300
-Message-ID: <0daa5c5a-377c-767f-ea19-26c1f22bd30c@mellanox.com>
-References: <ea7cf005-1f6c-aa87-db90-03d7c77c7d56@mellanox.com>
- <BLUPR0701MB2004EB2F32B4C8C42C5020458DF90@BLUPR0701MB2004.namprd07.prod.outlook.com>
- <fba5a440-ba1e-84bd-d2d2-d011406d3a4a@mellanox.com>
- <20170523.113859.1803057381093280239.davem@davemloft.net>
+From: Adel Fuchs <adelfuchs@gmail.com>
+Subject: Fwd: running an eBPF program
+Date: Sun, 28 May 2017 10:40:37 +0300
+Message-ID: <CAErYV9Fok4UUfUx1t_gm6vGLiapPhxJRJ=7j7qo=5hjTkJ3V8Q@mail.gmail.com>
+References: <CAErYV9EjKGh9ta8TZ9PRmaATH5VcXQH4cd=WuL5NfMOpcuoLfw@mail.gmail.com>
+ <CAH3MdRVMixv8s10gKF1jQjtSY7MHeB-Rs16hX6HwAgUOQ0g=EA@mail.gmail.com>
+ <CAH3MdRWg57Aw666ahVGb04UcSTqxrz1Wd33JDLyCqY4fh=xstA@mail.gmail.com>
+ <20170527.201107.1558140531080967167.davem@davemloft.net> <CAH3MdRUukbz+hy76afQiHi=k-_CsA12ShjaoQKnFcLnoVxBHPQ@mail.gmail.com>
+ <CAErYV9HhBoWnMVZS4XBJPN0TM4V2=U2Y+NBSyY8bqHJopvWTGA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: <Yuval.Mintz@cavium.com>, <jiri@resnulli.us>,
-        <netdev@vger.kernel.org>, <idosch@mellanox.com>,
-        <mlxsw@mellanox.com>, <bhutchings@solarflare.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-eopbgr50064.outbound.protection.outlook.com ([40.107.5.64]:30014
-        "EHLO EUR03-VE1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1750794AbdE1H1D (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 28 May 2017 03:27:03 -0400
-In-Reply-To: <20170523.113859.1803057381093280239.davem@davemloft.net>
+Received: from mail-vk0-f67.google.com ([209.85.213.67]:35455 "EHLO
+        mail-vk0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750803AbdE1Hkj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 28 May 2017 03:40:39 -0400
+Received: by mail-vk0-f67.google.com with SMTP id x71so2739831vkd.2
+        for <netdev@vger.kernel.org>; Sun, 28 May 2017 00:40:38 -0700 (PDT)
+In-Reply-To: <CAErYV9HhBoWnMVZS4XBJPN0TM4V2=U2Y+NBSyY8bqHJopvWTGA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/23/2017 06:38 PM, David Miller wrote:
-> From: Yotam Gigi <yotamg@mellanox.com>
-> Date: Tue, 23 May 2017 18:14:15 +0300
+Hi,
+Is there any way to run this eBPF program without that patch?
+Alternatively, is there any other eBPF sample that does run properly?
+I need to run a program that filters packets according to IP address
+or port.
+Thanks,
+Adel
+
+On Sun, May 28, 2017 at 8:08 AM, Y Song <ys114321@gmail.com> wrote:
+> On Sat, May 27, 2017 at 5:11 PM, David Miller <davem@davemloft.net> wrote:
+>> From: Y Song <ys114321@gmail.com>
+>> Date: Sat, 27 May 2017 13:52:27 -0700
+>>
+>>> On Sat, May 27, 2017 at 1:23 PM, Y Song <ys114321@gmail.com> wrote:
+>>>>
+>>>> From verifier error message:
+>>>> ======
+>>>> 0: (bf) r6 = r1
+>>>>
+>>>> 1: (18) r9 = 0xffe0000e
+>>>>
+>>>> 3: (69) r0 = *(u16 *)(r6 +16)
+>>>>
+>>>> invalid bpf_context access off=16 size=2
+>>>> ======
+>>>>
+>>>> The offset 16 of struct __sk_buff is hash.
+>>>> What instruction #3 tries to do is to access 2 bytes of the hash value
+>>>> instead of full 4 bytes.
+>>>> This is explicitly not allowed in verifier due to endianness issue.
+>>>
+>>>
+>>> I can reproduce the issue now. My previous statement saying to access
+>>> "hash" field is not correct. It is accessing the protocol field.
+>>>
+>>> static __inline__ bool flow_dissector(struct __sk_buff *skb,
+>>>                                       struct flow_keys *flow)
+>>> {
+>>>         int poff, nh_off = BPF_LL_OFF + ETH_HLEN;
+>>>         __be16 proto = skb->protocol;
+>>>         __u8 ip_proto;
+>>>
+>>> The plan so far is to see whether we can fix the issue in LLVM side.
+>>
+>> If the compiler properly asks for "__sk_buff + 16" on little-endian
+>> and "__sk_buff + 20" on big-endian, the verifier should instead be
+>> fixed to allow the access to pass.
+>>
+>> I can't see any reason why LLVM won't set the offset properly like
+>> that, and it's a completely legitimate optimization that we shouldn't
+>> try to stop LLVM from performing.
 >
->> Sorry, I am not sure I understand. You think that drivers should not implement
->> ethtool's flash_device callback anymore? do you have an alternative for firmware
->> flash?
-> As stated, export an MTD device.
-
-So, after we have been going over MTD, it seems like it does not fit our needs
-at all.
-
-MTD device provides (erasable-)block access to a flash storage, where in our
-case the firmware burn process is just pouring a binary BLOB into the device.
-The driver is not aware of the internal storage used for storing the firmware as
-it is not defined in our driver-hardware API.
-
-Needless to say that block access has no meaning in our case, so any solution
-that will involve MTD device to burn our firmware (if there is a solution at
-all) will be a workaround and will not fit MTD purpose.
-
-Apart for boot time firmware flash, which we have already pushed we would really
-like to allow the user to ask for a specific firmware version. Do you have any
-other solution for us apart from "ethtool -f"?
-
-This problem is even more relevant in the Mellanox HCA driver team, which would
-like to use that code in order to burn the HCA firmware, but not intend to
-trigger it on boot time, which means that must have a way for the user to
-trigger it.
+> I do agree that such optimization in LLVM is perfect fine and actually
+> beneficial.
+> The only reason I was thinking was to avoid introduce endianness into verifier.
+> Maybe not too much work there. Let me do some experiments and come with
+> a patch for that.
+>
+> Thanks!
+>
+> Yonghong
+>
+>>
+>> It also makes it so that we don't have to fix having absurdly defined
+>> __sk_buff's protocol field as a u32.
+>>
+>> Thanks.
