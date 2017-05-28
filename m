@@ -1,162 +1,171 @@
 From: Yuval Mintz <Yuval.Mintz@cavium.com>
-Subject: [PATCH net-next 04/10] qed: QL41xxx VF MSI-x table
-Date: Sun, 28 May 2017 18:01:54 +0300
-Message-ID: <1495983720-10853-5-git-send-email-Yuval.Mintz@cavium.com>
+Subject: [PATCH net-next 05/10] qed: Support dynamic s-tag change
+Date: Sun, 28 May 2017 18:01:55 +0300
+Message-ID: <1495983720-10853-6-git-send-email-Yuval.Mintz@cavium.com>
 References: <1495983720-10853-1-git-send-email-Yuval.Mintz@cavium.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Yuval Mintz <Yuval.Mintz@cavium.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam03on0062.outbound.protection.outlook.com ([104.47.42.62]:59904
-        "EHLO NAM03-BY2-obe.outbound.protection.outlook.com"
+Received: from mail-co1nam03on0081.outbound.protection.outlook.com ([104.47.40.81]:2298
+        "EHLO NAM03-CO1-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1750913AbdE1PDj (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 28 May 2017 11:03:39 -0400
+        id S1750974AbdE1PDo (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 28 May 2017 11:03:44 -0400
 In-Reply-To: <1495983720-10853-1-git-send-email-Yuval.Mintz@cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The QL41xxx adapters' PCI allows a single configuration for the
-MSI-x table size of all child VFs of a given PF.
-The existing code wouldn't cause the management firmware to set
-that value, meaning the VFs would retain the default MSI-x table
-size.
-
-Introduce a new scheme so that whenever a VF is enabled, driver
-would set the number of MSI-x to be the maximum over the various
-VFs' needs.
+In case management firmware indicates a change in the used S-tag,
+propagate the configuration to HW and FW.
 
 Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
 ---
- drivers/net/ethernet/qlogic/qed/qed_hsi.h   |  3 ++-
- drivers/net/ethernet/qlogic/qed/qed_mcp.c   | 35 +++++++++++++++++++++++++++--
- drivers/net/ethernet/qlogic/qed/qed_sriov.c | 32 +++++++++++++++++++++++++-
- 3 files changed, 66 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/qlogic/qed/qed_hsi.h         |  4 +++-
+ drivers/net/ethernet/qlogic/qed/qed_mcp.c         | 26 +++++++++++++++++++++++
+ drivers/net/ethernet/qlogic/qed/qed_reg_addr.h    |  2 ++
+ drivers/net/ethernet/qlogic/qed/qed_sp.h          |  9 ++++++++
+ drivers/net/ethernet/qlogic/qed/qed_sp_commands.c | 24 +++++++++++++++++++++
+ 5 files changed, 64 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/net/ethernet/qlogic/qed/qed_hsi.h b/drivers/net/ethernet/qlogic/qed/qed_hsi.h
-index 802c162..f610e52 100644
+index f610e52..24b1458 100644
 --- a/drivers/net/ethernet/qlogic/qed/qed_hsi.h
 +++ b/drivers/net/ethernet/qlogic/qed/qed_hsi.h
-@@ -11477,6 +11477,7 @@ struct public_drv_mb {
+@@ -11474,6 +11474,7 @@ struct public_drv_mb {
+ 
+ #define DRV_MSG_CODE_BW_UPDATE_ACK		0x32000000
+ #define DRV_MSG_CODE_NIG_DRAIN			0x30000000
++#define DRV_MSG_CODE_S_TAG_UPDATE_ACK		0x3b000000
  #define DRV_MSG_CODE_INITIATE_PF_FLR            0x02010000
  #define DRV_MSG_CODE_VF_DISABLED_DONE		0xc0000000
  #define DRV_MSG_CODE_CFG_VF_MSIX		0xc0010000
-+#define DRV_MSG_CODE_CFG_PF_VFS_MSIX		0xc0020000
- #define DRV_MSG_CODE_NVM_GET_FILE_ATT		0x00030000
- #define DRV_MSG_CODE_NVM_READ_NVRAM		0x00050000
- #define DRV_MSG_CODE_MCP_RESET			0x00090000
-@@ -11640,7 +11641,7 @@ struct public_drv_mb {
+@@ -11634,6 +11635,7 @@ struct public_drv_mb {
+ #define FW_MSG_CODE_RESOURCE_ALLOC_OK           0x34000000
+ #define FW_MSG_CODE_RESOURCE_ALLOC_UNKNOWN      0x35000000
+ #define FW_MSG_CODE_RESOURCE_ALLOC_DEPRECATED   0x36000000
++#define FW_MSG_CODE_S_TAG_UPDATE_ACK_DONE	0x3b000000
+ #define FW_MSG_CODE_DRV_CFG_VF_MSIX_DONE	0xb0010000
  
- #define FW_MSG_CODE_OS_WOL_SUPPORTED            0x00800000
- #define FW_MSG_CODE_OS_WOL_NOT_SUPPORTED        0x00810000
--
-+#define FW_MSG_CODE_DRV_CFG_PF_VFS_MSIX_DONE	0x00870000
- #define FW_MSG_SEQ_NUMBER_MASK			0x0000ffff
- 
- 	u32 fw_mb_param;
+ #define FW_MSG_CODE_NVM_OK			0x00010000
+@@ -11681,7 +11683,7 @@ enum MFW_DRV_MSG_TYPE {
+ 	MFW_DRV_MSG_DCBX_OPERATIONAL_MIB_UPDATED,
+ 	MFW_DRV_MSG_RESERVED4,
+ 	MFW_DRV_MSG_BW_UPDATE,
+-	MFW_DRV_MSG_BW_UPDATE5,
++	MFW_DRV_MSG_S_TAG_UPDATE,
+ 	MFW_DRV_MSG_GET_LAN_STATS,
+ 	MFW_DRV_MSG_GET_FCOE_STATS,
+ 	MFW_DRV_MSG_GET_ISCSI_STATS,
 diff --git a/drivers/net/ethernet/qlogic/qed/qed_mcp.c b/drivers/net/ethernet/qlogic/qed/qed_mcp.c
-index fc49c75e..24c9b71 100644
+index 24c9b71..31c88e1 100644
 --- a/drivers/net/ethernet/qlogic/qed/qed_mcp.c
 +++ b/drivers/net/ethernet/qlogic/qed/qed_mcp.c
-@@ -1801,8 +1801,9 @@ int qed_mcp_get_flash_size(struct qed_hwfn *p_hwfn,
- 	return 0;
+@@ -1398,6 +1398,28 @@ static void qed_mcp_update_bw(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt)
+ 		    &param);
  }
  
--int qed_mcp_config_vf_msix(struct qed_hwfn *p_hwfn,
--			   struct qed_ptt *p_ptt, u8 vf_id, u8 num)
-+static int
-+qed_mcp_config_vf_msix_bb(struct qed_hwfn *p_hwfn,
-+			  struct qed_ptt *p_ptt, u8 vf_id, u8 num)
++static void qed_mcp_update_stag(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt)
++{
++	struct public_func shmem_info;
++	u32 resp = 0, param = 0;
++
++	qed_mcp_get_shmem_func(p_hwfn, p_ptt, &shmem_info, MCP_PF_ID(p_hwfn));
++
++	p_hwfn->mcp_info->func_info.ovlan = (u16)shmem_info.ovlan_stag &
++						 FUNC_MF_CFG_OV_STAG_MASK;
++	p_hwfn->hw_info.ovlan = p_hwfn->mcp_info->func_info.ovlan;
++	if ((p_hwfn->hw_info.hw_mode & BIT(MODE_MF_SD)) &&
++	    (p_hwfn->hw_info.ovlan != QED_MCP_VLAN_UNSET)) {
++		qed_wr(p_hwfn, p_ptt,
++		       NIG_REG_LLH_FUNC_TAG_VALUE, p_hwfn->hw_info.ovlan);
++		qed_sp_pf_update_stag(p_hwfn);
++	}
++
++	/* Acknowledge the MFW */
++	qed_mcp_cmd(p_hwfn, p_ptt, DRV_MSG_CODE_S_TAG_UPDATE_ACK, 0,
++		    &resp, &param);
++}
++
+ int qed_mcp_handle_events(struct qed_hwfn *p_hwfn,
+ 			  struct qed_ptt *p_ptt)
  {
- 	u32 resp = 0, param = 0, rc_param = 0;
- 	int rc;
-@@ -1832,6 +1833,36 @@ int qed_mcp_config_vf_msix(struct qed_hwfn *p_hwfn,
- 	return rc;
+@@ -1453,6 +1475,10 @@ int qed_mcp_handle_events(struct qed_hwfn *p_hwfn,
+ 		case MFW_DRV_MSG_BW_UPDATE:
+ 			qed_mcp_update_bw(p_hwfn, p_ptt);
+ 			break;
++		case MFW_DRV_MSG_S_TAG_UPDATE:
++			qed_mcp_update_stag(p_hwfn, p_ptt);
++			break;
++			break;
+ 		default:
+ 			DP_INFO(p_hwfn, "Unimplemented MFW message %d\n", i);
+ 			rc = -EINVAL;
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_reg_addr.h b/drivers/net/ethernet/qlogic/qed/qed_reg_addr.h
+index f14772b..6abf918 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_reg_addr.h
++++ b/drivers/net/ethernet/qlogic/qed/qed_reg_addr.h
+@@ -242,6 +242,8 @@
+ 	0x50196cUL
+ #define NIG_REG_LLH_CLS_TYPE_DUALMODE \
+ 	0x501964UL
++#define NIG_REG_LLH_FUNC_TAG_EN 0x5019b0UL
++#define NIG_REG_LLH_FUNC_TAG_VALUE 0x5019d0UL
+ #define NIG_REG_LLH_FUNC_FILTER_VALUE \
+ 	0x501a00UL
+ #define NIG_REG_LLH_FUNC_FILTER_VALUE_SIZE \
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_sp.h b/drivers/net/ethernet/qlogic/qed/qed_sp.h
+index ef77de4..b9464f3 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_sp.h
++++ b/drivers/net/ethernet/qlogic/qed/qed_sp.h
+@@ -418,6 +418,15 @@ int qed_sp_pf_start(struct qed_hwfn *p_hwfn,
+ int qed_sp_pf_update(struct qed_hwfn *p_hwfn);
+ 
+ /**
++ * @brief qed_sp_pf_update_stag - Update firmware of new outer tag
++ *
++ * @param p_hwfn
++ *
++ * @return int
++ */
++int qed_sp_pf_update_stag(struct qed_hwfn *p_hwfn);
++
++/**
+  * @brief qed_sp_pf_stop - PF Function Stop Ramrod
+  *
+  * This ramrod is sent to close a Physical Function (PF). It is the last ramrod
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_sp_commands.c b/drivers/net/ethernet/qlogic/qed/qed_sp_commands.c
+index ab09975..46d0c3c 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_sp_commands.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_sp_commands.c
+@@ -514,3 +514,27 @@ int qed_sp_heartbeat_ramrod(struct qed_hwfn *p_hwfn)
+ 
+ 	return qed_spq_post(p_hwfn, p_ent, NULL);
  }
- 
-+static int
-+qed_mcp_config_vf_msix_ah(struct qed_hwfn *p_hwfn,
-+			  struct qed_ptt *p_ptt, u8 num)
++
++int qed_sp_pf_update_stag(struct qed_hwfn *p_hwfn)
 +{
-+	u32 resp = 0, param = num, rc_param = 0;
-+	int rc;
++	struct qed_spq_entry *p_ent = NULL;
++	struct qed_sp_init_data init_data;
++	int rc = -EINVAL;
 +
-+	rc = qed_mcp_cmd(p_hwfn, p_ptt, DRV_MSG_CODE_CFG_PF_VFS_MSIX,
-+			 param, &resp, &rc_param);
++	/* Get SPQ entry */
++	memset(&init_data, 0, sizeof(init_data));
++	init_data.cid = qed_spq_get_cid(p_hwfn);
++	init_data.opaque_fid = p_hwfn->hw_info.opaque_fid;
++	init_data.comp_mode = QED_SPQ_MODE_CB;
 +
-+	if (resp != FW_MSG_CODE_DRV_CFG_PF_VFS_MSIX_DONE) {
-+		DP_NOTICE(p_hwfn, "MFW failed to set MSI-X for VFs\n");
-+		rc = -EINVAL;
-+	} else {
-+		DP_VERBOSE(p_hwfn, QED_MSG_IOV,
-+			   "Requested 0x%02x MSI-x interrupts for VFs\n", num);
-+	}
++	rc = qed_sp_init_request(p_hwfn, &p_ent,
++				 COMMON_RAMROD_PF_UPDATE, PROTOCOLID_COMMON,
++				 &init_data);
++	if (rc)
++		return rc;
 +
-+	return rc;
++	p_ent->ramrod.pf_update.update_mf_vlan_flag = true;
++	p_ent->ramrod.pf_update.mf_vlan = cpu_to_le16(p_hwfn->hw_info.ovlan);
++
++	return qed_spq_post(p_hwfn, p_ent, NULL);
 +}
-+
-+int qed_mcp_config_vf_msix(struct qed_hwfn *p_hwfn,
-+			   struct qed_ptt *p_ptt, u8 vf_id, u8 num)
-+{
-+	if (QED_IS_BB(p_hwfn->cdev))
-+		return qed_mcp_config_vf_msix_bb(p_hwfn, p_ptt, vf_id, num);
-+	else
-+		return qed_mcp_config_vf_msix_ah(p_hwfn, p_ptt, num);
-+}
-+
- int
- qed_mcp_send_drv_version(struct qed_hwfn *p_hwfn,
- 			 struct qed_ptt *p_ptt,
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_sriov.c b/drivers/net/ethernet/qlogic/qed/qed_sriov.c
-index 71e392f..b6bda45d 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_sriov.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_sriov.c
-@@ -747,6 +747,35 @@ static void qed_iov_vf_igu_set_int(struct qed_hwfn *p_hwfn,
- 	qed_fid_pretend(p_hwfn, p_ptt, (u16) p_hwfn->hw_info.concrete_fid);
- }
- 
-+static int
-+qed_iov_enable_vf_access_msix(struct qed_hwfn *p_hwfn,
-+			      struct qed_ptt *p_ptt, u8 abs_vf_id, u8 num_sbs)
-+{
-+	u8 current_max = 0;
-+	int i;
-+
-+	/* For AH onward, configuration is per-PF. Find maximum of all
-+	 * the currently enabled child VFs, and set the number to be that.
-+	 */
-+	if (!QED_IS_BB(p_hwfn->cdev)) {
-+		qed_for_each_vf(p_hwfn, i) {
-+			struct qed_vf_info *p_vf;
-+
-+			p_vf = qed_iov_get_vf_info(p_hwfn, (u16)i, true);
-+			if (!p_vf)
-+				continue;
-+
-+			current_max = max_t(u8, current_max, p_vf->num_sbs);
-+		}
-+	}
-+
-+	if (num_sbs > current_max)
-+		return qed_mcp_config_vf_msix(p_hwfn, p_ptt,
-+					      abs_vf_id, num_sbs);
-+
-+	return 0;
-+}
-+
- static int qed_iov_enable_vf_access(struct qed_hwfn *p_hwfn,
- 				    struct qed_ptt *p_ptt,
- 				    struct qed_vf_info *vf)
-@@ -771,7 +800,8 @@ static int qed_iov_enable_vf_access(struct qed_hwfn *p_hwfn,
- 
- 	qed_iov_vf_igu_reset(p_hwfn, p_ptt, vf);
- 
--	rc = qed_mcp_config_vf_msix(p_hwfn, p_ptt, vf->abs_vf_id, vf->num_sbs);
-+	rc = qed_iov_enable_vf_access_msix(p_hwfn, p_ptt,
-+					   vf->abs_vf_id, vf->num_sbs);
- 	if (rc)
- 		return rc;
- 
 -- 
 1.9.3
