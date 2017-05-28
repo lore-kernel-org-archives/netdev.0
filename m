@@ -1,69 +1,59 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next 03/12] nfp: don't set aux pointers if ioremap failed
-Date: Sat, 27 May 2017 17:34:02 -0700
-Message-ID: <20170528003411.17603-4-jakub.kicinski@netronome.com>
+Subject: [PATCH net-next 04/12] nfp: only try to get to PCIe ctrl memory if BARs are wide enough
+Date: Sat, 27 May 2017 17:34:03 -0700
+Message-ID: <20170528003411.17603-5-jakub.kicinski@netronome.com>
 References: <20170528003411.17603-1-jakub.kicinski@netronome.com>
 Cc: oss-drivers@netronome.com,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f44.google.com ([74.125.83.44]:35043 "EHLO
-        mail-pg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750762AbdE1Aep (ORCPT
+Received: from mail-pf0-f181.google.com ([209.85.192.181]:34470 "EHLO
+        mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750784AbdE1Aep (ORCPT
         <rfc822;netdev@vger.kernel.org>); Sat, 27 May 2017 20:34:45 -0400
-Received: by mail-pg0-f44.google.com with SMTP id 8so8584713pgc.2
-        for <netdev@vger.kernel.org>; Sat, 27 May 2017 17:34:44 -0700 (PDT)
+Received: by mail-pf0-f181.google.com with SMTP id 9so32597449pfj.1
+        for <netdev@vger.kernel.org>; Sat, 27 May 2017 17:34:45 -0700 (PDT)
 In-Reply-To: <20170528003411.17603-1-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If ioremap of PCIe ctrl memory failed we can still get to it through
-PCI config space, therefore we allow ioremap() to fail.  When if fails,
-however, we must leave all the IOMEM pointers as NULL.  Currently we
-would calculate csr and em pointers, adding offsets to the potential
-NULL value and therefore making the NULL-checks throughout the code
-ineffective.
+For accessing PCIe ctrl memory we depend on the BAR aperture being
+large enough to reach all registers.  Since the BAR aperture can
+be set in the flash make sure the driver won't oops the kernel
+when the PCIe configuration is unusual.
 
 Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 ---
- .../ethernet/netronome/nfp/nfpcore/nfp6000_pcie.c    | 20 ++++++++++++--------
- 1 file changed, 12 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/netronome/nfp/nfpcore/nfp6000_pcie.c | 10 ++++++++--
+ 1 file changed, 8 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp6000_pcie.c b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp6000_pcie.c
-index 43dc68e01274..1fde213d5b83 100644
+index 1fde213d5b83..597ac8febb63 100644
 --- a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp6000_pcie.c
 +++ b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp6000_pcie.c
-@@ -639,19 +639,23 @@ static int enable_bars(struct nfp6000_pcie *nfp, u16 interface)
- 		nfp6000_bar_write(nfp, bar, barcfg_msix_general);
+@@ -119,6 +119,11 @@
+ #define NFP_PCIE_EM                                     0x020000
+ #define NFP_PCIE_SRAM                                   0x000000
  
- 		nfp->expl.data = bar->iomem + NFP_PCIE_SRAM + 0x1000;
++/* Minimal size of the PCIe cfg memory we depend on being mapped,
++ * queue controller and DMA controller don't have to be covered.
++ */
++#define NFP_PCI_MIN_MAP_SIZE				0x080000
 +
-+		if (nfp->pdev->device == PCI_DEVICE_ID_NETRONOME_NFP4000 ||
-+		    nfp->pdev->device == PCI_DEVICE_ID_NETRONOME_NFP6000) {
-+			nfp->iomem.csr = bar->iomem + NFP_PCIE_BAR(0);
-+		} else {
-+			int pf = nfp->pdev->devfn & 7;
-+
-+			nfp->iomem.csr = bar->iomem + NFP_PCIE_BAR(pf);
-+		}
-+		nfp->iomem.em = bar->iomem + NFP_PCIE_EM;
- 	}
+ #define NFP_PCIE_P2C_FIXED_SIZE(bar)               (1 << (bar)->bitsize)
+ #define NFP_PCIE_P2C_BULK_SIZE(bar)                (1 << (bar)->bitsize)
+ #define NFP_PCIE_P2C_GENERAL_TARGET_OFFSET(bar, x) ((x) << ((bar)->bitsize - 2))
+@@ -628,8 +633,9 @@ static int enable_bars(struct nfp6000_pcie *nfp, u16 interface)
  
- 	if (nfp->pdev->device == PCI_DEVICE_ID_NETRONOME_NFP4000 ||
--	    nfp->pdev->device == PCI_DEVICE_ID_NETRONOME_NFP6000) {
--		nfp->iomem.csr = bar->iomem + NFP_PCIE_BAR(0);
-+	    nfp->pdev->device == PCI_DEVICE_ID_NETRONOME_NFP6000)
- 		expl_groups = 4;
--	} else {
--		int pf = nfp->pdev->devfn & 7;
--
--		nfp->iomem.csr = bar->iomem + NFP_PCIE_BAR(pf);
-+	else
- 		expl_groups = 1;
--	}
--	nfp->iomem.em = bar->iomem + NFP_PCIE_EM;
- 
- 	/* Configure, and lock, BAR0.1 for PCIe XPB (MSI-X PBA) */
- 	bar = &nfp->bar[1];
+ 	/* Configure, and lock, BAR0.0 for General Target use (MSI-X SRAM) */
+ 	bar = &nfp->bar[0];
+-	bar->iomem = ioremap_nocache(nfp_bar_resource_start(bar),
+-				     nfp_bar_resource_len(bar));
++	if (nfp_bar_resource_len(bar) >= NFP_PCI_MIN_MAP_SIZE)
++		bar->iomem = ioremap_nocache(nfp_bar_resource_start(bar),
++					     nfp_bar_resource_len(bar));
+ 	if (bar->iomem) {
+ 		dev_info(nfp->dev,
+ 			 "BAR0.0 RESERVED: General Mapping/MSI-X SRAM\n");
 -- 
 2.11.0
