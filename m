@@ -1,67 +1,75 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: running an eBPF program
-Date: Sat, 27 May 2017 20:11:07 -0400 (EDT)
-Message-ID: <20170527.201107.1558140531080967167.davem@davemloft.net>
-References: <CAErYV9EjKGh9ta8TZ9PRmaATH5VcXQH4cd=WuL5NfMOpcuoLfw@mail.gmail.com>
-        <CAH3MdRVMixv8s10gKF1jQjtSY7MHeB-Rs16hX6HwAgUOQ0g=EA@mail.gmail.com>
-        <CAH3MdRWg57Aw666ahVGb04UcSTqxrz1Wd33JDLyCqY4fh=xstA@mail.gmail.com>
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Subject: [PATCH net-next 00/12] nfp: pci core, hwmon, live mac addr change
+Date: Sat, 27 May 2017 17:33:59 -0700
+Message-ID: <20170528003411.17603-1-jakub.kicinski@netronome.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: adelfuchs@gmail.com, netdev@vger.kernel.org
-To: ys114321@gmail.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: oss-drivers@netronome.com,
+        Jakub Kicinski <jakub.kicinski@netronome.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:53038 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750757AbdE1ALO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 27 May 2017 20:11:14 -0400
-In-Reply-To: <CAH3MdRWg57Aw666ahVGb04UcSTqxrz1Wd33JDLyCqY4fh=xstA@mail.gmail.com>
+Received: from mail-pf0-f173.google.com ([209.85.192.173]:36398 "EHLO
+        mail-pf0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750762AbdE1Aem (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 27 May 2017 20:34:42 -0400
+Received: by mail-pf0-f173.google.com with SMTP id m17so32499213pfg.3
+        for <netdev@vger.kernel.org>; Sat, 27 May 2017 17:34:42 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Y Song <ys114321@gmail.com>
-Date: Sat, 27 May 2017 13:52:27 -0700
+This series brings updates to core PCI code, SR-IOV, exposes 
+firmware's capability to change MAC address at runtime and HWMON
+interfaces.  
 
-> On Sat, May 27, 2017 at 1:23 PM, Y Song <ys114321@gmail.com> wrote:
->>
->> From verifier error message:
->> ======
->> 0: (bf) r6 = r1
->>
->> 1: (18) r9 = 0xffe0000e
->>
->> 3: (69) r0 = *(u16 *)(r6 +16)
->>
->> invalid bpf_context access off=16 size=2
->> ======
->>
->> The offset 16 of struct __sk_buff is hash.
->> What instruction #3 tries to do is to access 2 bytes of the hash value
->> instead of full 4 bytes.
->> This is explicitly not allowed in verifier due to endianness issue.
-> 
-> 
-> I can reproduce the issue now. My previous statement saying to access
-> "hash" field is not correct. It is accessing the protocol field.
-> 
-> static __inline__ bool flow_dissector(struct __sk_buff *skb,
->                                       struct flow_keys *flow)
-> {
->         int poff, nh_off = BPF_LL_OFF + ETH_HLEN;
->         __be16 proto = skb->protocol;
->         __u8 ip_proto;
-> 
-> The plan so far is to see whether we can fix the issue in LLVM side.
+The PCI code updates include resiliency improvement in conditions 
+which are quite unusual, but still shouldn't make the driver oops.
+We also handle very large device memory operation more gracefully.
+A timeout is added to acquiring mutexes in device memory.
 
-If the compiler properly asks for "__sk_buff + 16" on little-endian
-and "__sk_buff + 20" on big-endian, the verifier should instead be
-fixed to allow the access to pass.
+Pablo provides a patch to expose to the stack the ability to change
+MAC addresses under traffic while David adds HWMON interface for
+reading device temperature and power consumption.
 
-I can't see any reason why LLVM won't set the offset properly like
-that, and it's a completely legitimate optimization that we shouldn't
-try to stop LLVM from performing.
+Last three patches are minor improvements to the netdev code.
 
-It also makes it so that we don't have to fix having absurdly defined
-__sk_buff's protocol field as a u32.
+David Brunecz (1):
+  nfp: add hwmon support
 
-Thanks.
+Jakub Kicinski (10):
+  nfp: set driver VF limit
+  nfp: don't set aux pointers if ioremap failed
+  nfp: only try to get to PCIe ctrl memory if BARs are wide enough
+  nfp: support long reads and writes with the cpp helpers
+  nfp: shorten CPP core probe logs
+  nfp: support variable NSP response lengths
+  nfp: don't wait for resources indefinitely
+  nfp: fix print format for ring pointers in ring dumps
+  nfp: don't add ring size to index calculations
+  nfp: don't keep count for free buffers delayed kick
+
+Pablo Cascón (1):
+  nfp: add set_mac_address support while the interface is up
+
+ drivers/net/ethernet/netronome/nfp/Makefile        |   1 +
+ drivers/net/ethernet/netronome/nfp/nfp_hwmon.c     | 190 +++++++++++++++++++++
+ drivers/net/ethernet/netronome/nfp/nfp_main.c      |  44 +++--
+ drivers/net/ethernet/netronome/nfp/nfp_main.h      |   8 +
+ drivers/net/ethernet/netronome/nfp/nfp_net.h       |   3 -
+ .../net/ethernet/netronome/nfp/nfp_net_common.c    |  55 ++++--
+ drivers/net/ethernet/netronome/nfp/nfp_net_ctrl.h  |   2 +
+ .../net/ethernet/netronome/nfp/nfp_net_debugfs.c   |   4 +-
+ drivers/net/ethernet/netronome/nfp/nfpcore/nfp.h   |   2 +
+ .../ethernet/netronome/nfp/nfpcore/nfp6000_pcie.c  |  49 ++++--
+ .../net/ethernet/netronome/nfp/nfpcore/nfp_cpp.h   |   8 +
+ .../ethernet/netronome/nfp/nfpcore/nfp_cppcore.c   |  87 ++++++++--
+ .../net/ethernet/netronome/nfp/nfpcore/nfp_mutex.c |   9 +-
+ .../net/ethernet/netronome/nfp/nfpcore/nfp_nsp.c   |  16 ++
+ .../net/ethernet/netronome/nfp/nfpcore/nfp_nsp.h   |  12 ++
+ .../ethernet/netronome/nfp/nfpcore/nfp_nsp_cmds.c  |  47 ++++-
+ .../ethernet/netronome/nfp/nfpcore/nfp_resource.c  |  10 +-
+ 17 files changed, 470 insertions(+), 77 deletions(-)
+ create mode 100644 drivers/net/ethernet/netronome/nfp/nfp_hwmon.c
+
+-- 
+2.11.0
