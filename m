@@ -1,80 +1,73 @@
-From: Y Song <ys114321@gmail.com>
-Subject: Re: running an eBPF program
-Date: Sat, 27 May 2017 22:08:59 -0700
-Message-ID: <CAH3MdRUukbz+hy76afQiHi=k-_CsA12ShjaoQKnFcLnoVxBHPQ@mail.gmail.com>
-References: <CAErYV9EjKGh9ta8TZ9PRmaATH5VcXQH4cd=WuL5NfMOpcuoLfw@mail.gmail.com>
- <CAH3MdRVMixv8s10gKF1jQjtSY7MHeB-Rs16hX6HwAgUOQ0g=EA@mail.gmail.com>
- <CAH3MdRWg57Aw666ahVGb04UcSTqxrz1Wd33JDLyCqY4fh=xstA@mail.gmail.com> <20170527.201107.1558140531080967167.davem@davemloft.net>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [PATCH 7/7] mlx5: Do not build eswitch_offloads if
+ CONFIG_MLX5_EN_ESWITCH_OFFLOADS is set
+Date: Sun, 28 May 2017 09:03:19 +0300
+Message-ID: <CAJ3xEMh8ALo9Pgb0sh5dzAFaPtiKDaZyEhgasgi40Pba1JzCQA@mail.gmail.com>
+References: <20170526211624.23133-1-jsorensen@fb.com> <20170526211624.23133-8-jsorensen@fb.com>
+ <CAJ3xEMgeBaE9q6sucXtOQTBLAvZvf_d0eGvMsGbVa2vWc21R-Q@mail.gmail.com> <e7c36f4e-788a-89dd-e92e-e6a31004758a@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: Adel Fuchs <adelfuchs@gmail.com>, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+        Kernel Team <kernel-team@fb.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Ilan Tayari <ilant@mellanox.com>,
+        Jes Sorensen <jsorensen@fb.com>
+To: Jes Sorensen <jes.sorensen@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ua0-f170.google.com ([209.85.217.170]:35996 "EHLO
-        mail-ua0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750781AbdE1FJl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 28 May 2017 01:09:41 -0400
-Received: by mail-ua0-f170.google.com with SMTP id j17so22490238uag.3
-        for <netdev@vger.kernel.org>; Sat, 27 May 2017 22:09:40 -0700 (PDT)
-In-Reply-To: <20170527.201107.1558140531080967167.davem@davemloft.net>
+Received: from mail-oi0-f67.google.com ([209.85.218.67]:35093 "EHLO
+        mail-oi0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750913AbdE1GDU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 28 May 2017 02:03:20 -0400
+Received: by mail-oi0-f67.google.com with SMTP id v80so7425250oie.2
+        for <netdev@vger.kernel.org>; Sat, 27 May 2017 23:03:20 -0700 (PDT)
+In-Reply-To: <e7c36f4e-788a-89dd-e92e-e6a31004758a@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, May 27, 2017 at 5:11 PM, David Miller <davem@davemloft.net> wrote:
-> From: Y Song <ys114321@gmail.com>
-> Date: Sat, 27 May 2017 13:52:27 -0700
->
->> On Sat, May 27, 2017 at 1:23 PM, Y Song <ys114321@gmail.com> wrote:
->>>
->>> From verifier error message:
->>> ======
->>> 0: (bf) r6 = r1
->>>
->>> 1: (18) r9 = 0xffe0000e
->>>
->>> 3: (69) r0 = *(u16 *)(r6 +16)
->>>
->>> invalid bpf_context access off=16 size=2
->>> ======
->>>
->>> The offset 16 of struct __sk_buff is hash.
->>> What instruction #3 tries to do is to access 2 bytes of the hash value
->>> instead of full 4 bytes.
->>> This is explicitly not allowed in verifier due to endianness issue.
+On Sun, May 28, 2017 at 5:23 AM, Jes Sorensen <jes.sorensen@gmail.com> wrote:
+> On 05/27/2017 05:02 PM, Or Gerlitz wrote:
 >>
->>
->> I can reproduce the issue now. My previous statement saying to access
->> "hash" field is not correct. It is accessing the protocol field.
->>
->> static __inline__ bool flow_dissector(struct __sk_buff *skb,
->>                                       struct flow_keys *flow)
->> {
->>         int poff, nh_off = BPF_LL_OFF + ETH_HLEN;
->>         __be16 proto = skb->protocol;
->>         __u8 ip_proto;
->>
->> The plan so far is to see whether we can fix the issue in LLVM side.
->
-> If the compiler properly asks for "__sk_buff + 16" on little-endian
-> and "__sk_buff + 20" on big-endian, the verifier should instead be
-> fixed to allow the access to pass.
->
-> I can't see any reason why LLVM won't set the offset properly like
-> that, and it's a completely legitimate optimization that we shouldn't
-> try to stop LLVM from performing.
+>> On Sat, May 27, 2017 at 12:16 AM, Jes Sorensen <jes.sorensen@gmail.com>
+>> wrote:
+>>>
+>>> This gets rid of the temporary #ifdef spaghetti and allows the code to
+>>> compile without offload support enabled.
 
-I do agree that such optimization in LLVM is perfect fine and actually
-beneficial.
-The only reason I was thinking was to avoid introduce endianness into verifier.
-Maybe not too much work there. Let me do some experiments and come with
-a patch for that.
+>> I am pretty sure we can do that exercise you're up to without any
+>> spaghetti cooking and even put more code under that CONFIG directive
+>> (en_rep.c), I'll take that with Saeed.
 
-Thanks!
+> I want to avoid adding #ifdef CONFIG_foo to the main code in order to keep
+> it readable. I did it gradually to make sure I didn't break anything and to
+> allow for it to be bisected in case something did break. If we can move out
+> more code from places like en_rep.c into eswitch_offload.c and get it
+> disabled that way that would be great, but I like to limit the number of
+> #ifdefs we add to the actual code.
 
-Yonghong
+FWIW (see below), squashing your seven patches to one resulted in a
+fairly simple/clear
+patch, so if we go that way, no need to have seven commits just for this piece.
 
->
-> It also makes it so that we don't have to fix having absurdly defined
-> __sk_buff's protocol field as a u32.
->
-> Thanks.
+>> Just wondering, you are motivated by a wish to put some mlx5
+>> functionalities under their own CONFIG directives which could be
+>> useful when backporting the latest upstream driver into older kernel
+>> and being able not to deal with parts of it, right? in that respect,
+>> are you using SRIOV but not the offloads mode?
+
+> The motivation is two-fold, the primary is to be able to disable features
+> not being used for those who compile a custom kernel and who wish to reduce
+> the codebase compiled. It also makes it more flexible when back porting the
+> code to older kernels since it is easier to pick out a smaller subset. I was
+> going to look into making TC support etc. optional next, but I wanted to
+> have a discussion about this patchset first.
+
+OKay, I got you.
+
+Re SRIOV, I don't think it would be correct to break the support info few
+CONFIG directives. If we want to allow someone to build the driver w.o
+SRIOV that's fine, but I don't think we should further go down and disable
+some of the SRIOV sub-modes.
+
+Re TC offload support, that's make sense.
+
+Or.
