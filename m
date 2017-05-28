@@ -1,73 +1,80 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [PATCH 7/7] mlx5: Do not build eswitch_offloads if
- CONFIG_MLX5_EN_ESWITCH_OFFLOADS is set
-Date: Sun, 28 May 2017 09:03:19 +0300
-Message-ID: <CAJ3xEMh8ALo9Pgb0sh5dzAFaPtiKDaZyEhgasgi40Pba1JzCQA@mail.gmail.com>
-References: <20170526211624.23133-1-jsorensen@fb.com> <20170526211624.23133-8-jsorensen@fb.com>
- <CAJ3xEMgeBaE9q6sucXtOQTBLAvZvf_d0eGvMsGbVa2vWc21R-Q@mail.gmail.com> <e7c36f4e-788a-89dd-e92e-e6a31004758a@gmail.com>
+From: Ilan Tayari <ilant-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Subject: RE: [for-next 4/6] net/mlx5: FPGA, Add basic support for Innova
+Date: Sun, 28 May 2017 07:22:27 +0000
+Message-ID: <AM4PR0501MB1940330F0EBAA819C87C5278DBF20@AM4PR0501MB1940.eurprd05.prod.outlook.com>
+References: <20170523114404.20387-1-saeedm@mellanox.com>
+ <20170523114404.20387-5-saeedm@mellanox.com>
+ <20170524165059.42lmrwzzcxvi2sf7@ast-mbp>
+ <AM4PR0501MB1940885C2F1CEF4DDE4EA8D1DBFF0@AM4PR0501MB1940.eurprd05.prod.outlook.com>
+ <20170526030701.du4345mbprhcwjyi@ast-mbp>
+ <CALzJLG98D=3yMJV_q4sjVNG41AERFRU+6rwqQJsxnRuVeDTPdA@mail.gmail.com>
+ <20170526175624.5xxflpf24je5673h@ast-mbp>
+ <20170526181517.GA3860@obsidianresearch.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-        Kernel Team <kernel-team@fb.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Ilan Tayari <ilant@mellanox.com>,
-        Jes Sorensen <jsorensen@fb.com>
-To: Jes Sorensen <jes.sorensen@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f67.google.com ([209.85.218.67]:35093 "EHLO
-        mail-oi0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750913AbdE1GDU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 28 May 2017 02:03:20 -0400
-Received: by mail-oi0-f67.google.com with SMTP id v80so7425250oie.2
-        for <netdev@vger.kernel.org>; Sat, 27 May 2017 23:03:20 -0700 (PDT)
-In-Reply-To: <e7c36f4e-788a-89dd-e92e-e6a31004758a@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Saeed Mahameed <saeedm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>,
+        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "jsorensen-b10kYP2dOMg@public.gmane.org" <jsorensen-b10kYP2dOMg@public.gmane.org>,
+        Andy Shevchenko <andy.shevchenko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        "linux-fpga-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-fpga-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Alan Tull <atull-yzvPICuk2ABMcg4IHK0kFoH6Mc4MB0Vx@public.gmane.org>,
+        "yi1.li-VuQAYsv1563Yd54FQh9/CA@public.gmane.org" <yi1.li-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+        Boris Pismenny <borisp-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+To: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>,
+        Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170526181517.GA3860-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Content-Language: en-US
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, May 28, 2017 at 5:23 AM, Jes Sorensen <jes.sorensen@gmail.com> wrote:
-> On 05/27/2017 05:02 PM, Or Gerlitz wrote:
->>
->> On Sat, May 27, 2017 at 12:16 AM, Jes Sorensen <jes.sorensen@gmail.com>
->> wrote:
->>>
->>> This gets rid of the temporary #ifdef spaghetti and allows the code to
->>> compile without offload support enabled.
-
->> I am pretty sure we can do that exercise you're up to without any
->> spaghetti cooking and even put more code under that CONFIG directive
->> (en_rep.c), I'll take that with Saeed.
-
-> I want to avoid adding #ifdef CONFIG_foo to the main code in order to keep
-> it readable. I did it gradually to make sure I didn't break anything and to
-> allow for it to be bisected in case something did break. If we can move out
-> more code from places like en_rep.c into eswitch_offload.c and get it
-> disabled that way that would be great, but I like to limit the number of
-> #ifdefs we add to the actual code.
-
-FWIW (see below), squashing your seven patches to one resulted in a
-fairly simple/clear
-patch, so if we go that way, no need to have seven commits just for this piece.
-
->> Just wondering, you are motivated by a wish to put some mlx5
->> functionalities under their own CONFIG directives which could be
->> useful when backporting the latest upstream driver into older kernel
->> and being able not to deal with parts of it, right? in that respect,
->> are you using SRIOV but not the offloads mode?
-
-> The motivation is two-fold, the primary is to be able to disable features
-> not being used for those who compile a custom kernel and who wish to reduce
-> the codebase compiled. It also makes it more flexible when back porting the
-> code to older kernels since it is easier to pick out a smaller subset. I was
-> going to look into making TC support etc. optional next, but I wanted to
-> have a discussion about this patchset first.
-
-OKay, I got you.
-
-Re SRIOV, I don't think it would be correct to break the support info few
-CONFIG directives. If we want to allow someone to build the driver w.o
-SRIOV that's fine, but I don't think we should further go down and disable
-some of the SRIOV sub-modes.
-
-Re TC offload support, that's make sense.
-
-Or.
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBKYXNvbiBHdW50aG9ycGUgW21h
+aWx0bzpqZ3VudGhvcnBlQG9ic2lkaWFucmVzZWFyY2guY29tXQ0KPiANCj4gT24gRnJpLCBNYXkg
+MjYsIDIwMTcgYXQgMTA6NTY6MjVBTSAtMDcwMCwgQWxleGVpIFN0YXJvdm9pdG92IHdyb3RlOg0K
+PiANCj4gPiA+IGZvciB0aGF0IGZlYXR1cmUgd2hpY2ggaXMgdGhlIG9yaWdpbmF0aW5nIHBsYWNl
+LCBiZWZvcmUgZGVmaW5pbmcNCj4gPiA+IEFQSXMvaW5mcmFzdHJ1Y3R1cmVzLA0KPiA+ID4gdW50
+aWwgdGhlIGZlYXR1cmUgaXMgY29tcGxldGUgYW5kIGV2ZXJ5IGJvZHkgaXMgaGFwcHkgYWJvdXQg
+aXQuDQo+ID4NCj4gPiBUaGVyZSBpcyBkcml2ZXIvZnBnYSB0byBtYW5hZ2UgZnBnYSwgYnV0IG1s
+eCBmcGdhK25pYyBjb21ibw0KPiA+IHdpbGwgYmUgbWFuYWdlZCB2aWEgbWx4NS9jb3JlL2ZwZ2Ev
+DQo+ID4NCj4gPiBBZGRpbmcgZnBnYSBmb2xrcyBmb3IgdmlzaWJpbGl0eS4NCj4gDQo+IEl0IHdv
+dWxkIGJlIGdvb2QgdG8gdXNlIHRoZSBleGlzdGluZyBmcGdhIGxvYWRpbmcgaW5mcmFzdHJ1Y3R1
+cmUgdG8NCj4gZ2V0IHRoZSBiaXRzdHJlYW0gaW50byB0aGUgTklDLCBhbmQgdG8gdXNlIHRoZSBz
+YW1lIFhpbGlueCBiaXRzdHJlYW0NCj4gZm9ybWF0IGFzIGVnIFp5bnEgZG9lcyBmb3IgY29uc2lz
+dGVuY3kuDQo+IA0KPiBJJ20gdW5jbGVhciBob3cgdGhpcyB3b3JrcyAtIHRoZXJlIG11c3QgYmUg
+bW9yZSB0byBpdCB0aGFuIGp1c3QgYQ0KPiAnYnVtcCBvbiB0aGUgd2lyZScsIHRoZXJlIG11c3Qg
+YmUgc29tZSBjb21tdW5pY2F0aW9uIGNoYW5uZWwgYmV0d2Vlbg0KPiB0aGUgRlBHQSBhbmQgTGlu
+dXggdG8gc2V0IG9wZXJhdGlvbmFsIGRhdGEgKGVnIGxvYWQga2V5cykgZXRjLg0KPiANCj4gSWYg
+dGhhdCBpcyByZWdpc3RlciBtYXBwZWQgaW50byBhIFBDSS1CQVIgc29tZXBsYWNlIHRoZW4gaXQg
+cmVhbGx5DQo+IHNob3VsZCB1c2UgdGhlIEZQR0EgbGF5ZXIgZnVuY3Rpb25zIHRvIG1hbmFnZSBi
+aW5kaW5nIGRyaXZlcnMgdG8gdGhhdA0KPiByZWdpc3RlciB3aW5kb3cuDQo+IA0KPiBJZiBpdCBp
+cyBtYWlsYm94IGNvbW1hbmQgYmFzZWQgdGhlbiBpdCBpcyBub3QgYXMgZ29vZCBvZiBhIGZpdC4N
+Cj4gDQoNCkhpIEphc29uLA0KVGhhbmtzIGZvciB0YWtpbmcgdGhlIHRpbWUgdG8gY29uc2lkZXIg
+dGhpcyENCg0KVGhpcyBpcyBuZWl0aGVyIFBDSS1iYXIgbWFwcGVkLCBub3IgbWFpbGJveCBjb21t
+YW5kLg0KVGhlIEZQR0EgaXMgaW5kZWVkIGEgYnVtcC1vbi10aGUtd2lyZS4NCihJdCBoYXMgSTJD
+IHRvIHRoZSBDWDQgY2hpcCwgYnV0IHRoYXQgaXMgZm9yIGRlYnVnIHB1cnBvc2VzLCBhbmQgdG9v
+IHNsb3cNCnRvIHBlcmZvcm0gcmVhbCBwcm9ncmFtbWluZykNCg0KVGhlIEZQR0EgaXMgcHJvZ3Jh
+bW1lZCB3aXRoIFJvQ0UgcGFja2V0cy4gV2UgYXJlIGdvaW5nIHRvIHNoYXJlIGEgbG90IG9mDQpk
+ZXRhaWxzIGFib3V0IHRoaXMgaW4gdGhlIElQU2VjIG9mZmxvYWQgcGF0Y2hzZXQsIHNvIEkgZG9u
+J3Qgd2FudCB0byANCnJlcGVhdCBpdCBoZXJlLg0KSW4gc2hvcnQsIHdlIG9wZW4gYSBSb0NFdjIg
+UVAgYmV0d2VlbiB0aGUgY29ubmVjdCBhbmQgdGhlIEZQR0EgY2hpcHMuDQpPdmVyIHRoaXMgUVAs
+IHdlIGNhbiBjb21tdW5pY2F0ZSBhdCBoaWdoIHNwZWVkIHdpdGggdGhlIEZQR0EuDQoNCj4gSXMg
+dGhpcyBGUEdBIGV4cGVjdGVkIHRvIGJlIGN1c3RvbWVyIHByb2dyYW1tYWJsZT8gSW4gdGhhdCBj
+YXNlIHlvdQ0KPiByZWFsbHkgbmVlZCB0aGUgZnVsbCBpbmZyYXN0cnVjdHVyZSB0byBiaW5kIHRo
+ZSByaWdodCBkcml2ZXIgKHBvc3NpYmx5DQo+IGEgY3VzdG9tZXIgZHJpdmVyKSB0byB0aGUgY3Vy
+cmVudCBGUEdBLCB0byBleHBvc2UgdGhlIGNvcnJlY3QNCj4gb3BlcmF0aW9uYWwgaW50ZXJmYWNl
+IHRvIHRoZSBrZXJuZWwuDQoNCk1vc3Qgb2YgdGhlIElubm92YSBmYW1pbHkgb2YgY2FyZHMgYXJl
+IG5vdCBjdXN0b21lci1wcm9ncmFtbWFibGUuDQpPdmVyIHRpbWUsIHRoZXkgbWF5IHJlcXVpcmUg
+YW4gdXBncmFkZSAoZXNzZW50aWFsbHkgYSBGVyB1cGdyYWRlKSBidXQgbm90DQp3aXRoIGN1c3Rv
+bWVyIGxvZ2ljLg0KDQpPbmUgZmxhdm9yIG9mIHRoZSBwcm9kdWN0LCB0aGUgSW5ub3ZhIEZsZXgs
+IGFsbG93cyBjdXN0b21lciBsb2dpYyBpbiB0aGUNCkZQR0EuIEJ1dCBldmVuIHRoZW4gaXQgaXMg
+IndyYXBwZWQiIGJ5IE1lbGxhbm94IHNoZWxsIGxvZ2ljLg0KV2UgcGxhbiB0byBoYXZlIGFuIGlu
+LWtlcm5lbCBBUEkgZm9yIHdyaXRpbmcgY2xpZW50IGRyaXZlcnMgZm9yIElubm92YQ0KRmxleC4N
+Cg0KPiANCj4gSmFzb24NCg==
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
