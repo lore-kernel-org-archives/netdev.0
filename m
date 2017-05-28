@@ -1,52 +1,166 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next 07/12] nfp: support variable NSP response lengths
-Date: Sat, 27 May 2017 17:34:06 -0700
-Message-ID: <20170528003411.17603-8-jakub.kicinski@netronome.com>
+Subject: [PATCH net-next 01/12] nfp: add set_mac_address support while the interface is up
+Date: Sat, 27 May 2017 17:34:00 -0700
+Message-ID: <20170528003411.17603-2-jakub.kicinski@netronome.com>
 References: <20170528003411.17603-1-jakub.kicinski@netronome.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
 Cc: oss-drivers@netronome.com,
-        Jakub Kicinski <jakub.kicinski@netronome.com>
+        =?UTF-8?q?Pablo=20Casc=C3=B3n?= <pablo.cascon@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f174.google.com ([209.85.192.174]:35144 "EHLO
-        mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750777AbdE1Aer (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 27 May 2017 20:34:47 -0400
-Received: by mail-pf0-f174.google.com with SMTP id n23so32605242pfb.2
-        for <netdev@vger.kernel.org>; Sat, 27 May 2017 17:34:47 -0700 (PDT)
+Received: from mail-pf0-f176.google.com ([209.85.192.176]:35139 "EHLO
+        mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750768AbdE1Aen (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 27 May 2017 20:34:43 -0400
+Received: by mail-pf0-f176.google.com with SMTP id n23so32604947pfb.2
+        for <netdev@vger.kernel.org>; Sat, 27 May 2017 17:34:43 -0700 (PDT)
 In-Reply-To: <20170528003411.17603-1-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We want to support extendable commands, where newer versions
-of the management FW may provide more information.  Zero out
-the communication buffer before passing control to NSP.  This
-way if management FW is old and only fills in first N bytes,
-the remaining ones will be zeros which extended ABI fields
-should reserve as not supported/not available.
+From: Pablo Cascón <pablo.cascon@netronome.com>
 
-Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+Expose FW app ability to change MAC address at runtime.  Make sure
+we only depend on it if FW app advertised the right capability.
+
+Signed-off-by: Pablo Cascón <pablo.cascon@netronome.com>
+Reviewed-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 ---
- drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp.c | 8 ++++++++
- 1 file changed, 8 insertions(+)
+ .../net/ethernet/netronome/nfp/nfp_net_common.c    | 44 +++++++++++++++++-----
+ drivers/net/ethernet/netronome/nfp/nfp_net_ctrl.h  |  2 +
+ 2 files changed, 36 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp.c b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp.c
-index 2fa9247bb23d..58cc3d532769 100644
---- a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp.c
-@@ -419,6 +419,14 @@ static int nfp_nsp_command_buf(struct nfp_nsp *nsp, u16 code, u32 option,
- 		if (err < 0)
- 			return err;
- 	}
-+	/* Zero out remaining part of the buffer */
-+	if (out_buf && out_size && out_size > in_size) {
-+		memset(out_buf, 0, out_size - in_size);
-+		err = nfp_cpp_write(cpp, cpp_id, cpp_buf + in_size,
-+				    out_buf, out_size - in_size);
-+		if (err < 0)
-+			return err;
-+	}
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
+index b3f5c8af6789..9312a737fbc9 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
++++ b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
+@@ -2123,17 +2123,16 @@ void nfp_net_coalesce_write_cfg(struct nfp_net *nn)
+ /**
+  * nfp_net_write_mac_addr() - Write mac address to the device control BAR
+  * @nn:      NFP Net device to reconfigure
++ * @addr:    MAC address to write
+  *
+  * Writes the MAC address from the netdev to the device control BAR.  Does not
+  * perform the required reconfig.  We do a bit of byte swapping dance because
+  * firmware is LE.
+  */
+-static void nfp_net_write_mac_addr(struct nfp_net *nn)
++static void nfp_net_write_mac_addr(struct nfp_net *nn, const u8 *addr)
+ {
+-	nn_writel(nn, NFP_NET_CFG_MACADDR + 0,
+-		  get_unaligned_be32(nn->dp.netdev->dev_addr));
+-	nn_writew(nn, NFP_NET_CFG_MACADDR + 6,
+-		  get_unaligned_be16(nn->dp.netdev->dev_addr + 4));
++	nn_writel(nn, NFP_NET_CFG_MACADDR + 0, get_unaligned_be32(addr));
++	nn_writew(nn, NFP_NET_CFG_MACADDR + 6, get_unaligned_be16(addr + 4));
+ }
  
- 	ret = nfp_nsp_command(nsp, code, option, cpp_id, cpp_buf);
- 	if (ret < 0)
+ static void nfp_net_vec_clear_ring_data(struct nfp_net *nn, unsigned int idx)
+@@ -2238,7 +2237,7 @@ static int nfp_net_set_config_and_enable(struct nfp_net *nn)
+ 	nn_writeq(nn, NFP_NET_CFG_RXRS_ENABLE, nn->dp.num_rx_rings == 64 ?
+ 		  0xffffffffffffffffULL : ((u64)1 << nn->dp.num_rx_rings) - 1);
+ 
+-	nfp_net_write_mac_addr(nn);
++	nfp_net_write_mac_addr(nn, nn->dp.netdev->dev_addr);
+ 
+ 	nn_writel(nn, NFP_NET_CFG_MTU, nn->dp.netdev->mtu);
+ 
+@@ -2997,6 +2996,27 @@ static int nfp_net_xdp(struct net_device *netdev, struct netdev_xdp *xdp)
+ 	}
+ }
+ 
++static int nfp_net_set_mac_address(struct net_device *netdev, void *addr)
++{
++	struct nfp_net *nn = netdev_priv(netdev);
++	struct sockaddr *saddr = addr;
++	int err;
++
++	err = eth_prepare_mac_addr_change(netdev, addr);
++	if (err)
++		return err;
++
++	nfp_net_write_mac_addr(nn, saddr->sa_data);
++
++	err = nfp_net_reconfig(nn, NFP_NET_CFG_UPDATE_MACADDR);
++	if (err)
++		return err;
++
++	eth_commit_mac_addr_change(netdev, addr);
++
++	return 0;
++}
++
+ const struct net_device_ops nfp_net_netdev_ops = {
+ 	.ndo_open		= nfp_net_netdev_open,
+ 	.ndo_stop		= nfp_net_netdev_close,
+@@ -3006,7 +3026,7 @@ const struct net_device_ops nfp_net_netdev_ops = {
+ 	.ndo_tx_timeout		= nfp_net_tx_timeout,
+ 	.ndo_set_rx_mode	= nfp_net_set_rx_mode,
+ 	.ndo_change_mtu		= nfp_net_change_mtu,
+-	.ndo_set_mac_address	= eth_mac_addr,
++	.ndo_set_mac_address	= nfp_net_set_mac_address,
+ 	.ndo_set_features	= nfp_net_set_features,
+ 	.ndo_features_check	= nfp_net_features_check,
+ 	.ndo_get_phys_port_name	= nfp_port_get_phys_port_name,
+@@ -3029,7 +3049,7 @@ void nfp_net_info(struct nfp_net *nn)
+ 		nn->fw_ver.resv, nn->fw_ver.class,
+ 		nn->fw_ver.major, nn->fw_ver.minor,
+ 		nn->max_mtu);
+-	nn_info(nn, "CAP: %#x %s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s\n",
++	nn_info(nn, "CAP: %#x %s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s\n",
+ 		nn->cap,
+ 		nn->cap & NFP_NET_CFG_CTRL_PROMISC  ? "PROMISC "  : "",
+ 		nn->cap & NFP_NET_CFG_CTRL_L2BC     ? "L2BCFILT " : "",
+@@ -3051,7 +3071,8 @@ void nfp_net_info(struct nfp_net *nn)
+ 		nn->cap & NFP_NET_CFG_CTRL_NVGRE    ? "NVGRE "	  : "",
+ 		nfp_net_ebpf_capable(nn)            ? "BPF "	  : "",
+ 		nn->cap & NFP_NET_CFG_CTRL_CSUM_COMPLETE ?
+-						      "RXCSUM_COMPLETE " : "");
++						      "RXCSUM_COMPLETE " : "",
++		nn->cap & NFP_NET_CFG_CTRL_LIVE_ADDR ? "LIVE_ADDR " : "");
+ }
+ 
+ /**
+@@ -3211,7 +3232,7 @@ int nfp_net_init(struct nfp_net *nn)
+ 	if (nn->dp.chained_metadata_format && nn->fw_ver.major != 4)
+ 		nn->cap &= ~NFP_NET_CFG_CTRL_RSS;
+ 
+-	nfp_net_write_mac_addr(nn);
++	nfp_net_write_mac_addr(nn, nn->dp.netdev->dev_addr);
+ 
+ 	/* Determine RX packet/metadata boundary offset */
+ 	if (nn->fw_ver.major >= 2) {
+@@ -3241,6 +3262,9 @@ int nfp_net_init(struct nfp_net *nn)
+ 	 * and netdev->hw_features advertises which features are
+ 	 * supported.  By default we enable most features.
+ 	 */
++	if (nn->cap & NFP_NET_CFG_CTRL_LIVE_ADDR)
++		netdev->priv_flags |= IFF_LIVE_ADDR_CHANGE;
++
+ 	netdev->hw_features = NETIF_F_HIGHDMA;
+ 	if (nn->cap & NFP_NET_CFG_CTRL_RXCSUM_ANY) {
+ 		netdev->hw_features |= NETIF_F_RXCSUM;
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_ctrl.h b/drivers/net/ethernet/netronome/nfp/nfp_net_ctrl.h
+index df75b8dc3617..c8208bf370e0 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_net_ctrl.h
++++ b/drivers/net/ethernet/netronome/nfp/nfp_net_ctrl.h
+@@ -135,6 +135,7 @@
+ #define   NFP_NET_CFG_CTRL_LSO2		  (0x1 << 28) /* LSO/TSO (version 2) */
+ #define   NFP_NET_CFG_CTRL_RSS2		  (0x1 << 29) /* RSS (version 2) */
+ #define   NFP_NET_CFG_CTRL_CSUM_COMPLETE  (0x1 << 30) /* Checksum complete */
++#define   NFP_NET_CFG_CTRL_LIVE_ADDR	  (0x1 << 31) /* live MAC addr change */
+ 
+ #define NFP_NET_CFG_CTRL_LSO_ANY	(NFP_NET_CFG_CTRL_LSO | \
+ 					 NFP_NET_CFG_CTRL_LSO2)
+@@ -157,6 +158,7 @@
+ #define   NFP_NET_CFG_UPDATE_IRQMOD       (0x1 <<  8) /* IRQ mod change */
+ #define   NFP_NET_CFG_UPDATE_VXLAN	  (0x1 <<  9) /* VXLAN port change */
+ #define   NFP_NET_CFG_UPDATE_BPF	  (0x1 << 10) /* BPF program load */
++#define   NFP_NET_CFG_UPDATE_MACADDR	  (0x1 << 11) /* MAC address change */
+ #define   NFP_NET_CFG_UPDATE_ERR          (0x1 << 31) /* A error occurred */
+ #define NFP_NET_CFG_TXRS_ENABLE         0x0008
+ #define NFP_NET_CFG_RXRS_ENABLE         0x0010
 -- 
 2.11.0
