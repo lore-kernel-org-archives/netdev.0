@@ -1,50 +1,80 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: Re: [PATCH v2 net-next 3/9] net: lwtunnel: Add extack to encap attr
- validation
-Date: Sat, 27 May 2017 20:44:17 -0600
-Message-ID: <c2dabec6-073d-923e-263e-e029fcb23f97@gmail.com>
-References: <201705280846.ceaILiWY%fengguang.wu@intel.com>
+From: Y Song <ys114321@gmail.com>
+Subject: Re: running an eBPF program
+Date: Sat, 27 May 2017 22:08:59 -0700
+Message-ID: <CAH3MdRUukbz+hy76afQiHi=k-_CsA12ShjaoQKnFcLnoVxBHPQ@mail.gmail.com>
+References: <CAErYV9EjKGh9ta8TZ9PRmaATH5VcXQH4cd=WuL5NfMOpcuoLfw@mail.gmail.com>
+ <CAH3MdRVMixv8s10gKF1jQjtSY7MHeB-Rs16hX6HwAgUOQ0g=EA@mail.gmail.com>
+ <CAH3MdRWg57Aw666ahVGb04UcSTqxrz1Wd33JDLyCqY4fh=xstA@mail.gmail.com> <20170527.201107.1558140531080967167.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: kbuild-all@01.org, netdev@vger.kernel.org,
-        roopa@cumulusnetworks.com
-To: kbuild test robot <lkp@intel.com>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Adel Fuchs <adelfuchs@gmail.com>, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:35960 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750762AbdE1CoY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 27 May 2017 22:44:24 -0400
-Received: by mail-pf0-f194.google.com with SMTP id n23so8552484pfb.3
-        for <netdev@vger.kernel.org>; Sat, 27 May 2017 19:44:24 -0700 (PDT)
-In-Reply-To: <201705280846.ceaILiWY%fengguang.wu@intel.com>
-Content-Language: en-US
+Received: from mail-ua0-f170.google.com ([209.85.217.170]:35996 "EHLO
+        mail-ua0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750781AbdE1FJl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 28 May 2017 01:09:41 -0400
+Received: by mail-ua0-f170.google.com with SMTP id j17so22490238uag.3
+        for <netdev@vger.kernel.org>; Sat, 27 May 2017 22:09:40 -0700 (PDT)
+In-Reply-To: <20170527.201107.1558140531080967167.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 5/27/17 7:02 PM, kbuild test robot wrote:
-> Hi David,
-> 
-> [auto build test ERROR on net-next/master]
-> 
-> url:    https://github.com/0day-ci/linux/commits/David-Ahern/net-another-round-of-extack-handling-for-routing/20170528-062659
-> config: ia64-allmodconfig (attached as .config)
-> compiler: ia64-linux-gcc (GCC) 6.2.0
-> reproduce:
->         wget https://raw.githubusercontent.com/01org/lkp-tests/master/sbin/make.cross -O ~/bin/make.cross
->         chmod +x ~/bin/make.cross
->         # save the attached .config to linux build tree
->         make.cross ARCH=ia64 
-> 
-> Note: the linux-review/David-Ahern/net-another-round-of-extack-handling-for-routing/20170528-062659 HEAD 44d11f94ccbe86e1a088f83a49ef3ca473118ad8 builds fine.
->       It only hurts bisectibility.
-> 
-> All errors (new ones prefixed by >>):
-> 
->    ERROR: "ia64_delay_loop" [drivers/spi/spi-thunderx.ko] undefined!
->>> ERROR: "ia64_delay_loop" [drivers/net/phy/mdio-cavium.ko] undefined!
+On Sat, May 27, 2017 at 5:11 PM, David Miller <davem@davemloft.net> wrote:
+> From: Y Song <ys114321@gmail.com>
+> Date: Sat, 27 May 2017 13:52:27 -0700
+>
+>> On Sat, May 27, 2017 at 1:23 PM, Y Song <ys114321@gmail.com> wrote:
+>>>
+>>> From verifier error message:
+>>> ======
+>>> 0: (bf) r6 = r1
+>>>
+>>> 1: (18) r9 = 0xffe0000e
+>>>
+>>> 3: (69) r0 = *(u16 *)(r6 +16)
+>>>
+>>> invalid bpf_context access off=16 size=2
+>>> ======
+>>>
+>>> The offset 16 of struct __sk_buff is hash.
+>>> What instruction #3 tries to do is to access 2 bytes of the hash value
+>>> instead of full 4 bytes.
+>>> This is explicitly not allowed in verifier due to endianness issue.
+>>
+>>
+>> I can reproduce the issue now. My previous statement saying to access
+>> "hash" field is not correct. It is accessing the protocol field.
+>>
+>> static __inline__ bool flow_dissector(struct __sk_buff *skb,
+>>                                       struct flow_keys *flow)
+>> {
+>>         int poff, nh_off = BPF_LL_OFF + ETH_HLEN;
+>>         __be16 proto = skb->protocol;
+>>         __u8 ip_proto;
+>>
+>> The plan so far is to see whether we can fix the issue in LLVM side.
+>
+> If the compiler properly asks for "__sk_buff + 16" on little-endian
+> and "__sk_buff + 20" on big-endian, the verifier should instead be
+> fixed to allow the access to pass.
+>
+> I can't see any reason why LLVM won't set the offset properly like
+> that, and it's a completely legitimate optimization that we shouldn't
+> try to stop LLVM from performing.
 
-Appears to be a false positive. I do not modify anything related to
-delay loops and none of this code is arch specific.
+I do agree that such optimization in LLVM is perfect fine and actually
+beneficial.
+The only reason I was thinking was to avoid introduce endianness into verifier.
+Maybe not too much work there. Let me do some experiments and come with
+a patch for that.
 
-kbuild guys: can you clarify?
+Thanks!
+
+Yonghong
+
+>
+> It also makes it so that we don't have to fix having absurdly defined
+> __sk_buff's protocol field as a u32.
+>
+> Thanks.
