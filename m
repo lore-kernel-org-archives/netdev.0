@@ -1,90 +1,171 @@
-From: Adel Fuchs <adelfuchs@gmail.com>
-Subject: Fwd: running an eBPF program
-Date: Sun, 28 May 2017 10:40:37 +0300
-Message-ID: <CAErYV9Fok4UUfUx1t_gm6vGLiapPhxJRJ=7j7qo=5hjTkJ3V8Q@mail.gmail.com>
-References: <CAErYV9EjKGh9ta8TZ9PRmaATH5VcXQH4cd=WuL5NfMOpcuoLfw@mail.gmail.com>
- <CAH3MdRVMixv8s10gKF1jQjtSY7MHeB-Rs16hX6HwAgUOQ0g=EA@mail.gmail.com>
- <CAH3MdRWg57Aw666ahVGb04UcSTqxrz1Wd33JDLyCqY4fh=xstA@mail.gmail.com>
- <20170527.201107.1558140531080967167.davem@davemloft.net> <CAH3MdRUukbz+hy76afQiHi=k-_CsA12ShjaoQKnFcLnoVxBHPQ@mail.gmail.com>
- <CAErYV9HhBoWnMVZS4XBJPN0TM4V2=U2Y+NBSyY8bqHJopvWTGA@mail.gmail.com>
+From: Mark Bloch <markb@mellanox.com>
+Subject: vxlan: use after free error
+Date: Sun, 28 May 2017 13:49:21 +0300
+Message-ID: <03ac7d79-02b7-4bee-d318-9731413bf97b@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>
+To: <davem@davemloft.net>, <jbenc@redhat.com>,
+        <roopa@cumulusnetworks.com>, <pshelar@ovn.org>,
+        <aduyck@mirantis.com>, <nicolas.dichtel@6wind.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f67.google.com ([209.85.213.67]:35455 "EHLO
-        mail-vk0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750803AbdE1Hkj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 28 May 2017 03:40:39 -0400
-Received: by mail-vk0-f67.google.com with SMTP id x71so2739831vkd.2
-        for <netdev@vger.kernel.org>; Sun, 28 May 2017 00:40:38 -0700 (PDT)
-In-Reply-To: <CAErYV9HhBoWnMVZS4XBJPN0TM4V2=U2Y+NBSyY8bqHJopvWTGA@mail.gmail.com>
+Received: from mail-he1eur01on0076.outbound.protection.outlook.com ([104.47.0.76]:4928
+        "EHLO EUR01-HE1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1750979AbdE1Ktc (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 28 May 2017 06:49:32 -0400
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Hi,
-Is there any way to run this eBPF program without that patch?
-Alternatively, is there any other eBPF sample that does run properly?
-I need to run a program that filters packets according to IP address
-or port.
-Thanks,
-Adel
 
-On Sun, May 28, 2017 at 8:08 AM, Y Song <ys114321@gmail.com> wrote:
-> On Sat, May 27, 2017 at 5:11 PM, David Miller <davem@davemloft.net> wrote:
->> From: Y Song <ys114321@gmail.com>
->> Date: Sat, 27 May 2017 13:52:27 -0700
->>
->>> On Sat, May 27, 2017 at 1:23 PM, Y Song <ys114321@gmail.com> wrote:
->>>>
->>>> From verifier error message:
->>>> ======
->>>> 0: (bf) r6 = r1
->>>>
->>>> 1: (18) r9 = 0xffe0000e
->>>>
->>>> 3: (69) r0 = *(u16 *)(r6 +16)
->>>>
->>>> invalid bpf_context access off=16 size=2
->>>> ======
->>>>
->>>> The offset 16 of struct __sk_buff is hash.
->>>> What instruction #3 tries to do is to access 2 bytes of the hash value
->>>> instead of full 4 bytes.
->>>> This is explicitly not allowed in verifier due to endianness issue.
->>>
->>>
->>> I can reproduce the issue now. My previous statement saying to access
->>> "hash" field is not correct. It is accessing the protocol field.
->>>
->>> static __inline__ bool flow_dissector(struct __sk_buff *skb,
->>>                                       struct flow_keys *flow)
->>> {
->>>         int poff, nh_off = BPF_LL_OFF + ETH_HLEN;
->>>         __be16 proto = skb->protocol;
->>>         __u8 ip_proto;
->>>
->>> The plan so far is to see whether we can fix the issue in LLVM side.
->>
->> If the compiler properly asks for "__sk_buff + 16" on little-endian
->> and "__sk_buff + 20" on big-endian, the verifier should instead be
->> fixed to allow the access to pass.
->>
->> I can't see any reason why LLVM won't set the offset properly like
->> that, and it's a completely legitimate optimization that we shouldn't
->> try to stop LLVM from performing.
->
-> I do agree that such optimization in LLVM is perfect fine and actually
-> beneficial.
-> The only reason I was thinking was to avoid introduce endianness into verifier.
-> Maybe not too much work there. Let me do some experiments and come with
-> a patch for that.
->
-> Thanks!
->
-> Yonghong
->
->>
->> It also makes it so that we don't have to fix having absurdly defined
->> __sk_buff's protocol field as a u32.
->>
->> Thanks.
+I'm getting a KASAN (use after free) error when doing:
+
+ip link add vxlan1 type vxlan external
+ip link set vxlan1 up
+ip link set vxlan1 down
+ip link del vxlan1
+
+[  600.495331] ==================================================================
+[  600.509678] BUG: KASAN: use-after-free in vxlan_dellink+0x33d/0x390 [vxlan]
+[  600.523083] Write of size 8 at addr ffff88056ce54018 by task ip/16216
+
+[  600.542239] CPU: 12 PID: 16216 Comm: ip Not tainted 4.12.0-rc2 #24
+[  600.554442] Hardware name: HP ProLiant DL380p Gen8, BIOS P70 08/02/2014
+[  600.567013] Call Trace:
+[  600.574742]  dump_stack+0x63/0x89
+[  600.583458]  print_address_description+0x78/0x290
+[  600.593612]  kasan_report+0x257/0x370
+[  600.602857]  ? vxlan_dellink+0x33d/0x390 [vxlan]
+[  600.612765]  __asan_report_store8_noabort+0x1c/0x20
+[  600.622937]  vxlan_dellink+0x33d/0x390 [vxlan]
+[  600.632636]  rtnl_delete_link+0xb9/0x110
+[  600.641542]  ? rtnl_af_register+0xc0/0xc0
+[  600.650898]  ? nla_parse+0x36/0x260
+[  600.659558]  rtnl_dellink+0x1fb/0x780
+[  600.668350]  ? unwind_dump+0x360/0x360
+[  600.676802]  ? rtnl_bridge_getlink+0x620/0x620
+[  600.686036]  ? __module_text_address+0x18/0x150
+[  600.695300]  ? ns_capable_common+0xd4/0x110
+[  600.704157]  ? sock_sendmsg+0xba/0xf0
+[  600.712264]  ? ns_capable+0x13/0x20
+[  600.720201]  ? __netlink_ns_capable+0xcc/0x100
+[  600.729131]  rtnetlink_rcv_msg+0x255/0x6c0
+[  600.737464]  ? rtnl_newlink+0x1640/0x1640
+[  600.745604]  ? __read_once_size_nocheck.constprop.7+0x20/0x20
+[  600.755882]  ? __read_once_size_nocheck.constprop.7+0x20/0x20
+[  600.765963]  ? memset+0x31/0x40
+[  600.772985]  netlink_rcv_skb+0x2de/0x460
+[  600.780829]  ? rtnl_newlink+0x1640/0x1640
+[  600.788755]  ? netlink_ack+0xaf0/0xaf0
+[  600.796181]  ? __kmalloc_node_track_caller+0x205/0x2d0
+[  600.805370]  ? __alloc_skb+0xdd/0x580
+[  600.812646]  rtnetlink_rcv+0x28/0x30
+[  600.819882]  netlink_unicast+0x430/0x620
+[  600.827433]  ? netlink_attachskb+0x660/0x660
+[  600.835211]  ? rw_copy_check_uvector+0x90/0x290
+[  600.843097]  ? __module_text_address+0x18/0x150
+[  600.850985]  netlink_sendmsg+0x7df/0xb90
+[  600.858105]  ? netlink_unicast+0x620/0x620
+[  600.865493]  ? kasan_alloc_pages+0x38/0x40
+[  600.873060]  ? netlink_unicast+0x620/0x620
+[  600.880458]  sock_sendmsg+0xba/0xf0
+[  600.886784]  ___sys_sendmsg+0x6c9/0x8e0
+[  600.893300]  ? copy_msghdr_from_user+0x520/0x520
+[  600.901017]  ? memcg_write_event_control+0xd50/0xd50
+[  600.908938]  ? __alloc_pages_slowpath+0x1ef0/0x1ef0
+[  600.916082]  ? mem_cgroup_commit_charge+0xc4/0x1420
+[  600.923049]  ? lru_cache_add_active_or_unevictable+0x7d/0x1a0
+[  600.931943]  ? __handle_mm_fault+0x1bfe/0x2ba0
+[  600.939255]  ? __pmd_alloc+0x240/0x240
+[  600.944767]  __sys_sendmsg+0xce/0x160
+[  600.950154]  ? __sys_sendmsg+0xce/0x160
+[  600.956030]  ? SyS_shutdown+0x190/0x190
+[  600.962546]  ? mntput+0x57/0x70
+[  600.968576]  ? __fput+0x429/0x730
+[  600.973526]  ? handle_mm_fault+0x28a/0x650
+[  600.979844]  ? find_vma+0x1f/0x160
+[  600.985801]  SyS_sendmsg+0x12/0x20
+[  600.991857]  entry_SYSCALL_64_fastpath+0x1a/0xa5
+[  600.999044] RIP: 0033:0x7fe11cd80037
+[  601.005021] RSP: 002b:00007ffe0e7fc738 EFLAGS: 00000246 ORIG_RAX: 000000000000002e
+[  601.014890] RAX: ffffffffffffffda RBX: 0000000000000000 RCX: 00007fe11cd80037
+[  601.024808] RDX: 0000000000000000 RSI: 00007ffe0e7fc780 RDI: 0000000000000003
+[  601.035392] RBP: 00007ffe0e7fc780 R08: 0000000000000001 R09: fefefeff77686d74
+[  601.045517] R10: 00000000000005eb R11: 0000000000000246 R12: 00007ffe0e7fc7c0
+[  601.055590] R13: 0000000000669400 R14: 00007ffe0e804830 R15: 0000000000000000
+
+[  601.069998] The buggy address belongs to the page:
+[  601.078182] page:ffffea0015b39500 count:0 mapcount:-127 mapping:          (null) index:0x0
+[  601.089760] flags: 0x2fffff80000000()
+[  601.096304] raw: 002fffff80000000 0000000000000000 0000000000000000 00000000ffffff80
+[  601.107417] raw: ffffea00156b2020 ffffea001836cb20 0000000000000002 0000000000000000
+[  601.118699] page dumped because: kasan: bad access detected
+
+[  601.131352] Memory state around the buggy address:
+[  601.139488]  ffff88056ce53f00: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[  601.149179]  ffff88056ce53f80: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[  601.159941] >ffff88056ce54000: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+[  601.170313]                             ^
+[  601.176429]  ffff88056ce54080: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+[  601.187098]  ffff88056ce54100: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+[  601.196978] ==================================================================
+
+The flow is something like this:
+When we are upping the interface, we are calling vxlan_open() and after creating the
+sockets (v4 & v6) we call vxlan_vs_add_dev() and add the vxlan device to each socket's list.
+
+When we put down the interface, we call vxlan_stop() -> vxlan_sock_release() there
+after calling __vxlan_sock_release_prep() we free each socket, the issue is that the vxlan
+device is still part of each socket's list.
+
+When we delete the vxlan interface, vxlan_dellink() is called and there we do:
+hlist_del_rcu(&vxlan->hlist), which access already freed memory.
+
+I'm not too familiar with the vxlan module, so to me a trivial fix like this makes sense.
+Am I missing something?
+
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index 328b471..7d57faf 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -1058,6 +1058,7 @@ static bool __vxlan_sock_release_prep(struct vxlan_sock *vs)
+ static void vxlan_sock_release(struct vxlan_dev *vxlan)
+ {
+        struct vxlan_sock *sock4 = rtnl_dereference(vxlan->vn4_sock);
++       struct vxlan_net *vn = net_generic(vxlan->net, vxlan_net_id);
+ #if IS_ENABLED(CONFIG_IPV6)
+        struct vxlan_sock *sock6 = rtnl_dereference(vxlan->vn6_sock);
+
+@@ -1067,6 +1068,10 @@ static void vxlan_sock_release(struct vxlan_dev *vxlan)
+        rcu_assign_pointer(vxlan->vn4_sock, NULL);
+        synchronize_net();
+
++       spin_lock(&vn->sock_lock);
++       hlist_del_rcu(&vxlan->hlist);
++       spin_unlock(&vn->sock_lock);
++
+        if (__vxlan_sock_release_prep(sock4)) {
+                udp_tunnel_sock_release(sock4->sock);
+                kfree(sock4);
+@@ -3286,15 +3291,9 @@ static int vxlan_changelink(struct net_device *dev, struct nlattr *tb[],
+ static void vxlan_dellink(struct net_device *dev, struct list_head *head)
+ {
+        struct vxlan_dev *vxlan = netdev_priv(dev);
+-       struct vxlan_net *vn = net_generic(vxlan->net, vxlan_net_id);
+
+        vxlan_flush(vxlan, true);
+
+-       spin_lock(&vn->sock_lock);
+-       if (!hlist_unhashed(&vxlan->hlist))
+-               hlist_del_rcu(&vxlan->hlist);
+-       spin_unlock(&vn->sock_lock);
+-
+        gro_cells_destroy(&vxlan->gro_cells);
+        list_del(&vxlan->next);
+        unregister_netdevice_queue(dev, head); 
+
+
+Mark
