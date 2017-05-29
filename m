@@ -1,34 +1,110 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH] net: netfilter: netlink: delete extra spaces
-Date: Mon, 29 May 2017 11:32:49 +0200
-Message-ID: <20170529093249.GA8809@salvia>
-References: <1494565866-23308-1-git-send-email-xiaolou4617@gmail.com>
+From: Peter Zijlstra <peterz@infradead.org>
+Subject: Re: [PATCH v2 net-next 1/3] perf, bpf: Add BPF support to all
+ perf_event types
+Date: Mon, 29 May 2017 11:39:18 +0200
+Message-ID: <20170529093918.xmbijgozjrfi22ru@hirez.programming.kicks-ass.net>
+References: <20170526055549.557818-1-ast@fb.com>
+ <20170526055549.557818-2-ast@fb.com>
+ <20170529091253.lopsd33qticsbgii@hirez.programming.kicks-ass.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: kadlec@blackhole.kfki.hu, fw@strlen.de, davem@davemloft.net,
-        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: linzhang <xiaolou4617@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:57192 "EHLO mail.us.es"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750893AbdE2Jc6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 29 May 2017 05:32:58 -0400
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id 45ACB1DA08F
-        for <netdev@vger.kernel.org>; Mon, 29 May 2017 11:32:49 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 375F86DC61
-        for <netdev@vger.kernel.org>; Mon, 29 May 2017 11:32:49 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 321A3100A6A
-        for <netdev@vger.kernel.org>; Mon, 29 May 2017 11:32:47 +0200 (CEST)
+Cc: "David S . Miller" <davem@davemloft.net>,
+        Brendan Gregg <bgregg@netflix.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Teng Qin <qinteng@fb.com>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Alexei Starovoitov <ast@fb.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1494565866-23308-1-git-send-email-xiaolou4617@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20170529091253.lopsd33qticsbgii@hirez.programming.kicks-ass.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, May 12, 2017 at 01:11:06PM +0800, linzhang wrote:
-> This patch cleans up extra spaces.
+On Mon, May 29, 2017 at 11:12:53AM +0200, Peter Zijlstra wrote:
+> On Thu, May 25, 2017 at 10:55:47PM -0700, Alexei Starovoitov wrote:
+> 
+> > +++ b/kernel/bpf/arraymap.c
+> > @@ -462,26 +462,22 @@ static void *perf_event_fd_array_get_ptr(struct bpf_map *map,
+> >  
+> >  	event = perf_file->private_data;
+> >  	ee = ERR_PTR(-EINVAL);
+> > +	/* Per-task events are not supported */
+> > +	if (event->attach_state & PERF_ATTACH_TASK)
+> > +		goto err_out;
+> >  
+> >  	attr = perf_event_attrs(event);
+> >  	if (IS_ERR(attr) || attr->inherit)
+> >  		goto err_out;
+> 
+> > +	/* TRACEPOINT and BREAKPOINT not supported in perf_event_read_local */
+> 
+> I cannot find reason for this comment. That is, why would
+> perf_event_read_local() not support those two types?
+> 
+> > +	if (attr->type == PERF_TYPE_TRACEPOINT ||
+> > +	    attr->type == PERF_TYPE_BREAKPOINT)
+> > +		goto err_out;
+> >  
+> > +	ee = bpf_event_entry_gen(perf_file, map_file);
+> > +	if (ee)
+> > +		return ee;
+> > +	ee = ERR_PTR(-ENOMEM);
+> >  
+> >  err_out:
+> >  	fput(perf_file);
 
-Applied.
+
+Do we want something like the below to replace much of the above?
+
+	if (!perf_event_valid_local(event, NULL, cpu))
+		goto err_out;
+
+Seems to be roughly what you're after, although I suppose @cpu might be
+hard to determine a priory, so maybe we should allow a magic value to
+short-circuit that test.
+
+---
+ kernel/events/core.c | 30 ++++++++++++++++++++++++++++++
+ 1 file changed, 30 insertions(+)
+
+diff --git a/kernel/events/core.c b/kernel/events/core.c
+index 8d6acaeeea17..a7dc34f19568 100644
+--- a/kernel/events/core.c
++++ b/kernel/events/core.c
+@@ -3630,6 +3630,36 @@ static inline u64 perf_event_count(struct perf_event *event)
+ }
+ 
+ /*
++ * perf_event_valid_local() - validates if the event is usable by perf_event_read_local()
++ * event: the event to validate
++ * task:  the task the @event will be used in
++ * cpu:   the cpu the @event will be used on
++ *
++ * In case one wants to disallow all per-task events, use @task = NULL.
++ * In case one wants to disallow all per-cpu events, use @cpu = -1.
++ */
++bool perf_event_valid_local(struct perf_event *event, struct task_struct *task, int cpu)
++{
++	/* See perf_event_read_local() for the reasons for these tests */
++
++	if ((event->attach_state & PERF_ATTACH_TASK) &&
++	    event->hw.target != task)
++		return false;
++
++	if (!(event->attach_state & PERF_ATTACH_TASK) &&
++	    event->cpu != cpu)
++		return false;
++
++	if (event->attr.inherit)
++		return false;
++
++	if (event->pmu->count)
++		return false;
++
++	return true;
++}
++
++/*
+  * NMI-safe method to read a local event, that is an event that
+  * is:
+  *   - either for the current task, or for this CPU
