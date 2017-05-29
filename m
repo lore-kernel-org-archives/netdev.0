@@ -1,34 +1,53 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH] net: dsa: mv88e6xxx: Add missing static to stub functions
-Date: Mon, 29 May 2017 11:01:41 -0400
-Message-ID: <87efv7hfl6.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
-References: <20170529125612.110244-1-arnd@arndb.de>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Arnd Bergmann <arnd@arndb.de>,
-        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>, Andrew Lunn <andrew@lunn.ch>,
-        Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170529125612.110244-1-arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: [PATCH net-next 0/3] udp: reduce cache pressure
+Date: Mon, 29 May 2017 17:27:22 +0200
+Message-ID: <cover.1496070490.git.pabeni@redhat.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:53866 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751145AbdE2P2C (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 29 May 2017 11:28:02 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Arnd,
+In the most common use case, many skb fields are not used by recvmsg(), and
+the few ones actually accessed lays on cold cachelines, which leads to several
+cache miss per packet.
 
-Arnd Bergmann <arnd@arndb.de> writes:
+This patch series attempts to reduce such misses with different strategies:
+* caching the interesting fields in the scratched space
+* avoid accessing at all uninteresting fields
+* prefetching
 
-> 'static' was not enough, the helpers must be 'static inline'
->
-> net/dsa/mv88e6xxx/global2.h:123:12: error: 'mv88e6xxx_g2_misc_4_bit_port' defined but not used [-Werror=unused-function]
-> net/dsa/mv88e6xxx/global2.h:117:12: error: 'mv88e6xxx_g2_pvt_write' defined but not used [-Werror=unused-function]
->
-> Fixes: c21fbe29f858 ("net: dsa: mv88e6xxx: Add missing static to stub functions")
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Tested using the udp_sink program by Jesper[1] as the receiver, an h/w l4 rx
+hash on the ingress nic, so that the number of ingress nic rx queues hit by the
+udp traffic could be controlled via ethtool -L.
 
-Reviewed-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+The udp_sink program was bound to the first idle cpu, to get more
+stable numbers.
 
-Thanks,
+On a single numa node receiver:
 
-        Vivien
+nic rx queues           vanilla                 patched kernel      delta
+1                       1850 kpps               1850 kpps           0%
+2                       2370 kpps               2700 kpps           13.9%
+16                      2000 kpps               2220 kpps           11%
+
+[1] https://github.com/netoptimizer/network-testing/blob/master/src/udp_sink.c
+
+Paolo Abeni (3):
+  net: factor out a helper to decrement the skb refcount
+  udp: avoid a cache miss on dequeue
+  udp: try to avoid 2 cache miss on dequeue
+
+ include/linux/skbuff.h |  14 ++++++
+ net/core/datagram.c    |   4 +-
+ net/core/skbuff.c      |  32 ++++++++-----
+ net/ipv4/udp.c         | 120 ++++++++++++++++++++++++++++++++++++++++++++-----
+ 4 files changed, 145 insertions(+), 25 deletions(-)
+
+-- 
+2.9.4
