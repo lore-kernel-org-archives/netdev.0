@@ -1,7 +1,7 @@
 From: Stefan Wahren <stefan.wahren@i2se.com>
-Subject: [PATCH v8 net-next 04/17] net: qca_spi: Use SET_NETDEV_DEV()
-Date: Mon, 29 May 2017 13:57:12 +0200
-Message-ID: <1496059045-13572-5-git-send-email-stefan.wahren@i2se.com>
+Subject: [PATCH v8 net-next 01/17] net: qualcomm: qca_7k: clean up header includes
+Date: Mon, 29 May 2017 13:57:09 +0200
+Message-ID: <1496059045-13572-2-git-send-email-stefan.wahren@i2se.com>
 References: <1496059045-13572-1-git-send-email-stefan.wahren@i2se.com>
 Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
         Jiri Slaby <jslaby@suse.com>,
@@ -18,25 +18,32 @@ In-Reply-To: <1496059045-13572-1-git-send-email-stefan.wahren@i2se.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Use SET_NETDEV_DEV() in qca_spi to create the "/sys/class/net/<if>/device"
-symlink.
+Currently the includes doesn't reflect the dependencies. So
+fix this up by removing all unnecessary entries and add the
+necessary ones explicit.
 
 Signed-off-by: Stefan Wahren <stefan.wahren@i2se.com>
 ---
- drivers/net/ethernet/qualcomm/qca_spi.c | 1 +
- 1 file changed, 1 insertion(+)
+ drivers/net/ethernet/qualcomm/qca_7k.c | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/qualcomm/qca_spi.c b/drivers/net/ethernet/qualcomm/qca_spi.c
-index 24ca7df..0c3fdee 100644
---- a/drivers/net/ethernet/qualcomm/qca_spi.c
-+++ b/drivers/net/ethernet/qualcomm/qca_spi.c
-@@ -894,6 +894,7 @@ qca_spi_probe(struct spi_device *spi)
- 		return -ENOMEM;
+diff --git a/drivers/net/ethernet/qualcomm/qca_7k.c b/drivers/net/ethernet/qualcomm/qca_7k.c
+index f0066fb..e9162e1 100644
+--- a/drivers/net/ethernet/qualcomm/qca_7k.c
++++ b/drivers/net/ethernet/qualcomm/qca_7k.c
+@@ -23,11 +23,9 @@
+  *   kernel-based SPI device.
+  */
  
- 	qcaspi_netdev_setup(qcaspi_devs);
-+	SET_NETDEV_DEV(qcaspi_devs, &spi->dev);
+-#include <linux/init.h>
+-#include <linux/module.h>
+-#include <linux/moduleparam.h>
++#include <linux/kernel.h>
++#include <linux/netdevice.h>
+ #include <linux/spi/spi.h>
+-#include <linux/version.h>
  
- 	qca = netdev_priv(qcaspi_devs);
- 	if (!qca) {
+ #include "qca_7k.h"
+ 
 -- 
 2.1.4
