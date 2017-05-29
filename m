@@ -1,100 +1,224 @@
-From: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [for-next 5/6] net/mlx5: Bump driver version
-Date: Mon, 29 May 2017 08:47:55 +0300
-Message-ID: <20170529054755.GY17751@mtr-leonro.local>
-References: <20170523114404.20387-1-saeedm@mellanox.com>
- <20170523114404.20387-6-saeedm@mellanox.com>
- <3733699c-480b-a1aa-14e1-4f27f86cfead@intel.com>
- <CALzJLG_ha-XiPAMnoKrUgm_EwPx2yH0T2y4EBRfrWNYSZi1cTg@mail.gmail.com>
- <ee23ad82-4a2e-8546-d41b-11f979b127bb@intel.com>
- <20170526145318.7fd8c8e2@cakuba.netronome.com>
+From: Madalin Bucur <madalin.bucur@nxp.com>
+Subject: [PATCH] Documentation: networking: add DPAA Ethernet document
+Date: Mon, 29 May 2017 09:22:06 +0300
+Message-ID: <1496038926-15315-1-git-send-email-madalin.bucur@nxp.com>
+Reply-To: <madalin.bucur@nxp.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-        protocol="application/pgp-signature"; boundary="nDmTXYS4kVhtHHfR"
-Cc: Dennis Dalessandro <dennis.dalessandro-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        Saeed Mahameed <saeedm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>,
-        Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Ilan Tayari <ilant-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Tariq Toukan <tariqt-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-To: Jakub Kicinski <kubakici-5tc4TXWwyLM@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20170526145318.7fd8c8e2-68UzVGuGftmUSpRRplVxJ1aTQe2KTcn/@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain
+Cc: <linuxppc-dev@lists.ozlabs.org>, <linux-kernel@vger.kernel.org>,
+        Madalin Bucur <madalin.bucur@nxp.com>,
+        Camelia Groza <camelia.groza@nxp.com>
+To: <netdev@vger.kernel.org>, <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Signed-off-by: Madalin Bucur <madalin.bucur@nxp.com>
+Signed-off-by: Camelia Groza <camelia.groza@nxp.com>
+---
+ Documentation/networking/dpaa.txt | 194 ++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 194 insertions(+)
+ create mode 100644 Documentation/networking/dpaa.txt
 
---nDmTXYS4kVhtHHfR
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-
-On Fri, May 26, 2017 at 02:53:18PM -0700, Jakub Kicinski wrote:
-> On Fri, 26 May 2017 12:55:22 -0400, Dennis Dalessandro wrote:
-> > >> I realize Dave has already pulled this and I'm not asking for it to be
-> > >> reverted but maybe some discussion will help guide future patch submissions
-> > >> which do this stuff.
-> > >>
-> > >
-> > > Sure, although i don't think we are going to use those version fields
-> > > in the future,
-> > > please allow me to ask, how do you do your driver versioning ? how do
-> > > you track things ?
-> > > and what is your future vision regarding ethool->drv_version ?
-> >
-> > That's just the thing, we don't do anything with it either really. I'm
-> > trying to justify its existence to myself and if you folks had some whiz
-> > bang idea for a driver version I was interested in hearing what it was.
->
-> FWIW I put VERMAGIC_STRING in drv_version:
->
-> # ethtool -i p4p1
-> driver: nfp
-> version: 4.12.0-rc2-perf-00282-gc42dfc79
-> ...
->
-> I think I got that idea from Felix Fietkau.  The backport-ified version
-> of the driver [1] uses git hash and "o-o-t" sting:
->
-> # ethtool -i p4p1
-> driver: nfp
-> version: 49e5c6abf5b2 (o-o-t)
-> ...
->
-> So it's pretty easy to tell which driver the customer is using.  I
-> could probably throw in the output of $(git rev-list --count HEAD) to
-> have an automatic monotonically increasing "version" when built
-> out-of-tree, hm...
-
-Thanks for the pointer. I'll try to evaluate it.
-
->
-> [1] https://github.com/Netronome/nfp-drv-kmods
-
---nDmTXYS4kVhtHHfR
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAlkrtgsACgkQ5GN7iDZy
-WKfGZBAAuSAzi2GN0WZtaw73K+0ZH5+WnAipBSRJHWzDeRUHppXHlzVta6Q97Qf9
-8PTw8SRmGKOvTlQYQ7XeXuj1RZs0B6NP4MPsMa4ap6hjchQeblo5p1a+2ceQObsz
-E5ml9Cu+mowwKGL/SrkTea8QvJAnmdKn41pEBZldonL/fw1/81MEq/cjKABhK0jD
-rnEi/sMApf+60F0bpzIRvBHFp8WDimC2qJ5ykbLo+rcFQEdKZkCxD7q9PnqOBmEK
-Z+4IAoxXAe7LKEjLHbzlcNP9664XtftK4YnRflywoGktSG8gK6XZnGJC8U7cvcPO
-h4qLFQf3BYpl+dyoIdSPLOP8fm9rUblYKCmKbQ+rnF9BWnxYhFl5DRmXXroBBdWQ
-HSuwEbBrG9ARrlMAcgEfg9J4GelE4iGSajCXVmpyrtzVFlEJyjN01EVKny9oLafP
-lQod4946McUpa+0uXEO/6LIMF38guV5EV/+hSbbvOUJibESo8nPFl+PORY7bi/Zk
-lNsVm6PSibT7Mn5h8QPqBrlhLs+GwVoI3ETWPC7M0gKgdYq5ZmsgN+8MQs/5cBjC
-1xckT8HebhR2uFT9zUVo/yoM++5qOyEbbbN+elhFbLbkT6LZzhuqUQ+jdMxpGxIN
-mU6naHXlTuKoySDM1pBrcUsZR4DwwyAvjqrnsMAfGt3mm6EAE/s=
-=Ftk/
------END PGP SIGNATURE-----
-
---nDmTXYS4kVhtHHfR--
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/Documentation/networking/dpaa.txt b/Documentation/networking/dpaa.txt
+new file mode 100644
+index 0000000..76e016d
+--- /dev/null
++++ b/Documentation/networking/dpaa.txt
+@@ -0,0 +1,194 @@
++The QorIQ DPAA Ethernet Driver
++==============================
++
++Authors:
++Madalin Bucur <madalin.bucur@nxp.com>
++Camelia Groza <camelia.groza@nxp.com>
++
++Contents
++========
++
++	- DPAA Ethernet Overview
++	- DPAA Ethernet Supported SoCs
++	- Configuring DPAA Ethernet in your kernel
++	- DPAA Ethernet Frame Processing
++	- DPAA Ethernet Features
++	- Debugging
++
++DPAA Ethernet Overview
++======================
++
++DPAA stands for Data Path Acceleration Architecture and it is a
++set of networking acceleration IPs that are available on several
++generations of SoCs, both on PowerPC and ARM64.
++
++The Freescale DPAA architecture consists of a series of hardware blocks
++that support Ethernet connectivity. The Ethernet driver depends upon the
++following drivers in the Linux kernel:
++
++ - Peripheral Access Memory Unit (PAMU) (* needed only for PPC platforms)
++    drivers/iommu/fsl_*
++ - Frame Manager (FMan)
++    drivers/net/ethernet/freescale/fman
++ - Queue Manager (QMan), Buffer Manager (BMan)
++    drivers/soc/fsl/qbman
++
++A simplified view of the dpaa_eth interfaces mapped to FMan MACs:
++
++  dpaa_eth       /eth0\     ...       /ethN\
++  driver        |      |             |      |
++  -------------   ----   -----------   ----   -------------
++       -Ports  / Tx  Rx \    ...    / Tx  Rx \
++  FMan        |          |         |          |
++       -MACs  |   MAC0   |         |   MACN   |
++             /   dtsec0   \  ...  /   dtsecN   \ (or tgec)
++            /              \     /              \(or memac)
++  ---------  --------------  ---  --------------  ---------
++      FMan, FMan Port, FMan SP, FMan MURAM drivers
++  ---------------------------------------------------------
++      FMan HW blocks: MURAM, MACs, Ports, SP
++  ---------------------------------------------------------
++
++The dpaa_eth relation to the QMan, BMan and FMan:
++              ________________________________
++  dpaa_eth   /            eth0                \
++  driver    /                                  \
++  ---------   -^-   -^-   -^-   ---    ---------
++  QMan driver / \   / \   / \  \   /  | BMan    |
++             |Rx | |Rx | |Tx | |Tx |  | driver  |
++  ---------  |Dfl| |Err| |Cnf| |FQs|  |         |
++  QMan HW    |FQ | |FQ | |FQs| |   |  |         |
++             /   \ /   \ /   \  \ /   |         |
++  ---------   ---   ---   ---   -v-    ---------
++            |        FMan QMI         |         |
++            | FMan HW       FMan BMI  | BMan HW |
++              -----------------------   --------
++
++where the acronyms used above (and in the code) are:
++DPAA = Data Path Acceleration Architecture
++FMan = DPAA Frame Manager
++QMan = DPAA Queue Manager
++BMan = DPAA Buffers Manager
++QMI = QMan interface in FMan
++BMI = BMan interface in FMan
++FMan SP = FMan Storage Profiles
++MURAM = Multi-user RAM in FMan
++FQ = QMan Frame Queue
++Rx Dfl FQ = default reception FQ
++Rx Err FQ = Rx error frames FQ
++Tx Cnf FQ = Tx confirmation FQs
++Tx FQs = transmission frame queues
++dtsec = datapath three speed Ethernet controller (10/100/1000 Mbps)
++tgec = ten gigabit Ethernet controller (10 Gbps)
++memac = multirate Ethernet MAC (10/100/1000/10000)
++
++DPAA Ethernet Supported SoCs
++============================
++
++The DPAA drivers enable the Ethernet controllers present on the following SoCs:
++
++# PPC
++P1023
++P2041
++P3041
++P4080
++P5020
++P5040
++T1023
++T1024
++T1040
++T1042
++T2080
++T4240
++B4860
++
++# ARM
++LS1043A
++LS1046A
++
++Configuring DPAA Ethernet in your kernel
++========================================
++
++To enable the DPAA Ethernet driver, the following Kconfig options are required:
++
++# common for arch/arm64 and arch/powerpc platforms
++CONFIG_FSL_DPAA=y
++CONFIG_FSL_FMAN=y
++CONFIG_FSL_DPAA_ETH=y
++CONFIG_FSL_XGMAC_MDIO=y
++
++# for arch/powerpc only
++CONFIG_FSL_PAMU=y
++
++# common options needed for the PHYs used on the RDBs
++CONFIG_VITESSE_PHY=y
++CONFIG_REALTEK_PHY=y
++CONFIG_AQUANTIA_PHY=y
++
++DPAA Ethernet Frame Processing
++==============================
++
++On Rx, buffers for the incoming frames are retrieved from one of the three
++existing buffers pools. The driver initializes and seeds these, each with
++buffers of different sizes: 1KB, 2KB and 4KB.
++
++On Tx, all transmitted frames are returned to the driver through Tx
++confirmation frame queues. The driver is then responsible for freeing the
++buffers. In order to do this properly, a backpointer is added to the buffer
++before transmission that points to the skb. When the buffer returns to the
++driver on a confirmation FQ, the skb can be correctly consumed.
++
++DPAA Ethernet Features
++======================
++
++Currently the DPAA Ethernet driver enables the basic features required for
++a Linux Ethernet driver. The support for advanced features will be added
++gradually.
++
++The driver has Rx and Tx checksum offloading for UDP and TCP. Currently the Rx
++checksum offload feature is enabled by default and cannot be controlled through
++ethtool.
++
++The driver has support for multiple prioritized Tx traffic classes. Priorities
++range from 0 (lowest) to 3 (highest). These are mapped to HW workqueues with
++strict priority levels. Each traffic class contains NR_CPU TX queues. By
++default, only one traffic class is enabled and the lowest priority Tx queues
++are used. Higher priority traffic classes can be enabled with the mqprio
++qdisc. For example, all four traffic classes are enabled on an interface with
++the following command. Furthermore, skb priority levels are mapped to traffic
++classes as follows:
++
++	* priorities 0 to 3 - traffic class 0 (low priority)
++	* priorities 4 to 7 - traffic class 1 (medium-low priority)
++	* priorities 8 to 11 - traffic class 2 (medium-high priority)
++	* priorities 12 to 15 - traffic class 3 (high priority)
++
++tc qdisc add dev <int> root handle 1: \
++	 mqprio num_tc 4 map 0 0 0 0 1 1 1 1 2 2 2 2 3 3 3 3 hw 1
++
++Debugging
++=========
++
++The following statistics are exported for each interface through ethtool:
++
++	- interrupt count per CPU
++	- Rx packets count per CPU
++	- Tx packets count per CPU
++	- Tx confirmed packets count per CPU
++	- Tx S/G frames count per CPU
++	- Tx error count per CPU
++	- Rx error count per CPU
++	- Rx error count per type
++	- congestion related statistics:
++		- congestion status
++		- time spent in congestion
++		- number of time the device entered congestion
++		- dropped packets count per cause
++
++The driver also exports the following information in sysfs:
++
++	- the FQ IDs for each FQ type
++	/sys/devices/platform/dpaa-ethernet.0/net/<int>/fqids
++
++	- the IDs of the buffer pools in use
++	/sys/devices/platform/dpaa-ethernet.0/net/<int>/bpids
+-- 
+2.1.0
