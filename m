@@ -1,51 +1,69 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next v2 11/13] nfp: fix print format for ring pointers in ring dumps
-Date: Sun, 28 May 2017 17:53:02 -0700
-Message-ID: <20170529005304.20847-12-jakub.kicinski@netronome.com>
+Subject: [PATCH net-next v2 04/13] nfp: don't set aux pointers if ioremap failed
+Date: Sun, 28 May 2017 17:52:55 -0700
+Message-ID: <20170529005304.20847-5-jakub.kicinski@netronome.com>
 References: <20170529005304.20847-1-jakub.kicinski@netronome.com>
 Cc: oss-drivers@netronome.com,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f177.google.com ([209.85.192.177]:35534 "EHLO
-        mail-pf0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750989AbdE2Ayn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 28 May 2017 20:54:43 -0400
-Received: by mail-pf0-f177.google.com with SMTP id n23so40368460pfb.2
-        for <netdev@vger.kernel.org>; Sun, 28 May 2017 17:54:37 -0700 (PDT)
+Received: from mail-pf0-f172.google.com ([209.85.192.172]:35912 "EHLO
+        mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750897AbdE2Ayc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 28 May 2017 20:54:32 -0400
+Received: by mail-pf0-f172.google.com with SMTP id m17so40275875pfg.3
+        for <netdev@vger.kernel.org>; Sun, 28 May 2017 17:54:32 -0700 (PDT)
 In-Reply-To: <20170529005304.20847-1-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ring pointers are unsigned.  Fix the print formats to avoid
-showing users negative values.
+If ioremap of PCIe ctrl memory failed we can still get to it through
+PCI config space, therefore we allow ioremap() to fail.  When if fails,
+however, we must leave all the IOMEM pointers as NULL.  Currently we
+would calculate csr and em pointers, adding offsets to the potential
+NULL value and therefore making the NULL-checks throughout the code
+ineffective.
 
 Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 ---
- drivers/net/ethernet/netronome/nfp/nfp_net_debugfs.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ .../ethernet/netronome/nfp/nfpcore/nfp6000_pcie.c    | 20 ++++++++++++--------
+ 1 file changed, 12 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_debugfs.c b/drivers/net/ethernet/netronome/nfp/nfp_net_debugfs.c
-index 6cf1b234eecd..8c52c0e8379c 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net_debugfs.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net_debugfs.c
-@@ -62,7 +62,7 @@ static int nfp_net_debugfs_rx_q_read(struct seq_file *file, void *data)
- 	fl_rd_p = nfp_qcp_rd_ptr_read(rx_ring->qcp_fl);
- 	fl_wr_p = nfp_qcp_wr_ptr_read(rx_ring->qcp_fl);
+diff --git a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp6000_pcie.c b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp6000_pcie.c
+index 43dc68e01274..1fde213d5b83 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp6000_pcie.c
++++ b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp6000_pcie.c
+@@ -639,19 +639,23 @@ static int enable_bars(struct nfp6000_pcie *nfp, u16 interface)
+ 		nfp6000_bar_write(nfp, bar, barcfg_msix_general);
  
--	seq_printf(file, "RX[%02d,%02d]: cnt=%d dma=%pad host=%p   H_RD=%d H_WR=%d FL_RD=%d FL_WR=%d\n",
-+	seq_printf(file, "RX[%02d,%02d]: cnt=%u dma=%pad host=%p   H_RD=%u H_WR=%u FL_RD=%u FL_WR=%u\n",
- 		   rx_ring->idx, rx_ring->fl_qcidx,
- 		   rx_ring->cnt, &rx_ring->dma, rx_ring->rxds,
- 		   rx_ring->rd_p, rx_ring->wr_p, fl_rd_p, fl_wr_p);
-@@ -146,7 +146,7 @@ static int nfp_net_debugfs_tx_q_read(struct seq_file *file, void *data)
- 	d_rd_p = nfp_qcp_rd_ptr_read(tx_ring->qcp_q);
- 	d_wr_p = nfp_qcp_wr_ptr_read(tx_ring->qcp_q);
+ 		nfp->expl.data = bar->iomem + NFP_PCIE_SRAM + 0x1000;
++
++		if (nfp->pdev->device == PCI_DEVICE_ID_NETRONOME_NFP4000 ||
++		    nfp->pdev->device == PCI_DEVICE_ID_NETRONOME_NFP6000) {
++			nfp->iomem.csr = bar->iomem + NFP_PCIE_BAR(0);
++		} else {
++			int pf = nfp->pdev->devfn & 7;
++
++			nfp->iomem.csr = bar->iomem + NFP_PCIE_BAR(pf);
++		}
++		nfp->iomem.em = bar->iomem + NFP_PCIE_EM;
+ 	}
  
--	seq_printf(file, "TX[%02d,%02d%s]: cnt=%d dma=%pad host=%p   H_RD=%d H_WR=%d D_RD=%d D_WR=%d\n",
-+	seq_printf(file, "TX[%02d,%02d%s]: cnt=%u dma=%pad host=%p   H_RD=%u H_WR=%u D_RD=%u D_WR=%u\n",
- 		   tx_ring->idx, tx_ring->qcidx,
- 		   tx_ring == r_vec->tx_ring ? "" : "xdp",
- 		   tx_ring->cnt, &tx_ring->dma, tx_ring->txds,
+ 	if (nfp->pdev->device == PCI_DEVICE_ID_NETRONOME_NFP4000 ||
+-	    nfp->pdev->device == PCI_DEVICE_ID_NETRONOME_NFP6000) {
+-		nfp->iomem.csr = bar->iomem + NFP_PCIE_BAR(0);
++	    nfp->pdev->device == PCI_DEVICE_ID_NETRONOME_NFP6000)
+ 		expl_groups = 4;
+-	} else {
+-		int pf = nfp->pdev->devfn & 7;
+-
+-		nfp->iomem.csr = bar->iomem + NFP_PCIE_BAR(pf);
++	else
+ 		expl_groups = 1;
+-	}
+-	nfp->iomem.em = bar->iomem + NFP_PCIE_EM;
+ 
+ 	/* Configure, and lock, BAR0.1 for PCIe XPB (MSI-X PBA) */
+ 	bar = &nfp->bar[1];
 -- 
 2.11.0
