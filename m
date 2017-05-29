@@ -1,75 +1,81 @@
-From: Jakub Kicinski <kubakici@wp.pl>
-Subject: Re: [patch net-next 0/9] mlxsw: Support firmware flash
-Date: Sun, 28 May 2017 17:17:35 -0700
-Message-ID: <20170528171735.0e44878d@cakuba.lan>
-References: <ea7cf005-1f6c-aa87-db90-03d7c77c7d56@mellanox.com>
-        <BLUPR0701MB2004EB2F32B4C8C42C5020458DF90@BLUPR0701MB2004.namprd07.prod.outlook.com>
-        <fba5a440-ba1e-84bd-d2d2-d011406d3a4a@mellanox.com>
-        <20170523.113859.1803057381093280239.davem@davemloft.net>
-        <0daa5c5a-377c-767f-ea19-26c1f22bd30c@mellanox.com>
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Subject: [PATCH net-next v2 00/13] nfp: pci core, hwmon, live mac addr change
+Date: Sun, 28 May 2017 17:52:51 -0700
+Message-ID: <20170529005304.20847-1-jakub.kicinski@netronome.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, <Yuval.Mintz@cavium.com>,
-        <jiri@resnulli.us>, <netdev@vger.kernel.org>,
-        <idosch@mellanox.com>, <mlxsw@mellanox.com>,
-        <bhutchings@solarflare.com>
-To: Yotam Gigi <yotamg@mellanox.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: oss-drivers@netronome.com,
+        Jakub Kicinski <jakub.kicinski@netronome.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx3.wp.pl ([212.77.101.10]:41527 "EHLO mx3.wp.pl"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750823AbdE2ARn (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 28 May 2017 20:17:43 -0400
-In-Reply-To: <0daa5c5a-377c-767f-ea19-26c1f22bd30c@mellanox.com>
+Received: from mail-pg0-f41.google.com ([74.125.83.41]:35930 "EHLO
+        mail-pg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750846AbdE2Ay3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 28 May 2017 20:54:29 -0400
+Received: by mail-pg0-f41.google.com with SMTP id x64so15376722pgd.3
+        for <netdev@vger.kernel.org>; Sun, 28 May 2017 17:54:28 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 28 May 2017 10:26:49 +0300, Yotam Gigi wrote:
-> On 05/23/2017 06:38 PM, David Miller wrote:
-> > From: Yotam Gigi <yotamg@mellanox.com>
-> > Date: Tue, 23 May 2017 18:14:15 +0300
-> >  
-> >> Sorry, I am not sure I understand. You think that drivers should not implement
-> >> ethtool's flash_device callback anymore? do you have an alternative for firmware
-> >> flash?  
-> > As stated, export an MTD device.  
-> 
-> So, after we have been going over MTD, it seems like it does not fit our needs
-> at all.
-> 
-> MTD device provides (erasable-)block access to a flash storage, where in our
-> case the firmware burn process is just pouring a binary BLOB into the device.
-> The driver is not aware of the internal storage used for storing the firmware as
-> it is not defined in our driver-hardware API.
-> 
-> Needless to say that block access has no meaning in our case, so any solution
-> that will involve MTD device to burn our firmware (if there is a solution at
-> all) will be a workaround and will not fit MTD purpose.
-> 
-> Apart for boot time firmware flash, which we have already pushed we would really
-> like to allow the user to ask for a specific firmware version. Do you have any
-> other solution for us apart from "ethtool -f"?
+This series brings updates to core PCI code, SR-IOV, exposes 
+firmware's capability to change MAC address at runtime and HWMON
+interfaces.  
 
-Could you elaborate on what the requirements are for "allowing users to
-ask for a specific firmware version"?  How do the FWs differ?  I'm
-asking because we are currently lacking ABI for selecting device
-"modes".  Netronome has this problem.  Cavium has recently posted a
-patch which used module parameter to flip between "OvS" and "basic NIC"
-firmwares.
+The PCI code updates include resiliency improvement in conditions 
+which are quite unusual, but still shouldn't make the driver oops.
+We also handle very large device memory operation more gracefully.
+A timeout is added to acquiring mutexes in device memory.
 
-For Netronome we will definitely want a way to switch between at least
-three applications so far - basic, OvS and eBPF - but I also feel like
-we shouldn't limit that list, since anyone can write their own FW for
-programmable NICs.
+Pablo provides a patch to expose to the stack the ability to change
+MAC addresses under traffic while David adds HWMON interface for
+reading device temperature and power consumption.
 
-I think you were primarily concerned with writing persistent storage so
-far.  Does "allowing the user to ask..." means write flash and reboot or
-also a runtime switch?  I think we probably need both?
+Last three patches are minor improvements to the netdev code.
 
-> This problem is even more relevant in the Mellanox HCA driver team, which would
-> like to use that code in order to burn the HCA firmware, but not intend to
-> trigger it on boot time, which means that must have a way for the user to
-> trigger it.
+v2:
+ - add patch 1 - fix for devlink build;
+ - fix build issue with the hwmon patch.
 
-What would the requirements for the HCA team be?  Is it about loading
-different code or loading HW settings?
+David Brunecz (1):
+  nfp: add hwmon support
+
+Jakub Kicinski (11):
+  nfp: add MAY_USE_DEVLINK dependency
+  nfp: set driver VF limit
+  nfp: don't set aux pointers if ioremap failed
+  nfp: only try to get to PCIe ctrl memory if BARs are wide enough
+  nfp: support long reads and writes with the cpp helpers
+  nfp: shorten CPP core probe logs
+  nfp: support variable NSP response lengths
+  nfp: don't wait for resources indefinitely
+  nfp: fix print format for ring pointers in ring dumps
+  nfp: don't add ring size to index calculations
+  nfp: don't keep count for free buffers delayed kick
+
+Pablo Cascón (1):
+  nfp: add set_mac_address support while the interface is up
+
+ drivers/net/ethernet/netronome/Kconfig             |   1 +
+ drivers/net/ethernet/netronome/nfp/Makefile        |   1 +
+ drivers/net/ethernet/netronome/nfp/nfp_hwmon.c     | 192 +++++++++++++++++++++
+ drivers/net/ethernet/netronome/nfp/nfp_main.c      |  44 +++--
+ drivers/net/ethernet/netronome/nfp/nfp_main.h      |  10 ++
+ drivers/net/ethernet/netronome/nfp/nfp_net.h       |   3 -
+ .../net/ethernet/netronome/nfp/nfp_net_common.c    |  55 ++++--
+ drivers/net/ethernet/netronome/nfp/nfp_net_ctrl.h  |   2 +
+ .../net/ethernet/netronome/nfp/nfp_net_debugfs.c   |   4 +-
+ drivers/net/ethernet/netronome/nfp/nfpcore/nfp.h   |   2 +
+ .../ethernet/netronome/nfp/nfpcore/nfp6000_pcie.c  |  49 ++++--
+ .../net/ethernet/netronome/nfp/nfpcore/nfp_cpp.h   |   8 +
+ .../ethernet/netronome/nfp/nfpcore/nfp_cppcore.c   |  87 ++++++++--
+ .../net/ethernet/netronome/nfp/nfpcore/nfp_mutex.c |   9 +-
+ .../net/ethernet/netronome/nfp/nfpcore/nfp_nsp.c   |  16 ++
+ .../net/ethernet/netronome/nfp/nfpcore/nfp_nsp.h   |  12 ++
+ .../ethernet/netronome/nfp/nfpcore/nfp_nsp_cmds.c  |  47 ++++-
+ .../ethernet/netronome/nfp/nfpcore/nfp_resource.c  |  10 +-
+ 18 files changed, 475 insertions(+), 77 deletions(-)
+ create mode 100644 drivers/net/ethernet/netronome/nfp/nfp_hwmon.c
+
+-- 
+2.11.0
