@@ -1,59 +1,162 @@
 From: Yuval Mintz <Yuval.Mintz@cavium.com>
-Subject: [PATCH v2 net-next 03/10] qed: Don't inherit RoCE DCBx for V2
-Date: Mon, 29 May 2017 09:53:07 +0300
-Message-ID: <1496040794-6163-4-git-send-email-Yuval.Mintz@cavium.com>
+Subject: [PATCH v2 net-next 04/10] qed: QL41xxx VF MSI-x table
+Date: Mon, 29 May 2017 09:53:08 +0300
+Message-ID: <1496040794-6163-5-git-send-email-Yuval.Mintz@cavium.com>
 References: <1496040794-6163-1-git-send-email-Yuval.Mintz@cavium.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: Sudarsana Reddy Kalluru <Sudarsana.Kalluru@cavium.com>,
-        Yuval Mintz <Yuval.Mintz@cavium.com>
+Cc: Yuval Mintz <Yuval.Mintz@cavium.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-cys01nam02on0058.outbound.protection.outlook.com ([104.47.37.58]:2885
-        "EHLO NAM02-CY1-obe.outbound.protection.outlook.com"
+Received: from mail-sn1nam02on0045.outbound.protection.outlook.com ([104.47.36.45]:59969
+        "EHLO NAM02-SN1-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1750898AbdE2Gxj (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 29 May 2017 02:53:39 -0400
+        id S1750971AbdE2Gxy (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 29 May 2017 02:53:54 -0400
 In-Reply-To: <1496040794-6163-1-git-send-email-Yuval.Mintz@cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sudarsana Reddy Kalluru <Sudarsana.Kalluru@cavium.com>
+The QL41xxx adapters' PCI allows a single configuration for the
+MSI-x table size of all child VFs of a given PF.
+The existing code wouldn't cause the management firmware to set
+that value, meaning the VFs would retain the default MSI-x table
+size.
 
-Older firmware used by device didn't distinguish between RoCE and RoCE
-V2 from DCBx configuration perspective, and as a result we've used to
-take a the RoCE-related configuration and apply to it for both.
+Introduce a new scheme so that whenever a VF is enabled, driver
+would set the number of MSI-x to be the maximum over the various
+VFs' needs.
 
-Since we now support configuring each its own values, there's no reason
-to reflect [& configure] that both are using the same.
-
-Signed-off-by: Sudarsana Reddy Kalluru <Sudarsana.Kalluru@cavium.com>
 Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
 ---
- drivers/net/ethernet/qlogic/qed/qed_dcbx.c | 11 -----------
- 1 file changed, 11 deletions(-)
+ drivers/net/ethernet/qlogic/qed/qed_hsi.h   |  3 ++-
+ drivers/net/ethernet/qlogic/qed/qed_mcp.c   | 35 +++++++++++++++++++++++++++--
+ drivers/net/ethernet/qlogic/qed/qed_sriov.c | 32 +++++++++++++++++++++++++-
+ 3 files changed, 66 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_dcbx.c b/drivers/net/ethernet/qlogic/qed/qed_dcbx.c
-index 64c2e7c..e2a62c0 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_dcbx.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_dcbx.c
-@@ -310,17 +310,6 @@ static bool qed_dcbx_roce_v2_tlv(u32 app_info_bitmap, u16 proto_id, bool ieee)
- 		}
- 	}
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_hsi.h b/drivers/net/ethernet/qlogic/qed/qed_hsi.h
+index 802c162..f610e52 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_hsi.h
++++ b/drivers/net/ethernet/qlogic/qed/qed_hsi.h
+@@ -11477,6 +11477,7 @@ struct public_drv_mb {
+ #define DRV_MSG_CODE_INITIATE_PF_FLR            0x02010000
+ #define DRV_MSG_CODE_VF_DISABLED_DONE		0xc0000000
+ #define DRV_MSG_CODE_CFG_VF_MSIX		0xc0010000
++#define DRV_MSG_CODE_CFG_PF_VFS_MSIX		0xc0020000
+ #define DRV_MSG_CODE_NVM_GET_FILE_ATT		0x00030000
+ #define DRV_MSG_CODE_NVM_READ_NVRAM		0x00050000
+ #define DRV_MSG_CODE_MCP_RESET			0x00090000
+@@ -11640,7 +11641,7 @@ struct public_drv_mb {
  
--	/* If RoCE-V2 TLV is not detected, driver need to use RoCE app
--	 * data for RoCE-v2 not the default app data.
--	 */
--	if (!p_data->arr[DCBX_PROTOCOL_ROCE_V2].update &&
--	    p_data->arr[DCBX_PROTOCOL_ROCE].update) {
--		tc = p_data->arr[DCBX_PROTOCOL_ROCE].tc;
--		priority = p_data->arr[DCBX_PROTOCOL_ROCE].priority;
--		qed_dcbx_update_app_info(p_data, p_hwfn, true,
--					 priority, tc, DCBX_PROTOCOL_ROCE_V2);
--	}
+ #define FW_MSG_CODE_OS_WOL_SUPPORTED            0x00800000
+ #define FW_MSG_CODE_OS_WOL_NOT_SUPPORTED        0x00810000
 -
- 	/* Update ramrod protocol data and hw_info fields
- 	 * with default info when corresponding APP TLV's are not detected.
- 	 * The enabled field has a different logic for ethernet as only for
++#define FW_MSG_CODE_DRV_CFG_PF_VFS_MSIX_DONE	0x00870000
+ #define FW_MSG_SEQ_NUMBER_MASK			0x0000ffff
+ 
+ 	u32 fw_mb_param;
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_mcp.c b/drivers/net/ethernet/qlogic/qed/qed_mcp.c
+index fc49c75e..24c9b71 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_mcp.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_mcp.c
+@@ -1801,8 +1801,9 @@ int qed_mcp_get_flash_size(struct qed_hwfn *p_hwfn,
+ 	return 0;
+ }
+ 
+-int qed_mcp_config_vf_msix(struct qed_hwfn *p_hwfn,
+-			   struct qed_ptt *p_ptt, u8 vf_id, u8 num)
++static int
++qed_mcp_config_vf_msix_bb(struct qed_hwfn *p_hwfn,
++			  struct qed_ptt *p_ptt, u8 vf_id, u8 num)
+ {
+ 	u32 resp = 0, param = 0, rc_param = 0;
+ 	int rc;
+@@ -1832,6 +1833,36 @@ int qed_mcp_config_vf_msix(struct qed_hwfn *p_hwfn,
+ 	return rc;
+ }
+ 
++static int
++qed_mcp_config_vf_msix_ah(struct qed_hwfn *p_hwfn,
++			  struct qed_ptt *p_ptt, u8 num)
++{
++	u32 resp = 0, param = num, rc_param = 0;
++	int rc;
++
++	rc = qed_mcp_cmd(p_hwfn, p_ptt, DRV_MSG_CODE_CFG_PF_VFS_MSIX,
++			 param, &resp, &rc_param);
++
++	if (resp != FW_MSG_CODE_DRV_CFG_PF_VFS_MSIX_DONE) {
++		DP_NOTICE(p_hwfn, "MFW failed to set MSI-X for VFs\n");
++		rc = -EINVAL;
++	} else {
++		DP_VERBOSE(p_hwfn, QED_MSG_IOV,
++			   "Requested 0x%02x MSI-x interrupts for VFs\n", num);
++	}
++
++	return rc;
++}
++
++int qed_mcp_config_vf_msix(struct qed_hwfn *p_hwfn,
++			   struct qed_ptt *p_ptt, u8 vf_id, u8 num)
++{
++	if (QED_IS_BB(p_hwfn->cdev))
++		return qed_mcp_config_vf_msix_bb(p_hwfn, p_ptt, vf_id, num);
++	else
++		return qed_mcp_config_vf_msix_ah(p_hwfn, p_ptt, num);
++}
++
+ int
+ qed_mcp_send_drv_version(struct qed_hwfn *p_hwfn,
+ 			 struct qed_ptt *p_ptt,
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_sriov.c b/drivers/net/ethernet/qlogic/qed/qed_sriov.c
+index 71e392f..b6bda45d 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_sriov.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_sriov.c
+@@ -747,6 +747,35 @@ static void qed_iov_vf_igu_set_int(struct qed_hwfn *p_hwfn,
+ 	qed_fid_pretend(p_hwfn, p_ptt, (u16) p_hwfn->hw_info.concrete_fid);
+ }
+ 
++static int
++qed_iov_enable_vf_access_msix(struct qed_hwfn *p_hwfn,
++			      struct qed_ptt *p_ptt, u8 abs_vf_id, u8 num_sbs)
++{
++	u8 current_max = 0;
++	int i;
++
++	/* For AH onward, configuration is per-PF. Find maximum of all
++	 * the currently enabled child VFs, and set the number to be that.
++	 */
++	if (!QED_IS_BB(p_hwfn->cdev)) {
++		qed_for_each_vf(p_hwfn, i) {
++			struct qed_vf_info *p_vf;
++
++			p_vf = qed_iov_get_vf_info(p_hwfn, (u16)i, true);
++			if (!p_vf)
++				continue;
++
++			current_max = max_t(u8, current_max, p_vf->num_sbs);
++		}
++	}
++
++	if (num_sbs > current_max)
++		return qed_mcp_config_vf_msix(p_hwfn, p_ptt,
++					      abs_vf_id, num_sbs);
++
++	return 0;
++}
++
+ static int qed_iov_enable_vf_access(struct qed_hwfn *p_hwfn,
+ 				    struct qed_ptt *p_ptt,
+ 				    struct qed_vf_info *vf)
+@@ -771,7 +800,8 @@ static int qed_iov_enable_vf_access(struct qed_hwfn *p_hwfn,
+ 
+ 	qed_iov_vf_igu_reset(p_hwfn, p_ptt, vf);
+ 
+-	rc = qed_mcp_config_vf_msix(p_hwfn, p_ptt, vf->abs_vf_id, vf->num_sbs);
++	rc = qed_iov_enable_vf_access_msix(p_hwfn, p_ptt,
++					   vf->abs_vf_id, vf->num_sbs);
+ 	if (rc)
+ 		return rc;
+ 
 -- 
 1.9.3
