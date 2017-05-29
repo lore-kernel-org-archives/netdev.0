@@ -1,166 +1,118 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next v2 02/13] nfp: add set_mac_address support while the interface is up
-Date: Sun, 28 May 2017 17:52:53 -0700
-Message-ID: <20170529005304.20847-3-jakub.kicinski@netronome.com>
+Subject: [PATCH net-next v2 10/13] nfp: don't wait for resources indefinitely
+Date: Sun, 28 May 2017 17:53:01 -0700
+Message-ID: <20170529005304.20847-11-jakub.kicinski@netronome.com>
 References: <20170529005304.20847-1-jakub.kicinski@netronome.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
 Cc: oss-drivers@netronome.com,
-        =?UTF-8?q?Pablo=20Casc=C3=B3n?= <pablo.cascon@netronome.com>
+        Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f54.google.com ([74.125.83.54]:35933 "EHLO
-        mail-pg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750846AbdE2Ayb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 28 May 2017 20:54:31 -0400
-Received: by mail-pg0-f54.google.com with SMTP id x64so15376904pgd.3
-        for <netdev@vger.kernel.org>; Sun, 28 May 2017 17:54:30 -0700 (PDT)
+Received: from mail-pg0-f53.google.com ([74.125.83.53]:35945 "EHLO
+        mail-pg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750987AbdE2Aym (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 28 May 2017 20:54:42 -0400
+Received: by mail-pg0-f53.google.com with SMTP id x64so15377602pgd.3
+        for <netdev@vger.kernel.org>; Sun, 28 May 2017 17:54:41 -0700 (PDT)
 In-Reply-To: <20170529005304.20847-1-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pablo Cascón <pablo.cascon@netronome.com>
+There is currently no timeout to the resource and lock acquiring
+loops.  We printed warnings and depended on user sending a signal
+to the waiting process to stop the waiting.  This doesn't work
+very well when wait happens out of a work queue.  The simplest
+example of that is PCI probe.  When user loads the module and card
+is in a broken state modprobe will wait forever and signals sent
+to it will not actually reach the probing thread.
 
-Expose FW app ability to change MAC address at runtime.  Make sure
-we only depend on it if FW app advertised the right capability.
+Make sure all wait loops have a time out.  Set the upper wait time
+to 60 seconds to stay on the safe side.
 
-Signed-off-by: Pablo Cascón <pablo.cascon@netronome.com>
-Reviewed-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 ---
- .../net/ethernet/netronome/nfp/nfp_net_common.c    | 44 +++++++++++++++++-----
- drivers/net/ethernet/netronome/nfp/nfp_net_ctrl.h  |  2 +
- 2 files changed, 36 insertions(+), 10 deletions(-)
+ drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cpp.h      |  5 +++++
+ drivers/net/ethernet/netronome/nfp/nfpcore/nfp_mutex.c    |  9 +++++++--
+ drivers/net/ethernet/netronome/nfp/nfpcore/nfp_resource.c | 10 ++++++++--
+ 3 files changed, 20 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-index b3f5c8af6789..9312a737fbc9 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-@@ -2123,17 +2123,16 @@ void nfp_net_coalesce_write_cfg(struct nfp_net *nn)
- /**
-  * nfp_net_write_mac_addr() - Write mac address to the device control BAR
-  * @nn:      NFP Net device to reconfigure
-+ * @addr:    MAC address to write
-  *
-  * Writes the MAC address from the netdev to the device control BAR.  Does not
-  * perform the required reconfig.  We do a bit of byte swapping dance because
-  * firmware is LE.
+diff --git a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cpp.h b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cpp.h
+index 8d46b9acb69f..0a46c0984e68 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cpp.h
++++ b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cpp.h
+@@ -63,6 +63,11 @@
+ /* Max size of area it should be safe to request */
+ #define NFP_CPP_SAFE_AREA_SIZE		SZ_2M
+ 
++/* NFP_MUTEX_WAIT_* are timeouts in seconds when waiting for a mutex */
++#define NFP_MUTEX_WAIT_FIRST_WARN	15
++#define NFP_MUTEX_WAIT_NEXT_WARN	5
++#define NFP_MUTEX_WAIT_ERROR		60
++
+ struct device;
+ 
+ struct nfp_cpp_area;
+diff --git a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_mutex.c b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_mutex.c
+index 8a99c189efa8..f7b958181126 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_mutex.c
++++ b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_mutex.c
+@@ -195,7 +195,8 @@ void nfp_cpp_mutex_free(struct nfp_cpp_mutex *mutex)
   */
--static void nfp_net_write_mac_addr(struct nfp_net *nn)
-+static void nfp_net_write_mac_addr(struct nfp_net *nn, const u8 *addr)
+ int nfp_cpp_mutex_lock(struct nfp_cpp_mutex *mutex)
  {
--	nn_writel(nn, NFP_NET_CFG_MACADDR + 0,
--		  get_unaligned_be32(nn->dp.netdev->dev_addr));
--	nn_writew(nn, NFP_NET_CFG_MACADDR + 6,
--		  get_unaligned_be16(nn->dp.netdev->dev_addr + 4));
-+	nn_writel(nn, NFP_NET_CFG_MACADDR + 0, get_unaligned_be32(addr));
-+	nn_writew(nn, NFP_NET_CFG_MACADDR + 6, get_unaligned_be16(addr + 4));
- }
+-	unsigned long warn_at = jiffies + 15 * HZ;
++	unsigned long warn_at = jiffies + NFP_MUTEX_WAIT_FIRST_WARN * HZ;
++	unsigned long err_at = jiffies + NFP_MUTEX_WAIT_ERROR * HZ;
+ 	unsigned int timeout_ms = 1;
+ 	int err;
  
- static void nfp_net_vec_clear_ring_data(struct nfp_net *nn, unsigned int idx)
-@@ -2238,7 +2237,7 @@ static int nfp_net_set_config_and_enable(struct nfp_net *nn)
- 	nn_writeq(nn, NFP_NET_CFG_RXRS_ENABLE, nn->dp.num_rx_rings == 64 ?
- 		  0xffffffffffffffffULL : ((u64)1 << nn->dp.num_rx_rings) - 1);
+@@ -214,12 +215,16 @@ int nfp_cpp_mutex_lock(struct nfp_cpp_mutex *mutex)
+ 			return -ERESTARTSYS;
  
--	nfp_net_write_mac_addr(nn);
-+	nfp_net_write_mac_addr(nn, nn->dp.netdev->dev_addr);
- 
- 	nn_writel(nn, NFP_NET_CFG_MTU, nn->dp.netdev->mtu);
- 
-@@ -2997,6 +2996,27 @@ static int nfp_net_xdp(struct net_device *netdev, struct netdev_xdp *xdp)
+ 		if (time_is_before_eq_jiffies(warn_at)) {
+-			warn_at = jiffies + 60 * HZ;
++			warn_at = jiffies + NFP_MUTEX_WAIT_NEXT_WARN * HZ;
+ 			nfp_warn(mutex->cpp,
+ 				 "Warning: waiting for NFP mutex [depth:%hd target:%d addr:%llx key:%08x]\n",
+ 				 mutex->depth,
+ 				 mutex->target, mutex->address, mutex->key);
+ 		}
++		if (time_is_before_eq_jiffies(err_at)) {
++			nfp_err(mutex->cpp, "Error: mutex wait timed out\n");
++			return -EBUSY;
++		}
  	}
- }
  
-+static int nfp_net_set_mac_address(struct net_device *netdev, void *addr)
-+{
-+	struct nfp_net *nn = netdev_priv(netdev);
-+	struct sockaddr *saddr = addr;
-+	int err;
-+
-+	err = eth_prepare_mac_addr_change(netdev, addr);
-+	if (err)
-+		return err;
-+
-+	nfp_net_write_mac_addr(nn, saddr->sa_data);
-+
-+	err = nfp_net_reconfig(nn, NFP_NET_CFG_UPDATE_MACADDR);
-+	if (err)
-+		return err;
-+
-+	eth_commit_mac_addr_change(netdev, addr);
-+
-+	return 0;
-+}
-+
- const struct net_device_ops nfp_net_netdev_ops = {
- 	.ndo_open		= nfp_net_netdev_open,
- 	.ndo_stop		= nfp_net_netdev_close,
-@@ -3006,7 +3026,7 @@ const struct net_device_ops nfp_net_netdev_ops = {
- 	.ndo_tx_timeout		= nfp_net_tx_timeout,
- 	.ndo_set_rx_mode	= nfp_net_set_rx_mode,
- 	.ndo_change_mtu		= nfp_net_change_mtu,
--	.ndo_set_mac_address	= eth_mac_addr,
-+	.ndo_set_mac_address	= nfp_net_set_mac_address,
- 	.ndo_set_features	= nfp_net_set_features,
- 	.ndo_features_check	= nfp_net_features_check,
- 	.ndo_get_phys_port_name	= nfp_port_get_phys_port_name,
-@@ -3029,7 +3049,7 @@ void nfp_net_info(struct nfp_net *nn)
- 		nn->fw_ver.resv, nn->fw_ver.class,
- 		nn->fw_ver.major, nn->fw_ver.minor,
- 		nn->max_mtu);
--	nn_info(nn, "CAP: %#x %s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s\n",
-+	nn_info(nn, "CAP: %#x %s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s\n",
- 		nn->cap,
- 		nn->cap & NFP_NET_CFG_CTRL_PROMISC  ? "PROMISC "  : "",
- 		nn->cap & NFP_NET_CFG_CTRL_L2BC     ? "L2BCFILT " : "",
-@@ -3051,7 +3071,8 @@ void nfp_net_info(struct nfp_net *nn)
- 		nn->cap & NFP_NET_CFG_CTRL_NVGRE    ? "NVGRE "	  : "",
- 		nfp_net_ebpf_capable(nn)            ? "BPF "	  : "",
- 		nn->cap & NFP_NET_CFG_CTRL_CSUM_COMPLETE ?
--						      "RXCSUM_COMPLETE " : "");
-+						      "RXCSUM_COMPLETE " : "",
-+		nn->cap & NFP_NET_CFG_CTRL_LIVE_ADDR ? "LIVE_ADDR " : "");
- }
+ 	return err;
+diff --git a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_resource.c b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_resource.c
+index 2d15a7c9d0de..072612263dab 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_resource.c
++++ b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_resource.c
+@@ -181,7 +181,8 @@ nfp_resource_try_acquire(struct nfp_cpp *cpp, struct nfp_resource *res,
+ struct nfp_resource *
+ nfp_resource_acquire(struct nfp_cpp *cpp, const char *name)
+ {
+-	unsigned long warn_at = jiffies + 15 * HZ;
++	unsigned long warn_at = jiffies + NFP_MUTEX_WAIT_FIRST_WARN * HZ;
++	unsigned long err_at = jiffies + NFP_MUTEX_WAIT_ERROR * HZ;
+ 	struct nfp_cpp_mutex *dev_mutex;
+ 	struct nfp_resource *res;
+ 	int err;
+@@ -214,10 +215,15 @@ nfp_resource_acquire(struct nfp_cpp *cpp, const char *name)
+ 		}
  
- /**
-@@ -3211,7 +3232,7 @@ int nfp_net_init(struct nfp_net *nn)
- 	if (nn->dp.chained_metadata_format && nn->fw_ver.major != 4)
- 		nn->cap &= ~NFP_NET_CFG_CTRL_RSS;
+ 		if (time_is_before_eq_jiffies(warn_at)) {
+-			warn_at = jiffies + 60 * HZ;
++			warn_at = jiffies + NFP_MUTEX_WAIT_NEXT_WARN * HZ;
+ 			nfp_warn(cpp, "Warning: waiting for NFP resource %s\n",
+ 				 name);
+ 		}
++		if (time_is_before_eq_jiffies(err_at)) {
++			nfp_err(cpp, "Error: resource %s timed out\n", name);
++			err = -EBUSY;
++			goto err_free;
++		}
+ 	}
  
--	nfp_net_write_mac_addr(nn);
-+	nfp_net_write_mac_addr(nn, nn->dp.netdev->dev_addr);
- 
- 	/* Determine RX packet/metadata boundary offset */
- 	if (nn->fw_ver.major >= 2) {
-@@ -3241,6 +3262,9 @@ int nfp_net_init(struct nfp_net *nn)
- 	 * and netdev->hw_features advertises which features are
- 	 * supported.  By default we enable most features.
- 	 */
-+	if (nn->cap & NFP_NET_CFG_CTRL_LIVE_ADDR)
-+		netdev->priv_flags |= IFF_LIVE_ADDR_CHANGE;
-+
- 	netdev->hw_features = NETIF_F_HIGHDMA;
- 	if (nn->cap & NFP_NET_CFG_CTRL_RXCSUM_ANY) {
- 		netdev->hw_features |= NETIF_F_RXCSUM;
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_ctrl.h b/drivers/net/ethernet/netronome/nfp/nfp_net_ctrl.h
-index df75b8dc3617..c8208bf370e0 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net_ctrl.h
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net_ctrl.h
-@@ -135,6 +135,7 @@
- #define   NFP_NET_CFG_CTRL_LSO2		  (0x1 << 28) /* LSO/TSO (version 2) */
- #define   NFP_NET_CFG_CTRL_RSS2		  (0x1 << 29) /* RSS (version 2) */
- #define   NFP_NET_CFG_CTRL_CSUM_COMPLETE  (0x1 << 30) /* Checksum complete */
-+#define   NFP_NET_CFG_CTRL_LIVE_ADDR	  (0x1 << 31) /* live MAC addr change */
- 
- #define NFP_NET_CFG_CTRL_LSO_ANY	(NFP_NET_CFG_CTRL_LSO | \
- 					 NFP_NET_CFG_CTRL_LSO2)
-@@ -157,6 +158,7 @@
- #define   NFP_NET_CFG_UPDATE_IRQMOD       (0x1 <<  8) /* IRQ mod change */
- #define   NFP_NET_CFG_UPDATE_VXLAN	  (0x1 <<  9) /* VXLAN port change */
- #define   NFP_NET_CFG_UPDATE_BPF	  (0x1 << 10) /* BPF program load */
-+#define   NFP_NET_CFG_UPDATE_MACADDR	  (0x1 << 11) /* MAC address change */
- #define   NFP_NET_CFG_UPDATE_ERR          (0x1 << 31) /* A error occurred */
- #define NFP_NET_CFG_TXRS_ENABLE         0x0008
- #define NFP_NET_CFG_RXRS_ENABLE         0x0010
+ 	nfp_cpp_mutex_free(dev_mutex);
 -- 
 2.11.0
