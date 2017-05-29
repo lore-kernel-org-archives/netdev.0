@@ -1,7 +1,8 @@
 From: Stefan Wahren <stefan.wahren@i2se.com>
-Subject: [PATCH v8 net-next 00/17] net: qualcomm: add QCA7000 UART driver
-Date: Mon, 29 May 2017 13:57:08 +0200
-Message-ID: <1496059045-13572-1-git-send-email-stefan.wahren@i2se.com>
+Subject: [PATCH v8 net-next 13/17] dt-bindings: qca7000-spi: Rework binding
+Date: Mon, 29 May 2017 13:57:21 +0200
+Message-ID: <1496059045-13572-14-git-send-email-stefan.wahren@i2se.com>
+References: <1496059045-13572-1-git-send-email-stefan.wahren@i2se.com>
 Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
         Jiri Slaby <jslaby@suse.com>,
         Lino Sanfilippo <LinoSanfilippo@gmx.de>,
@@ -13,111 +14,79 @@ To: Rob Herring <robh+dt@kernel.org>,
         Mark Rutland <mark.rutland@arm.com>,
         "David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1496059045-13572-1-git-send-email-stefan.wahren@i2se.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The Qualcomm QCA7000 HomePlug GreenPHY supports two interfaces:
-UART and SPI. This patch series adds the missing support for UART.
+In preparation for the QCA7000 UART binding rework the binding document.
 
-This driver based on the Qualcomm code [1], but contains some changes:
-* use random MAC address per default
-* use net_device_stats from device
-* share frame decoding between SPI and UART driver
-* improve error handling
-* reimplement tty_wakeup with work queue (based on slcan)
-* use new serial device bus instead of ldisc
+Signed-off-by: Stefan Wahren <stefan.wahren@i2se.com>
+---
+ .../devicetree/bindings/net/qca-qca7000-spi.txt    | 49 +++++++++++++---------
+ 1 file changed, 29 insertions(+), 20 deletions(-)
 
-The patches 1 - 3 are just for clean up and are not related to
-the UART support. Patch 4 adds SET_NETDEV_DEV() to qca_spi.
-Patches 5 - 16 prepare the existing QCA7000 code for UART support.
-The last patch contains the new driver.
-
-The code itself has been tested on a Freescale i.MX28 board and
-a Raspberry Pi Zero.
-
-Changes in v8:
-  * add necessary header includes to qca_7k.c in order to reflect
-    dependencies
-
-Changes in v7:
-  * fix race between tx workqueue and device deregistration (reported by Lino)
-
-Changes in v6:
-  * rebase to current linux-next
-  * use SET_NETDEV_DEV() for qca_spi and qca_uart
-  * rename binding to qca,qca7000.txt
-  * use qca,qca7000 compatible for both driver
-  * handle error cases in qca_uart_probe properly
-  * fix skb leak in error path of qcauart_netdev_init
-  * use dev_kfree_skb_any instead of kfree_skb
-  * take care of tx_work on close / remove
-  * use devm_kmalloc for tx buffer
-  * minor cleanups
-
-Changes in v5:
-  * rebase to current linux-next
-  * fix alignment issues in rx path
-  * fix buffer overrun with big ethernet frames
-  * fix init of UART decoding fsm
-  * add device UART settings to Kconfig help
-  * add current-speed to slave-device binding
-  * merge SPI and UART binding document
-  * rename qca_common to qca_7k_common
-  * drop patch for retrieving UART settings
-  * several cleanups
-
-Changes in v4:
-  * rebase to current linux-next
-  * use parameter -M for git format-patch
-  * change order of local variables where possible
-  * implement basic serdev support (without hardware flow control)
-
-Changes in v3:
-  * rebase to current net-next
-
-Changes in v2:
-  * fix build issue by using netif_trans_update() and dev_trans_start()
-
-[1] - https://github.com/IoE/qca7000
-
-Stefan Wahren (17):
-  net: qualcomm: qca_7k: clean up header includes
-  net: qca_framing: use u16 for frame offset
-  net: qca_7k: Use BIT macro
-  net: qca_spi: Use SET_NETDEV_DEV()
-  net: qualcomm: use net_device_ops instead of direct call
-  net: qualcomm: Improve readability of length defines
-  net: qca_spi: remove QCASPI_MTU
-  net: qualcomm: move qcaspi_tx_cmd to qca_spi.c
-  net: qca_spi: Clarify MODULE_DESCRIPTION
-  net: qualcomm: rename qca_framing.c to qca_7k_common.c
-  net: qualcomm: prepare frame decoding for UART driver
-  net: qualcomm: make qca_7k_common a separate kernel module
-  dt-bindings: qca7000-spi: Rework binding
-  dt-bindings: qca7000: rename binding
-  dt-bindings: slave-device: add current-speed property
-  dt-bindings: qca7000: append UART interface to binding
-  net: qualcomm: add QCA7000 UART driver
-
- .../devicetree/bindings/net/qca,qca7000.txt        |  88 +++++
- .../devicetree/bindings/net/qca-qca7000-spi.txt    |  47 ---
- .../devicetree/bindings/serial/slave-device.txt    |   9 +
- drivers/net/ethernet/qualcomm/Kconfig              |  24 +-
- drivers/net/ethernet/qualcomm/Makefile             |   7 +-
- drivers/net/ethernet/qualcomm/qca_7k.c             |  30 +-
- drivers/net/ethernet/qualcomm/qca_7k.h             |  15 +-
- .../qualcomm/{qca_framing.c => qca_7k_common.c}    |  26 +-
- .../qualcomm/{qca_framing.h => qca_7k_common.h}    |  24 +-
- drivers/net/ethernet/qualcomm/qca_debug.c          |   5 +-
- drivers/net/ethernet/qualcomm/qca_spi.c            |  48 ++-
- drivers/net/ethernet/qualcomm/qca_spi.h            |   5 +-
- drivers/net/ethernet/qualcomm/qca_uart.c           | 423 +++++++++++++++++++++
- 13 files changed, 632 insertions(+), 119 deletions(-)
- create mode 100644 Documentation/devicetree/bindings/net/qca,qca7000.txt
- delete mode 100644 Documentation/devicetree/bindings/net/qca-qca7000-spi.txt
- rename drivers/net/ethernet/qualcomm/{qca_framing.c => qca_7k_common.c} (85%)
- rename drivers/net/ethernet/qualcomm/{qca_framing.h => qca_7k_common.h} (86%)
- create mode 100644 drivers/net/ethernet/qualcomm/qca_uart.c
-
+diff --git a/Documentation/devicetree/bindings/net/qca-qca7000-spi.txt b/Documentation/devicetree/bindings/net/qca-qca7000-spi.txt
+index c74989c..a37f656 100644
+--- a/Documentation/devicetree/bindings/net/qca-qca7000-spi.txt
++++ b/Documentation/devicetree/bindings/net/qca-qca7000-spi.txt
+@@ -1,29 +1,38 @@
+-* Qualcomm QCA7000 (Ethernet over SPI protocol)
++* Qualcomm QCA7000
+ 
+-Note: The QCA7000 is useable as a SPI device. In this case it must be defined
+-as a child of a SPI master in the device tree.
++The QCA7000 is a serial-to-powerline bridge with a host interface which could
++be configured either as SPI or UART slave. This configuration is done by
++the QCA7000 firmware.
++
++(a) Ethernet over SPI
++
++In order to use the QCA7000 as SPI device it must be defined as a child of a
++SPI master in the device tree.
+ 
+ Required properties:
+-- compatible : Should be "qca,qca7000"
+-- reg : Should specify the SPI chip select
+-- interrupts : The first cell should specify the index of the source interrupt
+-  and the second cell should specify the trigger type as rising edge
+-- spi-cpha : Must be set
+-- spi-cpol: Must be set
++- compatible	    : Should be "qca,qca7000"
++- reg		    : Should specify the SPI chip select
++- interrupts	    : The first cell should specify the index of the source
++		      interrupt and the second cell should specify the trigger
++		      type as rising edge
++- spi-cpha	    : Must be set
++- spi-cpol	    : Must be set
+ 
+ Optional properties:
+-- interrupt-parent : Specify the pHandle of the source interrupt
++- interrupt-parent  : Specify the pHandle of the source interrupt
+ - spi-max-frequency : Maximum frequency of the SPI bus the chip can operate at.
+-  Numbers smaller than 1000000 or greater than 16000000 are invalid. Missing
+-  the property will set the SPI frequency to 8000000 Hertz.
+-- local-mac-address: 6 bytes, MAC address
+-- qca,legacy-mode : Set the SPI data transfer of the QCA7000 to legacy mode.
+-  In this mode the SPI master must toggle the chip select between each data
+-  word. In burst mode these gaps aren't necessary, which is faster.
+-  This setting depends on how the QCA7000 is setup via GPIO pin strapping.
+-  If the property is missing the driver defaults to burst mode.
+-
+-Example:
++		      Numbers smaller than 1000000 or greater than 16000000
++		      are invalid. Missing the property will set the SPI
++		      frequency to 8000000 Hertz.
++- local-mac-address : see ./ethernet.txt
++- qca,legacy-mode   : Set the SPI data transfer of the QCA7000 to legacy mode.
++		      In this mode the SPI master must toggle the chip select
++		      between each data word. In burst mode these gaps aren't
++		      necessary, which is faster. This setting depends on how
++		      the QCA7000 is setup via GPIO pin strapping. If the
++		      property is missing the driver defaults to burst mode.
++
++SPI Example:
+ 
+ /* Freescale i.MX28 SPI master*/
+ ssp2: spi@80014000 {
 -- 
 2.1.4
