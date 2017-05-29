@@ -1,81 +1,99 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next v2 00/13] nfp: pci core, hwmon, live mac addr change
-Date: Sun, 28 May 2017 17:52:51 -0700
-Message-ID: <20170529005304.20847-1-jakub.kicinski@netronome.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
+Subject: [PATCH net-next v2 03/13] nfp: set driver VF limit
+Date: Sun, 28 May 2017 17:52:54 -0700
+Message-ID: <20170529005304.20847-4-jakub.kicinski@netronome.com>
+References: <20170529005304.20847-1-jakub.kicinski@netronome.com>
 Cc: oss-drivers@netronome.com,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f41.google.com ([74.125.83.41]:35930 "EHLO
-        mail-pg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750846AbdE2Ay3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 28 May 2017 20:54:29 -0400
-Received: by mail-pg0-f41.google.com with SMTP id x64so15376722pgd.3
-        for <netdev@vger.kernel.org>; Sun, 28 May 2017 17:54:28 -0700 (PDT)
+Received: from mail-pf0-f169.google.com ([209.85.192.169]:33135 "EHLO
+        mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750891AbdE2Ayb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 28 May 2017 20:54:31 -0400
+Received: by mail-pf0-f169.google.com with SMTP id e193so40451061pfh.0
+        for <netdev@vger.kernel.org>; Sun, 28 May 2017 17:54:31 -0700 (PDT)
+In-Reply-To: <20170529005304.20847-1-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series brings updates to core PCI code, SR-IOV, exposes 
-firmware's capability to change MAC address at runtime and HWMON
-interfaces.  
+PCI subsystem has support for drivers limiting the number of VFs
+available below what the IOV capability claims.  Make use of it.
 
-The PCI code updates include resiliency improvement in conditions 
-which are quite unusual, but still shouldn't make the driver oops.
-We also handle very large device memory operation more gracefully.
-A timeout is added to acquiring mutexes in device memory.
+While at it remove the #ifdef/#endif on CONFIG_PCI_IOV, it was
+there to avoid unnecessary warnings in case device read failed
+but kernel doesn't have SR-IOV support anyway.  Device reads
+should not fail.
 
-Pablo provides a patch to expose to the stack the ability to change
-MAC addresses under traffic while David adds HWMON interface for
-reading device temperature and power consumption.
+Note that we still need the driver-internal check for the case
+where max VFs is 0 since PCI subsystem treats 0 as limit not set.
 
-Last three patches are minor improvements to the netdev code.
+Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+---
+ drivers/net/ethernet/netronome/nfp/nfp_main.c | 23 +++++++++++++++--------
+ 1 file changed, 15 insertions(+), 8 deletions(-)
 
-v2:
- - add patch 1 - fix for devlink build;
- - fix build issue with the hwmon patch.
-
-David Brunecz (1):
-  nfp: add hwmon support
-
-Jakub Kicinski (11):
-  nfp: add MAY_USE_DEVLINK dependency
-  nfp: set driver VF limit
-  nfp: don't set aux pointers if ioremap failed
-  nfp: only try to get to PCIe ctrl memory if BARs are wide enough
-  nfp: support long reads and writes with the cpp helpers
-  nfp: shorten CPP core probe logs
-  nfp: support variable NSP response lengths
-  nfp: don't wait for resources indefinitely
-  nfp: fix print format for ring pointers in ring dumps
-  nfp: don't add ring size to index calculations
-  nfp: don't keep count for free buffers delayed kick
-
-Pablo Cascón (1):
-  nfp: add set_mac_address support while the interface is up
-
- drivers/net/ethernet/netronome/Kconfig             |   1 +
- drivers/net/ethernet/netronome/nfp/Makefile        |   1 +
- drivers/net/ethernet/netronome/nfp/nfp_hwmon.c     | 192 +++++++++++++++++++++
- drivers/net/ethernet/netronome/nfp/nfp_main.c      |  44 +++--
- drivers/net/ethernet/netronome/nfp/nfp_main.h      |  10 ++
- drivers/net/ethernet/netronome/nfp/nfp_net.h       |   3 -
- .../net/ethernet/netronome/nfp/nfp_net_common.c    |  55 ++++--
- drivers/net/ethernet/netronome/nfp/nfp_net_ctrl.h  |   2 +
- .../net/ethernet/netronome/nfp/nfp_net_debugfs.c   |   4 +-
- drivers/net/ethernet/netronome/nfp/nfpcore/nfp.h   |   2 +
- .../ethernet/netronome/nfp/nfpcore/nfp6000_pcie.c  |  49 ++++--
- .../net/ethernet/netronome/nfp/nfpcore/nfp_cpp.h   |   8 +
- .../ethernet/netronome/nfp/nfpcore/nfp_cppcore.c   |  87 ++++++++--
- .../net/ethernet/netronome/nfp/nfpcore/nfp_mutex.c |   9 +-
- .../net/ethernet/netronome/nfp/nfpcore/nfp_nsp.c   |  16 ++
- .../net/ethernet/netronome/nfp/nfpcore/nfp_nsp.h   |  12 ++
- .../ethernet/netronome/nfp/nfpcore/nfp_nsp_cmds.c  |  47 ++++-
- .../ethernet/netronome/nfp/nfpcore/nfp_resource.c  |  10 +-
- 18 files changed, 475 insertions(+), 77 deletions(-)
- create mode 100644 drivers/net/ethernet/netronome/nfp/nfp_hwmon.c
-
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_main.c b/drivers/net/ethernet/netronome/nfp/nfp_main.c
+index f22f56c9218f..ba174e163834 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_main.c
++++ b/drivers/net/ethernet/netronome/nfp/nfp_main.c
+@@ -73,20 +73,22 @@ static const struct pci_device_id nfp_pci_device_ids[] = {
+ };
+ MODULE_DEVICE_TABLE(pci, nfp_pci_device_ids);
+ 
+-static void nfp_pcie_sriov_read_nfd_limit(struct nfp_pf *pf)
++static int nfp_pcie_sriov_read_nfd_limit(struct nfp_pf *pf)
+ {
+-#ifdef CONFIG_PCI_IOV
+ 	int err;
+ 
+ 	pf->limit_vfs = nfp_rtsym_read_le(pf->cpp, "nfd_vf_cfg_max_vfs", &err);
+ 	if (!err)
+-		return;
++		return pci_sriov_set_totalvfs(pf->pdev, pf->limit_vfs);
+ 
+ 	pf->limit_vfs = ~0;
++	pci_sriov_set_totalvfs(pf->pdev, 0); /* 0 is unset */
+ 	/* Allow any setting for backwards compatibility if symbol not found */
+-	if (err != -ENOENT)
+-		nfp_warn(pf->cpp, "Warning: VF limit read failed: %d\n", err);
+-#endif
++	if (err == -ENOENT)
++		return 0;
++
++	nfp_warn(pf->cpp, "Warning: VF limit read failed: %d\n", err);
++	return err;
+ }
+ 
+ static int nfp_pcie_sriov_enable(struct pci_dev *pdev, int num_vfs)
+@@ -373,14 +375,18 @@ static int nfp_pci_probe(struct pci_dev *pdev,
+ 	if (err)
+ 		goto err_devlink_unreg;
+ 
+-	nfp_pcie_sriov_read_nfd_limit(pf);
++	err = nfp_pcie_sriov_read_nfd_limit(pf);
++	if (err)
++		goto err_fw_unload;
+ 
+ 	err = nfp_net_pci_probe(pf);
+ 	if (err)
+-		goto err_fw_unload;
++		goto err_sriov_unlimit;
+ 
+ 	return 0;
+ 
++err_sriov_unlimit:
++	pci_sriov_set_totalvfs(pf->pdev, 0);
+ err_fw_unload:
+ 	if (pf->fw_loaded)
+ 		nfp_fw_unload(pf);
+@@ -411,6 +417,7 @@ static void nfp_pci_remove(struct pci_dev *pdev)
+ 	nfp_net_pci_remove(pf);
+ 
+ 	nfp_pcie_sriov_disable(pdev);
++	pci_sriov_set_totalvfs(pf->pdev, 0);
+ 
+ 	devlink_unregister(devlink);
+ 
 -- 
 2.11.0
