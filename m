@@ -1,42 +1,91 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next v2 01/13] nfp: add MAY_USE_DEVLINK dependency
-Date: Sun, 28 May 2017 17:52:52 -0700
-Message-ID: <20170529005304.20847-2-jakub.kicinski@netronome.com>
+Subject: [PATCH net-next v2 07/13] nfp: shorten CPP core probe logs
+Date: Sun, 28 May 2017 17:52:58 -0700
+Message-ID: <20170529005304.20847-8-jakub.kicinski@netronome.com>
 References: <20170529005304.20847-1-jakub.kicinski@netronome.com>
 Cc: oss-drivers@netronome.com,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f171.google.com ([209.85.192.171]:35516 "EHLO
-        mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750866AbdE2Ay3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 28 May 2017 20:54:29 -0400
-Received: by mail-pf0-f171.google.com with SMTP id n23so40367460pfb.2
-        for <netdev@vger.kernel.org>; Sun, 28 May 2017 17:54:29 -0700 (PDT)
+Received: from mail-pf0-f179.google.com ([209.85.192.179]:33997 "EHLO
+        mail-pf0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750925AbdE2Aye (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 28 May 2017 20:54:34 -0400
+Received: by mail-pf0-f179.google.com with SMTP id 9so40370463pfj.1
+        for <netdev@vger.kernel.org>; Sun, 28 May 2017 17:54:34 -0700 (PDT)
 In-Reply-To: <20170529005304.20847-1-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix build with DEVLINK=m and NFP=y.
+We currently print reserved BAR mappings info as we create them.
+This makes the probe logs longer than necessary.  Print into a
+buffer instead and log all the info as a single line.
 
-Fixes: 1851f93fd2ee ("nfp: add devlink support")
-Reported-by: kbuild test robot <fengguang.wu@intel.com>
 Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 ---
- drivers/net/ethernet/netronome/Kconfig | 1 +
- 1 file changed, 1 insertion(+)
+ .../net/ethernet/netronome/nfp/nfpcore/nfp6000_pcie.c | 19 +++++++++++--------
+ 1 file changed, 11 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/netronome/Kconfig b/drivers/net/ethernet/netronome/Kconfig
-index 967d7ca8c28c..0d5a7b9203a4 100644
---- a/drivers/net/ethernet/netronome/Kconfig
-+++ b/drivers/net/ethernet/netronome/Kconfig
-@@ -19,6 +19,7 @@ config NFP
- 	tristate "Netronome(R) NFP4000/NFP6000 NIC driver"
- 	depends on PCI && PCI_MSI
- 	depends on VXLAN || VXLAN=n
-+	depends on MAY_USE_DEVLINK
- 	---help---
- 	  This driver supports the Netronome(R) NFP4000/NFP6000 based
- 	  cards working as a advanced Ethernet NIC.  It works with both
+diff --git a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp6000_pcie.c b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp6000_pcie.c
+index 597ac8febb63..cd678323bacb 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp6000_pcie.c
++++ b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp6000_pcie.c
+@@ -588,9 +588,15 @@ static int enable_bars(struct nfp6000_pcie *nfp, u16 interface)
+ 		NFP_PCIE_BAR_PCIE2CPP_MapType(
+ 			NFP_PCIE_BAR_PCIE2CPP_MapType_EXPLICIT3),
+ 	};
++	char status_msg[196] = {};
+ 	struct nfp_bar *bar;
+ 	int i, bars_free;
+ 	int expl_groups;
++	char *msg, *end;
++
++	msg = status_msg +
++		snprintf(status_msg, sizeof(status_msg) - 1, "RESERVED BARs: ");
++	end = status_msg + sizeof(status_msg) - 1;
+ 
+ 	bar = &nfp->bar[0];
+ 	for (i = 0; i < ARRAY_SIZE(nfp->bar); i++, bar++) {
+@@ -637,8 +643,7 @@ static int enable_bars(struct nfp6000_pcie *nfp, u16 interface)
+ 		bar->iomem = ioremap_nocache(nfp_bar_resource_start(bar),
+ 					     nfp_bar_resource_len(bar));
+ 	if (bar->iomem) {
+-		dev_info(nfp->dev,
+-			 "BAR0.0 RESERVED: General Mapping/MSI-X SRAM\n");
++		msg += snprintf(msg, end - msg,	"0.0: General/MSI-X SRAM, ");
+ 		atomic_inc(&bar->refcnt);
+ 		bars_free--;
+ 
+@@ -665,7 +670,7 @@ static int enable_bars(struct nfp6000_pcie *nfp, u16 interface)
+ 
+ 	/* Configure, and lock, BAR0.1 for PCIe XPB (MSI-X PBA) */
+ 	bar = &nfp->bar[1];
+-	dev_info(nfp->dev, "BAR0.1 RESERVED: PCIe XPB/MSI-X PBA\n");
++	msg += snprintf(msg, end - msg, "0.1: PCIe XPB/MSI-X PBA, ");
+ 	atomic_inc(&bar->refcnt);
+ 	bars_free--;
+ 
+@@ -684,9 +689,8 @@ static int enable_bars(struct nfp6000_pcie *nfp, u16 interface)
+ 		bar->iomem = ioremap_nocache(nfp_bar_resource_start(bar),
+ 					     nfp_bar_resource_len(bar));
+ 		if (bar->iomem) {
+-			dev_info(nfp->dev,
+-				 "BAR0.%d RESERVED: Explicit%d Mapping\n",
+-				 4 + i, i);
++			msg += snprintf(msg, end - msg,
++					"0.%d: Explicit%d, ", 4 + i, i);
+ 			atomic_inc(&bar->refcnt);
+ 			bars_free--;
+ 
+@@ -704,8 +708,7 @@ static int enable_bars(struct nfp6000_pcie *nfp, u16 interface)
+ 	sort(&nfp->bar[0], nfp->bars, sizeof(nfp->bar[0]),
+ 	     bar_cmp, NULL);
+ 
+-	dev_info(nfp->dev, "%d NFP PCI2CPP BARs, %d free\n",
+-		 nfp->bars, bars_free);
++	dev_info(nfp->dev, "%sfree: %d/%d\n", status_msg, bars_free, nfp->bars);
+ 
+ 	return 0;
+ }
 -- 
 2.11.0
