@@ -1,75 +1,57 @@
 From: Yuval Mintz <Yuval.Mintz@cavium.com>
-Subject: [PATCH v2 net-next 10/10] qed: Cache alignemnt padding to match host
-Date: Mon, 29 May 2017 09:53:14 +0300
-Message-ID: <1496040794-6163-11-git-send-email-Yuval.Mintz@cavium.com>
-References: <1496040794-6163-1-git-send-email-Yuval.Mintz@cavium.com>
+Subject: [PATCH net] qed: Don't log missing periodic stats by default
+Date: Mon, 29 May 2017 11:24:49 +0300
+Message-ID: <1496046289-17330-1-git-send-email-Yuval.Mintz@cavium.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Yuval Mintz <Yuval.Mintz@cavium.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam03on0065.outbound.protection.outlook.com ([104.47.42.65]:37541
+Received: from mail-by2nam03on0048.outbound.protection.outlook.com ([104.47.42.48]:5046
         "EHLO NAM03-BY2-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751071AbdE2GyU (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 29 May 2017 02:54:20 -0400
-In-Reply-To: <1496040794-6163-1-git-send-email-Yuval.Mintz@cavium.com>
+        id S1750966AbdE2IZc (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 29 May 2017 04:25:32 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Improve PCI performance by adjusting padding sizes to match those of the
-host machine's cacheline.
+Current implementation lacks the logic for providing management
+firmware with RDMA-related statistics; [much] worse than that -
+it logs such events by default to system logs.
 
+Since the statistics' gathering is done periodically, using sufficiently
+new management firmware the system logs would get filled with these
+unnecessary prints.
+
+For now, reduce the verbosity of the log so that it would not be
+logged by default.
+
+Fixes: 6c75424612a7 ("qed: Add support for NCSI statistics")
 Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
 ---
- drivers/net/ethernet/qlogic/qed/qed_dev.c      | 15 +++++++++++++--
- drivers/net/ethernet/qlogic/qed/qed_reg_addr.h |  1 +
- 2 files changed, 14 insertions(+), 2 deletions(-)
+Hi Dave,
 
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_dev.c b/drivers/net/ethernet/qlogic/qed/qed_dev.c
-index 072d950..d73e3c2 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_dev.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_dev.c
-@@ -1227,6 +1227,10 @@ static void qed_init_cache_line_size(struct qed_hwfn *p_hwfn,
- 			L1_CACHE_BYTES, wr_mbs);
- 
- 	STORE_RT_REG(p_hwfn, PGLUE_REG_B_CACHE_LINE_SIZE_RT_OFFSET, val);
-+	if (val > 0) {
-+		STORE_RT_REG(p_hwfn, PSWRQ2_REG_DRAM_ALIGN_WR_RT_OFFSET, val);
-+		STORE_RT_REG(p_hwfn, PSWRQ2_REG_DRAM_ALIGN_RD_RT_OFFSET, val);
-+	}
+Please consider applying this to `net'.
+
+Thanks,
+Yuval
+---
+ drivers/net/ethernet/qlogic/qed/qed_main.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_main.c b/drivers/net/ethernet/qlogic/qed/qed_main.c
+index 537d123..715b3aa 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_main.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_main.c
+@@ -1730,7 +1730,8 @@ void qed_get_protocol_stats(struct qed_dev *cdev,
+ 		qed_get_protocol_stats_iscsi(cdev, &stats->iscsi_stats);
+ 		break;
+ 	default:
+-		DP_ERR(cdev, "Invalid protocol type = %d\n", type);
++		DP_VERBOSE(cdev, QED_MSG_SP,
++			   "Invalid protocol type = %d\n", type);
+ 		return;
+ 	}
  }
- 
- static int qed_hw_init_common(struct qed_hwfn *p_hwfn,
-@@ -1433,8 +1437,15 @@ enum QED_ROCE_EDPM_MODE {
- static int qed_hw_init_port(struct qed_hwfn *p_hwfn,
- 			    struct qed_ptt *p_ptt, int hw_mode)
- {
--	return qed_init_run(p_hwfn, p_ptt, PHASE_PORT,
--			    p_hwfn->port_id, hw_mode);
-+	int rc = 0;
-+
-+	rc = qed_init_run(p_hwfn, p_ptt, PHASE_PORT, p_hwfn->port_id, hw_mode);
-+	if (rc)
-+		return rc;
-+
-+	qed_wr(p_hwfn, p_ptt, PGLUE_B_REG_MASTER_WRITE_PAD_ENABLE, 0);
-+
-+	return 0;
- }
- 
- static int qed_hw_init_pf(struct qed_hwfn *p_hwfn,
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_reg_addr.h b/drivers/net/ethernet/qlogic/qed/qed_reg_addr.h
-index 6abf918..67172d7 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_reg_addr.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed_reg_addr.h
-@@ -1559,6 +1559,7 @@
- #define PGLUE_B_REG_PGL_ADDR_EC_F0_K2 0x2aaf9cUL
- #define PGLUE_B_REG_PGL_ADDR_F0_F0_K2 0x2aafa0UL
- #define PGLUE_B_REG_PGL_ADDR_F4_F0_K2 0x2aafa4UL
-+#define PGLUE_B_REG_MASTER_WRITE_PAD_ENABLE 0x2aae30UL
- #define NIG_REG_TSGEN_FREECNT_UPDATE_K2 0x509008UL
- #define CNIG_REG_NIG_PORT0_CONF_K2 0x218200UL
- 
 -- 
 1.9.3
