@@ -1,56 +1,202 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [patch net-next 0/9] mlxsw: Support firmware flash
-Date: Mon, 29 May 2017 11:52:27 +0300
-Message-ID: <CAJ3xEMgBAWrM2jKRmS0yYi94wEo-8FaV=G24_Z2=emkySV=f4A@mail.gmail.com>
-References: <ea7cf005-1f6c-aa87-db90-03d7c77c7d56@mellanox.com>
- <BLUPR0701MB2004EB2F32B4C8C42C5020458DF90@BLUPR0701MB2004.namprd07.prod.outlook.com>
- <fba5a440-ba1e-84bd-d2d2-d011406d3a4a@mellanox.com> <20170523.113859.1803057381093280239.davem@davemloft.net>
- <0daa5c5a-377c-767f-ea19-26c1f22bd30c@mellanox.com> <20170528171735.0e44878d@cakuba.lan>
+From: Bogdan Purcareata <bogdan.purcareata@nxp.com>
+Subject: [PATCH v4 1/2] net: phy: Add Cortina CS4340 driver
+Date: Mon, 29 May 2017 09:11:30 +0000
+Message-ID: <1496049091-4637-2-git-send-email-bogdan.purcareata@nxp.com>
+References: <1496049091-4637-1-git-send-email-bogdan.purcareata@nxp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Yotam Gigi <yotamg@mellanox.com>,
-        David Miller <davem@davemloft.net>, Yuval.Mintz@cavium.com,
-        Jiri Pirko <jiri@resnulli.us>,
-        Linux Netdev List <netdev@vger.kernel.org>,
-        Ido Schimmel <idosch@mellanox.com>, mlxsw <mlxsw@mellanox.com>,
-        bhutchings@solarflare.com
-To: Jakub Kicinski <kubakici@wp.pl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f67.google.com ([209.85.218.67]:35000 "EHLO
-        mail-oi0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750854AbdE2Iw2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 29 May 2017 04:52:28 -0400
-Received: by mail-oi0-f67.google.com with SMTP id v80so10539393oie.2
-        for <netdev@vger.kernel.org>; Mon, 29 May 2017 01:52:28 -0700 (PDT)
-In-Reply-To: <20170528171735.0e44878d@cakuba.lan>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+To: <andrew@lunn.ch>, <f.fainelli@gmail.com>, <netdev@vger.kernel.org>,
+        <devicetree@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1496049091-4637-1-git-send-email-bogdan.purcareata@nxp.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, May 29, 2017 at 3:17 AM, Jakub Kicinski <kubakici@wp.pl> wrote:
-> On Sun, 28 May 2017 10:26:49 +0300, Yotam Gigi wrote:
+Add basic support for Cortina PHY drivers. Support only CS4340 for now.
+The phys are not compatible with IEEE 802.3 clause 22/45 registers.
 
->> This problem is even more relevant in the Mellanox HCA driver team, which would
->> like to use that code in order to burn the HCA firmware, but not intend to
->> trigger it on boot time, which means that must have a way for the user to
->> trigger it.
+Implement proper read_status support. The generic 10G phy driver causes
+bus register access errors.
 
-> What would the requirements for the HCA team be?  Is it about loading
-> different code or loading HW settings?
+The driver should be described using the "ethernet-phy-id" device tree
+compatible.
 
-For the NIC, as of the (happily growing) large open-systems by nature
-install base, we
-can't effort for the driver not to load when the currently burned fw
-isn't the latest or
-the system doesn't have the latest libfirmware clone. We do have to
-keep the hassle of
-compatibility with older FWs, etc.  As part of the driver/FW API
-design we use cap bits
-for that matter, and never ask/branch on specific FW or HW versions.
+Signed-off-by: Bogdan Purcareata <bogdan.purcareata@nxp.com>
+---
+v3 -> v4:
+- Add CORTINA trademark info.
+- Change id_lsb and id_msb from u32 to int to cover error checking.
 
-We do want to let user work with the kernel w.o the need to have them
-install MLNX or anyone's
-tool suit and hence the large value we find in the ethtool flashing of
-FW image (the patches
-are ready...)
+v2 -> v3:
+- Add probe function to check the device we're talking with is the same
+  as the one described in the device tree.
+- Change the link status (GPIO interrupt status) register and validate
+  that the read is done from the right place (cable plug-in / plug-out).
+- Some functions + Kconfig entry renaming.
 
-Or.
+v1 -> v2:
+- Rename "mdio-cortina.c" to "cortina.c" since it's a phy driver.
+- Test probing based on the "ethernet-phy-id" compatible. In the previous
+  version, getting the phy_id via get_phy_c45_ids() involved an additional
+  hack. Drop that approach and document probing in the commit message.
+
+ drivers/net/phy/Kconfig   |   5 ++
+ drivers/net/phy/Makefile  |   1 +
+ drivers/net/phy/cortina.c | 118 ++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 124 insertions(+)
+ create mode 100644 drivers/net/phy/cortina.c
+
+diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
+index 22dea7f..12c033c 100644
+--- a/drivers/net/phy/Kconfig
++++ b/drivers/net/phy/Kconfig
+@@ -240,6 +240,11 @@ config CICADA_PHY
+ 	---help---
+ 	  Currently supports the cis8204
+ 
++config CORTINA_PHY
++	tristate "Cortina EDC CDR 10G Ethernet PHY"
++	---help---
++	  Currently supports the CS4340 phy.
++
+ config DAVICOM_PHY
+ 	tristate "Davicom PHYs"
+ 	---help---
+diff --git a/drivers/net/phy/Makefile b/drivers/net/phy/Makefile
+index 79365be..0de3e20 100644
+--- a/drivers/net/phy/Makefile
++++ b/drivers/net/phy/Makefile
+@@ -47,6 +47,7 @@ obj-$(CONFIG_BCM_CYGNUS_PHY)	+= bcm-cygnus.o
+ obj-$(CONFIG_BCM_NET_PHYLIB)	+= bcm-phy-lib.o
+ obj-$(CONFIG_BROADCOM_PHY)	+= broadcom.o
+ obj-$(CONFIG_CICADA_PHY)	+= cicada.o
++obj-$(CONFIG_CORTINA_PHY)	+= cortina.o
+ obj-$(CONFIG_DAVICOM_PHY)	+= davicom.o
+ obj-$(CONFIG_DP83640_PHY)	+= dp83640.o
+ obj-$(CONFIG_DP83848_PHY)	+= dp83848.o
+diff --git a/drivers/net/phy/cortina.c b/drivers/net/phy/cortina.c
+new file mode 100644
+index 0000000..72f4228
+--- /dev/null
++++ b/drivers/net/phy/cortina.c
+@@ -0,0 +1,118 @@
++/*
++ *    Copyright 2017 NXP
++ *
++ *    This program is free software; you can redistribute it and/or modify
++ *    it under the terms of the GNU General Public License as published by
++ *    the Free Software Foundation; either version 2 of the License, or
++ *    (at your option) any later version.
++ *
++ *    This program is distributed in the hope that it will be useful,
++ *    but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ *    GNU General Public License for more details.
++ *
++ *    CORTINA is a registered trademark of Cortina Systems, Inc.
++ *
++ */
++#include <linux/module.h>
++#include <linux/phy.h>
++
++#define PHY_ID_CS4340	0x13e51002
++
++#define VILLA_GLOBAL_CHIP_ID_LSB			0x0
++#define VILLA_GLOBAL_CHIP_ID_MSB			0x1
++
++#define VILLA_GLOBAL_GPIO_1_INTS			0x017
++
++static int cortina_read_reg(struct phy_device *phydev, u16 regnum)
++{
++	return mdiobus_read(phydev->mdio.bus, phydev->mdio.addr,
++			    MII_ADDR_C45 | regnum);
++}
++
++static int cortina_config_aneg(struct phy_device *phydev)
++{
++	phydev->supported = SUPPORTED_10000baseT_Full;
++	phydev->advertising = SUPPORTED_10000baseT_Full;
++
++	return 0;
++}
++
++static int cortina_read_status(struct phy_device *phydev)
++{
++	int gpio_int_status, ret = 0;
++
++	gpio_int_status = cortina_read_reg(phydev, VILLA_GLOBAL_GPIO_1_INTS);
++	if (gpio_int_status < 0) {
++		ret = gpio_int_status;
++		goto err;
++	}
++
++	if (gpio_int_status & 0x8) {
++		/* up when edc_convergedS set */
++		phydev->speed = SPEED_10000;
++		phydev->duplex = DUPLEX_FULL;
++		phydev->link = 1;
++	} else {
++		phydev->link = 0;
++	}
++
++err:
++	return ret;
++}
++
++static int cortina_soft_reset(struct phy_device *phydev)
++{
++	return 0;
++}
++
++static int cortina_probe(struct phy_device *phydev)
++{
++	u32 phy_id = 0;
++	int id_lsb = 0, id_msb = 0;
++
++	/* Read device id from phy registers. */
++	id_lsb = cortina_read_reg(phydev, VILLA_GLOBAL_CHIP_ID_LSB);
++	if (id_lsb < 0)
++		return -ENXIO;
++
++	phy_id = id_lsb << 16;
++
++	id_msb = cortina_read_reg(phydev, VILLA_GLOBAL_CHIP_ID_MSB);
++	if (id_msb < 0)
++		return -ENXIO;
++
++	phy_id |= id_msb;
++
++	/* Make sure the device tree binding matched the driver with the
++	 * right device.
++	 */
++	if (phy_id != phydev->drv->phy_id) {
++		phydev_err(phydev, "Error matching phy with %s driver\n",
++			   phydev->drv->name);
++		return -ENODEV;
++	}
++
++	return 0;
++}
++
++static struct phy_driver cortina_driver[] = {
++{
++	.phy_id		= PHY_ID_CS4340,
++	.phy_id_mask	= 0xffffffff,
++	.name		= "Cortina CS4340",
++	.config_aneg	= cortina_config_aneg,
++	.read_status	= cortina_read_status,
++	.soft_reset	= cortina_soft_reset,
++	.probe		= cortina_probe,
++},
++};
++
++module_phy_driver(cortina_driver);
++
++static struct mdio_device_id __maybe_unused cortina_tbl[] = {
++	{ PHY_ID_CS4340, 0xffffffff},
++	{},
++};
++
++MODULE_DEVICE_TABLE(mdio, cortina_tbl);
+-- 
+1.9.1
