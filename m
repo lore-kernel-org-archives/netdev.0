@@ -1,58 +1,42 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH net-next 2/3] netvsc: use hv_get_bytes_to_read
-Date: Mon, 29 May 2017 11:31:58 -0700
-Message-ID: <20170529183159.22205-2-sthemmin@microsoft.com>
+Subject: [PATCH net-next 3/3] netvsc: use typed pointer for internal state
+Date: Mon, 29 May 2017 11:31:59 -0700
+Message-ID: <20170529183159.22205-3-sthemmin@microsoft.com>
 References: <20170529183159.22205-1-sthemmin@microsoft.com>
 Cc: netdev@vger.kernel.org, Stephen Hemminger <sthemmin@microsoft.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f174.google.com ([209.85.192.174]:35368 "EHLO
-        mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751125AbdE2ScF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 29 May 2017 14:32:05 -0400
-Received: by mail-pf0-f174.google.com with SMTP id n23so51211486pfb.2
-        for <netdev@vger.kernel.org>; Mon, 29 May 2017 11:32:05 -0700 (PDT)
+Received: from mail-pf0-f169.google.com ([209.85.192.169]:33222 "EHLO
+        mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751080AbdE2ScH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 29 May 2017 14:32:07 -0400
+Received: by mail-pf0-f169.google.com with SMTP id e193so51302585pfh.0
+        for <netdev@vger.kernel.org>; Mon, 29 May 2017 11:32:06 -0700 (PDT)
 In-Reply-To: <20170529183159.22205-1-sthemmin@microsoft.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Don't need need to look at write space in netvsc_close.
+The element netvsc_device:extension is always a pointer to RNDIS
+information.
 
 Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
 ---
- drivers/net/hyperv/netvsc_drv.c | 10 +++-------
- 1 file changed, 3 insertions(+), 7 deletions(-)
+ drivers/net/hyperv/hyperv_net.h | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index 548c78863ce9..c3e0277186bb 100644
---- a/drivers/net/hyperv/netvsc_drv.c
-+++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -118,7 +118,7 @@ static int netvsc_close(struct net_device *net)
- 	struct net_device_context *net_device_ctx = netdev_priv(net);
- 	struct netvsc_device *nvdev = rtnl_dereference(net_device_ctx->nvdev);
- 	int ret;
--	u32 aread, awrite, i, msec = 10, retry = 0, retry_max = 20;
-+	u32 aread, i, msec = 10, retry = 0, retry_max = 20;
- 	struct vmbus_channel *chn;
+diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
+index 262b2ea576a3..f82d54e0208c 100644
+--- a/drivers/net/hyperv/hyperv_net.h
++++ b/drivers/net/hyperv/hyperv_net.h
+@@ -763,8 +763,7 @@ struct netvsc_device {
  
- 	netif_tx_disable(net);
-@@ -139,15 +139,11 @@ static int netvsc_close(struct net_device *net)
- 			if (!chn)
- 				continue;
+ 	refcount_t sc_offered;
  
--			hv_get_ringbuffer_availbytes(&chn->inbound, &aread,
--						     &awrite);
--
-+			aread = hv_get_bytes_to_read(&chn->inbound);
- 			if (aread)
- 				break;
+-	/* Holds rndis device info */
+-	void *extension;
++	struct rndis_device *extension;
  
--			hv_get_ringbuffer_availbytes(&chn->outbound, &aread,
--						     &awrite);
--
-+			aread = hv_get_bytes_to_read(&chn->outbound);
- 			if (aread)
- 				break;
- 		}
+ 	int ring_size;
+ 
 -- 
 2.11.0
