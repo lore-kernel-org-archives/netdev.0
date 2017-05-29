@@ -1,62 +1,56 @@
-From: Bogdan Purcareata <bogdan.purcareata-3arQi8VN3Tc@public.gmane.org>
-Subject: [PATCH v4 2/2] dt-bindings: net: Add Cortina device tree bindings
-Date: Mon, 29 May 2017 09:11:31 +0000
-Message-ID: <1496049091-4637-3-git-send-email-bogdan.purcareata@nxp.com>
-References: <1496049091-4637-1-git-send-email-bogdan.purcareata@nxp.com>
+From: Peter Zijlstra <peterz@infradead.org>
+Subject: Re: [PATCH v2 net-next 1/3] perf, bpf: Add BPF support to all
+ perf_event types
+Date: Mon, 29 May 2017 11:12:53 +0200
+Message-ID: <20170529091253.lopsd33qticsbgii@hirez.programming.kicks-ass.net>
+References: <20170526055549.557818-1-ast@fb.com>
+ <20170526055549.557818-2-ast@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-To: <andrew-g2DYL2Zd6BY@public.gmane.org>, <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1496049091-4637-1-git-send-email-bogdan.purcareata-3arQi8VN3Tc@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S . Miller" <davem@davemloft.net>,
+        Brendan Gregg <bgregg@netflix.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Teng Qin <qinteng@fb.com>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Alexei Starovoitov <ast@fb.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from merlin.infradead.org ([205.233.59.134]:36158 "EHLO
+        merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750837AbdE2JNX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 29 May 2017 05:13:23 -0400
+Content-Disposition: inline
+In-Reply-To: <20170526055549.557818-2-ast@fb.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add device tree description info for Cortina 10G phy devices.
+On Thu, May 25, 2017 at 10:55:47PM -0700, Alexei Starovoitov wrote:
 
-Signed-off-by: Bogdan Purcareata <bogdan.purcareata-3arQi8VN3Tc@public.gmane.org>
----
-v3 -> v4:
-- Consistency nit between phy label and reg value.
-- Add CORTINNA trademark info.
+> +++ b/kernel/bpf/arraymap.c
+> @@ -462,26 +462,22 @@ static void *perf_event_fd_array_get_ptr(struct bpf_map *map,
+>  
+>  	event = perf_file->private_data;
+>  	ee = ERR_PTR(-EINVAL);
+> +	/* Per-task events are not supported */
+> +	if (event->attach_state & PERF_ATTACH_TASK)
+> +		goto err_out;
+>  
+>  	attr = perf_event_attrs(event);
+>  	if (IS_ERR(attr) || attr->inherit)
+>  		goto err_out;
 
-Patch introduced in v3 of the patchset.
+> +	/* TRACEPOINT and BREAKPOINT not supported in perf_event_read_local */
 
- Documentation/devicetree/bindings/net/cortina.txt | 21 +++++++++++++++++++++
- 1 file changed, 21 insertions(+)
- create mode 100644 Documentation/devicetree/bindings/net/cortina.txt
+I cannot find reason for this comment. That is, why would
+perf_event_read_local() not support those two types?
 
-diff --git a/Documentation/devicetree/bindings/net/cortina.txt b/Documentation/devicetree/bindings/net/cortina.txt
-new file mode 100644
-index 0000000..40d0bd9
---- /dev/null
-+++ b/Documentation/devicetree/bindings/net/cortina.txt
-@@ -0,0 +1,21 @@
-+Cortina Phy Driver Device Tree Bindings
-+---------------------------------------
-+
-+CORTINA is a registered trademark of Cortina Systems, Inc.
-+
-+The driver supports the Cortina Electronic Dispersion Compensation (EDC)
-+devices, equipped with clock and data recovery (CDR) circuits. These
-+devices make use of registers that are not compatible with Clause 45 or
-+Clause 22, therefore they need to be described using the
-+"ethernet-phy-id" compatible.
-+
-+Since the driver only implements  polling mode support, interrupts info
-+can be skipped.
-+
-+Example (CS4340 phy):
-+	mdio {
-+		cs4340_phy@10 {
-+			compatible = "ethernet-phy-id13e5.1002";
-+			reg = <0x10>;
-+		};
-+	};
--- 
-1.9.1
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> +	if (attr->type == PERF_TYPE_TRACEPOINT ||
+> +	    attr->type == PERF_TYPE_BREAKPOINT)
+> +		goto err_out;
+>  
+> +	ee = bpf_event_entry_gen(perf_file, map_file);
+> +	if (ee)
+> +		return ee;
+> +	ee = ERR_PTR(-ENOMEM);
+>  
+>  err_out:
+>  	fput(perf_file);
