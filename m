@@ -1,182 +1,166 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next v2 06/13] nfp: support long reads and writes with the cpp helpers
-Date: Sun, 28 May 2017 17:52:57 -0700
-Message-ID: <20170529005304.20847-7-jakub.kicinski@netronome.com>
+Subject: [PATCH net-next v2 02/13] nfp: add set_mac_address support while the interface is up
+Date: Sun, 28 May 2017 17:52:53 -0700
+Message-ID: <20170529005304.20847-3-jakub.kicinski@netronome.com>
 References: <20170529005304.20847-1-jakub.kicinski@netronome.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
 Cc: oss-drivers@netronome.com,
-        Jakub Kicinski <jakub.kicinski@netronome.com>
+        =?UTF-8?q?Pablo=20Casc=C3=B3n?= <pablo.cascon@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f41.google.com ([74.125.83.41]:33318 "EHLO
-        mail-pg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750913AbdE2Ayd (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 28 May 2017 20:54:33 -0400
-Received: by mail-pg0-f41.google.com with SMTP id u187so15368621pgb.0
-        for <netdev@vger.kernel.org>; Sun, 28 May 2017 17:54:33 -0700 (PDT)
+Received: from mail-pg0-f54.google.com ([74.125.83.54]:35933 "EHLO
+        mail-pg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750846AbdE2Ayb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 28 May 2017 20:54:31 -0400
+Received: by mail-pg0-f54.google.com with SMTP id x64so15376904pgd.3
+        for <netdev@vger.kernel.org>; Sun, 28 May 2017 17:54:30 -0700 (PDT)
 In-Reply-To: <20170529005304.20847-1-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-nfp_cpp_{read,write}() helpers perform device memory mapping (setting
-the PCIe -> NOC translation BARs) and accessing it.  They, however,
-currently implicitly expect that the length of entire operation will
-fit in one BAR translation window.  There is a number of 16MB windows
-available, and we don't really need to access such large areas today.
+From: Pablo Cascón <pablo.cascon@netronome.com>
 
-If the user, however, manages to trick the driver into making a big
-mapping (e.g. by providing a huge fake FW file), the driver will
-print a warning saying "No suitable BAR found for request" and a
-stack trace - which most users find concerning.
+Expose FW app ability to change MAC address at runtime.  Make sure
+we only depend on it if FW app advertised the right capability.
 
-To be future-proof and not scare users with warnings, make the
-nfp_cpp_{read,write}() helpers do accesses chunk by chunk if the area
-size is large.  Set the notion of "large" to 2MB, which is the size
-of the smallest BAR window.
-
-Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+Signed-off-by: Pablo Cascón <pablo.cascon@netronome.com>
+Reviewed-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 ---
- .../net/ethernet/netronome/nfp/nfpcore/nfp_cpp.h   |  3 +
- .../ethernet/netronome/nfp/nfpcore/nfp_cppcore.c   | 87 +++++++++++++++++-----
- 2 files changed, 72 insertions(+), 18 deletions(-)
+ .../net/ethernet/netronome/nfp/nfp_net_common.c    | 44 +++++++++++++++++-----
+ drivers/net/ethernet/netronome/nfp/nfp_net_ctrl.h  |  2 +
+ 2 files changed, 36 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cpp.h b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cpp.h
-index 154b0b594184..8d46b9acb69f 100644
---- a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cpp.h
-+++ b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cpp.h
-@@ -42,6 +42,7 @@
- 
- #include <linux/ctype.h>
- #include <linux/types.h>
-+#include <linux/sizes.h>
- 
- #ifndef NFP_SUBSYS
- #define NFP_SUBSYS "nfp"
-@@ -59,6 +60,8 @@
- #define PCI_64BIT_BAR_COUNT             3
- 
- #define NFP_CPP_NUM_TARGETS             16
-+/* Max size of area it should be safe to request */
-+#define NFP_CPP_SAFE_AREA_SIZE		SZ_2M
- 
- struct device;
- 
-diff --git a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cppcore.c b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cppcore.c
-index e2abba4c3a3f..5672d309d07d 100644
---- a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cppcore.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cppcore.c
-@@ -924,18 +924,9 @@ area_cache_put(struct nfp_cpp *cpp, struct nfp_cpp_area_cache *cache)
- 	mutex_unlock(&cpp->area_cache_mutex);
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
+index b3f5c8af6789..9312a737fbc9 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
++++ b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
+@@ -2123,17 +2123,16 @@ void nfp_net_coalesce_write_cfg(struct nfp_net *nn)
+ /**
+  * nfp_net_write_mac_addr() - Write mac address to the device control BAR
+  * @nn:      NFP Net device to reconfigure
++ * @addr:    MAC address to write
+  *
+  * Writes the MAC address from the netdev to the device control BAR.  Does not
+  * perform the required reconfig.  We do a bit of byte swapping dance because
+  * firmware is LE.
+  */
+-static void nfp_net_write_mac_addr(struct nfp_net *nn)
++static void nfp_net_write_mac_addr(struct nfp_net *nn, const u8 *addr)
+ {
+-	nn_writel(nn, NFP_NET_CFG_MACADDR + 0,
+-		  get_unaligned_be32(nn->dp.netdev->dev_addr));
+-	nn_writew(nn, NFP_NET_CFG_MACADDR + 6,
+-		  get_unaligned_be16(nn->dp.netdev->dev_addr + 4));
++	nn_writel(nn, NFP_NET_CFG_MACADDR + 0, get_unaligned_be32(addr));
++	nn_writew(nn, NFP_NET_CFG_MACADDR + 6, get_unaligned_be16(addr + 4));
  }
  
--/**
-- * nfp_cpp_read() - read from CPP target
-- * @cpp:		CPP handle
-- * @destination:	CPP id
-- * @address:		offset into CPP target
-- * @kernel_vaddr:	kernel buffer for result
-- * @length:		number of bytes to read
-- *
-- * Return: length of io, or -ERRNO
-- */
--int nfp_cpp_read(struct nfp_cpp *cpp, u32 destination,
--		 unsigned long long address, void *kernel_vaddr, size_t length)
-+static int __nfp_cpp_read(struct nfp_cpp *cpp, u32 destination,
-+			  unsigned long long address, void *kernel_vaddr,
-+			  size_t length)
- {
- 	struct nfp_cpp_area_cache *cache;
- 	struct nfp_cpp_area *area;
-@@ -968,18 +959,43 @@ int nfp_cpp_read(struct nfp_cpp *cpp, u32 destination,
+ static void nfp_net_vec_clear_ring_data(struct nfp_net *nn, unsigned int idx)
+@@ -2238,7 +2237,7 @@ static int nfp_net_set_config_and_enable(struct nfp_net *nn)
+ 	nn_writeq(nn, NFP_NET_CFG_RXRS_ENABLE, nn->dp.num_rx_rings == 64 ?
+ 		  0xffffffffffffffffULL : ((u64)1 << nn->dp.num_rx_rings) - 1);
+ 
+-	nfp_net_write_mac_addr(nn);
++	nfp_net_write_mac_addr(nn, nn->dp.netdev->dev_addr);
+ 
+ 	nn_writel(nn, NFP_NET_CFG_MTU, nn->dp.netdev->mtu);
+ 
+@@ -2997,6 +2996,27 @@ static int nfp_net_xdp(struct net_device *netdev, struct netdev_xdp *xdp)
+ 	}
+ }
+ 
++static int nfp_net_set_mac_address(struct net_device *netdev, void *addr)
++{
++	struct nfp_net *nn = netdev_priv(netdev);
++	struct sockaddr *saddr = addr;
++	int err;
++
++	err = eth_prepare_mac_addr_change(netdev, addr);
++	if (err)
++		return err;
++
++	nfp_net_write_mac_addr(nn, saddr->sa_data);
++
++	err = nfp_net_reconfig(nn, NFP_NET_CFG_UPDATE_MACADDR);
++	if (err)
++		return err;
++
++	eth_commit_mac_addr_change(netdev, addr);
++
++	return 0;
++}
++
+ const struct net_device_ops nfp_net_netdev_ops = {
+ 	.ndo_open		= nfp_net_netdev_open,
+ 	.ndo_stop		= nfp_net_netdev_close,
+@@ -3006,7 +3026,7 @@ const struct net_device_ops nfp_net_netdev_ops = {
+ 	.ndo_tx_timeout		= nfp_net_tx_timeout,
+ 	.ndo_set_rx_mode	= nfp_net_set_rx_mode,
+ 	.ndo_change_mtu		= nfp_net_change_mtu,
+-	.ndo_set_mac_address	= eth_mac_addr,
++	.ndo_set_mac_address	= nfp_net_set_mac_address,
+ 	.ndo_set_features	= nfp_net_set_features,
+ 	.ndo_features_check	= nfp_net_features_check,
+ 	.ndo_get_phys_port_name	= nfp_port_get_phys_port_name,
+@@ -3029,7 +3049,7 @@ void nfp_net_info(struct nfp_net *nn)
+ 		nn->fw_ver.resv, nn->fw_ver.class,
+ 		nn->fw_ver.major, nn->fw_ver.minor,
+ 		nn->max_mtu);
+-	nn_info(nn, "CAP: %#x %s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s\n",
++	nn_info(nn, "CAP: %#x %s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s\n",
+ 		nn->cap,
+ 		nn->cap & NFP_NET_CFG_CTRL_PROMISC  ? "PROMISC "  : "",
+ 		nn->cap & NFP_NET_CFG_CTRL_L2BC     ? "L2BCFILT " : "",
+@@ -3051,7 +3071,8 @@ void nfp_net_info(struct nfp_net *nn)
+ 		nn->cap & NFP_NET_CFG_CTRL_NVGRE    ? "NVGRE "	  : "",
+ 		nfp_net_ebpf_capable(nn)            ? "BPF "	  : "",
+ 		nn->cap & NFP_NET_CFG_CTRL_CSUM_COMPLETE ?
+-						      "RXCSUM_COMPLETE " : "");
++						      "RXCSUM_COMPLETE " : "",
++		nn->cap & NFP_NET_CFG_CTRL_LIVE_ADDR ? "LIVE_ADDR " : "");
  }
  
  /**
-- * nfp_cpp_write() - write to CPP target
-+ * nfp_cpp_read() - read from CPP target
-  * @cpp:		CPP handle
-  * @destination:	CPP id
-  * @address:		offset into CPP target
-- * @kernel_vaddr:	kernel buffer to read from
-- * @length:		number of bytes to write
-+ * @kernel_vaddr:	kernel buffer for result
-+ * @length:		number of bytes to read
-  *
-  * Return: length of io, or -ERRNO
-  */
--int nfp_cpp_write(struct nfp_cpp *cpp, u32 destination,
--		  unsigned long long address,
--		  const void *kernel_vaddr, size_t length)
-+int nfp_cpp_read(struct nfp_cpp *cpp, u32 destination,
-+		 unsigned long long address, void *kernel_vaddr,
-+		 size_t length)
-+{
-+	size_t n, offset;
-+	int ret;
-+
-+	for (offset = 0; offset < length; offset += n) {
-+		unsigned long long r_addr = address + offset;
-+
-+		/* make first read smaller to align to safe window */
-+		n = min_t(size_t, length - offset,
-+			  ALIGN(r_addr + 1, NFP_CPP_SAFE_AREA_SIZE) - r_addr);
-+
-+		ret = __nfp_cpp_read(cpp, destination, address + offset,
-+				     kernel_vaddr + offset, n);
-+		if (ret < 0)
-+			return ret;
-+		if (ret != n)
-+			return offset + n;
-+	}
-+
-+	return length;
-+}
-+
-+static int __nfp_cpp_write(struct nfp_cpp *cpp, u32 destination,
-+			   unsigned long long address,
-+			   const void *kernel_vaddr, size_t length)
- {
- 	struct nfp_cpp_area_cache *cache;
- 	struct nfp_cpp_area *area;
-@@ -1011,6 +1027,41 @@ int nfp_cpp_write(struct nfp_cpp *cpp, u32 destination,
- 	return err;
- }
+@@ -3211,7 +3232,7 @@ int nfp_net_init(struct nfp_net *nn)
+ 	if (nn->dp.chained_metadata_format && nn->fw_ver.major != 4)
+ 		nn->cap &= ~NFP_NET_CFG_CTRL_RSS;
  
-+/**
-+ * nfp_cpp_write() - write to CPP target
-+ * @cpp:		CPP handle
-+ * @destination:	CPP id
-+ * @address:		offset into CPP target
-+ * @kernel_vaddr:	kernel buffer to read from
-+ * @length:		number of bytes to write
-+ *
-+ * Return: length of io, or -ERRNO
-+ */
-+int nfp_cpp_write(struct nfp_cpp *cpp, u32 destination,
-+		  unsigned long long address,
-+		  const void *kernel_vaddr, size_t length)
-+{
-+	size_t n, offset;
-+	int ret;
+-	nfp_net_write_mac_addr(nn);
++	nfp_net_write_mac_addr(nn, nn->dp.netdev->dev_addr);
+ 
+ 	/* Determine RX packet/metadata boundary offset */
+ 	if (nn->fw_ver.major >= 2) {
+@@ -3241,6 +3262,9 @@ int nfp_net_init(struct nfp_net *nn)
+ 	 * and netdev->hw_features advertises which features are
+ 	 * supported.  By default we enable most features.
+ 	 */
++	if (nn->cap & NFP_NET_CFG_CTRL_LIVE_ADDR)
++		netdev->priv_flags |= IFF_LIVE_ADDR_CHANGE;
 +
-+	for (offset = 0; offset < length; offset += n) {
-+		unsigned long long w_addr = address + offset;
-+
-+		/* make first write smaller to align to safe window */
-+		n = min_t(size_t, length - offset,
-+			  ALIGN(w_addr + 1, NFP_CPP_SAFE_AREA_SIZE) - w_addr);
-+
-+		ret = __nfp_cpp_write(cpp, destination, address + offset,
-+				      kernel_vaddr + offset, n);
-+		if (ret < 0)
-+			return ret;
-+		if (ret != n)
-+			return offset + n;
-+	}
-+
-+	return length;
-+}
-+
- /* Return the correct CPP address, and fixup xpb_addr as needed. */
- static u32 nfp_xpb_to_cpp(struct nfp_cpp *cpp, u32 *xpb_addr)
- {
+ 	netdev->hw_features = NETIF_F_HIGHDMA;
+ 	if (nn->cap & NFP_NET_CFG_CTRL_RXCSUM_ANY) {
+ 		netdev->hw_features |= NETIF_F_RXCSUM;
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_ctrl.h b/drivers/net/ethernet/netronome/nfp/nfp_net_ctrl.h
+index df75b8dc3617..c8208bf370e0 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_net_ctrl.h
++++ b/drivers/net/ethernet/netronome/nfp/nfp_net_ctrl.h
+@@ -135,6 +135,7 @@
+ #define   NFP_NET_CFG_CTRL_LSO2		  (0x1 << 28) /* LSO/TSO (version 2) */
+ #define   NFP_NET_CFG_CTRL_RSS2		  (0x1 << 29) /* RSS (version 2) */
+ #define   NFP_NET_CFG_CTRL_CSUM_COMPLETE  (0x1 << 30) /* Checksum complete */
++#define   NFP_NET_CFG_CTRL_LIVE_ADDR	  (0x1 << 31) /* live MAC addr change */
+ 
+ #define NFP_NET_CFG_CTRL_LSO_ANY	(NFP_NET_CFG_CTRL_LSO | \
+ 					 NFP_NET_CFG_CTRL_LSO2)
+@@ -157,6 +158,7 @@
+ #define   NFP_NET_CFG_UPDATE_IRQMOD       (0x1 <<  8) /* IRQ mod change */
+ #define   NFP_NET_CFG_UPDATE_VXLAN	  (0x1 <<  9) /* VXLAN port change */
+ #define   NFP_NET_CFG_UPDATE_BPF	  (0x1 << 10) /* BPF program load */
++#define   NFP_NET_CFG_UPDATE_MACADDR	  (0x1 << 11) /* MAC address change */
+ #define   NFP_NET_CFG_UPDATE_ERR          (0x1 << 31) /* A error occurred */
+ #define NFP_NET_CFG_TXRS_ENABLE         0x0008
+ #define NFP_NET_CFG_RXRS_ENABLE         0x0010
 -- 
 2.11.0
