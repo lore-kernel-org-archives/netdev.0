@@ -1,48 +1,60 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] net: dsa: mv88e6xxx: Add missing static to stub functions
-Date: Mon, 29 May 2017 14:56:01 +0200
-Message-ID: <20170529125612.110244-1-arnd@arndb.de>
-Cc: Arnd Bergmann <arnd@arndb.de>,
-        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Andrew Lunn <andrew@lunn.ch>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Subject: [PATCH net] net/mlx5: avoid build warning for uniprocessor
+Date: Mon, 29 May 2017 15:00:17 +0200
+Message-ID: <20170529130030.244337-1-arnd@arndb.de>
+Cc: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
+        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Mohamad Haj Yahia <mohamad-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Daniel Jurgens <danielj-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, Aviv Heller <avivh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Huy Nguyen <huyn-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Artemy Kovalyov <artemyko-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-'static' was not enough, the helpers must be 'static inline'
+Building the driver with CONFIG_SMP disabled results in a harmless
+warning:
 
-net/dsa/mv88e6xxx/global2.h:123:12: error: 'mv88e6xxx_g2_misc_4_bit_port' defined but not used [-Werror=unused-function]
-net/dsa/mv88e6xxx/global2.h:117:12: error: 'mv88e6xxx_g2_pvt_write' defined but not used [-Werror=unused-function]
+ethernet/mellanox/mlx5/core/main.c: In function 'mlx5_irq_set_affinity_hint':
+ethernet/mellanox/mlx5/core/main.c:615:6: error: unused variable 'irq' [-Werror=unused-variable]
 
-Fixes: c21fbe29f858 ("net: dsa: mv88e6xxx: Add missing static to stub functions")
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+It's better to express the conditional compilation using IS_ENABLED()
+here, as that lets the compiler see what the intented use for the variable
+is, and that it can be silently discarded.
+
+Fixes: b665d98edc9a ("net/mlx5: Tolerate irq_set_affinity_hint() failures")
+igned-off-by: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
 ---
- drivers/net/dsa/mv88e6xxx/global2.h | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/main.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/dsa/mv88e6xxx/global2.h b/drivers/net/dsa/mv88e6xxx/global2.h
-index d8d3c5abb2a1..14c0be98e0a4 100644
---- a/drivers/net/dsa/mv88e6xxx/global2.h
-+++ b/drivers/net/dsa/mv88e6xxx/global2.h
-@@ -114,13 +114,13 @@ static inline int mv88e6xxx_g2_set_eeprom16(struct mv88e6xxx_chip *chip,
- 	return -EOPNOTSUPP;
- }
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c b/drivers/net/ethernet/mellanox/mlx5/core/main.c
+index 361cd112bb5b..9274d93d3183 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
+@@ -622,10 +622,9 @@ static int mlx5_irq_set_affinity_hint(struct mlx5_core_dev *mdev, int i)
+ 	cpumask_set_cpu(cpumask_local_spread(i, priv->numa_node),
+ 			priv->irq_info[i].mask);
  
--static int mv88e6xxx_g2_pvt_write(struct mv88e6xxx_chip *chip, int src_dev,
--				  int src_port, u16 data)
-+static inline int mv88e6xxx_g2_pvt_write(struct mv88e6xxx_chip *chip,
-+					 int src_dev, int src_port, u16 data)
- {
- 	return -EOPNOTSUPP;
- }
+-#ifdef CONFIG_SMP
+-	if (irq_set_affinity_hint(irq, priv->irq_info[i].mask))
++	if (IS_ENABLED(CONFIG_SMP) &&
++	    irq_set_affinity_hint(irq, priv->irq_info[i].mask))
+ 		mlx5_core_warn(mdev, "irq_set_affinity_hint failed, irq 0x%.4x", irq);
+-#endif
  
--static int mv88e6xxx_g2_misc_4_bit_port(struct mv88e6xxx_chip *chip)
-+static inline int mv88e6xxx_g2_misc_4_bit_port(struct mv88e6xxx_chip *chip)
- {
- 	return -EOPNOTSUPP;
+ 	return 0;
  }
 -- 
 2.9.0
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
