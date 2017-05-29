@@ -1,36 +1,36 @@
-From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
-Subject: Re: [PATCH net-next v3 5/5] net-next: dsa: add dsa support for
- Mediatek MT7530 switch
-Date: Mon, 29 May 2017 17:29:26 +0200
-Message-ID: <20170529152926.GA21315@lunn.ch>
-References: <1490780303-18598-1-git-send-email-sean.wang@mediatek.com>
- <1490780303-18598-6-git-send-email-sean.wang@mediatek.com>
- <hn6gvd-qp1.ln1@banana.localnet>
- <043CDC76-3C57-4F54-97B6-896591A11CB3@gmail.com>
- <CA+PODjoZpYLVKCXveUGvu8MXX4YVmE-bKm241o_3OT3P5pkieQ@mail.gmail.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH] net: dsa: mv88e6xxx: Add missing static to stub functions
+Date: Mon, 29 May 2017 17:30:30 +0200
+Message-ID: <20170529153030.GB21315@lunn.ch>
+References: <20170529125612.110244-1-arnd@arndb.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-To: Andrey Melnikov <temnota.am-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:53638 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751039AbdE2Pam (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 29 May 2017 11:30:42 -0400
 Content-Disposition: inline
-In-Reply-To: <CA+PODjoZpYLVKCXveUGvu8MXX4YVmE-bKm241o_3OT3P5pkieQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20170529125612.110244-1-arnd@arndb.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> I want to see each ports behind the bridge as independent ethernet
-> devices. If I understand RTFM only devlink may expose this
-> configuration.
+On Mon, May 29, 2017 at 02:56:01PM +0200, Arnd Bergmann wrote:
+> 'static' was not enough, the helpers must be 'static inline'
+> 
+> net/dsa/mv88e6xxx/global2.h:123:12: error: 'mv88e6xxx_g2_misc_4_bit_port' defined but not used [-Werror=unused-function]
+> net/dsa/mv88e6xxx/global2.h:117:12: error: 'mv88e6xxx_g2_pvt_write' defined but not used [-Werror=unused-function]
+> 
+> Fixes: c21fbe29f858 ("net: dsa: mv88e6xxx: Add missing static to stub functions")
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 
-DSA and switchdev in general gives you a linux interface per user
-switch port. So you can see each interface, get stats, ethtools,
-mii-tool, etc per interface. devlink is not needed for this.
+Hi Arnd
 
-	  Andrew
+Dave merged my fix yesterday.
 
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+     Andrew
