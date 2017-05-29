@@ -1,119 +1,121 @@
 From: Yuval Mintz <Yuval.Mintz@cavium.com>
-Subject: [PATCH v2 net-next 08/10] qed: Print multi-bit attentions properly
-Date: Mon, 29 May 2017 09:53:12 +0300
-Message-ID: <1496040794-6163-9-git-send-email-Yuval.Mintz@cavium.com>
+Subject: [PATCH v2 net-next 09/10] qed: Mask parities after occurance
+Date: Mon, 29 May 2017 09:53:13 +0300
+Message-ID: <1496040794-6163-10-git-send-email-Yuval.Mintz@cavium.com>
 References: <1496040794-6163-1-git-send-email-Yuval.Mintz@cavium.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Yuval Mintz <Yuval.Mintz@cavium.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-sn1nam01on0071.outbound.protection.outlook.com ([104.47.32.71]:12262
-        "EHLO NAM01-SN1-obe.outbound.protection.outlook.com"
+Received: from mail-by2nam03on0079.outbound.protection.outlook.com ([104.47.42.79]:49216
+        "EHLO NAM03-BY2-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751039AbdE2GyL (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 29 May 2017 02:54:11 -0400
+        id S1751053AbdE2GyP (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 29 May 2017 02:54:15 -0400
 In-Reply-To: <1496040794-6163-1-git-send-email-Yuval.Mintz@cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In strucuture reflecting the AEU hw block some entries
-represent multiple HW bits, and the associated name is in fact
-a pattern.
-Today, whenever such an attention would be asserted the resulted
-prints would show the pattern string instead of indicating which
-of the possible bits was set.
+Parities might exhibit a flood behavior since we re-enable the
+attention line without preventing the parity from re-triggering the
+assertion.
+Mask the source in AEU until the parity would be handled.
 
 Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
 ---
- drivers/net/ethernet/qlogic/qed/qed_int.c | 38 +++++++++++++++++++++++++++----
- 1 file changed, 33 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/qlogic/qed/qed_int.c | 36 ++++++++++++++++++++-----------
+ 1 file changed, 23 insertions(+), 13 deletions(-)
 
 diff --git a/drivers/net/ethernet/qlogic/qed/qed_int.c b/drivers/net/ethernet/qlogic/qed/qed_int.c
-index de6f60c..e19a002 100644
+index e19a002..6ac6d80 100644
 --- a/drivers/net/ethernet/qlogic/qed/qed_int.c
 +++ b/drivers/net/ethernet/qlogic/qed/qed_int.c
-@@ -749,19 +749,19 @@ static void qed_int_attn_print(struct qed_hwfn *p_hwfn,
- qed_int_deassertion_aeu_bit(struct qed_hwfn *p_hwfn,
- 			    struct aeu_invert_reg_bit *p_aeu,
- 			    u32 aeu_en_reg,
--			    u32 bitmask)
-+			    const char *p_bit_name, u32 bitmask)
+@@ -793,16 +793,18 @@ static void qed_int_attn_print(struct qed_hwfn *p_hwfn,
+  *
+  * @param p_hwfn
+  * @param p_aeu - descriptor of an AEU bit which caused the parity
++ * @param aeu_en_reg - address of the AEU enable register
+  * @param bit_index
+  */
+ static void qed_int_deassertion_parity(struct qed_hwfn *p_hwfn,
+ 				       struct aeu_invert_reg_bit *p_aeu,
+-				       u8 bit_index)
++				       u32 aeu_en_reg, u8 bit_index)
  {
- 	bool b_fatal = false;
- 	int rc = -EINVAL;
- 	u32 val;
+-	u32 block_id = p_aeu->block_index;
++	u32 block_id = p_aeu->block_index, mask, val;
  
- 	DP_INFO(p_hwfn, "Deasserted attention `%s'[%08x]\n",
--		p_aeu->bit_name, bitmask);
-+		p_bit_name, bitmask);
+-	DP_INFO(p_hwfn->cdev, "%s[%d] parity attention is set\n",
+-		p_aeu->bit_name, bit_index);
++	DP_NOTICE(p_hwfn->cdev,
++		  "%s parity attention is set [address 0x%08x, bit %d]\n",
++		  p_aeu->bit_name, aeu_en_reg, bit_index);
  
- 	/* Call callback before clearing the interrupt status */
- 	if (p_aeu->cb) {
- 		DP_INFO(p_hwfn, "`%s (attention)': Calling Callback function\n",
--			p_aeu->bit_name);
-+			p_bit_name);
- 		rc = p_aeu->cb(p_hwfn);
+ 	if (block_id != MAX_BLOCK_ID) {
+ 		qed_int_attn_print(p_hwfn, block_id, ATTN_TYPE_PARITY, false);
+@@ -815,6 +817,13 @@ static void qed_int_deassertion_parity(struct qed_hwfn *p_hwfn,
+ 					   ATTN_TYPE_PARITY, false);
+ 		}
  	}
- 
-@@ -782,7 +782,7 @@ static void qed_int_attn_print(struct qed_hwfn *p_hwfn,
- 	val = qed_rd(p_hwfn, p_hwfn->p_dpc_ptt, aeu_en_reg);
- 	qed_wr(p_hwfn, p_hwfn->p_dpc_ptt, aeu_en_reg, (val & ~bitmask));
- 	DP_INFO(p_hwfn, "`%s' - Disabled future attentions\n",
--		p_aeu->bit_name);
-+		p_bit_name);
- 
- out:
- 	return rc;
-@@ -894,8 +894,8 @@ static int qed_int_deassertion(struct qed_hwfn  *p_hwfn,
- 			 * previous assertion.
- 			 */
- 			for (j = 0, bit_idx = 0; bit_idx < 32; j++) {
-+				long unsigned int bitmask;
- 				u8 bit, bit_len;
--				u32 bitmask;
- 
- 				p_aeu = &sb_attn_sw->p_aeu_desc[i].bits[j];
- 				p_aeu = qed_int_aeu_translate(p_hwfn, p_aeu);
-@@ -909,11 +909,39 @@ static int qed_int_deassertion(struct qed_hwfn  *p_hwfn,
- 				}
- 
- 				bitmask = bits & (((1 << bit_len) - 1) << bit);
-+				bitmask >>= bit;
 +
- 				if (bitmask) {
-+					u32 flags = p_aeu->flags;
-+					char bit_name[30];
-+					u8 num;
-+
-+					num = (u8)find_first_bit(&bitmask,
-+								 bit_len);
-+
-+					/* Some bits represent more than a
-+					 * a single interrupt. Correctly print
-+					 * their name.
-+					 */
-+					if (ATTENTION_LENGTH(flags) > 2 ||
-+					    ((flags & ATTENTION_PAR_INT) &&
-+					     ATTENTION_LENGTH(flags) > 1))
-+						snprintf(bit_name, 30,
-+							 p_aeu->bit_name, num);
-+					else
-+						strncpy(bit_name,
-+							p_aeu->bit_name, 30);
-+
-+					/* We now need to pass bitmask in its
-+					 * correct position.
-+					 */
-+					bitmask <<= bit;
-+
- 					/* Handle source of the attention */
- 					qed_int_deassertion_aeu_bit(p_hwfn,
- 								    p_aeu,
- 								    aeu_en,
-+								    bit_name,
- 								    bitmask);
- 				}
++	/* Prevent this parity error from being re-asserted */
++	mask = ~BIT(bit_index);
++	val = qed_rd(p_hwfn, p_hwfn->p_dpc_ptt, aeu_en_reg);
++	qed_wr(p_hwfn, p_hwfn->p_dpc_ptt, aeu_en_reg, val & mask);
++	DP_INFO(p_hwfn, "`%s' - Disabled future parity errors\n",
++		p_aeu->bit_name);
+ }
  
+ /**
+@@ -829,7 +838,7 @@ static int qed_int_deassertion(struct qed_hwfn  *p_hwfn,
+ 			       u16 deasserted_bits)
+ {
+ 	struct qed_sb_attn_info *sb_attn_sw = p_hwfn->p_sb_attn;
+-	u32 aeu_inv_arr[NUM_ATTN_REGS], aeu_mask;
++	u32 aeu_inv_arr[NUM_ATTN_REGS], aeu_mask, aeu_en, en;
+ 	u8 i, j, k, bit_idx;
+ 	int rc = 0;
+ 
+@@ -846,11 +855,11 @@ static int qed_int_deassertion(struct qed_hwfn  *p_hwfn,
+ 	/* Find parity attentions first */
+ 	for (i = 0; i < NUM_ATTN_REGS; i++) {
+ 		struct aeu_invert_reg *p_aeu = &sb_attn_sw->p_aeu_desc[i];
+-		u32 en = qed_rd(p_hwfn, p_hwfn->p_dpc_ptt,
+-				MISC_REG_AEU_ENABLE1_IGU_OUT_0 +
+-				i * sizeof(u32));
+ 		u32 parities;
+ 
++		aeu_en = MISC_REG_AEU_ENABLE1_IGU_OUT_0 + i * sizeof(u32);
++		en = qed_rd(p_hwfn, p_hwfn->p_dpc_ptt, aeu_en);
++
+ 		/* Skip register in which no parity bit is currently set */
+ 		parities = sb_attn_sw->parity_mask[i] & aeu_inv_arr[i] & en;
+ 		if (!parities)
+@@ -862,7 +871,7 @@ static int qed_int_deassertion(struct qed_hwfn  *p_hwfn,
+ 			if (qed_int_is_parity_flag(p_hwfn, p_bit) &&
+ 			    !!(parities & BIT(bit_idx)))
+ 				qed_int_deassertion_parity(p_hwfn, p_bit,
+-							   bit_idx);
++							   aeu_en, bit_idx);
+ 
+ 			bit_idx += ATTENTION_LENGTH(p_bit->flags);
+ 		}
+@@ -877,10 +886,11 @@ static int qed_int_deassertion(struct qed_hwfn  *p_hwfn,
+ 			continue;
+ 
+ 		for (i = 0; i < NUM_ATTN_REGS; i++) {
+-			u32 aeu_en = MISC_REG_AEU_ENABLE1_IGU_OUT_0 +
+-				     i * sizeof(u32) +
+-				     k * sizeof(u32) * NUM_ATTN_REGS;
+-			u32 en, bits;
++			u32 bits;
++
++			aeu_en = MISC_REG_AEU_ENABLE1_IGU_OUT_0 +
++				 i * sizeof(u32) +
++				 k * sizeof(u32) * NUM_ATTN_REGS;
+ 
+ 			en = qed_rd(p_hwfn, p_hwfn->p_dpc_ptt, aeu_en);
+ 			bits = aeu_inv_arr[i] & en;
 -- 
 1.9.3
