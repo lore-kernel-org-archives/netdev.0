@@ -1,109 +1,82 @@
-From: Jesper Dangaard Brouer via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-Subject: Re: Error with printk and bpf_trace_printk
-Date: Tue, 30 May 2017 14:24:37 +0200
-Message-ID: <20170530142437.656ec63d@redhat.com>
-References: <CAErYV9EJtbgaWn4KAeoADxnHgj7S+vFdHgu78Y2PxNuhpWrANw@mail.gmail.com>
-Reply-To: Jesper Dangaard Brouer <brouer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "xdp-newbies-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <xdp-newbies-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org" <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-To: Adel Fuchs <adelfuchs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-In-Reply-To: <CAErYV9EJtbgaWn4KAeoADxnHgj7S+vFdHgu78Y2PxNuhpWrANw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
-	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
-List-Post: <mailto:iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-List-Help: <mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.iovisor.org/mailman/listinfo/iovisor-dev>,
-	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=subscribe>
-Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
-Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Ganesh Goudar <ganeshgr@chelsio.com>
+Subject: [PATCH net-next] cxgb4: FW upgrade fixes
+Date: Tue, 30 May 2017 18:06:06 +0530
+Message-ID: <1496147766-12948-1-git-send-email-ganeshgr@chelsio.com>
+Cc: nirranjan@chelsio.com, indranil@chelsio.com,
+        Arjun Vynipadath <arjun@chelsio.com>,
+        Casey Leedom <leedom@chelsio.com>,
+        Ganesh Goudar <ganeshgr@chelsio.com>
+To: netdev@vger.kernel.org, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stargate.chelsio.com ([12.32.117.8]:35340 "EHLO
+        stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750946AbdE3MgI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 30 May 2017 08:36:08 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Arjun Vynipadath <arjun@chelsio.com>
 
-Notice, there are two mailing lists (Cc'ed) that you should likely ask
-these kind of questions on (instead of netdev), depending on if this is
-mostly related to bpf (iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org) or somehow
-related to XDP (xdp-newbies-u79uwXL29TY76Z2rM5mHXA@public.gmane.org).
+Disable FW_OK flag while flashing Firmware. This will help to fix any
+potential mailbox timeouts during Firmware flash.
 
-See my answer inlined below:
+Grab new devlog parameters after Firmware restart. When we FLASH new
+Firmware onto an adapter, the new Firmware may have the Firmware Device Log
+located at a different memory address or have a different size for it.
 
-On Sun, 28 May 2017 17:48:20 +0300 Adel Fuchs <adelfuchs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+Signed-off-by: Arjun Vynipadath <arjun@chelsio.com>
+Signed-off-by: Casey Leedom <leedom@chelsio.com>
+Signed-off-by: Ganesh Goudar <ganeshgr@chelsio.com>
+---
+v2:
+-Fix spelling mistake, "send" -> "sent"
 
-> I have a working eBPF program, and I'm trying to add outputs to it.
-> I'm not able to use both printk and bpf_trace_printk functions. I get
-> this error:
-> 
-> ELF contains non-map related relo data in entry 0 pointing to section
-> 8! Compiler bug?!
-> 
-> Prog section 'ingress' rejected: Invalid argument (22)!
->  - Type:         3
->  - Instructions: 16 (0 over limit)
->  - License:      GPL
-> 
-> Verifier analysis:
-> 
-> 0: (bf) r6 = r1
-> 1: (18) r1 = 0x0
-> 3: (85) call bpf_unspec#0
-> unknown func bpf_unspec#0
-> 
-> Error fetching program/map!
-> Failed to retrieve (e)BPF data!
-> 
-> Are there certain "includes" that I need to add?
-> In addition, I'm not sure I'm using the function correctly. I just
-> wrote: printk("hi")
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c | 21 ++++++++++++++++++---
+ 1 file changed, 18 insertions(+), 3 deletions(-)
 
-You obviously cannot call printk directly from and eBPF program.
-I wonder how you got this compiling...
-
-As you hinted yourself, you should be using: bpf_trace_printk().
-But it is actually tricky to use... and not much help is around to
-figure this out.
-
-First of all the output end-up in this file: /sys/kernel/debug/tracing/trace_pipe
-Remember to read the output use 'cat' like:
-
- sudo cat /sys/kernel/debug/tracing/trace_pipe
-
-And only the first process to read the output gets the output...
-
-
-I deduct you are using the TC/iproute2 examples:
- https://git.kernel.org/pub/scm/linux/kernel/git/shemminger/iproute2.git/tree/examples/bpf
-
-Next gotcha is that, you need to provide the char* string in a very
-special way to make this compile correctly.  The iproute2 provide a
-helper define called "printt()" in include/bpf_api.h for this:
-
-#ifndef printt
-# define printt(fmt, ...)                                               \
-        ({                                                              \
-                char ____fmt[] = fmt;                                   \
-                trace_printk(____fmt, sizeof(____fmt), ##__VA_ARGS__);  \
-        })
-#endif
-
-Or see my solution here:
-[1] https://github.com/netoptimizer/prototype-kernel/blob/master/kernel/samples/bpf/xdp_ddos01_blacklist_kern.c#L86:L99
-
-
-Another gotcha I've experienced is that if you format the string
-incorrectly, or use a modifier like %X, which bpf_trace_printk() does
-not seem to understand, then you "hear-nothing"...  Also experienced if
-using more than 3 arguments, then it fails or also go silent. Be
-careful when using this somewhat "flaky" debug facility.
-
-Do remember these bpf_trace_printk() should only be used for debugging,
-as it is very slow...
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+index b97ce4a..9160c88 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+@@ -6288,13 +6288,18 @@ int t4_fw_upgrade(struct adapter *adap, unsigned int mbox,
+ 	if (!t4_fw_matches_chip(adap, fw_hdr))
+ 		return -EINVAL;
+ 
++	/* Disable FW_OK flag so that mbox commands with FW_OK flag set
++	 * wont be sent when we are flashing FW.
++	 */
++	adap->flags &= ~FW_OK;
++
+ 	ret = t4_fw_halt(adap, mbox, force);
+ 	if (ret < 0 && !force)
+-		return ret;
++		goto out;
+ 
+ 	ret = t4_load_fw(adap, fw_data, size);
+ 	if (ret < 0)
+-		return ret;
++		goto out;
+ 
+ 	/*
+ 	 * Older versions of the firmware don't understand the new
+@@ -6305,7 +6310,17 @@ int t4_fw_upgrade(struct adapter *adap, unsigned int mbox,
+ 	 * its header flags to see if it advertises the capability.
+ 	 */
+ 	reset = ((be32_to_cpu(fw_hdr->flags) & FW_HDR_FLAGS_RESET_HALT) == 0);
+-	return t4_fw_restart(adap, mbox, reset);
++	ret = t4_fw_restart(adap, mbox, reset);
++
++	/* Grab potentially new Firmware Device Log parameters so we can see
++	 * how healthy the new Firmware is.  It's okay to contact the new
++	 * Firmware for these parameters even though, as far as it's
++	 * concerned, we've never said "HELLO" to it ...
++	 */
++	(void)t4_init_devlog_params(adap);
++out:
++	adap->flags |= FW_OK;
++	return ret;
+ }
+ 
+ /**
 -- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  LinkedIn: http://www.linkedin.com/in/brouer
+2.1.0
