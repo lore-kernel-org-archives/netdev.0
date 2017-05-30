@@ -1,46 +1,74 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH v8 net-next 00/17] net: qualcomm: add QCA7000 UART
- driver
-Date: Tue, 30 May 2017 14:03:58 -0400 (EDT)
-Message-ID: <20170530.140358.891038297917804466.davem@davemloft.net>
-References: <1496059045-13572-1-git-send-email-stefan.wahren@i2se.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH 2/2] net: phy: micrel: Restore led_mode and clk_sel on
+ resume
+Date: Tue, 30 May 2017 11:05:19 -0700
+Message-ID: <44ddeaeb-3e23-3d88-cc5c-9ed290507648@gmail.com>
+References: <cover.1496164448.git.leonard.crestez@nxp.com>
+ <a8d0393c977b0d6fdab5d48ad13ca4d1ca893a07.1496164448.git.leonard.crestez@nxp.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
-        gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org, jslaby-IBi9RG/b67k@public.gmane.org, LinoSanfilippo-Mmb7MZpHnFY@public.gmane.org,
-        kubakici-5tc4TXWwyLM@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-serial-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: stefan.wahren-eS4NqCHxEME@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1496059045-13572-1-git-send-email-stefan.wahren-eS4NqCHxEME@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: Johan Hovold <johan@kernel.org>,
+        Alexandre Belloni <alexandre.belloni@free-electrons.com>,
+        Philipp Zabel <p.zabel@pengutronix.de>,
+        Fabio Estevam <fabio.estevam@nxp.com>, netdev@vger.kernel.org,
+        linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
+To: Leonard Crestez <leonard.crestez@nxp.com>,
+        Shawn Guo <shawnguo@kernel.org>, Andrew Lunn <andrew@lunn.ch>,
+        Andy Duan <fugang.duan@nxp.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <a8d0393c977b0d6fdab5d48ad13ca4d1ca893a07.1496164448.git.leonard.crestez@nxp.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stefan Wahren <stefan.wahren-eS4NqCHxEME@public.gmane.org>
-Date: Mon, 29 May 2017 13:57:08 +0200
+On 05/30/2017 10:34 AM, Leonard Crestez wrote:
+> These bits seem to be lost after a suspend/resume cycle so just set them
+> again.
+> 
+> This patch fixes ethernet suspend/resume on imx6ul-14x14-evk boards.
+> 
+> Signed-off-by: Leonard Crestez <leonard.crestez@nxp.com>
+> ---
+>  drivers/net/phy/micrel.c | 15 +++++++++++++++
+>  1 file changed, 15 insertions(+)
+> 
+> diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
+> index 6a5fd18..c53ee17 100644
+> --- a/drivers/net/phy/micrel.c
+> +++ b/drivers/net/phy/micrel.c
+> @@ -700,6 +700,9 @@ static int kszphy_suspend(struct phy_device *phydev)
+>  
+>  static int kszphy_resume(struct phy_device *phydev)
+>  {
+> +	struct kszphy_priv *priv = phydev->priv;
+> +	int ret;
+> +
+>  	genphy_resume(phydev);
+>  
+>  	/* Enable PHY Interrupts */
+> @@ -709,6 +712,18 @@ static int kszphy_resume(struct phy_device *phydev)
+>  			phydev->drv->config_intr(phydev);
+>  	}
+>  
+> +	if (priv->rmii_ref_clk_sel) {
+> +		ret = kszphy_rmii_clk_sel(phydev, priv->rmii_ref_clk_sel_val);
+> +		if (ret) {
+> +			phydev_err(phydev,
+> +				   "failed to set rmii reference clock\n");
+> +			return ret;
+> +		}
+> +	}
+> +
+> +	if (priv->led_mode >= 0)
+> +		kszphy_setup_led(phydev, priv->type->led_mode_reg, priv->led_mode);
 
-> The Qualcomm QCA7000 HomePlug GreenPHY supports two interfaces:
-> UART and SPI. This patch series adds the missing support for UART.
-> 
-> This driver based on the Qualcomm code [1], but contains some changes:
-> * use random MAC address per default
-> * use net_device_stats from device
-> * share frame decoding between SPI and UART driver
-> * improve error handling
-> * reimplement tty_wakeup with work queue (based on slcan)
-> * use new serial device bus instead of ldisc
-> 
-> The patches 1 - 3 are just for clean up and are not related to
-> the UART support. Patch 4 adds SET_NETDEV_DEV() to qca_spi.
-> Patches 5 - 16 prepare the existing QCA7000 code for UART support.
-> The last patch contains the new driver.
-> 
-> The code itself has been tested on a Freescale i.MX28 board and
-> a Raspberry Pi Zero.
+Should not we actually call kszphy_config_init() in order to restore
+broadcast and nand disable bits as well?
 
-Series applied, thank you.
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+If not, I would be more comfortable if we did create a specific function
+that takes care of setting the reference clock and LED mode.
+
+Other than that, LGTM!
+-- 
+Florian
