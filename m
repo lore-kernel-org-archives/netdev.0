@@ -1,52 +1,93 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH] net: dsa: mv88e6xxx: Add missing static to stub functions
-Date: Tue, 30 May 2017 18:50:25 +0200
-Message-ID: <20170530165025.GA30766@lunn.ch>
-References: <20170529125612.110244-1-arnd@arndb.de>
- <20170529153030.GB21315@lunn.ch>
- <CAK8P3a16ifsiF7qh1wP0E_0e5RRE6SAAFy9K9QuyoAurds-DrA@mail.gmail.com>
+From: Peter Zijlstra <peterz@infradead.org>
+Subject: Re: [PATCH v2 net-next 1/3] perf, bpf: Add BPF support to all
+ perf_event types
+Date: Tue, 30 May 2017 18:51:02 +0200
+Message-ID: <20170530165102.kvcutyfp6i2in2zx@hirez.programming.kicks-ass.net>
+References: <20170526055549.557818-1-ast@fb.com>
+ <20170526055549.557818-2-ast@fb.com>
+ <20170529091253.lopsd33qticsbgii@hirez.programming.kicks-ass.net>
+ <20170529093918.xmbijgozjrfi22ru@hirez.programming.kicks-ass.net>
+ <a6bf362c-9df9-f387-bac3-ab5516e4cb68@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:58462 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750922AbdE3Qua (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 30 May 2017 12:50:30 -0400
+Cc: "David S . Miller" <davem@davemloft.net>,
+        Brendan Gregg <bgregg@netflix.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Teng Qin <qinteng@fb.com>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Alexei Starovoitov <ast@fb.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <CAK8P3a16ifsiF7qh1wP0E_0e5RRE6SAAFy9K9QuyoAurds-DrA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <a6bf362c-9df9-f387-bac3-ab5516e4cb68@fb.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, May 29, 2017 at 11:06:51PM +0200, Arnd Bergmann wrote:
-> On Mon, May 29, 2017 at 5:30 PM, Andrew Lunn <andrew@lunn.ch> wrote:
-> > On Mon, May 29, 2017 at 02:56:01PM +0200, Arnd Bergmann wrote:
-> >> 'static' was not enough, the helpers must be 'static inline'
-> >>
-> >> net/dsa/mv88e6xxx/global2.h:123:12: error: 'mv88e6xxx_g2_misc_4_bit_port' defined but not used [-Werror=unused-function]
-> >> net/dsa/mv88e6xxx/global2.h:117:12: error: 'mv88e6xxx_g2_pvt_write' defined but not used [-Werror=unused-function]
-> >>
-> >> Fixes: c21fbe29f858 ("net: dsa: mv88e6xxx: Add missing static to stub functions")
-> >> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> >
-> > Hi Arnd
-> >
-> > Dave merged my fix yesterday.
+On Tue, May 30, 2017 at 08:52:14AM -0700, Alexei Starovoitov wrote:
+
+> > +	if (!(event->attach_state & PERF_ATTACH_TASK) &&
+> > +	    event->cpu != cpu)
+> > +		return false;
 > 
-> Hi Andrew,
+> we do if (unlikely(event->oncpu != cpu))
+> as dynamic check inside bpf_perf_event_read(), since we cannot do it
+> statically at perf_event_array update time.
+
+Right, that's what I thought.
+
+> If we drop the above 'if' and keep 'task==null' trick,
+> then indeed we can use this function as static check.
+
+Right, or otherwise have a special value to disable it.
+
+> Right now we're trying to keep as many checks as possible as
+> static checks to make bpf_perf_event_read() faster.
+> I guess we can drop that approach and do perf_event_valid_local()
+> check for every read since perf_event_read_local() does all the
+> same checks anyway.
+> So how about converting all WARN_ON in perf_event_read_local()
+> into 'return -EINVAL' and change func proto into:
+> int perf_event_read_local(struct perf_event *even, u64 *counter_val)
+
+I'm confused on how that is better. My recent patches to WARN should
+have greatly improved performance of WARN_ON_ONCE(). And looking at that
+code, I suspect its dominated by the POPF for inactive events.
+
+> > I cannot find reason for this comment. That is, why would
+> > perf_event_read_local() not support those two types?
 > 
-> The only commit I see from you in the net/master branch is the partial fix
-> I referenced in the 'fixes' line (c21fbe29f858), from all I can tell, my fix is
-> still needed on top. Can you check again?
+> I don't know. What is the meaning of
+> reading tracepoint/breakpoint counter?
 
-Hi Arnd
+They count like all other software events. +1 for each occurrence.
 
-Yes, you are correct. Adding the static was enough to stop the 0-day
-warnings, but they should also inline.
+So for instance, if you use irq_vectors:local_timer_entry you get how
+many cpu local timer instances happened during your measurement window.
 
-	  Andrew
+Same with a breakpoint, it counts how many times it got hit. Typically
+you'd want to install a custom handler on breakpoints to do something
+'interesting', but even without that its acts like a normal software
+event.
+
+> Because of 'event->oncpu != cpu' dynamic check all counters are
+> expected to be per-cpu. I'm not sure how uncore counters work.
+
+Uncore thingies are assigned to any online CPU in their 'domain'.
+
+> What do they have in event->oncpu? -1? I guess they have pmu->count?
+> So we cannot read them from bpf program anyway?
+
+They have the CPU number of the CPU that's assigned to them. So you
+_could_ make use of them, but its a bit tricky to get them to work
+reliably because you'd have to get that CPU 'right' and it can change.
+
+Typically they would end up on the first CPU in their domain, but with
+CPU hotplug you can move them about and get confusion.
+
+I'd have to think on how to do that nicely.
+
+> If we change warn_ons in perf_event_read_local() to returns
+> them we can make per-task counters working.
+
+I'm not entirely sure I see how that is required. Should per task not
+already work? The WARN that's there will only trigger if you call them
+on the wrong task, which is something you shouldn't do anyway.
