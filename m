@@ -1,43 +1,90 @@
-From: Flavio Leitner <fbl@sysclose.org>
-Subject: [PATCH net-next] netlink: include netnsid only when netns differs.
-Date: Tue, 30 May 2017 18:33:25 -0300
-Message-ID: <20170530213325.21652-1-fbl@sysclose.org>
-Cc: Flavio Leitner <fbl@sysclose.org>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sender-of-o51.zoho.com ([135.84.80.216]:21136 "EHLO
-        sender-of-o51.zoho.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751083AbdE3VtD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 30 May 2017 17:49:03 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Leonard Crestez <leonard.crestez@nxp.com>
+Subject: Re: [PATCH 2/2] net: phy: micrel: Restore led_mode and clk_sel on
+ resume
+Date: Wed, 31 May 2017 01:08:00 +0300
+Message-ID: <1496182080.19669.11.camel@nxp.com>
+References: <cover.1496164448.git.leonard.crestez@nxp.com>
+         <a8d0393c977b0d6fdab5d48ad13ca4d1ca893a07.1496164448.git.leonard.crestez@nxp.com>
+         <44ddeaeb-3e23-3d88-cc5c-9ed290507648@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Johan Hovold <johan@kernel.org>,
+        Alexandre Belloni <alexandre.belloni@free-electrons.com>,
+        Philipp Zabel <p.zabel@pengutronix.de>,
+        Fabio Estevam <fabio.estevam@nxp.com>,
+        <netdev@vger.kernel.org>, <linux-arm-kernel@lists.infradead.org>,
+        <linux-kernel@vger.kernel.org>, Shawn Guo <shawnguo@kernel.org>
+To: Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>, Andy Duan <fugang.duan@nxp.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <44ddeaeb-3e23-3d88-cc5c-9ed290507648@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Don't include netns id for notifications broadcasts when the
-socket and the skb are in the same netns because it will be
-an error which can't be distinguished from a peer netns failing
-to allocate an id.
+On Tue, 2017-05-30 at 11:05 -0700, Florian Fainelli wrote:
+> On 05/30/2017 10:34 AM, Leonard Crestez wrote:
+> > These bits seem to be lost after a suspend/resume cycle so just set them
+> > again.
+> > 
+> > This patch fixes ethernet suspend/resume on imx6ul-14x14-evk boards.
+> > 
+> > Signed-off-by: Leonard Crestez <leonard.crestez@nxp.com>
+> > ---
+> >  drivers/net/phy/micrel.c | 15 +++++++++++++++
+> >  1 file changed, 15 insertions(+)
+> > 
+> > diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
+> > index 6a5fd18..c53ee17 100644
+> > --- a/drivers/net/phy/micrel.c
+> > +++ b/drivers/net/phy/micrel.c
+> > @@ -700,6 +700,9 @@ static int kszphy_suspend(struct phy_device *phydev)
+> >  
+> >  static int kszphy_resume(struct phy_device *phydev)
+> >  {
+> > +	struct kszphy_priv *priv = phydev->priv;
+> > +	int ret;
+> > +
+> >  	genphy_resume(phydev);
+> >  
+> >  	/* Enable PHY Interrupts */
+> > @@ -709,6 +712,18 @@ static int kszphy_resume(struct phy_device *phydev)
+> >  			phydev->drv->config_intr(phydev);
+> >  	}
+> >  
+> > +	if (priv->rmii_ref_clk_sel) {
+> > +		ret = kszphy_rmii_clk_sel(phydev, priv->rmii_ref_clk_sel_val);
+> > +		if (ret) {
+> > +			phydev_err(phydev,
+> > +				   "failed to set rmii reference clock\n");
+> > +			return ret;
+> > +		}
+> > +	}
+> > +
+> > +	if (priv->led_mode >= 0)
+> > +		kszphy_setup_led(phydev, priv->type->led_mode_reg, priv->led_mode);
+> 
+> Should not we actually call kszphy_config_init() in order to restore
+> broadcast and nand disable bits as well?
 
-Signed-off-by: Flavio Leitner <fbl@sysclose.org>
----
- net/netlink/af_netlink.c | 6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
+I don't know. In my case the B_CAST_OFF bit doesn't seem to be lost and
+NAND_TREE_ON is already off by the time it gets to linux.
 
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index ee841f0..b9f1392 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -1414,8 +1414,10 @@ static void do_one_broadcast(struct sock *sk,
- 		p->skb2 = NULL;
- 		goto out;
- 	}
--	NETLINK_CB(p->skb2).nsid = peernet2id(sock_net(sk), p->net);
--	NETLINK_CB(p->skb2).nsid_is_set = true;
-+	if (!net_eq(sock_net(sk), p->net)) {
-+		NETLINK_CB(p->skb2).nsid = peernet2id(sock_net(sk), p->net);
-+		NETLINK_CB(p->skb2).nsid_is_set = true;
-+	}
- 	val = netlink_broadcast_deliver(sk, p->skb2);
- 	if (val < 0) {
- 		netlink_overrun(sk);
--- 
-2.9.4
+The bit that get lost seem to disappear just as the phy is resumed. I
+added some prints and they look like this:
+
+PM: early resume of devices complete after 6.534 msecs
+begin resume
+0x1F=0x8190 0x16=0x202
+after genphy_resume 0x1F=0x8100 0x16=0x202
+end
+resume 0x1F=0x8190 0x16=0x202
+
+> If not, I would be more comfortable if we did create a specific function
+> that takes care of setting the reference clock and LED mode.
+
+Ok, I can add a function called kszphy_config_reset() with a comment
+explaining it's for bits lost on reset/resume.
+
+Or perhaps a better option would be to just save/restore the entire
+0x1F register?
