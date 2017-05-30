@@ -1,74 +1,34 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH 2/2] net: phy: micrel: Restore led_mode and clk_sel on
- resume
-Date: Tue, 30 May 2017 11:05:19 -0700
-Message-ID: <44ddeaeb-3e23-3d88-cc5c-9ed290507648@gmail.com>
-References: <cover.1496164448.git.leonard.crestez@nxp.com>
- <a8d0393c977b0d6fdab5d48ad13ca4d1ca893a07.1496164448.git.leonard.crestez@nxp.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: dsa: mv88e6xxx: Add missing static to stub
+ functions
+Date: Tue, 30 May 2017 14:08:11 -0400 (EDT)
+Message-ID: <20170530.140811.495484137447763709.davem@davemloft.net>
+References: <20170529125612.110244-1-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Johan Hovold <johan@kernel.org>,
-        Alexandre Belloni <alexandre.belloni@free-electrons.com>,
-        Philipp Zabel <p.zabel@pengutronix.de>,
-        Fabio Estevam <fabio.estevam@nxp.com>, netdev@vger.kernel.org,
-        linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
-To: Leonard Crestez <leonard.crestez@nxp.com>,
-        Shawn Guo <shawnguo@kernel.org>, Andrew Lunn <andrew@lunn.ch>,
-        Andy Duan <fugang.duan@nxp.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <a8d0393c977b0d6fdab5d48ad13ca4d1ca893a07.1496164448.git.leonard.crestez@nxp.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
+        f.fainelli@gmail.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: arnd@arndb.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:54260 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750821AbdE3SIN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 30 May 2017 14:08:13 -0400
+In-Reply-To: <20170529125612.110244-1-arnd@arndb.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 05/30/2017 10:34 AM, Leonard Crestez wrote:
-> These bits seem to be lost after a suspend/resume cycle so just set them
-> again.
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Mon, 29 May 2017 14:56:01 +0200
+
+> 'static' was not enough, the helpers must be 'static inline'
 > 
-> This patch fixes ethernet suspend/resume on imx6ul-14x14-evk boards.
+> net/dsa/mv88e6xxx/global2.h:123:12: error: 'mv88e6xxx_g2_misc_4_bit_port' defined but not used [-Werror=unused-function]
+> net/dsa/mv88e6xxx/global2.h:117:12: error: 'mv88e6xxx_g2_pvt_write' defined but not used [-Werror=unused-function]
 > 
-> Signed-off-by: Leonard Crestez <leonard.crestez@nxp.com>
-> ---
->  drivers/net/phy/micrel.c | 15 +++++++++++++++
->  1 file changed, 15 insertions(+)
-> 
-> diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
-> index 6a5fd18..c53ee17 100644
-> --- a/drivers/net/phy/micrel.c
-> +++ b/drivers/net/phy/micrel.c
-> @@ -700,6 +700,9 @@ static int kszphy_suspend(struct phy_device *phydev)
->  
->  static int kszphy_resume(struct phy_device *phydev)
->  {
-> +	struct kszphy_priv *priv = phydev->priv;
-> +	int ret;
-> +
->  	genphy_resume(phydev);
->  
->  	/* Enable PHY Interrupts */
-> @@ -709,6 +712,18 @@ static int kszphy_resume(struct phy_device *phydev)
->  			phydev->drv->config_intr(phydev);
->  	}
->  
-> +	if (priv->rmii_ref_clk_sel) {
-> +		ret = kszphy_rmii_clk_sel(phydev, priv->rmii_ref_clk_sel_val);
-> +		if (ret) {
-> +			phydev_err(phydev,
-> +				   "failed to set rmii reference clock\n");
-> +			return ret;
-> +		}
-> +	}
-> +
-> +	if (priv->led_mode >= 0)
-> +		kszphy_setup_led(phydev, priv->type->led_mode_reg, priv->led_mode);
+> Fixes: c21fbe29f858 ("net: dsa: mv88e6xxx: Add missing static to stub functions")
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 
-Should not we actually call kszphy_config_init() in order to restore
-broadcast and nand disable bits as well?
-
-If not, I would be more comfortable if we did create a specific function
-that takes care of setting the reference clock and LED mode.
-
-Other than that, LGTM!
--- 
-Florian
+Applied.
