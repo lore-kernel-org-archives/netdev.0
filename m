@@ -1,83 +1,36 @@
-From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-Subject: [net-wireless-orinoco] question about potential null pointer
- dereference
-Date: Tue, 30 May 2017 12:00:32 -0500
-Message-ID: <20170530120032.Horde.GHW0X8-B795CdxPjQOfDPa9@gator4166.hostgator.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [Patch net-next] net_sched: only create filter chains for new filters/actions
+Date: Tue, 30 May 2017 10:05:54 -0700
+Message-ID: <CAM_iQpU0bDVdKR4OZWvm1TYJywdRqikr1EbD=kDAQN7VJhcgTQ@mail.gmail.com>
+References: <1495557757-31371-1-git-send-email-xiyou.wangcong@gmail.com>
+ <20170525.121456.221336477222052018.davem@davemloft.net> <20170526055352.GA1898@nanopsycho>
+ <20170526.105443.1489276661727770629.davem@davemloft.net> <CAM_iQpUJcK0ZSqK8=a_D9dBw1OED++A=bC9-UUov4ng0mMpJUg@mail.gmail.com>
+ <20170527100559.GC1831@nanopsycho>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed; DelSp=Yes
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Kalle Valo <kvalo@codeaurora.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: David Miller <davem@davemloft.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Jiri Pirko <jiri@mellanox.com>
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f50.google.com ([74.125.82.50]:37156 "EHLO
+        mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750988AbdE3RGQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 30 May 2017 13:06:16 -0400
+Received: by mail-wm0-f50.google.com with SMTP id d127so103562373wmf.0
+        for <netdev@vger.kernel.org>; Tue, 30 May 2017 10:06:15 -0700 (PDT)
+In-Reply-To: <20170527100559.GC1831@nanopsycho>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Sat, May 27, 2017 at 3:05 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+> Cong, as you wisely put, I'm not aware of this pattern and I'm also
+> unaware of existence of ternary operator. Are this notes necessary?
+> Does that make you feel better?
+>
 
-Hello everybody,
+You are more than just welcome to redirect my email to
+your /dev/null. I am quite sure my email is waste for you.
 
-While looking into Coverity ID 1357460 I ran into the following piece  
-of code at drivers/net/wireless/intersil/orinoco/mic.c:48
-
-48int orinoco_mic(struct crypto_shash *tfm_michael, u8 *key,
-49                u8 *da, u8 *sa, u8 priority,
-50                u8 *data, size_t data_len, u8 *mic)
-51{
-52        SHASH_DESC_ON_STACK(desc, tfm_michael);
-53        u8 hdr[ETH_HLEN + 2]; /* size of header + padding */
-54        int err;
-55
-56        if (tfm_michael == NULL) {
-57                printk(KERN_WARNING "orinoco_mic: tfm_michael == NULL\n");
-58                return -1;
-59        }
-60
-61        /* Copy header into buffer. We need the padding on the end zeroed */
-62        memcpy(&hdr[0], da, ETH_ALEN);
-63        memcpy(&hdr[ETH_ALEN], sa, ETH_ALEN);
-64        hdr[ETH_ALEN * 2] = priority;
-65        hdr[ETH_ALEN * 2 + 1] = 0;
-66        hdr[ETH_ALEN * 2 + 2] = 0;
-67        hdr[ETH_ALEN * 2 + 3] = 0;
-68
-69        desc->tfm = tfm_michael;
-70        desc->flags = 0;
-71
-72        err = crypto_shash_setkey(tfm_michael, key, MIC_KEYLEN);
-73        if (err)
-74                return err;
-75
-76        err = crypto_shash_init(desc);
-77        if (err)
-78                return err;
-79
-80        err = crypto_shash_update(desc, hdr, sizeof(hdr));
-81        if (err)
-82                return err;
-83
-84        err = crypto_shash_update(desc, data, data_len);
-85        if (err)
-86                return err;
-87
-88        err = crypto_shash_final(desc, mic);
-89        shash_desc_zero(desc);
-90
-91        return err;
-92}
-
-The issue here is that line 56 implies that pointer tfm_michael might  
-be NULL. If this is the case, there is a potential NULL pointer  
-dereference at line 52 once pointer tfm_michael is indirectly  
-dereferenced inside macro SHASH_DESC_ON_STACK().
-
-My question is if there is any chance that pointer tfm_michael might  
-be NULL when calling macro SHASH_DESC_ON_STACK() ?
-
-I'm trying to figure out if this is a false positive or something that  
-needs to be fixed somehow.
-
-I'd really appreciate any comment on this.
-
-Thank you!
---
-Gustavo A. R. Silva
+Thanks!!
