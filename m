@@ -1,89 +1,72 @@
-From: Russell King <rmk+kernel@armlinux.org.uk>
-Subject: [PATCH] net: fix auto-loading of Marvell DSA driver
-Date: Tue, 30 May 2017 21:38:18 +0100
-Message-ID: <E1dFnuE-0006U0-PM@rmk-PC.armlinux.org.uk>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next v2 3/6] net: dsa: remove dsa_uses_tagged_protocol
+Date: Tue, 30 May 2017 13:47:53 -0700
+Message-ID: <3741e6b9-98a5-c587-ef8f-851b17cb3145@gmail.com>
+References: <20170530183319.10718-1-vivien.didelot@savoirfairelinux.com>
+ <20170530183319.10718-4-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 8bit
-Cc: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
-To: Andrew Lunn <andrew@lunn.ch>
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Andrew Lunn <andrew@lunn.ch>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pandora.armlinux.org.uk ([78.32.30.218]:54734 "EHLO
-        pandora.armlinux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750811AbdE3UiX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 30 May 2017 16:38:23 -0400
-Content-Disposition: inline
+Received: from mail-qk0-f195.google.com ([209.85.220.195]:33160 "EHLO
+        mail-qk0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750821AbdE3Ur4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 30 May 2017 16:47:56 -0400
+In-Reply-To: <20170530183319.10718-4-vivien.didelot@savoirfairelinux.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Auto-loading of the Marvell DSA driver has stopped working with recent
-kernels.  This seems to be due to the change of binding for DSA devices,
-moving them from the platform bus to the MDIO bus.
+On 05/30/2017 11:33 AM, Vivien Didelot wrote:
+> Since dev->dsa_ptr is a pointer to a dsa_switch_tree, there is no need
+> to have another inline helper just to check rcv.
+> 
+> Remove dsa_uses_tagged_protocol and check dsa_ptr && dsa_ptr->rcv
+> together at the same time.
+> 
+> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 
-In order for module auto-loading to work, we need to provide a MODALIAS
-string in the uevent file for the device.  However, the device core does
-not automatically provide this, and needs each bus_type to implement a
-uevent method to generate these strings.  The MDIO bus does not provide
-such a method, so no MODALIAS string is provided:
+FYI, the part that matters here is that we know whether the master
+network device actually uses a tagged DSA protocol, this is important
+for e.g: bridge (see 8db0a2ee2c6302a1dcbcdb93cb731dfc6c0cdb5e). Some
+drivers like bcmsysport.c also care about that in order to enable
+specific switch tagging protocol parsing hints.
 
-.# cat /sys/bus/mdio_bus/devices/f1072004.mdio-mii\:04/uevent
-DRIVER=mv88e6085
-OF_NAME=switch
-OF_FULLNAME=/soc/internal-regs/mdio@72004/switch@4
-OF_COMPATIBLE_0=marvell,mv88e6085
-OF_COMPATIBLE_N=1
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
 
-In the case of OF-based devices, the solution is easy -
-of_device_uevent_modalias() does the work for us.  After this is done,
-the uevent file looks like this:
+> ---
+>  include/net/dsa.h | 8 +-------
+>  1 file changed, 1 insertion(+), 7 deletions(-)
+> 
+> diff --git a/include/net/dsa.h b/include/net/dsa.h
+> index 58297e4c6b31..4675b52c964c 100644
+> --- a/include/net/dsa.h
+> +++ b/include/net/dsa.h
+> @@ -467,16 +467,10 @@ struct mii_bus *dsa_host_dev_to_mii_bus(struct device *dev);
+>  struct net_device *dsa_dev_to_net_device(struct device *dev);
+>  
+>  /* Keep inline for faster access in hot path */
+> -static inline bool dsa_uses_tagged_protocol(struct dsa_switch_tree *dst)
+> -{
+> -	return dst->rcv != NULL;
+> -}
+> -
+>  static inline bool netdev_uses_dsa(struct net_device *dev)
+>  {
+>  #if IS_ENABLED(CONFIG_NET_DSA)
+> -	if (dev->dsa_ptr != NULL)
+> -		return dsa_uses_tagged_protocol(dev->dsa_ptr);
+> +	return dev->dsa_ptr && dev->dsa_ptr->rcv;
+>  #endif
+>  	return false;
+>  }
+> 
 
-.# cat /sys/bus/mdio_bus/devices/f1072004.mdio-mii\:04/uevent
-DRIVER=mv88e6085
-OF_NAME=switch
-OF_FULLNAME=/soc/internal-regs/mdio@72004/switch@4
-OF_COMPATIBLE_0=marvell,mv88e6085
-OF_COMPATIBLE_N=1
-MODALIAS=of:NswitchT<NULL>Cmarvell,mv88e6085
 
-which results in auto-loading of the Marvell DSA driver on Clearfog
-platforms.
-
-Fixes: c0405563a613 ("ARM: dts: armada-388-clearfog: Utilize new DSA binding")
-Signed-off-by: Russell King <rmk+kernel@armlinux.org.uk>
----
- drivers/net/phy/mdio_bus.c | 13 +++++++++++++
- 1 file changed, 13 insertions(+)
-
-diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
-index 8e73f5f36e71..f99c21f78b63 100644
---- a/drivers/net/phy/mdio_bus.c
-+++ b/drivers/net/phy/mdio_bus.c
-@@ -658,6 +658,18 @@ static int mdio_bus_match(struct device *dev, struct device_driver *drv)
- 	return 0;
- }
- 
-+static int mdio_uevent(struct device *dev, struct kobj_uevent_env *env)
-+{
-+	int rc;
-+
-+	/* Some devices have extra OF data and an OF-style MODALIAS */
-+	rc = of_device_uevent_modalias(dev, env);
-+	if (rc != -ENODEV)
-+		return rc;
-+
-+	return 0;
-+}
-+
- #ifdef CONFIG_PM
- static int mdio_bus_suspend(struct device *dev)
- {
-@@ -708,6 +720,7 @@ static const struct dev_pm_ops mdio_bus_pm_ops = {
- struct bus_type mdio_bus_type = {
- 	.name		= "mdio_bus",
- 	.match		= mdio_bus_match,
-+	.uevent		= mdio_uevent,
- 	.pm		= MDIO_BUS_PM_OPS,
- };
- EXPORT_SYMBOL(mdio_bus_type);
 -- 
-2.7.4
+Florian
