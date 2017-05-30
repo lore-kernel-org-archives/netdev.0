@@ -1,76 +1,42 @@
-From: <Woojung.Huh@microchip.com>
-Subject: [PATCH v4 net-next 2/5] phy: micrel: add Microchip KSZ 9477 Switch
- PHY support
-Date: Tue, 30 May 2017 15:43:26 +0000
-Message-ID: <9235D6609DB808459E95D78E17F2E43D40AA458C@CHN-SV-EXMX02.mchp-main.com>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next 4/7] net: dsa: free orig skb on rcv if reallocated
+Date: Tue, 30 May 2017 11:41:51 -0400
+Message-ID: <8737bm4aio.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+References: <20170530142131.23568-1-vivien.didelot@savoirfairelinux.com> <20170530142131.23568-5-vivien.didelot@savoirfairelinux.com> <20170530152505.GG22758@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>,
-        <UNGLinuxDriver@microchip.com>
-To: <andrew@lunn.ch>, <f.fainelli@gmail.com>
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from esa4.microchip.iphmx.com ([68.232.154.123]:57035 "EHLO
-        esa4.microchip.iphmx.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750908AbdE3Pn2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 30 May 2017 11:43:28 -0400
-Content-Language: en-US
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:50676 "EHLO
+        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751108AbdE3Pnz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 30 May 2017 11:43:55 -0400
+In-Reply-To: <20170530152505.GG22758@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Woojung Huh <Woojung.Huh@microchip.com>
+Hi Andrew,
 
-Adding Microchip 9477 Phy included in KSZ9477 Switch.
+Andrew Lunn <andrew@lunn.ch> writes:
 
-Signed-off-by: Woojung Huh <Woojung.Huh@microchip.com>
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
----
- drivers/net/phy/micrel.c   | 11 +++++++++++
- include/linux/micrel_phy.h |  2 ++
- 2 files changed, 13 insertions(+)
+> On Tue, May 30, 2017 at 10:21:28AM -0400, Vivien Didelot wrote:
+>> If the receive function of a tagger reallocated the SKB, the original
+>> SKB is currently not freed. Fix this and free it on both copy or error.
+>
+> I don't see any of the receive functions reallocate the skb. It might
+> be better to just simplify the code to take away the option to return
+> a different skb.
 
-diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
-index 4cfd541..46e80bc 100644
---- a/drivers/net/phy/micrel.c
-+++ b/drivers/net/phy/micrel.c
-@@ -20,6 +20,7 @@
-  *			   ksz8081, ksz8091,
-  *			   ksz8061,
-  *		Switch : ksz8873, ksz886x
-+ *			 ksz9477
-  */
- 
- #include <linux/kernel.h>
-@@ -996,6 +997,16 @@ static struct phy_driver ksphy_driver[] = {
- 	.read_status	= ksz8873mll_read_status,
- 	.suspend	= genphy_suspend,
- 	.resume		= genphy_resume,
-+}, {
-+	.phy_id		= PHY_ID_KSZ9477,
-+	.phy_id_mask	= MICREL_PHY_ID_MASK,
-+	.name		= "Microchip KSZ9477",
-+	.features	= PHY_GBIT_FEATURES,
-+	.config_init	= kszphy_config_init,
-+	.config_aneg	= genphy_config_aneg,
-+	.read_status	= genphy_read_status,
-+	.suspend	= genphy_suspend,
-+	.resume		= genphy_resume,
- } };
- 
- module_phy_driver(ksphy_driver);
-diff --git a/include/linux/micrel_phy.h b/include/linux/micrel_phy.h
-index f541da6..472fa4d 100644
---- a/include/linux/micrel_phy.h
-+++ b/include/linux/micrel_phy.h
-@@ -37,6 +37,8 @@
- 
- #define PHY_ID_KSZ8795		0x00221550
- 
-+#define	PHY_ID_KSZ9477		0x00221631
-+
- /* struct phy_device dev_flags definitions */
- #define MICREL_PHY_50MHZ_CLK	0x00000001
- #define MICREL_PHY_FXEN		0x00000002
--- 
-2.7.4
+I think it was written such way to be symmetrical with the xmit
+implementation, where the trailer tagger does reallocate the skb.
+
+I would say that keeping the symmetry is simpler from the point of view
+of the tagging implementations, but I don't have strong opinion here.
+
+Thanks,
+
+        Vivien
