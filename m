@@ -1,106 +1,69 @@
-From: Alexei Starovoitov <ast@fb.com>
-Subject: [PATCH net-next 7/9] bpf: use different interpreter depending on required stack size
-Date: Tue, 30 May 2017 13:31:33 -0700
-Message-ID: <20170530203135.3642768-8-ast@fb.com>
-References: <20170530203135.3642768-1-ast@fb.com>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [patch net-next 0/9] mlxsw: Support firmware flash
+Date: Tue, 30 May 2017 23:32:22 +0300
+Message-ID: <CAJ3xEMi_U-139_EXfuT+d0PLyBOn6C+aWaGpFfmH6E8odhtvaw@mail.gmail.com>
+References: <ea7cf005-1f6c-aa87-db90-03d7c77c7d56@mellanox.com>
+ <BLUPR0701MB2004EB2F32B4C8C42C5020458DF90@BLUPR0701MB2004.namprd07.prod.outlook.com>
+ <fba5a440-ba1e-84bd-d2d2-d011406d3a4a@mellanox.com> <20170523.113859.1803057381093280239.davem@davemloft.net>
+ <0daa5c5a-377c-767f-ea19-26c1f22bd30c@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Daniel Borkmann <daniel@iogearbox.net>, <netdev@vger.kernel.org>,
-        <kernel-team@fb.com>
-To: "David S . Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Cc: David Miller <davem@davemloft.net>, Yuval.Mintz@cavium.com,
+        Jiri Pirko <jiri@resnulli.us>,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        Ido Schimmel <idosch@mellanox.com>, mlxsw <mlxsw@mellanox.com>,
+        bhutchings@solarflare.com
+To: Yotam Gigi <yotamg@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:41235 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1750952AbdE3Ubi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 30 May 2017 16:31:38 -0400
-Received: from pps.filterd (m0001303.ppops.net [127.0.0.1])
-        by m0001303.ppops.net (8.16.0.20/8.16.0.20) with SMTP id v4UKQMlr005930
-        for <netdev@vger.kernel.org>; Tue, 30 May 2017 13:31:38 -0700
-Received: from mail.thefacebook.com ([199.201.64.23])
-        by m0001303.ppops.net with ESMTP id 2asap7s4gn-1
-        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Tue, 30 May 2017 13:31:38 -0700
-Received: from facebook.com (2401:db00:11:d082:face:0:5:0)      by
- mx-out.facebook.com (10.103.99.97) with ESMTP  id
- fa4eb124457611e782f90002c9931860-db1348f0 for <netdev@vger.kernel.org>;        Tue,
- 30 May 2017 13:31:36 -0700
-In-Reply-To: <20170530203135.3642768-1-ast@fb.com>
+Received: from mail-oi0-f48.google.com ([209.85.218.48]:35459 "EHLO
+        mail-oi0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750811AbdE3UcX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 30 May 2017 16:32:23 -0400
+Received: by mail-oi0-f48.google.com with SMTP id l18so126380318oig.2
+        for <netdev@vger.kernel.org>; Tue, 30 May 2017 13:32:23 -0700 (PDT)
+In-Reply-To: <0daa5c5a-377c-767f-ea19-26c1f22bd30c@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-16 __bpf_prog_run() interpreters for various stack sizes add .text
-but not a lot comparing to run-time stack savings
+On Sun, May 28, 2017 at 10:26 AM, Yotam Gigi <yotamg@mellanox.com> wrote:
+> On 05/23/2017 06:38 PM, David Miller wrote:
+>> From: Yotam Gigi <yotamg@mellanox.com>
+>> Date: Tue, 23 May 2017 18:14:15 +0300
 
-   text	   data	    bss	    dec	    hex	filename
-  26350   10328     624   37302    91b6 kernel/bpf/core.o.before_split
-  25777   10328     624   36729    8f79 kernel/bpf/core.o.after_split
-  26970	  10328	    624	  37922	   9422	kernel/bpf/core.o.now
+>>> Sorry, I am not sure I understand. You think that drivers should not implement
+>>> ethtool's flash_device callback anymore? do you have an alternative for
+>>> firmware flash?
 
-Signed-off-by: Alexei Starovoitov <ast@kernel.org>
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
----
- kernel/bpf/core.c | 40 +++++++++++++++++++++++++++++++---------
- 1 file changed, 31 insertions(+), 9 deletions(-)
+>> As stated, export an MTD device.
 
-diff --git a/kernel/bpf/core.c b/kernel/bpf/core.c
-index abd410d394bc..774069ca18a7 100644
---- a/kernel/bpf/core.c
-+++ b/kernel/bpf/core.c
-@@ -1218,16 +1218,38 @@ static unsigned int ___bpf_prog_run(u64 *regs, const struct bpf_insn *insn,
- }
- STACK_FRAME_NON_STANDARD(___bpf_prog_run); /* jump table */
- 
--static unsigned int __bpf_prog_run(void *ctx, const struct bpf_insn *insn)
--{
--	u64 stack[MAX_BPF_STACK / sizeof(u64)];
--	u64 regs[MAX_BPF_REG];
--
--	FP = (u64) (unsigned long) &stack[ARRAY_SIZE(stack)];
--	ARG1 = (u64) (unsigned long) ctx;
--	return ___bpf_prog_run(regs, insn, stack);
-+#define PROG_NAME(stack_size) __bpf_prog_run##stack_size
-+#define DEFINE_BPF_PROG_RUN(stack_size) \
-+static unsigned int PROG_NAME(stack_size)(const void *ctx, const struct bpf_insn *insn) \
-+{ \
-+	u64 stack[stack_size / sizeof(u64)]; \
-+	u64 regs[MAX_BPF_REG]; \
-+\
-+	FP = (u64) (unsigned long) &stack[ARRAY_SIZE(stack)]; \
-+	ARG1 = (u64) (unsigned long) ctx; \
-+	return ___bpf_prog_run(regs, insn, stack); \
- }
- 
-+#define EVAL1(FN, X) FN(X)
-+#define EVAL2(FN, X, Y...) FN(X) EVAL1(FN, Y)
-+#define EVAL3(FN, X, Y...) FN(X) EVAL2(FN, Y)
-+#define EVAL4(FN, X, Y...) FN(X) EVAL3(FN, Y)
-+#define EVAL5(FN, X, Y...) FN(X) EVAL4(FN, Y)
-+#define EVAL6(FN, X, Y...) FN(X) EVAL5(FN, Y)
-+
-+EVAL6(DEFINE_BPF_PROG_RUN, 32, 64, 96, 128, 160, 192);
-+EVAL6(DEFINE_BPF_PROG_RUN, 224, 256, 288, 320, 352, 384);
-+EVAL4(DEFINE_BPF_PROG_RUN, 416, 448, 480, 512);
-+
-+#define PROG_NAME_LIST(stack_size) PROG_NAME(stack_size),
-+
-+static unsigned int (*interpreters[])(const void *ctx,
-+				      const struct bpf_insn *insn) = {
-+EVAL6(PROG_NAME_LIST, 32, 64, 96, 128, 160, 192)
-+EVAL6(PROG_NAME_LIST, 224, 256, 288, 320, 352, 384)
-+EVAL4(PROG_NAME_LIST, 416, 448, 480, 512)
-+};
-+
- bool bpf_prog_array_compatible(struct bpf_array *array,
- 			       const struct bpf_prog *fp)
- {
-@@ -1275,7 +1297,7 @@ static int bpf_check_tail_call(const struct bpf_prog *fp)
-  */
- struct bpf_prog *bpf_prog_select_runtime(struct bpf_prog *fp, int *err)
- {
--	fp->bpf_func = (void *) __bpf_prog_run;
-+	fp->bpf_func = interpreters[round_down(fp->aux->stack_depth, 32) / 32];
- 
- 	/* eBPF JITs can rewrite the program in case constant
- 	 * blinding is active. However, in case of error during
--- 
-2.9.3
+> So, after we have been going over MTD, it seems like it does not fit our needs
+> at all.
+
+> MTD device provides (erasable-)block access to a flash storage, where in our
+> case the firmware burn process is just pouring a binary BLOB into the device.
+> The driver is not aware of the internal storage used for storing the firmware as
+> it is not defined in our driver-hardware API.
+>
+> Needless to say that block access has no meaning in our case, so any solution
+> that will involve MTD device to burn our firmware (if there is a solution at
+> all) will be a workaround and will not fit MTD purpose.
+>
+> Apart for boot time firmware flash, which we have already pushed we would really
+> like to allow the user to ask for a specific firmware version. Do you have any
+> other solution for us apart from "ethtool -f"?
+>
+> This problem is even more relevant in the Mellanox HCA driver team, which would
+> like to use that code in order to burn the HCA firmware, but not intend to
+> trigger it on boot time, which means that must have a way for the user to
+> trigger it.
+
+
+Hi Dave,
+
+We had few more emails on this thread with Jakub, and he's now happy
+with our replies, so where do we go from here? could you comment on
+Yotam's note.
+
+thanks,
+
+Or.
