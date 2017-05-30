@@ -1,39 +1,66 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net-next 1/3] netvsc: optimize calculation of number of
- slots
-Date: Tue, 30 May 2017 10:16:51 -0700
-Message-ID: <20170530101651.01222b83@xeon-e3>
-References: <20170529183159.22205-1-sthemmin@microsoft.com>
-        <20170529.204204.1236270965995441170.davem@davemloft.net>
+From: Leonard Crestez <leonard.crestez@nxp.com>
+Subject: [PATCH 2/2] net: phy: micrel: Restore led_mode and clk_sel on resume
+Date: Tue, 30 May 2017 20:34:04 +0300
+Message-ID: <a8d0393c977b0d6fdab5d48ad13ca4d1ca893a07.1496164448.git.leonard.crestez@nxp.com>
+References: <cover.1496164448.git.leonard.crestez@nxp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sthemmin@microsoft.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f171.google.com ([209.85.192.171]:36215 "EHLO
-        mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751134AbdE3RQz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 30 May 2017 13:16:55 -0400
-Received: by mail-pf0-f171.google.com with SMTP id m17so77924001pfg.3
-        for <netdev@vger.kernel.org>; Tue, 30 May 2017 10:16:55 -0700 (PDT)
-In-Reply-To: <20170529.204204.1236270965995441170.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: Johan Hovold <johan@kernel.org>,
+        Alexandre Belloni <alexandre.belloni@free-electrons.com>,
+        Philipp Zabel <p.zabel@pengutronix.de>,
+        Fabio Estevam <fabio.estevam@nxp.com>,
+        <netdev@vger.kernel.org>, <linux-arm-kernel@lists.infradead.org>,
+        <linux-kernel@vger.kernel.org>
+To: Shawn Guo <shawnguo@kernel.org>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>, Andy Duan <fugang.duan@nxp.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1496164448.git.leonard.crestez@nxp.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 29 May 2017 20:42:04 -0400 (EDT)
-David Miller <davem@davemloft.net> wrote:
+These bits seem to be lost after a suspend/resume cycle so just set them
+again.
 
-> Stephen, please provide proper header "[PATCH net-next 0/3] " postings
-> with your patch series, so we know at a high level what this patch
-> series is doing, how it is doing it, and why it is doing it that
-> way.
+This patch fixes ethernet suspend/resume on imx6ul-14x14-evk boards.
 
-Sure, these were just misc small cleanups. Prefer to send them out
-in small chunks, not mixed with bug fixes and new features.
+Signed-off-by: Leonard Crestez <leonard.crestez@nxp.com>
+---
+ drivers/net/phy/micrel.c | 15 +++++++++++++++
+ 1 file changed, 15 insertions(+)
 
-> I've been quite liberal with your patch postings in the past, hoping
-> you would catch on, but now I'm going to simply enforce what I ask
-> of every other patch series submitter.
-
-Sorry, thought it was obvious from content.
+diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
+index 6a5fd18..c53ee17 100644
+--- a/drivers/net/phy/micrel.c
++++ b/drivers/net/phy/micrel.c
+@@ -700,6 +700,9 @@ static int kszphy_suspend(struct phy_device *phydev)
+ 
+ static int kszphy_resume(struct phy_device *phydev)
+ {
++	struct kszphy_priv *priv = phydev->priv;
++	int ret;
++
+ 	genphy_resume(phydev);
+ 
+ 	/* Enable PHY Interrupts */
+@@ -709,6 +712,18 @@ static int kszphy_resume(struct phy_device *phydev)
+ 			phydev->drv->config_intr(phydev);
+ 	}
+ 
++	if (priv->rmii_ref_clk_sel) {
++		ret = kszphy_rmii_clk_sel(phydev, priv->rmii_ref_clk_sel_val);
++		if (ret) {
++			phydev_err(phydev,
++				   "failed to set rmii reference clock\n");
++			return ret;
++		}
++	}
++
++	if (priv->led_mode >= 0)
++		kszphy_setup_led(phydev, priv->type->led_mode_reg, priv->led_mode);
++
+ 	return 0;
+ }
+ 
+-- 
+2.7.4
