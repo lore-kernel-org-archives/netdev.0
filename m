@@ -1,45 +1,45 @@
-From: "Sarah Edward." <mrs.sarahjohnsonn@gmail.com>
-Subject: Re: Charitable Organization
-Date: Mon, 29 May 2017 03:10:26 -0700
-Message-ID: <CADS_tpzTcuEcGuV4We-5kCp3bAbU48EJbcrRiGbCo78jjJubig@mail.gmail.com>
-References: <CADS_tpz7o-_6RMKV6FAT50QzQsXRMc=4MVp5dhQ_H79GvnGPTQ@mail.gmail.com>
-Reply-To: sarh.edward@hotmail.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/4] Netfilter fixes for net
+Date: Mon, 29 May 2017 23:20:48 -0400 (EDT)
+Message-ID: <20170529.232048.1583898671889129502.davem@davemloft.net>
+References: <1496057672-6751-1-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-To: undisclosed-recipients:;
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: pablo@netfilter.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f67.google.com ([209.85.218.67]:35820 "EHLO
-        mail-oi0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750863AbdE2KK2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 29 May 2017 06:10:28 -0400
-Received: by mail-oi0-f67.google.com with SMTP id v80so10771318oie.2
-        for <netdev@vger.kernel.org>; Mon, 29 May 2017 03:10:28 -0700 (PDT)
-In-Reply-To: <CADS_tpz7o-_6RMKV6FAT50QzQsXRMc=4MVp5dhQ_H79GvnGPTQ@mail.gmail.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:45484 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750839AbdE3DUx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 29 May 2017 23:20:53 -0400
+In-Reply-To: <1496057672-6751-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-`._..
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Date: Mon, 29 May 2017 13:34:28 +0200
 
-Glad to write to you this message,
+> Hi David,
+> 
+> The following patchset contains Netfilter fixes for your net tree,
+> they are:
+> 
+> 1) Conntrack SCTP CRC32c checksum mangling may operate on non-linear
+>    skbuff, patch from Davide Caratti.
+> 
+> 2) nf_tables rb-tree set backend does not handle element re-addition
+>    after deletion in the same transaction, leading to infinite loop.
+> 
+> 3) Atomically unclear the IPS_SRC_NAT_DONE_BIT on nat module removal,
+>    from Liping Zhang.
+> 
+> 4) Conntrack hashtable resizing while ctnetlink dump is progress leads
+>    to a dead reference to released objects in the lists, also from
+>    Liping.
+> 
+> You can pull these changes from:
+> 
+>   git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git
 
-I seek for your kind help in setting up a charitable organization to
-help the less privileged  people and also the elderly people under
-your care,
-
-I want to use my late husband wealth of $3,000,000.00 to set up a
-charity foundation to help the needy and the less privileged ones in
-your country under your care, Can you help to build this project in
-your country?
-
-All i need from you is your sincerity to use this funds to do this
-project as i desired to use it for less privileged ones and orphanage
-homes,
-
-We are the one who will make the world a better place when we help the
-needy sincerely,
-
-Reply and let me know your opinion in doing this noble work,
-
-Remain blessed,
-
-Mrs Sarah Edward J.
+Pulled, thanks a lot Pablo.
