@@ -1,7 +1,7 @@
 From: Jan Kiszka <jan.kiszka@siemens.com>
-Subject: [PATCH v3 1/6] stmmac: pci: Make stmmac_pci_info structure constant
-Date: Tue, 30 May 2017 09:33:20 +0200
-Message-ID: <66f2624c82dac41961522fd0c3375a18d5bef61d.1496129604.git.jan.kiszka@siemens.com>
+Subject: [PATCH v3 5/6] stmmac: pci: Use dmi_system_id table for retrieving PHY addresses
+Date: Tue, 30 May 2017 09:33:24 +0200
+Message-ID: <1ec11df8a4860215c93125f83a04c8c00482a041.1496129604.git.jan.kiszka@siemens.com>
 References: <cover.1496129604.git.jan.kiszka@siemens.com>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
         Andy Shevchenko <andy.shevchenko@gmail.com>
@@ -15,84 +15,139 @@ References: <cover.1496129604.git.jan.kiszka@siemens.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-By removing the PCI device reference from the structure and passing it
-as parameters to the interested functions, we can make quark_pci_info
-const.
+Avoids reimplementation of DMI matching in stmmac_pci_find_phy_addr.
 
 Signed-off-by: Jan Kiszka <jan.kiszka@siemens.com>
 ---
- drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c | 23 +++++++++++------------
- 1 file changed, 11 insertions(+), 12 deletions(-)
+ drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c | 77 ++++++++++++++----------
+ 1 file changed, 45 insertions(+), 32 deletions(-)
 
 diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
-index 22f910795be4..0efe42659a37 100644
+index a6e10d3ced5c..a3909ab0da05 100644
 --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
 +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
-@@ -38,17 +38,17 @@ struct stmmac_pci_dmi_data {
+@@ -31,9 +31,7 @@
+  * with PHY.
+  */
+ struct stmmac_pci_dmi_data {
+-	const char *name;
+-	const char *asset_tag;
+-	unsigned int func;
++	int func;
+ 	int phy_addr;
  };
  
- struct stmmac_pci_info {
--	struct pci_dev *pdev;
--	int (*setup)(struct plat_stmmacenet_data *plat,
--		     struct stmmac_pci_info *info);
-+	int (*setup)(struct pci_dev *pdev, struct plat_stmmacenet_data *plat,
-+		     const struct stmmac_pci_info *info);
- 	struct stmmac_pci_dmi_data *dmi;
+@@ -42,24 +40,19 @@ struct stmmac_pci_info {
  };
  
--static int stmmac_pci_find_phy_addr(struct stmmac_pci_info *info)
-+static int stmmac_pci_find_phy_addr(struct pci_dev *pdev,
-+				    const struct stmmac_pci_info *info)
+ static int stmmac_pci_find_phy_addr(struct pci_dev *pdev,
+-				    struct stmmac_pci_dmi_data *dmi_data)
++				    const struct dmi_system_id *dmi_list)
  {
- 	const char *name = dmi_get_system_info(DMI_BOARD_NAME);
- 	const char *asset_tag = dmi_get_system_info(DMI_BOARD_ASSET_TAG);
--	unsigned int func = PCI_FUNC(info->pdev->devfn);
-+	unsigned int func = PCI_FUNC(pdev->devfn);
- 	struct stmmac_pci_dmi_data *dmi;
+-	const char *name = dmi_get_system_info(DMI_BOARD_NAME);
+-	const char *asset_tag = dmi_get_system_info(DMI_BOARD_ASSET_TAG);
+-	unsigned int func = PCI_FUNC(pdev->devfn);
+-	struct stmmac_pci_dmi_data *dmi;
++	const struct stmmac_pci_dmi_data *dmi_data;
++	const struct dmi_system_id *dmi_id;
++	int func = PCI_FUNC(pdev->devfn);
  
- 	/*
-@@ -114,10 +114,10 @@ static void stmmac_default_data(struct plat_stmmacenet_data *plat)
- 	/* TODO: AXI */
+-	if (!name)
++	dmi_id = dmi_first_match(dmi_list);
++	if (!dmi_id)
+ 		return -ENODEV;
+ 
+-	for (dmi = dmi_data; dmi->name && *dmi->name; dmi++) {
+-		if (!strcmp(dmi->name, name) && dmi->func == func) {
+-			/* If asset tag is provided, match on it as well. */
+-			if (dmi->asset_tag && strcmp(dmi->asset_tag, asset_tag))
+-				continue;
+-			return dmi->phy_addr;
+-		}
+-	}
++	for (dmi_data = dmi_id->driver_data; dmi_data->func >= 0; dmi_data++)
++		if (dmi_data->func == func)
++			return dmi_data->phy_addr;
+ 
+ 	return -ENODEV;
  }
+@@ -115,34 +108,54 @@ static const struct stmmac_pci_info stmmac_pci_info = {
+ 	.setup = stmmac_default_data,
+ };
  
--static int quark_default_data(struct plat_stmmacenet_data *plat,
--			      struct stmmac_pci_info *info)
-+static int quark_default_data(struct pci_dev *pdev,
-+			      struct plat_stmmacenet_data *plat,
-+			      const struct stmmac_pci_info *info)
- {
--	struct pci_dev *pdev = info->pdev;
- 	int ret;
- 
- 	/* Set common default data first */
-@@ -127,7 +127,7 @@ static int quark_default_data(struct plat_stmmacenet_data *plat,
+-static struct stmmac_pci_dmi_data quark_pci_dmi_data[] = {
++static const struct stmmac_pci_dmi_data galileo_stmmac_dmi_data[] = {
+ 	{
+-		.name = "Galileo",
+ 		.func = 6,
+ 		.phy_addr = 1,
+ 	},
++	{-1, -1},
++};
++
++static const struct stmmac_pci_dmi_data iot2040_stmmac_dmi_data[] = {
+ 	{
+-		.name = "GalileoGen2",
+ 		.func = 6,
+ 		.phy_addr = 1,
+ 	},
+ 	{
+-		.name = "SIMATIC IOT2000",
+-		.asset_tag = "6ES7647-0AA00-0YA2",
+-		.func = 6,
++		.func = 7,
+ 		.phy_addr = 1,
+ 	},
++	{-1, -1},
++};
++
++static const struct dmi_system_id quark_pci_dmi[] = {
+ 	{
+-		.name = "SIMATIC IOT2000",
+-		.asset_tag = "6ES7647-0AA00-1YA2",
+-		.func = 6,
+-		.phy_addr = 1,
++		.matches = {
++			DMI_EXACT_MATCH(DMI_BOARD_NAME, "Galileo"),
++		},
++		.driver_data = (void *)galileo_stmmac_dmi_data,
+ 	},
+ 	{
+-		.name = "SIMATIC IOT2000",
+-		.asset_tag = "6ES7647-0AA00-1YA2",
+-		.func = 7,
+-		.phy_addr = 1,
++		.matches = {
++			DMI_EXACT_MATCH(DMI_BOARD_NAME, "GalileoGen2"),
++		},
++		.driver_data = (void *)galileo_stmmac_dmi_data,
++	},
++	{
++		.matches = {
++			DMI_EXACT_MATCH(DMI_BOARD_NAME, "SIMATIC IOT2000"),
++			DMI_EXACT_MATCH(DMI_BOARD_ASSET_TAG,
++					"6ES7647-0AA00-0YA2"),
++		},
++		.driver_data = (void *)galileo_stmmac_dmi_data,
++	},
++	{
++		.matches = {
++			DMI_EXACT_MATCH(DMI_BOARD_NAME, "SIMATIC IOT2000"),
++			DMI_EXACT_MATCH(DMI_BOARD_ASSET_TAG,
++					"6ES7647-0AA00-1YA2"),
++		},
++		.driver_data = (void *)iot2040_stmmac_dmi_data,
+ 	},
+ 	{}
+ };
+@@ -159,7 +172,7 @@ static int quark_default_data(struct pci_dev *pdev,
  	 * Refuse to load the driver and register net device if MAC controller
  	 * does not connect to any PHY interface.
  	 */
--	ret = stmmac_pci_find_phy_addr(info);
-+	ret = stmmac_pci_find_phy_addr(pdev, info);
- 	if (ret < 0)
- 		return ret;
- 
-@@ -175,7 +175,7 @@ static struct stmmac_pci_dmi_data quark_pci_dmi_data[] = {
- 	{}
- };
- 
--static struct stmmac_pci_info quark_pci_info = {
-+static const struct stmmac_pci_info quark_pci_info = {
- 	.setup = quark_default_data,
- 	.dmi = quark_pci_dmi_data,
- };
-@@ -237,9 +237,8 @@ static int stmmac_pci_probe(struct pci_dev *pdev,
- 	pci_set_master(pdev);
- 
- 	if (info) {
--		info->pdev = pdev;
- 		if (info->setup) {
--			ret = info->setup(plat, info);
-+			ret = info->setup(pdev, plat, info);
- 			if (ret)
- 				return ret;
- 		}
+-	ret = stmmac_pci_find_phy_addr(pdev, quark_pci_dmi_data);
++	ret = stmmac_pci_find_phy_addr(pdev, quark_pci_dmi);
+ 	if (ret < 0) {
+ 		/* Return error to the caller on DMI enabled boards. */
+ 		if (dmi_get_system_info(DMI_BOARD_NAME))
 -- 
 2.12.3
