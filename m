@@ -1,54 +1,120 @@
-From: Yotam Gigi <yotamg@mellanox.com>
-Subject: Re: [PATCH net-next] net/mlxfw: select CONFIG_XZ_DEC
-Date: Tue, 30 May 2017 12:28:26 +0300
-Message-ID: <e172a668-eae0-4d94-4e59-40cbc100418e@mellanox.com>
-References: <20170530092628.1306028-1-arnd@arndb.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Ido Schimmel <idosch@mellanox.com>,
-        Jiri Pirko <jiri@mellanox.com>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-he1eur01on0070.outbound.protection.outlook.com ([104.47.0.70]:10752
-        "EHLO EUR01-HE1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751025AbdE3J2g (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 30 May 2017 05:28:36 -0400
-In-Reply-To: <20170530092628.1306028-1-arnd@arndb.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Florian Westphal <fw@strlen.de>
+Subject: [PATCH nf-next] netns: add and use net_ns_barrier
+Date: Tue, 30 May 2017 11:38:12 +0200
+Message-ID: <20170530093812.10712-1-fw@strlen.de>
+Cc: netdev@vger.kernel.org, Florian Westphal <fw@strlen.de>,
+        "Eric W. Biederman" <ebiederm@xmission.com>
+To: <netfilter-devel@vger.kernel.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 05/30/2017 12:26 PM, Arnd Bergmann wrote:
-> The new mlxfw code fails to build without the xz library:
->
-> drivers/net/ethernet/mellanox/mlxfw/mlxfw_mfa2.o: In function `mlxfw_mfa2_xz_dec_run':
-> :(.text.mlxfw_mfa2_xz_dec_run+0x8): undefined reference to `xz_dec_run'
-> drivers/net/ethernet/mellanox/mlxfw/mlxfw_mfa2.o: In function `mlxfw_mfa2_file_component_get':
-> :(.text.mlxfw_mfa2_file_component_get+0x218): undefined reference to `xz_dec_init'
-> :(.text.mlxfw_mfa2_file_component_get+0x2c0): undefined reference to `xz_dec_end'
->
-> This adds a Kconfig 'select' statement for it, which is also what
-> the other user of that library has.
->
-> Fixes: 410ed13cae39 ("Add the mlxfw module for Mellanox firmware flash process")
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> ---
->  drivers/net/ethernet/mellanox/mlxfw/Kconfig | 1 +
->  1 file changed, 1 insertion(+)
->
-> diff --git a/drivers/net/ethernet/mellanox/mlxfw/Kconfig b/drivers/net/ethernet/mellanox/mlxfw/Kconfig
-> index 56b60ac7bc34..2b21af8a2b1d 100644
-> --- a/drivers/net/ethernet/mellanox/mlxfw/Kconfig
-> +++ b/drivers/net/ethernet/mellanox/mlxfw/Kconfig
-> @@ -4,3 +4,4 @@
->  
->  config MLXFW
->          tristate "mlxfw" if COMPILE_TEST
-> +	select XZ_DEC
+Quoting Joe Stringer:
+  If a user loads nf_conntrack_ftp, sends FTP traffic through a network
+  namespace, destroys that namespace then unloads the FTP helper module,
+  then the kernel will crash.
 
-Thanks!
+Events that lead to the crash:
+1. conntrack is created with ftp helper in netns x
+2. This netns is destroyed
+3. netns destruction is scheduled
+4. netns destruction wq starts, removes netns from global list
+5. ftp helper is unloaded, which resets all helpers of the conntracks
+via for_each_net()
 
-Acked-by: Yotam Gigi <yotamg@mellanox.com>
+but because netns is already gone from list the for_each_net() loop
+doesn't include it, therefore all of these conntracks are unaffected.
+
+6. helper module unload finishes
+7. netns wq invokes destructor for rmmod'ed helper
+
+CC: "Eric W. Biederman" <ebiederm@xmission.com>
+Reported-by: Joe Stringer <joe@ovn.org>
+Signed-off-by: Florian Westphal <fw@strlen.de>
+---
+ Eric, I'd like an explicit (n)ack from you for this one.
+
+ include/net/net_namespace.h       |  3 +++
+ net/core/net_namespace.c          | 17 +++++++++++++++++
+ net/netfilter/nf_conntrack_core.c |  9 +++++++++
+ 3 files changed, 29 insertions(+)
+
+diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
+index fe80bb48ab1f..a24a57593202 100644
+--- a/include/net/net_namespace.h
++++ b/include/net/net_namespace.h
+@@ -158,6 +158,7 @@ extern struct net init_net;
+ struct net *copy_net_ns(unsigned long flags, struct user_namespace *user_ns,
+ 			struct net *old_net);
+ 
++void net_ns_barrier(void);
+ #else /* CONFIG_NET_NS */
+ #include <linux/sched.h>
+ #include <linux/nsproxy.h>
+@@ -168,6 +169,8 @@ static inline struct net *copy_net_ns(unsigned long flags,
+ 		return ERR_PTR(-EINVAL);
+ 	return old_net;
+ }
++
++static inline void net_ns_barrier(void) {}
+ #endif /* CONFIG_NET_NS */
+ 
+ 
+diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
+index 1934efd4a9d4..1f15abb1d733 100644
+--- a/net/core/net_namespace.c
++++ b/net/core/net_namespace.c
+@@ -482,6 +482,23 @@ static void cleanup_net(struct work_struct *work)
+ 		net_drop_ns(net);
+ 	}
+ }
++
++/**
++ * net_ns_barrier - wait until concurrent net_cleanup_work is done
++ *
++ * cleanup_net runs from work queue and will first remove namespaces
++ * from the global list, then run net exit functions.
++ *
++ * Call this in module exit path to make sure that all netns
++ * ->exit ops have been invoked before the function is removed.
++ */
++void net_ns_barrier(void)
++{
++	mutex_lock(&net_mutex);
++	mutex_unlock(&net_mutex);
++}
++EXPORT_SYMBOL(net_ns_barrier);
++
+ static DECLARE_WORK(net_cleanup_work, cleanup_net);
+ 
+ void __put_net(struct net *net)
+diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+index c3bd9b086dcc..ee972ee7bf81 100644
+--- a/net/netfilter/nf_conntrack_core.c
++++ b/net/netfilter/nf_conntrack_core.c
+@@ -1720,6 +1720,8 @@ EXPORT_SYMBOL_GPL(nf_ct_iterate_cleanup_net);
+  * Like nf_ct_iterate_cleanup, but first marks conntracks on the
+  * unconfirmed list as dying (so they will not be inserted into
+  * main table).
++ *
++ * Can only be called in module exit path.
+  */
+ void
+ nf_ct_iterate_destroy(int (*iter)(struct nf_conn *i, void *data), void *data)
+@@ -1734,6 +1736,13 @@ nf_ct_iterate_destroy(int (*iter)(struct nf_conn *i, void *data), void *data)
+ 	}
+ 	rtnl_unlock();
+ 
++	/* Need to wait for netns cleanup worker to finish, if its
++	 * running -- it might have deleted a net namespace from
++	 * the global list, so our __nf_ct_unconfirmed_destroy() might
++	 * not have affected all namespaces.
++	 */
++	net_ns_barrier();
++
+ 	/* a conntrack could have been unlinked from unconfirmed list
+ 	 * before we grabbed pcpu lock in __nf_ct_unconfirmed_destroy().
+ 	 * This makes sure its inserted into conntrack table.
+-- 
+2.13.0
+
