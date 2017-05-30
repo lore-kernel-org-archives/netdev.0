@@ -1,46 +1,29 @@
-From: Russell King <rmk+kernel@armlinux.org.uk>
-Subject: [PATCH] net: phy: fix marvell phy status reading
-Date: Tue, 30 May 2017 16:21:51 +0100
-Message-ID: <E1dFixz-00062r-0n@rmk-PC.armlinux.org.uk>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next 4/7] net: dsa: free orig skb on rcv if
+ reallocated
+Date: Tue, 30 May 2017 17:25:05 +0200
+Message-ID: <20170530152505.GG22758@lunn.ch>
+References: <20170530142131.23568-1-vivien.didelot@savoirfairelinux.com>
+ <20170530142131.23568-5-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from pandora.armlinux.org.uk ([78.32.30.218]:51158 "EHLO
-        pandora.armlinux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750720AbdE3PVy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 30 May 2017 11:21:54 -0400
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20170530142131.23568-5-vivien.didelot@savoirfairelinux.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The Marvell driver incorrectly provides phydev->lp_advertising as the
-logical and of the link partner's advert and our advert.  This is
-incorrect - this field is supposed to store the link parter's unmodified
-advertisment.
+On Tue, May 30, 2017 at 10:21:28AM -0400, Vivien Didelot wrote:
+> If the receive function of a tagger reallocated the SKB, the original
+> SKB is currently not freed. Fix this and free it on both copy or error.
 
-This allows ethtool to report the correct link partner auto-negotiation
-status.
+I don't see any of the receive functions reallocate the skb. It might
+be better to just simplify the code to take away the option to return
+a different skb.
 
-Signed-off-by: Russell King <rmk+kernel@armlinux.org.uk>
----
- drivers/net/phy/marvell.c | 2 --
- 1 file changed, 2 deletions(-)
-
-diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
-index e38f84291258..f93a7a46feb7 100644
---- a/drivers/net/phy/marvell.c
-+++ b/drivers/net/phy/marvell.c
-@@ -1119,8 +1119,6 @@ static int marvell_read_status_page(struct phy_device *phydev, int page)
- 		if (adv < 0)
- 			return adv;
- 
--		lpa &= adv;
--
- 		if (status & MII_M1011_PHY_STATUS_FULLDUPLEX)
- 			phydev->duplex = DUPLEX_FULL;
- 		else
--- 
-2.7.4
+  Andrew
