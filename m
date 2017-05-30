@@ -1,42 +1,111 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH net-next 4/7] net: dsa: free orig skb on rcv if reallocated
-Date: Tue, 30 May 2017 11:41:51 -0400
-Message-ID: <8737bm4aio.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
-References: <20170530142131.23568-1-vivien.didelot@savoirfairelinux.com> <20170530142131.23568-5-vivien.didelot@savoirfairelinux.com> <20170530152505.GG22758@lunn.ch>
+From: <Woojung.Huh@microchip.com>
+Subject: [PATCH v4 net-next 4/5] net: dsa: Add Microchip KSZ switches binding
+Date: Tue, 30 May 2017 15:44:52 +0000
+Message-ID: <9235D6609DB808459E95D78E17F2E43D40AA45AB@CHN-SV-EXMX02.mchp-main.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: Andrew Lunn <andrew@lunn.ch>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>,
+        <UNGLinuxDriver@microchip.com>
+To: <andrew@lunn.ch>, <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:50676 "EHLO
-        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751108AbdE3Pnz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 30 May 2017 11:43:55 -0400
-In-Reply-To: <20170530152505.GG22758@lunn.ch>
+Received: from esa4.microchip.iphmx.com ([68.232.154.123]:35472 "EHLO
+        esa4.microchip.iphmx.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750996AbdE3Poy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 30 May 2017 11:44:54 -0400
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Andrew,
+From: Woojung Huh <Woojung.Huh@microchip.com>
 
-Andrew Lunn <andrew@lunn.ch> writes:
+A sample SPI configuration for Microchip KSZ switches.
 
-> On Tue, May 30, 2017 at 10:21:28AM -0400, Vivien Didelot wrote:
->> If the receive function of a tagger reallocated the SKB, the original
->> SKB is currently not freed. Fix this and free it on both copy or error.
->
-> I don't see any of the receive functions reallocate the skb. It might
-> be better to just simplify the code to take away the option to return
-> a different skb.
+Signed-off-by: Woojung Huh <Woojung.Huh@microchip.com>
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ Documentation/devicetree/bindings/net/dsa/ksz.txt | 72 +++++++++++++++++++++++
+ 1 file changed, 72 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/net/dsa/ksz.txt
 
-I think it was written such way to be symmetrical with the xmit
-implementation, where the trailer tagger does reallocate the skb.
-
-I would say that keeping the symmetry is simpler from the point of view
-of the tagging implementations, but I don't have strong opinion here.
-
-Thanks,
-
-        Vivien
+diff --git a/Documentation/devicetree/bindings/net/dsa/ksz.txt b/Documentation/devicetree/bindings/net/dsa/ksz.txt
+new file mode 100644
+index 0000000..9acdb6c
+--- /dev/null
++++ b/Documentation/devicetree/bindings/net/dsa/ksz.txt
+@@ -0,0 +1,72 @@
++Microchip KSZ Series Ethernet switches
++==================================
++
++Required properties:
++
++- compatible: For external switch chips, compatible string must be exactly one
++  of: "microchip,ksz9477"
++
++See Documentation/devicetree/bindings/dsa/dsa.txt for a list of additional
++required and optional properties.
++
++Examples:
++
++Ethernet switch connected via SPI to the host, CPU port wired to eth0:
++
++		eth0: ethernet@10001000 {
++			fixed-link {
++				speed = <1000>;
++				full-duplex;
++			};
++		};
++
++		spi1: spi@f8008000 {
++			pinctrl-0 = <&pinctrl_spi_ksz>;
++			cs-gpios = <&pioC 25 0>;
++			id = <1>;
++			status = "okay";
++
++			ksz9477: ksz9477@0 {
++				compatible = "microchip,ksz9477";
++				reg = <0>;
++
++				spi-max-frequency = <44000000>;
++				spi-cpha;
++				spi-cpol;
++
++				status = "okay";
++				ports {
++					#address-cells = <1>;
++					#size-cells = <0>;
++					port@0 {
++						reg = <0>;
++						label = "lan1";
++					};
++					port@1 {
++						reg = <1>;
++						label = "lan2";
++					};
++					port@2 {
++						reg = <2>;
++						label = "lan3";
++					};
++					port@3 {
++						reg = <3>;
++						label = "lan4";
++					};
++					port@4 {
++						reg = <4>;
++						label = "lan5";
++					};
++					port@5 {
++						reg = <5>;
++						label = "cpu";
++						ethernet = <&eth0>;
++						fixed-link {
++							speed = <1000>;
++							full-duplex;
++						};
++					};
++				};
++			};
++		};
+-- 
+2.7.4
