@@ -1,90 +1,133 @@
-From: Leonard Crestez <leonard.crestez@nxp.com>
-Subject: Re: [PATCH 2/2] net: phy: micrel: Restore led_mode and clk_sel on
- resume
-Date: Wed, 31 May 2017 02:14:07 +0300
-Message-ID: <1496186047.19669.21.camel@nxp.com>
-References: <cover.1496164448.git.leonard.crestez@nxp.com>
-         <a8d0393c977b0d6fdab5d48ad13ca4d1ca893a07.1496164448.git.leonard.crestez@nxp.com>
-         <44ddeaeb-3e23-3d88-cc5c-9ed290507648@gmail.com>
-         <1496182080.19669.11.camel@nxp.com>
-         <30fb605c-675b-8458-aff7-36532635ccc2@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Johan Hovold <johan@kernel.org>,
-        Alexandre Belloni <alexandre.belloni@free-electrons.com>,
-        Philipp Zabel <p.zabel@pengutronix.de>,
-        Fabio Estevam <fabio.estevam@nxp.com>,
-        <netdev@vger.kernel.org>, <linux-arm-kernel@lists.infradead.org>,
-        <linux-kernel@vger.kernel.org>, Shawn Guo <shawnguo@kernel.org>
-To: Florian Fainelli <f.fainelli@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>, Andy Duan <fugang.duan@nxp.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <30fb605c-675b-8458-aff7-36532635ccc2@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: [PATCH RFC net-next] arp: Really delete an arp entry on "arp -d"
+Date: Mon, 29 May 2017 20:48:16 -0700
+Message-ID: <1496116096-77316-1-git-send-email-sowmini.varadhan@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from userp1040.oracle.com ([156.151.31.81]:23653 "EHLO
+        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750928AbdE3XOy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 30 May 2017 19:14:54 -0400
+Received: from aserv0021.oracle.com (aserv0021.oracle.com [141.146.126.233])
+        by userp1040.oracle.com (Sentrion-MTA-4.3.2/Sentrion-MTA-4.3.2) with ESMTP id v4UNEpdH024980
+        (version=TLSv1 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
+        for <netdev@vger.kernel.org>; Tue, 30 May 2017 23:14:52 GMT
+Received: from userv0122.oracle.com (userv0122.oracle.com [156.151.31.75])
+        by aserv0021.oracle.com (8.13.8/8.14.4) with ESMTP id v4UNEoDc013528
+        (version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
+        for <netdev@vger.kernel.org>; Tue, 30 May 2017 23:14:51 GMT
+Received: from abhmp0005.oracle.com (abhmp0005.oracle.com [141.146.116.11])
+        by userv0122.oracle.com (8.14.4/8.14.4) with ESMTP id v4UNEoGX008917
+        for <netdev@vger.kernel.org>; Tue, 30 May 2017 23:14:50 GMT
+To: sowmini.varadhan@oracle.com, netdev@vger.kernel.org
+To: sowmini.varadhan@oracle.com
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2017-05-30 at 15:19 -0700, Florian Fainelli wrote:
-> On 05/30/2017 03:08 PM, Leonard Crestez wrote:
-> > On Tue, 2017-05-30 at 11:05 -0700, Florian Fainelli wrote:
+Noticed during some testing: the command
+  # arp -s 62.2.0.1 a:b:c:d:e:f dev eth2
+adds an entry like the following (listed by "arp -an")
+  ? (62.2.0.1) at 0a:0b:0c:0d:0e:0f [ether] PERM on eth2
+but the symmetric deletion command
+  # arp -i eth2 -d 62.2.0.1
+does not remove the PERM entry from the table, and instead leaves behind
+  ? (62.2.0.1) at <incomplete> on eth2
 
-> > > Should not we actually call kszphy_config_init() in order to restore
-> > > broadcast and nand disable bits as well?
-> > 
-> > I don't know. In my case the B_CAST_OFF bit doesn't seem to be lost and
-> > NAND_TREE_ON is already off by the time it gets to linux.
-> > 
-> > The bit that get lost seem to disappear just as the phy is resumed. I
-> > added some prints and they look like this:
-> > 
-> > PM: early resume of devices complete after 6.534 msecs
-> > begin resume
-> > 0x1F=0x8190 0x16=0x202
-> > after genphy_resume 0x1F=0x8100 0x16=0x202
-> > end
-> > resume 0x1F=0x8190 0x16=0x202
-> 
-> OK, so it actually would not hurt to call config_init() again here, right?
+The reason is that there is a refcnt of 1 for the arp_tbl itself
+(neigh_alloc starts off the entry with a refcnt of 1), thus
+the neigh_release() call from arp_invalidate() will (at best) just
+decrement the ref to 1, but will never actually free it from the
+table.
 
-No, but if only some registers are lost then why reconfigure others? In
-particular it seems that only MII_KSZPHY_CTRL_2 is lost but not
-MII_KSZPHY_OMSO.
+To fix this, we need to do something like neigh_forced_gc: if
+the refcnt is 1 (i.e., on the table's ref), remove the entry from
+the table and free it.
 
-However a few extra phy reads don't really matter. Calling config_init
-is the path of least resistance.
+We may need something symmetric for IPv6- I was going to check into
+that, after getting some feedback on this RFC patch.
 
-Another problem is that the ksz9031 driver uses kszphy_resume but has a
-completely different init function. The bits I am concerned about do
-not seem to exist in hardware but it does something completely
-unrelated with parsing OF properties. Should I split this into
-ksz8021_resume and ksz9031_resume?
+Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+---
+ include/net/neighbour.h |    1 +
+ net/core/neighbour.c    |   42 ++++++++++++++++++++++++++++++++++++++++++
+ net/ipv4/arp.c          |    1 +
+ 3 files changed, 44 insertions(+), 0 deletions(-)
 
-It seems likely that more of the kszphy drivers need suspend/resume
-code but nobody got around to testing them.
-
-> > > If not, I would be more comfortable if we did create a specific function
-> > > that takes care of setting the reference clock and LED mode.
-> > 
-> > Ok, I can add a function called kszphy_config_reset() with a comment
-> > explaining it's for bits lost on reset/resume.
-> > 
-> > Or perhaps a better option would be to just save/restore the entire
-> > 0x1F register?
-> 
-> Register 0 through 15 are standardized, but those after that are not,
-> and PHYs with a gazillion of registers already need to have a specific
-> set of suspend/resume sequence due to their proprietary indirect
-> register scheme, so we cannot quite come up with a generic function that
-> would cache all 16 or 32 registers and flat out restore those.
-> 
-> Similarly, having phy_resume() systematically calling into config_init()
-> is a bit of a stretch and can be pretty inefficient.
-
-I'm not suggesting changing this at the phy core level. Just that maybe
-kszphy_resume specifically could save/restore register 0x1F instead of
-going through config logic again (which would involve extra reads and
-writes).
-
-However it seems that this has complications, for example on some
-versions the leds are written to a different register. It's not really
-worth optimizing to such an extent.
+diff --git a/include/net/neighbour.h b/include/net/neighbour.h
+index e4dd3a2..639b675 100644
+--- a/include/net/neighbour.h
++++ b/include/net/neighbour.h
+@@ -317,6 +317,7 @@ struct neighbour *__neigh_create(struct neigh_table *tbl, const void *pkey,
+ int neigh_update(struct neighbour *neigh, const u8 *lladdr, u8 new, u32 flags,
+ 		 u32 nlmsg_pid);
+ void __neigh_set_probe_once(struct neighbour *neigh);
++bool neigh_remove_one(struct neighbour *ndel, struct neigh_table *tbl);
+ void neigh_changeaddr(struct neigh_table *tbl, struct net_device *dev);
+ int neigh_ifdown(struct neigh_table *tbl, struct net_device *dev);
+ int neigh_resolve_output(struct neighbour *neigh, struct sk_buff *skb);
+diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+index d274f81..0a09f6f 100644
+--- a/net/core/neighbour.c
++++ b/net/core/neighbour.c
+@@ -117,6 +117,48 @@ unsigned long neigh_rand_reach_time(unsigned long base)
+ }
+ EXPORT_SYMBOL(neigh_rand_reach_time);
+ 
++bool neigh_remove_one(struct neighbour *ndel, struct neigh_table *tbl)
++{
++	struct neigh_hash_table *nht;
++	void *pkey = ndel->primary_key;
++	u32 hash_val;
++	struct neighbour *n;
++	struct neighbour __rcu **np;
++
++	write_lock_bh(&tbl->lock);
++	nht = rcu_dereference_protected(tbl->nht,
++					lockdep_is_held(&tbl->lock));
++	hash_val = tbl->hash(pkey, ndel->dev, nht->hash_rnd);
++	hash_val = hash_val >> (32 - nht->hash_shift);
++
++	np = &nht->hash_buckets[hash_val];
++	while ((n = rcu_dereference_protected(*np,
++				lockdep_is_held(&tbl->lock))) != NULL) {
++		write_lock(&n->lock);
++		if (n == ndel) {
++			bool retval = false;
++
++			if  (atomic_read(&n->refcnt) == 1) {
++				rcu_assign_pointer(*np,
++					rcu_dereference_protected(n->next,
++					lockdep_is_held(&tbl->lock)));
++				n->dead = 1;
++				retval = true;
++			}
++			write_unlock(&n->lock);
++			if (retval)
++				neigh_cleanup_and_release(n);
++			write_unlock_bh(&tbl->lock);
++			return retval;
++		}
++		write_unlock(&n->lock);
++		np = &n->next;
++	}
++
++	write_unlock_bh(&tbl->lock);
++	return false;
++}
++EXPORT_SYMBOL(neigh_remove_one);
+ 
+ static int neigh_forced_gc(struct neigh_table *tbl)
+ {
+diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
+index e9f3386..5264004 100644
+--- a/net/ipv4/arp.c
++++ b/net/ipv4/arp.c
+@@ -1120,6 +1120,7 @@ static int arp_invalidate(struct net_device *dev, __be32 ip)
+ 					   NEIGH_UPDATE_F_OVERRIDE|
+ 					   NEIGH_UPDATE_F_ADMIN, 0);
+ 		neigh_release(neigh);
++		neigh_remove_one(neigh, &arp_tbl);
+ 	}
+ 
+ 	return err;
+-- 
+1.7.1
