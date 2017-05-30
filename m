@@ -1,63 +1,49 @@
-From: Ganesh Goudar <ganeshgr@chelsio.com>
-Subject: Re: [PATCH net-next] cxgb4: fix incorrect cim_la output for T6
-Date: Tue, 30 May 2017 17:23:34 +0530
-Message-ID: <20170530115333.GA12626@chelsio.com>
-References: <1495188738-20546-1-git-send-email-ganeshgr@chelsio.com>
- <063D6719AE5E284EB5DD2968C1650D6DCFFFABCB@AcuExch.aculab.com>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: vxlan: use after free error
+Date: Tue, 30 May 2017 13:54:20 +0200
+Message-ID: <20170530135420.51ff8617@griffin>
+References: <03ac7d79-02b7-4bee-d318-9731413bf97b@mellanox.com>
+        <CAJieiUhNV7=r53mmsHTHAmA8g0PKoxszHyNMXwYKG4OsB20KjQ@mail.gmail.com>
+        <b04f5f7e-dca1-b219-eb52-03f58fd3823e@mellanox.com>
+        <CAJieiUgwRT8NbNdZ37HXJn9OYc78bpj=Zb9N5pQQQ_SLZhD1kg@mail.gmail.com>
+        <20170530134755.6675023c@griffin>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Mark Bloch <markb@mellanox.com>,
         "davem@davemloft.net" <davem@davemloft.net>,
-        "nirranjan@chelsio.com" <nirranjan@chelsio.com>,
-        "indranil@chelsio.com" <indranil@chelsio.com>
-To: David Laight <David.Laight@ACULAB.COM>
+        pravin shelar <pshelar@ovn.org>,
+        Alexander Duyck <aduyck@mirantis.com>,
+        Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Balki Raman <ramanb@cumulusnetworks.com>
+To: Roopa Prabhu <roopa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.32.117.8]:11050 "EHLO
-        stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750912AbdE3Lx5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 30 May 2017 07:53:57 -0400
-Content-Disposition: inline
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DCFFFABCB@AcuExch.aculab.com>
+Received: from mx1.redhat.com ([209.132.183.28]:37270 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750946AbdE3LyZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 30 May 2017 07:54:25 -0400
+In-Reply-To: <20170530134755.6675023c@griffin>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Friday, May 05/19/17, 2017 at 14:17:11 +0000, David Laight wrote:
-> From: Ganesh Goudar
-> > Sent: 19 May 2017 11:12
-> T6
-> > 
-> > take care of UpDbgLaRdPtr[0-3] restriction for T6
-> > 
-> > Signed-off-by: Ganesh Goudar <ganeshgr@chelsio.com>
-> > ---
-> >  drivers/net/ethernet/chelsio/cxgb4/t4_hw.c | 7 +++++++
-> >  1 file changed, 7 insertions(+)
-> > 
-> > diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-> > index aded42b96..917b46b 100644
-> > --- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-> > +++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-> > @@ -8268,6 +8268,13 @@ int t4_cim_read_la(struct adapter *adap, u32 *la_buf, unsigned int *wrptr)
-> >  		if (ret)
-> >  			break;
-> >  		idx = (idx + 1) & UPDBGLARDPTR_M;
-> > +
-> > +		/* Bits 0-3 of UpDbgLaRdPtr can be between 0000 to 1001 to
-> > +		 * identify the 32-bit portion of the full 312-bit data
-> > +		 */
-> > +		if (is_t6(adap->params.chip))
-> > +			while ((idx & 0xf) > 9)
-> > +				idx = (idx + 1) % UPDBGLARDPTR_M;
+On Tue, 30 May 2017 13:47:55 +0200, Jiri Benc wrote:
+> On Mon, 29 May 2017 11:37:22 -0700, Roopa Prabhu wrote:
+> > This code is also hit via the OVS path, and i don't see a problem with
+> > your changes and analysis but i am not too familiar with the ovs call
+> > path. I see that the relevant developers are CC'ed.
 > 
-> Why the loop, maybe:
-> 		if (is_t6(adap->params.chip) && (idx & 0xf) >= 9)
-> 			idx = (idx & 0xf0) + 0x10;
-> 		else
-> 			idx++;
-> 		idx &= UPDBGLARDPTR_M;
+> I don't see a problem with ovs and this patch. Ovs calls
+> rtnl_delete_link.
 > 
-> 	David
->
-Yes, it is sensible I will send a v2, thanks David.
+> I'd prefer to have the code in a vxlan_vs_del_dev function to be
+> symmetrical with vxlan_vs_add_dev similarly to what Roopa suggested. If
+> you keep me in CC while resending I'll be happy to add my ack to the
+> patch.
 
-Thanks 
+I replied to a wrong email in the thread but I guess it's obvious what
+I wanted to reply to :-)
+
+Sorry for that,
+
+ Jiri
