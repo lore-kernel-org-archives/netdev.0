@@ -1,43 +1,48 @@
-From: Tariq Toukan <tariqt@mellanox.com>
-Subject: [PATCH net 1/3] MAINTAINERS: Update MELLANOX MLX4 core VPI driver maintainer
-Date: Tue, 30 May 2017 11:44:04 +0300
-Message-ID: <1496133846-18343-2-git-send-email-tariqt@mellanox.com>
-References: <1496133846-18343-1-git-send-email-tariqt@mellanox.com>
-Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
-        Majd Dibbiny <majd@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Yishai Hadas <yishaih@mellanox.com>,
-        Tariq Toukan <tariqt@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:41289 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1750942AbdE3Iop (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 30 May 2017 04:44:45 -0400
-In-Reply-To: <1496133846-18343-1-git-send-email-tariqt@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: ravb WoL interrupt flood
+Date: Tue, 30 May 2017 11:23:23 +0200
+Message-ID: <CAMuHMdWmt7oB4B4OYkO59+HvEbpVLVeqB_AV2c5OnYJEUJRxRg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+        Linux-Renesas <linux-renesas-soc@vger.kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: =?UTF-8?Q?Niklas_S=C3=B6derlund?= <niklas.soderlund@ragnatech.se>
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+Sender: linux-renesas-soc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Add myself as a maintainer for mlx4 core driver,
-replacing Yishai Hadas.
+Hi Niklas,
 
-Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
----
- MAINTAINERS | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+I just got a flood of messages after WoL from s2idle on r8a7795/salvator-x:
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 9e984645c4b0..d9d5398d0a49 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -8508,7 +8508,7 @@ S:	Odd Fixes
- F:	drivers/media/radio/radio-miropcm20*
- 
- MELLANOX MLX4 core VPI driver
--M:	Yishai Hadas <yishaih@mellanox.com>
-+M:	Tariq Toukan <tariqt@mellanox.com>
- L:	netdev@vger.kernel.org
- L:	linux-rdma@vger.kernel.org
- W:	http://www.mellanox.com
--- 
-1.8.3.1
+[  802.341060] ravb e6800000.ethernet eth0: ignoring interrupt, rx
+status 0x00000001, rx mask 0x00000001,
+[  802.350369] ravb e6800000.ethernet eth0:                     tx
+status 0x00000000, tx mask 0x00000001.
+[  802.359684] ravb e6800000.ethernet eth0: ignoring interrupt, rx
+status 0x00000001, rx mask 0x00000001,
+[  802.368993] ravb e6800000.ethernet eth0:                     tx
+status 0x00000000, tx mask 0x00000001.
+[  802.378308] ravb e6800000.ethernet eth0: ignoring interrupt, rx
+status 0x00000001, rx mask 0x00000001,
+[  802.387616] ravb e6800000.ethernet eth0:                     tx
+status 0x00000000, tx mask 0x00000001.
+[  802.396931] ravb e6800000.ethernet eth0: ignoring interrupt, rx
+status 0x00000001, rx mask 0x00000001,
+[  802.406240] ravb e6800000.ethernet eth0:                     tx
+status 0x00000000, tx mask 0x00000001.
+...
+
+Unfortunately I cannot reproduce it.
+
+Gr{oetje,eeting}s,
+
+                        Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+                                -- Linus Torvalds
