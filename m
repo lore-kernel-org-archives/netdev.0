@@ -1,93 +1,83 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Subject: Re: [PATCH v2 net-next 1/3] perf, bpf: Add BPF support to all
- perf_event types
-Date: Tue, 30 May 2017 18:51:02 +0200
-Message-ID: <20170530165102.kvcutyfp6i2in2zx@hirez.programming.kicks-ass.net>
-References: <20170526055549.557818-1-ast@fb.com>
- <20170526055549.557818-2-ast@fb.com>
- <20170529091253.lopsd33qticsbgii@hirez.programming.kicks-ass.net>
- <20170529093918.xmbijgozjrfi22ru@hirez.programming.kicks-ass.net>
- <a6bf362c-9df9-f387-bac3-ab5516e4cb68@fb.com>
+From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+Subject: [net-wireless-orinoco] question about potential null pointer
+ dereference
+Date: Tue, 30 May 2017 12:00:32 -0500
+Message-ID: <20170530120032.Horde.GHW0X8-B795CdxPjQOfDPa9@gator4166.hostgator.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S . Miller" <davem@davemloft.net>,
-        Brendan Gregg <bgregg@netflix.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Teng Qin <qinteng@fb.com>, netdev@vger.kernel.org,
+Content-Type: text/plain; charset=utf-8; format=flowed; DelSp=Yes
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
         linux-kernel@vger.kernel.org
-To: Alexei Starovoitov <ast@fb.com>
+To: Kalle Valo <kvalo@codeaurora.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <a6bf362c-9df9-f387-bac3-ab5516e4cb68@fb.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, May 30, 2017 at 08:52:14AM -0700, Alexei Starovoitov wrote:
 
-> > +	if (!(event->attach_state & PERF_ATTACH_TASK) &&
-> > +	    event->cpu != cpu)
-> > +		return false;
-> 
-> we do if (unlikely(event->oncpu != cpu))
-> as dynamic check inside bpf_perf_event_read(), since we cannot do it
-> statically at perf_event_array update time.
+Hello everybody,
 
-Right, that's what I thought.
+While looking into Coverity ID 1357460 I ran into the following piece  
+of code at drivers/net/wireless/intersil/orinoco/mic.c:48
 
-> If we drop the above 'if' and keep 'task==null' trick,
-> then indeed we can use this function as static check.
+48int orinoco_mic(struct crypto_shash *tfm_michael, u8 *key,
+49                u8 *da, u8 *sa, u8 priority,
+50                u8 *data, size_t data_len, u8 *mic)
+51{
+52        SHASH_DESC_ON_STACK(desc, tfm_michael);
+53        u8 hdr[ETH_HLEN + 2]; /* size of header + padding */
+54        int err;
+55
+56        if (tfm_michael == NULL) {
+57                printk(KERN_WARNING "orinoco_mic: tfm_michael == NULL\n");
+58                return -1;
+59        }
+60
+61        /* Copy header into buffer. We need the padding on the end zeroed */
+62        memcpy(&hdr[0], da, ETH_ALEN);
+63        memcpy(&hdr[ETH_ALEN], sa, ETH_ALEN);
+64        hdr[ETH_ALEN * 2] = priority;
+65        hdr[ETH_ALEN * 2 + 1] = 0;
+66        hdr[ETH_ALEN * 2 + 2] = 0;
+67        hdr[ETH_ALEN * 2 + 3] = 0;
+68
+69        desc->tfm = tfm_michael;
+70        desc->flags = 0;
+71
+72        err = crypto_shash_setkey(tfm_michael, key, MIC_KEYLEN);
+73        if (err)
+74                return err;
+75
+76        err = crypto_shash_init(desc);
+77        if (err)
+78                return err;
+79
+80        err = crypto_shash_update(desc, hdr, sizeof(hdr));
+81        if (err)
+82                return err;
+83
+84        err = crypto_shash_update(desc, data, data_len);
+85        if (err)
+86                return err;
+87
+88        err = crypto_shash_final(desc, mic);
+89        shash_desc_zero(desc);
+90
+91        return err;
+92}
 
-Right, or otherwise have a special value to disable it.
+The issue here is that line 56 implies that pointer tfm_michael might  
+be NULL. If this is the case, there is a potential NULL pointer  
+dereference at line 52 once pointer tfm_michael is indirectly  
+dereferenced inside macro SHASH_DESC_ON_STACK().
 
-> Right now we're trying to keep as many checks as possible as
-> static checks to make bpf_perf_event_read() faster.
-> I guess we can drop that approach and do perf_event_valid_local()
-> check for every read since perf_event_read_local() does all the
-> same checks anyway.
-> So how about converting all WARN_ON in perf_event_read_local()
-> into 'return -EINVAL' and change func proto into:
-> int perf_event_read_local(struct perf_event *even, u64 *counter_val)
+My question is if there is any chance that pointer tfm_michael might  
+be NULL when calling macro SHASH_DESC_ON_STACK() ?
 
-I'm confused on how that is better. My recent patches to WARN should
-have greatly improved performance of WARN_ON_ONCE(). And looking at that
-code, I suspect its dominated by the POPF for inactive events.
+I'm trying to figure out if this is a false positive or something that  
+needs to be fixed somehow.
 
-> > I cannot find reason for this comment. That is, why would
-> > perf_event_read_local() not support those two types?
-> 
-> I don't know. What is the meaning of
-> reading tracepoint/breakpoint counter?
+I'd really appreciate any comment on this.
 
-They count like all other software events. +1 for each occurrence.
-
-So for instance, if you use irq_vectors:local_timer_entry you get how
-many cpu local timer instances happened during your measurement window.
-
-Same with a breakpoint, it counts how many times it got hit. Typically
-you'd want to install a custom handler on breakpoints to do something
-'interesting', but even without that its acts like a normal software
-event.
-
-> Because of 'event->oncpu != cpu' dynamic check all counters are
-> expected to be per-cpu. I'm not sure how uncore counters work.
-
-Uncore thingies are assigned to any online CPU in their 'domain'.
-
-> What do they have in event->oncpu? -1? I guess they have pmu->count?
-> So we cannot read them from bpf program anyway?
-
-They have the CPU number of the CPU that's assigned to them. So you
-_could_ make use of them, but its a bit tricky to get them to work
-reliably because you'd have to get that CPU 'right' and it can change.
-
-Typically they would end up on the first CPU in their domain, but with
-CPU hotplug you can move them about and get confusion.
-
-I'd have to think on how to do that nicely.
-
-> If we change warn_ons in perf_event_read_local() to returns
-> them we can make per-task counters working.
-
-I'm not entirely sure I see how that is required. Should per task not
-already work? The WARN that's there will only trigger if you call them
-on the wrong task, which is something you shouldn't do anyway.
+Thank you!
+--
+Gustavo A. R. Silva
