@@ -1,37 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next 0/9] net: another round of extack handling
- for routing
-Date: Tue, 30 May 2017 11:55:53 -0400 (EDT)
-Message-ID: <20170530.115553.460294781540103319.davem@davemloft.net>
-References: <20170527221933.57644-1-dsahern@gmail.com>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next 1/7] net: dsa: hide dsa_uses_tagged_protocol code
+Date: Tue, 30 May 2017 11:56:30 -0400
+Message-ID: <87wp8y2v9t.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+References: <20170530142131.23568-1-vivien.didelot@savoirfairelinux.com> <20170530142131.23568-2-vivien.didelot@savoirfairelinux.com> <20170530150144.GC22758@lunn.ch> <20170530.110923.2297838959849946238.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com
-To: dsahern@gmail.com
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@savoirfairelinux.com, f.fainelli@gmail.com
+To: David Miller <davem@davemloft.net>, andrew@lunn.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:52580 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750908AbdE3Pzz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 30 May 2017 11:55:55 -0400
-In-Reply-To: <20170527221933.57644-1-dsahern@gmail.com>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:52054 "EHLO
+        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750811AbdE3P6q (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 30 May 2017 11:58:46 -0400
+In-Reply-To: <20170530.110923.2297838959849946238.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Ahern <dsahern@gmail.com>
-Date: Sat, 27 May 2017 16:19:24 -0600
+Hi Andrew, David,
 
-> This set focuses on passing extack through lwtunnel and MPLS with
-> additional catches for IPv4 route add and minor cleanups in MPLS
-> encountered passing the extack arg around.
-> 
-> v2
-> - mindful of bloat adding duplicate messages
->   + refactored prefix and prefix length checks in ipv4's fib_table_insert
->     and fib_table_del
->   + refactored label check in mpls
-> 
-> - split mpls cleanups into 2 patches
->   + move nla_get_via up in af_mpls to avoid forward declaration
+David Miller <davem@davemloft.net> writes:
 
-Series applied, thanks David.
+>>> +bool dsa_uses_tagged_protocol(struct dsa_switch_tree *dst)
+>>> +{
+>>> +	return !!dst->rcv;
+>>> +}
+>>> +
+>> 
+>> You need to be careful here. This is in the hot path. Every frame
+>> received uses this code. And think about a distro kernel, which might
+>> have DSA enabled by default, yet is unlikely to have any switches. You
+>> are adding a function call which can be called millions of times per
+>> second....
+>
+> Yeah, we really can't make this change.
+>
+> This isn't glibc where we're trying to hide the implementation of "FILE *"
+> behind accessor functions that caller can't see.  We inline things when
+> performance dictates, and it does here.
+
+Thanks for the explanation, this wasn't obvious to me at all. So inline
+is mandatory here. Would a dereference like "!!dst->tag_ops->rcv" have
+an significant impact on performance?
+
+Thanks,
+
+        Vivien
