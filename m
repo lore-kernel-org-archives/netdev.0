@@ -1,7 +1,7 @@
 From: Jiri Benc <jbenc@redhat.com>
 Subject: Re: vxlan: use after free error
-Date: Tue, 30 May 2017 13:47:55 +0200
-Message-ID: <20170530134755.6675023c@griffin>
+Date: Tue, 30 May 2017 13:53:02 +0200
+Message-ID: <20170530135302.5ecaec88@griffin>
 References: <03ac7d79-02b7-4bee-d318-9731413bf97b@mellanox.com>
         <CAJieiUhNV7=r53mmsHTHAmA8g0PKoxszHyNMXwYKG4OsB20KjQ@mail.gmail.com>
         <b04f5f7e-dca1-b219-eb52-03f58fd3823e@mellanox.com>
@@ -18,26 +18,36 @@ Cc: Mark Bloch <markb@mellanox.com>,
         Balki Raman <ramanb@cumulusnetworks.com>
 To: Roopa Prabhu <roopa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:56038 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:53176 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750911AbdE3LsA (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 30 May 2017 07:48:00 -0400
+        id S1750912AbdE3LxH (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 30 May 2017 07:53:07 -0400
 In-Reply-To: <CAJieiUgwRT8NbNdZ37HXJn9OYc78bpj=Zb9N5pQQQ_SLZhD1kg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 On Mon, 29 May 2017 11:37:22 -0700, Roopa Prabhu wrote:
+> What you say looks correct..., but does not hurt to leave this check in there..
+> given rest of the changes you are proposing below.
+
+I agree with Mark that the check is superfluous and should not be there.
+
+> Looking at git blame, this check was added for OVS in dellink...but it
+> could have been because
+>  it was being called before stop in dellink.
+
+The code at that time did not use rtnl ops to create/delete the tunnel
+and was refactored meanwhile. The conditions from that time do not hold
+anymore.
+
+> That seems right. It does look redundant if we hit the same code via
+> vxlan_stop during dellink.
+> 
 > This code is also hit via the OVS path, and i don't see a problem with
 > your changes and analysis but i am not too familiar with the ovs call
 > path. I see that the relevant developers are CC'ed.
 
-I don't see a problem with ovs and this patch. Ovs calls
-rtnl_delete_link.
-
-I'd prefer to have the code in a vxlan_vs_del_dev function to be
-symmetrical with vxlan_vs_add_dev similarly to what Roopa suggested. If
-you keep me in CC while resending I'll be happy to add my ack to the
-patch.
+I think it's okay.
 
 Thanks!
 
