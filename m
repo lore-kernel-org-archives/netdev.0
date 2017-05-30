@@ -1,82 +1,96 @@
-From: Ganesh Goudar <ganeshgr@chelsio.com>
-Subject: [PATCH net-next] cxgb4: FW upgrade fixes
-Date: Tue, 30 May 2017 18:06:06 +0530
-Message-ID: <1496147766-12948-1-git-send-email-ganeshgr@chelsio.com>
-Cc: nirranjan@chelsio.com, indranil@chelsio.com,
-        Arjun Vynipadath <arjun@chelsio.com>,
-        Casey Leedom <leedom@chelsio.com>,
-        Ganesh Goudar <ganeshgr@chelsio.com>
-To: netdev@vger.kernel.org, davem@davemloft.net
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: [PATCH net] samples/bpf: bpf_load.c order of prog_fd[] should
+ correspond with ELF order
+Date: Tue, 30 May 2017 14:37:51 +0200
+Message-ID: <149614787132.15375.2590780903240304298.stgit@firesoul>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Jesper Dangaard Brouer <brouer@redhat.com>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.32.117.8]:35340 "EHLO
-        stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750946AbdE3MgI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 30 May 2017 08:36:08 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:40512 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751711AbdE3Mhz (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 30 May 2017 08:37:55 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Arjun Vynipadath <arjun@chelsio.com>
+An eBPF ELF file generated with LLVM can contain several program
+section, which can be used for bpf tail calls.  The bpf prog file
+descriptors are accessible via array prog_fd[].
 
-Disable FW_OK flag while flashing Firmware. This will help to fix any
-potential mailbox timeouts during Firmware flash.
+At-least XDP samples assume ordering, and uses prog_fd[0] is the main
+XDP program to attach.  The actual order of array prog_fd[] depend on
+whether or not a bpf program section is referencing any maps or not.
+Not using a map result in being loaded/processed after all other
+prog section.  Thus, this can lead to some very strange and hard to
+debug situation, as the user can only see a FD and cannot correlated
+that with the ELF section name.
 
-Grab new devlog parameters after Firmware restart. When we FLASH new
-Firmware onto an adapter, the new Firmware may have the Firmware Device Log
-located at a different memory address or have a different size for it.
+The fix is rather simple, and even removes duplicate memcmp code.
+Simply load program sections as the last step, instead of
+load_and_attach while processing the relocation section.
 
-Signed-off-by: Arjun Vynipadath <arjun@chelsio.com>
-Signed-off-by: Casey Leedom <leedom@chelsio.com>
-Signed-off-by: Ganesh Goudar <ganeshgr@chelsio.com>
+When working with tail calls, it become even more essential that the
+order of prog_fd[] is consistant, like the current dependency of the
+map_fd[] order.
+
+Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
 ---
-v2:
--Fix spelling mistake, "send" -> "sent"
+ samples/bpf/bpf_load.c |   19 +++++--------------
+ 1 file changed, 5 insertions(+), 14 deletions(-)
 
- drivers/net/ethernet/chelsio/cxgb4/t4_hw.c | 21 ++++++++++++++++++---
- 1 file changed, 18 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-index b97ce4a..9160c88 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-@@ -6288,13 +6288,18 @@ int t4_fw_upgrade(struct adapter *adap, unsigned int mbox,
- 	if (!t4_fw_matches_chip(adap, fw_hdr))
- 		return -EINVAL;
+diff --git a/samples/bpf/bpf_load.c b/samples/bpf/bpf_load.c
+index 74456b3eb89a..a91c57dd8571 100644
+--- a/samples/bpf/bpf_load.c
++++ b/samples/bpf/bpf_load.c
+@@ -516,16 +516,18 @@ static int do_load_bpf_file(const char *path, fixup_map_cb fixup_map)
+ 		processed_sec[maps_shndx] = true;
+ 	}
  
-+	/* Disable FW_OK flag so that mbox commands with FW_OK flag set
-+	 * wont be sent when we are flashing FW.
-+	 */
-+	adap->flags &= ~FW_OK;
+-	/* load programs that need map fixup (relocations) */
++	/* process all relo sections, and rewrite bpf insns for maps */
+ 	for (i = 1; i < ehdr.e_shnum; i++) {
+ 		if (processed_sec[i])
+ 			continue;
+ 
+ 		if (get_sec(elf, i, &ehdr, &shname, &shdr, &data))
+ 			continue;
 +
- 	ret = t4_fw_halt(adap, mbox, force);
- 	if (ret < 0 && !force)
--		return ret;
-+		goto out;
+ 		if (shdr.sh_type == SHT_REL) {
+ 			struct bpf_insn *insns;
  
- 	ret = t4_load_fw(adap, fw_data, size);
- 	if (ret < 0)
--		return ret;
-+		goto out;
++			/* locate prog sec that need map fixup (relocations) */
+ 			if (get_sec(elf, shdr.sh_info, &ehdr, &shname_prog,
+ 				    &shdr_prog, &data_prog))
+ 				continue;
+@@ -535,26 +537,15 @@ static int do_load_bpf_file(const char *path, fixup_map_cb fixup_map)
+ 				continue;
  
- 	/*
- 	 * Older versions of the firmware don't understand the new
-@@ -6305,7 +6310,17 @@ int t4_fw_upgrade(struct adapter *adap, unsigned int mbox,
- 	 * its header flags to see if it advertises the capability.
- 	 */
- 	reset = ((be32_to_cpu(fw_hdr->flags) & FW_HDR_FLAGS_RESET_HALT) == 0);
--	return t4_fw_restart(adap, mbox, reset);
-+	ret = t4_fw_restart(adap, mbox, reset);
-+
-+	/* Grab potentially new Firmware Device Log parameters so we can see
-+	 * how healthy the new Firmware is.  It's okay to contact the new
-+	 * Firmware for these parameters even though, as far as it's
-+	 * concerned, we've never said "HELLO" to it ...
-+	 */
-+	(void)t4_init_devlog_params(adap);
-+out:
-+	adap->flags |= FW_OK;
-+	return ret;
- }
+ 			insns = (struct bpf_insn *) data_prog->d_buf;
+-
+-			processed_sec[shdr.sh_info] = true;
+-			processed_sec[i] = true;
++			processed_sec[i] = true; /* relo section */
  
- /**
--- 
-2.1.0
+ 			if (parse_relo_and_apply(data, symbols, &shdr, insns,
+ 						 map_data, nr_maps))
+ 				continue;
+-
+-			if (memcmp(shname_prog, "kprobe/", 7) == 0 ||
+-			    memcmp(shname_prog, "kretprobe/", 10) == 0 ||
+-			    memcmp(shname_prog, "tracepoint/", 11) == 0 ||
+-			    memcmp(shname_prog, "xdp", 3) == 0 ||
+-			    memcmp(shname_prog, "perf_event", 10) == 0 ||
+-			    memcmp(shname_prog, "socket", 6) == 0 ||
+-			    memcmp(shname_prog, "cgroup/", 7) == 0)
+-				load_and_attach(shname_prog, insns, data_prog->d_size);
+ 		}
+ 	}
+ 
+-	/* load programs that don't use maps */
++	/* load programs */
+ 	for (i = 1; i < ehdr.e_shnum; i++) {
+ 
+ 		if (processed_sec[i])
