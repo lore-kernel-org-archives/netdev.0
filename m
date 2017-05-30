@@ -1,45 +1,42 @@
-From: Andy Shevchenko <andy.shevchenko@gmail.com>
-Subject: Re: [PATCH v3 0/6] stmmac: pci: Refactor DMI probing
-Date: Tue, 30 May 2017 21:48:05 +0300
-Message-ID: <CAHp75VcGNr78mfGgtrKuZJtLppv=rAJ4Bxejcec3MhnC6ejSjQ@mail.gmail.com>
-References: <cover.1496129604.git.jan.kiszka@siemens.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next v2 4/6] net: dsa: remove unused arguments of
+ tagger rcv
+Date: Tue, 30 May 2017 12:03:08 -0700
+Message-ID: <b31811c6-d019-da1f-9df0-0ad00264204b@gmail.com>
+References: <20170530183319.10718-1-vivien.didelot@savoirfairelinux.com>
+ <20170530183319.10718-5-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-        Alexandre Torgue <alexandre.torgue@st.com>,
-        David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Jan Kiszka <jan.kiszka@siemens.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Andrew Lunn <andrew@lunn.ch>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1496129604.git.jan.kiszka@siemens.com>
+In-Reply-To: <20170530183319.10718-5-vivien.didelot@savoirfairelinux.com>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, May 30, 2017 at 10:33 AM, Jan Kiszka <jan.kiszka@siemens.com> wrote:
-> Some cleanups of the way we probe DMI platforms in the driver. Reduces
-> a bit of open-coding and makes the logic easier reusable for any
-> potential DMI platform != Quark.
->
-> Tested on IOT2000 and Galileo Gen2.
+Hey Vivien,
 
-So, for patches 1-4,
-Reviewed-by: Andy Shevchenko <andy.shevchenko@gmail.com>
+On 05/30/2017 11:33 AM, Vivien Didelot wrote:
+> The struct dsa_device_ops defines the rcv function with 2 unused
+> arguments struct packet_type *pt, and struct net_device *orig_dev.
+> 
+> This patch removes them from the definition and implementations.
+> 
+> Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 
-I'm not convinced that patch 6 is needed, so, my vote is not to include it.
+I actually have a patch pending that adds support for HW
+insertion/extraction of switch tags (broadcom HW supports that) which
+require the orig_dev to be there so we know what features are supported
+by the master network device.
 
-Patch 5 I would like to review later. Main problem to me is {-1, -1}.
-It looks non-standard and feels not good. I'll try to think on the
-solution.
+Do you mind dropping this one from your patch series?
 
-> Jan Kiszka (6):
->   stmmac: pci: Make stmmac_pci_info structure constant
->   stmmac: pci: Use stmmac_pci_info for all devices
->   stmmac: pci: Make stmmac_pci_find_phy_addr truly generic
->   stmmac: pci: Select quark_pci_dmi_data from quark_default_data
->   stmmac: pci: Use dmi_system_id table for retrieving PHY addresses
->   stmmac: pci: Remove setup handler indirection via stmmac_pci_info
-
+Thanks!
 -- 
-With Best Regards,
-Andy Shevchenko
+Florian
