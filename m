@@ -1,81 +1,49 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: Re: [PATCH net] vxlan: eliminate cached dst leak
-Date: Tue, 30 May 2017 10:34:48 +0200
-Message-ID: <1496133288.2432.7.camel@redhat.com>
-References: <20170529172557.7065-1-lrichard@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-To: Lance Richardson <lrichard@redhat.com>, netdev@vger.kernel.org
+From: Tariq Toukan <tariqt@mellanox.com>
+Subject: [PATCH net 3/3] MAINTAINERS: Move mlx5 rdma header file to IB driver charge
+Date: Tue, 30 May 2017 11:44:06 +0300
+Message-ID: <1496133846-18343-4-git-send-email-tariqt@mellanox.com>
+References: <1496133846-18343-1-git-send-email-tariqt@mellanox.com>
+Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
+        Majd Dibbiny <majd@mellanox.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Yishai Hadas <yishaih@mellanox.com>,
+        Tariq Toukan <tariqt@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:36608 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750896AbdE3Ieu (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 30 May 2017 04:34:50 -0400
-Received: from smtp.corp.redhat.com (int-mx06.intmail.prod.int.phx2.redhat.com [10.5.11.16])
-        (using TLSv1.2 with cipher AECDH-AES256-SHA (256/256 bits))
-        (No client certificate requested)
-        by mx1.redhat.com (Postfix) with ESMTPS id 5889480F6C
-        for <netdev@vger.kernel.org>; Tue, 30 May 2017 08:34:50 +0000 (UTC)
-In-Reply-To: <20170529172557.7065-1-lrichard@redhat.com>
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:41287 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1750985AbdE3Iop (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 30 May 2017 04:44:45 -0400
+In-Reply-To: <1496133846-18343-1-git-send-email-tariqt@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2017-05-29 at 13:25 -0400, Lance Richardson wrote:
-> After commit 0c1d70af924b ("net: use dst_cache for vxlan device"),
-> cached dst entries could be leaked when more than one remote was
-> present for a given vxlan_fdb entry, causing subsequent netns
-> operations to block indefinitely and "unregister_netdevice: waiting
-> for lo to become free." messages to appear in the kernel log.
-> 
-> Fix by properly releasing cached dst and freeing resources in this
-> case.
-> 
-> Fixes: commit 0c1d70af924b ("net: use dst_cache for vxlan device")
-> Signed-off-by: Lance Richardson <lrichard@redhat.com>
-> ---
->  drivers/net/vxlan.c | 20 +++++++++++++++++---
->  1 file changed, 17 insertions(+), 3 deletions(-)
-> 
-> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-> index 328b471..5c1d69e 100644
-> --- a/drivers/net/vxlan.c
-> +++ b/drivers/net/vxlan.c
-> @@ -740,6 +740,22 @@ static void vxlan_fdb_destroy(struct vxlan_dev *vxlan, struct vxlan_fdb *f)
->  	call_rcu(&f->rcu, vxlan_fdb_free);
->  }
->  
-> +static void vxlan_dst_free(struct rcu_head *head)
-> +{
-> +	struct vxlan_rdst *rd = container_of(head, struct vxlan_rdst, rcu);
-> +
-> +	dst_cache_destroy(&rd->dst_cache);
-> +	kfree(rd);
-> +}
-> +
-> +static void vxlan_fdb_dst_destroy(struct vxlan_dev *vxlan, struct vxlan_fdb *f,
-> +				  struct vxlan_rdst *rd)
-> +{
-> +	list_del_rcu(&rd->list);
-> +	vxlan_fdb_notify(vxlan, f, rd, RTM_DELNEIGH);
-> +	call_rcu(&rd->rcu, vxlan_dst_free);
-> +}
-> +
->  static int vxlan_fdb_parse(struct nlattr *tb[], struct vxlan_dev *vxlan,
->  			   union vxlan_addr *ip, __be16 *port, __be32 *src_vni,
->  			   __be32 *vni, u32 *ifindex)
-> @@ -864,9 +880,7 @@ static int __vxlan_fdb_delete(struct vxlan_dev *vxlan,
->  	 * otherwise destroy the fdb entry
->  	 */
->  	if (rd && !list_is_singular(&f->remotes)) {
-> -		list_del_rcu(&rd->list);
-> -		vxlan_fdb_notify(vxlan, f, rd, RTM_DELNEIGH);
-> -		kfree_rcu(rd, rcu);
-> +		vxlan_fdb_dst_destroy(vxlan, f, rd);
->  		goto out;
->  	}
->  
+It belongs there, should not be under mlx5 Core driver.
 
-LGTM, thanks Lance!
+Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
+---
+ MAINTAINERS | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Acked-by: Paolo Abeni <pabeni@redhat.com>
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 0dbc20c963c4..0f92a2ff4b12 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -8538,7 +8538,6 @@ Q:	http://patchwork.ozlabs.org/project/netdev/list/
+ S:	Supported
+ F:	drivers/net/ethernet/mellanox/mlx5/core/
+ F:	include/linux/mlx5/
+-F:	include/uapi/rdma/mlx5-abi.h
+ 
+ MELLANOX MLX5 IB driver
+ M:	Matan Barak <matanb@mellanox.com>
+@@ -8549,6 +8548,7 @@ Q:	http://patchwork.kernel.org/project/linux-rdma/list/
+ S:	Supported
+ F:	drivers/infiniband/hw/mlx5/
+ F:	include/linux/mlx5/
++F:	include/uapi/rdma/mlx5-abi.h
+ 
+ MELEXIS MLX90614 DRIVER
+ M:	Crt Mori <cmo@melexis.com>
+-- 
+1.8.3.1
