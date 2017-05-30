@@ -1,129 +1,29 @@
-From: Alexei Starovoitov <ast@fb.com>
-Subject: [PATCH net-next 2/9] bpf: split bpf core interpreter
-Date: Tue, 30 May 2017 13:31:28 -0700
-Message-ID: <20170530203135.3642768-3-ast@fb.com>
-References: <20170530203135.3642768-1-ast@fb.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next v2 1/6] net: dsa: comment hot path requirements
+Date: Tue, 30 May 2017 13:34:09 -0700
+Message-ID: <f8c565b9-faf9-5664-6bcb-13252811d5a6@gmail.com>
+References: <20170530183319.10718-1-vivien.didelot@savoirfairelinux.com>
+ <20170530183319.10718-2-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Daniel Borkmann <daniel@iogearbox.net>, <netdev@vger.kernel.org>,
-        <kernel-team@fb.com>
-To: "David S . Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:55377 "EHLO
-        mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1750951AbdE3Ubi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 30 May 2017 16:31:38 -0400
-Received: from pps.filterd (m0109331.ppops.net [127.0.0.1])
-        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v4UKS5mk012374
-        for <netdev@vger.kernel.org>; Tue, 30 May 2017 13:31:37 -0700
-Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0a-00082601.pphosted.com with ESMTP id 2as8hwsg4n-2
-        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Tue, 30 May 2017 13:31:37 -0700
-Received: from facebook.com (2401:db00:11:d082:face:0:5:0)      by
- mx-out.facebook.com (10.102.107.99) with ESMTP id
- fa1a8f66457611e7b4960002c99293a0-ee5328f0 for <netdev@vger.kernel.org>;        Tue,
- 30 May 2017 13:31:36 -0700
-In-Reply-To: <20170530203135.3642768-1-ast@fb.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Andrew Lunn <andrew@lunn.ch>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170530183319.10718-2-vivien.didelot@savoirfairelinux.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-split __bpf_prog_run() interpreter into stack allocation and execution parts.
-The code section shrinks which helps interpreter performance in some cases.
-   text	   data	    bss	    dec	    hex	filename
-  26350	  10328	    624	  37302	   91b6	kernel/bpf/core.o.before
-  25777	  10328	    624	  36729	   8f79	kernel/bpf/core.o.after
+On 05/30/2017 11:33 AM, Vivien Didelot wrote:
+> The DSA layer uses inline helpers and copies of the tagging functions
+> for faster access in hot path. Add comments to detail that.
+> 
+> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 
-Very short programs got slower (due to extra function call):
-Before:
-test_bpf: #89 ALU64_ADD_K: 1 + 2 = 3 jited:0 7 PASS
-test_bpf: #90 ALU64_ADD_K: 3 + 0 = 3 jited:0 8 PASS
-test_bpf: #91 ALU64_ADD_K: 1 + 2147483646 = 2147483647 jited:0 7 PASS
-test_bpf: #92 ALU64_ADD_K: 4294967294 + 2 = 4294967296 jited:0 11 PASS
-test_bpf: #93 ALU64_ADD_K: 2147483646 + -2147483647 = -1 jited:0 7 PASS
-After:
-test_bpf: #89 ALU64_ADD_K: 1 + 2 = 3 jited:0 11 PASS
-test_bpf: #90 ALU64_ADD_K: 3 + 0 = 3 jited:0 11 PASS
-test_bpf: #91 ALU64_ADD_K: 1 + 2147483646 = 2147483647 jited:0 11 PASS
-test_bpf: #92 ALU64_ADD_K: 4294967294 + 2 = 4294967296 jited:0 14 PASS
-test_bpf: #93 ALU64_ADD_K: 2147483646 + -2147483647 = -1 jited:0 10 PASS
-
-Longer programs got faster:
-Before:
-test_bpf: #266 BPF_MAXINSNS: Ctx heavy transformations jited:0 20286 20513 PASS
-test_bpf: #267 BPF_MAXINSNS: Call heavy transformations jited:0 31853 31768 PASS
-test_bpf: #268 BPF_MAXINSNS: Jump heavy test jited:0 9815 PASS
-test_bpf: #269 BPF_MAXINSNS: Very long jump backwards jited:0 6 PASS
-test_bpf: #270 BPF_MAXINSNS: Edge hopping nuthouse jited:0 13959 PASS
-test_bpf: #271 BPF_MAXINSNS: Jump, gap, jump, ... jited:0 210 PASS
-test_bpf: #272 BPF_MAXINSNS: ld_abs+get_processor_id jited:0 21724 PASS
-test_bpf: #273 BPF_MAXINSNS: ld_abs+vlan_push/pop jited:0 19118 PASS
-After:
-test_bpf: #266 BPF_MAXINSNS: Ctx heavy transformations jited:0 19008 18827 PASS
-test_bpf: #267 BPF_MAXINSNS: Call heavy transformations jited:0 29238 28450 PASS
-test_bpf: #268 BPF_MAXINSNS: Jump heavy test jited:0 9485 PASS
-test_bpf: #269 BPF_MAXINSNS: Very long jump backwards jited:0 12 PASS
-test_bpf: #270 BPF_MAXINSNS: Edge hopping nuthouse jited:0 13257 PASS
-test_bpf: #271 BPF_MAXINSNS: Jump, gap, jump, ... jited:0 213 PASS
-test_bpf: #272 BPF_MAXINSNS: ld_abs+get_processor_id jited:0 19389 PASS
-test_bpf: #273 BPF_MAXINSNS: ld_abs+vlan_push/pop jited:0 19583 PASS
-
-For real world production programs the difference is noise.
-
-This patch is first step towards reducing interpreter stack consumption.
-
-Signed-off-by: Alexei Starovoitov <ast@kernel.org>
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
----
- kernel/bpf/core.c | 21 ++++++++++++++-------
- 1 file changed, 14 insertions(+), 7 deletions(-)
-
-diff --git a/kernel/bpf/core.c b/kernel/bpf/core.c
-index 339289402b96..abd410d394bc 100644
---- a/kernel/bpf/core.c
-+++ b/kernel/bpf/core.c
-@@ -763,10 +763,10 @@ EXPORT_SYMBOL_GPL(__bpf_call_base);
-  *
-  * Decode and execute eBPF instructions.
-  */
--static unsigned int __bpf_prog_run(void *ctx, const struct bpf_insn *insn)
-+static unsigned int ___bpf_prog_run(u64 *regs, const struct bpf_insn *insn,
-+				    u64 *stack)
- {
--	u64 stack[MAX_BPF_STACK / sizeof(u64)];
--	u64 regs[MAX_BPF_REG], tmp;
-+	u64 tmp;
- 	static const void *jumptable[256] = {
- 		[0 ... 255] = &&default_label,
- 		/* Now overwrite non-defaults ... */
-@@ -874,9 +874,6 @@ static unsigned int __bpf_prog_run(void *ctx, const struct bpf_insn *insn)
- #define CONT	 ({ insn++; goto select_insn; })
- #define CONT_JMP ({ insn++; goto select_insn; })
- 
--	FP = (u64) (unsigned long) &stack[ARRAY_SIZE(stack)];
--	ARG1 = (u64) (unsigned long) ctx;
--
- select_insn:
- 	goto *jumptable[insn->code];
- 
-@@ -1219,7 +1216,17 @@ static unsigned int __bpf_prog_run(void *ctx, const struct bpf_insn *insn)
- 		WARN_RATELIMIT(1, "unknown opcode %02x\n", insn->code);
- 		return 0;
- }
--STACK_FRAME_NON_STANDARD(__bpf_prog_run); /* jump table */
-+STACK_FRAME_NON_STANDARD(___bpf_prog_run); /* jump table */
-+
-+static unsigned int __bpf_prog_run(void *ctx, const struct bpf_insn *insn)
-+{
-+	u64 stack[MAX_BPF_STACK / sizeof(u64)];
-+	u64 regs[MAX_BPF_REG];
-+
-+	FP = (u64) (unsigned long) &stack[ARRAY_SIZE(stack)];
-+	ARG1 = (u64) (unsigned long) ctx;
-+	return ___bpf_prog_run(regs, insn, stack);
-+}
- 
- bool bpf_prog_array_compatible(struct bpf_array *array,
- 			       const struct bpf_prog *fp)
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
 -- 
-2.9.3
+Florian
