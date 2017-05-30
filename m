@@ -1,97 +1,162 @@
-From: Michael =?UTF-8?B?QsO8c2No?= <m@bues.ch>
-Subject: Re: [PATCH] b43legacy: Fix a sleep-in-atomic bug in
- b43legacy_attr_interfmode_store
-Date: Wed, 31 May 2017 17:17:15 +0200
-Message-ID: <20170531171715.58d6c084@wiggum>
-References: <1496226547-5921-1-git-send-email-baijiaju1990@163.com>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
- boundary="Sig_/DYF4VkEf44uXT=vJAHo_HLf"; protocol="application/pgp-signature"
-Cc: Larry.Finger@lwfinger.net, kvalo@codeaurora.org,
-        netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
-        b43-dev@lists.infradead.org, linux-kernel@vger.kernel.org
-To: Jia-Ju Bai <baijiaju1990@163.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1496226547-5921-1-git-send-email-baijiaju1990@163.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: [PATCH net-next] neigh: Really delete an arp/neigh entry on "ip neigh delete" or "arp -d"
+Date: Tue, 30 May 2017 12:52:24 -0700
+Message-ID: <1496173944-82125-1-git-send-email-sowmini.varadhan@oracle.com>
+Cc: davem@davemloft.net, stephen@networkplumber.org,
+        sowmini.varadhan@oracle.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from userp1040.oracle.com ([156.151.31.81]:37696 "EHLO
+        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751000AbdEaPTq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 31 May 2017 11:19:46 -0400
+To: netdev@vger.kernel.org
+To: sowmini.varadhan@oracle.com
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Sig_/DYF4VkEf44uXT=vJAHo_HLf
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: quoted-printable
+The command
+  # arp -s 62.2.0.1 a:b:c:d:e:f dev eth2
+adds an entry like the following (listed by "arp -an")
+  ? (62.2.0.1) at 0a:0b:0c:0d:0e:0f [ether] PERM on eth2
+but the symmetric deletion command
+  # arp -i eth2 -d 62.2.0.1
+does not remove the PERM entry from the table, and instead leaves behind
+  ? (62.2.0.1) at <incomplete> on eth2
 
-On Wed, 31 May 2017 18:29:07 +0800
-Jia-Ju Bai <baijiaju1990@163.com> wrote:
+The reason is that there is a refcnt of 1 for the arp_tbl itself
+(neigh_alloc starts off the entry with a refcnt of 1), thus
+the neigh_release() call from arp_invalidate() will (at best) just
+decrement the ref to 1, but will never actually free it from the
+table.
 
-> The driver may sleep under a spin lock, and the function call path is:
-> b43legacy_attr_interfmode_store (acquire the lock by spin_lock_irqsave)
->   b43legacy_radio_set_interference_mitigation
->     b43legacy_radio_interference_mitigation_disable
->       b43legacy_calc_nrssi_slope
->         b43legacy_synth_pu_workaround
->           might_sleep and msleep --> may sleep
->=20
-> Fixing it may be complex, and a possible way is to remove=20
-> spin_lock_irqsave and spin_lock_irqrestore in=20
-> b43legacy_attr_interfmode_store, and the code has been protected by
-> mutex_lock and mutex_unlock.
->=20
-> Signed-off-by: Jia-Ju Bai <baijiaju1990@163.com>
-> ---
->  drivers/net/wireless/broadcom/b43legacy/sysfs.c |    2 --
->  1 file changed, 2 deletions(-)
->=20
-> diff --git a/drivers/net/wireless/broadcom/b43legacy/sysfs.c b/drivers/ne=
-t/wireless/broadcom/b43legacy/sysfs.c
-> index 2a1da15..9ede143 100644
-> --- a/drivers/net/wireless/broadcom/b43legacy/sysfs.c
-> +++ b/drivers/net/wireless/broadcom/b43legacy/sysfs.c
-> @@ -137,14 +137,12 @@ static ssize_t b43legacy_attr_interfmode_store(stru=
-ct device *dev,
->  	}
-> =20
->  	mutex_lock(&wldev->wl->mutex);
-> -	spin_lock_irqsave(&wldev->wl->irq_lock, flags);
-> =20
->  	err =3D b43legacy_radio_set_interference_mitigation(wldev, mode);
->  	if (err)
->  		b43legacyerr(wldev->wl, "Interference Mitigation not "
->  		       "supported by device\n");
->  	mmiowb();
-> -	spin_unlock_irqrestore(&wldev->wl->irq_lock, flags);
->  	mutex_unlock(&wldev->wl->mutex);
-> =20
->  	return err ? err : count;
+To fix this, we need to do something like neigh_forced_gc: if
+the refcnt is 1 (i.e., on the table's ref), remove the entry from
+the table and free it. This patch refactors and shares common code
+between neigh_forced_gc() and the newly added neigh_remove_one().
 
+A similar issue exists for IPv6 Neighbor Cache entries, and is fixed
+in a similar manner by this patch.
 
-Interference mitigation has never been properly implemented and tested.
-As such nobody should use it and I would be surprised if anybody uses
-this attribute.
-So I would suggest to remove this sysfs attribute entirely instead of
-having this incorrect fix.
+Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+---
+ include/net/neighbour.h |    1 +
+ net/core/neighbour.c    |   63 ++++++++++++++++++++++++++++++++++++++--------
+ net/ipv4/arp.c          |    1 +
+ 3 files changed, 54 insertions(+), 11 deletions(-)
 
---=20
-Michael
-
---Sig_/DYF4VkEf44uXT=vJAHo_HLf
-Content-Type: application/pgp-signature
-Content-Description: OpenPGP digital signature
-
------BEGIN PGP SIGNATURE-----
-
-iQIzBAEBCAAdFiEEihRzkKVZOnT2ipsS9TK+HZCNiw4FAlku3nsACgkQ9TK+HZCN
-iw6XYg/+OL8og6Ss9XLnnaRISragtwTA4A5WefhpXV4eae5oxfHlkpJrs1RZDkGN
-tBP7MrGQpCgpuNmEpAKe4OuAI7GXks4SSyWwfbUj/uxCI8UEB10GM4wYKRfSHOdC
-ORxxx3/vPInaOF4eQ+5C5hHq7sGJI+7PC7QSVAz/4vJ160R2Y0ZZysu5zhRuNTqO
-JwukqhqTGVUeUFc3Ys89cS6teE/GPaEkHmpJrW/2PztyQuMoPa6Qr1y9M9FVHnhl
-BCrIR74oGJlC2SYQyykicAMZ/riSTrXKXdTJi4sVYOON4Ih8pAgtGYhqh1FNgF03
-msshvjvnb6ILd/q9+7kB7CZ6ZP4qCzXXQ0lU2VPNdY3MFpym6MQEBFAdskF4T1S+
-bpqnldFoUH1ER7/4kvdFdDvOnTdKrzjFDx2EmunZmfK0SDVAs/ZrHpPqzyCxL+GA
-TYmHvthUGgxy1iq+dLL/DQb1UmGIaT9pii4p5YZhiYF9BqynskNu83CnZiRwe42h
-kF9PPaxteApwXD3xhnEXsj3fH80ycUTGGRIPqFZql3GDvED9wP1BH500/6k29u4h
-J2J3YEl2r7FWIwG5DbCkzvtAZs4W7M0ZDsu1JX5QggHZc8xRgyeSLAYu0tp3l11b
-JkSAPHKZMz4x2sfZH+noaKZgONFeKBukKoYZhCAabaLi7/S+oUs=
-=B5GJ
------END PGP SIGNATURE-----
-
---Sig_/DYF4VkEf44uXT=vJAHo_HLf--
+diff --git a/include/net/neighbour.h b/include/net/neighbour.h
+index e4dd3a2..639b675 100644
+--- a/include/net/neighbour.h
++++ b/include/net/neighbour.h
+@@ -317,6 +317,7 @@ struct neighbour *__neigh_create(struct neigh_table *tbl, const void *pkey,
+ int neigh_update(struct neighbour *neigh, const u8 *lladdr, u8 new, u32 flags,
+ 		 u32 nlmsg_pid);
+ void __neigh_set_probe_once(struct neighbour *neigh);
++bool neigh_remove_one(struct neighbour *ndel, struct neigh_table *tbl);
+ void neigh_changeaddr(struct neigh_table *tbl, struct net_device *dev);
+ int neigh_ifdown(struct neigh_table *tbl, struct net_device *dev);
+ int neigh_resolve_output(struct neighbour *neigh, struct sk_buff *skb);
+diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+index d274f81..a445089 100644
+--- a/net/core/neighbour.c
++++ b/net/core/neighbour.c
+@@ -118,6 +118,55 @@ unsigned long neigh_rand_reach_time(unsigned long base)
+ EXPORT_SYMBOL(neigh_rand_reach_time);
+ 
+ 
++static bool neigh_del(struct neighbour *n, __u8 state,
++		      struct neighbour __rcu **np)
++{
++	bool retval = false;
++
++	write_lock(&n->lock);
++	if (atomic_read(&n->refcnt) == 1 && !(n->nud_state & state)) {
++		rcu_assign_pointer(*np,
++				   rcu_dereference_protected(n->next,
++				   lockdep_is_held(&tbl->lock)));
++		n->dead = 1;
++		retval = true;
++	}
++	write_unlock(&n->lock);
++	if (retval)
++		neigh_cleanup_and_release(n);
++	return retval;
++}
++
++bool neigh_remove_one(struct neighbour *ndel, struct neigh_table *tbl)
++{
++	struct neigh_hash_table *nht;
++	void *pkey = ndel->primary_key;
++	u32 hash_val;
++	struct neighbour *n;
++	struct neighbour __rcu **np;
++	bool retval = false;
++
++	write_lock_bh(&tbl->lock);
++	nht = rcu_dereference_protected(tbl->nht,
++					lockdep_is_held(&tbl->lock));
++	hash_val = tbl->hash(pkey, ndel->dev, nht->hash_rnd);
++	hash_val = hash_val >> (32 - nht->hash_shift);
++
++	np = &nht->hash_buckets[hash_val];
++	while ((n = rcu_dereference_protected(*np,
++				lockdep_is_held(&tbl->lock))) != NULL) {
++		if (n == ndel) {
++			retval = neigh_del(n, 0, np);
++			write_unlock_bh(&tbl->lock);
++			return retval;
++		}
++		np = &n->next;
++	}
++	write_unlock_bh(&tbl->lock);
++	return retval;
++}
++EXPORT_SYMBOL(neigh_remove_one);
++
+ static int neigh_forced_gc(struct neigh_table *tbl)
+ {
+ 	int shrunk = 0;
+@@ -140,19 +189,10 @@ static int neigh_forced_gc(struct neigh_table *tbl)
+ 			 * - nobody refers to it.
+ 			 * - it is not permanent
+ 			 */
+-			write_lock(&n->lock);
+-			if (atomic_read(&n->refcnt) == 1 &&
+-			    !(n->nud_state & NUD_PERMANENT)) {
+-				rcu_assign_pointer(*np,
+-					rcu_dereference_protected(n->next,
+-						  lockdep_is_held(&tbl->lock)));
+-				n->dead = 1;
+-				shrunk	= 1;
+-				write_unlock(&n->lock);
+-				neigh_cleanup_and_release(n);
++			if (neigh_del(n, NUD_PERMANENT, np)) {
++				shrunk = 1;
+ 				continue;
+ 			}
+-			write_unlock(&n->lock);
+ 			np = &n->next;
+ 		}
+ 	}
+@@ -1650,6 +1690,7 @@ static int neigh_delete(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 			   NEIGH_UPDATE_F_ADMIN,
+ 			   NETLINK_CB(skb).portid);
+ 	neigh_release(neigh);
++	neigh_remove_one(neigh, tbl);
+ 
+ out:
+ 	return err;
+diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
+index e9f3386..5264004 100644
+--- a/net/ipv4/arp.c
++++ b/net/ipv4/arp.c
+@@ -1120,6 +1120,7 @@ static int arp_invalidate(struct net_device *dev, __be32 ip)
+ 					   NEIGH_UPDATE_F_OVERRIDE|
+ 					   NEIGH_UPDATE_F_ADMIN, 0);
+ 		neigh_release(neigh);
++		neigh_remove_one(neigh, &arp_tbl);
+ 	}
+ 
+ 	return err;
+-- 
+1.7.1
