@@ -1,67 +1,106 @@
-From: Saeed Mahameed <saeedm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
-Subject: Re: [PATCH net] net/mlx5: avoid build warning for uniprocessor
-Date: Tue, 30 May 2017 10:23:49 +0300
-Message-ID: <CALzJLG9oVmbOe8K-t0ZKzeztz0NBrFjcEu9e45xo0V29-SywJg@mail.gmail.com>
-References: <20170529130030.244337-1-arnd@arndb.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Mohamad Haj Yahia <mohamad-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Daniel Jurgens <danielj-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, Aviv Heller <avivh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Huy Nguyen <huyn-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Artemy Kovalyov <artemyko-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170529130030.244337-1-arnd-r2nGTMty4D4@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Jan Kiszka <jan.kiszka@siemens.com>
+Subject: [PATCH v3 2/6] stmmac: pci: Use stmmac_pci_info for all devices
+Date: Tue, 30 May 2017 09:33:21 +0200
+Message-ID: <91c1dbfa58e70c21508762573b5219940f12815b.1496129604.git.jan.kiszka@siemens.com>
+References: <cover.1496129604.git.jan.kiszka@siemens.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Andy Shevchenko <andy.shevchenko@gmail.com>
+To: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+        Alexandre Torgue <alexandre.torgue@st.com>,
+        David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from goliath.siemens.de ([192.35.17.28]:43371 "EHLO
+        goliath.siemens.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750720AbdE3Hdc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 30 May 2017 03:33:32 -0400
+In-Reply-To: <cover.1496129604.git.jan.kiszka@siemens.com>
+In-Reply-To: <cover.1496129604.git.jan.kiszka@siemens.com>
+References: <cover.1496129604.git.jan.kiszka@siemens.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 29, 2017 at 4:00 PM, Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org> wrote:
-> Building the driver with CONFIG_SMP disabled results in a harmless
-> warning:
->
-> ethernet/mellanox/mlx5/core/main.c: In function 'mlx5_irq_set_affinity_hint':
-> ethernet/mellanox/mlx5/core/main.c:615:6: error: unused variable 'irq' [-Werror=unused-variable]
->
-> It's better to express the conditional compilation using IS_ENABLED()
-> here, as that lets the compiler see what the intented use for the variable
-> is, and that it can be silently discarded.
->
-> Fixes: b665d98edc9a ("net/mlx5: Tolerate irq_set_affinity_hint() failures")
-> igned-off-by: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-> ---
->  drivers/net/ethernet/mellanox/mlx5/core/main.c | 5 ++---
->  1 file changed, 2 insertions(+), 3 deletions(-)
->
-> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-> index 361cd112bb5b..9274d93d3183 100644
-> --- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
-> +++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-> @@ -622,10 +622,9 @@ static int mlx5_irq_set_affinity_hint(struct mlx5_core_dev *mdev, int i)
->         cpumask_set_cpu(cpumask_local_spread(i, priv->numa_node),
->                         priv->irq_info[i].mask);
->
-> -#ifdef CONFIG_SMP
-> -       if (irq_set_affinity_hint(irq, priv->irq_info[i].mask))
-> +       if (IS_ENABLED(CONFIG_SMP) &&
-> +           irq_set_affinity_hint(irq, priv->irq_info[i].mask))
->                 mlx5_core_warn(mdev, "irq_set_affinity_hint failed, irq 0x%.4x", irq);
-> -#endif
->
->         return 0;
->  }
+Make stmmac_default_data compatible with stmmac_pci_info.setup and use
+an info structure for all devices. This allows to make the probing more
+regular.
 
-Acked-by: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Signed-off-by: Jan Kiszka <jan.kiszka@siemens.com>
+---
+ drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c | 36 +++++++++++++++---------
+ 1 file changed, 23 insertions(+), 13 deletions(-)
 
-Thank you Arnd !!
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
+index 0efe42659a37..d3d74e526e17 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
+@@ -100,7 +100,9 @@ static void common_default_data(struct plat_stmmacenet_data *plat)
+ 	plat->rx_queues_cfg[0].pkt_route = 0x0;
+ }
+ 
+-static void stmmac_default_data(struct plat_stmmacenet_data *plat)
++static int stmmac_default_data(struct pci_dev *pdev,
++			       struct plat_stmmacenet_data *plat,
++			       const struct stmmac_pci_info *info)
+ {
+ 	/* Set common default data first */
+ 	common_default_data(plat);
+@@ -112,8 +114,14 @@ static void stmmac_default_data(struct plat_stmmacenet_data *plat)
+ 	plat->dma_cfg->pbl = 32;
+ 	plat->dma_cfg->pblx8 = true;
+ 	/* TODO: AXI */
++
++	return 0;
+ }
+ 
++static const struct stmmac_pci_info stmmac_pci_info = {
++	.setup = stmmac_default_data,
++};
++
+ static int quark_default_data(struct pci_dev *pdev,
+ 			      struct plat_stmmacenet_data *plat,
+ 			      const struct stmmac_pci_info *info)
+@@ -236,14 +244,9 @@ static int stmmac_pci_probe(struct pci_dev *pdev,
+ 
+ 	pci_set_master(pdev);
+ 
+-	if (info) {
+-		if (info->setup) {
+-			ret = info->setup(pdev, plat, info);
+-			if (ret)
+-				return ret;
+-		}
+-	} else
+-		stmmac_default_data(plat);
++	ret = info->setup(pdev, plat, info);
++	if (ret)
++		return ret;
+ 
+ 	pci_enable_msi(pdev);
+ 
+@@ -269,14 +272,21 @@ static void stmmac_pci_remove(struct pci_dev *pdev)
+ 
+ static SIMPLE_DEV_PM_OPS(stmmac_pm_ops, stmmac_suspend, stmmac_resume);
+ 
+-#define STMMAC_VENDOR_ID 0x700
++/* synthetic ID, no official vendor */
++#define PCI_VENDOR_ID_STMMAC 0x700
++
+ #define STMMAC_QUARK_ID  0x0937
+ #define STMMAC_DEVICE_ID 0x1108
+ 
++#define STMMAC_DEVICE(vendor_id, dev_id, info)	{	\
++	PCI_VDEVICE(vendor_id, dev_id),			\
++	.driver_data = (kernel_ulong_t)&info		\
++	}
++
+ static const struct pci_device_id stmmac_id_table[] = {
+-	{PCI_DEVICE(STMMAC_VENDOR_ID, STMMAC_DEVICE_ID)},
+-	{PCI_DEVICE(PCI_VENDOR_ID_STMICRO, PCI_DEVICE_ID_STMICRO_MAC)},
+-	{PCI_VDEVICE(INTEL, STMMAC_QUARK_ID), (kernel_ulong_t)&quark_pci_info},
++	STMMAC_DEVICE(STMMAC, STMMAC_DEVICE_ID, stmmac_pci_info),
++	STMMAC_DEVICE(STMICRO, PCI_DEVICE_ID_STMICRO_MAC, stmmac_pci_info),
++	STMMAC_DEVICE(INTEL, STMMAC_QUARK_ID, quark_pci_info),
+ 	{}
+ };
+ 
+-- 
+2.12.3
