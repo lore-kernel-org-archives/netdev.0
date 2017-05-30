@@ -1,120 +1,59 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH nf-next] netns: add and use net_ns_barrier
-Date: Tue, 30 May 2017 11:38:12 +0200
-Message-ID: <20170530093812.10712-1-fw@strlen.de>
-Cc: netdev@vger.kernel.org, Florian Westphal <fw@strlen.de>,
-        "Eric W. Biederman" <ebiederm@xmission.com>
-To: <netfilter-devel@vger.kernel.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next] cxgb4: FW upgrade fixes
+Date: Tue, 30 May 2017 12:39:45 +0300
+Message-ID: <3970fd69-a6fd-c0ba-6bf0-31fb3f54f1c1@cogentembedded.com>
+References: <1496128525-7881-1-git-send-email-ganeshgr@chelsio.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: nirranjan@chelsio.com, Arjun Vynipadath <arjun@chelsio.com>,
+        Casey Leedom <leedom@chelsio.com>
+To: Ganesh Goudar <ganeshgr@chelsio.com>, netdev@vger.kernel.org,
+        davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f47.google.com ([209.85.215.47]:33815 "EHLO
+        mail-lf0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750811AbdE3Jjr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 30 May 2017 05:39:47 -0400
+Received: by mail-lf0-f47.google.com with SMTP id 99so45950286lfu.1
+        for <netdev@vger.kernel.org>; Tue, 30 May 2017 02:39:46 -0700 (PDT)
+In-Reply-To: <1496128525-7881-1-git-send-email-ganeshgr@chelsio.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Quoting Joe Stringer:
-  If a user loads nf_conntrack_ftp, sends FTP traffic through a network
-  namespace, destroys that namespace then unloads the FTP helper module,
-  then the kernel will crash.
+Hello!
 
-Events that lead to the crash:
-1. conntrack is created with ftp helper in netns x
-2. This netns is destroyed
-3. netns destruction is scheduled
-4. netns destruction wq starts, removes netns from global list
-5. ftp helper is unloaded, which resets all helpers of the conntracks
-via for_each_net()
+On 5/30/2017 10:15 AM, Ganesh Goudar wrote:
 
-but because netns is already gone from list the for_each_net() loop
-doesn't include it, therefore all of these conntracks are unaffected.
+> From: Arjun Vynipadath <arjun@chelsio.com>
+>
+> Disable FW_OK flags while flashing Firmware. This will help to fix any
+> potential mailbox timeouts during Firmware flash.
+>
+> Grab new devlog parameters after Firmware restart. When we FLASH new
+> Firmware onto an adapter, the new Firmware may have the Firmware Device Log
+> located at a different memory address or have a different size for it.
+>
+> Signed-off-by: Arjun Vynipadath <arjun@chelsio.com>
+> Signed-off-by: Casey Leedom <leedom@chelsio.com>
+> Signed-off-by: Ganesh Goudar <ganeshgr@chelsio.com>
+> ---
+>  drivers/net/ethernet/chelsio/cxgb4/t4_hw.c | 21 ++++++++++++++++++---
+>  1 file changed, 18 insertions(+), 3 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+> index b97ce4a..325f98c 100644
+> --- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+> +++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+> @@ -6288,13 +6288,18 @@ int t4_fw_upgrade(struct adapter *adap, unsigned int mbox,
+>  	if (!t4_fw_matches_chip(adap, fw_hdr))
+>  		return -EINVAL;
+>
+> +	/* Disable FW_OK flags so that mbox commands with FW_OK flags check
+> +	 * wont be send when we are flashing FW.
 
-6. helper module unload finishes
-7. netns wq invokes destructor for rmmod'ed helper
+    Sent.
 
-CC: "Eric W. Biederman" <ebiederm@xmission.com>
-Reported-by: Joe Stringer <joe@ovn.org>
-Signed-off-by: Florian Westphal <fw@strlen.de>
----
- Eric, I'd like an explicit (n)ack from you for this one.
+[...]
 
- include/net/net_namespace.h       |  3 +++
- net/core/net_namespace.c          | 17 +++++++++++++++++
- net/netfilter/nf_conntrack_core.c |  9 +++++++++
- 3 files changed, 29 insertions(+)
-
-diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
-index fe80bb48ab1f..a24a57593202 100644
---- a/include/net/net_namespace.h
-+++ b/include/net/net_namespace.h
-@@ -158,6 +158,7 @@ extern struct net init_net;
- struct net *copy_net_ns(unsigned long flags, struct user_namespace *user_ns,
- 			struct net *old_net);
- 
-+void net_ns_barrier(void);
- #else /* CONFIG_NET_NS */
- #include <linux/sched.h>
- #include <linux/nsproxy.h>
-@@ -168,6 +169,8 @@ static inline struct net *copy_net_ns(unsigned long flags,
- 		return ERR_PTR(-EINVAL);
- 	return old_net;
- }
-+
-+static inline void net_ns_barrier(void) {}
- #endif /* CONFIG_NET_NS */
- 
- 
-diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
-index 1934efd4a9d4..1f15abb1d733 100644
---- a/net/core/net_namespace.c
-+++ b/net/core/net_namespace.c
-@@ -482,6 +482,23 @@ static void cleanup_net(struct work_struct *work)
- 		net_drop_ns(net);
- 	}
- }
-+
-+/**
-+ * net_ns_barrier - wait until concurrent net_cleanup_work is done
-+ *
-+ * cleanup_net runs from work queue and will first remove namespaces
-+ * from the global list, then run net exit functions.
-+ *
-+ * Call this in module exit path to make sure that all netns
-+ * ->exit ops have been invoked before the function is removed.
-+ */
-+void net_ns_barrier(void)
-+{
-+	mutex_lock(&net_mutex);
-+	mutex_unlock(&net_mutex);
-+}
-+EXPORT_SYMBOL(net_ns_barrier);
-+
- static DECLARE_WORK(net_cleanup_work, cleanup_net);
- 
- void __put_net(struct net *net)
-diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-index c3bd9b086dcc..ee972ee7bf81 100644
---- a/net/netfilter/nf_conntrack_core.c
-+++ b/net/netfilter/nf_conntrack_core.c
-@@ -1720,6 +1720,8 @@ EXPORT_SYMBOL_GPL(nf_ct_iterate_cleanup_net);
-  * Like nf_ct_iterate_cleanup, but first marks conntracks on the
-  * unconfirmed list as dying (so they will not be inserted into
-  * main table).
-+ *
-+ * Can only be called in module exit path.
-  */
- void
- nf_ct_iterate_destroy(int (*iter)(struct nf_conn *i, void *data), void *data)
-@@ -1734,6 +1736,13 @@ nf_ct_iterate_destroy(int (*iter)(struct nf_conn *i, void *data), void *data)
- 	}
- 	rtnl_unlock();
- 
-+	/* Need to wait for netns cleanup worker to finish, if its
-+	 * running -- it might have deleted a net namespace from
-+	 * the global list, so our __nf_ct_unconfirmed_destroy() might
-+	 * not have affected all namespaces.
-+	 */
-+	net_ns_barrier();
-+
- 	/* a conntrack could have been unlinked from unconfirmed list
- 	 * before we grabbed pcpu lock in __nf_ct_unconfirmed_destroy().
- 	 * This makes sure its inserted into conntrack table.
--- 
-2.13.0
-
+MBR, Sergei
