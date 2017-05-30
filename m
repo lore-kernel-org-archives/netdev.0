@@ -1,49 +1,109 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: vxlan: use after free error
-Date: Tue, 30 May 2017 13:54:20 +0200
-Message-ID: <20170530135420.51ff8617@griffin>
-References: <03ac7d79-02b7-4bee-d318-9731413bf97b@mellanox.com>
-        <CAJieiUhNV7=r53mmsHTHAmA8g0PKoxszHyNMXwYKG4OsB20KjQ@mail.gmail.com>
-        <b04f5f7e-dca1-b219-eb52-03f58fd3823e@mellanox.com>
-        <CAJieiUgwRT8NbNdZ37HXJn9OYc78bpj=Zb9N5pQQQ_SLZhD1kg@mail.gmail.com>
-        <20170530134755.6675023c@griffin>
+From: Jesper Dangaard Brouer via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+Subject: Re: Error with printk and bpf_trace_printk
+Date: Tue, 30 May 2017 14:24:37 +0200
+Message-ID: <20170530142437.656ec63d@redhat.com>
+References: <CAErYV9EJtbgaWn4KAeoADxnHgj7S+vFdHgu78Y2PxNuhpWrANw@mail.gmail.com>
+Reply-To: Jesper Dangaard Brouer <brouer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Mark Bloch <markb@mellanox.com>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        pravin shelar <pshelar@ovn.org>,
-        Alexander Duyck <aduyck@mirantis.com>,
-        Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Balki Raman <ramanb@cumulusnetworks.com>
-To: Roopa Prabhu <roopa@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:37270 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750946AbdE3LyZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 30 May 2017 07:54:25 -0400
-In-Reply-To: <20170530134755.6675023c@griffin>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "xdp-newbies-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <xdp-newbies-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org" <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+To: Adel Fuchs <adelfuchs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+In-Reply-To: <CAErYV9EJtbgaWn4KAeoADxnHgj7S+vFdHgu78Y2PxNuhpWrANw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
+List-Post: <mailto:iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+List-Help: <mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.iovisor.org/mailman/listinfo/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=subscribe>
+Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
+Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 30 May 2017 13:47:55 +0200, Jiri Benc wrote:
-> On Mon, 29 May 2017 11:37:22 -0700, Roopa Prabhu wrote:
-> > This code is also hit via the OVS path, and i don't see a problem with
-> > your changes and analysis but i am not too familiar with the ovs call
-> > path. I see that the relevant developers are CC'ed.
+
+Notice, there are two mailing lists (Cc'ed) that you should likely ask
+these kind of questions on (instead of netdev), depending on if this is
+mostly related to bpf (iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org) or somehow
+related to XDP (xdp-newbies-u79uwXL29TY76Z2rM5mHXA@public.gmane.org).
+
+See my answer inlined below:
+
+On Sun, 28 May 2017 17:48:20 +0300 Adel Fuchs <adelfuchs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+
+> I have a working eBPF program, and I'm trying to add outputs to it.
+> I'm not able to use both printk and bpf_trace_printk functions. I get
+> this error:
 > 
-> I don't see a problem with ovs and this patch. Ovs calls
-> rtnl_delete_link.
+> ELF contains non-map related relo data in entry 0 pointing to section
+> 8! Compiler bug?!
 > 
-> I'd prefer to have the code in a vxlan_vs_del_dev function to be
-> symmetrical with vxlan_vs_add_dev similarly to what Roopa suggested. If
-> you keep me in CC while resending I'll be happy to add my ack to the
-> patch.
+> Prog section 'ingress' rejected: Invalid argument (22)!
+>  - Type:         3
+>  - Instructions: 16 (0 over limit)
+>  - License:      GPL
+> 
+> Verifier analysis:
+> 
+> 0: (bf) r6 = r1
+> 1: (18) r1 = 0x0
+> 3: (85) call bpf_unspec#0
+> unknown func bpf_unspec#0
+> 
+> Error fetching program/map!
+> Failed to retrieve (e)BPF data!
+> 
+> Are there certain "includes" that I need to add?
+> In addition, I'm not sure I'm using the function correctly. I just
+> wrote: printk("hi")
 
-I replied to a wrong email in the thread but I guess it's obvious what
-I wanted to reply to :-)
+You obviously cannot call printk directly from and eBPF program.
+I wonder how you got this compiling...
 
-Sorry for that,
+As you hinted yourself, you should be using: bpf_trace_printk().
+But it is actually tricky to use... and not much help is around to
+figure this out.
 
- Jiri
+First of all the output end-up in this file: /sys/kernel/debug/tracing/trace_pipe
+Remember to read the output use 'cat' like:
+
+ sudo cat /sys/kernel/debug/tracing/trace_pipe
+
+And only the first process to read the output gets the output...
+
+
+I deduct you are using the TC/iproute2 examples:
+ https://git.kernel.org/pub/scm/linux/kernel/git/shemminger/iproute2.git/tree/examples/bpf
+
+Next gotcha is that, you need to provide the char* string in a very
+special way to make this compile correctly.  The iproute2 provide a
+helper define called "printt()" in include/bpf_api.h for this:
+
+#ifndef printt
+# define printt(fmt, ...)                                               \
+        ({                                                              \
+                char ____fmt[] = fmt;                                   \
+                trace_printk(____fmt, sizeof(____fmt), ##__VA_ARGS__);  \
+        })
+#endif
+
+Or see my solution here:
+[1] https://github.com/netoptimizer/prototype-kernel/blob/master/kernel/samples/bpf/xdp_ddos01_blacklist_kern.c#L86:L99
+
+
+Another gotcha I've experienced is that if you format the string
+incorrectly, or use a modifier like %X, which bpf_trace_printk() does
+not seem to understand, then you "hear-nothing"...  Also experienced if
+using more than 3 arguments, then it fails or also go silent. Be
+careful when using this somewhat "flaky" debug facility.
+
+Do remember these bpf_trace_printk() should only be used for debugging,
+as it is very slow...
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  LinkedIn: http://www.linkedin.com/in/brouer
