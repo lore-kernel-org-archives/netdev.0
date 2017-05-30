@@ -1,39 +1,52 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] net: phy: fix marvell phy status reading
-Date: Tue, 30 May 2017 09:46:21 -0700
-Message-ID: <b2a497cd-7258-42df-0217-368d87b6ad16@gmail.com>
-References: <E1dFixz-00062r-0n@rmk-PC.armlinux.org.uk>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH] net: dsa: mv88e6xxx: Add missing static to stub functions
+Date: Tue, 30 May 2017 18:50:25 +0200
+Message-ID: <20170530165025.GA30766@lunn.ch>
+References: <20170529125612.110244-1-arnd@arndb.de>
+ <20170529153030.GB21315@lunn.ch>
+ <CAK8P3a16ifsiF7qh1wP0E_0e5RRE6SAAFy9K9QuyoAurds-DrA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Russell King <rmk+kernel@armlinux.org.uk>,
-        Andrew Lunn <andrew@lunn.ch>
+Content-Type: text/plain; charset=us-ascii
+Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Networking <netdev@vger.kernel.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Arnd Bergmann <arnd@arndb.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:34534 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750922AbdE3Qq0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 30 May 2017 12:46:26 -0400
-Received: by mail-wm0-f67.google.com with SMTP id d127so26249223wmf.1
-        for <netdev@vger.kernel.org>; Tue, 30 May 2017 09:46:26 -0700 (PDT)
-In-Reply-To: <E1dFixz-00062r-0n@rmk-PC.armlinux.org.uk>
-Content-Language: en-US
+Received: from vps0.lunn.ch ([178.209.37.122]:58462 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750922AbdE3Qua (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 30 May 2017 12:50:30 -0400
+Content-Disposition: inline
+In-Reply-To: <CAK8P3a16ifsiF7qh1wP0E_0e5RRE6SAAFy9K9QuyoAurds-DrA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/30/2017 08:21 AM, Russell King wrote:
-> The Marvell driver incorrectly provides phydev->lp_advertising as the
-> logical and of the link partner's advert and our advert.  This is
-> incorrect - this field is supposed to store the link parter's unmodified
-> advertisment.
+On Mon, May 29, 2017 at 11:06:51PM +0200, Arnd Bergmann wrote:
+> On Mon, May 29, 2017 at 5:30 PM, Andrew Lunn <andrew@lunn.ch> wrote:
+> > On Mon, May 29, 2017 at 02:56:01PM +0200, Arnd Bergmann wrote:
+> >> 'static' was not enough, the helpers must be 'static inline'
+> >>
+> >> net/dsa/mv88e6xxx/global2.h:123:12: error: 'mv88e6xxx_g2_misc_4_bit_port' defined but not used [-Werror=unused-function]
+> >> net/dsa/mv88e6xxx/global2.h:117:12: error: 'mv88e6xxx_g2_pvt_write' defined but not used [-Werror=unused-function]
+> >>
+> >> Fixes: c21fbe29f858 ("net: dsa: mv88e6xxx: Add missing static to stub functions")
+> >> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> >
+> > Hi Arnd
+> >
+> > Dave merged my fix yesterday.
 > 
-> This allows ethtool to report the correct link partner auto-negotiation
-> status.
+> Hi Andrew,
 > 
-> Signed-off-by: Russell King <rmk+kernel@armlinux.org.uk>
+> The only commit I see from you in the net/master branch is the partial fix
+> I referenced in the 'fixes' line (c21fbe29f858), from all I can tell, my fix is
+> still needed on top. Can you check again?
 
-Fixes: be937f1f89ca ("Marvell PHY m88e1111 driver fix")
+Hi Arnd
 
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
--- 
-Florian
+Yes, you are correct. Adding the static was enough to stop the 0-day
+warnings, but they should also inline.
+
+	  Andrew
