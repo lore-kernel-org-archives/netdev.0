@@ -1,43 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 00/13] nfp: pci core, hwmon, live mac addr
- change
-Date: Tue, 30 May 2017 11:53:42 -0400 (EDT)
-Message-ID: <20170530.115342.1097144834047262548.davem@davemloft.net>
-References: <20170529005304.20847-1-jakub.kicinski@netronome.com>
+Subject: Re: [PATCH v2 net-next 0/9] net: another round of extack handling
+ for routing
+Date: Tue, 30 May 2017 11:55:53 -0400 (EDT)
+Message-ID: <20170530.115553.460294781540103319.davem@davemloft.net>
+References: <20170527221933.57644-1-dsahern@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, oss-drivers@netronome.com
-To: jakub.kicinski@netronome.com
+Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com
+To: dsahern@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:52558 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:52580 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750988AbdE3Pxv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 30 May 2017 11:53:51 -0400
-In-Reply-To: <20170529005304.20847-1-jakub.kicinski@netronome.com>
+        with ESMTP id S1750908AbdE3Pzz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 30 May 2017 11:55:55 -0400
+In-Reply-To: <20170527221933.57644-1-dsahern@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Date: Sun, 28 May 2017 17:52:51 -0700
+From: David Ahern <dsahern@gmail.com>
+Date: Sat, 27 May 2017 16:19:24 -0600
 
-> This series brings updates to core PCI code, SR-IOV, exposes 
-> firmware's capability to change MAC address at runtime and HWMON
-> interfaces.  
+> This set focuses on passing extack through lwtunnel and MPLS with
+> additional catches for IPv4 route add and minor cleanups in MPLS
+> encountered passing the extack arg around.
 > 
-> The PCI code updates include resiliency improvement in conditions 
-> which are quite unusual, but still shouldn't make the driver oops.
-> We also handle very large device memory operation more gracefully.
-> A timeout is added to acquiring mutexes in device memory.
+> v2
+> - mindful of bloat adding duplicate messages
+>   + refactored prefix and prefix length checks in ipv4's fib_table_insert
+>     and fib_table_del
+>   + refactored label check in mpls
 > 
-> Pablo provides a patch to expose to the stack the ability to change
-> MAC addresses under traffic while David adds HWMON interface for
-> reading device temperature and power consumption.
-> 
-> Last three patches are minor improvements to the netdev code.
-> 
-> v2:
->  - add patch 1 - fix for devlink build;
->  - fix build issue with the hwmon patch.
+> - split mpls cleanups into 2 patches
+>   + move nla_get_via up in af_mpls to avoid forward declaration
 
-Sereis applied, thanks.
+Series applied, thanks David.
