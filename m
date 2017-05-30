@@ -1,168 +1,56 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 3/7] net: dsa: remove unused arguments of tagger rcv
-Date: Tue, 30 May 2017 10:21:27 -0400
-Message-ID: <20170530142131.23568-4-vivien.didelot@savoirfairelinux.com>
-References: <20170530142131.23568-1-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 0/7] net: dsa: tagger simplification
+Date: Tue, 30 May 2017 10:21:24 -0400
+Message-ID: <20170530142131.23568-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
         Florian Fainelli <f.fainelli@gmail.com>,
         Andrew Lunn <andrew@lunn.ch>,
         Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170530142131.23568-1-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:43306 "EHLO
+        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751004AbdE3OXp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 30 May 2017 10:23:45 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The struct dsa_device_ops defines the rcv function with 2 unused
-arguments struct packet_type *pt, and struct net_device *orig_dev.
+The DSA layer has a dsa_device_ops structure containing two members to
+tag and untag the proprietary switch header, called xmit and rcv.
 
-This patch removes them from the definition and implementations.
+The switch tree and slave private structures respectively hold a useless
+copy of the rcv and xmit functions. The tagging implementations use
+useless goto labels and only the rcv caller (partially) handles the SKB
+freeing. The rcv function also contains unused arguments.
 
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
----
- net/dsa/dsa.c         | 2 +-
- net/dsa/dsa_priv.h    | 4 +---
- net/dsa/tag_brcm.c    | 4 +---
- net/dsa/tag_dsa.c     | 4 +---
- net/dsa/tag_edsa.c    | 4 +---
- net/dsa/tag_lan9303.c | 3 +--
- net/dsa/tag_mtk.c     | 4 +---
- net/dsa/tag_qca.c     | 4 +---
- net/dsa/tag_trailer.c | 4 +---
- 9 files changed, 9 insertions(+), 24 deletions(-)
+This patchset removes the copy of rcv and xmit functions, the unused
+arguments of the rcv signature and the useless labels, and handles
+freeing of the SKB in the xmit caller.
 
-diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-index 861dc0e5020d..98173a3f6fd1 100644
---- a/net/dsa/dsa.c
-+++ b/net/dsa/dsa.c
-@@ -209,7 +209,7 @@ static int dsa_switch_rcv(struct sk_buff *skb, struct net_device *dev,
- 	if (!skb)
- 		return 0;
- 
--	nskb = dst->tag_ops->rcv(skb, dev, pt, orig_dev);
-+	nskb = dst->tag_ops->rcv(skb, dev);
- 	if (!nskb) {
- 		kfree_skb(skb);
- 		return 0;
-diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
-index c1d4180651af..0fdd2a8a4ad8 100644
---- a/net/dsa/dsa_priv.h
-+++ b/net/dsa/dsa_priv.h
-@@ -67,9 +67,7 @@ struct dsa_notifier_vlan_info {
- 
- struct dsa_device_ops {
- 	struct sk_buff *(*xmit)(struct sk_buff *skb, struct net_device *dev);
--	struct sk_buff *(*rcv)(struct sk_buff *skb, struct net_device *dev,
--			       struct packet_type *pt,
--			       struct net_device *orig_dev);
-+	struct sk_buff *(*rcv)(struct sk_buff *skb, struct net_device *dev);
- };
- 
- struct dsa_slave_priv {
-diff --git a/net/dsa/tag_brcm.c b/net/dsa/tag_brcm.c
-index 9f204f18ada3..c8bff4d7543d 100644
---- a/net/dsa/tag_brcm.c
-+++ b/net/dsa/tag_brcm.c
-@@ -92,9 +92,7 @@ static struct sk_buff *brcm_tag_xmit(struct sk_buff *skb, struct net_device *dev
- 	return NULL;
- }
- 
--static struct sk_buff *brcm_tag_rcv(struct sk_buff *skb, struct net_device *dev,
--				    struct packet_type *pt,
--				    struct net_device *orig_dev)
-+static struct sk_buff *brcm_tag_rcv(struct sk_buff *skb, struct net_device *dev)
- {
- 	struct dsa_switch_tree *dst = dev->dsa_ptr;
- 	struct dsa_switch *ds;
-diff --git a/net/dsa/tag_dsa.c b/net/dsa/tag_dsa.c
-index 3b62a57956a3..41f78e42f9ba 100644
---- a/net/dsa/tag_dsa.c
-+++ b/net/dsa/tag_dsa.c
-@@ -68,9 +68,7 @@ static struct sk_buff *dsa_xmit(struct sk_buff *skb, struct net_device *dev)
- 	return NULL;
- }
- 
--static struct sk_buff *dsa_rcv(struct sk_buff *skb, struct net_device *dev,
--			       struct packet_type *pt,
--			       struct net_device *orig_dev)
-+static struct sk_buff *dsa_rcv(struct sk_buff *skb, struct net_device *dev)
- {
- 	struct dsa_switch_tree *dst = dev->dsa_ptr;
- 	struct dsa_switch *ds;
-diff --git a/net/dsa/tag_edsa.c b/net/dsa/tag_edsa.c
-index f95cafd05702..36389fc8fe06 100644
---- a/net/dsa/tag_edsa.c
-+++ b/net/dsa/tag_edsa.c
-@@ -81,9 +81,7 @@ static struct sk_buff *edsa_xmit(struct sk_buff *skb, struct net_device *dev)
- 	return NULL;
- }
- 
--static struct sk_buff *edsa_rcv(struct sk_buff *skb, struct net_device *dev,
--				struct packet_type *pt,
--				struct net_device *orig_dev)
-+static struct sk_buff *edsa_rcv(struct sk_buff *skb, struct net_device *dev)
- {
- 	struct dsa_switch_tree *dst = dev->dsa_ptr;
- 	struct dsa_switch *ds;
-diff --git a/net/dsa/tag_lan9303.c b/net/dsa/tag_lan9303.c
-index afd59330b5f1..82e150486497 100644
---- a/net/dsa/tag_lan9303.c
-+++ b/net/dsa/tag_lan9303.c
-@@ -71,8 +71,7 @@ static struct sk_buff *lan9303_xmit(struct sk_buff *skb, struct net_device *dev)
- 	return NULL;
- }
- 
--static struct sk_buff *lan9303_rcv(struct sk_buff *skb, struct net_device *dev,
--			struct packet_type *pt, struct net_device *orig_dev)
-+static struct sk_buff *lan9303_rcv(struct sk_buff *skb, struct net_device *dev)
- {
- 	u16 *lan9303_tag;
- 	struct dsa_switch_tree *dst = dev->dsa_ptr;
-diff --git a/net/dsa/tag_mtk.c b/net/dsa/tag_mtk.c
-index d1258e84cd71..7c9764c8d61b 100644
---- a/net/dsa/tag_mtk.c
-+++ b/net/dsa/tag_mtk.c
-@@ -47,9 +47,7 @@ static struct sk_buff *mtk_tag_xmit(struct sk_buff *skb,
- 	return NULL;
- }
- 
--static struct sk_buff *mtk_tag_rcv(struct sk_buff *skb, struct net_device *dev,
--				   struct packet_type *pt,
--				   struct net_device *orig_dev)
-+static struct sk_buff *mtk_tag_rcv(struct sk_buff *skb, struct net_device *dev)
- {
- 	struct dsa_switch_tree *dst = dev->dsa_ptr;
- 	struct dsa_switch *ds;
-diff --git a/net/dsa/tag_qca.c b/net/dsa/tag_qca.c
-index 2451007699b7..d38bd5cbfad8 100644
---- a/net/dsa/tag_qca.c
-+++ b/net/dsa/tag_qca.c
-@@ -66,9 +66,7 @@ static struct sk_buff *qca_tag_xmit(struct sk_buff *skb, struct net_device *dev)
- 	return NULL;
- }
- 
--static struct sk_buff *qca_tag_rcv(struct sk_buff *skb, struct net_device *dev,
--				   struct packet_type *pt,
--				   struct net_device *orig_dev)
-+static struct sk_buff *qca_tag_rcv(struct sk_buff *skb, struct net_device *dev)
- {
- 	struct dsa_switch_tree *dst = dev->dsa_ptr;
- 	struct dsa_switch *ds;
-diff --git a/net/dsa/tag_trailer.c b/net/dsa/tag_trailer.c
-index 7488ab2932ab..e1fd78197fc8 100644
---- a/net/dsa/tag_trailer.c
-+++ b/net/dsa/tag_trailer.c
-@@ -58,9 +58,7 @@ static struct sk_buff *trailer_xmit(struct sk_buff *skb, struct net_device *dev)
- 	return nskb;
- }
- 
--static struct sk_buff *trailer_rcv(struct sk_buff *skb, struct net_device *dev,
--				   struct packet_type *pt,
--				   struct net_device *orig_dev)
-+static struct sk_buff *trailer_rcv(struct sk_buff *skb, struct net_device *dev)
- {
- 	struct dsa_switch_tree *dst = dev->dsa_ptr;
- 	struct dsa_switch *ds;
+Vivien Didelot (7):
+  net: dsa: hide dsa_uses_tagged_protocol code
+  net: dsa: remove useless rcv copy in DSA tree
+  net: dsa: remove unused arguments of tagger rcv
+  net: dsa: free orig skb on rcv if reallocated
+  net: dsa: remove useless goto label in tagger rcv
+  net: dsa: remove useless copy of tagger xmit
+  net: dsa: factor skb freeing on xmit
+
+ include/net/dsa.h     |  9 +--------
+ net/dsa/dsa.c         | 12 +++++++++---
+ net/dsa/dsa2.c        |  2 --
+ net/dsa/dsa_priv.h    |  7 +------
+ net/dsa/legacy.c      |  2 --
+ net/dsa/slave.c       |  6 +++---
+ net/dsa/tag_brcm.c    | 21 ++++++---------------
+ net/dsa/tag_dsa.c     | 25 ++++++++-----------------
+ net/dsa/tag_edsa.c    | 25 ++++++++-----------------
+ net/dsa/tag_lan9303.c |  8 ++------
+ net/dsa/tag_mtk.c     | 19 +++++--------------
+ net/dsa/tag_qca.c     | 21 ++++++---------------
+ net/dsa/tag_trailer.c | 18 +++++-------------
+ 13 files changed, 54 insertions(+), 121 deletions(-)
+
 -- 
 2.13.0
