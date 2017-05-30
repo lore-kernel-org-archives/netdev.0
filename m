@@ -1,39 +1,49 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: Re: [PATCH V6 net-next iproute] ip: Add support for netdev events to
- monitor
-Date: Tue, 30 May 2017 08:22:31 -0600
-Message-ID: <65d65f35-5991-7131-66f3-7998914db92f@gmail.com>
-References: <1495894476-9726-1-git-send-email-vyasevic@redhat.com>
- <1495894476-9726-4-git-send-email-vyasevic@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: roopa@cumulusnetworks.com, jiri@resnulli.us, vfalico@gmail.com,
-        andy@greyhouse.net, Vladislav Yasevich <vyasevic@redhat.com>
-To: Vladislav Yasevich <vyasevich@gmail.com>, netdev@vger.kernel.org
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 4/7] net: dsa: free orig skb on rcv if reallocated
+Date: Tue, 30 May 2017 10:21:28 -0400
+Message-ID: <20170530142131.23568-5-vivien.didelot@savoirfairelinux.com>
+References: <20170530142131.23568-1-vivien.didelot@savoirfairelinux.com>
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:36574 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751106AbdE3OWd (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 30 May 2017 10:22:33 -0400
-Received: by mail-pf0-f195.google.com with SMTP id n23so18195070pfb.3
-        for <netdev@vger.kernel.org>; Tue, 30 May 2017 07:22:32 -0700 (PDT)
-In-Reply-To: <1495894476-9726-4-git-send-email-vyasevic@redhat.com>
-Content-Language: en-US
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:43380 "EHLO
+        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751263AbdE3OXp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 30 May 2017 10:23:45 -0400
+In-Reply-To: <20170530142131.23568-1-vivien.didelot@savoirfairelinux.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 5/27/17 8:14 AM, Vladislav Yasevich wrote:
-> diff --git a/ip/ipaddress.c b/ip/ipaddress.c
-> index b8d9c7d..c6e7413 100644
-> --- a/ip/ipaddress.c
-> +++ b/ip/ipaddress.c
-> @@ -753,6 +753,24 @@ int print_linkinfo_brief(const struct sockaddr_nl *who,
->  	return 0;
->  }
->  
-> +static const char *netdev_events[] = {"NONE",
+If the receive function of a tagger reallocated the SKB, the original
+SKB is currently not freed. Fix this and free it on both copy or error.
 
-I would prefer ifla_events rather than netdev just to reinforce the
-separation that an IFLA_EVENT does not necessarily correspond to a
-NETDEV event.
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+---
+ net/dsa/dsa.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
+index 98173a3f6fd1..0b6f2c7d7d1c 100644
+--- a/net/dsa/dsa.c
++++ b/net/dsa/dsa.c
+@@ -209,11 +209,12 @@ static int dsa_switch_rcv(struct sk_buff *skb, struct net_device *dev,
+ 	if (!skb)
+ 		return 0;
+ 
++	/* Receive function may have to reallocate the original SKB */
+ 	nskb = dst->tag_ops->rcv(skb, dev);
+-	if (!nskb) {
++	if (nskb != skb)
+ 		kfree_skb(skb);
++	if (!nskb)
+ 		return 0;
+-	}
+ 
+ 	skb = nskb;
+ 	skb_push(skb, ETH_HLEN);
+-- 
+2.13.0
