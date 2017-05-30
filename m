@@ -1,50 +1,43 @@
-From: Rob Herring <robh@kernel.org>
-Subject: Re: [PATCH] dt-bindings: net: move FMan binding
-Date: Tue, 30 May 2017 16:41:32 -0500
-Message-ID: <20170530214132.cxdqh3xyobksrhvu@rob-hp-laptop>
-References: <1494855398-26215-1-git-send-email-madalin.bucur@nxp.com>
- <20170515.103048.248884533404807350.davem@davemloft.net>
- <AM5PR0402MB2691006D3DD1CEB8744EF8F4ECFF0@AM5PR0402MB2691.eurprd04.prod.outlook.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-        "mark.rutland@arm.com" <mark.rutland@arm.com>,
-        "oss@buserror.net" <oss@buserror.net>,
-        "benh@kernel.crashing.org" <benh@kernel.crashing.org>,
-        "paulus@samba.org" <paulus@samba.org>,
-        "mpe@ellerman.id.au" <mpe@ellerman.id.au>,
-        "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
-        "linux-arm-kernel@lists.infradead.org"
-        <linux-arm-kernel@lists.infradead.org>,
-        "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Madalin-Cristian Bucur <madalin.bucur@nxp.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <AM5PR0402MB2691006D3DD1CEB8744EF8F4ECFF0@AM5PR0402MB2691.eurprd04.prod.outlook.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Flavio Leitner <fbl@sysclose.org>
+Subject: [PATCH net-next] netlink: include netnsid only when netns differs.
+Date: Tue, 30 May 2017 18:33:25 -0300
+Message-ID: <20170530213325.21652-1-fbl@sysclose.org>
+Cc: Flavio Leitner <fbl@sysclose.org>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sender-of-o51.zoho.com ([135.84.80.216]:21136 "EHLO
+        sender-of-o51.zoho.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751083AbdE3VtD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 30 May 2017 17:49:03 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 25, 2017 at 12:57:26PM +0000, Madalin-Cristian Bucur wrote:
-> > -----Original Message-----
-> > From: David Miller [mailto:davem@davemloft.net]
-> > Sent: Monday, May 15, 2017 5:31 PM
-> > Subject: Re: [PATCH] dt-bindings: net: move FMan binding
-> > 
-> > From: Madalin Bucur <madalin.bucur@nxp.com>
-> > Date: Mon, 15 May 2017 16:36:38 +0300
-> > 
-> > > Besides the PPC SoCs, the QorIQ DPAA FMan is also present on ARM SoCs,
-> > > moving the device tree binding document into the bindings/net folder.
-> > >
-> > > Signed-off-by: Madalin Bucur <madalin.bucur@nxp.com>
-> > 
-> > What tree is this targetted at for merging?
-> 
-> I hope Rob Herring will take this into his tree, it's a device tree binding
-> change. 
+Don't include netns id for notifications broadcasts when the
+socket and the skb are in the same netns because it will be
+an error which can't be distinguished from a peer netns failing
+to allocate an id.
 
-Applied.
+Signed-off-by: Flavio Leitner <fbl@sysclose.org>
+---
+ net/netlink/af_netlink.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
-Rob
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index ee841f0..b9f1392 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -1414,8 +1414,10 @@ static void do_one_broadcast(struct sock *sk,
+ 		p->skb2 = NULL;
+ 		goto out;
+ 	}
+-	NETLINK_CB(p->skb2).nsid = peernet2id(sock_net(sk), p->net);
+-	NETLINK_CB(p->skb2).nsid_is_set = true;
++	if (!net_eq(sock_net(sk), p->net)) {
++		NETLINK_CB(p->skb2).nsid = peernet2id(sock_net(sk), p->net);
++		NETLINK_CB(p->skb2).nsid_is_set = true;
++	}
+ 	val = netlink_broadcast_deliver(sk, p->skb2);
+ 	if (val < 0) {
+ 		netlink_overrun(sk);
+-- 
+2.9.4
