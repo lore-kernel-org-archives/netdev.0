@@ -1,35 +1,52 @@
-From: Doug Anderson <dianders@chromium.org>
-Subject: Suggest stable pick for nfnetlink_queue memory leak
-Date: Tue, 30 May 2017 15:38:36 -0700
-Message-ID: <CAD=FV=XVMiwPJUWpNnwGcCEz24j-7-mOn6Fe5eRxTjFA-FcU9A@mail.gmail.com>
+From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+Subject: [PATCH] net: freescale: fix potential null pointer dereference
+Date: Tue, 30 May 2017 17:38:43 -0500
+Message-ID: <20170530223842.GA11915@embeddedgus>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Brian Norris <briannorris@chromium.org>,
-        Guenter Roeck <groeck@chromium.org>,
-        liping.zhang@spreadtrum.com, pablo@netfilter.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org,
+        "Gustavo A. R. Silva" <garsilva@embeddedor.com>
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f52.google.com ([74.125.82.52]:38677 "EHLO
-        mail-wm0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751105AbdE3Wii (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 30 May 2017 18:38:38 -0400
-Received: by mail-wm0-f52.google.com with SMTP id e127so2385586wmg.1
-        for <netdev@vger.kernel.org>; Tue, 30 May 2017 15:38:38 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+Add NULL check before dereferencing pointer _id_ in order to avoid
+a potential NULL pointer dereference.
 
-I was running kmemleak on a kernel based on 4.4.64 and I noticed that
-my memory leak was fixed by commit b18bcb0019cf ("netfilter:
-nfnetlink_queue: fix memory leak when attach expectation
-successfully").  It seems like perhaps this should go to linux-stable?
- It's not a huge leak, but the fix is simple.
+Addresses-Coverity-ID: 1397995
+Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
+---
+ drivers/net/ethernet/freescale/fsl_pq_mdio.c | 9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
 
-It looks as if the leak has existed since commit bd0779370588
-("netfilter: nfnetlink_queue: allow to attach expectations to
-conntracks")
-
-Thanks!
-
--Doug
+diff --git a/drivers/net/ethernet/freescale/fsl_pq_mdio.c b/drivers/net/ethernet/freescale/fsl_pq_mdio.c
+index 446c7b3..a10de1e 100644
+--- a/drivers/net/ethernet/freescale/fsl_pq_mdio.c
++++ b/drivers/net/ethernet/freescale/fsl_pq_mdio.c
+@@ -381,7 +381,7 @@ static int fsl_pq_mdio_probe(struct platform_device *pdev)
+ {
+ 	const struct of_device_id *id =
+ 		of_match_device(fsl_pq_mdio_match, &pdev->dev);
+-	const struct fsl_pq_mdio_data *data = id->data;
++	const struct fsl_pq_mdio_data *data;
+ 	struct device_node *np = pdev->dev.of_node;
+ 	struct resource res;
+ 	struct device_node *tbi;
+@@ -389,6 +389,13 @@ static int fsl_pq_mdio_probe(struct platform_device *pdev)
+ 	struct mii_bus *new_bus;
+ 	int err;
+ 
++	if (!id) {
++		dev_err(&pdev->dev, "Failed to match device\n");
++		return -ENODEV;
++	}
++
++	data = id->data;
++
+ 	dev_dbg(&pdev->dev, "found %s compatible node\n", id->compatible);
+ 
+ 	new_bus = mdiobus_alloc_size(sizeof(*priv));
+-- 
+2.5.0
