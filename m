@@ -1,8 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next v2 3/6] net: dsa: remove dsa_uses_tagged_protocol
-Date: Tue, 30 May 2017 14:33:16 -0400
-Message-ID: <20170530183319.10718-4-vivien.didelot@savoirfairelinux.com>
-References: <20170530183319.10718-1-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next v2 0/6] net: dsa: tagger simplification
+Date: Tue, 30 May 2017 14:33:13 -0400
+Message-ID: <20170530183319.10718-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
         Florian Fainelli <f.fainelli@gmail.com>,
@@ -10,42 +9,41 @@ Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170530183319.10718-1-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Since dev->dsa_ptr is a pointer to a dsa_switch_tree, there is no need
-to have another inline helper just to check rcv.
+This patchset removes the unused arguments of the taggers rcv function
+and the unneeded labels in their implementations, and handles freeing of
+the original SKB in the xmit caller.
 
-Remove dsa_uses_tagged_protocol and check dsa_ptr && dsa_ptr->rcv
-together at the same time.
+Changes in v2:
+  - do not remove tagger function copies
+  - document hot path requirements
+  - make netdev_uses_dsa simpler
+  - add reviewers' tags
 
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
----
- include/net/dsa.h | 8 +-------
- 1 file changed, 1 insertion(+), 7 deletions(-)
+Vivien Didelot (6):
+  net: dsa: comment hot path requirements
+  net: dsa: do not cast dst
+  net: dsa: remove dsa_uses_tagged_protocol
+  net: dsa: remove unused arguments of tagger rcv
+  net: dsa: remove out_drop label in taggers rcv
+  net: dsa: factor skb freeing on xmit
 
-diff --git a/include/net/dsa.h b/include/net/dsa.h
-index 58297e4c6b31..4675b52c964c 100644
---- a/include/net/dsa.h
-+++ b/include/net/dsa.h
-@@ -467,16 +467,10 @@ struct mii_bus *dsa_host_dev_to_mii_bus(struct device *dev);
- struct net_device *dsa_dev_to_net_device(struct device *dev);
- 
- /* Keep inline for faster access in hot path */
--static inline bool dsa_uses_tagged_protocol(struct dsa_switch_tree *dst)
--{
--	return dst->rcv != NULL;
--}
--
- static inline bool netdev_uses_dsa(struct net_device *dev)
- {
- #if IS_ENABLED(CONFIG_NET_DSA)
--	if (dev->dsa_ptr != NULL)
--		return dsa_uses_tagged_protocol(dev->dsa_ptr);
-+	return dev->dsa_ptr && dev->dsa_ptr->rcv;
- #endif
- 	return false;
- }
+ include/net/dsa.h     | 15 +++++----------
+ net/dsa/dsa.c         |  2 +-
+ net/dsa/dsa2.c        |  2 +-
+ net/dsa/dsa_priv.h    |  5 ++---
+ net/dsa/legacy.c      |  2 +-
+ net/dsa/slave.c       |  8 ++++++--
+ net/dsa/tag_brcm.c    | 21 ++++++---------------
+ net/dsa/tag_dsa.c     | 25 ++++++++-----------------
+ net/dsa/tag_edsa.c    | 25 ++++++++-----------------
+ net/dsa/tag_lan9303.c |  8 ++------
+ net/dsa/tag_mtk.c     | 19 +++++--------------
+ net/dsa/tag_qca.c     | 21 ++++++---------------
+ net/dsa/tag_trailer.c | 17 +++++------------
+ 13 files changed, 56 insertions(+), 114 deletions(-)
+
 -- 
 2.13.0
