@@ -1,23 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Documentation: networking: add DPAA Ethernet document
-Date: Tue, 30 May 2017 12:36:25 -0400 (EDT)
-Message-ID: <20170530.123625.2008056791724796511.davem@davemloft.net>
-References: <1496038926-15315-1-git-send-email-madalin.bucur@nxp.com>
+Subject: Re: [PATCH net] qed: Don't log missing periodic stats by default
+Date: Tue, 30 May 2017 12:38:21 -0400 (EDT)
+Message-ID: <20170530.123821.215989310734091673.davem@davemloft.net>
+References: <1496046289-17330-1-git-send-email-Yuval.Mintz@cavium.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
-        linux-kernel@vger.kernel.org, camelia.groza@nxp.com
-To: madalin.bucur@nxp.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1496038926-15315-1-git-send-email-madalin.bucur@nxp.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Yuval.Mintz@cavium.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:53084 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750950AbdE3QiX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 30 May 2017 12:38:23 -0400
+In-Reply-To: <1496046289-17330-1-git-send-email-Yuval.Mintz@cavium.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Madalin Bucur <madalin.bucur@nxp.com>
-Date: Mon, 29 May 2017 09:22:06 +0300
+From: Yuval Mintz <Yuval.Mintz@cavium.com>
+Date: Mon, 29 May 2017 11:24:49 +0300
 
-> Signed-off-by: Madalin Bucur <madalin.bucur@nxp.com>
-> Signed-off-by: Camelia Groza <camelia.groza@nxp.com>
+> Current implementation lacks the logic for providing management
+> firmware with RDMA-related statistics; [much] worse than that -
+> it logs such events by default to system logs.
+> 
+> Since the statistics' gathering is done periodically, using sufficiently
+> new management firmware the system logs would get filled with these
+> unnecessary prints.
+> 
+> For now, reduce the verbosity of the log so that it would not be
+> logged by default.
+> 
+> Fixes: 6c75424612a7 ("qed: Add support for NCSI statistics")
+> Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
 
 Applied.
