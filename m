@@ -1,46 +1,45 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH net-next] net: ndisc.c: reduce size of
- __ndisc_fill_addr_option()
-Date: Mon, 29 May 2017 21:24:21 -0700
-Message-ID: <1496118261.2618.12.camel@perches.com>
-References: <20170527151514.GA3347@avx2>
-         <20170529.233109.702640863399503414.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 8bit
-Cc: Linyu.Yuan@alcatel-sbell.com.cn, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>, adobriyan@gmail.com
+From: Ganesh Goudar <ganeshgr@chelsio.com>
+Subject: [PATCH net-next v2] cxgb4: keep carrier off before registering netdev
+Date: Tue, 30 May 2017 11:32:06 +0530
+Message-ID: <1496124126-18597-1-git-send-email-ganeshgr@chelsio.com>
+Cc: nirranjan@chelsio.com, indranil@chelsio.com,
+        Surendra Mobiya <surendra@chelsio.com>,
+        Ganesh Goudar <ganeshgr@chelsio.com>
+To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0027.hostedemail.com ([216.40.44.27]:56276 "EHLO
-        smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1750708AbdE3EYY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 30 May 2017 00:24:24 -0400
-In-Reply-To: <20170529.233109.702640863399503414.davem@davemloft.net>
+Received: from stargate.chelsio.com ([12.32.117.8]:27477 "EHLO
+        stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750720AbdE3GDQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 30 May 2017 02:03:16 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2017-05-29 at 23:31 -0400, David Miller wrote:
-> From: Alexey Dobriyan <adobriyan@gmail.com>
-> Date: Sat, 27 May 2017 18:15:14 +0300
-> 
-> >> --- a/net/ipv6/ndisc.c
-> >> +++ b/net/ipv6/ndisc.c
-> >> @@ -148,17 +148,18 @@ void __ndisc_fill_addr_option(struct sk_buff *skb, int type, void *data,
-> > 
-> >>      space -= data_len;
-> >> -    if (space > 0)
-> >> -            memset(opt, 0, space);
-> >> +
-> >> +    memset(opt, 0, space);
-> > 
-> > This can't be right.
-> > 
-> > And what size are you reducing?
-> 
-> It is right, space equals the same thing it would have equaled
-> before his changes, and a memset() of zero length will do the
-> right thing.
-> 
-> Finally, if space can be negative here, we have real problems.
+From: Surendra Mobiya <surendra@chelsio.com>
 
-__ndisc_fill_addr_option is exported so yeah.
+Mark carrier off before registering netdev to ensure that vlan device
+picks up the correct state of the carrier
+
+Signed-off-by: Surendra Mobiya <surendra@chelsio.com>
+Signed-off-by: Ganesh Goudar <ganeshgr@chelsio.com>
+---
+v2:
+- keep carrier off before registering netdev not after
+
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index 2ae54d5..06c3414 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -4956,6 +4956,8 @@ static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 		netif_set_real_num_tx_queues(adapter->port[i], pi->nqsets);
+ 		netif_set_real_num_rx_queues(adapter->port[i], pi->nqsets);
+ 
++		netif_carrier_off(adapter->port[i]);
++
+ 		err = register_netdev(adapter->port[i]);
+ 		if (err)
+ 			break;
+-- 
+2.1.0
