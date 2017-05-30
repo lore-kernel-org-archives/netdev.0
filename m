@@ -1,37 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] qed: Don't log missing periodic stats by default
-Date: Tue, 30 May 2017 12:38:21 -0400 (EDT)
-Message-ID: <20170530.123821.215989310734091673.davem@davemloft.net>
-References: <1496046289-17330-1-git-send-email-Yuval.Mintz@cavium.com>
+Subject: Re: [PATCH v4 0/2] net: phy: Support managed Cortina phys
+Date: Tue, 30 May 2017 12:42:58 -0400 (EDT)
+Message-ID: <20170530.124258.552928885307723573.davem@davemloft.net>
+References: <1496049091-4637-1-git-send-email-bogdan.purcareata@nxp.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Yuval.Mintz@cavium.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:53084 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750950AbdE3QiX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 30 May 2017 12:38:23 -0400
-In-Reply-To: <1496046289-17330-1-git-send-email-Yuval.Mintz@cavium.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: andrew@lunn.ch, f.fainelli@gmail.com, netdev@vger.kernel.org,
+        devicetree@vger.kernel.org, linux-kernel@vger.kernel.org
+To: bogdan.purcareata@nxp.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1496049091-4637-1-git-send-email-bogdan.purcareata@nxp.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Yuval Mintz <Yuval.Mintz@cavium.com>
-Date: Mon, 29 May 2017 11:24:49 +0300
+From: Bogdan Purcareata <bogdan.purcareata@nxp.com>
+Date: Mon, 29 May 2017 09:11:29 +0000
 
-> Current implementation lacks the logic for providing management
-> firmware with RDMA-related statistics; [much] worse than that -
-> it logs such events by default to system logs.
+> So far, the Cortina family phys (CS4340 in this particular case) are only
+> supported in fixed link mode (via fixed_phy_register). The generic 10G
+> phy driver does not work well with the phylib state machine, when the phy
+> is registered via of_phy_connect. This prohibits the user from describing the
+> phy nodes in the device tree.
 > 
-> Since the statistics' gathering is done periodically, using sufficiently
-> new management firmware the system logs would get filled with these
-> unnecessary prints.
-> 
-> For now, reduce the verbosity of the log so that it would not be
-> logged by default.
-> 
-> Fixes: 6c75424612a7 ("qed: Add support for NCSI statistics")
-> Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
+> In order to support this scenario, and to properly describe the board
+> device tree, add a minimal Cortina driver that reads the status from the
+> right register. With the generic 10G C45 driver, the kernel will print
+> messages like:
+> [    0.226521] mdio_bus 8b96000: Error while reading PHY16 reg at 1.6
+> [    0.232780] mdio_bus 8b96000: Error while reading PHY16 reg at 1.5
+ ...
 
-Applied.
+Series applied, thanks.
