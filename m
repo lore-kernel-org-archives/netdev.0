@@ -1,47 +1,62 @@
 From: Leonard Crestez <leonard.crestez@nxp.com>
-Subject: [PATCH 0/2] ARM: imx6ul-14x14-evk: Fix suspend over nfs by phy cleanup
-Date: Tue, 30 May 2017 20:34:02 +0300
-Message-ID: <cover.1496164448.git.leonard.crestez@nxp.com>
+Subject: [PATCH 1/2] ARM: dts: imx6ul-14x14-evk: Add ksz8081 phy properties
+Date: Tue, 30 May 2017 20:34:03 +0300
+Message-ID: <d31aab90fbdecaf4c5f240becb2d0b0efb23f5c3.1496164448.git.leonard.crestez@nxp.com>
+References: <cover.1496164448.git.leonard.crestez@nxp.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Johan Hovold <johan@kernel.org>,
-        Alexandre Belloni <alexandre.belloni@free-electrons.com>,
-        Philipp Zabel <p.zabel@pengutronix.de>,
-        Fabio Estevam <fabio.estevam@nxp.com>,
-        <netdev@vger.kernel.org>, <linux-arm-kernel@lists.infradead.org>,
-        <linux-kernel@vger.kernel.org>
-To: Shawn Guo <shawnguo@kernel.org>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>, Andy Duan <fugang.duan@nxp.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Johan Hovold <johan@kernel.org>,
+ linux-kernel@vger.kernel.org,
+ Alexandre Belloni <alexandre.belloni@free-electrons.com>,
+ Philipp Zabel <p.zabel@pengutronix.de>, Fabio Estevam <fabio.estevam@nxp.com>,
+ linux-arm-kernel@lists.infradead.org
+To: Shawn Guo <shawnguo@kernel.org>, Florian Fainelli <f.fainelli@gmail.com>,
+ Andrew Lunn <andrew@lunn.ch>, Andy Duan <fugang.duan@nxp.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <cover.1496164448.git.leonard.crestez@nxp.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-Right now attempting doing suspend/resume while root is mounted over NFS hangs
-on imx6ul-14x14-evk. This is happening because ksz8081 phy fixups are lost on
-resume.
+Right now mach-imx6ul registers a fixup for the ksz8081 phy. The same
+register values can be set through the micrel phy driver by using dts
+properties.
 
-Fix this by using equivalent devicetree properties instead of a phy fixup and
-handling those properties on resume in the micrel driver.
+This seems preferable and allows cleanly fixing suspend/resume.
 
-Other solutions would be possible such as having a way to run phy fixups again
-on resume. This alternative is precisely targeted.
+Signed-off-by: Leonard Crestez <leonard.crestez@nxp.com>
+---
+ arch/arm/boot/dts/imx6ul-14x14-evk.dts | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
-In theory it might now be possible to remove the phy fixup from mach-imx6ul
-entirely but it is possible that this would break other imx6ul boards which use
-the same phy. The solution would be to patch their dts but it's not clear how
-to identify affected boards.
-
-This code is shared with imx6ull-14x14-evk but 6ull suspend needs an unrelated
-patch: https://lkml.org/lkml/2017/5/30/584
-
-Leonard Crestez (2):
-  ARM: dts: imx6ul-14x14-evk: Add ksz8081 phy properties
-  net: phy: micrel: Restore led_mode and clk_sel on resume
-
- arch/arm/boot/dts/imx6ul-14x14-evk.dts |  6 ++++++
- drivers/net/phy/micrel.c               | 15 +++++++++++++++
- 2 files changed, 21 insertions(+)
-
+diff --git a/arch/arm/boot/dts/imx6ul-14x14-evk.dts b/arch/arm/boot/dts/imx6ul-14x14-evk.dts
+index f18e1f1..d2be8aa 100644
+--- a/arch/arm/boot/dts/imx6ul-14x14-evk.dts
++++ b/arch/arm/boot/dts/imx6ul-14x14-evk.dts
+@@ -120,10 +120,16 @@
+ 
+ 		ethphy0: ethernet-phy@2 {
+ 			reg = <2>;
++			micrel,led-mode = <1>;
++			clocks = <&clks IMX6UL_CLK_ENET_REF>;
++			clock-names = "rmii-ref";
+ 		};
+ 
+ 		ethphy1: ethernet-phy@1 {
+ 			reg = <1>;
++			micrel,led-mode = <1>;
++			clocks = <&clks IMX6UL_CLK_ENET2_REF>;
++			clock-names = "rmii-ref";
+ 		};
+ 	};
+ };
 -- 
 2.7.4
