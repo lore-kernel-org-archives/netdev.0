@@ -1,239 +1,74 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 7/7] net: dsa: factor skb freeing on xmit
-Date: Tue, 30 May 2017 10:21:31 -0400
-Message-ID: <20170530142131.23568-8-vivien.didelot@savoirfairelinux.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next 1/7] net: dsa: hide dsa_uses_tagged_protocol code
+Date: Tue, 30 May 2017 17:01:44 +0200
+Message-ID: <20170530150144.GC22758@lunn.ch>
 References: <20170530142131.23568-1-vivien.didelot@savoirfairelinux.com>
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+ <20170530142131.23568-2-vivien.didelot@savoirfairelinux.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-To: netdev@vger.kernel.org
+        Florian Fainelli <f.fainelli@gmail.com>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170530142131.23568-1-vivien.didelot@savoirfairelinux.com>
+Content-Disposition: inline
+In-Reply-To: <20170530142131.23568-2-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The taggers are currently responsible to free the original SKB if they
-made a copy of it, or in case of error.
+On Tue, May 30, 2017 at 10:21:25AM -0400, Vivien Didelot wrote:
+> Hide the implementation of dsa_uses_tagged_protocol in dsa.c since this
+> helper will be extended to access the opaque dsa_device_ops structure.
+> 
+> At the same time, fix the checkpatch comparison check:
+> 
+>     CHECK: Comparison to NULL could be written "dst->rcv"
+>     #41: FILE: net/dsa/dsa.c:32:
+>     +	return dst->rcv != NULL;
+> 
+> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+> ---
+>  include/net/dsa.h | 5 +----
+>  net/dsa/dsa.c     | 5 +++++
+>  2 files changed, 6 insertions(+), 4 deletions(-)
+> 
+> diff --git a/include/net/dsa.h b/include/net/dsa.h
+> index c0e567c0c824..cb5d668b265d 100644
+> --- a/include/net/dsa.h
+> +++ b/include/net/dsa.h
+> @@ -464,10 +464,7 @@ struct mii_bus *dsa_host_dev_to_mii_bus(struct device *dev);
+>  
+>  struct net_device *dsa_dev_to_net_device(struct device *dev);
+>  
+> -static inline bool dsa_uses_tagged_protocol(struct dsa_switch_tree *dst)
+> -{
+> -	return dst->rcv != NULL;
+> -}
+> +bool dsa_uses_tagged_protocol(struct dsa_switch_tree *dst);
+>  
+>  static inline bool netdev_uses_dsa(struct net_device *dev)
+>  {
+> diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
+> index 3288a80d4d6c..7a8a0358299b 100644
+> --- a/net/dsa/dsa.c
+> +++ b/net/dsa/dsa.c
+> @@ -27,6 +27,11 @@
+>  
+>  #include "dsa_priv.h"
+>  
+> +bool dsa_uses_tagged_protocol(struct dsa_switch_tree *dst)
+> +{
+> +	return !!dst->rcv;
+> +}
+> +
 
-This patch simplifies this by freeing the original SKB in the
-dsa_slave_xmit caller if it differs from the return SKB (copy or NULL.)
+Hi Vivien
 
-At the same time, fix the checkpatch NULL comparison check:
+You need to be careful here. This is in the hot path. Every frame
+received uses this code. And think about a distro kernel, which might
+have DSA enabled by default, yet is unlikely to have any switches. You
+are adding a function call which can be called millions of times per
+second....
 
-        CHECK: Comparison to NULL could be written "!nskb"
-    #208: FILE: net/dsa/tag_trailer.c:35:
-    +	if (nskb == NULL)
-
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
----
- net/dsa/slave.c       | 2 ++
- net/dsa/tag_brcm.c    | 6 +-----
- net/dsa/tag_dsa.c     | 8 ++------
- net/dsa/tag_edsa.c    | 8 ++------
- net/dsa/tag_lan9303.c | 5 +----
- net/dsa/tag_mtk.c     | 6 +-----
- net/dsa/tag_qca.c     | 6 +-----
- net/dsa/tag_trailer.c | 5 +----
- 8 files changed, 11 insertions(+), 35 deletions(-)
-
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index ebad2af4d3a8..a520c822436e 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -364,6 +364,8 @@ static netdev_tx_t dsa_slave_xmit(struct sk_buff *skb, struct net_device *dev)
- 
- 	/* Transmit function may have to reallocate the original SKB */
- 	nskb = p->dp->ds->dst->tag_ops->xmit(skb, dev);
-+	if (nskb != skb)
-+		kfree_skb(skb);
- 	if (!nskb)
- 		return NETDEV_TX_OK;
- 
-diff --git a/net/dsa/tag_brcm.c b/net/dsa/tag_brcm.c
-index 10fa4c0ca46b..5db6bcfde025 100644
---- a/net/dsa/tag_brcm.c
-+++ b/net/dsa/tag_brcm.c
-@@ -65,7 +65,7 @@ static struct sk_buff *brcm_tag_xmit(struct sk_buff *skb, struct net_device *dev
- 	u8 *brcm_tag;
- 
- 	if (skb_cow_head(skb, BRCM_TAG_LEN) < 0)
--		goto out_free;
-+		return NULL;
- 
- 	skb_push(skb, BRCM_TAG_LEN);
- 
-@@ -86,10 +86,6 @@ static struct sk_buff *brcm_tag_xmit(struct sk_buff *skb, struct net_device *dev
- 	brcm_tag[3] = (1 << p->dp->index) & BRCM_IG_DSTMAP1_MASK;
- 
- 	return skb;
--
--out_free:
--	kfree_skb(skb);
--	return NULL;
- }
- 
- static struct sk_buff *brcm_tag_rcv(struct sk_buff *skb, struct net_device *dev)
-diff --git a/net/dsa/tag_dsa.c b/net/dsa/tag_dsa.c
-index 9f5fecaa4a93..6837ca9160a8 100644
---- a/net/dsa/tag_dsa.c
-+++ b/net/dsa/tag_dsa.c
-@@ -28,7 +28,7 @@ static struct sk_buff *dsa_xmit(struct sk_buff *skb, struct net_device *dev)
- 	 */
- 	if (skb->protocol == htons(ETH_P_8021Q)) {
- 		if (skb_cow_head(skb, 0) < 0)
--			goto out_free;
-+			return NULL;
- 
- 		/*
- 		 * Construct tagged FROM_CPU DSA tag from 802.1q tag.
-@@ -46,7 +46,7 @@ static struct sk_buff *dsa_xmit(struct sk_buff *skb, struct net_device *dev)
- 		}
- 	} else {
- 		if (skb_cow_head(skb, DSA_HLEN) < 0)
--			goto out_free;
-+			return NULL;
- 		skb_push(skb, DSA_HLEN);
- 
- 		memmove(skb->data, skb->data + DSA_HLEN, 2 * ETH_ALEN);
-@@ -62,10 +62,6 @@ static struct sk_buff *dsa_xmit(struct sk_buff *skb, struct net_device *dev)
- 	}
- 
- 	return skb;
--
--out_free:
--	kfree_skb(skb);
--	return NULL;
- }
- 
- static struct sk_buff *dsa_rcv(struct sk_buff *skb, struct net_device *dev)
-diff --git a/net/dsa/tag_edsa.c b/net/dsa/tag_edsa.c
-index a9a06e19abeb..96ddc90472a2 100644
---- a/net/dsa/tag_edsa.c
-+++ b/net/dsa/tag_edsa.c
-@@ -30,7 +30,7 @@ static struct sk_buff *edsa_xmit(struct sk_buff *skb, struct net_device *dev)
- 	 */
- 	if (skb->protocol == htons(ETH_P_8021Q)) {
- 		if (skb_cow_head(skb, DSA_HLEN) < 0)
--			goto out_free;
-+			return NULL;
- 		skb_push(skb, DSA_HLEN);
- 
- 		memmove(skb->data, skb->data + DSA_HLEN, 2 * ETH_ALEN);
-@@ -55,7 +55,7 @@ static struct sk_buff *edsa_xmit(struct sk_buff *skb, struct net_device *dev)
- 		}
- 	} else {
- 		if (skb_cow_head(skb, EDSA_HLEN) < 0)
--			goto out_free;
-+			return NULL;
- 		skb_push(skb, EDSA_HLEN);
- 
- 		memmove(skb->data, skb->data + EDSA_HLEN, 2 * ETH_ALEN);
-@@ -75,10 +75,6 @@ static struct sk_buff *edsa_xmit(struct sk_buff *skb, struct net_device *dev)
- 	}
- 
- 	return skb;
--
--out_free:
--	kfree_skb(skb);
--	return NULL;
- }
- 
- static struct sk_buff *edsa_rcv(struct sk_buff *skb, struct net_device *dev)
-diff --git a/net/dsa/tag_lan9303.c b/net/dsa/tag_lan9303.c
-index 82e150486497..e33348101e8f 100644
---- a/net/dsa/tag_lan9303.c
-+++ b/net/dsa/tag_lan9303.c
-@@ -52,7 +52,7 @@ static struct sk_buff *lan9303_xmit(struct sk_buff *skb, struct net_device *dev)
- 	if (skb_cow_head(skb, LAN9303_TAG_LEN) < 0) {
- 		dev_dbg(&dev->dev,
- 			"Cannot make room for the special tag. Dropping packet\n");
--		goto out_free;
-+		return NULL;
- 	}
- 
- 	/* provide 'LAN9303_TAG_LEN' bytes additional space */
-@@ -66,9 +66,6 @@ static struct sk_buff *lan9303_xmit(struct sk_buff *skb, struct net_device *dev)
- 	lan9303_tag[1] = htons(p->dp->index | BIT(4));
- 
- 	return skb;
--out_free:
--	kfree_skb(skb);
--	return NULL;
- }
- 
- static struct sk_buff *lan9303_rcv(struct sk_buff *skb, struct net_device *dev)
-diff --git a/net/dsa/tag_mtk.c b/net/dsa/tag_mtk.c
-index 327dd7b596df..ee62ae5f03e1 100644
---- a/net/dsa/tag_mtk.c
-+++ b/net/dsa/tag_mtk.c
-@@ -27,7 +27,7 @@ static struct sk_buff *mtk_tag_xmit(struct sk_buff *skb,
- 	u8 *mtk_tag;
- 
- 	if (skb_cow_head(skb, MTK_HDR_LEN) < 0)
--		goto out_free;
-+		return NULL;
- 
- 	skb_push(skb, MTK_HDR_LEN);
- 
-@@ -41,10 +41,6 @@ static struct sk_buff *mtk_tag_xmit(struct sk_buff *skb,
- 	mtk_tag[3] = 0;
- 
- 	return skb;
--
--out_free:
--	kfree_skb(skb);
--	return NULL;
- }
- 
- static struct sk_buff *mtk_tag_rcv(struct sk_buff *skb, struct net_device *dev)
-diff --git a/net/dsa/tag_qca.c b/net/dsa/tag_qca.c
-index 8080ad8f2abb..4d3bc2920477 100644
---- a/net/dsa/tag_qca.c
-+++ b/net/dsa/tag_qca.c
-@@ -45,7 +45,7 @@ static struct sk_buff *qca_tag_xmit(struct sk_buff *skb, struct net_device *dev)
- 	dev->stats.tx_bytes += skb->len;
- 
- 	if (skb_cow_head(skb, 0) < 0)
--		goto out_free;
-+		return NULL;
- 
- 	skb_push(skb, QCA_HDR_LEN);
- 
-@@ -60,10 +60,6 @@ static struct sk_buff *qca_tag_xmit(struct sk_buff *skb, struct net_device *dev)
- 	*phdr = htons(hdr);
- 
- 	return skb;
--
--out_free:
--	kfree_skb(skb);
--	return NULL;
- }
- 
- static struct sk_buff *qca_tag_rcv(struct sk_buff *skb, struct net_device *dev)
-diff --git a/net/dsa/tag_trailer.c b/net/dsa/tag_trailer.c
-index 7422b1329712..05dafd7cdb21 100644
---- a/net/dsa/tag_trailer.c
-+++ b/net/dsa/tag_trailer.c
-@@ -32,17 +32,14 @@ static struct sk_buff *trailer_xmit(struct sk_buff *skb, struct net_device *dev)
- 		padlen = 60 - skb->len;
- 
- 	nskb = alloc_skb(NET_IP_ALIGN + skb->len + padlen + 4, GFP_ATOMIC);
--	if (nskb == NULL) {
--		kfree_skb(skb);
-+	if (!nskb)
- 		return NULL;
--	}
- 	skb_reserve(nskb, NET_IP_ALIGN);
- 
- 	skb_reset_mac_header(nskb);
- 	skb_set_network_header(nskb, skb_network_header(skb) - skb->head);
- 	skb_set_transport_header(nskb, skb_transport_header(skb) - skb->head);
- 	skb_copy_and_csum_dev(skb, skb_put(nskb, skb->len));
--	kfree_skb(skb);
- 
- 	if (padlen) {
- 		u8 *pad = skb_put(nskb, padlen);
--- 
-2.13.0
+     Andrew
