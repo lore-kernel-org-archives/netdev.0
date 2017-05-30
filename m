@@ -1,32 +1,46 @@
-From: Michael Chan <michael.chan@broadcom.com>
-Subject: Re: [PATCH net-next 6/7] bnxt_en: Implement xmit_more.
-Date: Mon, 29 May 2017 20:49:19 -0700
-Message-ID: <CACKFLikMBfxxmF3tTk_BkyHvb+FJzcsBqOnBQDtfWfZ5qZLT6A@mail.gmail.com>
-References: <1496099170-701-1-git-send-email-michael.chan@broadcom.com>
- <1496099170-701-7-git-send-email-michael.chan@broadcom.com> <BLUPR0701MB20040DED85E53FEFE75C591E8DF00@BLUPR0701MB2004.namprd07.prod.outlook.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next] net: ndisc.c: reduce size of
+ __ndisc_fill_addr_option()
+Date: Mon, 29 May 2017 21:24:21 -0700
+Message-ID: <1496118261.2618.12.camel@perches.com>
+References: <20170527151514.GA3347@avx2>
+         <20170529.233109.702640863399503414.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 8bit
+Cc: Linyu.Yuan@alcatel-sbell.com.cn, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>, adobriyan@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f52.google.com ([209.85.215.52]:35616 "EHLO
-        mail-lf0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750821AbdE3DtV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 29 May 2017 23:49:21 -0400
-Received: by mail-lf0-f52.google.com with SMTP id a5so42213085lfh.2
-        for <netdev@vger.kernel.org>; Mon, 29 May 2017 20:49:20 -0700 (PDT)
-In-Reply-To: <BLUPR0701MB20040DED85E53FEFE75C591E8DF00@BLUPR0701MB2004.namprd07.prod.outlook.com>
+Received: from smtprelay0027.hostedemail.com ([216.40.44.27]:56276 "EHLO
+        smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1750708AbdE3EYY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 30 May 2017 00:24:24 -0400
+In-Reply-To: <20170529.233109.702640863399503414.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 29, 2017 at 8:28 PM, Mintz, Yuval <Yuval.Mintz@cavium.com> wrote:
->
->> -       bnxt_db_write(bp, txr->tx_doorbell, DB_KEY_TX | prod);
->> +       if (!skb->xmit_more)
->> +               bnxt_db_write(bp, txr->tx_doorbell, DB_KEY_TX | prod);
->
-> DQL can prevent you from getting the xmit_more marked SKB,
-> so you should probably also check for netif_xmit_stopped().
+On Mon, 2017-05-29 at 23:31 -0400, David Miller wrote:
+> From: Alexey Dobriyan <adobriyan@gmail.com>
+> Date: Sat, 27 May 2017 18:15:14 +0300
+> 
+> >> --- a/net/ipv6/ndisc.c
+> >> +++ b/net/ipv6/ndisc.c
+> >> @@ -148,17 +148,18 @@ void __ndisc_fill_addr_option(struct sk_buff *skb, int type, void *data,
+> > 
+> >>      space -= data_len;
+> >> -    if (space > 0)
+> >> -            memset(opt, 0, space);
+> >> +
+> >> +    memset(opt, 0, space);
+> > 
+> > This can't be right.
+> > 
+> > And what size are you reducing?
+> 
+> It is right, space equals the same thing it would have equaled
+> before his changes, and a memset() of zero length will do the
+> right thing.
+> 
+> Finally, if space can be negative here, we have real problems.
 
-Good point.  Thanks.
+__ndisc_fill_addr_option is exported so yeah.
