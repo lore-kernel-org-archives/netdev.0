@@ -1,33 +1,59 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH net-next] netlink: include netnsid only when netns
- differs.
-Date: Wed, 31 May 2017 10:38:21 +0200
-Message-ID: <1b83c01b-8fe3-8e9b-cae7-4064527c1c21@6wind.com>
-References: <20170530213325.21652-1-fbl@sysclose.org>
-Reply-To: nicolas.dichtel@6wind.com
+From: Alexander Potapenko <glider@google.com>
+Subject: Re: [PATCH] net: rtnetlink: bail out from rtnl_fdb_dump() on parse error
+Date: Wed, 31 May 2017 10:56:47 +0200
+Message-ID: <CAG_fn=WNnkmZ8CXqM6w7p_kmhh8Tys1HjgkfASYjvEZ2iie0hg@mail.gmail.com>
+References: <20170523112028.132630-1-glider@google.com> <20170524.153224.1230164587077679673.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-To: Flavio Leitner <fbl@sysclose.org>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f48.google.com ([74.125.82.48]:35989 "EHLO
-        mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751277AbdEaIi0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 31 May 2017 04:38:26 -0400
-Received: by mail-wm0-f48.google.com with SMTP id 7so110381175wmo.1
-        for <netdev@vger.kernel.org>; Wed, 31 May 2017 01:38:25 -0700 (PDT)
-In-Reply-To: <20170530213325.21652-1-fbl@sysclose.org>
-Content-Language: fr
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+Cc: Dmitriy Vyukov <dvyukov@google.com>,
+        Kostya Serebryany <kcc@google.com>,
+        Eric Dumazet <edumazet@google.com>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Networking <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170524.153224.1230164587077679673.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le 30/05/2017 à 23:33, Flavio Leitner a écrit :
-> Don't include netns id for notifications broadcasts when the
-> socket and the skb are in the same netns because it will be
-> an error which can't be distinguished from a peer netns failing
-> to allocate an id.
-I don't understand the problem. peernet2id() doesn't allocate ids, it only do a
-lookup. If you need an id for the current netns, you have to allocate one.
+Hi David,
 
-This patch changes the metadata exported to the userland and will break existing
-tools.
+I've noticed that the upstream patch:
+https://github.com/torvalds/linux/commit/0ff50e83b5122e836ca492fefb11656b22=
+5ac29c
+contains the KMSAN report and the repro, despite I've put them under
+the triple dash (IIRC Eric told me I shouldn't bloat the patch
+descriptions with that information). Did I mess it up somehow?
+
+Alex
+
+On Wed, May 24, 2017 at 9:32 PM, David Miller <davem@davemloft.net> wrote:
+> From: Alexander Potapenko <glider@google.com>
+> Date: Tue, 23 May 2017 13:20:28 +0200
+>
+>> rtnl_fdb_dump() failed to check the result of nlmsg_parse(), which led
+>> to contents of |ifm| being uninitialized because nlh->nlmsglen was too
+>> small to accommodate |ifm|. The uninitialized data may affect some
+>> branches and result in unwanted effects, although kernel data doesn't
+>> seem to leak to the userspace directly.
+>>
+>> The bug has been detected with KMSAN and syzkaller.
+>>
+>> Signed-off-by: Alexander Potapenko <glider@google.com>
+>
+> Applied, thanks.
+
+
+
+--=20
+Alexander Potapenko
+Software Engineer
+
+Google Germany GmbH
+Erika-Mann-Stra=C3=9Fe, 33
+80636 M=C3=BCnchen
+
+Gesch=C3=A4ftsf=C3=BChrer: Matthew Scott Sucherman, Paul Terence Manicle
+Registergericht und -nummer: Hamburg, HRB 86891
+Sitz der Gesellschaft: Hamburg
