@@ -1,33 +1,62 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: phy: fix marvell phy status reading
-Date: Wed, 31 May 2017 13:53:33 -0400 (EDT)
-Message-ID: <20170531.135333.1789972309500724211.davem@davemloft.net>
-References: <E1dFixz-00062r-0n@rmk-PC.armlinux.org.uk>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH nf-next] netns: add and use net_ns_barrier
+Date: Wed, 31 May 2017 12:46:00 -0500
+Message-ID: <87mv9skjhj.fsf@xmission.com>
+References: <20170530093812.10712-1-fw@strlen.de>
+        <20170531.125527.1553231867217469072.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: andrew@lunn.ch, f.fainelli@gmail.com, netdev@vger.kernel.org
-To: rmk+kernel@armlinux.org.uk
+Content-Type: text/plain
+Cc: fw@strlen.de, netfilter-devel@vger.kernel.org,
+        netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:41702 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750970AbdEaRxl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 31 May 2017 13:53:41 -0400
-In-Reply-To: <E1dFixz-00062r-0n@rmk-PC.armlinux.org.uk>
+Received: from out01.mta.xmission.com ([166.70.13.231]:45615 "EHLO
+        out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751034AbdEaRwt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 31 May 2017 13:52:49 -0400
+In-Reply-To: <20170531.125527.1553231867217469072.davem@davemloft.net> (David
+        Miller's message of "Wed, 31 May 2017 12:55:27 -0400 (EDT)")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Russell King <rmk+kernel@armlinux.org.uk>
-Date: Tue, 30 May 2017 16:21:51 +0100
+David Miller <davem@davemloft.net> writes:
 
-> The Marvell driver incorrectly provides phydev->lp_advertising as the
-> logical and of the link partner's advert and our advert.  This is
-> incorrect - this field is supposed to store the link parter's unmodified
-> advertisment.
-> 
-> This allows ethtool to report the correct link partner auto-negotiation
-> status.
-> 
-> Signed-off-by: Russell King <rmk+kernel@armlinux.org.uk>
+> From: Florian Westphal <fw@strlen.de>
+> Date: Tue, 30 May 2017 11:38:12 +0200
+>
+>> Quoting Joe Stringer:
+>>   If a user loads nf_conntrack_ftp, sends FTP traffic through a network
+>>   namespace, destroys that namespace then unloads the FTP helper module,
+>>   then the kernel will crash.
+>> 
+>> Events that lead to the crash:
+>> 1. conntrack is created with ftp helper in netns x
+>> 2. This netns is destroyed
+>> 3. netns destruction is scheduled
+>> 4. netns destruction wq starts, removes netns from global list
+>> 5. ftp helper is unloaded, which resets all helpers of the conntracks
+>> via for_each_net()
+>> 
+>> but because netns is already gone from list the for_each_net() loop
+>> doesn't include it, therefore all of these conntracks are unaffected.
+>> 
+>> 6. helper module unload finishes
+>> 7. netns wq invokes destructor for rmmod'ed helper
+>> 
+>> CC: "Eric W. Biederman" <ebiederm@xmission.com>
+>> Reported-by: Joe Stringer <joe@ovn.org>
+>> Signed-off-by: Florian Westphal <fw@strlen.de>
+>> ---
+>>  Eric, I'd like an explicit (n)ack from you for this one.
+>
+> Indeed, Eric, please do.
 
-Applied, thank you.
+Taking a look now.  The original didn't make it's way into my inbox.  I
+just have a copy from netdev.  Florian there may be a bit of an email
+black hole between us.
+
+> Otherwise I'm fine with the generic parts:
+>
+> Acked-by: David S. Miller <davem@davemloft.net>
+
+Eric
