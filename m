@@ -1,45 +1,46 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 2/3] udp: avoid a cache miss on dequeue
-Date: Wed, 31 May 2017 10:00:43 -0700
-Message-ID: <1496250043.27480.6.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <cover.1496070490.git.pabeni@redhat.com>
-         <b07f7111480bb0ca2d98fe9fef49a593ab1c4787.1496070490.git.pabeni@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] samples/bpf: bpf_load.c order of prog_fd[] should
+ correspond with ELF order
+Date: Wed, 31 May 2017 12:59:39 -0400 (EDT)
+Message-ID: <20170531.125939.899346888273269086.davem@davemloft.net>
+References: <149614787132.15375.2590780903240304298.stgit@firesoul>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-        Eric Dumazet <edumazet@google.com>
-To: Paolo Abeni <pabeni@redhat.com>
+Cc: alexei.starovoitov@gmail.com, netdev@vger.kernel.org
+To: brouer@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:33730 "EHLO
-        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751100AbdEaRAp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 31 May 2017 13:00:45 -0400
-Received: by mail-pg0-f67.google.com with SMTP id s62so2546241pgc.0
-        for <netdev@vger.kernel.org>; Wed, 31 May 2017 10:00:45 -0700 (PDT)
-In-Reply-To: <b07f7111480bb0ca2d98fe9fef49a593ab1c4787.1496070490.git.pabeni@redhat.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:41140 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751118AbdEaQ7l (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 31 May 2017 12:59:41 -0400
+In-Reply-To: <149614787132.15375.2590780903240304298.stgit@firesoul>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2017-05-29 at 17:27 +0200, Paolo Abeni wrote:
-> Since UDP no more uses sk->destructor, we can clear completely
-> the skb head state before enqueuing.
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Date: Tue, 30 May 2017 14:37:51 +0200
 
-...
+> An eBPF ELF file generated with LLVM can contain several program
+> section, which can be used for bpf tail calls.  The bpf prog file
+> descriptors are accessible via array prog_fd[].
+> 
+> At-least XDP samples assume ordering, and uses prog_fd[0] is the main
+> XDP program to attach.  The actual order of array prog_fd[] depend on
+> whether or not a bpf program section is referencing any maps or not.
+> Not using a map result in being loaded/processed after all other
+> prog section.  Thus, this can lead to some very strange and hard to
+> debug situation, as the user can only see a FD and cannot correlated
+> that with the ELF section name.
+> 
+> The fix is rather simple, and even removes duplicate memcmp code.
+> Simply load program sections as the last step, instead of
+> load_and_attach while processing the relocation section.
+> 
+> When working with tail calls, it become even more essential that the
+> order of prog_fd[] is consistant, like the current dependency of the
+> map_fd[] order.
+> 
+> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
 
-> @@ -1739,6 +1740,9 @@ static int __udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
->  		sk_mark_napi_id_once(sk, skb);
->  	}
->  
-> +	/* drop all pending head states; dst, nf and sk are dropped by caller */
-> +	secpath_reset(skb);
-> +
-
-I wonder if using skb_release_head_state() would be more appropriate ?
-
-Surely more descriptive and probably not more expensive since all
-cache lines should be already hot at this point.
-
->  	rc = __udp_enqueue_schedule_skb(sk, skb);
->  	if (rc < 0) {
->  		int is_udplite = IS_UDPLITE(sk);
+Applied to net-next, thanks Jesper.
