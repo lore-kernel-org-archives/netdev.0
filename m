@@ -1,51 +1,40 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2] ip: add handling for new CAN netlink interface
-Date: Tue, 30 May 2017 17:40:16 -0700
-Message-ID: <20170530174016.65cf8608@xeon-e3>
-References: <20170519125449.7214-1-remigiusz.kollataj@mobica.com>
+From: David Ahern <dsahern@gmail.com>
+Subject: Re: [PATCH RFC net-next] arp: Really delete an arp entry on "arp -d"
+Date: Tue, 30 May 2017 18:42:22 -0600
+Message-ID: <de8d048e-a276-c596-6b98-c9e7c4b91270@gmail.com>
+References: <1496116096-77316-1-git-send-email-sowmini.varadhan@oracle.com>
+ <20170530162020.137aef02@xeon-e3> <20170530233232.GL23089@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org
-To: Remigiusz =?UTF-8?B?S2/FgsWCxIV0YWo=?=
-        <remigiusz.kollataj@mobica.com>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Sowmini Varadhan <sowmini.varadhan@oracle.com>,
+        Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f180.google.com ([209.85.192.180]:34242 "EHLO
-        mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750992AbdEaAkT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 30 May 2017 20:40:19 -0400
-Received: by mail-pf0-f180.google.com with SMTP id 9so1907662pfj.1
-        for <netdev@vger.kernel.org>; Tue, 30 May 2017 17:40:19 -0700 (PDT)
-In-Reply-To: <20170519125449.7214-1-remigiusz.kollataj@mobica.com>
+Received: from mail-io0-f171.google.com ([209.85.223.171]:34435 "EHLO
+        mail-io0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750902AbdEaAmZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 30 May 2017 20:42:25 -0400
+Received: by mail-io0-f171.google.com with SMTP id k91so3200702ioi.1
+        for <netdev@vger.kernel.org>; Tue, 30 May 2017 17:42:25 -0700 (PDT)
+In-Reply-To: <20170530233232.GL23089@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 19 May 2017 14:54:49 +0200
-Remigiusz Ko=C5=82=C5=82=C4=85taj         <remigiusz.kollataj@mobica.com> w=
-rote:
+On 5/30/17 5:32 PM, Sowmini Varadhan wrote:
+> On (05/30/17 16:20), Stephen Hemminger wrote:
+>>
+>> Please don't copy/paste chunks of code. Instead refactor and make this
+>> into a helper function. 
+> 
+> sure, I have no problems with that, and as I pointed out, I've not
+> tested ipv6 for this yet either. I'll do all of this after getting
+> some feedback on the more basic issue here:
+> 
+> I was first looking for comments on the more fundamental refcnt
+> management behind the fix (I'm surprised no one noticed this 
+> before, is there some deep reason for leaving it like this, that
+> I am missing? Does it break something else?)
 
-> This patch adds handling for new CAN netlink interface introduced in
-> 4.11 kernel:
-> - IFLA_CAN_TERMINATION,
-> - IFLA_CAN_TERMINATION_CONST,
-> - IFLA_CAN_BITRATE_CONST,
-> - IFLA_CAN_DATA_BITRATE_CONST
->=20
-> Output example:
-> $ip -d link show can0
-> 6: can0: <NOARP,ECHO> mtu 16 qdisc noop state DOWN mode DEFAULT group def=
-ault qlen 10
->     link/can  promiscuity 0
->     can state STOPPED (berr-counter tx 0 rx 0) restart-ms 0
->           bitrate 80000
->              [   20000,    33333,    50000,    80000,    83333,   100000,
->                 125000,   150000,   175000,   200000,   225000,   250000,
->                 275000,   300000,   500000,   625000,   800000,  1000000 ]
->           termination 0 [ 0, 120 ]
->           clock 0numtxqueues 1 numrxqueues 1 gso_max_size 65536 gso_max_s=
-egs 65535
->=20
-> Signed-off-by: Remigiusz Ko=C5=82=C5=82=C4=85taj <remigiusz.kollataj@mobi=
-ca.com>
-
-Applied, thanks for confirming the output change.
+It has been noticed. I have not sent a patch since adjusting gc
+parameters will reclaim FAILED entries at whatever rate the user wants.
