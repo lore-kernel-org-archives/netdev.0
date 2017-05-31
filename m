@@ -1,8 +1,8 @@
 From: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH v6 19/21] arm: sunxi: Enable dwmac-sun8i driver
- on sunxi_defconfig
-Date: Wed, 31 May 2017 09:18:50 +0200
-Message-ID: <20170531071852.12422-20-clabbe.montjoie@gmail.com>
+Subject: [PATCH v6 21/21] arm64: defconfig: Enable dwmac-sun8i
+ driver on defconfig
+Date: Wed, 31 May 2017 09:18:52 +0200
+Message-ID: <20170531071852.12422-22-clabbe.montjoie@gmail.com>
 References: <20170531071852.12422-1-clabbe.montjoie@gmail.com>
 Reply-To: clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
 Mime-Version: 1.0
@@ -22,7 +22,7 @@ To: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
 	will.deacon-5wv7dgnIgG8@public.gmane.org,
 	peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
 	alexandre.torgue-qxv4g6HH51o@public.gmane.org
-Return-path: <linux-sunxi+bncBD7YLCN32UNBBJG6XHEQKGQEDF7FCZY-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Return-path: <linux-sunxi+bncBD7YLCN32UNBBJW6XHEQKGQE6BV6JEQ-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
 Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
 In-Reply-To: <20170531071852.12422-1-clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
@@ -33,24 +33,24 @@ List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39
  <https://groups.google.com/group/linux-sunxi/subscribe>
 List-Id: netdev.vger.kernel.org
 
-Enable the dwmac-sun8i driver in the sunxi default configuration
+Enable the dwmac-sun8i ethernet driver as a module in the ARM64 defconfig.
 
 Signed-off-by: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- arch/arm/configs/sunxi_defconfig | 1 +
+ arch/arm64/configs/defconfig | 1 +
  1 file changed, 1 insertion(+)
 
-diff --git a/arch/arm/configs/sunxi_defconfig b/arch/arm/configs/sunxi_defconfig
-index 5cd5dd70bc83..504e02238031 100644
---- a/arch/arm/configs/sunxi_defconfig
-+++ b/arch/arm/configs/sunxi_defconfig
-@@ -40,6 +40,7 @@ CONFIG_ATA=y
- CONFIG_AHCI_SUNXI=y
- CONFIG_NETDEVICES=y
- CONFIG_SUN4I_EMAC=y
-+CONFIG_DWMAC_SUN8I=y
- # CONFIG_NET_VENDOR_ARC is not set
- # CONFIG_NET_CADENCE is not set
- # CONFIG_NET_VENDOR_BROADCOM is not set
+diff --git a/arch/arm64/configs/defconfig b/arch/arm64/configs/defconfig
+index 000de61802a1..fd7d22b8480c 100644
+--- a/arch/arm64/configs/defconfig
++++ b/arch/arm64/configs/defconfig
+@@ -191,6 +191,7 @@ CONFIG_RAVB=y
+ CONFIG_SMC91X=y
+ CONFIG_SMSC911X=y
+ CONFIG_STMMAC_ETH=m
++CONFIG_DWMAC_SUN8I=m
+ CONFIG_MDIO_BUS_MUX_MMIOREG=y
+ CONFIG_MESON_GXL_PHY=m
+ CONFIG_MICREL_PHY=y
 -- 
 2.13.0
