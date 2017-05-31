@@ -1,53 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH nf-next] netns: add and use net_ns_barrier
-Date: Wed, 31 May 2017 12:55:27 -0400 (EDT)
-Message-ID: <20170531.125527.1553231867217469072.davem@davemloft.net>
-References: <20170530093812.10712-1-fw@strlen.de>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 2/3] udp: avoid a cache miss on dequeue
+Date: Wed, 31 May 2017 10:00:43 -0700
+Message-ID: <1496250043.27480.6.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <cover.1496070490.git.pabeni@redhat.com>
+         <b07f7111480bb0ca2d98fe9fef49a593ab1c4787.1496070490.git.pabeni@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-        ebiederm@xmission.com
-To: fw@strlen.de
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>
+To: Paolo Abeni <pabeni@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:41068 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751083AbdEaQz3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 31 May 2017 12:55:29 -0400
-In-Reply-To: <20170530093812.10712-1-fw@strlen.de>
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:33730 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751100AbdEaRAp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 31 May 2017 13:00:45 -0400
+Received: by mail-pg0-f67.google.com with SMTP id s62so2546241pgc.0
+        for <netdev@vger.kernel.org>; Wed, 31 May 2017 10:00:45 -0700 (PDT)
+In-Reply-To: <b07f7111480bb0ca2d98fe9fef49a593ab1c4787.1496070490.git.pabeni@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Westphal <fw@strlen.de>
-Date: Tue, 30 May 2017 11:38:12 +0200
+On Mon, 2017-05-29 at 17:27 +0200, Paolo Abeni wrote:
+> Since UDP no more uses sk->destructor, we can clear completely
+> the skb head state before enqueuing.
 
-> Quoting Joe Stringer:
->   If a user loads nf_conntrack_ftp, sends FTP traffic through a network
->   namespace, destroys that namespace then unloads the FTP helper module,
->   then the kernel will crash.
-> 
-> Events that lead to the crash:
-> 1. conntrack is created with ftp helper in netns x
-> 2. This netns is destroyed
-> 3. netns destruction is scheduled
-> 4. netns destruction wq starts, removes netns from global list
-> 5. ftp helper is unloaded, which resets all helpers of the conntracks
-> via for_each_net()
-> 
-> but because netns is already gone from list the for_each_net() loop
-> doesn't include it, therefore all of these conntracks are unaffected.
-> 
-> 6. helper module unload finishes
-> 7. netns wq invokes destructor for rmmod'ed helper
-> 
-> CC: "Eric W. Biederman" <ebiederm@xmission.com>
-> Reported-by: Joe Stringer <joe@ovn.org>
-> Signed-off-by: Florian Westphal <fw@strlen.de>
-> ---
->  Eric, I'd like an explicit (n)ack from you for this one.
+...
 
-Indeed, Eric, please do.
+> @@ -1739,6 +1740,9 @@ static int __udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
+>  		sk_mark_napi_id_once(sk, skb);
+>  	}
+>  
+> +	/* drop all pending head states; dst, nf and sk are dropped by caller */
+> +	secpath_reset(skb);
+> +
 
-Otherwise I'm fine with the generic parts:
+I wonder if using skb_release_head_state() would be more appropriate ?
 
-Acked-by: David S. Miller <davem@davemloft.net>
+Surely more descriptive and probably not more expensive since all
+cache lines should be already hot at this point.
+
+>  	rc = __udp_enqueue_schedule_skb(sk, skb);
+>  	if (rc < 0) {
+>  		int is_udplite = IS_UDPLITE(sk);
