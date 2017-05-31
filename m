@@ -1,78 +1,52 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCH V6 net-next iproute] ip: Add support for netdev events to
- monitor
-Date: Wed, 31 May 2017 16:27:03 -0400
-Message-ID: <3b60a05e-0ae2-4fa6-d2bc-5e10e94cf16e@redhat.com>
-References: <1495894476-9726-1-git-send-email-vyasevic@redhat.com>
- <1495894476-9726-4-git-send-email-vyasevic@redhat.com>
- <20170530101221.1c5cb643@xeon-e3>
- <65cf9b5f-2d71-34dc-483d-ecb91d93626a@redhat.com>
-Reply-To: vyasevic@redhat.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dsahern@gmail.com,
-        roopa@cumulusnetworks.com, jiri@resnulli.us, vfalico@gmail.com,
-        andy@greyhouse.net
-To: Stephen Hemminger <stephen@networkplumber.org>,
-        Vladislav Yasevich <vyasevich@gmail.com>
+From: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
+Subject: [PATCH net] ibmvnic: Update module author
+Date: Wed, 31 May 2017 15:35:31 -0500
+Message-ID: <1496262931-15978-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
+Cc: nfont@linux.vnet.ibm.com,
+        Thomas Falcon <tlfalcon@linux.vnet.ibm.com>,
+        John Allen <jallen@linux.vnet.ibm.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:35458 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750952AbdEaU1F (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 31 May 2017 16:27:05 -0400
-In-Reply-To: <65cf9b5f-2d71-34dc-483d-ecb91d93626a@redhat.com>
+Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:34084 "EHLO
+        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1751034AbdEaUfp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 31 May 2017 16:35:45 -0400
+Received: from pps.filterd (m0098421.ppops.net [127.0.0.1])
+        by mx0a-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v4VKYbeI106548
+        for <netdev@vger.kernel.org>; Wed, 31 May 2017 16:35:44 -0400
+Received: from e38.co.us.ibm.com (e38.co.us.ibm.com [32.97.110.159])
+        by mx0a-001b2d01.pphosted.com with ESMTP id 2at3r03dau-1
+        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Wed, 31 May 2017 16:35:44 -0400
+Received: from localhost
+        by e38.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        for <netdev@vger.kernel.org> from <tlfalcon@linux.vnet.ibm.com>;
+        Wed, 31 May 2017 14:35:43 -0600
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/30/2017 02:26 PM, Vlad Yasevich wrote:
-> On 05/30/2017 01:12 PM, Stephen Hemminger wrote:
->> On Sat, 27 May 2017 10:14:36 -0400
->> Vladislav Yasevich <vyasevich@gmail.com> wrote:
->>
->>>  
->>> +static const char *netdev_events[] = {"NONE",
->>> +				      "REBOOT",
->>> +				      "FEATURE CHANGE",
->>> +				      "BONDING FAILOVER",
->>> +				      "NOTIFY PEERS",
->>> +				      "RESEND IGMP",
->>> +				      "BONDING OPTION"};
->>
->> Overall this looks fine, I will pickup the if_link.h from net-next.
->>
->> One stylistic change.
->>
->> Please add simple line break, and initialize by value:
->>
->> static const char *netdev_events[] = {
->> 	[IFLA_EVENT_NONE]	= "NONE",
->> ...
->>
->> Do you want some prefix or bounding around the event output?
-> 
-> Don't really care about output from my side.  If you think some prefix
-> would be good, I can surely add it.
-> 
->> Also a little concerned that the output format change may break some program
->> could the new output be at the end of the line?
->>
-> 
-> I can try moving it to the end.
->
+Update the module author to be one of the original co-maintainers
+of the driver. The original author left the project long ago and
+so far has not responded to emails sent to the listed address.
 
-Hi Stephen
+Signed-off-by: John Allen <jallen@linux.vnet.ibm.com>
+Signed-off-by: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
+---
+ drivers/net/ethernet/ibm/ibmvnic.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-So, I looked again at this patch and the output change I am proposing would look
-something like this 'ip monitor':
-
-1: lo: <LOOPBACK,UP,LOWER_UP> mtu 6500 qdisc noqueue state UNKNOWN group default event
-FEATURE CHANGE
-    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
-
-
-It's already at the end of the like ant has an 'event' prefix similar to all the other
-entries on the top line.  Does that look OK?  I don't think that would break anything.
-
-Thanks
--vlad
+diff --git a/drivers/net/ethernet/ibm/ibmvnic.c b/drivers/net/ethernet/ibm/ibmvnic.c
+index 4f2d329..3e4a858 100644
+--- a/drivers/net/ethernet/ibm/ibmvnic.c
++++ b/drivers/net/ethernet/ibm/ibmvnic.c
+@@ -81,7 +81,7 @@
+ static const char ibmvnic_driver_name[] = "ibmvnic";
+ static const char ibmvnic_driver_string[] = "IBM System i/p Virtual NIC Driver";
+ 
+-MODULE_AUTHOR("Santiago Leon <santi_leon@yahoo.com>");
++MODULE_AUTHOR("Thomas Falcon <tlfalcon@linux.vnet.ibm.com>");
+ MODULE_DESCRIPTION("IBM System i/p Virtual NIC Driver");
+ MODULE_LICENSE("GPL");
+ MODULE_VERSION(IBMVNIC_DRIVER_VERSION);
+-- 
+2.7.4
