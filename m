@@ -1,107 +1,180 @@
-From: Lance Richardson <lrichard@redhat.com>
-Subject: Re: [PATCH net] vxlan: eliminate cached dst leak
-Date: Wed, 31 May 2017 11:48:19 -0400 (EDT)
-Message-ID: <417842781.17409724.1496245699953.JavaMail.zimbra@redhat.com>
-References: <20170529172557.7065-1-lrichard@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: net/ipv4: use-after-free in add_grec
+Date: Wed, 31 May 2017 09:12:34 -0700
+Message-ID: <1496247154.27480.3.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <CAAeHK+xmSxokDidhzP1VWgmbbwege4OaGvOA4PwTP1scs6J5zA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: pabeni@redhat.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:51536 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750898AbdEaPsW (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 31 May 2017 11:48:22 -0400
-Received: from smtp.corp.redhat.com (int-mx06.intmail.prod.int.phx2.redhat.com [10.5.11.16])
-        (using TLSv1.2 with cipher AECDH-AES256-SHA (256/256 bits))
-        (No client certificate requested)
-        by mx1.redhat.com (Postfix) with ESMTPS id 6F5064E4D0
-        for <netdev@vger.kernel.org>; Wed, 31 May 2017 15:48:22 +0000 (UTC)
-In-Reply-To: <20170529172557.7065-1-lrichard@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Eric Dumazet <edumazet@google.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        Kostya Serebryany <kcc@google.com>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Andrey Konovalov <andreyknvl@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAAeHK+xmSxokDidhzP1VWgmbbwege4OaGvOA4PwTP1scs6J5zA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> From: "Lance Richardson" <lrichard@redhat.com>
-> To: netdev@vger.kernel.org, pabeni@redhat.com
-> Sent: Monday, 29 May, 2017 1:25:57 PM
-> Subject: [PATCH net] vxlan: eliminate cached dst leak
+On Wed, 2017-05-31 at 11:46 +0200, Andrey Konovalov wrote:
+> Hi,
 > 
-> After commit 0c1d70af924b ("net: use dst_cache for vxlan device"),
-> cached dst entries could be leaked when more than one remote was
-> present for a given vxlan_fdb entry, causing subsequent netns
-> operations to block indefinitely and "unregister_netdevice: waiting
-> for lo to become free." messages to appear in the kernel log.
+> I've got the following error report while fuzzing the kernel with syzkaller.
 > 
-> Fix by properly releasing cached dst and freeing resources in this
-> case.
+> On commit 5ed02dbb497422bf225783f46e6eadd237d23d6b (4.12-rc3).
 > 
-> Fixes: commit 0c1d70af924b ("net: use dst_cache for vxlan device")
-> Signed-off-by: Lance Richardson <lrichard@redhat.com>
-> ---
+> Unfortunately it's not reproducible.
+> 
+> ==================================================================
+> BUG: KASAN: use-after-free in add_grec+0x101e/0x1090 net/ipv4/igmp.c:473
+> Read of size 8 at addr ffff88003053c1a0 by task swapper/0/0
+> 
+> CPU: 0 PID: 0 Comm: swapper/0 Not tainted 4.12.0-rc3+ #370
+> Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+> Call Trace:
+>  <IRQ>
+>  __dump_stack lib/dump_stack.c:16 [inline]
+>  dump_stack+0x292/0x395 lib/dump_stack.c:52
+>  print_address_description+0x73/0x280 mm/kasan/report.c:252
+>  kasan_report_error mm/kasan/report.c:351 [inline]
+>  kasan_report+0x22b/0x340 mm/kasan/report.c:408
+>  __asan_report_load8_noabort+0x14/0x20 mm/kasan/report.c:429
+>  add_grec+0x101e/0x1090 net/ipv4/igmp.c:473
+>  igmpv3_send_cr net/ipv4/igmp.c:663 [inline]
+>  igmp_ifc_timer_expire+0x46d/0xa80 net/ipv4/igmp.c:768
+> IPVS: length: 51 != 8
+>  call_timer_fn+0x23f/0x800 kernel/time/timer.c:1268
+>  expire_timers kernel/time/timer.c:1307 [inline]
+>  __run_timers+0x94e/0xcd0 kernel/time/timer.c:1601
+>  run_timer_softirq+0x21/0x80 kernel/time/timer.c:1614
+>  __do_softirq+0x2fb/0xb99 kernel/softirq.c:284
+>  invoke_softirq kernel/softirq.c:364 [inline]
+>  irq_exit+0x19e/0x1d0 kernel/softirq.c:405
+>  exiting_irq arch/x86/include/asm/apic.h:652 [inline]
+>  smp_apic_timer_interrupt+0x76/0xa0 arch/x86/kernel/apic/apic.c:966
+>  apic_timer_interrupt+0x93/0xa0 arch/x86/entry/entry_64.S:481
+> RIP: 0010:native_safe_halt+0x6/0x10 arch/x86/include/asm/irqflags.h:53
+> RSP: 0018:ffffffff85a079a8 EFLAGS: 00000282 ORIG_RAX: ffffffffffffff10
+> RAX: dffffc0000000020 RBX: 1ffffffff0b40f38 RCX: 0000000000000000
+> RDX: 0000000000000000 RSI: 0000000000000001 RDI: ffffffff85a2a9e4
+> RBP: ffffffff85a079a8 R08: 0000000000000000 R09: 0000000000000000
+> R10: 0000000000000000 R11: 0000000000000000 R12: dffffc0000000000
+> R13: ffffffff85a07a60 R14: ffffffff86171338 R15: 1ffffffff0b40f5b
+>  </IRQ>
+>  arch_safe_halt arch/x86/include/asm/paravirt.h:98 [inline]
+>  default_idle+0x8f/0x440 arch/x86/kernel/process.c:341
+>  arch_cpu_idle+0xa/0x10 arch/x86/kernel/process.c:332
+>  default_idle_call+0x36/0x60 kernel/sched/idle.c:98
+>  cpuidle_idle_call kernel/sched/idle.c:156 [inline]
+>  do_idle+0x348/0x420 kernel/sched/idle.c:245
+>  cpu_startup_entry+0x18/0x20 kernel/sched/idle.c:350
+>  rest_init+0x18d/0x1a0 init/main.c:415
+>  start_kernel+0x747/0x779 init/main.c:679
+>  x86_64_start_reservations+0x2a/0x2c arch/x86/kernel/head64.c:196
+>  x86_64_start_kernel+0x132/0x141 arch/x86/kernel/head64.c:177
+>  secondary_startup_64+0x9f/0x9f arch/x86/kernel/head_64.S:304
+> 
+> Allocated by task 30543:
+>  save_stack_trace+0x16/0x20 arch/x86/kernel/stacktrace.c:59
+>  save_stack+0x43/0xd0 mm/kasan/kasan.c:513
+>  set_track mm/kasan/kasan.c:525 [inline]
+>  kasan_kmalloc+0xad/0xe0 mm/kasan/kasan.c:617
+>  kmem_cache_alloc_trace+0x82/0x270 mm/slub.c:2745
+>  kmalloc include/linux/slab.h:492 [inline]
+>  kzalloc include/linux/slab.h:665 [inline]
+>  ip_mc_add1_src net/ipv4/igmp.c:1909 [inline]
+>  ip_mc_add_src+0x6cd/0x1020 net/ipv4/igmp.c:2033
+>  ip_mc_msfilter+0x5e5/0xcf0 net/ipv4/igmp.c:2403
+>  do_ip_setsockopt.isra.12+0x2d47/0x38c0 net/ipv4/ip_sockglue.c:959
+>  ip_setsockopt+0x3a/0xb0 net/ipv4/ip_sockglue.c:1256
+>  tcp_setsockopt+0x82/0xd0 net/ipv4/tcp.c:2740
+>  sock_common_setsockopt+0x95/0xd0 net/core/sock.c:2844
+>  SYSC_setsockopt net/socket.c:1798 [inline]
+>  SyS_setsockopt+0x270/0x3a0 net/socket.c:1777
+>  entry_SYSCALL_64_fastpath+0x1f/0xbe
+> 
+> Freed by task 30543:
+>  save_stack_trace+0x16/0x20 arch/x86/kernel/stacktrace.c:59
+>  save_stack+0x43/0xd0 mm/kasan/kasan.c:513
+>  set_track mm/kasan/kasan.c:525 [inline]
+>  kasan_slab_free+0x72/0xc0 mm/kasan/kasan.c:590
+>  slab_free_hook mm/slub.c:1357 [inline]
+>  slab_free_freelist_hook mm/slub.c:1379 [inline]
+>  slab_free mm/slub.c:2961 [inline]
+>  kfree+0xe8/0x2b0 mm/slub.c:3882
+>  ip_mc_clear_src+0x69/0x1c0 net/ipv4/igmp.c:2078
+>  ip_mc_dec_group+0x19a/0x470 net/ipv4/igmp.c:1618
+>  ip_mc_drop_socket+0x145/0x230 net/ipv4/igmp.c:2609
+>  inet_release+0x4e/0x1c0 net/ipv4/af_inet.c:411
+>  sock_release+0x8d/0x1e0 net/socket.c:597
+>  sock_close+0x16/0x20 net/socket.c:1072
+>  __fput+0x332/0x7f0 fs/file_table.c:209
+>  ____fput+0x15/0x20 fs/file_table.c:245
+>  task_work_run+0x19b/0x270 kernel/task_work.c:116
+>  exit_task_work include/linux/task_work.h:21 [inline]
+>  do_exit+0x18a3/0x2820 kernel/exit.c:878
+>  do_group_exit+0x149/0x420 kernel/exit.c:982
+>  get_signal+0x76d/0x1790 kernel/signal.c:2318
+>  do_signal+0xd2/0x2130 arch/x86/kernel/signal.c:808
+>  exit_to_usermode_loop+0x17a/0x210 arch/x86/entry/common.c:157
+>  prepare_exit_to_usermode arch/x86/entry/common.c:194 [inline]
+>  syscall_return_slowpath+0x3ba/0x410 arch/x86/entry/common.c:263
+>  entry_SYSCALL_64_fastpath+0xbc/0xbe
+> 
+> The buggy address belongs to the object at ffff88003053c1a0
+>  which belongs to the cache kmalloc-64 of size 64
+> The buggy address is located 0 bytes inside of
+>  64-byte region [ffff88003053c1a0, ffff88003053c1e0)
+> The buggy address belongs to the page:
+> page:ffffea0000c14f00 count:1 mapcount:0 mapping:          (null)
+> index:0x0 compound_mapcount: 0
+> flags: 0x100000000008100(slab|head)
+> raw: 0100000000008100 0000000000000000 0000000000000000 0000000100140014
+> raw: ffffea0000c2f520 ffffea0000e20aa0 ffff88003e80f740 0000000000000000
+> page dumped because: kasan: bad access detected
+> 
+> Memory state around the buggy address:
+>  ffff88003053c080: fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc
+>  ffff88003053c100: fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc
+> >ffff88003053c180: fc fc fc fc fb fb fb fb fb fb fb fb fc fc fc fc
+>                                ^
+>  ffff88003053c200: fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc
+>  ffff88003053c280: fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc
+> ==================================================================
 
-This problem was originally debugged and the patch tested in an OpenStack
-(devstack) test environment. Here's a small(-ish) reproducer script that
-was cooked up after posting:
+I have the feeling that ip_mc_clear_src() is called too soon.
 
-ip netns add ns0
-ip netns add ns1
-ip netns add ns2
+We should call it once all users have released their reference.
 
-ip link add p0 type veth peer name p1
-ip link add p2 type veth peer name p3
-ip link add p4 type veth peer name p5
+I am not sure we have to call it after the RCU grace period,
+more analysis of the code is needed.
 
-ip link add name br0 type bridge
-ip link set br0 up
 
-ip link set p0 master br0 up
-ip link set p1 netns ns0
-
-ip link set p2 master br0 up
-ip link set p3 netns ns1
-
-ip link set p4 master br0 up
-ip link set p5 netns ns2
-
-ip netns exec ns0 ip addr add "1.1.1.1/24" dev p1
-ip netns exec ns0 ip link set dev p1 up
-
-ip netns exec ns1 ip addr add "1.1.1.2/24" dev p3
-ip netns exec ns1 ip link set dev p3 up
-
-ip netns exec ns2 ip addr add "1.1.1.3/24" dev p5
-ip netns exec ns2 ip link set dev p5 up
-
-ip netns exec ns0 ip link add vxlan0 type vxlan dstport 4789 id 10 dev p1
-ip netns exec ns0 ip addr add "4.1.1.1/24" dev vxlan0
-ip netns exec ns0 ip link set dev vxlan0 up mtu 1450
-
-ip netns exec ns1 ip link add vxlan1 type vxlan dstport 4789 id 10 dev p3
-ip netns exec ns1 ip addr add "4.1.1.2/24" dev vxlan1
-ip netns exec ns1 ip link set dev vxlan1 up mtu 1450
-
-ip netns exec ns2 ip link add vxlan2 type vxlan dstport 4789 id 10 dev p5
-ip netns exec ns2 ip addr add "4.1.1.3/24" dev vxlan2
-ip netns exec ns2 ip link set dev vxlan2 up mtu 1450
-
-# Create a vxlan default fdb entry with two remotes in the list
-ip netns exec ns0 bridge fdb append to 00:00:00:00:00:00 dst 1.1.1.2 dev vxlan0
-ip netns exec ns0 bridge fdb append to 00:00:00:00:00:00 dst 1.1.1.3 dev vxlan0
-
-# Forward some packets to populate dst cache for default fdb
-ip netns exec ns0 ping -c 2 4.1.1.2
-ip netns exec ns0 ping -c 2 4.1.1.3
-
-# delete one of the entries in the fdb remotes list to trigger the bug
-ip netns exec ns0 bridge fdb del to 00:00:00:00:00:00 dst 1.1.1.3 dev vxlan0
-
-ip netns del ns2
-ip netns del ns1
-ip netns del ns0
-
-# If bug is triggered, kernel messages similar to this should be logged:
-#
-#    kernel:unregister_netdevice: waiting for lo to become free. Usage count = 1
-#
-# Netns commands like "ip netns add ns3" will hang indefinitely.
+diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
+index 44fd86de2823dd17de16276a8ec01b190e69b8b4..f172d251c5f2cda8fc8bedd65fa16cdfe33a4d40 100644
+--- a/net/ipv4/igmp.c
++++ b/net/ipv4/igmp.c
+@@ -174,6 +174,7 @@ static int ip_mc_add_src(struct in_device *in_dev, __be32 *pmca, int sfmode,
+ static void ip_ma_put(struct ip_mc_list *im)
+ {
+ 	if (atomic_dec_and_test(&im->refcnt)) {
++		ip_mc_clear_src(im);
+ 		in_dev_put(im->interface);
+ 		kfree_rcu(im, rcu);
+ 	}
+@@ -1615,7 +1616,6 @@ void ip_mc_dec_group(struct in_device *in_dev, __be32 addr)
+ 				*ip = i->next_rcu;
+ 				in_dev->mc_count--;
+ 				igmp_group_dropped(i);
+-				ip_mc_clear_src(i);
+ 
+ 				if (!in_dev->dead)
+ 					ip_rt_multicast_event(in_dev);
