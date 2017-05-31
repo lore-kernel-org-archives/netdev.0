@@ -1,41 +1,33 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2] devlink: Add option to set and show eswitch
- encapsulation support
-Date: Tue, 30 May 2017 17:37:40 -0700
-Message-ID: <20170530173740.611e93e8@xeon-e3>
-References: <1495345047-55019-1-git-send-email-roid@mellanox.com>
+Subject: Re: [iproute PATCH] tc: m_xt: Prevent a segfault in libipt
+Date: Tue, 30 May 2017 17:38:47 -0700
+Message-ID: <20170530173847.0580cf36@xeon-e3>
+References: <20170523134057.23775-1-phil@nwl.cc>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Paul Blakey <paulb@mellanox.com>,
-        Shahar Klein <shahark@mellanox.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>,
-        Jiri Pirko <jiri@mellanox.com>
-To: Roi Dayan <roid@mellanox.com>
+Cc: netdev@vger.kernel.org, Phil Sutter <psutter@redhat.com>
+To: Phil Sutter <phil@nwl.cc>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f182.google.com ([209.85.192.182]:36770 "EHLO
-        mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750902AbdEaAho (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 30 May 2017 20:37:44 -0400
-Received: by mail-pf0-f182.google.com with SMTP id m17so1810866pfg.3
-        for <netdev@vger.kernel.org>; Tue, 30 May 2017 17:37:43 -0700 (PDT)
-In-Reply-To: <1495345047-55019-1-git-send-email-roid@mellanox.com>
+Received: from mail-pf0-f171.google.com ([209.85.192.171]:36135 "EHLO
+        mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750811AbdEaAit (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 30 May 2017 20:38:49 -0400
+Received: by mail-pf0-f171.google.com with SMTP id m17so1829535pfg.3
+        for <netdev@vger.kernel.org>; Tue, 30 May 2017 17:38:49 -0700 (PDT)
+In-Reply-To: <20170523134057.23775-1-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 21 May 2017 08:37:27 +0300
-Roi Dayan <roid@mellanox.com> wrote:
+On Tue, 23 May 2017 15:40:57 +0200
+Phil Sutter <phil@nwl.cc> wrote:
 
-> This is an e-switch global knob to enable HW support for applying
-> encapsulation/decapsulation to VF traffic as part of SRIOV e-switch offloading.
+> From: Phil Sutter <psutter@redhat.com>
 > 
-> The actual encap/decap is carried out (along with the matching and other
-> actions) per offloaded e-switch rules, e.g as done when offloading the TC tunnel
-> key action.
+> This happens with NAT targets, such as SNAT, DNAT and MASQUERADE. These
+> are still not usable with this patch, but at least tc doesn't crash
+> anymore when one tries to use them.
 > 
-> Possible values are enable/disable.
-> 
-> Signed-off-by: Roi Dayan <roid@mellanox.com>
-> Reviewed-by: Jiri Pirko <jiri@mellanox.com>
+> Signed-off-by: Phil Sutter <phil@nwl.cc>
 
 Applied, thanks
