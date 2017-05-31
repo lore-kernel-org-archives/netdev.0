@@ -1,64 +1,41 @@
-From: Daniel Vetter <daniel.vetter@ffwll.ch>
-Subject: Re: [PULL] topic/e1000e-fix
-Date: Wed, 31 May 2017 18:23:41 +0200
-Message-ID: <CAKMK7uF6X==k_DP2Q+YAVywP46JBJZ++4QJyvdmGhC8+nE67FA@mail.gmail.com>
-References: <CAPM=9twH-CXm+xj2Os87Ra7nOBQ+WNXYGF83wFqpQ3s=MNx_mQ@mail.gmail.com>
- <CAKMK7uF-b1U7qipgEoYnAjDtrNdvKYT4KkoV2=krikkdGERkCw@mail.gmail.com>
- <CAKMK7uGbi2Bwfno9XogKZ-LUOyMepbtRyGuGrNYWwj6Cts+uag@mail.gmail.com>
- <20170531.110833.1362264472730468352.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] tcp: reinitialize MTU probing when setting MSS in a
+ TCP repair
+Date: Wed, 31 May 2017 12:29:48 -0400 (EDT)
+Message-ID: <20170531.122948.1070989770678019987.davem@davemloft.net>
+References: <c5033bad-805d-c3f6-3de4-38ab5d3d84e8@taghos.com.br>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, intel-gfx <intel-gfx@lists.freedesktop.org>,
- Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
- intel-wired-lan@lists.osuosl.org, dri-devel <dri-devel@lists.freedesktop.org>,
- Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <dri-devel-bounces@lists.freedesktop.org>
-In-Reply-To: <20170531.110833.1362264472730468352.davem@davemloft.net>
-List-Unsubscribe: <https://lists.freedesktop.org/mailman/options/dri-devel>,
- <mailto:dri-devel-request@lists.freedesktop.org?subject=unsubscribe>
-List-Archive: <https://lists.freedesktop.org/archives/dri-devel>
-List-Post: <mailto:dri-devel@lists.freedesktop.org>
-List-Help: <mailto:dri-devel-request@lists.freedesktop.org?subject=help>
-List-Subscribe: <https://lists.freedesktop.org/mailman/listinfo/dri-devel>,
- <mailto:dri-devel-request@lists.freedesktop.org?subject=subscribe>
-Errors-To: dri-devel-bounces@lists.freedesktop.org
-Sender: "dri-devel" <dri-devel-bounces@lists.freedesktop.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+        yoshfuji@linux-ipv6.org, kaber@trash.net, xemul@parallels.com
+To: douglascs@taghos.com.br
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:40600 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751141AbdEaQaE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 31 May 2017 12:30:04 -0400
+In-Reply-To: <c5033bad-805d-c3f6-3de4-38ab5d3d84e8@taghos.com.br>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gV2VkLCBNYXkgMzEsIDIwMTcgYXQgNTowOCBQTSwgRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZl
-bWxvZnQubmV0PiB3cm90ZToKPiBGcm9tOiBEYW5pZWwgVmV0dGVyIDxkYW5pZWwudmV0dGVyQGZm
-d2xsLmNoPgo+IERhdGU6IFdlZCwgMzEgTWF5IDIwMTcgMDg6MTA6NDUgKzAyMDAKPgo+PiBPbiBX
-ZWQsIE1heSAzMSwgMjAxNyBhdCA3OjU0IEFNLCBEYW5pZWwgVmV0dGVyIDxkYW5pZWwudmV0dGVy
-QGZmd2xsLmNoPiB3cm90ZToKPj4+IE9uIFdlZCwgTWF5IDMxLCAyMDE3IGF0IDE6MDYgQU0sIERh
-dmUgQWlybGllIDxhaXJsaWVkQGdtYWlsLmNvbT4gd3JvdGU6Cj4+Pj4gT24gMzEgTWF5IDIwMTcg
-YXQgMDg6MTAsIERhdmlkIE1pbGxlciA8ZGF2ZW1AZGF2ZW1sb2Z0Lm5ldD4gd3JvdGU6Cj4+Pj4+
-IEZyb206IERhbmllbCBWZXR0ZXIgPGRhbmllbC52ZXR0ZXJAZmZ3bGwuY2g+Cj4+Pj4+IERhdGU6
-IFR1ZSwgMzAgTWF5IDIwMTcgMjI6MTU6NDIgKzAyMDAKPj4+Pj4KPj4+Pj4+IElmIHRoZSBlMTAw
-MGUgbWFpbnRhaW5lciB3YW50cyB0byBjb2FsZXNjZSBvciBub3QgcmV0dXJuIHN0YXRlbWVudHMK
-Pj4+Pj4+IHRoaXMgc2ltcGxlIHdheSwgdGhhdCdzIGltbyBvbiBoaW0gdG8gY2hhbmdlIHRoZSBj
-b2xvciBhcyBuZWVkZWQuCj4+Pj4+Cj4+Pj4+IFRoYXQncyBub3QgaG93IHRoaW5ncyB3b3JrLgo+
-Pj4+Pgo+Pj4+PiBJZiB0aGUgbWFpbnRhaW5lciB3YW50cyB5b3UgdG8gc3R5bGUgdGhpbmdzIGEg
-Y2VydGFpbiB3YXksIGVpdGhlciB5b3UKPj4+Pj4gZG8gaXQgdGhhdCB3YXkgb3IgeW91ciBwYXRj
-aCBpc24ndCBhY2NlcHRlZC4KPj4+Cj4+PiBDb25zaWRlciB0aGlzIHB1bGwgYSByZWdyZXNzaW9u
-IHJlcG9ydCwgcGxzIGhhbmRsZSBpdC4KPj4KPj4gQW5kIEkgZ3Vlc3MgSSBwaWxlIG9mIG1vcmUg
-Y2MsIHRvIG1ha2UgdGhpcyByZWdyZXNzaW9uIHJlcG9ydAo+PiBjb21wbGV0ZS4gSSBtZWFuIHlv
-dSBnb3QgdGhlIGJhY2t0cmFjZSwgYmlzZWN0IGFuZCBhIHByb3Bvc2VkIGZpeCwgYW5kCj4+IHRo
-ZSBhbG1vc3Qtd2hpdGVzcGFjZSBjaGFuZ2UgZGVtYW5kZWQgaXMgc29tZXRoaW5nIGdjYyBkb2Vz
-IGluIGl0cwo+PiBzbGVlcC4gSSdkIHVuZGVyc3RhbmQgYSByZXF1ZXN0IHRvIHJldGVzdCBpZiBp
-dCB3b3VsZCBiZSBhIHJlYWwKPj4gZnVuY3Rpb25hbCBjaGFuZ2UsIGJ1dCBpbiB0aGlzIHNpdHVh
-dGlvbiBJIGhhdmUgbm8gaWRlYSB3aHkgdGhpcwo+PiByZWdyZXNzaW9uIGp1c3QgY2FuJ3QgYmUg
-Zml4ZWQgYWxyZWFkeS4KPgo+IEFuZCB3ZSBjYW4ndCB1bmRlcnN0YW5kIHdoeSByZXNwaW5uaW5n
-IHdpdGggdGhlIHJlcXVlc3RlZCBjaGFuZ2UgaXMKPiBsZXNzIHdvcmsgdGhhbiBtYWtpbmcgc2V2
-ZXJhbCBwb3N0aW5ncyBzdWNoIGFzIHRoaXMgb25lLgoKSSBndWVzcyBuZXh0IHRpbWUgYXJvdW5k
-IHdlIHNob3VsZCBkbyBldmVuIGxlc3MsIGkuZS4gcmVwb3J0IHRoZQpyZWdyZXNzaW9uICsgYmlz
-ZWN0IGFuZCB0aGVuIGVzY2FsYXRlIHRoaXMgdW50aWwgdGhlIG5ldGRldiBmb2xrcyBmaXgKaXQg
-b24gdGhlaXIgb3duPwoKTGlrZSBKYW5pIHNhaWQgZXZlcnkgLXJjMSBhIHBpbGUgb2Ygb3VyIENJ
-IG1hY2hpbmVzIGtlZWwgb3ZlciwgYW5kCnVuZm9ydHVuYXRlbHkgdGhpcyBwYXRjaCBoZXJlIGlz
-bid0IHRoZSBvbmx5IG9uZSB3aGljaCBzZWVtcyB0byBub3QKcmVhbGx5IG1vdmUgYW55d2hlcmUu
-Ci1EYW5pZWwKLS0gCkRhbmllbCBWZXR0ZXIKU29mdHdhcmUgRW5naW5lZXIsIEludGVsIENvcnBv
-cmF0aW9uCis0MSAoMCkgNzkgMzY1IDU3IDQ4IC0gaHR0cDovL2Jsb2cuZmZ3bGwuY2gKX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KZHJpLWRldmVsIG1haWxp
-bmcgbGlzdApkcmktZGV2ZWxAbGlzdHMuZnJlZWRlc2t0b3Aub3JnCmh0dHBzOi8vbGlzdHMuZnJl
-ZWRlc2t0b3Aub3JnL21haWxtYW4vbGlzdGluZm8vZHJpLWRldmVsCg==
+From: Douglas Caetano dos Santos <douglascs@taghos.com.br>
+Date: Fri, 26 May 2017 14:28:00 -0300
+
+> From: Douglas Caetano dos Santos <douglascs@taghos.com.br>
+> 
+> MTU probing initialization occurred only at connect() and at SYN or
+> SYN-ACK reception, but the former sets MSS to either the default or the
+> user set value (through TCP_MAXSEG sockopt) and the latter never happens
+> with repaired sockets.
+> 
+> The result was that, with MTU probing enabled and unless TCP_MAXSEG
+> sockopt was used before connect(), probing would be stuck at
+> tcp_base_mss value until tcp_probe_interval seconds have passed.
+> 
+> Signed-off-by: Douglas Caetano dos Santos <douglascs@taghos.com.br>
+
+This seems fine to me, as long as you call tcp_mtup_init() after setting
+the mss_clamp, whichy you are, everything should be alright.
+
+Applied, thanks.
