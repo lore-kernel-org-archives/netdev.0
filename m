@@ -1,34 +1,97 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/8] Introduce bpf ID
-Date: Wed, 31 May 2017 14:30:16 -0400 (EDT)
-Message-ID: <20170531.143016.582261847755991960.davem@davemloft.net>
-References: <cover.1496189155.git.kafai@fb.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ast@fb.com, daniel@iogearbox.net,
-        kernel-team@fb.com
-To: kafai@fb.com
+From: Yuchung Cheng <ycheng@google.com>
+Subject: [PATCH net-next] tcp: use TS opt on RTTs for congestion control
+Date: Wed, 31 May 2017 11:30:53 -0700
+Message-ID: <20170531183053.16602-1-ycheng@google.com>
+Cc: netdev@vger.kernel.org, ncardwell@google.com, edumazet@google.com,
+        soheil@google.com, Yuchung Cheng <ycheng@google.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:42288 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750999AbdEaSaS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 31 May 2017 14:30:18 -0400
-In-Reply-To: <cover.1496189155.git.kafai@fb.com>
+Received: from mail-pf0-f172.google.com ([209.85.192.172]:33043 "EHLO
+        mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751053AbdEaSbO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 31 May 2017 14:31:14 -0400
+Received: by mail-pf0-f172.google.com with SMTP id e193so14616350pfh.0
+        for <netdev@vger.kernel.org>; Wed, 31 May 2017 11:31:14 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Martin KaFai Lau <kafai@fb.com>
-Date: Tue, 30 May 2017 17:08:29 -0700
+Currently when a data packet is retransmitted, we do not compute an
+RTT sample for congestion control due to Kern's check. Therefore the
+congestion control that uses RTT signals may not receive any update
+during loss recovery which could last many round trips. For example,
+BBR and Vegas may not be able to update its min RTT estimation if the
+network path has shortened until it recovers from losses. This patch
+mitigates that by using TCP timestamp options for RTT measurement
+for congestion control. Note that we already use timestamps for
+RTT estimation.
 
-> This patch series:
-> 1) Introduce ID for both bpf_prog and bpf_map.
-> 2) Add bpf commands to iterate the prog IDs and map
->    IDs of the system.
-> 3) Add bpf commands to get a prog/map fd from an ID
-> 4) Add bpf command to get prog/map info from a fd.
->    The prog/map info is a jump start in this patchset
->    and it is not meant to be a complete list.  They can
->    be extended in the future patches.
+Signed-off-by: Yuchung Cheng <ycheng@google.com>
+Signed-off-by: Soheil Hassas Yeganeh <soheil@google.com>
+Signed-off-by: Neal Cardwell <ncardwell@google.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/ipv4/tcp_input.c | 15 ++++++++-------
+ 1 file changed, 8 insertions(+), 7 deletions(-)
 
-This needs a respin to address the kbuild bot build failures.
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 9f4380662196..4ea8ec5c7bb4 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -2921,9 +2921,9 @@ static void tcp_update_rtt_min(struct sock *sk, u32 rtt_us)
+ 			   rtt_us ? : jiffies_to_usecs(1));
+ }
+ 
+-static inline bool tcp_ack_update_rtt(struct sock *sk, const int flag,
+-				      long seq_rtt_us, long sack_rtt_us,
+-				      long ca_rtt_us)
++static bool tcp_ack_update_rtt(struct sock *sk, const int flag,
++			       long seq_rtt_us, long sack_rtt_us,
++			       long ca_rtt_us, struct rate_sample *rs)
+ {
+ 	const struct tcp_sock *tp = tcp_sk(sk);
+ 
+@@ -2948,6 +2948,7 @@ static inline bool tcp_ack_update_rtt(struct sock *sk, const int flag,
+ 
+ 		seq_rtt_us = ca_rtt_us = delta_us;
+ 	}
++	rs->rtt_us = ca_rtt_us; /* RTT of last (S)ACKed packet (or -1) */
+ 	if (seq_rtt_us < 0)
+ 		return false;
+ 
+@@ -2967,12 +2968,13 @@ static inline bool tcp_ack_update_rtt(struct sock *sk, const int flag,
+ /* Compute time elapsed between (last) SYNACK and the ACK completing 3WHS. */
+ void tcp_synack_rtt_meas(struct sock *sk, struct request_sock *req)
+ {
++	struct rate_sample rs;
+ 	long rtt_us = -1L;
+ 
+ 	if (req && !req->num_retrans && tcp_rsk(req)->snt_synack)
+ 		rtt_us = tcp_stamp_us_delta(tcp_clock_us(), tcp_rsk(req)->snt_synack);
+ 
+-	tcp_ack_update_rtt(sk, FLAG_SYN_ACKED, rtt_us, -1L, rtt_us);
++	tcp_ack_update_rtt(sk, FLAG_SYN_ACKED, rtt_us, -1L, rtt_us, &rs);
+ }
+ 
+ 
+@@ -3177,9 +3179,8 @@ static int tcp_clean_rtx_queue(struct sock *sk, int prior_fackets,
+ 		sack_rtt_us = tcp_stamp_us_delta(tp->tcp_mstamp, sack->first_sackt);
+ 		ca_rtt_us = tcp_stamp_us_delta(tp->tcp_mstamp, sack->last_sackt);
+ 	}
+-	sack->rate->rtt_us = ca_rtt_us; /* RTT of last (S)ACKed packet, or -1 */
+ 	rtt_update = tcp_ack_update_rtt(sk, flag, seq_rtt_us, sack_rtt_us,
+-					ca_rtt_us);
++					ca_rtt_us, sack->rate);
+ 
+ 	if (flag & FLAG_ACKED) {
+ 		tcp_rearm_rto(sk);
+@@ -3215,7 +3216,7 @@ static int tcp_clean_rtx_queue(struct sock *sk, int prior_fackets,
+ 
+ 	if (icsk->icsk_ca_ops->pkts_acked) {
+ 		struct ack_sample sample = { .pkts_acked = pkts_acked,
+-					     .rtt_us = ca_rtt_us,
++					     .rtt_us = sack->rate->rtt_us,
+ 					     .in_flight = last_in_flight };
+ 
+ 		icsk->icsk_ca_ops->pkts_acked(sk, &sample);
+-- 
+2.13.0.219.gdb65acc882-goog
