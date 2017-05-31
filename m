@@ -1,7 +1,8 @@
 From: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH v6 17/21] arm64: allwinner: pine64-plus: Enable dwmac-sun8i
-Date: Wed, 31 May 2017 09:18:48 +0200
-Message-ID: <20170531071852.12422-18-clabbe.montjoie@gmail.com>
+Subject: [PATCH v6 04/21] dt-bindings: syscon: Add DT bindings
+ documentation for Allwinner syscon
+Date: Wed, 31 May 2017 09:18:35 +0200
+Message-ID: <20170531071852.12422-5-clabbe.montjoie@gmail.com>
 References: <20170531071852.12422-1-clabbe.montjoie@gmail.com>
 Reply-To: clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
 Mime-Version: 1.0
@@ -21,7 +22,7 @@ To: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
 	will.deacon-5wv7dgnIgG8@public.gmane.org,
 	peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
 	alexandre.torgue-qxv4g6HH51o@public.gmane.org
-Return-path: <linux-sunxi+bncBD7YLCN32UNBBIW6XHEQKGQELP3OW3Q-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Return-path: <linux-sunxi+bncBD7YLCN32UNBBE66XHEQKGQERXDYD5A-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
 Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
 In-Reply-To: <20170531071852.12422-1-clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
@@ -32,39 +33,40 @@ List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39
  <https://groups.google.com/group/linux-sunxi/subscribe>
 List-Id: netdev.vger.kernel.org
 
-The dwmac-sun8i hardware is present on the pine64 plus.
-It uses an external PHY rtl8211e via RGMII.
+This patch adds documentation for Device-Tree bindings for the
+syscon present in allwinner devices.
 
 Signed-off-by: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Acked-by: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
 ---
- .../arm64/boot/dts/allwinner/sun50i-a64-pine64-plus.dts | 17 ++++++++++++++++-
- 1 file changed, 16 insertions(+), 1 deletion(-)
+ .../devicetree/bindings/misc/allwinner,syscon.txt     | 19 +++++++++++++++++++
+ 1 file changed, 19 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/misc/allwinner,syscon.txt
 
-diff --git a/arch/arm64/boot/dts/allwinner/sun50i-a64-pine64-plus.dts b/arch/arm64/boot/dts/allwinner/sun50i-a64-pine64-plus.dts
-index 790d14daaa6a..24f1aac366d6 100644
---- a/arch/arm64/boot/dts/allwinner/sun50i-a64-pine64-plus.dts
-+++ b/arch/arm64/boot/dts/allwinner/sun50i-a64-pine64-plus.dts
-@@ -46,5 +46,20 @@
- 	model = "Pine64+";
- 	compatible = "pine64,pine64-plus", "allwinner,sun50i-a64";
- 
--	/* TODO: Camera, Ethernet PHY, touchscreen, etc. */
-+	/* TODO: Camera, touchscreen, etc. */
-+};
+diff --git a/Documentation/devicetree/bindings/misc/allwinner,syscon.txt b/Documentation/devicetree/bindings/misc/allwinner,syscon.txt
+new file mode 100644
+index 000000000000..cb5769137c6c
+--- /dev/null
++++ b/Documentation/devicetree/bindings/misc/allwinner,syscon.txt
+@@ -0,0 +1,19 @@
++* Allwinner sun8i system controller
 +
-+&emac {
-+	pinctrl-names = "default";
-+	pinctrl-0 = <&rgmii_pins>;
-+	phy-mode = "rgmii";
-+	phy-handle = <&ext_rgmii_phy>;
-+	status = "okay";
-+};
++This file describes the bindings for the system controller present in
++Allwinner SoC H3, A83T and A64.
++The principal function of this syscon is to control EMAC PHY choice and
++config.
 +
-+&mdio {
-+	ext_rgmii_phy: ethernet-phy@1 {
-+		compatible = "ethernet-phy-ieee802.3-c22";
-+		reg = <1>;
-+	};
- };
++Required properties for the system controller:
++- reg: address and length of the register for the device.
++- compatible: should be "syscon" and one of the following string:
++		"allwinner,sun8i-h3-system-controller"
++		"allwinner,sun50i-a64-system-controller"
++		"allwinner,sun8i-a83t-system-controller"
++
++Example:
++syscon: syscon@1c00000 {
++	compatible = "allwinner,sun8i-h3-system-controller", "syscon";
++	reg = <0x01c00000 0x1000>;
++};
 -- 
 2.13.0
