@@ -1,40 +1,29 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH net-next v2 6/6] net: dsa: factor skb freeing on xmit
-Date: Wed, 31 May 2017 14:18:30 -0400
-Message-ID: <87y3tchouh.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
-References: <20170530183319.10718-1-vivien.didelot@savoirfairelinux.com> <20170530183319.10718-7-vivien.didelot@savoirfairelinux.com> <8487d628-874e-cc45-a15a-07725930dbc2@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH V2 net-next] neigh: Really delete an arp/neigh entry on
+ "ip neigh delete" or "arp -d"
+Date: Wed, 31 May 2017 14:21:13 -0400 (EDT)
+Message-ID: <20170531.142113.663711787657155712.davem@davemloft.net>
+References: <1496179897-82646-1-git-send-email-sowmini.varadhan@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Andrew Lunn <andrew@lunn.ch>
-To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <8487d628-874e-cc45-a15a-07725930dbc2@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, stephen@networkplumber.org
+To: sowmini.varadhan@oracle.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:42156 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751198AbdEaSVZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 31 May 2017 14:21:25 -0400
+In-Reply-To: <1496179897-82646-1-git-send-email-sowmini.varadhan@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Florian,
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Date: Tue, 30 May 2017 14:31:37 -0700
 
-Florian Fainelli <f.fainelli@gmail.com> writes:
+> +EXPORT_SYMBOL(neigh_remove_one);
 
-> On 05/30/2017 11:33 AM, Vivien Didelot wrote:
->> The taggers are currently responsible to free the original SKB if they
->> made a copy of it, or in case of error.
->> 
->> This patch simplifies this by freeing the original SKB in the
->> dsa_slave_xmit caller, but only if an error (NULL) is returned.
->
-> Is not it a clearer contract if the tagging protocol must always free
-> the original SKB, whether it succeeded in creating a new one or not?
+net/ipv4/arp.c is the only reference you add to this symbol and ipv4
+cannot be built modular.
 
-The rcv caller frees the original SKB on error, as of a86d8becc3f0
-("net: dsa: Factor bottom tag receive functions").
-
-It'd be nice if we could make both xmit and rcv symmetric, and limit the
-tagging implementations to only do their real job: tag/untag an SKB with
-the destination/source port.
-
-Thanks,
-
-        Vivien
+So this export is unnecessary.
