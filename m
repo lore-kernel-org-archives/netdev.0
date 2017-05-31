@@ -1,80 +1,54 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH V2 2/3] net-next: dsa: add multi cpu port support
-Date: Tue, 30 May 2017 17:16:27 -0700
-Message-ID: <881bf3fe-1ffb-b9fd-c844-da265f71370d@gmail.com>
-References: <20170530104419.6052-1-john@phrozen.org>
- <20170530104419.6052-2-john@phrozen.org>
- <8d6996ef-72c0-546f-6bbe-5a6ea6e83c5f@gmail.com>
- <20170531000636.GA12615@lunn.ch>
+From: YUAN Linyu <Linyu.Yuan@alcatel-sbell.com.cn>
+Subject: RE: [PATCH net-next] net: ndisc.c: reduce size of
+ __ndisc_fill_addr_option()
+Date: Wed, 31 May 2017 00:06:32 +0000
+Message-ID: <8729016553E3654398EA69218DA29EEF15BB2927@cnshjmbx02>
+References: <1495836052-8377-1-git-send-email-cugyly@163.com>
+         <20170529.233009.1607319852930338432.davem@davemloft.net>
+ <1496115666.2618.9.camel@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: John Crispin <john@phrozen.org>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        Sean Wang <sean.wang@mediatek.com>, jiri@resnulli.us,
-        idosch@mellanox.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Andrew Lunn <andrew@lunn.ch>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "dsahern@gmail.com" <dsahern@gmail.com>
+To: Joe Perches <joe@perches.com>, David Miller <davem@davemloft.net>,
+        "cugyly@163.com" <cugyly@163.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:35359 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750952AbdEaAQd (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 30 May 2017 20:16:33 -0400
-In-Reply-To: <20170531000636.GA12615@lunn.ch>
+Received: from cnshjsmin03.alcatel-sbell.com.cn ([116.246.26.71]:43136 "EHLO
+        cnshjsmin03.alcatel-sbell.com.cn" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1750925AbdEaAVh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 30 May 2017 20:21:37 -0400
+In-Reply-To: <1496115666.2618.9.camel@perches.com>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/30/2017 05:06 PM, Andrew Lunn wrote:
->> - past the initial setup, if we start creating bridge devices and so on,
->> we have no way to tell: group Ports 0-3 together and send traffic to CPU
->> port 0, then let Port 5 alone and send traffic to CPU port 1, that's a
->> DSA-only problem though, because we still have the CPU port(s) as
->> independent network interfaces.
+Hi joe,
+
+> -----Original Message-----
+> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
+> On Behalf Of Joe Perches
+> Sent: Tuesday, May 30, 2017 11:41 AM
+> To: David Miller; cugyly@163.com
+> Cc: netdev@vger.kernel.org; dsahern@gmail.com; YUAN Linyu
+> Subject: Re: [PATCH net-next] net: ndisc.c: reduce size of
+> __ndisc_fill_addr_option()
 > 
-> What is the problem here? Frames come out the master interface, get
-> untagged and passed to the slave interface and go upto the bridge. It
-> should all just work. Same in the reverse direction.
-
-The problem is really that is you have multiple CPU ports, how do you
-define which one gets all the traffic by default? Ascending order of
-port number? Descending order?
-
+> On Mon, 2017-05-29 at 23:30 -0400, David Miller wrote:
+> > From: yuan linyu <cugyly@163.com>
+> > Date: Sat, 27 May 2017 06:00:52 +0800
+> >
+> > > From: yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
+> > >
+> > > Signed-off-by: yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
+> >
+> > Applied, thanks.
 > 
-> In order to make best use of the extra bandwidth of having two cpu
-> ports, i probably want the user ports reasonably evenly distributed
-> between the CPU ports. Dedicating one CPU port to one user port is
-> probably sub-optimal. How many people have 1Gbps Fibre to the home,
-> which could fully utilise a one-to-one mapping for the WAN port?
-
-I actually tend to think that most use cases our there are in the order
-of dedicating one CPU port to one corresponding switch port (user
-facing, or internal) in order to provided guaranteed bandwidth for that
-port. But as an user, I want to choose how the grouping is going to
-work, and right now, I cannot, unless this is hardcoded in Device Tree,
-which sounds both wrong and inadequate.
-
+> OK, but is it really safe though?
 > 
->> Now, that would still force the user to configure two bridges in order
->> to properly steer traffic towards the requested ports but it would allow
->> us to be very flexible (which is probably desired here) in how ports are
->> grouped together.
-> 
-> We want a sensible default, spreading the slave ports evenly over the
-> CPU ports. We could add a devlink command to change the defaults at
-> runtime.
-
-Sensible default is fine for the first time boot, but we should let
-users be entirely flexible in how they want their user-facing ports to
-map to a CPU port as you say, and IMHO using separate bridges to
-configure that is a possible way to go since there is already knowledge
-in the bridge join/leave code in DSA that already knows the
-dwnstream/user-facing ports, but does not yet know about CPU ports.
-
-Code speaks better, so let me see if I can cook something to illustrate
-this.
-
-Thanks!
--- 
-Florian
+> Could "space" (an int) ever be negative after
+> subtracting "pad" and "data_len"?
+It's safe, check
+int space = __ndisc_opt_addr_space(data_len, pad);
+space is maximum aligned value.
+And I check current pad, the maximum value is 2.
