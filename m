@@ -1,427 +1,289 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next 7/9] nfp: move bpf offload code to the BPF app
-Date: Wed, 31 May 2017 08:06:49 -0700
-Message-ID: <20170531150651.16873-8-jakub.kicinski@netronome.com>
+Subject: [PATCH net-next 8/9] nfp: move basic eBPF stats to app-specific code
+Date: Wed, 31 May 2017 08:06:50 -0700
+Message-ID: <20170531150651.16873-9-jakub.kicinski@netronome.com>
 References: <20170531150651.16873-1-jakub.kicinski@netronome.com>
 Cc: oss-drivers@netronome.com,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f177.google.com ([209.85.192.177]:34519 "EHLO
-        mail-pf0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751033AbdEaPLx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 31 May 2017 11:11:53 -0400
-Received: by mail-pf0-f177.google.com with SMTP id 9so11985535pfj.1
-        for <netdev@vger.kernel.org>; Wed, 31 May 2017 08:11:53 -0700 (PDT)
+Received: from mail-pf0-f169.google.com ([209.85.192.169]:33620 "EHLO
+        mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751108AbdEaPLy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 31 May 2017 11:11:54 -0400
+Received: by mail-pf0-f169.google.com with SMTP id e193so12022020pfh.0
+        for <netdev@vger.kernel.org>; Wed, 31 May 2017 08:11:54 -0700 (PDT)
 In-Reply-To: <20170531150651.16873-1-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move bulk of the eBPF offload code out of common vNIC code into
-app-specific callbacks.
+Allow apps to associate private data with vNICs and move
+BPF-specific fields of nfp_net to such structure.
 
 Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 ---
- drivers/net/ethernet/netronome/nfp/bpf/main.c      | 84 ++++++++++++++++++++++
- drivers/net/ethernet/netronome/nfp/bpf/main.h      |  5 ++
- drivers/net/ethernet/netronome/nfp/nfp_app.h       | 61 ++++++++++++++++
- drivers/net/ethernet/netronome/nfp/nfp_net.h       |  1 -
- .../net/ethernet/netronome/nfp/nfp_net_common.c    | 66 +++--------------
- drivers/net/ethernet/netronome/nfp/nfp_net_main.c  |  1 +
- 6 files changed, 159 insertions(+), 59 deletions(-)
+ drivers/net/ethernet/netronome/nfp/bpf/main.c      | 19 ++++++++-
+ drivers/net/ethernet/netronome/nfp/bpf/main.h      | 18 +++++++++
+ drivers/net/ethernet/netronome/nfp/bpf/offload.c   | 46 +++++++++++++---------
+ drivers/net/ethernet/netronome/nfp/nfp_net.h       | 15 ++-----
+ .../net/ethernet/netronome/nfp/nfp_net_common.c    |  3 --
+ 5 files changed, 67 insertions(+), 34 deletions(-)
 
 diff --git a/drivers/net/ethernet/netronome/nfp/bpf/main.c b/drivers/net/ethernet/netronome/nfp/bpf/main.c
-index d91d72e22dc8..a7478b5d1854 100644
+index a7478b5d1854..afbdf5fd4e4f 100644
 --- a/drivers/net/ethernet/netronome/nfp/bpf/main.c
 +++ b/drivers/net/ethernet/netronome/nfp/bpf/main.c
-@@ -31,11 +31,57 @@
-  * SOFTWARE.
-  */
- 
-+#include <net/pkt_cls.h>
-+
- #include "../nfpcore/nfp_cpp.h"
- #include "../nfp_app.h"
- #include "../nfp_main.h"
- #include "../nfp_net.h"
- #include "../nfp_port.h"
-+#include "main.h"
-+
-+static bool nfp_net_ebpf_capable(struct nfp_net *nn)
-+{
-+	if (nn->cap & NFP_NET_CFG_CTRL_BPF &&
-+	    nn_readb(nn, NFP_NET_CFG_BPF_ABI) == NFP_NET_BPF_ABI)
-+		return true;
-+	return false;
-+}
-+
-+static int
-+nfp_bpf_xdp_offload(struct nfp_app *app, struct nfp_net *nn,
-+		    struct bpf_prog *prog)
-+{
-+	struct tc_cls_bpf_offload cmd = {
-+		.prog = prog,
-+	};
-+	int ret;
-+
-+	if (!nfp_net_ebpf_capable(nn))
-+		return -EINVAL;
-+
-+	if (nn->dp.ctrl & NFP_NET_CFG_CTRL_BPF) {
-+		if (!nn->dp.bpf_offload_xdp)
-+			return prog ? -EBUSY : 0;
-+		cmd.command = prog ? TC_CLSBPF_REPLACE : TC_CLSBPF_DESTROY;
-+	} else {
-+		if (!prog)
-+			return 0;
-+		cmd.command = TC_CLSBPF_ADD;
-+	}
-+
-+	ret = nfp_net_bpf_offload(nn, &cmd);
-+	/* Stop offload if replace not possible */
-+	if (ret && cmd.command == TC_CLSBPF_REPLACE)
-+		nfp_bpf_xdp_offload(app, nn, NULL);
-+	nn->dp.bpf_offload_xdp = prog && !ret;
-+	return ret;
-+}
-+
-+static const char *nfp_bpf_extra_cap(struct nfp_app *app, struct nfp_net *nn)
-+{
-+	return nfp_net_ebpf_capable(nn) ? "BPF" : "";
-+}
- 
+@@ -86,6 +86,9 @@ static const char *nfp_bpf_extra_cap(struct nfp_app *app, struct nfp_net *nn)
  static int
  nfp_bpf_vnic_init(struct nfp_app *app, struct nfp_net *nn, unsigned int id)
-@@ -51,9 +97,47 @@ nfp_bpf_vnic_init(struct nfp_app *app, struct nfp_net *nn, unsigned int id)
- 	return nfp_app_nic_vnic_init(app, nn, id);
+ {
++	struct nfp_net_bpf_priv *priv;
++	int ret;
++
+ 	/* Limit to single port, otherwise it's just a NIC */
+ 	if (id > 0) {
+ 		nfp_warn(app->cpp,
+@@ -94,13 +97,27 @@ nfp_bpf_vnic_init(struct nfp_app *app, struct nfp_net *nn, unsigned int id)
+ 		return PTR_ERR_OR_ZERO(nn->port);
+ 	}
+ 
+-	return nfp_app_nic_vnic_init(app, nn, id);
++	priv = kmalloc(sizeof(*priv), GFP_KERNEL);
++	if (!priv)
++		return -ENOMEM;
++
++	nn->app_priv = priv;
++	spin_lock_init(&priv->rx_filter_lock);
++	setup_timer(&priv->rx_filter_stats_timer,
++		    nfp_net_filter_stats_timer, (unsigned long)nn);
++
++	ret = nfp_app_nic_vnic_init(app, nn, id);
++	if (ret)
++		kfree(priv);
++
++	return ret;
  }
  
-+static void nfp_bpf_vnic_clean(struct nfp_app *app, struct nfp_net *nn)
-+{
-+	if (nn->dp.bpf_offload_xdp)
-+		nfp_bpf_xdp_offload(app, nn, NULL);
-+}
-+
-+static int nfp_bpf_setup_tc(struct nfp_app *app, struct net_device *netdev,
-+			    u32 handle, __be16 proto, struct tc_to_netdev *tc)
-+{
-+	struct nfp_net *nn = netdev_priv(netdev);
-+
-+	if (TC_H_MAJ(handle) != TC_H_MAJ(TC_H_INGRESS))
-+		return -EOPNOTSUPP;
-+	if (proto != htons(ETH_P_ALL))
-+		return -EOPNOTSUPP;
-+
-+	if (tc->type == TC_SETUP_CLSBPF && nfp_net_ebpf_capable(nn)) {
-+		if (!nn->dp.bpf_offload_xdp)
-+			return nfp_net_bpf_offload(nn, tc->cls_bpf);
-+		else
-+			return -EBUSY;
-+	}
-+
-+	return -EINVAL;
-+}
-+
-+static bool nfp_bpf_tc_busy(struct nfp_app *app, struct nfp_net *nn)
-+{
-+	return nn->dp.ctrl & NFP_NET_CFG_CTRL_BPF;
-+}
-+
- const struct nfp_app_type app_bpf = {
- 	.id		= NFP_APP_BPF_NIC,
- 	.name		= "ebpf",
+ static void nfp_bpf_vnic_clean(struct nfp_app *app, struct nfp_net *nn)
+ {
+ 	if (nn->dp.bpf_offload_xdp)
+ 		nfp_bpf_xdp_offload(app, nn, NULL);
++	kfree(nn->app_priv);
+ }
  
-+	.extra_cap	= nfp_bpf_extra_cap,
-+
- 	.vnic_init	= nfp_bpf_vnic_init,
-+	.vnic_clean	= nfp_bpf_vnic_clean,
-+
-+	.setup_tc	= nfp_bpf_setup_tc,
-+	.tc_busy	= nfp_bpf_tc_busy,
-+	.xdp_offload	= nfp_bpf_xdp_offload,
- };
+ static int nfp_bpf_setup_tc(struct nfp_app *app, struct net_device *netdev,
 diff --git a/drivers/net/ethernet/netronome/nfp/bpf/main.h b/drivers/net/ethernet/netronome/nfp/bpf/main.h
-index 9513c80f7be5..9b526698e47d 100644
+index 9b526698e47d..4051e943f363 100644
 --- a/drivers/net/ethernet/netronome/nfp/bpf/main.h
 +++ b/drivers/net/ethernet/netronome/nfp/bpf/main.h
-@@ -198,4 +198,9 @@ nfp_bpf_jit(struct bpf_prog *filter, void *prog, enum nfp_bpf_action_type act,
+@@ -39,6 +39,8 @@
+ #include <linux/list.h>
+ #include <linux/types.h>
  
- int nfp_prog_verify(struct nfp_prog *nfp_prog, struct bpf_prog *prog);
- 
-+struct nfp_net;
-+struct tc_cls_bpf_offload;
++#include "../nfp_net.h"
 +
-+int nfp_net_bpf_offload(struct nfp_net *nn, struct tc_cls_bpf_offload *cls_bpf);
-+
- #endif
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_app.h b/drivers/net/ethernet/netronome/nfp/nfp_app.h
-index b5426398f29e..13efdefffa1a 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_app.h
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_app.h
-@@ -34,7 +34,10 @@
- #ifndef _NFP_APP_H
- #define _NFP_APP_H 1
- 
-+struct bpf_prog;
-+struct net_device;
- struct pci_dev;
-+struct tc_to_netdev;
- struct nfp_app;
- struct nfp_cpp;
- struct nfp_pf;
-@@ -55,7 +58,12 @@ extern const struct nfp_app_type app_bpf;
-  *
-  * Callbacks
-  * @init:	perform basic app checks
-+ * @extra_cap:	extra capabilities string
-  * @vnic_init:	init vNICs (assign port types, etc.)
-+ * @vnic_clean:	clean up app's vNIC state
-+ * @setup_tc:	setup TC ndo
-+ * @tc_busy:	TC HW offload busy (rules loaded)
-+ * @xdp_offload:    offload an XDP program
+ /* For branch fixup logic use up-most byte of branch instruction as scratch
+  * area.  Remember to clear this before sending instructions to HW!
   */
- struct nfp_app_type {
- 	enum nfp_app_id id;
-@@ -63,8 +71,17 @@ struct nfp_app_type {
+@@ -201,6 +203,22 @@ int nfp_prog_verify(struct nfp_prog *nfp_prog, struct bpf_prog *prog);
+ struct nfp_net;
+ struct tc_cls_bpf_offload;
  
- 	int (*init)(struct nfp_app *app);
- 
-+	const char *(*extra_cap)(struct nfp_app *app, struct nfp_net *nn);
++/**
++ * struct nfp_net_bpf_priv - per-vNIC BPF private data
++ * @rx_filter:		Filter offload statistics - dropped packets/bytes
++ * @rx_filter_prev:	Filter offload statistics - values from previous update
++ * @rx_filter_change:	Jiffies when statistics last changed
++ * @rx_filter_stats_timer:  Timer for polling filter offload statistics
++ * @rx_filter_lock:	Lock protecting timer state changes (teardown)
++ */
++struct nfp_net_bpf_priv {
++	struct nfp_stat_pair rx_filter, rx_filter_prev;
++	unsigned long rx_filter_change;
++	struct timer_list rx_filter_stats_timer;
++	spinlock_t rx_filter_lock;
++};
 +
- 	int (*vnic_init)(struct nfp_app *app, struct nfp_net *nn,
- 			 unsigned int id);
-+	void (*vnic_clean)(struct nfp_app *app, struct nfp_net *nn);
-+
-+	int (*setup_tc)(struct nfp_app *app, struct net_device *netdev,
-+			u32 handle, __be16 proto, struct tc_to_netdev *tc);
-+	bool (*tc_busy)(struct nfp_app *app, struct nfp_net *nn);
-+	int (*xdp_offload)(struct nfp_app *app, struct nfp_net *nn,
-+			   struct bpf_prog *prog);
- };
+ int nfp_net_bpf_offload(struct nfp_net *nn, struct tc_cls_bpf_offload *cls_bpf);
++void nfp_net_filter_stats_timer(unsigned long data);
  
- /**
-@@ -95,6 +112,12 @@ static inline int nfp_app_vnic_init(struct nfp_app *app, struct nfp_net *nn,
- 	return app->type->vnic_init(app, nn, id);
- }
- 
-+static inline void nfp_app_vnic_clean(struct nfp_app *app, struct nfp_net *nn)
-+{
-+	if (app->type->vnic_clean)
-+		app->type->vnic_clean(app, nn);
-+}
-+
- static inline const char *nfp_app_name(struct nfp_app *app)
+ #endif
+diff --git a/drivers/net/ethernet/netronome/nfp/bpf/offload.c b/drivers/net/ethernet/netronome/nfp/bpf/offload.c
+index 30372dc99517..78d80a364edb 100644
+--- a/drivers/net/ethernet/netronome/nfp/bpf/offload.c
++++ b/drivers/net/ethernet/netronome/nfp/bpf/offload.c
+@@ -54,46 +54,52 @@
+ void nfp_net_filter_stats_timer(unsigned long data)
  {
- 	if (!app)
-@@ -102,6 +125,44 @@ static inline const char *nfp_app_name(struct nfp_app *app)
- 	return app->type->name;
+ 	struct nfp_net *nn = (void *)data;
++	struct nfp_net_bpf_priv *priv;
+ 	struct nfp_stat_pair latest;
+ 
+-	spin_lock_bh(&nn->rx_filter_lock);
++	priv = nn->app_priv;
++
++	spin_lock_bh(&priv->rx_filter_lock);
+ 
+ 	if (nn->dp.ctrl & NFP_NET_CFG_CTRL_BPF)
+-		mod_timer(&nn->rx_filter_stats_timer,
++		mod_timer(&priv->rx_filter_stats_timer,
+ 			  jiffies + NFP_NET_STAT_POLL_IVL);
+ 
+-	spin_unlock_bh(&nn->rx_filter_lock);
++	spin_unlock_bh(&priv->rx_filter_lock);
+ 
+ 	latest.pkts = nn_readq(nn, NFP_NET_CFG_STATS_APP1_FRAMES);
+ 	latest.bytes = nn_readq(nn, NFP_NET_CFG_STATS_APP1_BYTES);
+ 
+-	if (latest.pkts != nn->rx_filter.pkts)
+-		nn->rx_filter_change = jiffies;
++	if (latest.pkts != priv->rx_filter.pkts)
++		priv->rx_filter_change = jiffies;
+ 
+-	nn->rx_filter = latest;
++	priv->rx_filter = latest;
  }
  
-+static inline const char *nfp_app_extra_cap(struct nfp_app *app,
-+					    struct nfp_net *nn)
-+{
-+	if (!app || !app->type->extra_cap)
-+		return "";
-+	return app->type->extra_cap(app, nn);
-+}
+ static void nfp_net_bpf_stats_reset(struct nfp_net *nn)
+ {
+-	nn->rx_filter.pkts = nn_readq(nn, NFP_NET_CFG_STATS_APP1_FRAMES);
+-	nn->rx_filter.bytes = nn_readq(nn, NFP_NET_CFG_STATS_APP1_BYTES);
+-	nn->rx_filter_prev = nn->rx_filter;
+-	nn->rx_filter_change = jiffies;
++	struct nfp_net_bpf_priv *priv = nn->app_priv;
 +
-+static inline bool nfp_app_has_tc(struct nfp_app *app)
-+{
-+	return app && app->type->setup_tc;
-+}
-+
-+static inline bool nfp_app_tc_busy(struct nfp_app *app, struct nfp_net *nn)
-+{
-+	if (!app || !app->type->tc_busy)
-+		return false;
-+	return app->type->tc_busy(app, nn);
-+}
-+
-+static inline int nfp_app_setup_tc(struct nfp_app *app,
-+				   struct net_device *netdev,
-+				   u32 handle, __be16 proto,
-+				   struct tc_to_netdev *tc)
-+{
-+	if (!app || !app->type->setup_tc)
-+		return -EOPNOTSUPP;
-+	return app->type->setup_tc(app, netdev, handle, proto, tc);
-+}
-+
-+static inline int nfp_app_xdp_offload(struct nfp_app *app, struct nfp_net *nn,
-+				      struct bpf_prog *prog)
-+{
-+	if (!app || !app->type->xdp_offload)
-+		return -EOPNOTSUPP;
-+	return app->type->xdp_offload(app, nn, prog);
-+}
-+
- struct nfp_app *nfp_app_alloc(struct nfp_pf *pf, enum nfp_app_id id);
- void nfp_app_free(struct nfp_app *app);
- 
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net.h b/drivers/net/ethernet/netronome/nfp/nfp_net.h
-index cb7114309656..883cc6be02c1 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net.h
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net.h
-@@ -868,6 +868,5 @@ static inline void nfp_net_debugfs_dir_clean(struct dentry **dir)
- #endif /* CONFIG_NFP_DEBUG */
- 
- void nfp_net_filter_stats_timer(unsigned long data);
--int nfp_net_bpf_offload(struct nfp_net *nn, struct tc_cls_bpf_offload *cls_bpf);
- 
- #endif /* _NFP_NET_H_ */
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-index 2bcf3e8330ea..e0ece2de5841 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-@@ -64,10 +64,10 @@
- 
- #include <linux/ktime.h>
- 
--#include <net/pkt_cls.h>
- #include <net/vxlan.h>
- 
- #include "nfpcore/nfp_nsp.h"
-+#include "nfp_app.h"
- #include "nfp_net_ctrl.h"
- #include "nfp_net.h"
- #include "nfp_port.h"
-@@ -2681,33 +2681,13 @@ static void nfp_net_stat64(struct net_device *netdev,
- 	}
++	priv->rx_filter.pkts = nn_readq(nn, NFP_NET_CFG_STATS_APP1_FRAMES);
++	priv->rx_filter.bytes = nn_readq(nn, NFP_NET_CFG_STATS_APP1_BYTES);
++	priv->rx_filter_prev = priv->rx_filter;
++	priv->rx_filter_change = jiffies;
  }
  
--static bool nfp_net_ebpf_capable(struct nfp_net *nn)
--{
--	if (nn->cap & NFP_NET_CFG_CTRL_BPF &&
--	    nn_readb(nn, NFP_NET_CFG_BPF_ABI) == NFP_NET_BPF_ABI)
--		return true;
--	return false;
--}
--
  static int
- nfp_net_setup_tc(struct net_device *netdev, u32 handle, __be16 proto,
- 		 struct tc_to_netdev *tc)
+ nfp_net_bpf_stats_update(struct nfp_net *nn, struct tc_cls_bpf_offload *cls_bpf)
  {
- 	struct nfp_net *nn = netdev_priv(netdev);
++	struct nfp_net_bpf_priv *priv = nn->app_priv;
+ 	u64 bytes, pkts;
  
--	if (TC_H_MAJ(handle) != TC_H_MAJ(TC_H_INGRESS))
--		return -EOPNOTSUPP;
--	if (proto != htons(ETH_P_ALL))
--		return -EOPNOTSUPP;
--
--	if (tc->type == TC_SETUP_CLSBPF && nfp_net_ebpf_capable(nn)) {
--		if (!nn->dp.bpf_offload_xdp)
--			return nfp_net_bpf_offload(nn, tc->cls_bpf);
--		else
--			return -EBUSY;
--	}
--
--	return -EINVAL;
-+	return nfp_app_setup_tc(nn->app, netdev, handle, proto, tc);
- }
+-	pkts = nn->rx_filter.pkts - nn->rx_filter_prev.pkts;
+-	bytes = nn->rx_filter.bytes - nn->rx_filter_prev.bytes;
++	pkts = priv->rx_filter.pkts - priv->rx_filter_prev.pkts;
++	bytes = priv->rx_filter.bytes - priv->rx_filter_prev.bytes;
+ 	bytes -= pkts * ETH_HLEN;
  
- static int nfp_net_set_features(struct net_device *netdev,
-@@ -2765,7 +2745,7 @@ static int nfp_net_set_features(struct net_device *netdev,
- 			new_ctrl &= ~NFP_NET_CFG_CTRL_GATHER;
- 	}
+-	nn->rx_filter_prev = nn->rx_filter;
++	priv->rx_filter_prev = priv->rx_filter;
  
--	if (changed & NETIF_F_HW_TC && nn->dp.ctrl & NFP_NET_CFG_CTRL_BPF) {
-+	if (changed & NETIF_F_HW_TC && nfp_app_tc_busy(nn->app, nn)) {
- 		nn_err(nn, "Cannot disable HW TC offload while in use\n");
- 		return -EBUSY;
- 	}
-@@ -2914,34 +2894,6 @@ static void nfp_net_del_vxlan_port(struct net_device *netdev,
- 		nfp_net_set_vxlan_port(nn, idx, 0);
- }
- 
--static int nfp_net_xdp_offload(struct nfp_net *nn, struct bpf_prog *prog)
--{
--	struct tc_cls_bpf_offload cmd = {
--		.prog = prog,
--	};
--	int ret;
--
--	if (!nfp_net_ebpf_capable(nn))
--		return -EINVAL;
--
--	if (nn->dp.ctrl & NFP_NET_CFG_CTRL_BPF) {
--		if (!nn->dp.bpf_offload_xdp)
--			return prog ? -EBUSY : 0;
--		cmd.command = prog ? TC_CLSBPF_REPLACE : TC_CLSBPF_DESTROY;
--	} else {
--		if (!prog)
--			return 0;
--		cmd.command = TC_CLSBPF_ADD;
--	}
--
--	ret = nfp_net_bpf_offload(nn, &cmd);
--	/* Stop offload if replace not possible */
--	if (ret && cmd.command == TC_CLSBPF_REPLACE)
--		nfp_net_xdp_offload(nn, NULL);
--	nn->dp.bpf_offload_xdp = prog && !ret;
--	return ret;
--}
--
- static int nfp_net_xdp_setup(struct nfp_net *nn, struct netdev_xdp *xdp)
- {
- 	struct bpf_prog *old_prog = nn->dp.xdp_prog;
-@@ -2954,7 +2906,7 @@ static int nfp_net_xdp_setup(struct nfp_net *nn, struct netdev_xdp *xdp)
- 	if (prog && nn->dp.xdp_prog) {
- 		prog = xchg(&nn->dp.xdp_prog, prog);
- 		bpf_prog_put(prog);
--		nfp_net_xdp_offload(nn, nn->dp.xdp_prog);
-+		nfp_app_xdp_offload(nn->app, nn, nn->dp.xdp_prog);
- 		return 0;
- 	}
- 
-@@ -2975,7 +2927,7 @@ static int nfp_net_xdp_setup(struct nfp_net *nn, struct netdev_xdp *xdp)
- 	if (old_prog)
- 		bpf_prog_put(old_prog);
- 
--	nfp_net_xdp_offload(nn, nn->dp.xdp_prog);
-+	nfp_app_xdp_offload(nn->app, nn, nn->dp.xdp_prog);
+ 	tcf_exts_stats_update(cls_bpf->exts,
+-			      bytes, pkts, nn->rx_filter_change);
++			      bytes, pkts, priv->rx_filter_change);
  
  	return 0;
  }
-@@ -3068,10 +3020,10 @@ void nfp_net_info(struct nfp_net *nn)
- 		nn->cap & NFP_NET_CFG_CTRL_IRQMOD   ? "IRQMOD "   : "",
- 		nn->cap & NFP_NET_CFG_CTRL_VXLAN    ? "VXLAN "    : "",
- 		nn->cap & NFP_NET_CFG_CTRL_NVGRE    ? "NVGRE "	  : "",
--		nfp_net_ebpf_capable(nn)            ? "BPF "	  : "",
- 		nn->cap & NFP_NET_CFG_CTRL_CSUM_COMPLETE ?
- 						      "RXCSUM_COMPLETE " : "",
--		nn->cap & NFP_NET_CFG_CTRL_LIVE_ADDR ? "LIVE_ADDR " : "");
-+		nn->cap & NFP_NET_CFG_CTRL_LIVE_ADDR ? "LIVE_ADDR " : "",
-+		nfp_app_extra_cap(nn->app, nn));
+@@ -183,6 +189,7 @@ nfp_net_bpf_load_and_start(struct nfp_net *nn, u32 tc_flags,
+ 			   unsigned int code_sz, unsigned int n_instr,
+ 			   bool dense_mode)
+ {
++	struct nfp_net_bpf_priv *priv = nn->app_priv;
+ 	u64 bpf_addr = dma_addr;
+ 	int err;
+ 
+@@ -209,20 +216,23 @@ nfp_net_bpf_load_and_start(struct nfp_net *nn, u32 tc_flags,
+ 	dma_free_coherent(nn->dp.dev, code_sz, code, dma_addr);
+ 
+ 	nfp_net_bpf_stats_reset(nn);
+-	mod_timer(&nn->rx_filter_stats_timer, jiffies + NFP_NET_STAT_POLL_IVL);
++	mod_timer(&priv->rx_filter_stats_timer,
++		  jiffies + NFP_NET_STAT_POLL_IVL);
  }
  
- /**
-@@ -3316,7 +3268,7 @@ int nfp_net_init(struct nfp_net *nn)
+ static int nfp_net_bpf_stop(struct nfp_net *nn)
+ {
++	struct nfp_net_bpf_priv *priv = nn->app_priv;
++
+ 	if (!(nn->dp.ctrl & NFP_NET_CFG_CTRL_BPF))
+ 		return 0;
  
- 	netdev->features = netdev->hw_features;
+-	spin_lock_bh(&nn->rx_filter_lock);
++	spin_lock_bh(&priv->rx_filter_lock);
+ 	nn->dp.ctrl &= ~NFP_NET_CFG_CTRL_BPF;
+-	spin_unlock_bh(&nn->rx_filter_lock);
++	spin_unlock_bh(&priv->rx_filter_lock);
+ 	nn_writel(nn, NFP_NET_CFG_CTRL, nn->dp.ctrl);
  
--	if (nfp_net_ebpf_capable(nn))
-+	if (nfp_app_has_tc(nn->app))
- 		netdev->hw_features |= NETIF_F_HW_TC;
+-	del_timer_sync(&nn->rx_filter_stats_timer);
++	del_timer_sync(&priv->rx_filter_stats_timer);
+ 	nn->dp.bpf_offload_skip_sw = 0;
  
- 	/* Advertise but disable TSO by default. */
-@@ -3373,6 +3325,4 @@ void nfp_net_clean(struct nfp_net *nn)
+ 	return nfp_net_reconfig(nn, NFP_NET_CFG_UPDATE_GEN);
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net.h b/drivers/net/ethernet/netronome/nfp/nfp_net.h
+index 883cc6be02c1..2e526338f678 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_net.h
++++ b/drivers/net/ethernet/netronome/nfp/nfp_net.h
+@@ -517,11 +517,6 @@ struct nfp_net_dp {
+  * @rss_cfg:            RSS configuration
+  * @rss_key:            RSS secret key
+  * @rss_itbl:           RSS indirection table
+- * @rx_filter:		Filter offload statistics - dropped packets/bytes
+- * @rx_filter_prev:	Filter offload statistics - values from previous update
+- * @rx_filter_change:	Jiffies when statistics last changed
+- * @rx_filter_stats_timer:  Timer for polling filter offload statistics
+- * @rx_filter_lock:	Lock protecting timer state changes (teardown)
+  * @max_r_vecs:		Number of allocated interrupt vectors for RX/TX
+  * @max_tx_rings:       Maximum number of TX rings supported by the Firmware
+  * @max_rx_rings:       Maximum number of RX rings supported by the Firmware
+@@ -556,6 +551,7 @@ struct nfp_net_dp {
+  * @pdev:		Backpointer to PCI device
+  * @app:		APP handle if available
+  * @port:		Pointer to nfp_port structure if vNIC is a port
++ * @app_priv:		APP private data for this vNIC
+  */
+ struct nfp_net {
+ 	struct nfp_net_dp dp;
+@@ -570,11 +566,6 @@ struct nfp_net {
+ 	u8 rss_key[NFP_NET_CFG_RSS_KEY_SZ];
+ 	u8 rss_itbl[NFP_NET_CFG_RSS_ITBL_SZ];
  
- 	if (nn->dp.xdp_prog)
- 		bpf_prog_put(nn->dp.xdp_prog);
--	if (nn->dp.bpf_offload_xdp)
--		nfp_net_xdp_offload(nn, NULL);
+-	struct nfp_stat_pair rx_filter, rx_filter_prev;
+-	unsigned long rx_filter_change;
+-	struct timer_list rx_filter_stats_timer;
+-	spinlock_t rx_filter_lock;
+-
+ 	unsigned int max_tx_rings;
+ 	unsigned int max_rx_rings;
+ 
+@@ -627,6 +618,8 @@ struct nfp_net {
+ 	struct nfp_app *app;
+ 
+ 	struct nfp_port *port;
++
++	void *app_priv;
+ };
+ 
+ /* Functions to read/write from/to a BAR
+@@ -867,6 +860,4 @@ static inline void nfp_net_debugfs_dir_clean(struct dentry **dir)
  }
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_main.c b/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
-index 28782bf3ce68..7dd310911d9f 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
-@@ -427,6 +427,7 @@ static void nfp_net_pf_clean_vnic(struct nfp_pf *pf, struct nfp_net *nn)
- 		nfp_devlink_port_unregister(nn->port);
- 	nfp_net_debugfs_dir_clean(&nn->debugfs_dir);
- 	nfp_net_clean(nn);
-+	nfp_app_vnic_clean(pf->app, nn);
- }
+ #endif /* CONFIG_NFP_DEBUG */
  
- static int
+-void nfp_net_filter_stats_timer(unsigned long data);
+-
+ #endif /* _NFP_NET_H_ */
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
+index e0ece2de5841..c3235d03b8eb 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
++++ b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
+@@ -3072,13 +3072,10 @@ struct nfp_net *nfp_net_alloc(struct pci_dev *pdev,
+ 	nn->dp.rxd_cnt = NFP_NET_RX_DESCS_DEFAULT;
+ 
+ 	spin_lock_init(&nn->reconfig_lock);
+-	spin_lock_init(&nn->rx_filter_lock);
+ 	spin_lock_init(&nn->link_status_lock);
+ 
+ 	setup_timer(&nn->reconfig_timer,
+ 		    nfp_net_reconfig_timer, (unsigned long)nn);
+-	setup_timer(&nn->rx_filter_stats_timer,
+-		    nfp_net_filter_stats_timer, (unsigned long)nn);
+ 
+ 	return nn;
+ }
 -- 
 2.11.0
