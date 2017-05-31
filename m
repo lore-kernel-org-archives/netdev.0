@@ -1,76 +1,132 @@
 From: Martin KaFai Lau <kafai@fb.com>
-Subject: [PATCH v2 net-next 0/8] Introduce bpf ID
-Date: Wed, 31 May 2017 11:58:54 -0700
-Message-ID: <cover.1496256722.git.kafai@fb.com>
+Subject: [PATCH v2 net-next 2/8] bpf: Introduce bpf_map ID
+Date: Wed, 31 May 2017 11:58:56 -0700
+Message-ID: <aa025f5084f28cdb12b313e2552be290d3349c90.1496256722.git.kafai@fb.com>
+References: <cover.1496256722.git.kafai@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Alexei Starovoitov <ast@fb.com>,
         Daniel Borkmann <daniel@iogearbox.net>, <kernel-team@fb.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:39463 "EHLO
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:39456 "EHLO
         mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751149AbdEaS7a (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 31 May 2017 14:59:30 -0400
+        by vger.kernel.org with ESMTP id S1751050AbdEaS7f (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 31 May 2017 14:59:35 -0400
 Received: from pps.filterd (m0109333.ppops.net [127.0.0.1])
-        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v4VIsxYg000374
-        for <netdev@vger.kernel.org>; Wed, 31 May 2017 11:59:30 -0700
+        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v4VIsxYc000374
+        for <netdev@vger.kernel.org>; Wed, 31 May 2017 11:59:29 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0a-00082601.pphosted.com with ESMTP id 2at0s38qfs-9
+        by mx0a-00082601.pphosted.com with ESMTP id 2at0s38qfs-5
         (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Wed, 31 May 2017 11:59:30 -0700
+        for <netdev@vger.kernel.org>; Wed, 31 May 2017 11:59:29 -0700
 Received: from facebook.com (2401:db00:11:d09a:face:0:41:0)     by
- mx-out.facebook.com (10.102.107.99) with ESMTP id
- 367d7ae2463311e7a1680002c99293a0-f3d3d8f0 for <netdev@vger.kernel.org>;        Wed,
- 31 May 2017 11:59:02 -0700
+ mx-out.facebook.com (10.103.99.97) with ESMTP  id
+ 368577ce463311e78e960002c9931860-df93d8f0 for <netdev@vger.kernel.org>;        Wed,
+ 31 May 2017 11:59:03 -0700
+In-Reply-To: <cover.1496256722.git.kafai@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch series:
-1) Introduce ID for both bpf_prog and bpf_map.
-2) Add bpf commands to iterate the prog IDs and map
-   IDs of the system.
-3) Add bpf commands to get a prog/map fd from an ID
-4) Add bpf command to get prog/map info from a fd.
-   The prog/map info is a jump start in this patchset
-   and it is not meant to be a complete list.  They can
-   be extended in the future patches.
+This patch generates an unique ID for each created bpf_map.
+The approach is similar to the earlier patch for bpf_prog ID.
 
-v2:
-Compiler warning fixes:
-- Remove lockdep_is_held() usage.  Add comment
-  to explain the lock situation instead.
-- Add static for idr related variables
-- Add __user to the uattr param in bpf_prog_get_info_by_fd()
-  and bpf_map_get_info_by_fd().
+It is worth to note that the bpf_map's ID and bpf_prog's ID
+are in two independent ID spaces and both have the same valid range:
+[1, INT_MAX).
 
-Martin KaFai Lau (8):
-  bpf: Introduce bpf_prog ID
-  bpf: Introduce bpf_map ID
-  bpf: Add BPF_(PROG|MAP)_GET_NEXT_ID command
-  bpf: Add BPF_PROG_GET_FD_BY_ID
-  bpf: Add BPF_MAP_GET_FD_BY_ID
-  bpf: Add jited_len to struct bpf_prog
-  bpf: Add BPF_OBJ_GET_INFO_BY_FD
-  bpf: Test for bpf ID
+Signed-off-by: Martin KaFai Lau <kafai@fb.com>
+Acked-by: Alexei Starovoitov <ast@fb.com>
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+---
+ include/linux/bpf.h  |  1 +
+ kernel/bpf/syscall.c | 34 +++++++++++++++++++++++++++++++++-
+ 2 files changed, 34 insertions(+), 1 deletion(-)
 
- arch/arm64/net/bpf_jit_comp.c             |   1 +
- arch/powerpc/net/bpf_jit_comp64.c         |   1 +
- arch/s390/net/bpf_jit_comp.c              |   1 +
- arch/sparc/net/bpf_jit_comp_64.c          |   1 +
- arch/x86/net/bpf_jit_comp.c               |   1 +
- include/linux/bpf.h                       |   2 +
- include/linux/filter.h                    |   3 +-
- include/uapi/linux/bpf.h                  |  41 +++
- kernel/bpf/syscall.c                      | 433 ++++++++++++++++++++++++++++--
- tools/include/uapi/linux/bpf.h            |  41 +++
- tools/lib/bpf/bpf.c                       |  68 +++++
- tools/lib/bpf/bpf.h                       |   5 +
- tools/testing/selftests/bpf/Makefile      |   2 +-
- tools/testing/selftests/bpf/test_obj_id.c |  35 +++
- tools/testing/selftests/bpf/test_progs.c  | 191 +++++++++++++
- 15 files changed, 798 insertions(+), 28 deletions(-)
- create mode 100644 tools/testing/selftests/bpf/test_obj_id.c
-
+diff --git a/include/linux/bpf.h b/include/linux/bpf.h
+index c2793a732edc..ea78d87cbc3e 100644
+--- a/include/linux/bpf.h
++++ b/include/linux/bpf.h
+@@ -46,6 +46,7 @@ struct bpf_map {
+ 	u32 max_entries;
+ 	u32 map_flags;
+ 	u32 pages;
++	u32 id;
+ 	struct user_struct *user;
+ 	const struct bpf_map_ops *ops;
+ 	struct work_struct work;
+diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
+index 4a936b08a4b0..20f392d64f49 100644
+--- a/kernel/bpf/syscall.c
++++ b/kernel/bpf/syscall.c
+@@ -27,6 +27,8 @@
+ DEFINE_PER_CPU(int, bpf_prog_active);
+ static DEFINE_IDR(prog_idr);
+ static DEFINE_SPINLOCK(prog_idr_lock);
++static DEFINE_IDR(map_idr);
++static DEFINE_SPINLOCK(map_idr_lock);
+ 
+ int sysctl_unprivileged_bpf_disabled __read_mostly;
+ 
+@@ -117,6 +119,29 @@ static void bpf_map_uncharge_memlock(struct bpf_map *map)
+ 	free_uid(user);
+ }
+ 
++static int bpf_map_alloc_id(struct bpf_map *map)
++{
++	int id;
++
++	spin_lock_bh(&map_idr_lock);
++	id = idr_alloc_cyclic(&map_idr, map, 1, INT_MAX, GFP_ATOMIC);
++	if (id > 0)
++		map->id = id;
++	spin_unlock_bh(&map_idr_lock);
++
++	if (WARN_ON_ONCE(!id))
++		return -ENOSPC;
++
++	return id > 0 ? 0 : id;
++}
++
++static void bpf_map_free_id(struct bpf_map *map)
++{
++	spin_lock_bh(&map_idr_lock);
++	idr_remove(&map_idr, map->id);
++	spin_unlock_bh(&map_idr_lock);
++}
++
+ /* called from workqueue */
+ static void bpf_map_free_deferred(struct work_struct *work)
+ {
+@@ -141,6 +166,7 @@ static void bpf_map_put_uref(struct bpf_map *map)
+ void bpf_map_put(struct bpf_map *map)
+ {
+ 	if (atomic_dec_and_test(&map->refcnt)) {
++		bpf_map_free_id(map);
+ 		INIT_WORK(&map->work, bpf_map_free_deferred);
+ 		schedule_work(&map->work);
+ 	}
+@@ -239,14 +265,20 @@ static int map_create(union bpf_attr *attr)
+ 	if (err)
+ 		goto free_map_nouncharge;
+ 
++	err = bpf_map_alloc_id(map);
++	if (err)
++		goto free_map;
++
+ 	err = bpf_map_new_fd(map);
+ 	if (err < 0)
+ 		/* failed to allocate fd */
+-		goto free_map;
++		goto free_id;
+ 
+ 	trace_bpf_map_create(map, err);
+ 	return err;
+ 
++free_id:
++	bpf_map_free_id(map);
+ free_map:
+ 	bpf_map_uncharge_memlock(map);
+ free_map_nouncharge:
 -- 
 2.9.3
