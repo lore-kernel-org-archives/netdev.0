@@ -1,48 +1,151 @@
-From: Martin KaFai Lau <kafai@fb.com>
-Subject: Re: [PATCH net-next 0/8] Introduce bpf ID
-Date: Tue, 30 May 2017 21:30:29 -0700
-Message-ID: <20170531042937.jz4swtnaw33dwvbi@kafai-mba.local>
-References: <cover.1496189155.git.kafai@fb.com>
- <19cd3d0a-12eb-b8ca-a054-62d86ba2a509@gmail.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: [PATCH net-next] powerpc: use asm-generic/socket.h as much as
+ possible
+Date: Wed, 31 May 2017 15:43:37 +1000
+Message-ID: <20170531154337.04ebcb75@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>, Alexei Starovoitov <ast@fb.com>,
-        Daniel Borkmann <daniel@iogearbox.net>, <kernel-team@fb.com>
-To: David Ahern <dsahern@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Michael Ellerman <mpe@ellerman.id.au>,
+        Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+        PowerPC <linuxppc-dev@lists.ozlabs.org>,
+        Arnd Bergmann <arnd@arndb.de>
+To: David Miller <davem@davemloft.net>,
+        Networking <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:53202 "EHLO
-        mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1750930AbdEaEax (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 31 May 2017 00:30:53 -0400
-Content-Disposition: inline
-In-Reply-To: <19cd3d0a-12eb-b8ca-a054-62d86ba2a509@gmail.com>
+Received: from ozlabs.org ([103.22.144.67]:48627 "EHLO ozlabs.org"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750862AbdEaFnj (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 31 May 2017 01:43:39 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 30, 2017 at 06:35:37PM -0600, David Ahern wrote:
-> On 5/30/17 6:08 PM, Martin KaFai Lau wrote:
-> > This patch series:
-> > 1) Introduce ID for both bpf_prog and bpf_map.
-> > 2) Add bpf commands to iterate the prog IDs and map
-> >    IDs of the system.
-> > 3) Add bpf commands to get a prog/map fd from an ID
-> > 4) Add bpf command to get prog/map info from a fd.
-> >    The prog/map info is a jump start in this patchset
-> >    and it is not meant to be a complete list.  They can
-> >    be extended in the future patches.
->
-> Interesting. This really simplifies the bpf retrieval I have been
-> working on:
->     https://github.com/dsahern/linux/commits/bpf/retrieve-bpf-wip
->
-> Having the net device, filter, route, socket, cgroup, etc return the ids
-> for attached programs solves the problem of getting a reference to all
-> of the places BPF programs can be placed.
-Right, it is the idea.
+asm-generic/socket.h already has an exception for the differences that
+powerpc needs, so just include it after defining the differences.
 
-I am also baking some follow-up patches for returning xdp-prog's id
-through netlink.
+Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
+---
+ arch/powerpc/include/uapi/asm/socket.h | 92 +---------------------------------
+ 1 file changed, 1 insertion(+), 91 deletions(-)
 
->
-> This patch set turns an id into a fd, and my patches allow the fd to be
-> used to get the bpf code.
+Build tested using powerpc allyesconfig, pseries_le_defconfig, 32 bit
+and 64 bit allnoconfig and ppc44x_defconfig builds.
+
+Dave, this is on top of the net-next tree and I am sending it to you
+since it would produce a conflict if it was merged via the powerpc tree.
+
+diff --git a/arch/powerpc/include/uapi/asm/socket.h b/arch/powerpc/include/uapi/asm/socket.h
+index bc4ca72faf99..3c590c7c42c0 100644
+--- a/arch/powerpc/include/uapi/asm/socket.h
++++ b/arch/powerpc/include/uapi/asm/socket.h
+@@ -8,28 +8,6 @@
+  * 2 of the License, or (at your option) any later version.
+  */
+ 
+-#include <asm/sockios.h>
+-
+-/* For setsockopt(2) */
+-#define SOL_SOCKET	1
+-
+-#define SO_DEBUG	1
+-#define SO_REUSEADDR	2
+-#define SO_TYPE		3
+-#define SO_ERROR	4
+-#define SO_DONTROUTE	5
+-#define SO_BROADCAST	6
+-#define SO_SNDBUF	7
+-#define SO_RCVBUF	8
+-#define SO_SNDBUFFORCE	32
+-#define SO_RCVBUFFORCE	33
+-#define SO_KEEPALIVE	9
+-#define SO_OOBINLINE	10
+-#define SO_NO_CHECK	11
+-#define SO_PRIORITY	12
+-#define SO_LINGER	13
+-#define SO_BSDCOMPAT	14
+-#define SO_REUSEPORT	15
+ #define SO_RCVLOWAT	16
+ #define SO_SNDLOWAT	17
+ #define SO_RCVTIMEO	18
+@@ -37,74 +15,6 @@
+ #define SO_PASSCRED	20
+ #define SO_PEERCRED	21
+ 
+-/* Security levels - as per NRL IPv6 - don't actually do anything */
+-#define SO_SECURITY_AUTHENTICATION		22
+-#define SO_SECURITY_ENCRYPTION_TRANSPORT	23
+-#define SO_SECURITY_ENCRYPTION_NETWORK		24
+-
+-#define SO_BINDTODEVICE	25
+-
+-/* Socket filtering */
+-#define SO_ATTACH_FILTER	26
+-#define SO_DETACH_FILTER	27
+-#define SO_GET_FILTER		SO_ATTACH_FILTER
+-
+-#define SO_PEERNAME		28
+-#define SO_TIMESTAMP		29
+-#define SCM_TIMESTAMP		SO_TIMESTAMP
+-
+-#define SO_ACCEPTCONN		30
+-
+-#define SO_PEERSEC		31
+-#define SO_PASSSEC		34
+-#define SO_TIMESTAMPNS		35
+-#define SCM_TIMESTAMPNS		SO_TIMESTAMPNS
+-
+-#define SO_MARK			36
+-
+-#define SO_TIMESTAMPING		37
+-#define SCM_TIMESTAMPING	SO_TIMESTAMPING
+-
+-#define SO_PROTOCOL		38
+-#define SO_DOMAIN		39
+-
+-#define SO_RXQ_OVFL             40
+-
+-#define SO_WIFI_STATUS		41
+-#define SCM_WIFI_STATUS		SO_WIFI_STATUS
+-#define SO_PEEK_OFF		42
+-
+-/* Instruct lower device to use last 4-bytes of skb data as FCS */
+-#define SO_NOFCS		43
+-
+-#define SO_LOCK_FILTER		44
+-
+-#define SO_SELECT_ERR_QUEUE	45
+-
+-#define SO_BUSY_POLL		46
+-
+-#define SO_MAX_PACING_RATE	47
+-
+-#define SO_BPF_EXTENSIONS	48
+-
+-#define SO_INCOMING_CPU		49
+-
+-#define SO_ATTACH_BPF		50
+-#define SO_DETACH_BPF		SO_DETACH_FILTER
+-
+-#define SO_ATTACH_REUSEPORT_CBPF	51
+-#define SO_ATTACH_REUSEPORT_EBPF	52
+-
+-#define SO_CNX_ADVICE		53
+-
+-#define SCM_TIMESTAMPING_OPT_STATS	54
+-
+-#define SO_MEMINFO		55
+-
+-#define SO_INCOMING_NAPI_ID	56
+-
+-#define SO_COOKIE		57
+-
+-#define SCM_TIMESTAMPING_PKTINFO	58
++#include <asm-generic/socket.h>
+ 
+ #endif	/* _ASM_POWERPC_SOCKET_H */
+-- 
+2.11.0
+
+-- 
+Cheers,
+Stephen Rothwell
