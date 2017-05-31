@@ -1,49 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v5 net-next 0/5] dsa: add Microchip KSZ9477 DSA driver
-Date: Wed, 31 May 2017 14:47:32 -0400 (EDT)
-Message-ID: <20170531.144732.768135527494752476.davem@davemloft.net>
-References: <9235D6609DB808459E95D78E17F2E43D40AA4D4C@CHN-SV-EXMX02.mchp-main.com>
-        <20170531.142830.1153280352895864825.davem@davemloft.net>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH net] tcp: disallow cwnd undo when switching congestion
+ control
+Date: Wed, 31 May 2017 11:47:32 -0700
+Message-ID: <20170531114732.1cfc4d79@xeon-e3>
+References: <20170531182127.161289-1-ycheng@google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: andrew@lunn.ch, f.fainelli@gmail.com, netdev@vger.kernel.org,
-        UNGLinuxDriver@microchip.com
-To: Woojung.Huh@microchip.com
+Cc: davem@davemloft.net, netdev@vger.kernel.org, ncardwell@google.com,
+        edumazet@google.com, soheil@google.com
+To: Yuchung Cheng <ycheng@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:42564 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751100AbdEaSre (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 31 May 2017 14:47:34 -0400
-In-Reply-To: <20170531.142830.1153280352895864825.davem@davemloft.net>
+Received: from mail-pf0-f180.google.com ([209.85.192.180]:35687 "EHLO
+        mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751100AbdEaSrf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 31 May 2017 14:47:35 -0400
+Received: by mail-pf0-f180.google.com with SMTP id n23so14910984pfb.2
+        for <netdev@vger.kernel.org>; Wed, 31 May 2017 11:47:35 -0700 (PDT)
+In-Reply-To: <20170531182127.161289-1-ycheng@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Wed, 31 May 2017 14:28:30 -0400 (EDT)
+On Wed, 31 May 2017 11:21:27 -0700
+Yuchung Cheng <ycheng@google.com> wrote:
 
-> From: <Woojung.Huh@microchip.com>
-> Date: Wed, 31 May 2017 00:00:34 +0000
+> When the sender switches its congestion control during loss
+> recovery, if the recovery is spurious then it may incorrectly
+> revert cwnd and ssthresh to the older values set by a previous
+> congestion control. Consider a congestion control (like BBR)
+> that does not use ssthresh and keeps it infinite: the connection
+> may incorrectly revert cwnd to an infinite value when switching
+> from BBR to another congestion control.
 > 
->> From: Woojung Huh <Woojung.Huh@microchip.com>
->> 
->> This series of patches is for Microchip KSZ9477 DSA driver.
->> KSZ9477 is 7 ports GigE switch with numerous advanced features.
->> 5 ports are 10/100/1000 Mbps internal PHYs and 2 ports have
->> Interfaces to SGMII, RGMII, MII or RMII.
->> 
->> This patch supports VLAN, MDB, FDB and port mirroring offloads.
->> 
->> Welcome reviews and comments from community.
->> 
->> Note: Tests are performed on internal development board.
+> This patch fixes it by disallowing such cwnd undo operation
+> upon switching congestion control.  Note that undo_marker
+> is not reset s.t. the packets that were incorrectly marked
+> lost would be corrected. We only avoid undoing the cwnd in
+> tcp_undo_cwnd_reduction().
 > 
-> Series applied, thanks.
+> Signed-off-by: Yuchung Cheng <ycheng@google.com>
+> Signed-off-by: Soheil Hassas Yeganeh <soheil@google.com>
+> Signed-off-by: Neal Cardwell <ncardwell@google.com>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Unfortunately, I had to revert, you didn't add MODULE_LICENSE() tags
-to the new drivers.
-
-WARNING: modpost: missing MODULE_LICENSE() in drivers/net/dsa/microchip/ksz_common.o
-see include/linux/module.h for more information
-WARNING: modpost: missing MODULE_LICENSE() in drivers/net/dsa/microchip/ksz_spi.o
-see include/linux/module.h for more information
+That looks correct. Are there other values of congestion state
+that should be reset?
