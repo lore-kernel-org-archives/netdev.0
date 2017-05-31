@@ -1,65 +1,65 @@
-From: Craig Gallek <kraigatgoog@gmail.com>
-Subject: Re: [PATCH net] ipv6: xfrm: Handle errors reported by xfrm6_find_1stfragopt()
-Date: Wed, 31 May 2017 10:01:09 -0400
-Message-ID: <CAEfhGixMRc6sEWBhYFggENXBrAnMNWfMx1OcJ84o5ERNo8Hd+w@mail.gmail.com>
-References: <20170531121541.GA16923@decadent.org.uk>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [PATCH net] samples/bpf: bpf_load.c order of prog_fd[] should
+ correspond with ELF order
+Date: Wed, 31 May 2017 16:05:32 +0200
+Message-ID: <20170531160532.4e4738b8@redhat.com>
+References: <149614787132.15375.2590780903240304298.stgit@firesoul>
+        <20170530163410.mhag3k5nssohcofd@ast-mbp.dhcp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: "David S. Miller" <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>
-To: Ben Hutchings <ben@decadent.org.uk>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, brouer@redhat.com
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f194.google.com ([209.85.216.194]:35317 "EHLO
-        mail-qt0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750916AbdEaOBN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 31 May 2017 10:01:13 -0400
-Received: by mail-qt0-f194.google.com with SMTP id r58so1968930qtb.2
-        for <netdev@vger.kernel.org>; Wed, 31 May 2017 07:01:12 -0700 (PDT)
-Received: from mail-qk0-f178.google.com (mail-qk0-f178.google.com. [209.85.220.178])
-        by smtp.gmail.com with ESMTPSA id c15sm10788491qte.25.2017.05.31.07.01.10
-        for <netdev@vger.kernel.org>
-        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
-        Wed, 31 May 2017 07:01:10 -0700 (PDT)
-Received: by mail-qk0-f178.google.com with SMTP id y201so12300685qka.0
-        for <netdev@vger.kernel.org>; Wed, 31 May 2017 07:01:10 -0700 (PDT)
-In-Reply-To: <20170531121541.GA16923@decadent.org.uk>
+Received: from mx1.redhat.com ([209.132.183.28]:53182 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751495AbdEaOFi (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 31 May 2017 10:05:38 -0400
+In-Reply-To: <20170530163410.mhag3k5nssohcofd@ast-mbp.dhcp.thefacebook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 31, 2017 at 8:15 AM, Ben Hutchings <ben@decadent.org.uk> wrote:
-> xfrm6_find_1stfragopt() may now return an error code and we must
-> not treat it as a length.
->
-> Fixes: 2423496af35d ("ipv6: Prevent overrun when parsing v6 header options")
-> Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
-> ---
-> Commits 2423496af35d "ipv6: Prevent overrun when parsing v6 header
-> options" and 7dd7eb9513bd "ipv6: Check ip6_find_1stfragopt() return
-> value properly." changed ip6_find_1stfragopt() to return negative
-> error codes and changed some of its callers to handle this.
->
-> However, there is also xfrm6_find_1stfragopt() which is a wrapper for
-> ip6_find_1stfragopt() and is called indirectly by xfrm6_ro_output()
-> and xfrm6_transport_output().  Neither of them check for errors.
->
-> This is totally untested.  I think xfrm_type::hdr_offset deserves a
-> comment about its semantics, but I don't understand it well enogugh to
-> write that.
-Thank you for finding this, it's a good lesson to not rely solely on cscope :\
+On Tue, 30 May 2017 09:34:12 -0700
+Alexei Starovoitov <alexei.starovoitov@gmail.com> wrote:
 
-I believe this fix is correct and sufficient.  I only found 2 up-stack
-callers of this (pktgen_output_ipsec and xfrm_output_one) and they
-both ultimately call kfree_skb on error.
+> On Tue, May 30, 2017 at 02:37:51PM +0200, Jesper Dangaard Brouer wrote:
+> > An eBPF ELF file generated with LLVM can contain several program
+> > section, which can be used for bpf tail calls.  The bpf prog file
+> > descriptors are accessible via array prog_fd[].
+> > 
+> > At-least XDP samples assume ordering, and uses prog_fd[0] is the main
+> > XDP program to attach.  The actual order of array prog_fd[] depend on
+> > whether or not a bpf program section is referencing any maps or not.
+> > Not using a map result in being loaded/processed after all other
+> > prog section.  Thus, this can lead to some very strange and hard to
+> > debug situation, as the user can only see a FD and cannot correlated
+> > that with the ELF section name.
+> > 
+> > The fix is rather simple, and even removes duplicate memcmp code.
+> > Simply load program sections as the last step, instead of
+> > load_and_attach while processing the relocation section.
+> > 
+> > When working with tail calls, it become even more essential that the
+> > order of prog_fd[] is consistant, like the current dependency of the
+> > map_fd[] order.
+> > 
+> > Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>  
+> 
+> Looks fine, but imo net-next is better, since it's not a bugfix
+> to anything in the net tree, but a general improvement.
 
-However, the fact that this function is used as a function pointer
-through xfrm_type.hdr_offset made me look at a couple other functions
-that can be stored in this structure.  mip6_destopt_offset and
-mip6_rthdr_offset have very similar implementations to the original
-ip6_find_1stfragopt and may very well suffer from the same bug I was
-trying to fix.  Maybe it doesn't matter since that bug relied on the
-user changing the v6 nexthdr field.  I need to understand the mip6
-code first...
+Okay, I'm fine with this going into net-next. I'm running with own
+fix[1] in my git-tree, so I can get my tail call example[2] working.
 
-In any event, I think this patch applies on its own.  Thanks again.
+[1] https://github.com/netoptimizer/prototype-kernel/commit/e785522d84d5bf
+[2] https://github.com/netoptimizer/prototype-kernel/tree/master/kernel/samples/bpf
 
-Acked-by: Craig Gallek <kraig@google.com>
+> Acked-by: Alexei Starovoitov <ast@kernel.org>
+
+Thanks!
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  LinkedIn: http://www.linkedin.com/in/brouer
