@@ -1,39 +1,48 @@
-From: Bastian Bittorf <bb-j3O8QLukP0Q@public.gmane.org>
-Subject: Re: 'iw events' stops receiving events after a while on 4.9 + hacks
-Date: Wed, 31 May 2017 10:18:36 +0200
-Message-ID: <20170531081836.GC2849@medion.lan>
-References: <d82d191e-8ede-68c6-c9e0-c381dc874d36@candelatech.com>
- <20170517100844.GC2849@medion.lan>
- <1495027835.2442.13.camel@sipsolutions.net>
- <fa96dfad-8d1b-c48f-df3b-3df0d548a5c6@candelatech.com>
- <1496150322.3327.9.camel@sipsolutions.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ben Greear <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>,
-        netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1496150322.3327.9.camel-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH net-next] nfp: add MAY_USE_DEVLINK dependency
+Date: Wed, 31 May 2017 10:16:50 +0200
+Message-ID: <20170531081700.1948289-1-arnd@arndb.de>
+Cc: Simon Horman <simon.horman@netronome.com>,
+        Arnd Bergmann <arnd@arndb.de>,
+        "David S. Miller" <davem@davemloft.net>, oss-drivers@netronome.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Jakub Kicinski <jakub.kicinski@netronome.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.kundenserver.de ([212.227.17.10]:60311 "EHLO
+        mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751412AbdEaIRY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 31 May 2017 04:17:24 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-* Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org> [31.05.2017 10:09]:
-> > Is there any way to dump out the socket information if we reproduce
-> > the problem?
-> 
-> I have no idea, sorry.
-> 
-> If you or Bastian can tell me how to reproduce the problem, I can try
-> to investigate it.
+When devlink is configured as a loadable module, a built-in nfp driver
+causes a link error:
 
-there was an interesting fix regarding the shell-builtin 'read' in
-busybox[1]. I will retest again and report if this changes anything.
+drivers/net/built-in.o: In function `nfp_devlink_port_register':
+(.text+0xb8b05): undefined reference to `devlink_port_type_eth_set'
+drivers/net/built-in.o: In function `nfp_devlink_port_register':
+(.text+0xb8b16): undefined reference to `devlink_port_split_set'
 
-bye, bastian
+This adds a special Kconfig dependency on CONFIG_MAY_USE_DEVLINK
+to avoid that combination and force nfp to be a module when NET_DEVLINK=m.
 
-PS: @ben: are you also using 'iw event | while read -r LINE ...'?
+Fixes: 1851f93fd2ee ("nfp: add devlink support")
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+---
+ drivers/net/ethernet/netronome/Kconfig | 1 +
+ 1 file changed, 1 insertion(+)
 
-[1]
-https://git.busybox.net/busybox/commit/?id=f5470419404d643070db99d058405b714695b817
+diff --git a/drivers/net/ethernet/netronome/Kconfig b/drivers/net/ethernet/netronome/Kconfig
+index 967d7ca8c28c..0d5a7b9203a4 100644
+--- a/drivers/net/ethernet/netronome/Kconfig
++++ b/drivers/net/ethernet/netronome/Kconfig
+@@ -19,6 +19,7 @@ config NFP
+ 	tristate "Netronome(R) NFP4000/NFP6000 NIC driver"
+ 	depends on PCI && PCI_MSI
+ 	depends on VXLAN || VXLAN=n
++	depends on MAY_USE_DEVLINK
+ 	---help---
+ 	  This driver supports the Netronome(R) NFP4000/NFP6000 based
+ 	  cards working as a advanced Ethernet NIC.  It works with both
+-- 
+2.9.0
