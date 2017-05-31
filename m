@@ -1,65 +1,45 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [PATCH net] samples/bpf: bpf_load.c order of prog_fd[] should
- correspond with ELF order
-Date: Wed, 31 May 2017 16:05:32 +0200
-Message-ID: <20170531160532.4e4738b8@redhat.com>
-References: <149614787132.15375.2590780903240304298.stgit@firesoul>
-        <20170530163410.mhag3k5nssohcofd@ast-mbp.dhcp.thefacebook.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, brouer@redhat.com
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:53182 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751495AbdEaOFi (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 31 May 2017 10:05:38 -0400
-In-Reply-To: <20170530163410.mhag3k5nssohcofd@ast-mbp.dhcp.thefacebook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jia-Ju Bai <baijiaju1990@163.com>
+Subject: [PATCH] qed: Fix a sleep-in-interrupt bug in qed_int_sp_dpc
+Date: Wed, 31 May 2017 22:23:28 +0800
+Message-ID: <1496240608-17453-1-git-send-email-baijiaju1990@163.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Jia-Ju Bai <baijiaju1990@163.com>
+To: Yuval.Mintz@cavium.com, Ariel.Elior@cavium.com,
+        everest-linux-l2@cavium.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 30 May 2017 09:34:12 -0700
-Alexei Starovoitov <alexei.starovoitov@gmail.com> wrote:
+The driver may sleep in interrupt handling, and the function call path is:
+qed_int_sp_dpc (tasklet_init indicates it handles interrupt)
+  qed_int_attentions
+    qed_mcp_handle_events
+      qed_mcp_handle_link_change
+        qed_link_update
+          qed_fill_link
+            qed_mcp_get_media_type
+              qed_ptt_acquire
+                usleep_range --> may sleep
 
-> On Tue, May 30, 2017 at 02:37:51PM +0200, Jesper Dangaard Brouer wrote:
-> > An eBPF ELF file generated with LLVM can contain several program
-> > section, which can be used for bpf tail calls.  The bpf prog file
-> > descriptors are accessible via array prog_fd[].
-> > 
-> > At-least XDP samples assume ordering, and uses prog_fd[0] is the main
-> > XDP program to attach.  The actual order of array prog_fd[] depend on
-> > whether or not a bpf program section is referencing any maps or not.
-> > Not using a map result in being loaded/processed after all other
-> > prog section.  Thus, this can lead to some very strange and hard to
-> > debug situation, as the user can only see a FD and cannot correlated
-> > that with the ELF section name.
-> > 
-> > The fix is rather simple, and even removes duplicate memcmp code.
-> > Simply load program sections as the last step, instead of
-> > load_and_attach while processing the relocation section.
-> > 
-> > When working with tail calls, it become even more essential that the
-> > order of prog_fd[] is consistant, like the current dependency of the
-> > map_fd[] order.
-> > 
-> > Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>  
-> 
-> Looks fine, but imo net-next is better, since it's not a bugfix
-> to anything in the net tree, but a general improvement.
+To fix it, the "usleep_range" is replaced with "udelay".
 
-Okay, I'm fine with this going into net-next. I'm running with own
-fix[1] in my git-tree, so I can get my tail call example[2] working.
+Signed-off-by: Jia-Ju Bai <baijiaju1990@163.com>
+---
+ drivers/net/ethernet/qlogic/qed/qed_hw.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-[1] https://github.com/netoptimizer/prototype-kernel/commit/e785522d84d5bf
-[2] https://github.com/netoptimizer/prototype-kernel/tree/master/kernel/samples/bpf
-
-> Acked-by: Alexei Starovoitov <ast@kernel.org>
-
-Thanks!
-
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_hw.c b/drivers/net/ethernet/qlogic/qed/qed_hw.c
+index a05feb3..3250cc4 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_hw.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_hw.c
+@@ -131,7 +131,7 @@ struct qed_ptt *qed_ptt_acquire(struct qed_hwfn *p_hwfn)
+ 		}
+ 
+ 		spin_unlock_bh(&p_hwfn->p_ptt_pool->lock);
+-		usleep_range(1000, 2000);
++		udelay(1500);
+ 	}
+ 
+ 	DP_NOTICE(p_hwfn, "PTT acquire timeout - failed to allocate PTT\n");
 -- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  LinkedIn: http://www.linkedin.com/in/brouer
+1.7.9.5
