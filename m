@@ -1,8 +1,8 @@
 From: <Woojung.Huh@microchip.com>
-Subject: [PATCH v5 net-next 5/5] dsa: add maintainer of Microchip KSZ
- switches
-Date: Wed, 31 May 2017 20:19:29 +0000
-Message-ID: <9235D6609DB808459E95D78E17F2E43D40AA558D@CHN-SV-EXMX02.mchp-main.com>
+Subject: [PATCH v5 net-next 2/5] phy: micrel: add Microchip KSZ 9477 Switch
+ PHY support
+Date: Wed, 31 May 2017 20:19:13 +0000
+Message-ID: <9235D6609DB808459E95D78E17F2E43D40AA556C@CHN-SV-EXMX02.mchp-main.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
@@ -10,45 +10,67 @@ Cc: <andrew@lunn.ch>, <f.fainelli@gmail.com>,
         <UNGLinuxDriver@microchip.com>
 To: <netdev@vger.kernel.org>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from esa4.microchip.iphmx.com ([68.232.154.123]:29326 "EHLO
-        esa4.microchip.iphmx.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751075AbdEaUTa (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 31 May 2017 16:19:30 -0400
+Received: from esa1.microchip.iphmx.com ([68.232.147.91]:46954 "EHLO
+        esa1.microchip.iphmx.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751075AbdEaUTT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 31 May 2017 16:19:19 -0400
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Woojung Huh <Woojung.Huh@microchip.com>
 
-Adding maintainer of Microchip KSZ switches.
+Adding Microchip 9477 Phy included in KSZ9477 Switch.
 
 Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
 Signed-off-by: Woojung Huh <Woojung.Huh@microchip.com>
 ---
- MAINTAINERS | 10 ++++++++++
- 1 file changed, 10 insertions(+)
+ drivers/net/phy/micrel.c   | 11 +++++++++++
+ include/linux/micrel_phy.h |  2 ++
+ 2 files changed, 13 insertions(+)
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 42378cf..0fcb5e75 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -8479,6 +8479,16 @@ F:	drivers/media/platform/atmel/atmel-isc.c
- F:	drivers/media/platform/atmel/atmel-isc-regs.h
- F:	devicetree/bindings/media/atmel-isc.txt
+diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
+index 4cfd541..46e80bc 100644
+--- a/drivers/net/phy/micrel.c
++++ b/drivers/net/phy/micrel.c
+@@ -20,6 +20,7 @@
+  *			   ksz8081, ksz8091,
+  *			   ksz8061,
+  *		Switch : ksz8873, ksz886x
++ *			 ksz9477
+  */
  
-+MICROCHIP KSZ SERIES ETHERNET SWITCH DRIVER
-+M:	Woojung Huh <Woojung.Huh@microchip.com>
-+M:	Microchip Linux Driver Support <UNGLinuxDriver@microchip.com>
-+L:	netdev@vger.kernel.org
-+S:	Maintained
-+F:	net/dsa/tag_ksz.c
-+F:	drivers/net/dsa/microchip/*
-+F:	include/linux/platform_data/microchip-ksz.h
-+F:	Documentation/devicetree/bindings/net/dsa/ksz.txt
+ #include <linux/kernel.h>
+@@ -996,6 +997,16 @@ static struct phy_driver ksphy_driver[] = {
+ 	.read_status	= ksz8873mll_read_status,
+ 	.suspend	= genphy_suspend,
+ 	.resume		= genphy_resume,
++}, {
++	.phy_id		= PHY_ID_KSZ9477,
++	.phy_id_mask	= MICREL_PHY_ID_MASK,
++	.name		= "Microchip KSZ9477",
++	.features	= PHY_GBIT_FEATURES,
++	.config_init	= kszphy_config_init,
++	.config_aneg	= genphy_config_aneg,
++	.read_status	= genphy_read_status,
++	.suspend	= genphy_suspend,
++	.resume		= genphy_resume,
+ } };
+ 
+ module_phy_driver(ksphy_driver);
+diff --git a/include/linux/micrel_phy.h b/include/linux/micrel_phy.h
+index f541da6..472fa4d 100644
+--- a/include/linux/micrel_phy.h
++++ b/include/linux/micrel_phy.h
+@@ -37,6 +37,8 @@
+ 
+ #define PHY_ID_KSZ8795		0x00221550
+ 
++#define	PHY_ID_KSZ9477		0x00221631
 +
- MICROCHIP USB251XB DRIVER
- M:	Richard Leitner <richard.leitner@skidata.com>
- L:	linux-usb@vger.kernel.org
+ /* struct phy_device dev_flags definitions */
+ #define MICREL_PHY_50MHZ_CLK	0x00000001
+ #define MICREL_PHY_FXEN		0x00000002
 -- 
 2.7.4
