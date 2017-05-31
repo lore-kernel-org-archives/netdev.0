@@ -1,7 +1,7 @@
 From: Martin KaFai Lau <kafai@fb.com>
-Subject: [PATCH net-next 7/8] bpf: Add BPF_OBJ_GET_INFO_BY_FD
-Date: Tue, 30 May 2017 17:08:36 -0700
-Message-ID: <280c9bf1ebb86dd2dbdc758a3d7fa6624c360433.1496189155.git.kafai@fb.com>
+Subject: [PATCH net-next 2/8] bpf: Introduce bpf_map ID
+Date: Tue, 30 May 2017 17:08:31 -0700
+Message-ID: <05f4a0a349468b106362e1b96e2aaf970fcafb79.1496189155.git.kafai@fb.com>
 References: <cover.1496189155.git.kafai@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,300 +9,124 @@ Cc: Alexei Starovoitov <ast@fb.com>,
         Daniel Borkmann <daniel@iogearbox.net>, <kernel-team@fb.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:39566 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751009AbdEaAIl (ORCPT
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:48500 "EHLO
+        mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751002AbdEaAIl (ORCPT
         <rfc822;netdev@vger.kernel.org>); Tue, 30 May 2017 20:08:41 -0400
-Received: from pps.filterd (m0044012.ppops.net [127.0.0.1])
-        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v4V04WMi008834
+Received: from pps.filterd (m0109331.ppops.net [127.0.0.1])
+        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v4V07ZPM014446
         for <netdev@vger.kernel.org>; Tue, 30 May 2017 17:08:40 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0a-00082601.pphosted.com with ESMTP id 2asfjurnmu-1
+        by mx0a-00082601.pphosted.com with ESMTP id 2asgu6gcg9-1
         (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
         for <netdev@vger.kernel.org>; Tue, 30 May 2017 17:08:40 -0700
 Received: from facebook.com (2401:db00:11:d09a:face:0:41:0)     by
- mx-out.facebook.com (10.212.236.89) with ESMTP id
- 4c82c598459511e7a6db0002c95209d8-927358f0 for <netdev@vger.kernel.org>;        Tue,
+ mx-out.facebook.com (2401:db00:2050:5102:face:0000:003b:0000) with ESMTP       id
+ 4c51f724459511e7af36a92d738592aa-535358f0 for <netdev@vger.kernel.org>;        Tue,
  30 May 2017 17:08:39 -0700
 In-Reply-To: <cover.1496189155.git.kafai@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-A single BPF_OBJ_GET_INFO_BY_FD cmd is used to obtain the info
-for both bpf_prog and bpf_map.  The kernel can figure out the
-fd is associated with a bpf_prog or bpf_map.
+This patch generates an unique ID for each created bpf_map.
+The approach is similar to the earlier patch for bpf_prog ID.
 
-The suggested struct bpf_prog_info and struct bpf_map_info are
-not meant to be a complete list and it is not the goal of this patch.
-New fields can be added in the future patch.
-
-The focus of this patch is to create the interface,
-BPF_OBJ_GET_INFO_BY_FD cmd for exposing the bpf_prog's and
-bpf_map's info.
-
-The obj's info, which will be extended (and get bigger) over time, is
-separated from the bpf_attr to avoid bloating the bpf_attr.
+It is worth to note that the bpf_map's ID and bpf_prog's ID
+are in two independent ID spaces and both have the same valid range:
+[1, INT_MAX).
 
 Signed-off-by: Martin KaFai Lau <kafai@fb.com>
 Acked-by: Alexei Starovoitov <ast@fb.com>
 Acked-by: Daniel Borkmann <daniel@iogearbox.net>
 ---
- include/linux/filter.h   |   2 -
- include/uapi/linux/bpf.h |  28 ++++++++
- kernel/bpf/syscall.c     | 163 ++++++++++++++++++++++++++++++++++++++++++-----
- 3 files changed, 174 insertions(+), 19 deletions(-)
+ include/linux/bpf.h  |  1 +
+ kernel/bpf/syscall.c | 34 +++++++++++++++++++++++++++++++++-
+ 2 files changed, 34 insertions(+), 1 deletion(-)
 
-diff --git a/include/linux/filter.h b/include/linux/filter.h
-index a322a41f394b..46274f23f127 100644
---- a/include/linux/filter.h
-+++ b/include/linux/filter.h
-@@ -66,8 +66,6 @@ struct bpf_prog_aux;
- /* BPF program can access up to 512 bytes of stack space. */
- #define MAX_BPF_STACK	512
- 
--#define BPF_TAG_SIZE	8
--
- /* Helper macros for filter block array initializers. */
- 
- /* ALU ops on registers, bpf_add|sub|...: dst_reg += src_reg */
-diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-index cf704e8b6e65..677b570da8ec 100644
---- a/include/uapi/linux/bpf.h
-+++ b/include/uapi/linux/bpf.h
-@@ -86,6 +86,7 @@ enum bpf_cmd {
- 	BPF_MAP_GET_NEXT_ID,
- 	BPF_PROG_GET_FD_BY_ID,
- 	BPF_MAP_GET_FD_BY_ID,
-+	BPF_OBJ_GET_INFO_BY_FD,
- };
- 
- enum bpf_map_type {
-@@ -222,6 +223,12 @@ union bpf_attr {
- 		};
- 		__u32		next_id;
- 	};
-+
-+	struct { /* anonymous struct used by BPF_OBJ_GET_INFO_BY_FD */
-+		__u32		bpf_fd;
-+		__u32		info_len;
-+		__aligned_u64	info;
-+	} info;
- } __attribute__((aligned(8)));
- 
- /* BPF helper function descriptions:
-@@ -683,4 +690,25 @@ struct xdp_md {
- 	__u32 data_end;
- };
- 
-+#define BPF_TAG_SIZE	8
-+
-+struct bpf_prog_info {
-+	__u32 type;
-+	__u32 id;
-+	__u8  tag[BPF_TAG_SIZE];
-+	__u32 jited_prog_len;
-+	__u32 xlated_prog_len;
-+	__aligned_u64 jited_prog_insns;
-+	__aligned_u64 xlated_prog_insns;
-+} __attribute__((aligned(8)));
-+
-+struct bpf_map_info {
-+	__u32 type;
-+	__u32 id;
-+	__u32 key_size;
-+	__u32 value_size;
-+	__u32 max_entries;
-+	__u32 map_flags;
-+} __attribute__((aligned(8)));
-+
- #endif /* _UAPI__LINUX_BPF_H__ */
+diff --git a/include/linux/bpf.h b/include/linux/bpf.h
+index c2793a732edc..ea78d87cbc3e 100644
+--- a/include/linux/bpf.h
++++ b/include/linux/bpf.h
+@@ -46,6 +46,7 @@ struct bpf_map {
+ 	u32 max_entries;
+ 	u32 map_flags;
+ 	u32 pages;
++	u32 id;
+ 	struct user_struct *user;
+ 	const struct bpf_map_ops *ops;
+ 	struct work_struct work;
 diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
-index f524431dd6ce..b21af69bf57b 100644
+index 697bdb6ceceb..a6fe034dbc09 100644
 --- a/kernel/bpf/syscall.c
 +++ b/kernel/bpf/syscall.c
-@@ -1237,6 +1237,145 @@ static int bpf_map_get_fd_by_id(const union bpf_attr *attr)
- 	return fd;
+@@ -27,6 +27,8 @@
+ DEFINE_PER_CPU(int, bpf_prog_active);
+ DEFINE_IDR(prog_idr);
+ DEFINE_SPINLOCK(prog_idr_lock);
++DEFINE_IDR(map_idr);
++DEFINE_SPINLOCK(map_idr_lock);
+ 
+ int sysctl_unprivileged_bpf_disabled __read_mostly;
+ 
+@@ -117,6 +119,29 @@ static void bpf_map_uncharge_memlock(struct bpf_map *map)
+ 	free_uid(user);
  }
  
-+static int check_uarg_tail_zero(void __user *uaddr,
-+				size_t expected_size,
-+				size_t actual_size)
++static int bpf_map_alloc_id(struct bpf_map *map)
 +{
-+	unsigned char __user *addr;
-+	unsigned char __user *end;
-+	unsigned char val;
-+	int err;
++	int id;
 +
-+	if (actual_size <= expected_size)
-+		return 0;
++	spin_lock_bh(&map_idr_lock);
++	id = idr_alloc_cyclic(&map_idr, map, 1, INT_MAX, GFP_ATOMIC);
++	if (id > 0)
++		map->id = id;
++	spin_unlock_bh(&map_idr_lock);
 +
-+	addr = uaddr + expected_size;
-+	end  = uaddr + actual_size;
++	if (WARN_ON_ONCE(!id))
++		return -ENOSPC;
 +
-+	for (; addr < end; addr++) {
-+		err = get_user(val, addr);
-+		if (err)
-+			return err;
-+		if (val)
-+			return -E2BIG;
-+	}
-+
-+	return 0;
++	return id > 0 ? 0 : id;
 +}
 +
-+static int bpf_prog_get_info_by_fd(struct bpf_prog *prog,
-+				   const union bpf_attr *attr,
-+				   union bpf_attr *uattr)
++static void bpf_map_free_id(struct bpf_map *map)
 +{
-+	struct bpf_prog_info __user *uinfo = u64_to_user_ptr(attr->info.info);
-+	struct bpf_prog_info info = {};
-+	u32 info_len = attr->info.info_len;
-+	char __user *uinsns;
-+	u32 ulen;
-+	int err;
-+
-+	err = check_uarg_tail_zero(uinfo, sizeof(info), info_len);
-+	if (err)
-+		return err;
-+	info_len = min_t(u32, sizeof(info), info_len);
-+
-+	if (copy_from_user(&info, uinfo, info_len))
-+		return err;
-+
-+	info.type = prog->type;
-+	info.id = prog->aux->id;
-+
-+	memcpy(info.tag, prog->tag, sizeof(prog->tag));
-+
-+	if (!capable(CAP_SYS_ADMIN)) {
-+		info.jited_prog_len = 0;
-+		info.xlated_prog_len = 0;
-+		goto done;
-+	}
-+
-+	ulen = info.jited_prog_len;
-+	info.jited_prog_len = prog->jited_len;
-+	if (info.jited_prog_len && ulen) {
-+		uinsns = u64_to_user_ptr(info.jited_prog_insns);
-+		ulen = min_t(u32, info.jited_prog_len, ulen);
-+		if (copy_to_user(uinsns, prog->bpf_func, ulen))
-+			return -EFAULT;
-+	}
-+
-+	ulen = info.xlated_prog_len;
-+	info.xlated_prog_len = bpf_prog_size(prog->len);
-+	if (info.xlated_prog_len && ulen) {
-+		uinsns = u64_to_user_ptr(info.xlated_prog_insns);
-+		ulen = min_t(u32, info.xlated_prog_len, ulen);
-+		if (copy_to_user(uinsns, prog->insnsi, ulen))
-+			return -EFAULT;
-+	}
-+
-+done:
-+	if (copy_to_user(uinfo, &info, info_len) ||
-+	    put_user(info_len, &uattr->info.info_len))
-+		return -EFAULT;
-+
-+	return 0;
++	spin_lock_bh(&map_idr_lock);
++	idr_remove(&map_idr, map->id);
++	spin_unlock_bh(&map_idr_lock);
 +}
 +
-+static int bpf_map_get_info_by_fd(struct bpf_map *map,
-+				  const union bpf_attr *attr,
-+				  union bpf_attr *uattr)
-+{
-+	struct bpf_map_info __user *uinfo = u64_to_user_ptr(attr->info.info);
-+	struct bpf_map_info info = {};
-+	u32 info_len = attr->info.info_len;
-+	int err;
-+
-+	err = check_uarg_tail_zero(uinfo, sizeof(info), info_len);
-+	if (err)
-+		return err;
-+	info_len = min_t(u32, sizeof(info), info_len);
-+
-+	info.type = map->map_type;
-+	info.id = map->id;
-+	info.key_size = map->key_size;
-+	info.value_size = map->value_size;
-+	info.max_entries = map->max_entries;
-+	info.map_flags = map->map_flags;
-+
-+	if (copy_to_user(uinfo, &info, info_len) ||
-+	    put_user(info_len, &uattr->info.info_len))
-+		return -EFAULT;
-+
-+	return 0;
-+}
-+
-+#define BPF_OBJ_GET_INFO_BY_FD_LAST_FIELD info.info
-+
-+static int bpf_obj_get_info_by_fd(const union bpf_attr *attr,
-+				  union bpf_attr __user *uattr)
-+{
-+	int ufd = attr->info.bpf_fd;
-+	struct fd f;
-+	int err;
-+
-+	if (CHECK_ATTR(BPF_OBJ_GET_INFO_BY_FD))
-+		return -EINVAL;
-+
-+	f = fdget(ufd);
-+	if (!f.file)
-+		return -EBADFD;
-+
-+	if (f.file->f_op == &bpf_prog_fops)
-+		err = bpf_prog_get_info_by_fd(f.file->private_data, attr,
-+					      uattr);
-+	else if (f.file->f_op == &bpf_map_fops)
-+		err = bpf_map_get_info_by_fd(f.file->private_data, attr,
-+					     uattr);
-+	else
-+		err = -EINVAL;
-+
-+	fdput(f);
-+	return err;
-+}
-+
- SYSCALL_DEFINE3(bpf, int, cmd, union bpf_attr __user *, uattr, unsigned int, size)
+ /* called from workqueue */
+ static void bpf_map_free_deferred(struct work_struct *work)
  {
- 	union bpf_attr attr = {};
-@@ -1256,23 +1395,10 @@ SYSCALL_DEFINE3(bpf, int, cmd, union bpf_attr __user *, uattr, unsigned int, siz
- 	 * user-space does not rely on any kernel feature
- 	 * extensions we dont know about yet.
- 	 */
--	if (size > sizeof(attr)) {
--		unsigned char __user *addr;
--		unsigned char __user *end;
--		unsigned char val;
--
--		addr = (void __user *)uattr + sizeof(attr);
--		end  = (void __user *)uattr + size;
--
--		for (; addr < end; addr++) {
--			err = get_user(val, addr);
--			if (err)
--				return err;
--			if (val)
--				return -E2BIG;
--		}
--		size = sizeof(attr);
--	}
-+	err = check_uarg_tail_zero(uattr, sizeof(attr), size);
-+	if (err)
-+		return err;
-+	size = min_t(u32, size, sizeof(attr));
+@@ -141,6 +166,7 @@ static void bpf_map_put_uref(struct bpf_map *map)
+ void bpf_map_put(struct bpf_map *map)
+ {
+ 	if (atomic_dec_and_test(&map->refcnt)) {
++		bpf_map_free_id(map);
+ 		INIT_WORK(&map->work, bpf_map_free_deferred);
+ 		schedule_work(&map->work);
+ 	}
+@@ -239,14 +265,20 @@ static int map_create(union bpf_attr *attr)
+ 	if (err)
+ 		goto free_map_nouncharge;
  
- 	/* copy attributes from user space, may be less than sizeof(bpf_attr) */
- 	if (copy_from_user(&attr, uattr, size) != 0)
-@@ -1328,6 +1454,9 @@ SYSCALL_DEFINE3(bpf, int, cmd, union bpf_attr __user *, uattr, unsigned int, siz
- 	case BPF_MAP_GET_FD_BY_ID:
- 		err = bpf_map_get_fd_by_id(&attr);
- 		break;
-+	case BPF_OBJ_GET_INFO_BY_FD:
-+		err = bpf_obj_get_info_by_fd(&attr, uattr);
-+		break;
- 	default:
- 		err = -EINVAL;
- 		break;
++	err = bpf_map_alloc_id(map);
++	if (err)
++		goto free_map;
++
+ 	err = bpf_map_new_fd(map);
+ 	if (err < 0)
+ 		/* failed to allocate fd */
+-		goto free_map;
++		goto free_id;
+ 
+ 	trace_bpf_map_create(map, err);
+ 	return err;
+ 
++free_id:
++	bpf_map_free_id(map);
+ free_map:
+ 	bpf_map_uncharge_memlock(map);
+ free_map_nouncharge:
 -- 
 2.9.3
