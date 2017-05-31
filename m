@@ -1,52 +1,49 @@
-From: Alexei Starovoitov <ast@fb.com>
-Subject: Re: [PATCH net-next 6/9] bpf: fix stack_depth usage by test_bpf.ko
-Date: Wed, 31 May 2017 11:45:58 -0700
-Message-ID: <f79ef874-55a1-cd58-a0e4-9859401a9249@fb.com>
-References: <20170530203135.3642768-7-ast@fb.com>
- <20170531.141502.1137764740674039078.davem@davemloft.net>
- <73af1b50-38b0-b7f3-5c74-e425d47209b6@fb.com>
- <20170531.144320.1591618196176086735.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v5 net-next 0/5] dsa: add Microchip KSZ9477 DSA driver
+Date: Wed, 31 May 2017 14:47:32 -0400 (EDT)
+Message-ID: <20170531.144732.768135527494752476.davem@davemloft.net>
+References: <9235D6609DB808459E95D78E17F2E43D40AA4D4C@CHN-SV-EXMX02.mchp-main.com>
+        <20170531.142830.1153280352895864825.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: <daniel@iogearbox.net>, <netdev@vger.kernel.org>,
-        <kernel-team@fb.com>
-To: David Miller <davem@davemloft.net>
+Cc: andrew@lunn.ch, f.fainelli@gmail.com, netdev@vger.kernel.org,
+        UNGLinuxDriver@microchip.com
+To: Woojung.Huh@microchip.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:55504 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1751019AbdEaSqX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 31 May 2017 14:46:23 -0400
-In-Reply-To: <20170531.144320.1591618196176086735.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([184.105.139.130]:42564 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751100AbdEaSre (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 31 May 2017 14:47:34 -0400
+In-Reply-To: <20170531.142830.1153280352895864825.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 5/31/17 11:43 AM, David Miller wrote:
-> From: Alexei Starovoitov <ast@fb.com>
-> Date: Wed, 31 May 2017 11:39:37 -0700
->
->> On 5/31/17 11:15 AM, David Miller wrote:
->>> From: Alexei Starovoitov <ast@fb.com>
->>> Date: Tue, 30 May 2017 13:31:32 -0700
->>>
->>>> test_bpf.ko doesn't call verifier before selecting interpreter or
->>>> JITing,
->>>> hence the tests need to manually specify the amount of stack they
->>>> consume.
->>>>
->>>> Signed-off-by: Alexei Starovoitov <ast@kernel.org>
->>>> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
->>>
->>> I do not like this and the previous patch, it seems so error prone.
->>
->> in what sense 'error prone' ?
->
-> In the sense that a human computes these numbers, and nothing checks
-> if it is correct or not until program perhaps crashes if the value is
-> wrong.
+From: David Miller <davem@davemloft.net>
+Date: Wed, 31 May 2017 14:28:30 -0400 (EDT)
 
-right. that's how all these tests are.
-See bpf_fill_ld_abs_vlan_push_pop() for example.
-If that codegen has a bug, it will crash the kernel.
-That's why it's done from kernel module to do things
-that user space cannot do.
+> From: <Woojung.Huh@microchip.com>
+> Date: Wed, 31 May 2017 00:00:34 +0000
+> 
+>> From: Woojung Huh <Woojung.Huh@microchip.com>
+>> 
+>> This series of patches is for Microchip KSZ9477 DSA driver.
+>> KSZ9477 is 7 ports GigE switch with numerous advanced features.
+>> 5 ports are 10/100/1000 Mbps internal PHYs and 2 ports have
+>> Interfaces to SGMII, RGMII, MII or RMII.
+>> 
+>> This patch supports VLAN, MDB, FDB and port mirroring offloads.
+>> 
+>> Welcome reviews and comments from community.
+>> 
+>> Note: Tests are performed on internal development board.
+> 
+> Series applied, thanks.
+
+Unfortunately, I had to revert, you didn't add MODULE_LICENSE() tags
+to the new drivers.
+
+WARNING: modpost: missing MODULE_LICENSE() in drivers/net/dsa/microchip/ksz_common.o
+see include/linux/module.h for more information
+WARNING: modpost: missing MODULE_LICENSE() in drivers/net/dsa/microchip/ksz_spi.o
+see include/linux/module.h for more information
