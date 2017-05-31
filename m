@@ -1,64 +1,49 @@
-From: Jia-Ju Bai <baijiaju1990-9Onoh4P/yGk@public.gmane.org>
-Subject: [PATCH] b43legacy: Fix a sleep-in-atomic bug in
- b43legacy_attr_interfmode_store
-Date: Wed, 31 May 2017 18:29:07 +0800
-Message-ID: <1496226547-5921-1-git-send-email-baijiaju1990@163.com>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: [PATCH] b43legacy: Fix a sleep-in-atomic bug in b43legacy_op_bss_info_changed
+Date: Wed, 31 May 2017 13:26:43 +0300
+Message-ID: <877f0xnwyk.fsf@kamboji.qca.qualcomm.com>
+References: <1496225353-5544-1-git-send-email-baijiaju1990@163.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Jia-Ju Bai <baijiaju1990-9Onoh4P/yGk@public.gmane.org>,
- linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b43-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
- linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org,
-	kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org
-Return-path: <b43-dev-bounces+gldbd-bcm43xx-dev=gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/b43-dev>,
- <mailto:b43-dev-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/b43-dev/>
-List-Post: <mailto:b43-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b43-dev-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/b43-dev>,
- <mailto:b43-dev-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: "b43-dev" <b43-dev-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-Errors-To: b43-dev-bounces+gldbd-bcm43xx-dev=gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+Content-Type: text/plain
+Cc: Larry.Finger@lwfinger.net, linux-wireless@vger.kernel.org,
+        b43-dev@lists.infradead.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Jia-Ju Bai <baijiaju1990@163.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1496225353-5544-1-git-send-email-baijiaju1990@163.com> (Jia-Ju
+        Bai's message of "Wed, 31 May 2017 18:09:13 +0800")
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The driver may sleep under a spin lock, and the function call path is:
-b43legacy_attr_interfmode_store (acquire the lock by spin_lock_irqsave)
-  b43legacy_radio_set_interference_mitigation
-    b43legacy_radio_interference_mitigation_disable
-      b43legacy_calc_nrssi_slope
-        b43legacy_synth_pu_workaround
-          might_sleep and msleep --> may sleep
+Jia-Ju Bai <baijiaju1990@163.com> writes:
 
-Fixing it may be complex, and a possible way is to remove 
-spin_lock_irqsave and spin_lock_irqrestore in 
-b43legacy_attr_interfmode_store, and the code has been protected by
-mutex_lock and mutex_unlock.
+> The driver may sleep under a spin lock, and the function call path is:
+> b43legacy_op_bss_info_changed (acquire the lock by spin_lock_irqsave)
+>   b43legacy_synchronize_irq
+>     synchronize_irq --> may sleep
+>
+> To fix it, the lock is released before b43legacy_synchronize_irq, and the 
+> lock is acquired again after this function.
+>
+> Signed-off-by: Jia-Ju Bai <baijiaju1990@163.com>
+> ---
+>  drivers/net/wireless/broadcom/b43legacy/main.c |    2 ++
+>  1 file changed, 2 insertions(+)
+>
+> diff --git a/drivers/net/wireless/broadcom/b43legacy/main.c b/drivers/net/wireless/broadcom/b43legacy/main.c
+> index f1e3dad..31ead21 100644
+> --- a/drivers/net/wireless/broadcom/b43legacy/main.c
+> +++ b/drivers/net/wireless/broadcom/b43legacy/main.c
+> @@ -2859,7 +2859,9 @@ static void b43legacy_op_bss_info_changed(struct ieee80211_hw *hw,
+>  	b43legacy_write32(dev, B43legacy_MMIO_GEN_IRQ_MASK, 0);
+>  
+>  	if (changed & BSS_CHANGED_BSSID) {
+> +		spin_unlock_irqrestore(&wl->irq_lock, flags);
+>  		b43legacy_synchronize_irq(dev);
+> +		spin_lock_irqsave(&wl->irq_lock, flags);
 
-Signed-off-by: Jia-Ju Bai <baijiaju1990-9Onoh4P/yGk@public.gmane.org>
----
- drivers/net/wireless/broadcom/b43legacy/sysfs.c |    2 --
- 1 file changed, 2 deletions(-)
+To me this looks like a fragile workaround and not a real fix. You can
+easily add new race conditions with releasing the lock like this.
 
-diff --git a/drivers/net/wireless/broadcom/b43legacy/sysfs.c b/drivers/net/wireless/broadcom/b43legacy/sysfs.c
-index 2a1da15..9ede143 100644
---- a/drivers/net/wireless/broadcom/b43legacy/sysfs.c
-+++ b/drivers/net/wireless/broadcom/b43legacy/sysfs.c
-@@ -137,14 +137,12 @@ static ssize_t b43legacy_attr_interfmode_store(struct device *dev,
- 	}
- 
- 	mutex_lock(&wldev->wl->mutex);
--	spin_lock_irqsave(&wldev->wl->irq_lock, flags);
- 
- 	err = b43legacy_radio_set_interference_mitigation(wldev, mode);
- 	if (err)
- 		b43legacyerr(wldev->wl, "Interference Mitigation not "
- 		       "supported by device\n");
- 	mmiowb();
--	spin_unlock_irqrestore(&wldev->wl->irq_lock, flags);
- 	mutex_unlock(&wldev->wl->mutex);
- 
- 	return err ? err : count;
 -- 
-1.7.9.5
+Kalle Valo
