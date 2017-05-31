@@ -1,33 +1,46 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: Re: [PATCH V3] neigh: Really delete an arp/neigh entry on "ip neigh
- delete" or "arp -d"
-Date: Wed, 31 May 2017 18:07:57 -0400
-Message-ID: <20170531220757.GI9362@oracle.com>
-References: <1496188346-83229-1-git-send-email-sowmini.varadhan@oracle.com>
- <alpine.LFD.2.20.1705312337280.5775@ja.home.ssi.bg>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: loosing netdevices with namespaces and unshare?
+Date: Wed, 31 May 2017 15:40:33 -0700
+Message-ID: <CAM_iQpWicK0XySQ+L+DtVi2e2hUZx7w9CL0hC-kOaQsdbpXKtw@mail.gmail.com>
+References: <20170530220741.ldmhwj3bsvdoaofc@nataraja> <CAM_iQpW2ARBTmGK8JhVXSFCaB1F-WPDKeDZwEbxMLf_Xi7aXQw@mail.gmail.com>
+ <20170531122752.siaou43verg4epep@nataraja> <CAM_iQpU517NR1xsrDrAohnESdS33WoToHsdGD0yOWSiGU9Yiqg@mail.gmail.com>
+ <20170531181108.3kv5xqszwv5ub7cy@nataraja>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-        stephen@networkplumber.org
-To: Julian Anastasov <ja@ssi.bg>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Harald Welte <laforge@gnumonks.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:31939 "EHLO
-        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751000AbdEaWIP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 31 May 2017 18:08:15 -0400
-Content-Disposition: inline
-In-Reply-To: <alpine.LFD.2.20.1705312337280.5775@ja.home.ssi.bg>
+Received: from mail-wm0-f47.google.com ([74.125.82.47]:37257 "EHLO
+        mail-wm0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751274AbdEaWk7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 31 May 2017 18:40:59 -0400
+Received: by mail-wm0-f47.google.com with SMTP id d127so37817956wmf.0
+        for <netdev@vger.kernel.org>; Wed, 31 May 2017 15:40:59 -0700 (PDT)
+In-Reply-To: <20170531181108.3kv5xqszwv5ub7cy@nataraja>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On (06/01/17 00:41), Julian Anastasov wrote:
-> 
-> 	So, we do not hold reference to neigh while accessing
-> its fields. I suspect we need to move the table lock from
-> neigh_remove_one here, for example:
+On Wed, May 31, 2017 at 11:11 AM, Harald Welte <laforge@gnumonks.org> wrote:
+> I mean, what is the *use case* for loosing any refrence to a physical
+> network device and unregistering it from the stack?  Is there any API by
+> which a new netdevice structure can be instantiated on the actual
+> hardware?  Registering the netdev is what the driver does during
+> discovering the system hardware.  If there's a method to "automagically"
+> loose devices, at the very least I wold expect some reasonable method to
+> resurrect them.  Unloading the kernel module and reloading it is for
+> sure not elegant, particularly not if you have multiple Ethernet
+> devices/ports sharing the same driver.
+>
+> One could e.g. also think of something like a special namespace that
+> collects all the "orphan" netdevices.  Something analogous to the old
+> Unix tradition of "pid 1" collecting all the orphan tasks whose parents
+> died.  Transferring them into that "netdev orphanage" could
+> automatically set the link down so that no accidential
+> routing/forwarding of traffic between the devices is possible.
 
-Another thought is to have neigh_remove_one to remove
-a neigh only if it is NUD_FAILED - that may potentially remove
-more than one entry, but that's probably harmless?
+Understand.
 
---Sowmini
+But you have other choices than using the physical interface
+directly in non-root ns, for example, creating a virtual pair and
+connect it with the physical one with a bridge. There are various
+ways to achieve this.
