@@ -1,58 +1,64 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Leak in ipv6_gso_segment()?
-Date: Wed, 31 May 2017 13:26:02 +0100
-Message-ID: <1496233562.3992.10.camel@decadent.org.uk>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: [patch iproute2 v2 repost 3/3] tc/actions: introduce support
+ for goto chain action
+Date: Wed, 31 May 2017 14:27:02 +0200
+Message-ID: <20170531142702.6d0ca6fa@griffin>
+References: <20170516172802.1317-1-jiri@resnulli.us>
+        <20170516172937.1391-3-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-        protocol="application/pgp-signature"; boundary="=-qkhkTFbj+jav1IoWI6Vo"
-Cc: netdev <netdev@vger.kernel.org>
-To: Craig Gallek <kraig@google.com>,
-        "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, jhs@mojatatu.com,
+        xiyou.wangcong@gmail.com, dsa@cumulusnetworks.com,
+        edumazet@google.com, stephen@networkplumber.org,
+        daniel@iogearbox.net, alexander.h.duyck@intel.com,
+        simon.horman@netronome.com, mlxsw@mellanox.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:54025 "EHLO
-        shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751164AbdEaM0V (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 31 May 2017 08:26:21 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:46344 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751000AbdEaM1I (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 31 May 2017 08:27:08 -0400
+In-Reply-To: <20170516172937.1391-3-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Tue, 16 May 2017 19:29:37 +0200, Jiri Pirko wrote:
+> From: Jiri Pirko <jiri@mellanox.com>
+> 
+> Allow user to set control action "goto" with filter chain index as
+> a parameter.
+> 
+> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+> ---
+>  include/linux/pkt_cls.h | 16 +++++++++++++++-
+>  man/man8/tc-ife.8       |  2 +-
+>  man/man8/tc-pedit.8     |  2 +-
+>  man/man8/tc-police.8    |  2 +-
+>  man/man8/tc-vlan.8      |  2 +-
 
---=-qkhkTFbj+jav1IoWI6Vo
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Jiri, this *seriously* needs a proper documentation. I consider myself
+to be well above average in understanding tc filters and actions, and as
+you know I participated at least passively in some chats about the
+chains. Yet I'm still very lost in semantics of chains. I cannot
+imagine how an average user would be able to use this.
 
-If I'm not mistaken, ipv6_gso_segment() now leaks segs if
-ip6_find_1stfragopt() fails.  I'm not sure whether the fix would be as
-simple as adding a kfree_skb(segs) or whether more complex cleanup is
-needed.
+Some questions about the semantics:
 
-Ben.
+- What chain(s) are processed by default? If I don't use goto_chain but
+  have multiple chains, will only chain 0 be processed, or more? In
+  what order, what are the rules? If I don't have a chain 0, what would
+  happen?
 
---=20
-Ben Hutchings
-Lowery's Law:
-=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0If it jams, force it. If it=
- breaks, it needed replacing anyway.
+- What is the relation between priorities and chains? I expected that
+  chains are under the same priority but that's not the case in your
+  example. For a user, it's very unclear why there are priorities and
+  chains. They appear to do the same thing, why can't I just jump
+  between priorities?
 
---=-qkhkTFbj+jav1IoWI6Vo
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
+Please, in addition to explaining here on the list, add detailed
+explanation to the man pages.
 
------BEGIN PGP SIGNATURE-----
+Thanks,
 
-iQIzBAABCgAdFiEErCspvTSmr92z9o8157/I7JWGEQkFAlkutloACgkQ57/I7JWG
-EQlD6hAAmc5jKxYV9/UlGZg6rLhm1aD9KGxRl4LVTbxJXCQucTH+VgU9f7TLfS2y
-k5tSv1gzcjydyKj1Hk2HeZsuB001wWEr7ncJhV86K5YCDm5p9GCQxQC5CgqV7krN
-PpsbBQKQLa9TjNKjXI+NrItG3xpJ/GIoc1wKOAX4I46RI/PR2w/IFe467pewEOmF
-N79xBsnYi3WXLAImK1rRcXyXDGTiOF4Hsz5XKjkGxpk5v/JE7ESl4l2WO46DQBUq
-HTrOtB1H4NRGe16vJU8GOkp4x/b5s7/4rAYaRtLElzSkP6MF5Qi53ihY5FDuRiVI
-sPw19eNjeaZ7VQbRBYwNN5SzRVIvpH+ZKT5hlDy/L1tXdHQC6pZe1SKIdAtLuQ4j
-3eNUF3fu3fmGVa4Uwe46loJSg/YnX2uZTKzh+O5HV4TSJI0+nisJnO53Hpyv4xMR
-eSLs6g+h+DzbALNN4QKH1VAzL9F2uJi54N7rShw3U+XfwIilKB0H7F/cpAltDDsG
-g8Bn80QqXhHcFwVtuvU7e+ZMzEMEyiiMsJF7wlL6sOVnsh1XmfC8n9gQQhOvZ1Ti
-Z4j8gkUQtKVtpFGut62FTIpiNMTokZ41UFrpJXqpg2/9POW7Dj3W9u7RRY0jyiSo
-M+lwqNu0TcWieKrwv/i35nrygZt4+zCSoLBfVWm5PymSqm50MTE=
-=xKK4
------END PGP SIGNATURE-----
-
---=-qkhkTFbj+jav1IoWI6Vo--
+ Jiri
