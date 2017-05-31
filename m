@@ -1,45 +1,48 @@
-From: Jia-Ju Bai <baijiaju1990@163.com>
-Subject: [PATCH] qed: Fix a sleep-in-interrupt bug in qed_int_sp_dpc
-Date: Wed, 31 May 2017 22:23:28 +0800
-Message-ID: <1496240608-17453-1-git-send-email-baijiaju1990@163.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Jia-Ju Bai <baijiaju1990@163.com>
-To: Yuval.Mintz@cavium.com, Ariel.Elior@cavium.com,
-        everest-linux-l2@cavium.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PULL] topic/e1000e-fix
+Date: Wed, 31 May 2017 11:08:33 -0400 (EDT)
+Message-ID: <20170531.110833.1362264472730468352.davem@davemloft.net>
+References: <CAPM=9twH-CXm+xj2Os87Ra7nOBQ+WNXYGF83wFqpQ3s=MNx_mQ@mail.gmail.com>
+        <CAKMK7uF-b1U7qipgEoYnAjDtrNdvKYT4KkoV2=krikkdGERkCw@mail.gmail.com>
+        <CAKMK7uGbi2Bwfno9XogKZ-LUOyMepbtRyGuGrNYWwj6Cts+uag@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: airlied@gmail.com, intel-gfx@lists.freedesktop.org,
+        dri-devel@lists.freedesktop.org, jani.nikula@linux.intel.com,
+        jeffrey.t.kirsher@intel.com, intel-wired-lan@lists.osuosl.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: daniel.vetter@ffwll.ch
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAKMK7uGbi2Bwfno9XogKZ-LUOyMepbtRyGuGrNYWwj6Cts+uag@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The driver may sleep in interrupt handling, and the function call path is:
-qed_int_sp_dpc (tasklet_init indicates it handles interrupt)
-  qed_int_attentions
-    qed_mcp_handle_events
-      qed_mcp_handle_link_change
-        qed_link_update
-          qed_fill_link
-            qed_mcp_get_media_type
-              qed_ptt_acquire
-                usleep_range --> may sleep
+From: Daniel Vetter <daniel.vetter@ffwll.ch>
+Date: Wed, 31 May 2017 08:10:45 +0200
 
-To fix it, the "usleep_range" is replaced with "udelay".
+> On Wed, May 31, 2017 at 7:54 AM, Daniel Vetter <daniel.vetter@ffwll.ch> wrote:
+>> On Wed, May 31, 2017 at 1:06 AM, Dave Airlie <airlied@gmail.com> wrote:
+>>> On 31 May 2017 at 08:10, David Miller <davem@davemloft.net> wrote:
+>>>> From: Daniel Vetter <daniel.vetter@ffwll.ch>
+>>>> Date: Tue, 30 May 2017 22:15:42 +0200
+>>>>
+>>>>> If the e1000e maintainer wants to coalesce or not return statements
+>>>>> this simple way, that's imo on him to change the color as needed.
+>>>>
+>>>> That's not how things work.
+>>>>
+>>>> If the maintainer wants you to style things a certain way, either you
+>>>> do it that way or your patch isn't accepted.
+>>
+>> Consider this pull a regression report, pls handle it.
+> 
+> And I guess I pile of more cc, to make this regression report
+> complete. I mean you got the backtrace, bisect and a proposed fix, and
+> the almost-whitespace change demanded is something gcc does in its
+> sleep. I'd understand a request to retest if it would be a real
+> functional change, but in this situation I have no idea why this
+> regression just can't be fixed already.
 
-Signed-off-by: Jia-Ju Bai <baijiaju1990@163.com>
----
- drivers/net/ethernet/qlogic/qed/qed_hw.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_hw.c b/drivers/net/ethernet/qlogic/qed/qed_hw.c
-index a05feb3..3250cc4 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_hw.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_hw.c
-@@ -131,7 +131,7 @@ struct qed_ptt *qed_ptt_acquire(struct qed_hwfn *p_hwfn)
- 		}
- 
- 		spin_unlock_bh(&p_hwfn->p_ptt_pool->lock);
--		usleep_range(1000, 2000);
-+		udelay(1500);
- 	}
- 
- 	DP_NOTICE(p_hwfn, "PTT acquire timeout - failed to allocate PTT\n");
--- 
-1.7.9.5
+And we can't understand why respinning with the requested change is
+less work than making several postings such as this one.
