@@ -1,38 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/1] netvsc: Add #include's for csum_*
- function declarations
-Date: Wed, 31 May 2017 13:59:52 -0400 (EDT)
-Message-ID: <20170531.135952.1314266532351768088.davem@davemloft.net>
-References: <1496166184-19805-1-git-send-email-mikelley@microsoft.com>
+From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
+Subject: RE: [PATCH] qed: Fix a sleep-in-interrupt bug in qed_int_sp_dpc
+Date: Wed, 31 May 2017 17:59:58 +0000
+Message-ID: <BLUPR0701MB2004251BB71BADD16789022A8DF10@BLUPR0701MB2004.namprd07.prod.outlook.com>
+References: <1496240608-17453-1-git-send-email-baijiaju1990@163.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: olaf@aepfle.de, sthemmin@microsoft.com, netdev@vger.kernel.org,
- jasowang@redhat.com, linux-kernel@vger.kernel.org, marcelo.cerri@canonical.com,
- apw@canonical.com, devel@linuxdriverproject.org,
- leann.ogasawara@canonical.comi
-To: mikelley@microsoft.com
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1496166184-19805-1-git-send-email-mikelley@microsoft.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+Content-Transfer-Encoding: quoted-printable
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Jia-Ju Bai <baijiaju1990@163.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1496240608-17453-1-git-send-email-baijiaju1990@163.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Michael Kelley <mikelley@microsoft.com>
-Date: Tue, 30 May 2017 10:43:04 -0700
+> The driver may sleep in interrupt handling, and the function call path is=
+:
+> qed_int_sp_dpc (tasklet_init indicates it handles interrupt)
+>   qed_int_attentions
+>     qed_mcp_handle_events
+>       qed_mcp_handle_link_change
+>         qed_link_update
+>           qed_fill_link
+>             qed_mcp_get_media_type
+>               qed_ptt_acquire
+>                 usleep_range --> may sleep
+>=20
+> To fix it, the "usleep_range" is replaced with "udelay".
 
-> Add direct #include statements for declarations of csum_tcpudp_magic()
-> and csum_ipv6_magic(). While the needed #include's are picked up
-> indirectly for the x86 architecture, they aren't on other
-> architectures, resulting in compile errors.
-> 
-> Signed-off-by: Michael Kelley <mikelley@microsoft.com>
+Thanks for pointing this out, but I believe the fix isn't the right one.
 
-Applied, thank you.
+The better option would be to propagate the PTT from the outside
+instead of acquiring a new one - in the call stack you've shared
+qed_mcp_link_change() held a PTT entry and we could have propagated
+it all the way through.
+
+I'll try sending a fix for this in the next couple of days.
