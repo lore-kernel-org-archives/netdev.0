@@ -1,37 +1,54 @@
-From: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH v4 2/2] dt-bindings: net: Add Cortina device tree bindings
-Date: Wed, 31 May 2017 16:27:37 -0500
-Message-ID: <20170531212737.dlmddkc7tp4tj2ub@rob-hp-laptop>
-References: <1496049091-4637-1-git-send-email-bogdan.purcareata@nxp.com>
- <1496049091-4637-3-git-send-email-bogdan.purcareata@nxp.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH V3] neigh: Really delete an arp/neigh entry on "ip neigh
+ delete" or "arp -d"
+Date: Thu, 1 Jun 2017 00:41:33 +0300 (EEST)
+Message-ID: <alpine.LFD.2.20.1705312337280.5775@ja.home.ssi.bg>
+References: <1496188346-83229-1-git-send-email-sowmini.varadhan@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: andrew-g2DYL2Zd6BY@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Bogdan Purcareata <bogdan.purcareata-3arQi8VN3Tc@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1496049091-4637-3-git-send-email-bogdan.purcareata-3arQi8VN3Tc@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+        stephen@networkplumber.org
+To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ja.ssi.bg ([178.16.129.10]:56158 "EHLO ja.ssi.bg"
+        rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1750952AbdEaVlv (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 31 May 2017 17:41:51 -0400
+In-Reply-To: <1496188346-83229-1-git-send-email-sowmini.varadhan@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 29, 2017 at 09:11:31AM +0000, Bogdan Purcareata wrote:
-> Add device tree description info for Cortina 10G phy devices.
-> 
-> Signed-off-by: Bogdan Purcareata <bogdan.purcareata-3arQi8VN3Tc@public.gmane.org>
-> ---
-> v3 -> v4:
-> - Consistency nit between phy label and reg value.
-> - Add CORTINNA trademark info.
-> 
-> Patch introduced in v3 of the patchset.
-> 
->  Documentation/devicetree/bindings/net/cortina.txt | 21 +++++++++++++++++++++
->  1 file changed, 21 insertions(+)
->  create mode 100644 Documentation/devicetree/bindings/net/cortina.txt
 
-Acked-by: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+	Hello,
+
+On Tue, 30 May 2017, Sowmini Varadhan wrote:
+
+> @@ -1650,6 +1689,7 @@ static int neigh_delete(struct sk_buff *skb, struct nlmsghdr *nlh,
+>  			   NEIGH_UPDATE_F_ADMIN,
+>  			   NETLINK_CB(skb).portid);
+>  	neigh_release(neigh);
+> +	neigh_remove_one(neigh, tbl);
+
+	So, we do not hold reference to neigh while accessing
+its fields. I suspect we need to move the table lock from
+neigh_remove_one here, for example:
+
++	write_lock_bh(&tbl->lock);
+	neigh_release(neigh);
++	neigh_remove_one(neigh, tbl);
++	write_unlock_bh(&tbl->lock);
+
+	Otherwise, neigh_forced_gc can call neigh_destroy
+where neigh is freed (and replaced by another neigh entry) after
+RCU grace period (which can end prematurely if there are no
+running RCU read-side critical sections) and I'm not sure if
+our thread can be delayed, so that such pointer replacement
+can happen unnoticed by us.
+
+	Another solution to cause faster removal would be
+to cancel the gc_work and to schedule it after 1 jiffie.
+It helps when many entries are deleted at once but the
+work prefers to just sleep when gc_thresh1 is not reached,
+so such solution is not good enough.
+
+Regards
