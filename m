@@ -1,44 +1,39 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: [PATCH net] mpls: fix clearing of dead nh_flags on link up
-Date: Tue, 30 May 2017 23:50:36 -0700
-Message-ID: <1496213436-33961-1-git-send-email-roopa@cumulusnetworks.com>
-Cc: netdev@vger.kernel.org, dsahern@gmail.com
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f175.google.com ([209.85.192.175]:32806 "EHLO
-        mail-pf0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751002AbdEaGul (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 31 May 2017 02:50:41 -0400
-Received: by mail-pf0-f175.google.com with SMTP id e193so6034897pfh.0
-        for <netdev@vger.kernel.org>; Tue, 30 May 2017 23:50:41 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jia-Ju Bai <baijiaju1990@163.com>
+Subject: [PATCH] mISDN: Fix a sleep-in-atomic bug
+Date: Wed, 31 May 2017 15:08:25 +0800
+Message-ID: <1496214505-15155-1-git-send-email-baijiaju1990@163.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Jia-Ju Bai <baijiaju1990@163.com>
+To: isdn@linux-pingi.de, mingo@kernel.org, fweisbec@gmail.com,
+        geliangtang@gmail.com, akpm@linux-foundation.org,
+        davem@davemloft.net, yamada.masahiro@socionext.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
+The driver may sleep under a read spin lock, and the function call path is:
+send_socklist (acquire the lock by read_lock)
+  skb_copy(GFP_KERNEL) --> may sleep
 
-recent fixes to use WRITE_ONCE for nh_flags on link up,
-accidently ended up leaving the deadflags on a nh. This patch
-fixes the WRITE_ONCE to use freshly evaluated nh_flags.
+To fix it, the "GFP_KERNEL" is replaced with "GFP_ATOMIC".
 
-Fixes: 39eb8cd17588 ("net: mpls: rt_nhn_alive and nh_flags should be accessed using READ_ONCE")
-Reported-by: Satish Ashok <sashok@cumulusnetworks.com>
-Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+Signed-off-by: Jia-Ju Bai <baijiaju1990@163.com>
 ---
- net/mpls/af_mpls.c | 2 +-
+ drivers/isdn/mISDN/stack.c |    2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
-index 94b3317..b51582d 100644
---- a/net/mpls/af_mpls.c
-+++ b/net/mpls/af_mpls.c
-@@ -1483,7 +1483,7 @@ static void mpls_ifup(struct net_device *dev, unsigned int flags)
- 				continue;
- 			alive++;
- 			nh_flags &= ~flags;
--			WRITE_ONCE(nh->nh_flags, flags);
-+			WRITE_ONCE(nh->nh_flags, nh_flags);
- 		} endfor_nexthops(rt);
- 
- 		WRITE_ONCE(rt->rt_nhn_alive, alive);
+diff --git a/drivers/isdn/mISDN/stack.c b/drivers/isdn/mISDN/stack.c
+index 8b7faea..422dced 100644
+--- a/drivers/isdn/mISDN/stack.c
++++ b/drivers/isdn/mISDN/stack.c
+@@ -75,7 +75,7 @@
+ 		if (sk->sk_state != MISDN_BOUND)
+ 			continue;
+ 		if (!cskb)
+-			cskb = skb_copy(skb, GFP_KERNEL);
++			cskb = skb_copy(skb, GFP_ATOMIC);
+ 		if (!cskb) {
+ 			printk(KERN_WARNING "%s no skb\n", __func__);
+ 			break;
 -- 
-1.9.1
+1.7.9.5
