@@ -1,36 +1,44 @@
-From: Jakub Kicinski <kubakici@wp.pl>
-Subject: Re: [PATCH net-next] nfp: add MAY_USE_DEVLINK dependency
-Date: Wed, 31 May 2017 01:57:21 -0700
-Message-ID: <20170531015721.7a6d230e@cakuba.lan>
-References: <20170531081700.1948289-1-arnd@arndb.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Simon Horman <simon.horman@netronome.com>,
-        "David S. Miller" <davem@davemloft.net>, oss-drivers@netronome.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx4.wp.pl ([212.77.101.11]:19342 "EHLO mx4.wp.pl"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751028AbdEaI53 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 31 May 2017 04:57:29 -0400
-In-Reply-To: <20170531081700.1948289-1-arnd@arndb.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jia-Ju Bai <baijiaju1990@163.com>
+Subject: [PATCH] netxen: Fix a sleep-in-atomic bug in netxen_nic_hw_read_wx_2M and netxen_nic_hw_write_wx_2M
+Date: Wed, 31 May 2017 17:15:12 +0800
+Message-ID: <1496222112-4402-1-git-send-email-baijiaju1990@163.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Jia-Ju Bai <baijiaju1990@163.com>
+To: manish.chopra@cavium.com, rahul.verma@cavium.com,
+        Dept-GELinuxNICDev@cavium.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 31 May 2017 10:16:50 +0200, Arnd Bergmann wrote:
-> When devlink is configured as a loadable module, a built-in nfp driver
-> causes a link error:
-> 
-> drivers/net/built-in.o: In function `nfp_devlink_port_register':
-> (.text+0xb8b05): undefined reference to `devlink_port_type_eth_set'
-> drivers/net/built-in.o: In function `nfp_devlink_port_register':
-> (.text+0xb8b16): undefined reference to `devlink_port_split_set'
-> 
-> This adds a special Kconfig dependency on CONFIG_MAY_USE_DEVLINK
-> to avoid that combination and force nfp to be a module when NET_DEVLINK=m.
+The driver may sleep under a write spin lock, and function call path is:
+netxen_nic_hw_read_wx_2M (acquire the lock by write_lock_irqsave)
+  crb_win_lock
+    netxen_pcie_sem_lock
+      msleep --> may sleep
+netxen_nic_hw_write_wx_2M (acquire the lock by write_lock_irqsave)
+  crb_win_lock
+    netxen_pcie_sem_lock
+      msleep --> may sleep
 
-Thanks, this should be fixed in net-next already by commit 
-d935bc84c940 ("nfp: add MAY_USE_DEVLINK dependency").  Same 
-subject/commit title as yours :)
+To fix it, the "msleep" is replaced with "mdelay" in netxen_pcie_sem_lock.
+
+Signed-off-by: Jia-Ju Bai <baijiaju1990@163.com>
+---
+ drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c b/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c
+index a996801..0a9da42 100644
+--- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c
++++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c
+@@ -329,7 +329,7 @@ static void __iomem *pci_base_offset(struct netxen_adapter *adapter,
+ 			break;
+ 		if (++timeout >= NETXEN_PCIE_SEM_TIMEOUT)
+ 			return -EIO;
+-		msleep(1);
++		mdelay(1);
+ 	}
+ 
+ 	if (id_reg)
+-- 
+1.7.9.5
