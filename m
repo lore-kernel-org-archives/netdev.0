@@ -1,49 +1,59 @@
-From: Ganesh Goudar <ganeshgr@chelsio.com>
-Subject: [PATCH net-next] cxgb4: fix incorrect cim_la output for T6
-Date: Wed, 31 May 2017 19:10:21 +0530
-Message-ID: <1496238021-23996-1-git-send-email-ganeshgr@chelsio.com>
-Cc: nirranjan@chelsio.com, indranil@chelsio.com,
-        Ganesh Goudar <ganeshgr@chelsio.com>
-To: netdev@vger.kernel.org, davem@davemloft.net
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: 'iw events' stops receiving events after a while on 4.9 + hacks
+Date: Wed, 31 May 2017 06:46:53 -0700
+Message-ID: <6df299af-c053-9b60-19b9-8fb187d75d22@candelatech.com>
+References: <d82d191e-8ede-68c6-c9e0-c381dc874d36@candelatech.com>
+ <20170517100844.GC2849@medion.lan>
+ <1495027835.2442.13.camel@sipsolutions.net>
+ <fa96dfad-8d1b-c48f-df3b-3df0d548a5c6@candelatech.com>
+ <1496150322.3327.9.camel@sipsolutions.net> <20170531081836.GC2849@medion.lan>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+        "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>
+To: Bastian Bittorf <bb@npl.de>,
+        Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.32.117.8]:27901 "EHLO
-        stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751090AbdEaNkc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 31 May 2017 09:40:32 -0400
+Received: from mail2.candelatech.com ([208.74.158.173]:58840 "EHLO
+        mail2.candelatech.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750878AbdEaNqz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 31 May 2017 09:46:55 -0400
+In-Reply-To: <20170531081836.GC2849@medion.lan>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-take care of UpDbgLaRdPtr[0-3] restriction for T6.
 
-Signed-off-by: Ganesh Goudar <ganeshgr@chelsio.com>
----
-v2:
-- not using loop to increment UPDBGLARDPTR
 
- drivers/net/ethernet/chelsio/cxgb4/t4_hw.c | 11 ++++++++++-
- 1 file changed, 10 insertions(+), 1 deletion(-)
+On 05/31/2017 01:18 AM, Bastian Bittorf wrote:
+> * Johannes Berg <johannes@sipsolutions.net> [31.05.2017 10:09]:
+>>> Is there any way to dump out the socket information if we reproduce
+>>> the problem?
+>>
+>> I have no idea, sorry.
+>>
+>> If you or Bastian can tell me how to reproduce the problem, I can try
+>> to investigate it.
+>
+> there was an interesting fix regarding the shell-builtin 'read' in
+> busybox[1]. I will retest again and report if this changes anything.
+>
+> bye, bastian
+>
+> PS: @ben: are you also using 'iw event | while read -r LINE ...'?
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-index 9160c88..822c560 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-@@ -8312,7 +8312,16 @@ int t4_cim_read_la(struct adapter *adap, u32 *la_buf, unsigned int *wrptr)
- 		ret = t4_cim_read(adap, UP_UP_DBG_LA_DATA_A, 1, &la_buf[i]);
- 		if (ret)
- 			break;
--		idx = (idx + 1) & UPDBGLARDPTR_M;
-+
-+		/* Bits 0-3 of UpDbgLaRdPtr can be between 0000 to 1001 to
-+		 * identify the 32-bit portion of the full 312-bit data
-+		 */
-+		if (is_t6(adap->params.chip) && (idx & 0xf) >= 9)
-+			idx = (idx & 0xff0) + 0x10;
-+		else
-+			idx++;
-+		/* address can't exceed 0xfff */
-+		idx &= UPDBGLARDPTR_M;
- 	}
- restart:
- 	if (cfg & UPDBGLAEN_F) {
+I'm using a perl script to read the output, and not using busybox.
+
+I have not seen the problem again, so it is not easy for me to reproduce.
+
+If you reproduce it, maybe check 'strace' on the 'iw' process to see if it is
+hung on writing output to the pipe or reading input?  In my case, it appeared
+to be hung reading input from netlink, input that never arrived.
+
+Thanks,
+Ben
+
+
 -- 
-2.1.0
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
