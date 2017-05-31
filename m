@@ -1,100 +1,107 @@
-From: Jani Nikula <jani.nikula@intel.com>
-Subject: [PATCH v2 1/1] e1000e: Undo e1000e_pm_freeze if
-	__e1000_shutdown fails
-Date: Wed, 31 May 2017 18:50:43 +0300
-Message-ID: <20170531155043.3596-2-jani.nikula@intel.com>
-References: <20170531.110833.1362264472730468352.davem@davemloft.net>
- <20170531155043.3596-1-jani.nikula@intel.com>
+From: Lance Richardson <lrichard@redhat.com>
+Subject: Re: [PATCH net] vxlan: eliminate cached dst leak
+Date: Wed, 31 May 2017 11:48:19 -0400 (EDT)
+Message-ID: <417842781.17409724.1496245699953.JavaMail.zimbra@redhat.com>
+References: <20170529172557.7065-1-lrichard@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Jani Nikula <jani.nikula@intel.com>, netdev@vger.kernel.org,
- intel-gfx@lists.freedesktop.org, Bruce Allan <bruce.w.allan@intel.com>,
- linux-kernel@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
- dri-devel@lists.freedesktop.org, Dave Ertman <davidx.m.ertman@intel.com>,
- jeffrey.t.kirsher@intel.com
-To: David Miller <davem@davemloft.net>,
-	daniel.vetter@ffwll.ch
-Return-path: <intel-gfx-bounces@lists.freedesktop.org>
-In-Reply-To: <20170531155043.3596-1-jani.nikula@intel.com>
-List-Unsubscribe: <https://lists.freedesktop.org/mailman/options/intel-gfx>,
- <mailto:intel-gfx-request@lists.freedesktop.org?subject=unsubscribe>
-List-Archive: <https://lists.freedesktop.org/archives/intel-gfx>
-List-Post: <mailto:intel-gfx@lists.freedesktop.org>
-List-Help: <mailto:intel-gfx-request@lists.freedesktop.org?subject=help>
-List-Subscribe: <https://lists.freedesktop.org/mailman/listinfo/intel-gfx>,
- <mailto:intel-gfx-request@lists.freedesktop.org?subject=subscribe>
-Errors-To: intel-gfx-bounces@lists.freedesktop.org
-Sender: "Intel-gfx" <intel-gfx-bounces@lists.freedesktop.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: pabeni@redhat.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:51536 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750898AbdEaPsW (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 31 May 2017 11:48:22 -0400
+Received: from smtp.corp.redhat.com (int-mx06.intmail.prod.int.phx2.redhat.com [10.5.11.16])
+        (using TLSv1.2 with cipher AECDH-AES256-SHA (256/256 bits))
+        (No client certificate requested)
+        by mx1.redhat.com (Postfix) with ESMTPS id 6F5064E4D0
+        for <netdev@vger.kernel.org>; Wed, 31 May 2017 15:48:22 +0000 (UTC)
+In-Reply-To: <20170529172557.7065-1-lrichard@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogQ2hyaXMgV2lsc29uIDxjaHJpc0BjaHJpcy13aWxzb24uY28udWs+CgpBbiBlcnJvciBk
-dXJpbmcgc3VzcGVuZCAoZTEwMGVfcG1fc3VzcGVuZCksCgpbICA0MjkuOTk0MzM4XSBBQ1BJIDog
-RUM6IGV2ZW50IGJsb2NrZWQKWyAgNDI5Ljk5NDYzM10gZTEwMDBlOiBFRUUgVFggTFBJIFRJTUVS
-OiAwMDAwMDAxMQpbICA0MzAuOTU1NDUxXSBwY2lfcG1fc3VzcGVuZCgpOiBlMTAwMGVfcG1fc3Vz
-cGVuZCsweDAvMHgzMCBbZTEwMDBlXSByZXR1cm5zIC0yClsgIDQzMC45NTU0NTRdIGRwbV9ydW5f
-Y2FsbGJhY2soKTogcGNpX3BtX3N1c3BlbmQrMHgwLzB4MTQwIHJldHVybnMgLTIKWyAgNDMwLjk1
-NTQ1OF0gUE06IERldmljZSAwMDAwOjAwOjE5LjAgZmFpbGVkIHRvIHN1c3BlbmQgYXN5bmM6IGVy
-cm9yIC0yClsgIDQzMC45NTU1ODFdIFBNOiBTb21lIGRldmljZXMgZmFpbGVkIHRvIHN1c3BlbmQs
-IG9yIGVhcmx5IHdha2UgZXZlbnQgZGV0ZWN0ZWQKWyAgNDMwLjk1NzcwOV0gQUNQSSA6IEVDOiBl
-dmVudCB1bmJsb2NrZWQKCmxlYWQgdG8gY29tcGxldGUgZmFpbHVyZToKClsgIDQzMi41ODUwMDJd
-IC0tLS0tLS0tLS0tLVsgY3V0IGhlcmUgXS0tLS0tLS0tLS0tLQpbICA0MzIuNTg1MDEzXSBXQVJO
-SU5HOiBDUFU6IDMgUElEOiA4MzcyIGF0IGtlcm5lbC9pcnEvbWFuYWdlLmM6MTQ3OCBfX2ZyZWVf
-aXJxKzB4OWYvMHgyODAKWyAgNDMyLjU4NTAxNV0gVHJ5aW5nIHRvIGZyZWUgYWxyZWFkeS1mcmVl
-IElSUSAyMApbICA0MzIuNTg1MDE2XSBNb2R1bGVzIGxpbmtlZCBpbjogY2RjX25jbSB1c2JuZXQg
-eDg2X3BrZ190ZW1wX3RoZXJtYWwgaW50ZWxfcG93ZXJjbGFtcCBjb3JldGVtcCBtaWkgY3JjdDEw
-ZGlmX3BjbG11bCBjcmMzMl9wY2xtdWwgZ2hhc2hfY2xtdWxuaV9pbnRlbCBzbmRfaGRhX2NvZGVj
-X2hkbWkgc25kX2hkYV9jb2RlY19yZWFsdGVrIHNuZF9oZGFfY29kZWNfZ2VuZXJpYyBzbmRfaGRh
-X2ludGVsIHNuZF9oZGFfY29kZWMgc25kX2h3ZGVwIGxwY19pY2ggc25kX2hkYV9jb3JlIHNuZF9w
-Y20gbWVpX21lIG1laSBzZGhjaV9wY2kgc2RoY2kgaTkxNSBtbWNfY29yZSBlMTAwMGUgcHRwIHBw
-c19jb3JlIHByaW1lX251bWJlcnMKWyAgNDMyLjU4NTA0Ml0gQ1BVOiAzIFBJRDogODM3MiBDb21t
-OiBrd29ya2VyL3UxNjo0MCBUYWludGVkOiBHICAgICBVICAgICAgICAgIDQuMTAuMC1yYzgtQ0kt
-UGF0Y2h3b3JrXzM4NzArICMxClsgIDQzMi41ODUwNDRdIEhhcmR3YXJlIG5hbWU6IExFTk9WTyAy
-MzU2R0NHLzIzNTZHQ0csIEJJT1MgRzdFVDMxV1cgKDEuMTMgKSAwNy8wMi8yMDEyClsgIDQzMi41
-ODUwNTBdIFdvcmtxdWV1ZTogZXZlbnRzX3VuYm91bmQgYXN5bmNfcnVuX2VudHJ5X2ZuClsgIDQz
-Mi41ODUwNTFdIENhbGwgVHJhY2U6ClsgIDQzMi41ODUwNThdICBkdW1wX3N0YWNrKzB4NjcvMHg5
-MgpbICA0MzIuNTg1MDYyXSAgX193YXJuKzB4YzYvMHhlMApbICA0MzIuNTg1MDY1XSAgd2Fybl9z
-bG93cGF0aF9mbXQrMHg0YS8weDUwClsgIDQzMi41ODUwNzBdICA/IF9yYXdfc3Bpbl9sb2NrX2ly
-cXNhdmUrMHg0OS8weDYwClsgIDQzMi41ODUwNzJdICBfX2ZyZWVfaXJxKzB4OWYvMHgyODAKWyAg
-NDMyLjU4NTA3NV0gIGZyZWVfaXJxKzB4MzQvMHg4MApbICA0MzIuNTg1MDg5XSAgZTEwMDBfZnJl
-ZV9pcnErMHg2NS8weDcwIFtlMTAwMGVdClsgIDQzMi41ODUwOThdICBlMTAwMGVfcG1fZnJlZXpl
-KzB4N2EvMHhiMCBbZTEwMDBlXQpbICA0MzIuNTg1MTA2XSAgZTEwMDBlX3BtX3N1c3BlbmQrMHgy
-MS8weDMwIFtlMTAwMGVdClsgIDQzMi41ODUxMTNdICBwY2lfcG1fc3VzcGVuZCsweDcxLzB4MTQw
-ClsgIDQzMi41ODUxMThdICBkcG1fcnVuX2NhbGxiYWNrKzB4NmYvMHgzMzAKWyAgNDMyLjU4NTEy
-Ml0gID8gcGNpX3BtX2ZyZWV6ZSsweGUwLzB4ZTAKWyAgNDMyLjU4NTEyNV0gIF9fZGV2aWNlX3N1
-c3BlbmQrMHhlYS8weDMzMApbICA0MzIuNTg1MTI4XSAgYXN5bmNfc3VzcGVuZCsweDFhLzB4OTAK
-WyAgNDMyLjU4NTEzMl0gIGFzeW5jX3J1bl9lbnRyeV9mbisweDM0LzB4MTYwClsgIDQzMi41ODUx
-MzddICBwcm9jZXNzX29uZV93b3JrKzB4MWY0LzB4NmQwClsgIDQzMi41ODUxNDBdICA/IHByb2Nl
-c3Nfb25lX3dvcmsrMHgxNmUvMHg2ZDAKWyAgNDMyLjU4NTE0M10gIHdvcmtlcl90aHJlYWQrMHg0
-OS8weDRhMApbICA0MzIuNTg1MTQ1XSAga3RocmVhZCsweDEwNy8weDE0MApbICA0MzIuNTg1MTQ4
-XSAgPyBwcm9jZXNzX29uZV93b3JrKzB4NmQwLzB4NmQwClsgIDQzMi41ODUxNTBdICA/IGt0aHJl
-YWRfY3JlYXRlX29uX25vZGUrMHg0MC8weDQwClsgIDQzMi41ODUxNTRdICByZXRfZnJvbV9mb3Jr
-KzB4MmUvMHg0MApbICA0MzIuNTg1MTU2XSAtLS1bIGVuZCB0cmFjZSA2NzEyZGY3ZjhjNGI5MTI0
-IF0tLS0KClRoZSB1bndpbmQgZmFpbHVyZXMgc3RlbXMgZnJvbSBjb21taXQgMjgwMDIwOTk5NGY4
-ICgiZTEwMDBlOiBSZWZhY3RvciBQTQpmbG93cyIpLCBidXQgaXQgbWF5IGJlIGEgbGF0ZXIgcGF0
-Y2ggdGhhdCBpbnRyb2R1Y2VkIHRoZSBub24tcmVjb3ZlcmFibGUKYmVoYXZpb3VyLgoKRml4ZXM6
-IDI4MDAyMDk5OTRmOCAoImUxMDAwZTogUmVmYWN0b3IgUE0gZmxvd3MiKQpCdWd6aWxsYTogaHR0
-cHM6Ly9idWdzLmZyZWVkZXNrdG9wLm9yZy9zaG93X2J1Zy5jZ2k/aWQ9OTk4NDcKQ2M6IFR2cnRr
-byBVcnN1bGluIDx0dnJ0a28udXJzdWxpbkBpbnRlbC5jb20+CkNjOiBKZWZmIEtpcnNoZXIgPGpl
-ZmZyZXkudC5raXJzaGVyQGludGVsLmNvbT4KQ2M6IERhdmUgRXJ0bWFuIDxkYXZpZHgubS5lcnRt
-YW5AaW50ZWwuY29tPgpDYzogQnJ1Y2UgQWxsYW4gPGJydWNlLncuYWxsYW5AaW50ZWwuY29tPgpD
-YzogaW50ZWwtd2lyZWQtbGFuQGxpc3RzLm9zdW9zbC5vcmcKQ2M6IG5ldGRldkB2Z2VyLmtlcm5l
-bC5vcmcKU2lnbmVkLW9mZi1ieTogQ2hyaXMgV2lsc29uIDxjaHJpc0BjaHJpcy13aWxzb24uY28u
-dWs+CltKYW5pOiBiaWtlc2hlZCByZXBhaW50ZWRdClNpZ25lZC1vZmYtYnk6IEphbmkgTmlrdWxh
-IDxqYW5pLm5pa3VsYUBpbnRlbC5jb20+Ci0tLQogZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwv
-ZTEwMDBlL25ldGRldi5jIHwgNyArKysrKystCiAxIGZpbGUgY2hhbmdlZCwgNiBpbnNlcnRpb25z
-KCspLCAxIGRlbGV0aW9uKC0pCgpkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50
-ZWwvZTEwMDBlL25ldGRldi5jIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvZTEwMDBlL25l
-dGRldi5jCmluZGV4IGIzNjc5NzI4Y2FhYy4uNWNhZDY4OGJlNjA5IDEwMDY0NAotLS0gYS9kcml2
-ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9lMTAwMGUvbmV0ZGV2LmMKKysrIGIvZHJpdmVycy9uZXQv
-ZXRoZXJuZXQvaW50ZWwvZTEwMDBlL25ldGRldi5jCkBAIC02NjMwLDEyICs2NjMwLDE3IEBAIHN0
-YXRpYyBpbnQgZTEwMDBlX3BtX3RoYXcoc3RydWN0IGRldmljZSAqZGV2KQogc3RhdGljIGludCBl
-MTAwMGVfcG1fc3VzcGVuZChzdHJ1Y3QgZGV2aWNlICpkZXYpCiB7CiAJc3RydWN0IHBjaV9kZXYg
-KnBkZXYgPSB0b19wY2lfZGV2KGRldik7CisJaW50IHJjOwogCiAJZTEwMDBlX2ZsdXNoX2xwaWMo
-cGRldik7CiAKIAllMTAwMGVfcG1fZnJlZXplKGRldik7CiAKLQlyZXR1cm4gX19lMTAwMF9zaHV0
-ZG93bihwZGV2LCBmYWxzZSk7CisJcmMgPSBfX2UxMDAwX3NodXRkb3duKHBkZXYsIGZhbHNlKTsK
-KwlpZiAocmMpCisJCWUxMDAwZV9wbV90aGF3KGRldik7CisKKwlyZXR1cm4gcmM7CiB9CiAKIHN0
-YXRpYyBpbnQgZTEwMDBlX3BtX3Jlc3VtZShzdHJ1Y3QgZGV2aWNlICpkZXYpCi0tIAoyLjExLjAK
-Cl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCkludGVsLWdm
-eCBtYWlsaW5nIGxpc3QKSW50ZWwtZ2Z4QGxpc3RzLmZyZWVkZXNrdG9wLm9yZwpodHRwczovL2xp
-c3RzLmZyZWVkZXNrdG9wLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2ludGVsLWdmeAo=
+> From: "Lance Richardson" <lrichard@redhat.com>
+> To: netdev@vger.kernel.org, pabeni@redhat.com
+> Sent: Monday, 29 May, 2017 1:25:57 PM
+> Subject: [PATCH net] vxlan: eliminate cached dst leak
+> 
+> After commit 0c1d70af924b ("net: use dst_cache for vxlan device"),
+> cached dst entries could be leaked when more than one remote was
+> present for a given vxlan_fdb entry, causing subsequent netns
+> operations to block indefinitely and "unregister_netdevice: waiting
+> for lo to become free." messages to appear in the kernel log.
+> 
+> Fix by properly releasing cached dst and freeing resources in this
+> case.
+> 
+> Fixes: commit 0c1d70af924b ("net: use dst_cache for vxlan device")
+> Signed-off-by: Lance Richardson <lrichard@redhat.com>
+> ---
+
+This problem was originally debugged and the patch tested in an OpenStack
+(devstack) test environment. Here's a small(-ish) reproducer script that
+was cooked up after posting:
+
+ip netns add ns0
+ip netns add ns1
+ip netns add ns2
+
+ip link add p0 type veth peer name p1
+ip link add p2 type veth peer name p3
+ip link add p4 type veth peer name p5
+
+ip link add name br0 type bridge
+ip link set br0 up
+
+ip link set p0 master br0 up
+ip link set p1 netns ns0
+
+ip link set p2 master br0 up
+ip link set p3 netns ns1
+
+ip link set p4 master br0 up
+ip link set p5 netns ns2
+
+ip netns exec ns0 ip addr add "1.1.1.1/24" dev p1
+ip netns exec ns0 ip link set dev p1 up
+
+ip netns exec ns1 ip addr add "1.1.1.2/24" dev p3
+ip netns exec ns1 ip link set dev p3 up
+
+ip netns exec ns2 ip addr add "1.1.1.3/24" dev p5
+ip netns exec ns2 ip link set dev p5 up
+
+ip netns exec ns0 ip link add vxlan0 type vxlan dstport 4789 id 10 dev p1
+ip netns exec ns0 ip addr add "4.1.1.1/24" dev vxlan0
+ip netns exec ns0 ip link set dev vxlan0 up mtu 1450
+
+ip netns exec ns1 ip link add vxlan1 type vxlan dstport 4789 id 10 dev p3
+ip netns exec ns1 ip addr add "4.1.1.2/24" dev vxlan1
+ip netns exec ns1 ip link set dev vxlan1 up mtu 1450
+
+ip netns exec ns2 ip link add vxlan2 type vxlan dstport 4789 id 10 dev p5
+ip netns exec ns2 ip addr add "4.1.1.3/24" dev vxlan2
+ip netns exec ns2 ip link set dev vxlan2 up mtu 1450
+
+# Create a vxlan default fdb entry with two remotes in the list
+ip netns exec ns0 bridge fdb append to 00:00:00:00:00:00 dst 1.1.1.2 dev vxlan0
+ip netns exec ns0 bridge fdb append to 00:00:00:00:00:00 dst 1.1.1.3 dev vxlan0
+
+# Forward some packets to populate dst cache for default fdb
+ip netns exec ns0 ping -c 2 4.1.1.2
+ip netns exec ns0 ping -c 2 4.1.1.3
+
+# delete one of the entries in the fdb remotes list to trigger the bug
+ip netns exec ns0 bridge fdb del to 00:00:00:00:00:00 dst 1.1.1.3 dev vxlan0
+
+ip netns del ns2
+ip netns del ns1
+ip netns del ns0
+
+# If bug is triggered, kernel messages similar to this should be logged:
+#
+#    kernel:unregister_netdevice: waiting for lo to become free. Usage count = 1
+#
+# Netns commands like "ip netns add ns3" will hang indefinitely.
