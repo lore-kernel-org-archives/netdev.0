@@ -1,41 +1,555 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next 9/9] nfp: fix memory leak on FW load error
-Date: Wed, 31 May 2017 08:06:51 -0700
-Message-ID: <20170531150651.16873-10-jakub.kicinski@netronome.com>
+Subject: [PATCH net-next 4/9] nfp: move port init to apps
+Date: Wed, 31 May 2017 08:06:46 -0700
+Message-ID: <20170531150651.16873-5-jakub.kicinski@netronome.com>
 References: <20170531150651.16873-1-jakub.kicinski@netronome.com>
 Cc: oss-drivers@netronome.com,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f182.google.com ([209.85.192.182]:35530 "EHLO
-        mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751033AbdEaPMA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 31 May 2017 11:12:00 -0400
-Received: by mail-pf0-f182.google.com with SMTP id n23so11963224pfb.2
-        for <netdev@vger.kernel.org>; Wed, 31 May 2017 08:12:00 -0700 (PDT)
+Received: from mail-pf0-f171.google.com ([209.85.192.171]:34509 "EHLO
+        mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751033AbdEaPLv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 31 May 2017 11:11:51 -0400
+Received: by mail-pf0-f171.google.com with SMTP id 9so11985025pfj.1
+        for <netdev@vger.kernel.org>; Wed, 31 May 2017 08:11:51 -0700 (PDT)
 In-Reply-To: <20170531150651.16873-1-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Free management FW info when app FW load failed.
+Start fleshing out the apps by turning the vNIC init code to
+a per-app callback.  The two initial apps we have are NIC and
+eBPF.
 
-Fixes: eefbde7e1002 ("nfp: add hwmon support")
 Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 ---
- drivers/net/ethernet/netronome/nfp/nfp_main.c | 1 +
- 1 file changed, 1 insertion(+)
+ drivers/net/ethernet/netronome/nfp/Makefile       |  5 +-
+ drivers/net/ethernet/netronome/nfp/bpf/main.c     | 58 +++++++++++++++
+ drivers/net/ethernet/netronome/nfp/nfp_app.c      | 21 +++++-
+ drivers/net/ethernet/netronome/nfp/nfp_app.h      | 50 ++++++++++++-
+ drivers/net/ethernet/netronome/nfp/nfp_app_nic.c  | 86 +++++++++++++++++++++++
+ drivers/net/ethernet/netronome/nfp/nfp_main.h     |  6 ++
+ drivers/net/ethernet/netronome/nfp/nfp_net_main.c | 61 ++++++++--------
+ drivers/net/ethernet/netronome/nfp/nic/main.c     | 57 +++++++++++++++
+ 8 files changed, 309 insertions(+), 35 deletions(-)
+ create mode 100644 drivers/net/ethernet/netronome/nfp/bpf/main.c
+ create mode 100644 drivers/net/ethernet/netronome/nfp/nfp_app_nic.c
+ create mode 100644 drivers/net/ethernet/netronome/nfp/nic/main.c
 
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_main.c b/drivers/net/ethernet/netronome/nfp/nfp_main.c
-index 68cd34d5a9fb..0c2e64d217b5 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_main.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_main.c
-@@ -279,6 +279,7 @@ static int nfp_nsp_init(struct pci_dev *pdev, struct nfp_pf *pf)
+diff --git a/drivers/net/ethernet/netronome/nfp/Makefile b/drivers/net/ethernet/netronome/nfp/Makefile
+index 83039c65e061..bbbfc19e5887 100644
+--- a/drivers/net/ethernet/netronome/nfp/Makefile
++++ b/drivers/net/ethernet/netronome/nfp/Makefile
+@@ -15,6 +15,7 @@ nfp-objs := \
+ 	    nfpcore/nfp_rtsym.o \
+ 	    nfpcore/nfp_target.o \
+ 	    nfp_app.o \
++	    nfp_app_nic.o \
+ 	    nfp_devlink.o \
+ 	    nfp_hwmon.o \
+ 	    nfp_main.o \
+@@ -23,7 +24,9 @@ nfp-objs := \
+ 	    nfp_net_offload.o \
+ 	    nfp_net_main.o \
+ 	    nfp_netvf_main.o \
+-	    nfp_port.o
++	    nfp_port.o \
++	    bpf/main.o \
++	    nic/main.o
  
- 	err = nfp_fw_load(pdev, pf, nsp);
- 	if (err < 0) {
-+		kfree(pf->nspi);
- 		kfree(pf->eth_tbl);
- 		dev_err(&pdev->dev, "Failed to load FW\n");
- 		goto exit_close_nsp;
+ ifeq ($(CONFIG_BPF_SYSCALL),y)
+ nfp-objs += \
+diff --git a/drivers/net/ethernet/netronome/nfp/bpf/main.c b/drivers/net/ethernet/netronome/nfp/bpf/main.c
+new file mode 100644
+index 000000000000..63b4769c58c2
+--- /dev/null
++++ b/drivers/net/ethernet/netronome/nfp/bpf/main.c
+@@ -0,0 +1,58 @@
++/*
++ * Copyright (C) 2017 Netronome Systems, Inc.
++ *
++ * This software is dual licensed under the GNU General License Version 2,
++ * June 1991 as shown in the file COPYING in the top-level directory of this
++ * source tree or the BSD 2-Clause License provided below.  You have the
++ * option to license this software under the complete terms of either license.
++ *
++ * The BSD 2-Clause License:
++ *
++ *     Redistribution and use in source and binary forms, with or
++ *     without modification, are permitted provided that the following
++ *     conditions are met:
++ *
++ *      1. Redistributions of source code must retain the above
++ *         copyright notice, this list of conditions and the following
++ *         disclaimer.
++ *
++ *      2. Redistributions in binary form must reproduce the above
++ *         copyright notice, this list of conditions and the following
++ *         disclaimer in the documentation and/or other materials
++ *         provided with the distribution.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
++ */
++
++#include "../nfpcore/nfp_cpp.h"
++#include "../nfp_app.h"
++#include "../nfp_main.h"
++#include "../nfp_net.h"
++#include "../nfp_port.h"
++
++static int
++nfp_bpf_vnic_init(struct nfp_app *app, struct nfp_net *nn, unsigned int id)
++{
++	/* Limit to single port, otherwise it's just a NIC */
++	if (id > 0) {
++		nfp_warn(app->cpp,
++			 "BPF NIC doesn't support more than one port right now\n");
++		nn->port = nfp_port_alloc(app, NFP_PORT_INVALID, nn->dp.netdev);
++		return PTR_ERR_OR_ZERO(nn->port);
++	}
++
++	return nfp_app_nic_vnic_init(app, nn, id);
++}
++
++const struct nfp_app_type app_bpf = {
++	.id		= NFP_APP_BPF_NIC,
++
++	.vnic_init	= nfp_bpf_vnic_init,
++};
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_app.c b/drivers/net/ethernet/netronome/nfp/nfp_app.c
+index 59be638bb60e..30687d87ae51 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_app.c
++++ b/drivers/net/ethernet/netronome/nfp/nfp_app.c
+@@ -33,12 +33,30 @@
+ 
+ #include <linux/slab.h>
+ 
++#include "nfpcore/nfp_cpp.h"
+ #include "nfp_app.h"
+ #include "nfp_main.h"
+ 
+-struct nfp_app *nfp_app_alloc(struct nfp_pf *pf)
++static const struct nfp_app_type *apps[] = {
++	&app_nic,
++	&app_bpf,
++};
++
++struct nfp_app *nfp_app_alloc(struct nfp_pf *pf, enum nfp_app_id id)
+ {
+ 	struct nfp_app *app;
++	unsigned int i;
++
++	for (i = 0; i < ARRAY_SIZE(apps); i++)
++		if (apps[i]->id == id)
++			break;
++	if (i == ARRAY_SIZE(apps)) {
++		nfp_err(pf->cpp, "failed to find app with ID 0x%02hhx\n", id);
++		return ERR_PTR(-EINVAL);
++	}
++
++	if (WARN_ON(!apps[i]->vnic_init))
++		return ERR_PTR(-EINVAL);
+ 
+ 	app = kzalloc(sizeof(*app), GFP_KERNEL);
+ 	if (!app)
+@@ -47,6 +65,7 @@ struct nfp_app *nfp_app_alloc(struct nfp_pf *pf)
+ 	app->pf = pf;
+ 	app->cpp = pf->cpp;
+ 	app->pdev = pf->pdev;
++	app->type = apps[i];
+ 
+ 	return app;
+ }
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_app.h b/drivers/net/ethernet/netronome/nfp/nfp_app.h
+index e63425c02c8d..98dd5773e7cc 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_app.h
++++ b/drivers/net/ethernet/netronome/nfp/nfp_app.h
+@@ -35,22 +35,70 @@
+ #define _NFP_APP_H 1
+ 
+ struct pci_dev;
++struct nfp_app;
+ struct nfp_cpp;
+ struct nfp_pf;
++struct nfp_net;
++
++enum nfp_app_id {
++	NFP_APP_CORE_NIC	= 0x1,
++	NFP_APP_BPF_NIC		= 0x2,
++};
++
++extern const struct nfp_app_type app_nic;
++extern const struct nfp_app_type app_bpf;
++
++/**
++ * struct nfp_app_type - application definition
++ * @id:		application ID
++ *
++ * Callbacks
++ * @init:	perform basic app checks
++ * @vnic_init:	init vNICs (assign port types, etc.)
++ */
++struct nfp_app_type {
++	enum nfp_app_id id;
++
++	int (*init)(struct nfp_app *app);
++
++	int (*vnic_init)(struct nfp_app *app, struct nfp_net *nn,
++			 unsigned int id);
++};
+ 
+ /**
+  * struct nfp_app - NFP application container
+  * @pdev:	backpointer to PCI device
+  * @pf:		backpointer to NFP PF structure
+  * @cpp:	pointer to the CPP handle
++ * @type:	pointer to const application ops and info
+  */
+ struct nfp_app {
+ 	struct pci_dev *pdev;
+ 	struct nfp_pf *pf;
+ 	struct nfp_cpp *cpp;
++
++	const struct nfp_app_type *type;
+ };
+ 
+-struct nfp_app *nfp_app_alloc(struct nfp_pf *pf);
++static inline int nfp_app_init(struct nfp_app *app)
++{
++	if (!app->type->init)
++		return 0;
++	return app->type->init(app);
++}
++
++static inline int nfp_app_vnic_init(struct nfp_app *app, struct nfp_net *nn,
++				    unsigned int id)
++{
++	return app->type->vnic_init(app, nn, id);
++}
++
++struct nfp_app *nfp_app_alloc(struct nfp_pf *pf, enum nfp_app_id id);
+ void nfp_app_free(struct nfp_app *app);
+ 
++/* Callbacks shared between apps */
++
++int nfp_app_nic_vnic_init(struct nfp_app *app, struct nfp_net *nn,
++			  unsigned int id);
++
+ #endif
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_app_nic.c b/drivers/net/ethernet/netronome/nfp/nfp_app_nic.c
+new file mode 100644
+index 000000000000..1a33ad9f4170
+--- /dev/null
++++ b/drivers/net/ethernet/netronome/nfp/nfp_app_nic.c
+@@ -0,0 +1,86 @@
++/*
++ * Copyright (C) 2017 Netronome Systems, Inc.
++ *
++ * This software is dual licensed under the GNU General License Version 2,
++ * June 1991 as shown in the file COPYING in the top-level directory of this
++ * source tree or the BSD 2-Clause License provided below.  You have the
++ * option to license this software under the complete terms of either license.
++ *
++ * The BSD 2-Clause License:
++ *
++ *     Redistribution and use in source and binary forms, with or
++ *     without modification, are permitted provided that the following
++ *     conditions are met:
++ *
++ *      1. Redistributions of source code must retain the above
++ *         copyright notice, this list of conditions and the following
++ *         disclaimer.
++ *
++ *      2. Redistributions in binary form must reproduce the above
++ *         copyright notice, this list of conditions and the following
++ *         disclaimer in the documentation and/or other materials
++ *         provided with the distribution.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
++ */
++
++#include "nfpcore/nfp_cpp.h"
++#include "nfpcore/nfp_nsp.h"
++#include "nfp_app.h"
++#include "nfp_main.h"
++#include "nfp_net.h"
++#include "nfp_port.h"
++
++static int
++nfp_app_nic_vnic_init_phy_port(struct nfp_pf *pf, struct nfp_app *app,
++			       struct nfp_net *nn, unsigned int id)
++{
++	if (!pf->eth_tbl)
++		return 0;
++
++	nn->port = nfp_port_alloc(app, NFP_PORT_PHYS_PORT, nn->dp.netdev);
++	if (IS_ERR(nn->port))
++		return PTR_ERR(nn->port);
++
++	nn->port->eth_id = id;
++	nn->port->eth_port = nfp_net_find_port(pf->eth_tbl, id);
++
++	/* Check if vNIC has external port associated and cfg is OK */
++	if (!nn->port->eth_port) {
++		nfp_err(app->cpp,
++			"NSP port entries don't match vNICs (no entry for port #%d)\n",
++			id);
++		nfp_port_free(nn->port);
++		return -EINVAL;
++	}
++	if (nn->port->eth_port->override_changed) {
++		nfp_warn(app->cpp,
++			 "Config changed for port #%d, reboot required before port will be operational\n",
++			 id);
++		nn->port->type = NFP_PORT_INVALID;
++		return 1;
++	}
++
++	return 0;
++}
++
++int nfp_app_nic_vnic_init(struct nfp_app *app, struct nfp_net *nn,
++			  unsigned int id)
++{
++	int err;
++
++	err = nfp_app_nic_vnic_init_phy_port(app->pf, app, nn, id);
++	if (err)
++		return err < 0 ? err : 0;
++
++	nfp_net_get_mac_addr(nn, app->cpp, id);
++
++	return 0;
++}
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_main.h b/drivers/net/ethernet/netronome/nfp/nfp_main.h
+index 20fad76da5aa..c46d00bbf19d 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_main.h
++++ b/drivers/net/ethernet/netronome/nfp/nfp_main.h
+@@ -54,6 +54,7 @@ struct pci_dev;
+ struct nfp_cpp;
+ struct nfp_cpp_area;
+ struct nfp_eth_table;
++struct nfp_net;
+ struct nfp_nsp_identify;
+ 
+ /**
+@@ -123,4 +124,9 @@ void nfp_net_pci_remove(struct nfp_pf *pf);
+ int nfp_hwmon_register(struct nfp_pf *pf);
+ void nfp_hwmon_unregister(struct nfp_pf *pf);
+ 
++struct nfp_eth_table_port *
++nfp_net_find_port(struct nfp_eth_table *eth_tbl, unsigned int id);
++void
++nfp_net_get_mac_addr(struct nfp_net *nn, struct nfp_cpp *cpp, unsigned int id);
++
+ #endif /* NFP_MAIN_H */
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_main.c b/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
+index 55a4a334cf6b..28782bf3ce68 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
++++ b/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
+@@ -141,7 +141,7 @@ static u8 __iomem *nfp_net_map_area(struct nfp_cpp *cpp,
+  * First try to get the MAC address from NSP ETH table. If that
+  * fails try HWInfo.  As a last resort generate a random address.
+  */
+-static void
++void
+ nfp_net_get_mac_addr(struct nfp_net *nn, struct nfp_cpp *cpp, unsigned int id)
+ {
+ 	struct nfp_eth_table_port *eth_port;
+@@ -179,7 +179,7 @@ nfp_net_get_mac_addr(struct nfp_net *nn, struct nfp_cpp *cpp, unsigned int id)
+ 	ether_addr_copy(dp->netdev->perm_addr, mac_addr);
+ }
+ 
+-static struct nfp_eth_table_port *
++struct nfp_eth_table_port *
+ nfp_net_find_port(struct nfp_eth_table *eth_tbl, unsigned int id)
+ {
+ 	int i;
+@@ -217,6 +217,12 @@ static int nfp_net_pf_get_num_ports(struct nfp_pf *pf)
+ 	return nfp_net_pf_rtsym_read_optional(pf, "nfd_cfg_pf%u_num_ports", 1);
+ }
+ 
++static int nfp_net_pf_get_app_id(struct nfp_pf *pf)
++{
++	return nfp_net_pf_rtsym_read_optional(pf, "_pf%u_net_app_id",
++					      NFP_APP_CORE_NIC);
++}
++
+ static unsigned int
+ nfp_net_pf_total_qcs(struct nfp_pf *pf, void __iomem *ctrl_bar,
+ 		     unsigned int stride, u32 start_off, u32 num_off)
+@@ -302,9 +308,9 @@ nfp_net_pf_alloc_vnic(struct nfp_pf *pf, void __iomem *ctrl_bar,
+ 		      int stride, struct nfp_net_fw_version *fw_ver,
+ 		      unsigned int eth_id)
+ {
+-	struct nfp_eth_table_port *eth_port;
+ 	u32 n_tx_rings, n_rx_rings;
+ 	struct nfp_net *nn;
++	int err;
+ 
+ 	n_tx_rings = readl(ctrl_bar + NFP_NET_CFG_MAX_TXRINGS);
+ 	n_rx_rings = readl(ctrl_bar + NFP_NET_CFG_MAX_RXRINGS);
+@@ -323,16 +329,10 @@ nfp_net_pf_alloc_vnic(struct nfp_pf *pf, void __iomem *ctrl_bar,
+ 	nn->stride_rx = stride;
+ 	nn->stride_tx = stride;
+ 
+-	eth_port = nfp_net_find_port(pf->eth_tbl, eth_id);
+-	if (eth_port) {
+-		nn->port = nfp_port_alloc(pf->app, NFP_PORT_PHYS_PORT,
+-					  nn->dp.netdev);
+-		if (IS_ERR(nn->port)) {
+-			nfp_net_free(nn);
+-			return ERR_CAST(nn->port);
+-		}
+-		nn->port->eth_id = eth_id;
+-		nn->port->eth_port = eth_port;
++	err = nfp_app_vnic_init(pf->app, nn, eth_id);
++	if (err) {
++		nfp_net_free(nn);
++		return ERR_PTR(err);
+ 	}
+ 
+ 	pf->num_vnics++;
+@@ -346,9 +346,6 @@ nfp_net_pf_init_vnic(struct nfp_pf *pf, struct nfp_net *nn, unsigned int id)
+ {
+ 	int err;
+ 
+-	/* Get MAC address */
+-	nfp_net_get_mac_addr(nn, pf->cpp, id);
+-
+ 	/* Get ME clock frequency from ctrl BAR
+ 	 * XXX for now frequency is hardcoded until we figure out how
+ 	 * to get the value from nfp-hwinfo into ctrl bar
+@@ -387,12 +384,6 @@ nfp_net_pf_alloc_vnics(struct nfp_pf *pf, void __iomem *ctrl_bar,
+ 	unsigned int i;
+ 	int err;
+ 
+-	if (pf->eth_tbl && pf->max_data_vnics != pf->eth_tbl->count) {
+-		nfp_err(pf->cpp, "ETH entries don't match vNICs (%d vs %d)\n",
+-			pf->max_data_vnics, pf->eth_tbl->count);
+-		return -EINVAL;
+-	}
+-
+ 	prev_tx_base = readl(ctrl_bar + NFP_NET_CFG_START_TXQ);
+ 	prev_rx_base = readl(ctrl_bar + NFP_NET_CFG_START_RXQ);
+ 
+@@ -413,14 +404,8 @@ nfp_net_pf_alloc_vnics(struct nfp_pf *pf, void __iomem *ctrl_bar,
+ 
+ 		ctrl_bar += NFP_PF_CSR_SLICE_SIZE;
+ 
+-		/* Check if vNIC has external port associated and cfg is OK */
+-		if (pf->eth_tbl && !nn->port) {
+-			nfp_err(pf->cpp, "NSP port entries don't match vNICs (no entry for port #%d)\n", i);
+-			err = -EINVAL;
+-			goto err_free_prev;
+-		}
+-		if (nn->port && nn->port->eth_port->override_changed) {
+-			nfp_warn(pf->cpp, "Config changed for port #%d, reboot required before port will be operational\n", i);
++		/* Kill the vNIC if app init marked it as invalid */
++		if (nn->port && nn->port->type == NFP_PORT_INVALID) {
+ 			nfp_net_pf_free_vnic(pf, nn);
+ 			continue;
+ 		}
+@@ -518,9 +503,21 @@ nfp_net_pf_spawn_vnics(struct nfp_pf *pf,
+ 
+ static int nfp_net_pf_app_init(struct nfp_pf *pf)
+ {
+-	pf->app = nfp_app_alloc(pf);
++	int err;
++
++	pf->app = nfp_app_alloc(pf, nfp_net_pf_get_app_id(pf));
++	if (IS_ERR(pf->app))
++		return PTR_ERR(pf->app);
+ 
+-	return PTR_ERR_OR_ZERO(pf->app);
++	err = nfp_app_init(pf->app);
++	if (err)
++		goto err_free;
++
++	return 0;
++
++err_free:
++	nfp_app_free(pf->app);
++	return err;
+ }
+ 
+ static void nfp_net_pf_app_clean(struct nfp_pf *pf)
+diff --git a/drivers/net/ethernet/netronome/nfp/nic/main.c b/drivers/net/ethernet/netronome/nfp/nic/main.c
+new file mode 100644
+index 000000000000..6a5b30667248
+--- /dev/null
++++ b/drivers/net/ethernet/netronome/nfp/nic/main.c
+@@ -0,0 +1,57 @@
++/*
++ * Copyright (C) 2017 Netronome Systems, Inc.
++ *
++ * This software is dual licensed under the GNU General License Version 2,
++ * June 1991 as shown in the file COPYING in the top-level directory of this
++ * source tree or the BSD 2-Clause License provided below.  You have the
++ * option to license this software under the complete terms of either license.
++ *
++ * The BSD 2-Clause License:
++ *
++ *     Redistribution and use in source and binary forms, with or
++ *     without modification, are permitted provided that the following
++ *     conditions are met:
++ *
++ *      1. Redistributions of source code must retain the above
++ *         copyright notice, this list of conditions and the following
++ *         disclaimer.
++ *
++ *      2. Redistributions in binary form must reproduce the above
++ *         copyright notice, this list of conditions and the following
++ *         disclaimer in the documentation and/or other materials
++ *         provided with the distribution.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
++ */
++
++#include "../nfpcore/nfp_cpp.h"
++#include "../nfpcore/nfp_nsp.h"
++#include "../nfp_app.h"
++#include "../nfp_main.h"
++
++static int nfp_nic_init(struct nfp_app *app)
++{
++	struct nfp_pf *pf = app->pf;
++
++	if (pf->eth_tbl && pf->max_data_vnics != pf->eth_tbl->count) {
++		nfp_err(pf->cpp, "ETH entries don't match vNICs (%d vs %d)\n",
++			pf->max_data_vnics, pf->eth_tbl->count);
++		return -EINVAL;
++	}
++
++	return 0;
++}
++
++const struct nfp_app_type app_nic = {
++	.id		= NFP_APP_CORE_NIC,
++
++	.init		= nfp_nic_init,
++	.vnic_init	= nfp_app_nic_vnic_init,
++};
 -- 
 2.11.0
