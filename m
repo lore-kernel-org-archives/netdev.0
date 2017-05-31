@@ -1,7 +1,7 @@
 From: Martin KaFai Lau <kafai@fb.com>
-Subject: [PATCH net-next 6/8] bpf: Add jited_len to struct bpf_prog
-Date: Tue, 30 May 2017 17:08:35 -0700
-Message-ID: <a664735fbd45a0eda4cded53eb01701b271f9add.1496189155.git.kafai@fb.com>
+Subject: [PATCH net-next 8/8] bpf: Test for bpf ID
+Date: Tue, 30 May 2017 17:08:37 -0700
+Message-ID: <181ee70e237aef9bf8ae8cb427b46e5b73c3d842.1496189155.git.kafai@fb.com>
 References: <cover.1496189155.git.kafai@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,112 +9,473 @@ Cc: Alexei Starovoitov <ast@fb.com>,
         Daniel Borkmann <daniel@iogearbox.net>, <kernel-team@fb.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:38056 "EHLO
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:38057 "EHLO
         mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1750913AbdEaAIl (ORCPT
+        by vger.kernel.org with ESMTP id S1750974AbdEaAIl (ORCPT
         <rfc822;netdev@vger.kernel.org>); Tue, 30 May 2017 20:08:41 -0400
 Received: from pps.filterd (m0044008.ppops.net [127.0.0.1])
-        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v4V08fkw000743
+        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v4V08fjD000735
         for <netdev@vger.kernel.org>; Tue, 30 May 2017 17:08:41 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0a-00082601.pphosted.com with ESMTP id 2ash9fr9t0-1
+        by mx0a-00082601.pphosted.com with ESMTP id 2ash9fr9sy-2
         (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
         for <netdev@vger.kernel.org>; Tue, 30 May 2017 17:08:41 -0700
 Received: from facebook.com (2401:db00:11:d09a:face:0:41:0)     by
  mx-out.facebook.com (10.212.236.89) with ESMTP id
- 4c26c37e459511e7a6db0002c95209d8-927358f0 for <netdev@vger.kernel.org>;        Tue,
+ 4c3abe10459511e7b2e30002c95209d8-97f408f0 for <netdev@vger.kernel.org>;        Tue,
  30 May 2017 17:08:39 -0700
 In-Reply-To: <cover.1496189155.git.kafai@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add jited_len to struct bpf_prog.  It will be
-useful for the struct bpf_prog_info which will
-be added in the later patch.
+Add test to exercise the bpf_prog/map id generation,
+bpf_(prog|map)_get_next_id(), bpf_(prog|map)_get_fd_by_id() and
+bpf_get_obj_info_by_fd().
 
 Signed-off-by: Martin KaFai Lau <kafai@fb.com>
 Acked-by: Alexei Starovoitov <ast@fb.com>
 Acked-by: Daniel Borkmann <daniel@iogearbox.net>
 ---
- arch/arm64/net/bpf_jit_comp.c     | 1 +
- arch/powerpc/net/bpf_jit_comp64.c | 1 +
- arch/s390/net/bpf_jit_comp.c      | 1 +
- arch/sparc/net/bpf_jit_comp_64.c  | 1 +
- arch/x86/net/bpf_jit_comp.c       | 1 +
- include/linux/filter.h            | 1 +
- 6 files changed, 6 insertions(+)
+ tools/include/uapi/linux/bpf.h            |  41 +++++++
+ tools/lib/bpf/bpf.c                       |  68 +++++++++++
+ tools/lib/bpf/bpf.h                       |   5 +
+ tools/testing/selftests/bpf/Makefile      |   2 +-
+ tools/testing/selftests/bpf/test_obj_id.c |  35 ++++++
+ tools/testing/selftests/bpf/test_progs.c  | 191 ++++++++++++++++++++++++++++++
+ 6 files changed, 341 insertions(+), 1 deletion(-)
+ create mode 100644 tools/testing/selftests/bpf/test_obj_id.c
 
-diff --git a/arch/arm64/net/bpf_jit_comp.c b/arch/arm64/net/bpf_jit_comp.c
-index 71f930501ade..6b21dccf01e8 100644
---- a/arch/arm64/net/bpf_jit_comp.c
-+++ b/arch/arm64/net/bpf_jit_comp.c
-@@ -900,6 +900,7 @@ struct bpf_prog *bpf_int_jit_compile(struct bpf_prog *prog)
- 	bpf_jit_binary_lock_ro(header);
- 	prog->bpf_func = (void *)ctx.image;
- 	prog->jited = 1;
-+	prog->jited_len = image_size;
+diff --git a/tools/include/uapi/linux/bpf.h b/tools/include/uapi/linux/bpf.h
+index 94dfa9def355..677b570da8ec 100644
+--- a/tools/include/uapi/linux/bpf.h
++++ b/tools/include/uapi/linux/bpf.h
+@@ -82,6 +82,11 @@ enum bpf_cmd {
+ 	BPF_PROG_ATTACH,
+ 	BPF_PROG_DETACH,
+ 	BPF_PROG_TEST_RUN,
++	BPF_PROG_GET_NEXT_ID,
++	BPF_MAP_GET_NEXT_ID,
++	BPF_PROG_GET_FD_BY_ID,
++	BPF_MAP_GET_FD_BY_ID,
++	BPF_OBJ_GET_INFO_BY_FD,
+ };
  
- out_off:
- 	kfree(ctx.offset);
-diff --git a/arch/powerpc/net/bpf_jit_comp64.c b/arch/powerpc/net/bpf_jit_comp64.c
-index aee2bb817ac6..a3f904cd8b1e 100644
---- a/arch/powerpc/net/bpf_jit_comp64.c
-+++ b/arch/powerpc/net/bpf_jit_comp64.c
-@@ -1052,6 +1052,7 @@ struct bpf_prog *bpf_int_jit_compile(struct bpf_prog *fp)
+ enum bpf_map_type {
+@@ -209,6 +214,21 @@ union bpf_attr {
+ 		__u32		repeat;
+ 		__u32		duration;
+ 	} test;
++
++	struct { /* anonymous struct used by BPF_*_GET_*_ID */
++		union {
++			__u32		start_id;
++			__u32		prog_id;
++			__u32		map_id;
++		};
++		__u32		next_id;
++	};
++
++	struct { /* anonymous struct used by BPF_OBJ_GET_INFO_BY_FD */
++		__u32		bpf_fd;
++		__u32		info_len;
++		__aligned_u64	info;
++	} info;
+ } __attribute__((aligned(8)));
  
- 	fp->bpf_func = (void *)image;
- 	fp->jited = 1;
-+	fp->jited_len = alloclen;
+ /* BPF helper function descriptions:
+@@ -670,4 +690,25 @@ struct xdp_md {
+ 	__u32 data_end;
+ };
  
- 	bpf_flush_icache(bpf_hdr, (u8 *)bpf_hdr + (bpf_hdr->pages * PAGE_SIZE));
++#define BPF_TAG_SIZE	8
++
++struct bpf_prog_info {
++	__u32 type;
++	__u32 id;
++	__u8  tag[BPF_TAG_SIZE];
++	__u32 jited_prog_len;
++	__u32 xlated_prog_len;
++	__aligned_u64 jited_prog_insns;
++	__aligned_u64 xlated_prog_insns;
++} __attribute__((aligned(8)));
++
++struct bpf_map_info {
++	__u32 type;
++	__u32 id;
++	__u32 key_size;
++	__u32 value_size;
++	__u32 max_entries;
++	__u32 map_flags;
++} __attribute__((aligned(8)));
++
+ #endif /* _UAPI__LINUX_BPF_H__ */
+diff --git a/tools/lib/bpf/bpf.c b/tools/lib/bpf/bpf.c
+index 6e178987af8e..7e0405e1651d 100644
+--- a/tools/lib/bpf/bpf.c
++++ b/tools/lib/bpf/bpf.c
+@@ -257,3 +257,71 @@ int bpf_prog_test_run(int prog_fd, int repeat, void *data, __u32 size,
+ 		*duration = attr.test.duration;
+ 	return ret;
+ }
++
++int bpf_prog_get_next_id(__u32 start_id, __u32 *next_id)
++{
++	union bpf_attr attr;
++	int err;
++
++	bzero(&attr, sizeof(attr));
++	attr.start_id = start_id;
++
++	err = sys_bpf(BPF_PROG_GET_NEXT_ID, &attr, sizeof(attr));
++	if (!err)
++		*next_id = attr.next_id;
++
++	return err;
++}
++
++int bpf_map_get_next_id(__u32 start_id, __u32 *next_id)
++{
++	union bpf_attr attr;
++	int err;
++
++	bzero(&attr, sizeof(attr));
++	attr.start_id = start_id;
++
++	err = sys_bpf(BPF_MAP_GET_NEXT_ID, &attr, sizeof(attr));
++	if (!err)
++		*next_id = attr.next_id;
++
++	return err;
++}
++
++int bpf_prog_get_fd_by_id(__u32 id)
++{
++	union bpf_attr attr;
++
++	bzero(&attr, sizeof(attr));
++	attr.prog_id = id;
++
++	return sys_bpf(BPF_PROG_GET_FD_BY_ID, &attr, sizeof(attr));
++}
++
++int bpf_map_get_fd_by_id(__u32 id)
++{
++	union bpf_attr attr;
++
++	bzero(&attr, sizeof(attr));
++	attr.map_id = id;
++
++	return sys_bpf(BPF_MAP_GET_FD_BY_ID, &attr, sizeof(attr));
++}
++
++int bpf_obj_get_info_by_fd(int prog_fd, void *info, __u32 *info_len)
++{
++	union bpf_attr attr;
++	int err;
++
++	bzero(&attr, sizeof(attr));
++	bzero(info, *info_len);
++	attr.info.bpf_fd = prog_fd;
++	attr.info.info_len = *info_len;
++	attr.info.info = ptr_to_u64(info);
++
++	err = sys_bpf(BPF_OBJ_GET_INFO_BY_FD, &attr, sizeof(attr));
++	if (!err)
++		*info_len = attr.info.info_len;
++
++	return err;
++}
+diff --git a/tools/lib/bpf/bpf.h b/tools/lib/bpf/bpf.h
+index 972bd8333eb7..16de44a14b48 100644
+--- a/tools/lib/bpf/bpf.h
++++ b/tools/lib/bpf/bpf.h
+@@ -54,5 +54,10 @@ int bpf_prog_detach(int attachable_fd, enum bpf_attach_type type);
+ int bpf_prog_test_run(int prog_fd, int repeat, void *data, __u32 size,
+ 		      void *data_out, __u32 *size_out, __u32 *retval,
+ 		      __u32 *duration);
++int bpf_prog_get_next_id(__u32 start_id, __u32 *next_id);
++int bpf_map_get_next_id(__u32 start_id, __u32 *next_id);
++int bpf_prog_get_fd_by_id(__u32 id);
++int bpf_map_get_fd_by_id(__u32 id);
++int bpf_obj_get_info_by_fd(int prog_fd, void *info, __u32 *info_len);
  
-diff --git a/arch/s390/net/bpf_jit_comp.c b/arch/s390/net/bpf_jit_comp.c
-index 6e97a2e3fd8d..76b7e9d5d591 100644
---- a/arch/s390/net/bpf_jit_comp.c
-+++ b/arch/s390/net/bpf_jit_comp.c
-@@ -1329,6 +1329,7 @@ struct bpf_prog *bpf_int_jit_compile(struct bpf_prog *fp)
- 	bpf_jit_binary_lock_ro(header);
- 	fp->bpf_func = (void *) jit.prg_buf;
- 	fp->jited = 1;
-+	fp->jited_len = jit.size;
- free_addrs:
- 	kfree(jit.addrs);
- out:
-diff --git a/arch/sparc/net/bpf_jit_comp_64.c b/arch/sparc/net/bpf_jit_comp_64.c
-index 21de77419f48..beb46b14fbbc 100644
---- a/arch/sparc/net/bpf_jit_comp_64.c
-+++ b/arch/sparc/net/bpf_jit_comp_64.c
-@@ -1555,6 +1555,7 @@ struct bpf_prog *bpf_int_jit_compile(struct bpf_prog *prog)
+ #endif
+diff --git a/tools/testing/selftests/bpf/Makefile b/tools/testing/selftests/bpf/Makefile
+index f389b02d43a0..9f0e07ba5334 100644
+--- a/tools/testing/selftests/bpf/Makefile
++++ b/tools/testing/selftests/bpf/Makefile
+@@ -14,7 +14,7 @@ LDLIBS += -lcap -lelf
+ TEST_GEN_PROGS = test_verifier test_tag test_maps test_lru_map test_lpm_map test_progs \
+ 	test_align
  
- 	prog->bpf_func = (void *)ctx.image;
- 	prog->jited = 1;
-+	prog->jited_len = image_size;
+-TEST_GEN_FILES = test_pkt_access.o test_xdp.o test_l4lb.o test_tcp_estats.o
++TEST_GEN_FILES = test_pkt_access.o test_xdp.o test_l4lb.o test_tcp_estats.o test_obj_id.o
  
- out_off:
- 	kfree(ctx.offset);
-diff --git a/arch/x86/net/bpf_jit_comp.c b/arch/x86/net/bpf_jit_comp.c
-index f58939393eef..9341030133ae 100644
---- a/arch/x86/net/bpf_jit_comp.c
-+++ b/arch/x86/net/bpf_jit_comp.c
-@@ -1162,6 +1162,7 @@ struct bpf_prog *bpf_int_jit_compile(struct bpf_prog *prog)
- 		bpf_jit_binary_lock_ro(header);
- 		prog->bpf_func = (void *)image;
- 		prog->jited = 1;
-+		prog->jited_len = proglen;
- 	} else {
- 		prog = orig_prog;
- 	}
-diff --git a/include/linux/filter.h b/include/linux/filter.h
-index 62d948f80730..a322a41f394b 100644
---- a/include/linux/filter.h
-+++ b/include/linux/filter.h
-@@ -429,6 +429,7 @@ struct bpf_prog {
- 	kmemcheck_bitfield_end(meta);
- 	enum bpf_prog_type	type;		/* Type of BPF program */
- 	u32			len;		/* Number of filter blocks */
-+	u32			jited_len;	/* Size of jited insns in bytes */
- 	u8			tag[BPF_TAG_SIZE];
- 	struct bpf_prog_aux	*aux;		/* Auxiliary fields */
- 	struct sock_fprog_kern	*orig_prog;	/* Original BPF program */
+ TEST_PROGS := test_kmod.sh
+ 
+diff --git a/tools/testing/selftests/bpf/test_obj_id.c b/tools/testing/selftests/bpf/test_obj_id.c
+new file mode 100644
+index 000000000000..d8723aaf827a
+--- /dev/null
++++ b/tools/testing/selftests/bpf/test_obj_id.c
+@@ -0,0 +1,35 @@
++/* Copyright (c) 2017 Facebook
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of version 2 of the GNU General Public
++ * License as published by the Free Software Foundation.
++ */
++#include <stddef.h>
++#include <linux/bpf.h>
++#include <linux/pkt_cls.h>
++#include "bpf_helpers.h"
++
++/* It is a dumb bpf program such that it must have no
++ * issue to be loaded since testing the verifier is
++ * not the focus here.
++ */
++
++int _version SEC("version") = 1;
++
++struct bpf_map_def SEC("maps") test_map_id = {
++	.type = BPF_MAP_TYPE_ARRAY,
++	.key_size = sizeof(__u32),
++	.value_size = sizeof(__u64),
++	.max_entries = 1,
++};
++
++SEC("test_prog_id")
++int test_prog_id(struct __sk_buff *skb)
++{
++	__u32 key = 0;
++	__u64 *value;
++
++	value = bpf_map_lookup_elem(&test_map_id, &key);
++
++	return TC_ACT_OK;
++}
+diff --git a/tools/testing/selftests/bpf/test_progs.c b/tools/testing/selftests/bpf/test_progs.c
+index b59f5ed4ae40..8189bfc7e277 100644
+--- a/tools/testing/selftests/bpf/test_progs.c
++++ b/tools/testing/selftests/bpf/test_progs.c
+@@ -22,6 +22,8 @@ typedef __u16 __sum16;
+ 
+ #include <sys/wait.h>
+ #include <sys/resource.h>
++#include <sys/types.h>
++#include <pwd.h>
+ 
+ #include <linux/bpf.h>
+ #include <linux/err.h>
+@@ -70,6 +72,7 @@ static struct {
+ 		pass_cnt++;						\
+ 		printf("%s:PASS:%s %d nsec\n", __func__, tag, duration);\
+ 	}								\
++	__ret;								\
+ })
+ 
+ static int bpf_prog_load(const char *file, enum bpf_prog_type type,
+@@ -283,6 +286,193 @@ static void test_tcp_estats(void)
+ 	bpf_object__close(obj);
+ }
+ 
++static inline __u64 ptr_to_u64(const void *ptr)
++{
++	return (__u64) (unsigned long) ptr;
++}
++
++static void test_bpf_obj_id(void)
++{
++	const __u64 array_magic_value = 0xfaceb00c;
++	const __u32 array_key = 0;
++	const int nr_iters = 2;
++	const char *file = "./test_obj_id.o";
++
++	struct bpf_object *objs[nr_iters];
++	int prog_fds[nr_iters], map_fds[nr_iters];
++	/* +1 to test for the info_len returned by kernel */
++	struct bpf_prog_info prog_infos[nr_iters + 1];
++	struct bpf_map_info map_infos[nr_iters + 1];
++	char jited_insns[128], xlated_insns[128];
++	__u32 i, next_id, info_len, nr_id_found, duration = 0;
++	int err = 0;
++	__u64 array_value;
++
++	err = bpf_prog_get_fd_by_id(0);
++	CHECK(err >= 0 || errno != ENOENT,
++	      "get-fd-by-notexist-prog-id", "err %d errno %d\n", err, errno);
++
++	err = bpf_map_get_fd_by_id(0);
++	CHECK(err >= 0 || errno != ENOENT,
++	      "get-fd-by-notexist-map-id", "err %d errno %d\n", err, errno);
++
++	for (i = 0; i < nr_iters; i++)
++		objs[i] = NULL;
++
++	/* Check bpf_obj_get_info_by_fd() */
++	for (i = 0; i < nr_iters; i++) {
++		err = bpf_prog_load(file, BPF_PROG_TYPE_SOCKET_FILTER,
++				    &objs[i], &prog_fds[i]);
++		/* test_obj_id.o is a dumb prog. It should never fail
++		 * to load.
++		 */
++		assert(!err);
++
++		/* Check getting prog info */
++		info_len = sizeof(struct bpf_prog_info) * 2;
++		prog_infos[i].jited_prog_insns = ptr_to_u64(jited_insns);
++		prog_infos[i].jited_prog_len = sizeof(jited_insns);
++		prog_infos[i].xlated_prog_insns = ptr_to_u64(xlated_insns);
++		prog_infos[i].xlated_prog_len = sizeof(xlated_insns);
++		err = bpf_obj_get_info_by_fd(prog_fds[i], &prog_infos[i],
++					     &info_len);
++		if (CHECK(err ||
++			  prog_infos[i].type != BPF_PROG_TYPE_SOCKET_FILTER ||
++			  info_len != sizeof(struct bpf_prog_info) ||
++			  !prog_infos[i].jited_prog_len ||
++			  !prog_infos[i].xlated_prog_len,
++			  "get-prog-info(fd)",
++			  "err %d errno %d i %d type %d(%d) info_len %u(%lu) jited_prog_len %u xlated_prog_len %u\n",
++			  err, errno, i,
++			  prog_infos[i].type, BPF_PROG_TYPE_SOCKET_FILTER,
++			  info_len, sizeof(struct bpf_prog_info),
++			  prog_infos[i].jited_prog_len,
++			  prog_infos[i].xlated_prog_len))
++			goto done;
++
++		map_fds[i] = bpf_find_map(__func__, objs[i], "test_map_id");
++		assert(map_fds[i] >= 0);
++		err = bpf_map_update_elem(map_fds[i], &array_key,
++					  &array_magic_value, 0);
++		assert(!err);
++
++		/* Check getting map info */
++		info_len = sizeof(struct bpf_map_info) * 2;
++		err = bpf_obj_get_info_by_fd(map_fds[i], &map_infos[i],
++					     &info_len);
++		if (CHECK(err ||
++			  map_infos[i].type != BPF_MAP_TYPE_ARRAY ||
++			  map_infos[i].key_size != sizeof(__u32) ||
++			  map_infos[i].value_size != sizeof(__u64) ||
++			  map_infos[i].max_entries != 1 ||
++			  map_infos[i].map_flags != 0 ||
++			  info_len != sizeof(struct bpf_map_info),
++			  "get-map-info(fd)",
++			  "err %d errno %d type %d(%d) info_len %u(%lu) key_size %u value_size %u max_entries %u map_flags %X\n",
++			  err, errno,
++			  map_infos[i].type, BPF_MAP_TYPE_ARRAY,
++			  info_len, sizeof(struct bpf_map_info),
++			  map_infos[i].key_size,
++			  map_infos[i].value_size,
++			  map_infos[i].max_entries,
++			  map_infos[i].map_flags))
++			goto done;
++	}
++
++	/* Check bpf_prog_get_next_id() */
++	nr_id_found = 0;
++	next_id = 0;
++	while (!bpf_prog_get_next_id(next_id, &next_id)) {
++		struct bpf_prog_info prog_info;
++		int prog_fd;
++
++		info_len = sizeof(prog_info);
++
++		prog_fd = bpf_prog_get_fd_by_id(next_id);
++		if (prog_fd < 0 && errno == ENOENT)
++			/* The bpf_prog is in the dead row */
++			continue;
++		if (CHECK(prog_fd < 0, "get-prog-fd(next_id)",
++			  "prog_fd %d next_id %d errno %d\n",
++			  prog_fd, next_id, errno))
++			break;
++
++		for (i = 0; i < nr_iters; i++)
++			if (prog_infos[i].id == next_id)
++				break;
++
++		if (i == nr_iters)
++			continue;
++
++		nr_id_found++;
++
++		err = bpf_obj_get_info_by_fd(prog_fd, &prog_info, &info_len);
++		CHECK(err || info_len != sizeof(struct bpf_prog_info) ||
++		      memcmp(&prog_info, &prog_infos[i], info_len),
++		      "get-prog-info(next_id->fd)",
++		      "err %d errno %d info_len %u(%lu) memcmp %d\n",
++		      err, errno, info_len, sizeof(struct bpf_prog_info),
++		      memcmp(&prog_info, &prog_infos[i], info_len));
++
++		close(prog_fd);
++	}
++	CHECK(nr_id_found != nr_iters,
++	      "check total prog id found by get_next_id",
++	      "nr_id_found %u(%u)\n",
++	      nr_id_found, nr_iters);
++
++	/* Check bpf_map_get_next_id() */
++	nr_id_found = 0;
++	next_id = 0;
++	while (!bpf_map_get_next_id(next_id, &next_id)) {
++		struct bpf_map_info map_info;
++		int map_fd;
++
++		info_len = sizeof(map_info);
++
++		map_fd = bpf_map_get_fd_by_id(next_id);
++		if (map_fd < 0 && errno == ENOENT)
++			/* The bpf_map is in the dead row */
++			continue;
++		if (CHECK(map_fd < 0, "get-map-fd(next_id)",
++			  "map_fd %d next_id %u errno %d\n",
++			  map_fd, next_id, errno))
++			break;
++
++		for (i = 0; i < nr_iters; i++)
++			if (map_infos[i].id == next_id)
++				break;
++
++		if (i == nr_iters)
++			continue;
++
++		nr_id_found++;
++
++		err = bpf_map_lookup_elem(map_fd, &array_key, &array_value);
++		assert(!err);
++
++		err = bpf_obj_get_info_by_fd(map_fd, &map_info, &info_len);
++		CHECK(err || info_len != sizeof(struct bpf_map_info) ||
++		      memcmp(&map_info, &map_infos[i], info_len) ||
++		      array_value != array_magic_value,
++		      "check get-map-info(next_id->fd)",
++		      "err %d errno %d info_len %u(%lu) memcmp %d array_value %llu(%llu)\n",
++		      err, errno, info_len, sizeof(struct bpf_map_info),
++		      memcmp(&map_info, &map_infos[i], info_len),
++		      array_value, array_magic_value);
++
++		close(map_fd);
++	}
++	CHECK(nr_id_found != nr_iters,
++	      "check total map id found by get_next_id",
++	      "nr_id_found %u(%u)\n",
++	      nr_id_found, nr_iters);
++
++done:
++	for (i = 0; i < nr_iters; i++)
++		bpf_object__close(objs[i]);
++}
++
+ int main(void)
+ {
+ 	struct rlimit rinf = { RLIM_INFINITY, RLIM_INFINITY };
+@@ -293,6 +483,7 @@ int main(void)
+ 	test_xdp();
+ 	test_l4lb();
+ 	test_tcp_estats();
++	test_bpf_obj_id();
+ 
+ 	printf("Summary: %d PASSED, %d FAILED\n", pass_cnt, error_cnt);
+ 	return 0;
 -- 
 2.9.3
