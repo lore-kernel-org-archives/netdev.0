@@ -1,151 +1,64 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: [PATCH net-next] powerpc: use asm-generic/socket.h as much as
- possible
-Date: Wed, 31 May 2017 15:43:37 +1000
-Message-ID: <20170531154337.04ebcb75@canb.auug.org.au>
+From: Daniel Vetter <daniel.vetter@ffwll.ch>
+Subject: Re: [PULL] topic/e1000e-fix
+Date: Wed, 31 May 2017 08:10:45 +0200
+Message-ID: <CAKMK7uGbi2Bwfno9XogKZ-LUOyMepbtRyGuGrNYWwj6Cts+uag@mail.gmail.com>
+References: <20170530201542.a5rudn6xfykbj3la@phenom.ffwll.local>
+ <20170530.181022.1101254623191993046.davem@davemloft.net>
+ <CAPM=9twH-CXm+xj2Os87Ra7nOBQ+WNXYGF83wFqpQ3s=MNx_mQ@mail.gmail.com>
+ <CAKMK7uF-b1U7qipgEoYnAjDtrNdvKYT4KkoV2=krikkdGERkCw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Michael Ellerman <mpe@ellerman.id.au>,
-        Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-        PowerPC <linuxppc-dev@lists.ozlabs.org>,
-        Arnd Bergmann <arnd@arndb.de>
-To: David Miller <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([103.22.144.67]:48627 "EHLO ozlabs.org"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750862AbdEaFnj (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 31 May 2017 01:43:39 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org,
+ "intel-gfx@lists.freedesktop.org" <intel-gfx@lists.freedesktop.org>,
+ Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+ intel-wired-lan@lists.osuosl.org, dri-devel <dri-devel@lists.freedesktop.org>,
+ David Miller <davem@davemloft.net>, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: Dave Airlie <airlied@gmail.com>
+Return-path: <intel-gfx-bounces@lists.freedesktop.org>
+In-Reply-To: <CAKMK7uF-b1U7qipgEoYnAjDtrNdvKYT4KkoV2=krikkdGERkCw@mail.gmail.com>
+List-Unsubscribe: <https://lists.freedesktop.org/mailman/options/intel-gfx>,
+ <mailto:intel-gfx-request@lists.freedesktop.org?subject=unsubscribe>
+List-Archive: <https://lists.freedesktop.org/archives/intel-gfx>
+List-Post: <mailto:intel-gfx@lists.freedesktop.org>
+List-Help: <mailto:intel-gfx-request@lists.freedesktop.org?subject=help>
+List-Subscribe: <https://lists.freedesktop.org/mailman/listinfo/intel-gfx>,
+ <mailto:intel-gfx-request@lists.freedesktop.org?subject=subscribe>
+Errors-To: intel-gfx-bounces@lists.freedesktop.org
+Sender: "Intel-gfx" <intel-gfx-bounces@lists.freedesktop.org>
+List-Id: netdev.vger.kernel.org
 
-asm-generic/socket.h already has an exception for the differences that
-powerpc needs, so just include it after defining the differences.
-
-Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
----
- arch/powerpc/include/uapi/asm/socket.h | 92 +---------------------------------
- 1 file changed, 1 insertion(+), 91 deletions(-)
-
-Build tested using powerpc allyesconfig, pseries_le_defconfig, 32 bit
-and 64 bit allnoconfig and ppc44x_defconfig builds.
-
-Dave, this is on top of the net-next tree and I am sending it to you
-since it would produce a conflict if it was merged via the powerpc tree.
-
-diff --git a/arch/powerpc/include/uapi/asm/socket.h b/arch/powerpc/include/uapi/asm/socket.h
-index bc4ca72faf99..3c590c7c42c0 100644
---- a/arch/powerpc/include/uapi/asm/socket.h
-+++ b/arch/powerpc/include/uapi/asm/socket.h
-@@ -8,28 +8,6 @@
-  * 2 of the License, or (at your option) any later version.
-  */
- 
--#include <asm/sockios.h>
--
--/* For setsockopt(2) */
--#define SOL_SOCKET	1
--
--#define SO_DEBUG	1
--#define SO_REUSEADDR	2
--#define SO_TYPE		3
--#define SO_ERROR	4
--#define SO_DONTROUTE	5
--#define SO_BROADCAST	6
--#define SO_SNDBUF	7
--#define SO_RCVBUF	8
--#define SO_SNDBUFFORCE	32
--#define SO_RCVBUFFORCE	33
--#define SO_KEEPALIVE	9
--#define SO_OOBINLINE	10
--#define SO_NO_CHECK	11
--#define SO_PRIORITY	12
--#define SO_LINGER	13
--#define SO_BSDCOMPAT	14
--#define SO_REUSEPORT	15
- #define SO_RCVLOWAT	16
- #define SO_SNDLOWAT	17
- #define SO_RCVTIMEO	18
-@@ -37,74 +15,6 @@
- #define SO_PASSCRED	20
- #define SO_PEERCRED	21
- 
--/* Security levels - as per NRL IPv6 - don't actually do anything */
--#define SO_SECURITY_AUTHENTICATION		22
--#define SO_SECURITY_ENCRYPTION_TRANSPORT	23
--#define SO_SECURITY_ENCRYPTION_NETWORK		24
--
--#define SO_BINDTODEVICE	25
--
--/* Socket filtering */
--#define SO_ATTACH_FILTER	26
--#define SO_DETACH_FILTER	27
--#define SO_GET_FILTER		SO_ATTACH_FILTER
--
--#define SO_PEERNAME		28
--#define SO_TIMESTAMP		29
--#define SCM_TIMESTAMP		SO_TIMESTAMP
--
--#define SO_ACCEPTCONN		30
--
--#define SO_PEERSEC		31
--#define SO_PASSSEC		34
--#define SO_TIMESTAMPNS		35
--#define SCM_TIMESTAMPNS		SO_TIMESTAMPNS
--
--#define SO_MARK			36
--
--#define SO_TIMESTAMPING		37
--#define SCM_TIMESTAMPING	SO_TIMESTAMPING
--
--#define SO_PROTOCOL		38
--#define SO_DOMAIN		39
--
--#define SO_RXQ_OVFL             40
--
--#define SO_WIFI_STATUS		41
--#define SCM_WIFI_STATUS		SO_WIFI_STATUS
--#define SO_PEEK_OFF		42
--
--/* Instruct lower device to use last 4-bytes of skb data as FCS */
--#define SO_NOFCS		43
--
--#define SO_LOCK_FILTER		44
--
--#define SO_SELECT_ERR_QUEUE	45
--
--#define SO_BUSY_POLL		46
--
--#define SO_MAX_PACING_RATE	47
--
--#define SO_BPF_EXTENSIONS	48
--
--#define SO_INCOMING_CPU		49
--
--#define SO_ATTACH_BPF		50
--#define SO_DETACH_BPF		SO_DETACH_FILTER
--
--#define SO_ATTACH_REUSEPORT_CBPF	51
--#define SO_ATTACH_REUSEPORT_EBPF	52
--
--#define SO_CNX_ADVICE		53
--
--#define SCM_TIMESTAMPING_OPT_STATS	54
--
--#define SO_MEMINFO		55
--
--#define SO_INCOMING_NAPI_ID	56
--
--#define SO_COOKIE		57
--
--#define SCM_TIMESTAMPING_PKTINFO	58
-+#include <asm-generic/socket.h>
- 
- #endif	/* _ASM_POWERPC_SOCKET_H */
--- 
-2.11.0
-
--- 
-Cheers,
-Stephen Rothwell
+T24gV2VkLCBNYXkgMzEsIDIwMTcgYXQgNzo1NCBBTSwgRGFuaWVsIFZldHRlciA8ZGFuaWVsLnZl
+dHRlckBmZndsbC5jaD4gd3JvdGU6Cj4gT24gV2VkLCBNYXkgMzEsIDIwMTcgYXQgMTowNiBBTSwg
+RGF2ZSBBaXJsaWUgPGFpcmxpZWRAZ21haWwuY29tPiB3cm90ZToKPj4gT24gMzEgTWF5IDIwMTcg
+YXQgMDg6MTAsIERhdmlkIE1pbGxlciA8ZGF2ZW1AZGF2ZW1sb2Z0Lm5ldD4gd3JvdGU6Cj4+PiBG
+cm9tOiBEYW5pZWwgVmV0dGVyIDxkYW5pZWwudmV0dGVyQGZmd2xsLmNoPgo+Pj4gRGF0ZTogVHVl
+LCAzMCBNYXkgMjAxNyAyMjoxNTo0MiArMDIwMAo+Pj4KPj4+PiBJZiB0aGUgZTEwMDBlIG1haW50
+YWluZXIgd2FudHMgdG8gY29hbGVzY2Ugb3Igbm90IHJldHVybiBzdGF0ZW1lbnRzCj4+Pj4gdGhp
+cyBzaW1wbGUgd2F5LCB0aGF0J3MgaW1vIG9uIGhpbSB0byBjaGFuZ2UgdGhlIGNvbG9yIGFzIG5l
+ZWRlZC4KPj4+Cj4+PiBUaGF0J3Mgbm90IGhvdyB0aGluZ3Mgd29yay4KPj4+Cj4+PiBJZiB0aGUg
+bWFpbnRhaW5lciB3YW50cyB5b3UgdG8gc3R5bGUgdGhpbmdzIGEgY2VydGFpbiB3YXksIGVpdGhl
+ciB5b3UKPj4+IGRvIGl0IHRoYXQgd2F5IG9yIHlvdXIgcGF0Y2ggaXNuJ3QgYWNjZXB0ZWQuCj4K
+PiBDb25zaWRlciB0aGlzIHB1bGwgYSByZWdyZXNzaW9uIHJlcG9ydCwgcGxzIGhhbmRsZSBpdC4K
+CkFuZCBJIGd1ZXNzIEkgcGlsZSBvZiBtb3JlIGNjLCB0byBtYWtlIHRoaXMgcmVncmVzc2lvbiBy
+ZXBvcnQKY29tcGxldGUuIEkgbWVhbiB5b3UgZ290IHRoZSBiYWNrdHJhY2UsIGJpc2VjdCBhbmQg
+YSBwcm9wb3NlZCBmaXgsIGFuZAp0aGUgYWxtb3N0LXdoaXRlc3BhY2UgY2hhbmdlIGRlbWFuZGVk
+IGlzIHNvbWV0aGluZyBnY2MgZG9lcyBpbiBpdHMKc2xlZXAuIEknZCB1bmRlcnN0YW5kIGEgcmVx
+dWVzdCB0byByZXRlc3QgaWYgaXQgd291bGQgYmUgYSByZWFsCmZ1bmN0aW9uYWwgY2hhbmdlLCBi
+dXQgaW4gdGhpcyBzaXR1YXRpb24gSSBoYXZlIG5vIGlkZWEgd2h5IHRoaXMKcmVncmVzc2lvbiBq
+dXN0IGNhbid0IGJlIGZpeGVkIGFscmVhZHkuCgpOb3Qgc3VyZSBpZiBpdCdzIHJlYWxseSBwcmVm
+ZXJyZWQgaWYgcmVncmVzc2lvbiByZXBvcnRzIGNvbWUKaW5jb21wbGV0ZSwgd2l0aG91dCBidWdm
+aXggYW5kIGJpc2VjdCBhdHRhY2hlZC4KLURhbmllbAoKPj4gSSdtIG5vdCByZWFsbHkgc3VyZSB3
+aHkgQ2hyaXMganVzdCBjb3VsZG4ndCByZXNwaW4gYWxyZWFkeS4KPj4KPj4gVGhvdWdoIHJlYWxs
+eSBJIHRoaW5rIENocmlzIHNob3VsZCBoYXZlIGp1c3QgYXNrZWQgZm9yIGEgcmV2ZXJ0IG9mIHRo
+ZQo+PiBvcmlnaW5hbCBwYXRjaCB0aGF0IGJyb2tlIHN0dWZmLCBpbnN0ZWFkIG9mIHRyeWluZyB0
+byBwYXRjaCBhIGRyaXZlcgo+PiBpZiBoZSBkb2Vzbid0IGhhdmUgdGltZSB0byBnZXQgdGhlIHBh
+dGNoIHJpZ2h0IGZvciB0aGUgbWFpbnRhaW5lci4KPgo+IE9rLCBjYW4gd2UgcGxzIHJldmVydCAy
+ODAwMjA5OTk0ZjggKCJlMTAwMGU6IFJlZmFjdG9yIFBNIGZsb3dzIikgdGhlbj8KPgo+IFRoYW5r
+cywgRGFuaWVsCj4gLS0KPiBEYW5pZWwgVmV0dGVyCj4gU29mdHdhcmUgRW5naW5lZXIsIEludGVs
+IENvcnBvcmF0aW9uCj4gKzQxICgwKSA3OSAzNjUgNTcgNDggLSBodHRwOi8vYmxvZy5mZndsbC5j
+aAoKCgotLSAKRGFuaWVsIFZldHRlcgpTb2Z0d2FyZSBFbmdpbmVlciwgSW50ZWwgQ29ycG9yYXRp
+b24KKzQxICgwKSA3OSAzNjUgNTcgNDggLSBodHRwOi8vYmxvZy5mZndsbC5jaApfX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpJbnRlbC1nZnggbWFpbGluZyBs
+aXN0CkludGVsLWdmeEBsaXN0cy5mcmVlZGVza3RvcC5vcmcKaHR0cHM6Ly9saXN0cy5mcmVlZGVz
+a3RvcC5vcmcvbWFpbG1hbi9saXN0aW5mby9pbnRlbC1nZngK
