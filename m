@@ -1,49 +1,58 @@
-From: Chenbo Feng <chenbofeng.kernel@gmail.com>
-Subject: [PATCH net-next 2/2] bpf: Remove the capability check for cgroup skb eBPF program
-Date: Wed, 31 May 2017 11:06:53 -0700
-Message-ID: <1496254013-18719-2-git-send-email-chenbofeng.kernel@gmail.com>
-References: <1496254013-18719-1-git-send-email-chenbofeng.kernel@gmail.com>
-Cc: Lorenzo Colitti <lorenzo@google.com>,
-        Chenbo Feng <fengc@google.com>
-To: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:36115 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751080AbdEaSHM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 31 May 2017 14:07:12 -0400
-Received: by mail-pf0-f196.google.com with SMTP id n23so3375998pfb.3
-        for <netdev@vger.kernel.org>; Wed, 31 May 2017 11:07:12 -0700 (PDT)
-In-Reply-To: <1496254013-18719-1-git-send-email-chenbofeng.kernel@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andy Shevchenko <andy.shevchenko@gmail.com>
+Subject: Re: [PATCH v3 5/6] stmmac: pci: Use dmi_system_id table for
+ retrieving PHY addresses
+Date: Wed, 31 May 2017 21:09:44 +0300
+Message-ID: <CAHp75VdUj+FjRm8YNTqFer_GtuHzB4shk3KwQ0bMgQ7Rvd7uFg@mail.gmail.com>
+References: <cover.1496129604.git.jan.kiszka@siemens.com> <1ec11df8a4860215c93125f83a04c8c00482a041.1496129604.git.jan.kiszka@siemens.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+        Alexandre Torgue <alexandre.torgue@st.com>,
+        David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Jan Kiszka <jan.kiszka@siemens.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1ec11df8a4860215c93125f83a04c8c00482a041.1496129604.git.jan.kiszka@siemens.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Chenbo Feng <fengc@google.com>
+On Tue, May 30, 2017 at 10:33 AM, Jan Kiszka <jan.kiszka@siemens.com> wrote:
+> Avoids reimplementation of DMI matching in stmmac_pci_find_phy_addr.
 
-Currently loading a cgroup skb eBPF program require a CAP_SYS_ADMIN
-capability while attaching the program to a cgroup only requires the
-user have CAP_NET_ADMIN privilege. We can escape the capability
-check when load the program just like socket filter program to make
-the capability requirement consistent.
+>  struct stmmac_pci_dmi_data {
+> -       const char *name;
+> -       const char *asset_tag;
+> -       unsigned int func;
+> +       int func;
+>         int phy_addr;
+>  };
 
-Signed-off-by: Chenbo Feng <fengc@google.com>
----
- kernel/bpf/syscall.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+Can we use the following instead:
 
-diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
-index 265a0d8..021c0b4 100644
---- a/kernel/bpf/syscall.c
-+++ b/kernel/bpf/syscall.c
-@@ -815,7 +815,9 @@ static int bpf_prog_load(union bpf_attr *attr)
- 	    attr->kern_version != LINUX_VERSION_CODE)
- 		return -EINVAL;
- 
--	if (type != BPF_PROG_TYPE_SOCKET_FILTER && !capable(CAP_SYS_ADMIN))
-+	if (type != BPF_PROG_TYPE_SOCKET_FILTER
-+	    && type != BPF_PROG_TYPE_CGROUP_SKB
-+	    && !capable(CAP_SYS_ADMIN))
- 		return -EPERM;
- 
- 	/* plain bpf_prog allocation */
+struct stmmac_pci_dmi_data {
+       unsigned int *func;
+       int *phy_addr;
+       size_t nfuncs;
+};
+
+or something like
+
+struct stmmac_pci_func_data {
+       unsigned int func;
+       int phy_addr;
+};
+
+struct stmmac_pci_dmi_data {
+    struct stmmac_pci_func_data *func;
+    size_t nfuncs;
+};
+
+(Latter would be better since it allows to use ARRAY_SIZE() and less
+error prone for possible asymmetrical amount of values in the former)
+
+?
+
 -- 
-2.7.4
+With Best Regards,
+Andy Shevchenko
