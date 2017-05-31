@@ -1,29 +1,35 @@
-From: denzzzhome <peter-6UGhrkBn5ITiUyvXs9paU9/WbGxiEBk+KnZSZiQdtc4@public.gmane.org>
-Subject: Fw:5/31/2017 3:30:24 AM
-Date: Wed, 31 May 2017 04:30:24 -0600
-Message-ID: <C4577171-E9D2-4777-B0C2-0B380FE8414B@reedsbraycranes.wanadoo.co.uk>
-Mime-Version: 1.0 (Mac OS X Mail 10.2 \(3259\))
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: "users" <users-xolMwbFO0MWTtA8H5PvdGFaTQe2KTcn/@public.gmane.org>, "Yahoo" <frankiemg-/E1597aS9LQAvxtiuMwx3w@public.gmane.org>,
-	"Pepsi Bottling Company Plc" <rjcarlson-p1qox1jKS/GnTBCSGF2ZfA@public.gmane.org>,
-	"Alejandrina Hewett" <alejandrinahewett355-/E1597aS9LQAvxtiuMwx3w@public.gmane.org>,
-	"Danny Kukawka" <danny.kukawka-2YacvwyR+KOzQB+pC5nmwQ@public.gmane.org>,
-	"Danny Kukawka" <dkukawka-l3A5Bk7waGM@public.gmane.org>,
-	"netdev" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, "dev" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
-	"Alexey Dobriyan" <adobriyan-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, "Ben Dooks" <ben-linux-elnMNo+KYs3YtjvyW6yDsg@public.gmane.org>
-Return-path: <ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
-	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
-List-Post: <mailto:ovs-dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
-	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+From: Fabio Estevam <festevam@gmail.com>
+Subject: Re: [PATCH 1/2] ARM: dts: imx6ul-14x14-evk: Add ksz8081 phy properties
+Date: Wed, 31 May 2017 01:08:23 -0300
+Message-ID: <CAOMZO5A8BaehXMcJ38k24OMV7P-edXZsS8JZ5wefOcyCu1jOOQ@mail.gmail.com>
+References: <cover.1496164448.git.leonard.crestez@nxp.com> <d31aab90fbdecaf4c5f240becb2d0b0efb23f5c3.1496164448.git.leonard.crestez@nxp.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: Shawn Guo <shawnguo@kernel.org>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>, Andy Duan <fugang.duan@nxp.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Johan Hovold <johan@kernel.org>,
+        linux-kernel <linux-kernel@vger.kernel.org>,
+        Alexandre Belloni <alexandre.belloni@free-electrons.com>,
+        Philipp Zabel <p.zabel@pengutronix.de>,
+        Fabio Estevam <fabio.estevam@nxp.com>,
+        "linux-arm-kernel@lists.infradead.org"
+        <linux-arm-kernel@lists.infradead.org>
+To: Leonard Crestez <leonard.crestez@nxp.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <d31aab90fbdecaf4c5f240becb2d0b0efb23f5c3.1496164448.git.leonard.crestez@nxp.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I was amazed! http://abrupt-dowithout.cf <http://abrupt-dowithout.cf/> Isn't it incredible? 
+On Tue, May 30, 2017 at 2:34 PM, Leonard Crestez
+<leonard.crestez@nxp.com> wrote:
+> Right now mach-imx6ul registers a fixup for the ksz8081 phy. The same
+> register values can be set through the micrel phy driver by using dts
+> properties.
+>
+> This seems preferable and allows cleanly fixing suspend/resume.
+>
+> Signed-off-by: Leonard Crestez <leonard.crestez@nxp.com>
 
-Denzzzhome-/E1597aS9LQAvxtiuMwx3w@public.gmane.org 
+Reviewed-by: Fabio Estevam <fabio.estevam@nxp.com>
