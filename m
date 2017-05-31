@@ -1,39 +1,45 @@
-From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
-Subject: RE: [PATCH] qed: Fix a sleep-in-interrupt bug in qed_int_sp_dpc
-Date: Wed, 31 May 2017 17:59:58 +0000
-Message-ID: <BLUPR0701MB2004251BB71BADD16789022A8DF10@BLUPR0701MB2004.namprd07.prod.outlook.com>
-References: <1496240608-17453-1-git-send-email-baijiaju1990@163.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Jia-Ju Bai <baijiaju1990@163.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1496240608-17453-1-git-send-email-baijiaju1990@163.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Chenbo Feng <chenbofeng.kernel@gmail.com>
+Subject: [PATCH net-next 1/2] bpf: Allow CGROUP_SKB eBPF program to access sk_buff
+Date: Wed, 31 May 2017 11:06:52 -0700
+Message-ID: <1496254013-18719-1-git-send-email-chenbofeng.kernel@gmail.com>
+Cc: Lorenzo Colitti <lorenzo@google.com>,
+        Chenbo Feng <fengc@google.com>
+To: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:33521 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751000AbdEaSHF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 31 May 2017 14:07:05 -0400
+Received: by mail-pg0-f66.google.com with SMTP id s62so2729485pgc.0
+        for <netdev@vger.kernel.org>; Wed, 31 May 2017 11:07:04 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> The driver may sleep in interrupt handling, and the function call path is=
-:
-> qed_int_sp_dpc (tasklet_init indicates it handles interrupt)
->   qed_int_attentions
->     qed_mcp_handle_events
->       qed_mcp_handle_link_change
->         qed_link_update
->           qed_fill_link
->             qed_mcp_get_media_type
->               qed_ptt_acquire
->                 usleep_range --> may sleep
->=20
-> To fix it, the "usleep_range" is replaced with "udelay".
+From: Chenbo Feng <fengc@google.com>
 
-Thanks for pointing this out, but I believe the fix isn't the right one.
+This allows cgroup eBPF program to classify packet based on their
+protocol or other detail information. Currently program need
+CAP_NET_ADMIN privilege to attach a cgroup eBPF program, and A
+process with CAP_NET_ADMIN can already see all packets on the system,
+for example, by creating an iptables rules that causes the packet to
+be passed to userspace via NFLOG.
 
-The better option would be to propagate the PTT from the outside
-instead of acquiring a new one - in the call stack you've shared
-qed_mcp_link_change() held a PTT entry and we could have propagated
-it all the way through.
+Signed-off-by: Chenbo Feng <fengc@google.com>
+---
+ kernel/bpf/verifier.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-I'll try sending a fix for this in the next couple of days.
+diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+index 339c8a1..94a9bc9 100644
+--- a/kernel/bpf/verifier.c
++++ b/kernel/bpf/verifier.c
+@@ -2419,6 +2419,7 @@ static bool may_access_skb(enum bpf_prog_type type)
+ 	case BPF_PROG_TYPE_SOCKET_FILTER:
+ 	case BPF_PROG_TYPE_SCHED_CLS:
+ 	case BPF_PROG_TYPE_SCHED_ACT:
++	case BPF_PROG_TYPE_CGROUP_SKB:
+ 		return true;
+ 	default:
+ 		return false;
+-- 
+2.7.4
