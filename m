@@ -1,94 +1,137 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 09/15] ixgbevf: Resolve truncation warning for q_vector->name
-Date: Wed, 31 May 2017 14:19:30 -0700
-Message-ID: <20170531211936.63417-10-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 02/15] ixgbe: initialize u64_stats_sync structures early at ixgbe_probe
+Date: Wed, 31 May 2017 14:19:23 -0700
+Message-ID: <20170531211936.63417-3-jeffrey.t.kirsher@intel.com>
 References: <20170531211936.63417-1-jeffrey.t.kirsher@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: Tony Nguyen <anthony.l.nguyen@intel.com>, netdev@vger.kernel.org,
-        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Liwei Song <liwei.song@windriver.com>, netdev@vger.kernel.org,
+        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga06.intel.com ([134.134.136.31]:38747 "EHLO mga06.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751129AbdEaVTv (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 31 May 2017 17:19:51 -0400
+        id S1751050AbdEaVTr (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 31 May 2017 17:19:47 -0400
 In-Reply-To: <20170531211936.63417-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tony Nguyen <anthony.l.nguyen@intel.com>
+From: Liwei Song <liwei.song@windriver.com>
 
-The following warning is now shown as a result of new checks added for
-gcc 7:
+Fix the following CallTrace:
+INFO: trying to register non-static key.
+the code is fine but needs lockdep annotation.
+turning off the locking correctness validator.
+CPU: 71 PID: 1 Comm: swapper/0 Not tainted 4.8.8-WR9.0.0.1_standard #11
+Hardware name: Intel Corporation S2600WTT/S2600WTT,
+BIOS GRNDSDP1.86B.0036.R05.1407140519 07/14/2014
+ 00200086 00200086 eb5e1ab8 c144dd70 00000000 00000000 eb5e1af8 c10af89a
+ c1d23de4 eb5e1af8 00000009 eb5d8600 eb5d8638 eb5e1af8 c10b14d8 00000009
+ 0000000a c1d32911 00000000 00000000 e44c826c eb5d8000 eb5e1b74 c10b214e
+Call Trace:
+ [<c144dd70>] dump_stack+0x5f/0x8f
+ [<c10af89a>] register_lock_class+0x25a/0x4c0
+ [<c10b14d8>] ? check_irq_usage+0x88/0xc0
+ [<c10b214e>] __lock_acquire+0x5e/0x17a0
+ [<c1abdb9b>] ? _raw_spin_unlock_irqrestore+0x3b/0x70
+ [<c10cf14a>] ? rcu_read_lock_sched_held+0x8a/0x90
+ [<c10b3c5f>] lock_acquire+0x9f/0x1f0
+ [<c1922dcf>] ? dev_get_stats+0x5f/0x110
+ [<c176e6b3>] ixgbe_get_stats64+0x113/0x320
+ [<c1922dcf>] ? dev_get_stats+0x5f/0x110
+ [<c1922dcf>] dev_get_stats+0x5f/0x110
+ [<c1ab5415>] rtnl_fill_stats+0x40/0x105
+ [<c193dd45>] rtnl_fill_ifinfo+0x4c5/0xd20
+ [<c11c5115>] ? __kmalloc_node_track_caller+0x1a5/0x410
+ [<c1917487>] ? __kmalloc_reserve.isra.42+0x27/0x80
+ [<c191754f>] ? __alloc_skb+0x6f/0x270
+ [<c1942291>] rtmsg_ifinfo_build_skb+0x71/0xd0
+ [<c194230a>] rtmsg_ifinfo.part.23+0x1a/0x50
+ [<c1923dad>] ? call_netdevice_notifiers_info+0x2d/0x60
+ [<c194236b>] rtmsg_ifinfo+0x2b/0x40
+ [<c192f997>] register_netdevice+0x3d7/0x4d0
+ [<c192faa7>] register_netdev+0x17/0x30
+ [<c177b83d>] ixgbe_probe+0x118d/0x1610
+ [<c1498202>] local_pci_probe+0x32/0x80
+ [<c1498172>] ? pci_match_device+0xd2/0x100
+ [<c14991e0>] pci_device_probe+0xc0/0x110
+ [<c1652cc5>] driver_probe_device+0x1c5/0x280
+ [<c1498172>] ? pci_match_device+0xd2/0x100
+ [<c1652e09>] __driver_attach+0x89/0x90
+ [<c1652d80>] ? driver_probe_device+0x280/0x280
+ [<c165114f>] bus_for_each_dev+0x4f/0x80
+ [<c165269e>] driver_attach+0x1e/0x20
+ [<c1652d80>] ? driver_probe_device+0x280/0x280
+ [<c1652317>] bus_add_driver+0x1a7/0x220
+ [<c1653a79>] driver_register+0x59/0xe0
+ [<c1f897b8>] ? igb_init_module+0x49/0x49
+ [<c1497b2a>] __pci_register_driver+0x4a/0x50
+ [<c1f8985d>] ixgbe_init_module+0xa5/0xc4
+ [<c1000485>] do_one_initcall+0x35/0x150
+ [<c107e818>] ? parameq+0x18/0x70
+ [<c1f395d8>] ? repair_env_string+0x12/0x51
+ [<c107ead0>] ? parse_args+0x260/0x3b0
+ [<c1074f73>] ? __usermodehelper_set_disable_depth+0x43/0x50
+ [<c1f39e90>] kernel_init_freeable+0x19b/0x267
+ [<c1f395c6>] ? set_debug_rodata+0xf/0xf
+ [<c10b1e7b>] ? trace_hardirqs_on+0xb/0x10
+ [<c1abdc02>] ? _raw_spin_unlock_irq+0x32/0x50
+ [<c1085f0b>] ? finish_task_switch+0xab/0x1f0
+ [<c1085ec9>] ? finish_task_switch+0x69/0x1f0
+ [<c1ab6a30>] kernel_init+0x10/0x110
+ [<c108bd65>] ? schedule_tail+0x25/0x80
+ [<c1abe422>] ret_from_kernel_thread+0xe/0x24
+ [<c1ab6a20>] ? rest_init+0x130/0x130
 
-drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c: In function ‘ixgbevf_open’:
-drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c:1363:13: warning: ‘%d’ directive output may be truncated writing between 1 and 10 bytes into a region of size between 3 and 18 [-Wformat-truncation=]
-      "%s-%s-%d", netdev->name, "TxRx", ri++);
-             ^~
-drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c:1363:6: note: directive argument in the range [0, 2147483647]
-      "%s-%s-%d", netdev->name, "TxRx", ri++);
-      ^~~~~~~~~~
-drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c:1362:4: note: ‘snprintf’ output between 8 and 32 bytes into a destination of size 24
-    snprintf(q_vector->name, sizeof(q_vector->name) - 1,
-    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-      "%s-%s-%d", netdev->name, "TxRx", ri++);
-      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+This CallTrace occurred on 32-bit kernel with CONFIG_PROVE_LOCKING
+enabled.
 
-Resolve this warning by making a couple of changes.
- - Don't reserve space for the null terminator.  Since snprintf adds the
-   null terminator automatically, there is no need for us to reserve a byte
-   for it.
+This happens at ixgbe driver probe hardware stage, when comes to
+ixgbe_get_stats64, the seqcount/seqlock still not initialize, although
+this was initialize in TX/RX resources setup routin, but it was too late,
+then lockdep give this Warning.
 
- - Change a couple variables that can never be negative from int to
-   unsigned int.
+To fix this, move the u64_stats_init function to driver probe stage,
+which before we get the status of seqcount and after the RX/TX ring
+was finished init.
 
-While we're making changes to the format string, move the constant strings
-into the format string instead of providing them as specifiers.
-
-Signed-off-by: Tony Nguyen <anthony.l.nguyen@intel.com>
-Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Signed-off-by: Liwei Song <liwei.song@windriver.com>
+Tested-by: Krishneil Singh  <krishneil.k.singh@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 14 +++++++-------
- 1 file changed, 7 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-index 706d868a778d..aced91c9c034 100644
---- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-+++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-@@ -1351,23 +1351,23 @@ static int ixgbevf_request_msix_irqs(struct ixgbevf_adapter *adapter)
- {
- 	struct net_device *netdev = adapter->netdev;
- 	int q_vectors = adapter->num_msix_vectors - NON_Q_VECTORS;
-+	unsigned int ri = 0, ti = 0;
- 	int vector, err;
--	int ri = 0, ti = 0;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index c263e2293661..4f9679494b6c 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -6184,8 +6184,6 @@ int ixgbe_setup_tx_resources(struct ixgbe_ring *tx_ring)
+ 	if (!tx_ring->tx_buffer_info)
+ 		goto err;
  
- 	for (vector = 0; vector < q_vectors; vector++) {
- 		struct ixgbevf_q_vector *q_vector = adapter->q_vector[vector];
- 		struct msix_entry *entry = &adapter->msix_entries[vector];
+-	u64_stats_init(&tx_ring->syncp);
+-
+ 	/* round up to nearest 4K */
+ 	tx_ring->size = tx_ring->count * sizeof(union ixgbe_adv_tx_desc);
+ 	tx_ring->size = ALIGN(tx_ring->size, 4096);
+@@ -6279,8 +6277,6 @@ int ixgbe_setup_rx_resources(struct ixgbe_adapter *adapter,
+ 	if (!rx_ring->rx_buffer_info)
+ 		goto err;
  
- 		if (q_vector->tx.ring && q_vector->rx.ring) {
--			snprintf(q_vector->name, sizeof(q_vector->name) - 1,
--				 "%s-%s-%d", netdev->name, "TxRx", ri++);
-+			snprintf(q_vector->name, sizeof(q_vector->name),
-+				 "%s-TxRx-%u", netdev->name, ri++);
- 			ti++;
- 		} else if (q_vector->rx.ring) {
--			snprintf(q_vector->name, sizeof(q_vector->name) - 1,
--				 "%s-%s-%d", netdev->name, "rx", ri++);
-+			snprintf(q_vector->name, sizeof(q_vector->name),
-+				 "%s-rx-%u", netdev->name, ri++);
- 		} else if (q_vector->tx.ring) {
--			snprintf(q_vector->name, sizeof(q_vector->name) - 1,
--				 "%s-%s-%d", netdev->name, "tx", ti++);
-+			snprintf(q_vector->name, sizeof(q_vector->name),
-+				 "%s-tx-%u", netdev->name, ti++);
- 		} else {
- 			/* skip this unused q_vector */
- 			continue;
+-	u64_stats_init(&rx_ring->syncp);
+-
+ 	/* Round up to nearest 4K */
+ 	rx_ring->size = rx_ring->count * sizeof(union ixgbe_adv_rx_desc);
+ 	rx_ring->size = ALIGN(rx_ring->size, 4096);
+@@ -10283,6 +10279,10 @@ static int ixgbe_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	if (err)
+ 		goto err_sw_init;
+ 
++	for (i = 0; i < adapter->num_rx_queues; i++)
++		u64_stats_init(&adapter->rx_ring[i]->syncp);
++	for (i = 0; i < adapter->num_tx_queues; i++)
++		u64_stats_init(&adapter->tx_ring[i]->syncp);
+ 	for (i = 0; i < adapter->num_xdp_queues; i++)
+ 		u64_stats_init(&adapter->xdp_ring[i]->syncp);
+ 
 -- 
 2.12.2
