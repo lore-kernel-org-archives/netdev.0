@@ -1,62 +1,91 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH net-next] netlink: include netnsid only when netns
- differs.
-Date: Wed, 31 May 2017 15:48:06 +0200
-Message-ID: <c4250fae-3bf8-f646-9a68-de91419b0b8b@6wind.com>
-References: <20170530213325.21652-1-fbl@sysclose.org>
- <1b83c01b-8fe3-8e9b-cae7-4064527c1c21@6wind.com>
- <20170531122836.GV2673@x240.lan>
-Reply-To: nicolas.dichtel@6wind.com
+From: Adrian Tomasov <atomasov@redhat.com>
+Subject: Re: [i40e] regression on TCP stream and TCP maerts,
+ kernel-4.12.0-0.rc2
+Date: Wed, 31 May 2017 15:48:27 +0200
+Message-ID: <1496238507.22688.4.camel@redhat.com>
+References: <655ed9ab-853e-7497-9ea3-cc8d13f56043@redhat.com>
+         <CAKgT0UcdJQWqr_zxxi36a6_3iMwBNow-YS723i7t6xsKvAqvCA@mail.gmail.com>
+         <CAKgT0Ufb41o=WM=3DM9cwvrw9N5AFn-uL0p1gQB-m+D3BX3DKA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org
-To: Flavio Leitner <fbl@sysclose.org>
+Cc: Netdev <netdev@vger.kernel.org>,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+        Otto Sabart <osabart@redhat.com>,
+        Jirka Hladky <jhladky@redhat.com>
+To: Alexander Duyck <alexander.duyck@gmail.com>,
+        Adam Okuliar <aokuliar@redhat.com>,
+        Mitch Williams <mitch.a.williams@intel.com>,
+        intel-wired-lan <intel-wired-lan@lists.osuosl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f50.google.com ([74.125.82.50]:37857 "EHLO
-        mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750904AbdEaNsL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 31 May 2017 09:48:11 -0400
-Received: by mail-wm0-f50.google.com with SMTP id d127so20360064wmf.0
-        for <netdev@vger.kernel.org>; Wed, 31 May 2017 06:48:10 -0700 (PDT)
-In-Reply-To: <20170531122836.GV2673@x240.lan>
-Content-Language: fr
+Received: from mail-wm0-f49.google.com ([74.125.82.49]:33779 "EHLO
+        mail-wm0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750878AbdEaNsa (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 31 May 2017 09:48:30 -0400
+Received: by mail-wm0-f49.google.com with SMTP id m7so34072627wmg.0
+        for <netdev@vger.kernel.org>; Wed, 31 May 2017 06:48:29 -0700 (PDT)
+In-Reply-To: <CAKgT0Ufb41o=WM=3DM9cwvrw9N5AFn-uL0p1gQB-m+D3BX3DKA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 31/05/2017 à 14:28, Flavio Leitner a écrit :
-> On Wed, May 31, 2017 at 10:38:21AM +0200, Nicolas Dichtel wrote:
->> Le 30/05/2017 à 23:33, Flavio Leitner a écrit :
->>> Don't include netns id for notifications broadcasts when the
->>> socket and the skb are in the same netns because it will be
->>> an error which can't be distinguished from a peer netns failing
->>> to allocate an id.
->> I don't understand the problem. peernet2id() doesn't allocate ids, it only do a
->> lookup. If you need an id for the current netns, you have to allocate one.
+On Tue, 2017-05-30 at 18:27 -0700, Alexander Duyck wrote:
+> On Tue, May 30, 2017 at 8:41 AM, Alexander Duyck
+> <alexander.duyck@gmail.com> wrote:
+> > 
+> > On Tue, May 30, 2017 at 6:43 AM, Adam Okuliar <aokuliar@redhat.com>
+> > wrote:
+> > > 
+> > > Hello,
+> > > 
+> > > we found regression on intel card(XL710) with i40e driver.
+> > > Regression is
+> > > about ~45%
+> > > on TCP_STREAM and TCP_MAERTS test for IPv4 and IPv6. Regression
+> > > was first
+> > > visible in kernel-4.12.0-0.rc1.
+> > > 
+> > > More details about results you can see in uploaded images in
+> > > bugzilla. [0]
+> > > 
+> > > 
+> > > [0] https://bugzilla.kernel.org/show_bug.cgi?id=195923
+> > > 
+> > > 
+> > > Best regards, / S pozdravom,
+> > > 
+> > > Adrián Tomašov
+> > > Kernel Performance QE
+> > > atomasov@redhat.com
+> > 
+> > I have added the i40e driver maintainer and the intel-wired-lan
+> > mailing list so that we can make are developers aware of the issue.
+> > 
+> > Thanks.
+> > 
+> > - Alex
 > 
-> The issue is that if you query an interface on the same netns, the
-> error is returned, then we cannot tell if the iface is on the same
-> netns or if there was an error while allocating the ID and the
-> iface is on another netns.
-If the returned id is NETNSA_NSID_NOT_ASSIGNED, then the netns is the same.
-
-Some lines before your patch, we call peernet_has_id() when the netns differ,
-thus we ensure that the id is available.
-
-The principle was that netlink messages of other netns can be sent only if an id
-is assigned.
-
+> Adam,
 > 
->> This patch changes the metadata exported to the userland and will break existing
->> tools.
+> We are having some issues trying to reproduce what you reported.
 > 
-> It should not break because it changes only for interfaces on
-> the same netns where there is no ID and that value wasn't
-> exported until recently.
+> Can you provide some additional data. Specifically we would be
+> looking
+> for an "ethtool -i", and an "ethtool -S" for the port before and
+> after
+> the test. If you can attach it to the bugzilla that would be
+> appreciated.
 > 
-It was exported since the initial patch (59324cf35aba ("netlink: allow to listen
-"all" netns"). Am I wrong?
+> Thanks.
+> 
+> - Alex
+
+Hello Alex,
+
+requested files are updated in bugzilla.
+
+If you have any questions about testing feel free to ask.
 
 
-Regards,
-Nicolas
+Best regards,
+
+Adrian
