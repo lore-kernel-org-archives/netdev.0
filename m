@@ -1,33 +1,36 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [iproute PATCH] tc: m_xt: Prevent a segfault in libipt
-Date: Tue, 30 May 2017 17:38:47 -0700
-Message-ID: <20170530173847.0580cf36@xeon-e3>
-References: <20170523134057.23775-1-phil@nwl.cc>
+From: David Ahern <dsahern@gmail.com>
+Subject: Re: [PATCH net-next] net: ndisc.c: reduce size of
+ __ndisc_fill_addr_option()
+Date: Tue, 30 May 2017 18:39:35 -0600
+Message-ID: <fe3573ad-90d1-6673-1e09-f6f1b47527bb@gmail.com>
+References: <1495836052-8377-1-git-send-email-cugyly@163.com>
+ <20170529.233009.1607319852930338432.davem@davemloft.net>
+ <1496115666.2618.9.camel@perches.com>
+ <d774d7d7-5eb2-f107-b939-fbd3a8ac97a7@gmail.com>
+ <8729016553E3654398EA69218DA29EEF15BB29A7@cnshjmbx02>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Phil Sutter <psutter@redhat.com>
-To: Phil Sutter <phil@nwl.cc>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: YUAN Linyu <Linyu.Yuan@alcatel-sbell.com.cn>,
+        David Ahern <dsahern@gmail.com>, Joe Perches <joe@perches.com>,
+        David Miller <davem@davemloft.net>,
+        "cugyly@163.com" <cugyly@163.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f171.google.com ([209.85.192.171]:36135 "EHLO
-        mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750811AbdEaAit (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 30 May 2017 20:38:49 -0400
-Received: by mail-pf0-f171.google.com with SMTP id m17so1829535pfg.3
-        for <netdev@vger.kernel.org>; Tue, 30 May 2017 17:38:49 -0700 (PDT)
-In-Reply-To: <20170523134057.23775-1-phil@nwl.cc>
+Received: from mail-pf0-f173.google.com ([209.85.192.173]:36428 "EHLO
+        mail-pf0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751081AbdEaAji (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 30 May 2017 20:39:38 -0400
+Received: by mail-pf0-f173.google.com with SMTP id m17so1843800pfg.3
+        for <netdev@vger.kernel.org>; Tue, 30 May 2017 17:39:38 -0700 (PDT)
+In-Reply-To: <8729016553E3654398EA69218DA29EEF15BB29A7@cnshjmbx02>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 23 May 2017 15:40:57 +0200
-Phil Sutter <phil@nwl.cc> wrote:
+On 5/30/17 6:29 PM, YUAN Linyu wrote:
+>>> that function should be converted to skb_put_zero once it hits net-next.
+>> I will check it
+> I can't find skb_put_zero
 
-> From: Phil Sutter <psutter@redhat.com>
-> 
-> This happens with NAT targets, such as SNAT, DNAT and MASQUERADE. These
-> are still not usable with this patch, but at least tc doesn't crash
-> anymore when one tries to use them.
-> 
-> Signed-off-by: Phil Sutter <phil@nwl.cc>
-
-Applied, thanks
+I believe the decision was to put it in Johannes' tree and it will make
+its way to DaveM's tree. Give some time.
