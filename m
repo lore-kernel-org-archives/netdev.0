@@ -1,25 +1,34 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: Re: [PATCH net-next 0/3] udp: reduce cache pressure
-Date: Wed, 31 May 2017 09:52:32 -0700
-Message-ID: <CANn89iJ16aqOCGNssJ5d7rcTM+PM9R9ovPmhsvHxYWu6OuUX7A@mail.gmail.com>
-References: <cover.1496070490.git.pabeni@redhat.com> <20170531.124734.427032219057695744.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] net/mlxfw: select CONFIG_XZ_DEC
+Date: Wed, 31 May 2017 12:53:32 -0400 (EDT)
+Message-ID: <20170531.125332.804150363431702680.davem@davemloft.net>
+References: <20170530092628.1306028-1-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Paolo Abeni <pabeni@redhat.com>, netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f170.google.com ([209.85.161.170]:33356 "EHLO
-        mail-yw0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750951AbdEaQwd (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 31 May 2017 12:52:33 -0400
-Received: by mail-yw0-f170.google.com with SMTP id p73so9209139ywp.0
-        for <netdev@vger.kernel.org>; Wed, 31 May 2017 09:52:33 -0700 (PDT)
-In-Reply-To: <20170531.124734.427032219057695744.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: yotamg@mellanox.com, idosch@mellanox.com, jiri@mellanox.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: arnd@arndb.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170530092628.1306028-1-arnd@arndb.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, May 31, 2017 at 9:47 AM, David Miller <davem@davemloft.net> wrote:
->
-> Eric can you give this a quick review when you get a chance?
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Tue, 30 May 2017 11:26:14 +0200
 
-Sure, will do in a few minutes. Thanks.
+> The new mlxfw code fails to build without the xz library:
+> 
+> drivers/net/ethernet/mellanox/mlxfw/mlxfw_mfa2.o: In function `mlxfw_mfa2_xz_dec_run':
+> :(.text.mlxfw_mfa2_xz_dec_run+0x8): undefined reference to `xz_dec_run'
+> drivers/net/ethernet/mellanox/mlxfw/mlxfw_mfa2.o: In function `mlxfw_mfa2_file_component_get':
+> :(.text.mlxfw_mfa2_file_component_get+0x218): undefined reference to `xz_dec_init'
+> :(.text.mlxfw_mfa2_file_component_get+0x2c0): undefined reference to `xz_dec_end'
+> 
+> This adds a Kconfig 'select' statement for it, which is also what
+> the other user of that library has.
+> 
+> Fixes: 410ed13cae39 ("Add the mlxfw module for Mellanox firmware flash process")
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+
+Applied, thanks Arnd.
