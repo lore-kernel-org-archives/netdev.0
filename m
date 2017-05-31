@@ -1,7 +1,7 @@
 From: Alexander Potapenko <glider@google.com>
-Subject: [PATCH] net: don't call strlen on non-terminated string in dev_set_alias()
-Date: Wed, 31 May 2017 14:33:54 +0200
-Message-ID: <20170531123354.1677-1-glider@google.com>
+Subject: [PATCH v2] net: don't call strlen on non-terminated string in dev_set_alias()
+Date: Wed, 31 May 2017 14:51:50 +0200
+Message-ID: <20170531125150.28798-1-glider@google.com>
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 To: dvyukov@google.com, kcc@google.com, edumazet@google.com,
         davem@davemloft.net
@@ -15,6 +15,8 @@ on the user-supplied non-terminated string.
 
 Signed-off-by: Alexander Potapenko <glider@google.com>
 ---
+v2: fixed an off-by-one error spotted by Dmitry Vyukov
+
 For the record, here is the KMSAN report:
 
 ==================================================================
@@ -124,7 +126,7 @@ and the reproducer:
  1 file changed, 4 insertions(+), 1 deletion(-)
 
 diff --git a/net/core/dev.c b/net/core/dev.c
-index fca407b4a6ea..1a4ac1ba5dfd 100644
+index fca407b4a6ea..757069baffa9 100644
 --- a/net/core/dev.c
 +++ b/net/core/dev.c
 @@ -1254,7 +1254,10 @@ int dev_set_alias(struct net_device *dev, const char *alias, size_t len)
@@ -134,8 +136,8 @@ index fca407b4a6ea..1a4ac1ba5dfd 100644
 -	strlcpy(dev->ifalias, alias, len+1);
 +	/* alias comes from the userspace and may not be zero-terminated.
 +	 */
-+	memcpy(dev->ifalias, alias, len + 1);
-+	dev->ifalias[len + 1] = 0;
++	memcpy(dev->ifalias, alias, len);
++	dev->ifalias[len] = 0;
  	return len;
  }
  
