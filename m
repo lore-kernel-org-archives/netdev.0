@@ -1,67 +1,58 @@
-From: Arend van Spriel <arend.vanspriel@broadcom.com>
-Subject: Re: [PATCH] b43legacy: Fix a sleep-in-atomic bug in
- b43legacy_op_bss_info_changed
-Date: Wed, 31 May 2017 14:15:47 +0200
-Message-ID: <471e5030-0a9a-e9bb-855c-90dcd506f466@broadcom.com>
-References: <1496225353-5544-1-git-send-email-baijiaju1990@163.com>
- <877f0xnwyk.fsf@kamboji.qca.qualcomm.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Leak in ipv6_gso_segment()?
+Date: Wed, 31 May 2017 13:26:02 +0100
+Message-ID: <1496233562.3992.10.camel@decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Larry.Finger@lwfinger.net, linux-wireless@vger.kernel.org,
-        b43-dev@lists.infradead.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Kalle Valo <kvalo@codeaurora.org>,
-        Jia-Ju Bai <baijiaju1990@163.com>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+        protocol="application/pgp-signature"; boundary="=-qkhkTFbj+jav1IoWI6Vo"
+Cc: netdev <netdev@vger.kernel.org>
+To: Craig Gallek <kraig@google.com>,
+        "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f52.google.com ([74.125.82.52]:36110 "EHLO
-        mail-wm0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751056AbdEaMPu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 31 May 2017 08:15:50 -0400
-Received: by mail-wm0-f52.google.com with SMTP id 7so116338895wmo.1
-        for <netdev@vger.kernel.org>; Wed, 31 May 2017 05:15:50 -0700 (PDT)
-In-Reply-To: <877f0xnwyk.fsf@kamboji.qca.qualcomm.com>
-Content-Language: en-US
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:54025 "EHLO
+        shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751164AbdEaM0V (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 31 May 2017 08:26:21 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 31-05-17 12:26, Kalle Valo wrote:
-> Jia-Ju Bai <baijiaju1990@163.com> writes:
-> 
->> The driver may sleep under a spin lock, and the function call path is:
->> b43legacy_op_bss_info_changed (acquire the lock by spin_lock_irqsave)
->>   b43legacy_synchronize_irq
->>     synchronize_irq --> may sleep
->>
->> To fix it, the lock is released before b43legacy_synchronize_irq, and the 
->> lock is acquired again after this function.
->>
->> Signed-off-by: Jia-Ju Bai <baijiaju1990@163.com>
->> ---
->>  drivers/net/wireless/broadcom/b43legacy/main.c |    2 ++
->>  1 file changed, 2 insertions(+)
->>
->> diff --git a/drivers/net/wireless/broadcom/b43legacy/main.c b/drivers/net/wireless/broadcom/b43legacy/main.c
->> index f1e3dad..31ead21 100644
->> --- a/drivers/net/wireless/broadcom/b43legacy/main.c
->> +++ b/drivers/net/wireless/broadcom/b43legacy/main.c
->> @@ -2859,7 +2859,9 @@ static void b43legacy_op_bss_info_changed(struct ieee80211_hw *hw,
->>  	b43legacy_write32(dev, B43legacy_MMIO_GEN_IRQ_MASK, 0);
->>  
->>  	if (changed & BSS_CHANGED_BSSID) {
->> +		spin_unlock_irqrestore(&wl->irq_lock, flags);
->>  		b43legacy_synchronize_irq(dev);
->> +		spin_lock_irqsave(&wl->irq_lock, flags);
-> 
-> To me this looks like a fragile workaround and not a real fix. You can
-> easily add new race conditions with releasing the lock like this.
 
-Hi Jia-Ju,
+--=-qkhkTFbj+jav1IoWI6Vo
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Agree with Kalle as I was about to say the same thing. You really need
-to determine what is protected by the irq_lock. Here you are using the
-lock because you are about to change wl->bssid a bit further down. Did
-not check the entire function but it seems the lock perimeter is too wide.
+If I'm not mistaken, ipv6_gso_segment() now leaks segs if
+ip6_find_1stfragopt() fails.  I'm not sure whether the fix would be as
+simple as adding a kfree_skb(segs) or whether more complex cleanup is
+needed.
 
-Regards,
-Arend
+Ben.
+
+--=20
+Ben Hutchings
+Lowery's Law:
+=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0If it jams, force it. If it=
+ breaks, it needed replacing anyway.
+
+--=-qkhkTFbj+jav1IoWI6Vo
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIzBAABCgAdFiEErCspvTSmr92z9o8157/I7JWGEQkFAlkutloACgkQ57/I7JWG
+EQlD6hAAmc5jKxYV9/UlGZg6rLhm1aD9KGxRl4LVTbxJXCQucTH+VgU9f7TLfS2y
+k5tSv1gzcjydyKj1Hk2HeZsuB001wWEr7ncJhV86K5YCDm5p9GCQxQC5CgqV7krN
+PpsbBQKQLa9TjNKjXI+NrItG3xpJ/GIoc1wKOAX4I46RI/PR2w/IFe467pewEOmF
+N79xBsnYi3WXLAImK1rRcXyXDGTiOF4Hsz5XKjkGxpk5v/JE7ESl4l2WO46DQBUq
+HTrOtB1H4NRGe16vJU8GOkp4x/b5s7/4rAYaRtLElzSkP6MF5Qi53ihY5FDuRiVI
+sPw19eNjeaZ7VQbRBYwNN5SzRVIvpH+ZKT5hlDy/L1tXdHQC6pZe1SKIdAtLuQ4j
+3eNUF3fu3fmGVa4Uwe46loJSg/YnX2uZTKzh+O5HV4TSJI0+nisJnO53Hpyv4xMR
+eSLs6g+h+DzbALNN4QKH1VAzL9F2uJi54N7rShw3U+XfwIilKB0H7F/cpAltDDsG
+g8Bn80QqXhHcFwVtuvU7e+ZMzEMEyiiMsJF7wlL6sOVnsh1XmfC8n9gQQhOvZ1Ti
+Z4j8gkUQtKVtpFGut62FTIpiNMTokZ41UFrpJXqpg2/9POW7Dj3W9u7RRY0jyiSo
+M+lwqNu0TcWieKrwv/i35nrygZt4+zCSoLBfVWm5PymSqm50MTE=
+=xKK4
+-----END PGP SIGNATURE-----
+
+--=-qkhkTFbj+jav1IoWI6Vo--
