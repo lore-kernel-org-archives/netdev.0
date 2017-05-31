@@ -1,41 +1,38 @@
-From: Jia-Ju Bai <baijiaju1990@163.com>
-Subject: [PATCH] b43legacy: Fix a sleep-in-atomic bug in b43legacy_op_bss_info_changed
-Date: Wed, 31 May 2017 18:09:13 +0800
-Message-ID: <1496225353-5544-1-git-send-email-baijiaju1990@163.com>
-Cc: linux-wireless@vger.kernel.org, b43-dev@lists.infradead.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Jia-Ju Bai <baijiaju1990@163.com>
-To: Larry.Finger@lwfinger.net, kvalo@codeaurora.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Michael Ellerman <mpe@ellerman.id.au>
+Subject: Re: [PATCH net-next] powerpc: use asm-generic/socket.h as much as possible
+Date: Wed, 31 May 2017 20:15:55 +1000
+Message-ID: <878tld49ic.fsf@concordia.ellerman.id.au>
+References: <20170531154337.04ebcb75@canb.auug.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+        PowerPC <linuxppc-dev@lists.ozlabs.org>,
+        Arnd Bergmann <arnd@arndb.de>
+To: Stephen Rothwell <sfr@canb.auug.org.au>,
+        David Miller <davem@davemloft.net>,
+        Networking <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ozlabs.org ([103.22.144.67]:38187 "EHLO ozlabs.org"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750912AbdEaKP7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 31 May 2017 06:15:59 -0400
+In-Reply-To: <20170531154337.04ebcb75@canb.auug.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The driver may sleep under a spin lock, and the function call path is:
-b43legacy_op_bss_info_changed (acquire the lock by spin_lock_irqsave)
-  b43legacy_synchronize_irq
-    synchronize_irq --> may sleep
+Stephen Rothwell <sfr@canb.auug.org.au> writes:
 
-To fix it, the lock is released before b43legacy_synchronize_irq, and the 
-lock is acquired again after this function.
+> asm-generic/socket.h already has an exception for the differences that
+> powerpc needs, so just include it after defining the differences.
+>
+> Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
+> ---
+>  arch/powerpc/include/uapi/asm/socket.h | 92 +---------------------------------
+>  1 file changed, 1 insertion(+), 91 deletions(-)
+>
+> Build tested using powerpc allyesconfig, pseries_le_defconfig, 32 bit
+> and 64 bit allnoconfig and ppc44x_defconfig builds.
 
-Signed-off-by: Jia-Ju Bai <baijiaju1990@163.com>
----
- drivers/net/wireless/broadcom/b43legacy/main.c |    2 ++
- 1 file changed, 2 insertions(+)
+Did you boot it and test that userspace was happy doing sockety things?
 
-diff --git a/drivers/net/wireless/broadcom/b43legacy/main.c b/drivers/net/wireless/broadcom/b43legacy/main.c
-index f1e3dad..31ead21 100644
---- a/drivers/net/wireless/broadcom/b43legacy/main.c
-+++ b/drivers/net/wireless/broadcom/b43legacy/main.c
-@@ -2859,7 +2859,9 @@ static void b43legacy_op_bss_info_changed(struct ieee80211_hw *hw,
- 	b43legacy_write32(dev, B43legacy_MMIO_GEN_IRQ_MASK, 0);
- 
- 	if (changed & BSS_CHANGED_BSSID) {
-+		spin_unlock_irqrestore(&wl->irq_lock, flags);
- 		b43legacy_synchronize_irq(dev);
-+		spin_lock_irqsave(&wl->irq_lock, flags);
- 
- 		if (conf->bssid)
- 			memcpy(wl->bssid, conf->bssid, ETH_ALEN);
--- 
-1.7.9.5
+cheers
