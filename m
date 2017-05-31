@@ -1,49 +1,52 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [PATCH] b43legacy: Fix a sleep-in-atomic bug in b43legacy_op_bss_info_changed
-Date: Wed, 31 May 2017 13:26:43 +0300
-Message-ID: <877f0xnwyk.fsf@kamboji.qca.qualcomm.com>
-References: <1496225353-5544-1-git-send-email-baijiaju1990@163.com>
+From: Leonard Crestez <leonard.crestez@nxp.com>
+Subject: [PATCH v2 0/2] ARM: imx6ul-14x14-evk: Fix suspend over nfs by phy
+Date: Wed, 31 May 2017 13:29:28 +0300
+Message-ID: <cover.1496224930.git.leonard.crestez@nxp.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: Larry.Finger@lwfinger.net, linux-wireless@vger.kernel.org,
-        b43-dev@lists.infradead.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Jia-Ju Bai <baijiaju1990@163.com>
+Cc: Andy Duan <fugang.duan@nxp.com>, Johan Hovold <johan@kernel.org>,
+        Alexandre Belloni <alexandre.belloni@free-electrons.com>,
+        Philipp Zabel <p.zabel@pengutronix.de>,
+        Fabio Estevam <fabio.estevam@nxp.com>,
+        <netdev@vger.kernel.org>, <linux-arm-kernel@lists.infradead.org>,
+        <linux-kernel@vger.kernel.org>
+To: Florian Fainelli <f.fainelli@gmail.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Andrew Lunn <andrew@lunn.ch>, Shawn Guo <shawnguo@kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1496225353-5544-1-git-send-email-baijiaju1990@163.com> (Jia-Ju
-        Bai's message of "Wed, 31 May 2017 18:09:13 +0800")
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jia-Ju Bai <baijiaju1990@163.com> writes:
+Right now attempting doing suspend/resume while root is mounted over NFS
+hangs on imx6ul-14x14-evk. This is happening because ksz8081 phy fixups are
+lost on resume.
 
-> The driver may sleep under a spin lock, and the function call path is:
-> b43legacy_op_bss_info_changed (acquire the lock by spin_lock_irqsave)
->   b43legacy_synchronize_irq
->     synchronize_irq --> may sleep
->
-> To fix it, the lock is released before b43legacy_synchronize_irq, and the 
-> lock is acquired again after this function.
->
-> Signed-off-by: Jia-Ju Bai <baijiaju1990@163.com>
-> ---
->  drivers/net/wireless/broadcom/b43legacy/main.c |    2 ++
->  1 file changed, 2 insertions(+)
->
-> diff --git a/drivers/net/wireless/broadcom/b43legacy/main.c b/drivers/net/wireless/broadcom/b43legacy/main.c
-> index f1e3dad..31ead21 100644
-> --- a/drivers/net/wireless/broadcom/b43legacy/main.c
-> +++ b/drivers/net/wireless/broadcom/b43legacy/main.c
-> @@ -2859,7 +2859,9 @@ static void b43legacy_op_bss_info_changed(struct ieee80211_hw *hw,
->  	b43legacy_write32(dev, B43legacy_MMIO_GEN_IRQ_MASK, 0);
->  
->  	if (changed & BSS_CHANGED_BSSID) {
-> +		spin_unlock_irqrestore(&wl->irq_lock, flags);
->  		b43legacy_synchronize_irq(dev);
-> +		spin_lock_irqsave(&wl->irq_lock, flags);
+Fix this by using equivalent devicetree properties instead of a phy fixup
+and handling those properties on resume in the micrel driver.
 
-To me this looks like a fragile workaround and not a real fix. You can
-easily add new race conditions with releasing the lock like this.
+In theory it might now be possible to remove the phy fixup from mach-imx6ul
+entirely but it is possible that this would break other imx6ul boards which
+use the same phy. The solution would be to patch their dts but it's not
+clear how to identify affected boards.
+
+This code is shared with imx6ull-14x14-evk but 6ull suspend needs an
+unrelated patch: https://lkml.org/lkml/2017/5/30/584
+
+This is something of a corner case so there is no CC: stable.
+
+Changes since v1: https://lkml.org/lkml/2017/5/30/672 
+ * Split a kszphy_config_reset function for stuff shared between
+config_init and resume. Calling config_init directly could be an option but
+on some HW variants it does extra stuff like parsing devicetree options.
+That would not be appropriate for resume code.
+
+Leonard Crestez (2):
+  ARM: dts: imx6ul-14x14-evk: Add ksz8081 phy properties
+  net: phy: micrel: Restore led_mode and clk_sel on resume
+
+ arch/arm/boot/dts/imx6ul-14x14-evk.dts |  6 +++++
+ drivers/net/phy/micrel.c               | 42 ++++++++++++++++++++++------------
+ 2 files changed, 34 insertions(+), 14 deletions(-)
 
 -- 
-Kalle Valo
+2.7.4
