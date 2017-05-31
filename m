@@ -1,68 +1,144 @@
 From: Martin KaFai Lau <kafai@fb.com>
-Subject: [PATCH net-next 0/8] Introduce bpf ID
-Date: Tue, 30 May 2017 17:08:29 -0700
-Message-ID: <cover.1496189155.git.kafai@fb.com>
+Subject: [PATCH net-next 3/8] bpf: Add BPF_(PROG|MAP)_GET_NEXT_ID command
+Date: Tue, 30 May 2017 17:08:32 -0700
+Message-ID: <ddb98852e108acfef4743f698812bc6faaa6a765.1496189155.git.kafai@fb.com>
+References: <cover.1496189155.git.kafai@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Alexei Starovoitov <ast@fb.com>,
         Daniel Borkmann <daniel@iogearbox.net>, <kernel-team@fb.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:46031 "EHLO
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:46032 "EHLO
         mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1750922AbdEaAIk (ORCPT
+        by vger.kernel.org with ESMTP id S1750913AbdEaAIk (ORCPT
         <rfc822;netdev@vger.kernel.org>); Tue, 30 May 2017 20:08:40 -0400
 Received: from pps.filterd (m0044010.ppops.net [127.0.0.1])
-        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v4V04v78024688
+        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v4V04xS7024700
         for <netdev@vger.kernel.org>; Tue, 30 May 2017 17:08:39 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0a-00082601.pphosted.com with ESMTP id 2asgt2gd6f-1
+        by mx0a-00082601.pphosted.com with ESMTP id 2asgt2gd6g-1
         (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
         for <netdev@vger.kernel.org>; Tue, 30 May 2017 17:08:39 -0700
 Received: from facebook.com (2401:db00:11:d09a:face:0:41:0)     by
- mx-out.facebook.com (2401:db00:2050:5102:face:0000:0037:0000) with ESMTP       id
- 4bb9402e459511e7b7cb6900506838e1-7df338f0 for <netdev@vger.kernel.org>;        Tue,
- 30 May 2017 17:08:38 -0700
+ mx-out.facebook.com (10.212.232.63) with ESMTP id
+ 4bc6ab6a459511e7b5020002c992ebde-9398f0 for <netdev@vger.kernel.org>;  Tue, 30
+ May 2017 17:08:38 -0700
+In-Reply-To: <cover.1496189155.git.kafai@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch series:
-1) Introduce ID for both bpf_prog and bpf_map.
-2) Add bpf commands to iterate the prog IDs and map
-   IDs of the system.
-3) Add bpf commands to get a prog/map fd from an ID
-4) Add bpf command to get prog/map info from a fd.
-   The prog/map info is a jump start in this patchset
-   and it is not meant to be a complete list.  They can
-   be extended in the future patches.
+This patch adds BPF_PROG_GET_NEXT_ID and BPF_MAP_GET_NEXT_ID
+to allow userspace to iterate all bpf_prog IDs and bpf_map IDs.
 
-Martin KaFai Lau (8):
-  bpf: Introduce bpf_prog ID
-  bpf: Introduce bpf_map ID
-  bpf: Add BPF_(PROG|MAP)_GET_NEXT_ID command
-  bpf: Add BPF_PROG_GET_FD_BY_ID
-  bpf: Add BPF_MAP_GET_FD_BY_ID
-  bpf: Add jited_len to struct bpf_prog
-  bpf: Add BPF_OBJ_GET_INFO_BY_FD
-  bpf: Test for bpf ID
+The API is trying to be consistent with the existing
+BPF_MAP_GET_NEXT_KEY.
 
- arch/arm64/net/bpf_jit_comp.c             |   1 +
- arch/powerpc/net/bpf_jit_comp64.c         |   1 +
- arch/s390/net/bpf_jit_comp.c              |   1 +
- arch/sparc/net/bpf_jit_comp_64.c          |   1 +
- arch/x86/net/bpf_jit_comp.c               |   1 +
- include/linux/bpf.h                       |   2 +
- include/linux/filter.h                    |   3 +-
- include/uapi/linux/bpf.h                  |  41 +++
- kernel/bpf/syscall.c                      | 433 ++++++++++++++++++++++++++++--
- tools/include/uapi/linux/bpf.h            |  41 +++
- tools/lib/bpf/bpf.c                       |  68 +++++
- tools/lib/bpf/bpf.h                       |   5 +
- tools/testing/selftests/bpf/Makefile      |   2 +-
- tools/testing/selftests/bpf/test_obj_id.c |  35 +++
- tools/testing/selftests/bpf/test_progs.c  | 191 +++++++++++++
- 15 files changed, 798 insertions(+), 28 deletions(-)
- create mode 100644 tools/testing/selftests/bpf/test_obj_id.c
+It is currently limited to CAP_SYS_ADMIN which we can
+consider to lift it in followup patches.
 
+Signed-off-by: Martin KaFai Lau <kafai@fb.com>
+Acked-by: Alexei Starovoitov <ast@fb.com>
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+---
+ include/uapi/linux/bpf.h |  7 +++++++
+ kernel/bpf/syscall.c     | 38 ++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 45 insertions(+)
+
+diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+index 94dfa9def355..e5c88f39bdc3 100644
+--- a/include/uapi/linux/bpf.h
++++ b/include/uapi/linux/bpf.h
+@@ -82,6 +82,8 @@ enum bpf_cmd {
+ 	BPF_PROG_ATTACH,
+ 	BPF_PROG_DETACH,
+ 	BPF_PROG_TEST_RUN,
++	BPF_PROG_GET_NEXT_ID,
++	BPF_MAP_GET_NEXT_ID,
+ };
+ 
+ enum bpf_map_type {
+@@ -209,6 +211,11 @@ union bpf_attr {
+ 		__u32		repeat;
+ 		__u32		duration;
+ 	} test;
++
++	struct { /* anonymous struct used by BPF_*_GET_NEXT_ID */
++		__u32		start_id;
++		__u32		next_id;
++	};
+ } __attribute__((aligned(8)));
+ 
+ /* BPF helper function descriptions:
+diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
+index a6fe034dbc09..34dc92b3c349 100644
+--- a/kernel/bpf/syscall.c
++++ b/kernel/bpf/syscall.c
+@@ -166,6 +166,7 @@ static void bpf_map_put_uref(struct bpf_map *map)
+ void bpf_map_put(struct bpf_map *map)
+ {
+ 	if (atomic_dec_and_test(&map->refcnt)) {
++		/* bpf_map_free_id() must be called first */
+ 		bpf_map_free_id(map);
+ 		INIT_WORK(&map->work, bpf_map_free_deferred);
+ 		schedule_work(&map->work);
+@@ -726,6 +727,7 @@ void bpf_prog_put(struct bpf_prog *prog)
+ {
+ 	if (atomic_dec_and_test(&prog->aux->refcnt)) {
+ 		trace_bpf_prog_put_rcu(prog);
++		/* bpf_prog_free_id() must be called first */
+ 		bpf_prog_free_id(prog);
+ 		bpf_prog_kallsyms_del(prog);
+ 		call_rcu(&prog->aux->rcu, __bpf_prog_put_rcu);
+@@ -1067,6 +1069,34 @@ static int bpf_prog_test_run(const union bpf_attr *attr,
+ 	return ret;
+ }
+ 
++#define BPF_OBJ_GET_NEXT_ID_LAST_FIELD next_id
++
++static int bpf_obj_get_next_id(const union bpf_attr *attr,
++			       union bpf_attr __user *uattr,
++			       struct idr *idr,
++			       spinlock_t *lock)
++{
++	u32 next_id = attr->start_id;
++	int err = 0;
++
++	if (CHECK_ATTR(BPF_OBJ_GET_NEXT_ID) || next_id >= INT_MAX)
++		return -EINVAL;
++
++	if (!capable(CAP_SYS_ADMIN))
++		return -EPERM;
++
++	next_id++;
++	spin_lock_bh(lock);
++	if (!idr_get_next(idr, &next_id))
++		err = -ENOENT;
++	spin_unlock_bh(lock);
++
++	if (!err)
++		err = put_user(next_id, &uattr->next_id);
++
++	return err;
++}
++
+ SYSCALL_DEFINE3(bpf, int, cmd, union bpf_attr __user *, uattr, unsigned int, size)
+ {
+ 	union bpf_attr attr = {};
+@@ -1144,6 +1174,14 @@ SYSCALL_DEFINE3(bpf, int, cmd, union bpf_attr __user *, uattr, unsigned int, siz
+ 	case BPF_PROG_TEST_RUN:
+ 		err = bpf_prog_test_run(&attr, uattr);
+ 		break;
++	case BPF_PROG_GET_NEXT_ID:
++		err = bpf_obj_get_next_id(&attr, uattr,
++					  &prog_idr, &prog_idr_lock);
++		break;
++	case BPF_MAP_GET_NEXT_ID:
++		err = bpf_obj_get_next_id(&attr, uattr,
++					  &map_idr, &map_idr_lock);
++		break;
+ 	default:
+ 		err = -EINVAL;
+ 		break;
 -- 
 2.9.3
