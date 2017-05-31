@@ -1,180 +1,64 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: net/ipv4: use-after-free in add_grec
-Date: Wed, 31 May 2017 09:12:34 -0700
-Message-ID: <1496247154.27480.3.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <CAAeHK+xmSxokDidhzP1VWgmbbwege4OaGvOA4PwTP1scs6J5zA@mail.gmail.com>
+From: Daniel Vetter <daniel.vetter@ffwll.ch>
+Subject: Re: [PULL] topic/e1000e-fix
+Date: Wed, 31 May 2017 18:23:41 +0200
+Message-ID: <CAKMK7uF6X==k_DP2Q+YAVywP46JBJZ++4QJyvdmGhC8+nE67FA@mail.gmail.com>
+References: <CAPM=9twH-CXm+xj2Os87Ra7nOBQ+WNXYGF83wFqpQ3s=MNx_mQ@mail.gmail.com>
+ <CAKMK7uF-b1U7qipgEoYnAjDtrNdvKYT4KkoV2=krikkdGERkCw@mail.gmail.com>
+ <CAKMK7uGbi2Bwfno9XogKZ-LUOyMepbtRyGuGrNYWwj6Cts+uag@mail.gmail.com>
+ <20170531.110833.1362264472730468352.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Eric Dumazet <edumazet@google.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        Dmitry Vyukov <dvyukov@google.com>,
-        Kostya Serebryany <kcc@google.com>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Andrey Konovalov <andreyknvl@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAAeHK+xmSxokDidhzP1VWgmbbwege4OaGvOA4PwTP1scs6J5zA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, intel-gfx <intel-gfx@lists.freedesktop.org>,
+ Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+ intel-wired-lan@lists.osuosl.org, dri-devel <dri-devel@lists.freedesktop.org>,
+ Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <dri-devel-bounces@lists.freedesktop.org>
+In-Reply-To: <20170531.110833.1362264472730468352.davem@davemloft.net>
+List-Unsubscribe: <https://lists.freedesktop.org/mailman/options/dri-devel>,
+ <mailto:dri-devel-request@lists.freedesktop.org?subject=unsubscribe>
+List-Archive: <https://lists.freedesktop.org/archives/dri-devel>
+List-Post: <mailto:dri-devel@lists.freedesktop.org>
+List-Help: <mailto:dri-devel-request@lists.freedesktop.org?subject=help>
+List-Subscribe: <https://lists.freedesktop.org/mailman/listinfo/dri-devel>,
+ <mailto:dri-devel-request@lists.freedesktop.org?subject=subscribe>
+Errors-To: dri-devel-bounces@lists.freedesktop.org
+Sender: "dri-devel" <dri-devel-bounces@lists.freedesktop.org>
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2017-05-31 at 11:46 +0200, Andrey Konovalov wrote:
-> Hi,
-> 
-> I've got the following error report while fuzzing the kernel with syzkaller.
-> 
-> On commit 5ed02dbb497422bf225783f46e6eadd237d23d6b (4.12-rc3).
-> 
-> Unfortunately it's not reproducible.
-> 
-> ==================================================================
-> BUG: KASAN: use-after-free in add_grec+0x101e/0x1090 net/ipv4/igmp.c:473
-> Read of size 8 at addr ffff88003053c1a0 by task swapper/0/0
-> 
-> CPU: 0 PID: 0 Comm: swapper/0 Not tainted 4.12.0-rc3+ #370
-> Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
-> Call Trace:
->  <IRQ>
->  __dump_stack lib/dump_stack.c:16 [inline]
->  dump_stack+0x292/0x395 lib/dump_stack.c:52
->  print_address_description+0x73/0x280 mm/kasan/report.c:252
->  kasan_report_error mm/kasan/report.c:351 [inline]
->  kasan_report+0x22b/0x340 mm/kasan/report.c:408
->  __asan_report_load8_noabort+0x14/0x20 mm/kasan/report.c:429
->  add_grec+0x101e/0x1090 net/ipv4/igmp.c:473
->  igmpv3_send_cr net/ipv4/igmp.c:663 [inline]
->  igmp_ifc_timer_expire+0x46d/0xa80 net/ipv4/igmp.c:768
-> IPVS: length: 51 != 8
->  call_timer_fn+0x23f/0x800 kernel/time/timer.c:1268
->  expire_timers kernel/time/timer.c:1307 [inline]
->  __run_timers+0x94e/0xcd0 kernel/time/timer.c:1601
->  run_timer_softirq+0x21/0x80 kernel/time/timer.c:1614
->  __do_softirq+0x2fb/0xb99 kernel/softirq.c:284
->  invoke_softirq kernel/softirq.c:364 [inline]
->  irq_exit+0x19e/0x1d0 kernel/softirq.c:405
->  exiting_irq arch/x86/include/asm/apic.h:652 [inline]
->  smp_apic_timer_interrupt+0x76/0xa0 arch/x86/kernel/apic/apic.c:966
->  apic_timer_interrupt+0x93/0xa0 arch/x86/entry/entry_64.S:481
-> RIP: 0010:native_safe_halt+0x6/0x10 arch/x86/include/asm/irqflags.h:53
-> RSP: 0018:ffffffff85a079a8 EFLAGS: 00000282 ORIG_RAX: ffffffffffffff10
-> RAX: dffffc0000000020 RBX: 1ffffffff0b40f38 RCX: 0000000000000000
-> RDX: 0000000000000000 RSI: 0000000000000001 RDI: ffffffff85a2a9e4
-> RBP: ffffffff85a079a8 R08: 0000000000000000 R09: 0000000000000000
-> R10: 0000000000000000 R11: 0000000000000000 R12: dffffc0000000000
-> R13: ffffffff85a07a60 R14: ffffffff86171338 R15: 1ffffffff0b40f5b
->  </IRQ>
->  arch_safe_halt arch/x86/include/asm/paravirt.h:98 [inline]
->  default_idle+0x8f/0x440 arch/x86/kernel/process.c:341
->  arch_cpu_idle+0xa/0x10 arch/x86/kernel/process.c:332
->  default_idle_call+0x36/0x60 kernel/sched/idle.c:98
->  cpuidle_idle_call kernel/sched/idle.c:156 [inline]
->  do_idle+0x348/0x420 kernel/sched/idle.c:245
->  cpu_startup_entry+0x18/0x20 kernel/sched/idle.c:350
->  rest_init+0x18d/0x1a0 init/main.c:415
->  start_kernel+0x747/0x779 init/main.c:679
->  x86_64_start_reservations+0x2a/0x2c arch/x86/kernel/head64.c:196
->  x86_64_start_kernel+0x132/0x141 arch/x86/kernel/head64.c:177
->  secondary_startup_64+0x9f/0x9f arch/x86/kernel/head_64.S:304
-> 
-> Allocated by task 30543:
->  save_stack_trace+0x16/0x20 arch/x86/kernel/stacktrace.c:59
->  save_stack+0x43/0xd0 mm/kasan/kasan.c:513
->  set_track mm/kasan/kasan.c:525 [inline]
->  kasan_kmalloc+0xad/0xe0 mm/kasan/kasan.c:617
->  kmem_cache_alloc_trace+0x82/0x270 mm/slub.c:2745
->  kmalloc include/linux/slab.h:492 [inline]
->  kzalloc include/linux/slab.h:665 [inline]
->  ip_mc_add1_src net/ipv4/igmp.c:1909 [inline]
->  ip_mc_add_src+0x6cd/0x1020 net/ipv4/igmp.c:2033
->  ip_mc_msfilter+0x5e5/0xcf0 net/ipv4/igmp.c:2403
->  do_ip_setsockopt.isra.12+0x2d47/0x38c0 net/ipv4/ip_sockglue.c:959
->  ip_setsockopt+0x3a/0xb0 net/ipv4/ip_sockglue.c:1256
->  tcp_setsockopt+0x82/0xd0 net/ipv4/tcp.c:2740
->  sock_common_setsockopt+0x95/0xd0 net/core/sock.c:2844
->  SYSC_setsockopt net/socket.c:1798 [inline]
->  SyS_setsockopt+0x270/0x3a0 net/socket.c:1777
->  entry_SYSCALL_64_fastpath+0x1f/0xbe
-> 
-> Freed by task 30543:
->  save_stack_trace+0x16/0x20 arch/x86/kernel/stacktrace.c:59
->  save_stack+0x43/0xd0 mm/kasan/kasan.c:513
->  set_track mm/kasan/kasan.c:525 [inline]
->  kasan_slab_free+0x72/0xc0 mm/kasan/kasan.c:590
->  slab_free_hook mm/slub.c:1357 [inline]
->  slab_free_freelist_hook mm/slub.c:1379 [inline]
->  slab_free mm/slub.c:2961 [inline]
->  kfree+0xe8/0x2b0 mm/slub.c:3882
->  ip_mc_clear_src+0x69/0x1c0 net/ipv4/igmp.c:2078
->  ip_mc_dec_group+0x19a/0x470 net/ipv4/igmp.c:1618
->  ip_mc_drop_socket+0x145/0x230 net/ipv4/igmp.c:2609
->  inet_release+0x4e/0x1c0 net/ipv4/af_inet.c:411
->  sock_release+0x8d/0x1e0 net/socket.c:597
->  sock_close+0x16/0x20 net/socket.c:1072
->  __fput+0x332/0x7f0 fs/file_table.c:209
->  ____fput+0x15/0x20 fs/file_table.c:245
->  task_work_run+0x19b/0x270 kernel/task_work.c:116
->  exit_task_work include/linux/task_work.h:21 [inline]
->  do_exit+0x18a3/0x2820 kernel/exit.c:878
->  do_group_exit+0x149/0x420 kernel/exit.c:982
->  get_signal+0x76d/0x1790 kernel/signal.c:2318
->  do_signal+0xd2/0x2130 arch/x86/kernel/signal.c:808
->  exit_to_usermode_loop+0x17a/0x210 arch/x86/entry/common.c:157
->  prepare_exit_to_usermode arch/x86/entry/common.c:194 [inline]
->  syscall_return_slowpath+0x3ba/0x410 arch/x86/entry/common.c:263
->  entry_SYSCALL_64_fastpath+0xbc/0xbe
-> 
-> The buggy address belongs to the object at ffff88003053c1a0
->  which belongs to the cache kmalloc-64 of size 64
-> The buggy address is located 0 bytes inside of
->  64-byte region [ffff88003053c1a0, ffff88003053c1e0)
-> The buggy address belongs to the page:
-> page:ffffea0000c14f00 count:1 mapcount:0 mapping:          (null)
-> index:0x0 compound_mapcount: 0
-> flags: 0x100000000008100(slab|head)
-> raw: 0100000000008100 0000000000000000 0000000000000000 0000000100140014
-> raw: ffffea0000c2f520 ffffea0000e20aa0 ffff88003e80f740 0000000000000000
-> page dumped because: kasan: bad access detected
-> 
-> Memory state around the buggy address:
->  ffff88003053c080: fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc
->  ffff88003053c100: fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc
-> >ffff88003053c180: fc fc fc fc fb fb fb fb fb fb fb fb fc fc fc fc
->                                ^
->  ffff88003053c200: fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc
->  ffff88003053c280: fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc
-> ==================================================================
-
-I have the feeling that ip_mc_clear_src() is called too soon.
-
-We should call it once all users have released their reference.
-
-I am not sure we have to call it after the RCU grace period,
-more analysis of the code is needed.
-
-
-diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
-index 44fd86de2823dd17de16276a8ec01b190e69b8b4..f172d251c5f2cda8fc8bedd65fa16cdfe33a4d40 100644
---- a/net/ipv4/igmp.c
-+++ b/net/ipv4/igmp.c
-@@ -174,6 +174,7 @@ static int ip_mc_add_src(struct in_device *in_dev, __be32 *pmca, int sfmode,
- static void ip_ma_put(struct ip_mc_list *im)
- {
- 	if (atomic_dec_and_test(&im->refcnt)) {
-+		ip_mc_clear_src(im);
- 		in_dev_put(im->interface);
- 		kfree_rcu(im, rcu);
- 	}
-@@ -1615,7 +1616,6 @@ void ip_mc_dec_group(struct in_device *in_dev, __be32 addr)
- 				*ip = i->next_rcu;
- 				in_dev->mc_count--;
- 				igmp_group_dropped(i);
--				ip_mc_clear_src(i);
- 
- 				if (!in_dev->dead)
- 					ip_rt_multicast_event(in_dev);
+T24gV2VkLCBNYXkgMzEsIDIwMTcgYXQgNTowOCBQTSwgRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZl
+bWxvZnQubmV0PiB3cm90ZToKPiBGcm9tOiBEYW5pZWwgVmV0dGVyIDxkYW5pZWwudmV0dGVyQGZm
+d2xsLmNoPgo+IERhdGU6IFdlZCwgMzEgTWF5IDIwMTcgMDg6MTA6NDUgKzAyMDAKPgo+PiBPbiBX
+ZWQsIE1heSAzMSwgMjAxNyBhdCA3OjU0IEFNLCBEYW5pZWwgVmV0dGVyIDxkYW5pZWwudmV0dGVy
+QGZmd2xsLmNoPiB3cm90ZToKPj4+IE9uIFdlZCwgTWF5IDMxLCAyMDE3IGF0IDE6MDYgQU0sIERh
+dmUgQWlybGllIDxhaXJsaWVkQGdtYWlsLmNvbT4gd3JvdGU6Cj4+Pj4gT24gMzEgTWF5IDIwMTcg
+YXQgMDg6MTAsIERhdmlkIE1pbGxlciA8ZGF2ZW1AZGF2ZW1sb2Z0Lm5ldD4gd3JvdGU6Cj4+Pj4+
+IEZyb206IERhbmllbCBWZXR0ZXIgPGRhbmllbC52ZXR0ZXJAZmZ3bGwuY2g+Cj4+Pj4+IERhdGU6
+IFR1ZSwgMzAgTWF5IDIwMTcgMjI6MTU6NDIgKzAyMDAKPj4+Pj4KPj4+Pj4+IElmIHRoZSBlMTAw
+MGUgbWFpbnRhaW5lciB3YW50cyB0byBjb2FsZXNjZSBvciBub3QgcmV0dXJuIHN0YXRlbWVudHMK
+Pj4+Pj4+IHRoaXMgc2ltcGxlIHdheSwgdGhhdCdzIGltbyBvbiBoaW0gdG8gY2hhbmdlIHRoZSBj
+b2xvciBhcyBuZWVkZWQuCj4+Pj4+Cj4+Pj4+IFRoYXQncyBub3QgaG93IHRoaW5ncyB3b3JrLgo+
+Pj4+Pgo+Pj4+PiBJZiB0aGUgbWFpbnRhaW5lciB3YW50cyB5b3UgdG8gc3R5bGUgdGhpbmdzIGEg
+Y2VydGFpbiB3YXksIGVpdGhlciB5b3UKPj4+Pj4gZG8gaXQgdGhhdCB3YXkgb3IgeW91ciBwYXRj
+aCBpc24ndCBhY2NlcHRlZC4KPj4+Cj4+PiBDb25zaWRlciB0aGlzIHB1bGwgYSByZWdyZXNzaW9u
+IHJlcG9ydCwgcGxzIGhhbmRsZSBpdC4KPj4KPj4gQW5kIEkgZ3Vlc3MgSSBwaWxlIG9mIG1vcmUg
+Y2MsIHRvIG1ha2UgdGhpcyByZWdyZXNzaW9uIHJlcG9ydAo+PiBjb21wbGV0ZS4gSSBtZWFuIHlv
+dSBnb3QgdGhlIGJhY2t0cmFjZSwgYmlzZWN0IGFuZCBhIHByb3Bvc2VkIGZpeCwgYW5kCj4+IHRo
+ZSBhbG1vc3Qtd2hpdGVzcGFjZSBjaGFuZ2UgZGVtYW5kZWQgaXMgc29tZXRoaW5nIGdjYyBkb2Vz
+IGluIGl0cwo+PiBzbGVlcC4gSSdkIHVuZGVyc3RhbmQgYSByZXF1ZXN0IHRvIHJldGVzdCBpZiBp
+dCB3b3VsZCBiZSBhIHJlYWwKPj4gZnVuY3Rpb25hbCBjaGFuZ2UsIGJ1dCBpbiB0aGlzIHNpdHVh
+dGlvbiBJIGhhdmUgbm8gaWRlYSB3aHkgdGhpcwo+PiByZWdyZXNzaW9uIGp1c3QgY2FuJ3QgYmUg
+Zml4ZWQgYWxyZWFkeS4KPgo+IEFuZCB3ZSBjYW4ndCB1bmRlcnN0YW5kIHdoeSByZXNwaW5uaW5n
+IHdpdGggdGhlIHJlcXVlc3RlZCBjaGFuZ2UgaXMKPiBsZXNzIHdvcmsgdGhhbiBtYWtpbmcgc2V2
+ZXJhbCBwb3N0aW5ncyBzdWNoIGFzIHRoaXMgb25lLgoKSSBndWVzcyBuZXh0IHRpbWUgYXJvdW5k
+IHdlIHNob3VsZCBkbyBldmVuIGxlc3MsIGkuZS4gcmVwb3J0IHRoZQpyZWdyZXNzaW9uICsgYmlz
+ZWN0IGFuZCB0aGVuIGVzY2FsYXRlIHRoaXMgdW50aWwgdGhlIG5ldGRldiBmb2xrcyBmaXgKaXQg
+b24gdGhlaXIgb3duPwoKTGlrZSBKYW5pIHNhaWQgZXZlcnkgLXJjMSBhIHBpbGUgb2Ygb3VyIENJ
+IG1hY2hpbmVzIGtlZWwgb3ZlciwgYW5kCnVuZm9ydHVuYXRlbHkgdGhpcyBwYXRjaCBoZXJlIGlz
+bid0IHRoZSBvbmx5IG9uZSB3aGljaCBzZWVtcyB0byBub3QKcmVhbGx5IG1vdmUgYW55d2hlcmUu
+Ci1EYW5pZWwKLS0gCkRhbmllbCBWZXR0ZXIKU29mdHdhcmUgRW5naW5lZXIsIEludGVsIENvcnBv
+cmF0aW9uCis0MSAoMCkgNzkgMzY1IDU3IDQ4IC0gaHR0cDovL2Jsb2cuZmZ3bGwuY2gKX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KZHJpLWRldmVsIG1haWxp
+bmcgbGlzdApkcmktZGV2ZWxAbGlzdHMuZnJlZWRlc2t0b3Aub3JnCmh0dHBzOi8vbGlzdHMuZnJl
+ZWRlc2t0b3Aub3JnL21haWxtYW4vbGlzdGluZm8vZHJpLWRldmVsCg==
