@@ -1,39 +1,62 @@
-From: Jia-Ju Bai <baijiaju1990@163.com>
-Subject: [PATCH] mISDN: Fix a sleep-in-atomic bug
-Date: Wed, 31 May 2017 15:08:25 +0800
-Message-ID: <1496214505-15155-1-git-send-email-baijiaju1990@163.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Jia-Ju Bai <baijiaju1990@163.com>
-To: isdn@linux-pingi.de, mingo@kernel.org, fweisbec@gmail.com,
-        geliangtang@gmail.com, akpm@linux-foundation.org,
-        davem@davemloft.net, yamada.masahiro@socionext.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH v6 01/21] net-next: stmmac: export stmmac_set_mac_addr/stmmac_get_mac_addr
+Date: Wed, 31 May 2017 09:18:32 +0200
+Message-ID: <20170531071852.12422-2-clabbe.montjoie@gmail.com>
+References: <20170531071852.12422-1-clabbe.montjoie@gmail.com>
+Reply-To: clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+	linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org,
+	Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
+	mark.rutland-5wv7dgnIgG8@public.gmane.org,
+	maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org,
+	wens-jdAy2FN1RRM@public.gmane.org,
+	linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org,
+	catalin.marinas-5wv7dgnIgG8@public.gmane.org,
+	will.deacon-5wv7dgnIgG8@public.gmane.org,
+	peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
+	alexandre.torgue-qxv4g6HH51o@public.gmane.org
+Return-path: <linux-sunxi+bncBD7YLCN32UNBBEG6XHEQKGQE6H2WLFA-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+In-Reply-To: <20170531071852.12422-1-clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Help: <https://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Archive: <https://groups.google.com/group/linux-sunxi
+List-Subscribe: <https://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
+ <https://groups.google.com/group/linux-sunxi/subscribe>
 List-Id: netdev.vger.kernel.org
 
-The driver may sleep under a read spin lock, and the function call path is:
-send_socklist (acquire the lock by read_lock)
-  skb_copy(GFP_KERNEL) --> may sleep
+Thoses symbol will be needed for the dwmac-sun8i ethernet driver.
+For letting it to be build as module, they need to be exported.
 
-To fix it, the "GFP_KERNEL" is replaced with "GFP_ATOMIC".
-
-Signed-off-by: Jia-Ju Bai <baijiaju1990@163.com>
+Signed-off-by: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- drivers/isdn/mISDN/stack.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/isdn/mISDN/stack.c b/drivers/isdn/mISDN/stack.c
-index 8b7faea..422dced 100644
---- a/drivers/isdn/mISDN/stack.c
-+++ b/drivers/isdn/mISDN/stack.c
-@@ -75,7 +75,7 @@
- 		if (sk->sk_state != MISDN_BOUND)
- 			continue;
- 		if (!cskb)
--			cskb = skb_copy(skb, GFP_KERNEL);
-+			cskb = skb_copy(skb, GFP_ATOMIC);
- 		if (!cskb) {
- 			printk(KERN_WARNING "%s no skb\n", __func__);
- 			break;
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c b/drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c
+index 38f94305aab5..67af0bdd7f10 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c
+@@ -248,6 +248,7 @@ void stmmac_set_mac_addr(void __iomem *ioaddr, u8 addr[6],
+ 	data = (addr[3] << 24) | (addr[2] << 16) | (addr[1] << 8) | addr[0];
+ 	writel(data, ioaddr + low);
+ }
++EXPORT_SYMBOL_GPL(stmmac_set_mac_addr);
+ 
+ /* Enable disable MAC RX/TX */
+ void stmmac_set_mac(void __iomem *ioaddr, bool enable)
+@@ -279,4 +280,4 @@ void stmmac_get_mac_addr(void __iomem *ioaddr, unsigned char *addr,
+ 	addr[4] = hi_addr & 0xff;
+ 	addr[5] = (hi_addr >> 8) & 0xff;
+ }
+-
++EXPORT_SYMBOL_GPL(stmmac_get_mac_addr);
 -- 
-1.7.9.5
+2.13.0
