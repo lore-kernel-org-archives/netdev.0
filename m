@@ -1,48 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PULL] topic/e1000e-fix
-Date: Wed, 31 May 2017 11:08:33 -0400 (EDT)
-Message-ID: <20170531.110833.1362264472730468352.davem@davemloft.net>
-References: <CAPM=9twH-CXm+xj2Os87Ra7nOBQ+WNXYGF83wFqpQ3s=MNx_mQ@mail.gmail.com>
-        <CAKMK7uF-b1U7qipgEoYnAjDtrNdvKYT4KkoV2=krikkdGERkCw@mail.gmail.com>
-        <CAKMK7uGbi2Bwfno9XogKZ-LUOyMepbtRyGuGrNYWwj6Cts+uag@mail.gmail.com>
+Subject: Re: [PATCH] net: rtnetlink: bail out from rtnl_fdb_dump() on parse
+ error
+Date: Wed, 31 May 2017 11:10:25 -0400 (EDT)
+Message-ID: <20170531.111025.1574581950547485984.davem@davemloft.net>
+References: <20170523112028.132630-1-glider@google.com>
+        <20170524.153224.1230164587077679673.davem@davemloft.net>
+        <CAG_fn=WNnkmZ8CXqM6w7p_kmhh8Tys1HjgkfASYjvEZ2iie0hg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: airlied@gmail.com, intel-gfx@lists.freedesktop.org,
-        dri-devel@lists.freedesktop.org, jani.nikula@linux.intel.com,
-        jeffrey.t.kirsher@intel.com, intel-wired-lan@lists.osuosl.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: daniel.vetter@ffwll.ch
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAKMK7uGbi2Bwfno9XogKZ-LUOyMepbtRyGuGrNYWwj6Cts+uag@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: dvyukov@google.com, kcc@google.com, edumazet@google.com,
+        linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: glider@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:39606 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750998AbdEaPK1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 31 May 2017 11:10:27 -0400
+In-Reply-To: <CAG_fn=WNnkmZ8CXqM6w7p_kmhh8Tys1HjgkfASYjvEZ2iie0hg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Vetter <daniel.vetter@ffwll.ch>
-Date: Wed, 31 May 2017 08:10:45 +0200
+From: Alexander Potapenko <glider@google.com>
+Date: Wed, 31 May 2017 10:56:47 +0200
 
-> On Wed, May 31, 2017 at 7:54 AM, Daniel Vetter <daniel.vetter@ffwll.ch> wrote:
->> On Wed, May 31, 2017 at 1:06 AM, Dave Airlie <airlied@gmail.com> wrote:
->>> On 31 May 2017 at 08:10, David Miller <davem@davemloft.net> wrote:
->>>> From: Daniel Vetter <daniel.vetter@ffwll.ch>
->>>> Date: Tue, 30 May 2017 22:15:42 +0200
->>>>
->>>>> If the e1000e maintainer wants to coalesce or not return statements
->>>>> this simple way, that's imo on him to change the color as needed.
->>>>
->>>> That's not how things work.
->>>>
->>>> If the maintainer wants you to style things a certain way, either you
->>>> do it that way or your patch isn't accepted.
->>
->> Consider this pull a regression report, pls handle it.
+> Hi David,
 > 
-> And I guess I pile of more cc, to make this regression report
-> complete. I mean you got the backtrace, bisect and a proposed fix, and
-> the almost-whitespace change demanded is something gcc does in its
-> sleep. I'd understand a request to retest if it would be a real
-> functional change, but in this situation I have no idea why this
-> regression just can't be fixed already.
+> I've noticed that the upstream patch:
+> https://github.com/torvalds/linux/commit/0ff50e83b5122e836ca492fefb11656b225ac29c
+> contains the KMSAN report and the repro, despite I've put them under
+> the triple dash (IIRC Eric told me I shouldn't bloat the patch
+> descriptions with that information). Did I mess it up somehow?
 
-And we can't understand why respinning with the requested change is
-less work than making several postings such as this one.
+I put them into the main commit log message by hand when I applied the
+patch, I think the more information in commit log messages the better.
