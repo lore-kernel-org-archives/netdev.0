@@ -1,56 +1,39 @@
-From: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH v6 21/21] arm64: defconfig: Enable dwmac-sun8i
- driver on defconfig
-Date: Wed, 31 May 2017 09:18:52 +0200
-Message-ID: <20170531071852.12422-22-clabbe.montjoie@gmail.com>
-References: <20170531071852.12422-1-clabbe.montjoie@gmail.com>
-Reply-To: clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+From: Bastian Bittorf <bb-j3O8QLukP0Q@public.gmane.org>
+Subject: Re: 'iw events' stops receiving events after a while on 4.9 + hacks
+Date: Wed, 31 May 2017 10:18:36 +0200
+Message-ID: <20170531081836.GC2849@medion.lan>
+References: <d82d191e-8ede-68c6-c9e0-c381dc874d36@candelatech.com>
+ <20170517100844.GC2849@medion.lan>
+ <1495027835.2442.13.camel@sipsolutions.net>
+ <fa96dfad-8d1b-c48f-df3b-3df0d548a5c6@candelatech.com>
+ <1496150322.3327.9.camel@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-	linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org,
-	Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
-	mark.rutland-5wv7dgnIgG8@public.gmane.org,
-	maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org,
-	wens-jdAy2FN1RRM@public.gmane.org,
-	linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org,
-	catalin.marinas-5wv7dgnIgG8@public.gmane.org,
-	will.deacon-5wv7dgnIgG8@public.gmane.org,
-	peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
-	alexandre.torgue-qxv4g6HH51o@public.gmane.org
-Return-path: <linux-sunxi+bncBD7YLCN32UNBBJW6XHEQKGQE6BV6JEQ-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-In-Reply-To: <20170531071852.12422-1-clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Help: <https://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Archive: <https://groups.google.com/group/linux-sunxi
-List-Subscribe: <https://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
- <https://groups.google.com/group/linux-sunxi/subscribe>
+Content-Type: text/plain; charset=us-ascii
+Cc: Ben Greear <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>,
+        netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1496150322.3327.9.camel-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Enable the dwmac-sun8i ethernet driver as a module in the ARM64 defconfig.
+* Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org> [31.05.2017 10:09]:
+> > Is there any way to dump out the socket information if we reproduce
+> > the problem?
+> 
+> I have no idea, sorry.
+> 
+> If you or Bastian can tell me how to reproduce the problem, I can try
+> to investigate it.
 
-Signed-off-by: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
----
- arch/arm64/configs/defconfig | 1 +
- 1 file changed, 1 insertion(+)
+there was an interesting fix regarding the shell-builtin 'read' in
+busybox[1]. I will retest again and report if this changes anything.
 
-diff --git a/arch/arm64/configs/defconfig b/arch/arm64/configs/defconfig
-index 000de61802a1..fd7d22b8480c 100644
---- a/arch/arm64/configs/defconfig
-+++ b/arch/arm64/configs/defconfig
-@@ -191,6 +191,7 @@ CONFIG_RAVB=y
- CONFIG_SMC91X=y
- CONFIG_SMSC911X=y
- CONFIG_STMMAC_ETH=m
-+CONFIG_DWMAC_SUN8I=m
- CONFIG_MDIO_BUS_MUX_MMIOREG=y
- CONFIG_MESON_GXL_PHY=m
- CONFIG_MICREL_PHY=y
--- 
-2.13.0
+bye, bastian
+
+PS: @ben: are you also using 'iw event | while read -r LINE ...'?
+
+[1]
+https://git.busybox.net/busybox/commit/?id=f5470419404d643070db99d058405b714695b817
