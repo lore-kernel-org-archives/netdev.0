@@ -1,39 +1,33 @@
-From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
-Subject: RE: [net-qed] question about potential null pointer dereference
-Date: Wed, 31 May 2017 17:51:11 +0000
-Message-ID: <BLUPR0701MB20042E7C15ACCCA7160AF60A8DF10@BLUPR0701MB2004.namprd07.prod.outlook.com>
-References: <20170530124252.Horde.ZtBHOOxQIQFInhiQILVtpD_@gator4166.hostgator.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: phy: fix marvell phy status reading
+Date: Wed, 31 May 2017 13:53:33 -0400 (EDT)
+Message-ID: <20170531.135333.1789972309500724211.davem@davemloft.net>
+References: <E1dFixz-00062r-0n@rmk-PC.armlinux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170530124252.Horde.ZtBHOOxQIQFInhiQILVtpD_@gator4166.hostgator.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: andrew@lunn.ch, f.fainelli@gmail.com, netdev@vger.kernel.org
+To: rmk+kernel@armlinux.org.uk
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:41702 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750970AbdEaRxl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 31 May 2017 13:53:41 -0400
+In-Reply-To: <E1dFixz-00062r-0n@rmk-PC.armlinux.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-PiBXaGlsZSBsb29raW5nIGludG8gQ292ZXJpdHkgSUQgMTM2MjI5MyBJIHJhbiBpbnRvIHRoZSBm
-b2xsb3dpbmcgcGllY2Ugb2YgY29kZQ0KPiBhdCBkcml2ZXJzL25ldC9ldGhlcm5ldC9xbG9naWMv
-cWVkL3FlZF9zcmlvdi5jOjM4NjM6DQo+IA0KPiAzODYzc3RhdGljIGludA0KPiAzODY0cWVkX2lv
-dl9jb25maWd1cmVfbWluX3R4X3JhdGUoc3RydWN0IHFlZF9kZXYgKmNkZXYsIGludCB2ZmlkLCB1
-MzIgcmF0ZSkNCj4gMzg2NXsNCj4gMzg2NiAgICAgICAgc3RydWN0IHFlZF92Zl9pbmZvICp2ZjsN
-Cj4gMzg2NyAgICAgICAgdTggdnBvcnRfaWQ7DQo+IDM4NjggICAgICAgIGludCBpOw0KPiAzODY5
-DQo+IDM4NzAgICAgICAgIGZvcl9lYWNoX2h3Zm4oY2RldiwgaSkgew0KPiAzODcxICAgICAgICAg
-ICAgICAgIHN0cnVjdCBxZWRfaHdmbiAqcF9od2ZuID0gJmNkZXYtPmh3Zm5zW2ldOw0KPiAzODcy
-DQo+IDM4NzMgICAgICAgICAgICAgICAgaWYgKCFxZWRfaW92X3BmX3Nhbml0eV9jaGVjayhwX2h3
-Zm4sIHZmaWQpKSB7DQo+IDM4NzQgICAgICAgICAgICAgICAgICAgICAgICBEUF9OT1RJQ0UocF9o
-d2ZuLA0KPiAzODc1ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICJTUi1JT1Ygc2Fu
-aXR5IGNoZWNrIGZhaWxlZCwNCj4gY2FuJ3Qgc2V0IG1pbiByYXRlXG4iKTsNCj4gMzg3NiAgICAg
-ICAgICAgICAgICAgICAgICAgIHJldHVybiAtRUlOVkFMOw0KPiAzODc3ICAgICAgICAgICAgICAg
-IH0NCj4gMzg3OCAgICAgICAgfQ0KPiAzODc5DQo+IDM4ODAgICAgICAgIHZmID0gcWVkX2lvdl9n
-ZXRfdmZfaW5mbyhRRURfTEVBRElOR19IV0ZOKGNkZXYpLCAodTE2KXZmaWQsDQo+IHRydWUpOw0K
-DQpVbmxlc3MgSSdtIG1pc3Npbmcgc29tZXRoaW5nLCB0aGlzIHNvdW5kcyBsaWtlIGEgZmFsc2Ut
-cG9zaXRpdmUgZnJvbSBjb3Zlcml0eS4NClRoZSB2YWxpZGF0aW9uIG9mIHFlZF9pb3ZfcGZfc2Fu
-aXR5X2NoZWNrKCkgc2hvdWxkIGJlIHN1ZmZpY2llbnQgZm9yIHFlZF9pb3ZfZ2V0X3ZmX2luZm8o
-KQ0KdG8gYWx3YXlzIHJldHVybiBhIHZhbGlkIHZhbHVlLCBhbmQgdGhlcmUncyBubyBzY2VuYXJp
-byB3aGVyZSB3ZSdkIHJlYWNoIHRoaXMNCnBhcnQgb2YgdGhlIGNvZGUgaWYgdGhlIGh3LWZ1bmN0
-aW9ucyBhcmVuJ3QgaW5pdGlhbGl6ZWQ7IHNvIHdlJ3JlIGJvdW5kIHRvIGVudGVyIHRoZSBsb29w
-Lg0K
+From: Russell King <rmk+kernel@armlinux.org.uk>
+Date: Tue, 30 May 2017 16:21:51 +0100
+
+> The Marvell driver incorrectly provides phydev->lp_advertising as the
+> logical and of the link partner's advert and our advert.  This is
+> incorrect - this field is supposed to store the link parter's unmodified
+> advertisment.
+> 
+> This allows ethtool to report the correct link partner auto-negotiation
+> status.
+> 
+> Signed-off-by: Russell King <rmk+kernel@armlinux.org.uk>
+
+Applied, thank you.
