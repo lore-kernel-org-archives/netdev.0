@@ -1,8 +1,8 @@
 From: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH v6 01/21] net-next: stmmac: export stmmac_set_mac_addr/stmmac_get_mac_addr
-Date: Wed, 31 May 2017 09:18:32 +0200
-Message-ID: <20170531071852.12422-2-clabbe.montjoie@gmail.com>
-References: <20170531071852.12422-1-clabbe.montjoie@gmail.com>
+Subject: [PATCH v6 00/21] net-next: stmmac: add dwmac-sun8i
+ ethernet driver
+Date: Wed, 31 May 2017 09:18:31 +0200
+Message-ID: <20170531071852.12422-1-clabbe.montjoie@gmail.com>
 Reply-To: clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
@@ -21,9 +21,8 @@ To: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
 	will.deacon-5wv7dgnIgG8@public.gmane.org,
 	peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
 	alexandre.torgue-qxv4g6HH51o@public.gmane.org
-Return-path: <linux-sunxi+bncBD7YLCN32UNBBEG6XHEQKGQE6H2WLFA-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Return-path: <linux-sunxi+bncBD7YLCN32UNBBD66XHEQKGQEXE7IVSY-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
 Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-In-Reply-To: <20170531071852.12422-1-clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
 List-Help: <https://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
 List-Archive: <https://groups.google.com/group/linux-sunxi
@@ -32,31 +31,121 @@ List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39
  <https://groups.google.com/group/linux-sunxi/subscribe>
 List-Id: netdev.vger.kernel.org
 
-Thoses symbol will be needed for the dwmac-sun8i ethernet driver.
-For letting it to be build as module, they need to be exported.
+Hello
 
-Signed-off-by: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
----
- drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+This patch series add the driver for dwmac-sun8i which handle the Ethernet MAC
+present on Allwinner H3/H5/A83T/A64 SoCs.
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c b/drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c
-index 38f94305aab5..67af0bdd7f10 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c
-@@ -248,6 +248,7 @@ void stmmac_set_mac_addr(void __iomem *ioaddr, u8 addr[6],
- 	data = (addr[3] << 24) | (addr[2] << 16) | (addr[1] << 8) | addr[0];
- 	writel(data, ioaddr + low);
- }
-+EXPORT_SYMBOL_GPL(stmmac_set_mac_addr);
- 
- /* Enable disable MAC RX/TX */
- void stmmac_set_mac(void __iomem *ioaddr, bool enable)
-@@ -279,4 +280,4 @@ void stmmac_get_mac_addr(void __iomem *ioaddr, unsigned char *addr,
- 	addr[4] = hi_addr & 0xff;
- 	addr[5] = (hi_addr >> 8) & 0xff;
- }
--
-+EXPORT_SYMBOL_GPL(stmmac_get_mac_addr);
+This driver is the continuation of the sun8i-emac driver.
+During the development, it appeared that in fact the hardware was a modified
+version of some dwmac.
+So the driver is now written as a glue driver for stmmac.
+
+It supports 10/100/1000 Mbit/s speed with half/full duplex.
+It can use an internal PHY (MII 10/100) or an external PHY
+via RGMII/RMII.
+
+This patch series enable the driver only for the H3/A64/H5 SoC since A83T
+doesn't have the necessary clocks present in mainline.
+
+The driver have been tested on the following boards:
+- H3 Orange PI PC, BananaPI-M2+
+- A64 Pine64, BananaPi-M64
+- A83T BananaPI-M3
+
+The first two patchs are some mandatory changes for letting dwmac-sun8i be used.
+The following three patchs add the driver and its documentation.
+The remaining are DT patch enabling it.
+
+Regards
+Corentin Labbe
+
+Changes since v5:
+- Added DT patch for NanoPi neo
+- Use the new adjust_link variables (speedxxx/speedmask)
+- Made the timeout of readl_poll_timeout from 10 to 100ms
+- Fix sun8i_unpower_phy that could be called twice
+- Replace phy by phy-handle in doc/dwmac-sun8i.txt
+
+Changes since v4:
+- Re-ordered by alphabetical order some DT nodes
+- Simplified power/unpower_phy functions by testing the use of internal_phy
+- Added a patch for adding dwmac-sun8i to arm64 defconfig
+- Fix a typo in sun50i-a64-system-controller (wrongly used sun8i)
+- Reworked uc/mc filter address setting
+
+Changes since v3:
+- Renamed tx-delay/rx-delay to tx-delay-ps/rx-delay-ps
+- fix syscon compatible example
+- Changed parameter type for setup() function
+- Dropped some DT patchs for boards which I could not test further
+
+Changes since v2:
+- corrected order of syscon compatible
+- added compatible = "ethernet-phy-ieee802.3-c22 to PHY
+- added set_mac function
+
+Changes since v1:
+- added TX/RX delay units
+- splitted syscon documentation in its own patch
+- regulator is now disabled after clk_prepare_enable(gmac->tx_clk) error
+- Fixed a memory leak on mac_device_info
+- Use now generic pin config for all DT stuff
+- CONFIG_DWMAC_SUN8I is now set to y in defconfigs
+
+Corentin Labbe (21):
+  net-next: stmmac: export stmmac_set_mac_addr/stmmac_get_mac_addr
+  net-next: stmmac: add optional setup function
+  dt-bindings: net-next: Add DT bindings documentation for Allwinner
+    dwmac-sun8i
+  dt-bindings: syscon: Add DT bindings documentation for Allwinner
+    syscon
+  net-next: stmmac: Add dwmac-sun8i
+  arm: sun8i: sunxi-h3-h5: Add dt node for the syscon control module
+  arm: sun8i: sunxi-h3-h5: add dwmac-sun8i ethernet driver
+  arm: sun8i: orangepi-pc: Enable dwmac-sun8i
+  arm: sun8i: orangepi-zero: Enable dwmac-sun8i
+  arm: sun8i: orangepi-one: Enable dwmac-sun8i
+  arm: sun8i: orangepi-2: Enable dwmac-sun8i
+  arm: sun8i: orangepi-pc-plus: Set EMAC activity LEDs to active high
+  arm: sun8i: nanopi-neo: Enable dwmac-sun8i
+  arm64: allwinner: sun50i-a64: Add dt node for the syscon control
+    module
+  arm64: allwinner: sun50i-a64: add dwmac-sun8i Ethernet driver
+  arm64: allwinner: pine64: Enable dwmac-sun8i
+  arm64: allwinner: pine64-plus: Enable dwmac-sun8i
+  arm64: allwinner: bananapi-m64: Enable dwmac-sun8i
+  arm: sunxi: Enable dwmac-sun8i driver on sunxi_defconfig
+  arm: multi_v7: Enable dwmac-sun8i driver on multi_v7_defconfig
+  arm64: defconfig: Enable dwmac-sun8i driver on defconfig
+
+ .../devicetree/bindings/misc/allwinner,syscon.txt  |  19 +
+ .../devicetree/bindings/net/dwmac-sun8i.txt        |  78 ++
+ arch/arm/boot/dts/sun8i-h2-plus-orangepi-zero.dts  |   8 +
+ arch/arm/boot/dts/sun8i-h3-nanopi-neo.dts          |   7 +
+ arch/arm/boot/dts/sun8i-h3-orangepi-2.dts          |   8 +
+ arch/arm/boot/dts/sun8i-h3-orangepi-one.dts        |   8 +
+ arch/arm/boot/dts/sun8i-h3-orangepi-pc-plus.dts    |   5 +
+ arch/arm/boot/dts/sun8i-h3-orangepi-pc.dts         |   8 +
+ arch/arm/boot/dts/sunxi-h3-h5.dtsi                 |  40 +
+ arch/arm/configs/multi_v7_defconfig                |   1 +
+ arch/arm/configs/sunxi_defconfig                   |   1 +
+ .../boot/dts/allwinner/sun50i-a64-bananapi-m64.dts |  15 +
+ .../boot/dts/allwinner/sun50i-a64-pine64-plus.dts  |  17 +-
+ .../arm64/boot/dts/allwinner/sun50i-a64-pine64.dts |  16 +
+ arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi      |  41 +
+ arch/arm64/configs/defconfig                       |   1 +
+ drivers/net/ethernet/stmicro/stmmac/Kconfig        |  11 +
+ drivers/net/ethernet/stmicro/stmmac/Makefile       |   1 +
+ drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c  | 990 +++++++++++++++++++++
+ drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c    |   3 +-
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |  19 +-
+ .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |   9 +-
+ include/linux/stmmac.h                             |   2 +
+ 23 files changed, 1303 insertions(+), 5 deletions(-)
+ create mode 100644 Documentation/devicetree/bindings/misc/allwinner,syscon.txt
+ create mode 100644 Documentation/devicetree/bindings/net/dwmac-sun8i.txt
+ create mode 100644 drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c
+
 -- 
 2.13.0
