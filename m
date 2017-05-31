@@ -1,42 +1,48 @@
-From: Michael Chan <michael.chan@broadcom.com>
-Subject: [PATCH net-next] bnxt_en: Fix xmit_more with BQL.
-Date: Tue, 30 May 2017 20:03:00 -0400
-Message-ID: <1496188980-13392-1-git-send-email-michael.chan@broadcom.com>
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f174.google.com ([209.85.220.174]:34876 "EHLO
-        mail-qk0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750942AbdEaADL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 30 May 2017 20:03:11 -0400
-Received: by mail-qk0-f174.google.com with SMTP id 19so333674qke.2
-        for <netdev@vger.kernel.org>; Tue, 30 May 2017 17:03:11 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH V2 2/3] net-next: dsa: add multi cpu port support
+Date: Wed, 31 May 2017 02:06:36 +0200
+Message-ID: <20170531000636.GA12615@lunn.ch>
+References: <20170530104419.6052-1-john@phrozen.org>
+ <20170530104419.6052-2-john@phrozen.org>
+ <8d6996ef-72c0-546f-6bbe-5a6ea6e83c5f@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: John Crispin <john@phrozen.org>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        Sean Wang <sean.wang@mediatek.com>, jiri@resnulli.us,
+        idosch@mellanox.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <8d6996ef-72c0-546f-6bbe-5a6ea6e83c5f@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-We need to write the doorbell if BQL has stopped the queue and
-skb->xmit_more is set.  Otherwise it is possible for the tx queue to
-rot and cause tx timeout.
+> - past the initial setup, if we start creating bridge devices and so on,
+> we have no way to tell: group Ports 0-3 together and send traffic to CPU
+> port 0, then let Port 5 alone and send traffic to CPU port 1, that's a
+> DSA-only problem though, because we still have the CPU port(s) as
+> independent network interfaces.
 
-Fixes: 4d172f21cefe ("bnxt_en: Implement xmit_more.")
-Suggested-by: Yuval Mintz <yuval.mintz@cavium.com>
-Signed-off-by: Michael Chan <michael.chan@broadcom.com>
----
- drivers/net/ethernet/broadcom/bnxt/bnxt.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+What is the problem here? Frames come out the master interface, get
+untagged and passed to the slave interface and go upto the bridge. It
+should all just work. Same in the reverse direction.
 
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-index 954758f..c1cd72a 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-@@ -463,7 +463,7 @@ static netdev_tx_t bnxt_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	prod = NEXT_TX(prod);
- 	txr->tx_prod = prod;
- 
--	if (!skb->xmit_more)
-+	if (!skb->xmit_more || netif_xmit_stopped(txq))
- 		bnxt_db_write(bp, txr->tx_doorbell, DB_KEY_TX | prod);
- 
- tx_done:
--- 
-1.8.3.1
+In order to make best use of the extra bandwidth of having two cpu
+ports, i probably want the user ports reasonably evenly distributed
+between the CPU ports. Dedicating one CPU port to one user port is
+probably sub-optimal. How many people have 1Gbps Fibre to the home,
+which could fully utilise a one-to-one mapping for the WAN port?
+
+> Now, that would still force the user to configure two bridges in order
+> to properly steer traffic towards the requested ports but it would allow
+> us to be very flexible (which is probably desired here) in how ports are
+> grouped together.
+
+We want a sensible default, spreading the slave ports evenly over the
+CPU ports. We could add a devlink command to change the defaults at
+runtime.
+
+	Andrew
