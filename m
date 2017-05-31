@@ -1,58 +1,47 @@
-From: thor.thayer@linux.intel.com
-Subject: [PATCH] net: ethernet: stmmac: Fix altr_tse_pcs SGMII Initialization
-Date: Wed, 31 May 2017 14:28:47 -0500
-Message-ID: <1496258927-5493-1-git-send-email-thor.thayer@linux.intel.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        thor.thayer@linux.intel.com
-To: peppe.cavallaro@st.com, alexandre.torgue@st.com
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [ISSUE: sky2 - rx error] Link stops working under heavy traffic
+ load connected to a mv88e6176
+Date: Wed, 31 May 2017 21:31:36 +0200
+Message-ID: <20170531193136.GD11230@lunn.ch>
+References: <59105EA3.9030203@aoifes.com>
+ <20170508123852.GI27709@lunn.ch>
+ <591AD990.901@aoifes.com>
+ <20170516124759.GB27959@lunn.ch>
+ <591AF9FD.1000304@aoifes.com>
+ <20170516132116.GE5456@lunn.ch>
+ <591B1FC2.1090402@aoifes.com>
+ <20170516155843.GE32357@lunn.ch>
+ <591B267D.1030800@aoifes.com>
+ <5927FFAF.40301@aoifes.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+        netdev@vger.kernel.org
+To: Rafa Corvillo <rafael.corvillo@aoifes.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga06.intel.com ([134.134.136.31]:34344 "EHLO mga06.intel.com"
+Received: from vps0.lunn.ch ([178.209.37.122]:60145 "EHLO vps0.lunn.ch"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750898AbdEaTZz (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 31 May 2017 15:25:55 -0400
+        id S1751067AbdEaTbj (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 31 May 2017 15:31:39 -0400
+Content-Disposition: inline
+In-Reply-To: <5927FFAF.40301@aoifes.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Thor Thayer <thor.thayer@linux.intel.com>
+On Fri, May 26, 2017 at 12:13:03PM +0200, Rafa Corvillo wrote:
+> As modifying sky2 code I have not could get any solution, then I
+> have modified some parameters on the ethernet interface and using a
+> MTU = 1503 and disabling TSO (TCP Segmentation Offload) mechanism
+> all communication errors disappear, both the rx errors due to too
+> long packets and tx timeout errors.
 
-Fix NETDEV WATCHDOG timeout on startup by adding missing register
-writes that properly setup SGMII.
+Hi Rafa
 
-Signed-off-by: Thor Thayer <thor.thayer@linux.intel.com>
----
- drivers/net/ethernet/stmicro/stmmac/altr_tse_pcs.c | 6 +++++-
- 1 file changed, 5 insertions(+), 1 deletion(-)
+That at least makes some sense. It would be interesting to sniff the
+frames going from, the sky2 to the switch. I suspect you will find
+that the first frame TSO sends for a big segment has the DSA header
+and the following frames don't. You might want to look at how TSO is
+setup on transmit, if you can tell it which parts of the header needs
+to be placed on each segment, so that it includes the DSA header.
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/altr_tse_pcs.c b/drivers/net/ethernet/stmicro/stmmac/altr_tse_pcs.c
-index 489ef14..6a9c954 100644
---- a/drivers/net/ethernet/stmicro/stmmac/altr_tse_pcs.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/altr_tse_pcs.c
-@@ -37,6 +37,7 @@
- #define TSE_PCS_CONTROL_AN_EN_MASK			BIT(12)
- #define TSE_PCS_CONTROL_REG				0x00
- #define TSE_PCS_CONTROL_RESTART_AN_MASK			BIT(9)
-+#define TSE_PCS_CTRL_AUTONEG_SGMII			0x1140
- #define TSE_PCS_IF_MODE_REG				0x28
- #define TSE_PCS_LINK_TIMER_0_REG			0x24
- #define TSE_PCS_LINK_TIMER_1_REG			0x26
-@@ -65,6 +66,7 @@
- #define TSE_PCS_SW_RESET_TIMEOUT			100
- #define TSE_PCS_USE_SGMII_AN_MASK			BIT(1)
- #define TSE_PCS_USE_SGMII_ENA				BIT(0)
-+#define TSE_PCS_IF_USE_SGMII				0x03
- 
- #define SGMII_ADAPTER_CTRL_REG				0x00
- #define SGMII_ADAPTER_DISABLE				0x0001
-@@ -101,7 +103,9 @@ int tse_pcs_init(void __iomem *base, struct tse_pcs *pcs)
- {
- 	int ret = 0;
- 
--	writew(TSE_PCS_USE_SGMII_ENA, base + TSE_PCS_IF_MODE_REG);
-+	writew(TSE_PCS_IF_USE_SGMII, base + TSE_PCS_IF_MODE_REG);
-+
-+	writew(TSE_PCS_CTRL_AUTONEG_SGMII, base + TSE_PCS_CONTROL_REG);
- 
- 	writew(TSE_PCS_SGMII_LINK_TIMER_0, base + TSE_PCS_LINK_TIMER_0_REG);
- 	writew(TSE_PCS_SGMII_LINK_TIMER_1, base + TSE_PCS_LINK_TIMER_1_REG);
--- 
-2.7.4
+    Andrew
