@@ -1,104 +1,67 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: [PATCH net] ipv6: xfrm: Handle errors reported by
- xfrm6_find_1stfragopt()
-Date: Wed, 31 May 2017 13:15:41 +0100
-Message-ID: <20170531121541.GA16923@decadent.org.uk>
+From: Arend van Spriel <arend.vanspriel@broadcom.com>
+Subject: Re: [PATCH] b43legacy: Fix a sleep-in-atomic bug in
+ b43legacy_op_bss_info_changed
+Date: Wed, 31 May 2017 14:15:47 +0200
+Message-ID: <471e5030-0a9a-e9bb-855c-90dcd506f466@broadcom.com>
+References: <1496225353-5544-1-git-send-email-baijiaju1990@163.com>
+ <877f0xnwyk.fsf@kamboji.qca.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
-        protocol="application/pgp-signature"; boundary="dDRMvlgZJXvWKvBx"
-Cc: netdev <netdev@vger.kernel.org>
-To: Craig Gallek <kraig@google.com>,
-        "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Larry.Finger@lwfinger.net, linux-wireless@vger.kernel.org,
+        b43-dev@lists.infradead.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Kalle Valo <kvalo@codeaurora.org>,
+        Jia-Ju Bai <baijiaju1990@163.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:53988 "EHLO
-        shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751025AbdEaMPu (ORCPT
+Received: from mail-wm0-f52.google.com ([74.125.82.52]:36110 "EHLO
+        mail-wm0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751056AbdEaMPu (ORCPT
         <rfc822;netdev@vger.kernel.org>); Wed, 31 May 2017 08:15:50 -0400
-Content-Disposition: inline
+Received: by mail-wm0-f52.google.com with SMTP id 7so116338895wmo.1
+        for <netdev@vger.kernel.org>; Wed, 31 May 2017 05:15:50 -0700 (PDT)
+In-Reply-To: <877f0xnwyk.fsf@kamboji.qca.qualcomm.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 31-05-17 12:26, Kalle Valo wrote:
+> Jia-Ju Bai <baijiaju1990@163.com> writes:
+> 
+>> The driver may sleep under a spin lock, and the function call path is:
+>> b43legacy_op_bss_info_changed (acquire the lock by spin_lock_irqsave)
+>>   b43legacy_synchronize_irq
+>>     synchronize_irq --> may sleep
+>>
+>> To fix it, the lock is released before b43legacy_synchronize_irq, and the 
+>> lock is acquired again after this function.
+>>
+>> Signed-off-by: Jia-Ju Bai <baijiaju1990@163.com>
+>> ---
+>>  drivers/net/wireless/broadcom/b43legacy/main.c |    2 ++
+>>  1 file changed, 2 insertions(+)
+>>
+>> diff --git a/drivers/net/wireless/broadcom/b43legacy/main.c b/drivers/net/wireless/broadcom/b43legacy/main.c
+>> index f1e3dad..31ead21 100644
+>> --- a/drivers/net/wireless/broadcom/b43legacy/main.c
+>> +++ b/drivers/net/wireless/broadcom/b43legacy/main.c
+>> @@ -2859,7 +2859,9 @@ static void b43legacy_op_bss_info_changed(struct ieee80211_hw *hw,
+>>  	b43legacy_write32(dev, B43legacy_MMIO_GEN_IRQ_MASK, 0);
+>>  
+>>  	if (changed & BSS_CHANGED_BSSID) {
+>> +		spin_unlock_irqrestore(&wl->irq_lock, flags);
+>>  		b43legacy_synchronize_irq(dev);
+>> +		spin_lock_irqsave(&wl->irq_lock, flags);
+> 
+> To me this looks like a fragile workaround and not a real fix. You can
+> easily add new race conditions with releasing the lock like this.
 
---dDRMvlgZJXvWKvBx
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Hi Jia-Ju,
 
-xfrm6_find_1stfragopt() may now return an error code and we must
-not treat it as a length.
+Agree with Kalle as I was about to say the same thing. You really need
+to determine what is protected by the irq_lock. Here you are using the
+lock because you are about to change wl->bssid a bit further down. Did
+not check the entire function but it seems the lock perimeter is too wide.
 
-Fixes: 2423496af35d ("ipv6: Prevent overrun when parsing v6 header options")
-Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
----
-Commits 2423496af35d "ipv6: Prevent overrun when parsing v6 header
-options" and 7dd7eb9513bd "ipv6: Check ip6_find_1stfragopt() return
-value properly." changed ip6_find_1stfragopt() to return negative
-error codes and changed some of its callers to handle this.
-
-However, there is also xfrm6_find_1stfragopt() which is a wrapper for
-ip6_find_1stfragopt() and is called indirectly by xfrm6_ro_output()
-and xfrm6_transport_output().  Neither of them check for errors.
-
-This is totally untested.  I think xfrm_type::hdr_offset deserves a
-comment about its semantics, but I don't understand it well enogugh to
-write that.
-
-Ben.
-
- net/ipv6/xfrm6_mode_ro.c        | 2 ++
- net/ipv6/xfrm6_mode_transport.c | 2 ++
- 2 files changed, 4 insertions(+)
-
-diff --git a/net/ipv6/xfrm6_mode_ro.c b/net/ipv6/xfrm6_mode_ro.c
-index 0e015906f9ca..07d36573f50b 100644
---- a/net/ipv6/xfrm6_mode_ro.c
-+++ b/net/ipv6/xfrm6_mode_ro.c
-@@ -47,6 +47,8 @@ static int xfrm6_ro_output(struct xfrm_state *x, struct s=
-k_buff *skb)
- 	iph =3D ipv6_hdr(skb);
-=20
- 	hdr_len =3D x->type->hdr_offset(x, skb, &prevhdr);
-+	if (hdr_len < 0)
-+		return hdr_len;
- 	skb_set_mac_header(skb, (prevhdr - x->props.header_len) - skb->data);
- 	skb_set_network_header(skb, -x->props.header_len);
- 	skb->transport_header =3D skb->network_header + hdr_len;
-diff --git a/net/ipv6/xfrm6_mode_transport.c b/net/ipv6/xfrm6_mode_transpor=
-t.c
-index 7a92c0f31912..9ad07a91708e 100644
---- a/net/ipv6/xfrm6_mode_transport.c
-+++ b/net/ipv6/xfrm6_mode_transport.c
-@@ -30,6 +30,8 @@ static int xfrm6_transport_output(struct xfrm_state *x, s=
-truct sk_buff *skb)
- 	skb_set_inner_transport_header(skb, skb_transport_offset(skb));
-=20
- 	hdr_len =3D x->type->hdr_offset(x, skb, &prevhdr);
-+	if (hdr_len < 0)
-+		return hdr_len;
- 	skb_set_mac_header(skb, (prevhdr - x->props.header_len) - skb->data);
- 	skb_set_network_header(skb, -x->props.header_len);
- 	skb->transport_header =3D skb->network_header + hdr_len;
-
---dDRMvlgZJXvWKvBx
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIVAwUBWS6z7ee/yOyVhhEJAQrNYg//cfAY2BjgHX9PwTNfxiDbse3MMMX1x0ae
-0307YaQMA63th1gQLRhBSNbktAuIq5gzKg2f88Oxtm+L8FDDpqb7aNg+3G/GwoxG
-j/jGfogkUu4me3UjbxJkR58fIm06957Gk/xk9RwfZW9BRDu153HpNePaw2jsy3Lf
-mgKCahuutcEVlqe9/GZQZ2N8/QnkNMCz65GzRIGgluX+oeQG/c5B1bSDOtSi1rzX
-3j1lONFMckDhXZ+Nij1vL9eQnJPYoTvqxyuBFOb0TCCPRxW50JEVj4JI2dEmW+Cw
-IoeVbZuyh46zKg6Tvu6dOZq3dOR+udU/eror/cd+Kuyf6NxhsNk68oYpGNpEMPL2
-KrIXfuWRg7LA3hLVDS3B1uKAfEm+9T+zNGW8s0CkttWEPzpikbrRhs9ZRKQZJSX1
-kDr6K9KeVAu3shBlkgzWrdlMxWkgq+1F4rhezw2ElFRMv9afLwhTKjPNtiO1pyme
-2zwpEcBN9i1iwpdUPopXIszZ1+5cDMFasmfNMyEjCrZ40u0vpyoLcy+rIZtB2MFz
-HCpXp1bbq7EvwziuO070ExLqrQZbh+sUiQUIVqBRl6tTuoENIqYKnHyzIOcwoyRl
-EuX/UySs7h8F6nmnQFccd7TSSgRuKk+rDVKF/2lvkCTDo+UA9OISMhmyTdUOV4gC
-2lPdGFPGuPA=
-=0VjV
------END PGP SIGNATURE-----
-
---dDRMvlgZJXvWKvBx--
+Regards,
+Arend
