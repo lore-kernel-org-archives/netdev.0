@@ -1,162 +1,212 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [PATCH net-next v2 4/8] net: ipv4: Convert inet_rtm_getroute
- to rcu versions of route lookup
-Date: Wed, 31 May 2017 13:11:31 -0700
-Message-ID: <592F2373.7070909@gmail.com>
-References: <1495734160-47659-1-git-send-email-roopa@cumulusnetworks.com> <1495734160-47659-5-git-send-email-roopa@cumulusnetworks.com>
+From: <Woojung.Huh@microchip.com>
+Subject: [PATCH v5 net-next 1/5] dsa: add support for Microchip KSZ tail
+ tagging
+Date: Wed, 31 May 2017 20:19:06 +0000
+Message-ID: <9235D6609DB808459E95D78E17F2E43D40AA5561@CHN-SV-EXMX02.mchp-main.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nikolay@cumulusnetworks.com
-To: Roopa Prabhu <roopa@cumulusnetworks.com>, davem@davemloft.net,
-        dsahern@gmail.com, rami.rosen@intel.com
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <andrew@lunn.ch>, <f.fainelli@gmail.com>,
+        <UNGLinuxDriver@microchip.com>
+To: <netdev@vger.kernel.org>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:32974 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751004AbdEaULq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 31 May 2017 16:11:46 -0400
-Received: by mail-pf0-f193.google.com with SMTP id f27so3992601pfe.0
-        for <netdev@vger.kernel.org>; Wed, 31 May 2017 13:11:46 -0700 (PDT)
-In-Reply-To: <1495734160-47659-5-git-send-email-roopa@cumulusnetworks.com>
+Received: from esa4.microchip.iphmx.com ([68.232.154.123]:42544 "EHLO
+        esa4.microchip.iphmx.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751033AbdEaUTI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 31 May 2017 16:19:08 -0400
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/25/2017 10:42 AM, Roopa Prabhu wrote:
-> From: David Ahern <dsahern@gmail.com>
-> 
-> Convert inet_rtm_getroute to use ip_route_input_rcu and
-> ip_route_output_key_hash_rcu passing the fib_result arg to both.
-> The rcu lock is held through the creation of the response, so the
-> rtable/dst does not need to be attached to the skb and is passed
-> to rt_fill_info directly.
-> 
-> In converting from ip_route_output_key to ip_route_output_key_hash_rcu
-> the xfrm_lookup_route in ip_route_output_flow is dropped since
-> flowi4_proto is not set for a route get request.
-> 
-> Signed-off-by: David Ahern <dsahern@gmail.com>
-> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
-> ---
+From: Woojung Huh <Woojung.Huh@microchip.com>
 
-Hi Roopa, David,
+Adding support for the Microchip KSZ switch family tail tagging.
 
-I'm getting a usage count bug with this patch,
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+Signed-off-by: Woojung Huh <Woojung.Huh@microchip.com>
+---
+ include/net/dsa.h  |   1 +
+ net/dsa/Kconfig    |   3 ++
+ net/dsa/Makefile   |   1 +
+ net/dsa/dsa.c      |   3 ++
+ net/dsa/dsa_priv.h |   3 ++
+ net/dsa/tag_ksz.c  | 101 +++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 6 files changed, 112 insertions(+)
+ create mode 100644 net/dsa/tag_ksz.c
 
-unregister_netdevice: waiting for lo to become free. Usage count = 1
-
-see below,
-
->  net/ipv4/route.c | 21 +++++++++++++--------
->  1 file changed, 13 insertions(+), 8 deletions(-)
-> 
-> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-> index d8fcecc..1fa9127 100644
-> --- a/net/ipv4/route.c
-> +++ b/net/ipv4/route.c
-> @@ -2534,11 +2534,11 @@ struct rtable *ip_route_output_flow(struct net *net, struct flowi4 *flp4,
->  }
->  EXPORT_SYMBOL_GPL(ip_route_output_flow);
->  
-> +/* called with rcu_read_lock held */
->  static int rt_fill_info(struct net *net,  __be32 dst, __be32 src, u32 table_id,
->  			struct flowi4 *fl4, struct sk_buff *skb, u32 portid,
-> -			u32 seq)
-> +			u32 seq, struct rtable *rt)
->  {
-> -	struct rtable *rt = skb_rtable(skb);
->  	struct rtmsg *r;
->  	struct nlmsghdr *nlh;
->  	unsigned long expires = 0;
-> @@ -2653,6 +2653,7 @@ static int inet_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh,
->  	struct net *net = sock_net(in_skb->sk);
->  	struct rtmsg *rtm;
->  	struct nlattr *tb[RTA_MAX+1];
-> +	struct fib_result res = {};
->  	struct rtable *rt = NULL;
->  	struct flowi4 fl4;
->  	__be32 dst = 0;
-> @@ -2709,10 +2710,12 @@ static int inet_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh,
->  	fl4.flowi4_mark = mark;
->  	fl4.flowi4_uid = uid;
->  
-> +	rcu_read_lock();
-> +
->  	if (iif) {
->  		struct net_device *dev;
->  
-> -		dev = __dev_get_by_index(net, iif);
-> +		dev = dev_get_by_index_rcu(net, iif);
->  		if (!dev) {
->  			err = -ENODEV;
->  			goto errout_free;
-> @@ -2721,14 +2724,14 @@ static int inet_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh,
->  		skb->protocol	= htons(ETH_P_IP);
->  		skb->dev	= dev;
->  		skb->mark	= mark;
-> -		err = ip_route_input(skb, dst, src, rtm->rtm_tos, dev);
-> +		err = ip_route_input_rcu(skb, dst, src, rtm->rtm_tos,
-> +					 dev, &res);
->  
->  		rt = skb_rtable(skb);
->  		if (err == 0 && rt->dst.error)
->  			err = -rt->dst.error;
->  	} else {
-> -		rt = ip_route_output_key(net, &fl4);
-> -
-> +		rt = ip_route_output_key_hash_rcu(net, &fl4, &res, skb);
->  		err = 0;
->  		if (IS_ERR(rt))
->  			err = PTR_ERR(rt);
-> @@ -2737,7 +2740,6 @@ static int inet_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh,
->  	if (err)
->  		goto errout_free;
->  
-> -	skb_dst_set(skb, &rt->dst);
-
-
-Why did you remove this? Neither ip_route_input() or ip_route_output_key()
-seem to justify this with a quick scan on my side. Feel free to correct me
-here.
-
-The following fix resolves my issues,
-
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index f1f2e5a..8f373bd 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -2750,6 +2750,7 @@ static int inet_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh,
-        if (err)
-                goto errout_free;
+diff --git a/include/net/dsa.h b/include/net/dsa.h
+index d9bd693..7de1234 100644
+--- a/include/net/dsa.h
++++ b/include/net/dsa.h
+@@ -31,6 +31,7 @@ enum dsa_tag_protocol {
+ 	DSA_TAG_PROTO_BRCM,
+ 	DSA_TAG_PROTO_DSA,
+ 	DSA_TAG_PROTO_EDSA,
++	DSA_TAG_PROTO_KSZ,
+ 	DSA_TAG_PROTO_LAN9303,
+ 	DSA_TAG_PROTO_MTK,
+ 	DSA_TAG_PROTO_QCA,
+diff --git a/net/dsa/Kconfig b/net/dsa/Kconfig
+index 297389b..cc5f8f9 100644
+--- a/net/dsa/Kconfig
++++ b/net/dsa/Kconfig
+@@ -25,6 +25,9 @@ config NET_DSA_TAG_DSA
+ config NET_DSA_TAG_EDSA
+ 	bool
  
-+       skb_dst_set(skb, &rt->dst);
-        if (rtm->rtm_flags & RTM_F_NOTIFY)
-                rt->rt_flags |= RTCF_NOTIFY;
++config NET_DSA_TAG_KSZ
++	bool
++
+ config NET_DSA_TAG_LAN9303
+ 	bool
  
-
-Thanks,
-John 
-
->  	if (rtm->rtm_flags & RTM_F_NOTIFY)
->  		rt->rt_flags |= RTCF_NOTIFY;
->  
-> @@ -2745,15 +2747,18 @@ static int inet_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh,
->  		table_id = rt->rt_table_id;
->  
->  	err = rt_fill_info(net, dst, src, table_id, &fl4, skb,
-> -			   NETLINK_CB(in_skb).portid, nlh->nlmsg_seq);
-> +			   NETLINK_CB(in_skb).portid, nlh->nlmsg_seq, rt);
->  	if (err < 0)
->  		goto errout_free;
->  
-> +	rcu_read_unlock();
-> +
->  	err = rtnl_unicast(skb, net, NETLINK_CB(in_skb).portid);
->  errout:
->  	return err;
->  
->  errout_free:
-> +	rcu_read_unlock();
->  	kfree_skb(skb);
->  	goto errout;
->  }
-> 
+diff --git a/net/dsa/Makefile b/net/dsa/Makefile
+index 90e5aa6..fcce25d 100644
+--- a/net/dsa/Makefile
++++ b/net/dsa/Makefile
+@@ -6,6 +6,7 @@ dsa_core-y += dsa.o dsa2.o legacy.o port.o slave.o switch.o
+ dsa_core-$(CONFIG_NET_DSA_TAG_BRCM) += tag_brcm.o
+ dsa_core-$(CONFIG_NET_DSA_TAG_DSA) += tag_dsa.o
+ dsa_core-$(CONFIG_NET_DSA_TAG_EDSA) += tag_edsa.o
++dsa_core-$(CONFIG_NET_DSA_TAG_KSZ) += tag_ksz.o
+ dsa_core-$(CONFIG_NET_DSA_TAG_LAN9303) += tag_lan9303.o
+ dsa_core-$(CONFIG_NET_DSA_TAG_MTK) += tag_mtk.o
+ dsa_core-$(CONFIG_NET_DSA_TAG_QCA) += tag_qca.o
+diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
+index 3288a80..402459e 100644
+--- a/net/dsa/dsa.c
++++ b/net/dsa/dsa.c
+@@ -49,6 +49,9 @@ const struct dsa_device_ops *dsa_device_ops[DSA_TAG_LAST] = {
+ #ifdef CONFIG_NET_DSA_TAG_EDSA
+ 	[DSA_TAG_PROTO_EDSA] = &edsa_netdev_ops,
+ #endif
++#ifdef CONFIG_NET_DSA_TAG_KSZ
++	[DSA_TAG_PROTO_KSZ] = &ksz_netdev_ops,
++#endif
+ #ifdef CONFIG_NET_DSA_TAG_LAN9303
+ 	[DSA_TAG_PROTO_LAN9303] = &lan9303_netdev_ops,
+ #endif
+diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
+index c1d4180..7459d57 100644
+--- a/net/dsa/dsa_priv.h
++++ b/net/dsa/dsa_priv.h
+@@ -167,6 +167,9 @@ extern const struct dsa_device_ops dsa_netdev_ops;
+ /* tag_edsa.c */
+ extern const struct dsa_device_ops edsa_netdev_ops;
+ 
++/* tag_ksz.c */
++extern const struct dsa_device_ops ksz_netdev_ops;
++
+ /* tag_lan9303.c */
+ extern const struct dsa_device_ops lan9303_netdev_ops;
+ 
+diff --git a/net/dsa/tag_ksz.c b/net/dsa/tag_ksz.c
+new file mode 100644
+index 0000000..0b08a40
+--- /dev/null
++++ b/net/dsa/tag_ksz.c
+@@ -0,0 +1,101 @@
++/*
++ * net/dsa/tag_ksz.c - Microchip KSZ Switch tag format handling
++ * Copyright (c) 2017 Microchip Technology
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ */
++
++#include <linux/etherdevice.h>
++#include <linux/list.h>
++#include <linux/slab.h>
++#include <net/dsa.h>
++#include "dsa_priv.h"
++
++/* For Ingress (Host -> KSZ), 2 bytes are added before FCS.
++ * ---------------------------------------------------------------------------
++ * DA(6bytes)|SA(6bytes)|....|Data(nbytes)|tag0(1byte)|tag1(1byte)|FCS(4bytes)
++ * ---------------------------------------------------------------------------
++ * tag0 : Prioritization (not used now)
++ * tag1 : each bit represents port (eg, 0x01=port1, 0x02=port2, 0x10=port5)
++ *
++ * For Egress (KSZ -> Host), 1 byte is added before FCS.
++ * ---------------------------------------------------------------------------
++ * DA(6bytes)|SA(6bytes)|....|Data(nbytes)|tag0(1byte)|FCS(4bytes)
++ * ---------------------------------------------------------------------------
++ * tag0 : zero-based value represents port
++ *	  (eg, 0x00=port1, 0x02=port3, 0x06=port7)
++ */
++
++#define	KSZ_INGRESS_TAG_LEN	2
++#define	KSZ_EGRESS_TAG_LEN	1
++
++static struct sk_buff *ksz_xmit(struct sk_buff *skb, struct net_device *dev)
++{
++	struct dsa_slave_priv *p = netdev_priv(dev);
++	struct sk_buff *nskb;
++	int padlen;
++	u8 *tag;
++
++	padlen = (skb->len >= ETH_ZLEN) ? 0 : ETH_ZLEN - skb->len;
++
++	if (skb_tailroom(skb) >= padlen + KSZ_INGRESS_TAG_LEN) {
++		nskb = skb;
++	} else {
++		nskb = alloc_skb(NET_IP_ALIGN + skb->len +
++				 padlen + KSZ_INGRESS_TAG_LEN, GFP_ATOMIC);
++		if (!nskb) {
++			kfree_skb(skb);
++			return NULL;
++		}
++		skb_reserve(nskb, NET_IP_ALIGN);
++
++		skb_reset_mac_header(nskb);
++		skb_set_network_header(nskb,
++				       skb_network_header(skb) - skb->head);
++		skb_set_transport_header(nskb,
++					 skb_transport_header(skb) - skb->head);
++		skb_copy_and_csum_dev(skb, skb_put(nskb, skb->len));
++		kfree_skb(skb);
++	}
++
++	/* skb is freed when it fails */
++	if (skb_put_padto(nskb, nskb->len + padlen))
++		return NULL;
++
++	tag = skb_put(nskb, KSZ_INGRESS_TAG_LEN);
++	tag[0] = 0;
++	tag[1] = 1 << p->dp->index; /* destination port */
++
++	return nskb;
++}
++
++struct sk_buff *ksz_rcv(struct sk_buff *skb, struct net_device *dev,
++			struct packet_type *pt, struct net_device *orig_dev)
++{
++	struct dsa_switch_tree *dst = dev->dsa_ptr;
++	struct dsa_switch *ds;
++	u8 *tag;
++	int source_port;
++
++	ds = dst->cpu_dp->ds;
++
++	tag = skb_tail_pointer(skb) - KSZ_EGRESS_TAG_LEN;
++
++	source_port = tag[0] & 7;
++	if (source_port >= ds->num_ports || !ds->ports[source_port].netdev)
++		return NULL;
++
++	pskb_trim_rcsum(skb, skb->len - KSZ_EGRESS_TAG_LEN);
++
++	skb->dev = ds->ports[source_port].netdev;
++
++	return skb;
++}
++
++const struct dsa_device_ops ksz_netdev_ops = {
++	.xmit	= ksz_xmit,
++	.rcv	= ksz_rcv,
++};
+-- 
+2.7.4
