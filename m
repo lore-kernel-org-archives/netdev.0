@@ -1,64 +1,44 @@
-From: Daniel Vetter <daniel.vetter@ffwll.ch>
-Subject: Re: [PULL] topic/e1000e-fix
-Date: Wed, 31 May 2017 08:10:45 +0200
-Message-ID: <CAKMK7uGbi2Bwfno9XogKZ-LUOyMepbtRyGuGrNYWwj6Cts+uag@mail.gmail.com>
-References: <20170530201542.a5rudn6xfykbj3la@phenom.ffwll.local>
- <20170530.181022.1101254623191993046.davem@davemloft.net>
- <CAPM=9twH-CXm+xj2Os87Ra7nOBQ+WNXYGF83wFqpQ3s=MNx_mQ@mail.gmail.com>
- <CAKMK7uF-b1U7qipgEoYnAjDtrNdvKYT4KkoV2=krikkdGERkCw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org,
- "intel-gfx@lists.freedesktop.org" <intel-gfx@lists.freedesktop.org>,
- Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
- intel-wired-lan@lists.osuosl.org, dri-devel <dri-devel@lists.freedesktop.org>,
- David Miller <davem@davemloft.net>, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: Dave Airlie <airlied@gmail.com>
-Return-path: <intel-gfx-bounces@lists.freedesktop.org>
-In-Reply-To: <CAKMK7uF-b1U7qipgEoYnAjDtrNdvKYT4KkoV2=krikkdGERkCw@mail.gmail.com>
-List-Unsubscribe: <https://lists.freedesktop.org/mailman/options/intel-gfx>,
- <mailto:intel-gfx-request@lists.freedesktop.org?subject=unsubscribe>
-List-Archive: <https://lists.freedesktop.org/archives/intel-gfx>
-List-Post: <mailto:intel-gfx@lists.freedesktop.org>
-List-Help: <mailto:intel-gfx-request@lists.freedesktop.org?subject=help>
-List-Subscribe: <https://lists.freedesktop.org/mailman/listinfo/intel-gfx>,
- <mailto:intel-gfx-request@lists.freedesktop.org?subject=subscribe>
-Errors-To: intel-gfx-bounces@lists.freedesktop.org
-Sender: "Intel-gfx" <intel-gfx-bounces@lists.freedesktop.org>
-List-Id: netdev.vger.kernel.org
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: [PATCH net] mpls: fix clearing of dead nh_flags on link up
+Date: Tue, 30 May 2017 23:50:36 -0700
+Message-ID: <1496213436-33961-1-git-send-email-roopa@cumulusnetworks.com>
+Cc: netdev@vger.kernel.org, dsahern@gmail.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f175.google.com ([209.85.192.175]:32806 "EHLO
+        mail-pf0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751002AbdEaGul (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 31 May 2017 02:50:41 -0400
+Received: by mail-pf0-f175.google.com with SMTP id e193so6034897pfh.0
+        for <netdev@vger.kernel.org>; Tue, 30 May 2017 23:50:41 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gV2VkLCBNYXkgMzEsIDIwMTcgYXQgNzo1NCBBTSwgRGFuaWVsIFZldHRlciA8ZGFuaWVsLnZl
-dHRlckBmZndsbC5jaD4gd3JvdGU6Cj4gT24gV2VkLCBNYXkgMzEsIDIwMTcgYXQgMTowNiBBTSwg
-RGF2ZSBBaXJsaWUgPGFpcmxpZWRAZ21haWwuY29tPiB3cm90ZToKPj4gT24gMzEgTWF5IDIwMTcg
-YXQgMDg6MTAsIERhdmlkIE1pbGxlciA8ZGF2ZW1AZGF2ZW1sb2Z0Lm5ldD4gd3JvdGU6Cj4+PiBG
-cm9tOiBEYW5pZWwgVmV0dGVyIDxkYW5pZWwudmV0dGVyQGZmd2xsLmNoPgo+Pj4gRGF0ZTogVHVl
-LCAzMCBNYXkgMjAxNyAyMjoxNTo0MiArMDIwMAo+Pj4KPj4+PiBJZiB0aGUgZTEwMDBlIG1haW50
-YWluZXIgd2FudHMgdG8gY29hbGVzY2Ugb3Igbm90IHJldHVybiBzdGF0ZW1lbnRzCj4+Pj4gdGhp
-cyBzaW1wbGUgd2F5LCB0aGF0J3MgaW1vIG9uIGhpbSB0byBjaGFuZ2UgdGhlIGNvbG9yIGFzIG5l
-ZWRlZC4KPj4+Cj4+PiBUaGF0J3Mgbm90IGhvdyB0aGluZ3Mgd29yay4KPj4+Cj4+PiBJZiB0aGUg
-bWFpbnRhaW5lciB3YW50cyB5b3UgdG8gc3R5bGUgdGhpbmdzIGEgY2VydGFpbiB3YXksIGVpdGhl
-ciB5b3UKPj4+IGRvIGl0IHRoYXQgd2F5IG9yIHlvdXIgcGF0Y2ggaXNuJ3QgYWNjZXB0ZWQuCj4K
-PiBDb25zaWRlciB0aGlzIHB1bGwgYSByZWdyZXNzaW9uIHJlcG9ydCwgcGxzIGhhbmRsZSBpdC4K
-CkFuZCBJIGd1ZXNzIEkgcGlsZSBvZiBtb3JlIGNjLCB0byBtYWtlIHRoaXMgcmVncmVzc2lvbiBy
-ZXBvcnQKY29tcGxldGUuIEkgbWVhbiB5b3UgZ290IHRoZSBiYWNrdHJhY2UsIGJpc2VjdCBhbmQg
-YSBwcm9wb3NlZCBmaXgsIGFuZAp0aGUgYWxtb3N0LXdoaXRlc3BhY2UgY2hhbmdlIGRlbWFuZGVk
-IGlzIHNvbWV0aGluZyBnY2MgZG9lcyBpbiBpdHMKc2xlZXAuIEknZCB1bmRlcnN0YW5kIGEgcmVx
-dWVzdCB0byByZXRlc3QgaWYgaXQgd291bGQgYmUgYSByZWFsCmZ1bmN0aW9uYWwgY2hhbmdlLCBi
-dXQgaW4gdGhpcyBzaXR1YXRpb24gSSBoYXZlIG5vIGlkZWEgd2h5IHRoaXMKcmVncmVzc2lvbiBq
-dXN0IGNhbid0IGJlIGZpeGVkIGFscmVhZHkuCgpOb3Qgc3VyZSBpZiBpdCdzIHJlYWxseSBwcmVm
-ZXJyZWQgaWYgcmVncmVzc2lvbiByZXBvcnRzIGNvbWUKaW5jb21wbGV0ZSwgd2l0aG91dCBidWdm
-aXggYW5kIGJpc2VjdCBhdHRhY2hlZC4KLURhbmllbAoKPj4gSSdtIG5vdCByZWFsbHkgc3VyZSB3
-aHkgQ2hyaXMganVzdCBjb3VsZG4ndCByZXNwaW4gYWxyZWFkeS4KPj4KPj4gVGhvdWdoIHJlYWxs
-eSBJIHRoaW5rIENocmlzIHNob3VsZCBoYXZlIGp1c3QgYXNrZWQgZm9yIGEgcmV2ZXJ0IG9mIHRo
-ZQo+PiBvcmlnaW5hbCBwYXRjaCB0aGF0IGJyb2tlIHN0dWZmLCBpbnN0ZWFkIG9mIHRyeWluZyB0
-byBwYXRjaCBhIGRyaXZlcgo+PiBpZiBoZSBkb2Vzbid0IGhhdmUgdGltZSB0byBnZXQgdGhlIHBh
-dGNoIHJpZ2h0IGZvciB0aGUgbWFpbnRhaW5lci4KPgo+IE9rLCBjYW4gd2UgcGxzIHJldmVydCAy
-ODAwMjA5OTk0ZjggKCJlMTAwMGU6IFJlZmFjdG9yIFBNIGZsb3dzIikgdGhlbj8KPgo+IFRoYW5r
-cywgRGFuaWVsCj4gLS0KPiBEYW5pZWwgVmV0dGVyCj4gU29mdHdhcmUgRW5naW5lZXIsIEludGVs
-IENvcnBvcmF0aW9uCj4gKzQxICgwKSA3OSAzNjUgNTcgNDggLSBodHRwOi8vYmxvZy5mZndsbC5j
-aAoKCgotLSAKRGFuaWVsIFZldHRlcgpTb2Z0d2FyZSBFbmdpbmVlciwgSW50ZWwgQ29ycG9yYXRp
-b24KKzQxICgwKSA3OSAzNjUgNTcgNDggLSBodHRwOi8vYmxvZy5mZndsbC5jaApfX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpJbnRlbC1nZnggbWFpbGluZyBs
-aXN0CkludGVsLWdmeEBsaXN0cy5mcmVlZGVza3RvcC5vcmcKaHR0cHM6Ly9saXN0cy5mcmVlZGVz
-a3RvcC5vcmcvbWFpbG1hbi9saXN0aW5mby9pbnRlbC1nZngK
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+
+recent fixes to use WRITE_ONCE for nh_flags on link up,
+accidently ended up leaving the deadflags on a nh. This patch
+fixes the WRITE_ONCE to use freshly evaluated nh_flags.
+
+Fixes: 39eb8cd17588 ("net: mpls: rt_nhn_alive and nh_flags should be accessed using READ_ONCE")
+Reported-by: Satish Ashok <sashok@cumulusnetworks.com>
+Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+---
+ net/mpls/af_mpls.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
+index 94b3317..b51582d 100644
+--- a/net/mpls/af_mpls.c
++++ b/net/mpls/af_mpls.c
+@@ -1483,7 +1483,7 @@ static void mpls_ifup(struct net_device *dev, unsigned int flags)
+ 				continue;
+ 			alive++;
+ 			nh_flags &= ~flags;
+-			WRITE_ONCE(nh->nh_flags, flags);
++			WRITE_ONCE(nh->nh_flags, nh_flags);
+ 		} endfor_nexthops(rt);
+ 
+ 		WRITE_ONCE(rt->rt_nhn_alive, alive);
+-- 
+1.9.1
