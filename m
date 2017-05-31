@@ -1,37 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v5 net-next 0/5] dsa: add Microchip KSZ9477 DSA driver
-Date: Wed, 31 May 2017 14:28:30 -0400 (EDT)
-Message-ID: <20170531.142830.1153280352895864825.davem@davemloft.net>
-References: <9235D6609DB808459E95D78E17F2E43D40AA4D4C@CHN-SV-EXMX02.mchp-main.com>
+Subject: Re: [PATCH net-next 0/8] Introduce bpf ID
+Date: Wed, 31 May 2017 14:30:16 -0400 (EDT)
+Message-ID: <20170531.143016.582261847755991960.davem@davemloft.net>
+References: <cover.1496189155.git.kafai@fb.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: andrew@lunn.ch, f.fainelli@gmail.com, netdev@vger.kernel.org,
-        UNGLinuxDriver@microchip.com
-To: Woojung.Huh@microchip.com
+Cc: netdev@vger.kernel.org, ast@fb.com, daniel@iogearbox.net,
+        kernel-team@fb.com
+To: kafai@fb.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:42260 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:42288 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751081AbdEaS2d (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 31 May 2017 14:28:33 -0400
-In-Reply-To: <9235D6609DB808459E95D78E17F2E43D40AA4D4C@CHN-SV-EXMX02.mchp-main.com>
+        with ESMTP id S1750999AbdEaSaS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 31 May 2017 14:30:18 -0400
+In-Reply-To: <cover.1496189155.git.kafai@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: <Woojung.Huh@microchip.com>
-Date: Wed, 31 May 2017 00:00:34 +0000
+From: Martin KaFai Lau <kafai@fb.com>
+Date: Tue, 30 May 2017 17:08:29 -0700
 
-> From: Woojung Huh <Woojung.Huh@microchip.com>
-> 
-> This series of patches is for Microchip KSZ9477 DSA driver.
-> KSZ9477 is 7 ports GigE switch with numerous advanced features.
-> 5 ports are 10/100/1000 Mbps internal PHYs and 2 ports have
-> Interfaces to SGMII, RGMII, MII or RMII.
-> 
-> This patch supports VLAN, MDB, FDB and port mirroring offloads.
-> 
-> Welcome reviews and comments from community.
-> 
-> Note: Tests are performed on internal development board.
+> This patch series:
+> 1) Introduce ID for both bpf_prog and bpf_map.
+> 2) Add bpf commands to iterate the prog IDs and map
+>    IDs of the system.
+> 3) Add bpf commands to get a prog/map fd from an ID
+> 4) Add bpf command to get prog/map info from a fd.
+>    The prog/map info is a jump start in this patchset
+>    and it is not meant to be a complete list.  They can
+>    be extended in the future patches.
 
-Series applied, thanks.
+This needs a respin to address the kbuild bot build failures.
