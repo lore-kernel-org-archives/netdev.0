@@ -1,62 +1,56 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH 1/2] ip: include libc headers first
-Date: Tue, 30 May 2017 17:31:51 -0700
-Message-ID: <20170530173151.771ea254@xeon-e3>
-References: <8afdd8babb9e82bcfde78e851b24b698436a6f9f.1495459674.git.baruch@tkos.co.il>
+Subject: Re: [PATCH] netlink: Change rtnl_dump_done to always show error
+Date: Tue, 30 May 2017 17:35:08 -0700
+Message-ID: <20170530173508.0b895904@xeon-e3>
+References: <20170516212246.10134-1-dsahern@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Baruch Siach <baruch@tkos.co.il>
+To: David Ahern <dsahern@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f175.google.com ([209.85.192.175]:34243 "EHLO
-        mail-pf0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750928AbdEaAby (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 30 May 2017 20:31:54 -0400
-Received: by mail-pf0-f175.google.com with SMTP id 9so1758179pfj.1
-        for <netdev@vger.kernel.org>; Tue, 30 May 2017 17:31:54 -0700 (PDT)
-In-Reply-To: <8afdd8babb9e82bcfde78e851b24b698436a6f9f.1495459674.git.baruch@tkos.co.il>
+Received: from mail-pf0-f182.google.com ([209.85.192.182]:33365 "EHLO
+        mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750938AbdEaAfM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 30 May 2017 20:35:12 -0400
+Received: by mail-pf0-f182.google.com with SMTP id e193so1850046pfh.0
+        for <netdev@vger.kernel.org>; Tue, 30 May 2017 17:35:12 -0700 (PDT)
+In-Reply-To: <20170516212246.10134-1-dsahern@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 22 May 2017 16:27:53 +0300
-Baruch Siach <baruch@tkos.co.il> wrote:
+On Tue, 16 May 2017 14:22:46 -0700
+David Ahern <dsahern@gmail.com> wrote:
 
-> Including libc headers first helps as a workaround to redefinition of struct
-> ethhdr with a suitably patched musl libc that suppresses the kernel
-> if_ether.h.
+> The original code which became rtnl_dump_done only shows netlink errors
+> if the protocol is NETLINK_SOCK_DIAG, but netlink dumps always appends
+> the length which contains any error encountered during the dump. Update
+> rtnl_dump_done to always show the error if there is one.
 > 
-> Signed-off-by: Baruch Siach <baruch@tkos.co.il>
-> ---
->  ip/iplink_bridge.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
+> As an *example* without this patch, dumping a route object that exceeds
+> the internal buffer size terminates with no message to the user -- the
+> dump just ends because the NLMSG_DONE attribute was received. With this
+> patch the user at least gets a message that the dump was aborted.
 > 
-> diff --git a/ip/iplink_bridge.c b/ip/iplink_bridge.c
-> index 818b43c89b5b..cccdec1c203a 100644
-> --- a/ip/iplink_bridge.c
-> +++ b/ip/iplink_bridge.c
-> @@ -13,9 +13,9 @@
->  #include <stdlib.h>
->  #include <string.h>
->  #include <netinet/in.h>
-> +#include <netinet/ether.h>
->  #include <linux/if_link.h>
->  #include <linux/if_bridge.h>
-> -#include <netinet/ether.h>
->  #include <net/if.h>
->  
->  #include "rt_names.h"
+> $ ip ro ls
+> default via 10.0.2.2 dev eth0
+> 10.0.2.0/24 dev eth0 proto kernel scope link src 10.0.2.15
+> 10.10.0.0/16 dev veth1 proto kernel scope link src 10.10.0.1
+> 172.16.1.0/24 dev br0.11 proto kernel scope link src 172.16.1.1
+> Error: Buffer too small for object
+> Dump terminated
+> 
+> The point of this patch is to notify the user of a failure versus
+> silently exiting on a partial dump. Because the NLMSG_DONE attribute
+> was received, the entire dump needs to be restarted to use a larger
+> buffer for EMSGSIZE errors. That could be done automatically but it
+> has other user impacts (e.g., duplicate output if the dump is
+> restarted) and should be the subject of a different patch.
+> 
+> Signed-off-by: David Ahern <dsahern@gmail.com>
 
 Applied.
 
-Next time please fix the Subject line.  You implied two patches by using 1/2
-but only one was sent.
+It is easier to seen iproute2 patches with:
 
-It is easier for me if you include iproute2 in subject since then it goes into a
-separate folder.
-
-Subject: [PATCH iproute2] ip: include libc headers first
-
-or if intended for net-next
-
-Subject: [PATCH iproute2 net-next] ip: add magic VRF support
+Subject: [PATCH iproute2] netlink: Change rtnl_dump_done to always show error
