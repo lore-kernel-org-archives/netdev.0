@@ -1,7 +1,8 @@
 From: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH v6 02/21] net-next: stmmac: add optional setup function
-Date: Wed, 31 May 2017 09:18:33 +0200
-Message-ID: <20170531071852.12422-3-clabbe.montjoie@gmail.com>
+Subject: [PATCH v6 07/21] arm: sun8i: sunxi-h3-h5: add
+ dwmac-sun8i ethernet driver
+Date: Wed, 31 May 2017 09:18:38 +0200
+Message-ID: <20170531071852.12422-8-clabbe.montjoie@gmail.com>
 References: <20170531071852.12422-1-clabbe.montjoie@gmail.com>
 Reply-To: clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
 Mime-Version: 1.0
@@ -21,7 +22,7 @@ To: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
 	will.deacon-5wv7dgnIgG8@public.gmane.org,
 	peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
 	alexandre.torgue-qxv4g6HH51o@public.gmane.org
-Return-path: <linux-sunxi+bncBD7YLCN32UNBBEO6XHEQKGQEVTL5AFY-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Return-path: <linux-sunxi+bncBD7YLCN32UNBBGG6XHEQKGQE3Z5WHTA-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
 Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
 In-Reply-To: <20170531071852.12422-1-clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
@@ -32,42 +33,68 @@ List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39
  <https://groups.google.com/group/linux-sunxi/subscribe>
 List-Id: netdev.vger.kernel.org
 
-Instead of adding more ifthen logic for adding a new mac_device_info
-setup function, it is easier to add a function pointer to the function
-needed.
+The dwmac-sun8i is an ethernet MAC hardware that support 10/100/1000
+speed.
+
+This patch enable the dwmac-sun8i on Allwinner H3/H5 SoC Device-tree.
+SoC H3/H5 have an internal PHY, so optionals syscon and ephy are set.
 
 Signed-off-by: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 4 +++-
- include/linux/stmmac.h                            | 1 +
- 2 files changed, 4 insertions(+), 1 deletion(-)
+ arch/arm/boot/dts/sunxi-h3-h5.dtsi | 34 ++++++++++++++++++++++++++++++++++
+ 1 file changed, 34 insertions(+)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index f158273eab9b..c80c9c3b67db 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -3933,7 +3933,9 @@ static int stmmac_hw_init(struct stmmac_priv *priv)
- 	struct mac_device_info *mac;
+diff --git a/arch/arm/boot/dts/sunxi-h3-h5.dtsi b/arch/arm/boot/dts/sunxi-h3-h5.dtsi
+index 3a28be5ab641..9e4a496f3cca 100644
+--- a/arch/arm/boot/dts/sunxi-h3-h5.dtsi
++++ b/arch/arm/boot/dts/sunxi-h3-h5.dtsi
+@@ -285,6 +285,14 @@
+ 			interrupt-controller;
+ 			#interrupt-cells = <3>;
  
- 	/* Identify the MAC HW device */
--	if (priv->plat->has_gmac) {
-+	if (priv->plat->setup) {
-+		mac = priv->plat->setup(priv);
-+	} else if (priv->plat->has_gmac) {
- 		priv->dev->priv_flags |= IFF_UNICAST_FLT;
- 		mac = dwmac1000_setup(priv->ioaddr,
- 				      priv->plat->multicast_filter_bins,
-diff --git a/include/linux/stmmac.h b/include/linux/stmmac.h
-index 3921cb9dfadb..8bb550bca96d 100644
---- a/include/linux/stmmac.h
-+++ b/include/linux/stmmac.h
-@@ -177,6 +177,7 @@ struct plat_stmmacenet_data {
- 	void (*fix_mac_speed)(void *priv, unsigned int speed);
- 	int (*init)(struct platform_device *pdev, void *priv);
- 	void (*exit)(struct platform_device *pdev, void *priv);
-+	struct mac_device_info *(*setup)(void *priv);
- 	void *bsp_priv;
- 	struct clk *stmmac_clk;
- 	struct clk *pclk;
++			emac_rgmii_pins: emac0 {
++				pins = "PD0", "PD1", "PD2", "PD3", "PD4",
++				       "PD5", "PD7", "PD8", "PD9", "PD10",
++				       "PD12", "PD13", "PD15", "PD16", "PD17";
++				function = "emac";
++				drive-strength = <40>;
++			};
++
+ 			i2c0_pins: i2c0 {
+ 				pins = "PA11", "PA12";
+ 				function = "i2c0";
+@@ -381,6 +389,32 @@
+ 			clocks = <&osc24M>;
+ 		};
+ 
++		emac: ethernet@1c30000 {
++			compatible = "allwinner,sun8i-h3-emac";
++			syscon = <&syscon>;
++			reg = <0x01c30000 0x104>;
++			interrupts = <GIC_SPI 82 IRQ_TYPE_LEVEL_HIGH>;
++			interrupt-names = "macirq";
++			resets = <&ccu RST_BUS_EMAC>;
++			reset-names = "stmmaceth";
++			clocks = <&ccu CLK_BUS_EMAC>;
++			clock-names = "stmmaceth";
++			#address-cells = <1>;
++			#size-cells = <0>;
++			status = "disabled";
++
++			mdio: mdio {
++				#address-cells = <1>;
++				#size-cells = <0>;
++				int_mii_phy: ethernet-phy@1 {
++					compatible = "ethernet-phy-ieee802.3-c22";
++					reg = <1>;
++					clocks = <&ccu CLK_BUS_EPHY>;
++					resets = <&ccu RST_BUS_EPHY>;
++				};
++			};
++		};
++
+ 		spi0: spi@01c68000 {
+ 			compatible = "allwinner,sun8i-h3-spi";
+ 			reg = <0x01c68000 0x1000>;
 -- 
 2.13.0
