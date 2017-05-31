@@ -1,38 +1,64 @@
-From: Michael Ellerman <mpe@ellerman.id.au>
-Subject: Re: [PATCH net-next] powerpc: use asm-generic/socket.h as much as possible
-Date: Wed, 31 May 2017 20:15:55 +1000
-Message-ID: <878tld49ic.fsf@concordia.ellerman.id.au>
-References: <20170531154337.04ebcb75@canb.auug.org.au>
+From: Jia-Ju Bai <baijiaju1990-9Onoh4P/yGk@public.gmane.org>
+Subject: [PATCH] b43legacy: Fix a sleep-in-atomic bug in
+ b43legacy_attr_interfmode_store
+Date: Wed, 31 May 2017 18:29:07 +0800
+Message-ID: <1496226547-5921-1-git-send-email-baijiaju1990@163.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-        PowerPC <linuxppc-dev@lists.ozlabs.org>,
-        Arnd Bergmann <arnd@arndb.de>
-To: Stephen Rothwell <sfr@canb.auug.org.au>,
-        David Miller <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([103.22.144.67]:38187 "EHLO ozlabs.org"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750912AbdEaKP7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 31 May 2017 06:15:59 -0400
-In-Reply-To: <20170531154337.04ebcb75@canb.auug.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Jia-Ju Bai <baijiaju1990-9Onoh4P/yGk@public.gmane.org>,
+ linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b43-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+ linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org,
+	kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org
+Return-path: <b43-dev-bounces+gldbd-bcm43xx-dev=gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/b43-dev>,
+ <mailto:b43-dev-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/b43-dev/>
+List-Post: <mailto:b43-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b43-dev-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/b43-dev>,
+ <mailto:b43-dev-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: "b43-dev" <b43-dev-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+Errors-To: b43-dev-bounces+gldbd-bcm43xx-dev=gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Stephen Rothwell <sfr@canb.auug.org.au> writes:
+The driver may sleep under a spin lock, and the function call path is:
+b43legacy_attr_interfmode_store (acquire the lock by spin_lock_irqsave)
+  b43legacy_radio_set_interference_mitigation
+    b43legacy_radio_interference_mitigation_disable
+      b43legacy_calc_nrssi_slope
+        b43legacy_synth_pu_workaround
+          might_sleep and msleep --> may sleep
 
-> asm-generic/socket.h already has an exception for the differences that
-> powerpc needs, so just include it after defining the differences.
->
-> Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
-> ---
->  arch/powerpc/include/uapi/asm/socket.h | 92 +---------------------------------
->  1 file changed, 1 insertion(+), 91 deletions(-)
->
-> Build tested using powerpc allyesconfig, pseries_le_defconfig, 32 bit
-> and 64 bit allnoconfig and ppc44x_defconfig builds.
+Fixing it may be complex, and a possible way is to remove 
+spin_lock_irqsave and spin_lock_irqrestore in 
+b43legacy_attr_interfmode_store, and the code has been protected by
+mutex_lock and mutex_unlock.
 
-Did you boot it and test that userspace was happy doing sockety things?
+Signed-off-by: Jia-Ju Bai <baijiaju1990-9Onoh4P/yGk@public.gmane.org>
+---
+ drivers/net/wireless/broadcom/b43legacy/sysfs.c |    2 --
+ 1 file changed, 2 deletions(-)
 
-cheers
+diff --git a/drivers/net/wireless/broadcom/b43legacy/sysfs.c b/drivers/net/wireless/broadcom/b43legacy/sysfs.c
+index 2a1da15..9ede143 100644
+--- a/drivers/net/wireless/broadcom/b43legacy/sysfs.c
++++ b/drivers/net/wireless/broadcom/b43legacy/sysfs.c
+@@ -137,14 +137,12 @@ static ssize_t b43legacy_attr_interfmode_store(struct device *dev,
+ 	}
+ 
+ 	mutex_lock(&wldev->wl->mutex);
+-	spin_lock_irqsave(&wldev->wl->irq_lock, flags);
+ 
+ 	err = b43legacy_radio_set_interference_mitigation(wldev, mode);
+ 	if (err)
+ 		b43legacyerr(wldev->wl, "Interference Mitigation not "
+ 		       "supported by device\n");
+ 	mmiowb();
+-	spin_unlock_irqrestore(&wldev->wl->irq_lock, flags);
+ 	mutex_unlock(&wldev->wl->mutex);
+ 
+ 	return err ? err : count;
+-- 
+1.7.9.5
