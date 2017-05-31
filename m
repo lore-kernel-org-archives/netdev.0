@@ -1,10 +1,10 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH v2 net 2/2] net: phy: micrel: Restore led_mode and clk_sel
- on resume
-Date: Wed, 31 May 2017 14:52:26 -0700
-Message-ID: <49f66bd1-80f4-ca41-d2a6-eecb189bdebb@gmail.com>
+Subject: Re: [PATCH v2 1/2] ARM: dts: imx6ul-14x14-evk: Add ksz8081 phy
+ properties
+Date: Wed, 31 May 2017 14:52:47 -0700
+Message-ID: <a0dfb9a6-b958-c314-0610-127fdf175134@gmail.com>
 References: <cover.1496224930.git.leonard.crestez@nxp.com>
- <1460beebce4ba23722cfb185b0f9f884cca3b9e9.1496224930.git.leonard.crestez@nxp.com>
+ <1adf8f0d44afec4d11dec7f09d54d37d58cda5ff.1496224930.git.leonard.crestez@nxp.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
@@ -17,19 +17,20 @@ To: Leonard Crestez <leonard.crestez@nxp.com>,
         "David S. Miller" <davem@davemloft.net>,
         Andrew Lunn <andrew@lunn.ch>, Shawn Guo <shawnguo@kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1460beebce4ba23722cfb185b0f9f884cca3b9e9.1496224930.git.leonard.crestez@nxp.com>
+In-Reply-To: <1adf8f0d44afec4d11dec7f09d54d37d58cda5ff.1496224930.git.leonard.crestez@nxp.com>
 Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 On 05/31/2017 03:29 AM, Leonard Crestez wrote:
-> These bits seem to be lost after a suspend/resume cycle so just set them
-> again. Do this by splitting the handling of these bits into a function
-> that is also called on resume.
+> Right now mach-imx6ul registers a fixup for the ksz8081 phy. The same
+> register values can be set through the micrel phy driver by using dts
+> properties.
 > 
-> This patch fixes ethernet suspend/resume on imx6ul-14x14-evk boards.
+> This seems preferable and allows cleanly fixing suspend/resume.
 > 
 > Signed-off-by: Leonard Crestez <leonard.crestez@nxp.com>
+> Reviewed-by: Fabio Estevam <fabio.estevam@nxp.com>
 
 Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
 -- 
