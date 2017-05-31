@@ -1,63 +1,31 @@
-From: Jia-Ju Bai <baijiaju1990@163.com>
-Subject: [PATCH] enic: Fix another sleep-in-atomic bug
-Date: Wed, 31 May 2017 10:43:40 +0800
-Message-ID: <1496198620-1840-1-git-send-email-baijiaju1990@163.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Jia-Ju Bai <baijiaju1990@163.com>
-To: benve@cisco.com, _govind@gmx.com, neepatel@cisco.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] bnxt_en: Fix xmit_more with BQL.
+Date: Tue, 30 May 2017 22:38:00 -0400 (EDT)
+Message-ID: <20170530.223800.599084258636099218.davem@davemloft.net>
+References: <1496188980-13392-1-git-send-email-michael.chan@broadcom.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: michael.chan@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from m12-11.163.com ([220.181.12.11]:50325 "EHLO m12-11.163.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751039AbdEaClk (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 30 May 2017 22:41:40 -0400
+Received: from shards.monkeyblade.net ([184.105.139.130]:60810 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751088AbdEaCvW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 30 May 2017 22:51:22 -0400
+In-Reply-To: <1496188980-13392-1-git-send-email-michael.chan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The driver may sleep under a spin lock in some function call paths.
-The 1st function call path is:
-enic_tx_hang_reset (acquire the lock by spin_lock)
-  enic_stop
-    enic_synchronize_irqs
-      synchronize_irq --> may sleep
-The 2nd function call path is:
-enic_tx_hang_reset (acquire the lock by spin_lock)
-  enic_dev_wait
-    schedule_timeout_uninterruptible --> may sleep
-The 3rd function call path is:
-enic_tx_hang_reset (acquire the lock by spin_lock)
-  enic_open
-    enic_request_intr
-      enic_set_rx_cpu_rmap
-        enic_free_rx_cpu_rmap
-          free_irq_cpu_rmap --> may sleep
+From: Michael Chan <michael.chan@broadcom.com>
+Date: Tue, 30 May 2017 20:03:00 -0400
 
-To fix it, the "spin_lock" and "spin_unlock" are removed 
-in enic_tx_hang_reset.
+> We need to write the doorbell if BQL has stopped the queue and
+> skb->xmit_more is set.  Otherwise it is possible for the tx queue to
+> rot and cause tx timeout.
+> 
+> Fixes: 4d172f21cefe ("bnxt_en: Implement xmit_more.")
+> Suggested-by: Yuval Mintz <yuval.mintz@cavium.com>
+> Signed-off-by: Michael Chan <michael.chan@broadcom.com>
 
-Signed-off-by: Jia-Ju Bai <baijiaju1990@163.com>
----
- drivers/net/ethernet/cisco/enic/enic_main.c |    2 --
- 1 file changed, 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/cisco/enic/enic_main.c b/drivers/net/ethernet/cisco/enic/enic_main.c
-index 4b87bee..d6523e2 100644
---- a/drivers/net/ethernet/cisco/enic/enic_main.c
-+++ b/drivers/net/ethernet/cisco/enic/enic_main.c
-@@ -2330,7 +2330,6 @@ static void enic_tx_hang_reset(struct work_struct *work)
- 
- 	rtnl_lock();
- 
--	spin_lock(&enic->enic_api_lock);
- 	enic_dev_hang_notify(enic);
- 	enic_stop(enic->netdev);
- 	enic_dev_hang_reset(enic);
-@@ -2339,7 +2338,6 @@ static void enic_tx_hang_reset(struct work_struct *work)
- 	enic_set_rss_nic_cfg(enic);
- 	enic_dev_set_ig_vlan_rewrite_mode(enic);
- 	enic_open(enic->netdev);
--	spin_unlock(&enic->enic_api_lock);
- 	call_netdevice_notifiers(NETDEV_REBOOT, enic->netdev);
- 
- 	rtnl_unlock();
--- 
-1.7.9.5
+Applied, thanks.
