@@ -1,36 +1,51 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: Re: [PATCH net-next] net: ndisc.c: reduce size of
- __ndisc_fill_addr_option()
-Date: Tue, 30 May 2017 18:39:35 -0600
-Message-ID: <fe3573ad-90d1-6673-1e09-f6f1b47527bb@gmail.com>
-References: <1495836052-8377-1-git-send-email-cugyly@163.com>
- <20170529.233009.1607319852930338432.davem@davemloft.net>
- <1496115666.2618.9.camel@perches.com>
- <d774d7d7-5eb2-f107-b939-fbd3a8ac97a7@gmail.com>
- <8729016553E3654398EA69218DA29EEF15BB29A7@cnshjmbx02>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2] ip: add handling for new CAN netlink interface
+Date: Tue, 30 May 2017 17:40:16 -0700
+Message-ID: <20170530174016.65cf8608@xeon-e3>
+References: <20170519125449.7214-1-remigiusz.kollataj@mobica.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: YUAN Linyu <Linyu.Yuan@alcatel-sbell.com.cn>,
-        David Ahern <dsahern@gmail.com>, Joe Perches <joe@perches.com>,
-        David Miller <davem@davemloft.net>,
-        "cugyly@163.com" <cugyly@163.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org
+To: Remigiusz =?UTF-8?B?S2/FgsWCxIV0YWo=?=
+        <remigiusz.kollataj@mobica.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f173.google.com ([209.85.192.173]:36428 "EHLO
-        mail-pf0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751081AbdEaAji (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 30 May 2017 20:39:38 -0400
-Received: by mail-pf0-f173.google.com with SMTP id m17so1843800pfg.3
-        for <netdev@vger.kernel.org>; Tue, 30 May 2017 17:39:38 -0700 (PDT)
-In-Reply-To: <8729016553E3654398EA69218DA29EEF15BB29A7@cnshjmbx02>
+Received: from mail-pf0-f180.google.com ([209.85.192.180]:34242 "EHLO
+        mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750992AbdEaAkT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 30 May 2017 20:40:19 -0400
+Received: by mail-pf0-f180.google.com with SMTP id 9so1907662pfj.1
+        for <netdev@vger.kernel.org>; Tue, 30 May 2017 17:40:19 -0700 (PDT)
+In-Reply-To: <20170519125449.7214-1-remigiusz.kollataj@mobica.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 5/30/17 6:29 PM, YUAN Linyu wrote:
->>> that function should be converted to skb_put_zero once it hits net-next.
->> I will check it
-> I can't find skb_put_zero
+On Fri, 19 May 2017 14:54:49 +0200
+Remigiusz Ko=C5=82=C5=82=C4=85taj         <remigiusz.kollataj@mobica.com> w=
+rote:
 
-I believe the decision was to put it in Johannes' tree and it will make
-its way to DaveM's tree. Give some time.
+> This patch adds handling for new CAN netlink interface introduced in
+> 4.11 kernel:
+> - IFLA_CAN_TERMINATION,
+> - IFLA_CAN_TERMINATION_CONST,
+> - IFLA_CAN_BITRATE_CONST,
+> - IFLA_CAN_DATA_BITRATE_CONST
+>=20
+> Output example:
+> $ip -d link show can0
+> 6: can0: <NOARP,ECHO> mtu 16 qdisc noop state DOWN mode DEFAULT group def=
+ault qlen 10
+>     link/can  promiscuity 0
+>     can state STOPPED (berr-counter tx 0 rx 0) restart-ms 0
+>           bitrate 80000
+>              [   20000,    33333,    50000,    80000,    83333,   100000,
+>                 125000,   150000,   175000,   200000,   225000,   250000,
+>                 275000,   300000,   500000,   625000,   800000,  1000000 ]
+>           termination 0 [ 0, 120 ]
+>           clock 0numtxqueues 1 numrxqueues 1 gso_max_size 65536 gso_max_s=
+egs 65535
+>=20
+> Signed-off-by: Remigiusz Ko=C5=82=C5=82=C4=85taj <remigiusz.kollataj@mobi=
+ca.com>
+
+Applied, thanks for confirming the output change.
