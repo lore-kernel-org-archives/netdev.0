@@ -1,90 +1,54 @@
-From: Jon Mason <jon.mason@broadcom.com>
-Subject: [PATCH net-next] mdio: mux: make child bus walking more permissive and errors more verbose
-Date: Wed, 31 May 2017 15:44:50 -0400
-Message-ID: <1496259890-3719-1-git-send-email-jon.mason@broadcom.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        bcm-kernel-feedback-list@broadcom.com
-To: Andrew Lunn <andrew@lunn.ch>,
-        Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Yuchung Cheng <ycheng@google.com>
+Subject: Re: [PATCH net] tcp: disallow cwnd undo when switching congestion control
+Date: Wed, 31 May 2017 12:47:32 -0700
+Message-ID: <CAK6E8=ePQTnh=kY1_HxEA6SCEAm2f48vmyk2UiqVBC2YZhE-wQ@mail.gmail.com>
+References: <20170531182127.161289-1-ycheng@google.com> <20170531114732.1cfc4d79@xeon-e3>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Neal Cardwell <ncardwell@google.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Soheil Hassas Yeganeh <soheil@google.com>
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f180.google.com ([209.85.223.180]:34138 "EHLO
+        mail-io0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750898AbdEaTsY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 31 May 2017 15:48:24 -0400
+Received: by mail-io0-f180.google.com with SMTP id k91so22484478ioi.1
+        for <netdev@vger.kernel.org>; Wed, 31 May 2017 12:48:19 -0700 (PDT)
+In-Reply-To: <20170531114732.1cfc4d79@xeon-e3>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-If any errors are encountered while walking the device tree structure of
-the MDIO bus for children, the code may silently continue, silently
-exit, or throw an error and exit.  This make it difficult for device
-tree writers to know there is an error.  Also, it makes any error in a
-child entry of the MDIO bus be fatal for all entries.  Instead, we
-should provide verbose errors describing the error and then attempt to
-continue if it all possible.  Also, use of_mdio_parse_addr()
-
-Signed-off-by: Jon Mason <jon.mason@broadcom.com>
----
- drivers/net/phy/mdio-mux.c | 24 +++++++++++++++++-------
- 1 file changed, 17 insertions(+), 7 deletions(-)
-
-diff --git a/drivers/net/phy/mdio-mux.c b/drivers/net/phy/mdio-mux.c
-index 599ce24c514f..47ded3904050 100644
---- a/drivers/net/phy/mdio-mux.c
-+++ b/drivers/net/phy/mdio-mux.c
-@@ -135,27 +135,33 @@ int mdio_mux_init(struct device *dev,
- 	for_each_available_child_of_node(dev->of_node, child_bus_node) {
- 		u32 v;
- 
--		r = of_property_read_u32(child_bus_node, "reg", &v);
--		if (r)
-+		v = of_mdio_parse_addr(dev, child_bus_node);
-+		if (v < 0) {
-+			dev_err(dev,
-+				"Error: Failed to find reg for child %s\n",
-+				of_node_full_name(child_bus_node));
- 			continue;
-+		}
- 
- 		cb = devm_kzalloc(dev, sizeof(*cb), GFP_KERNEL);
- 		if (cb == NULL) {
- 			dev_err(dev,
--				"Error: Failed to allocate memory for child\n");
-+				"Error: Failed to allocate memory for child %s\n",
-+				of_node_full_name(child_bus_node));
- 			ret_val = -ENOMEM;
--			of_node_put(child_bus_node);
--			break;
-+			continue;
- 		}
- 		cb->bus_number = v;
- 		cb->parent = pb;
- 
- 		cb->mii_bus = mdiobus_alloc();
- 		if (!cb->mii_bus) {
-+			dev_err(dev,
-+				"Error: Failed to allocate MDIO bus for child %s\n",
-+				of_node_full_name(child_bus_node));
- 			ret_val = -ENOMEM;
- 			devm_kfree(dev, cb);
--			of_node_put(child_bus_node);
--			break;
-+			continue;
- 		}
- 		cb->mii_bus->priv = cb;
- 
-@@ -167,6 +173,9 @@ int mdio_mux_init(struct device *dev,
- 		cb->mii_bus->write = mdio_mux_write;
- 		r = of_mdiobus_register(cb->mii_bus, child_bus_node);
- 		if (r) {
-+			dev_err(dev,
-+				"Error: Failed to register MDIO bus for child %s\n",
-+				of_node_full_name(child_bus_node));
- 			mdiobus_free(cb->mii_bus);
- 			devm_kfree(dev, cb);
- 		} else {
-@@ -180,6 +189,7 @@ int mdio_mux_init(struct device *dev,
- 		return 0;
- 	}
- 
-+	dev_err(dev, "Error: No acceptable child buses found\n");
- 	devm_kfree(dev, pb);
- err_pb_kz:
- 	/* balance the reference of_mdio_find_bus() took */
--- 
-2.7.4
+On Wed, May 31, 2017 at 11:47 AM, Stephen Hemminger
+<stephen@networkplumber.org> wrote:
+>
+> On Wed, 31 May 2017 11:21:27 -0700
+> Yuchung Cheng <ycheng@google.com> wrote:
+>
+> > When the sender switches its congestion control during loss
+> > recovery, if the recovery is spurious then it may incorrectly
+> > revert cwnd and ssthresh to the older values set by a previous
+> > congestion control. Consider a congestion control (like BBR)
+> > that does not use ssthresh and keeps it infinite: the connection
+> > may incorrectly revert cwnd to an infinite value when switching
+> > from BBR to another congestion control.
+> >
+> > This patch fixes it by disallowing such cwnd undo operation
+> > upon switching congestion control.  Note that undo_marker
+> > is not reset s.t. the packets that were incorrectly marked
+> > lost would be corrected. We only avoid undoing the cwnd in
+> > tcp_undo_cwnd_reduction().
+> >
+> > Signed-off-by: Yuchung Cheng <ycheng@google.com>
+> > Signed-off-by: Soheil Hassas Yeganeh <soheil@google.com>
+> > Signed-off-by: Neal Cardwell <ncardwell@google.com>
+> > Signed-off-by: Eric Dumazet <edumazet@google.com>
+>
+> That looks correct. Are there other values of congestion state
+> that should be reset?
+>
+Nothing in particular comes up. We found this bug by internally
+checking insane cwnd values on Google hosts. We might find more :-)
