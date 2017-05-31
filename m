@@ -1,46 +1,66 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: loosing netdevices with namespaces and unshare?
-Date: Wed, 31 May 2017 15:40:33 -0700
-Message-ID: <CAM_iQpWicK0XySQ+L+DtVi2e2hUZx7w9CL0hC-kOaQsdbpXKtw@mail.gmail.com>
-References: <20170530220741.ldmhwj3bsvdoaofc@nataraja> <CAM_iQpW2ARBTmGK8JhVXSFCaB1F-WPDKeDZwEbxMLf_Xi7aXQw@mail.gmail.com>
- <20170531122752.siaou43verg4epep@nataraja> <CAM_iQpU517NR1xsrDrAohnESdS33WoToHsdGD0yOWSiGU9Yiqg@mail.gmail.com>
- <20170531181108.3kv5xqszwv5ub7cy@nataraja>
+From: Alexei Starovoitov <ast@fb.com>
+Subject: Re: [PATCH net-next 6/9] bpf: fix stack_depth usage by test_bpf.ko
+Date: Wed, 31 May 2017 15:41:09 -0700
+Message-ID: <0da22ba6-bb34-23da-2722-3e45fd195e17@fb.com>
+References: <20170530203135.3642768-7-ast@fb.com>
+ <20170531.141502.1137764740674039078.davem@davemloft.net>
+ <73af1b50-38b0-b7f3-5c74-e425d47209b6@fb.com>
+ <20170531.144320.1591618196176086735.davem@davemloft.net>
+ <f79ef874-55a1-cd58-a0e4-9859401a9249@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Harald Welte <laforge@gnumonks.org>
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <daniel@iogearbox.net>, <netdev@vger.kernel.org>,
+        <kernel-team@fb.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f47.google.com ([74.125.82.47]:37257 "EHLO
-        mail-wm0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751274AbdEaWk7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 31 May 2017 18:40:59 -0400
-Received: by mail-wm0-f47.google.com with SMTP id d127so37817956wmf.0
-        for <netdev@vger.kernel.org>; Wed, 31 May 2017 15:40:59 -0700 (PDT)
-In-Reply-To: <20170531181108.3kv5xqszwv5ub7cy@nataraja>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:32873 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751551AbdEaWll (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 31 May 2017 18:41:41 -0400
+In-Reply-To: <f79ef874-55a1-cd58-a0e4-9859401a9249@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 31, 2017 at 11:11 AM, Harald Welte <laforge@gnumonks.org> wrote:
-> I mean, what is the *use case* for loosing any refrence to a physical
-> network device and unregistering it from the stack?  Is there any API by
-> which a new netdevice structure can be instantiated on the actual
-> hardware?  Registering the netdev is what the driver does during
-> discovering the system hardware.  If there's a method to "automagically"
-> loose devices, at the very least I wold expect some reasonable method to
-> resurrect them.  Unloading the kernel module and reloading it is for
-> sure not elegant, particularly not if you have multiple Ethernet
-> devices/ports sharing the same driver.
+On 5/31/17 11:45 AM, Alexei Starovoitov wrote:
+> On 5/31/17 11:43 AM, David Miller wrote:
+>> From: Alexei Starovoitov <ast@fb.com>
+>> Date: Wed, 31 May 2017 11:39:37 -0700
+>>
+>>> On 5/31/17 11:15 AM, David Miller wrote:
+>>>> From: Alexei Starovoitov <ast@fb.com>
+>>>> Date: Tue, 30 May 2017 13:31:32 -0700
+>>>>
+>>>>> test_bpf.ko doesn't call verifier before selecting interpreter or
+>>>>> JITing,
+>>>>> hence the tests need to manually specify the amount of stack they
+>>>>> consume.
+>>>>>
+>>>>> Signed-off-by: Alexei Starovoitov <ast@kernel.org>
+>>>>> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+>>>>
+>>>> I do not like this and the previous patch, it seems so error prone.
+>>>
+>>> in what sense 'error prone' ?
+>>
+>> In the sense that a human computes these numbers, and nothing checks
+>> if it is correct or not until program perhaps crashes if the value is
+>> wrong.
 >
-> One could e.g. also think of something like a special namespace that
-> collects all the "orphan" netdevices.  Something analogous to the old
-> Unix tradition of "pid 1" collecting all the orphan tasks whose parents
-> died.  Transferring them into that "netdev orphanage" could
-> automatically set the link down so that no accidential
-> routing/forwarding of traffic between the devices is possible.
+> right. that's how all these tests are.
+> See bpf_fill_ld_abs_vlan_push_pop() for example.
+> If that codegen has a bug, it will crash the kernel.
+> That's why it's done from kernel module to do things
+> that user space cannot do.
 
-Understand.
-
-But you have other choices than using the physical interface
-directly in non-root ns, for example, creating a virtual pair and
-connect it with the physical one with a bridge. There are various
-ways to achieve this.
+btw, when added a bunch of these '.stack_depth = 40'
+I was thinking to randomize these values in [40, 512]
+range to stress test interpreter and JITs more,
+but then decided not to do that to avoid questions
+why these numbers don't match the instructions.
+Now I'm thinking we should actually do it for two reasons:
+- to stress test stuff
+- and to demonstrate more clearly that test_bpf.ko can
+really do things that user space cannot and that's the
+purpose of this .ko
+Thoughts?
