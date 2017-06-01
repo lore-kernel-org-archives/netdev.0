@@ -1,43 +1,55 @@
-From: Tariq Toukan <tariqt@mellanox.com>
-Subject: [PATCH iproute2] iplink: Update usage in help message
-Date: Thu,  1 Jun 2017 11:00:42 +0300
-Message-ID: <1496304042-8773-1-git-send-email-tariqt@mellanox.com>
-Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
-        Eli Cohen <eli@mellanox.com>,
-        Tariq Toukan <tariqt@mellanox.com>
-To: Stephen Hemminger <stephen@networkplumber.org>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: [PATCH net] netlink: don't send unknown nsid
+Date: Thu,  1 Jun 2017 10:00:07 +0200
+Message-ID: <1496304007-1962-1-git-send-email-nicolas.dichtel@6wind.com>
+References: <4942f9fe-625b-bb97-7b45-4a1e8bf69b1b@6wind.com>
+Cc: netdev@vger.kernel.org, fbl@sysclose.org,
+        Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:39745 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1750848AbdFAIBD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 1 Jun 2017 04:01:03 -0400
+Received: from host.76.145.23.62.rev.coltfrance.com ([62.23.145.76]:54304 "EHLO
+        proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751013AbdFAIKZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Jun 2017 04:10:25 -0400
+In-Reply-To: <4942f9fe-625b-bb97-7b45-4a1e8bf69b1b@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eli Cohen <eli@mellanox.com>
+The NETLINK_F_LISTEN_ALL_NSID otion enables to listen all netns that have a
+nsid assigned into the netns where the netlink socket is opened.
+The nsid is sent as metadata to userland, but the existence of this nsid is
+checked only for netns that are different from the socket netns. Thus, if
+no nsid is assigned to the socket netns, NETNSA_NSID_NOT_ASSIGNED is
+reported to the userland. This value is confusing and useless.
+After this patch, only valid nsid are sent to userland.
 
-Add to usage message a description of how to configure Infiniband node
-and port GUIDs.
-
-Fixes: d91fb3f4c7e4 ('Add support for configuring Infiniband GUIDs')
-Signed-off-by: Eli Cohen <eli@mellanox.com>
-Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
+Reported-by: Flavio Leitner <fbl@sysclose.org>
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 ---
- ip/iplink.c | 2 ++
- 1 file changed, 2 insertions(+)
+ net/netlink/af_netlink.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-diff --git a/ip/iplink.c b/ip/iplink.c
-index da3f9a779351..ea112f71befc 100644
---- a/ip/iplink.c
-+++ b/ip/iplink.c
-@@ -91,6 +91,8 @@ void iplink_usage(void)
- 		"				   [ query_rss { on | off} ]\n"
- 		"				   [ state { auto | enable | disable} ] ]\n"
- 		"				   [ trust { on | off} ] ]\n"
-+		"				   [ node_guid { eui64 } ]\n"
-+		"				   [ port_guid { eui64 } ]\n"
- 		"			  [ xdp { off |\n"
- 		"				  object FILE [ section NAME ] [ verbose ] |\n"
- 		"				  pinned FILE } ]\n"
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index ee841f00a6ec..7586d446d7dc 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -62,6 +62,7 @@
+ #include <asm/cacheflush.h>
+ #include <linux/hash.h>
+ #include <linux/genetlink.h>
++#include <linux/net_namespace.h>
+ 
+ #include <net/net_namespace.h>
+ #include <net/sock.h>
+@@ -1415,7 +1416,8 @@ static void do_one_broadcast(struct sock *sk,
+ 		goto out;
+ 	}
+ 	NETLINK_CB(p->skb2).nsid = peernet2id(sock_net(sk), p->net);
+-	NETLINK_CB(p->skb2).nsid_is_set = true;
++	if (NETLINK_CB(p->skb2).nsid != NETNSA_NSID_NOT_ASSIGNED)
++		NETLINK_CB(p->skb2).nsid_is_set = true;
+ 	val = netlink_broadcast_deliver(sk, p->skb2);
+ 	if (val < 0) {
+ 		netlink_overrun(sk);
 -- 
-1.8.3.1
+2.8.1
