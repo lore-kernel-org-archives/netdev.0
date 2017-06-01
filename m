@@ -1,89 +1,105 @@
-From: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
-Subject: [net-next] team: add macro MODULE_ALIAS_TEAM_MODE for team mode alias
-Date: Thu,  1 Jun 2017 15:37:02 +0800
-Message-ID: <1496302622-9958-1-git-send-email-zhangshengju@cmss.chinamobile.com>
-To: davem@davemloft.net, netdev@vger.kernel.org, jiri@resnulli.us
+From: Xin Long <lucien.xin@gmail.com>
+Subject: Re: Oops with commit 6d18c73 bridge: start hello_timer when enabling
+ KERNEL_STP in br_stp_start
+Date: Thu, 1 Jun 2017 15:42:52 +0800
+Message-ID: <CADvbK_c_bXnPL5NdADj=aCv8f-A0wPKdUmQJqm=XDRf0rizXcA@mail.gmail.com>
+References: <alpine.LFD.2.20.1705311816090.1727@schleppi>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Haidong Li <haili@redhat.com>,
+        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+        Ivan Vecera <cera@cera.cz>,
+        Stephen Hemminger <stephen@networkplumber.org>,
+        network dev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Heiko Carstens <heiko.carstens@de.ibm.com>,
+        Martin Schwidefsky <schwidefsky@de.ibm.com>
+To: Sebastian Ott <sebott@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmccmta3.chinamobile.com ([221.176.66.81]:54032 "EHLO
-        cmccmta3.chinamobile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750848AbdFAHhL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 1 Jun 2017 03:37:11 -0400
+Received: from mail-qk0-f195.google.com ([209.85.220.195]:36859 "EHLO
+        mail-qk0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750848AbdFAHmx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Jun 2017 03:42:53 -0400
+In-Reply-To: <alpine.LFD.2.20.1705311816090.1727@schleppi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add a new macro MODULE_ALIAS_TEAM_MODE to unify and simplify the
-declaration of team mode alias.
+On Thu, Jun 1, 2017 at 12:32 AM, Sebastian Ott
+<sebott@linux.vnet.ibm.com> wrote:
+[...]
+>
+> A system running v4.12-rc3-11-gf511c0b on s390 hangs after boot with no
+> messages on the console. The message buffer obtained via a system dump
+> looked like this:
+>
+> [...]
+> [   17.870712] virbr0: port 1(virbr0-nic) entered disabled state
+> [   19.618523] Unable to handle kernel pointer dereference in virtual kernel address space
+> [  250.028426] INFO: task jbd2/dasda1-8:100 blocked for more than 120 seconds.
+> [  250.028427]       Not tainted 4.12.0-rc3-00011-gf511c0b #573
+> [  250.028428] "echo 0 > /proc/sys/kernel/hung_task_timeout_secs" disables this message.
+> [  250.028429] jbd2/dasda1-8   D12808   100      2 0x00000000
+> [  250.028437] Stack:
+> [  250.028437]        00000000e8c4f9b0 0000000000000000 0000000000233afe 00000000e8c48100
+> [  250.028441]        00000000e8c4f978 00000000001b1c98 00000000e8c4f978 00000000e8c4f9d8
+> [  250.028444]        04000000efdcce00 00000000e8c48890 0000000000000000 00000000efdcce18
+> [  250.028447]        00000000e8c48100 00000000efdcce00 00000000e8ce8100 00000000e73c6900
+> [  250.028450]        00000000008da090 00000000008c4f54 00000000e8c4f9d8 00000000e8c4fa60
+> [  250.028453] Call Trace:
+> [  250.028458] ([<00000000008c4f54>] __schedule+0xb14/0xc90)
+> [  250.028459]  [<00000000008c5164>] schedule+0x94/0xc0
+> [  250.028462]  [<00000000001802ac>] io_schedule+0x34/0x58
+> [  250.028464]  [<00000000002a44c2>] wait_on_page_bit+0x16a/0x198
+> [  250.028465]  [<00000000002a4576>] __filemap_fdatawait_range+0x86/0x188
+> [  250.028467]  [<00000000002a46a6>] filemap_fdatawait_range+0x2e/0x58
+> [  250.028471]  [<00000000004719d4>] jbd2_journal_commit_transaction+0x10e4/0x2200
+> [  250.028473]  [<000000000047890a>] kjournald2+0xda/0x2c0
+> [  250.028475]  [<000000000016da5e>] kthread+0x166/0x178
+> [  250.028477]  [<00000000008cce7a>] kernel_thread_starter+0x6/0xc
+> [  250.028479]  [<00000000008cce74>] kernel_thread_starter+0x0/0xc
+> [  250.028480] INFO: lockdep is turned off.
+> [...]
+I couldn't see any bridge-related thing here, and it couldn't be reproduced
+with virbr0 (stp=1) on my box (on both s390x and x86_64), I guess there
+is something else in you machine.
 
-Signed-off-by: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
----
- drivers/net/team/team_mode_activebackup.c | 2 +-
- drivers/net/team/team_mode_broadcast.c    | 2 +-
- drivers/net/team/team_mode_loadbalance.c  | 2 +-
- drivers/net/team/team_mode_random.c       | 2 +-
- drivers/net/team/team_mode_roundrobin.c   | 2 +-
- include/linux/if_team.h                   | 2 ++
- 6 files changed, 7 insertions(+), 5 deletions(-)
+With the latest upstream kernel, can you remove libvirt (virbr0) and boot your
+machine normally, then:
+# brctl addbr br0
+# ip link set br0 up
+# brctl stp br0 on
 
-diff --git a/drivers/net/team/team_mode_activebackup.c b/drivers/net/team/team_mode_activebackup.c
-index 3f18982..ddd16a0 100644
---- a/drivers/net/team/team_mode_activebackup.c
-+++ b/drivers/net/team/team_mode_activebackup.c
-@@ -146,4 +146,4 @@ static void __exit ab_cleanup_module(void)
- MODULE_LICENSE("GPL v2");
- MODULE_AUTHOR("Jiri Pirko <jpirko@redhat.com>");
- MODULE_DESCRIPTION("Active-backup mode for team");
--MODULE_ALIAS("team-mode-activebackup");
-+MODULE_ALIAS_TEAM_MODE("activebackup");
-diff --git a/drivers/net/team/team_mode_broadcast.c b/drivers/net/team/team_mode_broadcast.c
-index 302ff35..e4eac3d 100644
---- a/drivers/net/team/team_mode_broadcast.c
-+++ b/drivers/net/team/team_mode_broadcast.c
-@@ -75,4 +75,4 @@ static void __exit bc_cleanup_module(void)
- MODULE_LICENSE("GPL v2");
- MODULE_AUTHOR("Jiri Pirko <jpirko@redhat.com>");
- MODULE_DESCRIPTION("Broadcast mode for team");
--MODULE_ALIAS("team-mode-broadcast");
-+MODULE_ALIAS_TEAM_MODE("broadcast");
-diff --git a/drivers/net/team/team_mode_loadbalance.c b/drivers/net/team/team_mode_loadbalance.c
-index b228bea..1468ddf 100644
---- a/drivers/net/team/team_mode_loadbalance.c
-+++ b/drivers/net/team/team_mode_loadbalance.c
-@@ -695,4 +695,4 @@ static void __exit lb_cleanup_module(void)
- MODULE_LICENSE("GPL v2");
- MODULE_AUTHOR("Jiri Pirko <jpirko@redhat.com>");
- MODULE_DESCRIPTION("Load-balancing mode for team");
--MODULE_ALIAS("team-mode-loadbalance");
-+MODULE_ALIAS_TEAM_MODE("loadbalance");
-diff --git a/drivers/net/team/team_mode_random.c b/drivers/net/team/team_mode_random.c
-index 215f845..c20b944 100644
---- a/drivers/net/team/team_mode_random.c
-+++ b/drivers/net/team/team_mode_random.c
-@@ -65,4 +65,4 @@ static void __exit rnd_cleanup_module(void)
- MODULE_LICENSE("GPL v2");
- MODULE_AUTHOR("Jiri Pirko <jiri@resnulli.us>");
- MODULE_DESCRIPTION("Random mode for team");
--MODULE_ALIAS("team-mode-random");
-+MODULE_ALIAS_TEAM_MODE("random");
-diff --git a/drivers/net/team/team_mode_roundrobin.c b/drivers/net/team/team_mode_roundrobin.c
-index 0aa2341..66c3209 100644
---- a/drivers/net/team/team_mode_roundrobin.c
-+++ b/drivers/net/team/team_mode_roundrobin.c
-@@ -77,4 +77,4 @@ static void __exit rr_cleanup_module(void)
- MODULE_LICENSE("GPL v2");
- MODULE_AUTHOR("Jiri Pirko <jpirko@redhat.com>");
- MODULE_DESCRIPTION("Round-robin mode for team");
--MODULE_ALIAS("team-mode-roundrobin");
-+MODULE_ALIAS_TEAM_MODE("roundrobin");
-diff --git a/include/linux/if_team.h b/include/linux/if_team.h
-index c05216a..3029460 100644
---- a/include/linux/if_team.h
-+++ b/include/linux/if_team.h
-@@ -298,4 +298,6 @@ extern void team_options_unregister(struct team *team,
- #define TEAM_DEFAULT_NUM_TX_QUEUES 16
- #define TEAM_DEFAULT_NUM_RX_QUEUES 16
- 
-+#define MODULE_ALIAS_TEAM_MODE(kind) MODULE_ALIAS("team-mode-" kind)
-+
- #endif /* _LINUX_IF_TEAM_H_ */
--- 
-1.8.3.1
+to check if it will still hang.
+
+If it can't be reproduced in this way, pls add this on your kernel:
+
+--- a/net/bridge/br_stp_if.c
++++ b/net/bridge/br_stp_if.c
+@@ -178,9 +178,11 @@ static void br_stp_start(struct net_bridge *br)
+                br->stp_enabled = BR_KERNEL_STP;
+                br_debug(br, "using kernel STP\n");
+
++               WARN_ON(1);
+                /* To start timers on any ports left in blocking */
+                mod_timer(&br->hello_timer, jiffies + br->hello_time);
+                br_port_state_selection(br);
++               pr_warn("hello timer start done\n");
+        }
+
+        spin_unlock_bh(&br->lock);
+diff --git a/net/bridge/br_stp_timer.c b/net/bridge/br_stp_timer.c
+index 60b6fe2..c98b3e5 100644
+--- a/net/bridge/br_stp_timer.c
++++ b/net/bridge/br_stp_timer.c
+@@ -40,7 +40,7 @@ static void br_hello_timer_expired(unsigned long arg)
+        if (br->dev->flags & IFF_UP) {
+                br_config_bpdu_generation(br);
+
+-               if (br->stp_enabled == BR_KERNEL_STP)
++               if (br->stp_enabled != BR_USER_STP)
+                        mod_timer(&br->hello_timer,
+                                  round_jiffies(jiffies + br->hello_time));
+
+
+let's see if it hangs when starting the timer. Thanks.
