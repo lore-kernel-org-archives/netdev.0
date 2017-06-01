@@ -1,66 +1,95 @@
-From: Daniel Kim <dkim@playmechanix.com>
-Subject: Re: [Problem] Broadcom BCM5762 Ethernet tg3 times out with stack trace
-Date: Thu, 1 Jun 2017 17:01:27 -0500
-Message-ID: <CANeD+K-O_umVCz-5O68TH9R9ADa22UJungTuYoHjSZRvvNrhmw@mail.gmail.com>
-References: <CAMet4B7c_wT3rk2DBcTBmdMpPpHuiuWSEae=VLrVH_tfcZT1_g@mail.gmail.com>
- <CANeD+K_ojPPUS2QtHRg+1o4EZaCSFcaa=dDPfkR2tUYNwdGNiw@mail.gmail.com>
- <CACKFLi=762N5LzmcOE4dPS_1Op8EsJ8QJBRFqZySaSx7SNb1bg@mail.gmail.com> <CANeD+K_hYMuC_AqB97fjBt+NXCMi5r8KzCNpcvFBk5obKL_k=w@mail.gmail.com>
+From: Flavio Leitner <fbl@sysclose.org>
+Subject: Re: [PATCH net] netlink: don't send unknown nsid
+Date: Thu, 1 Jun 2017 19:44:54 -0300
+Message-ID: <20170601224454.GG2673@x240.lan>
+References: <4942f9fe-625b-bb97-7b45-4a1e8bf69b1b@6wind.com>
+ <1496304007-1962-1-git-send-email-nicolas.dichtel@6wind.com>
+ <20170601170246.GF2673@x240.lan>
+ <75fccaea-0ebe-1a2a-27d7-ad30fd99f41d@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Siva Reddy Kallam <siva.kallam@broadcom.com>,
-        Prashant Sreedharan <prashant@broadcom.com>,
-        Michael Chan <mchan@broadcom.com>,
-        Linux Netdev List <netdev@vger.kernel.org>
-To: Michael Chan <michael.chan@broadcom.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f182.google.com ([209.85.223.182]:33470 "EHLO
-        mail-io0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751078AbdFAWB2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 1 Jun 2017 18:01:28 -0400
-Received: by mail-io0-f182.google.com with SMTP id b184so3879741ioe.0
-        for <netdev@vger.kernel.org>; Thu, 01 Jun 2017 15:01:28 -0700 (PDT)
-In-Reply-To: <CANeD+K_hYMuC_AqB97fjBt+NXCMi5r8KzCNpcvFBk5obKL_k=w@mail.gmail.com>
+Received: from sender-of-o52.zoho.com ([135.84.80.217]:21405 "EHLO
+        sender-of-o52.zoho.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751105AbdFAWpB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Jun 2017 18:45:01 -0400
+Content-Disposition: inline
+In-Reply-To: <75fccaea-0ebe-1a2a-27d7-ad30fd99f41d@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 12, 2017 at 6:12 PM, Daniel Kim <dkim@playmechanix.com> wrote:
-> I believe I do have IOMMU enabled. At least the dmesg output seems to
-> imply that I do:
-> [    1.141948] iommu: Adding device 0000:00:02.0 to group 0
-> [    1.142033] iommu: Adding device 0000:00:10.0 to group 1
-> [    1.142074] iommu: Adding device 0000:00:10.1 to group 1
-> [    1.142119] iommu: Adding device 0000:00:11.0 to group 2
-> [    1.142172] iommu: Adding device 0000:00:12.0 to group 3
-> [    1.142184] iommu: Adding device 0000:00:12.2 to group 3
-> [    1.142234] iommu: Adding device 0000:00:13.0 to group 4
-> [    1.142247] iommu: Adding device 0000:00:13.2 to group 4
-> [    1.142303] iommu: Adding device 0000:00:14.0 to group 5
-> [    1.142315] iommu: Adding device 0000:00:14.2 to group 5
-> [    1.142328] iommu: Adding device 0000:00:14.3 to group 5
-> [    1.142373] iommu: Adding device 0000:00:14.4 to group 6
-> [    1.142417] iommu: Adding device 0000:00:14.5 to group 7
-> [    1.142529] iommu: Adding device 0000:00:15.0 to group 8
-> [    1.142570] iommu: Adding device 0000:00:15.2 to group 8
-> [    1.142639] iommu: Adding device 0000:00:18.0 to group 9
-> [    1.142653] iommu: Adding device 0000:00:18.1 to group 9
-> [    1.142668] iommu: Adding device 0000:00:18.2 to group 9
-> [    1.142682] iommu: Adding device 0000:00:18.3 to group 9
-> [    1.142695] iommu: Adding device 0000:00:18.4 to group 9
-> [    1.142712] iommu: Adding device 0000:00:18.5 to group 9
-> [    1.142725] iommu: Adding device 0000:01:00.0 to group 0
-> [    1.142733] iommu: Adding device 0000:01:00.1 to group 0
-> [    1.142840] iommu: Adding device 0000:04:00.0 to group 8
-> [    1.143305] AMD-Vi: Found IOMMU at 0000:00:00.2 cap 0x40
->
-> The last kernel I used where the NIC mostly worked was 4.4.0 (x86-64).
-> Even when it worked, it had this issue we've experienced since v3.13
-> where the NIC would suddenly become unresponsive. It won't be
-> considered disconnected from the network, but RX/TX packets, errors,
-> dropped, etc. values displayed with ifconfig would show a number that
-> looked suspiciously close to 32-bit INT_MAX.
->
-> Since v4.8, I can trigger it much faster and it now prints out a call
-> stack and other messages into dmesg.
+On Thu, Jun 01, 2017 at 10:42:13PM +0200, Nicolas Dichtel wrote:
+> Le 01/06/2017 à 19:02, Flavio Leitner a écrit :
+> > On Thu, Jun 01, 2017 at 10:00:07AM +0200, Nicolas Dichtel wrote:
+> >> The NETLINK_F_LISTEN_ALL_NSID otion enables to listen all netns that have a
+> >> nsid assigned into the netns where the netlink socket is opened.
+> >> The nsid is sent as metadata to userland, but the existence of this nsid is
+> >> checked only for netns that are different from the socket netns. Thus, if
+> >> no nsid is assigned to the socket netns, NETNSA_NSID_NOT_ASSIGNED is
+> >> reported to the userland. This value is confusing and useless.
+> >> After this patch, only valid nsid are sent to userland.
+> >>
+> >> Reported-by: Flavio Leitner <fbl@sysclose.org>
+> >> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> >> ---
+> >>  net/netlink/af_netlink.c | 4 +++-
+> >>  1 file changed, 3 insertions(+), 1 deletion(-)
+> >>
+> >> diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+> >> index ee841f00a6ec..7586d446d7dc 100644
+> >> --- a/net/netlink/af_netlink.c
+> >> +++ b/net/netlink/af_netlink.c
+> >> @@ -62,6 +62,7 @@
+> >>  #include <asm/cacheflush.h>
+> >>  #include <linux/hash.h>
+> >>  #include <linux/genetlink.h>
+> >> +#include <linux/net_namespace.h>
+> >>  
+> >>  #include <net/net_namespace.h>
+> >>  #include <net/sock.h>
+> >> @@ -1415,7 +1416,8 @@ static void do_one_broadcast(struct sock *sk,
+> >>  		goto out;
+> >>  	}
+> >>  	NETLINK_CB(p->skb2).nsid = peernet2id(sock_net(sk), p->net);
+> >> -	NETLINK_CB(p->skb2).nsid_is_set = true;
+> >> +	if (NETLINK_CB(p->skb2).nsid != NETNSA_NSID_NOT_ASSIGNED)
+> >> +		NETLINK_CB(p->skb2).nsid_is_set = true;
+> >>  	val = netlink_broadcast_deliver(sk, p->skb2);
+> >>  	if (val < 0) {
+> >>  		netlink_overrun(sk);
+> > 
+> > If the assumption is that nsid allocation can never fail or that if it
+> > does, we can't report to userspace, then the patch is good, but it
+> > doesn't sound like a good long term solution.
+> > 
+> > Let's consider that the allocation of an id fails for whatever reason.
+> > I think that should be reported to userspace to allow it to retry, or
+> > do something else to handle this situation properly.  Not sending
+> > anything means that it's in the same netns as the old kernels did,
+> > which is incorrect.
+> This is correct, because if nsid allocation fails, no netlink messages from this
+> netns are sent to userspace (the check is done at the beginning of
+> do_one_broadcast). The only netns allowed to send netlink messages to userspace
+> without nsid is the netns of the socket.
 
-I'd like to follow up on this since I haven't heard of any updates for
-awhile. Is there anything I can do on my end to help?
+I say it's incorrect because of the explanation below.
+
+> > On the other hand, with the original patch, if the socket and the
+> > device are in the same netns, we don't need to report any ID.  Previous
+> > kernels did that, so we are not breaking anything.  When the netns
+> > differs, then we either should report the real ID or an error.
+> > 
+> I don't understand. With or without my last patch, the kernel sends netlink
+> messages of other netns than the netns where the socket is opened, only if an
+> nsid is assigned.
+
+"only if an nsid is assigned" that's the issue.
+
+Let me ask this instead: How do you think userspace should behave when
+netnsid allocation fails?
+
+-- 
+Flavio
