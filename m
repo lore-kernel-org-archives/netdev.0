@@ -1,208 +1,79 @@
 From: Yuval Mintz <Yuval.Mintz@cavium.com>
-Subject: [PATCH net-next 04/11] qed: Distinguish between sb_id and igu_sb_id
-Date: Thu, 1 Jun 2017 15:29:04 +0300
-Message-ID: <20170601122911.22493-5-Yuval.Mintz@cavium.com>
+Subject: [PATCH net-next 05/11] qed: Add aux. function translating sb_id -> igu_sb_id
+Date: Thu, 1 Jun 2017 15:29:05 +0300
+Message-ID: <20170601122911.22493-6-Yuval.Mintz@cavium.com>
 References: <20170601122911.22493-1-Yuval.Mintz@cavium.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Yuval Mintz <Yuval.Mintz@cavium.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam03on0051.outbound.protection.outlook.com ([104.47.42.51]:54627
-        "EHLO NAM03-BY2-obe.outbound.protection.outlook.com"
+Received: from mail-sn1nam01on0079.outbound.protection.outlook.com ([104.47.32.79]:44384
+        "EHLO NAM01-SN1-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751078AbdFAMaD (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 1 Jun 2017 08:30:03 -0400
+        id S1751223AbdFAMaM (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 1 Jun 2017 08:30:12 -0400
 In-Reply-To: <20170601122911.22493-1-Yuval.Mintz@cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In qed code, sb_id means 2 different things:
-  - An interrupt vector [usually when received as a parameter from
-    a protocol driver, but not only] that's associated with a status
-    block.
-
-  - An index to a status block entity existing in HW.
-
-This patch renames the references to the HW entity, adding an 'igu_'
-prefix to allow an easier distinction.
+An additional step for relaxing the IGU order assumption, we now add
+an auxiliary function that can be used for finding the HW status block
+that's associated with a given MSI-x vector.
 
 Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
 ---
- drivers/net/ethernet/qlogic/qed/qed_dev.c | 12 ++++++----
- drivers/net/ethernet/qlogic/qed/qed_int.c | 39 +++++++++++++++++--------------
- drivers/net/ethernet/qlogic/qed/qed_int.h |  4 ++--
- 3 files changed, 30 insertions(+), 25 deletions(-)
+ drivers/net/ethernet/qlogic/qed/qed_int.c | 31 +++++++++++++++++++++----------
+ 1 file changed, 21 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_dev.c b/drivers/net/ethernet/qlogic/qed/qed_dev.c
-index 0b8e139..3b6114d 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_dev.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_dev.c
-@@ -1155,7 +1155,7 @@ static int qed_calc_hw_mode(struct qed_hwfn *p_hwfn)
- static void qed_init_cau_rt_data(struct qed_dev *cdev)
- {
- 	u32 offset = CAU_REG_SB_VAR_MEMORY_RT_OFFSET;
--	int i, sb_id;
-+	int i, igu_sb_id;
- 
- 	for_each_hwfn(cdev, i) {
- 		struct qed_hwfn *p_hwfn = &cdev->hwfns[i];
-@@ -1165,15 +1165,17 @@ static void qed_init_cau_rt_data(struct qed_dev *cdev)
- 
- 		p_igu_info = p_hwfn->hw_info.p_igu_info;
- 
--		for (sb_id = 0; sb_id < QED_MAPPING_MEMORY_SIZE(cdev);
--		     sb_id++) {
--			p_block = &p_igu_info->entry[sb_id];
-+		for (igu_sb_id = 0;
-+		     igu_sb_id < QED_MAPPING_MEMORY_SIZE(cdev); igu_sb_id++) {
-+			p_block = &p_igu_info->entry[igu_sb_id];
-+
- 			if (!p_block->is_pf)
- 				continue;
- 
- 			qed_init_cau_sb_entry(p_hwfn, &sb_entry,
- 					      p_block->function_id, 0, 0);
--			STORE_RT_REG_AGG(p_hwfn, offset + sb_id * 2, sb_entry);
-+			STORE_RT_REG_AGG(p_hwfn, offset + igu_sb_id * 2,
-+					 sb_entry);
- 		}
- 	}
- }
 diff --git a/drivers/net/ethernet/qlogic/qed/qed_int.c b/drivers/net/ethernet/qlogic/qed/qed_int.c
-index 2e280c4..92744cf 100644
+index 92744cf..3307978 100644
 --- a/drivers/net/ethernet/qlogic/qed/qed_int.c
 +++ b/drivers/net/ethernet/qlogic/qed/qed_int.c
-@@ -1669,10 +1669,11 @@ void qed_int_igu_disable_int(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt)
- #define IGU_CLEANUP_SLEEP_LENGTH                (1000)
- static void qed_int_igu_cleanup_sb(struct qed_hwfn *p_hwfn,
- 				   struct qed_ptt *p_ptt,
--				   u32 sb_id, bool cleanup_set, u16 opaque_fid)
-+				   u16 igu_sb_id,
-+				   bool cleanup_set, u16 opaque_fid)
- {
- 	u32 cmd_ctrl = 0, val = 0, sb_bit = 0, sb_bit_addr = 0, data = 0;
--	u32 pxp_addr = IGU_CMD_INT_ACK_BASE + sb_id;
-+	u32 pxp_addr = IGU_CMD_INT_ACK_BASE + igu_sb_id;
- 	u32 sleep_cnt = IGU_CLEANUP_SLEEP_LENGTH;
- 
- 	/* Set the data field */
-@@ -1695,8 +1696,8 @@ static void qed_int_igu_cleanup_sb(struct qed_hwfn *p_hwfn,
- 	mmiowb();
- 
- 	/* calculate where to read the status bit from */
--	sb_bit = 1 << (sb_id % 32);
--	sb_bit_addr = sb_id / 32 * sizeof(u32);
-+	sb_bit = 1 << (igu_sb_id % 32);
-+	sb_bit_addr = igu_sb_id / 32 * sizeof(u32);
- 
- 	sb_bit_addr += IGU_REG_CLEANUP_STATUS_0;
- 
-@@ -1713,29 +1714,30 @@ static void qed_int_igu_cleanup_sb(struct qed_hwfn *p_hwfn,
- 	if (!sleep_cnt)
- 		DP_NOTICE(p_hwfn,
- 			  "Timeout waiting for clear status 0x%08x [for sb %d]\n",
--			  val, sb_id);
-+			  val, igu_sb_id);
+@@ -1412,15 +1412,26 @@ void qed_int_sb_setup(struct qed_hwfn *p_hwfn,
+ 				    sb_info->igu_sb_id, 0, 0);
  }
  
- void qed_int_igu_init_pure_rt_single(struct qed_hwfn *p_hwfn,
- 				     struct qed_ptt *p_ptt,
--				     u32 sb_id, u16 opaque, bool b_set)
-+				     u16 igu_sb_id, u16 opaque, bool b_set)
+-/**
+- * @brief qed_get_igu_sb_id - given a sw sb_id return the
+- *        igu_sb_id
+- *
+- * @param p_hwfn
+- * @param sb_id
+- *
+- * @return u16
+- */
++static u16 qed_get_pf_igu_sb_id(struct qed_hwfn *p_hwfn, u16 vector_id)
++{
++	struct qed_igu_block *p_block;
++	u16 igu_id;
++
++	for (igu_id = 0; igu_id < QED_MAPPING_MEMORY_SIZE(p_hwfn->cdev);
++	     igu_id++) {
++		p_block = &p_hwfn->hw_info.p_igu_info->entry[igu_id];
++
++		if (!(p_block->status & QED_IGU_STATUS_VALID) ||
++		    !p_block->is_pf ||
++		    p_block->vector_number != vector_id)
++			continue;
++
++		return igu_id;
++	}
++
++	return QED_SB_INVALID_IDX;
++}
++
+ static u16 qed_get_igu_sb_id(struct qed_hwfn *p_hwfn, u16 sb_id)
  {
- 	int pi, i;
- 
- 	/* Set */
- 	if (b_set)
--		qed_int_igu_cleanup_sb(p_hwfn, p_ptt, sb_id, 1, opaque);
-+		qed_int_igu_cleanup_sb(p_hwfn, p_ptt, igu_sb_id, 1, opaque);
- 
- 	/* Clear */
--	qed_int_igu_cleanup_sb(p_hwfn, p_ptt, sb_id, 0, opaque);
-+	qed_int_igu_cleanup_sb(p_hwfn, p_ptt, igu_sb_id, 0, opaque);
- 
- 	/* Wait for the IGU SB to cleanup */
- 	for (i = 0; i < IGU_CLEANUP_SLEEP_LENGTH; i++) {
- 		u32 val;
- 
- 		val = qed_rd(p_hwfn, p_ptt,
--			     IGU_REG_WRITE_DONE_PENDING + ((sb_id / 32) * 4));
--		if (val & (1 << (sb_id % 32)))
-+			     IGU_REG_WRITE_DONE_PENDING +
-+			     ((igu_sb_id / 32) * 4));
-+		if (val & BIT((igu_sb_id % 32)))
- 			usleep_range(10, 20);
- 		else
- 			break;
-@@ -1743,12 +1745,12 @@ void qed_int_igu_init_pure_rt_single(struct qed_hwfn *p_hwfn,
- 	if (i == IGU_CLEANUP_SLEEP_LENGTH)
- 		DP_NOTICE(p_hwfn,
- 			  "Failed SB[0x%08x] still appearing in WRITE_DONE_PENDING\n",
--			  sb_id);
-+			  igu_sb_id);
- 
- 	/* Clear the CAU for the SB */
- 	for (pi = 0; pi < 12; pi++)
- 		qed_wr(p_hwfn, p_ptt,
--		       CAU_REG_PI_MEMORY + (sb_id * 12 + pi) * 4, 0);
-+		       CAU_REG_PI_MEMORY + (igu_sb_id * 12 + pi) * 4, 0);
- }
- 
- void qed_int_igu_init_pure_rt(struct qed_hwfn *p_hwfn,
-@@ -1757,7 +1759,7 @@ void qed_int_igu_init_pure_rt(struct qed_hwfn *p_hwfn,
- {
- 	u32 igu_base_sb = p_hwfn->hw_info.p_igu_info->igu_base_sb;
- 	u32 igu_sb_cnt = p_hwfn->hw_info.p_igu_info->igu_sb_cnt;
--	u32 sb_id = 0, val = 0;
-+	u32 igu_sb_id = 0, val = 0;
- 
- 	val = qed_rd(p_hwfn, p_ptt, IGU_REG_BLOCK_CONFIGURATION);
- 	val |= IGU_REG_BLOCK_CONFIGURATION_VF_CLEANUP_EN;
-@@ -1768,18 +1770,19 @@ void qed_int_igu_init_pure_rt(struct qed_hwfn *p_hwfn,
- 		   "IGU cleaning SBs [%d,...,%d]\n",
- 		   igu_base_sb, igu_base_sb + igu_sb_cnt - 1);
- 
--	for (sb_id = igu_base_sb; sb_id < igu_base_sb + igu_sb_cnt; sb_id++)
--		qed_int_igu_init_pure_rt_single(p_hwfn, p_ptt, sb_id,
-+	for (igu_sb_id = igu_base_sb; igu_sb_id < igu_base_sb + igu_sb_cnt;
-+	     igu_sb_id++)
-+		qed_int_igu_init_pure_rt_single(p_hwfn, p_ptt, igu_sb_id,
- 						p_hwfn->hw_info.opaque_fid,
- 						b_set);
- 
- 	if (!b_slowpath)
- 		return;
- 
--	sb_id = p_hwfn->hw_info.p_igu_info->igu_dsb_id;
-+	igu_sb_id = p_hwfn->hw_info.p_igu_info->igu_dsb_id;
- 	DP_VERBOSE(p_hwfn, NETIF_MSG_INTR,
--		   "IGU cleaning slowpath SB [%d]\n", sb_id);
--	qed_int_igu_init_pure_rt_single(p_hwfn, p_ptt, sb_id,
-+		   "IGU cleaning slowpath SB [%d]\n", igu_sb_id);
-+	qed_int_igu_init_pure_rt_single(p_hwfn, p_ptt, igu_sb_id,
- 					p_hwfn->hw_info.opaque_fid, b_set);
- }
- 
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_int.h b/drivers/net/ethernet/qlogic/qed/qed_int.h
-index 91424cf..60aaf9f 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_int.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed_int.h
-@@ -302,13 +302,13 @@ u16 qed_int_get_sp_sb_id(struct qed_hwfn *p_hwfn);
-  *
-  * @param p_hwfn
-  * @param p_ptt
-- * @param sb_id		- igu status block id
-+ * @param igu_sb_id	- igu status block id
-  * @param opaque	- opaque fid of the sb owner.
-  * @param b_set		- set(1) / clear(0)
-  */
- void qed_int_igu_init_pure_rt_single(struct qed_hwfn *p_hwfn,
- 				     struct qed_ptt *p_ptt,
--				     u32 sb_id,
-+				     u16 igu_sb_id,
- 				     u16 opaque,
- 				     bool b_set);
+ 	u16 igu_sb_id;
+@@ -1429,7 +1440,7 @@ static u16 qed_get_igu_sb_id(struct qed_hwfn *p_hwfn, u16 sb_id)
+ 	if (sb_id == QED_SP_SB_ID)
+ 		igu_sb_id = p_hwfn->hw_info.p_igu_info->igu_dsb_id;
+ 	else if (IS_PF(p_hwfn->cdev))
+-		igu_sb_id = sb_id + p_hwfn->hw_info.p_igu_info->igu_base_sb;
++		igu_sb_id = qed_get_pf_igu_sb_id(p_hwfn, sb_id + 1);
+ 	else
+ 		igu_sb_id = qed_vf_get_igu_sb_id(p_hwfn, sb_id);
  
 -- 
 2.9.4
