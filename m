@@ -1,97 +1,59 @@
-From: Vladislav Yasevich <vyasevic@redhat.com>
-Subject: [PATCH V7 net-next iproute] ip: Add IFLA_EVENT output to ip monitor
-Date: Thu,  1 Jun 2017 11:01:16 -0400
-Message-ID: <1496329276-31106-1-git-send-email-vyasevic@redhat.com>
-Cc: stephen@networkplumber.org, dsahern@gmail.com,
-        Vladislav Yasevich <vyasevic@redhat.com>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: [PATCH net] net: bridge: start hello timer only if device is up
+Date: Thu,  1 Jun 2017 18:07:55 +0300
+Message-ID: <1496329675-11254-1-git-send-email-nikolay@cumulusnetworks.com>
+References: <06ef2ff1-f29d-a163-3226-7bd43c7a407c@cumulusnetworks.com>
+Cc: davem@davemloft.net, roopa@cumulusnetworks.com,
+        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+        Xin Long <lucien.xin@gmail.com>, Ivan Vecera <cera@cera.cz>,
+        Sebastian Ott <sebott@linux.vnet.ibm.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:56804 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751091AbdFAPBV (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 1 Jun 2017 11:01:21 -0400
+Received: from mail-wm0-f41.google.com ([74.125.82.41]:35489 "EHLO
+        mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751091AbdFAPI0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Jun 2017 11:08:26 -0400
+Received: by mail-wm0-f41.google.com with SMTP id b84so162424864wmh.0
+        for <netdev@vger.kernel.org>; Thu, 01 Jun 2017 08:08:26 -0700 (PDT)
+In-Reply-To: <06ef2ff1-f29d-a163-3226-7bd43c7a407c@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add IFLA_EVENT output so that event types can be viewed with
-'monitor' command.  This gives a little more information for why
-a given message was received.
+When the transition of NO_STP -> KERNEL_STP was fixed by always calling
+mod_timer in br_stp_start, it introduced a new regression which causes
+the timer to be armed even when the bridge is down, and since we stop
+the timers in its ndo_stop() function, they never get disabled if the
+device is destroyed before it's upped.
 
-Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
+To reproduce:
+$ while :; do ip l add br0 type bridge hello_time 100; brctl stp br0 on;
+ip l del br0; done;
+
+CC: Xin Long <lucien.xin@gmail.com>
+CC: Ivan Vecera <cera@cera.cz>
+CC: Sebastian Ott <sebott@linux.vnet.ibm.com>
+Reported-by: Sebastian Ott <sebott@linux.vnet.ibm.com>
+Fixes: 6d18c732b95c ("bridge: start hello_timer when enabling KERNEL_STP in br_stp_start")
+Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 ---
-v7: change the names to make it more generic then just netdev events.
-    Updated initialization.
+Sebastian it'd be great if you can test the patch as well.
 
- include/linux/if_link.h | 11 +++++++++++
- ip/ipaddress.c          | 22 ++++++++++++++++++++++
- 2 files changed, 33 insertions(+)
+ net/bridge/br_stp_if.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/include/linux/if_link.h b/include/linux/if_link.h
-index 5a3a048..c0a6769 100644
---- a/include/linux/if_link.h
-+++ b/include/linux/if_link.h
-@@ -157,6 +157,7 @@ enum {
- 	IFLA_GSO_MAX_SIZE,
- 	IFLA_PAD,
- 	IFLA_XDP,
-+	IFLA_EVENT,
- 	__IFLA_MAX
- };
+diff --git a/net/bridge/br_stp_if.c b/net/bridge/br_stp_if.c
+index 4efd5d54498a..89110319ef0f 100644
+--- a/net/bridge/br_stp_if.c
++++ b/net/bridge/br_stp_if.c
+@@ -173,7 +173,8 @@ static void br_stp_start(struct net_bridge *br)
+ 		br_debug(br, "using kernel STP\n");
  
-@@ -909,4 +910,14 @@ enum {
+ 		/* To start timers on any ports left in blocking */
+-		mod_timer(&br->hello_timer, jiffies + br->hello_time);
++		if (br->dev->flags & IFF_UP)
++			mod_timer(&br->hello_timer, jiffies + br->hello_time);
+ 		br_port_state_selection(br);
+ 	}
  
- #define IFLA_XDP_MAX (__IFLA_XDP_MAX - 1)
- 
-+enum {
-+	IFLA_EVENT_NONE,
-+	IFLA_EVENT_REBOOT,		/* internal reset / reboot */
-+	IFLA_EVENT_FEATURES,		/* change in offload features */
-+	IFLA_EVENT_BONDING_FAILOVER,	/* hange in active slave */
-+	IFLA_EVENT_NOTIFY_PEERS,	/* re-sent grat. arp/ndisc */
-+	IFLA_EVENT_IGMP_RESEND,		/* re-sent IGMP JOIN */
-+	IFLA_EVENT_BONDING_OPTIONS,	/* change in bonding options */
-+};
-+
- #endif /* _LINUX_IF_LINK_H */
-diff --git a/ip/ipaddress.c b/ip/ipaddress.c
-index b8d9c7d..cea4389 100644
---- a/ip/ipaddress.c
-+++ b/ip/ipaddress.c
-@@ -753,6 +753,25 @@ int print_linkinfo_brief(const struct sockaddr_nl *who,
- 	return 0;
- }
- 
-+static const char *link_events[] = {
-+	[IFLA_EVENT_NONE] = "NONE",
-+	[IFLA_EVENT_REBOOT] = "REBOOT",
-+	[IFLA_EVENT_FEATURES] = "FEATURE CHANGE",
-+	[IFLA_EVENT_BONDING_FAILOVER] = "BONDING FAILOVER",
-+	[IFLA_EVENT_NOTIFY_PEERS] = "NOTIFY PEERS",
-+	[IFLA_EVENT_IGMP_RESEND] = "RESEND IGMP",
-+	[IFLA_EVENT_BONDING_OPTIONS] = "BONDING OPTION"};
-+
-+static void print_link_event(FILE *f, __u32 event)
-+{
-+	if (event >= ARRAY_SIZE(link_events))
-+		fprintf(f, "event %d ", event);
-+	else {
-+		if (event)
-+			fprintf(f, "event %s ", link_events[event]);
-+	}
-+}
-+
- int print_linkinfo(const struct sockaddr_nl *who,
- 		   struct nlmsghdr *n, void *arg)
- {
-@@ -858,6 +877,9 @@ int print_linkinfo(const struct sockaddr_nl *who,
- 	if (filter.showqueue)
- 		print_queuelen(fp, tb);
- 
-+	if (tb[IFLA_EVENT])
-+		print_link_event(fp, rta_getattr_u32(tb[IFLA_EVENT]));
-+
- 	if (!filter.family || filter.family == AF_PACKET || show_details) {
- 		SPRINT_BUF(b1);
- 		fprintf(fp, "%s", _SL_);
 -- 
-2.7.4
+2.1.4
