@@ -1,128 +1,51 @@
-From: Jia-Ju Bai <baijiaju1990-9Onoh4P/yGk@public.gmane.org>
-Subject: Re: [PATCH] b43legacy: Fix a sleep-in-atomic bug in
- b43legacy_op_bss_info_changed
-Date: Thu, 01 Jun 2017 09:07:32 +0800
-Message-ID: <592F68D4.5090500@163.com>
-References: <1496225353-5544-1-git-send-email-baijiaju1990@163.com>
- <877f0xnwyk.fsf@kamboji.qca.qualcomm.com> <20170531173107.25eeda48@wiggum>
- <284d6d5d-d548-9e05-eafd-a6b521af5a04@lwfinger.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; Format="flowed"
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b43-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
- =?windows-1252?Q?Michael_B=FCsch?= <m@bues.ch>,
- Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-To: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Return-path: <b43-dev-bounces+gldbd-bcm43xx-dev=gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <284d6d5d-d548-9e05-eafd-a6b521af5a04-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/b43-dev>,
- <mailto:b43-dev-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/b43-dev/>
-List-Post: <mailto:b43-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b43-dev-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/b43-dev>,
- <mailto:b43-dev-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: "b43-dev" <b43-dev-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-Errors-To: b43-dev-bounces+gldbd-bcm43xx-dev=gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Chenbo Feng <chenbofeng.kernel@gmail.com>
+Subject: [PATCH net-next v2] bpf: Remove the capability check for cgroup skb eBPF program
+Date: Wed, 31 May 2017 18:12:20 -0700
+Message-ID: <1496279540-20812-1-git-send-email-chenbofeng.kernel@gmail.com>
+Cc: Lorenzo Colitti <lorenzo@google.com>,
+        Chenbo Feng <fengc@google.com>
+To: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:36065 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750954AbdFABMc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 31 May 2017 21:12:32 -0400
+Received: by mail-pf0-f195.google.com with SMTP id n23so5257541pfb.3
+        for <netdev@vger.kernel.org>; Wed, 31 May 2017 18:12:31 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 06/01/2017 08:07 AM, Larry Finger wrote:
-> On 05/31/2017 10:32 AM, Michael B=FCsch wrote:
->> On Wed, 31 May 2017 13:26:43 +0300
->> Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org> wrote:
->>
->>> Jia-Ju Bai <baijiaju1990-9Onoh4P/yGk@public.gmane.org> writes:
->>>
->>>> The driver may sleep under a spin lock, and the function call path is:
->>>> b43legacy_op_bss_info_changed (acquire the lock by spin_lock_irqsave)
->>>>    b43legacy_synchronize_irq
->>>>      synchronize_irq --> may sleep
->>>>
->>>> To fix it, the lock is released before b43legacy_synchronize_irq, =
+From: Chenbo Feng <fengc@google.com>
 
->>>> and the
->>>> lock is acquired again after this function.
->>>>
->>>> Signed-off-by: Jia-Ju Bai <baijiaju1990-9Onoh4P/yGk@public.gmane.org>
->>>> ---
->>>>   drivers/net/wireless/broadcom/b43legacy/main.c |    2 ++
->>>>   1 file changed, 2 insertions(+)
->>>>
->>>> diff --git a/drivers/net/wireless/broadcom/b43legacy/main.c =
+Currently loading a cgroup skb eBPF program require a CAP_SYS_ADMIN
+capability while attaching the program to a cgroup only requires the
+user have CAP_NET_ADMIN privilege. We can escape the capability
+check when load the program just like socket filter program to make
+the capability requirement consistent.
 
->>>> b/drivers/net/wireless/broadcom/b43legacy/main.c
->>>> index f1e3dad..31ead21 100644
->>>> --- a/drivers/net/wireless/broadcom/b43legacy/main.c
->>>> +++ b/drivers/net/wireless/broadcom/b43legacy/main.c
->>>> @@ -2859,7 +2859,9 @@ static void =
+Change since v1:
+Change the code style in order to be compliant with checkpatch.pl
+preference
 
->>>> b43legacy_op_bss_info_changed(struct ieee80211_hw *hw,
->>>>       b43legacy_write32(dev, B43legacy_MMIO_GEN_IRQ_MASK, 0);
->>>>         if (changed & BSS_CHANGED_BSSID) {
->>>> +        spin_unlock_irqrestore(&wl->irq_lock, flags);
->>>>           b43legacy_synchronize_irq(dev);
->>>> +        spin_lock_irqsave(&wl->irq_lock, flags);
->>>
->>> To me this looks like a fragile workaround and not a real fix. You can
->>> easily add new race conditions with releasing the lock like this.
->>>
->>
->>
->> I think releasing the lock possibly is fine. It certainly is better than
->> sleeping with a lock held.
->> We disabled the device interrupts just before this line.
->>
->> However I think the synchronize_irq should be outside of the
->> conditional right after the write to B43legacy_MMIO_GEN_IRQ_MASK. (So
->> two lines above)
->> I don't think it makes sense to only synchronize if BSS_CHANGED_BSSID
->> is set.
->>
->>
->> On the other hand b43 does not have this irq-disabling foobar anymore.
->> So somebody must have removed it. Maybe you can find the commit that
->> removed this stuff from b43 and port it to b43legacy?
->>
->>
->> So I would vote for moving the synchronize_irq up outside of the
->> conditional and put the unlock/lock sequence around it.
->> And as a second patch on top of that try to remove this stuff
->> altogether like b43 did.
->
-> The patch that removed it in b43 is
->
-> commit 36dbd9548e92268127b0c31b0e121e63e9207108
-> Author: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-> Date:   Fri Sep 4 22:51:29 2009 +0200
->
->     b43: Use a threaded IRQ handler
->
->     Use a threaded IRQ handler to allow locking the mutex and
->     sleeping while executing an interrupt.
->     This removes usage of the irq_lock spinlock, but introduces
->     a new hardirq_lock, which is _only_ used for the PCI/SSB lowlevel
->     hard-irq handler. Sleeping busses (SDIO) will use mutex instead.
->
->     Signed-off-by: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
->     Tested-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
->     Signed-off-by: John W. Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
->
-> I vaguely remember this patch. Although it is roughly a 1000-line fix, =
+Signed-off-by: Chenbo Feng <fengc@google.com>
+---
+ kernel/bpf/syscall.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-> I will try to port it to b43legacy. I still have an old BCM4306 PCMCIA =
-
-> card that I can test in a PowerBook G4.
->
-> I agree with Michael that this is the way to go. Both of Jia-Ju's =
-
-> patches should be rejected.
->
-> Larry
->
->
-
-It is fine to me to fix the bug by porting this former patch.
-
-Thanks,
-Jia-Ju Bai
+diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
+index 265a0d8..59da103 100644
+--- a/kernel/bpf/syscall.c
++++ b/kernel/bpf/syscall.c
+@@ -815,7 +815,9 @@ static int bpf_prog_load(union bpf_attr *attr)
+ 	    attr->kern_version != LINUX_VERSION_CODE)
+ 		return -EINVAL;
+ 
+-	if (type != BPF_PROG_TYPE_SOCKET_FILTER && !capable(CAP_SYS_ADMIN))
++	if (type != BPF_PROG_TYPE_SOCKET_FILTER &&
++	    type != BPF_PROG_TYPE_CGROUP_SKB &&
++	    !capable(CAP_SYS_ADMIN))
+ 		return -EPERM;
+ 
+ 	/* plain bpf_prog allocation */
+-- 
+2.7.4
