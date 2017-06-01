@@ -1,97 +1,119 @@
-From: Kees Cook <keescook@google.com>
-Subject: Re: [PATCH v4 next 1/3] modules:capabilities: allow
- __request_module() to take a capability argument
-Date: Thu, 1 Jun 2017 12:10:07 -0700
-Message-ID: <CAGXu5jJPk5a_66FpMd6D-XdWyzD7sxCPQirz1C6_hEFu4qsP5g@mail.gmail.com>
-References: <1495454226-10027-1-git-send-email-tixxdz@gmail.com>
- <1495454226-10027-2-git-send-email-tixxdz@gmail.com> <CAGXu5jL9jRDkHj20kf4O6VrjiEpvXGzN3nn5Lw4fT2sx_Xg=+A@mail.gmail.com>
- <CAEiveUe5cTCet6=Uzn64YANRZ2Qyqk5OSXqU3MybevbkbeNR3Q@mail.gmail.com>
- <CAGXu5j+L1aEWqi7DC4StwAorfG4da0XqrouMvbz07cJ7gYi0AQ@mail.gmail.com>
- <CAEiveUeZhHtPyLv8=3BsPh5Anr2ynnzD0bprUkeKUGygtRQKsw@mail.gmail.com>
- <CAGXu5jK5exWBV+ub8ys86Ubu1vKwN=miOZxwp3zdWaWEfuJddQ@mail.gmail.com> <CAEiveUeKU-zxXUeeuTZ2Sf1NrbH+t9JjwaWOK_2varRDsfbEWg@mail.gmail.com>
+From: "Duyck, Alexander H" <alexander.h.duyck@intel.com>
+Subject: Re: [Intel-wired-lan] [i40e] regression on TCP stream and TCP
+ maerts, kernel-4.12.0-0.rc2
+Date: Thu, 1 Jun 2017 19:18:05 +0000
+Message-ID: <1496344683.27073.306.camel@intel.com>
+References: <655ed9ab-853e-7497-9ea3-cc8d13f56043@redhat.com>
+         <CAKgT0UcdJQWqr_zxxi36a6_3iMwBNow-YS723i7t6xsKvAqvCA@mail.gmail.com>
+         <CAKgT0Ufb41o=WM=3DM9cwvrw9N5AFn-uL0p1gQB-m+D3BX3DKA@mail.gmail.com>
+         <1496238507.22688.4.camel@redhat.com>
+         <CAKgT0Ucg9wHrKDBjQXKH6gziuinwcK9MO-jRC=0q60Lm-8vFqA@mail.gmail.com>
+         <1496312080.3758.7.camel@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: "Serge E. Hallyn" <serge@hallyn.com>,
-        Rusty Russell <rusty@rustcorp.com.au>,
-        "David S . Miller" <davem@davemloft.net>,
-        Jessica Yu <jeyu@redhat.com>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Network Development <netdev@vger.kernel.org>,
-        linux-security-module <linux-security-module@vger.kernel.org>,
-        "kernel-hardening@lists.openwall.com"
-        <kernel-hardening@lists.openwall.com>,
-        Andy Lutomirski <luto@kernel.org>,
-        Andrew Morton <akpm@linux-foundation.org>,
-        James Morris <james.l.morris@oracle.com>,
-        Paul Moore <paul@paul-moore.com>,
-        Stephen Smalley <sds@tycho.nsa.gov>,
-        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
-        Ingo Molnar <mingo@kernel.org>,
-        Linux API <linux-api@vger.kernel.org>,
-        Dongsu Park <dpar
-To: Djalal Harouni <tixxdz@gmail.com>
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <CAEiveUeKU-zxXUeeuTZ2Sf1NrbH+t9JjwaWOK_2varRDsfbEWg@mail.gmail.com>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "osabart@redhat.com" <osabart@redhat.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "aokuliar@redhat.com" <aokuliar@redhat.com>,
+        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+        "jhladky@redhat.com" <jhladky@redhat.com>
+To: "atomasov@redhat.com" <atomasov@redhat.com>,
+        "alexander.duyck@gmail.com" <alexander.duyck@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga06.intel.com ([134.134.136.31]:20840 "EHLO mga06.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751240AbdFATSR (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 1 Jun 2017 15:18:17 -0400
+In-Reply-To: <1496312080.3758.7.camel@redhat.com>
+Content-Language: en-US
+Content-ID: <59EBFAFEE587AF4F97F2221C2F1FD4E9@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 1, 2017 at 7:56 AM, Djalal Harouni <tixxdz@gmail.com> wrote:
->         module_require_cap = 0;
->
->         if (autoload == MODULES_AUTOLOAD_DISABLED)
->                 return -EPERM;
->
->         if (autoload == MODULES_AUTOLOAD_PRIVILEGED || require_cap > 0) {
->                 if (prefix != NULL && *prefix != '\0')
->                         /*
->                          * Allow non-CAP_SYS_MODULE caps when
->                          * using a distinct prefix.
->                          */
->                         module_require_cap = require_cap;
->                 else
->                         /*
->                          * Otherwise always require CAP_SYS_MODULE if no
->                          * valid prefix. Callers that do not provide a valid prefix
->                          * should not provide a require_cap > 0
->                          */
->                         module_require_cap = CAP_SYS_MODULE;
->         }
->
->         /* If autoload allowed and 'module_require_cap' was *never* set, allow */
->         if (module_require_cap == 0 && autoload == MODULES_AUTOLOAD_ALLOWED)
->                 return 0;
->
->         return capable(module_require_cap) ? 0 : -EPERM;
->
-> Maybe you will agree :-) ?
-
-Yes! Looks good. I was accidentally still thinking about the caps
-checks being in the net code, but obviously, that wouldn't be the case
-anymore. Thanks for the catch. :)
-
-> BTW Kees, also in next version I won't remove the
-> capable(CAP_NET_ADMIN) check from [1]
-> even if there is the new request_module_cap(), I would like it to be
-> in a different patches, this way we go incremental
-> and maybe it is better to merge what we have now ?  and follow up
-> later, and of course if other maintainers agree too!
-
-Yes, incremental. I would suggest first creating the API changes to
-move a basic require_cap test into the LSM (which would drop the
-open-coded capable() checks in the net code), and then add the
-autoload logic in the following patches. That way the "infrastructure"
-changes happen separately and do not change any behaviors, but moves
-the caps test down where its wanted in the LSM, before then augmenting
-the logic.
-
-> I just need a bit of free time to check again everything and will send
-> a v5 with all requested changes.
-
-Great, thank you!
-
--Kees
-
--- 
-Kees Cook
-Pixel Security
+T24gVGh1LCAyMDE3LTA2LTAxIGF0IDEyOjE0ICswMjAwLCBBZHJpYW4gVG9tYXNvdiB3cm90ZToN
+Cj4gT24gV2VkLCAyMDE3LTA1LTMxIGF0IDE0OjQyIC0wNzAwLCBBbGV4YW5kZXIgRHV5Y2sgd3Jv
+dGU6DQo+ID4gDQo+ID4gT24gV2VkLCBNYXkgMzEsIDIwMTcgYXQgNjo0OCBBTSwgQWRyaWFuIFRv
+bWFzb3YgPGF0b21hc292QHJlZGhhdC5jb20+DQo+ID4gd3JvdGU6DQo+ID4gPiANCj4gPiA+IA0K
+PiA+ID4gT24gVHVlLCAyMDE3LTA1LTMwIGF0IDE4OjI3IC0wNzAwLCBBbGV4YW5kZXIgRHV5Y2sg
+d3JvdGU6DQo+ID4gPiA+IA0KPiA+ID4gPiANCj4gPiA+ID4gT24gVHVlLCBNYXkgMzAsIDIwMTcg
+YXQgODo0MSBBTSwgQWxleGFuZGVyIER1eWNrDQo+ID4gPiA+IDxhbGV4YW5kZXIuZHV5Y2tAZ21h
+aWwuY29tPiB3cm90ZToNCj4gPiA+ID4gPiANCj4gPiA+ID4gPiANCj4gPiA+ID4gPiANCj4gPiA+
+ID4gPiBPbiBUdWUsIE1heSAzMCwgMjAxNyBhdCA2OjQzIEFNLCBBZGFtIE9rdWxpYXIgPGFva3Vs
+aWFyQHJlZGhhdC4NCj4gPiA+ID4gPiBjb20+DQo+ID4gPiA+ID4gd3JvdGU6DQo+ID4gPiA+ID4g
+PiANCj4gPiA+ID4gPiA+IA0KPiA+ID4gPiA+ID4gDQo+ID4gPiA+ID4gPiBIZWxsbywNCj4gPiA+
+ID4gPiA+IA0KPiA+ID4gPiA+ID4gd2UgZm91bmQgcmVncmVzc2lvbiBvbiBpbnRlbCBjYXJkKFhM
+NzEwKSB3aXRoIGk0MGUgZHJpdmVyLg0KPiA+ID4gPiA+ID4gUmVncmVzc2lvbiBpcw0KPiA+ID4g
+PiA+ID4gYWJvdXQgfjQ1JQ0KPiA+ID4gPiA+ID4gb24gVENQX1NUUkVBTSBhbmQgVENQX01BRVJU
+UyB0ZXN0IGZvciBJUHY0IGFuZCBJUHY2Lg0KPiA+ID4gPiA+ID4gUmVncmVzc2lvbg0KPiA+ID4g
+PiA+ID4gd2FzIGZpcnN0DQo+ID4gPiA+ID4gPiB2aXNpYmxlIGluIGtlcm5lbC00LjEyLjAtMC5y
+YzEuDQo+ID4gPiA+ID4gPiANCj4gPiA+ID4gPiA+IE1vcmUgZGV0YWlscyBhYm91dCByZXN1bHRz
+IHlvdSBjYW4gc2VlIGluIHVwbG9hZGVkIGltYWdlcyBpbg0KPiA+ID4gPiA+ID4gYnVnemlsbGEu
+IFswXQ0KPiA+ID4gPiA+ID4gDQo+ID4gPiA+ID4gPiANCj4gPiA+ID4gPiA+IFswXSBodHRwczov
+L2J1Z3ppbGxhLmtlcm5lbC5vcmcvc2hvd19idWcuY2dpP2lkPTE5NTkyMw0KPiA+ID4gPiA+ID4g
+DQo+ID4gPiA+ID4gPiANCj4gPiA+ID4gPiA+IEJlc3QgcmVnYXJkcywgLyBTIHBvemRyYXZvbSwN
+Cj4gPiA+ID4gPiA+IA0KPiA+ID4gPiA+ID4gQWRyacOhbiBUb21hxaFvdg0KPiA+ID4gPiA+ID4g
+S2VybmVsIFBlcmZvcm1hbmNlIFFFDQo+ID4gPiA+ID4gPiBhdG9tYXNvdkByZWRoYXQuY29tDQo+
+ID4gPiA+ID4gDQo+ID4gPiA+ID4gSSBoYXZlIGFkZGVkIHRoZSBpNDBlIGRyaXZlciBtYWludGFp
+bmVyIGFuZCB0aGUgaW50ZWwtd2lyZWQtbGFuDQo+ID4gPiA+ID4gbWFpbGluZyBsaXN0IHNvIHRo
+YXQgd2UgY2FuIG1ha2UgYXJlIGRldmVsb3BlcnMgYXdhcmUgb2YgdGhlDQo+ID4gPiA+ID4gaXNz
+dWUuDQo+ID4gPiA+ID4gDQo+ID4gPiA+ID4gVGhhbmtzLg0KPiA+ID4gPiA+IA0KPiA+ID4gPiA+
+IC0gQWxleA0KPiA+ID4gPiANCj4gPiA+ID4gQWRhbSwNCj4gPiA+ID4gDQo+ID4gPiA+IFdlIGFy
+ZSBoYXZpbmcgc29tZSBpc3N1ZXMgdHJ5aW5nIHRvIHJlcHJvZHVjZSB3aGF0IHlvdSByZXBvcnRl
+ZC4NCj4gPiA+ID4gDQo+ID4gPiA+IENhbiB5b3UgcHJvdmlkZSBzb21lIGFkZGl0aW9uYWwgZGF0
+YS4gU3BlY2lmaWNhbGx5IHdlIHdvdWxkIGJlDQo+ID4gPiA+IGxvb2tpbmcNCj4gPiA+ID4gZm9y
+IGFuICJldGh0b29sIC1pIiwgYW5kIGFuICJldGh0b29sIC1TIiBmb3IgdGhlIHBvcnQgYmVmb3Jl
+IGFuZA0KPiA+ID4gPiBhZnRlcg0KPiA+ID4gPiB0aGUgdGVzdC4gSWYgeW91IGNhbiBhdHRhY2gg
+aXQgdG8gdGhlIGJ1Z3ppbGxhIHRoYXQgd291bGQgYmUNCj4gPiA+ID4gYXBwcmVjaWF0ZWQuDQo+
+ID4gPiA+IA0KPiA+ID4gPiBUaGFua3MuDQo+ID4gPiA+IA0KPiA+ID4gPiAtIEFsZXgNCj4gPiA+
+IA0KPiA+ID4gSGVsbG8gQWxleCwNCj4gPiA+IA0KPiA+ID4gcmVxdWVzdGVkIGZpbGVzIGFyZSB1
+cGRhdGVkIGluIGJ1Z3ppbGxhLg0KPiA+ID4gDQo+ID4gPiBJZiB5b3UgaGF2ZSBhbnkgcXVlc3Rp
+b25zIGFib3V0IHRlc3RpbmcgZmVlbCBmcmVlIHRvIGFzay4NCj4gPiA+IA0KPiA+ID4gDQo+ID4g
+PiBCZXN0IHJlZ2FyZHMsDQo+ID4gPiANCj4gPiA+IEFkcmlhbg0KPiA+IA0KPiA+IFNvIGxvb2tp
+bmcgYXQgdGhlIGRhdGEgSSB3b25kZXIgaWYgd2UgZG9uJ3QgaGF2ZSBhbiBNVFUgbWlzbWF0Y2gg
+aW4NCj4gPiB0aGUgbmV0d29yayBjb25maWcuIEkgbm90aWNlIHRoZSAiYWZ0ZXIiIGhhcyByeF9s
+ZW5ndGhfZXJyb3JzIGJlaW5nDQo+ID4gcmVwb3J0ZWQuIFJlY2VudCBjaGFuZ2VzIG1hZGUgaXQg
+c28gdGhhdCBpNDBlIGRvZXNuJ3Qgc3VwcG9ydCBqdW1ibw0KPiA+IGZyYW1lcyBieSBkZWZhdWx0
+LCB3aGVyZWFzIGJlZm9yZSB3ZSBjb3VsZC4gWW91IG1pZ2h0IHdhbnQgdG8gY2hlY2sNCj4gPiBm
+b3IgdGhhdCBhcyB0aGF0IGNvdWxkIGNhdXNlIHRoZSBraW5kIG9mIHBlcmZvcm1hbmNlIGlzc3Vl
+cyB5b3UgYXJlDQo+ID4gc2VlaW5nLg0KPiA+IA0KPiA+IC0gQWxleA0KPiANCj4gVGhlcmUgaXNu
+J3QgTVRVIG1pc21hdGNoLiBUcmFmZmljIHBhdGggaXMgOiBzZXJ2ZXIgLT4gc3dpdGNoIC0+DQo+
+IHNlcnZlci7CoA0KPiANCj4gDQo+IE91dHB1dCBmcm9tIHN3aXRjaDoNCj4gDQo+ICAgICA+IHNo
+b3cgaW50ZXJmYWNlcyBldC0wLzAvMTjCoMKgwqDCoA0KPiAgICAgUGh5c2ljYWwgaW50ZXJmYWNl
+OiBldC0wLzAvMTgsIEVuYWJsZWQsIFBoeXNpY2FsIGxpbmsgaXMgVXANCj4gICAgIMKgIEludGVy
+ZmFjZSBpbmRleDogNjQ0LCBTTk1QIGlmSW5kZXg6IDUzOA0KPiAgICAgwqAgTGluay1sZXZlbCB0
+eXBlOiBFdGhlcm5ldCwgTVRVOiAxNTE0LCBTcGVlZDogNDBHYnBzLCBCUERVIEVycm9yOg0KPiAg
+ICAgTm9uZSwgTUFDLVJFV1JJVEUgRXJyb3I6IE5vbmUsIExvb3BiYWNrOiBEaXNhYmxlZCwgU291
+cmNlIGZpbHRlcmluZzoNCj4gICAgIERpc2FibGVkLCBGbG93IGNvbnRyb2w6IERpc2FibGVkLCBN
+ZWRpYSB0eXBlOiBGaWJlcg0KPiAgICAgwqAgRGV2aWNlIGZsYWdzwqDCoMKgOiBQcmVzZW50IFJ1
+bm5pbmcNCj4gICAgIMKgIEludGVyZmFjZSBmbGFnczogU05NUC1UcmFwcyBJbnRlcm5hbDogMHg0
+MDAwDQo+ICAgICDCoCBMaW5rIGZsYWdzwqDCoMKgwqDCoDogTm9uZQ0KPiAgICAgwqAgQ29TIHF1
+ZXVlc8KgwqDCoMKgwqA6IDEyIHN1cHBvcnRlZCwgMTIgbWF4aW11bSB1c2FibGUgcXVldWVzDQo+
+ICAgICDCoCBDdXJyZW50IGFkZHJlc3M6IGQ0OjA0OmZmOjkwOjVhOjRiLCBIYXJkd2FyZSBhZGRy
+ZXNzOg0KPiAgICAgZDQ6MDQ6ZmY6OTA6NWE6NGINCj4gICAgIMKgIExhc3QgZmxhcHBlZMKgwqDC
+oDogMjAxNy0wNi0wMSAxMDowOTozMiBDRVNUICgwMToyMToyOSBhZ28pDQo+ICAgICDCoCBJbnB1
+dCByYXRlwqDCoMKgwqDCoDogNDMyIGJwcyAoMCBwcHMpDQo+ICAgICDCoCBPdXRwdXQgcmF0ZcKg
+wqDCoMKgOiA4MzM2IGJwcyAoMTEgcHBzKQ0KPiAgICAgwqAgQWN0aXZlIGFsYXJtc8KgwqA6IE5v
+bmUNCj4gICAgIMKgIEFjdGl2ZSBkZWZlY3RzIDogTm9uZQ0KPiAgICAgwqAgSW50ZXJmYWNlIHRy
+YW5zbWl0IHN0YXRpc3RpY3M6IERpc2FibGVkDQo+IA0KPiAgICAgwqAgTG9naWNhbCBpbnRlcmZh
+Y2UgZXQtMC8wLzE4LjAgKEluZGV4IDU1MikgKFNOTVAgaWZJbmRleCA1MzkpDQo+ICAgICDCoMKg
+wqDCoEZsYWdzOiBTTk1QLVRyYXBzIDB4MjQwMjQwMDAgRW5jYXBzdWxhdGlvbjogRXRoZXJuZXQt
+QnJpZGdlDQo+ICAgICDCoMKgwqDCoElucHV0IHBhY2tldHMgOiA0NjQwNDENCj4gICAgIMKgwqDC
+oMKgT3V0cHV0IHBhY2tldHM6IDIwOTIxMA0KPiAgICAgwqDCoMKgwqBQcm90b2NvbCBldGgtc3dp
+dGNoLCBNVFU6IDE1MTQNCj4gICAgIMKgwqDCoMKgwqDCoEZsYWdzOiBJcy1QcmltYXJ5LCBUcnVu
+ay1Nb2RlDQo+IA0KPiANCj4gTVRVIGlzIHNhbWUgZm9yIGFsbCBldC0wLzAveCBpbnRlcmZhY2Vz
+LsKgDQo+IA0KPiAtIEFkcmlhbg0KDQpPbmUgdGhpbmcgeW91IG1pZ2h0IHRyeSB0cnkgZG9pbmcg
+aXMgdG9nZ2xpbmcgdGhlIGxlZ2FjeS1yeCBmbGFnIHVzaW5nDQp0aGUgImV0aHRvb2wgLS1zaG93
+LXByaXYtZmxhZ3MvLS1zZXQtcHJpdi1mbGFncyIgY29tbWFuZCB0byBzZWUgaWYgdGhhdA0KaGFz
+IGFueSBpbXBhY3QuIFRoYXQgd2lsbCBoZWxwIHRvIHJ1bGUgdGhpbmdzIG91dCBhcyB0aGUgbW9z
+dA0Kc2lnbmlmaWNhbnQgY2hhbmdlIEkgY2FuIHRoaW5rIG9mIGlzIHRoZSByZWNlbnQgdXBkYXRl
+IG9mIHRoZSBSeCBwYXRoDQp0byBzdXBwb3J0IFhEUC4NCg0KQWxzbyBvbmUgb3RoZXIgdGhpbmcg
+eW91IG1pZ2h0IHRyeSB3b3VsZCBiZSB0byB1c2UgYSBmaXhlZCBpbnRlcnJ1cHQNCm1vZGVyYXRp
+b24gcmF0ZSBieSBsb2NraW5nIHRoaW5ncyBkb3duIHVzaW5nICJldGh0b29sIC1DIiB0byBkaXNh
+YmxlDQphZGFwdGl2ZSBpbnRlcnJ1cHQgbW9kZXJhdGlvbiBhbmQgbG9jayB0aGUgUnggdXNlY3Mg
+YW5kIFR4IHVzZWNzIGF0DQpzb21lIHByZWRlZmluZWQgdmFsdWVzLiBJIHNlZW0gdG8gcmVjYWxs
+IHRoZXJlIGhhdmUgYmVlbiBzb21lIGludGVycnVwdA0KbW9kZXJhdGlvbiBjaGFuZ2VzIG1hZGUg
+cmVjZW50bHkgdGhhdCBtaWdodCBiZSBpbXBhY3RpbmcgdGhlDQpwZXJmb3JtYW5jZS4NCg0KQmV5
+b25kIHRoYXQgaXMgdGhlcmUgYW55IGNoYW5jZSB5b3Ugd291bGQgYmUgYWJsZSB0byBiaXNlY3Qg
+dGhlIGlzc3VlPw0KVW5mb3J0dW5hdGVseSB3ZSBoYXZlbid0IGJlIGFibGUgdG8gcmVwcm9kdWNl
+IGl0IGludGVybmFsbHkgc28gYW55dGhpbmcNCnRoYXQgd291bGQgaGVscCB1cyB0byBuYXJyb3cg
+ZG93biB0aGUgcHJvYmxlbSB3b3VsZCBiZSB1c2VmdWwuDQoNClRoYW5rcy4NCg0KLSBBbGV4
