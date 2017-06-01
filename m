@@ -1,54 +1,68 @@
-From: Yuval Mintz <Yuval.Mintz@cavium.com>
-Subject: [PATCH net] bnx2x: Fix Multi-Cos
-Date: Thu, 1 Jun 2017 15:57:56 +0300
-Message-ID: <20170601125756.25019-1-Yuval.Mintz@cavium.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH 2/5] net: phy: hook up clause 45 autonegotiation restart
+Date: Thu, 1 Jun 2017 15:05:27 +0200
+Message-ID: <20170601130527.GG9282@lunn.ch>
+References: <20170601102327.GF27796@n2100.armlinux.org.uk>
+ <E1dGNJM-00043g-KJ@rmk-PC.armlinux.org.uk>
+ <20170601122350.GA9282@lunn.ch>
+ <20170601125132.GY22219@n2100.armlinux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <eric.dumazet@gmail.com>, Yuval Mintz <Yuval.Mintz@cavium.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
+To: Russell King - ARM Linux <linux@armlinux.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-cys01nam02on0042.outbound.protection.outlook.com ([104.47.37.42]:27835
-        "EHLO NAM02-CY1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1750952AbdFAM6U (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 1 Jun 2017 08:58:20 -0400
+Received: from vps0.lunn.ch ([178.209.37.122]:32806 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751083AbdFANF3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 1 Jun 2017 09:05:29 -0400
+Content-Disposition: inline
+In-Reply-To: <20170601125132.GY22219@n2100.armlinux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Apparently multi-cos isn't working for bnx2x quite some time -
-driver implements ndo_select_queue() to allow queue-selection
-for FCoE, but the regular L2 flow would cause it to modulo the
-fallback's result by the number of queues.
-The fallback would return a queue matching the needed tc
-[via __skb_tx_hash()], but since the modulo is by the number of TSS
-queues where number of TCs is not accounted, transmission would always
-be done by a queue configured into using TC0.
+> > > +/**
+> > > + * phy_restart_aneg - restart auto-negotiation
+> > > + * @phydev: target phy_device struct
+> > > + *
+> > > + * Restart the autonegotiation on @phydev.  Returns >= 0 on success or
+> > > + * negative errno on error.
+> > > + */
+> > > +int phy_restart_aneg(struct phy_device *phydev)
+> > > +{
+> > > +	int ret;
+> > > +
+> > > +	if (phydev->is_c45)
+> > > +		ret = genphy_c45_restart_aneg(phydev);
+> > > +	else
+> > > +		ret = genphy_restart_aneg(phydev);
+> > > +
+> > > +	return ret;
+> > > +}
+> > > +EXPORT_SYMBOL_GPL(phy_restart_aneg);
+> > 
+> > Hi Russell
+> > 
+> > Isn't the same sort of thing needed in phy_aneg_done()?
+> 
+> No, because phy_aneg_done() already has hooks in it which PHY drivers
+> can use to override the default C22 implementation.
+> 
+> I did toy with providing a similar conditional in phy_aneg_done(), but
+> decided it was better to use the existing hooks where present, rather
+> than needlessly adding additional code.
 
-Fixes: ada7c19e6d27 ("bnx2x: use XPS if possible for bnx2x_select_queue instead of pure hash")
-Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
----
-Hi Dave,
+Hi Russell
 
-Please consider applying this to `net'.
+So you are saying a 10G PHY driver always needs to have a aneg_done
+callback, even if it just needs to call phygen_c45_aneg_done?
 
-Thanks,
-Yuval
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+This seems a bit error prone. I can see somebody writing a 10G driver,
+leaving out aneg_done() and having the c22 version called. Is the read
+of MII_BMSR likely to return 0xffff, since the register does not
+exist? If so, genphy_aneg_done() is likely to always return
+BMSR_ANEGCOMPLETE.
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-index eccb3d1..5f49334 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-@@ -1926,7 +1926,7 @@ u16 bnx2x_select_queue(struct net_device *dev, struct sk_buff *skb,
- 	}
- 
- 	/* select a non-FCoE queue */
--	return fallback(dev, skb) % BNX2X_NUM_ETH_QUEUES(bp);
-+	return fallback(dev, skb) % (BNX2X_NUM_ETH_QUEUES(bp) * bp->max_cos);
- }
- 
- void bnx2x_set_num_queues(struct bnx2x *bp)
--- 
-2.7.4
+Seems like a trap waiting for somebody to fall into it. The additional
+code might be worth it to avoid placing this trap.
+
+      Andrew
