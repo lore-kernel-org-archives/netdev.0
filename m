@@ -1,56 +1,41 @@
-From: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Subject: Re: [for-next 4/6] net/mlx5: FPGA, Add basic support for Innova
-Date: Thu, 1 Jun 2017 09:37:04 -0600
-Message-ID: <20170601153704.GA1680@obsidianresearch.com>
-References: <20170526030701.du4345mbprhcwjyi@ast-mbp>
- <CALzJLG98D=3yMJV_q4sjVNG41AERFRU+6rwqQJsxnRuVeDTPdA@mail.gmail.com>
- <20170526175624.5xxflpf24je5673h@ast-mbp>
- <20170526181517.GA3860@obsidianresearch.com>
- <AM4PR0501MB1940330F0EBAA819C87C5278DBF20@AM4PR0501MB1940.eurprd05.prod.outlook.com>
- <20170529153131.GB7924@obsidianresearch.com>
- <AM4PR0501MB1940D05A19F098286B99EAD0DBF30@AM4PR0501MB1940.eurprd05.prod.outlook.com>
- <20170529160252.GA27550@obsidianresearch.com>
- <AM4PR0501MB194037FF8F17466BC9ECC73DDBF30@AM4PR0501MB1940.eurprd05.prod.outlook.com>
- <AM4PR0501MB19409139227E11A4A7F82F0FDBF30@AM4PR0501MB1940.eurprd05.prod.outlook.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] qlcnic: Fix a sleep-in-atomic bug in
+ qlcnic_82xx_hw_write_wx_2M and qlcnic_82xx_hw_read_wx_2M
+Date: Thu, 01 Jun 2017 11:42:30 -0400 (EDT)
+Message-ID: <20170601.114230.1418496773053967971.davem@davemloft.net>
+References: <1496305090-17814-1-git-send-email-baijiaju1990@163.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Saeed Mahameed <saeedm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>,
-        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "jsorensen-b10kYP2dOMg@public.gmane.org" <jsorensen-b10kYP2dOMg@public.gmane.org>,
-        Andy Shevchenko <andy.shevchenko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        "linux-fpga-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-fpga-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Alan Tull <atull-yzvPICuk2ABMcg4IHK0kFoH6Mc4MB0Vx@public.gmane.org>,
-        "yi1.li-VuQAYsv1563Yd54FQh9/CA@public.gmane.org" <yi1.li-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-        Boris Pismenny <borisp-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-To: Ilan Tayari <ilant-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <AM4PR0501MB19409139227E11A4A7F82F0FDBF30-dp/nxUn679gfNUYDR5dMTsDSnupUy6xnnBOFsp37pqbUKgpGm//BTAC/G2K4zDHf@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: harish.patil@cavium.com, manish.chopra@cavium.com,
+        Dept-GELinuxNICDev@cavium.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: baijiaju1990@163.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:56056 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751083AbdFAPmc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Jun 2017 11:42:32 -0400
+In-Reply-To: <1496305090-17814-1-git-send-email-baijiaju1990@163.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 29, 2017 at 04:09:06PM +0000, Ilan Tayari wrote:
+From: Jia-Ju Bai <baijiaju1990@163.com>
+Date: Thu,  1 Jun 2017 16:18:10 +0800
 
-> > For IPSec, this is already in the kernel.
-> > See this patchset:
-> > http://www.mail-archive.com/netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org/msg162876.html
+> The driver may sleep under a write spin lock, and the function 
+> call path is:
+> qlcnic_82xx_hw_write_wx_2M (acquire the lock by write_lock_irqsave)
+>   crb_win_lock
+>     qlcnic_pcie_sem_lock
+>       usleep_range
+> qlcnic_82xx_hw_read_wx_2M (acquire the lock by write_lock_irqsave)
+>   crb_win_lock
+>     qlcnic_pcie_sem_lock
+>       usleep_range
 > 
-> Sorry, I pointed at the RFC by mistake.
+> To fix it, the usleep_range is replaced with udelay.
 > 
-> This is the relevant pull request:
-> https://patchwork.ozlabs.org/patch/752707/
+> Signed-off-by: Jia-Ju Bai <baijiaju1990@163.com>
 
-This is connecting ipsec to a netdev, while Innova seems to be a
-network connected ipsec accelerator configured using IP packets.
-
-Those two things don't seem to be the same.
-
-Jason
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied.
