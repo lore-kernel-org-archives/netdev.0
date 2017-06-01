@@ -1,66 +1,78 @@
-From: Eli Cohen <eli@mellanox.com>
-Subject: RE: [PATCH iproute2] iplink: Update usage in help message
-Date: Thu, 1 Jun 2017 18:06:09 +0000
-Message-ID: <AM4PR0501MB2787D4D88D0BC744C1B8CEDAC5F60@AM4PR0501MB2787.eurprd05.prod.outlook.com>
-References: <1496304042-8773-1-git-send-email-tariqt@mellanox.com>
- <CAJ3xEMh9qgGF9LbyNriPafiz3cgdiV8wQ9_A9Zbb4tU3oQ9agg@mail.gmail.com>
+From: Alexei Starovoitov <ast@fb.com>
+Subject: Re: [PATCH v2 net-next 0/8] Introduce bpf ID
+Date: Thu, 1 Jun 2017 11:27:56 -0700
+Message-ID: <cae83d5f-85ea-4c16-5f6b-2b71f0768b05@fb.com>
+References: <cover.1496256722.git.kafai@fb.com>
+ <20170531192256.0e0d0ce1@cakuba.lan>
+ <3f269312-efd4-86fc-e8e2-814af5898648@gmail.com>
+ <6ab73989-6246-ba15-7178-7863a110165c@fb.com>
+ <18d3c571-7434-eaea-43dc-d237712309d1@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-        Linux Netdev List <netdev@vger.kernel.org>,
-        Eran Ben Elisha <eranbe@mellanox.com>
-To: Or Gerlitz <gerlitz.or@gmail.com>,
-        Tariq Toukan <tariqt@mellanox.com>
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, Daniel Borkmann <daniel@iogearbox.net>,
+        <kernel-team@fb.com>
+To: David Ahern <dsahern@gmail.com>, Jakub Kicinski <kubakici@wp.pl>,
+        Martin KaFai Lau <kafai@fb.com>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-eopbgr20044.outbound.protection.outlook.com ([40.107.2.44]:44493
-        "EHLO EUR02-VE1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751130AbdFASGM (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 1 Jun 2017 14:06:12 -0400
-In-Reply-To: <CAJ3xEMh9qgGF9LbyNriPafiz3cgdiV8wQ9_A9Zbb4tU3oQ9agg@mail.gmail.com>
-Content-Language: en-US
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:46964 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751130AbdFAS2X (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Jun 2017 14:28:23 -0400
+In-Reply-To: <18d3c571-7434-eaea-43dc-d237712309d1@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-U3VyZSwgd2lsbCBkby4NCg0KLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCkZyb206IE9yIEdl
-cmxpdHogW21haWx0bzpnZXJsaXR6Lm9yQGdtYWlsLmNvbV0gDQpTZW50OiBUaHVyc2RheSwgSnVu
-ZSAxLCAyMDE3IDU6NTYgQU0NClRvOiBUYXJpcSBUb3VrYW4gPHRhcmlxdEBtZWxsYW5veC5jb20+
-OyBFbGkgQ29oZW4gPGVsaUBtZWxsYW5veC5jb20+DQpDYzogU3RlcGhlbiBIZW1taW5nZXIgPHN0
-ZXBoZW5AbmV0d29ya3BsdW1iZXIub3JnPjsgTGludXggTmV0ZGV2IExpc3QgPG5ldGRldkB2Z2Vy
-Lmtlcm5lbC5vcmc+OyBFcmFuIEJlbiBFbGlzaGEgPGVyYW5iZUBtZWxsYW5veC5jb20+DQpTdWJq
-ZWN0OiBSZTogW1BBVENIIGlwcm91dGUyXSBpcGxpbms6IFVwZGF0ZSB1c2FnZSBpbiBoZWxwIG1l
-c3NhZ2UNCg0KT24gVGh1LCBKdW4gMSwgMjAxNyBhdCAxMTowMCBBTSwgVGFyaXEgVG91a2FuIDx0
-YXJpcXRAbWVsbGFub3guY29tPiB3cm90ZToNCj4gRnJvbTogRWxpIENvaGVuIDxlbGlAbWVsbGFu
-b3guY29tPg0KPg0KPiBBZGQgdG8gdXNhZ2UgbWVzc2FnZSBhIGRlc2NyaXB0aW9uIG9mIGhvdyB0
-byBjb25maWd1cmUgSW5maW5pYmFuZCBub2RlIA0KPiBhbmQgcG9ydCBHVUlEcy4NCj4NCj4gRml4
-ZXM6IGQ5MWZiM2Y0YzdlNCAoJ0FkZCBzdXBwb3J0IGZvciBjb25maWd1cmluZyBJbmZpbmliYW5k
-IEdVSURzJykNCj4gU2lnbmVkLW9mZi1ieTogRWxpIENvaGVuIDxlbGlAbWVsbGFub3guY29tPg0K
-PiBTaWduZWQtb2ZmLWJ5OiBUYXJpcSBUb3VrYW4gPHRhcmlxdEBtZWxsYW5veC5jb20+DQo+IC0t
-LQ0KPiAgaXAvaXBsaW5rLmMgfCAyICsrDQo+ICAxIGZpbGUgY2hhbmdlZCwgMiBpbnNlcnRpb25z
-KCspDQo+DQo+IGRpZmYgLS1naXQgYS9pcC9pcGxpbmsuYyBiL2lwL2lwbGluay5jIGluZGV4IA0K
-PiBkYTNmOWE3NzkzNTEuLmVhMTEyZjcxYmVmYyAxMDA2NDQNCj4gLS0tIGEvaXAvaXBsaW5rLmMN
-Cj4gKysrIGIvaXAvaXBsaW5rLmMNCj4gQEAgLTkxLDYgKzkxLDggQEAgdm9pZCBpcGxpbmtfdXNh
-Z2Uodm9pZCkNCj4gICAgICAgICAgICAgICAgICIgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgWyBxdWVyeV9yc3MgeyBvbiB8IG9mZn0gXVxuIg0KPiAgICAgICAgICAgICAgICAgIiAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBbIHN0YXRlIHsgYXV0byB8IGVuYWJsZSB8
-IGRpc2FibGV9IF0gXVxuIg0KPiAgICAgICAgICAgICAgICAgIiAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICBbIHRydXN0IHsgb24gfCBvZmZ9IF0gXVxuIg0KPiArICAgICAgICAgICAg
-ICAgIiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBbIG5vZGVfZ3VpZCB7IGV1aTY0
-IH0gXVxuIg0KPiArICAgICAgICAgICAgICAgIiAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICBbIHBvcnRfZ3VpZCB7IGV1aTY0IH0gXVxuIg0KPiAgICAgICAgICAgICAgICAgIiAgICAg
-ICAgICAgICAgICAgICAgICAgICBbIHhkcCB7IG9mZiB8XG4iDQo+ICAgICAgICAgICAgICAgICAi
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgb2JqZWN0IEZJTEUgWyBzZWN0aW9uIE5B
-TUUgXSBbIHZlcmJvc2UgXSB8XG4iDQo+ICAgICAgICAgICAgICAgICAiICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgcGlubmVkIEZJTEUgfSBdXG4iDQoNCg0KRWxpLA0KDQpJIHNlZSBu
-b3cgdGhhdCB5b3VyIG9yaWdpbmFsIHBhdGNoIHRvdWNoZWQgdGhlIG1hbiBwYWdlIGJ1dCB0aGUg
-d29yZCBpbmZpbmliYW5kIGlzbid0IG1lbnRpb25lZDoNCg0KQEAgLTExOTYsNiArMTIwMCwxMiBA
-QCBzZW50IGJ5IHRoZSBWRi4NCiAuQkkgdHJ1c3QgIiBvbnxvZmYiDQogLSB0cnVzdCB0aGUgc3Bl
-Y2lmaWVkIFZGIHVzZXIuIFRoaXMgZW5hYmxlcyB0aGF0IFZGIHVzZXIgY2FuIHNldCBhIHNwZWNp
-ZmljIGZlYXR1cmUgIHdoaWNoIG1heSBpbXBhY3Qgc2VjdXJpdHkgYW5kL29yIHBlcmZvcm1hbmNl
-LiAoZS5nLiBWRiBtdWx0aWNhc3QgcHJvbWlzY3VvdXMgbW9kZSkNCisuc3ANCisuQkkgbm9kZV9n
-dWlkICIgZXVpNjQiDQorLSBjb25maWd1cmUgbm9kZSBHVUlEIGZvciB0aGUgVkYuDQorLnNwDQor
-LkJJIHBvcnRfZ3VpZCAiIGV1aTY0Ig0KKy0gY29uZmlndXJlIHBvcnQgR1VJRCBmb3IgdGhlIFZG
-Lg0KDQoNCndvdWxkIGJlIGdvb2QgaWYgeW91IGVuaGFuY2UgdGhpcyBwYXRjaCB0byBzcGVsbCBz
-b21ldGhpbmcgbGlrZQ0KDQpjb25maWd1cmUgbm9kZSBHVUlEIGZvciBpbmZpbmliYW5kIFZGcy4N
-Cg0KY29uZmlndXJlIHBvcnQgR1VJRCBmb3IgaW5maW5pYmFuZCBWRnMuDQoNCk9yLg0K
+On 6/1/17 10:51 AM, David Ahern wrote:
+> On 6/1/17 11:24 AM, Alexei Starovoitov wrote:
+>>
+>> what problem are we trying to solve?
+>> If we don't agree on the problem, we won't be able to agree on the
+>> solution.
+>
+> I want the ability to retrieve the BPF instructions pushed to the
+> kernel. Not just for cgroups and VRF, but everywhere - cgroups, sockets,
+> xdp, filters, etc. I have this stated many times, including to you at
+> netconf in April. From that discussion and the discussion on the RFC
+> patch I sent in February, I thought we had an agreement that saving the
+> instructions was the first step.
+>
+> Quentin at 6wind has expressed a similar interest for cls_bpf and
+> act_bpf code.
+>
+> I read Jakub's email as wanting the same but for XDP.
+>
+> The patches I referenced earlier save the original instructions and
+> enable them to be read by userspace from an fd return by the bpf
+> syscall. Combine that with the ID and we have a solution.
+
+Please explain the problem instead of pushing for 'solution'.
+In this case I do not see a problem that saving original instructions
+will solve.
+
+'I want to retrieve original instructions' is not a problem. It's a
+push for 'solution'. Explaining 'why' you want to see original
+instructions would describe the actual problem.
+If you're trying to debug something you're interested in original
+source code and in the instructions that kernel is running.
+To correlate to source code we have prog_tag (that was computed
+over original insns).
+To see kernel instructions in the interpreter and JITed assembler
+we have this set of patches.
+Original instructions are not useful for debugging,
+since they have map_fds which can be long gone when program
+is running, therefore to solve introspection problem we need to
+look into real kernel instructions.
+
+My understanding that 6wind wants to see original instructions to
+accelerate them somehow using out of tree technology.
+I'm not interested to help that cause. I also suspect that
+retrieving kernel instructions will not be much different from
+that point of view, but at least returning kernel insns is
+solving introspection problem for everyone.
+
+Returning kernel insns also doesn't burn unnecessary memory,
+whereas original insns will be there as dead weight.
+Hence before we add them we need to be absolutely clear that
+there is no cheaper alternative possible.
