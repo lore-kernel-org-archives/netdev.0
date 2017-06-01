@@ -1,43 +1,55 @@
-From: Roi Dayan <roid@mellanox.com>
-Subject: Re: [net] vxlan: fix use-after-free on deletion
-Date: Thu, 1 Jun 2017 14:32:49 +0300
-Message-ID: <c1f40352-0d67-f14c-2b52-69c908f992de@mellanox.com>
-References: <1496306615-770-1-git-send-email-markb@mellanox.com>
- <20170601105308.0be70eb4@griffin>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <roid@mellanox.com>, <roopa@cumulusnetworks.com>,
-        <netdev@vger.kernel.org>
-To: Jiri Benc <jbenc@redhat.com>, Mark Bloch <markb@mellanox.com>
+From: Ganesh Goudar <ganeshgr@chelsio.com>
+Subject: [PATCH net] cxgb4: update latest firmware version supported
+Date: Thu,  1 Jun 2017 17:11:30 +0530
+Message-ID: <1496317290-26368-1-git-send-email-ganeshgr@chelsio.com>
+Cc: nirranjan@chelsio.com, Ganesh Goudar <ganeshgr@chelsio.com>
+To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ve1eur01on0064.outbound.protection.outlook.com ([104.47.1.64]:58577
-        "EHLO EUR01-VE1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1750952AbdFALc6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 1 Jun 2017 07:32:58 -0400
-In-Reply-To: <20170601105308.0be70eb4@griffin>
+Received: from stargate.chelsio.com ([12.32.117.8]:41972 "EHLO
+        stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750952AbdFALly (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Jun 2017 07:41:54 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Change t4fw_version.h to update latest firmware version
+number to 1.16.45.0.
 
+Signed-off-by: Ganesh Goudar <ganeshgr@chelsio.com>
+---
+ drivers/net/ethernet/chelsio/cxgb4/t4fw_version.h | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-On 01/06/2017 11:53, Jiri Benc wrote:
-> On Thu, 1 Jun 2017 11:43:35 +0300, Mark Bloch wrote:
->> Adding a vxlan interface to a socket isn't symmetrical, while adding
->> is done in vxlan_open() the deletion is done in vxlan_dellink().
->> This can cause a use-after-free error when we close the vxlan
->> interface before deleting it.
->>
->> We add vxlan_vs_del_dev() to match vxlan_vs_add_dev() and call
->> it from vxlan_stop() to match the call from vxlan_open().
->>
->> Signed-off-by: Mark Bloch <markb@mellanox.com>
->
-> Acked-by: Jiri Benc <jbenc@redhat.com>
->
-
-Hi, I did some tests and didn't reproduce the original kasan issue
-reported.
-
-Tested-by: Roi Dayan <roid@mellanox.com>
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4fw_version.h b/drivers/net/ethernet/chelsio/cxgb4/t4fw_version.h
+index 3549d387..f2d623a 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4fw_version.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4fw_version.h
+@@ -37,7 +37,7 @@
+ 
+ #define T4FW_VERSION_MAJOR 0x01
+ #define T4FW_VERSION_MINOR 0x10
+-#define T4FW_VERSION_MICRO 0x2B
++#define T4FW_VERSION_MICRO 0x2D
+ #define T4FW_VERSION_BUILD 0x00
+ 
+ #define T4FW_MIN_VERSION_MAJOR 0x01
+@@ -46,7 +46,7 @@
+ 
+ #define T5FW_VERSION_MAJOR 0x01
+ #define T5FW_VERSION_MINOR 0x10
+-#define T5FW_VERSION_MICRO 0x2B
++#define T5FW_VERSION_MICRO 0x2D
+ #define T5FW_VERSION_BUILD 0x00
+ 
+ #define T5FW_MIN_VERSION_MAJOR 0x00
+@@ -55,7 +55,7 @@
+ 
+ #define T6FW_VERSION_MAJOR 0x01
+ #define T6FW_VERSION_MINOR 0x10
+-#define T6FW_VERSION_MICRO 0x2B
++#define T6FW_VERSION_MICRO 0x2D
+ #define T6FW_VERSION_BUILD 0x00
+ 
+ #define T6FW_MIN_VERSION_MAJOR 0x00
+-- 
+2.1.0
