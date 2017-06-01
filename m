@@ -1,20 +1,17 @@
 From: Timur Tabi <timur@codeaurora.org>
 Subject: [for 4.12] net: qcom/emac: do not use hardware mdio automatic polling
-Date: Thu,  1 Jun 2017 16:05:35 -0500
-Message-ID: <1496351135-6074-1-git-send-email-timur@codeaurora.org>
+Date: Thu,  1 Jun 2017 16:08:13 -0500
+Message-ID: <1496351293-6846-1-git-send-email-timur@codeaurora.org>
 Cc: timur@codeaurora.org
 To: linux-arm-kernel@lists.infradead.org,
-        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        Manoj Iyer <manoj.iyer@canonical.com>,
-        zefir.kurtisi@neratec.com, andrew@lunn.ch,
-        matthias.may@neratec.com, f.fainelli@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:58940 "EHLO
-        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751078AbdFAVFl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 1 Jun 2017 17:05:41 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Manoj Iyer <manoj.iyer@canonical.com>, netdev@vger.kernel.org,
+        stable@vger.kernel.org, zefir.kurtisi@neratec.com, andrew@lunn.ch,
+        matthias.may@neratec.com
+Return-path: <stable-owner@vger.kernel.org>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 Use software polling (PHY_POLL) to check for link state changes instead
 of relying on the EMAC's hardware polling feature.  Some PHY drivers
