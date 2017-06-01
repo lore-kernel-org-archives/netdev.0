@@ -1,77 +1,26 @@
-From: Alexander Potapenko <glider@google.com>
-Subject: Re: [PATCH v3] net: don't call strlen on non-terminated string in dev_set_alias()
-Date: Thu, 1 Jun 2017 15:50:33 +0200
-Message-ID: <CAG_fn=U0n4Sn4_44e63FjsYPTTDX4ivAbTcuL2s3erFc+g6n2g@mail.gmail.com>
-References: <20170601123829.51794-1-glider@google.com> <20170601134737.7dp2pbnek26b6kqf@yury-thinkpad>
+From: <Woojung.Huh@microchip.com>
+Subject: RE: [PATCH][net-next] net: dsa: make function ksz_rcv static
+Date: Thu, 1 Jun 2017 13:53:15 +0000
+Message-ID: <9235D6609DB808459E95D78E17F2E43D40AA7BD2@CHN-SV-EXMX02.mchp-main.com>
+References: <20170601122242.14341-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-Cc: Dmitriy Vyukov <dvyukov@google.com>,
-        Kostya Serebryany <kcc@google.com>,
-        Eric Dumazet <edumazet@google.com>,
-        David Miller <davem@davemloft.net>, stephen@networkplumber.org,
-        LKML <linux-kernel@vger.kernel.org>,
-        Networking <netdev@vger.kernel.org>
-To: Yury Norov <ynorov@caviumnetworks.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: <kernel-janitors@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: <colin.king@canonical.com>, <UNGLinuxDriver@microchip.com>,
+        <andrew@lunn.ch>, <vivien.didelot@savoirfairelinux.com>,
+        <f.fainelli@gmail.com>, <davem@davemloft.net>,
+        <netdev@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170601134737.7dp2pbnek26b6kqf@yury-thinkpad>
+In-Reply-To: <20170601122242.14341-1-colin.king@canonical.com>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jun 1, 2017 at 3:47 PM, Yury Norov <ynorov@caviumnetworks.com> wrot=
-e:
-> On Thu, Jun 01, 2017 at 02:38:29PM +0200, Alexander Potapenko wrote:
->> KMSAN reported a use of uninitialized memory in dev_set_alias(),
->> which was caused by calling strlcpy() (which in turn called strlen())
->> on the user-supplied non-terminated string.
->>
->> Signed-off-by: Alexander Potapenko <glider@google.com>
->> ---
->> v3: removed the multi-line comment
->> v2: fixed an off-by-one error spotted by Dmitry Vyukov
->
-> [...]
->
->> ---
->>  net/core/dev.c | 4 +++-
->>  1 file changed, 3 insertions(+), 1 deletion(-)
->>
->> diff --git a/net/core/dev.c b/net/core/dev.c
->> index fca407b4a6ea..3e3b29133cc9 100644
->> --- a/net/core/dev.c
->> +++ b/net/core/dev.c
->> @@ -1254,7 +1254,9 @@ int dev_set_alias(struct net_device *dev, const ch=
-ar *alias, size_t len)
->>               return -ENOMEM;
->>       dev->ifalias =3D new_ifalias;
->>
->> -     strlcpy(dev->ifalias, alias, len+1);
->> +     /* alias comes from the userspace and may not be zero-terminated. =
-*/
->
-> So if the comment is correct, you'd use copy_from_user() instead.
-Well, the contents of |alias| have been previously copied from the
-userspace, but this is a pointer to a kernel buffer, as the function
-prototype tells.
-Do you think a confusion is possible here?
->> +     memcpy(dev->ifalias, alias, len);
->> +     dev->ifalias[len] =3D 0;
->>       return len;
->>  }
->>
->> --
->> 2.13.0.219.gdb65acc882-goog
-
-
-
---=20
-Alexander Potapenko
-Software Engineer
-
-Google Germany GmbH
-Erika-Mann-Stra=C3=9Fe, 33
-80636 M=C3=BCnchen
-
-Gesch=C3=A4ftsf=C3=BChrer: Matthew Scott Sucherman, Paul Terence Manicle
-Registergericht und -nummer: Hamburg, HRB 86891
-Sitz der Gesellschaft: Hamburg
+PiBmdW5jdGlvbiBrc3pfcmN2IGNhbiBiZSBtYWRlIHN0YXRpYyBhcyBpdCBkb2VzIG5vdCBuZWVk
+IHRvIGJlDQo+IGluIGdsb2JhbCBzY29wZS4gUmVmb3JtYXQgYXJndW1lbnRzIHRvIG1ha2UgaXQg
+Y2hlY2twYXRjaCB3YXJuaW5nDQo+IGZyZWUgdG9vLg0KPiANCj4gQ2xlYW5zIHVwIHNwYXJzZSB3
+YXJuaW5nOiAic3ltYm9sICdrc3pfcmN2JyB3YXMgbm90IGRlY2xhcmVkLiBTaG91bGQNCj4gaXQg
+YmUgc3RhdGljPyINCj4gDQo+IFNpZ25lZC1vZmYtYnk6IENvbGluIElhbiBLaW5nIDxjb2xpbi5r
+aW5nQGNhbm9uaWNhbC5jb20+DQoNClJldmlld2VkLWJ5OiBXb29qdW5nIEh1aCA8V29vanVuZy5I
+dWhAbWljcm9jaGlwLmNvbT4NCg==
