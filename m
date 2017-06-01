@@ -1,48 +1,75 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH 4/5] net: phy: add XAUI and 10GBASE-KR PHY connection
- types
-Date: Thu, 1 Jun 2017 09:56:48 -0700
-Message-ID: <fb1a81e0-b5b9-80e4-7852-cc65a574b9e9@gmail.com>
-References: <20170601102327.GF27796@n2100.armlinux.org.uk>
- <E1dGNJX-00043v-3M@rmk-PC.armlinux.org.uk>
+From: Flavio Leitner <fbl@sysclose.org>
+Subject: Re: [PATCH net] netlink: don't send unknown nsid
+Date: Thu, 1 Jun 2017 14:02:47 -0300
+Message-ID: <20170601170246.GF2673@x240.lan>
+References: <4942f9fe-625b-bb97-7b45-4a1e8bf69b1b@6wind.com>
+ <1496304007-1962-1-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Rob Herring <robh+dt@kernel.org>,
-        Mark Rutland <mark.rutland@arm.com>, netdev@vger.kernel.org,
-        devicetree@vger.kernel.org
-To: Russell King <rmk+kernel@armlinux.org.uk>,
-        Andrew Lunn <andrew@lunn.ch>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f196.google.com ([209.85.220.196]:35857 "EHLO
-        mail-qk0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751499AbdFAQ46 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 1 Jun 2017 12:56:58 -0400
-In-Reply-To: <E1dGNJX-00043v-3M@rmk-PC.armlinux.org.uk>
-Content-Language: en-US
+Received: from sender-of-o52.zoho.com ([135.84.80.217]:21423 "EHLO
+        sender-of-o52.zoho.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751209AbdFARCz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Jun 2017 13:02:55 -0400
+Content-Disposition: inline
+In-Reply-To: <1496304007-1962-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/01/2017 03:26 AM, Russell King wrote:
-> XAUI allows XGMII to reach an extended distance by using a XGXS layer at
-> each end of the MAC to PHY link, operating over four Serdes lanes.
+On Thu, Jun 01, 2017 at 10:00:07AM +0200, Nicolas Dichtel wrote:
+> The NETLINK_F_LISTEN_ALL_NSID otion enables to listen all netns that have a
+> nsid assigned into the netns where the netlink socket is opened.
+> The nsid is sent as metadata to userland, but the existence of this nsid is
+> checked only for netns that are different from the socket netns. Thus, if
+> no nsid is assigned to the socket netns, NETNSA_NSID_NOT_ASSIGNED is
+> reported to the userland. This value is confusing and useless.
+> After this patch, only valid nsid are sent to userland.
 > 
-> 10GBASE-KR is a single lane Serdes backplane ethernet connection method
-> with autonegotiation on the link.  Some PHYs use this to connect to the
-> ethernet interface at 10G speeds, switching to other connection types
-> when utilising slower speeds.
+> Reported-by: Flavio Leitner <fbl@sysclose.org>
+> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> ---
+>  net/netlink/af_netlink.c | 4 +++-
+>  1 file changed, 3 insertions(+), 1 deletion(-)
 > 
-> 10GBASE-KR is also used for XFI and SFI to connect to XFP and SFP fiber
-> modules.
-> 
-> Signed-off-by: Russell King <rmk+kernel@armlinux.org.uk>
+> diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+> index ee841f00a6ec..7586d446d7dc 100644
+> --- a/net/netlink/af_netlink.c
+> +++ b/net/netlink/af_netlink.c
+> @@ -62,6 +62,7 @@
+>  #include <asm/cacheflush.h>
+>  #include <linux/hash.h>
+>  #include <linux/genetlink.h>
+> +#include <linux/net_namespace.h>
+>  
+>  #include <net/net_namespace.h>
+>  #include <net/sock.h>
+> @@ -1415,7 +1416,8 @@ static void do_one_broadcast(struct sock *sk,
+>  		goto out;
+>  	}
+>  	NETLINK_CB(p->skb2).nsid = peernet2id(sock_net(sk), p->net);
+> -	NETLINK_CB(p->skb2).nsid_is_set = true;
+> +	if (NETLINK_CB(p->skb2).nsid != NETNSA_NSID_NOT_ASSIGNED)
+> +		NETLINK_CB(p->skb2).nsid_is_set = true;
+>  	val = netlink_broadcast_deliver(sk, p->skb2);
+>  	if (val < 0) {
+>  		netlink_overrun(sk);
 
-This looks good, but you also need to update
-Documentation/ABI/testing/sysfs-class-net-phydev since we report
-phy_interface from sysfs.
+If the assumption is that nsid allocation can never fail or that if it
+does, we can't report to userspace, then the patch is good, but it
+doesn't sound like a good long term solution.
 
-With that fixed:
+Let's consider that the allocation of an id fails for whatever reason.
+I think that should be reported to userspace to allow it to retry, or
+do something else to handle this situation properly.  Not sending
+anything means that it's in the same netns as the old kernels did,
+which is incorrect.
 
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+On the other hand, with the original patch, if the socket and the
+device are in the same netns, we don't need to report any ID.  Previous
+kernels did that, so we are not breaking anything.  When the netns
+differs, then we either should report the real ID or an error.
+
 -- 
-Florian
+Flavio
