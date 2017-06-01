@@ -1,64 +1,50 @@
-From: Paul Menzel <pmenzel@molgen.mpg.de>
-Subject: Re: Cherry pick commit *net: better skb->sender_cpu and skb->napi_id
- cohabitation* to 4.4 series?
-Date: Thu, 1 Jun 2017 19:32:35 +0200
-Message-ID: <409abefe-62ff-563a-b5c6-a3149ae672e0@molgen.mpg.de>
-References: <987d9047-08ac-0d53-2d1f-ef9189988ee2@molgen.mpg.de>
- <20170601.121935.1801387892378122014.davem@davemloft.net>
+From: Russell King - ARM Linux <linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>
+Subject: Re: [PATCH 4/5] net: phy: add XAUI and 10GBASE-KR PHY connection
+ types
+Date: Thu, 1 Jun 2017 18:32:49 +0100
+Message-ID: <20170601173249.GF22219@n2100.armlinux.org.uk>
+References: <20170601102327.GF27796@n2100.armlinux.org.uk>
+ <E1dGNJX-00043v-3M@rmk-PC.armlinux.org.uk>
+ <fb1a81e0-b5b9-80e4-7852-cc65a574b9e9@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org,
-        ast@kernel.org, it+linux-netdev@molgen.mpg.de,
-        Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx3.molgen.mpg.de ([141.14.17.11]:44656 "EHLO mx1.molgen.mpg.de"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751096AbdFARci (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 1 Jun 2017 13:32:38 -0400
-In-Reply-To: <20170601.121935.1801387892378122014.davem@davemloft.net>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>, Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <fb1a81e0-b5b9-80e4-7852-cc65a574b9e9-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Dear David,
-
-
-On 06/01/17 18:19, David Miller wrote:
-> Neither of us have anything to do with the 4.4 -stable series.  We only
-> manage stable backport submissions for the most recent two releases.
-
-Thank you for the prompt response. Should the netdev FAQ be updated then 
-to contain that information?
-
-> Q: How can I tell what patches are queued up for backporting to the
->    various stable releases?
+On Thu, Jun 01, 2017 at 09:56:48AM -0700, Florian Fainelli wrote:
+> On 06/01/2017 03:26 AM, Russell King wrote:
+> > XAUI allows XGMII to reach an extended distance by using a XGXS layer at
+> > each end of the MAC to PHY link, operating over four Serdes lanes.
+> > 
+> > 10GBASE-KR is a single lane Serdes backplane ethernet connection method
+> > with autonegotiation on the link.  Some PHYs use this to connect to the
+> > ethernet interface at 10G speeds, switching to other connection types
+> > when utilising slower speeds.
+> > 
+> > 10GBASE-KR is also used for XFI and SFI to connect to XFP and SFP fiber
+> > modules.
+> > 
+> > Signed-off-by: Russell King <rmk+kernel-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>
 > 
-> A: Normally Greg Kroah-Hartman collects stable commits himself, but
->    for networking, Dave collects up patches he deems critical for the
->    networking subsystem, and then hands them off to Greg.
-> 
->    There is a patchworks queue that you can see here:
->         http://patchwork.ozlabs.org/bundle/davem/stable/?state=*
-> 
->    It contains the patches which Dave has selected, but not yet handed
->    off to Greg.  If Greg already has the patch, then it will be here:
->         https://git.kernel.org/pub/scm/linux/kernel/git/stable/stable-queue.git
-> 
->    A quick way to find whether the patch is in this stable-queue is
->    to simply clone the repo, and then git grep the mainline commit ID, e.g.
-> 
->         stable-queue$ git grep -l 284041ef21fdf2e
->         releases/3.0.84/ipv6-fix-possible-crashes-in-ip6_cork_release.patch
->         releases/3.4.51/ipv6-fix-possible-crashes-in-ip6_cork_release.patch
->         releases/3.9.8/ipv6-fix-possible-crashes-in-ip6_cork_release.patch
->         stable/stable-queue$
+> This looks good, but you also need to update
+> Documentation/ABI/testing/sysfs-class-net-phydev since we report
+> phy_interface from sysfs.
 
+Hmm, seems to be a new file recently merged into net-next.  Ok, I'll
+provide an update for that.
 
-Kind regards,
-
-Paul
-
-
-[1] Documentation/networking/netdev-FAQ.txt
+-- 
+RMK's Patch system: http://www.armlinux.org.uk/developer/patches/
+FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
+according to speedtest.net.
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
