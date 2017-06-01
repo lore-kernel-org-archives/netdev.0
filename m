@@ -1,127 +1,39 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next V2 1/4] net/flow_dissector: add support for dissection of misc ip header fields
-Date: Thu,  1 Jun 2017 21:37:37 +0300
-Message-ID: <1496342260-28199-2-git-send-email-ogerlitz@mellanox.com>
-References: <1496342260-28199-1-git-send-email-ogerlitz@mellanox.com>
-Cc: netdev@vger.kernel.org, Saeed Mahameed <saeedm@mellanox.com>,
-        Roi Dayan <roid@mellanox.com>,
-        Paul Blakey <paulb@mellanox.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] vxlan: eliminate cached dst leak
+Date: Thu, 01 Jun 2017 14:46:48 -0400 (EDT)
+Message-ID: <20170601.144648.1946518537495893731.davem@davemloft.net>
+References: <20170529172557.7065-1-lrichard@redhat.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, pabeni@redhat.com
+To: lrichard@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:45553 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751309AbdFAShu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 1 Jun 2017 14:37:50 -0400
-In-Reply-To: <1496342260-28199-1-git-send-email-ogerlitz@mellanox.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:58406 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751130AbdFASqy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Jun 2017 14:46:54 -0400
+In-Reply-To: <20170529172557.7065-1-lrichard@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add support for dissection of ip tos and ttl and ipv6 traffic-class
-and hoplimit. Both are dissected into the same struct.
+From: Lance Richardson <lrichard@redhat.com>
+Date: Mon, 29 May 2017 13:25:57 -0400
 
-Uses similar call to ip dissection function as with tcp, arp and others.
+> After commit 0c1d70af924b ("net: use dst_cache for vxlan device"),
+> cached dst entries could be leaked when more than one remote was
+> present for a given vxlan_fdb entry, causing subsequent netns
+> operations to block indefinitely and "unregister_netdevice: waiting
+> for lo to become free." messages to appear in the kernel log.
+> 
+> Fix by properly releasing cached dst and freeing resources in this
+> case.
+> 
+> Fixes: commit 0c1d70af924b ("net: use dst_cache for vxlan device")
 
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
-Reviewed-by: Jiri Pirko <jiri@mellanox.com>
----
- include/net/flow_dissector.h | 11 +++++++++++
- net/core/flow_dissector.c    | 40 ++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 51 insertions(+)
+In the future please do not put that "commit " string there, it's not
+needed.
 
-diff --git a/include/net/flow_dissector.h b/include/net/flow_dissector.h
-index efe34eec..e2663e9 100644
---- a/include/net/flow_dissector.h
-+++ b/include/net/flow_dissector.h
-@@ -165,6 +165,16 @@ struct flow_dissector_key_tcp {
- 	__be16 flags;
- };
- 
-+/**
-+ * struct flow_dissector_key_ip:
-+ * @tos: tos
-+ * @ttl: ttl
-+ */
-+struct flow_dissector_key_ip {
-+	__u8	tos;
-+	__u8	ttl;
-+};
-+
- enum flow_dissector_key_id {
- 	FLOW_DISSECTOR_KEY_CONTROL, /* struct flow_dissector_key_control */
- 	FLOW_DISSECTOR_KEY_BASIC, /* struct flow_dissector_key_basic */
-@@ -186,6 +196,7 @@ enum flow_dissector_key_id {
- 	FLOW_DISSECTOR_KEY_ENC_PORTS, /* struct flow_dissector_key_ports */
- 	FLOW_DISSECTOR_KEY_MPLS, /* struct flow_dissector_key_mpls */
- 	FLOW_DISSECTOR_KEY_TCP, /* struct flow_dissector_key_tcp */
-+	FLOW_DISSECTOR_KEY_IP, /* struct flow_dissector_key_ip */
- 
- 	FLOW_DISSECTOR_KEY_MAX,
- };
-diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 5a45943..fc5fc45 100644
---- a/net/core/flow_dissector.c
-+++ b/net/core/flow_dissector.c
-@@ -367,6 +367,40 @@ __skb_flow_dissect_tcp(const struct sk_buff *skb,
- 	key_tcp->flags = (*(__be16 *) &tcp_flag_word(th) & htons(0x0FFF));
- }
- 
-+static void
-+__skb_flow_dissect_ipv4(const struct sk_buff *skb,
-+			struct flow_dissector *flow_dissector,
-+			void *target_container, void *data, const struct iphdr *iph)
-+{
-+	struct flow_dissector_key_ip *key_ip;
-+
-+	if (!dissector_uses_key(flow_dissector, FLOW_DISSECTOR_KEY_IP))
-+		return;
-+
-+	key_ip = skb_flow_dissector_target(flow_dissector,
-+					   FLOW_DISSECTOR_KEY_IP,
-+					   target_container);
-+	key_ip->tos = iph->tos;
-+	key_ip->ttl = iph->ttl;
-+}
-+
-+static void
-+__skb_flow_dissect_ipv6(const struct sk_buff *skb,
-+			struct flow_dissector *flow_dissector,
-+			void *target_container, void *data, const struct ipv6hdr *iph)
-+{
-+	struct flow_dissector_key_ip *key_ip;
-+
-+	if (!dissector_uses_key(flow_dissector, FLOW_DISSECTOR_KEY_IP))
-+		return;
-+
-+	key_ip = skb_flow_dissector_target(flow_dissector,
-+					   FLOW_DISSECTOR_KEY_IP,
-+					   target_container);
-+	key_ip->tos = ipv6_get_dsfield(iph);
-+	key_ip->ttl = iph->hop_limit;
-+}
-+
- /**
-  * __skb_flow_dissect - extract the flow_keys struct and return it
-  * @skb: sk_buff to extract the flow from, can be NULL if the rest are specified
-@@ -469,6 +503,9 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
- 			}
- 		}
- 
-+		__skb_flow_dissect_ipv4(skb, flow_dissector,
-+					target_container, data, iph);
-+
- 		if (flags & FLOW_DISSECTOR_F_STOP_AT_L3)
- 			goto out_good;
- 
-@@ -514,6 +551,9 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
- 				goto out_good;
- 		}
- 
-+		__skb_flow_dissect_ipv6(skb, flow_dissector,
-+					target_container, data, iph);
-+
- 		if (flags & FLOW_DISSECTOR_F_STOP_AT_L3)
- 			goto out_good;
- 
--- 
-2.3.7
+> Signed-off-by: Lance Richardson <lrichard@redhat.com>
+
+Applied and queued up for -stable, thank you.
