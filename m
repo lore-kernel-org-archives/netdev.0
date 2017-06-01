@@ -1,194 +1,104 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: Re: net/ipv4: use-after-free in add_grec
-Date: Wed, 31 May 2017 16:55:52 -0700
-Message-ID: <CANn89iKC1ACPNfazjYF_jDr_Ojz6ROn3Ny_m0SHK5G+MZctDmQ@mail.gmail.com>
-References: <CAAeHK+xmSxokDidhzP1VWgmbbwege4OaGvOA4PwTP1scs6J5zA@mail.gmail.com>
- <1496247154.27480.3.camel@edumazet-glaptop3.roam.corp.google.com> <CAM_iQpUM+vhYXkA=ZaEg7O-hEHROPxPorS-T9nQwL6H9CLtMpA@mail.gmail.com>
+From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Subject: Re: [PATCH] b43legacy: Fix a sleep-in-atomic bug in
+ b43legacy_op_bss_info_changed
+Date: Wed, 31 May 2017 19:07:15 -0500
+Message-ID: <284d6d5d-d548-9e05-eafd-a6b521af5a04@lwfinger.net>
+References: <1496225353-5544-1-git-send-email-baijiaju1990@163.com>
+ <877f0xnwyk.fsf@kamboji.qca.qualcomm.com> <20170531173107.25eeda48@wiggum>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-        Andrey Konovalov <andreyknvl@google.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Dmitry Vyukov <dvyukov@google.com>,
-        Kostya Serebryany <kcc@google.com>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAM_iQpUM+vhYXkA=ZaEg7O-hEHROPxPorS-T9nQwL6H9CLtMpA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: Jia-Ju Bai <baijiaju1990-9Onoh4P/yGk@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b43-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: =?UTF-8?Q?Michael_B=c3=bcsch?= <m@bues.ch>,
+        Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170531173107.25eeda48@wiggum>
+Content-Language: en-US
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, May 31, 2017 at 4:49 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
-> On Wed, May 31, 2017 at 9:12 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->> On Wed, 2017-05-31 at 11:46 +0200, Andrey Konovalov wrote:
->>> Hi,
->>>
->>> I've got the following error report while fuzzing the kernel with syzkaller.
->>>
->>> On commit 5ed02dbb497422bf225783f46e6eadd237d23d6b (4.12-rc3).
->>>
->>> Unfortunately it's not reproducible.
->>>
->>> ==================================================================
->>> BUG: KASAN: use-after-free in add_grec+0x101e/0x1090 net/ipv4/igmp.c:473
->>> Read of size 8 at addr ffff88003053c1a0 by task swapper/0/0
->>>
->>> CPU: 0 PID: 0 Comm: swapper/0 Not tainted 4.12.0-rc3+ #370
->>> Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
->>> Call Trace:
->>>  <IRQ>
->>>  __dump_stack lib/dump_stack.c:16 [inline]
->>>  dump_stack+0x292/0x395 lib/dump_stack.c:52
->>>  print_address_description+0x73/0x280 mm/kasan/report.c:252
->>>  kasan_report_error mm/kasan/report.c:351 [inline]
->>>  kasan_report+0x22b/0x340 mm/kasan/report.c:408
->>>  __asan_report_load8_noabort+0x14/0x20 mm/kasan/report.c:429
->>>  add_grec+0x101e/0x1090 net/ipv4/igmp.c:473
->>>  igmpv3_send_cr net/ipv4/igmp.c:663 [inline]
->>>  igmp_ifc_timer_expire+0x46d/0xa80 net/ipv4/igmp.c:768
->>> IPVS: length: 51 != 8
->>>  call_timer_fn+0x23f/0x800 kernel/time/timer.c:1268
->>>  expire_timers kernel/time/timer.c:1307 [inline]
->>>  __run_timers+0x94e/0xcd0 kernel/time/timer.c:1601
->>>  run_timer_softirq+0x21/0x80 kernel/time/timer.c:1614
->>>  __do_softirq+0x2fb/0xb99 kernel/softirq.c:284
->>>  invoke_softirq kernel/softirq.c:364 [inline]
->>>  irq_exit+0x19e/0x1d0 kernel/softirq.c:405
->>>  exiting_irq arch/x86/include/asm/apic.h:652 [inline]
->>>  smp_apic_timer_interrupt+0x76/0xa0 arch/x86/kernel/apic/apic.c:966
->>>  apic_timer_interrupt+0x93/0xa0 arch/x86/entry/entry_64.S:481
->>> RIP: 0010:native_safe_halt+0x6/0x10 arch/x86/include/asm/irqflags.h:53
->>> RSP: 0018:ffffffff85a079a8 EFLAGS: 00000282 ORIG_RAX: ffffffffffffff10
->>> RAX: dffffc0000000020 RBX: 1ffffffff0b40f38 RCX: 0000000000000000
->>> RDX: 0000000000000000 RSI: 0000000000000001 RDI: ffffffff85a2a9e4
->>> RBP: ffffffff85a079a8 R08: 0000000000000000 R09: 0000000000000000
->>> R10: 0000000000000000 R11: 0000000000000000 R12: dffffc0000000000
->>> R13: ffffffff85a07a60 R14: ffffffff86171338 R15: 1ffffffff0b40f5b
->>>  </IRQ>
->>>  arch_safe_halt arch/x86/include/asm/paravirt.h:98 [inline]
->>>  default_idle+0x8f/0x440 arch/x86/kernel/process.c:341
->>>  arch_cpu_idle+0xa/0x10 arch/x86/kernel/process.c:332
->>>  default_idle_call+0x36/0x60 kernel/sched/idle.c:98
->>>  cpuidle_idle_call kernel/sched/idle.c:156 [inline]
->>>  do_idle+0x348/0x420 kernel/sched/idle.c:245
->>>  cpu_startup_entry+0x18/0x20 kernel/sched/idle.c:350
->>>  rest_init+0x18d/0x1a0 init/main.c:415
->>>  start_kernel+0x747/0x779 init/main.c:679
->>>  x86_64_start_reservations+0x2a/0x2c arch/x86/kernel/head64.c:196
->>>  x86_64_start_kernel+0x132/0x141 arch/x86/kernel/head64.c:177
->>>  secondary_startup_64+0x9f/0x9f arch/x86/kernel/head_64.S:304
->>>
->>> Allocated by task 30543:
->>>  save_stack_trace+0x16/0x20 arch/x86/kernel/stacktrace.c:59
->>>  save_stack+0x43/0xd0 mm/kasan/kasan.c:513
->>>  set_track mm/kasan/kasan.c:525 [inline]
->>>  kasan_kmalloc+0xad/0xe0 mm/kasan/kasan.c:617
->>>  kmem_cache_alloc_trace+0x82/0x270 mm/slub.c:2745
->>>  kmalloc include/linux/slab.h:492 [inline]
->>>  kzalloc include/linux/slab.h:665 [inline]
->>>  ip_mc_add1_src net/ipv4/igmp.c:1909 [inline]
->>>  ip_mc_add_src+0x6cd/0x1020 net/ipv4/igmp.c:2033
->>>  ip_mc_msfilter+0x5e5/0xcf0 net/ipv4/igmp.c:2403
->>>  do_ip_setsockopt.isra.12+0x2d47/0x38c0 net/ipv4/ip_sockglue.c:959
->>>  ip_setsockopt+0x3a/0xb0 net/ipv4/ip_sockglue.c:1256
->>>  tcp_setsockopt+0x82/0xd0 net/ipv4/tcp.c:2740
->>>  sock_common_setsockopt+0x95/0xd0 net/core/sock.c:2844
->>>  SYSC_setsockopt net/socket.c:1798 [inline]
->>>  SyS_setsockopt+0x270/0x3a0 net/socket.c:1777
->>>  entry_SYSCALL_64_fastpath+0x1f/0xbe
->>>
->>> Freed by task 30543:
->>>  save_stack_trace+0x16/0x20 arch/x86/kernel/stacktrace.c:59
->>>  save_stack+0x43/0xd0 mm/kasan/kasan.c:513
->>>  set_track mm/kasan/kasan.c:525 [inline]
->>>  kasan_slab_free+0x72/0xc0 mm/kasan/kasan.c:590
->>>  slab_free_hook mm/slub.c:1357 [inline]
->>>  slab_free_freelist_hook mm/slub.c:1379 [inline]
->>>  slab_free mm/slub.c:2961 [inline]
->>>  kfree+0xe8/0x2b0 mm/slub.c:3882
->>>  ip_mc_clear_src+0x69/0x1c0 net/ipv4/igmp.c:2078
->>>  ip_mc_dec_group+0x19a/0x470 net/ipv4/igmp.c:1618
->>>  ip_mc_drop_socket+0x145/0x230 net/ipv4/igmp.c:2609
->>>  inet_release+0x4e/0x1c0 net/ipv4/af_inet.c:411
->>>  sock_release+0x8d/0x1e0 net/socket.c:597
->>>  sock_close+0x16/0x20 net/socket.c:1072
->>>  __fput+0x332/0x7f0 fs/file_table.c:209
->>>  ____fput+0x15/0x20 fs/file_table.c:245
->>>  task_work_run+0x19b/0x270 kernel/task_work.c:116
->>>  exit_task_work include/linux/task_work.h:21 [inline]
->>>  do_exit+0x18a3/0x2820 kernel/exit.c:878
->>>  do_group_exit+0x149/0x420 kernel/exit.c:982
->>>  get_signal+0x76d/0x1790 kernel/signal.c:2318
->>>  do_signal+0xd2/0x2130 arch/x86/kernel/signal.c:808
->>>  exit_to_usermode_loop+0x17a/0x210 arch/x86/entry/common.c:157
->>>  prepare_exit_to_usermode arch/x86/entry/common.c:194 [inline]
->>>  syscall_return_slowpath+0x3ba/0x410 arch/x86/entry/common.c:263
->>>  entry_SYSCALL_64_fastpath+0xbc/0xbe
->>>
->>> The buggy address belongs to the object at ffff88003053c1a0
->>>  which belongs to the cache kmalloc-64 of size 64
->>> The buggy address is located 0 bytes inside of
->>>  64-byte region [ffff88003053c1a0, ffff88003053c1e0)
->>> The buggy address belongs to the page:
->>> page:ffffea0000c14f00 count:1 mapcount:0 mapping:          (null)
->>> index:0x0 compound_mapcount: 0
->>> flags: 0x100000000008100(slab|head)
->>> raw: 0100000000008100 0000000000000000 0000000000000000 0000000100140014
->>> raw: ffffea0000c2f520 ffffea0000e20aa0 ffff88003e80f740 0000000000000000
->>> page dumped because: kasan: bad access detected
->>>
->>> Memory state around the buggy address:
->>>  ffff88003053c080: fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc
->>>  ffff88003053c100: fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc
->>> >ffff88003053c180: fc fc fc fc fb fb fb fb fb fb fb fb fc fc fc fc
->>>                                ^
->>>  ffff88003053c200: fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc
->>>  ffff88003053c280: fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc
->>> ==================================================================
+On 05/31/2017 10:32 AM, Michael Büsch wrote:
+> On Wed, 31 May 2017 13:26:43 +0300
+> Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org> wrote:
+> 
+>> Jia-Ju Bai <baijiaju1990-9Onoh4P/yGk@public.gmane.org> writes:
 >>
->> I have the feeling that ip_mc_clear_src() is called too soon.
+>>> The driver may sleep under a spin lock, and the function call path is:
+>>> b43legacy_op_bss_info_changed (acquire the lock by spin_lock_irqsave)
+>>>    b43legacy_synchronize_irq
+>>>      synchronize_irq --> may sleep
+>>>
+>>> To fix it, the lock is released before b43legacy_synchronize_irq, and the
+>>> lock is acquired again after this function.
+>>>
+>>> Signed-off-by: Jia-Ju Bai <baijiaju1990-9Onoh4P/yGk@public.gmane.org>
+>>> ---
+>>>   drivers/net/wireless/broadcom/b43legacy/main.c |    2 ++
+>>>   1 file changed, 2 insertions(+)
+>>>
+>>> diff --git a/drivers/net/wireless/broadcom/b43legacy/main.c b/drivers/net/wireless/broadcom/b43legacy/main.c
+>>> index f1e3dad..31ead21 100644
+>>> --- a/drivers/net/wireless/broadcom/b43legacy/main.c
+>>> +++ b/drivers/net/wireless/broadcom/b43legacy/main.c
+>>> @@ -2859,7 +2859,9 @@ static void b43legacy_op_bss_info_changed(struct ieee80211_hw *hw,
+>>>   	b43legacy_write32(dev, B43legacy_MMIO_GEN_IRQ_MASK, 0);
+>>>   
+>>>   	if (changed & BSS_CHANGED_BSSID) {
+>>> +		spin_unlock_irqrestore(&wl->irq_lock, flags);
+>>>   		b43legacy_synchronize_irq(dev);
+>>> +		spin_lock_irqsave(&wl->irq_lock, flags);
 >>
->> We should call it once all users have released their reference.
->
-> In this case, ip_mc_clear_src() is called when the ->users hits
-> zero, therefore I think we possibly miss the refcnt on ->users.
->
-> diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
-> index 44fd86d..c2f3347 100644
-> --- a/net/ipv4/igmp.c
-> +++ b/net/ipv4/igmp.c
-> @@ -1886,6 +1886,7 @@ static int ip_mc_del_src(struct in_device
-> *in_dev, __be32 *pmca, int sfmode,
->                 igmp_ifc_event(pmc->interface);
->  #endif
->         }
-> +       pmc->users--;
->  out_unlock:
->         spin_unlock_bh(&pmc->lock);
->         return err;
-> @@ -2025,6 +2026,7 @@ static int ip_mc_add_src(struct in_device
-> *in_dev, __be32 *pmca, int sfmode,
->  #ifdef CONFIG_IP_MULTICAST
->         sf_markstate(pmc);
->  #endif
-> +       pmc->users++;
->         isexclude = pmc->sfmode == MCAST_EXCLUDE;
->         if (!delta)
->                 pmc->sfcount[sfmode]++;
+>> To me this looks like a fragile workaround and not a real fix. You can
+>> easily add new race conditions with releasing the lock like this.
+>>
+> 
+> 
+> I think releasing the lock possibly is fine. It certainly is better than
+> sleeping with a lock held.
+> We disabled the device interrupts just before this line.
+> 
+> However I think the synchronize_irq should be outside of the
+> conditional right after the write to B43legacy_MMIO_GEN_IRQ_MASK. (So
+> two lines above)
+> I don't think it makes sense to only synchronize if BSS_CHANGED_BSSID
+> is set.
+> 
+> 
+> On the other hand b43 does not have this irq-disabling foobar anymore.
+> So somebody must have removed it. Maybe you can find the commit that
+> removed this stuff from b43 and port it to b43legacy?
+> 
+> 
+> So I would vote for moving the synchronize_irq up outside of the
+> conditional and put the unlock/lock sequence around it.
+> And as a second patch on top of that try to remove this stuff
+> altogether like b43 did.
 
+The patch that removed it in b43 is
 
-The issue here is the timer firing while ip_mc_clear_src() has been
-already called.
+commit 36dbd9548e92268127b0c31b0e121e63e9207108
+Author: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+Date:   Fri Sep 4 22:51:29 2009 +0200
 
-My patch should fix the problem.
+     b43: Use a threaded IRQ handler
 
-Or another one using del_timer_sync() instead of del_timer() in
-igmp_stop_timer(), but such a change would be more invasive,
-since the del_timer_sync() would need to happen while im->lock
-spinlock is not held.
+     Use a threaded IRQ handler to allow locking the mutex and
+     sleeping while executing an interrupt.
+     This removes usage of the irq_lock spinlock, but introduces
+     a new hardirq_lock, which is _only_ used for the PCI/SSB lowlevel
+     hard-irq handler. Sleeping busses (SDIO) will use mutex instead.
+
+     Signed-off-by: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+     Tested-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+     Signed-off-by: John W. Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+
+I vaguely remember this patch. Although it is roughly a 1000-line fix, I will 
+try to port it to b43legacy. I still have an old BCM4306 PCMCIA card that I can 
+test in a PowerBook G4.
+
+I agree with Michael that this is the way to go. Both of Jia-Ju's patches should 
+be rejected.
+
+Larry
