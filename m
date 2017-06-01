@@ -1,319 +1,122 @@
 From: Yuval Mintz <Yuval.Mintz@cavium.com>
-Subject: [PATCH net-next 09/11] qed: Hold a single array for SBs
-Date: Thu, 1 Jun 2017 15:29:09 +0300
-Message-ID: <20170601122911.22493-10-Yuval.Mintz@cavium.com>
+Subject: [PATCH net-next 11/11] qed: No need to reset SBs on IOV init
+Date: Thu, 1 Jun 2017 15:29:11 +0300
+Message-ID: <20170601122911.22493-12-Yuval.Mintz@cavium.com>
 References: <20170601122911.22493-1-Yuval.Mintz@cavium.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Yuval Mintz <Yuval.Mintz@cavium.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam01on0085.outbound.protection.outlook.com ([104.47.34.85]:34394
+Received: from mail-by2nam01on0067.outbound.protection.outlook.com ([104.47.34.67]:54640
         "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751108AbdFAMau (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 1 Jun 2017 08:30:50 -0400
+        id S1751108AbdFAMaz (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 1 Jun 2017 08:30:55 -0400
 In-Reply-To: <20170601122911.22493-1-Yuval.Mintz@cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-A PF today holds 2 different arrays - one holding information
-about the HW configuration and one holding information about
-the SBs that are used by the protocol drivers.
-These arrays aren't really connected - e.g., protocol driver
-initializing a given SB would not mark the same SB as occupied
-in the HW shadow array.
-
-Move into a single array [at least for PFs] - hold the mapping
-of the driver-protocol SBs on the HW entry which they configure.
+Since we're resetting the IGU CAM each time we initialize the PF
+device, there's no need to reset the VF SBs again when initializing
+IOV.
 
 Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
 ---
- drivers/net/ethernet/qlogic/qed/qed.h       |  4 ---
- drivers/net/ethernet/qlogic/qed/qed_fcoe.c  |  5 +++-
- drivers/net/ethernet/qlogic/qed/qed_int.c   | 46 ++++++++++++++++++++++-------
- drivers/net/ethernet/qlogic/qed/qed_int.h   | 23 +++++++++++----
- drivers/net/ethernet/qlogic/qed/qed_iscsi.c |  2 +-
- drivers/net/ethernet/qlogic/qed/qed_roce.c  |  5 ++--
- drivers/net/ethernet/qlogic/qed/qed_vf.c    | 27 +++++++++++++++--
- drivers/net/ethernet/qlogic/qed/qed_vf.h    | 18 +++++++++++
- 8 files changed, 103 insertions(+), 27 deletions(-)
+ drivers/net/ethernet/qlogic/qed/qed_dev.c   |  2 +-
+ drivers/net/ethernet/qlogic/qed/qed_sriov.c | 30 +----------------------------
+ drivers/net/ethernet/qlogic/qed/qed_sriov.h |  5 ++---
+ 3 files changed, 4 insertions(+), 33 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qed/qed.h b/drivers/net/ethernet/qlogic/qed/qed.h
-index e0becec..ffc0807 100644
---- a/drivers/net/ethernet/qlogic/qed/qed.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed.h
-@@ -495,10 +495,6 @@ struct qed_hwfn {
- 	bool b_rdma_enabled_in_prs;
- 	u32 rdma_prs_search_reg;
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_dev.c b/drivers/net/ethernet/qlogic/qed/qed_dev.c
+index 939e85c..7649f35 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_dev.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_dev.c
+@@ -1030,7 +1030,7 @@ void qed_resc_setup(struct qed_dev *cdev)
  
--	/* Array of sb_info of all status blocks */
--	struct qed_sb_info		*sbs_info[MAX_SB_PER_PF_MIMD];
--	u16				num_sbs;
--
- 	struct qed_cxt_mngr		*p_cxt_mngr;
+ 		qed_int_setup(p_hwfn, p_hwfn->p_main_ptt);
  
- 	/* Flag indicating whether interrupts are enabled or not*/
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_fcoe.c b/drivers/net/ethernet/qlogic/qed/qed_fcoe.c
-index cb342f1..3fc4ff2 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_fcoe.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_fcoe.c
-@@ -183,7 +183,10 @@ qed_sp_fcoe_func_start(struct qed_hwfn *p_hwfn,
- 	p_data->q_params.queue_relative_offset = (u8)tmp;
- 
- 	for (i = 0; i < fcoe_pf_params->num_cqs; i++) {
--		tmp = cpu_to_le16(p_hwfn->sbs_info[i]->igu_sb_id);
-+		u16 igu_sb_id;
-+
-+		igu_sb_id = qed_get_igu_sb_id(p_hwfn, i);
-+		tmp = cpu_to_le16(igu_sb_id);
- 		p_data->q_params.cq_cmdq_sb_num_arr[i] = tmp;
- 	}
- 
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_int.c b/drivers/net/ethernet/qlogic/qed/qed_int.c
-index 96eee1e..4f068a3 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_int.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_int.c
-@@ -1452,7 +1452,7 @@ static u16 qed_get_pf_igu_sb_id(struct qed_hwfn *p_hwfn, u16 vector_id)
- 	return QED_SB_INVALID_IDX;
- }
- 
--static u16 qed_get_igu_sb_id(struct qed_hwfn *p_hwfn, u16 sb_id)
-+u16 qed_get_igu_sb_id(struct qed_hwfn *p_hwfn, u16 sb_id)
- {
- 	u16 igu_sb_id;
- 
-@@ -1485,8 +1485,19 @@ int qed_int_sb_init(struct qed_hwfn *p_hwfn,
- 	sb_info->igu_sb_id = qed_get_igu_sb_id(p_hwfn, sb_id);
- 
- 	if (sb_id != QED_SP_SB_ID) {
--		p_hwfn->sbs_info[sb_id] = sb_info;
--		p_hwfn->num_sbs++;
-+		if (IS_PF(p_hwfn->cdev)) {
-+			struct qed_igu_info *p_info;
-+			struct qed_igu_block *p_block;
-+
-+			p_info = p_hwfn->hw_info.p_igu_info;
-+			p_block = &p_info->entry[sb_info->igu_sb_id];
-+
-+			p_block->sb_info = sb_info;
-+			p_block->status &= ~QED_IGU_STATUS_FREE;
-+			p_info->usage.free_cnt--;
-+		} else {
-+			qed_vf_set_sb_info(p_hwfn, sb_id, sb_info);
-+		}
- 	}
- 
- 	sb_info->cdev = p_hwfn->cdev;
-@@ -1515,20 +1526,35 @@ int qed_int_sb_init(struct qed_hwfn *p_hwfn,
- int qed_int_sb_release(struct qed_hwfn *p_hwfn,
- 		       struct qed_sb_info *sb_info, u16 sb_id)
- {
--	if (sb_id == QED_SP_SB_ID) {
--		DP_ERR(p_hwfn, "Do Not free sp sb using this function");
--		return -EINVAL;
--	}
-+	struct qed_igu_block *p_block;
-+	struct qed_igu_info *p_info;
-+
-+	if (!sb_info)
-+		return 0;
- 
- 	/* zero status block and ack counter */
- 	sb_info->sb_ack = 0;
- 	memset(sb_info->sb_virt, 0, sizeof(*sb_info->sb_virt));
- 
--	if (p_hwfn->sbs_info[sb_id] != NULL) {
--		p_hwfn->sbs_info[sb_id] = NULL;
--		p_hwfn->num_sbs--;
-+	if (IS_VF(p_hwfn->cdev)) {
-+		qed_vf_set_sb_info(p_hwfn, sb_id, NULL);
-+		return 0;
- 	}
- 
-+	p_info = p_hwfn->hw_info.p_igu_info;
-+	p_block = &p_info->entry[sb_info->igu_sb_id];
-+
-+	/* Vector 0 is reserved to Default SB */
-+	if (!p_block->vector_number) {
-+		DP_ERR(p_hwfn, "Do Not free sp sb using this function");
-+		return -EINVAL;
-+	}
-+
-+	/* Lose reference to client's SB info, and fix counters */
-+	p_block->sb_info = NULL;
-+	p_block->status |= QED_IGU_STATUS_FREE;
-+	p_info->usage.free_cnt++;
-+
+-		qed_iov_setup(p_hwfn, p_hwfn->p_main_ptt);
++		qed_iov_setup(p_hwfn);
+ #ifdef CONFIG_QED_LL2
+ 		if (p_hwfn->using_ll2)
+ 			qed_ll2_setup(p_hwfn);
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_sriov.c b/drivers/net/ethernet/qlogic/qed/qed_sriov.c
+index b7dda60..6ca2892 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_sriov.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_sriov.c
+@@ -378,33 +378,6 @@ static int qed_iov_pci_cfg_info(struct qed_dev *cdev)
  	return 0;
  }
  
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_int.h b/drivers/net/ethernet/qlogic/qed/qed_int.h
-index 273e73a..bc61c50 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_int.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed_int.h
-@@ -202,18 +202,20 @@ void qed_int_disable_post_isr_release(struct qed_dev *cdev);
- #define QED_SB_INVALID_IDX      0xffff
- 
- struct qed_igu_block {
--	u8	status;
-+	u8 status;
- #define QED_IGU_STATUS_FREE     0x01
- #define QED_IGU_STATUS_VALID    0x02
- #define QED_IGU_STATUS_PF       0x04
- #define QED_IGU_STATUS_DSB      0x08
- 
--	u8	vector_number;
--	u8	function_id;
--	u8	is_pf;
-+	u8 vector_number;
-+	u8 function_id;
-+	u8 is_pf;
- 
- 	/* Index inside IGU [meant for back reference] */
--	u16	igu_sb_id;
-+	u16 igu_sb_id;
-+
-+	struct qed_sb_info *sb_info;
- };
- 
- struct qed_igu_info {
-@@ -224,7 +226,16 @@ struct qed_igu_info {
- 
- };
- 
--/* TODO Names of function may change... */
-+/**
-+ * @brief Translate the weakly-defined client sb-id into an IGU sb-id
-+ *
-+ * @param p_hwfn
-+ * @param sb_id - user provided sb_id
-+ *
-+ * @return an index inside IGU CAM where the SB resides
-+ */
-+u16 qed_get_igu_sb_id(struct qed_hwfn *p_hwfn, u16 sb_id);
-+
- /**
-  * @brief return a pointer to an unused valid SB
-  *
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_iscsi.c b/drivers/net/ethernet/qlogic/qed/qed_iscsi.c
-index 43a20a6..bc8ce09 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_iscsi.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_iscsi.c
-@@ -220,7 +220,7 @@ qed_sp_iscsi_func_start(struct qed_hwfn *p_hwfn,
- 	p_queue->cmdq_sb_pi = p_params->gl_cmd_pi;
- 
- 	for (i = 0; i < p_params->num_queues; i++) {
--		val = p_hwfn->sbs_info[i]->igu_sb_id;
-+		val = qed_get_igu_sb_id(p_hwfn, i);
- 		p_queue->cq_cmdq_sb_num_arr[i] = cpu_to_le16(val);
- 	}
- 
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_roce.c b/drivers/net/ethernet/qlogic/qed/qed_roce.c
-index eb1a5cf..b9434b7 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_roce.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_roce.c
-@@ -581,6 +581,7 @@ static int qed_rdma_start_fw(struct qed_hwfn *p_hwfn,
- 	struct qed_sp_init_data init_data;
- 	struct qed_spq_entry *p_ent;
- 	u32 cnq_id, sb_id;
-+	u16 igu_sb_id;
- 	int rc;
- 
- 	DP_VERBOSE(p_hwfn, QED_MSG_RDMA, "Starting FW\n");
-@@ -612,10 +613,10 @@ static int qed_rdma_start_fw(struct qed_hwfn *p_hwfn,
- 
- 	for (cnq_id = 0; cnq_id < params->desired_cnq; cnq_id++) {
- 		sb_id = qed_rdma_get_sb_id(p_hwfn, cnq_id);
-+		igu_sb_id = qed_get_igu_sb_id(p_hwfn, sb_id);
-+		p_ramrod->cnq_params[cnq_id].sb_num = cpu_to_le16(igu_sb_id);
- 		p_cnq_params = &p_ramrod->cnq_params[cnq_id];
- 		p_cnq_pbl_list = &params->cnq_pbl_list[cnq_id];
--		p_cnq_params->sb_num =
--			cpu_to_le16(p_hwfn->sbs_info[sb_id]->igu_sb_id);
- 
- 		p_cnq_params->sb_index = p_hwfn->pf_params.rdma_pf_params.gl_pi;
- 		p_cnq_params->num_pbl_pages = p_cnq_pbl_list->num_pbl_pages;
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_vf.c b/drivers/net/ethernet/qlogic/qed/qed_vf.c
-index 11d71e5..3703b22 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_vf.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_vf.c
-@@ -792,9 +792,12 @@ int qed_vf_pf_vport_start(struct qed_hwfn *p_hwfn,
- 	req->only_untagged = only_untagged;
- 
- 	/* status blocks */
--	for (i = 0; i < p_hwfn->vf_iov_info->acquire_resp.resc.num_sbs; i++)
--		if (p_hwfn->sbs_info[i])
--			req->sb_addr[i] = p_hwfn->sbs_info[i]->sb_phys;
-+	for (i = 0; i < p_hwfn->vf_iov_info->acquire_resp.resc.num_sbs; i++) {
-+		struct qed_sb_info *p_sb = p_hwfn->vf_iov_info->sbs_info[i];
-+
-+		if (p_sb)
-+			req->sb_addr[i] = p_sb->sb_phys;
-+	}
- 
- 	/* add list termination tlv */
- 	qed_add_tlv(p_hwfn, &p_iov->offset,
-@@ -1240,6 +1243,24 @@ u16 qed_vf_get_igu_sb_id(struct qed_hwfn *p_hwfn, u16 sb_id)
- 	return p_iov->acquire_resp.resc.hw_sbs[sb_id].hw_sb_id;
+-static void qed_iov_clear_vf_igu_blocks(struct qed_hwfn *p_hwfn,
+-					struct qed_ptt *p_ptt)
+-{
+-	struct qed_igu_block *p_sb;
+-	u16 sb_id;
+-	u32 val;
+-
+-	if (!p_hwfn->hw_info.p_igu_info) {
+-		DP_ERR(p_hwfn,
+-		       "qed_iov_clear_vf_igu_blocks IGU Info not initialized\n");
+-		return;
+-	}
+-
+-	for (sb_id = 0; sb_id < QED_MAPPING_MEMORY_SIZE(p_hwfn->cdev);
+-	     sb_id++) {
+-		p_sb = &p_hwfn->hw_info.p_igu_info->entry[sb_id];
+-		if ((p_sb->status & QED_IGU_STATUS_FREE) &&
+-		    !(p_sb->status & QED_IGU_STATUS_PF)) {
+-			val = qed_rd(p_hwfn, p_ptt,
+-				     IGU_REG_MAPPING_MEMORY + sb_id * 4);
+-			SET_FIELD(val, IGU_MAPPING_LINE_VALID, 0);
+-			qed_wr(p_hwfn, p_ptt,
+-			       IGU_REG_MAPPING_MEMORY + 4 * sb_id, val);
+-		}
+-	}
+-}
+-
+ static void qed_iov_setup_vfdb(struct qed_hwfn *p_hwfn)
+ {
+ 	struct qed_hw_sriov_info *p_iov = p_hwfn->cdev->p_iov_info;
+@@ -555,13 +528,12 @@ int qed_iov_alloc(struct qed_hwfn *p_hwfn)
+ 	return qed_iov_allocate_vfdb(p_hwfn);
  }
  
-+void qed_vf_set_sb_info(struct qed_hwfn *p_hwfn,
-+			u16 sb_id, struct qed_sb_info *p_sb)
-+{
-+	struct qed_vf_iov *p_iov = p_hwfn->vf_iov_info;
-+
-+	if (!p_iov) {
-+		DP_NOTICE(p_hwfn, "vf_sriov_info isn't initialized\n");
-+		return;
-+	}
-+
-+	if (sb_id >= PFVF_MAX_SBS_PER_VF) {
-+		DP_NOTICE(p_hwfn, "Can't configure SB %04x\n", sb_id);
-+		return;
-+	}
-+
-+	p_iov->sbs_info[sb_id] = p_sb;
-+}
-+
- int qed_vf_read_bulletin(struct qed_hwfn *p_hwfn, u8 *p_change)
+-void qed_iov_setup(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt)
++void qed_iov_setup(struct qed_hwfn *p_hwfn)
  {
- 	struct qed_vf_iov *p_iov = p_hwfn->vf_iov_info;
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_vf.h b/drivers/net/ethernet/qlogic/qed/qed_vf.h
-index 34ac70b..d7e1a12 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_vf.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed_vf.h
-@@ -627,6 +627,14 @@ struct qed_vf_iov {
- 	 * this has to be propagated as it affects the fastpath.
- 	 */
- 	bool b_pre_fp_hsi;
-+
-+	/* Current day VFs are passing the SBs physical address on vport
-+	 * start, and as they lack an IGU mapping they need to store the
-+	 * addresses of previously registered SBs.
-+	 * Even if we were to change configuration flow, due to backward
-+	 * compatibility [with older PFs] we'd still need to store these.
-+	 */
-+	struct qed_sb_info *sbs_info[PFVF_MAX_SBS_PER_VF];
- };
+ 	if (!IS_PF_SRIOV(p_hwfn) || !IS_PF_SRIOV_ALLOC(p_hwfn))
+ 		return;
  
- #ifdef CONFIG_QED_SRIOV
-@@ -837,6 +845,16 @@ int qed_vf_pf_release(struct qed_hwfn *p_hwfn);
- u16 qed_vf_get_igu_sb_id(struct qed_hwfn *p_hwfn, u16 sb_id);
+ 	qed_iov_setup_vfdb(p_hwfn);
+-	qed_iov_clear_vf_igu_blocks(p_hwfn, p_ptt);
+ }
  
- /**
-+ * @brief Stores [or removes] a configured sb_info.
-+ *
-+ * @param p_hwfn
-+ * @param sb_id - zero-based SB index [for fastpath]
-+ * @param sb_info - may be NULL [during removal].
-+ */
-+void qed_vf_set_sb_info(struct qed_hwfn *p_hwfn,
-+			u16 sb_id, struct qed_sb_info *p_sb);
-+
-+/**
-  * @brief qed_vf_pf_vport_start - perform vport start for VF.
+ void qed_iov_free(struct qed_hwfn *p_hwfn)
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_sriov.h b/drivers/net/ethernet/qlogic/qed/qed_sriov.h
+index 81a497c..801cc00 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_sriov.h
++++ b/drivers/net/ethernet/qlogic/qed/qed_sriov.h
+@@ -316,9 +316,8 @@ int qed_iov_alloc(struct qed_hwfn *p_hwfn);
+  * @brief qed_iov_setup - setup sriov related resources
   *
   * @param p_hwfn
+- * @param p_ptt
+  */
+-void qed_iov_setup(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt);
++void qed_iov_setup(struct qed_hwfn *p_hwfn);
+ 
+ /**
+  * @brief qed_iov_free - free sriov related resources
+@@ -397,7 +396,7 @@ static inline int qed_iov_alloc(struct qed_hwfn *p_hwfn)
+ 	return 0;
+ }
+ 
+-static inline void qed_iov_setup(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt)
++static inline void qed_iov_setup(struct qed_hwfn *p_hwfn)
+ {
+ }
+ 
 -- 
 2.9.4
