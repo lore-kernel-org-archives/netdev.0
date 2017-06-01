@@ -1,68 +1,81 @@
-From: Russell King - ARM Linux <linux@armlinux.org.uk>
-Subject: Re: [PATCH 2/5] net: phy: hook up clause 45 autonegotiation restart
-Date: Thu, 1 Jun 2017 17:24:18 +0100
-Message-ID: <20170601162417.GA14541@n2100.armlinux.org.uk>
-References: <20170601102327.GF27796@n2100.armlinux.org.uk>
- <E1dGNJM-00043g-KJ@rmk-PC.armlinux.org.uk>
- <20170601122350.GA9282@lunn.ch>
- <20170601125132.GY22219@n2100.armlinux.org.uk>
- <20170601130527.GG9282@lunn.ch>
- <20170601130900.GA22219@n2100.armlinux.org.uk>
- <20170601131955.GH9282@lunn.ch>
- <20170601154735.GB22219@n2100.armlinux.org.uk>
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: Re: [PATCH net-next 2/3] udp: avoid a cache miss on dequeue
+Date: Thu, 01 Jun 2017 18:21:53 +0200
+Message-ID: <1496334113.9312.8.camel@redhat.com>
+References: <cover.1496070490.git.pabeni@redhat.com>
+         <b07f7111480bb0ca2d98fe9fef49a593ab1c4787.1496070490.git.pabeni@redhat.com>
+         <1496250043.27480.6.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1496313592.4872.14.camel@redhat.com>
+         <1496332699.27480.14.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
-To: Andrew Lunn <andrew@lunn.ch>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pandora.armlinux.org.uk ([78.32.30.218]:57198 "EHLO
-        pandora.armlinux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752086AbdFAQYZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 1 Jun 2017 12:24:25 -0400
-Content-Disposition: inline
-In-Reply-To: <20170601154735.GB22219@n2100.armlinux.org.uk>
+Received: from mx1.redhat.com ([209.132.183.28]:54394 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752117AbdFAQVz (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 1 Jun 2017 12:21:55 -0400
+In-Reply-To: <1496332699.27480.14.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 01, 2017 at 04:47:35PM +0100, Russell King - ARM Linux wrote:
-> On Thu, Jun 01, 2017 at 03:19:55PM +0200, Andrew Lunn wrote:
-> > On Thu, Jun 01, 2017 at 02:09:00PM +0100, Russell King - ARM Linux wrote:
-> > > On Thu, Jun 01, 2017 at 03:05:27PM +0200, Andrew Lunn wrote:
-> > > > So you are saying a 10G PHY driver always needs to have a aneg_done
-> > > > callback, even if it just needs to call phygen_c45_aneg_done?
-> > > > 
-> > > > This seems a bit error prone. I can see somebody writing a 10G driver,
-> > > > leaving out aneg_done() and having the c22 version called. Is the read
-> > > > of MII_BMSR likely to return 0xffff, since the register does not
-> > > > exist? If so, genphy_aneg_done() is likely to always return
-> > > > BMSR_ANEGCOMPLETE.
+On Thu, 2017-06-01 at 08:58 -0700, Eric Dumazet wrote:
+> On Thu, 2017-06-01 at 12:39 +0200, Paolo Abeni wrote:
+> > On Wed, 2017-05-31 at 10:00 -0700, Eric Dumazet wrote:
+> > > On Mon, 2017-05-29 at 17:27 +0200, Paolo Abeni wrote:
+> > > > Since UDP no more uses sk->destructor, we can clear completely
+> > > > the skb head state before enqueuing.
 > > > 
-> > > Don't forget that the read will fail, so phy_read() will return a
-> > > negative number.
+> > > ...
+> > > 
+> > > > @@ -1739,6 +1740,9 @@ static int __udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
+> > > >  		sk_mark_napi_id_once(sk, skb);
+> > > >  	}
+> > > >  
+> > > > +	/* drop all pending head states; dst, nf and sk are dropped by caller */
+> > > > +	secpath_reset(skb);
+> > > > +
+> > > 
+> > > I wonder if using skb_release_head_state() would be more appropriate ?
+> > > 
+> > > Surely more descriptive and probably not more expensive since all
+> > > cache lines should be already hot at this point.
 > > 
-> > By fail, you mean return something like -EIO or -ETIMEOUT? Is this
-> > guaranteed in the code somewhere? This particular Marvell PHY only
-> > does c45. But i could imagine some other PHYs answering a c22 request
-> > with 0xffff.
+> > Thank you for reviewing this.
+> > 
+> > I would prefer not adding more code to the core, but I think we would
+> > need something new, like:
+> > 
+> > skb_reset_head_state()
+> > {
+> > 	skb_dst_drop(skb);
+> >         secpath_reset(skb);
+> >         nf_reset(skb);
+> > 	skb_orphan(skb);
+> > }
+> > 
+> > because elsewhere the skb could be in inconsistent state: skb->sp !=
+> > NULL but with its refcount is already decremented. WDYT?
 > 
-> Yes, C45 allows the PHYs to answer C22 as well, but then they have to
-> implement the C22 register set.  Such a PHY would be out of spec,
-> especially as what you're suggesting is that it answers C22 cycles
-> and fails to implement MII_BMSR.  I also think that there's a comment
-> in the 802.3 specs that says that unimplemented registers are to
-> return zero, not 0xffff.
+> I do not believe skb->sk is set anymore in UDP receive path.
+> 
+> If early demux sets skb->sk for a moment, skb_steal_sock() would set
+> skb->sk back to NULL
 
-Checking 802.3-2015, in "22.2.4 Management functions", the first
-sentence requires all PHYs that respond to Clause 22 cycles to
-implement BMCR and BMSR.  However, my statement about unimplemented
-registers returning zero seems to be a C45 thing, not a C22 thing,
-according to the C22 PICS and "45.2 MDIO Interface Registers"
+I'm sorry, I do not follow. I'm concerned about the secpath field (skb-
+>sp), which is the only one that can be not NULL in
+__udp_queue_rcv_skb().
 
-However, digging a bit further, "22.2.4.2.10 Auto-Negotiation complete"
-states that bit 5 shall be zero if aneg has not completed or if aneg is
-unimplemented.
+If the secpath is not NULL, calling there secpath_reset() (or the to-
+be-introduced skb_reset_head_state()), we will properly release it and
+we will clear the field, too.
 
--- 
-RMK's Patch system: http://www.armlinux.org.uk/developer/patches/
-FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
-according to speedtest.net.
+Calling skb_release_head_state() in the same scenario, we release the
+secpath, but we don't clear it. So if the packet is later dropped we
+will get a double free, unless we add and use a specialized a
+free_stateless_skb(), too.
+
+Paolo
