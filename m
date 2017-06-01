@@ -1,87 +1,113 @@
-From: Soheil Hassas Yeganeh <soheil@google.com>
-Subject: Re: commit f5f99309 (sock: do not set sk_err in sock_dequeue_err_skb)
- has broken ping
-Date: Thu, 1 Jun 2017 10:39:26 -0400
-Message-ID: <CACSApvbKwbX2u16V1oQfmHC7SvGZgk-KehA9tashjQAtj0bB0Q@mail.gmail.com>
-References: <20170601140048.GA24401@rei.lan> <CACSApvZiQTYSVkS62YdadjabUTqwO9O2=Sq4ELuO3eoJ_LM_ZQ@mail.gmail.com>
- <20170601143141.GB24401@rei.lan>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: Oops with commit 6d18c73 bridge: start hello_timer when enabling
+ KERNEL_STP in br_stp_start
+Date: Thu, 1 Jun 2017 17:45:07 +0300
+Message-ID: <06ef2ff1-f29d-a163-3226-7bd43c7a407c@cumulusnetworks.com>
+References: <alpine.LFD.2.20.1705311816090.1727@schleppi>
+ <CADvbK_c_bXnPL5NdADj=aCv8f-A0wPKdUmQJqm=XDRf0rizXcA@mail.gmail.com>
+ <alpine.LFD.2.20.1706011415500.1688@schleppi>
+ <a6495939-350d-31a4-88db-852344a19a02@cumulusnetworks.com>
+ <edd9b7f0-0345-975e-dc97-d5261134c7b4@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
 Cc: "David S. Miller" <davem@davemloft.net>,
-        Shmulik Ladkani <shmulik.ladkani@gmail.com>,
-        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-        Pravin B Shelar <pshelar@ovn.org>,
-        Eric Dumazet <edumazet@google.com>,
-        WANG Cong <xiyou.wangcong@gmail.com>,
-        Yaogong Wang <wygivan@google.com>,
-        Steffen Klassert <steffen.klassert@secunet.com>,
-        Al Viro <viro@zeniv.linux.org.uk>,
-        netdev <netdev@vger.kernel.org>, linux-kernel@vger.kernel.org
-To: Cyril Hrubis <chrubis@suse.cz>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f50.google.com ([209.85.214.50]:34902 "EHLO
-        mail-it0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751083AbdFAOkI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 1 Jun 2017 10:40:08 -0400
-Received: by mail-it0-f50.google.com with SMTP id f72so40150692ite.0
-        for <netdev@vger.kernel.org>; Thu, 01 Jun 2017 07:40:08 -0700 (PDT)
-In-Reply-To: <20170601143141.GB24401@rei.lan>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+        Haidong Li <haili@redhat.com>, Ivan Vecera <cera@cera.cz>,
+        Stephen Hemminger <stephen@networkplumber.org>,
+        network dev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Heiko Carstens <heiko.carstens@de.ibm.com>,
+        Martin Schwidefsky <schwidefsky@de.ibm.com>
+To: Sebastian Ott <sebott@linux.vnet.ibm.com>,
+        Xin Long <lucien.xin@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <edd9b7f0-0345-975e-dc97-d5261134c7b4@cumulusnetworks.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jun 1, 2017 at 10:31 AM, Cyril Hrubis <chrubis@suse.cz> wrote:
-> I've started bisecting on v4.11 and see the problem on v4.10 on another
-> machine, the patch should be there in both cases and the bug is easily
-> reproducible.
+On 01/06/17 17:16, Nikolay Aleksandrov wrote:
+> On 01/06/17 17:00, Nikolay Aleksandrov wrote:
+>> On 01/06/17 15:34, Sebastian Ott wrote:
+>>> On Thu, 1 Jun 2017, Xin Long wrote:
+>>>> On Thu, Jun 1, 2017 at 12:32 AM, Sebastian Ott
+>>>> <sebott@linux.vnet.ibm.com> wrote:
+>>>>> [...]
+>>>> I couldn't see any bridge-related thing here, and it couldn't be reproduced
+>>>> with virbr0 (stp=1) on my box (on both s390x and x86_64), I guess there
+>>>> is something else in you machine.
+>>>>
+>>>> With the latest upstream kernel, can you remove libvirt (virbr0) and boot your
+>>>> machine normally, then:
+>>>> # brctl addbr br0
+>>>> # ip link set br0 up
+>>>> # brctl stp br0 on
+>>>>
+>>>> to check if it will still hang.
+>>>
+>>> Nope. That doesn't hang.
+>>>
+>>>
+>>>> If it can't be reproduced in this way, pls add this on your kernel:
+>>>>
+>>>> --- a/net/bridge/br_stp_if.c
+>>>> +++ b/net/bridge/br_stp_if.c
+>>>> @@ -178,9 +178,11 @@ static void br_stp_start(struct net_bridge *br)
+>>>>                 br->stp_enabled = BR_KERNEL_STP;
+>>>>                 br_debug(br, "using kernel STP\n");
+>>>>
+>>>> +               WARN_ON(1);
+>>>>                 /* To start timers on any ports left in blocking */
+>>>>                 mod_timer(&br->hello_timer, jiffies + br->hello_time);
+>>>>                 br_port_state_selection(br);
+>>>> +               pr_warn("hello timer start done\n");
+>>>>         }
+>>>>
+>>>>         spin_unlock_bh(&br->lock);
+>>>> diff --git a/net/bridge/br_stp_timer.c b/net/bridge/br_stp_timer.c
+>>>> index 60b6fe2..c98b3e5 100644
+>>>> --- a/net/bridge/br_stp_timer.c
+>>>> +++ b/net/bridge/br_stp_timer.c
+>>>> @@ -40,7 +40,7 @@ static void br_hello_timer_expired(unsigned long arg)
+>>>>         if (br->dev->flags & IFF_UP) {
+>>>>                 br_config_bpdu_generation(br);
+>>>>
+>>>> -               if (br->stp_enabled == BR_KERNEL_STP)
+>>>> +               if (br->stp_enabled != BR_USER_STP)
+>>>>                         mod_timer(&br->hello_timer,
+>>>>                                   round_jiffies(jiffies + br->hello_time));
+>>>>
+>>>>
+>>>> let's see if it hangs when starting the timer. Thanks.
+>>>
+>>> No hang either:
+>>>
+>> [snip]
+>> Could you please try the patch below ?
+>>
+>> ---
+>>
+>> diff --git a/net/bridge/br_stp_if.c b/net/bridge/br_stp_if.c
+>> index 4efd5d54498a..89110319ef0f 100644
+>> --- a/net/bridge/br_stp_if.c
+>> +++ b/net/bridge/br_stp_if.c
+>> @@ -173,7 +173,8 @@ static void br_stp_start(struct net_bridge *br)
+>>  		br_debug(br, "using kernel STP\n");
+>>  
+>>  		/* To start timers on any ports left in blocking */
+>> -		mod_timer(&br->hello_timer, jiffies + br->hello_time);
+>> +		if (br->dev->flags & IFF_UP)
+>> +			mod_timer(&br->hello_timer, jiffies + br->hello_time);
+>>  		br_port_state_selection(br);
+>>  	}
+>>  
+>>
+> 
+> Ah nevermind, this patch reverts it back to the previous state.
+> 
 
-Thank you for the confirmation. Could you please try the following
-patch to see if it fixes your issue?
+Okay, I saw the problem and can reliably reproduce it. I will send a fix for testing
+in a few minutes. I think the issue is that the timer can be started before the bridge
+even goes up, i.e. create bridge -> brctl stp br0 on -> ip l del br0
+so the del_timer_sync() doesn't get executed and thus it's still armed.
 
->From 3ec438460425d127741b20f03f78644c9e441e8c Mon Sep 17 00:00:00 2001
-From: Soheil Hassas Yeganeh <soheil@google.com>
-Date: Thu, 1 Jun 2017 10:34:09 -0400
-Subject: [PATCH net] sock: reset sk_err when the error queue is empty
-
-Before f5f99309fa74 (sock: do not set sk_err in
-sock_dequeue_err_skb), sk_err was reset to 0 upon reading
-from the error queue when the error queue was empty.
-
-Applications, most notably ping, are relying on this
-behavior to reset sk_err.
-
-Reset sk_err when there is no packet left on the
-error queue.
-
-Fixes: f5f99309fa74 (sock: do not set sk_err in sock_dequeue_err_skb)
-Reported-by: Cyril Hrubis <chrubis@suse.cz>
-Signed-off-by: Soheil Hassas Yeganeh <soheil@google.com>
----
- net/core/skbuff.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 346d3e85dfbc..5a726161f4e4 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -3758,7 +3758,7 @@ struct sk_buff *sock_dequeue_err_skb(struct sock *sk)
-  icmp_next = is_icmp_err_skb(skb_next);
-  spin_unlock_irqrestore(&q->lock, flags);
-
-- if (is_icmp_err_skb(skb) && !icmp_next)
-+ if ((is_icmp_err_skb(skb) && !icmp_next) || !skb_next)
-  sk->sk_err = 0;
-
-  if (skb_next)
--- 
-2.13.0.219.gdb65acc882-goog
-
-
->> 2. I've also have sent a fix to iputils on
->> https://github.com/iputils/iputils/pull/75. Would you be kind to try
->> that pull request as well?
->
-> That fixed the problem, you can add:
->
-> Tested-by: Cyril Hrubis <chrubis@suse.cz>
-
-Thank you for testing! Will do.
+$ while :; do ip l add br0 type bridge hello_time 100; brctl stp br0 on; ip l del br0; done;
