@@ -1,120 +1,149 @@
-From: gfree.wind@vip.163.com
-Subject: [PATCH net-next] ppp: remove unnecessary bh disable in xmit path
-Date: Thu,  1 Jun 2017 17:58:39 +0800
-Message-ID: <1496311119-59204-1-git-send-email-gfree.wind@vip.163.com>
-Cc: Gao Feng <gfree.wind@vip.163.com>
-To: paulus@samba.org, linux-ppp@vger.kernel.org, g.nault@alphalink.fr,
-        netdev@vger.kernel.org
-Return-path: <linux-ppp-owner@vger.kernel.org>
-Sender: linux-ppp-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Adrian Tomasov <atomasov@redhat.com>
+Subject: Re: [i40e] regression on TCP stream and TCP maerts,
+ kernel-4.12.0-0.rc2
+Date: Thu, 01 Jun 2017 12:14:40 +0200
+Message-ID: <1496312080.3758.7.camel@redhat.com>
+References: <655ed9ab-853e-7497-9ea3-cc8d13f56043@redhat.com>
+         <CAKgT0UcdJQWqr_zxxi36a6_3iMwBNow-YS723i7t6xsKvAqvCA@mail.gmail.com>
+         <CAKgT0Ufb41o=WM=3DM9cwvrw9N5AFn-uL0p1gQB-m+D3BX3DKA@mail.gmail.com>
+         <1496238507.22688.4.camel@redhat.com>
+         <CAKgT0Ucg9wHrKDBjQXKH6gziuinwcK9MO-jRC=0q60Lm-8vFqA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: Adam Okuliar <aokuliar@redhat.com>,
+        Mitch Williams <mitch.a.williams@intel.com>,
+        intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
+        Netdev <netdev@vger.kernel.org>,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+        Otto Sabart <osabart@redhat.com>,
+        Jirka Hladky <jhladky@redhat.com>
+To: Alexander Duyck <alexander.duyck@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f42.google.com ([74.125.82.42]:34870 "EHLO
+        mail-wm0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751283AbdFAKOn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Jun 2017 06:14:43 -0400
+Received: by mail-wm0-f42.google.com with SMTP id b84so152156852wmh.0
+        for <netdev@vger.kernel.org>; Thu, 01 Jun 2017 03:14:42 -0700 (PDT)
+In-Reply-To: <CAKgT0Ucg9wHrKDBjQXKH6gziuinwcK9MO-jRC=0q60Lm-8vFqA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Gao Feng <gfree.wind@vip.163.com>
+On Wed, 2017-05-31 at 14:42 -0700, Alexander Duyck wrote:
+> On Wed, May 31, 2017 at 6:48 AM, Adrian Tomasov <atomasov@redhat.com>
+> wrote:
+> > 
+> > On Tue, 2017-05-30 at 18:27 -0700, Alexander Duyck wrote:
+> > > 
+> > > On Tue, May 30, 2017 at 8:41 AM, Alexander Duyck
+> > > <alexander.duyck@gmail.com> wrote:
+> > > > 
+> > > > 
+> > > > On Tue, May 30, 2017 at 6:43 AM, Adam Okuliar <aokuliar@redhat.
+> > > > com>
+> > > > wrote:
+> > > > > 
+> > > > > 
+> > > > > Hello,
+> > > > > 
+> > > > > we found regression on intel card(XL710) with i40e driver.
+> > > > > Regression is
+> > > > > about ~45%
+> > > > > on TCP_STREAM and TCP_MAERTS test for IPv4 and IPv6.
+> > > > > Regression
+> > > > > was first
+> > > > > visible in kernel-4.12.0-0.rc1.
+> > > > > 
+> > > > > More details about results you can see in uploaded images in
+> > > > > bugzilla. [0]
+> > > > > 
+> > > > > 
+> > > > > [0] https://bugzilla.kernel.org/show_bug.cgi?id=195923
+> > > > > 
+> > > > > 
+> > > > > Best regards, / S pozdravom,
+> > > > > 
+> > > > > Adrián Tomašov
+> > > > > Kernel Performance QE
+> > > > > atomasov@redhat.com
+> > > > 
+> > > > I have added the i40e driver maintainer and the intel-wired-lan
+> > > > mailing list so that we can make are developers aware of the
+> > > > issue.
+> > > > 
+> > > > Thanks.
+> > > > 
+> > > > - Alex
+> > > 
+> > > Adam,
+> > > 
+> > > We are having some issues trying to reproduce what you reported.
+> > > 
+> > > Can you provide some additional data. Specifically we would be
+> > > looking
+> > > for an "ethtool -i", and an "ethtool -S" for the port before and
+> > > after
+> > > the test. If you can attach it to the bugzilla that would be
+> > > appreciated.
+> > > 
+> > > Thanks.
+> > > 
+> > > - Alex
+> > 
+> > Hello Alex,
+> > 
+> > requested files are updated in bugzilla.
+> > 
+> > If you have any questions about testing feel free to ask.
+> > 
+> > 
+> > Best regards,
+> > 
+> > Adrian
+> 
+> So looking at the data I wonder if we don't have an MTU mismatch in
+> the network config. I notice the "after" has rx_length_errors being
+> reported. Recent changes made it so that i40e doesn't support jumbo
+> frames by default, whereas before we could. You might want to check
+> for that as that could cause the kind of performance issues you are
+> seeing.
+> 
+> - Alex
 
-Since the commit 55454a565836 ("ppp: avoid dealock on recursive xmit"),
-the PPP xmit path is protected by wrapper functions which disable the
-bh already. So it is unnecessary to disable the bh again in the real
-xmit path.
-
-Signed-off-by: Gao Feng <gfree.wind@vip.163.com>
----
- drivers/net/ppp/ppp_generic.c | 22 +++++++++++-----------
- 1 file changed, 11 insertions(+), 11 deletions(-)
-
-diff --git a/drivers/net/ppp/ppp_generic.c b/drivers/net/ppp/ppp_generic.c
-index f9c0e62..bbded33 100644
---- a/drivers/net/ppp/ppp_generic.c
-+++ b/drivers/net/ppp/ppp_generic.c
-@@ -1618,7 +1618,7 @@ static void ppp_xmit_process(struct ppp *ppp)
- 		list = list->next;
- 		pch = list_entry(list, struct channel, clist);
- 
--		spin_lock_bh(&pch->downl);
-+		spin_lock(&pch->downl);
- 		if (pch->chan) {
- 			if (pch->chan->ops->start_xmit(pch->chan, skb))
- 				ppp->xmit_pending = NULL;
-@@ -1627,7 +1627,7 @@ static void ppp_xmit_process(struct ppp *ppp)
- 			kfree_skb(skb);
- 			ppp->xmit_pending = NULL;
- 		}
--		spin_unlock_bh(&pch->downl);
-+		spin_unlock(&pch->downl);
- 		return;
- 	}
- 
-@@ -1757,7 +1757,7 @@ static int ppp_mp_explode(struct ppp *ppp, struct sk_buff *skb)
- 		}
- 
- 		/* check the channel's mtu and whether it is still attached. */
--		spin_lock_bh(&pch->downl);
-+		spin_lock(&pch->downl);
- 		if (pch->chan == NULL) {
- 			/* can't use this channel, it's being deregistered */
- 			if (pch->speed == 0)
-@@ -1765,7 +1765,7 @@ static int ppp_mp_explode(struct ppp *ppp, struct sk_buff *skb)
- 			else
- 				totspeed -= pch->speed;
- 
--			spin_unlock_bh(&pch->downl);
-+			spin_unlock(&pch->downl);
- 			pch->avail = 0;
- 			totlen = len;
- 			totfree--;
-@@ -1816,7 +1816,7 @@ static int ppp_mp_explode(struct ppp *ppp, struct sk_buff *skb)
- 		 */
- 		if (flen <= 0) {
- 			pch->avail = 2;
--			spin_unlock_bh(&pch->downl);
-+			spin_unlock(&pch->downl);
- 			continue;
- 		}
- 
-@@ -1861,14 +1861,14 @@ static int ppp_mp_explode(struct ppp *ppp, struct sk_buff *skb)
- 		len -= flen;
- 		++ppp->nxseq;
- 		bits = 0;
--		spin_unlock_bh(&pch->downl);
-+		spin_unlock(&pch->downl);
- 	}
- 	ppp->nxchan = i;
- 
- 	return 1;
- 
-  noskb:
--	spin_unlock_bh(&pch->downl);
-+	spin_unlock(&pch->downl);
- 	if (ppp->debug & 1)
- 		netdev_err(ppp->dev, "PPP: no memory (fragment)\n");
- 	++ppp->dev->stats.tx_errors;
-@@ -1883,7 +1883,7 @@ static void __ppp_channel_push(struct channel *pch)
- 	struct sk_buff *skb;
- 	struct ppp *ppp;
- 
--	spin_lock_bh(&pch->downl);
-+	spin_lock(&pch->downl);
- 	if (pch->chan) {
- 		while (!skb_queue_empty(&pch->file.xq)) {
- 			skb = skb_dequeue(&pch->file.xq);
-@@ -1897,14 +1897,14 @@ static void __ppp_channel_push(struct channel *pch)
- 		/* channel got deregistered */
- 		skb_queue_purge(&pch->file.xq);
- 	}
--	spin_unlock_bh(&pch->downl);
-+	spin_unlock(&pch->downl);
- 	/* see if there is anything from the attached unit to be sent */
- 	if (skb_queue_empty(&pch->file.xq)) {
--		read_lock_bh(&pch->upl);
-+		read_lock(&pch->upl);
- 		ppp = pch->ppp;
- 		if (ppp)
- 			__ppp_xmit_process(ppp);
--		read_unlock_bh(&pch->upl);
-+		read_unlock(&pch->upl);
- 	}
- }
- 
--- 
-1.9.1
+There isn't MTU mismatch. Traffic path is : server -> switch ->
+server. 
 
 
+Output from switch:
+
+    > show interfaces et-0/0/18    
+    Physical interface: et-0/0/18, Enabled, Physical link is Up
+      Interface index: 644, SNMP ifIndex: 538
+      Link-level type: Ethernet, MTU: 1514, Speed: 40Gbps, BPDU Error:
+    None, MAC-REWRITE Error: None, Loopback: Disabled, Source filtering:
+    Disabled, Flow control: Disabled, Media type: Fiber
+      Device flags   : Present Running
+      Interface flags: SNMP-Traps Internal: 0x4000
+      Link flags     : None
+      CoS queues     : 12 supported, 12 maximum usable queues
+      Current address: d4:04:ff:90:5a:4b, Hardware address:
+    d4:04:ff:90:5a:4b
+      Last flapped   : 2017-06-01 10:09:32 CEST (01:21:29 ago)
+      Input rate     : 432 bps (0 pps)
+      Output rate    : 8336 bps (11 pps)
+      Active alarms  : None
+      Active defects : None
+      Interface transmit statistics: Disabled
+
+      Logical interface et-0/0/18.0 (Index 552) (SNMP ifIndex 539)
+        Flags: SNMP-Traps 0x24024000 Encapsulation: Ethernet-Bridge
+        Input packets : 464041
+        Output packets: 209210
+        Protocol eth-switch, MTU: 1514
+          Flags: Is-Primary, Trunk-Mode
+
+
+MTU is same for all et-0/0/x interfaces. 
+
+- Adrian
