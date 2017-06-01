@@ -1,46 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] mlxsw: spectrum: Implement the ethtool
- flash_device callback
-Date: Thu, 01 Jun 2017 12:25:55 -0400 (EDT)
-Message-ID: <20170601.122555.1824969925686772266.davem@davemloft.net>
-References: <20170601132646.51869-1-yotamg@mellanox.com>
+Subject: Re: [PATCH net] net: bridge: start hello timer only if device is up
+Date: Thu, 01 Jun 2017 12:31:24 -0400 (EDT)
+Message-ID: <20170601.123124.646097227290806863.davem@davemloft.net>
+References: <06ef2ff1-f29d-a163-3226-7bd43c7a407c@cumulusnetworks.com>
+        <1496329675-11254-1-git-send-email-nikolay@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, idosch@mellanox.com, eladr@mellanox.com,
-        ogerlitz@mellanox.com, ilant@mellanox.com, jiri@mellanox.com,
-        arkadis@mellanox.com
-To: yotamg@mellanox.com
+Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
+        lucien.xin@gmail.com, cera@cera.cz, sebott@linux.vnet.ibm.com
+To: nikolay@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:56770 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:56782 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751667AbdFAQ0D (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 1 Jun 2017 12:26:03 -0400
-In-Reply-To: <20170601132646.51869-1-yotamg@mellanox.com>
+        with ESMTP id S1751710AbdFAQbm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Jun 2017 12:31:42 -0400
+In-Reply-To: <1496329675-11254-1-git-send-email-nikolay@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yotam Gigi <yotamg@mellanox.com>
-Date: Thu,  1 Jun 2017 16:26:46 +0300
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Date: Thu,  1 Jun 2017 18:07:55 +0300
 
-> Add callback to the ethtool flash_device op. This callback uses the mlxfw
-> module to flash the new firmware file to the device.
+> When the transition of NO_STP -> KERNEL_STP was fixed by always calling
+> mod_timer in br_stp_start, it introduced a new regression which causes
+> the timer to be armed even when the bridge is down, and since we stop
+> the timers in its ndo_stop() function, they never get disabled if the
+> device is destroyed before it's upped.
 > 
-> As the firmware flash process takes about 20 seconds and ethtool takes the
-> rtnl lock during the flash_device callback, release the rtnl lock at the
-> beginning of the flash process and take it again before leaving the
-> callback. This way, the rtnl is not held during the process. To make sure
-> the device does not get deleted during the flash process, take a reference
-> to it before releasing the rtnl lock.
+> To reproduce:
+> $ while :; do ip l add br0 type bridge hello_time 100; brctl stp br0 on;
+> ip l del br0; done;
 > 
-> Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
-> Reviewed-by: Ido Schimmel <idosch@mellanox.com>
+> CC: Xin Long <lucien.xin@gmail.com>
+> CC: Ivan Vecera <cera@cera.cz>
+> CC: Sebastian Ott <sebott@linux.vnet.ibm.com>
+> Reported-by: Sebastian Ott <sebott@linux.vnet.ibm.com>
+> Fixes: 6d18c732b95c ("bridge: start hello_timer when enabling KERNEL_STP in br_stp_start")
+> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 
-You're going to have to implement some kind of sleeping synchronization
-then, in order to prevent another thread coming in and starting another
-flash at the same time.
-
-Nevermind, I see you have to take the FSM lock to start the flash
-operation so it should be fine.
-
-Applied, thanks.
+Applied and queued up for -stable.
