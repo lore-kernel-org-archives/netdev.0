@@ -1,77 +1,119 @@
-From: Russell King - ARM Linux <linux@armlinux.org.uk>
-Subject: Re: [PATCH 2/5] net: phy: hook up clause 45 autonegotiation restart
-Date: Thu, 1 Jun 2017 13:51:32 +0100
-Message-ID: <20170601125132.GY22219@n2100.armlinux.org.uk>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH 5/5] net: phy: add Marvell Alaska X 88X3310 10Gigabit PHY
+ support
+Date: Thu, 1 Jun 2017 14:51:50 +0200
+Message-ID: <20170601125150.GE9282@lunn.ch>
 References: <20170601102327.GF27796@n2100.armlinux.org.uk>
- <E1dGNJM-00043g-KJ@rmk-PC.armlinux.org.uk>
- <20170601122350.GA9282@lunn.ch>
+ <E1dGNJc-000442-8H@rmk-PC.armlinux.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
-To: Andrew Lunn <andrew@lunn.ch>
+To: Russell King <rmk+kernel@armlinux.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pandora.armlinux.org.uk ([78.32.30.218]:54742 "EHLO
-        pandora.armlinux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751078AbdFAMvi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 1 Jun 2017 08:51:38 -0400
+Received: from vps0.lunn.ch ([178.209.37.122]:32792 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751078AbdFAMvw (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 1 Jun 2017 08:51:52 -0400
 Content-Disposition: inline
-In-Reply-To: <20170601122350.GA9282@lunn.ch>
+In-Reply-To: <E1dGNJc-000442-8H@rmk-PC.armlinux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 01, 2017 at 02:23:50PM +0200, Andrew Lunn wrote:
-> On Thu, Jun 01, 2017 at 11:26:36AM +0100, Russell King wrote:
-> > genphy_restart_aneg() can only restart autonegotiation on clause 22
-> > PHYs.  Add a phy_restart_aneg() function which selects between the
-> > clause 22 and clause 45 restart functionality depending on the PHY
-> > type.
-> > 
-> > Signed-off-by: Russell King <rmk+kernel@armlinux.org.uk>
-> > ---
-> >  drivers/net/phy/phy.c | 23 +++++++++++++++++++++--
-> >  include/linux/phy.h   |  1 +
-> >  2 files changed, 22 insertions(+), 2 deletions(-)
-> > 
-> > diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
-> > index 82ab8fb82587..25b24789a409 100644
-> > --- a/drivers/net/phy/phy.c
-> > +++ b/drivers/net/phy/phy.c
-> > @@ -149,6 +149,25 @@ static int phy_config_interrupt(struct phy_device *phydev, u32 interrupts)
-> >  	return 0;
-> >  }
-> >  
-> > +/**
-> > + * phy_restart_aneg - restart auto-negotiation
-> > + * @phydev: target phy_device struct
-> > + *
-> > + * Restart the autonegotiation on @phydev.  Returns >= 0 on success or
-> > + * negative errno on error.
-> > + */
-> > +int phy_restart_aneg(struct phy_device *phydev)
-> > +{
-> > +	int ret;
-> > +
-> > +	if (phydev->is_c45)
-> > +		ret = genphy_c45_restart_aneg(phydev);
-> > +	else
-> > +		ret = genphy_restart_aneg(phydev);
-> > +
-> > +	return ret;
-> > +}
-> > +EXPORT_SYMBOL_GPL(phy_restart_aneg);
-> 
-> Hi Russell
-> 
-> Isn't the same sort of thing needed in phy_aneg_done()?
+> +static int mv3310_read_status(struct phy_device *phydev)
+> +{
+> +	u32 mmd_mask = phydev->c45_ids.devices_in_package;
+> +	int val;
+> +
+> +	/* The vendor devads do not report link status.  Avoid the PHYXS
+> +	 * instance as there are three, and its status depends on the MAC
+> +	 * being appropriately configured for the negotiated speed.
+> +	 */
+> +	mmd_mask &= ~(BIT(MDIO_MMD_VEND1) | BIT(MDIO_MMD_VEND2) |
+> +		      BIT(MDIO_MMD_PHYXS));
+> +
+> +	phydev->speed = SPEED_UNKNOWN;
+> +	phydev->duplex = DUPLEX_UNKNOWN;
+> +	phydev->lp_advertising = 0;
+> +	phydev->link = 0;
+> +	phydev->pause = 0;
+> +	phydev->asym_pause = 0;
+> +
+> +	val = phy_read_mmd(phydev, MDIO_MMD_PCS, MV_PCS_BASE_R + MDIO_STAT1);
+> +	if (val < 0)
+> +		return val;
+> +
+> +	if (val & MDIO_STAT1_LSTATUS)
+> +		return mv3310_read_10gbr_status(phydev);
+> +
+> +	val = genphy_c45_read_link(phydev, mmd_mask);
+> +	if (val < 0)
+> +		return val;
+> +
+> +	phydev->link = val > 0 ? 1 : 0;
+> +
+> +	val = phy_read_mmd(phydev, MDIO_MMD_AN, MDIO_STAT1);
+> +	if (val < 0)
+> +		return val;
+> +
+> +	if (val & MDIO_AN_STAT1_COMPLETE) {
+> +		val = genphy_c45_read_lpa(phydev);
+> +		if (val < 0)
+> +			return val;
+> +
+> +		/* Read the link partner's 1G advertisment */
+> +		val = phy_read_mmd(phydev, MDIO_MMD_AN, MV_AN_STAT1000);
+> +		if (val < 0)
+> +			return val;
+> +
+> +		phydev->lp_advertising |= mii_stat1000_to_ethtool_lpa_t(val);
+> +
+> +		if (phydev->autoneg == AUTONEG_ENABLE) {
+> +			val = phy_read_mmd(phydev, MDIO_MMD_AN, MV_AN_RESULT);
+> +			if (val < 0)
+> +				return val;
+> +
+> +			if (val & MV_AN_RESULT_SPD_10000)
+> +				phydev->speed = SPEED_10000;
+> +			else if (val & MV_AN_RESULT_SPD_1000)
+> +				phydev->speed = SPEED_1000;
+> +			else if (val & MV_AN_RESULT_SPD_100)
+> +				phydev->speed = SPEED_100;
+> +			else if (val & MV_AN_RESULT_SPD_10)
+> +				phydev->speed = SPEED_10;
+> +
+> +			phydev->duplex = DUPLEX_FULL;
+> +		}
+> +	}
+> +
+> +	if (phydev->autoneg != AUTONEG_ENABLE) {
+> +		val = genphy_c45_read_pma(phydev);
+> +		if (val < 0)
+> +			return val;
+> +	}
+> +
+> +	if ((phydev->interface == PHY_INTERFACE_MODE_SGMII ||
+> +	     phydev->interface == PHY_INTERFACE_MODE_10GKR) && phydev->link) {
+> +		/* The PHY automatically switches its serdes interface (and
+> +		 * active PHYXS instance) between Cisco SGMII and 10GBase-KR
+> +		 * modes according to the speed.  Florian suggests setting
+> +		 * phydev->interface to communicate this to the MAC. Only do
+> +		 * this if we are already in either SGMII or 10GBase-KR mode.
+> +		 */
 
-No, because phy_aneg_done() already has hooks in it which PHY drivers
-can use to override the default C22 implementation.
+Hi Russell
 
-I did toy with providing a similar conditional in phy_aneg_done(), but
-decided it was better to use the existing hooks where present, rather
-than needlessly adding additional code.
+Just for my understanding. The MAC should check phydev->interface in
+its adjust_link function? Can we document this here please. I wounder
+if there is somewhere in the generic code we should also document
+this?
 
--- 
-RMK's Patch system: http://www.armlinux.org.uk/developer/patches/
-FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
-according to speedtest.net.
+> +static struct phy_driver mv3310_drivers[] = {
+> +	{
+> +		.phy_id		= 0x002b09aa,
+> +		.phy_id_mask	= 0xffffffff,
+
+How about adding this ID to include/linux/marvell_phy.h? Or do you
+think this is not actually a Marvell ID, but some 3rd party which
+Marvell has licensed it from?
+
+	Andrew
