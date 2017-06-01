@@ -1,68 +1,144 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH 2/5] net: phy: hook up clause 45 autonegotiation restart
-Date: Thu, 1 Jun 2017 15:05:27 +0200
-Message-ID: <20170601130527.GG9282@lunn.ch>
+From: Russell King - ARM Linux <linux@armlinux.org.uk>
+Subject: Re: [PATCH 5/5] net: phy: add Marvell Alaska X 88X3310 10Gigabit PHY
+ support
+Date: Thu, 1 Jun 2017 14:06:58 +0100
+Message-ID: <20170601130658.GZ22219@n2100.armlinux.org.uk>
 References: <20170601102327.GF27796@n2100.armlinux.org.uk>
- <E1dGNJM-00043g-KJ@rmk-PC.armlinux.org.uk>
- <20170601122350.GA9282@lunn.ch>
- <20170601125132.GY22219@n2100.armlinux.org.uk>
+ <E1dGNJc-000442-8H@rmk-PC.armlinux.org.uk>
+ <20170601125150.GE9282@lunn.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
-To: Russell King - ARM Linux <linux@armlinux.org.uk>
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:32806 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751083AbdFANF3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 1 Jun 2017 09:05:29 -0400
+Received: from pandora.armlinux.org.uk ([78.32.30.218]:54920 "EHLO
+        pandora.armlinux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750952AbdFANHI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Jun 2017 09:07:08 -0400
 Content-Disposition: inline
-In-Reply-To: <20170601125132.GY22219@n2100.armlinux.org.uk>
+In-Reply-To: <20170601125150.GE9282@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> > > +/**
-> > > + * phy_restart_aneg - restart auto-negotiation
-> > > + * @phydev: target phy_device struct
-> > > + *
-> > > + * Restart the autonegotiation on @phydev.  Returns >= 0 on success or
-> > > + * negative errno on error.
-> > > + */
-> > > +int phy_restart_aneg(struct phy_device *phydev)
-> > > +{
-> > > +	int ret;
-> > > +
-> > > +	if (phydev->is_c45)
-> > > +		ret = genphy_c45_restart_aneg(phydev);
-> > > +	else
-> > > +		ret = genphy_restart_aneg(phydev);
-> > > +
-> > > +	return ret;
-> > > +}
-> > > +EXPORT_SYMBOL_GPL(phy_restart_aneg);
-> > 
-> > Hi Russell
-> > 
-> > Isn't the same sort of thing needed in phy_aneg_done()?
+On Thu, Jun 01, 2017 at 02:51:50PM +0200, Andrew Lunn wrote:
+> > +static int mv3310_read_status(struct phy_device *phydev)
+> > +{
+> > +	u32 mmd_mask = phydev->c45_ids.devices_in_package;
+> > +	int val;
+> > +
+> > +	/* The vendor devads do not report link status.  Avoid the PHYXS
+> > +	 * instance as there are three, and its status depends on the MAC
+> > +	 * being appropriately configured for the negotiated speed.
+> > +	 */
+> > +	mmd_mask &= ~(BIT(MDIO_MMD_VEND1) | BIT(MDIO_MMD_VEND2) |
+> > +		      BIT(MDIO_MMD_PHYXS));
+> > +
+> > +	phydev->speed = SPEED_UNKNOWN;
+> > +	phydev->duplex = DUPLEX_UNKNOWN;
+> > +	phydev->lp_advertising = 0;
+> > +	phydev->link = 0;
+> > +	phydev->pause = 0;
+> > +	phydev->asym_pause = 0;
+> > +
+> > +	val = phy_read_mmd(phydev, MDIO_MMD_PCS, MV_PCS_BASE_R + MDIO_STAT1);
+> > +	if (val < 0)
+> > +		return val;
+> > +
+> > +	if (val & MDIO_STAT1_LSTATUS)
+> > +		return mv3310_read_10gbr_status(phydev);
+> > +
+> > +	val = genphy_c45_read_link(phydev, mmd_mask);
+> > +	if (val < 0)
+> > +		return val;
+> > +
+> > +	phydev->link = val > 0 ? 1 : 0;
+> > +
+> > +	val = phy_read_mmd(phydev, MDIO_MMD_AN, MDIO_STAT1);
+> > +	if (val < 0)
+> > +		return val;
+> > +
+> > +	if (val & MDIO_AN_STAT1_COMPLETE) {
+> > +		val = genphy_c45_read_lpa(phydev);
+> > +		if (val < 0)
+> > +			return val;
+> > +
+> > +		/* Read the link partner's 1G advertisment */
+> > +		val = phy_read_mmd(phydev, MDIO_MMD_AN, MV_AN_STAT1000);
+> > +		if (val < 0)
+> > +			return val;
+> > +
+> > +		phydev->lp_advertising |= mii_stat1000_to_ethtool_lpa_t(val);
+> > +
+> > +		if (phydev->autoneg == AUTONEG_ENABLE) {
+> > +			val = phy_read_mmd(phydev, MDIO_MMD_AN, MV_AN_RESULT);
+> > +			if (val < 0)
+> > +				return val;
+> > +
+> > +			if (val & MV_AN_RESULT_SPD_10000)
+> > +				phydev->speed = SPEED_10000;
+> > +			else if (val & MV_AN_RESULT_SPD_1000)
+> > +				phydev->speed = SPEED_1000;
+> > +			else if (val & MV_AN_RESULT_SPD_100)
+> > +				phydev->speed = SPEED_100;
+> > +			else if (val & MV_AN_RESULT_SPD_10)
+> > +				phydev->speed = SPEED_10;
+> > +
+> > +			phydev->duplex = DUPLEX_FULL;
+> > +		}
+> > +	}
+> > +
+> > +	if (phydev->autoneg != AUTONEG_ENABLE) {
+> > +		val = genphy_c45_read_pma(phydev);
+> > +		if (val < 0)
+> > +			return val;
+> > +	}
+> > +
+> > +	if ((phydev->interface == PHY_INTERFACE_MODE_SGMII ||
+> > +	     phydev->interface == PHY_INTERFACE_MODE_10GKR) && phydev->link) {
+> > +		/* The PHY automatically switches its serdes interface (and
+> > +		 * active PHYXS instance) between Cisco SGMII and 10GBase-KR
+> > +		 * modes according to the speed.  Florian suggests setting
+> > +		 * phydev->interface to communicate this to the MAC. Only do
+> > +		 * this if we are already in either SGMII or 10GBase-KR mode.
+> > +		 */
 > 
-> No, because phy_aneg_done() already has hooks in it which PHY drivers
-> can use to override the default C22 implementation.
+> Hi Russell
 > 
-> I did toy with providing a similar conditional in phy_aneg_done(), but
-> decided it was better to use the existing hooks where present, rather
-> than needlessly adding additional code.
+> Just for my understanding. The MAC should check phydev->interface in
+> its adjust_link function? Can we document this here please. I wounder
+> if there is somewhere in the generic code we should also document
+> this?
 
-Hi Russell
+Yes, it would need to, since it would be unreliable to determine from
+the link mode bits.
 
-So you are saying a 10G PHY driver always needs to have a aneg_done
-callback, even if it just needs to call phygen_c45_aneg_done?
+> > +static struct phy_driver mv3310_drivers[] = {
+> > +	{
+> > +		.phy_id		= 0x002b09aa,
+> > +		.phy_id_mask	= 0xffffffff,
+> 
+> How about adding this ID to include/linux/marvell_phy.h? Or do you
+> think this is not actually a Marvell ID, but some 3rd party which
+> Marvell has licensed it from?
 
-This seems a bit error prone. I can see somebody writing a 10G driver,
-leaving out aneg_done() and having the c22 version called. Is the read
-of MII_BMSR likely to return 0xffff, since the register does not
-exist? If so, genphy_aneg_done() is likely to always return
-BMSR_ANEGCOMPLETE.
+The vendor part is not the conventional Marvell ID.  The 3310 appears
+to be two or three different vendors IP all glued together, some of
+which is in a way which violates the clause 45 register definitions.
+Eg, there's multiple instances of PHYXS at 4K offsets, but C45
+indicates that these are "reserved" and the place for vendor specific
+stuff is in the two vendor MMDs.  Same goes for some of the other
+MMDs as well.  I'll call these "MMD sub-blocks".
 
-Seems like a trap waiting for somebody to fall into it. The additional
-code might be worth it to avoid placing this trap.
+Some MMD sub-blocks have a Marvell ID in them, but others do not.
 
-      Andrew
+The OUI for the ID listed above is apparently "FiberHome Digital
+Technology Co.,Ltd." but you'll also find the ID "0141 0daa" in some
+of the MMD sub-blocks which corresponds with Marvell.
+
+We can't use the sub-blocks though, because as I say, that's rather
+non-standard and against the Clause 45 spec.
+
+-- 
+RMK's Patch system: http://www.armlinux.org.uk/developer/patches/
+FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
+according to speedtest.net.
