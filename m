@@ -1,98 +1,91 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: Oops with commit 6d18c73 bridge: start hello_timer when enabling
- KERNEL_STP in br_stp_start
-Date: Thu, 1 Jun 2017 17:00:53 +0300
-Message-ID: <a6495939-350d-31a4-88db-852344a19a02@cumulusnetworks.com>
-References: <alpine.LFD.2.20.1705311816090.1727@schleppi>
- <CADvbK_c_bXnPL5NdADj=aCv8f-A0wPKdUmQJqm=XDRf0rizXcA@mail.gmail.com>
- <alpine.LFD.2.20.1706011415500.1688@schleppi>
+From: Yury Norov <ynorov@caviumnetworks.com>
+Subject: Re: [PATCH v3] net: don't call strlen on non-terminated string in
+ dev_set_alias()
+Date: Thu, 1 Jun 2017 17:04:53 +0300
+Message-ID: <20170601140453.fp7iusjomq65tu6i@yury-thinkpad>
+References: <20170601123829.51794-1-glider@google.com>
+ <20170601134737.7dp2pbnek26b6kqf@yury-thinkpad>
+ <CAG_fn=U0n4Sn4_44e63FjsYPTTDX4ivAbTcuL2s3erFc+g6n2g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Haidong Li <haili@redhat.com>, Ivan Vecera <cera@cera.cz>,
-        Stephen Hemminger <stephen@networkplumber.org>,
-        network dev <netdev@vger.kernel.org>,
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: Dmitriy Vyukov <dvyukov@google.com>,
+        Kostya Serebryany <kcc@google.com>,
+        Eric Dumazet <edumazet@google.com>,
+        David Miller <davem@davemloft.net>, stephen@networkplumber.org,
         LKML <linux-kernel@vger.kernel.org>,
-        Heiko Carstens <heiko.carstens@de.ibm.com>,
-        Martin Schwidefsky <schwidefsky@de.ibm.com>
-To: Sebastian Ott <sebott@linux.vnet.ibm.com>,
-        Xin Long <lucien.xin@gmail.com>
+        Networking <netdev@vger.kernel.org>
+To: Alexander Potapenko <glider@google.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LFD.2.20.1706011415500.1688@schleppi>
+Content-Disposition: inline
+In-Reply-To: <CAG_fn=U0n4Sn4_44e63FjsYPTTDX4ivAbTcuL2s3erFc+g6n2g@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 01/06/17 15:34, Sebastian Ott wrote:
-> On Thu, 1 Jun 2017, Xin Long wrote:
->> On Thu, Jun 1, 2017 at 12:32 AM, Sebastian Ott
->> <sebott@linux.vnet.ibm.com> wrote:
->>> [...]
->> I couldn't see any bridge-related thing here, and it couldn't be reproduced
->> with virbr0 (stp=1) on my box (on both s390x and x86_64), I guess there
->> is something else in you machine.
->>
->> With the latest upstream kernel, can you remove libvirt (virbr0) and boot your
->> machine normally, then:
->> # brctl addbr br0
->> # ip link set br0 up
->> # brctl stp br0 on
->>
->> to check if it will still hang.
-> 
-> Nope. That doesn't hang.
-> 
-> 
->> If it can't be reproduced in this way, pls add this on your kernel:
->>
->> --- a/net/bridge/br_stp_if.c
->> +++ b/net/bridge/br_stp_if.c
->> @@ -178,9 +178,11 @@ static void br_stp_start(struct net_bridge *br)
->>                 br->stp_enabled = BR_KERNEL_STP;
->>                 br_debug(br, "using kernel STP\n");
->>
->> +               WARN_ON(1);
->>                 /* To start timers on any ports left in blocking */
->>                 mod_timer(&br->hello_timer, jiffies + br->hello_time);
->>                 br_port_state_selection(br);
->> +               pr_warn("hello timer start done\n");
->>         }
->>
->>         spin_unlock_bh(&br->lock);
->> diff --git a/net/bridge/br_stp_timer.c b/net/bridge/br_stp_timer.c
->> index 60b6fe2..c98b3e5 100644
->> --- a/net/bridge/br_stp_timer.c
->> +++ b/net/bridge/br_stp_timer.c
->> @@ -40,7 +40,7 @@ static void br_hello_timer_expired(unsigned long arg)
->>         if (br->dev->flags & IFF_UP) {
->>                 br_config_bpdu_generation(br);
->>
->> -               if (br->stp_enabled == BR_KERNEL_STP)
->> +               if (br->stp_enabled != BR_USER_STP)
->>                         mod_timer(&br->hello_timer,
->>                                   round_jiffies(jiffies + br->hello_time));
->>
->>
->> let's see if it hangs when starting the timer. Thanks.
-> 
-> No hang either:
-> 
-[snip]
-Could you please try the patch below ?
+On Thu, Jun 01, 2017 at 03:50:33PM +0200, Alexander Potapenko wrote:
+> On Thu, Jun 1, 2017 at 3:47 PM, Yury Norov <ynorov@caviumnetworks.com> wrote:
+> > On Thu, Jun 01, 2017 at 02:38:29PM +0200, Alexander Potapenko wrote:
+> >> KMSAN reported a use of uninitialized memory in dev_set_alias(),
+> >> which was caused by calling strlcpy() (which in turn called strlen())
+> >> on the user-supplied non-terminated string.
+> >>
+> >> Signed-off-by: Alexander Potapenko <glider@google.com>
+> >> ---
+> >> v3: removed the multi-line comment
+> >> v2: fixed an off-by-one error spotted by Dmitry Vyukov
+> >
+> > [...]
+> >
+> >> ---
+> >>  net/core/dev.c | 4 +++-
+> >>  1 file changed, 3 insertions(+), 1 deletion(-)
+> >>
+> >> diff --git a/net/core/dev.c b/net/core/dev.c
+> >> index fca407b4a6ea..3e3b29133cc9 100644
+> >> --- a/net/core/dev.c
+> >> +++ b/net/core/dev.c
+> >> @@ -1254,7 +1254,9 @@ int dev_set_alias(struct net_device *dev, const char *alias, size_t len)
+> >>               return -ENOMEM;
+> >>       dev->ifalias = new_ifalias;
+> >>
+> >> -     strlcpy(dev->ifalias, alias, len+1);
+> >> +     /* alias comes from the userspace and may not be zero-terminated. */
+> >
+> > So if the comment is correct, you'd use copy_from_user() instead.
+> Well, the contents of |alias| have been previously copied from the
+> userspace, but this is a pointer to a kernel buffer, as the function
+> prototype tells.
+> Do you think a confusion is possible here?
 
----
+Yes, I think so... If pointer comes from userspace, it normally points to
+userspace data. If you have the data already copied, just say:
++     /* alias may not be zero-terminated. */
 
-diff --git a/net/bridge/br_stp_if.c b/net/bridge/br_stp_if.c
-index 4efd5d54498a..89110319ef0f 100644
---- a/net/bridge/br_stp_if.c
-+++ b/net/bridge/br_stp_if.c
-@@ -173,7 +173,8 @@ static void br_stp_start(struct net_bridge *br)
- 		br_debug(br, "using kernel STP\n");
- 
- 		/* To start timers on any ports left in blocking */
--		mod_timer(&br->hello_timer, jiffies + br->hello_time);
-+		if (br->dev->flags & IFF_UP)
-+			mod_timer(&br->hello_timer, jiffies + br->hello_time);
- 		br_port_state_selection(br);
- 	}
- 
+Or say nothing, because at the first glance, using the strlcpy()
+instead of simple memcpy() looks weird in this case - you know the
+length of the string from the beginning, and should not recalculate it
+again.
+
+Yury
+
+> >> +     memcpy(dev->ifalias, alias, len);
+> >> +     dev->ifalias[len] = 0;
+> >>       return len;
+> >>  }
+> >>
+> >> --
+> >> 2.13.0.219.gdb65acc882-goog
+> 
+> 
+> 
+> -- 
+> Alexander Potapenko
+> Software Engineer
+> 
+> Google Germany GmbH
+> Erika-Mann-Straße, 33
+> 80636 München
+> 
+> Geschäftsführer: Matthew Scott Sucherman, Paul Terence Manicle
+> Registergericht und -nummer: Hamburg, HRB 86891
+> Sitz der Gesellschaft: Hamburg
