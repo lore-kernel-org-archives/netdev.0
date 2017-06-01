@@ -1,72 +1,45 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next V2 4/4] net/mlx5e: Offload TC matching on ip tos / traffic-class
-Date: Thu,  1 Jun 2017 21:37:40 +0300
-Message-ID: <1496342260-28199-5-git-send-email-ogerlitz@mellanox.com>
-References: <1496342260-28199-1-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net-next V2 0/4] add support for dissection and matching on ip tos and ttl
+Date: Thu,  1 Jun 2017 21:37:36 +0300
+Message-ID: <1496342260-28199-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, Saeed Mahameed <saeedm@mellanox.com>,
         Roi Dayan <roid@mellanox.com>,
         Paul Blakey <paulb@mellanox.com>,
         Or Gerlitz <ogerlitz@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:45555 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:45530 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751225AbdFAShz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 1 Jun 2017 14:37:55 -0400
-In-Reply-To: <1496342260-28199-1-git-send-email-ogerlitz@mellanox.com>
+        with ESMTP id S1751170AbdFAShu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Jun 2017 14:37:50 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Enable offloading of TC matching on ipv4 tos or ipv6 traffic-class.
+Hi Dave, 
 
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx5/core/en_tc.c | 26 ++++++++++++++++++++++++-
- 1 file changed, 25 insertions(+), 1 deletion(-)
+The 1st two patches enable matching/classifying on ip tos and ttl by 
+the flow dissector and flower. The other two patches offload matching 
+on tcp flags and ip tos in mlx5. 
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
-index 066045b..8ec13f9 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
-@@ -582,7 +582,8 @@ static int __parse_cls_flower(struct mlx5e_priv *priv,
- 	      BIT(FLOW_DISSECTOR_KEY_ENC_IPV6_ADDRS) |
- 	      BIT(FLOW_DISSECTOR_KEY_ENC_PORTS)	|
- 	      BIT(FLOW_DISSECTOR_KEY_ENC_CONTROL) |
--	      BIT(FLOW_DISSECTOR_KEY_TCP))) {
-+	      BIT(FLOW_DISSECTOR_KEY_TCP) |
-+	      BIT(FLOW_DISSECTOR_KEY_IP))) {
- 		netdev_warn(priv->netdev, "Unsupported key used: 0x%x\n",
- 			    f->dissector->used_keys);
- 		return -EOPNOTSUPP;
-@@ -809,6 +810,29 @@ static int __parse_cls_flower(struct mlx5e_priv *priv,
- 			*min_inline = MLX5_INLINE_MODE_TCP_UDP;
- 	}
- 
-+	if (dissector_uses_key(f->dissector, FLOW_DISSECTOR_KEY_IP)) {
-+		struct flow_dissector_key_ip *key =
-+			skb_flow_dissector_target(f->dissector,
-+						  FLOW_DISSECTOR_KEY_IP,
-+						  f->key);
-+		struct flow_dissector_key_ip *mask =
-+			skb_flow_dissector_target(f->dissector,
-+						  FLOW_DISSECTOR_KEY_IP,
-+						  f->mask);
-+
-+		MLX5_SET(fte_match_set_lyr_2_4, headers_c, ip_ecn, mask->tos & 0x3);
-+		MLX5_SET(fte_match_set_lyr_2_4, headers_v, ip_ecn, key->tos & 0x3);
-+
-+		MLX5_SET(fte_match_set_lyr_2_4, headers_c, ip_dscp, mask->tos >> 2);
-+		MLX5_SET(fte_match_set_lyr_2_4, headers_v, ip_dscp, key->tos  >> 2);
-+
-+		if (mask->tos)
-+			*min_inline = MLX5_INLINE_MODE_IP;
-+
-+		if (mask->ttl) /* currently not supported */
-+			return -EOPNOTSUPP;
-+	}
-+
- 	if (dissector_uses_key(f->dissector, FLOW_DISSECTOR_KEY_TCP)) {
- 		struct flow_dissector_key_tcp *key =
- 			skb_flow_dissector_target(f->dissector,
+The mlx5 patches touch single file/function and not interfere with
+other inflight mlx5 submissions.
+
+Or.
+
+V2:  repost as asked by Dave.
+
+Or Gerlitz (4):
+  net/flow_dissector: add support for dissection of misc ip header fields
+  net/sched: cls_flower: add support for matching on ip tos and ttl
+  net/mlx5e: Offload TC matching on tcp flags
+  net/mlx5e: Offload TC matching on ip tos / traffic-class
+
+ drivers/net/ethernet/mellanox/mlx5/core/en_tc.c | 46 ++++++++++++++++++++++++-
+ include/net/flow_dissector.h                    | 11 ++++++
+ include/uapi/linux/pkt_cls.h                    |  5 +++
+ net/core/flow_dissector.c                       | 40 +++++++++++++++++++++
+ net/sched/cls_flower.c                          | 39 +++++++++++++++++++--
+ 5 files changed, 138 insertions(+), 3 deletions(-)
+
 -- 
 2.3.7
