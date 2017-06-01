@@ -1,87 +1,47 @@
-From: Andy Duan <fugang.duan-3arQi8VN3Tc@public.gmane.org>
-Subject: RE: [PATCH v2] net: fec: add post PHY reset delay DT property
-Date: Thu, 1 Jun 2017 05:39:53 +0000
-Message-ID: <AM4PR0401MB22601AFFFE57337A2E0934ACFFF60@AM4PR0401MB2260.eurprd04.prod.outlook.com>
-References: <20170523094808.11102-1-quentin.schulz@free-electrons.com>
- <20170531164416.ka3hk6a2lybrlngd@rob-hp-laptop>
- <AM4PR0401MB226073F4A403F31FA0FF2BE0FFF60@AM4PR0401MB2260.eurprd04.prod.outlook.com>
- <621b21da-e152-dead-de0f-af17e7c55a38@gmail.com>
+From: Yotam Gigi <yotamg@mellanox.com>
+Subject: Re: [PATCH linux-firmware] Mellanox: Add firmware for mlxsw_spectrum
+Date: Thu, 1 Jun 2017 08:48:06 +0300
+Message-ID: <bdca2970-249f-2124-a4c5-089bae682d46@mellanox.com>
+References: <20170529104228.32947-1-yotamg@mellanox.com>
+ <20170530192232.GY13400@bombadil.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "mark.rutland-5wv7dgnIgG8@public.gmane.org" <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org"
-        <thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-To: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Quentin Schulz <quentin.schulz-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <621b21da-e152-dead-de0f-af17e7c55a38-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Content-Language: en-US
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: <idosch@mellanox.com>, <jiri@mellanox.com>, <eladr@mellanox.com>,
+        <arkadis@mellanox.com>, <netdev@vger.kernel.org>,
+        <linux-firmware@kernel.org>
+To: Kyle McMartin <kyle@infradead.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-he1eur01on0073.outbound.protection.outlook.com ([104.47.0.73]:36775
+        "EHLO EUR01-HE1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1750848AbdFAFsP (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 1 Jun 2017 01:48:15 -0400
+In-Reply-To: <20170530192232.GY13400@bombadil.infradead.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRmxvcmlhbiBGYWluZWxsaSA8Zi5mYWluZWxsaUBnbWFpbC5jb20+IFNlbnQ6IFRodXJz
-ZGF5LCBKdW5lIDAxLCAyMDE3IDk6NTMgQU0NCj5UbzogQW5keSBEdWFuIDxmdWdhbmcuZHVhbkBu
-eHAuY29tPjsgUm9iIEhlcnJpbmcgPHJvYmhAa2VybmVsLm9yZz47DQo+UXVlbnRpbiBTY2h1bHog
-PHF1ZW50aW4uc2NodWx6QGZyZWUtZWxlY3Ryb25zLmNvbT4NCj5DYzogbWFyay5ydXRsYW5kQGFy
-bS5jb207IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7DQo+ZGV2aWNldHJlZUB2Z2VyLmtlcm5lbC5v
-cmc7IGxpbnV4LWtlcm5lbEB2Z2VyLmtlcm5lbC5vcmc7DQo+dGhvbWFzLnBldGF6em9uaUBmcmVl
-LWVsZWN0cm9ucy5jb20NCj5TdWJqZWN0OiBSZTogW1BBVENIIHYyXSBuZXQ6IGZlYzogYWRkIHBv
-c3QgUEhZIHJlc2V0IGRlbGF5IERUIHByb3BlcnR5DQo+DQo+TGUgMDUvMzEvMTcgw6AgMTg6Mzks
-IEFuZHkgRHVhbiBhIMOpY3JpdCA6DQo+PiBGcm9tOiBSb2IgSGVycmluZyA8cm9iaEBrZXJuZWwu
-b3JnPiBTZW50OiBUaHVyc2RheSwgSnVuZSAwMSwgMjAxNw0KPj4gMTI6NDQgQU0NCj4+PiBPbiBU
-dWUsIE1heSAyMywgMjAxNyBhdCAxMTo0ODowOEFNICswMjAwLCBRdWVudGluIFNjaHVseiB3cm90
-ZToNCj4+Pj4gU29tZSBQSFkgcmVxdWlyZSB0byB3YWl0IGZvciBhIGJpdCBhZnRlciB0aGUgcmVz
-ZXQgR1BJTyBoYXMgYmVlbg0KPj4+PiB0b2dnbGVkLiBUaGlzIGFkZHMgc3VwcG9ydCBmb3IgdGhl
-IERUIHByb3BlcnR5DQo+Pj4+IGBwaHktcmVzZXQtcG9zdC1kZWxheWAgd2hpY2ggZ2l2ZXMgdGhl
-IGRlbGF5IGluIG1pbGxpc2Vjb25kcyB0byB3YWl0IGFmdGVyDQo+cmVzZXQuDQo+Pj4+DQo+Pj4+
-IElmIHRoZSBEVCBwcm9wZXJ0eSBpcyBub3QgZ2l2ZW4sIG5vIGRlbGF5IGlzIG9ic2VydmVkLiBQ
-b3N0IHJlc2V0DQo+Pj4+IGRlbGF5IGdyZWF0ZXIgdGhhbiAxMDAwbXMgYXJlIGludmFsaWQuDQo+
-Pj4+DQo+Pj4+IFNpZ25lZC1vZmYtYnk6IFF1ZW50aW4gU2NodWx6IDxxdWVudGluLnNjaHVsekBm
-cmVlLWVsZWN0cm9ucy5jb20+DQo+Pj4+IC0tLQ0KPj4+Pg0KPj4+PiB2MjoNCj4+Pj4gICAtIHJl
-dHVybiAtRUlOVkFMIHdoZW4gcGh5LXJlc2V0LXBvc3QtZGVsYXkgaXMgZ3JlYXRlciB0aGFuIDEw
-MDBtcw0KPj4+PiAgIGluc3RlYWQgb2YgZGVmYXVsdGluZyB0byAxbXMsDQo+Pj4+ICAgLSByZW1v
-dmUgYGRlZmF1bHQgdG8gMW1zYCB3aGVuIHBoeS1yZXNldC1wb3N0LWRlbGF5ID4gMTAwME1zIGZy
-b20gRFQNCj4+Pj4gICBiaW5kaW5nIGRvYyBhbmQgY29tbWl0IGxvZywNCj4+Pj4gICAtIG1vdmUg
-cGh5LXJlc2V0LXBvc3QtZGVsYXkgcHJvcGVydHkgcmVhZGluZyBiZWZvcmUNCj4+Pj4gICBkZXZt
-X2dwaW9fcmVxdWVzdF9vbmUoKSwNCj4+Pj4NCj4+Pj4gIERvY3VtZW50YXRpb24vZGV2aWNldHJl
-ZS9iaW5kaW5ncy9uZXQvZnNsLWZlYy50eHQgfCAgNCArKysrDQo+Pj4+ICBkcml2ZXJzL25ldC9l
-dGhlcm5ldC9mcmVlc2NhbGUvZmVjX21haW4uYyAgICAgICAgIHwgMTYgKysrKysrKysrKysrKysr
-LQ0KPj4+PiAgMiBmaWxlcyBjaGFuZ2VkLCAxOSBpbnNlcnRpb25zKCspLCAxIGRlbGV0aW9uKC0p
-DQo+Pj4+DQo+Pj4+IGRpZmYgLS1naXQgYS9Eb2N1bWVudGF0aW9uL2RldmljZXRyZWUvYmluZGlu
-Z3MvbmV0L2ZzbC1mZWMudHh0DQo+Pj4+IGIvRG9jdW1lbnRhdGlvbi9kZXZpY2V0cmVlL2JpbmRp
-bmdzL25ldC9mc2wtZmVjLnR4dA0KPj4+PiBpbmRleCBhMWUzNjkzY2NhMTYuLjZmNTViZGQ1MmY4
-YSAxMDA2NDQNCj4+Pj4gLS0tIGEvRG9jdW1lbnRhdGlvbi9kZXZpY2V0cmVlL2JpbmRpbmdzL25l
-dC9mc2wtZmVjLnR4dA0KPj4+PiArKysgYi9Eb2N1bWVudGF0aW9uL2RldmljZXRyZWUvYmluZGlu
-Z3MvbmV0L2ZzbC1mZWMudHh0DQo+Pj4+IEBAIC0xNSw2ICsxNSwxMCBAQCBPcHRpb25hbCBwcm9w
-ZXJ0aWVzOg0KPj4+PiAgLSBwaHktcmVzZXQtYWN0aXZlLWhpZ2ggOiBJZiBwcmVzZW50IHRoZW4g
-dGhlIHJlc2V0IHNlcXVlbmNlIHVzaW5nIHRoZQ0KPkdQSU8NCj4+Pj4gICAgc3BlY2lmaWVkIGlu
-IHRoZSAicGh5LXJlc2V0LWdwaW9zIiBwcm9wZXJ0eSBpcyByZXZlcnNlZCAoSD1yZXNldCBzdGF0
-ZSwNCj4+Pj4gICAgTD1vcGVyYXRpb24gc3RhdGUpLg0KPj4+PiArLSBwaHktcmVzZXQtcG9zdC1k
-ZWxheSA6IFBvc3QgcmVzZXQgZGVsYXkgaW4gbWlsbGlzZWNvbmRzLiBJZg0KPj4+PiArcHJlc2Vu
-dCB0aGVuDQo+Pj4NCj4+PiBUaGlzIG5lZWRzIHVuaXQgc3VmZml4IG1pbmltYWxseS4gSXQgc2hv
-dWxkIGFsc28gaGF2ZSBhIHZlbmRvciBwcmVmaXgNCj4+PiBvciBiZSBtYWRlIGdlbmVyaWMuDQo+
-Pj4NCj4+PiBCdXQgcmVhbGx5LCB0aGlzIGlzIGEgcHJvcGVydHkgb2YgdGhlIHBoeSBhbmQgc2hv
-dWxkIGJlIGluIHRoZSBwaHkNCj4+PiBub2RlIGFzIHNob3VsZCBwaHktcmVzZXQtZ3Bpb3MsIHBo
-eS1yZXNldC1hY3RpdmUtaGlnaCwgcGh5LXN1cHBseSwgZXRjLg0KPj4+DQo+PiBZZXMsIGl0IGlz
-IGJldHRlciB0byBtYWtlIGl0IGdlbmVyYWwuDQo+PiBMYXN0IHllYXIsIFV3ZSBLbGVpbmUtS8O2
-bmlnJ3MgcGF0Y2ggIkNvbW1pdCBkYTQ3YjQ1NzIwNTYgKCJwaHk6IGFkZA0KPnN1cHBvcnQgZm9y
-IGEgcmVzZXQtZ3BpbyBzcGVjaWZpY2F0aW9uIikiIGRpZCB0aGlzLCBidXQgaXQgd2FzIHJldmVy
-dGVkIGJ5DQo+Y29tbWl0IDk0ODM1MDE0MGVmMCAoUmV2ZXJ0ICJwaHk6IGFkZCBzdXBwb3J0IGZv
-ciBhIHJlc2V0LWdwaW8NCj5zcGVjaWZpY2F0aW9uIikuICBBbmQgaW4gYWxsIHBoeSBkZXZpY2Ug
-ZHJpdmVyLCBvbmx5IGF0ODAzeC5jIGFkZCB0aGUgZ3BpbyByZXNldCBpbg0KPmN1cnJlbnRseS4N
-Cj4NCj5HZXR0aW5nIHRoZSBiaW5kaW5nIGNvcnJlY3QgZG9lcyBub3QgcHJldmVudCB1cyBmcm9t
-IGxhdGVyIG1vdmluZyB0aGlzIHJlc2V0DQo+Y29kZSBpbnRvIFBIWUxJQiB3aGVyZSBpdCdzIGFw
-cHJvcHJpYXRlLiBJbiBmYWN0OyBhIGNvcnJlY3QgYW5kIGdlbmVyaWMgYmluZGluZw0KPnByb3Bv
-c2VkIGZvciBGRUMgaGVyZSBjb3VsZCBiZSB1c2VkIGFzIGEgYmFzaXMgZm9yIGFsbCBvdGhlciBN
-QUMgYW5kIFBIWQ0KPmRyaXZlcnMuDQo+LS0NCj5GbG9yaWFuDQoNCkkgYWdyZWUgd2l0aCB5b3Vy
-IG9waW5pb24uIEp1c3QgaG9wZSB0byBhZGQgdGhlIGdlbmVyYWwgcGh5IHJlc2V0IGludGVyZmFj
-ZSBpbiBwaHlsaWIgYW5kIHNwZWNpYWwgZGV2aWNlIGRyaXZlci4NCg0KQW5keQ0K
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+On 05/30/2017 10:22 PM, Kyle McMartin wrote:
+> On Mon, May 29, 2017 at 01:42:28PM +0300, Yotam Gigi wrote:
+>> Add first firmware for the Mellanox Spectrum switch, as a followup to the
+>> recently added commit:
+>> 6b7421992b8d ("mlxsw: spectrum: Validate firmware revision on init")
+>>
+>> The version of the firmware release is 13.1420.122
+>>
+>> Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
+>> ---
+>>  mlxsw_spectrum-13.1420.122.mfa2 | Bin 0 -> 860424 bytes
+>>  1 file changed, 0 insertions(+), 0 deletions(-)
+>>  create mode 100644 mlxsw_spectrum-13.1420.122.mfa2
+>>
+>> diff --git a/mlxsw_spectrum-13.1420.122.mfa2 b/mlxsw_spectrum-13.1420.122.mfa2
+>> new file mode 100644
+> Can we please put this in a subdirectory if we're going to be adding
+> more versions of this in the future?
+>
+> --Kyle
+
+
+Ok. Will fix.
+Thanks!
