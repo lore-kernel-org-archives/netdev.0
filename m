@@ -1,46 +1,48 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: [PATCH] b43legacy: Fix a sleep-in-atomic bug in
- b43legacy_attr_interfmode_store
-Date: Thu, 1 Jun 2017 12:43:41 -0500
-Message-ID: <ff1dd7ad-e8d5-bb3e-9a38-3eefcc8e3b23@lwfinger.net>
-References: <1496226547-5921-1-git-send-email-baijiaju1990@163.com>
- <85905124-7167-aeb0-8aff-4ceec09e9542@lwfinger.net>
- <592F6843.9000204@163.com> <20170601101113.6dd30d6d@lwn.net>
+From: David Ahern <dsahern@gmail.com>
+Subject: Re: [PATCH v2 net-next 0/8] Introduce bpf ID
+Date: Thu, 1 Jun 2017 11:51:24 -0600
+Message-ID: <18d3c571-7434-eaea-43dc-d237712309d1@gmail.com>
+References: <cover.1496256722.git.kafai@fb.com>
+ <20170531192256.0e0d0ce1@cakuba.lan>
+ <3f269312-efd4-86fc-e8e2-814af5898648@gmail.com>
+ <6ab73989-6246-ba15-7178-7863a110165c@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: kvalo@codeaurora.org, linux-wireless@vger.kernel.org,
-        b43-dev@lists.infradead.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Jonathan Corbet <corbet@lwn.net>, Jia-Ju Bai <baijiaju1990@163.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170601101113.6dd30d6d@lwn.net>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>,
+        kernel-team@fb.com
+To: Alexei Starovoitov <ast@fb.com>, Jakub Kicinski <kubakici@wp.pl>,
+        Martin KaFai Lau <kafai@fb.com>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:36701 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751097AbdFARv2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Jun 2017 13:51:28 -0400
+Received: by mail-pf0-f195.google.com with SMTP id n23so7943111pfb.3
+        for <netdev@vger.kernel.org>; Thu, 01 Jun 2017 10:51:28 -0700 (PDT)
+In-Reply-To: <6ab73989-6246-ba15-7178-7863a110165c@fb.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 06/01/2017 11:11 AM, Jonathan Corbet wrote:
-> On Thu, 01 Jun 2017 09:05:07 +0800
-> Jia-Ju Bai <baijiaju1990@163.com> wrote:
+On 6/1/17 11:24 AM, Alexei Starovoitov wrote:
 > 
->> I admit my patches are not well tested, and they may not well fix the bugs.
->> I am looking forward to opinions and suggestions :)
-> 
-> May I politely suggest that sending out untested locking changes is a
-> dangerous thing to do?  You really should not be changing the locking in a
-> piece of kernel code without understanding very well what the lock is
-> protecting and being able to say why your changes are safe.  Without that,
-> the risk of introducing subtle bugs is very high.
-> 
-> It looks like you have written a useful tool that could help us to make
-> the kernel more robust.  If you are interested in my suggestion, I would
-> recommend that you post the sleep-in-atomic scenarios that you are
-> finding, but refrain from "fixing" them in any case where you cannot offer
-> a strong explanation of why your fix is correct.
-> 
-> Thanks for working to find bugs in the kernel!
+> what problem are we trying to solve?
+> If we don't agree on the problem, we won't be able to agree on the
+> solution.
 
-I agree with the suggestion above. Locking changes should only be done in 
-conjunction with testing by someone that actually has the hardware.
+I want the ability to retrieve the BPF instructions pushed to the
+kernel. Not just for cgroups and VRF, but everywhere - cgroups, sockets,
+xdp, filters, etc. I have this stated many times, including to you at
+netconf in April. From that discussion and the discussion on the RFC
+patch I sent in February, I thought we had an agreement that saving the
+instructions was the first step.
 
-Larry
+Quentin at 6wind has expressed a similar interest for cls_bpf and
+act_bpf code.
+
+I read Jakub's email as wanting the same but for XDP.
+
+The patches I referenced earlier save the original instructions and
+enable them to be read by userspace from an fd return by the bpf
+syscall. Combine that with the ID and we have a solution.
