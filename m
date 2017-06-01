@@ -1,45 +1,86 @@
-From: Jia-Ju Bai <baijiaju1990@163.com>
-Subject: [PATCH] qlcnic: Fix a sleep-in-atomic bug in qlcnic_82xx_hw_write_wx_2M and qlcnic_82xx_hw_read_wx_2M
-Date: Thu,  1 Jun 2017 16:18:10 +0800
-Message-ID: <1496305090-17814-1-git-send-email-baijiaju1990@163.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Jia-Ju Bai <baijiaju1990@163.com>
-To: harish.patil@cavium.com, manish.chopra@cavium.com,
-        Dept-GELinuxNICDev@cavium.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Mark Bloch <markb@mellanox.com>
+Subject: [net] vxlan: fix use-after-free on deletion
+Date: Thu, 1 Jun 2017 11:43:35 +0300
+Message-ID: <1496306615-770-1-git-send-email-markb@mellanox.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>
+To: <jbenc@redhat.com>, <roopa@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-he1eur01on0041.outbound.protection.outlook.com ([104.47.0.41]:14368
+        "EHLO EUR01-HE1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751563AbdFAInp (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 1 Jun 2017 04:43:45 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The driver may sleep under a write spin lock, and the function 
-call path is:
-qlcnic_82xx_hw_write_wx_2M (acquire the lock by write_lock_irqsave)
-  crb_win_lock
-    qlcnic_pcie_sem_lock
-      usleep_range
-qlcnic_82xx_hw_read_wx_2M (acquire the lock by write_lock_irqsave)
-  crb_win_lock
-    qlcnic_pcie_sem_lock
-      usleep_range
+Adding a vxlan interface to a socket isn't symmetrical, while adding
+is done in vxlan_open() the deletion is done in vxlan_dellink().
+This can cause a use-after-free error when we close the vxlan
+interface before deleting it.
 
-To fix it, the usleep_range is replaced with udelay.
+We add vxlan_vs_del_dev() to match vxlan_vs_add_dev() and call
+it from vxlan_stop() to match the call from vxlan_open().
 
-Signed-off-by: Jia-Ju Bai <baijiaju1990@163.com>
+Signed-off-by: Mark Bloch <markb@mellanox.com>
 ---
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/vxlan.c | 19 +++++++++++++------
+ 1 file changed, 13 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c
-index 838cc0c..7848cf0 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c
-@@ -341,7 +341,7 @@ static void qlcnic_write_window_reg(u32 addr, void __iomem *bar0, u32 data)
- 			}
- 			return -EIO;
- 		}
--		usleep_range(1000, 1500);
-+		udelay(1200);
- 	}
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index 328b471..f6a4310 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -59,6 +59,8 @@
  
- 	if (id_reg)
+ static int vxlan_sock_add(struct vxlan_dev *vxlan);
+ 
++static void vxlan_vs_del_dev(struct vxlan_dev *vxlan);
++
+ /* per-network namespace private data for this module */
+ struct vxlan_net {
+ 	struct list_head  vxlan_list;
+@@ -1067,6 +1069,8 @@ static void vxlan_sock_release(struct vxlan_dev *vxlan)
+ 	rcu_assign_pointer(vxlan->vn4_sock, NULL);
+ 	synchronize_net();
+ 
++	vxlan_vs_del_dev(vxlan);
++
+ 	if (__vxlan_sock_release_prep(sock4)) {
+ 		udp_tunnel_sock_release(sock4->sock);
+ 		kfree(sock4);
+@@ -2342,6 +2346,15 @@ static void vxlan_cleanup(unsigned long arg)
+ 	mod_timer(&vxlan->age_timer, next_timer);
+ }
+ 
++static void vxlan_vs_del_dev(struct vxlan_dev *vxlan)
++{
++	struct vxlan_net *vn = net_generic(vxlan->net, vxlan_net_id);
++
++	spin_lock(&vn->sock_lock);
++	hlist_del_init_rcu(&vxlan->hlist);
++	spin_unlock(&vn->sock_lock);
++}
++
+ static void vxlan_vs_add_dev(struct vxlan_sock *vs, struct vxlan_dev *vxlan)
+ {
+ 	struct vxlan_net *vn = net_generic(vxlan->net, vxlan_net_id);
+@@ -3286,15 +3299,9 @@ static int vxlan_changelink(struct net_device *dev, struct nlattr *tb[],
+ static void vxlan_dellink(struct net_device *dev, struct list_head *head)
+ {
+ 	struct vxlan_dev *vxlan = netdev_priv(dev);
+-	struct vxlan_net *vn = net_generic(vxlan->net, vxlan_net_id);
+ 
+ 	vxlan_flush(vxlan, true);
+ 
+-	spin_lock(&vn->sock_lock);
+-	if (!hlist_unhashed(&vxlan->hlist))
+-		hlist_del_rcu(&vxlan->hlist);
+-	spin_unlock(&vn->sock_lock);
+-
+ 	gro_cells_destroy(&vxlan->gro_cells);
+ 	list_del(&vxlan->next);
+ 	unregister_netdevice_queue(dev, head);
 -- 
-1.7.9.5
+1.8.4.3
