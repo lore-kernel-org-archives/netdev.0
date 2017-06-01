@@ -1,24 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Cherry pick commit *net: better skb->sender_cpu and
- skb->napi_id cohabitation* to 4.4 series?
-Date: Thu, 01 Jun 2017 12:19:35 -0400 (EDT)
-Message-ID: <20170601.121935.1801387892378122014.davem@davemloft.net>
-References: <987d9047-08ac-0d53-2d1f-ef9189988ee2@molgen.mpg.de>
+Subject: Re: [PATCH net] bnx2x: Fix Multi-Cos
+Date: Thu, 01 Jun 2017 12:22:59 -0400 (EDT)
+Message-ID: <20170601.122259.945935496179490442.davem@davemloft.net>
+References: <20170601125756.25019-1-Yuval.Mintz@cavium.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: edumazet@google.com, netdev@vger.kernel.org, ast@kernel.org,
-        it+linux-netdev@molgen.mpg.de
-To: pmenzel@molgen.mpg.de
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
+To: Yuval.Mintz@cavium.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:56700 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:56740 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751722AbdFAQTr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 1 Jun 2017 12:19:47 -0400
-In-Reply-To: <987d9047-08ac-0d53-2d1f-ef9189988ee2@molgen.mpg.de>
+        with ESMTP id S1751078AbdFAQXB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Jun 2017 12:23:01 -0400
+In-Reply-To: <20170601125756.25019-1-Yuval.Mintz@cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Yuval Mintz <Yuval.Mintz@cavium.com>
+Date: Thu, 1 Jun 2017 15:57:56 +0300
 
-Neither of us have anything to do with the 4.4 -stable series.  We only
-manage stable backport submissions for the most recent two releases.
+> Apparently multi-cos isn't working for bnx2x quite some time -
+> driver implements ndo_select_queue() to allow queue-selection
+> for FCoE, but the regular L2 flow would cause it to modulo the
+> fallback's result by the number of queues.
+> The fallback would return a queue matching the needed tc
+> [via __skb_tx_hash()], but since the modulo is by the number of TSS
+> queues where number of TCs is not accounted, transmission would always
+> be done by a queue configured into using TC0.
+> 
+> Fixes: ada7c19e6d27 ("bnx2x: use XPS if possible for bnx2x_select_queue instead of pure hash")
+> Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
+
+Applied and queued up for -stable.
