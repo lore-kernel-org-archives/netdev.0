@@ -1,50 +1,66 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH][net-next] net: dsa: make function ksz_rcv static
-Date: Thu,  1 Jun 2017 13:22:42 +0100
-Message-ID: <20170601122242.14341-1-colin.king@canonical.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH 2/5] net: phy: hook up clause 45 autonegotiation restart
+Date: Thu, 1 Jun 2017 14:23:50 +0200
+Message-ID: <20170601122350.GA9282@lunn.ch>
+References: <20170601102327.GF27796@n2100.armlinux.org.uk>
+ <E1dGNJM-00043g-KJ@rmk-PC.armlinux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Woojung Huh <Woojung.Huh@microchip.com>,
-        Microchip Linux Driver Support <UNGLinuxDriver@microchip.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
+To: Russell King <rmk+kernel@armlinux.org.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:60972 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751058AbdFAMXw (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 1 Jun 2017 08:23:52 -0400
+Content-Disposition: inline
+In-Reply-To: <E1dGNJM-00043g-KJ@rmk-PC.armlinux.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Colin Ian King <colin.king@canonical.com>
+On Thu, Jun 01, 2017 at 11:26:36AM +0100, Russell King wrote:
+> genphy_restart_aneg() can only restart autonegotiation on clause 22
+> PHYs.  Add a phy_restart_aneg() function which selects between the
+> clause 22 and clause 45 restart functionality depending on the PHY
+> type.
+> 
+> Signed-off-by: Russell King <rmk+kernel@armlinux.org.uk>
+> ---
+>  drivers/net/phy/phy.c | 23 +++++++++++++++++++++--
+>  include/linux/phy.h   |  1 +
+>  2 files changed, 22 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
+> index 82ab8fb82587..25b24789a409 100644
+> --- a/drivers/net/phy/phy.c
+> +++ b/drivers/net/phy/phy.c
+> @@ -149,6 +149,25 @@ static int phy_config_interrupt(struct phy_device *phydev, u32 interrupts)
+>  	return 0;
+>  }
+>  
+> +/**
+> + * phy_restart_aneg - restart auto-negotiation
+> + * @phydev: target phy_device struct
+> + *
+> + * Restart the autonegotiation on @phydev.  Returns >= 0 on success or
+> + * negative errno on error.
+> + */
+> +int phy_restart_aneg(struct phy_device *phydev)
+> +{
+> +	int ret;
+> +
+> +	if (phydev->is_c45)
+> +		ret = genphy_c45_restart_aneg(phydev);
+> +	else
+> +		ret = genphy_restart_aneg(phydev);
+> +
+> +	return ret;
+> +}
+> +EXPORT_SYMBOL_GPL(phy_restart_aneg);
 
-function ksz_rcv can be made static as it does not need to be
-in global scope. Reformat arguments to make it checkpatch warning
-free too.
+Hi Russell
 
-Cleans up sparse warning: "symbol 'ksz_rcv' was not declared. Should
-it be static?"
+Isn't the same sort of thing needed in phy_aneg_done()?
 
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
----
- net/dsa/tag_ksz.c | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
-
-diff --git a/net/dsa/tag_ksz.c b/net/dsa/tag_ksz.c
-index 0b08a40b493a..dfcd2fff5b13 100644
---- a/net/dsa/tag_ksz.c
-+++ b/net/dsa/tag_ksz.c
-@@ -72,8 +72,9 @@ static struct sk_buff *ksz_xmit(struct sk_buff *skb, struct net_device *dev)
- 	return nskb;
- }
- 
--struct sk_buff *ksz_rcv(struct sk_buff *skb, struct net_device *dev,
--			struct packet_type *pt, struct net_device *orig_dev)
-+static struct sk_buff *ksz_rcv(struct sk_buff *skb, struct net_device *dev,
-+			       struct packet_type *pt,
-+			       struct net_device *orig_dev)
- {
- 	struct dsa_switch_tree *dst = dev->dsa_ptr;
- 	struct dsa_switch *ds;
--- 
-2.11.0
+Thanks
+	Andrew
