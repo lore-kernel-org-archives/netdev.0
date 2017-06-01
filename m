@@ -1,119 +1,199 @@
-From: "Duyck, Alexander H" <alexander.h.duyck@intel.com>
-Subject: Re: [Intel-wired-lan] [i40e] regression on TCP stream and TCP
- maerts, kernel-4.12.0-0.rc2
-Date: Thu, 1 Jun 2017 19:18:05 +0000
-Message-ID: <1496344683.27073.306.camel@intel.com>
-References: <655ed9ab-853e-7497-9ea3-cc8d13f56043@redhat.com>
-         <CAKgT0UcdJQWqr_zxxi36a6_3iMwBNow-YS723i7t6xsKvAqvCA@mail.gmail.com>
-         <CAKgT0Ufb41o=WM=3DM9cwvrw9N5AFn-uL0p1gQB-m+D3BX3DKA@mail.gmail.com>
-         <1496238507.22688.4.camel@redhat.com>
-         <CAKgT0Ucg9wHrKDBjQXKH6gziuinwcK9MO-jRC=0q60Lm-8vFqA@mail.gmail.com>
-         <1496312080.3758.7.camel@redhat.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH V4] neigh: Really delete an arp/neigh entry on "ip neigh
+ delete" or "arp -d"
+Date: Thu, 1 Jun 2017 22:34:09 +0300 (EEST)
+Message-ID: <alpine.LFD.2.20.1706012201100.3101@ja.home.ssi.bg>
+References: <1496280282-84895-1-git-send-email-sowmini.varadhan@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "osabart@redhat.com" <osabart@redhat.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "aokuliar@redhat.com" <aokuliar@redhat.com>,
-        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-        "jhladky@redhat.com" <jhladky@redhat.com>
-To: "atomasov@redhat.com" <atomasov@redhat.com>,
-        "alexander.duyck@gmail.com" <alexander.duyck@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+        stephen@networkplumber.org
+To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga06.intel.com ([134.134.136.31]:20840 "EHLO mga06.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751240AbdFATSR (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 1 Jun 2017 15:18:17 -0400
-In-Reply-To: <1496312080.3758.7.camel@redhat.com>
-Content-Language: en-US
-Content-ID: <59EBFAFEE587AF4F97F2221C2F1FD4E9@intel.com>
+Received: from ja.ssi.bg ([178.16.129.10]:49372 "EHLO ja.ssi.bg"
+        rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751097AbdFATeb (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 1 Jun 2017 15:34:31 -0400
+In-Reply-To: <1496280282-84895-1-git-send-email-sowmini.varadhan@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-T24gVGh1LCAyMDE3LTA2LTAxIGF0IDEyOjE0ICswMjAwLCBBZHJpYW4gVG9tYXNvdiB3cm90ZToN
-Cj4gT24gV2VkLCAyMDE3LTA1LTMxIGF0IDE0OjQyIC0wNzAwLCBBbGV4YW5kZXIgRHV5Y2sgd3Jv
-dGU6DQo+ID4gDQo+ID4gT24gV2VkLCBNYXkgMzEsIDIwMTcgYXQgNjo0OCBBTSwgQWRyaWFuIFRv
-bWFzb3YgPGF0b21hc292QHJlZGhhdC5jb20+DQo+ID4gd3JvdGU6DQo+ID4gPiANCj4gPiA+IA0K
-PiA+ID4gT24gVHVlLCAyMDE3LTA1LTMwIGF0IDE4OjI3IC0wNzAwLCBBbGV4YW5kZXIgRHV5Y2sg
-d3JvdGU6DQo+ID4gPiA+IA0KPiA+ID4gPiANCj4gPiA+ID4gT24gVHVlLCBNYXkgMzAsIDIwMTcg
-YXQgODo0MSBBTSwgQWxleGFuZGVyIER1eWNrDQo+ID4gPiA+IDxhbGV4YW5kZXIuZHV5Y2tAZ21h
-aWwuY29tPiB3cm90ZToNCj4gPiA+ID4gPiANCj4gPiA+ID4gPiANCj4gPiA+ID4gPiANCj4gPiA+
-ID4gPiBPbiBUdWUsIE1heSAzMCwgMjAxNyBhdCA2OjQzIEFNLCBBZGFtIE9rdWxpYXIgPGFva3Vs
-aWFyQHJlZGhhdC4NCj4gPiA+ID4gPiBjb20+DQo+ID4gPiA+ID4gd3JvdGU6DQo+ID4gPiA+ID4g
-PiANCj4gPiA+ID4gPiA+IA0KPiA+ID4gPiA+ID4gDQo+ID4gPiA+ID4gPiBIZWxsbywNCj4gPiA+
-ID4gPiA+IA0KPiA+ID4gPiA+ID4gd2UgZm91bmQgcmVncmVzc2lvbiBvbiBpbnRlbCBjYXJkKFhM
-NzEwKSB3aXRoIGk0MGUgZHJpdmVyLg0KPiA+ID4gPiA+ID4gUmVncmVzc2lvbiBpcw0KPiA+ID4g
-PiA+ID4gYWJvdXQgfjQ1JQ0KPiA+ID4gPiA+ID4gb24gVENQX1NUUkVBTSBhbmQgVENQX01BRVJU
-UyB0ZXN0IGZvciBJUHY0IGFuZCBJUHY2Lg0KPiA+ID4gPiA+ID4gUmVncmVzc2lvbg0KPiA+ID4g
-PiA+ID4gd2FzIGZpcnN0DQo+ID4gPiA+ID4gPiB2aXNpYmxlIGluIGtlcm5lbC00LjEyLjAtMC5y
-YzEuDQo+ID4gPiA+ID4gPiANCj4gPiA+ID4gPiA+IE1vcmUgZGV0YWlscyBhYm91dCByZXN1bHRz
-IHlvdSBjYW4gc2VlIGluIHVwbG9hZGVkIGltYWdlcyBpbg0KPiA+ID4gPiA+ID4gYnVnemlsbGEu
-IFswXQ0KPiA+ID4gPiA+ID4gDQo+ID4gPiA+ID4gPiANCj4gPiA+ID4gPiA+IFswXSBodHRwczov
-L2J1Z3ppbGxhLmtlcm5lbC5vcmcvc2hvd19idWcuY2dpP2lkPTE5NTkyMw0KPiA+ID4gPiA+ID4g
-DQo+ID4gPiA+ID4gPiANCj4gPiA+ID4gPiA+IEJlc3QgcmVnYXJkcywgLyBTIHBvemRyYXZvbSwN
-Cj4gPiA+ID4gPiA+IA0KPiA+ID4gPiA+ID4gQWRyacOhbiBUb21hxaFvdg0KPiA+ID4gPiA+ID4g
-S2VybmVsIFBlcmZvcm1hbmNlIFFFDQo+ID4gPiA+ID4gPiBhdG9tYXNvdkByZWRoYXQuY29tDQo+
-ID4gPiA+ID4gDQo+ID4gPiA+ID4gSSBoYXZlIGFkZGVkIHRoZSBpNDBlIGRyaXZlciBtYWludGFp
-bmVyIGFuZCB0aGUgaW50ZWwtd2lyZWQtbGFuDQo+ID4gPiA+ID4gbWFpbGluZyBsaXN0IHNvIHRo
-YXQgd2UgY2FuIG1ha2UgYXJlIGRldmVsb3BlcnMgYXdhcmUgb2YgdGhlDQo+ID4gPiA+ID4gaXNz
-dWUuDQo+ID4gPiA+ID4gDQo+ID4gPiA+ID4gVGhhbmtzLg0KPiA+ID4gPiA+IA0KPiA+ID4gPiA+
-IC0gQWxleA0KPiA+ID4gPiANCj4gPiA+ID4gQWRhbSwNCj4gPiA+ID4gDQo+ID4gPiA+IFdlIGFy
-ZSBoYXZpbmcgc29tZSBpc3N1ZXMgdHJ5aW5nIHRvIHJlcHJvZHVjZSB3aGF0IHlvdSByZXBvcnRl
-ZC4NCj4gPiA+ID4gDQo+ID4gPiA+IENhbiB5b3UgcHJvdmlkZSBzb21lIGFkZGl0aW9uYWwgZGF0
-YS4gU3BlY2lmaWNhbGx5IHdlIHdvdWxkIGJlDQo+ID4gPiA+IGxvb2tpbmcNCj4gPiA+ID4gZm9y
-IGFuICJldGh0b29sIC1pIiwgYW5kIGFuICJldGh0b29sIC1TIiBmb3IgdGhlIHBvcnQgYmVmb3Jl
-IGFuZA0KPiA+ID4gPiBhZnRlcg0KPiA+ID4gPiB0aGUgdGVzdC4gSWYgeW91IGNhbiBhdHRhY2gg
-aXQgdG8gdGhlIGJ1Z3ppbGxhIHRoYXQgd291bGQgYmUNCj4gPiA+ID4gYXBwcmVjaWF0ZWQuDQo+
-ID4gPiA+IA0KPiA+ID4gPiBUaGFua3MuDQo+ID4gPiA+IA0KPiA+ID4gPiAtIEFsZXgNCj4gPiA+
-IA0KPiA+ID4gSGVsbG8gQWxleCwNCj4gPiA+IA0KPiA+ID4gcmVxdWVzdGVkIGZpbGVzIGFyZSB1
-cGRhdGVkIGluIGJ1Z3ppbGxhLg0KPiA+ID4gDQo+ID4gPiBJZiB5b3UgaGF2ZSBhbnkgcXVlc3Rp
-b25zIGFib3V0IHRlc3RpbmcgZmVlbCBmcmVlIHRvIGFzay4NCj4gPiA+IA0KPiA+ID4gDQo+ID4g
-PiBCZXN0IHJlZ2FyZHMsDQo+ID4gPiANCj4gPiA+IEFkcmlhbg0KPiA+IA0KPiA+IFNvIGxvb2tp
-bmcgYXQgdGhlIGRhdGEgSSB3b25kZXIgaWYgd2UgZG9uJ3QgaGF2ZSBhbiBNVFUgbWlzbWF0Y2gg
-aW4NCj4gPiB0aGUgbmV0d29yayBjb25maWcuIEkgbm90aWNlIHRoZSAiYWZ0ZXIiIGhhcyByeF9s
-ZW5ndGhfZXJyb3JzIGJlaW5nDQo+ID4gcmVwb3J0ZWQuIFJlY2VudCBjaGFuZ2VzIG1hZGUgaXQg
-c28gdGhhdCBpNDBlIGRvZXNuJ3Qgc3VwcG9ydCBqdW1ibw0KPiA+IGZyYW1lcyBieSBkZWZhdWx0
-LCB3aGVyZWFzIGJlZm9yZSB3ZSBjb3VsZC4gWW91IG1pZ2h0IHdhbnQgdG8gY2hlY2sNCj4gPiBm
-b3IgdGhhdCBhcyB0aGF0IGNvdWxkIGNhdXNlIHRoZSBraW5kIG9mIHBlcmZvcm1hbmNlIGlzc3Vl
-cyB5b3UgYXJlDQo+ID4gc2VlaW5nLg0KPiA+IA0KPiA+IC0gQWxleA0KPiANCj4gVGhlcmUgaXNu
-J3QgTVRVIG1pc21hdGNoLiBUcmFmZmljIHBhdGggaXMgOiBzZXJ2ZXIgLT4gc3dpdGNoIC0+DQo+
-IHNlcnZlci7CoA0KPiANCj4gDQo+IE91dHB1dCBmcm9tIHN3aXRjaDoNCj4gDQo+ICAgICA+IHNo
-b3cgaW50ZXJmYWNlcyBldC0wLzAvMTjCoMKgwqDCoA0KPiAgICAgUGh5c2ljYWwgaW50ZXJmYWNl
-OiBldC0wLzAvMTgsIEVuYWJsZWQsIFBoeXNpY2FsIGxpbmsgaXMgVXANCj4gICAgIMKgIEludGVy
-ZmFjZSBpbmRleDogNjQ0LCBTTk1QIGlmSW5kZXg6IDUzOA0KPiAgICAgwqAgTGluay1sZXZlbCB0
-eXBlOiBFdGhlcm5ldCwgTVRVOiAxNTE0LCBTcGVlZDogNDBHYnBzLCBCUERVIEVycm9yOg0KPiAg
-ICAgTm9uZSwgTUFDLVJFV1JJVEUgRXJyb3I6IE5vbmUsIExvb3BiYWNrOiBEaXNhYmxlZCwgU291
-cmNlIGZpbHRlcmluZzoNCj4gICAgIERpc2FibGVkLCBGbG93IGNvbnRyb2w6IERpc2FibGVkLCBN
-ZWRpYSB0eXBlOiBGaWJlcg0KPiAgICAgwqAgRGV2aWNlIGZsYWdzwqDCoMKgOiBQcmVzZW50IFJ1
-bm5pbmcNCj4gICAgIMKgIEludGVyZmFjZSBmbGFnczogU05NUC1UcmFwcyBJbnRlcm5hbDogMHg0
-MDAwDQo+ICAgICDCoCBMaW5rIGZsYWdzwqDCoMKgwqDCoDogTm9uZQ0KPiAgICAgwqAgQ29TIHF1
-ZXVlc8KgwqDCoMKgwqA6IDEyIHN1cHBvcnRlZCwgMTIgbWF4aW11bSB1c2FibGUgcXVldWVzDQo+
-ICAgICDCoCBDdXJyZW50IGFkZHJlc3M6IGQ0OjA0OmZmOjkwOjVhOjRiLCBIYXJkd2FyZSBhZGRy
-ZXNzOg0KPiAgICAgZDQ6MDQ6ZmY6OTA6NWE6NGINCj4gICAgIMKgIExhc3QgZmxhcHBlZMKgwqDC
-oDogMjAxNy0wNi0wMSAxMDowOTozMiBDRVNUICgwMToyMToyOSBhZ28pDQo+ICAgICDCoCBJbnB1
-dCByYXRlwqDCoMKgwqDCoDogNDMyIGJwcyAoMCBwcHMpDQo+ICAgICDCoCBPdXRwdXQgcmF0ZcKg
-wqDCoMKgOiA4MzM2IGJwcyAoMTEgcHBzKQ0KPiAgICAgwqAgQWN0aXZlIGFsYXJtc8KgwqA6IE5v
-bmUNCj4gICAgIMKgIEFjdGl2ZSBkZWZlY3RzIDogTm9uZQ0KPiAgICAgwqAgSW50ZXJmYWNlIHRy
-YW5zbWl0IHN0YXRpc3RpY3M6IERpc2FibGVkDQo+IA0KPiAgICAgwqAgTG9naWNhbCBpbnRlcmZh
-Y2UgZXQtMC8wLzE4LjAgKEluZGV4IDU1MikgKFNOTVAgaWZJbmRleCA1MzkpDQo+ICAgICDCoMKg
-wqDCoEZsYWdzOiBTTk1QLVRyYXBzIDB4MjQwMjQwMDAgRW5jYXBzdWxhdGlvbjogRXRoZXJuZXQt
-QnJpZGdlDQo+ICAgICDCoMKgwqDCoElucHV0IHBhY2tldHMgOiA0NjQwNDENCj4gICAgIMKgwqDC
-oMKgT3V0cHV0IHBhY2tldHM6IDIwOTIxMA0KPiAgICAgwqDCoMKgwqBQcm90b2NvbCBldGgtc3dp
-dGNoLCBNVFU6IDE1MTQNCj4gICAgIMKgwqDCoMKgwqDCoEZsYWdzOiBJcy1QcmltYXJ5LCBUcnVu
-ay1Nb2RlDQo+IA0KPiANCj4gTVRVIGlzIHNhbWUgZm9yIGFsbCBldC0wLzAveCBpbnRlcmZhY2Vz
-LsKgDQo+IA0KPiAtIEFkcmlhbg0KDQpPbmUgdGhpbmcgeW91IG1pZ2h0IHRyeSB0cnkgZG9pbmcg
-aXMgdG9nZ2xpbmcgdGhlIGxlZ2FjeS1yeCBmbGFnIHVzaW5nDQp0aGUgImV0aHRvb2wgLS1zaG93
-LXByaXYtZmxhZ3MvLS1zZXQtcHJpdi1mbGFncyIgY29tbWFuZCB0byBzZWUgaWYgdGhhdA0KaGFz
-IGFueSBpbXBhY3QuIFRoYXQgd2lsbCBoZWxwIHRvIHJ1bGUgdGhpbmdzIG91dCBhcyB0aGUgbW9z
-dA0Kc2lnbmlmaWNhbnQgY2hhbmdlIEkgY2FuIHRoaW5rIG9mIGlzIHRoZSByZWNlbnQgdXBkYXRl
-IG9mIHRoZSBSeCBwYXRoDQp0byBzdXBwb3J0IFhEUC4NCg0KQWxzbyBvbmUgb3RoZXIgdGhpbmcg
-eW91IG1pZ2h0IHRyeSB3b3VsZCBiZSB0byB1c2UgYSBmaXhlZCBpbnRlcnJ1cHQNCm1vZGVyYXRp
-b24gcmF0ZSBieSBsb2NraW5nIHRoaW5ncyBkb3duIHVzaW5nICJldGh0b29sIC1DIiB0byBkaXNh
-YmxlDQphZGFwdGl2ZSBpbnRlcnJ1cHQgbW9kZXJhdGlvbiBhbmQgbG9jayB0aGUgUnggdXNlY3Mg
-YW5kIFR4IHVzZWNzIGF0DQpzb21lIHByZWRlZmluZWQgdmFsdWVzLiBJIHNlZW0gdG8gcmVjYWxs
-IHRoZXJlIGhhdmUgYmVlbiBzb21lIGludGVycnVwdA0KbW9kZXJhdGlvbiBjaGFuZ2VzIG1hZGUg
-cmVjZW50bHkgdGhhdCBtaWdodCBiZSBpbXBhY3RpbmcgdGhlDQpwZXJmb3JtYW5jZS4NCg0KQmV5
-b25kIHRoYXQgaXMgdGhlcmUgYW55IGNoYW5jZSB5b3Ugd291bGQgYmUgYWJsZSB0byBiaXNlY3Qg
-dGhlIGlzc3VlPw0KVW5mb3J0dW5hdGVseSB3ZSBoYXZlbid0IGJlIGFibGUgdG8gcmVwcm9kdWNl
-IGl0IGludGVybmFsbHkgc28gYW55dGhpbmcNCnRoYXQgd291bGQgaGVscCB1cyB0byBuYXJyb3cg
-ZG93biB0aGUgcHJvYmxlbSB3b3VsZCBiZSB1c2VmdWwuDQoNClRoYW5rcy4NCg0KLSBBbGV4
+
+	Hello,
+
+On Wed, 31 May 2017, Sowmini Varadhan wrote:
+
+> The command
+>   # arp -s 62.2.0.1 a:b:c:d:e:f dev eth2
+> adds an entry like the following (listed by "arp -an")
+>   ? (62.2.0.1) at 0a:0b:0c:0d:0e:0f [ether] PERM on eth2
+> but the symmetric deletion command
+>   # arp -i eth2 -d 62.2.0.1
+> does not remove the PERM entry from the table, and instead leaves behind
+>   ? (62.2.0.1) at <incomplete> on eth2
+> 
+> The reason is that there is a refcnt of 1 for the arp_tbl itself
+> (neigh_alloc starts off the entry with a refcnt of 1), thus
+> the neigh_release() call from arp_invalidate() will (at best) just
+> decrement the ref to 1, but will never actually free it from the
+> table.
+> 
+> To fix this, we need to do something like neigh_forced_gc: if
+> the refcnt is 1 (i.e., on the table's ref), remove the entry from
+> the table and free it. This patch refactors and shares common code
+> between neigh_forced_gc and the newly added neigh_remove_one.
+> 
+> A similar issue exists for IPv6 Neighbor Cache entries, and is fixed
+> in a similar manner by this patch.
+> 
+> Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+
+	Change looks ok to me but with some non-fatal
+warnings, see below.
+
+Reviewed-by: Julian Anastasov <ja@ssi.bg>
+
+> ---
+> v2: kbuild-test-robot compile error
+> v3: do not export_symbol neigh_remove_one (David Miller comment)
+> v4: rearrange locking for tbl->lock (Julian Anastasov comment)
+> 
+>  include/net/neighbour.h |    1 +
+>  net/core/neighbour.c    |   61 ++++++++++++++++++++++++++++++++++++++--------
+>  net/ipv4/arp.c          |    4 +++
+>  3 files changed, 55 insertions(+), 11 deletions(-)
+> 
+> diff --git a/include/net/neighbour.h b/include/net/neighbour.h
+> index e4dd3a2..639b675 100644
+> --- a/include/net/neighbour.h
+> +++ b/include/net/neighbour.h
+> @@ -317,6 +317,7 @@ struct neighbour *__neigh_create(struct neigh_table *tbl, const void *pkey,
+>  int neigh_update(struct neighbour *neigh, const u8 *lladdr, u8 new, u32 flags,
+>  		 u32 nlmsg_pid);
+>  void __neigh_set_probe_once(struct neighbour *neigh);
+> +bool neigh_remove_one(struct neighbour *ndel, struct neigh_table *tbl);
+>  void neigh_changeaddr(struct neigh_table *tbl, struct net_device *dev);
+>  int neigh_ifdown(struct neigh_table *tbl, struct net_device *dev);
+>  int neigh_resolve_output(struct neighbour *neigh, struct sk_buff *skb);
+> diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+> index d274f81..b473f9f 100644
+> --- a/net/core/neighbour.c
+> +++ b/net/core/neighbour.c
+
+...
+
+> +bool neigh_remove_one(struct neighbour *ndel, struct neigh_table *tbl)
+> +{
+> +	struct neigh_hash_table *nht;
+> +	void *pkey = ndel->primary_key;
+> +	u32 hash_val;
+> +	struct neighbour *n;
+> +	struct neighbour __rcu **np;
+> +	bool retval = false;
+> +
+> +	nht = rcu_dereference_protected(tbl->nht,
+> +					lockdep_is_held(&tbl->lock));
+> +	hash_val = tbl->hash(pkey, ndel->dev, nht->hash_rnd);
+> +	hash_val = hash_val >> (32 - nht->hash_shift);
+> +
+> +	np = &nht->hash_buckets[hash_val];
+> +	while ((n = rcu_dereference_protected(*np,
+> +				lockdep_is_held(&tbl->lock))) != NULL) {
+
+	checkpatch shows some warnings:
+
+scripts/checkpatch.pl --strict /tmp/file.patch
+
+> +		if (n == ndel) {
+> +			retval = neigh_del(n, 0, np, tbl);
+> +			return retval;
+
+	In case there is another patch version,
+the retval can be removed:
+
+		if (n == ndel)
+			return neigh_del(n, 0, np, tbl);
+
+> +		}
+> +		np = &n->next;
+> +	}
+> +	return retval;
+
+	return false;
+
+> +}
+> +
+>  static int neigh_forced_gc(struct neigh_table *tbl)
+>  {
+>  	int shrunk = 0;
+> @@ -140,19 +185,10 @@ static int neigh_forced_gc(struct neigh_table *tbl)
+>  			 * - nobody refers to it.
+>  			 * - it is not permanent
+>  			 */
+> -			write_lock(&n->lock);
+> -			if (atomic_read(&n->refcnt) == 1 &&
+> -			    !(n->nud_state & NUD_PERMANENT)) {
+> -				rcu_assign_pointer(*np,
+> -					rcu_dereference_protected(n->next,
+> -						  lockdep_is_held(&tbl->lock)));
+> -				n->dead = 1;
+> -				shrunk	= 1;
+> -				write_unlock(&n->lock);
+> -				neigh_cleanup_and_release(n);
+> +			if (neigh_del(n, NUD_PERMANENT, np, tbl)) {
+> +				shrunk = 1;
+>  				continue;
+>  			}
+> -			write_unlock(&n->lock);
+>  			np = &n->next;
+>  		}
+>  	}
+> @@ -1649,7 +1685,10 @@ static int neigh_delete(struct sk_buff *skb, struct nlmsghdr *nlh,
+>  			   NEIGH_UPDATE_F_OVERRIDE |
+>  			   NEIGH_UPDATE_F_ADMIN,
+>  			   NETLINK_CB(skb).portid);
+> +	write_lock_bh(&tbl->lock);
+>  	neigh_release(neigh);
+> +	neigh_remove_one(neigh, tbl);
+
+	Looks like we can also call neigh_remove_one only when !err.
+But this is some corner case when n->dead is set by GC and entry
+was unlinked, neigh_remove_one simply will not find it in the list,
+so it is not fatal to call neigh_remove_one unconditionally.
+
+> +	write_unlock_bh(&tbl->lock);
+>  
+>  out:
+>  	return err;
+> diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
+> index e9f3386..a651c53 100644
+> --- a/net/ipv4/arp.c
+> +++ b/net/ipv4/arp.c
+> @@ -1113,13 +1113,17 @@ static int arp_invalidate(struct net_device *dev, __be32 ip)
+>  {
+>  	struct neighbour *neigh = neigh_lookup(&arp_tbl, &ip, dev);
+>  	int err = -ENXIO;
+> +	struct neigh_table *tbl = &arp_tbl;
+>  
+>  	if (neigh) {
+>  		if (neigh->nud_state & ~NUD_NOARP)
+>  			err = neigh_update(neigh, NULL, NUD_FAILED,
+>  					   NEIGH_UPDATE_F_OVERRIDE|
+>  					   NEIGH_UPDATE_F_ADMIN, 0);
+> +		write_lock_bh(&tbl->lock);
+>  		neigh_release(neigh);
+> +		neigh_remove_one(neigh, tbl);
+
+	Here the same race with GC already assigned
+neigh->dead to 1 is possible but it is more tricky to catch
+that exactly neigh_update() has failed. So, may be better to
+call neigh_remove_one like now.
+
+> +		write_unlock_bh(&tbl->lock);
+>  	}
+>  
+>  	return err;
+> -- 
+> 1.7.1
+
+Regards
