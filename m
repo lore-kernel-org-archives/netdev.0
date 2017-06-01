@@ -1,46 +1,70 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH net-next v2 2/2] bpf: Remove the capability check for
- cgroup skb eBPF program
-Date: Thu, 1 Jun 2017 16:42:36 -0700
-Message-ID: <20170601234235.iwu55crijtxuq5mp@ast-mbp>
-References: <1496279760-20996-1-git-send-email-chenbofeng.kernel@gmail.com>
- <1496279760-20996-2-git-send-email-chenbofeng.kernel@gmail.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PATCH] virtio_net: lower limit on buffer size
+Date: Fri, 2 Jun 2017 02:56:04 +0300
+Message-ID: <1496361148-4603-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-        Lorenzo Colitti <lorenzo@google.com>,
-        Chenbo Feng <fengc@google.com>
-To: Chenbo Feng <chenbofeng.kernel@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:33413 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751105AbdFAXmj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 1 Jun 2017 19:42:39 -0400
-Received: by mail-pf0-f193.google.com with SMTP id f27so9644354pfe.0
-        for <netdev@vger.kernel.org>; Thu, 01 Jun 2017 16:42:39 -0700 (PDT)
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "J. Bruce Fields" <bfields@fieldses.org>, netdev@vger.kernel.org,
+	Mikulas Patocka <mpatocka@redhat.com>,
+	virtualization@lists.linux-foundation.org
+To: linux-kernel@vger.kernel.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
 Content-Disposition: inline
-In-Reply-To: <1496279760-20996-2-git-send-email-chenbofeng.kernel@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, May 31, 2017 at 06:16:00PM -0700, Chenbo Feng wrote:
-> From: Chenbo Feng <fengc@google.com>
-> 
-> Currently loading a cgroup skb eBPF program require a CAP_SYS_ADMIN
-> capability while attaching the program to a cgroup only requires the
-> user have CAP_NET_ADMIN privilege. We can escape the capability
-> check when load the program just like socket filter program to make
-> the capability requirement consistent.
-> 
-> Change since v1:
-> Change the code style in order to be compliant with checkpatch.pl
-> preference
-> 
-> Signed-off-by: Chenbo Feng <fengc@google.com>
+commit d85b758f72b0 "virtio_net: fix support for small rings"
+was supposed to increase the buffer size for small rings
+but had an unintentional side effect of decreasing
+it for large rings. This seems to break some setups -
+it's not yet clear why, but increasing buffer size
+back to what it was before helps.
 
-as far as I can see they're indeed the same as socket filters, so
-Acked-by: Alexei Starovoitov <ast@kernel.org>
+Fixes: d85b758f72b0 "virtio_net: fix support for small rings"
+Reported-by: Mikulas Patocka <mpatocka@redhat.com>
+Reported-by: "J. Bruce Fields" <bfields@fieldses.org>
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+---
 
-but I don't quite understand how it helps, since as you said
-attaching such unpriv fd to cgroup still requires root.
-Do you have more patches to follow?
+Can reporters please confirm whether the following helps?
+If it does I think we should queue it even though I expect I'll need to
+investigate the exact reasons for the failure down the road - probably
+a hypervisor bug.
+
+ drivers/net/virtio_net.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index 87b5c20..60abb5d 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -842,7 +842,7 @@ static unsigned int get_mergeable_buf_len(struct receive_queue *rq,
+ 	unsigned int len;
+ 
+ 	len = hdr_len + clamp_t(unsigned int, ewma_pkt_len_read(avg_pkt_len),
+-				rq->min_buf_len - hdr_len, PAGE_SIZE - hdr_len);
++				rq->min_buf_len, PAGE_SIZE - hdr_len);
+ 	return ALIGN(len, L1_CACHE_BYTES);
+ }
+ 
+@@ -2039,7 +2039,8 @@ static unsigned int mergeable_min_buf_len(struct virtnet_info *vi, struct virtqu
+ 	unsigned int buf_len = hdr_len + ETH_HLEN + VLAN_HLEN + packet_len;
+ 	unsigned int min_buf_len = DIV_ROUND_UP(buf_len, rq_size);
+ 
+-	return max(min_buf_len, hdr_len);
++	return max(max(min_buf_len, hdr_len) - hdr_len,
++		   (unsigned int)GOOD_PACKET_LEN);
+ }
+ 
+ static int virtnet_find_vqs(struct virtnet_info *vi)
+-- 
+MST
