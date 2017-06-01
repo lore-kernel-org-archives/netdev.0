@@ -1,53 +1,56 @@
-From: Cyril Hrubis <chrubis@suse.cz>
-Subject: Re: commit f5f99309 (sock: do not set sk_err in
- sock_dequeue_err_skb) has broken ping
-Date: Thu, 1 Jun 2017 17:36:45 +0200
-Message-ID: <20170601153645.GC10526@rei.suse.de>
-References: <20170601140048.GA24401@rei.lan>
- <CACSApvZiQTYSVkS62YdadjabUTqwO9O2=Sq4ELuO3eoJ_LM_ZQ@mail.gmail.com>
- <20170601143141.GB24401@rei.lan>
- <CACSApvbKwbX2u16V1oQfmHC7SvGZgk-KehA9tashjQAtj0bB0Q@mail.gmail.com>
- <20170601151003.GB10526@rei.suse.de>
- <CACSApvanT0ZRFH0ZBDLqygkH6Ue_CCVQBzVL9fCmZE_BndYEog@mail.gmail.com>
+From: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Subject: Re: [for-next 4/6] net/mlx5: FPGA, Add basic support for Innova
+Date: Thu, 1 Jun 2017 09:37:04 -0600
+Message-ID: <20170601153704.GA1680@obsidianresearch.com>
+References: <20170526030701.du4345mbprhcwjyi@ast-mbp>
+ <CALzJLG98D=3yMJV_q4sjVNG41AERFRU+6rwqQJsxnRuVeDTPdA@mail.gmail.com>
+ <20170526175624.5xxflpf24je5673h@ast-mbp>
+ <20170526181517.GA3860@obsidianresearch.com>
+ <AM4PR0501MB1940330F0EBAA819C87C5278DBF20@AM4PR0501MB1940.eurprd05.prod.outlook.com>
+ <20170529153131.GB7924@obsidianresearch.com>
+ <AM4PR0501MB1940D05A19F098286B99EAD0DBF30@AM4PR0501MB1940.eurprd05.prod.outlook.com>
+ <20170529160252.GA27550@obsidianresearch.com>
+ <AM4PR0501MB194037FF8F17466BC9ECC73DDBF30@AM4PR0501MB1940.eurprd05.prod.outlook.com>
+ <AM4PR0501MB19409139227E11A4A7F82F0FDBF30@AM4PR0501MB1940.eurprd05.prod.outlook.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Shmulik Ladkani <shmulik.ladkani@gmail.com>,
-        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-        Pravin B Shelar <pshelar@ovn.org>,
-        Eric Dumazet <edumazet@google.com>,
-        WANG Cong <xiyou.wangcong@gmail.com>,
-        Yaogong Wang <wygivan@google.com>,
-        Steffen Klassert <steffen.klassert@secunet.com>,
-        Al Viro <viro@zeniv.linux.org.uk>,
-        netdev <netdev@vger.kernel.org>, linux-kernel@vger.kernel.org
-To: Soheil Hassas Yeganeh <soheil@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Saeed Mahameed <saeedm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>,
+        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "jsorensen-b10kYP2dOMg@public.gmane.org" <jsorensen-b10kYP2dOMg@public.gmane.org>,
+        Andy Shevchenko <andy.shevchenko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        "linux-fpga-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-fpga-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Alan Tull <atull-yzvPICuk2ABMcg4IHK0kFoH6Mc4MB0Vx@public.gmane.org>,
+        "yi1.li-VuQAYsv1563Yd54FQh9/CA@public.gmane.org" <yi1.li-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+        Boris Pismenny <borisp-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+To: Ilan Tayari <ilant-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <CACSApvanT0ZRFH0ZBDLqygkH6Ue_CCVQBzVL9fCmZE_BndYEog@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <AM4PR0501MB19409139227E11A4A7F82F0FDBF30-dp/nxUn679gfNUYDR5dMTsDSnupUy6xnnBOFsp37pqbUKgpGm//BTAC/G2K4zDHf@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hi!
-> >> Thank you for the confirmation. Could you please try the following
-> >> patch to see if it fixes your issue?
-> >
-> > Does not seem to help, I still got the same bussy loop.
+On Mon, May 29, 2017 at 04:09:06PM +0000, Ilan Tayari wrote:
+
+> > For IPSec, this is already in the kernel.
+> > See this patchset:
+> > http://www.mail-archive.com/netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org/msg162876.html
 > 
-> Thank you for trying the patch. Unfortunately, I can't reproduce on my
-> machines here.Would you humor me with another one? Thank you!
+> Sorry, I pointed at the RFC by mistake.
+> 
+> This is the relevant pull request:
+> https://patchwork.ozlabs.org/patch/752707/
 
-Still does not help.
+This is connecting ipsec to a netdev, while Innova seems to be a
+network connected ipsec accelerator configured using IP packets.
 
-I've modified the ping binary (on the top of you patch that reads the
-error queue) to dump the error structure.
+Those two things don't seem to be the same.
 
-It seems to repeatedly produce (until I plug the cable back):
-
-ee_errno = 113 ee_origin = 2 ee_type = 3 ee_code = 1 ee_info = 0 ee_data = 0
-
-So we get EHOSTUNREACH on SO_EE_ORIGIN_ICMP.
-
--- 
-Cyril Hrubis
-chrubis@suse.cz
+Jason
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
