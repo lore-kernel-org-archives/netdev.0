@@ -1,105 +1,247 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [PATCH net-next 1/9] sched: add helper for updating statistics on
- all actions
-Date: Thu, 1 Jun 2017 23:54:54 +0300
-Message-ID: <CAJ3xEMiZU69RpXxVNYCyt7ZThicHmzM=r8Oswq6QLW-y1CAhEQ@mail.gmail.com>
-References: <20170531150651.16873-1-jakub.kicinski@netronome.com> <20170531150651.16873-2-jakub.kicinski@netronome.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-        oss-drivers@netronome.com, Jiri Pirko <jiri@mellanox.com>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>
-To: Jakub Kicinski <jakub.kicinski@netronome.com>
+From: Timur Tabi <timur@codeaurora.org>
+Subject: [for 4.12] net: qcom/emac: do not use hardware mdio automatic polling
+Date: Thu,  1 Jun 2017 16:05:35 -0500
+Message-ID: <1496351135-6074-1-git-send-email-timur@codeaurora.org>
+Cc: timur@codeaurora.org
+To: linux-arm-kernel@lists.infradead.org,
+        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        Manoj Iyer <manoj.iyer@canonical.com>,
+        zefir.kurtisi@neratec.com, andrew@lunn.ch,
+        matthias.may@neratec.com, f.fainelli@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f68.google.com ([209.85.218.68]:35076 "EHLO
-        mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751029AbdFAUzB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 1 Jun 2017 16:55:01 -0400
-Received: by mail-oi0-f68.google.com with SMTP id j66so5867588oib.2
-        for <netdev@vger.kernel.org>; Thu, 01 Jun 2017 13:55:00 -0700 (PDT)
-In-Reply-To: <20170531150651.16873-2-jakub.kicinski@netronome.com>
+Received: from smtp.codeaurora.org ([198.145.29.96]:58940 "EHLO
+        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751078AbdFAVFl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Jun 2017 17:05:41 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 31, 2017 at 6:06 PM, Jakub Kicinski
-<jakub.kicinski@netronome.com> wrote:
-> Forgetting to disable preemption around tcf_action_stats_update()
-> seems to be a common mistake.  Add a helper function for updating
-> stats on all actions of a filter.
->
-> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
-> ---
-> CC: Jiri Pirko <jiri@mellanox.com>
-> CC: Jamal Hadi Salim <jhs@mojatatu.com>
-> CC: Cong Wang <xiyou.wangcong@gmail.com>
-> CC: Saeed Mahameed <saeedm@mellanox.com>
-> CC: Or Gerlitz <ogerlitz@mellanox.com>
->
->  drivers/net/ethernet/mellanox/mlx5/core/en_tc.c       | 10 +---------
->  drivers/net/ethernet/mellanox/mlxsw/spectrum_flower.c | 10 +---------
->  drivers/net/ethernet/netronome/nfp/nfp_net_offload.c  | 11 ++---------
->  include/net/pkt_cls.h                                 | 19 +++++++++++++++++++
->  4 files changed, 23 insertions(+), 27 deletions(-)
->
-> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
-> index d2f90ba2dbc4..7914a32a3036 100644
-> --- a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
-> +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
-> @@ -1863,9 +1863,7 @@ int mlx5e_stats_flower(struct mlx5e_priv *priv,
->  {
->         struct mlx5e_tc_table *tc = &priv->fs.tc;
->         struct mlx5e_tc_flow *flow;
-> -       struct tc_action *a;
->         struct mlx5_fc *counter;
-> -       LIST_HEAD(actions);
->         u64 bytes;
->         u64 packets;
->         u64 lastuse;
-> @@ -1884,13 +1882,7 @@ int mlx5e_stats_flower(struct mlx5e_priv *priv,
->
->         mlx5_fc_query_cached(counter, &bytes, &packets, &lastuse);
->
-> -       preempt_disable();
-> -
-> -       tcf_exts_to_list(f->exts, &actions);
-> -       list_for_each_entry(a, &actions, list)
-> -               tcf_action_stats_update(a, bytes, packets, lastuse);
-> -
-> -       preempt_enable();
-> +       tcf_exts_stats_update(f->exts, bytes, packets, lastuse);
->
->         return 0;
->  }
+Use software polling (PHY_POLL) to check for link state changes instead
+of relying on the EMAC's hardware polling feature.  Some PHY drivers
+are unable to get a functioning link because the HW polling is not
+robust enough.
 
-> index f7762295b7b8..537d0a0ad4c4 100644
-> --- a/include/net/pkt_cls.h
-> +++ b/include/net/pkt_cls.h
-> @@ -157,6 +157,25 @@ static inline void tcf_exts_to_list(const struct tcf_exts *exts,
->  #endif
->  }
->
-> +static inline void
-> +tcf_exts_stats_update(const struct tcf_exts *exts,
-> +                     u64 bytes, u64 packets, u64 lastuse)
-> +{
-> +#ifdef CONFIG_NET_CLS_ACT
-> +       int i;
-> +
-> +       preempt_disable();
-> +
-> +       for (i = 0; i < exts->nr_actions; i++) {
-> +               struct tc_action *a = exts->actions[i];
-> +
-> +               tcf_action_stats_update(a, bytes, packets, lastuse);
-> +       }
-> +
-> +       preempt_enable();
-> +#endif
-> +}
+The EMAC is able to poll the PHY on the MDIO bus looking for link state
+changes (via the Link Status bit in the Status Register at address 0x1).
+When the link state changes, the EMAC triggers an interrupt and tells the
+driver what the new state is.  The feature eliminates the need for
+software to poll the MDIO bus.
 
-looks ok, for the mlx5 and pkt_cls.h parts:
+Unfortunately, this feature is incompatible with phylib, because it
+ignores everything that the PHY core and PHY drivers are trying to do.
+In particular:
 
-Acked-by: Or Gerlitz <ogerlitz@mellanox.com>
+1. It assumes a compatible register set, so PHYs with different registers
+   may not work.
+
+2. It doesn't allow for hardware errata that have work-arounds implemented
+   in the PHY driver.
+
+3. It doesn't support multiple register pages. If the PHY core switches
+   the register set to another page, the EMAC won't know the page has
+   changed and will still attempt to read the same PHY register.
+
+4. It only checks the copper side of the link, not the SGMII side.  Some
+   PHY drivers (e.g. at803x) may also check the SGMII side, and
+   report the link as not ready during autonegotiation if the SGMII link
+   is still down.  Phylib then waits for another interrupt to query
+   the PHY again, but the EMAC won't send another interrupt because it
+   thinks the link is up.
+
+Cc: stable@vger.kernel.org # 4.11.x
+Tested-by: Manoj Iyer <manoj.iyer@canonical.com>
+Signed-off-by: Timur Tabi <timur@codeaurora.org>
+---
+ drivers/net/ethernet/qualcomm/emac/emac-mac.c |  2 +-
+ drivers/net/ethernet/qualcomm/emac/emac-phy.c | 75 ++-------------------------
+ drivers/net/ethernet/qualcomm/emac/emac.c     | 22 +-------
+ 3 files changed, 6 insertions(+), 93 deletions(-)
+
+diff --git a/drivers/net/ethernet/qualcomm/emac/emac-mac.c b/drivers/net/ethernet/qualcomm/emac/emac-mac.c
+index e635605..1c0dbaa 100644
+--- a/drivers/net/ethernet/qualcomm/emac/emac-mac.c
++++ b/drivers/net/ethernet/qualcomm/emac/emac-mac.c
+@@ -932,7 +932,7 @@ int emac_mac_up(struct emac_adapter *adpt)
+ 	emac_mac_config(adpt);
+ 	emac_mac_rx_descs_refill(adpt, &adpt->rx_q);
+ 
+-	adpt->phydev->irq = PHY_IGNORE_INTERRUPT;
++	adpt->phydev->irq = PHY_POLL;
+ 	ret = phy_connect_direct(netdev, adpt->phydev, emac_adjust_link,
+ 				 PHY_INTERFACE_MODE_SGMII);
+ 	if (ret) {
+diff --git a/drivers/net/ethernet/qualcomm/emac/emac-phy.c b/drivers/net/ethernet/qualcomm/emac/emac-phy.c
+index 441c1936..18461fc 100644
+--- a/drivers/net/ethernet/qualcomm/emac/emac-phy.c
++++ b/drivers/net/ethernet/qualcomm/emac/emac-phy.c
+@@ -13,15 +13,11 @@
+ /* Qualcomm Technologies, Inc. EMAC PHY Controller driver.
+  */
+ 
+-#include <linux/module.h>
+-#include <linux/of.h>
+-#include <linux/of_net.h>
+ #include <linux/of_mdio.h>
+ #include <linux/phy.h>
+ #include <linux/iopoll.h>
+ #include <linux/acpi.h>
+ #include "emac.h"
+-#include "emac-mac.h"
+ 
+ /* EMAC base register offsets */
+ #define EMAC_MDIO_CTRL                                        0x001414
+@@ -52,62 +48,10 @@
+ 
+ #define MDIO_WAIT_TIMES                                           1000
+ 
+-#define EMAC_LINK_SPEED_DEFAULT (\
+-		EMAC_LINK_SPEED_10_HALF  |\
+-		EMAC_LINK_SPEED_10_FULL  |\
+-		EMAC_LINK_SPEED_100_HALF |\
+-		EMAC_LINK_SPEED_100_FULL |\
+-		EMAC_LINK_SPEED_1GB_FULL)
+-
+-/**
+- * emac_phy_mdio_autopoll_disable() - disable mdio autopoll
+- * @adpt: the emac adapter
+- *
+- * The autopoll feature takes over the MDIO bus.  In order for
+- * the PHY driver to be able to talk to the PHY over the MDIO
+- * bus, we need to temporarily disable the autopoll feature.
+- */
+-static int emac_phy_mdio_autopoll_disable(struct emac_adapter *adpt)
+-{
+-	u32 val;
+-
+-	/* disable autopoll */
+-	emac_reg_update32(adpt->base + EMAC_MDIO_CTRL, MDIO_AP_EN, 0);
+-
+-	/* wait for any mdio polling to complete */
+-	if (!readl_poll_timeout(adpt->base + EMAC_MDIO_CTRL, val,
+-				!(val & MDIO_BUSY), 100, MDIO_WAIT_TIMES * 100))
+-		return 0;
+-
+-	/* failed to disable; ensure it is enabled before returning */
+-	emac_reg_update32(adpt->base + EMAC_MDIO_CTRL, 0, MDIO_AP_EN);
+-
+-	return -EBUSY;
+-}
+-
+-/**
+- * emac_phy_mdio_autopoll_disable() - disable mdio autopoll
+- * @adpt: the emac adapter
+- *
+- * The EMAC has the ability to poll the external PHY on the MDIO
+- * bus for link state changes.  This eliminates the need for the
+- * driver to poll the phy.  If if the link state does change,
+- * the EMAC issues an interrupt on behalf of the PHY.
+- */
+-static void emac_phy_mdio_autopoll_enable(struct emac_adapter *adpt)
+-{
+-	emac_reg_update32(adpt->base + EMAC_MDIO_CTRL, 0, MDIO_AP_EN);
+-}
+-
+ static int emac_mdio_read(struct mii_bus *bus, int addr, int regnum)
+ {
+ 	struct emac_adapter *adpt = bus->priv;
+ 	u32 reg;
+-	int ret;
+-
+-	ret = emac_phy_mdio_autopoll_disable(adpt);
+-	if (ret)
+-		return ret;
+ 
+ 	emac_reg_update32(adpt->base + EMAC_PHY_STS, PHY_ADDR_BMSK,
+ 			  (addr << PHY_ADDR_SHFT));
+@@ -122,24 +66,15 @@ static int emac_mdio_read(struct mii_bus *bus, int addr, int regnum)
+ 	if (readl_poll_timeout(adpt->base + EMAC_MDIO_CTRL, reg,
+ 			       !(reg & (MDIO_START | MDIO_BUSY)),
+ 			       100, MDIO_WAIT_TIMES * 100))
+-		ret = -EIO;
+-	else
+-		ret = (reg >> MDIO_DATA_SHFT) & MDIO_DATA_BMSK;
++		return -EIO;
+ 
+-	emac_phy_mdio_autopoll_enable(adpt);
+-
+-	return ret;
++	return (reg >> MDIO_DATA_SHFT) & MDIO_DATA_BMSK;
+ }
+ 
+ static int emac_mdio_write(struct mii_bus *bus, int addr, int regnum, u16 val)
+ {
+ 	struct emac_adapter *adpt = bus->priv;
+ 	u32 reg;
+-	int ret;
+-
+-	ret = emac_phy_mdio_autopoll_disable(adpt);
+-	if (ret)
+-		return ret;
+ 
+ 	emac_reg_update32(adpt->base + EMAC_PHY_STS, PHY_ADDR_BMSK,
+ 			  (addr << PHY_ADDR_SHFT));
+@@ -155,11 +90,9 @@ static int emac_mdio_write(struct mii_bus *bus, int addr, int regnum, u16 val)
+ 	if (readl_poll_timeout(adpt->base + EMAC_MDIO_CTRL, reg,
+ 			       !(reg & (MDIO_START | MDIO_BUSY)), 100,
+ 			       MDIO_WAIT_TIMES * 100))
+-		ret = -EIO;
++		return -EIO;
+ 
+-	emac_phy_mdio_autopoll_enable(adpt);
+-
+-	return ret;
++	return 0;
+ }
+ 
+ /* Configure the MDIO bus and connect the external PHY */
+diff --git a/drivers/net/ethernet/qualcomm/emac/emac.c b/drivers/net/ethernet/qualcomm/emac/emac.c
+index 28a8cdc..98a326f 100644
+--- a/drivers/net/ethernet/qualcomm/emac/emac.c
++++ b/drivers/net/ethernet/qualcomm/emac/emac.c
+@@ -50,19 +50,7 @@
+ #define DMAR_DLY_CNT_DEF				    15
+ #define DMAW_DLY_CNT_DEF				     4
+ 
+-#define IMR_NORMAL_MASK         (\
+-		ISR_ERROR       |\
+-		ISR_GPHY_LINK   |\
+-		ISR_TX_PKT      |\
+-		GPHY_WAKEUP_INT)
+-
+-#define IMR_EXTENDED_MASK       (\
+-		SW_MAN_INT      |\
+-		ISR_OVER        |\
+-		ISR_ERROR       |\
+-		ISR_GPHY_LINK   |\
+-		ISR_TX_PKT      |\
+-		GPHY_WAKEUP_INT)
++#define IMR_NORMAL_MASK		(ISR_ERROR | ISR_OVER | ISR_TX_PKT)
+ 
+ #define ISR_TX_PKT      (\
+ 	TX_PKT_INT      |\
+@@ -70,10 +58,6 @@
+ 	TX_PKT_INT2     |\
+ 	TX_PKT_INT3)
+ 
+-#define ISR_GPHY_LINK        (\
+-	GPHY_LINK_UP_INT     |\
+-	GPHY_LINK_DOWN_INT)
+-
+ #define ISR_OVER        (\
+ 	RFD0_UR_INT     |\
+ 	RFD1_UR_INT     |\
+@@ -187,10 +171,6 @@ irqreturn_t emac_isr(int _irq, void *data)
+ 	if (status & ISR_OVER)
+ 		net_warn_ratelimited("warning: TX/RX overflow\n");
+ 
+-	/* link event */
+-	if (status & ISR_GPHY_LINK)
+-		phy_mac_interrupt(adpt->phydev, !!(status & GPHY_LINK_UP_INT));
+-
+ exit:
+ 	/* enable the interrupt */
+ 	writel(irq->mask, adpt->base + EMAC_INT_MASK);
+-- 
+Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm
+Technologies, Inc.  Qualcomm Technologies, Inc. is a member of the
+Code Aurora Forum, a Linux Foundation Collaborative Project.
