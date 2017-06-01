@@ -1,53 +1,88 @@
-From: Chenbo Feng <chenbofeng.kernel@gmail.com>
-Subject: [PATCH net-next v2 2/2] bpf: Remove the capability check for cgroup skb eBPF program
-Date: Wed, 31 May 2017 18:16:00 -0700
-Message-ID: <1496279760-20996-2-git-send-email-chenbofeng.kernel@gmail.com>
-References: <1496279760-20996-1-git-send-email-chenbofeng.kernel@gmail.com>
-Cc: Lorenzo Colitti <lorenzo@google.com>,
-        Chenbo Feng <fengc@google.com>
-To: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:36046 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751088AbdFABQL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 31 May 2017 21:16:11 -0400
-Received: by mail-pf0-f194.google.com with SMTP id n23so5275271pfb.3
-        for <netdev@vger.kernel.org>; Wed, 31 May 2017 18:16:11 -0700 (PDT)
-In-Reply-To: <1496279760-20996-1-git-send-email-chenbofeng.kernel@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Ahern <dsahern@gmail.com>
+Subject: Re: net/ipv6: use-after-free in ip6_dst_ifdown
+Date: Wed, 31 May 2017 19:17:08 -0600
+Message-ID: <a239969f-c794-49cb-8afe-c396b9c19392@gmail.com>
+References: <CAAeHK+wBQgfW_mRjmP-rScMtvUfs61iCzCHn1SmkdnLGNyRm0A@mail.gmail.com>
+ <CAM_iQpUxmME-9Gi9=dtAgeGeK4v3R0NV-REFRtMAU26yBXwrPQ@mail.gmail.com>
+ <CANn89iJ0Qd6FHXBva1sztCL0cVNk70J+3sQ9S0VAbVyTTD41fg@mail.gmail.com>
+ <CAM_iQpV3NyvTLbg3S0_Eq6WYpz0MbPfcGt=A7Vu6=ttAuY1V3Q@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Andrey Konovalov <andreyknvl@google.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        David Ahern <dsa@cumulusnetworks.com>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        Kostya Serebryany <kcc@google.com>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>,
+        Eric Dumazet <edumazet@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAM_iQpV3NyvTLbg3S0_Eq6WYpz0MbPfcGt=A7Vu6=ttAuY1V3Q@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Chenbo Feng <fengc@google.com>
+On 5/31/17 4:49 PM, Cong Wang wrote:
+>>>> ==================================================================
+>>>> BUG: KASAN: use-after-free in ip6_dst_ifdown+0x3cc/0x400 net/ipv6/route.c:422
+>>>> Read of size 8 at addr ffff88006afa4ad8 by task syz-executor6/23554
+>>>
+>>>
+>>> This one is very interesting.
+>>>
+>>> Here we are at:
+>>>
+>>>         if (dev != loopback_dev) {
+>>>                 if (idev && idev->dev == dev) {
+>>>                         struct inet6_dev *loopback_idev =
+>>>                                 in6_dev_get(loopback_dev);
+>>>                         if (loopback_idev) {
+>>>                                 rt->rt6i_idev = loopback_idev;
+>>>                                 in6_dev_put(idev);
+>>>                         }
+>>>                 }
+>>>         }
+>>>
+>>> clearly no skb involved, it looks like idev is the one used-after-free.
+>>>
+>>> But below it is actually skb which is allocated and freed...
+>>>
+>>
+>> skb->head was a kmalloc(X)   with X = 1024 in this case.
+>>
+>> So it is very possible the two different objects (skb->head and idev )
+>>  were accidentally using the same slab (1024 bytes).
+>>
+>> KASAN only remember the last pair of alloc/free for a particular memory zone.
+> 
+> I see. So that memory area was freed for idev and then allocated
+> and freed again for skb->head, this happened so quick that the
+> use-after-free happened after it... Therefore we lost the track on where
+> we free the idev.
+> 
 
-Currently loading a cgroup skb eBPF program require a CAP_SYS_ADMIN
-capability while attaching the program to a cgroup only requires the
-user have CAP_NET_ADMIN privilege. We can escape the capability
-check when load the program just like socket filter program to make
-the capability requirement consistent.
+Andrey: can you add this to your runs? If it triggers again, we can see
+if this use-after-free is another problem where the dst hit the gc list
+and came back into the IPv6 FIB. The location of the idev entry in
+rt6_info is after the size of rtable so if this is an IPv4 dst on the
+IPv6 list it could trigger that warning.
 
-Change since v1:
-Change the code style in order to be compliant with checkpatch.pl
-preference
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 9d9b5bbea153..237f42144b3e 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -418,6 +418,7 @@ static void ip6_dst_ifdown(struct dst_entry *dst,
+struct net_device *dev,
+        struct net_device *loopback_dev =
+                dev_net(dev)->loopback_dev;
 
-Signed-off-by: Chenbo Feng <fengc@google.com>
----
- kernel/bpf/syscall.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
-
-diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
-index 265a0d8..59da103 100644
---- a/kernel/bpf/syscall.c
-+++ b/kernel/bpf/syscall.c
-@@ -815,7 +815,9 @@ static int bpf_prog_load(union bpf_attr *attr)
- 	    attr->kern_version != LINUX_VERSION_CODE)
- 		return -EINVAL;
- 
--	if (type != BPF_PROG_TYPE_SOCKET_FILTER && !capable(CAP_SYS_ADMIN))
-+	if (type != BPF_PROG_TYPE_SOCKET_FILTER &&
-+	    type != BPF_PROG_TYPE_CGROUP_SKB &&
-+	    !capable(CAP_SYS_ADMIN))
- 		return -EPERM;
- 
- 	/* plain bpf_prog allocation */
--- 
-2.7.4
++WARN_ON(dst->ops->family != AF_INET6);
+        if (dev != loopback_dev) {
+                if (idev && idev->dev == dev) {
+                        struct inet6_dev *loopback_idev =
