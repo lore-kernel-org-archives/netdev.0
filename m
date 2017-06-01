@@ -1,44 +1,46 @@
-From: Jia-Ju Bai <baijiaju1990@163.com>
-Subject: [PATCH] cw1200: Fix a sleep-in-atomic bug in cw1200_tx_confirm_cb and cw1200_cqm_bssloss_sm
-Date: Thu,  1 Jun 2017 10:36:14 +0800
-Message-ID: <1496284574-11056-1-git-send-email-baijiaju1990@163.com>
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, Jia-Ju Bai <baijiaju1990@163.com>
-To: pizza@shaftnet.org, kvalo@codeaurora.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: [PATCH net-next] bpf: Take advantage of stack_depth tracking in
+ sparc64 JIT
+Date: Wed, 31 May 2017 19:40:27 -0700 (PDT)
+Message-ID: <20170531.194027.376921509270354470.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: ast@kernel.org, daniel@iogearbox.net, sparclinux@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <sparclinux-owner@vger.kernel.org>
+Sender: sparclinux-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The driver may sleep under a spin lock, and the function call path is:
-cw1200_tx_confirm_cb (acquire the lock by spin_lock)
-  __cw1200_cqm_bssloss_sm
-    cancel_work_sync --> may sleep
 
-cw1200_cqm_bssloss_sm
-  __cw1200_cqm_bssloss_sm
-    cancel_work_sync --> may sleep
-
-To fix it, the lock is released before cancel_work_sync, and the lock 
-is acquired again after this function.
-
-Signed-off-by: Jia-Ju Bai <baijiaju1990@163.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- drivers/net/wireless/st/cw1200/sta.c |    2 ++
- 1 file changed, 2 insertions(+)
 
-diff --git a/drivers/net/wireless/st/cw1200/sta.c b/drivers/net/wireless/st/cw1200/sta.c
-index a522248..d5f7698 100644
---- a/drivers/net/wireless/st/cw1200/sta.c
-+++ b/drivers/net/wireless/st/cw1200/sta.c
-@@ -154,7 +154,9 @@ void __cw1200_cqm_bssloss_sm(struct cw1200_common *priv,
- 	int tx = 0;
+Committed to net-next.
+
+ arch/sparc/net/bpf_jit_comp_64.c | 9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
+
+diff --git a/arch/sparc/net/bpf_jit_comp_64.c b/arch/sparc/net/bpf_jit_comp_64.c
+index 4a52d34..098874a 100644
+--- a/arch/sparc/net/bpf_jit_comp_64.c
++++ b/arch/sparc/net/bpf_jit_comp_64.c
+@@ -802,8 +802,13 @@ static void build_prologue(struct jit_ctx *ctx)
+ {
+ 	s32 stack_needed = BASE_STACKFRAME;
  
- 	priv->delayed_link_loss = 0;
-+	spin_unlock(&priv->bss_loss_lock);
- 	cancel_work_sync(&priv->bss_params_work);
-+	spin_lock(&priv->bss_loss_lock);
+-	if (ctx->saw_frame_pointer || ctx->saw_tail_call)
+-		stack_needed += MAX_BPF_STACK;
++	if (ctx->saw_frame_pointer || ctx->saw_tail_call) {
++		struct bpf_prog *prog = ctx->prog;
++		u32 stack_depth;
++
++		stack_depth = prog->aux->stack_depth;
++		stack_needed += round_up(stack_depth, 16);
++	}
  
- 	pr_debug("[STA] CQM BSSLOSS_SM: state: %d init %d good %d bad: %d txlock: %d uj: %d\n",
- 		 priv->bss_loss_state,
+ 	if (ctx->saw_tail_call)
+ 		stack_needed += 8;
 -- 
-1.7.9.5
+2.1.2.532.g19b5d50
+
