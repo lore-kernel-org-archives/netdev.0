@@ -1,220 +1,155 @@
 From: Yuval Mintz <Yuval.Mintz@cavium.com>
-Subject: [PATCH net-next 07/11] qed: Remove assumption on SB order in IGU
-Date: Thu, 1 Jun 2017 15:29:07 +0300
-Message-ID: <20170601122911.22493-8-Yuval.Mintz@cavium.com>
+Subject: [PATCH net-next 08/11] qed: Provide auxiliary for getting free VF SB
+Date: Thu, 1 Jun 2017 15:29:08 +0300
+Message-ID: <20170601122911.22493-9-Yuval.Mintz@cavium.com>
 References: <20170601122911.22493-1-Yuval.Mintz@cavium.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Yuval Mintz <Yuval.Mintz@cavium.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam01on0080.outbound.protection.outlook.com ([104.47.34.80]:37557
-        "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
+Received: from mail-sn1nam01on0066.outbound.protection.outlook.com ([104.47.32.66]:2182
+        "EHLO NAM01-SN1-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751122AbdFAMa3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 1 Jun 2017 08:30:29 -0400
+        id S1751122AbdFAMaf (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 1 Jun 2017 08:30:35 -0400
 In-Reply-To: <20170601122911.22493-1-Yuval.Mintz@cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Current code assumes there's a known layout for SBs in the IGU,
-where all the SBs of a single entity would be laid in consecutive
-order of vectors.
-
-While the assumption is still kept by management firmware, we already
-have the necessary information to eliminate it, so no reason to keep
-it in code.
+IOV code is very intrusive in its manipulation of the status block
+database.
+Add a new auxiliary function to allow the PF to find an available unused
+status block to configure for a specific VF's MSI-x vector.
 
 Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
 ---
- drivers/net/ethernet/qlogic/qed/qed_int.c | 79 ++++++++++++-------------------
- drivers/net/ethernet/qlogic/qed/qed_int.h | 15 ++----
- 2 files changed, 33 insertions(+), 61 deletions(-)
+ drivers/net/ethernet/qlogic/qed/qed_int.c   | 20 ++++++++++++
+ drivers/net/ethernet/qlogic/qed/qed_int.h   | 11 +++++++
+ drivers/net/ethernet/qlogic/qed/qed_sriov.c | 49 ++++++++++++-----------------
+ 3 files changed, 51 insertions(+), 29 deletions(-)
 
 diff --git a/drivers/net/ethernet/qlogic/qed/qed_int.c b/drivers/net/ethernet/qlogic/qed/qed_int.c
-index c9164e2..a49484a 100644
+index a49484a..96eee1e 100644
 --- a/drivers/net/ethernet/qlogic/qed/qed_int.c
 +++ b/drivers/net/ethernet/qlogic/qed/qed_int.c
-@@ -1732,8 +1732,16 @@ void qed_int_igu_init_pure_rt_single(struct qed_hwfn *p_hwfn,
- 				     struct qed_ptt *p_ptt,
- 				     u16 igu_sb_id, u16 opaque, bool b_set)
- {
-+	struct qed_igu_block *p_block;
- 	int pi, i;
+@@ -1412,6 +1412,26 @@ void qed_int_sb_setup(struct qed_hwfn *p_hwfn,
+ 				    sb_info->igu_sb_id, 0, 0);
+ }
  
-+	p_block = &p_hwfn->hw_info.p_igu_info->entry[igu_sb_id];
-+	DP_VERBOSE(p_hwfn, NETIF_MSG_INTR,
-+		   "Cleaning SB [%04x]: func_id= %d is_pf = %d vector_num = 0x%0x\n",
-+		   igu_sb_id,
-+		   p_block->function_id,
-+		   p_block->is_pf, p_block->vector_number);
++struct qed_igu_block *qed_get_igu_free_sb(struct qed_hwfn *p_hwfn, bool b_is_pf)
++{
++	struct qed_igu_block *p_block;
++	u16 igu_id;
 +
- 	/* Set */
- 	if (b_set)
- 		qed_int_igu_cleanup_sb(p_hwfn, p_ptt, igu_sb_id, 1, opaque);
-@@ -1768,33 +1776,35 @@ void qed_int_igu_init_pure_rt(struct qed_hwfn *p_hwfn,
- 			      struct qed_ptt *p_ptt,
- 			      bool b_set, bool b_slowpath)
- {
--	u32 igu_base_sb = p_hwfn->hw_info.p_igu_info->igu_base_sb;
--	u32 igu_sb_cnt = p_hwfn->hw_info.p_igu_info->usage.cnt;
--	u32 igu_sb_id = 0, val = 0;
-+	struct qed_igu_info *p_info = p_hwfn->hw_info.p_igu_info;
-+	struct qed_igu_block *p_block;
-+	u16 igu_sb_id = 0;
-+	u32 val = 0;
- 
- 	val = qed_rd(p_hwfn, p_ptt, IGU_REG_BLOCK_CONFIGURATION);
- 	val |= IGU_REG_BLOCK_CONFIGURATION_VF_CLEANUP_EN;
- 	val &= ~IGU_REG_BLOCK_CONFIGURATION_PXP_TPH_INTERFACE_EN;
- 	qed_wr(p_hwfn, p_ptt, IGU_REG_BLOCK_CONFIGURATION, val);
- 
--	DP_VERBOSE(p_hwfn, NETIF_MSG_INTR,
--		   "IGU cleaning SBs [%d,...,%d]\n",
--		   igu_base_sb, igu_base_sb + igu_sb_cnt - 1);
-+	for (igu_sb_id = 0;
-+	     igu_sb_id < QED_MAPPING_MEMORY_SIZE(p_hwfn->cdev); igu_sb_id++) {
-+		p_block = &p_info->entry[igu_sb_id];
++	for (igu_id = 0; igu_id < QED_MAPPING_MEMORY_SIZE(p_hwfn->cdev);
++	     igu_id++) {
++		p_block = &p_hwfn->hw_info.p_igu_info->entry[igu_id];
 +
 +		if (!(p_block->status & QED_IGU_STATUS_VALID) ||
-+		    !p_block->is_pf ||
-+		    (p_block->status & QED_IGU_STATUS_DSB))
++		    !(p_block->status & QED_IGU_STATUS_FREE))
 +			continue;
- 
--	for (igu_sb_id = igu_base_sb; igu_sb_id < igu_base_sb + igu_sb_cnt;
--	     igu_sb_id++)
- 		qed_int_igu_init_pure_rt_single(p_hwfn, p_ptt, igu_sb_id,
- 						p_hwfn->hw_info.opaque_fid,
- 						b_set);
++
++		if (!!(p_block->status & QED_IGU_STATUS_PF) == b_is_pf)
++			return p_block;
 +	}
- 
--	if (!b_slowpath)
--		return;
--
--	igu_sb_id = p_hwfn->hw_info.p_igu_info->igu_dsb_id;
--	DP_VERBOSE(p_hwfn, NETIF_MSG_INTR,
--		   "IGU cleaning slowpath SB [%d]\n", igu_sb_id);
--	qed_int_igu_init_pure_rt_single(p_hwfn, p_ptt, igu_sb_id,
--					p_hwfn->hw_info.opaque_fid, b_set);
-+	if (b_slowpath)
-+		qed_int_igu_init_pure_rt_single(p_hwfn, p_ptt,
-+						p_info->igu_dsb_id,
-+						p_hwfn->hw_info.opaque_fid,
-+						b_set);
- }
- 
- static void qed_int_igu_read_cam_block(struct qed_hwfn *p_hwfn,
-@@ -1810,6 +1820,7 @@ static void qed_int_igu_read_cam_block(struct qed_hwfn *p_hwfn,
- 	p_block->function_id = GET_FIELD(val, IGU_MAPPING_LINE_FUNCTION_NUMBER);
- 	p_block->is_pf = GET_FIELD(val, IGU_MAPPING_LINE_PF_VALID);
- 	p_block->vector_number = GET_FIELD(val, IGU_MAPPING_LINE_VECTOR_NUMBER);
-+	p_block->igu_sb_id = igu_sb_id;
- }
- 
- int qed_int_igu_read_cam(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt)
-@@ -1825,10 +1836,6 @@ int qed_int_igu_read_cam(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt)
- 
- 	p_igu_info = p_hwfn->hw_info.p_igu_info;
- 
--       /* Initialize base sb / sb cnt for PFs and VFs */
--	p_igu_info->igu_base_sb = 0xffff;
--	p_igu_info->igu_base_sb_iov = 0xffff;
--
- 	/* Distinguish between existent and non-existent default SB */
- 	p_igu_info->igu_dsb_id = QED_SB_INVALID_IDX;
- 
-@@ -1852,11 +1859,8 @@ int qed_int_igu_read_cam(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt)
- 					  QED_IGU_STATUS_VALID |
- 					  QED_IGU_STATUS_FREE;
- 
--			if (p_igu_info->igu_dsb_id != QED_SB_INVALID_IDX) {
--				if (p_igu_info->igu_base_sb == 0xffff)
--					p_igu_info->igu_base_sb = igu_sb_id;
-+			if (p_igu_info->igu_dsb_id != QED_SB_INVALID_IDX)
- 				p_igu_info->usage.cnt++;
--			}
- 		} else if (!(p_block->is_pf) &&
- 			   (p_block->function_id >= min_vf) &&
- 			   (p_block->function_id < max_vf)) {
-@@ -1864,9 +1868,8 @@ int qed_int_igu_read_cam(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt)
- 			p_block->status = QED_IGU_STATUS_VALID |
- 					  QED_IGU_STATUS_FREE;
- 
--			if (p_igu_info->igu_base_sb_iov == 0xffff)
--				p_igu_info->igu_base_sb_iov = igu_sb_id;
--			p_igu_info->usage.iov_cnt++;
-+			if (p_igu_info->igu_dsb_id != QED_SB_INVALID_IDX)
-+				p_igu_info->usage.iov_cnt++;
- 		}
- 
- 		/* Mark the First entry belonging to the PF or its VFs
-@@ -2006,28 +2009,6 @@ void qed_int_get_num_sbs(struct qed_hwfn	*p_hwfn,
- 	memcpy(p_sb_cnt_info, &info->usage, sizeof(*p_sb_cnt_info));
- }
- 
--u16 qed_int_queue_id_from_sb_id(struct qed_hwfn *p_hwfn, u16 sb_id)
--{
--	struct qed_igu_info *p_info = p_hwfn->hw_info.p_igu_info;
--
--	/* Determine origin of SB id */
--	if ((sb_id >= p_info->igu_base_sb) &&
--	    (sb_id < p_info->igu_base_sb + p_info->usage.cnt)) {
--		return sb_id - p_info->igu_base_sb;
--	} else if ((sb_id >= p_info->igu_base_sb_iov) &&
--		   (sb_id < p_info->igu_base_sb_iov + p_info->usage.iov_cnt)) {
--		/* We want the first VF queue to be adjacent to the
--		 * last PF queue. Since L2 queues can be partial to
--		 * SBs, we'll use the feature instead.
--		 */
--		return sb_id - p_info->igu_base_sb_iov +
--		       FEAT_NUM(p_hwfn, QED_PF_L2_QUE);
--	} else {
--		DP_NOTICE(p_hwfn, "SB %d not in range for function\n", sb_id);
--		return 0;
--	}
--}
--
- void qed_int_disable_post_isr_release(struct qed_dev *cdev)
++
++	return NULL;
++}
++
+ static u16 qed_get_pf_igu_sb_id(struct qed_hwfn *p_hwfn, u16 vector_id)
  {
- 	int i;
+ 	struct qed_igu_block *p_block;
 diff --git a/drivers/net/ethernet/qlogic/qed/qed_int.h b/drivers/net/ethernet/qlogic/qed/qed_int.h
-index 5a0e8f0..b55334f 100644
+index b55334f..273e73a 100644
 --- a/drivers/net/ethernet/qlogic/qed/qed_int.h
 +++ b/drivers/net/ethernet/qlogic/qed/qed_int.h
-@@ -211,14 +211,15 @@ struct qed_igu_block {
- 	u8	vector_number;
- 	u8	function_id;
- 	u8	is_pf;
+@@ -225,6 +225,17 @@ struct qed_igu_info {
+ };
+ 
+ /* TODO Names of function may change... */
++/**
++ * @brief return a pointer to an unused valid SB
++ *
++ * @param p_hwfn
++ * @param b_is_pf - true iff we want a SB belonging to a PF
++ *
++ * @return point to an igu_block, NULL if none is available
++ */
++struct qed_igu_block *qed_get_igu_free_sb(struct qed_hwfn *p_hwfn,
++					  bool b_is_pf);
 +
-+	/* Index inside IGU [meant for back reference] */
-+	u16	igu_sb_id;
- };
+ void qed_int_igu_init_pure_rt(struct qed_hwfn *p_hwfn,
+ 			      struct qed_ptt *p_ptt,
+ 			      bool b_set,
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_sriov.c b/drivers/net/ethernet/qlogic/qed/qed_sriov.c
+index 62b207a..b7dda60 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_sriov.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_sriov.c
+@@ -868,12 +868,11 @@ static u8 qed_iov_alloc_vf_igu_sbs(struct qed_hwfn *p_hwfn,
+ 				   struct qed_ptt *p_ptt,
+ 				   struct qed_vf_info *vf, u16 num_rx_queues)
+ {
+-	struct qed_igu_block *igu_blocks;
+-	int qid = 0, igu_id = 0;
++	struct qed_igu_block *p_block;
++	struct cau_sb_entry sb_entry;
++	int qid = 0;
+ 	u32 val = 0;
  
- struct qed_igu_info {
- 	struct qed_igu_block entry[MAX_TOT_SB_PER_PATH];
- 	u16 igu_dsb_id;
- 
--	u16 igu_base_sb;
--	u16 igu_base_sb_iov;
- 	struct qed_sb_cnt_info usage;
- 
- };
-@@ -358,16 +359,6 @@ void qed_int_setup(struct qed_hwfn *p_hwfn,
- 		   struct qed_ptt *p_ptt);
- 
- /**
-- * @brief - Returns an Rx queue index appropriate for usage with given SB.
-- *
-- * @param p_hwfn
-- * @param sb_id - absolute index of SB
-- *
-- * @return index of Rx queue
-- */
--u16 qed_int_queue_id_from_sb_id(struct qed_hwfn *p_hwfn, u16 sb_id);
+-	igu_blocks = p_hwfn->hw_info.p_igu_info->entry;
 -
--/**
-  * @brief - Enable Interrupt & Attention for hw function
-  *
-  * @param p_hwfn
+ 	if (num_rx_queues > p_hwfn->hw_info.p_igu_info->usage.free_cnt_iov)
+ 		num_rx_queues = p_hwfn->hw_info.p_igu_info->usage.free_cnt_iov;
+ 	p_hwfn->hw_info.p_igu_info->usage.free_cnt_iov -= num_rx_queues;
+@@ -882,31 +881,23 @@ static u8 qed_iov_alloc_vf_igu_sbs(struct qed_hwfn *p_hwfn,
+ 	SET_FIELD(val, IGU_MAPPING_LINE_VALID, 1);
+ 	SET_FIELD(val, IGU_MAPPING_LINE_PF_VALID, 0);
+ 
+-	while ((qid < num_rx_queues) &&
+-	       (igu_id < QED_MAPPING_MEMORY_SIZE(p_hwfn->cdev))) {
+-		if (igu_blocks[igu_id].status & QED_IGU_STATUS_FREE) {
+-			struct cau_sb_entry sb_entry;
+-
+-			vf->igu_sbs[qid] = (u16)igu_id;
+-			igu_blocks[igu_id].status &= ~QED_IGU_STATUS_FREE;
+-
+-			SET_FIELD(val, IGU_MAPPING_LINE_VECTOR_NUMBER, qid);
+-
+-			qed_wr(p_hwfn, p_ptt,
+-			       IGU_REG_MAPPING_MEMORY + sizeof(u32) * igu_id,
+-			       val);
+-
+-			/* Configure igu sb in CAU which were marked valid */
+-			qed_init_cau_sb_entry(p_hwfn, &sb_entry,
+-					      p_hwfn->rel_pf_id,
+-					      vf->abs_vf_id, 1);
+-			qed_dmae_host2grc(p_hwfn, p_ptt,
+-					  (u64)(uintptr_t)&sb_entry,
+-					  CAU_REG_SB_VAR_MEMORY +
+-					  igu_id * sizeof(u64), 2, 0);
+-			qid++;
+-		}
+-		igu_id++;
++	for (qid = 0; qid < num_rx_queues; qid++) {
++		p_block = qed_get_igu_free_sb(p_hwfn, false);
++		vf->igu_sbs[qid] = p_block->igu_sb_id;
++		p_block->status &= ~QED_IGU_STATUS_FREE;
++		SET_FIELD(val, IGU_MAPPING_LINE_VECTOR_NUMBER, qid);
++
++		qed_wr(p_hwfn, p_ptt,
++		       IGU_REG_MAPPING_MEMORY +
++		       sizeof(u32) * p_block->igu_sb_id, val);
++
++		/* Configure igu sb in CAU which were marked valid */
++		qed_init_cau_sb_entry(p_hwfn, &sb_entry,
++				      p_hwfn->rel_pf_id, vf->abs_vf_id, 1);
++		qed_dmae_host2grc(p_hwfn, p_ptt,
++				  (u64)(uintptr_t)&sb_entry,
++				  CAU_REG_SB_VAR_MEMORY +
++				  p_block->igu_sb_id * sizeof(u64), 2, 0);
+ 	}
+ 
+ 	vf->num_sbs = (u8) num_rx_queues;
 -- 
 2.9.4
