@@ -1,40 +1,53 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next v3 5/5] net: dsa: factor skb freeing on xmit
-Date: Thu, 1 Jun 2017 13:14:18 -0700
-Message-ID: <7aa57651-0bdb-730e-2dff-f0b2d2e94532@gmail.com>
-References: <20170601200715.8438-1-vivien.didelot@savoirfairelinux.com>
- <20170601200715.8438-6-vivien.didelot@savoirfairelinux.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Andrew Lunn <andrew@lunn.ch>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170601200715.8438-6-vivien.didelot@savoirfairelinux.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
+Subject: [PATCH net v2] ibmvnic: Remove module author mailing address
+Date: Thu,  1 Jun 2017 15:32:34 -0500
+Message-ID: <1496349154-26479-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
+Cc: davem@davemloft.net, nfont@linux.vnet.ibm.com,
+        Thomas Falcon <tlfalcon@linux.vnet.ibm.com>,
+        John Allen <jallen@linux.vnet.ibm.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:60834 "EHLO
+        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1751122AbdFAUcw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Jun 2017 16:32:52 -0400
+Received: from pps.filterd (m0098419.ppops.net [127.0.0.1])
+        by mx0b-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v51KSY3p060426
+        for <netdev@vger.kernel.org>; Thu, 1 Jun 2017 16:32:41 -0400
+Received: from e31.co.us.ibm.com (e31.co.us.ibm.com [32.97.110.149])
+        by mx0b-001b2d01.pphosted.com with ESMTP id 2atmfayyp3-1
+        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Thu, 01 Jun 2017 16:32:41 -0400
+Received: from localhost
+        by e31.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        for <netdev@vger.kernel.org> from <tlfalcon@linux.vnet.ibm.com>;
+        Thu, 1 Jun 2017 14:32:40 -0600
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 06/01/2017 01:07 PM, Vivien Didelot wrote:
-> As of a86d8becc3f0 ("net: dsa: Factor bottom tag receive functions"),
-> the rcv caller frees the original SKB in case or error.
-> 
-> Be symmetric with that and make the xmit caller do the same.
-> 
-> At the same time, fix the checkpatch NULL comparison check:
-> 
->         CHECK: Comparison to NULL could be written "!nskb"
->     #208: FILE: net/dsa/tag_trailer.c:35:
->     +	if (nskb == NULL)
-> 
-> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+The original author left the project and so far has not
+responded to emails sent to the listed address.
 
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+Signed-off-by: John Allen <jallen@linux.vnet.ibm.com>
+Signed-off-by: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
+---
+v2: only remove invalid email address
+---
+ drivers/net/ethernet/ibm/ibmvnic.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-I must have not read the patch correctly the first time, because my
-objection no longer stands, this looks much cleaner now, thanks!
+diff --git a/drivers/net/ethernet/ibm/ibmvnic.c b/drivers/net/ethernet/ibm/ibmvnic.c
+index 4f2d329..a93757c 100644
+--- a/drivers/net/ethernet/ibm/ibmvnic.c
++++ b/drivers/net/ethernet/ibm/ibmvnic.c
+@@ -81,7 +81,7 @@
+ static const char ibmvnic_driver_name[] = "ibmvnic";
+ static const char ibmvnic_driver_string[] = "IBM System i/p Virtual NIC Driver";
+ 
+-MODULE_AUTHOR("Santiago Leon <santi_leon@yahoo.com>");
++MODULE_AUTHOR("Santiago Leon");
+ MODULE_DESCRIPTION("IBM System i/p Virtual NIC Driver");
+ MODULE_LICENSE("GPL");
+ MODULE_VERSION(IBMVNIC_DRIVER_VERSION);
 -- 
-Florian
+2.7.4
