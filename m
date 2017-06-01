@@ -1,158 +1,120 @@
-From: "Yan, Zheng" <ukernel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 04/12] fs: ceph: CURRENT_TIME with ktime_get_real_ts()
-Date: Thu, 1 Jun 2017 17:56:36 +0800
-Message-ID: <CAAM7YAmp=cZKqGHa8UqDnrQLCe+6TKx+7w9SDZv4cW5fr4dfvA@mail.gmail.com>
-References: <1491613030-11599-1-git-send-email-deepa.kernel@gmail.com> <1491613030-11599-5-git-send-email-deepa.kernel@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
-        tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org, Al Viro <viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org>,
-        gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org, andreas.dilger-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-        Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>, bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org,
-        clm-b10kYP2dOMg@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, dsterba-IBi9RG/b67k@public.gmane.org,
-        dushistov-JGs/UdohzUI@public.gmane.org, eparis-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, jaegeuk-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
-        jbacik-b10kYP2dOMg@public.gmane.org, jlayton-vpEMnDpepFuMZCB2o+C8xQ@public.gmane.org, john.stultz-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org,
-        jsimmons-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org, mingo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, oleg.drokin-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-        paul-r2n+y4ga6xFZroRs9YW3xA@public.gmane.org, rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org, yuchao0-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
-        ceph-devel <ceph-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org, linux-audit-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-        linux-btrfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-cifs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-f2fs-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
-        linux-fsdevel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mtd-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-        linux-securit
-To: Deepa Dinamani <deepa.kernel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-cifs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1491613030-11599-5-git-send-email-deepa.kernel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-cifs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: gfree.wind@vip.163.com
+Subject: [PATCH net-next] ppp: remove unnecessary bh disable in xmit path
+Date: Thu,  1 Jun 2017 17:58:39 +0800
+Message-ID: <1496311119-59204-1-git-send-email-gfree.wind@vip.163.com>
+Cc: Gao Feng <gfree.wind@vip.163.com>
+To: paulus@samba.org, linux-ppp@vger.kernel.org, g.nault@alphalink.fr,
+        netdev@vger.kernel.org
+Return-path: <linux-ppp-owner@vger.kernel.org>
+Sender: linux-ppp-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Apr 8, 2017 at 8:57 AM, Deepa Dinamani <deepa.kernel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
-> CURRENT_TIME is not y2038 safe.
-> The macro will be deleted and all the references to it
-> will be replaced by ktime_get_* apis.
->
-> struct timespec is also not y2038 safe.
-> Retain timespec for timestamp representation here as ceph
-> uses it internally everywhere.
-> These references will be changed to use struct timespec64
-> in a separate patch.
->
-> The current_fs_time() api is being changed to use vfs
-> struct inode* as an argument instead of struct super_block*.
->
-> Set the new mds client request r_stamp field using
-> ktime_get_real_ts() instead of using current_fs_time().
->
-> Also, since r_stamp is used as mtime on the server, use
-> timespec_trunc() to truncate the timestamp, using the right
-> granularity from the superblock.
->
-> This api will be transitioned to be y2038 safe along
-> with vfs.
->
-> Signed-off-by: Deepa Dinamani <deepa.kernel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> Reviewed-by: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-> ---
->  drivers/block/rbd.c   | 2 +-
->  fs/ceph/mds_client.c  | 4 +++-
->  net/ceph/messenger.c  | 6 ++++--
->  net/ceph/osd_client.c | 4 ++--
->  4 files changed, 10 insertions(+), 6 deletions(-)
->
-> diff --git a/drivers/block/rbd.c b/drivers/block/rbd.c
-> index 517838b..77204da 100644
-> --- a/drivers/block/rbd.c
-> +++ b/drivers/block/rbd.c
-> @@ -1922,7 +1922,7 @@ static void rbd_osd_req_format_write(struct rbd_obj_request *obj_request)
->  {
->         struct ceph_osd_request *osd_req = obj_request->osd_req;
->
-> -       osd_req->r_mtime = CURRENT_TIME;
-> +       ktime_get_real_ts(&osd_req->r_mtime);
->         osd_req->r_data_offset = obj_request->offset;
->  }
->
-> diff --git a/fs/ceph/mds_client.c b/fs/ceph/mds_client.c
-> index c681762..1d3fa90 100644
-> --- a/fs/ceph/mds_client.c
-> +++ b/fs/ceph/mds_client.c
-> @@ -1666,6 +1666,7 @@ struct ceph_mds_request *
->  ceph_mdsc_create_request(struct ceph_mds_client *mdsc, int op, int mode)
->  {
->         struct ceph_mds_request *req = kzalloc(sizeof(*req), GFP_NOFS);
-> +       struct timespec ts;
->
->         if (!req)
->                 return ERR_PTR(-ENOMEM);
-> @@ -1684,7 +1685,8 @@ ceph_mdsc_create_request(struct ceph_mds_client *mdsc, int op, int mode)
->         init_completion(&req->r_safe_completion);
->         INIT_LIST_HEAD(&req->r_unsafe_item);
->
-> -       req->r_stamp = current_fs_time(mdsc->fsc->sb);
-> +       ktime_get_real_ts(&ts);
-> +       req->r_stamp = timespec_trunc(ts, mdsc->fsc->sb->s_time_gran);
+From: Gao Feng <gfree.wind@vip.163.com>
 
-This change causes our kernel_untar_tar test case to fail (inode's
-ctime goes back). The reason is that there is time drift between the
-time stamps got by  ktime_get_real_ts() and current_time(). We need to
-revert this change until current_time() uses ktime_get_real_ts()
-internally.
+Since the commit 55454a565836 ("ppp: avoid dealock on recursive xmit"),
+the PPP xmit path is protected by wrapper functions which disable the
+bh already. So it is unnecessary to disable the bh again in the real
+xmit path.
 
-Regards
-Yan, Zheng
+Signed-off-by: Gao Feng <gfree.wind@vip.163.com>
+---
+ drivers/net/ppp/ppp_generic.c | 22 +++++++++++-----------
+ 1 file changed, 11 insertions(+), 11 deletions(-)
+
+diff --git a/drivers/net/ppp/ppp_generic.c b/drivers/net/ppp/ppp_generic.c
+index f9c0e62..bbded33 100644
+--- a/drivers/net/ppp/ppp_generic.c
++++ b/drivers/net/ppp/ppp_generic.c
+@@ -1618,7 +1618,7 @@ static void ppp_xmit_process(struct ppp *ppp)
+ 		list = list->next;
+ 		pch = list_entry(list, struct channel, clist);
+ 
+-		spin_lock_bh(&pch->downl);
++		spin_lock(&pch->downl);
+ 		if (pch->chan) {
+ 			if (pch->chan->ops->start_xmit(pch->chan, skb))
+ 				ppp->xmit_pending = NULL;
+@@ -1627,7 +1627,7 @@ static void ppp_xmit_process(struct ppp *ppp)
+ 			kfree_skb(skb);
+ 			ppp->xmit_pending = NULL;
+ 		}
+-		spin_unlock_bh(&pch->downl);
++		spin_unlock(&pch->downl);
+ 		return;
+ 	}
+ 
+@@ -1757,7 +1757,7 @@ static int ppp_mp_explode(struct ppp *ppp, struct sk_buff *skb)
+ 		}
+ 
+ 		/* check the channel's mtu and whether it is still attached. */
+-		spin_lock_bh(&pch->downl);
++		spin_lock(&pch->downl);
+ 		if (pch->chan == NULL) {
+ 			/* can't use this channel, it's being deregistered */
+ 			if (pch->speed == 0)
+@@ -1765,7 +1765,7 @@ static int ppp_mp_explode(struct ppp *ppp, struct sk_buff *skb)
+ 			else
+ 				totspeed -= pch->speed;
+ 
+-			spin_unlock_bh(&pch->downl);
++			spin_unlock(&pch->downl);
+ 			pch->avail = 0;
+ 			totlen = len;
+ 			totfree--;
+@@ -1816,7 +1816,7 @@ static int ppp_mp_explode(struct ppp *ppp, struct sk_buff *skb)
+ 		 */
+ 		if (flen <= 0) {
+ 			pch->avail = 2;
+-			spin_unlock_bh(&pch->downl);
++			spin_unlock(&pch->downl);
+ 			continue;
+ 		}
+ 
+@@ -1861,14 +1861,14 @@ static int ppp_mp_explode(struct ppp *ppp, struct sk_buff *skb)
+ 		len -= flen;
+ 		++ppp->nxseq;
+ 		bits = 0;
+-		spin_unlock_bh(&pch->downl);
++		spin_unlock(&pch->downl);
+ 	}
+ 	ppp->nxchan = i;
+ 
+ 	return 1;
+ 
+  noskb:
+-	spin_unlock_bh(&pch->downl);
++	spin_unlock(&pch->downl);
+ 	if (ppp->debug & 1)
+ 		netdev_err(ppp->dev, "PPP: no memory (fragment)\n");
+ 	++ppp->dev->stats.tx_errors;
+@@ -1883,7 +1883,7 @@ static void __ppp_channel_push(struct channel *pch)
+ 	struct sk_buff *skb;
+ 	struct ppp *ppp;
+ 
+-	spin_lock_bh(&pch->downl);
++	spin_lock(&pch->downl);
+ 	if (pch->chan) {
+ 		while (!skb_queue_empty(&pch->file.xq)) {
+ 			skb = skb_dequeue(&pch->file.xq);
+@@ -1897,14 +1897,14 @@ static void __ppp_channel_push(struct channel *pch)
+ 		/* channel got deregistered */
+ 		skb_queue_purge(&pch->file.xq);
+ 	}
+-	spin_unlock_bh(&pch->downl);
++	spin_unlock(&pch->downl);
+ 	/* see if there is anything from the attached unit to be sent */
+ 	if (skb_queue_empty(&pch->file.xq)) {
+-		read_lock_bh(&pch->upl);
++		read_lock(&pch->upl);
+ 		ppp = pch->ppp;
+ 		if (ppp)
+ 			__ppp_xmit_process(ppp);
+-		read_unlock_bh(&pch->upl);
++		read_unlock(&pch->upl);
+ 	}
+ }
+ 
+-- 
+1.9.1
 
 
->
->         req->r_op = op;
->         req->r_direct_mode = mode;
-> diff --git a/net/ceph/messenger.c b/net/ceph/messenger.c
-> index f76bb33..5766a6c 100644
-> --- a/net/ceph/messenger.c
-> +++ b/net/ceph/messenger.c
-> @@ -1386,8 +1386,9 @@ static void prepare_write_keepalive(struct ceph_connection *con)
->         dout("prepare_write_keepalive %p\n", con);
->         con_out_kvec_reset(con);
->         if (con->peer_features & CEPH_FEATURE_MSGR_KEEPALIVE2) {
-> -               struct timespec now = CURRENT_TIME;
-> +               struct timespec now;
->
-> +               ktime_get_real_ts(&now);
->                 con_out_kvec_add(con, sizeof(tag_keepalive2), &tag_keepalive2);
->                 ceph_encode_timespec(&con->out_temp_keepalive2, &now);
->                 con_out_kvec_add(con, sizeof(con->out_temp_keepalive2),
-> @@ -3176,8 +3177,9 @@ bool ceph_con_keepalive_expired(struct ceph_connection *con,
->  {
->         if (interval > 0 &&
->             (con->peer_features & CEPH_FEATURE_MSGR_KEEPALIVE2)) {
-> -               struct timespec now = CURRENT_TIME;
-> +               struct timespec now;
->                 struct timespec ts;
-> +               ktime_get_real_ts(&now);
->                 jiffies_to_timespec(interval, &ts);
->                 ts = timespec_add(con->last_keepalive_ack, ts);
->                 return timespec_compare(&now, &ts) >= 0;
-> diff --git a/net/ceph/osd_client.c b/net/ceph/osd_client.c
-> index e15ea9e..242d7c0 100644
-> --- a/net/ceph/osd_client.c
-> +++ b/net/ceph/osd_client.c
-> @@ -3574,7 +3574,7 @@ ceph_osdc_watch(struct ceph_osd_client *osdc,
->         ceph_oid_copy(&lreq->t.base_oid, oid);
->         ceph_oloc_copy(&lreq->t.base_oloc, oloc);
->         lreq->t.flags = CEPH_OSD_FLAG_WRITE;
-> -       lreq->mtime = CURRENT_TIME;
-> +       ktime_get_real_ts(&lreq->mtime);
->
->         lreq->reg_req = alloc_linger_request(lreq);
->         if (!lreq->reg_req) {
-> @@ -3632,7 +3632,7 @@ int ceph_osdc_unwatch(struct ceph_osd_client *osdc,
->         ceph_oid_copy(&req->r_base_oid, &lreq->t.base_oid);
->         ceph_oloc_copy(&req->r_base_oloc, &lreq->t.base_oloc);
->         req->r_flags = CEPH_OSD_FLAG_WRITE;
-> -       req->r_mtime = CURRENT_TIME;
-> +       ktime_get_real_ts(&req->r_mtime);
->         osd_req_op_watch_init(req, 0, lreq->linger_id,
->                               CEPH_OSD_WATCH_OP_UNWATCH);
->
-> --
-> 2.7.4
->
