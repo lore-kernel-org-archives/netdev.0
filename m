@@ -1,30 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ppp: remove unnecessary bh disable in xmit
- path
-Date: Thu, 01 Jun 2017 12:01:04 -0400 (EDT)
-Message-ID: <20170601.120104.1498917277276131903.davem@davemloft.net>
-References: <1496311119-59204-1-git-send-email-gfree.wind@vip.163.com>
+Subject: Re: [PATCH 0/5] Add phylib support for MV88X3310 10G phy
+Date: Thu, 01 Jun 2017 12:07:36 -0400 (EDT)
+Message-ID: <20170601.120736.670167741447008364.davem@davemloft.net>
+References: <20170601102327.GF27796@n2100.armlinux.org.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: paulus@samba.org, linux-ppp@vger.kernel.org, g.nault@alphalink.fr,
-        netdev@vger.kernel.org
-To: gfree.wind@vip.163.com
-Return-path: <linux-ppp-owner@vger.kernel.org>
-In-Reply-To: <1496311119-59204-1-git-send-email-gfree.wind@vip.163.com>
-Sender: linux-ppp-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: andrew@lunn.ch, f.fainelli@gmail.com, devicetree@vger.kernel.org,
+        mark.rutland@arm.com, netdev@vger.kernel.org, robh+dt@kernel.org
+To: linux@armlinux.org.uk
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:56560 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751264AbdFAQHj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Jun 2017 12:07:39 -0400
+In-Reply-To: <20170601102327.GF27796@n2100.armlinux.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: gfree.wind@vip.163.com
-Date: Thu,  1 Jun 2017 17:58:39 +0800
+From: Russell King - ARM Linux <linux@armlinux.org.uk>
+Date: Thu, 1 Jun 2017 11:23:27 +0100
 
-> From: Gao Feng <gfree.wind@vip.163.com>
-> 
-> Since the commit 55454a565836 ("ppp: avoid dealock on recursive xmit"),
-> the PPP xmit path is protected by wrapper functions which disable the
-> bh already. So it is unnecessary to disable the bh again in the real
-> xmit path.
-> 
-> Signed-off-by: Gao Feng <gfree.wind@vip.163.com>
+> This patch series adds support for the Marvell 88x3310 PHY found on
+> the SolidRun Macchiatobin board.
 
-Applied, thank you.
+Andrew has asked for some comment documentation additions to patch #5
+so I'm expecting at least one respin of this series ;-)
