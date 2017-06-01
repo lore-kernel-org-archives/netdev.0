@@ -1,54 +1,38 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] tcp: remove unnecessary skb_reset_tail_pointer()
-Date: Thu, 01 Jun 2017 14:18:36 -0700
-Message-ID: <1496351916.27480.23.camel@edumazet-glaptop3.roam.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v3 0/5] net: dsa: tagger simplification
+Date: Thu, 01 Jun 2017 17:36:21 -0400 (EDT)
+Message-ID: <20170601.173621.2175012266174522011.davem@davemloft.net>
+References: <20170601200715.8438-1-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@savoirfairelinux.com, f.fainelli@gmail.com, andrew@lunn.ch
+To: vivien.didelot@savoirfairelinux.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:34844 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751097AbdFAVSi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 1 Jun 2017 17:18:38 -0400
-Received: by mail-pf0-f193.google.com with SMTP id u26so8990006pfd.2
-        for <netdev@vger.kernel.org>; Thu, 01 Jun 2017 14:18:37 -0700 (PDT)
+Received: from shards.monkeyblade.net ([184.105.139.130]:60570 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751050AbdFAVgZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Jun 2017 17:36:25 -0400
+In-Reply-To: <20170601200715.8438-1-vivien.didelot@savoirfairelinux.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Date: Thu,  1 Jun 2017 16:07:10 -0400
 
-__pskb_trim_head() does not need to reset skb tail pointer.
+> This series clarifies the hot path, removes the labels in tagging
+> implementations, and frees the original SKB in the xmit caller.
+> 
+> Changes in v3:
+>   - drop removal of usused rcv arguments because they will be used later
+>   - include the new ksz tagging implementation
+>   - add reviewers' tags
+> 
+> Changes in v2:
+>   - do not remove tagger function copies
+>   - document hot path requirements
+>   - make netdev_uses_dsa simpler
+>   - add reviewers' tags
 
-Also change the comments, __pskb_pull_head() does not exist.
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- net/ipv4/tcp_output.c |    6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
-
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 478f75baee31d28b4e3122f7635cd1addf20cb98..e3aab1c1cf78d7b5696fc1438fe54f8ce448c09e 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -1328,9 +1328,8 @@ int tcp_fragment(struct sock *sk, struct sk_buff *skb, u32 len,
- 	return 0;
- }
- 
--/* This is similar to __pskb_pull_head() (it will go to core/skbuff.c
-- * eventually). The difference is that pulled data not copied, but
-- * immediately discarded.
-+/* This is similar to __pskb_pull_tail(). The difference is that pulled
-+ * data is not copied, but immediately discarded.
-  */
- static int __pskb_trim_head(struct sk_buff *skb, int len)
- {
-@@ -1365,7 +1364,6 @@ static int __pskb_trim_head(struct sk_buff *skb, int len)
- 	}
- 	shinfo->nr_frags = k;
- 
--	skb_reset_tail_pointer(skb);
- 	skb->data_len -= len;
- 	skb->len = skb->data_len;
- 	return len;
+Series applied, thanks Vivien.
