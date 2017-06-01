@@ -1,162 +1,64 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH 5/5] net: phy: add Marvell Alaska X 88X3310 10Gigabit PHY
- support
-Date: Thu, 1 Jun 2017 10:28:04 -0700
-Message-ID: <ddf5b409-43fb-5045-ebfc-9a20d1ca1aec@gmail.com>
-References: <20170601102327.GF27796@n2100.armlinux.org.uk>
- <E1dGNJc-000442-8H@rmk-PC.armlinux.org.uk>
+From: Paul Menzel <pmenzel@molgen.mpg.de>
+Subject: Re: Cherry pick commit *net: better skb->sender_cpu and skb->napi_id
+ cohabitation* to 4.4 series?
+Date: Thu, 1 Jun 2017 19:32:35 +0200
+Message-ID: <409abefe-62ff-563a-b5c6-a3149ae672e0@molgen.mpg.de>
+References: <987d9047-08ac-0d53-2d1f-ef9189988ee2@molgen.mpg.de>
+ <20170601.121935.1801387892378122014.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org
-To: Russell King <rmk+kernel@armlinux.org.uk>,
-        Andrew Lunn <andrew@lunn.ch>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org,
+        ast@kernel.org, it+linux-netdev@molgen.mpg.de,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f195.google.com ([209.85.216.195]:35836 "EHLO
-        mail-qt0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751096AbdFAR2H (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 1 Jun 2017 13:28:07 -0400
-Received: by mail-qt0-f195.google.com with SMTP id r58so6519622qtb.2
-        for <netdev@vger.kernel.org>; Thu, 01 Jun 2017 10:28:06 -0700 (PDT)
-In-Reply-To: <E1dGNJc-000442-8H@rmk-PC.armlinux.org.uk>
+Received: from mx3.molgen.mpg.de ([141.14.17.11]:44656 "EHLO mx1.molgen.mpg.de"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751096AbdFARci (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 1 Jun 2017 13:32:38 -0400
+In-Reply-To: <20170601.121935.1801387892378122014.davem@davemloft.net>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/01/2017 03:26 AM, Russell King wrote:
-> Add phylib support for the Marvell Alaska X 10 Gigabit PHY (MV88X3310).
-> This phy is able to operate at 10G, 1G, 100M and 10M speeds, and only
-> supports Clause 45 accesses.
+Dear David,
+
+
+On 06/01/17 18:19, David Miller wrote:
+> Neither of us have anything to do with the 4.4 -stable series.  We only
+> manage stable backport submissions for the most recent two releases.
+
+Thank you for the prompt response. Should the netdev FAQ be updated then 
+to contain that information?
+
+> Q: How can I tell what patches are queued up for backporting to the
+>    various stable releases?
 > 
-> The PHY appears (based on the vendor IDs) to be two different vendors
-> IP, with each devad containing several instances.
+> A: Normally Greg Kroah-Hartman collects stable commits himself, but
+>    for networking, Dave collects up patches he deems critical for the
+>    networking subsystem, and then hands them off to Greg.
 > 
-> This PHY driver has only been tested with the RJ45 copper port, fiber
-> port and a Marvell Armada 8040-based ethernet interface.
+>    There is a patchworks queue that you can see here:
+>         http://patchwork.ozlabs.org/bundle/davem/stable/?state=*
 > 
-> It should be noted that to use the full range of speeds, MAC drivers
-> need to also reconfigure the link mode as per phydev->interface, since
-> the PHY automatically changes its interface mode depending on the
-> negotiated speed.
+>    It contains the patches which Dave has selected, but not yet handed
+>    off to Greg.  If Greg already has the patch, then it will be here:
+>         https://git.kernel.org/pub/scm/linux/kernel/git/stable/stable-queue.git
 > 
-> Signed-off-by: Russell King <rmk+kernel@armlinux.org.uk>
-> ---
-
->  MARVELL MVNETA ETHERNET DRIVER
->  M:	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
->  L:	netdev@vger.kernel.org
-> diff --git a/drivers/net/phy/Makefile b/drivers/net/phy/Makefile
-> index 19eddf758c88..905990fece28 100644
-> --- a/drivers/net/phy/Makefile
-> +++ b/drivers/net/phy/Makefile
-> @@ -55,7 +55,7 @@ obj-$(CONFIG_ICPLUS_PHY)	+= icplus.o
->  obj-$(CONFIG_INTEL_XWAY_PHY)	+= intel-xway.o
->  obj-$(CONFIG_LSI_ET1011C_PHY)	+= et1011c.o
->  obj-$(CONFIG_LXT_PHY)		+= lxt.o
-> -obj-$(CONFIG_MARVELL_PHY)	+= marvell.o
-> +obj-$(CONFIG_MARVELL_PHY)	+= marvell.o marvell10g.o
-
-Could we introduce a CONFIG_MARVELL_10G_PHY symbol?
+>    A quick way to find whether the patch is in this stable-queue is
+>    to simply clone the repo, and then git grep the mainline commit ID, e.g.
+> 
+>         stable-queue$ git grep -l 284041ef21fdf2e
+>         releases/3.0.84/ipv6-fix-possible-crashes-in-ip6_cork_release.patch
+>         releases/3.4.51/ipv6-fix-possible-crashes-in-ip6_cork_release.patch
+>         releases/3.9.8/ipv6-fix-possible-crashes-in-ip6_cork_release.patch
+>         stable/stable-queue$
 
 
-> +enum {
-> +	MV_PCS_BASE_T		= 0x0000,
-> +	MV_PCS_BASE_R		= 0x1000,
-> +	MV_PCS_1000BASEX	= 0x2000,
-> +
-> +	/* These registers appear at 0x800X and 0xa00X - the 0xa00X control
-> +	 * registers appear to set themselves to the 0x800X when AN is
-> +	 * restarted, but status registers appear readable from either.
-> +	 */
-> +	MV_AN_CTRL1000		= 0x8000, /* 1000base-T control register */
-> +	MV_AN_STAT1000		= 0x8001, /* 1000base-T status register */
-> +
-> +	/* This register appears to reflect the copper status */
-> +	MV_AN_RESULT		= 0xa016,
-> +	MV_AN_RESULT_SPD_10	= BIT(12),
-> +	MV_AN_RESULT_SPD_100	= BIT(13),
-> +	MV_AN_RESULT_SPD_1000	= BIT(14),
-> +	MV_AN_RESULT_SPD_10000	= BIT(15),
-> +};
+Kind regards,
 
-Personal preference is not to use enums but jut plain #define, but
-whatever works, really.
+Paul
 
 
-> +
-> +static int mv3310_soft_reset(struct phy_device *phydev)
-> +{
-> +	return 0;
-> +}
-
-You could use genphy_no_soft_reset(), although genphy sort of implies
-C22 now, or we could export genphy10g_soft_reset() which also does nothing.
-
-
-> +	/* Ethtool does not support the WAN mode bits */
-> +	if (val & (MDIO_PMA_STAT2_10GBSR | MDIO_PMA_STAT2_10GBLR |
-> +		   MDIO_PMA_STAT2_10GBER | MDIO_PMA_STAT2_10GBLX4 |
-> +		   MDIO_PMA_STAT2_10GBSW | MDIO_PMA_STAT2_10GBLW |
-> +		   MDIO_PMA_STAT2_10GBEW))
-> +		__set_bit(ETHTOOL_LINK_MODE_FIBRE_BIT, supported);
-> +	if (val & MDIO_PMA_STAT2_10GBSR)
-> +		__set_bit(ETHTOOL_LINK_MODE_10000baseSR_Full_BIT, supported);
-> +	if (val & MDIO_PMA_STAT2_10GBLR)
-> +		__set_bit(ETHTOOL_LINK_MODE_10000baseLR_Full_BIT, supported);
-> +	if (val & MDIO_PMA_STAT2_10GBER)
-> +		__set_bit(ETHTOOL_LINK_MODE_10000baseER_Full_BIT, supported);
-> +
-> +	if (val & MDIO_PMA_STAT2_EXTABLE) {
-> +		val = phy_read_mmd(phydev, MDIO_MMD_PMAPMD, MDIO_PMA_EXTABLE);
-> +		if (val < 0)
-> +			return val;
-> +
-> +		if (val & (MDIO_PMA_EXTABLE_10GBT | MDIO_PMA_EXTABLE_1000BT |
-> +			   MDIO_PMA_EXTABLE_100BTX | MDIO_PMA_EXTABLE_10BT))
-> +			__set_bit(ETHTOOL_LINK_MODE_TP_BIT, supported);
-> +		if (val & MDIO_PMA_EXTABLE_10GBLRM)
-> +			__set_bit(ETHTOOL_LINK_MODE_FIBRE_BIT, supported);
-> +		if (val & (MDIO_PMA_EXTABLE_10GBKX4 | MDIO_PMA_EXTABLE_10GBKR |
-> +			   MDIO_PMA_EXTABLE_1000BKX))
-> +			__set_bit(ETHTOOL_LINK_MODE_Backplane_BIT, supported);
-> +		if (val & MDIO_PMA_EXTABLE_10GBLRM)
-> +			__set_bit(ETHTOOL_LINK_MODE_10000baseLRM_Full_BIT,
-> +				  supported);
-> +		if (val & MDIO_PMA_EXTABLE_10GBT)
-> +			__set_bit(ETHTOOL_LINK_MODE_10000baseT_Full_BIT,
-> +				  supported);
-> +		if (val & MDIO_PMA_EXTABLE_10GBKX4)
-> +			__set_bit(ETHTOOL_LINK_MODE_10000baseKX4_Full_BIT,
-> +				  supported);
-> +		if (val & MDIO_PMA_EXTABLE_10GBKR)
-> +			__set_bit(ETHTOOL_LINK_MODE_10000baseKR_Full_BIT,
-> +				  supported);
-> +		if (val & MDIO_PMA_EXTABLE_1000BT)
-> +			__set_bit(ETHTOOL_LINK_MODE_1000baseT_Full_BIT,
-> +				  supported);
-> +		if (val & MDIO_PMA_EXTABLE_1000BKX)
-> +			__set_bit(ETHTOOL_LINK_MODE_1000baseKX_Full_BIT,
-> +				  supported);
-> +		if (val & MDIO_PMA_EXTABLE_100BTX)
-> +			__set_bit(ETHTOOL_LINK_MODE_100baseT_Full_BIT,
-> +				  supported);
-> +		if (val & MDIO_PMA_EXTABLE_10BT)
-> +			__set_bit(ETHTOOL_LINK_MODE_10baseT_Full_BIT,
-> +				  supported);
-> +	}
-> +
-> +	if (!ethtool_convert_link_mode_to_legacy_u32(&mask, supported))
-> +		dev_warn(&phydev->mdio.dev,
-> +			 "PHY supports (%*pb) more modes than phylib supports, some modes not supported.\n",
-> +			 __ETHTOOL_LINK_MODE_MASK_NBITS, supported);
-> +
-> +	phydev->supported &= mask;
-> +	phydev->advertising &= phydev->supported;
-
-Is not this a candidate for being moved into drivers/net/phy/phy-10g.c?
-Past the phy interface mode check, the rest does not appear to be
-particularly Marvell specific here.
-
-Other than that, and making it a separate Kconfig option, this looks great!
--- 
-Florian
+[1] Documentation/networking/netdev-FAQ.txt
