@@ -1,70 +1,72 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: loosing netdevices with namespaces and unshare?
-Date: Thu, 01 Jun 2017 02:48:01 -0500
-Message-ID: <8760gggnda.fsf@xmission.com>
-References: <20170530220741.ldmhwj3bsvdoaofc@nataraja>
-        <CAM_iQpW2ARBTmGK8JhVXSFCaB1F-WPDKeDZwEbxMLf_Xi7aXQw@mail.gmail.com>
-        <20170531122752.siaou43verg4epep@nataraja>
-        <CAM_iQpU517NR1xsrDrAohnESdS33WoToHsdGD0yOWSiGU9Yiqg@mail.gmail.com>
-        <87a85si5f2.fsf@xmission.com>
-        <20170601070031.mdycexartsu33fyd@nataraja>
+From: Johan Hovold <johan@kernel.org>
+Subject: Re: [PATCH v2 0/8] NFC: fix device allocation and nfcmrvl crashes
+Date: Thu, 1 Jun 2017 09:55:54 +0200
+Message-ID: <20170601075554.GO6735@localhost>
+References: <20170330101542.15384-1-johan@kernel.org>
+ <20170426224238.GB3717@zurbaran.ger.intel.com>
+ <20170516094229.GN3657@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Harald Welte <laforge@gnumonks.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out03.mta.xmission.com ([166.70.13.233]:43911 "EHLO
-        out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751036AbdFAHyt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 1 Jun 2017 03:54:49 -0400
-In-Reply-To: <20170601070031.mdycexartsu33fyd@nataraja> (Harald Welte's
-        message of "Thu, 1 Jun 2017 09:00:31 +0200")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Johan Hovold <johan@kernel.org>, linux-wireless@vger.kernel.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Samuel Ortiz <sameo@linux.intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170516094229.GN3657@localhost>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Harald Welte <laforge@gnumonks.org> writes:
+Hi Samuel,
 
-> Hi Eric,
->
-> On Thu, Jun 01, 2017 at 01:32:49AM -0500, Eric W. Biederman wrote:
->
->> If a network device does not implement rntl_link_ops it is returned to
->> the initial network namespace.   Anything else will loose physical
->> devices.
->
-> Thanks a lot for your statement.  This is a big relief, my line of
-> thinking thus is confirmed:  We shall not loose physical devices.
+On Tue, May 16, 2017 at 11:42:29AM +0200, Johan Hovold wrote:
 
-Rereading that I should have said:
-    We shall not lose physical devices.
-We should let the loose to talk and say interesting things to the world.
+> On Thu, Apr 27, 2017 at 12:42:38AM +0200, Samuel Ortiz wrote:
+> > Hi Johan,
+> > 
+> > On Thu, Mar 30, 2017 at 12:15:34PM +0200, Johan Hovold wrote:
+> > > This started out with the observation that the nfcmrvl_uart driver
+> > > unconditionally dereferenced the tty class device despite the fact that
+> > > not every tty has an associated struct device (Unix98 ptys). Some
+> > > further changes were needed in the common nfcmrvl code to fully address
+> > > this, some of which also incidentally fixed a few related bugs (e.g.
+> > > resource leaks in error paths).
+> > > 
+> > > While fixing this I stumbled over a regression in NFC core that lead to
+> > > broken registration error paths and misnamed workqueues.
+> > > 
+> > > Note that this has only been tested by configuring the n_hci line
+> > > discipline for different ttys without any actual NFC hardware connected.
+> > > 
+> > > Johan
+> > > 
+> > > 
+> > > Changes in v2
+> > >  - fix typo in commit message (1/8)
+> > >  - release reset gpio in error paths (3/8)
+> > >  - fix description of patch impact (3/8)
+> > >  - allow gpio 0 to be used for reset signalling (8/8, new)
+> > > 
+> > > 
+> > > Johan Hovold (8):
+> > >   NFC: fix broken device allocation
+> > >   NFC: nfcmrvl_uart: add missing tty-device sanity check
+> > >   NFC: nfcmrvl: do not use device-managed resources
+> > >   NFC: nfcmrvl: use nfc-device for firmware download
+> > >   NFC: nfcmrvl: fix firmware-management initialisation
+> > >   NFC: nfcmrvl_uart: fix device-node leak during probe
+> > >   NFC: nfcmrvl_usb: use interface as phy device
+> > >   NFC: nfcmrvl: allow gpio 0 for reset signalling
+> > Applied, thanks.
+> 
+> These never made it into net-next and 4.12-rc1, so will you be sending
+> them on as fixes for 4.12-rc instead?
 
->> Only for pure software based devices do we delete them.  Perhaps your
->> sub interface implements rtnl_link_ops?  Either that or something is
->> still holding a reference to your network namespace, which would prevent
->> the network device from being returned.
->
-> My question is how to debug this further?  Monitoring
-> /proc/*/ns/net* showed that the ID of the namespace is gone after
-> terminating my processes in the namespace.  Short of adding printk() or
-> playing with kprobes: to the related kernel code, how can I track the
-> reference count or get an idea who might hold references?
+Thought I'd send another reminder: will you forward these fixes (that
+are still in your nfc-next tree) for 4.12?
 
-You mentioned sub-interface.  I would first look to see if your
-sub-interface might possibly implement rtnl_link_ops.
+As this series fix a crash that can be triggered by an unprivileged
+user, I really think the first five patches at least need to go into
+4.12.
 
-For testing I would toss in a full fledged physical interface and
-see if that pops back.  Just to verify what you are seeing happening is
-happening.
-
-In your minimal test case of "unshare -Urn bash -c 'sleep 1; exit 0;'" I
-can't imagine there is anything holding a reference.  So it may come
-down to adding some printks or playing with kprobes.
-
-All of macvlans and vlans and anything I can think of as sub-interface
-all implement rtnl_link_ops and will get deleted when a network
-namespace exits.  Which generally is what you want as it gives a very
-nice cleanup.
-
-Eric
+Thanks,
+Johan
