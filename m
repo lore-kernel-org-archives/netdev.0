@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next v3 2/5] net: dsa: do not cast dst
-Date: Thu,  1 Jun 2017 16:07:12 -0400
-Message-ID: <20170601200715.8438-3-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next v3 3/5] net: dsa: remove dsa_uses_tagged_protocol
+Date: Thu,  1 Jun 2017 16:07:13 -0400
+Message-ID: <20170601200715.8438-4-vivien.didelot@savoirfairelinux.com>
 References: <20170601200715.8438-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
@@ -14,42 +14,39 @@ In-Reply-To: <20170601200715.8438-1-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-dsa_ptr is not a void pointer anymore since Nov 2011, as of cf50dcc24f82
-("dsa: Change dsa_uses_{dsa, trailer}_tags() into inline functions"),
-but an explicit dsa_switch_tree pointer, thus remove the (void *) cast.
+Since dev->dsa_ptr is a pointer to a dsa_switch_tree, there is no need
+to have another inline helper just to check rcv.
+
+Remove dsa_uses_tagged_protocol and check dsa_ptr && dsa_ptr->rcv
+together at the same time.
 
 Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- net/dsa/dsa2.c   | 2 +-
- net/dsa/legacy.c | 2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+ include/net/dsa.h | 8 +-------
+ 1 file changed, 1 insertion(+), 7 deletions(-)
 
-diff --git a/net/dsa/dsa2.c b/net/dsa/dsa2.c
-index c0a4576db4a2..21b44a9828f6 100644
---- a/net/dsa/dsa2.c
-+++ b/net/dsa/dsa2.c
-@@ -454,7 +454,7 @@ static int dsa_dst_apply(struct dsa_switch_tree *dst)
- 	 * sent to the tag format's receive function.
- 	 */
- 	wmb();
--	dst->master_netdev->dsa_ptr = (void *)dst;
-+	dst->master_netdev->dsa_ptr = dst;
- 	dst->applied = true;
+diff --git a/include/net/dsa.h b/include/net/dsa.h
+index 18ca0a935c96..448d8bc77707 100644
+--- a/include/net/dsa.h
++++ b/include/net/dsa.h
+@@ -468,16 +468,10 @@ struct mii_bus *dsa_host_dev_to_mii_bus(struct device *dev);
+ struct net_device *dsa_dev_to_net_device(struct device *dev);
  
- 	return 0;
-diff --git a/net/dsa/legacy.c b/net/dsa/legacy.c
-index ac4379b8d7ac..d70a1a788d17 100644
---- a/net/dsa/legacy.c
-+++ b/net/dsa/legacy.c
-@@ -651,7 +651,7 @@ static int dsa_setup_dst(struct dsa_switch_tree *dst, struct net_device *dev,
- 	 * sent to the tag format's receive function.
- 	 */
- 	wmb();
--	dev->dsa_ptr = (void *)dst;
-+	dev->dsa_ptr = dst;
- 
- 	return 0;
+ /* Keep inline for faster access in hot path */
+-static inline bool dsa_uses_tagged_protocol(struct dsa_switch_tree *dst)
+-{
+-	return dst->rcv != NULL;
+-}
+-
+ static inline bool netdev_uses_dsa(struct net_device *dev)
+ {
+ #if IS_ENABLED(CONFIG_NET_DSA)
+-	if (dev->dsa_ptr != NULL)
+-		return dsa_uses_tagged_protocol(dev->dsa_ptr);
++	return dev->dsa_ptr && dev->dsa_ptr->rcv;
+ #endif
+ 	return false;
  }
 -- 
 2.13.0
