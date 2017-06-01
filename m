@@ -1,33 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH][net-next] net: dsa: make function ksz_rcv static
-Date: Thu, 01 Jun 2017 12:12:58 -0400 (EDT)
-Message-ID: <20170601.121258.1089374239881121559.davem@davemloft.net>
-References: <20170601122242.14341-1-colin.king@canonical.com>
+Subject: Re: [PATCH net] cxgb4: update latest firmware version supported
+Date: Thu, 01 Jun 2017 12:10:16 -0400 (EDT)
+Message-ID: <20170601.121016.114548727533461708.davem@davemloft.net>
+References: <1496317290-26368-1-git-send-email-ganeshgr@chelsio.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Woojung.Huh@microchip.com, UNGLinuxDriver@microchip.com,
-        andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
-        f.fainelli@gmail.com, netdev@vger.kernel.org,
-        kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: colin.king@canonical.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170601122242.14341-1-colin.king@canonical.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, nirranjan@chelsio.com
+To: ganeshgr@chelsio.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:56586 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751675AbdFAQKS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Jun 2017 12:10:18 -0400
+In-Reply-To: <1496317290-26368-1-git-send-email-ganeshgr@chelsio.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Colin King <colin.king@canonical.com>
-Date: Thu,  1 Jun 2017 13:22:42 +0100
+From: Ganesh Goudar <ganeshgr@chelsio.com>
+Date: Thu,  1 Jun 2017 17:11:30 +0530
 
-> From: Colin Ian King <colin.king@canonical.com>
+> Change t4fw_version.h to update latest firmware version
+> number to 1.16.45.0.
 > 
-> function ksz_rcv can be made static as it does not need to be
-> in global scope. Reformat arguments to make it checkpatch warning
-> free too.
-> 
-> Cleans up sparse warning: "symbol 'ksz_rcv' was not declared. Should
-> it be static?"
-> 
-> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+> Signed-off-by: Ganesh Goudar <ganeshgr@chelsio.com>
 
 Applied.
