@@ -1,47 +1,86 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: Re: [PATCH net-next 2/3] udp: avoid a cache miss on dequeue
-Date: Thu, 1 Jun 2017 09:40:55 -0700
-Message-ID: <CANn89iKznSPH9VogQEPSw4bLL8F_L_qj2ZY2M==VZ-O1u0xqiA@mail.gmail.com>
-References: <cover.1496070490.git.pabeni@redhat.com> <b07f7111480bb0ca2d98fe9fef49a593ab1c4787.1496070490.git.pabeni@redhat.com>
- <1496250043.27480.6.camel@edumazet-glaptop3.roam.corp.google.com>
- <1496313592.4872.14.camel@redhat.com> <1496332699.27480.14.camel@edumazet-glaptop3.roam.corp.google.com>
- <1496334113.9312.8.camel@redhat.com>
+From: Soheil Hassas Yeganeh <soheil@google.com>
+Subject: Re: commit f5f99309 (sock: do not set sk_err in sock_dequeue_err_skb)
+ has broken ping
+Date: Thu, 1 Jun 2017 12:42:18 -0400
+Message-ID: <CACSApvb_CtFEenaSGcpUk6yb8O3X95MAULkJ-+T1hscCE_O_jg@mail.gmail.com>
+References: <20170601140048.GA24401@rei.lan> <CACSApvZiQTYSVkS62YdadjabUTqwO9O2=Sq4ELuO3eoJ_LM_ZQ@mail.gmail.com>
+ <20170601143141.GB24401@rei.lan> <CACSApvbKwbX2u16V1oQfmHC7SvGZgk-KehA9tashjQAtj0bB0Q@mail.gmail.com>
+ <20170601151003.GB10526@rei.suse.de> <CACSApvanT0ZRFH0ZBDLqygkH6Ue_CCVQBzVL9fCmZE_BndYEog@mail.gmail.com>
+ <20170601153645.GC10526@rei.suse.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-        netdev <netdev@vger.kernel.org>,
-        "David S. Miller" <davem@davemloft.net>
-To: Paolo Abeni <pabeni@redhat.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Shmulik Ladkani <shmulik.ladkani@gmail.com>,
+        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+        Pravin B Shelar <pshelar@ovn.org>,
+        Eric Dumazet <edumazet@google.com>,
+        WANG Cong <xiyou.wangcong@gmail.com>,
+        Yaogong Wang <wygivan@google.com>,
+        Steffen Klassert <steffen.klassert@secunet.com>,
+        Al Viro <viro@zeniv.linux.org.uk>,
+        netdev <netdev@vger.kernel.org>, linux-kernel@vger.kernel.org
+To: Cyril Hrubis <chrubis@suse.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f173.google.com ([209.85.161.173]:36723 "EHLO
-        mail-yw0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752043AbdFAQk5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 1 Jun 2017 12:40:57 -0400
-Received: by mail-yw0-f173.google.com with SMTP id b68so22520756ywe.3
-        for <netdev@vger.kernel.org>; Thu, 01 Jun 2017 09:40:56 -0700 (PDT)
-In-Reply-To: <1496334113.9312.8.camel@redhat.com>
+Received: from mail-it0-f46.google.com ([209.85.214.46]:36974 "EHLO
+        mail-it0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751161AbdFAQnF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Jun 2017 12:43:05 -0400
+Received: by mail-it0-f46.google.com with SMTP id m47so24092034iti.0
+        for <netdev@vger.kernel.org>; Thu, 01 Jun 2017 09:43:04 -0700 (PDT)
+In-Reply-To: <20170601153645.GC10526@rei.suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 1, 2017 at 9:21 AM, Paolo Abeni <pabeni@redhat.com> wrote:
-
-> I'm sorry, I do not follow. I'm concerned about the secpath field (skb-
->>sp), which is the only one that can be not NULL in
-> __udp_queue_rcv_skb().
+On Thu, Jun 1, 2017 at 11:36 AM, Cyril Hrubis <chrubis@suse.cz> wrote:
+> It seems to repeatedly produce (until I plug the cable back):
 >
-> If the secpath is not NULL, calling there secpath_reset() (or the to-
-> be-introduced skb_reset_head_state()), we will properly release it and
-> we will clear the field, too.
+> ee_errno = 113 ee_origin = 2 ee_type = 3 ee_code = 1 ee_info = 0 ee_data = 0
 >
-> Calling skb_release_head_state() in the same scenario, we release the
-> secpath, but we don't clear it. So if the packet is later dropped we
-> will get a double free, unless we add and use a specialized a
-> free_stateless_skb(), too.
+> So we get EHOSTUNREACH on SO_EE_ORIGIN_ICMP.
 
-Then simply use secpath_reset() instead of secpath_put() from
-skb_release_head_state()
+Thank you very much! I have a wild guess that, when we
+have a train of skbs on the error queue starting from a local error,
+we will see this issue.
 
-Clearly having these subtle differences bring confusion, for very little gain.
+Ping (without my patch) considers EAGAIN on a normal read as an
+indication that there is nothing on the error queue, but that's a
+flawed assumption.
 
-secpath_put() should be removed. Most of its callers simply set
-skb->sp back to NULL anyway.
+Would you mind trying another shot in the darkness please? Thanks!
+
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 5a726161f4e4..097152a03c74 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -3742,7 +3742,8 @@ EXPORT_SYMBOL(sock_queue_err_skb);
+ static bool is_icmp_err_skb(const struct sk_buff *skb)
+ {
+        return skb && (SKB_EXT_ERR(skb)->ee.ee_origin == SO_EE_ORIGIN_ICMP ||
+-                      SKB_EXT_ERR(skb)->ee.ee_origin == SO_EE_ORIGIN_ICMP6);
++                      SKB_EXT_ERR(skb)->ee.ee_origin == SO_EE_ORIGIN_ICMP6 ||
++                      SKB_EXT_ERR(skb)->ee.ee_origin == SO_EE_ORIGIN_LOCAL);
+ }
+
+ struct sk_buff *sock_dequeue_err_skb(struct sock *sk)
+@@ -3751,14 +3752,19 @@ struct sk_buff *sock_dequeue_err_skb(struct sock *sk)
+        struct sk_buff *skb, *skb_next = NULL;
+        bool icmp_next = false;
+        unsigned long flags;
++       int err = 0;
+
+        spin_lock_irqsave(&q->lock, flags);
+        skb = __skb_dequeue(q);
+-       if (skb && (skb_next = skb_peek(q)))
++       if (skb && (skb_next = skb_peek(q))) {
+                icmp_next = is_icmp_err_skb(skb_next);
++               err = SKB_EXT_ERR(skb_next)->ee.ee_origin;
++       }
+        spin_unlock_irqrestore(&q->lock, flags);
+
+-       if (is_icmp_err_skb(skb) && !icmp_next)
++       if (icmp_next)
++               sk->sk_err = err;
++       else if (is_icmp_err_skb(skb) && !icmp_next)
+                sk->sk_err = 0;
+
+        if (skb_next)
