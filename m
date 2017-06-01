@@ -1,62 +1,43 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH net-next] netlink: include netnsid only when netns
- differs.
-Date: Thu, 1 Jun 2017 09:57:14 +0200
-Message-ID: <4942f9fe-625b-bb97-7b45-4a1e8bf69b1b@6wind.com>
-References: <20170530213325.21652-1-fbl@sysclose.org>
- <1b83c01b-8fe3-8e9b-cae7-4064527c1c21@6wind.com>
- <20170531122836.GV2673@x240.lan>
- <c4250fae-3bf8-f646-9a68-de91419b0b8b@6wind.com>
- <20170531183457.GM2673@x240.lan>
-Reply-To: nicolas.dichtel@6wind.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org
-To: Flavio Leitner <fbl@sysclose.org>
+From: Tariq Toukan <tariqt@mellanox.com>
+Subject: [PATCH iproute2] iplink: Update usage in help message
+Date: Thu,  1 Jun 2017 11:00:42 +0300
+Message-ID: <1496304042-8773-1-git-send-email-tariqt@mellanox.com>
+Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
+        Eli Cohen <eli@mellanox.com>,
+        Tariq Toukan <tariqt@mellanox.com>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f48.google.com ([74.125.82.48]:35542 "EHLO
-        mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751013AbdFAH5T (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 1 Jun 2017 03:57:19 -0400
-Received: by mail-wm0-f48.google.com with SMTP id b84so147441886wmh.0
-        for <netdev@vger.kernel.org>; Thu, 01 Jun 2017 00:57:18 -0700 (PDT)
-In-Reply-To: <20170531183457.GM2673@x240.lan>
-Content-Language: fr
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:39745 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1750848AbdFAIBD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Jun 2017 04:01:03 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 31/05/2017 à 20:34, Flavio Leitner a écrit :
-> On Wed, May 31, 2017 at 03:48:06PM +0200, Nicolas Dichtel wrote:
->> Le 31/05/2017 à 14:28, Flavio Leitner a écrit :
->>> On Wed, May 31, 2017 at 10:38:21AM +0200, Nicolas Dichtel wrote:
->>>> Le 30/05/2017 à 23:33, Flavio Leitner a écrit :
->>>>> Don't include netns id for notifications broadcasts when the
->>>>> socket and the skb are in the same netns because it will be
->>>>> an error which can't be distinguished from a peer netns failing
->>>>> to allocate an id.
->>>> I don't understand the problem. peernet2id() doesn't allocate ids, it only do a
->>>> lookup. If you need an id for the current netns, you have to allocate one.
->>>
->>> The issue is that if you query an interface on the same netns, the
->>> error is returned, then we cannot tell if the iface is on the same
->>> netns or if there was an error while allocating the ID and the
->>> iface is on another netns.
->> If the returned id is NETNSA_NSID_NOT_ASSIGNED, then the netns is the same.
->>
->> Some lines before your patch, we call peernet_has_id() when the netns differ,
->> thus we ensure that the id is available.
-> 
-> Right, but that's internal to the kernel.
-Sure, but a good example exists in iproute2:
-https://git.kernel.org/pub/scm/linux/kernel/git/shemminger/iproute2.git/tree/ip/ipmonitor.c#n45
+From: Eli Cohen <eli@mellanox.com>
 
-> 
->> The principle was that netlink messages of other netns can be sent only if an id
->> is assigned.
-> 
-> OK, could you please update include/uapi/linux/net_namespace.h to reflect that?
-> It says NETNSA_NSID_NOT_ASSIGNED are attributes for RTM_NEWNSID or RTM_GETNSID
-> which makes sense, but NOT_ASSIGNED sounds little like SAME_NSID for other
-> message types.
-I agree, it's confusing. I will send a patch.
+Add to usage message a description of how to configure Infiniband node
+and port GUIDs.
+
+Fixes: d91fb3f4c7e4 ('Add support for configuring Infiniband GUIDs')
+Signed-off-by: Eli Cohen <eli@mellanox.com>
+Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
+---
+ ip/iplink.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/ip/iplink.c b/ip/iplink.c
+index da3f9a779351..ea112f71befc 100644
+--- a/ip/iplink.c
++++ b/ip/iplink.c
+@@ -91,6 +91,8 @@ void iplink_usage(void)
+ 		"				   [ query_rss { on | off} ]\n"
+ 		"				   [ state { auto | enable | disable} ] ]\n"
+ 		"				   [ trust { on | off} ] ]\n"
++		"				   [ node_guid { eui64 } ]\n"
++		"				   [ port_guid { eui64 } ]\n"
+ 		"			  [ xdp { off |\n"
+ 		"				  object FILE [ section NAME ] [ verbose ] |\n"
+ 		"				  pinned FILE } ]\n"
+-- 
+1.8.3.1
