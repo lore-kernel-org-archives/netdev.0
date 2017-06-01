@@ -1,33 +1,40 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH 3/5] net: phy: split out 10G genphy support
-Date: Thu, 1 Jun 2017 10:17:38 -0700
-Message-ID: <71dc9f1c-a1ca-ce57-17ac-da8855003dbc@gmail.com>
-References: <20170601102327.GF27796@n2100.armlinux.org.uk>
- <E1dGNJR-00043n-ON@rmk-PC.armlinux.org.uk>
+From: Kyle McMartin <kyle@infradead.org>
+Subject: Re: [PATCH linux-firmware v2] Mellanox: Add firmware for
+ mlxsw_spectrum
+Date: Thu, 1 Jun 2017 10:18:50 -0700
+Message-ID: <20170601171850.GA13400@bombadil.infradead.org>
+References: <20170601062810.17813-1-yotamg@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Russell King <rmk+kernel@armlinux.org.uk>,
-        Andrew Lunn <andrew@lunn.ch>
+Content-Type: text/plain; charset=us-ascii
+Cc: idosch@mellanox.com, jiri@mellanox.com, eladr@mellanox.com,
+        arkadis@mellanox.com, netdev@vger.kernel.org,
+        linux-firmware@kernel.org
+To: Yotam Gigi <yotamg@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f196.google.com ([209.85.220.196]:35038 "EHLO
-        mail-qk0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751155AbdFARRl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 1 Jun 2017 13:17:41 -0400
-Received: by mail-qk0-f196.google.com with SMTP id v195so6531634qka.2
-        for <netdev@vger.kernel.org>; Thu, 01 Jun 2017 10:17:40 -0700 (PDT)
-In-Reply-To: <E1dGNJR-00043n-ON@rmk-PC.armlinux.org.uk>
-Content-Language: en-US
+Received: from bombadil.infradead.org ([65.50.211.133]:47239 "EHLO
+        bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751129AbdFARSv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Jun 2017 13:18:51 -0400
+Content-Disposition: inline
+In-Reply-To: <20170601062810.17813-1-yotamg@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/01/2017 03:26 AM, Russell King wrote:
-> Move the old 10G genphy support to sit beside the new clause 45 library
-> functions, so all the 10G phy code is together.
+On Thu, Jun 01, 2017 at 09:28:10AM +0300, Yotam Gigi wrote:
+> Add first firmware for the Mellanox Spectrum switch, as a followup to the
+> recently added commit:
+> 6b7421992b8d ("mlxsw: spectrum: Validate firmware revision on init")
 > 
-> Signed-off-by: Russell King <rmk+kernel@armlinux.org.uk>
+> The version of the firmware release is 13.1420.122
+> 
 
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
--- 
-Florian
+applied, thanks Yotam.
+
+--kyle
+
+> Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
+> ---
+>  mellanox/mlxsw_spectrum-13.1420.122.mfa2 | Bin 0 -> 860424 bytes
+>  1 file changed, 0 insertions(+), 0 deletions(-)
+>  create mode 100644 mellanox/mlxsw_spectrum-13.1420.122.mfa2
+> 
