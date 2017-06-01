@@ -1,244 +1,54 @@
-From: Timur Tabi <timur@codeaurora.org>
-Subject: [for 4.12] net: qcom/emac: do not use hardware mdio automatic polling
-Date: Thu,  1 Jun 2017 16:08:13 -0500
-Message-ID: <1496351293-6846-1-git-send-email-timur@codeaurora.org>
-Cc: timur@codeaurora.org
-To: linux-arm-kernel@lists.infradead.org,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Manoj Iyer <manoj.iyer@canonical.com>, netdev@vger.kernel.org,
-        stable@vger.kernel.org, zefir.kurtisi@neratec.com, andrew@lunn.ch,
-        matthias.may@neratec.com
-Return-path: <stable-owner@vger.kernel.org>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] tcp: remove unnecessary skb_reset_tail_pointer()
+Date: Thu, 01 Jun 2017 14:18:36 -0700
+Message-ID: <1496351916.27480.23.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:34844 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751097AbdFAVSi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Jun 2017 17:18:38 -0400
+Received: by mail-pf0-f193.google.com with SMTP id u26so8990006pfd.2
+        for <netdev@vger.kernel.org>; Thu, 01 Jun 2017 14:18:37 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Use software polling (PHY_POLL) to check for link state changes instead
-of relying on the EMAC's hardware polling feature.  Some PHY drivers
-are unable to get a functioning link because the HW polling is not
-robust enough.
+From: Eric Dumazet <edumazet@google.com>
 
-The EMAC is able to poll the PHY on the MDIO bus looking for link state
-changes (via the Link Status bit in the Status Register at address 0x1).
-When the link state changes, the EMAC triggers an interrupt and tells the
-driver what the new state is.  The feature eliminates the need for
-software to poll the MDIO bus.
+__pskb_trim_head() does not need to reset skb tail pointer.
 
-Unfortunately, this feature is incompatible with phylib, because it
-ignores everything that the PHY core and PHY drivers are trying to do.
-In particular:
+Also change the comments, __pskb_pull_head() does not exist.
 
-1. It assumes a compatible register set, so PHYs with different registers
-   may not work.
-
-2. It doesn't allow for hardware errata that have work-arounds implemented
-   in the PHY driver.
-
-3. It doesn't support multiple register pages. If the PHY core switches
-   the register set to another page, the EMAC won't know the page has
-   changed and will still attempt to read the same PHY register.
-
-4. It only checks the copper side of the link, not the SGMII side.  Some
-   PHY drivers (e.g. at803x) may also check the SGMII side, and
-   report the link as not ready during autonegotiation if the SGMII link
-   is still down.  Phylib then waits for another interrupt to query
-   the PHY again, but the EMAC won't send another interrupt because it
-   thinks the link is up.
-
-Cc: stable@vger.kernel.org # 4.11.x
-Tested-by: Manoj Iyer <manoj.iyer@canonical.com>
-Signed-off-by: Timur Tabi <timur@codeaurora.org>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- drivers/net/ethernet/qualcomm/emac/emac-mac.c |  2 +-
- drivers/net/ethernet/qualcomm/emac/emac-phy.c | 75 ++-------------------------
- drivers/net/ethernet/qualcomm/emac/emac.c     | 22 +-------
- 3 files changed, 6 insertions(+), 93 deletions(-)
+ net/ipv4/tcp_output.c |    6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/qualcomm/emac/emac-mac.c b/drivers/net/ethernet/qualcomm/emac/emac-mac.c
-index e635605..1c0dbaa 100644
---- a/drivers/net/ethernet/qualcomm/emac/emac-mac.c
-+++ b/drivers/net/ethernet/qualcomm/emac/emac-mac.c
-@@ -932,7 +932,7 @@ int emac_mac_up(struct emac_adapter *adpt)
- 	emac_mac_config(adpt);
- 	emac_mac_rx_descs_refill(adpt, &adpt->rx_q);
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 478f75baee31d28b4e3122f7635cd1addf20cb98..e3aab1c1cf78d7b5696fc1438fe54f8ce448c09e 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -1328,9 +1328,8 @@ int tcp_fragment(struct sock *sk, struct sk_buff *skb, u32 len,
+ 	return 0;
+ }
  
--	adpt->phydev->irq = PHY_IGNORE_INTERRUPT;
-+	adpt->phydev->irq = PHY_POLL;
- 	ret = phy_connect_direct(netdev, adpt->phydev, emac_adjust_link,
- 				 PHY_INTERFACE_MODE_SGMII);
- 	if (ret) {
-diff --git a/drivers/net/ethernet/qualcomm/emac/emac-phy.c b/drivers/net/ethernet/qualcomm/emac/emac-phy.c
-index 441c1936..18461fc 100644
---- a/drivers/net/ethernet/qualcomm/emac/emac-phy.c
-+++ b/drivers/net/ethernet/qualcomm/emac/emac-phy.c
-@@ -13,15 +13,11 @@
- /* Qualcomm Technologies, Inc. EMAC PHY Controller driver.
+-/* This is similar to __pskb_pull_head() (it will go to core/skbuff.c
+- * eventually). The difference is that pulled data not copied, but
+- * immediately discarded.
++/* This is similar to __pskb_pull_tail(). The difference is that pulled
++ * data is not copied, but immediately discarded.
   */
- 
--#include <linux/module.h>
--#include <linux/of.h>
--#include <linux/of_net.h>
- #include <linux/of_mdio.h>
- #include <linux/phy.h>
- #include <linux/iopoll.h>
- #include <linux/acpi.h>
- #include "emac.h"
--#include "emac-mac.h"
- 
- /* EMAC base register offsets */
- #define EMAC_MDIO_CTRL                                        0x001414
-@@ -52,62 +48,10 @@
- 
- #define MDIO_WAIT_TIMES                                           1000
- 
--#define EMAC_LINK_SPEED_DEFAULT (\
--		EMAC_LINK_SPEED_10_HALF  |\
--		EMAC_LINK_SPEED_10_FULL  |\
--		EMAC_LINK_SPEED_100_HALF |\
--		EMAC_LINK_SPEED_100_FULL |\
--		EMAC_LINK_SPEED_1GB_FULL)
--
--/**
-- * emac_phy_mdio_autopoll_disable() - disable mdio autopoll
-- * @adpt: the emac adapter
-- *
-- * The autopoll feature takes over the MDIO bus.  In order for
-- * the PHY driver to be able to talk to the PHY over the MDIO
-- * bus, we need to temporarily disable the autopoll feature.
-- */
--static int emac_phy_mdio_autopoll_disable(struct emac_adapter *adpt)
--{
--	u32 val;
--
--	/* disable autopoll */
--	emac_reg_update32(adpt->base + EMAC_MDIO_CTRL, MDIO_AP_EN, 0);
--
--	/* wait for any mdio polling to complete */
--	if (!readl_poll_timeout(adpt->base + EMAC_MDIO_CTRL, val,
--				!(val & MDIO_BUSY), 100, MDIO_WAIT_TIMES * 100))
--		return 0;
--
--	/* failed to disable; ensure it is enabled before returning */
--	emac_reg_update32(adpt->base + EMAC_MDIO_CTRL, 0, MDIO_AP_EN);
--
--	return -EBUSY;
--}
--
--/**
-- * emac_phy_mdio_autopoll_disable() - disable mdio autopoll
-- * @adpt: the emac adapter
-- *
-- * The EMAC has the ability to poll the external PHY on the MDIO
-- * bus for link state changes.  This eliminates the need for the
-- * driver to poll the phy.  If if the link state does change,
-- * the EMAC issues an interrupt on behalf of the PHY.
-- */
--static void emac_phy_mdio_autopoll_enable(struct emac_adapter *adpt)
--{
--	emac_reg_update32(adpt->base + EMAC_MDIO_CTRL, 0, MDIO_AP_EN);
--}
--
- static int emac_mdio_read(struct mii_bus *bus, int addr, int regnum)
+ static int __pskb_trim_head(struct sk_buff *skb, int len)
  {
- 	struct emac_adapter *adpt = bus->priv;
- 	u32 reg;
--	int ret;
--
--	ret = emac_phy_mdio_autopoll_disable(adpt);
--	if (ret)
--		return ret;
+@@ -1365,7 +1364,6 @@ static int __pskb_trim_head(struct sk_buff *skb, int len)
+ 	}
+ 	shinfo->nr_frags = k;
  
- 	emac_reg_update32(adpt->base + EMAC_PHY_STS, PHY_ADDR_BMSK,
- 			  (addr << PHY_ADDR_SHFT));
-@@ -122,24 +66,15 @@ static int emac_mdio_read(struct mii_bus *bus, int addr, int regnum)
- 	if (readl_poll_timeout(adpt->base + EMAC_MDIO_CTRL, reg,
- 			       !(reg & (MDIO_START | MDIO_BUSY)),
- 			       100, MDIO_WAIT_TIMES * 100))
--		ret = -EIO;
--	else
--		ret = (reg >> MDIO_DATA_SHFT) & MDIO_DATA_BMSK;
-+		return -EIO;
- 
--	emac_phy_mdio_autopoll_enable(adpt);
--
--	return ret;
-+	return (reg >> MDIO_DATA_SHFT) & MDIO_DATA_BMSK;
- }
- 
- static int emac_mdio_write(struct mii_bus *bus, int addr, int regnum, u16 val)
- {
- 	struct emac_adapter *adpt = bus->priv;
- 	u32 reg;
--	int ret;
--
--	ret = emac_phy_mdio_autopoll_disable(adpt);
--	if (ret)
--		return ret;
- 
- 	emac_reg_update32(adpt->base + EMAC_PHY_STS, PHY_ADDR_BMSK,
- 			  (addr << PHY_ADDR_SHFT));
-@@ -155,11 +90,9 @@ static int emac_mdio_write(struct mii_bus *bus, int addr, int regnum, u16 val)
- 	if (readl_poll_timeout(adpt->base + EMAC_MDIO_CTRL, reg,
- 			       !(reg & (MDIO_START | MDIO_BUSY)), 100,
- 			       MDIO_WAIT_TIMES * 100))
--		ret = -EIO;
-+		return -EIO;
- 
--	emac_phy_mdio_autopoll_enable(adpt);
--
--	return ret;
-+	return 0;
- }
- 
- /* Configure the MDIO bus and connect the external PHY */
-diff --git a/drivers/net/ethernet/qualcomm/emac/emac.c b/drivers/net/ethernet/qualcomm/emac/emac.c
-index 28a8cdc..98a326f 100644
---- a/drivers/net/ethernet/qualcomm/emac/emac.c
-+++ b/drivers/net/ethernet/qualcomm/emac/emac.c
-@@ -50,19 +50,7 @@
- #define DMAR_DLY_CNT_DEF				    15
- #define DMAW_DLY_CNT_DEF				     4
- 
--#define IMR_NORMAL_MASK         (\
--		ISR_ERROR       |\
--		ISR_GPHY_LINK   |\
--		ISR_TX_PKT      |\
--		GPHY_WAKEUP_INT)
--
--#define IMR_EXTENDED_MASK       (\
--		SW_MAN_INT      |\
--		ISR_OVER        |\
--		ISR_ERROR       |\
--		ISR_GPHY_LINK   |\
--		ISR_TX_PKT      |\
--		GPHY_WAKEUP_INT)
-+#define IMR_NORMAL_MASK		(ISR_ERROR | ISR_OVER | ISR_TX_PKT)
- 
- #define ISR_TX_PKT      (\
- 	TX_PKT_INT      |\
-@@ -70,10 +58,6 @@
- 	TX_PKT_INT2     |\
- 	TX_PKT_INT3)
- 
--#define ISR_GPHY_LINK        (\
--	GPHY_LINK_UP_INT     |\
--	GPHY_LINK_DOWN_INT)
--
- #define ISR_OVER        (\
- 	RFD0_UR_INT     |\
- 	RFD1_UR_INT     |\
-@@ -187,10 +171,6 @@ irqreturn_t emac_isr(int _irq, void *data)
- 	if (status & ISR_OVER)
- 		net_warn_ratelimited("warning: TX/RX overflow\n");
- 
--	/* link event */
--	if (status & ISR_GPHY_LINK)
--		phy_mac_interrupt(adpt->phydev, !!(status & GPHY_LINK_UP_INT));
--
- exit:
- 	/* enable the interrupt */
- 	writel(irq->mask, adpt->base + EMAC_INT_MASK);
--- 
-Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm
-Technologies, Inc.  Qualcomm Technologies, Inc. is a member of the
-Code Aurora Forum, a Linux Foundation Collaborative Project.
+-	skb_reset_tail_pointer(skb);
+ 	skb->data_len -= len;
+ 	skb->len = skb->data_len;
+ 	return len;
