@@ -1,60 +1,93 @@
-From: Russell King - ARM Linux <linux@armlinux.org.uk>
-Subject: [PATCH 0/5] Add phylib support for MV88X3310 10G phy
-Date: Thu, 1 Jun 2017 11:23:27 +0100
-Message-ID: <20170601102327.GF27796@n2100.armlinux.org.uk>
+From: Russell King <rmk+kernel@armlinux.org.uk>
+Subject: [PATCH 2/5] net: phy: hook up clause 45 autonegotiation restart
+Date: Thu, 01 Jun 2017 11:26:36 +0100
+Message-ID: <E1dGNJM-00043g-KJ@rmk-PC.armlinux.org.uk>
+References: <20170601102327.GF27796@n2100.armlinux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: devicetree@vger.kernel.org, Mark Rutland <mark.rutland@arm.com>,
-        netdev@vger.kernel.org, Rob Herring <robh+dt@kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org
 To: Andrew Lunn <andrew@lunn.ch>,
         Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pandora.armlinux.org.uk ([78.32.30.218]:52976 "EHLO
+Received: from pandora.armlinux.org.uk ([78.32.30.218]:53046 "EHLO
         pandora.armlinux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751762AbdFAKYu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 1 Jun 2017 06:24:50 -0400
+        with ESMTP id S1751587AbdFAK0l (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Jun 2017 06:26:41 -0400
+In-Reply-To: <20170601102327.GF27796@n2100.armlinux.org.uk>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+genphy_restart_aneg() can only restart autonegotiation on clause 22
+PHYs.  Add a phy_restart_aneg() function which selects between the
+clause 22 and clause 45 restart functionality depending on the PHY
+type.
 
-This patch series adds support for the Marvell 88x3310 PHY found on
-the SolidRun Macchiatobin board.
+Signed-off-by: Russell King <rmk+kernel@armlinux.org.uk>
+---
+ drivers/net/phy/phy.c | 23 +++++++++++++++++++++--
+ include/linux/phy.h   |  1 +
+ 2 files changed, 22 insertions(+), 2 deletions(-)
 
-The first patch introduces a set of generic Clause 45 PHY helpers that
-C45 PHY drivers can make use of if they wish.
-
-Patch 2 fixes the aneg restart to be compatible with C45 PHYs - it can
-currently only cope with C22 PHYs.
-
-Patch 3 moves the "gen10g" driver into the Clause 45 code, grouping all
-core clause 45 code together.
-
-Patch 4 adds the phy_interface_t types for XAUI and 10GBase-KR links.
-As 10GBase-KR appears to be compatible with XFI and SFI, XFI and SFI,
-I currently see no reason to add XFI and SFI interface modes.  There
-seems to be vendor code out there using these, but they all alias back
-to the same hardware settings.
-
-Patch 5 adds support for the MV88X3310 PHY, which supports both the
-copper and fiber interfaces.  It should be noted that the MV88X3310
-automatically switches its MAC facing interface between 10GBase-KR
-and SGMII depending on the negotiated speed.  This was discussed with
-Florian, and we agreed to update the phy interface mode depending on
-the properties of the actual link mode to the PHY.
-
- Documentation/devicetree/bindings/net/ethernet.txt |   2 +
- MAINTAINERS                                        |   6 +
- drivers/net/phy/Makefile                           |   4 +-
- drivers/net/phy/marvell10g.c                       | 364 +++++++++++++++++++++
- drivers/net/phy/phy-c45.c                          | 295 +++++++++++++++++
- drivers/net/phy/phy.c                              |  23 +-
- drivers/net/phy/phy_device.c                       | 113 ++-----
- include/linux/phy.h                                |  20 ++
- 8 files changed, 729 insertions(+), 98 deletions(-)
-
+diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
+index 82ab8fb82587..25b24789a409 100644
+--- a/drivers/net/phy/phy.c
++++ b/drivers/net/phy/phy.c
+@@ -149,6 +149,25 @@ static int phy_config_interrupt(struct phy_device *phydev, u32 interrupts)
+ 	return 0;
+ }
+ 
++/**
++ * phy_restart_aneg - restart auto-negotiation
++ * @phydev: target phy_device struct
++ *
++ * Restart the autonegotiation on @phydev.  Returns >= 0 on success or
++ * negative errno on error.
++ */
++int phy_restart_aneg(struct phy_device *phydev)
++{
++	int ret;
++
++	if (phydev->is_c45)
++		ret = genphy_c45_restart_aneg(phydev);
++	else
++		ret = genphy_restart_aneg(phydev);
++
++	return ret;
++}
++EXPORT_SYMBOL_GPL(phy_restart_aneg);
+ 
+ /**
+  * phy_aneg_done - return auto-negotiation status
+@@ -1415,7 +1434,7 @@ int phy_ethtool_set_eee(struct phy_device *phydev, struct ethtool_eee *data)
+ 		/* Restart autonegotiation so the new modes get sent to the
+ 		 * link partner.
+ 		 */
+-		ret = genphy_restart_aneg(phydev);
++		ret = phy_restart_aneg(phydev);
+ 		if (ret < 0)
+ 			return ret;
+ 	}
+@@ -1474,6 +1493,6 @@ int phy_ethtool_nway_reset(struct net_device *ndev)
+ 	if (!phydev->drv)
+ 		return -EIO;
+ 
+-	return genphy_restart_aneg(phydev);
++	return phy_restart_aneg(phydev);
+ }
+ EXPORT_SYMBOL(phy_ethtool_nway_reset);
+diff --git a/include/linux/phy.h b/include/linux/phy.h
+index 735ff1f98db3..45dfe1b2b003 100644
+--- a/include/linux/phy.h
++++ b/include/linux/phy.h
+@@ -793,6 +793,7 @@ int phy_start_aneg(struct phy_device *phydev);
+ int phy_aneg_done(struct phy_device *phydev);
+ 
+ int phy_stop_interrupts(struct phy_device *phydev);
++int phy_restart_aneg(struct phy_device *phydev);
+ 
+ static inline int phy_read_status(struct phy_device *phydev)
+ {
 -- 
-RMK's Patch system: http://www.armlinux.org.uk/developer/patches/
-FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
-according to speedtest.net.
+2.7.4
