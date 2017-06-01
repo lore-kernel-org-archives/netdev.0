@@ -1,46 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: [PATCH net-next] bpf: Take advantage of stack_depth tracking in
- sparc64 JIT
-Date: Wed, 31 May 2017 19:40:27 -0700 (PDT)
-Message-ID: <20170531.194027.376921509270354470.davem@davemloft.net>
+From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Subject: Re: [PATCH] b43legacy: Fix a sleep-in-atomic bug in b43legacy_attr_interfmode_store
+Date: Thu, 01 Jun 2017 07:15:51 +0300
+Message-ID: <87d1aomjgo.fsf@kamboji.qca.qualcomm.com>
+References: <1496226547-5921-1-git-send-email-baijiaju1990@163.com>
+        <85905124-7167-aeb0-8aff-4ceec09e9542@lwfinger.net>
+        <592F6843.9000204@163.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ast@kernel.org, daniel@iogearbox.net, sparclinux@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <sparclinux-owner@vger.kernel.org>
-Sender: sparclinux-owner@vger.kernel.org
+Content-Type: text/plain
+Cc: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>,
+        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b43-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Jia-Ju Bai <baijiaju1990-9Onoh4P/yGk@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <592F6843.9000204-9Onoh4P/yGk@public.gmane.org> (Jia-Ju Bai's message of "Thu, 01 Jun
+        2017 09:05:07 +0800")
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+Jia-Ju Bai <baijiaju1990-9Onoh4P/yGk@public.gmane.org> writes:
 
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
+>> Did you actually observe the attempt to sleep under the spin lock,
+>> or did you discover this using some tool? In other words, have
+>> either of your patches been tested?
+>
+> In fact, my reported bugs are found by a static analysis tool written
+> by me, and they are checked by my review of the driver code.
 
-Committed to net-next.
+It's valuable information to add to the commit log how you found the
+bug. If you check other wireless commits you can see comments like
+"Found by spatch", "Coverity reported" quite frequently. So I recommend
+that you also mention your tool in the commit log, makes understanding
+the background of the patch easier.
 
- arch/sparc/net/bpf_jit_comp_64.c | 9 +++++++--
- 1 file changed, 7 insertions(+), 2 deletions(-)
-
-diff --git a/arch/sparc/net/bpf_jit_comp_64.c b/arch/sparc/net/bpf_jit_comp_64.c
-index 4a52d34..098874a 100644
---- a/arch/sparc/net/bpf_jit_comp_64.c
-+++ b/arch/sparc/net/bpf_jit_comp_64.c
-@@ -802,8 +802,13 @@ static void build_prologue(struct jit_ctx *ctx)
- {
- 	s32 stack_needed = BASE_STACKFRAME;
- 
--	if (ctx->saw_frame_pointer || ctx->saw_tail_call)
--		stack_needed += MAX_BPF_STACK;
-+	if (ctx->saw_frame_pointer || ctx->saw_tail_call) {
-+		struct bpf_prog *prog = ctx->prog;
-+		u32 stack_depth;
-+
-+		stack_depth = prog->aux->stack_depth;
-+		stack_needed += round_up(stack_depth, 16);
-+	}
- 
- 	if (ctx->saw_tail_call)
- 		stack_needed += 8;
 -- 
-2.1.2.532.g19b5d50
-
+Kalle Valo
