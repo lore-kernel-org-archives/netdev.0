@@ -1,56 +1,59 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: Re: [PATCH v2 net-next 0/8] Introduce bpf ID
-Date: Thu, 1 Jun 2017 07:55:47 -0600
-Message-ID: <3f269312-efd4-86fc-e8e2-814af5898648@gmail.com>
-References: <cover.1496256722.git.kafai@fb.com>
- <20170531192256.0e0d0ce1@cakuba.lan>
+From: Cyril Hrubis <chrubis@suse.cz>
+Subject: commit f5f99309 (sock: do not set sk_err in sock_dequeue_err_skb)
+ has broken ping
+Date: Thu, 1 Jun 2017 16:00:48 +0200
+Message-ID: <20170601140048.GA24401@rei.lan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Alexei Starovoitov <ast@fb.com>,
-        Daniel Borkmann <daniel@iogearbox.net>, kernel-team@fb.com
-To: Jakub Kicinski <kubakici@wp.pl>, Martin KaFai Lau <kafai@fb.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f67.google.com ([209.85.214.67]:36761 "EHLO
-        mail-it0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751083AbdFANzz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 1 Jun 2017 09:55:55 -0400
-Received: by mail-it0-f67.google.com with SMTP id i206so6331696ita.3
-        for <netdev@vger.kernel.org>; Thu, 01 Jun 2017 06:55:55 -0700 (PDT)
-In-Reply-To: <20170531192256.0e0d0ce1@cakuba.lan>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+To: "David S. Miller" <davem@davemloft.net>,
+        Shmulik Ladkani <shmulik.ladkani@gmail.com>,
+        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+        Pravin B Shelar <pshelar@ovn.org>,
+        Eric Dumazet <edumazet@google.com>,
+        Soheil Hassas Yeganeh <soheil@google.com>,
+        WANG Cong <xiyou.wangcong@gmail.com>,
+        Yaogong Wang <wygivan@google.com>,
+        Steffen Klassert <steffen.klassert@secunet.com>,
+        Al Viro <viro@zeniv.linux.org.uk>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 5/31/17 8:22 PM, Jakub Kicinski wrote:
-> On Wed, 31 May 2017 11:58:54 -0700, Martin KaFai Lau wrote:
->> This patch series:
->> 1) Introduce ID for both bpf_prog and bpf_map.
->> 2) Add bpf commands to iterate the prog IDs and map
->>    IDs of the system.
->> 3) Add bpf commands to get a prog/map fd from an ID
->> 4) Add bpf command to get prog/map info from a fd.
->>    The prog/map info is a jump start in this patchset
->>    and it is not meant to be a complete list.  They can
->>    be extended in the future patches.
-> 
-> Hi!  IIUC there were plans at some point to store the BPF byte code in
-> the kernel, the way it was loaded from the user space and before it
-> went through the verifier.  Are you still planning on implementing that?
-> It would be handy for offloads to have the original byte code, things
-> like call inlining make translations of maps calls a bit challenging,
-> since we try to run through the verifier again..
-> 
+Hi!
+I've started to wonder why is ping eating 100% CPU shortly after I've
+upgraded my machine to 4.10 and here is what I found:
 
-Save the instructions:
-https://github.com/dsahern/linux/commit/5315578db7b0886a3e8e3bef6a56e828ae2bd2c4
+The ping main_loop() sleeps in poll() on its socket, the poll() usually times
+out, at least that's what strace suggets which causes ping to sleep for ~1s in
+the kernel.
 
-Let userspace read it back:
-https://github.com/dsahern/linux/commit/619982064b9b582fc5d4a504feffca1730610c4e
+See ping source at:
 
-One more in between in the branch:
-https://github.com/dsahern/linux/tree/bpf/retrieve-bpf-wip
+https://github.com/iputils/iputils/blob/master/ping_common.c#L587
 
-Now that the id code is in, it needs to be returned on link dumps, route
-dumps, etc and accessible via fdinfo. The id can be turned into an fd
-and the fd read using the above patches.
+The poll() seems to start returning POLLERR immediatelly after poll() is called
+on the socket in a case that connection has dropped for a short while. It seems to be easily reproducible with:
+
+* Starting ping with some ip address i.e. ping 4.2.2.2
+* Letting it ping for a minute or so
+* Disconnection a WAN cable from your AP
+* After a minute or so ping ends up bussy looping on
+  poll() that returns with POLLERR immediatelly
+* After plugging the cable back the problem gets only
+  worse since we now spend 99% of the time bussy looping
+  on the poll() syscall
+* And my CPU fan starts to scream loudly
+
+I've bisected the problem to this commit:
+
+commit f5f99309fa7481f59a500f0d08f3379cd6424c1f (HEAD, refs/bisect/bad)
+Author: Soheil Hassas Yeganeh <soheil@google.com>
+Date:   Thu Nov 3 18:24:27 2016 -0400
+
+    sock: do not set sk_err in sock_dequeue_err_skb
+
+-- 
+Cyril Hrubis
+chrubis@suse.cz
