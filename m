@@ -1,7 +1,8 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next v3 0/5] net: dsa: tagger simplification
-Date: Thu,  1 Jun 2017 16:07:10 -0400
-Message-ID: <20170601200715.8438-1-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next v3 2/5] net: dsa: do not cast dst
+Date: Thu,  1 Jun 2017 16:07:12 -0400
+Message-ID: <20170601200715.8438-3-vivien.didelot@savoirfairelinux.com>
+References: <20170601200715.8438-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
         Florian Fainelli <f.fainelli@gmail.com>,
@@ -9,44 +10,46 @@ Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170601200715.8438-1-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This series clarifies the hot path, removes the labels in tagging
-implementations, and frees the original SKB in the xmit caller.
+dsa_ptr is not a void pointer anymore since Nov 2011, as of cf50dcc24f82
+("dsa: Change dsa_uses_{dsa, trailer}_tags() into inline functions"),
+but an explicit dsa_switch_tree pointer, thus remove the (void *) cast.
 
-Changes in v3:
-  - drop removal of usused rcv arguments because they will be used later
-  - include the new ksz tagging implementation
-  - add reviewers' tags
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+---
+ net/dsa/dsa2.c   | 2 +-
+ net/dsa/legacy.c | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-Changes in v2:
-  - do not remove tagger function copies
-  - document hot path requirements
-  - make netdev_uses_dsa simpler
-  - add reviewers' tags
-
-Vivien Didelot (5):
-  net: dsa: comment hot path requirements
-  net: dsa: do not cast dst
-  net: dsa: remove dsa_uses_tagged_protocol
-  net: dsa: remove out_drop label in taggers rcv
-  net: dsa: factor skb freeing on xmit
-
- include/net/dsa.h     | 11 ++++-------
- net/dsa/dsa2.c        |  2 +-
- net/dsa/dsa_priv.h    |  1 +
- net/dsa/legacy.c      |  2 +-
- net/dsa/slave.c       |  8 ++++++--
- net/dsa/tag_brcm.c    | 17 +++++------------
- net/dsa/tag_dsa.c     | 21 +++++++--------------
- net/dsa/tag_edsa.c    | 21 +++++++--------------
- net/dsa/tag_ksz.c     |  4 +---
- net/dsa/tag_lan9303.c |  5 +----
- net/dsa/tag_mtk.c     | 15 ++++-----------
- net/dsa/tag_qca.c     | 17 +++++------------
- net/dsa/tag_trailer.c | 13 ++++---------
- 13 files changed, 47 insertions(+), 90 deletions(-)
-
+diff --git a/net/dsa/dsa2.c b/net/dsa/dsa2.c
+index c0a4576db4a2..21b44a9828f6 100644
+--- a/net/dsa/dsa2.c
++++ b/net/dsa/dsa2.c
+@@ -454,7 +454,7 @@ static int dsa_dst_apply(struct dsa_switch_tree *dst)
+ 	 * sent to the tag format's receive function.
+ 	 */
+ 	wmb();
+-	dst->master_netdev->dsa_ptr = (void *)dst;
++	dst->master_netdev->dsa_ptr = dst;
+ 	dst->applied = true;
+ 
+ 	return 0;
+diff --git a/net/dsa/legacy.c b/net/dsa/legacy.c
+index ac4379b8d7ac..d70a1a788d17 100644
+--- a/net/dsa/legacy.c
++++ b/net/dsa/legacy.c
+@@ -651,7 +651,7 @@ static int dsa_setup_dst(struct dsa_switch_tree *dst, struct net_device *dev,
+ 	 * sent to the tag format's receive function.
+ 	 */
+ 	wmb();
+-	dev->dsa_ptr = (void *)dst;
++	dev->dsa_ptr = dst;
+ 
+ 	return 0;
+ }
 -- 
 2.13.0
