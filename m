@@ -1,35 +1,50 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH v6 00/21] net-next: stmmac: add dwmac-sun8i
- ethernet driver
-Date: Thu, 01 Jun 2017 14:58:19 -0400 (EDT)
-Message-ID: <20170601.145819.789604139072328057.davem@davemloft.net>
-References: <20170531071852.12422-1-clabbe.montjoie@gmail.com>
-Reply-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+From: Jakub Kicinski <kubakici@wp.pl>
+Subject: Re: [PATCH v2 net-next 0/8] Introduce bpf ID
+Date: Thu, 1 Jun 2017 12:00:38 -0700
+Message-ID: <20170601120038.680c8169@cakuba.lan>
+References: <cover.1496256722.git.kafai@fb.com>
+        <20170531192256.0e0d0ce1@cakuba.lan>
+        <3f269312-efd4-86fc-e8e2-814af5898648@gmail.com>
+        <6ab73989-6246-ba15-7178-7863a110165c@fb.com>
+        <18d3c571-7434-eaea-43dc-d237712309d1@gmail.com>
+        <cae83d5f-85ea-4c16-5f6b-2b71f0768b05@fb.com>
+        <5e8b1713-0220-5c53-210d-8040efd36cfb@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
- maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org, wens-jdAy2FN1RRM@public.gmane.org, linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org,
- catalin.marinas-5wv7dgnIgG8@public.gmane.org, will.deacon-5wv7dgnIgG8@public.gmane.org, peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
- alexandre.torgue-qxv4g6HH51o@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-To: clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <linux-sunxi+bncBCFPF2XH6UDBBTWHYHEQKGQEFLI3TEI-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-In-Reply-To: <20170531071852.12422-1-clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Help: <https://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Archive: <https://groups.google.com/group/linux-sunxi
-List-Subscribe: <https://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
- <https://groups.google.com/group/linux-sunxi/subscribe>
-List-Id: netdev.vger.kernel.org
+Cc: Alexei Starovoitov <ast@fb.com>, Martin KaFai Lau <kafai@fb.com>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>,
+        kernel-team@fb.com
+To: David Ahern <dsahern@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx3.wp.pl ([212.77.101.9]:54121 "EHLO mx3.wp.pl"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751083AbdFATAp (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 1 Jun 2017 15:00:45 -0400
+In-Reply-To: <5e8b1713-0220-5c53-210d-8040efd36cfb@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date: Wed, 31 May 2017 09:18:31 +0200
+On Thu, 1 Jun 2017 12:52:28 -0600, David Ahern wrote:
+> On 6/1/17 12:27 PM, Alexei Starovoitov wrote:
+> > 'I want to retrieve original instructions' is not a problem. It's a
+> > push for 'solution'. Explaining 'why' you want to see original
+> > instructions would describe the actual problem.  
+> 
+> I have explained this.
+> 
+> You are creating this hyper-complex almost completely invisible
+> infrastructure. You are enabling binary blobs that can bypass the
+> network stack and modify packets with almost no introspection on what is
+> happening. BPF code can from a variety of sources -- OS vendors,
+> upstream repos, 3rd party vendors (eg., H/W vendors), and "in-house"
+> development. Each will swear to the end that any observed problem is not
+> with their code. In my experience, it falls on to the OS and kernel
+> experts to figure out why Linux is breaking something. To do that we
+> need tools to look at what code is running where and something that can
+> be used in production environments not requiring a disruption to the
+> service that the box is providing.
 
-> This patch series add the driver for dwmac-sun8i which handle the Ethernet MAC
-> present on Allwinner H3/H5/A83T/A64 SoCs.
-
-Series applied, but wow that's a lot of DT file changes :-(
+Forgive my ignorance, but is it possible to dump code of a loaded
+module out of the kernel?
