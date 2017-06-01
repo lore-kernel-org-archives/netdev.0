@@ -1,40 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] powerpc: use asm-generic/socket.h as much as
- possible
-Date: Thu, 01 Jun 2017 14:48:24 -0400 (EDT)
-Message-ID: <20170601.144824.1502450180029174361.davem@davemloft.net>
-References: <20170531154337.04ebcb75@canb.auug.org.au>
+Subject: Re: [PATCH] mISDN: Fix a sleep-in-atomic bug
+Date: Thu, 01 Jun 2017 14:50:13 -0400 (EDT)
+Message-ID: <20170601.145013.397328786892049824.davem@davemloft.net>
+References: <1496214505-15155-1-git-send-email-baijiaju1990@163.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mpe@ellerman.id.au,
-        benh@kernel.crashing.org, linuxppc-dev@lists.ozlabs.org,
-        arnd@arndb.de
-To: sfr@canb.auug.org.au
+Cc: isdn@linux-pingi.de, mingo@kernel.org, fweisbec@gmail.com,
+        geliangtang@gmail.com, akpm@linux-foundation.org,
+        yamada.masahiro@socionext.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: baijiaju1990@163.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:58416 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:58448 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751435AbdFASs0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 1 Jun 2017 14:48:26 -0400
-In-Reply-To: <20170531154337.04ebcb75@canb.auug.org.au>
+        with ESMTP id S1751201AbdFASuQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Jun 2017 14:50:16 -0400
+In-Reply-To: <1496214505-15155-1-git-send-email-baijiaju1990@163.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Wed, 31 May 2017 15:43:37 +1000
+From: Jia-Ju Bai <baijiaju1990@163.com>
+Date: Wed, 31 May 2017 15:08:25 +0800
 
-> asm-generic/socket.h already has an exception for the differences that
-> powerpc needs, so just include it after defining the differences.
+> The driver may sleep under a read spin lock, and the function call path is:
+> send_socklist (acquire the lock by read_lock)
+>   skb_copy(GFP_KERNEL) --> may sleep
 > 
-> Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
-> ---
->  arch/powerpc/include/uapi/asm/socket.h | 92 +---------------------------------
->  1 file changed, 1 insertion(+), 91 deletions(-)
+> To fix it, the "GFP_KERNEL" is replaced with "GFP_ATOMIC".
 > 
-> Build tested using powerpc allyesconfig, pseries_le_defconfig, 32 bit
-> and 64 bit allnoconfig and ppc44x_defconfig builds.
-> 
-> Dave, this is on top of the net-next tree and I am sending it to you
-> since it would produce a conflict if it was merged via the powerpc tree.
+> Signed-off-by: Jia-Ju Bai <baijiaju1990@163.com>
 
-Ok, I applied this to net-next, thanks Stephen!
+Just proves that nobody has ever run this code with lock debugging
+enabled, if at all.
+
+Applied, thanks.
