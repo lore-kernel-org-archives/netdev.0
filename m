@@ -1,49 +1,39 @@
 From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: cw1200: Fix a sleep-in-atomic bug in cw1200_tx_confirm_cb and
- cw1200_cqm_bssloss_sm
-Date: Thu,  1 Jun 2017 09:48:25 +0000 (UTC)
-Message-ID: <20170601094825.02EF96074D@smtp.codeaurora.org>
-References: <1496284574-11056-1-git-send-email-baijiaju1990@163.com>
+Subject: Re: [net-next] qtnfmac: remove duplicated assignment to mac
+Date: Thu,  1 Jun 2017 09:50:30 +0000 (UTC)
+Message-ID: <20170601095030.463D260779@smtp.codeaurora.org>
+References: <20170525134503.12106-1-colin.king@canonical.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: pizza@shaftnet.org, linux-wireless@vger.kernel.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Jia-Ju Bai <baijiaju1990@163.com>
-To: Jia-Ju Bai <baijiaju1990@163.com>
+Cc: Avinash Patil <avinashp@quantenna.com>,
+        Sergey Matyukevich <smatyukevich@quantenna.com>,
+        Huizhao Wang <hwang@quantenna.com>,
+        Kamlesh Rath <krath@quantenna.com>,
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Colin Ian King <colin.king@canonical.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1496284574-11056-1-git-send-email-baijiaju1990@163.com>
+In-Reply-To: <20170525134503.12106-1-colin.king@canonical.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jia-Ju Bai <baijiaju1990@163.com> wrote:
+Colin Ian King <colin.king@canonical.com> wrote:
 
-> The driver may sleep under a spin lock, and the function call path is:
-> cw1200_tx_confirm_cb (acquire the lock by spin_lock)
->   __cw1200_cqm_bssloss_sm
->     cancel_work_sync --> may sleep
+> From: Colin Ian King <colin.king@canonical.com>
 > 
-> cw1200_cqm_bssloss_sm
->   __cw1200_cqm_bssloss_sm
->     cancel_work_sync --> may sleep
+> mac is being assigned twice, remove redundant 2nd assignment.
 > 
-> To fix it, the lock is released before cancel_work_sync, and the lock 
-> is acquired again after this function.
+> Detected by CoverityScan, CID#1437554 ("Incorrect expression")
 > 
-> Signed-off-by: Jia-Ju Bai <baijiaju1990@163.com>
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+> Acked-by: Sergey Matyukevich <sergey.matyukevich.os@quantenna.com>
 
-I assume that you haven't tested this on a real device and only compile tested.
-You should mention that in the commit log.
+Patch applied to wireless-drivers-next.git, thanks.
 
-Releasing a lock held by calling function is evil. Did you do any lock analysis
-or are you just blindly releasing locks to fix a warning in your tool?
-
-Also I would like to have an ack from a reviewer before I can take patches like
-this.
-
-Patch set to Changes Requested.
+4f8e25458cb6 qtnfmac: remove duplicated assignment to mac
 
 -- 
-https://patchwork.kernel.org/patch/9758613/
+https://patchwork.kernel.org/patch/9748407/
 
 https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
