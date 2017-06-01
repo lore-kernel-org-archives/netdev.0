@@ -1,42 +1,35 @@
-From: Jakub Kicinski <kubakici@wp.pl>
-Subject: Re: [PATCH v2 net-next 0/8] Introduce bpf ID
-Date: Thu, 1 Jun 2017 11:57:15 -0700
-Message-ID: <20170601115715.1107113c@cakuba.lan>
-References: <6ab73989-6246-ba15-7178-7863a110165c@fb.com>
-        <18d3c571-7434-eaea-43dc-d237712309d1@gmail.com>
-        <cae83d5f-85ea-4c16-5f6b-2b71f0768b05@fb.com>
-        <20170601.143336.2263901633118099409.davem@davemloft.net>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH v6 00/21] net-next: stmmac: add dwmac-sun8i
+ ethernet driver
+Date: Thu, 01 Jun 2017 14:58:19 -0400 (EDT)
+Message-ID: <20170601.145819.789604139072328057.davem@davemloft.net>
+References: <20170531071852.12422-1-clabbe.montjoie@gmail.com>
+Reply-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ast@fb.com, dsahern@gmail.com, kafai@fb.com,
-        hannes@stressinduktion.org, netdev@vger.kernel.org,
-        daniel@iogearbox.net, kernel-team@fb.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx4.wp.pl ([212.77.101.11]:38641 "EHLO mx4.wp.pl"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751105AbdFAS5Y (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 1 Jun 2017 14:57:24 -0400
-In-Reply-To: <20170601.143336.2263901633118099409.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
+ maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org, wens-jdAy2FN1RRM@public.gmane.org, linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org,
+ catalin.marinas-5wv7dgnIgG8@public.gmane.org, will.deacon-5wv7dgnIgG8@public.gmane.org, peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
+ alexandre.torgue-qxv4g6HH51o@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+To: clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <linux-sunxi+bncBCFPF2XH6UDBBTWHYHEQKGQEFLI3TEI-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+In-Reply-To: <20170531071852.12422-1-clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Help: <https://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Archive: <https://groups.google.com/group/linux-sunxi
+List-Subscribe: <https://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
+ <https://groups.google.com/group/linux-sunxi/subscribe>
+List-Id: netdev.vger.kernel.org
 
-On Thu, 01 Jun 2017 14:33:36 -0400 (EDT), David Miller wrote:
-> From: Alexei Starovoitov <ast@fb.com>
-> Date: Thu, 1 Jun 2017 11:27:56 -0700
-> 
-> > Original instructions are not useful for debugging, since they have
-> > map_fds which can be long gone when program is running, therefore to
-> > solve introspection problem we need to look into real kernel
-> > instructions.  
-> 
-> The only possible legitimate use I see for the original instructions
-> is checkpoint/restart.
-> 
-> If 6wind wants this for "external acceleration" or whatever, like
-> Alexei I am not interested in facilitating that at all.
+From: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date: Wed, 31 May 2017 09:18:31 +0200
 
-+1 
+> This patch series add the driver for dwmac-sun8i which handle the Ethernet MAC
+> present on Allwinner H3/H5/A83T/A64 SoCs.
 
-I will try disabling the inlining then.
+Series applied, but wow that's a lot of DT file changes :-(
