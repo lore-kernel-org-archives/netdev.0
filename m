@@ -1,39 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] vxlan: eliminate cached dst leak
-Date: Thu, 01 Jun 2017 14:46:48 -0400 (EDT)
-Message-ID: <20170601.144648.1946518537495893731.davem@davemloft.net>
-References: <20170529172557.7065-1-lrichard@redhat.com>
+Subject: Re: [PATCH net-next] powerpc: use asm-generic/socket.h as much as
+ possible
+Date: Thu, 01 Jun 2017 14:48:24 -0400 (EDT)
+Message-ID: <20170601.144824.1502450180029174361.davem@davemloft.net>
+References: <20170531154337.04ebcb75@canb.auug.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, pabeni@redhat.com
-To: lrichard@redhat.com
+Cc: netdev@vger.kernel.org, mpe@ellerman.id.au,
+        benh@kernel.crashing.org, linuxppc-dev@lists.ozlabs.org,
+        arnd@arndb.de
+To: sfr@canb.auug.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:58406 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:58416 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751130AbdFASqy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 1 Jun 2017 14:46:54 -0400
-In-Reply-To: <20170529172557.7065-1-lrichard@redhat.com>
+        with ESMTP id S1751435AbdFASs0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Jun 2017 14:48:26 -0400
+In-Reply-To: <20170531154337.04ebcb75@canb.auug.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Lance Richardson <lrichard@redhat.com>
-Date: Mon, 29 May 2017 13:25:57 -0400
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Wed, 31 May 2017 15:43:37 +1000
 
-> After commit 0c1d70af924b ("net: use dst_cache for vxlan device"),
-> cached dst entries could be leaked when more than one remote was
-> present for a given vxlan_fdb entry, causing subsequent netns
-> operations to block indefinitely and "unregister_netdevice: waiting
-> for lo to become free." messages to appear in the kernel log.
+> asm-generic/socket.h already has an exception for the differences that
+> powerpc needs, so just include it after defining the differences.
 > 
-> Fix by properly releasing cached dst and freeing resources in this
-> case.
+> Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
+> ---
+>  arch/powerpc/include/uapi/asm/socket.h | 92 +---------------------------------
+>  1 file changed, 1 insertion(+), 91 deletions(-)
 > 
-> Fixes: commit 0c1d70af924b ("net: use dst_cache for vxlan device")
+> Build tested using powerpc allyesconfig, pseries_le_defconfig, 32 bit
+> and 64 bit allnoconfig and ppc44x_defconfig builds.
+> 
+> Dave, this is on top of the net-next tree and I am sending it to you
+> since it would produce a conflict if it was merged via the powerpc tree.
 
-In the future please do not put that "commit " string there, it's not
-needed.
-
-> Signed-off-by: Lance Richardson <lrichard@redhat.com>
-
-Applied and queued up for -stable, thank you.
+Ok, I applied this to net-next, thanks Stephen!
