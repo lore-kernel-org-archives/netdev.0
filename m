@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 09/14] virtchnl: finish conversion to virtchnl interface
-Date: Thu,  1 Jun 2017 14:38:35 -0700
-Message-ID: <20170601213840.36286-10-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 03/14] i40e: use new unified virtchnl header file
+Date: Thu,  1 Jun 2017 14:38:29 -0700
+Message-ID: <20170601213840.36286-4-jeffrey.t.kirsher@intel.com>
 References: <20170601213840.36286-1-jeffrey.t.kirsher@intel.com>
 Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
         netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
@@ -10,485 +10,522 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga04.intel.com ([192.55.52.120]:12134 "EHLO mga04.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751208AbdFAVjC (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 1 Jun 2017 17:39:02 -0400
+        id S1751116AbdFAVi7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 1 Jun 2017 17:38:59 -0400
 In-Reply-To: <20170601213840.36286-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-This patch implements the complete version of the virtchnl.h file
-with final renames, and fixes the related code in i40e and i40evf.
-
-It also expands comments, and adds details on the usage of
-certain fields.
-
-In addition, due to the changes a couple of casts are needed
-to prevent errors found by sparse after renaming some fields.
+This patch changes the i40e driver to start using the new virtchnl
+interface header file, and removes an already existing duplicate of the
+i40e_virtchnl.h file contained in the i40e directory.
 
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |  18 +--
- drivers/net/ethernet/intel/i40evf/i40e_common.c    |   2 +-
- drivers/net/ethernet/intel/i40evf/i40evf.h         |   2 +-
- drivers/net/ethernet/intel/i40evf/i40evf_main.c    |  11 +-
- .../net/ethernet/intel/i40evf/i40evf_virtchnl.c    |   6 +-
- include/linux/avf/virtchnl.h                       | 128 +++++++++++++--------
- 6 files changed, 102 insertions(+), 65 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e.h           |   2 +-
+ drivers/net/ethernet/intel/i40e/i40e_common.c    |   2 +-
+ drivers/net/ethernet/intel/i40e/i40e_prototype.h |   2 +-
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl.h  | 449 -----------------------
+ 4 files changed, 3 insertions(+), 452 deletions(-)
+ delete mode 100644 drivers/net/ethernet/intel/i40e/i40e_virtchnl.h
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-index 422cccf0de86..352d9d2ef3d2 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-@@ -77,7 +77,7 @@ static void i40e_vc_notify_vf_link_state(struct i40e_vf *vf)
- 	int abs_vf_id = vf->vf_id + (int)hw->func_caps.vf_base_id;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
+index 25bf336c5f38..60dc9b2c19ff 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e.h
++++ b/drivers/net/ethernet/intel/i40e/i40e.h
+@@ -57,7 +57,7 @@
+ #include "i40e_type.h"
+ #include "i40e_prototype.h"
+ #include "i40e_client.h"
+-#include "i40e_virtchnl.h"
++#include <linux/avf/virtchnl.h>
+ #include "i40e_virtchnl_pf.h"
+ #include "i40e_txrx.h"
+ #include "i40e_dcb.h"
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
+index 24f020655291..cbad4eba7ae7 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_common.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
+@@ -27,7 +27,7 @@
+ #include "i40e_type.h"
+ #include "i40e_adminq.h"
+ #include "i40e_prototype.h"
+-#include "i40e_virtchnl.h"
++#include <linux/avf/virtchnl.h>
  
- 	pfe.event = VIRTCHNL_EVENT_LINK_CHANGE;
--	pfe.severity = I40E_PF_EVENT_SEVERITY_INFO;
-+	pfe.severity = PF_EVENT_SEVERITY_INFO;
- 	if (vf->link_forced) {
- 		pfe.event_data.link_event.link_status = vf->link_up;
- 		pfe.event_data.link_event.link_speed =
-@@ -85,7 +85,8 @@ static void i40e_vc_notify_vf_link_state(struct i40e_vf *vf)
- 	} else {
- 		pfe.event_data.link_event.link_status =
- 			ls->link_info & I40E_AQ_LINK_UP;
--		pfe.event_data.link_event.link_speed = ls->link_speed;
-+		pfe.event_data.link_event.link_speed =
-+			(enum virtchnl_link_speed)ls->link_speed;
- 	}
- 	i40e_aq_send_msg_to_vf(hw, abs_vf_id, VIRTCHNL_OP_EVENT,
- 			       0, (u8 *)&pfe, sizeof(pfe), NULL);
-@@ -116,7 +117,7 @@ void i40e_vc_notify_reset(struct i40e_pf *pf)
- 	struct virtchnl_pf_event pfe;
+ /**
+  * i40e_set_mac_type - Sets MAC type
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_prototype.h b/drivers/net/ethernet/intel/i40e/i40e_prototype.h
+index c56d976cf85a..d9c555050e64 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_prototype.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_prototype.h
+@@ -29,7 +29,7 @@
  
- 	pfe.event = VIRTCHNL_EVENT_RESET_IMPENDING;
--	pfe.severity = I40E_PF_EVENT_SEVERITY_CERTAIN_DOOM;
-+	pfe.severity = PF_EVENT_SEVERITY_CERTAIN_DOOM;
- 	i40e_vc_vf_broadcast(pf, VIRTCHNL_OP_EVENT, 0,
- 			     (u8 *)&pfe, sizeof(struct virtchnl_pf_event));
- }
-@@ -144,7 +145,7 @@ void i40e_vc_notify_vf_reset(struct i40e_vf *vf)
- 	abs_vf_id = vf->vf_id + (int)vf->pf->hw.func_caps.vf_base_id;
+ #include "i40e_type.h"
+ #include "i40e_alloc.h"
+-#include "i40e_virtchnl.h"
++#include <linux/avf/virtchnl.h>
  
- 	pfe.event = VIRTCHNL_EVENT_RESET_IMPENDING;
--	pfe.severity = I40E_PF_EVENT_SEVERITY_CERTAIN_DOOM;
-+	pfe.severity = PF_EVENT_SEVERITY_CERTAIN_DOOM;
- 	i40e_aq_send_msg_to_vf(&vf->pf->hw, abs_vf_id, VIRTCHNL_OP_EVENT,
- 			       0, (u8 *)&pfe,
- 			       sizeof(struct virtchnl_pf_event), NULL);
-@@ -1586,7 +1587,7 @@ static int i40e_vc_get_vf_resources_msg(struct i40e_vf *vf, u8 *msg)
- 
- 	if (vf->lan_vsi_idx) {
- 		vfres->vsi_res[0].vsi_id = vf->lan_vsi_id;
--		vfres->vsi_res[0].vsi_type = I40E_VSI_SRIOV;
-+		vfres->vsi_res[0].vsi_type = VIRTCHNL_VSI_SRIOV;
- 		vfres->vsi_res[0].num_queue_pairs = vsi->alloc_queue_pairs;
- 		/* VFs only use TC 0 */
- 		vfres->vsi_res[0].qset_handle
-@@ -1680,7 +1681,7 @@ static int i40e_vc_config_promiscuous_mode_msg(struct i40e_vf *vf,
- 		goto error_param;
- 	}
- 	/* Multicast promiscuous handling*/
--	if (info->flags & I40E_FLAG_VF_MULTICAST_PROMISC)
-+	if (info->flags & FLAG_VF_MULTICAST_PROMISC)
- 		allmulti = true;
- 
- 	if (vf->port_vlan_id) {
-@@ -1731,7 +1732,7 @@ static int i40e_vc_config_promiscuous_mode_msg(struct i40e_vf *vf,
- 			clear_bit(I40E_VF_STATE_MC_PROMISC, &vf->vf_states);
- 	}
- 
--	if (info->flags & I40E_FLAG_VF_UNICAST_PROMISC)
-+	if (info->flags & FLAG_VF_UNICAST_PROMISC)
- 		alluni = true;
- 	if (vf->port_vlan_id) {
- 		aq_ret = i40e_aq_set_vsi_uc_promisc_on_vlan(hw, vsi->seid,
-@@ -3241,7 +3242,7 @@ int i40e_ndo_set_vf_link_state(struct net_device *netdev, int vf_id, int link)
- 	abs_vf_id = vf->vf_id + hw->func_caps.vf_base_id;
- 
- 	pfe.event = VIRTCHNL_EVENT_LINK_CHANGE;
--	pfe.severity = I40E_PF_EVENT_SEVERITY_INFO;
-+	pfe.severity = PF_EVENT_SEVERITY_INFO;
- 
- 	switch (link) {
- 	case IFLA_VF_LINK_STATE_AUTO:
-@@ -3249,6 +3250,7 @@ int i40e_ndo_set_vf_link_state(struct net_device *netdev, int vf_id, int link)
- 		pfe.event_data.link_event.link_status =
- 			pf->hw.phy.link_info.link_info & I40E_AQ_LINK_UP;
- 		pfe.event_data.link_event.link_speed =
-+			(enum virtchnl_link_speed)
- 			pf->hw.phy.link_info.link_speed;
- 		break;
- 	case IFLA_VF_LINK_STATE_ENABLE:
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_common.c b/drivers/net/ethernet/intel/i40evf/i40e_common.c
-index 9a7d995080b6..9dec7753911c 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_common.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_common.c
-@@ -1107,7 +1107,7 @@ void i40e_vf_parse_hw_config(struct i40e_hw *hw,
- 			   VIRTCHNL_VF_OFFLOAD_L2;
- 	hw->dev_caps.fcoe = 0;
- 	for (i = 0; i < msg->num_vsis; i++) {
--		if (vsi_res->vsi_type == I40E_VSI_SRIOV) {
-+		if (vsi_res->vsi_type == VIRTCHNL_VSI_SRIOV) {
- 			ether_addr_copy(hw->mac.perm_addr,
- 					vsi_res->default_mac_addr);
- 			ether_addr_copy(hw->mac.addr,
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf.h b/drivers/net/ethernet/intel/i40evf/i40evf.h
-index 9d8c21b36332..6cc92089fecb 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf.h
-@@ -263,7 +263,7 @@ struct i40evf_adapter {
- 	struct work_struct watchdog_task;
- 	bool netdev_registered;
- 	bool link_up;
--	enum i40e_aq_link_speed link_speed;
-+	enum virtchnl_link_speed link_speed;
- 	enum virtchnl_ops current_op;
- #define CLIENT_ALLOWED(_a) ((_a)->vf_res ? \
- 			    (_a)->vf_res->vf_offload_flags & \
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-index 5d7b613e0d62..1b00274de530 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-@@ -1707,13 +1707,13 @@ static void i40evf_watchdog_task(struct work_struct *work)
- 	}
- 
- 	if (adapter->aq_required & I40EVF_FLAG_AQ_REQUEST_PROMISC) {
--		i40evf_set_promiscuous(adapter, I40E_FLAG_VF_UNICAST_PROMISC |
--				       I40E_FLAG_VF_MULTICAST_PROMISC);
-+		i40evf_set_promiscuous(adapter, FLAG_VF_UNICAST_PROMISC |
-+				       FLAG_VF_MULTICAST_PROMISC);
- 		goto watchdog_done;
- 	}
- 
- 	if (adapter->aq_required & I40EVF_FLAG_AQ_REQUEST_ALLMULTI) {
--		i40evf_set_promiscuous(adapter, I40E_FLAG_VF_MULTICAST_PROMISC);
-+		i40evf_set_promiscuous(adapter, FLAG_VF_MULTICAST_PROMISC);
- 		goto watchdog_done;
- 	}
- 
-@@ -1969,7 +1969,8 @@ static void i40evf_adminq_task(struct work_struct *work)
- 			break; /* No event to process or error cleaning ARQ */
- 
- 		i40evf_virtchnl_completion(adapter, v_msg->v_opcode,
--					   v_msg->v_retval, event.msg_buf,
-+					   (i40e_status)v_msg->v_retval,
-+					   event.msg_buf,
- 					   event.msg_len);
- 		if (pending != 0)
- 			memset(event.msg_buf, 0, I40EVF_MAX_AQ_BUF_SIZE);
-@@ -2410,7 +2411,7 @@ int i40evf_process_config(struct i40evf_adapter *adapter)
- 
- 	/* got VF config message back from PF, now we can parse it */
- 	for (i = 0; i < vfres->num_vsis; i++) {
--		if (vfres->vsi_res[i].vsi_type == I40E_VSI_SRIOV)
-+		if (vfres->vsi_res[i].vsi_type == VIRTCHNL_VSI_SRIOV)
- 			adapter->vsi_res = &vfres->vsi_res[i];
- 	}
- 	if (!adapter->vsi_res) {
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c b/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
-index d9f040900373..d2bb250a71af 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
-@@ -662,15 +662,15 @@ void i40evf_set_promiscuous(struct i40evf_adapter *adapter, int flags)
- 		return;
- 	}
- 
--	promisc_all = I40E_FLAG_VF_UNICAST_PROMISC |
--		      I40E_FLAG_VF_MULTICAST_PROMISC;
-+	promisc_all = FLAG_VF_UNICAST_PROMISC |
-+		      FLAG_VF_MULTICAST_PROMISC;
- 	if ((flags & promisc_all) == promisc_all) {
- 		adapter->flags |= I40EVF_FLAG_PROMISC_ON;
- 		adapter->aq_required &= ~I40EVF_FLAG_AQ_REQUEST_PROMISC;
- 		dev_info(&adapter->pdev->dev, "Entering promiscuous mode\n");
- 	}
- 
--	if (flags & I40E_FLAG_VF_MULTICAST_PROMISC) {
-+	if (flags & FLAG_VF_MULTICAST_PROMISC) {
- 		adapter->flags |= I40EVF_FLAG_ALLMULTI_ON;
- 		adapter->aq_required &= ~I40EVF_FLAG_AQ_REQUEST_ALLMULTI;
- 		dev_info(&adapter->pdev->dev, "Entering multicast promiscuous mode\n");
-diff --git a/include/linux/avf/virtchnl.h b/include/linux/avf/virtchnl.h
-index 73970bd439fe..6c6fbb492b5d 100644
---- a/include/linux/avf/virtchnl.h
-+++ b/include/linux/avf/virtchnl.h
-@@ -29,28 +29,29 @@
- 
- /* Description:
-  * This header file describes the VF-PF communication protocol used
+ /* Prototypes for shared code functions that are not in
+  * the standard function pointer structures.  These are
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl.h b/drivers/net/ethernet/intel/i40e/i40e_virtchnl.h
+deleted file mode 100644
+index 8552192a5bde..000000000000
+--- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl.h
++++ /dev/null
+@@ -1,449 +0,0 @@
+-/*******************************************************************************
+- *
+- * Intel Ethernet Controller XL710 Family Linux Driver
+- * Copyright(c) 2013 - 2014 Intel Corporation.
+- *
+- * This program is free software; you can redistribute it and/or modify it
+- * under the terms and conditions of the GNU General Public License,
+- * version 2, as published by the Free Software Foundation.
+- *
+- * This program is distributed in the hope it will be useful, but WITHOUT
+- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+- * more details.
+- *
+- * You should have received a copy of the GNU General Public License along
+- * with this program.  If not, see <http://www.gnu.org/licenses/>.
+- *
+- * The full GNU General Public License is included in this distribution in
+- * the file called "COPYING".
+- *
+- * Contact Information:
+- * e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
+- * Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
+- *
+- ******************************************************************************/
+-
+-#ifndef _I40E_VIRTCHNL_H_
+-#define _I40E_VIRTCHNL_H_
+-
+-#include "i40e_type.h"
+-
+-/* Description:
+- * This header file describes the VF-PF communication protocol used
 - * by the various i40e drivers.
-+ * by the drivers for all devices starting from our 40G product line
-  *
-  * Admin queue buffer usage:
+- *
+- * Admin queue buffer usage:
 - * desc->opcode is always i40e_aqc_opc_send_msg_to_pf
-+ * desc->opcode is always aqc_opc_send_msg_to_pf
-  * flags, retval, datalen, and data addr are all used normally.
+- * flags, retval, datalen, and data addr are all used normally.
 - * Firmware copies the cookie fields when sending messages between the PF and
 - * VF, but uses all other fields internally. Due to this limitation, we
 - * must send all messages as "indirect", i.e. using an external buffer.
-+ * The Firmware copies the cookie fields when sending messages between the
-+ * PF and VF, but uses all other fields internally. Due to this limitation,
-+ * we must send all messages as "indirect", i.e. using an external buffer.
-  *
+- *
 - * All the vsi indexes are relative to the VF. Each VF can have maximum of
-+ * All the VSI indexes are relative to the VF. Each VF can have maximum of
-  * three VSIs. All the queue indexes are relative to the VSI.  Each VF can
-  * have a maximum of sixteen queues for all of its VSIs.
-  *
-  * The PF is required to return a status code in v_retval for all messages
+- * three VSIs. All the queue indexes are relative to the VSI.  Each VF can
+- * have a maximum of sixteen queues for all of its VSIs.
+- *
+- * The PF is required to return a status code in v_retval for all messages
 - * except RESET_VF, which does not require any response. The return value is of
 - * i40e_status_code type, defined in the i40e_type.h.
-+ * except RESET_VF, which does not require any response. The return value
-+ * is of status_code type, defined in the shared type.h.
-  *
+- *
 - * In general, VF driver initialization should roughly follow the order of these
 - * opcodes. The VF driver must first validate the API version of the PF driver,
 - * then request a reset, then get resources, then configure queues and
 - * interrupts. After these operations are complete, the VF driver may start
 - * its queues, optionally add MAC and VLAN filters, and process traffic.
-+ * In general, VF driver initialization should roughly follow the order of
-+ * these opcodes. The VF driver must first validate the API version of the
-+ * PF driver, then request a reset, then get resources, then configure
-+ * queues and interrupts. After these operations are complete, the VF
-+ * driver may start its queues, optionally add MAC and VLAN filters, and
-+ * process traffic.
-  */
- 
- /* START GENERIC DEFINES
-@@ -68,6 +69,33 @@ enum virtchnl_status_code {
- 	VIRTCHNL_STATUS_NOT_SUPPORTED			= -64,
- };
- 
-+#define VIRTCHNL_LINK_SPEED_100MB_SHIFT		0x1
-+#define VIRTCHNL_LINK_SPEED_1000MB_SHIFT	0x2
-+#define VIRTCHNL_LINK_SPEED_10GB_SHIFT		0x3
-+#define VIRTCHNL_LINK_SPEED_40GB_SHIFT		0x4
-+#define VIRTCHNL_LINK_SPEED_20GB_SHIFT		0x5
-+#define VIRTCHNL_LINK_SPEED_25GB_SHIFT		0x6
-+
-+enum virtchnl_link_speed {
-+	VIRTCHNL_LINK_SPEED_UNKNOWN	= 0,
-+	VIRTCHNL_LINK_SPEED_100MB	= BIT(VIRTCHNL_LINK_SPEED_100MB_SHIFT),
-+	VIRTCHNL_LINK_SPEED_1GB		= BIT(VIRTCHNL_LINK_SPEED_1000MB_SHIFT),
-+	VIRTCHNL_LINK_SPEED_10GB	= BIT(VIRTCHNL_LINK_SPEED_10GB_SHIFT),
-+	VIRTCHNL_LINK_SPEED_40GB	= BIT(VIRTCHNL_LINK_SPEED_40GB_SHIFT),
-+	VIRTCHNL_LINK_SPEED_20GB	= BIT(VIRTCHNL_LINK_SPEED_20GB_SHIFT),
-+	VIRTCHNL_LINK_SPEED_25GB	= BIT(VIRTCHNL_LINK_SPEED_25GB_SHIFT),
-+};
-+
-+/* for hsplit_0 field of Rx HMC context */
-+/* deprecated with AVF 1.0 */
-+enum virtchnl_rx_hsplit {
-+	VIRTCHNL_RX_HSPLIT_NO_SPLIT      = 0,
-+	VIRTCHNL_RX_HSPLIT_SPLIT_L2      = 1,
-+	VIRTCHNL_RX_HSPLIT_SPLIT_IP      = 2,
-+	VIRTCHNL_RX_HSPLIT_SPLIT_TCP_UDP = 4,
-+	VIRTCHNL_RX_HSPLIT_SPLIT_SCTP    = 8,
-+};
-+
- /* END GENERIC DEFINES */
- 
- /* Opcodes for VF-PF communication. These are placed in the v_opcode field
-@@ -77,6 +105,8 @@ enum virtchnl_ops {
- /* The PF sends status change events to VFs using
-  * the VIRTCHNL_OP_EVENT opcode.
-  * VFs send requests to the PF using the other ops.
-+ * Use of "advanced opcode" features must be negotiated as part of capabilities
-+ * exchange and are not considered part of base mode feature set.
-  */
- 	VIRTCHNL_OP_UNKNOWN = 0,
- 	VIRTCHNL_OP_VERSION = 1, /* must ALWAYS be 1 */
-@@ -96,14 +126,13 @@ enum virtchnl_ops {
- 	VIRTCHNL_OP_GET_STATS = 15,
- 	VIRTCHNL_OP_RSVD = 16,
- 	VIRTCHNL_OP_EVENT = 17, /* must ALWAYS be 17 */
--	VIRTCHNL_OP_IWARP = 20,
--	VIRTCHNL_OP_CONFIG_IWARP_IRQ_MAP = 21,
--	VIRTCHNL_OP_RELEASE_IWARP_IRQ_MAP = 22,
-+	VIRTCHNL_OP_IWARP = 20, /* advanced opcode */
-+	VIRTCHNL_OP_CONFIG_IWARP_IRQ_MAP = 21, /* advanced opcode */
-+	VIRTCHNL_OP_RELEASE_IWARP_IRQ_MAP = 22, /* advanced opcode */
- 	VIRTCHNL_OP_CONFIG_RSS_KEY = 23,
- 	VIRTCHNL_OP_CONFIG_RSS_LUT = 24,
- 	VIRTCHNL_OP_GET_RSS_HENA_CAPS = 25,
- 	VIRTCHNL_OP_SET_RSS_HENA = 26,
+- */
 -
- };
- 
- /* Virtual channel message descriptor. This overlays the admin queue
-@@ -113,7 +142,7 @@ enum virtchnl_ops {
- struct virtchnl_msg {
- 	u8 pad[8];			 /* AQ flags/opcode/len/retval fields */
- 	enum virtchnl_ops v_opcode; /* avoid confusion with desc->opcode */
+-/* Opcodes for VF-PF communication. These are placed in the v_opcode field
+- * of the virtchnl_msg structure.
+- */
+-enum i40e_virtchnl_ops {
+-/* The PF sends status change events to VFs using
+- * the I40E_VIRTCHNL_OP_EVENT opcode.
+- * VFs send requests to the PF using the other ops.
+- */
+-	I40E_VIRTCHNL_OP_UNKNOWN = 0,
+-	I40E_VIRTCHNL_OP_VERSION = 1, /* must ALWAYS be 1 */
+-	I40E_VIRTCHNL_OP_RESET_VF = 2,
+-	I40E_VIRTCHNL_OP_GET_VF_RESOURCES = 3,
+-	I40E_VIRTCHNL_OP_CONFIG_TX_QUEUE = 4,
+-	I40E_VIRTCHNL_OP_CONFIG_RX_QUEUE = 5,
+-	I40E_VIRTCHNL_OP_CONFIG_VSI_QUEUES = 6,
+-	I40E_VIRTCHNL_OP_CONFIG_IRQ_MAP = 7,
+-	I40E_VIRTCHNL_OP_ENABLE_QUEUES = 8,
+-	I40E_VIRTCHNL_OP_DISABLE_QUEUES = 9,
+-	I40E_VIRTCHNL_OP_ADD_ETHER_ADDRESS = 10,
+-	I40E_VIRTCHNL_OP_DEL_ETHER_ADDRESS = 11,
+-	I40E_VIRTCHNL_OP_ADD_VLAN = 12,
+-	I40E_VIRTCHNL_OP_DEL_VLAN = 13,
+-	I40E_VIRTCHNL_OP_CONFIG_PROMISCUOUS_MODE = 14,
+-	I40E_VIRTCHNL_OP_GET_STATS = 15,
+-	I40E_VIRTCHNL_OP_FCOE = 16,
+-	I40E_VIRTCHNL_OP_EVENT = 17, /* must ALWAYS be 17 */
+-	I40E_VIRTCHNL_OP_IWARP = 20,
+-	I40E_VIRTCHNL_OP_CONFIG_IWARP_IRQ_MAP = 21,
+-	I40E_VIRTCHNL_OP_RELEASE_IWARP_IRQ_MAP = 22,
+-	I40E_VIRTCHNL_OP_CONFIG_RSS_KEY = 23,
+-	I40E_VIRTCHNL_OP_CONFIG_RSS_LUT = 24,
+-	I40E_VIRTCHNL_OP_GET_RSS_HENA_CAPS = 25,
+-	I40E_VIRTCHNL_OP_SET_RSS_HENA = 26,
+-
+-};
+-
+-/* Virtual channel message descriptor. This overlays the admin queue
+- * descriptor. All other data is passed in external buffers.
+- */
+-
+-struct i40e_virtchnl_msg {
+-	u8 pad[8];			 /* AQ flags/opcode/len/retval fields */
+-	enum i40e_virtchnl_ops v_opcode; /* avoid confusion with desc->opcode */
 -	i40e_status v_retval;  /* ditto for desc->retval */
-+	enum virtchnl_status_code v_retval;  /* ditto for desc->retval */
- 	u32 vfid;			 /* used by PF when sending to VF */
- };
- 
-@@ -155,6 +184,15 @@ struct virtchnl_version_info {
-  * are cleared.
-  */
- 
-+/* VSI types that use VIRTCHNL interface for VF-PF communication. VSI_SRIOV
-+ * vsi_type should always be 6 for backward compatibility. Add other fields
-+ * as needed.
-+ */
-+enum virtchnl_vsi_type {
-+	VIRTCHNL_VSI_TYPE_INVALID = 0,
-+	VIRTCHNL_VSI_SRIOV = 6,
-+};
-+
- /* VIRTCHNL_OP_GET_VF_RESOURCES
-  * Version 1.0 VF sends this request to PF with no parameters
-  * Version 1.1 VF sends this request to PF with u32 bitmap of its capabilities
-@@ -166,14 +204,18 @@ struct virtchnl_version_info {
- struct virtchnl_vsi_resource {
- 	u16 vsi_id;
- 	u16 num_queue_pairs;
+-	u32 vfid;			 /* used by PF when sending to VF */
+-};
+-
+-/* Message descriptions and data structures.*/
+-
+-/* I40E_VIRTCHNL_OP_VERSION
+- * VF posts its version number to the PF. PF responds with its version number
+- * in the same format, along with a return code.
+- * Reply from PF has its major/minor versions also in param0 and param1.
+- * If there is a major version mismatch, then the VF cannot operate.
+- * If there is a minor version mismatch, then the VF can operate but should
+- * add a warning to the system log.
+- *
+- * This enum element MUST always be specified as == 1, regardless of other
+- * changes in the API. The PF must always respond to this message without
+- * error regardless of version mismatch.
+- */
+-#define I40E_VIRTCHNL_VERSION_MAJOR		1
+-#define I40E_VIRTCHNL_VERSION_MINOR		1
+-#define I40E_VIRTCHNL_VERSION_MINOR_NO_VF_CAPS	0
+-
+-struct i40e_virtchnl_version_info {
+-	u32 major;
+-	u32 minor;
+-};
+-
+-/* I40E_VIRTCHNL_OP_RESET_VF
+- * VF sends this request to PF with no parameters
+- * PF does NOT respond! VF driver must delay then poll VFGEN_RSTAT register
+- * until reset completion is indicated. The admin queue must be reinitialized
+- * after this operation.
+- *
+- * When reset is complete, PF must ensure that all queues in all VSIs associated
+- * with the VF are stopped, all queue configurations in the HMC are set to 0,
+- * and all MAC and VLAN filters (except the default MAC address) on all VSIs
+- * are cleared.
+- */
+-
+-/* I40E_VIRTCHNL_OP_GET_VF_RESOURCES
+- * Version 1.0 VF sends this request to PF with no parameters
+- * Version 1.1 VF sends this request to PF with u32 bitmap of its capabilities
+- * PF responds with an indirect message containing
+- * i40e_virtchnl_vf_resource and one or more
+- * i40e_virtchnl_vsi_resource structures.
+- */
+-
+-struct i40e_virtchnl_vsi_resource {
+-	u16 vsi_id;
+-	u16 num_queue_pairs;
 -	enum i40e_vsi_type vsi_type;
-+	enum virtchnl_vsi_type vsi_type;
- 	u16 qset_handle;
- 	u8 default_mac_addr[ETH_ALEN];
- };
+-	u16 qset_handle;
+-	u8 default_mac_addr[ETH_ALEN];
+-};
 -/* VF offload flags */
--#define VIRTCHNL_VF_OFFLOAD_L2		0x00000001
-+
-+/* VF offload flags
-+ * VIRTCHNL_VF_OFFLOAD_L2 flag is inclusive of base mode L2 offloads including
-+ * TX/RX Checksum offloading and TSO for non-tunnelled packets.
-+ */
-+#define VIRTCHNL_VF_OFFLOAD_L2			0x00000001
- #define VIRTCHNL_VF_OFFLOAD_IWARP		0x00000002
--#define VIRTCHNL_VF_OFFLOAD_FCOE		0x00000004
-+#define VIRTCHNL_VF_OFFLOAD_RSVD		0x00000004
- #define VIRTCHNL_VF_OFFLOAD_RSS_AQ		0x00000008
- #define VIRTCHNL_VF_OFFLOAD_RSS_REG		0x00000010
- #define VIRTCHNL_VF_OFFLOAD_WB_ON_ITR		0x00000020
-@@ -182,11 +224,12 @@ struct virtchnl_vsi_resource {
- #define VIRTCHNL_VF_OFFLOAD_RSS_PCTYPE_V2	0x00040000
- #define VIRTCHNL_VF_OFFLOAD_RSS_PF		0X00080000
- #define VIRTCHNL_VF_OFFLOAD_ENCAP		0X00100000
--#define VIRTCHNL_VF_OFFLOAD_ENCAP_CSUM	0X00200000
-+#define VIRTCHNL_VF_OFFLOAD_ENCAP_CSUM		0X00200000
-+#define VIRTCHNL_VF_OFFLOAD_RX_ENCAP_CSUM	0X00400000
- 
--#define I40E_VF_BASE_MODE_OFFLOADS (VIRTCHNL_VF_OFFLOAD_L2 | \
--				    VIRTCHNL_VF_OFFLOAD_VLAN | \
--				    VIRTCHNL_VF_OFFLOAD_RSS_PF)
-+#define VF_BASE_MODE_OFFLOADS (VIRTCHNL_VF_OFFLOAD_L2 | \
-+			       VIRTCHNL_VF_OFFLOAD_VLAN | \
-+			       VIRTCHNL_VF_OFFLOAD_RSS_PF)
- 
- struct virtchnl_vf_resource {
- 	u16 num_vsis;
-@@ -212,9 +255,9 @@ struct virtchnl_txq_info {
- 	u16 vsi_id;
- 	u16 queue_id;
- 	u16 ring_len;		/* number of descriptors, multiple of 8 */
+-#define I40E_VIRTCHNL_VF_OFFLOAD_L2		0x00000001
+-#define I40E_VIRTCHNL_VF_OFFLOAD_IWARP		0x00000002
+-#define I40E_VIRTCHNL_VF_OFFLOAD_FCOE		0x00000004
+-#define I40E_VIRTCHNL_VF_OFFLOAD_RSS_AQ		0x00000008
+-#define I40E_VIRTCHNL_VF_OFFLOAD_RSS_REG	0x00000010
+-#define I40E_VIRTCHNL_VF_OFFLOAD_WB_ON_ITR	0x00000020
+-#define I40E_VIRTCHNL_VF_OFFLOAD_VLAN		0x00010000
+-#define I40E_VIRTCHNL_VF_OFFLOAD_RX_POLLING	0x00020000
+-#define I40E_VIRTCHNL_VF_OFFLOAD_RSS_PCTYPE_V2	0x00040000
+-#define I40E_VIRTCHNL_VF_OFFLOAD_RSS_PF		0X00080000
+-#define I40E_VIRTCHNL_VF_OFFLOAD_ENCAP		0X00100000
+-#define I40E_VIRTCHNL_VF_OFFLOAD_ENCAP_CSUM	0X00200000
+-
+-#define I40E_VF_BASE_MODE_OFFLOADS (I40E_VIRTCHNL_VF_OFFLOAD_L2 | \
+-				    I40E_VIRTCHNL_VF_OFFLOAD_VLAN | \
+-				    I40E_VIRTCHNL_VF_OFFLOAD_RSS_PF)
+-
+-struct i40e_virtchnl_vf_resource {
+-	u16 num_vsis;
+-	u16 num_queue_pairs;
+-	u16 max_vectors;
+-	u16 max_mtu;
+-
+-	u32 vf_offload_flags;
+-	u32 rss_key_size;
+-	u32 rss_lut_size;
+-
+-	struct i40e_virtchnl_vsi_resource vsi_res[1];
+-};
+-
+-/* I40E_VIRTCHNL_OP_CONFIG_TX_QUEUE
+- * VF sends this message to set up parameters for one TX queue.
+- * External data buffer contains one instance of i40e_virtchnl_txq_info.
+- * PF configures requested queue and returns a status code.
+- */
+-
+-/* Tx queue config info */
+-struct i40e_virtchnl_txq_info {
+-	u16 vsi_id;
+-	u16 queue_id;
+-	u16 ring_len;		/* number of descriptors, multiple of 8 */
 -	u16 headwb_enabled;
-+	u16 headwb_enabled; /* deprecated with AVF 1.0 */
- 	u64 dma_ring_addr;
+-	u64 dma_ring_addr;
 -	u64 dma_headwb_addr;
-+	u64 dma_headwb_addr; /* deprecated with AVF 1.0 */
- };
- 
- /* VIRTCHNL_OP_CONFIG_RX_QUEUE
-@@ -229,11 +272,11 @@ struct virtchnl_rxq_info {
- 	u16 queue_id;
- 	u32 ring_len;		/* number of descriptors, multiple of 32 */
- 	u16 hdr_size;
+-};
+-
+-/* I40E_VIRTCHNL_OP_CONFIG_RX_QUEUE
+- * VF sends this message to set up parameters for one RX queue.
+- * External data buffer contains one instance of i40e_virtchnl_rxq_info.
+- * PF configures requested queue and returns a status code.
+- */
+-
+-/* Rx queue config info */
+-struct i40e_virtchnl_rxq_info {
+-	u16 vsi_id;
+-	u16 queue_id;
+-	u32 ring_len;		/* number of descriptors, multiple of 32 */
+-	u16 hdr_size;
 -	u16 splithdr_enabled;
-+	u16 splithdr_enabled; /* deprecated with AVF 1.0 */
- 	u32 databuffer_size;
- 	u32 max_pkt_size;
- 	u64 dma_ring_addr;
+-	u32 databuffer_size;
+-	u32 max_pkt_size;
+-	u64 dma_ring_addr;
 -	enum i40e_hmc_obj_rx_hsplit_0 rx_split_pos;
-+	enum virtchnl_rx_hsplit rx_split_pos; /* deprecated with AVF 1.0 */
- };
- 
- /* VIRTCHNL_OP_CONFIG_VSI_QUEUES
-@@ -344,15 +387,15 @@ struct virtchnl_promisc_info {
- 	u16 flags;
- };
- 
+-};
+-
+-/* I40E_VIRTCHNL_OP_CONFIG_VSI_QUEUES
+- * VF sends this message to set parameters for all active TX and RX queues
+- * associated with the specified VSI.
+- * PF configures queues and returns status.
+- * If the number of queues specified is greater than the number of queues
+- * associated with the VSI, an error is returned and no queues are configured.
+- */
+-struct i40e_virtchnl_queue_pair_info {
+-	/* NOTE: vsi_id and queue_id should be identical for both queues. */
+-	struct i40e_virtchnl_txq_info txq;
+-	struct i40e_virtchnl_rxq_info rxq;
+-};
+-
+-struct i40e_virtchnl_vsi_queue_config_info {
+-	u16 vsi_id;
+-	u16 num_queue_pairs;
+-	struct i40e_virtchnl_queue_pair_info qpair[1];
+-};
+-
+-/* I40E_VIRTCHNL_OP_CONFIG_IRQ_MAP
+- * VF uses this message to map vectors to queues.
+- * The rxq_map and txq_map fields are bitmaps used to indicate which queues
+- * are to be associated with the specified vector.
+- * The "other" causes are always mapped to vector 0.
+- * PF configures interrupt mapping and returns status.
+- */
+-struct i40e_virtchnl_vector_map {
+-	u16 vsi_id;
+-	u16 vector_id;
+-	u16 rxq_map;
+-	u16 txq_map;
+-	u16 rxitr_idx;
+-	u16 txitr_idx;
+-};
+-
+-struct i40e_virtchnl_irq_map_info {
+-	u16 num_vectors;
+-	struct i40e_virtchnl_vector_map vecmap[1];
+-};
+-
+-/* I40E_VIRTCHNL_OP_ENABLE_QUEUES
+- * I40E_VIRTCHNL_OP_DISABLE_QUEUES
+- * VF sends these message to enable or disable TX/RX queue pairs.
+- * The queues fields are bitmaps indicating which queues to act upon.
+- * (Currently, we only support 16 queues per VF, but we make the field
+- * u32 to allow for expansion.)
+- * PF performs requested action and returns status.
+- */
+-struct i40e_virtchnl_queue_select {
+-	u16 vsi_id;
+-	u16 pad;
+-	u32 rx_queues;
+-	u32 tx_queues;
+-};
+-
+-/* I40E_VIRTCHNL_OP_ADD_ETHER_ADDRESS
+- * VF sends this message in order to add one or more unicast or multicast
+- * address filters for the specified VSI.
+- * PF adds the filters and returns status.
+- */
+-
+-/* I40E_VIRTCHNL_OP_DEL_ETHER_ADDRESS
+- * VF sends this message in order to remove one or more unicast or multicast
+- * filters for the specified VSI.
+- * PF removes the filters and returns status.
+- */
+-
+-struct i40e_virtchnl_ether_addr {
+-	u8 addr[ETH_ALEN];
+-	u8 pad[2];
+-};
+-
+-struct i40e_virtchnl_ether_addr_list {
+-	u16 vsi_id;
+-	u16 num_elements;
+-	struct i40e_virtchnl_ether_addr list[1];
+-};
+-
+-/* I40E_VIRTCHNL_OP_ADD_VLAN
+- * VF sends this message to add one or more VLAN tag filters for receives.
+- * PF adds the filters and returns status.
+- * If a port VLAN is configured by the PF, this operation will return an
+- * error to the VF.
+- */
+-
+-/* I40E_VIRTCHNL_OP_DEL_VLAN
+- * VF sends this message to remove one or more VLAN tag filters for receives.
+- * PF removes the filters and returns status.
+- * If a port VLAN is configured by the PF, this operation will return an
+- * error to the VF.
+- */
+-
+-struct i40e_virtchnl_vlan_filter_list {
+-	u16 vsi_id;
+-	u16 num_elements;
+-	u16 vlan_id[1];
+-};
+-
+-/* I40E_VIRTCHNL_OP_CONFIG_PROMISCUOUS_MODE
+- * VF sends VSI id and flags.
+- * PF returns status code in retval.
+- * Note: we assume that broadcast accept mode is always enabled.
+- */
+-struct i40e_virtchnl_promisc_info {
+-	u16 vsi_id;
+-	u16 flags;
+-};
+-
 -#define I40E_FLAG_VF_UNICAST_PROMISC	0x00000001
 -#define I40E_FLAG_VF_MULTICAST_PROMISC	0x00000002
-+#define FLAG_VF_UNICAST_PROMISC	0x00000001
-+#define FLAG_VF_MULTICAST_PROMISC	0x00000002
- 
- /* VIRTCHNL_OP_GET_STATS
-  * VF sends this message to request stats for the selected VSI. VF uses
-  * the virtchnl_queue_select struct to specify the VSI. The queue_id
-  * field is ignored by the PF.
-  *
+-
+-/* I40E_VIRTCHNL_OP_GET_STATS
+- * VF sends this message to request stats for the selected VSI. VF uses
+- * the i40e_virtchnl_queue_select struct to specify the VSI. The queue_id
+- * field is ignored by the PF.
+- *
 - * PF replies with struct i40e_eth_stats in an external buffer.
-+ * PF replies with struct eth_stats in an external buffer.
-  */
- 
- /* VIRTCHNL_OP_CONFIG_RSS_KEY
-@@ -382,7 +425,6 @@ struct virtchnl_rss_lut {
-  * By default, the PF sets these to all possible traffic types that the
-  * hardware supports. The VF can query this value if it wants to change the
-  * traffic types that are hashed by the hardware.
+- */
+-
+-/* I40E_VIRTCHNL_OP_CONFIG_RSS_KEY
+- * I40E_VIRTCHNL_OP_CONFIG_RSS_LUT
+- * VF sends these messages to configure RSS. Only supported if both PF
+- * and VF drivers set the I40E_VIRTCHNL_VF_OFFLOAD_RSS_PF bit during
+- * configuration negotiation. If this is the case, then the RSS fields in
+- * the VF resource struct are valid.
+- * Both the key and LUT are initialized to 0 by the PF, meaning that
+- * RSS is effectively disabled until set up by the VF.
+- */
+-struct i40e_virtchnl_rss_key {
+-	u16 vsi_id;
+-	u16 key_len;
+-	u8 key[1];         /* RSS hash key, packed bytes */
+-};
+-
+-struct i40e_virtchnl_rss_lut {
+-	u16 vsi_id;
+-	u16 lut_entries;
+-	u8 lut[1];        /* RSS lookup table*/
+-};
+-
+-/* I40E_VIRTCHNL_OP_GET_RSS_HENA_CAPS
+- * I40E_VIRTCHNL_OP_SET_RSS_HENA
+- * VF sends these messages to get and set the hash filter enable bits for RSS.
+- * By default, the PF sets these to all possible traffic types that the
+- * hardware supports. The VF can query this value if it wants to change the
+- * traffic types that are hashed by the hardware.
 - * Traffic types are defined in the i40e_filter_pctype enum in i40e_type.h
-  */
- struct virtchnl_rss_hena {
- 	u64 hena;
-@@ -399,14 +441,15 @@ enum virtchnl_event_codes {
- 	VIRTCHNL_EVENT_RESET_IMPENDING,
- 	VIRTCHNL_EVENT_PF_DRIVER_CLOSE,
- };
+- */
+-struct i40e_virtchnl_rss_hena {
+-	u64 hena;
+-};
+-
+-/* I40E_VIRTCHNL_OP_EVENT
+- * PF sends this message to inform the VF driver of events that may affect it.
+- * No direct response is expected from the VF, though it may generate other
+- * messages in response to this one.
+- */
+-enum i40e_virtchnl_event_codes {
+-	I40E_VIRTCHNL_EVENT_UNKNOWN = 0,
+-	I40E_VIRTCHNL_EVENT_LINK_CHANGE,
+-	I40E_VIRTCHNL_EVENT_RESET_IMPENDING,
+-	I40E_VIRTCHNL_EVENT_PF_DRIVER_CLOSE,
+-};
 -#define I40E_PF_EVENT_SEVERITY_INFO		0
 -#define I40E_PF_EVENT_SEVERITY_CERTAIN_DOOM	255
-+
-+#define PF_EVENT_SEVERITY_INFO		0
-+#define PF_EVENT_SEVERITY_CERTAIN_DOOM	255
- 
- struct virtchnl_pf_event {
- 	enum virtchnl_event_codes event;
- 	union {
- 		struct {
+-
+-struct i40e_virtchnl_pf_event {
+-	enum i40e_virtchnl_event_codes event;
+-	union {
+-		struct {
 -			enum i40e_aq_link_speed link_speed;
-+			enum virtchnl_link_speed link_speed;
- 			bool link_status;
- 		} link_event;
- 	} event_data;
-@@ -426,13 +469,6 @@ struct virtchnl_pf_event {
-  * PF configures interrupt mapping and returns status.
-  */
- 
+-			bool link_status;
+-		} link_event;
+-	} event_data;
+-
+-	int severity;
+-};
+-
+-/* I40E_VIRTCHNL_OP_CONFIG_IWARP_IRQ_MAP
+- * VF uses this message to request PF to map IWARP vectors to IWARP queues.
+- * The request for this originates from the VF IWARP driver through
+- * a client interface between VF LAN and VF IWARP driver.
+- * A vector could have an AEQ and CEQ attached to it although
+- * there is a single AEQ per VF IWARP instance in which case
+- * most vectors will have an INVALID_IDX for aeq and valid idx for ceq.
+- * There will never be a case where there will be multiple CEQs attached
+- * to a single vector.
+- * PF configures interrupt mapping and returns status.
+- */
+-
 -/* HW does not define a type value for AEQ; only for RX/TX and CEQ.
 - * In order for us to keep the interface simple, SW will define a
 - * unique type value for AEQ.
-- */
+-*/
 -#define I40E_QUEUE_TYPE_PE_AEQ  0x80
 -#define I40E_QUEUE_INVALID_IDX  0xFFFF
 -
- struct virtchnl_iwarp_qv_info {
- 	u32 v_idx; /* msix_vector */
- 	u16 ceq_idx;
-@@ -446,8 +482,7 @@ struct virtchnl_iwarp_qvlist_info {
- };
- 
- /* VF reset states - these are written into the RSTAT register:
+-struct i40e_virtchnl_iwarp_qv_info {
+-	u32 v_idx; /* msix_vector */
+-	u16 ceq_idx;
+-	u16 aeq_idx;
+-	u8 itr_idx;
+-};
+-
+-struct i40e_virtchnl_iwarp_qvlist_info {
+-	u32 num_vectors;
+-	struct i40e_virtchnl_iwarp_qv_info qv_info[1];
+-};
+-
+-/* VF reset states - these are written into the RSTAT register:
 - * I40E_VFGEN_RSTAT1 on the PF
 - * I40E_VFGEN_RSTAT on the VF
-+ * VFGEN_RSTAT on the VF
-  * When the PF initiates a reset, it writes 0
-  * When the reset is complete, it writes 1
-  * When the PF detects that the VF has recovered, it writes 2
-@@ -461,7 +496,6 @@ enum virtchnl_vfr_states {
- 	VIRTCHNL_VFR_INPROGRESS = 0,
- 	VIRTCHNL_VFR_COMPLETED,
- 	VIRTCHNL_VFR_VFACTIVE,
--	VIRTCHNL_VFR_UNKNOWN,
- };
- 
- #endif /* _VIRTCHNL_H_ */
+- * When the PF initiates a reset, it writes 0
+- * When the reset is complete, it writes 1
+- * When the PF detects that the VF has recovered, it writes 2
+- * VF checks this register periodically to determine if a reset has occurred,
+- * then polls it to know when the reset is complete.
+- * If either the PF or VF reads the register while the hardware
+- * is in a reset state, it will return DEADBEEF, which, when masked
+- * will result in 3.
+- */
+-enum i40e_vfr_states {
+-	I40E_VFR_INPROGRESS = 0,
+-	I40E_VFR_COMPLETED,
+-	I40E_VFR_VFACTIVE,
+-	I40E_VFR_UNKNOWN,
+-};
+-
+-#endif /* _I40E_VIRTCHNL_H_ */
 -- 
 2.12.2
