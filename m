@@ -1,42 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] mlxsw: spectrum: Add bridge dependency for
- spectrum
-Date: Thu, 01 Jun 2017 15:07:00 -0400 (EDT)
-Message-ID: <20170601.150700.1560422855112281074.davem@davemloft.net>
-References: <20170531183342.19349-1-idosch@mellanox.com>
+From: Lance Richardson <lrichard@redhat.com>
+Subject: Re: [PATCH net] vxlan: eliminate cached dst leak
+Date: Thu, 1 Jun 2017 15:07:08 -0400 (EDT)
+Message-ID: <748426696.17969649.1496344028160.JavaMail.zimbra@redhat.com>
+References: <20170529172557.7065-1-lrichard@redhat.com> <20170601.144648.1946518537495893731.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jiri@mellanox.com,
-        nikolay@cumulusnetworks.com, mlxsw@mellanox.com, arnd@arndb.de
-To: idosch@mellanox.com
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8BIT
+Cc: netdev@vger.kernel.org, pabeni@redhat.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:58732 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751083AbdFATHC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 1 Jun 2017 15:07:02 -0400
-In-Reply-To: <20170531183342.19349-1-idosch@mellanox.com>
+Received: from mx1.redhat.com ([209.132.183.28]:44658 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751083AbdFATHJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 1 Jun 2017 15:07:09 -0400
+In-Reply-To: <20170601.144648.1946518537495893731.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ido Schimmel <idosch@mellanox.com>
-Date: Wed, 31 May 2017 21:33:42 +0300
+> From: "David Miller" <davem@davemloft.net>
+> To: lrichard@redhat.com
+> Cc: netdev@vger.kernel.org, pabeni@redhat.com
+> Sent: Thursday, 1 June, 2017 2:46:48 PM
+> Subject: Re: [PATCH net] vxlan: eliminate cached dst leak
+> 
+> From: Lance Richardson <lrichard@redhat.com>
+> Date: Mon, 29 May 2017 13:25:57 -0400
+> 
+> > After commit 0c1d70af924b ("net: use dst_cache for vxlan device"),
+> > cached dst entries could be leaked when more than one remote was
+> > present for a given vxlan_fdb entry, causing subsequent netns
+> > operations to block indefinitely and "unregister_netdevice: waiting
+> > for lo to become free." messages to appear in the kernel log.
+> > 
+> > Fix by properly releasing cached dst and freeing resources in this
+> > case.
+> > 
+> > Fixes: commit 0c1d70af924b ("net: use dst_cache for vxlan device")
+> 
+> In the future please do not put that "commit " string there, it's not
+> needed.
 
-> When BRIDGE is a loadable module, MLXSW_SPECTRUM mustn't be built-in:
-> 
-> drivers/built-in.o: In function `mlxsw_sp_bridge_device_create':
-> drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c:145: undefined reference to `br_vlan_enabled'
-> drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c:158: undefined reference to `br_multicast_enabled'
-> drivers/built-in.o: In function `mlxsw_sp_dev_rif_type':
-> drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c:2972: undefined reference to `br_vlan_enabled'
-> drivers/built-in.o: In function `mlxsw_sp_inetaddr_vlan_event':
-> drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c:3310: undefined reference to `br_vlan_enabled'
-> 
-> Add Kconfig dependency to enforce usable configurations.
-> 
-> Fixes: c57529e1d5d8 ("mlxsw: spectrum: Replace vPorts with Port-VLAN")
-> Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-> Reported-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-> Tested-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Oops, sorry about that, I know I've made that mistake before (both times
+because a checkpatch.pl warning in the body made me think I needed to
+change the Fixes: tag as well).  Now I'm tempted to roll a checkpatch.pl
+improvement...
 
-Applied, thanks.
+> 
+> > Signed-off-by: Lance Richardson <lrichard@redhat.com>
+> 
+> Applied and queued up for -stable, thank you.
+> 
