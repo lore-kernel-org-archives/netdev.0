@@ -1,150 +1,87 @@
-From: Michael =?UTF-8?B?QsO8c2No?= <m@bues.ch>
-Subject: Re: [PATCH] b43legacy: Fix a sleep-in-atomic bug in
- b43legacy_op_bss_info_changed
-Date: Thu, 1 Jun 2017 07:31:36 +0200
-Message-ID: <20170601073136.0b35368e@wiggum>
-References: <1496225353-5544-1-git-send-email-baijiaju1990@163.com>
-        <877f0xnwyk.fsf@kamboji.qca.qualcomm.com>
-        <20170531173107.25eeda48@wiggum>
-        <284d6d5d-d548-9e05-eafd-a6b521af5a04@lwfinger.net>
+From: Andy Duan <fugang.duan-3arQi8VN3Tc@public.gmane.org>
+Subject: RE: [PATCH v2] net: fec: add post PHY reset delay DT property
+Date: Thu, 1 Jun 2017 05:39:53 +0000
+Message-ID: <AM4PR0401MB22601AFFFE57337A2E0934ACFFF60@AM4PR0401MB2260.eurprd04.prod.outlook.com>
+References: <20170523094808.11102-1-quentin.schulz@free-electrons.com>
+ <20170531164416.ka3hk6a2lybrlngd@rob-hp-laptop>
+ <AM4PR0401MB226073F4A403F31FA0FF2BE0FFF60@AM4PR0401MB2260.eurprd04.prod.outlook.com>
+ <621b21da-e152-dead-de0f-af17e7c55a38@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
- boundary="Sig_/BNa10aK/GYtxshAwCI0T3ht"; protocol="application/pgp-signature"
-Cc: Kalle Valo <kvalo@codeaurora.org>,
-        Jia-Ju Bai <baijiaju1990@163.com>, netdev@vger.kernel.org,
-        linux-wireless@vger.kernel.org, b43-dev@lists.infradead.org,
-        linux-kernel@vger.kernel.org
-To: Larry Finger <Larry.Finger@lwfinger.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <284d6d5d-d548-9e05-eafd-a6b521af5a04@lwfinger.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "mark.rutland-5wv7dgnIgG8@public.gmane.org" <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org"
+        <thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+To: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Quentin Schulz <quentin.schulz-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <621b21da-e152-dead-de0f-af17e7c55a38-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Content-Language: en-US
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
---Sig_/BNa10aK/GYtxshAwCI0T3ht
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-
-On Wed, 31 May 2017 19:07:15 -0500
-Larry Finger <Larry.Finger@lwfinger.net> wrote:
-
-> On 05/31/2017 10:32 AM, Michael B=C3=BCsch wrote:
-> > On Wed, 31 May 2017 13:26:43 +0300
-> > Kalle Valo <kvalo@codeaurora.org> wrote:
-> >  =20
-> >> Jia-Ju Bai <baijiaju1990@163.com> writes:
-> >> =20
-> >>> The driver may sleep under a spin lock, and the function call path is:
-> >>> b43legacy_op_bss_info_changed (acquire the lock by spin_lock_irqsave)
-> >>>    b43legacy_synchronize_irq
-> >>>      synchronize_irq --> may sleep
-> >>>
-> >>> To fix it, the lock is released before b43legacy_synchronize_irq, and=
- the
-> >>> lock is acquired again after this function.
-> >>>
-> >>> Signed-off-by: Jia-Ju Bai <baijiaju1990@163.com>
-> >>> ---
-> >>>   drivers/net/wireless/broadcom/b43legacy/main.c |    2 ++
-> >>>   1 file changed, 2 insertions(+)
-> >>>
-> >>> diff --git a/drivers/net/wireless/broadcom/b43legacy/main.c b/drivers=
-/net/wireless/broadcom/b43legacy/main.c
-> >>> index f1e3dad..31ead21 100644
-> >>> --- a/drivers/net/wireless/broadcom/b43legacy/main.c
-> >>> +++ b/drivers/net/wireless/broadcom/b43legacy/main.c
-> >>> @@ -2859,7 +2859,9 @@ static void b43legacy_op_bss_info_changed(struc=
-t ieee80211_hw *hw,
-> >>>   	b43legacy_write32(dev, B43legacy_MMIO_GEN_IRQ_MASK, 0);
-> >>>  =20
-> >>>   	if (changed & BSS_CHANGED_BSSID) {
-> >>> +		spin_unlock_irqrestore(&wl->irq_lock, flags);
-> >>>   		b43legacy_synchronize_irq(dev);
-> >>> +		spin_lock_irqsave(&wl->irq_lock, flags); =20
-> >>
-> >> To me this looks like a fragile workaround and not a real fix. You can
-> >> easily add new race conditions with releasing the lock like this.
-> >> =20
-> >=20
-> >=20
-> > I think releasing the lock possibly is fine. It certainly is better than
-> > sleeping with a lock held.
-> > We disabled the device interrupts just before this line.
-> >=20
-> > However I think the synchronize_irq should be outside of the
-> > conditional right after the write to B43legacy_MMIO_GEN_IRQ_MASK. (So
-> > two lines above)
-> > I don't think it makes sense to only synchronize if BSS_CHANGED_BSSID
-> > is set.
-> >=20
-> >=20
-> > On the other hand b43 does not have this irq-disabling foobar anymore.
-> > So somebody must have removed it. Maybe you can find the commit that
-> > removed this stuff from b43 and port it to b43legacy?
-> >=20
-> >=20
-> > So I would vote for moving the synchronize_irq up outside of the
-> > conditional and put the unlock/lock sequence around it.
-> > And as a second patch on top of that try to remove this stuff
-> > altogether like b43 did. =20
->=20
-> The patch that removed it in b43 is
->=20
-> commit 36dbd9548e92268127b0c31b0e121e63e9207108
-> Author: Michael Buesch <mb@bu3sch.de>
-> Date:   Fri Sep 4 22:51:29 2009 +0200
-
-Damn it :D
-
->      b43: Use a threaded IRQ handler
->=20
->      Use a threaded IRQ handler to allow locking the mutex and
->      sleeping while executing an interrupt.
->      This removes usage of the irq_lock spinlock, but introduces
->      a new hardirq_lock, which is _only_ used for the PCI/SSB lowlevel
->      hard-irq handler. Sleeping busses (SDIO) will use mutex instead.
->=20
->      Signed-off-by: Michael Buesch <mb@bu3sch.de>
->      Tested-by: Larry Finger <Larry.Finger@lwfinger.net>
->      Signed-off-by: John W. Linville <linville@tuxdriver.com>
->=20
-> I vaguely remember this patch. Although it is roughly a 1000-line fix, I =
-will=20
-> try to port it to b43legacy. I still have an old BCM4306 PCMCIA card that=
- I can=20
-> test in a PowerBook G4.
->=20
-> I agree with Michael that this is the way to go. Both of Jia-Ju's patches=
- should=20
-> be rejected.
-
-
-I'm not sure if it's worth it. There is a risk that this would
-introduce new bugs.
-But sure, please feel free to try it. This way we can find out how big
-this change becomes.
-
---=20
-Michael
-
---Sig_/BNa10aK/GYtxshAwCI0T3ht
-Content-Type: application/pgp-signature
-Content-Description: OpenPGP digital signature
-
------BEGIN PGP SIGNATURE-----
-
-iQIzBAEBCAAdFiEEihRzkKVZOnT2ipsS9TK+HZCNiw4FAlkvprgACgkQ9TK+HZCN
-iw61QA/+KQAxV3h295YF4SmDpwPp70J7kbff2o3xTm7RoJ/9Z1D6vI/fMkHStXaP
-wPAXBnGdYuygyv5JsbvcV3HJa8P2bNSVd/HiEe6bgGEWIxrboMRkhYX/wumJxqCU
-MatL1Ggrps8v/O4VqzGU2V7Y+43su2D9OKGxo2kVtBP+mfO2dZpoTByo3ZP3qVyB
-mhw+IpRbeB5eQRro0/uUjvflyIraD41TigyfcLQe+986WTo5snHRC2dtO1Yd5E5y
-7Tszic+JMv5lxa+zl4MW+DPZL+aNI2ozLVMfVQUIZwHNf7gzZfqTGkgCTgV9v/JL
-J7LXT92eyFEUgyO5e7kqZrsxcuounR1nAMNkOABCWgGbUD9LqmkC885VJyulyvg+
-6F8MRM/dYh3rNxLvo1pLWVQC4Os1XL/4pjcD8Gc2y+f0wtQ+5HeBuPKMwn1Is5yw
-5BhT7VTasjR9Zw+Y2vXMNSDs0CKq7D7FlhVAgdM1gjK9UYi/eLiy4192S3MHCE/P
-FJH/nNtB20qn1VScFGRpR0CjK5ecvM7LS4FOvfZzh2ztpbtagtEjpjwf5BDEeHuH
-U36oDz4tobRAvJVZiCGCwBRgAl69Hsguk8qhWYYII3CxBzLljOBYcD61nkq/GeD7
-KW2/yLHi3qRdeaUtENoeLv3tdk8YkBIvRlWqCcpP0yI8AEIgAWw=
-=djbR
------END PGP SIGNATURE-----
-
---Sig_/BNa10aK/GYtxshAwCI0T3ht--
+RnJvbTogRmxvcmlhbiBGYWluZWxsaSA8Zi5mYWluZWxsaUBnbWFpbC5jb20+IFNlbnQ6IFRodXJz
+ZGF5LCBKdW5lIDAxLCAyMDE3IDk6NTMgQU0NCj5UbzogQW5keSBEdWFuIDxmdWdhbmcuZHVhbkBu
+eHAuY29tPjsgUm9iIEhlcnJpbmcgPHJvYmhAa2VybmVsLm9yZz47DQo+UXVlbnRpbiBTY2h1bHog
+PHF1ZW50aW4uc2NodWx6QGZyZWUtZWxlY3Ryb25zLmNvbT4NCj5DYzogbWFyay5ydXRsYW5kQGFy
+bS5jb207IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7DQo+ZGV2aWNldHJlZUB2Z2VyLmtlcm5lbC5v
+cmc7IGxpbnV4LWtlcm5lbEB2Z2VyLmtlcm5lbC5vcmc7DQo+dGhvbWFzLnBldGF6em9uaUBmcmVl
+LWVsZWN0cm9ucy5jb20NCj5TdWJqZWN0OiBSZTogW1BBVENIIHYyXSBuZXQ6IGZlYzogYWRkIHBv
+c3QgUEhZIHJlc2V0IGRlbGF5IERUIHByb3BlcnR5DQo+DQo+TGUgMDUvMzEvMTcgw6AgMTg6Mzks
+IEFuZHkgRHVhbiBhIMOpY3JpdCA6DQo+PiBGcm9tOiBSb2IgSGVycmluZyA8cm9iaEBrZXJuZWwu
+b3JnPiBTZW50OiBUaHVyc2RheSwgSnVuZSAwMSwgMjAxNw0KPj4gMTI6NDQgQU0NCj4+PiBPbiBU
+dWUsIE1heSAyMywgMjAxNyBhdCAxMTo0ODowOEFNICswMjAwLCBRdWVudGluIFNjaHVseiB3cm90
+ZToNCj4+Pj4gU29tZSBQSFkgcmVxdWlyZSB0byB3YWl0IGZvciBhIGJpdCBhZnRlciB0aGUgcmVz
+ZXQgR1BJTyBoYXMgYmVlbg0KPj4+PiB0b2dnbGVkLiBUaGlzIGFkZHMgc3VwcG9ydCBmb3IgdGhl
+IERUIHByb3BlcnR5DQo+Pj4+IGBwaHktcmVzZXQtcG9zdC1kZWxheWAgd2hpY2ggZ2l2ZXMgdGhl
+IGRlbGF5IGluIG1pbGxpc2Vjb25kcyB0byB3YWl0IGFmdGVyDQo+cmVzZXQuDQo+Pj4+DQo+Pj4+
+IElmIHRoZSBEVCBwcm9wZXJ0eSBpcyBub3QgZ2l2ZW4sIG5vIGRlbGF5IGlzIG9ic2VydmVkLiBQ
+b3N0IHJlc2V0DQo+Pj4+IGRlbGF5IGdyZWF0ZXIgdGhhbiAxMDAwbXMgYXJlIGludmFsaWQuDQo+
+Pj4+DQo+Pj4+IFNpZ25lZC1vZmYtYnk6IFF1ZW50aW4gU2NodWx6IDxxdWVudGluLnNjaHVsekBm
+cmVlLWVsZWN0cm9ucy5jb20+DQo+Pj4+IC0tLQ0KPj4+Pg0KPj4+PiB2MjoNCj4+Pj4gICAtIHJl
+dHVybiAtRUlOVkFMIHdoZW4gcGh5LXJlc2V0LXBvc3QtZGVsYXkgaXMgZ3JlYXRlciB0aGFuIDEw
+MDBtcw0KPj4+PiAgIGluc3RlYWQgb2YgZGVmYXVsdGluZyB0byAxbXMsDQo+Pj4+ICAgLSByZW1v
+dmUgYGRlZmF1bHQgdG8gMW1zYCB3aGVuIHBoeS1yZXNldC1wb3N0LWRlbGF5ID4gMTAwME1zIGZy
+b20gRFQNCj4+Pj4gICBiaW5kaW5nIGRvYyBhbmQgY29tbWl0IGxvZywNCj4+Pj4gICAtIG1vdmUg
+cGh5LXJlc2V0LXBvc3QtZGVsYXkgcHJvcGVydHkgcmVhZGluZyBiZWZvcmUNCj4+Pj4gICBkZXZt
+X2dwaW9fcmVxdWVzdF9vbmUoKSwNCj4+Pj4NCj4+Pj4gIERvY3VtZW50YXRpb24vZGV2aWNldHJl
+ZS9iaW5kaW5ncy9uZXQvZnNsLWZlYy50eHQgfCAgNCArKysrDQo+Pj4+ICBkcml2ZXJzL25ldC9l
+dGhlcm5ldC9mcmVlc2NhbGUvZmVjX21haW4uYyAgICAgICAgIHwgMTYgKysrKysrKysrKysrKysr
+LQ0KPj4+PiAgMiBmaWxlcyBjaGFuZ2VkLCAxOSBpbnNlcnRpb25zKCspLCAxIGRlbGV0aW9uKC0p
+DQo+Pj4+DQo+Pj4+IGRpZmYgLS1naXQgYS9Eb2N1bWVudGF0aW9uL2RldmljZXRyZWUvYmluZGlu
+Z3MvbmV0L2ZzbC1mZWMudHh0DQo+Pj4+IGIvRG9jdW1lbnRhdGlvbi9kZXZpY2V0cmVlL2JpbmRp
+bmdzL25ldC9mc2wtZmVjLnR4dA0KPj4+PiBpbmRleCBhMWUzNjkzY2NhMTYuLjZmNTViZGQ1MmY4
+YSAxMDA2NDQNCj4+Pj4gLS0tIGEvRG9jdW1lbnRhdGlvbi9kZXZpY2V0cmVlL2JpbmRpbmdzL25l
+dC9mc2wtZmVjLnR4dA0KPj4+PiArKysgYi9Eb2N1bWVudGF0aW9uL2RldmljZXRyZWUvYmluZGlu
+Z3MvbmV0L2ZzbC1mZWMudHh0DQo+Pj4+IEBAIC0xNSw2ICsxNSwxMCBAQCBPcHRpb25hbCBwcm9w
+ZXJ0aWVzOg0KPj4+PiAgLSBwaHktcmVzZXQtYWN0aXZlLWhpZ2ggOiBJZiBwcmVzZW50IHRoZW4g
+dGhlIHJlc2V0IHNlcXVlbmNlIHVzaW5nIHRoZQ0KPkdQSU8NCj4+Pj4gICAgc3BlY2lmaWVkIGlu
+IHRoZSAicGh5LXJlc2V0LWdwaW9zIiBwcm9wZXJ0eSBpcyByZXZlcnNlZCAoSD1yZXNldCBzdGF0
+ZSwNCj4+Pj4gICAgTD1vcGVyYXRpb24gc3RhdGUpLg0KPj4+PiArLSBwaHktcmVzZXQtcG9zdC1k
+ZWxheSA6IFBvc3QgcmVzZXQgZGVsYXkgaW4gbWlsbGlzZWNvbmRzLiBJZg0KPj4+PiArcHJlc2Vu
+dCB0aGVuDQo+Pj4NCj4+PiBUaGlzIG5lZWRzIHVuaXQgc3VmZml4IG1pbmltYWxseS4gSXQgc2hv
+dWxkIGFsc28gaGF2ZSBhIHZlbmRvciBwcmVmaXgNCj4+PiBvciBiZSBtYWRlIGdlbmVyaWMuDQo+
+Pj4NCj4+PiBCdXQgcmVhbGx5LCB0aGlzIGlzIGEgcHJvcGVydHkgb2YgdGhlIHBoeSBhbmQgc2hv
+dWxkIGJlIGluIHRoZSBwaHkNCj4+PiBub2RlIGFzIHNob3VsZCBwaHktcmVzZXQtZ3Bpb3MsIHBo
+eS1yZXNldC1hY3RpdmUtaGlnaCwgcGh5LXN1cHBseSwgZXRjLg0KPj4+DQo+PiBZZXMsIGl0IGlz
+IGJldHRlciB0byBtYWtlIGl0IGdlbmVyYWwuDQo+PiBMYXN0IHllYXIsIFV3ZSBLbGVpbmUtS8O2
+bmlnJ3MgcGF0Y2ggIkNvbW1pdCBkYTQ3YjQ1NzIwNTYgKCJwaHk6IGFkZA0KPnN1cHBvcnQgZm9y
+IGEgcmVzZXQtZ3BpbyBzcGVjaWZpY2F0aW9uIikiIGRpZCB0aGlzLCBidXQgaXQgd2FzIHJldmVy
+dGVkIGJ5DQo+Y29tbWl0IDk0ODM1MDE0MGVmMCAoUmV2ZXJ0ICJwaHk6IGFkZCBzdXBwb3J0IGZv
+ciBhIHJlc2V0LWdwaW8NCj5zcGVjaWZpY2F0aW9uIikuICBBbmQgaW4gYWxsIHBoeSBkZXZpY2Ug
+ZHJpdmVyLCBvbmx5IGF0ODAzeC5jIGFkZCB0aGUgZ3BpbyByZXNldCBpbg0KPmN1cnJlbnRseS4N
+Cj4NCj5HZXR0aW5nIHRoZSBiaW5kaW5nIGNvcnJlY3QgZG9lcyBub3QgcHJldmVudCB1cyBmcm9t
+IGxhdGVyIG1vdmluZyB0aGlzIHJlc2V0DQo+Y29kZSBpbnRvIFBIWUxJQiB3aGVyZSBpdCdzIGFw
+cHJvcHJpYXRlLiBJbiBmYWN0OyBhIGNvcnJlY3QgYW5kIGdlbmVyaWMgYmluZGluZw0KPnByb3Bv
+c2VkIGZvciBGRUMgaGVyZSBjb3VsZCBiZSB1c2VkIGFzIGEgYmFzaXMgZm9yIGFsbCBvdGhlciBN
+QUMgYW5kIFBIWQ0KPmRyaXZlcnMuDQo+LS0NCj5GbG9yaWFuDQoNCkkgYWdyZWUgd2l0aCB5b3Vy
+IG9waW5pb24uIEp1c3QgaG9wZSB0byBhZGQgdGhlIGdlbmVyYWwgcGh5IHJlc2V0IGludGVyZmFj
+ZSBpbiBwaHlsaWIgYW5kIHNwZWNpYWwgZGV2aWNlIGRyaXZlci4NCg0KQW5keQ0K
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
