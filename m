@@ -1,7 +1,7 @@
 From: Russell King <rmk+kernel@armlinux.org.uk>
-Subject: [PATCH 1/5] net: phy: add 802.3 clause 45 support to phylib
-Date: Thu, 01 Jun 2017 11:26:31 +0100
-Message-ID: <E1dGNJH-00043Y-Gl@rmk-PC.armlinux.org.uk>
+Subject: [PATCH 3/5] net: phy: split out 10G genphy support
+Date: Thu, 01 Jun 2017 11:26:41 +0100
+Message-ID: <E1dGNJR-00043n-ON@rmk-PC.armlinux.org.uk>
 References: <20170601102327.GF27796@n2100.armlinux.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,342 +10,299 @@ Cc: netdev@vger.kernel.org
 To: Andrew Lunn <andrew@lunn.ch>,
         Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pandora.armlinux.org.uk ([78.32.30.218]:53034 "EHLO
+Received: from pandora.armlinux.org.uk ([78.32.30.218]:53054 "EHLO
         pandora.armlinux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751636AbdFAK0f (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 1 Jun 2017 06:26:35 -0400
+        with ESMTP id S1751519AbdFAK04 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Jun 2017 06:26:56 -0400
 In-Reply-To: <20170601102327.GF27796@n2100.armlinux.org.uk>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add generic helpers for 802.3 clause 45 PHYs for >= 10Gbps support.
+Move the old 10G genphy support to sit beside the new clause 45 library
+functions, so all the 10G phy code is together.
 
 Signed-off-by: Russell King <rmk+kernel@armlinux.org.uk>
 ---
- drivers/net/phy/Makefile     |   2 +-
- drivers/net/phy/phy-c45.c    | 231 +++++++++++++++++++++++++++++++++++++++++++
- drivers/net/phy/phy_device.c |  20 ++--
- include/linux/phy.h          |  12 +++
- 4 files changed, 250 insertions(+), 15 deletions(-)
- create mode 100644 drivers/net/phy/phy-c45.c
+ drivers/net/phy/phy-c45.c    |  64 ++++++++++++++++++++++++++
+ drivers/net/phy/phy_device.c | 105 ++++++++-----------------------------------
+ 2 files changed, 83 insertions(+), 86 deletions(-)
 
-diff --git a/drivers/net/phy/Makefile b/drivers/net/phy/Makefile
-index e36db9a2ba38..19eddf758c88 100644
---- a/drivers/net/phy/Makefile
-+++ b/drivers/net/phy/Makefile
-@@ -1,6 +1,6 @@
- # Makefile for Linux PHY drivers and MDIO bus drivers
- 
--libphy-y			:= phy.o phy-core.o phy_device.o
-+libphy-y			:= phy.o phy-c45.o phy-core.o phy_device.o
- mdio-bus-y			+= mdio_bus.o mdio_device.o
- 
- ifdef CONFIG_MDIO_DEVICE
 diff --git a/drivers/net/phy/phy-c45.c b/drivers/net/phy/phy-c45.c
-new file mode 100644
-index 000000000000..252e49864215
---- /dev/null
+index 252e49864215..ed77b1cb61de 100644
+--- a/drivers/net/phy/phy-c45.c
 +++ b/drivers/net/phy/phy-c45.c
-@@ -0,0 +1,231 @@
-+/*
-+ * Clause 45 PHY support
-+ */
-+#include <linux/ethtool.h>
-+#include <linux/export.h>
-+#include <linux/mdio.h>
-+#include <linux/mii.h>
-+#include <linux/phy.h>
+@@ -229,3 +229,67 @@ int genphy_c45_read_pma(struct phy_device *phydev)
+ 	return 0;
+ }
+ EXPORT_SYMBOL_GPL(genphy_c45_read_pma);
 +
-+/**
-+ * genphy_c45_setup_forced - configures a forced speed
-+ * @phydev: target phy_device struct
-+ */
-+int genphy_c45_pma_setup_forced(struct phy_device *phydev)
++/* The gen10g_* functions are the old Clause 45 stub */
++
++static int gen10g_config_aneg(struct phy_device *phydev)
 +{
-+	int ctrl1, ctrl2, ret;
-+
-+	/* Half duplex is not supported */
-+	if (phydev->duplex != DUPLEX_FULL)
-+		return -EINVAL;
-+
-+	ctrl1 = phy_read_mmd(phydev, MDIO_MMD_PMAPMD, MDIO_CTRL1);
-+	if (ctrl1 < 0)
-+		return ctrl1;
-+
-+	ctrl2 = phy_read_mmd(phydev, MDIO_MMD_PMAPMD, MDIO_CTRL2);
-+	if (ctrl2 < 0)
-+		return ctrl2;
-+
-+	ctrl1 &= ~MDIO_CTRL1_SPEEDSEL;
-+	/* PMA/PMD type selection is 1.7.5:0 not 1.7.3:0.  See 45.2.1.6.1. */
-+	ctrl2 &= ~(MDIO_PMA_CTRL2_TYPE | 0x30);
-+
-+	switch (phydev->speed) {
-+	case SPEED_10:
-+		ctrl2 |= MDIO_PMA_CTRL2_10BT;
-+		break;
-+	case SPEED_100:
-+		ctrl1 |= MDIO_PMA_CTRL1_SPEED100;
-+		ctrl2 |= MDIO_PMA_CTRL2_100BTX;
-+		break;
-+	case SPEED_1000:
-+		ctrl1 |= MDIO_PMA_CTRL1_SPEED1000;
-+		/* Assume 1000base-T */
-+		ctrl2 |= MDIO_PMA_CTRL2_1000BT;
-+		break;
-+	case SPEED_10000:
-+		ctrl1 |= MDIO_CTRL1_SPEED10G;
-+		/* Assume 10Gbase-T */
-+		ctrl2 |= MDIO_PMA_CTRL2_10GBT;
-+		break;
-+	default:
-+		return -EINVAL;
-+	}
-+
-+	ret = phy_write_mmd(phydev, MDIO_MMD_PMAPMD, MDIO_CTRL1, ctrl1);
-+	if (ret < 0)
-+		return ret;
-+
-+	return phy_write_mmd(phydev, MDIO_MMD_PMAPMD, MDIO_CTRL2, ctrl2);
-+}
-+EXPORT_SYMBOL_GPL(genphy_c45_pma_setup_forced);
-+
-+/**
-+ * genphy_c45_an_disable_aneg - disable auto-negotiation
-+ * @phydev: target phy_device struct
-+ *
-+ * Disable auto-negotiation in the Clause 45 PHY. The link parameters
-+ * parameters are controlled through the PMA/PMD MMD registers.
-+ *
-+ * Returns zero on success, negative errno code on failure.
-+ */
-+int genphy_c45_an_disable_aneg(struct phy_device *phydev)
-+{
-+	int val;
-+
-+	val = phy_read_mmd(phydev, MDIO_MMD_AN, MDIO_CTRL1);
-+	if (val < 0)
-+		return val;
-+
-+	val &= ~(MDIO_AN_CTRL1_ENABLE | MDIO_AN_CTRL1_RESTART);
-+
-+	return phy_write_mmd(phydev, MDIO_MMD_AN, MDIO_CTRL1, val);
-+}
-+EXPORT_SYMBOL_GPL(genphy_c45_an_disable_aneg);
-+
-+/**
-+ * genphy_c45_restart_aneg - Enable and restart auto-negotiation
-+ * @phydev: target phy_device struct
-+ *
-+ * This assumes that the auto-negotiation MMD is present.
-+ *
-+ * Enable and restart auto-negotiation.
-+ */
-+int genphy_c45_restart_aneg(struct phy_device *phydev)
-+{
-+	int val;
-+
-+	val = phy_read_mmd(phydev, MDIO_MMD_AN, MDIO_CTRL1);
-+	if (val < 0)
-+		return val;
-+
-+	val |= MDIO_AN_CTRL1_ENABLE | MDIO_AN_CTRL1_RESTART;
-+
-+	return phy_write_mmd(phydev, MDIO_MMD_AN, MDIO_CTRL1, val);
-+}
-+EXPORT_SYMBOL_GPL(genphy_c45_restart_aneg);
-+
-+/**
-+ * genphy_c45_aneg_done - return auto-negotiation complete status
-+ * @phydev: target phy_device struct
-+ *
-+ * This assumes that the auto-negotiation MMD is present.
-+ *
-+ * Reads the status register from the auto-negotiation MMD, returning:
-+ * - positive if auto-negotiation is complete
-+ * - negative errno code on error
-+ * - zero otherwise
-+ */
-+int genphy_c45_aneg_done(struct phy_device *phydev)
-+{
-+	int val = phy_read_mmd(phydev, MDIO_MMD_AN, MDIO_STAT1);
-+
-+	return val < 0 ? val : val & MDIO_AN_STAT1_COMPLETE ? 1 : 0;
-+}
-+EXPORT_SYMBOL_GPL(genphy_c45_aneg_done);
-+
-+/**
-+ * genphy_c45_read_link - read the overall link status from the MMDs
-+ * @phydev: target phy_device struct
-+ * @mmd_mask: MMDs to read status from
-+ *
-+ * Read the link status from the specified MMDs, and if they all indicate
-+ * that the link is up, return positive.  If an error is encountered,
-+ * a negative errno will be returned, otherwise zero.
-+ */
-+int genphy_c45_read_link(struct phy_device *phydev, u32 mmd_mask)
-+{
-+	int val, devad;
-+	bool link = true;
-+
-+	while (mmd_mask) {
-+		devad = __ffs(mmd_mask);
-+		mmd_mask &= ~BIT(devad);
-+
-+		/* The link state is latched low so that momentary link
-+		 * drops can be detected.  Do not double-read the status
-+		 * register if the link is down.
-+		 */
-+		val = phy_read_mmd(phydev, devad, MDIO_STAT1);
-+		if (val < 0)
-+			return val;
-+
-+		if (!(val & MDIO_STAT1_LSTATUS))
-+			link = false;
-+	}
-+
-+	return link;
-+}
-+EXPORT_SYMBOL_GPL(genphy_c45_read_link);
-+
-+/**
-+ * genphy_c45_read_lpa - read the link partner advertisment and pause
-+ * @phydev: target phy_device struct
-+ *
-+ * Read the Clause 45 defined base (7.19) and 10G (7.33) status registers,
-+ * filling in the link partner advertisment, pause and asym_pause members
-+ * in @phydev.  This assumes that the auto-negotiation MMD is present, and
-+ * the backplane bit (7.48.0) is clear.  Clause 45 PHY drivers are expected
-+ * to fill in the remainder of the link partner advert from vendor registers.
-+ */
-+int genphy_c45_read_lpa(struct phy_device *phydev)
-+{
-+	int val;
-+
-+	/* Read the link partner's base page advertisment */
-+	val = phy_read_mmd(phydev, MDIO_MMD_AN, MDIO_AN_LPA);
-+	if (val < 0)
-+		return val;
-+
-+	phydev->lp_advertising = mii_lpa_to_ethtool_lpa_t(val);
-+	phydev->pause = val & LPA_PAUSE_CAP ? 1 : 0;
-+	phydev->asym_pause = val & LPA_PAUSE_ASYM ? 1 : 0;
-+
-+	/* Read the link partner's 10G advertisment */
-+	val = phy_read_mmd(phydev, MDIO_MMD_AN, MDIO_AN_10GBT_STAT);
-+	if (val < 0)
-+		return val;
-+
-+	if (val & MDIO_AN_10GBT_STAT_LP10G)
-+		phydev->lp_advertising |= ADVERTISED_10000baseT_Full;
-+
 +	return 0;
 +}
-+EXPORT_SYMBOL_GPL(genphy_c45_read_lpa);
 +
-+/**
-+ * genphy_c45_read_pma - read link speed etc from PMA
-+ * @phydev: target phy_device struct
-+ */
-+int genphy_c45_read_pma(struct phy_device *phydev)
++static int gen10g_read_status(struct phy_device *phydev)
 +{
-+	int val;
++	u32 mmd_mask = phydev->c45_ids.devices_in_package;
++	int ret;
 +
-+	val = phy_read_mmd(phydev, MDIO_MMD_PMAPMD, MDIO_CTRL1);
-+	if (val < 0)
-+		return val;
-+
-+	switch (val & MDIO_CTRL1_SPEEDSEL) {
-+	case 0:
-+		phydev->speed = SPEED_10;
-+		break;
-+	case MDIO_PMA_CTRL1_SPEED100:
-+		phydev->speed = SPEED_100;
-+		break;
-+	case MDIO_PMA_CTRL1_SPEED1000:
-+		phydev->speed = SPEED_1000;
-+		break;
-+	case MDIO_CTRL1_SPEED10G:
-+		phydev->speed = SPEED_10000;
-+		break;
-+	default:
-+		phydev->speed = SPEED_UNKNOWN;
-+		break;
-+	}
-+
++	/* For now just lie and say it's 10G all the time */
++	phydev->speed = SPEED_10000;
 +	phydev->duplex = DUPLEX_FULL;
 +
-+	return 0;
-+}
-+EXPORT_SYMBOL_GPL(genphy_c45_read_pma);
-diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-index 1219eeab69d1..040575dba98c 100644
---- a/drivers/net/phy/phy_device.c
-+++ b/drivers/net/phy/phy_device.c
-@@ -1483,27 +1483,19 @@ EXPORT_SYMBOL(genphy_read_status);
- 
- static int gen10g_read_status(struct phy_device *phydev)
- {
--	int devad, reg;
- 	u32 mmd_mask = phydev->c45_ids.devices_in_package;
--
--	phydev->link = 1;
-+	int ret;
- 
- 	/* For now just lie and say it's 10G all the time */
- 	phydev->speed = SPEED_10000;
- 	phydev->duplex = DUPLEX_FULL;
- 
--	for (devad = 0; mmd_mask; devad++, mmd_mask = mmd_mask >> 1) {
--		if (!(mmd_mask & 1))
--			continue;
 +	/* Avoid reading the vendor MMDs */
 +	mmd_mask &= ~(BIT(MDIO_MMD_VEND1) | BIT(MDIO_MMD_VEND2));
- 
--		/* Read twice because link state is latched and a
--		 * read moves the current state into the register
--		 */
--		phy_read_mmd(phydev, devad, MDIO_STAT1);
--		reg = phy_read_mmd(phydev, devad, MDIO_STAT1);
--		if (reg < 0 || !(reg & MDIO_STAT1_LSTATUS))
--			phydev->link = 0;
--	}
++
 +	ret = genphy_c45_read_link(phydev, mmd_mask);
 +
 +	phydev->link = ret > 0 ? 1 : 0;
++
++	return 0;
++}
++
++static int gen10g_soft_reset(struct phy_device *phydev)
++{
++	/* Do nothing for now */
++	return 0;
++}
++
++static int gen10g_config_init(struct phy_device *phydev)
++{
++	/* Temporarily just say we support everything */
++	phydev->supported = SUPPORTED_10000baseT_Full;
++	phydev->advertising = SUPPORTED_10000baseT_Full;
++
++	return 0;
++}
++
++static int gen10g_suspend(struct phy_device *phydev)
++{
++	return 0;
++}
++
++static int gen10g_resume(struct phy_device *phydev)
++{
++	return 0;
++}
++
++struct phy_driver genphy_10g_driver = {
++	.phy_id         = 0xffffffff,
++	.phy_id_mask    = 0xffffffff,
++	.name           = "Generic 10G PHY",
++	.soft_reset	= gen10g_soft_reset,
++	.config_init    = gen10g_config_init,
++	.features       = 0,
++	.config_aneg    = gen10g_config_aneg,
++	.read_status    = gen10g_read_status,
++	.suspend        = gen10g_suspend,
++	.resume         = gen10g_resume,
++};
+diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+index 040575dba98c..cedd1fd91626 100644
+--- a/drivers/net/phy/phy_device.c
++++ b/drivers/net/phy/phy_device.c
+@@ -69,13 +69,8 @@ static void phy_mdio_device_remove(struct mdio_device *mdiodev)
+ 	phy_device_remove(phydev);
+ }
+ 
+-enum genphy_driver {
+-	GENPHY_DRV_1G,
+-	GENPHY_DRV_10G,
+-	GENPHY_DRV_MAX
+-};
+-
+-static struct phy_driver genphy_driver[GENPHY_DRV_MAX];
++static struct phy_driver genphy_driver;
++extern struct phy_driver genphy_10g_driver;
+ 
+ static LIST_HEAD(phy_fixup_list);
+ static DEFINE_MUTEX(phy_fixup_lock);
+@@ -928,11 +923,9 @@ int phy_attach_direct(struct net_device *dev, struct phy_device *phydev,
+ 	 */
+ 	if (!d->driver) {
+ 		if (phydev->is_c45)
+-			d->driver =
+-				&genphy_driver[GENPHY_DRV_10G].mdiodrv.driver;
++			d->driver = &genphy_10g_driver.mdiodrv.driver;
+ 		else
+-			d->driver =
+-				&genphy_driver[GENPHY_DRV_1G].mdiodrv.driver;
++			d->driver = &genphy_driver.mdiodrv.driver;
+ 
+ 		using_genphy = true;
+ 	}
+@@ -1048,7 +1041,6 @@ void phy_detach(struct phy_device *phydev)
+ 	struct net_device *dev = phydev->attached_dev;
+ 	struct module *ndev_owner = dev->dev.parent->driver->owner;
+ 	struct mii_bus *bus;
+-	int i;
+ 
+ 	phydev->attached_dev->phydev = NULL;
+ 	phydev->attached_dev = NULL;
+@@ -1063,13 +1055,9 @@ void phy_detach(struct phy_device *phydev)
+ 	 * from the generic driver so that there's a chance a
+ 	 * real driver could be loaded
+ 	 */
+-	for (i = 0; i < ARRAY_SIZE(genphy_driver); i++) {
+-		if (phydev->mdio.dev.driver ==
+-		    &genphy_driver[i].mdiodrv.driver) {
+-			device_release_driver(&phydev->mdio.dev);
+-			break;
+-		}
+-	}
++	if (phydev->mdio.dev.driver == &genphy_10g_driver.mdiodrv.driver ||
++	    phydev->mdio.dev.driver == &genphy_driver.mdiodrv.driver)
++		device_release_driver(&phydev->mdio.dev);
+ 
+ 	/*
+ 	 * The phydev might go away on the put_device() below, so avoid
+@@ -1343,11 +1331,6 @@ int genphy_aneg_done(struct phy_device *phydev)
+ }
+ EXPORT_SYMBOL(genphy_aneg_done);
+ 
+-static int gen10g_config_aneg(struct phy_device *phydev)
+-{
+-	return 0;
+-}
+-
+ /**
+  * genphy_update_link - update link status in @phydev
+  * @phydev: target phy_device struct
+@@ -1481,25 +1464,6 @@ int genphy_read_status(struct phy_device *phydev)
+ }
+ EXPORT_SYMBOL(genphy_read_status);
+ 
+-static int gen10g_read_status(struct phy_device *phydev)
+-{
+-	u32 mmd_mask = phydev->c45_ids.devices_in_package;
+-	int ret;
+-
+-	/* For now just lie and say it's 10G all the time */
+-	phydev->speed = SPEED_10000;
+-	phydev->duplex = DUPLEX_FULL;
+-
+-	/* Avoid reading the vendor MMDs */
+-	mmd_mask &= ~(BIT(MDIO_MMD_VEND1) | BIT(MDIO_MMD_VEND2));
+-
+-	ret = genphy_c45_read_link(phydev, mmd_mask);
+-
+-	phydev->link = ret > 0 ? 1 : 0;
+-
+-	return 0;
+-}
+-
+ /**
+  * genphy_soft_reset - software reset the PHY via BMCR_RESET bit
+  * @phydev: target phy_device struct
+@@ -1563,23 +1527,8 @@ int genphy_config_init(struct phy_device *phydev)
  
  	return 0;
  }
-diff --git a/include/linux/phy.h b/include/linux/phy.h
-index e76e4adbc7c7..735ff1f98db3 100644
---- a/include/linux/phy.h
-+++ b/include/linux/phy.h
-@@ -816,6 +816,8 @@ static inline const char *phydev_name(const struct phy_device *phydev)
- void phy_attached_print(struct phy_device *phydev, const char *fmt, ...)
- 	__printf(2, 3);
- void phy_attached_info(struct phy_device *phydev);
-+
-+/* Clause 22 PHY */
- int genphy_config_init(struct phy_device *phydev);
- int genphy_setup_forced(struct phy_device *phydev);
- int genphy_restart_aneg(struct phy_device *phydev);
-@@ -830,6 +832,16 @@ static inline int genphy_no_soft_reset(struct phy_device *phydev)
+-
+-static int gen10g_soft_reset(struct phy_device *phydev)
+-{
+-	/* Do nothing for now */
+-	return 0;
+-}
+ EXPORT_SYMBOL(genphy_config_init);
+ 
+-static int gen10g_config_init(struct phy_device *phydev)
+-{
+-	/* Temporarily just say we support everything */
+-	phydev->supported = SUPPORTED_10000baseT_Full;
+-	phydev->advertising = SUPPORTED_10000baseT_Full;
+-
+-	return 0;
+-}
+-
+ int genphy_suspend(struct phy_device *phydev)
  {
- 	return 0;
+ 	int value;
+@@ -1595,11 +1544,6 @@ int genphy_suspend(struct phy_device *phydev)
  }
+ EXPORT_SYMBOL(genphy_suspend);
+ 
+-static int gen10g_suspend(struct phy_device *phydev)
+-{
+-	return 0;
+-}
+-
+ int genphy_resume(struct phy_device *phydev)
+ {
+ 	int value;
+@@ -1615,11 +1559,6 @@ int genphy_resume(struct phy_device *phydev)
+ }
+ EXPORT_SYMBOL(genphy_resume);
+ 
+-static int gen10g_resume(struct phy_device *phydev)
+-{
+-	return 0;
+-}
+-
+ static int __set_phy_supported(struct phy_device *phydev, u32 max_speed)
+ {
+ 	/* The default values for phydev->supported are provided by the PHY
+@@ -1851,8 +1790,7 @@ void phy_drivers_unregister(struct phy_driver *drv, int n)
+ }
+ EXPORT_SYMBOL(phy_drivers_unregister);
+ 
+-static struct phy_driver genphy_driver[] = {
+-{
++static struct phy_driver genphy_driver = {
+ 	.phy_id		= 0xffffffff,
+ 	.phy_id_mask	= 0xffffffff,
+ 	.name		= "Generic PHY",
+@@ -1866,18 +1804,7 @@ static struct phy_driver genphy_driver[] = {
+ 	.read_status	= genphy_read_status,
+ 	.suspend	= genphy_suspend,
+ 	.resume		= genphy_resume,
+-}, {
+-	.phy_id         = 0xffffffff,
+-	.phy_id_mask    = 0xffffffff,
+-	.name           = "Generic 10G PHY",
+-	.soft_reset	= gen10g_soft_reset,
+-	.config_init    = gen10g_config_init,
+-	.features       = 0,
+-	.config_aneg    = gen10g_config_aneg,
+-	.read_status    = gen10g_read_status,
+-	.suspend        = gen10g_suspend,
+-	.resume         = gen10g_resume,
+-} };
++};
+ 
+ static int __init phy_init(void)
+ {
+@@ -1887,18 +1814,24 @@ static int __init phy_init(void)
+ 	if (rc)
+ 		return rc;
+ 
+-	rc = phy_drivers_register(genphy_driver,
+-				  ARRAY_SIZE(genphy_driver), THIS_MODULE);
++	rc = phy_driver_register(&genphy_10g_driver, THIS_MODULE);
+ 	if (rc)
++		goto err_10g;
 +
-+/* Clause 45 PHY */
-+int genphy_c45_restart_aneg(struct phy_device *phydev);
-+int genphy_c45_aneg_done(struct phy_device *phydev);
-+int genphy_c45_read_link(struct phy_device *phydev, u32 mmd_mask);
-+int genphy_c45_read_lpa(struct phy_device *phydev);
-+int genphy_c45_read_pma(struct phy_device *phydev);
-+int genphy_c45_pma_setup_forced(struct phy_device *phydev);
-+int genphy_c45_an_disable_aneg(struct phy_device *phydev);
-+
- void phy_driver_unregister(struct phy_driver *drv);
- void phy_drivers_unregister(struct phy_driver *drv, int n);
- int phy_driver_register(struct phy_driver *new_driver, struct module *owner);
++	rc = phy_driver_register(&genphy_driver, THIS_MODULE);
++	if (rc) {
++		phy_driver_unregister(&genphy_10g_driver);
++err_10g:
+ 		mdio_bus_exit();
++	}
+ 
+ 	return rc;
+ }
+ 
+ static void __exit phy_exit(void)
+ {
+-	phy_drivers_unregister(genphy_driver,
+-			       ARRAY_SIZE(genphy_driver));
++	phy_driver_unregister(&genphy_10g_driver);
++	phy_driver_unregister(&genphy_driver);
+ 	mdio_bus_exit();
+ }
+ 
 -- 
 2.7.4
