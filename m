@@ -1,78 +1,93 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 00/14][pull request] 40GbE Intel Wired LAN Driver Updates 2017-06-01
-Date: Thu,  1 Jun 2017 14:38:26 -0700
-Message-ID: <20170601213840.36286-1-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
+Subject: [net-next 06/14] virtchnl: convert to new macros
+Date: Thu,  1 Jun 2017 14:38:32 -0700
+Message-ID: <20170601213840.36286-7-jeffrey.t.kirsher@intel.com>
+References: <20170601213840.36286-1-jeffrey.t.kirsher@intel.com>
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
+        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+        jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga04.intel.com ([192.55.52.120]:40283 "EHLO mga04.intel.com"
+Received: from mga04.intel.com ([192.55.52.120]:12134 "EHLO mga04.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751050AbdFAVi5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 1 Jun 2017 17:38:57 -0400
+        id S1751050AbdFAVjA (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 1 Jun 2017 17:39:00 -0400
+In-Reply-To: <20170601213840.36286-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to i40e, i40evf and the "new" AVF virtchnl.
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-This is the introduction of the Intel(R) Ethernet Adaptive Virtual
-Function driver code and device ID, as presented at the NetDEV 1.2
-conference in 2016.
-http://netdevconf.org/1.2/session.html?anjali-singhai
+As part of the conversion, change the arguments
+to VF_IS_V1[01] macros and move them to virtchnl.h
 
-The idea is to convert the interface between the i40evf driver
-and the parent i40e PF driver to be generic, as the i40evf driver
-should in the future be able to run on top of other Intel PF
-drivers, and negotiate any features beyond a "base expected" set.
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 6 +++---
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h | 3 ---
+ include/linux/avf/virtchnl.h                       | 3 +++
+ 3 files changed, 6 insertions(+), 6 deletions(-)
 
-The following are changes since commit 0266f79778de0afadd070941aae493c28529d974:
-  mlxsw: spectrum: Add bridge dependency for spectrum
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue 40GbE
-
-Jesse Brandeburg (11):
-  i40evf: drop i40e_type.h include
-  i40e/i40evf: create and use new unified header file
-  i40e: use new unified virtchnl header file
-  virtchnl: rename i40e to generic virtchnl
-  virtchnl: move some code to core driver
-  virtchnl: convert to new macros
-  i40e/virtchnl: refactor code for validate checks
-  i40evf/virtchnl: whitespace cleanups
-  virtchnl: finish conversion to virtchnl interface
-  i40e/virtchnl: move function to virtchnl
-  i40evf: update i40evf.txt with new content
-
-Preethi Banala (1):
-  i40evf: Add support for Adaptive Virtual Function
-
-Sridhar Samudrala (2):
-  virtchnl: Add pad fields to a couple of structures
-  virtchnl: Add compile time static asserts to validate structure sizes
-
- Documentation/networking/i40evf.txt                |  23 +-
- MAINTAINERS                                        |   1 +
- drivers/net/ethernet/intel/Kconfig                 |  10 +-
- drivers/net/ethernet/intel/i40e/i40e.h             |   2 +-
- drivers/net/ethernet/intel/i40e/i40e_client.c      |   2 +-
- drivers/net/ethernet/intel/i40e/i40e_common.c      |   2 +-
- drivers/net/ethernet/intel/i40e/i40e_prototype.h   |   6 +-
- drivers/net/ethernet/intel/i40e/i40e_virtchnl.h    | 449 -------------
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 474 +++++---------
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h |   9 +-
- drivers/net/ethernet/intel/i40evf/i40e_common.c    |  15 +-
- drivers/net/ethernet/intel/i40evf/i40e_devids.h    |   1 +
- drivers/net/ethernet/intel/i40evf/i40e_prototype.h |   6 +-
- drivers/net/ethernet/intel/i40evf/i40e_virtchnl.h  | 448 -------------
- drivers/net/ethernet/intel/i40evf/i40evf.h         |  26 +-
- drivers/net/ethernet/intel/i40evf/i40evf_client.c  |  18 +-
- drivers/net/ethernet/intel/i40evf/i40evf_main.c    |  66 +-
- .../net/ethernet/intel/i40evf/i40evf_virtchnl.c    | 285 +++++----
- include/linux/avf/virtchnl.h                       | 701 +++++++++++++++++++++
- 19 files changed, 1109 insertions(+), 1435 deletions(-)
- delete mode 100644 drivers/net/ethernet/intel/i40e/i40e_virtchnl.h
- delete mode 100644 drivers/net/ethernet/intel/i40evf/i40e_virtchnl.h
- create mode 100644 include/linux/avf/virtchnl.h
-
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+index d7fcc4ffa393..923026a255c0 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+@@ -1481,7 +1481,7 @@ static int i40e_vc_get_version_msg(struct i40e_vf *vf, u8 *msg)
+ 
+ 	vf->vf_ver = *(struct virtchnl_version_info *)msg;
+ 	/* VFs running the 1.0 API expect to get 1.0 back or they will cry. */
+-	if (VF_IS_V10(vf))
++	if (VF_IS_V10(&vf->vf_ver))
+ 		info.minor = VIRTCHNL_VERSION_MINOR_NO_VF_CAPS;
+ 	return i40e_vc_send_msg_to_vf(vf, VIRTCHNL_OP_VERSION,
+ 				      I40E_SUCCESS, (u8 *)&info,
+@@ -1521,7 +1521,7 @@ static int i40e_vc_get_vf_resources_msg(struct i40e_vf *vf, u8 *msg)
+ 		len = 0;
+ 		goto err;
+ 	}
+-	if (VF_IS_V11(vf))
++	if (VF_IS_V11(&vf->vf_ver))
+ 		vf->driver_caps = *(u32 *)msg;
+ 	else
+ 		vf->driver_caps = VIRTCHNL_VF_OFFLOAD_L2 |
+@@ -2557,7 +2557,7 @@ static int i40e_vc_validate_vf_msg(struct i40e_vf *vf, u32 v_opcode,
+ 	case VIRTCHNL_OP_RESET_VF:
+ 		break;
+ 	case VIRTCHNL_OP_GET_VF_RESOURCES:
+-		if (VF_IS_V11(vf))
++		if (VF_IS_V11(&vf->vf_ver))
+ 			valid_len = sizeof(u32);
+ 		break;
+ 	case VIRTCHNL_OP_CONFIG_TX_QUEUE:
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h
+index b57ffffce141..1f4b0c504368 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h
+@@ -40,9 +40,6 @@
+ #define I40E_VLAN_MASK			0xFFF
+ #define I40E_PRIORITY_MASK		0x7000
+ 
+-#define VF_IS_V10(_v) (((_v)->vf_ver.major == 1) && ((_v)->vf_ver.minor == 0))
+-#define VF_IS_V11(_v) (((_v)->vf_ver.major == 1) && ((_v)->vf_ver.minor == 1))
+-
+ /* Various queue ctrls */
+ enum i40e_queue_ctrl {
+ 	I40E_QUEUE_CTRL_UNKNOWN = 0,
+diff --git a/include/linux/avf/virtchnl.h b/include/linux/avf/virtchnl.h
+index a8b616121960..8ffa670c2ffd 100644
+--- a/include/linux/avf/virtchnl.h
++++ b/include/linux/avf/virtchnl.h
+@@ -123,6 +123,9 @@ struct virtchnl_version_info {
+ 	u32 minor;
+ };
+ 
++#define VF_IS_V10(_v) (((_v)->major == 1) && ((_v)->minor == 0))
++#define VF_IS_V11(_ver) (((_ver)->major == 1) && ((_ver)->minor == 1))
++
+ /* VIRTCHNL_OP_RESET_VF
+  * VF sends this request to PF with no parameters
+  * PF does NOT respond! VF driver must delay then poll VFGEN_RSTAT register
 -- 
 2.12.2
