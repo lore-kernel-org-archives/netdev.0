@@ -1,467 +1,132 @@
-From: Alexei Starovoitov <ast@fb.com>
-Subject: [PATCH v3 net-next 2/3] samples/bpf: add tests for more perf event types
-Date: Thu, 1 Jun 2017 19:03:35 -0700
-Message-ID: <20170602020336.1062853-3-ast@fb.com>
-References: <20170602020336.1062853-1-ast@fb.com>
+From: "Yan, Zheng" <ukernel@gmail.com>
+Subject: Re: [PATCH 04/12] fs: ceph: CURRENT_TIME with ktime_get_real_ts()
+Date: Fri, 2 Jun 2017 10:09:59 +0800
+Message-ID: <CAAM7YAkXNo_69tOrw6a5kpyref9nEpEp-2vxBbFVSHGmAVbt+A@mail.gmail.com>
+References: <1491613030-11599-1-git-send-email-deepa.kernel@gmail.com>
+ <1491613030-11599-5-git-send-email-deepa.kernel@gmail.com>
+ <CAAM7YAmp=cZKqGHa8UqDnrQLCe+6TKx+7w9SDZv4cW5fr4dfvA@mail.gmail.com>
+ <CAK8P3a1pCw1Oo-Wg70kH5L12pbtEzGDfaPZ8g6ErERJjvY8znQ@mail.gmail.com>
+ <CAAM7YAnWLUXMOCVbgfdKGfvK04EtAQcz-ETm7xFO=8Y=_fCvOQ@mail.gmail.com>
+ <CALAqxLV-yVKWM5es7fAFiDzhSQmtZFiZDPQwBRUYbWUtqhoWVg@mail.gmail.com> <CABeXuvqvLr6sSGF+rZEXXxpCBDKTOeLX1ObSjbPPY4aFBuwvMg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Peter Zijlstra <peterz@infradead.org>,
-        Brendan Gregg <bgregg@netflix.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Teng Qin <qinteng@fb.com>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>, <kernel-team@fb.com>
-To: "David S . Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170602020336.1062853-1-ast@fb.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: John Stultz <john.stultz@linaro.org>,
+        Arnd Bergmann <arnd@arndb.de>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        Andrew Morton <akpm@linux-foundation.org>,
+        Thomas Gleixner <tglx@linutronix.de>,
+        Al Viro <viro@zeniv.linux.org.uk>,
+        gregkh <gregkh@linuxfoundation.org>,
+        "Dilger, Andreas" <andreas.dilger@intel.com>,
+        "J. Bruce Fields" <bfields@fieldses.org>, Chris Mason <clm@fb.com>,
+        David Miller <davem@davemloft.net>,
+        David Sterba <dsterba@suse.com>,
+        Evgeniy Dushistov <dushistov@mail.ru>,
+        Eric Paris <eparis@redhat.com>,
+        Jaegeuk Kim <jaegeuk@kernel.org>, Josef Bacik <jbacik@fb.com>,
+        Jeff Layton <jlayton@poochiereds.net>,
+        James Simmons <jsimmons@infradead.org>,
+        Ingo Molnar <mingo@redhat.com>,
+        "Drokin, Oleg" <oleg.drokin@intel.com>,
+        Paul
+To: Deepa Dinamani <deepa.kernel@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vk0-f67.google.com ([209.85.213.67]:32920 "EHLO
+        mail-vk0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751120AbdFBCKB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Jun 2017 22:10:01 -0400
+In-Reply-To: <CABeXuvqvLr6sSGF+rZEXXxpCBDKTOeLX1ObSjbPPY4aFBuwvMg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Teng Qin <qinteng@fb.com>
+On Fri, Jun 2, 2017 at 8:57 AM, Deepa Dinamani <deepa.kernel@gmail.com> wrote:
+> On Thu, Jun 1, 2017 at 5:36 PM, John Stultz <john.stultz@linaro.org> wrote:
+>> On Thu, Jun 1, 2017 at 5:26 PM, Yan, Zheng <ukernel@gmail.com> wrote:
+>>> On Thu, Jun 1, 2017 at 6:22 PM, Arnd Bergmann <arnd@arndb.de> wrote:
+>>>> On Thu, Jun 1, 2017 at 11:56 AM, Yan, Zheng <ukernel@gmail.com> wrote:
+>>>>> On Sat, Apr 8, 2017 at 8:57 AM, Deepa Dinamani <deepa.kernel@gmail.com> wrote:
+>>>>
+>>>>>> diff --git a/drivers/block/rbd.c b/drivers/block/rbd.c
+>>>>>> index 517838b..77204da 100644
+>>>>>> --- a/drivers/block/rbd.c
+>>>>>> +++ b/drivers/block/rbd.c
+>>>>>> @@ -1922,7 +1922,7 @@ static void rbd_osd_req_format_write(struct rbd_obj_request *obj_request)
+>>>>>>  {
+>>>>>>         struct ceph_osd_request *osd_req = obj_request->osd_req;
+>>>>>>
+>>>>>> -       osd_req->r_mtime = CURRENT_TIME;
+>>>>>> +       ktime_get_real_ts(&osd_req->r_mtime);
+>>>>>>         osd_req->r_data_offset = obj_request->offset;
+>>>>>>  }
+>>>>>>
+>>>>>> diff --git a/fs/ceph/mds_client.c b/fs/ceph/mds_client.c
+>>>>>> index c681762..1d3fa90 100644
+>>>>>> --- a/fs/ceph/mds_client.c
+>>>>>> +++ b/fs/ceph/mds_client.c
+>>>>>> @@ -1666,6 +1666,7 @@ struct ceph_mds_request *
+>>>>>>  ceph_mdsc_create_request(struct ceph_mds_client *mdsc, int op, int mode)
+>>>>>>  {
+>>>>>>         struct ceph_mds_request *req = kzalloc(sizeof(*req), GFP_NOFS);
+>>>>>> +       struct timespec ts;
+>>>>>>
+>>>>>>         if (!req)
+>>>>>>                 return ERR_PTR(-ENOMEM);
+>>>>>> @@ -1684,7 +1685,8 @@ ceph_mdsc_create_request(struct ceph_mds_client *mdsc, int op, int mode)
+>>>>>>         init_completion(&req->r_safe_completion);
+>>>>>>         INIT_LIST_HEAD(&req->r_unsafe_item);
+>>>>>>
+>>>>>> -       req->r_stamp = current_fs_time(mdsc->fsc->sb);
+>>>>>> +       ktime_get_real_ts(&ts);
+>>>>>> +       req->r_stamp = timespec_trunc(ts, mdsc->fsc->sb->s_time_gran);
+>>>>>
+>>>>> This change causes our kernel_untar_tar test case to fail (inode's
+>>>>> ctime goes back). The reason is that there is time drift between the
+>>>>> time stamps got by  ktime_get_real_ts() and current_time(). We need to
+>>>>> revert this change until current_time() uses ktime_get_real_ts()
+>>>>> internally.
+>>>>
+>>>> Hmm, the change was not supposed to have a user-visible effect, so
+>>>> something has gone wrong, but I don't immediately see how it
+>>>> relates to what you observe.
+>>>>
+>>>> ktime_get_real_ts() and current_time() use the same time base, there
+>>>> is no drift, but there is a difference in resolution, as the latter uses
+>>>> the time stamp of the last jiffies update, which may be up to one jiffy
+>>>> (10ms) behind the exact time we put in the request stamps here.
+>>>>
+>>>> Do you still see problems if you use current_kernel_time() instead of
+>>>> ktime_get_real_ts()?
+>>>
+>>> The problem disappears after using current_kernel_time().
+>>>
+>>> https://github.com/ceph/ceph-client/commit/2e0f648da23167034a3cf1500bc90ec60aef2417
+>>
+>> From the commit above:
+>> "It seems there is time drift between ktime_get_real_ts() and
+>> current_kernel_time()"
+>>
+>> Its more of a granularity difference. current_kernel_time() returns
+>> the cached time at the last tick, where as ktime_get_real_ts() reads
+>> the clocksource hardware and returns the immediate time.
+>>
+>> Filesystems usually use the cached time (similar to
+>> CLOCK_REALTIME_COARSE), for performance reasons, as touching the
+>> clocksource takes time.
+>
+> Alternatively, it would be best for this code also to use current_time().
+> I had suggested this in one of the previous versions of the patch.
+> The implementation of current_time() will change when we switch vfs to
+> use 64 bit time. This will prevent such errors from happening again.
+> But, this also means there is more code reordering for these modules
+> to get a reference to inode.
+>
 
-$ trace_event
+I took a look. it's quite inconvenience to use current_time(). I
+prefer to temporarily use current_kernel_time().
 
-tests attaching BPF program to HW_CPU_CYCLES, SW_CPU_CLOCK, HW_CACHE_L1D and other events.
-It runs 'dd' in the background while bpf program collects user and kernel
-stack trace on counter overflow.
-User space expects to see sys_read and sys_write in the kernel stack.
+Regards
+Yan, Zheng
 
-$ tracex6
 
-tests reading of various perf counters from BPF program.
 
-Both tests were refactored to increase coverage and be more accurate.
-
-Signed-off-by: Teng Qin <qinteng@fb.com>
-Signed-off-by: Alexei Starovoitov <ast@kernel.org>
----
- samples/bpf/bpf_helpers.h      |   3 +-
- samples/bpf/trace_event_user.c |  73 ++++++++++++++---
- samples/bpf/tracex6_kern.c     |  28 +++++--
- samples/bpf/tracex6_user.c     | 180 ++++++++++++++++++++++++++++++++---------
- 4 files changed, 228 insertions(+), 56 deletions(-)
-
-diff --git a/samples/bpf/bpf_helpers.h b/samples/bpf/bpf_helpers.h
-index 9a9c95f2c9fb..51e567bc70fc 100644
---- a/samples/bpf/bpf_helpers.h
-+++ b/samples/bpf/bpf_helpers.h
-@@ -31,7 +31,8 @@ static unsigned long long (*bpf_get_current_uid_gid)(void) =
- 	(void *) BPF_FUNC_get_current_uid_gid;
- static int (*bpf_get_current_comm)(void *buf, int buf_size) =
- 	(void *) BPF_FUNC_get_current_comm;
--static int (*bpf_perf_event_read)(void *map, int index) =
-+static unsigned long long (*bpf_perf_event_read)(void *map,
-+						 unsigned long long flags) =
- 	(void *) BPF_FUNC_perf_event_read;
- static int (*bpf_clone_redirect)(void *ctx, int ifindex, int flags) =
- 	(void *) BPF_FUNC_clone_redirect;
-diff --git a/samples/bpf/trace_event_user.c b/samples/bpf/trace_event_user.c
-index fa4336423da5..7bd827b84a67 100644
---- a/samples/bpf/trace_event_user.c
-+++ b/samples/bpf/trace_event_user.c
-@@ -75,7 +75,10 @@ static void print_stack(struct key_t *key, __u64 count)
- 		for (i = PERF_MAX_STACK_DEPTH - 1; i >= 0; i--)
- 			print_addr(ip[i]);
- 	}
--	printf("\n");
-+	if (count < 6)
-+		printf("\r");
-+	else
-+		printf("\n");
- 
- 	if (key->kernstack == -EEXIST && !warned) {
- 		printf("stackmap collisions seen. Consider increasing size\n");
-@@ -105,7 +108,7 @@ static void print_stacks(void)
- 		bpf_map_delete_elem(fd, &next_key);
- 		key = next_key;
- 	}
--
-+	printf("\n");
- 	if (!sys_read_seen || !sys_write_seen) {
- 		printf("BUG kernel stack doesn't contain sys_read() and sys_write()\n");
- 		int_exit(0);
-@@ -122,24 +125,29 @@ static void test_perf_event_all_cpu(struct perf_event_attr *attr)
- {
- 	int nr_cpus = sysconf(_SC_NPROCESSORS_CONF);
- 	int *pmu_fd = malloc(nr_cpus * sizeof(int));
--	int i;
-+	int i, error = 0;
- 
- 	/* open perf_event on all cpus */
- 	for (i = 0; i < nr_cpus; i++) {
- 		pmu_fd[i] = sys_perf_event_open(attr, -1, i, -1, 0);
- 		if (pmu_fd[i] < 0) {
- 			printf("sys_perf_event_open failed\n");
-+			error = 1;
- 			goto all_cpu_err;
- 		}
- 		assert(ioctl(pmu_fd[i], PERF_EVENT_IOC_SET_BPF, prog_fd[0]) == 0);
--		assert(ioctl(pmu_fd[i], PERF_EVENT_IOC_ENABLE, 0) == 0);
-+		assert(ioctl(pmu_fd[i], PERF_EVENT_IOC_ENABLE) == 0);
- 	}
--	system("dd if=/dev/zero of=/dev/null count=5000k");
-+	system("dd if=/dev/zero of=/dev/null count=5000k status=none");
- 	print_stacks();
- all_cpu_err:
--	for (i--; i >= 0; i--)
-+	for (i--; i >= 0; i--) {
-+		ioctl(pmu_fd[i], PERF_EVENT_IOC_DISABLE);
- 		close(pmu_fd[i]);
-+	}
- 	free(pmu_fd);
-+	if (error)
-+		int_exit(0);
- }
- 
- static void test_perf_event_task(struct perf_event_attr *attr)
-@@ -150,12 +158,13 @@ static void test_perf_event_task(struct perf_event_attr *attr)
- 	pmu_fd = sys_perf_event_open(attr, 0, -1, -1, 0);
- 	if (pmu_fd < 0) {
- 		printf("sys_perf_event_open failed\n");
--		return;
-+		int_exit(0);
- 	}
- 	assert(ioctl(pmu_fd, PERF_EVENT_IOC_SET_BPF, prog_fd[0]) == 0);
--	assert(ioctl(pmu_fd, PERF_EVENT_IOC_ENABLE, 0) == 0);
--	system("dd if=/dev/zero of=/dev/null count=5000k");
-+	assert(ioctl(pmu_fd, PERF_EVENT_IOC_ENABLE) == 0);
-+	system("dd if=/dev/zero of=/dev/null count=5000k status=none");
- 	print_stacks();
-+	ioctl(pmu_fd, PERF_EVENT_IOC_DISABLE);
- 	close(pmu_fd);
- }
- 
-@@ -175,11 +184,56 @@ static void test_bpf_perf_event(void)
- 		.config = PERF_COUNT_SW_CPU_CLOCK,
- 		.inherit = 1,
- 	};
-+	struct perf_event_attr attr_hw_cache_l1d = {
-+		.sample_freq = SAMPLE_FREQ,
-+		.freq = 1,
-+		.type = PERF_TYPE_HW_CACHE,
-+		.config =
-+			PERF_COUNT_HW_CACHE_L1D |
-+			(PERF_COUNT_HW_CACHE_OP_READ << 8) |
-+			(PERF_COUNT_HW_CACHE_RESULT_ACCESS << 16),
-+		.inherit = 1,
-+	};
-+	struct perf_event_attr attr_hw_cache_branch_miss = {
-+		.sample_freq = SAMPLE_FREQ,
-+		.freq = 1,
-+		.type = PERF_TYPE_HW_CACHE,
-+		.config =
-+			PERF_COUNT_HW_CACHE_BPU |
-+			(PERF_COUNT_HW_CACHE_OP_READ << 8) |
-+			(PERF_COUNT_HW_CACHE_RESULT_MISS << 16),
-+		.inherit = 1,
-+	};
-+	struct perf_event_attr attr_type_raw = {
-+		.sample_freq = SAMPLE_FREQ,
-+		.freq = 1,
-+		.type = PERF_TYPE_RAW,
-+		/* Intel Instruction Retired */
-+		.config = 0xc0,
-+		.inherit = 1,
-+	};
- 
-+	printf("Test HW_CPU_CYCLES\n");
- 	test_perf_event_all_cpu(&attr_type_hw);
- 	test_perf_event_task(&attr_type_hw);
-+
-+	printf("Test SW_CPU_CLOCK\n");
- 	test_perf_event_all_cpu(&attr_type_sw);
- 	test_perf_event_task(&attr_type_sw);
-+
-+	printf("Test HW_CACHE_L1D\n");
-+	test_perf_event_all_cpu(&attr_hw_cache_l1d);
-+	test_perf_event_task(&attr_hw_cache_l1d);
-+
-+	printf("Test HW_CACHE_BPU\n");
-+	test_perf_event_all_cpu(&attr_hw_cache_branch_miss);
-+	test_perf_event_task(&attr_hw_cache_branch_miss);
-+
-+	printf("Test Instruction Retired\n");
-+	test_perf_event_all_cpu(&attr_type_raw);
-+	test_perf_event_task(&attr_type_raw);
-+
-+	printf("*** PASS ***\n");
- }
- 
- 
-@@ -209,7 +263,6 @@ int main(int argc, char **argv)
- 		return 0;
- 	}
- 	test_bpf_perf_event();
--
- 	int_exit(0);
- 	return 0;
- }
-diff --git a/samples/bpf/tracex6_kern.c b/samples/bpf/tracex6_kern.c
-index be479c4af9e2..8a7d0f977625 100644
---- a/samples/bpf/tracex6_kern.c
-+++ b/samples/bpf/tracex6_kern.c
-@@ -3,22 +3,36 @@
- #include <uapi/linux/bpf.h>
- #include "bpf_helpers.h"
- 
--struct bpf_map_def SEC("maps") my_map = {
-+struct bpf_map_def SEC("maps") counters = {
- 	.type = BPF_MAP_TYPE_PERF_EVENT_ARRAY,
- 	.key_size = sizeof(int),
- 	.value_size = sizeof(u32),
--	.max_entries = 32,
-+	.max_entries = 64,
-+};
-+struct bpf_map_def SEC("maps") values = {
-+	.type = BPF_MAP_TYPE_HASH,
-+	.key_size = sizeof(int),
-+	.value_size = sizeof(u64),
-+	.max_entries = 64,
- };
- 
--SEC("kprobe/sys_write")
-+SEC("kprobe/htab_map_get_next_key")
- int bpf_prog1(struct pt_regs *ctx)
- {
--	u64 count;
- 	u32 key = bpf_get_smp_processor_id();
--	char fmt[] = "CPU-%d   %llu\n";
-+	u64 count, *val;
-+	s64 error;
-+
-+	count = bpf_perf_event_read(&counters, key);
-+	error = (s64)count;
-+	if (error <= -2 && error >= -95)
-+		return 0;
- 
--	count = bpf_perf_event_read(&my_map, key);
--	bpf_trace_printk(fmt, sizeof(fmt), key, count);
-+	val = bpf_map_lookup_elem(&values, &key);
-+	if (val)
-+		*val = count;
-+	else
-+		bpf_map_update_elem(&values, &key, &count, BPF_NOEXIST);
- 
- 	return 0;
- }
-diff --git a/samples/bpf/tracex6_user.c b/samples/bpf/tracex6_user.c
-index ca7874ed77f4..a05a99a0752f 100644
---- a/samples/bpf/tracex6_user.c
-+++ b/samples/bpf/tracex6_user.c
-@@ -1,73 +1,177 @@
--#include <stdio.h>
--#include <unistd.h>
--#include <stdlib.h>
--#include <stdbool.h>
--#include <string.h>
-+#define _GNU_SOURCE
-+
-+#include <assert.h>
- #include <fcntl.h>
--#include <poll.h>
--#include <sys/ioctl.h>
- #include <linux/perf_event.h>
- #include <linux/bpf.h>
--#include "libbpf.h"
-+#include <sched.h>
-+#include <stdio.h>
-+#include <stdlib.h>
-+#include <sys/ioctl.h>
-+#include <sys/resource.h>
-+#include <sys/time.h>
-+#include <sys/types.h>
-+#include <sys/wait.h>
-+#include <unistd.h>
-+
- #include "bpf_load.h"
-+#include "libbpf.h"
- #include "perf-sys.h"
- 
- #define SAMPLE_PERIOD  0x7fffffffffffffffULL
- 
--static void test_bpf_perf_event(void)
-+static void check_on_cpu(int cpu, struct perf_event_attr *attr)
- {
--	int nr_cpus = sysconf(_SC_NPROCESSORS_CONF);
--	int *pmu_fd = malloc(nr_cpus * sizeof(int));
--	int status, i;
-+	int pmu_fd, error = 0;
-+	cpu_set_t set;
-+	__u64 value;
- 
--	struct perf_event_attr attr_insn_pmu = {
-+	/* Move to target CPU */
-+	CPU_ZERO(&set);
-+	CPU_SET(cpu, &set);
-+	assert(sched_setaffinity(0, sizeof(set), &set) == 0);
-+	/* Open perf event and attach to the perf_event_array */
-+	pmu_fd = sys_perf_event_open(attr, -1/*pid*/, cpu/*cpu*/, -1/*group_fd*/, 0);
-+	if (pmu_fd < 0) {
-+		fprintf(stderr, "sys_perf_event_open failed on CPU %d\n", cpu);
-+		error = 1;
-+		goto on_exit;
-+	}
-+	assert(bpf_map_update_elem(map_fd[0], &cpu, &pmu_fd, BPF_ANY) == 0);
-+	assert(ioctl(pmu_fd, PERF_EVENT_IOC_ENABLE, 0) == 0);
-+	/* Trigger the kprobe */
-+	bpf_map_get_next_key(map_fd[1], &cpu, NULL);
-+	/* Check the value */
-+	if (bpf_map_lookup_elem(map_fd[1], &cpu, &value)) {
-+		fprintf(stderr, "Value missing for CPU %d\n", cpu);
-+		error = 1;
-+		goto on_exit;
-+	}
-+	fprintf(stderr, "CPU %d: %llu\n", cpu, value);
-+
-+on_exit:
-+	assert(bpf_map_delete_elem(map_fd[0], &cpu) == 0 || error);
-+	assert(ioctl(pmu_fd, PERF_EVENT_IOC_DISABLE, 0) == 0 || error);
-+	assert(close(pmu_fd) == 0 || error);
-+	assert(bpf_map_delete_elem(map_fd[1], &cpu) == 0 || error);
-+	exit(error);
-+}
-+
-+static void test_perf_event_array(struct perf_event_attr *attr,
-+				  const char *name)
-+{
-+	int i, status, nr_cpus = sysconf(_SC_NPROCESSORS_CONF);
-+	pid_t pid[nr_cpus];
-+	int err = 0;
-+
-+	printf("Test reading %s counters\n", name);
-+
-+	for (i = 0; i < nr_cpus; i++) {
-+		pid[i] = fork();
-+		assert(pid[i] >= 0);
-+		if (pid[i] == 0) {
-+			check_on_cpu(i, attr);
-+			exit(1);
-+		}
-+	}
-+
-+	for (i = 0; i < nr_cpus; i++) {
-+		assert(waitpid(pid[i], &status, 0) == pid[i]);
-+		err |= status;
-+	}
-+
-+	if (err)
-+		printf("Test: %s FAILED\n", name);
-+}
-+
-+static void test_bpf_perf_event(void)
-+{
-+	struct perf_event_attr attr_cycles = {
- 		.freq = 0,
- 		.sample_period = SAMPLE_PERIOD,
- 		.inherit = 0,
- 		.type = PERF_TYPE_HARDWARE,
- 		.read_format = 0,
- 		.sample_type = 0,
--		.config = 0,/* PMU: cycles */
-+		.config = PERF_COUNT_HW_CPU_CYCLES,
-+	};
-+	struct perf_event_attr attr_clock = {
-+		.freq = 0,
-+		.sample_period = SAMPLE_PERIOD,
-+		.inherit = 0,
-+		.type = PERF_TYPE_SOFTWARE,
-+		.read_format = 0,
-+		.sample_type = 0,
-+		.config = PERF_COUNT_SW_CPU_CLOCK,
-+	};
-+	struct perf_event_attr attr_raw = {
-+		.freq = 0,
-+		.sample_period = SAMPLE_PERIOD,
-+		.inherit = 0,
-+		.type = PERF_TYPE_RAW,
-+		.read_format = 0,
-+		.sample_type = 0,
-+		/* Intel Instruction Retired */
-+		.config = 0xc0,
-+	};
-+	struct perf_event_attr attr_l1d_load = {
-+		.freq = 0,
-+		.sample_period = SAMPLE_PERIOD,
-+		.inherit = 0,
-+		.type = PERF_TYPE_HW_CACHE,
-+		.read_format = 0,
-+		.sample_type = 0,
-+		.config =
-+			PERF_COUNT_HW_CACHE_L1D |
-+			(PERF_COUNT_HW_CACHE_OP_READ << 8) |
-+			(PERF_COUNT_HW_CACHE_RESULT_ACCESS << 16),
-+	};
-+	struct perf_event_attr attr_llc_miss = {
-+		.freq = 0,
-+		.sample_period = SAMPLE_PERIOD,
-+		.inherit = 0,
-+		.type = PERF_TYPE_HW_CACHE,
-+		.read_format = 0,
-+		.sample_type = 0,
-+		.config =
-+			PERF_COUNT_HW_CACHE_LL |
-+			(PERF_COUNT_HW_CACHE_OP_READ << 8) |
-+			(PERF_COUNT_HW_CACHE_RESULT_MISS << 16),
-+	};
-+	struct perf_event_attr attr_msr_tsc = {
-+		.freq = 0,
-+		.sample_period = 0,
-+		.inherit = 0,
-+		/* From /sys/bus/event_source/devices/msr/ */
-+		.type = 7,
-+		.read_format = 0,
-+		.sample_type = 0,
-+		.config = 0,
- 	};
- 
--	for (i = 0; i < nr_cpus; i++) {
--		pmu_fd[i] = sys_perf_event_open(&attr_insn_pmu, -1/*pid*/, i/*cpu*/, -1/*group_fd*/, 0);
--		if (pmu_fd[i] < 0) {
--			printf("event syscall failed\n");
--			goto exit;
--		}
--
--		bpf_map_update_elem(map_fd[0], &i, &pmu_fd[i], BPF_ANY);
--		ioctl(pmu_fd[i], PERF_EVENT_IOC_ENABLE, 0);
--	}
-+	test_perf_event_array(&attr_cycles, "HARDWARE-cycles");
-+	test_perf_event_array(&attr_clock, "SOFTWARE-clock");
-+	test_perf_event_array(&attr_raw, "RAW-instruction-retired");
-+	test_perf_event_array(&attr_l1d_load, "HW_CACHE-L1D-load");
- 
--	status = system("ls > /dev/null");
--	if (status)
--		goto exit;
--	status = system("sleep 2");
--	if (status)
--		goto exit;
--
--exit:
--	for (i = 0; i < nr_cpus; i++)
--		close(pmu_fd[i]);
--	close(map_fd[0]);
--	free(pmu_fd);
-+	/* below tests may fail in qemu */
-+	test_perf_event_array(&attr_llc_miss, "HW_CACHE-LLC-miss");
-+	test_perf_event_array(&attr_msr_tsc, "Dynamic-msr-tsc");
- }
- 
- int main(int argc, char **argv)
- {
-+	struct rlimit r = {RLIM_INFINITY, RLIM_INFINITY};
- 	char filename[256];
- 
- 	snprintf(filename, sizeof(filename), "%s_kern.o", argv[0]);
- 
-+	setrlimit(RLIMIT_MEMLOCK, &r);
- 	if (load_bpf_file(filename)) {
- 		printf("%s", bpf_log_buf);
- 		return 1;
- 	}
- 
- 	test_bpf_perf_event();
--	read_trace_pipe();
--
- 	return 0;
- }
--- 
-2.9.3
+> -Deepa
