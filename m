@@ -1,29 +1,33 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net] net: dsa: Move dsa_switch_{suspend,resume} out of
- legacy.c
-Date: Fri, 2 Jun 2017 15:53:40 +0200
-Message-ID: <20170602135340.GJ12261@lunn.ch>
-References: <20170602025304.14298-1-f.fainelli@gmail.com>
+Subject: Re: [PATCH] net: phy: marvell: make two functions static
+Date: Fri, 2 Jun 2017 16:00:14 +0200
+Message-ID: <20170602140014.GK12261@lunn.ch>
+References: <20170602111424.31287-1-colin.king@canonical.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        open list <linux-kernel@vger.kernel.org>
-To: Florian Fainelli <f.fainelli@gmail.com>
+Cc: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Colin King <colin.king@canonical.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20170602025304.14298-1-f.fainelli@gmail.com>
+In-Reply-To: <20170602111424.31287-1-colin.king@canonical.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jun 01, 2017 at 07:53:04PM -0700, Florian Fainelli wrote:
-> dsa_switch_suspend() and dsa_switch_resume() are functions that belong in
-> net/dsa/dsa.c and are not part of the legacy platform support code.
+On Fri, Jun 02, 2017 at 12:14:24PM +0100, Colin King wrote:
+> From: Colin Ian King <colin.king@canonical.com>
 > 
-> Fixes: a6a71f19fe5e ("net: dsa: isolate legacy code")
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+> functions m88e1510_get_temp_critical and m88e1510_get_temp_alarm can be
+> made static as they not need to be in global scope.
+> 
+> Cleans up sparse warnings:
+>  "symbol 'm88e1510_get_temp_alarm' was not declared. Should it be static?"
+>  "symbol 'm88e1510_get_temp_critical' was not declared. Should it be 
+>   static?"
 
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+Hi Colin
 
-    Andrew
+What about m88e1510_get_temp_alarm()? That should also have a static.
+
+Thanks
+     Andrew
