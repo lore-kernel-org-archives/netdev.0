@@ -1,31 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next, 2/2] tools: hv: set hotplug for VF on Suse
-Date: Fri, 02 Jun 2017 14:16:30 -0400 (EDT)
-Message-ID: <20170602.141630.2138035412289438557.davem@davemloft.net>
-References: <1496251707-14330-1-git-send-email-sixiao@microsoft.com>
+Subject: Re: [PATCH net-next] liquidio: Fix checkpatch errors with
+ references crossing single line
+Date: Fri, 02 Jun 2017 14:17:28 -0400 (EDT)
+Message-ID: <20170602.141728.2069858968152064186.davem@davemloft.net>
+References: <20170531174515.GA1539@felix-thinkpad.cavium.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kys@microsoft.com, haiyangz@microsoft.com,
-        sthemmin@microsoft.com
-To: sixiao@microsoft.com
+Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
+        derek.chickles@cavium.com, satananda.burla@cavium.com
+To: felix.manlunas@cavium.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:46094 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:46120 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750971AbdFBSQc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 2 Jun 2017 14:16:32 -0400
-In-Reply-To: <1496251707-14330-1-git-send-email-sixiao@microsoft.com>
+        with ESMTP id S1750807AbdFBSR3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 2 Jun 2017 14:17:29 -0400
+In-Reply-To: <20170531174515.GA1539@felix-thinkpad.cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Simon Xiao <sixiao@microsoft.com>
-Date: Wed, 31 May 2017 10:28:27 -0700
+From: Felix Manlunas <felix.manlunas@cavium.com>
+Date: Wed, 31 May 2017 10:45:15 -0700
 
-> On HyperV, the VF interface can be offered by a host at any time.
-> Mark the VF interface as hotplug, to make sure it will be brought up
-> automatically when it is registered.
+> From: Satanand Burla <satananda.burla@cavium.com>
 > 
-> Signed-off-by: Simon Xiao <sixiao@microsoft.com>
-> Reviewed-by: Haiyang Zhang <haiyangz@microsoft.com>
+> Signed-off-by: Satanand Burla <satananda.burla@cavium.com>
+> Signed-off-by: Derek Chickles <derek.chickles@cavium.com>
+> Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
 
 Applied.
