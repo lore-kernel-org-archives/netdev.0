@@ -1,61 +1,46 @@
-From: <Woojung.Huh@microchip.com>
-Subject: RE: [PATCH net-next] net: phy: smsc: Implement PHY statistics
-Date: Fri, 2 Jun 2017 23:35:07 +0000
-Message-ID: <9235D6609DB808459E95D78E17F2E43D40AA9CB9@CHN-SV-EXMX02.mchp-main.com>
-References: <1496438670-30829-1-git-send-email-andrew@lunn.ch>
+From: Paul Burton <paul.burton@imgtec.com>
+Subject: [PATCH v3 0/7] net: pch_gbe: Fixes & MIPS support
+Date: Fri, 2 Jun 2017 16:40:35 -0700
+Message-ID: <20170602234042.22782-1-paul.burton@imgtec.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <vivien.didelot@savoirfairelinux.com>, <cphealy@gmail.com>,
-        <nikita.yoush@cogentembedded.com>, <netdev@vger.kernel.org>
-To: <andrew@lunn.ch>, <davem@davemloft.net>
+Content-Type: text/plain
+Cc: Tobias Klauser <tklauser@distanz.ch>,
+        "David S . Miller" <davem@davemloft.net>,
+        Jarod Wilson <jarod@redhat.com>, <linux-mips@linux-mips.org>,
+        Eric Dumazet <edumazet@google.com>,
+        Paul Burton <paul.burton@imgtec.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from esa1.microchip.iphmx.com ([68.232.147.91]:31715 "EHLO
-        esa1.microchip.iphmx.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750971AbdFBXfJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 2 Jun 2017 19:35:09 -0400
-In-Reply-To: <1496438670-30829-1-git-send-email-andrew@lunn.ch>
-Content-Language: en-US
+Received: from mailapp01.imgtec.com ([195.59.15.196]:3731 "EHLO
+        mailapp01.imgtec.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750971AbdFBXlD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 2 Jun 2017 19:41:03 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andrew,
+The Intel EG20T Platform Controller Hub is used on the MIPS Boston
+development board to provide various peripherals including ethernet.
+This series fixes some issues with the pch_gbe driver discovered whilst
+in use on the Boston board, and implements support for device tree which
+we use to provide the PHY reset GPIO.
 
->  static int smsc_phy_probe(struct phy_device *phydev)
->  {
->  	struct device *dev = &phydev->mdio.dev;
-> @@ -206,6 +258,11 @@ static struct phy_driver smsc_phy_driver[] = {
->  	.ack_interrupt	= smsc_phy_ack_interrupt,
->  	.config_intr	= smsc_phy_config_intr,
-> 
-> +	/* Statistics */
-> +	.get_sset_count = smsc_get_sset_count,
-> +	.get_strings = smsc_get_strings,
-> +	.get_stats = smsc_get_stats,
-> +
-...
-> 
-> +	/* Statistics */
-> +	.get_sset_count = smsc_get_sset_count,
-> +	.get_strings = smsc_get_strings,
-> +	.get_stats = smsc_get_stats,
-> +
-...
-> +	/* Statistics */
-> +	.get_sset_count = smsc_get_sset_count,
-> +	.get_strings = smsc_get_strings,
-> +	.get_stats = smsc_get_stats,
-> +
-...
-> +	/* Statistics */
-> +	.get_sset_count = smsc_get_sset_count,
-> +	.get_strings = smsc_get_strings,
-> +	.get_stats = smsc_get_stats,
-> +
-Just cosmetic thing.
-How about aligning with other members in structure like
-> +	.get_sset_count = smsc_get_sset_count,
-> +	.get_strings     = smsc_get_strings,
-> +	.get_stats        = smsc_get_stats,
+Applies atop v4.12-rc3.
 
-Reviewed-By: Woojung Huh <Woojung.Huh@microchip.com>
+Paul Burton (7):
+  net: pch_gbe: Mark Minnow PHY reset GPIO active low
+  net: pch_gbe: Pull PHY GPIO handling out of Minnow code
+  dt-bindings: net: Document Intel pch_gbe binding
+  net: pch_gbe: Add device tree support
+  net: pch_gbe: Always reset PHY along with MAC
+  net: pch_gbe: Allow longer for resets
+  net: pch_gbe: Allow build on MIPS platforms
+
+ Documentation/devicetree/bindings/net/pch_gbe.txt  | 25 +++++++
+ drivers/net/ethernet/oki-semi/pch_gbe/Kconfig      |  2 +-
+ drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h    |  4 +-
+ .../net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c   | 79 +++++++++++++++++-----
+ 4 files changed, 91 insertions(+), 19 deletions(-)
+ create mode 100644 Documentation/devicetree/bindings/net/pch_gbe.txt
+
+-- 
+2.13.0
