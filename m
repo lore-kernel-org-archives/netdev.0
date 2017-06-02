@@ -1,7 +1,7 @@
 From: Geert Uytterhoeven <geert+renesas@glider.be>
-Subject: [PATCH v3 3/6] dt: booting-without-of: DT fix s/#interrupt-cell/#interrupt-cells/
-Date: Fri,  2 Jun 2017 14:38:46 +0200
-Message-ID: <1496407129-13527-4-git-send-email-geert+renesas@glider.be>
+Subject: [PATCH v3 6/6] dt-bindings: net: btusb: DT fix s/interrupt-name/interrupt-names/
+Date: Fri,  2 Jun 2017 14:38:49 +0200
+Message-ID: <1496407129-13527-7-git-send-email-geert+renesas@glider.be>
 References: <1496407129-13527-1-git-send-email-geert+renesas@glider.be>
 Cc: Neil Armstrong <narmstrong@baylibre.com>,
         Benjamin Herrenschmidt <benh@kernel.crashing.org>,
@@ -19,39 +19,32 @@ To: David Airlie <airlied@linux.ie>, Rob Herring <robh+dt@kernel.org>,
         Chanho Min <chanho.min@lge.com>,
         Catalin Marinas <catalin.marinas@arm.com>,
         Will Deacon <will.deacon@arm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from baptiste.telenet-ops.be ([195.130.132.51]:34224 "EHLO
-        baptiste.telenet-ops.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751204AbdFBMjK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 2 Jun 2017 08:39:10 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1496407129-13527-1-git-send-email-geert+renesas@glider.be>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Fixes: fd913ef7ce619467 ("Bluetooth: btusb: Add out-of-band wakeup support")
 Signed-off-by: Geert Uytterhoeven <geert+renesas@glider.be>
-Acked-by: Rob Herring <robh@kernel.org>
 ---
 v3:
-  - No changes,
-
-v2:
-  - Add Acked-by.
+  - New.
 ---
- Documentation/devicetree/booting-without-of.txt | 2 +-
+ Documentation/devicetree/bindings/net/btusb.txt | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/Documentation/devicetree/booting-without-of.txt b/Documentation/devicetree/booting-without-of.txt
-index 280d283304bb82d8..f35d3adacb987f7d 100644
---- a/Documentation/devicetree/booting-without-of.txt
-+++ b/Documentation/devicetree/booting-without-of.txt
-@@ -1309,7 +1309,7 @@ number and level/sense information. All interrupt children in an
- OpenPIC interrupt domain use 2 cells per interrupt in their interrupts
- property.
- 
--The PCI bus binding specifies a #interrupt-cell value of 1 to encode
-+The PCI bus binding specifies a #interrupt-cells value of 1 to encode
- which interrupt pin (INTA,INTB,INTC,INTD) is used.
- 
- 2) interrupt-parent property
+diff --git a/Documentation/devicetree/bindings/net/btusb.txt b/Documentation/devicetree/bindings/net/btusb.txt
+index 01fa2d4188d4a900..18dd9c386be094db 100644
+--- a/Documentation/devicetree/bindings/net/btusb.txt
++++ b/Documentation/devicetree/bindings/net/btusb.txt
+@@ -37,7 +37,7 @@ Following example uses irq pin number 3 of gpio0 for out of band wake-on-bt:
+ 	compatible = "usb1286,204e";
+ 	reg = <1>;
+ 	interrupt-parent = <&gpio0>;
+-	interrupt-name = "wakeup";
++	interrupt-names = "wakeup";
+ 	interrupts = <3 IRQ_TYPE_LEVEL_LOW>;
+     };
+ };
 -- 
 2.7.4
