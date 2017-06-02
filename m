@@ -1,65 +1,53 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH][wireless-next] qtnfmac: check band before allocating cmd_skb to avoid resource leak
-Date: Fri,  2 Jun 2017 16:40:45 +0100
-Message-ID: <20170602154045.28948-1-colin.king@canonical.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Igor Mitsyanko <imitsyanko@quantenna.com>,
-        Avinash Patil <avinashp@quantenna.com>,
-        Sergey Matyukevich <smatyukevich@quantenna.com>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        Dmitrii Lebed <dlebed@quantenna.com>,
-        Huizhao Wang <hwang@quantenna.com>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+From: Michal Hocko <mhocko@kernel.org>
+Subject: [PATCH] amd-xgbe: use PAGE_ALLOC_COSTLY_ORDER in xgbe_map_rx_buffer
+Date: Fri,  2 Jun 2017 17:54:08 +0200
+Message-ID: <20170602155408.12792-1-mhocko@kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Michal Hocko <mhocko@suse.com>
+To: Tom Lendacky <thomas.lendacky@amd.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Colin Ian King <colin.king@canonical.com>
+From: Michal Hocko <mhocko@suse.com>
 
-The current code allocates cmd_skb and then will leak this if band->band
-is an illegal value. It is simpler to sanity check the band first before
-allocating cmd_skb so that we don't have to free cmd_skb if an invalid
-band occurs.
+xgbe_map_rx_buffer is rather confused about what PAGE_ALLOC_COSTLY_ORDER
+means. It uses PAGE_ALLOC_COSTLY_ORDER-1 assuming that
+PAGE_ALLOC_COSTLY_ORDER is the first costly order which is not the case
+actually because orders larger than that are costly. And even that
+applies only to sleeping allocations which is not the case here. We
+simply do not perform any costly operations like reclaim or compaction
+for those. Simplify the code by dropping the order calculation and use
+PAGE_ALLOC_COSTLY_ORDER directly.
 
-Detected by CoverityScan, CID#1437561 ("Resource Leak")
-
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
+Signed-off-by: Michal Hocko <mhocko@suse.com>
 ---
- drivers/net/wireless/quantenna/qtnfmac/commands.c | 12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/amd/xgbe/xgbe-desc.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/wireless/quantenna/qtnfmac/commands.c b/drivers/net/wireless/quantenna/qtnfmac/commands.c
-index f0a0cfa7d8a1..cce62f39edaf 100644
---- a/drivers/net/wireless/quantenna/qtnfmac/commands.c
-+++ b/drivers/net/wireless/quantenna/qtnfmac/commands.c
-@@ -1300,12 +1300,6 @@ int qtnf_cmd_get_mac_chan_info(struct qtnf_wmac *mac,
- 	int ret = 0;
- 	u8 qband;
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-desc.c b/drivers/net/ethernet/amd/xgbe/xgbe-desc.c
+index b3bc87fe3764..0a98c369df20 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-desc.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-desc.c
+@@ -324,7 +324,7 @@ static int xgbe_map_rx_buffer(struct xgbe_prv_data *pdata,
+ 			      struct xgbe_ring *ring,
+ 			      struct xgbe_ring_data *rdata)
+ {
+-	int order, ret;
++	int ret;
  
--	cmd_skb = qtnf_cmd_alloc_new_cmdskb(mac->macid, 0,
--					    QLINK_CMD_CHANS_INFO_GET,
--					    sizeof(*cmd));
--	if (!cmd_skb)
--		return -ENOMEM;
--
- 	switch (band->band) {
- 	case NL80211_BAND_2GHZ:
- 		qband = QLINK_BAND_2GHZ;
-@@ -1320,6 +1314,12 @@ int qtnf_cmd_get_mac_chan_info(struct qtnf_wmac *mac,
- 		return -EINVAL;
+ 	if (!ring->rx_hdr_pa.pages) {
+ 		ret = xgbe_alloc_pages(pdata, &ring->rx_hdr_pa, GFP_ATOMIC, 0);
+@@ -333,9 +333,8 @@ static int xgbe_map_rx_buffer(struct xgbe_prv_data *pdata,
  	}
  
-+	cmd_skb = qtnf_cmd_alloc_new_cmdskb(mac->macid, 0,
-+					    QLINK_CMD_CHANS_INFO_GET,
-+					    sizeof(*cmd));
-+	if (!cmd_skb)
-+		return -ENOMEM;
-+
- 	cmd = (struct qlink_cmd_chans_info_get *)cmd_skb->data;
- 	cmd->band = qband;
- 	ret = qtnf_cmd_send_with_reply(mac->bus, cmd_skb, &resp_skb, &res_code,
+ 	if (!ring->rx_buf_pa.pages) {
+-		order = max_t(int, PAGE_ALLOC_COSTLY_ORDER - 1, 0);
+ 		ret = xgbe_alloc_pages(pdata, &ring->rx_buf_pa, GFP_ATOMIC,
+-				       order);
++				       PAGE_ALLOC_COSTLY_ORDER);
+ 		if (ret)
+ 			return ret;
+ 	}
 -- 
 2.11.0
