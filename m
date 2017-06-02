@@ -1,60 +1,57 @@
-From: Russell King - ARM Linux <linux@armlinux.org.uk>
-Subject: Re: [PATCH 1/5] net: phy: add 802.3 clause 45 support to phylib
-Date: Fri, 2 Jun 2017 13:39:41 +0100
-Message-ID: <20170602123940.GN22219@n2100.armlinux.org.uk>
-References: <20170601102327.GF27796@n2100.armlinux.org.uk>
- <E1dGNJH-00043Y-Gl@rmk-PC.armlinux.org.uk>
- <34431c1b-025f-55e5-9f31-34e14493541b@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Lunn <andrew@lunn.ch>, netdev@vger.kernel.org
-To: Florian Fainelli <f.fainelli@gmail.com>
+From: Geert Uytterhoeven <geert+renesas@glider.be>
+Subject: [PATCH v3 3/6] dt: booting-without-of: DT fix s/#interrupt-cell/#interrupt-cells/
+Date: Fri,  2 Jun 2017 14:38:46 +0200
+Message-ID: <1496407129-13527-4-git-send-email-geert+renesas@glider.be>
+References: <1496407129-13527-1-git-send-email-geert+renesas@glider.be>
+Cc: Neil Armstrong <narmstrong@baylibre.com>,
+        Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+        Paul Mackerras <paulus@samba.org>,
+        Michael Ellerman <mpe@ellerman.id.au>,
+        dri-devel@lists.freedesktop.org, linux-amlogic@lists.infradead.org,
+        devicetree@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+        linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+        linuxppc-dev@lists.ozlabs.org,
+        Geert Uytterhoeven <geert+renesas@glider.be>
+To: David Airlie <airlied@linux.ie>, Rob Herring <robh+dt@kernel.org>,
+        Mark Rutland <mark.rutland@arm.com>,
+        Carlo Caione <carlo@caione.org>,
+        Kevin Hilman <khilman@baylibre.com>,
+        Chanho Min <chanho.min@lge.com>,
+        Catalin Marinas <catalin.marinas@arm.com>,
+        Will Deacon <will.deacon@arm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pandora.armlinux.org.uk ([78.32.30.218]:42952 "EHLO
-        pandora.armlinux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751148AbdFBMjz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 2 Jun 2017 08:39:55 -0400
-Content-Disposition: inline
-In-Reply-To: <34431c1b-025f-55e5-9f31-34e14493541b@gmail.com>
+Received: from baptiste.telenet-ops.be ([195.130.132.51]:34224 "EHLO
+        baptiste.telenet-ops.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751204AbdFBMjK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 2 Jun 2017 08:39:10 -0400
+In-Reply-To: <1496407129-13527-1-git-send-email-geert+renesas@glider.be>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 01, 2017 at 10:15:28AM -0700, Florian Fainelli wrote:
-> On 06/01/2017 03:26 AM, Russell King wrote:
-> > Add generic helpers for 802.3 clause 45 PHYs for >= 10Gbps support.
-> > 
-> > Signed-off-by: Russell King <rmk+kernel@armlinux.org.uk>
-> > ---
-> 
-> > +	ctrl1 &= ~MDIO_CTRL1_SPEEDSEL;
-> > +	/* PMA/PMD type selection is 1.7.5:0 not 1.7.3:0.  See 45.2.1.6.1. */
-> > +	ctrl2 &= ~(MDIO_PMA_CTRL2_TYPE | 0x30);
-> 
-> You could add a define for this 0x30 to indicate that you are masking
-> off the reserved bits (there are more entries that are reserved
-> actually, but that would do for now).
+Signed-off-by: Geert Uytterhoeven <geert+renesas@glider.be>
+Acked-by: Rob Herring <robh@kernel.org>
+---
+v3:
+  - No changes,
 
-They are not reserved according to 802.3-2015 and 802.3-2012:
+v2:
+  - Add Acked-by.
+---
+ Documentation/devicetree/booting-without-of.txt | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-802.3-2012: 45.2.1.6.1 PMA/PMD type selection (1.7.5:0)
-802.3-2015: 45.2.1.6.3 PMA/PMD type selection (1.7.5:0)
-
-which defines the type selection as occupying six bits, but the definition
-in the UAPI mdio.h header file is:
-
-#define MDIO_PMA_CTRL2_TYPE             0x000f  /* PMA/PMD type selection */
-
-I presume that this is according to an earlier version of 802.3.
-Changing this definition may cause userspace and/or kernel regressions,
-so I propose something like:
-
-#define MDIO_PMA_CTRL2_TYPE_2012        0x003f  /* PMA/PMD type selection */
-
-instead.  The rest of the reserved entries are not specified as being
-part of the type selection (yet) so it would be inappropriate to change
-their value.
-
+diff --git a/Documentation/devicetree/booting-without-of.txt b/Documentation/devicetree/booting-without-of.txt
+index 280d283304bb82d8..f35d3adacb987f7d 100644
+--- a/Documentation/devicetree/booting-without-of.txt
++++ b/Documentation/devicetree/booting-without-of.txt
+@@ -1309,7 +1309,7 @@ number and level/sense information. All interrupt children in an
+ OpenPIC interrupt domain use 2 cells per interrupt in their interrupts
+ property.
+ 
+-The PCI bus binding specifies a #interrupt-cell value of 1 to encode
++The PCI bus binding specifies a #interrupt-cells value of 1 to encode
+ which interrupt pin (INTA,INTB,INTC,INTD) is used.
+ 
+ 2) interrupt-parent property
 -- 
-RMK's Patch system: http://www.armlinux.org.uk/developer/patches/
-FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
-according to speedtest.net.
+2.7.4
