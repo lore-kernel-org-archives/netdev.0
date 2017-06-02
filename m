@@ -1,54 +1,68 @@
-From: Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-Subject: Re: [PATCH v6 00/21] net-next: stmmac: add dwmac-sun8i
- ethernet driver
-Date: Fri, 2 Jun 2017 08:37:52 +0200
-Message-ID: <20170602063752.aqyvwcykvepiyt4y@flea.lan>
-References: <20170531071852.12422-1-clabbe.montjoie@gmail.com>
- <20170601.145819.789604139072328057.davem@davemloft.net>
-Reply-To: maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org
+From: John Johansen <john.johansen@canonical.com>
+Subject: Re: [PATCH 10/12] apparmorfs: Replace CURRENT_TIME with
+ current_time()
+Date: Fri, 2 Jun 2017 00:29:48 -0700
+Message-ID: <b5d3d600-d3fe-669f-f6bc-01dcedbb7fe3@canonical.com>
+References: <1491613030-11599-1-git-send-email-deepa.kernel@gmail.com>
+ <1491613030-11599-11-git-send-email-deepa.kernel@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="jnfaadalxstctcl6"
-Cc: clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
-	wens-jdAy2FN1RRM@public.gmane.org, linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, catalin.marinas-5wv7dgnIgG8@public.gmane.org,
-	will.deacon-5wv7dgnIgG8@public.gmane.org, peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
-	alexandre.torgue-qxv4g6HH51o@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-sunxi+bncBDSJBYGBRIMBBRUPYTEQKGQE3G2PROI-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-Content-Disposition: inline
-In-Reply-To: <20170601.145819.789604139072328057.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Help: <https://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Archive: <https://groups.google.com/group/linux-sunxi
-List-Subscribe: <https://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
- <https://groups.google.com/group/linux-sunxi/subscribe>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: yuchao0@huawei.com, bfields@fieldses.org, clm@fb.com,
+ linux-mtd@lists.infradead.org, dushistov@mail.ru, jlayton@poochiereds.net,
+ tglx@linutronix.de, devel@driverdev.osuosl.org, linux-cifs@vger.kernel.org,
+ paul@paul-moore.com, y2038@lists.linaro.org, mingo@redhat.com,
+ jsimmons@infradead.org, arnd@arndb.de, rostedt@goodmis.org,
+ oleg.drokin@intel.com, john.stultz@linaro.org, viro@zeniv.linux.org.uk,
+ dsterba@suse.com, jaegeuk@kernel.org, ceph-devel@vger.kernel.org,
+ andreas.dilger@intel.com, jbacik@fb.com, gregkh@linuxfoundation.org,
+ samba-technical@lists.samba.org, eparis@redhat.com,
+ linux-f2fs-devel@lists.sourceforge.net, linux-security-module@vger.kernel.org,
+ linux-audit@redhat.com, netdev@vger.kernel.org, linux-fsdevel@vger.kernel.org,
+ davem@davemloft.net, linux-btrfs@vger.kernel.org,
+ lustre-devel@lists.lustre.org
+To: Deepa Dinamani <deepa.kernel@gmail.com>, linux-kernel@vger.kernel.org,
+ akpm@linux-foundation.org
+Return-path: <y2038-bounces@lists.linaro.org>
+In-Reply-To: <1491613030-11599-11-git-send-email-deepa.kernel@gmail.com>
+Content-Language: en-GB
+List-Unsubscribe: <https://lists.linaro.org/mailman/options/y2038>,
+ <mailto:y2038-request@lists.linaro.org?subject=unsubscribe>
+List-Archive: <http://lists.linaro.org/pipermail/y2038/>
+List-Post: <mailto:y2038@lists.linaro.org>
+List-Help: <mailto:y2038-request@lists.linaro.org?subject=help>
+List-Subscribe: <https://lists.linaro.org/mailman/listinfo/y2038>,
+ <mailto:y2038-request@lists.linaro.org?subject=subscribe>
+Errors-To: y2038-bounces@lists.linaro.org
+Sender: "Y2038" <y2038-bounces@lists.linaro.org>
 List-Id: netdev.vger.kernel.org
 
-
---jnfaadalxstctcl6
-Content-Type: text/plain; charset="UTF-8"
-Content-Disposition: inline
-
-On Thu, Jun 01, 2017 at 02:58:19PM -0400, David Miller wrote:
-> From: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> Date: Wed, 31 May 2017 09:18:31 +0200
-> 
-> > This patch series add the driver for dwmac-sun8i which handle the Ethernet MAC
-> > present on Allwinner H3/H5/A83T/A64 SoCs.
-> 
-> Series applied, but wow that's a lot of DT file changes :-(
-
-The DT patches should not go through your tree, but arm-soc, so I
-guess this is not an issue for you?
-
-Maximee
-
--- 
-Maxime Ripard, Free Electrons
-Embedded Linux and Kernel engineering
-http://free-electrons.com
---jnfaadalxstctcl6--
+T24gMDQvMDcvMjAxNyAwNTo1NyBQTSwgRGVlcGEgRGluYW1hbmkgd3JvdGU6Cj4gQ1VSUkVOVF9U
+SU1FIG1hY3JvIGlzIG5vdCB5MjAzOCBzYWZlIG9uIDMyIGJpdCBzeXN0ZW1zLgo+IAo+IFRoZSBw
+YXRjaCByZXBsYWNlcyBhbGwgdGhlIHVzZXMgb2YgQ1VSUkVOVF9USU1FIGJ5Cj4gY3VycmVudF90
+aW1lKCkuCj4gCj4gVGhpcyBpcyBhbHNvIGluIHByZXBhcmF0aW9uIGZvciB0aGUgcGF0Y2ggdGhh
+dCB0cmFuc2l0aW9ucwo+IHZmcyB0aW1lc3RhbXBzIHRvIHVzZSA2NCBiaXQgdGltZSBhbmQgaGVu
+Y2UgbWFrZSB0aGVtCj4geTIwMzggc2FmZS4gY3VycmVudF90aW1lKCkgaXMgYWxzbyBwbGFubmVk
+IHRvIGJlIHRyYW5zaXRpb25lZAo+IHRvIHkyMDM4IHNhZmUgYmVoYXZpb3IgYWxvbmcgd2l0aCB0
+aGlzIGNoYW5nZS4KPiAKPiBDVVJSRU5UX1RJTUUgbWFjcm8gd2lsbCBiZSBkZWxldGVkIGJlZm9y
+ZSBtZXJnaW5nIHRoZQo+IGFmb3JlbWVudGlvbmVkIGNoYW5nZS4KPiAKPiBTaWduZWQtb2ZmLWJ5
+OiBEZWVwYSBEaW5hbWFuaSA8ZGVlcGEua2VybmVsQGdtYWlsLmNvbT4KClRoaXMgaXMgYWxsIGdv
+b2QsIGFuZCBJIGhhdmUgbm8gb2JqZWN0aW9ucyB0byBpdCBiZWluZyBtZXJnZWQgZm9yIDQuMTIu
+CklmIGl0IGlzbid0IHRoaXMgY2hhbmdlIGlzIGFscmVhZHkgcXVldWVkIHVwIGZvciB0aGUgYXBw
+YXJtb3IgNC4xMwptZXJnZQoKQWNrZWQtYnk6IEpvaG4gSm9oYW5zZW4gPGpvaG4uam9oYW5zZW5A
+Y2Fub25pY2FsLmNvbT4KCj4gLS0tCj4gIHNlY3VyaXR5L2FwcGFybW9yL2FwcGFybW9yZnMuYyB8
+IDIgKy0KPiAgMSBmaWxlIGNoYW5nZWQsIDEgaW5zZXJ0aW9uKCspLCAxIGRlbGV0aW9uKC0pCj4g
+Cj4gZGlmZiAtLWdpdCBhL3NlY3VyaXR5L2FwcGFybW9yL2FwcGFybW9yZnMuYyBiL3NlY3VyaXR5
+L2FwcGFybW9yL2FwcGFybW9yZnMuYwo+IGluZGV4IGJlMGI0OTguLjRmNmFjOWQgMTAwNjQ0Cj4g
+LS0tIGEvc2VjdXJpdHkvYXBwYXJtb3IvYXBwYXJtb3Jmcy5jCj4gKysrIGIvc2VjdXJpdHkvYXBw
+YXJtb3IvYXBwYXJtb3Jmcy5jCj4gQEAgLTEzNTcsNyArMTM1Nyw3IEBAIHN0YXRpYyBpbnQgYWFf
+bWtfbnVsbF9maWxlKHN0cnVjdCBkZW50cnkgKnBhcmVudCkKPiAgCj4gIAlpbm9kZS0+aV9pbm8g
+PSBnZXRfbmV4dF9pbm8oKTsKPiAgCWlub2RlLT5pX21vZGUgPSBTX0lGQ0hSIHwgU19JUlVHTyB8
+IFNfSVdVR087Cj4gLQlpbm9kZS0+aV9hdGltZSA9IGlub2RlLT5pX210aW1lID0gaW5vZGUtPmlf
+Y3RpbWUgPSBDVVJSRU5UX1RJTUU7Cj4gKwlpbm9kZS0+aV9hdGltZSA9IGlub2RlLT5pX210aW1l
+ID0gaW5vZGUtPmlfY3RpbWUgPSBjdXJyZW50X3RpbWUoaW5vZGUpOwo+ICAJaW5pdF9zcGVjaWFs
+X2lub2RlKGlub2RlLCBTX0lGQ0hSIHwgU19JUlVHTyB8IFNfSVdVR08sCj4gIAkJCSAgIE1LREVW
+KE1FTV9NQUpPUiwgMykpOwo+ICAJZF9pbnN0YW50aWF0ZShkZW50cnksIGlub2RlKTsKPiAKCl9f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fClkyMDM4IG1haWxp
+bmcgbGlzdApZMjAzOEBsaXN0cy5saW5hcm8ub3JnCmh0dHBzOi8vbGlzdHMubGluYXJvLm9yZy9t
+YWlsbWFuL2xpc3RpbmZvL3kyMDM4Cg==
