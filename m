@@ -1,57 +1,70 @@
-From: Jia-Ju Bai <baijiaju1990-9Onoh4P/yGk@public.gmane.org>
-Subject: Re: [PATCH] b43legacy: Fix a sleep-in-atomic bug in
- b43legacy_attr_interfmode_store
-Date: Fri, 02 Jun 2017 09:18:14 +0800
-Message-ID: <5930BCD6.9010306@163.com>
-References: <1496226547-5921-1-git-send-email-baijiaju1990@163.com>
- <85905124-7167-aeb0-8aff-4ceec09e9542@lwfinger.net>
- <592F6843.9000204@163.com> <20170601101113.6dd30d6d@lwn.net>
+From: "J. Bruce Fields" <bfields@fieldses.org>
+Subject: Re: [PATCH] virtio_net: lower limit on buffer size
+Date: Thu, 1 Jun 2017 21:57:13 -0400
+Message-ID: <20170602015713.GA14874@fieldses.org>
+References: <1496361148-4603-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b43-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
- kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org, Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-To: Jonathan Corbet <corbet-T1hC0tSOHrs@public.gmane.org>
-Return-path: <b43-dev-bounces+gldbd-bcm43xx-dev=gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <20170601101113.6dd30d6d-T1hC0tSOHrs@public.gmane.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/b43-dev>,
- <mailto:b43-dev-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/b43-dev/>
-List-Post: <mailto:b43-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b43-dev-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/b43-dev>,
- <mailto:b43-dev-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: "b43-dev" <b43-dev-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-Errors-To: b43-dev-bounces+gldbd-bcm43xx-dev=gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org,
+        Mikulas Patocka <mpatocka@redhat.com>,
+        Jason Wang <jasowang@redhat.com>,
+        virtualization@lists.linux-foundation.org, netdev@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1496361148-4603-1-git-send-email-mst@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 06/02/2017 12:11 AM, Jonathan Corbet wrote:
-> On Thu, 01 Jun 2017 09:05:07 +0800
-> Jia-Ju Bai<baijiaju1990-9Onoh4P/yGk@public.gmane.org>  wrote:
->
->> I admit my patches are not well tested, and they may not well fix the bugs.
->> I am looking forward to opinions and suggestions :)
-> May I politely suggest that sending out untested locking changes is a
-> dangerous thing to do?  You really should not be changing the locking in a
-> piece of kernel code without understanding very well what the lock is
-> protecting and being able to say why your changes are safe.  Without that,
-> the risk of introducing subtle bugs is very high.
->
-> It looks like you have written a useful tool that could help us to make
-> the kernel more robust.  If you are interested in my suggestion, I would
-> recommend that you post the sleep-in-atomic scenarios that you are
-> finding, but refrain from "fixing" them in any case where you cannot offer
-> a strong explanation of why your fix is correct.
->
-> Thanks for working to find bugs in the kernel!
->
-> jon
-Hi,
+On Fri, Jun 02, 2017 at 02:56:04AM +0300, Michael S. Tsirkin wrote:
+> commit d85b758f72b0 "virtio_net: fix support for small rings"
+> was supposed to increase the buffer size for small rings
+> but had an unintentional side effect of decreasing
+> it for large rings. This seems to break some setups -
+> it's not yet clear why, but increasing buffer size
+> back to what it was before helps.
+> 
+> Fixes: d85b758f72b0 "virtio_net: fix support for small rings"
+> Reported-by: Mikulas Patocka <mpatocka@redhat.com>
+> Reported-by: "J. Bruce Fields" <bfields@fieldses.org>
+> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> ---
+> 
+> Can reporters please confirm whether the following helps?
 
-Thanks for your good and helpful advice. I am sorry for my improper patches.
-I will only report bugs instead of sending improper patches when I have 
-no good solution of fixing the bugs.
+Works for me.
 
-Thanks,
-Jia-Ju Bai
+--b.
+
+> If it does I think we should queue it even though I expect I'll need to
+> investigate the exact reasons for the failure down the road - probably
+> a hypervisor bug.
+> 
+>  drivers/net/virtio_net.c | 5 +++--
+>  1 file changed, 3 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> index 87b5c20..60abb5d 100644
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -842,7 +842,7 @@ static unsigned int get_mergeable_buf_len(struct receive_queue *rq,
+>  	unsigned int len;
+>  
+>  	len = hdr_len + clamp_t(unsigned int, ewma_pkt_len_read(avg_pkt_len),
+> -				rq->min_buf_len - hdr_len, PAGE_SIZE - hdr_len);
+> +				rq->min_buf_len, PAGE_SIZE - hdr_len);
+>  	return ALIGN(len, L1_CACHE_BYTES);
+>  }
+>  
+> @@ -2039,7 +2039,8 @@ static unsigned int mergeable_min_buf_len(struct virtnet_info *vi, struct virtqu
+>  	unsigned int buf_len = hdr_len + ETH_HLEN + VLAN_HLEN + packet_len;
+>  	unsigned int min_buf_len = DIV_ROUND_UP(buf_len, rq_size);
+>  
+> -	return max(min_buf_len, hdr_len);
+> +	return max(max(min_buf_len, hdr_len) - hdr_len,
+> +		   (unsigned int)GOOD_PACKET_LEN);
+>  }
+>  
+>  static int virtnet_find_vqs(struct virtnet_info *vi)
+> -- 
+> MST
