@@ -1,160 +1,100 @@
-From: Nathan Royce <nroycea+kernel@gmail.com>
-Subject: ath9k - Division by zero in kernel (as well as firmware panic)
-Date: Fri, 2 Jun 2017 17:02:21 -0500
-Message-ID: <CALaQ_hrrcu7KebkwLE7xABEgiTwyvcmKb+tUfhG3bRf+kRz7RQ@mail.gmail.com>
+From: Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+Subject: Re: [PATCH v6 00/21] net-next: stmmac: add dwmac-sun8i ethernet
+ driver
+Date: Sat, 3 Jun 2017 00:24:22 +0200
+Message-ID: <20170602222422.2elv6snjp3ahrhbi@flea.lan>
+References: <20170601.145819.789604139072328057.davem@davemloft.net>
+ <20170602063752.aqyvwcykvepiyt4y@flea.lan>
+ <20170602091320.lyfxsanxrypfpozb@flea.lan>
+ <20170602.102205.701672574727845689.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-To: QCA ath9k Development <ath9k-devel@qca.qualcomm.com>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+        protocol="application/pgp-signature"; boundary="neetgydbd5y2azxl"
+Cc: clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
+        mark.rutland-5wv7dgnIgG8@public.gmane.org, wens-jdAy2FN1RRM@public.gmane.org, linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org,
+        catalin.marinas-5wv7dgnIgG8@public.gmane.org, will.deacon-5wv7dgnIgG8@public.gmane.org,
+        peppe.cavallaro-qxv4g6HH51o@public.gmane.org, alexandre.torgue-qxv4g6HH51o@public.gmane.org,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+        linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20170602.102205.701672574727845689.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-ODroid XU4
 
-$ uname -a
-Linux computer 4.12.0-rc3-dirty #1 SMP Wed May 31 15:02:05 CDT 2017
-armv7l GNU/Linux
+--neetgydbd5y2azxl
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-$ lsusb
-...
-Bus 001 Device 002: ID 2109:2813 VIA Labs, Inc.
-Bus 001 Device 010: ID 0cf3:7015 Qualcomm Atheros Communications
-TP-Link TL-WN821N v3 / TL-WN822N v2 802.11n [Atheros AR7010+AR9287]
-...
+Hi,
 
-*****
-Jun 02 16:20:11 computer hostapd[14954]: vwlan0: interface state
-COUNTRY_UPDATE->HT_SCAN
-Jun 02 16:20:17 computer hostapd[14954]: 20/40 MHz operation not
-permitted on channel pri=7 sec=3 based on overlapping BSSes
-Jun 02 16:20:18 computer kernel: Division by zero in kernel.
-Jun 02 16:20:18 computer kernel: CPU: 1 PID: 14507 Comm: kworker/u16:2
-Tainted: G        W       4.12.0-rc3-dirty #1
-Jun 02 16:20:18 computer kernel: Hardware name: SAMSUNG EXYNOS
-(Flattened Device Tree)
-Jun 02 16:20:18 computer kernel: Workqueue: phy5 ieee80211_scan_work [mac80211]
-Jun 02 16:20:18 computer kernel: [<c010ee0c>] (unwind_backtrace) from
-[<c010b61c>] (show_stack+0x10/0x14)
-Jun 02 16:20:18 computer kernel: [<c010b61c>] (show_stack) from
-[<c0377708>] (dump_stack+0x88/0x9c)
-Jun 02 16:20:18 computer kernel: [<c0377708>] (dump_stack) from
-[<c03755d0>] (Ldiv0_64+0x8/0x18)
-Jun 02 16:20:18 computer kernel: [<c03755d0>] (Ldiv0_64) from
-[<bf71c9a4>] (ath9k_get_next_tbtt+0x58/0x5c [ath9k_common])
-Jun 02 16:20:18 computer kernel: [<bf71c9a4>] (ath9k_get_next_tbtt
-[ath9k_common]) from [<bf71cb90>] (ath9k_cmn_beacon_config
-Jun 02 16:20:18 computer kernel: [<bf71cb90>]
-(ath9k_cmn_beacon_config_ap [ath9k_common]) from [<bf7898c8>]
-(ath9k_htc_beacon
-Jun 02 16:20:18 computer kernel: [<bf7898c8>]
-(ath9k_htc_beacon_config_ap [ath9k_htc]) from [<bf7885a8>]
-(ath9k_htc_vif_recon
-Jun 02 16:20:18 computer kernel: [<bf7885a8>] (ath9k_htc_vif_reconfig
-[ath9k_htc]) from [<bf78860c>] (ath9k_htc_sw_scan_compl
-Jun 02 16:20:18 computer kernel: [<bf78860c>]
-(ath9k_htc_sw_scan_complete [ath9k_htc]) from [<bf506d38>]
-(__ieee80211_scan_co
-Jun 02 16:20:18 computer kernel: [<bf506d38>]
-(__ieee80211_scan_completed [mac80211]) from [<bf507968>]
-(ieee80211_scan_work+
-Jun 02 16:20:18 computer kernel: [<bf507968>] (ieee80211_scan_work
-[mac80211]) from [<c0133f10>] (process_one_work+0x1d8/0x40
-Jun 02 16:20:18 computer kernel: [<c0133f10>] (process_one_work) from
-[<c0134cb4>] (worker_thread+0x4c/0x564)
-Jun 02 16:20:18 computer kernel: [<c0134cb4>] (worker_thread) from
-[<c0139c20>] (kthread+0x14c/0x154)
-Jun 02 16:20:18 computer kernel: [<c0139c20>] (kthread) from
-[<c0107c38>] (ret_from_fork+0x14/0x3c)
-Jun 02 16:20:18 computer hostapd[14954]: Using interface wlan0 with
-hwaddr <sanitized> and ssid "<sanitized>"
-Jun 02 16:20:18 computer kernel: IPv6: ADDRCONF(NETDEV_CHANGE):
-vwlan0: link becomes ready
-*****
-This is a new one on me.
+On Fri, Jun 02, 2017 at 10:22:05AM -0400, David Miller wrote:
+> From: Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+> Date: Fri, 2 Jun 2017 11:13:20 +0200
+>=20
+> > On Fri, Jun 02, 2017 at 08:37:52AM +0200, Maxime Ripard wrote:
+> >> On Thu, Jun 01, 2017 at 02:58:19PM -0400, David Miller wrote:
+> >> > From: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> >> > Date: Wed, 31 May 2017 09:18:31 +0200
+> >> >=20
+> >> > > This patch series add the driver for dwmac-sun8i which handle the =
+Ethernet MAC
+> >> > > present on Allwinner H3/H5/A83T/A64 SoCs.
+> >> >=20
+> >> > Series applied, but wow that's a lot of DT file changes :-(
+> >>=20
+> >> The DT patches should not go through your tree, but arm-soc, so I
+> >> guess this is not an issue for you?
+> >=20
+> > Ok, so I saw that you actually merged them. Can you revert or drop
+> > that merge for the DT part?
+> >=20
+> > This will generate a lot of conflicts with our tree, and I'm not sure
+> > this would be efficient to make you take all the entirely unrelated to
+> > next patches.
+>=20
+> Please tell me which specific changes to revert.
+>=20
+> Thank you.
 
-The "normal" problem (search shows to be a very old issue) I
-consistently (daily or multiple times/day) encounter is:
-*****
-Jun 02 14:55:30 computer kernel: usb 1-1.1: ath: firmware panic!
-exccause: 0x0000000d; pc: 0x0090ae81; badvaddr: 0x10ff4038.
-Jun 02 14:55:30 computer kernel: usb 1-1.1: USB disconnect, device number 9
-Jun 02 14:55:30 computer systemd-networkd[11959]: vwlan0: Lost carrier
-Jun 02 14:55:30 computer kernel: br0: port 2(vwlan0) entered disabled state
-Jun 02 14:55:30 computer kernel: wlan0: deauthenticating from
-<sanitized> by local choice (Reason: 3=DEAUTH_LEAVING)
-Jun 02 14:55:30 computer kernel: ath: phy4: Failed to wakeup in 500us
-Jun 02 14:55:30 computer kernel: ath: phy4: Failed to wakeup in 500us
-Jun 02 14:55:30 computer kernel: ath: phy4: Failed to wakeup in 500us
-Jun 02 14:55:30 computer kernel: ath: phy4: Failed to wakeup in 500us
-Jun 02 14:55:30 computer systemd-networkd[11959]: wlan0: Lost carrier
-Jun 02 14:55:30 computer systemd[1]: Stopping A simple WPA encrypted
-wireless connection using a static IP...
--- Subject: Unit netctl@wlan0.service has begun shutting down
--- Defined-By: systemd
--- Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Ideally everything from 2c0cba482e79 ("arm: sun8i: sunxi-h3-h5: Add dt
+node for the syscon control module") to 2428fd0fe550 ("arm64:
+defconfig: Enable dwmac-sun8i driver on defconfig")
+
+Thanks!
+Maxime
+
+--=20
+Maxime Ripard, Free Electrons
+Embedded Linux and Kernel engineering
+http://free-electrons.com
+
+--neetgydbd5y2azxl
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIcBAEBAgAGBQJZMeWWAAoJEBx+YmzsjxAgmv8P/3wb0imU/NQ8m7Gzir2ekey/
+p1B29JLWusZxEKMhZPMLRQnRGJJ5sHZ39jx0I+5g/nd6IHMJUeCeHgJ7WopqCdFg
+eKjmJohZuAgUesby3nxEwWIM6/mQSoVoqq9p4VHJLTsXTVvCKlaE/5mxLfM+Nc9t
+wqjBu2BXPu6pSJjcoYDsAf2znyzVq3QhUulpT6I18pFh2yLs3Wsm3J6rhRLwDYXm
+Y8Nwdfu9LRb2vrAZr/nEPXsAmO7FZK1wJ+pgA6X+kNRgeHgPdAEvllayRDnjjFBD
++2JCgjdwk84pJG6L0yqAoUp/Y964sLAg+wxl+D9o8B0oxOL8D15CCkZ9/W2mBXFq
+/NeN8rbSbnUdyiKPxTsuLkNoqrADyGb7fk6BSr4uKI5o+HwDWQfw9eFt/bClu67q
+0mp2dxkyeFyHzW/Z3ug0JxbaQq2IOZM9ATl32cM3duND+XEvXv/LdYYnDJaRl144
+my+2GlPUtNb04P/9IdPz80ckwZvvPUsBgngjpBNGflw8gWdVS9zZ8NYIvQkKi0m1
+fo9LBWQvr8ulOuFz3EHvmq0DjSYlvbKj/q+nz03/aKUT56nFQ7TT0C0IoSnjTj2I
+h03Ed9eVuY2QK9WsmMI1SWa6SYsW7XWjceCCyoJ37y/ArXsEUMVk4yDQXh7VOZtp
+KroazDV0JsPEuvQJAijw
+=D061
+-----END PGP SIGNATURE-----
+
+--neetgydbd5y2azxl--
 --
--- Unit netctl@wlan0.service has begun shutting down.
-Jun 02 14:55:30 computer kernel: device vwlan0 left promiscuous mode
-Jun 02 14:55:30 computer kernel: br0: port 2(vwlan0) entered disabled state
-Jun 02 14:55:30 computer audit: ANOM_PROMISCUOUS dev=vwlan0 prom=0
-old_prom=256 auid=4294967295 uid=0 gid=0 ses=4294967295
-Jun 02 14:55:30 computer hostapd[13218]: vwlan0: AP-STA-DISCONNECTED <sanitized>
-Jun 02 14:55:30 computer hostapd[13218]: Failed to set beacon parameters
-Jun 02 14:55:30 computer hostapd[13218]: vwlan0: INTERFACE-DISABLED
-Jun 02 14:55:30 computer kernel: usb 1-1.1: ath9k_htc: USB layer deinitialized
-Jun 02 14:55:30 computer systemd[1]: Starting Load/Save RF Kill Switch Status...
--- Subject: Unit systemd-rfkill.service has begun start-up
--- Defined-By: systemd
--- Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
---
--- Unit systemd-rfkill.service has begun starting up.
-Jun 02 14:55:30 computer systemd[1]: Started Load/Save RF Kill Switch Status.
--- Subject: Unit systemd-rfkill.service has finished start-up
--- Defined-By: systemd
--- Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
---
--- Unit systemd-rfkill.service has finished starting up.
---
--- The start-up result is done.
-Jun 02 14:55:30 computer network[13261]: Stopping network profile 'wlan0'...
-Jun 02 14:55:30 computer kernel: usb 1-1.1: new high-speed USB device
-number 10 using exynos-ehci
-Jun 02 14:55:30 computer kernel: usb 1-1.1: New USB device found,
-idVendor=0cf3, idProduct=7015
-Jun 02 14:55:30 computer kernel: usb 1-1.1: New USB device strings:
-Mfr=16, Product=32, SerialNumber=48
-Jun 02 14:55:30 computer kernel: usb 1-1.1: Product: USB WLAN
-Jun 02 14:55:30 computer kernel: usb 1-1.1: Manufacturer: ATHEROS
-Jun 02 14:55:30 computer kernel: usb 1-1.1: SerialNumber: 12345
-Jun 02 14:55:30 computer kernel: usb 1-1.1: ath9k_htc: Firmware
-ath9k_htc/htc_7010-1.4.0.fw requested
-Jun 02 14:55:30 computer kernel: usb 1-1.1: ath9k_htc: Transferred FW:
-ath9k_htc/htc_7010-1.4.0.fw, size: 72812
-Jun 02 14:55:30 computer kernel: ath9k_htc 1-1.1:1.0: ath9k_htc: HTC
-initialized with 45 credits
-Jun 02 14:55:31 computer kernel: ath9k_htc 1-1.1:1.0: ath9k_htc: FW Version: 1.4
-Jun 02 14:55:31 computer kernel: ath9k_htc 1-1.1:1.0: FW RMW support: On
-Jun 02 14:55:31 computer kernel: ath: EEPROM regdomain: 0x809c
-Jun 02 14:55:31 computer kernel: ath: EEPROM indicates we should
-expect a country code
-Jun 02 14:55:31 computer kernel: ath: doing EEPROM country->regdmn map search
-Jun 02 14:55:31 computer kernel: ath: country maps to regdmn code: 0x52
-Jun 02 14:55:31 computer kernel: ath: Country alpha2 being used: CN
-Jun 02 14:55:31 computer kernel: ath: Regpair used: 0x52
-Jun 02 14:55:31 computer kernel: ieee80211 phy5: Atheros AR9287 Rev:2
-Jun 02 14:55:31 computer kernel: IPv6: ADDRCONF(NETDEV_UP): vwlan0:
-link is not ready
-Jun 02 14:55:31 computer hostapd[13218]: vwlan0: INTERFACE-ENABLED
-Jun 02 14:55:31 computer network[13261]: Stopped network profile 'wlan0'
-*****
-I don't know the particular reason for this one.
-At first it would happen every time I compiled anything (all cpu
-used). Then I added the ZTE Mobley to the USB hub. Even after removing
-the Mobley, the panic would still happen often.
-I then recompiled the kernel so only the 4 LITTLE cpus were used
-(big.LITTLE support+switcher), but the panic still happens sometimes.
-Now the consistency seems to come from the wireless adapter used as
-both AP and managed client.
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
