@@ -1,22 +1,53 @@
-From: hi <cbirty@aol.com>
-Subject: =?utf-8?B?Q2lhbyDjgrU=?=
-Date: Fri, 2 Jun 2017 13:16:09 +0800
-Message-ID: <001e25e1a12c$5f95f1b3$5bcfcb49$__1096.99139507047$1496381015$gmane$org@hi>
+From: Yuval Mintz <Yuval.Mintz@cavium.com>
+Subject: [PATCH net-next 0/4] qed: Enhance storage APIs
+Date: Fri, 2 Jun 2017 08:58:29 +0300
+Message-ID: <20170602055833.21814-1-Yuval.Mintz@cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-        charset="utf-8"
-Content-Transfer-Encoding: base64
-To: stock <stock@edizioniel.it>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from omr-a014e.mx.aol.com ([204.29.186.62]:63793 "EHLO
-        omr-a014e.mx.aol.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750747AbdFBFXc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 2 Jun 2017 01:23:32 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <linux-scsi@vger.kernel.org>, <nilesh.javali@cavium.com>,
+        <chad.dupuis@cavium.com>, <saurav.kashyap@cavium.com>,
+        Yuval Mintz <Yuval.Mintz@cavium.com>
+To: <netdev@vger.kernel.org>, <davem@davemloft.net>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Q2lhbw0KQmVudmVudXRvIGFsIG5vc3RybyBuZWdvemlvDQoyNC44OCBldXJvIHBlciBnbGkgb2Nj
-aGlhbGkgZGEgc29sZSBkaSBSYXkgQmFuLCB0cmFzcG9ydG8gbGliZXJvIGRpcmV0dGFtZW50ZSBh
-bGxhIHZvc3RyYSBjYXNhDQp3ZWI6ICAgcmJld3B0ICAuY29tDQoNCg0K5pS+6aOe5b+D5oOF77yM
-6YeK5pS+55yf5oOF77yM5oS/5oiR5Lus55qE5b+D54G15YOP5rmW5rC06Iis55qE5pm26I655riF
-5r6I77yM5Y+L5oOF5YOP5bGx5rOJ5LiA5qC35rqQ6L+c5rWB6ZW/77yB
+This series is intended to add additional information and features
+to the API between qed and its storage protocol drivers [qedi, qedf].
+
+Patch #2 adds some information stored on device such as wwpn & wwnn
+to allow qedf utilize it; #1 fixes an issue with the reading of those
+values [which were unused until now].
+
+Patch #3 would allow the protocol drivers access to images on persistent
+storage which is a prerequirement for adding boot from SAN support.
+
+Patch #4 adds infrastrucutre to a future feature for qedi.
+
+Dave,
+
+Please consider applying this series to 'net-next'.
+
+Thanks,
+Yuval
+
+Yuval Mintz (4):
+  qed: Correct order of wwnn and wwpn
+  qed: Share additional information with qedf
+  qed: Support NVM-image reading API
+  qed: Add support for changing iSCSI mac
+
+ drivers/net/ethernet/qlogic/qed/qed_dev.c   |  8 ++-
+ drivers/net/ethernet/qlogic/qed/qed_fcoe.c  | 14 +++++
+ drivers/net/ethernet/qlogic/qed/qed_iscsi.c | 66 ++++++++++++++++++++
+ drivers/net/ethernet/qlogic/qed/qed_main.c  | 18 ++++++
+ drivers/net/ethernet/qlogic/qed/qed_mcp.c   | 97 +++++++++++++++++++++++++++--
+ drivers/net/ethernet/qlogic/qed/qed_mcp.h   | 21 +++++++
+ drivers/net/ethernet/qlogic/qed/qed_sp.h    |  1 +
+ include/linux/qed/qed_fcoe_if.h             |  5 ++
+ include/linux/qed/qed_if.h                  | 20 ++++++
+ include/linux/qed/qed_iscsi_if.h            |  7 +++
+ 10 files changed, 252 insertions(+), 5 deletions(-)
+
+-- 
+2.9.4
