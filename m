@@ -1,40 +1,56 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH net-next] liquidio: Fix checkpatch errors with
- references crossing single line
-Date: Fri, 02 Jun 2017 16:43:24 -0700
-Message-ID: <1496447004.2874.22.camel@perches.com>
-References: <20170531174515.GA1539@felix-thinkpad.cavium.com>
-         <20170602.141728.2069858968152064186.davem@davemloft.net>
-         <1496443461.2874.17.camel@perches.com>
-         <MWHPR07MB2943F9E94FBC0C8584A88237F3F70@MWHPR07MB2943.namprd07.prod.outlook.com>
+From: Paul Burton <paul.burton@imgtec.com>
+Subject: [PATCH v3 7/7] net: pch_gbe: Allow build on MIPS platforms
+Date: Fri, 2 Jun 2017 16:40:42 -0700
+Message-ID: <20170602234042.22782-8-paul.burton@imgtec.com>
+References: <20170602234042.22782-1-paul.burton@imgtec.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "Vatsavayi, Raghu" <Raghu.Vatsavayi@cavium.com>,
-        "Burla, Satananda" <Satananda.Burla@cavium.com>
-To: "Chickles, Derek" <Derek.Chickles@cavium.com>,
-        David Miller <davem@davemloft.net>,
-        "Manlunas, Felix" <Felix.Manlunas@cavium.com>
+Content-Type: text/plain
+Cc: Tobias Klauser <tklauser@distanz.ch>,
+        "David S . Miller" <davem@davemloft.net>,
+        Jarod Wilson <jarod@redhat.com>, <linux-mips@linux-mips.org>,
+        Eric Dumazet <edumazet@google.com>,
+        Paul Burton <paul.burton@imgtec.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0002.hostedemail.com ([216.40.44.2]:37980 "EHLO
-        smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1750971AbdFBXn1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 2 Jun 2017 19:43:27 -0400
-In-Reply-To: <MWHPR07MB2943F9E94FBC0C8584A88237F3F70@MWHPR07MB2943.namprd07.prod.outlook.com>
+Received: from mailapp01.imgtec.com ([195.59.15.196]:23510 "EHLO
+        mailapp01.imgtec.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750971AbdFBXno (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 2 Jun 2017 19:43:44 -0400
+In-Reply-To: <20170602234042.22782-1-paul.burton@imgtec.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2017-06-02 at 23:11 +0000, Chickles, Derek wrote:
-> > -----Original Message-----
-> > From: Joe Perches [mailto:joe@perches.com]
-p[
-> > Subject: Re: [PATCH net-next] liquidio: Fix checkpatch errors with
-> > references crossing single line
-[]
-> > <sigh>  Did you see the patch I sent?
-[]
-> We'll take your patch, try it, and test it on our cards then resubmit
-> if it checks out.
+Allow the pch_gbe driver to be built on MIPS platforms, in preparation
+for its use on the MIPS Boston board.
 
-Thanks though there will have to be some mods to the patch now.
+Signed-off-by: Paul Burton <paul.burton@imgtec.com>
+Cc: David S. Miller <davem@davemloft.net>
+Cc: Eric Dumazet <edumazet@google.com>
+Cc: Jarod Wilson <jarod@redhat.com>
+Cc: Tobias Klauser <tklauser@distanz.ch>
+Cc: linux-mips@linux-mips.org
+Cc: netdev@vger.kernel.org
+
+---
+
+Changes in v3: None
+Changes in v2: None
+
+ drivers/net/ethernet/oki-semi/pch_gbe/Kconfig | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/Kconfig b/drivers/net/ethernet/oki-semi/pch_gbe/Kconfig
+index 5f7a35212796..4d3809ae75e1 100644
+--- a/drivers/net/ethernet/oki-semi/pch_gbe/Kconfig
++++ b/drivers/net/ethernet/oki-semi/pch_gbe/Kconfig
+@@ -4,7 +4,7 @@
+ 
+ config PCH_GBE
+ 	tristate "OKI SEMICONDUCTOR IOH(ML7223/ML7831) GbE"
+-	depends on PCI && (X86_32 || COMPILE_TEST)
++	depends on PCI && (X86_32 || MIPS || COMPILE_TEST)
+ 	select MII
+ 	select PTP_1588_CLOCK_PCH
+ 	select NET_PTP_CLASSIFY
+-- 
+2.13.0
