@@ -1,85 +1,110 @@
-From: Paul Burton <paul.burton-1AXoQHu6uovQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH v3 3/7] dt-bindings: net: Document Intel pch_gbe binding
-Date: Fri, 2 Jun 2017 16:40:38 -0700
-Message-ID: <20170602234042.22782-4-paul.burton@imgtec.com>
+From: Paul Burton <paul.burton@imgtec.com>
+Subject: [PATCH v3 4/7] net: pch_gbe: Add device tree support
+Date: Fri, 2 Jun 2017 16:40:39 -0700
+Message-ID: <20170602234042.22782-5-paul.burton@imgtec.com>
 References: <20170602234042.22782-1-paul.burton@imgtec.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: Tobias Klauser <tklauser-93Khv+1bN0NyDzI6CaY1VQ@public.gmane.org>,
-        "David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Jarod Wilson <jarod-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, <linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org>,
-        Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-        Paul Burton <paul.burton-1AXoQHu6uovQT0dZR+AlfA@public.gmane.org>,
-        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170602234042.22782-1-paul.burton-1AXoQHu6uovQT0dZR+AlfA@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Tobias Klauser <tklauser@distanz.ch>,
+        "David S . Miller" <davem@davemloft.net>,
+        Jarod Wilson <jarod@redhat.com>, <linux-mips@linux-mips.org>,
+        Eric Dumazet <edumazet@google.com>,
+        Paul Burton <paul.burton@imgtec.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailapp01.imgtec.com ([195.59.15.196]:60565 "EHLO
+        mailapp01.imgtec.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750971AbdFBXmu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 2 Jun 2017 19:42:50 -0400
+In-Reply-To: <20170602234042.22782-1-paul.burton@imgtec.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Introduce documentation for a device tree binding for the Intel Platform
-Controller Hub (PCH) GigaBit Ethernet (GBE) device. Although this is a
-PCIe device & thus largely auto-detectable, this binding will be used to
-provide the driver with the PHY reset GPIO.
+Introduce support for retrieving the PHY reset GPIO from device tree,
+which will be used on the MIPS Boston development board. This requires
+support for probe deferral in order to work correctly, since the order
+of device probe is not guaranteed & typically the EG20T GPIO controller
+device will be probed after the ethernet MAC.
 
-Signed-off-by: Paul Burton <paul.burton-1AXoQHu6uovQT0dZR+AlfA@public.gmane.org>
-Cc: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Cc: Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-Cc: Jarod Wilson <jarod-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Cc: Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>
-Cc: Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Cc: Tobias Klauser <tklauser-93Khv+1bN0NyDzI6CaY1VQ@public.gmane.org>
-Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Cc: linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-
+Signed-off-by: Paul Burton <paul.burton@imgtec.com>
+Cc: David S. Miller <davem@davemloft.net>
+Cc: Eric Dumazet <edumazet@google.com>
+Cc: Jarod Wilson <jarod@redhat.com>
+Cc: Tobias Klauser <tklauser@distanz.ch>
+Cc: linux-mips@linux-mips.org
+Cc: netdev@vger.kernel.org
 ---
 
-Changes in v3:
-- New patch.
+Changes in v3: None
 
-Changes in v2: None
+Changes in v2:
+- Tidy up handling of parsing private data, drop err_out.
 
- Documentation/devicetree/bindings/net/pch_gbe.txt | 25 +++++++++++++++++++++++
- 1 file changed, 25 insertions(+)
- create mode 100644 Documentation/devicetree/bindings/net/pch_gbe.txt
+ .../net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c   | 31 +++++++++++++++++++++-
+ 1 file changed, 30 insertions(+), 1 deletion(-)
 
-diff --git a/Documentation/devicetree/bindings/net/pch_gbe.txt b/Documentation/devicetree/bindings/net/pch_gbe.txt
-new file mode 100644
-index 000000000000..5de479c26b04
---- /dev/null
-+++ b/Documentation/devicetree/bindings/net/pch_gbe.txt
-@@ -0,0 +1,25 @@
-+Intel Platform Controller Hub (PCH) GigaBit Ethernet (GBE)
+diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
+index cb9b904786e4..59a42c20d433 100644
+--- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
++++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
+@@ -23,6 +23,8 @@
+ #include <linux/net_tstamp.h>
+ #include <linux/ptp_classify.h>
+ #include <linux/gpio.h>
++#include <linux/gpio/consumer.h>
++#include <linux/of_gpio.h>
+ 
+ #define DRV_VERSION     "1.01"
+ const char pch_driver_version[] = DRV_VERSION;
+@@ -2565,13 +2567,40 @@ static void pch_gbe_remove(struct pci_dev *pdev)
+ 	free_netdev(netdev);
+ }
+ 
++static struct pch_gbe_privdata *
++pch_gbe_get_priv(struct pci_dev *pdev, const struct pci_device_id *pci_id)
++{
++	struct pch_gbe_privdata *pdata;
++	struct gpio_desc *gpio;
 +
-+Required properties:
-+- compatible:		Should be the PCI vendor & device ID, eg. "pci8086,8802".
-+- reg:			Should be a PCI device number as specified by the PCI bus
-+			binding to IEEE Std 1275-1994.
-+- phy-reset-gpios:	Should be a GPIO list containing a single GPIO that
-+			resets the attached PHY when active.
++	if (!IS_ENABLED(CONFIG_OF))
++		return (struct pch_gbe_privdata *)pci_id->driver_data;
 +
-+Example:
++	pdata = devm_kzalloc(&pdev->dev, sizeof(*pdata), GFP_KERNEL);
++	if (!pdata)
++		return ERR_PTR(-ENOMEM);
 +
-+	eg20t_mac@2,0,1 {
-+		compatible = "pci8086,8802";
-+		reg = <0x00020100 0 0 0 0>;
-+		phy-reset-gpios = <&eg20t_gpio 6
-+				   GPIO_ACTIVE_LOW>;
-+	};
++	gpio = devm_gpiod_get(&pdev->dev, "phy-reset", GPIOD_ASIS);
++	if (!IS_ERR(gpio))
++		pdata->phy_reset_gpio = gpio;
++	else if (PTR_ERR(gpio) != -ENOENT)
++		return ERR_PTR(PTR_ERR(gpio));
 +
-+	eg20t_gpio: eg20t_gpio@2,0,2 {
-+		compatible = "pci8086,8803";
-+		reg = <0x00020200 0 0 0 0>;
++	return pdata;
++}
 +
-+		gpio-controller;
-+		#gpio-cells = <2>;
-+	};
+ static int pch_gbe_probe(struct pci_dev *pdev,
+ 			  const struct pci_device_id *pci_id)
+ {
+ 	struct net_device *netdev;
+ 	struct pch_gbe_adapter *adapter;
++	struct pch_gbe_privdata *pdata;
+ 	int ret;
+ 
++	pdata = pch_gbe_get_priv(pdev, pci_id);
++	if (IS_ERR(pdata))
++		return PTR_ERR(pdata);
++
+ 	ret = pcim_enable_device(pdev);
+ 	if (ret)
+ 		return ret;
+@@ -2609,7 +2638,7 @@ static int pch_gbe_probe(struct pci_dev *pdev,
+ 	adapter->pdev = pdev;
+ 	adapter->hw.back = adapter;
+ 	adapter->hw.reg = pcim_iomap_table(pdev)[PCH_GBE_PCI_BAR];
+-	adapter->pdata = (struct pch_gbe_privdata *)pci_id->driver_data;
++	adapter->pdata = pdata;
+ 	if (adapter->pdata && adapter->pdata->platform_init)
+ 		adapter->pdata->platform_init(pdev, adapter->pdata);
+ 
 -- 
 2.13.0
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
