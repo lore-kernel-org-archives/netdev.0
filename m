@@ -1,28 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: ethernet: stmmac: Fix altr_tse_pcs SGMII
- Initialization
-Date: Fri, 02 Jun 2017 14:20:34 -0400 (EDT)
-Message-ID: <20170602.142034.253393114837715246.davem@davemloft.net>
-References: <1496258927-5493-1-git-send-email-thor.thayer@linux.intel.com>
+Subject: Re: [PATCH net-next] net: phy: use of_mdio_parse_addr
+Date: Fri, 02 Jun 2017 14:22:51 -0400 (EDT)
+Message-ID: <20170602.142251.851089443438560012.davem@davemloft.net>
+References: <1496259810-3602-1-git-send-email-jon.mason@broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: thor.thayer@linux.intel.com
+Cc: andrew@lunn.ch, f.fainelli@gmail.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, bcm-kernel-feedback-list@broadcom.com
+To: jon.mason@broadcom.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1496258927-5493-1-git-send-email-thor.thayer@linux.intel.com>
+In-Reply-To: <1496259810-3602-1-git-send-email-jon.mason@broadcom.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: thor.thayer@linux.intel.com
-Date: Wed, 31 May 2017 14:28:47 -0500
+From: Jon Mason <jon.mason@broadcom.com>
+Date: Wed, 31 May 2017 15:43:30 -0400
 
-> From: Thor Thayer <thor.thayer@linux.intel.com>
+> use of_mdio_parse_addr() in place of an OF read of reg and a bounds
+> check (which is litterally the exact same thing that
+> of_mdio_parse_addr() does)
 > 
-> Fix NETDEV WATCHDOG timeout on startup by adding missing register
-> writes that properly setup SGMII.
-> 
-> Signed-off-by: Thor Thayer <thor.thayer@linux.intel.com>
+> Signed-off-by: Jon Mason <jon.mason@broadcom.com>
 
-Applied, thank you.
+Applied, thanks Jon.
