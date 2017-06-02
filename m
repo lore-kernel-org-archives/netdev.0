@@ -1,94 +1,65 @@
-From: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [pull request][for-next 0/6] Mellanox mlx5 updates 2017-05-23
-Date: Fri, 2 Jun 2017 18:39:40 +0300
-Message-ID: <20170602153940.GX5406@mtr-leonro.local>
-References: <20170523114404.20387-1-saeedm@mellanox.com>
- <20170525.120220.1812199263503283242.davem@davemloft.net>
- <1496357879.7171.76.camel@redhat.com>
+From: Colin King <colin.king@canonical.com>
+Subject: [PATCH][wireless-next] qtnfmac: check band before allocating cmd_skb to avoid resource leak
+Date: Fri,  2 Jun 2017 16:40:45 +0100
+Message-ID: <20170602154045.28948-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-        protocol="application/pgp-signature"; boundary="3jK+0sHr6j/jwA0V"
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        ilant-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org
-To: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1496357879.7171.76.camel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Igor Mitsyanko <imitsyanko@quantenna.com>,
+        Avinash Patil <avinashp@quantenna.com>,
+        Sergey Matyukevich <smatyukevich@quantenna.com>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        Dmitrii Lebed <dlebed@quantenna.com>,
+        Huizhao Wang <hwang@quantenna.com>,
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: Colin Ian King <colin.king@canonical.com>
 
---3jK+0sHr6j/jwA0V
-Content-Type: text/plain; charset=iso-8859-1
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+The current code allocates cmd_skb and then will leak this if band->band
+is an illegal value. It is simpler to sanity check the band first before
+allocating cmd_skb so that we don't have to free cmd_skb if an invalid
+band occurs.
 
-On Thu, Jun 01, 2017 at 06:57:59PM -0400, Doug Ledford wrote:
-> On Thu, 2017-05-25 at 12:02 -0400, David Miller wrote:
-> > From: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-> > Date: Tue, 23 May 2017 14:43:58 +0300
-> >
-> > > Hi Dave and Doug,
-> > >=A0
-> > > This series introduces some small updates and FPGA support to the
-> > mlx5
-> > > core/ethernet and IB drivers.
-> > >=A0
-> > > For more details please see below.
-> > >=A0
-> > > Please pull and let me know if there's any problem.
-> >
-> > Ok, I've pulled this into net-next.
-> >
-> > Doug let me know if there are any merge hassles we need to coordinate
-> > on.
-> >
-> > Thanks.
->
-> Will do. =A0But is the question of a possible revert settled? =A0Because
-> once I pull, a revert means I have to pull all the way up to the revert
-> as well...
+Detected by CoverityScan, CID#1437561 ("Resource Leak")
 
-Revert is unlikely to happen, Saeed is working with Alexey to resolve
-his raised concerns.
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+---
+ drivers/net/wireless/quantenna/qtnfmac/commands.c | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
 
-Thanks
-
->
-> --
-> Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-> =A0 =A0 GPG KeyID: B826A3330E572FDD
-> =A0 =A0
-> Key fingerprint =3D AE6B 1BDA 122B 23B4 265B =A01274 B826 A333 0E57 2FDD
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
---3jK+0sHr6j/jwA0V
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAlkxhrwACgkQ5GN7iDZy
-WKfV3xAAybbErZFaTN4vy4Av8vh54Wi9UJPsBlEAcklqmvAkO7JR0FruBBE/d3/z
-XUlyEXTHiFXf/DkVGsVyM3CsDnqVSselDEzbyPY/YWrHWncWlKVnGhJlJGz4yaWL
-WPvP679nBzxrn+B4OWRlO2OLmMsQkQLaQjcKROUe5JtsljISSnRRK7rlxixTOP+v
-+vPCNdfW7FmA3KG6Joq/MCHWdw5mWl0axdUppCDq9eQtVvAu6U3jO+Copx2rHzCW
-NT+1a32UXmWwT7Zpqs8J9izcUeP5bEPbciqoxL/5AJwuFZkieMxAoBPsKG7miLoj
-0NNnZ4bN381NHaR26UxLMNi+MSVqUqUpNYsbVWVf0WJQMn9FFJPXO73uu0GzgN7j
-u4SOHiOBP04+t8ZTZu6UmGcWJruJ2LDF0kV8qeMyMwHc/Lt+7msLiROzALLSf8rA
-u4FDh2okjUKscFO/istDHqw0FBxGHfEKtKBsqSjonhS2VMl/d7+AVhdXg2jXRQWk
-SMGgF5F7A2DFExgBgV6t2K6JtWNb59G9ogdH1MSTws78Ccv2DZRYYp/LYzzKt8Y9
-93EdG/2d2vAf9+C/pm7s3iSsL4asAVB0FuRYFn7gIT1CA5ENXrzaVE9SUmjP9VnW
-+6HTeen9grqmOdSPDbXE4t2Ew31PQQD8E+oYyJ+yHR5igA/O4e4=
-=OlTJ
------END PGP SIGNATURE-----
-
---3jK+0sHr6j/jwA0V--
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/wireless/quantenna/qtnfmac/commands.c b/drivers/net/wireless/quantenna/qtnfmac/commands.c
+index f0a0cfa7d8a1..cce62f39edaf 100644
+--- a/drivers/net/wireless/quantenna/qtnfmac/commands.c
++++ b/drivers/net/wireless/quantenna/qtnfmac/commands.c
+@@ -1300,12 +1300,6 @@ int qtnf_cmd_get_mac_chan_info(struct qtnf_wmac *mac,
+ 	int ret = 0;
+ 	u8 qband;
+ 
+-	cmd_skb = qtnf_cmd_alloc_new_cmdskb(mac->macid, 0,
+-					    QLINK_CMD_CHANS_INFO_GET,
+-					    sizeof(*cmd));
+-	if (!cmd_skb)
+-		return -ENOMEM;
+-
+ 	switch (band->band) {
+ 	case NL80211_BAND_2GHZ:
+ 		qband = QLINK_BAND_2GHZ;
+@@ -1320,6 +1314,12 @@ int qtnf_cmd_get_mac_chan_info(struct qtnf_wmac *mac,
+ 		return -EINVAL;
+ 	}
+ 
++	cmd_skb = qtnf_cmd_alloc_new_cmdskb(mac->macid, 0,
++					    QLINK_CMD_CHANS_INFO_GET,
++					    sizeof(*cmd));
++	if (!cmd_skb)
++		return -ENOMEM;
++
+ 	cmd = (struct qlink_cmd_chans_info_get *)cmd_skb->data;
+ 	cmd->band = qband;
+ 	ret = qtnf_cmd_send_with_reply(mac->bus, cmd_skb, &resp_skb, &res_code,
+-- 
+2.11.0
