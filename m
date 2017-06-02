@@ -1,63 +1,59 @@
-From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: Re: [PATCH] amd-xgbe: use PAGE_ALLOC_COSTLY_ORDER in
- xgbe_map_rx_buffer
-Date: Fri, 2 Jun 2017 15:52:16 -0500
-Message-ID: <dc1834a7-c054-4542-927d-3817ac9e9852@amd.com>
-References: <20170602155408.12792-1-mhocko@kernel.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Michal Hocko <mhocko@suse.com>
-To: Michal Hocko <mhocko@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170602155408.12792-1-mhocko@kernel.org>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 2/5] net: dsa: mv88e6xxx: move PHY macros
+Date: Fri,  2 Jun 2017 17:06:16 -0400
+Message-ID: <20170602210619.26837-3-vivien.didelot@savoirfairelinux.com>
+References: <20170602210619.26837-1-vivien.didelot@savoirfairelinux.com>
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:48000 "EHLO
+        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750971AbdFBVIb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 2 Jun 2017 17:08:31 -0400
+In-Reply-To: <20170602210619.26837-1-vivien.didelot@savoirfairelinux.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 6/2/2017 10:54 AM, Michal Hocko wrote:
-> From: Michal Hocko <mhocko@suse.com>
-> 
-> xgbe_map_rx_buffer is rather confused about what PAGE_ALLOC_COSTLY_ORDER
-> means. It uses PAGE_ALLOC_COSTLY_ORDER-1 assuming that
-> PAGE_ALLOC_COSTLY_ORDER is the first costly order which is not the case
-> actually because orders larger than that are costly. And even that
-> applies only to sleeping allocations which is not the case here. We
-> simply do not perform any costly operations like reclaim or compaction
-> for those. Simplify the code by dropping the order calculation and use
-> PAGE_ALLOC_COSTLY_ORDER directly.
-> 
-> Signed-off-by: Michal Hocko <mhocko@suse.com>
+Move the PHY_* macros where they belong, in the related phy.h header.
 
-Acked-by: Tom Lendacky <thomas.lendacky@amd.com>
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+---
+ drivers/net/dsa/mv88e6xxx/chip.h | 4 ----
+ drivers/net/dsa/mv88e6xxx/phy.h  | 3 +++
+ 2 files changed, 3 insertions(+), 4 deletions(-)
 
-> ---
->   drivers/net/ethernet/amd/xgbe/xgbe-desc.c | 5 ++---
->   1 file changed, 2 insertions(+), 3 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-desc.c b/drivers/net/ethernet/amd/xgbe/xgbe-desc.c
-> index b3bc87fe3764..0a98c369df20 100644
-> --- a/drivers/net/ethernet/amd/xgbe/xgbe-desc.c
-> +++ b/drivers/net/ethernet/amd/xgbe/xgbe-desc.c
-> @@ -324,7 +324,7 @@ static int xgbe_map_rx_buffer(struct xgbe_prv_data *pdata,
->   			      struct xgbe_ring *ring,
->   			      struct xgbe_ring_data *rdata)
->   {
-> -	int order, ret;
-> +	int ret;
->   
->   	if (!ring->rx_hdr_pa.pages) {
->   		ret = xgbe_alloc_pages(pdata, &ring->rx_hdr_pa, GFP_ATOMIC, 0);
-> @@ -333,9 +333,8 @@ static int xgbe_map_rx_buffer(struct xgbe_prv_data *pdata,
->   	}
->   
->   	if (!ring->rx_buf_pa.pages) {
-> -		order = max_t(int, PAGE_ALLOC_COSTLY_ORDER - 1, 0);
->   		ret = xgbe_alloc_pages(pdata, &ring->rx_buf_pa, GFP_ATOMIC,
-> -				       order);
-> +				       PAGE_ALLOC_COSTLY_ORDER);
->   		if (ret)
->   			return ret;
->   	}
-> 
+diff --git a/drivers/net/dsa/mv88e6xxx/chip.h b/drivers/net/dsa/mv88e6xxx/chip.h
+index ae7aed533aa5..2929132fb52d 100644
+--- a/drivers/net/dsa/mv88e6xxx/chip.h
++++ b/drivers/net/dsa/mv88e6xxx/chip.h
+@@ -33,10 +33,6 @@
+ #define SMI_CMD_OP_45_READ_DATA_INC	((3 << 10) | SMI_CMD_BUSY)
+ #define SMI_DATA		0x01
+ 
+-/* PHY Registers */
+-#define PHY_PAGE		0x16
+-#define PHY_PAGE_COPPER		0x00
+-
+ #define PORT_STATUS		0x00
+ #define PORT_STATUS_PAUSE_EN	BIT(15)
+ #define PORT_STATUS_MY_PAUSE	BIT(14)
+diff --git a/drivers/net/dsa/mv88e6xxx/phy.h b/drivers/net/dsa/mv88e6xxx/phy.h
+index 91fe3c3e9aea..4131a4e8206a 100644
+--- a/drivers/net/dsa/mv88e6xxx/phy.h
++++ b/drivers/net/dsa/mv88e6xxx/phy.h
+@@ -14,6 +14,9 @@
+ #ifndef _MV88E6XXX_PHY_H
+ #define _MV88E6XXX_PHY_H
+ 
++#define PHY_PAGE		0x16
++#define PHY_PAGE_COPPER		0x00
++
+ /* PHY Registers accesses implementations */
+ int mv88e6165_phy_read(struct mv88e6xxx_chip *chip, struct mii_bus *bus,
+ 		       int addr, int reg, u16 *val);
+-- 
+2.13.0
