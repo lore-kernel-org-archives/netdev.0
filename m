@@ -1,56 +1,35 @@
-From: Paul Burton <paul.burton@imgtec.com>
-Subject: [PATCH v3 7/7] net: pch_gbe: Allow build on MIPS platforms
-Date: Fri, 2 Jun 2017 16:40:42 -0700
-Message-ID: <20170602234042.22782-8-paul.burton@imgtec.com>
-References: <20170602234042.22782-1-paul.burton@imgtec.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next] net: phy: smsc: Implement PHY statistics
+Date: Fri, 2 Jun 2017 16:44:28 -0700
+Message-ID: <57f35638-8cbc-c815-2548-fca819257a94@gmail.com>
+References: <1496438670-30829-1-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Tobias Klauser <tklauser@distanz.ch>,
-        "David S . Miller" <davem@davemloft.net>,
-        Jarod Wilson <jarod@redhat.com>, <linux-mips@linux-mips.org>,
-        Eric Dumazet <edumazet@google.com>,
-        Paul Burton <paul.burton@imgtec.com>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        Chris Healy <cphealy@gmail.com>,
+        Nikita Yushchenko <nikita.yoush@cogentembedded.com>,
+        netdev <netdev@vger.kernel.org>
+To: Andrew Lunn <andrew@lunn.ch>, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailapp01.imgtec.com ([195.59.15.196]:23510 "EHLO
-        mailapp01.imgtec.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750971AbdFBXno (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 2 Jun 2017 19:43:44 -0400
-In-Reply-To: <20170602234042.22782-1-paul.burton@imgtec.com>
+Received: from mail-wr0-f196.google.com ([209.85.128.196]:35533 "EHLO
+        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750971AbdFBXof (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 2 Jun 2017 19:44:35 -0400
+Received: by mail-wr0-f196.google.com with SMTP id g76so2428711wrd.2
+        for <netdev@vger.kernel.org>; Fri, 02 Jun 2017 16:44:35 -0700 (PDT)
+In-Reply-To: <1496438670-30829-1-git-send-email-andrew@lunn.ch>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Allow the pch_gbe driver to be built on MIPS platforms, in preparation
-for its use on the MIPS Boston board.
+On 06/02/2017 02:24 PM, Andrew Lunn wrote:
+> Most of the PHYs supported by the SMSC driver have a counter of symbol
+> errors. This is 16 bit wide and wraps around when it reaches its
+> maximum value.
+> 
+> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
 
-Signed-off-by: Paul Burton <paul.burton@imgtec.com>
-Cc: David S. Miller <davem@davemloft.net>
-Cc: Eric Dumazet <edumazet@google.com>
-Cc: Jarod Wilson <jarod@redhat.com>
-Cc: Tobias Klauser <tklauser@distanz.ch>
-Cc: linux-mips@linux-mips.org
-Cc: netdev@vger.kernel.org
-
----
-
-Changes in v3: None
-Changes in v2: None
-
- drivers/net/ethernet/oki-semi/pch_gbe/Kconfig | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/Kconfig b/drivers/net/ethernet/oki-semi/pch_gbe/Kconfig
-index 5f7a35212796..4d3809ae75e1 100644
---- a/drivers/net/ethernet/oki-semi/pch_gbe/Kconfig
-+++ b/drivers/net/ethernet/oki-semi/pch_gbe/Kconfig
-@@ -4,7 +4,7 @@
- 
- config PCH_GBE
- 	tristate "OKI SEMICONDUCTOR IOH(ML7223/ML7831) GbE"
--	depends on PCI && (X86_32 || COMPILE_TEST)
-+	depends on PCI && (X86_32 || MIPS || COMPILE_TEST)
- 	select MII
- 	select PTP_1588_CLOCK_PCH
- 	select NET_PTP_CLASSIFY
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
 -- 
-2.13.0
+Florian
