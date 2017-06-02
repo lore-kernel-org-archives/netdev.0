@@ -1,7 +1,7 @@
 From: Geert Uytterhoeven <geert+renesas@glider.be>
-Subject: [PATCH v3 4/6] powerpc: dts: acadia: DT fix s/#interrupts-parent/#interrupt-parent/
-Date: Fri,  2 Jun 2017 14:38:47 +0200
-Message-ID: <1496407129-13527-5-git-send-email-geert+renesas@glider.be>
+Subject: [PATCH v3 1/6] arm64: dts: lg1312: DT fix s/#interrupts-cells/#interrupt-cells/
+Date: Fri,  2 Jun 2017 14:38:44 +0200
+Message-ID: <1496407129-13527-2-git-send-email-geert+renesas@glider.be>
 References: <1496407129-13527-1-git-send-email-geert+renesas@glider.be>
 Cc: Neil Armstrong <narmstrong@baylibre.com>,
         Benjamin Herrenschmidt <benh@kernel.crashing.org>,
@@ -20,9 +20,9 @@ To: David Airlie <airlied@linux.ie>, Rob Herring <robh+dt@kernel.org>,
         Catalin Marinas <catalin.marinas@arm.com>,
         Will Deacon <will.deacon@arm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from baptiste.telenet-ops.be ([195.130.132.51]:34206 "EHLO
+Received: from baptiste.telenet-ops.be ([195.130.132.51]:34160 "EHLO
         baptiste.telenet-ops.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751159AbdFBMjK (ORCPT
+        with ESMTP id S1751128AbdFBMjK (ORCPT
         <rfc822;netdev@vger.kernel.org>); Fri, 2 Jun 2017 08:39:10 -0400
 In-Reply-To: <1496407129-13527-1-git-send-email-geert+renesas@glider.be>
 Sender: netdev-owner@vger.kernel.org
@@ -30,28 +30,30 @@ List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Geert Uytterhoeven <geert+renesas@glider.be>
 Acked-by: Rob Herring <robh@kernel.org>
+Acked-by: Chanho Min <chanho.min@lge.com>
 ---
 v3:
-  - No changes,
+  - Add Acked-by,
 
 v2:
-  - Add Acked-by.
+  - Add Acked-by,
+  - Rebased.
 ---
- arch/powerpc/boot/dts/acadia.dts | 2 +-
+ arch/arm64/boot/dts/lg/lg1312.dtsi | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/arch/powerpc/boot/dts/acadia.dts b/arch/powerpc/boot/dts/acadia.dts
-index 57291f61ffe7021a..86266159521edac2 100644
---- a/arch/powerpc/boot/dts/acadia.dts
-+++ b/arch/powerpc/boot/dts/acadia.dts
-@@ -183,7 +183,7 @@
- 			usb@ef603000 {
- 				compatible = "ohci-be";
- 				reg = <0xef603000 0x80>;
--				interrupts-parent = <&UIC0>;
-+				interrupt-parent = <&UIC0>;
- 				interrupts = <0xd 0x4 0xe 0x4>;
- 			};
+diff --git a/arch/arm64/boot/dts/lg/lg1312.dtsi b/arch/arm64/boot/dts/lg/lg1312.dtsi
+index fbafa24cd5335b90..647606a83c517448 100644
+--- a/arch/arm64/boot/dts/lg/lg1312.dtsi
++++ b/arch/arm64/boot/dts/lg/lg1312.dtsi
+@@ -123,7 +123,7 @@
+ 	amba {
+ 		#address-cells = <2>;
+ 		#size-cells = <1>;
+-		#interrupts-cells = <3>;
++		#interrupt-cells = <3>;
  
+ 		compatible = "simple-bus";
+ 		interrupt-parent = <&gic>;
 -- 
 2.7.4
