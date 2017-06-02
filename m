@@ -1,7 +1,7 @@
 From: Alexei Starovoitov <ast@fb.com>
-Subject: [PATCH v3 net-next 1/3] perf, bpf: Add BPF support to all perf_event types
-Date: Thu, 1 Jun 2017 19:03:34 -0700
-Message-ID: <20170602020336.1062853-2-ast@fb.com>
+Subject: [PATCH v3 net-next 2/3] samples/bpf: add tests for more perf event types
+Date: Thu, 1 Jun 2017 19:03:35 -0700
+Message-ID: <20170602020336.1062853-3-ast@fb.com>
 References: <20170602020336.1062853-1-ast@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -16,228 +16,452 @@ In-Reply-To: <20170602020336.1062853-1-ast@fb.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Allow BPF_PROG_TYPE_PERF_EVENT program types to attach to all
-perf_event types, including HW_CACHE, RAW, and dynamic pmu events.
-Only tracepoint/kprobe events are treated differently which require
-BPF_PROG_TYPE_TRACEPOINT/BPF_PROG_TYPE_KPROBE program types accordingly.
+From: Teng Qin <qinteng@fb.com>
 
-Also add support for reading all event counters using
-bpf_perf_event_read() helper.
+$ trace_event
 
+tests attaching BPF program to HW_CPU_CYCLES, SW_CPU_CLOCK, HW_CACHE_L1D and other events.
+It runs 'dd' in the background while bpf program collects user and kernel
+stack trace on counter overflow.
+User space expects to see sys_read and sys_write in the kernel stack.
+
+$ tracex6
+
+tests reading of various perf counters from BPF program.
+
+Both tests were refactored to increase coverage and be more accurate.
+
+Signed-off-by: Teng Qin <qinteng@fb.com>
 Signed-off-by: Alexei Starovoitov <ast@kernel.org>
 ---
- include/linux/perf_event.h |  7 +++++--
- kernel/bpf/arraymap.c      | 29 ++++------------------------
- kernel/events/core.c       | 47 +++++++++++++++++++++++++++-------------------
- kernel/trace/bpf_trace.c   | 21 ++++++++-------------
- 4 files changed, 45 insertions(+), 59 deletions(-)
+ samples/bpf/bpf_helpers.h      |   3 +-
+ samples/bpf/trace_event_user.c |  73 ++++++++++++++---
+ samples/bpf/tracex6_kern.c     |  28 +++++--
+ samples/bpf/tracex6_user.c     | 180 ++++++++++++++++++++++++++++++++---------
+ 4 files changed, 228 insertions(+), 56 deletions(-)
 
-diff --git a/include/linux/perf_event.h b/include/linux/perf_event.h
-index 24a635887f28..8fc5f0fada5e 100644
---- a/include/linux/perf_event.h
-+++ b/include/linux/perf_event.h
-@@ -896,7 +896,7 @@ perf_event_create_kernel_counter(struct perf_event_attr *attr,
- 				void *context);
- extern void perf_pmu_migrate_context(struct pmu *pmu,
- 				int src_cpu, int dst_cpu);
--extern u64 perf_event_read_local(struct perf_event *event);
-+int perf_event_read_local(struct perf_event *event, u64 *value);
- extern u64 perf_event_read_value(struct perf_event *event,
- 				 u64 *enabled, u64 *running);
+diff --git a/samples/bpf/bpf_helpers.h b/samples/bpf/bpf_helpers.h
+index 9a9c95f2c9fb..51e567bc70fc 100644
+--- a/samples/bpf/bpf_helpers.h
++++ b/samples/bpf/bpf_helpers.h
+@@ -31,7 +31,8 @@ static unsigned long long (*bpf_get_current_uid_gid)(void) =
+ 	(void *) BPF_FUNC_get_current_uid_gid;
+ static int (*bpf_get_current_comm)(void *buf, int buf_size) =
+ 	(void *) BPF_FUNC_get_current_comm;
+-static int (*bpf_perf_event_read)(void *map, int index) =
++static unsigned long long (*bpf_perf_event_read)(void *map,
++						 unsigned long long flags) =
+ 	(void *) BPF_FUNC_perf_event_read;
+ static int (*bpf_clone_redirect)(void *ctx, int ifindex, int flags) =
+ 	(void *) BPF_FUNC_clone_redirect;
+diff --git a/samples/bpf/trace_event_user.c b/samples/bpf/trace_event_user.c
+index fa4336423da5..7bd827b84a67 100644
+--- a/samples/bpf/trace_event_user.c
++++ b/samples/bpf/trace_event_user.c
+@@ -75,7 +75,10 @@ static void print_stack(struct key_t *key, __u64 count)
+ 		for (i = PERF_MAX_STACK_DEPTH - 1; i >= 0; i--)
+ 			print_addr(ip[i]);
+ 	}
+-	printf("\n");
++	if (count < 6)
++		printf("\r");
++	else
++		printf("\n");
  
-@@ -1301,7 +1301,10 @@ static inline const struct perf_event_attr *perf_event_attrs(struct perf_event *
+ 	if (key->kernstack == -EEXIST && !warned) {
+ 		printf("stackmap collisions seen. Consider increasing size\n");
+@@ -105,7 +108,7 @@ static void print_stacks(void)
+ 		bpf_map_delete_elem(fd, &next_key);
+ 		key = next_key;
+ 	}
+-
++	printf("\n");
+ 	if (!sys_read_seen || !sys_write_seen) {
+ 		printf("BUG kernel stack doesn't contain sys_read() and sys_write()\n");
+ 		int_exit(0);
+@@ -122,24 +125,29 @@ static void test_perf_event_all_cpu(struct perf_event_attr *attr)
  {
- 	return ERR_PTR(-EINVAL);
+ 	int nr_cpus = sysconf(_SC_NPROCESSORS_CONF);
+ 	int *pmu_fd = malloc(nr_cpus * sizeof(int));
+-	int i;
++	int i, error = 0;
+ 
+ 	/* open perf_event on all cpus */
+ 	for (i = 0; i < nr_cpus; i++) {
+ 		pmu_fd[i] = sys_perf_event_open(attr, -1, i, -1, 0);
+ 		if (pmu_fd[i] < 0) {
+ 			printf("sys_perf_event_open failed\n");
++			error = 1;
+ 			goto all_cpu_err;
+ 		}
+ 		assert(ioctl(pmu_fd[i], PERF_EVENT_IOC_SET_BPF, prog_fd[0]) == 0);
+-		assert(ioctl(pmu_fd[i], PERF_EVENT_IOC_ENABLE, 0) == 0);
++		assert(ioctl(pmu_fd[i], PERF_EVENT_IOC_ENABLE) == 0);
+ 	}
+-	system("dd if=/dev/zero of=/dev/null count=5000k");
++	system("dd if=/dev/zero of=/dev/null count=5000k status=none");
+ 	print_stacks();
+ all_cpu_err:
+-	for (i--; i >= 0; i--)
++	for (i--; i >= 0; i--) {
++		ioctl(pmu_fd[i], PERF_EVENT_IOC_DISABLE);
+ 		close(pmu_fd[i]);
++	}
+ 	free(pmu_fd);
++	if (error)
++		int_exit(0);
  }
--static inline u64 perf_event_read_local(struct perf_event *event)	{ return -EINVAL; }
-+static inline int perf_event_read_local(struct perf_event *event, u64 *value)
-+{
-+	return -EINVAL;
+ 
+ static void test_perf_event_task(struct perf_event_attr *attr)
+@@ -150,12 +158,13 @@ static void test_perf_event_task(struct perf_event_attr *attr)
+ 	pmu_fd = sys_perf_event_open(attr, 0, -1, -1, 0);
+ 	if (pmu_fd < 0) {
+ 		printf("sys_perf_event_open failed\n");
+-		return;
++		int_exit(0);
+ 	}
+ 	assert(ioctl(pmu_fd, PERF_EVENT_IOC_SET_BPF, prog_fd[0]) == 0);
+-	assert(ioctl(pmu_fd, PERF_EVENT_IOC_ENABLE, 0) == 0);
+-	system("dd if=/dev/zero of=/dev/null count=5000k");
++	assert(ioctl(pmu_fd, PERF_EVENT_IOC_ENABLE) == 0);
++	system("dd if=/dev/zero of=/dev/null count=5000k status=none");
+ 	print_stacks();
++	ioctl(pmu_fd, PERF_EVENT_IOC_DISABLE);
+ 	close(pmu_fd);
+ }
+ 
+@@ -175,11 +184,56 @@ static void test_bpf_perf_event(void)
+ 		.config = PERF_COUNT_SW_CPU_CLOCK,
+ 		.inherit = 1,
+ 	};
++	struct perf_event_attr attr_hw_cache_l1d = {
++		.sample_freq = SAMPLE_FREQ,
++		.freq = 1,
++		.type = PERF_TYPE_HW_CACHE,
++		.config =
++			PERF_COUNT_HW_CACHE_L1D |
++			(PERF_COUNT_HW_CACHE_OP_READ << 8) |
++			(PERF_COUNT_HW_CACHE_RESULT_ACCESS << 16),
++		.inherit = 1,
++	};
++	struct perf_event_attr attr_hw_cache_branch_miss = {
++		.sample_freq = SAMPLE_FREQ,
++		.freq = 1,
++		.type = PERF_TYPE_HW_CACHE,
++		.config =
++			PERF_COUNT_HW_CACHE_BPU |
++			(PERF_COUNT_HW_CACHE_OP_READ << 8) |
++			(PERF_COUNT_HW_CACHE_RESULT_MISS << 16),
++		.inherit = 1,
++	};
++	struct perf_event_attr attr_type_raw = {
++		.sample_freq = SAMPLE_FREQ,
++		.freq = 1,
++		.type = PERF_TYPE_RAW,
++		/* Intel Instruction Retired */
++		.config = 0xc0,
++		.inherit = 1,
++	};
+ 
++	printf("Test HW_CPU_CYCLES\n");
+ 	test_perf_event_all_cpu(&attr_type_hw);
+ 	test_perf_event_task(&attr_type_hw);
++
++	printf("Test SW_CPU_CLOCK\n");
+ 	test_perf_event_all_cpu(&attr_type_sw);
+ 	test_perf_event_task(&attr_type_sw);
++
++	printf("Test HW_CACHE_L1D\n");
++	test_perf_event_all_cpu(&attr_hw_cache_l1d);
++	test_perf_event_task(&attr_hw_cache_l1d);
++
++	printf("Test HW_CACHE_BPU\n");
++	test_perf_event_all_cpu(&attr_hw_cache_branch_miss);
++	test_perf_event_task(&attr_hw_cache_branch_miss);
++
++	printf("Test Instruction Retired\n");
++	test_perf_event_all_cpu(&attr_type_raw);
++	test_perf_event_task(&attr_type_raw);
++
++	printf("*** PASS ***\n");
+ }
+ 
+ 
+@@ -209,7 +263,6 @@ int main(int argc, char **argv)
+ 		return 0;
+ 	}
+ 	test_bpf_perf_event();
+-
+ 	int_exit(0);
+ 	return 0;
+ }
+diff --git a/samples/bpf/tracex6_kern.c b/samples/bpf/tracex6_kern.c
+index be479c4af9e2..8a7d0f977625 100644
+--- a/samples/bpf/tracex6_kern.c
++++ b/samples/bpf/tracex6_kern.c
+@@ -3,22 +3,36 @@
+ #include <uapi/linux/bpf.h>
+ #include "bpf_helpers.h"
+ 
+-struct bpf_map_def SEC("maps") my_map = {
++struct bpf_map_def SEC("maps") counters = {
+ 	.type = BPF_MAP_TYPE_PERF_EVENT_ARRAY,
+ 	.key_size = sizeof(int),
+ 	.value_size = sizeof(u32),
+-	.max_entries = 32,
++	.max_entries = 64,
++};
++struct bpf_map_def SEC("maps") values = {
++	.type = BPF_MAP_TYPE_HASH,
++	.key_size = sizeof(int),
++	.value_size = sizeof(u64),
++	.max_entries = 64,
+ };
+ 
+-SEC("kprobe/sys_write")
++SEC("kprobe/htab_map_get_next_key")
+ int bpf_prog1(struct pt_regs *ctx)
+ {
+-	u64 count;
+ 	u32 key = bpf_get_smp_processor_id();
+-	char fmt[] = "CPU-%d   %llu\n";
++	u64 count, *val;
++	s64 error;
++
++	count = bpf_perf_event_read(&counters, key);
++	error = (s64)count;
++	if (error <= -2 && error >= -95)
++		return 0;
+ 
+-	count = bpf_perf_event_read(&my_map, key);
+-	bpf_trace_printk(fmt, sizeof(fmt), key, count);
++	val = bpf_map_lookup_elem(&values, &key);
++	if (val)
++		*val = count;
++	else
++		bpf_map_update_elem(&values, &key, &count, BPF_NOEXIST);
+ 
+ 	return 0;
+ }
+diff --git a/samples/bpf/tracex6_user.c b/samples/bpf/tracex6_user.c
+index ca7874ed77f4..a05a99a0752f 100644
+--- a/samples/bpf/tracex6_user.c
++++ b/samples/bpf/tracex6_user.c
+@@ -1,73 +1,177 @@
+-#include <stdio.h>
+-#include <unistd.h>
+-#include <stdlib.h>
+-#include <stdbool.h>
+-#include <string.h>
++#define _GNU_SOURCE
++
++#include <assert.h>
+ #include <fcntl.h>
+-#include <poll.h>
+-#include <sys/ioctl.h>
+ #include <linux/perf_event.h>
+ #include <linux/bpf.h>
+-#include "libbpf.h"
++#include <sched.h>
++#include <stdio.h>
++#include <stdlib.h>
++#include <sys/ioctl.h>
++#include <sys/resource.h>
++#include <sys/time.h>
++#include <sys/types.h>
++#include <sys/wait.h>
++#include <unistd.h>
++
+ #include "bpf_load.h"
++#include "libbpf.h"
+ #include "perf-sys.h"
+ 
+ #define SAMPLE_PERIOD  0x7fffffffffffffffULL
+ 
+-static void test_bpf_perf_event(void)
++static void check_on_cpu(int cpu, struct perf_event_attr *attr)
+ {
+-	int nr_cpus = sysconf(_SC_NPROCESSORS_CONF);
+-	int *pmu_fd = malloc(nr_cpus * sizeof(int));
+-	int status, i;
++	int pmu_fd, error = 0;
++	cpu_set_t set;
++	__u64 value;
+ 
+-	struct perf_event_attr attr_insn_pmu = {
++	/* Move to target CPU */
++	CPU_ZERO(&set);
++	CPU_SET(cpu, &set);
++	assert(sched_setaffinity(0, sizeof(set), &set) == 0);
++	/* Open perf event and attach to the perf_event_array */
++	pmu_fd = sys_perf_event_open(attr, -1/*pid*/, cpu/*cpu*/, -1/*group_fd*/, 0);
++	if (pmu_fd < 0) {
++		fprintf(stderr, "sys_perf_event_open failed on CPU %d\n", cpu);
++		error = 1;
++		goto on_exit;
++	}
++	assert(bpf_map_update_elem(map_fd[0], &cpu, &pmu_fd, BPF_ANY) == 0);
++	assert(ioctl(pmu_fd, PERF_EVENT_IOC_ENABLE, 0) == 0);
++	/* Trigger the kprobe */
++	bpf_map_get_next_key(map_fd[1], &cpu, NULL);
++	/* Check the value */
++	if (bpf_map_lookup_elem(map_fd[1], &cpu, &value)) {
++		fprintf(stderr, "Value missing for CPU %d\n", cpu);
++		error = 1;
++		goto on_exit;
++	}
++	fprintf(stderr, "CPU %d: %llu\n", cpu, value);
++
++on_exit:
++	assert(bpf_map_delete_elem(map_fd[0], &cpu) == 0 || error);
++	assert(ioctl(pmu_fd, PERF_EVENT_IOC_DISABLE, 0) == 0 || error);
++	assert(close(pmu_fd) == 0 || error);
++	assert(bpf_map_delete_elem(map_fd[1], &cpu) == 0 || error);
++	exit(error);
 +}
- static inline void perf_event_print_debug(void)				{ }
- static inline int perf_event_task_disable(void)				{ return -EINVAL; }
- static inline int perf_event_task_enable(void)				{ return -EINVAL; }
-diff --git a/kernel/bpf/arraymap.c b/kernel/bpf/arraymap.c
-index 172dc8ee0e3b..ab93490d1a00 100644
---- a/kernel/bpf/arraymap.c
-+++ b/kernel/bpf/arraymap.c
-@@ -452,39 +452,18 @@ static void bpf_event_entry_free_rcu(struct bpf_event_entry *ee)
- static void *perf_event_fd_array_get_ptr(struct bpf_map *map,
- 					 struct file *map_file, int fd)
- {
--	const struct perf_event_attr *attr;
- 	struct bpf_event_entry *ee;
--	struct perf_event *event;
- 	struct file *perf_file;
- 
- 	perf_file = perf_event_get(fd);
- 	if (IS_ERR(perf_file))
- 		return perf_file;
- 
--	event = perf_file->private_data;
--	ee = ERR_PTR(-EINVAL);
--
--	attr = perf_event_attrs(event);
--	if (IS_ERR(attr) || attr->inherit)
--		goto err_out;
--
--	switch (attr->type) {
--	case PERF_TYPE_SOFTWARE:
--		if (attr->config != PERF_COUNT_SW_BPF_OUTPUT)
--			goto err_out;
--		/* fall-through */
--	case PERF_TYPE_RAW:
--	case PERF_TYPE_HARDWARE:
--		ee = bpf_event_entry_gen(perf_file, map_file);
--		if (ee)
--			return ee;
--		ee = ERR_PTR(-ENOMEM);
--		/* fall-through */
--	default:
--		break;
--	}
-+	ee = bpf_event_entry_gen(perf_file, map_file);
-+	if (ee)
-+		return ee;
- 
--err_out:
-+	ee = ERR_PTR(-ENOMEM);
- 	fput(perf_file);
- 	return ee;
- }
-diff --git a/kernel/events/core.c b/kernel/events/core.c
-index 6e75a5c9412d..51e40e4876c0 100644
---- a/kernel/events/core.c
-+++ b/kernel/events/core.c
-@@ -3636,10 +3636,10 @@ static inline u64 perf_event_count(struct perf_event *event)
-  *     will not be local and we cannot read them atomically
-  *   - must not have a pmu::count method
-  */
--u64 perf_event_read_local(struct perf_event *event)
-+int perf_event_read_local(struct perf_event *event, u64 *value)
- {
- 	unsigned long flags;
--	u64 val;
-+	int ret = 0;
- 
- 	/*
- 	 * Disabling interrupts avoids all counter scheduling (context
-@@ -3647,25 +3647,37 @@ u64 perf_event_read_local(struct perf_event *event)
- 	 */
- 	local_irq_save(flags);
- 
--	/* If this is a per-task event, it must be for current */
--	WARN_ON_ONCE((event->attach_state & PERF_ATTACH_TASK) &&
--		     event->hw.target != current);
--
--	/* If this is a per-CPU event, it must be for this CPU */
--	WARN_ON_ONCE(!(event->attach_state & PERF_ATTACH_TASK) &&
--		     event->cpu != smp_processor_id());
--
- 	/*
- 	 * It must not be an event with inherit set, we cannot read
- 	 * all child counters from atomic context.
- 	 */
--	WARN_ON_ONCE(event->attr.inherit);
-+	if (event->attr.inherit) {
-+		ret = -EOPNOTSUPP;
-+		goto out;
-+	}
- 
- 	/*
- 	 * It must not have a pmu::count method, those are not
- 	 * NMI safe.
- 	 */
--	WARN_ON_ONCE(event->pmu->count);
-+	if (event->pmu->count) {
-+		ret = -EOPNOTSUPP;
-+		goto out;
++
++static void test_perf_event_array(struct perf_event_attr *attr,
++				  const char *name)
++{
++	int i, status, nr_cpus = sysconf(_SC_NPROCESSORS_CONF);
++	pid_t pid[nr_cpus];
++	int err = 0;
++
++	printf("Test reading %s counters\n", name);
++
++	for (i = 0; i < nr_cpus; i++) {
++		pid[i] = fork();
++		assert(pid[i] >= 0);
++		if (pid[i] == 0) {
++			check_on_cpu(i, attr);
++			exit(1);
++		}
 +	}
 +
-+	/* If this is a per-task event, it must be for current */
-+	if ((event->attach_state & PERF_ATTACH_TASK) &&
-+	    event->hw.target != current) {
-+		ret = -EINVAL;
-+		goto out;
++	for (i = 0; i < nr_cpus; i++) {
++		assert(waitpid(pid[i], &status, 0) == pid[i]);
++		err |= status;
 +	}
 +
-+	/* If this is a per-CPU event, it must be for this CPU */
-+	if (!(event->attach_state & PERF_ATTACH_TASK) &&
-+	    event->cpu != smp_processor_id()) {
-+		ret = -EINVAL;
-+		goto out;
-+	}
- 
- 	/*
- 	 * If the event is currently on this CPU, its either a per-task event,
-@@ -3675,10 +3687,11 @@ u64 perf_event_read_local(struct perf_event *event)
- 	if (event->oncpu == smp_processor_id())
- 		event->pmu->read(event);
- 
--	val = local64_read(&event->count);
-+	*value = local64_read(&event->count);
-+out:
- 	local_irq_restore(flags);
- 
--	return val;
-+	return ret;
- }
- 
- static int perf_event_read(struct perf_event *event, bool group)
-@@ -8037,12 +8050,8 @@ static int perf_event_set_bpf_prog(struct perf_event *event, u32 prog_fd)
- 	bool is_kprobe, is_tracepoint;
- 	struct bpf_prog *prog;
- 
--	if (event->attr.type == PERF_TYPE_HARDWARE ||
--	    event->attr.type == PERF_TYPE_SOFTWARE)
--		return perf_event_set_bpf_handler(event, prog_fd);
--
- 	if (event->attr.type != PERF_TYPE_TRACEPOINT)
--		return -EINVAL;
-+		return perf_event_set_bpf_handler(event, prog_fd);
- 
- 	if (event->tp_event->prog)
- 		return -EEXIST;
-diff --git a/kernel/trace/bpf_trace.c b/kernel/trace/bpf_trace.c
-index 460a031c77e5..957ab2d35d7b 100644
---- a/kernel/trace/bpf_trace.c
-+++ b/kernel/trace/bpf_trace.c
-@@ -235,6 +235,8 @@ BPF_CALL_2(bpf_perf_event_read, struct bpf_map *, map, u64, flags)
- 	u64 index = flags & BPF_F_INDEX_MASK;
- 	struct bpf_event_entry *ee;
- 	struct perf_event *event;
-+	u64 value = 0;
-+	int err;
- 
- 	if (unlikely(flags & ~(BPF_F_INDEX_MASK)))
- 		return -EINVAL;
-@@ -247,21 +249,14 @@ BPF_CALL_2(bpf_perf_event_read, struct bpf_map *, map, u64, flags)
- 	if (!ee)
- 		return -ENOENT;
- 
--	event = ee->event;
--	if (unlikely(event->attr.type != PERF_TYPE_HARDWARE &&
--		     event->attr.type != PERF_TYPE_RAW))
--		return -EINVAL;
--
--	/* make sure event is local and doesn't have pmu::count */
--	if (unlikely(event->oncpu != cpu || event->pmu->count))
--		return -EINVAL;
--
-+	err = perf_event_read_local(ee->event, &value);
- 	/*
--	 * we don't know if the function is run successfully by the
--	 * return value. It can be judged in other places, such as
--	 * eBPF programs.
-+	 * this api is ugly since we miss [-95..-2] range of valid
-+	 * counter values, but that's uapi
- 	 */
--	return perf_event_read_local(event);
 +	if (err)
-+		return err;
-+	return value;
++		printf("Test: %s FAILED\n", name);
++}
++
++static void test_bpf_perf_event(void)
++{
++	struct perf_event_attr attr_cycles = {
+ 		.freq = 0,
+ 		.sample_period = SAMPLE_PERIOD,
+ 		.inherit = 0,
+ 		.type = PERF_TYPE_HARDWARE,
+ 		.read_format = 0,
+ 		.sample_type = 0,
+-		.config = 0,/* PMU: cycles */
++		.config = PERF_COUNT_HW_CPU_CYCLES,
++	};
++	struct perf_event_attr attr_clock = {
++		.freq = 0,
++		.sample_period = SAMPLE_PERIOD,
++		.inherit = 0,
++		.type = PERF_TYPE_SOFTWARE,
++		.read_format = 0,
++		.sample_type = 0,
++		.config = PERF_COUNT_SW_CPU_CLOCK,
++	};
++	struct perf_event_attr attr_raw = {
++		.freq = 0,
++		.sample_period = SAMPLE_PERIOD,
++		.inherit = 0,
++		.type = PERF_TYPE_RAW,
++		.read_format = 0,
++		.sample_type = 0,
++		/* Intel Instruction Retired */
++		.config = 0xc0,
++	};
++	struct perf_event_attr attr_l1d_load = {
++		.freq = 0,
++		.sample_period = SAMPLE_PERIOD,
++		.inherit = 0,
++		.type = PERF_TYPE_HW_CACHE,
++		.read_format = 0,
++		.sample_type = 0,
++		.config =
++			PERF_COUNT_HW_CACHE_L1D |
++			(PERF_COUNT_HW_CACHE_OP_READ << 8) |
++			(PERF_COUNT_HW_CACHE_RESULT_ACCESS << 16),
++	};
++	struct perf_event_attr attr_llc_miss = {
++		.freq = 0,
++		.sample_period = SAMPLE_PERIOD,
++		.inherit = 0,
++		.type = PERF_TYPE_HW_CACHE,
++		.read_format = 0,
++		.sample_type = 0,
++		.config =
++			PERF_COUNT_HW_CACHE_LL |
++			(PERF_COUNT_HW_CACHE_OP_READ << 8) |
++			(PERF_COUNT_HW_CACHE_RESULT_MISS << 16),
++	};
++	struct perf_event_attr attr_msr_tsc = {
++		.freq = 0,
++		.sample_period = 0,
++		.inherit = 0,
++		/* From /sys/bus/event_source/devices/msr/ */
++		.type = 7,
++		.read_format = 0,
++		.sample_type = 0,
++		.config = 0,
+ 	};
+ 
+-	for (i = 0; i < nr_cpus; i++) {
+-		pmu_fd[i] = sys_perf_event_open(&attr_insn_pmu, -1/*pid*/, i/*cpu*/, -1/*group_fd*/, 0);
+-		if (pmu_fd[i] < 0) {
+-			printf("event syscall failed\n");
+-			goto exit;
+-		}
+-
+-		bpf_map_update_elem(map_fd[0], &i, &pmu_fd[i], BPF_ANY);
+-		ioctl(pmu_fd[i], PERF_EVENT_IOC_ENABLE, 0);
+-	}
++	test_perf_event_array(&attr_cycles, "HARDWARE-cycles");
++	test_perf_event_array(&attr_clock, "SOFTWARE-clock");
++	test_perf_event_array(&attr_raw, "RAW-instruction-retired");
++	test_perf_event_array(&attr_l1d_load, "HW_CACHE-L1D-load");
+ 
+-	status = system("ls > /dev/null");
+-	if (status)
+-		goto exit;
+-	status = system("sleep 2");
+-	if (status)
+-		goto exit;
+-
+-exit:
+-	for (i = 0; i < nr_cpus; i++)
+-		close(pmu_fd[i]);
+-	close(map_fd[0]);
+-	free(pmu_fd);
++	/* below tests may fail in qemu */
++	test_perf_event_array(&attr_llc_miss, "HW_CACHE-LLC-miss");
++	test_perf_event_array(&attr_msr_tsc, "Dynamic-msr-tsc");
  }
  
- static const struct bpf_func_proto bpf_perf_event_read_proto = {
+ int main(int argc, char **argv)
+ {
++	struct rlimit r = {RLIM_INFINITY, RLIM_INFINITY};
+ 	char filename[256];
+ 
+ 	snprintf(filename, sizeof(filename), "%s_kern.o", argv[0]);
+ 
++	setrlimit(RLIMIT_MEMLOCK, &r);
+ 	if (load_bpf_file(filename)) {
+ 		printf("%s", bpf_log_buf);
+ 		return 1;
+ 	}
+ 
+ 	test_bpf_perf_event();
+-	read_trace_pipe();
+-
+ 	return 0;
+ }
 -- 
 2.9.3
