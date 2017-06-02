@@ -1,127 +1,216 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH 3/3] net: dsa: Initialize all CPU and enabled ports masks in dsa_ds_parse()
-Date: Fri,  2 Jun 2017 12:31:23 -0700
-Message-ID: <20170602193123.23930-4-f.fainelli@gmail.com>
+Subject: [PATCH 2/3] net: dsa: Consistently use dsa_port for dsa_*_port_{apply,unapply}
+Date: Fri,  2 Jun 2017 12:31:22 -0700
+Message-ID: <20170602193123.23930-3-f.fainelli@gmail.com>
 References: <20170602193123.23930-1-f.fainelli@gmail.com>
 Cc: andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
         john@phrozen.org, Florian Fainelli <f.fainelli@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:33779 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751150AbdFBTbj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 2 Jun 2017 15:31:39 -0400
-Received: by mail-wm0-f66.google.com with SMTP id b84so20478137wmh.0
-        for <netdev@vger.kernel.org>; Fri, 02 Jun 2017 12:31:38 -0700 (PDT)
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:33765 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751192AbdFBTbm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 2 Jun 2017 15:31:42 -0400
+Received: by mail-wm0-f65.google.com with SMTP id b84so20478032wmh.0
+        for <netdev@vger.kernel.org>; Fri, 02 Jun 2017 12:31:41 -0700 (PDT)
 In-Reply-To: <20170602193123.23930-1-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There was no reason for duplicating the code that initializes
-ds->enabled_port_mask in both dsa_parse_ports_dn() and
-dsa_parse_ports(), instead move this to dsa_ds_parse() which is early
-enough before ops->setup() has run.
+We have all the information we need in dsa_port, so use it instead of
+repeating the same arguments over and over again.
 
-While at it, we can now make dsa_is_cpu_port() check ds->cpu_port_mask
-which is a step towards being multi-CPU port capable.
-
+Suggested-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- include/net/dsa.h |  2 +-
- net/dsa/dsa2.c    | 33 +++++++++++++++------------------
- 2 files changed, 16 insertions(+), 19 deletions(-)
+ net/dsa/dsa2.c | 90 ++++++++++++++++++++++++++--------------------------------
+ 1 file changed, 41 insertions(+), 49 deletions(-)
 
-diff --git a/include/net/dsa.h b/include/net/dsa.h
-index 448d8bc77707..2effb0af9d7c 100644
---- a/include/net/dsa.h
-+++ b/include/net/dsa.h
-@@ -254,7 +254,7 @@ struct dsa_switch {
- 
- static inline bool dsa_is_cpu_port(struct dsa_switch *ds, int p)
- {
--	return ds->dst->cpu_dp == &ds->ports[p];
-+	return !!(ds->cpu_port_mask & (1 << p));
- }
- 
- static inline bool dsa_is_dsa_port(struct dsa_switch *ds, int p)
 diff --git a/net/dsa/dsa2.c b/net/dsa/dsa2.c
-index 067daec644c1..cd13bb54a30c 100644
+index 7f9bf1456a65..067daec644c1 100644
 --- a/net/dsa/dsa2.c
 +++ b/net/dsa/dsa2.c
-@@ -250,8 +250,6 @@ static int dsa_cpu_port_apply(struct dsa_port *port)
+@@ -214,66 +214,61 @@ static int dsa_dst_complete(struct dsa_switch_tree *dst)
+ 	return 0;
+ }
+ 
+-static int dsa_dsa_port_apply(struct dsa_port *port, u32 index,
+-			      struct dsa_switch *ds)
++static int dsa_dsa_port_apply(struct dsa_port *port)
+ {
++	struct dsa_switch *ds = port->ds;
+ 	int err;
+ 
+-	err = dsa_cpu_dsa_setup(ds, ds->dev, port, index);
++	err = dsa_cpu_dsa_setup(ds, ds->dev, port, port->index);
+ 	if (err) {
+ 		dev_warn(ds->dev, "Failed to setup dsa port %d: %d\n",
+-			 index, err);
++			 port->index, err);
  		return err;
  	}
  
--	ds->cpu_port_mask |= BIT(port->index);
--
- 	memset(&port->devlink_port, 0, sizeof(port->devlink_port));
- 	err = devlink_port_register(ds->devlink, &port->devlink_port,
- 				    port->index);
-@@ -522,6 +520,12 @@ static int dsa_cpu_parse(struct dsa_port *port, u32 index,
+-	memset(&ds->ports[index].devlink_port, 0,
+-	       sizeof(ds->ports[index].devlink_port));
++	memset(&port->devlink_port, 0, sizeof(port->devlink_port));
  
- 	dst->rcv = dst->tag_ops->rcv;
+-	return devlink_port_register(ds->devlink,
+-				     &ds->ports[index].devlink_port,
+-				     index);
++	return devlink_port_register(ds->devlink, &port->devlink_port,
++				     port->index);
+ }
  
-+	/* Initialize cpu_port_mask now for drv->setup()
-+	 * to have access to a correct value, just like what
-+	 * net/dsa/dsa.c::dsa_switch_setup_one does.
-+	 */
-+	ds->cpu_port_mask |= BIT(index);
-+
+-static void dsa_dsa_port_unapply(struct dsa_port *port, u32 index,
+-				 struct dsa_switch *ds)
++static void dsa_dsa_port_unapply(struct dsa_port *port)
+ {
+-	devlink_port_unregister(&ds->ports[index].devlink_port);
++	devlink_port_unregister(&port->devlink_port);
+ 	dsa_cpu_dsa_destroy(port);
+ }
+ 
+-static int dsa_cpu_port_apply(struct dsa_port *port, u32 index,
+-			      struct dsa_switch *ds)
++static int dsa_cpu_port_apply(struct dsa_port *port)
+ {
++	struct dsa_switch *ds = port->ds;
+ 	int err;
+ 
+-	err = dsa_cpu_dsa_setup(ds, ds->dev, port, index);
++	err = dsa_cpu_dsa_setup(ds, ds->dev, port, port->index);
+ 	if (err) {
+ 		dev_warn(ds->dev, "Failed to setup cpu port %d: %d\n",
+-			 index, err);
++			 port->index, err);
+ 		return err;
+ 	}
+ 
+-	ds->cpu_port_mask |= BIT(index);
++	ds->cpu_port_mask |= BIT(port->index);
+ 
+-	memset(&ds->ports[index].devlink_port, 0,
+-	       sizeof(ds->ports[index].devlink_port));
+-	err = devlink_port_register(ds->devlink, &ds->ports[index].devlink_port,
+-				    index);
++	memset(&port->devlink_port, 0, sizeof(port->devlink_port));
++	err = devlink_port_register(ds->devlink, &port->devlink_port,
++				    port->index);
+ 	return err;
+ }
+ 
+-static void dsa_cpu_port_unapply(struct dsa_port *port, u32 index,
+-				 struct dsa_switch *ds)
++static void dsa_cpu_port_unapply(struct dsa_port *port)
+ {
+-	devlink_port_unregister(&ds->ports[index].devlink_port);
++	devlink_port_unregister(&port->devlink_port);
+ 	dsa_cpu_dsa_destroy(port);
+-	ds->cpu_port_mask &= ~BIT(index);
++	port->ds->cpu_port_mask &= ~BIT(port->index);
+ 
+ }
+ 
+-static int dsa_user_port_apply(struct dsa_port *port, u32 index,
+-			       struct dsa_switch *ds)
++static int dsa_user_port_apply(struct dsa_port *port)
+ {
++	struct dsa_switch *ds = port->ds;
+ 	const char *name = port->name;
+ 	int err;
+ 
+@@ -282,35 +277,32 @@ static int dsa_user_port_apply(struct dsa_port *port, u32 index,
+ 	if (!name)
+ 		name = "eth%d";
+ 
+-	err = dsa_slave_create(ds, ds->dev, index, name);
++	err = dsa_slave_create(ds, ds->dev, port->index, name);
+ 	if (err) {
+ 		dev_warn(ds->dev, "Failed to create slave %d: %d\n",
+-			 index, err);
+-		ds->ports[index].netdev = NULL;
++			 port->index, err);
++		port->netdev = NULL;
+ 		return err;
+ 	}
+ 
+-	memset(&ds->ports[index].devlink_port, 0,
+-	       sizeof(ds->ports[index].devlink_port));
+-	err = devlink_port_register(ds->devlink, &ds->ports[index].devlink_port,
+-				    index);
++	memset(&port->devlink_port, 0, sizeof(port->devlink_port));
++	err = devlink_port_register(ds->devlink, &port->devlink_port,
++				    port->index);
+ 	if (err)
+ 		return err;
+ 
+-	devlink_port_type_eth_set(&ds->ports[index].devlink_port,
+-				  ds->ports[index].netdev);
++	devlink_port_type_eth_set(&port->devlink_port, port->netdev);
+ 
  	return 0;
  }
  
-@@ -533,14 +537,22 @@ static int dsa_ds_parse(struct dsa_switch_tree *dst, struct dsa_switch *ds)
+-static void dsa_user_port_unapply(struct dsa_port *port, u32 index,
+-				  struct dsa_switch *ds)
++static void dsa_user_port_unapply(struct dsa_port *port)
+ {
+-	devlink_port_unregister(&ds->ports[index].devlink_port);
+-	if (ds->ports[index].netdev) {
+-		dsa_slave_destroy(ds->ports[index].netdev);
+-		ds->ports[index].netdev = NULL;
+-		ds->enabled_port_mask &= ~(1 << index);
++	devlink_port_unregister(&port->devlink_port);
++	if (port->netdev) {
++		dsa_slave_destroy(port->netdev);
++		port->netdev = NULL;
++		port->ds->enabled_port_mask &= ~(1 << port->index);
+ 	}
+ }
  
- 	for (index = 0; index < ds->num_ports; index++) {
- 		port = &ds->ports[index];
--		if (!dsa_port_is_valid(port))
-+		if (!dsa_port_is_valid(port) ||
-+		    dsa_port_is_dsa(port))
+@@ -370,20 +362,20 @@ static int dsa_ds_apply(struct dsa_switch_tree *dst, struct dsa_switch *ds)
  			continue;
  
- 		if (dsa_port_is_cpu(port)) {
- 			err = dsa_cpu_parse(port, index, dst, ds);
+ 		if (dsa_port_is_dsa(port)) {
+-			err = dsa_dsa_port_apply(port, index, ds);
++			err = dsa_dsa_port_apply(port);
  			if (err)
  				return err;
-+		} else {
-+			/* Initialize enabled_port_mask now for drv->setup()
-+			 * to have access to a correct value, just like what
-+			 * net/dsa/dsa.c::dsa_switch_setup_one does.
-+			 */
-+			ds->enabled_port_mask |= BIT(index);
+ 			continue;
  		}
-+
+ 
+ 		if (dsa_port_is_cpu(port)) {
+-			err = dsa_cpu_port_apply(port, index, ds);
++			err = dsa_cpu_port_apply(port);
+ 			if (err)
+ 				return err;
+ 			continue;
+ 		}
+ 
+-		err = dsa_user_port_apply(port, index, ds);
++		err = dsa_user_port_apply(port);
+ 		if (err)
+ 			continue;
  	}
- 
- 	pr_info("DSA: switch %d %d parsed\n", dst->tree, ds->index);
-@@ -589,13 +601,6 @@ static int dsa_parse_ports_dn(struct device_node *ports, struct dsa_switch *ds)
- 			return -EINVAL;
- 
- 		ds->ports[reg].dn = port;
--
--		/* Initialize enabled_port_mask now for ops->setup()
--		 * to have access to a correct value, just like what
--		 * net/dsa/dsa.c::dsa_switch_setup_one does.
--		 */
--		if (!dsa_port_is_cpu(&ds->ports[reg]))
--			ds->enabled_port_mask |= 1 << reg;
- 	}
- 
- 	return 0;
-@@ -611,14 +616,6 @@ static int dsa_parse_ports(struct dsa_chip_data *cd, struct dsa_switch *ds)
+@@ -402,16 +394,16 @@ static void dsa_ds_unapply(struct dsa_switch_tree *dst, struct dsa_switch *ds)
  			continue;
  
- 		ds->ports[i].name = cd->port_names[i];
--
--		/* Initialize enabled_port_mask now for drv->setup()
--		 * to have access to a correct value, just like what
--		 * net/dsa/dsa.c::dsa_switch_setup_one does.
--		 */
--		if (!dsa_port_is_cpu(&ds->ports[i]))
--			ds->enabled_port_mask |= 1 << i;
--
- 		valid_name_found = true;
+ 		if (dsa_port_is_dsa(port)) {
+-			dsa_dsa_port_unapply(port, index, ds);
++			dsa_dsa_port_unapply(port);
+ 			continue;
+ 		}
+ 
+ 		if (dsa_port_is_cpu(port)) {
+-			dsa_cpu_port_unapply(port, index, ds);
++			dsa_cpu_port_unapply(port);
+ 			continue;
+ 		}
+ 
+-		dsa_user_port_unapply(port, index, ds);
++		dsa_user_port_unapply(port);
  	}
  
+ 	if (ds->slave_mii_bus && ds->ops->phy_read)
 -- 
 2.9.3
