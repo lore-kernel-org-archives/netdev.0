@@ -1,118 +1,127 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH 1/3] net: dsa: Pass dsa_port reference to ethtool setup/restore
-Date: Fri,  2 Jun 2017 12:31:21 -0700
-Message-ID: <20170602193123.23930-2-f.fainelli@gmail.com>
+Subject: [PATCH 3/3] net: dsa: Initialize all CPU and enabled ports masks in dsa_ds_parse()
+Date: Fri,  2 Jun 2017 12:31:23 -0700
+Message-ID: <20170602193123.23930-4-f.fainelli@gmail.com>
 References: <20170602193123.23930-1-f.fainelli@gmail.com>
 Cc: andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
         john@phrozen.org, Florian Fainelli <f.fainelli@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:36396 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751150AbdFBTbe (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 2 Jun 2017 15:31:34 -0400
-Received: by mail-wm0-f67.google.com with SMTP id k15so20481868wmh.3
-        for <netdev@vger.kernel.org>; Fri, 02 Jun 2017 12:31:34 -0700 (PDT)
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:33779 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751150AbdFBTbj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 2 Jun 2017 15:31:39 -0400
+Received: by mail-wm0-f66.google.com with SMTP id b84so20478137wmh.0
+        for <netdev@vger.kernel.org>; Fri, 02 Jun 2017 12:31:38 -0700 (PDT)
 In-Reply-To: <20170602193123.23930-1-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We do not need to have a reference to a dsa_switch, instead we should
-pass a reference to a CPU dsa_port, change that. This is a preliminary
-change to better support multiple CPU ports.
+There was no reason for duplicating the code that initializes
+ds->enabled_port_mask in both dsa_parse_ports_dn() and
+dsa_parse_ports(), instead move this to dsa_ds_parse() which is early
+enough before ops->setup() has run.
+
+While at it, we can now make dsa_is_cpu_port() check ds->cpu_port_mask
+which is a step towards being multi-CPU port capable.
 
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- net/dsa/dsa.c      | 6 ++++--
- net/dsa/dsa2.c     | 4 ++--
- net/dsa/dsa_priv.h | 4 ++--
- net/dsa/legacy.c   | 4 ++--
- 4 files changed, 10 insertions(+), 8 deletions(-)
+ include/net/dsa.h |  2 +-
+ net/dsa/dsa2.c    | 33 +++++++++++++++------------------
+ 2 files changed, 16 insertions(+), 19 deletions(-)
 
-diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-index 402459e73f33..fdc448b30e56 100644
---- a/net/dsa/dsa.c
-+++ b/net/dsa/dsa.c
-@@ -112,8 +112,9 @@ const struct dsa_device_ops *dsa_resolve_tag_protocol(int tag_protocol)
- 	return ops;
+diff --git a/include/net/dsa.h b/include/net/dsa.h
+index 448d8bc77707..2effb0af9d7c 100644
+--- a/include/net/dsa.h
++++ b/include/net/dsa.h
+@@ -254,7 +254,7 @@ struct dsa_switch {
+ 
+ static inline bool dsa_is_cpu_port(struct dsa_switch *ds, int p)
+ {
+-	return ds->dst->cpu_dp == &ds->ports[p];
++	return !!(ds->cpu_port_mask & (1 << p));
  }
  
--int dsa_cpu_port_ethtool_setup(struct dsa_switch *ds)
-+int dsa_cpu_port_ethtool_setup(struct dsa_port *cpu_dp)
- {
-+	struct dsa_switch *ds = cpu_dp->ds;
- 	struct net_device *master;
- 	struct ethtool_ops *cpu_ops;
+ static inline bool dsa_is_dsa_port(struct dsa_switch *ds, int p)
+diff --git a/net/dsa/dsa2.c b/net/dsa/dsa2.c
+index 067daec644c1..cd13bb54a30c 100644
+--- a/net/dsa/dsa2.c
++++ b/net/dsa/dsa2.c
+@@ -250,8 +250,6 @@ static int dsa_cpu_port_apply(struct dsa_port *port)
+ 		return err;
+ 	}
  
-@@ -136,8 +137,9 @@ int dsa_cpu_port_ethtool_setup(struct dsa_switch *ds)
+-	ds->cpu_port_mask |= BIT(port->index);
+-
+ 	memset(&port->devlink_port, 0, sizeof(port->devlink_port));
+ 	err = devlink_port_register(ds->devlink, &port->devlink_port,
+ 				    port->index);
+@@ -522,6 +520,12 @@ static int dsa_cpu_parse(struct dsa_port *port, u32 index,
+ 
+ 	dst->rcv = dst->tag_ops->rcv;
+ 
++	/* Initialize cpu_port_mask now for drv->setup()
++	 * to have access to a correct value, just like what
++	 * net/dsa/dsa.c::dsa_switch_setup_one does.
++	 */
++	ds->cpu_port_mask |= BIT(index);
++
  	return 0;
  }
  
--void dsa_cpu_port_ethtool_restore(struct dsa_switch *ds)
-+void dsa_cpu_port_ethtool_restore(struct dsa_port *cpu_dp)
- {
-+	struct dsa_switch *ds = cpu_dp->ds;
- 	struct net_device *master;
+@@ -533,14 +537,22 @@ static int dsa_ds_parse(struct dsa_switch_tree *dst, struct dsa_switch *ds)
  
- 	master = ds->dst->master_netdev;
-diff --git a/net/dsa/dsa2.c b/net/dsa/dsa2.c
-index 21b44a9828f6..7f9bf1456a65 100644
---- a/net/dsa/dsa2.c
-+++ b/net/dsa/dsa2.c
-@@ -444,7 +444,7 @@ static int dsa_dst_apply(struct dsa_switch_tree *dst)
+ 	for (index = 0; index < ds->num_ports; index++) {
+ 		port = &ds->ports[index];
+-		if (!dsa_port_is_valid(port))
++		if (!dsa_port_is_valid(port) ||
++		    dsa_port_is_dsa(port))
+ 			continue;
+ 
+ 		if (dsa_port_is_cpu(port)) {
+ 			err = dsa_cpu_parse(port, index, dst, ds);
+ 			if (err)
+ 				return err;
++		} else {
++			/* Initialize enabled_port_mask now for drv->setup()
++			 * to have access to a correct value, just like what
++			 * net/dsa/dsa.c::dsa_switch_setup_one does.
++			 */
++			ds->enabled_port_mask |= BIT(index);
+ 		}
++
  	}
  
- 	if (dst->cpu_dp) {
--		err = dsa_cpu_port_ethtool_setup(dst->cpu_dp->ds);
-+		err = dsa_cpu_port_ethtool_setup(dst->cpu_dp);
- 		if (err)
- 			return err;
- 	}
-@@ -485,7 +485,7 @@ static void dsa_dst_unapply(struct dsa_switch_tree *dst)
- 	}
+ 	pr_info("DSA: switch %d %d parsed\n", dst->tree, ds->index);
+@@ -589,13 +601,6 @@ static int dsa_parse_ports_dn(struct device_node *ports, struct dsa_switch *ds)
+ 			return -EINVAL;
  
- 	if (dst->cpu_dp)
--		dsa_cpu_port_ethtool_restore(dst->cpu_dp->ds);
-+		dsa_cpu_port_ethtool_restore(dst->cpu_dp);
- 
- 	pr_info("DSA: tree %d unapplied\n", dst->tree);
- 	dst->applied = false;
-diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
-index db2a7b9edfb8..66ee248796c8 100644
---- a/net/dsa/dsa_priv.h
-+++ b/net/dsa/dsa_priv.h
-@@ -103,8 +103,8 @@ int dsa_cpu_dsa_setup(struct dsa_switch *ds, struct device *dev,
- 		      struct dsa_port *dport, int port);
- void dsa_cpu_dsa_destroy(struct dsa_port *dport);
- const struct dsa_device_ops *dsa_resolve_tag_protocol(int tag_protocol);
--int dsa_cpu_port_ethtool_setup(struct dsa_switch *ds);
--void dsa_cpu_port_ethtool_restore(struct dsa_switch *ds);
-+int dsa_cpu_port_ethtool_setup(struct dsa_port *cpu_dp);
-+void dsa_cpu_port_ethtool_restore(struct dsa_port *cpu_dp);
- 
- /* legacy.c */
- int dsa_legacy_register(void);
-diff --git a/net/dsa/legacy.c b/net/dsa/legacy.c
-index d70a1a788d17..d534d8f4b9cf 100644
---- a/net/dsa/legacy.c
-+++ b/net/dsa/legacy.c
-@@ -205,7 +205,7 @@ static int dsa_switch_setup_one(struct dsa_switch *ds, struct device *parent)
- 		netdev_err(dst->master_netdev, "[%d] : can't configure CPU and DSA ports\n",
- 			   index);
- 
--	ret = dsa_cpu_port_ethtool_setup(ds);
-+	ret = dsa_cpu_port_ethtool_setup(ds->dst->cpu_dp);
- 	if (ret)
- 		return ret;
- 
-@@ -733,7 +733,7 @@ static void dsa_remove_dst(struct dsa_switch_tree *dst)
- 			dsa_switch_destroy(ds);
+ 		ds->ports[reg].dn = port;
+-
+-		/* Initialize enabled_port_mask now for ops->setup()
+-		 * to have access to a correct value, just like what
+-		 * net/dsa/dsa.c::dsa_switch_setup_one does.
+-		 */
+-		if (!dsa_port_is_cpu(&ds->ports[reg]))
+-			ds->enabled_port_mask |= 1 << reg;
  	}
  
--	dsa_cpu_port_ethtool_restore(dst->cpu_dp->ds);
-+	dsa_cpu_port_ethtool_restore(dst->cpu_dp);
+ 	return 0;
+@@ -611,14 +616,6 @@ static int dsa_parse_ports(struct dsa_chip_data *cd, struct dsa_switch *ds)
+ 			continue;
  
- 	dev_put(dst->master_netdev);
- }
+ 		ds->ports[i].name = cd->port_names[i];
+-
+-		/* Initialize enabled_port_mask now for drv->setup()
+-		 * to have access to a correct value, just like what
+-		 * net/dsa/dsa.c::dsa_switch_setup_one does.
+-		 */
+-		if (!dsa_port_is_cpu(&ds->ports[i]))
+-			ds->enabled_port_mask |= 1 << i;
+-
+ 		valid_name_found = true;
+ 	}
+ 
 -- 
 2.9.3
