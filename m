@@ -1,103 +1,37 @@
 From: Jan Kiszka <jan.kiszka@siemens.com>
-Subject: [PATCH v4 2/6] stmmac: pci: Use stmmac_pci_info for all devices
-Date: Fri,  2 Jun 2017 09:34:50 +0200
-Message-ID: <0f8779bd7568086addc3c0fc193381838d4ef55f.1496388893.git.jan.kiszka@siemens.com>
-References: <cover.1496388893.git.jan.kiszka@siemens.com>
+Subject: [PATCH v4 0/6] stmmac: pci: Refactor DMI probing
+Date: Fri,  2 Jun 2017 09:34:48 +0200
+Message-ID: <cover.1496388893.git.jan.kiszka@siemens.com>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
         Andy Shevchenko <andy.shevchenko@gmail.com>
 To: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
         Alexandre Torgue <alexandre.torgue@st.com>,
         David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1496388893.git.jan.kiszka@siemens.com>
-In-Reply-To: <cover.1496388893.git.jan.kiszka@siemens.com>
-References: <cover.1496388893.git.jan.kiszka@siemens.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Make stmmac_default_data compatible with stmmac_pci_info.setup and use
-an info structure for all devices. This allows to make the probing more
-regular.
+Some cleanups of the way we probe DMI platforms in the driver. Reduces
+a bit of open-coding and makes the logic easier reusable for any
+potential DMI platform != Quark.
 
-Signed-off-by: Jan Kiszka <jan.kiszka@siemens.com>
-Reviewed-by: Andy Shevchenko <andy.shevchenko@gmail.com>
----
- drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c | 36 +++++++++++++++---------
- 1 file changed, 23 insertions(+), 13 deletions(-)
+Tested on IOT2000 and Galileo Gen2.
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
-index 0efe42659a37..d3d74e526e17 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
-@@ -100,7 +100,9 @@ static void common_default_data(struct plat_stmmacenet_data *plat)
- 	plat->rx_queues_cfg[0].pkt_route = 0x0;
- }
- 
--static void stmmac_default_data(struct plat_stmmacenet_data *plat)
-+static int stmmac_default_data(struct pci_dev *pdev,
-+			       struct plat_stmmacenet_data *plat,
-+			       const struct stmmac_pci_info *info)
- {
- 	/* Set common default data first */
- 	common_default_data(plat);
-@@ -112,8 +114,14 @@ static void stmmac_default_data(struct plat_stmmacenet_data *plat)
- 	plat->dma_cfg->pbl = 32;
- 	plat->dma_cfg->pblx8 = true;
- 	/* TODO: AXI */
-+
-+	return 0;
- }
- 
-+static const struct stmmac_pci_info stmmac_pci_info = {
-+	.setup = stmmac_default_data,
-+};
-+
- static int quark_default_data(struct pci_dev *pdev,
- 			      struct plat_stmmacenet_data *plat,
- 			      const struct stmmac_pci_info *info)
-@@ -236,14 +244,9 @@ static int stmmac_pci_probe(struct pci_dev *pdev,
- 
- 	pci_set_master(pdev);
- 
--	if (info) {
--		if (info->setup) {
--			ret = info->setup(pdev, plat, info);
--			if (ret)
--				return ret;
--		}
--	} else
--		stmmac_default_data(plat);
-+	ret = info->setup(pdev, plat, info);
-+	if (ret)
-+		return ret;
- 
- 	pci_enable_msi(pdev);
- 
-@@ -269,14 +272,21 @@ static void stmmac_pci_remove(struct pci_dev *pdev)
- 
- static SIMPLE_DEV_PM_OPS(stmmac_pm_ops, stmmac_suspend, stmmac_resume);
- 
--#define STMMAC_VENDOR_ID 0x700
-+/* synthetic ID, no official vendor */
-+#define PCI_VENDOR_ID_STMMAC 0x700
-+
- #define STMMAC_QUARK_ID  0x0937
- #define STMMAC_DEVICE_ID 0x1108
- 
-+#define STMMAC_DEVICE(vendor_id, dev_id, info)	{	\
-+	PCI_VDEVICE(vendor_id, dev_id),			\
-+	.driver_data = (kernel_ulong_t)&info		\
-+	}
-+
- static const struct pci_device_id stmmac_id_table[] = {
--	{PCI_DEVICE(STMMAC_VENDOR_ID, STMMAC_DEVICE_ID)},
--	{PCI_DEVICE(PCI_VENDOR_ID_STMICRO, PCI_DEVICE_ID_STMICRO_MAC)},
--	{PCI_VDEVICE(INTEL, STMMAC_QUARK_ID), (kernel_ulong_t)&quark_pci_info},
-+	STMMAC_DEVICE(STMMAC, STMMAC_DEVICE_ID, stmmac_pci_info),
-+	STMMAC_DEVICE(STMICRO, PCI_DEVICE_ID_STMICRO_MAC, stmmac_pci_info),
-+	STMMAC_DEVICE(INTEL, STMMAC_QUARK_ID, quark_pci_info),
- 	{}
- };
- 
+Changes in v4:
+ - Refactor patch 5 according to feedback
+
+Jan
+
+Jan Kiszka (6):
+  stmmac: pci: Make stmmac_pci_info structure constant
+  stmmac: pci: Use stmmac_pci_info for all devices
+  stmmac: pci: Make stmmac_pci_find_phy_addr truly generic
+  stmmac: pci: Select quark_pci_dmi_data from quark_default_data
+  stmmac: pci: Use dmi_system_id table for retrieving PHY addresses
+  stmmac: pci: Remove setup handler indirection via stmmac_pci_info
+
+ drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c | 205 +++++++++++++----------
+ 1 file changed, 119 insertions(+), 86 deletions(-)
+
 -- 
 2.12.3
