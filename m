@@ -1,52 +1,372 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 0/5] net: dsa: mv88e6xxx: move registers macros
-Date: Fri,  2 Jun 2017 17:06:14 -0400
-Message-ID: <20170602210619.26837-1-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 3/5] net: dsa: mv88e6xxx: move the Port macros
+Date: Fri,  2 Jun 2017 17:06:17 -0400
+Message-ID: <20170602210619.26837-4-vivien.didelot@savoirfairelinux.com>
+References: <20170602210619.26837-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
         Florian Fainelli <f.fainelli@gmail.com>,
         Andrew Lunn <andrew@lunn.ch>,
         Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:48064 "EHLO
+        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751289AbdFBVIc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 2 Jun 2017 17:08:32 -0400
+In-Reply-To: <20170602210619.26837-1-vivien.didelot@savoirfairelinux.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patchset brings no functional changes.
+Move the PORT_* macros where they belong, in the related port.h header.
 
-It is the first step of a cleanup renaming the chip header file and
-moving the Register definitions _as is_ in their proper header files.
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+---
+ drivers/net/dsa/mv88e6xxx/chip.h | 160 ---------------------------------------
+ drivers/net/dsa/mv88e6xxx/port.h | 160 +++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 160 insertions(+), 160 deletions(-)
 
-A following patchset will prefix them with the appropriate model
-(MV88E6XXX_ or e.g. MV88E6390_) to respect an implicit namespace and
-easily identify model subtleties in registers layout, as correctly done
-in the newly added serdes.h header.
-
-Vivien Didelot (5):
-  net: dsa: mv88e6xxx: rename chip header
-  net: dsa: mv88e6xxx: move PHY macros
-  net: dsa: mv88e6xxx: move the Port macros
-  net: dsa: mv88e6xxx: move the Global 1 macros
-  net: dsa: mv88e6xxx: move the Global 2 macros
-
- drivers/net/dsa/mv88e6xxx/chip.c        |   2 +-
- drivers/net/dsa/mv88e6xxx/chip.h        | 522 ++++++++++++++++++
- drivers/net/dsa/mv88e6xxx/global1.c     |   2 +-
- drivers/net/dsa/mv88e6xxx/global1.h     | 143 ++++-
- drivers/net/dsa/mv88e6xxx/global1_atu.c |   2 +-
- drivers/net/dsa/mv88e6xxx/global1_vtu.c |   2 +-
- drivers/net/dsa/mv88e6xxx/global2.c     |   6 +-
- drivers/net/dsa/mv88e6xxx/global2.h     | 105 +++-
- drivers/net/dsa/mv88e6xxx/mv88e6xxx.h   | 927 --------------------------------
- drivers/net/dsa/mv88e6xxx/phy.c         |   2 +-
- drivers/net/dsa/mv88e6xxx/phy.h         |   3 +
- drivers/net/dsa/mv88e6xxx/port.c        |   3 +-
- drivers/net/dsa/mv88e6xxx/port.h        | 162 +++++-
- drivers/net/dsa/mv88e6xxx/serdes.c      |   2 +-
- drivers/net/dsa/mv88e6xxx/serdes.h      |   2 +-
- 15 files changed, 944 insertions(+), 941 deletions(-)
- create mode 100644 drivers/net/dsa/mv88e6xxx/chip.h
- delete mode 100644 drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-
+diff --git a/drivers/net/dsa/mv88e6xxx/chip.h b/drivers/net/dsa/mv88e6xxx/chip.h
+index 2929132fb52d..a7c71a43503b 100644
+--- a/drivers/net/dsa/mv88e6xxx/chip.h
++++ b/drivers/net/dsa/mv88e6xxx/chip.h
+@@ -33,166 +33,6 @@
+ #define SMI_CMD_OP_45_READ_DATA_INC	((3 << 10) | SMI_CMD_BUSY)
+ #define SMI_DATA		0x01
+ 
+-#define PORT_STATUS		0x00
+-#define PORT_STATUS_PAUSE_EN	BIT(15)
+-#define PORT_STATUS_MY_PAUSE	BIT(14)
+-#define PORT_STATUS_HD_FLOW	BIT(13)
+-#define PORT_STATUS_PHY_DETECT	BIT(12)
+-#define PORT_STATUS_LINK	BIT(11)
+-#define PORT_STATUS_DUPLEX	BIT(10)
+-#define PORT_STATUS_SPEED_MASK	0x0300
+-#define PORT_STATUS_SPEED_10	0x0000
+-#define PORT_STATUS_SPEED_100	0x0100
+-#define PORT_STATUS_SPEED_1000	0x0200
+-#define PORT_STATUS_EEE		BIT(6) /* 6352 */
+-#define PORT_STATUS_AM_DIS	BIT(6) /* 6165 */
+-#define PORT_STATUS_MGMII	BIT(6) /* 6185 */
+-#define PORT_STATUS_TX_PAUSED	BIT(5)
+-#define PORT_STATUS_FLOW_CTRL	BIT(4)
+-#define PORT_STATUS_CMODE_MASK	0x0f
+-#define PORT_STATUS_CMODE_100BASE_X	0x8
+-#define PORT_STATUS_CMODE_1000BASE_X	0x9
+-#define PORT_STATUS_CMODE_SGMII		0xa
+-#define PORT_STATUS_CMODE_2500BASEX	0xb
+-#define PORT_STATUS_CMODE_XAUI		0xc
+-#define PORT_STATUS_CMODE_RXAUI		0xd
+-#define PORT_PCS_CTRL		0x01
+-#define PORT_PCS_CTRL_RGMII_DELAY_RXCLK	BIT(15)
+-#define PORT_PCS_CTRL_RGMII_DELAY_TXCLK	BIT(14)
+-#define PORT_PCS_CTRL_FORCE_SPEED	BIT(13) /* 6390 */
+-#define PORT_PCS_CTRL_ALTSPEED		BIT(12) /* 6390 */
+-#define PORT_PCS_CTRL_200BASE		BIT(12) /* 6352 */
+-#define PORT_PCS_CTRL_FC		BIT(7)
+-#define PORT_PCS_CTRL_FORCE_FC		BIT(6)
+-#define PORT_PCS_CTRL_LINK_UP		BIT(5)
+-#define PORT_PCS_CTRL_FORCE_LINK	BIT(4)
+-#define PORT_PCS_CTRL_DUPLEX_FULL	BIT(3)
+-#define PORT_PCS_CTRL_FORCE_DUPLEX	BIT(2)
+-#define PORT_PCS_CTRL_SPEED_MASK	(0x03)
+-#define PORT_PCS_CTRL_SPEED_10		(0x00)
+-#define PORT_PCS_CTRL_SPEED_100		(0x01)
+-#define PORT_PCS_CTRL_SPEED_200		(0x02) /* 6065 and non Gb chips */
+-#define PORT_PCS_CTRL_SPEED_1000	(0x02)
+-#define PORT_PCS_CTRL_SPEED_10000	(0x03) /* 6390X */
+-#define PORT_PCS_CTRL_SPEED_UNFORCED	(0x03)
+-#define PORT_PAUSE_CTRL		0x02
+-#define PORT_FLOW_CTRL_LIMIT_IN		((0x00 << 8) | BIT(15))
+-#define PORT_FLOW_CTRL_LIMIT_OUT	((0x01 << 8) | BIT(15))
+-#define PORT_SWITCH_ID		0x03
+-#define PORT_SWITCH_ID_PROD_NUM_6085	0x04a
+-#define PORT_SWITCH_ID_PROD_NUM_6095	0x095
+-#define PORT_SWITCH_ID_PROD_NUM_6097	0x099
+-#define PORT_SWITCH_ID_PROD_NUM_6131	0x106
+-#define PORT_SWITCH_ID_PROD_NUM_6320	0x115
+-#define PORT_SWITCH_ID_PROD_NUM_6123	0x121
+-#define PORT_SWITCH_ID_PROD_NUM_6141	0x340
+-#define PORT_SWITCH_ID_PROD_NUM_6161	0x161
+-#define PORT_SWITCH_ID_PROD_NUM_6165	0x165
+-#define PORT_SWITCH_ID_PROD_NUM_6171	0x171
+-#define PORT_SWITCH_ID_PROD_NUM_6172	0x172
+-#define PORT_SWITCH_ID_PROD_NUM_6175	0x175
+-#define PORT_SWITCH_ID_PROD_NUM_6176	0x176
+-#define PORT_SWITCH_ID_PROD_NUM_6185	0x1a7
+-#define PORT_SWITCH_ID_PROD_NUM_6190	0x190
+-#define PORT_SWITCH_ID_PROD_NUM_6190X	0x0a0
+-#define PORT_SWITCH_ID_PROD_NUM_6191	0x191
+-#define PORT_SWITCH_ID_PROD_NUM_6240	0x240
+-#define PORT_SWITCH_ID_PROD_NUM_6290	0x290
+-#define PORT_SWITCH_ID_PROD_NUM_6321	0x310
+-#define PORT_SWITCH_ID_PROD_NUM_6341	0x341
+-#define PORT_SWITCH_ID_PROD_NUM_6352	0x352
+-#define PORT_SWITCH_ID_PROD_NUM_6350	0x371
+-#define PORT_SWITCH_ID_PROD_NUM_6351	0x375
+-#define PORT_SWITCH_ID_PROD_NUM_6390	0x390
+-#define PORT_SWITCH_ID_PROD_NUM_6390X	0x0a1
+-#define PORT_CONTROL		0x04
+-#define PORT_CONTROL_USE_CORE_TAG	BIT(15)
+-#define PORT_CONTROL_DROP_ON_LOCK	BIT(14)
+-#define PORT_CONTROL_EGRESS_UNMODIFIED	(0x0 << 12)
+-#define PORT_CONTROL_EGRESS_UNTAGGED	(0x1 << 12)
+-#define PORT_CONTROL_EGRESS_TAGGED	(0x2 << 12)
+-#define PORT_CONTROL_EGRESS_ADD_TAG	(0x3 << 12)
+-#define PORT_CONTROL_EGRESS_MASK	(0x3 << 12)
+-#define PORT_CONTROL_HEADER		BIT(11)
+-#define PORT_CONTROL_IGMP_MLD_SNOOP	BIT(10)
+-#define PORT_CONTROL_DOUBLE_TAG		BIT(9)
+-#define PORT_CONTROL_FRAME_MODE_NORMAL		(0x0 << 8)
+-#define PORT_CONTROL_FRAME_MODE_DSA		(0x1 << 8)
+-#define PORT_CONTROL_FRAME_MODE_PROVIDER	(0x2 << 8)
+-#define PORT_CONTROL_FRAME_ETHER_TYPE_DSA	(0x3 << 8)
+-#define PORT_CONTROL_FRAME_MASK			(0x3 << 8)
+-#define PORT_CONTROL_DSA_TAG		BIT(8)
+-#define PORT_CONTROL_VLAN_TUNNEL	BIT(7)
+-#define PORT_CONTROL_TAG_IF_BOTH	BIT(6)
+-#define PORT_CONTROL_USE_IP		BIT(5)
+-#define PORT_CONTROL_USE_TAG		BIT(4)
+-#define PORT_CONTROL_FORWARD_UNKNOWN	BIT(2)
+-#define PORT_CONTROL_EGRESS_FLOODS_MASK			(0x3 << 2)
+-#define PORT_CONTROL_EGRESS_FLOODS_NO_UNKNOWN_DA	(0x0 << 2)
+-#define PORT_CONTROL_EGRESS_FLOODS_NO_UNKNOWN_MC_DA	(0x1 << 2)
+-#define PORT_CONTROL_EGRESS_FLOODS_NO_UNKNOWN_UC_DA	(0x2 << 2)
+-#define PORT_CONTROL_EGRESS_FLOODS_ALL_UNKNOWN_DA	(0x3 << 2)
+-#define PORT_CONTROL_STATE_MASK		0x03
+-#define PORT_CONTROL_STATE_DISABLED	0x00
+-#define PORT_CONTROL_STATE_BLOCKING	0x01
+-#define PORT_CONTROL_STATE_LEARNING	0x02
+-#define PORT_CONTROL_STATE_FORWARDING	0x03
+-#define PORT_CONTROL_1		0x05
+-#define PORT_CONTROL_1_MESSAGE_PORT	BIT(15)
+-#define PORT_CONTROL_1_FID_11_4_MASK	(0xff << 0)
+-#define PORT_BASE_VLAN		0x06
+-#define PORT_BASE_VLAN_FID_3_0_MASK	(0xf << 12)
+-#define PORT_DEFAULT_VLAN	0x07
+-#define PORT_DEFAULT_VLAN_MASK	0xfff
+-#define PORT_CONTROL_2		0x08
+-#define PORT_CONTROL_2_IGNORE_FCS	BIT(15)
+-#define PORT_CONTROL_2_VTU_PRI_OVERRIDE	BIT(14)
+-#define PORT_CONTROL_2_SA_PRIO_OVERRIDE	BIT(13)
+-#define PORT_CONTROL_2_DA_PRIO_OVERRIDE	BIT(12)
+-#define PORT_CONTROL_2_JUMBO_1522	(0x00 << 12)
+-#define PORT_CONTROL_2_JUMBO_2048	(0x01 << 12)
+-#define PORT_CONTROL_2_JUMBO_10240	(0x02 << 12)
+-#define PORT_CONTROL_2_8021Q_MASK	(0x03 << 10)
+-#define PORT_CONTROL_2_8021Q_DISABLED	(0x00 << 10)
+-#define PORT_CONTROL_2_8021Q_FALLBACK	(0x01 << 10)
+-#define PORT_CONTROL_2_8021Q_CHECK	(0x02 << 10)
+-#define PORT_CONTROL_2_8021Q_SECURE	(0x03 << 10)
+-#define PORT_CONTROL_2_DISCARD_TAGGED	BIT(9)
+-#define PORT_CONTROL_2_DISCARD_UNTAGGED	BIT(8)
+-#define PORT_CONTROL_2_MAP_DA		BIT(7)
+-#define PORT_CONTROL_2_DEFAULT_FORWARD	BIT(6)
+-#define PORT_CONTROL_2_EGRESS_MONITOR	BIT(5)
+-#define PORT_CONTROL_2_INGRESS_MONITOR	BIT(4)
+-#define PORT_CONTROL_2_UPSTREAM_MASK	0x0f
+-#define PORT_RATE_CONTROL	0x09
+-#define PORT_RATE_CONTROL_2	0x0a
+-#define PORT_ASSOC_VECTOR	0x0b
+-#define PORT_ASSOC_VECTOR_HOLD_AT_1		BIT(15)
+-#define PORT_ASSOC_VECTOR_INT_AGE_OUT		BIT(14)
+-#define PORT_ASSOC_VECTOR_LOCKED_PORT		BIT(13)
+-#define PORT_ASSOC_VECTOR_IGNORE_WRONG		BIT(12)
+-#define PORT_ASSOC_VECTOR_REFRESH_LOCKED	BIT(11)
+-#define PORT_ATU_CONTROL	0x0c
+-#define PORT_PRI_OVERRIDE	0x0d
+-#define PORT_ETH_TYPE		0x0f
+-#define PORT_ETH_TYPE_DEFAULT	0x9100
+-#define PORT_IN_DISCARD_LO	0x10
+-#define PORT_IN_DISCARD_HI	0x11
+-#define PORT_IN_FILTERED	0x12
+-#define PORT_OUT_FILTERED	0x13
+-#define PORT_TAG_REGMAP_0123	0x18
+-#define PORT_TAG_REGMAP_4567	0x19
+-#define PORT_IEEE_PRIO_MAP_TABLE	0x18    /* 6390 */
+-#define PORT_IEEE_PRIO_MAP_TABLE_UPDATE		BIT(15)
+-#define PORT_IEEE_PRIO_MAP_TABLE_INGRESS_PCP		(0x0 << 12)
+-#define PORT_IEEE_PRIO_MAP_TABLE_EGRESS_GREEN_PCP	(0x1 << 12)
+-#define PORT_IEEE_PRIO_MAP_TABLE_EGRESS_YELLOW_PCP	(0x2 << 12)
+-#define PORT_IEEE_PRIO_MAP_TABLE_EGRESS_AVB_PCP		(0x3 << 12)
+-#define PORT_IEEE_PRIO_MAP_TABLE_EGRESS_GREEN_DSCP	(0x5 << 12)
+-#define PORT_IEEE_PRIO_MAP_TABLE_EGRESS_YELLOW_DSCP	(0x6 << 12)
+-#define PORT_IEEE_PRIO_MAP_TABLE_EGRESS_AVB_DSCP	(0x7 << 12)
+-#define PORT_IEEE_PRIO_MAP_TABLE_POINTER_SHIFT		9
+-
+ #define GLOBAL_STATUS		0x00
+ #define GLOBAL_STATUS_PPU_STATE BIT(15) /* 6351 and 6171 */
+ #define GLOBAL_STATUS_PPU_STATE_MASK		(0x3 << 14) /* 6165 6185 */
+diff --git a/drivers/net/dsa/mv88e6xxx/port.h b/drivers/net/dsa/mv88e6xxx/port.h
+index 497a6911b2bd..4f5e1ccfadc6 100644
+--- a/drivers/net/dsa/mv88e6xxx/port.h
++++ b/drivers/net/dsa/mv88e6xxx/port.h
+@@ -17,6 +17,166 @@
+ 
+ #include "chip.h"
+ 
++#define PORT_STATUS		0x00
++#define PORT_STATUS_PAUSE_EN	BIT(15)
++#define PORT_STATUS_MY_PAUSE	BIT(14)
++#define PORT_STATUS_HD_FLOW	BIT(13)
++#define PORT_STATUS_PHY_DETECT	BIT(12)
++#define PORT_STATUS_LINK	BIT(11)
++#define PORT_STATUS_DUPLEX	BIT(10)
++#define PORT_STATUS_SPEED_MASK	0x0300
++#define PORT_STATUS_SPEED_10	0x0000
++#define PORT_STATUS_SPEED_100	0x0100
++#define PORT_STATUS_SPEED_1000	0x0200
++#define PORT_STATUS_EEE		BIT(6) /* 6352 */
++#define PORT_STATUS_AM_DIS	BIT(6) /* 6165 */
++#define PORT_STATUS_MGMII	BIT(6) /* 6185 */
++#define PORT_STATUS_TX_PAUSED	BIT(5)
++#define PORT_STATUS_FLOW_CTRL	BIT(4)
++#define PORT_STATUS_CMODE_MASK	0x0f
++#define PORT_STATUS_CMODE_100BASE_X	0x8
++#define PORT_STATUS_CMODE_1000BASE_X	0x9
++#define PORT_STATUS_CMODE_SGMII		0xa
++#define PORT_STATUS_CMODE_2500BASEX	0xb
++#define PORT_STATUS_CMODE_XAUI		0xc
++#define PORT_STATUS_CMODE_RXAUI		0xd
++#define PORT_PCS_CTRL		0x01
++#define PORT_PCS_CTRL_RGMII_DELAY_RXCLK	BIT(15)
++#define PORT_PCS_CTRL_RGMII_DELAY_TXCLK	BIT(14)
++#define PORT_PCS_CTRL_FORCE_SPEED	BIT(13) /* 6390 */
++#define PORT_PCS_CTRL_ALTSPEED		BIT(12) /* 6390 */
++#define PORT_PCS_CTRL_200BASE		BIT(12) /* 6352 */
++#define PORT_PCS_CTRL_FC		BIT(7)
++#define PORT_PCS_CTRL_FORCE_FC		BIT(6)
++#define PORT_PCS_CTRL_LINK_UP		BIT(5)
++#define PORT_PCS_CTRL_FORCE_LINK	BIT(4)
++#define PORT_PCS_CTRL_DUPLEX_FULL	BIT(3)
++#define PORT_PCS_CTRL_FORCE_DUPLEX	BIT(2)
++#define PORT_PCS_CTRL_SPEED_MASK	(0x03)
++#define PORT_PCS_CTRL_SPEED_10		(0x00)
++#define PORT_PCS_CTRL_SPEED_100		(0x01)
++#define PORT_PCS_CTRL_SPEED_200		(0x02) /* 6065 and non Gb chips */
++#define PORT_PCS_CTRL_SPEED_1000	(0x02)
++#define PORT_PCS_CTRL_SPEED_10000	(0x03) /* 6390X */
++#define PORT_PCS_CTRL_SPEED_UNFORCED	(0x03)
++#define PORT_PAUSE_CTRL		0x02
++#define PORT_FLOW_CTRL_LIMIT_IN		((0x00 << 8) | BIT(15))
++#define PORT_FLOW_CTRL_LIMIT_OUT	((0x01 << 8) | BIT(15))
++#define PORT_SWITCH_ID		0x03
++#define PORT_SWITCH_ID_PROD_NUM_6085	0x04a
++#define PORT_SWITCH_ID_PROD_NUM_6095	0x095
++#define PORT_SWITCH_ID_PROD_NUM_6097	0x099
++#define PORT_SWITCH_ID_PROD_NUM_6131	0x106
++#define PORT_SWITCH_ID_PROD_NUM_6320	0x115
++#define PORT_SWITCH_ID_PROD_NUM_6123	0x121
++#define PORT_SWITCH_ID_PROD_NUM_6141	0x340
++#define PORT_SWITCH_ID_PROD_NUM_6161	0x161
++#define PORT_SWITCH_ID_PROD_NUM_6165	0x165
++#define PORT_SWITCH_ID_PROD_NUM_6171	0x171
++#define PORT_SWITCH_ID_PROD_NUM_6172	0x172
++#define PORT_SWITCH_ID_PROD_NUM_6175	0x175
++#define PORT_SWITCH_ID_PROD_NUM_6176	0x176
++#define PORT_SWITCH_ID_PROD_NUM_6185	0x1a7
++#define PORT_SWITCH_ID_PROD_NUM_6190	0x190
++#define PORT_SWITCH_ID_PROD_NUM_6190X	0x0a0
++#define PORT_SWITCH_ID_PROD_NUM_6191	0x191
++#define PORT_SWITCH_ID_PROD_NUM_6240	0x240
++#define PORT_SWITCH_ID_PROD_NUM_6290	0x290
++#define PORT_SWITCH_ID_PROD_NUM_6321	0x310
++#define PORT_SWITCH_ID_PROD_NUM_6341	0x341
++#define PORT_SWITCH_ID_PROD_NUM_6352	0x352
++#define PORT_SWITCH_ID_PROD_NUM_6350	0x371
++#define PORT_SWITCH_ID_PROD_NUM_6351	0x375
++#define PORT_SWITCH_ID_PROD_NUM_6390	0x390
++#define PORT_SWITCH_ID_PROD_NUM_6390X	0x0a1
++#define PORT_CONTROL		0x04
++#define PORT_CONTROL_USE_CORE_TAG	BIT(15)
++#define PORT_CONTROL_DROP_ON_LOCK	BIT(14)
++#define PORT_CONTROL_EGRESS_UNMODIFIED	(0x0 << 12)
++#define PORT_CONTROL_EGRESS_UNTAGGED	(0x1 << 12)
++#define PORT_CONTROL_EGRESS_TAGGED	(0x2 << 12)
++#define PORT_CONTROL_EGRESS_ADD_TAG	(0x3 << 12)
++#define PORT_CONTROL_EGRESS_MASK	(0x3 << 12)
++#define PORT_CONTROL_HEADER		BIT(11)
++#define PORT_CONTROL_IGMP_MLD_SNOOP	BIT(10)
++#define PORT_CONTROL_DOUBLE_TAG		BIT(9)
++#define PORT_CONTROL_FRAME_MODE_NORMAL		(0x0 << 8)
++#define PORT_CONTROL_FRAME_MODE_DSA		(0x1 << 8)
++#define PORT_CONTROL_FRAME_MODE_PROVIDER	(0x2 << 8)
++#define PORT_CONTROL_FRAME_ETHER_TYPE_DSA	(0x3 << 8)
++#define PORT_CONTROL_FRAME_MASK			(0x3 << 8)
++#define PORT_CONTROL_DSA_TAG		BIT(8)
++#define PORT_CONTROL_VLAN_TUNNEL	BIT(7)
++#define PORT_CONTROL_TAG_IF_BOTH	BIT(6)
++#define PORT_CONTROL_USE_IP		BIT(5)
++#define PORT_CONTROL_USE_TAG		BIT(4)
++#define PORT_CONTROL_FORWARD_UNKNOWN	BIT(2)
++#define PORT_CONTROL_EGRESS_FLOODS_MASK			(0x3 << 2)
++#define PORT_CONTROL_EGRESS_FLOODS_NO_UNKNOWN_DA	(0x0 << 2)
++#define PORT_CONTROL_EGRESS_FLOODS_NO_UNKNOWN_MC_DA	(0x1 << 2)
++#define PORT_CONTROL_EGRESS_FLOODS_NO_UNKNOWN_UC_DA	(0x2 << 2)
++#define PORT_CONTROL_EGRESS_FLOODS_ALL_UNKNOWN_DA	(0x3 << 2)
++#define PORT_CONTROL_STATE_MASK		0x03
++#define PORT_CONTROL_STATE_DISABLED	0x00
++#define PORT_CONTROL_STATE_BLOCKING	0x01
++#define PORT_CONTROL_STATE_LEARNING	0x02
++#define PORT_CONTROL_STATE_FORWARDING	0x03
++#define PORT_CONTROL_1		0x05
++#define PORT_CONTROL_1_MESSAGE_PORT	BIT(15)
++#define PORT_CONTROL_1_FID_11_4_MASK	(0xff << 0)
++#define PORT_BASE_VLAN		0x06
++#define PORT_BASE_VLAN_FID_3_0_MASK	(0xf << 12)
++#define PORT_DEFAULT_VLAN	0x07
++#define PORT_DEFAULT_VLAN_MASK	0xfff
++#define PORT_CONTROL_2		0x08
++#define PORT_CONTROL_2_IGNORE_FCS	BIT(15)
++#define PORT_CONTROL_2_VTU_PRI_OVERRIDE	BIT(14)
++#define PORT_CONTROL_2_SA_PRIO_OVERRIDE	BIT(13)
++#define PORT_CONTROL_2_DA_PRIO_OVERRIDE	BIT(12)
++#define PORT_CONTROL_2_JUMBO_1522	(0x00 << 12)
++#define PORT_CONTROL_2_JUMBO_2048	(0x01 << 12)
++#define PORT_CONTROL_2_JUMBO_10240	(0x02 << 12)
++#define PORT_CONTROL_2_8021Q_MASK	(0x03 << 10)
++#define PORT_CONTROL_2_8021Q_DISABLED	(0x00 << 10)
++#define PORT_CONTROL_2_8021Q_FALLBACK	(0x01 << 10)
++#define PORT_CONTROL_2_8021Q_CHECK	(0x02 << 10)
++#define PORT_CONTROL_2_8021Q_SECURE	(0x03 << 10)
++#define PORT_CONTROL_2_DISCARD_TAGGED	BIT(9)
++#define PORT_CONTROL_2_DISCARD_UNTAGGED	BIT(8)
++#define PORT_CONTROL_2_MAP_DA		BIT(7)
++#define PORT_CONTROL_2_DEFAULT_FORWARD	BIT(6)
++#define PORT_CONTROL_2_EGRESS_MONITOR	BIT(5)
++#define PORT_CONTROL_2_INGRESS_MONITOR	BIT(4)
++#define PORT_CONTROL_2_UPSTREAM_MASK	0x0f
++#define PORT_RATE_CONTROL	0x09
++#define PORT_RATE_CONTROL_2	0x0a
++#define PORT_ASSOC_VECTOR	0x0b
++#define PORT_ASSOC_VECTOR_HOLD_AT_1		BIT(15)
++#define PORT_ASSOC_VECTOR_INT_AGE_OUT		BIT(14)
++#define PORT_ASSOC_VECTOR_LOCKED_PORT		BIT(13)
++#define PORT_ASSOC_VECTOR_IGNORE_WRONG		BIT(12)
++#define PORT_ASSOC_VECTOR_REFRESH_LOCKED	BIT(11)
++#define PORT_ATU_CONTROL	0x0c
++#define PORT_PRI_OVERRIDE	0x0d
++#define PORT_ETH_TYPE		0x0f
++#define PORT_ETH_TYPE_DEFAULT	0x9100
++#define PORT_IN_DISCARD_LO	0x10
++#define PORT_IN_DISCARD_HI	0x11
++#define PORT_IN_FILTERED	0x12
++#define PORT_OUT_FILTERED	0x13
++#define PORT_TAG_REGMAP_0123	0x18
++#define PORT_TAG_REGMAP_4567	0x19
++#define PORT_IEEE_PRIO_MAP_TABLE	0x18    /* 6390 */
++#define PORT_IEEE_PRIO_MAP_TABLE_UPDATE		BIT(15)
++#define PORT_IEEE_PRIO_MAP_TABLE_INGRESS_PCP		(0x0 << 12)
++#define PORT_IEEE_PRIO_MAP_TABLE_EGRESS_GREEN_PCP	(0x1 << 12)
++#define PORT_IEEE_PRIO_MAP_TABLE_EGRESS_YELLOW_PCP	(0x2 << 12)
++#define PORT_IEEE_PRIO_MAP_TABLE_EGRESS_AVB_PCP		(0x3 << 12)
++#define PORT_IEEE_PRIO_MAP_TABLE_EGRESS_GREEN_DSCP	(0x5 << 12)
++#define PORT_IEEE_PRIO_MAP_TABLE_EGRESS_YELLOW_DSCP	(0x6 << 12)
++#define PORT_IEEE_PRIO_MAP_TABLE_EGRESS_AVB_DSCP	(0x7 << 12)
++#define PORT_IEEE_PRIO_MAP_TABLE_POINTER_SHIFT		9
++
+ int mv88e6xxx_port_read(struct mv88e6xxx_chip *chip, int port, int reg,
+ 			u16 *val);
+ int mv88e6xxx_port_write(struct mv88e6xxx_chip *chip, int port, int reg,
 -- 
 2.13.0
