@@ -1,44 +1,50 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: ethtool 4.11 released
-Date: Fri, 2 Jun 2017 13:55:13 -0400
-Message-ID: <20170602175513.GB4837@tuxdriver.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Leak in ipv6_gso_segment()?
+Date: Fri, 02 Jun 2017 14:05:06 -0400 (EDT)
+Message-ID: <20170602.140506.1833605091602891315.davem@davemloft.net>
+References: <1496233562.3992.10.camel@decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev <netdev@vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: kraig@google.com, netdev@vger.kernel.org
+To: ben@decadent.org.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:43850 "EHLO
-        smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751154AbdFBSAN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 2 Jun 2017 14:00:13 -0400
-Received: from uucp by smtp.tuxdriver.com with local-rmail (Exim 4.63)
-        (envelope-from <linville@tuxdriver.com>)
-        id 1dGqrr-00023u-Eb
-        for netdev@vger.kernel.org; Fri, 02 Jun 2017 14:00:11 -0400
-Received: from localhost.localdomain (localhost.localdomain [127.0.0.1])
-        by localhost.localdomain (8.15.2/8.14.6) with ESMTP id v52HtEgJ023758
-        for <netdev@vger.kernel.org>; Fri, 2 Jun 2017 13:55:14 -0400
-Received: (from linville@localhost)
-        by localhost.localdomain (8.15.2/8.15.2/Submit) id v52HtDNl023757
-        for netdev@vger.kernel.org; Fri, 2 Jun 2017 13:55:13 -0400
-Content-Disposition: inline
+Received: from shards.monkeyblade.net ([184.105.139.130]:45882 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750966AbdFBSFI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 2 Jun 2017 14:05:08 -0400
+In-Reply-To: <1496233562.3992.10.camel@decadent.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ethtool version 4.11 has been released.
+From: Ben Hutchings <ben@decadent.org.uk>
+Date: Wed, 31 May 2017 13:26:02 +0100
 
-Home page: https://www.kernel.org/pub/software/network/ethtool/
-Download link:
-https://www.kernel.org/pub/software/network/ethtool/ethtool-4.11.tar.xz
+> If I'm not mistaken, ipv6_gso_segment() now leaks segs if
+> ip6_find_1stfragopt() fails.  I'm not sure whether the fix would be as
+> simple as adding a kfree_skb(segs) or whether more complex cleanup is
+> needed.
 
-Release notes:
+I think we need to use kfree_skb_list(), like the following.
 
-	* Feature: Support for configurable RSS hash function
-	* Feature: support queue and VF fields for rxclass filters
-	* Feature: Add support for 2500baseT/5000baseT link modes
-	* Fix: Fix SFF 8079 cable technology bit parsing
-	* Fix: sync help output for -x/-X with man page
+Can someone please audit and review this for me?  We need to
+get this to -stable.
 
-John
--- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+Thanks.
+
+diff --git a/net/ipv6/ip6_offload.c b/net/ipv6/ip6_offload.c
+index 280268f..cdb3728 100644
+--- a/net/ipv6/ip6_offload.c
++++ b/net/ipv6/ip6_offload.c
+@@ -116,8 +116,10 @@ static struct sk_buff *ipv6_gso_segment(struct sk_buff *skb,
+ 
+ 		if (udpfrag) {
+ 			int err = ip6_find_1stfragopt(skb, &prevhdr);
+-			if (err < 0)
++			if (err < 0) {
++				kfree_skb_list(segs);
+ 				return ERR_PTR(err);
++			}
+ 			fptr = (struct frag_hdr *)((u8 *)ipv6h + err);
+ 			fptr->frag_off = htons(offset);
+ 			if (skb->next)
