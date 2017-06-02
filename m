@@ -1,43 +1,48 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH] net: stmmac: ensure jumbo_frm error return is correctly checked for -ve value
-Date: Fri,  2 Jun 2017 15:58:27 +0100
-Message-ID: <20170602145827.21151-1-colin.king@canonical.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] dccp: consistently use dccp_write_space()
+Date: Fri, 02 Jun 2017 08:02:26 -0700
+Message-ID: <1496415746.5031.6.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-        Alexandre Torgue <alexandre.torgue@st.com>,
-        netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+        Gerrit Renker <gerrit@erg.abdn.ac.uk>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:34513 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751172AbdFBPCb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 2 Jun 2017 11:02:31 -0400
+Received: by mail-pf0-f193.google.com with SMTP id w69so12176417pfk.1
+        for <netdev@vger.kernel.org>; Fri, 02 Jun 2017 08:02:31 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Colin Ian King <colin.king@canonical.com>
+From: Eric Dumazet <edumazet@google.com>
 
-The current comparison of entry < 0 will never be true since entry is an
-unsigned integer. Cast entry to an int to ensure -ve error return values
-from the call to jumbo_frm are correctly being caught.
+DCCP uses dccp_write_space() for sk->sk_write_space method.
 
-Detected by CoverityScan, CID#1238760 ("Macro compares unsigned to 0")
+Unfortunately a passive connection (as provided by accept())
+is using the generic sk_stream_write_space() function.
 
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
+Lets simply inherit sk->sk_write_space from the parent
+instead of forcing the generic one.
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 ---
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/ipv4/inet_connection_sock.c |    1 -
+ 1 file changed, 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 68a188e74c54..5cc19506ba85 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -2996,7 +2996,7 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
- 	if (unlikely(is_jumbo) && likely(priv->synopsys_id <
- 					 DWMAC_CORE_4_00)) {
- 		entry = priv->hw->mode->jumbo_frm(tx_q, skb, csum_insertion);
--		if (unlikely(entry < 0))
-+		if (unlikely((int)entry < 0))
- 			goto dma_map_err;
- 	}
+diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
+index 82dec8825d28fe01f2dc4172e3e6d4d0d70fd785..a3fa1a5b6d98eb1502ada67bf5d63b12f199c640 100644
+--- a/net/ipv4/inet_connection_sock.c
++++ b/net/ipv4/inet_connection_sock.c
+@@ -790,7 +790,6 @@ struct sock *inet_csk_clone_lock(const struct sock *sk,
+ 		inet_sk(newsk)->inet_dport = inet_rsk(req)->ir_rmt_port;
+ 		inet_sk(newsk)->inet_num = inet_rsk(req)->ir_num;
+ 		inet_sk(newsk)->inet_sport = htons(inet_rsk(req)->ir_num);
+-		newsk->sk_write_space = sk_stream_write_space;
  
--- 
-2.11.0
+ 		/* listeners have SOCK_RCU_FREE, not the children */
+ 		sock_reset_flag(newsk, SOCK_RCU_FREE);
