@@ -1,142 +1,36 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net] net: dsa: Move dsa_switch_{suspend,resume} out of legacy.c
-Date: Thu,  1 Jun 2017 19:53:04 -0700
-Message-ID: <20170602025304.14298-1-f.fainelli@gmail.com>
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        linux-kernel@vger.kernel.org (open list)
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: Re: [net,V2] vxlan: fix use-after-free on deletion
+Date: Thu, 01 Jun 2017 20:31:12 -0700
+Message-ID: <5930DC00.5090201@cumulusnetworks.com>
+References: <1496363048-21138-1-git-send-email-markb@mellanox.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: jbenc@redhat.com, roid@mellanox.com, netdev@vger.kernel.org
+To: Mark Bloch <markb@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f177.google.com ([209.85.192.177]:33888 "EHLO
+        mail-pf0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751122AbdFBDbP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Jun 2017 23:31:15 -0400
+Received: by mail-pf0-f177.google.com with SMTP id 9so44430640pfj.1
+        for <netdev@vger.kernel.org>; Thu, 01 Jun 2017 20:31:14 -0700 (PDT)
+In-Reply-To: <1496363048-21138-1-git-send-email-markb@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-dsa_switch_suspend() and dsa_switch_resume() are functions that belong in
-net/dsa/dsa.c and are not part of the legacy platform support code.
+On 6/1/17, 5:24 PM, Mark Bloch wrote:
+> Adding a vxlan interface to a socket isn't symmetrical, while adding
+> is done in vxlan_open() the deletion is done in vxlan_dellink().
+> This can cause a use-after-free error when we close the vxlan
+> interface before deleting it.
+>
+> We add vxlan_vs_del_dev() to match vxlan_vs_add_dev() and call
+> it from vxlan_stop() to match the call from vxlan_open().
+>
+> Fixes: 56ef9c909b40 ("vxlan: Move socket initialization to within rtnl scope")
+> Acked-by: Jiri Benc <jbenc@redhat.com>
+> Tested-by: Roi Dayan <roid@mellanox.com>
+> Signed-off-by: Mark Bloch <markb@mellanox.com>
 
-Fixes: a6a71f19fe5e ("net: dsa: isolate legacy code")
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- net/dsa/dsa.c    | 47 +++++++++++++++++++++++++++++++++++++++++++++++
- net/dsa/legacy.c | 47 -----------------------------------------------
- 2 files changed, 47 insertions(+), 47 deletions(-)
-
-diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-index 26130ae438da..90038d45a547 100644
---- a/net/dsa/dsa.c
-+++ b/net/dsa/dsa.c
-@@ -223,6 +223,53 @@ static int dsa_switch_rcv(struct sk_buff *skb, struct net_device *dev,
- 	return 0;
- }
- 
-+#ifdef CONFIG_PM_SLEEP
-+int dsa_switch_suspend(struct dsa_switch *ds)
-+{
-+	int i, ret = 0;
-+
-+	/* Suspend slave network devices */
-+	for (i = 0; i < ds->num_ports; i++) {
-+		if (!dsa_is_port_initialized(ds, i))
-+			continue;
-+
-+		ret = dsa_slave_suspend(ds->ports[i].netdev);
-+		if (ret)
-+			return ret;
-+	}
-+
-+	if (ds->ops->suspend)
-+		ret = ds->ops->suspend(ds);
-+
-+	return ret;
-+}
-+EXPORT_SYMBOL_GPL(dsa_switch_suspend);
-+
-+int dsa_switch_resume(struct dsa_switch *ds)
-+{
-+	int i, ret = 0;
-+
-+	if (ds->ops->resume)
-+		ret = ds->ops->resume(ds);
-+
-+	if (ret)
-+		return ret;
-+
-+	/* Resume slave network devices */
-+	for (i = 0; i < ds->num_ports; i++) {
-+		if (!dsa_is_port_initialized(ds, i))
-+			continue;
-+
-+		ret = dsa_slave_resume(ds->ports[i].netdev);
-+		if (ret)
-+			return ret;
-+	}
-+
-+	return 0;
-+}
-+EXPORT_SYMBOL_GPL(dsa_switch_resume);
-+#endif
-+
- static struct packet_type dsa_pack_type __read_mostly = {
- 	.type	= cpu_to_be16(ETH_P_XDSA),
- 	.func	= dsa_switch_rcv,
-diff --git a/net/dsa/legacy.c b/net/dsa/legacy.c
-index ad345c8b0b06..7281098df04e 100644
---- a/net/dsa/legacy.c
-+++ b/net/dsa/legacy.c
-@@ -289,53 +289,6 @@ static void dsa_switch_destroy(struct dsa_switch *ds)
- 	dsa_switch_unregister_notifier(ds);
- }
- 
--#ifdef CONFIG_PM_SLEEP
--int dsa_switch_suspend(struct dsa_switch *ds)
--{
--	int i, ret = 0;
--
--	/* Suspend slave network devices */
--	for (i = 0; i < ds->num_ports; i++) {
--		if (!dsa_is_port_initialized(ds, i))
--			continue;
--
--		ret = dsa_slave_suspend(ds->ports[i].netdev);
--		if (ret)
--			return ret;
--	}
--
--	if (ds->ops->suspend)
--		ret = ds->ops->suspend(ds);
--
--	return ret;
--}
--EXPORT_SYMBOL_GPL(dsa_switch_suspend);
--
--int dsa_switch_resume(struct dsa_switch *ds)
--{
--	int i, ret = 0;
--
--	if (ds->ops->resume)
--		ret = ds->ops->resume(ds);
--
--	if (ret)
--		return ret;
--
--	/* Resume slave network devices */
--	for (i = 0; i < ds->num_ports; i++) {
--		if (!dsa_is_port_initialized(ds, i))
--			continue;
--
--		ret = dsa_slave_resume(ds->ports[i].netdev);
--		if (ret)
--			return ret;
--	}
--
--	return 0;
--}
--EXPORT_SYMBOL_GPL(dsa_switch_resume);
--#endif
--
- /* platform driver init and cleanup *****************************************/
- static int dev_is_class(struct device *dev, void *class)
- {
--- 
-2.11.0
+Acked-by: Roopa Prabhu <roopa@cumulusnetworks.com>
