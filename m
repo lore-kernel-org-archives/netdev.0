@@ -1,67 +1,115 @@
-From: Will Deacon <will.deacon@arm.com>
-Subject: Re: [PATCH net-next] bpf, arm64: implement jiting of BPF_XADD
-Date: Fri, 2 Jun 2017 13:02:12 +0100
-Message-ID: <20170602120212.GF6371@arm.com>
-References: <47ce6fc238596120f02fb6c7116f05b30be2f377.1493599299.git.daniel@iogearbox.net>
+From: "Yan, Zheng" <ukernel@gmail.com>
+Subject: Re: [PATCH 04/12] fs: ceph: CURRENT_TIME with ktime_get_real_ts()
+Date: Fri, 2 Jun 2017 20:18:37 +0800
+Message-ID: <CAAM7YA=f74Wye8hgqR52CNG-c4Sh3sm74AzZYhSnhjN1B=G-Ow@mail.gmail.com>
+References: <1491613030-11599-1-git-send-email-deepa.kernel@gmail.com>
+ <1491613030-11599-5-git-send-email-deepa.kernel@gmail.com>
+ <CAAM7YAmp=cZKqGHa8UqDnrQLCe+6TKx+7w9SDZv4cW5fr4dfvA@mail.gmail.com>
+ <CAK8P3a1pCw1Oo-Wg70kH5L12pbtEzGDfaPZ8g6ErERJjvY8znQ@mail.gmail.com>
+ <CAAM7YAnWLUXMOCVbgfdKGfvK04EtAQcz-ETm7xFO=8Y=_fCvOQ@mail.gmail.com>
+ <CALAqxLV-yVKWM5es7fAFiDzhSQmtZFiZDPQwBRUYbWUtqhoWVg@mail.gmail.com>
+ <CABeXuvqvLr6sSGF+rZEXXxpCBDKTOeLX1ObSjbPPY4aFBuwvMg@mail.gmail.com>
+ <CAAM7YAkXNo_69tOrw6a5kpyref9nEpEp-2vxBbFVSHGmAVbt+A@mail.gmail.com>
+ <CAK8P3a1TwkVRCwDWqgYE8Z3wZT2+v6xayq=dVeW8KaHmO0W4cg@mail.gmail.com>
+ <CAAM7YA=BJHFLz_Ud==7L=yCzxj+1sjctc68tvpNogPhiSxxELQ@mail.gmail.com>
+ <CAK8P3a0D3EXuwBj+sSVL9cmpysdvQWXnkE0zEctBJS8XOqhX7A@mail.gmail.com>
+ <CAAM7YAk8JNU=XV=sOCczagWjBimO4JSPU08th7E4u6FTJN--9A@mail.gmail.com> <CAK8P3a3m3nt6rfvAvDG6HFuUvy+qWbmk5K0UtLGqYhYHOfdF8w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, zlim.lnx@gmail.com, netdev@vger.kernel.org,
-        linux-arm-kernel@lists.infradead.org, ast@fb.com,
-        peterz@infradead.org
-To: Daniel Borkmann <daniel@iogearbox.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from foss.arm.com ([217.140.101.70]:39602 "EHLO foss.arm.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751128AbdFBMCI (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 2 Jun 2017 08:02:08 -0400
-Content-Disposition: inline
-In-Reply-To: <47ce6fc238596120f02fb6c7116f05b30be2f377.1493599299.git.daniel@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Deepa Dinamani <deepa.kernel@gmail.com>,
+        John Stultz <john.stultz@linaro.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        Andrew Morton <akpm@linux-foundation.org>,
+        Thomas Gleixner <tglx@linutronix.de>,
+        Al Viro <viro@zeniv.linux.org.uk>,
+        gregkh <gregkh@linuxfoundation.org>,
+        "Dilger, Andreas" <andreas.dilger@intel.com>,
+        "J. Bruce Fields" <bfields@fieldses.org>, Chris Mason <clm@fb.com>,
+        David Miller <davem@davemloft.net>,
+        David Sterba <dsterba@suse.com>,
+        Evgeniy Dushistov <dushistov@mail.ru>,
+        Eric Paris <eparis@redhat.com>,
+        Jaegeuk Kim <jaegeuk@kernel.org>, Josef Bacik <jbacik@fb.com>,
+        Jeff Layton <jlayton@poochiereds.net>,
+        James Simmons <jsimmons@infradead.org>,
+        Ingo Molnar <mingo@redhat.com>,
+        "Drokin, Oleg" <oleg.drokin@intel.com>,
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <CAK8P3a3m3nt6rfvAvDG6HFuUvy+qWbmk5K0UtLGqYhYHOfdF8w@mail.gmail.com>
+Sender: owner-linux-security-module@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Daniel,
+On Fri, Jun 2, 2017 at 7:33 PM, Arnd Bergmann <arnd@arndb.de> wrote:
+> On Fri, Jun 2, 2017 at 1:18 PM, Yan, Zheng <ukernel@gmail.com> wrote:
+>> On Fri, Jun 2, 2017 at 6:51 PM, Arnd Bergmann <arnd@arndb.de> wrote:
+>>> On Fri, Jun 2, 2017 at 12:10 PM, Yan, Zheng <ukernel@gmail.com> wrote:
+>>>> On Fri, Jun 2, 2017 at 5:45 PM, Arnd Bergmann <arnd@arndb.de> wrote:
+>>>>> On Fri, Jun 2, 2017 at 4:09 AM, Yan, Zheng <ukernel@gmail.com> wrote:
+>>>>>> On Fri, Jun 2, 2017 at 8:57 AM, Deepa Dinamani <deepa.kernel@gmail.com> wrote:
+>>>>>>> On Thu, Jun 1, 2017 at 5:36 PM, John Stultz <john.stultz@linaro.org> wrote:
+>>>>>>>> On Thu, Jun 1, 2017 at 5:26 PM, Yan, Zheng <ukernel@gmail.com> wrote:
+>>>>>
+>>>>> I believe the bug you see is the result of the two timestamps
+>>>>> currently being almost guaranteed to be different in the latest
+>>>>> kernels.
+>>>>> Changing r_stamp to use current_kernel_time() will make it the
+>>>>> same value most of the time (as it was before Deepa's patch),
+>>>>> but when the timer interrupt happens between the timestamps,
+>>>>> the two are still different, it's just much harder to hit.
+>>>>>
+>>>>> I think the proper solution should be to change __ceph_setattr()
+>>>>> in a way that has req->r_stamp always synchronized with i_ctime.
+>>>>> If we copy i_ctime to r_stamp, that will also take care of the
+>>>>> future issues with the planned changes to current_time().
+>>>>>
+>>>> I already have a patch
+>>>> https://github.com/ceph/ceph-client/commit/24f54cd18e195a002ee3d2ab50dbc952fd9f82af
+>>>
+>>> Looks good to me. In case anyone cares:
+>>> Acked-by: Arnd Bergmann <arnd@arndb.de>
+>>>
+>>>>> The part I don't understand is what else r_stamp (i.e. the time
+>>>>> stamp in ceph_msg_data with type==
+>>>>> CEPH_MSG_CLIENT_REQUEST) is used for, other than setting
+>>>>> ctime in CEPH_MDS_OP_SETATTR.
+>>>>>
+>>>>> Will this be used to update the stored i_ctime for other operations
+>>>>> too? If so, we would need to synchronize it with the in-memory
+>>>>> i_ctime for all operations that do this.
+>>>>>
+>>>>
+>>>> yes,  mds uses it to update ctime of modified inodes. For example,
+>>>> when handling mkdir, mds set ctime of both parent inode and new inode
+>>>> to r_stamp.
+>>>
+>>> I see, so we may have a variation of that problem there as well: From
+>>> my reading of the code, the child inode is not in memory yet, so
+>>> that seems fine, but I could not find where the parent in-memory inode
+>>> i_ctime is updated in ceph, but it is most likely not the same as
+>>> req->r_stamp (assuming it gets updated at all).
+>>
+>> i_ctime is updated when handling request reply, by ceph_fill_file_time().
+>> __ceph_setattr() can update the in-memory inode's ctime after request
+>> reply is received. The difference between ktime_get_real_ts() and
+>> current_time() can be larger than round-trip time of request. So it's
+>> still possible that __ceph_setattr() make ctime go back.
+>
+> But the __ceph_setattr() problem should be fixed by your patch, right?
+>
+> What I meant is another related problem in ceph_mkdir() where the
+> i_ctime field of the parent inode is different between the persistent
+> representation in the mds and the in-memory representation.
+>
 
-[sorry, only just noticed that was queued]
+I don't see any problem in mkdir case. Parent inode's i_ctime in mds is set to
+r_stamp. When client receives request reply, it set its in-memory inode's ctime
+to the same time stamp.
 
-On Mon, May 01, 2017 at 02:57:20AM +0200, Daniel Borkmann wrote:
-> This work adds BPF_XADD for BPF_W/BPF_DW to the arm64 JIT and therefore
-> completes JITing of all BPF instructions, meaning we can thus also remove
-> the 'notyet' label and do not need to fall back to the interpreter when
-> BPF_XADD is used in a program!
-> 
-> This now also brings arm64 JIT in line with x86_64, s390x, ppc64, sparc64,
-> where all current eBPF features are supported.
-> 
-> BPF_W example from test_bpf:
-> 
->   .u.insns_int = {
->     BPF_ALU32_IMM(BPF_MOV, R0, 0x12),
->     BPF_ST_MEM(BPF_W, R10, -40, 0x10),
->     BPF_STX_XADD(BPF_W, R10, R0, -40),
->     BPF_LDX_MEM(BPF_W, R0, R10, -40),
->     BPF_EXIT_INSN(),
->   },
-> 
->   [...]
->   00000020:  52800247  mov w7, #0x12 // #18
->   00000024:  928004eb  mov x11, #0xffffffffffffffd8 // #-40
->   00000028:  d280020a  mov x10, #0x10 // #16
->   0000002c:  b82b6b2a  str w10, [x25,x11]
->   // start of xadd mapping:
->   00000030:  928004ea  mov x10, #0xffffffffffffffd8 // #-40
->   00000034:  8b19014a  add x10, x10, x25
->   00000038:  f9800151  prfm pstl1strm, [x10]
->   0000003c:  885f7d4b  ldxr w11, [x10]
->   00000040:  0b07016b  add w11, w11, w7
->   00000044:  880b7d4b  stxr w11, w11, [x10]
+Regards
+Yan, Zheng
 
-This form of STXR (where s == t) is CONSTRAINED UNPREDICTABLE per the
-architecture; you need to use separate registers for the data and the
-status flag. You might also be interested in the atomic instructions
-introduced in ARMv8.1, which includes the LDADD instruction. You can
-check elf_hwcap & HWCAP_ATOMICS to see if it's supported.
-
-Also, did we get a conclusion on the barrier semantics for this? Currently
-you don't have any here: is that ok?
-
-Will
+>     Arnd
+>
+>>> Would it make sense require all callers of ceph_mdsc_do_request()
+>>> to update r_stamp at the same time as i_ctime to keep them in sync?
