@@ -1,132 +1,142 @@
-From: "Yan, Zheng" <ukernel@gmail.com>
-Subject: Re: [PATCH 04/12] fs: ceph: CURRENT_TIME with ktime_get_real_ts()
-Date: Fri, 2 Jun 2017 10:09:59 +0800
-Message-ID: <CAAM7YAkXNo_69tOrw6a5kpyref9nEpEp-2vxBbFVSHGmAVbt+A@mail.gmail.com>
-References: <1491613030-11599-1-git-send-email-deepa.kernel@gmail.com>
- <1491613030-11599-5-git-send-email-deepa.kernel@gmail.com>
- <CAAM7YAmp=cZKqGHa8UqDnrQLCe+6TKx+7w9SDZv4cW5fr4dfvA@mail.gmail.com>
- <CAK8P3a1pCw1Oo-Wg70kH5L12pbtEzGDfaPZ8g6ErERJjvY8znQ@mail.gmail.com>
- <CAAM7YAnWLUXMOCVbgfdKGfvK04EtAQcz-ETm7xFO=8Y=_fCvOQ@mail.gmail.com>
- <CALAqxLV-yVKWM5es7fAFiDzhSQmtZFiZDPQwBRUYbWUtqhoWVg@mail.gmail.com> <CABeXuvqvLr6sSGF+rZEXXxpCBDKTOeLX1ObSjbPPY4aFBuwvMg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: John Stultz <john.stultz@linaro.org>,
-        Arnd Bergmann <arnd@arndb.de>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        Andrew Morton <akpm@linux-foundation.org>,
-        Thomas Gleixner <tglx@linutronix.de>,
-        Al Viro <viro@zeniv.linux.org.uk>,
-        gregkh <gregkh@linuxfoundation.org>,
-        "Dilger, Andreas" <andreas.dilger@intel.com>,
-        "J. Bruce Fields" <bfields@fieldses.org>, Chris Mason <clm@fb.com>,
-        David Miller <davem@davemloft.net>,
-        David Sterba <dsterba@suse.com>,
-        Evgeniy Dushistov <dushistov@mail.ru>,
-        Eric Paris <eparis@redhat.com>,
-        Jaegeuk Kim <jaegeuk@kernel.org>, Josef Bacik <jbacik@fb.com>,
-        Jeff Layton <jlayton@poochiereds.net>,
-        James Simmons <jsimmons@infradead.org>,
-        Ingo Molnar <mingo@redhat.com>,
-        "Drokin, Oleg" <oleg.drokin@intel.com>,
-        Paul
-To: Deepa Dinamani <deepa.kernel@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f67.google.com ([209.85.213.67]:32920 "EHLO
-        mail-vk0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751120AbdFBCKB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 1 Jun 2017 22:10:01 -0400
-In-Reply-To: <CABeXuvqvLr6sSGF+rZEXXxpCBDKTOeLX1ObSjbPPY4aFBuwvMg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net] net: dsa: Move dsa_switch_{suspend,resume} out of legacy.c
+Date: Thu,  1 Jun 2017 19:53:04 -0700
+Message-ID: <20170602025304.14298-1-f.fainelli@gmail.com>
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        linux-kernel@vger.kernel.org (open list)
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 2, 2017 at 8:57 AM, Deepa Dinamani <deepa.kernel@gmail.com> wrote:
-> On Thu, Jun 1, 2017 at 5:36 PM, John Stultz <john.stultz@linaro.org> wrote:
->> On Thu, Jun 1, 2017 at 5:26 PM, Yan, Zheng <ukernel@gmail.com> wrote:
->>> On Thu, Jun 1, 2017 at 6:22 PM, Arnd Bergmann <arnd@arndb.de> wrote:
->>>> On Thu, Jun 1, 2017 at 11:56 AM, Yan, Zheng <ukernel@gmail.com> wrote:
->>>>> On Sat, Apr 8, 2017 at 8:57 AM, Deepa Dinamani <deepa.kernel@gmail.com> wrote:
->>>>
->>>>>> diff --git a/drivers/block/rbd.c b/drivers/block/rbd.c
->>>>>> index 517838b..77204da 100644
->>>>>> --- a/drivers/block/rbd.c
->>>>>> +++ b/drivers/block/rbd.c
->>>>>> @@ -1922,7 +1922,7 @@ static void rbd_osd_req_format_write(struct rbd_obj_request *obj_request)
->>>>>>  {
->>>>>>         struct ceph_osd_request *osd_req = obj_request->osd_req;
->>>>>>
->>>>>> -       osd_req->r_mtime = CURRENT_TIME;
->>>>>> +       ktime_get_real_ts(&osd_req->r_mtime);
->>>>>>         osd_req->r_data_offset = obj_request->offset;
->>>>>>  }
->>>>>>
->>>>>> diff --git a/fs/ceph/mds_client.c b/fs/ceph/mds_client.c
->>>>>> index c681762..1d3fa90 100644
->>>>>> --- a/fs/ceph/mds_client.c
->>>>>> +++ b/fs/ceph/mds_client.c
->>>>>> @@ -1666,6 +1666,7 @@ struct ceph_mds_request *
->>>>>>  ceph_mdsc_create_request(struct ceph_mds_client *mdsc, int op, int mode)
->>>>>>  {
->>>>>>         struct ceph_mds_request *req = kzalloc(sizeof(*req), GFP_NOFS);
->>>>>> +       struct timespec ts;
->>>>>>
->>>>>>         if (!req)
->>>>>>                 return ERR_PTR(-ENOMEM);
->>>>>> @@ -1684,7 +1685,8 @@ ceph_mdsc_create_request(struct ceph_mds_client *mdsc, int op, int mode)
->>>>>>         init_completion(&req->r_safe_completion);
->>>>>>         INIT_LIST_HEAD(&req->r_unsafe_item);
->>>>>>
->>>>>> -       req->r_stamp = current_fs_time(mdsc->fsc->sb);
->>>>>> +       ktime_get_real_ts(&ts);
->>>>>> +       req->r_stamp = timespec_trunc(ts, mdsc->fsc->sb->s_time_gran);
->>>>>
->>>>> This change causes our kernel_untar_tar test case to fail (inode's
->>>>> ctime goes back). The reason is that there is time drift between the
->>>>> time stamps got by  ktime_get_real_ts() and current_time(). We need to
->>>>> revert this change until current_time() uses ktime_get_real_ts()
->>>>> internally.
->>>>
->>>> Hmm, the change was not supposed to have a user-visible effect, so
->>>> something has gone wrong, but I don't immediately see how it
->>>> relates to what you observe.
->>>>
->>>> ktime_get_real_ts() and current_time() use the same time base, there
->>>> is no drift, but there is a difference in resolution, as the latter uses
->>>> the time stamp of the last jiffies update, which may be up to one jiffy
->>>> (10ms) behind the exact time we put in the request stamps here.
->>>>
->>>> Do you still see problems if you use current_kernel_time() instead of
->>>> ktime_get_real_ts()?
->>>
->>> The problem disappears after using current_kernel_time().
->>>
->>> https://github.com/ceph/ceph-client/commit/2e0f648da23167034a3cf1500bc90ec60aef2417
->>
->> From the commit above:
->> "It seems there is time drift between ktime_get_real_ts() and
->> current_kernel_time()"
->>
->> Its more of a granularity difference. current_kernel_time() returns
->> the cached time at the last tick, where as ktime_get_real_ts() reads
->> the clocksource hardware and returns the immediate time.
->>
->> Filesystems usually use the cached time (similar to
->> CLOCK_REALTIME_COARSE), for performance reasons, as touching the
->> clocksource takes time.
->
-> Alternatively, it would be best for this code also to use current_time().
-> I had suggested this in one of the previous versions of the patch.
-> The implementation of current_time() will change when we switch vfs to
-> use 64 bit time. This will prevent such errors from happening again.
-> But, this also means there is more code reordering for these modules
-> to get a reference to inode.
->
+dsa_switch_suspend() and dsa_switch_resume() are functions that belong in
+net/dsa/dsa.c and are not part of the legacy platform support code.
 
-I took a look. it's quite inconvenience to use current_time(). I
-prefer to temporarily use current_kernel_time().
+Fixes: a6a71f19fe5e ("net: dsa: isolate legacy code")
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ net/dsa/dsa.c    | 47 +++++++++++++++++++++++++++++++++++++++++++++++
+ net/dsa/legacy.c | 47 -----------------------------------------------
+ 2 files changed, 47 insertions(+), 47 deletions(-)
 
-Regards
-Yan, Zheng
-
-
-
-> -Deepa
+diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
+index 26130ae438da..90038d45a547 100644
+--- a/net/dsa/dsa.c
++++ b/net/dsa/dsa.c
+@@ -223,6 +223,53 @@ static int dsa_switch_rcv(struct sk_buff *skb, struct net_device *dev,
+ 	return 0;
+ }
+ 
++#ifdef CONFIG_PM_SLEEP
++int dsa_switch_suspend(struct dsa_switch *ds)
++{
++	int i, ret = 0;
++
++	/* Suspend slave network devices */
++	for (i = 0; i < ds->num_ports; i++) {
++		if (!dsa_is_port_initialized(ds, i))
++			continue;
++
++		ret = dsa_slave_suspend(ds->ports[i].netdev);
++		if (ret)
++			return ret;
++	}
++
++	if (ds->ops->suspend)
++		ret = ds->ops->suspend(ds);
++
++	return ret;
++}
++EXPORT_SYMBOL_GPL(dsa_switch_suspend);
++
++int dsa_switch_resume(struct dsa_switch *ds)
++{
++	int i, ret = 0;
++
++	if (ds->ops->resume)
++		ret = ds->ops->resume(ds);
++
++	if (ret)
++		return ret;
++
++	/* Resume slave network devices */
++	for (i = 0; i < ds->num_ports; i++) {
++		if (!dsa_is_port_initialized(ds, i))
++			continue;
++
++		ret = dsa_slave_resume(ds->ports[i].netdev);
++		if (ret)
++			return ret;
++	}
++
++	return 0;
++}
++EXPORT_SYMBOL_GPL(dsa_switch_resume);
++#endif
++
+ static struct packet_type dsa_pack_type __read_mostly = {
+ 	.type	= cpu_to_be16(ETH_P_XDSA),
+ 	.func	= dsa_switch_rcv,
+diff --git a/net/dsa/legacy.c b/net/dsa/legacy.c
+index ad345c8b0b06..7281098df04e 100644
+--- a/net/dsa/legacy.c
++++ b/net/dsa/legacy.c
+@@ -289,53 +289,6 @@ static void dsa_switch_destroy(struct dsa_switch *ds)
+ 	dsa_switch_unregister_notifier(ds);
+ }
+ 
+-#ifdef CONFIG_PM_SLEEP
+-int dsa_switch_suspend(struct dsa_switch *ds)
+-{
+-	int i, ret = 0;
+-
+-	/* Suspend slave network devices */
+-	for (i = 0; i < ds->num_ports; i++) {
+-		if (!dsa_is_port_initialized(ds, i))
+-			continue;
+-
+-		ret = dsa_slave_suspend(ds->ports[i].netdev);
+-		if (ret)
+-			return ret;
+-	}
+-
+-	if (ds->ops->suspend)
+-		ret = ds->ops->suspend(ds);
+-
+-	return ret;
+-}
+-EXPORT_SYMBOL_GPL(dsa_switch_suspend);
+-
+-int dsa_switch_resume(struct dsa_switch *ds)
+-{
+-	int i, ret = 0;
+-
+-	if (ds->ops->resume)
+-		ret = ds->ops->resume(ds);
+-
+-	if (ret)
+-		return ret;
+-
+-	/* Resume slave network devices */
+-	for (i = 0; i < ds->num_ports; i++) {
+-		if (!dsa_is_port_initialized(ds, i))
+-			continue;
+-
+-		ret = dsa_slave_resume(ds->ports[i].netdev);
+-		if (ret)
+-			return ret;
+-	}
+-
+-	return 0;
+-}
+-EXPORT_SYMBOL_GPL(dsa_switch_resume);
+-#endif
+-
+ /* platform driver init and cleanup *****************************************/
+ static int dev_is_class(struct device *dev, void *class)
+ {
+-- 
+2.11.0
