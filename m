@@ -1,48 +1,57 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net] net: systemport: Fix missing Wake-on-LAN interrupt for SYSTEMPORT Lite
-Date: Thu,  1 Jun 2017 18:02:39 -0700
-Message-ID: <20170602010239.18732-1-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f196.google.com ([209.85.220.196]:34830 "EHLO
-        mail-qk0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750892AbdFBBCp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 1 Jun 2017 21:02:45 -0400
-Received: by mail-qk0-f196.google.com with SMTP id v195so7922776qka.2
-        for <netdev@vger.kernel.org>; Thu, 01 Jun 2017 18:02:45 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jia-Ju Bai <baijiaju1990-9Onoh4P/yGk@public.gmane.org>
+Subject: Re: [PATCH] b43legacy: Fix a sleep-in-atomic bug in
+ b43legacy_attr_interfmode_store
+Date: Fri, 02 Jun 2017 09:18:14 +0800
+Message-ID: <5930BCD6.9010306@163.com>
+References: <1496226547-5921-1-git-send-email-baijiaju1990@163.com>
+ <85905124-7167-aeb0-8aff-4ceec09e9542@lwfinger.net>
+ <592F6843.9000204@163.com> <20170601101113.6dd30d6d@lwn.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b43-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+ kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org, Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+To: Jonathan Corbet <corbet-T1hC0tSOHrs@public.gmane.org>
+Return-path: <b43-dev-bounces+gldbd-bcm43xx-dev=gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <20170601101113.6dd30d6d-T1hC0tSOHrs@public.gmane.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/b43-dev>,
+ <mailto:b43-dev-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/b43-dev/>
+List-Post: <mailto:b43-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b43-dev-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/b43-dev>,
+ <mailto:b43-dev-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: "b43-dev" <b43-dev-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+Errors-To: b43-dev-bounces+gldbd-bcm43xx-dev=gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On SYSTEMPORT Lite, since we have the main interrupt source in the first
-cell, the second cell is the Wake-on-LAN interrupt, yet the code was not
-properly updated to fetch the second cell, and instead looked at the
-third and non-existing cell for Wake-on-LAN.
+On 06/02/2017 12:11 AM, Jonathan Corbet wrote:
+> On Thu, 01 Jun 2017 09:05:07 +0800
+> Jia-Ju Bai<baijiaju1990-9Onoh4P/yGk@public.gmane.org>  wrote:
+>
+>> I admit my patches are not well tested, and they may not well fix the bugs.
+>> I am looking forward to opinions and suggestions :)
+> May I politely suggest that sending out untested locking changes is a
+> dangerous thing to do?  You really should not be changing the locking in a
+> piece of kernel code without understanding very well what the lock is
+> protecting and being able to say why your changes are safe.  Without that,
+> the risk of introducing subtle bugs is very high.
+>
+> It looks like you have written a useful tool that could help us to make
+> the kernel more robust.  If you are interested in my suggestion, I would
+> recommend that you post the sleep-in-atomic scenarios that you are
+> finding, but refrain from "fixing" them in any case where you cannot offer
+> a strong explanation of why your fix is correct.
+>
+> Thanks for working to find bugs in the kernel!
+>
+> jon
+Hi,
 
-Fixes: 44a4524c54af ("net: systemport: Add support for SYSTEMPORT Lite")
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- drivers/net/ethernet/broadcom/bcmsysport.c | 7 +++++--
- 1 file changed, 5 insertions(+), 2 deletions(-)
+Thanks for your good and helpful advice. I am sorry for my improper patches.
+I will only report bugs instead of sending improper patches when I have 
+no good solution of fixing the bugs.
 
-diff --git a/drivers/net/ethernet/broadcom/bcmsysport.c b/drivers/net/ethernet/broadcom/bcmsysport.c
-index 099b374c1b17..5274501428e4 100644
---- a/drivers/net/ethernet/broadcom/bcmsysport.c
-+++ b/drivers/net/ethernet/broadcom/bcmsysport.c
-@@ -2026,9 +2026,12 @@ static int bcm_sysport_probe(struct platform_device *pdev)
- 	priv->num_rx_desc_words = params->num_rx_desc_words;
- 
- 	priv->irq0 = platform_get_irq(pdev, 0);
--	if (!priv->is_lite)
-+	if (!priv->is_lite) {
- 		priv->irq1 = platform_get_irq(pdev, 1);
--	priv->wol_irq = platform_get_irq(pdev, 2);
-+		priv->wol_irq = platform_get_irq(pdev, 2);
-+	} else {
-+		priv->wol_irq = platform_get_irq(pdev, 1);
-+	}
- 	if (priv->irq0 <= 0 || (priv->irq1 <= 0 && !priv->is_lite)) {
- 		dev_err(&pdev->dev, "invalid interrupts\n");
- 		ret = -EINVAL;
--- 
-2.9.3
+Thanks,
+Jia-Ju Bai
