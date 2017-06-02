@@ -1,45 +1,49 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: Cherry pick commit *net: better skb->sender_cpu and skb->napi_id
- cohabitation* to 4.4 series?
-Date: Fri, 2 Jun 2017 10:51:39 -0700
-Message-ID: <CAM_iQpXg3XCyfi7kStkWOh3R4+0yQHN15MOZ2dkbEYZvR1Xf2Q@mail.gmail.com>
-References: <987d9047-08ac-0d53-2d1f-ef9189988ee2@molgen.mpg.de>
- <20170601.121935.1801387892378122014.davem@davemloft.net> <409abefe-62ff-563a-b5c6-a3149ae672e0@molgen.mpg.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next 00/14][pull request] 40GbE Intel Wired LAN Driver
+ Updates 2017-06-01
+Date: Fri, 02 Jun 2017 13:54:12 -0400 (EDT)
+Message-ID: <20170602.135412.1859783191502215685.davem@davemloft.net>
+References: <20170601213840.36286-1-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: David Miller <davem@davemloft.net>,
-        Eric Dumazet <edumazet@google.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Alexei Starovoitov <ast@kernel.org>,
-        it+linux-netdev@molgen.mpg.de,
-        Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-To: Paul Menzel <pmenzel@molgen.mpg.de>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+        jogreene@redhat.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f44.google.com ([74.125.82.44]:37192 "EHLO
-        mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751170AbdFBRwB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 2 Jun 2017 13:52:01 -0400
-Received: by mail-wm0-f44.google.com with SMTP id d127so32512517wmf.0
-        for <netdev@vger.kernel.org>; Fri, 02 Jun 2017 10:52:00 -0700 (PDT)
-In-Reply-To: <409abefe-62ff-563a-b5c6-a3149ae672e0@molgen.mpg.de>
+Received: from shards.monkeyblade.net ([184.105.139.130]:45748 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751161AbdFBRyQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 2 Jun 2017 13:54:16 -0400
+In-Reply-To: <20170601213840.36286-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 1, 2017 at 10:32 AM, Paul Menzel <pmenzel@molgen.mpg.de> wrote:
-> Dear David,
->
->
-> On 06/01/17 18:19, David Miller wrote:
->>
->> Neither of us have anything to do with the 4.4 -stable series.  We only
->> manage stable backport submissions for the most recent two releases.
->
->
-> Thank you for the prompt response. Should the netdev FAQ be updated then to
-> contain that information?
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Thu,  1 Jun 2017 14:38:26 -0700
 
-+1
+> This series contains updates to i40e, i40evf and the "new" AVF virtchnl.
+> 
+> This is the introduction of the Intel(R) Ethernet Adaptive Virtual
+> Function driver code and device ID, as presented at the NetDEV 1.2
+> conference in 2016.
+> http://netdevconf.org/1.2/session.html?anjali-singhai
+> 
+> The idea is to convert the interface between the i40evf driver
+> and the parent i40e PF driver to be generic, as the i40evf driver
+> should in the future be able to run on top of other Intel PF
+> drivers, and negotiate any features beyond a "base expected" set.
+> 
+> The following are changes since commit 0266f79778de0afadd070941aae493c28529d974:
+>   mlxsw: spectrum: Add bridge dependency for spectrum
+> and are available in the git repository at:
+>   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue 40GbE
 
-It is quite helpful to know which stable releases contain network fixes
-which don't, especially for those who rely on stable releases, at least
-we could do backport by ourselves when we know they are missing.
+Ok, doesn't look too bad.
+
+I might have preferred if patch #11 used a compile time BUILD_BUG_ON()
+of some sort in a core init function or similar.  But I can understand
+the desire to use a scheme that allows annotations right next to the
+datastructure definitions themselves.
+
+Pulled, th anks.
