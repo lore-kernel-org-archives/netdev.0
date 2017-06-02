@@ -1,67 +1,52 @@
-From: Russell King - ARM Linux <linux@armlinux.org.uk>
-Subject: Re: [PATCH 2/5] net: phy: hook up clause 45 autonegotiation restart
-Date: Fri, 2 Jun 2017 15:04:28 +0100
-Message-ID: <20170602140427.GP22219@n2100.armlinux.org.uk>
-References: <20170601122350.GA9282@lunn.ch>
- <20170601125132.GY22219@n2100.armlinux.org.uk>
- <20170601130527.GG9282@lunn.ch>
- <20170601130900.GA22219@n2100.armlinux.org.uk>
- <20170601131955.GH9282@lunn.ch>
- <20170601154735.GB22219@n2100.armlinux.org.uk>
- <20170601162417.GA14541@n2100.armlinux.org.uk>
- <23c238e0-2af8-3171-9986-af02e9c19129@gmail.com>
- <20170602124339.GO22219@n2100.armlinux.org.uk>
- <20170602134632.GI12261@lunn.ch>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH v6 00/21] net-next: stmmac: add dwmac-sun8i
+ ethernet driver
+Date: Fri, 02 Jun 2017 10:08:01 -0400 (EDT)
+Message-ID: <20170602.100801.2029534530888525251.davem@davemloft.net>
+References: <20170531071852.12422-1-clabbe.montjoie@gmail.com>
+	<20170601.145819.789604139072328057.davem@davemloft.net>
+	<20170602063752.aqyvwcykvepiyt4y@flea.lan>
+Reply-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from pandora.armlinux.org.uk ([78.32.30.218]:43978 "EHLO
-        pandora.armlinux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751218AbdFBOEu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 2 Jun 2017 10:04:50 -0400
-Content-Disposition: inline
-In-Reply-To: <20170602134632.GI12261@lunn.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
+ wens-jdAy2FN1RRM@public.gmane.org, linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, catalin.marinas-5wv7dgnIgG8@public.gmane.org,
+ will.deacon-5wv7dgnIgG8@public.gmane.org, peppe.cavallaro-qxv4g6HH51o@public.gmane.org, alexandre.torgue-qxv4g6HH51o@public.gmane.org,
+ devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+ linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+To: maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org
+Return-path: <linux-sunxi+bncBCFPF2XH6UDBBRXCYXEQKGQEHTC6UDA-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+In-Reply-To: <20170602063752.aqyvwcykvepiyt4y-ZC1Zs529Oq4@public.gmane.org>
+List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Help: <https://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Archive: <https://groups.google.com/group/linux-sunxi
+List-Subscribe: <https://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
+ <https://groups.google.com/group/linux-sunxi/subscribe>
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 02, 2017 at 03:46:32PM +0200, Andrew Lunn wrote:
-> On Fri, Jun 02, 2017 at 01:43:39PM +0100, Russell King - ARM Linux wrote:
-> > We don't mark drivers as being C22 or C45, we rely on them matching
-> > the IDs and/or the probe function making that decision, so it's a
-> > tad difficult to make that decision at driver registration time.
-> > 
-> > We could reject an attempt to probe a C45 phy with a driver that
-> > does not provide an aneg_done() pointer.
+From: Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+Date: Fri, 2 Jun 2017 08:37:52 +0200
+
+> On Thu, Jun 01, 2017 at 02:58:19PM -0400, David Miller wrote:
+>> From: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+>> Date: Wed, 31 May 2017 09:18:31 +0200
+>> 
+>> > This patch series add the driver for dwmac-sun8i which handle the Ethernet MAC
+>> > present on Allwinner H3/H5/A83T/A64 SoCs.
+>> 
+>> Series applied, but wow that's a lot of DT file changes :-(
 > 
-> Just an idea.
-> 
-> We could make phy_read/phy_write look to see if the is_c45 flag is
-> set. If so, return -EINVAL if the register being accessed does not
-> have MII_ADDR_C45.
-> 
-> That should catch all these sort of problems.
+> The DT patches should not go through your tree, but arm-soc, so I
+> guess this is not an issue for you?
 
-I'm not so sure we want to do that.  Clause 45 PHYs are allowed to
-respond to Clause 22 accesses, and MMD 29 contain a set of Clause 22
-extension registers.
+I already applied them, so if that is the intention, too late.
 
-It seems it's possible for a PHY to support Clause 22 accesses along
-with Clause 45 and MMD29 to extend the features beyond those supported
-by the Clause 22 definition without providing the other MMDs.
+This needs to be explicitly stated in the header posting.  Otherwise
+I assume the entire series is meant to go into my tree.
 
-Note that the Clause 45 definitions omit the 1000baseT registers
-(MII_CTRL1000 / MII_STAT1000, or even registers that give the equivalent
-information) from the 802.3 definition - this is why I've ended up
-having to use the Marvell vendor specific 0xa016 register to determine
-the PHY operating mode.  So, a conventional 10/100/1G PHY but with C45
-support would still want to access C22 registers.
-
-Hence, I don't think we can block C22 accesses in the way you're
-suggesting.
-
--- 
-RMK's Patch system: http://www.armlinux.org.uk/developer/patches/
-FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
-according to speedtest.net.
+Also, saying "net-next" in the patch subjects means it's targetting my
+tree.
