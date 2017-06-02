@@ -1,38 +1,74 @@
-From: Peter Dawson <petedaws@gmail.com>
-Subject: Re: [PATCH net] ip6_tunnel: fix traffic class routing for tunnels
-Date: Fri, 2 Jun 2017 16:03:48 +1000
-Message-ID: <20170602160348.02352bce@udesktop>
-References: <91e31c60-5994-6784-cfe8-6a18016c6524@gmail.com>
+From: <mari.kayhko@uef.fi>
+Subject: (unknown)
+Date: Fri, 02 Jun 2017 06:04:15 -0000
+Message-ID: <149638345587.8929.17487675613507893111@saturn-internet.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-        peter.a.dawson@boeing.com
-To: Liam McBirnie <mcbirnie.l@gmail.com>
+Content-Type: application/zip; name="083544262110.zip"
+Content-Transfer-Encoding: base64
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:34427 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751167AbdFBGEB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 2 Jun 2017 02:04:01 -0400
-Received: by mail-pf0-f193.google.com with SMTP id w69so11491184pfk.1
-        for <netdev@vger.kernel.org>; Thu, 01 Jun 2017 23:04:01 -0700 (PDT)
-In-Reply-To: <91e31c60-5994-6784-cfe8-6a18016c6524@gmail.com>
+Received: from 178.161.215.69.dyn.v4.saturn-internet.ru ([178.161.215.69]:42428
+        "HELO saturn-internet.ru" rhost-flags-OK-FAIL-OK-FAIL)
+        by vger.kernel.org with SMTP id S1751161AbdFBGET (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 2 Jun 2017 02:04:19 -0400
+Subject: 
+Content-Disposition: attachment
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2 Jun 2017 15:12:26 +1000
-Liam McBirnie <mcbirnie.l@gmail.com> wrote:
-
-> The traffic class is added here because only route lookup needs the
-> flowlabel to contain the traffic class.
-> 
-> Fixes: 0e9a709560db ("ip6_tunnel, ip6_gre: fix setting of DSCP on encapsulated packets")
-> Signed-off-by: Liam McBirnie <liam.mcbirnie@boeing.com>
-
-Concur with this patch. Testing that I performed on Commit: 0e9a709560db ("ip6_tunnel, ip6_gre: fix setting of DSCP on encapsulated packets") did not cover the case were DSCP-based routing policy is applied to the tunneled packets. 
-
-Acked-by: Peter Dawson <peter.a.dawson@boeing.com>
+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
