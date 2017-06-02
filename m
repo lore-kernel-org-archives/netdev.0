@@ -1,50 +1,56 @@
-From: Geert Uytterhoeven <geert+renesas@glider.be>
-Subject: [PATCH v3 6/6] dt-bindings: net: btusb: DT fix s/interrupt-name/interrupt-names/
-Date: Fri,  2 Jun 2017 14:38:49 +0200
-Message-ID: <1496407129-13527-7-git-send-email-geert+renesas@glider.be>
-References: <1496407129-13527-1-git-send-email-geert+renesas@glider.be>
-Cc: Neil Armstrong <narmstrong@baylibre.com>,
-        Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-        Paul Mackerras <paulus@samba.org>,
-        Michael Ellerman <mpe@ellerman.id.au>,
-        dri-devel@lists.freedesktop.org, linux-amlogic@lists.infradead.org,
-        devicetree@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        linuxppc-dev@lists.ozlabs.org,
-        Geert Uytterhoeven <geert+renesas@glider.be>
-To: David Airlie <airlied@linux.ie>, Rob Herring <robh+dt@kernel.org>,
-        Mark Rutland <mark.rutland@arm.com>,
-        Carlo Caione <carlo@caione.org>,
-        Kevin Hilman <khilman@baylibre.com>,
-        Chanho Min <chanho.min@lge.com>,
-        Catalin Marinas <catalin.marinas@arm.com>,
-        Will Deacon <will.deacon@arm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1496407129-13527-1-git-send-email-geert+renesas@glider.be>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Russell King - ARM Linux <linux@armlinux.org.uk>
+Subject: Re: [PATCH 2/5] net: phy: hook up clause 45 autonegotiation restart
+Date: Fri, 2 Jun 2017 13:43:39 +0100
+Message-ID: <20170602124339.GO22219@n2100.armlinux.org.uk>
+References: <20170601102327.GF27796@n2100.armlinux.org.uk>
+ <E1dGNJM-00043g-KJ@rmk-PC.armlinux.org.uk>
+ <20170601122350.GA9282@lunn.ch>
+ <20170601125132.GY22219@n2100.armlinux.org.uk>
+ <20170601130527.GG9282@lunn.ch>
+ <20170601130900.GA22219@n2100.armlinux.org.uk>
+ <20170601131955.GH9282@lunn.ch>
+ <20170601154735.GB22219@n2100.armlinux.org.uk>
+ <20170601162417.GA14541@n2100.armlinux.org.uk>
+ <23c238e0-2af8-3171-9986-af02e9c19129@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Lunn <andrew@lunn.ch>, netdev@vger.kernel.org
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from pandora.armlinux.org.uk ([78.32.30.218]:42998 "EHLO
+        pandora.armlinux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751125AbdFBMnr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 2 Jun 2017 08:43:47 -0400
+Content-Disposition: inline
+In-Reply-To: <23c238e0-2af8-3171-9986-af02e9c19129@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Fixes: fd913ef7ce619467 ("Bluetooth: btusb: Add out-of-band wakeup support")
-Signed-off-by: Geert Uytterhoeven <geert+renesas@glider.be>
----
-v3:
-  - New.
----
- Documentation/devicetree/bindings/net/btusb.txt | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+On Thu, Jun 01, 2017 at 10:16:17AM -0700, Florian Fainelli wrote:
+> On 06/01/2017 09:24 AM, Russell King - ARM Linux wrote:
+> > Checking 802.3-2015, in "22.2.4 Management functions", the first
+> > sentence requires all PHYs that respond to Clause 22 cycles to
+> > implement BMCR and BMSR.  However, my statement about unimplemented
+> > registers returning zero seems to be a C45 thing, not a C22 thing,
+> > according to the C22 PICS and "45.2 MDIO Interface Registers"
+> > 
+> > However, digging a bit further, "22.2.4.2.10 Auto-Negotiation complete"
+> > states that bit 5 shall be zero if aneg has not completed or if aneg is
+> > unimplemented.
+> > 
+> 
+> So how about we are more defensive than that and if we are presented
+> with a C45 PHY driver that does not have an aneg_done() function pointer
+> set we return an error/warning during driver registration?
 
-diff --git a/Documentation/devicetree/bindings/net/btusb.txt b/Documentation/devicetree/bindings/net/btusb.txt
-index 01fa2d4188d4a900..18dd9c386be094db 100644
---- a/Documentation/devicetree/bindings/net/btusb.txt
-+++ b/Documentation/devicetree/bindings/net/btusb.txt
-@@ -37,7 +37,7 @@ Following example uses irq pin number 3 of gpio0 for out of band wake-on-bt:
- 	compatible = "usb1286,204e";
- 	reg = <1>;
- 	interrupt-parent = <&gpio0>;
--	interrupt-name = "wakeup";
-+	interrupt-names = "wakeup";
- 	interrupts = <3 IRQ_TYPE_LEVEL_LOW>;
-     };
- };
+We don't mark drivers as being C22 or C45, we rely on them matching
+the IDs and/or the probe function making that decision, so it's a
+tad difficult to make that decision at driver registration time.
+
+We could reject an attempt to probe a C45 phy with a driver that
+does not provide an aneg_done() pointer.
+
 -- 
-2.7.4
+RMK's Patch system: http://www.armlinux.org.uk/developer/patches/
+FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
+according to speedtest.net.
