@@ -1,172 +1,74 @@
-From: Jan Kiszka <jan.kiszka@siemens.com>
-Subject: [PATCH v4 4/6] stmmac: pci: Select quark_pci_dmi_data from quark_default_data
-Date: Fri,  2 Jun 2017 09:34:52 +0200
-Message-ID: <0898128c699a3ea39aa498002b3a963e280c7c96.1496388893.git.jan.kiszka@siemens.com>
-References: <cover.1496388893.git.jan.kiszka@siemens.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Andy Shevchenko <andy.shevchenko@gmail.com>
-To: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-        Alexandre Torgue <alexandre.torgue@st.com>,
-        David Miller <davem@davemloft.net>
+From: Peter Zijlstra <peterz@infradead.org>
+Subject: Re: [PATCH v3 net-next 1/3] perf, bpf: Add BPF support to all
+ perf_event types
+Date: Fri, 2 Jun 2017 10:06:05 +0200
+Message-ID: <20170602080605.h42o7i27vmjrhz25@hirez.programming.kicks-ass.net>
+References: <20170602020336.1062853-1-ast@fb.com>
+ <20170602020336.1062853-2-ast@fb.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S . Miller" <davem@davemloft.net>,
+        Brendan Gregg <bgregg@netflix.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Teng Qin <qinteng@fb.com>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, kernel-team@fb.com
+To: Alexei Starovoitov <ast@fb.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1496388893.git.jan.kiszka@siemens.com>
-In-Reply-To: <cover.1496388893.git.jan.kiszka@siemens.com>
-References: <cover.1496388893.git.jan.kiszka@siemens.com>
+Content-Disposition: inline
+In-Reply-To: <20170602020336.1062853-2-ast@fb.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-No need to carry this reference in stmmac_pci_info - the Quark-specific
-setup handler knows that it needs to use the Quark-specific DMI table.
-This also allows to drop the stmmac_pci_info reference from the setup
-handler parameter list.
+On Thu, Jun 01, 2017 at 07:03:34PM -0700, Alexei Starovoitov wrote:
+> diff --git a/kernel/bpf/arraymap.c b/kernel/bpf/arraymap.c
+> index 172dc8ee0e3b..ab93490d1a00 100644
+> --- a/kernel/bpf/arraymap.c
+> +++ b/kernel/bpf/arraymap.c
+> @@ -452,39 +452,18 @@ static void bpf_event_entry_free_rcu(struct bpf_event_entry *ee)
+>  static void *perf_event_fd_array_get_ptr(struct bpf_map *map,
+>  					 struct file *map_file, int fd)
+>  {
+> -	const struct perf_event_attr *attr;
+>  	struct bpf_event_entry *ee;
+> -	struct perf_event *event;
+>  	struct file *perf_file;
+>  
+>  	perf_file = perf_event_get(fd);
+>  	if (IS_ERR(perf_file))
+>  		return perf_file;
+>  
+> -	event = perf_file->private_data;
+> -	ee = ERR_PTR(-EINVAL);
+> -
+> -	attr = perf_event_attrs(event);
+> -	if (IS_ERR(attr) || attr->inherit)
+> -		goto err_out;
+> -
+> -	switch (attr->type) {
+> -	case PERF_TYPE_SOFTWARE:
+> -		if (attr->config != PERF_COUNT_SW_BPF_OUTPUT)
+> -			goto err_out;
+> -		/* fall-through */
+> -	case PERF_TYPE_RAW:
+> -	case PERF_TYPE_HARDWARE:
+> -		ee = bpf_event_entry_gen(perf_file, map_file);
+> -		if (ee)
+> -			return ee;
+> -		ee = ERR_PTR(-ENOMEM);
+> -		/* fall-through */
+> -	default:
+> -		break;
+> -	}
 
-Signed-off-by: Jan Kiszka <jan.kiszka@siemens.com>
-Reviewed-by: Andy Shevchenko <andy.shevchenko@gmail.com>
----
- drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c | 83 +++++++++++-------------
- 1 file changed, 39 insertions(+), 44 deletions(-)
+Would it make sense to call perf_event_read_local() on the events here
+in order to weed out the -EOPNOTSUPP  ones?
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
-index f44ae49eb11c..a6e10d3ced5c 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
-@@ -38,13 +38,11 @@ struct stmmac_pci_dmi_data {
- };
- 
- struct stmmac_pci_info {
--	int (*setup)(struct pci_dev *pdev, struct plat_stmmacenet_data *plat,
--		     const struct stmmac_pci_info *info);
--	struct stmmac_pci_dmi_data *dmi;
-+	int (*setup)(struct pci_dev *pdev, struct plat_stmmacenet_data *plat);
- };
- 
- static int stmmac_pci_find_phy_addr(struct pci_dev *pdev,
--				    const struct stmmac_pci_info *info)
-+				    struct stmmac_pci_dmi_data *dmi_data)
- {
- 	const char *name = dmi_get_system_info(DMI_BOARD_NAME);
- 	const char *asset_tag = dmi_get_system_info(DMI_BOARD_ASSET_TAG);
-@@ -54,7 +52,7 @@ static int stmmac_pci_find_phy_addr(struct pci_dev *pdev,
- 	if (!name)
- 		return -ENODEV;
- 
--	for (dmi = info->dmi; dmi->name && *dmi->name; dmi++) {
-+	for (dmi = dmi_data; dmi->name && *dmi->name; dmi++) {
- 		if (!strcmp(dmi->name, name) && dmi->func == func) {
- 			/* If asset tag is provided, match on it as well. */
- 			if (dmi->asset_tag && strcmp(dmi->asset_tag, asset_tag))
-@@ -97,8 +95,7 @@ static void common_default_data(struct plat_stmmacenet_data *plat)
- }
- 
- static int stmmac_default_data(struct pci_dev *pdev,
--			       struct plat_stmmacenet_data *plat,
--			       const struct stmmac_pci_info *info)
-+			       struct plat_stmmacenet_data *plat)
- {
- 	/* Set common default data first */
- 	common_default_data(plat);
-@@ -118,9 +115,40 @@ static const struct stmmac_pci_info stmmac_pci_info = {
- 	.setup = stmmac_default_data,
- };
- 
-+static struct stmmac_pci_dmi_data quark_pci_dmi_data[] = {
-+	{
-+		.name = "Galileo",
-+		.func = 6,
-+		.phy_addr = 1,
-+	},
-+	{
-+		.name = "GalileoGen2",
-+		.func = 6,
-+		.phy_addr = 1,
-+	},
-+	{
-+		.name = "SIMATIC IOT2000",
-+		.asset_tag = "6ES7647-0AA00-0YA2",
-+		.func = 6,
-+		.phy_addr = 1,
-+	},
-+	{
-+		.name = "SIMATIC IOT2000",
-+		.asset_tag = "6ES7647-0AA00-1YA2",
-+		.func = 6,
-+		.phy_addr = 1,
-+	},
-+	{
-+		.name = "SIMATIC IOT2000",
-+		.asset_tag = "6ES7647-0AA00-1YA2",
-+		.func = 7,
-+		.phy_addr = 1,
-+	},
-+	{}
-+};
-+
- static int quark_default_data(struct pci_dev *pdev,
--			      struct plat_stmmacenet_data *plat,
--			      const struct stmmac_pci_info *info)
-+			      struct plat_stmmacenet_data *plat)
- {
- 	int ret;
- 
-@@ -131,7 +159,7 @@ static int quark_default_data(struct pci_dev *pdev,
- 	 * Refuse to load the driver and register net device if MAC controller
- 	 * does not connect to any PHY interface.
- 	 */
--	ret = stmmac_pci_find_phy_addr(pdev, info);
-+	ret = stmmac_pci_find_phy_addr(pdev, quark_pci_dmi_data);
- 	if (ret < 0) {
- 		/* Return error to the caller on DMI enabled boards. */
- 		if (dmi_get_system_info(DMI_BOARD_NAME))
-@@ -157,41 +185,8 @@ static int quark_default_data(struct pci_dev *pdev,
- 	return 0;
- }
- 
--static struct stmmac_pci_dmi_data quark_pci_dmi_data[] = {
--	{
--		.name = "Galileo",
--		.func = 6,
--		.phy_addr = 1,
--	},
--	{
--		.name = "GalileoGen2",
--		.func = 6,
--		.phy_addr = 1,
--	},
--	{
--		.name = "SIMATIC IOT2000",
--		.asset_tag = "6ES7647-0AA00-0YA2",
--		.func = 6,
--		.phy_addr = 1,
--	},
--	{
--		.name = "SIMATIC IOT2000",
--		.asset_tag = "6ES7647-0AA00-1YA2",
--		.func = 6,
--		.phy_addr = 1,
--	},
--	{
--		.name = "SIMATIC IOT2000",
--		.asset_tag = "6ES7647-0AA00-1YA2",
--		.func = 7,
--		.phy_addr = 1,
--	},
--	{}
--};
--
- static const struct stmmac_pci_info quark_pci_info = {
- 	.setup = quark_default_data,
--	.dmi = quark_pci_dmi_data,
- };
- 
- /**
-@@ -250,7 +245,7 @@ static int stmmac_pci_probe(struct pci_dev *pdev,
- 
- 	pci_set_master(pdev);
- 
--	ret = info->setup(pdev, plat, info);
-+	ret = info->setup(pdev, plat);
- 	if (ret)
- 		return ret;
- 
--- 
-2.12.3
+> +	ee = bpf_event_entry_gen(perf_file, map_file);
+> +	if (ee)
+> +		return ee;
+>  
+> -err_out:
+> +	ee = ERR_PTR(-ENOMEM);
+>  	fput(perf_file);
+>  	return ee;
+>  }
