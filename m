@@ -1,48 +1,52 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] virtio_net: lower limit on buffer size
-Date: Fri, 02 Jun 2017 14:32:54 -0400 (EDT)
-Message-ID: <20170602.143254.1054389009843287751.davem@davemloft.net>
-References: <1496415192-17031-1-git-send-email-mst@redhat.com>
+Subject: Re: Cherry pick commit *net: better skb->sender_cpu and
+ skb->napi_id cohabitation* to 4.4 series?
+Date: Fri, 02 Jun 2017 14:37:19 -0400 (EDT)
+Message-ID: <20170602.143719.124343853677571075.davem@davemloft.net>
+References: <20170601.121935.1801387892378122014.davem@davemloft.net>
+        <409abefe-62ff-563a-b5c6-a3149ae672e0@molgen.mpg.de>
+        <CAM_iQpXg3XCyfi7kStkWOh3R4+0yQHN15MOZ2dkbEYZvR1Xf2Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, bfields@fieldses.org,
-	mpatocka@redhat.com
-To: mst@redhat.com
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1496415192-17031-1-git-send-email-mst@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: pmenzel@molgen.mpg.de, edumazet@google.com, netdev@vger.kernel.org,
+        ast@kernel.org, it+linux-netdev@molgen.mpg.de,
+        gregkh@linuxfoundation.org
+To: xiyou.wangcong@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:46580 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750918AbdFBShV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 2 Jun 2017 14:37:21 -0400
+In-Reply-To: <CAM_iQpXg3XCyfi7kStkWOh3R4+0yQHN15MOZ2dkbEYZvR1Xf2Q@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Date: Fri, 2 Jun 2017 17:54:33 +0300
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Date: Fri, 2 Jun 2017 10:51:39 -0700
 
-> commit d85b758f72b0 ("virtio_net: fix support for small rings")
-> was supposed to increase the buffer size for small rings but had an
-> unintentional side effect of decreasing it for large rings. This seems
-> to break some setups - it's not yet clear why, but increasing buffer
-> size back to what it was before helps.
+> On Thu, Jun 1, 2017 at 10:32 AM, Paul Menzel <pmenzel@molgen.mpg.de> wrote:
+>> Dear David,
+>>
+>>
+>> On 06/01/17 18:19, David Miller wrote:
+>>>
+>>> Neither of us have anything to do with the 4.4 -stable series.  We only
+>>> manage stable backport submissions for the most recent two releases.
+>>
+>>
+>> Thank you for the prompt response. Should the netdev FAQ be updated then to
+>> contain that information?
 > 
-> Fixes: d85b758f72b0 ("virtio_net: fix support for small rings")
-> Reported-by: Mikulas Patocka <mpatocka@redhat.com>
-> Reported-by: "J. Bruce Fields" <bfields@fieldses.org>
-> Tested-by: Mikulas Patocka <mpatocka@redhat.com>
-> Tested-by: "J. Bruce Fields" <bfields@fieldses.org>
-> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-> ---
+> +1
 > 
-> Patch tested, pls merge.
-> 
-> changes from v2:
-> 	commit log tweaks to address comments by Sergei Shtylyov
+> It is quite helpful to know which stable releases contain network fixes
+> which don't, especially for those who rely on stable releases, at least
+> we could do backport by ourselves when we know they are missing.
 
-Applied, thanks Michael.
+The people who maintain the -stable releases older than the ones Greg KH
+are doing typically scan the ones that Greg applies and tries to integrate
+them into their -stable releases when appropriate.
+
+If someone wants to write an accurate description of that and how it works,
+and add it to the FAQ, sure.
