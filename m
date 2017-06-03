@@ -1,59 +1,48 @@
-From: Andy Shevchenko <andy.shevchenko@gmail.com>
-Subject: Re: [PATCH] net: stmmac: ensure jumbo_frm error return is correctly
- checked for -ve value
-Date: Sat, 3 Jun 2017 20:18:32 +0300
-Message-ID: <CAHp75VdU0MmFJhZ2V1eLwSK_DnvFGxuOX337nw3wusyrWVtGxw@mail.gmail.com>
-References: <20170602145827.21151-1-colin.king@canonical.com>
- <CAHp75VeuumsZHDdue=n-2esyG7Q-6472JoYJ64U0+OQoC2psgQ@mail.gmail.com> <40331b09-5829-9041-f815-7f1426960bd8@canonical.com>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net] net: dsa: Fix stale cpu_switch reference after unbind then bind
+Date: Sat, 03 Jun 2017 13:50:01 -0400
+Message-ID: <87r2z1c65y.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+References: <20170603050523.27014-1-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-        Alexandre Torgue <alexandre.torgue@st.com>,
-        netdev <netdev@vger.kernel.org>, kernel-janitors@vger.kernel.org,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Colin Ian King <colin.king@canonical.com>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <40331b09-5829-9041-f815-7f1426960bd8@canonical.com>
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        "David S. Miller" <davem@davemloft.net>,
+        open list <linux-kernel@vger.kernel.org>
+To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:56410 "EHLO
+        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751154AbdFCRwG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 3 Jun 2017 13:52:06 -0400
+In-Reply-To: <20170603050523.27014-1-f.fainelli@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jun 3, 2017 at 7:35 PM, Colin Ian King <colin.king@canonical.com> wrote:
-> On 03/06/17 16:55, Andy Shevchenko wrote:
->> On Fri, Jun 2, 2017 at 5:58 PM, Colin King <colin.king@canonical.com> wrote:
->>> The current comparison of entry < 0 will never be true since entry is an
->>> unsigned integer. Cast entry to an int to ensure -ve error return values
->>> from the call to jumbo_frm are correctly being caught.
->>
->>>         if (unlikely(is_jumbo) && likely(priv->synopsys_id <
->>>                                          DWMAC_CORE_4_00)) {
->>>                 entry = priv->hw->mode->jumbo_frm(tx_q, skb, csum_insertion);
->>> -               if (unlikely(entry < 0))
->>> +               if (unlikely((int)entry < 0))
->>
->> It feels like a hiding some other issue.
->>
+Hi Florian,
+
+Florian Fainelli <f.fainelli@gmail.com> writes:
+
+> Commit 9520ed8fb841 ("net: dsa: use cpu_switch instead of ds[0]")
+> replaced the use of dst->ds[0] with dst->cpu_switch since that is
+> functionally equivalent, however, we can now run into an use after free
+> scenario after unbinding then rebinding the switch driver.
 >
-> The alternative is:
+> The use after free happens because we do correctly initialize
+> dst->cpu_switch the first time we probe in dsa_cpu_parse(), then we
+> unbind the driver: dsa_dst_unapply() is called, and we rebind again.
+> dst->cpu_switch now points to a freed "ds" structure, and so when we
+> finally dereference it in dsa_cpu_port_ethtool_setup(), we oops.
 >
->                 int rc = priv->hw->mode->jumbo_frm(tx_q, skb, csum_insertion);
->                 if (unlikely(rc < 0))
->                         goto dma_map_err;
+> To fix this, simply set dst->cpu_switch to NULL in dsa_dst_unapply()
+> which guarantees that we always correctly re-assign dst->cpu_switch in
+> dsa_cpu_parse().
 >
->                 entry = rc;
+> Fixes: 9520ed8fb841 ("net: dsa: use cpu_switch instead of ds[0]")
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 
-Looks cleaner, though I was thinking about changing type of entry as
-Julia suggested. Needs to be checked carefully anyway.
+Reviewed-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 
-> however, that is effectively the same. The cast I'm using is a well used
-> idiom in the kernel, it used in almost a hundred similar cases.
+Thanks!
 
-> git grep "< 0" | grep "(int)" | wc -l
-> 95
-
-With refined grep I'e got only 56 so far. And I see it's spread only
-in 45 modules, most cases are single use cases.
-So, I hardly can tell this is an idiom in kernel.
-
--- 
-With Best Regards,
-Andy Shevchenko
+        Vivien
