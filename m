@@ -1,62 +1,33 @@
 From: Andy Shevchenko <andy.shevchenko@gmail.com>
-Subject: Re: [PATCH] brcmfmac: Fix glob_skb leak in brcmf_sdiod_recv_chain
-Date: Sat, 3 Jun 2017 18:46:11 +0300
-Message-ID: <CAHp75VeU5snppJAd-Wpa_oGbAmt8ZZhsoDH75rNaQ6Ti5myVmw@mail.gmail.com>
-References: <1496424146-10928-1-git-send-email-housel@acm.org> <CA+8PC_e8HdkBw4DfGUPO0BbM-W5wftK=i6_vjwFTmS7=axyFUw@mail.gmail.com>
+Subject: Re: [PATCH] net: stmmac: ensure jumbo_frm error return is correctly
+ checked for -ve value
+Date: Sat, 3 Jun 2017 18:55:57 +0300
+Message-ID: <CAHp75VeuumsZHDdue=n-2esyG7Q-6472JoYJ64U0+OQoC2psgQ@mail.gmail.com>
+References: <20170602145827.21151-1-colin.king@canonical.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: "Peter S. Housel" <housel@acm.org>,
-        Arend van Spriel <arend.vanspriel@broadcom.com>,
-        Hante Meuleman <hante.meuleman@broadcom.com>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        Christian Daudt <csd@broadcom.com>,
-        Pieter-Paul Giesberts <pieter-paul.giesberts@broadcom.com>,
-        Martin Blumenstingl <martin.blumenstingl@googlemail.com>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        "open list:BROADCOM BRCM80211 IEEE802.11n WIRELESS DRIVER"
-        <linux-wireless@vger.kernel.org>,
-        "open list:BROADCOM BRCM80211 IEEE802.11n WIRELESS DRIVER"
-        <brcm80211-dev-list.pdl@broadcom.com>,
-        "open list:NETWORKING DRIVERS" <netdev@vger.kernel.org>,
-        open list <linux-kernel@vger.kernel.org>
-To: Franky Lin <franky.lin@broadcom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f169.google.com ([209.85.216.169]:35957 "EHLO
-        mail-qt0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750775AbdFCPqN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 3 Jun 2017 11:46:13 -0400
-In-Reply-To: <CA+8PC_e8HdkBw4DfGUPO0BbM-W5wftK=i6_vjwFTmS7=axyFUw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+        Alexandre Torgue <alexandre.torgue@st.com>,
+        netdev <netdev@vger.kernel.org>, kernel-janitors@vger.kernel.org,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Colin King <colin.king@canonical.com>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <20170602145827.21151-1-colin.king@canonical.com>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 2, 2017 at 9:52 PM, Franky Lin <franky.lin@broadcom.com> wrote:
-> On Fri, Jun 2, 2017 at 10:22 AM, Peter S. Housel <housel@acm.org> wrote:
+On Fri, Jun 2, 2017 at 5:58 PM, Colin King <colin.king@canonical.com> wrote:
+> The current comparison of entry < 0 will never be true since entry is an
+> unsigned integer. Cast entry to an int to ensure -ve error return values
+> from the call to jumbo_frm are correctly being caught.
 
->>                 err = brcmf_sdiod_buffrw(sdiodev, SDIO_FUNC_2, false, addr,
->>                                          glom_skb);
->> -               if (err) {
->> -                       brcmu_pkt_buf_free_skb(glom_skb);
->> -                       goto done;
->> -               }
+>         if (unlikely(is_jumbo) && likely(priv->synopsys_id <
+>                                          DWMAC_CORE_4_00)) {
+>                 entry = priv->hw->mode->jumbo_frm(tx_q, skb, csum_insertion);
+> -               if (unlikely(entry < 0))
+> +               if (unlikely((int)entry < 0))
 
-> What about
->         if (!err) {
->             skb_queue_walk(pktq, skb) {
->                 memcpy(skb->data, glom_skb->data, skb->len);
->                 skb_pull(glom_skb, skb->len);
->             }
->         }
->         brcmu_pkt_buf_free_skb(glom_skb);
->
-> Then no goto is needed.
-
-For my point of view it has two subtle inconveniences:
-1. Not so usual pattern in use if (!ret)
-2. Less error prone in case someone decides to expand the code and
-missed ! or something else there.
-
-Since both makes an approach less error prone I wouldn't suggest doing
-that as I commented in new version.
+It feels like a hiding some other issue.
 
 -- 
 With Best Regards,
