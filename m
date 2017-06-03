@@ -1,71 +1,102 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: loosing netdevices with namespaces and unshare?
-Date: Sat, 03 Jun 2017 05:53:48 -0500
-Message-ID: <8760gd735v.fsf@xmission.com>
-References: <20170530220741.ldmhwj3bsvdoaofc@nataraja>
-        <CAM_iQpW2ARBTmGK8JhVXSFCaB1F-WPDKeDZwEbxMLf_Xi7aXQw@mail.gmail.com>
-        <20170531122752.siaou43verg4epep@nataraja>
-        <CAM_iQpU517NR1xsrDrAohnESdS33WoToHsdGD0yOWSiGU9Yiqg@mail.gmail.com>
-        <87a85si5f2.fsf@xmission.com>
-        <CAM_iQpWaJ7WKOEQe=00AX35x_gCKHoHikVTGH6UQTPw+3oD_pw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Harald Welte <laforge@gnumonks.org>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:57076 "EHLO
-        out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750765AbdFCLAl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 3 Jun 2017 07:00:41 -0400
-In-Reply-To: <CAM_iQpWaJ7WKOEQe=00AX35x_gCKHoHikVTGH6UQTPw+3oD_pw@mail.gmail.com>
-        (Cong Wang's message of "Fri, 2 Jun 2017 16:25:44 -0700")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Anmol Sarma <me@anmolsarma.in>
+Subject: [PATCH] net: Update TCP congestion control documentation
+Date: Sat,  3 Jun 2017 17:40:54 +0530
+Message-ID: <1496491854-17977-1-git-send-email-me@anmolsarma.in>
+Cc: linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
+        netdev@vger.kernel.org, Anmol Sarma <me@anmolsarma.in>
+To: davem@davemloft.net
+Return-path: <linux-doc-owner@vger.kernel.org>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Cong Wang <xiyou.wangcong@gmail.com> writes:
+Update tcp.txt to fix mandatory congestion control ops and default
+CCA selection. Also, fix comment in tcp.h for undo_cwnd.
 
-> On Wed, May 31, 2017 at 11:32 PM, Eric W. Biederman
-> <ebiederm@xmission.com> wrote:
->> Cong Wang <xiyou.wangcong@gmail.com> writes:
->>> Network namespace does not special-case the physical devices,
->>> it treats them all equally as abstract net devices.
->>
->> Absolutely not true.
->>
->> The relevant code is in net/core/dev.c:default_device_exit
->>
->> If a network device does not implement rntl_link_ops it is returned to
->> the initial network namespace.   Anything else will loose physical
->> devices.
->
-> Hmm, I never noticed that if check...
->
->>
->> Only for pure software based devices do we delete them.  Perhaps your
->> sub interface implements rtnl_link_ops?  Either that or something is
->> still holding a reference to your network namespace, which would prevent
->> the network device from being returned.
->>
->
-> But this simply sucks:
->
->                 snprintf(fb_name, IFNAMSIZ, "dev%d", dev->ifindex);
->                 err = dev_change_net_namespace(dev, &init_net, fb_name);
->                 if (err) {
->                         pr_emerg("%s: failed to move %s to init_net: %d\n",
->                                  __func__, dev->name, err);
->                         BUG();
->                 }
->
-> It is essentially hard to handle the error here, but it is quite easy to
-> trigger such BUG() by naming other device devX, it is no better
-> than just losing it.
+Signed-off-by: Anmol Sarma <me@anmolsarma.in>
+---
+ Documentation/networking/tcp.txt | 31 +++++++++++++------------------
+ include/net/tcp.h                |  2 +-
+ 2 files changed, 14 insertions(+), 19 deletions(-)
 
-The rename only happens if there is a conflicting device name.
+diff --git a/Documentation/networking/tcp.txt b/Documentation/networking/tcp.txt
+index bdc4c0d..9c7139d 100644
+--- a/Documentation/networking/tcp.txt
++++ b/Documentation/networking/tcp.txt
+@@ -1,7 +1,7 @@
+ TCP protocol
+ ============
+ 
+-Last updated: 9 February 2008
++Last updated: 3 June 2017
+ 
+ Contents
+ ========
+@@ -29,18 +29,19 @@ As of 2.6.13, Linux supports pluggable congestion control algorithms.
+ A congestion control mechanism can be registered through functions in
+ tcp_cong.c. The functions used by the congestion control mechanism are
+ registered via passing a tcp_congestion_ops struct to
+-tcp_register_congestion_control. As a minimum name, ssthresh,
+-cong_avoid must be valid.
++tcp_register_congestion_control. As a minimum, the congestion control
++mechanism must provide a valid name and must implement either ssthresh,
++cong_avoid and undo_cwnd hooks or the "omnipotent" cong_control hook.
+ 
+ Private data for a congestion control mechanism is stored in tp->ca_priv.
+ tcp_ca(tp) returns a pointer to this space.  This is preallocated space - it
+ is important to check the size of your private data will fit this space, or
+-alternatively space could be allocated elsewhere and a pointer to it could
++alternatively, space could be allocated elsewhere and a pointer to it could
+ be stored here.
+ 
+ There are three kinds of congestion control algorithms currently: The
+ simplest ones are derived from TCP reno (highspeed, scalable) and just
+-provide an alternative the congestion window calculation. More complex
++provide an alternative congestion window calculation. More complex
+ ones like BIC try to look at other events to provide better
+ heuristics.  There are also round trip time based algorithms like
+ Vegas and Westwood+.
+@@ -49,21 +50,15 @@ Good TCP congestion control is a complex problem because the algorithm
+ needs to maintain fairness and performance. Please review current
+ research and RFC's before developing new modules.
+ 
+-The method that is used to determine which congestion control mechanism is
+-determined by the setting of the sysctl net.ipv4.tcp_congestion_control.
+-The default congestion control will be the last one registered (LIFO);
+-so if you built everything as modules, the default will be reno. If you
+-build with the defaults from Kconfig, then CUBIC will be builtin (not a
+-module) and it will end up the default.
++The default congestion control mechanism is chosen based on the
++DEFAULT_TCP_CONG Kconfig parameter. If you really want a particular default
++value then you can set it using sysctl net.ipv4.tcp_congestion_control. The
++module will be autoloaded if needed and you will get the expected protocol. If
++you ask for an unknown congestion method, then the sysctl attempt will fail.
+ 
+-If you really want a particular default value then you will need
+-to set it with the sysctl.  If you use a sysctl, the module will be autoloaded
+-if needed and you will get the expected protocol. If you ask for an
+-unknown congestion method, then the sysctl attempt will fail.
+-
+-If you remove a tcp congestion control module, then you will get the next
++If you remove a TCP congestion control module, then you will get the next
+ available one. Since reno cannot be built as a module, and cannot be
+-deleted, it will always be available.
++removed, it will always be available.
+ 
+ How the new TCP output machine [nyi] works.
+ ===========================================
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 82462db..28b577a 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -969,7 +969,7 @@ struct tcp_congestion_ops {
+ 	void (*cwnd_event)(struct sock *sk, enum tcp_ca_event ev);
+ 	/* call when ack arrives (optional) */
+ 	void (*in_ack_event)(struct sock *sk, u32 flags);
+-	/* new value of cwnd after loss (optional) */
++	/* new value of cwnd after loss (required) */
+ 	u32  (*undo_cwnd)(struct sock *sk);
+ 	/* hook for packet ack accounting (optional) */
+ 	void (*pkts_acked)(struct sock *sk, const struct ack_sample *sample);
+-- 
+2.7.4
 
-Beyond that there is the entire hotplug functionality so it should be
-possible to automatically detect a new device in your network namespace
-and do something with it.
-
-Eric
