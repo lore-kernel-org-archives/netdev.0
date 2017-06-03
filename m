@@ -1,39 +1,49 @@
-From: Or Gerlitz <gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [pull request][for-next 0/6] Mellanox mlx5 updates 2017-05-23
-Date: Sat, 3 Jun 2017 22:46:50 +0300
-Message-ID: <CAJ3xEMjNvYRoVhi3+ojmdiMf8x_px8VDWTkBnKqoDNLF2N-51w@mail.gmail.com>
-References: <1496357879.7171.76.camel@redhat.com> <20170602153940.GX5406@mtr-leonro.local>
- <20170602160641.ylowbobe5v72ui7g@ast-mbp.dhcp.thefacebook.com>
- <20170602.120839.1394660754953676217.davem@davemloft.net> <20170602165736.nwunidodmu6xsmuv@ast-mbp.dhcp.thefacebook.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] virtio_net: lower limit on buffer size
+Date: Sat, 3 Jun 2017 23:17:30 +0300
+Message-ID: <aafb81af-54f2-06b0-3b5c-2713bc28184b@cogentembedded.com>
+References: <1496361148-4603-1-git-send-email-mst@redhat.com>
+ <3dd90d56-7110-bb9e-0b7f-4c8a8003a57f@cogentembedded.com>
+ <20170602202536.GA24411@fieldses.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Ilan Tayari <ilant-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-To: Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170602165736.nwunidodmu6xsmuv-+o4/htvd0TCa6kscz5V53/3mLCh9rsb+VpNB7YpNyf8@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Michael S. Tsirkin" <mst@redhat.com>,
+        linux-kernel@vger.kernel.org,
+        Mikulas Patocka <mpatocka@redhat.com>,
+        Jason Wang <jasowang@redhat.com>,
+        virtualization@lists.linux-foundation.org, netdev@vger.kernel.org
+To: "J. Bruce Fields" <bfields@fieldses.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f54.google.com ([209.85.215.54]:36695 "EHLO
+        mail-lf0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751203AbdFCURe (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 3 Jun 2017 16:17:34 -0400
+Received: by mail-lf0-f54.google.com with SMTP id o83so8369936lff.3
+        for <netdev@vger.kernel.org>; Sat, 03 Jun 2017 13:17:33 -0700 (PDT)
+In-Reply-To: <20170602202536.GA24411@fieldses.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 2, 2017 at 7:57 PM, Alexei Starovoitov
-<alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
-> Back to eswitch analogy. All I hear from mlx is "at this stage
-> it's not approriate ...". Well, I've been asking to do
-> 'the right thing' for eswitch for months now and eswitch was
-> in the driver for years. What are the chances that this fpga
-> will ever be exposed? Once the code is merged there is no
-> incentive for the vendor to do it differently.
+On 06/02/2017 11:25 PM, J. Bruce Fields wrote:
 
-Alexei, can you please clarify the claims re eswitch? are you
-referring to the interfaces to program SRIOV eswitch? if not, what?
+>>> commit d85b758f72b0 "virtio_net: fix support for small rings"
+>>
+>>    Commit d85b758f72b0 ("virtio_net: fix support for small rings")
+>>
+>>> was supposed to increase the buffer size for small rings
+>>> but had an unintentional side effect of decreasing
+>>> it for large rings. This seems to break some setups -
+>>> it's not yet clear why, but increasing buffer size
+>>> back to what it was before helps.
+>>>
+>>> Fixes: d85b758f72b0 "virtio_net: fix support for small rings"
+>>
+>> Fixes: d85b758f72b0 ("virtio_net: fix support for small rings")
+>
+> I may be bikeshedding, but, personally I never do the parens--they're
+> redundant given the quotes, and space is often tight.
 
-Or.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+    Just see Documetation/process/submitting-patches.rst.
+
+MBR, Sergei
