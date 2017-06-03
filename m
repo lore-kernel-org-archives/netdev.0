@@ -1,49 +1,106 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] virtio_net: lower limit on buffer size
-Date: Sat, 3 Jun 2017 23:17:30 +0300
-Message-ID: <aafb81af-54f2-06b0-3b5c-2713bc28184b@cogentembedded.com>
-References: <1496361148-4603-1-git-send-email-mst@redhat.com>
- <3dd90d56-7110-bb9e-0b7f-4c8a8003a57f@cogentembedded.com>
- <20170602202536.GA24411@fieldses.org>
+From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Subject: Re: [PATCH 7/7] mlx5: Do not build eswitch_offloads if
+ CONFIG_MLX5_EN_ESWITCH_OFFLOADS is set
+Date: Sun, 4 Jun 2017 01:06:12 +0300
+Message-ID: <CALzJLG-pZQ_nSPV2yb2tfmcCmZHDur3UwBrCDDaYiPtFSNFZOA@mail.gmail.com>
+References: <20170526211624.23133-1-jsorensen@fb.com> <20170526211624.23133-8-jsorensen@fb.com>
+ <CAJ3xEMgeBaE9q6sucXtOQTBLAvZvf_d0eGvMsGbVa2vWc21R-Q@mail.gmail.com>
+ <e7c36f4e-788a-89dd-e92e-e6a31004758a@gmail.com> <CAJ3xEMh8ALo9Pgb0sh5dzAFaPtiKDaZyEhgasgi40Pba1JzCQA@mail.gmail.com>
+ <c5b3bd3d-b5de-8b0b-34ff-068a1b3bd31c@fb.com> <CAJ3xEMhKjPwg75hO8af7XDL5JPoxkq2AtpL61CtOLb-T4aACWQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-        linux-kernel@vger.kernel.org,
-        Mikulas Patocka <mpatocka@redhat.com>,
-        Jason Wang <jasowang@redhat.com>,
-        virtualization@lists.linux-foundation.org, netdev@vger.kernel.org
-To: "J. Bruce Fields" <bfields@fieldses.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Jes Sorensen <jsorensen@fb.com>,
+        Jes Sorensen <jes.sorensen@gmail.com>,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        Kernel Team <kernel-team@fb.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Ilan Tayari <ilant@mellanox.com>
+To: Or Gerlitz <gerlitz.or@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f54.google.com ([209.85.215.54]:36695 "EHLO
-        mail-lf0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751203AbdFCURe (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 3 Jun 2017 16:17:34 -0400
-Received: by mail-lf0-f54.google.com with SMTP id o83so8369936lff.3
-        for <netdev@vger.kernel.org>; Sat, 03 Jun 2017 13:17:33 -0700 (PDT)
-In-Reply-To: <20170602202536.GA24411@fieldses.org>
+Received: from mail-qk0-f193.google.com ([209.85.220.193]:35018 "EHLO
+        mail-qk0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751162AbdFCWGe (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 3 Jun 2017 18:06:34 -0400
+Received: by mail-qk0-f193.google.com with SMTP id v195so13652072qka.2
+        for <netdev@vger.kernel.org>; Sat, 03 Jun 2017 15:06:33 -0700 (PDT)
+In-Reply-To: <CAJ3xEMhKjPwg75hO8af7XDL5JPoxkq2AtpL61CtOLb-T4aACWQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/02/2017 11:25 PM, J. Bruce Fields wrote:
-
->>> commit d85b758f72b0 "virtio_net: fix support for small rings"
->>
->>    Commit d85b758f72b0 ("virtio_net: fix support for small rings")
->>
->>> was supposed to increase the buffer size for small rings
->>> but had an unintentional side effect of decreasing
->>> it for large rings. This seems to break some setups -
->>> it's not yet clear why, but increasing buffer size
->>> back to what it was before helps.
+On Sat, Jun 3, 2017 at 10:37 PM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
+> On Fri, Jun 2, 2017 at 11:22 PM, Jes Sorensen <jsorensen@fb.com> wrote:
+>> On 05/28/2017 02:03 AM, Or Gerlitz wrote:
 >>>
->>> Fixes: d85b758f72b0 "virtio_net: fix support for small rings"
+>>> On Sun, May 28, 2017 at 5:23 AM, Jes Sorensen <jes.sorensen@gmail.com>
+>>> wrote:
+>>>>
+>>>> On 05/27/2017 05:02 PM, Or Gerlitz wrote:
+>>>>>
+>>>>>
+>>>>> On Sat, May 27, 2017 at 12:16 AM, Jes Sorensen <jes.sorensen@gmail.com>
+>>>>> wrote:
+>>>>>>
+>>>>>>
+>>>>>> This gets rid of the temporary #ifdef spaghetti and allows the code to
+>>>>>> compile without offload support enabled.
+>>>
+>>>
+>>>>> I am pretty sure we can do that exercise you're up to without any
+>>>>> spaghetti cooking and even put more code under that CONFIG directive
+>>>>> (en_rep.c), I'll take that with Saeed.
+>>>
+>>>
+>>>> I want to avoid adding #ifdef CONFIG_foo to the main code in order to
+>>>> keep
+>>>> it readable. I did it gradually to make sure I didn't break anything and
+>>>> to
+>>>> allow for it to be bisected in case something did break. If we can move
+>>>> out
+>>>> more code from places like en_rep.c into eswitch_offload.c and get it
+>>>> disabled that way that would be great, but I like to limit the number of
+>>>> #ifdefs we add to the actual code.
+>>>
+>>>
+>>> FWIW (see below), squashing your seven patches to one resulted in a
+>>> fairly simple/clear
+>>> patch, so if we go that way, no need to have seven commits just for this
+>>> piece.
 >>
->> Fixes: d85b758f72b0 ("virtio_net: fix support for small rings")
+>>
+>> Squashing patches into jumbo patches is inherently broken and bad coding
+>> practice! It makes it way more complicated to debug and bisect in case a
+>> minor detail broke in the process.
 >
-> I may be bikeshedding, but, personally I never do the parens--they're
-> redundant given the quotes, and space is often tight.
+> Not that pure LOC ##-s is the only/deep measurement, but your overall
+> changes in the the seven patch series account to:
+>
+>  5 files changed, 94 insertions(+), 3 deletions(-)
+>
+> and by no mean this is jumbo or inherently broken and bad coded, so
+> please slow down please, I looked with care on the resulted patch and
+> said it's basically ok.
+>
+>
+>>> Re SRIOV, I don't think it would be correct to break the support info few
+>>> CONFIG directives. If we want to allow someone to build the driver w.o
+>>> SRIOV that's fine, but I don't think we should further go down and disable
+>>> some of the SRIOV sub-modes.
+>
+>>> Re TC offload support, that's make sense.
+>
+>> OK, so disabling SRIOV and disabling TC makes sense - I'll look at that.
+>
+> I think Saeed wants us to conduct that exercise, let me check with him
+> and get back to you
 
-    Just see Documetation/process/submitting-patches.rst.
+disabling SRIOV in all the kernel can do the trick, but we want
+something more flexible, yet simple.
+eswitch is required __ONLY__ for SRIOV, in the light of that fact we
+can have CONFIG_MLX5_SRIOV which depends on kernel SRIOV
+kconfig directive, that will eliminate  MLX5 sriov support (basically
+compile out sriov.c, eswitch.c, eswitch_offloads.c and en_rep.c).
 
-MBR, Sergei
+and stub out some sriov NDOs and some little API calls from the main
+flows to the above mlx5 sub-modules.
+Also we will need to compile out some en_tc.c offloads which meant to
+program the eswitch they also call the eswitch_offloads API.
