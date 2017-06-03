@@ -1,123 +1,150 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH v3 2/7] net: pch_gbe: Pull PHY GPIO handling out of
- Minnow code
-Date: Sat, 3 Jun 2017 19:52:00 +0200
-Message-ID: <20170603175200.GC17099@lunn.ch>
-References: <20170602234042.22782-1-paul.burton@imgtec.com>
- <20170602234042.22782-3-paul.burton@imgtec.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Tobias Klauser <tklauser@distanz.ch>,
-        "David S . Miller" <davem@davemloft.net>,
-        Jarod Wilson <jarod@redhat.com>, linux-mips@linux-mips.org,
-        Eric Dumazet <edumazet@google.com>
-To: Paul Burton <paul.burton@imgtec.com>
+Subject: [PATCHv2 net-next] net: phy: smsc: Implement PHY statistics
+Date: Sat,  3 Jun 2017 20:00:36 +0200
+Message-ID: <1496512836-22198-1-git-send-email-andrew@lunn.ch>
+Cc: Woojung Huh <Woojung.Huh@microchip.com>,
+        netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:35436 "EHLO vps0.lunn.ch"
+Received: from vps0.lunn.ch ([178.209.37.122]:35451 "EHLO vps0.lunn.ch"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750991AbdFCRwG (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 3 Jun 2017 13:52:06 -0400
-Content-Disposition: inline
-In-Reply-To: <20170602234042.22782-3-paul.burton@imgtec.com>
+        id S1750991AbdFCSA6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 3 Jun 2017 14:00:58 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 02, 2017 at 04:40:37PM -0700, Paul Burton wrote:
-> The MIPS Boston development board uses the Intel EG20T Platform
-> Controller Hub, including its gigabit ethernet controller, and requires
-> that its RTL8211E PHY be reset much like the Minnow platform. Pull the
-> PHY reset GPIO handling out of Minnow-specific code such that it can be
-> shared by later patches.
-> 
-> Signed-off-by: Paul Burton <paul.burton@imgtec.com>
-> Cc: David S. Miller <davem@davemloft.net>
-> Cc: Eric Dumazet <edumazet@google.com>
-> Cc: Jarod Wilson <jarod@redhat.com>
-> Cc: Tobias Klauser <tklauser@distanz.ch>
-> Cc: linux-mips@linux-mips.org
-> Cc: netdev@vger.kernel.org
-> ---
-> 
-> Changes in v3:
-> - Use adapter->pdata as arg to platform_init, to fix bisectability.
-> 
-> Changes in v2: None
-> 
->  drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h    |  4 ++-
->  .../net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c   | 33 +++++++++++++++-------
->  2 files changed, 26 insertions(+), 11 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h
-> index 8d710a3b4db0..de1dd08050f4 100644
-> --- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h
-> +++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h
-> @@ -580,15 +580,17 @@ struct pch_gbe_hw_stats {
->  
->  /**
->   * struct pch_gbe_privdata - PCI Device ID driver data
-> + * @phy_reset_gpio:		PHY reset GPIO descriptor.
->   * @phy_tx_clk_delay:		Bool, configure the PHY TX delay in software
->   * @phy_disable_hibernate:	Bool, disable PHY hibernation
->   * @platform_init:		Platform initialization callback, called from
->   *				probe, prior to PHY initialization.
->   */
->  struct pch_gbe_privdata {
-> +	struct gpio_desc *phy_reset_gpio;
->  	bool phy_tx_clk_delay;
->  	bool phy_disable_hibernate;
-> -	int (*platform_init)(struct pci_dev *pdev);
-> +	int (*platform_init)(struct pci_dev *, struct pch_gbe_privdata *);
->  };
->  
->  /**
-> diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
-> index d38198718005..cb9b904786e4 100644
-> --- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
-> +++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
-> @@ -360,6 +360,16 @@ static void pch_gbe_mac_mar_set(struct pch_gbe_hw *hw, u8 * addr, u32 index)
->  	pch_gbe_wait_clr_bit(&hw->reg->ADDR_MASK, PCH_GBE_BUSY);
->  }
->  
-> +static void pch_gbe_phy_set_reset(struct pch_gbe_hw *hw, int value)
-> +{
-> +	struct pch_gbe_adapter *adapter = pch_gbe_hw_to_adapter(hw);
-> +
-> +	if (!adapter->pdata || !adapter->pdata->phy_reset_gpio)
-> +		return;
-> +
-> +	gpiod_set_value(adapter->pdata->phy_reset_gpio, value);
+Most of the PHYs supported by the SMSC driver have a counter of symbol
+errors. This is 16 bit wide and wraps around when it reaches its
+maximum value.
 
-Hi Paul
+Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+Reviewed-By: Woojung Huh <Woojung.Huh@microchip.com>
+---
+v2:
+	Align members
+	Add Reviewed-by's
+---
+ drivers/net/phy/smsc.c | 72 ++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 72 insertions(+)
 
-Since you are using the gpiod_ API, the core will take notice of the
-active low/active high flag when performing this set.
-
-> +}
-> +
->  /**
->   * pch_gbe_mac_reset_hw - Reset hardware
->   * @hw:	Pointer to the HW structure
->  
->  	ret = devm_gpio_request_one(&pdev->dev, gpio, flags,
->  				    "minnow_phy_reset");
-> -	if (ret) {
-> +	if (!ret)
-> +		pdata->phy_reset_gpio = gpio_to_desc(gpio);
-
-Here however, you are using the gpio_ API, which ignores the active
-high/low flag in device tree. And in your binding patch, you give the
-example:
-
-+               phy-reset-gpios = <&eg20t_gpio 6
-+                                  GPIO_ACTIVE_LOW>;
-
-This active low is totally ignored.
-
-I personally would say this is all messed up, and going to result in
-problems for somebody with a board which actually needs an
-GPIO_ACTIVE_HIGH.
-
-Please use the gpiod_ API through out and respect the flags in the
-device tree binding.
-
-       Andrew
+diff --git a/drivers/net/phy/smsc.c b/drivers/net/phy/smsc.c
+index 67c9f2b26c8e..1b8204be064c 100644
+--- a/drivers/net/phy/smsc.c
++++ b/drivers/net/phy/smsc.c
+@@ -25,6 +25,16 @@
+ #include <linux/netdevice.h>
+ #include <linux/smscphy.h>
+ 
++struct smsc_hw_stat {
++	const char *string;
++	u8 reg;
++	u8 bits;
++};
++
++static struct smsc_hw_stat smsc_hw_stats[] = {
++	{ "phy_symbol_errors", 26, 16},
++};
++
+ struct smsc_phy_priv {
+ 	bool energy_enable;
+ };
+@@ -143,6 +153,48 @@ static int lan87xx_read_status(struct phy_device *phydev)
+ 	return err;
+ }
+ 
++static int smsc_get_sset_count(struct phy_device *phydev)
++{
++	return ARRAY_SIZE(smsc_hw_stats);
++}
++
++static void smsc_get_strings(struct phy_device *phydev, u8 *data)
++{
++	int i;
++
++	for (i = 0; i < ARRAY_SIZE(smsc_hw_stats); i++) {
++		memcpy(data + i * ETH_GSTRING_LEN,
++		       smsc_hw_stats[i].string, ETH_GSTRING_LEN);
++	}
++}
++
++#ifndef UINT64_MAX
++#define UINT64_MAX              (u64)(~((u64)0))
++#endif
++static u64 smsc_get_stat(struct phy_device *phydev, int i)
++{
++	struct smsc_hw_stat stat = smsc_hw_stats[i];
++	int val;
++	u64 ret;
++
++	val = phy_read(phydev, stat.reg);
++	if (val < 0)
++		ret = UINT64_MAX;
++	else
++		ret = val;
++
++	return ret;
++}
++
++static void smsc_get_stats(struct phy_device *phydev,
++			   struct ethtool_stats *stats, u64 *data)
++{
++	int i;
++
++	for (i = 0; i < ARRAY_SIZE(smsc_hw_stats); i++)
++		data[i] = smsc_get_stat(phydev, i);
++}
++
+ static int smsc_phy_probe(struct phy_device *phydev)
+ {
+ 	struct device *dev = &phydev->mdio.dev;
+@@ -206,6 +258,11 @@ static struct phy_driver smsc_phy_driver[] = {
+ 	.ack_interrupt	= smsc_phy_ack_interrupt,
+ 	.config_intr	= smsc_phy_config_intr,
+ 
++	/* Statistics */
++	.get_sset_count = smsc_get_sset_count,
++	.get_strings	= smsc_get_strings,
++	.get_stats	= smsc_get_stats,
++
+ 	.suspend	= genphy_suspend,
+ 	.resume		= genphy_resume,
+ }, {
+@@ -228,6 +285,11 @@ static struct phy_driver smsc_phy_driver[] = {
+ 	.ack_interrupt	= smsc_phy_ack_interrupt,
+ 	.config_intr	= smsc_phy_config_intr,
+ 
++	/* Statistics */
++	.get_sset_count = smsc_get_sset_count,
++	.get_strings	= smsc_get_strings,
++	.get_stats	= smsc_get_stats,
++
+ 	.suspend	= genphy_suspend,
+ 	.resume		= genphy_resume,
+ }, {
+@@ -271,6 +333,11 @@ static struct phy_driver smsc_phy_driver[] = {
+ 	.ack_interrupt	= smsc_phy_ack_interrupt,
+ 	.config_intr	= smsc_phy_config_intr,
+ 
++	/* Statistics */
++	.get_sset_count = smsc_get_sset_count,
++	.get_strings	= smsc_get_strings,
++	.get_stats	= smsc_get_stats,
++
+ 	.suspend	= genphy_suspend,
+ 	.resume		= genphy_resume,
+ }, {
+@@ -293,6 +360,11 @@ static struct phy_driver smsc_phy_driver[] = {
+ 	.ack_interrupt	= smsc_phy_ack_interrupt,
+ 	.config_intr	= smsc_phy_config_intr,
+ 
++	/* Statistics */
++	.get_sset_count = smsc_get_sset_count,
++	.get_strings	= smsc_get_strings,
++	.get_stats	= smsc_get_stats,
++
+ 	.suspend	= genphy_suspend,
+ 	.resume		= genphy_resume,
+ } };
+-- 
+2.11.0
