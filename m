@@ -1,179 +1,92 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH v2 2/3] PCI: Enable PCIe Relaxed Ordering if supported
-Date: Sat, 3 Jun 2017 11:19:15 -0700
-Message-ID: <CAKgT0UfKPLy7=swnZYiYOrLS8znhjxeXNZv=+CK5XS3Z1fkMbw@mail.gmail.com>
-References: <1496462647-7632-1-git-send-email-dingtianhong@huawei.com> <1496462647-7632-3-git-send-email-dingtianhong@huawei.com>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [PATCH 7/7] mlx5: Do not build eswitch_offloads if
+ CONFIG_MLX5_EN_ESWITCH_OFFLOADS is set
+Date: Sat, 3 Jun 2017 22:37:01 +0300
+Message-ID: <CAJ3xEMhKjPwg75hO8af7XDL5JPoxkq2AtpL61CtOLb-T4aACWQ@mail.gmail.com>
+References: <20170526211624.23133-1-jsorensen@fb.com> <20170526211624.23133-8-jsorensen@fb.com>
+ <CAJ3xEMgeBaE9q6sucXtOQTBLAvZvf_d0eGvMsGbVa2vWc21R-Q@mail.gmail.com>
+ <e7c36f4e-788a-89dd-e92e-e6a31004758a@gmail.com> <CAJ3xEMh8ALo9Pgb0sh5dzAFaPtiKDaZyEhgasgi40Pba1JzCQA@mail.gmail.com>
+ <c5b3bd3d-b5de-8b0b-34ff-068a1b3bd31c@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: Casey Leedom <leedom@chelsio.com>, Ashok Raj <ashok.raj@intel.com>,
-        Bjorn Helgaas <helgaas@kernel.org>,
-        Michael Werner <werner@chelsio.com>,
-        Ganesh Goudar <ganeshgr@chelsio.com>,
-        Asit K Mallick <asit.k.mallick@intel.com>,
-        Patrick J Cramer <patrick.j.cramer@intel.com>,
-        Suravee Suthikulpanit <Suravee.Suthikulpanit@amd.com>,
-        Bob Shaw <Bob.Shaw@amd.com>, h <l.stach@pengutronix.de>,
-        Amir Ancel <amira@mellanox.com>,
-        Gabriele Paoloni <gabriele.paoloni@huawei.com>,
-        David Laight <David.Laight@aculab.com>,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-        Catalin Marinas <catalin.marinas@arm.com>,
-        Will Deacon <will.deacon@arm.com>,
-        Mark Rutland <mark.rutland@arm.com>,
-        Robin Murphy <robin.murphy@arm.com>,
-        David Miller <davem@davemloft.net>,
-        linux-arm-kernel@lists.inf
-To: Ding Tianhong <dingtianhong@huawei.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1496462647-7632-3-git-send-email-dingtianhong@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Jes Sorensen <jes.sorensen@gmail.com>,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        Kernel Team <kernel-team@fb.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Ilan Tayari <ilant@mellanox.com>
+To: Jes Sorensen <jsorensen@fb.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f66.google.com ([209.85.218.66]:34764 "EHLO
+        mail-oi0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750991AbdFCThD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 3 Jun 2017 15:37:03 -0400
+Received: by mail-oi0-f66.google.com with SMTP id d99so4973805oic.1
+        for <netdev@vger.kernel.org>; Sat, 03 Jun 2017 12:37:02 -0700 (PDT)
+In-Reply-To: <c5b3bd3d-b5de-8b0b-34ff-068a1b3bd31c@fb.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 2, 2017 at 9:04 PM, Ding Tianhong <dingtianhong@huawei.com> wrote:
-> The PCIe Device Control Register use the bit 4 to indicate that
-> whether the device is permitted to enable relaxed ordering or not.
-> But relaxed ordering is not safe for some platform which could only
-> use strong write ordering, so devices are allowed (but not required)
-> to enable relaxed ordering bit by default.
+On Fri, Jun 2, 2017 at 11:22 PM, Jes Sorensen <jsorensen@fb.com> wrote:
+> On 05/28/2017 02:03 AM, Or Gerlitz wrote:
+>>
+>> On Sun, May 28, 2017 at 5:23 AM, Jes Sorensen <jes.sorensen@gmail.com>
+>> wrote:
+>>>
+>>> On 05/27/2017 05:02 PM, Or Gerlitz wrote:
+>>>>
+>>>>
+>>>> On Sat, May 27, 2017 at 12:16 AM, Jes Sorensen <jes.sorensen@gmail.com>
+>>>> wrote:
+>>>>>
+>>>>>
+>>>>> This gets rid of the temporary #ifdef spaghetti and allows the code to
+>>>>> compile without offload support enabled.
+>>
+>>
+>>>> I am pretty sure we can do that exercise you're up to without any
+>>>> spaghetti cooking and even put more code under that CONFIG directive
+>>>> (en_rep.c), I'll take that with Saeed.
+>>
+>>
+>>> I want to avoid adding #ifdef CONFIG_foo to the main code in order to
+>>> keep
+>>> it readable. I did it gradually to make sure I didn't break anything and
+>>> to
+>>> allow for it to be bisected in case something did break. If we can move
+>>> out
+>>> more code from places like en_rep.c into eswitch_offload.c and get it
+>>> disabled that way that would be great, but I like to limit the number of
+>>> #ifdefs we add to the actual code.
+>>
+>>
+>> FWIW (see below), squashing your seven patches to one resulted in a
+>> fairly simple/clear
+>> patch, so if we go that way, no need to have seven commits just for this
+>> piece.
 >
-> If a platform support relaxed ordering but does not enable it by
-> default, enable it in the PCIe configuration. This allows some device
-> to send TLPs with the relaxed ordering attributes set, which may
-> improve the performance.
 >
-> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
-> ---
->  drivers/pci/pci.c   | 42 ++++++++++++++++++++++++++++++++++++++++++
->  drivers/pci/probe.c | 11 +++++++++++
->  include/linux/pci.h |  3 +++
->  3 files changed, 56 insertions(+)
->
-> diff --git a/drivers/pci/pci.c b/drivers/pci/pci.c
-> index b01bd5b..f57a374 100644
-> --- a/drivers/pci/pci.c
-> +++ b/drivers/pci/pci.c
-> @@ -4878,6 +4878,48 @@ int pcie_set_mps(struct pci_dev *dev, int mps)
->  EXPORT_SYMBOL(pcie_set_mps);
->
->  /**
-> + * pcie_set_relaxed_ordering - set PCI Express relexed ordering bit
-> + * @dev: PCI device to query
-> + *
-> + * If possible sets relaxed ordering
-> + */
-> +int pcie_set_relaxed_ordering(struct pci_dev *dev)
-> +{
-> +       return pcie_capability_set_word(dev, PCI_EXP_DEVCTL, PCI_EXP_DEVCTL_RELAX_EN);
-> +}
-> +EXPORT_SYMBOL(pcie_set_relaxed_ordering);
-> +
-> +/**
-> + * pcie_clear_relaxed_ordering - clear PCI Express relexed ordering bit
-> + * @dev: PCI device to query
-> + *
-> + * If possible clear relaxed ordering
-> + */
-> +int pcie_clear_relaxed_ordering(struct pci_dev *dev)
-> +{
-> +       return pcie_capability_clear_word(dev, PCI_EXP_DEVCTL, PCI_EXP_DEVCTL_RELAX_EN);
-> +}
-> +EXPORT_SYMBOL(pcie_clear_relaxed_ordering);
-> +
-> +/**
-> + * pcie_get_relaxed_ordering - check PCI Express relexed ordering bit
-> + * @dev: PCI device to query
-> + *
-> + * Returns true if relaxed ordering is been set
-> + */
-> +int pcie_get_relaxed_ordering(struct pci_dev *dev)
-> +{
-> +       u16 v;
-> +
-> +       pcie_capability_read_word(dev, PCI_EXP_DEVCTL, &v);
-> +
-> +       return (v & PCI_EXP_DEVCTL_RELAX_EN) >> 4;
-> +}
-> +EXPORT_SYMBOL(pcie_get_relaxed_ordering);
-> +
-> +/**
-> + * pcie_set_mps - set PCI Express maximum payload size
-> +/**
->   * pcie_get_minimum_link - determine minimum link settings of a PCI device
->   * @dev: PCI device to query
->   * @speed: storage for minimum speed
-> diff --git a/drivers/pci/probe.c b/drivers/pci/probe.c
-> index 19c8950..aeb22b5 100644
-> --- a/drivers/pci/probe.c
-> +++ b/drivers/pci/probe.c
-> @@ -1701,6 +1701,16 @@ static void pci_configure_extended_tags(struct pci_dev *dev)
->                                          PCI_EXP_DEVCTL_EXT_TAG);
->  }
->
-> +static void pci_configure_relaxed_ordering(struct pci_dev *dev)
-> +{
-> +       int ret;
-> +
-> +       if (dev && (dev->dev_flags & PCI_DEV_FLAGS_NO_RELAXED_ORDERING))
+> Squashing patches into jumbo patches is inherently broken and bad coding
+> practice! It makes it way more complicated to debug and bisect in case a
+> minor detail broke in the process.
 
-So there is a minor issue here. The problem is this is only trying to
-modify relaxed ordering for the device itself. That isn't what we
-want. What we want is to modify it on all of the upstream port
-interfaces where there is something the path to the root complex that
-has an issue. So if the root complex has to set the
-NO_RELAXED_ORDERING flag on a root port, all of the interfaces below
-it that would be pushing traffic toward it should not have the relaxed
-ordering bit set.
+Not that pure LOC ##-s is the only/deep measurement, but your overall
+changes in the the seven patch series account to:
 
-Also I am pretty sure this is a PCIe capability, not a PCI capability.
-You probably need to make sure you code is making this distinction
-which I don't know if it currently is. If you need an example of the
-kind of checks I am suggesting just take a look at
-pcie_configure_mps(). It is verifying the function is PCIe before
-attempting to make any updates. In your case you will probably also
-need to make sure there is a bus for you to walk up the chain of.
-Otherwise this shouldn't apply.
+ 5 files changed, 94 insertions(+), 3 deletions(-)
+
+and by no mean this is jumbo or inherently broken and bad coded, so
+please slow down please, I looked with care on the resulted patch and
+said it's basically ok.
 
 
-> +               pcie_set_relaxed_ordering(dev);
-> +       else
-> +               pcie_clear_relaxed_ordering(dev);
-> +}
+>> Re SRIOV, I don't think it would be correct to break the support info few
+>> CONFIG directives. If we want to allow someone to build the driver w.o
+>> SRIOV that's fine, but I don't think we should further go down and disable
+>> some of the SRIOV sub-modes.
 
-Also I am not a fan of the way this is handled currently. If you don't
-have relaxed ordering set then you don't need to do anything else, if
-you do have it set but there is no bus to walk up you shouldn't change
-it, and if there is a bus to walk up and you find that the root
-complex on that bus has the NO_RELAXED_ORDERING set you should clear
-it. Right now this code seems to be enabling relaxed ordering if the
-NO_RELAXED_ORDERING flag is set.
+>> Re TC offload support, that's make sense.
 
-> +
->  static void pci_configure_device(struct pci_dev *dev)
->  {
->         struct hotplug_params hpp;
-> @@ -1708,6 +1718,7 @@ static void pci_configure_device(struct pci_dev *dev)
->
->         pci_configure_mps(dev);
->         pci_configure_extended_tags(dev);
-> +       pci_configure_relaxed_ordering(dev);
->
->         memset(&hpp, 0, sizeof(hpp));
->         ret = pci_get_hp_params(dev, &hpp);
-> diff --git a/include/linux/pci.h b/include/linux/pci.h
-> index e1e8428..84bd6af 100644
-> --- a/include/linux/pci.h
-> +++ b/include/linux/pci.h
-> @@ -1105,6 +1105,9 @@ int __pci_enable_wake(struct pci_dev *dev, pci_power_t state,
->  void pci_pme_wakeup_bus(struct pci_bus *bus);
->  void pci_d3cold_enable(struct pci_dev *dev);
->  void pci_d3cold_disable(struct pci_dev *dev);
-> +int pcie_set_relaxed_ordering(struct pci_dev *dev);
-> +int pcie_clear_relaxed_ordering(struct pci_dev *dev);
-> +int pcie_get_relaxed_ordering(struct pci_dev *dev);
->
->  static inline int pci_enable_wake(struct pci_dev *dev, pci_power_t state,
->                                   bool enable)
-> --
-> 1.9.0
->
->
+> OK, so disabling SRIOV and disabling TC makes sense - I'll look at that.
+
+I think Saeed wants us to conduct that exercise, let me check with him
+and get back to you
