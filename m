@@ -1,46 +1,38 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next] mlxsw: spectrum: Rename the firmware file
-Date: Sun,  4 Jun 2017 16:49:58 +0200
-Message-ID: <20170604144958.14358-1-jiri@resnulli.us>
-Cc: davem@davemloft.net, idosch@mellanox.com, yotamg@mellanox.com,
+Subject: [patch net-next 0/3] mlxsw: Minor cleanup
+Date: Sun,  4 Jun 2017 16:53:37 +0200
+Message-ID: <20170604145340.14447-1-jiri@resnulli.us>
+Cc: davem@davemloft.net, idosch@mellanox.com, petrm@mellanox.com,
         mlxsw@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f193.google.com ([209.85.128.193]:34938 "EHLO
-        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751214AbdFDOuC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 4 Jun 2017 10:50:02 -0400
-Received: by mail-wr0-f193.google.com with SMTP id g76so5286352wrd.2
-        for <netdev@vger.kernel.org>; Sun, 04 Jun 2017 07:50:01 -0700 (PDT)
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:34897 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751159AbdFDOxn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 4 Jun 2017 10:53:43 -0400
+Received: by mail-wm0-f65.google.com with SMTP id g15so26075631wmc.2
+        for <netdev@vger.kernel.org>; Sun, 04 Jun 2017 07:53:42 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yotam Gigi <yotamg@mellanox.com>
+From: Jiri Pirko <jiri@mellanox.com>
 
-Change the firmware file name to be in "mellanox" directory.
+Fix small issues I noticed during the refactoring.
 
-This commit is a followup to the linux-firmware commit a4c72696f5f4
-("Mellanox: Add firmware for mlxsw_spectrum")
+First patch adds file name comments in the header file to make it clear
+what goes where. Second patch fixes a typo and third patch simply aligns
+RIF index allocation with similar allocations in the driver.
 
-Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
-Reviewed-by: Ido Schimmel <idosch@mellanox.com>
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Ido Schimmel (3):
+  mlxsw: spectrum: Tidy up header file
+  mlxsw: Fix typo inside enumeration
+  mlxsw: spectrum_router: Align RIF index allocation with existing code
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-index 1e6a97d..84b6f36 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-@@ -81,7 +81,7 @@ static const struct mlxsw_fw_rev mlxsw_sp_supported_fw_rev = {
- };
- 
- #define MLXSW_SP_FW_FILENAME \
--	"mlxsw_spectrum-" __stringify(MLXSW_FWREV_MAJOR) \
-+	"mellanox/mlxsw_spectrum-" __stringify(MLXSW_FWREV_MAJOR) \
- 	"." __stringify(MLXSW_FWREV_MINOR) \
- 	"." __stringify(MLXSW_FWREV_SUBMINOR) ".mfa2"
- 
+ drivers/net/ethernet/mellanox/mlxsw/reg.h          |  2 +-
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.h     | 47 ++++++++++++----------
+ drivers/net/ethernet/mellanox/mlxsw/spectrum_fid.c |  6 +--
+ .../net/ethernet/mellanox/mlxsw/spectrum_router.c  | 24 +++++------
+ 4 files changed, 41 insertions(+), 38 deletions(-)
+
 -- 
 2.9.3
