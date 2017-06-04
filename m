@@ -1,527 +1,93 @@
 From: Yuval Mintz <Yuval.Mintz@cavium.com>
-Subject: [PATCH net-next 09/11] qed: VFs to try utilizing the doorbell bar
-Date: Sun, 4 Jun 2017 13:31:07 +0300
-Message-ID: <20170604103109.3082-10-Yuval.Mintz@cavium.com>
+Subject: [PATCH net-next 11/11] qede: VF XDP support
+Date: Sun, 4 Jun 2017 13:31:09 +0300
+Message-ID: <20170604103109.3082-12-Yuval.Mintz@cavium.com>
 References: <20170604103109.3082-1-Yuval.Mintz@cavium.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Yuval Mintz <Yuval.Mintz@cavium.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2nam02on0074.outbound.protection.outlook.com ([104.47.38.74]:9248
-        "EHLO NAM02-BL2-obe.outbound.protection.outlook.com"
+Received: from mail-bn3nam01on0064.outbound.protection.outlook.com ([104.47.33.64]:5488
+        "EHLO NAM01-BN3-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751224AbdFDKcR (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 4 Jun 2017 06:32:17 -0400
+        id S1751237AbdFDKcY (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 4 Jun 2017 06:32:24 -0400
 In-Reply-To: <20170604103109.3082-1-Yuval.Mintz@cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-VFs are currently not mapping their doorbell bar, instead relying
-on the small doorbell window they have in their limited regview bar.
+This introduces 2 changes needed for XDP to be supported for VFs:
 
-In order to increase the number of possible Tx connections [queues]
-employeed by VF past 16, we need to start using the doorbell bar if
-one such is exposed - VF would communicate this fact to PF which would
-return the size-bar internally configured into chip, according to
-which the VF would decide whether to actually utilize the doorbell
-bar.
+ a. On VF-side, publish the NDO based on qed outputs
+
+ b. On PF-side, request qed to allocate sufficient cids per-VF
+    to allow the child vfs to support it
 
 Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
 ---
- drivers/net/ethernet/qlogic/qed/qed.h          |   5 +
- drivers/net/ethernet/qlogic/qed/qed_dev.c      |   8 +-
- drivers/net/ethernet/qlogic/qed/qed_main.c     |  24 ++--
- drivers/net/ethernet/qlogic/qed/qed_reg_addr.h |   1 +
- drivers/net/ethernet/qlogic/qed/qed_sriov.c    |  61 ++++++++-
- drivers/net/ethernet/qlogic/qed/qed_vf.c       | 181 +++++++++++++++++--------
- drivers/net/ethernet/qlogic/qed/qed_vf.h       |  23 +++-
- 7 files changed, 231 insertions(+), 72 deletions(-)
+ drivers/net/ethernet/qlogic/qede/qede_main.c | 34 +++++++++++++++++++++++++---
+ 1 file changed, 31 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qed/qed.h b/drivers/net/ethernet/qlogic/qed/qed.h
-index cfb5758..d7afc42 100644
---- a/drivers/net/ethernet/qlogic/qed/qed.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed.h
-@@ -412,6 +412,11 @@ struct qed_fw_data {
- 	u32			init_ops_size;
+diff --git a/drivers/net/ethernet/qlogic/qede/qede_main.c b/drivers/net/ethernet/qlogic/qede/qede_main.c
+index ad1e249..fdf04bc 100644
+--- a/drivers/net/ethernet/qlogic/qede/qede_main.c
++++ b/drivers/net/ethernet/qlogic/qede/qede_main.c
+@@ -580,6 +580,24 @@ static const struct net_device_ops qede_netdev_vf_ops = {
+ 	.ndo_features_check = qede_features_check,
  };
  
-+enum BAR_ID {
-+	BAR_ID_0,		/* used for GRC */
-+	BAR_ID_1		/* Used for doorbells */
++static const struct net_device_ops qede_netdev_vf_xdp_ops = {
++	.ndo_open = qede_open,
++	.ndo_stop = qede_close,
++	.ndo_start_xmit = qede_start_xmit,
++	.ndo_set_rx_mode = qede_set_rx_mode,
++	.ndo_set_mac_address = qede_set_mac_addr,
++	.ndo_validate_addr = eth_validate_addr,
++	.ndo_change_mtu = qede_change_mtu,
++	.ndo_vlan_rx_add_vid = qede_vlan_rx_add_vid,
++	.ndo_vlan_rx_kill_vid = qede_vlan_rx_kill_vid,
++	.ndo_set_features = qede_set_features,
++	.ndo_get_stats64 = qede_get_stats64,
++	.ndo_udp_tunnel_add = qede_udp_tunnel_add,
++	.ndo_udp_tunnel_del = qede_udp_tunnel_del,
++	.ndo_features_check = qede_features_check,
++	.ndo_xdp = qede_xdp,
 +};
 +
- #define DRV_MODULE_VERSION		      \
- 	__stringify(QED_MAJOR_VERSION) "."    \
- 	__stringify(QED_MINOR_VERSION) "."    \
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_dev.c b/drivers/net/ethernet/qlogic/qed/qed_dev.c
-index e983113..65fe494 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_dev.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_dev.c
-@@ -69,12 +69,6 @@ static DEFINE_SPINLOCK(qm_lock);
- #define QED_MIN_DPIS            (4)
- #define QED_MIN_PWM_REGION      (QED_WID_SIZE * QED_MIN_DPIS)
+ /* -------------------------------------------------------------------------
+  * START OF PROBE / REMOVE
+  * -------------------------------------------------------------------------
+@@ -645,10 +663,14 @@ static void qede_init_ndev(struct qede_dev *edev)
  
--/* API common to all protocols */
--enum BAR_ID {
--	BAR_ID_0,       /* used for GRC */
--	BAR_ID_1        /* Used for doorbells */
--};
--
- static u32 qed_hw_bar_size(struct qed_hwfn *p_hwfn,
- 			   struct qed_ptt *p_ptt, enum BAR_ID bar_id)
- {
-@@ -83,7 +77,7 @@ static u32 qed_hw_bar_size(struct qed_hwfn *p_hwfn,
- 	u32 val;
+ 	ndev->watchdog_timeo = TX_TIMEOUT;
  
- 	if (IS_VF(p_hwfn->cdev))
--		return 1 << 17;
-+		return qed_vf_hw_bar_size(p_hwfn, bar_id);
- 
- 	val = qed_rd(p_hwfn, p_ptt, bar_reg);
- 	if (val)
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_main.c b/drivers/net/ethernet/qlogic/qed/qed_main.c
-index 6ac10ce..9877d3e 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_main.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_main.c
-@@ -122,7 +122,7 @@ static void qed_free_pci(struct qed_dev *cdev)
- {
- 	struct pci_dev *pdev = cdev->pdev;
- 
--	if (cdev->doorbells)
-+	if (cdev->doorbells && cdev->db_size)
- 		iounmap(cdev->doorbells);
- 	if (cdev->regview)
- 		iounmap(cdev->regview);
-@@ -206,16 +206,24 @@ static int qed_init_pci(struct qed_dev *cdev, struct pci_dev *pdev)
- 		goto err2;
- 	}
- 
--	if (IS_PF(cdev)) {
--		cdev->db_phys_addr = pci_resource_start(cdev->pdev, 2);
--		cdev->db_size = pci_resource_len(cdev->pdev, 2);
--		cdev->doorbells = ioremap_wc(cdev->db_phys_addr, cdev->db_size);
--		if (!cdev->doorbells) {
--			DP_NOTICE(cdev, "Cannot map doorbell space\n");
--			return -ENOMEM;
-+	cdev->db_phys_addr = pci_resource_start(cdev->pdev, 2);
-+	cdev->db_size = pci_resource_len(cdev->pdev, 2);
-+	if (!cdev->db_size) {
-+		if (IS_PF(cdev)) {
-+			DP_NOTICE(cdev, "No Doorbell bar available\n");
-+			return -EINVAL;
-+		} else {
-+			return 0;
- 		}
- 	}
- 
-+	cdev->doorbells = ioremap_wc(cdev->db_phys_addr, cdev->db_size);
-+
-+	if (!cdev->doorbells) {
-+		DP_NOTICE(cdev, "Cannot map doorbell space\n");
-+		return -ENOMEM;
-+	}
-+
- 	return 0;
- 
- err2:
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_reg_addr.h b/drivers/net/ethernet/qlogic/qed/qed_reg_addr.h
-index 67172d7..7e4639c 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_reg_addr.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed_reg_addr.h
-@@ -560,6 +560,7 @@
- 	0x2aae60UL
- #define PGLUE_B_REG_PF_BAR1_SIZE \
- 	0x2aae64UL
-+#define PGLUE_B_REG_VF_BAR1_SIZE 0x2aae68UL
- #define PRS_REG_ENCAPSULATION_TYPE_EN	0x1f0730UL
- #define PRS_REG_GRE_PROTOCOL		0x1f0734UL
- #define PRS_REG_VXLAN_PORT		0x1f0738UL
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_sriov.c b/drivers/net/ethernet/qlogic/qed/qed_sriov.c
-index c620a5f..e39ad22 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_sriov.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_sriov.c
-@@ -1384,6 +1384,60 @@ static void qed_iov_vf_cleanup(struct qed_hwfn *p_hwfn,
- 	qed_iov_clean_vf(p_hwfn, p_vf->relative_vf_id);
- }
- 
-+/* Returns either 0, or log(size) */
-+static u32 qed_iov_vf_db_bar_size(struct qed_hwfn *p_hwfn,
-+				  struct qed_ptt *p_ptt)
-+{
-+	u32 val = qed_rd(p_hwfn, p_ptt, PGLUE_B_REG_VF_BAR1_SIZE);
-+
-+	if (val)
-+		return val + 11;
-+	return 0;
-+}
-+
-+static void
-+qed_iov_vf_mbx_acquire_resc_cids(struct qed_hwfn *p_hwfn,
-+				 struct qed_ptt *p_ptt,
-+				 struct qed_vf_info *p_vf,
-+				 struct vf_pf_resc_request *p_req,
-+				 struct pf_vf_resc *p_resp)
-+{
-+	u8 num_vf_cons = p_hwfn->pf_params.eth_pf_params.num_vf_cons;
-+	u8 db_size = qed_db_addr_vf(1, DQ_DEMS_LEGACY) -
-+		     qed_db_addr_vf(0, DQ_DEMS_LEGACY);
-+	u32 bar_size;
-+
-+	p_resp->num_cids = min_t(u8, p_req->num_cids, num_vf_cons);
-+
-+	/* If VF didn't bother asking for QIDs than don't bother limiting
-+	 * number of CIDs. The VF doesn't care about the number, and this
-+	 * has the likely result of causing an additional acquisition.
-+	 */
-+	if (!(p_vf->acquire.vfdev_info.capabilities &
-+	      VFPF_ACQUIRE_CAP_QUEUE_QIDS))
-+		return;
-+
-+	/* If doorbell bar was mapped by VF, limit the VF CIDs to an amount
-+	 * that would make sure doorbells for all CIDs fall within the bar.
-+	 * If it doesn't, make sure regview window is sufficient.
-+	 */
-+	if (p_vf->acquire.vfdev_info.capabilities &
-+	    VFPF_ACQUIRE_CAP_PHYSICAL_BAR) {
-+		bar_size = qed_iov_vf_db_bar_size(p_hwfn, p_ptt);
-+		if (bar_size)
-+			bar_size = 1 << bar_size;
-+
-+		if (p_hwfn->cdev->num_hwfns > 1)
-+			bar_size /= 2;
-+	} else {
-+		bar_size = PXP_VF_BAR0_DQ_LENGTH;
-+	}
-+
-+	if (bar_size / db_size < 256)
-+		p_resp->num_cids = min_t(u8, p_resp->num_cids,
-+					 (u8)(bar_size / db_size));
-+}
-+
- static u8 qed_iov_vf_mbx_acquire_resc(struct qed_hwfn *p_hwfn,
- 				      struct qed_ptt *p_ptt,
- 				      struct qed_vf_info *p_vf,
-@@ -1417,9 +1471,7 @@ static u8 qed_iov_vf_mbx_acquire_resc(struct qed_hwfn *p_hwfn,
- 	p_resp->num_vlan_filters = min_t(u8, p_vf->num_vlan_filters,
- 					 p_req->num_vlan_filters);
- 
--	p_resp->num_cids =
--	    min_t(u8, p_req->num_cids,
--		  p_hwfn->pf_params.eth_pf_params.num_vf_cons);
-+	qed_iov_vf_mbx_acquire_resc_cids(p_hwfn, p_ptt, p_vf, p_req, p_resp);
- 
- 	/* This isn't really needed/enforced, but some legacy VFs might depend
- 	 * on the correct filling of this field.
-@@ -1572,6 +1624,9 @@ static void qed_iov_vf_mbx_acquire(struct qed_hwfn *p_hwfn,
- 	if (req->vfdev_info.capabilities & VFPF_ACQUIRE_CAP_QUEUE_QIDS)
- 		pfdev_info->capabilities |= PFVF_ACQUIRE_CAP_QUEUE_QIDS;
- 
-+	/* Share the sizes of the bars with VF */
-+	resp->pfdev_info.bar_size = qed_iov_vf_db_bar_size(p_hwfn, p_ptt);
-+
- 	qed_iov_vf_mbx_acquire_stats(p_hwfn, &pfdev_info->stats_info);
- 
- 	memcpy(pfdev_info->port_mac, p_hwfn->hw_info.hw_mac_addr, ETH_ALEN);
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_vf.c b/drivers/net/ethernet/qlogic/qed/qed_vf.c
-index c0d2feb..cb81c35 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_vf.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_vf.c
-@@ -169,6 +169,61 @@ static void qed_vf_pf_add_qid(struct qed_hwfn *p_hwfn,
- 	p_qid_tlv->qid = p_cid->qid_usage_idx;
- }
- 
-+int _qed_vf_pf_release(struct qed_hwfn *p_hwfn, bool b_final)
-+{
-+	struct qed_vf_iov *p_iov = p_hwfn->vf_iov_info;
-+	struct pfvf_def_resp_tlv *resp;
-+	struct vfpf_first_tlv *req;
-+	u32 size;
-+	int rc;
-+
-+	/* clear mailbox and prep first tlv */
-+	req = qed_vf_pf_prep(p_hwfn, CHANNEL_TLV_RELEASE, sizeof(*req));
-+
-+	/* add list termination tlv */
-+	qed_add_tlv(p_hwfn, &p_iov->offset,
-+		    CHANNEL_TLV_LIST_END, sizeof(struct channel_list_end_tlv));
-+
-+	resp = &p_iov->pf2vf_reply->default_resp;
-+	rc = qed_send_msg2pf(p_hwfn, &resp->hdr.status, sizeof(*resp));
-+
-+	if (!rc && resp->hdr.status != PFVF_STATUS_SUCCESS)
-+		rc = -EAGAIN;
-+
-+	qed_vf_pf_req_end(p_hwfn, rc);
-+	if (!b_final)
-+		return rc;
-+
-+	p_hwfn->b_int_enabled = 0;
-+
-+	if (p_iov->vf2pf_request)
-+		dma_free_coherent(&p_hwfn->cdev->pdev->dev,
-+				  sizeof(union vfpf_tlvs),
-+				  p_iov->vf2pf_request,
-+				  p_iov->vf2pf_request_phys);
-+	if (p_iov->pf2vf_reply)
-+		dma_free_coherent(&p_hwfn->cdev->pdev->dev,
-+				  sizeof(union pfvf_tlvs),
-+				  p_iov->pf2vf_reply, p_iov->pf2vf_reply_phys);
-+
-+	if (p_iov->bulletin.p_virt) {
-+		size = sizeof(struct qed_bulletin_content);
-+		dma_free_coherent(&p_hwfn->cdev->pdev->dev,
-+				  size,
-+				  p_iov->bulletin.p_virt, p_iov->bulletin.phys);
-+	}
-+
-+	kfree(p_hwfn->vf_iov_info);
-+	p_hwfn->vf_iov_info = NULL;
-+
-+	return rc;
-+}
-+
-+int qed_vf_pf_release(struct qed_hwfn *p_hwfn)
-+{
-+	return _qed_vf_pf_release(p_hwfn, true);
-+}
-+
- #define VF_ACQUIRE_THRESH 3
- static void qed_vf_pf_acquire_reduce_resc(struct qed_hwfn *p_hwfn,
- 					  struct vf_pf_resc_request *p_req,
-@@ -235,6 +290,11 @@ static int qed_vf_pf_acquire(struct qed_hwfn *p_hwfn)
- 	/* Fill capability field with any non-deprecated config we support */
- 	req->vfdev_info.capabilities |= VFPF_ACQUIRE_CAP_100G;
- 
-+	/* If we've mapped the doorbell bar, try using queue qids */
-+	if (p_iov->b_doorbell_bar)
-+		req->vfdev_info.capabilities |= VFPF_ACQUIRE_CAP_PHYSICAL_BAR |
-+						VFPF_ACQUIRE_CAP_QUEUE_QIDS;
-+
- 	/* pf 2 vf bulletin board address */
- 	req->bulletin_addr = p_iov->bulletin.phys;
- 	req->bulletin_size = p_iov->bulletin.size;
-@@ -364,10 +424,27 @@ static int qed_vf_pf_acquire(struct qed_hwfn *p_hwfn)
- 	return rc;
- }
- 
-+u32 qed_vf_hw_bar_size(struct qed_hwfn *p_hwfn, enum BAR_ID bar_id)
-+{
-+	u32 bar_size;
-+
-+	/* Regview size is fixed */
-+	if (bar_id == BAR_ID_0)
-+		return 1 << 17;
-+
-+	/* Doorbell is received from PF */
-+	bar_size = p_hwfn->vf_iov_info->acquire_resp.pfdev_info.bar_size;
-+	if (bar_size)
-+		return 1 << bar_size;
-+	return 0;
-+}
-+
- int qed_vf_hw_prepare(struct qed_hwfn *p_hwfn)
- {
-+	struct qed_hwfn *p_lead = QED_LEADING_HWFN(p_hwfn->cdev);
- 	struct qed_vf_iov *p_iov;
- 	u32 reg;
-+	int rc;
- 
- 	/* Set number of hwfns - might be overriden once leading hwfn learns
- 	 * actual configuration from PF.
-@@ -375,10 +452,6 @@ int qed_vf_hw_prepare(struct qed_hwfn *p_hwfn)
- 	if (IS_LEAD_HWFN(p_hwfn))
- 		p_hwfn->cdev->num_hwfns = 1;
- 
--	/* Set the doorbell bar. Assumption: regview is set */
--	p_hwfn->doorbells = (u8 __iomem *)p_hwfn->regview +
--					  PXP_VF_BAR0_START_DQ;
--
- 	reg = PXP_VF_BAR0_ME_OPAQUE_ADDRESS;
- 	p_hwfn->hw_info.opaque_fid = (u16)REG_RD(p_hwfn, reg);
- 
-@@ -390,6 +463,30 @@ int qed_vf_hw_prepare(struct qed_hwfn *p_hwfn)
- 	if (!p_iov)
- 		return -ENOMEM;
- 
-+	/* Doorbells are tricky; Upper-layer has alreday set the hwfn doorbell
-+	 * value, but there are several incompatibily scenarios where that
-+	 * would be incorrect and we'd need to override it.
-+	 */
-+	if (!p_hwfn->doorbells) {
-+		p_hwfn->doorbells = (u8 __iomem *)p_hwfn->regview +
-+						  PXP_VF_BAR0_START_DQ;
-+	} else if (p_hwfn == p_lead) {
-+		/* For leading hw-function, value is always correct, but need
-+		 * to handle scenario where legacy PF would not support 100g
-+		 * mapped bars later.
-+		 */
-+		p_iov->b_doorbell_bar = true;
-+	} else {
-+		/* here, value would be correct ONLY if the leading hwfn
-+		 * received indication that mapped-bars are supported.
-+		 */
-+		if (p_lead->vf_iov_info->b_doorbell_bar)
-+			p_iov->b_doorbell_bar = true;
+-	if (IS_VF(edev))
+-		ndev->netdev_ops = &qede_netdev_vf_ops;
+-	else
++	if (IS_VF(edev)) {
++		if (edev->dev_info.xdp_supported)
++			ndev->netdev_ops = &qede_netdev_vf_xdp_ops;
 +		else
-+			p_hwfn->doorbells = (u8 __iomem *)
-+			    p_hwfn->regview + PXP_VF_BAR0_START_DQ;
++			ndev->netdev_ops = &qede_netdev_vf_ops;
++	} else {
+ 		ndev->netdev_ops = &qede_netdev_ops;
 +	}
-+
- 	/* Allocate vf2pf msg */
- 	p_iov->vf2pf_request = dma_alloc_coherent(&p_hwfn->cdev->pdev->dev,
- 						  sizeof(union vfpf_tlvs),
-@@ -429,7 +526,33 @@ int qed_vf_hw_prepare(struct qed_hwfn *p_hwfn)
  
- 	p_hwfn->hw_info.personality = QED_PCI_ETH;
+ 	qede_set_ethtool_ops(ndev);
  
--	return qed_vf_pf_acquire(p_hwfn);
-+	rc = qed_vf_pf_acquire(p_hwfn);
+@@ -846,6 +868,12 @@ static void qede_update_pf_params(struct qed_dev *cdev)
+ 	/* 64 rx + 64 tx + 64 XDP */
+ 	memset(&pf_params, 0, sizeof(struct qed_pf_params));
+ 	pf_params.eth_pf_params.num_cons = (MAX_SB_PER_PF_MIMD - 1) * 3;
 +
-+	/* If VF is 100g using a mapped bar and PF is too old to support that,
-+	 * acquisition would succeed - but the VF would have no way knowing
-+	 * the size of the doorbell bar configured in HW and thus will not
-+	 * know how to split it for 2nd hw-function.
-+	 * In this case we re-try without the indication of the mapped
-+	 * doorbell.
++	/* Same for VFs - make sure they'll have sufficient connections
++	 * to support XDP Tx queues.
 +	 */
-+	if (!rc && p_iov->b_doorbell_bar &&
-+	    !qed_vf_hw_bar_size(p_hwfn, BAR_ID_1) &&
-+	    (p_hwfn->cdev->num_hwfns > 1)) {
-+		rc = _qed_vf_pf_release(p_hwfn, false);
-+		if (rc)
-+			return rc;
++	pf_params.eth_pf_params.num_vf_cons = 48;
 +
-+		p_iov->b_doorbell_bar = false;
-+		p_hwfn->doorbells = (u8 __iomem *)p_hwfn->regview +
-+						  PXP_VF_BAR0_START_DQ;
-+		rc = qed_vf_pf_acquire(p_hwfn);
-+	}
-+
-+	DP_VERBOSE(p_hwfn, QED_MSG_IOV,
-+		   "Regview [%p], Doorbell [%p], Device-doorbell [%p]\n",
-+		   p_hwfn->regview, p_hwfn->doorbells, p_hwfn->cdev->doorbells);
-+
-+	return rc;
- 
- free_vf2pf_request:
- 	dma_free_coherent(&p_hwfn->cdev->pdev->dev,
-@@ -1133,54 +1256,6 @@ int qed_vf_pf_reset(struct qed_hwfn *p_hwfn)
- 	return rc;
- }
- 
--int qed_vf_pf_release(struct qed_hwfn *p_hwfn)
--{
--	struct qed_vf_iov *p_iov = p_hwfn->vf_iov_info;
--	struct pfvf_def_resp_tlv *resp;
--	struct vfpf_first_tlv *req;
--	u32 size;
--	int rc;
--
--	/* clear mailbox and prep first tlv */
--	req = qed_vf_pf_prep(p_hwfn, CHANNEL_TLV_RELEASE, sizeof(*req));
--
--	/* add list termination tlv */
--	qed_add_tlv(p_hwfn, &p_iov->offset,
--		    CHANNEL_TLV_LIST_END, sizeof(struct channel_list_end_tlv));
--
--	resp = &p_iov->pf2vf_reply->default_resp;
--	rc = qed_send_msg2pf(p_hwfn, &resp->hdr.status, sizeof(*resp));
--
--	if (!rc && resp->hdr.status != PFVF_STATUS_SUCCESS)
--		rc = -EAGAIN;
--
--	qed_vf_pf_req_end(p_hwfn, rc);
--
--	p_hwfn->b_int_enabled = 0;
--
--	if (p_iov->vf2pf_request)
--		dma_free_coherent(&p_hwfn->cdev->pdev->dev,
--				  sizeof(union vfpf_tlvs),
--				  p_iov->vf2pf_request,
--				  p_iov->vf2pf_request_phys);
--	if (p_iov->pf2vf_reply)
--		dma_free_coherent(&p_hwfn->cdev->pdev->dev,
--				  sizeof(union pfvf_tlvs),
--				  p_iov->pf2vf_reply, p_iov->pf2vf_reply_phys);
--
--	if (p_iov->bulletin.p_virt) {
--		size = sizeof(struct qed_bulletin_content);
--		dma_free_coherent(&p_hwfn->cdev->pdev->dev,
--				  size,
--				  p_iov->bulletin.p_virt, p_iov->bulletin.phys);
--	}
--
--	kfree(p_hwfn->vf_iov_info);
--	p_hwfn->vf_iov_info = NULL;
--
--	return rc;
--}
--
- void qed_vf_pf_filter_mcast(struct qed_hwfn *p_hwfn,
- 			    struct qed_filter_mcast *p_filter_cmd)
- {
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_vf.h b/drivers/net/ethernet/qlogic/qed/qed_vf.h
-index 9588ae7..b8ce4be 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_vf.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed_vf.h
-@@ -119,6 +119,12 @@ struct vfpf_acquire_tlv {
- 	 * references.
- 	 */
- #define VFPF_ACQUIRE_CAP_QUEUE_QIDS     BIT(2)
-+
-+	/* The VF is using the physical bar. While this is mostly internal
-+	 * to the VF, might affect the number of CIDs supported assuming
-+	 * QUEUE_QIDS is set.
-+	 */
-+#define VFPF_ACQUIRE_CAP_PHYSICAL_BAR   BIT(3)
- 		u64 capabilities;
- 		u8 fw_major;
- 		u8 fw_minor;
-@@ -202,7 +208,8 @@ struct pfvf_acquire_resp_tlv {
- 		u16 chip_rev;
- 		u8 dev_type;
- 
--		u8 padding;
-+		/* Doorbell bar size configured in HW: log(size) or 0 */
-+		u8 bar_size;
- 
- 		struct pfvf_stats_info stats_info;
- 
-@@ -663,6 +670,11 @@ struct qed_vf_iov {
- 	 * compatibility [with older PFs] we'd still need to store these.
- 	 */
- 	struct qed_sb_info *sbs_info[PFVF_MAX_SBS_PER_VF];
-+
-+	/* Determines whether VF utilizes doorbells via limited register
-+	 * bar or via the doorbell bar.
-+	 */
-+	bool b_doorbell_bar;
- };
- 
- #ifdef CONFIG_QED_SRIOV
-@@ -971,6 +983,8 @@ void qed_iov_vf_task(struct work_struct *work);
- void qed_vf_set_vf_start_tunn_update_param(struct qed_tunnel_info *p_tun);
- int qed_vf_pf_tunnel_param_update(struct qed_hwfn *p_hwfn,
- 				  struct qed_tunnel_info *p_tunn);
-+
-+u32 qed_vf_hw_bar_size(struct qed_hwfn *p_hwfn, enum BAR_ID bar_id);
- #else
- static inline void qed_vf_get_link_params(struct qed_hwfn *p_hwfn,
- 					  struct qed_mcp_link_params *params)
-@@ -1147,6 +1161,13 @@ static inline int qed_vf_pf_tunnel_param_update(struct qed_hwfn *p_hwfn,
- {
- 	return -EINVAL;
- }
-+
-+static inline u32
-+qed_vf_hw_bar_size(struct qed_hwfn  *p_hwfn,
-+		   enum BAR_ID bar_id)
-+{
-+	return 0;
-+}
- #endif
- 
+ #ifdef CONFIG_RFS_ACCEL
+ 	pf_params.eth_pf_params.num_arfs_filters = QEDE_RFS_MAX_FLTR;
  #endif
 -- 
 2.9.4
