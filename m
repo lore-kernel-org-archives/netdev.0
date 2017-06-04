@@ -1,30 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] netxen: remove writeq/readq function definitions
-Date: Sun, 04 Jun 2017 19:54:19 -0400 (EDT)
-Message-ID: <20170604.195419.629224949993811105.davem@davemloft.net>
-References: <20170602113627.28642-1-clabbe.montjoie@gmail.com>
+Subject: Re: [PATCH][V2] net: phy: marvell: make some functions static
+Date: Sun, 04 Jun 2017 19:55:49 -0400 (EDT)
+Message-ID: <20170604.195549.1999857552284832975.davem@davemloft.net>
+References: <20170602141334.26506-1-colin.king@canonical.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: manish.chopra@cavium.com, rahul.verma@cavium.com,
-        Dept-GELinuxNICDev@cavium.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: clabbe.montjoie@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:52558 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751162AbdFDXyV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 4 Jun 2017 19:54:21 -0400
-In-Reply-To: <20170602113627.28642-1-clabbe.montjoie@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: andrew@lunn.ch, f.fainelli@gmail.com, netdev@vger.kernel.org,
+        kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
+To: colin.king@canonical.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170602141334.26506-1-colin.king@canonical.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Corentin Labbe <clabbe.montjoie@gmail.com>
-Date: Fri,  2 Jun 2017 13:36:27 +0200
+From: Colin King <colin.king@canonical.com>
+Date: Fri,  2 Jun 2017 15:13:34 +0100
 
-> Instead of rewriting write/readq, use linux/io-64-nonatomic-lo-hi.h which
-> already have them.
+> From: Colin Ian King <colin.king@canonical.com>
 > 
-> Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
+> functions m88e1510_get_temp_critical, m88e1510_set_temp_critical and
+> m88e1510_get_temp_alarm can be made static as they not need to be
+> in global scope.
+> 
+> Cleans up sparse warnings:
+>  "symbol 'm88e1510_get_temp_alarm' was not declared. Should it be static?"
+>  "symbol 'm88e1510_get_temp_critical' was not declared. Should it be
+>   static?"
+> 
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
 
-Applied to net-next.
+Applied to net-next, thanks.
