@@ -1,80 +1,65 @@
-From: Yuval Shaia <yuval.shaia@oracle.com>
-Subject: Re: [PATCH] net/dec: Make __de_get_link_ksettings return void
-Date: Sun, 4 Jun 2017 22:52:42 +0300
-Message-ID: <20170604195241.GB7045@yuvallap>
-References: <20170604170851.3808-1-yuval.shaia@oracle.com>
- <4391c380-f7f6-d549-a225-716b9b9df664@cogentembedded.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next] openvswitch: add macro MODULE_ALIAS_VPORT_TYPE for
+ vport type alias
+Date: Sun, 04 Jun 2017 16:12:35 -0400 (EDT)
+Message-ID: <20170604.161235.2303882939513535289.davem@davemloft.net>
+References: <1496497655-24810-1-git-send-email-zhangshengju@cmss.chinamobile.com>
+        <CAOrHB_CjkyEoWVJFT5Q+vPOvcg4rd9cY+z5gRi7JEQscG6-dNg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, jarod@redhat.com, tklauser@distanz.ch,
-        tremyfr@gmail.com, netdev@vger.kernel.org,
-        linux-parisc@vger.kernel.org
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-parisc-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4391c380-f7f6-d549-a225-716b9b9df664@cogentembedded.com>
-Sender: linux-parisc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: zhangshengju@cmss.chinamobile.com, pshelar@nicira.com,
+        netdev@vger.kernel.org
+To: pshelar@ovn.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:49688 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751177AbdFDUMl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 4 Jun 2017 16:12:41 -0400
+In-Reply-To: <CAOrHB_CjkyEoWVJFT5Q+vPOvcg4rd9cY+z5gRi7JEQscG6-dNg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jun 04, 2017 at 08:22:05PM +0300, Sergei Shtylyov wrote:
-> Hello!
-> 
-> On 6/4/2017 8:08 PM, Yuval Shaia wrote:
-> 
-> > Make return value void since function never return meaningfull value
-> 
->   You only make 1 of 2 functions void. It looks like there should be 2 patches.
+From: Pravin Shelar <pshelar@ovn.org>
+Date: Sat, 3 Jun 2017 22:58:22 -0700
 
-And what would be the second function?
+> On Sat, Jun 3, 2017 at 6:47 AM, Zhang Shengju
+> <zhangshengju@cmss.chinamobile.com> wrote:
+>> Add a new macro MODULE_ALIAS_VPORT_TYPE to unify and simplify the
+>> declaration of vport type alias, and replace magic numbers with
+>> symbolic constants.
+>>
+>> Signed-off-by: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
+>> ---
+>>  net/openvswitch/vport-geneve.c | 2 +-
+>>  net/openvswitch/vport-gre.c    | 2 +-
+>>  net/openvswitch/vport-vxlan.c  | 2 +-
+>>  net/openvswitch/vport.h        | 3 +++
+>>  4 files changed, 6 insertions(+), 3 deletions(-)
+>>
+>> diff --git a/net/openvswitch/vport-geneve.c b/net/openvswitch/vport-geneve.c
+>> index 5aaf3ba..1c068d6 100644
+>> --- a/net/openvswitch/vport-geneve.c
+>> +++ b/net/openvswitch/vport-geneve.c
+>> @@ -141,4 +141,4 @@ static void __exit ovs_geneve_tnl_exit(void)
+>>
+>>  MODULE_DESCRIPTION("OVS: Geneve switching port");
+>>  MODULE_LICENSE("GPL");
+>> -MODULE_ALIAS("vport-type-5");
+>> +MODULE_ALIAS_VPORT_TYPE(OVS_VPORT_TYPE_GENEVE);
+>> diff --git a/net/openvswitch/vport-gre.c b/net/openvswitch/vport-gre.c
+>> index 0e72d95..48a5852 100644
+>> --- a/net/openvswitch/vport-gre.c
+>> +++ b/net/openvswitch/vport-gre.c
+>> @@ -113,4 +113,4 @@ static void __exit ovs_gre_tnl_exit(void)
+>>
+>>  MODULE_DESCRIPTION("OVS: GRE switching port");
+>>  MODULE_LICENSE("GPL");
+>> -MODULE_ALIAS("vport-type-3");
+>> +MODULE_ALIAS_VPORT_TYPE(OVS_VPORT_TYPE_GRE);
+> 
+> This is user visible change. For example this is changing the gre
+> module alias from "vport-type-3" to "vport-type-OVS_VPORT_TYPE_GRE".
+> This could break userspace application.
 
-> 
-> > 
-> > Signed-off-by: Yuval Shaia <yuval.shaia@oracle.com>
-> > ---
-> >  drivers/net/ethernet/dec/tulip/de2104x.c | 11 ++++-------
-> >  1 file changed, 4 insertions(+), 7 deletions(-)
-> > 
-> > diff --git a/drivers/net/ethernet/dec/tulip/de2104x.c b/drivers/net/ethernet/dec/tulip/de2104x.c
-> > index 91b8f6f..c87b8cc 100644
-> > --- a/drivers/net/ethernet/dec/tulip/de2104x.c
-> > +++ b/drivers/net/ethernet/dec/tulip/de2104x.c
-> > @@ -1483,8 +1483,8 @@ static void __de_get_regs(struct de_private *de, u8 *buf)
-> >  	de_rx_missed(de, rbuf[8]);
-> >  }
-> > 
-> > -static int __de_get_link_ksettings(struct de_private *de,
-> > -				   struct ethtool_link_ksettings *cmd)
-> > +static void __de_get_link_ksettings(struct de_private *de,
-> > +				    struct ethtool_link_ksettings *cmd)
-> >  {
-> >  	ethtool_convert_legacy_u32_to_link_mode(cmd->link_modes.supported,
-> >  						de->media_supported);
-> > @@ -1517,8 +1517,6 @@ static int __de_get_link_ksettings(struct de_private *de,
-> >  		cmd->base.autoneg = AUTONEG_ENABLE;
-> > 
-> >  	/* ignore maxtxpkt, maxrxpkt for now */
-> > -
-> > -	return 0;
-> >  }
-> > 
-> >  static int __de_set_link_ksettings(struct de_private *de,
-> > @@ -1615,13 +1613,12 @@ static int de_get_link_ksettings(struct net_device *dev,
-> >  				 struct ethtool_link_ksettings *cmd)
-> >  {
-> >  	struct de_private *de = netdev_priv(dev);
-> > -	int rc;
-> > 
-> >  	spin_lock_irq(&de->lock);
-> > -	rc = __de_get_link_ksettings(de, cmd);
-> > +	__de_get_link_ksettings(de, cmd);
-> >  	spin_unlock_irq(&de->lock);
-> > 
-> > -	return rc;
-> > +	return 0;
-> >  }
-> > 
-> >  static int de_set_link_ksettings(struct net_device *dev,
-> > 
-> 
-> MBR, Sergei
-> 
+Agreed, you really can't do this.
