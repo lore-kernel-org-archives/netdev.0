@@ -1,66 +1,32 @@
-From: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
-Subject: [PATCH] net: sched: fix mips build failure
-Date: Sun,  4 Jun 2017 22:44:13 +0100
-Message-ID: <1496612653-12419-1-git-send-email-sudipm.mukherjee@gmail.com>
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        linux-mips@linux-mips.org,
-        Sudip Mukherjee <sudipm.mukherjee@gmail.com>
-To: Jamal Hadi Salim <jhs@mojatatu.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        Jiri Pirko <jiri@resnulli.us>,
-        "David S. Miller" <davem@davemloft.net>,
-        Ralf Baechle <ralf@linux-mips.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next V2 0/4] add support for dissection and
+ matching on ip tos and ttl
+Date: Sun, 04 Jun 2017 18:12:43 -0400 (EDT)
+Message-ID: <20170604.181243.182859110895522887.davem@davemloft.net>
+References: <1496342260-28199-1-git-send-email-ogerlitz@mellanox.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, saeedm@mellanox.com, roid@mellanox.com,
+        paulb@mellanox.com
+To: ogerlitz@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f195.google.com ([209.85.128.195]:35504 "EHLO
-        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751077AbdFDVoW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 4 Jun 2017 17:44:22 -0400
+Received: from shards.monkeyblade.net ([184.105.139.130]:50950 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751027AbdFDWMs (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 4 Jun 2017 18:12:48 -0400
+In-Reply-To: <1496342260-28199-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The build of mips ar7_defconfig was failing with the error:
-../net/sched/act_api.c: In function 'tcf_action_goto_chain_init':
-../net/sched/act_api.c:37:18: error:
-	implicit declaration of function 'tcf_chain_get'
-	[-Werror=implicit-function-declaration]
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Date: Thu,  1 Jun 2017 21:37:36 +0300
 
-../net/sched/act_api.c: In function 'tcf_action_goto_chain_fini':
-../net/sched/act_api.c:45:2: error:
-	implicit declaration of function 'tcf_chain_put'
-	[-Werror=implicit-function-declaration]
+> The 1st two patches enable matching/classifying on ip tos and ttl by 
+> the flow dissector and flower. The other two patches offload matching 
+> on tcp flags and ip tos in mlx5. 
+> 
+> The mlx5 patches touch single file/function and not interfere with
+> other inflight mlx5 submissions.
 
-Add two inline helpers for the case where CONFIG_NET_CLS is not enabled.
-
-Signed-off-by: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
----
-
-The build log of the latest linux-next is at:
-https://travis-ci.org/sudipm-mukherjee/parport/jobs/238623031/
-
- include/net/pkt_cls.h | 11 +++++++++++
- 1 file changed, 11 insertions(+)
-
-diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
-index 537d0a0..c34ade5 100644
---- a/include/net/pkt_cls.h
-+++ b/include/net/pkt_cls.h
-@@ -29,6 +29,17 @@ int tcf_classify(struct sk_buff *skb, const struct tcf_proto *tp,
- 
- #else
- static inline
-+struct tcf_chain *tcf_chain_get(struct tcf_block *block,
-+				u32 chain_index, bool create)
-+{
-+	return NULL;
-+}
-+
-+static inline void tcf_chain_put(struct tcf_chain *chain)
-+{
-+}
-+
-+static inline
- int tcf_block_get(struct tcf_block **p_block,
- 		  struct tcf_proto __rcu **p_filter_chain)
- {
--- 
-2.7.4
+Series applied, thanks.
