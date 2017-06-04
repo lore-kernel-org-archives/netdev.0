@@ -1,200 +1,56 @@
 From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: [PATCH net-next v10 1/5] skbuff: return -EMSGSIZE in skb_to_sgvec to prevent overflow
-Date: Sun,  4 Jun 2017 04:16:22 +0200
-Message-ID: <20170604021626.11968-2-Jason@zx2c4.com>
+Subject: [PATCH net-next v10 5/5] virtio_net: check return value of skb_to_sgvec always
+Date: Sun,  4 Jun 2017 04:16:26 +0200
+Message-ID: <20170604021626.11968-6-Jason@zx2c4.com>
 References: <20170604021626.11968-1-Jason@zx2c4.com>
 Cc: "Jason A. Donenfeld" <Jason@zx2c4.com>,
-	Steffen Klassert <steffen.klassert@secunet.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	David Howells <dhowells@redhat.com>,
-	Sabrina Dubroca <sd@queasysnail.net>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	Jason Wang <jasowang@redhat.com>
-To: netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	davem@davemloft.net,
-	kernel-hardening@lists.openwall.com
-Return-path: <kernel-hardening-return-8258-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
-List-Post: <mailto:kernel-hardening@lists.openwall.com>
-List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
-List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
-List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
+        "Michael S. Tsirkin" <mst@redhat.com>,
+        Jason Wang <jasowang@redhat.com>
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        davem@davemloft.net, kernel-hardening@lists.openwall.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20170604021626.11968-1-Jason@zx2c4.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a defense-in-depth measure in response to bugs like
-4d6fa57b4dab ("macsec: avoid heap overflow in skb_to_sgvec"). There's
-not only a potential overflow of sglist items, but also a stack overflow
-potential, so we fix this by limiting the amount of recursion this function
-is allowed to do. Not actually providing a bounded base case is a future
-disaster that we can easily avoid here.
-
-As a small matter of house keeping, we take this opportunity to move the
-documentation comment over the actual function the documentation is for.
-
-While this could be implemented by using an explicit stack of skbuffs,
-when implementing this, the function complexity increased considerably,
-and I don't think such complexity and bloat is actually worth it. So,
-instead I built this and tested it on x86, x86_64, ARM, ARM64, and MIPS,
-and measured the stack usage there. I also reverted the recent MIPS
-changes that give it a separate IRQ stack, so that I could experience
-some worst-case situations. I found that limiting it to 24 layers deep
-yielded a good stack usage with room for safety, as well as being much
-deeper than any driver actually ever creates.
-
 Signed-off-by: Jason A. Donenfeld <Jason@zx2c4.com>
-Cc: Steffen Klassert <steffen.klassert@secunet.com>
-Cc: Herbert Xu <herbert@gondor.apana.org.au>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: David Howells <dhowells@redhat.com>
-Cc: Sabrina Dubroca <sd@queasysnail.net>
+Reviewed-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 Cc: "Michael S. Tsirkin" <mst@redhat.com>
 Cc: Jason Wang <jasowang@redhat.com>
 ---
- include/linux/skbuff.h |  8 +++----
- net/core/skbuff.c      | 65 ++++++++++++++++++++++++++++++++------------------
- 2 files changed, 46 insertions(+), 27 deletions(-)
+ drivers/net/virtio_net.c | 9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 45a59c1e0cc7..d460a4cbda1c 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -953,10 +953,10 @@ struct sk_buff *skb_realloc_headroom(struct sk_buff *skb,
- 				     unsigned int headroom);
- struct sk_buff *skb_copy_expand(const struct sk_buff *skb, int newheadroom,
- 				int newtailroom, gfp_t priority);
--int skb_to_sgvec_nomark(struct sk_buff *skb, struct scatterlist *sg,
--			int offset, int len);
--int skb_to_sgvec(struct sk_buff *skb, struct scatterlist *sg, int offset,
--		 int len);
-+int __must_check skb_to_sgvec_nomark(struct sk_buff *skb, struct scatterlist *sg,
-+				     int offset, int len);
-+int __must_check skb_to_sgvec(struct sk_buff *skb, struct scatterlist *sg,
-+			      int offset, int len);
- int skb_cow_data(struct sk_buff *skb, int tailbits, struct sk_buff **trailer);
- int skb_pad(struct sk_buff *skb, int pad);
- #define dev_kfree_skb(a)	consume_skb(a)
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 780b7c1563d0..bba33cf4f7cd 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -3508,24 +3508,18 @@ void __init skb_init(void)
- 						NULL);
- }
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index 3e9246cc49c3..57763d30cabb 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -1150,7 +1150,7 @@ static int xmit_skb(struct send_queue *sq, struct sk_buff *skb)
+ 	struct virtio_net_hdr_mrg_rxbuf *hdr;
+ 	const unsigned char *dest = ((struct ethhdr *)skb->data)->h_dest;
+ 	struct virtnet_info *vi = sq->vq->vdev->priv;
+-	unsigned num_sg;
++	int num_sg;
+ 	unsigned hdr_len = vi->hdr_len;
+ 	bool can_push;
  
--/**
-- *	skb_to_sgvec - Fill a scatter-gather list from a socket buffer
-- *	@skb: Socket buffer containing the buffers to be mapped
-- *	@sg: The scatter-gather list to map into
-- *	@offset: The offset into the buffer's contents to start mapping
-- *	@len: Length of buffer space to be mapped
-- *
-- *	Fill the specified scatter-gather list with mappings/pointers into a
-- *	region of the buffer space attached to a socket buffer.
-- */
- static int
--__skb_to_sgvec(struct sk_buff *skb, struct scatterlist *sg, int offset, int len)
-+__skb_to_sgvec(struct sk_buff *skb, struct scatterlist *sg, int offset, int len,
-+	       unsigned int recursion_level)
- {
- 	int start = skb_headlen(skb);
- 	int i, copy = start - offset;
- 	struct sk_buff *frag_iter;
- 	int elt = 0;
- 
-+	if (unlikely(recursion_level >= 24))
-+		return -EMSGSIZE;
-+
- 	if (copy > 0) {
- 		if (copy > len)
- 			copy = len;
-@@ -3544,6 +3538,8 @@ __skb_to_sgvec(struct sk_buff *skb, struct scatterlist *sg, int offset, int len)
- 		end = start + skb_frag_size(&skb_shinfo(skb)->frags[i]);
- 		if ((copy = end - offset) > 0) {
- 			skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
-+			if (unlikely(elt && sg_is_last(&sg[elt - 1])))
-+				return -EMSGSIZE;
- 
- 			if (copy > len)
- 				copy = len;
-@@ -3558,16 +3554,22 @@ __skb_to_sgvec(struct sk_buff *skb, struct scatterlist *sg, int offset, int len)
+@@ -1177,11 +1177,16 @@ static int xmit_skb(struct send_queue *sq, struct sk_buff *skb)
+ 	if (can_push) {
+ 		__skb_push(skb, hdr_len);
+ 		num_sg = skb_to_sgvec(skb, sq->sg, 0, skb->len);
++		if (unlikely(num_sg < 0))
++			return num_sg;
+ 		/* Pull header back to avoid skew in tx bytes calculations. */
+ 		__skb_pull(skb, hdr_len);
+ 	} else {
+ 		sg_set_buf(sq->sg, hdr, hdr_len);
+-		num_sg = skb_to_sgvec(skb, sq->sg + 1, 0, skb->len) + 1;
++		num_sg = skb_to_sgvec(skb, sq->sg + 1, 0, skb->len);
++		if (unlikely(num_sg < 0))
++			return num_sg;
++		num_sg++;
  	}
- 
- 	skb_walk_frags(skb, frag_iter) {
--		int end;
-+		int end, ret;
- 
- 		WARN_ON(start > offset + len);
- 
- 		end = start + frag_iter->len;
- 		if ((copy = end - offset) > 0) {
-+			if (unlikely(elt && sg_is_last(&sg[elt - 1])))
-+				return -EMSGSIZE;
-+
- 			if (copy > len)
- 				copy = len;
--			elt += __skb_to_sgvec(frag_iter, sg+elt, offset - start,
--					      copy);
-+			ret = __skb_to_sgvec(frag_iter, sg+elt, offset - start,
-+					      copy, recursion_level + 1);
-+			if (unlikely(ret < 0))
-+				return ret;
-+			elt += ret;
- 			if ((len -= copy) == 0)
- 				return elt;
- 			offset += copy;
-@@ -3578,6 +3580,31 @@ __skb_to_sgvec(struct sk_buff *skb, struct scatterlist *sg, int offset, int len)
- 	return elt;
+ 	return virtqueue_add_outbuf(sq->vq, sq->sg, num_sg, skb, GFP_ATOMIC);
  }
- 
-+/**
-+ *	skb_to_sgvec - Fill a scatter-gather list from a socket buffer
-+ *	@skb: Socket buffer containing the buffers to be mapped
-+ *	@sg: The scatter-gather list to map into
-+ *	@offset: The offset into the buffer's contents to start mapping
-+ *	@len: Length of buffer space to be mapped
-+ *
-+ *	Fill the specified scatter-gather list with mappings/pointers into a
-+ *	region of the buffer space attached to a socket buffer. Returns either
-+ *	the number of scatterlist items used, or -EMSGSIZE if the contents
-+ *	could not fit.
-+ */
-+int skb_to_sgvec(struct sk_buff *skb, struct scatterlist *sg, int offset, int len)
-+{
-+	int nsg = __skb_to_sgvec(skb, sg, offset, len, 0);
-+
-+	if (nsg <= 0)
-+		return nsg;
-+
-+	sg_mark_end(&sg[nsg - 1]);
-+
-+	return nsg;
-+}
-+EXPORT_SYMBOL_GPL(skb_to_sgvec);
-+
- /* As compared with skb_to_sgvec, skb_to_sgvec_nomark only map skb to given
-  * sglist without mark the sg which contain last skb data as the end.
-  * So the caller can mannipulate sg list as will when padding new data after
-@@ -3600,19 +3627,11 @@ __skb_to_sgvec(struct sk_buff *skb, struct scatterlist *sg, int offset, int len)
- int skb_to_sgvec_nomark(struct sk_buff *skb, struct scatterlist *sg,
- 			int offset, int len)
- {
--	return __skb_to_sgvec(skb, sg, offset, len);
-+	return __skb_to_sgvec(skb, sg, offset, len, 0);
- }
- EXPORT_SYMBOL_GPL(skb_to_sgvec_nomark);
- 
--int skb_to_sgvec(struct sk_buff *skb, struct scatterlist *sg, int offset, int len)
--{
--	int nsg = __skb_to_sgvec(skb, sg, offset, len);
- 
--	sg_mark_end(&sg[nsg - 1]);
--
--	return nsg;
--}
--EXPORT_SYMBOL_GPL(skb_to_sgvec);
- 
- /**
-  *	skb_cow_data - Check that a socket buffer's data buffers are writable
 -- 
 2.13.0
