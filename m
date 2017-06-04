@@ -1,39 +1,59 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] mdio: mux: make child bus walking more
- permissive and errors more verbose
-Date: Sun, 04 Jun 2017 19:30:58 -0400 (EDT)
-Message-ID: <20170604.193058.256838162791393085.davem@davemloft.net>
-References: <1496259890-3719-1-git-send-email-jon.mason@broadcom.com>
+Subject: Re: [for 4.12] net: qcom/emac: do not use hardware mdio automatic
+ polling
+Date: Sun, 04 Jun 2017 19:34:06 -0400 (EDT)
+Message-ID: <20170604.193406.673386422592182208.davem@davemloft.net>
+References: <1496351293-6846-1-git-send-email-timur@codeaurora.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: andrew@lunn.ch, f.fainelli@gmail.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, bcm-kernel-feedback-list@broadcom.com
-To: jon.mason@broadcom.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:52372 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751147AbdFDXbC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 4 Jun 2017 19:31:02 -0400
-In-Reply-To: <1496259890-3719-1-git-send-email-jon.mason@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-arm-kernel@lists.infradead.org, f.fainelli@gmail.com,
+        manoj.iyer@canonical.com, netdev@vger.kernel.org,
+        stable@vger.kernel.org, zefir.kurtisi@neratec.com, andrew@lunn.ch,
+        matthias.may@neratec.com
+To: timur@codeaurora.org
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <1496351293-6846-1-git-send-email-timur@codeaurora.org>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jon Mason <jon.mason@broadcom.com>
-Date: Wed, 31 May 2017 15:44:50 -0400
+From: Timur Tabi <timur@codeaurora.org>
+Date: Thu,  1 Jun 2017 16:08:13 -0500
 
-> If any errors are encountered while walking the device tree structure of
-> the MDIO bus for children, the code may silently continue, silently
-> exit, or throw an error and exit.  This make it difficult for device
-> tree writers to know there is an error.  Also, it makes any error in a
-> child entry of the MDIO bus be fatal for all entries.  Instead, we
-> should provide verbose errors describing the error and then attempt to
-> continue if it all possible.  Also, use of_mdio_parse_addr()
+> Use software polling (PHY_POLL) to check for link state changes instead
+> of relying on the EMAC's hardware polling feature.  Some PHY drivers
+> are unable to get a functioning link because the HW polling is not
+> robust enough.
 > 
-> Signed-off-by: Jon Mason <jon.mason@broadcom.com>
-
-Looks good.  Every conversion from break to continue properly gets rid
-of the child_bus_node release, and this new behavior matches what was
-discussed a few weeks ago.
+> The EMAC is able to poll the PHY on the MDIO bus looking for link state
+> changes (via the Link Status bit in the Status Register at address 0x1).
+> When the link state changes, the EMAC triggers an interrupt and tells the
+> driver what the new state is.  The feature eliminates the need for
+> software to poll the MDIO bus.
+> 
+> Unfortunately, this feature is incompatible with phylib, because it
+> ignores everything that the PHY core and PHY drivers are trying to do.
+> In particular:
+> 
+> 1. It assumes a compatible register set, so PHYs with different registers
+>    may not work.
+> 
+> 2. It doesn't allow for hardware errata that have work-arounds implemented
+>    in the PHY driver.
+> 
+> 3. It doesn't support multiple register pages. If the PHY core switches
+>    the register set to another page, the EMAC won't know the page has
+>    changed and will still attempt to read the same PHY register.
+> 
+> 4. It only checks the copper side of the link, not the SGMII side.  Some
+>    PHY drivers (e.g. at803x) may also check the SGMII side, and
+>    report the link as not ready during autonegotiation if the SGMII link
+>    is still down.  Phylib then waits for another interrupt to query
+>    the PHY again, but the EMAC won't send another interrupt because it
+>    thinks the link is up.
+> 
+> Cc: stable@vger.kernel.org # 4.11.x
+> Tested-by: Manoj Iyer <manoj.iyer@canonical.com>
+> Signed-off-by: Timur Tabi <timur@codeaurora.org>
 
 Applied, thanks.
