@@ -1,274 +1,377 @@
 From: Yuval Mintz <Yuval.Mintz@cavium.com>
-Subject: [PATCH net-next 03/11] qed*: L2 interface to use the SB structures directly
-Date: Sun, 4 Jun 2017 13:31:01 +0300
-Message-ID: <20170604103109.3082-4-Yuval.Mintz@cavium.com>
+Subject: [PATCH net-next 04/11] qed: Pass vf_params when creating a queue-cid
+Date: Sun, 4 Jun 2017 13:31:02 +0300
+Message-ID: <20170604103109.3082-5-Yuval.Mintz@cavium.com>
 References: <20170604103109.3082-1-Yuval.Mintz@cavium.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Yuval Mintz <Yuval.Mintz@cavium.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-co1nam03on0043.outbound.protection.outlook.com ([104.47.40.43]:44672
-        "EHLO NAM03-CO1-obe.outbound.protection.outlook.com"
+Received: from mail-cys01nam02on0055.outbound.protection.outlook.com ([104.47.37.55]:35568
+        "EHLO NAM02-CY1-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751139AbdFDKbi (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 4 Jun 2017 06:31:38 -0400
+        id S1751045AbdFDKbm (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 4 Jun 2017 06:31:42 -0400
 In-Reply-To: <20170604103109.3082-1-Yuval.Mintz@cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Part of an effort of a cleaner seperation between qed and the protocol
-drivers, the L2 interface is to use the SB structure for initialization
-purposes opaquely.
+We're going to need additional information for queue-cids
+that a PF creates for its VFs, so start by refactoring existing
+logic used for initializing said struct into receiving a structure
+encapsulating the VF-specific information that needs to be provided.
+
+This also introduces QED_QUEUE_CID_SELF - each queue-cid would hold
+an indication to whether it belongs to the hw-function holding it
+[whether that's a PF or a VF], or else what's the VF id it belongs
+to.
 
 Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
 ---
- drivers/net/ethernet/qlogic/qed/qed_l2.c     | 32 +++++++++++++++-------------
- drivers/net/ethernet/qlogic/qed/qed_l2.h     | 24 +++++++++++++++------
- drivers/net/ethernet/qlogic/qed/qed_sriov.c  | 13 +++++++++--
- drivers/net/ethernet/qlogic/qed/qed_vf.c     |  8 +++----
- drivers/net/ethernet/qlogic/qede/qede_main.c |  4 ++--
- include/linux/qed/qed_eth_if.h               |  3 +--
- 6 files changed, 52 insertions(+), 32 deletions(-)
+ drivers/net/ethernet/qlogic/qed/qed_l2.c    | 67 ++++++++++++++++++-----------
+ drivers/net/ethernet/qlogic/qed/qed_l2.h    | 33 +++++++++++---
+ drivers/net/ethernet/qlogic/qed/qed_sriov.c | 40 +++++++++++------
+ 3 files changed, 95 insertions(+), 45 deletions(-)
 
 diff --git a/drivers/net/ethernet/qlogic/qed/qed_l2.c b/drivers/net/ethernet/qlogic/qed/qed_l2.c
-index 9d57911..262b2ba 100644
+index 262b2ba..150a8e9 100644
 --- a/drivers/net/ethernet/qlogic/qed/qed_l2.c
 +++ b/drivers/net/ethernet/qlogic/qed/qed_l2.c
-@@ -182,9 +182,15 @@ _qed_eth_queue_to_cid(struct qed_hwfn *p_hwfn,
+@@ -155,7 +155,8 @@ void qed_eth_queue_cid_release(struct qed_hwfn *p_hwfn,
+ 			       struct qed_queue_cid *p_cid)
+ {
+ 	/* VFs' CIDs are 0-based in PF-view, and uninitialized on VF */
+-	if (!p_cid->is_vf && IS_PF(p_hwfn->cdev))
++	if ((p_cid->vfid == QED_QUEUE_CID_SELF) &&
++	    IS_PF(p_hwfn->cdev))
+ 		qed_cxt_release_cid(p_hwfn, p_cid->cid);
+ 	vfree(p_cid);
+ }
+@@ -163,14 +164,13 @@ void qed_eth_queue_cid_release(struct qed_hwfn *p_hwfn,
+ /* The internal is only meant to be directly called by PFs initializeing CIDs
+  * for their VFs.
+  */
+-struct qed_queue_cid *
++static struct qed_queue_cid *
+ _qed_eth_queue_to_cid(struct qed_hwfn *p_hwfn,
+ 		      u16 opaque_fid,
+ 		      u32 cid,
+-		      u8 vf_qid,
+-		      struct qed_queue_start_common_params *p_params)
++		      struct qed_queue_start_common_params *p_params,
++		      struct qed_queue_cid_vf_params *p_vf_params)
+ {
+-	bool b_is_same = (p_hwfn->hw_info.opaque_fid == opaque_fid);
+ 	struct qed_queue_cid *p_cid;
+ 	int rc;
+ 
+@@ -181,7 +181,6 @@ _qed_eth_queue_to_cid(struct qed_hwfn *p_hwfn,
+ 
  	p_cid->opaque_fid = opaque_fid;
  	p_cid->cid = cid;
- 	p_cid->vf_qid = vf_qid;
--	p_cid->rel = *p_params;
+-	p_cid->vf_qid = vf_qid;
  	p_cid->p_owner = p_hwfn;
  
-+	/* Fill in parameters */
-+	p_cid->rel.vport_id = p_params->vport_id;
-+	p_cid->rel.queue_id = p_params->queue_id;
-+	p_cid->rel.stats_id = p_params->stats_id;
-+	p_cid->sb_igu_id = p_params->p_sb->igu_sb_id;
-+	p_cid->sb_idx = p_params->sb_idx;
+ 	/* Fill in parameters */
+@@ -191,6 +190,15 @@ _qed_eth_queue_to_cid(struct qed_hwfn *p_hwfn,
+ 	p_cid->sb_igu_id = p_params->p_sb->igu_sb_id;
+ 	p_cid->sb_idx = p_params->sb_idx;
+ 
++	/* Fill-in bits related to VFs' queues if information was provided */
++	if (p_vf_params) {
++		p_cid->vfid = p_vf_params->vfid;
++		p_cid->vf_qid = p_vf_params->vf_qid;
++		p_cid->b_legacy_vf = p_vf_params->vf_legacy;
++	} else {
++		p_cid->vfid = QED_QUEUE_CID_SELF;
++	}
 +
  	/* Don't try calculating the absolute indices for VFs */
  	if (IS_VF(p_hwfn->cdev)) {
  		p_cid->abs = p_cid->rel;
-@@ -215,10 +221,6 @@ _qed_eth_queue_to_cid(struct qed_hwfn *p_hwfn,
+@@ -212,7 +220,7 @@ _qed_eth_queue_to_cid(struct qed_hwfn *p_hwfn,
+ 	/* In case of a PF configuring its VF's queues, the stats-id is already
+ 	 * absolute [since there's a single index that's suitable per-VF].
+ 	 */
+-	if (b_is_same) {
++	if (p_cid->vfid == QED_QUEUE_CID_SELF) {
+ 		rc = qed_fw_vport(p_hwfn, p_cid->rel.stats_id,
+ 				  &p_cid->abs.stats_id);
+ 		if (rc)
+@@ -221,11 +229,6 @@ _qed_eth_queue_to_cid(struct qed_hwfn *p_hwfn,
  		p_cid->abs.stats_id = p_cid->rel.stats_id;
  	}
  
--	/* SBs relevant information was already provided as absolute */
--	p_cid->abs.sb = p_cid->rel.sb;
--	p_cid->abs.sb_idx = p_cid->rel.sb_idx;
--
- 	/* This is tricky - we're actually interested in whehter this is a PF
- 	 * entry meant for the VF.
+-	/* This is tricky - we're actually interested in whehter this is a PF
+-	 * entry meant for the VF.
+-	 */
+-	if (!b_is_same)
+-		p_cid->is_vf = true;
+ out:
+ 	DP_VERBOSE(p_hwfn,
+ 		   QED_MSG_SP,
+@@ -246,32 +249,47 @@ _qed_eth_queue_to_cid(struct qed_hwfn *p_hwfn,
+ 	return NULL;
+ }
+ 
+-static struct qed_queue_cid *qed_eth_queue_to_cid(struct qed_hwfn *p_hwfn,
+-						  u16 opaque_fid, struct
+-						  qed_queue_start_common_params
+-						  *p_params)
++struct qed_queue_cid *
++qed_eth_queue_to_cid(struct qed_hwfn *p_hwfn,
++		     u16 opaque_fid,
++		     struct qed_queue_start_common_params *p_params,
++		     struct qed_queue_cid_vf_params *p_vf_params)
+ {
+ 	struct qed_queue_cid *p_cid;
++	bool b_legacy_vf = false;
+ 	u32 cid = 0;
+ 
++	/* Currently, PF doesn't need to allocate CIDs for any VF */
++	if (p_vf_params)
++		b_legacy_vf = true;
+ 	/* Get a unique firmware CID for this queue, in case it's a PF.
+ 	 * VF's don't need a CID as the queue configuration will be done
+ 	 * by PF.
  	 */
-@@ -235,7 +237,7 @@ _qed_eth_queue_to_cid(struct qed_hwfn *p_hwfn,
- 		   p_cid->rel.queue_id,
- 		   p_cid->abs.queue_id,
- 		   p_cid->rel.stats_id,
--		   p_cid->abs.stats_id, p_cid->abs.sb, p_cid->abs.sb_idx);
-+		   p_cid->abs.stats_id, p_cid->sb_igu_id, p_cid->sb_idx);
+-	if (IS_PF(p_hwfn->cdev)) {
++	if (IS_PF(p_hwfn->cdev) && !b_legacy_vf) {
+ 		if (qed_cxt_acquire_cid(p_hwfn, PROTOCOLID_ETH, &cid)) {
+ 			DP_NOTICE(p_hwfn, "Failed to acquire cid\n");
+ 			return NULL;
+ 		}
+ 	}
+ 
+-	p_cid = _qed_eth_queue_to_cid(p_hwfn, opaque_fid, cid, 0, p_params);
+-	if (!p_cid && IS_PF(p_hwfn->cdev))
++	p_cid = _qed_eth_queue_to_cid(p_hwfn, opaque_fid, cid,
++				      p_params, p_vf_params);
++	if (!p_cid && IS_PF(p_hwfn->cdev) && !b_legacy_vf)
+ 		qed_cxt_release_cid(p_hwfn, cid);
  
  	return p_cid;
- 
-@@ -767,7 +769,7 @@ int qed_eth_rxq_start_ramrod(struct qed_hwfn *p_hwfn,
- 	DP_VERBOSE(p_hwfn, QED_MSG_SP,
- 		   "opaque_fid=0x%x, cid=0x%x, rx_qzone=0x%x, vport_id=0x%x, sb_id=0x%x\n",
- 		   p_cid->opaque_fid, p_cid->cid,
--		   p_cid->abs.queue_id, p_cid->abs.vport_id, p_cid->abs.sb);
-+		   p_cid->abs.queue_id, p_cid->abs.vport_id, p_cid->sb_igu_id);
- 
- 	/* Get SPQ entry */
- 	memset(&init_data, 0, sizeof(init_data));
-@@ -783,8 +785,8 @@ int qed_eth_rxq_start_ramrod(struct qed_hwfn *p_hwfn,
- 
- 	p_ramrod = &p_ent->ramrod.rx_queue_start;
- 
--	p_ramrod->sb_id = cpu_to_le16(p_cid->abs.sb);
--	p_ramrod->sb_index = p_cid->abs.sb_idx;
-+	p_ramrod->sb_id = cpu_to_le16(p_cid->sb_igu_id);
-+	p_ramrod->sb_index = p_cid->sb_idx;
- 	p_ramrod->vport_id = p_cid->abs.vport_id;
- 	p_ramrod->stats_counter_id = p_cid->abs.stats_id;
- 	p_ramrod->rx_queue_id = cpu_to_le16(p_cid->abs.queue_id);
-@@ -1001,8 +1003,8 @@ qed_eth_txq_start_ramrod(struct qed_hwfn *p_hwfn,
- 	p_ramrod = &p_ent->ramrod.tx_queue_start;
- 	p_ramrod->vport_id = p_cid->abs.vport_id;
- 
--	p_ramrod->sb_id = cpu_to_le16(p_cid->abs.sb);
--	p_ramrod->sb_index = p_cid->abs.sb_idx;
-+	p_ramrod->sb_id = cpu_to_le16(p_cid->sb_igu_id);
-+	p_ramrod->sb_index = p_cid->sb_idx;
- 	p_ramrod->stats_counter_id = p_cid->abs.stats_id;
- 
- 	p_ramrod->queue_zone_id = cpu_to_le16(p_cid->abs.queue_id);
-@@ -2279,9 +2281,9 @@ static int qed_start_rxq(struct qed_dev *cdev,
- 	}
- 
- 	DP_VERBOSE(cdev, (QED_MSG_SPQ | NETIF_MSG_IFUP),
--		   "Started RX-Q %d [rss_num %d] on V-PORT %d and SB %d\n",
-+		   "Started RX-Q %d [rss_num %d] on V-PORT %d and SB igu %d\n",
- 		   p_params->queue_id, rss_num, p_params->vport_id,
--		   p_params->sb);
-+		   p_params->p_sb->igu_sb_id);
- 
- 	return 0;
  }
-@@ -2329,9 +2331,9 @@ static int qed_start_txq(struct qed_dev *cdev,
- 	}
  
- 	DP_VERBOSE(cdev, (QED_MSG_SPQ | NETIF_MSG_IFUP),
--		   "Started TX-Q %d [rss_num %d] on V-PORT %d and SB %d\n",
-+		   "Started TX-Q %d [rss_num %d] on V-PORT %d and SB igu %d\n",
- 		   p_params->queue_id, rss_num, p_params->vport_id,
--		   p_params->sb);
-+		   p_params->p_sb->igu_sb_id);
++static struct qed_queue_cid *
++qed_eth_queue_to_cid_pf(struct qed_hwfn *p_hwfn,
++			u16 opaque_fid,
++			struct qed_queue_start_common_params *p_params)
++{
++	return qed_eth_queue_to_cid(p_hwfn, opaque_fid, p_params,
++				    NULL);
++}
++
+ int qed_sp_eth_vport_start(struct qed_hwfn *p_hwfn,
+ 			   struct qed_sp_vport_start_params *p_params)
+ {
+@@ -799,7 +817,7 @@ int qed_eth_rxq_start_ramrod(struct qed_hwfn *p_hwfn,
+ 	p_ramrod->num_of_pbl_pages = cpu_to_le16(cqe_pbl_size);
+ 	DMA_REGPAIR_LE(p_ramrod->cqe_pbl_addr, cqe_pbl_addr);
  
- 	return 0;
+-	if (p_cid->is_vf) {
++	if (p_cid->vfid != QED_QUEUE_CID_SELF) {
+ 		p_ramrod->vf_rx_prod_index = p_cid->vf_qid;
+ 		DP_VERBOSE(p_hwfn, QED_MSG_SP,
+ 			   "Queue%s is meant for VF rxq[%02x]\n",
+@@ -849,7 +867,7 @@ qed_eth_rx_queue_start(struct qed_hwfn *p_hwfn,
+ 	int rc;
+ 
+ 	/* Allocate a CID for the queue */
+-	p_cid = qed_eth_queue_to_cid(p_hwfn, opaque_fid, p_params);
++	p_cid = qed_eth_queue_to_cid_pf(p_hwfn, opaque_fid, p_params);
+ 	if (!p_cid)
+ 		return -ENOMEM;
+ 
+@@ -951,10 +969,11 @@ qed_eth_pf_rx_queue_stop(struct qed_hwfn *p_hwfn,
+ 	/* Cleaning the queue requires the completion to arrive there.
+ 	 * In addition, VFs require the answer to come as eqe to PF.
+ 	 */
+-	p_ramrod->complete_cqe_flg = (!p_cid->is_vf &&
++	p_ramrod->complete_cqe_flg = ((p_cid->vfid == QED_QUEUE_CID_SELF) &&
+ 				      !b_eq_completion_only) ||
+ 				     b_cqe_completion;
+-	p_ramrod->complete_event_flg = p_cid->is_vf || b_eq_completion_only;
++	p_ramrod->complete_event_flg = (p_cid->vfid != QED_QUEUE_CID_SELF) ||
++				       b_eq_completion_only;
+ 
+ 	return qed_spq_post(p_hwfn, p_ent, NULL);
  }
+@@ -1053,7 +1072,7 @@ qed_eth_tx_queue_start(struct qed_hwfn *p_hwfn,
+ 	struct qed_queue_cid *p_cid;
+ 	int rc;
+ 
+-	p_cid = qed_eth_queue_to_cid(p_hwfn, opaque_fid, p_params);
++	p_cid = qed_eth_queue_to_cid_pf(p_hwfn, opaque_fid, p_params);
+ 	if (!p_cid)
+ 		return -EINVAL;
+ 
 diff --git a/drivers/net/ethernet/qlogic/qed/qed_l2.h b/drivers/net/ethernet/qlogic/qed/qed_l2.h
-index 8606bbf..6ad3644 100644
+index 6ad3644..43aeaa8 100644
 --- a/drivers/net/ethernet/qlogic/qed/qed_l2.h
 +++ b/drivers/net/ethernet/qlogic/qed/qed_l2.h
-@@ -279,14 +279,24 @@ void qed_reset_vport_stats(struct qed_dev *cdev);
+@@ -278,6 +278,7 @@ void qed_get_vport_stats(struct qed_dev *cdev, struct qed_eth_stats *stats);
+ void qed_reset_vport_stats(struct qed_dev *cdev);
  
  #define MAX_QUEUES_PER_QZONE    (sizeof(unsigned long) * 8)
++#define QED_QUEUE_CID_SELF	(0xff)
  
-+/* Almost identical to the qed_queue_start_common_params,
-+ * but here we maintain the SB index in IGU CAM.
+ /* Almost identical to the qed_queue_start_common_params,
+  * but here we maintain the SB index in IGU CAM.
+@@ -288,6 +289,25 @@ struct qed_queue_cid_params {
+ 	u8 stats_id;
+ };
+ 
++/* Additional parameters required for initialization of the queue_cid
++ * and are relevant only for a PF initializing one for its VFs.
 + */
-+struct qed_queue_cid_params {
-+	u8 vport_id;
-+	u16 queue_id;
-+	u8 stats_id;
++struct qed_queue_cid_vf_params {
++	/* Should match the VF's relative index */
++	u8 vfid;
++
++	/* 0-based queue index. Should reflect the relative qzone the
++	 * VF thinks is associated with it [in its range].
++	 */
++	u8 vf_qid;
++
++	/* Indicates a VF is legacy, making it differ in:
++	 *  - Producers would be placed in a different place.
++	 */
++	bool vf_legacy;
++
 +};
 +
  struct qed_queue_cid {
--	/* 'Relative' is a relative term ;-). Usually the indices [not counting
--	 * SBs] would be PF-relative, but there are some cases where that isn't
--	 * the case - specifically for a PF configuring its VF indices it's
--	 * possible some fields [E.g., stats-id] in 'rel' would already be abs.
--	 */
--	struct qed_queue_start_common_params rel;
--	struct qed_queue_start_common_params abs;
-+	/* For stats-id, the `rel' is actually absolute as well */
-+	struct qed_queue_cid_params rel;
-+	struct qed_queue_cid_params abs;
-+
-+	/* These have no 'relative' meaning */
-+	u16 sb_igu_id;
-+	u8 sb_idx;
-+
- 	u32 cid;
- 	u16 opaque_fid;
+ 	/* For stats-id, the `rel' is actually absolute as well */
+ 	struct qed_queue_cid_params rel;
+@@ -305,7 +325,7 @@ struct qed_queue_cid {
+ 	 * Notice this is relevant on the *PF* queue-cid of its VF's queues,
+ 	 * and not on the VF itself.
+ 	 */
+-	bool is_vf;
++	u8 vfid;
+ 	u8 vf_qid;
  
+ 	/* Legacy VFs might have Rx producer located elsewhere */
+@@ -321,12 +341,11 @@ void qed_l2_free(struct qed_hwfn *p_hwfn);
+ void qed_eth_queue_cid_release(struct qed_hwfn *p_hwfn,
+ 			       struct qed_queue_cid *p_cid);
+ 
+-struct qed_queue_cid *_qed_eth_queue_to_cid(struct qed_hwfn *p_hwfn,
+-					    u16 opaque_fid,
+-					    u32 cid,
+-					    u8 vf_qid,
+-					    struct qed_queue_start_common_params
+-					    *p_params);
++struct qed_queue_cid *
++qed_eth_queue_to_cid(struct qed_hwfn *p_hwfn,
++		     u16 opaque_fid,
++		     struct qed_queue_start_common_params *p_params,
++		     struct qed_queue_cid_vf_params *p_vf_params);
+ 
+ int
+ qed_sp_eth_vport_start(struct qed_hwfn *p_hwfn,
 diff --git a/drivers/net/ethernet/qlogic/qed/qed_sriov.c b/drivers/net/ethernet/qlogic/qed/qed_sriov.c
-index 5ae8827..498c83e 100644
+index 498c83e..7ea00bf 100644
 --- a/drivers/net/ethernet/qlogic/qed/qed_sriov.c
 +++ b/drivers/net/ethernet/qlogic/qed/qed_sriov.c
-@@ -1951,6 +1951,7 @@ static void qed_iov_vf_mbx_start_rxq(struct qed_hwfn *p_hwfn,
+@@ -1947,6 +1947,7 @@ static void qed_iov_vf_mbx_start_rxq(struct qed_hwfn *p_hwfn,
+ 				     struct qed_vf_info *vf)
+ {
+ 	struct qed_queue_start_common_params params;
++	struct qed_queue_cid_vf_params vf_params;
+ 	struct qed_iov_vf_mbx *mbx = &vf->vf_mbx;
  	u8 status = PFVF_STATUS_NO_RESOURCE;
  	struct qed_vf_q_info *p_queue;
- 	struct vfpf_start_rxq_tlv *req;
-+	struct qed_sb_info sb_dummy;
- 	bool b_legacy_vf = false;
- 	int rc;
+@@ -1965,6 +1966,10 @@ static void qed_iov_vf_mbx_start_rxq(struct qed_hwfn *p_hwfn,
+ 	/* Acquire a new queue-cid */
+ 	p_queue = &vf->vf_queues[req->rx_qid];
  
-@@ -1968,7 +1969,10 @@ static void qed_iov_vf_mbx_start_rxq(struct qed_hwfn *p_hwfn,
++	if (vf->acquire.vfdev_info.eth_fp_hsi_minor ==
++	    ETH_HSI_VER_NO_PKT_LEN_TUNN)
++		b_legacy_vf = true;
++
+ 	memset(&params, 0, sizeof(params));
  	params.queue_id = p_queue->fw_rx_qid;
  	params.vport_id = vf->vport_id;
- 	params.stats_id = vf->abs_vf_id + 0x10;
--	params.sb = req->hw_sb;
-+	/* Since IGU index is passed via sb_info, construct a dummy one */
-+	memset(&sb_dummy, 0, sizeof(sb_dummy));
-+	sb_dummy.igu_sb_id = req->hw_sb;
-+	params.p_sb = &sb_dummy;
+@@ -1975,26 +1980,23 @@ static void qed_iov_vf_mbx_start_rxq(struct qed_hwfn *p_hwfn,
+ 	params.p_sb = &sb_dummy;
  	params.sb_idx = req->sb_index;
  
- 	p_queue->p_rx_cid = _qed_eth_queue_to_cid(p_hwfn,
-@@ -2273,6 +2277,7 @@ static void qed_iov_vf_mbx_start_txq(struct qed_hwfn *p_hwfn,
+-	p_queue->p_rx_cid = _qed_eth_queue_to_cid(p_hwfn,
+-						  vf->opaque_fid,
+-						  p_queue->fw_cid,
+-						  req->rx_qid, &params);
++	memset(&vf_params, 0, sizeof(vf_params));
++	vf_params.vfid = vf->relative_vf_id;
++	vf_params.vf_qid = (u8)req->rx_qid;
++	vf_params.vf_legacy = b_legacy_vf;
++	p_queue->p_rx_cid = qed_eth_queue_to_cid(p_hwfn, vf->opaque_fid,
++						 &params, &vf_params);
+ 	if (!p_queue->p_rx_cid)
+ 		goto out;
+ 
+ 	/* Legacy VFs have their Producers in a different location, which they
+ 	 * calculate on their own and clean the producer prior to this.
+ 	 */
+-	if (vf->acquire.vfdev_info.eth_fp_hsi_minor ==
+-	    ETH_HSI_VER_NO_PKT_LEN_TUNN) {
+-		b_legacy_vf = true;
+-	} else {
++	if (!b_legacy_vf)
+ 		REG_WR(p_hwfn,
+ 		       GTT_BAR0_MAP_REG_MSDM_RAM +
+ 		       MSTORM_ETH_VF_PRODS_OFFSET(vf->abs_vf_id, req->rx_qid),
+ 		       0);
+-	}
+-	p_queue->p_rx_cid->b_legacy_vf = b_legacy_vf;
+ 
+ 	rc = qed_eth_rxq_start_ramrod(p_hwfn,
+ 				      p_queue->p_rx_cid,
+@@ -2273,11 +2275,13 @@ static void qed_iov_vf_mbx_start_txq(struct qed_hwfn *p_hwfn,
+ 				     struct qed_vf_info *vf)
+ {
+ 	struct qed_queue_start_common_params params;
++	struct qed_queue_cid_vf_params vf_params;
+ 	struct qed_iov_vf_mbx *mbx = &vf->vf_mbx;
  	u8 status = PFVF_STATUS_NO_RESOURCE;
  	struct vfpf_start_txq_tlv *req;
  	struct qed_vf_q_info *p_queue;
-+	struct qed_sb_info sb_dummy;
+ 	struct qed_sb_info sb_dummy;
++	bool b_vf_legacy = false;
  	int rc;
  	u16 pq;
  
-@@ -2290,7 +2295,11 @@ static void qed_iov_vf_mbx_start_txq(struct qed_hwfn *p_hwfn,
+@@ -2292,6 +2296,10 @@ static void qed_iov_vf_mbx_start_txq(struct qed_hwfn *p_hwfn,
+ 	/* Acquire a new queue-cid */
+ 	p_queue = &vf->vf_queues[req->tx_qid];
+ 
++	if (vf->acquire.vfdev_info.eth_fp_hsi_minor ==
++	    ETH_HSI_VER_NO_PKT_LEN_TUNN)
++		b_vf_legacy = true;
++
  	params.queue_id = p_queue->fw_tx_qid;
  	params.vport_id = vf->vport_id;
  	params.stats_id = vf->abs_vf_id + 0x10;
--	params.sb = req->hw_sb;
-+
-+	/* Since IGU index is passed via sb_info, construct a dummy one */
-+	memset(&sb_dummy, 0, sizeof(sb_dummy));
-+	sb_dummy.igu_sb_id = req->hw_sb;
-+	params.p_sb = &sb_dummy;
+@@ -2302,10 +2310,14 @@ static void qed_iov_vf_mbx_start_txq(struct qed_hwfn *p_hwfn,
+ 	params.p_sb = &sb_dummy;
  	params.sb_idx = req->sb_index;
  
- 	p_queue->p_tx_cid = _qed_eth_queue_to_cid(p_hwfn,
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_vf.c b/drivers/net/ethernet/qlogic/qed/qed_vf.c
-index 29d7407..877d41e 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_vf.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_vf.c
-@@ -588,8 +588,8 @@ qed_vf_pf_rxq_start(struct qed_hwfn *p_hwfn,
- 	req->cqe_pbl_addr = cqe_pbl_addr;
- 	req->cqe_pbl_size = cqe_pbl_size;
- 	req->rxq_addr = bd_chain_phys_addr;
--	req->hw_sb = p_cid->rel.sb;
--	req->sb_index = p_cid->rel.sb_idx;
-+	req->hw_sb = p_cid->sb_igu_id;
-+	req->sb_index = p_cid->sb_idx;
- 	req->bd_max_bytes = bd_max_bytes;
- 	req->stat_id = -1;
- 
-@@ -697,8 +697,8 @@ qed_vf_pf_txq_start(struct qed_hwfn *p_hwfn,
- 	/* Tx */
- 	req->pbl_addr = pbl_addr;
- 	req->pbl_size = pbl_size;
--	req->hw_sb = p_cid->rel.sb;
--	req->sb_index = p_cid->rel.sb_idx;
-+	req->hw_sb = p_cid->sb_igu_id;
-+	req->sb_index = p_cid->sb_idx;
- 
- 	/* add list termination tlv */
- 	qed_add_tlv(p_hwfn, &p_iov->offset,
-diff --git a/drivers/net/ethernet/qlogic/qede/qede_main.c b/drivers/net/ethernet/qlogic/qede/qede_main.c
-index 00c7062..ad1e249 100644
---- a/drivers/net/ethernet/qlogic/qede/qede_main.c
-+++ b/drivers/net/ethernet/qlogic/qede/qede_main.c
-@@ -1770,7 +1770,7 @@ static int qede_start_txq(struct qede_dev *edev,
- 	else
- 		params.queue_id = txq->index;
- 
--	params.sb = fp->sb_info->igu_sb_id;
-+	params.p_sb = fp->sb_info;
- 	params.sb_idx = sb_idx;
- 
- 	rc = edev->ops->q_tx_start(edev->cdev, rss_id, &params, phys_table,
-@@ -1849,7 +1849,7 @@ static int qede_start_queues(struct qede_dev *edev, bool clear_stats)
- 			memset(&q_params, 0, sizeof(q_params));
- 			q_params.queue_id = rxq->rxq_id;
- 			q_params.vport_id = 0;
--			q_params.sb = fp->sb_info->igu_sb_id;
-+			q_params.p_sb = fp->sb_info;
- 			q_params.sb_idx = RX_PI;
- 
- 			p_phys_table =
-diff --git a/include/linux/qed/qed_eth_if.h b/include/linux/qed/qed_eth_if.h
-index d66d16a..fd72056 100644
---- a/include/linux/qed/qed_eth_if.h
-+++ b/include/linux/qed/qed_eth_if.h
-@@ -47,8 +47,7 @@ struct qed_queue_start_common_params {
- 	/* Relative, but relevant only for PFs */
- 	u8 stats_id;
- 
--	/* These are always absolute */
--	u16 sb;
-+	struct qed_sb_info *p_sb;
- 	u8 sb_idx;
- };
+-	p_queue->p_tx_cid = _qed_eth_queue_to_cid(p_hwfn,
+-						  vf->opaque_fid,
+-						  p_queue->fw_cid,
+-						  req->tx_qid, &params);
++	memset(&vf_params, 0, sizeof(vf_params));
++	vf_params.vfid = vf->relative_vf_id;
++	vf_params.vf_qid = (u8)req->tx_qid;
++	vf_params.vf_legacy = b_vf_legacy;
++
++	p_queue->p_tx_cid = qed_eth_queue_to_cid(p_hwfn,
++						 vf->opaque_fid,
++						 &params, &vf_params);
+ 	if (!p_queue->p_tx_cid)
+ 		goto out;
  
 -- 
 2.9.4
