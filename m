@@ -1,611 +1,527 @@
 From: Yuval Mintz <Yuval.Mintz@cavium.com>
-Subject: [PATCH net-next 08/11] qed: Multiple qzone queues for VFs
-Date: Sun, 4 Jun 2017 13:31:06 +0300
-Message-ID: <20170604103109.3082-9-Yuval.Mintz@cavium.com>
+Subject: [PATCH net-next 09/11] qed: VFs to try utilizing the doorbell bar
+Date: Sun, 4 Jun 2017 13:31:07 +0300
+Message-ID: <20170604103109.3082-10-Yuval.Mintz@cavium.com>
 References: <20170604103109.3082-1-Yuval.Mintz@cavium.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Yuval Mintz <Yuval.Mintz@cavium.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2nam02on0049.outbound.protection.outlook.com ([104.47.38.49]:28496
+Received: from mail-bl2nam02on0074.outbound.protection.outlook.com ([104.47.38.74]:9248
         "EHLO NAM02-BL2-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751221AbdFDKcR (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S1751224AbdFDKcR (ORCPT <rfc822;netdev@vger.kernel.org>);
         Sun, 4 Jun 2017 06:32:17 -0400
 In-Reply-To: <20170604103109.3082-1-Yuval.Mintz@cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This adds the infrastructure for supporting VFs that want to open
-multiple transmission queues on the same queue-zone.
-At this point, there are no VFs that actually request this functionality,
-but later patches would remedy that.
+VFs are currently not mapping their doorbell bar, instead relying
+on the small doorbell window they have in their limited regview bar.
 
- a. VF and PF would communicate the capability during ACQUIRE;
-    Legacy VFs would continue on behaving as they do today
-
- b. PF would communicate number of supported CIDs to the VF
-    and would enforce said limitation
-
- c. Whenever VF passes a request for a given queue configuration
-    it would also pass an associated index within said queue-zone
+In order to increase the number of possible Tx connections [queues]
+employeed by VF past 16, we need to start using the doorbell bar if
+one such is exposed - VF would communicate this fact to PF which would
+return the size-bar internally configured into chip, according to
+which the VF would decide whether to actually utilize the doorbell
+bar.
 
 Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
 ---
- drivers/net/ethernet/qlogic/qed/qed_cxt.c   |   8 +-
- drivers/net/ethernet/qlogic/qed/qed_l2.c    |  30 ++++--
- drivers/net/ethernet/qlogic/qed/qed_sriov.c | 136 ++++++++++++++++++++++++----
- drivers/net/ethernet/qlogic/qed/qed_sriov.h |   1 +
- drivers/net/ethernet/qlogic/qed/qed_vf.c    |  39 +++++++-
- drivers/net/ethernet/qlogic/qed/qed_vf.h    |  32 ++++++-
- include/linux/qed/qed_if.h                  |   4 +
- 7 files changed, 215 insertions(+), 35 deletions(-)
+ drivers/net/ethernet/qlogic/qed/qed.h          |   5 +
+ drivers/net/ethernet/qlogic/qed/qed_dev.c      |   8 +-
+ drivers/net/ethernet/qlogic/qed/qed_main.c     |  24 ++--
+ drivers/net/ethernet/qlogic/qed/qed_reg_addr.h |   1 +
+ drivers/net/ethernet/qlogic/qed/qed_sriov.c    |  61 ++++++++-
+ drivers/net/ethernet/qlogic/qed/qed_vf.c       | 181 +++++++++++++++++--------
+ drivers/net/ethernet/qlogic/qed/qed_vf.h       |  23 +++-
+ 7 files changed, 231 insertions(+), 72 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_cxt.c b/drivers/net/ethernet/qlogic/qed/qed_cxt.c
-index 25d5b91..e201214 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_cxt.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_cxt.c
-@@ -2116,8 +2116,12 @@ int qed_cxt_set_pf_params(struct qed_hwfn *p_hwfn, u32 rdma_tasks)
- 		struct qed_eth_pf_params *p_params =
- 		    &p_hwfn->pf_params.eth_pf_params;
+diff --git a/drivers/net/ethernet/qlogic/qed/qed.h b/drivers/net/ethernet/qlogic/qed/qed.h
+index cfb5758..d7afc42 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed.h
++++ b/drivers/net/ethernet/qlogic/qed/qed.h
+@@ -412,6 +412,11 @@ struct qed_fw_data {
+ 	u32			init_ops_size;
+ };
  
--		qed_cxt_set_proto_cid_count(p_hwfn, PROTOCOLID_ETH,
--					    p_params->num_cons, 1);
-+			if (!p_params->num_vf_cons)
-+				p_params->num_vf_cons =
-+				    ETH_PF_PARAMS_VF_CONS_DEFAULT;
-+			qed_cxt_set_proto_cid_count(p_hwfn, PROTOCOLID_ETH,
-+						    p_params->num_cons,
-+						    p_params->num_vf_cons);
- 		p_hwfn->p_cxt_mngr->arfs_count = p_params->num_arfs_filters;
- 		break;
++enum BAR_ID {
++	BAR_ID_0,		/* used for GRC */
++	BAR_ID_1		/* Used for doorbells */
++};
++
+ #define DRV_MODULE_VERSION		      \
+ 	__stringify(QED_MAJOR_VERSION) "."    \
+ 	__stringify(QED_MINOR_VERSION) "."    \
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_dev.c b/drivers/net/ethernet/qlogic/qed/qed_dev.c
+index e983113..65fe494 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_dev.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_dev.c
+@@ -69,12 +69,6 @@ static DEFINE_SPINLOCK(qm_lock);
+ #define QED_MIN_DPIS            (4)
+ #define QED_MIN_PWM_REGION      (QED_WID_SIZE * QED_MIN_DPIS)
+ 
+-/* API common to all protocols */
+-enum BAR_ID {
+-	BAR_ID_0,       /* used for GRC */
+-	BAR_ID_1        /* Used for doorbells */
+-};
+-
+ static u32 qed_hw_bar_size(struct qed_hwfn *p_hwfn,
+ 			   struct qed_ptt *p_ptt, enum BAR_ID bar_id)
+ {
+@@ -83,7 +77,7 @@ static u32 qed_hw_bar_size(struct qed_hwfn *p_hwfn,
+ 	u32 val;
+ 
+ 	if (IS_VF(p_hwfn->cdev))
+-		return 1 << 17;
++		return qed_vf_hw_bar_size(p_hwfn, bar_id);
+ 
+ 	val = qed_rd(p_hwfn, p_ptt, bar_reg);
+ 	if (val)
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_main.c b/drivers/net/ethernet/qlogic/qed/qed_main.c
+index 6ac10ce..9877d3e 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_main.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_main.c
+@@ -122,7 +122,7 @@ static void qed_free_pci(struct qed_dev *cdev)
+ {
+ 	struct pci_dev *pdev = cdev->pdev;
+ 
+-	if (cdev->doorbells)
++	if (cdev->doorbells && cdev->db_size)
+ 		iounmap(cdev->doorbells);
+ 	if (cdev->regview)
+ 		iounmap(cdev->regview);
+@@ -206,16 +206,24 @@ static int qed_init_pci(struct qed_dev *cdev, struct pci_dev *pdev)
+ 		goto err2;
  	}
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_l2.c b/drivers/net/ethernet/qlogic/qed/qed_l2.c
-index 75643c3..cffa8e7 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_l2.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_l2.c
-@@ -198,10 +198,10 @@ static void qed_eth_queue_qid_usage_del(struct qed_hwfn *p_hwfn,
- void qed_eth_queue_cid_release(struct qed_hwfn *p_hwfn,
- 			       struct qed_queue_cid *p_cid)
- {
--	/* VFs' CIDs are 0-based in PF-view, and uninitialized on VF */
--	if ((p_cid->vfid == QED_QUEUE_CID_SELF) &&
--	    IS_PF(p_hwfn->cdev))
--		qed_cxt_release_cid(p_hwfn, p_cid->cid);
-+	bool b_legacy_vf = !!(p_cid->vf_legacy & QED_QCID_LEGACY_VF_CID);
-+
-+	if (IS_PF(p_hwfn->cdev) && !b_legacy_vf)
-+		_qed_cxt_release_cid(p_hwfn, p_cid->cid, p_cid->vfid);
  
- 	/* For PF's VFs we maintain the index inside queue-zone in IOV */
- 	if (p_cid->vfid == QED_QUEUE_CID_SELF)
-@@ -319,18 +319,30 @@ qed_eth_queue_to_cid(struct qed_hwfn *p_hwfn,
- 		     struct qed_queue_cid_vf_params *p_vf_params)
- {
- 	struct qed_queue_cid *p_cid;
-+	u8 vfid = QED_CXT_PF_CID;
- 	bool b_legacy_vf = false;
- 	u32 cid = 0;
+-	if (IS_PF(cdev)) {
+-		cdev->db_phys_addr = pci_resource_start(cdev->pdev, 2);
+-		cdev->db_size = pci_resource_len(cdev->pdev, 2);
+-		cdev->doorbells = ioremap_wc(cdev->db_phys_addr, cdev->db_size);
+-		if (!cdev->doorbells) {
+-			DP_NOTICE(cdev, "Cannot map doorbell space\n");
+-			return -ENOMEM;
++	cdev->db_phys_addr = pci_resource_start(cdev->pdev, 2);
++	cdev->db_size = pci_resource_len(cdev->pdev, 2);
++	if (!cdev->db_size) {
++		if (IS_PF(cdev)) {
++			DP_NOTICE(cdev, "No Doorbell bar available\n");
++			return -EINVAL;
++		} else {
++			return 0;
+ 		}
+ 	}
  
--	/* Currently, PF doesn't need to allocate CIDs for any VF */
--	if (p_vf_params)
--		b_legacy_vf = true;
-+	/* In case of legacy VFs, The CID can be derived from the additional
-+	 * VF parameters - the VF assumes queue X uses CID X, so we can simply
-+	 * use the vf_qid for this purpose as well.
-+	 */
-+	if (p_vf_params) {
-+		vfid = p_vf_params->vfid;
++	cdev->doorbells = ioremap_wc(cdev->db_phys_addr, cdev->db_size);
 +
-+		if (p_vf_params->vf_legacy & QED_QCID_LEGACY_VF_CID) {
-+			b_legacy_vf = true;
-+			cid = p_vf_params->vf_qid;
-+		}
++	if (!cdev->doorbells) {
++		DP_NOTICE(cdev, "Cannot map doorbell space\n");
++		return -ENOMEM;
 +	}
 +
- 	/* Get a unique firmware CID for this queue, in case it's a PF.
- 	 * VF's don't need a CID as the queue configuration will be done
- 	 * by PF.
- 	 */
- 	if (IS_PF(p_hwfn->cdev) && !b_legacy_vf) {
--		if (qed_cxt_acquire_cid(p_hwfn, PROTOCOLID_ETH, &cid)) {
-+		if (_qed_cxt_acquire_cid(p_hwfn, PROTOCOLID_ETH,
-+					 &cid, vfid)) {
- 			DP_NOTICE(p_hwfn, "Failed to acquire cid\n");
- 			return NULL;
- 		}
-@@ -339,7 +351,7 @@ qed_eth_queue_to_cid(struct qed_hwfn *p_hwfn,
- 	p_cid = _qed_eth_queue_to_cid(p_hwfn, opaque_fid, cid,
- 				      p_params, b_is_rx, p_vf_params);
- 	if (!p_cid && IS_PF(p_hwfn->cdev) && !b_legacy_vf)
--		qed_cxt_release_cid(p_hwfn, cid);
-+		_qed_cxt_release_cid(p_hwfn, cid, vfid);
+ 	return 0;
  
- 	return p_cid;
- }
+ err2:
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_reg_addr.h b/drivers/net/ethernet/qlogic/qed/qed_reg_addr.h
+index 67172d7..7e4639c 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_reg_addr.h
++++ b/drivers/net/ethernet/qlogic/qed/qed_reg_addr.h
+@@ -560,6 +560,7 @@
+ 	0x2aae60UL
+ #define PGLUE_B_REG_PF_BAR1_SIZE \
+ 	0x2aae64UL
++#define PGLUE_B_REG_VF_BAR1_SIZE 0x2aae68UL
+ #define PRS_REG_ENCAPSULATION_TYPE_EN	0x1f0730UL
+ #define PRS_REG_GRE_PROTOCOL		0x1f0734UL
+ #define PRS_REG_VXLAN_PORT		0x1f0738UL
 diff --git a/drivers/net/ethernet/qlogic/qed/qed_sriov.c b/drivers/net/ethernet/qlogic/qed/qed_sriov.c
-index e6fb568..c620a5f 100644
+index c620a5f..e39ad22 100644
 --- a/drivers/net/ethernet/qlogic/qed/qed_sriov.c
 +++ b/drivers/net/ethernet/qlogic/qed/qed_sriov.c
-@@ -47,12 +47,16 @@
- 
- static u8 qed_vf_calculate_legacy(struct qed_vf_info *p_vf)
- {
--	u8 legacy = QED_QCID_LEGACY_VF_CID;
-+	u8 legacy = 0;
- 
- 	if (p_vf->acquire.vfdev_info.eth_fp_hsi_minor ==
- 	    ETH_HSI_VER_NO_PKT_LEN_TUNN)
- 		legacy |= QED_QCID_LEGACY_VF_RX_PROD;
- 
-+	if (!(p_vf->acquire.vfdev_info.capabilities &
-+	      VFPF_ACQUIRE_CAP_QUEUE_QIDS))
-+		legacy |= QED_QCID_LEGACY_VF_CID;
-+
- 	return legacy;
+@@ -1384,6 +1384,60 @@ static void qed_iov_vf_cleanup(struct qed_hwfn *p_hwfn,
+ 	qed_iov_clean_vf(p_hwfn, p_vf->relative_vf_id);
  }
  
-@@ -1413,6 +1417,10 @@ static u8 qed_iov_vf_mbx_acquire_resc(struct qed_hwfn *p_hwfn,
++/* Returns either 0, or log(size) */
++static u32 qed_iov_vf_db_bar_size(struct qed_hwfn *p_hwfn,
++				  struct qed_ptt *p_ptt)
++{
++	u32 val = qed_rd(p_hwfn, p_ptt, PGLUE_B_REG_VF_BAR1_SIZE);
++
++	if (val)
++		return val + 11;
++	return 0;
++}
++
++static void
++qed_iov_vf_mbx_acquire_resc_cids(struct qed_hwfn *p_hwfn,
++				 struct qed_ptt *p_ptt,
++				 struct qed_vf_info *p_vf,
++				 struct vf_pf_resc_request *p_req,
++				 struct pf_vf_resc *p_resp)
++{
++	u8 num_vf_cons = p_hwfn->pf_params.eth_pf_params.num_vf_cons;
++	u8 db_size = qed_db_addr_vf(1, DQ_DEMS_LEGACY) -
++		     qed_db_addr_vf(0, DQ_DEMS_LEGACY);
++	u32 bar_size;
++
++	p_resp->num_cids = min_t(u8, p_req->num_cids, num_vf_cons);
++
++	/* If VF didn't bother asking for QIDs than don't bother limiting
++	 * number of CIDs. The VF doesn't care about the number, and this
++	 * has the likely result of causing an additional acquisition.
++	 */
++	if (!(p_vf->acquire.vfdev_info.capabilities &
++	      VFPF_ACQUIRE_CAP_QUEUE_QIDS))
++		return;
++
++	/* If doorbell bar was mapped by VF, limit the VF CIDs to an amount
++	 * that would make sure doorbells for all CIDs fall within the bar.
++	 * If it doesn't, make sure regview window is sufficient.
++	 */
++	if (p_vf->acquire.vfdev_info.capabilities &
++	    VFPF_ACQUIRE_CAP_PHYSICAL_BAR) {
++		bar_size = qed_iov_vf_db_bar_size(p_hwfn, p_ptt);
++		if (bar_size)
++			bar_size = 1 << bar_size;
++
++		if (p_hwfn->cdev->num_hwfns > 1)
++			bar_size /= 2;
++	} else {
++		bar_size = PXP_VF_BAR0_DQ_LENGTH;
++	}
++
++	if (bar_size / db_size < 256)
++		p_resp->num_cids = min_t(u8, p_resp->num_cids,
++					 (u8)(bar_size / db_size));
++}
++
+ static u8 qed_iov_vf_mbx_acquire_resc(struct qed_hwfn *p_hwfn,
+ 				      struct qed_ptt *p_ptt,
+ 				      struct qed_vf_info *p_vf,
+@@ -1417,9 +1471,7 @@ static u8 qed_iov_vf_mbx_acquire_resc(struct qed_hwfn *p_hwfn,
  	p_resp->num_vlan_filters = min_t(u8, p_vf->num_vlan_filters,
  					 p_req->num_vlan_filters);
  
-+	p_resp->num_cids =
-+	    min_t(u8, p_req->num_cids,
-+		  p_hwfn->pf_params.eth_pf_params.num_vf_cons);
-+
+-	p_resp->num_cids =
+-	    min_t(u8, p_req->num_cids,
+-		  p_hwfn->pf_params.eth_pf_params.num_vf_cons);
++	qed_iov_vf_mbx_acquire_resc_cids(p_hwfn, p_ptt, p_vf, p_req, p_resp);
+ 
  	/* This isn't really needed/enforced, but some legacy VFs might depend
  	 * on the correct filling of this field.
- 	 */
-@@ -1424,10 +1432,11 @@ static u8 qed_iov_vf_mbx_acquire_resc(struct qed_hwfn *p_hwfn,
- 	    p_resp->num_sbs < p_req->num_sbs ||
- 	    p_resp->num_mac_filters < p_req->num_mac_filters ||
- 	    p_resp->num_vlan_filters < p_req->num_vlan_filters ||
--	    p_resp->num_mc_filters < p_req->num_mc_filters) {
-+	    p_resp->num_mc_filters < p_req->num_mc_filters ||
-+	    p_resp->num_cids < p_req->num_cids) {
- 		DP_VERBOSE(p_hwfn,
- 			   QED_MSG_IOV,
--			   "VF[%d] - Insufficient resources: rxq [%02x/%02x] txq [%02x/%02x] sbs [%02x/%02x] mac [%02x/%02x] vlan [%02x/%02x] mc [%02x/%02x]\n",
-+			   "VF[%d] - Insufficient resources: rxq [%02x/%02x] txq [%02x/%02x] sbs [%02x/%02x] mac [%02x/%02x] vlan [%02x/%02x] mc [%02x/%02x] cids [%02x/%02x]\n",
- 			   p_vf->abs_vf_id,
- 			   p_req->num_rxqs,
- 			   p_resp->num_rxqs,
-@@ -1439,7 +1448,9 @@ static u8 qed_iov_vf_mbx_acquire_resc(struct qed_hwfn *p_hwfn,
- 			   p_resp->num_mac_filters,
- 			   p_req->num_vlan_filters,
- 			   p_resp->num_vlan_filters,
--			   p_req->num_mc_filters, p_resp->num_mc_filters);
-+			   p_req->num_mc_filters,
-+			   p_resp->num_mc_filters,
-+			   p_req->num_cids, p_resp->num_cids);
+@@ -1572,6 +1624,9 @@ static void qed_iov_vf_mbx_acquire(struct qed_hwfn *p_hwfn,
+ 	if (req->vfdev_info.capabilities & VFPF_ACQUIRE_CAP_QUEUE_QIDS)
+ 		pfdev_info->capabilities |= PFVF_ACQUIRE_CAP_QUEUE_QIDS;
  
- 		/* Some legacy OSes are incapable of correctly handling this
- 		 * failure.
-@@ -1555,6 +1566,12 @@ static void qed_iov_vf_mbx_acquire(struct qed_hwfn *p_hwfn,
- 	if (p_hwfn->cdev->num_hwfns > 1)
- 		pfdev_info->capabilities |= PFVF_ACQUIRE_CAP_100G;
- 
-+	/* Share our ability to use multiple queue-ids only with VFs
-+	 * that request it.
-+	 */
-+	if (req->vfdev_info.capabilities & VFPF_ACQUIRE_CAP_QUEUE_QIDS)
-+		pfdev_info->capabilities |= PFVF_ACQUIRE_CAP_QUEUE_QIDS;
++	/* Share the sizes of the bars with VF */
++	resp->pfdev_info.bar_size = qed_iov_vf_db_bar_size(p_hwfn, p_ptt);
 +
  	qed_iov_vf_mbx_acquire_stats(p_hwfn, &pfdev_info->stats_info);
  
  	memcpy(pfdev_info->port_mac, p_hwfn->hw_info.hw_mac_addr, ETH_ALEN);
-@@ -1977,10 +1994,37 @@ static void qed_iov_vf_mbx_start_rxq_resp(struct qed_hwfn *p_hwfn,
- static u8 qed_iov_vf_mbx_qid(struct qed_hwfn *p_hwfn,
- 			     struct qed_vf_info *p_vf, bool b_is_tx)
- {
--	if (b_is_tx)
--		return QED_IOV_LEGACY_QID_TX;
--	else
--		return QED_IOV_LEGACY_QID_RX;
-+	struct qed_iov_vf_mbx *p_mbx = &p_vf->vf_mbx;
-+	struct vfpf_qid_tlv *p_qid_tlv;
-+
-+	/* Search for the qid if the VF published its going to provide it */
-+	if (!(p_vf->acquire.vfdev_info.capabilities &
-+	      VFPF_ACQUIRE_CAP_QUEUE_QIDS)) {
-+		if (b_is_tx)
-+			return QED_IOV_LEGACY_QID_TX;
-+		else
-+			return QED_IOV_LEGACY_QID_RX;
-+	}
-+
-+	p_qid_tlv = (struct vfpf_qid_tlv *)
-+		    qed_iov_search_list_tlvs(p_hwfn, p_mbx->req_virt,
-+					     CHANNEL_TLV_QID);
-+	if (!p_qid_tlv) {
-+		DP_VERBOSE(p_hwfn, QED_MSG_IOV,
-+			   "VF[%2x]: Failed to provide qid\n",
-+			   p_vf->relative_vf_id);
-+
-+		return QED_IOV_QID_INVALID;
-+	}
-+
-+	if (p_qid_tlv->qid >= MAX_QUEUES_PER_QZONE) {
-+		DP_VERBOSE(p_hwfn, QED_MSG_IOV,
-+			   "VF[%02x]: Provided qid out-of-bounds %02x\n",
-+			   p_vf->relative_vf_id, p_qid_tlv->qid);
-+		return QED_IOV_QID_INVALID;
-+	}
-+
-+	return p_qid_tlv->qid;
- }
- 
- static void qed_iov_vf_mbx_start_rxq(struct qed_hwfn *p_hwfn,
-@@ -2006,7 +2050,12 @@ static void qed_iov_vf_mbx_start_rxq(struct qed_hwfn *p_hwfn,
- 		goto out;
- 
- 	qid_usage_idx = qed_iov_vf_mbx_qid(p_hwfn, vf, false);
-+	if (qid_usage_idx == QED_IOV_QID_INVALID)
-+		goto out;
-+
- 	p_queue = &vf->vf_queues[req->rx_qid];
-+	if (p_queue->cids[qid_usage_idx].p_cid)
-+		goto out;
- 
- 	vf_legacy = qed_vf_calculate_legacy(vf);
- 
-@@ -2332,12 +2381,17 @@ static void qed_iov_vf_mbx_start_txq(struct qed_hwfn *p_hwfn,
- 	req = &mbx->req_virt->start_txq;
- 
- 	if (!qed_iov_validate_txq(p_hwfn, vf, req->tx_qid,
--				  QED_IOV_VALIDATE_Q_DISABLE) ||
-+				  QED_IOV_VALIDATE_Q_NA) ||
- 	    !qed_iov_validate_sb(p_hwfn, vf, req->hw_sb))
- 		goto out;
- 
- 	qid_usage_idx = qed_iov_vf_mbx_qid(p_hwfn, vf, true);
-+	if (qid_usage_idx == QED_IOV_QID_INVALID)
-+		goto out;
-+
- 	p_queue = &vf->vf_queues[req->tx_qid];
-+	if (p_queue->cids[qid_usage_idx].p_cid)
-+		goto out;
- 
- 	vf_legacy = qed_vf_calculate_legacy(vf);
- 
-@@ -2388,17 +2442,33 @@ static int qed_iov_vf_stop_rxqs(struct qed_hwfn *p_hwfn,
- 	struct qed_vf_queue *p_queue;
- 	int rc = 0;
- 
--	if (!qed_iov_validate_rxq(p_hwfn, vf, rxq_id,
--				  QED_IOV_VALIDATE_Q_ENABLE)) {
-+	if (!qed_iov_validate_rxq(p_hwfn, vf, rxq_id, QED_IOV_VALIDATE_Q_NA)) {
- 		DP_VERBOSE(p_hwfn,
- 			   QED_MSG_IOV,
--			   "VF[%d] Tried Closing Rx 0x%04x which is inactive\n",
--			   vf->relative_vf_id, rxq_id);
-+			   "VF[%d] Tried Closing Rx 0x%04x.%02x which is inactive\n",
-+			   vf->relative_vf_id, rxq_id, qid_usage_idx);
- 		return -EINVAL;
- 	}
- 
- 	p_queue = &vf->vf_queues[rxq_id];
- 
-+	/* We've validated the index and the existence of the active RXQ -
-+	 * now we need to make sure that it's using the correct qid.
-+	 */
-+	if (!p_queue->cids[qid_usage_idx].p_cid ||
-+	    p_queue->cids[qid_usage_idx].b_is_tx) {
-+		struct qed_queue_cid *p_cid;
-+
-+		p_cid = qed_iov_get_vf_rx_queue_cid(p_queue);
-+		DP_VERBOSE(p_hwfn,
-+			   QED_MSG_IOV,
-+			   "VF[%d] - Tried Closing Rx 0x%04x.%02x, but Rx is at %04x.%02x\n",
-+			   vf->relative_vf_id,
-+			   rxq_id, qid_usage_idx, rxq_id, p_cid->qid_usage_idx);
-+		return -EINVAL;
-+	}
-+
-+	/* Now that we know we have a valid Rx-queue - close it */
- 	rc = qed_eth_rx_queue_stop(p_hwfn,
- 				   p_queue->cids[qid_usage_idx].p_cid,
- 				   false, cqe_completion);
-@@ -2418,11 +2488,13 @@ static int qed_iov_vf_stop_txqs(struct qed_hwfn *p_hwfn,
- 	struct qed_vf_queue *p_queue;
- 	int rc = 0;
- 
--	if (!qed_iov_validate_txq(p_hwfn, vf, txq_id,
--				  QED_IOV_VALIDATE_Q_ENABLE))
-+	if (!qed_iov_validate_txq(p_hwfn, vf, txq_id, QED_IOV_VALIDATE_Q_NA))
- 		return -EINVAL;
- 
- 	p_queue = &vf->vf_queues[txq_id];
-+	if (!p_queue->cids[qid_usage_idx].p_cid ||
-+	    !p_queue->cids[qid_usage_idx].b_is_tx)
-+		return -EINVAL;
- 
- 	rc = qed_eth_tx_queue_stop(p_hwfn, p_queue->cids[qid_usage_idx].p_cid);
- 	if (rc)
-@@ -2458,6 +2530,8 @@ static void qed_iov_vf_mbx_stop_rxqs(struct qed_hwfn *p_hwfn,
- 
- 	/* Find which qid-index is associated with the queue */
- 	qid_usage_idx = qed_iov_vf_mbx_qid(p_hwfn, vf, false);
-+	if (qid_usage_idx == QED_IOV_QID_INVALID)
-+		goto out;
- 
- 	rc = qed_iov_vf_stop_rxqs(p_hwfn, vf, req->rx_qid,
- 				  qid_usage_idx, req->cqe_completion);
-@@ -2494,6 +2568,8 @@ static void qed_iov_vf_mbx_stop_txqs(struct qed_hwfn *p_hwfn,
- 
- 	/* Find which qid-index is associated with the queue */
- 	qid_usage_idx = qed_iov_vf_mbx_qid(p_hwfn, vf, true);
-+	if (qid_usage_idx == QED_IOV_QID_INVALID)
-+		goto out;
- 
- 	rc = qed_iov_vf_stop_txqs(p_hwfn, vf, req->tx_qid, qid_usage_idx);
- 	if (!rc)
-@@ -2524,15 +2600,35 @@ static void qed_iov_vf_mbx_update_rxqs(struct qed_hwfn *p_hwfn,
- 	complete_event_flg = !!(req->flags & VFPF_RXQ_UPD_COMPLETE_EVENT_FLAG);
- 
- 	qid_usage_idx = qed_iov_vf_mbx_qid(p_hwfn, vf, false);
-+	if (qid_usage_idx == QED_IOV_QID_INVALID)
-+		goto out;
- 
--	/* Validate inputs */
--	for (i = req->rx_qid; i < req->rx_qid + req->num_rxqs; i++)
-+	/* There shouldn't exist a VF that uses queue-qids yet uses this
-+	 * API with multiple Rx queues. Validate this.
-+	 */
-+	if ((vf->acquire.vfdev_info.capabilities &
-+	     VFPF_ACQUIRE_CAP_QUEUE_QIDS) && req->num_rxqs != 1) {
-+		DP_VERBOSE(p_hwfn, QED_MSG_IOV,
-+			   "VF[%d] supports QIDs but sends multiple queues\n",
-+			   vf->relative_vf_id);
-+		goto out;
-+	}
-+
-+	/* Validate inputs - for the legacy case this is still true since
-+	 * qid_usage_idx for each Rx queue would be LEGACY_QID_RX.
-+	 */
-+	for (i = req->rx_qid; i < req->rx_qid + req->num_rxqs; i++) {
- 		if (!qed_iov_validate_rxq(p_hwfn, vf, i,
--					  QED_IOV_VALIDATE_Q_ENABLE)) {
--			DP_INFO(p_hwfn, "VF[%d]: Incorrect Rxqs [%04x, %02x]\n",
--				vf->relative_vf_id, req->rx_qid, req->num_rxqs);
-+					  QED_IOV_VALIDATE_Q_NA) ||
-+		    !vf->vf_queues[i].cids[qid_usage_idx].p_cid ||
-+		    vf->vf_queues[i].cids[qid_usage_idx].b_is_tx) {
-+			DP_VERBOSE(p_hwfn, QED_MSG_IOV,
-+				   "VF[%d]: Incorrect Rxqs [%04x, %02x]\n",
-+				   vf->relative_vf_id, req->rx_qid,
-+				   req->num_rxqs);
- 			goto out;
- 		}
-+	}
- 
- 	/* Prepare the handlers */
- 	for (i = 0; i < req->num_rxqs; i++) {
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_sriov.h b/drivers/net/ethernet/qlogic/qed/qed_sriov.h
-index 480cd99..95f55ae 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_sriov.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed_sriov.h
-@@ -151,6 +151,7 @@ struct qed_iov_vf_mbx {
- 
- #define QED_IOV_LEGACY_QID_RX (0)
- #define QED_IOV_LEGACY_QID_TX (1)
-+#define QED_IOV_QID_INVALID (0xFE)
- 
- struct qed_vf_queue_cid {
- 	bool b_is_tx;
 diff --git a/drivers/net/ethernet/qlogic/qed/qed_vf.c b/drivers/net/ethernet/qlogic/qed/qed_vf.c
-index 877d41e..c0d2feb 100644
+index c0d2feb..cb81c35 100644
 --- a/drivers/net/ethernet/qlogic/qed/qed_vf.c
 +++ b/drivers/net/ethernet/qlogic/qed/qed_vf.c
-@@ -153,6 +153,22 @@ static int qed_send_msg2pf(struct qed_hwfn *p_hwfn, u8 *done, u32 resp_size)
- 	return rc;
+@@ -169,6 +169,61 @@ static void qed_vf_pf_add_qid(struct qed_hwfn *p_hwfn,
+ 	p_qid_tlv->qid = p_cid->qid_usage_idx;
  }
  
-+static void qed_vf_pf_add_qid(struct qed_hwfn *p_hwfn,
-+			      struct qed_queue_cid *p_cid)
++int _qed_vf_pf_release(struct qed_hwfn *p_hwfn, bool b_final)
 +{
 +	struct qed_vf_iov *p_iov = p_hwfn->vf_iov_info;
-+	struct vfpf_qid_tlv *p_qid_tlv;
++	struct pfvf_def_resp_tlv *resp;
++	struct vfpf_first_tlv *req;
++	u32 size;
++	int rc;
 +
-+	/* Only add QIDs for the queue if it was negotiated with PF */
-+	if (!(p_iov->acquire_resp.pfdev_info.capabilities &
-+	      PFVF_ACQUIRE_CAP_QUEUE_QIDS))
-+		return;
++	/* clear mailbox and prep first tlv */
++	req = qed_vf_pf_prep(p_hwfn, CHANNEL_TLV_RELEASE, sizeof(*req));
 +
-+	p_qid_tlv = qed_add_tlv(p_hwfn, &p_iov->offset,
-+				CHANNEL_TLV_QID, sizeof(*p_qid_tlv));
-+	p_qid_tlv->qid = p_cid->qid_usage_idx;
++	/* add list termination tlv */
++	qed_add_tlv(p_hwfn, &p_iov->offset,
++		    CHANNEL_TLV_LIST_END, sizeof(struct channel_list_end_tlv));
++
++	resp = &p_iov->pf2vf_reply->default_resp;
++	rc = qed_send_msg2pf(p_hwfn, &resp->hdr.status, sizeof(*resp));
++
++	if (!rc && resp->hdr.status != PFVF_STATUS_SUCCESS)
++		rc = -EAGAIN;
++
++	qed_vf_pf_req_end(p_hwfn, rc);
++	if (!b_final)
++		return rc;
++
++	p_hwfn->b_int_enabled = 0;
++
++	if (p_iov->vf2pf_request)
++		dma_free_coherent(&p_hwfn->cdev->pdev->dev,
++				  sizeof(union vfpf_tlvs),
++				  p_iov->vf2pf_request,
++				  p_iov->vf2pf_request_phys);
++	if (p_iov->pf2vf_reply)
++		dma_free_coherent(&p_hwfn->cdev->pdev->dev,
++				  sizeof(union pfvf_tlvs),
++				  p_iov->pf2vf_reply, p_iov->pf2vf_reply_phys);
++
++	if (p_iov->bulletin.p_virt) {
++		size = sizeof(struct qed_bulletin_content);
++		dma_free_coherent(&p_hwfn->cdev->pdev->dev,
++				  size,
++				  p_iov->bulletin.p_virt, p_iov->bulletin.phys);
++	}
++
++	kfree(p_hwfn->vf_iov_info);
++	p_hwfn->vf_iov_info = NULL;
++
++	return rc;
++}
++
++int qed_vf_pf_release(struct qed_hwfn *p_hwfn)
++{
++	return _qed_vf_pf_release(p_hwfn, true);
 +}
 +
  #define VF_ACQUIRE_THRESH 3
  static void qed_vf_pf_acquire_reduce_resc(struct qed_hwfn *p_hwfn,
  					  struct vf_pf_resc_request *p_req,
-@@ -160,7 +176,7 @@ static void qed_vf_pf_acquire_reduce_resc(struct qed_hwfn *p_hwfn,
- {
- 	DP_VERBOSE(p_hwfn,
- 		   QED_MSG_IOV,
--		   "PF unwilling to fullill resource request: rxq [%02x/%02x] txq [%02x/%02x] sbs [%02x/%02x] mac [%02x/%02x] vlan [%02x/%02x] mc [%02x/%02x]. Try PF recommended amount\n",
-+		   "PF unwilling to fullill resource request: rxq [%02x/%02x] txq [%02x/%02x] sbs [%02x/%02x] mac [%02x/%02x] vlan [%02x/%02x] mc [%02x/%02x] cids [%02x/%02x]. Try PF recommended amount\n",
- 		   p_req->num_rxqs,
- 		   p_resp->num_rxqs,
- 		   p_req->num_rxqs,
-@@ -171,7 +187,8 @@ static void qed_vf_pf_acquire_reduce_resc(struct qed_hwfn *p_hwfn,
- 		   p_resp->num_mac_filters,
- 		   p_req->num_vlan_filters,
- 		   p_resp->num_vlan_filters,
--		   p_req->num_mc_filters, p_resp->num_mc_filters);
-+		   p_req->num_mc_filters,
-+		   p_resp->num_mc_filters, p_req->num_cids, p_resp->num_cids);
+@@ -235,6 +290,11 @@ static int qed_vf_pf_acquire(struct qed_hwfn *p_hwfn)
+ 	/* Fill capability field with any non-deprecated config we support */
+ 	req->vfdev_info.capabilities |= VFPF_ACQUIRE_CAP_100G;
  
- 	/* humble our request */
- 	p_req->num_txqs = p_resp->num_txqs;
-@@ -180,6 +197,7 @@ static void qed_vf_pf_acquire_reduce_resc(struct qed_hwfn *p_hwfn,
- 	p_req->num_mac_filters = p_resp->num_mac_filters;
- 	p_req->num_vlan_filters = p_resp->num_vlan_filters;
- 	p_req->num_mc_filters = p_resp->num_mc_filters;
-+	p_req->num_cids = p_resp->num_cids;
++	/* If we've mapped the doorbell bar, try using queue qids */
++	if (p_iov->b_doorbell_bar)
++		req->vfdev_info.capabilities |= VFPF_ACQUIRE_CAP_PHYSICAL_BAR |
++						VFPF_ACQUIRE_CAP_QUEUE_QIDS;
++
+ 	/* pf 2 vf bulletin board address */
+ 	req->bulletin_addr = p_iov->bulletin.phys;
+ 	req->bulletin_size = p_iov->bulletin.size;
+@@ -364,10 +424,27 @@ static int qed_vf_pf_acquire(struct qed_hwfn *p_hwfn)
+ 	return rc;
  }
  
- static int qed_vf_pf_acquire(struct qed_hwfn *p_hwfn)
-@@ -204,6 +222,7 @@ static int qed_vf_pf_acquire(struct qed_hwfn *p_hwfn)
- 	p_resc->num_sbs = QED_MAX_VF_CHAINS_PER_PF;
- 	p_resc->num_mac_filters = QED_ETH_VF_NUM_MAC_FILTERS;
- 	p_resc->num_vlan_filters = QED_ETH_VF_NUM_VLAN_FILTERS;
-+	p_resc->num_cids = QED_ETH_VF_DEFAULT_NUM_CIDS;
++u32 qed_vf_hw_bar_size(struct qed_hwfn *p_hwfn, enum BAR_ID bar_id)
++{
++	u32 bar_size;
++
++	/* Regview size is fixed */
++	if (bar_id == BAR_ID_0)
++		return 1 << 17;
++
++	/* Doorbell is received from PF */
++	bar_size = p_hwfn->vf_iov_info->acquire_resp.pfdev_info.bar_size;
++	if (bar_size)
++		return 1 << bar_size;
++	return 0;
++}
++
+ int qed_vf_hw_prepare(struct qed_hwfn *p_hwfn)
+ {
++	struct qed_hwfn *p_lead = QED_LEADING_HWFN(p_hwfn->cdev);
+ 	struct qed_vf_iov *p_iov;
+ 	u32 reg;
++	int rc;
  
- 	req->vfdev_info.os_type = VFPF_ACQUIRE_OS_LINUX;
- 	req->vfdev_info.fw_major = FW_MAJOR_VERSION;
-@@ -307,6 +326,13 @@ static int qed_vf_pf_acquire(struct qed_hwfn *p_hwfn)
- 	if (req->vfdev_info.capabilities & VFPF_ACQUIRE_CAP_PRE_FP_HSI)
- 		p_iov->b_pre_fp_hsi = true;
+ 	/* Set number of hwfns - might be overriden once leading hwfn learns
+ 	 * actual configuration from PF.
+@@ -375,10 +452,6 @@ int qed_vf_hw_prepare(struct qed_hwfn *p_hwfn)
+ 	if (IS_LEAD_HWFN(p_hwfn))
+ 		p_hwfn->cdev->num_hwfns = 1;
  
-+	/* In case PF doesn't support multi-queue Tx, update the number of
-+	 * CIDs to reflect the number of queues [older PFs didn't fill that
-+	 * field].
+-	/* Set the doorbell bar. Assumption: regview is set */
+-	p_hwfn->doorbells = (u8 __iomem *)p_hwfn->regview +
+-					  PXP_VF_BAR0_START_DQ;
+-
+ 	reg = PXP_VF_BAR0_ME_OPAQUE_ADDRESS;
+ 	p_hwfn->hw_info.opaque_fid = (u16)REG_RD(p_hwfn, reg);
+ 
+@@ -390,6 +463,30 @@ int qed_vf_hw_prepare(struct qed_hwfn *p_hwfn)
+ 	if (!p_iov)
+ 		return -ENOMEM;
+ 
++	/* Doorbells are tricky; Upper-layer has alreday set the hwfn doorbell
++	 * value, but there are several incompatibily scenarios where that
++	 * would be incorrect and we'd need to override it.
 +	 */
-+	if (!(resp->pfdev_info.capabilities & PFVF_ACQUIRE_CAP_QUEUE_QIDS))
-+		resp->resc.num_cids = resp->resc.num_rxqs + resp->resc.num_txqs;
++	if (!p_hwfn->doorbells) {
++		p_hwfn->doorbells = (u8 __iomem *)p_hwfn->regview +
++						  PXP_VF_BAR0_START_DQ;
++	} else if (p_hwfn == p_lead) {
++		/* For leading hw-function, value is always correct, but need
++		 * to handle scenario where legacy PF would not support 100g
++		 * mapped bars later.
++		 */
++		p_iov->b_doorbell_bar = true;
++	} else {
++		/* here, value would be correct ONLY if the leading hwfn
++		 * received indication that mapped-bars are supported.
++		 */
++		if (p_lead->vf_iov_info->b_doorbell_bar)
++			p_iov->b_doorbell_bar = true;
++		else
++			p_hwfn->doorbells = (u8 __iomem *)
++			    p_hwfn->regview + PXP_VF_BAR0_START_DQ;
++	}
 +
- 	/* Update bulletin board size with response from PF */
- 	p_iov->bulletin.size = resp->bulletin_size;
+ 	/* Allocate vf2pf msg */
+ 	p_iov->vf2pf_request = dma_alloc_coherent(&p_hwfn->cdev->pdev->dev,
+ 						  sizeof(union vfpf_tlvs),
+@@ -429,7 +526,33 @@ int qed_vf_hw_prepare(struct qed_hwfn *p_hwfn)
  
-@@ -609,6 +635,9 @@ qed_vf_pf_rxq_start(struct qed_hwfn *p_hwfn,
- 		__internal_ram_wr(p_hwfn, *pp_prod, sizeof(u32),
- 				  (u32 *)(&init_prod_val));
- 	}
-+
-+	qed_vf_pf_add_qid(p_hwfn, p_cid);
-+
- 	/* add list termination tlv */
- 	qed_add_tlv(p_hwfn, &p_iov->offset,
- 		    CHANNEL_TLV_LIST_END, sizeof(struct channel_list_end_tlv));
-@@ -657,6 +686,8 @@ int qed_vf_pf_rxq_stop(struct qed_hwfn *p_hwfn,
- 	req->num_rxqs = 1;
- 	req->cqe_completion = cqe_completion;
+ 	p_hwfn->hw_info.personality = QED_PCI_ETH;
  
-+	qed_vf_pf_add_qid(p_hwfn, p_cid);
+-	return qed_vf_pf_acquire(p_hwfn);
++	rc = qed_vf_pf_acquire(p_hwfn);
 +
- 	/* add list termination tlv */
- 	qed_add_tlv(p_hwfn, &p_iov->offset,
- 		    CHANNEL_TLV_LIST_END, sizeof(struct channel_list_end_tlv));
-@@ -700,6 +731,8 @@ qed_vf_pf_txq_start(struct qed_hwfn *p_hwfn,
- 	req->hw_sb = p_cid->sb_igu_id;
- 	req->sb_index = p_cid->sb_idx;
++	/* If VF is 100g using a mapped bar and PF is too old to support that,
++	 * acquisition would succeed - but the VF would have no way knowing
++	 * the size of the doorbell bar configured in HW and thus will not
++	 * know how to split it for 2nd hw-function.
++	 * In this case we re-try without the indication of the mapped
++	 * doorbell.
++	 */
++	if (!rc && p_iov->b_doorbell_bar &&
++	    !qed_vf_hw_bar_size(p_hwfn, BAR_ID_1) &&
++	    (p_hwfn->cdev->num_hwfns > 1)) {
++		rc = _qed_vf_pf_release(p_hwfn, false);
++		if (rc)
++			return rc;
++
++		p_iov->b_doorbell_bar = false;
++		p_hwfn->doorbells = (u8 __iomem *)p_hwfn->regview +
++						  PXP_VF_BAR0_START_DQ;
++		rc = qed_vf_pf_acquire(p_hwfn);
++	}
++
++	DP_VERBOSE(p_hwfn, QED_MSG_IOV,
++		   "Regview [%p], Doorbell [%p], Device-doorbell [%p]\n",
++		   p_hwfn->regview, p_hwfn->doorbells, p_hwfn->cdev->doorbells);
++
++	return rc;
  
-+	qed_vf_pf_add_qid(p_hwfn, p_cid);
-+
- 	/* add list termination tlv */
- 	qed_add_tlv(p_hwfn, &p_iov->offset,
- 		    CHANNEL_TLV_LIST_END, sizeof(struct channel_list_end_tlv));
-@@ -749,6 +782,8 @@ int qed_vf_pf_txq_stop(struct qed_hwfn *p_hwfn, struct qed_queue_cid *p_cid)
- 	req->tx_qid = p_cid->rel.queue_id;
- 	req->num_txqs = 1;
+ free_vf2pf_request:
+ 	dma_free_coherent(&p_hwfn->cdev->pdev->dev,
+@@ -1133,54 +1256,6 @@ int qed_vf_pf_reset(struct qed_hwfn *p_hwfn)
+ 	return rc;
+ }
  
-+	qed_vf_pf_add_qid(p_hwfn, p_cid);
-+
- 	/* add list termination tlv */
- 	qed_add_tlv(p_hwfn, &p_iov->offset,
- 		    CHANNEL_TLV_LIST_END, sizeof(struct channel_list_end_tlv));
+-int qed_vf_pf_release(struct qed_hwfn *p_hwfn)
+-{
+-	struct qed_vf_iov *p_iov = p_hwfn->vf_iov_info;
+-	struct pfvf_def_resp_tlv *resp;
+-	struct vfpf_first_tlv *req;
+-	u32 size;
+-	int rc;
+-
+-	/* clear mailbox and prep first tlv */
+-	req = qed_vf_pf_prep(p_hwfn, CHANNEL_TLV_RELEASE, sizeof(*req));
+-
+-	/* add list termination tlv */
+-	qed_add_tlv(p_hwfn, &p_iov->offset,
+-		    CHANNEL_TLV_LIST_END, sizeof(struct channel_list_end_tlv));
+-
+-	resp = &p_iov->pf2vf_reply->default_resp;
+-	rc = qed_send_msg2pf(p_hwfn, &resp->hdr.status, sizeof(*resp));
+-
+-	if (!rc && resp->hdr.status != PFVF_STATUS_SUCCESS)
+-		rc = -EAGAIN;
+-
+-	qed_vf_pf_req_end(p_hwfn, rc);
+-
+-	p_hwfn->b_int_enabled = 0;
+-
+-	if (p_iov->vf2pf_request)
+-		dma_free_coherent(&p_hwfn->cdev->pdev->dev,
+-				  sizeof(union vfpf_tlvs),
+-				  p_iov->vf2pf_request,
+-				  p_iov->vf2pf_request_phys);
+-	if (p_iov->pf2vf_reply)
+-		dma_free_coherent(&p_hwfn->cdev->pdev->dev,
+-				  sizeof(union pfvf_tlvs),
+-				  p_iov->pf2vf_reply, p_iov->pf2vf_reply_phys);
+-
+-	if (p_iov->bulletin.p_virt) {
+-		size = sizeof(struct qed_bulletin_content);
+-		dma_free_coherent(&p_hwfn->cdev->pdev->dev,
+-				  size,
+-				  p_iov->bulletin.p_virt, p_iov->bulletin.phys);
+-	}
+-
+-	kfree(p_hwfn->vf_iov_info);
+-	p_hwfn->vf_iov_info = NULL;
+-
+-	return rc;
+-}
+-
+ void qed_vf_pf_filter_mcast(struct qed_hwfn *p_hwfn,
+ 			    struct qed_filter_mcast *p_filter_cmd)
+ {
 diff --git a/drivers/net/ethernet/qlogic/qed/qed_vf.h b/drivers/net/ethernet/qlogic/qed/qed_vf.h
-index d7b9c90..9588ae7 100644
+index 9588ae7..b8ce4be 100644
 --- a/drivers/net/ethernet/qlogic/qed/qed_vf.h
 +++ b/drivers/net/ethernet/qlogic/qed/qed_vf.h
-@@ -46,7 +46,8 @@ struct vf_pf_resc_request {
- 	u8 num_mac_filters;
- 	u8 num_vlan_filters;
- 	u8 num_mc_filters;
--	u16 padding;
-+	u8 num_cids;
-+	u8 padding;
- };
- 
- struct hw_sb_info {
-@@ -113,6 +114,11 @@ struct vfpf_acquire_tlv {
- 	struct vf_pf_vfdev_info {
- #define VFPF_ACQUIRE_CAP_PRE_FP_HSI     (1 << 0) /* VF pre-FP hsi version */
- #define VFPF_ACQUIRE_CAP_100G		(1 << 1) /* VF can support 100g */
-+	/* A requirement for supporting multi-Tx queues on a single queue-zone,
-+	 * VF would pass qids as additional information whenever passing queue
-+	 * references.
+@@ -119,6 +119,12 @@ struct vfpf_acquire_tlv {
+ 	 * references.
+ 	 */
+ #define VFPF_ACQUIRE_CAP_QUEUE_QIDS     BIT(2)
++
++	/* The VF is using the physical bar. While this is mostly internal
++	 * to the VF, might affect the number of CIDs supported assuming
++	 * QUEUE_QIDS is set.
 +	 */
-+#define VFPF_ACQUIRE_CAP_QUEUE_QIDS     BIT(2)
++#define VFPF_ACQUIRE_CAP_PHYSICAL_BAR   BIT(3)
  		u64 capabilities;
  		u8 fw_major;
  		u8 fw_minor;
-@@ -185,6 +191,9 @@ struct pfvf_acquire_resp_tlv {
-  */
- #define PFVF_ACQUIRE_CAP_POST_FW_OVERRIDE	BIT(2)
+@@ -202,7 +208,8 @@ struct pfvf_acquire_resp_tlv {
+ 		u16 chip_rev;
+ 		u8 dev_type;
  
-+	/* PF expects queues to be received with additional qids */
-+#define PFVF_ACQUIRE_CAP_QUEUE_QIDS             BIT(3)
-+
- 		u16 db_size;
- 		u8 indices_per_sb;
- 		u8 os_type;
-@@ -221,7 +230,8 @@ struct pfvf_acquire_resp_tlv {
- 		u8 num_mac_filters;
- 		u8 num_vlan_filters;
- 		u8 num_mc_filters;
--		u8 padding[2];
-+		u8 num_cids;
-+		u8 padding;
- 	} resc;
+-		u8 padding;
++		/* Doorbell bar size configured in HW: log(size) or 0 */
++		u8 bar_size;
  
- 	u32 bulletin_size;
-@@ -234,6 +244,16 @@ struct pfvf_start_queue_resp_tlv {
- 	u8 padding[4];
- };
+ 		struct pfvf_stats_info stats_info;
  
-+/* Extended queue information - additional index for reference inside qzone.
-+ * If commmunicated between VF/PF, each TLV relating to queues should be
-+ * extended by one such [or have a future base TLV that already contains info].
-+ */
-+struct vfpf_qid_tlv {
-+	struct channel_tlv tl;
-+	u8 qid;
-+	u8 padding[3];
-+};
-+
- /* Setup Queue */
- struct vfpf_start_rxq_tlv {
- 	struct vfpf_first_tlv first_tlv;
-@@ -597,6 +617,8 @@ enum {
- 	CHANNEL_TLV_VPORT_UPDATE_ACCEPT_ANY_VLAN,
- 	CHANNEL_TLV_VPORT_UPDATE_SGE_TPA,
- 	CHANNEL_TLV_UPDATE_TUNN_PARAM,
-+	CHANNEL_TLV_RESERVED,
-+	CHANNEL_TLV_QID,
- 	CHANNEL_TLV_MAX,
- 
- 	/* Required for iterating over vport-update tlvs.
-@@ -605,6 +627,12 @@ enum {
- 	CHANNEL_TLV_VPORT_UPDATE_MAX = CHANNEL_TLV_VPORT_UPDATE_SGE_TPA + 1,
- };
- 
-+/* Default number of CIDs [total of both Rx and Tx] to be requested
-+ * by default, and maximum possible number.
-+ */
-+#define QED_ETH_VF_DEFAULT_NUM_CIDS (32)
-+#define QED_ETH_VF_MAX_NUM_CIDS (250)
-+
- /* This data is held in the qed_hwfn structure for VFs only. */
- struct qed_vf_iov {
- 	union vfpf_tlvs *vf2pf_request;
-diff --git a/include/linux/qed/qed_if.h b/include/linux/qed/qed_if.h
-index 567ea3e..74f6b99 100644
---- a/include/linux/qed/qed_if.h
-+++ b/include/linux/qed/qed_if.h
-@@ -185,6 +185,10 @@ struct qed_eth_pf_params {
+@@ -663,6 +670,11 @@ struct qed_vf_iov {
+ 	 * compatibility [with older PFs] we'd still need to store these.
  	 */
- 	u16 num_cons;
- 
-+	/* per-VF number of CIDs */
-+	u8 num_vf_cons;
-+#define ETH_PF_PARAMS_VF_CONS_DEFAULT	(32)
+ 	struct qed_sb_info *sbs_info[PFVF_MAX_SBS_PER_VF];
 +
- 	/* To enable arfs, previous to HW-init a positive number needs to be
- 	 * set [as filters require allocated searcher ILT memory].
- 	 * This will set the maximal number of configured steering-filters.
++	/* Determines whether VF utilizes doorbells via limited register
++	 * bar or via the doorbell bar.
++	 */
++	bool b_doorbell_bar;
+ };
+ 
+ #ifdef CONFIG_QED_SRIOV
+@@ -971,6 +983,8 @@ void qed_iov_vf_task(struct work_struct *work);
+ void qed_vf_set_vf_start_tunn_update_param(struct qed_tunnel_info *p_tun);
+ int qed_vf_pf_tunnel_param_update(struct qed_hwfn *p_hwfn,
+ 				  struct qed_tunnel_info *p_tunn);
++
++u32 qed_vf_hw_bar_size(struct qed_hwfn *p_hwfn, enum BAR_ID bar_id);
+ #else
+ static inline void qed_vf_get_link_params(struct qed_hwfn *p_hwfn,
+ 					  struct qed_mcp_link_params *params)
+@@ -1147,6 +1161,13 @@ static inline int qed_vf_pf_tunnel_param_update(struct qed_hwfn *p_hwfn,
+ {
+ 	return -EINVAL;
+ }
++
++static inline u32
++qed_vf_hw_bar_size(struct qed_hwfn  *p_hwfn,
++		   enum BAR_ID bar_id)
++{
++	return 0;
++}
+ #endif
+ 
+ #endif
 -- 
 2.9.4
