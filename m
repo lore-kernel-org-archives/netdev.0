@@ -1,93 +1,74 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] net/phy: Delete unused function phy_ethtool_gset
-Date: Sun, 4 Jun 2017 10:20:59 -0700
-Message-ID: <64be6e73-73c4-f83b-1c77-93d367b4c9d6@gmail.com>
-References: <20170604171016.3910-1-yuval.shaia@oracle.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] net/dec: Make __de_get_link_ksettings return void
+Date: Sun, 4 Jun 2017 20:22:05 +0300
+Message-ID: <4391c380-f7f6-d549-a225-716b9b9df664@cogentembedded.com>
+References: <20170604170851.3808-1-yuval.shaia@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-To: Yuval Shaia <yuval.shaia@oracle.com>, andrew@lunn.ch,
-        netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f68.google.com ([209.85.218.68]:34037 "EHLO
-        mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750931AbdFDRVB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 4 Jun 2017 13:21:01 -0400
-Received: by mail-oi0-f68.google.com with SMTP id d99so7162017oic.1
-        for <netdev@vger.kernel.org>; Sun, 04 Jun 2017 10:21:01 -0700 (PDT)
-In-Reply-To: <20170604171016.3910-1-yuval.shaia@oracle.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Yuval Shaia <yuval.shaia@oracle.com>, davem@davemloft.net,
+        jarod@redhat.com, tklauser@distanz.ch, tremyfr@gmail.com,
+        netdev@vger.kernel.org, linux-parisc@vger.kernel.org
+Return-path: <linux-parisc-owner@vger.kernel.org>
+In-Reply-To: <20170604170851.3808-1-yuval.shaia@oracle.com>
+Sender: linux-parisc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Hello!
 
+On 6/4/2017 8:08 PM, Yuval Shaia wrote:
 
-On 06/04/2017 10:10 AM, Yuval Shaia wrote:
+> Make return value void since function never return meaningfull value
+
+   You only make 1 of 2 functions void. It looks like there should be 2 patches.
+
+>
 > Signed-off-by: Yuval Shaia <yuval.shaia@oracle.com>
-
-A commit message that just says: it's unused, so remove it would be
-nice. You seem to have missed Documentation/networking/phy.txt in this
-patch, do you mind resubmitting with that fixed?
-
-Finally, the subject should be:
-
-net: phy: Delete unused function phy_ethtool_gset
-
-to be (semi) consistent with past submissions done to these files. Thanks!
-
 > ---
->  drivers/net/phy/phy.c | 24 ------------------------
->  include/linux/phy.h   |  1 -
->  2 files changed, 25 deletions(-)
-> 
-> diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
-> index 9c372bf..8e26af5 100644
-> --- a/drivers/net/phy/phy.c
-> +++ b/drivers/net/phy/phy.c
-> @@ -484,30 +484,6 @@ int phy_ethtool_ksettings_set(struct phy_device *phydev,
+>  drivers/net/ethernet/dec/tulip/de2104x.c | 11 ++++-------
+>  1 file changed, 4 insertions(+), 7 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/dec/tulip/de2104x.c b/drivers/net/ethernet/dec/tulip/de2104x.c
+> index 91b8f6f..c87b8cc 100644
+> --- a/drivers/net/ethernet/dec/tulip/de2104x.c
+> +++ b/drivers/net/ethernet/dec/tulip/de2104x.c
+> @@ -1483,8 +1483,8 @@ static void __de_get_regs(struct de_private *de, u8 *buf)
+>  	de_rx_missed(de, rbuf[8]);
 >  }
->  EXPORT_SYMBOL(phy_ethtool_ksettings_set);
->  
-> -int phy_ethtool_gset(struct phy_device *phydev, struct ethtool_cmd *cmd)
-> -{
-> -	cmd->supported = phydev->supported;
-> -
-> -	cmd->advertising = phydev->advertising;
-> -	cmd->lp_advertising = phydev->lp_advertising;
-> -
-> -	ethtool_cmd_speed_set(cmd, phydev->speed);
-> -	cmd->duplex = phydev->duplex;
-> -	if (phydev->interface == PHY_INTERFACE_MODE_MOCA)
-> -		cmd->port = PORT_BNC;
-> -	else
-> -		cmd->port = PORT_MII;
-> -	cmd->phy_address = phydev->mdio.addr;
-> -	cmd->transceiver = phy_is_internal(phydev) ?
-> -		XCVR_INTERNAL : XCVR_EXTERNAL;
-> -	cmd->autoneg = phydev->autoneg;
-> -	cmd->eth_tp_mdix_ctrl = phydev->mdix_ctrl;
-> -	cmd->eth_tp_mdix = phydev->mdix;
+>
+> -static int __de_get_link_ksettings(struct de_private *de,
+> -				   struct ethtool_link_ksettings *cmd)
+> +static void __de_get_link_ksettings(struct de_private *de,
+> +				    struct ethtool_link_ksettings *cmd)
+>  {
+>  	ethtool_convert_legacy_u32_to_link_mode(cmd->link_modes.supported,
+>  						de->media_supported);
+> @@ -1517,8 +1517,6 @@ static int __de_get_link_ksettings(struct de_private *de,
+>  		cmd->base.autoneg = AUTONEG_ENABLE;
+>
+>  	/* ignore maxtxpkt, maxrxpkt for now */
 > -
 > -	return 0;
-> -}
-> -EXPORT_SYMBOL(phy_ethtool_gset);
-> -
->  void phy_ethtool_ksettings_get(struct phy_device *phydev,
->  			       struct ethtool_link_ksettings *cmd)
+>  }
+>
+>  static int __de_set_link_ksettings(struct de_private *de,
+> @@ -1615,13 +1613,12 @@ static int de_get_link_ksettings(struct net_device *dev,
+>  				 struct ethtool_link_ksettings *cmd)
 >  {
-> diff --git a/include/linux/phy.h b/include/linux/phy.h
-> index 4ec07a6..804851c 100644
-> --- a/include/linux/phy.h
-> +++ b/include/linux/phy.h
-> @@ -843,7 +843,6 @@ void phy_start_machine(struct phy_device *phydev);
->  void phy_stop_machine(struct phy_device *phydev);
->  void phy_trigger_machine(struct phy_device *phydev, bool sync);
->  int phy_ethtool_sset(struct phy_device *phydev, struct ethtool_cmd *cmd);
-> -int phy_ethtool_gset(struct phy_device *phydev, struct ethtool_cmd *cmd);
->  void phy_ethtool_ksettings_get(struct phy_device *phydev,
->  			       struct ethtool_link_ksettings *cmd);
->  int phy_ethtool_ksettings_set(struct phy_device *phydev,
-> 
+>  	struct de_private *de = netdev_priv(dev);
+> -	int rc;
+>
+>  	spin_lock_irq(&de->lock);
+> -	rc = __de_get_link_ksettings(de, cmd);
+> +	__de_get_link_ksettings(de, cmd);
+>  	spin_unlock_irq(&de->lock);
+>
+> -	return rc;
+> +	return 0;
+>  }
+>
+>  static int de_set_link_ksettings(struct net_device *dev,
+>
 
--- 
-Florian
+MBR, Sergei
+
