@@ -1,51 +1,72 @@
 From: Pravin Shelar <pshelar@ovn.org>
-Subject: Re: [PATCH net] geneve: fix needed_headroom and max_mtu for collect_metadata
-Date: Sat, 3 Jun 2017 22:34:43 -0700
-Message-ID: <CAOrHB_CL75iYcRa=T3qDvaRrS__=7chdczGJierUw4BMv9aOEw@mail.gmail.com>
-References: <20170602185410.10971-1-e@erig.me>
+Subject: Re: [net-next] openvswitch: add macro MODULE_ALIAS_VPORT_TYPE for
+ vport type alias
+Date: Sat, 3 Jun 2017 22:58:22 -0700
+Message-ID: <CAOrHB_CjkyEoWVJFT5Q+vPOvcg4rd9cY+z5gRi7JEQscG6-dNg@mail.gmail.com>
+References: <1496497655-24810-1-git-send-email-zhangshengju@cmss.chinamobile.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: David Miller <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Eric Garver <e@erig.me>
+Cc: Pravin Shelar <pshelar@nicira.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        "David S. Miller" <davem@davemloft.net>
+To: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from slow1-d.mail.gandi.net ([217.70.178.86]:34867 "EHLO
-        slow1-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750812AbdFDFnc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 4 Jun 2017 01:43:32 -0400
-Received: from relay5-d.mail.gandi.net (relay5-d.mail.gandi.net [217.70.183.197])
-        by slow1-d.mail.gandi.net (Postfix) with ESMTP id 56DF4496C85
-        for <netdev@vger.kernel.org>; Sun,  4 Jun 2017 07:34:47 +0200 (CEST)
-Received: from mfilter16-d.gandi.net (mfilter16-d.gandi.net [217.70.178.144])
-        by relay5-d.mail.gandi.net (Postfix) with ESMTP id 1F2DD41C08A
-        for <netdev@vger.kernel.org>; Sun,  4 Jun 2017 07:34:46 +0200 (CEST)
-Received: from relay5-d.mail.gandi.net ([IPv6:::ffff:217.70.183.197])
-        by mfilter16-d.gandi.net (mfilter16-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
-        with ESMTP id 6IAyav5tbI0T for <netdev@vger.kernel.org>;
-        Sun,  4 Jun 2017 07:34:44 +0200 (CEST)
-Received: from mail-wr0-f177.google.com (mail-wr0-f177.google.com [209.85.128.177])
+Received: from relay4-d.mail.gandi.net ([217.70.183.196]:34866 "EHLO
+        relay4-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750852AbdFDF61 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 4 Jun 2017 01:58:27 -0400
+Received: from mfilter17-d.gandi.net (mfilter17-d.gandi.net [217.70.178.145])
+        by relay4-d.mail.gandi.net (Postfix) with ESMTP id 15ACF1720A4
+        for <netdev@vger.kernel.org>; Sun,  4 Jun 2017 07:58:25 +0200 (CEST)
+Received: from relay4-d.mail.gandi.net ([IPv6:::ffff:217.70.183.196])
+        by mfilter17-d.gandi.net (mfilter17-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
+        with ESMTP id v4542t9yKjcE for <netdev@vger.kernel.org>;
+        Sun,  4 Jun 2017 07:58:23 +0200 (CEST)
+Received: from mail-wr0-f176.google.com (mail-wr0-f176.google.com [209.85.128.176])
         (Authenticated sender: pshelar@ovn.org)
-        by relay5-d.mail.gandi.net (Postfix) with ESMTPSA id CA65E41C089
-        for <netdev@vger.kernel.org>; Sun,  4 Jun 2017 07:34:44 +0200 (CEST)
-Received: by mail-wr0-f177.google.com with SMTP id v111so17009333wrc.3
-        for <netdev@vger.kernel.org>; Sat, 03 Jun 2017 22:34:44 -0700 (PDT)
-In-Reply-To: <20170602185410.10971-1-e@erig.me>
+        by relay4-d.mail.gandi.net (Postfix) with ESMTPSA id A7E4017209D
+        for <netdev@vger.kernel.org>; Sun,  4 Jun 2017 07:58:23 +0200 (CEST)
+Received: by mail-wr0-f176.google.com with SMTP id v111so17115347wrc.3
+        for <netdev@vger.kernel.org>; Sat, 03 Jun 2017 22:58:23 -0700 (PDT)
+In-Reply-To: <1496497655-24810-1-git-send-email-zhangshengju@cmss.chinamobile.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 2, 2017 at 11:54 AM, Eric Garver <e@erig.me> wrote:
-> Since commit 9b4437a5b870 ("geneve: Unify LWT and netdev handling.")
-> when using COLLECT_METADATA geneve devices are created with too small of
-> a needed_headroom and too large of a max_mtu. This is because
-> ip_tunnel_info_af() is not valid with the device level info when using
-> COLLECT_METADATA and we mistakenly fall into the IPv4 case.
+On Sat, Jun 3, 2017 at 6:47 AM, Zhang Shengju
+<zhangshengju@cmss.chinamobile.com> wrote:
+> Add a new macro MODULE_ALIAS_VPORT_TYPE to unify and simplify the
+> declaration of vport type alias, and replace magic numbers with
+> symbolic constants.
 >
-> For COLLECT_METADATA, always use the worst case of ipv6 since both
-> sockets are created.
+> Signed-off-by: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
+> ---
+>  net/openvswitch/vport-geneve.c | 2 +-
+>  net/openvswitch/vport-gre.c    | 2 +-
+>  net/openvswitch/vport-vxlan.c  | 2 +-
+>  net/openvswitch/vport.h        | 3 +++
+>  4 files changed, 6 insertions(+), 3 deletions(-)
 >
-> Fixes: 9b4437a5b870 ("geneve: Unify LWT and netdev handling.")
-> Signed-off-by: Eric Garver <e@erig.me>
+> diff --git a/net/openvswitch/vport-geneve.c b/net/openvswitch/vport-geneve.c
+> index 5aaf3ba..1c068d6 100644
+> --- a/net/openvswitch/vport-geneve.c
+> +++ b/net/openvswitch/vport-geneve.c
+> @@ -141,4 +141,4 @@ static void __exit ovs_geneve_tnl_exit(void)
+>
+>  MODULE_DESCRIPTION("OVS: Geneve switching port");
+>  MODULE_LICENSE("GPL");
+> -MODULE_ALIAS("vport-type-5");
+> +MODULE_ALIAS_VPORT_TYPE(OVS_VPORT_TYPE_GENEVE);
+> diff --git a/net/openvswitch/vport-gre.c b/net/openvswitch/vport-gre.c
+> index 0e72d95..48a5852 100644
+> --- a/net/openvswitch/vport-gre.c
+> +++ b/net/openvswitch/vport-gre.c
+> @@ -113,4 +113,4 @@ static void __exit ovs_gre_tnl_exit(void)
+>
+>  MODULE_DESCRIPTION("OVS: GRE switching port");
+>  MODULE_LICENSE("GPL");
+> -MODULE_ALIAS("vport-type-3");
+> +MODULE_ALIAS_VPORT_TYPE(OVS_VPORT_TYPE_GRE);
 
-Acked-by: Pravin B Shelar <pshelar@ovn.org>
-
-Thanks.
+This is user visible change. For example this is changing the gre
+module alias from "vport-type-3" to "vport-type-OVS_VPORT_TYPE_GRE".
+This could break userspace application.
