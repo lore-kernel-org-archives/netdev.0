@@ -1,93 +1,145 @@
-From: Yuval Mintz <Yuval.Mintz@cavium.com>
-Subject: [PATCH net-next 11/11] qede: VF XDP support
-Date: Sun, 4 Jun 2017 13:31:09 +0300
-Message-ID: <20170604103109.3082-12-Yuval.Mintz@cavium.com>
-References: <20170604103109.3082-1-Yuval.Mintz@cavium.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Yuval Mintz <Yuval.Mintz@cavium.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+From: Tariq Toukan <tariqt@mellanox.com>
+Subject: [PATCH net V4] net/mlx4: Fix the check in attaching steering rules
+Date: Sun,  4 Jun 2017 14:30:07 +0300
+Message-ID: <1496575807-27979-1-git-send-email-tariqt@mellanox.com>
+Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>,
+        Talat Batheesh <talatb@mellanox.com>,
+        Tariq Toukan <tariqt@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn3nam01on0064.outbound.protection.outlook.com ([104.47.33.64]:5488
-        "EHLO NAM01-BN3-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751237AbdFDKcY (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 4 Jun 2017 06:32:24 -0400
-In-Reply-To: <20170604103109.3082-1-Yuval.Mintz@cavium.com>
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:44578 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1751027AbdFDLbU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 4 Jun 2017 07:31:20 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This introduces 2 changes needed for XDP to be supported for VFs:
+From: Talat Batheesh <talatb@mellanox.com>
 
- a. On VF-side, publish the NDO based on qed outputs
+Our previous patch (cited below) introduced a regression
+for RAW Eth QPs.
 
- b. On PF-side, request qed to allocate sufficient cids per-VF
-    to allow the child vfs to support it
+Fix it by checking if the QP number provided by user-space
+exists, hence allowing steering rules to be added for valid
+QPs only.
 
-Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
+Fixes: 89c557687a32 ("net/mlx4_en: Avoid adding steering rules with invalid ring")
+Reported-by: Or Gerlitz <gerlitz.or@gmail.com>
+Signed-off-by: Talat Batheesh <talatb@mellanox.com>
+Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
+Acked-by: Or Gerlitz <ogerlitz@mellanox.com>
+Reviewed-by: Leon Romanovsky <leonro@mellanox.com>
 ---
- drivers/net/ethernet/qlogic/qede/qede_main.c | 34 +++++++++++++++++++++++++---
- 1 file changed, 31 insertions(+), 3 deletions(-)
+v3:
+* Moved qpn check into core function, it will indicate any errors to the EN driver.
 
-diff --git a/drivers/net/ethernet/qlogic/qede/qede_main.c b/drivers/net/ethernet/qlogic/qede/qede_main.c
-index ad1e249..fdf04bc 100644
---- a/drivers/net/ethernet/qlogic/qede/qede_main.c
-+++ b/drivers/net/ethernet/qlogic/qede/qede_main.c
-@@ -580,6 +580,24 @@ static const struct net_device_ops qede_netdev_vf_ops = {
- 	.ndo_features_check = qede_features_check,
+v4:
+* Use full patch subject in Fixes line.
+
+ drivers/net/ethernet/mellanox/mlx4/en_ethtool.c |  5 -----
+ drivers/net/ethernet/mellanox/mlx4/mcg.c        | 15 +++++++++++----
+ drivers/net/ethernet/mellanox/mlx4/qp.c         | 13 +++++++++++++
+ include/linux/mlx4/qp.h                         |  1 +
+ 4 files changed, 25 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+index ae5fdc2df654..ffbcb27c05e5 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+@@ -1562,11 +1562,6 @@ static int mlx4_en_flow_replace(struct net_device *dev,
+ 		qpn = priv->drop_qp.qpn;
+ 	else if (cmd->fs.ring_cookie & EN_ETHTOOL_QP_ATTACH) {
+ 		qpn = cmd->fs.ring_cookie & (EN_ETHTOOL_QP_ATTACH - 1);
+-		if (qpn < priv->rss_map.base_qpn ||
+-		    qpn >= priv->rss_map.base_qpn + priv->rx_ring_num) {
+-			en_warn(priv, "rxnfc: QP (0x%x) doesn't exist\n", qpn);
+-			return -EINVAL;
+-		}
+ 	} else {
+ 		if (cmd->fs.ring_cookie >= priv->rx_ring_num) {
+ 			en_warn(priv, "rxnfc: RX ring (%llu) doesn't exist\n",
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mcg.c b/drivers/net/ethernet/mellanox/mlx4/mcg.c
+index 1a670b681555..0710b3677464 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mcg.c
++++ b/drivers/net/ethernet/mellanox/mlx4/mcg.c
+@@ -35,6 +35,7 @@
+ #include <linux/etherdevice.h>
+ 
+ #include <linux/mlx4/cmd.h>
++#include <linux/mlx4/qp.h>
+ #include <linux/export.h>
+ 
+ #include "mlx4.h"
+@@ -985,16 +986,21 @@ int mlx4_flow_attach(struct mlx4_dev *dev,
+ 	if (IS_ERR(mailbox))
+ 		return PTR_ERR(mailbox);
+ 
++	if (!mlx4_qp_lookup(dev, rule->qpn)) {
++		mlx4_err_rule(dev, "QP doesn't exist\n", rule);
++		ret = -EINVAL;
++		goto out;
++	}
++
+ 	trans_rule_ctrl_to_hw(rule, mailbox->buf);
+ 
+ 	size += sizeof(struct mlx4_net_trans_rule_hw_ctrl);
+ 
+ 	list_for_each_entry(cur, &rule->list, list) {
+ 		ret = parse_trans_rule(dev, cur, mailbox->buf + size);
+-		if (ret < 0) {
+-			mlx4_free_cmd_mailbox(dev, mailbox);
+-			return ret;
+-		}
++		if (ret < 0)
++			goto out;
++
+ 		size += ret;
+ 	}
+ 
+@@ -1021,6 +1027,7 @@ int mlx4_flow_attach(struct mlx4_dev *dev,
+ 		}
+ 	}
+ 
++out:
+ 	mlx4_free_cmd_mailbox(dev, mailbox);
+ 
+ 	return ret;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/qp.c b/drivers/net/ethernet/mellanox/mlx4/qp.c
+index 2d6abd4662b1..ad92d2311478 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/qp.c
++++ b/drivers/net/ethernet/mellanox/mlx4/qp.c
+@@ -384,6 +384,19 @@ static void mlx4_qp_free_icm(struct mlx4_dev *dev, int qpn)
+ 		__mlx4_qp_free_icm(dev, qpn);
+ }
+ 
++struct mlx4_qp *mlx4_qp_lookup(struct mlx4_dev *dev, u32 qpn)
++{
++	struct mlx4_qp_table *qp_table = &mlx4_priv(dev)->qp_table;
++	struct mlx4_qp *qp;
++
++	spin_lock(&qp_table->lock);
++
++	qp = __mlx4_qp_lookup(dev, qpn);
++
++	spin_unlock(&qp_table->lock);
++	return qp;
++}
++
+ int mlx4_qp_alloc(struct mlx4_dev *dev, int qpn, struct mlx4_qp *qp, gfp_t gfp)
+ {
+ 	struct mlx4_priv *priv = mlx4_priv(dev);
+diff --git a/include/linux/mlx4/qp.h b/include/linux/mlx4/qp.h
+index b4ee8f62ce8d..8e2828d48d7f 100644
+--- a/include/linux/mlx4/qp.h
++++ b/include/linux/mlx4/qp.h
+@@ -470,6 +470,7 @@ struct mlx4_update_qp_params {
+ 	u16	rate_val;
  };
  
-+static const struct net_device_ops qede_netdev_vf_xdp_ops = {
-+	.ndo_open = qede_open,
-+	.ndo_stop = qede_close,
-+	.ndo_start_xmit = qede_start_xmit,
-+	.ndo_set_rx_mode = qede_set_rx_mode,
-+	.ndo_set_mac_address = qede_set_mac_addr,
-+	.ndo_validate_addr = eth_validate_addr,
-+	.ndo_change_mtu = qede_change_mtu,
-+	.ndo_vlan_rx_add_vid = qede_vlan_rx_add_vid,
-+	.ndo_vlan_rx_kill_vid = qede_vlan_rx_kill_vid,
-+	.ndo_set_features = qede_set_features,
-+	.ndo_get_stats64 = qede_get_stats64,
-+	.ndo_udp_tunnel_add = qede_udp_tunnel_add,
-+	.ndo_udp_tunnel_del = qede_udp_tunnel_del,
-+	.ndo_features_check = qede_features_check,
-+	.ndo_xdp = qede_xdp,
-+};
-+
- /* -------------------------------------------------------------------------
-  * START OF PROBE / REMOVE
-  * -------------------------------------------------------------------------
-@@ -645,10 +663,14 @@ static void qede_init_ndev(struct qede_dev *edev)
- 
- 	ndev->watchdog_timeo = TX_TIMEOUT;
- 
--	if (IS_VF(edev))
--		ndev->netdev_ops = &qede_netdev_vf_ops;
--	else
-+	if (IS_VF(edev)) {
-+		if (edev->dev_info.xdp_supported)
-+			ndev->netdev_ops = &qede_netdev_vf_xdp_ops;
-+		else
-+			ndev->netdev_ops = &qede_netdev_vf_ops;
-+	} else {
- 		ndev->netdev_ops = &qede_netdev_ops;
-+	}
- 
- 	qede_set_ethtool_ops(ndev);
- 
-@@ -846,6 +868,12 @@ static void qede_update_pf_params(struct qed_dev *cdev)
- 	/* 64 rx + 64 tx + 64 XDP */
- 	memset(&pf_params, 0, sizeof(struct qed_pf_params));
- 	pf_params.eth_pf_params.num_cons = (MAX_SB_PER_PF_MIMD - 1) * 3;
-+
-+	/* Same for VFs - make sure they'll have sufficient connections
-+	 * to support XDP Tx queues.
-+	 */
-+	pf_params.eth_pf_params.num_vf_cons = 48;
-+
- #ifdef CONFIG_RFS_ACCEL
- 	pf_params.eth_pf_params.num_arfs_filters = QEDE_RFS_MAX_FLTR;
- #endif
++struct mlx4_qp *mlx4_qp_lookup(struct mlx4_dev *dev, u32 qpn);
+ int mlx4_update_qp(struct mlx4_dev *dev, u32 qpn,
+ 		   enum mlx4_update_qp_attr attr,
+ 		   struct mlx4_update_qp_params *params);
 -- 
-2.9.4
+1.8.3.1
