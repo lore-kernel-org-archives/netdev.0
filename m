@@ -1,139 +1,63 @@
-From: Florian Weimer <fweimer@redhat.com>
-Subject: Re: [net-next PATCH 2/3] net: reduce cycles spend on ICMP replies
- that gets rate limited
-Date: Sun, 4 Jun 2017 09:11:53 +0200
-Message-ID: <7d432179-5e3a-febe-ced7-39ea33ba4906@redhat.com>
-References: <20170109150246.30215.63371.stgit@firesoul>
- <20170109150409.30215.34612.stgit@firesoul>
+From: Ilan Tayari <ilant-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Subject: RE: [for-next 4/6] net/mlx5: FPGA, Add basic support for Innova
+Date: Sun, 4 Jun 2017 07:51:24 +0000
+Message-ID: <AM4PR0501MB19404B83A69B87AFB1326B45DBF50@AM4PR0501MB1940.eurprd05.prod.outlook.com>
+References: <20170526030701.du4345mbprhcwjyi@ast-mbp>
+ <CALzJLG98D=3yMJV_q4sjVNG41AERFRU+6rwqQJsxnRuVeDTPdA@mail.gmail.com>
+ <20170526175624.5xxflpf24je5673h@ast-mbp>
+ <20170526181517.GA3860@obsidianresearch.com>
+ <AM4PR0501MB1940330F0EBAA819C87C5278DBF20@AM4PR0501MB1940.eurprd05.prod.outlook.com>
+ <20170529153131.GB7924@obsidianresearch.com>
+ <AM4PR0501MB1940D05A19F098286B99EAD0DBF30@AM4PR0501MB1940.eurprd05.prod.outlook.com>
+ <20170529160252.GA27550@obsidianresearch.com>
+ <AM4PR0501MB194037FF8F17466BC9ECC73DDBF30@AM4PR0501MB1940.eurprd05.prod.outlook.com>
+ <AM4PR0501MB19409139227E11A4A7F82F0FDBF30@AM4PR0501MB1940.eurprd05.prod.outlook.com>
+ <20170601153704.GA1680@obsidianresearch.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------083A8560C1B3F9B1A2444FC1"
-Cc: xiyou.wangcong@gmail.com
-To: Jesper Dangaard Brouer <brouer@redhat.com>, netdev@vger.kernel.org,
-        Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:55580 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750847AbdFDHL6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 4 Jun 2017 03:11:58 -0400
-In-Reply-To: <20170109150409.30215.34612.stgit@firesoul>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Saeed Mahameed <saeedm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>,
+        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        "Doug Ledford" <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "jsorensen-b10kYP2dOMg@public.gmane.org" <jsorensen-b10kYP2dOMg@public.gmane.org>,
+        "Andy Shevchenko" <andy.shevchenko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        "linux-fpga-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-fpga-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Alan Tull <atull-yzvPICuk2ABMcg4IHK0kFoH6Mc4MB0Vx@public.gmane.org>,
+        "yi1.li-VuQAYsv1563Yd54FQh9/CA@public.gmane.org" <yi1.li-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+        Boris Pismenny <borisp-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+To: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170601153704.GA1680-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
 Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------083A8560C1B3F9B1A2444FC1
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-
-On 01/09/2017 04:04 PM, Jesper Dangaard Brouer wrote:
-> This patch split the global and per (inet)peer ICMP-reply limiter
-> code, and moves the global limit check to earlier in the packet
-> processing path.  Thus, avoid spending cycles on ICMP replies that
-> gets limited/suppressed anyhow.
-> 
-> The global ICMP rate limiter icmp_global_allow() is a good solution,
-> it just happens too late in the process.  The kernel goes through the
-> full route lookup (return path) for the ICMP message, before taking
-> the rate limit decision of not sending the ICMP reply.
-> 
-> Details: The kernels global rate limiter for ICMP messages got added
-> in commit 4cdf507d5452 ("icmp: add a global rate limitation").  It is
-> a token bucket limiter with a global lock.  It brilliantly avoids
-> locking congestion by only updating when 20ms (HZ/50) were elapsed. It
-> can then avoids taking lock when credit is exhausted (when under
-> pressure) and time constraint for refill is not yet meet.
-
-This patch removed the rate limit bypass for localhost.  As a result, it
-is impossible to write deterministic UDP client tests tests which
-exercise failover behavior in response to unreachable servers.
-
-H.J. Lu noted that a glibc test started failing on kernel 4.11 and
-identified the regression:
-
-  https://sourceware.org/ml/libc-alpha/2017-06/msg00167.html
-
-(I have more tests which are afflicted by this, but are not yet in glibc
-upstream.)
-
-This is particularly annoying because we already run such tests in a
-network namespace for isolation, but the rate limit counter is global,
-so that doesn't help here.
-
-I'm attaching a self-contained test case.  It fails for me with:
-
-localhost-icmp: iteration 50: no ICMP message (poll timeout)
-
-On kernel 4.10, it passes and runs within just a few milliseconds.
-
-Would you please fix this in some way?  Thanks.
-
-Florian
-
---------------083A8560C1B3F9B1A2444FC1
-Content-Type: text/x-csrc;
- name="localhost-icmp.c"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: attachment;
- filename="localhost-icmp.c"
-
-#include <arpa/inet.h>
-#include <err.h>
-#include <netinet/in.h>
-#include <stdio.h>
-#include <sys/poll.h>
-#include <sys/socket.h>
-#include <unistd.h>
-
-/* How many UDP packets to send to a non-responding part.  */
-enum { ITERATIONS =3D 1000 };
-
-int
-main (void)
-{
-  /* Pick a port number which is likely unused.  */
-  unsigned short port;
-  {
-    int sock =3D socket (AF_INET, SOCK_DGRAM, 0);
-    if (sock < 0)
-      err (1, "socket");
-    struct sockaddr_in sin =3D { .sin_family =3D AF_INET };
-    if (bind (sock, (struct sockaddr *) &sin, sizeof (sin)) < 0)
-      err (1, "bind");
-    socklen_t sinlen =3D sizeof (sin);
-    if (getsockname (sock, (struct sockaddr *) &sin, &sinlen))
-      err (1, "getsockname");
-    if (sinlen !=3D sizeof (sin) || sin.sin_family !=3D AF_INET)
-      errx (1, "wrong address information for socket");
-    if (close (sock) < 0)
-      err (1, "close");
-    port =3D sin.sin_port;
-  }
-
-  for (int i =3D 0; i < ITERATIONS; ++i)
-    {
-      int sock =3D socket (AF_INET, SOCK_DGRAM, 0);
-      if (sock < 0)
-        err (1, "socket");
-      struct sockaddr_in sin =3D
-        {
-          .sin_family =3D AF_INET,
-          .sin_addr =3D { ntohl (INADDR_LOOPBACK) },
-          .sin_port =3D port,
-        };
-      if (connect (sock, (struct sockaddr *) &sin, sizeof (sin)) < 0)
-        err (1, "connect");
-      if (sendto (sock, "", 1, 0, NULL, 0) < 0)
-        err (1, "sendto");
-      struct pollfd fd =3D { .fd =3D sock, .events =3D POLLIN };
-      int ret =3D poll (&fd, 1, 5000);
-      if (ret < 0)
-        err (1, "poll");
-      if (ret =3D=3D 0)
-        errx (1, "iteration %d: no ICMP message (poll timeout)", i);
-      if (close (sock) < 0)
-        err (1, "close");
-    }
-}
-
---------------083A8560C1B3F9B1A2444FC1--
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBKYXNvbiBHdW50aG9ycGUgW21h
+aWx0bzpqZ3VudGhvcnBlQG9ic2lkaWFucmVzZWFyY2guY29tXQ0KPiBTdWJqZWN0OiBSZTogW2Zv
+ci1uZXh0IDQvNl0gbmV0L21seDU6IEZQR0EsIEFkZCBiYXNpYyBzdXBwb3J0IGZvciBJbm5vdmEN
+Cj4gDQo+IE9uIE1vbiwgTWF5IDI5LCAyMDE3IGF0IDA0OjA5OjA2UE0gKzAwMDAsIElsYW4gVGF5
+YXJpIHdyb3RlOg0KPiANCj4gPiA+IEZvciBJUFNlYywgdGhpcyBpcyBhbHJlYWR5IGluIHRoZSBr
+ZXJuZWwuDQo+ID4gPiBTZWUgdGhpcyBwYXRjaHNldDoNCj4gPiA+IGh0dHA6Ly93d3cubWFpbC1h
+cmNoaXZlLmNvbS9uZXRkZXZAdmdlci5rZXJuZWwub3JnL21zZzE2Mjg3Ni5odG1sDQo+ID4NCj4g
+PiBTb3JyeSwgSSBwb2ludGVkIGF0IHRoZSBSRkMgYnkgbWlzdGFrZS4NCj4gPg0KPiA+IFRoaXMg
+aXMgdGhlIHJlbGV2YW50IHB1bGwgcmVxdWVzdDoNCj4gPiBodHRwczovL3BhdGNod29yay5vemxh
+YnMub3JnL3BhdGNoLzc1MjcwNy8NCj4gDQo+IFRoaXMgaXMgY29ubmVjdGluZyBpcHNlYyB0byBh
+IG5ldGRldiwgd2hpbGUgSW5ub3ZhIHNlZW1zIHRvIGJlIGENCg0KSmFzb24sDQoNCiJuZXR3b3Jr
+IGNvbm5lY3RlZCBpcHNlYyBhY2NlbGVyYXRvciBjb25maWd1cmVkIHVzaW5nIElQIHBhY2tldHMu
+Ig0KTm8uIFRoaXMgaXMgaW5jb3JyZWN0Lg0KV2hlcmUgZGlkIHlvdSBnZXQgdGhhdCBmcm9tPw0K
+DQpJdCBpcyBhbiBJUFNlYy1jYXBhYmxlIE5JQy4NClNlZSBoZXJlIGZvciBkZXRhaWxzOg0KaHR0
+cDovL3d3dy5tZWxsYW5veC5jb20vcGFnZS9wcm9kdWN0c19keW4/cHJvZHVjdF9mYW1pbHk9MjQ5
+Jm10YWc9cHJvZ3JhbW1hYmxlX25ldHdvcmtfYWRhcHRlcnMNCg0KVGhlIGRyaXZlciB3ZSBhcmUg
+aW50ZW5kaW5nIHRvIHN1Ym1pdCBmb3IgaXQsIGludGVyZmFjZXMgd2l0aCB0aGUgbWVudGlvbmVk
+IEFQSSBpbiB0aGUgcHVsbC1yZXF1ZXN0IChOZXRkZXYgeGRvIGNhbGxiYWNrcykNCg0KU28geW91
+IGNvbmZpZ3VyZSBpdCBmcm9tIHVzZXJzcGFjZSB3aXRoIHJlZ3VsYXIgSVBTZWMgJ2lwIHhmcm0g
+c3RhdGUnIGNvbW1hbmRzIG9yIG92ZXIgbmV0bGluayB3aXRoIHlvdXIgZmF2b3JpdGUgSUtFIGRh
+ZW1vbi4NCg0KPiANCj4gVGhvc2UgdHdvIHRoaW5ncyBkb24ndCBzZWVtIHRvIGJlIHRoZSBzYW1l
+Lg0KPiANCj4gSmFzb24NCg==
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
