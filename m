@@ -1,88 +1,42 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 3/3] mlxsw: spectrum_router: Align RIF index allocation with existing code
-Date: Sun,  4 Jun 2017 16:53:40 +0200
-Message-ID: <20170604145340.14447-4-jiri@resnulli.us>
-References: <20170604145340.14447-1-jiri@resnulli.us>
-Cc: davem@davemloft.net, idosch@mellanox.com, petrm@mellanox.com,
-        mlxsw@mellanox.com
-To: netdev@vger.kernel.org
+From: Colin King <colin.king@canonical.com>
+Subject: [PATCH] ath6kl: fix spelling mistake: "Indicat" -> "Indicate"
+Date: Sun,  4 Jun 2017 17:36:08 +0100
+Message-ID: <20170604163608.24894-1-colin.king@canonical.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: linux-kernel@vger.kernel.org
+To: Kalle Valo <kvalo@qca.qualcomm.com>,
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:36290 "EHLO
-        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751159AbdFDOxr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 4 Jun 2017 10:53:47 -0400
-Received: by mail-wm0-f68.google.com with SMTP id k15so26125170wmh.3
-        for <netdev@vger.kernel.org>; Sun, 04 Jun 2017 07:53:46 -0700 (PDT)
-In-Reply-To: <20170604145340.14447-1-jiri@resnulli.us>
+Received: from youngberry.canonical.com ([91.189.89.112]:55867 "EHLO
+        youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751218AbdFDQgL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 4 Jun 2017 12:36:11 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ido Schimmel <idosch@mellanox.com>
+From: Colin Ian King <colin.king@canonical.com>
 
-The way we usually allocate an index is by letting the allocation
-function return an error instead of an invalid index.
+Trivial fix to spelling mistake in ath6kl_dbg debug message
 
-Do the same for RIF index.
-
-Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-Reviewed-by: Petr Machata <petrm@mellanox.com>
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
 ---
- .../net/ethernet/mellanox/mlxsw/spectrum_router.c  | 24 +++++++++++-----------
- 1 file changed, 12 insertions(+), 12 deletions(-)
+ drivers/net/wireless/ath/ath6kl/htc_pipe.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-index a4272c3..2006105 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-@@ -2979,16 +2979,18 @@ mlxsw_sp_dev_rif_type(const struct mlxsw_sp *mlxsw_sp,
- 	return mlxsw_sp_fid_type_rif_type(mlxsw_sp, type);
- }
- 
--#define MLXSW_SP_INVALID_INDEX_RIF 0xffff
--static int mlxsw_sp_avail_rif_get(struct mlxsw_sp *mlxsw_sp)
-+static int mlxsw_sp_rif_index_alloc(struct mlxsw_sp *mlxsw_sp, u16 *p_rif_index)
- {
- 	int i;
- 
--	for (i = 0; i < MLXSW_CORE_RES_GET(mlxsw_sp->core, MAX_RIFS); i++)
--		if (!mlxsw_sp->router->rifs[i])
--			return i;
-+	for (i = 0; i < MLXSW_CORE_RES_GET(mlxsw_sp->core, MAX_RIFS); i++) {
-+		if (!mlxsw_sp->router->rifs[i]) {
-+			*p_rif_index = i;
-+			return 0;
-+		}
-+	}
- 
--	return MLXSW_SP_INVALID_INDEX_RIF;
-+	return -ENOBUFS;
- }
- 
- static struct mlxsw_sp_rif *mlxsw_sp_rif_alloc(size_t rif_size, u16 rif_index,
-@@ -3048,11 +3050,9 @@ mlxsw_sp_rif_create(struct mlxsw_sp *mlxsw_sp,
- 	if (IS_ERR(vr))
- 		return ERR_CAST(vr);
- 
--	rif_index = mlxsw_sp_avail_rif_get(mlxsw_sp);
--	if (rif_index == MLXSW_SP_INVALID_INDEX_RIF) {
--		err = -ERANGE;
--		goto err_avail_rif_get;
--	}
-+	err = mlxsw_sp_rif_index_alloc(mlxsw_sp, &rif_index);
-+	if (err)
-+		goto err_rif_index_alloc;
- 
- 	rif = mlxsw_sp_rif_alloc(ops->rif_size, rif_index, vr->id, params->dev);
- 	if (!rif) {
-@@ -3095,7 +3095,7 @@ mlxsw_sp_rif_create(struct mlxsw_sp *mlxsw_sp,
- err_fid_get:
- 	kfree(rif);
- err_rif_alloc:
--err_avail_rif_get:
-+err_rif_index_alloc:
- 	mlxsw_sp_vr_put(vr);
- 	return ERR_PTR(err);
- }
+diff --git a/drivers/net/wireless/ath/ath6kl/htc_pipe.c b/drivers/net/wireless/ath/ath6kl/htc_pipe.c
+index d127a08d60df..d4fd9e40fffb 100644
+--- a/drivers/net/wireless/ath/ath6kl/htc_pipe.c
++++ b/drivers/net/wireless/ath/ath6kl/htc_pipe.c
+@@ -383,7 +383,7 @@ static enum htc_send_queue_result htc_try_send(struct htc_target *target,
+ 			list_for_each_entry_safe(packet, tmp_pkt,
+ 						 txq, list) {
+ 				ath6kl_dbg(ATH6KL_DBG_HTC,
+-					   "%s: Indicat overflowed TX pkts: %p\n",
++					   "%s: Indicate overflowed TX pkts: %p\n",
+ 					   __func__, packet);
+ 				action = ep->ep_cb.tx_full(ep->target, packet);
+ 				if (action == HTC_SEND_FULL_DROP) {
 -- 
-2.9.3
+2.11.0
