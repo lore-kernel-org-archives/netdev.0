@@ -1,162 +1,51 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH v2 2/3] PCI: Enable PCIe Relaxed Ordering if supported
-Date: Sun, 4 Jun 2017 11:07:43 +0800
-Message-ID: <55b08eae-dbe4-48da-329e-a617be28fd21@huawei.com>
-References: <1496462647-7632-1-git-send-email-dingtianhong@huawei.com>
- <1496462647-7632-3-git-send-email-dingtianhong@huawei.com>
- <CAKgT0UfKPLy7=swnZYiYOrLS8znhjxeXNZv=+CK5XS3Z1fkMbw@mail.gmail.com>
+From: Pravin Shelar <pshelar@ovn.org>
+Subject: Re: [PATCH net] geneve: fix needed_headroom and max_mtu for collect_metadata
+Date: Sat, 3 Jun 2017 22:34:43 -0700
+Message-ID: <CAOrHB_CL75iYcRa=T3qDvaRrS__=7chdczGJierUw4BMv9aOEw@mail.gmail.com>
+References: <20170602185410.10971-1-e@erig.me>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Mark Rutland <mark.rutland@arm.com>,
- Gabriele Paoloni <gabriele.paoloni@huawei.com>,
- Asit K Mallick <asit.k.mallick@intel.com>,
- Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will.deacon@arm.com>,
- Ashok Raj <ashok.raj@intel.com>, Bjorn Helgaas <helgaas@kernel.org>,
- Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
- "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
- Ganesh Goudar <ganeshgr@chelsio.com>, Bob Shaw <Bob.Shaw@amd.com>,
- Casey Leedom <leedom@chelsio.com>,
- Patrick J Cramer <patrick.j.cramer@intel.com>,
- Michael Werner <werner@chelsio.com>, linux-arm-kernel@lists.infradead.org,
- Amir Ancel <amira@mellanox.com>, Netdev <netdev@vger.kernel.org>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- David Laight <David.Laight@aculab.com>,
- Suravee Suthikulpanit <Suravee.Suthikulpanit@amd.com>,
- Robin Murphy <robin.murphy@arm.com>, David Miller <davem@
-To: Alexander Duyck <alexander.duyck@gmail.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <CAKgT0UfKPLy7=swnZYiYOrLS8znhjxeXNZv=+CK5XS3Z1fkMbw@mail.gmail.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: David Miller <davem@davemloft.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Eric Garver <e@erig.me>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from slow1-d.mail.gandi.net ([217.70.178.86]:34867 "EHLO
+        slow1-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750812AbdFDFnc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 4 Jun 2017 01:43:32 -0400
+Received: from relay5-d.mail.gandi.net (relay5-d.mail.gandi.net [217.70.183.197])
+        by slow1-d.mail.gandi.net (Postfix) with ESMTP id 56DF4496C85
+        for <netdev@vger.kernel.org>; Sun,  4 Jun 2017 07:34:47 +0200 (CEST)
+Received: from mfilter16-d.gandi.net (mfilter16-d.gandi.net [217.70.178.144])
+        by relay5-d.mail.gandi.net (Postfix) with ESMTP id 1F2DD41C08A
+        for <netdev@vger.kernel.org>; Sun,  4 Jun 2017 07:34:46 +0200 (CEST)
+Received: from relay5-d.mail.gandi.net ([IPv6:::ffff:217.70.183.197])
+        by mfilter16-d.gandi.net (mfilter16-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
+        with ESMTP id 6IAyav5tbI0T for <netdev@vger.kernel.org>;
+        Sun,  4 Jun 2017 07:34:44 +0200 (CEST)
+Received: from mail-wr0-f177.google.com (mail-wr0-f177.google.com [209.85.128.177])
+        (Authenticated sender: pshelar@ovn.org)
+        by relay5-d.mail.gandi.net (Postfix) with ESMTPSA id CA65E41C089
+        for <netdev@vger.kernel.org>; Sun,  4 Jun 2017 07:34:44 +0200 (CEST)
+Received: by mail-wr0-f177.google.com with SMTP id v111so17009333wrc.3
+        for <netdev@vger.kernel.org>; Sat, 03 Jun 2017 22:34:44 -0700 (PDT)
+In-Reply-To: <20170602185410.10971-1-e@erig.me>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-CgpPbiAyMDE3LzYvNCAyOjE5LCBBbGV4YW5kZXIgRHV5Y2sgd3JvdGU6Cj4gT24gRnJpLCBKdW4g
-MiwgMjAxNyBhdCA5OjA0IFBNLCBEaW5nIFRpYW5ob25nIDxkaW5ndGlhbmhvbmdAaHVhd2VpLmNv
-bT4gd3JvdGU6Cj4+IFRoZSBQQ0llIERldmljZSBDb250cm9sIFJlZ2lzdGVyIHVzZSB0aGUgYml0
-IDQgdG8gaW5kaWNhdGUgdGhhdAo+PiB3aGV0aGVyIHRoZSBkZXZpY2UgaXMgcGVybWl0dGVkIHRv
-IGVuYWJsZSByZWxheGVkIG9yZGVyaW5nIG9yIG5vdC4KPj4gQnV0IHJlbGF4ZWQgb3JkZXJpbmcg
-aXMgbm90IHNhZmUgZm9yIHNvbWUgcGxhdGZvcm0gd2hpY2ggY291bGQgb25seQo+PiB1c2Ugc3Ry
-b25nIHdyaXRlIG9yZGVyaW5nLCBzbyBkZXZpY2VzIGFyZSBhbGxvd2VkIChidXQgbm90IHJlcXVp
-cmVkKQo+PiB0byBlbmFibGUgcmVsYXhlZCBvcmRlcmluZyBiaXQgYnkgZGVmYXVsdC4KPj4KPj4g
-SWYgYSBwbGF0Zm9ybSBzdXBwb3J0IHJlbGF4ZWQgb3JkZXJpbmcgYnV0IGRvZXMgbm90IGVuYWJs
-ZSBpdCBieQo+PiBkZWZhdWx0LCBlbmFibGUgaXQgaW4gdGhlIFBDSWUgY29uZmlndXJhdGlvbi4g
-VGhpcyBhbGxvd3Mgc29tZSBkZXZpY2UKPj4gdG8gc2VuZCBUTFBzIHdpdGggdGhlIHJlbGF4ZWQg
-b3JkZXJpbmcgYXR0cmlidXRlcyBzZXQsIHdoaWNoIG1heQo+PiBpbXByb3ZlIHRoZSBwZXJmb3Jt
-YW5jZS4KPj4KPj4gU2lnbmVkLW9mZi1ieTogRGluZyBUaWFuaG9uZyA8ZGluZ3RpYW5ob25nQGh1
-YXdlaS5jb20+Cj4+IC0tLQo+PiAgZHJpdmVycy9wY2kvcGNpLmMgICB8IDQyICsrKysrKysrKysr
-KysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKwo+PiAgZHJpdmVycy9wY2kvcHJvYmUuYyB8
-IDExICsrKysrKysrKysrCj4+ICBpbmNsdWRlL2xpbnV4L3BjaS5oIHwgIDMgKysrCj4+ICAzIGZp
-bGVzIGNoYW5nZWQsIDU2IGluc2VydGlvbnMoKykKPj4KPj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMv
-cGNpL3BjaS5jIGIvZHJpdmVycy9wY2kvcGNpLmMKPj4gaW5kZXggYjAxYmQ1Yi4uZjU3YTM3NCAx
-MDA2NDQKPj4gLS0tIGEvZHJpdmVycy9wY2kvcGNpLmMKPj4gKysrIGIvZHJpdmVycy9wY2kvcGNp
-LmMKPj4gQEAgLTQ4NzgsNiArNDg3OCw0OCBAQCBpbnQgcGNpZV9zZXRfbXBzKHN0cnVjdCBwY2lf
-ZGV2ICpkZXYsIGludCBtcHMpCj4+ICBFWFBPUlRfU1lNQk9MKHBjaWVfc2V0X21wcyk7Cj4+Cj4+
-ICAvKioKPj4gKyAqIHBjaWVfc2V0X3JlbGF4ZWRfb3JkZXJpbmcgLSBzZXQgUENJIEV4cHJlc3Mg
-cmVsZXhlZCBvcmRlcmluZyBiaXQKPj4gKyAqIEBkZXY6IFBDSSBkZXZpY2UgdG8gcXVlcnkKPj4g
-KyAqCj4+ICsgKiBJZiBwb3NzaWJsZSBzZXRzIHJlbGF4ZWQgb3JkZXJpbmcKPj4gKyAqLwo+PiAr
-aW50IHBjaWVfc2V0X3JlbGF4ZWRfb3JkZXJpbmcoc3RydWN0IHBjaV9kZXYgKmRldikKPj4gK3sK
-Pj4gKyAgICAgICByZXR1cm4gcGNpZV9jYXBhYmlsaXR5X3NldF93b3JkKGRldiwgUENJX0VYUF9E
-RVZDVEwsIFBDSV9FWFBfREVWQ1RMX1JFTEFYX0VOKTsKPj4gK30KPj4gK0VYUE9SVF9TWU1CT0wo
-cGNpZV9zZXRfcmVsYXhlZF9vcmRlcmluZyk7Cj4+ICsKPj4gKy8qKgo+PiArICogcGNpZV9jbGVh
-cl9yZWxheGVkX29yZGVyaW5nIC0gY2xlYXIgUENJIEV4cHJlc3MgcmVsZXhlZCBvcmRlcmluZyBi
-aXQKPj4gKyAqIEBkZXY6IFBDSSBkZXZpY2UgdG8gcXVlcnkKPj4gKyAqCj4+ICsgKiBJZiBwb3Nz
-aWJsZSBjbGVhciByZWxheGVkIG9yZGVyaW5nCj4+ICsgKi8KPj4gK2ludCBwY2llX2NsZWFyX3Jl
-bGF4ZWRfb3JkZXJpbmcoc3RydWN0IHBjaV9kZXYgKmRldikKPj4gK3sKPj4gKyAgICAgICByZXR1
-cm4gcGNpZV9jYXBhYmlsaXR5X2NsZWFyX3dvcmQoZGV2LCBQQ0lfRVhQX0RFVkNUTCwgUENJX0VY
-UF9ERVZDVExfUkVMQVhfRU4pOwo+PiArfQo+PiArRVhQT1JUX1NZTUJPTChwY2llX2NsZWFyX3Jl
-bGF4ZWRfb3JkZXJpbmcpOwo+PiArCj4+ICsvKioKPj4gKyAqIHBjaWVfZ2V0X3JlbGF4ZWRfb3Jk
-ZXJpbmcgLSBjaGVjayBQQ0kgRXhwcmVzcyByZWxleGVkIG9yZGVyaW5nIGJpdAo+PiArICogQGRl
-djogUENJIGRldmljZSB0byBxdWVyeQo+PiArICoKPj4gKyAqIFJldHVybnMgdHJ1ZSBpZiByZWxh
-eGVkIG9yZGVyaW5nIGlzIGJlZW4gc2V0Cj4+ICsgKi8KPj4gK2ludCBwY2llX2dldF9yZWxheGVk
-X29yZGVyaW5nKHN0cnVjdCBwY2lfZGV2ICpkZXYpCj4+ICt7Cj4+ICsgICAgICAgdTE2IHY7Cj4+
-ICsKPj4gKyAgICAgICBwY2llX2NhcGFiaWxpdHlfcmVhZF93b3JkKGRldiwgUENJX0VYUF9ERVZD
-VEwsICZ2KTsKPj4gKwo+PiArICAgICAgIHJldHVybiAodiAmIFBDSV9FWFBfREVWQ1RMX1JFTEFY
-X0VOKSA+PiA0Owo+PiArfQo+PiArRVhQT1JUX1NZTUJPTChwY2llX2dldF9yZWxheGVkX29yZGVy
-aW5nKTsKPj4gKwo+PiArLyoqCj4+ICsgKiBwY2llX3NldF9tcHMgLSBzZXQgUENJIEV4cHJlc3Mg
-bWF4aW11bSBwYXlsb2FkIHNpemUKPj4gKy8qKgo+PiAgICogcGNpZV9nZXRfbWluaW11bV9saW5r
-IC0gZGV0ZXJtaW5lIG1pbmltdW0gbGluayBzZXR0aW5ncyBvZiBhIFBDSSBkZXZpY2UKPj4gICAq
-IEBkZXY6IFBDSSBkZXZpY2UgdG8gcXVlcnkKPj4gICAqIEBzcGVlZDogc3RvcmFnZSBmb3IgbWlu
-aW11bSBzcGVlZAo+PiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9wY2kvcHJvYmUuYyBiL2RyaXZlcnMv
-cGNpL3Byb2JlLmMKPj4gaW5kZXggMTljODk1MC4uYWViMjJiNSAxMDA2NDQKPj4gLS0tIGEvZHJp
-dmVycy9wY2kvcHJvYmUuYwo+PiArKysgYi9kcml2ZXJzL3BjaS9wcm9iZS5jCj4+IEBAIC0xNzAx
-LDYgKzE3MDEsMTYgQEAgc3RhdGljIHZvaWQgcGNpX2NvbmZpZ3VyZV9leHRlbmRlZF90YWdzKHN0
-cnVjdCBwY2lfZGV2ICpkZXYpCj4+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgUENJX0VYUF9ERVZDVExfRVhUX1RBRyk7Cj4+ICB9Cj4+Cj4+ICtzdGF0aWMgdm9pZCBw
-Y2lfY29uZmlndXJlX3JlbGF4ZWRfb3JkZXJpbmcoc3RydWN0IHBjaV9kZXYgKmRldikKPj4gK3sK
-Pj4gKyAgICAgICBpbnQgcmV0Owo+PiArCj4+ICsgICAgICAgaWYgKGRldiAmJiAoZGV2LT5kZXZf
-ZmxhZ3MgJiBQQ0lfREVWX0ZMQUdTX05PX1JFTEFYRURfT1JERVJJTkcpKQo+IAo+IFNvIHRoZXJl
-IGlzIGEgbWlub3IgaXNzdWUgaGVyZS4gVGhlIHByb2JsZW0gaXMgdGhpcyBpcyBvbmx5IHRyeWlu
-ZyB0bwo+IG1vZGlmeSByZWxheGVkIG9yZGVyaW5nIGZvciB0aGUgZGV2aWNlIGl0c2VsZi4gVGhh
-dCBpc24ndCB3aGF0IHdlCj4gd2FudC4gV2hhdCB3ZSB3YW50IGlzIHRvIG1vZGlmeSBpdCBvbiBh
-bGwgb2YgdGhlIHVwc3RyZWFtIHBvcnQKPiBpbnRlcmZhY2VzIHdoZXJlIHRoZXJlIGlzIHNvbWV0
-aGluZyB0aGUgcGF0aCB0byB0aGUgcm9vdCBjb21wbGV4IHRoYXQKPiBoYXMgYW4gaXNzdWUuIFNv
-IGlmIHRoZSByb290IGNvbXBsZXggaGFzIHRvIHNldCB0aGUKPiBOT19SRUxBWEVEX09SREVSSU5H
-IGZsYWcgb24gYSByb290IHBvcnQsIGFsbCBvZiB0aGUgaW50ZXJmYWNlcyBiZWxvdwo+IGl0IHRo
-YXQgd291bGQgYmUgcHVzaGluZyB0cmFmZmljIHRvd2FyZCBpdCBzaG91bGQgbm90IGhhdmUgdGhl
-IHJlbGF4ZWQKPiBvcmRlcmluZyBiaXQgc2V0Lgo+IAo+IEFsc28gSSBhbSBwcmV0dHkgc3VyZSB0
-aGlzIGlzIGEgUENJZSBjYXBhYmlsaXR5LCBub3QgYSBQQ0kgY2FwYWJpbGl0eS4KPiBZb3UgcHJv
-YmFibHkgbmVlZCB0byBtYWtlIHN1cmUgeW91IGNvZGUgaXMgbWFraW5nIHRoaXMgZGlzdGluY3Rp
-b24KPiB3aGljaCBJIGRvbid0IGtub3cgaWYgaXQgY3VycmVudGx5IGlzLiBJZiB5b3UgbmVlZCBh
-biBleGFtcGxlIG9mIHRoZQo+IGtpbmQgb2YgY2hlY2tzIEkgYW0gc3VnZ2VzdGluZyBqdXN0IHRh
-a2UgYSBsb29rIGF0Cj4gcGNpZV9jb25maWd1cmVfbXBzKCkuIEl0IGlzIHZlcmlmeWluZyB0aGUg
-ZnVuY3Rpb24gaXMgUENJZSBiZWZvcmUKPiBhdHRlbXB0aW5nIHRvIG1ha2UgYW55IHVwZGF0ZXMu
-IEluIHlvdXIgY2FzZSB5b3Ugd2lsbCBwcm9iYWJseSBhbHNvCj4gbmVlZCB0byBtYWtlIHN1cmUg
-dGhlcmUgaXMgYSBidXMgZm9yIHlvdSB0byB3YWxrIHVwIHRoZSBjaGFpbiBvZi4KPiBPdGhlcndp
-c2UgdGhpcyBzaG91bGRuJ3QgYXBwbHkuCj4gCgpZZXMsIEkgbWlzcyB0aGUgdXBzdHJlYW0gcG9y
-dHMgYW5kIHRoZSBwY2llL3BjaSBjYXBhYmlsaXR5LCB3aWxsIGNoZWNrCnRoZSBwY2llX2NvbmZp
-Z3VyZV9tcHMoKSBhZ2FpbiBhbmQgZml4IGl0LCB0aGFua3MuCgo+IAo+PiArICAgICAgICAgICAg
-ICAgcGNpZV9zZXRfcmVsYXhlZF9vcmRlcmluZyhkZXYpOwo+PiArICAgICAgIGVsc2UKPj4gKyAg
-ICAgICAgICAgICAgIHBjaWVfY2xlYXJfcmVsYXhlZF9vcmRlcmluZyhkZXYpOwo+PiArfQo+IAo+
-IEFsc28gSSBhbSBub3QgYSBmYW4gb2YgdGhlIHdheSB0aGlzIGlzIGhhbmRsZWQgY3VycmVudGx5
-LiBJZiB5b3UgZG9uJ3QKPiBoYXZlIHJlbGF4ZWQgb3JkZXJpbmcgc2V0IHRoZW4geW91IGRvbid0
-IG5lZWQgdG8gZG8gYW55dGhpbmcgZWxzZSwgaWYKPiB5b3UgZG8gaGF2ZSBpdCBzZXQgYnV0IHRo
-ZXJlIGlzIG5vIGJ1cyB0byB3YWxrIHVwIHlvdSBzaG91bGRuJ3QgY2hhbmdlCj4gaXQsIGFuZCBp
-ZiB0aGVyZSBpcyBhIGJ1cyB0byB3YWxrIHVwIGFuZCB5b3UgZmluZCB0aGF0IHRoZSByb290Cj4g
-Y29tcGxleCBvbiB0aGF0IGJ1cyBoYXMgdGhlIE5PX1JFTEFYRURfT1JERVJJTkcgc2V0IHlvdSBz
-aG91bGQgY2xlYXIKPiBpdC4gUmlnaHQgbm93IHRoaXMgY29kZSBzZWVtcyB0byBiZSBlbmFibGlu
-ZyByZWxheGVkIG9yZGVyaW5nIGlmIHRoZQo+IE5PX1JFTEFYRURfT1JERVJJTkcgZmxhZyBpcyBz
-ZXQuCj4gCgpJJ20gbm90IHZlcnkgY2xlYXIgYWJvdXQgdGhpcywgSSBjaGVjayB0aGUgUENJZSBT
-dGFuZGFyZCwgaXQgc2FpZCB0aGF0OgoKRW5hYmxlIFJlbGF4ZWQgT3JkZXJpbmcg4oCTIElmIHRo
-aXMgYml0IGlzIHNldCwgdGhlIGRldmljZSBpcwpwZXJtaXR0ZWQgdG8gc2V0IHRoZSBSZWxheGVk
-IE9yZGVyaW5nIGJpdCBpbiB0aGUgQXR0cmlidXRlcyBmaWVsZCBvZgp0cmFuc2FjdGlvbnMgaXQg
-aW5pdGlhdGVzIHRoYXQgZG8gbm90IHJlcXVpcmUgc3Ryb25nIHdyaXRlIG9yZGVyaW5nCihzZWUg
-U2VjdGlvbnMgMi4yLjYuNCBhbmQgMi40KS4KRGVmYXVsdCB2YWx1ZSBvZiB0aGlzIGJpdCBpcyAx
-LgpUaGlzIGJpdCBtYXkgYmUgaGFyZHdpcmVkIHRvIDAgaWYgYSBkZXZpY2UgbmV2ZXIgc2V0cyB0
-aGUKUmVsYXhlZCBPcmRlcmluZyBhdHRyaWJ1dGUgaW4gdHJhbnNhY3Rpb25zIGl0IGluaXRpYXRl
-cyBhcyBhCnJlcXVlc3Rlci4KCklzIHRoYXQgbWVhbnMgc29tZSBwbGF0Zm9ybSBtYXkgc2V0IHRo
-ZSBiaXQgdG8gMCBkZWZhdWx0IGJ1dCBpdCBkaWRuJ3QgbWVhbiB0aGUgaGFyZHdhcmUKY291bGRu
-J3Qgc3VwcG9ydCBSZWxheGVkIE9yZGVyaW5nID8gaWYgc28sIEkgbmVlZCB0byBzZXQgdGhlIGJp
-dCBlbmFibGUgaWYgIHJlbGF4ZWQKb3JkZXJpbmcgZmxhZyBpcyBzZXQuCgpJZiBJIGRpZG4ndCB1
-bmRlcnN0YW5kIGl0IGNvcnJlY3RseSwgSSB3aWxsIGZpeCBpdCBmb2xsb3cgeW91ciBvcGluaW9u
-LCB0aGFua3MuCgpEaW5nCgoKPj4gKwo+PiAgc3RhdGljIHZvaWQgcGNpX2NvbmZpZ3VyZV9kZXZp
-Y2Uoc3RydWN0IHBjaV9kZXYgKmRldikKPj4gIHsKPj4gICAgICAgICBzdHJ1Y3QgaG90cGx1Z19w
-YXJhbXMgaHBwOwo+PiBAQCAtMTcwOCw2ICsxNzE4LDcgQEAgc3RhdGljIHZvaWQgcGNpX2NvbmZp
-Z3VyZV9kZXZpY2Uoc3RydWN0IHBjaV9kZXYgKmRldikKPj4KPj4gICAgICAgICBwY2lfY29uZmln
-dXJlX21wcyhkZXYpOwo+PiAgICAgICAgIHBjaV9jb25maWd1cmVfZXh0ZW5kZWRfdGFncyhkZXYp
-Owo+PiArICAgICAgIHBjaV9jb25maWd1cmVfcmVsYXhlZF9vcmRlcmluZyhkZXYpOwo+Pgo+PiAg
-ICAgICAgIG1lbXNldCgmaHBwLCAwLCBzaXplb2YoaHBwKSk7Cj4+ICAgICAgICAgcmV0ID0gcGNp
-X2dldF9ocF9wYXJhbXMoZGV2LCAmaHBwKTsKPj4gZGlmZiAtLWdpdCBhL2luY2x1ZGUvbGludXgv
-cGNpLmggYi9pbmNsdWRlL2xpbnV4L3BjaS5oCj4+IGluZGV4IGUxZTg0MjguLjg0YmQ2YWYgMTAw
-NjQ0Cj4+IC0tLSBhL2luY2x1ZGUvbGludXgvcGNpLmgKPj4gKysrIGIvaW5jbHVkZS9saW51eC9w
-Y2kuaAo+PiBAQCAtMTEwNSw2ICsxMTA1LDkgQEAgaW50IF9fcGNpX2VuYWJsZV93YWtlKHN0cnVj
-dCBwY2lfZGV2ICpkZXYsIHBjaV9wb3dlcl90IHN0YXRlLAo+PiAgdm9pZCBwY2lfcG1lX3dha2V1
-cF9idXMoc3RydWN0IHBjaV9idXMgKmJ1cyk7Cj4+ICB2b2lkIHBjaV9kM2NvbGRfZW5hYmxlKHN0
-cnVjdCBwY2lfZGV2ICpkZXYpOwo+PiAgdm9pZCBwY2lfZDNjb2xkX2Rpc2FibGUoc3RydWN0IHBj
-aV9kZXYgKmRldik7Cj4+ICtpbnQgcGNpZV9zZXRfcmVsYXhlZF9vcmRlcmluZyhzdHJ1Y3QgcGNp
-X2RldiAqZGV2KTsKPj4gK2ludCBwY2llX2NsZWFyX3JlbGF4ZWRfb3JkZXJpbmcoc3RydWN0IHBj
-aV9kZXYgKmRldik7Cj4+ICtpbnQgcGNpZV9nZXRfcmVsYXhlZF9vcmRlcmluZyhzdHJ1Y3QgcGNp
-X2RldiAqZGV2KTsKPj4KPj4gIHN0YXRpYyBpbmxpbmUgaW50IHBjaV9lbmFibGVfd2FrZShzdHJ1
-Y3QgcGNpX2RldiAqZGV2LCBwY2lfcG93ZXJfdCBzdGF0ZSwKPj4gICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgIGJvb2wgZW5hYmxlKQo+PiAtLQo+PiAxLjkuMAo+Pgo+Pgo+IAo+IC4K
-PiAKCgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpsaW51
-eC1hcm0ta2VybmVsIG1haWxpbmcgbGlzdApsaW51eC1hcm0ta2VybmVsQGxpc3RzLmluZnJhZGVh
-ZC5vcmcKaHR0cDovL2xpc3RzLmluZnJhZGVhZC5vcmcvbWFpbG1hbi9saXN0aW5mby9saW51eC1h
-cm0ta2VybmVsCg==
+On Fri, Jun 2, 2017 at 11:54 AM, Eric Garver <e@erig.me> wrote:
+> Since commit 9b4437a5b870 ("geneve: Unify LWT and netdev handling.")
+> when using COLLECT_METADATA geneve devices are created with too small of
+> a needed_headroom and too large of a max_mtu. This is because
+> ip_tunnel_info_af() is not valid with the device level info when using
+> COLLECT_METADATA and we mistakenly fall into the IPv4 case.
+>
+> For COLLECT_METADATA, always use the worst case of ipv6 since both
+> sockets are created.
+>
+> Fixes: 9b4437a5b870 ("geneve: Unify LWT and netdev handling.")
+> Signed-off-by: Eric Garver <e@erig.me>
+
+Acked-by: Pravin B Shelar <pshelar@ovn.org>
+
+Thanks.
