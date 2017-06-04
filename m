@@ -1,52 +1,66 @@
-From: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH v2 4/4] net: macb: Add hardware PTP support
-Date: Sun, 4 Jun 2017 22:55:16 +0200
-Message-ID: <20170604205516.GA7848@localhost.localdomain>
-References: <1496413439-12900-1-git-send-email-rafalo@cadence.com>
- <1496413690-22826-1-git-send-email-rafalo@cadence.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, nicolas.ferre-AIFe0yeh4nAAvxtiuMwx3w@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-        harini.katakam-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org, andrei.pistirica-UWL1GkI3JZL3oGB3hsPCZA@public.gmane.org
-To: Rafal Ozieblo <rafalo-vna1KIf7WgpBDgjK7y7TUQ@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1496413690-22826-1-git-send-email-rafalo-vna1KIf7WgpBDgjK7y7TUQ@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
+Subject: [PATCH] net: sched: fix mips build failure
+Date: Sun,  4 Jun 2017 22:44:13 +0100
+Message-ID: <1496612653-12419-1-git-send-email-sudipm.mukherjee@gmail.com>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+        linux-mips@linux-mips.org,
+        Sudip Mukherjee <sudipm.mukherjee@gmail.com>
+To: Jamal Hadi Salim <jhs@mojatatu.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        Jiri Pirko <jiri@resnulli.us>,
+        "David S. Miller" <davem@davemloft.net>,
+        Ralf Baechle <ralf@linux-mips.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wr0-f195.google.com ([209.85.128.195]:35504 "EHLO
+        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751077AbdFDVoW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 4 Jun 2017 17:44:22 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 02, 2017 at 03:28:10PM +0100, Rafal Ozieblo wrote:
+The build of mips ar7_defconfig was failing with the error:
+../net/sched/act_api.c: In function 'tcf_action_goto_chain_init':
+../net/sched/act_api.c:37:18: error:
+	implicit declaration of function 'tcf_chain_get'
+	[-Werror=implicit-function-declaration]
 
-> +int gem_get_hwtst(struct net_device *dev, struct ifreq *rq)
-> +{
-> +	struct macb *bp = netdev_priv(dev);
-> +	struct hwtstamp_config *tstamp_config = &bp->tstamp_config;
-> +
-> +	if ((bp->hw_dma_cap & HW_DMA_CAP_PTP) == 0)
-> +		return -EFAULT;
+../net/sched/act_api.c: In function 'tcf_action_goto_chain_fini':
+../net/sched/act_api.c:45:2: error:
+	implicit declaration of function 'tcf_chain_put'
+	[-Werror=implicit-function-declaration]
 
-Segmentation fault?  Really?
+Add two inline helpers for the case where CONFIG_NET_CLS is not enabled.
 
-...
+Signed-off-by: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
+---
 
-> +int gem_set_hwtst(struct net_device *dev, struct ifreq *ifr, int cmd)
-> +{
-> +	struct macb *bp = netdev_priv(dev);
-> +	struct hwtstamp_config *tstamp_config = &bp->tstamp_config;
-> +	enum macb_bd_control tx_bd_control = TSTAMP_DISABLED;
-> +	enum macb_bd_control rx_bd_control = TSTAMP_DISABLED;
-> +	u32 regval;
-> +
-> +	if ((bp->hw_dma_cap & HW_DMA_CAP_PTP) == 0)
-> +		return -EFAULT;
+The build log of the latest linux-next is at:
+https://travis-ci.org/sudipm-mukherjee/parport/jobs/238623031/
 
-here again
+ include/net/pkt_cls.h | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
 
-Thanks,
-Richard
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
+index 537d0a0..c34ade5 100644
+--- a/include/net/pkt_cls.h
++++ b/include/net/pkt_cls.h
+@@ -29,6 +29,17 @@ int tcf_classify(struct sk_buff *skb, const struct tcf_proto *tp,
+ 
+ #else
+ static inline
++struct tcf_chain *tcf_chain_get(struct tcf_block *block,
++				u32 chain_index, bool create)
++{
++	return NULL;
++}
++
++static inline void tcf_chain_put(struct tcf_chain *chain)
++{
++}
++
++static inline
+ int tcf_block_get(struct tcf_block **p_block,
+ 		  struct tcf_proto __rcu **p_filter_chain)
+ {
+-- 
+2.7.4
