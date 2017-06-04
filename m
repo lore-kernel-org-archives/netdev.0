@@ -1,64 +1,175 @@
 From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: [PATCH net-next v10 0/5] Avoiding stack overflow in skb_to_sgvec
-Date: Sun,  4 Jun 2017 04:16:21 +0200
-Message-ID: <20170604021626.11968-1-Jason@zx2c4.com>
-Cc: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Subject: [PATCH net-next v10 2/5] ipsec: check return value of skb_to_sgvec always
+Date: Sun,  4 Jun 2017 04:16:23 +0200
+Message-ID: <20170604021626.11968-3-Jason@zx2c4.com>
+References: <20170604021626.11968-1-Jason@zx2c4.com>
+Cc: "Jason A. Donenfeld" <Jason@zx2c4.com>,
+	Steffen Klassert <steffen.klassert@secunet.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>
 To: netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org,
 	davem@davemloft.net,
 	kernel-hardening@lists.openwall.com
-Return-path: <kernel-hardening-return-8257-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
+Return-path: <kernel-hardening-return-8259-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
 List-Post: <mailto:kernel-hardening@lists.openwall.com>
 List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
 List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
 List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
+In-Reply-To: <20170604021626.11968-1-Jason@zx2c4.com>
 List-Id: netdev.vger.kernel.org
 
-Changes v9->v10:
-   - Spaces to tabs on one line.
-   - Added some acked-by, reviewed-by lines.
+Signed-off-by: Jason A. Donenfeld <Jason@zx2c4.com>
+Cc: Steffen Klassert <steffen.klassert@secunet.com>
+Cc: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: "David S. Miller" <davem@davemloft.net>
+---
+ net/ipv4/ah4.c  |  8 ++++++--
+ net/ipv4/esp4.c | 20 +++++++++++++-------
+ net/ipv6/ah6.c  |  8 ++++++--
+ net/ipv6/esp6.c | 20 +++++++++++++-------
+ 4 files changed, 38 insertions(+), 18 deletions(-)
 
-Since we're down to only cleaning up things like spaces-to-tabs, I
-believe we can merge this patch series. David - would you put this in
-net-next, please?
-
-
-The recent bug with macsec and historical one with virtio have
-indicated that letting skb_to_sgvec trounce all over an sglist
-without checking the length is probably a bad idea. And it's not
-necessary either: an sglist already explicitly marks its last
-item, and the initialization functions are diligent in doing so.
-Thus there's a clear way of avoiding future overflows.
-
-So, this patchset, from a high level, makes skb_to_sgvec return
-a potential error code, and then adjusts all callers to check
-for the error code. There are two situations in which skb_to_sgvec
-might return such an error:
-
-   1) When the passed in sglist is too small; and
-   2) When the passed in skbuff is too deeply nested.
-
-So, the first patch in this series handles the issues with
-skb_to_sgvec directly, and the remaining ones then handle the call
-sites.
-
-Jason A. Donenfeld (5):
-  skbuff: return -EMSGSIZE in skb_to_sgvec to prevent overflow
-  ipsec: check return value of skb_to_sgvec always
-  rxrpc: check return value of skb_to_sgvec always
-  macsec: check return value of skb_to_sgvec always
-  virtio_net: check return value of skb_to_sgvec always
-
- drivers/net/macsec.c     | 13 ++++++++--
- drivers/net/virtio_net.c |  9 +++++--
- include/linux/skbuff.h   |  8 +++---
- net/core/skbuff.c        | 65 +++++++++++++++++++++++++++++++-----------------
- net/ipv4/ah4.c           |  8 ++++--
- net/ipv4/esp4.c          | 20 +++++++++------
- net/ipv6/ah6.c           |  8 ++++--
- net/ipv6/esp6.c          | 20 +++++++++------
- net/rxrpc/rxkad.c        | 19 ++++++++++----
- 9 files changed, 116 insertions(+), 54 deletions(-)
-
+diff --git a/net/ipv4/ah4.c b/net/ipv4/ah4.c
+index 22377c8ff14b..e8f862358518 100644
+--- a/net/ipv4/ah4.c
++++ b/net/ipv4/ah4.c
+@@ -220,7 +220,9 @@ static int ah_output(struct xfrm_state *x, struct sk_buff *skb)
+ 	ah->seq_no = htonl(XFRM_SKB_CB(skb)->seq.output.low);
+ 
+ 	sg_init_table(sg, nfrags + sglists);
+-	skb_to_sgvec_nomark(skb, sg, 0, skb->len);
++	err = skb_to_sgvec_nomark(skb, sg, 0, skb->len);
++	if (unlikely(err < 0))
++		goto out_free;
+ 
+ 	if (x->props.flags & XFRM_STATE_ESN) {
+ 		/* Attach seqhi sg right after packet payload */
+@@ -393,7 +395,9 @@ static int ah_input(struct xfrm_state *x, struct sk_buff *skb)
+ 	skb_push(skb, ihl);
+ 
+ 	sg_init_table(sg, nfrags + sglists);
+-	skb_to_sgvec_nomark(skb, sg, 0, skb->len);
++	err = skb_to_sgvec_nomark(skb, sg, 0, skb->len);
++	if (unlikely(err < 0))
++		goto out_free;
+ 
+ 	if (x->props.flags & XFRM_STATE_ESN) {
+ 		/* Attach seqhi sg right after packet payload */
+diff --git a/net/ipv4/esp4.c b/net/ipv4/esp4.c
+index 93322f895eab..d815d1755473 100644
+--- a/net/ipv4/esp4.c
++++ b/net/ipv4/esp4.c
+@@ -377,9 +377,11 @@ int esp_output_tail(struct xfrm_state *x, struct sk_buff *skb, struct esp_info *
+ 	esp->esph = esph;
+ 
+ 	sg_init_table(sg, esp->nfrags);
+-	skb_to_sgvec(skb, sg,
+-		     (unsigned char *)esph - skb->data,
+-		     assoclen + ivlen + esp->clen + alen);
++	err = skb_to_sgvec(skb, sg,
++		           (unsigned char *)esph - skb->data,
++		           assoclen + ivlen + esp->clen + alen);
++	if (unlikely(err < 0))
++		goto error;
+ 
+ 	if (!esp->inplace) {
+ 		int allocsize;
+@@ -403,9 +405,11 @@ int esp_output_tail(struct xfrm_state *x, struct sk_buff *skb, struct esp_info *
+ 		spin_unlock_bh(&x->lock);
+ 
+ 		sg_init_table(dsg, skb_shinfo(skb)->nr_frags + 1);
+-		skb_to_sgvec(skb, dsg,
+-			     (unsigned char *)esph - skb->data,
+-			     assoclen + ivlen + esp->clen + alen);
++		err = skb_to_sgvec(skb, dsg,
++			           (unsigned char *)esph - skb->data,
++			           assoclen + ivlen + esp->clen + alen);
++		if (unlikely(err < 0))
++			goto error;
+ 	}
+ 
+ 	if ((x->props.flags & XFRM_STATE_ESN))
+@@ -690,7 +694,9 @@ static int esp_input(struct xfrm_state *x, struct sk_buff *skb)
+ 	esp_input_set_header(skb, seqhi);
+ 
+ 	sg_init_table(sg, nfrags);
+-	skb_to_sgvec(skb, sg, 0, skb->len);
++	err = skb_to_sgvec(skb, sg, 0, skb->len);
++	if (unlikely(err < 0))
++		goto out;
+ 
+ 	skb->ip_summed = CHECKSUM_NONE;
+ 
+diff --git a/net/ipv6/ah6.c b/net/ipv6/ah6.c
+index dda6035e3b84..755f38271dd5 100644
+--- a/net/ipv6/ah6.c
++++ b/net/ipv6/ah6.c
+@@ -423,7 +423,9 @@ static int ah6_output(struct xfrm_state *x, struct sk_buff *skb)
+ 	ah->seq_no = htonl(XFRM_SKB_CB(skb)->seq.output.low);
+ 
+ 	sg_init_table(sg, nfrags + sglists);
+-	skb_to_sgvec_nomark(skb, sg, 0, skb->len);
++	err = skb_to_sgvec_nomark(skb, sg, 0, skb->len);
++	if (unlikely(err < 0))
++		goto out_free;
+ 
+ 	if (x->props.flags & XFRM_STATE_ESN) {
+ 		/* Attach seqhi sg right after packet payload */
+@@ -606,7 +608,9 @@ static int ah6_input(struct xfrm_state *x, struct sk_buff *skb)
+ 	ip6h->hop_limit   = 0;
+ 
+ 	sg_init_table(sg, nfrags + sglists);
+-	skb_to_sgvec_nomark(skb, sg, 0, skb->len);
++	err = skb_to_sgvec_nomark(skb, sg, 0, skb->len);
++	if (unlikely(err < 0))
++		goto out_free;
+ 
+ 	if (x->props.flags & XFRM_STATE_ESN) {
+ 		/* Attach seqhi sg right after packet payload */
+diff --git a/net/ipv6/esp6.c b/net/ipv6/esp6.c
+index 1fe99ba8066c..2ede4e459c4e 100644
+--- a/net/ipv6/esp6.c
++++ b/net/ipv6/esp6.c
+@@ -346,9 +346,11 @@ int esp6_output_tail(struct xfrm_state *x, struct sk_buff *skb, struct esp_info
+ 	esph = esp_output_set_esn(skb, x, ip_esp_hdr(skb), seqhi);
+ 
+ 	sg_init_table(sg, esp->nfrags);
+-	skb_to_sgvec(skb, sg,
+-		     (unsigned char *)esph - skb->data,
+-		     assoclen + ivlen + esp->clen + alen);
++	err = skb_to_sgvec(skb, sg,
++		           (unsigned char *)esph - skb->data,
++		           assoclen + ivlen + esp->clen + alen);
++	if (unlikely(err < 0))
++		goto error;
+ 
+ 	if (!esp->inplace) {
+ 		int allocsize;
+@@ -372,9 +374,11 @@ int esp6_output_tail(struct xfrm_state *x, struct sk_buff *skb, struct esp_info
+ 		spin_unlock_bh(&x->lock);
+ 
+ 		sg_init_table(dsg, skb_shinfo(skb)->nr_frags + 1);
+-		skb_to_sgvec(skb, dsg,
+-			     (unsigned char *)esph - skb->data,
+-			     assoclen + ivlen + esp->clen + alen);
++		err = skb_to_sgvec(skb, dsg,
++			           (unsigned char *)esph - skb->data,
++			           assoclen + ivlen + esp->clen + alen);
++		if (unlikely(err < 0))
++			goto error;
+ 	}
+ 
+ 	if ((x->props.flags & XFRM_STATE_ESN))
+@@ -618,7 +622,9 @@ static int esp6_input(struct xfrm_state *x, struct sk_buff *skb)
+ 	esp_input_set_header(skb, seqhi);
+ 
+ 	sg_init_table(sg, nfrags);
+-	skb_to_sgvec(skb, sg, 0, skb->len);
++	ret = skb_to_sgvec(skb, sg, 0, skb->len);
++	if (unlikely(ret < 0))
++		goto out;
+ 
+ 	skb->ip_summed = CHECKSUM_NONE;
+ 
 -- 
 2.13.0
