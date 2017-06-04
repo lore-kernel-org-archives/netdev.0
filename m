@@ -1,58 +1,41 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH] net/{mii,smsc}: Make mii_ethtool_get_link_ksettings and
- smc_netdev_get_ecmd return void
-Date: Sun, 4 Jun 2017 21:01:33 +0200
-Message-ID: <20170604190133.GB10273@lunn.ch>
-References: <20170604172200.4177-1-yuval.shaia@oracle.com>
+From: "Rosen, Rami" <rami.rosen@intel.com>
+Subject: RE: [PATCH net-next] genetlink: remove ops_list from genetlink
+ header.
+Date: Sun, 4 Jun 2017 19:20:43 +0000
+Message-ID: <9B0331B6EBBD0E4684FBFAEDA55776F93DA1EEFA@HASMSX110.ger.corp.intel.com>
+References: <1496560061-1673-1-git-send-email-rami.rosen@intel.com>
+ <b68021eb-180c-f486-3e0e-546824444b5b@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: klassert@mathematik.tu-chemnitz.de, pcnet32@frontier.com,
-        hsweeten@visionengravers.com, jeffrey.t.kirsher@intel.com,
-        cooldavid@cooldavid.org, mcuos.com@gmail.com, nic_swsd@realtek.com,
-        ralf@linux-mips.org, romieu@fr.zoreil.com, nico@fluxnic.net,
-        oneukum@suse.com, davem@davemloft.net, tremyfr@gmail.com,
-        paul.gortmaker@windriver.com, jarod@redhat.com, green.hu@gmail.com,
-        f.fainelli@gmail.com, edumazet@google.com, shchers@gmail.com,
-        stephen.boyd@linaro.org, fgao@48lvckh6395k16k5.yundunddos.com,
-        tklauser@distanz.ch, jay.vosburgh@canonical.com,
-        robert.jarzmik@free.fr, jeremy.linton@arm.com,
-        rmk+kernel@armlinux.org.uk, stephen@networkplumber.org,
-        arnd@arndb.de, gerg@linux-m68k.org, allan@asix.com.tw,
-        chris.roth@usask.ca, hayeswang@realtek.com,
-        mario_limonciello@dell.com, netdev@vger.kern
-To: Yuval Shaia <yuval.shaia@oracle.com>
-Return-path: <linux-parisc-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170604172200.4177-1-yuval.shaia@oracle.com>
-Sender: linux-parisc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "Berg, Johannes" <johannes.berg@intel.com>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+        "davem@davemloft.net" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:6865 "EHLO mga01.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751169AbdFDTUs (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 4 Jun 2017 15:20:48 -0400
+In-Reply-To: <b68021eb-180c-f486-3e0e-546824444b5b@cogentembedded.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> diff --git a/drivers/net/cris/eth_v10.c b/drivers/net/cris/eth_v10.c
-> index da02041..017f48c 100644
-> --- a/drivers/net/cris/eth_v10.c
-> +++ b/drivers/net/cris/eth_v10.c
-> @@ -1417,10 +1417,9 @@ static int e100_get_link_ksettings(struct net_device *dev,
->  {
->  	struct net_local *np = netdev_priv(dev);
->  	u32 supported;
-> -	int err;
->  
->  	spin_lock_irq(&np->lock);
-> -	err = mii_ethtool_get_link_ksettings(&np->mii_if, cmd);
-> +	mii_ethtool_get_link_ksettings(&np->mii_if, cmd);
->  	spin_unlock_irq(&np->lock);
->  
->  	/* The PHY may support 1000baseT, but the Etrax100 does not.  */
-> @@ -1432,7 +1431,7 @@ static int e100_get_link_ksettings(struct net_device *dev,
->  	ethtool_convert_legacy_u32_to_link_mode(cmd->link_modes.supported,
->  						supported);
->  
-> -	return err;
-> +	return 0;
->  }
-
-How far are going planning on going? It seems like
-*_get_link_ksettings() now all return a useless 0. Do you plan to
-change ethtool_ops and make if void all the way up?
-
-       Andrew
+SGksIFNlcmdlaSwNCg0KVGhhbmtzISBJIHdpbGwgc2VuZCBWMiB3aXRoIDEyIGRpZ2l0cyBmb3Ig
+dGhlIGNvbW1pdC4NCg0KUmVnYXJkcywNClJhbWkgUm9zZW4NCg0KDQotLS0tLU9yaWdpbmFsIE1l
+c3NhZ2UtLS0tLQ0KRnJvbTogU2VyZ2VpIFNodHlseW92IFttYWlsdG86c2VyZ2VpLnNodHlseW92
+QGNvZ2VudGVtYmVkZGVkLmNvbV0gDQpTZW50OiBTdW5kYXksIEp1bmUgMDQsIDIwMTcgMjA6MTgN
+ClRvOiBSb3NlbiwgUmFtaSA8cmFtaS5yb3NlbkBpbnRlbC5jb20+OyBkYXZlbUBkYXZlbWxvZnQu
+bmV0DQpDYzogbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgQmVyZywgSm9oYW5uZXMgPGpvaGFubmVz
+LmJlcmdAaW50ZWwuY29tPg0KU3ViamVjdDogUmU6IFtQQVRDSCBuZXQtbmV4dF0gZ2VuZXRsaW5r
+OiByZW1vdmUgb3BzX2xpc3QgZnJvbSBnZW5ldGxpbmsgaGVhZGVyLg0KDQpIZWxsbyENCg0KT24g
+Ni80LzIwMTcgMTA6MDcgQU0sIFJhbWkgUm9zZW4gd3JvdGU6DQoNCj4gY29tbWl0IGQ5MTgyNCAo
+ImdlbmV0bGluazogcmVnaXN0ZXIgZmFtaWx5IG9wcyBhcyBhcnJheSIpIHJlbW92ZWQgdGhlDQoN
+CiAgICBBdCBsZWFzdCAxMiBkaWdpdHMgcmVxdWlyZWQuDQoNCj4gb3BzX2xpc3QgbWVtYmVyIGZy
+b20gYm90aCBnZW5sX2ZhbWlseSBhbmQgZ2VubF9vcHM7IHdoaWxlIHRoZSANCj4gZG9jdW1lbnRh
+dGlvbiBvZiBnZW5sX2ZhbWlseSB3YXMgdXBkYXRlZCBhY2NvcmRpbmdseSBieSB0aGlzIHBhdGNo
+LCANCj4gb3BzX2xpc3QgcmVtYWluZWQgaW4gdGhlIGRvY3VtZW50YXRpb24gb2YgdGhlIGdlbmxf
+b3BzIG9iamVjdC4NCj4gVGhpcyBwYXRjaCBmaXhlcyBpdCBieSByZW1vdmluZyBvcHNfbGlzdCBm
+cm9tIGdlbmxfb3BzIGRvY3VtZW50YXRpb24uDQo+DQo+IFNpZ25lZC1vZmYtYnk6IFJhbWkgUm9z
+ZW4gPHJhbWkucm9zZW5AaW50ZWwuY29tPg0KWy4uLl0NCg0KTU5SLCBTZXJnZWkNCg0K
