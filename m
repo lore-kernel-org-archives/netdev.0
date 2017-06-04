@@ -1,59 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [for 4.12] net: qcom/emac: do not use hardware mdio automatic
- polling
-Date: Sun, 04 Jun 2017 19:34:06 -0400 (EDT)
-Message-ID: <20170604.193406.673386422592182208.davem@davemloft.net>
-References: <1496351293-6846-1-git-send-email-timur@codeaurora.org>
+Subject: Re: [PATCH net] ip6_tunnel: fix traffic class routing for tunnels
+Date: Sun, 04 Jun 2017 19:50:18 -0400 (EDT)
+Message-ID: <20170604.195018.518487162165124233.davem@davemloft.net>
+References: <91e31c60-5994-6784-cfe8-6a18016c6524@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-arm-kernel@lists.infradead.org, f.fainelli@gmail.com,
-        manoj.iyer@canonical.com, netdev@vger.kernel.org,
-        stable@vger.kernel.org, zefir.kurtisi@neratec.com, andrew@lunn.ch,
-        matthias.may@neratec.com
-To: timur@codeaurora.org
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <1496351293-6846-1-git-send-email-timur@codeaurora.org>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+        kaber@trash.net, netdev@vger.kernel.org, peter.a.dawson@boeing.com
+To: mcbirnie.l@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:52528 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751147AbdFDXuW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 4 Jun 2017 19:50:22 -0400
+In-Reply-To: <91e31c60-5994-6784-cfe8-6a18016c6524@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Timur Tabi <timur@codeaurora.org>
-Date: Thu,  1 Jun 2017 16:08:13 -0500
+From: Liam McBirnie <mcbirnie.l@gmail.com>
+Date: Fri, 2 Jun 2017 15:12:26 +1000
 
-> Use software polling (PHY_POLL) to check for link state changes instead
-> of relying on the EMAC's hardware polling feature.  Some PHY drivers
-> are unable to get a functioning link because the HW polling is not
-> robust enough.
+> From: Liam McBirnie <mcbirnie.l@gmail.com>
+> Date: Thu, 1 Jun 2017 15:36:01 +1000
+> Subject: [PATCH net] ip6_tunnel: fix traffic class routing for tunnels
 > 
-> The EMAC is able to poll the PHY on the MDIO bus looking for link state
-> changes (via the Link Status bit in the Status Register at address 0x1).
-> When the link state changes, the EMAC triggers an interrupt and tells the
-> driver what the new state is.  The feature eliminates the need for
-> software to poll the MDIO bus.
+> ip6_route_output() requires that the flowlabel contains the traffic
+> class for policy routing.
 > 
-> Unfortunately, this feature is incompatible with phylib, because it
-> ignores everything that the PHY core and PHY drivers are trying to do.
-> In particular:
+> Commit 0e9a709560db ("ip6_tunnel, ip6_gre: fix setting of DSCP on
+> encapsulated packets") removed the code which previously added the
+> traffic class to the flowlabel.
 > 
-> 1. It assumes a compatible register set, so PHYs with different registers
->    may not work.
+> The traffic class is added here because only route lookup needs the
+> flowlabel to contain the traffic class.
 > 
-> 2. It doesn't allow for hardware errata that have work-arounds implemented
->    in the PHY driver.
-> 
-> 3. It doesn't support multiple register pages. If the PHY core switches
->    the register set to another page, the EMAC won't know the page has
->    changed and will still attempt to read the same PHY register.
-> 
-> 4. It only checks the copper side of the link, not the SGMII side.  Some
->    PHY drivers (e.g. at803x) may also check the SGMII side, and
->    report the link as not ready during autonegotiation if the SGMII link
->    is still down.  Phylib then waits for another interrupt to query
->    the PHY again, but the EMAC won't send another interrupt because it
->    thinks the link is up.
-> 
-> Cc: stable@vger.kernel.org # 4.11.x
-> Tested-by: Manoj Iyer <manoj.iyer@canonical.com>
-> Signed-off-by: Timur Tabi <timur@codeaurora.org>
+> Fixes: 0e9a709560db ("ip6_tunnel, ip6_gre: fix setting of DSCP on encapsulated packets")
+> Signed-off-by: Liam McBirnie <liam.mcbirnie@boeing.com>
 
-Applied, thanks.
+Applied and queued up for -stable, thanks.
