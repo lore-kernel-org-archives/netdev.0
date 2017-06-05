@@ -1,29 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH][net-next] rxrpc: remove redundant proc_remove call
-Date: Sun, 04 Jun 2017 19:59:40 -0400 (EDT)
-Message-ID: <20170604.195940.396015419684829733.davem@davemloft.net>
-References: <20170602152227.3626-1-colin.king@canonical.com>
+Subject: Re: [PATCH] amd-xgbe: use PAGE_ALLOC_COSTLY_ORDER in
+ xgbe_map_rx_buffer
+Date: Sun, 04 Jun 2017 20:01:19 -0400 (EDT)
+Message-ID: <20170604.200119.791002119725193988.davem@davemloft.net>
+References: <20170602155408.12792-1-mhocko@kernel.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dhowells@redhat.com, netdev@vger.kernel.org,
-        kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: colin.king@canonical.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170602152227.3626-1-colin.king@canonical.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: thomas.lendacky@amd.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, mhocko@suse.com
+To: mhocko@kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:52686 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751181AbdFEABV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 4 Jun 2017 20:01:21 -0400
+In-Reply-To: <20170602155408.12792-1-mhocko@kernel.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Colin King <colin.king@canonical.com>
-Date: Fri,  2 Jun 2017 16:22:27 +0100
+From: Michal Hocko <mhocko@kernel.org>
+Date: Fri,  2 Jun 2017 17:54:08 +0200
 
-> From: Colin Ian King <colin.king@canonical.com>
+> From: Michal Hocko <mhocko@suse.com>
 > 
-> The proc_remove call is dead code as it occurs after a return and
-> hence can never be called. Remove it.
+> xgbe_map_rx_buffer is rather confused about what PAGE_ALLOC_COSTLY_ORDER
+> means. It uses PAGE_ALLOC_COSTLY_ORDER-1 assuming that
+> PAGE_ALLOC_COSTLY_ORDER is the first costly order which is not the case
+> actually because orders larger than that are costly. And even that
+> applies only to sleeping allocations which is not the case here. We
+> simply do not perform any costly operations like reclaim or compaction
+> for those. Simplify the code by dropping the order calculation and use
+> PAGE_ALLOC_COSTLY_ORDER directly.
 > 
-> Detected by CoverityScan, CID#1437743 ("Logically dead code")
-> 
-> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+> Signed-off-by: Michal Hocko <mhocko@suse.com>
 
 Applied.
