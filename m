@@ -1,88 +1,37 @@
-From: Florian Weimer <fweimer@redhat.com>
-Subject: Re: [net-next PATCH 2/3] net: reduce cycles spend on ICMP replies
- that gets rate limited
-Date: Mon, 5 Jun 2017 16:22:34 +0200
-Message-ID: <1b871feb-8e4c-5fdb-f129-3984a2e5d7fd@redhat.com>
-References: <20170109150246.30215.63371.stgit@firesoul>
- <20170109150409.30215.34612.stgit@firesoul>
- <7d432179-5e3a-febe-ced7-39ea33ba4906@redhat.com>
- <20170604163812.602cc089@redhat.com>
+From: Administrador <administrator@ancol.com>
+Subject: =?utf-8?b?QVRFTkNJw5NO?=
+Date: Mon, 05 Jun 2017 18:50:49 +0530
+Message-ID: <20170605132115.070F66D4F542@mbox.itb.ac.id>
+Reply-To: Sistemass_Adminss@mail2world.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>,
-        xiyou.wangcong@gmail.com
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: 8BIT
+To: Recipients <administrator@ancol.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:59874 "EHLO mx1.redhat.com"
+Received: from mx2.itb.ac.id ([167.205.1.67]:35737 "EHLO mx2.itb.ac.id"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751112AbdFEOWl (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 5 Jun 2017 10:22:41 -0400
-In-Reply-To: <20170604163812.602cc089@redhat.com>
-Content-Language: en-US
+        id S1751272AbdFEO04 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 5 Jun 2017 10:26:56 -0400
+Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/04/2017 04:38 PM, Jesper Dangaard Brouer wrote:
-> On Sun, 4 Jun 2017 09:11:53 +0200
-> Florian Weimer <fweimer@redhat.com> wrote:
-> 
->> On 01/09/2017 04:04 PM, Jesper Dangaard Brouer wrote:
->>
->>> This patch split the global and per (inet)peer ICMP-reply limiter
->>> code, and moves the global limit check to earlier in the packet
->>> processing path.  Thus, avoid spending cycles on ICMP replies that
->>> gets limited/suppressed anyhow.
->>>
->>> The global ICMP rate limiter icmp_global_allow() is a good solution,
->>> it just happens too late in the process.  The kernel goes through the
->>> full route lookup (return path) for the ICMP message, before taking
->>> the rate limit decision of not sending the ICMP reply.
->>>
->>> Details: The kernels global rate limiter for ICMP messages got added
->>> in commit 4cdf507d5452 ("icmp: add a global rate limitation").  It is
->>> a token bucket limiter with a global lock.  It brilliantly avoids
->>> locking congestion by only updating when 20ms (HZ/50) were elapsed. It
->>> can then avoids taking lock when credit is exhausted (when under
->>> pressure) and time constraint for refill is not yet meet.  
->>
->> This patch removed the rate limit bypass for localhost.  As a result, it
->> is impossible to write deterministic UDP client tests tests which
->> exercise failover behavior in response to unreachable servers.
-> 
-> You cannot rely on ICMP responses delivery, too many systems (and
-> middleboxes) limit or drop ICMP. Before this patch, loopback dev was
-> explicitly excluded from being ICMP rate limited.  Thus, your localhost
-> test passed.
+ATENCIÓN;
 
-Yes, I know that.  But there's a difference between failing a UDP query
-immediately and waiting for the timeout to happen.  ICMP responses are
-really helpful for that, even though they cannot be relied upon.
+Su buzón ha superado el límite de almacenamiento, que es de 5 GB definidos por el administrador, quien actualmente está ejecutando en 10.9GB, no puede ser capaz de enviar o recibir correo nuevo hasta que vuelva a validar su buzón de correo electrónico. Para revalidar su buzón de correo, envíe la siguiente información a continuación:
 
-> Is there a real use-case behind "failover behavior in response to
-> unreachable servers" (which would need to run on localhost)?
+nombre:
+Nombre de usuario:
+contraseña:
+Confirmar contraseña:
+E-mail:
+teléfono
 
-It's also relevant during boot when local UDP services are not running.
-There, waiting for the timeout can delay the boot process.
+Si usted no puede revalidar su buzón, el buzón se deshabilitará!
 
-It used to be relevant for switching to backup UDP-based servers (such
-as name servers), but it seems the Linux kernel has not generated ICMP
-messages at a sufficient rate to facilitate that long before the recent
-changes.  And of course, it only covers a subset of the failure
-scenarios (and arguably only a small subset of them).
+Disculpa las molestias.
+Código de verificación:Ar Correo.AR...AR005615273849598
+Correo Soporte Técnico © 2017
 
-In any case, we need a working way to test clients which have ICMP-based
-failure detection, and we can't do that if the kernel sends them only
-once in a while.
-
-> Adding back outgoing-dev loopback test will require a full
-> route-lookup, which is what the hole optimization gain[1] comes from.
-> [1] https://git.kernel.org/torvalds/c/9f2f27a9a518
-> 
-> I've tried to come-up with an alternative solution, see inlined patch
-> below...
-
-Looking at the incoming interface doesn't seem unreasonable here.
-
-Thanks,
-Florian
+¡gracias
+Sistemas administrador
