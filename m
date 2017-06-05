@@ -1,169 +1,197 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 06/19] net: bridge: Receive notification about successful FDB offload
-Date: Mon,  5 Jun 2017 11:20:30 +0200
-Message-ID: <20170605092043.3523-7-jiri@resnulli.us>
+Subject: [patch net-next 02/19] net: bridge: Add support for offloading port attributes
+Date: Mon,  5 Jun 2017 11:20:26 +0200
+Message-ID: <20170605092043.3523-3-jiri@resnulli.us>
 References: <20170605092043.3523-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, arkadis@mellanox.com,
         mlxsw@mellanox.com, roopa@cumulusnetworks.com,
         stephen@networkplumber.org, ivecera@redhat.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f194.google.com ([209.85.128.194]:34830 "EHLO
-        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751625AbdFEJUy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 5 Jun 2017 05:20:54 -0400
-Received: by mail-wr0-f194.google.com with SMTP id g76so6833757wrd.2
-        for <netdev@vger.kernel.org>; Mon, 05 Jun 2017 02:20:53 -0700 (PDT)
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:36173 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751512AbdFEJUt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 5 Jun 2017 05:20:49 -0400
+Received: by mail-wm0-f66.google.com with SMTP id k15so28807261wmh.3
+        for <netdev@vger.kernel.org>; Mon, 05 Jun 2017 02:20:48 -0700 (PDT)
 In-Reply-To: <20170605092043.3523-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Arkadi Sharshevsky <arkadis@mellanox.com>
 
-When a new static FDB is added to the bridge a notification is sent to
-the driver for offload. In case of successful offload the driver should
-notify the bridge back, which in turn should mark the FDB as offloaded.
+Currently the flood, learning and learning_sync port attributes are
+offloaded by setting the SELF flag. Add support for offloading the
+flood and learning attribute through the bridge code. In case of
+setting an unsupported flag on a offloded port the operation will
+fail.
 
-Currently, externally learned is equivalent for being offloaded which is
-not correct due to the fact that FDBs which are added from user-space are
-also marked as externally learned. In order to specify if an FDB was
-successfully offloaded a new flag is introduced.
+The learning_sync attribute doesn't have any software representation
+and cannot be offloaded through the bridge code.
 
 Signed-off-by: Arkadi Sharshevsky <arkadis@mellanox.com>
 Reviewed-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- include/net/switchdev.h        |  1 +
- include/uapi/linux/neighbour.h |  1 +
- net/bridge/br.c                | 11 ++++++++++-
- net/bridge/br_fdb.c            | 22 +++++++++++++++++++++-
- net/bridge/br_private.h        |  5 ++++-
- 5 files changed, 37 insertions(+), 3 deletions(-)
+ net/bridge/br_netlink.c | 112 +++++++++++++++++++++++++++++++++++++++---------
+ net/bridge/br_private.h |   4 ++
+ 2 files changed, 96 insertions(+), 20 deletions(-)
 
-diff --git a/include/net/switchdev.h b/include/net/switchdev.h
-index 8165ed9..c784a6a 100644
---- a/include/net/switchdev.h
-+++ b/include/net/switchdev.h
-@@ -159,6 +159,7 @@ enum switchdev_notifier_type {
- 	SWITCHDEV_FDB_DEL_TO_BRIDGE,
- 	SWITCHDEV_FDB_ADD_TO_DEVICE,
- 	SWITCHDEV_FDB_DEL_TO_DEVICE,
-+	SWITCHDEV_FDB_OFFLOADED,
- };
+diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
+index 1e63ec4..1afafb7 100644
+--- a/net/bridge/br_netlink.c
++++ b/net/bridge/br_netlink.c
+@@ -17,6 +17,7 @@
+ #include <net/net_namespace.h>
+ #include <net/sock.h>
+ #include <uapi/linux/if_bridge.h>
++#include <net/switchdev.h>
  
- struct switchdev_notifier_info {
-diff --git a/include/uapi/linux/neighbour.h b/include/uapi/linux/neighbour.h
-index f3d16db..3199d28 100644
---- a/include/uapi/linux/neighbour.h
-+++ b/include/uapi/linux/neighbour.h
-@@ -41,6 +41,7 @@ enum {
- #define NTF_MASTER	0x04
- #define NTF_PROXY	0x08	/* == ATF_PUBL */
- #define NTF_EXT_LEARNED	0x10
-+#define NTF_OFFLOADED   0x20
- #define NTF_ROUTER	0x80
- 
- /*
-diff --git a/net/bridge/br.c b/net/bridge/br.c
-index 96d209c..1407d1b 100644
---- a/net/bridge/br.c
-+++ b/net/bridge/br.c
-@@ -142,8 +142,12 @@ static int br_switchdev_event(struct notifier_block *unused,
- 		fdb_info = ptr;
- 		err = br_fdb_external_learn_add(br, p, fdb_info->addr,
- 						fdb_info->vid);
--		if (err)
-+		if (err) {
- 			err = notifier_from_errno(err);
-+			break;
-+		}
-+		br_fdb_offloaded_set(br, p, fdb_info->addr,
-+				     fdb_info->vid);
- 		break;
- 	case SWITCHDEV_FDB_DEL_TO_BRIDGE:
- 		fdb_info = ptr;
-@@ -152,6 +156,11 @@ static int br_switchdev_event(struct notifier_block *unused,
- 		if (err)
- 			err = notifier_from_errno(err);
- 		break;
-+	case SWITCHDEV_FDB_OFFLOADED:
-+		fdb_info = ptr;
-+		br_fdb_offloaded_set(br, p, fdb_info->addr,
-+				     fdb_info->vid);
-+		break;
- 	}
- 
- out:
-diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
-index 21bf9d2..1bd3d84 100644
---- a/net/bridge/br_fdb.c
-+++ b/net/bridge/br_fdb.c
-@@ -511,6 +511,7 @@ static struct net_bridge_fdb_entry *fdb_create(struct hlist_head *head,
- 		fdb->is_static = is_static;
- 		fdb->added_by_user = 0;
- 		fdb->added_by_external_learn = 0;
-+		fdb->offloaded = 0;
- 		fdb->updated = fdb->used = jiffies;
- 		hlist_add_head_rcu(&fdb->hlist, head);
- 	}
-@@ -647,11 +648,16 @@ static int fdb_fill_info(struct sk_buff *skb, const struct net_bridge *br,
- 	ndm->ndm_family	 = AF_BRIDGE;
- 	ndm->ndm_pad1    = 0;
- 	ndm->ndm_pad2    = 0;
--	ndm->ndm_flags	 = fdb->added_by_external_learn ? NTF_EXT_LEARNED : 0;
-+	ndm->ndm_flags	 = 0;
- 	ndm->ndm_type	 = 0;
- 	ndm->ndm_ifindex = fdb->dst ? fdb->dst->dev->ifindex : br->dev->ifindex;
- 	ndm->ndm_state   = fdb_to_nud(br, fdb);
- 
-+	if (fdb->offloaded)
-+		ndm->ndm_flags |= NTF_OFFLOADED;
-+	if (fdb->added_by_external_learn)
-+		ndm->ndm_flags |= NTF_EXT_LEARNED;
-+
- 	if (nla_put(skb, NDA_LLADDR, ETH_ALEN, &fdb->addr))
- 		goto nla_put_failure;
- 	if (nla_put_u32(skb, NDA_MASTER, br->dev->ifindex))
-@@ -1143,3 +1149,17 @@ int br_fdb_external_learn_del(struct net_bridge *br, struct net_bridge_port *p,
- 
- 	return err;
+ #include "br_private.h"
+ #include "br_private_stp.h"
+@@ -662,16 +663,52 @@ static int br_set_port_state(struct net_bridge_port *p, u8 state)
  }
+ 
+ /* Set/clear or port flags based on attribute */
+-static void br_set_port_flag(struct net_bridge_port *p, struct nlattr *tb[],
+-			   int attrtype, unsigned long mask)
++static int br_set_port_flag(struct net_bridge_port *p, struct nlattr *tb[],
++			    int attrtype, unsigned long mask)
+ {
+-	if (tb[attrtype]) {
+-		u8 flag = nla_get_u8(tb[attrtype]);
+-		if (flag)
+-			p->flags |= mask;
+-		else
+-			p->flags &= ~mask;
++	struct switchdev_attr attr = {
++		.orig_dev = p->dev,
++		.id = SWITCHDEV_ATTR_ID_PORT_BRIDGE_FLAGS_SUPPORT,
++	};
++	unsigned long flags;
++	int err;
 +
-+void br_fdb_offloaded_set(struct net_bridge *br, struct net_bridge_port *p,
-+			  const unsigned char *addr, u16 vid)
-+{
-+	struct net_bridge_fdb_entry *fdb;
++	if (!tb[attrtype])
++		return 0;
 +
-+	spin_lock_bh(&br->hash_lock);
++	if (nla_get_u8(tb[attrtype]))
++		flags = p->flags | mask;
++	else
++		flags = p->flags & ~mask;
 +
-+	fdb = br_fdb_find(br, addr, vid);
-+	if (fdb)
-+		fdb->offloaded = 1;
++	if (mask & ~BR_PORT_FLAGS_HW_OFFLOAD)
++		goto out;
 +
-+	spin_unlock_bh(&br->hash_lock);
-+}
++	err = switchdev_port_attr_get(p->dev, &attr);
++	if (err == -EOPNOTSUPP)
++		goto out;
++	if (err)
++		return err;
++
++	/* Check if specific bridge flag attribute offload is supported */
++	if (!(attr.u.brport_flags_support & mask)) {
++		br_warn(p->br, "bridge flag offload is not supported %u(%s)\n",
++			(unsigned int)p->port_no, p->dev->name);
++		return -EOPNOTSUPP;
++	}
++
++	attr.id = SWITCHDEV_ATTR_ID_PORT_BRIDGE_FLAGS;
++	attr.flags = SWITCHDEV_F_DEFER;
++	attr.u.brport_flags = flags;
++	err = switchdev_port_attr_set(p->dev, &attr);
++	if (err) {
++		br_warn(p->br, "error setting offload FLAG on port %u(%s)\n",
++			(unsigned int)p->port_no, p->dev->name);
++		return err;
+ 	}
++out:
++	p->flags = flags;
++	return 0;
+ }
+ 
+ /* Process bridge protocol info on port */
+@@ -681,20 +718,55 @@ static int br_setport(struct net_bridge_port *p, struct nlattr *tb[])
+ 	bool br_vlan_tunnel_old = false;
+ 	int err;
+ 
+-	br_set_port_flag(p, tb, IFLA_BRPORT_MODE, BR_HAIRPIN_MODE);
+-	br_set_port_flag(p, tb, IFLA_BRPORT_GUARD, BR_BPDU_GUARD);
+-	br_set_port_flag(p, tb, IFLA_BRPORT_FAST_LEAVE, BR_MULTICAST_FAST_LEAVE);
+-	br_set_port_flag(p, tb, IFLA_BRPORT_PROTECT, BR_ROOT_BLOCK);
+-	br_set_port_flag(p, tb, IFLA_BRPORT_LEARNING, BR_LEARNING);
+-	br_set_port_flag(p, tb, IFLA_BRPORT_UNICAST_FLOOD, BR_FLOOD);
+-	br_set_port_flag(p, tb, IFLA_BRPORT_MCAST_FLOOD, BR_MCAST_FLOOD);
+-	br_set_port_flag(p, tb, IFLA_BRPORT_MCAST_TO_UCAST, BR_MULTICAST_TO_UNICAST);
+-	br_set_port_flag(p, tb, IFLA_BRPORT_BCAST_FLOOD, BR_BCAST_FLOOD);
+-	br_set_port_flag(p, tb, IFLA_BRPORT_PROXYARP, BR_PROXYARP);
+-	br_set_port_flag(p, tb, IFLA_BRPORT_PROXYARP_WIFI, BR_PROXYARP_WIFI);
++	err = br_set_port_flag(p, tb, IFLA_BRPORT_MODE, BR_HAIRPIN_MODE);
++	if (err)
++		return err;
++
++	err = br_set_port_flag(p, tb, IFLA_BRPORT_GUARD, BR_BPDU_GUARD);
++	if (err)
++		return err;
++
++	err = br_set_port_flag(p, tb, IFLA_BRPORT_FAST_LEAVE, BR_MULTICAST_FAST_LEAVE);
++	if (err)
++		return err;
++
++	err = br_set_port_flag(p, tb, IFLA_BRPORT_PROTECT, BR_ROOT_BLOCK);
++	if (err)
++		return err;
++
++	err = br_set_port_flag(p, tb, IFLA_BRPORT_LEARNING, BR_LEARNING);
++	if (err)
++		return err;
++
++	err = br_set_port_flag(p, tb, IFLA_BRPORT_UNICAST_FLOOD, BR_FLOOD);
++	if (err)
++		return err;
++
++	err = br_set_port_flag(p, tb, IFLA_BRPORT_MCAST_FLOOD, BR_MCAST_FLOOD);
++	if (err)
++		return err;
++
++	err = br_set_port_flag(p, tb, IFLA_BRPORT_MCAST_TO_UCAST, BR_MULTICAST_TO_UNICAST);
++	if (err)
++		return err;
++
++	err = br_set_port_flag(p, tb, IFLA_BRPORT_BCAST_FLOOD, BR_BCAST_FLOOD);
++	if (err)
++		return err;
++
++	err = br_set_port_flag(p, tb, IFLA_BRPORT_PROXYARP, BR_PROXYARP);
++	if (err)
++		return err;
++
++	err = br_set_port_flag(p, tb, IFLA_BRPORT_PROXYARP_WIFI, BR_PROXYARP_WIFI);
++	if (err)
++		return err;
+ 
+ 	br_vlan_tunnel_old = (p->flags & BR_VLAN_TUNNEL) ? true : false;
+-	br_set_port_flag(p, tb, IFLA_BRPORT_VLAN_TUNNEL, BR_VLAN_TUNNEL);
++	err = br_set_port_flag(p, tb, IFLA_BRPORT_VLAN_TUNNEL, BR_VLAN_TUNNEL);
++	if (err)
++		return err;
++
+ 	if (br_vlan_tunnel_old && !(p->flags & BR_VLAN_TUNNEL))
+ 		nbp_vlan_tunnel_info_flush(p);
+ 
 diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-index 5e944e9..a5db2e1 100644
+index 2062692..5dc30ed 100644
 --- a/net/bridge/br_private.h
 +++ b/net/bridge/br_private.h
-@@ -173,7 +173,8 @@ struct net_bridge_fdb_entry {
- 	unsigned char			is_local:1,
- 					is_static:1,
- 					added_by_user:1,
--					added_by_external_learn:1;
-+					added_by_external_learn:1,
-+					offloaded:1;
+@@ -42,6 +42,10 @@
+ /* Path to usermode spanning tree program */
+ #define BR_STP_PROG	"/sbin/bridge-stp"
  
- 	/* write-heavy members should not affect lookups */
- 	unsigned long			updated ____cacheline_aligned_in_smp;
-@@ -540,6 +541,8 @@ int br_fdb_external_learn_add(struct net_bridge *br, struct net_bridge_port *p,
- 			      const unsigned char *addr, u16 vid);
- int br_fdb_external_learn_del(struct net_bridge *br, struct net_bridge_port *p,
- 			      const unsigned char *addr, u16 vid);
-+void br_fdb_offloaded_set(struct net_bridge *br, struct net_bridge_port *p,
-+			  const unsigned char *addr, u16 vid);
- 
- /* br_forward.c */
- enum br_pkt_type {
++/* Flags that can be offloaded to hardware */
++#define BR_PORT_FLAGS_HW_OFFLOAD (BR_LEARNING | BR_FLOOD | \
++				  BR_MCAST_FLOOD | BR_BCAST_FLOOD)
++
+ typedef struct bridge_id bridge_id;
+ typedef struct mac_addr mac_addr;
+ typedef __u16 port_id;
 -- 
 2.9.3
