@@ -1,88 +1,57 @@
-From: Tariq Toukan <tariqt@mellanox.com>
-Subject: [PATCH net] net/mlx4: Check if Granular QoS per VF has been enabled before updating QP qos_vport
-Date: Mon,  5 Jun 2017 10:44:56 +0300
-Message-ID: <1496648696-5457-1-git-send-email-tariqt@mellanox.com>
-Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
-        Ido Shamay <idos@mellanox.com>,
-        Jack Morgenstein <jackm@dev.mellanox.co.il>,
-        Tariq Toukan <tariqt@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:42141 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751321AbdFEHpm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 5 Jun 2017 03:45:42 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Xinming Hu <huxm@marvell.com>
+Subject: Re:  [PATCH][-next] mwifiex: make function mwifiex_ret_pkt_aggr_ctrl
+ static
+Date: Mon, 5 Jun 2017 08:23:13 +0000
+Message-ID: <0edf9f73cf2f49788ef767658cd038d0@SC-EXCH02.marvell.com>
+References: <20170602085639.29338-1-colin.king@canonical.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        Cathy Luo <cluo@marvell.com>
+To: Colin King <colin.king@canonical.com>,
+        Amitkumar Karwar <amitkarwar@gmail.com>,
+        Nishant Sarmukadam <nishants@marvell.com>,
+        "Ganapathi Bhat" <gbhat@marvell.com>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170602085639.29338-1-colin.king@canonical.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ido Shamay <idos@mellanox.com>
-
-The Granular QoS per VF feature must be enabled in FW before it can be
-used.
-
-Thus, the driver cannot modify a QP's qos_vport value (via the UPDATE_QP FW
-command) if the feature has not been enabled -- the FW returns an error if
-this is attempted.
-
-Fixes: 08068cd5683f ("net/mlx4: Added qos_vport QP configuration in VST mode")
-Signed-off-by: Ido Shamay <idos@mellanox.com>
-Signed-off-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
-Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx4/qp.c               |  6 ++++++
- drivers/net/ethernet/mellanox/mlx4/resource_tracker.c | 16 +++++++++++-----
- 2 files changed, 17 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/net/ethernet/mellanox/mlx4/qp.c b/drivers/net/ethernet/mellanox/mlx4/qp.c
-index ad92d2311478..5a310d313e94 100644
---- a/drivers/net/ethernet/mellanox/mlx4/qp.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/qp.c
-@@ -484,6 +484,12 @@ int mlx4_update_qp(struct mlx4_dev *dev, u32 qpn,
- 	}
- 
- 	if (attr & MLX4_UPDATE_QP_QOS_VPORT) {
-+		if (!(dev->caps.flags2 & MLX4_DEV_CAP_FLAG2_QOS_VPP)) {
-+			mlx4_warn(dev, "Granular QoS per VF is not enabled\n");
-+			err = -EOPNOTSUPP;
-+			goto out;
-+		}
-+
- 		qp_mask |= 1ULL << MLX4_UPD_QP_MASK_QOS_VPP;
- 		cmd->qp_context.qos_vport = params->qos_vport;
- 	}
-diff --git a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-index 07516545474f..812783865205 100644
---- a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-@@ -5255,6 +5255,13 @@ void mlx4_delete_all_resources_for_slave(struct mlx4_dev *dev, int slave)
- 	mutex_unlock(&priv->mfunc.master.res_tracker.slave_list[slave].mutex);
- }
- 
-+static void update_qos_vpp(struct mlx4_update_qp_context *ctx,
-+			   struct mlx4_vf_immed_vlan_work *work)
-+{
-+	ctx->qp_mask |= cpu_to_be64(1ULL << MLX4_UPD_QP_MASK_QOS_VPP);
-+	ctx->qp_context.qos_vport = work->qos_vport;
-+}
-+
- void mlx4_vf_immed_vlan_work_handler(struct work_struct *_work)
- {
- 	struct mlx4_vf_immed_vlan_work *work =
-@@ -5369,11 +5376,10 @@ void mlx4_vf_immed_vlan_work_handler(struct work_struct *_work)
- 					qp->sched_queue & 0xC7;
- 				upd_context->qp_context.pri_path.sched_queue |=
- 					((work->qos & 0x7) << 3);
--				upd_context->qp_mask |=
--					cpu_to_be64(1ULL <<
--						    MLX4_UPD_QP_MASK_QOS_VPP);
--				upd_context->qp_context.qos_vport =
--					work->qos_vport;
-+
-+				if (dev->caps.flags2 &
-+				    MLX4_DEV_CAP_FLAG2_QOS_VPP)
-+					update_qos_vpp(upd_context, work);
- 			}
- 
- 			err = mlx4_cmd(dev, mailbox->dma,
--- 
-1.8.3.1
+SGkgQ29saW4sDQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogQ29saW4g
+S2luZyBbbWFpbHRvOmNvbGluLmtpbmdAY2Fub25pY2FsLmNvbV0NCj4gU2VudDogMjAxN+W5tDbm
+nIgy5pelIDE2OjU3DQo+IFRvOiBBbWl0a3VtYXIgS2Fyd2FyOyBOaXNoYW50IFNhcm11a2FkYW07
+IEdhbmFwYXRoaSBCaGF0OyBYaW5taW5nIEh1Ow0KPiBLYWxsZSBWYWxvOyBsaW51eC13aXJlbGVz
+c0B2Z2VyLmtlcm5lbC5vcmc7IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmcNCj4gQ2M6IGtlcm5lbC1q
+YW5pdG9yc0B2Z2VyLmtlcm5lbC5vcmc7IGxpbnV4LWtlcm5lbEB2Z2VyLmtlcm5lbC5vcmcNCj4g
+U3ViamVjdDogW0VYVF0gW1BBVENIXVstbmV4dF0gbXdpZmlleDogbWFrZSBmdW5jdGlvbg0KPiBt
+d2lmaWV4X3JldF9wa3RfYWdncl9jdHJsIHN0YXRpYw0KPiANCj4gRXh0ZXJuYWwgRW1haWwNCj4g
+DQo+IC0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0NCj4gRnJvbTogQ29saW4gSWFuIEtpbmcgPGNvbGluLmtpbmdAY2Fu
+b25pY2FsLmNvbT4NCj4gDQo+IGZ1bmN0aW9uIG13aWZpZXhfcmV0X3BrdF9hZ2dyX2N0cmwgY2Fu
+IGJlIG1hZGUgc3RhdGljIGFzIGl0IGRvZXMgbm90IG5lZWQgdG8NCj4gYmUgaW4gZ2xvYmFsIHNj
+b3BlLg0KPiANCj4gQ2xlYW5zIHVwIHNwYXJzZSB3YXJuaW5nOiAic3ltYm9sICdtd2lmaWV4X3Jl
+dF9wa3RfYWdncl9jdHJsJyB3YXMgbm90DQo+IGRlY2xhcmVkLiBTaG91bGQgaXQgYmUgc3RhdGlj
+PyINCg0KWWVzLCBpdCBzaG91bGQgYmUgc3RhdGljLCBUaGFua3MsDQoNClJlZ2FyZHMsDQpTaW1v
+bg0KPiANCj4gU2lnbmVkLW9mZi1ieTogQ29saW4gSWFuIEtpbmcgPGNvbGluLmtpbmdAY2Fub25p
+Y2FsLmNvbT4NCj4gLS0tDQo+ICBkcml2ZXJzL25ldC93aXJlbGVzcy9tYXJ2ZWxsL213aWZpZXgv
+c3RhX2NtZHJlc3AuYyB8IDQgKystLQ0KPiAgMSBmaWxlIGNoYW5nZWQsIDIgaW5zZXJ0aW9ucygr
+KSwgMiBkZWxldGlvbnMoLSkNCj4gDQo+IGRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC93aXJlbGVz
+cy9tYXJ2ZWxsL213aWZpZXgvc3RhX2NtZHJlc3AuYw0KPiBiL2RyaXZlcnMvbmV0L3dpcmVsZXNz
+L21hcnZlbGwvbXdpZmlleC9zdGFfY21kcmVzcC5jDQo+IGluZGV4IDMzNDhmYjNhNzUxNC4uMjk0
+NTc3NWU4M2M1IDEwMDY0NA0KPiAtLS0gYS9kcml2ZXJzL25ldC93aXJlbGVzcy9tYXJ2ZWxsL213
+aWZpZXgvc3RhX2NtZHJlc3AuYw0KPiArKysgYi9kcml2ZXJzL25ldC93aXJlbGVzcy9tYXJ2ZWxs
+L213aWZpZXgvc3RhX2NtZHJlc3AuYw0KPiBAQCAtMTE1NCw4ICsxMTU0LDggQEAgc3RhdGljIGlu
+dCBtd2lmaWV4X3JldF9jaGFuX3JlZ2lvbl9jZmcoc3RydWN0DQo+IG13aWZpZXhfcHJpdmF0ZSAq
+cHJpdiwNCj4gIAlyZXR1cm4gMDsNCj4gIH0NCj4gDQo+IC1pbnQgbXdpZmlleF9yZXRfcGt0X2Fn
+Z3JfY3RybChzdHJ1Y3QgbXdpZmlleF9wcml2YXRlICpwcml2LA0KPiAtCQkJICAgICAgc3RydWN0
+IGhvc3RfY21kX2RzX2NvbW1hbmQgKnJlc3ApDQo+ICtzdGF0aWMgaW50IG13aWZpZXhfcmV0X3Br
+dF9hZ2dyX2N0cmwoc3RydWN0IG13aWZpZXhfcHJpdmF0ZSAqcHJpdiwNCj4gKwkJCQkgICAgIHN0
+cnVjdCBob3N0X2NtZF9kc19jb21tYW5kICpyZXNwKQ0KPiAgew0KPiAgCXN0cnVjdCBob3N0X2Nt
+ZF9kc19wa3RfYWdncl9jdHJsICpwa3RfYWdncl9jdHJsID0NCj4gIAkJCQkJJnJlc3AtPnBhcmFt
+cy5wa3RfYWdncl9jdHJsOw0KPiAtLQ0KPiAyLjExLjANCg0K
