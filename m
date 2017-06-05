@@ -1,47 +1,43 @@
-From: Colin Ian King <colin.king@canonical.com>
-Subject: re: phy: cpcap-usb: Add CPCAP PMIC USB support
-Date: Mon, 5 Jun 2017 18:54:50 +0100
-Message-ID: <2ebfaf05-409b-f946-b2ad-f4e81c4439fa@canonical.com>
+From: Colin King <colin.king@canonical.com>
+Subject: [PATCH][netdev-next] mdio: mux: fix an incorrect less than zero error check using a u32
+Date: Mon,  5 Jun 2017 19:08:04 +0100
+Message-ID: <20170605180804.13765-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 8bit
-Cc: Andrew Lunn <andrew@lunn.ch>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        netdev@vger.kernel.org,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Tony Lindgren <tony@atomide.com>
+Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Andrew Lunn <andrew@lunn.ch>,
+        Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Tony,
+From: Colin Ian King <colin.king@canonical.com>
 
-While running static analysis on linux-next, CoverityScan picked up a
-NULL pointer deference on ddata->pins when calling pinctrl_lookup_state:
+The u32 variable v is being checked to see if an error return is
+less than zero and this check has no effect because it is unsigned.
+Fix this by making v and int (this also matches the type of
+cb->bus_number which is assigned to the value in v).
 
-466        ddata->pins = devm_pinctrl_get(ddata->dev);
+Detected by CoverityScan, CID#1440454 ("Unsigned compared against zero")
 
-   1. Condition IS_ERR(ddata->pins), taking true branch.
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+---
+ drivers/net/phy/mdio-mux.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-467        if (IS_ERR(ddata->pins)) {
-468                dev_info(ddata->dev, "default pins not configured:
-%ld\n",
-469                         PTR_ERR(ddata->pins));
-
-   2. assign_zero: Assigning: ddata->pins = NULL.
-
-470                ddata->pins = NULL;
-471        }
-472
-
-   CID 1440453 (#1 of 1): Explicit null dereferenced (FORWARD_NULL)3.
-var_deref_model: Passing null pointer ddata->pins to
-pinctrl_lookup_state, which dereferences it. [show details]
-
-473        ddata->pins_ulpi = pinctrl_lookup_state(ddata->pins, "ulpi");
-
-
-I suspect the IS_ERROR() check should return with some error return
-rather than continuing.
-
-Colin.
+diff --git a/drivers/net/phy/mdio-mux.c b/drivers/net/phy/mdio-mux.c
+index 47ded3904050..00755b6a42cf 100644
+--- a/drivers/net/phy/mdio-mux.c
++++ b/drivers/net/phy/mdio-mux.c
+@@ -133,7 +133,7 @@ int mdio_mux_init(struct device *dev,
+ 
+ 	ret_val = -ENODEV;
+ 	for_each_available_child_of_node(dev->of_node, child_bus_node) {
+-		u32 v;
++		int v;
+ 
+ 		v = of_mdio_parse_addr(dev, child_bus_node);
+ 		if (v < 0) {
+-- 
+2.11.0
