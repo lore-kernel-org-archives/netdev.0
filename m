@@ -1,7 +1,7 @@
 From: Martin KaFai Lau <kafai@fb.com>
-Subject: [PATCH v3 net-next 8/8] bpf: Test for bpf ID
-Date: Mon, 5 Jun 2017 12:15:53 -0700
-Message-ID: <63a1ff3dcfa9f1696b6f94f50e625b5a194d4b5c.1496686606.git.kafai@fb.com>
+Subject: [PATCH v3 net-next 3/8] bpf: Add BPF_(PROG|MAP)_GET_NEXT_ID command
+Date: Mon, 5 Jun 2017 12:15:48 -0700
+Message-ID: <63ba9cff6a0e0320e6b867867e474a477c9abc8a.1496686606.git.kafai@fb.com>
 References: <cover.1496686606.git.kafai@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,473 +9,136 @@ Cc: <netdev@vger.kernel.org>, Alexei Starovoitov <ast@fb.com>,
         Daniel Borkmann <daniel@iogearbox.net>, <kernel-team@fb.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:44756 "EHLO
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:44744 "EHLO
         mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751181AbdFETQI (ORCPT
+        by vger.kernel.org with ESMTP id S1751362AbdFETQI (ORCPT
         <rfc822;netdev@vger.kernel.org>); Mon, 5 Jun 2017 15:16:08 -0400
 Received: from pps.filterd (m0044012.ppops.net [127.0.0.1])
-        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v55JG7os003796
-        for <netdev@vger.kernel.org>; Mon, 5 Jun 2017 12:16:07 -0700
+        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v55JD2kk001409
+        for <netdev@vger.kernel.org>; Mon, 5 Jun 2017 12:16:03 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0a-00082601.pphosted.com with ESMTP id 2aw9d8rvuy-5
+        by mx0a-00082601.pphosted.com with ESMTP id 2aw9d8rvuy-3
         (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Mon, 05 Jun 2017 12:16:07 -0700
+        for <netdev@vger.kernel.org>; Mon, 05 Jun 2017 12:16:03 -0700
 Received: from facebook.com (2401:db00:11:d09a:face:0:41:0)     by
- mx-out.facebook.com (10.212.236.89) with ESMTP id
- 66b709dc4a2311e786f80002c95209d8-d35358f0 for <netdev@vger.kernel.org>;        Mon,
- 05 Jun 2017 12:15:56 -0700
+ mx-out.facebook.com (10.103.99.97) with ESMTP  id
+ 65be3c264a2311e79a120002c9931860-45d338f0 for <netdev@vger.kernel.org>;        Mon,
+ 05 Jun 2017 12:15:54 -0700
 In-Reply-To: <cover.1496686606.git.kafai@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add test to exercise the bpf_prog/map id generation,
-bpf_(prog|map)_get_next_id(), bpf_(prog|map)_get_fd_by_id() and
-bpf_get_obj_info_by_fd().
+This patch adds BPF_PROG_GET_NEXT_ID and BPF_MAP_GET_NEXT_ID
+to allow userspace to iterate all bpf_prog IDs and bpf_map IDs.
+
+The API is trying to be consistent with the existing
+BPF_MAP_GET_NEXT_KEY.
+
+It is currently limited to CAP_SYS_ADMIN which we can
+consider to lift it in followup patches.
 
 Signed-off-by: Martin KaFai Lau <kafai@fb.com>
 Acked-by: Alexei Starovoitov <ast@fb.com>
 Acked-by: Daniel Borkmann <daniel@iogearbox.net>
 ---
- tools/include/uapi/linux/bpf.h            |  41 +++++++
- tools/lib/bpf/bpf.c                       |  68 +++++++++++
- tools/lib/bpf/bpf.h                       |   5 +
- tools/testing/selftests/bpf/Makefile      |   2 +-
- tools/testing/selftests/bpf/test_obj_id.c |  35 ++++++
- tools/testing/selftests/bpf/test_progs.c  | 191 ++++++++++++++++++++++++++++++
- 6 files changed, 341 insertions(+), 1 deletion(-)
- create mode 100644 tools/testing/selftests/bpf/test_obj_id.c
+ include/uapi/linux/bpf.h |  7 +++++++
+ kernel/bpf/syscall.c     | 38 ++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 45 insertions(+)
 
-diff --git a/tools/include/uapi/linux/bpf.h b/tools/include/uapi/linux/bpf.h
-index e78aece03628..9b2c10b45733 100644
---- a/tools/include/uapi/linux/bpf.h
-+++ b/tools/include/uapi/linux/bpf.h
-@@ -82,6 +82,11 @@ enum bpf_cmd {
+diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+index e78aece03628..629747a3f273 100644
+--- a/include/uapi/linux/bpf.h
++++ b/include/uapi/linux/bpf.h
+@@ -82,6 +82,8 @@ enum bpf_cmd {
  	BPF_PROG_ATTACH,
  	BPF_PROG_DETACH,
  	BPF_PROG_TEST_RUN,
 +	BPF_PROG_GET_NEXT_ID,
 +	BPF_MAP_GET_NEXT_ID,
-+	BPF_PROG_GET_FD_BY_ID,
-+	BPF_MAP_GET_FD_BY_ID,
-+	BPF_OBJ_GET_INFO_BY_FD,
  };
  
  enum bpf_map_type {
-@@ -209,6 +214,21 @@ union bpf_attr {
+@@ -209,6 +211,11 @@ union bpf_attr {
  		__u32		repeat;
  		__u32		duration;
  	} test;
 +
-+	struct { /* anonymous struct used by BPF_*_GET_*_ID */
-+		union {
-+			__u32		start_id;
-+			__u32		prog_id;
-+			__u32		map_id;
-+		};
++	struct { /* anonymous struct used by BPF_*_GET_NEXT_ID */
++		__u32		start_id;
 +		__u32		next_id;
 +	};
-+
-+	struct { /* anonymous struct used by BPF_OBJ_GET_INFO_BY_FD */
-+		__u32		bpf_fd;
-+		__u32		info_len;
-+		__aligned_u64	info;
-+	} info;
  } __attribute__((aligned(8)));
  
  /* BPF helper function descriptions:
-@@ -673,4 +693,25 @@ struct xdp_md {
- 	__u32 data_end;
- };
- 
-+#define BPF_TAG_SIZE	8
-+
-+struct bpf_prog_info {
-+	__u32 type;
-+	__u32 id;
-+	__u8  tag[BPF_TAG_SIZE];
-+	__u32 jited_prog_len;
-+	__u32 xlated_prog_len;
-+	__aligned_u64 jited_prog_insns;
-+	__aligned_u64 xlated_prog_insns;
-+} __attribute__((aligned(8)));
-+
-+struct bpf_map_info {
-+	__u32 type;
-+	__u32 id;
-+	__u32 key_size;
-+	__u32 value_size;
-+	__u32 max_entries;
-+	__u32 map_flags;
-+} __attribute__((aligned(8)));
-+
- #endif /* _UAPI__LINUX_BPF_H__ */
-diff --git a/tools/lib/bpf/bpf.c b/tools/lib/bpf/bpf.c
-index 6e178987af8e..7e0405e1651d 100644
---- a/tools/lib/bpf/bpf.c
-+++ b/tools/lib/bpf/bpf.c
-@@ -257,3 +257,71 @@ int bpf_prog_test_run(int prog_fd, int repeat, void *data, __u32 size,
- 		*duration = attr.test.duration;
+diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
+index 4c3075b5d840..2405feedb8c1 100644
+--- a/kernel/bpf/syscall.c
++++ b/kernel/bpf/syscall.c
+@@ -166,6 +166,7 @@ static void bpf_map_put_uref(struct bpf_map *map)
+ void bpf_map_put(struct bpf_map *map)
+ {
+ 	if (atomic_dec_and_test(&map->refcnt)) {
++		/* bpf_map_free_id() must be called first */
+ 		bpf_map_free_id(map);
+ 		INIT_WORK(&map->work, bpf_map_free_deferred);
+ 		schedule_work(&map->work);
+@@ -726,6 +727,7 @@ void bpf_prog_put(struct bpf_prog *prog)
+ {
+ 	if (atomic_dec_and_test(&prog->aux->refcnt)) {
+ 		trace_bpf_prog_put_rcu(prog);
++		/* bpf_prog_free_id() must be called first */
+ 		bpf_prog_free_id(prog);
+ 		bpf_prog_kallsyms_del(prog);
+ 		call_rcu(&prog->aux->rcu, __bpf_prog_put_rcu);
+@@ -1069,6 +1071,34 @@ static int bpf_prog_test_run(const union bpf_attr *attr,
  	return ret;
  }
-+
-+int bpf_prog_get_next_id(__u32 start_id, __u32 *next_id)
-+{
-+	union bpf_attr attr;
-+	int err;
-+
-+	bzero(&attr, sizeof(attr));
-+	attr.start_id = start_id;
-+
-+	err = sys_bpf(BPF_PROG_GET_NEXT_ID, &attr, sizeof(attr));
-+	if (!err)
-+		*next_id = attr.next_id;
-+
-+	return err;
-+}
-+
-+int bpf_map_get_next_id(__u32 start_id, __u32 *next_id)
-+{
-+	union bpf_attr attr;
-+	int err;
-+
-+	bzero(&attr, sizeof(attr));
-+	attr.start_id = start_id;
-+
-+	err = sys_bpf(BPF_MAP_GET_NEXT_ID, &attr, sizeof(attr));
-+	if (!err)
-+		*next_id = attr.next_id;
-+
-+	return err;
-+}
-+
-+int bpf_prog_get_fd_by_id(__u32 id)
-+{
-+	union bpf_attr attr;
-+
-+	bzero(&attr, sizeof(attr));
-+	attr.prog_id = id;
-+
-+	return sys_bpf(BPF_PROG_GET_FD_BY_ID, &attr, sizeof(attr));
-+}
-+
-+int bpf_map_get_fd_by_id(__u32 id)
-+{
-+	union bpf_attr attr;
-+
-+	bzero(&attr, sizeof(attr));
-+	attr.map_id = id;
-+
-+	return sys_bpf(BPF_MAP_GET_FD_BY_ID, &attr, sizeof(attr));
-+}
-+
-+int bpf_obj_get_info_by_fd(int prog_fd, void *info, __u32 *info_len)
-+{
-+	union bpf_attr attr;
-+	int err;
-+
-+	bzero(&attr, sizeof(attr));
-+	bzero(info, *info_len);
-+	attr.info.bpf_fd = prog_fd;
-+	attr.info.info_len = *info_len;
-+	attr.info.info = ptr_to_u64(info);
-+
-+	err = sys_bpf(BPF_OBJ_GET_INFO_BY_FD, &attr, sizeof(attr));
-+	if (!err)
-+		*info_len = attr.info.info_len;
-+
-+	return err;
-+}
-diff --git a/tools/lib/bpf/bpf.h b/tools/lib/bpf/bpf.h
-index 972bd8333eb7..16de44a14b48 100644
---- a/tools/lib/bpf/bpf.h
-+++ b/tools/lib/bpf/bpf.h
-@@ -54,5 +54,10 @@ int bpf_prog_detach(int attachable_fd, enum bpf_attach_type type);
- int bpf_prog_test_run(int prog_fd, int repeat, void *data, __u32 size,
- 		      void *data_out, __u32 *size_out, __u32 *retval,
- 		      __u32 *duration);
-+int bpf_prog_get_next_id(__u32 start_id, __u32 *next_id);
-+int bpf_map_get_next_id(__u32 start_id, __u32 *next_id);
-+int bpf_prog_get_fd_by_id(__u32 id);
-+int bpf_map_get_fd_by_id(__u32 id);
-+int bpf_obj_get_info_by_fd(int prog_fd, void *info, __u32 *info_len);
  
- #endif
-diff --git a/tools/testing/selftests/bpf/Makefile b/tools/testing/selftests/bpf/Makefile
-index f389b02d43a0..9f0e07ba5334 100644
---- a/tools/testing/selftests/bpf/Makefile
-+++ b/tools/testing/selftests/bpf/Makefile
-@@ -14,7 +14,7 @@ LDLIBS += -lcap -lelf
- TEST_GEN_PROGS = test_verifier test_tag test_maps test_lru_map test_lpm_map test_progs \
- 	test_align
- 
--TEST_GEN_FILES = test_pkt_access.o test_xdp.o test_l4lb.o test_tcp_estats.o
-+TEST_GEN_FILES = test_pkt_access.o test_xdp.o test_l4lb.o test_tcp_estats.o test_obj_id.o
- 
- TEST_PROGS := test_kmod.sh
- 
-diff --git a/tools/testing/selftests/bpf/test_obj_id.c b/tools/testing/selftests/bpf/test_obj_id.c
-new file mode 100644
-index 000000000000..d8723aaf827a
---- /dev/null
-+++ b/tools/testing/selftests/bpf/test_obj_id.c
-@@ -0,0 +1,35 @@
-+/* Copyright (c) 2017 Facebook
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of version 2 of the GNU General Public
-+ * License as published by the Free Software Foundation.
-+ */
-+#include <stddef.h>
-+#include <linux/bpf.h>
-+#include <linux/pkt_cls.h>
-+#include "bpf_helpers.h"
++#define BPF_OBJ_GET_NEXT_ID_LAST_FIELD next_id
 +
-+/* It is a dumb bpf program such that it must have no
-+ * issue to be loaded since testing the verifier is
-+ * not the focus here.
-+ */
-+
-+int _version SEC("version") = 1;
-+
-+struct bpf_map_def SEC("maps") test_map_id = {
-+	.type = BPF_MAP_TYPE_ARRAY,
-+	.key_size = sizeof(__u32),
-+	.value_size = sizeof(__u64),
-+	.max_entries = 1,
-+};
-+
-+SEC("test_prog_id")
-+int test_prog_id(struct __sk_buff *skb)
++static int bpf_obj_get_next_id(const union bpf_attr *attr,
++			       union bpf_attr __user *uattr,
++			       struct idr *idr,
++			       spinlock_t *lock)
 +{
-+	__u32 key = 0;
-+	__u64 *value;
-+
-+	value = bpf_map_lookup_elem(&test_map_id, &key);
-+
-+	return TC_ACT_OK;
-+}
-diff --git a/tools/testing/selftests/bpf/test_progs.c b/tools/testing/selftests/bpf/test_progs.c
-index b59f5ed4ae40..8189bfc7e277 100644
---- a/tools/testing/selftests/bpf/test_progs.c
-+++ b/tools/testing/selftests/bpf/test_progs.c
-@@ -22,6 +22,8 @@ typedef __u16 __sum16;
- 
- #include <sys/wait.h>
- #include <sys/resource.h>
-+#include <sys/types.h>
-+#include <pwd.h>
- 
- #include <linux/bpf.h>
- #include <linux/err.h>
-@@ -70,6 +72,7 @@ static struct {
- 		pass_cnt++;						\
- 		printf("%s:PASS:%s %d nsec\n", __func__, tag, duration);\
- 	}								\
-+	__ret;								\
- })
- 
- static int bpf_prog_load(const char *file, enum bpf_prog_type type,
-@@ -283,6 +286,193 @@ static void test_tcp_estats(void)
- 	bpf_object__close(obj);
- }
- 
-+static inline __u64 ptr_to_u64(const void *ptr)
-+{
-+	return (__u64) (unsigned long) ptr;
-+}
-+
-+static void test_bpf_obj_id(void)
-+{
-+	const __u64 array_magic_value = 0xfaceb00c;
-+	const __u32 array_key = 0;
-+	const int nr_iters = 2;
-+	const char *file = "./test_obj_id.o";
-+
-+	struct bpf_object *objs[nr_iters];
-+	int prog_fds[nr_iters], map_fds[nr_iters];
-+	/* +1 to test for the info_len returned by kernel */
-+	struct bpf_prog_info prog_infos[nr_iters + 1];
-+	struct bpf_map_info map_infos[nr_iters + 1];
-+	char jited_insns[128], xlated_insns[128];
-+	__u32 i, next_id, info_len, nr_id_found, duration = 0;
++	u32 next_id = attr->start_id;
 +	int err = 0;
-+	__u64 array_value;
 +
-+	err = bpf_prog_get_fd_by_id(0);
-+	CHECK(err >= 0 || errno != ENOENT,
-+	      "get-fd-by-notexist-prog-id", "err %d errno %d\n", err, errno);
++	if (CHECK_ATTR(BPF_OBJ_GET_NEXT_ID) || next_id >= INT_MAX)
++		return -EINVAL;
 +
-+	err = bpf_map_get_fd_by_id(0);
-+	CHECK(err >= 0 || errno != ENOENT,
-+	      "get-fd-by-notexist-map-id", "err %d errno %d\n", err, errno);
++	if (!capable(CAP_SYS_ADMIN))
++		return -EPERM;
 +
-+	for (i = 0; i < nr_iters; i++)
-+		objs[i] = NULL;
++	next_id++;
++	spin_lock_bh(lock);
++	if (!idr_get_next(idr, &next_id))
++		err = -ENOENT;
++	spin_unlock_bh(lock);
 +
-+	/* Check bpf_obj_get_info_by_fd() */
-+	for (i = 0; i < nr_iters; i++) {
-+		err = bpf_prog_load(file, BPF_PROG_TYPE_SOCKET_FILTER,
-+				    &objs[i], &prog_fds[i]);
-+		/* test_obj_id.o is a dumb prog. It should never fail
-+		 * to load.
-+		 */
-+		assert(!err);
++	if (!err)
++		err = put_user(next_id, &uattr->next_id);
 +
-+		/* Check getting prog info */
-+		info_len = sizeof(struct bpf_prog_info) * 2;
-+		prog_infos[i].jited_prog_insns = ptr_to_u64(jited_insns);
-+		prog_infos[i].jited_prog_len = sizeof(jited_insns);
-+		prog_infos[i].xlated_prog_insns = ptr_to_u64(xlated_insns);
-+		prog_infos[i].xlated_prog_len = sizeof(xlated_insns);
-+		err = bpf_obj_get_info_by_fd(prog_fds[i], &prog_infos[i],
-+					     &info_len);
-+		if (CHECK(err ||
-+			  prog_infos[i].type != BPF_PROG_TYPE_SOCKET_FILTER ||
-+			  info_len != sizeof(struct bpf_prog_info) ||
-+			  !prog_infos[i].jited_prog_len ||
-+			  !prog_infos[i].xlated_prog_len,
-+			  "get-prog-info(fd)",
-+			  "err %d errno %d i %d type %d(%d) info_len %u(%lu) jited_prog_len %u xlated_prog_len %u\n",
-+			  err, errno, i,
-+			  prog_infos[i].type, BPF_PROG_TYPE_SOCKET_FILTER,
-+			  info_len, sizeof(struct bpf_prog_info),
-+			  prog_infos[i].jited_prog_len,
-+			  prog_infos[i].xlated_prog_len))
-+			goto done;
-+
-+		map_fds[i] = bpf_find_map(__func__, objs[i], "test_map_id");
-+		assert(map_fds[i] >= 0);
-+		err = bpf_map_update_elem(map_fds[i], &array_key,
-+					  &array_magic_value, 0);
-+		assert(!err);
-+
-+		/* Check getting map info */
-+		info_len = sizeof(struct bpf_map_info) * 2;
-+		err = bpf_obj_get_info_by_fd(map_fds[i], &map_infos[i],
-+					     &info_len);
-+		if (CHECK(err ||
-+			  map_infos[i].type != BPF_MAP_TYPE_ARRAY ||
-+			  map_infos[i].key_size != sizeof(__u32) ||
-+			  map_infos[i].value_size != sizeof(__u64) ||
-+			  map_infos[i].max_entries != 1 ||
-+			  map_infos[i].map_flags != 0 ||
-+			  info_len != sizeof(struct bpf_map_info),
-+			  "get-map-info(fd)",
-+			  "err %d errno %d type %d(%d) info_len %u(%lu) key_size %u value_size %u max_entries %u map_flags %X\n",
-+			  err, errno,
-+			  map_infos[i].type, BPF_MAP_TYPE_ARRAY,
-+			  info_len, sizeof(struct bpf_map_info),
-+			  map_infos[i].key_size,
-+			  map_infos[i].value_size,
-+			  map_infos[i].max_entries,
-+			  map_infos[i].map_flags))
-+			goto done;
-+	}
-+
-+	/* Check bpf_prog_get_next_id() */
-+	nr_id_found = 0;
-+	next_id = 0;
-+	while (!bpf_prog_get_next_id(next_id, &next_id)) {
-+		struct bpf_prog_info prog_info;
-+		int prog_fd;
-+
-+		info_len = sizeof(prog_info);
-+
-+		prog_fd = bpf_prog_get_fd_by_id(next_id);
-+		if (prog_fd < 0 && errno == ENOENT)
-+			/* The bpf_prog is in the dead row */
-+			continue;
-+		if (CHECK(prog_fd < 0, "get-prog-fd(next_id)",
-+			  "prog_fd %d next_id %d errno %d\n",
-+			  prog_fd, next_id, errno))
-+			break;
-+
-+		for (i = 0; i < nr_iters; i++)
-+			if (prog_infos[i].id == next_id)
-+				break;
-+
-+		if (i == nr_iters)
-+			continue;
-+
-+		nr_id_found++;
-+
-+		err = bpf_obj_get_info_by_fd(prog_fd, &prog_info, &info_len);
-+		CHECK(err || info_len != sizeof(struct bpf_prog_info) ||
-+		      memcmp(&prog_info, &prog_infos[i], info_len),
-+		      "get-prog-info(next_id->fd)",
-+		      "err %d errno %d info_len %u(%lu) memcmp %d\n",
-+		      err, errno, info_len, sizeof(struct bpf_prog_info),
-+		      memcmp(&prog_info, &prog_infos[i], info_len));
-+
-+		close(prog_fd);
-+	}
-+	CHECK(nr_id_found != nr_iters,
-+	      "check total prog id found by get_next_id",
-+	      "nr_id_found %u(%u)\n",
-+	      nr_id_found, nr_iters);
-+
-+	/* Check bpf_map_get_next_id() */
-+	nr_id_found = 0;
-+	next_id = 0;
-+	while (!bpf_map_get_next_id(next_id, &next_id)) {
-+		struct bpf_map_info map_info;
-+		int map_fd;
-+
-+		info_len = sizeof(map_info);
-+
-+		map_fd = bpf_map_get_fd_by_id(next_id);
-+		if (map_fd < 0 && errno == ENOENT)
-+			/* The bpf_map is in the dead row */
-+			continue;
-+		if (CHECK(map_fd < 0, "get-map-fd(next_id)",
-+			  "map_fd %d next_id %u errno %d\n",
-+			  map_fd, next_id, errno))
-+			break;
-+
-+		for (i = 0; i < nr_iters; i++)
-+			if (map_infos[i].id == next_id)
-+				break;
-+
-+		if (i == nr_iters)
-+			continue;
-+
-+		nr_id_found++;
-+
-+		err = bpf_map_lookup_elem(map_fd, &array_key, &array_value);
-+		assert(!err);
-+
-+		err = bpf_obj_get_info_by_fd(map_fd, &map_info, &info_len);
-+		CHECK(err || info_len != sizeof(struct bpf_map_info) ||
-+		      memcmp(&map_info, &map_infos[i], info_len) ||
-+		      array_value != array_magic_value,
-+		      "check get-map-info(next_id->fd)",
-+		      "err %d errno %d info_len %u(%lu) memcmp %d array_value %llu(%llu)\n",
-+		      err, errno, info_len, sizeof(struct bpf_map_info),
-+		      memcmp(&map_info, &map_infos[i], info_len),
-+		      array_value, array_magic_value);
-+
-+		close(map_fd);
-+	}
-+	CHECK(nr_id_found != nr_iters,
-+	      "check total map id found by get_next_id",
-+	      "nr_id_found %u(%u)\n",
-+	      nr_id_found, nr_iters);
-+
-+done:
-+	for (i = 0; i < nr_iters; i++)
-+		bpf_object__close(objs[i]);
++	return err;
 +}
 +
- int main(void)
+ SYSCALL_DEFINE3(bpf, int, cmd, union bpf_attr __user *, uattr, unsigned int, size)
  {
- 	struct rlimit rinf = { RLIM_INFINITY, RLIM_INFINITY };
-@@ -293,6 +483,7 @@ int main(void)
- 	test_xdp();
- 	test_l4lb();
- 	test_tcp_estats();
-+	test_bpf_obj_id();
- 
- 	printf("Summary: %d PASSED, %d FAILED\n", pass_cnt, error_cnt);
- 	return 0;
+ 	union bpf_attr attr = {};
+@@ -1146,6 +1176,14 @@ SYSCALL_DEFINE3(bpf, int, cmd, union bpf_attr __user *, uattr, unsigned int, siz
+ 	case BPF_PROG_TEST_RUN:
+ 		err = bpf_prog_test_run(&attr, uattr);
+ 		break;
++	case BPF_PROG_GET_NEXT_ID:
++		err = bpf_obj_get_next_id(&attr, uattr,
++					  &prog_idr, &prog_idr_lock);
++		break;
++	case BPF_MAP_GET_NEXT_ID:
++		err = bpf_obj_get_next_id(&attr, uattr,
++					  &map_idr, &map_idr_lock);
++		break;
+ 	default:
+ 		err = -EINVAL;
+ 		break;
 -- 
 2.9.3
