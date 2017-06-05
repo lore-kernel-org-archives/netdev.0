@@ -1,45 +1,57 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [patch net-next 0/6] introduce trap control action to tc and
- offload it
-Date: Mon, 5 Jun 2017 17:46:51 +0200
-Message-ID: <20170605154651.GE11772@lunn.ch>
-References: <20170605143832.7025-1-jiri@resnulli.us>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, jhs@mojatatu.com,
-        xiyou.wangcong@gmail.com, edumazet@google.com,
-        alexander.h.duyck@intel.com, stephen@networkplumber.org,
-        daniel@iogearbox.net, mlxsw@mellanox.com
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:36736 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751077AbdFEPqz (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 5 Jun 2017 11:46:55 -0400
-Content-Disposition: inline
-In-Reply-To: <20170605143832.7025-1-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Richard Haines <richard_c_haines-FhtRXb7CoQBt1OO0OYaSVA@public.gmane.org>
+Subject: [PATCH] net/ipv6: Fix CALIPSO causing GPF with datagram support
+Date: Mon,  5 Jun 2017 16:44:40 +0100
+Message-ID: <20170605154440.2434-1-richard_c_haines@btinternet.com>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-security-module-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        selinux-+05T5uksL2qpZYMLLGbcSA@public.gmane.org
+To: paul-r2n+y4ga6xFZroRs9YW3xA@public.gmane.org
+Return-path: <selinux-bounces-+05T5uksL2qpZYMLLGbcSA@public.gmane.org>
+List-Post: <mailto:selinux-+05T5uksL2qpZYMLLGbcSA@public.gmane.org>
+List-Help: <mailto:selinux-request-+05T5uksL2qpZYMLLGbcSA@public.gmane.org?subject=help>
+Errors-To: selinux-bounces-+05T5uksL2qpZYMLLGbcSA@public.gmane.org
+Sender: "Selinux" <selinux-bounces-+05T5uksL2qpZYMLLGbcSA@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jun 05, 2017 at 04:38:26PM +0200, Jiri Pirko wrote:
-> From: Jiri Pirko <jiri@mellanox.com>
-> 
-> This patchset introduces a control action dedicated to indicate
-> to trap the matched packet to CPU. This is specific action for
-> HW offloads. Also, the patchset offloads the action to mlxsw driver.
-> 
-> Example usage:
-> $ tc filter add dev enp3s0np19 parent ffff: protocol ip prio 20 flower skip_sw dst_ip 192.168.10.1 action trap
+When using CALIPSO with IPPROTO_UDP it is possible to trigger a GPF as the
+IP header may have moved.
 
-Hi Jiri
+Also update the payload length after adding the CALIPSO option.
 
-So i assume this means a frame ingressing on the switch port
-enp3s0np19 matching the filter is now visible on the linux enp3s0np19
-interface?  How do you avoid Linux processing it? If enp3s0np19 is a
-member of a bridge, we don't want the software bridge processing it
-and forwarding it out another port, since i assume the hardware has
-already done this. Or does the trap stop further processing of the
-frame by the hardware?
+Signed-off-by: Richard Haines <richard_c_haines-FhtRXb7CoQBt1OO0OYaSVA@public.gmane.org>
+---
+ net/ipv6/calipso.c | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
 
-Thanks
-      Andrew
+diff --git a/net/ipv6/calipso.c b/net/ipv6/calipso.c
+index 37ac9de..8d772fe 100644
+--- a/net/ipv6/calipso.c
++++ b/net/ipv6/calipso.c
+@@ -1319,7 +1319,7 @@ static int calipso_skbuff_setattr(struct sk_buff *skb,
+ 	struct ipv6hdr *ip6_hdr;
+ 	struct ipv6_opt_hdr *hop;
+ 	unsigned char buf[CALIPSO_MAX_BUFFER];
+-	int len_delta, new_end, pad;
++	int len_delta, new_end, pad, payload;
+ 	unsigned int start, end;
+ 
+ 	ip6_hdr = ipv6_hdr(skb);
+@@ -1346,6 +1346,8 @@ static int calipso_skbuff_setattr(struct sk_buff *skb,
+ 	if (ret_val < 0)
+ 		return ret_val;
+ 
++	ip6_hdr = ipv6_hdr(skb); /* Reset as skb_cow() may have moved it */
++
+ 	if (len_delta) {
+ 		if (len_delta > 0)
+ 			skb_push(skb, len_delta);
+@@ -1355,6 +1357,8 @@ static int calipso_skbuff_setattr(struct sk_buff *skb,
+ 			sizeof(*ip6_hdr) + start);
+ 		skb_reset_network_header(skb);
+ 		ip6_hdr = ipv6_hdr(skb);
++		payload = ntohs(ip6_hdr->payload_len);
++		ip6_hdr->payload_len = htons(payload + len_delta);
+ 	}
+ 
+ 	hop = (struct ipv6_opt_hdr *)(ip6_hdr + 1);
+-- 
+2.9.4
