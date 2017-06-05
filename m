@@ -1,79 +1,66 @@
-From: =?gb2312?B?1cXKpL7Z?= <zhangshengju@cmss.chinamobile.com>
-Subject: RE: [net-next] openvswitch: add macro MODULE_ALIAS_VPORT_TYPE for vport type alias
-Date: Mon, 5 Jun 2017 09:10:22 +0800
-Message-ID: <001601d2dd98$8209e620$861db260$@cmss.chinamobile.com>
-References: <1496497655-24810-1-git-send-email-zhangshengju@cmss.chinamobile.com>       <CAOrHB_CjkyEoWVJFT5Q+vPOvcg4rd9cY+z5gRi7JEQscG6-dNg@mail.gmail.com> <20170604.161235.2303882939513535289.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next] openvswitch: add macro MODULE_ALIAS_VPORT_TYPE for
+ vport type alias
+Date: Sun, 04 Jun 2017 21:25:44 -0400 (EDT)
+Message-ID: <20170604.212544.1177497062040790396.davem@davemloft.net>
+References: <CAOrHB_CjkyEoWVJFT5Q+vPOvcg4rd9cY+z5gRi7JEQscG6-dNg@mail.gmail.com>
+        <20170604.161235.2303882939513535289.davem@davemloft.net>
+        <001601d2dd98$8209e620$861db260$@cmss.chinamobile.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-        charset="gb2312"
-Content-Transfer-Encoding: 7bit
-Cc: <pshelar@nicira.com>, <netdev@vger.kernel.org>
-To: "'David Miller'" <davem@davemloft.net>, <pshelar@ovn.org>
+Content-Type: Text/Plain; charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: pshelar@ovn.org, pshelar@nicira.com, netdev@vger.kernel.org
+To: zhangshengju@cmss.chinamobile.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmccmta1.chinamobile.com ([221.176.66.79]:59046 "EHLO
-        cmccmta1.chinamobile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751193AbdFEBK0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 4 Jun 2017 21:10:26 -0400
-In-Reply-To: <20170604.161235.2303882939513535289.davem@davemloft.net>
-Content-Language: en-us
+Received: from shards.monkeyblade.net ([184.105.139.130]:54120 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751189AbdFEBZt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 4 Jun 2017 21:25:49 -0400
+In-Reply-To: <001601d2dd98$8209e620$861db260$@cmss.chinamobile.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Monday, June 05, 2017 4:13 AM
-> To: pshelar@ovn.org
-> Cc: zhangshengju@cmss.chinamobile.com; pshelar@nicira.com;
-> netdev@vger.kernel.org
-> Subject: Re: [net-next] openvswitch: add macro
-> MODULE_ALIAS_VPORT_TYPE for vport type alias
-> 
-> From: Pravin Shelar <pshelar@ovn.org>
-> Date: Sat, 3 Jun 2017 22:58:22 -0700
-> 
-> > On Sat, Jun 3, 2017 at 6:47 AM, Zhang Shengju
-> > <zhangshengju@cmss.chinamobile.com> wrote:
-> >> Add a new macro MODULE_ALIAS_VPORT_TYPE to unify and simplify the
-> >> declaration of vport type alias, and replace magic numbers with
-> >> symbolic constants.
-> >>
-> >> Signed-off-by: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
-> >> ---
-> >>  net/openvswitch/vport-geneve.c | 2 +-
-> >>  net/openvswitch/vport-gre.c    | 2 +-
-> >>  net/openvswitch/vport-vxlan.c  | 2 +-
-> >>  net/openvswitch/vport.h        | 3 +++
-> >>  4 files changed, 6 insertions(+), 3 deletions(-)
-> >>
-> >> diff --git a/net/openvswitch/vport-geneve.c
-> >> b/net/openvswitch/vport-geneve.c index 5aaf3ba..1c068d6 100644
-> >> --- a/net/openvswitch/vport-geneve.c
-> >> +++ b/net/openvswitch/vport-geneve.c
-> >> @@ -141,4 +141,4 @@ static void __exit ovs_geneve_tnl_exit(void)
-> >>
-> >>  MODULE_DESCRIPTION("OVS: Geneve switching port");
-> >> MODULE_LICENSE("GPL"); -MODULE_ALIAS("vport-type-5");
-> >> +MODULE_ALIAS_VPORT_TYPE(OVS_VPORT_TYPE_GENEVE);
-> >> diff --git a/net/openvswitch/vport-gre.c
-> >> b/net/openvswitch/vport-gre.c index 0e72d95..48a5852 100644
-> >> --- a/net/openvswitch/vport-gre.c
-> >> +++ b/net/openvswitch/vport-gre.c
-> >> @@ -113,4 +113,4 @@ static void __exit ovs_gre_tnl_exit(void)
-> >>
-> >>  MODULE_DESCRIPTION("OVS: GRE switching port");
-> >> MODULE_LICENSE("GPL"); -MODULE_ALIAS("vport-type-3");
-> >> +MODULE_ALIAS_VPORT_TYPE(OVS_VPORT_TYPE_GRE);
-> >
-> > This is user visible change. For example this is changing the gre
-> > module alias from "vport-type-3" to "vport-type-OVS_VPORT_TYPE_GRE".
-> > This could break userspace application.
-> 
-> Agreed, you really can't do this.
-
-Hi David,
-Actually this change does not change module alias name. I use '__stringify'
-to 
-address this.  Please refer my previous reply.
-
-BRs,
-Zhang Shengju
+RnJvbTog5byg6IOc5Li+IDx6aGFuZ3NoZW5nanVAY21zcy5jaGluYW1vYmlsZS5jb20+DQpEYXRl
+OiBNb24sIDUgSnVuIDIwMTcgMDk6MTA6MjIgKzA4MDANCg0KPj4gLS0tLS1PcmlnaW5hbCBNZXNz
+YWdlLS0tLS0NCj4+IEZyb206IERhdmlkIE1pbGxlciBbbWFpbHRvOmRhdmVtQGRhdmVtbG9mdC5u
+ZXRdDQo+PiBTZW50OiBNb25kYXksIEp1bmUgMDUsIDIwMTcgNDoxMyBBTQ0KPj4gVG86IHBzaGVs
+YXJAb3ZuLm9yZw0KPj4gQ2M6IHpoYW5nc2hlbmdqdUBjbXNzLmNoaW5hbW9iaWxlLmNvbTsgcHNo
+ZWxhckBuaWNpcmEuY29tOw0KPj4gbmV0ZGV2QHZnZXIua2VybmVsLm9yZw0KPj4gU3ViamVjdDog
+UmU6IFtuZXQtbmV4dF0gb3BlbnZzd2l0Y2g6IGFkZCBtYWNybw0KPj4gTU9EVUxFX0FMSUFTX1ZQ
+T1JUX1RZUEUgZm9yIHZwb3J0IHR5cGUgYWxpYXMNCj4+IA0KPj4gRnJvbTogUHJhdmluIFNoZWxh
+ciA8cHNoZWxhckBvdm4ub3JnPg0KPj4gRGF0ZTogU2F0LCAzIEp1biAyMDE3IDIyOjU4OjIyIC0w
+NzAwDQo+PiANCj4+ID4gT24gU2F0LCBKdW4gMywgMjAxNyBhdCA2OjQ3IEFNLCBaaGFuZyBTaGVu
+Z2p1DQo+PiA+IDx6aGFuZ3NoZW5nanVAY21zcy5jaGluYW1vYmlsZS5jb20+IHdyb3RlOg0KPj4g
+Pj4gQWRkIGEgbmV3IG1hY3JvIE1PRFVMRV9BTElBU19WUE9SVF9UWVBFIHRvIHVuaWZ5IGFuZCBz
+aW1wbGlmeSB0aGUNCj4+ID4+IGRlY2xhcmF0aW9uIG9mIHZwb3J0IHR5cGUgYWxpYXMsIGFuZCBy
+ZXBsYWNlIG1hZ2ljIG51bWJlcnMgd2l0aA0KPj4gPj4gc3ltYm9saWMgY29uc3RhbnRzLg0KPj4g
+Pj4NCj4+ID4+IFNpZ25lZC1vZmYtYnk6IFpoYW5nIFNoZW5nanUgPHpoYW5nc2hlbmdqdUBjbXNz
+LmNoaW5hbW9iaWxlLmNvbT4NCj4+ID4+IC0tLQ0KPj4gPj4gIG5ldC9vcGVudnN3aXRjaC92cG9y
+dC1nZW5ldmUuYyB8IDIgKy0NCj4+ID4+ICBuZXQvb3BlbnZzd2l0Y2gvdnBvcnQtZ3JlLmMgICAg
+fCAyICstDQo+PiA+PiAgbmV0L29wZW52c3dpdGNoL3Zwb3J0LXZ4bGFuLmMgIHwgMiArLQ0KPj4g
+Pj4gIG5ldC9vcGVudnN3aXRjaC92cG9ydC5oICAgICAgICB8IDMgKysrDQo+PiA+PiAgNCBmaWxl
+cyBjaGFuZ2VkLCA2IGluc2VydGlvbnMoKyksIDMgZGVsZXRpb25zKC0pDQo+PiA+Pg0KPj4gPj4g
+ZGlmZiAtLWdpdCBhL25ldC9vcGVudnN3aXRjaC92cG9ydC1nZW5ldmUuYw0KPj4gPj4gYi9uZXQv
+b3BlbnZzd2l0Y2gvdnBvcnQtZ2VuZXZlLmMgaW5kZXggNWFhZjNiYS4uMWMwNjhkNiAxMDA2NDQN
+Cj4+ID4+IC0tLSBhL25ldC9vcGVudnN3aXRjaC92cG9ydC1nZW5ldmUuYw0KPj4gPj4gKysrIGIv
+bmV0L29wZW52c3dpdGNoL3Zwb3J0LWdlbmV2ZS5jDQo+PiA+PiBAQCAtMTQxLDQgKzE0MSw0IEBA
+IHN0YXRpYyB2b2lkIF9fZXhpdCBvdnNfZ2VuZXZlX3RubF9leGl0KHZvaWQpDQo+PiA+Pg0KPj4g
+Pj4gIE1PRFVMRV9ERVNDUklQVElPTigiT1ZTOiBHZW5ldmUgc3dpdGNoaW5nIHBvcnQiKTsNCj4+
+ID4+IE1PRFVMRV9MSUNFTlNFKCJHUEwiKTsgLU1PRFVMRV9BTElBUygidnBvcnQtdHlwZS01Iik7
+DQo+PiA+PiArTU9EVUxFX0FMSUFTX1ZQT1JUX1RZUEUoT1ZTX1ZQT1JUX1RZUEVfR0VORVZFKTsN
+Cj4+ID4+IGRpZmYgLS1naXQgYS9uZXQvb3BlbnZzd2l0Y2gvdnBvcnQtZ3JlLmMNCj4+ID4+IGIv
+bmV0L29wZW52c3dpdGNoL3Zwb3J0LWdyZS5jIGluZGV4IDBlNzJkOTUuLjQ4YTU4NTIgMTAwNjQ0
+DQo+PiA+PiAtLS0gYS9uZXQvb3BlbnZzd2l0Y2gvdnBvcnQtZ3JlLmMNCj4+ID4+ICsrKyBiL25l
+dC9vcGVudnN3aXRjaC92cG9ydC1ncmUuYw0KPj4gPj4gQEAgLTExMyw0ICsxMTMsNCBAQCBzdGF0
+aWMgdm9pZCBfX2V4aXQgb3ZzX2dyZV90bmxfZXhpdCh2b2lkKQ0KPj4gPj4NCj4+ID4+ICBNT0RV
+TEVfREVTQ1JJUFRJT04oIk9WUzogR1JFIHN3aXRjaGluZyBwb3J0Iik7DQo+PiA+PiBNT0RVTEVf
+TElDRU5TRSgiR1BMIik7IC1NT0RVTEVfQUxJQVMoInZwb3J0LXR5cGUtMyIpOw0KPj4gPj4gK01P
+RFVMRV9BTElBU19WUE9SVF9UWVBFKE9WU19WUE9SVF9UWVBFX0dSRSk7DQo+PiA+DQo+PiA+IFRo
+aXMgaXMgdXNlciB2aXNpYmxlIGNoYW5nZS4gRm9yIGV4YW1wbGUgdGhpcyBpcyBjaGFuZ2luZyB0
+aGUgZ3JlDQo+PiA+IG1vZHVsZSBhbGlhcyBmcm9tICJ2cG9ydC10eXBlLTMiIHRvICJ2cG9ydC10
+eXBlLU9WU19WUE9SVF9UWVBFX0dSRSIuDQo+PiA+IFRoaXMgY291bGQgYnJlYWsgdXNlcnNwYWNl
+IGFwcGxpY2F0aW9uLg0KPj4gDQo+PiBBZ3JlZWQsIHlvdSByZWFsbHkgY2FuJ3QgZG8gdGhpcy4N
+Cj4gDQo+IEhpIERhdmlkLA0KPiBBY3R1YWxseSB0aGlzIGNoYW5nZSBkb2VzIG5vdCBjaGFuZ2Ug
+bW9kdWxlIGFsaWFzIG5hbWUuIEkgdXNlICdfX3N0cmluZ2lmeScNCj4gdG8gDQo+IGFkZHJlc3Mg
+dGhpcy4gIFBsZWFzZSByZWZlciBteSBwcmV2aW91cyByZXBseS4NCg0KWWVwLCBJIHNhdyB0aGF0
+LCBJIHdhaXZlIG15IG9iamVjdGlvbiA6LSkNCg==
