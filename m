@@ -1,132 +1,52 @@
-From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
-Subject: Re: [PATCH 7/7] mlx5: Do not build eswitch_offloads if
- CONFIG_MLX5_EN_ESWITCH_OFFLOADS is set
-Date: Tue, 6 Jun 2017 00:53:39 +0300
-Message-ID: <CALzJLG-=WU8DFNkqjAKBSFjHyc1V2YvoWV4r7fG9QVSRTybgZw@mail.gmail.com>
-References: <20170526211624.23133-1-jsorensen@fb.com> <20170526211624.23133-8-jsorensen@fb.com>
- <CAJ3xEMgeBaE9q6sucXtOQTBLAvZvf_d0eGvMsGbVa2vWc21R-Q@mail.gmail.com>
- <e7c36f4e-788a-89dd-e92e-e6a31004758a@gmail.com> <CAJ3xEMh8ALo9Pgb0sh5dzAFaPtiKDaZyEhgasgi40Pba1JzCQA@mail.gmail.com>
- <c5b3bd3d-b5de-8b0b-34ff-068a1b3bd31c@fb.com> <CAJ3xEMhKjPwg75hO8af7XDL5JPoxkq2AtpL61CtOLb-T4aACWQ@mail.gmail.com>
- <aed5b35a-3467-7e01-6f14-e70ea4a94832@fb.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v1 1/2] net: emac: fix reset timeout with AR8035 phy
+Date: Mon, 05 Jun 2017 17:54:57 -0400 (EDT)
+Message-ID: <20170605.175457.683161131295339666.davem@davemloft.net>
+References: <20170605212617.GC9339@lunn.ch>
+        <21110017.iteKCRmsvN@debian64>
+        <20170605214857.GB12386@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Or Gerlitz <gerlitz.or@gmail.com>,
-        Jes Sorensen <jes.sorensen@gmail.com>,
-        Linux Netdev List <netdev@vger.kernel.org>,
-        Kernel Team <kernel-team@fb.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Ilan Tayari <ilant@mellanox.com>
-To: Jes Sorensen <jsorensen@fb.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: chunkeey@googlemail.com, netdev@vger.kernel.org, ivan@de.ibm.com,
+        chrisrblake93@gmail.com
+To: andrew@lunn.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f181.google.com ([209.85.216.181]:36482 "EHLO
-        mail-qt0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751213AbdFEVyB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 5 Jun 2017 17:54:01 -0400
-Received: by mail-qt0-f181.google.com with SMTP id u19so48212475qta.3
-        for <netdev@vger.kernel.org>; Mon, 05 Jun 2017 14:54:00 -0700 (PDT)
-In-Reply-To: <aed5b35a-3467-7e01-6f14-e70ea4a94832@fb.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:44604 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751189AbdFEVy7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 5 Jun 2017 17:54:59 -0400
+In-Reply-To: <20170605214857.GB12386@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 5, 2017 at 11:51 PM, Jes Sorensen <jsorensen@fb.com> wrote:
-> On 06/03/2017 03:37 PM, Or Gerlitz wrote:
->>
->> On Fri, Jun 2, 2017 at 11:22 PM, Jes Sorensen <jsorensen@fb.com> wrote:
->>>
->>> On 05/28/2017 02:03 AM, Or Gerlitz wrote:
->>>>
->>>>
->>>> On Sun, May 28, 2017 at 5:23 AM, Jes Sorensen <jes.sorensen@gmail.com>
->>>> wrote:
->>>>>
->>>>>
->>>>> On 05/27/2017 05:02 PM, Or Gerlitz wrote:
->>>>>>
->>>>>>
->>>>>>
->>>>>> On Sat, May 27, 2017 at 12:16 AM, Jes Sorensen
->>>>>> <jes.sorensen@gmail.com>
->>>>>> wrote:
->>>>>>>
->>>>>>>
->>>>>>>
->>>>>>> This gets rid of the temporary #ifdef spaghetti and allows the code
->>>>>>> to
->>>>>>> compile without offload support enabled.
->>>>
->>>>
->>>>
->>>>>> I am pretty sure we can do that exercise you're up to without any
->>>>>> spaghetti cooking and even put more code under that CONFIG directive
->>>>>> (en_rep.c), I'll take that with Saeed.
->>>>
->>>>
->>>>
->>>>> I want to avoid adding #ifdef CONFIG_foo to the main code in order to
->>>>> keep
->>>>> it readable. I did it gradually to make sure I didn't break anything
->>>>> and
->>>>> to
->>>>> allow for it to be bisected in case something did break. If we can move
->>>>> out
->>>>> more code from places like en_rep.c into eswitch_offload.c and get it
->>>>> disabled that way that would be great, but I like to limit the number
->>>>> of
->>>>> #ifdefs we add to the actual code.
->>>>
->>>>
->>>>
->>>> FWIW (see below), squashing your seven patches to one resulted in a
->>>> fairly simple/clear
->>>> patch, so if we go that way, no need to have seven commits just for this
->>>> piece.
->>>
->>>
->>>
->>> Squashing patches into jumbo patches is inherently broken and bad coding
->>> practice! It makes it way more complicated to debug and bisect in case a
->>> minor detail broke in the process.
->>
->>
->> Not that pure LOC ##-s is the only/deep measurement, but your overall
->> changes in the the seven patch series account to:
->>
->>   5 files changed, 94 insertions(+), 3 deletions(-)
->>
->> and by no mean this is jumbo or inherently broken and bad coded, so
->> please slow down please, I looked with care on the resulted patch and
->> said it's basically ok.
->
->
-> Squashing patches for the sake of squashing patches is inherently broken and
-> bad. So please calm down and stop this mangling of other peoples' patches.
->
-> If you want an alternative, put up a proposal and look at it for comparison
-> somewhere.
->
-> Jes
->
+From: Andrew Lunn <andrew@lunn.ch>
+Date: Mon, 5 Jun 2017 23:48:57 +0200
 
-Hey Jes,
+> On Mon, Jun 05, 2017 at 11:44:46PM +0200, Christian Lamparter wrote:
+>> On Monday, June 5, 2017 11:26:17 PM CEST Andrew Lunn wrote:
+>> > > In order to stay compatible with existing configurations, the
+>> > > driver will try the normal reset first and only falls back to
+>> > > to the internal clock, after the first reset fails. If the
+>> > > second reset fails as well, it will give up as before.
+>> > 
+>> > Hi Christian
+>> > 
+>> > This gets things probed correctly. But should you swap back to the PHY
+>> > clock when the PHY declares the link up? Is there code already to do
+>> > this?
+>> > 
+>> > 	Andrew
+>> > 
+>> Oh, sorry. I omitted this from the commit message. But the proposed 
+>> emac_reset() code  switched to the internal clock only after the first attempt
+>> has failed AND only for the duration of the reset.
+>> 
+>> If the reset succeeds or the reset times out, the clock is always switched 
+>> back to the external clock.
+> 
+> Thanks for the clarification. Maybe add it to the commit message.
 
-It is not just about squashing patches, I am working on a series of
-patches to allow compiling out eswitch/eswitch_offloads/en_rep.c/en_tc
-altogether, it will come out cleaner as it will remove all ethernet
-sriov/eswitch VF representors and eswitch tc offloads stuff with one
-kconfig flag, and yet preserve standard QoS functionality from en_tc.
+Indeed, please do.
 
-BTW today you can just remove eswitch from driver and non sriov
-configuration will perfectly work with no issues.
-Even multi PF configuration will also work, but without l2 mac table,
-which means PFs can only see packets with their own static (permanent)
-mac addresses, user configured macs will not work on Multi PF
-configuration.
-
-For that i will take the l2 table (ConnectX PF mac table) logic out of
-eswitch as it is not really an eswitch logic, and move it to core
-driver to allow Multi PF configuration to work without eswitch.
-
-I will post some patches for you to review by end of week.
-
-Thanks,
-Saeed.
+ 
