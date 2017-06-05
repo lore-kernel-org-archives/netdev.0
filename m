@@ -1,74 +1,355 @@
-From: Russell King - ARM Linux <linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>
-Subject: [PATCH v2 0/6] Add phylib support for MV88X3310 10G phy
-Date: Mon, 5 Jun 2017 12:22:03 +0100
-Message-ID: <20170605112203.GA10680@n2100.armlinux.org.uk>
-References: <20170601102327.GF27796@n2100.armlinux.org.uk>
+From: Russell King <rmk+kernel@armlinux.org.uk>
+Subject: [PATCH 1/6] net: phy: add 802.3 clause 45 support to phylib
+Date: Mon, 05 Jun 2017 12:22:50 +0100
+Message-ID: <E1dHq5y-0005Wk-Ca@rmk-PC.armlinux.org.uk>
+References: <20170605112203.GA10680@n2100.armlinux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-To: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>,
-        Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org
+To: Andrew Lunn <andrew@lunn.ch>,
+        Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from pandora.armlinux.org.uk ([78.32.30.218]:32988 "EHLO
+        pandora.armlinux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751425AbdFELWy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 5 Jun 2017 07:22:54 -0400
+In-Reply-To: <20170605112203.GA10680@n2100.armlinux.org.uk>
 Content-Disposition: inline
-In-Reply-To: <20170601102327.GF27796-l+eeeJia6m9URfEZ8mYm6t73F7V6hmMc@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Add generic helpers for 802.3 clause 45 PHYs for >= 10Gbps support.
 
-This patch series adds support for the Marvell 88x3310 PHY found on
-the SolidRun Macchiatobin board.
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+Signed-off-by: Russell King <rmk+kernel@armlinux.org.uk>
+---
+ drivers/net/phy/Makefile     |   2 +-
+ drivers/net/phy/phy-c45.c    | 234 +++++++++++++++++++++++++++++++++++++++++++
+ drivers/net/phy/phy_device.c |  20 ++--
+ include/linux/phy.h          |  12 +++
+ 4 files changed, 253 insertions(+), 15 deletions(-)
+ create mode 100644 drivers/net/phy/phy-c45.c
 
-The first patch introduces a set of generic Clause 45 PHY helpers that
-C45 PHY drivers can make use of if they wish.
-
-Patch 2 ensures that the Clause 22 aneg_done function will not be
-called for incompatible Clause 45 PHYs.
-
-Patch 3 fixes the aneg restart to be compatible with C45 PHYs - it can
-currently only cope with C22 PHYs.
-
-Patch 4 moves the "gen10g" driver into the Clause 45 code, grouping all
-core clause 45 code together.
-
-Patch 5 adds the phy_interface_t types for XAUI and 10GBase-KR links.
-As 10GBase-KR appears to be compatible with XFI and SFI, XFI and SFI,
-I currently see no reason to add XFI and SFI interface modes.  There
-seems to be vendor code out there using these, but they all alias back
-to the same hardware settings.
-
-Patch 6 adds support for the MV88X3310 PHY, which supports both the
-copper and fiber interfaces.  It should be noted that the MV88X3310
-automatically switches its MAC facing interface between 10GBase-KR
-and SGMII depending on the negotiated speed.  This was discussed with
-Florian, and we agreed to update the phy interface mode depending on
-the properties of the actual link mode to the PHY.
-
-v2:
-- update sysfs-class-net-phydev documentation
-- avoid genphy_aneg_done for non-C22 PHYs
-- expand comment about 0x30 constant
-- add comment about lack of reset
-- configure driver using MARVELL_10G_PHY
-
- Documentation/ABI/testing/sysfs-class-net-phydev   |   2 +-
- Documentation/devicetree/bindings/net/ethernet.txt |   2 +
- MAINTAINERS                                        |   6 +
- drivers/net/phy/Kconfig                            |   5 +
- drivers/net/phy/Makefile                           |   3 +-
- drivers/net/phy/marvell10g.c                       | 368 +++++++++++++++++++++
- drivers/net/phy/phy-c45.c                          | 298 +++++++++++++++++
- drivers/net/phy/phy.c                              |  29 +-
- drivers/net/phy/phy_device.c                       | 113 ++-----
- include/linux/phy.h                                |  20 ++
- 10 files changed, 748 insertions(+), 98 deletions(-)
-
+diff --git a/drivers/net/phy/Makefile b/drivers/net/phy/Makefile
+index e2fde094f63d..ae58f507aba9 100644
+--- a/drivers/net/phy/Makefile
++++ b/drivers/net/phy/Makefile
+@@ -1,6 +1,6 @@
+ # Makefile for Linux PHY drivers and MDIO bus drivers
+ 
+-libphy-y			:= phy.o phy-core.o phy_device.o
++libphy-y			:= phy.o phy-c45.o phy-core.o phy_device.o
+ mdio-bus-y			+= mdio_bus.o mdio_device.o
+ 
+ ifdef CONFIG_MDIO_DEVICE
+diff --git a/drivers/net/phy/phy-c45.c b/drivers/net/phy/phy-c45.c
+new file mode 100644
+index 000000000000..d311d6e6141c
+--- /dev/null
++++ b/drivers/net/phy/phy-c45.c
+@@ -0,0 +1,234 @@
++/*
++ * Clause 45 PHY support
++ */
++#include <linux/ethtool.h>
++#include <linux/export.h>
++#include <linux/mdio.h>
++#include <linux/mii.h>
++#include <linux/phy.h>
++
++/**
++ * genphy_c45_setup_forced - configures a forced speed
++ * @phydev: target phy_device struct
++ */
++int genphy_c45_pma_setup_forced(struct phy_device *phydev)
++{
++	int ctrl1, ctrl2, ret;
++
++	/* Half duplex is not supported */
++	if (phydev->duplex != DUPLEX_FULL)
++		return -EINVAL;
++
++	ctrl1 = phy_read_mmd(phydev, MDIO_MMD_PMAPMD, MDIO_CTRL1);
++	if (ctrl1 < 0)
++		return ctrl1;
++
++	ctrl2 = phy_read_mmd(phydev, MDIO_MMD_PMAPMD, MDIO_CTRL2);
++	if (ctrl2 < 0)
++		return ctrl2;
++
++	ctrl1 &= ~MDIO_CTRL1_SPEEDSEL;
++	/*
++	 * PMA/PMD type selection is 1.7.5:0 not 1.7.3:0.  See 45.2.1.6.1
++	 * in 802.3-2012 and 802.3-2015.
++	 */
++	ctrl2 &= ~(MDIO_PMA_CTRL2_TYPE | 0x30);
++
++	switch (phydev->speed) {
++	case SPEED_10:
++		ctrl2 |= MDIO_PMA_CTRL2_10BT;
++		break;
++	case SPEED_100:
++		ctrl1 |= MDIO_PMA_CTRL1_SPEED100;
++		ctrl2 |= MDIO_PMA_CTRL2_100BTX;
++		break;
++	case SPEED_1000:
++		ctrl1 |= MDIO_PMA_CTRL1_SPEED1000;
++		/* Assume 1000base-T */
++		ctrl2 |= MDIO_PMA_CTRL2_1000BT;
++		break;
++	case SPEED_10000:
++		ctrl1 |= MDIO_CTRL1_SPEED10G;
++		/* Assume 10Gbase-T */
++		ctrl2 |= MDIO_PMA_CTRL2_10GBT;
++		break;
++	default:
++		return -EINVAL;
++	}
++
++	ret = phy_write_mmd(phydev, MDIO_MMD_PMAPMD, MDIO_CTRL1, ctrl1);
++	if (ret < 0)
++		return ret;
++
++	return phy_write_mmd(phydev, MDIO_MMD_PMAPMD, MDIO_CTRL2, ctrl2);
++}
++EXPORT_SYMBOL_GPL(genphy_c45_pma_setup_forced);
++
++/**
++ * genphy_c45_an_disable_aneg - disable auto-negotiation
++ * @phydev: target phy_device struct
++ *
++ * Disable auto-negotiation in the Clause 45 PHY. The link parameters
++ * parameters are controlled through the PMA/PMD MMD registers.
++ *
++ * Returns zero on success, negative errno code on failure.
++ */
++int genphy_c45_an_disable_aneg(struct phy_device *phydev)
++{
++	int val;
++
++	val = phy_read_mmd(phydev, MDIO_MMD_AN, MDIO_CTRL1);
++	if (val < 0)
++		return val;
++
++	val &= ~(MDIO_AN_CTRL1_ENABLE | MDIO_AN_CTRL1_RESTART);
++
++	return phy_write_mmd(phydev, MDIO_MMD_AN, MDIO_CTRL1, val);
++}
++EXPORT_SYMBOL_GPL(genphy_c45_an_disable_aneg);
++
++/**
++ * genphy_c45_restart_aneg - Enable and restart auto-negotiation
++ * @phydev: target phy_device struct
++ *
++ * This assumes that the auto-negotiation MMD is present.
++ *
++ * Enable and restart auto-negotiation.
++ */
++int genphy_c45_restart_aneg(struct phy_device *phydev)
++{
++	int val;
++
++	val = phy_read_mmd(phydev, MDIO_MMD_AN, MDIO_CTRL1);
++	if (val < 0)
++		return val;
++
++	val |= MDIO_AN_CTRL1_ENABLE | MDIO_AN_CTRL1_RESTART;
++
++	return phy_write_mmd(phydev, MDIO_MMD_AN, MDIO_CTRL1, val);
++}
++EXPORT_SYMBOL_GPL(genphy_c45_restart_aneg);
++
++/**
++ * genphy_c45_aneg_done - return auto-negotiation complete status
++ * @phydev: target phy_device struct
++ *
++ * This assumes that the auto-negotiation MMD is present.
++ *
++ * Reads the status register from the auto-negotiation MMD, returning:
++ * - positive if auto-negotiation is complete
++ * - negative errno code on error
++ * - zero otherwise
++ */
++int genphy_c45_aneg_done(struct phy_device *phydev)
++{
++	int val = phy_read_mmd(phydev, MDIO_MMD_AN, MDIO_STAT1);
++
++	return val < 0 ? val : val & MDIO_AN_STAT1_COMPLETE ? 1 : 0;
++}
++EXPORT_SYMBOL_GPL(genphy_c45_aneg_done);
++
++/**
++ * genphy_c45_read_link - read the overall link status from the MMDs
++ * @phydev: target phy_device struct
++ * @mmd_mask: MMDs to read status from
++ *
++ * Read the link status from the specified MMDs, and if they all indicate
++ * that the link is up, return positive.  If an error is encountered,
++ * a negative errno will be returned, otherwise zero.
++ */
++int genphy_c45_read_link(struct phy_device *phydev, u32 mmd_mask)
++{
++	int val, devad;
++	bool link = true;
++
++	while (mmd_mask) {
++		devad = __ffs(mmd_mask);
++		mmd_mask &= ~BIT(devad);
++
++		/* The link state is latched low so that momentary link
++		 * drops can be detected.  Do not double-read the status
++		 * register if the link is down.
++		 */
++		val = phy_read_mmd(phydev, devad, MDIO_STAT1);
++		if (val < 0)
++			return val;
++
++		if (!(val & MDIO_STAT1_LSTATUS))
++			link = false;
++	}
++
++	return link;
++}
++EXPORT_SYMBOL_GPL(genphy_c45_read_link);
++
++/**
++ * genphy_c45_read_lpa - read the link partner advertisment and pause
++ * @phydev: target phy_device struct
++ *
++ * Read the Clause 45 defined base (7.19) and 10G (7.33) status registers,
++ * filling in the link partner advertisment, pause and asym_pause members
++ * in @phydev.  This assumes that the auto-negotiation MMD is present, and
++ * the backplane bit (7.48.0) is clear.  Clause 45 PHY drivers are expected
++ * to fill in the remainder of the link partner advert from vendor registers.
++ */
++int genphy_c45_read_lpa(struct phy_device *phydev)
++{
++	int val;
++
++	/* Read the link partner's base page advertisment */
++	val = phy_read_mmd(phydev, MDIO_MMD_AN, MDIO_AN_LPA);
++	if (val < 0)
++		return val;
++
++	phydev->lp_advertising = mii_lpa_to_ethtool_lpa_t(val);
++	phydev->pause = val & LPA_PAUSE_CAP ? 1 : 0;
++	phydev->asym_pause = val & LPA_PAUSE_ASYM ? 1 : 0;
++
++	/* Read the link partner's 10G advertisment */
++	val = phy_read_mmd(phydev, MDIO_MMD_AN, MDIO_AN_10GBT_STAT);
++	if (val < 0)
++		return val;
++
++	if (val & MDIO_AN_10GBT_STAT_LP10G)
++		phydev->lp_advertising |= ADVERTISED_10000baseT_Full;
++
++	return 0;
++}
++EXPORT_SYMBOL_GPL(genphy_c45_read_lpa);
++
++/**
++ * genphy_c45_read_pma - read link speed etc from PMA
++ * @phydev: target phy_device struct
++ */
++int genphy_c45_read_pma(struct phy_device *phydev)
++{
++	int val;
++
++	val = phy_read_mmd(phydev, MDIO_MMD_PMAPMD, MDIO_CTRL1);
++	if (val < 0)
++		return val;
++
++	switch (val & MDIO_CTRL1_SPEEDSEL) {
++	case 0:
++		phydev->speed = SPEED_10;
++		break;
++	case MDIO_PMA_CTRL1_SPEED100:
++		phydev->speed = SPEED_100;
++		break;
++	case MDIO_PMA_CTRL1_SPEED1000:
++		phydev->speed = SPEED_1000;
++		break;
++	case MDIO_CTRL1_SPEED10G:
++		phydev->speed = SPEED_10000;
++		break;
++	default:
++		phydev->speed = SPEED_UNKNOWN;
++		break;
++	}
++
++	phydev->duplex = DUPLEX_FULL;
++
++	return 0;
++}
++EXPORT_SYMBOL_GPL(genphy_c45_read_pma);
+diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+index 37a1e98908e3..6a79e24fa312 100644
+--- a/drivers/net/phy/phy_device.c
++++ b/drivers/net/phy/phy_device.c
+@@ -1508,27 +1508,19 @@ EXPORT_SYMBOL(genphy_read_status);
+ 
+ static int gen10g_read_status(struct phy_device *phydev)
+ {
+-	int devad, reg;
+ 	u32 mmd_mask = phydev->c45_ids.devices_in_package;
+-
+-	phydev->link = 1;
++	int ret;
+ 
+ 	/* For now just lie and say it's 10G all the time */
+ 	phydev->speed = SPEED_10000;
+ 	phydev->duplex = DUPLEX_FULL;
+ 
+-	for (devad = 0; mmd_mask; devad++, mmd_mask = mmd_mask >> 1) {
+-		if (!(mmd_mask & 1))
+-			continue;
++	/* Avoid reading the vendor MMDs */
++	mmd_mask &= ~(BIT(MDIO_MMD_VEND1) | BIT(MDIO_MMD_VEND2));
+ 
+-		/* Read twice because link state is latched and a
+-		 * read moves the current state into the register
+-		 */
+-		phy_read_mmd(phydev, devad, MDIO_STAT1);
+-		reg = phy_read_mmd(phydev, devad, MDIO_STAT1);
+-		if (reg < 0 || !(reg & MDIO_STAT1_LSTATUS))
+-			phydev->link = 0;
+-	}
++	ret = genphy_c45_read_link(phydev, mmd_mask);
++
++	phydev->link = ret > 0 ? 1 : 0;
+ 
+ 	return 0;
+ }
+diff --git a/include/linux/phy.h b/include/linux/phy.h
+index 58f1b45a4c44..e089253f98a2 100644
+--- a/include/linux/phy.h
++++ b/include/linux/phy.h
+@@ -827,6 +827,8 @@ static inline const char *phydev_name(const struct phy_device *phydev)
+ void phy_attached_print(struct phy_device *phydev, const char *fmt, ...)
+ 	__printf(2, 3);
+ void phy_attached_info(struct phy_device *phydev);
++
++/* Clause 22 PHY */
+ int genphy_config_init(struct phy_device *phydev);
+ int genphy_setup_forced(struct phy_device *phydev);
+ int genphy_restart_aneg(struct phy_device *phydev);
+@@ -841,6 +843,16 @@ static inline int genphy_no_soft_reset(struct phy_device *phydev)
+ {
+ 	return 0;
+ }
++
++/* Clause 45 PHY */
++int genphy_c45_restart_aneg(struct phy_device *phydev);
++int genphy_c45_aneg_done(struct phy_device *phydev);
++int genphy_c45_read_link(struct phy_device *phydev, u32 mmd_mask);
++int genphy_c45_read_lpa(struct phy_device *phydev);
++int genphy_c45_read_pma(struct phy_device *phydev);
++int genphy_c45_pma_setup_forced(struct phy_device *phydev);
++int genphy_c45_an_disable_aneg(struct phy_device *phydev);
++
+ void phy_driver_unregister(struct phy_driver *drv);
+ void phy_drivers_unregister(struct phy_driver *drv, int n);
+ int phy_driver_register(struct phy_driver *new_driver, struct module *owner);
 -- 
-RMK's Patch system: http://www.armlinux.org.uk/developer/patches/
-FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
-according to speedtest.net.
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+2.7.4
