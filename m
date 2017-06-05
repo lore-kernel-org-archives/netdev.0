@@ -1,215 +1,266 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: [patch net-next 05/19] net: bridge: Add support for notifying
- devices about FDB add/del
-Date: Mon, 5 Jun 2017 16:35:31 +0300
-Message-ID: <e64dd1c4-8cdc-4be9-350d-171597bf4d1c@cumulusnetworks.com>
-References: <20170605092043.3523-1-jiri@resnulli.us>
- <20170605092043.3523-6-jiri@resnulli.us>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: [PATCH v2 2/3] PCI: Enable PCIe Relaxed Ordering if supported
+Date: Mon, 5 Jun 2017 21:33:19 +0800
+Message-ID: <0853b74b-6c0e-68e9-225b-621d833615e4@huawei.com>
+References: <1496462647-7632-1-git-send-email-dingtianhong@huawei.com>
+ <1496462647-7632-3-git-send-email-dingtianhong@huawei.com>
+ <CAKgT0UfKPLy7=swnZYiYOrLS8znhjxeXNZv=+CK5XS3Z1fkMbw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, idosch@mellanox.com, arkadis@mellanox.com,
-        mlxsw@mellanox.com, roopa@cumulusnetworks.com,
-        stephen@networkplumber.org, ivecera@redhat.com
-To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f170.google.com ([209.85.128.170]:34715 "EHLO
-        mail-wr0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751295AbdFENff (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 5 Jun 2017 09:35:35 -0400
-Received: by mail-wr0-f170.google.com with SMTP id g76so38439658wrd.1
-        for <netdev@vger.kernel.org>; Mon, 05 Jun 2017 06:35:34 -0700 (PDT)
-In-Reply-To: <20170605092043.3523-6-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Mark Rutland <mark.rutland@arm.com>,
+ Gabriele Paoloni <gabriele.paoloni@huawei.com>,
+ Asit K Mallick <asit.k.mallick@intel.com>,
+ Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will.deacon@arm.com>,
+ Ashok Raj <ashok.raj@intel.com>, Bjorn Helgaas <helgaas@kernel.org>,
+ Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+ "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+ Ganesh Goudar <ganeshgr@chelsio.com>, Bob Shaw <Bob.Shaw@amd.com>,
+ Casey Leedom <leedom@chelsio.com>,
+ Patrick J Cramer <patrick.j.cramer@intel.com>,
+ Michael Werner <werner@chelsio.com>, linux-arm-kernel@lists.infradead.org,
+ Amir Ancel <amira@mellanox.com>, Netdev <netdev@vger.kernel.org>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ David Laight <David.Laight@aculab.com>,
+ Suravee Suthikulpanit <Suravee.Suthikulpanit@amd.com>,
+ Robin Murphy <robin.murphy@arm.com>, David Miller <davem@
+To: Alexander Duyck <alexander.duyck@gmail.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <CAKgT0UfKPLy7=swnZYiYOrLS8znhjxeXNZv=+CK5XS3Z1fkMbw@mail.gmail.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-On 05/06/17 12:20, Jiri Pirko wrote:
-> From: Arkadi Sharshevsky <arkadis@mellanox.com>
-> 
-> Currently the bridge doesn't notify the underlying devices about new
-> FDBs learned. The FDB sync is placed on the switchdev notifier chain
-> because devices may potentially learn FDB that are not directly related
-> to their ports, for example:
-> 
-> 1. Mixed SW/HW bridge - FDBs that point to the ASICs external devices
->                         should be offloaded as CPU traps in order to
-> 			perform forwarding in slow path.
-> 2. EVPN - Externally learned FDBs for the vtep device.
-> 
-> Notification is sent only about static FDB add/del. This is done due
-> to fact that currently this is the only scenario supported by switch
-> drivers.
-> 
-> Signed-off-by: Arkadi Sharshevsky <arkadis@mellanox.com>
-> Reviewed-by: Ido Schimmel <idosch@mellanox.com>
-> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
-> ---
->  .../ethernet/mellanox/mlxsw/spectrum_switchdev.c   |  2 +-
->  drivers/net/ethernet/rocker/rocker_ofdpa.c         |  4 ++--
->  include/net/switchdev.h                            |  6 ++++--
->  net/bridge/br.c                                    |  4 ++--
->  net/bridge/br_fdb.c                                | 22 ++++++++++++++++++++++
->  net/bridge/br_private.h                            |  8 ++++++++
->  net/bridge/br_switchdev.c                          | 13 +++++++++++++
->  7 files changed, 52 insertions(+), 7 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
-> index edcc273..0111a77 100644
-> --- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
-> +++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
-> @@ -1867,7 +1867,7 @@ static void mlxsw_sp_fdb_call_notifiers(bool learning_sync, bool adding,
->  	if (learning_sync) {
->  		info.addr = mac;
->  		info.vid = vid;
-> -		notifier_type = adding ? SWITCHDEV_FDB_ADD : SWITCHDEV_FDB_DEL;
-> +		notifier_type = adding ? SWITCHDEV_FDB_ADD_TO_BRIDGE : SWITCHDEV_FDB_DEL_TO_BRIDGE;
->  		call_switchdev_notifiers(notifier_type, dev, &info.info);
->  	}
->  }
-> diff --git a/drivers/net/ethernet/rocker/rocker_ofdpa.c b/drivers/net/ethernet/rocker/rocker_ofdpa.c
-> index 2ae8524..f659dad 100644
-> --- a/drivers/net/ethernet/rocker/rocker_ofdpa.c
-> +++ b/drivers/net/ethernet/rocker/rocker_ofdpa.c
-> @@ -1939,10 +1939,10 @@ static void ofdpa_port_fdb_learn_work(struct work_struct *work)
->  
->  	rtnl_lock();
->  	if (learned && removing)
-> -		call_switchdev_notifiers(SWITCHDEV_FDB_DEL,
-> +		call_switchdev_notifiers(SWITCHDEV_FDB_DEL_TO_BRIDGE,
->  					 lw->ofdpa_port->dev, &info.info);
->  	else if (learned && !removing)
-> -		call_switchdev_notifiers(SWITCHDEV_FDB_ADD,
-> +		call_switchdev_notifiers(SWITCHDEV_FDB_ADD_TO_BRIDGE,
->  					 lw->ofdpa_port->dev, &info.info);
->  	rtnl_unlock();
->  
-> diff --git a/include/net/switchdev.h b/include/net/switchdev.h
-> index 63a754d..8165ed9 100644
-> --- a/include/net/switchdev.h
-> +++ b/include/net/switchdev.h
-> @@ -155,8 +155,10 @@ struct switchdev_ops {
->  };
->  
->  enum switchdev_notifier_type {
-> -	SWITCHDEV_FDB_ADD = 1,
-> -	SWITCHDEV_FDB_DEL,
-> +	SWITCHDEV_FDB_ADD_TO_BRIDGE = 1,
-> +	SWITCHDEV_FDB_DEL_TO_BRIDGE,
-> +	SWITCHDEV_FDB_ADD_TO_DEVICE,
-> +	SWITCHDEV_FDB_DEL_TO_DEVICE,
->  };
->  
->  struct switchdev_notifier_info {
-> diff --git a/net/bridge/br.c b/net/bridge/br.c
-> index e962fff..96d209c 100644
-> --- a/net/bridge/br.c
-> +++ b/net/bridge/br.c
-> @@ -138,14 +138,14 @@ static int br_switchdev_event(struct notifier_block *unused,
->  	br = p->br;
->  
->  	switch (event) {
-> -	case SWITCHDEV_FDB_ADD:
-> +	case SWITCHDEV_FDB_ADD_TO_BRIDGE:
->  		fdb_info = ptr;
->  		err = br_fdb_external_learn_add(br, p, fdb_info->addr,
->  						fdb_info->vid);
->  		if (err)
->  			err = notifier_from_errno(err);
->  		break;
-> -	case SWITCHDEV_FDB_DEL:
-> +	case SWITCHDEV_FDB_DEL_TO_BRIDGE:
->  		fdb_info = ptr;
->  		err = br_fdb_external_learn_del(br, p, fdb_info->addr,
->  						fdb_info->vid);
-> diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
-> index 5c780cd..21bf9d2 100644
-> --- a/net/bridge/br_fdb.c
-> +++ b/net/bridge/br_fdb.c
-> @@ -683,6 +683,26 @@ static inline size_t fdb_nlmsg_size(void)
->  		+ nla_total_size(sizeof(struct nda_cacheinfo));
->  }
->  
-> +static void
-> +fdb_notify_switchdev(const struct net_bridge_fdb_entry *fdb, int type)
-> +{
-> +	if (!fdb->added_by_user)
-> +		return;
-> +
-> +	switch (type) {
-> +	case RTM_DELNEIGH:
-> +		br_switchdev_fdb_call_notifiers(false, fdb->addr.addr,
-> +						fdb->vlan_id,
-> +						fdb->dst->dev);
-> +		break;
-> +	case RTM_NEWNEIGH:
-> +		br_switchdev_fdb_call_notifiers(true, fdb->addr.addr,
-> +						fdb->vlan_id,
-> +						fdb->dst->dev);
-> +		break;
-> +	}
-> +}
 
-Same comment here, this switchdev-specific logic can be contained in
-br_switchdev_fdb_call_notifiers().
 
-> +
->  static void fdb_notify(struct net_bridge *br,
->  		       const struct net_bridge_fdb_entry *fdb, int type)
->  {
-> @@ -690,6 +710,8 @@ static void fdb_notify(struct net_bridge *br,
->  	struct sk_buff *skb;
->  	int err = -ENOBUFS;
->  
-> +	fdb_notify_switchdev(fdb, type);
-> +
->  	skb = nlmsg_new(fdb_nlmsg_size(), GFP_ATOMIC);
->  	if (skb == NULL)
->  		goto errout;
-> diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-> index 69ba3ba..5e944e9 100644
-> --- a/net/bridge/br_private.h
-> +++ b/net/bridge/br_private.h
-> @@ -1086,6 +1086,8 @@ void nbp_switchdev_frame_mark(const struct net_bridge_port *p,
->  			      struct sk_buff *skb);
->  bool nbp_switchdev_allowed_egress(const struct net_bridge_port *p,
->  				  const struct sk_buff *skb);
-> +void br_switchdev_fdb_call_notifiers(bool adding, const unsigned char *mac,
-> +				     u16 vid, struct net_device *dev);
->  #else
->  static inline int nbp_switchdev_mark_set(struct net_bridge_port *p)
->  {
-> @@ -1102,6 +1104,12 @@ static inline bool nbp_switchdev_allowed_egress(const struct net_bridge_port *p,
->  {
->  	return true;
->  }
-> +
-> +static inline void
-> +br_switchdev_fdb_call_notifiers(bool adding, const unsigned char *mac,
-> +				u16 vid, struct net_device *dev)
-> +{
-> +}
->  #endif /* CONFIG_NET_SWITCHDEV */
->  
->  #endif
-> diff --git a/net/bridge/br_switchdev.c b/net/bridge/br_switchdev.c
-> index f4097b9..c07dceb 100644
-> --- a/net/bridge/br_switchdev.c
-> +++ b/net/bridge/br_switchdev.c
-> @@ -55,3 +55,16 @@ bool nbp_switchdev_allowed_egress(const struct net_bridge_port *p,
->  	return !skb->offload_fwd_mark ||
->  	       BR_INPUT_SKB_CB(skb)->offload_fwd_mark != p->offload_fwd_mark;
->  }
-> +
-> +void
-> +br_switchdev_fdb_call_notifiers(bool adding, const unsigned char *mac,
-> +				u16 vid, struct net_device *dev)
-> +{
-> +	struct switchdev_notifier_fdb_info info;
-> +	unsigned long notifier_type;
-> +
-> +	info.addr = mac;
-> +	info.vid = vid;
-> +	notifier_type = adding ? SWITCHDEV_FDB_ADD_TO_DEVICE : SWITCHDEV_FDB_DEL_TO_DEVICE;
-> +	call_switchdev_notifiers(notifier_type, dev, &info.info);
-> +}
+On 2017/6/4 2:19, Alexander Duyck wrote:
+> On Fri, Jun 2, 2017 at 9:04 PM, Ding Tianhong <dingtianhong@huawei.com> wrote:
+>> The PCIe Device Control Register use the bit 4 to indicate that
+>> whether the device is permitted to enable relaxed ordering or not.
+>> But relaxed ordering is not safe for some platform which could only
+>> use strong write ordering, so devices are allowed (but not required)
+>> to enable relaxed ordering bit by default.
+>>
+>> If a platform support relaxed ordering but does not enable it by
+>> default, enable it in the PCIe configuration. This allows some device
+>> to send TLPs with the relaxed ordering attributes set, which may
+>> improve the performance.
+>>
+>> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+>> ---
+>>  drivers/pci/pci.c   | 42 ++++++++++++++++++++++++++++++++++++++++++
+>>  drivers/pci/probe.c | 11 +++++++++++
+>>  include/linux/pci.h |  3 +++
+>>  3 files changed, 56 insertions(+)
+>>
+>> diff --git a/drivers/pci/pci.c b/drivers/pci/pci.c
+>> index b01bd5b..f57a374 100644
+>> --- a/drivers/pci/pci.c
+>> +++ b/drivers/pci/pci.c
+>> @@ -4878,6 +4878,48 @@ int pcie_set_mps(struct pci_dev *dev, int mps)
+>>  EXPORT_SYMBOL(pcie_set_mps);
+>>
+>>  /**
+>> + * pcie_set_relaxed_ordering - set PCI Express relexed ordering bit
+>> + * @dev: PCI device to query
+>> + *
+>> + * If possible sets relaxed ordering
+>> + */
+>> +int pcie_set_relaxed_ordering(struct pci_dev *dev)
+>> +{
+>> +       return pcie_capability_set_word(dev, PCI_EXP_DEVCTL, PCI_EXP_DEVCTL_RELAX_EN);
+>> +}
+>> +EXPORT_SYMBOL(pcie_set_relaxed_ordering);
+>> +
+>> +/**
+>> + * pcie_clear_relaxed_ordering - clear PCI Express relexed ordering bit
+>> + * @dev: PCI device to query
+>> + *
+>> + * If possible clear relaxed ordering
+>> + */
+>> +int pcie_clear_relaxed_ordering(struct pci_dev *dev)
+>> +{
+>> +       return pcie_capability_clear_word(dev, PCI_EXP_DEVCTL, PCI_EXP_DEVCTL_RELAX_EN);
+>> +}
+>> +EXPORT_SYMBOL(pcie_clear_relaxed_ordering);
+>> +
+>> +/**
+>> + * pcie_get_relaxed_ordering - check PCI Express relexed ordering bit
+>> + * @dev: PCI device to query
+>> + *
+>> + * Returns true if relaxed ordering is been set
+>> + */
+>> +int pcie_get_relaxed_ordering(struct pci_dev *dev)
+>> +{
+>> +       u16 v;
+>> +
+>> +       pcie_capability_read_word(dev, PCI_EXP_DEVCTL, &v);
+>> +
+>> +       return (v & PCI_EXP_DEVCTL_RELAX_EN) >> 4;
+>> +}
+>> +EXPORT_SYMBOL(pcie_get_relaxed_ordering);
+>> +
+>> +/**
+>> + * pcie_set_mps - set PCI Express maximum payload size
+>> +/**
+>>   * pcie_get_minimum_link - determine minimum link settings of a PCI device
+>>   * @dev: PCI device to query
+>>   * @speed: storage for minimum speed
+>> diff --git a/drivers/pci/probe.c b/drivers/pci/probe.c
+>> index 19c8950..aeb22b5 100644
+>> --- a/drivers/pci/probe.c
+>> +++ b/drivers/pci/probe.c
+>> @@ -1701,6 +1701,16 @@ static void pci_configure_extended_tags(struct pci_dev *dev)
+>>                                          PCI_EXP_DEVCTL_EXT_TAG);
+>>  }
+>>
+>> +static void pci_configure_relaxed_ordering(struct pci_dev *dev)
+>> +{
+>> +       int ret;
+>> +
+>> +       if (dev && (dev->dev_flags & PCI_DEV_FLAGS_NO_RELAXED_ORDERING))
+> 
+> So there is a minor issue here. The problem is this is only trying to
+> modify relaxed ordering for the device itself. That isn't what we
+> want. What we want is to modify it on all of the upstream port
+> interfaces where there is something the path to the root complex that
+> has an issue. So if the root complex has to set the
+> NO_RELAXED_ORDERING flag on a root port, all of the interfaces below
+> it that would be pushing traffic toward it should not have the relaxed
+> ordering bit set.
+> 
+> Also I am pretty sure this is a PCIe capability, not a PCI capability.
+> You probably need to make sure you code is making this distinction
+> which I don't know if it currently is. If you need an example of the
+> kind of checks I am suggesting just take a look at
+> pcie_configure_mps(). It is verifying the function is PCIe before
+> attempting to make any updates. In your case you will probably also
+> need to make sure there is a bus for you to walk up the chain of.
+> Otherwise this shouldn't apply.
+> 
+> 
+>> +               pcie_set_relaxed_ordering(dev);
+>> +       else
+>> +               pcie_clear_relaxed_ordering(dev);
+>> +}
+> 
+> Also I am not a fan of the way this is handled currently. If you don't
+> have relaxed ordering set then you don't need to do anything else, if
+> you do have it set but there is no bus to walk up you shouldn't change
+> it, and if there is a bus to walk up and you find that the root
+> complex on that bus has the NO_RELAXED_ORDERING set you should clear
+> it. Right now this code seems to be enabling relaxed ordering if the
+> NO_RELAXED_ORDERING flag is set.
+> 
+
+Hi Alexander:
+
+I reconsidered your suggestion and found I miss something here,
+decide to modify the configure police as your solution, I think
+it is close to our goal.
+
+Thanks
+Ding
+
+diff --git a/drivers/pci/probe.c b/drivers/pci/probe.c
+index 19c8950..68dee05 100644
+--- a/drivers/pci/probe.c
++++ b/drivers/pci/probe.c
+@@ -1701,6 +1701,45 @@ static void pci_configure_extended_tags(struct pci_dev *dev)
+                                         PCI_EXP_DEVCTL_EXT_TAG);
+ }
+
++static int pcie_clearing_relaxed_ordering(struct pci_dev *dev, void *data)
++{
++ int origin_ero;
++
++ if (!pci_is_pcie(dev))
++         return 0;
++
++ origin_ero = pcie_get_relaxed_ordering(dev);
++
++ /* If the releaxed ordering enable bit is not set, do nothing. */
++ if (!origin_ero)
++         return 0;
++
++ pcie_clear_relaxed_ordering(dev);
++
++ dev_info(&dev->dev, "Disable Relaxed Ordering\n");
++
++ return 0;
++}
++
++static void pci_configure_relaxed_ordering(struct pci_dev *dev)
++{
++ int origin_ero;
++
++ if (!pci_is_pcie(dev))
++         return;
++
++ origin_ero = pcie_get_relaxed_ordering(dev);
++ /* If the releaxed ordering enable bit is not set, do nothing. */
++ if (!origin_ero)
++         return;
++
++ if (dev->dev_flags & PCI_DEV_FLAGS_NO_RELAXED_ORDERING) {
++         pcie_clear_relaxed_ordering(dev);
++         pci_walk_bus(dev->bus, pcie_clearing_relaxed_ordering, NULL);
++         dev_info(&dev->dev, "Disable Relaxed Ordering\n");
++ }
++}
++
+ static void pci_configure_device(struct pci_dev *dev)
+ {
+        struct hotplug_params hpp;
+@@ -1708,6 +1747,7 @@ static void pci_configure_device(struct pci_dev *dev)
+
+        pci_configure_mps(dev);
+        pci_configure_extended_tags(dev);
++ pci_configure_relaxed_ordering(dev);
+
+        memset(&hpp, 0, sizeof(hpp));
+        ret = pci_get_hp_params(dev, &hpp);
+diff --git a/include/linux/pci.h b/include/linux/pci.h
+
+
+
+>> +
+>>  static void pci_configure_device(struct pci_dev *dev)
+>>  {
+>>         struct hotplug_params hpp;
+>> @@ -1708,6 +1718,7 @@ static void pci_configure_device(struct pci_dev *dev)
+>>
+>>         pci_configure_mps(dev);
+>>         pci_configure_extended_tags(dev);
+>> +       pci_configure_relaxed_ordering(dev);
+>>
+>>         memset(&hpp, 0, sizeof(hpp));
+>>         ret = pci_get_hp_params(dev, &hpp);
+>> diff --git a/include/linux/pci.h b/include/linux/pci.h
+>> index e1e8428..84bd6af 100644
+>> --- a/include/linux/pci.h
+>> +++ b/include/linux/pci.h
+>> @@ -1105,6 +1105,9 @@ int __pci_enable_wake(struct pci_dev *dev, pci_power_t state,
+>>  void pci_pme_wakeup_bus(struct pci_bus *bus);
+>>  void pci_d3cold_enable(struct pci_dev *dev);
+>>  void pci_d3cold_disable(struct pci_dev *dev);
+>> +int pcie_set_relaxed_ordering(struct pci_dev *dev);
+>> +int pcie_clear_relaxed_ordering(struct pci_dev *dev);
+>> +int pcie_get_relaxed_ordering(struct pci_dev *dev);
+>>
+>>  static inline int pci_enable_wake(struct pci_dev *dev, pci_power_t state,
+>>                                   bool enable)
+>> --
+>> 1.9.0
+>>
+>>
+> 
+> .
 > 
