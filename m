@@ -1,41 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net V4] net/mlx4: Fix the check in attaching steering
- rules
-Date: Sun, 04 Jun 2017 23:14:06 -0400 (EDT)
-Message-ID: <20170604.231406.1093500953540605870.davem@davemloft.net>
-References: <1496575807-27979-1-git-send-email-tariqt@mellanox.com>
+Subject: Re: [patch net-next] mlxsw: spectrum: Rename the firmware file
+Date: Sun, 04 Jun 2017 23:48:30 -0400 (EDT)
+Message-ID: <20170604.234830.978902363223683060.davem@davemloft.net>
+References: <20170604144958.14358-1-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eranbe@mellanox.com, ogerlitz@mellanox.com,
-        talatb@mellanox.com
-To: tariqt@mellanox.com
+Cc: netdev@vger.kernel.org, idosch@mellanox.com, yotamg@mellanox.com,
+        mlxsw@mellanox.com
+To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:55416 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:55900 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751208AbdFEDOZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 4 Jun 2017 23:14:25 -0400
-In-Reply-To: <1496575807-27979-1-git-send-email-tariqt@mellanox.com>
+        with ESMTP id S1751316AbdFEDso (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 4 Jun 2017 23:48:44 -0400
+In-Reply-To: <20170604144958.14358-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tariq Toukan <tariqt@mellanox.com>
-Date: Sun,  4 Jun 2017 14:30:07 +0300
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Sun,  4 Jun 2017 16:49:58 +0200
 
-> From: Talat Batheesh <talatb@mellanox.com>
+> From: Yotam Gigi <yotamg@mellanox.com>
 > 
-> Our previous patch (cited below) introduced a regression
-> for RAW Eth QPs.
+> Change the firmware file name to be in "mellanox" directory.
 > 
-> Fix it by checking if the QP number provided by user-space
-> exists, hence allowing steering rules to be added for valid
-> QPs only.
+> This commit is a followup to the linux-firmware commit a4c72696f5f4
+> ("Mellanox: Add firmware for mlxsw_spectrum")
 > 
-> Fixes: 89c557687a32 ("net/mlx4_en: Avoid adding steering rules with invalid ring")
-> Reported-by: Or Gerlitz <gerlitz.or@gmail.com>
-> Signed-off-by: Talat Batheesh <talatb@mellanox.com>
-> Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
-> Acked-by: Or Gerlitz <ogerlitz@mellanox.com>
-> Reviewed-by: Leon Romanovsky <leonro@mellanox.com>
+> Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
+> Reviewed-by: Ido Schimmel <idosch@mellanox.com>
+> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 
-Applied, thanks.
+Applied.
