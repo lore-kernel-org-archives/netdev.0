@@ -1,29 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] devlink: fix potential memort leak
-Date: Mon, 05 Jun 2017 11:28:21 -0400 (EDT)
-Message-ID: <20170605.112821.608113849627100528.davem@davemloft.net>
-References: <1496624241-25794-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
+Subject: Re: [PATCH] net: phy: fix kernel-doc warnings
+Date: Mon, 05 Jun 2017 11:29:09 -0400 (EDT)
+Message-ID: <20170605.112909.1247890172910024411.davem@davemloft.net>
+References: <3d006e19-8c96-a752-fbcb-bf8fc7ccb386@infradead.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: arkadis@mellanox.com, jiri@mellanox.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: yanhaishuang@cmss.chinamobile.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1496624241-25794-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, andrew@lunn.ch, f.fainelli@gmail.com
+To: rdunlap@infradead.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:38380 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751112AbdFEP3L (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 5 Jun 2017 11:29:11 -0400
+In-Reply-To: <3d006e19-8c96-a752-fbcb-bf8fc7ccb386@infradead.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
-Date: Mon,  5 Jun 2017 08:57:21 +0800
+From: Randy Dunlap <rdunlap@infradead.org>
+Date: Sun, 4 Jun 2017 19:46:53 -0700
 
-> We must free allocated skb when genlmsg_put() return fails.
+> From: Randy Dunlap <rdunlap@infradead.org>
 > 
-> Fixes: 1555d204e743 ("devlink: Support for pipeline debug (dpipe)")
-> Signed-off-by: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
+> Fix kernel-doc warnings (typo) in drivers/net/phy/phy.c:
 > 
-> ---
-> Changes in v2:
->   - Fix same issue in headers_fill.
+> ..//drivers/net/phy/phy.c:259: warning: No description found for parameter 'features'
+> ..//drivers/net/phy/phy.c:259: warning: Excess function parameter 'feature' description in 'phy_lookup_setting'
+> 
+> Signed-off-by: Randy Dunlap <rdunlap@infradead.org>
 
-Applied, thank you.
+Applied, thanks Randy.
