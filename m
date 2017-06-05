@@ -1,34 +1,55 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH] net: phy: fix kernel-doc warnings
-Date: Mon, 5 Jun 2017 14:06:56 +0200
-Message-ID: <20170605120656.GD28734@lunn.ch>
-References: <3d006e19-8c96-a752-fbcb-bf8fc7ccb386@infradead.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: Randy Dunlap <rdunlap@infradead.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:36509 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751747AbdFEMHA (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 5 Jun 2017 08:07:00 -0400
-Content-Disposition: inline
-In-Reply-To: <3d006e19-8c96-a752-fbcb-bf8fc7ccb386@infradead.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH] ppp: mppe: Use vsnprintf extension %phN
+Date: Mon,  5 Jun 2017 05:22:50 -0700
+Message-ID: <80f51106926c82374f6555b54af71a674b8bf94e.1496665332.git.joe@perches.com>
+Cc: linux-ppp@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Paul Mackerras <paulus@samba.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Jun 04, 2017 at 07:46:53PM -0700, Randy Dunlap wrote:
-> From: Randy Dunlap <rdunlap@infradead.org>
-> 
-> Fix kernel-doc warnings (typo) in drivers/net/phy/phy.c:
-> 
-> ..//drivers/net/phy/phy.c:259: warning: No description found for parameter 'features'
-> ..//drivers/net/phy/phy.c:259: warning: Excess function parameter 'feature' description in 'phy_lookup_setting'
-> 
-> Signed-off-by: Randy Dunlap <rdunlap@infradead.org>
+Using this extension reduces the object size.
 
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+$ size drivers/net/ppp/ppp_mppe.o*
+   text	   data	    bss	    dec	    hex	filename
+   5683	    216	      8	   5907	   1713	drivers/net/ppp/ppp_mppe.o.new
+   5808	    216	      8	   6032	   1790	drivers/net/ppp/ppp_mppe.o.old
 
-    Andrew
+Signed-off-by: Joe Perches <joe@perches.com>
+---
+ drivers/net/ppp/ppp_mppe.c | 15 ++++-----------
+ 1 file changed, 4 insertions(+), 11 deletions(-)
+
+diff --git a/drivers/net/ppp/ppp_mppe.c b/drivers/net/ppp/ppp_mppe.c
+index f60f7660b451..6c7fd98cb00a 100644
+--- a/drivers/net/ppp/ppp_mppe.c
++++ b/drivers/net/ppp/ppp_mppe.c
+@@ -298,21 +298,14 @@ mppe_init(void *arg, unsigned char *options, int optlen, int unit, int debug,
+ 	mppe_rekey(state, 1);
+ 
+ 	if (debug) {
+-		int i;
+-		char mkey[sizeof(state->master_key) * 2 + 1];
+-		char skey[sizeof(state->session_key) * 2 + 1];
+-
+ 		printk(KERN_DEBUG "%s[%d]: initialized with %d-bit %s mode\n",
+ 		       debugstr, unit, (state->keylen == 16) ? 128 : 40,
+ 		       (state->stateful) ? "stateful" : "stateless");
+-
+-		for (i = 0; i < sizeof(state->master_key); i++)
+-			sprintf(mkey + i * 2, "%02x", state->master_key[i]);
+-		for (i = 0; i < sizeof(state->session_key); i++)
+-			sprintf(skey + i * 2, "%02x", state->session_key[i]);
+ 		printk(KERN_DEBUG
+-		       "%s[%d]: keys: master: %s initial session: %s\n",
+-		       debugstr, unit, mkey, skey);
++		       "%s[%d]: keys: master: %*phN initial session: %*phN\n",
++		       debugstr, unit,
++		       (int)sizeof(state->master_key), state->master_key,
++		       (int)sizeof(state->session_key), state->session_key);
+ 	}
+ 
+ 	/*
+-- 
+2.10.0.rc2.1.g053435c
