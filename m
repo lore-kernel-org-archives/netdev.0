@@ -1,32 +1,62 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH V7 net-next iproute] ip: Add IFLA_EVENT output to ip
- monitor
-Date: Mon, 5 Jun 2017 12:38:40 -0700
-Message-ID: <20170605123840.3f4f102f@xeon-e3>
-References: <1496329276-31106-1-git-send-email-vyasevic@redhat.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next 0/6] introduce trap control action to tc and
+ offload it
+Date: Mon, 5 Jun 2017 21:43:17 +0200
+Message-ID: <20170605194317.GA1986@nanopsycho>
+References: <20170605143832.7025-1-jiri@resnulli.us>
+ <20170605154651.GE11772@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dsahern@gmail.com
-To: Vladislav Yasevich <vyasevic@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, jhs@mojatatu.com,
+        xiyou.wangcong@gmail.com, edumazet@google.com,
+        alexander.h.duyck@intel.com, stephen@networkplumber.org,
+        daniel@iogearbox.net, mlxsw@mellanox.com
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f182.google.com ([209.85.192.182]:33462 "EHLO
-        mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751178AbdFETis (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 5 Jun 2017 15:38:48 -0400
-Received: by mail-pf0-f182.google.com with SMTP id 83so29807801pfr.0
-        for <netdev@vger.kernel.org>; Mon, 05 Jun 2017 12:38:47 -0700 (PDT)
-In-Reply-To: <1496329276-31106-1-git-send-email-vyasevic@redhat.com>
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:32926 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751170AbdFETnU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 5 Jun 2017 15:43:20 -0400
+Received: by mail-wm0-f66.google.com with SMTP id x3so4286927wme.0
+        for <netdev@vger.kernel.org>; Mon, 05 Jun 2017 12:43:20 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20170605154651.GE11772@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu,  1 Jun 2017 11:01:16 -0400
-Vladislav Yasevich <vyasevic@redhat.com> wrote:
+Mon, Jun 05, 2017 at 05:46:51PM CEST, andrew@lunn.ch wrote:
+>On Mon, Jun 05, 2017 at 04:38:26PM +0200, Jiri Pirko wrote:
+>> From: Jiri Pirko <jiri@mellanox.com>
+>> 
+>> This patchset introduces a control action dedicated to indicate
+>> to trap the matched packet to CPU. This is specific action for
+>> HW offloads. Also, the patchset offloads the action to mlxsw driver.
+>> 
+>> Example usage:
+>> $ tc filter add dev enp3s0np19 parent ffff: protocol ip prio 20 flower skip_sw dst_ip 192.168.10.1 action trap
+>
+>Hi Jiri
+>
+>So i assume this means a frame ingressing on the switch port
+>enp3s0np19 matching the filter is now visible on the linux enp3s0np19
 
-> Add IFLA_EVENT output so that event types can be viewed with
-> 'monitor' command.  This gives a little more information for why
-> a given message was received.
-> 
-> Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
+Yes.
 
-Applied to net-next.
+
+>interface?  How do you avoid Linux processing it? If enp3s0np19 is a
+
+On contrary. I want Linux to process it. The packet was stolen from the
+offloaded fastpath to kernel.
+
+
+>member of a bridge, we don't want the software bridge processing it
+>and forwarding it out another port, since i assume the hardware has
+>already done this. Or does the trap stop further processing of the
+>frame by the hardware?
+
+Exactly the latter :) Thanks!
+
+
+>
+>Thanks
+>      Andrew
