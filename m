@@ -1,69 +1,57 @@
-From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
-Subject: Re: [PATCH] net-next: stmmac: dwmac-sun8i: ensure the
- EPHY is properly reseted
-Date: Mon, 5 Jun 2017 14:44:19 +0200
-Message-ID: <20170605124419.GF28734@lunn.ch>
-References: <20170604175323.62124-1-icenowy@aosc.io>
- <20170605111019.GA29657@Red>
-Reply-To: andrew-g2DYL2Zd6BY@public.gmane.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] sit: reload iphdr in ipip6_rcv
+Date: Mon, 05 Jun 2017 06:03:33 -0700
+Message-ID: <1496667813.5031.20.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1496558623-11437-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: Icenowy Zheng <icenowy-h8G6r0blFSE@public.gmane.org>,
-	"David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-To: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-sunxi+bncBDJNHL5JSEOBBMVE2XEQKGQEUIKE2LY-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-Content-Disposition: inline
-In-Reply-To: <20170605111019.GA29657@Red>
-List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Help: <https://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Archive: <https://groups.google.com/group/linux-sunxi
-List-Subscribe: <https://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
- <https://groups.google.com/group/linux-sunxi/subscribe>
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Jesse Gross <jesse@kernel.org>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:35617 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751465AbdFENDh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 5 Jun 2017 09:03:37 -0400
+In-Reply-To: <1496558623-11437-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 05, 2017 at 01:10:19PM +0200, Corentin Labbe wrote:
-> On Mon, Jun 05, 2017 at 01:53:23AM +0800, Icenowy Zheng wrote:
-> > The EPHY may be already enabled by bootloaders which have Ethernet
-> > capability (e.g. current U-Boot). Thus it should be reseted properly
-> > before doing the enabling sequence in the dwmac-sun8i driver, otherwise
-> > the EMAC reset process may fail if no cable is plugged, and then fail
-> > the dwmac-sun8i probing.
-> > 
-> > Tested on Orange Pi PC, One and Zero. All the boards fail to have
-> > dwmac-sun8i probed with "EMAC reset timeout" without cable plugged
-> > before, and with this fix they're now all able to successfully probe the
-> > EMAC without cable plugged and then use the connection after a cable is
-> > hot-plugged in.
-> > 
-> > Fixes: 9f93ac8d408 ("net-next: stmmac: Add dwmac-sun8i")
-> > Signed-off-by: Icenowy Zheng <icenowy-h8G6r0blFSE@public.gmane.org>
+On Sun, 2017-06-04 at 14:43 +0800, Haishuang Yan wrote:
+> Since iptunnel_pull_header() can call pskb_may_pull(),
+> we must reload any pointer that was related to skb->head.
 > 
-> Thanks for the fix.
-> Tested-by: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> Fixes: a09a4c8dd1ec ("tunnels: Remove encapsulation offloads on decap")
+> Signed-off-by: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
+> ---
+>  net/ipv6/sit.c | 1 +
+>  1 file changed, 1 insertion(+)
 > 
-> Since I am the writter of the file, does I have the right to:
-> Acked-by: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> or
-> Reviewed-by: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
+> index 61e5902..af832e7 100644
+> --- a/net/ipv6/sit.c
+> +++ b/net/ipv6/sit.c
+> @@ -657,6 +657,7 @@ static int ipip6_rcv(struct sk_buff *skb)
+>  		if (iptunnel_pull_header(skb, 0, htons(ETH_P_IPV6),
+>  		    !net_eq(tunnel->net, dev_net(tunnel->dev))))
+>  			goto out;
+> +		iph = ip_hdr(skb);
+>  
+>  		err = IP_ECN_decapsulate(iph, skb);
+>  		if (unlikely(err)) {
 
-Documentation/process/submitting-patches.rst says:
+This seems unnecessary.
 
-If a person was not directly involved in the preparation or handling of a
-patch but wishes to signify and record their approval of it then they can
-ask to have an Acked-by: line added to the patch's changelog.
+By the time ipip6_rcv() is called, we already have the guarantee the
+IPv4 header is in skb linear part.
 
-Acked-by: is not as formal as Signed-off-by:.  It is a record that the acker
-has at least reviewed the patch and has indicated acceptance.
+Otherwise we could not use iph->saddr and iph->daddr in the call to
+ipip6_tunnel_lookup()
 
-Nothing limits who can give an Acked-by, you just need to of done the
-necessary work.
-
-Reviewed-by: is similar.
-
-So feel free to have either.
-
-   Andrew
+Therefore, the pskb_may_pull() is a nop in this particular case.
