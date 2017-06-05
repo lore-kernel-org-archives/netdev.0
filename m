@@ -1,52 +1,48 @@
-From: Christian Lamparter <chunkeey@googlemail.com>
-Subject: Re: [PATCH v1 2/2] net: emac: fix and unify emac_mdio functions
-Date: Tue, 06 Jun 2017 00:22:47 +0200
-Message-ID: <2091321.vBEAWt7qWg@debian64>
-References: <635dd014238af6f48c4169439b7ac161e80de1b7.1496695540.git.chunkeey@googlemail.com> <18472d9a6bde3edaab7dcda301ccaebd437ea0dc.1496695540.git.chunkeey@googlemail.com> <20170605214333.GA12386@lunn.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: netdev@vger.kernel.org, "David S . Miller" <davem@davemloft.net>,
-        Ivan Mikhaylov <ivan@de.ibm.com>
-To: Andrew Lunn <andrew@lunn.ch>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: [PATCH net] net: bridge: fix a null pointer dereference in br_afspec
+Date: Tue,  6 Jun 2017 01:26:24 +0300
+Message-ID: <1496701584-26855-1-git-send-email-nikolay@cumulusnetworks.com>
+References: <840022de-3d31-4f62-aaaf-ba83d5c78ad7@cumulusnetworks.com>
+Cc: roopa@cumulusnetworks.com, davem@davemloft.net,
+        stephen@networkplumber.org, garsilva@embeddedor.com,
+        bridge@lists.linux-foundation.org,
+        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f194.google.com ([209.85.128.194]:33685 "EHLO
-        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751243AbdFEWWz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 5 Jun 2017 18:22:55 -0400
-Received: by mail-wr0-f194.google.com with SMTP id v104so8721663wrb.0
-        for <netdev@vger.kernel.org>; Mon, 05 Jun 2017 15:22:54 -0700 (PDT)
-In-Reply-To: <20170605214333.GA12386@lunn.ch>
+Received: from mail-wr0-f172.google.com ([209.85.128.172]:35069 "EHLO
+        mail-wr0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751180AbdFEW0k (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 5 Jun 2017 18:26:40 -0400
+Received: by mail-wr0-f172.google.com with SMTP id q97so45335938wrb.2
+        for <netdev@vger.kernel.org>; Mon, 05 Jun 2017 15:26:40 -0700 (PDT)
+In-Reply-To: <840022de-3d31-4f62-aaaf-ba83d5c78ad7@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Monday, June 5, 2017 11:43:33 PM CEST Andrew Lunn wrote:
-> On Mon, Jun 05, 2017 at 10:49:40PM +0200, Christian Lamparter wrote:
-> > emac_mdio_read_link() was not copying the requested phy settings
-> > back into the emac driver's own phy api. This has caused a link
-> > speed mismatch issue for the AR8035 as the emac driver kept
-> > trying to connect with 10/100MBps on a 1GBit/s link.
+We might call br_afspec() with p == NULL which is a valid use case if
+the action is on the bridge device itself, but the bridge tunnel code
+dereferences the p pointer without checking, so check if p is null
+first.
 
-> In the long run, you might want to remove the emac phy drivers. 
-> Linux has PHYLIB drivers for all but the bcm5248.
+Reported-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
+Fixes: efa5356b0d97 ("bridge: per vlan dst_metadata netlink support")
+Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+---
+ net/bridge/br_netlink.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Hello Andrew
-
-Back in February I added PHYLIB support to emac.
-<https://www.spinics.net/lists/netdev/msg421734.html> ;)
-
-I could add a separate patch that adds a oneliner message like:
-    pr_info("EMAC supports PHYLIB. Please convert your device to it.\n");
-at the right place (emac_mii_phy_probe) to let people know about it.
-
-Is that Ok? If not, please tell me what the appropriate deprecation 
-notice should look like.
-
-About the MR24:
-I do have a patchset to convert the MR24 to use PHYLIB's at803x as well.
-<https://github.com/chunkeey/apm82181-lede/commit/82c50b7f4fca68ce905d4a7a3559700635bf227f>
-But because of AT8035 "special tx/rx delay" requirements, this
-will need a patched at803x.c driver as well.
-
-Regards,
-Christian
+diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
+index 1e63ec466d7c..3bcda556971e 100644
+--- a/net/bridge/br_netlink.c
++++ b/net/bridge/br_netlink.c
+@@ -595,7 +595,7 @@ static int br_afspec(struct net_bridge *br,
+ 		err = 0;
+ 		switch (nla_type(attr)) {
+ 		case IFLA_BRIDGE_VLAN_TUNNEL_INFO:
+-			if (!(p->flags & BR_VLAN_TUNNEL))
++			if (!p || !(p->flags & BR_VLAN_TUNNEL))
+ 				return -EINVAL;
+ 			err = br_parse_vlan_tunnel_info(attr, &tinfo_curr);
+ 			if (err)
+-- 
+2.1.4
