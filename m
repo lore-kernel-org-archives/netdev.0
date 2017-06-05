@@ -1,113 +1,71 @@
-From: =?UTF-8?B?5byg6IOc5Li+?= <zhangshengju@cmss.chinamobile.com>
-Subject: RE: [net-next] openvswitch: add macro MODULE_ALIAS_VPORT_TYPE for vport type alias
-Date: Mon, 5 Jun 2017 17:59:34 +0800
-Message-ID: <020501d2dde2$6f7ee420$4e7cac60$@cmss.chinamobile.com>
-References: <1496497655-24810-1-git-send-email-zhangshengju@cmss.chinamobile.com> <CAOrHB_CjkyEoWVJFT5Q+vPOvcg4rd9cY+z5gRi7JEQscG6-dNg@mail.gmail.com> <000a01d2dd0a$57b46fa0$071d4ee0$@cmss.chinamobile.com> <CAOrHB_D6EQ+ERvjtV4bsHz-SMXeCxDgKvLDmWpuck8SCXUC8tg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain;
-        charset="UTF-8"
-Content-Transfer-Encoding: 8BIT
-Cc: "'Pravin Shelar'" <pshelar@nicira.com>,
-        "'Linux Kernel Network Developers'" <netdev@vger.kernel.org>,
-        "'David S. Miller'" <davem@davemloft.net>
-To: "'Pravin Shelar'" <pshelar@ovn.org>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch iproute2] bridge: Distinguish between externally learned vs offloaded FDBs
+Date: Mon,  5 Jun 2017 12:07:05 +0200
+Message-ID: <20170605100705.3909-1-jiri@resnulli.us>
+References: <20170605092043.3523-1-jiri@resnulli.us>
+Cc: davem@davemloft.net, idosch@mellanox.com, arkadis@mellanox.com,
+        mlxsw@mellanox.com, roopa@cumulusnetworks.com,
+        stephen@networkplumber.org, ivecera@redhat.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmccmta2.chinamobile.com ([221.176.66.80]:19263 "EHLO
-        cmccmta2.chinamobile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751287AbdFEJ7s (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 5 Jun 2017 05:59:48 -0400
-In-Reply-To: <CAOrHB_D6EQ+ERvjtV4bsHz-SMXeCxDgKvLDmWpuck8SCXUC8tg@mail.gmail.com>
-Content-Language: en-us
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:34658 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751453AbdFEKHI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 5 Jun 2017 06:07:08 -0400
+Received: by mail-wm0-f67.google.com with SMTP id 70so4471015wme.1
+        for <netdev@vger.kernel.org>; Mon, 05 Jun 2017 03:07:07 -0700 (PDT)
+In-Reply-To: <20170605092043.3523-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: Pravin Shelar [mailto:pshelar@ovn.org]
-> Sent: Monday, June 05, 2017 10:30 AM
-> To: 张胜举 <zhangshengju@cmss.chinamobile.com>
-> Cc: Pravin Shelar <pshelar@nicira.com>; Linux Kernel Network Developers
-> <netdev@vger.kernel.org>; David S. Miller <davem@davemloft.net>
-> Subject: Re: [net-next] openvswitch: add macro
-> MODULE_ALIAS_VPORT_TYPE for vport type alias
-> 
-> On Sun, Jun 4, 2017 at 1:12 AM, 张胜举
-> <zhangshengju@cmss.chinamobile.com> wrote:
-> >> -----Original Message-----
-> >> From: Pravin Shelar [mailto:pshelar@ovn.org]
-> >> Sent: Sunday, June 04, 2017 1:58 PM
-> >> To: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
-> >> Cc: Pravin Shelar <pshelar@nicira.com>; Linux Kernel Network
-> >> Developers <netdev@vger.kernel.org>; David S. Miller
-> >> <davem@davemloft.net>
-> >> Subject: Re: [net-next] openvswitch: add macro
-> >> MODULE_ALIAS_VPORT_TYPE for vport type alias
-> >>
-> >> On Sat, Jun 3, 2017 at 6:47 AM, Zhang Shengju
-> >> <zhangshengju@cmss.chinamobile.com> wrote:
-> >> > Add a new macro MODULE_ALIAS_VPORT_TYPE to unify and simplify
-> the
-> >> > declaration of vport type alias, and replace magic numbers with
-> >> > symbolic constants.
-> >> >
-> >> > Signed-off-by: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
-> >> > ---
-> >> >  net/openvswitch/vport-geneve.c | 2 +-
-> >> >  net/openvswitch/vport-gre.c    | 2 +-
-> >> >  net/openvswitch/vport-vxlan.c  | 2 +-
-> >> >  net/openvswitch/vport.h        | 3 +++
-> >> >  4 files changed, 6 insertions(+), 3 deletions(-)
-> >> >
-> >> > diff --git a/net/openvswitch/vport-geneve.c
-> >> > b/net/openvswitch/vport-geneve.c index 5aaf3ba..1c068d6 100644
-> >> > --- a/net/openvswitch/vport-geneve.c
-> >> > +++ b/net/openvswitch/vport-geneve.c
-> >> > @@ -141,4 +141,4 @@ static void __exit ovs_geneve_tnl_exit(void)
-> >> >
-> >> >  MODULE_DESCRIPTION("OVS: Geneve switching port");
-> >> > MODULE_LICENSE("GPL"); -MODULE_ALIAS("vport-type-5");
-> >> > +MODULE_ALIAS_VPORT_TYPE(OVS_VPORT_TYPE_GENEVE);
-> >> > diff --git a/net/openvswitch/vport-gre.c
-> >> > b/net/openvswitch/vport-gre.c index 0e72d95..48a5852 100644
-> >> > --- a/net/openvswitch/vport-gre.c
-> >> > +++ b/net/openvswitch/vport-gre.c
-> >> > @@ -113,4 +113,4 @@ static void __exit ovs_gre_tnl_exit(void)
-> >> >
-> >> >  MODULE_DESCRIPTION("OVS: GRE switching port");
-> >> > MODULE_LICENSE("GPL"); -MODULE_ALIAS("vport-type-3");
-> >> > +MODULE_ALIAS_VPORT_TYPE(OVS_VPORT_TYPE_GRE);
-> >>
-> >> This is user visible change. For example this is changing the gre
-> >> module alias from "vport-type-3" to "vport-type-OVS_VPORT_TYPE_GRE".
-> >> This could break userspace application.
-> > Hi Shelar,
-> > Actually this change does not change module alias name. I use
-> > '__stringify' to address this.  Below is my build result:
-> > ```
-> > [zhangshengju@promote net-next]$ modinfo net/openvswitch/vport-
-> gre.ko
-> > filename:       /gitlab/net-next/net/openvswitch/vport-gre.ko
-> > alias:          vport-type-3
-> > ...
-> > ```
-> 
-> Yes, I expected this. But when I tried modinfo with your patch, I did not see it.
-> here is modinfo output from my setup.
-> ---8<---
-> root@ubuntu:/home/pravin/linux/net-next# modinfo
-> net/openvswitch/vport-gre.ko
-> filename:       /home/pravin/linux/net-next/./net/openvswitch/vport-gre.ko
-> alias:          vport-type-OVS_VPORT_TYPE_GRE
-> license:        GPL
-> description:    OVS: GRE switching port
-> srcversion:     AD3B4449820F294E0B5681C
-> depends:        openvswitch
-> intree:         Y
-> vermagic:       4.12.0-rc2+ SMP mod_unload modversions
-Oh, I'm sorry. You are right, it seems ' OVS_VPORT_TYPE_GRE' doesn't expand. 
-Maybe I can send another version to use magic number, such as:
-MODULE_ALIAS_VPORT_TYPE(3);
+From: Arkadi Sharshevsky <arkadis@mellanox.com>
 
-Is this okay for you?
+Distinguish between externally learned vs offloaded FDBs. This is done
+in order to indicate that FDBs added by software was successfully
+offloaded.
 
-BRs,
-Zhang Shengju.
+Signed-off-by: Arkadi Sharshevsky <arkadis@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+---
+ bridge/fdb.c              | 6 ++++++
+ include/linux/neighbour.h | 1 +
+ 2 files changed, 7 insertions(+)
+
+diff --git a/bridge/fdb.c b/bridge/fdb.c
+index a71a78f..e5cebf9 100644
+--- a/bridge/fdb.c
++++ b/bridge/fdb.c
+@@ -262,6 +262,10 @@ int print_fdb(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+ 		}
+ 		if (r->ndm_flags & NTF_EXT_LEARNED) {
+ 			start_json_fdb_flags_array(&fdb_flags);
++			jsonw_string(jw_global, "extern_learn");
++		}
++		if (r->ndm_flags & NTF_OFFLOADED) {
++			start_json_fdb_flags_array(&fdb_flags);
+ 			jsonw_string(jw_global, "offload");
+ 		}
+ 		if (r->ndm_flags & NTF_MASTER)
+@@ -280,6 +284,8 @@ int print_fdb(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+ 		if (r->ndm_flags & NTF_ROUTER)
+ 			fprintf(fp, "router ");
+ 		if (r->ndm_flags & NTF_EXT_LEARNED)
++			fprintf(fp, "extern_learn ");
++		if (r->ndm_flags & NTF_OFFLOADED)
+ 			fprintf(fp, "offload ");
+ 		if (tb[NDA_MASTER]) {
+ 			fprintf(fp, "master %s ",
+diff --git a/include/linux/neighbour.h b/include/linux/neighbour.h
+index f3d16db..3199d28 100644
+--- a/include/linux/neighbour.h
++++ b/include/linux/neighbour.h
+@@ -41,6 +41,7 @@ enum {
+ #define NTF_MASTER	0x04
+ #define NTF_PROXY	0x08	/* == ATF_PUBL */
+ #define NTF_EXT_LEARNED	0x10
++#define NTF_OFFLOADED   0x20
+ #define NTF_ROUTER	0x80
+ 
+ /*
+-- 
+2.9.3
