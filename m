@@ -1,57 +1,42 @@
-From: Xinming Hu <huxm@marvell.com>
-Subject: Re:  [PATCH][-next] mwifiex: make function mwifiex_ret_pkt_aggr_ctrl
- static
-Date: Mon, 5 Jun 2017 08:23:13 +0000
-Message-ID: <0edf9f73cf2f49788ef767658cd038d0@SC-EXCH02.marvell.com>
-References: <20170602085639.29338-1-colin.king@canonical.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        Cathy Luo <cluo@marvell.com>
-To: Colin King <colin.king@canonical.com>,
-        Amitkumar Karwar <amitkarwar@gmail.com>,
-        Nishant Sarmukadam <nishants@marvell.com>,
-        "Ganapathi Bhat" <gbhat@marvell.com>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170602085639.29338-1-colin.king@canonical.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Hangbin Liu <liuhangbin@gmail.com>
+Subject: [PATCH iproute2 net-next] ip neigh: allow flush FAILED neighbour entry
+Date: Mon,  5 Jun 2017 16:31:29 +0800
+Message-ID: <1496651489-28110-1-git-send-email-liuhangbin@gmail.com>
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+        Hangbin Liu <liuhangbin@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:34679 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751437AbdFEIcL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 5 Jun 2017 04:32:11 -0400
+Received: by mail-pf0-f196.google.com with SMTP id w69so19947227pfk.1
+        for <netdev@vger.kernel.org>; Mon, 05 Jun 2017 01:32:11 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-SGkgQ29saW4sDQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogQ29saW4g
-S2luZyBbbWFpbHRvOmNvbGluLmtpbmdAY2Fub25pY2FsLmNvbV0NCj4gU2VudDogMjAxN+W5tDbm
-nIgy5pelIDE2OjU3DQo+IFRvOiBBbWl0a3VtYXIgS2Fyd2FyOyBOaXNoYW50IFNhcm11a2FkYW07
-IEdhbmFwYXRoaSBCaGF0OyBYaW5taW5nIEh1Ow0KPiBLYWxsZSBWYWxvOyBsaW51eC13aXJlbGVz
-c0B2Z2VyLmtlcm5lbC5vcmc7IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmcNCj4gQ2M6IGtlcm5lbC1q
-YW5pdG9yc0B2Z2VyLmtlcm5lbC5vcmc7IGxpbnV4LWtlcm5lbEB2Z2VyLmtlcm5lbC5vcmcNCj4g
-U3ViamVjdDogW0VYVF0gW1BBVENIXVstbmV4dF0gbXdpZmlleDogbWFrZSBmdW5jdGlvbg0KPiBt
-d2lmaWV4X3JldF9wa3RfYWdncl9jdHJsIHN0YXRpYw0KPiANCj4gRXh0ZXJuYWwgRW1haWwNCj4g
-DQo+IC0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0NCj4gRnJvbTogQ29saW4gSWFuIEtpbmcgPGNvbGluLmtpbmdAY2Fu
-b25pY2FsLmNvbT4NCj4gDQo+IGZ1bmN0aW9uIG13aWZpZXhfcmV0X3BrdF9hZ2dyX2N0cmwgY2Fu
-IGJlIG1hZGUgc3RhdGljIGFzIGl0IGRvZXMgbm90IG5lZWQgdG8NCj4gYmUgaW4gZ2xvYmFsIHNj
-b3BlLg0KPiANCj4gQ2xlYW5zIHVwIHNwYXJzZSB3YXJuaW5nOiAic3ltYm9sICdtd2lmaWV4X3Jl
-dF9wa3RfYWdncl9jdHJsJyB3YXMgbm90DQo+IGRlY2xhcmVkLiBTaG91bGQgaXQgYmUgc3RhdGlj
-PyINCg0KWWVzLCBpdCBzaG91bGQgYmUgc3RhdGljLCBUaGFua3MsDQoNClJlZ2FyZHMsDQpTaW1v
-bg0KPiANCj4gU2lnbmVkLW9mZi1ieTogQ29saW4gSWFuIEtpbmcgPGNvbGluLmtpbmdAY2Fub25p
-Y2FsLmNvbT4NCj4gLS0tDQo+ICBkcml2ZXJzL25ldC93aXJlbGVzcy9tYXJ2ZWxsL213aWZpZXgv
-c3RhX2NtZHJlc3AuYyB8IDQgKystLQ0KPiAgMSBmaWxlIGNoYW5nZWQsIDIgaW5zZXJ0aW9ucygr
-KSwgMiBkZWxldGlvbnMoLSkNCj4gDQo+IGRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC93aXJlbGVz
-cy9tYXJ2ZWxsL213aWZpZXgvc3RhX2NtZHJlc3AuYw0KPiBiL2RyaXZlcnMvbmV0L3dpcmVsZXNz
-L21hcnZlbGwvbXdpZmlleC9zdGFfY21kcmVzcC5jDQo+IGluZGV4IDMzNDhmYjNhNzUxNC4uMjk0
-NTc3NWU4M2M1IDEwMDY0NA0KPiAtLS0gYS9kcml2ZXJzL25ldC93aXJlbGVzcy9tYXJ2ZWxsL213
-aWZpZXgvc3RhX2NtZHJlc3AuYw0KPiArKysgYi9kcml2ZXJzL25ldC93aXJlbGVzcy9tYXJ2ZWxs
-L213aWZpZXgvc3RhX2NtZHJlc3AuYw0KPiBAQCAtMTE1NCw4ICsxMTU0LDggQEAgc3RhdGljIGlu
-dCBtd2lmaWV4X3JldF9jaGFuX3JlZ2lvbl9jZmcoc3RydWN0DQo+IG13aWZpZXhfcHJpdmF0ZSAq
-cHJpdiwNCj4gIAlyZXR1cm4gMDsNCj4gIH0NCj4gDQo+IC1pbnQgbXdpZmlleF9yZXRfcGt0X2Fn
-Z3JfY3RybChzdHJ1Y3QgbXdpZmlleF9wcml2YXRlICpwcml2LA0KPiAtCQkJICAgICAgc3RydWN0
-IGhvc3RfY21kX2RzX2NvbW1hbmQgKnJlc3ApDQo+ICtzdGF0aWMgaW50IG13aWZpZXhfcmV0X3Br
-dF9hZ2dyX2N0cmwoc3RydWN0IG13aWZpZXhfcHJpdmF0ZSAqcHJpdiwNCj4gKwkJCQkgICAgIHN0
-cnVjdCBob3N0X2NtZF9kc19jb21tYW5kICpyZXNwKQ0KPiAgew0KPiAgCXN0cnVjdCBob3N0X2Nt
-ZF9kc19wa3RfYWdncl9jdHJsICpwa3RfYWdncl9jdHJsID0NCj4gIAkJCQkJJnJlc3AtPnBhcmFt
-cy5wa3RfYWdncl9jdHJsOw0KPiAtLQ0KPiAyLjExLjANCg0K
+After upstream commit 5071034e4af7 ('neigh: Really delete an arp/neigh entry
+on "ip neigh delete" or "arp -d"'), we could delete a single FAILED neighbour
+entry now. But `ip neigh flush` still skip the FAILED entry.
+
+Let's remove this filter so we can also flush FAILED entry.
+
+Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
+---
+ ip/ipneigh.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/ip/ipneigh.c b/ip/ipneigh.c
+index 4d8fc85..8082fa8 100644
+--- a/ip/ipneigh.c
++++ b/ip/ipneigh.c
+@@ -445,7 +445,6 @@ static int do_show_or_flush(int argc, char **argv, int flush)
+ 		filter.flushb = flushb;
+ 		filter.flushp = 0;
+ 		filter.flushe = sizeof(flushb);
+-		filter.state &= ~NUD_FAILED;
+ 
+ 		while (round < MAX_ROUNDS) {
+ 			if (rtnl_dump_request_n(&rth, &req.n) < 0) {
+-- 
+2.5.5
