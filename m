@@ -1,104 +1,81 @@
-From: "Neftin, Sasha" <sasha.neftin@intel.com>
-Subject: Re: [Intel-wired-lan] [PATCH v2 1/1] e1000e: Undo
- e1000e_pm_freeze if __e1000_shutdown fails
-Date: Mon, 5 Jun 2017 08:20:38 +0300
-Message-ID: <c660f3b8-e54a-25b7-3043-c12ddd0c910e@intel.com>
-References: <20170531.110833.1362264472730468352.davem@davemloft.net>
- <20170531155043.3596-1-jani.nikula@intel.com>
- <20170531155043.3596-2-jani.nikula@intel.com>
+From: Y Song via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+Subject: Re: More BPF verifier questions
+Date: Mon, 5 Jun 2017 00:06:41 -0700
+Message-ID: <CAH3MdRUasw4PL-Fq3tEbO=ByKGdCh4vLSF7EYZxtaDY0O24-Pg@mail.gmail.com>
+References: <24a519bc-d403-f429-5d72-2a1d31edfbe7@solarflare.com>
+Reply-To: Y Song <ys114321-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; Format="flowed"
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, intel-gfx@lists.freedesktop.org,
- linux-kernel@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
- dri-devel@lists.freedesktop.org, Dave Ertman <davidx.m.ertman@intel.com>
-To: Jani Nikula <jani.nikula@intel.com>, David Miller <davem@davemloft.net>,
- daniel.vetter@ffwll.ch
-Return-path: <intel-gfx-bounces@lists.freedesktop.org>
-In-Reply-To: <20170531155043.3596-2-jani.nikula@intel.com>
-List-Unsubscribe: <https://lists.freedesktop.org/mailman/options/intel-gfx>,
- <mailto:intel-gfx-request@lists.freedesktop.org?subject=unsubscribe>
-List-Archive: <https://lists.freedesktop.org/archives/intel-gfx>
-List-Post: <mailto:intel-gfx@lists.freedesktop.org>
-List-Help: <mailto:intel-gfx-request@lists.freedesktop.org?subject=help>
-List-Subscribe: <https://lists.freedesktop.org/mailman/listinfo/intel-gfx>,
- <mailto:intel-gfx-request@lists.freedesktop.org?subject=subscribe>
-Errors-To: intel-gfx-bounces@lists.freedesktop.org
-Sender: "Intel-gfx" <intel-gfx-bounces@lists.freedesktop.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Alexei Starovoitov <ast-b10kYP2dOMg@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
+Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+In-Reply-To: <24a519bc-d403-f429-5d72-2a1d31edfbe7-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
+List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
+List-Post: <mailto:iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+List-Help: <mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.iovisor.org/mailman/listinfo/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=subscribe>
+Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
+Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-T24gNS8zMS8yMDE3IDE4OjUwLCBKYW5pIE5pa3VsYSB3cm90ZToKPiBGcm9tOiBDaHJpcyBXaWxz
-b24gPGNocmlzQGNocmlzLXdpbHNvbi5jby51az4KPgo+IEFuIGVycm9yIGR1cmluZyBzdXNwZW5k
-IChlMTAwZV9wbV9zdXNwZW5kKSwKPgo+IFsgIDQyOS45OTQzMzhdIEFDUEkgOiBFQzogZXZlbnQg
-YmxvY2tlZAo+IFsgIDQyOS45OTQ2MzNdIGUxMDAwZTogRUVFIFRYIExQSSBUSU1FUjogMDAwMDAw
-MTEKPiBbICA0MzAuOTU1NDUxXSBwY2lfcG1fc3VzcGVuZCgpOiBlMTAwMGVfcG1fc3VzcGVuZCsw
-eDAvMHgzMCBbZTEwMDBlXSByZXR1cm5zIC0yCj4gWyAgNDMwLjk1NTQ1NF0gZHBtX3J1bl9jYWxs
-YmFjaygpOiBwY2lfcG1fc3VzcGVuZCsweDAvMHgxNDAgcmV0dXJucyAtMgo+IFsgIDQzMC45NTU0
-NThdIFBNOiBEZXZpY2UgMDAwMDowMDoxOS4wIGZhaWxlZCB0byBzdXNwZW5kIGFzeW5jOiBlcnJv
-ciAtMgo+IFsgIDQzMC45NTU1ODFdIFBNOiBTb21lIGRldmljZXMgZmFpbGVkIHRvIHN1c3BlbmQs
-IG9yIGVhcmx5IHdha2UgZXZlbnQgZGV0ZWN0ZWQKPiBbICA0MzAuOTU3NzA5XSBBQ1BJIDogRUM6
-IGV2ZW50IHVuYmxvY2tlZAo+Cj4gbGVhZCB0byBjb21wbGV0ZSBmYWlsdXJlOgo+Cj4gWyAgNDMy
-LjU4NTAwMl0gLS0tLS0tLS0tLS0tWyBjdXQgaGVyZSBdLS0tLS0tLS0tLS0tCj4gWyAgNDMyLjU4
-NTAxM10gV0FSTklORzogQ1BVOiAzIFBJRDogODM3MiBhdCBrZXJuZWwvaXJxL21hbmFnZS5jOjE0
-NzggX19mcmVlX2lycSsweDlmLzB4MjgwCj4gWyAgNDMyLjU4NTAxNV0gVHJ5aW5nIHRvIGZyZWUg
-YWxyZWFkeS1mcmVlIElSUSAyMAo+IFsgIDQzMi41ODUwMTZdIE1vZHVsZXMgbGlua2VkIGluOiBj
-ZGNfbmNtIHVzYm5ldCB4ODZfcGtnX3RlbXBfdGhlcm1hbCBpbnRlbF9wb3dlcmNsYW1wIGNvcmV0
-ZW1wIG1paSBjcmN0MTBkaWZfcGNsbXVsIGNyYzMyX3BjbG11bCBnaGFzaF9jbG11bG5pX2ludGVs
-IHNuZF9oZGFfY29kZWNfaGRtaSBzbmRfaGRhX2NvZGVjX3JlYWx0ZWsgc25kX2hkYV9jb2RlY19n
-ZW5lcmljIHNuZF9oZGFfaW50ZWwgc25kX2hkYV9jb2RlYyBzbmRfaHdkZXAgbHBjX2ljaCBzbmRf
-aGRhX2NvcmUgc25kX3BjbSBtZWlfbWUgbWVpIHNkaGNpX3BjaSBzZGhjaSBpOTE1IG1tY19jb3Jl
-IGUxMDAwZSBwdHAgcHBzX2NvcmUgcHJpbWVfbnVtYmVycwo+IFsgIDQzMi41ODUwNDJdIENQVTog
-MyBQSUQ6IDgzNzIgQ29tbToga3dvcmtlci91MTY6NDAgVGFpbnRlZDogRyAgICAgVSAgICAgICAg
-ICA0LjEwLjAtcmM4LUNJLVBhdGNod29ya18zODcwKyAjMQo+IFsgIDQzMi41ODUwNDRdIEhhcmR3
-YXJlIG5hbWU6IExFTk9WTyAyMzU2R0NHLzIzNTZHQ0csIEJJT1MgRzdFVDMxV1cgKDEuMTMgKSAw
-Ny8wMi8yMDEyCj4gWyAgNDMyLjU4NTA1MF0gV29ya3F1ZXVlOiBldmVudHNfdW5ib3VuZCBhc3lu
-Y19ydW5fZW50cnlfZm4KPiBbICA0MzIuNTg1MDUxXSBDYWxsIFRyYWNlOgo+IFsgIDQzMi41ODUw
-NThdICBkdW1wX3N0YWNrKzB4NjcvMHg5Mgo+IFsgIDQzMi41ODUwNjJdICBfX3dhcm4rMHhjNi8w
-eGUwCj4gWyAgNDMyLjU4NTA2NV0gIHdhcm5fc2xvd3BhdGhfZm10KzB4NGEvMHg1MAo+IFsgIDQz
-Mi41ODUwNzBdICA/IF9yYXdfc3Bpbl9sb2NrX2lycXNhdmUrMHg0OS8weDYwCj4gWyAgNDMyLjU4
-NTA3Ml0gIF9fZnJlZV9pcnErMHg5Zi8weDI4MAo+IFsgIDQzMi41ODUwNzVdICBmcmVlX2lycSsw
-eDM0LzB4ODAKPiBbICA0MzIuNTg1MDg5XSAgZTEwMDBfZnJlZV9pcnErMHg2NS8weDcwIFtlMTAw
-MGVdCj4gWyAgNDMyLjU4NTA5OF0gIGUxMDAwZV9wbV9mcmVlemUrMHg3YS8weGIwIFtlMTAwMGVd
-Cj4gWyAgNDMyLjU4NTEwNl0gIGUxMDAwZV9wbV9zdXNwZW5kKzB4MjEvMHgzMCBbZTEwMDBlXQo+
-IFsgIDQzMi41ODUxMTNdICBwY2lfcG1fc3VzcGVuZCsweDcxLzB4MTQwCj4gWyAgNDMyLjU4NTEx
-OF0gIGRwbV9ydW5fY2FsbGJhY2srMHg2Zi8weDMzMAo+IFsgIDQzMi41ODUxMjJdICA/IHBjaV9w
-bV9mcmVlemUrMHhlMC8weGUwCj4gWyAgNDMyLjU4NTEyNV0gIF9fZGV2aWNlX3N1c3BlbmQrMHhl
-YS8weDMzMAo+IFsgIDQzMi41ODUxMjhdICBhc3luY19zdXNwZW5kKzB4MWEvMHg5MAo+IFsgIDQz
-Mi41ODUxMzJdICBhc3luY19ydW5fZW50cnlfZm4rMHgzNC8weDE2MAo+IFsgIDQzMi41ODUxMzdd
-ICBwcm9jZXNzX29uZV93b3JrKzB4MWY0LzB4NmQwCj4gWyAgNDMyLjU4NTE0MF0gID8gcHJvY2Vz
-c19vbmVfd29yaysweDE2ZS8weDZkMAo+IFsgIDQzMi41ODUxNDNdICB3b3JrZXJfdGhyZWFkKzB4
-NDkvMHg0YTAKPiBbICA0MzIuNTg1MTQ1XSAga3RocmVhZCsweDEwNy8weDE0MAo+IFsgIDQzMi41
-ODUxNDhdICA/IHByb2Nlc3Nfb25lX3dvcmsrMHg2ZDAvMHg2ZDAKPiBbICA0MzIuNTg1MTUwXSAg
-PyBrdGhyZWFkX2NyZWF0ZV9vbl9ub2RlKzB4NDAvMHg0MAo+IFsgIDQzMi41ODUxNTRdICByZXRf
-ZnJvbV9mb3JrKzB4MmUvMHg0MAo+IFsgIDQzMi41ODUxNTZdIC0tLVsgZW5kIHRyYWNlIDY3MTJk
-ZjdmOGM0YjkxMjQgXS0tLQo+Cj4gVGhlIHVud2luZCBmYWlsdXJlcyBzdGVtcyBmcm9tIGNvbW1p
-dCAyODAwMjA5OTk0ZjggKCJlMTAwMGU6IFJlZmFjdG9yIFBNCj4gZmxvd3MiKSwgYnV0IGl0IG1h
-eSBiZSBhIGxhdGVyIHBhdGNoIHRoYXQgaW50cm9kdWNlZCB0aGUgbm9uLXJlY292ZXJhYmxlCj4g
-YmVoYXZpb3VyLgo+Cj4gRml4ZXM6IDI4MDAyMDk5OTRmOCAoImUxMDAwZTogUmVmYWN0b3IgUE0g
-Zmxvd3MiKQo+IEJ1Z3ppbGxhOiBodHRwczovL2J1Z3MuZnJlZWRlc2t0b3Aub3JnL3Nob3dfYnVn
-LmNnaT9pZD05OTg0Nwo+IENjOiBUdnJ0a28gVXJzdWxpbiA8dHZydGtvLnVyc3VsaW5AaW50ZWwu
-Y29tPgo+IENjOiBKZWZmIEtpcnNoZXIgPGplZmZyZXkudC5raXJzaGVyQGludGVsLmNvbT4KPiBD
-YzogRGF2ZSBFcnRtYW4gPGRhdmlkeC5tLmVydG1hbkBpbnRlbC5jb20+Cj4gQ2M6IEJydWNlIEFs
-bGFuIDxicnVjZS53LmFsbGFuQGludGVsLmNvbT4KPiBDYzogaW50ZWwtd2lyZWQtbGFuQGxpc3Rz
-Lm9zdW9zbC5vcmcKPiBDYzogbmV0ZGV2QHZnZXIua2VybmVsLm9yZwo+IFNpZ25lZC1vZmYtYnk6
-IENocmlzIFdpbHNvbiA8Y2hyaXNAY2hyaXMtd2lsc29uLmNvLnVrPgo+IFtKYW5pOiBiaWtlc2hl
-ZCByZXBhaW50ZWRdCj4gU2lnbmVkLW9mZi1ieTogSmFuaSBOaWt1bGEgPGphbmkubmlrdWxhQGlu
-dGVsLmNvbT4KPiAtLS0KPiAgIGRyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2UxMDAwZS9uZXRk
-ZXYuYyB8IDcgKysrKysrLQo+ICAgMSBmaWxlIGNoYW5nZWQsIDYgaW5zZXJ0aW9ucygrKSwgMSBk
-ZWxldGlvbigtKQo+Cj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2Ux
-MDAwZS9uZXRkZXYuYyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2UxMDAwZS9uZXRkZXYu
-Ywo+IGluZGV4IGIzNjc5NzI4Y2FhYy4uNWNhZDY4OGJlNjA5IDEwMDY0NAo+IC0tLSBhL2RyaXZl
-cnMvbmV0L2V0aGVybmV0L2ludGVsL2UxMDAwZS9uZXRkZXYuYwo+ICsrKyBiL2RyaXZlcnMvbmV0
-L2V0aGVybmV0L2ludGVsL2UxMDAwZS9uZXRkZXYuYwo+IEBAIC02NjMwLDEyICs2NjMwLDE3IEBA
-IHN0YXRpYyBpbnQgZTEwMDBlX3BtX3RoYXcoc3RydWN0IGRldmljZSAqZGV2KQo+ICAgc3RhdGlj
-IGludCBlMTAwMGVfcG1fc3VzcGVuZChzdHJ1Y3QgZGV2aWNlICpkZXYpCj4gICB7Cj4gICAJc3Ry
-dWN0IHBjaV9kZXYgKnBkZXYgPSB0b19wY2lfZGV2KGRldik7Cj4gKwlpbnQgcmM7Cj4gICAKPiAg
-IAllMTAwMGVfZmx1c2hfbHBpYyhwZGV2KTsKPiAgIAo+ICAgCWUxMDAwZV9wbV9mcmVlemUoZGV2
-KTsKPiAgIAo+IC0JcmV0dXJuIF9fZTEwMDBfc2h1dGRvd24ocGRldiwgZmFsc2UpOwo+ICsJcmMg
-PSBfX2UxMDAwX3NodXRkb3duKHBkZXYsIGZhbHNlKTsKPiArCWlmIChyYykKPiArCQllMTAwMGVf
-cG1fdGhhdyhkZXYpOwo+ICsKPiArCXJldHVybiByYzsKPiAgIH0KPiAgIAo+ICAgc3RhdGljIGlu
-dCBlMTAwMGVfcG1fcmVzdW1lKHN0cnVjdCBkZXZpY2UgKmRldikKCkdvb2QuIExldCdzIHBpY2sg
-dXAgdGhpcyBwYXRjaC4KCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fCkludGVsLWdmeCBtYWlsaW5nIGxpc3QKSW50ZWwtZ2Z4QGxpc3RzLmZyZWVkZXNrdG9w
-Lm9yZwpodHRwczovL2xpc3RzLmZyZWVkZXNrdG9wLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2ludGVs
-LWdmeAo=
+On Fri, Jun 2, 2017 at 7:42 AM, Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org> wrote:
+> A couple of the tests in tools/testing/selftests/bpf/test_verifier.c seem to be bogus: Test "multiple registers share map_lookup_elem bad reg type" is supposed to
+>  error with "R3 invalid mem access 'inv'", but from my reading of it, R3 gets
+>  loaded with a map_value_or_null, that later gets null-checked (both directly
+>  and - through R0 - indirectly), and finally stored through.  I don't see
+>  what's supposed to make R3 become a bad pointer.
+
+You are right. In this case,
+r0 = bpf_map_lookup
+r2 = r0
+r3 = r0
+r4 = r0
+r5 = r0
+if (r0 != 0)  <=== condition 1
+  r1 = 1
+if (r0 != 0)
+  r1 = 2
+if (r3 != 0)
+  *r3 = 0
+...
+
+If (r0 != 0) if false, the current verifier marks r2/r3/r4/r5 as unknown value.
+I guess here what you did to have precise value 0 helps and make verifier
+complaint go away correctly.
+
+> Test "helper access to variable memory: stack, bitwise AND + JMP, correct
+>  bounds" is listed as expected to pass, but it passes zero in the 'size'
+>  argument, an ARG_CONST_SIZE, to bpf_probe_read; I believe this should fail
+>  (and with my WIP patch it does).
+
+Probably a typo or mis-statement. "size" is not passed in with "zero", but
+with an unknown value. Hence, it probably should fail.
+
+      BPF_MOV64_IMM(BPF_REG_2, 16),
+      BPF_STX_MEM(BPF_DW, BPF_REG_1, BPF_REG_2, -128),
+      BPF_LDX_MEM(BPF_DW, BPF_REG_2, BPF_REG_1, -128),
+      BPF_ALU64_IMM(BPF_AND, BPF_REG_2, 64),
+      BPF_MOV64_IMM(BPF_REG_4, 0),
+      BPF_JMP_REG(BPF_JGE, BPF_REG_4, BPF_REG_2, 2),
+      BPF_MOV64_IMM(BPF_REG_3, 0),
+      BPF_EMIT_CALL(BPF_FUNC_probe_read),
+
+
+In kernel/bpf/verifier.c,
+
+  } else if (arg_type == ARG_CONST_SIZE ||
+       arg_type == ARG_CONST_SIZE_OR_ZERO) {
+    expected_type = CONST_IMM;
+    /* One exception. Allow UNKNOWN_VALUE registers when the
+     * boundaries are known and don't cause unsafe memory accesses
+     */
+    if (type != UNKNOWN_VALUE && type != expected_type)
+      goto err_type;
+
+Maybe somebody can provide some historical context for this relaxation.
