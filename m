@@ -1,31 +1,41 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH 3/6] net: phy: hook up clause 45 autonegotiation restart
-Date: Mon, 5 Jun 2017 13:59:10 +0200
-Message-ID: <20170605115910.GB28734@lunn.ch>
+From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
+Subject: Re: [PATCH 5/6] net: phy: add XAUI and 10GBASE-KR PHY connection
+ types
+Date: Mon, 5 Jun 2017 14:00:04 +0200
+Message-ID: <20170605120004.GC28734@lunn.ch>
 References: <20170605112203.GA10680@n2100.armlinux.org.uk>
- <E1dHq68-0005Wy-Na@rmk-PC.armlinux.org.uk>
+ <E1dHq6I-0005XE-VR@rmk-PC.armlinux.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
-To: Russell King <rmk+kernel@armlinux.org.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:36497 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751293AbdFEL7L (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 5 Jun 2017 07:59:11 -0400
+Cc: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Russell King <rmk+kernel-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <E1dHq68-0005Wy-Na@rmk-PC.armlinux.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <E1dHq6I-0005XE-VR-eh5Bv4kxaXIk46pC+1QYvQNdhmdF6hFW@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jun 05, 2017 at 12:23:00PM +0100, Russell King wrote:
-> genphy_restart_aneg() can only restart autonegotiation on clause 22
-> PHYs.  Add a phy_restart_aneg() function which selects between the
-> clause 22 and clause 45 restart functionality depending on the PHY
-> type and whether the Clause 45 PHY supports the Clause 22 register set.
+On Mon, Jun 05, 2017 at 12:23:10PM +0100, Russell King wrote:
+> XAUI allows XGMII to reach an extended distance by using a XGXS layer at
+> each end of the MAC to PHY link, operating over four Serdes lanes.
 > 
-> Signed-off-by: Russell King <rmk+kernel@armlinux.org.uk>
+> 10GBASE-KR is a single lane Serdes backplane ethernet connection method
+> with autonegotiation on the link.  Some PHYs use this to connect to the
+> ethernet interface at 10G speeds, switching to other connection types
+> when utilising slower speeds.
+> 
+> 10GBASE-KR is also used for XFI and SFI to connect to XFP and SFP fiber
+> modules.
+> 
+> Signed-off-by: Russell King <rmk+kernel-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>
 
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+Reviewed-by: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
 
     Andrew
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
