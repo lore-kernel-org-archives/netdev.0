@@ -1,8 +1,9 @@
 From: Paul Burton <paul.burton@imgtec.com>
-Subject: [PATCH v4 0/7] net: pch_gbe: Fixes & MIPS support
-Date: Mon, 5 Jun 2017 10:31:29 -0700
-Message-ID: <20170605173136.10795-1-paul.burton@imgtec.com>
+Subject: [PATCH v4 1/7] net: pch_gbe: Mark Minnow PHY reset GPIO active low
+Date: Mon, 5 Jun 2017 10:31:30 -0700
+Message-ID: <20170605173136.10795-2-paul.burton@imgtec.com>
 References: <20170602234042.22782-1-paul.burton@imgtec.com>
+ <20170605173136.10795-1-paul.burton@imgtec.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: "David S . Miller" <davem@davemloft.net>,
@@ -12,37 +13,62 @@ Cc: "David S . Miller" <davem@davemloft.net>,
         Paul Burton <paul.burton@imgtec.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailapp01.imgtec.com ([195.59.15.196]:30883 "EHLO
+Received: from mailapp01.imgtec.com ([195.59.15.196]:44077 "EHLO
         mailapp01.imgtec.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751214AbdFERcM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 5 Jun 2017 13:32:12 -0400
-In-Reply-To: <20170602234042.22782-1-paul.burton@imgtec.com>
+        with ESMTP id S1751991AbdFERcc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 5 Jun 2017 13:32:32 -0400
+In-Reply-To: <20170605173136.10795-1-paul.burton@imgtec.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The Intel EG20T Platform Controller Hub is used on the MIPS Boston
-development board to provide various peripherals including ethernet.
-This series fixes some issues with the pch_gbe driver discovered whilst
-in use on the Boston board, and implements support for device tree which
-we use to provide the PHY reset GPIO.
+The Minnow PHY reset GPIO is set to 0 to enter reset & 1 to leave reset
+- that is, it is an active low GPIO. In order to allow for the code to
+be made more generic by further patches, indicate to the GPIO subsystem
+that the GPIO is active low & invert the values it is set to such that
+they reflect logically whether the device is being reset or not.
 
-Applies atop v4.12-rc4.
+Signed-off-by: Paul Burton <paul.burton@imgtec.com>
+Cc: David S. Miller <davem@davemloft.net>
+Cc: Eric Dumazet <edumazet@google.com>
+Cc: Jarod Wilson <jarod@redhat.com>
+Cc: Tobias Klauser <tklauser@distanz.ch>
+Cc: linux-mips@linux-mips.org
+Cc: netdev@vger.kernel.org
+---
 
-Paul Burton (7):
-  net: pch_gbe: Mark Minnow PHY reset GPIO active low
-  net: pch_gbe: Pull PHY GPIO handling out of Minnow code
-  dt-bindings: net: Document Intel pch_gbe binding
-  net: pch_gbe: Add device tree support
-  net: pch_gbe: Always reset PHY along with MAC
-  net: pch_gbe: Allow longer for resets
-  net: pch_gbe: Allow build on MIPS platforms
+Changes in v4: None
+Changes in v3: None
+Changes in v2: None
 
- Documentation/devicetree/bindings/net/pch_gbe.txt  | 25 +++++++
- drivers/net/ethernet/oki-semi/pch_gbe/Kconfig      |  2 +-
- drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h    |  4 +-
- .../net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c   | 79 +++++++++++++++++-----
- 4 files changed, 91 insertions(+), 19 deletions(-)
- create mode 100644 Documentation/devicetree/bindings/net/pch_gbe.txt
+ drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
 
+diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
+index 5ae9681a2da7..d38198718005 100644
+--- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
++++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
+@@ -2696,7 +2696,8 @@ static int pch_gbe_probe(struct pci_dev *pdev,
+  */
+ static int pch_gbe_minnow_platform_init(struct pci_dev *pdev)
+ {
+-	unsigned long flags = GPIOF_DIR_OUT | GPIOF_INIT_HIGH | GPIOF_EXPORT;
++	unsigned long flags = GPIOF_DIR_OUT | GPIOF_INIT_LOW |
++		GPIOF_EXPORT | GPIOF_ACTIVE_LOW;
+ 	unsigned gpio = MINNOW_PHY_RESET_GPIO;
+ 	int ret;
+ 
+@@ -2708,10 +2709,10 @@ static int pch_gbe_minnow_platform_init(struct pci_dev *pdev)
+ 		return ret;
+ 	}
+ 
+-	gpio_set_value(gpio, 0);
+-	usleep_range(1250, 1500);
+ 	gpio_set_value(gpio, 1);
+ 	usleep_range(1250, 1500);
++	gpio_set_value(gpio, 0);
++	usleep_range(1250, 1500);
+ 
+ 	return ret;
+ }
 -- 
 2.13.0
