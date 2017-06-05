@@ -1,41 +1,88 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/ipv6: Fix CALIPSO causing GPF with datagram support
-Date: Mon, 05 Jun 2017 12:00:15 -0400 (EDT)
-Message-ID: <20170605.120015.1136981458406571990.davem@davemloft.net>
-References: <20170605154440.2434-1-richard_c_haines@btinternet.com>
-        <CAHC9VhRwzC=XTRj5gNfd11T=XzpYSrVfu-jnx9f4__duMAji1Q@mail.gmail.com>
+From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Subject: [PATCH 4.9 25/94] bonding: fix accounting of active ports in 3ad
+Date: Mon,  5 Jun 2017 18:17:01 +0200
+Message-ID: <20170605153104.219583978@linuxfoundation.org>
+References: <20170605153103.156843111@linuxfoundation.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: richard_c_haines@btinternet.com, netdev@vger.kernel.org,
-        selinux@tycho.nsa.gov, linux-security-module@vger.kernel.org
-To: paul@paul-moore.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:38834 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751077AbdFEQAX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 5 Jun 2017 12:00:23 -0400
-In-Reply-To: <CAHC9VhRwzC=XTRj5gNfd11T=XzpYSrVfu-jnx9f4__duMAji1Q@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        stable@vger.kernel.org, Jay Vosburgh <j.vosburgh@gmail.com>,
+        Veaceslav Falico <vfalico@gmail.com>,
+        Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org,
+        Jarod Wilson <jarod@redhat.com>,
+        "David S. Miller" <davem@davemloft.net>
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170605153103.156843111@linuxfoundation.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Paul Moore <paul@paul-moore.com>
-Date: Mon, 5 Jun 2017 11:55:34 -0400
+4.9-stable review patch.  If anyone has any objections, please let me know.
 
-> On Mon, Jun 5, 2017 at 11:44 AM, Richard Haines
-> <richard_c_haines@btinternet.com> wrote:
->> When using CALIPSO with IPPROTO_UDP it is possible to trigger a GPF as the
->> IP header may have moved.
->>
->> Also update the payload length after adding the CALIPSO option.
->>
->> Signed-off-by: Richard Haines <richard_c_haines@btinternet.com>
->> ---
->>  net/ipv6/calipso.c | 6 +++++-
->>  1 file changed, 5 insertions(+), 1 deletion(-)
-> 
-> Acked-by: Paul Moore <paul@paul-moore.com>
-> 
-> Thanks Richard.  DaveM, I assume you'll be pulling this into your tree?
+------------------
 
-Sure.
+From: Jarod Wilson <jarod@redhat.com>
+
+
+[ Upstream commit 751da2a69b7cc82d83dc310ed7606225f2d6e014 ]
+
+As of 7bb11dc9f59d and 0622cab0341c, bond slaves in a 3ad bond are not
+removed from the aggregator when they are down, and the active slave count
+is NOT equal to number of ports in the aggregator, but rather the number
+of ports in the aggregator that are still enabled. The sysfs spew for
+bonding_show_ad_num_ports() has a comment that says "Show number of active
+802.3ad ports.", but it's currently showing total number of ports, both
+active and inactive. Remedy it by using the same logic introduced in
+0622cab0341c in __bond_3ad_get_active_agg_info(), so sysfs, procfs and
+netlink all report the number of active ports. Note that this means that
+IFLA_BOND_AD_INFO_NUM_PORTS really means NUM_ACTIVE_PORTS instead of
+NUM_PORTS, and thus perhaps should be renamed for clarity.
+
+Lightly tested on a dual i40e lacp bond, simulating link downs with an ip
+link set dev <slave2> down, was able to produce the state where I could
+see both in the same aggregator, but a number of ports count of 1.
+
+MII Status: up
+Active Aggregator Info:
+        Aggregator ID: 1
+        Number of ports: 2 <---
+Slave Interface: ens10
+MII Status: up <---
+Aggregator ID: 1
+Slave Interface: ens11
+MII Status: up
+Aggregator ID: 1
+
+MII Status: up
+Active Aggregator Info:
+        Aggregator ID: 1
+        Number of ports: 1 <---
+Slave Interface: ens10
+MII Status: down <---
+Aggregator ID: 1
+Slave Interface: ens11
+MII Status: up
+Aggregator ID: 1
+
+CC: Jay Vosburgh <j.vosburgh@gmail.com>
+CC: Veaceslav Falico <vfalico@gmail.com>
+CC: Andy Gospodarek <andy@greyhouse.net>
+CC: netdev@vger.kernel.org
+Signed-off-by: Jarod Wilson <jarod@redhat.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+---
+ drivers/net/bonding/bond_3ad.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+--- a/drivers/net/bonding/bond_3ad.c
++++ b/drivers/net/bonding/bond_3ad.c
+@@ -2573,7 +2573,7 @@ int __bond_3ad_get_active_agg_info(struc
+ 		return -1;
+ 
+ 	ad_info->aggregator_id = aggregator->aggregator_identifier;
+-	ad_info->ports = aggregator->num_of_ports;
++	ad_info->ports = __agg_active_ports(aggregator);
+ 	ad_info->actor_key = aggregator->actor_oper_aggregator_key;
+ 	ad_info->partner_key = aggregator->partner_oper_aggregator_key;
+ 	ether_addr_copy(ad_info->partner_system,
