@@ -1,38 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] amd-xgbe: use PAGE_ALLOC_COSTLY_ORDER in
- xgbe_map_rx_buffer
-Date: Sun, 04 Jun 2017 20:01:19 -0400 (EDT)
-Message-ID: <20170604.200119.791002119725193988.davem@davemloft.net>
-References: <20170602155408.12792-1-mhocko@kernel.org>
+Subject: Re: [PATCH net] sock: reset sk_err when the error queue is empty
+Date: Sun, 04 Jun 2017 20:02:45 -0400 (EDT)
+Message-ID: <20170604.200245.1799631200856186565.davem@davemloft.net>
+References: <20170602163822.67543-1-soheil.kdev@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: thomas.lendacky@amd.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, mhocko@suse.com
-To: mhocko@kernel.org
+Cc: netdev@vger.kernel.org, chrubis@suse.cz, soheil@google.com,
+        edumazet@google.com, willemb@google.com
+To: soheil.kdev@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:52686 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:52698 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751181AbdFEABV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 4 Jun 2017 20:01:21 -0400
-In-Reply-To: <20170602155408.12792-1-mhocko@kernel.org>
+        with ESMTP id S1751181AbdFEACr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 4 Jun 2017 20:02:47 -0400
+In-Reply-To: <20170602163822.67543-1-soheil.kdev@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Michal Hocko <mhocko@kernel.org>
-Date: Fri,  2 Jun 2017 17:54:08 +0200
+From: Soheil Hassas Yeganeh <soheil.kdev@gmail.com>
+Date: Fri,  2 Jun 2017 12:38:22 -0400
 
-> From: Michal Hocko <mhocko@suse.com>
+> From: Soheil Hassas Yeganeh <soheil@google.com>
 > 
-> xgbe_map_rx_buffer is rather confused about what PAGE_ALLOC_COSTLY_ORDER
-> means. It uses PAGE_ALLOC_COSTLY_ORDER-1 assuming that
-> PAGE_ALLOC_COSTLY_ORDER is the first costly order which is not the case
-> actually because orders larger than that are costly. And even that
-> applies only to sleeping allocations which is not the case here. We
-> simply do not perform any costly operations like reclaim or compaction
-> for those. Simplify the code by dropping the order calculation and use
-> PAGE_ALLOC_COSTLY_ORDER directly.
+> Prior to f5f99309fa74 (sock: do not set sk_err in
+> sock_dequeue_err_skb), sk_err was reset to the error of
+> the skb on the head of the error queue.
 > 
-> Signed-off-by: Michal Hocko <mhocko@suse.com>
+> Applications, most notably ping, are relying on this
+> behavior to reset sk_err for ICMP packets.
+> 
+> Set sk_err to the ICMP error when there is an ICMP packet
+> at the head of the error queue.
+> 
+> Fixes: f5f99309fa74 (sock: do not set sk_err in sock_dequeue_err_skb)
+> Reported-by: Cyril Hrubis <chrubis@suse.cz>
+> Test-by: Cyril Hrubis <chrubis@suse.cz>
+> Signed-off-by: Soheil Hassas Yeganeh <soheil@google.com>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Willem de Bruijn <willemb@google.com>
 
-Applied.
+Applied and queued up for -stable, thank you.
