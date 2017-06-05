@@ -1,84 +1,169 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 00/19] Remove support from bridge bypass for mlxsw/rocker drivers
-Date: Mon,  5 Jun 2017 11:20:24 +0200
-Message-ID: <20170605092043.3523-1-jiri@resnulli.us>
+Subject: [patch net-next 06/19] net: bridge: Receive notification about successful FDB offload
+Date: Mon,  5 Jun 2017 11:20:30 +0200
+Message-ID: <20170605092043.3523-7-jiri@resnulli.us>
+References: <20170605092043.3523-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, arkadis@mellanox.com,
         mlxsw@mellanox.com, roopa@cumulusnetworks.com,
         stephen@networkplumber.org, ivecera@redhat.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f195.google.com ([209.85.128.195]:33969 "EHLO
-        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751512AbdFEJUq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 5 Jun 2017 05:20:46 -0400
-Received: by mail-wr0-f195.google.com with SMTP id u101so4373974wrc.1
-        for <netdev@vger.kernel.org>; Mon, 05 Jun 2017 02:20:45 -0700 (PDT)
+Received: from mail-wr0-f194.google.com ([209.85.128.194]:34830 "EHLO
+        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751625AbdFEJUy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 5 Jun 2017 05:20:54 -0400
+Received: by mail-wr0-f194.google.com with SMTP id g76so6833757wrd.2
+        for <netdev@vger.kernel.org>; Mon, 05 Jun 2017 02:20:53 -0700 (PDT)
+In-Reply-To: <20170605092043.3523-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@mellanox.com>
+From: Arkadi Sharshevsky <arkadis@mellanox.com>
 
-Currently setting bridge port attributes and adding FDBs are done via
-setting the SELF flag which implies unconsistent offloading model. This
-patch-set fixes this behavior by making the bridge and drivers which are
-using it to be totally in sync.
+When a new static FDB is added to the bridge a notification is sent to
+the driver for offload. In case of successful offload the driver should
+notify the bridge back, which in turn should mark the FDB as offloaded.
 
-This implies several changes:
-- Offloading bridge flags from the bridge code.
-- Sending notification about FDB add/del to the software bridge in a
-  similiar way it is done for the hardware externally learned FDBs.
+Currently, externally learned is equivalent for being offloaded which is
+not correct due to the fact that FDBs which are added from user-space are
+also marked as externally learned. In order to specify if an FDB was
+successfully offloaded a new flag is introduced.
 
-By making the offloading model more consistent a cleanup is done in
-the drivers supporting it. This is done in order to remove un-needed
-logic related to dump operation which is redundant.
+Signed-off-by: Arkadi Sharshevsky <arkadis@mellanox.com>
+Reviewed-by: Ido Schimmel <idosch@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+---
+ include/net/switchdev.h        |  1 +
+ include/uapi/linux/neighbour.h |  1 +
+ net/bridge/br.c                | 11 ++++++++++-
+ net/bridge/br_fdb.c            | 22 +++++++++++++++++++++-
+ net/bridge/br_private.h        |  5 ++++-
+ 5 files changed, 37 insertions(+), 3 deletions(-)
 
-First add missing functionality to bridge, then clean up the mlxsw/rocker
-drivers.
-
-Arkadi Sharshevsky (19):
-  net: switchdev: Add support for querying supported bridge flags by
-    hardware
-  net: bridge: Add support for offloading port attributes
-  net: bridge: Add support for calling FDB external learning under rcu
-  net: switchdev: Change notifier chain to be atomic
-  net: bridge: Add support for notifying devices about FDB add/del
-  net: bridge: Receive notification about successful FDB offload
-  mlxsw: spectrum: Remove support for bridge FDB learning sync
-  mlxsw: spectrum_switchdev: Add support for querying supported bridge
-    flags
-  mlxsw: spectrum: Remove support for bypass bridge port attributes/vlan
-    set
-  mlxsw: spectrum_switchdev: Change switchdev notifier API
-  mlxsw: spectrum_switchdev: Add support for learning FDB through
-    notification
-  mlxsw: spectrum: Remove support for bridge bypass FDB add/del
-  net: Remove support for bridge bypass ndos from stacked devices
-  rocker: Remove support for bridge FDB learning sync
-  rocker: Add support for querying supported bridge flags
-  rocker: Change world_ops API and implementation to be switchdev
-    independant
-  rocker: Add support for learning FDB through notification
-  rocker: Remove support for bypass bridge port attributes/vlan set
-  rocker: Remove support bridge bypass FDB
-
- drivers/net/bonding/bond_main.c                    |   6 -
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c     |   8 +-
- drivers/net/ethernet/mellanox/mlxsw/spectrum.h     |   1 +
- .../ethernet/mellanox/mlxsw/spectrum_switchdev.c   | 360 +++++-------
- drivers/net/ethernet/rocker/rocker.h               |  21 +-
- drivers/net/ethernet/rocker/rocker_main.c          | 235 +++++---
- drivers/net/ethernet/rocker/rocker_ofdpa.c         | 610 ++++++++-------------
- drivers/net/team/team.c                            |   6 -
- include/net/switchdev.h                            |   9 +-
- include/uapi/linux/neighbour.h                     |   1 +
- net/8021q/vlan_dev.c                               |   6 -
- net/bridge/br.c                                    |  19 +-
- net/bridge/br_fdb.c                                |  46 +-
- net/bridge/br_netlink.c                            | 112 +++-
- net/bridge/br_private.h                            |  23 +-
- net/bridge/br_switchdev.c                          |  13 +
- net/switchdev/switchdev.c                          |  30 +-
- 17 files changed, 714 insertions(+), 792 deletions(-)
-
+diff --git a/include/net/switchdev.h b/include/net/switchdev.h
+index 8165ed9..c784a6a 100644
+--- a/include/net/switchdev.h
++++ b/include/net/switchdev.h
+@@ -159,6 +159,7 @@ enum switchdev_notifier_type {
+ 	SWITCHDEV_FDB_DEL_TO_BRIDGE,
+ 	SWITCHDEV_FDB_ADD_TO_DEVICE,
+ 	SWITCHDEV_FDB_DEL_TO_DEVICE,
++	SWITCHDEV_FDB_OFFLOADED,
+ };
+ 
+ struct switchdev_notifier_info {
+diff --git a/include/uapi/linux/neighbour.h b/include/uapi/linux/neighbour.h
+index f3d16db..3199d28 100644
+--- a/include/uapi/linux/neighbour.h
++++ b/include/uapi/linux/neighbour.h
+@@ -41,6 +41,7 @@ enum {
+ #define NTF_MASTER	0x04
+ #define NTF_PROXY	0x08	/* == ATF_PUBL */
+ #define NTF_EXT_LEARNED	0x10
++#define NTF_OFFLOADED   0x20
+ #define NTF_ROUTER	0x80
+ 
+ /*
+diff --git a/net/bridge/br.c b/net/bridge/br.c
+index 96d209c..1407d1b 100644
+--- a/net/bridge/br.c
++++ b/net/bridge/br.c
+@@ -142,8 +142,12 @@ static int br_switchdev_event(struct notifier_block *unused,
+ 		fdb_info = ptr;
+ 		err = br_fdb_external_learn_add(br, p, fdb_info->addr,
+ 						fdb_info->vid);
+-		if (err)
++		if (err) {
+ 			err = notifier_from_errno(err);
++			break;
++		}
++		br_fdb_offloaded_set(br, p, fdb_info->addr,
++				     fdb_info->vid);
+ 		break;
+ 	case SWITCHDEV_FDB_DEL_TO_BRIDGE:
+ 		fdb_info = ptr;
+@@ -152,6 +156,11 @@ static int br_switchdev_event(struct notifier_block *unused,
+ 		if (err)
+ 			err = notifier_from_errno(err);
+ 		break;
++	case SWITCHDEV_FDB_OFFLOADED:
++		fdb_info = ptr;
++		br_fdb_offloaded_set(br, p, fdb_info->addr,
++				     fdb_info->vid);
++		break;
+ 	}
+ 
+ out:
+diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
+index 21bf9d2..1bd3d84 100644
+--- a/net/bridge/br_fdb.c
++++ b/net/bridge/br_fdb.c
+@@ -511,6 +511,7 @@ static struct net_bridge_fdb_entry *fdb_create(struct hlist_head *head,
+ 		fdb->is_static = is_static;
+ 		fdb->added_by_user = 0;
+ 		fdb->added_by_external_learn = 0;
++		fdb->offloaded = 0;
+ 		fdb->updated = fdb->used = jiffies;
+ 		hlist_add_head_rcu(&fdb->hlist, head);
+ 	}
+@@ -647,11 +648,16 @@ static int fdb_fill_info(struct sk_buff *skb, const struct net_bridge *br,
+ 	ndm->ndm_family	 = AF_BRIDGE;
+ 	ndm->ndm_pad1    = 0;
+ 	ndm->ndm_pad2    = 0;
+-	ndm->ndm_flags	 = fdb->added_by_external_learn ? NTF_EXT_LEARNED : 0;
++	ndm->ndm_flags	 = 0;
+ 	ndm->ndm_type	 = 0;
+ 	ndm->ndm_ifindex = fdb->dst ? fdb->dst->dev->ifindex : br->dev->ifindex;
+ 	ndm->ndm_state   = fdb_to_nud(br, fdb);
+ 
++	if (fdb->offloaded)
++		ndm->ndm_flags |= NTF_OFFLOADED;
++	if (fdb->added_by_external_learn)
++		ndm->ndm_flags |= NTF_EXT_LEARNED;
++
+ 	if (nla_put(skb, NDA_LLADDR, ETH_ALEN, &fdb->addr))
+ 		goto nla_put_failure;
+ 	if (nla_put_u32(skb, NDA_MASTER, br->dev->ifindex))
+@@ -1143,3 +1149,17 @@ int br_fdb_external_learn_del(struct net_bridge *br, struct net_bridge_port *p,
+ 
+ 	return err;
+ }
++
++void br_fdb_offloaded_set(struct net_bridge *br, struct net_bridge_port *p,
++			  const unsigned char *addr, u16 vid)
++{
++	struct net_bridge_fdb_entry *fdb;
++
++	spin_lock_bh(&br->hash_lock);
++
++	fdb = br_fdb_find(br, addr, vid);
++	if (fdb)
++		fdb->offloaded = 1;
++
++	spin_unlock_bh(&br->hash_lock);
++}
+diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+index 5e944e9..a5db2e1 100644
+--- a/net/bridge/br_private.h
++++ b/net/bridge/br_private.h
+@@ -173,7 +173,8 @@ struct net_bridge_fdb_entry {
+ 	unsigned char			is_local:1,
+ 					is_static:1,
+ 					added_by_user:1,
+-					added_by_external_learn:1;
++					added_by_external_learn:1,
++					offloaded:1;
+ 
+ 	/* write-heavy members should not affect lookups */
+ 	unsigned long			updated ____cacheline_aligned_in_smp;
+@@ -540,6 +541,8 @@ int br_fdb_external_learn_add(struct net_bridge *br, struct net_bridge_port *p,
+ 			      const unsigned char *addr, u16 vid);
+ int br_fdb_external_learn_del(struct net_bridge *br, struct net_bridge_port *p,
+ 			      const unsigned char *addr, u16 vid);
++void br_fdb_offloaded_set(struct net_bridge *br, struct net_bridge_port *p,
++			  const unsigned char *addr, u16 vid);
+ 
+ /* br_forward.c */
+ enum br_pkt_type {
 -- 
 2.9.3
