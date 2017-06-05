@@ -1,31 +1,40 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH 1/6] net: phy: add 802.3 clause 45 support to phylib
-Date: Mon, 5 Jun 2017 09:25:30 -0700
-Message-ID: <083c3b48-41d1-8dc1-2bed-6932a0d36b55@gmail.com>
+Subject: Re: [PATCH 5/6] net: phy: add XAUI and 10GBASE-KR PHY connection
+ types
+Date: Mon, 5 Jun 2017 09:24:35 -0700
+Message-ID: <187fd723-55b0-3a94-1ad0-62b696eb4a90@gmail.com>
 References: <20170605112203.GA10680@n2100.armlinux.org.uk>
- <E1dHq5y-0005Wk-Ca@rmk-PC.armlinux.org.uk>
+ <E1dHq6I-0005XE-VR@rmk-PC.armlinux.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: Rob Herring <robh+dt@kernel.org>,
+        Mark Rutland <mark.rutland@arm.com>, netdev@vger.kernel.org,
+        devicetree@vger.kernel.org
 To: Russell King <rmk+kernel@armlinux.org.uk>,
         Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f193.google.com ([209.85.216.193]:35697 "EHLO
-        mail-qt0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753016AbdFEQZj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 5 Jun 2017 12:25:39 -0400
-Received: by mail-qt0-f193.google.com with SMTP id x58so9659406qtc.2
-        for <netdev@vger.kernel.org>; Mon, 05 Jun 2017 09:25:34 -0700 (PDT)
-In-Reply-To: <E1dHq5y-0005Wk-Ca@rmk-PC.armlinux.org.uk>
+Received: from mail-qt0-f196.google.com ([209.85.216.196]:33007 "EHLO
+        mail-qt0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752850AbdFEQYi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 5 Jun 2017 12:24:38 -0400
+In-Reply-To: <E1dHq6I-0005XE-VR@rmk-PC.armlinux.org.uk>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/05/2017 04:22 AM, Russell King wrote:
-> Add generic helpers for 802.3 clause 45 PHYs for >= 10Gbps support.
+On 06/05/2017 04:23 AM, Russell King wrote:
+> XAUI allows XGMII to reach an extended distance by using a XGXS layer at
+> each end of the MAC to PHY link, operating over four Serdes lanes.
 > 
-> Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+> 10GBASE-KR is a single lane Serdes backplane ethernet connection method
+> with autonegotiation on the link.  Some PHYs use this to connect to the
+> ethernet interface at 10G speeds, switching to other connection types
+> when utilising slower speeds.
+> 
+> 10GBASE-KR is also used for XFI and SFI to connect to XFP and SFP fiber
+> modules.
+> 
 > Signed-off-by: Russell King <rmk+kernel@armlinux.org.uk>
 
 Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
