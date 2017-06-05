@@ -1,43 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: dsa: Fix stale cpu_switch reference after
- unbind then bind
-Date: Sun, 04 Jun 2017 22:57:40 -0400 (EDT)
-Message-ID: <20170604.225740.1710058828586611741.davem@davemloft.net>
-References: <20170603050523.27014-1-f.fainelli@gmail.com>
+Subject: Re: [PATCH net] net: ping: do not abuse udp_poll()
+Date: Sun, 04 Jun 2017 22:58:17 -0400 (EDT)
+Message-ID: <20170604.225817.1212735449685985957.davem@davemloft.net>
+References: <20170603051742.m6jtztnn4b3me2co@sasha-lappy>
+        <CANn89iKFcPwzVP_gfwkLND9ZTo-+PF8Ex1uePqaawTaLF=Qzmg@mail.gmail.com>
+        <1496507365.5031.16.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, andrew@lunn.ch,
-        vivien.didelot@savoirfairelinux.com, linux-kernel@vger.kernel.org
-To: f.fainelli@gmail.com
+Cc: edumazet@google.com, lorenzo@google.com, segoon@openwall.com,
+        solar@openwall.com, alexander.levin@verizon.com, pabeni@redhat.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:55254 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:55262 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751212AbdFEC5r (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 4 Jun 2017 22:57:47 -0400
-In-Reply-To: <20170603050523.27014-1-f.fainelli@gmail.com>
+        with ESMTP id S1751279AbdFEC6U (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 4 Jun 2017 22:58:20 -0400
+In-Reply-To: <1496507365.5031.16.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Fri,  2 Jun 2017 22:05:23 -0700
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Sat, 03 Jun 2017 09:29:25 -0700
 
-> Commit 9520ed8fb841 ("net: dsa: use cpu_switch instead of ds[0]")
-> replaced the use of dst->ds[0] with dst->cpu_switch since that is
-> functionally equivalent, however, we can now run into an use after free
-> scenario after unbinding then rebinding the switch driver.
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> The use after free happens because we do correctly initialize
-> dst->cpu_switch the first time we probe in dsa_cpu_parse(), then we
-> unbind the driver: dsa_dst_unapply() is called, and we rebind again.
-> dst->cpu_switch now points to a freed "ds" structure, and so when we
-> finally dereference it in dsa_cpu_port_ethtool_setup(), we oops.
+> Alexander reported various KASAN messages triggered in recent kernels 
 > 
-> To fix this, simply set dst->cpu_switch to NULL in dsa_dst_unapply()
-> which guarantees that we always correctly re-assign dst->cpu_switch in
-> dsa_cpu_parse().
+> The problem is that ping sockets should not use udp_poll() in the first
+> place, and recent changes in UDP stack finally exposed this old bug.
 > 
-> Fixes: 9520ed8fb841 ("net: dsa: use cpu_switch instead of ds[0]")
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+> Fixes: c319b4d76b9e ("net: ipv4: add IPPROTO_ICMP socket kind")
+> Fixes: 6d0bfe226116 ("net: ipv6: Add IPv6 support to the ping socket.")
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Reported-by: Sasha Levin <alexander.levin@verizon.com>
 
-Applied and queued up for -stable, thanks.
+Applied and queued up for -stable.
