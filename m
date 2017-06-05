@@ -1,58 +1,62 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH] net-next: stmmac: dwmac-sun8i: ensure the
- EPHY is properly reseted
-Date: Mon, 05 Jun 2017 10:19:57 -0400 (EDT)
-Message-ID: <20170605.101957.1159360169934143154.davem@davemloft.net>
-References: <20170604175323.62124-1-icenowy@aosc.io>
-	<20170605111019.GA29657@Red>
-Reply-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: icenowy-h8G6r0blFSE@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-To: clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <linux-sunxi+bncBCFPF2XH6UDBBEOR2XEQKGQEUYFOVNQ-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-In-Reply-To: <20170605111019.GA29657@Red>
-List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Help: <https://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Archive: <https://groups.google.com/group/linux-sunxi
-List-Subscribe: <https://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
- <https://groups.google.com/group/linux-sunxi/subscribe>
-List-Id: netdev.vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch iproute2/net-next] tc: gact: fix control action parsing
+Date: Mon,  5 Jun 2017 16:22:03 +0200
+Message-ID: <20170605142203.4535-1-jiri@resnulli.us>
+Cc: stephen@networkplumber.org, mlxsw@mellanox.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wr0-f195.google.com ([209.85.128.195]:34192 "EHLO
+        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751112AbdFEOWG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 5 Jun 2017 10:22:06 -0400
+Received: by mail-wr0-f195.google.com with SMTP id u101so5131975wrc.1
+        for <netdev@vger.kernel.org>; Mon, 05 Jun 2017 07:22:06 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date: Mon, 5 Jun 2017 13:10:19 +0200
+From: Jiri Pirko <jiri@mellanox.com>
 
-> On Mon, Jun 05, 2017 at 01:53:23AM +0800, Icenowy Zheng wrote:
->> The EPHY may be already enabled by bootloaders which have Ethernet
->> capability (e.g. current U-Boot). Thus it should be reseted properly
->> before doing the enabling sequence in the dwmac-sun8i driver, otherwise
->> the EMAC reset process may fail if no cable is plugged, and then fail
->> the dwmac-sun8i probing.
->> 
->> Tested on Orange Pi PC, One and Zero. All the boards fail to have
->> dwmac-sun8i probed with "EMAC reset timeout" without cable plugged
->> before, and with this fix they're now all able to successfully probe the
->> EMAC without cable plugged and then use the connection after a cable is
->> hot-plugged in.
->> 
->> Fixes: 9f93ac8d408 ("net-next: stmmac: Add dwmac-sun8i")
->> Signed-off-by: Icenowy Zheng <icenowy-h8G6r0blFSE@public.gmane.org>
-> 
-> Thanks for the fix.
-> Tested-by: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> 
-> Since I am the writter of the file, does I have the right to:
-> Acked-by: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> or
-> Reviewed-by: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> ?
+parse_action_control helper does advancing of the arg inside. So don't
+do it outside.
 
-Anyone whatsoever may contribute Acked-by and Reviewed-by tags to a
-patch posting.
+Fixes: e67aba559581 ("tc: actions: add helpers to parse and print control actions")
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+---
+ tc/m_gact.c | 9 ++-------
+ 1 file changed, 2 insertions(+), 7 deletions(-)
 
-This is all documented in Documentation/process/submitting-patches.rst
+diff --git a/tc/m_gact.c b/tc/m_gact.c
+index d95aa11..1a25833 100644
+--- a/tc/m_gact.c
++++ b/tc/m_gact.c
+@@ -90,17 +90,14 @@ parse_gact(struct action_util *a, int *argc_p, char ***argv_p,
+ 
+ 	if (matches(*argv, "gact") == 0) {
+ 		ok++;
++		argc--;
++		argv++;
+ 	} else {
+ 		if (parse_action_control(&argc, &argv, &p.action, false) == -1)
+ 			usage();
+ 		ok++;
+ 	}
+ 
+-	if (ok) {
+-		argc--;
+-		argv++;
+-	}
+-
+ #ifdef CONFIG_GACT_PROB
+ 	if (ok && argc > 0) {
+ 		if (matches(*argv, "random") == 0) {
+@@ -120,8 +117,6 @@ parse_gact(struct action_util *a, int *argc_p, char ***argv_p,
+ 			if (parse_action_control(&argc, &argv,
+ 						 &pp.paction, false) == -1)
+ 				usage();
+-			argc--;
+-			argv++;
+ 			if (get_u16(&pp.pval, *argv, 10)) {
+ 				fprintf(stderr, "Illegal probability val 0x%x\n", pp.pval);
+ 				return -1;
+-- 
+2.9.3
