@@ -1,40 +1,58 @@
-From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
-Subject: RE: [PATCH] cxgb4: implement ndo_set_vf_rate()
-Date: Mon, 5 Jun 2017 14:03:14 +0000
-Message-ID: <BLUPR0701MB2004623B3F087A8213B2AEBF8DCA0@BLUPR0701MB2004.namprd07.prod.outlook.com>
-References: <1496667860-11703-1-git-send-email-ganeshgr@chelsio.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] net-next: stmmac: dwmac-sun8i: ensure the
+ EPHY is properly reseted
+Date: Mon, 05 Jun 2017 10:19:57 -0400 (EDT)
+Message-ID: <20170605.101957.1159360169934143154.davem@davemloft.net>
+References: <20170604175323.62124-1-icenowy@aosc.io>
+	<20170605111019.GA29657@Red>
+Reply-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "nirranjan@chelsio.com" <nirranjan@chelsio.com>,
-        "kumaras@chelsio.com" <kumaras@chelsio.com>
-To: Ganesh Goudar <ganeshgr@chelsio.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "davem@davemloft.net" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2nam02on0055.outbound.protection.outlook.com ([104.47.38.55]:55552
-        "EHLO NAM02-BL2-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751372AbdFEODQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 5 Jun 2017 10:03:16 -0400
-In-Reply-To: <1496667860-11703-1-git-send-email-ganeshgr@chelsio.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: icenowy-h8G6r0blFSE@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+To: clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <linux-sunxi+bncBCFPF2XH6UDBBEOR2XEQKGQEUYFOVNQ-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+In-Reply-To: <20170605111019.GA29657@Red>
+List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Help: <https://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Archive: <https://groups.google.com/group/linux-sunxi
+List-Subscribe: <https://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
+ <https://groups.google.com/group/linux-sunxi/subscribe>
+List-Id: netdev.vger.kernel.org
 
-> +	pktsize =3D be16_to_cpu(port_rpl.u.info.mtu);
-> +	/* subtract ethhdr size and 4 bytes crc since, f/w appends it */
-> +	pktsize =3D pktsize - sizeof(struct ethhdr) - 4;
-> +	/* subtract ipv4 hdr size, tcp hdr size to get typical IPv4 MSS size */
-> +	pktsize =3D pktsize - sizeof(struct iphdr) - sizeof(struct tcphdr);
-> +	/* configure Traffic Class for rate-limiting */
-> +	ret =3D t4_sched_params(adap, SCHED_CLASS_TYPE_PACKET,
-> +			      SCHED_CLASS_LEVEL_CL_RL,
-> +			      SCHED_CLASS_MODE_CLASS,
-> +			      SCHED_CLASS_RATEUNIT_BITS,
-> +			      SCHED_CLASS_RATEMODE_ABS,
-> +			      pi->port_id, class_id, 0,
-> +			      max_tx_rate * 1000, 0, pktsize);
+From: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date: Mon, 5 Jun 2017 13:10:19 +0200
 
-Does it mean you're achieving throughput limitation by
-limiting the PP/s?
+> On Mon, Jun 05, 2017 at 01:53:23AM +0800, Icenowy Zheng wrote:
+>> The EPHY may be already enabled by bootloaders which have Ethernet
+>> capability (e.g. current U-Boot). Thus it should be reseted properly
+>> before doing the enabling sequence in the dwmac-sun8i driver, otherwise
+>> the EMAC reset process may fail if no cable is plugged, and then fail
+>> the dwmac-sun8i probing.
+>> 
+>> Tested on Orange Pi PC, One and Zero. All the boards fail to have
+>> dwmac-sun8i probed with "EMAC reset timeout" without cable plugged
+>> before, and with this fix they're now all able to successfully probe the
+>> EMAC without cable plugged and then use the connection after a cable is
+>> hot-plugged in.
+>> 
+>> Fixes: 9f93ac8d408 ("net-next: stmmac: Add dwmac-sun8i")
+>> Signed-off-by: Icenowy Zheng <icenowy-h8G6r0blFSE@public.gmane.org>
+> 
+> Thanks for the fix.
+> Tested-by: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> 
+> Since I am the writter of the file, does I have the right to:
+> Acked-by: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> or
+> Reviewed-by: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> ?
+
+Anyone whatsoever may contribute Acked-by and Reviewed-by tags to a
+patch posting.
+
+This is all documented in Documentation/process/submitting-patches.rst
