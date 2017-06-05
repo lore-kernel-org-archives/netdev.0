@@ -1,90 +1,88 @@
-From: Yuval Shaia <yuval.shaia@oracle.com>
-Subject: [PATCH v1] net: phy: Delete unused function phy_ethtool_gset
-Date: Mon,  5 Jun 2017 10:18:40 +0300
-Message-ID: <20170605071840.16492-1-yuval.shaia@oracle.com>
-To: f.fainelli@gmail.com, andrew@lunn.ch, corbet@lwn.net,
-        netdev@vger.kernel.org, linux-doc@vger.kernel.org,
-        yuval.shaia@oracle.com
+From: Tariq Toukan <tariqt@mellanox.com>
+Subject: [PATCH net] net/mlx4: Check if Granular QoS per VF has been enabled before updating QP qos_vport
+Date: Mon,  5 Jun 2017 10:44:56 +0300
+Message-ID: <1496648696-5457-1-git-send-email-tariqt@mellanox.com>
+Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
+        Ido Shamay <idos@mellanox.com>,
+        Jack Morgenstein <jackm@dev.mellanox.co.il>,
+        Tariq Toukan <tariqt@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:51749 "EHLO
-        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751297AbdFEHTD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 5 Jun 2017 03:19:03 -0400
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:42141 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1751321AbdFEHpm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 5 Jun 2017 03:45:42 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It's unused, so remove it.
+From: Ido Shamay <idos@mellanox.com>
 
-Signed-off-by: Yuval Shaia <yuval.shaia@oracle.com>
----
-v0 -> v1:
-	* Add commit message
-	* Update Documentation/networking/phy.txt
-	* Modify commit header message
----
- Documentation/networking/phy.txt |  1 -
- drivers/net/phy/phy.c            | 24 ------------------------
- include/linux/phy.h              |  1 -
- 3 files changed, 26 deletions(-)
+The Granular QoS per VF feature must be enabled in FW before it can be
+used.
 
-diff --git a/Documentation/networking/phy.txt b/Documentation/networking/phy.txt
-index 16f90d8..bdec0f7 100644
---- a/Documentation/networking/phy.txt
-+++ b/Documentation/networking/phy.txt
-@@ -295,7 +295,6 @@ Doing it all yourself
-    settings in the PHY.
+Thus, the driver cannot modify a QP's qos_vport value (via the UPDATE_QP FW
+command) if the feature has not been enabled -- the FW returns an error if
+this is attempted.
+
+Fixes: 08068cd5683f ("net/mlx4: Added qos_vport QP configuration in VST mode")
+Signed-off-by: Ido Shamay <idos@mellanox.com>
+Signed-off-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
+Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/qp.c               |  6 ++++++
+ drivers/net/ethernet/mellanox/mlx4/resource_tracker.c | 16 +++++++++++-----
+ 2 files changed, 17 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx4/qp.c b/drivers/net/ethernet/mellanox/mlx4/qp.c
+index ad92d2311478..5a310d313e94 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/qp.c
++++ b/drivers/net/ethernet/mellanox/mlx4/qp.c
+@@ -484,6 +484,12 @@ int mlx4_update_qp(struct mlx4_dev *dev, u32 qpn,
+ 	}
  
-  int phy_ethtool_sset(struct phy_device *phydev, struct ethtool_cmd *cmd);
-- int phy_ethtool_gset(struct phy_device *phydev, struct ethtool_cmd *cmd);
- 
-    Ethtool convenience functions.
- 
-diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
-index 9c372bf..8e26af5 100644
---- a/drivers/net/phy/phy.c
-+++ b/drivers/net/phy/phy.c
-@@ -484,30 +484,6 @@ int phy_ethtool_ksettings_set(struct phy_device *phydev,
+ 	if (attr & MLX4_UPDATE_QP_QOS_VPORT) {
++		if (!(dev->caps.flags2 & MLX4_DEV_CAP_FLAG2_QOS_VPP)) {
++			mlx4_warn(dev, "Granular QoS per VF is not enabled\n");
++			err = -EOPNOTSUPP;
++			goto out;
++		}
++
+ 		qp_mask |= 1ULL << MLX4_UPD_QP_MASK_QOS_VPP;
+ 		cmd->qp_context.qos_vport = params->qos_vport;
+ 	}
+diff --git a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
+index 07516545474f..812783865205 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
++++ b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
+@@ -5255,6 +5255,13 @@ void mlx4_delete_all_resources_for_slave(struct mlx4_dev *dev, int slave)
+ 	mutex_unlock(&priv->mfunc.master.res_tracker.slave_list[slave].mutex);
  }
- EXPORT_SYMBOL(phy_ethtool_ksettings_set);
  
--int phy_ethtool_gset(struct phy_device *phydev, struct ethtool_cmd *cmd)
--{
--	cmd->supported = phydev->supported;
--
--	cmd->advertising = phydev->advertising;
--	cmd->lp_advertising = phydev->lp_advertising;
--
--	ethtool_cmd_speed_set(cmd, phydev->speed);
--	cmd->duplex = phydev->duplex;
--	if (phydev->interface == PHY_INTERFACE_MODE_MOCA)
--		cmd->port = PORT_BNC;
--	else
--		cmd->port = PORT_MII;
--	cmd->phy_address = phydev->mdio.addr;
--	cmd->transceiver = phy_is_internal(phydev) ?
--		XCVR_INTERNAL : XCVR_EXTERNAL;
--	cmd->autoneg = phydev->autoneg;
--	cmd->eth_tp_mdix_ctrl = phydev->mdix_ctrl;
--	cmd->eth_tp_mdix = phydev->mdix;
--
--	return 0;
--}
--EXPORT_SYMBOL(phy_ethtool_gset);
--
- void phy_ethtool_ksettings_get(struct phy_device *phydev,
- 			       struct ethtool_link_ksettings *cmd)
++static void update_qos_vpp(struct mlx4_update_qp_context *ctx,
++			   struct mlx4_vf_immed_vlan_work *work)
++{
++	ctx->qp_mask |= cpu_to_be64(1ULL << MLX4_UPD_QP_MASK_QOS_VPP);
++	ctx->qp_context.qos_vport = work->qos_vport;
++}
++
+ void mlx4_vf_immed_vlan_work_handler(struct work_struct *_work)
  {
-diff --git a/include/linux/phy.h b/include/linux/phy.h
-index 4ec07a6..804851c 100644
---- a/include/linux/phy.h
-+++ b/include/linux/phy.h
-@@ -843,7 +843,6 @@ void phy_start_machine(struct phy_device *phydev);
- void phy_stop_machine(struct phy_device *phydev);
- void phy_trigger_machine(struct phy_device *phydev, bool sync);
- int phy_ethtool_sset(struct phy_device *phydev, struct ethtool_cmd *cmd);
--int phy_ethtool_gset(struct phy_device *phydev, struct ethtool_cmd *cmd);
- void phy_ethtool_ksettings_get(struct phy_device *phydev,
- 			       struct ethtool_link_ksettings *cmd);
- int phy_ethtool_ksettings_set(struct phy_device *phydev,
+ 	struct mlx4_vf_immed_vlan_work *work =
+@@ -5369,11 +5376,10 @@ void mlx4_vf_immed_vlan_work_handler(struct work_struct *_work)
+ 					qp->sched_queue & 0xC7;
+ 				upd_context->qp_context.pri_path.sched_queue |=
+ 					((work->qos & 0x7) << 3);
+-				upd_context->qp_mask |=
+-					cpu_to_be64(1ULL <<
+-						    MLX4_UPD_QP_MASK_QOS_VPP);
+-				upd_context->qp_context.qos_vport =
+-					work->qos_vport;
++
++				if (dev->caps.flags2 &
++				    MLX4_DEV_CAP_FLAG2_QOS_VPP)
++					update_qos_vpp(upd_context, work);
+ 			}
+ 
+ 			err = mlx4_cmd(dev, mailbox->dma,
 -- 
-2.9.4
+1.8.3.1
