@@ -1,8 +1,7 @@
 From: Russell King <rmk+kernel@armlinux.org.uk>
-Subject: [PATCH 2/6] net: phy: avoid genphy_aneg_done() for PHYs without
- clause 22 support
-Date: Mon, 05 Jun 2017 12:22:55 +0100
-Message-ID: <E1dHq63-0005Wr-K2@rmk-PC.armlinux.org.uk>
+Subject: [PATCH 3/6] net: phy: hook up clause 45 autonegotiation restart
+Date: Mon, 05 Jun 2017 12:23:00 +0100
+Message-ID: <E1dHq68-0005Wy-Na@rmk-PC.armlinux.org.uk>
 References: <20170605112203.GA10680@n2100.armlinux.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -11,43 +10,84 @@ Cc: netdev@vger.kernel.org
 To: Andrew Lunn <andrew@lunn.ch>,
         Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pandora.armlinux.org.uk ([78.32.30.218]:32994 "EHLO
+Received: from pandora.armlinux.org.uk ([78.32.30.218]:33002 "EHLO
         pandora.armlinux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751859AbdFELW7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 5 Jun 2017 07:22:59 -0400
+        with ESMTP id S1751859AbdFELXE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 5 Jun 2017 07:23:04 -0400
 In-Reply-To: <20170605112203.GA10680@n2100.armlinux.org.uk>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Avoid calling genphy_aneg_done() for PHYs that do not implement the
-Clause 22 register set.
-
-Clause 45 PHYs may implement the Clause 22 register set along with the
-Clause 22 extension MMD.  Hence, we can't simply block access to the
-Clause 22 functions based on the PHY being a Clause 45 PHY.
+genphy_restart_aneg() can only restart autonegotiation on clause 22
+PHYs.  Add a phy_restart_aneg() function which selects between the
+clause 22 and clause 45 restart functionality depending on the PHY
+type and whether the Clause 45 PHY supports the Clause 22 register set.
 
 Signed-off-by: Russell King <rmk+kernel@armlinux.org.uk>
 ---
- drivers/net/phy/phy.c | 6 ++++++
- 1 file changed, 6 insertions(+)
+ drivers/net/phy/phy.c | 23 +++++++++++++++++++++--
+ include/linux/phy.h   |  1 +
+ 2 files changed, 22 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
-index 82ab8fb82587..788da83a5c7e 100644
+index 788da83a5c7e..117eced4c08d 100644
 --- a/drivers/net/phy/phy.c
 +++ b/drivers/net/phy/phy.c
-@@ -163,6 +163,12 @@ int phy_aneg_done(struct phy_device *phydev)
- 	if (phydev->drv && phydev->drv->aneg_done)
- 		return phydev->drv->aneg_done(phydev);
- 
-+	/* Avoid genphy_aneg_done() if the Clause 45 PHY does not
-+	 * implement Clause 22 registers
-+	 */
-+	if (phydev->is_c45 && !(phydev->c45_ids.devices_in_package & BIT(0)))
-+		return -EINVAL;
-+
- 	return genphy_aneg_done(phydev);
+@@ -149,6 +149,25 @@ static int phy_config_interrupt(struct phy_device *phydev, u32 interrupts)
+ 	return 0;
  }
- EXPORT_SYMBOL(phy_aneg_done);
+ 
++/**
++ * phy_restart_aneg - restart auto-negotiation
++ * @phydev: target phy_device struct
++ *
++ * Restart the autonegotiation on @phydev.  Returns >= 0 on success or
++ * negative errno on error.
++ */
++int phy_restart_aneg(struct phy_device *phydev)
++{
++	int ret;
++
++	if (phydev->is_c45 && !(phydev->c45_ids.devices_in_package & BIT(0)))
++		ret = genphy_c45_restart_aneg(phydev);
++	else
++		ret = genphy_restart_aneg(phydev);
++
++	return ret;
++}
++EXPORT_SYMBOL_GPL(phy_restart_aneg);
+ 
+ /**
+  * phy_aneg_done - return auto-negotiation status
+@@ -1421,7 +1440,7 @@ int phy_ethtool_set_eee(struct phy_device *phydev, struct ethtool_eee *data)
+ 		/* Restart autonegotiation so the new modes get sent to the
+ 		 * link partner.
+ 		 */
+-		ret = genphy_restart_aneg(phydev);
++		ret = phy_restart_aneg(phydev);
+ 		if (ret < 0)
+ 			return ret;
+ 	}
+@@ -1480,6 +1499,6 @@ int phy_ethtool_nway_reset(struct net_device *ndev)
+ 	if (!phydev->drv)
+ 		return -EIO;
+ 
+-	return genphy_restart_aneg(phydev);
++	return phy_restart_aneg(phydev);
+ }
+ EXPORT_SYMBOL(phy_ethtool_nway_reset);
+diff --git a/include/linux/phy.h b/include/linux/phy.h
+index e089253f98a2..e6fcee188c8d 100644
+--- a/include/linux/phy.h
++++ b/include/linux/phy.h
+@@ -804,6 +804,7 @@ int phy_start_aneg(struct phy_device *phydev);
+ int phy_aneg_done(struct phy_device *phydev);
+ 
+ int phy_stop_interrupts(struct phy_device *phydev);
++int phy_restart_aneg(struct phy_device *phydev);
+ 
+ static inline int phy_read_status(struct phy_device *phydev)
+ {
 -- 
 2.7.4
