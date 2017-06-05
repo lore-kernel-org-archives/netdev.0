@@ -1,64 +1,84 @@
-From: Julia Lawall <julia.lawall@lip6.fr>
-Subject: Re: [PATCH][V2] net: stmmac: ensure jumbo_frm error return is
- correctly checked for -ve value
-Date: Mon, 5 Jun 2017 11:20:19 +0200 (CEST)
-Message-ID: <alpine.DEB.2.20.1706051119210.2010@hadrien>
-References: <20170605090452.30688-1-colin.king@canonical.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-        Alexandre Torgue <alexandre.torgue@st.com>,
-        netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Colin King <colin.king@canonical.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170605090452.30688-1-colin.king@canonical.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next 00/19] Remove support from bridge bypass for mlxsw/rocker drivers
+Date: Mon,  5 Jun 2017 11:20:24 +0200
+Message-ID: <20170605092043.3523-1-jiri@resnulli.us>
+Cc: davem@davemloft.net, idosch@mellanox.com, arkadis@mellanox.com,
+        mlxsw@mellanox.com, roopa@cumulusnetworks.com,
+        stephen@networkplumber.org, ivecera@redhat.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wr0-f195.google.com ([209.85.128.195]:33969 "EHLO
+        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751512AbdFEJUq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 5 Jun 2017 05:20:46 -0400
+Received: by mail-wr0-f195.google.com with SMTP id u101so4373974wrc.1
+        for <netdev@vger.kernel.org>; Mon, 05 Jun 2017 02:20:45 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Jiri Pirko <jiri@mellanox.com>
 
+Currently setting bridge port attributes and adding FDBs are done via
+setting the SELF flag which implies unconsistent offloading model. This
+patch-set fixes this behavior by making the bridge and drivers which are
+using it to be totally in sync.
 
-On Mon, 5 Jun 2017, Colin King wrote:
+This implies several changes:
+- Offloading bridge flags from the bridge code.
+- Sending notification about FDB add/del to the software bridge in a
+  similiar way it is done for the hardware externally learned FDBs.
 
-> From: Colin Ian King <colin.king@canonical.com>
->
-> The current comparison of entry < 0 will never be true since entry is an
-> unsigned integer. Make entry an int to ensure -ve error return values
-> from the call to jumbo_frm are correctly being caught.
+By making the offloading model more consistent a cleanup is done in
+the drivers supporting it. This is done in order to remove un-needed
+logic related to dump operation which is redundant.
 
-Perhaps it would be good to mention that the return value of jumbo_frm
-is an int and that the subsequent computations on entry are all on small
-values so there is no need for unsigned.
+First add missing functionality to bridge, then clean up the mlxsw/rocker
+drivers.
 
-julia
+Arkadi Sharshevsky (19):
+  net: switchdev: Add support for querying supported bridge flags by
+    hardware
+  net: bridge: Add support for offloading port attributes
+  net: bridge: Add support for calling FDB external learning under rcu
+  net: switchdev: Change notifier chain to be atomic
+  net: bridge: Add support for notifying devices about FDB add/del
+  net: bridge: Receive notification about successful FDB offload
+  mlxsw: spectrum: Remove support for bridge FDB learning sync
+  mlxsw: spectrum_switchdev: Add support for querying supported bridge
+    flags
+  mlxsw: spectrum: Remove support for bypass bridge port attributes/vlan
+    set
+  mlxsw: spectrum_switchdev: Change switchdev notifier API
+  mlxsw: spectrum_switchdev: Add support for learning FDB through
+    notification
+  mlxsw: spectrum: Remove support for bridge bypass FDB add/del
+  net: Remove support for bridge bypass ndos from stacked devices
+  rocker: Remove support for bridge FDB learning sync
+  rocker: Add support for querying supported bridge flags
+  rocker: Change world_ops API and implementation to be switchdev
+    independant
+  rocker: Add support for learning FDB through notification
+  rocker: Remove support for bypass bridge port attributes/vlan set
+  rocker: Remove support bridge bypass FDB
 
->
-> Detected by CoverityScan, CID#1238760 ("Macro compares unsigned to 0")
->
-> Signed-off-by: Colin Ian King <colin.king@canonical.com>
-> ---
->  drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
->
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> index 68a188e74c54..3346a99ce4c4 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> @@ -2945,7 +2945,8 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
->  	int i, csum_insertion = 0, is_jumbo = 0;
->  	u32 queue = skb_get_queue_mapping(skb);
->  	int nfrags = skb_shinfo(skb)->nr_frags;
-> -	unsigned int entry, first_entry;
-> +	int entry;
-> +	unsigned int first_entry;
->  	struct dma_desc *desc, *first;
->  	struct stmmac_tx_queue *tx_q;
->  	unsigned int enh_desc;
-> --
-> 2.11.0
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe kernel-janitors" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+ drivers/net/bonding/bond_main.c                    |   6 -
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c     |   8 +-
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.h     |   1 +
+ .../ethernet/mellanox/mlxsw/spectrum_switchdev.c   | 360 +++++-------
+ drivers/net/ethernet/rocker/rocker.h               |  21 +-
+ drivers/net/ethernet/rocker/rocker_main.c          | 235 +++++---
+ drivers/net/ethernet/rocker/rocker_ofdpa.c         | 610 ++++++++-------------
+ drivers/net/team/team.c                            |   6 -
+ include/net/switchdev.h                            |   9 +-
+ include/uapi/linux/neighbour.h                     |   1 +
+ net/8021q/vlan_dev.c                               |   6 -
+ net/bridge/br.c                                    |  19 +-
+ net/bridge/br_fdb.c                                |  46 +-
+ net/bridge/br_netlink.c                            | 112 +++-
+ net/bridge/br_private.h                            |  23 +-
+ net/bridge/br_switchdev.c                          |  13 +
+ net/switchdev/switchdev.c                          |  30 +-
+ 17 files changed, 714 insertions(+), 792 deletions(-)
+
+-- 
+2.9.3
