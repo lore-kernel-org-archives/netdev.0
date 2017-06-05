@@ -1,134 +1,39 @@
-From: Eugeniu Rosca <erosca@de.adit-jv.com>
-Subject: [PATCH] ravb: Fix use-after-free on `ifconfig eth0 down`
-Date: Tue, 6 Jun 2017 00:08:10 +0200
-Message-ID: <20170605220810.3933-1-erosca@de.adit-jv.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <linux-renesas-soc@vger.kernel.org>,
-        Eugeniu Rosca <erosca@de.adit-jv.com>
-To: <sergei.shtylyov@cogentembedded.com>, <davem@davemloft.net>,
-        <horms+renesas@verge.net.au>, <kazuya.mizuguchi.ks@renesas.com>
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-Sender: linux-renesas-soc-owner@vger.kernel.org
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next] net: dsa: mv88e6xxx: fix 6085 frame mode masking
+Date: Mon,  5 Jun 2017 18:17:16 -0400
+Message-ID: <20170605221716.32235-1-vivien.didelot@savoirfairelinux.com>
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Commit a47b70ea86bd ("ravb: unmap descriptors when freeing rings") has
-introduced the issue seen in [1] reproduced on H3ULCB board.
+The register bits used for the frame mode were masked with DSA (0x1)
+instead of the mask value (0x3) in the 6085 implementation of
+port_set_frame_mode. Fix this.
 
-Fix this by relocating the RX skb ringbuffer free operation, so that
-swiotlb page unmapping can be done first. Freeing of aligned TX buffers
-is not relevant to the issue seen in [1]. Still, reposition TX free
-calls as well, to have all kfree() operations performed consistently
-_after_ dma_unmap_*()/dma_free_*().
-
-[1] Console screenshot with the problem reproduced:
-
-salvator-x login: root
-root@salvator-x:~# ifconfig eth0 up
-Micrel KSZ9031 Gigabit PHY e6800000.ethernet-ffffffff:00: \
-       attached PHY driver [Micrel KSZ9031 Gigabit PHY]   \
-       (mii_bus:phy_addr=e6800000.ethernet-ffffffff:00, irq=235)
-IPv6: ADDRCONF(NETDEV_UP): eth0: link is not ready
-root@salvator-x:~#
-root@salvator-x:~# ifconfig eth0 down
-==================================================================
-BUG: KASAN: use-after-free in swiotlb_tbl_unmap_single+0xc4/0x35c
-Write of size 1538 at addr ffff8006d884f780 by task ifconfig/1649
-
-CPU: 0 PID: 1649 Comm: ifconfig Not tainted 4.12.0-rc4-00004-g112eb07287d1 #32
-Hardware name: Renesas H3ULCB board based on r8a7795 (DT)
-Call trace:
-[<ffff20000808f11c>] dump_backtrace+0x0/0x3a4
-[<ffff20000808f4d4>] show_stack+0x14/0x1c
-[<ffff20000865970c>] dump_stack+0xf8/0x150
-[<ffff20000831f8b0>] print_address_description+0x7c/0x330
-[<ffff200008320010>] kasan_report+0x2e0/0x2f4
-[<ffff20000831eac0>] check_memory_region+0x20/0x14c
-[<ffff20000831f054>] memcpy+0x48/0x68
-[<ffff20000869ed50>] swiotlb_tbl_unmap_single+0xc4/0x35c
-[<ffff20000869fcf4>] unmap_single+0x90/0xa4
-[<ffff20000869fd14>] swiotlb_unmap_page+0xc/0x14
-[<ffff2000080a2974>] __swiotlb_unmap_page+0xcc/0xe4
-[<ffff2000088acdb8>] ravb_ring_free+0x514/0x870
-[<ffff2000088b25dc>] ravb_close+0x288/0x36c
-[<ffff200008aaf8c4>] __dev_close_many+0x14c/0x174
-[<ffff200008aaf9b4>] __dev_close+0xc8/0x144
-[<ffff200008ac2100>] __dev_change_flags+0xd8/0x194
-[<ffff200008ac221c>] dev_change_flags+0x60/0xb0
-[<ffff200008ba2dec>] devinet_ioctl+0x484/0x9d4
-[<ffff200008ba7b78>] inet_ioctl+0x190/0x194
-[<ffff200008a78c44>] sock_do_ioctl+0x78/0xa8
-[<ffff200008a7a128>] sock_ioctl+0x110/0x3c4
-[<ffff200008365a70>] vfs_ioctl+0x90/0xa0
-[<ffff200008365dbc>] do_vfs_ioctl+0x148/0xc38
-[<ffff2000083668f0>] SyS_ioctl+0x44/0x74
-[<ffff200008083770>] el0_svc_naked+0x24/0x28
-
-The buggy address belongs to the page:
-page:ffff7e001b6213c0 count:0 mapcount:0 mapping:          (null) index:0x0
-flags: 0x4000000000000000()
-raw: 4000000000000000 0000000000000000 0000000000000000 00000000ffffffff
-raw: 0000000000000000 ffff7e001b6213e0 0000000000000000 0000000000000000
-page dumped because: kasan: bad access detected
-
-Memory state around the buggy address:
- ffff8006d884f680: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
- ffff8006d884f700: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
->ffff8006d884f780: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
-                   ^
- ffff8006d884f800: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
- ffff8006d884f880: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
-==================================================================
-Disabling lock debugging due to kernel taint
-root@salvator-x:~#
-
-Fixes: a47b70ea86bd ("ravb: unmap descriptors when freeing rings")
-Signed-off-by: Eugeniu Rosca <erosca@de.adit-jv.com>
+Fixes: 56995cbc3540 ("net: dsa: mv88e6xxx: Refactor CPU and DSA port setup")
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- drivers/net/ethernet/renesas/ravb_main.c | 24 ++++++++++++------------
- 1 file changed, 12 insertions(+), 12 deletions(-)
+ drivers/net/dsa/mv88e6xxx/port.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
-index 3cd7989c007d..784782da3a85 100644
---- a/drivers/net/ethernet/renesas/ravb_main.c
-+++ b/drivers/net/ethernet/renesas/ravb_main.c
-@@ -230,18 +230,6 @@ static void ravb_ring_free(struct net_device *ndev, int q)
- 	int ring_size;
- 	int i;
+diff --git a/drivers/net/dsa/mv88e6xxx/port.c b/drivers/net/dsa/mv88e6xxx/port.c
+index 360c77854f2a..3719ece60c61 100644
+--- a/drivers/net/dsa/mv88e6xxx/port.c
++++ b/drivers/net/dsa/mv88e6xxx/port.c
+@@ -451,7 +451,7 @@ int mv88e6085_port_set_frame_mode(struct mv88e6xxx_chip *chip, int port,
+ 	if (err)
+ 		return err;
  
--	/* Free RX skb ringbuffer */
--	if (priv->rx_skb[q]) {
--		for (i = 0; i < priv->num_rx_ring[q]; i++)
--			dev_kfree_skb(priv->rx_skb[q][i]);
--	}
--	kfree(priv->rx_skb[q]);
--	priv->rx_skb[q] = NULL;
--
--	/* Free aligned TX buffers */
--	kfree(priv->tx_align[q]);
--	priv->tx_align[q] = NULL;
--
- 	if (priv->rx_ring[q]) {
- 		for (i = 0; i < priv->num_rx_ring[q]; i++) {
- 			struct ravb_ex_rx_desc *desc = &priv->rx_ring[q][i];
-@@ -270,6 +258,18 @@ static void ravb_ring_free(struct net_device *ndev, int q)
- 		priv->tx_ring[q] = NULL;
- 	}
+-	reg &= ~PORT_CONTROL_FRAME_MODE_DSA;
++	reg &= ~PORT_CONTROL_FRAME_MASK;
  
-+	/* Free RX skb ringbuffer */
-+	if (priv->rx_skb[q]) {
-+		for (i = 0; i < priv->num_rx_ring[q]; i++)
-+			dev_kfree_skb(priv->rx_skb[q][i]);
-+	}
-+	kfree(priv->rx_skb[q]);
-+	priv->rx_skb[q] = NULL;
-+
-+	/* Free aligned TX buffers */
-+	kfree(priv->tx_align[q]);
-+	priv->tx_align[q] = NULL;
-+
- 	/* Free TX skb ringbuffer.
- 	 * SKBs are freed by ravb_tx_free() call above.
- 	 */
+ 	switch (mode) {
+ 	case MV88E6XXX_FRAME_MODE_NORMAL:
 -- 
 2.13.0
