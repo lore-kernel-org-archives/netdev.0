@@ -1,86 +1,113 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 07/19] mlxsw: spectrum: Remove support for bridge FDB learning sync
-Date: Mon,  5 Jun 2017 11:20:31 +0200
-Message-ID: <20170605092043.3523-8-jiri@resnulli.us>
-References: <20170605092043.3523-1-jiri@resnulli.us>
-Cc: davem@davemloft.net, idosch@mellanox.com, arkadis@mellanox.com,
-        mlxsw@mellanox.com, roopa@cumulusnetworks.com,
-        stephen@networkplumber.org, ivecera@redhat.com
-To: netdev@vger.kernel.org
+From: =?UTF-8?B?5byg6IOc5Li+?= <zhangshengju@cmss.chinamobile.com>
+Subject: RE: [net-next] openvswitch: add macro MODULE_ALIAS_VPORT_TYPE for vport type alias
+Date: Mon, 5 Jun 2017 17:59:34 +0800
+Message-ID: <020501d2dde2$6f7ee420$4e7cac60$@cmss.chinamobile.com>
+References: <1496497655-24810-1-git-send-email-zhangshengju@cmss.chinamobile.com> <CAOrHB_CjkyEoWVJFT5Q+vPOvcg4rd9cY+z5gRi7JEQscG6-dNg@mail.gmail.com> <000a01d2dd0a$57b46fa0$071d4ee0$@cmss.chinamobile.com> <CAOrHB_D6EQ+ERvjtV4bsHz-SMXeCxDgKvLDmWpuck8SCXUC8tg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain;
+        charset="UTF-8"
+Content-Transfer-Encoding: 8BIT
+Cc: "'Pravin Shelar'" <pshelar@nicira.com>,
+        "'Linux Kernel Network Developers'" <netdev@vger.kernel.org>,
+        "'David S. Miller'" <davem@davemloft.net>
+To: "'Pravin Shelar'" <pshelar@ovn.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f193.google.com ([209.85.128.193]:34015 "EHLO
-        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751753AbdFEJUz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 5 Jun 2017 05:20:55 -0400
-Received: by mail-wr0-f193.google.com with SMTP id u101so4374298wrc.1
-        for <netdev@vger.kernel.org>; Mon, 05 Jun 2017 02:20:55 -0700 (PDT)
-In-Reply-To: <20170605092043.3523-1-jiri@resnulli.us>
+Received: from cmccmta2.chinamobile.com ([221.176.66.80]:19263 "EHLO
+        cmccmta2.chinamobile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751287AbdFEJ7s (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 5 Jun 2017 05:59:48 -0400
+In-Reply-To: <CAOrHB_D6EQ+ERvjtV4bsHz-SMXeCxDgKvLDmWpuck8SCXUC8tg@mail.gmail.com>
+Content-Language: en-us
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Arkadi Sharshevsky <arkadis@mellanox.com>
+> -----Original Message-----
+> From: Pravin Shelar [mailto:pshelar@ovn.org]
+> Sent: Monday, June 05, 2017 10:30 AM
+> To: 张胜举 <zhangshengju@cmss.chinamobile.com>
+> Cc: Pravin Shelar <pshelar@nicira.com>; Linux Kernel Network Developers
+> <netdev@vger.kernel.org>; David S. Miller <davem@davemloft.net>
+> Subject: Re: [net-next] openvswitch: add macro
+> MODULE_ALIAS_VPORT_TYPE for vport type alias
+> 
+> On Sun, Jun 4, 2017 at 1:12 AM, 张胜举
+> <zhangshengju@cmss.chinamobile.com> wrote:
+> >> -----Original Message-----
+> >> From: Pravin Shelar [mailto:pshelar@ovn.org]
+> >> Sent: Sunday, June 04, 2017 1:58 PM
+> >> To: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
+> >> Cc: Pravin Shelar <pshelar@nicira.com>; Linux Kernel Network
+> >> Developers <netdev@vger.kernel.org>; David S. Miller
+> >> <davem@davemloft.net>
+> >> Subject: Re: [net-next] openvswitch: add macro
+> >> MODULE_ALIAS_VPORT_TYPE for vport type alias
+> >>
+> >> On Sat, Jun 3, 2017 at 6:47 AM, Zhang Shengju
+> >> <zhangshengju@cmss.chinamobile.com> wrote:
+> >> > Add a new macro MODULE_ALIAS_VPORT_TYPE to unify and simplify
+> the
+> >> > declaration of vport type alias, and replace magic numbers with
+> >> > symbolic constants.
+> >> >
+> >> > Signed-off-by: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
+> >> > ---
+> >> >  net/openvswitch/vport-geneve.c | 2 +-
+> >> >  net/openvswitch/vport-gre.c    | 2 +-
+> >> >  net/openvswitch/vport-vxlan.c  | 2 +-
+> >> >  net/openvswitch/vport.h        | 3 +++
+> >> >  4 files changed, 6 insertions(+), 3 deletions(-)
+> >> >
+> >> > diff --git a/net/openvswitch/vport-geneve.c
+> >> > b/net/openvswitch/vport-geneve.c index 5aaf3ba..1c068d6 100644
+> >> > --- a/net/openvswitch/vport-geneve.c
+> >> > +++ b/net/openvswitch/vport-geneve.c
+> >> > @@ -141,4 +141,4 @@ static void __exit ovs_geneve_tnl_exit(void)
+> >> >
+> >> >  MODULE_DESCRIPTION("OVS: Geneve switching port");
+> >> > MODULE_LICENSE("GPL"); -MODULE_ALIAS("vport-type-5");
+> >> > +MODULE_ALIAS_VPORT_TYPE(OVS_VPORT_TYPE_GENEVE);
+> >> > diff --git a/net/openvswitch/vport-gre.c
+> >> > b/net/openvswitch/vport-gre.c index 0e72d95..48a5852 100644
+> >> > --- a/net/openvswitch/vport-gre.c
+> >> > +++ b/net/openvswitch/vport-gre.c
+> >> > @@ -113,4 +113,4 @@ static void __exit ovs_gre_tnl_exit(void)
+> >> >
+> >> >  MODULE_DESCRIPTION("OVS: GRE switching port");
+> >> > MODULE_LICENSE("GPL"); -MODULE_ALIAS("vport-type-3");
+> >> > +MODULE_ALIAS_VPORT_TYPE(OVS_VPORT_TYPE_GRE);
+> >>
+> >> This is user visible change. For example this is changing the gre
+> >> module alias from "vport-type-3" to "vport-type-OVS_VPORT_TYPE_GRE".
+> >> This could break userspace application.
+> > Hi Shelar,
+> > Actually this change does not change module alias name. I use
+> > '__stringify' to address this.  Below is my build result:
+> > ```
+> > [zhangshengju@promote net-next]$ modinfo net/openvswitch/vport-
+> gre.ko
+> > filename:       /gitlab/net-next/net/openvswitch/vport-gre.ko
+> > alias:          vport-type-3
+> > ...
+> > ```
+> 
+> Yes, I expected this. But when I tried modinfo with your patch, I did not see it.
+> here is modinfo output from my setup.
+> ---8<---
+> root@ubuntu:/home/pravin/linux/net-next# modinfo
+> net/openvswitch/vport-gre.ko
+> filename:       /home/pravin/linux/net-next/./net/openvswitch/vport-gre.ko
+> alias:          vport-type-OVS_VPORT_TYPE_GRE
+> license:        GPL
+> description:    OVS: GRE switching port
+> srcversion:     AD3B4449820F294E0B5681C
+> depends:        openvswitch
+> intree:         Y
+> vermagic:       4.12.0-rc2+ SMP mod_unload modversions
+Oh, I'm sorry. You are right, it seems ' OVS_VPORT_TYPE_GRE' doesn't expand. 
+Maybe I can send another version to use magic number, such as:
+MODULE_ALIAS_VPORT_TYPE(3);
 
-Currently the mlxsw driver supports an option for disabling syncing
-the hardware learned FDBs with the software bridge. This behavior
-breaks the bridge offload model and thus it is removed.
+Is this okay for you?
 
-Signed-off-by: Arkadi Sharshevsky <arkadis@mellanox.com>
-Reviewed-by: Ido Schimmel <idosch@mellanox.com>
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
----
- .../net/ethernet/mellanox/mlxsw/spectrum_switchdev.c | 20 +++++++++-----------
- 1 file changed, 9 insertions(+), 11 deletions(-)
-
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
-index 0111a77..eb88b72 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
-@@ -1857,19 +1857,17 @@ void mlxsw_sp_port_bridge_leave(struct mlxsw_sp_port *mlxsw_sp_port,
- 	mlxsw_sp_bridge_port_put(mlxsw_sp->bridge, bridge_port);
- }
- 
--static void mlxsw_sp_fdb_call_notifiers(bool learning_sync, bool adding,
-+static void mlxsw_sp_fdb_call_notifiers(bool adding,
- 					char *mac, u16 vid,
- 					struct net_device *dev)
- {
- 	struct switchdev_notifier_fdb_info info;
- 	unsigned long notifier_type;
- 
--	if (learning_sync) {
--		info.addr = mac;
--		info.vid = vid;
--		notifier_type = adding ? SWITCHDEV_FDB_ADD_TO_BRIDGE : SWITCHDEV_FDB_DEL_TO_BRIDGE;
--		call_switchdev_notifiers(notifier_type, dev, &info.info);
--	}
-+	info.addr = mac;
-+	info.vid = vid;
-+	notifier_type = adding ? SWITCHDEV_FDB_ADD_TO_BRIDGE : SWITCHDEV_FDB_DEL_TO_BRIDGE;
-+	call_switchdev_notifiers(notifier_type, dev, &info.info);
- }
- 
- static void mlxsw_sp_fdb_notify_mac_process(struct mlxsw_sp *mlxsw_sp,
-@@ -1918,8 +1916,8 @@ static void mlxsw_sp_fdb_notify_mac_process(struct mlxsw_sp *mlxsw_sp,
- 
- 	if (!do_notification)
- 		return;
--	mlxsw_sp_fdb_call_notifiers(bridge_port->flags & BR_LEARNING_SYNC,
--				    adding, mac, vid, bridge_port->dev);
-+	mlxsw_sp_fdb_call_notifiers(adding, mac, vid, bridge_port->dev);
-+
- 	return;
- 
- just_remove:
-@@ -1976,8 +1974,8 @@ static void mlxsw_sp_fdb_notify_mac_lag_process(struct mlxsw_sp *mlxsw_sp,
- 
- 	if (!do_notification)
- 		return;
--	mlxsw_sp_fdb_call_notifiers(bridge_port->flags & BR_LEARNING_SYNC,
--				    adding, mac, vid, bridge_port->dev);
-+	mlxsw_sp_fdb_call_notifiers(adding, mac, vid, bridge_port->dev);
-+
- 	return;
- 
- just_remove:
--- 
-2.9.3
+BRs,
+Zhang Shengju.
