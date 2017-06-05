@@ -1,68 +1,25 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch iproute2/net-next] tc: add support for TRAP action
-Date: Mon,  5 Jun 2017 16:39:45 +0200
-Message-ID: <20170605143945.7094-1-jiri@resnulli.us>
-References: <20170605143832.7025-1-jiri@resnulli.us>
-Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
-        edumazet@google.com, alexander.h.duyck@intel.com,
-        stephen@networkplumber.org, daniel@iogearbox.net,
-        mlxsw@mellanox.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f194.google.com ([209.85.128.194]:34952 "EHLO
-        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751272AbdFEOjt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 5 Jun 2017 10:39:49 -0400
-Received: by mail-wr0-f194.google.com with SMTP id g76so7638236wrd.2
-        for <netdev@vger.kernel.org>; Mon, 05 Jun 2017 07:39:48 -0700 (PDT)
-In-Reply-To: <20170605143832.7025-1-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: Update TCP congestion control documentation
+Date: Mon, 05 Jun 2017 10:54:04 -0400 (EDT)
+Message-ID: <20170605.105404.657282076698278251.davem@davemloft.net>
+References: <1496491854-17977-1-git-send-email-me@anmolsarma.in>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
+        netdev@vger.kernel.org
+To: me@anmolsarma.in
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <1496491854-17977-1-git-send-email-me@anmolsarma.in>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jiri Pirko <jiri@mellanox.com>
+From: Anmol Sarma <me@anmolsarma.in>
+Date: Sat,  3 Jun 2017 17:40:54 +0530
 
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
----
- include/linux/pkt_cls.h | 5 +++++
- tc/tc_util.c            | 3 +++
- 2 files changed, 8 insertions(+)
+> Update tcp.txt to fix mandatory congestion control ops and default
+> CCA selection. Also, fix comment in tcp.h for undo_cwnd.
+> 
+> Signed-off-by: Anmol Sarma <me@anmolsarma.in>
 
-diff --git a/include/linux/pkt_cls.h b/include/linux/pkt_cls.h
-index c6e8cf5..477ed05 100644
---- a/include/linux/pkt_cls.h
-+++ b/include/linux/pkt_cls.h
-@@ -37,6 +37,11 @@ enum {
- #define TC_ACT_QUEUED		5
- #define TC_ACT_REPEAT		6
- #define TC_ACT_REDIRECT		7
-+#define TC_ACT_TRAP		8 /* For hw path, this means "trap to cpu",
-+				   * for sw path, this is equivalent of
-+				   * TC_ACT_STOLEN - drop the skb and act
-+				   * like everything is allright.
-+				   */
- 
- /* There is a special kind of actions called "extended actions",
-  * which need a value parameter. These have a local opcode located in
-diff --git a/tc/tc_util.c b/tc/tc_util.c
-index 4f7283d..5a0f96a 100644
---- a/tc/tc_util.c
-+++ b/tc/tc_util.c
-@@ -430,6 +430,8 @@ static const char *action_n2a(int action)
- 		return "pipe";
- 	case TC_ACT_STOLEN:
- 		return "stolen";
-+	case TC_ACT_TRAP:
-+		return "trap";
- 	default:
- 		snprintf(buf, 64, "%d", action);
- 		buf[63] = '\0';
-@@ -462,6 +464,7 @@ static int action_a2n(char *arg, int *result, bool allow_num)
- 		{"reclassify", TC_ACT_RECLASSIFY},
- 		{"pipe", TC_ACT_PIPE},
- 		{"goto", TC_ACT_GOTO_CHAIN},
-+		{"trap", TC_ACT_TRAP},
- 		{ NULL },
- 	}, *iter;
- 
--- 
-2.9.3
+Applied, thank you.
