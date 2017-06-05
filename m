@@ -1,7 +1,7 @@
 From: Martin KaFai Lau <kafai@fb.com>
-Subject: [PATCH v3 net-next 3/8] bpf: Add BPF_(PROG|MAP)_GET_NEXT_ID command
-Date: Mon, 5 Jun 2017 12:15:48 -0700
-Message-ID: <63ba9cff6a0e0320e6b867867e474a477c9abc8a.1496686606.git.kafai@fb.com>
+Subject: [PATCH v3 net-next 2/8] bpf: Introduce bpf_map ID
+Date: Mon, 5 Jun 2017 12:15:47 -0700
+Message-ID: <b059a34ab512533214321b5551ac8cd4eb87fe50.1496686606.git.kafai@fb.com>
 References: <cover.1496686606.git.kafai@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,136 +9,124 @@ Cc: <netdev@vger.kernel.org>, Alexei Starovoitov <ast@fb.com>,
         Daniel Borkmann <daniel@iogearbox.net>, <kernel-team@fb.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:44744 "EHLO
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:41847 "EHLO
         mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751362AbdFETQI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 5 Jun 2017 15:16:08 -0400
-Received: from pps.filterd (m0044012.ppops.net [127.0.0.1])
-        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v55JD2kk001409
-        for <netdev@vger.kernel.org>; Mon, 5 Jun 2017 12:16:03 -0700
+        by vger.kernel.org with ESMTP id S1751290AbdFETP6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 5 Jun 2017 15:15:58 -0400
+Received: from pps.filterd (m0109333.ppops.net [127.0.0.1])
+        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v55JFsVL024690
+        for <netdev@vger.kernel.org>; Mon, 5 Jun 2017 12:15:57 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0a-00082601.pphosted.com with ESMTP id 2aw9d8rvuy-3
+        by mx0a-00082601.pphosted.com with ESMTP id 2awda2800y-1
         (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Mon, 05 Jun 2017 12:16:03 -0700
+        for <netdev@vger.kernel.org>; Mon, 05 Jun 2017 12:15:57 -0700
 Received: from facebook.com (2401:db00:11:d09a:face:0:41:0)     by
- mx-out.facebook.com (10.103.99.97) with ESMTP  id
- 65be3c264a2311e79a120002c9931860-45d338f0 for <netdev@vger.kernel.org>;        Mon,
- 05 Jun 2017 12:15:54 -0700
+ mx-out.facebook.com (10.212.232.59) with ESMTP id
+ 667b087e4a2311e7a1000002c991e86a-1cc8e6b0 for <netdev@vger.kernel.org>;        Mon,
+ 05 Jun 2017 12:15:56 -0700
 In-Reply-To: <cover.1496686606.git.kafai@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds BPF_PROG_GET_NEXT_ID and BPF_MAP_GET_NEXT_ID
-to allow userspace to iterate all bpf_prog IDs and bpf_map IDs.
+This patch generates an unique ID for each created bpf_map.
+The approach is similar to the earlier patch for bpf_prog ID.
 
-The API is trying to be consistent with the existing
-BPF_MAP_GET_NEXT_KEY.
-
-It is currently limited to CAP_SYS_ADMIN which we can
-consider to lift it in followup patches.
+It is worth to note that the bpf_map's ID and bpf_prog's ID
+are in two independent ID spaces and both have the same valid range:
+[1, INT_MAX).
 
 Signed-off-by: Martin KaFai Lau <kafai@fb.com>
 Acked-by: Alexei Starovoitov <ast@fb.com>
 Acked-by: Daniel Borkmann <daniel@iogearbox.net>
 ---
- include/uapi/linux/bpf.h |  7 +++++++
- kernel/bpf/syscall.c     | 38 ++++++++++++++++++++++++++++++++++++++
- 2 files changed, 45 insertions(+)
+ include/linux/bpf.h  |  1 +
+ kernel/bpf/syscall.c | 34 +++++++++++++++++++++++++++++++++-
+ 2 files changed, 34 insertions(+), 1 deletion(-)
 
-diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-index e78aece03628..629747a3f273 100644
---- a/include/uapi/linux/bpf.h
-+++ b/include/uapi/linux/bpf.h
-@@ -82,6 +82,8 @@ enum bpf_cmd {
- 	BPF_PROG_ATTACH,
- 	BPF_PROG_DETACH,
- 	BPF_PROG_TEST_RUN,
-+	BPF_PROG_GET_NEXT_ID,
-+	BPF_MAP_GET_NEXT_ID,
- };
- 
- enum bpf_map_type {
-@@ -209,6 +211,11 @@ union bpf_attr {
- 		__u32		repeat;
- 		__u32		duration;
- 	} test;
-+
-+	struct { /* anonymous struct used by BPF_*_GET_NEXT_ID */
-+		__u32		start_id;
-+		__u32		next_id;
-+	};
- } __attribute__((aligned(8)));
- 
- /* BPF helper function descriptions:
+diff --git a/include/linux/bpf.h b/include/linux/bpf.h
+index c5946d19f2ca..c32bace66d3d 100644
+--- a/include/linux/bpf.h
++++ b/include/linux/bpf.h
+@@ -46,6 +46,7 @@ struct bpf_map {
+ 	u32 max_entries;
+ 	u32 map_flags;
+ 	u32 pages;
++	u32 id;
+ 	struct user_struct *user;
+ 	const struct bpf_map_ops *ops;
+ 	struct work_struct work;
 diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
-index 4c3075b5d840..2405feedb8c1 100644
+index 2a1b32b470f1..4c3075b5d840 100644
 --- a/kernel/bpf/syscall.c
 +++ b/kernel/bpf/syscall.c
-@@ -166,6 +166,7 @@ static void bpf_map_put_uref(struct bpf_map *map)
+@@ -27,6 +27,8 @@
+ DEFINE_PER_CPU(int, bpf_prog_active);
+ static DEFINE_IDR(prog_idr);
+ static DEFINE_SPINLOCK(prog_idr_lock);
++static DEFINE_IDR(map_idr);
++static DEFINE_SPINLOCK(map_idr_lock);
+ 
+ int sysctl_unprivileged_bpf_disabled __read_mostly;
+ 
+@@ -117,6 +119,29 @@ static void bpf_map_uncharge_memlock(struct bpf_map *map)
+ 	free_uid(user);
+ }
+ 
++static int bpf_map_alloc_id(struct bpf_map *map)
++{
++	int id;
++
++	spin_lock_bh(&map_idr_lock);
++	id = idr_alloc_cyclic(&map_idr, map, 1, INT_MAX, GFP_ATOMIC);
++	if (id > 0)
++		map->id = id;
++	spin_unlock_bh(&map_idr_lock);
++
++	if (WARN_ON_ONCE(!id))
++		return -ENOSPC;
++
++	return id > 0 ? 0 : id;
++}
++
++static void bpf_map_free_id(struct bpf_map *map)
++{
++	spin_lock_bh(&map_idr_lock);
++	idr_remove(&map_idr, map->id);
++	spin_unlock_bh(&map_idr_lock);
++}
++
+ /* called from workqueue */
+ static void bpf_map_free_deferred(struct work_struct *work)
+ {
+@@ -141,6 +166,7 @@ static void bpf_map_put_uref(struct bpf_map *map)
  void bpf_map_put(struct bpf_map *map)
  {
  	if (atomic_dec_and_test(&map->refcnt)) {
-+		/* bpf_map_free_id() must be called first */
- 		bpf_map_free_id(map);
++		bpf_map_free_id(map);
  		INIT_WORK(&map->work, bpf_map_free_deferred);
  		schedule_work(&map->work);
-@@ -726,6 +727,7 @@ void bpf_prog_put(struct bpf_prog *prog)
- {
- 	if (atomic_dec_and_test(&prog->aux->refcnt)) {
- 		trace_bpf_prog_put_rcu(prog);
-+		/* bpf_prog_free_id() must be called first */
- 		bpf_prog_free_id(prog);
- 		bpf_prog_kallsyms_del(prog);
- 		call_rcu(&prog->aux->rcu, __bpf_prog_put_rcu);
-@@ -1069,6 +1071,34 @@ static int bpf_prog_test_run(const union bpf_attr *attr,
- 	return ret;
- }
+ 	}
+@@ -239,14 +265,20 @@ static int map_create(union bpf_attr *attr)
+ 	if (err)
+ 		goto free_map_nouncharge;
  
-+#define BPF_OBJ_GET_NEXT_ID_LAST_FIELD next_id
++	err = bpf_map_alloc_id(map);
++	if (err)
++		goto free_map;
 +
-+static int bpf_obj_get_next_id(const union bpf_attr *attr,
-+			       union bpf_attr __user *uattr,
-+			       struct idr *idr,
-+			       spinlock_t *lock)
-+{
-+	u32 next_id = attr->start_id;
-+	int err = 0;
-+
-+	if (CHECK_ATTR(BPF_OBJ_GET_NEXT_ID) || next_id >= INT_MAX)
-+		return -EINVAL;
-+
-+	if (!capable(CAP_SYS_ADMIN))
-+		return -EPERM;
-+
-+	next_id++;
-+	spin_lock_bh(lock);
-+	if (!idr_get_next(idr, &next_id))
-+		err = -ENOENT;
-+	spin_unlock_bh(lock);
-+
-+	if (!err)
-+		err = put_user(next_id, &uattr->next_id);
-+
-+	return err;
-+}
-+
- SYSCALL_DEFINE3(bpf, int, cmd, union bpf_attr __user *, uattr, unsigned int, size)
- {
- 	union bpf_attr attr = {};
-@@ -1146,6 +1176,14 @@ SYSCALL_DEFINE3(bpf, int, cmd, union bpf_attr __user *, uattr, unsigned int, siz
- 	case BPF_PROG_TEST_RUN:
- 		err = bpf_prog_test_run(&attr, uattr);
- 		break;
-+	case BPF_PROG_GET_NEXT_ID:
-+		err = bpf_obj_get_next_id(&attr, uattr,
-+					  &prog_idr, &prog_idr_lock);
-+		break;
-+	case BPF_MAP_GET_NEXT_ID:
-+		err = bpf_obj_get_next_id(&attr, uattr,
-+					  &map_idr, &map_idr_lock);
-+		break;
- 	default:
- 		err = -EINVAL;
- 		break;
+ 	err = bpf_map_new_fd(map);
+ 	if (err < 0)
+ 		/* failed to allocate fd */
+-		goto free_map;
++		goto free_id;
+ 
+ 	trace_bpf_map_create(map, err);
+ 	return err;
+ 
++free_id:
++	bpf_map_free_id(map);
+ free_map:
+ 	bpf_map_uncharge_memlock(map);
+ free_map_nouncharge:
 -- 
 2.9.3
