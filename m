@@ -1,8 +1,8 @@
 From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Subject: [PATCH 4.9 25/94] bonding: fix accounting of active ports in 3ad
+Subject: [PATCH 4.11 028/115] bonding: fix accounting of active ports in 3ad
 Date: Mon,  5 Jun 2017 18:17:01 +0200
-Message-ID: <20170605153104.219583978@linuxfoundation.org>
-References: <20170605153103.156843111@linuxfoundation.org>
+Message-ID: <20170605153058.063584958@linuxfoundation.org>
+References: <20170605153056.650217313@linuxfoundation.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
@@ -13,11 +13,11 @@ Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
         "David S. Miller" <davem@davemloft.net>
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170605153103.156843111@linuxfoundation.org>
+In-Reply-To: <20170605153056.650217313@linuxfoundation.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-4.9-stable review patch.  If anyone has any objections, please let me know.
+4.11-stable review patch.  If anyone has any objections, please let me know.
 
 ------------------
 
