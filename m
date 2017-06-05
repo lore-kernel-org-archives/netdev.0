@@ -1,55 +1,63 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: [PATCH] net: bridge: fix potential NULL pointer dereference
-Date: Tue, 6 Jun 2017 01:05:18 +0300
-Message-ID: <840022de-3d31-4f62-aaaf-ba83d5c78ad7@cumulusnetworks.com>
-References: <20170605213030.GA6272@embeddedgus>
+From: Russell King - ARM Linux <linux@armlinux.org.uk>
+Subject: Re: [PATCH 6/6] net: phy: add Marvell Alaska X 88X3310 10Gigabit PHY
+ support
+Date: Mon, 5 Jun 2017 23:10:48 +0100
+Message-ID: <20170605221048.GF4902@n2100.armlinux.org.uk>
+References: <20170605112203.GA10680@n2100.armlinux.org.uk>
+ <E1dHq6O-0005XL-2m@rmk-PC.armlinux.org.uk>
+ <20170605182157.GC5235@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: bridge@lists.linux-foundation.org, netdev@vger.kernel.org,
-        roopa <roopa@cumulusnetworks.com>
-To: "Gustavo A. R. Silva" <garsilva@embeddedor.com>,
-        Stephen Hemminger <stephen@networkplumber.org>,
-        "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f176.google.com ([209.85.128.176]:33208 "EHLO
-        mail-wr0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751189AbdFEWFV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 5 Jun 2017 18:05:21 -0400
-Received: by mail-wr0-f176.google.com with SMTP id v104so45244411wrb.0
-        for <netdev@vger.kernel.org>; Mon, 05 Jun 2017 15:05:21 -0700 (PDT)
-In-Reply-To: <20170605213030.GA6272@embeddedgus>
+Received: from pandora.armlinux.org.uk ([78.32.30.218]:41162 "EHLO
+        pandora.armlinux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751274AbdFEWK4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 5 Jun 2017 18:10:56 -0400
+Content-Disposition: inline
+In-Reply-To: <20170605182157.GC5235@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/06/17 00:30, Gustavo A. R. Silva wrote:
-> Add NULL check before dereferencing pointer _p_ inside br_afspec().
+On Mon, Jun 05, 2017 at 08:21:57PM +0200, Andrew Lunn wrote:
+> On Mon, Jun 05, 2017 at 12:23:16PM +0100, Russell King wrote:
+> > Add phylib support for the Marvell Alaska X 10 Gigabit PHY (MV88X3310).
+> > This phy is able to operate at 10G, 1G, 100M and 10M speeds, and only
+> > supports Clause 45 accesses.
+> > 
+> > The PHY appears (based on the vendor IDs) to be two different vendors
+> > IP, with each devad containing several instances.
+> > 
+> > This PHY driver has only been tested with the RJ45 copper port, fiber
+> > port and a Marvell Armada 8040-based ethernet interface.
+> > 
+> > It should be noted that to use the full range of speeds, MAC drivers
+> > need to also reconfigure the link mode as per phydev->interface, since
+> > the PHY automatically changes its interface mode depending on the
+> > negotiated speed.
 > 
-> Addresses-Coverity-ID: 1401872
-> Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
-> ---
->  net/bridge/br_netlink.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
+> Hi Russell
 > 
-> diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
-> index 1e63ec4..ad85a9c 100644
-> --- a/net/bridge/br_netlink.c
-> +++ b/net/bridge/br_netlink.c
-> @@ -776,7 +776,7 @@ int br_setlink(struct net_device *dev, struct nlmsghdr *nlh, u16 flags)
->  			goto out;
->  	}
->  
-> -	if (afspec) {
-> +	if (p && afspec) {
->  		err = br_afspec((struct net_bridge *)netdev_priv(dev), p,
->  				afspec, RTM_SETLINK);
->  	}
-> 
+> We are still missing documentation for the additions to adjust_link()
+> callback, but lets get this merged, and documentation can follow in a
+> separate patch.
 
-While I see a possible issue with the new bridge tunnel code (+CC Roopa), this is 
-the wrong fix because there are legitimate use cases where p is null and br_afspec
-is called.
-We need to change the p->flags check in br_afspec()'s IFLA_BRIDGE_VLAN_TUNNEL_INFO case
-to check for a NULL p first.
+As I mentioned when you brought that up, are you asking me to document
+the _entire_ adjust_link() callback, because _no_ documentation of it
+currently exists.  The only thing I can find that documents this function
+is Documentation/networking/phy.txt:
 
-Thanks for the report!
+" First, you need a function to react to changes in the link state.  This
+ function follows this protocol:
+
+   static void adjust_link(struct net_device *dev);"
+
+which tells people nothing about what's required from that function.
+
+
+
+-- 
+RMK's Patch system: http://www.armlinux.org.uk/developer/patches/
+FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
+according to speedtest.net.
