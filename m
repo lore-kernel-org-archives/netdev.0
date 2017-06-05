@@ -1,39 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net/mlx4: Check if Granular QoS per VF has been
- enabled before updating QP qos_vport
-Date: Mon, 05 Jun 2017 11:32:22 -0400 (EDT)
-Message-ID: <20170605.113222.276717739073496151.davem@davemloft.net>
-References: <1496648696-5457-1-git-send-email-tariqt@mellanox.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [patch net-next 0/6] introduce trap control action to tc and
+ offload it
+Date: Mon, 5 Jun 2017 17:46:51 +0200
+Message-ID: <20170605154651.GE11772@lunn.ch>
+References: <20170605143832.7025-1-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eranbe@mellanox.com, idos@mellanox.com,
-        jackm@dev.mellanox.co.il
-To: tariqt@mellanox.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, jhs@mojatatu.com,
+        xiyou.wangcong@gmail.com, edumazet@google.com,
+        alexander.h.duyck@intel.com, stephen@networkplumber.org,
+        daniel@iogearbox.net, mlxsw@mellanox.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:38434 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751112AbdFEPcY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 5 Jun 2017 11:32:24 -0400
-In-Reply-To: <1496648696-5457-1-git-send-email-tariqt@mellanox.com>
+Received: from vps0.lunn.ch ([178.209.37.122]:36736 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751077AbdFEPqz (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 5 Jun 2017 11:46:55 -0400
+Content-Disposition: inline
+In-Reply-To: <20170605143832.7025-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tariq Toukan <tariqt@mellanox.com>
-Date: Mon,  5 Jun 2017 10:44:56 +0300
+On Mon, Jun 05, 2017 at 04:38:26PM +0200, Jiri Pirko wrote:
+> From: Jiri Pirko <jiri@mellanox.com>
+> 
+> This patchset introduces a control action dedicated to indicate
+> to trap the matched packet to CPU. This is specific action for
+> HW offloads. Also, the patchset offloads the action to mlxsw driver.
+> 
+> Example usage:
+> $ tc filter add dev enp3s0np19 parent ffff: protocol ip prio 20 flower skip_sw dst_ip 192.168.10.1 action trap
 
-> From: Ido Shamay <idos@mellanox.com>
-> 
-> The Granular QoS per VF feature must be enabled in FW before it can be
-> used.
-> 
-> Thus, the driver cannot modify a QP's qos_vport value (via the UPDATE_QP FW
-> command) if the feature has not been enabled -- the FW returns an error if
-> this is attempted.
-> 
-> Fixes: 08068cd5683f ("net/mlx4: Added qos_vport QP configuration in VST mode")
-> Signed-off-by: Ido Shamay <idos@mellanox.com>
-> Signed-off-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
-> Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
+Hi Jiri
 
-Applied.
+So i assume this means a frame ingressing on the switch port
+enp3s0np19 matching the filter is now visible on the linux enp3s0np19
+interface?  How do you avoid Linux processing it? If enp3s0np19 is a
+member of a bridge, we don't want the software bridge processing it
+and forwarding it out another port, since i assume the hardware has
+already done this. Or does the trap stop further processing of the
+frame by the hardware?
+
+Thanks
+      Andrew
