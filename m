@@ -1,126 +1,92 @@
-From: Christian Lamparter <chunkeey@googlemail.com>
-Subject: [PATCH v1 2/2] net: emac: fix and unify emac_mdio functions
-Date: Mon,  5 Jun 2017 22:49:40 +0200
-Message-ID: <18472d9a6bde3edaab7dcda301ccaebd437ea0dc.1496695540.git.chunkeey@googlemail.com>
-References: <635dd014238af6f48c4169439b7ac161e80de1b7.1496695540.git.chunkeey@googlemail.com>
-Cc: "David S . Miller" <davem@davemloft.net>,
-        Ivan Mikhaylov <ivan@de.ibm.com>
-To: netdev@vger.kernel.org
+From: Jes Sorensen <jsorensen@fb.com>
+Subject: Re: [PATCH 7/7] mlx5: Do not build eswitch_offloads if
+ CONFIG_MLX5_EN_ESWITCH_OFFLOADS is set
+Date: Mon, 5 Jun 2017 16:51:50 -0400
+Message-ID: <aed5b35a-3467-7e01-6f14-e70ea4a94832@fb.com>
+References: <20170526211624.23133-1-jsorensen@fb.com>
+ <20170526211624.23133-8-jsorensen@fb.com>
+ <CAJ3xEMgeBaE9q6sucXtOQTBLAvZvf_d0eGvMsGbVa2vWc21R-Q@mail.gmail.com>
+ <e7c36f4e-788a-89dd-e92e-e6a31004758a@gmail.com>
+ <CAJ3xEMh8ALo9Pgb0sh5dzAFaPtiKDaZyEhgasgi40Pba1JzCQA@mail.gmail.com>
+ <c5b3bd3d-b5de-8b0b-34ff-068a1b3bd31c@fb.com>
+ <CAJ3xEMhKjPwg75hO8af7XDL5JPoxkq2AtpL61CtOLb-T4aACWQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jes Sorensen <jes.sorensen@gmail.com>,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        Kernel Team <kernel-team@fb.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Ilan Tayari <ilant@mellanox.com>
+To: Or Gerlitz <gerlitz.or@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:36567 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751180AbdFEUtn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 5 Jun 2017 16:49:43 -0400
-Received: by mail-wm0-f65.google.com with SMTP id k15so31785178wmh.3
-        for <netdev@vger.kernel.org>; Mon, 05 Jun 2017 13:49:42 -0700 (PDT)
-In-Reply-To: <635dd014238af6f48c4169439b7ac161e80de1b7.1496695540.git.chunkeey@googlemail.com>
-In-Reply-To: <635dd014238af6f48c4169439b7ac161e80de1b7.1496695540.git.chunkeey@googlemail.com>
-References: <635dd014238af6f48c4169439b7ac161e80de1b7.1496695540.git.chunkeey@googlemail.com>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:49546 "EHLO
+        mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751180AbdFEUwC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 5 Jun 2017 16:52:02 -0400
+In-Reply-To: <CAJ3xEMhKjPwg75hO8af7XDL5JPoxkq2AtpL61CtOLb-T4aACWQ@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-emac_mdio_read_link() was not copying the requested phy settings
-back into the emac driver's own phy api. This has caused a link
-speed mismatch issue for the AR8035 as the emac driver kept
-trying to connect with 10/100MBps on a 1GBit/s link.
+On 06/03/2017 03:37 PM, Or Gerlitz wrote:
+> On Fri, Jun 2, 2017 at 11:22 PM, Jes Sorensen <jsorensen@fb.com> wrote:
+>> On 05/28/2017 02:03 AM, Or Gerlitz wrote:
+>>>
+>>> On Sun, May 28, 2017 at 5:23 AM, Jes Sorensen <jes.sorensen@gmail.com>
+>>> wrote:
+>>>>
+>>>> On 05/27/2017 05:02 PM, Or Gerlitz wrote:
+>>>>>
+>>>>>
+>>>>> On Sat, May 27, 2017 at 12:16 AM, Jes Sorensen <jes.sorensen@gmail.com>
+>>>>> wrote:
+>>>>>>
+>>>>>>
+>>>>>> This gets rid of the temporary #ifdef spaghetti and allows the code to
+>>>>>> compile without offload support enabled.
+>>>
+>>>
+>>>>> I am pretty sure we can do that exercise you're up to without any
+>>>>> spaghetti cooking and even put more code under that CONFIG directive
+>>>>> (en_rep.c), I'll take that with Saeed.
+>>>
+>>>
+>>>> I want to avoid adding #ifdef CONFIG_foo to the main code in order to
+>>>> keep
+>>>> it readable. I did it gradually to make sure I didn't break anything and
+>>>> to
+>>>> allow for it to be bisected in case something did break. If we can move
+>>>> out
+>>>> more code from places like en_rep.c into eswitch_offload.c and get it
+>>>> disabled that way that would be great, but I like to limit the number of
+>>>> #ifdefs we add to the actual code.
+>>>
+>>>
+>>> FWIW (see below), squashing your seven patches to one resulted in a
+>>> fairly simple/clear
+>>> patch, so if we go that way, no need to have seven commits just for this
+>>> piece.
+>>
+>>
+>> Squashing patches into jumbo patches is inherently broken and bad coding
+>> practice! It makes it way more complicated to debug and bisect in case a
+>> minor detail broke in the process.
+> 
+> Not that pure LOC ##-s is the only/deep measurement, but your overall
+> changes in the the seven patch series account to:
+> 
+>   5 files changed, 94 insertions(+), 3 deletions(-)
+> 
+> and by no mean this is jumbo or inherently broken and bad coded, so
+> please slow down please, I looked with care on the resulted patch and
+> said it's basically ok.
 
-This patch also unifies shared code between emac_setup_aneg()
-and emac_mdio_setup_forced(). And furthermore it removes
-a chunk of emac_mdio_init_phy(), that was copying the same
-data into itself.
+Squashing patches for the sake of squashing patches is inherently broken 
+and bad. So please calm down and stop this mangling of other peoples' 
+patches.
 
-Signed-off-by: Christian Lamparter <chunkeey@googlemail.com>
----
- drivers/net/ethernet/ibm/emac/core.c | 41 ++++++++++++++++--------------------
- 1 file changed, 18 insertions(+), 23 deletions(-)
+If you want an alternative, put up a proposal and look at it for 
+comparison somewhere.
 
-diff --git a/drivers/net/ethernet/ibm/emac/core.c b/drivers/net/ethernet/ibm/emac/core.c
-index 18af1116fa1d..8cfb148cfdb0 100644
---- a/drivers/net/ethernet/ibm/emac/core.c
-+++ b/drivers/net/ethernet/ibm/emac/core.c
-@@ -2478,20 +2478,24 @@ static int emac_mii_bus_reset(struct mii_bus *bus)
- 	return emac_reset(dev);
- }
- 
-+static int emac_mdio_phy_start_aneg(struct mii_phy *phy,
-+				    struct phy_device *phy_dev)
-+{
-+	phy_dev->autoneg = phy->autoneg;
-+	phy_dev->speed = phy->speed;
-+	phy_dev->duplex = phy->duplex;
-+	phy_dev->advertising = phy->advertising;
-+	return phy_start_aneg(phy_dev);
-+}
-+
- static int emac_mdio_setup_aneg(struct mii_phy *phy, u32 advertise)
- {
- 	struct net_device *ndev = phy->dev;
- 	struct emac_instance *dev = netdev_priv(ndev);
- 
--	dev->phy.autoneg = AUTONEG_ENABLE;
--	dev->phy.speed = SPEED_1000;
--	dev->phy.duplex = DUPLEX_FULL;
--	dev->phy.advertising = advertise;
- 	phy->autoneg = AUTONEG_ENABLE;
--	phy->speed = dev->phy.speed;
--	phy->duplex = dev->phy.duplex;
- 	phy->advertising = advertise;
--	return phy_start_aneg(dev->phy_dev);
-+	return emac_mdio_phy_start_aneg(phy, dev->phy_dev);
- }
- 
- static int emac_mdio_setup_forced(struct mii_phy *phy, int speed, int fd)
-@@ -2499,13 +2503,10 @@ static int emac_mdio_setup_forced(struct mii_phy *phy, int speed, int fd)
- 	struct net_device *ndev = phy->dev;
- 	struct emac_instance *dev = netdev_priv(ndev);
- 
--	dev->phy.autoneg =  AUTONEG_DISABLE;
--	dev->phy.speed = speed;
--	dev->phy.duplex = fd;
- 	phy->autoneg = AUTONEG_DISABLE;
- 	phy->speed = speed;
- 	phy->duplex = fd;
--	return phy_start_aneg(dev->phy_dev);
-+	return emac_mdio_phy_start_aneg(phy, dev->phy_dev);
- }
- 
- static int emac_mdio_poll_link(struct mii_phy *phy)
-@@ -2527,16 +2528,17 @@ static int emac_mdio_read_link(struct mii_phy *phy)
- {
- 	struct net_device *ndev = phy->dev;
- 	struct emac_instance *dev = netdev_priv(ndev);
-+	struct phy_device *phy_dev = dev->phy_dev;
- 	int res;
- 
--	res = phy_read_status(dev->phy_dev);
-+	res = phy_read_status(phy_dev);
- 	if (res)
- 		return res;
- 
--	dev->phy.speed = phy->speed;
--	dev->phy.duplex = phy->duplex;
--	dev->phy.pause = phy->pause;
--	dev->phy.asym_pause = phy->asym_pause;
-+	phy->speed = phy_dev->speed;
-+	phy->duplex = phy_dev->duplex;
-+	phy->pause = phy_dev->pause;
-+	phy->asym_pause = phy_dev->asym_pause;
- 	return 0;
- }
- 
-@@ -2546,13 +2548,6 @@ static int emac_mdio_init_phy(struct mii_phy *phy)
- 	struct emac_instance *dev = netdev_priv(ndev);
- 
- 	phy_start(dev->phy_dev);
--	dev->phy.autoneg = phy->autoneg;
--	dev->phy.speed = phy->speed;
--	dev->phy.duplex = phy->duplex;
--	dev->phy.advertising = phy->advertising;
--	dev->phy.pause = phy->pause;
--	dev->phy.asym_pause = phy->asym_pause;
--
- 	return phy_init_hw(dev->phy_dev);
- }
- 
--- 
-2.11.0
+Jes
