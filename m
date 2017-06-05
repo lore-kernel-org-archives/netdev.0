@@ -1,171 +1,213 @@
-From: Ganesh Goudar <ganeshgr@chelsio.com>
-Subject: [PATCH] cxgb4: implement ndo_set_vf_rate()
-Date: Mon,  5 Jun 2017 18:34:20 +0530
-Message-ID: <1496667860-11703-1-git-send-email-ganeshgr@chelsio.com>
-Cc: nirranjan@chelsio.com, kumaras@chelsio.com,
-        Ganesh Goudar <ganeshgr@chelsio.com>
-To: netdev@vger.kernel.org, davem@davemloft.net
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: [patch net-next 02/19] net: bridge: Add support for offloading
+ port attributes
+Date: Mon, 5 Jun 2017 16:29:26 +0300
+Message-ID: <fc8c1046-d567-e668-ef14-618814af36db@cumulusnetworks.com>
+References: <20170605092043.3523-1-jiri@resnulli.us>
+ <20170605092043.3523-3-jiri@resnulli.us>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, idosch@mellanox.com, arkadis@mellanox.com,
+        mlxsw@mellanox.com, roopa@cumulusnetworks.com,
+        stephen@networkplumber.org, ivecera@redhat.com
+To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.32.117.8]:8980 "EHLO
-        stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751318AbdFENEO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 5 Jun 2017 09:04:14 -0400
+Received: from mail-wm0-f53.google.com ([74.125.82.53]:38545 "EHLO
+        mail-wm0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751280AbdFEN3e (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 5 Jun 2017 09:29:34 -0400
+Received: by mail-wm0-f53.google.com with SMTP id n195so75888000wmg.1
+        for <netdev@vger.kernel.org>; Mon, 05 Jun 2017 06:29:28 -0700 (PDT)
+In-Reply-To: <20170605092043.3523-3-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Implement ndo_set_vf_rate() for mgmt interface to support rate-limiting
-of VF traffic using 'ip' command.
+On 05/06/17 12:20, Jiri Pirko wrote:
+> From: Arkadi Sharshevsky <arkadis@mellanox.com>
+> 
+> Currently the flood, learning and learning_sync port attributes are
+> offloaded by setting the SELF flag. Add support for offloading the
+> flood and learning attribute through the bridge code. In case of
+> setting an unsupported flag on a offloded port the operation will
+> fail.
+> 
+> The learning_sync attribute doesn't have any software representation
+> and cannot be offloaded through the bridge code.
+> 
+> Signed-off-by: Arkadi Sharshevsky <arkadis@mellanox.com>
+> Reviewed-by: Ido Schimmel <idosch@mellanox.com>
+> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+> ---
+>  net/bridge/br_netlink.c | 112 +++++++++++++++++++++++++++++++++++++++---------
+>  net/bridge/br_private.h |   4 ++
+>  2 files changed, 96 insertions(+), 20 deletions(-)
+> 
 
-Based on the original work of Kumar Sanghvi <kumaras@chelsio.com>
+Hi Arkadi,
+A few comments below
 
-Signed-off-by: Ganesh Goudar <ganeshgr@chelsio.com>
----
- drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |   1 +
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 106 ++++++++++++++++++++++++
- 2 files changed, 107 insertions(+)
+> diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
+> index 1e63ec4..1afafb7 100644
+> --- a/net/bridge/br_netlink.c
+> +++ b/net/bridge/br_netlink.c
+> @@ -17,6 +17,7 @@
+>  #include <net/net_namespace.h>
+>  #include <net/sock.h>
+>  #include <uapi/linux/if_bridge.h>
+> +#include <net/switchdev.h>
+>  
+>  #include "br_private.h"
+>  #include "br_private_stp.h"
+> @@ -662,16 +663,52 @@ static int br_set_port_state(struct net_bridge_port *p, u8 state)
+>  }
+>  
+>  /* Set/clear or port flags based on attribute */
+> -static void br_set_port_flag(struct net_bridge_port *p, struct nlattr *tb[],
+> -			   int attrtype, unsigned long mask)
+> +static int br_set_port_flag(struct net_bridge_port *p, struct nlattr *tb[],
+> +			    int attrtype, unsigned long mask)
+>  {
+> -	if (tb[attrtype]) {
+> -		u8 flag = nla_get_u8(tb[attrtype]);
+> -		if (flag)
+> -			p->flags |= mask;
+> -		else
+> -			p->flags &= ~mask;
+> +	struct switchdev_attr attr = {
+> +		.orig_dev = p->dev,
+> +		.id = SWITCHDEV_ATTR_ID_PORT_BRIDGE_FLAGS_SUPPORT,
+> +	};
+> +	unsigned long flags;
+> +	int err;
+> +
+> +	if (!tb[attrtype])
+> +		return 0;
+> +
+> +	if (nla_get_u8(tb[attrtype]))
+> +		flags = p->flags | mask;
+> +	else
+> +		flags = p->flags & ~mask;
+> +
+> +	if (mask & ~BR_PORT_FLAGS_HW_OFFLOAD)
+> +		goto out;
+> +
+> +	err = switchdev_port_attr_get(p->dev, &attr);
+> +	if (err == -EOPNOTSUPP)
+> +		goto out;
+> +	if (err)
+> +		return err;
+> +
+> +	/* Check if specific bridge flag attribute offload is supported */
+> +	if (!(attr.u.brport_flags_support & mask)) {
+> +		br_warn(p->br, "bridge flag offload is not supported %u(%s)\n",
+> +			(unsigned int)p->port_no, p->dev->name);
+> +		return -EOPNOTSUPP;
+> +	}
+> +
+> +	attr.id = SWITCHDEV_ATTR_ID_PORT_BRIDGE_FLAGS;
+> +	attr.flags = SWITCHDEV_F_DEFER;
+> +	attr.u.brport_flags = flags;
+> +	err = switchdev_port_attr_set(p->dev, &attr);
+> +	if (err) {
+> +		br_warn(p->br, "error setting offload FLAG on port %u(%s)\n",
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-index 1cf3e2f..b7a92eb 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-@@ -777,6 +777,7 @@ struct uld_msix_info {
- 
- struct vf_info {
- 	unsigned char vf_mac_addr[ETH_ALEN];
-+	unsigned int tx_rate;
- 	bool pf_set_mac;
- };
- 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index 8c69046..64af406 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -2563,6 +2563,8 @@ static int cxgb_get_vf_config(struct net_device *dev,
- 	if (vf >= adap->num_vfs)
- 		return -EINVAL;
- 	ivi->vf = vf;
-+	ivi->max_tx_rate = adap->vfinfo[vf].tx_rate;
-+	ivi->min_tx_rate = 0;
- 	ether_addr_copy(ivi->mac, adap->vfinfo[vf].vf_mac_addr);
- 	return 0;
- }
-@@ -2579,6 +2581,109 @@ static int cxgb_get_phys_port_id(struct net_device *dev,
- 	return 0;
- }
- 
-+static int cxgb_set_vf_rate(struct net_device *dev, int vf, int min_tx_rate,
-+			    int max_tx_rate)
-+{
-+	struct port_info *pi = netdev_priv(dev);
-+	struct adapter *adap = pi->adapter;
-+	struct fw_port_cmd port_cmd, port_rpl;
-+	u32 link_status, speed = 0;
-+	u32 fw_pfvf, fw_class;
-+	int class_id = vf;
-+	int link_ok, ret;
-+	u16 pktsize;
-+
-+	if (vf >= adap->num_vfs)
-+		return -EINVAL;
-+
-+	if (min_tx_rate) {
-+		dev_err(adap->pdev_dev,
-+			"Min tx rate (%d) (> 0) for VF %d is Invalid.\n",
-+			min_tx_rate, vf);
-+		return -EINVAL;
-+	}
-+	/* Retrieve link details for VF port */
-+	memset(&port_cmd, 0, sizeof(port_cmd));
-+	port_cmd.op_to_portid = cpu_to_be32(FW_CMD_OP_V(FW_PORT_CMD) |
-+					    FW_CMD_REQUEST_F |
-+					    FW_CMD_READ_F |
-+					    FW_PORT_CMD_PORTID_V(pi->port_id));
-+	port_cmd.action_to_len16 =
-+		cpu_to_be32(FW_PORT_CMD_ACTION_V(FW_PORT_ACTION_GET_PORT_INFO) |
-+			    FW_LEN16(port_cmd));
-+	ret = t4_wr_mbox(adap, adap->mbox, &port_cmd, sizeof(port_cmd),
-+			 &port_rpl);
-+	if (ret != FW_SUCCESS) {
-+		dev_err(adap->pdev_dev,
-+			"Failed to get link status for VF %d\n", vf);
-+		return -EINVAL;
-+	}
-+	link_status = be32_to_cpu(port_rpl.u.info.lstatus_to_modtype);
-+	link_ok = (link_status & FW_PORT_CMD_LSTATUS_F) != 0;
-+	if (!link_ok) {
-+		dev_err(adap->pdev_dev, "Link down for VF %d\n", vf);
-+		return -EINVAL;
-+	}
-+	/* Determine link speed */
-+	if (link_status & FW_PORT_CMD_LSPEED_V(FW_PORT_CAP_SPEED_100M))
-+		speed = 100;
-+	else if (link_status & FW_PORT_CMD_LSPEED_V(FW_PORT_CAP_SPEED_1G))
-+		speed = 1000;
-+	else if (link_status & FW_PORT_CMD_LSPEED_V(FW_PORT_CAP_SPEED_10G))
-+		speed = 10000;
-+	else if (link_status & FW_PORT_CMD_LSPEED_V(FW_PORT_CAP_SPEED_25G))
-+		speed = 25000;
-+	else if (link_status & FW_PORT_CMD_LSPEED_V(FW_PORT_CAP_SPEED_40G))
-+		speed = 40000;
-+	else if (link_status & FW_PORT_CMD_LSPEED_V(FW_PORT_CAP_SPEED_100G))
-+		speed = 100000;
-+
-+	if (max_tx_rate > speed) {
-+		dev_err(adap->pdev_dev,
-+			"Max tx rate %d for VF %d can't be > link-speed %u",
-+			max_tx_rate, vf, speed);
-+		return -EINVAL;
-+	}
-+	pktsize = be16_to_cpu(port_rpl.u.info.mtu);
-+	/* subtract ethhdr size and 4 bytes crc since, f/w appends it */
-+	pktsize = pktsize - sizeof(struct ethhdr) - 4;
-+	/* subtract ipv4 hdr size, tcp hdr size to get typical IPv4 MSS size */
-+	pktsize = pktsize - sizeof(struct iphdr) - sizeof(struct tcphdr);
-+	/* configure Traffic Class for rate-limiting */
-+	ret = t4_sched_params(adap, SCHED_CLASS_TYPE_PACKET,
-+			      SCHED_CLASS_LEVEL_CL_RL,
-+			      SCHED_CLASS_MODE_CLASS,
-+			      SCHED_CLASS_RATEUNIT_BITS,
-+			      SCHED_CLASS_RATEMODE_ABS,
-+			      pi->port_id, class_id, 0,
-+			      max_tx_rate * 1000, 0, pktsize);
-+	if (ret) {
-+		dev_err(adap->pdev_dev, "Err %d for Traffic Class config\n",
-+			ret);
-+		return -EINVAL;
-+	}
-+	dev_info(adap->pdev_dev,
-+		 "Class %d with MSS %u configured with rate %u\n",
-+		 class_id, pktsize, max_tx_rate);
-+
-+	/* bind VF to configured Traffic Class */
-+	fw_pfvf = (FW_PARAMS_MNEM_V(FW_PARAMS_MNEM_PFVF) |
-+		   FW_PARAMS_PARAM_X_V(FW_PARAMS_PARAM_PFVF_SCHEDCLASS_ETH));
-+	fw_class = class_id;
-+	ret = t4_set_params(adap, adap->mbox, adap->pf, vf + 1, 1, &fw_pfvf,
-+			    &fw_class);
-+	if (ret) {
-+		dev_err(adap->pdev_dev,
-+			"Err %d in binding VF %d to Traffic Class %d\n",
-+			ret, vf, class_id);
-+		return -EINVAL;
-+	}
-+	dev_info(adap->pdev_dev, "PF %d VF %d is bound to Class %d\n",
-+		 adap->pf, vf, class_id);
-+	adap->vfinfo[vf].tx_rate = max_tx_rate;
-+	return 0;
-+}
-+
- #endif
- 
- static int cxgb_set_mac_addr(struct net_device *dev, void *p)
-@@ -2766,6 +2871,7 @@ static const struct net_device_ops cxgb4_mgmt_netdev_ops = {
- 	.ndo_open             = dummy_open,
- 	.ndo_set_vf_mac       = cxgb_set_vf_mac,
- 	.ndo_get_vf_config    = cxgb_get_vf_config,
-+	.ndo_set_vf_rate      = cxgb_set_vf_rate,
- 	.ndo_get_phys_port_id = cxgb_get_phys_port_id,
- };
- #endif
--- 
-2.1.0
+Why all caps (FLAG) ?
+
+> +			(unsigned int)p->port_no, p->dev->name);
+> +		return err;
+>  	}
+
+I think all of this switchdev-specific code should be contained into br_switchdev.c and
+exported via some function. Anyone changing only the bridge can easily get confused.
+
+> +out:
+> +	p->flags = flags;
+> +	return 0;
+>  }
+>  
+>  /* Process bridge protocol info on port */
+> @@ -681,20 +718,55 @@ static int br_setport(struct net_bridge_port *p, struct nlattr *tb[])
+>  	bool br_vlan_tunnel_old = false;
+>  	int err;
+>  
+> -	br_set_port_flag(p, tb, IFLA_BRPORT_MODE, BR_HAIRPIN_MODE);
+> -	br_set_port_flag(p, tb, IFLA_BRPORT_GUARD, BR_BPDU_GUARD);
+> -	br_set_port_flag(p, tb, IFLA_BRPORT_FAST_LEAVE, BR_MULTICAST_FAST_LEAVE);
+> -	br_set_port_flag(p, tb, IFLA_BRPORT_PROTECT, BR_ROOT_BLOCK);
+> -	br_set_port_flag(p, tb, IFLA_BRPORT_LEARNING, BR_LEARNING);
+> -	br_set_port_flag(p, tb, IFLA_BRPORT_UNICAST_FLOOD, BR_FLOOD);
+> -	br_set_port_flag(p, tb, IFLA_BRPORT_MCAST_FLOOD, BR_MCAST_FLOOD);
+> -	br_set_port_flag(p, tb, IFLA_BRPORT_MCAST_TO_UCAST, BR_MULTICAST_TO_UNICAST);
+> -	br_set_port_flag(p, tb, IFLA_BRPORT_BCAST_FLOOD, BR_BCAST_FLOOD);
+> -	br_set_port_flag(p, tb, IFLA_BRPORT_PROXYARP, BR_PROXYARP);
+> -	br_set_port_flag(p, tb, IFLA_BRPORT_PROXYARP_WIFI, BR_PROXYARP_WIFI);
+> +	err = br_set_port_flag(p, tb, IFLA_BRPORT_MODE, BR_HAIRPIN_MODE);
+> +	if (err)
+> +		return err;
+> +
+> +	err = br_set_port_flag(p, tb, IFLA_BRPORT_GUARD, BR_BPDU_GUARD);
+> +	if (err)
+> +		return err;
+> +
+> +	err = br_set_port_flag(p, tb, IFLA_BRPORT_FAST_LEAVE, BR_MULTICAST_FAST_LEAVE);
+> +	if (err)
+> +		return err;
+> +
+> +	err = br_set_port_flag(p, tb, IFLA_BRPORT_PROTECT, BR_ROOT_BLOCK);
+> +	if (err)
+> +		return err;
+> +
+> +	err = br_set_port_flag(p, tb, IFLA_BRPORT_LEARNING, BR_LEARNING);
+> +	if (err)
+> +		return err;
+> +
+> +	err = br_set_port_flag(p, tb, IFLA_BRPORT_UNICAST_FLOOD, BR_FLOOD);
+> +	if (err)
+> +		return err;
+> +
+> +	err = br_set_port_flag(p, tb, IFLA_BRPORT_MCAST_FLOOD, BR_MCAST_FLOOD);
+> +	if (err)
+> +		return err;
+> +
+> +	err = br_set_port_flag(p, tb, IFLA_BRPORT_MCAST_TO_UCAST, BR_MULTICAST_TO_UNICAST);
+> +	if (err)
+> +		return err;
+> +
+> +	err = br_set_port_flag(p, tb, IFLA_BRPORT_BCAST_FLOOD, BR_BCAST_FLOOD);
+> +	if (err)
+> +		return err;
+> +
+> +	err = br_set_port_flag(p, tb, IFLA_BRPORT_PROXYARP, BR_PROXYARP);
+> +	if (err)
+> +		return err;
+> +
+> +	err = br_set_port_flag(p, tb, IFLA_BRPORT_PROXYARP_WIFI, BR_PROXYARP_WIFI);
+> +	if (err)
+> +		return err;
+>  
+>  	br_vlan_tunnel_old = (p->flags & BR_VLAN_TUNNEL) ? true : false;
+> -	br_set_port_flag(p, tb, IFLA_BRPORT_VLAN_TUNNEL, BR_VLAN_TUNNEL);
+> +	err = br_set_port_flag(p, tb, IFLA_BRPORT_VLAN_TUNNEL, BR_VLAN_TUNNEL);
+> +	if (err)
+> +		return err;
+> +
+>  	if (br_vlan_tunnel_old && !(p->flags & BR_VLAN_TUNNEL))
+>  		nbp_vlan_tunnel_info_flush(p);
+>  
+> diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+> index 2062692..5dc30ed 100644
+> --- a/net/bridge/br_private.h
+> +++ b/net/bridge/br_private.h
+> @@ -42,6 +42,10 @@
+>  /* Path to usermode spanning tree program */
+>  #define BR_STP_PROG	"/sbin/bridge-stp"
+>  
+> +/* Flags that can be offloaded to hardware */
+> +#define BR_PORT_FLAGS_HW_OFFLOAD (BR_LEARNING | BR_FLOOD | \
+> +				  BR_MCAST_FLOOD | BR_BCAST_FLOOD)
+> +
+>  typedef struct bridge_id bridge_id;
+>  typedef struct mac_addr mac_addr;
+>  typedef __u16 port_id;
+> 
