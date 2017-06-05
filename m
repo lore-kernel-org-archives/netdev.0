@@ -1,66 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next] openvswitch: add macro MODULE_ALIAS_VPORT_TYPE for
- vport type alias
-Date: Sun, 04 Jun 2017 21:25:44 -0400 (EDT)
-Message-ID: <20170604.212544.1177497062040790396.davem@davemloft.net>
-References: <CAOrHB_CjkyEoWVJFT5Q+vPOvcg4rd9cY+z5gRi7JEQscG6-dNg@mail.gmail.com>
-        <20170604.161235.2303882939513535289.davem@davemloft.net>
-        <001601d2dd98$8209e620$861db260$@cmss.chinamobile.com>
+Subject: Re: [PATCH net-next 0/2] Fixes for mv88e6161
+Date: Sun, 04 Jun 2017 21:35:05 -0400 (EDT)
+Message-ID: <20170604.213505.1633234228737937171.davem@davemloft.net>
+References: <1496438566-30612-1-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: pshelar@ovn.org, pshelar@nicira.com, netdev@vger.kernel.org
-To: zhangshengju@cmss.chinamobile.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: vivien.didelot@savoirfairelinux.com, cphealy@gmail.com,
+        nikita.yoush@cogentembedded.com, netdev@vger.kernel.org
+To: andrew@lunn.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:54120 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:54180 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751189AbdFEBZt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 4 Jun 2017 21:25:49 -0400
-In-Reply-To: <001601d2dd98$8209e620$861db260$@cmss.chinamobile.com>
+        with ESMTP id S1751213AbdFEBfH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 4 Jun 2017 21:35:07 -0400
+In-Reply-To: <1496438566-30612-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTog5byg6IOc5Li+IDx6aGFuZ3NoZW5nanVAY21zcy5jaGluYW1vYmlsZS5jb20+DQpEYXRl
-OiBNb24sIDUgSnVuIDIwMTcgMDk6MTA6MjIgKzA4MDANCg0KPj4gLS0tLS1PcmlnaW5hbCBNZXNz
-YWdlLS0tLS0NCj4+IEZyb206IERhdmlkIE1pbGxlciBbbWFpbHRvOmRhdmVtQGRhdmVtbG9mdC5u
-ZXRdDQo+PiBTZW50OiBNb25kYXksIEp1bmUgMDUsIDIwMTcgNDoxMyBBTQ0KPj4gVG86IHBzaGVs
-YXJAb3ZuLm9yZw0KPj4gQ2M6IHpoYW5nc2hlbmdqdUBjbXNzLmNoaW5hbW9iaWxlLmNvbTsgcHNo
-ZWxhckBuaWNpcmEuY29tOw0KPj4gbmV0ZGV2QHZnZXIua2VybmVsLm9yZw0KPj4gU3ViamVjdDog
-UmU6IFtuZXQtbmV4dF0gb3BlbnZzd2l0Y2g6IGFkZCBtYWNybw0KPj4gTU9EVUxFX0FMSUFTX1ZQ
-T1JUX1RZUEUgZm9yIHZwb3J0IHR5cGUgYWxpYXMNCj4+IA0KPj4gRnJvbTogUHJhdmluIFNoZWxh
-ciA8cHNoZWxhckBvdm4ub3JnPg0KPj4gRGF0ZTogU2F0LCAzIEp1biAyMDE3IDIyOjU4OjIyIC0w
-NzAwDQo+PiANCj4+ID4gT24gU2F0LCBKdW4gMywgMjAxNyBhdCA2OjQ3IEFNLCBaaGFuZyBTaGVu
-Z2p1DQo+PiA+IDx6aGFuZ3NoZW5nanVAY21zcy5jaGluYW1vYmlsZS5jb20+IHdyb3RlOg0KPj4g
-Pj4gQWRkIGEgbmV3IG1hY3JvIE1PRFVMRV9BTElBU19WUE9SVF9UWVBFIHRvIHVuaWZ5IGFuZCBz
-aW1wbGlmeSB0aGUNCj4+ID4+IGRlY2xhcmF0aW9uIG9mIHZwb3J0IHR5cGUgYWxpYXMsIGFuZCBy
-ZXBsYWNlIG1hZ2ljIG51bWJlcnMgd2l0aA0KPj4gPj4gc3ltYm9saWMgY29uc3RhbnRzLg0KPj4g
-Pj4NCj4+ID4+IFNpZ25lZC1vZmYtYnk6IFpoYW5nIFNoZW5nanUgPHpoYW5nc2hlbmdqdUBjbXNz
-LmNoaW5hbW9iaWxlLmNvbT4NCj4+ID4+IC0tLQ0KPj4gPj4gIG5ldC9vcGVudnN3aXRjaC92cG9y
-dC1nZW5ldmUuYyB8IDIgKy0NCj4+ID4+ICBuZXQvb3BlbnZzd2l0Y2gvdnBvcnQtZ3JlLmMgICAg
-fCAyICstDQo+PiA+PiAgbmV0L29wZW52c3dpdGNoL3Zwb3J0LXZ4bGFuLmMgIHwgMiArLQ0KPj4g
-Pj4gIG5ldC9vcGVudnN3aXRjaC92cG9ydC5oICAgICAgICB8IDMgKysrDQo+PiA+PiAgNCBmaWxl
-cyBjaGFuZ2VkLCA2IGluc2VydGlvbnMoKyksIDMgZGVsZXRpb25zKC0pDQo+PiA+Pg0KPj4gPj4g
-ZGlmZiAtLWdpdCBhL25ldC9vcGVudnN3aXRjaC92cG9ydC1nZW5ldmUuYw0KPj4gPj4gYi9uZXQv
-b3BlbnZzd2l0Y2gvdnBvcnQtZ2VuZXZlLmMgaW5kZXggNWFhZjNiYS4uMWMwNjhkNiAxMDA2NDQN
-Cj4+ID4+IC0tLSBhL25ldC9vcGVudnN3aXRjaC92cG9ydC1nZW5ldmUuYw0KPj4gPj4gKysrIGIv
-bmV0L29wZW52c3dpdGNoL3Zwb3J0LWdlbmV2ZS5jDQo+PiA+PiBAQCAtMTQxLDQgKzE0MSw0IEBA
-IHN0YXRpYyB2b2lkIF9fZXhpdCBvdnNfZ2VuZXZlX3RubF9leGl0KHZvaWQpDQo+PiA+Pg0KPj4g
-Pj4gIE1PRFVMRV9ERVNDUklQVElPTigiT1ZTOiBHZW5ldmUgc3dpdGNoaW5nIHBvcnQiKTsNCj4+
-ID4+IE1PRFVMRV9MSUNFTlNFKCJHUEwiKTsgLU1PRFVMRV9BTElBUygidnBvcnQtdHlwZS01Iik7
-DQo+PiA+PiArTU9EVUxFX0FMSUFTX1ZQT1JUX1RZUEUoT1ZTX1ZQT1JUX1RZUEVfR0VORVZFKTsN
-Cj4+ID4+IGRpZmYgLS1naXQgYS9uZXQvb3BlbnZzd2l0Y2gvdnBvcnQtZ3JlLmMNCj4+ID4+IGIv
-bmV0L29wZW52c3dpdGNoL3Zwb3J0LWdyZS5jIGluZGV4IDBlNzJkOTUuLjQ4YTU4NTIgMTAwNjQ0
-DQo+PiA+PiAtLS0gYS9uZXQvb3BlbnZzd2l0Y2gvdnBvcnQtZ3JlLmMNCj4+ID4+ICsrKyBiL25l
-dC9vcGVudnN3aXRjaC92cG9ydC1ncmUuYw0KPj4gPj4gQEAgLTExMyw0ICsxMTMsNCBAQCBzdGF0
-aWMgdm9pZCBfX2V4aXQgb3ZzX2dyZV90bmxfZXhpdCh2b2lkKQ0KPj4gPj4NCj4+ID4+ICBNT0RV
-TEVfREVTQ1JJUFRJT04oIk9WUzogR1JFIHN3aXRjaGluZyBwb3J0Iik7DQo+PiA+PiBNT0RVTEVf
-TElDRU5TRSgiR1BMIik7IC1NT0RVTEVfQUxJQVMoInZwb3J0LXR5cGUtMyIpOw0KPj4gPj4gK01P
-RFVMRV9BTElBU19WUE9SVF9UWVBFKE9WU19WUE9SVF9UWVBFX0dSRSk7DQo+PiA+DQo+PiA+IFRo
-aXMgaXMgdXNlciB2aXNpYmxlIGNoYW5nZS4gRm9yIGV4YW1wbGUgdGhpcyBpcyBjaGFuZ2luZyB0
-aGUgZ3JlDQo+PiA+IG1vZHVsZSBhbGlhcyBmcm9tICJ2cG9ydC10eXBlLTMiIHRvICJ2cG9ydC10
-eXBlLU9WU19WUE9SVF9UWVBFX0dSRSIuDQo+PiA+IFRoaXMgY291bGQgYnJlYWsgdXNlcnNwYWNl
-IGFwcGxpY2F0aW9uLg0KPj4gDQo+PiBBZ3JlZWQsIHlvdSByZWFsbHkgY2FuJ3QgZG8gdGhpcy4N
-Cj4gDQo+IEhpIERhdmlkLA0KPiBBY3R1YWxseSB0aGlzIGNoYW5nZSBkb2VzIG5vdCBjaGFuZ2Ug
-bW9kdWxlIGFsaWFzIG5hbWUuIEkgdXNlICdfX3N0cmluZ2lmeScNCj4gdG8gDQo+IGFkZHJlc3Mg
-dGhpcy4gIFBsZWFzZSByZWZlciBteSBwcmV2aW91cyByZXBseS4NCg0KWWVwLCBJIHNhdyB0aGF0
-LCBJIHdhaXZlIG15IG9iamVjdGlvbiA6LSkNCg==
+From: Andrew Lunn <andrew@lunn.ch>
+Date: Fri,  2 Jun 2017 23:22:44 +0200
+
+> Testing a board with an mv88e6161 turned up two issues. The PHYs were
+> not found, because the wrong method to access them was used. The
+> statistics did not work, because the wrong snapshot method was used
+
+Series applied, thanks Andrew.
