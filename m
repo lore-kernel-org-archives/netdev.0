@@ -1,36 +1,48 @@
-From: Huw Davies <huw-PJ7GQ4yptbsswetKESUqMA@public.gmane.org>
-Subject: Re: [PATCH] net/ipv6: Fix CALIPSO causing GPF with datagram support
-Date: Mon, 5 Jun 2017 18:20:28 +0100
-Message-ID: <20170605172028.GA2513@merlot.physics.ox.ac.uk>
-References: <20170605154440.2434-1-richard_c_haines@btinternet.com>
- <CAHC9VhRwzC=XTRj5gNfd11T=XzpYSrVfu-jnx9f4__duMAji1Q@mail.gmail.com>
+From: Paul Burton <paul.burton@imgtec.com>
+Subject: [PATCH v4 0/7] net: pch_gbe: Fixes & MIPS support
+Date: Mon, 5 Jun 2017 10:31:29 -0700
+Message-ID: <20170605173136.10795-1-paul.burton@imgtec.com>
+References: <20170602234042.22782-1-paul.burton@imgtec.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-security-module-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, selinux-+05T5uksL2qpZYMLLGbcSA@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Paul Moore <paul-r2n+y4ga6xFZroRs9YW3xA@public.gmane.org>
-Return-path: <selinux-bounces-+05T5uksL2qpZYMLLGbcSA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <CAHC9VhRwzC=XTRj5gNfd11T=XzpYSrVfu-jnx9f4__duMAji1Q-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Post: <mailto:selinux-+05T5uksL2qpZYMLLGbcSA@public.gmane.org>
-List-Help: <mailto:selinux-request-+05T5uksL2qpZYMLLGbcSA@public.gmane.org?subject=help>
-Errors-To: selinux-bounces-+05T5uksL2qpZYMLLGbcSA@public.gmane.org
-Sender: "Selinux" <selinux-bounces-+05T5uksL2qpZYMLLGbcSA@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: "David S . Miller" <davem@davemloft.net>,
+        <linux-mips@linux-mips.org>, Eric Dumazet <edumazet@google.com>,
+        Jarod Wilson <jarod@redhat.com>,
+        Tobias Klauser <tklauser@distanz.ch>,
+        Paul Burton <paul.burton@imgtec.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailapp01.imgtec.com ([195.59.15.196]:30883 "EHLO
+        mailapp01.imgtec.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751214AbdFERcM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 5 Jun 2017 13:32:12 -0400
+In-Reply-To: <20170602234042.22782-1-paul.burton@imgtec.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 05, 2017 at 11:55:34AM -0400, Paul Moore wrote:
-> On Mon, Jun 5, 2017 at 11:44 AM, Richard Haines
-> <richard_c_haines-FhtRXb7CoQBt1OO0OYaSVA@public.gmane.org> wrote:
-> > When using CALIPSO with IPPROTO_UDP it is possible to trigger a GPF as the
-> > IP header may have moved.
-> >
-> > Also update the payload length after adding the CALIPSO option.
-> >
-> > Signed-off-by: Richard Haines <richard_c_haines-FhtRXb7CoQBt1OO0OYaSVA@public.gmane.org>
-> > ---
-> >  net/ipv6/calipso.c | 6 +++++-
-> >  1 file changed, 5 insertions(+), 1 deletion(-)
-> 
-> Acked-by: Paul Moore <paul-r2n+y4ga6xFZroRs9YW3xA@public.gmane.org>
+The Intel EG20T Platform Controller Hub is used on the MIPS Boston
+development board to provide various peripherals including ethernet.
+This series fixes some issues with the pch_gbe driver discovered whilst
+in use on the Boston board, and implements support for device tree which
+we use to provide the PHY reset GPIO.
 
-Signed-off-by: Huw Davies <huw-PJ7GQ4yptbsswetKESUqMA@public.gmane.org>
+Applies atop v4.12-rc4.
+
+Paul Burton (7):
+  net: pch_gbe: Mark Minnow PHY reset GPIO active low
+  net: pch_gbe: Pull PHY GPIO handling out of Minnow code
+  dt-bindings: net: Document Intel pch_gbe binding
+  net: pch_gbe: Add device tree support
+  net: pch_gbe: Always reset PHY along with MAC
+  net: pch_gbe: Allow longer for resets
+  net: pch_gbe: Allow build on MIPS platforms
+
+ Documentation/devicetree/bindings/net/pch_gbe.txt  | 25 +++++++
+ drivers/net/ethernet/oki-semi/pch_gbe/Kconfig      |  2 +-
+ drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h    |  4 +-
+ .../net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c   | 79 +++++++++++++++++-----
+ 4 files changed, 91 insertions(+), 19 deletions(-)
+ create mode 100644 Documentation/devicetree/bindings/net/pch_gbe.txt
+
+-- 
+2.13.0
