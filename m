@@ -1,48 +1,105 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: [PATCH net] net: bridge: fix a null pointer dereference in br_afspec
-Date: Tue,  6 Jun 2017 01:26:24 +0300
-Message-ID: <1496701584-26855-1-git-send-email-nikolay@cumulusnetworks.com>
-References: <840022de-3d31-4f62-aaaf-ba83d5c78ad7@cumulusnetworks.com>
-Cc: roopa@cumulusnetworks.com, davem@davemloft.net,
-        stephen@networkplumber.org, garsilva@embeddedor.com,
-        bridge@lists.linux-foundation.org,
-        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f172.google.com ([209.85.128.172]:35069 "EHLO
-        mail-wr0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751180AbdFEW0k (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 5 Jun 2017 18:26:40 -0400
-Received: by mail-wr0-f172.google.com with SMTP id q97so45335938wrb.2
-        for <netdev@vger.kernel.org>; Mon, 05 Jun 2017 15:26:40 -0700 (PDT)
-In-Reply-To: <840022de-3d31-4f62-aaaf-ba83d5c78ad7@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Murali Karicheri <m-karicheri2@ti.com>
+Subject: [PATCH 2/2] hsr: fix incorrect warning
+Date: Mon, 5 Jun 2017 18:31:47 -0400
+Message-ID: <1496701907-29376-2-git-send-email-m-karicheri2@ti.com>
+References: <1496701907-29376-1-git-send-email-m-karicheri2@ti.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+To: <davem@davemloft.net>, <arvid.brodin@alten.se>,
+        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1496701907-29376-1-git-send-email-m-karicheri2@ti.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-We might call br_afspec() with p == NULL which is a valid use case if
-the action is on the bridge device itself, but the bridge tunnel code
-dereferences the p pointer without checking, so check if p is null
-first.
+When HSR interface is setup using ip link command, an annoying warning
+appears with the trace as below:-
 
-Reported-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
-Fixes: efa5356b0d97 ("bridge: per vlan dst_metadata netlink support")
-Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+[  203.019828] hsr_get_node: Non-HSR frame
+[  203.019833] Modules linked in:
+[  203.019848] CPU: 0 PID: 158 Comm: sd-resolve Tainted: G        W       4.12.0-rc3-00052-g9fa6bf70 #2
+[  203.019853] Hardware name: Generic DRA74X (Flattened Device Tree)
+[  203.019869] [<c0110280>] (unwind_backtrace) from [<c010c2f4>] (show_stack+0x10/0x14)
+[  203.019880] [<c010c2f4>] (show_stack) from [<c04b9f64>] (dump_stack+0xac/0xe0)
+[  203.019894] [<c04b9f64>] (dump_stack) from [<c01374e8>] (__warn+0xd8/0x104)
+[  203.019907] [<c01374e8>] (__warn) from [<c0137548>] (warn_slowpath_fmt+0x34/0x44)
+root@am57xx-evm:~# [  203.019921] [<c0137548>] (warn_slowpath_fmt) from [<c081126c>] (hsr_get_node+0x148/0x170)
+[  203.019932] [<c081126c>] (hsr_get_node) from [<c0814240>] (hsr_forward_skb+0x110/0x7c0)
+[  203.019942] [<c0814240>] (hsr_forward_skb) from [<c0811d64>] (hsr_dev_xmit+0x2c/0x34)
+[  203.019954] [<c0811d64>] (hsr_dev_xmit) from [<c06c0828>] (dev_hard_start_xmit+0xc4/0x3bc)
+[  203.019963] [<c06c0828>] (dev_hard_start_xmit) from [<c06c13d8>] (__dev_queue_xmit+0x7c4/0x98c)
+[  203.019974] [<c06c13d8>] (__dev_queue_xmit) from [<c0782f54>] (ip6_finish_output2+0x330/0xc1c)
+[  203.019983] [<c0782f54>] (ip6_finish_output2) from [<c0788f0c>] (ip6_output+0x58/0x454)
+[  203.019994] [<c0788f0c>] (ip6_output) from [<c07b16cc>] (mld_sendpack+0x420/0x744)
+
+As this is an expected path to hsr_get_node() with frame coming from
+the master interface, add a check to ensure packet is not from the
+master port and then warn.
+
+Signed-off-by: Murali Karicheri <m-karicheri2@ti.com>
 ---
- net/bridge/br_netlink.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ Logs at http://pastebin.ubuntu.com/24787763/
+ Applies to master (4.12-rc4)
+ net/hsr/hsr_forward.c  | 3 +--
+ net/hsr/hsr_framereg.c | 9 +++++++--
+ net/hsr/hsr_framereg.h | 2 +-
+ 3 files changed, 9 insertions(+), 5 deletions(-)
 
-diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
-index 1e63ec466d7c..3bcda556971e 100644
---- a/net/bridge/br_netlink.c
-+++ b/net/bridge/br_netlink.c
-@@ -595,7 +595,7 @@ static int br_afspec(struct net_bridge *br,
- 		err = 0;
- 		switch (nla_type(attr)) {
- 		case IFLA_BRIDGE_VLAN_TUNNEL_INFO:
--			if (!(p->flags & BR_VLAN_TUNNEL))
-+			if (!p || !(p->flags & BR_VLAN_TUNNEL))
- 				return -EINVAL;
- 			err = br_parse_vlan_tunnel_info(attr, &tinfo_curr);
- 			if (err)
+diff --git a/net/hsr/hsr_forward.c b/net/hsr/hsr_forward.c
+index 32c51f3..2b994eb 100644
+--- a/net/hsr/hsr_forward.c
++++ b/net/hsr/hsr_forward.c
+@@ -316,8 +316,7 @@ static int hsr_fill_frame_info(struct hsr_frame_info *frame,
+ 	unsigned long irqflags;
+ 
+ 	frame->is_supervision = is_supervision_frame(port->hsr, skb);
+-	frame->node_src = hsr_get_node(&port->hsr->node_db, skb,
+-				       frame->is_supervision);
++	frame->node_src = hsr_get_node(port, skb, frame->is_supervision);
+ 	if (!frame->node_src)
+ 		return -1; /* Unknown node and !is_supervision, or no mem */
+ 
+diff --git a/net/hsr/hsr_framereg.c b/net/hsr/hsr_framereg.c
+index f893ec8..de0eb8b 100644
+--- a/net/hsr/hsr_framereg.c
++++ b/net/hsr/hsr_framereg.c
+@@ -153,9 +153,10 @@ struct hsr_node *hsr_add_node(struct list_head *node_db, unsigned char addr[],
+ 
+ /* Get the hsr_node from which 'skb' was sent.
+  */
+-struct hsr_node *hsr_get_node(struct list_head *node_db, struct sk_buff *skb,
++struct hsr_node *hsr_get_node(struct hsr_port *port, struct sk_buff *skb,
+ 			      bool is_sup)
+ {
++	struct list_head *node_db = &port->hsr->node_db;
+ 	struct hsr_node *node;
+ 	struct ethhdr *ethhdr;
+ 	u16 seq_out;
+@@ -181,7 +182,11 @@ struct hsr_node *hsr_get_node(struct list_head *node_db, struct sk_buff *skb,
+ 		 */
+ 		seq_out = hsr_get_skb_sequence_nr(skb) - 1;
+ 	} else {
+-		WARN_ONCE(1, "%s: Non-HSR frame\n", __func__);
++		/* this is called also for frames from master port and
++		 * so warn only for non master ports
++		 */
++		if (port->type != HSR_PT_MASTER)
++			WARN_ONCE(1, "%s: Non-HSR frame\n", __func__);
+ 		seq_out = HSR_SEQNR_START;
+ 	}
+ 
+diff --git a/net/hsr/hsr_framereg.h b/net/hsr/hsr_framereg.h
+index 438b40f..4e04f0e 100644
+--- a/net/hsr/hsr_framereg.h
++++ b/net/hsr/hsr_framereg.h
+@@ -18,7 +18,7 @@
+ 
+ struct hsr_node *hsr_add_node(struct list_head *node_db, unsigned char addr[],
+ 			      u16 seq_out);
+-struct hsr_node *hsr_get_node(struct list_head *node_db, struct sk_buff *skb,
++struct hsr_node *hsr_get_node(struct hsr_port *port, struct sk_buff *skb,
+ 			      bool is_sup);
+ void hsr_handle_sup_frame(struct sk_buff *skb, struct hsr_node *node_curr,
+ 			  struct hsr_port *port);
 -- 
-2.1.4
+1.9.1
