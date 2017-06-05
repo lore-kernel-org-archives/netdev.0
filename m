@@ -1,48 +1,28 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH v1 1/2] net: emac: fix reset timeout with AR8035 phy
-Date: Mon, 5 Jun 2017 23:48:57 +0200
-Message-ID: <20170605214857.GB12386@lunn.ch>
-References: <635dd014238af6f48c4169439b7ac161e80de1b7.1496695540.git.chunkeey@googlemail.com>
- <20170605212617.GC9339@lunn.ch>
- <21110017.iteKCRmsvN@debian64>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH v2 0/6] Add phylib support for MV88X3310 10G phy
+Date: Mon, 05 Jun 2017 17:53:49 -0400 (EDT)
+Message-ID: <20170605.175349.2249787160106160389.davem@davemloft.net>
+References: <20170601102327.GF27796@n2100.armlinux.org.uk>
+        <20170605112203.GA10680@n2100.armlinux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, "David S . Miller" <davem@davemloft.net>,
-        Ivan Mikhaylov <ivan@de.ibm.com>,
-        Chris Blake <chrisrblake93@gmail.com>
-To: Christian Lamparter <chunkeey@googlemail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:37123 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751216AbdFEVs7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 5 Jun 2017 17:48:59 -0400
-Content-Disposition: inline
-In-Reply-To: <21110017.iteKCRmsvN@debian64>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: andrew-g2DYL2Zd6BY@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        mark.rutland-5wv7dgnIgG8@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
+To: linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170605112203.GA10680-l+eeeJia6m9URfEZ8mYm6t73F7V6hmMc@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jun 05, 2017 at 11:44:46PM +0200, Christian Lamparter wrote:
-> On Monday, June 5, 2017 11:26:17 PM CEST Andrew Lunn wrote:
-> > > In order to stay compatible with existing configurations, the
-> > > driver will try the normal reset first and only falls back to
-> > > to the internal clock, after the first reset fails. If the
-> > > second reset fails as well, it will give up as before.
-> > 
-> > Hi Christian
-> > 
-> > This gets things probed correctly. But should you swap back to the PHY
-> > clock when the PHY declares the link up? Is there code already to do
-> > this?
-> > 
-> > 	Andrew
-> > 
-> Oh, sorry. I omitted this from the commit message. But the proposed 
-> emac_reset() code  switched to the internal clock only after the first attempt
-> has failed AND only for the duration of the reset.
-> 
-> If the reset succeeds or the reset times out, the clock is always switched 
-> back to the external clock.
+From: Russell King - ARM Linux <linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>
+Date: Mon, 5 Jun 2017 12:22:03 +0100
 
-Thanks for the clarification. Maybe add it to the commit message.
+> This patch series adds support for the Marvell 88x3310 PHY found on
+> the SolidRun Macchiatobin board.
 
-       Andrew
+Series applied, thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
