@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 3/6] mlxsw: pci: Fix size of trap_id field in CQE
-Date: Mon,  5 Jun 2017 16:38:29 +0200
-Message-ID: <20170605143832.7025-4-jiri@resnulli.us>
+Subject: [patch net-next 6/6] spectrum_flower: Implement gact trap TC action offload
+Date: Mon,  5 Jun 2017 16:38:32 +0200
+Message-ID: <20170605143832.7025-7-jiri@resnulli.us>
 References: <20170605143832.7025-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
         edumazet@google.com, alexander.h.duyck@intel.com,
@@ -9,41 +9,41 @@ Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
         mlxsw@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:33005 "EHLO
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:34881 "EHLO
         mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751373AbdFEOik (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 5 Jun 2017 10:38:40 -0400
-Received: by mail-wm0-f67.google.com with SMTP id x3so2973314wme.0
-        for <netdev@vger.kernel.org>; Mon, 05 Jun 2017 07:38:39 -0700 (PDT)
+        with ESMTP id S1751272AbdFEOiu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 5 Jun 2017 10:38:50 -0400
+Received: by mail-wm0-f67.google.com with SMTP id g15so30165999wmc.2
+        for <netdev@vger.kernel.org>; Mon, 05 Jun 2017 07:38:49 -0700 (PDT)
 In-Reply-To: <20170605143832.7025-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-The "trap_id" is 9bits long. So far, this was not a problem since we
-used only traps with ids that fit into 8bits. But the ACL traps that are
-going to be introduced use the 9th bit.
+Just use the previously prepared infrastructure and offload the gact
+trap action to ACL.
 
-Fixes: eda6500a987a ("mlxsw: Add PCI bus implementation")
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 Reviewed-by: Yotam Gigi <yotamg@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/pci_hw.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/mellanox/mlxsw/spectrum_flower.c | 4 ++++
+ 1 file changed, 4 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/pci_hw.h b/drivers/net/ethernet/mellanox/mlxsw/pci_hw.h
-index 0af3338..a644120 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/pci_hw.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/pci_hw.h
-@@ -155,7 +155,7 @@ MLXSW_ITEM32(pci, cqe, byte_count, 0x04, 0, 14);
- /* pci_cqe_trap_id
-  * Trap ID that captured the packet.
-  */
--MLXSW_ITEM32(pci, cqe, trap_id, 0x08, 0, 8);
-+MLXSW_ITEM32(pci, cqe, trap_id, 0x08, 0, 9);
- 
- /* pci_cqe_crc
-  * Length include CRC. Indicates the length field includes
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_flower.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_flower.c
+index 13af8e3..21bb2bf 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_flower.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_flower.c
+@@ -67,6 +67,10 @@ static int mlxsw_sp_flower_parse_actions(struct mlxsw_sp *mlxsw_sp,
+ 			err = mlxsw_sp_acl_rulei_act_drop(rulei);
+ 			if (err)
+ 				return err;
++		} else if (is_tcf_gact_trap(a)) {
++			err = mlxsw_sp_acl_rulei_act_trap(rulei);
++			if (err)
++				return err;
+ 		} else if (is_tcf_mirred_egress_redirect(a)) {
+ 			int ifindex = tcf_mirred_ifindex(a);
+ 			struct net_device *out_dev;
 -- 
 2.9.3
