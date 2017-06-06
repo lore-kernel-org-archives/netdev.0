@@ -1,105 +1,102 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] ravb: Fix use-after-free on `ifconfig eth0 down`
-Date: Tue, 6 Jun 2017 12:35:30 +0300
-Message-ID: <eaf9aa22-9087-977b-b048-3d1906176d1a@cogentembedded.com>
-References: <20170605220810.3933-1-erosca@de.adit-jv.com>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: Re: [PATCH] of_mdio: Fix broken PHY IRQ in case of probe deferral
+Date: Tue, 6 Jun 2017 11:43:22 +0200
+Message-ID: <CAMuHMdUt6yOQ9=02z_7WG58YGxFYD=_zn7SeLEqGmfTrNBFJXw@mail.gmail.com>
+References: <1495112345-24795-1-git-send-email-geert+renesas@glider.be>
+ <f0ed61c3-062b-cec6-fe19-7412231e8ef1@gmail.com> <CAMuHMdWYeSzofU57LmT_M3KkcHhvjfJy7nkHvcXkKzOYmvhqqA@mail.gmail.com>
+ <20170518193453.GB13759@lunn.ch> <CAMuHMdV+jfh=EGt3SvjtrtVfWQ6P8ofp_JxeQZjRrSEfDWs5hA@mail.gmail.com>
+ <08a89dd5-b707-8b8f-b8e1-e20b9ed630b7@gmail.com> <CAMuHMdWWfaP8=H7H+UzrmOYpydi2mGLFGzuk9FQWJtEOug6u5g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org
-To: Eugeniu Rosca <erosca@de.adit-jv.com>, davem@davemloft.net,
-        horms+renesas@verge.net.au, kazuya.mizuguchi.ks@renesas.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f49.google.com ([209.85.215.49]:35145 "EHLO
-        mail-lf0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751383AbdFFJfd (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 6 Jun 2017 05:35:33 -0400
-Received: by mail-lf0-f49.google.com with SMTP id p189so17525266lfe.2
-        for <netdev@vger.kernel.org>; Tue, 06 Jun 2017 02:35:32 -0700 (PDT)
-In-Reply-To: <20170605220810.3933-1-erosca@de.adit-jv.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Andrew Lunn <andrew@lunn.ch>,
+        Geert Uytterhoeven <geert+renesas@glider.be>,
+        Rob Herring <robh+dt@kernel.org>,
+        Frank Rowand <frowand.list@gmail.com>,
+        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+        Linux-Renesas <linux-renesas-soc@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAMuHMdWWfaP8=H7H+UzrmOYpydi2mGLFGzuk9FQWJtEOug6u5g@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello!
+Hi Florian,
 
-On 6/6/2017 1:08 AM, Eugeniu Rosca wrote:
-
-> Commit a47b70ea86bd ("ravb: unmap descriptors when freeing rings") has
-> introduced the issue seen in [1] reproduced on H3ULCB board.
+On Tue, May 23, 2017 at 11:36 AM, Geert Uytterhoeven
+<geert@linux-m68k.org> wrote:
+> On Fri, May 19, 2017 at 12:21 AM, Florian Fainelli <f.fainelli@gmail.com> wrote:
+>> On 05/18/2017 01:36 PM, Geert Uytterhoeven wrote:
+>>> On Thu, May 18, 2017 at 9:34 PM, Andrew Lunn <andrew@lunn.ch> wrote:
+>>>>>> This most certainly works fine in the simple case where you have one PHY
+>>>>>> hanging off the MDIO bus, now what happens if you have several?
+>>>>>>
+>>>>>> Presumably, the first PHY that returns EPROBE_DEFER will make the entire
+>>>>>> bus registration return EPROB_DEFER as well, and so on, and so forth,
+>>>>>> but I am not sure if we will be properly unwinding the successful
+>>>>>> registration of PHYs that either don't have an interrupt, or did not
+>>>>>> return EPROBE_DEFER.
+>>>>>>
+>>>>>> It should be possible to mimic this behavior by using the fixed PHY, and
+>>>>>> possibly the dsa_loop.c driver which would create 4 ports, expecting 4
+>>>>>> fixed PHYs to be present.
+>>>>>
+>>>>> mdiobus_unregister(), called from of_mdiobus_register() on failure,
+>>>>> should do the unwinding, right?
+>>>>>
+>>>>> And when the driver is reprobed, all PHYs are reprobed, until they all
+>>>>> succeed.
+>>>>
+>>>> That is the theory. I looked at that while reviewing the patch. But
+>>>> this has probably not been tested in anger. It would be good to test
+>>>> this properly, with not just the first PHY returning -EPROBE_DEFER, to
+>>>> really test the unwind.
+>>>
+>>> Unfortunately I don't have a board with multiple PHYs, so I cannot test
+>>> that case.
 >
-> Fix this by relocating the RX skb ringbuffer free operation, so that
-> swiotlb page unmapping can be done first. Freeing of aligned TX buffers
-> is not relevant to the issue seen in [1]. Still, reposition TX free
-> calls as well, to have all kfree() operations performed consistently
-> _after_ dma_unmap_*()/dma_free_*().
+> I tried adding a few dummy PHYs in DT, but that didn't work.
+>
+> So how can we proceed?
+>
+> I think the only way my patch can cause issues is because some systems
+> may rely on EPROBE_DEFER errors being ignored.
+>
+>>> Does unbinding/rebinding a network driver with multiple PHYs currently
+>>> work? Or module unload/reload?
+>>
+>> Usually there is a strict 1:1 mapping between a network device (not
+>> driver) and a PHY device, switch drivers however, would have multiple
+>> PHYs (one per port, aka net_deice).
+>>
+>> NB: binding and unbinding of PHYs is pretty broken at the moment though,
+>> because there is a complete disconnect between what the Ethernet MAC
+>> expects, and the state in which the PHY is. I had some patches to fix
+>> that, but this turned out to be playing whack-a-mole which I typically
+>> suck at.
+>
+> I didn't mean unbinding the PHY, but the network device.
+> Don't you have the same issue with the state of PHYs as left by the bootloader?
 
-    Perhaps it's a material of a separate cleanup patch?
+Anyone who can test the behavior on an Ethernet device with multiple PHYs,
+e.g. by faking an -EPROBE_DEFER somewhere in the middle?
 
-> [1] Console screenshot with the problem reproduced:
->
-> salvator-x login: root
-> root@salvator-x:~# ifconfig eth0 up
-> Micrel KSZ9031 Gigabit PHY e6800000.ethernet-ffffffff:00: \
->        attached PHY driver [Micrel KSZ9031 Gigabit PHY]   \
->        (mii_bus:phy_addr=e6800000.ethernet-ffffffff:00, irq=235)
-> IPv6: ADDRCONF(NETDEV_UP): eth0: link is not ready
-> root@salvator-x:~#
-> root@salvator-x:~# ifconfig eth0 down
-> ==================================================================
-> BUG: KASAN: use-after-free in swiotlb_tbl_unmap_single+0xc4/0x35c
-> Write of size 1538 at addr ffff8006d884f780 by task ifconfig/1649
->
-> CPU: 0 PID: 1649 Comm: ifconfig Not tainted 4.12.0-rc4-00004-g112eb07287d1 #32
-> Hardware name: Renesas H3ULCB board based on r8a7795 (DT)
-> Call trace:
-> [<ffff20000808f11c>] dump_backtrace+0x0/0x3a4
-> [<ffff20000808f4d4>] show_stack+0x14/0x1c
-> [<ffff20000865970c>] dump_stack+0xf8/0x150
-> [<ffff20000831f8b0>] print_address_description+0x7c/0x330
-> [<ffff200008320010>] kasan_report+0x2e0/0x2f4
-> [<ffff20000831eac0>] check_memory_region+0x20/0x14c
-> [<ffff20000831f054>] memcpy+0x48/0x68
-> [<ffff20000869ed50>] swiotlb_tbl_unmap_single+0xc4/0x35c
-> [<ffff20000869fcf4>] unmap_single+0x90/0xa4
-> [<ffff20000869fd14>] swiotlb_unmap_page+0xc/0x14
-> [<ffff2000080a2974>] __swiotlb_unmap_page+0xcc/0xe4
-> [<ffff2000088acdb8>] ravb_ring_free+0x514/0x870
-> [<ffff2000088b25dc>] ravb_close+0x288/0x36c
-> [<ffff200008aaf8c4>] __dev_close_many+0x14c/0x174
-> [<ffff200008aaf9b4>] __dev_close+0xc8/0x144
-> [<ffff200008ac2100>] __dev_change_flags+0xd8/0x194
-> [<ffff200008ac221c>] dev_change_flags+0x60/0xb0
-> [<ffff200008ba2dec>] devinet_ioctl+0x484/0x9d4
-> [<ffff200008ba7b78>] inet_ioctl+0x190/0x194
-> [<ffff200008a78c44>] sock_do_ioctl+0x78/0xa8
-> [<ffff200008a7a128>] sock_ioctl+0x110/0x3c4
-> [<ffff200008365a70>] vfs_ioctl+0x90/0xa0
-> [<ffff200008365dbc>] do_vfs_ioctl+0x148/0xc38
-> [<ffff2000083668f0>] SyS_ioctl+0x44/0x74
-> [<ffff200008083770>] el0_svc_naked+0x24/0x28
->
-> The buggy address belongs to the page:
-> page:ffff7e001b6213c0 count:0 mapcount:0 mapping:          (null) index:0x0
-> flags: 0x4000000000000000()
-> raw: 4000000000000000 0000000000000000 0000000000000000 00000000ffffffff
-> raw: 0000000000000000 ffff7e001b6213e0 0000000000000000 0000000000000000
-> page dumped because: kasan: bad access detected
->
-> Memory state around the buggy address:
->  ffff8006d884f680: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
->  ffff8006d884f700: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
->> ffff8006d884f780: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
->                    ^
->  ffff8006d884f800: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
->  ffff8006d884f880: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
-> ==================================================================
-> Disabling lock debugging due to kernel taint
-> root@salvator-x:~#
->
-> Fixes: a47b70ea86bd ("ravb: unmap descriptors when freeing rings")
-> Signed-off-by: Eugeniu Rosca <erosca@de.adit-jv.com>
-[...]
+I'd like to get this issue fixed in v4.13, to avoid a regression when migrating
+several systems to a new and better clock driver in v4.14, which will trigger
+EPROBE_DEFER.
 
-Acked-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Thanks!
 
-MBR, Sergei
+Gr{oetje,eeting}s,
+
+                        Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+                                -- Linus Torvalds
