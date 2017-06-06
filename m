@@ -1,106 +1,82 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 05/11] igb: avoid permanent lock of *_PTP_TX_IN_PROGRESS
-Date: Tue,  6 Jun 2017 01:58:03 -0700
-Message-ID: <20170606085809.78571-6-jeffrey.t.kirsher@intel.com>
-References: <20170606085809.78571-1-jeffrey.t.kirsher@intel.com>
-Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
-        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 00/11][pull request] 1GbE Intel Wired LAN Driver Updates 2017-06-06
+Date: Tue,  6 Jun 2017 01:57:58 -0700
+Message-ID: <20170606085809.78571-1-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga03.intel.com ([134.134.136.65]:20068 "EHLO mga03.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751423AbdFFI6Q (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 6 Jun 2017 04:58:16 -0400
-In-Reply-To: <20170606085809.78571-1-jeffrey.t.kirsher@intel.com>
+        id S1751243AbdFFI6O (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 6 Jun 2017 04:58:14 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jacob Keller <jacob.e.keller@intel.com>
+This series contains updates and fixes to e1000e and igb.
 
-The igb driver uses a state bit lock to avoid handling more than one Tx
-timestamp request at once. This is required because hardware is limited
-to a single set of registers for Tx timestamps.
+Matwey V Kornilov fixes an issue where igb_get_phy_id_82575() relies on
+the fact that page 0 is already selected, but this is not the case after
+igb_read_phy_reg_gs40g()/igb_write_phy_reg_gs40g() were removed in a
+previous commit.  This leads to initialization failure and some devices
+not working.  To fix the issue, explicitly select page 0 before first
+access to PHY registers.
 
-The state bit lock is not properly cleaned up during
-igb_xmit_frame_ring() if the transmit fails such as due to DMA or TSO
-failure. In some hardware this results in blocking timestamps until the
-service task times out. In other hardware this results in a permanent
-lock of the timestamp bit because we never receive an interrupt
-indicating the timestamp occurred, since indeed the packet was never
-transmitted.
+Arnd Bergmann modifies the driver to avoid a "defined but not used"
+warning by removing #ifdefs and using __maybe_unused annotation instead
+for new power management functions.
 
-Fix this by checking for DMA and TSO errors in igb_xmit_frame_ring() and
-properly cleaning up after ourselves when these occur.
+Jake provides most of the changes in the series, all around PTP and
+timestamp fixes/updates.  Resolved several race conditions based on
+the hardware can only handle one transmit timestamp at a time, so
+fix the locking logic, as well as create a statistic for "skipped"
+timestamps to help administrators identify issues.
 
-Reported-by: Reported-by: David Mirabito <davidm@metamako.com>
-Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/igb/igb_main.c | 23 ++++++++++++++++++-----
- 1 file changed, 18 insertions(+), 5 deletions(-)
+Benjamin Poirier provides 2 changes, first to igb to remove the
+second argument to igb_update_stats() since it always passes the
+same two arguments.  So instead of having to pass the second argument,
+just update the function to the necessary information from the adapter
+structure.  Second modifies the e1000e_get_stats64() call to
+dev_get_stats() to avoid ethtool garbage being reported.
 
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index 2d5bdb1fd37d..fefa46120cbc 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -5197,9 +5197,9 @@ static inline int igb_maybe_stop_tx(struct igb_ring *tx_ring, const u16 size)
- 	return __igb_maybe_stop_tx(tx_ring, size);
- }
- 
--static void igb_tx_map(struct igb_ring *tx_ring,
--		       struct igb_tx_buffer *first,
--		       const u8 hdr_len)
-+static int igb_tx_map(struct igb_ring *tx_ring,
-+		      struct igb_tx_buffer *first,
-+		      const u8 hdr_len)
- {
- 	struct sk_buff *skb = first->skb;
- 	struct igb_tx_buffer *tx_buffer;
-@@ -5310,7 +5310,7 @@ static void igb_tx_map(struct igb_ring *tx_ring,
- 		 */
- 		mmiowb();
- 	}
--	return;
-+	return 0;
- 
- dma_error:
- 	dev_err(tx_ring->dev, "TX DMA map failed\n");
-@@ -5341,6 +5341,8 @@ static void igb_tx_map(struct igb_ring *tx_ring,
- 	tx_buffer->skb = NULL;
- 
- 	tx_ring->next_to_use = i;
-+
-+	return -1;
- }
- 
- netdev_tx_t igb_xmit_frame_ring(struct sk_buff *skb,
-@@ -5406,13 +5408,24 @@ netdev_tx_t igb_xmit_frame_ring(struct sk_buff *skb,
- 	else if (!tso)
- 		igb_tx_csum(tx_ring, first);
- 
--	igb_tx_map(tx_ring, first, hdr_len);
-+	if (igb_tx_map(tx_ring, first, hdr_len))
-+		goto cleanup_tx_tstamp;
- 
- 	return NETDEV_TX_OK;
- 
- out_drop:
- 	dev_kfree_skb_any(first->skb);
- 	first->skb = NULL;
-+cleanup_tx_tstamp:
-+	if (unlikely(tx_flags & IGB_TX_FLAGS_TSTAMP)) {
-+		struct igb_adapter *adapter = netdev_priv(tx_ring->netdev);
-+
-+		dev_kfree_skb_any(adapter->ptp_tx_skb);
-+		adapter->ptp_tx_skb = NULL;
-+		if (adapter->hw.mac.type == e1000_82576)
-+			cancel_work_sync(&adapter->ptp_tx_work);
-+		clear_bit_unlock(__IGB_PTP_TX_IN_PROGRESS, &adapter->state);
-+	}
- 
- 	return NETDEV_TX_OK;
- }
+Konstantin Khlebnikov modifies e1000e to use disable_hardirq(), instead
+of disable_irq() for MSIx vectors in e1000_netpoll().
+
+The following are changes since commit 9d15e5cc8cb68326f7f89b76e04c834fe8e1a2db:
+  mdio: mux: fix an incorrect less than zero error check using a u32
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue 1GbE
+
+Arnd Bergmann (1):
+  igb: mark PM functions as __maybe_unused
+
+Benjamin Poirier (2):
+  igb: Remove useless argument
+  e1000e: Don't return uninitialized stats
+
+Jacob Keller (6):
+  e1000e: fix race condition around skb_tstamp_tx()
+  igb: fix race condition with PTP_TX_IN_PROGRESS bits
+  igb: avoid permanent lock of *_PTP_TX_IN_PROGRESS
+  e1000e: add statistic indicating number of skipped Tx timestamps
+  igb: add statistic indicating number of skipped Tx timestamps
+  igb: check for Tx timestamp timeouts during watchdog
+
+Konstantin Khlebnikov (1):
+  e1000e: use disable_hardirq() also for MSIX vectors in e1000_netpoll()
+
+Matwey V Kornilov (1):
+  igb: Explicitly select page 0 at initialization
+
+ drivers/net/ethernet/intel/e1000e/e1000.h    |  1 +
+ drivers/net/ethernet/intel/e1000e/ethtool.c  |  3 +-
+ drivers/net/ethernet/intel/e1000e/netdev.c   | 39 ++++++++++++--------
+ drivers/net/ethernet/intel/igb/e1000_82575.c |  1 +
+ drivers/net/ethernet/intel/igb/igb.h         |  4 ++-
+ drivers/net/ethernet/intel/igb/igb_ethtool.c |  3 +-
+ drivers/net/ethernet/intel/igb/igb_main.c    | 54 ++++++++++++++++------------
+ drivers/net/ethernet/intel/igb/igb_ptp.c     | 41 +++++++++++++++++++--
+ 8 files changed, 103 insertions(+), 43 deletions(-)
+
 -- 
 2.12.2
