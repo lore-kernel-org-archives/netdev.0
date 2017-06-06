@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 2/5] net: dsa: check VLAN capability of every switch
-Date: Tue,  6 Jun 2017 16:56:28 -0400
-Message-ID: <20170606205631.22880-3-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 4/5] net: dsa: mv88e6xxx: exclude all ports in new VLAN
+Date: Tue,  6 Jun 2017 16:56:30 -0400
+Message-ID: <20170606205631.22880-5-vivien.didelot@savoirfairelinux.com>
 References: <20170606205631.22880-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
@@ -14,78 +14,35 @@ In-Reply-To: <20170606205631.22880-1-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Now that the VLAN object is propagated to every switch chip of the
-switch fabric, we can easily ensure that they all support the required
-VLAN operations before modifying an entry on a single switch.
+Now that the DSA core adds the CPU and DSA ports itself to the new VLAN
+entry, there is no need to include them as members of this VLAN when
+initializing a new VTU entry.
 
-To achieve that, remove the condition skipping other target switches,
-and add a bitmap of VLAN members, eventually containing the target port,
-if we are programming the switch target.
-
-This will allow us to easily add other VLAN members, such as the DSA or
-CPU ports (to introduce cross-chip VLAN support) or the other port
-members if we want to reduce hardware accesses later.
+As of now, initialize a new VTU entry with all ports excluded.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- net/dsa/switch.c | 27 +++++++++++++++++----------
- 1 file changed, 17 insertions(+), 10 deletions(-)
+ drivers/net/dsa/mv88e6xxx/chip.c | 7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)
 
-diff --git a/net/dsa/switch.c b/net/dsa/switch.c
-index d8e5c311ee7c..f235ae1e9777 100644
---- a/net/dsa/switch.c
-+++ b/net/dsa/switch.c
-@@ -159,19 +159,27 @@ static int dsa_switch_vlan_add(struct dsa_switch *ds,
- {
- 	const struct switchdev_obj_port_vlan *vlan = info->vlan;
- 	struct switchdev_trans *trans = info->trans;
-+	DECLARE_BITMAP(members, ds->num_ports);
-+	int port, err;
+diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
+index 93078bbe3cb5..522f023bb17e 100644
+--- a/drivers/net/dsa/mv88e6xxx/chip.c
++++ b/drivers/net/dsa/mv88e6xxx/chip.c
+@@ -1159,11 +1159,10 @@ static int mv88e6xxx_vtu_get(struct mv88e6xxx_chip *chip, u16 vid,
+ 		entry->valid = true;
+ 		entry->vid = vid;
  
--	/* Do not care yet about other switch chips of the fabric */
--	if (ds->index != info->sw_index)
--		return 0;
-+	/* Build a mask of VLAN members */
-+	bitmap_zero(members, ds->num_ports);
-+	if (ds->index == info->sw_index)
-+		set_bit(info->port, members);
+-		/* Include only CPU and DSA ports */
++		/* Exclude all ports */
+ 		for (i = 0; i < mv88e6xxx_num_ports(chip); ++i)
+-			entry->member[i] = dsa_is_normal_port(chip->ds, i) ?
+-				GLOBAL_VTU_DATA_MEMBER_TAG_NON_MEMBER :
+-				GLOBAL_VTU_DATA_MEMBER_TAG_UNMODIFIED;
++			entry->member[i] =
++				GLOBAL_VTU_DATA_MEMBER_TAG_NON_MEMBER;
  
- 	if (switchdev_trans_ph_prepare(trans)) {
- 		if (!ds->ops->port_vlan_prepare || !ds->ops->port_vlan_add)
- 			return -EOPNOTSUPP;
- 
--		return ds->ops->port_vlan_prepare(ds, info->port, vlan, trans);
-+		for_each_set_bit(port, members, ds->num_ports) {
-+			err = ds->ops->port_vlan_prepare(ds, port, vlan, trans);
-+			if (err)
-+				return err;
-+		}
+ 		return mv88e6xxx_atu_new(chip, &entry->fid);
  	}
- 
--	ds->ops->port_vlan_add(ds, info->port, vlan, trans);
-+	for_each_set_bit(port, members, ds->num_ports)
-+		ds->ops->port_vlan_add(ds, port, vlan, trans);
- 
- 	return 0;
- }
-@@ -181,14 +189,13 @@ static int dsa_switch_vlan_del(struct dsa_switch *ds,
- {
- 	const struct switchdev_obj_port_vlan *vlan = info->vlan;
- 
--	/* Do not care yet about other switch chips of the fabric */
--	if (ds->index != info->sw_index)
--		return 0;
--
- 	if (!ds->ops->port_vlan_del)
- 		return -EOPNOTSUPP;
- 
--	return ds->ops->port_vlan_del(ds, info->port, vlan);
-+	if (ds->index == info->sw_index)
-+		return ds->ops->port_vlan_del(ds, info->port, vlan);
-+
-+	return 0;
- }
- 
- static int dsa_switch_event(struct notifier_block *nb,
 -- 
 2.13.0
