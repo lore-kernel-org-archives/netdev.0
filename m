@@ -1,63 +1,103 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] net: mvpp2: do not bypass the mvpp22_port_mii_set
- function
-Date: Tue, 6 Jun 2017 07:24:35 -0700
-Message-ID: <9ef70606-0918-fc4f-535b-dd1fc3475cb6@gmail.com>
-References: <20170606133615.20747-1-antoine.tenart@free-electrons.com>
- <20170606154535.3e87bafb@free-electrons.com>
- <20170606135148.GA22618@kwain.lan>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux@armlinux.org.uk,
-        gregory.clement@free-electrons.com, mw@semihalf.com,
-        davem@davemloft.net, linux-arm-kernel@lists.infradead.org
-To: Antoine Tenart <antoine.tenart@free-electrons.com>,
-        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: [PATCH net-next v2 1/3] net: factor out a helper to decrement the skb refcount
+Date: Tue,  6 Jun 2017 16:23:44 +0200
+Message-ID: <174c1f268a14be9a29c0fd4d153e8a576d44d818.1496756090.git.pabeni@redhat.com>
+References: <cover.1496756090.git.pabeni@redhat.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ot0-f196.google.com ([74.125.82.196]:33584 "EHLO
-        mail-ot0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751587AbdFFOYk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 6 Jun 2017 10:24:40 -0400
-Received: by mail-ot0-f196.google.com with SMTP id k4so2165066otd.0
-        for <netdev@vger.kernel.org>; Tue, 06 Jun 2017 07:24:39 -0700 (PDT)
-In-Reply-To: <20170606135148.GA22618@kwain.lan>
-Content-Language: en-US
+Received: from mx1.redhat.com ([209.132.183.28]:39520 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751604AbdFFOYu (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 6 Jun 2017 10:24:50 -0400
+In-Reply-To: <cover.1496756090.git.pabeni@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/06/2017 06:51 AM, Antoine Tenart wrote:
-> Hello Thomas,
-> 
-> On Tue, Jun 06, 2017 at 03:45:35PM +0200, Thomas Petazzoni wrote:
->> On Tue,  6 Jun 2017 15:36:15 +0200, Antoine Tenart wrote:
->>> The mvpp22_port_mii_set() function was added by 2697582144dd, but the
->>> function directly returns without doing anything. This return was used
->>> when debugging and wasn't removed before sending the patch. Fix this.
->>>
->>> Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
->>
->> Please add:
->>
->> Fixes: 2697582144dd ("net: mvpp2: handle misc PPv2.1/PPv2.2 differences")
->>
->> with this:
->>
->> Acked-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-> 
-> OK, will do.
-> 
->> I am wondering if we shouldn't Cc: stable as well. I don't think we
->> have seen issues on our side because U-Boot does the necessary
->> initialization, but people using other bootloaders might have issues.
-> 
-> Yes, that might be safer to cc stable. I'll do this as well.
+The same code is replicated in 3 different places; move it to a
+common helper.
 
-David queues network patches for stable provided that you submit those
-against his "net" tree [1] and there is an appropriate Fixes tag (which
-Thomas provided).
+Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+Acked-by: Eric Dumazet <edumazet@google.com>
+---
+ include/linux/skbuff.h | 13 +++++++++++++
+ net/core/datagram.c    |  4 +---
+ net/core/skbuff.c      | 14 ++++----------
+ 3 files changed, 18 insertions(+), 13 deletions(-)
 
-[1]:
-https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/networking/netdev-FAQ.txt#n114
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 45a59c1..3c25fca 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -867,6 +867,19 @@ static inline unsigned int skb_napi_id(const struct sk_buff *skb)
+ #endif
+ }
+ 
++/* decrement the reference count and return true if we can free the skb */
++static inline bool skb_unref(struct sk_buff *skb)
++{
++	if (unlikely(!skb))
++		return false;
++	if (likely(atomic_read(&skb->users) == 1))
++		smp_rmb();
++	else if (likely(!atomic_dec_and_test(&skb->users)))
++		return false;
++
++	return true;
++}
++
+ void kfree_skb(struct sk_buff *skb);
+ void kfree_skb_list(struct sk_buff *segs);
+ void skb_tx_error(struct sk_buff *skb);
+diff --git a/net/core/datagram.c b/net/core/datagram.c
+index bc46118..e5311a7 100644
+--- a/net/core/datagram.c
++++ b/net/core/datagram.c
+@@ -330,9 +330,7 @@ void __skb_free_datagram_locked(struct sock *sk, struct sk_buff *skb, int len)
+ {
+ 	bool slow;
+ 
+-	if (likely(atomic_read(&skb->users) == 1))
+-		smp_rmb();
+-	else if (likely(!atomic_dec_and_test(&skb->users))) {
++	if (!skb_unref(skb)) {
+ 		sk_peek_offset_bwd(sk, len);
+ 		return;
+ 	}
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 780b7c1..c81b828 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -694,12 +694,9 @@ EXPORT_SYMBOL(__kfree_skb);
+  */
+ void kfree_skb(struct sk_buff *skb)
+ {
+-	if (unlikely(!skb))
+-		return;
+-	if (likely(atomic_read(&skb->users) == 1))
+-		smp_rmb();
+-	else if (likely(!atomic_dec_and_test(&skb->users)))
++	if (!skb_unref(skb))
+ 		return;
++
+ 	trace_kfree_skb(skb, __builtin_return_address(0));
+ 	__kfree_skb(skb);
+ }
+@@ -746,12 +743,9 @@ EXPORT_SYMBOL(skb_tx_error);
+  */
+ void consume_skb(struct sk_buff *skb)
+ {
+-	if (unlikely(!skb))
+-		return;
+-	if (likely(atomic_read(&skb->users) == 1))
+-		smp_rmb();
+-	else if (likely(!atomic_dec_and_test(&skb->users)))
++	if (!skb_unref(skb))
+ 		return;
++
+ 	trace_consume_skb(skb);
+ 	__kfree_skb(skb);
+ }
 -- 
-Florian
+2.9.4
