@@ -1,35 +1,91 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next v2 3/3] udp: try to avoid 2 cache miss on
- dequeue
-Date: Tue, 06 Jun 2017 13:58:35 -0700
-Message-ID: <1496782715.736.14.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <cover.1496756090.git.pabeni@redhat.com>
-         <cdbe7b4e6758719d3e02938f05c8575d009e2822.1496756090.git.pabeni@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-        Eric Dumazet <edumazet@google.com>
-To: Paolo Abeni <pabeni@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:34178 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751247AbdFFU6h (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 6 Jun 2017 16:58:37 -0400
-Received: by mail-pf0-f193.google.com with SMTP id u1so503860pfg.1
-        for <netdev@vger.kernel.org>; Tue, 06 Jun 2017 13:58:37 -0700 (PDT)
-In-Reply-To: <cdbe7b4e6758719d3e02938f05c8575d009e2822.1496756090.git.pabeni@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 2/5] net: dsa: check VLAN capability of every switch
+Date: Tue,  6 Jun 2017 16:56:28 -0400
+Message-ID: <20170606205631.22880-3-vivien.didelot@savoirfairelinux.com>
+References: <20170606205631.22880-1-vivien.didelot@savoirfairelinux.com>
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170606205631.22880-1-vivien.didelot@savoirfairelinux.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2017-06-06 at 16:23 +0200, Paolo Abeni wrote:
-> when udp_recvmsg() is executed, on x86_64 and other archs, most skb
-> fields are on cold cachelines.
-> If the skb are linear and the kernel don't need to compute the udp
-> csum, only a handful of skb fields are required by udp_recvmsg().
-> Since we already use skb->dev_scratch to cache hot data, and
-> there are 32 bits unused on 64 bit archs, use such field to cache
-> as much data as we can, and try to prefetch on dequeue the relevant
-> fields that are left out.
+Now that the VLAN object is propagated to every switch chip of the
+switch fabric, we can easily ensure that they all support the required
+VLAN operations before modifying an entry on a single switch.
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+To achieve that, remove the condition skipping other target switches,
+and add a bitmap of VLAN members, eventually containing the target port,
+if we are programming the switch target.
+
+This will allow us to easily add other VLAN members, such as the DSA or
+CPU ports (to introduce cross-chip VLAN support) or the other port
+members if we want to reduce hardware accesses later.
+
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+---
+ net/dsa/switch.c | 27 +++++++++++++++++----------
+ 1 file changed, 17 insertions(+), 10 deletions(-)
+
+diff --git a/net/dsa/switch.c b/net/dsa/switch.c
+index d8e5c311ee7c..f235ae1e9777 100644
+--- a/net/dsa/switch.c
++++ b/net/dsa/switch.c
+@@ -159,19 +159,27 @@ static int dsa_switch_vlan_add(struct dsa_switch *ds,
+ {
+ 	const struct switchdev_obj_port_vlan *vlan = info->vlan;
+ 	struct switchdev_trans *trans = info->trans;
++	DECLARE_BITMAP(members, ds->num_ports);
++	int port, err;
+ 
+-	/* Do not care yet about other switch chips of the fabric */
+-	if (ds->index != info->sw_index)
+-		return 0;
++	/* Build a mask of VLAN members */
++	bitmap_zero(members, ds->num_ports);
++	if (ds->index == info->sw_index)
++		set_bit(info->port, members);
+ 
+ 	if (switchdev_trans_ph_prepare(trans)) {
+ 		if (!ds->ops->port_vlan_prepare || !ds->ops->port_vlan_add)
+ 			return -EOPNOTSUPP;
+ 
+-		return ds->ops->port_vlan_prepare(ds, info->port, vlan, trans);
++		for_each_set_bit(port, members, ds->num_ports) {
++			err = ds->ops->port_vlan_prepare(ds, port, vlan, trans);
++			if (err)
++				return err;
++		}
+ 	}
+ 
+-	ds->ops->port_vlan_add(ds, info->port, vlan, trans);
++	for_each_set_bit(port, members, ds->num_ports)
++		ds->ops->port_vlan_add(ds, port, vlan, trans);
+ 
+ 	return 0;
+ }
+@@ -181,14 +189,13 @@ static int dsa_switch_vlan_del(struct dsa_switch *ds,
+ {
+ 	const struct switchdev_obj_port_vlan *vlan = info->vlan;
+ 
+-	/* Do not care yet about other switch chips of the fabric */
+-	if (ds->index != info->sw_index)
+-		return 0;
+-
+ 	if (!ds->ops->port_vlan_del)
+ 		return -EOPNOTSUPP;
+ 
+-	return ds->ops->port_vlan_del(ds, info->port, vlan);
++	if (ds->index == info->sw_index)
++		return ds->ops->port_vlan_del(ds, info->port, vlan);
++
++	return 0;
+ }
+ 
+ static int dsa_switch_event(struct notifier_block *nb,
+-- 
+2.13.0
