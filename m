@@ -1,64 +1,51 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the net-next tree with the net tree
-Date: Tue, 6 Jun 2017 11:49:41 +1000
-Message-ID: <20170606114941.20a80fb0@canb.auug.org.au>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [RFC PATCH v2 14/17] net: skb_array: expose peek API
+Date: Tue, 6 Jun 2017 06:10:02 +0300
+Message-ID: <20170606060909-mutt-send-email-mst@kernel.org>
+References: <20170502153518.9304.17904.stgit@john-Precision-Tower-5810>
+ <20170502154032.9304.50203.stgit@john-Precision-Tower-5810>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Linux-Next Mailing List <linux-next@vger.kernel.org>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-To: David Miller <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: John Fastabend <john.fastabend@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:50038 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751194AbdFFDKH (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 5 Jun 2017 23:10:07 -0400
+Content-Disposition: inline
+In-Reply-To: <20170502154032.9304.50203.stgit@john-Precision-Tower-5810>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+On Tue, May 02, 2017 at 08:40:32AM -0700, John Fastabend wrote:
+> This adds a peek routine to skb_array.h for use with qdisc.
+> 
+> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+> ---
+>  include/linux/skb_array.h |    5 +++++
+>  1 file changed, 5 insertions(+)
+> 
+> diff --git a/include/linux/skb_array.h b/include/linux/skb_array.h
+> index f4dfade..33f1f0c 100644
+> --- a/include/linux/skb_array.h
+> +++ b/include/linux/skb_array.h
+> @@ -72,6 +72,11 @@ static inline bool __skb_array_empty(struct skb_array *a)
+>  	return !__ptr_ring_peek(&a->ring);
+>  }
+>  
+> +static inline struct sk_buff *skb_array_peek(struct skb_array *a)
+> +{
+> +	return __ptr_ring_peek(&a->ring);
+> +}
+> +
+>  static inline bool skb_array_empty(struct skb_array *a)
+>  {
+>  	return ptr_ring_empty(&a->ring);
 
-Today's linux-next merge of the net-next tree got a conflict in:
-
-  net/dsa/dsa2.c
-
-between commit:
-
-  b07ac9894644 ("net: dsa: Fix stale cpu_switch reference after unbind then bind")
-
-from the net tree and commits:
-
-  8b0d3ea55587 ("net: dsa: store CPU port pointer in the tree")
-  937c7df85ce7 ("net: dsa: Pass dsa_port reference to ethtool setup/restore")
-
-from the net-next tree.
-
-I fixed it up (I think (maybe it should be "dst->cpu_dp.ds = NULL"?) -
-see below) and can carry the fix as necessary. This is now fixed as far
-as linux-next is concerned, but any non trivial conflicts should be
-mentioned to your upstream maintainer when your tree is submitted for
-merging.  You may also want to consider cooperating with the maintainer
-of the conflicting tree to minimise any particularly complex conflicts.
+I think it's better to call this __skb_array_peek: the issue
+is that callers must be careful with it's use - see the comment
+near __ptr_ring_peek.
 
 -- 
-Cheers,
-Stephen Rothwell
-
-diff --cc net/dsa/dsa2.c
-index 7796580e99ee,cd13bb54a30c..000000000000
---- a/net/dsa/dsa2.c
-+++ b/net/dsa/dsa2.c
-@@@ -484,10 -474,8 +474,10 @@@ static void dsa_dst_unapply(struct dsa_
-  		dsa_ds_unapply(dst, ds);
-  	}
-  
-- 	if (dst->cpu_switch) {
-- 		dsa_cpu_port_ethtool_restore(dst->cpu_switch);
-- 		dst->cpu_switch = NULL;
- -	if (dst->cpu_dp)
-++	if (dst->cpu_dp) {
-+ 		dsa_cpu_port_ethtool_restore(dst->cpu_dp);
-++		dst->cpu_dp = NULL;
- +	}
-  
-  	pr_info("DSA: tree %d unapplied\n", dst->tree);
-  	dst->applied = false;
+MST
