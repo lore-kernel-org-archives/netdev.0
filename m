@@ -1,72 +1,54 @@
-From: Chenbo Feng <chenbofeng.kernel@gmail.com>
-Subject: Re: [PATCH net-next v2 2/2] bpf: Remove the capability check for
- cgroup skb eBPF program
-Date: Tue, 6 Jun 2017 15:44:22 -0700
-Message-ID: <92363e1c-09fe-b3dd-9852-e8bb68d1060f@gmail.com>
-References: <1496279760-20996-1-git-send-email-chenbofeng.kernel@gmail.com>
- <1496279760-20996-2-git-send-email-chenbofeng.kernel@gmail.com>
- <20170601234235.iwu55crijtxuq5mp@ast-mbp> <5936DEBD.2050401@iogearbox.net>
+From: Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [for-next 4/6] net/mlx5: FPGA, Add basic support for Innova
+Date: Tue, 6 Jun 2017 15:44:53 -0700
+Message-ID: <20170606224451.76732gjmf6vaetxx@ast-mbp>
+References: <20170606183457.fg7vgv2zji3fhlb5@ast-mbp.dhcp.thefacebook.com>
+ <20170606.143824.717466091308335341.davem@davemloft.net>
+ <20170606185532.2byjdonwsyan2asl@ast-mbp.dhcp.thefacebook.com>
+ <20170606.150151.1650636686526694540.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-        Lorenzo Colitti <lorenzo@google.com>,
-        Chenbo Feng <fengc@google.com>
-To: Daniel Borkmann <daniel@iogearbox.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:36731 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751436AbdFFWoY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 6 Jun 2017 18:44:24 -0400
-Received: by mail-pg0-f66.google.com with SMTP id v18so10854186pgb.3
-        for <netdev@vger.kernel.org>; Tue, 06 Jun 2017 15:44:24 -0700 (PDT)
-In-Reply-To: <5936DEBD.2050401@iogearbox.net>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org, ilant-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+        saeedm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org, dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        jsorensen-b10kYP2dOMg@public.gmane.org, andy.shevchenko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+        linux-fpga-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, yi1.li-VuQAYsv1563Yd54FQh9/CA@public.gmane.org,
+        borisp-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20170606.150151.1650636686526694540.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+On Tue, Jun 06, 2017 at 03:01:51PM -0400, David Miller wrote:
+> From: Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> Date: Tue, 6 Jun 2017 11:55:33 -0700
+> 
+> > If in the future mlx will make it into the nic in a way that
+> > encryption shares all memory management logic and there is no fpga
+> > at all then it indeed will be similar to tc offload. Right now it's
+> > not and needs different sw architecture.
+> 
+> If the visible effect is identical, I fundamentally disagree with you.
+> 
+> I don't care if there is a frog sitting on the PHY that transforms
+> the packets, it's all the same if the visible behavior is identical.
 
-On 06/06/2017 09:56 AM, Daniel Borkmann wrote:
-> On 06/02/2017 01:42 AM, Alexei Starovoitov wrote:
->> On Wed, May 31, 2017 at 06:16:00PM -0700, Chenbo Feng wrote:
->>> From: Chenbo Feng <fengc@google.com>
->>>
->>> Currently loading a cgroup skb eBPF program require a CAP_SYS_ADMIN
->>> capability while attaching the program to a cgroup only requires the
->>> user have CAP_NET_ADMIN privilege. We can escape the capability
->>> check when load the program just like socket filter program to make
->>> the capability requirement consistent.
->>>
->>> Change since v1:
->>> Change the code style in order to be compliant with checkpatch.pl
->>> preference
->>>
->>> Signed-off-by: Chenbo Feng <fengc@google.com>
->>
->> as far as I can see they're indeed the same as socket filters, so
->> Acked-by: Alexei Starovoitov <ast@kernel.org>
->>
->> but I don't quite understand how it helps, since as you said
->> attaching such unpriv fd to cgroup still requires root.
->> Do you have more patches to follow?
->
-> Hmm, when we relax this from capable(CAP_SYS_ADMIN) to unprivileged,
-> then we must at least also zero out the not-yet-initialized memory
-> for the mac header for egress case in __cgroup_bpf_run_filter_skb().
->
+that frog is a good example why we disagree.
+I need to check the pulse of that frog and last time it ate.
+In production I cannot have magical creatures do stuff for me.
+I need to monitor all components, debug and mitigate the issues.
+If encryption is done by the nic, I get all the monitoring and
+debugging as part of the standard tools. When it's a frog
+hidden by the nic, I cannot do much when the fire erupts,
+hence frog and production environment don't mix.
+To move things forward...
+how about marking the whole thing CONFIG_EXPERIMENTAL instead of revert?
+Right now it's effectively non-production==experimental code and
+I want to make it clear.
 
-Do you mean something like:
-
-if (type == BPF_CGROUP_INET_EGRESS) {
-
-         offset = skb_network_header(skb) - skb_mac_header(skb);
-
-         memset(skb_mac_header(skb), 0, offset)
-
-}
-
-And could you explain more on why we need to do this if we remove the 
-CAP_SYS_ADMIN check? I thought we still cannot directly access the 
-sk_buff without using bpf_skb_load_bytes helper and we still need a 
-CAP_NET_ADMIN in order to attach and run the program on egress side right?
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
