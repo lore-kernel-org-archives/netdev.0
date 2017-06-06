@@ -1,117 +1,222 @@
-From: Julian Wiedmann <jwi@linux.vnet.ibm.com>
-Subject: [PATCH net-next 1/9] s390/qeth: remove support for IPA_IP_FRAGMENTATION
-Date: Tue,  6 Jun 2017 14:33:42 +0200
-Message-ID: <20170606123350.13781-2-jwi@linux.vnet.ibm.com>
-References: <20170606123350.13781-1-jwi@linux.vnet.ibm.com>
-Cc: <netdev@vger.kernel.org>, <linux-s390@vger.kernel.org>,
-        Martin Schwidefsky <schwidefsky@de.ibm.com>,
-        Heiko Carstens <heiko.carstens@de.ibm.com>,
-        Stefan Raspl <raspl@linux.vnet.ibm.com>,
-        Ursula Braun <ubraun@linux.vnet.ibm.com>,
-        Julian Wiedmann <jwi@linux.vnet.ibm.com>
-To: David Miller <davem@davemloft.net>
+From: Arkadi Sharshevsky <arkadis@mellanox.com>
+Subject: Re: [patch net-next 02/19] net: bridge: Add support for offloading
+ port attributes
+Date: Tue, 6 Jun 2017 16:08:56 +0300
+Message-ID: <8625cccf-c274-9ffd-eeb2-85b2c4336c65@mellanox.com>
+References: <20170605092043.3523-1-jiri@resnulli.us>
+ <20170605092043.3523-3-jiri@resnulli.us>
+ <fc8c1046-d567-e668-ef14-618814af36db@cumulusnetworks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, idosch@mellanox.com, mlxsw@mellanox.com,
+        roopa@cumulusnetworks.com, stephen@networkplumber.org,
+        ivecera@redhat.com
+To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+        Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:54100 "EHLO
-        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1751305AbdFFMeA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 6 Jun 2017 08:34:00 -0400
-Received: from pps.filterd (m0098420.ppops.net [127.0.0.1])
-        by mx0b-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v56CXjdF020983
-        for <netdev@vger.kernel.org>; Tue, 6 Jun 2017 08:33:59 -0400
-Received: from e06smtp14.uk.ibm.com (e06smtp14.uk.ibm.com [195.75.94.110])
-        by mx0b-001b2d01.pphosted.com with ESMTP id 2awvdprda5-1
-        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Tue, 06 Jun 2017 08:33:59 -0400
-Received: from localhost
-        by e06smtp14.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-        for <netdev@vger.kernel.org> from <jwi@linux.vnet.ibm.com>;
-        Tue, 6 Jun 2017 13:33:58 +0100
-In-Reply-To: <20170606123350.13781-1-jwi@linux.vnet.ibm.com>
+Received: from mail-eopbgr50088.outbound.protection.outlook.com ([40.107.5.88]:61024
+        "EHLO EUR03-VE1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751305AbdFFNJ1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 6 Jun 2017 09:09:27 -0400
+In-Reply-To: <fc8c1046-d567-e668-ef14-618814af36db@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This Assist was never actually implemented in any hardware, so just
-remove the leftovers.
 
-Signed-off-by: Julian Wiedmann <jwi@linux.vnet.ibm.com>
-Reviewed-by: Hans Wippel <hwippel@linux.vnet.ibm.com>
-Reviewed-by: Thomas Richter <tmricht@linux.vnet.ibm.com>
----
- drivers/s390/net/qeth_core_main.c |  3 +--
- drivers/s390/net/qeth_core_mpc.h  |  2 +-
- drivers/s390/net/qeth_l3_main.c   | 26 --------------------------
- 3 files changed, 2 insertions(+), 29 deletions(-)
 
-diff --git a/drivers/s390/net/qeth_core_main.c b/drivers/s390/net/qeth_core_main.c
-index fc6d85f2b38d..dba7d00715e3 100644
---- a/drivers/s390/net/qeth_core_main.c
-+++ b/drivers/s390/net/qeth_core_main.c
-@@ -4199,8 +4199,7 @@ int qeth_change_mtu(struct net_device *dev, int new_mtu)
- 	sprintf(dbf_text, "%8x", new_mtu);
- 	QETH_CARD_TEXT(card, 4, dbf_text);
- 
--	if ((!qeth_is_supported(card, IPA_IP_FRAGMENTATION)) &&
--	    (!qeth_mtu_is_valid(card, new_mtu)))
-+	if (!qeth_mtu_is_valid(card, new_mtu))
- 		return -EINVAL;
- 	dev->mtu = new_mtu;
- 	return 0;
-diff --git a/drivers/s390/net/qeth_core_mpc.h b/drivers/s390/net/qeth_core_mpc.h
-index 4accb0a61ce0..45bbea2843bf 100644
---- a/drivers/s390/net/qeth_core_mpc.h
-+++ b/drivers/s390/net/qeth_core_mpc.h
-@@ -192,7 +192,7 @@ enum qeth_ipa_funcs {
- 	IPA_ARP_PROCESSING      = 0x00000001L,
- 	IPA_INBOUND_CHECKSUM    = 0x00000002L,
- 	IPA_OUTBOUND_CHECKSUM   = 0x00000004L,
--	IPA_IP_FRAGMENTATION    = 0x00000008L,
-+	/* RESERVED		= 0x00000008L,*/
- 	IPA_FILTERING           = 0x00000010L,
- 	IPA_IPV6                = 0x00000020L,
- 	IPA_MULTICASTING        = 0x00000040L,
-diff --git a/drivers/s390/net/qeth_l3_main.c b/drivers/s390/net/qeth_l3_main.c
-index d8df1e635163..ac8310fe2fb0 100644
---- a/drivers/s390/net/qeth_l3_main.c
-+++ b/drivers/s390/net/qeth_l3_main.c
-@@ -956,31 +956,6 @@ static int qeth_l3_start_ipa_arp_processing(struct qeth_card *card)
- 	return rc;
- }
- 
--static int qeth_l3_start_ipa_ip_fragmentation(struct qeth_card *card)
--{
--	int rc;
--
--	QETH_CARD_TEXT(card, 3, "ipaipfrg");
--
--	if (!qeth_is_supported(card, IPA_IP_FRAGMENTATION)) {
--		dev_info(&card->gdev->dev,
--			"Hardware IP fragmentation not supported on %s\n",
--			QETH_CARD_IFNAME(card));
--		return  -EOPNOTSUPP;
--	}
--
--	rc = qeth_send_simple_setassparms(card, IPA_IP_FRAGMENTATION,
--					  IPA_CMD_ASS_START, 0);
--	if (rc) {
--		dev_warn(&card->gdev->dev,
--			"Starting IP fragmentation support for %s failed\n",
--			QETH_CARD_IFNAME(card));
--	} else
--		dev_info(&card->gdev->dev,
--			"Hardware IP fragmentation enabled \n");
--	return rc;
--}
--
- static int qeth_l3_start_ipa_source_mac(struct qeth_card *card)
- {
- 	int rc;
-@@ -1171,7 +1146,6 @@ static int qeth_l3_start_ipassists(struct qeth_card *card)
- 	if (qeth_set_access_ctrl_online(card, 0))
- 		return -EIO;
- 	qeth_l3_start_ipa_arp_processing(card);	/* go on*/
--	qeth_l3_start_ipa_ip_fragmentation(card);	/* go on*/
- 	qeth_l3_start_ipa_source_mac(card);	/* go on*/
- 	qeth_l3_start_ipa_vlan(card);		/* go on*/
- 	qeth_l3_start_ipa_multicast(card);		/* go on*/
--- 
-2.11.2
+On 06/05/2017 04:29 PM, Nikolay Aleksandrov wrote:
+> On 05/06/17 12:20, Jiri Pirko wrote:
+>> From: Arkadi Sharshevsky <arkadis@mellanox.com>
+>>
+>> Currently the flood, learning and learning_sync port attributes are
+>> offloaded by setting the SELF flag. Add support for offloading the
+>> flood and learning attribute through the bridge code. In case of
+>> setting an unsupported flag on a offloded port the operation will
+>> fail.
+>>
+>> The learning_sync attribute doesn't have any software representation
+>> and cannot be offloaded through the bridge code.
+>>
+>> Signed-off-by: Arkadi Sharshevsky <arkadis@mellanox.com>
+>> Reviewed-by: Ido Schimmel <idosch@mellanox.com>
+>> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+>> ---
+>>  net/bridge/br_netlink.c | 112 +++++++++++++++++++++++++++++++++++++++---------
+>>  net/bridge/br_private.h |   4 ++
+>>  2 files changed, 96 insertions(+), 20 deletions(-)
+>>
+> 
+> Hi Arkadi,
+> A few comments below
+> 
+
+Hi Nikolay,
+Thank you very much for the review, will fix.
+
+>> diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
+>> index 1e63ec4..1afafb7 100644
+>> --- a/net/bridge/br_netlink.c
+>> +++ b/net/bridge/br_netlink.c
+>> @@ -17,6 +17,7 @@
+>>  #include <net/net_namespace.h>
+>>  #include <net/sock.h>
+>>  #include <uapi/linux/if_bridge.h>
+>> +#include <net/switchdev.h>
+>>  
+>>  #include "br_private.h"
+>>  #include "br_private_stp.h"
+>> @@ -662,16 +663,52 @@ static int br_set_port_state(struct net_bridge_port *p, u8 state)
+>>  }
+>>  
+>>  /* Set/clear or port flags based on attribute */
+>> -static void br_set_port_flag(struct net_bridge_port *p, struct nlattr *tb[],
+>> -			   int attrtype, unsigned long mask)
+>> +static int br_set_port_flag(struct net_bridge_port *p, struct nlattr *tb[],
+>> +			    int attrtype, unsigned long mask)
+>>  {
+>> -	if (tb[attrtype]) {
+>> -		u8 flag = nla_get_u8(tb[attrtype]);
+>> -		if (flag)
+>> -			p->flags |= mask;
+>> -		else
+>> -			p->flags &= ~mask;
+>> +	struct switchdev_attr attr = {
+>> +		.orig_dev = p->dev,
+>> +		.id = SWITCHDEV_ATTR_ID_PORT_BRIDGE_FLAGS_SUPPORT,
+>> +	};
+>> +	unsigned long flags;
+>> +	int err;
+>> +
+>> +	if (!tb[attrtype])
+>> +		return 0;
+>> +
+>> +	if (nla_get_u8(tb[attrtype]))
+>> +		flags = p->flags | mask;
+>> +	else
+>> +		flags = p->flags & ~mask;
+>> +
+>> +	if (mask & ~BR_PORT_FLAGS_HW_OFFLOAD)
+>> +		goto out;
+>> +
+>> +	err = switchdev_port_attr_get(p->dev, &attr);
+>> +	if (err == -EOPNOTSUPP)
+>> +		goto out;
+>> +	if (err)
+>> +		return err;
+>> +
+>> +	/* Check if specific bridge flag attribute offload is supported */
+>> +	if (!(attr.u.brport_flags_support & mask)) {
+>> +		br_warn(p->br, "bridge flag offload is not supported %u(%s)\n",
+>> +			(unsigned int)p->port_no, p->dev->name);
+>> +		return -EOPNOTSUPP;
+>> +	}
+>> +
+>> +	attr.id = SWITCHDEV_ATTR_ID_PORT_BRIDGE_FLAGS;
+>> +	attr.flags = SWITCHDEV_F_DEFER;
+>> +	attr.u.brport_flags = flags;
+>> +	err = switchdev_port_attr_set(p->dev, &attr);
+>> +	if (err) {
+>> +		br_warn(p->br, "error setting offload FLAG on port %u(%s)\n",
+> 
+> Why all caps (FLAG) ?
+> 
+>> +			(unsigned int)p->port_no, p->dev->name);
+>> +		return err;
+>>  	}
+> 
+> I think all of this switchdev-specific code should be contained into br_switchdev.c and
+> exported via some function. Anyone changing only the bridge can easily get confused.
+> 
+>> +out:
+>> +	p->flags = flags;
+>> +	return 0;
+>>  }
+>>  
+>>  /* Process bridge protocol info on port */
+>> @@ -681,20 +718,55 @@ static int br_setport(struct net_bridge_port *p, struct nlattr *tb[])
+>>  	bool br_vlan_tunnel_old = false;
+>>  	int err;
+>>  
+>> -	br_set_port_flag(p, tb, IFLA_BRPORT_MODE, BR_HAIRPIN_MODE);
+>> -	br_set_port_flag(p, tb, IFLA_BRPORT_GUARD, BR_BPDU_GUARD);
+>> -	br_set_port_flag(p, tb, IFLA_BRPORT_FAST_LEAVE, BR_MULTICAST_FAST_LEAVE);
+>> -	br_set_port_flag(p, tb, IFLA_BRPORT_PROTECT, BR_ROOT_BLOCK);
+>> -	br_set_port_flag(p, tb, IFLA_BRPORT_LEARNING, BR_LEARNING);
+>> -	br_set_port_flag(p, tb, IFLA_BRPORT_UNICAST_FLOOD, BR_FLOOD);
+>> -	br_set_port_flag(p, tb, IFLA_BRPORT_MCAST_FLOOD, BR_MCAST_FLOOD);
+>> -	br_set_port_flag(p, tb, IFLA_BRPORT_MCAST_TO_UCAST, BR_MULTICAST_TO_UNICAST);
+>> -	br_set_port_flag(p, tb, IFLA_BRPORT_BCAST_FLOOD, BR_BCAST_FLOOD);
+>> -	br_set_port_flag(p, tb, IFLA_BRPORT_PROXYARP, BR_PROXYARP);
+>> -	br_set_port_flag(p, tb, IFLA_BRPORT_PROXYARP_WIFI, BR_PROXYARP_WIFI);
+>> +	err = br_set_port_flag(p, tb, IFLA_BRPORT_MODE, BR_HAIRPIN_MODE);
+>> +	if (err)
+>> +		return err;
+>> +
+>> +	err = br_set_port_flag(p, tb, IFLA_BRPORT_GUARD, BR_BPDU_GUARD);
+>> +	if (err)
+>> +		return err;
+>> +
+>> +	err = br_set_port_flag(p, tb, IFLA_BRPORT_FAST_LEAVE, BR_MULTICAST_FAST_LEAVE);
+>> +	if (err)
+>> +		return err;
+>> +
+>> +	err = br_set_port_flag(p, tb, IFLA_BRPORT_PROTECT, BR_ROOT_BLOCK);
+>> +	if (err)
+>> +		return err;
+>> +
+>> +	err = br_set_port_flag(p, tb, IFLA_BRPORT_LEARNING, BR_LEARNING);
+>> +	if (err)
+>> +		return err;
+>> +
+>> +	err = br_set_port_flag(p, tb, IFLA_BRPORT_UNICAST_FLOOD, BR_FLOOD);
+>> +	if (err)
+>> +		return err;
+>> +
+>> +	err = br_set_port_flag(p, tb, IFLA_BRPORT_MCAST_FLOOD, BR_MCAST_FLOOD);
+>> +	if (err)
+>> +		return err;
+>> +
+>> +	err = br_set_port_flag(p, tb, IFLA_BRPORT_MCAST_TO_UCAST, BR_MULTICAST_TO_UNICAST);
+>> +	if (err)
+>> +		return err;
+>> +
+>> +	err = br_set_port_flag(p, tb, IFLA_BRPORT_BCAST_FLOOD, BR_BCAST_FLOOD);
+>> +	if (err)
+>> +		return err;
+>> +
+>> +	err = br_set_port_flag(p, tb, IFLA_BRPORT_PROXYARP, BR_PROXYARP);
+>> +	if (err)
+>> +		return err;
+>> +
+>> +	err = br_set_port_flag(p, tb, IFLA_BRPORT_PROXYARP_WIFI, BR_PROXYARP_WIFI);
+>> +	if (err)
+>> +		return err;
+>>  
+>>  	br_vlan_tunnel_old = (p->flags & BR_VLAN_TUNNEL) ? true : false;
+>> -	br_set_port_flag(p, tb, IFLA_BRPORT_VLAN_TUNNEL, BR_VLAN_TUNNEL);
+>> +	err = br_set_port_flag(p, tb, IFLA_BRPORT_VLAN_TUNNEL, BR_VLAN_TUNNEL);
+>> +	if (err)
+>> +		return err;
+>> +
+>>  	if (br_vlan_tunnel_old && !(p->flags & BR_VLAN_TUNNEL))
+>>  		nbp_vlan_tunnel_info_flush(p);
+>>  
+>> diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+>> index 2062692..5dc30ed 100644
+>> --- a/net/bridge/br_private.h
+>> +++ b/net/bridge/br_private.h
+>> @@ -42,6 +42,10 @@
+>>  /* Path to usermode spanning tree program */
+>>  #define BR_STP_PROG	"/sbin/bridge-stp"
+>>  
+>> +/* Flags that can be offloaded to hardware */
+>> +#define BR_PORT_FLAGS_HW_OFFLOAD (BR_LEARNING | BR_FLOOD | \
+>> +				  BR_MCAST_FLOOD | BR_BCAST_FLOOD)
+>> +
+>>  typedef struct bridge_id bridge_id;
+>>  typedef struct mac_addr mac_addr;
+>>  typedef __u16 port_id;
+>>
+> 
