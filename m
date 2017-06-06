@@ -1,38 +1,65 @@
-From: Michal Schmidt <mschmidt@redhat.com>
-Subject: [PATCH net] bnx2x: fix pf2vf bulletin DMA mapping leak
-Date: Tue,  6 Jun 2017 16:30:31 +0200
-Message-ID: <20170606143031.863-1-mschmidt@redhat.com>
-Cc: Yuval.Mintz@cavium.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:54496 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751418AbdFFOax (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 6 Jun 2017 10:30:53 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net] net: stmmac: fix completely hung TX when using TSO
+Date: Tue, 6 Jun 2017 07:31:23 -0700
+Message-ID: <284161d4-760f-0dd9-0363-c8e13750fba8@gmail.com>
+References: <20170606072501.16560-1-niklas.cassel@axis.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Niklas Cassel <niklass@axis.com>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Niklas Cassel <niklas.cassel@axis.com>,
+        Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+        Alexandre Torgue <alexandre.torgue@st.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170606072501.16560-1-niklas.cassel@axis.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-When freeing VF's DMA mappings, an already NULLed pointer was checked
-again due to an apparent copy&paste error. Consequently, the pf2vf
-bulletin DMA mapping was not freed.
 
-Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
-index bdfd53b46b..870ea001a7 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
-@@ -3042,7 +3042,7 @@ void bnx2x_vf_pci_dealloc(struct bnx2x *bp)
- {
- 	BNX2X_PCI_FREE(bp->vf2pf_mbox, bp->vf2pf_mbox_mapping,
- 		       sizeof(struct bnx2x_vf_mbx_msg));
--	BNX2X_PCI_FREE(bp->vf2pf_mbox, bp->pf2vf_bulletin_mapping,
-+	BNX2X_PCI_FREE(bp->pf2vf_bulletin, bp->pf2vf_bulletin_mapping,
- 		       sizeof(union pf_vf_bulletin));
- }
- 
+On 06/06/2017 12:25 AM, Niklas Cassel wrote:
+> stmmac_tso_allocator can fail to set the Last Descriptor bit
+> on a descriptor that actually was the last descriptor.
+> 
+> This happens when the buffer of the last descriptor ends
+> up having a size of exactly TSO_MAX_BUFF_SIZE.
+> 
+> When the IP eventually reaches the next last descriptor,
+> which actually has the bit set, the DMA will hang.
+> 
+> When the DMA hangs, we get a tx timeout, however,
+> since stmmac does not do a complete reset of the IP
+> in stmmac_tx_timeout, we end up in a state with
+> completely hung TX.
+> 
+> Signed-off-by: Niklas Cassel <niklas.cassel@axis.com>
+
+This should have:
+
+Fixes: f748be531d70 ("stmmac: support new GMAC4")
+
+right?
+
+> ---
+>  drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> index 68a188e74c54..440bea049a7f 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> @@ -2723,7 +2723,7 @@ static void stmmac_tso_allocator(struct stmmac_priv *priv, unsigned int des,
+>  
+>  		priv->hw->desc->prepare_tso_tx_desc(desc, 0, buff_size,
+>  			0, 1,
+> -			(last_segment) && (buff_size < TSO_MAX_BUFF_SIZE),
+> +			(last_segment) && (tmp_len <= TSO_MAX_BUFF_SIZE),
+>  			0, 0);
+>  
+>  		tmp_len -= TSO_MAX_BUFF_SIZE;
+> 
+
 -- 
-2.13.0
+Florian
