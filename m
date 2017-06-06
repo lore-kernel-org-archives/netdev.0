@@ -1,35 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH][V2] net: stmmac: ensure jumbo_frm error return is
- correctly checked for -ve value
-Date: Tue, 06 Jun 2017 15:14:34 -0400 (EDT)
-Message-ID: <20170606.151434.1826178347509987461.davem@davemloft.net>
-References: <20170605090452.30688-1-colin.king@canonical.com>
+Subject: Re: [PATCH] ppp: mppe: Use vsnprintf extension %phN
+Date: Tue, 06 Jun 2017 15:16:47 -0400 (EDT)
+Message-ID: <20170606.151647.343740453758118261.davem@davemloft.net>
+References: <80f51106926c82374f6555b54af71a674b8bf94e.1496665332.git.joe@perches.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
-        netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: colin.king@canonical.com
+Cc: paulus@samba.org, linux-ppp@vger.kernel.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: joe@perches.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170605090452.30688-1-colin.king@canonical.com>
+In-Reply-To: <80f51106926c82374f6555b54af71a674b8bf94e.1496665332.git.joe@perches.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Colin King <colin.king@canonical.com>
-Date: Mon,  5 Jun 2017 10:04:52 +0100
+From: Joe Perches <joe@perches.com>
+Date: Mon,  5 Jun 2017 05:22:50 -0700
 
-> From: Colin Ian King <colin.king@canonical.com>
+> Using this extension reduces the object size.
 > 
-> The current comparison of entry < 0 will never be true since entry is an
-> unsigned integer. Make entry an int to ensure -ve error return values
-> from the call to jumbo_frm are correctly being caught.
+> $ size drivers/net/ppp/ppp_mppe.o*
+>    text	   data	    bss	    dec	    hex	filename
+>    5683	    216	      8	   5907	   1713	drivers/net/ppp/ppp_mppe.o.new
+>    5808	    216	      8	   6032	   1790	drivers/net/ppp/ppp_mppe.o.old
 > 
-> Detected by CoverityScan, CID#1238760 ("Macro compares unsigned to 0")
-> 
-> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+> Signed-off-by: Joe Perches <joe@perches.com>
 
-I know Julia asked for more comments, but I'm going to apply this
-as-is for now as it is correct.
-
-Thanks Colin.
+Applied to net-next, thanks Joe.
