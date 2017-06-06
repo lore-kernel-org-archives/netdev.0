@@ -1,177 +1,30 @@
-From: Dave Watson <davejwatson@fb.com>
-Subject: [PATCH v2 net-next 4/4] tls: Documentation
-Date: Tue, 6 Jun 2017 10:02:02 -0700
-Message-ID: <20170606170202.GA19459@davejwatson-mba.local>
-References: <cover.1496767702.git.davejwatson@fb.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/9] s390/net updates
+Date: Tue, 06 Jun 2017 13:06:46 -0400 (EDT)
+Message-ID: <20170606.130646.351744100726961329.davem@davemloft.net>
+References: <20170606123350.13781-1-jwi@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        <nmav@gnutls.org>, <fridolin.pokorny@gmail.com>
-To: Ilya Lesokhin <ilyal@mellanox.com>,
-        Aviad Yehezkel <aviadye@mellanox.com>,
-        Boris Pismenny <borisp@mellanox.com>,
-        Liran Liss <liranl@mellanox.com>,
-        "Matan Barak" <matanb@mellanox.com>,
-        David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-        Tom Herbert <tom@herbertland.com>,
-        <herbert@gondor.apana.org.au>, <linux-crypto@vger.kernel.org>,
-        "Hannes Frederic Sowa" <hannes@stressinduktion.org>,
-        Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <cover.1496767702.git.davejwatson@fb.com>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
+        schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com,
+        raspl@linux.vnet.ibm.com, ubraun@linux.vnet.ibm.com
+To: jwi@linux.vnet.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:34558 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751614AbdFFRGy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 6 Jun 2017 13:06:54 -0400
+In-Reply-To: <20170606123350.13781-1-jwi@linux.vnet.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add documentation for the tcp ULP tls interface.
+From: Julian Wiedmann <jwi@linux.vnet.ibm.com>
+Date: Tue,  6 Jun 2017 14:33:41 +0200
 
-Signed-off-by: Boris Pismenny <borisp@mellanox.com>
-Signed-off-by: Dave Watson <davejwatson@fb.com>
----
- Documentation/networking/tls.txt | 135 +++++++++++++++++++++++++++++++++++++++
- 1 file changed, 135 insertions(+)
- create mode 100644 Documentation/networking/tls.txt
+> please apply the following qeth updates for net-next.
+> 
+> Aside from some janitorial changes, this adds early setup for virtualized
+> HiperSockets devices - building upon the code that landed via -net earlier.
 
-diff --git a/Documentation/networking/tls.txt b/Documentation/networking/tls.txt
-new file mode 100644
-index 0000000..77ed006
---- /dev/null
-+++ b/Documentation/networking/tls.txt
-@@ -0,0 +1,135 @@
-+Overview
-+========
-+
-+Transport Layer Security (TLS) is a Upper Layer Protocol (ULP) that runs over
-+TCP. TLS provides end-to-end data integrity and confidentiality.
-+
-+User interface
-+==============
-+
-+Creating a TLS connection
-+-------------------------
-+
-+First create a new TCP socket and set the TLS ULP.
-+
-+  sock = socket(AF_INET, SOCK_STREAM, 0);
-+  setsockopt(sock, SOL_TCP, TCP_ULP, "tls", sizeof("tls"));
-+
-+Setting the TLS ULP allows us to set/get TLS socket options. Currently
-+only the symmetric encryption is handled in the kernel.  After the TLS
-+handshake is complete, we have all the parameters required to move the
-+data-path to the kernel. There is a separate socket option for moving
-+the transmit and the receive into the kernel.
-+
-+  /* From linux/tls.h */
-+  struct tls_crypto_info {
-+          unsigned short version;
-+          unsigned short cipher_type;
-+  };
-+
-+  struct tls12_crypto_info_aes_gcm_128 {
-+          struct tls_crypto_info info;
-+          unsigned char iv[TLS_CIPHER_AES_GCM_128_IV_SIZE];
-+          unsigned char key[TLS_CIPHER_AES_GCM_128_KEY_SIZE];
-+          unsigned char salt[TLS_CIPHER_AES_GCM_128_SALT_SIZE];
-+          unsigned char rec_seq[TLS_CIPHER_AES_GCM_128_REC_SEQ_SIZE];
-+  };
-+
-+
-+  struct tls12_crypto_info_aes_gcm_128 crypto_info;
-+
-+  crypto_info.info.version = TLS_1_2_VERSION;
-+  crypto_info.info.cipher_type = TLS_CIPHER_AES_GCM_128;
-+  memcpy(crypto_info.iv, iv_write, TLS_CIPHER_AES_GCM_128_IV_SIZE);
-+  memcpy(crypto_info.rec_seq, seq_number_write,
-+					TLS_CIPHER_AES_GCM_128_REC_SEQ_SIZE);
-+  memcpy(crypto_info.key, cipher_key_write, TLS_CIPHER_AES_GCM_128_KEY_SIZE);
-+  memcpy(crypto_info.salt, implicit_iv_write, TLS_CIPHER_AES_GCM_128_SALT_SIZE);
-+
-+  setsockopt(sock, SOL_TLS, TLS_TX, &crypto_info, sizeof(crypto_info));
-+
-+Sending TLS application data
-+----------------------------
-+
-+After setting the TLS_TX socket option all application data sent over this
-+socket is encrypted using TLS and the parameters provided in the socket option.
-+For example, we can send an encrypted hello world record as follows:
-+
-+  const char *msg = "hello world\n";
-+  send(sock, msg, strlen(msg));
-+
-+send() data is directly encrypted from the userspace buffer provided
-+to the encrypted kernel send buffer if possible.
-+
-+The sendfile system call will send the file's data over TLS records of maximum
-+length (2^14).
-+
-+  file = open(filename, O_RDONLY);
-+  fstat(file, &stat);
-+  sendfile(sock, file, &offset, stat.st_size);
-+
-+TLS records are created and sent after each send() call, unless
-+MSG_MORE is passed.  MSG_MORE will delay creation of a record until
-+MSG_MORE is not passed, or the maximum record size is reached.
-+
-+The kernel will need to allocate a buffer for the encrypted data.
-+This buffer is allocated at the time send() is called, such that
-+either the entire send() call will return -ENOMEM (or block waiting
-+for memory), or the encryption will always succeed.  If send() returns
-+-ENOMEM and some data was left on the socket buffer from a previous
-+call using MSG_MORE, the MSG_MORE data is left on the socket buffer.
-+
-+Send TLS control messages
-+-------------------------
-+
-+Other than application data, TLS has control messages such as alert
-+messages (record type 21) and handshake messages (record type 22), etc.
-+These messages can be sent over the socket by providing the TLS record type
-+via a CMSG. For example the following function sends @data of @length bytes
-+using a record of type @record_type.
-+
-+/* send TLS control message using record_type */
-+  static int klts_send_ctrl_message(int sock, unsigned char record_type,
-+                                  void *data, size_t length)
-+  {
-+        struct msghdr msg = {0};
-+        int cmsg_len = sizeof(record_type);
-+        struct cmsghdr *cmsg;
-+        char buf[CMSG_SPACE(cmsg_len)];
-+        struct iovec msg_iov;   /* Vector of data to send/receive into.  */
-+
-+        msg.msg_control = buf;
-+        msg.msg_controllen = sizeof(buf);
-+        cmsg = CMSG_FIRSTHDR(&msg);
-+        cmsg->cmsg_level = SOL_TLS;
-+        cmsg->cmsg_type = TLS_SET_RECORD_TYPE;
-+        cmsg->cmsg_len = CMSG_LEN(cmsg_len);
-+        *CMSG_DATA(cmsg) = record_type;
-+        msg.msg_controllen = cmsg->cmsg_len;
-+
-+        msg_iov.iov_base = data;
-+        msg_iov.iov_len = length;
-+        msg.msg_iov = &msg_iov;
-+        msg.msg_iovlen = 1;
-+
-+        return sendmsg(sock, &msg, 0);
-+  }
-+
-+Control message data should be provided unencrypted, and will be
-+encrypted by the kernel.
-+
-+Integrating in to userspace TLS library
-+---------------------------------------
-+
-+At a high level, the kernel TLS ULP is a replacement for the record
-+layer of a userspace TLS library.
-+
-+A patchset to OpenSSL to use ktls as the record layer is here:
-+
-+https://github.com/Mellanox/tls-openssl
-+
-+An example of calling send directly after a handshake using
-+gnutls.  Since it doesn't implement a full record layer, control
-+messages are not supported:
-+
-+https://github.com/Mellanox/tls-af_ktls_tool
--- 
-2.9.3
+Series applied, thanks.
