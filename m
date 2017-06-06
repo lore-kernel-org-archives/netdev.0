@@ -1,115 +1,84 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 02/11] igb: mark PM functions as __maybe_unused
-Date: Tue,  6 Jun 2017 01:58:00 -0700
-Message-ID: <20170606085809.78571-3-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 03/11] e1000e: fix race condition around skb_tstamp_tx()
+Date: Tue,  6 Jun 2017 01:58:01 -0700
+Message-ID: <20170606085809.78571-4-jeffrey.t.kirsher@intel.com>
 References: <20170606085809.78571-1-jeffrey.t.kirsher@intel.com>
-Cc: Arnd Bergmann <arnd@arndb.de>, netdev@vger.kernel.org,
+Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
         nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:30962 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([134.134.136.65]:20068 "EHLO mga03.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751415AbdFFI6P (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 6 Jun 2017 04:58:15 -0400
+        id S1751243AbdFFI6Q (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 6 Jun 2017 04:58:16 -0400
 In-Reply-To: <20170606085809.78571-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Arnd Bergmann <arnd@arndb.de>
+From: Jacob Keller <jacob.e.keller@intel.com>
 
-The new wake function is only used by the suspend/resume handlers that
-are defined in inside of an #ifdef, which can cause this harmless
-warning:
+The e1000e driver and related hardware has a limitation on Tx PTP
+packets which requires we limit to timestamping a single packet at once.
+We do this by verifying that we never request a new Tx timestamp while
+we still have a tx_hwtstamp_skb pointer.
 
-drivers/net/ethernet/intel/igb/igb_main.c:7988:13: warning: 'igb_deliver_wake_packet' defined but not used [-Wunused-function]
+Unfortunately the driver suffers from a race condition around this. The
+tx_hwtstamp_skb pointer is not set to NULL until after skb_tstamp_tx()
+is called. This function notifies the stack and applications of a new
+timestamp. Even a well behaved application that only sends a new request
+when the first one is finished might be woken up and possibly send
+a packet before we can free the timestamp in the driver again. The
+result is that we needlessly ignore some Tx timestamp requests in this
+corner case.
 
-Removing the #ifdef, instead using a __maybe_unused annotation
-simplifies the code and avoids the warning.
+Fix this by assigning the tx_hwtstamp_skb pointer prior to calling
+skb_tstamp_tx() and use a temporary pointer to hold the timestamped skb
+until that function finishes. This ensures that the application is not
+woken up until the driver is ready to begin timestamping a new packet.
 
-Fixes: b90fa8763560 ("igb: Enable reading of wake up packet")
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+This ensures that well behaved applications do not accidentally race
+with condition to skip Tx timestamps. Obviously an application which
+sends multiple Tx timestamp requests at once will still only timestamp
+one packet at a time. Unfortunately there is nothing we can do about
+this.
+
+Reported-by: David Mirabito <davidm@metamako.com>
+Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/igb_main.c | 18 +++++-------------
- 1 file changed, 5 insertions(+), 13 deletions(-)
+ drivers/net/ethernet/intel/e1000e/netdev.c | 10 ++++++++--
+ 1 file changed, 8 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index 1cf74aa4ebd9..2d5bdb1fd37d 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -191,10 +191,7 @@ static int igb_disable_sriov(struct pci_dev *dev);
- static int igb_pci_disable_sriov(struct pci_dev *dev);
- #endif
+diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+index 6ed3bc419b96..96257349a1b8 100644
+--- a/drivers/net/ethernet/intel/e1000e/netdev.c
++++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+@@ -1183,6 +1183,7 @@ static void e1000e_tx_hwtstamp_work(struct work_struct *work)
+ 	struct e1000_hw *hw = &adapter->hw;
  
--#ifdef CONFIG_PM
--#ifdef CONFIG_PM_SLEEP
- static int igb_suspend(struct device *);
--#endif
- static int igb_resume(struct device *);
- static int igb_runtime_suspend(struct device *dev);
- static int igb_runtime_resume(struct device *dev);
-@@ -204,7 +201,6 @@ static const struct dev_pm_ops igb_pm_ops = {
- 	SET_RUNTIME_PM_OPS(igb_runtime_suspend, igb_runtime_resume,
- 			igb_runtime_idle)
- };
--#endif
- static void igb_shutdown(struct pci_dev *);
- static int igb_pci_sriov_configure(struct pci_dev *dev, int num_vfs);
- #ifdef CONFIG_IGB_DCA
-@@ -8015,9 +8011,7 @@ static void igb_deliver_wake_packet(struct net_device *netdev)
- 	netif_rx(skb);
- }
+ 	if (er32(TSYNCTXCTL) & E1000_TSYNCTXCTL_VALID) {
++		struct sk_buff *skb = adapter->tx_hwtstamp_skb;
+ 		struct skb_shared_hwtstamps shhwtstamps;
+ 		u64 txstmp;
  
--#ifdef CONFIG_PM
--#ifdef CONFIG_PM_SLEEP
--static int igb_suspend(struct device *dev)
-+static int __maybe_unused igb_suspend(struct device *dev)
- {
- 	int retval;
- 	bool wake;
-@@ -8036,9 +8030,8 @@ static int igb_suspend(struct device *dev)
+@@ -1191,9 +1192,14 @@ static void e1000e_tx_hwtstamp_work(struct work_struct *work)
  
- 	return 0;
- }
--#endif /* CONFIG_PM_SLEEP */
+ 		e1000e_systim_to_hwtstamp(adapter, &shhwtstamps, txstmp);
  
--static int igb_resume(struct device *dev)
-+static int __maybe_unused igb_resume(struct device *dev)
- {
- 	struct pci_dev *pdev = to_pci_dev(dev);
- 	struct net_device *netdev = pci_get_drvdata(pdev);
-@@ -8092,7 +8085,7 @@ static int igb_resume(struct device *dev)
- 	return err;
- }
- 
--static int igb_runtime_idle(struct device *dev)
-+static int __maybe_unused igb_runtime_idle(struct device *dev)
- {
- 	struct pci_dev *pdev = to_pci_dev(dev);
- 	struct net_device *netdev = pci_get_drvdata(pdev);
-@@ -8104,7 +8097,7 @@ static int igb_runtime_idle(struct device *dev)
- 	return -EBUSY;
- }
- 
--static int igb_runtime_suspend(struct device *dev)
-+static int __maybe_unused igb_runtime_suspend(struct device *dev)
- {
- 	struct pci_dev *pdev = to_pci_dev(dev);
- 	int retval;
-@@ -8124,11 +8117,10 @@ static int igb_runtime_suspend(struct device *dev)
- 	return 0;
- }
- 
--static int igb_runtime_resume(struct device *dev)
-+static int __maybe_unused igb_runtime_resume(struct device *dev)
- {
- 	return igb_resume(dev);
- }
--#endif /* CONFIG_PM */
- 
- static void igb_shutdown(struct pci_dev *pdev)
- {
+-		skb_tstamp_tx(adapter->tx_hwtstamp_skb, &shhwtstamps);
+-		dev_kfree_skb_any(adapter->tx_hwtstamp_skb);
++		/* Clear the global tx_hwtstamp_skb pointer and force writes
++		 * prior to notifying the stack of a Tx timestamp.
++		 */
+ 		adapter->tx_hwtstamp_skb = NULL;
++		wmb(); /* force write prior to skb_tstamp_tx */
++
++		skb_tstamp_tx(skb, &shhwtstamps);
++		dev_kfree_skb_any(skb);
+ 	} else if (time_after(jiffies, adapter->tx_hwtstamp_start
+ 			      + adapter->tx_timeout_factor * HZ)) {
+ 		dev_kfree_skb_any(adapter->tx_hwtstamp_skb);
 -- 
 2.12.2
