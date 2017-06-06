@@ -1,94 +1,74 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH net-next 3/5] net: dsa: Associate slave network device with CPU port
-Date: Tue, 06 Jun 2017 13:37:45 -0400
-Message-ID: <87bmq1koeu.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
-References: <20170606170202.21491-1-f.fainelli@gmail.com> <20170606170202.21491-4-f.fainelli@gmail.com>
+From: Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [for-next 4/6] net/mlx5: FPGA, Add basic support for Innova
+Date: Tue, 6 Jun 2017 10:42:35 -0700
+Message-ID: <20170606174233.w377ctwtapzccsk7@ast-mbp.dhcp.thefacebook.com>
+References: <20170529153131.GB7924@obsidianresearch.com>
+ <AM4PR0501MB1940D05A19F098286B99EAD0DBF30@AM4PR0501MB1940.eurprd05.prod.outlook.com>
+ <20170529160252.GA27550@obsidianresearch.com>
+ <AM4PR0501MB194037FF8F17466BC9ECC73DDBF30@AM4PR0501MB1940.eurprd05.prod.outlook.com>
+ <AM4PR0501MB19409139227E11A4A7F82F0FDBF30@AM4PR0501MB1940.eurprd05.prod.outlook.com>
+ <20170601153704.GA1680@obsidianresearch.com>
+ <AM4PR0501MB19404B83A69B87AFB1326B45DBF50@AM4PR0501MB1940.eurprd05.prod.outlook.com>
+ <20170605151724.GA20182@obsidianresearch.com>
+ <AM4PR0501MB194008AAABEB6AAAA2ADFC82DBCB0@AM4PR0501MB1940.eurprd05.prod.outlook.com>
+ <20170606161709.GA8671@obsidianresearch.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: andrew@lunn.ch, john@phrozen.org, davem@davemloft.net,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:59402 "EHLO
-        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751291AbdFFRjy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 6 Jun 2017 13:39:54 -0400
-In-Reply-To: <20170606170202.21491-4-f.fainelli@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Ilan Tayari <ilant-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Saeed Mahameed <saeedm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>,
+        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "jsorensen-b10kYP2dOMg@public.gmane.org" <jsorensen-b10kYP2dOMg@public.gmane.org>,
+        Andy Shevchenko <andy.shevchenko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        "linux-fpga-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-fpga-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Alan Tull <atull-yzvPICuk2ABMcg4IHK0kFoH6Mc4MB0Vx@public.gmane.org>,
+        "yi1.li-VuQAYsv1563Yd54FQh9/CA@public.gmane.org" <yi1.li-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+        Boris Pismenny <borisp-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+To: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20170606161709.GA8671-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Florian Fainelli <f.fainelli@gmail.com> writes:
+On Tue, Jun 06, 2017 at 10:17:09AM -0600, Jason Gunthorpe wrote:
+> On Tue, Jun 06, 2017 at 06:52:15AM +0000, Ilan Tayari wrote:
+> 
+> > So neither the host stack nor the network are aware of them.
+> > They exist momentarily only on the internal traces on the board and not
+> > anywhere else.
+> 
+> Is that really true? If you are creating rocee QPs' then the RDMA
+> stack sees this stuff and now we have buried a RDMA ULP inside an
+> ethernet driver which seems really wonky..
+> 
+> > I don't mind explaining further, but I think you will just see it in the
+> > patchset when we submit.
+> 
+> You described exactly what I thought.. I just disagree with you that
+> an ethernet connected and controlled IP accelerator is 'part of the
+> NIC', even if it happens to be colocated on the same circuit board.
 
-> In preparation for supporting multiple CPU ports with DSA, have the
-> dsa_slave_priv structure know which CPU it is associated with. This will
++1
 
-  dsa_port
-  
-> be important in order to make sure the correct CPU is used for
-> transmission of the frames. If not for functional reasons, for
-> performance (e.g: load balancing) and forwarding decisions.
->
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
-> ---
->  include/net/dsa.h  | 1 +
->  net/dsa/dsa_priv.h | 2 +-
->  net/dsa/slave.c    | 5 ++++-
->  3 files changed, 6 insertions(+), 2 deletions(-)
->
-> diff --git a/include/net/dsa.h b/include/net/dsa.h
-> index 7e93869819f9..58969b9a090c 100644
-> --- a/include/net/dsa.h
-> +++ b/include/net/dsa.h
-> @@ -171,6 +171,7 @@ struct dsa_port {
->  	struct dsa_switch	*ds;
->  	unsigned int		index;
->  	const char		*name;
-> +	struct dsa_port		*cpu_dp;
->  	struct net_device	*netdev;
->  	struct device_node	*dn;
->  	unsigned int		ageing_time;
-> diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
-> index 5c510f4ba0ce..7c2326f3b538 100644
-> --- a/net/dsa/dsa_priv.h
-> +++ b/net/dsa/dsa_priv.h
-> @@ -185,7 +185,7 @@ extern const struct dsa_device_ops trailer_netdev_ops;
->  
->  static inline struct net_device *dsa_master_netdev(struct dsa_slave_priv *p)
->  {
-> -	return p->dp->ds->dst->cpu_dp->netdev;
-> +	return p->dp->cpu_dp->netdev;
->  }
->  
->  #endif
-> diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-> index ea4ed0285922..de1ab41cfd38 100644
-> --- a/net/dsa/slave.c
-> +++ b/net/dsa/slave.c
-> @@ -1139,9 +1139,11 @@ int dsa_slave_create(struct dsa_switch *ds, struct device *parent,
+what Ilan described is a kernel bypass done by hw.
+This is non starter in production. Same as eswitch this fpga is not
+represented as a kernel object, there is no way to debug it.
+NIC crafts roce packets back and forth?!
+so it's like rdma, but without using kernel rdma stack?
+When hw ipsec or tls will mysteriously drop or mangle the packets
+how this can be debugged? Does fpga have attached ddr to
+store/forward the packets? How memory issues will be reported?
+No MCE errors ever? Buffer overflow? How many receive queues inside fpga?
+How health check of fgpa itself will be done? Through roce packets?
+I would buy the lack of kernel visibility if this fpga+nic combo
+was a prototype, but it's being presented as a production device
+with subsequent changes to core networking stack and that's where
+I have a problem with its sw architecture.
 
-
->  	struct net_device *master;
->  	struct net_device *slave_dev;
->  	struct dsa_slave_priv *p;
-> +	struct dsa_port *cpu_dp;
->  	int ret;
->  
-> -	master = ds->dst->cpu_dp->netdev;
-> +	cpu_dp = ds->dst->cpu_dp;
-> +	master = cpu_dp->netdev;
-
-You may assign them when declaring them, but no big deal.
-
->  
->  	slave_dev = alloc_netdev(sizeof(struct dsa_slave_priv), name,
->  				 NET_NAME_UNKNOWN, ether_setup);
-> @@ -1176,6 +1178,7 @@ int dsa_slave_create(struct dsa_switch *ds, struct device *parent,
->  	p->old_duplex = -1;
->  
->  	ds->ports[port].netdev = slave_dev;
-> +	p->dp->cpu_dp = cpu_dp;
->  	ret = register_netdev(slave_dev);
->  	if (ret) {
->  		netdev_err(master, "error %d registering interface %s\n",
-
-Reviewed-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
