@@ -1,28 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: dsa: mv88e6xxx: fix 6085 frame mode
- masking
-Date: Tue, 06 Jun 2017 16:04:48 -0400 (EDT)
-Message-ID: <20170606.160448.1263511411241760892.davem@davemloft.net>
-References: <20170605221716.32235-1-vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net] net: bridge: fix a null pointer dereference in
+ br_afspec
+Date: Tue, 06 Jun 2017 16:06:01 -0400 (EDT)
+Message-ID: <20170606.160601.292169589611249662.davem@davemloft.net>
+References: <840022de-3d31-4f62-aaaf-ba83d5c78ad7@cumulusnetworks.com>
+        <1496701584-26855-1-git-send-email-nikolay@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel@savoirfairelinux.com, f.fainelli@gmail.com, andrew@lunn.ch
-To: vivien.didelot@savoirfairelinux.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170605221716.32235-1-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
+        stephen@networkplumber.org, garsilva@embeddedor.com,
+        bridge@lists.linux-foundation.org
+To: nikolay@cumulusnetworks.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:38180 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751239AbdFFUGC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 6 Jun 2017 16:06:02 -0400
+In-Reply-To: <1496701584-26855-1-git-send-email-nikolay@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Date: Mon,  5 Jun 2017 18:17:16 -0400
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Date: Tue,  6 Jun 2017 01:26:24 +0300
 
-> The register bits used for the frame mode were masked with DSA (0x1)
-> instead of the mask value (0x3) in the 6085 implementation of
-> port_set_frame_mode. Fix this.
+> We might call br_afspec() with p == NULL which is a valid use case if
+> the action is on the bridge device itself, but the bridge tunnel code
+> dereferences the p pointer without checking, so check if p is null
+> first.
 > 
-> Fixes: 56995cbc3540 ("net: dsa: mv88e6xxx: Refactor CPU and DSA port setup")
-> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+> Reported-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
+> Fixes: efa5356b0d97 ("bridge: per vlan dst_metadata netlink support")
+> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 
-Applied, thanks Vivien.
+Applied and queued up for -stable, thanks Nikolay.
