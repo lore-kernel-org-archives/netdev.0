@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 3/6] mlxsw: pci: Fix size of trap_id field in CQE
-Date: Tue,  6 Jun 2017 14:12:04 +0200
-Message-ID: <20170606121207.2921-4-jiri@resnulli.us>
+Subject: [patch net-next v2 1/6] net: sched: introduce a TRAP control action
+Date: Tue,  6 Jun 2017 14:12:02 +0200
+Message-ID: <20170606121207.2921-2-jiri@resnulli.us>
 References: <20170606121207.2921-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
         edumazet@google.com, alexander.h.duyck@intel.com,
@@ -9,41 +9,240 @@ Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
         mlxsw@mellanox.com, andrew@lunn.ch
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f195.google.com ([209.85.128.195]:33348 "EHLO
-        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751390AbdFFMMQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 6 Jun 2017 08:12:16 -0400
-Received: by mail-wr0-f195.google.com with SMTP id v104so10151816wrb.0
-        for <netdev@vger.kernel.org>; Tue, 06 Jun 2017 05:12:15 -0700 (PDT)
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:35632 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751390AbdFFMMM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 6 Jun 2017 08:12:12 -0400
+Received: by mail-wm0-f65.google.com with SMTP id g15so34568746wmc.2
+        for <netdev@vger.kernel.org>; Tue, 06 Jun 2017 05:12:12 -0700 (PDT)
 In-Reply-To: <20170606121207.2921-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-The "trap_id" is 9bits long. So far, this was not a problem since we
-used only traps with ids that fit into 8bits. But the ACL traps that are
-going to be introduced use the 9th bit.
+There is need to instruct the HW offloaded path to push certain matched
+packets to cpu/kernel for further analysis. So this patch introduces a
+new TRAP control action to TC.
 
-Fixes: eda6500a987a ("mlxsw: Add PCI bus implementation")
+For kernel datapath, this action does not make much sense. So with the
+same logic as in HW, new TRAP behaves similar to STOLEN. The skb is just
+dropped in the datapath (and virtually ejected to an upper level, which
+does not exist in case of kernel).
+
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 Reviewed-by: Yotam Gigi <yotamg@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/pci_hw.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ include/uapi/linux/pkt_cls.h | 7 +++++++
+ net/core/dev.c               | 2 ++
+ net/sched/cls_bpf.c          | 1 +
+ net/sched/sch_atm.c          | 1 +
+ net/sched/sch_cbq.c          | 1 +
+ net/sched/sch_drr.c          | 1 +
+ net/sched/sch_dsmark.c       | 1 +
+ net/sched/sch_fq_codel.c     | 1 +
+ net/sched/sch_hfsc.c         | 1 +
+ net/sched/sch_htb.c          | 1 +
+ net/sched/sch_multiq.c       | 1 +
+ net/sched/sch_prio.c         | 1 +
+ net/sched/sch_qfq.c          | 1 +
+ net/sched/sch_sfb.c          | 1 +
+ net/sched/sch_sfq.c          | 1 +
+ 15 files changed, 22 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/pci_hw.h b/drivers/net/ethernet/mellanox/mlxsw/pci_hw.h
-index 0af3338..a644120 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/pci_hw.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/pci_hw.h
-@@ -155,7 +155,7 @@ MLXSW_ITEM32(pci, cqe, byte_count, 0x04, 0, 14);
- /* pci_cqe_trap_id
-  * Trap ID that captured the packet.
-  */
--MLXSW_ITEM32(pci, cqe, trap_id, 0x08, 0, 8);
-+MLXSW_ITEM32(pci, cqe, trap_id, 0x08, 0, 9);
+diff --git a/include/uapi/linux/pkt_cls.h b/include/uapi/linux/pkt_cls.h
+index edf43dd..2055783 100644
+--- a/include/uapi/linux/pkt_cls.h
++++ b/include/uapi/linux/pkt_cls.h
+@@ -37,6 +37,13 @@ enum {
+ #define TC_ACT_QUEUED		5
+ #define TC_ACT_REPEAT		6
+ #define TC_ACT_REDIRECT		7
++#define TC_ACT_TRAP		8 /* For hw path, this means "trap to cpu"
++				   * and don't further process the frame
++				   * in hardware. For sw path, this is
++				   * equivalent of TC_ACT_STOLEN - drop
++				   * the skb and act like everything
++				   * is alright.
++				   */
  
- /* pci_cqe_crc
-  * Length include CRC. Indicates the length field includes
+ /* There is a special kind of actions called "extended actions",
+  * which need a value parameter. These have a local opcode located in
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 06e0a74..8f72f4a 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -3269,6 +3269,7 @@ sch_handle_egress(struct sk_buff *skb, int *ret, struct net_device *dev)
+ 		return NULL;
+ 	case TC_ACT_STOLEN:
+ 	case TC_ACT_QUEUED:
++	case TC_ACT_TRAP:
+ 		*ret = NET_XMIT_SUCCESS;
+ 		consume_skb(skb);
+ 		return NULL;
+@@ -4038,6 +4039,7 @@ sch_handle_ingress(struct sk_buff *skb, struct packet_type **pt_prev, int *ret,
+ 		return NULL;
+ 	case TC_ACT_STOLEN:
+ 	case TC_ACT_QUEUED:
++	case TC_ACT_TRAP:
+ 		consume_skb(skb);
+ 		return NULL;
+ 	case TC_ACT_REDIRECT:
+diff --git a/net/sched/cls_bpf.c b/net/sched/cls_bpf.c
+index 5ebeae9..a9c56ad 100644
+--- a/net/sched/cls_bpf.c
++++ b/net/sched/cls_bpf.c
+@@ -70,6 +70,7 @@ static int cls_bpf_exec_opcode(int code)
+ 	case TC_ACT_OK:
+ 	case TC_ACT_SHOT:
+ 	case TC_ACT_STOLEN:
++	case TC_ACT_TRAP:
+ 	case TC_ACT_REDIRECT:
+ 	case TC_ACT_UNSPEC:
+ 		return code;
+diff --git a/net/sched/sch_atm.c b/net/sched/sch_atm.c
+index f435546..de16259 100644
+--- a/net/sched/sch_atm.c
++++ b/net/sched/sch_atm.c
+@@ -406,6 +406,7 @@ static int atm_tc_enqueue(struct sk_buff *skb, struct Qdisc *sch,
+ 		switch (result) {
+ 		case TC_ACT_QUEUED:
+ 		case TC_ACT_STOLEN:
++		case TC_ACT_TRAP:
+ 			__qdisc_drop(skb, to_free);
+ 			return NET_XMIT_SUCCESS | __NET_XMIT_STOLEN;
+ 		case TC_ACT_SHOT:
+diff --git a/net/sched/sch_cbq.c b/net/sched/sch_cbq.c
+index 8dd6d0a..481036f 100644
+--- a/net/sched/sch_cbq.c
++++ b/net/sched/sch_cbq.c
+@@ -254,6 +254,7 @@ cbq_classify(struct sk_buff *skb, struct Qdisc *sch, int *qerr)
+ 		switch (result) {
+ 		case TC_ACT_QUEUED:
+ 		case TC_ACT_STOLEN:
++		case TC_ACT_TRAP:
+ 			*qerr = NET_XMIT_SUCCESS | __NET_XMIT_STOLEN;
+ 		case TC_ACT_SHOT:
+ 			return NULL;
+diff --git a/net/sched/sch_drr.c b/net/sched/sch_drr.c
+index 5db2a28..a413dc1 100644
+--- a/net/sched/sch_drr.c
++++ b/net/sched/sch_drr.c
+@@ -339,6 +339,7 @@ static struct drr_class *drr_classify(struct sk_buff *skb, struct Qdisc *sch,
+ 		switch (result) {
+ 		case TC_ACT_QUEUED:
+ 		case TC_ACT_STOLEN:
++		case TC_ACT_TRAP:
+ 			*qerr = NET_XMIT_SUCCESS | __NET_XMIT_STOLEN;
+ 		case TC_ACT_SHOT:
+ 			return NULL;
+diff --git a/net/sched/sch_dsmark.c b/net/sched/sch_dsmark.c
+index 7ccdd82..6d94fcc 100644
+--- a/net/sched/sch_dsmark.c
++++ b/net/sched/sch_dsmark.c
+@@ -243,6 +243,7 @@ static int dsmark_enqueue(struct sk_buff *skb, struct Qdisc *sch,
+ #ifdef CONFIG_NET_CLS_ACT
+ 		case TC_ACT_QUEUED:
+ 		case TC_ACT_STOLEN:
++		case TC_ACT_TRAP:
+ 			__qdisc_drop(skb, to_free);
+ 			return NET_XMIT_SUCCESS | __NET_XMIT_STOLEN;
+ 
+diff --git a/net/sched/sch_fq_codel.c b/net/sched/sch_fq_codel.c
+index f201e73..337f2d6 100644
+--- a/net/sched/sch_fq_codel.c
++++ b/net/sched/sch_fq_codel.c
+@@ -103,6 +103,7 @@ static unsigned int fq_codel_classify(struct sk_buff *skb, struct Qdisc *sch,
+ 		switch (result) {
+ 		case TC_ACT_STOLEN:
+ 		case TC_ACT_QUEUED:
++		case TC_ACT_TRAP:
+ 			*qerr = NET_XMIT_SUCCESS | __NET_XMIT_STOLEN;
+ 		case TC_ACT_SHOT:
+ 			return 0;
+diff --git a/net/sched/sch_hfsc.c b/net/sched/sch_hfsc.c
+index a324f84..b52f746 100644
+--- a/net/sched/sch_hfsc.c
++++ b/net/sched/sch_hfsc.c
+@@ -1155,6 +1155,7 @@ hfsc_classify(struct sk_buff *skb, struct Qdisc *sch, int *qerr)
+ 		switch (result) {
+ 		case TC_ACT_QUEUED:
+ 		case TC_ACT_STOLEN:
++		case TC_ACT_TRAP:
+ 			*qerr = NET_XMIT_SUCCESS | __NET_XMIT_STOLEN;
+ 		case TC_ACT_SHOT:
+ 			return NULL;
+diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
+index 195bbca9..203286a 100644
+--- a/net/sched/sch_htb.c
++++ b/net/sched/sch_htb.c
+@@ -238,6 +238,7 @@ static struct htb_class *htb_classify(struct sk_buff *skb, struct Qdisc *sch,
+ 		switch (result) {
+ 		case TC_ACT_QUEUED:
+ 		case TC_ACT_STOLEN:
++		case TC_ACT_TRAP:
+ 			*qerr = NET_XMIT_SUCCESS | __NET_XMIT_STOLEN;
+ 		case TC_ACT_SHOT:
+ 			return NULL;
+diff --git a/net/sched/sch_multiq.c b/net/sched/sch_multiq.c
+index 6047674..f143b7b 100644
+--- a/net/sched/sch_multiq.c
++++ b/net/sched/sch_multiq.c
+@@ -52,6 +52,7 @@ multiq_classify(struct sk_buff *skb, struct Qdisc *sch, int *qerr)
+ 	switch (err) {
+ 	case TC_ACT_STOLEN:
+ 	case TC_ACT_QUEUED:
++	case TC_ACT_TRAP:
+ 		*qerr = NET_XMIT_SUCCESS | __NET_XMIT_STOLEN;
+ 	case TC_ACT_SHOT:
+ 		return NULL;
+diff --git a/net/sched/sch_prio.c b/net/sched/sch_prio.c
+index a240468..e3e364c 100644
+--- a/net/sched/sch_prio.c
++++ b/net/sched/sch_prio.c
+@@ -48,6 +48,7 @@ prio_classify(struct sk_buff *skb, struct Qdisc *sch, int *qerr)
+ 		switch (err) {
+ 		case TC_ACT_STOLEN:
+ 		case TC_ACT_QUEUED:
++		case TC_ACT_TRAP:
+ 			*qerr = NET_XMIT_SUCCESS | __NET_XMIT_STOLEN;
+ 		case TC_ACT_SHOT:
+ 			return NULL;
+diff --git a/net/sched/sch_qfq.c b/net/sched/sch_qfq.c
+index 076ad03..0e16dfd 100644
+--- a/net/sched/sch_qfq.c
++++ b/net/sched/sch_qfq.c
+@@ -726,6 +726,7 @@ static struct qfq_class *qfq_classify(struct sk_buff *skb, struct Qdisc *sch,
+ 		switch (result) {
+ 		case TC_ACT_QUEUED:
+ 		case TC_ACT_STOLEN:
++		case TC_ACT_TRAP:
+ 			*qerr = NET_XMIT_SUCCESS | __NET_XMIT_STOLEN;
+ 		case TC_ACT_SHOT:
+ 			return NULL;
+diff --git a/net/sched/sch_sfb.c b/net/sched/sch_sfb.c
+index 9756b1c..11fb6ec 100644
+--- a/net/sched/sch_sfb.c
++++ b/net/sched/sch_sfb.c
+@@ -266,6 +266,7 @@ static bool sfb_classify(struct sk_buff *skb, struct tcf_proto *fl,
+ 		switch (result) {
+ 		case TC_ACT_STOLEN:
+ 		case TC_ACT_QUEUED:
++		case TC_ACT_TRAP:
+ 			*qerr = NET_XMIT_SUCCESS | __NET_XMIT_STOLEN;
+ 		case TC_ACT_SHOT:
+ 			return false;
+diff --git a/net/sched/sch_sfq.c b/net/sched/sch_sfq.c
+index 66dfd15..f80ea2c 100644
+--- a/net/sched/sch_sfq.c
++++ b/net/sched/sch_sfq.c
+@@ -187,6 +187,7 @@ static unsigned int sfq_classify(struct sk_buff *skb, struct Qdisc *sch,
+ 		switch (result) {
+ 		case TC_ACT_STOLEN:
+ 		case TC_ACT_QUEUED:
++		case TC_ACT_TRAP:
+ 			*qerr = NET_XMIT_SUCCESS | __NET_XMIT_STOLEN;
+ 		case TC_ACT_SHOT:
+ 			return 0;
 -- 
 2.9.3
