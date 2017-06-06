@@ -1,438 +1,286 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next 15/16] nfp: create control vNICs and wire up rx/tx
-Date: Mon,  5 Jun 2017 17:01:56 -0700
-Message-ID: <20170606000157.17556-16-jakub.kicinski@netronome.com>
+Subject: [PATCH net-next 11/16] nfp: map all queue controllers at once
+Date: Mon,  5 Jun 2017 17:01:52 -0700
+Message-ID: <20170606000157.17556-12-jakub.kicinski@netronome.com>
 References: <20170606000157.17556-1-jakub.kicinski@netronome.com>
 Cc: oss-drivers@netronome.com,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f54.google.com ([74.125.83.54]:33942 "EHLO
-        mail-pg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751322AbdFFAC3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 5 Jun 2017 20:02:29 -0400
-Received: by mail-pg0-f54.google.com with SMTP id v18so17455059pgb.1
-        for <netdev@vger.kernel.org>; Mon, 05 Jun 2017 17:02:28 -0700 (PDT)
+Received: from mail-pg0-f48.google.com ([74.125.83.48]:33482 "EHLO
+        mail-pg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751277AbdFFACZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 5 Jun 2017 20:02:25 -0400
+Received: by mail-pg0-f48.google.com with SMTP id f185so27038363pgc.0
+        for <netdev@vger.kernel.org>; Mon, 05 Jun 2017 17:02:25 -0700 (PDT)
 In-Reply-To: <20170606000157.17556-1-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When driver encounters an nfp_app which has a control message handler
-defined, allocate a control vNIC.  This control channel will be used
-to exchange data with the application FW such as flow table programming,
-statistics and global datapath control.
+RX and TX queue controllers are interleaved.  Instead of creating
+two mappings which map the same area at slightly different offset,
+create only one mapping.  Always map all queue controllers to simplify
+the code and allow reusing the mapping for non-data vNICs.
 
 Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 ---
- drivers/net/ethernet/netronome/nfp/nfp_app.c       |  18 +++
- drivers/net/ethernet/netronome/nfp/nfp_app.h       |  44 ++++++++
- drivers/net/ethernet/netronome/nfp/nfp_main.h      |   7 ++
- .../net/ethernet/netronome/nfp/nfp_net_common.c    |   2 +-
- drivers/net/ethernet/netronome/nfp/nfp_net_main.c  | 121 ++++++++++++++++++---
- 5 files changed, 177 insertions(+), 15 deletions(-)
+ drivers/net/ethernet/netronome/nfp/nfp_main.h     |   6 +-
+ drivers/net/ethernet/netronome/nfp/nfp_net.h      |   1 +
+ drivers/net/ethernet/netronome/nfp/nfp_net_main.c | 122 +++++-----------------
+ 3 files changed, 28 insertions(+), 101 deletions(-)
 
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_app.c b/drivers/net/ethernet/netronome/nfp/nfp_app.c
-index cea2090cf063..de07517da1bd 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_app.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_app.c
-@@ -31,6 +31,7 @@
-  * SOFTWARE.
-  */
- 
-+#include <linux/skbuff.h>
- #include <linux/slab.h>
- 
- #include "nfpcore/nfp_cpp.h"
-@@ -42,6 +43,23 @@ static const struct nfp_app_type *apps[] = {
- 	&app_bpf,
- };
- 
-+struct sk_buff *nfp_app_ctrl_msg_alloc(struct nfp_app *app, unsigned int size)
-+{
-+	struct sk_buff *skb;
-+
-+	if (nfp_app_ctrl_has_meta(app))
-+		size += 8;
-+
-+	skb = alloc_skb(size, GFP_ATOMIC);
-+	if (!skb)
-+		return NULL;
-+
-+	if (nfp_app_ctrl_has_meta(app))
-+		skb_reserve(skb, 8);
-+
-+	return skb;
-+}
-+
- struct nfp_app *nfp_app_alloc(struct nfp_pf *pf, enum nfp_app_id id)
- {
- 	struct nfp_app *app;
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_app.h b/drivers/net/ethernet/netronome/nfp/nfp_app.h
-index f6091ad0a9a9..3fbf68f8577c 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_app.h
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_app.h
-@@ -37,6 +37,7 @@
- struct bpf_prog;
- struct net_device;
- struct pci_dev;
-+struct sk_buff;
- struct tc_to_netdev;
- struct sk_buff;
- struct nfp_app;
-@@ -63,6 +64,9 @@ extern const struct nfp_app_type app_bpf;
-  * @extra_cap:	extra capabilities string
-  * @vnic_init:	init vNICs (assign port types, etc.)
-  * @vnic_clean:	clean up app's vNIC state
-+ * @start:	start application logic
-+ * @stop:	stop application logic
-+ * @ctrl_msg_rx:    control message handler
-  * @setup_tc:	setup TC ndo
-  * @tc_busy:	TC HW offload busy (rules loaded)
-  * @xdp_offload:    offload an XDP program
-@@ -81,6 +85,11 @@ struct nfp_app_type {
- 			 unsigned int id);
- 	void (*vnic_clean)(struct nfp_app *app, struct nfp_net *nn);
- 
-+	int (*start)(struct nfp_app *app);
-+	void (*stop)(struct nfp_app *app);
-+
-+	void (*ctrl_msg_rx)(struct nfp_app *app, struct sk_buff *skb);
-+
- 	int (*setup_tc)(struct nfp_app *app, struct net_device *netdev,
- 			u32 handle, __be16 proto, struct tc_to_netdev *tc);
- 	bool (*tc_busy)(struct nfp_app *app, struct nfp_net *nn);
-@@ -93,6 +102,7 @@ struct nfp_app_type {
-  * @pdev:	backpointer to PCI device
-  * @pf:		backpointer to NFP PF structure
-  * @cpp:	pointer to the CPP handle
-+ * @ctrl:	pointer to ctrl vNIC struct
-  * @type:	pointer to const application ops and info
-  */
- struct nfp_app {
-@@ -100,6 +110,8 @@ struct nfp_app {
- 	struct nfp_pf *pf;
- 	struct nfp_cpp *cpp;
- 
-+	struct nfp_net *ctrl;
-+
- 	const struct nfp_app_type *type;
- };
- 
-@@ -124,6 +136,21 @@ static inline void nfp_app_vnic_clean(struct nfp_app *app, struct nfp_net *nn)
- 		app->type->vnic_clean(app, nn);
- }
- 
-+static inline int nfp_app_start(struct nfp_app *app, struct nfp_net *ctrl)
-+{
-+	app->ctrl = ctrl;
-+	if (!app->type->start)
-+		return 0;
-+	return app->type->start(app);
-+}
-+
-+static inline void nfp_app_stop(struct nfp_app *app)
-+{
-+	if (!app->type->stop)
-+		return;
-+	app->type->stop(app);
-+}
-+
- static inline const char *nfp_app_name(struct nfp_app *app)
- {
- 	if (!app)
-@@ -131,6 +158,11 @@ static inline const char *nfp_app_name(struct nfp_app *app)
- 	return app->type->name;
- }
- 
-+static inline bool nfp_app_needs_ctrl_vnic(struct nfp_app *app)
-+{
-+	return app && app->type->ctrl_msg_rx;
-+}
-+
- static inline bool nfp_app_ctrl_has_meta(struct nfp_app *app)
- {
- 	return app->type->ctrl_has_meta;
-@@ -174,6 +206,18 @@ static inline int nfp_app_xdp_offload(struct nfp_app *app, struct nfp_net *nn,
- 	return app->type->xdp_offload(app, nn, prog);
- }
- 
-+static inline bool nfp_app_ctrl_tx(struct nfp_app *app, struct sk_buff *skb)
-+{
-+	return nfp_ctrl_tx(app->ctrl, skb);
-+}
-+
-+static inline void nfp_app_ctrl_rx(struct nfp_app *app, struct sk_buff *skb)
-+{
-+	app->type->ctrl_msg_rx(app, skb);
-+}
-+
-+struct sk_buff *nfp_app_ctrl_msg_alloc(struct nfp_app *app, unsigned int size);
-+
- struct nfp_app *nfp_app_alloc(struct nfp_pf *pf, enum nfp_app_id id);
- void nfp_app_free(struct nfp_app *app);
- 
 diff --git a/drivers/net/ethernet/netronome/nfp/nfp_main.h b/drivers/net/ethernet/netronome/nfp/nfp_main.h
-index 66b1e1490805..37832853b0b3 100644
+index c46d00bbf19d..66b1e1490805 100644
 --- a/drivers/net/ethernet/netronome/nfp/nfp_main.h
 +++ b/drivers/net/ethernet/netronome/nfp/nfp_main.h
-@@ -63,11 +63,13 @@ struct nfp_nsp_identify;
+@@ -63,8 +63,7 @@ struct nfp_nsp_identify;
   * @cpp:		Pointer to the CPP handle
   * @app:		Pointer to the APP handle
   * @data_vnic_bar:	Pointer to the CPP area for the data vNICs' BARs
-+ * @ctrl_vnic_bar:	Pointer to the CPP area for the ctrl vNIC's BAR
-  * @qc_area:		Pointer to the CPP area for the queues
+- * @tx_area:		Pointer to the CPP area for the TX queues
+- * @rx_area:		Pointer to the CPP area for the FL/RX queues
++ * @qc_area:		Pointer to the CPP area for the queues
   * @irq_entries:	Array of MSI-X entries for all vNICs
   * @limit_vfs:		Number of VFs supported by firmware (~0 for PCI limit)
   * @num_vfs:		Number of SR-IOV VFs enabled
-  * @fw_loaded:		Is the firmware loaded?
-+ * @ctrl_vnic:		Pointer to the control vNIC if available
-  * @eth_tbl:		NSP ETH table
-  * @nspi:		NSP identification info
-  * @hwmon_dev:		pointer to hwmon device
-@@ -87,6 +89,7 @@ struct nfp_pf {
+@@ -88,8 +87,7 @@ struct nfp_pf {
  	struct nfp_app *app;
  
  	struct nfp_cpp_area *data_vnic_bar;
-+	struct nfp_cpp_area *ctrl_vnic_bar;
- 	struct nfp_cpp_area *qc_area;
+-	struct nfp_cpp_area *tx_area;
+-	struct nfp_cpp_area *rx_area;
++	struct nfp_cpp_area *qc_area;
  
  	struct msix_entry *irq_entries;
-@@ -96,6 +99,8 @@ struct nfp_pf {
  
- 	bool fw_loaded;
- 
-+	struct nfp_net *ctrl_vnic;
-+
- 	struct nfp_eth_table *eth_tbl;
- 	struct nfp_nsp_identify *nspi;
- 
-@@ -127,4 +132,6 @@ nfp_net_find_port(struct nfp_eth_table *eth_tbl, unsigned int id);
- void
- nfp_net_get_mac_addr(struct nfp_net *nn, struct nfp_cpp *cpp, unsigned int id);
- 
-+bool nfp_ctrl_tx(struct nfp_net *nn, struct sk_buff *skb);
-+
- #endif /* NFP_MAIN_H */
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-index 59f1764242a0..4f0df63de626 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-@@ -1950,7 +1950,7 @@ nfp_ctrl_rx_one(struct nfp_net *nn, struct nfp_net_dp *dp,
- 	skb_reserve(skb, pkt_off);
- 	skb_put(skb, pkt_len);
- 
--	dev_kfree_skb_any(skb);
-+	nfp_app_ctrl_rx(nn->app, skb);
- 
- 	return true;
- }
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net.h b/drivers/net/ethernet/netronome/nfp/nfp_net.h
+index eb849d26f4dd..02fd8d4e253c 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_net.h
++++ b/drivers/net/ethernet/netronome/nfp/nfp_net.h
+@@ -705,6 +705,7 @@ static inline void nn_pci_flush(struct nfp_net *nn)
+  * either add to a pointer or to read the pointer value.
+  */
+ #define NFP_QCP_QUEUE_ADDR_SZ			0x800
++#define NFP_QCP_QUEUE_AREA_SZ			0x80000
+ #define NFP_QCP_QUEUE_OFF(_x)			((_x) * NFP_QCP_QUEUE_ADDR_SZ)
+ #define NFP_QCP_QUEUE_ADD_RPTR			0x0000
+ #define NFP_QCP_QUEUE_ADD_WPTR			0x0004
 diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_main.c b/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
-index 362dca38223b..db12700b5afc 100644
+index 3644b12d93db..2a3b6deae607 100644
 --- a/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
 +++ b/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
-@@ -266,12 +266,11 @@ static void nfp_net_pf_free_vnic(struct nfp_pf *pf, struct nfp_net *nn)
- 
- static void nfp_net_pf_free_vnics(struct nfp_pf *pf)
- {
--	struct nfp_net *nn;
-+	struct nfp_net *nn, *next;
- 
--	while (!list_empty(&pf->vnics)) {
--		nn = list_first_entry(&pf->vnics, struct nfp_net, vnic_list);
--		nfp_net_pf_free_vnic(pf, nn);
--	}
-+	list_for_each_entry_safe(nn, next, &pf->vnics, vnic_list)
-+		if (nfp_net_is_data_vnic(nn))
-+			nfp_net_pf_free_vnic(pf, nn);
+@@ -223,31 +223,6 @@ static int nfp_net_pf_get_app_id(struct nfp_pf *pf)
+ 					      NFP_APP_CORE_NIC);
  }
+ 
+-static unsigned int
+-nfp_net_pf_total_qcs(struct nfp_pf *pf, void __iomem *ctrl_bar,
+-		     unsigned int stride, u32 start_off, u32 num_off)
+-{
+-	unsigned int i, min_qc, max_qc;
+-
+-	min_qc = readl(ctrl_bar + start_off);
+-	max_qc = min_qc;
+-
+-	for (i = 0; i < pf->max_data_vnics; i++) {
+-		/* To make our lives simpler only accept configuration where
+-		 * queues are allocated to PFs in order (queues of PFn all have
+-		 * indexes lower than PFn+1).
+-		 */
+-		if (max_qc > readl(ctrl_bar + start_off))
+-			return 0;
+-
+-		max_qc = readl(ctrl_bar + start_off);
+-		max_qc += readl(ctrl_bar + num_off) * stride;
+-		ctrl_bar += NFP_PF_CSR_SLICE_SIZE;
+-	}
+-
+-	return max_qc - min_qc;
+-}
+-
+ static u8 __iomem *
+ nfp_net_pf_map_rtsym(struct nfp_pf *pf, const char *name, const char *sym_fmt,
+ 		     unsigned int min_size, struct nfp_cpp_area **area)
+@@ -301,15 +276,16 @@ static void nfp_net_pf_free_vnics(struct nfp_pf *pf)
  
  static struct nfp_net *
-@@ -302,10 +301,12 @@ nfp_net_pf_alloc_vnic(struct nfp_pf *pf, bool needs_netdev,
- 	nn->stride_rx = stride;
- 	nn->stride_tx = stride;
- 
--	err = nfp_app_vnic_init(pf->app, nn, eth_id);
--	if (err) {
--		nfp_net_free(nn);
--		return ERR_PTR(err);
-+	if (needs_netdev) {
-+		err = nfp_app_vnic_init(pf->app, nn, eth_id);
-+		if (err) {
-+			nfp_net_free(nn);
-+			return ERR_PTR(err);
-+		}
- 	}
- 
- 	pf->num_vnics++;
-@@ -446,6 +447,8 @@ static int nfp_net_pf_init_vnics(struct nfp_pf *pf)
- 	/* Finish vNIC init and register */
- 	id = 0;
- 	list_for_each_entry(nn, &pf->vnics, vnic_list) {
-+		if (!nfp_net_is_data_vnic(nn))
-+			continue;
- 		err = nfp_net_pf_init_vnic(pf, nn, id);
- 		if (err)
- 			goto err_prev_deinit;
-@@ -457,12 +460,15 @@ static int nfp_net_pf_init_vnics(struct nfp_pf *pf)
- 
- err_prev_deinit:
- 	list_for_each_entry_continue_reverse(nn, &pf->vnics, vnic_list)
--		nfp_net_pf_clean_vnic(pf, nn);
-+		if (nfp_net_is_data_vnic(nn))
-+			nfp_net_pf_clean_vnic(pf, nn);
- 	return err;
- }
- 
--static int nfp_net_pf_app_init(struct nfp_pf *pf)
-+static int
-+nfp_net_pf_app_init(struct nfp_pf *pf, u8 __iomem *qc_bar, unsigned int stride)
+ nfp_net_pf_alloc_vnic(struct nfp_pf *pf, bool needs_netdev,
+-		      void __iomem *ctrl_bar,
+-		      void __iomem *tx_bar, void __iomem *rx_bar,
++		      void __iomem *ctrl_bar, void __iomem *qc_bar,
+ 		      int stride, struct nfp_net_fw_version *fw_ver,
+ 		      unsigned int eth_id)
  {
-+	u8 __iomem *ctrl_bar;
+-	u32 n_tx_rings, n_rx_rings;
++	u32 tx_base, rx_base, n_tx_rings, n_rx_rings;
+ 	struct nfp_net *nn;
  	int err;
  
- 	pf->app = nfp_app_alloc(pf, nfp_net_pf_get_app_id(pf));
-@@ -473,8 +479,28 @@ static int nfp_net_pf_app_init(struct nfp_pf *pf)
- 	if (err)
- 		goto err_free;
++	tx_base = readl(ctrl_bar + NFP_NET_CFG_START_TXQ);
++	rx_base = readl(ctrl_bar + NFP_NET_CFG_START_RXQ);
+ 	n_tx_rings = readl(ctrl_bar + NFP_NET_CFG_MAX_TXRINGS);
+ 	n_rx_rings = readl(ctrl_bar + NFP_NET_CFG_MAX_RXRINGS);
  
-+	if (!nfp_app_needs_ctrl_vnic(pf->app))
-+		return 0;
-+
-+	ctrl_bar = nfp_net_pf_map_rtsym(pf, "net.ctrl", "_pf%u_net_ctrl_bar",
-+					NFP_PF_CSR_SLICE_SIZE,
-+					&pf->ctrl_vnic_bar);
-+	if (IS_ERR(ctrl_bar)) {
-+		err = PTR_ERR(ctrl_bar);
-+		goto err_free;
-+	}
-+
-+	pf->ctrl_vnic =	nfp_net_pf_alloc_vnic(pf, false, ctrl_bar, qc_bar,
-+					      stride, 0);
-+	if (IS_ERR(pf->ctrl_vnic)) {
-+		err = PTR_ERR(pf->ctrl_vnic);
-+		goto err_unmap;
-+	}
-+
- 	return 0;
+@@ -321,8 +297,8 @@ nfp_net_pf_alloc_vnic(struct nfp_pf *pf, bool needs_netdev,
+ 	nn->app = pf->app;
+ 	nn->fw_ver = *fw_ver;
+ 	nn->dp.ctrl_bar = ctrl_bar;
+-	nn->tx_bar = tx_bar;
+-	nn->rx_bar = rx_bar;
++	nn->tx_bar = qc_bar + tx_base * NFP_QCP_QUEUE_ADDR_SZ;
++	nn->rx_bar = qc_bar + rx_base * NFP_QCP_QUEUE_ADDR_SZ;
+ 	nn->dp.is_vf = 0;
+ 	nn->stride_rx = stride;
+ 	nn->stride_tx = stride;
+@@ -374,26 +350,15 @@ nfp_net_pf_init_vnic(struct nfp_pf *pf, struct nfp_net *nn, unsigned int id)
  
-+err_unmap:
-+	nfp_cpp_area_release_free(pf->ctrl_vnic_bar);
- err_free:
- 	nfp_app_free(pf->app);
- 	return err;
-@@ -482,12 +508,72 @@ static int nfp_net_pf_app_init(struct nfp_pf *pf)
- 
- static void nfp_net_pf_app_clean(struct nfp_pf *pf)
+ static int
+ nfp_net_pf_alloc_vnics(struct nfp_pf *pf, void __iomem *ctrl_bar,
+-		       void __iomem *tx_bar, void __iomem *rx_bar,
+-		       int stride, struct nfp_net_fw_version *fw_ver)
++		       void __iomem *qc_bar, int stride,
++		       struct nfp_net_fw_version *fw_ver)
  {
-+	if (pf->ctrl_vnic) {
-+		nfp_net_pf_free_vnic(pf, pf->ctrl_vnic);
-+		nfp_cpp_area_release_free(pf->ctrl_vnic_bar);
-+	}
- 	nfp_app_free(pf->app);
- 	pf->app = NULL;
+-	u32 prev_tx_base, prev_rx_base, tgt_tx_base, tgt_rx_base;
+ 	struct nfp_net *nn;
+ 	unsigned int i;
+ 	int err;
+ 
+-	prev_tx_base = readl(ctrl_bar + NFP_NET_CFG_START_TXQ);
+-	prev_rx_base = readl(ctrl_bar + NFP_NET_CFG_START_RXQ);
+-
+ 	for (i = 0; i < pf->max_data_vnics; i++) {
+-		tgt_tx_base = readl(ctrl_bar + NFP_NET_CFG_START_TXQ);
+-		tgt_rx_base = readl(ctrl_bar + NFP_NET_CFG_START_RXQ);
+-		tx_bar += (tgt_tx_base - prev_tx_base) * NFP_QCP_QUEUE_ADDR_SZ;
+-		rx_bar += (tgt_rx_base - prev_rx_base) * NFP_QCP_QUEUE_ADDR_SZ;
+-		prev_tx_base = tgt_tx_base;
+-		prev_rx_base = tgt_rx_base;
+-
+-		nn = nfp_net_pf_alloc_vnic(pf, true, ctrl_bar, tx_bar, rx_bar,
++		nn = nfp_net_pf_alloc_vnic(pf, true, ctrl_bar, qc_bar,
+ 					   stride, fw_ver, i);
+ 		if (IS_ERR(nn)) {
+ 			err = PTR_ERR(nn);
+@@ -430,8 +395,7 @@ static void nfp_net_pf_clean_vnic(struct nfp_pf *pf, struct nfp_net *nn)
+ 
+ static int
+ nfp_net_pf_spawn_vnics(struct nfp_pf *pf,
+-		       void __iomem *ctrl_bar, void __iomem *tx_bar,
+-		       void __iomem *rx_bar, int stride,
++		       void __iomem *ctrl_bar, void __iomem *qc_bar, int stride,
+ 		       struct nfp_net_fw_version *fw_ver)
+ {
+ 	unsigned int id, wanted_irqs, num_irqs, vnics_left, irqs_left;
+@@ -439,8 +403,7 @@ nfp_net_pf_spawn_vnics(struct nfp_pf *pf,
+ 	int err;
+ 
+ 	/* Allocate the vnics and do basic init */
+-	err = nfp_net_pf_alloc_vnics(pf, ctrl_bar, tx_bar, rx_bar,
+-				     stride, fw_ver);
++	err = nfp_net_pf_alloc_vnics(pf, ctrl_bar, qc_bar, stride, fw_ver);
+ 	if (err)
+ 		return err;
+ 
+@@ -534,8 +497,7 @@ static void nfp_net_pci_remove_finish(struct nfp_pf *pf)
+ 
+ 	nfp_net_pf_app_clean(pf);
+ 
+-	nfp_cpp_area_release_free(pf->rx_area);
+-	nfp_cpp_area_release_free(pf->tx_area);
++	nfp_cpp_area_release_free(pf->qc_area);
+ 	nfp_cpp_area_release_free(pf->data_vnic_bar);
  }
  
-+static int nfp_net_pf_app_start_ctrl(struct nfp_pf *pf)
-+{
-+	int err;
-+
-+	if (!pf->ctrl_vnic)
-+		return 0;
-+	err = nfp_net_pf_init_vnic(pf, pf->ctrl_vnic, 0);
-+	if (err)
-+		return err;
-+
-+	err = nfp_ctrl_open(pf->ctrl_vnic);
-+	if (err)
-+		goto err_clean_ctrl;
-+
-+	return 0;
-+
-+err_clean_ctrl:
-+	nfp_net_pf_clean_vnic(pf, pf->ctrl_vnic);
-+	return err;
-+}
-+
-+static void nfp_net_pf_app_stop_ctrl(struct nfp_pf *pf)
-+{
-+	if (!pf->ctrl_vnic)
-+		return;
-+	nfp_ctrl_close(pf->ctrl_vnic);
-+	nfp_net_pf_clean_vnic(pf, pf->ctrl_vnic);
-+}
-+
-+static int nfp_net_pf_app_start(struct nfp_pf *pf)
-+{
-+	int err;
-+
-+	err = nfp_net_pf_app_start_ctrl(pf);
-+	if (err)
-+		return err;
-+
-+	err = nfp_app_start(pf->app, pf->ctrl_vnic);
-+	if (err)
-+		goto err_ctrl_stop;
-+
-+	return 0;
-+
-+err_ctrl_stop:
-+	nfp_net_pf_app_stop_ctrl(pf);
-+	return err;
-+}
-+
-+static void nfp_net_pf_app_stop(struct nfp_pf *pf)
-+{
-+	nfp_app_stop(pf->app);
-+	nfp_net_pf_app_stop_ctrl(pf);
-+}
-+
- static void nfp_net_pci_remove_finish(struct nfp_pf *pf)
+@@ -659,11 +621,9 @@ int nfp_net_refresh_eth_port(struct nfp_port *port)
+  */
+ int nfp_net_pci_probe(struct nfp_pf *pf)
  {
-+	nfp_net_pf_app_stop(pf);
-+	/* stop app first, to avoid double free of ctrl vNIC's ddir */
- 	nfp_net_debugfs_dir_clean(&pf->ddir);
+-	u32 ctrl_bar_sz, tx_area_sz, rx_area_sz;
+-	u8 __iomem *ctrl_bar, *tx_bar, *rx_bar;
+-	u32 total_tx_qcs, total_rx_qcs;
+ 	struct nfp_net_fw_version fw_ver;
+-	u32 start_q;
++	u8 __iomem *ctrl_bar, *qc_bar;
++	u32 ctrl_bar_sz;
+ 	int stride;
+ 	int err;
  
- 	nfp_net_pf_free_irqs(pf);
-@@ -685,7 +771,7 @@ int nfp_net_pci_probe(struct nfp_pf *pf)
+@@ -718,53 +678,23 @@ int nfp_net_pci_probe(struct nfp_pf *pf)
+ 		}
+ 	}
+ 
+-	/* Find how many QC structs need to be mapped */
+-	total_tx_qcs = nfp_net_pf_total_qcs(pf, ctrl_bar, stride,
+-					    NFP_NET_CFG_START_TXQ,
+-					    NFP_NET_CFG_MAX_TXRINGS);
+-	total_rx_qcs = nfp_net_pf_total_qcs(pf, ctrl_bar, stride,
+-					    NFP_NET_CFG_START_RXQ,
+-					    NFP_NET_CFG_MAX_RXRINGS);
+-	if (!total_tx_qcs || !total_rx_qcs) {
+-		nfp_err(pf->cpp, "Invalid PF QC configuration [%d,%d]\n",
+-			total_tx_qcs, total_rx_qcs);
+-		err = -EINVAL;
+-		goto err_ctrl_unmap;
+-	}
+-
+-	tx_area_sz = NFP_QCP_QUEUE_ADDR_SZ * total_tx_qcs;
+-	rx_area_sz = NFP_QCP_QUEUE_ADDR_SZ * total_rx_qcs;
+-
+-	/* Map TX queues */
+-	start_q = readl(ctrl_bar + NFP_NET_CFG_START_TXQ);
+-	tx_bar = nfp_net_map_area(pf->cpp, "net.tx", 0, 0,
+-				  NFP_PCIE_QUEUE(start_q),
+-				  tx_area_sz, &pf->tx_area);
+-	if (IS_ERR(tx_bar)) {
+-		nfp_err(pf->cpp, "Failed to map TX area.\n");
+-		err = PTR_ERR(tx_bar);
++	/* Map queues */
++	qc_bar = nfp_net_map_area(pf->cpp, "net.qc", 0, 0,
++				  NFP_PCIE_QUEUE(0), NFP_QCP_QUEUE_AREA_SZ,
++				  &pf->qc_area);
++	if (IS_ERR(qc_bar)) {
++		nfp_err(pf->cpp, "Failed to map Queue Controller area.\n");
++		err = PTR_ERR(qc_bar);
  		goto err_ctrl_unmap;
  	}
  
--	err = nfp_net_pf_app_init(pf);
-+	err = nfp_net_pf_app_init(pf, qc_bar, stride);
+-	/* Map RX queues */
+-	start_q = readl(ctrl_bar + NFP_NET_CFG_START_RXQ);
+-	rx_bar = nfp_net_map_area(pf->cpp, "net.rx", 0, 0,
+-				  NFP_PCIE_QUEUE(start_q),
+-				  rx_area_sz, &pf->rx_area);
+-	if (IS_ERR(rx_bar)) {
+-		nfp_err(pf->cpp, "Failed to map RX area.\n");
+-		err = PTR_ERR(rx_bar);
+-		goto err_unmap_tx;
+-	}
+-
+ 	err = nfp_net_pf_app_init(pf);
  	if (err)
- 		goto err_unmap_qc;
+-		goto err_unmap_rx;
++		goto err_unmap_qc;
  
-@@ -700,14 +786,20 @@ int nfp_net_pci_probe(struct nfp_pf *pf)
+ 	pf->ddir = nfp_net_debugfs_device_add(pf->pdev);
+ 
+-	err = nfp_net_pf_spawn_vnics(pf, ctrl_bar, tx_bar, rx_bar,
+-				     stride, &fw_ver);
++	err = nfp_net_pf_spawn_vnics(pf, ctrl_bar, qc_bar, stride, &fw_ver);
  	if (err)
- 		goto err_free_vnics;
+ 		goto err_clean_ddir;
  
--	err = nfp_net_pf_init_vnics(pf);
-+	err = nfp_net_pf_app_start(pf);
- 	if (err)
- 		goto err_free_irqs;
- 
-+	err = nfp_net_pf_init_vnics(pf);
-+	if (err)
-+		goto err_stop_app;
-+
- 	mutex_unlock(&pf->lock);
- 
- 	return 0;
- 
-+err_stop_app:
-+	nfp_net_pf_app_stop(pf);
- err_free_irqs:
- 	nfp_net_pf_free_irqs(pf);
- err_free_vnics:
-@@ -733,7 +825,8 @@ void nfp_net_pci_remove(struct nfp_pf *pf)
- 		goto out;
- 
- 	list_for_each_entry(nn, &pf->vnics, vnic_list)
--		nfp_net_pf_clean_vnic(pf, nn);
-+		if (nfp_net_is_data_vnic(nn))
-+			nfp_net_pf_clean_vnic(pf, nn);
- 
- 	nfp_net_pf_free_vnics(pf);
- 
+@@ -775,10 +705,8 @@ int nfp_net_pci_probe(struct nfp_pf *pf)
+ err_clean_ddir:
+ 	nfp_net_debugfs_dir_clean(&pf->ddir);
+ 	nfp_net_pf_app_clean(pf);
+-err_unmap_rx:
+-	nfp_cpp_area_release_free(pf->rx_area);
+-err_unmap_tx:
+-	nfp_cpp_area_release_free(pf->tx_area);
++err_unmap_qc:
++	nfp_cpp_area_release_free(pf->qc_area);
+ err_ctrl_unmap:
+ 	nfp_cpp_area_release_free(pf->data_vnic_bar);
+ err_unlock:
 -- 
 2.11.0
