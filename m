@@ -1,50 +1,64 @@
-From: Max Filippov <jcmvbkbc@gmail.com>
-Subject: [PATCH] net: ethoc: enable NAPI before poll may be scheduled
-Date: Mon,  5 Jun 2017 18:31:16 -0700
-Message-ID: <1496712676-11862-1-git-send-email-jcmvbkbc@gmail.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with the net tree
+Date: Tue, 6 Jun 2017 11:49:41 +1000
+Message-ID: <20170606114941.20a80fb0@canb.auug.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Linux-Next Mailing List <linux-next@vger.kernel.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
         Florian Fainelli <f.fainelli@gmail.com>,
-        Thierry Reding <thierry.reding@gmail.com>,
-        Tobias Klauser <tklauser@distanz.ch>,
-        Max Filippov <jcmvbkbc@gmail.com>, stable@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <stable-owner@vger.kernel.org>
-Sender: stable-owner@vger.kernel.org
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: David Miller <davem@davemloft.net>,
+        Networking <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-ethoc_reset enables device interrupts, ethoc_interrupt may schedule a
-NAPI poll before NAPI is enabled in the ethoc_open, which results in
-device being unable to send or receive anything until it's closed and
-reopened. In case the device is flooded with ingress packets it may be
-unable to recover at all.
-Move napi_enable above ethoc_reset in the ethoc_open to fix that.
+Hi all,
 
-Cc: stable@vger.kernel.org
-Signed-off-by: Max Filippov <jcmvbkbc@gmail.com>
----
- drivers/net/ethernet/ethoc.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+Today's linux-next merge of the net-next tree got a conflict in:
 
-diff --git a/drivers/net/ethernet/ethoc.c b/drivers/net/ethernet/ethoc.c
-index 23d8274..4f33660 100644
---- a/drivers/net/ethernet/ethoc.c
-+++ b/drivers/net/ethernet/ethoc.c
-@@ -739,6 +739,8 @@ static int ethoc_open(struct net_device *dev)
- 	if (ret)
- 		return ret;
- 
-+	napi_enable(&priv->napi);
-+
- 	ethoc_init_ring(priv, dev->mem_start);
- 	ethoc_reset(priv);
- 
-@@ -754,7 +756,6 @@ static int ethoc_open(struct net_device *dev)
- 	priv->old_duplex = -1;
- 
- 	phy_start(dev->phydev);
--	napi_enable(&priv->napi);
- 
- 	if (netif_msg_ifup(priv)) {
- 		dev_info(&dev->dev, "I/O: %08lx Memory: %08lx-%08lx\n",
+  net/dsa/dsa2.c
+
+between commit:
+
+  b07ac9894644 ("net: dsa: Fix stale cpu_switch reference after unbind then bind")
+
+from the net tree and commits:
+
+  8b0d3ea55587 ("net: dsa: store CPU port pointer in the tree")
+  937c7df85ce7 ("net: dsa: Pass dsa_port reference to ethtool setup/restore")
+
+from the net-next tree.
+
+I fixed it up (I think (maybe it should be "dst->cpu_dp.ds = NULL"?) -
+see below) and can carry the fix as necessary. This is now fixed as far
+as linux-next is concerned, but any non trivial conflicts should be
+mentioned to your upstream maintainer when your tree is submitted for
+merging.  You may also want to consider cooperating with the maintainer
+of the conflicting tree to minimise any particularly complex conflicts.
+
 -- 
-2.1.4
+Cheers,
+Stephen Rothwell
+
+diff --cc net/dsa/dsa2.c
+index 7796580e99ee,cd13bb54a30c..000000000000
+--- a/net/dsa/dsa2.c
++++ b/net/dsa/dsa2.c
+@@@ -484,10 -474,8 +474,10 @@@ static void dsa_dst_unapply(struct dsa_
+  		dsa_ds_unapply(dst, ds);
+  	}
+  
+- 	if (dst->cpu_switch) {
+- 		dsa_cpu_port_ethtool_restore(dst->cpu_switch);
+- 		dst->cpu_switch = NULL;
+ -	if (dst->cpu_dp)
+++	if (dst->cpu_dp) {
++ 		dsa_cpu_port_ethtool_restore(dst->cpu_dp);
+++		dst->cpu_dp = NULL;
+ +	}
+  
+  	pr_info("DSA: tree %d unapplied\n", dst->tree);
+  	dst->applied = false;
