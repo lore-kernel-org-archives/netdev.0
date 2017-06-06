@@ -1,50 +1,39 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH v2 3/4] net: macb: macb.c changed to macb_main.c
-Date: Tue, 6 Jun 2017 20:39:33 +0200
-Message-ID: <20170606183933.GA1205@localhost.localdomain>
-References: <1496413439-12900-1-git-send-email-rafalo@cadence.com>
- <1496413661-21452-1-git-send-email-rafalo@cadence.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [for-next 4/6] net/mlx5: FPGA, Add basic support for Innova
+Date: Tue, 06 Jun 2017 14:38:24 -0400 (EDT)
+Message-ID: <20170606.143824.717466091308335341.davem@davemloft.net>
+References: <20170606174233.w377ctwtapzccsk7@ast-mbp.dhcp.thefacebook.com>
+        <20170606.134726.416045938000214127.davem@davemloft.net>
+        <20170606183457.fg7vgv2zji3fhlb5@ast-mbp.dhcp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: devicetree@vger.kernel.org, netdev@vger.kernel.org, nicolas.ferre@atmel.com,
- linux-kernel@vger.kernel.org, andrei.pistirica@microchip.com,
- harini.katakam@xilinx.com, David Miller <davem@davemloft.net>,
- linux-arm-kernel@lists.infradead.org
-To: Rafal Ozieblo <rafalo@cadence.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-Content-Disposition: inline
-In-Reply-To: <1496413661-21452-1-git-send-email-rafalo@cadence.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Cc: jgunthorpe@obsidianresearch.com, ilant@mellanox.com,
+        saeedm@dev.mellanox.co.il, dledford@redhat.com,
+        netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
+        jsorensen@fb.com, andy.shevchenko@gmail.com,
+        linux-fpga@vger.kernel.org, atull@opensource.altera.com,
+        yi1.li@linux.intel.com, borisp@mellanox.com
+To: alexei.starovoitov@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:36376 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751452AbdFFSia (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 6 Jun 2017 14:38:30 -0400
+In-Reply-To: <20170606183457.fg7vgv2zji3fhlb5@ast-mbp.dhcp.thefacebook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 02, 2017 at 03:27:41PM +0100, Rafal Ozieblo wrote:
->  drivers/net/ethernet/cadence/macb.c      | 3568 ------------------------------
->  drivers/net/ethernet/cadence/macb_main.c | 3568 ++++++++++++++++++++++++++++++
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Date: Tue, 6 Jun 2017 11:34:59 -0700
 
-You deleted macb.c, and so ...
+> fpga is a separate device with its own phy and mac layers, its
+> own queues, packet parsing and rdma logic.
 
-> diff --git a/drivers/net/ethernet/cadence/Makefile b/drivers/net/ethernet/cadence/Makefile
-> index 4ba7559..31ea6e3 100644
-> --- a/drivers/net/ethernet/cadence/Makefile
-> +++ b/drivers/net/ethernet/cadence/Makefile
-> @@ -1,6 +1,7 @@
->  #
->  # Makefile for the Atmel network device drivers.
->  #
-> +macb-y	:= macb_main.o
->  
->  obj-$(CONFIG_MACB) += macb.o
+Because that's how they bolted it onto the ASIC in current
+implementation, it might not always be that way and be fully
+integrated in the future.
 
-how does this rule make sense any more?
-
-Thanks,
-Richard
+And I stress the word "implementation" as in "implementation detail"
+the visible behavior is going to be the same, the difference is how
+the thing is hooked up and maybe how you program it.
