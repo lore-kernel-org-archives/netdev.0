@@ -1,125 +1,209 @@
 From: Paolo Abeni <pabeni@redhat.com>
-Subject: [PATCH net-next v2 2/3] udp: avoid a cache miss on dequeue
-Date: Tue,  6 Jun 2017 16:23:45 +0200
-Message-ID: <25a17e660ebc766ef6af918d7607dde4706f0c23.1496756090.git.pabeni@redhat.com>
+Subject: [PATCH net-next v2 3/3] udp: try to avoid 2 cache miss on dequeue
+Date: Tue,  6 Jun 2017 16:23:46 +0200
+Message-ID: <cdbe7b4e6758719d3e02938f05c8575d009e2822.1496756090.git.pabeni@redhat.com>
 References: <cover.1496756090.git.pabeni@redhat.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
         Eric Dumazet <edumazet@google.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:46742 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:43232 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751541AbdFFOY7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 6 Jun 2017 10:24:59 -0400
+        id S1751641AbdFFOZC (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 6 Jun 2017 10:25:02 -0400
 In-Reply-To: <cover.1496756090.git.pabeni@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since UDP no more uses sk->destructor, we can clear completely
-the skb head state before enqueuing. Amend and use
-skb_release_head_state() for that.
+when udp_recvmsg() is executed, on x86_64 and other archs, most skb
+fields are on cold cachelines.
+If the skb are linear and the kernel don't need to compute the udp
+csum, only a handful of skb fields are required by udp_recvmsg().
+Since we already use skb->dev_scratch to cache hot data, and
+there are 32 bits unused on 64 bit archs, use such field to cache
+as much data as we can, and try to prefetch on dequeue the relevant
+fields that are left out.
 
-All head states share a single cacheline, which is not
-normally used/accesses on dequeue. We can avoid entirely accessing
-such cacheline implementing and using in the UDP code a specialized
-skb free helper which ignores the skb head state.
-
-This saves a cacheline miss at skb deallocation time.
+This can save up to 2 cache miss per packet.
 
 v1 -> v2:
-  replaced secpath_reset() with skb_release_head_state()
+  - changed udp_dev_scratch fields types to u{32,16} variant,
+    replaced bitfield with bool
 
 Signed-off-by: Paolo Abeni <pabeni@redhat.com>
 ---
- include/linux/skbuff.h |  2 ++
- net/core/skbuff.c      | 24 ++++++++++++++++++++----
- net/ipv4/udp.c         |  6 +++++-
- 3 files changed, 27 insertions(+), 5 deletions(-)
+ net/ipv4/udp.c | 114 +++++++++++++++++++++++++++++++++++++++++++++++++++------
+ 1 file changed, 103 insertions(+), 11 deletions(-)
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 3c25fca..ddfb964 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -880,10 +880,12 @@ static inline bool skb_unref(struct sk_buff *skb)
- 	return true;
- }
- 
-+void skb_release_head_state(struct sk_buff *skb);
- void kfree_skb(struct sk_buff *skb);
- void kfree_skb_list(struct sk_buff *segs);
- void skb_tx_error(struct sk_buff *skb);
- void consume_skb(struct sk_buff *skb);
-+void consume_stateless_skb(struct sk_buff *skb);
- void  __kfree_skb(struct sk_buff *skb);
- extern struct kmem_cache *skbuff_head_cache;
- 
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index c81b828..786cb42 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -643,12 +643,10 @@ static void kfree_skbmem(struct sk_buff *skb)
- 	kmem_cache_free(skbuff_fclone_cache, fclones);
- }
- 
--static void skb_release_head_state(struct sk_buff *skb)
-+void skb_release_head_state(struct sk_buff *skb)
- {
- 	skb_dst_drop(skb);
--#ifdef CONFIG_XFRM
--	secpath_put(skb->sp);
--#endif
-+	secpath_reset(skb);
- 	if (skb->destructor) {
- 		WARN_ON(in_irq());
- 		skb->destructor(skb);
-@@ -751,6 +749,24 @@ void consume_skb(struct sk_buff *skb)
- }
- EXPORT_SYMBOL(consume_skb);
- 
-+/**
-+ *	consume_stateless_skb - free an skbuff, assuming it is stateless
-+ *	@skb: buffer to free
-+ *
-+ *	Works like consume_skb(), but this variant assumes that all the head
-+ *	states have been already dropped.
-+ */
-+void consume_stateless_skb(struct sk_buff *skb)
-+{
-+	if (!skb_unref(skb))
-+		return;
-+
-+	trace_consume_skb(skb);
-+	if (likely(skb->head))
-+		skb_release_data(skb);
-+	kfree_skbmem(skb);
-+}
-+
- void __kfree_skb_flush(void)
- {
- 	struct napi_alloc_cache *nc = this_cpu_ptr(&napi_alloc_cache);
 diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index fdcb743..d8b265f 100644
+index d8b265f..2bc638c 100644
 --- a/net/ipv4/udp.c
 +++ b/net/ipv4/udp.c
-@@ -1359,7 +1359,8 @@ void skb_consume_udp(struct sock *sk, struct sk_buff *skb, int len)
- 		sk_peek_offset_bwd(sk, len);
- 		unlock_sock_fast(sk, slow);
- 	}
--	consume_skb(skb);
-+
-+	consume_stateless_skb(skb);
+@@ -1163,6 +1163,83 @@ int udp_sendpage(struct sock *sk, struct page *page, int offset,
+ 	return ret;
  }
- EXPORT_SYMBOL_GPL(skb_consume_udp);
  
-@@ -1739,6 +1740,9 @@ static int __udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
- 		sk_mark_napi_id_once(sk, skb);
++/* Copy as much information as possible into skb->dev_scratch to avoid
++ * possibly multiple cache miss on dequeue();
++ */
++#if BITS_PER_LONG == 64
++
++/* we can store multiple info here: truesize, len and the bit needed to
++ * compute skb_csum_unnecessary will be on cold cache lines at recvmsg
++ * time.
++ * skb->len can be stored on 16 bits since the udp header has been already
++ * validated and pulled.
++ */
++struct udp_dev_scratch {
++	u32 truesize;
++	u16 len;
++	bool is_linear;
++	bool csum_unnecessary;
++};
++
++static void udp_set_dev_scratch(struct sk_buff *skb)
++{
++	struct udp_dev_scratch *scratch;
++
++	BUILD_BUG_ON(sizeof(struct udp_dev_scratch) > sizeof(long));
++	scratch = (struct udp_dev_scratch *)&skb->dev_scratch;
++	scratch->truesize = skb->truesize;
++	scratch->len = skb->len;
++	scratch->csum_unnecessary = !!skb_csum_unnecessary(skb);
++	scratch->is_linear = !skb_is_nonlinear(skb);
++}
++
++static int udp_skb_truesize(struct sk_buff *skb)
++{
++	return ((struct udp_dev_scratch *)&skb->dev_scratch)->truesize;
++}
++
++static unsigned int udp_skb_len(struct sk_buff *skb)
++{
++	return ((struct udp_dev_scratch *)&skb->dev_scratch)->len;
++}
++
++static bool udp_skb_csum_unnecessary(struct sk_buff *skb)
++{
++	return ((struct udp_dev_scratch *)&skb->dev_scratch)->csum_unnecessary;
++}
++
++static bool udp_skb_is_linear(struct sk_buff *skb)
++{
++	return ((struct udp_dev_scratch *)&skb->dev_scratch)->is_linear;
++}
++
++#else
++static void udp_set_dev_scratch(struct sk_buff *skb)
++{
++	skb->dev_scratch = skb->truesize;
++}
++
++static int udp_skb_truesize(struct sk_buff *skb)
++{
++	return skb->dev_scratch;
++}
++
++static unsigned int udp_skb_len(struct sk_buff *skb)
++{
++	return skb->len;
++}
++
++static bool udp_skb_csum_unnecessary(struct sk_buff *skb)
++{
++	return skb_csum_unnecessary(skb);
++}
++
++static bool udp_skb_is_linear(struct sk_buff *skb)
++{
++	return !skb_is_nonlinear(skb);
++}
++#endif
++
+ /* fully reclaim rmem/fwd memory allocated for skb */
+ static void udp_rmem_release(struct sock *sk, int size, int partial,
+ 			     bool rx_queue_lock_held)
+@@ -1213,14 +1290,16 @@ static void udp_rmem_release(struct sock *sk, int size, int partial,
+  */
+ void udp_skb_destructor(struct sock *sk, struct sk_buff *skb)
+ {
+-	udp_rmem_release(sk, skb->dev_scratch, 1, false);
++	prefetch(&skb->data);
++	udp_rmem_release(sk, udp_skb_truesize(skb), 1, false);
+ }
+ EXPORT_SYMBOL(udp_skb_destructor);
+ 
+ /* as above, but the caller held the rx queue lock, too */
+ static void udp_skb_dtor_locked(struct sock *sk, struct sk_buff *skb)
+ {
+-	udp_rmem_release(sk, skb->dev_scratch, 1, true);
++	prefetch(&skb->data);
++	udp_rmem_release(sk, udp_skb_truesize(skb), 1, true);
+ }
+ 
+ /* Idea of busylocks is to let producers grab an extra spinlock
+@@ -1274,10 +1353,7 @@ int __udp_enqueue_schedule_skb(struct sock *sk, struct sk_buff *skb)
+ 		busy = busylock_acquire(sk);
+ 	}
+ 	size = skb->truesize;
+-	/* Copy skb->truesize into skb->dev_scratch to avoid a cache line miss
+-	 * in udp_skb_destructor()
+-	 */
+-	skb->dev_scratch = size;
++	udp_set_dev_scratch(skb);
+ 
+ 	/* we drop only if the receive buf is full and the receive
+ 	 * queue contains some other skb
+@@ -1515,6 +1591,18 @@ struct sk_buff *__skb_recv_udp(struct sock *sk, unsigned int flags,
+ }
+ EXPORT_SYMBOL_GPL(__skb_recv_udp);
+ 
++static int copy_linear_skb(struct sk_buff *skb, int len, int off,
++			   struct iov_iter *to)
++{
++	int n, copy = len - off;
++
++	n = copy_to_iter(skb->data + off, copy, to);
++	if (n == copy)
++		return 0;
++
++	return -EFAULT;
++}
++
+ /*
+  * 	This should be easy, if there is something there we
+  * 	return it, otherwise we block.
+@@ -1541,7 +1629,7 @@ int udp_recvmsg(struct sock *sk, struct msghdr *msg, size_t len, int noblock,
+ 	if (!skb)
+ 		return err;
+ 
+-	ulen = skb->len;
++	ulen = udp_skb_len(skb);
+ 	copied = len;
+ 	if (copied > ulen - off)
+ 		copied = ulen - off;
+@@ -1556,14 +1644,18 @@ int udp_recvmsg(struct sock *sk, struct msghdr *msg, size_t len, int noblock,
+ 
+ 	if (copied < ulen || peeking ||
+ 	    (is_udplite && UDP_SKB_CB(skb)->partial_cov)) {
+-		checksum_valid = !udp_lib_checksum_complete(skb);
++		checksum_valid = udp_skb_csum_unnecessary(skb) ||
++				!__udp_lib_checksum_complete(skb);
+ 		if (!checksum_valid)
+ 			goto csum_copy_err;
  	}
  
-+	/* clear all pending head states while they are hot in the cache */
-+	skb_release_head_state(skb);
-+
- 	rc = __udp_enqueue_schedule_skb(sk, skb);
- 	if (rc < 0) {
- 		int is_udplite = IS_UDPLITE(sk);
+-	if (checksum_valid || skb_csum_unnecessary(skb))
+-		err = skb_copy_datagram_msg(skb, off, msg, copied);
+-	else {
++	if (checksum_valid || udp_skb_csum_unnecessary(skb)) {
++		if (udp_skb_is_linear(skb))
++			err = copy_linear_skb(skb, copied, off, &msg->msg_iter);
++		else
++			err = skb_copy_datagram_msg(skb, off, msg, copied);
++	} else {
+ 		err = skb_copy_and_csum_datagram_msg(skb, off, msg);
+ 
+ 		if (err == -EINVAL)
 -- 
 2.9.4
