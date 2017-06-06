@@ -1,162 +1,47 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next 13/16] nfp: slice the netdev spawning function
-Date: Mon,  5 Jun 2017 17:01:54 -0700
-Message-ID: <20170606000157.17556-14-jakub.kicinski@netronome.com>
+Subject: [PATCH net-next 08/16] nfp: prepare config and enable for working without netdevs
+Date: Mon,  5 Jun 2017 17:01:49 -0700
+Message-ID: <20170606000157.17556-9-jakub.kicinski@netronome.com>
 References: <20170606000157.17556-1-jakub.kicinski@netronome.com>
 Cc: oss-drivers@netronome.com,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f181.google.com ([209.85.192.181]:33302 "EHLO
-        mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751266AbdFFAC1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 5 Jun 2017 20:02:27 -0400
-Received: by mail-pf0-f181.google.com with SMTP id 83so32352824pfr.0
-        for <netdev@vger.kernel.org>; Mon, 05 Jun 2017 17:02:26 -0700 (PDT)
+Received: from mail-pg0-f47.google.com ([74.125.83.47]:33471 "EHLO
+        mail-pg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751277AbdFFACV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 5 Jun 2017 20:02:21 -0400
+Received: by mail-pg0-f47.google.com with SMTP id f185so27037814pgc.0
+        for <netdev@vger.kernel.org>; Mon, 05 Jun 2017 17:02:21 -0700 (PDT)
 In-Reply-To: <20170606000157.17556-1-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We want to be able to create a special vNIC for control messages.
-This vNIC should be created before any netdev is registered to allow
-nfp_app logic to exchange messages with the FW app before any netdev
-is visible to user space.  Unfortunately we can't enable IRQs until
-we know how many vNICs we will need to spawn.
-
-Divide the function which spawns netdevs for vNICs into three parts:
- - vNIC/memory allocation;
- - IRQ allocation;
- - netdev init and register.
-
-This will help us insert the initialization of the control channel
-after IRQ allocation but before netdev init and register.
+Out of the three stages of ifup/ifdown (allocate, configure, start)
+- this commit prepares the configuration stage for working with
+control vNICs.
 
 Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 ---
- drivers/net/ethernet/netronome/nfp/nfp_net_main.c | 62 ++++++++++++++---------
- 1 file changed, 37 insertions(+), 25 deletions(-)
+ drivers/net/ethernet/netronome/nfp/nfp_net_common.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_main.c b/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
-index 82172665e023..98a99b199674 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
-@@ -391,18 +391,10 @@ static void nfp_net_pf_clean_vnic(struct nfp_pf *pf, struct nfp_net *nn)
- 	nfp_app_vnic_clean(pf->app, nn);
- }
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
+index 1cc7425ffd27..c47705861a81 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
++++ b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
+@@ -2236,9 +2236,10 @@ static int nfp_net_set_config_and_enable(struct nfp_net *nn)
+ 	nn_writeq(nn, NFP_NET_CFG_RXRS_ENABLE, nn->dp.num_rx_rings == 64 ?
+ 		  0xffffffffffffffffULL : ((u64)1 << nn->dp.num_rx_rings) - 1);
  
--static int
--nfp_net_pf_spawn_vnics(struct nfp_pf *pf,
--		       void __iomem *ctrl_bar, void __iomem *qc_bar, int stride)
-+static int nfp_net_pf_alloc_irqs(struct nfp_pf *pf)
- {
--	unsigned int id, wanted_irqs, num_irqs, vnics_left, irqs_left;
-+	unsigned int wanted_irqs, num_irqs, vnics_left, irqs_left;
- 	struct nfp_net *nn;
--	int err;
--
--	/* Allocate the vnics and do basic init */
--	err = nfp_net_pf_alloc_vnics(pf, ctrl_bar, qc_bar, stride);
--	if (err)
--		return err;
+-	nfp_net_write_mac_addr(nn, nn->dp.netdev->dev_addr);
++	if (nn->dp.netdev)
++		nfp_net_write_mac_addr(nn, nn->dp.netdev->dev_addr);
  
- 	/* Get MSI-X vectors */
- 	wanted_irqs = 0;
-@@ -410,18 +402,16 @@ nfp_net_pf_spawn_vnics(struct nfp_pf *pf,
- 		wanted_irqs += NFP_NET_NON_Q_VECTORS + nn->dp.num_r_vecs;
- 	pf->irq_entries = kcalloc(wanted_irqs, sizeof(*pf->irq_entries),
- 				  GFP_KERNEL);
--	if (!pf->irq_entries) {
--		err = -ENOMEM;
--		goto err_nn_free;
--	}
-+	if (!pf->irq_entries)
-+		return -ENOMEM;
+-	nn_writel(nn, NFP_NET_CFG_MTU, nn->dp.netdev->mtu);
++	nn_writel(nn, NFP_NET_CFG_MTU, nn->dp.mtu);
  
- 	num_irqs = nfp_net_irqs_alloc(pf->pdev, pf->irq_entries,
- 				      NFP_NET_MIN_VNIC_IRQS * pf->num_vnics,
- 				      wanted_irqs);
- 	if (!num_irqs) {
--		nn_warn(nn, "Unable to allocate MSI-X Vectors. Exiting\n");
--		err = -ENOMEM;
--		goto err_vec_free;
-+		nfp_warn(pf->cpp, "Unable to allocate MSI-X vectors\n");
-+		kfree(pf->irq_entries);
-+		return -ENOMEM;
- 	}
- 
- 	/* Distribute IRQs to vNICs */
-@@ -437,6 +427,21 @@ nfp_net_pf_spawn_vnics(struct nfp_pf *pf,
- 		vnics_left--;
- 	}
- 
-+	return 0;
-+}
-+
-+static void nfp_net_pf_free_irqs(struct nfp_pf *pf)
-+{
-+	nfp_net_irqs_disable(pf->pdev);
-+	kfree(pf->irq_entries);
-+}
-+
-+static int nfp_net_pf_init_vnics(struct nfp_pf *pf)
-+{
-+	struct nfp_net *nn;
-+	unsigned int id;
-+	int err;
-+
- 	/* Finish vNIC init and register */
- 	id = 0;
- 	list_for_each_entry(nn, &pf->vnics, vnic_list) {
-@@ -452,11 +457,6 @@ nfp_net_pf_spawn_vnics(struct nfp_pf *pf,
- err_prev_deinit:
- 	list_for_each_entry_continue_reverse(nn, &pf->vnics, vnic_list)
- 		nfp_net_pf_clean_vnic(pf, nn);
--	nfp_net_irqs_disable(pf->pdev);
--err_vec_free:
--	kfree(pf->irq_entries);
--err_nn_free:
--	nfp_net_pf_free_vnics(pf);
- 	return err;
- }
- 
-@@ -489,8 +489,7 @@ static void nfp_net_pci_remove_finish(struct nfp_pf *pf)
- {
- 	nfp_net_debugfs_dir_clean(&pf->ddir);
- 
--	nfp_net_irqs_disable(pf->pdev);
--	kfree(pf->irq_entries);
-+	nfp_net_pf_free_irqs(pf);
- 
- 	nfp_net_pf_app_clean(pf);
- 
-@@ -691,14 +690,27 @@ int nfp_net_pci_probe(struct nfp_pf *pf)
- 
- 	pf->ddir = nfp_net_debugfs_device_add(pf->pdev);
- 
--	err = nfp_net_pf_spawn_vnics(pf, ctrl_bar, qc_bar, stride);
-+	/* Allocate the vnics and do basic init */
-+	err = nfp_net_pf_alloc_vnics(pf, ctrl_bar, qc_bar, stride);
- 	if (err)
- 		goto err_clean_ddir;
- 
-+	err = nfp_net_pf_alloc_irqs(pf);
-+	if (err)
-+		goto err_free_vnics;
-+
-+	err = nfp_net_pf_init_vnics(pf);
-+	if (err)
-+		goto err_free_irqs;
-+
- 	mutex_unlock(&pf->lock);
- 
- 	return 0;
- 
-+err_free_irqs:
-+	nfp_net_pf_free_irqs(pf);
-+err_free_vnics:
-+	nfp_net_pf_free_vnics(pf);
- err_clean_ddir:
- 	nfp_net_debugfs_dir_clean(&pf->ddir);
- 	nfp_net_pf_app_clean(pf);
+ 	bufsz = nn->dp.fl_bufsz - nn->dp.rx_dma_off - NFP_NET_RX_BUF_NON_DATA;
+ 	nn_writel(nn, NFP_NET_CFG_FLBUFSZ, bufsz);
 -- 
 2.11.0
