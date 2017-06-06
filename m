@@ -1,91 +1,200 @@
-From: Niklas Cassel <niklas.cassel@axis.com>
-Subject: Re: [PATCH net] net: stmmac: fix completely hung TX when using TSO
-Date: Tue, 6 Jun 2017 12:01:08 +0200
-Message-ID: <56b1194f-959e-e936-88e0-f52063c7ffa0@axis.com>
-References: <20170606072501.16560-1-niklas.cassel@axis.com>
- <53a84a68-5014-7a92-5e78-f9f04aa948c6@st.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
-        Alexandre Torgue <alexandre.torgue@st.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <53a84a68-5014-7a92-5e78-f9f04aa948c6@st.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Antony Antony <antony@phenome.org>
+Subject: [PATCH v2 2/2] xfrm: add UDP encapsulation port in migrate message
+Date: Tue,  6 Jun 2017 12:12:14 +0200
+Message-ID: <1496743934-12697-2-git-send-email-antony@phenome.org>
+References: <1496743934-12697-1-git-send-email-antony@phenome.org>
+Cc: Antony Antony <antony@phenome.org>,
+        Steffen Klassert <steffen.klassert@secunet.com>,
+        Herbert Xu <herbert@gondor.apana.org.au>,
+        "David S . Miller" <davem@davemloft.net>,
+        Richard Guy Briggs <rgb@tricolour.ca>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from lb2-smtp-cloud3.xs4all.net ([194.109.24.26]:51292 "EHLO
+        lb2-smtp-cloud3.xs4all.net" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751398AbdFFKMV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 6 Jun 2017 06:12:21 -0400
+In-Reply-To: <1496743934-12697-1-git-send-email-antony@phenome.org>
+In-Reply-To: <20170605215625.11043-1-antony@phenome.org>
+References: <20170605215625.11043-1-antony@phenome.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 06/06/2017 10:00 AM, Giuseppe CAVALLARO wrote:
-> Hi Niklas
+Add XFRMA_ENCAP, UDP encapsulation port, to km_migrate announcement
+to userland. Only add if XFRMA_ENCAP was in user migrate request.
 
-Hello Peppe, Alex
+Signed-off-by: Antony Antony <antony@phenome.org>
+Reviewed-by: Richard Guy Briggs <rgb@tricolour.ca>
+---
+Changes in v2:
+	- fixed pfkey_send_migrate, warning reported by kbuild test robot
+ 	  with # CONFIG_NET_KEY_MIGRATE is not set
+	  also tested with # CONFIG_XFRM_MIGRATE is not set
+	- constify struct xfrm_encap_tmpl *encap in km_migrate
 
-> 
-> I get the point and I acked the patch but Alex, please, can you confirm
-> that this issue has never seen on your boxes where the TSO has been
-> fully tested? The initial development (commit f748be531) introduces
-> the following:
->     (last_segment) && (buff_size < TSO_MAX_BUFF_SIZE),
-> ...
+ include/net/xfrm.h     |  6 ++++--
+ net/key/af_key.c       |  6 ++++--
+ net/xfrm/xfrm_policy.c |  2 +-
+ net/xfrm/xfrm_state.c  |  6 ++++--
+ net/xfrm/xfrm_user.c   | 23 +++++++++++++++++------
+ 5 files changed, 30 insertions(+), 13 deletions(-)
 
-Since you need a packet where the txbuff size of last descriptor
-has the exact size of 16K-1, depending on your workload,
-it is possible to run your system for a very long time without
-triggering the bug.
-
-We noticed the problem since a test in our test suite fetches
-the syslog. The syslog usually has a size that is not constant,
-and the size usually increases with time.
-During some of the test runs, far from all of them, we would
-eventually end up with a packet of the exact size that triggers
-the bug.
-
-It should be possible to trigger the bug more easily if you
-know what buffer size to write to your TCP socket, together
-with some manual TCP corking.
-
-
-Regards,
-Niklas
-
-> 
-> On 6/6/2017 9:25 AM, Niklas Cassel wrote:
->> stmmac_tso_allocator can fail to set the Last Descriptor bit
->> on a descriptor that actually was the last descriptor.
->>
->> This happens when the buffer of the last descriptor ends
->> up having a size of exactly TSO_MAX_BUFF_SIZE.
->>
->> When the IP eventually reaches the next last descriptor,
->> which actually has the bit set, the DMA will hang.
->>
->> When the DMA hangs, we get a tx timeout, however,
->> since stmmac does not do a complete reset of the IP
->> in stmmac_tx_timeout, we end up in a state with
->> completely hung TX.
->>
->> Signed-off-by: Niklas Cassel <niklas.cassel@axis.com>
-> 
-> Acked-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-> 
->> ---
->>   drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 2 +-
->>   1 file changed, 1 insertion(+), 1 deletion(-)
->>
->> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
->> index 68a188e74c54..440bea049a7f 100644
->> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
->> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
->> @@ -2723,7 +2723,7 @@ static void stmmac_tso_allocator(struct stmmac_priv *priv, unsigned int des,
->>             priv->hw->desc->prepare_tso_tx_desc(desc, 0, buff_size,
->>               0, 1,
->> -            (last_segment) && (buff_size < TSO_MAX_BUFF_SIZE),
->> +            (last_segment) && (tmp_len <= TSO_MAX_BUFF_SIZE),
->>               0, 0);
->>             tmp_len -= TSO_MAX_BUFF_SIZE;
-> 
-> Regards
-> Peppe
-> 
-> 
+diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+index df98463..01f5bc1 100644
+--- a/include/net/xfrm.h
++++ b/include/net/xfrm.h
+@@ -631,7 +631,8 @@ struct xfrm_mgr {
+ 					   u8 dir, u8 type,
+ 					   const struct xfrm_migrate *m,
+ 					   int num_bundles,
+-					   const struct xfrm_kmaddress *k);
++					   const struct xfrm_kmaddress *k,
++					   const struct xfrm_encap_tmpl *encap);
+ 	bool			(*is_alive)(const struct km_event *c);
+ };
+ 
+@@ -1675,7 +1676,8 @@ int xfrm_sk_policy_insert(struct sock *sk, int dir, struct xfrm_policy *pol);
+ #ifdef CONFIG_XFRM_MIGRATE
+ int km_migrate(const struct xfrm_selector *sel, u8 dir, u8 type,
+ 	       const struct xfrm_migrate *m, int num_bundles,
+-	       const struct xfrm_kmaddress *k);
++	       const struct xfrm_kmaddress *k,
++	       const struct xfrm_encap_tmpl *encap);
+ struct xfrm_state *xfrm_migrate_state_find(struct xfrm_migrate *m, struct net *net);
+ struct xfrm_state *xfrm_state_migrate(struct xfrm_state *x,
+ 				      struct xfrm_migrate *m,
+diff --git a/net/key/af_key.c b/net/key/af_key.c
+index 56df9fb..98c1ffb 100644
+--- a/net/key/af_key.c
++++ b/net/key/af_key.c
+@@ -3508,7 +3508,8 @@ static int set_ipsecrequest(struct sk_buff *skb,
+ #ifdef CONFIG_NET_KEY_MIGRATE
+ static int pfkey_send_migrate(const struct xfrm_selector *sel, u8 dir, u8 type,
+ 			      const struct xfrm_migrate *m, int num_bundles,
+-			      const struct xfrm_kmaddress *k)
++			      const struct xfrm_kmaddress *k,
++			      const struct xfrm_encap_tmpl *encap)
+ {
+ 	int i;
+ 	int sasize_sel;
+@@ -3618,7 +3619,8 @@ static int pfkey_send_migrate(const struct xfrm_selector *sel, u8 dir, u8 type,
+ #else
+ static int pfkey_send_migrate(const struct xfrm_selector *sel, u8 dir, u8 type,
+ 			      const struct xfrm_migrate *m, int num_bundles,
+-			      const struct xfrm_kmaddress *k)
++			      const struct xfrm_kmaddress *k,
++			      const struct xfrm_encap_tmpl *encap)
+ {
+ 	return -ENOPROTOOPT;
+ }
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index eaecfa4..7152147 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -3337,7 +3337,7 @@ int xfrm_migrate(const struct xfrm_selector *sel, u8 dir, u8 type,
+ 	}
+ 
+ 	/* Stage 5 - announce */
+-	km_migrate(sel, dir, type, m, num_migrate, k);
++	km_migrate(sel, dir, type, m, num_migrate, k, encap);
+ 
+ 	xfrm_pol_put(pol);
+ 
+diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
+index ae6206b..3f1c4a0 100644
+--- a/net/xfrm/xfrm_state.c
++++ b/net/xfrm/xfrm_state.c
+@@ -1966,7 +1966,8 @@ EXPORT_SYMBOL(km_policy_expired);
+ #ifdef CONFIG_XFRM_MIGRATE
+ int km_migrate(const struct xfrm_selector *sel, u8 dir, u8 type,
+ 	       const struct xfrm_migrate *m, int num_migrate,
+-	       const struct xfrm_kmaddress *k)
++	       const struct xfrm_kmaddress *k,
++	       const struct xfrm_encap_tmpl *encap)
+ {
+ 	int err = -EINVAL;
+ 	int ret;
+@@ -1975,7 +1976,8 @@ int km_migrate(const struct xfrm_selector *sel, u8 dir, u8 type,
+ 	rcu_read_lock();
+ 	list_for_each_entry_rcu(km, &xfrm_km_list, list) {
+ 		if (km->migrate) {
+-			ret = km->migrate(sel, dir, type, m, num_migrate, k);
++			ret = km->migrate(sel, dir, type, m, num_migrate, k,
++					  encap);
+ 			if (!ret)
+ 				err = ret;
+ 		}
+diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
+index fb98892..6197c72 100644
+--- a/net/xfrm/xfrm_user.c
++++ b/net/xfrm/xfrm_user.c
+@@ -2314,17 +2314,20 @@ static int copy_to_user_kmaddress(const struct xfrm_kmaddress *k, struct sk_buff
+ 	return nla_put(skb, XFRMA_KMADDRESS, sizeof(uk), &uk);
+ }
+ 
+-static inline size_t xfrm_migrate_msgsize(int num_migrate, int with_kma)
++static inline size_t xfrm_migrate_msgsize(int num_migrate, int with_kma,
++					  int with_encp)
+ {
+ 	return NLMSG_ALIGN(sizeof(struct xfrm_userpolicy_id))
+ 	      + (with_kma ? nla_total_size(sizeof(struct xfrm_kmaddress)) : 0)
++	      + (with_encp ? nla_total_size(sizeof(struct xfrm_encap_tmpl)) : 0)
+ 	      + nla_total_size(sizeof(struct xfrm_user_migrate) * num_migrate)
+ 	      + userpolicy_type_attrsize();
+ }
+ 
+ static int build_migrate(struct sk_buff *skb, const struct xfrm_migrate *m,
+ 			 int num_migrate, const struct xfrm_kmaddress *k,
+-			 const struct xfrm_selector *sel, u8 dir, u8 type)
++			 const struct xfrm_selector *sel,
++			 const struct xfrm_encap_tmpl *encap, u8 dir, u8 type)
+ {
+ 	const struct xfrm_migrate *mp;
+ 	struct xfrm_userpolicy_id *pol_id;
+@@ -2346,6 +2349,11 @@ static int build_migrate(struct sk_buff *skb, const struct xfrm_migrate *m,
+ 		if (err)
+ 			goto out_cancel;
+ 	}
++	if (encap) {
++		err = nla_put(skb, XFRMA_ENCAP, sizeof(*encap), encap);
++		if (err)
++			goto out_cancel;
++	}
+ 	err = copy_to_user_policy_type(type, skb);
+ 	if (err)
+ 		goto out_cancel;
+@@ -2365,17 +2373,19 @@ static int build_migrate(struct sk_buff *skb, const struct xfrm_migrate *m,
+ 
+ static int xfrm_send_migrate(const struct xfrm_selector *sel, u8 dir, u8 type,
+ 			     const struct xfrm_migrate *m, int num_migrate,
+-			     const struct xfrm_kmaddress *k)
++			     const struct xfrm_kmaddress *k,
++			     const struct xfrm_encap_tmpl *encap)
+ {
+ 	struct net *net = &init_net;
+ 	struct sk_buff *skb;
+ 
+-	skb = nlmsg_new(xfrm_migrate_msgsize(num_migrate, !!k), GFP_ATOMIC);
++	skb = nlmsg_new(xfrm_migrate_msgsize(num_migrate, !!k, !!encap),
++			GFP_ATOMIC);
+ 	if (skb == NULL)
+ 		return -ENOMEM;
+ 
+ 	/* build migrate */
+-	if (build_migrate(skb, m, num_migrate, k, sel, dir, type) < 0)
++	if (build_migrate(skb, m, num_migrate, k, sel, encap, dir, type) < 0)
+ 		BUG();
+ 
+ 	return xfrm_nlmsg_multicast(net, skb, 0, XFRMNLGRP_MIGRATE);
+@@ -2383,7 +2393,8 @@ static int xfrm_send_migrate(const struct xfrm_selector *sel, u8 dir, u8 type,
+ #else
+ static int xfrm_send_migrate(const struct xfrm_selector *sel, u8 dir, u8 type,
+ 			     const struct xfrm_migrate *m, int num_migrate,
+-			     const struct xfrm_kmaddress *k)
++			     const struct xfrm_kmaddress *k,
++			     const struct xfrm_encap_tmpl *encap)
+ {
+ 	return -ENOPROTOOPT;
+ }
+-- 
+2.9.3
