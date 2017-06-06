@@ -1,81 +1,105 @@
-From: Marcin Nowakowski <marcin.nowakowski@imgtec.com>
-Subject: Re: [PATCH v3 6/7] net: pch_gbe: Allow longer for resets
-Date: Tue, 6 Jun 2017 16:10:14 +0200
-Message-ID: <bb3deb9d-26b5-af4b-455f-a94155adc472@imgtec.com>
-References: <20170602234042.22782-1-paul.burton@imgtec.com>
- <20170602234042.22782-7-paul.burton@imgtec.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Tobias Klauser <tklauser@distanz.ch>,
-        "David S . Miller" <davem@davemloft.net>,
-        Jarod Wilson <jarod@redhat.com>, <linux-mips@linux-mips.org>,
-        Eric Dumazet <edumazet@google.com>
-To: Paul Burton <paul.burton@imgtec.com>, <netdev@vger.kernel.org>
-Return-path: <linux-mips-bounce@linux-mips.org>
-In-Reply-To: <20170602234042.22782-7-paul.burton@imgtec.com>
-Content-Language: en-US
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
-List-help: <mailto:ecartis@linux-mips.org?Subject=help>
-List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
-List-software: Ecartis version 1.0.0
-List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
-List-owner: <mailto:ralf@linux-mips.org>
-List-post: <mailto:linux-mips@linux-mips.org>
-List-archive: <http://www.linux-mips.org/archives/linux-mips/>
+From: Liu Xiang <liu.xiang6@zte.com.cn>
+Subject: [PATCH v2] net: davicom: dm9000: Avoid spinlock recursion during dm9000_timeout routine
+Date: Tue,  6 Jun 2017 22:17:06 +0800
+Message-ID: <1496758626-2726-1-git-send-email-liu.xiang6@zte.com.cn>
+Cc: linux-kernel@vger.kernel.org, liuxiang1999@gmail.com,
+        Liu Xiang <liu.xiang6@zte.com.cn>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Paul,
+On the DM9000B, dm9000_phy_write() is called after the main spinlock
+is held, during the dm9000_timeout() routine. Spinlock recursion
+occurs because the main spinlock is requested again in
+dm9000_phy_write(). So spinlock should be avoided in phy operation
+during the dm9000_timeout() routine.
 
-On 03.06.2017 01:40, Paul Burton wrote:
-> Resets of the EG20T MAC on the MIPS Boston development board take longer
-> than the 1000 loops that pch_gbe_wait_clr_bit was performing. Rather
-> than simply increasing the number of loops, switch to using
-> readl_poll_timeout_atomic() from linux/iopoll.h in order to provide some
-> independence from the speed of the CPU.
-> 
->   #define DRV_VERSION     "1.01"
-> @@ -318,13 +319,11 @@ s32 pch_gbe_mac_read_mac_addr(struct pch_gbe_hw *hw)
->    */
->   static void pch_gbe_wait_clr_bit(void *reg, u32 bit)
->   {
-> +	int err;
->   	u32 tmp;
->   
-> -	/* wait busy */
-> -	tmp = 1000;
-> -	while ((ioread32(reg) & bit) && --tmp)
-> -		cpu_relax();
-> -	if (!tmp)
-> +	err = readl_poll_timeout_atomic(reg, tmp, !(tmp & bit), 10, 500);
-> +	if (err)
->   		pr_err("Error: busy bit is not cleared\n");
->   }
+---
+v2:
+   dm9000_phy_write_reg is extracted from dm9000_phy_write, with no lock,
+   do the real phy operation.
+---
 
-This new timeout value appears to be too low - I'm seeing plenty of 
-timeout warnings now and ultimately the device fails to initialise:
+Signed-off-by: Liu Xiang <liu.xiang6@zte.com.cn>
+---
+ drivers/net/ethernet/davicom/dm9000.c | 37 +++++++++++++++++++++--------------
+ 1 file changed, 22 insertions(+), 15 deletions(-)
 
-[    7.541876] pch_gbe: EG20T PCH Gigabit Ethernet Driver - version 1.01
-[    7.566451] pch_gbe: Error: busy bit is not cleared
-[    7.572654] pch_gbe: Error: busy bit is not cleared
-[    7.578727] pch_gbe: Error: busy bit is not cleared
-[    7.587814] pch_gbe 0000:02:00.1: Invalid MAC address, interface 
-disabled.
-[    7.595605] pch_gbe 0000:02:00.1: MAC address : 00:00:00:00:00:00
-[    7.606451] pch_gbe: Error: busy bit is not cleared
-[    7.612572] pch_gbe: Error: busy bit is not cleared
-[    7.618618] pch_gbe: Error: busy bit is not cleared
-<...>
-[   10.063351] pch_gbe 0000:02:00.1 eth0: Error: Invalid MAC address
-[   10.074713] pch_gbe: Error: busy bit is not cleared
-[   10.081030] pch_gbe: Error: busy bit is not cleared
-[   10.087178] pch_gbe: Error: busy bit is not cleared
-[   10.093328] pch_gbe: Error: busy bit is not cleared
-[   10.100883] pch_gbe 0000:02:00.1 eth0: Error End
-[   10.106272] IP-Config: Failed to open eth0
-
-My tests show that a timeout value as big as 20000 may be required to 
-make it work reliably ...
-
-Marcin
+diff --git a/drivers/net/ethernet/davicom/dm9000.c b/drivers/net/ethernet/davicom/dm9000.c
+index 008dc81..0aa2900 100644
+--- a/drivers/net/ethernet/davicom/dm9000.c
++++ b/drivers/net/ethernet/davicom/dm9000.c
+@@ -327,21 +327,13 @@ static void dm9000_msleep(struct board_info *db, unsigned int ms)
+ 	return ret;
+ }
+ 
+-/* Write a word to phyxcer */
+ static void
+-dm9000_phy_write(struct net_device *dev,
+-		 int phyaddr_unused, int reg, int value)
++dm9000_phy_write_reg(struct net_device *dev,
++		     int phyaddr_unused, int reg, int value)
+ {
+ 	struct board_info *db = netdev_priv(dev);
+-	unsigned long flags;
+ 	unsigned long reg_save;
+ 
+-	dm9000_dbg(db, 5, "phy_write[%02x] = %04x\n", reg, value);
+-	if (!db->in_timeout)
+-		mutex_lock(&db->addr_lock);
+-
+-	spin_lock_irqsave(&db->lock, flags);
+-
+ 	/* Save previous register address */
+ 	reg_save = readb(db->io_addr);
+ 
+@@ -356,17 +348,32 @@ static void dm9000_msleep(struct board_info *db, unsigned int ms)
+ 	iow(db, DM9000_EPCR, EPCR_EPOS | EPCR_ERPRW);
+ 
+ 	writeb(reg_save, db->io_addr);
+-	spin_unlock_irqrestore(&db->lock, flags);
+ 
+-	dm9000_msleep(db, 1);		/* Wait write complete */
++	mdelay(1);	/* Wait write complete */
+ 
+-	spin_lock_irqsave(&db->lock, flags);
+ 	reg_save = readb(db->io_addr);
+ 
+ 	iow(db, DM9000_EPCR, 0x0);	/* Clear phyxcer write command */
+ 
+ 	/* restore the previous address */
+ 	writeb(reg_save, db->io_addr);
++}
++
++/* Write a word to phyxcer */
++static void
++dm9000_phy_write(struct net_device *dev,
++		 int phyaddr_unused, int reg, int value)
++{
++	struct board_info *db = netdev_priv(dev);
++	unsigned long flags;
++
++	dm9000_dbg(db, 5, "phy_write[%02x] = %04x\n", reg, value);
++	if (!db->in_timeout)
++		mutex_lock(&db->addr_lock);
++
++	spin_lock_irqsave(&db->lock, flags);
++
++	dm9000_phy_write_reg(dev, phyaddr_unused, reg, value);
+ 
+ 	spin_unlock_irqrestore(&db->lock, flags);
+ 	if (!db->in_timeout)
+@@ -933,8 +940,8 @@ static unsigned char dm9000_type_to_char(enum dm9000_type type)
+ 	 * manual phy reset, and setting init params.
+ 	 */
+ 	if (db->type == TYPE_DM9000B) {
+-		dm9000_phy_write(dev, 0, MII_BMCR, BMCR_RESET);
+-		dm9000_phy_write(dev, 0, MII_DM_DSPCR, DSPCR_INIT_PARAM);
++		dm9000_phy_write_reg(dev, 0, MII_BMCR, BMCR_RESET);
++		dm9000_phy_write_reg(dev, 0, MII_DM_DSPCR, DSPCR_INIT_PARAM);
+ 	}
+ 
+ 	ncr = (db->flags & DM9000_PLATF_EXT_PHY) ? NCR_EXT_PHY : 0;
+-- 
+1.9.1
