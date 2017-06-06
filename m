@@ -1,201 +1,91 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net 1/2] i40e: Fix state flags for bit set and clean operations of PF
-Date: Tue,  6 Jun 2017 03:00:54 -0700
-Message-ID: <20170606100055.63648-2-jeffrey.t.kirsher@intel.com>
-References: <20170606100055.63648-1-jeffrey.t.kirsher@intel.com>
-Cc: "Mauro S. M. Rodrigues" <maurosr@linux.vnet.ibm.com>,
-        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-        jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:21678 "EHLO mga03.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751386AbdFFKBB (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 6 Jun 2017 06:01:01 -0400
-In-Reply-To: <20170606100055.63648-1-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Niklas Cassel <niklas.cassel@axis.com>
+Subject: Re: [PATCH net] net: stmmac: fix completely hung TX when using TSO
+Date: Tue, 6 Jun 2017 12:01:08 +0200
+Message-ID: <56b1194f-959e-e936-88e0-f52063c7ffa0@axis.com>
+References: <20170606072501.16560-1-niklas.cassel@axis.com>
+ <53a84a68-5014-7a92-5e78-f9f04aa948c6@st.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
+        Alexandre Torgue <alexandre.torgue@st.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <53a84a68-5014-7a92-5e78-f9f04aa948c6@st.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "Mauro S. M. Rodrigues" <maurosr@linux.vnet.ibm.com>
+On 06/06/2017 10:00 AM, Giuseppe CAVALLARO wrote:
+> Hi Niklas
 
-Commit 0da36b9774cc ("i40e: use DECLARE_BITMAP for state fields")
-introduced changes in the way i40e works with state flags converting
-them to bitmaps using kernel bitmap API. This change introduced a
-regression due to a mistaken substitution using __I40E_VSI_DOWN instead
-of __I40E_DOWN when testing state of a PF at i40e_reset_subtask()
-function. This caused a flood in the kernel log with the follow message:
+Hello Peppe, Alex
 
-[49.013] i40e 0002:01:00.0: bad reset request 0x00000020
+> 
+> I get the point and I acked the patch but Alex, please, can you confirm
+> that this issue has never seen on your boxes where the TSO has been
+> fully tested? The initial development (commit f748be531) introduces
+> the following:
+>     (last_segment) && (buff_size < TSO_MAX_BUFF_SIZE),
+> ...
 
-Commit d19cb64b9222 ("i40e: separate PF and VSI state flags")
-also introduced some misuse of the VSI and PF flags, so both could be
-considered as the offenders.
+Since you need a packet where the txbuff size of last descriptor
+has the exact size of 16K-1, depending on your workload,
+it is possible to run your system for a very long time without
+triggering the bug.
 
-This patch simply fixes the flags where it makes sense by changing
-__I40E_VSI_DOWN to __I40E_DOWN.
+We noticed the problem since a test in our test suite fetches
+the syslog. The syslog usually has a size that is not constant,
+and the size usually increases with time.
+During some of the test runs, far from all of them, we would
+eventually end up with a packet of the exact size that triggers
+the bug.
 
-Fixes: 0da36b9774cc ("i40e: use DECLARE_BITMAP for state fields")
-Fixes: d19cb64b9222 ("i40e: separate PF and VSI state flags")
+It should be possible to trigger the bug more easily if you
+know what buffer size to write to your TCP socket, together
+with some manual TCP corking.
 
-Reviewed-by: "Guilherme G. Piccoli" <gpiccoli@linux.vnet.ibm.com>
-Signed-off-by: "Mauro S. M. Rodrigues" <maurosr@linux.vnet.ibm.com>
-Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/i40e/i40e_main.c | 36 ++++++++++++++---------------
- 1 file changed, 18 insertions(+), 18 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index d5c9c9e06ff5..150caf6ca2b4 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -295,7 +295,7 @@ struct i40e_vsi *i40e_find_vsi_from_id(struct i40e_pf *pf, u16 id)
-  **/
- void i40e_service_event_schedule(struct i40e_pf *pf)
- {
--	if (!test_bit(__I40E_VSI_DOWN, pf->state) &&
-+	if (!test_bit(__I40E_DOWN, pf->state) &&
- 	    !test_bit(__I40E_RESET_RECOVERY_PENDING, pf->state))
- 		queue_work(i40e_wq, &pf->service_task);
- }
-@@ -3611,7 +3611,7 @@ static irqreturn_t i40e_intr(int irq, void *data)
- 		 * this is not a performance path and napi_schedule()
- 		 * can deal with rescheduling.
- 		 */
--		if (!test_bit(__I40E_VSI_DOWN, pf->state))
-+		if (!test_bit(__I40E_DOWN, pf->state))
- 			napi_schedule_irqoff(&q_vector->napi);
- 	}
- 
-@@ -3687,7 +3687,7 @@ static irqreturn_t i40e_intr(int irq, void *data)
- enable_intr:
- 	/* re-enable interrupt causes */
- 	wr32(hw, I40E_PFINT_ICR0_ENA, ena_mask);
--	if (!test_bit(__I40E_VSI_DOWN, pf->state)) {
-+	if (!test_bit(__I40E_DOWN, pf->state)) {
- 		i40e_service_event_schedule(pf);
- 		i40e_irq_dynamic_enable_icr0(pf, false);
- 	}
-@@ -6203,7 +6203,7 @@ static void i40e_fdir_reinit_subtask(struct i40e_pf *pf)
- {
- 
- 	/* if interface is down do nothing */
--	if (test_bit(__I40E_VSI_DOWN, pf->state))
-+	if (test_bit(__I40E_DOWN, pf->state))
- 		return;
- 
- 	if (test_bit(__I40E_FD_FLUSH_REQUESTED, pf->state))
-@@ -6344,7 +6344,7 @@ static void i40e_watchdog_subtask(struct i40e_pf *pf)
- 	int i;
- 
- 	/* if interface is down do nothing */
--	if (test_bit(__I40E_VSI_DOWN, pf->state) ||
-+	if (test_bit(__I40E_DOWN, pf->state) ||
- 	    test_bit(__I40E_CONFIG_BUSY, pf->state))
- 		return;
- 
-@@ -6399,9 +6399,9 @@ static void i40e_reset_subtask(struct i40e_pf *pf)
- 		reset_flags |= BIT(__I40E_GLOBAL_RESET_REQUESTED);
- 		clear_bit(__I40E_GLOBAL_RESET_REQUESTED, pf->state);
- 	}
--	if (test_bit(__I40E_VSI_DOWN_REQUESTED, pf->state)) {
--		reset_flags |= BIT(__I40E_VSI_DOWN_REQUESTED);
--		clear_bit(__I40E_VSI_DOWN_REQUESTED, pf->state);
-+	if (test_bit(__I40E_DOWN_REQUESTED, pf->state)) {
-+		reset_flags |= BIT(__I40E_DOWN_REQUESTED);
-+		clear_bit(__I40E_DOWN_REQUESTED, pf->state);
- 	}
- 
- 	/* If there's a recovery already waiting, it takes
-@@ -6415,7 +6415,7 @@ static void i40e_reset_subtask(struct i40e_pf *pf)
- 
- 	/* If we're already down or resetting, just bail */
- 	if (reset_flags &&
--	    !test_bit(__I40E_VSI_DOWN, pf->state) &&
-+	    !test_bit(__I40E_DOWN, pf->state) &&
- 	    !test_bit(__I40E_CONFIG_BUSY, pf->state)) {
- 		rtnl_lock();
- 		i40e_do_reset(pf, reset_flags, true);
-@@ -7002,7 +7002,7 @@ static void i40e_rebuild(struct i40e_pf *pf, bool reinit, bool lock_acquired)
- 	u32 val;
- 	int v;
- 
--	if (test_bit(__I40E_VSI_DOWN, pf->state))
-+	if (test_bit(__I40E_DOWN, pf->state))
- 		goto clear_recovery;
- 	dev_dbg(&pf->pdev->dev, "Rebuilding internal switch\n");
- 
-@@ -9767,7 +9767,7 @@ int i40e_vsi_release(struct i40e_vsi *vsi)
- 		return -ENODEV;
- 	}
- 	if (vsi == pf->vsi[pf->lan_vsi] &&
--	    !test_bit(__I40E_VSI_DOWN, pf->state)) {
-+	    !test_bit(__I40E_DOWN, pf->state)) {
- 		dev_info(&pf->pdev->dev, "Can't remove PF VSI\n");
- 		return -ENODEV;
- 	}
-@@ -11003,7 +11003,7 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	}
- 	pf->next_vsi = 0;
- 	pf->pdev = pdev;
--	set_bit(__I40E_VSI_DOWN, pf->state);
-+	set_bit(__I40E_DOWN, pf->state);
- 
- 	hw = &pf->hw;
- 	hw->back = pf;
-@@ -11293,7 +11293,7 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	 * before setting up the misc vector or we get a race and the vector
- 	 * ends up disabled forever.
- 	 */
--	clear_bit(__I40E_VSI_DOWN, pf->state);
-+	clear_bit(__I40E_DOWN, pf->state);
- 
- 	/* In case of MSIX we are going to setup the misc vector right here
- 	 * to handle admin queue events etc. In case of legacy and MSI
-@@ -11448,7 +11448,7 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 
- 	/* Unwind what we've done if something failed in the setup */
- err_vsis:
--	set_bit(__I40E_VSI_DOWN, pf->state);
-+	set_bit(__I40E_DOWN, pf->state);
- 	i40e_clear_interrupt_scheme(pf);
- 	kfree(pf->vsi);
- err_switch_setup:
-@@ -11500,7 +11500,7 @@ static void i40e_remove(struct pci_dev *pdev)
- 
- 	/* no more scheduling of any task */
- 	set_bit(__I40E_SUSPENDED, pf->state);
--	set_bit(__I40E_VSI_DOWN, pf->state);
-+	set_bit(__I40E_DOWN, pf->state);
- 	if (pf->service_timer.data)
- 		del_timer_sync(&pf->service_timer);
- 	if (pf->service_task.func)
-@@ -11740,7 +11740,7 @@ static void i40e_shutdown(struct pci_dev *pdev)
- 	struct i40e_hw *hw = &pf->hw;
- 
- 	set_bit(__I40E_SUSPENDED, pf->state);
--	set_bit(__I40E_VSI_DOWN, pf->state);
-+	set_bit(__I40E_DOWN, pf->state);
- 	rtnl_lock();
- 	i40e_prep_for_reset(pf, true);
- 	rtnl_unlock();
-@@ -11789,7 +11789,7 @@ static int i40e_suspend(struct pci_dev *pdev, pm_message_t state)
- 	int retval = 0;
- 
- 	set_bit(__I40E_SUSPENDED, pf->state);
--	set_bit(__I40E_VSI_DOWN, pf->state);
-+	set_bit(__I40E_DOWN, pf->state);
- 
- 	if (pf->wol_en && (pf->flags & I40E_FLAG_WOL_MC_MAGIC_PKT_WAKE))
- 		i40e_enable_mc_magic_wake(pf);
-@@ -11841,7 +11841,7 @@ static int i40e_resume(struct pci_dev *pdev)
- 
- 	/* handling the reset will rebuild the device state */
- 	if (test_and_clear_bit(__I40E_SUSPENDED, pf->state)) {
--		clear_bit(__I40E_VSI_DOWN, pf->state);
-+		clear_bit(__I40E_DOWN, pf->state);
- 		rtnl_lock();
- 		i40e_reset_and_rebuild(pf, false, true);
- 		rtnl_unlock();
--- 
-2.12.2
+Regards,
+Niklas
+
+> 
+> On 6/6/2017 9:25 AM, Niklas Cassel wrote:
+>> stmmac_tso_allocator can fail to set the Last Descriptor bit
+>> on a descriptor that actually was the last descriptor.
+>>
+>> This happens when the buffer of the last descriptor ends
+>> up having a size of exactly TSO_MAX_BUFF_SIZE.
+>>
+>> When the IP eventually reaches the next last descriptor,
+>> which actually has the bit set, the DMA will hang.
+>>
+>> When the DMA hangs, we get a tx timeout, however,
+>> since stmmac does not do a complete reset of the IP
+>> in stmmac_tx_timeout, we end up in a state with
+>> completely hung TX.
+>>
+>> Signed-off-by: Niklas Cassel <niklas.cassel@axis.com>
+> 
+> Acked-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+> 
+>> ---
+>>   drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 2 +-
+>>   1 file changed, 1 insertion(+), 1 deletion(-)
+>>
+>> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+>> index 68a188e74c54..440bea049a7f 100644
+>> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+>> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+>> @@ -2723,7 +2723,7 @@ static void stmmac_tso_allocator(struct stmmac_priv *priv, unsigned int des,
+>>             priv->hw->desc->prepare_tso_tx_desc(desc, 0, buff_size,
+>>               0, 1,
+>> -            (last_segment) && (buff_size < TSO_MAX_BUFF_SIZE),
+>> +            (last_segment) && (tmp_len <= TSO_MAX_BUFF_SIZE),
+>>               0, 0);
+>>             tmp_len -= TSO_MAX_BUFF_SIZE;
+> 
+> Regards
+> Peppe
+> 
+> 
