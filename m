@@ -1,286 +1,162 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next 11/16] nfp: map all queue controllers at once
-Date: Mon,  5 Jun 2017 17:01:52 -0700
-Message-ID: <20170606000157.17556-12-jakub.kicinski@netronome.com>
+Subject: [PATCH net-next 13/16] nfp: slice the netdev spawning function
+Date: Mon,  5 Jun 2017 17:01:54 -0700
+Message-ID: <20170606000157.17556-14-jakub.kicinski@netronome.com>
 References: <20170606000157.17556-1-jakub.kicinski@netronome.com>
 Cc: oss-drivers@netronome.com,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f48.google.com ([74.125.83.48]:33482 "EHLO
-        mail-pg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751277AbdFFACZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 5 Jun 2017 20:02:25 -0400
-Received: by mail-pg0-f48.google.com with SMTP id f185so27038363pgc.0
-        for <netdev@vger.kernel.org>; Mon, 05 Jun 2017 17:02:25 -0700 (PDT)
+Received: from mail-pf0-f181.google.com ([209.85.192.181]:33302 "EHLO
+        mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751266AbdFFAC1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 5 Jun 2017 20:02:27 -0400
+Received: by mail-pf0-f181.google.com with SMTP id 83so32352824pfr.0
+        for <netdev@vger.kernel.org>; Mon, 05 Jun 2017 17:02:26 -0700 (PDT)
 In-Reply-To: <20170606000157.17556-1-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RX and TX queue controllers are interleaved.  Instead of creating
-two mappings which map the same area at slightly different offset,
-create only one mapping.  Always map all queue controllers to simplify
-the code and allow reusing the mapping for non-data vNICs.
+We want to be able to create a special vNIC for control messages.
+This vNIC should be created before any netdev is registered to allow
+nfp_app logic to exchange messages with the FW app before any netdev
+is visible to user space.  Unfortunately we can't enable IRQs until
+we know how many vNICs we will need to spawn.
+
+Divide the function which spawns netdevs for vNICs into three parts:
+ - vNIC/memory allocation;
+ - IRQ allocation;
+ - netdev init and register.
+
+This will help us insert the initialization of the control channel
+after IRQ allocation but before netdev init and register.
 
 Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 ---
- drivers/net/ethernet/netronome/nfp/nfp_main.h     |   6 +-
- drivers/net/ethernet/netronome/nfp/nfp_net.h      |   1 +
- drivers/net/ethernet/netronome/nfp/nfp_net_main.c | 122 +++++-----------------
- 3 files changed, 28 insertions(+), 101 deletions(-)
+ drivers/net/ethernet/netronome/nfp/nfp_net_main.c | 62 ++++++++++++++---------
+ 1 file changed, 37 insertions(+), 25 deletions(-)
 
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_main.h b/drivers/net/ethernet/netronome/nfp/nfp_main.h
-index c46d00bbf19d..66b1e1490805 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_main.h
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_main.h
-@@ -63,8 +63,7 @@ struct nfp_nsp_identify;
-  * @cpp:		Pointer to the CPP handle
-  * @app:		Pointer to the APP handle
-  * @data_vnic_bar:	Pointer to the CPP area for the data vNICs' BARs
-- * @tx_area:		Pointer to the CPP area for the TX queues
-- * @rx_area:		Pointer to the CPP area for the FL/RX queues
-+ * @qc_area:		Pointer to the CPP area for the queues
-  * @irq_entries:	Array of MSI-X entries for all vNICs
-  * @limit_vfs:		Number of VFs supported by firmware (~0 for PCI limit)
-  * @num_vfs:		Number of SR-IOV VFs enabled
-@@ -88,8 +87,7 @@ struct nfp_pf {
- 	struct nfp_app *app;
- 
- 	struct nfp_cpp_area *data_vnic_bar;
--	struct nfp_cpp_area *tx_area;
--	struct nfp_cpp_area *rx_area;
-+	struct nfp_cpp_area *qc_area;
- 
- 	struct msix_entry *irq_entries;
- 
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net.h b/drivers/net/ethernet/netronome/nfp/nfp_net.h
-index eb849d26f4dd..02fd8d4e253c 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net.h
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net.h
-@@ -705,6 +705,7 @@ static inline void nn_pci_flush(struct nfp_net *nn)
-  * either add to a pointer or to read the pointer value.
-  */
- #define NFP_QCP_QUEUE_ADDR_SZ			0x800
-+#define NFP_QCP_QUEUE_AREA_SZ			0x80000
- #define NFP_QCP_QUEUE_OFF(_x)			((_x) * NFP_QCP_QUEUE_ADDR_SZ)
- #define NFP_QCP_QUEUE_ADD_RPTR			0x0000
- #define NFP_QCP_QUEUE_ADD_WPTR			0x0004
 diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_main.c b/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
-index 3644b12d93db..2a3b6deae607 100644
+index 82172665e023..98a99b199674 100644
 --- a/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
 +++ b/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
-@@ -223,31 +223,6 @@ static int nfp_net_pf_get_app_id(struct nfp_pf *pf)
- 					      NFP_APP_CORE_NIC);
+@@ -391,18 +391,10 @@ static void nfp_net_pf_clean_vnic(struct nfp_pf *pf, struct nfp_net *nn)
+ 	nfp_app_vnic_clean(pf->app, nn);
  }
  
--static unsigned int
--nfp_net_pf_total_qcs(struct nfp_pf *pf, void __iomem *ctrl_bar,
--		     unsigned int stride, u32 start_off, u32 num_off)
--{
--	unsigned int i, min_qc, max_qc;
+-static int
+-nfp_net_pf_spawn_vnics(struct nfp_pf *pf,
+-		       void __iomem *ctrl_bar, void __iomem *qc_bar, int stride)
++static int nfp_net_pf_alloc_irqs(struct nfp_pf *pf)
+ {
+-	unsigned int id, wanted_irqs, num_irqs, vnics_left, irqs_left;
++	unsigned int wanted_irqs, num_irqs, vnics_left, irqs_left;
+ 	struct nfp_net *nn;
+-	int err;
 -
--	min_qc = readl(ctrl_bar + start_off);
--	max_qc = min_qc;
--
--	for (i = 0; i < pf->max_data_vnics; i++) {
--		/* To make our lives simpler only accept configuration where
--		 * queues are allocated to PFs in order (queues of PFn all have
--		 * indexes lower than PFn+1).
--		 */
--		if (max_qc > readl(ctrl_bar + start_off))
--			return 0;
--
--		max_qc = readl(ctrl_bar + start_off);
--		max_qc += readl(ctrl_bar + num_off) * stride;
--		ctrl_bar += NFP_PF_CSR_SLICE_SIZE;
+-	/* Allocate the vnics and do basic init */
+-	err = nfp_net_pf_alloc_vnics(pf, ctrl_bar, qc_bar, stride);
+-	if (err)
+-		return err;
+ 
+ 	/* Get MSI-X vectors */
+ 	wanted_irqs = 0;
+@@ -410,18 +402,16 @@ nfp_net_pf_spawn_vnics(struct nfp_pf *pf,
+ 		wanted_irqs += NFP_NET_NON_Q_VECTORS + nn->dp.num_r_vecs;
+ 	pf->irq_entries = kcalloc(wanted_irqs, sizeof(*pf->irq_entries),
+ 				  GFP_KERNEL);
+-	if (!pf->irq_entries) {
+-		err = -ENOMEM;
+-		goto err_nn_free;
 -	}
--
--	return max_qc - min_qc;
--}
--
- static u8 __iomem *
- nfp_net_pf_map_rtsym(struct nfp_pf *pf, const char *name, const char *sym_fmt,
- 		     unsigned int min_size, struct nfp_cpp_area **area)
-@@ -301,15 +276,16 @@ static void nfp_net_pf_free_vnics(struct nfp_pf *pf)
++	if (!pf->irq_entries)
++		return -ENOMEM;
  
- static struct nfp_net *
- nfp_net_pf_alloc_vnic(struct nfp_pf *pf, bool needs_netdev,
--		      void __iomem *ctrl_bar,
--		      void __iomem *tx_bar, void __iomem *rx_bar,
-+		      void __iomem *ctrl_bar, void __iomem *qc_bar,
- 		      int stride, struct nfp_net_fw_version *fw_ver,
- 		      unsigned int eth_id)
+ 	num_irqs = nfp_net_irqs_alloc(pf->pdev, pf->irq_entries,
+ 				      NFP_NET_MIN_VNIC_IRQS * pf->num_vnics,
+ 				      wanted_irqs);
+ 	if (!num_irqs) {
+-		nn_warn(nn, "Unable to allocate MSI-X Vectors. Exiting\n");
+-		err = -ENOMEM;
+-		goto err_vec_free;
++		nfp_warn(pf->cpp, "Unable to allocate MSI-X vectors\n");
++		kfree(pf->irq_entries);
++		return -ENOMEM;
+ 	}
+ 
+ 	/* Distribute IRQs to vNICs */
+@@ -437,6 +427,21 @@ nfp_net_pf_spawn_vnics(struct nfp_pf *pf,
+ 		vnics_left--;
+ 	}
+ 
++	return 0;
++}
++
++static void nfp_net_pf_free_irqs(struct nfp_pf *pf)
++{
++	nfp_net_irqs_disable(pf->pdev);
++	kfree(pf->irq_entries);
++}
++
++static int nfp_net_pf_init_vnics(struct nfp_pf *pf)
++{
++	struct nfp_net *nn;
++	unsigned int id;
++	int err;
++
+ 	/* Finish vNIC init and register */
+ 	id = 0;
+ 	list_for_each_entry(nn, &pf->vnics, vnic_list) {
+@@ -452,11 +457,6 @@ nfp_net_pf_spawn_vnics(struct nfp_pf *pf,
+ err_prev_deinit:
+ 	list_for_each_entry_continue_reverse(nn, &pf->vnics, vnic_list)
+ 		nfp_net_pf_clean_vnic(pf, nn);
+-	nfp_net_irqs_disable(pf->pdev);
+-err_vec_free:
+-	kfree(pf->irq_entries);
+-err_nn_free:
+-	nfp_net_pf_free_vnics(pf);
+ 	return err;
+ }
+ 
+@@ -489,8 +489,7 @@ static void nfp_net_pci_remove_finish(struct nfp_pf *pf)
  {
--	u32 n_tx_rings, n_rx_rings;
-+	u32 tx_base, rx_base, n_tx_rings, n_rx_rings;
- 	struct nfp_net *nn;
- 	int err;
+ 	nfp_net_debugfs_dir_clean(&pf->ddir);
  
-+	tx_base = readl(ctrl_bar + NFP_NET_CFG_START_TXQ);
-+	rx_base = readl(ctrl_bar + NFP_NET_CFG_START_RXQ);
- 	n_tx_rings = readl(ctrl_bar + NFP_NET_CFG_MAX_TXRINGS);
- 	n_rx_rings = readl(ctrl_bar + NFP_NET_CFG_MAX_RXRINGS);
- 
-@@ -321,8 +297,8 @@ nfp_net_pf_alloc_vnic(struct nfp_pf *pf, bool needs_netdev,
- 	nn->app = pf->app;
- 	nn->fw_ver = *fw_ver;
- 	nn->dp.ctrl_bar = ctrl_bar;
--	nn->tx_bar = tx_bar;
--	nn->rx_bar = rx_bar;
-+	nn->tx_bar = qc_bar + tx_base * NFP_QCP_QUEUE_ADDR_SZ;
-+	nn->rx_bar = qc_bar + rx_base * NFP_QCP_QUEUE_ADDR_SZ;
- 	nn->dp.is_vf = 0;
- 	nn->stride_rx = stride;
- 	nn->stride_tx = stride;
-@@ -374,26 +350,15 @@ nfp_net_pf_init_vnic(struct nfp_pf *pf, struct nfp_net *nn, unsigned int id)
- 
- static int
- nfp_net_pf_alloc_vnics(struct nfp_pf *pf, void __iomem *ctrl_bar,
--		       void __iomem *tx_bar, void __iomem *rx_bar,
--		       int stride, struct nfp_net_fw_version *fw_ver)
-+		       void __iomem *qc_bar, int stride,
-+		       struct nfp_net_fw_version *fw_ver)
- {
--	u32 prev_tx_base, prev_rx_base, tgt_tx_base, tgt_rx_base;
- 	struct nfp_net *nn;
- 	unsigned int i;
- 	int err;
- 
--	prev_tx_base = readl(ctrl_bar + NFP_NET_CFG_START_TXQ);
--	prev_rx_base = readl(ctrl_bar + NFP_NET_CFG_START_RXQ);
--
- 	for (i = 0; i < pf->max_data_vnics; i++) {
--		tgt_tx_base = readl(ctrl_bar + NFP_NET_CFG_START_TXQ);
--		tgt_rx_base = readl(ctrl_bar + NFP_NET_CFG_START_RXQ);
--		tx_bar += (tgt_tx_base - prev_tx_base) * NFP_QCP_QUEUE_ADDR_SZ;
--		rx_bar += (tgt_rx_base - prev_rx_base) * NFP_QCP_QUEUE_ADDR_SZ;
--		prev_tx_base = tgt_tx_base;
--		prev_rx_base = tgt_rx_base;
--
--		nn = nfp_net_pf_alloc_vnic(pf, true, ctrl_bar, tx_bar, rx_bar,
-+		nn = nfp_net_pf_alloc_vnic(pf, true, ctrl_bar, qc_bar,
- 					   stride, fw_ver, i);
- 		if (IS_ERR(nn)) {
- 			err = PTR_ERR(nn);
-@@ -430,8 +395,7 @@ static void nfp_net_pf_clean_vnic(struct nfp_pf *pf, struct nfp_net *nn)
- 
- static int
- nfp_net_pf_spawn_vnics(struct nfp_pf *pf,
--		       void __iomem *ctrl_bar, void __iomem *tx_bar,
--		       void __iomem *rx_bar, int stride,
-+		       void __iomem *ctrl_bar, void __iomem *qc_bar, int stride,
- 		       struct nfp_net_fw_version *fw_ver)
- {
- 	unsigned int id, wanted_irqs, num_irqs, vnics_left, irqs_left;
-@@ -439,8 +403,7 @@ nfp_net_pf_spawn_vnics(struct nfp_pf *pf,
- 	int err;
- 
- 	/* Allocate the vnics and do basic init */
--	err = nfp_net_pf_alloc_vnics(pf, ctrl_bar, tx_bar, rx_bar,
--				     stride, fw_ver);
-+	err = nfp_net_pf_alloc_vnics(pf, ctrl_bar, qc_bar, stride, fw_ver);
- 	if (err)
- 		return err;
- 
-@@ -534,8 +497,7 @@ static void nfp_net_pci_remove_finish(struct nfp_pf *pf)
+-	nfp_net_irqs_disable(pf->pdev);
+-	kfree(pf->irq_entries);
++	nfp_net_pf_free_irqs(pf);
  
  	nfp_net_pf_app_clean(pf);
  
--	nfp_cpp_area_release_free(pf->rx_area);
--	nfp_cpp_area_release_free(pf->tx_area);
-+	nfp_cpp_area_release_free(pf->qc_area);
- 	nfp_cpp_area_release_free(pf->data_vnic_bar);
- }
- 
-@@ -659,11 +621,9 @@ int nfp_net_refresh_eth_port(struct nfp_port *port)
-  */
- int nfp_net_pci_probe(struct nfp_pf *pf)
- {
--	u32 ctrl_bar_sz, tx_area_sz, rx_area_sz;
--	u8 __iomem *ctrl_bar, *tx_bar, *rx_bar;
--	u32 total_tx_qcs, total_rx_qcs;
- 	struct nfp_net_fw_version fw_ver;
--	u32 start_q;
-+	u8 __iomem *ctrl_bar, *qc_bar;
-+	u32 ctrl_bar_sz;
- 	int stride;
- 	int err;
- 
-@@ -718,53 +678,23 @@ int nfp_net_pci_probe(struct nfp_pf *pf)
- 		}
- 	}
- 
--	/* Find how many QC structs need to be mapped */
--	total_tx_qcs = nfp_net_pf_total_qcs(pf, ctrl_bar, stride,
--					    NFP_NET_CFG_START_TXQ,
--					    NFP_NET_CFG_MAX_TXRINGS);
--	total_rx_qcs = nfp_net_pf_total_qcs(pf, ctrl_bar, stride,
--					    NFP_NET_CFG_START_RXQ,
--					    NFP_NET_CFG_MAX_RXRINGS);
--	if (!total_tx_qcs || !total_rx_qcs) {
--		nfp_err(pf->cpp, "Invalid PF QC configuration [%d,%d]\n",
--			total_tx_qcs, total_rx_qcs);
--		err = -EINVAL;
--		goto err_ctrl_unmap;
--	}
--
--	tx_area_sz = NFP_QCP_QUEUE_ADDR_SZ * total_tx_qcs;
--	rx_area_sz = NFP_QCP_QUEUE_ADDR_SZ * total_rx_qcs;
--
--	/* Map TX queues */
--	start_q = readl(ctrl_bar + NFP_NET_CFG_START_TXQ);
--	tx_bar = nfp_net_map_area(pf->cpp, "net.tx", 0, 0,
--				  NFP_PCIE_QUEUE(start_q),
--				  tx_area_sz, &pf->tx_area);
--	if (IS_ERR(tx_bar)) {
--		nfp_err(pf->cpp, "Failed to map TX area.\n");
--		err = PTR_ERR(tx_bar);
-+	/* Map queues */
-+	qc_bar = nfp_net_map_area(pf->cpp, "net.qc", 0, 0,
-+				  NFP_PCIE_QUEUE(0), NFP_QCP_QUEUE_AREA_SZ,
-+				  &pf->qc_area);
-+	if (IS_ERR(qc_bar)) {
-+		nfp_err(pf->cpp, "Failed to map Queue Controller area.\n");
-+		err = PTR_ERR(qc_bar);
- 		goto err_ctrl_unmap;
- 	}
- 
--	/* Map RX queues */
--	start_q = readl(ctrl_bar + NFP_NET_CFG_START_RXQ);
--	rx_bar = nfp_net_map_area(pf->cpp, "net.rx", 0, 0,
--				  NFP_PCIE_QUEUE(start_q),
--				  rx_area_sz, &pf->rx_area);
--	if (IS_ERR(rx_bar)) {
--		nfp_err(pf->cpp, "Failed to map RX area.\n");
--		err = PTR_ERR(rx_bar);
--		goto err_unmap_tx;
--	}
--
- 	err = nfp_net_pf_app_init(pf);
- 	if (err)
--		goto err_unmap_rx;
-+		goto err_unmap_qc;
+@@ -691,14 +690,27 @@ int nfp_net_pci_probe(struct nfp_pf *pf)
  
  	pf->ddir = nfp_net_debugfs_device_add(pf->pdev);
  
--	err = nfp_net_pf_spawn_vnics(pf, ctrl_bar, tx_bar, rx_bar,
--				     stride, &fw_ver);
-+	err = nfp_net_pf_spawn_vnics(pf, ctrl_bar, qc_bar, stride, &fw_ver);
+-	err = nfp_net_pf_spawn_vnics(pf, ctrl_bar, qc_bar, stride);
++	/* Allocate the vnics and do basic init */
++	err = nfp_net_pf_alloc_vnics(pf, ctrl_bar, qc_bar, stride);
  	if (err)
  		goto err_clean_ddir;
  
-@@ -775,10 +705,8 @@ int nfp_net_pci_probe(struct nfp_pf *pf)
++	err = nfp_net_pf_alloc_irqs(pf);
++	if (err)
++		goto err_free_vnics;
++
++	err = nfp_net_pf_init_vnics(pf);
++	if (err)
++		goto err_free_irqs;
++
+ 	mutex_unlock(&pf->lock);
+ 
+ 	return 0;
+ 
++err_free_irqs:
++	nfp_net_pf_free_irqs(pf);
++err_free_vnics:
++	nfp_net_pf_free_vnics(pf);
  err_clean_ddir:
  	nfp_net_debugfs_dir_clean(&pf->ddir);
  	nfp_net_pf_app_clean(pf);
--err_unmap_rx:
--	nfp_cpp_area_release_free(pf->rx_area);
--err_unmap_tx:
--	nfp_cpp_area_release_free(pf->tx_area);
-+err_unmap_qc:
-+	nfp_cpp_area_release_free(pf->qc_area);
- err_ctrl_unmap:
- 	nfp_cpp_area_release_free(pf->data_vnic_bar);
- err_unlock:
 -- 
 2.11.0
