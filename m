@@ -1,32 +1,31 @@
-From: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH v2 3/4] net: macb: macb.c changed to macb_main.c
-Date: Tue, 6 Jun 2017 22:22:59 +0200
-Message-ID: <20170606202259.GE4233@localhost.localdomain>
-References: <1496413439-12900-1-git-send-email-rafalo@cadence.com>
- <1496413661-21452-1-git-send-email-rafalo@cadence.com>
- <20170606183933.GA1205@localhost.localdomain>
- <20170606.150015.1247326483451270973.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: ethoc: enable NAPI before poll may be scheduled
+Date: Tue, 06 Jun 2017 16:24:43 -0400 (EDT)
+Message-ID: <20170606.162443.2275328135132391031.davem@davemloft.net>
+References: <1496712676-11862-1-git-send-email-jcmvbkbc@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: rafalo-vna1KIf7WgpBDgjK7y7TUQ@public.gmane.org, nicolas.ferre-AIFe0yeh4nAAvxtiuMwx3w@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-        harini.katakam-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org, andrei.pistirica-UWL1GkI3JZL3oGB3hsPCZA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20170606.150015.1247326483451270973.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, f.fainelli@gmail.com,
+        thierry.reding@gmail.com, tklauser@distanz.ch,
+        stable@vger.kernel.org
+To: jcmvbkbc@gmail.com
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <1496712676-11862-1-git-send-email-jcmvbkbc@gmail.com>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jun 06, 2017 at 03:00:15PM -0400, David Miller wrote:
-> He's adjusting the Makefile so that it build macb_main.c into macb.o
+From: Max Filippov <jcmvbkbc@gmail.com>
+Date: Mon,  5 Jun 2017 18:31:16 -0700
 
-Duh, sorry, brain shutting down...
+> ethoc_reset enables device interrupts, ethoc_interrupt may schedule a
+> NAPI poll before NAPI is enabled in the ethoc_open, which results in
+> device being unable to send or receive anything until it's closed and
+> reopened. In case the device is flooded with ingress packets it may be
+> unable to recover at all.
+> Move napi_enable above ethoc_reset in the ethoc_open to fix that.
+> 
+> Cc: stable@vger.kernel.org
+> Signed-off-by: Max Filippov <jcmvbkbc@gmail.com>
 
-Thanks,
-Richard
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied and queued up for -stable.
