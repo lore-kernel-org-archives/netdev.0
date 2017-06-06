@@ -1,53 +1,56 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH net-next] tun: use symmetric hash
-Date: Tue,  6 Jun 2017 14:09:49 +0800
-Message-ID: <1496729389-15221-1-git-send-email-jasowang@redhat.com>
-Cc: mst@redhat.com, Jason Wang <jasowang@redhat.com>
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next 00/16] nfp: ctrl vNIC
+Date: Tue, 6 Jun 2017 08:16:10 +0200
+Message-ID: <20170606061610.GA1911@nanopsycho>
+References: <20170606000157.17556-1-jakub.kicinski@netronome.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, oss-drivers@netronome.com
+To: Jakub Kicinski <jakub.kicinski@netronome.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f54.google.com ([74.125.82.54]:36099 "EHLO
+        mail-wm0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750881AbdFFGQO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 6 Jun 2017 02:16:14 -0400
+Received: by mail-wm0-f54.google.com with SMTP id 7so89384875wmo.1
+        for <netdev@vger.kernel.org>; Mon, 05 Jun 2017 23:16:13 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20170606000157.17556-1-jakub.kicinski@netronome.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Tun actually expects a symmetric hash for queue selecting to work
-correctly, otherwise packets belongs to a single flow may be
-redirected to the wrong queue. So this patch switch to use
-__skb_get_hash_symmetric().
+Tue, Jun 06, 2017 at 02:01:41AM CEST, jakub.kicinski@netronome.com wrote:
+>Hi!
+>
+>This series adds the ability to use one vNIC as a control channel
+>for passing messages to and from the application firmware.  The
+>implementation restructures the existing netdev vNIC code to be able
+>to deal with nfp_nets with netdev pointer set to NULL.  Control vNICs
+>are not visible to userspace (other than for dumping ring state), and
+>since they don't have netdevs we use a tasklet for RX and simple skb 
+>list for TX queuing.
+>
+>Due to special status of the control vNIC we have to reshuffle the
+>init code a bit to make sure control vNIC will be fully brought up
+>(and therefore communication with app FW can happen) before any netdev
+>or port is visible to user space.
+>
+>FW will designate which vNIC is supposed to be used as control one
+>by setting _pf%u_net_ctrl_bar symbol.  Some FWs depend on metadata
+>being prepended to control message, some prefer to look at queue ID
+>to decide that something is a control message.  Our implementation
+>can cater to both.
+>
+>First two users of this code will be eBPF maps and flower offloads.
 
-Signed-off-by: Jason Wang <jasowang@redhat.com>
----
- drivers/net/tun.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+How do you actually do the configuration from the userspace? I did not
+find it in the patches.
 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index f8041f9c..fe660e5 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -465,7 +465,7 @@ static u16 tun_select_queue(struct net_device *dev, struct sk_buff *skb,
- 	rcu_read_lock();
- 	numqueues = ACCESS_ONCE(tun->numqueues);
- 
--	txq = skb_get_hash(skb);
-+	txq = __skb_get_hash_symmetric(skb);
- 	if (txq) {
- 		e = tun_flow_find(&tun->flows[tun_hashfn(txq)], txq);
- 		if (e) {
-@@ -867,7 +867,7 @@ static netdev_tx_t tun_net_xmit(struct sk_buff *skb, struct net_device *dev)
- 		 */
- 		__u32 rxhash;
- 
--		rxhash = skb_get_hash(skb);
-+		rxhash = __skb_get_hash_symmetric(skb);
- 		if (rxhash) {
- 			struct tun_flow_entry *e;
- 			e = tun_flow_find(&tun->flows[tun_hashfn(rxhash)],
-@@ -1334,7 +1334,7 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
- 	skb_reset_network_header(skb);
- 	skb_probe_transport_header(skb, 0);
- 
--	rxhash = skb_get_hash(skb);
-+	rxhash = __skb_get_hash_symmetric(skb);
- #ifndef CONFIG_4KSTACKS
- 	tun_rx_batched(tun, tfile, skb, more);
- #else
--- 
-2.7.4
+I'm not really sure that doing it using one "control netdevice" is the
+correct way to go. The configuration is asic-wide, should be done by a
+devlink parent handle which was introduced for that exact purpose.
+
+Am I missing something? We need to sync in this. In mlxsw we need to do
+some pre-netdev configuraton as well.
+
+Thanks.
