@@ -1,47 +1,41 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH] net: stmmac: fix a broken u32 less than zero check
-Date: Tue,  6 Jun 2017 14:10:49 +0100
-Message-ID: <20170606131049.26887-1-colin.king@canonical.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-        Alexandre Torgue <alexandre.torgue@st.com>,
-        netdev@vger.kernel.org
+From: Antoine Tenart <antoine.tenart@free-electrons.com>
+Subject: [PATCH] net: mvpp2: do not bypass the mvpp22_port_mii_set function
+Date: Tue,  6 Jun 2017 15:36:15 +0200
+Message-ID: <20170606133615.20747-1-antoine.tenart@free-electrons.com>
+Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
+        gregory.clement@free-electrons.com, mw@semihalf.com,
+        linux@armlinux.org.uk, linux-arm-kernel@lists.infradead.org
+To: davem@davemloft.net, netdev@vger.kernel.org,
+        thomas.petazzoni@free-electrons.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:47594 "EHLO
-        youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751305AbdFFNKw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 6 Jun 2017 09:10:52 -0400
+Received: from mail.free-electrons.com ([62.4.15.54]:38277 "EHLO
+        mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751345AbdFFNiu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 6 Jun 2017 09:38:50 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Colin Ian King <colin.king@canonical.com>
+The mvpp22_port_mii_set() function was added by 2697582144dd, but the
+function directly returns without doing anything. This return was used
+when debugging and wasn't removed before sending the patch. Fix this.
 
-The check that queue is less or equal to zero is always true
-because queue is a u32; queue is decremented and will wrap around
-and never go -ve. Fix this by making queue an int.
-
-Detected by CoverityScan, CID#1428988 ("Unsigned compared against 0")
-
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
+Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
 ---
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/marvell/mvpp2.c | 2 --
+ 1 file changed, 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 68a188e74c54..05b1ec9194da 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -1207,7 +1207,7 @@ static int init_dma_rx_desc_rings(struct net_device *dev, gfp_t flags)
- 	u32 rx_count = priv->plat->rx_queues_to_use;
- 	unsigned int bfsize = 0;
- 	int ret = -ENOMEM;
--	u32 queue;
-+	int queue;
- 	int i;
+diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
+index 9b875d776b29..70bca2a6fb02 100644
+--- a/drivers/net/ethernet/marvell/mvpp2.c
++++ b/drivers/net/ethernet/marvell/mvpp2.c
+@@ -4186,8 +4186,6 @@ static void mvpp22_port_mii_set(struct mvpp2_port *port)
+ {
+ 	u32 val;
  
- 	if (priv->hw->mode->set_16kib_bfsize)
+-	return;
+-
+ 	/* Only GOP port 0 has an XLG MAC */
+ 	if (port->gop_id == 0) {
+ 		val = readl(port->base + MVPP22_XLG_CTRL3_REG);
 -- 
-2.11.0
+2.9.4
