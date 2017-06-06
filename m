@@ -1,49 +1,112 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next v2 2/2] bpf: Remove the capability check for
- cgroup skb eBPF program
-Date: Tue, 06 Jun 2017 18:56:29 +0200
-Message-ID: <5936DEBD.2050401@iogearbox.net>
-References: <1496279760-20996-1-git-send-email-chenbofeng.kernel@gmail.com> <1496279760-20996-2-git-send-email-chenbofeng.kernel@gmail.com> <20170601234235.iwu55crijtxuq5mp@ast-mbp>
+From: Dave Watson <davejwatson@fb.com>
+Subject: [PATCH v2 net-next 0/4] kernel TLS
+Date: Tue, 6 Jun 2017 09:59:50 -0700
+Message-ID: <20170606165950.GA19036@davejwatson-mba.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-        Lorenzo Colitti <lorenzo@google.com>,
-        Chenbo Feng <fengc@google.com>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Chenbo Feng <chenbofeng.kernel@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:58158 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751445AbdFFQ4c (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 6 Jun 2017 12:56:32 -0400
-In-Reply-To: <20170601234235.iwu55crijtxuq5mp@ast-mbp>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        <nmav@gnutls.org>, <fridolin.pokorny@gmail.com>
+To: Ilya Lesokhin <ilyal@mellanox.com>,
+        Aviad Yehezkel <aviadye@mellanox.com>,
+        Boris Pismenny <borisp@mellanox.com>,
+        Liran Liss <liranl@mellanox.com>,
+        Matan Barak <matanb@mellanox.com>,
+        David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+        Tom Herbert <tom@herbertland.com>,
+        <herbert@gondor.apana.org.au>, <linux-crypto@vger.kernel.org>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 06/02/2017 01:42 AM, Alexei Starovoitov wrote:
-> On Wed, May 31, 2017 at 06:16:00PM -0700, Chenbo Feng wrote:
->> From: Chenbo Feng <fengc@google.com>
->>
->> Currently loading a cgroup skb eBPF program require a CAP_SYS_ADMIN
->> capability while attaching the program to a cgroup only requires the
->> user have CAP_NET_ADMIN privilege. We can escape the capability
->> check when load the program just like socket filter program to make
->> the capability requirement consistent.
->>
->> Change since v1:
->> Change the code style in order to be compliant with checkpatch.pl
->> preference
->>
->> Signed-off-by: Chenbo Feng <fengc@google.com>
->
-> as far as I can see they're indeed the same as socket filters, so
-> Acked-by: Alexei Starovoitov <ast@kernel.org>
->
-> but I don't quite understand how it helps, since as you said
-> attaching such unpriv fd to cgroup still requires root.
-> Do you have more patches to follow?
+This series adds support for kernel TLS encryption over TCP sockets.
+A standard TCP socket is converted to a TLS socket using a setsockopt.
+Only symmetric crypto is done in the kernel, as well as TLS record
+framing.  The handshake remains in userspace, and the negotiated
+cipher keys/iv are provided to the TCP socket.
 
-Hmm, when we relax this from capable(CAP_SYS_ADMIN) to unprivileged,
-then we must at least also zero out the not-yet-initialized memory
-for the mac header for egress case in __cgroup_bpf_run_filter_skb().
+We implemented support for this API in OpenSSL 1.1.0, the code is
+available at https://github.com/Mellanox/tls-openssl/tree/master
+
+It should work with any TLS library with similar modifications,
+a test tool using gnutls is here: https://github.com/Mellanox/tls-af_ktls_tool
+
+Changes from V1:
+
+* EXPORT_SYMBOL GPL in patch 2
+* Add link to OpenSSL patch & gnutls example in documentation patch.
+* sk_write_pending check was rolled in to wait_for_memory path,
+  avoids special case and fixes lock inbalance issue.
+* Unify flag handling for sendmsg/sendfile
+
+Changes from RFC V2:
+
+* Generic ULP (upper layer protocol) framework instead of TLS specific
+  setsockopts
+* Dropped Mellanox hardware patches, will come as separate series.
+  Framework will work for both.
+
+RFC V2:
+
+http://www.mail-archive.com/netdev@vger.kernel.org/msg160317.html
+
+Changes from RFC V1:
+
+* Socket based on changing TCP proto_ops instead of crypto framework
+* Merged code with Mellanox's hardware tls offload
+* Zerocopy sendmsg support added - sendpage/sendfile is no longer
+  necessary for zerocopy optimization
+
+RFC V1:
+
+http://www.mail-archive.com/netdev@vger.kernel.org/msg88021.html
+
+* Socket based on crypto userspace API framework, required two
+  sockets in userspace, one encrypted, one unencrypted.
+
+Paper: https://netdevconf.org/1.2/papers/ktls.pdf
+
+Aviad Yehezkel (1):
+  tcp: export do_tcp_sendpages and tcp_rate_check_app_limited functions
+
+Boris Pismenny (2):
+  tcp: ULP infrastructure
+  tls: Documentation
+
+Ilya Lesokhin (1):
+  tls: kernel TLS support
+
+ Documentation/networking/tls.txt   | 135 +++++++
+ MAINTAINERS                        |  10 +
+ include/linux/socket.h             |   1 +
+ include/net/inet_connection_sock.h |   4 +
+ include/net/tcp.h                  |  27 ++
+ include/net/tls.h                  | 222 +++++++++++
+ include/uapi/linux/tcp.h           |   1 +
+ include/uapi/linux/tls.h           |  79 ++++
+ net/Kconfig                        |   1 +
+ net/Makefile                       |   1 +
+ net/ipv4/Makefile                  |   2 +-
+ net/ipv4/sysctl_net_ipv4.c         |  25 ++
+ net/ipv4/tcp.c                     |  33 +-
+ net/ipv4/tcp_ipv4.c                |   2 +
+ net/ipv4/tcp_rate.c                |   1 +
+ net/ipv4/tcp_ulp.c                 | 134 +++++++
+ net/tls/Kconfig                    |  12 +
+ net/tls/Makefile                   |   7 +
+ net/tls/tls_main.c                 | 485 ++++++++++++++++++++++
+ net/tls/tls_sw.c                   | 794 +++++++++++++++++++++++++++++++++++++
+ 20 files changed, 1973 insertions(+), 3 deletions(-)
+ create mode 100644 Documentation/networking/tls.txt
+ create mode 100644 include/net/tls.h
+ create mode 100644 include/uapi/linux/tls.h
+ create mode 100644 net/ipv4/tcp_ulp.c
+ create mode 100644 net/tls/Kconfig
+ create mode 100644 net/tls/Makefile
+ create mode 100644 net/tls/tls_main.c
+ create mode 100644 net/tls/tls_sw.c
+
+-- 
+2.9.3
