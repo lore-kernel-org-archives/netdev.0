@@ -1,65 +1,86 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net] net: stmmac: fix completely hung TX when using TSO
-Date: Tue, 6 Jun 2017 07:31:23 -0700
-Message-ID: <284161d4-760f-0dd9-0363-c8e13750fba8@gmail.com>
-References: <20170606072501.16560-1-niklas.cassel@axis.com>
+From: Antoine Tenart <antoine.tenart@free-electrons.com>
+Subject: Re: [PATCH] net: mvpp2: do not bypass the mvpp22_port_mii_set
+ function
+Date: Tue, 6 Jun 2017 16:38:27 +0200
+Message-ID: <20170606143827.GB22618@kwain.lan>
+References: <20170606133615.20747-1-antoine.tenart@free-electrons.com>
+ <20170606154535.3e87bafb@free-electrons.com>
+ <20170606135148.GA22618@kwain.lan>
+ <9ef70606-0918-fc4f-535b-dd1fc3475cb6@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Niklas Cassel <niklass@axis.com>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Niklas Cassel <niklas.cassel@axis.com>,
-        Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-        Alexandre Torgue <alexandre.torgue@st.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170606072501.16560-1-niklas.cassel@axis.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha512;
+        protocol="application/pgp-signature"; boundary="qlTNgmc+xy1dBmNv"
+Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
+        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+        netdev@vger.kernel.org, linux@armlinux.org.uk,
+        gregory.clement@free-electrons.com, mw@semihalf.com,
+        davem@davemloft.net, linux-arm-kernel@lists.infradead.org
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.free-electrons.com ([62.4.15.54]:40704 "EHLO
+        mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751579AbdFFOij (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 6 Jun 2017 10:38:39 -0400
+Content-Disposition: inline
+In-Reply-To: <9ef70606-0918-fc4f-535b-dd1fc3475cb6@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
+--qlTNgmc+xy1dBmNv
+Content-Type: text/plain; charset=iso-8859-1
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-On 06/06/2017 12:25 AM, Niklas Cassel wrote:
-> stmmac_tso_allocator can fail to set the Last Descriptor bit
-> on a descriptor that actually was the last descriptor.
-> 
-> This happens when the buffer of the last descriptor ends
-> up having a size of exactly TSO_MAX_BUFF_SIZE.
-> 
-> When the IP eventually reaches the next last descriptor,
-> which actually has the bit set, the DMA will hang.
-> 
-> When the DMA hangs, we get a tx timeout, however,
-> since stmmac does not do a complete reset of the IP
-> in stmmac_tx_timeout, we end up in a state with
-> completely hung TX.
-> 
-> Signed-off-by: Niklas Cassel <niklas.cassel@axis.com>
+Hi Florian,
 
-This should have:
+On Tue, Jun 06, 2017 at 07:24:35AM -0700, Florian Fainelli wrote:
+> On 06/06/2017 06:51 AM, Antoine Tenart wrote:
+> > On Tue, Jun 06, 2017 at 03:45:35PM +0200, Thomas Petazzoni wrote:
+> >=20
+> >> I am wondering if we shouldn't Cc: stable as well. I don't think we
+> >> have seen issues on our side because U-Boot does the necessary
+> >> initialization, but people using other bootloaders might have issues.
+> >=20
+> > Yes, that might be safer to cc stable. I'll do this as well.
+>=20
+> David queues network patches for stable provided that you submit those
+> against his "net" tree [1] and there is an appropriate Fixes tag (which
+> Thomas provided).
+>=20
+> [1]:
+> https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/D=
+ocumentation/networking/netdev-FAQ.txt#n114
 
-Fixes: f748be531d70 ("stmmac: support new GMAC4")
+That's good to know!
 
-right?
+Thanks,
+Antoine
 
-> ---
->  drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> index 68a188e74c54..440bea049a7f 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> @@ -2723,7 +2723,7 @@ static void stmmac_tso_allocator(struct stmmac_priv *priv, unsigned int des,
->  
->  		priv->hw->desc->prepare_tso_tx_desc(desc, 0, buff_size,
->  			0, 1,
-> -			(last_segment) && (buff_size < TSO_MAX_BUFF_SIZE),
-> +			(last_segment) && (tmp_len <= TSO_MAX_BUFF_SIZE),
->  			0, 0);
->  
->  		tmp_len -= TSO_MAX_BUFF_SIZE;
-> 
+--=20
+Antoine T=E9nart, Free Electrons
+Embedded Linux and Kernel engineering
+http://free-electrons.com
 
--- 
-Florian
+--qlTNgmc+xy1dBmNv
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAABCgAGBQJZNr5jAAoJEFxNi8it27zYmaoP/j5kpNa5N3p8JAgYmDf/03S9
+b/jaXiM/Uj7ZAxqfQTpvugioLGK12BTyD0uYVR6ckhPL9Z64YA3VeIxs8JuKWk5I
+vqn5965usdMYLKcl67tadw3yODRuaH8kXTLkaiGWdkZdjMWK+W0BVeUIdJd47VSR
+KwI5J9FRj7HFkPxh4JCE52pMNW71KSi5ZHCz+AhufpNVU6QP5evsO0VKbxrxyj20
+E1STT1BLbpOwaVQ7Mz9/OsvRm87CRxlbdHsT5WQGIjWpE/XtYytcdGE5bBmYhuBf
+OdAJ1ikMgFF+JsRfe7d9DnCEDQ1S0DWYg0zChUBgQmv3IhLDumoADfySMKDjfw5M
+JbRVrJqq6f1Zl8y50b4vElSwBycy026F6SF0g1AWDJrbID2waNIkQ0uWyuTvbtuS
+4qWTejuj39gnB9ECLmds58FFNp9cnLpLpuP7y41JZjDlh3D/K81uVLnCBvivws7V
+h4Lwdyj0UpYz8hy+ANRk+wsQUUk24bDUMxNIlh4icz7fBNzM06upvxp/pVclUqbl
+BKWUpBIs0lE0migrzMTKhM5ReGGioSkJQWTN5YYWLb0XAnKJDAyqM+afPmlK9WqX
+olwlAeuyWITDY34afZNXbMZp2CEJjEJ5/6mkYYcaXUlZybCStjIqc8A3SpZiIeGy
+xFwOW5hrAnk8me8BYzQK
+=+ism
+-----END PGP SIGNATURE-----
+
+--qlTNgmc+xy1dBmNv--
