@@ -1,57 +1,69 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next v2 1/2] bpf: Allow CGROUP_SKB eBPF program to
- access sk_buff
-Date: Tue, 06 Jun 2017 14:04:00 +0200
-Message-ID: <59369A30.1060301@iogearbox.net>
-References: <1496279760-20996-1-git-send-email-chenbofeng.kernel@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Lorenzo Colitti <lorenzo@google.com>,
-        Chenbo Feng <fengc@google.com>, ast@fb.com
-To: Chenbo Feng <chenbofeng.kernel@gmail.com>, netdev@vger.kernel.org,
-        David Miller <davem@davemloft.net>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next v2 0/6] introduce trap control action to tc and offload it
+Date: Tue,  6 Jun 2017 14:12:01 +0200
+Message-ID: <20170606121207.2921-1-jiri@resnulli.us>
+Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
+        edumazet@google.com, alexander.h.duyck@intel.com,
+        stephen@networkplumber.org, daniel@iogearbox.net,
+        mlxsw@mellanox.com, andrew@lunn.ch
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:38393 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751439AbdFFMED (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 6 Jun 2017 08:04:03 -0400
-In-Reply-To: <1496279760-20996-1-git-send-email-chenbofeng.kernel@gmail.com>
+Received: from mail-wm0-f46.google.com ([74.125.82.46]:36793 "EHLO
+        mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751390AbdFFMML (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 6 Jun 2017 08:12:11 -0400
+Received: by mail-wm0-f46.google.com with SMTP id 7so96088095wmo.1
+        for <netdev@vger.kernel.org>; Tue, 06 Jun 2017 05:12:10 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/01/2017 03:15 AM, Chenbo Feng wrote:
-> From: Chenbo Feng <fengc@google.com>
->
-> This allows cgroup eBPF program to classify packet based on their
-> protocol or other detail information. Currently program need
-> CAP_NET_ADMIN privilege to attach a cgroup eBPF program, and A
-> process with CAP_NET_ADMIN can already see all packets on the system,
-> for example, by creating an iptables rules that causes the packet to
-> be passed to userspace via NFLOG.
->
-> Signed-off-by: Chenbo Feng <fengc@google.com>
+From: Jiri Pirko <jiri@mellanox.com>
 
-Sorry, but I am puzzled what above change log has to do with the
-below diff?! Back then we decided not to add BPF_PROG_TYPE_CGROUP_SKB
-to may_access_skb(), since one can already use bpf_skb_load_bytes()
-helper to access pkt data, which is a much more flexible interface.
-Mind to elaborate why you cannot use bpf_skb_load_bytes() instead?
+This patchset introduces a control action dedicated to indicate
+to trap the matched packet to CPU. This is specific action for
+HW offloads. Also, the patchset offloads the action to mlxsw driver.
 
-> ---
->   kernel/bpf/verifier.c | 1 +
->   1 file changed, 1 insertion(+)
->
-> diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
-> index 339c8a1..94a9bc9 100644
-> --- a/kernel/bpf/verifier.c
-> +++ b/kernel/bpf/verifier.c
-> @@ -2419,6 +2419,7 @@ static bool may_access_skb(enum bpf_prog_type type)
->   	case BPF_PROG_TYPE_SOCKET_FILTER:
->   	case BPF_PROG_TYPE_SCHED_CLS:
->   	case BPF_PROG_TYPE_SCHED_ACT:
-> +	case BPF_PROG_TYPE_CGROUP_SKB:
->   		return true;
->   	default:
->   		return false;
->
+Example usage:
+$ tc filter add dev enp3s0np19 parent ffff: protocol ip prio 20 flower skip_sw dst_ip 192.168.10.1 action trap
+
+---
+v1->v2:
+- patch 1
+  - fix the comment according to Andrew's note
+
+Jiri Pirko (6):
+  net: sched: introduce a TRAP control action
+  net: sched: introduce helper to identify gact trap action
+  mlxsw: pci: Fix size of trap_id field in CQE
+  mlxsw: spectrum: Introduce ACL trap
+  acl: Introduce ACL trap action
+  spectrum_flower: Implement gact trap TC action offload
+
+ .../mellanox/mlxsw/core_acl_flex_actions.c         | 40 ++++++++++++++++++++--
+ .../mellanox/mlxsw/core_acl_flex_actions.h         |  1 +
+ drivers/net/ethernet/mellanox/mlxsw/pci_hw.h       |  2 +-
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c     |  4 ++-
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.h     |  1 +
+ drivers/net/ethernet/mellanox/mlxsw/spectrum_acl.c |  5 +++
+ .../net/ethernet/mellanox/mlxsw/spectrum_flower.c  |  4 +++
+ drivers/net/ethernet/mellanox/mlxsw/trap.h         |  1 +
+ include/net/tc_act/tc_gact.h                       | 15 ++++++--
+ include/uapi/linux/pkt_cls.h                       |  7 ++++
+ net/core/dev.c                                     |  2 ++
+ net/sched/cls_bpf.c                                |  1 +
+ net/sched/sch_atm.c                                |  1 +
+ net/sched/sch_cbq.c                                |  1 +
+ net/sched/sch_drr.c                                |  1 +
+ net/sched/sch_dsmark.c                             |  1 +
+ net/sched/sch_fq_codel.c                           |  1 +
+ net/sched/sch_hfsc.c                               |  1 +
+ net/sched/sch_htb.c                                |  1 +
+ net/sched/sch_multiq.c                             |  1 +
+ net/sched/sch_prio.c                               |  1 +
+ net/sched/sch_qfq.c                                |  1 +
+ net/sched/sch_sfb.c                                |  1 +
+ net/sched/sch_sfq.c                                |  1 +
+ 24 files changed, 89 insertions(+), 6 deletions(-)
+
+-- 
+2.9.3
