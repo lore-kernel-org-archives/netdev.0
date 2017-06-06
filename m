@@ -1,69 +1,106 @@
-From: Rafal Ozieblo <rafalo@cadence.com>
-Subject: RE: [PATCH v2 4/4] net: macb: Add hardware PTP support
-Date: Tue, 6 Jun 2017 08:54:50 +0000
-Message-ID: <BN3PR07MB251673623B941CAF5DEAB474C9CB0@BN3PR07MB2516.namprd07.prod.outlook.com>
-References: <1496413439-12900-1-git-send-email-rafalo@cadence.com>
- <1496413690-22826-1-git-send-email-rafalo@cadence.com>
- <20170604205516.GA7848@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: David Miller <davem@davemloft.net>,
-        "nicolas.ferre@atmel.com" <nicolas.ferre@atmel.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-        "linux-arm-kernel@lists.infradead.org"
-        <linux-arm-kernel@lists.infradead.org>,
-        "harini.katakam@xilinx.com" <harini.katakam@xilinx.com>,
-        "andrei.pistirica@microchip.com" <andrei.pistirica@microchip.com>
-To: Richard Cochran <richardcochran@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170604205516.GA7848@localhost.localdomain>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 05/11] igb: avoid permanent lock of *_PTP_TX_IN_PROGRESS
+Date: Tue,  6 Jun 2017 01:58:03 -0700
+Message-ID: <20170606085809.78571-6-jeffrey.t.kirsher@intel.com>
+References: <20170606085809.78571-1-jeffrey.t.kirsher@intel.com>
+Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
+        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga03.intel.com ([134.134.136.65]:20068 "EHLO mga03.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751423AbdFFI6Q (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 6 Jun 2017 04:58:16 -0400
+In-Reply-To: <20170606085809.78571-1-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> From: Richard Cochran [mailto:richardcochran@gmail.com]
-> Sent: 4 czerwca 2017 22:55
-> To: Rafal Ozieblo <rafalo@cadence.com>
-> Cc: David Miller <davem@davemloft.net>; nicolas.ferre@atmel.com;
-> netdev@vger.kernel.org; linux-kernel@vger.kernel.org;
-> devicetree@vger.kernel.org; linux-arm-kernel@lists.infradead.org;
-> harini.katakam@xilinx.com; andrei.pistirica@microchip.com
-> Subject: Re: [PATCH v2 4/4] net: macb: Add hardware PTP support
->=20
-> On Fri, Jun 02, 2017 at 03:28:10PM +0100, Rafal Ozieblo wrote:
->=20
-> > +int gem_get_hwtst(struct net_device *dev, struct ifreq *rq)
-> > +{
-> > +	struct macb *bp =3D netdev_priv(dev);
-> > +	struct hwtstamp_config *tstamp_config =3D &bp->tstamp_config;
-> > +
-> > +	if ((bp->hw_dma_cap & HW_DMA_CAP_PTP) =3D=3D 0)
-> > +		return -EFAULT;
->=20
-> Segmentation fault?  Really?
->=20
-> ...
->=20
-> > +int gem_set_hwtst(struct net_device *dev, struct ifreq *ifr, int cmd)
-> > +{
-> > +	struct macb *bp =3D netdev_priv(dev);
-> > +	struct hwtstamp_config *tstamp_config =3D &bp->tstamp_config;
-> > +	enum macb_bd_control tx_bd_control =3D TSTAMP_DISABLED;
-> > +	enum macb_bd_control rx_bd_control =3D TSTAMP_DISABLED;
-> > +	u32 regval;
-> > +
-> > +	if ((bp->hw_dma_cap & HW_DMA_CAP_PTP) =3D=3D 0)
-> > +		return -EFAULT;
->=20
-> here again
-Would "ENOTSUP" be sufficient ?
+From: Jacob Keller <jacob.e.keller@intel.com>
 
->=20
-> Thanks,
-> Richard
+The igb driver uses a state bit lock to avoid handling more than one Tx
+timestamp request at once. This is required because hardware is limited
+to a single set of registers for Tx timestamps.
 
-Regards,
-Rafal
+The state bit lock is not properly cleaned up during
+igb_xmit_frame_ring() if the transmit fails such as due to DMA or TSO
+failure. In some hardware this results in blocking timestamps until the
+service task times out. In other hardware this results in a permanent
+lock of the timestamp bit because we never receive an interrupt
+indicating the timestamp occurred, since indeed the packet was never
+transmitted.
+
+Fix this by checking for DMA and TSO errors in igb_xmit_frame_ring() and
+properly cleaning up after ourselves when these occur.
+
+Reported-by: Reported-by: David Mirabito <davidm@metamako.com>
+Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/igb/igb_main.c | 23 ++++++++++++++++++-----
+ 1 file changed, 18 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index 2d5bdb1fd37d..fefa46120cbc 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -5197,9 +5197,9 @@ static inline int igb_maybe_stop_tx(struct igb_ring *tx_ring, const u16 size)
+ 	return __igb_maybe_stop_tx(tx_ring, size);
+ }
+ 
+-static void igb_tx_map(struct igb_ring *tx_ring,
+-		       struct igb_tx_buffer *first,
+-		       const u8 hdr_len)
++static int igb_tx_map(struct igb_ring *tx_ring,
++		      struct igb_tx_buffer *first,
++		      const u8 hdr_len)
+ {
+ 	struct sk_buff *skb = first->skb;
+ 	struct igb_tx_buffer *tx_buffer;
+@@ -5310,7 +5310,7 @@ static void igb_tx_map(struct igb_ring *tx_ring,
+ 		 */
+ 		mmiowb();
+ 	}
+-	return;
++	return 0;
+ 
+ dma_error:
+ 	dev_err(tx_ring->dev, "TX DMA map failed\n");
+@@ -5341,6 +5341,8 @@ static void igb_tx_map(struct igb_ring *tx_ring,
+ 	tx_buffer->skb = NULL;
+ 
+ 	tx_ring->next_to_use = i;
++
++	return -1;
+ }
+ 
+ netdev_tx_t igb_xmit_frame_ring(struct sk_buff *skb,
+@@ -5406,13 +5408,24 @@ netdev_tx_t igb_xmit_frame_ring(struct sk_buff *skb,
+ 	else if (!tso)
+ 		igb_tx_csum(tx_ring, first);
+ 
+-	igb_tx_map(tx_ring, first, hdr_len);
++	if (igb_tx_map(tx_ring, first, hdr_len))
++		goto cleanup_tx_tstamp;
+ 
+ 	return NETDEV_TX_OK;
+ 
+ out_drop:
+ 	dev_kfree_skb_any(first->skb);
+ 	first->skb = NULL;
++cleanup_tx_tstamp:
++	if (unlikely(tx_flags & IGB_TX_FLAGS_TSTAMP)) {
++		struct igb_adapter *adapter = netdev_priv(tx_ring->netdev);
++
++		dev_kfree_skb_any(adapter->ptp_tx_skb);
++		adapter->ptp_tx_skb = NULL;
++		if (adapter->hw.mac.type == e1000_82576)
++			cancel_work_sync(&adapter->ptp_tx_work);
++		clear_bit_unlock(__IGB_PTP_TX_IN_PROGRESS, &adapter->state);
++	}
+ 
+ 	return NETDEV_TX_OK;
+ }
+-- 
+2.12.2
