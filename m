@@ -1,8 +1,8 @@
 From: Antony Antony <antony@phenome.org>
-Subject: [PATCH v2 2/2] xfrm: add UDP encapsulation port in migrate message
-Date: Tue,  6 Jun 2017 12:12:14 +0200
-Message-ID: <1496743934-12697-2-git-send-email-antony@phenome.org>
-References: <1496743934-12697-1-git-send-email-antony@phenome.org>
+Subject: [PATCH v2 1/2] xfrm: extend MIGRATE with UDP encapsulation port
+Date: Tue,  6 Jun 2017 12:12:13 +0200
+Message-ID: <1496743934-12697-1-git-send-email-antony@phenome.org>
+References: <20170605215625.11043-1-antony@phenome.org>
 Cc: Antony Antony <antony@phenome.org>,
         Steffen Klassert <steffen.klassert@secunet.com>,
         Herbert Xu <herbert@gondor.apana.org.au>,
@@ -10,191 +10,180 @@ Cc: Antony Antony <antony@phenome.org>,
         Richard Guy Briggs <rgb@tricolour.ca>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lb2-smtp-cloud3.xs4all.net ([194.109.24.26]:51292 "EHLO
-        lb2-smtp-cloud3.xs4all.net" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751398AbdFFKMV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 6 Jun 2017 06:12:21 -0400
-In-Reply-To: <1496743934-12697-1-git-send-email-antony@phenome.org>
+Received: from lb3-smtp-cloud3.xs4all.net ([194.109.24.30]:48203 "EHLO
+        lb3-smtp-cloud3.xs4all.net" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751443AbdFFKMY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 6 Jun 2017 06:12:24 -0400
 In-Reply-To: <20170605215625.11043-1-antony@phenome.org>
-References: <20170605215625.11043-1-antony@phenome.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add XFRMA_ENCAP, UDP encapsulation port, to km_migrate announcement
-to userland. Only add if XFRMA_ENCAP was in user migrate request.
+Add UDP encapsulation port to XFRM_MSG_MIGRATE using an optional
+netlink attribute XFRMA_ENCAP.
 
+The devices that support IKE MOBIKE extension (RFC-4555 Section 3.8)
+could go to sleep for a few minutes and wake up. When it wake up the
+NAT mapping could have expired, the device send a MOBIKE UPDATE_SA
+message to migrate the IPsec SA. The change could be a change UDP
+encapsulation port, IP address, or both.
+
+Reported-by: Paul Wouters <pwouters@redhat.com>
 Signed-off-by: Antony Antony <antony@phenome.org>
 Reviewed-by: Richard Guy Briggs <rgb@tricolour.ca>
 ---
-Changes in v2:
-	- fixed pfkey_send_migrate, warning reported by kbuild test robot
- 	  with # CONFIG_NET_KEY_MIGRATE is not set
-	  also tested with # CONFIG_XFRM_MIGRATE is not set
-	- constify struct xfrm_encap_tmpl *encap in km_migrate
-
  include/net/xfrm.h     |  6 ++++--
- net/key/af_key.c       |  6 ++++--
- net/xfrm/xfrm_policy.c |  2 +-
- net/xfrm/xfrm_state.c  |  6 ++++--
- net/xfrm/xfrm_user.c   | 23 +++++++++++++++++------
- 5 files changed, 30 insertions(+), 13 deletions(-)
+ net/key/af_key.c       |  2 +-
+ net/xfrm/xfrm_policy.c | 11 ++++-------
+ net/xfrm/xfrm_state.c  | 18 +++++++++++++-----
+ net/xfrm/xfrm_user.c   | 14 ++++++++++++--
+ 5 files changed, 34 insertions(+), 17 deletions(-)
 
 diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index df98463..01f5bc1 100644
+index 7e7e2b0..df98463 100644
 --- a/include/net/xfrm.h
 +++ b/include/net/xfrm.h
-@@ -631,7 +631,8 @@ struct xfrm_mgr {
- 					   u8 dir, u8 type,
- 					   const struct xfrm_migrate *m,
- 					   int num_bundles,
--					   const struct xfrm_kmaddress *k);
-+					   const struct xfrm_kmaddress *k,
-+					   const struct xfrm_encap_tmpl *encap);
- 	bool			(*is_alive)(const struct km_event *c);
- };
- 
-@@ -1675,7 +1676,8 @@ int xfrm_sk_policy_insert(struct sock *sk, int dir, struct xfrm_policy *pol);
- #ifdef CONFIG_XFRM_MIGRATE
- int km_migrate(const struct xfrm_selector *sel, u8 dir, u8 type,
- 	       const struct xfrm_migrate *m, int num_bundles,
--	       const struct xfrm_kmaddress *k);
-+	       const struct xfrm_kmaddress *k,
-+	       const struct xfrm_encap_tmpl *encap);
+@@ -1678,10 +1678,12 @@ int km_migrate(const struct xfrm_selector *sel, u8 dir, u8 type,
+ 	       const struct xfrm_kmaddress *k);
  struct xfrm_state *xfrm_migrate_state_find(struct xfrm_migrate *m, struct net *net);
  struct xfrm_state *xfrm_state_migrate(struct xfrm_state *x,
- 				      struct xfrm_migrate *m,
+-				      struct xfrm_migrate *m);
++				      struct xfrm_migrate *m,
++				      struct xfrm_encap_tmpl *encap);
+ int xfrm_migrate(const struct xfrm_selector *sel, u8 dir, u8 type,
+ 		 struct xfrm_migrate *m, int num_bundles,
+-		 struct xfrm_kmaddress *k, struct net *net);
++		 struct xfrm_kmaddress *k, struct net *net,
++		 struct xfrm_encap_tmpl *encap);
+ #endif
+ 
+ int km_new_mapping(struct xfrm_state *x, xfrm_address_t *ipaddr, __be16 sport);
 diff --git a/net/key/af_key.c b/net/key/af_key.c
-index 56df9fb..98c1ffb 100644
+index 512dc43..56df9fb 100644
 --- a/net/key/af_key.c
 +++ b/net/key/af_key.c
-@@ -3508,7 +3508,8 @@ static int set_ipsecrequest(struct sk_buff *skb,
- #ifdef CONFIG_NET_KEY_MIGRATE
- static int pfkey_send_migrate(const struct xfrm_selector *sel, u8 dir, u8 type,
- 			      const struct xfrm_migrate *m, int num_bundles,
--			      const struct xfrm_kmaddress *k)
-+			      const struct xfrm_kmaddress *k,
-+			      const struct xfrm_encap_tmpl *encap)
- {
- 	int i;
- 	int sasize_sel;
-@@ -3618,7 +3619,8 @@ static int pfkey_send_migrate(const struct xfrm_selector *sel, u8 dir, u8 type,
- #else
- static int pfkey_send_migrate(const struct xfrm_selector *sel, u8 dir, u8 type,
- 			      const struct xfrm_migrate *m, int num_bundles,
--			      const struct xfrm_kmaddress *k)
-+			      const struct xfrm_kmaddress *k,
-+			      const struct xfrm_encap_tmpl *encap)
- {
- 	return -ENOPROTOOPT;
- }
+@@ -2602,7 +2602,7 @@ static int pfkey_migrate(struct sock *sk, struct sk_buff *skb,
+ 	}
+ 
+ 	return xfrm_migrate(&sel, dir, XFRM_POLICY_TYPE_MAIN, m, i,
+-			    kma ? &k : NULL, net);
++			    kma ? &k : NULL, net, NULL);
+ 
+  out:
+ 	return err;
 diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index eaecfa4..7152147 100644
+index ed4e52d..eaecfa4 100644
 --- a/net/xfrm/xfrm_policy.c
 +++ b/net/xfrm/xfrm_policy.c
-@@ -3337,7 +3337,7 @@ int xfrm_migrate(const struct xfrm_selector *sel, u8 dir, u8 type,
- 	}
+@@ -3268,11 +3268,6 @@ static int xfrm_migrate_check(const struct xfrm_migrate *m, int num_migrate)
+ 		return -EINVAL;
  
- 	/* Stage 5 - announce */
--	km_migrate(sel, dir, type, m, num_migrate, k);
-+	km_migrate(sel, dir, type, m, num_migrate, k, encap);
+ 	for (i = 0; i < num_migrate; i++) {
+-		if (xfrm_addr_equal(&m[i].old_daddr, &m[i].new_daddr,
+-				    m[i].old_family) &&
+-		    xfrm_addr_equal(&m[i].old_saddr, &m[i].new_saddr,
+-				    m[i].old_family))
+-			return -EINVAL;
+ 		if (xfrm_addr_any(&m[i].new_daddr, m[i].new_family) ||
+ 		    xfrm_addr_any(&m[i].new_saddr, m[i].new_family))
+ 			return -EINVAL;
+@@ -3296,7 +3291,8 @@ static int xfrm_migrate_check(const struct xfrm_migrate *m, int num_migrate)
  
- 	xfrm_pol_put(pol);
- 
+ int xfrm_migrate(const struct xfrm_selector *sel, u8 dir, u8 type,
+ 		 struct xfrm_migrate *m, int num_migrate,
+-		 struct xfrm_kmaddress *k, struct net *net)
++		 struct xfrm_kmaddress *k, struct net *net,
++		 struct xfrm_encap_tmpl *encap)
+ {
+ 	int i, err, nx_cur = 0, nx_new = 0;
+ 	struct xfrm_policy *pol = NULL;
+@@ -3319,7 +3315,8 @@ int xfrm_migrate(const struct xfrm_selector *sel, u8 dir, u8 type,
+ 		if ((x = xfrm_migrate_state_find(mp, net))) {
+ 			x_cur[nx_cur] = x;
+ 			nx_cur++;
+-			if ((xc = xfrm_state_migrate(x, mp))) {
++			xc = xfrm_state_migrate(x, mp, encap);
++			if (xc) {
+ 				x_new[nx_new] = xc;
+ 				nx_new++;
+ 			} else {
 diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index ae6206b..3f1c4a0 100644
+index 2e291bc..ae6206b 100644
 --- a/net/xfrm/xfrm_state.c
 +++ b/net/xfrm/xfrm_state.c
-@@ -1966,7 +1966,8 @@ EXPORT_SYMBOL(km_policy_expired);
+@@ -1309,7 +1309,8 @@ int xfrm_state_add(struct xfrm_state *x)
+ EXPORT_SYMBOL(xfrm_state_add);
+ 
  #ifdef CONFIG_XFRM_MIGRATE
- int km_migrate(const struct xfrm_selector *sel, u8 dir, u8 type,
- 	       const struct xfrm_migrate *m, int num_migrate,
--	       const struct xfrm_kmaddress *k)
-+	       const struct xfrm_kmaddress *k,
-+	       const struct xfrm_encap_tmpl *encap)
+-static struct xfrm_state *xfrm_state_clone(struct xfrm_state *orig)
++static struct xfrm_state *xfrm_state_clone(struct xfrm_state *orig,
++					   struct xfrm_encap_tmpl *encap)
  {
- 	int err = -EINVAL;
- 	int ret;
-@@ -1975,7 +1976,8 @@ int km_migrate(const struct xfrm_selector *sel, u8 dir, u8 type,
- 	rcu_read_lock();
- 	list_for_each_entry_rcu(km, &xfrm_km_list, list) {
- 		if (km->migrate) {
--			ret = km->migrate(sel, dir, type, m, num_migrate, k);
-+			ret = km->migrate(sel, dir, type, m, num_migrate, k,
-+					  encap);
- 			if (!ret)
- 				err = ret;
- 		}
+ 	struct net *net = xs_net(orig);
+ 	struct xfrm_state *x = xfrm_state_alloc(net);
+@@ -1351,8 +1352,14 @@ static struct xfrm_state *xfrm_state_clone(struct xfrm_state *orig)
+ 	}
+ 	x->props.calgo = orig->props.calgo;
+ 
+-	if (orig->encap) {
+-		x->encap = kmemdup(orig->encap, sizeof(*x->encap), GFP_KERNEL);
++	if (encap || orig->encap) {
++		if (encap)
++			x->encap = kmemdup(encap, sizeof(*x->encap),
++					GFP_KERNEL);
++		else
++			x->encap = kmemdup(orig->encap, sizeof(*x->encap),
++					GFP_KERNEL);
++
+ 		if (!x->encap)
+ 			goto error;
+ 	}
+@@ -1442,11 +1449,12 @@ struct xfrm_state *xfrm_migrate_state_find(struct xfrm_migrate *m, struct net *n
+ EXPORT_SYMBOL(xfrm_migrate_state_find);
+ 
+ struct xfrm_state *xfrm_state_migrate(struct xfrm_state *x,
+-				      struct xfrm_migrate *m)
++				      struct xfrm_migrate *m,
++				      struct xfrm_encap_tmpl *encap)
+ {
+ 	struct xfrm_state *xc;
+ 
+-	xc = xfrm_state_clone(x);
++	xc = xfrm_state_clone(x, encap);
+ 	if (!xc)
+ 		return NULL;
+ 
 diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
-index fb98892..6197c72 100644
+index 38614df..fb98892 100644
 --- a/net/xfrm/xfrm_user.c
 +++ b/net/xfrm/xfrm_user.c
-@@ -2314,17 +2314,20 @@ static int copy_to_user_kmaddress(const struct xfrm_kmaddress *k, struct sk_buff
- 	return nla_put(skb, XFRMA_KMADDRESS, sizeof(uk), &uk);
- }
+@@ -2243,6 +2243,7 @@ static int xfrm_do_migrate(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 	int err;
+ 	int n = 0;
+ 	struct net *net = sock_net(skb->sk);
++	struct xfrm_encap_tmpl  *encap = NULL;
  
--static inline size_t xfrm_migrate_msgsize(int num_migrate, int with_kma)
-+static inline size_t xfrm_migrate_msgsize(int num_migrate, int with_kma,
-+					  int with_encp)
- {
- 	return NLMSG_ALIGN(sizeof(struct xfrm_userpolicy_id))
- 	      + (with_kma ? nla_total_size(sizeof(struct xfrm_kmaddress)) : 0)
-+	      + (with_encp ? nla_total_size(sizeof(struct xfrm_encap_tmpl)) : 0)
- 	      + nla_total_size(sizeof(struct xfrm_user_migrate) * num_migrate)
- 	      + userpolicy_type_attrsize();
- }
+ 	if (attrs[XFRMA_MIGRATE] == NULL)
+ 		return -EINVAL;
+@@ -2260,9 +2261,18 @@ static int xfrm_do_migrate(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 	if (!n)
+ 		return 0;
  
- static int build_migrate(struct sk_buff *skb, const struct xfrm_migrate *m,
- 			 int num_migrate, const struct xfrm_kmaddress *k,
--			 const struct xfrm_selector *sel, u8 dir, u8 type)
-+			 const struct xfrm_selector *sel,
-+			 const struct xfrm_encap_tmpl *encap, u8 dir, u8 type)
- {
- 	const struct xfrm_migrate *mp;
- 	struct xfrm_userpolicy_id *pol_id;
-@@ -2346,6 +2349,11 @@ static int build_migrate(struct sk_buff *skb, const struct xfrm_migrate *m,
- 		if (err)
- 			goto out_cancel;
- 	}
-+	if (encap) {
-+		err = nla_put(skb, XFRMA_ENCAP, sizeof(*encap), encap);
-+		if (err)
-+			goto out_cancel;
+-	xfrm_migrate(&pi->sel, pi->dir, type, m, n, kmp, net);
++	if (attrs[XFRMA_ENCAP]) {
++		encap = kmemdup(nla_data(attrs[XFRMA_ENCAP]),
++				sizeof(*encap), GFP_KERNEL);
++		if (!encap)
++			return 0;
 +	}
- 	err = copy_to_user_policy_type(type, skb);
- 	if (err)
- 		goto out_cancel;
-@@ -2365,17 +2373,19 @@ static int build_migrate(struct sk_buff *skb, const struct xfrm_migrate *m,
  
- static int xfrm_send_migrate(const struct xfrm_selector *sel, u8 dir, u8 type,
- 			     const struct xfrm_migrate *m, int num_migrate,
--			     const struct xfrm_kmaddress *k)
-+			     const struct xfrm_kmaddress *k,
-+			     const struct xfrm_encap_tmpl *encap)
- {
- 	struct net *net = &init_net;
- 	struct sk_buff *skb;
- 
--	skb = nlmsg_new(xfrm_migrate_msgsize(num_migrate, !!k), GFP_ATOMIC);
-+	skb = nlmsg_new(xfrm_migrate_msgsize(num_migrate, !!k, !!encap),
-+			GFP_ATOMIC);
- 	if (skb == NULL)
- 		return -ENOMEM;
- 
- 	/* build migrate */
--	if (build_migrate(skb, m, num_migrate, k, sel, dir, type) < 0)
-+	if (build_migrate(skb, m, num_migrate, k, sel, encap, dir, type) < 0)
- 		BUG();
- 
- 	return xfrm_nlmsg_multicast(net, skb, 0, XFRMNLGRP_MIGRATE);
-@@ -2383,7 +2393,8 @@ static int xfrm_send_migrate(const struct xfrm_selector *sel, u8 dir, u8 type,
- #else
- static int xfrm_send_migrate(const struct xfrm_selector *sel, u8 dir, u8 type,
- 			     const struct xfrm_migrate *m, int num_migrate,
--			     const struct xfrm_kmaddress *k)
-+			     const struct xfrm_kmaddress *k,
-+			     const struct xfrm_encap_tmpl *encap)
- {
- 	return -ENOPROTOOPT;
+-	return 0;
++	err = xfrm_migrate(&pi->sel, pi->dir, type, m, n, kmp, net, encap);
++
++	kfree(encap);
++
++	return err;
  }
+ #else
+ static int xfrm_do_migrate(struct sk_buff *skb, struct nlmsghdr *nlh,
 -- 
 2.9.3
