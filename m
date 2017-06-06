@@ -1,8 +1,7 @@
 From: Julian Wiedmann <jwi@linux.vnet.ibm.com>
-Subject: [PATCH net-next 5/9] s390/qeth: add missing strings for IPA return codes
-Date: Tue,  6 Jun 2017 14:33:46 +0200
-Message-ID: <20170606123350.13781-6-jwi@linux.vnet.ibm.com>
-References: <20170606123350.13781-1-jwi@linux.vnet.ibm.com>
+Subject: [PATCH net-next 0/9] s390/net updates
+Date: Tue,  6 Jun 2017 14:33:41 +0200
+Message-ID: <20170606123350.13781-1-jwi@linux.vnet.ibm.com>
 Cc: <netdev@vger.kernel.org>, <linux-s390@vger.kernel.org>,
         Martin Schwidefsky <schwidefsky@de.ibm.com>,
         Heiko Carstens <heiko.carstens@de.ibm.com>,
@@ -11,46 +10,57 @@ Cc: <netdev@vger.kernel.org>, <linux-s390@vger.kernel.org>,
         Julian Wiedmann <jwi@linux.vnet.ibm.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:51921 "EHLO
+Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:43916 "EHLO
         mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1751415AbdFFMeG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 6 Jun 2017 08:34:06 -0400
-Received: from pps.filterd (m0098417.ppops.net [127.0.0.1])
-        by mx0a-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v56CXhLh040480
-        for <netdev@vger.kernel.org>; Tue, 6 Jun 2017 08:34:05 -0400
-Received: from e06smtp10.uk.ibm.com (e06smtp10.uk.ibm.com [195.75.94.106])
-        by mx0a-001b2d01.pphosted.com with ESMTP id 2awv1t9wmd-1
+        by vger.kernel.org with ESMTP id S1751391AbdFFMd7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 6 Jun 2017 08:33:59 -0400
+Received: from pps.filterd (m0098419.ppops.net [127.0.0.1])
+        by mx0b-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v56CXgXN124999
+        for <netdev@vger.kernel.org>; Tue, 6 Jun 2017 08:33:59 -0400
+Received: from e06smtp12.uk.ibm.com (e06smtp12.uk.ibm.com [195.75.94.108])
+        by mx0b-001b2d01.pphosted.com with ESMTP id 2awp6bk6hc-1
         (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Tue, 06 Jun 2017 08:34:05 -0400
+        for <netdev@vger.kernel.org>; Tue, 06 Jun 2017 08:33:58 -0400
 Received: from localhost
-        by e06smtp10.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        by e06smtp12.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
         for <netdev@vger.kernel.org> from <jwi@linux.vnet.ibm.com>;
-        Tue, 6 Jun 2017 13:34:04 +0100
-In-Reply-To: <20170606123350.13781-1-jwi@linux.vnet.ibm.com>
+        Tue, 6 Jun 2017 13:33:56 +0100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-commit 76b11f8e270f ("qeth: HiperSockets Network Traffic Analyzer")
-missed adding the human-readable translations when adding new RCs.
+Hi Dave,
 
-Signed-off-by: Julian Wiedmann <jwi@linux.vnet.ibm.com>
-Acked-by: Ursula Braun <ubraun@linux.vnet.ibm.com>
----
- drivers/s390/net/qeth_core_mpc.c | 2 ++
- 1 file changed, 2 insertions(+)
+please apply the following qeth updates for net-next.
 
-diff --git a/drivers/s390/net/qeth_core_mpc.c b/drivers/s390/net/qeth_core_mpc.c
-index beb4bdc26de5..ab9b1376467f 100644
---- a/drivers/s390/net/qeth_core_mpc.c
-+++ b/drivers/s390/net/qeth_core_mpc.c
-@@ -167,6 +167,8 @@ static struct ipa_rc_msg qeth_ipa_rc_msg[] = {
- 	{IPA_RC_IP_TABLE_FULL,		"Add Addr IP Table Full - ipv6"},
- 	{IPA_RC_UNKNOWN_ERROR,		"IPA command failed - reason unknown"},
- 	{IPA_RC_UNSUPPORTED_COMMAND,	"Command not supported"},
-+	{IPA_RC_TRACE_ALREADY_ACTIVE,	"trace already active"},
-+	{IPA_RC_INVALID_FORMAT,		"invalid format or length"},
- 	{IPA_RC_DUP_IPV6_REMOTE, "ipv6 address already registered remote"},
- 	{IPA_RC_DUP_IPV6_HOME,		"ipv6 address already registered"},
- 	{IPA_RC_UNREGISTERED_ADDR,	"Address not registered"},
+Aside from some janitorial changes, this adds early setup for virtualized
+HiperSockets devices - building upon the code that landed via -net earlier.
+
+Thanks,
+Julian
+
+Julian Wiedmann (8):
+  s390/qeth: remove support for IPA_IP_FRAGMENTATION
+  s390/qeth: remove skb_is_nonlinear() check on IQD
+  s390/qeth: query IPv6 IPA support on HiperSockets
+  s390/qeth: log bridgeport capabilities
+  s390/qeth: add missing strings for IPA return codes
+  s390/qeth: consolidate pack buffer flushing
+  s390/qeth: silence qeth_fix_features()
+  s390/qeth: do early device setup for z/VM IQD NICs
+
+Ursula Braun (1):
+  s390/qeth: add support for early L3 device setup
+
+ drivers/s390/net/qeth_core.h      |   2 +
+ drivers/s390/net/qeth_core_main.c | 117 ++++++++++++++++++++------------------
+ drivers/s390/net/qeth_core_mpc.c  |   2 +
+ drivers/s390/net/qeth_core_mpc.h  |   2 +-
+ drivers/s390/net/qeth_core_sys.c  |   2 +-
+ drivers/s390/net/qeth_l2_main.c   |   8 +++
+ drivers/s390/net/qeth_l3.h        |   1 +
+ drivers/s390/net/qeth_l3_main.c   |  59 ++++++-------------
+ drivers/s390/net/qeth_l3_sys.c    |  11 ++++
+ 9 files changed, 105 insertions(+), 99 deletions(-)
+
 -- 
 2.11.2
