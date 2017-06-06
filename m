@@ -1,60 +1,438 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next 16/16] nfp: advertise support for NFD ABI 0.5
-Date: Mon,  5 Jun 2017 17:01:57 -0700
-Message-ID: <20170606000157.17556-17-jakub.kicinski@netronome.com>
+Subject: [PATCH net-next 15/16] nfp: create control vNICs and wire up rx/tx
+Date: Mon,  5 Jun 2017 17:01:56 -0700
+Message-ID: <20170606000157.17556-16-jakub.kicinski@netronome.com>
 References: <20170606000157.17556-1-jakub.kicinski@netronome.com>
 Cc: oss-drivers@netronome.com,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f173.google.com ([209.85.192.173]:34870 "EHLO
-        mail-pf0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751314AbdFFACj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 5 Jun 2017 20:02:39 -0400
-Received: by mail-pf0-f173.google.com with SMTP id l89so15717565pfi.2
-        for <netdev@vger.kernel.org>; Mon, 05 Jun 2017 17:02:34 -0700 (PDT)
+Received: from mail-pg0-f54.google.com ([74.125.83.54]:33942 "EHLO
+        mail-pg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751322AbdFFAC3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 5 Jun 2017 20:02:29 -0400
+Received: by mail-pg0-f54.google.com with SMTP id v18so17455059pgb.1
+        for <netdev@vger.kernel.org>; Mon, 05 Jun 2017 17:02:28 -0700 (PDT)
 In-Reply-To: <20170606000157.17556-1-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-NFD ABI 0.5 is equivalent to NFD ABI 3.0 but requires that the
-driver checks the APP id symbol and makes sure it can support
-given app.  Most advanced apps will likely require control vNIC
-(ability to exchange control messages between the driver and
-app FW).  Detailed app version checking and capability exchange
-is left to app-specific code.
+When driver encounters an nfp_app which has a control message handler
+defined, allocate a control vNIC.  This control channel will be used
+to exchange data with the application FW such as flow table programming,
+statistics and global datapath control.
 
 Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 ---
- drivers/net/ethernet/netronome/nfp/nfp_net_main.c   | 2 +-
- drivers/net/ethernet/netronome/nfp/nfp_netvf_main.c | 2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/netronome/nfp/nfp_app.c       |  18 +++
+ drivers/net/ethernet/netronome/nfp/nfp_app.h       |  44 ++++++++
+ drivers/net/ethernet/netronome/nfp/nfp_main.h      |   7 ++
+ .../net/ethernet/netronome/nfp/nfp_net_common.c    |   2 +-
+ drivers/net/ethernet/netronome/nfp/nfp_net_main.c  | 121 ++++++++++++++++++---
+ 5 files changed, 177 insertions(+), 15 deletions(-)
 
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_app.c b/drivers/net/ethernet/netronome/nfp/nfp_app.c
+index cea2090cf063..de07517da1bd 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_app.c
++++ b/drivers/net/ethernet/netronome/nfp/nfp_app.c
+@@ -31,6 +31,7 @@
+  * SOFTWARE.
+  */
+ 
++#include <linux/skbuff.h>
+ #include <linux/slab.h>
+ 
+ #include "nfpcore/nfp_cpp.h"
+@@ -42,6 +43,23 @@ static const struct nfp_app_type *apps[] = {
+ 	&app_bpf,
+ };
+ 
++struct sk_buff *nfp_app_ctrl_msg_alloc(struct nfp_app *app, unsigned int size)
++{
++	struct sk_buff *skb;
++
++	if (nfp_app_ctrl_has_meta(app))
++		size += 8;
++
++	skb = alloc_skb(size, GFP_ATOMIC);
++	if (!skb)
++		return NULL;
++
++	if (nfp_app_ctrl_has_meta(app))
++		skb_reserve(skb, 8);
++
++	return skb;
++}
++
+ struct nfp_app *nfp_app_alloc(struct nfp_pf *pf, enum nfp_app_id id)
+ {
+ 	struct nfp_app *app;
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_app.h b/drivers/net/ethernet/netronome/nfp/nfp_app.h
+index f6091ad0a9a9..3fbf68f8577c 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_app.h
++++ b/drivers/net/ethernet/netronome/nfp/nfp_app.h
+@@ -37,6 +37,7 @@
+ struct bpf_prog;
+ struct net_device;
+ struct pci_dev;
++struct sk_buff;
+ struct tc_to_netdev;
+ struct sk_buff;
+ struct nfp_app;
+@@ -63,6 +64,9 @@ extern const struct nfp_app_type app_bpf;
+  * @extra_cap:	extra capabilities string
+  * @vnic_init:	init vNICs (assign port types, etc.)
+  * @vnic_clean:	clean up app's vNIC state
++ * @start:	start application logic
++ * @stop:	stop application logic
++ * @ctrl_msg_rx:    control message handler
+  * @setup_tc:	setup TC ndo
+  * @tc_busy:	TC HW offload busy (rules loaded)
+  * @xdp_offload:    offload an XDP program
+@@ -81,6 +85,11 @@ struct nfp_app_type {
+ 			 unsigned int id);
+ 	void (*vnic_clean)(struct nfp_app *app, struct nfp_net *nn);
+ 
++	int (*start)(struct nfp_app *app);
++	void (*stop)(struct nfp_app *app);
++
++	void (*ctrl_msg_rx)(struct nfp_app *app, struct sk_buff *skb);
++
+ 	int (*setup_tc)(struct nfp_app *app, struct net_device *netdev,
+ 			u32 handle, __be16 proto, struct tc_to_netdev *tc);
+ 	bool (*tc_busy)(struct nfp_app *app, struct nfp_net *nn);
+@@ -93,6 +102,7 @@ struct nfp_app_type {
+  * @pdev:	backpointer to PCI device
+  * @pf:		backpointer to NFP PF structure
+  * @cpp:	pointer to the CPP handle
++ * @ctrl:	pointer to ctrl vNIC struct
+  * @type:	pointer to const application ops and info
+  */
+ struct nfp_app {
+@@ -100,6 +110,8 @@ struct nfp_app {
+ 	struct nfp_pf *pf;
+ 	struct nfp_cpp *cpp;
+ 
++	struct nfp_net *ctrl;
++
+ 	const struct nfp_app_type *type;
+ };
+ 
+@@ -124,6 +136,21 @@ static inline void nfp_app_vnic_clean(struct nfp_app *app, struct nfp_net *nn)
+ 		app->type->vnic_clean(app, nn);
+ }
+ 
++static inline int nfp_app_start(struct nfp_app *app, struct nfp_net *ctrl)
++{
++	app->ctrl = ctrl;
++	if (!app->type->start)
++		return 0;
++	return app->type->start(app);
++}
++
++static inline void nfp_app_stop(struct nfp_app *app)
++{
++	if (!app->type->stop)
++		return;
++	app->type->stop(app);
++}
++
+ static inline const char *nfp_app_name(struct nfp_app *app)
+ {
+ 	if (!app)
+@@ -131,6 +158,11 @@ static inline const char *nfp_app_name(struct nfp_app *app)
+ 	return app->type->name;
+ }
+ 
++static inline bool nfp_app_needs_ctrl_vnic(struct nfp_app *app)
++{
++	return app && app->type->ctrl_msg_rx;
++}
++
+ static inline bool nfp_app_ctrl_has_meta(struct nfp_app *app)
+ {
+ 	return app->type->ctrl_has_meta;
+@@ -174,6 +206,18 @@ static inline int nfp_app_xdp_offload(struct nfp_app *app, struct nfp_net *nn,
+ 	return app->type->xdp_offload(app, nn, prog);
+ }
+ 
++static inline bool nfp_app_ctrl_tx(struct nfp_app *app, struct sk_buff *skb)
++{
++	return nfp_ctrl_tx(app->ctrl, skb);
++}
++
++static inline void nfp_app_ctrl_rx(struct nfp_app *app, struct sk_buff *skb)
++{
++	app->type->ctrl_msg_rx(app, skb);
++}
++
++struct sk_buff *nfp_app_ctrl_msg_alloc(struct nfp_app *app, unsigned int size);
++
+ struct nfp_app *nfp_app_alloc(struct nfp_pf *pf, enum nfp_app_id id);
+ void nfp_app_free(struct nfp_app *app);
+ 
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_main.h b/drivers/net/ethernet/netronome/nfp/nfp_main.h
+index 66b1e1490805..37832853b0b3 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_main.h
++++ b/drivers/net/ethernet/netronome/nfp/nfp_main.h
+@@ -63,11 +63,13 @@ struct nfp_nsp_identify;
+  * @cpp:		Pointer to the CPP handle
+  * @app:		Pointer to the APP handle
+  * @data_vnic_bar:	Pointer to the CPP area for the data vNICs' BARs
++ * @ctrl_vnic_bar:	Pointer to the CPP area for the ctrl vNIC's BAR
+  * @qc_area:		Pointer to the CPP area for the queues
+  * @irq_entries:	Array of MSI-X entries for all vNICs
+  * @limit_vfs:		Number of VFs supported by firmware (~0 for PCI limit)
+  * @num_vfs:		Number of SR-IOV VFs enabled
+  * @fw_loaded:		Is the firmware loaded?
++ * @ctrl_vnic:		Pointer to the control vNIC if available
+  * @eth_tbl:		NSP ETH table
+  * @nspi:		NSP identification info
+  * @hwmon_dev:		pointer to hwmon device
+@@ -87,6 +89,7 @@ struct nfp_pf {
+ 	struct nfp_app *app;
+ 
+ 	struct nfp_cpp_area *data_vnic_bar;
++	struct nfp_cpp_area *ctrl_vnic_bar;
+ 	struct nfp_cpp_area *qc_area;
+ 
+ 	struct msix_entry *irq_entries;
+@@ -96,6 +99,8 @@ struct nfp_pf {
+ 
+ 	bool fw_loaded;
+ 
++	struct nfp_net *ctrl_vnic;
++
+ 	struct nfp_eth_table *eth_tbl;
+ 	struct nfp_nsp_identify *nspi;
+ 
+@@ -127,4 +132,6 @@ nfp_net_find_port(struct nfp_eth_table *eth_tbl, unsigned int id);
+ void
+ nfp_net_get_mac_addr(struct nfp_net *nn, struct nfp_cpp *cpp, unsigned int id);
+ 
++bool nfp_ctrl_tx(struct nfp_net *nn, struct sk_buff *skb);
++
+ #endif /* NFP_MAIN_H */
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
+index 59f1764242a0..4f0df63de626 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
++++ b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
+@@ -1950,7 +1950,7 @@ nfp_ctrl_rx_one(struct nfp_net *nn, struct nfp_net_dp *dp,
+ 	skb_reserve(skb, pkt_off);
+ 	skb_put(skb, pkt_len);
+ 
+-	dev_kfree_skb_any(skb);
++	nfp_app_ctrl_rx(nn->app, skb);
+ 
+ 	return true;
+ }
 diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_main.c b/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
-index db12700b5afc..5f27703060c2 100644
+index 362dca38223b..db12700b5afc 100644
 --- a/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
 +++ b/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
-@@ -749,7 +749,7 @@ int nfp_net_pci_probe(struct nfp_pf *pf)
- 		nfp_warn(pf->cpp, "OBSOLETE Firmware detected - VF isolation not available\n");
- 	} else {
- 		switch (fw_ver.major) {
--		case 1 ... 4:
-+		case 1 ... 5:
- 			stride = 4;
- 			break;
- 		default:
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_netvf_main.c b/drivers/net/ethernet/netronome/nfp/nfp_netvf_main.c
-index 0bf3b0febd07..c879626e035b 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_netvf_main.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_netvf_main.c
-@@ -161,7 +161,7 @@ static int nfp_netvf_pci_probe(struct pci_dev *pdev,
- 		dev_warn(&pdev->dev, "OBSOLETE Firmware detected - VF isolation not available\n");
- 	} else {
- 		switch (fw_ver.major) {
--		case 1 ... 4:
-+		case 1 ... 5:
- 			stride = 4;
- 			tx_bar_no = NFP_NET_Q0_BAR;
- 			rx_bar_no = tx_bar_no;
+@@ -266,12 +266,11 @@ static void nfp_net_pf_free_vnic(struct nfp_pf *pf, struct nfp_net *nn)
+ 
+ static void nfp_net_pf_free_vnics(struct nfp_pf *pf)
+ {
+-	struct nfp_net *nn;
++	struct nfp_net *nn, *next;
+ 
+-	while (!list_empty(&pf->vnics)) {
+-		nn = list_first_entry(&pf->vnics, struct nfp_net, vnic_list);
+-		nfp_net_pf_free_vnic(pf, nn);
+-	}
++	list_for_each_entry_safe(nn, next, &pf->vnics, vnic_list)
++		if (nfp_net_is_data_vnic(nn))
++			nfp_net_pf_free_vnic(pf, nn);
+ }
+ 
+ static struct nfp_net *
+@@ -302,10 +301,12 @@ nfp_net_pf_alloc_vnic(struct nfp_pf *pf, bool needs_netdev,
+ 	nn->stride_rx = stride;
+ 	nn->stride_tx = stride;
+ 
+-	err = nfp_app_vnic_init(pf->app, nn, eth_id);
+-	if (err) {
+-		nfp_net_free(nn);
+-		return ERR_PTR(err);
++	if (needs_netdev) {
++		err = nfp_app_vnic_init(pf->app, nn, eth_id);
++		if (err) {
++			nfp_net_free(nn);
++			return ERR_PTR(err);
++		}
+ 	}
+ 
+ 	pf->num_vnics++;
+@@ -446,6 +447,8 @@ static int nfp_net_pf_init_vnics(struct nfp_pf *pf)
+ 	/* Finish vNIC init and register */
+ 	id = 0;
+ 	list_for_each_entry(nn, &pf->vnics, vnic_list) {
++		if (!nfp_net_is_data_vnic(nn))
++			continue;
+ 		err = nfp_net_pf_init_vnic(pf, nn, id);
+ 		if (err)
+ 			goto err_prev_deinit;
+@@ -457,12 +460,15 @@ static int nfp_net_pf_init_vnics(struct nfp_pf *pf)
+ 
+ err_prev_deinit:
+ 	list_for_each_entry_continue_reverse(nn, &pf->vnics, vnic_list)
+-		nfp_net_pf_clean_vnic(pf, nn);
++		if (nfp_net_is_data_vnic(nn))
++			nfp_net_pf_clean_vnic(pf, nn);
+ 	return err;
+ }
+ 
+-static int nfp_net_pf_app_init(struct nfp_pf *pf)
++static int
++nfp_net_pf_app_init(struct nfp_pf *pf, u8 __iomem *qc_bar, unsigned int stride)
+ {
++	u8 __iomem *ctrl_bar;
+ 	int err;
+ 
+ 	pf->app = nfp_app_alloc(pf, nfp_net_pf_get_app_id(pf));
+@@ -473,8 +479,28 @@ static int nfp_net_pf_app_init(struct nfp_pf *pf)
+ 	if (err)
+ 		goto err_free;
+ 
++	if (!nfp_app_needs_ctrl_vnic(pf->app))
++		return 0;
++
++	ctrl_bar = nfp_net_pf_map_rtsym(pf, "net.ctrl", "_pf%u_net_ctrl_bar",
++					NFP_PF_CSR_SLICE_SIZE,
++					&pf->ctrl_vnic_bar);
++	if (IS_ERR(ctrl_bar)) {
++		err = PTR_ERR(ctrl_bar);
++		goto err_free;
++	}
++
++	pf->ctrl_vnic =	nfp_net_pf_alloc_vnic(pf, false, ctrl_bar, qc_bar,
++					      stride, 0);
++	if (IS_ERR(pf->ctrl_vnic)) {
++		err = PTR_ERR(pf->ctrl_vnic);
++		goto err_unmap;
++	}
++
+ 	return 0;
+ 
++err_unmap:
++	nfp_cpp_area_release_free(pf->ctrl_vnic_bar);
+ err_free:
+ 	nfp_app_free(pf->app);
+ 	return err;
+@@ -482,12 +508,72 @@ static int nfp_net_pf_app_init(struct nfp_pf *pf)
+ 
+ static void nfp_net_pf_app_clean(struct nfp_pf *pf)
+ {
++	if (pf->ctrl_vnic) {
++		nfp_net_pf_free_vnic(pf, pf->ctrl_vnic);
++		nfp_cpp_area_release_free(pf->ctrl_vnic_bar);
++	}
+ 	nfp_app_free(pf->app);
+ 	pf->app = NULL;
+ }
+ 
++static int nfp_net_pf_app_start_ctrl(struct nfp_pf *pf)
++{
++	int err;
++
++	if (!pf->ctrl_vnic)
++		return 0;
++	err = nfp_net_pf_init_vnic(pf, pf->ctrl_vnic, 0);
++	if (err)
++		return err;
++
++	err = nfp_ctrl_open(pf->ctrl_vnic);
++	if (err)
++		goto err_clean_ctrl;
++
++	return 0;
++
++err_clean_ctrl:
++	nfp_net_pf_clean_vnic(pf, pf->ctrl_vnic);
++	return err;
++}
++
++static void nfp_net_pf_app_stop_ctrl(struct nfp_pf *pf)
++{
++	if (!pf->ctrl_vnic)
++		return;
++	nfp_ctrl_close(pf->ctrl_vnic);
++	nfp_net_pf_clean_vnic(pf, pf->ctrl_vnic);
++}
++
++static int nfp_net_pf_app_start(struct nfp_pf *pf)
++{
++	int err;
++
++	err = nfp_net_pf_app_start_ctrl(pf);
++	if (err)
++		return err;
++
++	err = nfp_app_start(pf->app, pf->ctrl_vnic);
++	if (err)
++		goto err_ctrl_stop;
++
++	return 0;
++
++err_ctrl_stop:
++	nfp_net_pf_app_stop_ctrl(pf);
++	return err;
++}
++
++static void nfp_net_pf_app_stop(struct nfp_pf *pf)
++{
++	nfp_app_stop(pf->app);
++	nfp_net_pf_app_stop_ctrl(pf);
++}
++
+ static void nfp_net_pci_remove_finish(struct nfp_pf *pf)
+ {
++	nfp_net_pf_app_stop(pf);
++	/* stop app first, to avoid double free of ctrl vNIC's ddir */
+ 	nfp_net_debugfs_dir_clean(&pf->ddir);
+ 
+ 	nfp_net_pf_free_irqs(pf);
+@@ -685,7 +771,7 @@ int nfp_net_pci_probe(struct nfp_pf *pf)
+ 		goto err_ctrl_unmap;
+ 	}
+ 
+-	err = nfp_net_pf_app_init(pf);
++	err = nfp_net_pf_app_init(pf, qc_bar, stride);
+ 	if (err)
+ 		goto err_unmap_qc;
+ 
+@@ -700,14 +786,20 @@ int nfp_net_pci_probe(struct nfp_pf *pf)
+ 	if (err)
+ 		goto err_free_vnics;
+ 
+-	err = nfp_net_pf_init_vnics(pf);
++	err = nfp_net_pf_app_start(pf);
+ 	if (err)
+ 		goto err_free_irqs;
+ 
++	err = nfp_net_pf_init_vnics(pf);
++	if (err)
++		goto err_stop_app;
++
+ 	mutex_unlock(&pf->lock);
+ 
+ 	return 0;
+ 
++err_stop_app:
++	nfp_net_pf_app_stop(pf);
+ err_free_irqs:
+ 	nfp_net_pf_free_irqs(pf);
+ err_free_vnics:
+@@ -733,7 +825,8 @@ void nfp_net_pci_remove(struct nfp_pf *pf)
+ 		goto out;
+ 
+ 	list_for_each_entry(nn, &pf->vnics, vnic_list)
+-		nfp_net_pf_clean_vnic(pf, nn);
++		if (nfp_net_is_data_vnic(nn))
++			nfp_net_pf_clean_vnic(pf, nn);
+ 
+ 	nfp_net_pf_free_vnics(pf);
+ 
 -- 
 2.11.0
