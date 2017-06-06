@@ -1,48 +1,60 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next 5/5] net: dsa: Stop accessing ds->dst->cpu_dp in
- drivers
-Date: Tue, 6 Jun 2017 11:12:59 -0700
-Message-ID: <99c1a096-2128-f259-0537-0456a117280c@gmail.com>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next 0/5] net: dsa: Multi-CPU ground work
+Date: Tue, 06 Jun 2017 14:25:05 -0400
+Message-ID: <87bmq1j7ni.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
 References: <20170606170202.21491-1-f.fainelli@gmail.com>
- <20170606170202.21491-6-f.fainelli@gmail.com>
- <8760g9kmy6.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: andrew@lunn.ch, john@phrozen.org, davem@davemloft.net
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        netdev@vger.kernel.org
+Content-Type: text/plain
+Cc: andrew@lunn.ch, john@phrozen.org, davem@davemloft.net,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f195.google.com ([209.85.216.195]:34195 "EHLO
-        mail-qt0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751239AbdFFSNC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 6 Jun 2017 14:13:02 -0400
-Received: by mail-qt0-f195.google.com with SMTP id o21so21355357qtb.1
-        for <netdev@vger.kernel.org>; Tue, 06 Jun 2017 11:13:02 -0700 (PDT)
-In-Reply-To: <8760g9kmy6.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
-Content-Language: en-US
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:36678 "EHLO
+        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751658AbdFFS1N (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 6 Jun 2017 14:27:13 -0400
+In-Reply-To: <20170606170202.21491-1-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/06/2017 11:09 AM, Vivien Didelot wrote:
-> Florian Fainelli <f.fainelli@gmail.com> writes:
-> 
->> -	phy_mode = of_get_phy_mode(ds->dst->cpu_dp->dn);
->> +	phy_mode = of_get_phy_mode(ds->ports[QCA8K_CPU_PORT].dn);
-> 
-> Is it necessary to use QCA8K_CPU_PORT?
-> 
->> +static inline struct dsa_port *dsa_ds_get_cpu_dp(struct dsa_switch *ds)
->> +{
->> +	return &ds->ports[fls(ds->cpu_port_mask) - 1];
->> +}
-> 
-> Wouldn't it be better to return the CPU port for a given port?
-> Something like return ds->ports[port].cpu_dp, so that we ease the
-> introduction of multiple CPU port a bit more?
+Hi Florian,
 
-ds->ports[port].cpu_dp only gets assigned at dsa_slave_create() time,
-which is after ops->setup() has been called, hence this helper function
-in case you need it earlier (e.g: like mv88e6060).
--- 
-Florian
+Florian Fainelli <f.fainelli@gmail.com> writes:
+
+> This patch series prepares the ground for adding mutliple CPU port support to
+
+                                                   multiple
+                                                   
+> DSA, and starts by removing redundant pieces of information such as
+> master_netdev which is cpu_dp->ethernet. Finally drivers are moved away from
+
+                         cpu_dp->netdev
+                         
+> directly accessing ds->dst->cpu_dp and use appropriate helper functions.
+>
+> Note that if you have Device Tree blobs/platform configurations that are
+> currently listing multiple CPU ports, the proposed behavior in
+> dsa_ds_get_cpu_dp() will be to return the last bit set in ds->cpu_port_mask.
+>
+> Future plans include:
+> - making dst->cpu_dp a flexible data structure (array, list, you name it)
+> - having the ability for drivers to return a default/preferred CPU port (if
+>   necessary)
+
+The overall patchset looks good. I have questions for future work
+though.
+
+I am still not sure that we need CPU port references in
+dsa_switch_tree. When device tree or pdata is parsed, we have allocated
+dsa_switch and dsa_port structures. We should be able validate and
+assign all ds->ports[x].cpu_dp, before setting up the switches and
+creating the slave devices. What do you think?
+
+Also I see dsa_ptr becoming a pointer to the assosicated dsa_port, and
+dsa_port should contain the tagging ops for quick access. That is more
+rigourous with the physical representation and much easier for
+transparent multi-CPU port support.
+
+Thanks,
+
+        Vivien
