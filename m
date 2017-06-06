@@ -1,61 +1,118 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 01/11] igb: Explicitly select page 0 at initialization
-Date: Tue,  6 Jun 2017 01:57:59 -0700
-Message-ID: <20170606085809.78571-2-jeffrey.t.kirsher@intel.com>
-References: <20170606085809.78571-1-jeffrey.t.kirsher@intel.com>
-Cc: Matwey V Kornilov <matwey@sai.msu.ru>, netdev@vger.kernel.org,
-        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-        stable@vger.kernel.org, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Jakub Kicinski <kubakici@wp.pl>
+Subject: Re: [PATCH net-next 00/16] nfp: ctrl vNIC
+Date: Tue, 6 Jun 2017 02:09:45 -0700
+Message-ID: <20170606020945.05a9bcc5@cakuba.netronome.com>
+References: <20170606000157.17556-1-jakub.kicinski@netronome.com>
+        <20170606061610.GA1911@nanopsycho>
+        <20170606002105.7a84432f@cakuba.netronome.com>
+        <20170606082336.GB1911@nanopsycho>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, oss-drivers@netronome.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:20068 "EHLO mga03.intel.com"
+Received: from mx3.wp.pl ([212.77.101.9]:55301 "EHLO mx3.wp.pl"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751246AbdFFI6P (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 6 Jun 2017 04:58:15 -0400
-In-Reply-To: <20170606085809.78571-1-jeffrey.t.kirsher@intel.com>
+        id S1751243AbdFFJJx (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 6 Jun 2017 05:09:53 -0400
+In-Reply-To: <20170606082336.GB1911@nanopsycho>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Matwey V Kornilov <matwey@sai.msu.ru>
+On Tue, 6 Jun 2017 10:23:36 +0200, Jiri Pirko wrote:
+> Tue, Jun 06, 2017 at 09:21:45AM CEST, kubakici@wp.pl wrote:
+> >On Tue, 6 Jun 2017 08:16:10 +0200, Jiri Pirko wrote:  
+> >> Tue, Jun 06, 2017 at 02:01:41AM CEST, jakub.kicinski@netronome.com wrote:  
+> >> >Hi!
+> >> >
+> >> >This series adds the ability to use one vNIC as a control channel
+> >> >for passing messages to and from the application firmware.  The
+> >> >implementation restructures the existing netdev vNIC code to be able
+> >> >to deal with nfp_nets with netdev pointer set to NULL.  Control vNICs
+> >> >are not visible to userspace (other than for dumping ring state), and
+> >> >since they don't have netdevs we use a tasklet for RX and simple skb 
+> >> >list for TX queuing.
+> >> >
+> >> >Due to special status of the control vNIC we have to reshuffle the
+> >> >init code a bit to make sure control vNIC will be fully brought up
+> >> >(and therefore communication with app FW can happen) before any netdev
+> >> >or port is visible to user space.
+> >> >
+> >> >FW will designate which vNIC is supposed to be used as control one
+> >> >by setting _pf%u_net_ctrl_bar symbol.  Some FWs depend on metadata
+> >> >being prepended to control message, some prefer to look at queue ID
+> >> >to decide that something is a control message.  Our implementation
+> >> >can cater to both.
+> >> >
+> >> >First two users of this code will be eBPF maps and flower offloads.    
+> >> 
+> >> How do you actually do the configuration from the userspace? I did not
+> >> find it in the patches.  
+> >
+> >Yes, there is nothing interesting in those patches, really.  It's all
+> >internal to the driver.  This set basically allows us to dedicate some
+> >queue pairs to high-speed communication with the FW (sending commands,
+> >populating/dumping eBPF and Flower tables).
+> >
+> >The eBPF maps and Flower offload patches should follow in coming weeks.  
+> 
+> Okay. So you don't let the user to dicide for which purpose (bpf/flowe)
+> he wants to use the nic, right?
 
-The functions igb_read_phy_reg_gs40g/igb_write_phy_reg_gs40g (which were
-removed in 2a3cdea) explicitly selected the required page at every phy_reg
-access. Currently, igb_get_phy_id_82575 relays on the fact that page 0 is
-already selected. The assumption is not fulfilled for my Lex 3I380CW
-motherboard with integrated dual i211 based gigabit ethernet. This leads to igb
-initialization failure and network interfaces are not working:
+Yes, right now we just expect the user to drop the FW file he wants
+to run into /lib/firmware/netronome.  Driver will interrogate the
+firmware once loaded to see which "app" it is.
 
-    igb: Intel(R) Gigabit Ethernet Network Driver - version 5.4.0-k
-    igb: Copyright (c) 2007-2014 Intel Corporation.
-    igb: probe of 0000:01:00.0 failed with error -2
-    igb: probe of 0000:02:00.0 failed with error -2
+> >> The configuration is asic-wide, should be done by a devlink parent
+> >> handle which was introduced for that exact purpose.
+> >>
+> >> Am I missing something? We need to sync in this. In mlxsw we need to do
+> >> some pre-netdev configuraton as well.  
+> >
+> >For programmable NICs we still need to come up with some API for setting
+> >the target application/firmware name/adapter mode, but I don't think we
+> >have any more fine-grained parameters to set per-device just yet.
+> >
+> >I was thinking of either devlink, or perhaps, since I'm hearing people
+> >want those to be persistent/written into flash, the recent MTD
+> >discussion got me wondering if we should just expose the entire flash
+> >and teach ethtool to modify the vendor-specific parameter table
+> >directly in the flash.  That seems like something that could quickly
+> >get out of hand, though :S  
+> 
+> Yeah, I'm not fan of the mtd exposing some fw internals. I believe that
+> for the config like yours (switching the operation mode of nic), we
+> should have well defined user api. And since this is per-device, not
+> per-netdev, devlink should be the vahicle to carry this.
 
-In order to fix it, we explicitly select page 0 before first access to phy
-registers.
+Well defined API would be nice.  Perhaps we will just start with
+something very simple and then extend it if need be.  E.g. I'm hearing
+people would like to select not only the app but also the version of
+it...  Yes, starting simple is probably the way forward.
 
-See also: https://bugzilla.suse.com/show_bug.cgi?id=1009911
-See also: http://www.lex.com.tw/products/pdf/3I380A&3I380CW.pdf
+> >What were your plans with pre-netdev config?  
+> 
+> We need to pass come initial resource division. Generally the consensus
+> is to have these options exposed through devlink, let the user configure
+> them all and then to have a trigger that would cause driver
+> re-orchestration according to the new values. The flow would look like
+> this:
+> 
+> -driver loads with defaults, inits hw and instantiates netdevs
+> -driver exposes config options via devlink
+> -user sets up the options
+> -user pushes the "go" trigger
+> -upon the trigger command, devlink calls the driver re-init callback
+> -driver shuts down the current instances, re-initializes hw,
+>  re-instantiates the netdevs
+> 
+> Makes sense?
 
-Fixes: 2a3cdea ("igb: Remove GS40G specific defines/functions")
-Cc: <stable@vger.kernel.org> # 4.5+
-Signed-off-by: Matwey V Kornilov <matwey@sai.msu.ru>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/igb/e1000_82575.c | 1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/drivers/net/ethernet/intel/igb/e1000_82575.c b/drivers/net/ethernet/intel/igb/e1000_82575.c
-index ee443985581f..4a50870e0fa7 100644
---- a/drivers/net/ethernet/intel/igb/e1000_82575.c
-+++ b/drivers/net/ethernet/intel/igb/e1000_82575.c
-@@ -257,6 +257,7 @@ static s32 igb_init_phy_params_82575(struct e1000_hw *hw)
- 	}
- 
- 	/* Set phy->phy_addr and phy->id. */
-+	igb_write_phy_reg_82580(hw, I347AT4_PAGE_SELECT, 0);
- 	ret_val = igb_get_phy_id_82575(hw);
- 	if (ret_val)
- 		return ret_val;
--- 
-2.12.2
+I like the idea of a "go"/apply/reload trigger and extending devlink.
+Do you plan on adding a way to persist the settings?  I'm concerned NIC
+users may want to boot into the right mode once it's set, without
+reloads and reconfigs upon boot.  Also is there going to be a way to
+query the pending/running config?  Sounds like we may want to expose
+three value sets - persistent/default, running and pending/to be
+applied.
