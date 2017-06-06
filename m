@@ -1,42 +1,68 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [patch net-next v2 1/6] net: sched: introduce a TRAP control
- action
-Date: Tue, 6 Jun 2017 14:22:08 +0200
-Message-ID: <20170606122208.GF18198@lunn.ch>
-References: <20170606121207.2921-1-jiri@resnulli.us>
- <20170606121207.2921-2-jiri@resnulli.us>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, jhs@mojatatu.com,
-        xiyou.wangcong@gmail.com, edumazet@google.com,
-        alexander.h.duyck@intel.com, stephen@networkplumber.org,
-        daniel@iogearbox.net, mlxsw@mellanox.com
-To: Jiri Pirko <jiri@resnulli.us>
+From: Julian Wiedmann <jwi@linux.vnet.ibm.com>
+Subject: [PATCH net-next 3/9] s390/qeth: query IPv6 IPA support on HiperSockets
+Date: Tue,  6 Jun 2017 14:33:44 +0200
+Message-ID: <20170606123350.13781-4-jwi@linux.vnet.ibm.com>
+References: <20170606123350.13781-1-jwi@linux.vnet.ibm.com>
+Cc: <netdev@vger.kernel.org>, <linux-s390@vger.kernel.org>,
+        Martin Schwidefsky <schwidefsky@de.ibm.com>,
+        Heiko Carstens <heiko.carstens@de.ibm.com>,
+        Stefan Raspl <raspl@linux.vnet.ibm.com>,
+        Ursula Braun <ubraun@linux.vnet.ibm.com>,
+        Julian Wiedmann <jwi@linux.vnet.ibm.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:37816 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751384AbdFFMWT (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 6 Jun 2017 08:22:19 -0400
-Content-Disposition: inline
-In-Reply-To: <20170606121207.2921-2-jiri@resnulli.us>
+Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:52373 "EHLO
+        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751430AbdFFMeE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 6 Jun 2017 08:34:04 -0400
+Received: from pps.filterd (m0098393.ppops.net [127.0.0.1])
+        by mx0a-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v56CXoKD070781
+        for <netdev@vger.kernel.org>; Tue, 6 Jun 2017 08:34:03 -0400
+Received: from e06smtp12.uk.ibm.com (e06smtp12.uk.ibm.com [195.75.94.108])
+        by mx0a-001b2d01.pphosted.com with ESMTP id 2awveg88ef-1
+        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Tue, 06 Jun 2017 08:34:03 -0400
+Received: from localhost
+        by e06smtp12.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        for <netdev@vger.kernel.org> from <jwi@linux.vnet.ibm.com>;
+        Tue, 6 Jun 2017 13:34:00 +0100
+In-Reply-To: <20170606123350.13781-1-jwi@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 06, 2017 at 02:12:02PM +0200, Jiri Pirko wrote:
-> From: Jiri Pirko <jiri@mellanox.com>
-> 
-> There is need to instruct the HW offloaded path to push certain matched
-> packets to cpu/kernel for further analysis. So this patch introduces a
-> new TRAP control action to TC.
-> 
-> For kernel datapath, this action does not make much sense. So with the
-> same logic as in HW, new TRAP behaves similar to STOLEN. The skb is just
-> dropped in the datapath (and virtually ejected to an upper level, which
-> does not exist in case of kernel).
-> 
-> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
-> Reviewed-by: Yotam Gigi <yotamg@mellanox.com>
+HiperSocket devices don't need the full IPv6 initialization, but we
+should still query the supported assists for logging purposes.
 
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+Signed-off-by: Julian Wiedmann <jwi@linux.vnet.ibm.com>
+Acked-by: Ursula Braun <ubraun@linux.vnet.ibm.com>
+---
+ drivers/s390/net/qeth_l3_main.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
 
-    Andrew
+diff --git a/drivers/s390/net/qeth_l3_main.c b/drivers/s390/net/qeth_l3_main.c
+index 56e813972d77..fb4eee2a46ee 100644
+--- a/drivers/s390/net/qeth_l3_main.c
++++ b/drivers/s390/net/qeth_l3_main.c
+@@ -1035,9 +1035,6 @@ static int qeth_l3_softsetup_ipv6(struct qeth_card *card)
+ 
+ 	QETH_CARD_TEXT(card, 3, "softipv6");
+ 
+-	if (card->info.type == QETH_CARD_TYPE_IQD)
+-		goto out;
+-
+ 	rc = qeth_query_ipassists(card, QETH_PROT_IPV6);
+ 	if (rc) {
+ 		dev_err(&card->gdev->dev,
+@@ -1045,6 +1042,10 @@ static int qeth_l3_softsetup_ipv6(struct qeth_card *card)
+ 			QETH_CARD_IFNAME(card));
+ 		return rc;
+ 	}
++
++	if (card->info.type == QETH_CARD_TYPE_IQD)
++		goto out;
++
+ 	rc = qeth_send_simple_setassparms(card, IPA_IPV6,
+ 					  IPA_CMD_ASS_START, 3);
+ 	if (rc) {
+-- 
+2.11.2
