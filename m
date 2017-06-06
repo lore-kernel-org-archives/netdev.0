@@ -1,146 +1,63 @@
-From: Alexander Potapenko <glider@google.com>
-Subject: [PATCH v4] net: don't call strlen on non-terminated string in dev_set_alias()
-Date: Tue,  6 Jun 2017 15:56:54 +0200
-Message-ID: <20170606135654.111884-1-glider@google.com>
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: dvyukov@google.com, kcc@google.com, edumazet@google.com,
-        davem@davemloft.net, stephen@networkplumber.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH] net: mvpp2: do not bypass the mvpp22_port_mii_set
+ function
+Date: Tue, 6 Jun 2017 07:24:35 -0700
+Message-ID: <9ef70606-0918-fc4f-535b-dd1fc3475cb6@gmail.com>
+References: <20170606133615.20747-1-antoine.tenart@free-electrons.com>
+ <20170606154535.3e87bafb@free-electrons.com>
+ <20170606135148.GA22618@kwain.lan>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux@armlinux.org.uk,
+        gregory.clement@free-electrons.com, mw@semihalf.com,
+        davem@davemloft.net, linux-arm-kernel@lists.infradead.org
+To: Antoine Tenart <antoine.tenart@free-electrons.com>,
+        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ot0-f196.google.com ([74.125.82.196]:33584 "EHLO
+        mail-ot0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751587AbdFFOYk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 6 Jun 2017 10:24:40 -0400
+Received: by mail-ot0-f196.google.com with SMTP id k4so2165066otd.0
+        for <netdev@vger.kernel.org>; Tue, 06 Jun 2017 07:24:39 -0700 (PDT)
+In-Reply-To: <20170606135148.GA22618@kwain.lan>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-KMSAN reported a use of uninitialized memory in dev_set_alias(),
-which was caused by calling strlcpy() (which in turn called strlen())
-on the user-supplied non-terminated string.
+On 06/06/2017 06:51 AM, Antoine Tenart wrote:
+> Hello Thomas,
+> 
+> On Tue, Jun 06, 2017 at 03:45:35PM +0200, Thomas Petazzoni wrote:
+>> On Tue,  6 Jun 2017 15:36:15 +0200, Antoine Tenart wrote:
+>>> The mvpp22_port_mii_set() function was added by 2697582144dd, but the
+>>> function directly returns without doing anything. This return was used
+>>> when debugging and wasn't removed before sending the patch. Fix this.
+>>>
+>>> Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
+>>
+>> Please add:
+>>
+>> Fixes: 2697582144dd ("net: mvpp2: handle misc PPv2.1/PPv2.2 differences")
+>>
+>> with this:
+>>
+>> Acked-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+> 
+> OK, will do.
+> 
+>> I am wondering if we shouldn't Cc: stable as well. I don't think we
+>> have seen issues on our side because U-Boot does the necessary
+>> initialization, but people using other bootloaders might have issues.
+> 
+> Yes, that might be safer to cc stable. I'll do this as well.
 
-Signed-off-by: Alexander Potapenko <glider@google.com>
----
-v4: dropped the comment at all, as suggested by Yury Norov
-v3: removed the multi-line comment
-v2: fixed an off-by-one error spotted by Dmitry Vyukov
+David queues network patches for stable provided that you submit those
+against his "net" tree [1] and there is an appropriate Fixes tag (which
+Thomas provided).
 
-For the record, here is the KMSAN report:
-
-==================================================================
-BUG: KMSAN: use of unitialized memory in strlcpy+0x8b/0x1b0
-CPU: 0 PID: 1062 Comm: probe Not tainted 4.11.0-rc5+ #2763
-Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
-Call Trace:
- __dump_stack lib/dump_stack.c:16
- dump_stack+0x143/0x1b0 lib/dump_stack.c:52
- kmsan_report+0x12a/0x180 mm/kmsan/kmsan.c:1016
- __kmsan_warning_32+0x66/0xb0 mm/kmsan/kmsan_instr.c:491
- strlen lib/string.c:484
- strlcpy+0x8b/0x1b0 lib/string.c:144
- dev_set_alias+0x295/0x360 net/core/dev.c:1255
- do_setlink+0xfe5/0x5750 net/core/rtnetlink.c:2007
- rtnl_setlink+0x469/0x4f0 net/core/rtnetlink.c:2249
- rtnetlink_rcv_msg+0x5da/0xb40 net/core/rtnetlink.c:4107
- netlink_rcv_skb+0x339/0x5a0 net/netlink/af_netlink.c:2339
- rtnetlink_rcv+0x83/0xa0 net/core/rtnetlink.c:4113
- netlink_unicast_kernel net/netlink/af_netlink.c:1272
- netlink_unicast+0x13b7/0x1480 net/netlink/af_netlink.c:1298
- netlink_sendmsg+0x10b8/0x10f0 net/netlink/af_netlink.c:1844
- sock_sendmsg_nosec net/socket.c:633
- sock_sendmsg net/socket.c:643
- sock_write_iter+0x395/0x440 net/socket.c:857
- call_write_iter ./include/linux/fs.h:1733
- new_sync_write fs/read_write.c:497
- __vfs_write+0x619/0x700 fs/read_write.c:510
- vfs_write+0x47e/0x8a0 fs/read_write.c:558
- SYSC_write+0x17e/0x2f0 fs/read_write.c:605
- SyS_write+0x87/0xb0 fs/read_write.c:597
- entry_SYSCALL_64_fastpath+0x13/0x94 arch/x86/entry/entry_64.S:204
-RIP: 0033:0x4052f1
-RSP: 002b:00007fde1ed05d80 EFLAGS: 00000293 ORIG_RAX: 0000000000000001
-RAX: ffffffffffffffda RBX: 0000000000000000 RCX: 00000000004052f1
-RDX: 0000000000000026 RSI: 00000000006cf0c0 RDI: 0000000000000032
-RBP: 00007fde1ed05da0 R08: 00007fde1ed06700 R09: 00007fde1ed06700
-R10: 00007fde1ed069d0 R11: 0000000000000293 R12: 0000000000000000
-R13: 0000000000000000 R14: 00007fde1ed069c0 R15: 00007fde1ed06700
-origin: 00000000aec00057
- save_stack_trace+0x59/0x60 arch/x86/kernel/stacktrace.c:59
- kmsan_save_stack_with_flags mm/kmsan/kmsan.c:352
- kmsan_internal_poison_shadow+0xb1/0x1a0 mm/kmsan/kmsan.c:247
- kmsan_poison_shadow+0x6d/0xc0 mm/kmsan/kmsan.c:260
- slab_alloc_node mm/slub.c:2743
- __kmalloc_node_track_caller+0x1f4/0x390 mm/slub.c:4349
- __kmalloc_reserve net/core/skbuff.c:138
- __alloc_skb+0x2cd/0x740 net/core/skbuff.c:231
- alloc_skb ./include/linux/skbuff.h:933
- netlink_alloc_large_skb net/netlink/af_netlink.c:1144
- netlink_sendmsg+0x934/0x10f0 net/netlink/af_netlink.c:1819
- sock_sendmsg_nosec net/socket.c:633
- sock_sendmsg net/socket.c:643
- sock_write_iter+0x395/0x440 net/socket.c:857
- call_write_iter ./include/linux/fs.h:1733
- new_sync_write fs/read_write.c:497
- __vfs_write+0x619/0x700 fs/read_write.c:510
- vfs_write+0x47e/0x8a0 fs/read_write.c:558
- SYSC_write+0x17e/0x2f0 fs/read_write.c:605
- SyS_write+0x87/0xb0 fs/read_write.c:597
- entry_SYSCALL_64_fastpath+0x13/0x94 arch/x86/entry/entry_64.S:204
-==================================================================
-
-and the reproducer:
-==================================================================
-  #include <pthread.h>
-  
-  int sock = -1;
-  char buf[] = "\x26\x00\x00\x00\x13\x00\x47\xf1\x07\x01\xc1\xb0"
-               "\x0e\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00"
-               "\x09\xef\x18\xff\xff\x00\xf1\x32\x05\x00\x14\x00"
-               "\x6e\x35";
-  
-  void do_work(int arg) {
-    switch (arg) {
-     case 0:
-      sock = socket(0x10, 0x3, 0x0);
-      break;
-     case 1:
-      write(sock, buf, 0x26);
-      break;
-    }
-  }
-  
-  void *thread_fn(void *arg) {
-    int actual_arg = (int)arg;
-    int iter = 10000, i;
-    for (i = 0; i < iter; i++) {
-      do_work(actual_arg);
-      usleep(100);
-    }
-    return NULL;
-  }
-  
-  int main() {
-    pthread_t thr[4];
-    int i;
-    for (i = 0; i < 4; i++) {
-      pthread_create(&thr, NULL, thread_fn, (void*)(i % 2));
-    }
-    sleep(10);
-    return 0;
-  }
-==================================================================
----
- net/core/dev.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index fca407b4a6ea..84e1e86a4bce 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -1253,8 +1253,9 @@ int dev_set_alias(struct net_device *dev, const char *alias, size_t len)
- 	if (!new_ifalias)
- 		return -ENOMEM;
- 	dev->ifalias = new_ifalias;
-+	memcpy(dev->ifalias, alias, len);
-+	dev->ifalias[len] = 0;
- 
--	strlcpy(dev->ifalias, alias, len+1);
- 	return len;
- }
- 
+[1]:
+https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/networking/netdev-FAQ.txt#n114
 -- 
-2.13.0.506.g27d5fe0cd-goog
+Florian
