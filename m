@@ -1,27 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 00/11][pull request] 1GbE Intel Wired LAN Driver
- Updates 2017-06-06
-Date: Tue, 06 Jun 2017 11:58:37 -0400 (EDT)
-Message-ID: <20170606.115837.2247481401656171000.davem@davemloft.net>
-References: <20170606085809.78571-1-jeffrey.t.kirsher@intel.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PATCH] net: fix up hash documentation
+Date: Tue, 6 Jun 2017 19:01:37 +0300
+Message-ID: <1496764881-12502-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-        jogreene@redhat.com
-To: jeffrey.t.kirsher@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:33358 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751388AbdFFP6l (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 6 Jun 2017 11:58:41 -0400
-In-Reply-To: <20170606085809.78571-1-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: Tom Herbert <therbert@google.com>,
+        Jonathan Corbet <corbet@lwn.net>, netdev@vger.kernel.org,
+        David Miller <davem@davemloft.net>
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Tue,  6 Jun 2017 01:57:58 -0700
+commit 61b905da33 ("net: Rename skb->rxhash to skb->hash")
+didn't update the documentation, fix this up.
 
-> This series contains updates and fixes to e1000e and igb.
+Cc: Tom Herbert <therbert@google.com>
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+---
+ Documentation/networking/scaling.txt | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Looks good, pulled, thanks Jeff.
+diff --git a/Documentation/networking/scaling.txt b/Documentation/networking/scaling.txt
+index 59f4db2..f55639d 100644
+--- a/Documentation/networking/scaling.txt
++++ b/Documentation/networking/scaling.txt
+@@ -122,7 +122,7 @@ associated flow of the packet. The hash is either provided by hardware
+ or will be computed in the stack. Capable hardware can pass the hash in
+ the receive descriptor for the packet; this would usually be the same
+ hash used for RSS (e.g. computed Toeplitz hash). The hash is saved in
+-skb->rx_hash and can be used elsewhere in the stack as a hash of the
++skb->hash and can be used elsewhere in the stack as a hash of the
+ packet’s flow.
+ 
+ Each receive hardware queue has an associated list of CPUs to which
+-- 
+MST
