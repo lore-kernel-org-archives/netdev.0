@@ -1,223 +1,146 @@
-From: Arkadi Sharshevsky <arkadis@mellanox.com>
-Subject: Re: [patch net-next 05/19] net: bridge: Add support for notifying
- devices about FDB add/del
-Date: Tue, 6 Jun 2017 17:19:40 +0300
-Message-ID: <958e265f-4788-9628-e52f-b795be92a439@mellanox.com>
-References: <20170605092043.3523-1-jiri@resnulli.us>
- <20170605092043.3523-6-jiri@resnulli.us>
- <e64dd1c4-8cdc-4be9-350d-171597bf4d1c@cumulusnetworks.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, idosch@mellanox.com, mlxsw@mellanox.com,
-        roopa@cumulusnetworks.com, stephen@networkplumber.org,
-        ivecera@redhat.com
-To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-        Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db5eur01on0078.outbound.protection.outlook.com ([104.47.2.78]:30341
-        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751281AbdFFOTs (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 6 Jun 2017 10:19:48 -0400
-In-Reply-To: <e64dd1c4-8cdc-4be9-350d-171597bf4d1c@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alexander Potapenko <glider@google.com>
+Subject: [PATCH v4] net: don't call strlen on non-terminated string in dev_set_alias()
+Date: Tue,  6 Jun 2017 15:56:54 +0200
+Message-ID: <20170606135654.111884-1-glider@google.com>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: dvyukov@google.com, kcc@google.com, edumazet@google.com,
+        davem@davemloft.net, stephen@networkplumber.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+KMSAN reported a use of uninitialized memory in dev_set_alias(),
+which was caused by calling strlcpy() (which in turn called strlen())
+on the user-supplied non-terminated string.
 
+Signed-off-by: Alexander Potapenko <glider@google.com>
+---
+v4: dropped the comment at all, as suggested by Yury Norov
+v3: removed the multi-line comment
+v2: fixed an off-by-one error spotted by Dmitry Vyukov
 
-On 06/05/2017 04:35 PM, Nikolay Aleksandrov wrote:
-> On 05/06/17 12:20, Jiri Pirko wrote:
->> From: Arkadi Sharshevsky <arkadis@mellanox.com>
->>
->> Currently the bridge doesn't notify the underlying devices about new
->> FDBs learned. The FDB sync is placed on the switchdev notifier chain
->> because devices may potentially learn FDB that are not directly related
->> to their ports, for example:
->>
->> 1. Mixed SW/HW bridge - FDBs that point to the ASICs external devices
->>                         should be offloaded as CPU traps in order to
->> 			perform forwarding in slow path.
->> 2. EVPN - Externally learned FDBs for the vtep device.
->>
->> Notification is sent only about static FDB add/del. This is done due
->> to fact that currently this is the only scenario supported by switch
->> drivers.
->>
->> Signed-off-by: Arkadi Sharshevsky <arkadis@mellanox.com>
->> Reviewed-by: Ido Schimmel <idosch@mellanox.com>
->> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
->> ---
->>  .../ethernet/mellanox/mlxsw/spectrum_switchdev.c   |  2 +-
->>  drivers/net/ethernet/rocker/rocker_ofdpa.c         |  4 ++--
->>  include/net/switchdev.h                            |  6 ++++--
->>  net/bridge/br.c                                    |  4 ++--
->>  net/bridge/br_fdb.c                                | 22 ++++++++++++++++++++++
->>  net/bridge/br_private.h                            |  8 ++++++++
->>  net/bridge/br_switchdev.c                          | 13 +++++++++++++
->>  7 files changed, 52 insertions(+), 7 deletions(-)
->>
->> diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
->> index edcc273..0111a77 100644
->> --- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
->> +++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
->> @@ -1867,7 +1867,7 @@ static void mlxsw_sp_fdb_call_notifiers(bool learning_sync, bool adding,
->>  	if (learning_sync) {
->>  		info.addr = mac;
->>  		info.vid = vid;
->> -		notifier_type = adding ? SWITCHDEV_FDB_ADD : SWITCHDEV_FDB_DEL;
->> +		notifier_type = adding ? SWITCHDEV_FDB_ADD_TO_BRIDGE : SWITCHDEV_FDB_DEL_TO_BRIDGE;
->>  		call_switchdev_notifiers(notifier_type, dev, &info.info);
->>  	}
->>  }
->> diff --git a/drivers/net/ethernet/rocker/rocker_ofdpa.c b/drivers/net/ethernet/rocker/rocker_ofdpa.c
->> index 2ae8524..f659dad 100644
->> --- a/drivers/net/ethernet/rocker/rocker_ofdpa.c
->> +++ b/drivers/net/ethernet/rocker/rocker_ofdpa.c
->> @@ -1939,10 +1939,10 @@ static void ofdpa_port_fdb_learn_work(struct work_struct *work)
->>  
->>  	rtnl_lock();
->>  	if (learned && removing)
->> -		call_switchdev_notifiers(SWITCHDEV_FDB_DEL,
->> +		call_switchdev_notifiers(SWITCHDEV_FDB_DEL_TO_BRIDGE,
->>  					 lw->ofdpa_port->dev, &info.info);
->>  	else if (learned && !removing)
->> -		call_switchdev_notifiers(SWITCHDEV_FDB_ADD,
->> +		call_switchdev_notifiers(SWITCHDEV_FDB_ADD_TO_BRIDGE,
->>  					 lw->ofdpa_port->dev, &info.info);
->>  	rtnl_unlock();
->>  
->> diff --git a/include/net/switchdev.h b/include/net/switchdev.h
->> index 63a754d..8165ed9 100644
->> --- a/include/net/switchdev.h
->> +++ b/include/net/switchdev.h
->> @@ -155,8 +155,10 @@ struct switchdev_ops {
->>  };
->>  
->>  enum switchdev_notifier_type {
->> -	SWITCHDEV_FDB_ADD = 1,
->> -	SWITCHDEV_FDB_DEL,
->> +	SWITCHDEV_FDB_ADD_TO_BRIDGE = 1,
->> +	SWITCHDEV_FDB_DEL_TO_BRIDGE,
->> +	SWITCHDEV_FDB_ADD_TO_DEVICE,
->> +	SWITCHDEV_FDB_DEL_TO_DEVICE,
->>  };
->>  
->>  struct switchdev_notifier_info {
->> diff --git a/net/bridge/br.c b/net/bridge/br.c
->> index e962fff..96d209c 100644
->> --- a/net/bridge/br.c
->> +++ b/net/bridge/br.c
->> @@ -138,14 +138,14 @@ static int br_switchdev_event(struct notifier_block *unused,
->>  	br = p->br;
->>  
->>  	switch (event) {
->> -	case SWITCHDEV_FDB_ADD:
->> +	case SWITCHDEV_FDB_ADD_TO_BRIDGE:
->>  		fdb_info = ptr;
->>  		err = br_fdb_external_learn_add(br, p, fdb_info->addr,
->>  						fdb_info->vid);
->>  		if (err)
->>  			err = notifier_from_errno(err);
->>  		break;
->> -	case SWITCHDEV_FDB_DEL:
->> +	case SWITCHDEV_FDB_DEL_TO_BRIDGE:
->>  		fdb_info = ptr;
->>  		err = br_fdb_external_learn_del(br, p, fdb_info->addr,
->>  						fdb_info->vid);
->> diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
->> index 5c780cd..21bf9d2 100644
->> --- a/net/bridge/br_fdb.c
->> +++ b/net/bridge/br_fdb.c
->> @@ -683,6 +683,26 @@ static inline size_t fdb_nlmsg_size(void)
->>  		+ nla_total_size(sizeof(struct nda_cacheinfo));
->>  }
->>  
->> +static void
->> +fdb_notify_switchdev(const struct net_bridge_fdb_entry *fdb, int type)
->> +{
->> +	if (!fdb->added_by_user)
->> +		return;
->> +
->> +	switch (type) {
->> +	case RTM_DELNEIGH:
->> +		br_switchdev_fdb_call_notifiers(false, fdb->addr.addr,
->> +						fdb->vlan_id,
->> +						fdb->dst->dev);
->> +		break;
->> +	case RTM_NEWNEIGH:
->> +		br_switchdev_fdb_call_notifiers(true, fdb->addr.addr,
->> +						fdb->vlan_id,
->> +						fdb->dst->dev);
->> +		break;
->> +	}
->> +}
-> 
-> Same comment here, this switchdev-specific logic can be contained in
-> br_switchdev_fdb_call_notifiers().
-> 
+For the record, here is the KMSAN report:
 
-Thanks, will move it to br_switchdev.c.
+==================================================================
+BUG: KMSAN: use of unitialized memory in strlcpy+0x8b/0x1b0
+CPU: 0 PID: 1062 Comm: probe Not tainted 4.11.0-rc5+ #2763
+Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+Call Trace:
+ __dump_stack lib/dump_stack.c:16
+ dump_stack+0x143/0x1b0 lib/dump_stack.c:52
+ kmsan_report+0x12a/0x180 mm/kmsan/kmsan.c:1016
+ __kmsan_warning_32+0x66/0xb0 mm/kmsan/kmsan_instr.c:491
+ strlen lib/string.c:484
+ strlcpy+0x8b/0x1b0 lib/string.c:144
+ dev_set_alias+0x295/0x360 net/core/dev.c:1255
+ do_setlink+0xfe5/0x5750 net/core/rtnetlink.c:2007
+ rtnl_setlink+0x469/0x4f0 net/core/rtnetlink.c:2249
+ rtnetlink_rcv_msg+0x5da/0xb40 net/core/rtnetlink.c:4107
+ netlink_rcv_skb+0x339/0x5a0 net/netlink/af_netlink.c:2339
+ rtnetlink_rcv+0x83/0xa0 net/core/rtnetlink.c:4113
+ netlink_unicast_kernel net/netlink/af_netlink.c:1272
+ netlink_unicast+0x13b7/0x1480 net/netlink/af_netlink.c:1298
+ netlink_sendmsg+0x10b8/0x10f0 net/netlink/af_netlink.c:1844
+ sock_sendmsg_nosec net/socket.c:633
+ sock_sendmsg net/socket.c:643
+ sock_write_iter+0x395/0x440 net/socket.c:857
+ call_write_iter ./include/linux/fs.h:1733
+ new_sync_write fs/read_write.c:497
+ __vfs_write+0x619/0x700 fs/read_write.c:510
+ vfs_write+0x47e/0x8a0 fs/read_write.c:558
+ SYSC_write+0x17e/0x2f0 fs/read_write.c:605
+ SyS_write+0x87/0xb0 fs/read_write.c:597
+ entry_SYSCALL_64_fastpath+0x13/0x94 arch/x86/entry/entry_64.S:204
+RIP: 0033:0x4052f1
+RSP: 002b:00007fde1ed05d80 EFLAGS: 00000293 ORIG_RAX: 0000000000000001
+RAX: ffffffffffffffda RBX: 0000000000000000 RCX: 00000000004052f1
+RDX: 0000000000000026 RSI: 00000000006cf0c0 RDI: 0000000000000032
+RBP: 00007fde1ed05da0 R08: 00007fde1ed06700 R09: 00007fde1ed06700
+R10: 00007fde1ed069d0 R11: 0000000000000293 R12: 0000000000000000
+R13: 0000000000000000 R14: 00007fde1ed069c0 R15: 00007fde1ed06700
+origin: 00000000aec00057
+ save_stack_trace+0x59/0x60 arch/x86/kernel/stacktrace.c:59
+ kmsan_save_stack_with_flags mm/kmsan/kmsan.c:352
+ kmsan_internal_poison_shadow+0xb1/0x1a0 mm/kmsan/kmsan.c:247
+ kmsan_poison_shadow+0x6d/0xc0 mm/kmsan/kmsan.c:260
+ slab_alloc_node mm/slub.c:2743
+ __kmalloc_node_track_caller+0x1f4/0x390 mm/slub.c:4349
+ __kmalloc_reserve net/core/skbuff.c:138
+ __alloc_skb+0x2cd/0x740 net/core/skbuff.c:231
+ alloc_skb ./include/linux/skbuff.h:933
+ netlink_alloc_large_skb net/netlink/af_netlink.c:1144
+ netlink_sendmsg+0x934/0x10f0 net/netlink/af_netlink.c:1819
+ sock_sendmsg_nosec net/socket.c:633
+ sock_sendmsg net/socket.c:643
+ sock_write_iter+0x395/0x440 net/socket.c:857
+ call_write_iter ./include/linux/fs.h:1733
+ new_sync_write fs/read_write.c:497
+ __vfs_write+0x619/0x700 fs/read_write.c:510
+ vfs_write+0x47e/0x8a0 fs/read_write.c:558
+ SYSC_write+0x17e/0x2f0 fs/read_write.c:605
+ SyS_write+0x87/0xb0 fs/read_write.c:597
+ entry_SYSCALL_64_fastpath+0x13/0x94 arch/x86/entry/entry_64.S:204
+==================================================================
 
->> +
->>  static void fdb_notify(struct net_bridge *br,
->>  		       const struct net_bridge_fdb_entry *fdb, int type)
->>  {
->> @@ -690,6 +710,8 @@ static void fdb_notify(struct net_bridge *br,
->>  	struct sk_buff *skb;
->>  	int err = -ENOBUFS;
->>  
->> +	fdb_notify_switchdev(fdb, type);
->> +
->>  	skb = nlmsg_new(fdb_nlmsg_size(), GFP_ATOMIC);
->>  	if (skb == NULL)
->>  		goto errout;
->> diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
->> index 69ba3ba..5e944e9 100644
->> --- a/net/bridge/br_private.h
->> +++ b/net/bridge/br_private.h
->> @@ -1086,6 +1086,8 @@ void nbp_switchdev_frame_mark(const struct net_bridge_port *p,
->>  			      struct sk_buff *skb);
->>  bool nbp_switchdev_allowed_egress(const struct net_bridge_port *p,
->>  				  const struct sk_buff *skb);
->> +void br_switchdev_fdb_call_notifiers(bool adding, const unsigned char *mac,
->> +				     u16 vid, struct net_device *dev);
->>  #else
->>  static inline int nbp_switchdev_mark_set(struct net_bridge_port *p)
->>  {
->> @@ -1102,6 +1104,12 @@ static inline bool nbp_switchdev_allowed_egress(const struct net_bridge_port *p,
->>  {
->>  	return true;
->>  }
->> +
->> +static inline void
->> +br_switchdev_fdb_call_notifiers(bool adding, const unsigned char *mac,
->> +				u16 vid, struct net_device *dev)
->> +{
->> +}
->>  #endif /* CONFIG_NET_SWITCHDEV */
->>  
->>  #endif
->> diff --git a/net/bridge/br_switchdev.c b/net/bridge/br_switchdev.c
->> index f4097b9..c07dceb 100644
->> --- a/net/bridge/br_switchdev.c
->> +++ b/net/bridge/br_switchdev.c
->> @@ -55,3 +55,16 @@ bool nbp_switchdev_allowed_egress(const struct net_bridge_port *p,
->>  	return !skb->offload_fwd_mark ||
->>  	       BR_INPUT_SKB_CB(skb)->offload_fwd_mark != p->offload_fwd_mark;
->>  }
->> +
->> +void
->> +br_switchdev_fdb_call_notifiers(bool adding, const unsigned char *mac,
->> +				u16 vid, struct net_device *dev)
->> +{
->> +	struct switchdev_notifier_fdb_info info;
->> +	unsigned long notifier_type;
->> +
->> +	info.addr = mac;
->> +	info.vid = vid;
->> +	notifier_type = adding ? SWITCHDEV_FDB_ADD_TO_DEVICE : SWITCHDEV_FDB_DEL_TO_DEVICE;
->> +	call_switchdev_notifiers(notifier_type, dev, &info.info);
->> +}
->>
-> 
+and the reproducer:
+==================================================================
+  #include <pthread.h>
+  
+  int sock = -1;
+  char buf[] = "\x26\x00\x00\x00\x13\x00\x47\xf1\x07\x01\xc1\xb0"
+               "\x0e\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00"
+               "\x09\xef\x18\xff\xff\x00\xf1\x32\x05\x00\x14\x00"
+               "\x6e\x35";
+  
+  void do_work(int arg) {
+    switch (arg) {
+     case 0:
+      sock = socket(0x10, 0x3, 0x0);
+      break;
+     case 1:
+      write(sock, buf, 0x26);
+      break;
+    }
+  }
+  
+  void *thread_fn(void *arg) {
+    int actual_arg = (int)arg;
+    int iter = 10000, i;
+    for (i = 0; i < iter; i++) {
+      do_work(actual_arg);
+      usleep(100);
+    }
+    return NULL;
+  }
+  
+  int main() {
+    pthread_t thr[4];
+    int i;
+    for (i = 0; i < 4; i++) {
+      pthread_create(&thr, NULL, thread_fn, (void*)(i % 2));
+    }
+    sleep(10);
+    return 0;
+  }
+==================================================================
+---
+ net/core/dev.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index fca407b4a6ea..84e1e86a4bce 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -1253,8 +1253,9 @@ int dev_set_alias(struct net_device *dev, const char *alias, size_t len)
+ 	if (!new_ifalias)
+ 		return -ENOMEM;
+ 	dev->ifalias = new_ifalias;
++	memcpy(dev->ifalias, alias, len);
++	dev->ifalias[len] = 0;
+ 
+-	strlcpy(dev->ifalias, alias, len+1);
+ 	return len;
+ }
+ 
+-- 
+2.13.0.506.g27d5fe0cd-goog
