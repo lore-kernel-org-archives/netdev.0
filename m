@@ -1,29 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ppp: mppe: Use vsnprintf extension %phN
-Date: Tue, 06 Jun 2017 15:16:47 -0400 (EDT)
-Message-ID: <20170606.151647.343740453758118261.davem@davemloft.net>
-References: <80f51106926c82374f6555b54af71a674b8bf94e.1496665332.git.joe@perches.com>
+Subject: Re: [PATCH] cxgb4: implement ndo_set_vf_rate()
+Date: Tue, 06 Jun 2017 15:17:26 -0400 (EDT)
+Message-ID: <20170606.151726.2250862189923579543.davem@davemloft.net>
+References: <1496667860-11703-1-git-send-email-ganeshgr@chelsio.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: paulus@samba.org, linux-ppp@vger.kernel.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: joe@perches.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <80f51106926c82374f6555b54af71a674b8bf94e.1496665332.git.joe@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, nirranjan@chelsio.com, kumaras@chelsio.com
+To: ganeshgr@chelsio.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:37168 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751675AbdFFTRc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 6 Jun 2017 15:17:32 -0400
+In-Reply-To: <1496667860-11703-1-git-send-email-ganeshgr@chelsio.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe@perches.com>
-Date: Mon,  5 Jun 2017 05:22:50 -0700
+From: Ganesh Goudar <ganeshgr@chelsio.com>
+Date: Mon,  5 Jun 2017 18:34:20 +0530
 
-> Using this extension reduces the object size.
+> Implement ndo_set_vf_rate() for mgmt interface to support rate-limiting
+> of VF traffic using 'ip' command.
 > 
-> $ size drivers/net/ppp/ppp_mppe.o*
->    text	   data	    bss	    dec	    hex	filename
->    5683	    216	      8	   5907	   1713	drivers/net/ppp/ppp_mppe.o.new
->    5808	    216	      8	   6032	   1790	drivers/net/ppp/ppp_mppe.o.old
+> Based on the original work of Kumar Sanghvi <kumaras@chelsio.com>
 > 
-> Signed-off-by: Joe Perches <joe@perches.com>
+> Signed-off-by: Ganesh Goudar <ganeshgr@chelsio.com>
 
-Applied to net-next, thanks Joe.
+Applied to net-next, thanks Ganesh.
