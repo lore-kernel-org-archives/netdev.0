@@ -1,189 +1,282 @@
-From: Richard Guy Briggs <rgb@tricolour.ca>
-Subject: Re: [PATCH 2/2] xfrm: add UDP encapsulation port in migrate message
-Date: Mon, 5 Jun 2017 20:05:59 -0400
-Message-ID: <20170606000559.GY10823@tricolour.ca>
-References: <20170605215625.11043-1-antony@phenome.org>
- <20170605215625.11043-3-antony@phenome.org>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH v2 2/3] PCI: Enable PCIe Relaxed Ordering if supported
+Date: Mon, 5 Jun 2017 17:28:33 -0700
+Message-ID: <CAKgT0Uf_nRAmaAN+6AgY-01jYekgW9UM2wGwRfDTTDxGjd+otQ@mail.gmail.com>
+References: <1496462647-7632-1-git-send-email-dingtianhong@huawei.com>
+ <1496462647-7632-3-git-send-email-dingtianhong@huawei.com>
+ <CAKgT0UfKPLy7=swnZYiYOrLS8znhjxeXNZv=+CK5XS3Z1fkMbw@mail.gmail.com> <0853b74b-6c0e-68e9-225b-621d833615e4@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org,
-        Steffen Klassert <steffen.klassert@secunet.com>,
-        Herbert Xu <herbert@gondor.apana.org.au>,
-        "David S . Miller" <davem@davemloft.net>
-To: Antony Antony <antony@phenome.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from toccata2.tricolour.ca ([204.225.221.17]:35793 "EHLO
-        toccata2.tricolour.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751192AbdFFAGA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 5 Jun 2017 20:06:00 -0400
-Content-Disposition: inline
-In-Reply-To: <20170605215625.11043-3-antony@phenome.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Casey Leedom <leedom@chelsio.com>, Ashok Raj <ashok.raj@intel.com>,
+        Bjorn Helgaas <helgaas@kernel.org>,
+        Michael Werner <werner@chelsio.com>,
+        Ganesh Goudar <ganeshgr@chelsio.com>,
+        Asit K Mallick <asit.k.mallick@intel.com>,
+        Patrick J Cramer <patrick.j.cramer@intel.com>,
+        Suravee Suthikulpanit <Suravee.Suthikulpanit@amd.com>,
+        Bob Shaw <Bob.Shaw@amd.com>, h <l.stach@pengutronix.de>,
+        Amir Ancel <amira@mellanox.com>,
+        Gabriele Paoloni <gabriele.paoloni@huawei.com>,
+        David Laight <David.Laight@aculab.com>,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+        Catalin Marinas <catalin.marinas@arm.com>,
+        Will Deacon <will.deacon@arm.com>,
+        Mark Rutland <mark.rutland@arm.com>,
+        Robin Murphy <robin.murphy@arm.com>,
+        David Miller <davem@davemloft.net>,
+        linux-arm-kernel@lists.inf
+To: Ding Tianhong <dingtianhong@huawei.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <0853b74b-6c0e-68e9-225b-621d833615e4@huawei.com>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 2017-06-05 23:56, Antony Antony wrote:
-> Add XFRMA_ENCAP, UDP encapsulation port, to km_migrate announcement
-> to userland. Only add if XFRMA_ENCAP was in user migrate request.
-> 
-> Signed-off-by: Antony Antony <antony@phenome.org>
-
-Looks reasonable to me.
-Reviewed-by: Richard Guy Briggs <rgb@tricolour.ca>
-
-> ---
->  include/net/xfrm.h     |  5 +++--
->  net/key/af_key.c       |  3 ++-
->  net/xfrm/xfrm_policy.c |  2 +-
->  net/xfrm/xfrm_state.c  |  5 +++--
->  net/xfrm/xfrm_user.c   | 23 +++++++++++++++++------
->  5 files changed, 26 insertions(+), 12 deletions(-)
-> 
-> diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-> index df98463..9fb75fb 100644
-> --- a/include/net/xfrm.h
-> +++ b/include/net/xfrm.h
-> @@ -631,7 +631,8 @@ struct xfrm_mgr {
->  					   u8 dir, u8 type,
->  					   const struct xfrm_migrate *m,
->  					   int num_bundles,
-> -					   const struct xfrm_kmaddress *k);
-> +					   const struct xfrm_kmaddress *k,
-> +					   struct xfrm_encap_tmpl *encap);
->  	bool			(*is_alive)(const struct km_event *c);
->  };
->  
-> @@ -1675,7 +1676,7 @@ int xfrm_sk_policy_insert(struct sock *sk, int dir, struct xfrm_policy *pol);
->  #ifdef CONFIG_XFRM_MIGRATE
->  int km_migrate(const struct xfrm_selector *sel, u8 dir, u8 type,
->  	       const struct xfrm_migrate *m, int num_bundles,
-> -	       const struct xfrm_kmaddress *k);
-> +	       const struct xfrm_kmaddress *k, struct xfrm_encap_tmpl *encap);
->  struct xfrm_state *xfrm_migrate_state_find(struct xfrm_migrate *m, struct net *net);
->  struct xfrm_state *xfrm_state_migrate(struct xfrm_state *x,
->  				      struct xfrm_migrate *m,
-> diff --git a/net/key/af_key.c b/net/key/af_key.c
-> index 56df9fb..2ad2286 100644
-> --- a/net/key/af_key.c
-> +++ b/net/key/af_key.c
-> @@ -3508,7 +3508,8 @@ static int set_ipsecrequest(struct sk_buff *skb,
->  #ifdef CONFIG_NET_KEY_MIGRATE
->  static int pfkey_send_migrate(const struct xfrm_selector *sel, u8 dir, u8 type,
->  			      const struct xfrm_migrate *m, int num_bundles,
-> -			      const struct xfrm_kmaddress *k)
-> +			      const struct xfrm_kmaddress *k,
-> +			      struct xfrm_encap_tmpl *encap)
->  {
->  	int i;
->  	int sasize_sel;
-> diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-> index eaecfa4..7152147 100644
-> --- a/net/xfrm/xfrm_policy.c
-> +++ b/net/xfrm/xfrm_policy.c
-> @@ -3337,7 +3337,7 @@ int xfrm_migrate(const struct xfrm_selector *sel, u8 dir, u8 type,
->  	}
->  
->  	/* Stage 5 - announce */
-> -	km_migrate(sel, dir, type, m, num_migrate, k);
-> +	km_migrate(sel, dir, type, m, num_migrate, k, encap);
->  
->  	xfrm_pol_put(pol);
->  
-> diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-> index ae6206b..d6220f7 100644
-> --- a/net/xfrm/xfrm_state.c
-> +++ b/net/xfrm/xfrm_state.c
-> @@ -1966,7 +1966,7 @@ EXPORT_SYMBOL(km_policy_expired);
->  #ifdef CONFIG_XFRM_MIGRATE
->  int km_migrate(const struct xfrm_selector *sel, u8 dir, u8 type,
->  	       const struct xfrm_migrate *m, int num_migrate,
-> -	       const struct xfrm_kmaddress *k)
-> +	       const struct xfrm_kmaddress *k, struct xfrm_encap_tmpl *encap)
->  {
->  	int err = -EINVAL;
->  	int ret;
-> @@ -1975,7 +1975,8 @@ int km_migrate(const struct xfrm_selector *sel, u8 dir, u8 type,
->  	rcu_read_lock();
->  	list_for_each_entry_rcu(km, &xfrm_km_list, list) {
->  		if (km->migrate) {
-> -			ret = km->migrate(sel, dir, type, m, num_migrate, k);
-> +			ret = km->migrate(sel, dir, type, m, num_migrate, k,
-> +					  encap);
->  			if (!ret)
->  				err = ret;
->  		}
-> diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
-> index fb98892..8c54484 100644
-> --- a/net/xfrm/xfrm_user.c
-> +++ b/net/xfrm/xfrm_user.c
-> @@ -2314,17 +2314,20 @@ static int copy_to_user_kmaddress(const struct xfrm_kmaddress *k, struct sk_buff
->  	return nla_put(skb, XFRMA_KMADDRESS, sizeof(uk), &uk);
+On Mon, Jun 5, 2017 at 6:33 AM, Ding Tianhong <dingtianhong@huawei.com> wrote:
+>
+>
+> On 2017/6/4 2:19, Alexander Duyck wrote:
+>> On Fri, Jun 2, 2017 at 9:04 PM, Ding Tianhong <dingtianhong@huawei.com> wrote:
+>>> The PCIe Device Control Register use the bit 4 to indicate that
+>>> whether the device is permitted to enable relaxed ordering or not.
+>>> But relaxed ordering is not safe for some platform which could only
+>>> use strong write ordering, so devices are allowed (but not required)
+>>> to enable relaxed ordering bit by default.
+>>>
+>>> If a platform support relaxed ordering but does not enable it by
+>>> default, enable it in the PCIe configuration. This allows some device
+>>> to send TLPs with the relaxed ordering attributes set, which may
+>>> improve the performance.
+>>>
+>>> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+>>> ---
+>>>  drivers/pci/pci.c   | 42 ++++++++++++++++++++++++++++++++++++++++++
+>>>  drivers/pci/probe.c | 11 +++++++++++
+>>>  include/linux/pci.h |  3 +++
+>>>  3 files changed, 56 insertions(+)
+>>>
+>>> diff --git a/drivers/pci/pci.c b/drivers/pci/pci.c
+>>> index b01bd5b..f57a374 100644
+>>> --- a/drivers/pci/pci.c
+>>> +++ b/drivers/pci/pci.c
+>>> @@ -4878,6 +4878,48 @@ int pcie_set_mps(struct pci_dev *dev, int mps)
+>>>  EXPORT_SYMBOL(pcie_set_mps);
+>>>
+>>>  /**
+>>> + * pcie_set_relaxed_ordering - set PCI Express relexed ordering bit
+>>> + * @dev: PCI device to query
+>>> + *
+>>> + * If possible sets relaxed ordering
+>>> + */
+>>> +int pcie_set_relaxed_ordering(struct pci_dev *dev)
+>>> +{
+>>> +       return pcie_capability_set_word(dev, PCI_EXP_DEVCTL, PCI_EXP_DEVCTL_RELAX_EN);
+>>> +}
+>>> +EXPORT_SYMBOL(pcie_set_relaxed_ordering);
+>>> +
+>>> +/**
+>>> + * pcie_clear_relaxed_ordering - clear PCI Express relexed ordering bit
+>>> + * @dev: PCI device to query
+>>> + *
+>>> + * If possible clear relaxed ordering
+>>> + */
+>>> +int pcie_clear_relaxed_ordering(struct pci_dev *dev)
+>>> +{
+>>> +       return pcie_capability_clear_word(dev, PCI_EXP_DEVCTL, PCI_EXP_DEVCTL_RELAX_EN);
+>>> +}
+>>> +EXPORT_SYMBOL(pcie_clear_relaxed_ordering);
+>>> +
+>>> +/**
+>>> + * pcie_get_relaxed_ordering - check PCI Express relexed ordering bit
+>>> + * @dev: PCI device to query
+>>> + *
+>>> + * Returns true if relaxed ordering is been set
+>>> + */
+>>> +int pcie_get_relaxed_ordering(struct pci_dev *dev)
+>>> +{
+>>> +       u16 v;
+>>> +
+>>> +       pcie_capability_read_word(dev, PCI_EXP_DEVCTL, &v);
+>>> +
+>>> +       return (v & PCI_EXP_DEVCTL_RELAX_EN) >> 4;
+>>> +}
+>>> +EXPORT_SYMBOL(pcie_get_relaxed_ordering);
+>>> +
+>>> +/**
+>>> + * pcie_set_mps - set PCI Express maximum payload size
+>>> +/**
+>>>   * pcie_get_minimum_link - determine minimum link settings of a PCI device
+>>>   * @dev: PCI device to query
+>>>   * @speed: storage for minimum speed
+>>> diff --git a/drivers/pci/probe.c b/drivers/pci/probe.c
+>>> index 19c8950..aeb22b5 100644
+>>> --- a/drivers/pci/probe.c
+>>> +++ b/drivers/pci/probe.c
+>>> @@ -1701,6 +1701,16 @@ static void pci_configure_extended_tags(struct pci_dev *dev)
+>>>                                          PCI_EXP_DEVCTL_EXT_TAG);
+>>>  }
+>>>
+>>> +static void pci_configure_relaxed_ordering(struct pci_dev *dev)
+>>> +{
+>>> +       int ret;
+>>> +
+>>> +       if (dev && (dev->dev_flags & PCI_DEV_FLAGS_NO_RELAXED_ORDERING))
+>>
+>> So there is a minor issue here. The problem is this is only trying to
+>> modify relaxed ordering for the device itself. That isn't what we
+>> want. What we want is to modify it on all of the upstream port
+>> interfaces where there is something the path to the root complex that
+>> has an issue. So if the root complex has to set the
+>> NO_RELAXED_ORDERING flag on a root port, all of the interfaces below
+>> it that would be pushing traffic toward it should not have the relaxed
+>> ordering bit set.
+>>
+>> Also I am pretty sure this is a PCIe capability, not a PCI capability.
+>> You probably need to make sure you code is making this distinction
+>> which I don't know if it currently is. If you need an example of the
+>> kind of checks I am suggesting just take a look at
+>> pcie_configure_mps(). It is verifying the function is PCIe before
+>> attempting to make any updates. In your case you will probably also
+>> need to make sure there is a bus for you to walk up the chain of.
+>> Otherwise this shouldn't apply.
+>>
+>>
+>>> +               pcie_set_relaxed_ordering(dev);
+>>> +       else
+>>> +               pcie_clear_relaxed_ordering(dev);
+>>> +}
+>>
+>> Also I am not a fan of the way this is handled currently. If you don't
+>> have relaxed ordering set then you don't need to do anything else, if
+>> you do have it set but there is no bus to walk up you shouldn't change
+>> it, and if there is a bus to walk up and you find that the root
+>> complex on that bus has the NO_RELAXED_ORDERING set you should clear
+>> it. Right now this code seems to be enabling relaxed ordering if the
+>> NO_RELAXED_ORDERING flag is set.
+>>
+>
+> Hi Alexander:
+>
+> I reconsidered your suggestion and found I miss something here,
+> decide to modify the configure police as your solution, I think
+> it is close to our goal.
+>
+> Thanks
+> Ding
+>
+> diff --git a/drivers/pci/probe.c b/drivers/pci/probe.c
+> index 19c8950..68dee05 100644
+> --- a/drivers/pci/probe.c
+> +++ b/drivers/pci/probe.c
+> @@ -1701,6 +1701,45 @@ static void pci_configure_extended_tags(struct pci_dev *dev)
+>                                          PCI_EXP_DEVCTL_EXT_TAG);
 >  }
->  
-> -static inline size_t xfrm_migrate_msgsize(int num_migrate, int with_kma)
-> +static inline size_t xfrm_migrate_msgsize(int num_migrate, int with_kma,
-> +					  int with_encp)
->  {
->  	return NLMSG_ALIGN(sizeof(struct xfrm_userpolicy_id))
->  	      + (with_kma ? nla_total_size(sizeof(struct xfrm_kmaddress)) : 0)
-> +	      + (with_encp ? nla_total_size(sizeof(struct xfrm_encap_tmpl)) : 0)
->  	      + nla_total_size(sizeof(struct xfrm_user_migrate) * num_migrate)
->  	      + userpolicy_type_attrsize();
->  }
->  
->  static int build_migrate(struct sk_buff *skb, const struct xfrm_migrate *m,
->  			 int num_migrate, const struct xfrm_kmaddress *k,
-> -			 const struct xfrm_selector *sel, u8 dir, u8 type)
-> +			 const struct xfrm_selector *sel,
-> +			 struct xfrm_encap_tmpl *encap, u8 dir, u8 type)
->  {
->  	const struct xfrm_migrate *mp;
->  	struct xfrm_userpolicy_id *pol_id;
-> @@ -2346,6 +2349,11 @@ static int build_migrate(struct sk_buff *skb, const struct xfrm_migrate *m,
->  		if (err)
->  			goto out_cancel;
->  	}
-> +	if (encap) {
-> +		err = nla_put(skb, XFRMA_ENCAP, sizeof(*encap), encap);
-> +		if (err)
-> +			goto out_cancel;
-> +	}
->  	err = copy_to_user_policy_type(type, skb);
->  	if (err)
->  		goto out_cancel;
-> @@ -2365,17 +2373,19 @@ static int build_migrate(struct sk_buff *skb, const struct xfrm_migrate *m,
->  
->  static int xfrm_send_migrate(const struct xfrm_selector *sel, u8 dir, u8 type,
->  			     const struct xfrm_migrate *m, int num_migrate,
-> -			     const struct xfrm_kmaddress *k)
-> +			     const struct xfrm_kmaddress *k,
-> +			     struct xfrm_encap_tmpl *encap)
->  {
->  	struct net *net = &init_net;
->  	struct sk_buff *skb;
->  
-> -	skb = nlmsg_new(xfrm_migrate_msgsize(num_migrate, !!k), GFP_ATOMIC);
-> +	skb = nlmsg_new(xfrm_migrate_msgsize(num_migrate, !!k, !!encap),
-> +			GFP_ATOMIC);
->  	if (skb == NULL)
->  		return -ENOMEM;
->  
->  	/* build migrate */
-> -	if (build_migrate(skb, m, num_migrate, k, sel, dir, type) < 0)
-> +	if (build_migrate(skb, m, num_migrate, k, sel, encap, dir, type) < 0)
->  		BUG();
->  
->  	return xfrm_nlmsg_multicast(net, skb, 0, XFRMNLGRP_MIGRATE);
-> @@ -2383,7 +2393,8 @@ static int xfrm_send_migrate(const struct xfrm_selector *sel, u8 dir, u8 type,
->  #else
->  static int xfrm_send_migrate(const struct xfrm_selector *sel, u8 dir, u8 type,
->  			     const struct xfrm_migrate *m, int num_migrate,
-> -			     const struct xfrm_kmaddress *k)
-> +			     const struct xfrm_kmaddress *k,
-> +			     struct xfrm_encap_tmpl *encap)
->  {
->  	return -ENOPROTOOPT;
->  }
-> -- 
-> 2.9.3
+>
+> +static int pcie_clearing_relaxed_ordering(struct pci_dev *dev, void *data)
+> +{
+> + int origin_ero;
+> +
+> + if (!pci_is_pcie(dev))
+> +         return 0;
+> +
+> + origin_ero = pcie_get_relaxed_ordering(dev);
+> +
+> + /* If the releaxed ordering enable bit is not set, do nothing. */
+> + if (!origin_ero)
+> +         return 0;
+> +
+> + pcie_clear_relaxed_ordering(dev);
+> +
+> + dev_info(&dev->dev, "Disable Relaxed Ordering\n");
+> +
+> + return 0;
+> +}
+> +
+> +static void pci_configure_relaxed_ordering(struct pci_dev *dev)
+> +{
+> + int origin_ero;
+> +
+> + if (!pci_is_pcie(dev))
+> +         return;
+> +
+> + origin_ero = pcie_get_relaxed_ordering(dev);
+> + /* If the releaxed ordering enable bit is not set, do nothing. */
+> + if (!origin_ero)
+> +         return;
+> +
+> + if (dev->dev_flags & PCI_DEV_FLAGS_NO_RELAXED_ORDERING) {
+> +         pcie_clear_relaxed_ordering(dev);
+> +         pci_walk_bus(dev->bus, pcie_clearing_relaxed_ordering, NULL);
+> +         dev_info(&dev->dev, "Disable Relaxed Ordering\n");
+> + }
+> +}
+> +
 
-	slainte mhath, RGB
+This is kind of backwards from what I was thinking. Basically what I
+would like to see is at probe time we should work our way up the PCIe
+buses checking to see if any device has
+PCI_DEV_FLAGS_NO_RELAXED_ORDERING set. The assumption is if we can't
+use relaxed ordering with the downstream facing port we probably
+shouldn't be enabling it on our upstream facing port. We don't want to
+be writing to other devices and such since we don't know what they
+need, we will only know what our device needs and if the root complex
+reports that it can't support relaxed ordering we should disable it
+for the device we are initializing and move on.
+
+You might use pcie_get_minimum_link as an example of what I am
+thinking. Basically what we should do is add a function that will
+return true if any of the devices above us do not support relaxed
+ordering, otherwise return false. Then based on that result if we get
+a return that indicates that relaxed ordering is not supported we
+should update our device to disable relaxed ordering. If the device
+above us doesn't exist, or isn't PCIe we should just exit and skip
+updating relaxed ordering since we are probably running in a guest.
+
+>  static void pci_configure_device(struct pci_dev *dev)
+>  {
+>         struct hotplug_params hpp;
+> @@ -1708,6 +1747,7 @@ static void pci_configure_device(struct pci_dev *dev)
+>
+>         pci_configure_mps(dev);
+>         pci_configure_extended_tags(dev);
+> + pci_configure_relaxed_ordering(dev);
+>
+>         memset(&hpp, 0, sizeof(hpp));
+>         ret = pci_get_hp_params(dev, &hpp);
+> diff --git a/include/linux/pci.h b/include/linux/pci.h
+>
+>
+>
+>>> +
+>>>  static void pci_configure_device(struct pci_dev *dev)
+>>>  {
+>>>         struct hotplug_params hpp;
+>>> @@ -1708,6 +1718,7 @@ static void pci_configure_device(struct pci_dev *dev)
+>>>
+>>>         pci_configure_mps(dev);
+>>>         pci_configure_extended_tags(dev);
+>>> +       pci_configure_relaxed_ordering(dev);
+>>>
+>>>         memset(&hpp, 0, sizeof(hpp));
+>>>         ret = pci_get_hp_params(dev, &hpp);
+>>> diff --git a/include/linux/pci.h b/include/linux/pci.h
+>>> index e1e8428..84bd6af 100644
+>>> --- a/include/linux/pci.h
+>>> +++ b/include/linux/pci.h
+>>> @@ -1105,6 +1105,9 @@ int __pci_enable_wake(struct pci_dev *dev, pci_power_t state,
+>>>  void pci_pme_wakeup_bus(struct pci_bus *bus);
+>>>  void pci_d3cold_enable(struct pci_dev *dev);
+>>>  void pci_d3cold_disable(struct pci_dev *dev);
+>>> +int pcie_set_relaxed_ordering(struct pci_dev *dev);
+>>> +int pcie_clear_relaxed_ordering(struct pci_dev *dev);
+>>> +int pcie_get_relaxed_ordering(struct pci_dev *dev);
+>>>
+>>>  static inline int pci_enable_wake(struct pci_dev *dev, pci_power_t state,
+>>>                                   bool enable)
+>>> --
+>>> 1.9.0
+>>>
+>>>
+>>
+>> .
+>>
+>
