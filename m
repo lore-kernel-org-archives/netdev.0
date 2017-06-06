@@ -1,39 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [for-next 4/6] net/mlx5: FPGA, Add basic support for Innova
-Date: Tue, 06 Jun 2017 14:38:24 -0400 (EDT)
-Message-ID: <20170606.143824.717466091308335341.davem@davemloft.net>
-References: <20170606174233.w377ctwtapzccsk7@ast-mbp.dhcp.thefacebook.com>
-        <20170606.134726.416045938000214127.davem@davemloft.net>
-        <20170606183457.fg7vgv2zji3fhlb5@ast-mbp.dhcp.thefacebook.com>
+From: Edward Cree <ecree@solarflare.com>
+Subject: Re: More BPF verifier questions
+Date: Tue, 6 Jun 2017 19:48:28 +0100
+Message-ID: <b4f633a8-5ad2-0c23-211f-e4a6f3861a92@solarflare.com>
+References: <24a519bc-d403-f429-5d72-2a1d31edfbe7@solarflare.com>
+ <CAH3MdRUasw4PL-Fq3tEbO=ByKGdCh4vLSF7EYZxtaDY0O24-Pg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: jgunthorpe@obsidianresearch.com, ilant@mellanox.com,
-        saeedm@dev.mellanox.co.il, dledford@redhat.com,
-        netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
-        jsorensen@fb.com, andy.shevchenko@gmail.com,
-        linux-fpga@vger.kernel.org, atull@opensource.altera.com,
-        yi1.li@linux.intel.com, borisp@mellanox.com
-To: alexei.starovoitov@gmail.com
+Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Alexei Starovoitov <ast@fb.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        netdev <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>,
+        iovisor-dev <iovisor-dev@lists.iovisor.org>
+To: Y Song <ys114321@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:36376 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751452AbdFFSia (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 6 Jun 2017 14:38:30 -0400
-In-Reply-To: <20170606183457.fg7vgv2zji3fhlb5@ast-mbp.dhcp.thefacebook.com>
+Received: from dispatch1-us1.ppe-hosted.com ([67.231.154.164]:42745 "EHLO
+        dispatch1-us1.ppe-hosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751538AbdFFSss (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 6 Jun 2017 14:48:48 -0400
+In-Reply-To: <CAH3MdRUasw4PL-Fq3tEbO=ByKGdCh4vLSF7EYZxtaDY0O24-Pg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Date: Tue, 6 Jun 2017 11:34:59 -0700
+On 05/06/17 08:06, Y Song wrote:
+> On Fri, Jun 2, 2017 at 7:42 AM, Edward Cree <ecree@solarflare.com> wrote:
+>> Test "helper access to variable memory: stack, bitwise AND + JMP, correct
+>>  bounds" is listed as expected to pass, but it passes zero in the 'size'
+>>  argument, an ARG_CONST_SIZE, to bpf_probe_read; I believe this should fail
+>>  (and with my WIP patch it does).
+> Probably a typo or mis-statement. "size" is not passed in with "zero", but
+> with an unknown value. Hence, it probably should fail.
+>
+>       BPF_MOV64_IMM(BPF_REG_2, 16),
+>       BPF_STX_MEM(BPF_DW, BPF_REG_1, BPF_REG_2, -128),
+>       BPF_LDX_MEM(BPF_DW, BPF_REG_2, BPF_REG_1, -128),
+>       BPF_ALU64_IMM(BPF_AND, BPF_REG_2, 64),
+>       BPF_MOV64_IMM(BPF_REG_4, 0),
+>       BPF_JMP_REG(BPF_JGE, BPF_REG_4, BPF_REG_2, 2),
+>       BPF_MOV64_IMM(BPF_REG_3, 0),
+>       BPF_EMIT_CALL(BPF_FUNC_probe_read),
+So, in fact this unknown value is really 16 & 64 == 0, but the verifier doesn't
+ know that and concludes that it's either 0 or 64 (after the AND).  But then
+ what I didn't spot before, and now have, is that the BPF_JGE tests if 0 >= size.
+ Since we're in the false branch, that means size > 0, and so we're fine.
+The test case is correct, and now that I've fixed the min/max tracking in my
+ patches, the verifier accepts it again.
 
-> fpga is a separate device with its own phy and mac layers, its
-> own queues, packet parsing and rdma logic.
-
-Because that's how they bolted it onto the ASIC in current
-implementation, it might not always be that way and be fully
-integrated in the future.
-
-And I stress the word "implementation" as in "implementation detail"
-the visible behavior is going to be the same, the difference is how
-the thing is hooked up and maybe how you program it.
+-Ed
