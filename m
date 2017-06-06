@@ -1,189 +1,198 @@
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next 01/16] nfp: reorder open and close functions
-Date: Mon,  5 Jun 2017 17:01:42 -0700
-Message-ID: <20170606000157.17556-2-jakub.kicinski@netronome.com>
-References: <20170606000157.17556-1-jakub.kicinski@netronome.com>
-Cc: oss-drivers@netronome.com,
-        Jakub Kicinski <jakub.kicinski@netronome.com>
-To: netdev@vger.kernel.org
+From: Richard Guy Briggs <rgb@tricolour.ca>
+Subject: Re: [PATCH 1/2] xfrm: extend MIGRATE with UDP encapsulation port
+Date: Mon, 5 Jun 2017 20:05:09 -0400
+Message-ID: <20170606000509.GX10823@tricolour.ca>
+References: <20170605215625.11043-1-antony@phenome.org>
+ <20170605215625.11043-2-antony@phenome.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org,
+        Steffen Klassert <steffen.klassert@secunet.com>,
+        Herbert Xu <herbert@gondor.apana.org.au>,
+        "David S . Miller" <davem@davemloft.net>
+To: Antony Antony <antony@phenome.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f171.google.com ([209.85.192.171]:33267 "EHLO
-        mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751209AbdFFACP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 5 Jun 2017 20:02:15 -0400
-Received: by mail-pf0-f171.google.com with SMTP id 83so32351079pfr.0
-        for <netdev@vger.kernel.org>; Mon, 05 Jun 2017 17:02:15 -0700 (PDT)
-In-Reply-To: <20170606000157.17556-1-jakub.kicinski@netronome.com>
+Received: from toccata2.tricolour.ca ([204.225.221.17]:35779 "EHLO
+        toccata2.tricolour.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751246AbdFFAFP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 5 Jun 2017 20:05:15 -0400
+Content-Disposition: inline
+In-Reply-To: <20170605215625.11043-2-antony@phenome.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We will soon reuse parts of .ndo_stop() for clean up after errors
-in .ndo_open().  Reorder the associated functions to make that possible.
+On 2017-06-05 23:56, Antony Antony wrote:
+> Add UDP encapsulation port to XFRM_MSG_MIGRATE using an optional
+> netlink attribute XFRMA_ENCAP.
+> 
+> The devices that support IKE MOBIKE extension (RFC-4555 Section 3.8)
+> could go to sleep for a few minutes and wake up. When it wake up the
+> NAT mapping could have expired, the device send a MOBIKE UPDATE_SA
+> message to migrate the IPsec SA. The change could be a change UDP
+> encapsulation port, IP address, or both.
+> 
+> Reported-by: Paul Wouters <pwouters@redhat.com>
+> Signed-off-by: Antony Antony <antony@phenome.org>
 
-No functional changes.
+Looks reasonable to me.
+Reviewed-by: Richard Guy Briggs <rgb@tricolour.ca>
 
-Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
----
- .../net/ethernet/netronome/nfp/nfp_net_common.c    | 140 ++++++++++-----------
- 1 file changed, 70 insertions(+), 70 deletions(-)
+> ---
+>  include/net/xfrm.h     |  6 ++++--
+>  net/key/af_key.c       |  2 +-
+>  net/xfrm/xfrm_policy.c | 11 ++++-------
+>  net/xfrm/xfrm_state.c  | 18 +++++++++++++-----
+>  net/xfrm/xfrm_user.c   | 14 ++++++++++++--
+>  5 files changed, 34 insertions(+), 17 deletions(-)
+> 
+> diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+> index 7e7e2b0..df98463 100644
+> --- a/include/net/xfrm.h
+> +++ b/include/net/xfrm.h
+> @@ -1678,10 +1678,12 @@ int km_migrate(const struct xfrm_selector *sel, u8 dir, u8 type,
+>  	       const struct xfrm_kmaddress *k);
+>  struct xfrm_state *xfrm_migrate_state_find(struct xfrm_migrate *m, struct net *net);
+>  struct xfrm_state *xfrm_state_migrate(struct xfrm_state *x,
+> -				      struct xfrm_migrate *m);
+> +				      struct xfrm_migrate *m,
+> +				      struct xfrm_encap_tmpl *encap);
+>  int xfrm_migrate(const struct xfrm_selector *sel, u8 dir, u8 type,
+>  		 struct xfrm_migrate *m, int num_bundles,
+> -		 struct xfrm_kmaddress *k, struct net *net);
+> +		 struct xfrm_kmaddress *k, struct net *net,
+> +		 struct xfrm_encap_tmpl *encap);
+>  #endif
+>  
+>  int km_new_mapping(struct xfrm_state *x, xfrm_address_t *ipaddr, __be16 sport);
+> diff --git a/net/key/af_key.c b/net/key/af_key.c
+> index 512dc43..56df9fb 100644
+> --- a/net/key/af_key.c
+> +++ b/net/key/af_key.c
+> @@ -2602,7 +2602,7 @@ static int pfkey_migrate(struct sock *sk, struct sk_buff *skb,
+>  	}
+>  
+>  	return xfrm_migrate(&sel, dir, XFRM_POLICY_TYPE_MAIN, m, i,
+> -			    kma ? &k : NULL, net);
+> +			    kma ? &k : NULL, net, NULL);
+>  
+>   out:
+>  	return err;
+> diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+> index ed4e52d..eaecfa4 100644
+> --- a/net/xfrm/xfrm_policy.c
+> +++ b/net/xfrm/xfrm_policy.c
+> @@ -3268,11 +3268,6 @@ static int xfrm_migrate_check(const struct xfrm_migrate *m, int num_migrate)
+>  		return -EINVAL;
+>  
+>  	for (i = 0; i < num_migrate; i++) {
+> -		if (xfrm_addr_equal(&m[i].old_daddr, &m[i].new_daddr,
+> -				    m[i].old_family) &&
+> -		    xfrm_addr_equal(&m[i].old_saddr, &m[i].new_saddr,
+> -				    m[i].old_family))
+> -			return -EINVAL;
+>  		if (xfrm_addr_any(&m[i].new_daddr, m[i].new_family) ||
+>  		    xfrm_addr_any(&m[i].new_saddr, m[i].new_family))
+>  			return -EINVAL;
+> @@ -3296,7 +3291,8 @@ static int xfrm_migrate_check(const struct xfrm_migrate *m, int num_migrate)
+>  
+>  int xfrm_migrate(const struct xfrm_selector *sel, u8 dir, u8 type,
+>  		 struct xfrm_migrate *m, int num_migrate,
+> -		 struct xfrm_kmaddress *k, struct net *net)
+> +		 struct xfrm_kmaddress *k, struct net *net,
+> +		 struct xfrm_encap_tmpl *encap)
+>  {
+>  	int i, err, nx_cur = 0, nx_new = 0;
+>  	struct xfrm_policy *pol = NULL;
+> @@ -3319,7 +3315,8 @@ int xfrm_migrate(const struct xfrm_selector *sel, u8 dir, u8 type,
+>  		if ((x = xfrm_migrate_state_find(mp, net))) {
+>  			x_cur[nx_cur] = x;
+>  			nx_cur++;
+> -			if ((xc = xfrm_state_migrate(x, mp))) {
+> +			xc = xfrm_state_migrate(x, mp, encap);
+> +			if (xc) {
+>  				x_new[nx_new] = xc;
+>  				nx_new++;
+>  			} else {
+> diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
+> index 2e291bc..ae6206b 100644
+> --- a/net/xfrm/xfrm_state.c
+> +++ b/net/xfrm/xfrm_state.c
+> @@ -1309,7 +1309,8 @@ int xfrm_state_add(struct xfrm_state *x)
+>  EXPORT_SYMBOL(xfrm_state_add);
+>  
+>  #ifdef CONFIG_XFRM_MIGRATE
+> -static struct xfrm_state *xfrm_state_clone(struct xfrm_state *orig)
+> +static struct xfrm_state *xfrm_state_clone(struct xfrm_state *orig,
+> +					   struct xfrm_encap_tmpl *encap)
+>  {
+>  	struct net *net = xs_net(orig);
+>  	struct xfrm_state *x = xfrm_state_alloc(net);
+> @@ -1351,8 +1352,14 @@ static struct xfrm_state *xfrm_state_clone(struct xfrm_state *orig)
+>  	}
+>  	x->props.calgo = orig->props.calgo;
+>  
+> -	if (orig->encap) {
+> -		x->encap = kmemdup(orig->encap, sizeof(*x->encap), GFP_KERNEL);
+> +	if (encap || orig->encap) {
+> +		if (encap)
+> +			x->encap = kmemdup(encap, sizeof(*x->encap),
+> +					GFP_KERNEL);
+> +		else
+> +			x->encap = kmemdup(orig->encap, sizeof(*x->encap),
+> +					GFP_KERNEL);
+> +
+>  		if (!x->encap)
+>  			goto error;
+>  	}
+> @@ -1442,11 +1449,12 @@ struct xfrm_state *xfrm_migrate_state_find(struct xfrm_migrate *m, struct net *n
+>  EXPORT_SYMBOL(xfrm_migrate_state_find);
+>  
+>  struct xfrm_state *xfrm_state_migrate(struct xfrm_state *x,
+> -				      struct xfrm_migrate *m)
+> +				      struct xfrm_migrate *m,
+> +				      struct xfrm_encap_tmpl *encap)
+>  {
+>  	struct xfrm_state *xc;
+>  
+> -	xc = xfrm_state_clone(x);
+> +	xc = xfrm_state_clone(x, encap);
+>  	if (!xc)
+>  		return NULL;
+>  
+> diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
+> index 38614df..fb98892 100644
+> --- a/net/xfrm/xfrm_user.c
+> +++ b/net/xfrm/xfrm_user.c
+> @@ -2243,6 +2243,7 @@ static int xfrm_do_migrate(struct sk_buff *skb, struct nlmsghdr *nlh,
+>  	int err;
+>  	int n = 0;
+>  	struct net *net = sock_net(skb->sk);
+> +	struct xfrm_encap_tmpl  *encap = NULL;
+>  
+>  	if (attrs[XFRMA_MIGRATE] == NULL)
+>  		return -EINVAL;
+> @@ -2260,9 +2261,18 @@ static int xfrm_do_migrate(struct sk_buff *skb, struct nlmsghdr *nlh,
+>  	if (!n)
+>  		return 0;
+>  
+> -	xfrm_migrate(&pi->sel, pi->dir, type, m, n, kmp, net);
+> +	if (attrs[XFRMA_ENCAP]) {
+> +		encap = kmemdup(nla_data(attrs[XFRMA_ENCAP]),
+> +				sizeof(*encap), GFP_KERNEL);
+> +		if (!encap)
+> +			return 0;
+> +	}
+>  
+> -	return 0;
+> +	err = xfrm_migrate(&pi->sel, pi->dir, type, m, n, kmp, net, encap);
+> +
+> +	kfree(encap);
+> +
+> +	return err;
+>  }
+>  #else
+>  static int xfrm_do_migrate(struct sk_buff *skb, struct nlmsghdr *nlh,
+> -- 
+> 2.9.3
 
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-index c3235d03b8eb..770ef28c0380 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-@@ -2276,6 +2276,76 @@ static int nfp_net_set_config_and_enable(struct nfp_net *nn)
- }
- 
- /**
-+ * nfp_net_close_stack() - Quiesce the stack (part of close)
-+ * @nn:	     NFP Net device to reconfigure
-+ */
-+static void nfp_net_close_stack(struct nfp_net *nn)
-+{
-+	unsigned int r;
-+
-+	disable_irq(nn->irq_entries[NFP_NET_IRQ_LSC_IDX].vector);
-+	netif_carrier_off(nn->dp.netdev);
-+	nn->link_up = false;
-+
-+	for (r = 0; r < nn->dp.num_r_vecs; r++) {
-+		disable_irq(nn->r_vecs[r].irq_vector);
-+		napi_disable(&nn->r_vecs[r].napi);
-+	}
-+
-+	netif_tx_disable(nn->dp.netdev);
-+}
-+
-+/**
-+ * nfp_net_close_free_all() - Free all runtime resources
-+ * @nn:      NFP Net device to reconfigure
-+ */
-+static void nfp_net_close_free_all(struct nfp_net *nn)
-+{
-+	unsigned int r;
-+
-+	for (r = 0; r < nn->dp.num_rx_rings; r++) {
-+		nfp_net_rx_ring_bufs_free(&nn->dp, &nn->dp.rx_rings[r]);
-+		nfp_net_rx_ring_free(&nn->dp.rx_rings[r]);
-+	}
-+	for (r = 0; r < nn->dp.num_tx_rings; r++) {
-+		nfp_net_tx_ring_bufs_free(&nn->dp, &nn->dp.tx_rings[r]);
-+		nfp_net_tx_ring_free(&nn->dp.tx_rings[r]);
-+	}
-+	for (r = 0; r < nn->dp.num_r_vecs; r++)
-+		nfp_net_cleanup_vector(nn, &nn->r_vecs[r]);
-+
-+	kfree(nn->dp.rx_rings);
-+	kfree(nn->dp.tx_rings);
-+
-+	nfp_net_aux_irq_free(nn, NFP_NET_CFG_LSC, NFP_NET_IRQ_LSC_IDX);
-+	nfp_net_aux_irq_free(nn, NFP_NET_CFG_EXN, NFP_NET_IRQ_EXN_IDX);
-+}
-+
-+/**
-+ * nfp_net_netdev_close() - Called when the device is downed
-+ * @netdev:      netdev structure
-+ */
-+static int nfp_net_netdev_close(struct net_device *netdev)
-+{
-+	struct nfp_net *nn = netdev_priv(netdev);
-+
-+	/* Step 1: Disable RX and TX rings from the Linux kernel perspective
-+	 */
-+	nfp_net_close_stack(nn);
-+
-+	/* Step 2: Tell NFP
-+	 */
-+	nfp_net_clear_config_and_disable(nn);
-+
-+	/* Step 3: Free resources
-+	 */
-+	nfp_net_close_free_all(nn);
-+
-+	nn_dbg(nn, "%s down", netdev->name);
-+	return 0;
-+}
-+
-+/**
-  * nfp_net_open_stack() - Start the device from stack's perspective
-  * @nn:      NFP Net device to reconfigure
-  */
-@@ -2377,76 +2447,6 @@ static int nfp_net_netdev_open(struct net_device *netdev)
- 	return err;
- }
- 
--/**
-- * nfp_net_close_stack() - Quiescent the stack (part of close)
-- * @nn:	     NFP Net device to reconfigure
-- */
--static void nfp_net_close_stack(struct nfp_net *nn)
--{
--	unsigned int r;
--
--	disable_irq(nn->irq_entries[NFP_NET_IRQ_LSC_IDX].vector);
--	netif_carrier_off(nn->dp.netdev);
--	nn->link_up = false;
--
--	for (r = 0; r < nn->dp.num_r_vecs; r++) {
--		disable_irq(nn->r_vecs[r].irq_vector);
--		napi_disable(&nn->r_vecs[r].napi);
--	}
--
--	netif_tx_disable(nn->dp.netdev);
--}
--
--/**
-- * nfp_net_close_free_all() - Free all runtime resources
-- * @nn:      NFP Net device to reconfigure
-- */
--static void nfp_net_close_free_all(struct nfp_net *nn)
--{
--	unsigned int r;
--
--	for (r = 0; r < nn->dp.num_rx_rings; r++) {
--		nfp_net_rx_ring_bufs_free(&nn->dp, &nn->dp.rx_rings[r]);
--		nfp_net_rx_ring_free(&nn->dp.rx_rings[r]);
--	}
--	for (r = 0; r < nn->dp.num_tx_rings; r++) {
--		nfp_net_tx_ring_bufs_free(&nn->dp, &nn->dp.tx_rings[r]);
--		nfp_net_tx_ring_free(&nn->dp.tx_rings[r]);
--	}
--	for (r = 0; r < nn->dp.num_r_vecs; r++)
--		nfp_net_cleanup_vector(nn, &nn->r_vecs[r]);
--
--	kfree(nn->dp.rx_rings);
--	kfree(nn->dp.tx_rings);
--
--	nfp_net_aux_irq_free(nn, NFP_NET_CFG_LSC, NFP_NET_IRQ_LSC_IDX);
--	nfp_net_aux_irq_free(nn, NFP_NET_CFG_EXN, NFP_NET_IRQ_EXN_IDX);
--}
--
--/**
-- * nfp_net_netdev_close() - Called when the device is downed
-- * @netdev:      netdev structure
-- */
--static int nfp_net_netdev_close(struct net_device *netdev)
--{
--	struct nfp_net *nn = netdev_priv(netdev);
--
--	/* Step 1: Disable RX and TX rings from the Linux kernel perspective
--	 */
--	nfp_net_close_stack(nn);
--
--	/* Step 2: Tell NFP
--	 */
--	nfp_net_clear_config_and_disable(nn);
--
--	/* Step 3: Free resources
--	 */
--	nfp_net_close_free_all(nn);
--
--	nn_dbg(nn, "%s down", netdev->name);
--	return 0;
--}
--
- static void nfp_net_set_rx_mode(struct net_device *netdev)
- {
- 	struct nfp_net *nn = netdev_priv(netdev);
--- 
-2.11.0
+	slainte mhath, RGB
