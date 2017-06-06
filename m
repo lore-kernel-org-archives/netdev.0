@@ -1,54 +1,37 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH net-next 5/5] net: dsa: Stop accessing ds->dst->cpu_dp in drivers
-Date: Tue, 06 Jun 2017 14:33:17 -0400
-Message-ID: <871sqxc6fm.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
-References: <20170606170202.21491-1-f.fainelli@gmail.com> <20170606170202.21491-6-f.fainelli@gmail.com> <8760g9kmy6.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me> <99c1a096-2128-f259-0537-0456a117280c@gmail.com>
+From: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH v2 4/4] net: macb: Add hardware PTP support
+Date: Tue, 6 Jun 2017 20:36:32 +0200
+Message-ID: <20170606183632.GB25220@localhost.localdomain>
+References: <1496413439-12900-1-git-send-email-rafalo@cadence.com>
+ <1496413690-22826-1-git-send-email-rafalo@cadence.com>
+ <20170604205516.GA7848@localhost.localdomain>
+ <BN3PR07MB251673623B941CAF5DEAB474C9CB0@BN3PR07MB2516.namprd07.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: andrew@lunn.ch, john@phrozen.org, davem@davemloft.net
-To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:37132 "EHLO
-        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751239AbdFFSf0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 6 Jun 2017 14:35:26 -0400
-In-Reply-To: <99c1a096-2128-f259-0537-0456a117280c@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        "nicolas.ferre-AIFe0yeh4nAAvxtiuMwx3w@public.gmane.org" <nicolas.ferre-AIFe0yeh4nAAvxtiuMwx3w@public.gmane.org>,
+        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
+        <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+        "harini.katakam-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org" <harini.katakam-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>,
+        "andrei.pistirica-UWL1GkI3JZL3oGB3hsPCZA@public.gmane.org" <andrei.pistirica-UWL1GkI3JZL3oGB3hsPCZA@public.gmane.org>
+To: Rafal Ozieblo <rafalo-vna1KIf7WgpBDgjK7y7TUQ@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <BN3PR07MB251673623B941CAF5DEAB474C9CB0-EldUQEzkDQfxGZiqM5fOI+FPX92sqiQdvxpqHgZTriW3zl9H0oFU5g@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Florian Fainelli <f.fainelli@gmail.com> writes:
+On Tue, Jun 06, 2017 at 08:54:50AM +0000, Rafal Ozieblo wrote:
+> Would "ENOTSUP" be sufficient ?
 
-> On 06/06/2017 11:09 AM, Vivien Didelot wrote:
->> Florian Fainelli <f.fainelli@gmail.com> writes:
->> 
->>> -	phy_mode = of_get_phy_mode(ds->dst->cpu_dp->dn);
->>> +	phy_mode = of_get_phy_mode(ds->ports[QCA8K_CPU_PORT].dn);
->> 
->> Is it necessary to use QCA8K_CPU_PORT?
->> 
->>> +static inline struct dsa_port *dsa_ds_get_cpu_dp(struct dsa_switch *ds)
->>> +{
->>> +	return &ds->ports[fls(ds->cpu_port_mask) - 1];
->>> +}
->> 
->> Wouldn't it be better to return the CPU port for a given port?
->> Something like return ds->ports[port].cpu_dp, so that we ease the
->> introduction of multiple CPU port a bit more?
->
-> ds->ports[port].cpu_dp only gets assigned at dsa_slave_create() time,
-> which is after ops->setup() has been called, hence this helper function
-> in case you need it earlier (e.g: like mv88e6060).
-
-I see no reason why we cannot assign ds->ports[x].cpu_dp before calling
-ops->setup().
-
-Even though it can be changed later, the DSA core can assign a dedicated
-CPU port to each ports and only after that, call into drivers ops.
-
-To me the DSA topology (dsa_ports, CPU, etc.) should be determined
-before calling into the hardware and exposing slave interfaces to the
-user. Otherwise it is confusing. Am I wrong?
+You mean EOPNOTSUPP?  Yes, sounds ok to me.  EFAULT is surely wrong.
 
 Thanks,
-
-        Vivien
+Richard
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
