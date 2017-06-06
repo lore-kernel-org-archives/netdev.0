@@ -1,46 +1,46 @@
-From: Seraphime Kirkovski <kirkseraph@gmail.com>
-Subject: [PATCH] net: wireless: intel: iwlwifi: dvm: remove unused defines
-Date: Wed,  7 Jun 2017 01:20:27 +0200
-Message-ID: <20170606232031.28893-1-kirkseraph@gmail.com>
-Cc: Seraphime Kirkovski <kirkseraph@gmail.com>,
-        Emmanuel Grumbach <emmanuel.grumbach@intel.com>,
-        Luca Coelho <luciano.coelho@intel.com>,
-        Intel Linux Wireless <linuxwifi@intel.com>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        linux-wireless@vger.kernel.org (open list:INTEL WIRELESS WIFI LINK
-        (iwlwifi)), netdev@vger.kernel.org (open list:NETWORKING DRIVERS),
-        linux-kernel@vger.kernel.org (open list)
-To: johannes.berg@intel.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Eugeniu Rosca <erosca@de.adit-jv.com>
+Subject: Re: [PATCH] ravb: Fix use-after-free on `ifconfig eth0 down`
+Date: Wed, 7 Jun 2017 01:27:34 +0200
+Message-ID: <20170606232734.GA8581@vmlxhi-014.adit-jv.com>
+References: <20170605220810.3933-1-erosca@de.adit-jv.com>
+ <eaf9aa22-9087-977b-b048-3d1906176d1a@cogentembedded.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Cc: <davem@davemloft.net>, <horms+renesas@verge.net.au>,
+        <kazuya.mizuguchi.ks@renesas.com>, <netdev@vger.kernel.org>,
+        <linux-renesas-soc@vger.kernel.org>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <eaf9aa22-9087-977b-b048-3d1906176d1a@cogentembedded.com>
+Sender: linux-renesas-soc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Those constants have been unused for quite some time now.
+On Tue, Jun 06, 2017 at 12:35:30PM +0300, Sergei Shtylyov wrote:
+> Hello!
+> 
+> On 6/6/2017 1:08 AM, Eugeniu Rosca wrote:
+> 
+> >Commit a47b70ea86bd ("ravb: unmap descriptors when freeing rings") has
+> >introduced the issue seen in [1] reproduced on H3ULCB board.
+> >
+> >Fix this by relocating the RX skb ringbuffer free operation, so that
+> >swiotlb page unmapping can be done first. Freeing of aligned TX buffers
+> >is not relevant to the issue seen in [1]. Still, reposition TX free
+> >calls as well, to have all kfree() operations performed consistently
+> >_after_ dma_unmap_*()/dma_free_*().
+> 
+>    Perhaps it's a material of a separate cleanup patch?
 
-Signed-off-by: Seraphime Kirkovski <kirkseraph@gmail.com>
----
- I've compile-tested it.
+Many thanks for feedback. For the moment, with a number of sanitizers
+and debugging options enabled (UBSAN, KASAN, KMEMLEAK, DMA_API_DEBUG), I
+couldn't find any other obvious ravb driver failures in basic usecases
+(didn't stress-test it though).
 
- drivers/net/wireless/intel/iwlwifi/dvm/commands.h | 7 -------
- 1 file changed, 7 deletions(-)
+Regarding the reordering of kfree vs dma_* API calls, which might be
+needed in other parts of the driver, this possibly will be highlighted
+by special usecases like repetitive suspend/resume or the like. I will
+happily share any other fixes, if such are developed on our side.
 
-diff --git a/drivers/net/wireless/intel/iwlwifi/dvm/commands.h b/drivers/net/wireless/intel/iwlwifi/dvm/commands.h
-index 2ab2773655a8..37d2ba5ae852 100644
---- a/drivers/net/wireless/intel/iwlwifi/dvm/commands.h
-+++ b/drivers/net/wireless/intel/iwlwifi/dvm/commands.h
-@@ -1446,13 +1446,6 @@ struct agg_tx_status {
-  *   or rate table color was changed during frame retries
-  * refer tlc rate info
-  */
--
--#define IWL50_TX_RES_INIT_RATE_INDEX_POS	0
--#define IWL50_TX_RES_INIT_RATE_INDEX_MSK	0x0f
--#define IWL50_TX_RES_RATE_TABLE_COLOR_POS	4
--#define IWL50_TX_RES_RATE_TABLE_COLOR_MSK	0x70
--#define IWL50_TX_RES_INV_RATE_INDEX_MSK	0x80
--
- /* refer to ra_tid */
- #define IWLAGN_TX_RES_TID_POS	0
- #define IWLAGN_TX_RES_TID_MSK	0x0f
--- 
-2.11.0
+Best regards,
+Eugeniu.
