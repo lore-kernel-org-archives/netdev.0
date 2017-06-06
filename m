@@ -1,45 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sit: reload iphdr in ipip6_rcv
-Date: Tue, 06 Jun 2017 11:35:13 -0400 (EDT)
-Message-ID: <20170606.113513.1622122258709494887.davem@davemloft.net>
-References: <1496558623-11437-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
-        <1496667813.5031.20.camel@edumazet-glaptop3.roam.corp.google.com>
-        <C9A276FB-FF6E-439A-AFE4-F8A5551DDA30@cmss.chinamobile.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] net: mvpp2: do not bypass the mvpp22_port_mii_set
+ function
+Date: Tue, 6 Jun 2017 18:44:30 +0300
+Message-ID: <942ac798-e6f1-ce68-3651-c01c2e5ed60b@cogentembedded.com>
+References: <20170606133615.20747-1-antoine.tenart@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: eric.dumazet@gmail.com, jesse@kernel.org, kuznet@ms2.inr.ac.ru,
-        jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: yanhaishuang@cmss.chinamobile.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <C9A276FB-FF6E-439A-AFE4-F8A5551DDA30@cmss.chinamobile.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: gregory.clement@free-electrons.com, mw@semihalf.com,
+        linux@armlinux.org.uk, linux-arm-kernel@lists.infradead.org
+To: Antoine Tenart <antoine.tenart@free-electrons.com>,
+        davem@davemloft.net, netdev@vger.kernel.org,
+        thomas.petazzoni@free-electrons.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f44.google.com ([209.85.215.44]:33106 "EHLO
+        mail-lf0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751281AbdFFPof (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 6 Jun 2017 11:44:35 -0400
+Received: by mail-lf0-f44.google.com with SMTP id a136so73555309lfa.0
+        for <netdev@vger.kernel.org>; Tue, 06 Jun 2017 08:44:34 -0700 (PDT)
+In-Reply-To: <20170606133615.20747-1-antoine.tenart@free-electrons.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTog5Lil5rW35Y+MIDx5YW5oYWlzaHVhbmdAY21zcy5jaGluYW1vYmlsZS5jb20+DQpEYXRl
-OiBUdWUsIDYgSnVuIDIwMTcgMTA6MDk6NDUgKzA4MDANCg0KPiANCj4+IE9uIDUgSnVuIDIwMTcs
-IGF0IDk6MDMgUE0sIEVyaWMgRHVtYXpldCA8ZXJpYy5kdW1hemV0QGdtYWlsLmNvbT4gd3JvdGU6
-DQo+PiANCj4+IE9uIFN1biwgMjAxNy0wNi0wNCBhdCAxNDo0MyArMDgwMCwgSGFpc2h1YW5nIFlh
-biB3cm90ZToNCj4+PiBTaW5jZSBpcHR1bm5lbF9wdWxsX2hlYWRlcigpIGNhbiBjYWxsIHBza2Jf
-bWF5X3B1bGwoKSwNCj4+PiB3ZSBtdXN0IHJlbG9hZCBhbnkgcG9pbnRlciB0aGF0IHdhcyByZWxh
-dGVkIHRvIHNrYi0+aGVhZC4NCj4+PiANCj4+PiBGaXhlczogYTA5YTRjOGRkMWVjICgidHVubmVs
-czogUmVtb3ZlIGVuY2Fwc3VsYXRpb24gb2ZmbG9hZHMgb24gZGVjYXAiKQ0KPj4+IFNpZ25lZC1v
-ZmYtYnk6IEhhaXNodWFuZyBZYW4gPHlhbmhhaXNodWFuZ0BjbXNzLmNoaW5hbW9iaWxlLmNvbT4N
-Cj4+PiAtLS0NCj4+PiBuZXQvaXB2Ni9zaXQuYyB8IDEgKw0KPj4+IDEgZmlsZSBjaGFuZ2VkLCAx
-IGluc2VydGlvbigrKQ0KPj4+IA0KPj4+IGRpZmYgLS1naXQgYS9uZXQvaXB2Ni9zaXQuYyBiL25l
-dC9pcHY2L3NpdC5jDQo+Pj4gaW5kZXggNjFlNTkwMi4uYWY4MzJlNyAxMDA2NDQNCj4+PiAtLS0g
-YS9uZXQvaXB2Ni9zaXQuYw0KPj4+ICsrKyBiL25ldC9pcHY2L3NpdC5jDQo+Pj4gQEAgLTY1Nyw2
-ICs2NTcsNyBAQCBzdGF0aWMgaW50IGlwaXA2X3JjdihzdHJ1Y3Qgc2tfYnVmZiAqc2tiKQ0KPj4+
-IAkJaWYgKGlwdHVubmVsX3B1bGxfaGVhZGVyKHNrYiwgMCwgaHRvbnMoRVRIX1BfSVBWNiksDQo+
-Pj4gCQkgICAgIW5ldF9lcSh0dW5uZWwtPm5ldCwgZGV2X25ldCh0dW5uZWwtPmRldikpKSkNCj4+
-PiAJCQlnb3RvIG91dDsNCj4+PiArCQlpcGggPSBpcF9oZHIoc2tiKTsNCj4+PiANCj4+PiAJCWVy
-ciA9IElQX0VDTl9kZWNhcHN1bGF0ZShpcGgsIHNrYik7DQo+Pj4gCQlpZiAodW5saWtlbHkoZXJy
-KSkgew0KPj4gDQo+PiBUaGlzIHNlZW1zIHVubmVjZXNzYXJ5Lg0KPj4gDQo+PiBCeSB0aGUgdGlt
-ZSBpcGlwNl9yY3YoKSBpcyBjYWxsZWQsIHdlIGFscmVhZHkgaGF2ZSB0aGUgZ3VhcmFudGVlIHRo
-ZQ0KPj4gSVB2NCBoZWFkZXIgaXMgaW4gc2tiIGxpbmVhciBwYXJ0Lg0KPj4gDQo+PiBPdGhlcndp
-c2Ugd2UgY291bGQgbm90IHVzZSBpcGgtPnNhZGRyIGFuZCBpcGgtPmRhZGRyIGluIHRoZSBjYWxs
-IHRvDQo+PiBpcGlwNl90dW5uZWxfbG9va3VwKCkNCj4+IA0KPj4gVGhlcmVmb3JlLCB0aGUgcHNr
-Yl9tYXlfcHVsbCgpIGlzIGEgbm9wIGluIHRoaXMgcGFydGljdWxhciBjYXNlLg0KPiANCj4gWWVz
-LCBpdOKAmXMgcmlnaHQuIFRoYW5rcyENCg0KT2ssIEkgcmV2ZXJ0ZWQsIHRoYW5rcyBldmVyeW9u
-ZS4NCg==
+Hello!
+
+On 06/06/2017 04:36 PM, Antoine Tenart wrote:
+
+> The mvpp22_port_mii_set() function was added by 2697582144dd, but the
+
+    Need to also specify the commit summary line enclosed in ("").
+
+> function directly returns without doing anything. This return was used
+> when debugging and wasn't removed before sending the patch. Fix this.
+>
+> Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
+[...]
+
+MBR, Sergei
