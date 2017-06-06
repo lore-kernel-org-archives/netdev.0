@@ -1,54 +1,85 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next 6/9] bpf: fix stack_depth usage by test_bpf.ko
-Date: Tue, 06 Jun 2017 12:19:39 +0200
-Message-ID: <593681BB.5080306@iogearbox.net>
-References: <20170530203135.3642768-7-ast@fb.com> <20170531.141502.1137764740674039078.davem@davemloft.net> <73af1b50-38b0-b7f3-5c74-e425d47209b6@fb.com> <20170531.144320.1591618196176086735.davem@davemloft.net> <f79ef874-55a1-cd58-a0e4-9859401a9249@fb.com>
+From: Niklas Cassel <niklas.cassel@axis.com>
+Subject: Re: stmmac tx timeout
+Date: Tue, 6 Jun 2017 12:45:41 +0200
+Message-ID: <9f7d2198-073f-435c-fd9a-f25889968b9d@axis.com>
+References: <fc8e5141-5815-9a6d-51ed-ddd7e5c2bbc8@axis.com>
+ <20170523133946.GA7713@amd>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="windows-1252"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kernel-team@fb.com
-To: Alexei Starovoitov <ast@fb.com>, David Miller <davem@davemloft.net>
+Cc: Alexandre Torgue <alexandre.torgue@st.com>,
+        Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+        Joao Pinto <Joao.Pinto@synopsys.com>,
+        Lars Persson <larper@axis.com>, netdev <netdev@vger.kernel.org>
+To: Pavel Machek <pavel@ucw.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:50510 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751329AbdFFKTn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 6 Jun 2017 06:19:43 -0400
-In-Reply-To: <f79ef874-55a1-cd58-a0e4-9859401a9249@fb.com>
+Received: from bes.se.axis.com ([195.60.68.10]:36600 "EHLO bes.se.axis.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751384AbdFFKpv (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 6 Jun 2017 06:45:51 -0400
+In-Reply-To: <20170523133946.GA7713@amd>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/31/2017 08:45 PM, Alexei Starovoitov wrote:
-> On 5/31/17 11:43 AM, David Miller wrote:
->> From: Alexei Starovoitov <ast@fb.com>
->> Date: Wed, 31 May 2017 11:39:37 -0700
+On 05/23/2017 03:39 PM, Pavel Machek wrote:
+> Hi!
+> 
+>> I'm debugging a transmit queue 0 timeout on stmmac with DWMAC4 (4.10a).
+>> I'm using kernel v4.9.23, which is before multi queue support was added.
+>> I've cherry-picked
+>> 98a29944774a ("net: ethernet: stmmac: remove private tx queue lock")
+>> 84c53b4baef8 ("stmmac: fix memory barriers")
+>> but I still get tx timeouts with these patches.
 >>
->>> On 5/31/17 11:15 AM, David Miller wrote:
->>>> From: Alexei Starovoitov <ast@fb.com>
->>>> Date: Tue, 30 May 2017 13:31:32 -0700
->>>>
->>>>> test_bpf.ko doesn't call verifier before selecting interpreter or
->>>>> JITing,
->>>>> hence the tests need to manually specify the amount of stack they
->>>>> consume.
->>>>>
->>>>> Signed-off-by: Alexei Starovoitov <ast@kernel.org>
->>>>> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
->>>>
->>>> I do not like this and the previous patch, it seems so error prone.
->>>
->>> in what sense 'error prone' ?
->>
->> In the sense that a human computes these numbers, and nothing checks
->> if it is correct or not until program perhaps crashes if the value is
->> wrong.
->
-> right. that's how all these tests are.
-> See bpf_fill_ld_abs_vlan_push_pop() for example.
-> If that codegen has a bug, it will crash the kernel.
-> That's why it's done from kernel module to do things
-> that user space cannot do.
+>> I've managed to reproduce the problem several times,
+>> mainly by transmitting the syslog over HTTP.
+> 
+> How long does it take till timeout? Umm. And if you go through the
+> list... I believe we understood what was wrong with the timeout
+> handling and how to fix it...
+> 
+> You may want to tweak tx coalescing parameters. If you set them
+> "right" you should get timeouts every 5 minutes or so. That makes it
+> easier to debug. This should do the trick:
+> 
+> +++ b/drivers/net/ethernet/stmicro/stmmac/common.h
+> -#define STMMAC_COAL_TX_TIMER   40000
+> +#define STMMAC_COAL_TX_TIMER   1000
+> 
+> Now that you have driver that crashes early, you might want to do some
+> voodoo to stop the crashing. This worked for me:
+> 
+> @@ -2043,7 +2063,11 @@ static netdev_tx_t stmmac_xmit(struct sk_buff
+> *skb, stru\
+> ct net_device *dev)
+>         } else
+> 	                priv->tx_count_frames = 0;
+> 
+> +       dma_rmb();
+> +       dma_wmb();
+>         /* To avoid raise condition */
+> +       BUG_ON(first->des01.etx.own); /* This BUG_ON seems to be enough.
+> +                                          Replacing it with barriers is _not_enough. */
+>         priv->hw->desc->set_tx_owner(first);
+>  	wmb();
+> 
+> No, the BUG_ON() does not trigger. Yes, it still fixes the driver for
+> me. You may want to verify it has same effect for you.
 
-Would probably have been easier to just default the tests to use
-MAX_BPF_STACK if nothing further is specified, but I think it may
-still be useful to test JIT implementations supporting this for
-the non-default cases.
+Hello Pavel,
+
+I am sincerely grateful for you help.
+
+I forward ported your patch to 4.9,
+however, I could still get tx timeouts.
+
+Thankfully I finally found the root cause of
+my tx timeouts, see the patch I've submitted
+here:
+
+http://marc.info/?l=linux-kernel&m=149673393525236
+
+
+Best regards,
+Niklas
