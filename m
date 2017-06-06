@@ -1,51 +1,72 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [RFC PATCH v2 14/17] net: skb_array: expose peek API
-Date: Tue, 6 Jun 2017 06:10:02 +0300
-Message-ID: <20170606060909-mutt-send-email-mst@kernel.org>
-References: <20170502153518.9304.17904.stgit@john-Precision-Tower-5810>
- <20170502154032.9304.50203.stgit@john-Precision-Tower-5810>
+From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+Subject: Re: [PATCH] net: bridge: fix potential NULL pointer dereference
+Date: Mon, 05 Jun 2017 22:13:05 -0500
+Message-ID: <20170605221305.Horde.4htygGCbecROO4VYJ2wWHiX@gator4166.hostgator.com>
+References: <20170605213030.GA6272@embeddedgus>
+ <840022de-3d31-4f62-aaaf-ba83d5c78ad7@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: John Fastabend <john.fastabend@gmail.com>
+Content-Type: text/plain; charset=utf-8; format=flowed; DelSp=Yes
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        bridge@lists.linux-foundation.org, netdev@vger.kernel.org,
+        roopa <roopa@cumulusnetworks.com>
+To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:50038 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751194AbdFFDKH (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 5 Jun 2017 23:10:07 -0400
+Received: from gateway21.websitewelcome.com ([192.185.45.163]:41624 "EHLO
+        gateway21.websitewelcome.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751194AbdFFDTO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 5 Jun 2017 23:19:14 -0400
+Received: from cm3.websitewelcome.com (unknown [108.167.139.23])
+        by gateway21.websitewelcome.com (Postfix) with ESMTP id 37C95400E5776
+        for <netdev@vger.kernel.org>; Mon,  5 Jun 2017 22:13:07 -0500 (CDT)
+In-Reply-To: <840022de-3d31-4f62-aaaf-ba83d5c78ad7@cumulusnetworks.com>
 Content-Disposition: inline
-In-Reply-To: <20170502154032.9304.50203.stgit@john-Precision-Tower-5810>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 02, 2017 at 08:40:32AM -0700, John Fastabend wrote:
-> This adds a peek routine to skb_array.h for use with qdisc.
-> 
-> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
-> ---
->  include/linux/skb_array.h |    5 +++++
->  1 file changed, 5 insertions(+)
-> 
-> diff --git a/include/linux/skb_array.h b/include/linux/skb_array.h
-> index f4dfade..33f1f0c 100644
-> --- a/include/linux/skb_array.h
-> +++ b/include/linux/skb_array.h
-> @@ -72,6 +72,11 @@ static inline bool __skb_array_empty(struct skb_array *a)
->  	return !__ptr_ring_peek(&a->ring);
->  }
->  
-> +static inline struct sk_buff *skb_array_peek(struct skb_array *a)
-> +{
-> +	return __ptr_ring_peek(&a->ring);
-> +}
-> +
->  static inline bool skb_array_empty(struct skb_array *a)
->  {
->  	return ptr_ring_empty(&a->ring);
+Hi Nikolay,
 
-I think it's better to call this __skb_array_peek: the issue
-is that callers must be careful with it's use - see the comment
-near __ptr_ring_peek.
+Quoting Nikolay Aleksandrov <nikolay@cumulusnetworks.com>:
 
--- 
-MST
+> On 06/06/17 00:30, Gustavo A. R. Silva wrote:
+>> Add NULL check before dereferencing pointer _p_ inside br_afspec().
+>>
+>> Addresses-Coverity-ID: 1401872
+>> Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
+>> ---
+>>  net/bridge/br_netlink.c | 2 +-
+>>  1 file changed, 1 insertion(+), 1 deletion(-)
+>>
+>> diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
+>> index 1e63ec4..ad85a9c 100644
+>> --- a/net/bridge/br_netlink.c
+>> +++ b/net/bridge/br_netlink.c
+>> @@ -776,7 +776,7 @@ int br_setlink(struct net_device *dev, struct  
+>> nlmsghdr *nlh, u16 flags)
+>>  			goto out;
+>>  	}
+>>
+>> -	if (afspec) {
+>> +	if (p && afspec) {
+>>  		err = br_afspec((struct net_bridge *)netdev_priv(dev), p,
+>>  				afspec, RTM_SETLINK);
+>>  	}
+>>
+>
+> While I see a possible issue with the new bridge tunnel code (+CC  
+> Roopa), this is
+> the wrong fix because there are legitimate use cases where p is null  
+> and br_afspec
+> is called.
+> We need to change the p->flags check in br_afspec()'s  
+> IFLA_BRIDGE_VLAN_TUNNEL_INFO case
+> to check for a NULL p first.
+>
+
+You're right. I got it.
+
+> Thanks for the report!
+
+Sure thing, glad to help.
+
+Thank you!
