@@ -1,104 +1,124 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next 12/16] nfp: don't clutter init code passing fw_ver around
-Date: Mon,  5 Jun 2017 17:01:53 -0700
-Message-ID: <20170606000157.17556-13-jakub.kicinski@netronome.com>
+Subject: [PATCH net-next 10/16] nfp: make vNIC ctrl memory mapping function reusable
+Date: Mon,  5 Jun 2017 17:01:51 -0700
+Message-ID: <20170606000157.17556-11-jakub.kicinski@netronome.com>
 References: <20170606000157.17556-1-jakub.kicinski@netronome.com>
 Cc: oss-drivers@netronome.com,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f181.google.com ([209.85.192.181]:33300 "EHLO
-        mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751311AbdFFAC0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 5 Jun 2017 20:02:26 -0400
-Received: by mail-pf0-f181.google.com with SMTP id 83so32352692pfr.0
-        for <netdev@vger.kernel.org>; Mon, 05 Jun 2017 17:02:26 -0700 (PDT)
+Received: from mail-pf0-f180.google.com ([209.85.192.180]:34257 "EHLO
+        mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751314AbdFFACe (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 5 Jun 2017 20:02:34 -0400
+Received: by mail-pf0-f180.google.com with SMTP id 9so89898874pfj.1
+        for <netdev@vger.kernel.org>; Mon, 05 Jun 2017 17:02:29 -0700 (PDT)
 In-Reply-To: <20170606000157.17556-1-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Reading fw version from the BAR is trivial.  Don't pass it around
-through layers of init functions, simply read it again where needed.
-
-This commit has the side effect of each vNIC having the exact NFD
-version from its own control memory, rather than all data vNICs
-assuming the version of the first one.  This should not result in
-user-visible changes, though.  Capabilities of data vNICs of trival
-apps are identical.
+We will soon need to map control vNIC PCI memory as well as data vNIC
+memory.  Make the function for mapping areas pointed to by an RTsym
+reusable.
 
 Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 ---
- drivers/net/ethernet/netronome/nfp/nfp_net_main.c | 17 +++++++----------
- 1 file changed, 7 insertions(+), 10 deletions(-)
+ drivers/net/ethernet/netronome/nfp/nfp_net_main.c | 55 ++++++++++++-----------
+ 1 file changed, 28 insertions(+), 27 deletions(-)
 
 diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_main.c b/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
-index 2a3b6deae607..82172665e023 100644
+index dd2a99fca716..3644b12d93db 100644
 --- a/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
 +++ b/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
-@@ -277,8 +277,7 @@ static void nfp_net_pf_free_vnics(struct nfp_pf *pf)
- static struct nfp_net *
- nfp_net_pf_alloc_vnic(struct nfp_pf *pf, bool needs_netdev,
- 		      void __iomem *ctrl_bar, void __iomem *qc_bar,
--		      int stride, struct nfp_net_fw_version *fw_ver,
--		      unsigned int eth_id)
-+		      int stride, unsigned int eth_id)
+@@ -248,40 +248,37 @@ nfp_net_pf_total_qcs(struct nfp_pf *pf, void __iomem *ctrl_bar,
+ 	return max_qc - min_qc;
+ }
+ 
+-static u8 __iomem *nfp_net_pf_map_ctrl_bar(struct nfp_pf *pf)
++static u8 __iomem *
++nfp_net_pf_map_rtsym(struct nfp_pf *pf, const char *name, const char *sym_fmt,
++		     unsigned int min_size, struct nfp_cpp_area **area)
  {
- 	u32 tx_base, rx_base, n_tx_rings, n_rx_rings;
- 	struct nfp_net *nn;
-@@ -295,7 +294,7 @@ nfp_net_pf_alloc_vnic(struct nfp_pf *pf, bool needs_netdev,
- 		return nn;
+-	const struct nfp_rtsym *ctrl_sym;
+-	u8 __iomem *ctrl_bar;
++	const struct nfp_rtsym *sym;
+ 	char pf_symbol[256];
++	u8 __iomem *mem;
  
- 	nn->app = pf->app;
--	nn->fw_ver = *fw_ver;
-+	nfp_net_get_fw_version(&nn->fw_ver, ctrl_bar);
- 	nn->dp.ctrl_bar = ctrl_bar;
- 	nn->tx_bar = qc_bar + tx_base * NFP_QCP_QUEUE_ADDR_SZ;
- 	nn->rx_bar = qc_bar + rx_base * NFP_QCP_QUEUE_ADDR_SZ;
-@@ -350,8 +349,7 @@ nfp_net_pf_init_vnic(struct nfp_pf *pf, struct nfp_net *nn, unsigned int id)
+-	snprintf(pf_symbol, sizeof(pf_symbol), "_pf%u_net_bar0",
++	snprintf(pf_symbol, sizeof(pf_symbol), sym_fmt,
+ 		 nfp_cppcore_pcie_unit(pf->cpp));
  
- static int
- nfp_net_pf_alloc_vnics(struct nfp_pf *pf, void __iomem *ctrl_bar,
--		       void __iomem *qc_bar, int stride,
--		       struct nfp_net_fw_version *fw_ver)
-+		       void __iomem *qc_bar, int stride)
+-	ctrl_sym = nfp_rtsym_lookup(pf->cpp, pf_symbol);
+-	if (!ctrl_sym) {
+-		dev_err(&pf->pdev->dev,
+-			"Failed to find PF BAR0 symbol %s\n", pf_symbol);
+-		return NULL;
++	sym = nfp_rtsym_lookup(pf->cpp, pf_symbol);
++	if (!sym) {
++		nfp_err(pf->cpp, "Failed to find PF symbol %s\n", pf_symbol);
++		return (u8 __iomem *)ERR_PTR(-ENOENT);
+ 	}
+ 
+-	if (ctrl_sym->size < pf->max_data_vnics * NFP_PF_CSR_SLICE_SIZE) {
+-		dev_err(&pf->pdev->dev,
+-			"PF BAR0 too small to contain %d vNICs\n",
+-			pf->max_data_vnics);
+-		return NULL;
++	if (sym->size < min_size) {
++		nfp_err(pf->cpp, "PF symbol %s too small\n", pf_symbol);
++		return (u8 __iomem *)ERR_PTR(-EINVAL);
+ 	}
+ 
+-	ctrl_bar = nfp_net_map_area(pf->cpp, "net.ctrl",
+-				    ctrl_sym->domain, ctrl_sym->target,
+-				    ctrl_sym->addr, ctrl_sym->size,
+-				    &pf->data_vnic_bar);
+-	if (IS_ERR(ctrl_bar)) {
+-		dev_err(&pf->pdev->dev, "Failed to map PF BAR0: %ld\n",
+-			PTR_ERR(ctrl_bar));
+-		return NULL;
++	mem = nfp_net_map_area(pf->cpp, name, sym->domain, sym->target,
++			       sym->addr, sym->size, area);
++	if (IS_ERR(mem)) {
++		nfp_err(pf->cpp, "Failed to map PF symbol %s: %ld\n",
++			pf_symbol, PTR_ERR(mem));
++		return mem;
+ 	}
+ 
+-	return ctrl_bar;
++	return mem;
+ }
+ 
+ static void nfp_net_pf_free_vnic(struct nfp_pf *pf, struct nfp_net *nn)
+@@ -662,10 +659,10 @@ int nfp_net_refresh_eth_port(struct nfp_port *port)
+  */
+ int nfp_net_pci_probe(struct nfp_pf *pf)
  {
- 	struct nfp_net *nn;
- 	unsigned int i;
-@@ -359,7 +357,7 @@ nfp_net_pf_alloc_vnics(struct nfp_pf *pf, void __iomem *ctrl_bar,
- 
- 	for (i = 0; i < pf->max_data_vnics; i++) {
- 		nn = nfp_net_pf_alloc_vnic(pf, true, ctrl_bar, qc_bar,
--					   stride, fw_ver, i);
-+					   stride, i);
- 		if (IS_ERR(nn)) {
- 			err = PTR_ERR(nn);
- 			goto err_free_prev;
-@@ -395,15 +393,14 @@ static void nfp_net_pf_clean_vnic(struct nfp_pf *pf, struct nfp_net *nn)
- 
- static int
- nfp_net_pf_spawn_vnics(struct nfp_pf *pf,
--		       void __iomem *ctrl_bar, void __iomem *qc_bar, int stride,
--		       struct nfp_net_fw_version *fw_ver)
-+		       void __iomem *ctrl_bar, void __iomem *qc_bar, int stride)
- {
- 	unsigned int id, wanted_irqs, num_irqs, vnics_left, irqs_left;
- 	struct nfp_net *nn;
++	u32 ctrl_bar_sz, tx_area_sz, rx_area_sz;
+ 	u8 __iomem *ctrl_bar, *tx_bar, *rx_bar;
+ 	u32 total_tx_qcs, total_rx_qcs;
+ 	struct nfp_net_fw_version fw_ver;
+-	u32 tx_area_sz, rx_area_sz;
+ 	u32 start_q;
+ 	int stride;
  	int err;
+@@ -685,9 +682,13 @@ int nfp_net_pci_probe(struct nfp_pf *pf)
+ 		goto err_unlock;
+ 	}
  
- 	/* Allocate the vnics and do basic init */
--	err = nfp_net_pf_alloc_vnics(pf, ctrl_bar, qc_bar, stride, fw_ver);
-+	err = nfp_net_pf_alloc_vnics(pf, ctrl_bar, qc_bar, stride);
- 	if (err)
- 		return err;
- 
-@@ -694,7 +691,7 @@ int nfp_net_pci_probe(struct nfp_pf *pf)
- 
- 	pf->ddir = nfp_net_debugfs_device_add(pf->pdev);
- 
--	err = nfp_net_pf_spawn_vnics(pf, ctrl_bar, qc_bar, stride, &fw_ver);
-+	err = nfp_net_pf_spawn_vnics(pf, ctrl_bar, qc_bar, stride);
- 	if (err)
- 		goto err_clean_ddir;
+-	ctrl_bar = nfp_net_pf_map_ctrl_bar(pf);
+-	if (!ctrl_bar) {
+-		err = pf->fw_loaded ? -EINVAL : -EPROBE_DEFER;
++	ctrl_bar_sz = pf->max_data_vnics * NFP_PF_CSR_SLICE_SIZE;
++	ctrl_bar = nfp_net_pf_map_rtsym(pf, "net.ctrl", "_pf%d_net_bar0",
++					ctrl_bar_sz, &pf->data_vnic_bar);
++	if (IS_ERR(ctrl_bar)) {
++		err = PTR_ERR(ctrl_bar);
++		if (!pf->fw_loaded && err == -ENOENT)
++			err = -EPROBE_DEFER;
+ 		goto err_unlock;
+ 	}
  
 -- 
 2.11.0
