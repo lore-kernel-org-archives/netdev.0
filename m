@@ -1,98 +1,45 @@
-From: ashwanth@codeaurora.org
-Subject: [PATCH net] net: rps: send out pending IPI's on CPU hotplug
-Date: Tue, 06 Jun 2017 20:47:36 +0530
-Message-ID: <913335638b07570e5189713e1db9cbe6@codeaurora.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] sit: reload iphdr in ipip6_rcv
+Date: Tue, 06 Jun 2017 11:35:13 -0400 (EDT)
+Message-ID: <20170606.113513.1622122258709494887.davem@davemloft.net>
+References: <1496558623-11437-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
+        <1496667813.5031.20.camel@edumazet-glaptop3.roam.corp.google.com>
+        <C9A276FB-FF6E-439A-AFE4-F8A5551DDA30@cmss.chinamobile.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII;
- format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:34870 "EHLO
-        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751577AbdFFPRh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 6 Jun 2017 11:17:37 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: eric.dumazet@gmail.com, jesse@kernel.org, kuznet@ms2.inr.ac.ru,
+        jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: yanhaishuang@cmss.chinamobile.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <C9A276FB-FF6E-439A-AFE4-F8A5551DDA30@cmss.chinamobile.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-IPI's from the victim cpu are not handled in dev_cpu_callback.
-So these pending IPI's would be sent to the remote cpu only when
-NET_RX is scheduled on the victim cpu and since this trigger is
-unpredictable it would result in packet latencies on the remote cpu.
-
-This patch adds support to send the pending ipi's of victim cpu.
-
-Signed-off-by: Ashwanth Goli <ashwanth@codeaurora.org>
----
-  net/core/dev.c | 31 ++++++++++++++++++++++---------
-  1 file changed, 22 insertions(+), 9 deletions(-)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index fca407b..e6bfa54 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4948,6 +4948,19 @@ __sum16 __skb_gro_checksum_complete(struct 
-sk_buff *skb)
-  }
-  EXPORT_SYMBOL(__skb_gro_checksum_complete);
-
-+static void net_rps_send_ipi(struct softnet_data *remsd)
-+{
-+#ifdef CONFIG_RPS
-+	while (remsd) {
-+		struct softnet_data *next = remsd->rps_ipi_next;
-+
-+		if (cpu_online(remsd->cpu))
-+			smp_call_function_single_async(remsd->cpu, &remsd->csd);
-+		remsd = next;
-+	}
-+#endif
-+}
-+
-  /*
-   * net_rps_action_and_irq_enable sends any pending IPI's for rps.
-   * Note: called with local irq disabled, but exits with local irq 
-enabled.
-@@ -4963,14 +4976,7 @@ static void net_rps_action_and_irq_enable(struct 
-softnet_data *sd)
-  		local_irq_enable();
-
-  		/* Send pending IPI's to kick RPS processing on remote cpus. */
--		while (remsd) {
--			struct softnet_data *next = remsd->rps_ipi_next;
--
--			if (cpu_online(remsd->cpu))
--				smp_call_function_single_async(remsd->cpu,
--							   &remsd->csd);
--			remsd = next;
--		}
-+		net_rps_send_ipi(remsd);
-  	} else
-  #endif
-  		local_irq_enable();
-@@ -8192,7 +8198,7 @@ static int dev_cpu_dead(unsigned int oldcpu)
-  	struct sk_buff **list_skb;
-  	struct sk_buff *skb;
-  	unsigned int cpu;
--	struct softnet_data *sd, *oldsd;
-+	struct softnet_data *sd, *oldsd, *remsd;
-
-  	local_irq_disable();
-  	cpu = smp_processor_id();
-@@ -8233,6 +8239,13 @@ static int dev_cpu_dead(unsigned int oldcpu)
-  	raise_softirq_irqoff(NET_TX_SOFTIRQ);
-  	local_irq_enable();
-
-+#ifdef CONFIG_RPS
-+	remsd = oldsd->rps_ipi_list;
-+	oldsd->rps_ipi_list = NULL;
-+#endif
-+	/* send out pending IPI's on offline CPU */
-+	net_rps_send_ipi(remsd);
-+
-  	/* Process offline CPU's input_pkt_queue */
-  	while ((skb = __skb_dequeue(&oldsd->process_queue))) {
-  		netif_rx_ni(skb);
--- 
-1.9.1
+RnJvbTog5Lil5rW35Y+MIDx5YW5oYWlzaHVhbmdAY21zcy5jaGluYW1vYmlsZS5jb20+DQpEYXRl
+OiBUdWUsIDYgSnVuIDIwMTcgMTA6MDk6NDUgKzA4MDANCg0KPiANCj4+IE9uIDUgSnVuIDIwMTcs
+IGF0IDk6MDMgUE0sIEVyaWMgRHVtYXpldCA8ZXJpYy5kdW1hemV0QGdtYWlsLmNvbT4gd3JvdGU6
+DQo+PiANCj4+IE9uIFN1biwgMjAxNy0wNi0wNCBhdCAxNDo0MyArMDgwMCwgSGFpc2h1YW5nIFlh
+biB3cm90ZToNCj4+PiBTaW5jZSBpcHR1bm5lbF9wdWxsX2hlYWRlcigpIGNhbiBjYWxsIHBza2Jf
+bWF5X3B1bGwoKSwNCj4+PiB3ZSBtdXN0IHJlbG9hZCBhbnkgcG9pbnRlciB0aGF0IHdhcyByZWxh
+dGVkIHRvIHNrYi0+aGVhZC4NCj4+PiANCj4+PiBGaXhlczogYTA5YTRjOGRkMWVjICgidHVubmVs
+czogUmVtb3ZlIGVuY2Fwc3VsYXRpb24gb2ZmbG9hZHMgb24gZGVjYXAiKQ0KPj4+IFNpZ25lZC1v
+ZmYtYnk6IEhhaXNodWFuZyBZYW4gPHlhbmhhaXNodWFuZ0BjbXNzLmNoaW5hbW9iaWxlLmNvbT4N
+Cj4+PiAtLS0NCj4+PiBuZXQvaXB2Ni9zaXQuYyB8IDEgKw0KPj4+IDEgZmlsZSBjaGFuZ2VkLCAx
+IGluc2VydGlvbigrKQ0KPj4+IA0KPj4+IGRpZmYgLS1naXQgYS9uZXQvaXB2Ni9zaXQuYyBiL25l
+dC9pcHY2L3NpdC5jDQo+Pj4gaW5kZXggNjFlNTkwMi4uYWY4MzJlNyAxMDA2NDQNCj4+PiAtLS0g
+YS9uZXQvaXB2Ni9zaXQuYw0KPj4+ICsrKyBiL25ldC9pcHY2L3NpdC5jDQo+Pj4gQEAgLTY1Nyw2
+ICs2NTcsNyBAQCBzdGF0aWMgaW50IGlwaXA2X3JjdihzdHJ1Y3Qgc2tfYnVmZiAqc2tiKQ0KPj4+
+IAkJaWYgKGlwdHVubmVsX3B1bGxfaGVhZGVyKHNrYiwgMCwgaHRvbnMoRVRIX1BfSVBWNiksDQo+
+Pj4gCQkgICAgIW5ldF9lcSh0dW5uZWwtPm5ldCwgZGV2X25ldCh0dW5uZWwtPmRldikpKSkNCj4+
+PiAJCQlnb3RvIG91dDsNCj4+PiArCQlpcGggPSBpcF9oZHIoc2tiKTsNCj4+PiANCj4+PiAJCWVy
+ciA9IElQX0VDTl9kZWNhcHN1bGF0ZShpcGgsIHNrYik7DQo+Pj4gCQlpZiAodW5saWtlbHkoZXJy
+KSkgew0KPj4gDQo+PiBUaGlzIHNlZW1zIHVubmVjZXNzYXJ5Lg0KPj4gDQo+PiBCeSB0aGUgdGlt
+ZSBpcGlwNl9yY3YoKSBpcyBjYWxsZWQsIHdlIGFscmVhZHkgaGF2ZSB0aGUgZ3VhcmFudGVlIHRo
+ZQ0KPj4gSVB2NCBoZWFkZXIgaXMgaW4gc2tiIGxpbmVhciBwYXJ0Lg0KPj4gDQo+PiBPdGhlcndp
+c2Ugd2UgY291bGQgbm90IHVzZSBpcGgtPnNhZGRyIGFuZCBpcGgtPmRhZGRyIGluIHRoZSBjYWxs
+IHRvDQo+PiBpcGlwNl90dW5uZWxfbG9va3VwKCkNCj4+IA0KPj4gVGhlcmVmb3JlLCB0aGUgcHNr
+Yl9tYXlfcHVsbCgpIGlzIGEgbm9wIGluIHRoaXMgcGFydGljdWxhciBjYXNlLg0KPiANCj4gWWVz
+LCBpdOKAmXMgcmlnaHQuIFRoYW5rcyENCg0KT2ssIEkgcmV2ZXJ0ZWQsIHRoYW5rcyBldmVyeW9u
+ZS4NCg==
