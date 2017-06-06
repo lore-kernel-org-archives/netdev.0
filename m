@@ -1,41 +1,99 @@
-From: Ganesh Goudar <ganeshgr@chelsio.com>
-Subject: Re: [PATCH] cxgb4: implement ndo_set_vf_rate()
-Date: Tue, 6 Jun 2017 12:13:03 +0530
-Message-ID: <20170606064301.GA12125@chelsio.com>
-References: <1496667860-11703-1-git-send-email-ganeshgr@chelsio.com>
- <BLUPR0701MB2004623B3F087A8213B2AEBF8DCA0@BLUPR0701MB2004.namprd07.prod.outlook.com>
+From: Ilan Tayari <ilant-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Subject: RE: [for-next 4/6] net/mlx5: FPGA, Add basic support for Innova
+Date: Tue, 6 Jun 2017 06:52:15 +0000
+Message-ID: <AM4PR0501MB194008AAABEB6AAAA2ADFC82DBCB0@AM4PR0501MB1940.eurprd05.prod.outlook.com>
+References: <20170526175624.5xxflpf24je5673h@ast-mbp>
+ <20170526181517.GA3860@obsidianresearch.com>
+ <AM4PR0501MB1940330F0EBAA819C87C5278DBF20@AM4PR0501MB1940.eurprd05.prod.outlook.com>
+ <20170529153131.GB7924@obsidianresearch.com>
+ <AM4PR0501MB1940D05A19F098286B99EAD0DBF30@AM4PR0501MB1940.eurprd05.prod.outlook.com>
+ <20170529160252.GA27550@obsidianresearch.com>
+ <AM4PR0501MB194037FF8F17466BC9ECC73DDBF30@AM4PR0501MB1940.eurprd05.prod.outlook.com>
+ <AM4PR0501MB19409139227E11A4A7F82F0FDBF30@AM4PR0501MB1940.eurprd05.prod.outlook.com>
+ <20170601153704.GA1680@obsidianresearch.com>
+ <AM4PR0501MB19404B83A69B87AFB1326B45DBF50@AM4PR0501MB1940.eurprd05.prod.outlook.com>
+ <20170605151724.GA20182@obsidianresearch.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "nirranjan@chelsio.com" <nirranjan@chelsio.com>,
-        "kumaras@chelsio.com" <kumaras@chelsio.com>
-To: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.32.117.8]:14891 "EHLO
-        stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750817AbdFFGnH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 6 Jun 2017 02:43:07 -0400
-Content-Disposition: inline
-In-Reply-To: <BLUPR0701MB2004623B3F087A8213B2AEBF8DCA0@BLUPR0701MB2004.namprd07.prod.outlook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Saeed Mahameed <saeedm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>,
+        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        "Doug Ledford" <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "jsorensen-b10kYP2dOMg@public.gmane.org" <jsorensen-b10kYP2dOMg@public.gmane.org>,
+        "Andy Shevchenko" <andy.shevchenko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        "linux-fpga-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-fpga-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Alan Tull <atull-yzvPICuk2ABMcg4IHK0kFoH6Mc4MB0Vx@public.gmane.org>,
+        "yi1.li-VuQAYsv1563Yd54FQh9/CA@public.gmane.org" <yi1.li-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+        Boris Pismenny <borisp-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+To: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170605151724.GA20182-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Content-Language: en-US
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Monday, June 06/05/17, 2017 at 14:03:14 +0000, Mintz, Yuval wrote:
-> > +	pktsize = be16_to_cpu(port_rpl.u.info.mtu);
-> > +	/* subtract ethhdr size and 4 bytes crc since, f/w appends it */
-> > +	pktsize = pktsize - sizeof(struct ethhdr) - 4;
-> > +	/* subtract ipv4 hdr size, tcp hdr size to get typical IPv4 MSS size */
-> > +	pktsize = pktsize - sizeof(struct iphdr) - sizeof(struct tcphdr);
-> > +	/* configure Traffic Class for rate-limiting */
-> > +	ret = t4_sched_params(adap, SCHED_CLASS_TYPE_PACKET,
-> > +			      SCHED_CLASS_LEVEL_CL_RL,
-> > +			      SCHED_CLASS_MODE_CLASS,
-> > +			      SCHED_CLASS_RATEUNIT_BITS,
-> > +			      SCHED_CLASS_RATEMODE_ABS,
-> > +			      pi->port_id, class_id, 0,
-> > +			      max_tx_rate * 1000, 0, pktsize);
-> 
-> Does it mean you're achieving throughput limitation by
-> limiting the PP/s?
-By bits/sec.
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBKYXNvbiBHdW50aG9ycGUgW21h
+aWx0bzpqZ3VudGhvcnBlQG9ic2lkaWFucmVzZWFyY2guY29tXQ0KPiBTdWJqZWN0OiBSZTogW2Zv
+ci1uZXh0IDQvNl0gbmV0L21seDU6IEZQR0EsIEFkZCBiYXNpYyBzdXBwb3J0IGZvciBJbm5vdmEN
+Cj4gDQo+IE9uIFN1biwgSnVuIDA0LCAyMDE3IGF0IDA3OjUxOjI0QU0gKzAwMDAsIElsYW4gVGF5
+YXJpIHdyb3RlOg0KPiA+ID4gRnJvbTogSmFzb24gR3VudGhvcnBlIFttYWlsdG86amd1bnRob3Jw
+ZUBvYnNpZGlhbnJlc2VhcmNoLmNvbV0NCj4gPiA+IFN1YmplY3Q6IFJlOiBbZm9yLW5leHQgNC82
+XSBuZXQvbWx4NTogRlBHQSwgQWRkIGJhc2ljIHN1cHBvcnQgZm9yDQo+IElubm92YQ0KPiA+ID4N
+Cj4gPiA+IE9uIE1vbiwgTWF5IDI5LCAyMDE3IGF0IDA0OjA5OjA2UE0gKzAwMDAsIElsYW4gVGF5
+YXJpIHdyb3RlOg0KPiA+ID4NCj4gPiA+ID4gPiBGb3IgSVBTZWMsIHRoaXMgaXMgYWxyZWFkeSBp
+biB0aGUga2VybmVsLg0KPiA+ID4gPiA+IFNlZSB0aGlzIHBhdGNoc2V0Og0KPiA+ID4gPiA+IGh0
+dHA6Ly93d3cubWFpbC1hcmNoaXZlLmNvbS9uZXRkZXZAdmdlci5rZXJuZWwub3JnL21zZzE2Mjg3
+Ni5odG1sDQo+ID4gPiA+DQo+ID4gPiA+IFNvcnJ5LCBJIHBvaW50ZWQgYXQgdGhlIFJGQyBieSBt
+aXN0YWtlLg0KPiA+ID4gPg0KPiA+ID4gPiBUaGlzIGlzIHRoZSByZWxldmFudCBwdWxsIHJlcXVl
+c3Q6DQo+ID4gPiA+IGh0dHBzOi8vcGF0Y2h3b3JrLm96bGFicy5vcmcvcGF0Y2gvNzUyNzA3Lw0K
+PiA+ID4NCj4gPiA+IFRoaXMgaXMgY29ubmVjdGluZyBpcHNlYyB0byBhIG5ldGRldiwgd2hpbGUg
+SW5ub3ZhIHNlZW1zIHRvIGJlIGENCj4gPg0KPiA+IEphc29uLA0KPiA+DQo+ID4gIm5ldHdvcmsg
+Y29ubmVjdGVkIGlwc2VjIGFjY2VsZXJhdG9yIGNvbmZpZ3VyZWQgdXNpbmcgSVAgcGFja2V0cy4i
+DQo+ID4gTm8uIFRoaXMgaXMgaW5jb3JyZWN0Lg0KPiA+IFdoZXJlIGRpZCB5b3UgZ2V0IHRoYXQg
+ZnJvbT8NCj4gDQo+IFRoYXQgaXMgd2hhdCB5b3UgZGVzY3JpYmVkIHRvIG1lIC0geW91IHNhaWQg
+dGhlIG9ubHkgd2F5IHRvIGNvbmZpZ3VyZQ0KPiB0aGUgRlBHQSB3YXMgdmlhIElQIHBhY2tldHMg
+aW4tYmFuZC4gSXQgaXMgbm90IHBhcnQgb2YgdGhlIE5JQyBhbmQgdGhlDQo+IE5JQyBvbmx5IGxv
+YWRzIHRoZSBGUEdBIGJpdHN0cmVhbS4NCj4gDQo+IE1heWJlIHlvdSBzaG91bGQgZXhwbGFpbiBt
+b3JlIGhvdyB0aGlzIHdvcmtzPw0KDQpJIHRoaW5rIHRoaXMgaXMganVzdCBhIG1pc3VuZGVyc3Rh
+bmRpbmcuDQpUaGUgRlBHQSBpcyBwYXJ0IG9mIHRoaXMgTklDLCBub3Qgc29tZXRoaW5nIGV4dGVy
+bmFsLg0KDQpUaGUgZmFjdCB0aGF0IHdlIGNvbmZpZ3VyZSB0aGUgRlBHQSB1c2luZyBzcGVjaWFs
+IGluYmFuZCBwYWNrZXRzIGlzbid0DQpjaGFuZ2luZyBhbnl0aGluZy4gSU1PLCBpdCBtaWdodCBo
+YXZlIGJlZW4gYW55IG90aGVyIGJ1cyBvbiB0aGUgY2FyZCwNCnN0YW5kYXJkIG9yIHByb3ByaWV0
+YXJ5LCBhbmQgdGhlIGFyZ3VtZW50cyBmb3IgaG93IHRvIGRlc2lnbiB0aGUgZHJpdmVyDQp3b3Vs
+ZCBzdGF5IHRoZSBzYW1lLg0KDQpOb3RlIHRoYXQgdGhlc2UgcGFja2V0cyBhcmUgbm90IGdlbmVy
+YXRlZCBhcyBJUCBwYWNrZXRzIGF0IHRoZSBob3N0Lg0KVGhleSBhcmUgUm9DRSBwYWNrZXRzLiBU
+aGUgY29tbWFuZCBwYXlsb2FkIGlzIGdlbmVyYXRlZCBieSB0aGUgZHJpdmVyLA0KdGhlbiB0aGUg
+UVAgYW5kIFJvQ0UgaGVhZGVycyBhcmUgZ2VuZXJhdGVzIGJ5IHRoZSBDb25uZWN0WCBBU0lDLiBU
+aGUgcGFja2V0DQppcyB0aGVuIGNvbnN1bWVkIGJ5IHRoZSBGUEdBLg0KT24gdGhlIHdheSBiYWNr
+LCB0aGUgcmVzcG9uc2UgaXMgZ2VuZXJhdGVkIGJ5IHRoZSBGUEdBLCBhbmQgY29uc3VtZWQgYnkN
+CnRoZSBDb25uZWN0WCBBU0lDLCB3aXRoIHRoZSByZXNwb25zZSBwYXlsb2FkIGRlbGl2ZXJlZCB0
+byB0aGUgUVAgaW4gdGhlDQpkcml2ZXIuDQoNClNvIG5laXRoZXIgdGhlIGhvc3Qgc3RhY2sgbm9y
+IHRoZSBuZXR3b3JrIGFyZSBhd2FyZSBvZiB0aGVtLg0KVGhleSBleGlzdCBtb21lbnRhcmlseSBv
+bmx5IG9uIHRoZSBpbnRlcm5hbCB0cmFjZXMgb24gdGhlIGJvYXJkIGFuZCBub3QNCmFueXdoZXJl
+IGVsc2UuDQoNCj4gDQo+ID4gU28geW91IGNvbmZpZ3VyZSBpdCBmcm9tIHVzZXJzcGFjZSB3aXRo
+IHJlZ3VsYXIgSVBTZWMgJ2lwIHhmcm0NCj4gPiBzdGF0ZScgY29tbWFuZHMgb3Igb3ZlciBuZXRs
+aW5rIHdpdGggeW91ciBmYXZvcml0ZSBJS0UgZGFlbW9uLg0KPiANCj4gQnV0IHlvdSBkb24ndCBn
+aXZlIGFuIGlwIHhmcm0gY29uZmlndXJhdGlvbiB0byB0aGUgTklDIHdoZW4geW91IHN1Ym1pdA0K
+PiB0aGUgd29yayByZXF1ZXN0PyBCeSB5b3VyIGRlc2NyaXB0aW9uIGl0IHNvdW5kZWQgbGlrZWQg
+dGhlIEZQR0ENCj4gcGF0dGVybiBtYXRjaGVzIHBhY2tldHMgZnJvbSB0aGUgTklDIHNpZGUgdG8g
+YXBwbHkgdGhlIHhmcm0uDQo+IA0KPiBKYXNvbg0KDQpJIGRpZG4ndCB3YW50IHRvIGRpZyBpbnRv
+IHRoaXMsIGJlY2F1c2UgaXQncyBub3Qgc3VibWl0dGVkIHlldC4NCg0KQnV0IGhlcmUncyBhbiBl
+eGFtcGxlIGNvbmZpZ3VyYXRpb24gZmxvdyBmb3IgY3JlYXRpbmcgYW4gSVBTZWMgU0E6DQoNCiog
+VXNlciBnaXZlcyAnaXAgeGZybSBzdGF0ZSBhZGQnIGNvbW1hbmQgaW4gc2hlbGwsIHdpdGggJ29m
+ZmxvYWQnIGFyZ3VtZW50DQoqIGlwcm91dGUyIHNlbmRzIFhGUk1fTVNHX05FV1NBIG5ldGxpbmsg
+bWVzc2FnZSB3aXRoIFhGUk1BX09GRkxPQURfREVWIGF0dHJpYnV0ZQ0KKiBYZnJtIHN0YWNrIGdl
+bmVyYXRlcyBhIG5ldyB4ZnJtX3N0YXRlIG9iamVjdCBhbmQgY2FsbHMgdGhlIG5ldGRldmljZSdz
+IHhkb19kZXZfc3RhdGVfYWRkIGNhbGxiYWNrDQoqIG1seDVlIGRyaXZlciBmb3JtYXRzIEhXLXNw
+ZWNpZmljIEFERF9TQSBjb21tYW5kIHBhY2tldCBhbmQgc2VuZHMgaXQgb3ZlciBSb0NFIFFQIHRv
+IEZQR0ENCiogRlBHQSBhZGRzIHRoZSBTQSB0byBpdHMgb2ZmbG9hZGVkIFNBREIsIGFuZCBzZW5k
+cyBhIHJlc3BvbnNlIHBhY2tldCBmb3IgJ3N1Y2Nlc3MnDQoNClRoYXQncyBwcmV0dHkgbXVjaCBp
+dC4NCkRvZXMgdGhpcyBoZWxwIHRvIHVuZGVyc3RhbmQgd2hhdCBnb2VzIG9uPw0KDQpJIGRvbid0
+IG1pbmQgZXhwbGFpbmluZyBmdXJ0aGVyLCBidXQgSSB0aGluayB5b3Ugd2lsbCBqdXN0IHNlZSBp
+dCBpbiB0aGUNCnBhdGNoc2V0IHdoZW4gd2Ugc3VibWl0Lg0KDQpJbGFuLg0K
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
