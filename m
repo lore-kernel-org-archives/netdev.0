@@ -1,36 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: bridge: fix a null pointer dereference in
- br_afspec
-Date: Tue, 06 Jun 2017 16:06:01 -0400 (EDT)
-Message-ID: <20170606.160601.292169589611249662.davem@davemloft.net>
-References: <840022de-3d31-4f62-aaaf-ba83d5c78ad7@cumulusnetworks.com>
-        <1496701584-26855-1-git-send-email-nikolay@cumulusnetworks.com>
+Subject: Re: [PATCH 1/2] hsr: fix coding style issues
+Date: Tue, 06 Jun 2017 16:09:37 -0400 (EDT)
+Message-ID: <20170606.160937.2113672006487973562.davem@davemloft.net>
+References: <1496701907-29376-1-git-send-email-m-karicheri2@ti.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
-        stephen@networkplumber.org, garsilva@embeddedor.com,
-        bridge@lists.linux-foundation.org
-To: nikolay@cumulusnetworks.com
+Cc: arvid.brodin@alten.se, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: m-karicheri2@ti.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:38180 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:38320 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751239AbdFFUGC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 6 Jun 2017 16:06:02 -0400
-In-Reply-To: <1496701584-26855-1-git-send-email-nikolay@cumulusnetworks.com>
+        with ESMTP id S1751445AbdFFUJj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 6 Jun 2017 16:09:39 -0400
+In-Reply-To: <1496701907-29376-1-git-send-email-m-karicheri2@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Date: Tue,  6 Jun 2017 01:26:24 +0300
 
-> We might call br_afspec() with p == NULL which is a valid use case if
-> the action is on the bridge device itself, but the bridge tunnel code
-> dereferences the p pointer without checking, so check if p is null
-> first.
-> 
-> Reported-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
-> Fixes: efa5356b0d97 ("bridge: per vlan dst_metadata netlink support")
-> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Please do not mix cleanups with legitimate bug fixes.  Also, when posting
+a multi-patch series, you must always provide an appropriate "[PATCH 0/N]"
+header posting that describes what you series is doing at a high level,
+how it is doing it, and why it is doing it that way.
 
-Applied and queued up for -stable, thanks Nikolay.
+For this, submit the erroneous warning removal against 'net' as a single
+patch.  And then once that propagates into the 'net-next' tree you can
+submit the coding style cleanups against 'net-next', thanks.
