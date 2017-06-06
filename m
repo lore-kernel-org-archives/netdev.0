@@ -1,57 +1,32 @@
-From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
-Subject: Re: [for-next 4/6] net/mlx5: FPGA, Add basic support for Innova
-Date: Tue, 6 Jun 2017 10:17:09 -0600
-Message-ID: <20170606161709.GA8671@obsidianresearch.com>
-References: <AM4PR0501MB1940330F0EBAA819C87C5278DBF20@AM4PR0501MB1940.eurprd05.prod.outlook.com>
- <20170529153131.GB7924@obsidianresearch.com>
- <AM4PR0501MB1940D05A19F098286B99EAD0DBF30@AM4PR0501MB1940.eurprd05.prod.outlook.com>
- <20170529160252.GA27550@obsidianresearch.com>
- <AM4PR0501MB194037FF8F17466BC9ECC73DDBF30@AM4PR0501MB1940.eurprd05.prod.outlook.com>
- <AM4PR0501MB19409139227E11A4A7F82F0FDBF30@AM4PR0501MB1940.eurprd05.prod.outlook.com>
- <20170601153704.GA1680@obsidianresearch.com>
- <AM4PR0501MB19404B83A69B87AFB1326B45DBF50@AM4PR0501MB1940.eurprd05.prod.outlook.com>
- <20170605151724.GA20182@obsidianresearch.com>
- <AM4PR0501MB194008AAABEB6AAAA2ADFC82DBCB0@AM4PR0501MB1940.eurprd05.prod.outlook.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH][net-next] net/mlxfw: remove redundant goto on error
+ check
+Date: Tue, 06 Jun 2017 12:22:50 -0400 (EDT)
+Message-ID: <20170606.122250.1431459979681086413.davem@davemloft.net>
+References: <20170606104740.15712-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Saeed Mahameed <saeedm@dev.mellanox.co.il>,
-        "David S. Miller" <davem@davemloft.net>,
-        Doug Ledford <dledford@redhat.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
-        "jsorensen@fb.com" <jsorensen@fb.com>,
-        Andy Shevchenko <andy.shevchenko@gmail.com>,
-        "linux-fpga@vger.kernel.org" <linux-fpga@vger.kernel.org>,
-        Alan Tull <atull@opensource.altera.com>,
-        "yi1.li@linux.intel.com" <yi1.li@linux.intel.com>,
-        Boris Pismenny <borisp@mellanox.com>
-To: Ilan Tayari <ilant@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from quartz.orcorp.ca ([184.70.90.242]:51787 "EHLO quartz.orcorp.ca"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751460AbdFFQR0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 6 Jun 2017 12:17:26 -0400
-Content-Disposition: inline
-In-Reply-To: <AM4PR0501MB194008AAABEB6AAAA2ADFC82DBCB0@AM4PR0501MB1940.eurprd05.prod.outlook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: yotamg@mellanox.com, netdev@vger.kernel.org,
+        kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
+To: colin.king@canonical.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170606104740.15712-1-colin.king@canonical.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jun 06, 2017 at 06:52:15AM +0000, Ilan Tayari wrote:
+From: Colin King <colin.king@canonical.com>
+Date: Tue,  6 Jun 2017 11:47:40 +0100
 
-> So neither the host stack nor the network are aware of them.
-> They exist momentarily only on the internal traces on the board and not
-> anywhere else.
+> From: Colin Ian King <colin.king@canonical.com>
+> 
+> The check to see of err is set and the subsequent goto is extraneous
+> as the next statement is where the goto is jumping to. Remove this
+> redundant check and goto.
+> 
+> Detected by CoverityScan, CID#1437734 ("Identical code for
+> different branches")
+> 
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
 
-Is that really true? If you are creating rocee QPs' then the RDMA
-stack sees this stuff and now we have buried a RDMA ULP inside an
-ethernet driver which seems really wonky..
-
-> I don't mind explaining further, but I think you will just see it in the
-> patchset when we submit.
-
-You described exactly what I thought.. I just disagree with you that
-an ethernet connected and controlled IP accelerator is 'part of the
-NIC', even if it happens to be colocated on the same circuit board.
-
-Jason
+Applied, thanks.
