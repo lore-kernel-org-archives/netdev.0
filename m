@@ -1,8 +1,7 @@
 From: David Howells <dhowells@redhat.com>
-Subject: [PATCH net-next 1/4] rxrpc: Separate the connection's protocol
- service ID from the lookup ID
-Date: Tue, 06 Jun 2017 10:54:28 +0100
-Message-ID: <149674286816.26138.14078585419110118952.stgit@warthog.procyon.org.uk>
+Subject: [PATCH net-next 2/4] rxrpc: Permit multiple service binding
+Date: Tue, 06 Jun 2017 10:54:35 +0100
+Message-ID: <149674287506.26138.3263649174705312167.stgit@warthog.procyon.org.uk>
 References: <149674286135.26138.12623162384868251541.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -15,224 +14,191 @@ In-Reply-To: <149674286135.26138.12623162384868251541.stgit@warthog.procyon.org.
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Keep the rxrpc_connection struct's idea of the service ID that is exposed
-in the protocol separate from the service ID that's used as a lookup key.
+Permit bind() to be called on an AF_RXRPC socket more than once (currently
+maximum twice) to bind multiple listening services to it.  There are some
+restrictions:
 
-This allows the protocol service ID on a client connection to get upgraded
-without making the connection unfindable for other client calls that also
-would like to use the upgraded connection.
+ (1) All bind() calls involved must have a non-zero service ID.
 
-The connection's actual service ID is then returned through recvmsg() by
-way of msg_name.
+ (2) The service IDs must all be different.
 
-Whilst we're at it, we get rid of the last_service_id field from each
-channel.  The service ID is per-connection, not per-call and an entire
-connection is upgraded in one go.
+ (3) The rest of the address (notably the transport part) must be the same
+     in all (a single UDP socket is shared).
+
+ (4) This must be done before listen() or sendmsg() is called.
+
+This allows someone to connect to the service socket with different service
+IDs and lays the foundation for service upgrading.
+
+The service ID used by an incoming call can be extracted from the msg_name
+returned by recvmsg().
 
 Signed-off-by: David Howells <dhowells@redhat.com>
 ---
 
- net/rxrpc/af_rxrpc.c     |    5 ++---
- net/rxrpc/ar-internal.h  |    2 +-
- net/rxrpc/conn_client.c  |    4 ++++
- net/rxrpc/conn_event.c   |    4 ++--
- net/rxrpc/conn_object.c  |    1 -
- net/rxrpc/conn_service.c |    1 +
- net/rxrpc/proc.c         |    2 +-
- net/rxrpc/recvmsg.c      |    7 +++++--
- net/rxrpc/rxkad.c        |    2 +-
- net/rxrpc/security.c     |    4 ++--
- 10 files changed, 19 insertions(+), 13 deletions(-)
+ Documentation/networking/rxrpc.txt |    4 ++
+ net/rxrpc/af_rxrpc.c               |   62 +++++++++++++++++++++++-------------
+ net/rxrpc/ar-internal.h            |    2 +
+ net/rxrpc/call_accept.c            |    3 +-
+ net/rxrpc/local_object.c           |    1 +
+ net/rxrpc/security.c               |    3 +-
+ 6 files changed, 51 insertions(+), 24 deletions(-)
 
+diff --git a/Documentation/networking/rxrpc.txt b/Documentation/networking/rxrpc.txt
+index 1b63bbc6b94f..b7115ec55e04 100644
+--- a/Documentation/networking/rxrpc.txt
++++ b/Documentation/networking/rxrpc.txt
+@@ -600,6 +600,10 @@ A server would be set up to accept operations in the following manner:
+ 	};
+ 	bind(server, &srx, sizeof(srx));
+ 
++     More than one service ID may be bound to a socket, provided the transport
++     parameters are the same.  The limit is currently two.  To do this, bind()
++     should be called twice.
++
+  (3) The server is then set to listen out for incoming calls:
+ 
+ 	listen(server, 100);
 diff --git a/net/rxrpc/af_rxrpc.c b/net/rxrpc/af_rxrpc.c
-index cd34ffbff1d1..1e4ac889ec00 100644
+index 1e4ac889ec00..3b982bca7d22 100644
 --- a/net/rxrpc/af_rxrpc.c
 +++ b/net/rxrpc/af_rxrpc.c
-@@ -131,9 +131,8 @@ static int rxrpc_validate_address(struct rxrpc_sock *rx,
- static int rxrpc_bind(struct socket *sock, struct sockaddr *saddr, int len)
- {
- 	struct sockaddr_rxrpc *srx = (struct sockaddr_rxrpc *)saddr;
--	struct sock *sk = sock->sk;
- 	struct rxrpc_local *local;
--	struct rxrpc_sock *rx = rxrpc_sk(sk);
-+	struct rxrpc_sock *rx = rxrpc_sk(sock->sk);
- 	u16 service_id = srx->srx_service;
- 	int ret;
+@@ -144,31 +144,48 @@ static int rxrpc_bind(struct socket *sock, struct sockaddr *saddr, int len)
  
-@@ -152,7 +151,7 @@ static int rxrpc_bind(struct socket *sock, struct sockaddr *saddr, int len)
+ 	lock_sock(&rx->sk);
  
- 	memcpy(&rx->srx, srx, sizeof(rx->srx));
+-	if (rx->sk.sk_state != RXRPC_UNBOUND) {
+-		ret = -EINVAL;
+-		goto error_unlock;
+-	}
+-
+-	memcpy(&rx->srx, srx, sizeof(rx->srx));
++	switch (rx->sk.sk_state) {
++	case RXRPC_UNBOUND:
++		rx->srx = *srx;
++		local = rxrpc_lookup_local(sock_net(&rx->sk), &rx->srx);
++		if (IS_ERR(local)) {
++			ret = PTR_ERR(local);
++			goto error_unlock;
++		}
  
--	local = rxrpc_lookup_local(sock_net(sock->sk), &rx->srx);
-+	local = rxrpc_lookup_local(sock_net(&rx->sk), &rx->srx);
- 	if (IS_ERR(local)) {
- 		ret = PTR_ERR(local);
- 		goto error_unlock;
+-	local = rxrpc_lookup_local(sock_net(&rx->sk), &rx->srx);
+-	if (IS_ERR(local)) {
+-		ret = PTR_ERR(local);
+-		goto error_unlock;
+-	}
++		if (service_id) {
++			write_lock(&local->services_lock);
++			if (rcu_access_pointer(local->service))
++				goto service_in_use;
++			rx->local = local;
++			rcu_assign_pointer(local->service, rx);
++			write_unlock(&local->services_lock);
++
++			rx->sk.sk_state = RXRPC_SERVER_BOUND;
++		} else {
++			rx->local = local;
++			rx->sk.sk_state = RXRPC_CLIENT_BOUND;
++		}
++		break;
+ 
+-	if (service_id) {
+-		write_lock(&local->services_lock);
+-		if (rcu_access_pointer(local->service))
+-			goto service_in_use;
+-		rx->local = local;
+-		rcu_assign_pointer(local->service, rx);
+-		write_unlock(&local->services_lock);
++	case RXRPC_SERVER_BOUND:
++		ret = -EINVAL;
++		if (service_id == 0)
++			goto error_unlock;
++		ret = -EADDRINUSE;
++		if (service_id == rx->srx.srx_service)
++			goto error_unlock;
++		ret = -EINVAL;
++		srx->srx_service = rx->srx.srx_service;
++		if (memcmp(srx, &rx->srx, sizeof(*srx)) != 0)
++			goto error_unlock;
++		rx->second_service = service_id;
++		rx->sk.sk_state = RXRPC_SERVER_BOUND2;
++		break;
+ 
+-		rx->sk.sk_state = RXRPC_SERVER_BOUND;
+-	} else {
+-		rx->local = local;
+-		rx->sk.sk_state = RXRPC_CLIENT_BOUND;
++	default:
++		ret = -EINVAL;
++		goto error_unlock;
+ 	}
+ 
+ 	release_sock(&rx->sk);
+@@ -205,6 +222,7 @@ static int rxrpc_listen(struct socket *sock, int backlog)
+ 		ret = -EADDRNOTAVAIL;
+ 		break;
+ 	case RXRPC_SERVER_BOUND:
++	case RXRPC_SERVER_BOUND2:
+ 		ASSERT(rx->local != NULL);
+ 		max = READ_ONCE(rxrpc_max_backlog);
+ 		ret = -EINVAL;
 diff --git a/net/rxrpc/ar-internal.h b/net/rxrpc/ar-internal.h
-index 067dbb3121d0..de98a49adb35 100644
+index de98a49adb35..781fbc253b5a 100644
 --- a/net/rxrpc/ar-internal.h
 +++ b/net/rxrpc/ar-internal.h
-@@ -386,7 +386,6 @@ struct rxrpc_connection {
- 		u32			call_counter;	/* Call ID counter */
- 		u32			last_call;	/* ID of last call */
- 		u8			last_type;	/* Type of last packet */
--		u16			last_service_id;
- 		union {
- 			u32		last_seq;
- 			u32		last_abort;
-@@ -417,6 +416,7 @@ struct rxrpc_connection {
- 	atomic_t		serial;		/* packet serial number counter */
- 	unsigned int		hi_serial;	/* highest serial number received */
- 	u32			security_nonce;	/* response re-use preventer */
-+	u16			service_id;	/* Service ID, possibly upgraded */
- 	u8			size_align;	/* data size alignment (for security) */
- 	u8			security_size;	/* security header size */
- 	u8			security_ix;	/* security type */
-diff --git a/net/rxrpc/conn_client.c b/net/rxrpc/conn_client.c
-index c86f3202f967..3f358bf424ad 100644
---- a/net/rxrpc/conn_client.c
-+++ b/net/rxrpc/conn_client.c
-@@ -188,6 +188,7 @@ rxrpc_alloc_client_connection(struct rxrpc_conn_parameters *cp, gfp_t gfp)
- 	conn->params		= *cp;
- 	conn->out_clientflag	= RXRPC_CLIENT_INITIATED;
- 	conn->state		= RXRPC_CONN_CLIENT;
-+	conn->service_id	= cp->service_id;
+@@ -61,6 +61,7 @@ enum {
+ 	RXRPC_CLIENT_UNBOUND,		/* Unbound socket used as client */
+ 	RXRPC_CLIENT_BOUND,		/* client local address bound */
+ 	RXRPC_SERVER_BOUND,		/* server local address bound */
++	RXRPC_SERVER_BOUND2,		/* second server local address bound */
+ 	RXRPC_SERVER_LISTENING,		/* server listening for connections */
+ 	RXRPC_SERVER_LISTEN_DISABLED,	/* server listening disabled */
+ 	RXRPC_CLOSE,			/* socket is being closed */
+@@ -142,6 +143,7 @@ struct rxrpc_sock {
+ 	u32			min_sec_level;	/* minimum security level */
+ #define RXRPC_SECURITY_MAX	RXRPC_SECURITY_ENCRYPT
+ 	bool			exclusive;	/* Exclusive connection for a client socket */
++	u16			second_service;	/* Additional service bound to the endpoint */
+ 	sa_family_t		family;		/* Protocol family created with */
+ 	struct sockaddr_rxrpc	srx;		/* local address */
+ 	struct sockaddr_rxrpc	connect_srx;	/* Default client address from connect() */
+diff --git a/net/rxrpc/call_accept.c b/net/rxrpc/call_accept.c
+index a8515b0d4717..544df53ccf79 100644
+--- a/net/rxrpc/call_accept.c
++++ b/net/rxrpc/call_accept.c
+@@ -341,7 +341,8 @@ struct rxrpc_call *rxrpc_new_incoming_call(struct rxrpc_local *local,
  
- 	ret = rxrpc_get_client_connection_id(conn, gfp);
- 	if (ret < 0)
-@@ -343,6 +344,7 @@ static int rxrpc_get_client_conn(struct rxrpc_call *call,
- 	if (cp->exclusive) {
- 		call->conn = candidate;
- 		call->security_ix = candidate->security_ix;
-+		call->service_id = candidate->service_id;
- 		_leave(" = 0 [exclusive %d]", candidate->debug_id);
- 		return 0;
- 	}
-@@ -392,6 +394,7 @@ static int rxrpc_get_client_conn(struct rxrpc_call *call,
- 	set_bit(RXRPC_CONN_IN_CLIENT_CONNS, &candidate->flags);
- 	call->conn = candidate;
- 	call->security_ix = candidate->security_ix;
-+	call->service_id = candidate->service_id;
- 	spin_unlock(&local->client_conns_lock);
- 	_leave(" = 0 [new %d]", candidate->debug_id);
- 	return 0;
-@@ -413,6 +416,7 @@ static int rxrpc_get_client_conn(struct rxrpc_call *call,
- 	spin_lock(&conn->channel_lock);
- 	call->conn = conn;
- 	call->security_ix = conn->security_ix;
-+	call->service_id = conn->service_id;
- 	list_add(&call->chan_wait_link, &conn->waiting_calls);
- 	spin_unlock(&conn->channel_lock);
- 	_leave(" = 0 [extant %d]", conn->debug_id);
-diff --git a/net/rxrpc/conn_event.c b/net/rxrpc/conn_event.c
-index 46babcf82ce8..59a51a56e7c8 100644
---- a/net/rxrpc/conn_event.c
-+++ b/net/rxrpc/conn_event.c
-@@ -74,7 +74,7 @@ static void rxrpc_conn_retransmit_call(struct rxrpc_connection *conn,
- 	pkt.whdr.userStatus	= 0;
- 	pkt.whdr.securityIndex	= conn->security_ix;
- 	pkt.whdr._rsvd		= 0;
--	pkt.whdr.serviceId	= htons(chan->last_service_id);
-+	pkt.whdr.serviceId	= htons(conn->service_id);
+ 	/* Get the socket providing the service */
+ 	rx = rcu_dereference(local->service);
+-	if (rx && service_id == rx->srx.srx_service)
++	if (rx && (service_id == rx->srx.srx_service ||
++		   service_id == rx->second_service))
+ 		goto found_service;
  
- 	len = sizeof(pkt.whdr);
- 	switch (chan->last_type) {
-@@ -208,7 +208,7 @@ static int rxrpc_abort_connection(struct rxrpc_connection *conn,
- 	whdr.userStatus	= 0;
- 	whdr.securityIndex = conn->security_ix;
- 	whdr._rsvd	= 0;
--	whdr.serviceId	= htons(conn->params.service_id);
-+	whdr.serviceId	= htons(conn->service_id);
- 
- 	word		= htonl(conn->local_abort);
- 
-diff --git a/net/rxrpc/conn_object.c b/net/rxrpc/conn_object.c
-index ade4d3d0b2a7..5bb255107427 100644
---- a/net/rxrpc/conn_object.c
-+++ b/net/rxrpc/conn_object.c
-@@ -167,7 +167,6 @@ void __rxrpc_disconnect_call(struct rxrpc_connection *conn,
- 		 * through the channel, whilst disposing of the actual call record.
- 		 */
- 		trace_rxrpc_disconnect_call(call);
--		chan->last_service_id = call->service_id;
- 		if (call->abort_code) {
- 			chan->last_abort = call->abort_code;
- 			chan->last_type = RXRPC_PACKET_TYPE_ABORT;
-diff --git a/net/rxrpc/conn_service.c b/net/rxrpc/conn_service.c
-index edfc633f7d5e..c7f8682a55b2 100644
---- a/net/rxrpc/conn_service.c
-+++ b/net/rxrpc/conn_service.c
-@@ -160,6 +160,7 @@ void rxrpc_new_incoming_connection(struct rxrpc_connection *conn,
- 	conn->proto.epoch	= sp->hdr.epoch;
- 	conn->proto.cid		= sp->hdr.cid & RXRPC_CIDMASK;
- 	conn->params.service_id	= sp->hdr.serviceId;
-+	conn->service_id	= sp->hdr.serviceId;
- 	conn->security_ix	= sp->hdr.securityIndex;
- 	conn->out_clientflag	= 0;
- 	if (conn->security_ix)
-diff --git a/net/rxrpc/proc.c b/net/rxrpc/proc.c
-index e92d8405b15a..7421656963a9 100644
---- a/net/rxrpc/proc.c
-+++ b/net/rxrpc/proc.c
-@@ -190,7 +190,7 @@ static int rxrpc_connection_seq_show(struct seq_file *seq, void *v)
- 		   " %s %08x %08x %08x\n",
- 		   lbuff,
- 		   rbuff,
--		   conn->params.service_id,
-+		   conn->service_id,
- 		   conn->proto.cid,
- 		   rxrpc_conn_is_service(conn) ? "Svc" : "Clt",
- 		   atomic_read(&conn->usage),
-diff --git a/net/rxrpc/recvmsg.c b/net/rxrpc/recvmsg.c
-index f9caf3b77509..bdece21f313d 100644
---- a/net/rxrpc/recvmsg.c
-+++ b/net/rxrpc/recvmsg.c
-@@ -522,8 +522,11 @@ int rxrpc_recvmsg(struct socket *sock, struct msghdr *msg, size_t len,
+ 	trace_rxrpc_abort("INV", sp->hdr.cid, sp->hdr.callNumber, sp->hdr.seq,
+diff --git a/net/rxrpc/local_object.c b/net/rxrpc/local_object.c
+index 17d79fd73ade..38b99db30e54 100644
+--- a/net/rxrpc/local_object.c
++++ b/net/rxrpc/local_object.c
+@@ -94,6 +94,7 @@ static struct rxrpc_local *rxrpc_alloc_local(struct rxrpc_net *rxnet,
+ 		rwlock_init(&local->services_lock);
+ 		local->debug_id = atomic_inc_return(&rxrpc_debug_id);
+ 		memcpy(&local->srx, srx, sizeof(*srx));
++		local->srx.srx_service = 0;
  	}
  
- 	if (msg->msg_name) {
--		size_t len = sizeof(call->conn->params.peer->srx);
--		memcpy(msg->msg_name, &call->conn->params.peer->srx, len);
-+		struct sockaddr_rxrpc *srx = msg->msg_name;
-+		size_t len = sizeof(call->peer->srx);
-+
-+		memcpy(msg->msg_name, &call->peer->srx, len);
-+		srx->srx_service = call->service_id;
- 		msg->msg_namelen = len;
- 	}
- 
-diff --git a/net/rxrpc/rxkad.c b/net/rxrpc/rxkad.c
-index 29fe20ad04aa..46d1a1f0b55b 100644
---- a/net/rxrpc/rxkad.c
-+++ b/net/rxrpc/rxkad.c
-@@ -649,7 +649,7 @@ static int rxkad_issue_challenge(struct rxrpc_connection *conn)
- 	whdr.userStatus	= 0;
- 	whdr.securityIndex = conn->security_ix;
- 	whdr._rsvd	= 0;
--	whdr.serviceId	= htons(conn->params.service_id);
-+	whdr.serviceId	= htons(conn->service_id);
- 
- 	iov[0].iov_base	= &whdr;
- 	iov[0].iov_len	= sizeof(whdr);
+ 	_leave(" = %p", local);
 diff --git a/net/rxrpc/security.c b/net/rxrpc/security.c
-index 7d921e56e715..b9f5dbbe0b8b 100644
+index b9f5dbbe0b8b..e9f428351293 100644
 --- a/net/rxrpc/security.c
 +++ b/net/rxrpc/security.c
-@@ -121,7 +121,7 @@ int rxrpc_init_server_conn_security(struct rxrpc_connection *conn)
- 
- 	_enter("");
- 
--	sprintf(kdesc, "%u:%u", conn->params.service_id, conn->security_ix);
-+	sprintf(kdesc, "%u:%u", conn->service_id, conn->security_ix);
- 
- 	sec = rxrpc_security_lookup(conn->security_ix);
- 	if (!sec) {
-@@ -133,7 +133,7 @@ int rxrpc_init_server_conn_security(struct rxrpc_connection *conn)
+@@ -133,7 +133,8 @@ int rxrpc_init_server_conn_security(struct rxrpc_connection *conn)
  	read_lock(&local->services_lock);
  	rx = rcu_dereference_protected(local->service,
  				       lockdep_is_held(&local->services_lock));
--	if (rx && rx->srx.srx_service == conn->params.service_id)
-+	if (rx && rx->srx.srx_service == conn->service_id)
+-	if (rx && rx->srx.srx_service == conn->service_id)
++	if (rx && (rx->srx.srx_service == conn->service_id ||
++		   rx->second_service == conn->service_id))
  		goto found_service;
  
  	/* the service appears to have died */
