@@ -1,47 +1,47 @@
-From: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Subject: Re: Netlink messages without NLM_F_REQUEST flag
-Date: Wed, 7 Jun 2017 10:47:50 -0600
-Message-ID: <20170607164750.GA7507@obsidianresearch.com>
-References: <20170607161901.GD1127@mtr-leonro.local>
- <20170607163758.GA25313@obsidianresearch.com>
- <CALq1K=Jj_jJ5_OAiiws-es37tFEsLeLJeSvnU+bfwd0KLkGM3Q@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 00/16] nfp: ctrl vNIC
+Date: Wed, 07 Jun 2017 12:52:26 -0400 (EDT)
+Message-ID: <20170607.125226.955748734442639202.davem@davemloft.net>
+References: <20170606000157.17556-1-jakub.kicinski@netronome.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Kaike Wan <kaike.wan-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, John Fleck <john.fleck-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        Ira Weiny <ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>,
-        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        Jiri Pirko <jiri-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        RDMA mailing list <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        linux-netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <CALq1K=Jj_jJ5_OAiiws-es37tFEsLeLJeSvnU+bfwd0KLkGM3Q-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, oss-drivers@netronome.com
+To: jakub.kicinski@netronome.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:60000 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750831AbdFGQwb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 7 Jun 2017 12:52:31 -0400
+In-Reply-To: <20170606000157.17556-1-jakub.kicinski@netronome.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 07, 2017 at 07:43:44PM +0300, Leon Romanovsky wrote:
-> On Wed, Jun 7, 2017 at 7:37 PM, Jason Gunthorpe
-> <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org> wrote:
-> > On Wed, Jun 07, 2017 at 07:19:01PM +0300, Leon Romanovsky wrote:
-> >> It makes me wonder if it is expected behavior for
-> >> ibnl_rcv_reply_skb() to handle !NLM_F_REQUEST messages and do we
-> >> really need it? What are the scenarios?  In my use case, which is
-> >> for sure different from yours, I'm always setting NLM_F_REQUEST
-> >> while communicating with kernel.
-> >
-> > If I recall the user space SA code issues REQUESTS from the kernel to
-> > userspace, so userspace returns with the response format. This is
-> > abnormal for netlink hence the special function.
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Date: Mon,  5 Jun 2017 17:01:41 -0700
+
+> This series adds the ability to use one vNIC as a control channel
+> for passing messages to and from the application firmware.  The
+> implementation restructures the existing netdev vNIC code to be able
+> to deal with nfp_nets with netdev pointer set to NULL.  Control vNICs
+> are not visible to userspace (other than for dumping ring state), and
+> since they don't have netdevs we use a tasklet for RX and simple skb 
+> list for TX queuing.
 > 
-> In netlink semantics, kernel side is supposed to send netlink
-> notification message and userspace is supposed to send REQUEST.
+> Due to special status of the control vNIC we have to reshuffle the
+> init code a bit to make sure control vNIC will be fully brought up
+> (and therefore communication with app FW can happen) before any netdev
+> or port is visible to user space.
+> 
+> FW will designate which vNIC is supposed to be used as control one
+> by setting _pf%u_net_ctrl_bar symbol.  Some FWs depend on metadata
+> being prepended to control message, some prefer to look at queue ID
+> to decide that something is a control message.  Our implementation
+> can cater to both.
+> 
+> First two users of this code will be eBPF maps and flower offloads.
 
-That pattern is for async communications, the SA stuff needs a sync
-protocol, unfortunately.
+Ok, I read this over and also checked out your discussion with Jiri.
+So far this looks OK to me, so series applied.
 
-Jason
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I look forward to seeing the eBPF maps and flower follow-on stuff.
