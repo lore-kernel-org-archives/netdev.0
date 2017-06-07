@@ -1,60 +1,130 @@
-From: Greg Rose <gvrose8192@gmail.com>
-Subject: Re: [PATCH net] net: Zero ifla_vf_info in rtnl_fill_vfinfo()
-Date: Wed, 7 Jun 2017 16:10:41 -0700
-Message-ID: <8b3edfcb-a278-a847-432e-8fe898cbe6ab@gmail.com>
-References: <20170607180033.19747-1-Yuval.Mintz@cavium.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH v3 3/3] net/cxgb4: Use new PCI_DEV_FLAGS_NO_RELAXED_ORDERING
+ flag
+Date: Wed, 7 Jun 2017 16:24:36 -0700
+Message-ID: <CAKgT0UeN7BK94wgU=LiD9CAo0ihrFgv2bZLFrTtr_+bgSbswxQ@mail.gmail.com>
+References: <1496826968-10152-1-git-send-email-dingtianhong@huawei.com> <1496826968-10152-4-git-send-email-dingtianhong@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Michal Schmidt <mschmidt@redhat.com>, davem@davemloft.net,
-        netdev@vger.kernel.org
-To: Yuval Mintz <yuval.mintz@cavium.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:36776 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752772AbdFGXKo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 7 Jun 2017 19:10:44 -0400
-Received: by mail-pg0-f68.google.com with SMTP id v18so2651078pgb.3
-        for <netdev@vger.kernel.org>; Wed, 07 Jun 2017 16:10:44 -0700 (PDT)
-In-Reply-To: <20170607180033.19747-1-Yuval.Mintz@cavium.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Casey Leedom <leedom@chelsio.com>, Ashok Raj <ashok.raj@intel.com>,
+        Bjorn Helgaas <helgaas@kernel.org>,
+        Michael Werner <werner@chelsio.com>,
+        Ganesh Goudar <ganeshgr@chelsio.com>,
+        Asit K Mallick <asit.k.mallick@intel.com>,
+        Patrick J Cramer <patrick.j.cramer@intel.com>,
+        Suravee Suthikulpanit <Suravee.Suthikulpanit@amd.com>,
+        Bob Shaw <Bob.Shaw@amd.com>, h <l.stach@pengutronix.de>,
+        Amir Ancel <amira@mellanox.com>,
+        Gabriele Paoloni <gabriele.paoloni@huawei.com>,
+        David Laight <David.Laight@aculab.com>,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+        Catalin Marinas <catalin.marinas@arm.com>,
+        Will Deacon <will.deacon@arm.com>,
+        Mark Rutland <mark.rutland@arm.com>,
+        Robin Murphy <robin.murphy@arm.com>,
+        David Miller <davem@davemloft.net>,
+        linux-arm-kernel@lists.inf
+To: Ding Tianhong <dingtianhong@huawei.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <1496826968-10152-4-git-send-email-dingtianhong@huawei.com>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 06/07/2017 11:00 AM, Yuval Mintz wrote:
-> Some of the structure's fields are not initialized by the
-> rtnetlink. If driver doesn't set those in ndo_get_vf_config(),
-> they'd leak memory to user.
+On Wed, Jun 7, 2017 at 2:16 AM, Ding Tianhong <dingtianhong@huawei.com> wrote:
+> From: Casey Leedom <leedom@chelsio.com>
 >
-> Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
-> CC: Michal Schmidt <mschmidt@redhat.com>
+> cxgb4 Ethernet driver now queries Root Complex Port to determine if it can
+> send TLPs to it with the Relaxed Ordering Attribute set.
+>
+> Signed-off-by: Casey Leedom <leedom@chelsio.com>
+> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+
+So I am pretty sure this patch doesn't work with patch 2. We need to
+update it so that it doesn't check the root complex but instead checks
+itself to see if it is allowed to use relaxed ordering.
+
+What we need here is the ability to detect if relaxed ordering is
+disabled, and if so take the steps needed to enable peer to peer
+relaxed ordering without enabling relaxed ordering to the root
+complex. Do I have that right Casey?
+
 > ---
->   net/core/rtnetlink.c | 3 ++-
->   1 file changed, 2 insertions(+), 1 deletion(-)
+>  drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |  1 +
+>  drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 17 +++++++++++++++++
+>  drivers/net/ethernet/chelsio/cxgb4/sge.c        |  5 +++--
+>  3 files changed, 21 insertions(+), 2 deletions(-)
 >
-> diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-> index 9e2c0a7..5e61456 100644
-> --- a/net/core/rtnetlink.c
-> +++ b/net/core/rtnetlink.c
-> @@ -1124,6 +1124,8 @@ static noinline_for_stack int rtnl_fill_vfinfo(struct sk_buff *skb,
->       struct ifla_vf_mac vf_mac;
->       struct ifla_vf_info ivi;
+> diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+> index e88c180..478f25a 100644
+> --- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+> +++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+> @@ -521,6 +521,7 @@ enum {                                 /* adapter flags */
+>         USING_SOFT_PARAMS  = (1 << 6),
+>         MASTER_PF          = (1 << 7),
+>         FW_OFLD_CONN       = (1 << 9),
+> +       ROOT_NO_RELAXED_ORDERING = (1 << 10),
+>  };
 >
-> +    memset(&ivi, 0, sizeof(ivi));
+>  enum {
+> diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+> index 38a5c67..fbfe341 100644
+> --- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+> +++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+> @@ -4628,6 +4628,7 @@ static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+>  #ifdef CONFIG_PCI_IOV
+>         u32 v, port_vec;
+>  #endif
+> +       struct pci_dev *root;
+>
+>         printk_once(KERN_INFO "%s - version %s\n", DRV_DESC, DRV_VERSION);
+>
+> @@ -4726,6 +4727,22 @@ static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+>         adapter->msg_enable = DFLT_MSG_ENABLE;
+>         memset(adapter->chan_map, 0xff, sizeof(adapter->chan_map));
+>
+> +       /* If possible, we use PCIe Relaxed Ordering Attribute to deliver
+> +        * Ingress Packet Data to Free List Buffers in order to allow for
+> +        * chipset performance optimizations between the Root Complex and
+> +        * Memory Controllers.  (Messages to the associated Ingress Queue
+> +        * notifying new Packet Placement in the Free Lists Buffers will be
+> +        * send without the Relaxed Ordering Attribute thus guaranteing that
+> +        * all preceding PCIe Transaction Layer Packets will be processed
+> +        * first.)  But some Root Complexes have various issues with Upstream
+> +        * Transaction Layer Packets with the Relaxed Ordering Attribute set.
+> +        * So we check our Root Complex to see if it's flaged with advice
+> +        * against using Relaxed Ordering.
+> +        */
+> +       root = pci_find_pcie_root_port(adapter->pdev);
+> +       if (pcie_get_relaxed_ordering(root))
+> +               adapter->flags |= ROOT_NO_RELAXED_ORDERING;
 > +
->       /* Not all SR-IOV capable drivers support the
->        * spoofcheck and "RSS query enable" query.  Preset to
->        * -1 so the user space tool can detect that the driver
-> @@ -1132,7 +1134,6 @@ static noinline_for_stack int rtnl_fill_vfinfo(struct sk_buff *skb,
->       ivi.spoofchk = -1;
->       ivi.rss_query_en = -1;
->       ivi.trusted = -1;
-> -    memset(ivi.mac, 0, sizeof(ivi.mac));
->       /* The default value for VF link state is "auto"
->        * IFLA_VF_LINK_STATE_AUTO which equals zero
->        */
+>         spin_lock_init(&adapter->stats_lock);
+>         spin_lock_init(&adapter->tid_release_lock);
+>         spin_lock_init(&adapter->win0_lock);
+> diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+> index f05f0d4..ac229a3 100644
+> --- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
+> +++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+> @@ -2571,6 +2571,7 @@ int t4_sge_alloc_rxq(struct adapter *adap, struct sge_rspq *iq, bool fwevtq,
+>         struct fw_iq_cmd c;
+>         struct sge *s = &adap->sge;
+>         struct port_info *pi = netdev_priv(dev);
+> +       int relaxed = !(adap->flags & ROOT_NO_RELAXED_ORDERING);
 >
-It's been a few years since I worked in this code but I do recall this portion.  Good idea...
-
-Thanks!
-
-Reviewed-by: Greg Rose <gvrose8192@gmail.com>
+>         /* Size needs to be multiple of 16, including status entry. */
+>         iq->size = roundup(iq->size, 16);
+> @@ -2624,8 +2625,8 @@ int t4_sge_alloc_rxq(struct adapter *adap, struct sge_rspq *iq, bool fwevtq,
+>
+>                 flsz = fl->size / 8 + s->stat_len / sizeof(struct tx_desc);
+>                 c.iqns_to_fl0congen |= htonl(FW_IQ_CMD_FL0PACKEN_F |
+> -                                            FW_IQ_CMD_FL0FETCHRO_F |
+> -                                            FW_IQ_CMD_FL0DATARO_F |
+> +                                            FW_IQ_CMD_FL0FETCHRO_V(relaxed) |
+> +                                            FW_IQ_CMD_FL0DATARO_V(relaxed) |
+>                                              FW_IQ_CMD_FL0PADEN_F);
+>                 if (cong >= 0)
+>                         c.iqns_to_fl0congen |=
+> --
+> 1.9.0
+>
+>
