@@ -1,7 +1,7 @@
 From: Antoine Tenart <antoine.tenart@free-electrons.com>
-Subject: [PATCH 2/9] net: mvmdio: use tabs for defines
-Date: Wed,  7 Jun 2017 10:38:03 +0200
-Message-ID: <20170607083810.30922-3-antoine.tenart@free-electrons.com>
+Subject: [PATCH 8/9] dt-bindings: orion-mdio: document the new xmdio compatible
+Date: Wed,  7 Jun 2017 10:38:09 +0200
+Message-ID: <20170607083810.30922-9-antoine.tenart@free-electrons.com>
 References: <20170607083810.30922-1-antoine.tenart@free-electrons.com>
 Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
         thomas.petazzoni@free-electrons.com, mw@semihalf.com,
@@ -11,63 +11,42 @@ To: davem@davemloft.net, jason@lakedaemon.net, andrew@lunn.ch,
         gregory.clement@free-electrons.com,
         sebastian.hesselbarth@gmail.com, f.fainelli@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:37591 "EHLO
+Received: from mail.free-electrons.com ([62.4.15.54]:37637 "EHLO
         mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751003AbdFGIjO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 7 Jun 2017 04:39:14 -0400
+        with ESMTP id S1750739AbdFGIjQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 7 Jun 2017 04:39:16 -0400
 In-Reply-To: <20170607083810.30922-1-antoine.tenart@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Cosmetic patch replacing spaces by tabs for defined values.
+A new compatible for Marvell xMDIO interfaces was added into the Marvell
+MDIO driver. Document this new compatible.
 
 Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
 ---
- drivers/net/ethernet/marvell/mvmdio.c | 26 +++++++++++++-------------
- 1 file changed, 13 insertions(+), 13 deletions(-)
+ Documentation/devicetree/bindings/net/marvell-orion-mdio.txt | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/marvell/mvmdio.c b/drivers/net/ethernet/marvell/mvmdio.c
-index 109a2bff334d..17b518b13ae3 100644
---- a/drivers/net/ethernet/marvell/mvmdio.c
-+++ b/drivers/net/ethernet/marvell/mvmdio.c
-@@ -30,25 +30,25 @@
- #include <linux/sched.h>
- #include <linux/wait.h>
+diff --git a/Documentation/devicetree/bindings/net/marvell-orion-mdio.txt b/Documentation/devicetree/bindings/net/marvell-orion-mdio.txt
+index ccdabdcc8618..315036ff8fed 100644
+--- a/Documentation/devicetree/bindings/net/marvell-orion-mdio.txt
++++ b/Documentation/devicetree/bindings/net/marvell-orion-mdio.txt
+@@ -1,12 +1,12 @@
+ * Marvell MDIO Ethernet Controller interface
  
--#define MVMDIO_SMI_DATA_SHIFT              0
--#define MVMDIO_SMI_PHY_ADDR_SHIFT          16
--#define MVMDIO_SMI_PHY_REG_SHIFT           21
--#define MVMDIO_SMI_READ_OPERATION          BIT(26)
--#define MVMDIO_SMI_WRITE_OPERATION         0
--#define MVMDIO_SMI_READ_VALID              BIT(27)
--#define MVMDIO_SMI_BUSY                    BIT(28)
--#define MVMDIO_ERR_INT_CAUSE		   0x007C
--#define  MVMDIO_ERR_INT_SMI_DONE	   0x00000010
--#define MVMDIO_ERR_INT_MASK		   0x0080
-+#define MVMDIO_SMI_DATA_SHIFT		0
-+#define MVMDIO_SMI_PHY_ADDR_SHIFT	16
-+#define MVMDIO_SMI_PHY_REG_SHIFT	21
-+#define MVMDIO_SMI_READ_OPERATION	BIT(26)
-+#define MVMDIO_SMI_WRITE_OPERATION	0
-+#define MVMDIO_SMI_READ_VALID		BIT(27)
-+#define MVMDIO_SMI_BUSY			BIT(28)
-+#define MVMDIO_ERR_INT_CAUSE		0x007C
-+#define  MVMDIO_ERR_INT_SMI_DONE	0x00000010
-+#define MVMDIO_ERR_INT_MASK		0x0080
+ The Ethernet controllers of the Marvel Kirkwood, Dove, Orion5x,
+-MV78xx0, Armada 370 and Armada XP have an identical unit that provides
+-an interface with the MDIO bus. This driver handles this MDIO
+-interface.
++MV78xx0, Armada 370, Armada XP, Armada 7k and Armada 8k have an
++identical unit that provides an interface with the MDIO bus or to
++the xMDIO bus. This driver handles these interfaces.
  
- /*
-  * SMI Timeout measurements:
-  * - Kirkwood 88F6281 (Globalscale Dreamplug): 45us to 95us (Interrupt)
-  * - Armada 370       (Globalscale Mirabox):   41us to 43us (Polled)
-  */
--#define MVMDIO_SMI_TIMEOUT		   1000 /* 1000us = 1ms */
--#define MVMDIO_SMI_POLL_INTERVAL_MIN	   45
--#define MVMDIO_SMI_POLL_INTERVAL_MAX	   55
-+#define MVMDIO_SMI_TIMEOUT		1000 /* 1000us = 1ms */
-+#define MVMDIO_SMI_POLL_INTERVAL_MIN	45
-+#define MVMDIO_SMI_POLL_INTERVAL_MAX	55
- 
- struct orion_mdio_dev {
- 	struct mutex lock;
+ Required properties:
+-- compatible: "marvell,orion-mdio"
++- compatible: "marvell,orion-mdio" or "marvell,xmdio"
+ - reg: address and length of the MDIO registers.  When an interrupt is
+   not present, the length is the size of the SMI register (4 bytes)
+   otherwise it must be 0x84 bytes to cover the interrupt control
 -- 
 2.9.4
