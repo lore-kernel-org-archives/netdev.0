@@ -1,50 +1,45 @@
-From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
-Subject: Re: Netlink messages without NLM_F_REQUEST flag
-Date: Wed, 7 Jun 2017 12:35:11 -0600
-Message-ID: <20170607183511.GA10225@obsidianresearch.com>
-References: <20170607161901.GD1127@mtr-leonro.local>
- <20170607163758.GA25313@obsidianresearch.com>
- <CALq1K=Jj_jJ5_OAiiws-es37tFEsLeLJeSvnU+bfwd0KLkGM3Q@mail.gmail.com>
- <20170607164750.GA7507@obsidianresearch.com>
- <20170607170037.GG1127@mtr-leonro.local>
- <20170607170702.GB7507@obsidianresearch.com>
- <20170607181810.GI1127@mtr-leonro.local>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] net: davicom: dm9000: Avoid spinlock recursion
+ during dm9000_timeout routine
+Date: Wed, 07 Jun 2017 14:38:44 -0400 (EDT)
+Message-ID: <20170607.143844.682492319776197931.davem@davemloft.net>
+References: <1496758626-2726-1-git-send-email-liu.xiang6@zte.com.cn>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Kaike Wan <kaike.wan@intel.com>, John Fleck <john.fleck@intel.com>,
-        Ira Weiny <ira.weiny@intel.com>, Thomas Graf <tgraf@suug.ch>,
-        Doug Ledford <dledford@redhat.com>,
-        Jiri Pirko <jiri@mellanox.com>,
-        RDMA mailing list <linux-rdma@vger.kernel.org>,
-        linux-netdev <netdev@vger.kernel.org>
-To: Leon Romanovsky <leon@kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from quartz.orcorp.ca ([184.70.90.242]:42126 "EHLO quartz.orcorp.ca"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751849AbdFGSfX (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 7 Jun 2017 14:35:23 -0400
-Content-Disposition: inline
-In-Reply-To: <20170607181810.GI1127@mtr-leonro.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        liuxiang1999@gmail.com
+To: liu.xiang6@zte.com.cn
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1496758626-2726-1-git-send-email-liu.xiang6@zte.com.cn>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 07, 2017 at 09:18:10PM +0300, Leon Romanovsky wrote:
+From: Liu Xiang <liu.xiang6@zte.com.cn>
+Date: Tue,  6 Jun 2017 22:17:06 +0800
 
-> > AFAIK, that is different, that is acking and retriggering a single shot
-> > notification, not completing a kernel initiated handshake.
+> On the DM9000B, dm9000_phy_write() is called after the main spinlock
+> is held, during the dm9000_timeout() routine. Spinlock recursion
+> occurs because the main spinlock is requested again in
+> dm9000_phy_write(). So spinlock should be avoided in phy operation
+> during the dm9000_timeout() routine.
 > 
-> It is acking that message from user was received by kernel and now
-> processing.
+> ---
+> v2:
+>    dm9000_phy_write_reg is extracted from dm9000_phy_write, with no lock,
+>    do the real phy operation.
 
-But isn't what is cared about here - the SA thing needs to send a
-request to user space and collect a reply, it runs the protocol
-backwards from normal.
+I told you during your first submission that this is racy.
 
-It is not a notification because the request actually needs a reply,
-and ACK's don't help because the reply has content.
+Conditional locking in multithreaded driver almost never works
+properly.
 
-It does not use the NOTIFICATION/REQUEST/REPLY sequence because it
-does not care about reliability of delivering the REQUEST to user
-space.
+Once we enter the timeout, another asynchronous thread of control (an
+interrupt, timer, whatever) can try to do a PHY operation and skip the
+locking because the timeout boolean is set.
 
-Jason
+That's not right.
+
+You will need to find a more correct solution to this locking problem.
+
+Thanks.
