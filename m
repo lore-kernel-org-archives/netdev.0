@@ -1,47 +1,62 @@
-From: Liviu Dudau <liviu@dudau.co.uk>
-Subject: Re: [PATCH net-next] net: phy: use of_mdio_parse_addr
-Date: Wed, 7 Jun 2017 17:18:55 +0100
-Message-ID: <20170607161854.GC4389@bart.dudau.co.uk>
-References: <1496259810-3602-1-git-send-email-jon.mason@broadcom.com>
- <20170602.142251.851089443438560012.davem@davemloft.net>
+From: David Howells <dhowells@redhat.com>
+Subject: [PATCH net-next 0/3] rxrpc: Tx length parameter
+Date: Wed, 07 Jun 2017 17:26:41 +0100
+Message-ID: <149685280179.8474.3836343127280242150.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: jon.mason@broadcom.com, andrew@lunn.ch, f.fainelli@gmail.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        bcm-kernel-feedback-list@broadcom.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from dliviu.plus.com ([80.229.23.120]:45842 "EHLO smtp.dudau.co.uk"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750831AbdFGQZH (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 7 Jun 2017 12:25:07 -0400
-Content-Disposition: inline
-In-Reply-To: <20170602.142251.851089443438560012.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: dhowells@redhat.com, linux-afs@lists.infradead.org,
+        linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 02, 2017 at 02:22:51PM -0400, David Miller wrote:
-> From: Jon Mason <jon.mason@broadcom.com>
-> Date: Wed, 31 May 2017 15:43:30 -0400
-> 
-> > use of_mdio_parse_addr() in place of an OF read of reg and a bounds
-> > check (which is litterally the exact same thing that
-> > of_mdio_parse_addr() does)
-> > 
-> > Signed-off-by: Jon Mason <jon.mason@broadcom.com>
-> 
-> Applied, thanks Jon.
 
-This makes linux-next fail the modules_install target as depmod detects 2 circular
-dependencies. Reverting this patch fixes the issue.
+Here's a set of patches that allows someone initiating a client call with
+AF_RXRPC to indicate upfront the total amount of data that will be
+transmitted.  This will allow AF_RXRPC to encrypt directly from source
+buffer to packet rather than having to copy into the buffer and only
+encrypt when it's full (the encrypted portion of the packet starts with a
+length and so we can't encrypt until we know what the length will be).
 
-depmod: ERROR: Cycle detected: libphy -> of_mdio -> fixed_phy -> libphy
-depmod: ERROR: Cycle detected: libphy -> of_mdio -> libphy
-depmod: ERROR: Found 3 modules in dependency cycles!
-make[1]: *** [/home/dliviu/devel/kernel/Makefile:1245: _modinst_post] Error 1
+The three patches are:
 
-This is on an ARCH=arm build, build I doubt it makes a difference. Let me know if
-you need some .config values in order to reproduce.
+ (1) Provide a means of finding out what control message types are actually
+     supported.  EINVAL is reported if an unsupported cmsg type is seen, so
+     we don't want to set the new cmsg unless we know it will be accepted.
 
-Best regards,
-Liviu
+ (2) Consolidate some stuff into a struct to reduce the parameter count on
+     the function that parses the cmsg buffer.
+
+ (3) Introduce the RXRPC_TX_LENGTH cmsg.  This can be provided on the first
+     sendmsg() that contributes data to a client call request or a service
+     call reply.  If provided, the user must provide exactly that amount of
+     data or an error will be incurred.
+
+The patches can be found here also:
+
+	http://git.kernel.org/cgit/linux/kernel/git/dhowells/linux-fs.git/log/?h=rxrpc-rewrite
+
+Tagged thusly:
+
+	git://git.kernel.org/pub/scm/linux/kernel/git/dhowells/linux-fs.git
+	rxrpc-rewrite-20170607
+
+David
+---
+David Howells (3):
+      rxrpc: Provide a getsockopt call to query what cmsgs types are supported
+      rxrpc: Consolidate sendmsg parameters
+      rxrpc: Provide a cmsg to specify the amount of Tx data for a call
+
+
+ Documentation/networking/rxrpc.txt |   43 +++++++++++
+ fs/afs/rxrpc.c                     |   18 +++++
+ include/linux/rxrpc.h              |   25 ++++---
+ include/net/af_rxrpc.h             |    2 +
+ net/rxrpc/af_rxrpc.c               |   35 +++++++++
+ net/rxrpc/ar-internal.h            |    3 +
+ net/rxrpc/call_object.c            |    3 +
+ net/rxrpc/sendmsg.c                |  135 +++++++++++++++++++++++++-----------
+ 8 files changed, 207 insertions(+), 57 deletions(-)
