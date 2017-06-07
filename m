@@ -1,68 +1,41 @@
-From: Seraphime Kirkovski <kirkseraph@gmail.com>
-Subject: [PATCH] net: wireless: intel: iwlwifi: dvm: fix tid mask
-Date: Thu,  8 Jun 2017 00:33:52 +0200
-Message-ID: <20170607223354.22399-1-kirkseraph@gmail.com>
+From: Chenbo Feng <chenbofeng.kernel@gmail.com>
+Subject: Question about tcp_filter() in tcp_v6_do_rcv()
+Date: Wed, 7 Jun 2017 15:35:49 -0700
+Message-ID: <c49c55de-5356-0804-9baf-f0ed12829055@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: Seraphime Kirkovski <kirkseraph@gmail.com>,
-        Johannes Berg <johannes.berg@intel.com>,
-        Emmanuel Grumbach <emmanuel.grumbach@intel.com>,
-        Luca Coelho <luciano.coelho@intel.com>,
-        Intel Linux Wireless <linuxwifi@intel.com>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        linux-wireless@vger.kernel.org (open list:INTEL WIRELESS WIFI LINK
-        (iwlwifi)), netdev@vger.kernel.org (open list:NETWORKING DRIVERS),
-        linux-kernel@vger.kernel.org (open list)
-To: luca@coelho.fi
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Lorenzo Colitti <lorenzo@google.com>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Chenbo Feng <fengc@google.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:36698 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751433AbdFGWfv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 7 Jun 2017 18:35:51 -0400
+Received: by mail-pg0-f67.google.com with SMTP id v18so2590344pgb.3
+        for <netdev@vger.kernel.org>; Wed, 07 Jun 2017 15:35:51 -0700 (PDT)
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Currently the tid mask covers the first 4 bits of iwlagn_tx_resp::ra_tid,
-which gives 16 possible values for tid.
-This is problematic because IWL_MAX_TID_COUNT is 8, so indexing
-iwl_priv::tid_data can go very wrong.
+Hello everybody,
 
-With UBSAN I can it happening while establishing the first connection
-after module load.
+I am testing eBPF programs on ipv6 and I just find out the tcp_filter() 
+function (previously named sk_filter()) is called both in tcp_v6_rcv() 
+and tcp_v6_do_rcv(). In contrast, it is only called by tcp_v4_rcv() in 
+ipv4 layer. I guess this implementation is used to capture some corner 
+cases in ipv6 ingress route but I cannot find why. Could I know why we 
+need this in two similar places in ipv6 transportation layer?
 
-[  272.143440] UBSAN: Undefined behaviour in drivers/net/wireless/intel/iwlwifi/dvm/tx.c:777:32
-[  272.143447] index 8 is out of range for type 'iwl_tid_data [8]'
-[  272.143457] CPU: 0 PID: 4605 Comm: irq/32-iwlwifi Not tainted 4.12.0-dirty #2
-[  272.143460] Hardware name: Hewlett-Packard HP EliteBook 2560p/162B, BIOS 68SSU Ver. F.02 07/26/2011
-[  272.143462] Call Trace:
-[  272.143472]  dump_stack+0x9c/0x10b
-[  272.143477]  ? _atomic_dec_and_lock+0x285/0x285
-[  272.143486]  ubsan_epilogue+0xd/0x4e
-[  272.143493]  __ubsan_handle_out_of_bounds+0xef/0x118
-[  272.143498]  ? __ubsan_handle_shift_out_of_bounds+0x221/0x221
-[  272.143519]  ? iwl_trans_pcie_reclaim+0x153/0xc90 [iwlwifi]
-[  272.143539]  iwlagn_check_ratid_empty+0x337/0x410 [iwldvm]
-[  272.143556]  ? iwl_hcmd_names_cmp+0x2f/0x60 [iwlwifi]
-[  272.143571]  iwlagn_rx_reply_tx+0x8a4/0x1820 [iwldvm]
+I have tried to dig into the commit history and the related code path 
+but I did not see any obvious reason for doing so. And my problem with 
+it is when a eBPF program is attached to a socket or a cgroup in ingress 
+side, the filter program will be applied on some packets twice. And it 
+affect the accuracy when using eBPF program for traffic accounting.
 
-Signed-off-by: Seraphime Kirkovski <kirkseraph@gmail.com>
----
-   I'm currently running this patch on my machines and I have wifi.
-   The patch presumes а cleanup patch, I sent yesterday:
-      https://www.spinics.net/lists/kernel/msg2526314.html
+Thanks!
 
- drivers/net/wireless/intel/iwlwifi/dvm/commands.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/wireless/intel/iwlwifi/dvm/commands.h b/drivers/net/wireless/intel/iwlwifi/dvm/commands.h
-index 37d2ba5ae852..e5994df9ea4c 100644
---- a/drivers/net/wireless/intel/iwlwifi/dvm/commands.h
-+++ b/drivers/net/wireless/intel/iwlwifi/dvm/commands.h
-@@ -1448,7 +1448,7 @@ struct agg_tx_status {
-  */
- /* refer to ra_tid */
- #define IWLAGN_TX_RES_TID_POS	0
--#define IWLAGN_TX_RES_TID_MSK	0x0f
-+#define IWLAGN_TX_RES_TID_MSK	0x07
- #define IWLAGN_TX_RES_RA_POS	4
- #define IWLAGN_TX_RES_RA_MSK	0xf0
- 
--- 
-2.11.0
+Chenbo Feng
