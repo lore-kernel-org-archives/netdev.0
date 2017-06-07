@@ -1,505 +1,410 @@
 Return-Path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:27125 "EHLO
-        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752387AbdFMHNS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 13 Jun 2017 03:13:18 -0400
-From: Yuval Shaia <yuval.shaia@oracle.com>
-To: isubramanian@apm.com, kchudgar@apm.com, qnguyen@apm.com,
-        michael.chan@broadcom.com, f.fainelli@gmail.com,
-        bcm-kernel-feedback-list@broadcom.com, siva.kallam@broadcom.com,
-        prashant@broadcom.com, madalin.bucur@nxp.com, leoli@freescale.com,
-        yisen.zhuang@huawei.com, salil.mehta@huawei.com,
-        sebastian.hesselbarth@gmail.com, nbd@openwrt.org,
-        blogic@openwrt.org, matthias.bgg@gmail.com,
-        sergei.shtylyov@cogentembedded.com, peppe.cavallaro@st.com,
-        alexandre.torgue@st.com, grygorii.strashko@ti.com, w-kwok2@ti.com,
-        m-karicheri2@ti.com, andrew@lunn.ch, woojung.huh@microchip.com,
-        UNGLinuxDriver@microchip.com, gregkh@linuxfoundation.org,
-        vivien.didelot@savoirfairelinux.com, davem@davemloft.net,
-        arnd@arndb.de, tremyfr@gmail.com, edumazet@google.com,
-        yuval.shaia@oracle.com, yamada.masahiro@socionext.com,
-        jarod@redhat.com, yankejian@huawei.com, lipeng321@huawei.com,
-        huangdaode@hisilicon.com, xieqianqian@huawei.com,
-        horms+renesas@verge.net.au, kazuya.mizuguchi.ks@renesas.com,
-        johan@kernel.org, dan.carpenter@oracle.com,
-        niklas.soderlund+renesas@ragnatech.se, masaru.nagai.vx@renesas.com,
-        erosca@de.adit-jv.com, geert+renesas@glider.be,
-        chris.brandt@renesas.com, ivan.khoronzhuk@linaro.org,
-        mugunthanvnm@ti.com, mihaela.muraru21@gmail.com,
-        tklauser@distanz.ch, julia.lawall@lip6.fr, mpkofron@gmail.com,
-        bhumirks@gmail.com, stephen@networkplumber.org,
-        netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-        linuxppc-dev@lists.ozlabs.org, linux-mediatek@lists.infradead.org,
-        linux-renesas-soc@vger.kernel.org, linux-omap@vger.kernel.org,
-        linux-usb@vger.kernel.org, devel@driverdev.osuosl.org
-Subject: [PATCH v3] net: phy: Make phy_ethtool_ksettings_get return void
-Date: Tue, 13 Jun 2017 10:09:46 +0300
-Message-Id: <20170613070946.3605-1-yuval.shaia@oracle.com>
+Received: from mx1.redhat.com ([209.132.183.28]:59572 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751682AbdFGVNK (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 7 Jun 2017 17:13:10 -0400
+Subject: [PATCH net-next 3/3] rxrpc: Provide a cmsg to specify the amount of
+ Tx data for a call
+From: David Howells <dhowells@redhat.com>
+To: netdev@vger.kernel.org
+Cc: dhowells@redhat.com, linux-afs@lists.infradead.org,
+        linux-kernel@vger.kernel.org
+Date: Wed, 07 Jun 2017 22:12:52 +0100
+Message-ID: <149686997270.21359.9167134783033151421.stgit@warthog.procyon.org.uk>
+In-Reply-To: <149686995195.21359.17550471913376009423.stgit@warthog.procyon.org.uk>
+References: <149686995195.21359.17550471913376009423.stgit@warthog.procyon.org.uk>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Make return value void since function never return meaningfull value
+Provide a control message that can be specified on the first sendmsg() of a
+client call or the first sendmsg() of a service response to indicate the
+total length of the data to be transmitted for that call.
 
-Signed-off-by: Yuval Shaia <yuval.shaia@oracle.com>
-Acked-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Currently, because the length of the payload of an encrypted DATA packet is
+encrypted in front of the data, the packet cannot be encrypted until we
+know how much data it will hold.
+
+By specifying the length at the beginning of the transmit phase, each DATA
+packet length can be set before we start loading data from userspace (where
+several sendmsg() calls may contribute to a particular packet).
+
+An error will be returned if too little or too much data is presented in
+the Tx phase.
+
+Signed-off-by: David Howells <dhowells@redhat.com>
 ---
-v0 ->v1:
-	* These files were missing in v0
-		* drivers/net/ethernet/renesas/ravb_main.c
-		* drivers/net/ethernet/renesas/sh_eth.c
-		* drivers/net/ethernet/ti/netcp_ethss.c
-	* Add Acked-by: Sergei Shtylyov
 
-v1 -> v2:
-	* Adjust to net-next tree
+ Documentation/networking/rxrpc.txt |   34 +++++++++++++++++++++++
+ fs/afs/rxrpc.c                     |   18 +++++++++++-
+ include/linux/rxrpc.h              |    1 +
+ include/net/af_rxrpc.h             |    2 +
+ net/rxrpc/af_rxrpc.c               |    5 +++
+ net/rxrpc/ar-internal.h            |    3 +-
+ net/rxrpc/call_object.c            |    3 ++
+ net/rxrpc/sendmsg.c                |   54 +++++++++++++++++++++++++++++++++++-
+ 8 files changed, 115 insertions(+), 5 deletions(-)
 
-v2 -> v3:
-	* These files were missing in v1
-		* drivers/net/ethernet/apm/xgene-v2/ethtool.c
-		* drivers/net/ethernet/apm/xgene/xgene_enet_ethtool.c
-		* drivers/net/ethernet/broadcom/b44.c
-		* drivers/net/ethernet/broadcom/bcm63xx_enet.c
-		* drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
-		* drivers/net/ethernet/mediatek/mtk_eth_soc.c
-		* drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-		* drivers/net/ethernet/ti/cpsw.c
-		* drivers/staging/netlogic/xlr_net.c
----
- drivers/net/ethernet/apm/xgene-v2/ethtool.c          |  4 +++-
- drivers/net/ethernet/apm/xgene/xgene_enet_ethtool.c  |  8 ++++++--
- drivers/net/ethernet/broadcom/b44.c                  |  4 +++-
- drivers/net/ethernet/broadcom/bcm63xx_enet.c         |  5 ++++-
- drivers/net/ethernet/broadcom/genet/bcmgenet.c       |  4 +++-
- drivers/net/ethernet/broadcom/tg3.c                  |  4 +++-
- drivers/net/ethernet/freescale/dpaa/dpaa_ethtool.c   |  6 ++----
- drivers/net/ethernet/freescale/ucc_geth_ethtool.c    |  4 +++-
- drivers/net/ethernet/hisilicon/hns/hns_ethtool.c     |  2 +-
- drivers/net/ethernet/marvell/mv643xx_eth.c           |  5 ++---
- drivers/net/ethernet/mediatek/mtk_eth_soc.c          |  4 +++-
- drivers/net/ethernet/renesas/ravb_main.c             | 14 +++++++-------
- drivers/net/ethernet/renesas/sh_eth.c                |  5 ++---
- drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c |  5 ++---
- drivers/net/ethernet/ti/cpsw.c                       |  8 ++++----
- drivers/net/ethernet/ti/netcp_ethss.c                |  8 +++-----
- drivers/net/phy/phy.c                                | 10 +++++-----
- drivers/net/usb/lan78xx.c                            |  2 +-
- drivers/staging/netlogic/xlr_net.c                   |  5 ++++-
- include/linux/phy.h                                  |  4 ++--
- net/dsa/slave.c                                      |  9 +++++----
- 21 files changed, 68 insertions(+), 52 deletions(-)
-
-diff --git a/drivers/net/ethernet/apm/xgene-v2/ethtool.c b/drivers/net/ethernet/apm/xgene-v2/ethtool.c
-index b6666e4..d31ad82 100644
---- a/drivers/net/ethernet/apm/xgene-v2/ethtool.c
-+++ b/drivers/net/ethernet/apm/xgene-v2/ethtool.c
-@@ -157,7 +157,9 @@ static int xge_get_link_ksettings(struct net_device *ndev,
- 	if (!phydev)
- 		return -ENODEV;
+diff --git a/Documentation/networking/rxrpc.txt b/Documentation/networking/rxrpc.txt
+index bce8e10a2a8e..8c70ba5dee4d 100644
+--- a/Documentation/networking/rxrpc.txt
++++ b/Documentation/networking/rxrpc.txt
+@@ -327,6 +327,7 @@ calls, to invoke certain actions and to report certain conditions.  These are:
+ 	RXRPC_ACCEPT		s-- n/a		Accept new call
+ 	RXRPC_EXCLUSIVE_CALL	s-- n/a		Make an exclusive client call
+ 	RXRPC_UPGRADE_SERVICE	s-- n/a		Client call can be upgraded
++	RXRPC_TX_LENGTH		s-- data len	Total length of Tx data
  
--	return phy_ethtool_ksettings_get(phydev, cmd);
-+	phy_ethtool_ksettings_get(phydev, cmd);
+ 	(SRT = usable in Sendmsg / delivered by Recvmsg / Terminal message)
+ 
+@@ -406,6 +407,19 @@ calls, to invoke certain actions and to report certain conditions.  These are:
+      future communication to that server and RXRPC_UPGRADE_SERVICE should no
+      longer be set.
+ 
++ (*) RXRPC_TX_LENGTH
 +
-+	return 0;
- }
- 
- static int xge_set_link_ksettings(struct net_device *ndev,
-diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_ethtool.c b/drivers/net/ethernet/apm/xgene/xgene_enet_ethtool.c
-index 559963b..4f50f11 100644
---- a/drivers/net/ethernet/apm/xgene/xgene_enet_ethtool.c
-+++ b/drivers/net/ethernet/apm/xgene/xgene_enet_ethtool.c
-@@ -131,13 +131,17 @@ static int xgene_get_link_ksettings(struct net_device *ndev,
- 		if (phydev == NULL)
- 			return -ENODEV;
- 
--		return phy_ethtool_ksettings_get(phydev, cmd);
-+		phy_ethtool_ksettings_get(phydev, cmd);
++     This is used to inform the kernel of the total amount of data that is
++     going to be transmitted by a call (whether in a client request or a
++     service response).  If given, it allows the kernel to encrypt from the
++     userspace buffer directly to the packet buffers, rather than copying into
++     the buffer and then encrypting in place.  This may only be given with the
++     first sendmsg() providing data for a call.  EMSGSIZE will be generated if
++     the amount of data actually given is different.
 +
-+		return 0;
- 	} else if (pdata->phy_mode == PHY_INTERFACE_MODE_SGMII) {
- 		if (pdata->mdio_driver) {
- 			if (!phydev)
- 				return -ENODEV;
- 
--			return phy_ethtool_ksettings_get(phydev, cmd);
-+			phy_ethtool_ksettings_get(phydev, cmd);
++     This takes a parameter of __s64 type that indicates how much will be
++     transmitted.  This may not be less than zero.
 +
-+			return 0;
+ The symbol RXRPC__SUPPORTED is defined as one more than the highest control
+ message type supported.  At run time this can be queried by means of the
+ RXRPC_SUPPORTED_CMSG socket option (see below).
+@@ -577,6 +591,9 @@ A client would issue an operation by:
+      MSG_MORE should be set in msghdr::msg_flags on all but the last part of
+      the request.  Multiple requests may be made simultaneously.
+ 
++     An RXRPC_TX_LENGTH control message can also be specified on the first
++     sendmsg() call.
++
+      If a call is intended to go to a destination other than the default
+      specified through connect(), then msghdr::msg_name should be set on the
+      first request message of that call.
+@@ -764,6 +781,7 @@ The kernel interface functions are as follows:
+ 				struct sockaddr_rxrpc *srx,
+ 				struct key *key,
+ 				unsigned long user_call_ID,
++				s64 tx_total_len,
+ 				gfp_t gfp);
+ 
+      This allocates the infrastructure to make a new RxRPC call and assigns
+@@ -780,6 +798,11 @@ The kernel interface functions are as follows:
+      control data buffer.  It is entirely feasible to use this to point to a
+      kernel data structure.
+ 
++     tx_total_len is the amount of data the caller is intending to transmit
++     with this call (or -1 if unknown at this point).  Setting the data size
++     allows the kernel to encrypt directly to the packet buffers, thereby
++     saving a copy.  The value may not be less than -1.
++
+      If this function is successful, an opaque reference to the RxRPC call is
+      returned.  The caller now holds a reference on this and it must be
+      properly ended.
+@@ -931,6 +954,17 @@ The kernel interface functions are as follows:
+ 
+      This is used to find the remote peer address of a call.
+ 
++ (*) Set the total transmit data size on a call.
++
++	void rxrpc_kernel_set_tx_length(struct socket *sock,
++					struct rxrpc_call *call,
++					s64 tx_total_len);
++
++     This sets the amount of data that the caller is intending to transmit on a
++     call.  It's intended to be used for setting the reply size as the request
++     size should be set when the call is begun.  tx_total_len may not be less
++     than zero.
++
+ 
+ =======================
+ CONFIGURABLE PARAMETERS
+diff --git a/fs/afs/rxrpc.c b/fs/afs/rxrpc.c
+index d5990eb160bd..02781e78ffb6 100644
+--- a/fs/afs/rxrpc.c
++++ b/fs/afs/rxrpc.c
+@@ -341,6 +341,7 @@ int afs_make_call(struct in_addr *addr, struct afs_call *call, gfp_t gfp,
+ 	struct msghdr msg;
+ 	struct kvec iov[1];
+ 	size_t offset;
++	s64 tx_total_len;
+ 	u32 abort_code;
+ 	int ret;
+ 
+@@ -364,9 +365,20 @@ int afs_make_call(struct in_addr *addr, struct afs_call *call, gfp_t gfp,
+ 	srx.transport.sin.sin_port = call->port;
+ 	memcpy(&srx.transport.sin.sin_addr, addr, 4);
+ 
++	/* Work out the length we're going to transmit.  This is awkward for
++	 * calls such as FS.StoreData where there's an extra injection of data
++	 * after the initial fixed part.
++	 */
++	tx_total_len = call->request_size;
++	if (call->send_pages) {
++		tx_total_len += call->last_to - call->first_offset;
++		tx_total_len += (call->last - call->first) * PAGE_SIZE;
++	}
++
+ 	/* create a call */
+ 	rxcall = rxrpc_kernel_begin_call(afs_socket, &srx, call->key,
+-					 (unsigned long) call, gfp,
++					 (unsigned long)call,
++					 tx_total_len, gfp,
+ 					 (async ?
+ 					  afs_wake_up_async_call :
+ 					  afs_wake_up_call_waiter));
+@@ -738,6 +750,8 @@ void afs_send_empty_reply(struct afs_call *call)
+ 
+ 	_enter("");
+ 
++	rxrpc_kernel_set_tx_length(afs_socket, call->rxcall, 0);
++
+ 	msg.msg_name		= NULL;
+ 	msg.msg_namelen		= 0;
+ 	iov_iter_kvec(&msg.msg_iter, WRITE | ITER_KVEC, NULL, 0, 0);
+@@ -772,6 +786,8 @@ void afs_send_simple_reply(struct afs_call *call, const void *buf, size_t len)
+ 
+ 	_enter("");
+ 
++	rxrpc_kernel_set_tx_length(afs_socket, call->rxcall, len);
++
+ 	iov[0].iov_base		= (void *) buf;
+ 	iov[0].iov_len		= len;
+ 	msg.msg_name		= NULL;
+diff --git a/include/linux/rxrpc.h b/include/linux/rxrpc.h
+index bdd3175b9a48..7343f71783dc 100644
+--- a/include/linux/rxrpc.h
++++ b/include/linux/rxrpc.h
+@@ -57,6 +57,7 @@ enum rxrpc_cmsg_type {
+ 	RXRPC_ACCEPT		= 9,	/* s-: [Service] accept request */
+ 	RXRPC_EXCLUSIVE_CALL	= 10,	/* s-: Call should be on exclusive connection */
+ 	RXRPC_UPGRADE_SERVICE	= 11,	/* s-: Request service upgrade for client call */
++	RXRPC_TX_LENGTH		= 12,	/* s-: Total length of Tx data */
+ 	RXRPC__SUPPORTED
+ };
+ 
+diff --git a/include/net/af_rxrpc.h b/include/net/af_rxrpc.h
+index b5f5187f488c..c172709787af 100644
+--- a/include/net/af_rxrpc.h
++++ b/include/net/af_rxrpc.h
+@@ -33,6 +33,7 @@ struct rxrpc_call *rxrpc_kernel_begin_call(struct socket *,
+ 					   struct sockaddr_rxrpc *,
+ 					   struct key *,
+ 					   unsigned long,
++					   s64,
+ 					   gfp_t,
+ 					   rxrpc_notify_rx_t);
+ int rxrpc_kernel_send_data(struct socket *, struct rxrpc_call *,
+@@ -46,5 +47,6 @@ void rxrpc_kernel_get_peer(struct socket *, struct rxrpc_call *,
+ 			   struct sockaddr_rxrpc *);
+ int rxrpc_kernel_charge_accept(struct socket *, rxrpc_notify_rx_t,
+ 			       rxrpc_user_attach_call_t, unsigned long, gfp_t);
++void rxrpc_kernel_set_tx_length(struct socket *, struct rxrpc_call *, s64);
+ 
+ #endif /* _NET_RXRPC_H */
+diff --git a/net/rxrpc/af_rxrpc.c b/net/rxrpc/af_rxrpc.c
+index 44a52b82bb5d..58ae0db52ea1 100644
+--- a/net/rxrpc/af_rxrpc.c
++++ b/net/rxrpc/af_rxrpc.c
+@@ -262,6 +262,7 @@ static int rxrpc_listen(struct socket *sock, int backlog)
+  * @srx: The address of the peer to contact
+  * @key: The security context to use (defaults to socket setting)
+  * @user_call_ID: The ID to use
++ * @tx_total_len: Total length of data to transmit during the call (or -1)
+  * @gfp: The allocation constraints
+  * @notify_rx: Where to send notifications instead of socket queue
+  *
+@@ -276,6 +277,7 @@ struct rxrpc_call *rxrpc_kernel_begin_call(struct socket *sock,
+ 					   struct sockaddr_rxrpc *srx,
+ 					   struct key *key,
+ 					   unsigned long user_call_ID,
++					   s64 tx_total_len,
+ 					   gfp_t gfp,
+ 					   rxrpc_notify_rx_t notify_rx)
+ {
+@@ -303,7 +305,8 @@ struct rxrpc_call *rxrpc_kernel_begin_call(struct socket *sock,
+ 	cp.security_level	= 0;
+ 	cp.exclusive		= false;
+ 	cp.service_id		= srx->srx_service;
+-	call = rxrpc_new_client_call(rx, &cp, srx, user_call_ID, gfp);
++	call = rxrpc_new_client_call(rx, &cp, srx, user_call_ID, tx_total_len,
++				     gfp);
+ 	/* The socket has been unlocked. */
+ 	if (!IS_ERR(call))
+ 		call->notify_rx = notify_rx;
+diff --git a/net/rxrpc/ar-internal.h b/net/rxrpc/ar-internal.h
+index e9b536cb0acf..adbf37946450 100644
+--- a/net/rxrpc/ar-internal.h
++++ b/net/rxrpc/ar-internal.h
+@@ -528,6 +528,7 @@ struct rxrpc_call {
+ 	struct rb_node		sock_node;	/* Node in rx->calls */
+ 	struct sk_buff		*tx_pending;	/* Tx socket buffer being filled */
+ 	wait_queue_head_t	waitq;		/* Wait queue for channel or Tx */
++	s64			tx_total_len;	/* Total length left to be transmitted (or -1) */
+ 	__be32			crypto_buf[2];	/* Temporary packet crypto buffer */
+ 	unsigned long		user_call_ID;	/* user-defined call ID */
+ 	unsigned long		flags;
+@@ -683,7 +684,7 @@ struct rxrpc_call *rxrpc_alloc_call(gfp_t);
+ struct rxrpc_call *rxrpc_new_client_call(struct rxrpc_sock *,
+ 					 struct rxrpc_conn_parameters *,
+ 					 struct sockaddr_rxrpc *,
+-					 unsigned long, gfp_t);
++					 unsigned long, s64, gfp_t);
+ void rxrpc_incoming_call(struct rxrpc_sock *, struct rxrpc_call *,
+ 			 struct sk_buff *);
+ void rxrpc_release_call(struct rxrpc_sock *, struct rxrpc_call *);
+diff --git a/net/rxrpc/call_object.c b/net/rxrpc/call_object.c
+index 692110808baa..423030fd93be 100644
+--- a/net/rxrpc/call_object.c
++++ b/net/rxrpc/call_object.c
+@@ -127,6 +127,7 @@ struct rxrpc_call *rxrpc_alloc_call(gfp_t gfp)
+ 	rwlock_init(&call->state_lock);
+ 	atomic_set(&call->usage, 1);
+ 	call->debug_id = atomic_inc_return(&rxrpc_debug_id);
++	call->tx_total_len = -1;
+ 
+ 	memset(&call->sock_node, 0xed, sizeof(call->sock_node));
+ 
+@@ -201,6 +202,7 @@ struct rxrpc_call *rxrpc_new_client_call(struct rxrpc_sock *rx,
+ 					 struct rxrpc_conn_parameters *cp,
+ 					 struct sockaddr_rxrpc *srx,
+ 					 unsigned long user_call_ID,
++					 s64 tx_total_len,
+ 					 gfp_t gfp)
+ 	__releases(&rx->sk.sk_lock.slock)
+ {
+@@ -219,6 +221,7 @@ struct rxrpc_call *rxrpc_new_client_call(struct rxrpc_sock *rx,
+ 		return call;
+ 	}
+ 
++	call->tx_total_len = tx_total_len;
+ 	trace_rxrpc_call(call, rxrpc_call_new_client, atomic_read(&call->usage),
+ 			 here, (const void *)user_call_ID);
+ 
+diff --git a/net/rxrpc/sendmsg.c b/net/rxrpc/sendmsg.c
+index d939a5b1abc3..2e636a525a65 100644
+--- a/net/rxrpc/sendmsg.c
++++ b/net/rxrpc/sendmsg.c
+@@ -29,6 +29,7 @@ enum rxrpc_command {
+ };
+ 
+ struct rxrpc_send_params {
++	s64			tx_total_len;	/* Total Tx data length (if send data) */
+ 	unsigned long		user_call_ID;	/* User's call ID */
+ 	u32			abort_code;	/* Abort code to Tx (if abort) */
+ 	enum rxrpc_command	command : 8;	/* The command to implement */
+@@ -207,6 +208,13 @@ static int rxrpc_send_data(struct rxrpc_sock *rx,
+ 
+ 	more = msg->msg_flags & MSG_MORE;
+ 
++	if (call->tx_total_len != -1) {
++		if (len > call->tx_total_len)
++			return -EMSGSIZE;
++		if (!more && len != call->tx_total_len)
++			return -EMSGSIZE;
++	}
++
+ 	skb = call->tx_pending;
+ 	call->tx_pending = NULL;
+ 	rxrpc_see_skb(skb, rxrpc_skb_tx_seen);
+@@ -299,6 +307,8 @@ static int rxrpc_send_data(struct rxrpc_sock *rx,
+ 			sp->remain -= copy;
+ 			skb->mark += copy;
+ 			copied += copy;
++			if (call->tx_total_len != -1)
++				call->tx_total_len -= copy;
  		}
  
- 		supported = SUPPORTED_1000baseT_Full | SUPPORTED_Autoneg |
-diff --git a/drivers/net/ethernet/broadcom/b44.c b/drivers/net/ethernet/broadcom/b44.c
-index 5b95bb4..f411936 100644
---- a/drivers/net/ethernet/broadcom/b44.c
-+++ b/drivers/net/ethernet/broadcom/b44.c
-@@ -1836,7 +1836,9 @@ static int b44_get_link_ksettings(struct net_device *dev,
+ 		/* check for the far side aborting the call or a network error
+@@ -436,6 +446,14 @@ static int rxrpc_sendmsg_cmsg(struct msghdr *msg, struct rxrpc_send_params *p)
+ 				return -EINVAL;
+ 			break;
  
- 	if (bp->flags & B44_FLAG_EXTERNAL_PHY) {
- 		BUG_ON(!dev->phydev);
--		return phy_ethtool_ksettings_get(dev->phydev, cmd);
-+		phy_ethtool_ksettings_get(dev->phydev, cmd);
++		case RXRPC_TX_LENGTH:
++			if (p->tx_total_len != -1 || len != sizeof(__s64))
++				return -EINVAL;
++			p->tx_total_len = *(__s64 *)CMSG_DATA(cmsg);
++			if (p->tx_total_len < 0)
++				return -EINVAL;
++			break;
 +
-+		return 0;
- 	}
+ 		default:
+ 			return -EINVAL;
+ 		}
+@@ -443,6 +461,8 @@ static int rxrpc_sendmsg_cmsg(struct msghdr *msg, struct rxrpc_send_params *p)
  
- 	supported = (SUPPORTED_Autoneg);
-diff --git a/drivers/net/ethernet/broadcom/bcm63xx_enet.c b/drivers/net/ethernet/broadcom/bcm63xx_enet.c
-index 50d88d3..ea3c906 100644
---- a/drivers/net/ethernet/broadcom/bcm63xx_enet.c
-+++ b/drivers/net/ethernet/broadcom/bcm63xx_enet.c
-@@ -1453,7 +1453,10 @@ static int bcm_enet_get_link_ksettings(struct net_device *dev,
- 	if (priv->has_phy) {
- 		if (!dev->phydev)
- 			return -ENODEV;
--		return phy_ethtool_ksettings_get(dev->phydev, cmd);
-+
-+		phy_ethtool_ksettings_get(dev->phydev, cmd);
-+
-+		return 0;
- 	} else {
- 		cmd->base.autoneg = 0;
- 		cmd->base.speed = (priv->force_speed_100) ?
-diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-index a205a9f..daca1c9 100644
---- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-+++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-@@ -477,7 +477,9 @@ static int bcmgenet_get_link_ksettings(struct net_device *dev,
- 	if (!priv->phydev)
- 		return -ENODEV;
- 
--	return phy_ethtool_ksettings_get(priv->phydev, cmd);
-+	phy_ethtool_ksettings_get(priv->phydev, cmd);
-+
-+	return 0;
- }
- 
- static int bcmgenet_set_link_ksettings(struct net_device *dev,
-diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-index 537d571..d600c41 100644
---- a/drivers/net/ethernet/broadcom/tg3.c
-+++ b/drivers/net/ethernet/broadcom/tg3.c
-@@ -12097,7 +12097,9 @@ static int tg3_get_link_ksettings(struct net_device *dev,
- 		if (!(tp->phy_flags & TG3_PHYFLG_IS_CONNECTED))
- 			return -EAGAIN;
- 		phydev = mdiobus_get_phy(tp->mdio_bus, tp->phy_addr);
--		return phy_ethtool_ksettings_get(phydev, cmd);
-+		phy_ethtool_ksettings_get(phydev, cmd);
-+
-+		return 0;
- 	}
- 
- 	supported = (SUPPORTED_Autoneg);
-diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_ethtool.c b/drivers/net/ethernet/freescale/dpaa/dpaa_ethtool.c
-index 15571e2..aad825088 100644
---- a/drivers/net/ethernet/freescale/dpaa/dpaa_ethtool.c
-+++ b/drivers/net/ethernet/freescale/dpaa/dpaa_ethtool.c
-@@ -75,16 +75,14 @@ static char dpaa_stats_global[][ETH_GSTRING_LEN] = {
- static int dpaa_get_link_ksettings(struct net_device *net_dev,
- 				   struct ethtool_link_ksettings *cmd)
- {
--	int err;
--
- 	if (!net_dev->phydev) {
- 		netdev_dbg(net_dev, "phy device not initialized\n");
- 		return 0;
- 	}
- 
--	err = phy_ethtool_ksettings_get(net_dev->phydev, cmd);
-+	phy_ethtool_ksettings_get(net_dev->phydev, cmd);
- 
--	return err;
-+	return 0;
- }
- 
- static int dpaa_set_link_ksettings(struct net_device *net_dev,
-diff --git a/drivers/net/ethernet/freescale/ucc_geth_ethtool.c b/drivers/net/ethernet/freescale/ucc_geth_ethtool.c
-index b642990..4df282e 100644
---- a/drivers/net/ethernet/freescale/ucc_geth_ethtool.c
-+++ b/drivers/net/ethernet/freescale/ucc_geth_ethtool.c
-@@ -113,7 +113,9 @@ uec_get_ksettings(struct net_device *netdev, struct ethtool_link_ksettings *cmd)
- 	if (!phydev)
- 		return -ENODEV;
- 
--	return phy_ethtool_ksettings_get(phydev, cmd);
-+	phy_ethtool_ksettings_get(phydev, cmd);
-+
-+	return 0;
- }
- 
- static int
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c b/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
-index b8fab14..af1b15c 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
-@@ -150,7 +150,7 @@ static int hns_nic_get_link_ksettings(struct net_device *net_dev,
- 	cmd->base.duplex = duplex;
- 
- 	if (net_dev->phydev)
--		(void)phy_ethtool_ksettings_get(net_dev->phydev, cmd);
-+		phy_ethtool_ksettings_get(net_dev->phydev, cmd);
- 
- 	link_stat = hns_nic_get_link(net_dev);
- 	if (!link_stat) {
-diff --git a/drivers/net/ethernet/marvell/mv643xx_eth.c b/drivers/net/ethernet/marvell/mv643xx_eth.c
-index 25642de..5794d98 100644
---- a/drivers/net/ethernet/marvell/mv643xx_eth.c
-+++ b/drivers/net/ethernet/marvell/mv643xx_eth.c
-@@ -1501,10 +1501,9 @@ mv643xx_eth_get_link_ksettings_phy(struct mv643xx_eth_private *mp,
- 				   struct ethtool_link_ksettings *cmd)
- {
- 	struct net_device *dev = mp->dev;
--	int err;
- 	u32 supported, advertising;
- 
--	err = phy_ethtool_ksettings_get(dev->phydev, cmd);
-+	phy_ethtool_ksettings_get(dev->phydev, cmd);
- 
- 	/*
- 	 * The MAC does not support 1000baseT_Half.
-@@ -1520,7 +1519,7 @@ mv643xx_eth_get_link_ksettings_phy(struct mv643xx_eth_private *mp,
- 	ethtool_convert_legacy_u32_to_link_mode(cmd->link_modes.advertising,
- 						advertising);
- 
--	return err;
-+	return 0;
- }
- 
- static int
-diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-index 16f9755..962975d 100644
---- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-+++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-@@ -2056,7 +2056,9 @@ static int mtk_get_link_ksettings(struct net_device *ndev,
- 	if (unlikely(test_bit(MTK_RESETTING, &mac->hw->state)))
- 		return -EBUSY;
- 
--	return phy_ethtool_ksettings_get(ndev->phydev, cmd);
-+	phy_ethtool_ksettings_get(ndev->phydev, cmd);
-+
-+	return 0;
- }
- 
- static int mtk_set_link_ksettings(struct net_device *ndev,
-diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
-index 784782d..5931e85 100644
---- a/drivers/net/ethernet/renesas/ravb_main.c
-+++ b/drivers/net/ethernet/renesas/ravb_main.c
-@@ -1076,16 +1076,16 @@ static int ravb_get_link_ksettings(struct net_device *ndev,
- 				   struct ethtool_link_ksettings *cmd)
- {
- 	struct ravb_private *priv = netdev_priv(ndev);
--	int error = -ENODEV;
- 	unsigned long flags;
- 
--	if (ndev->phydev) {
--		spin_lock_irqsave(&priv->lock, flags);
--		error = phy_ethtool_ksettings_get(ndev->phydev, cmd);
--		spin_unlock_irqrestore(&priv->lock, flags);
--	}
-+	if (!ndev->phydev)
-+		return -ENODEV;
- 
--	return error;
-+	spin_lock_irqsave(&priv->lock, flags);
-+	phy_ethtool_ksettings_get(ndev->phydev, cmd);
-+	spin_unlock_irqrestore(&priv->lock, flags);
-+
-+	return 0;
- }
- 
- static int ravb_set_link_ksettings(struct net_device *ndev,
-diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-index 2d686cc..b2f0cea 100644
---- a/drivers/net/ethernet/renesas/sh_eth.c
-+++ b/drivers/net/ethernet/renesas/sh_eth.c
-@@ -1915,16 +1915,15 @@ static int sh_eth_get_link_ksettings(struct net_device *ndev,
- {
- 	struct sh_eth_private *mdp = netdev_priv(ndev);
- 	unsigned long flags;
--	int ret;
- 
- 	if (!ndev->phydev)
- 		return -ENODEV;
- 
- 	spin_lock_irqsave(&mdp->lock, flags);
--	ret = phy_ethtool_ksettings_get(ndev->phydev, cmd);
-+	phy_ethtool_ksettings_get(ndev->phydev, cmd);
- 	spin_unlock_irqrestore(&mdp->lock, flags);
- 
--	return ret;
-+	return 0;
- }
- 
- static int sh_eth_set_link_ksettings(struct net_device *ndev,
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-index 16808e4..743170d 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-@@ -273,7 +273,6 @@ static int stmmac_ethtool_get_link_ksettings(struct net_device *dev,
- {
- 	struct stmmac_priv *priv = netdev_priv(dev);
- 	struct phy_device *phy = dev->phydev;
--	int rc;
- 
- 	if (priv->hw->pcs & STMMAC_PCS_RGMII ||
- 	    priv->hw->pcs & STMMAC_PCS_SGMII) {
-@@ -364,8 +363,8 @@ static int stmmac_ethtool_get_link_ksettings(struct net_device *dev,
- 		"link speed / duplex setting\n", dev->name);
- 		return -EBUSY;
- 	}
--	rc = phy_ethtool_ksettings_get(phy, cmd);
--	return rc;
-+	phy_ethtool_ksettings_get(phy, cmd);
-+	return 0;
- }
- 
- static int
-diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index b6a0d92..b7a0f5e 100644
---- a/drivers/net/ethernet/ti/cpsw.c
-+++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -2170,11 +2170,11 @@ static int cpsw_get_link_ksettings(struct net_device *ndev,
- 	struct cpsw_common *cpsw = priv->cpsw;
- 	int slave_no = cpsw_slave_index(cpsw, priv);
- 
--	if (cpsw->slaves[slave_no].phy)
--		return phy_ethtool_ksettings_get(cpsw->slaves[slave_no].phy,
--						 ecmd);
--	else
-+	if (!cpsw->slaves[slave_no].phy)
- 		return -EOPNOTSUPP;
-+
-+	phy_ethtool_ksettings_get(cpsw->slaves[slave_no].phy, ecmd);
-+	return 0;
- }
- 
- static int cpsw_set_link_ksettings(struct net_device *ndev,
-diff --git a/drivers/net/ethernet/ti/netcp_ethss.c b/drivers/net/ethernet/ti/netcp_ethss.c
-index dd92950..0847a8f 100644
---- a/drivers/net/ethernet/ti/netcp_ethss.c
-+++ b/drivers/net/ethernet/ti/netcp_ethss.c
-@@ -1927,7 +1927,6 @@ static int keystone_get_link_ksettings(struct net_device *ndev,
- 	struct netcp_intf *netcp = netdev_priv(ndev);
- 	struct phy_device *phy = ndev->phydev;
- 	struct gbe_intf *gbe_intf;
--	int ret;
- 
- 	if (!phy)
+ 	if (!got_user_ID)
  		return -EINVAL;
-@@ -1939,11 +1938,10 @@ static int keystone_get_link_ksettings(struct net_device *ndev,
- 	if (!gbe_intf->slave)
- 		return -EINVAL;
- 
--	ret = phy_ethtool_ksettings_get(phy, cmd);
--	if (!ret)
--		cmd->base.port = gbe_intf->slave->phy_port_t;
-+	phy_ethtool_ksettings_get(phy, cmd);
-+	cmd->base.port = gbe_intf->slave->phy_port_t;
- 
--	return ret;
-+	return 0;
++	if (p->tx_total_len != -1 && p->command != RXRPC_CMD_SEND_DATA)
++		return -EINVAL;
+ 	_leave(" = 0");
+ 	return 0;
  }
+@@ -481,7 +501,8 @@ rxrpc_new_client_call_for_sendmsg(struct rxrpc_sock *rx, struct msghdr *msg,
+ 	cp.exclusive		= rx->exclusive | p->exclusive;
+ 	cp.upgrade		= p->upgrade;
+ 	cp.service_id		= srx->srx_service;
+-	call = rxrpc_new_client_call(rx, &cp, srx, p->user_call_ID, GFP_KERNEL);
++	call = rxrpc_new_client_call(rx, &cp, srx, p->user_call_ID,
++				     p->tx_total_len, GFP_KERNEL);
+ 	/* The socket is now unlocked */
  
- static int keystone_set_link_ksettings(struct net_device *ndev,
-diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
-index 14fc5bc..edcdf0d 100644
---- a/drivers/net/phy/phy.c
-+++ b/drivers/net/phy/phy.c
-@@ -509,8 +509,8 @@ int phy_ethtool_ksettings_set(struct phy_device *phydev,
+ 	_leave(" = %p\n", call);
+@@ -501,6 +522,7 @@ int rxrpc_do_sendmsg(struct rxrpc_sock *rx, struct msghdr *msg, size_t len)
+ 	int ret;
+ 
+ 	struct rxrpc_send_params p = {
++		.tx_total_len	= -1,
+ 		.user_call_ID	= 0,
+ 		.abort_code	= 0,
+ 		.command	= RXRPC_CMD_SEND_DATA,
+@@ -555,6 +577,15 @@ int rxrpc_do_sendmsg(struct rxrpc_sock *rx, struct msghdr *msg, size_t len)
+ 			ret = -ERESTARTSYS;
+ 			goto error_put;
+ 		}
++
++		if (p.tx_total_len != -1) {
++			ret = -EINVAL;
++			if (call->tx_total_len != -1 ||
++			    call->tx_pending ||
++			    call->tx_top != 0)
++				goto error_put;
++			call->tx_total_len = p.tx_total_len;
++		}
+ 	}
+ 
+ 	state = READ_ONCE(call->state);
+@@ -672,5 +703,24 @@ bool rxrpc_kernel_abort_call(struct socket *sock, struct rxrpc_call *call,
+ 	mutex_unlock(&call->user_mutex);
+ 	return aborted;
  }
- EXPORT_SYMBOL(phy_ethtool_ksettings_set);
- 
--int phy_ethtool_ksettings_get(struct phy_device *phydev,
--			      struct ethtool_link_ksettings *cmd)
-+void phy_ethtool_ksettings_get(struct phy_device *phydev,
-+			       struct ethtool_link_ksettings *cmd)
- {
- 	ethtool_convert_legacy_u32_to_link_mode(cmd->link_modes.supported,
- 						phydev->supported);
-@@ -532,8 +532,6 @@ int phy_ethtool_ksettings_get(struct phy_device *phydev,
- 	cmd->base.autoneg = phydev->autoneg;
- 	cmd->base.eth_tp_mdix_ctrl = phydev->mdix_ctrl;
- 	cmd->base.eth_tp_mdix = phydev->mdix;
 -
--	return 0;
- }
- EXPORT_SYMBOL(phy_ethtool_ksettings_get);
- 
-@@ -1449,7 +1447,9 @@ int phy_ethtool_get_link_ksettings(struct net_device *ndev,
- 	if (!phydev)
- 		return -ENODEV;
- 
--	return phy_ethtool_ksettings_get(phydev, cmd);
-+	phy_ethtool_ksettings_get(phydev, cmd);
+ EXPORT_SYMBOL(rxrpc_kernel_abort_call);
 +
-+	return 0;
- }
- EXPORT_SYMBOL(phy_ethtool_get_link_ksettings);
- 
-diff --git a/drivers/net/usb/lan78xx.c b/drivers/net/usb/lan78xx.c
-index 9eff97a..5833f7e 100644
---- a/drivers/net/usb/lan78xx.c
-+++ b/drivers/net/usb/lan78xx.c
-@@ -1490,7 +1490,7 @@ static int lan78xx_get_link_ksettings(struct net_device *net,
- 	if (ret < 0)
- 		return ret;
- 
--	ret = phy_ethtool_ksettings_get(phydev, cmd);
-+	phy_ethtool_ksettings_get(phydev, cmd);
- 
- 	usb_autopm_put_interface(dev->intf);
- 
-diff --git a/drivers/staging/netlogic/xlr_net.c b/drivers/staging/netlogic/xlr_net.c
-index 781ef62..e05ae46 100644
---- a/drivers/staging/netlogic/xlr_net.c
-+++ b/drivers/staging/netlogic/xlr_net.c
-@@ -179,7 +179,10 @@ static int xlr_get_link_ksettings(struct net_device *ndev,
- 
- 	if (!phydev)
- 		return -ENODEV;
--	return phy_ethtool_ksettings_get(phydev, ecmd);
-+
-+	phy_ethtool_ksettings_get(phydev, ecmd);
-+
-+	return 0;
- }
- 
- static int xlr_set_link_ksettings(struct net_device *ndev,
-diff --git a/include/linux/phy.h b/include/linux/phy.h
-index 4142422..e70360a 100644
---- a/include/linux/phy.h
-+++ b/include/linux/phy.h
-@@ -874,8 +874,8 @@ void phy_start_machine(struct phy_device *phydev);
- void phy_stop_machine(struct phy_device *phydev);
- void phy_trigger_machine(struct phy_device *phydev, bool sync);
- int phy_ethtool_sset(struct phy_device *phydev, struct ethtool_cmd *cmd);
--int phy_ethtool_ksettings_get(struct phy_device *phydev,
--			      struct ethtool_link_ksettings *cmd);
-+void phy_ethtool_ksettings_get(struct phy_device *phydev,
-+			       struct ethtool_link_ksettings *cmd);
- int phy_ethtool_ksettings_set(struct phy_device *phydev,
- 			      const struct ethtool_link_ksettings *cmd);
- int phy_mii_ioctl(struct phy_device *phydev, struct ifreq *ifr, int cmd);
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index 5f3caee..5e45ae5 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -387,12 +387,13 @@ dsa_slave_get_link_ksettings(struct net_device *dev,
- 			     struct ethtool_link_ksettings *cmd)
- {
- 	struct dsa_slave_priv *p = netdev_priv(dev);
--	int err = -EOPNOTSUPP;
- 
--	if (p->phy != NULL)
--		err = phy_ethtool_ksettings_get(p->phy, cmd);
-+	if (!p->phy)
-+		return -EOPNOTSUPP;
- 
--	return err;
-+	phy_ethtool_ksettings_get(p->phy, cmd);
-+
-+	return 0;
- }
- 
- static int
--- 
-2.9.4
++/**
++ * rxrpc_kernel_set_tx_length - Set the total Tx length on a call
++ * @sock: The socket the call is on
++ * @call: The call to be informed
++ * @tx_total_len: The amount of data to be transmitted for this call
++ *
++ * Allow a kernel service to set the total transmit length on a call.  This
++ * allows buffer-to-packet encrypt-and-copy to be performed.
++ *
++ * This function is primarily for use for setting the reply length since the
++ * request length can be set when beginning the call.
++ */
++void rxrpc_kernel_set_tx_length(struct socket *sock, struct rxrpc_call *call,
++				s64 tx_total_len)
++{
++	WARN_ON(call->tx_total_len != -1);
++	call->tx_total_len = tx_total_len;
++}
++EXPORT_SYMBOL(rxrpc_kernel_set_tx_length);
