@@ -1,74 +1,107 @@
-From: "Brown, Aaron F" <aaron.f.brown@intel.com>
-Subject: Re: [Intel-wired-lan] [PATCH v2 1/1] e1000e: Undo
- e1000e_pm_freeze if __e1000_shutdown fails
-Date: Wed, 7 Jun 2017 01:07:33 +0000
-Message-ID: <309B89C4C689E141A5FF6A0C5FB2118B8C61D137@ORSMSX101.amr.corp.intel.com>
-References: <20170531.110833.1362264472730468352.davem@davemloft.net>
- <20170531155043.3596-1-jani.nikula@intel.com>
- <20170531155043.3596-2-jani.nikula@intel.com>
- <20170602.141426.713378366601051907.davem@davemloft.net>
- <1496781986.86439.3.camel@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "daniel.vetter@ffwll.ch" <daniel.vetter@ffwll.ch>,
- "intel-gfx@lists.freedesktop.org" <intel-gfx@lists.freedesktop.org>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
- "dri-devel@lists.freedesktop.org" <dri-devel@lists.freedesktop.org>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>, "Ertman,
- David M" <david.m.ertman@intel.com>
-To: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>, David Miller
- <davem@davemloft.net>, "Nikula, Jani" <jani.nikula@intel.com>
-Return-path: <intel-gfx-bounces@lists.freedesktop.org>
-In-Reply-To: <1496781986.86439.3.camel@intel.com>
-Content-Language: en-US
-List-Unsubscribe: <https://lists.freedesktop.org/mailman/options/intel-gfx>,
- <mailto:intel-gfx-request@lists.freedesktop.org?subject=unsubscribe>
-List-Archive: <https://lists.freedesktop.org/archives/intel-gfx>
-List-Post: <mailto:intel-gfx@lists.freedesktop.org>
-List-Help: <mailto:intel-gfx-request@lists.freedesktop.org?subject=help>
-List-Subscribe: <https://lists.freedesktop.org/mailman/listinfo/intel-gfx>,
- <mailto:intel-gfx-request@lists.freedesktop.org?subject=subscribe>
-Errors-To: intel-gfx-bounces@lists.freedesktop.org
-Sender: "Intel-gfx" <intel-gfx-bounces@lists.freedesktop.org>
-List-Id: netdev.vger.kernel.org
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: [PATCH net-next] net: fec: Clear and enable MIB counters on imx51
+Date: Wed,  7 Jun 2017 03:57:09 +0200
+Message-ID: <1496800629-24910-1-git-send-email-andrew@lunn.ch>
+Cc: netdev <netdev@vger.kernel.org>,
+        Nikita Yushchenko <nikita.yoush@cogentembedded.com>,
+        Fabio Estevam <fabio.estevam@nxp.com>,
+        Chris Healy <cphealy@gmail.com>, Andrew Lunn <andrew@lunn.ch>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:39110 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751453AbdFGB5q (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 6 Jun 2017 21:57:46 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-PiBGcm9tOiBJbnRlbC13aXJlZC1sYW4gW21haWx0bzppbnRlbC13aXJlZC1sYW4tYm91bmNlc0Bv
-c3Vvc2wub3JnXSBPbiBCZWhhbGYNCj4gT2YgSmVmZiBLaXJzaGVyDQo+IFNlbnQ6IFR1ZXNkYXks
-IEp1bmUgNiwgMjAxNyAxOjQ2IFBNDQo+IFRvOiBEYXZpZCBNaWxsZXIgPGRhdmVtQGRhdmVtbG9m
-dC5uZXQ+OyBOaWt1bGEsIEphbmkNCj4gPGphbmkubmlrdWxhQGludGVsLmNvbT4NCj4gQ2M6IFVy
-c3VsaW4sIFR2cnRrbyA8dHZydGtvLnVyc3VsaW5AaW50ZWwuY29tPjsgZGFuaWVsLnZldHRlckBm
-ZndsbC5jaDsgaW50ZWwtDQo+IGdmeEBsaXN0cy5mcmVlZGVza3RvcC5vcmc7IGxpbnV4LWtlcm5l
-bEB2Z2VyLmtlcm5lbC5vcmc7DQo+IGphbmkubmlrdWxhQGxpbnV4LmludGVsLmNvbTsgY2hyaXNA
-Y2hyaXMtd2lsc29uLmNvLnVrOyBFcnRtYW4sIERhdmlkIE0NCj4gPGRhdmlkLm0uZXJ0bWFuQGlu
-dGVsLmNvbT47IGludGVsLXdpcmVkLWxhbkBsaXN0cy5vc3Vvc2wub3JnOyBkcmktDQo+IGRldmVs
-QGxpc3RzLmZyZWVkZXNrdG9wLm9yZzsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgYWlybGllZEBn
-bWFpbC5jb20NCj4gU3ViamVjdDogUmU6IFtJbnRlbC13aXJlZC1sYW5dIFtQQVRDSCB2MiAxLzFd
-IGUxMDAwZTogVW5kbw0KPiBlMTAwMGVfcG1fZnJlZXplIGlmIF9fZTEwMDBfc2h1dGRvd24gZmFp
-bHMNCj4gDQo+IE9uIEZyaSwgMjAxNy0wNi0wMiBhdCAxNDoxNCAtMDQwMCwgRGF2aWQgTWlsbGVy
-IHdyb3RlOg0KPiA+IEZyb206IEphbmkgTmlrdWxhIDxqYW5pLm5pa3VsYUBpbnRlbC5jb20+DQo+
-ID4gRGF0ZTogV2VkLCAzMSBNYXkgMjAxNyAxODo1MDo0MyArMDMwMA0KPiA+DQo+ID4gPiBGcm9t
-OiBDaHJpcyBXaWxzb24gPGNocmlzQGNocmlzLXdpbHNvbi5jby51az4NCj4gPiA+DQo+ID4gPiBB
-biBlcnJvciBkdXJpbmcgc3VzcGVuZCAoZTEwMGVfcG1fc3VzcGVuZCksDQo+ID4NCj4gPiAgLi4u
-DQo+ID4gPiBsZWFkIHRvIGNvbXBsZXRlIGZhaWx1cmU6DQo+ID4NCj4gPiAgLi4uDQo+ID4gPiBU
-aGUgdW53aW5kIGZhaWx1cmVzIHN0ZW1zIGZyb20gY29tbWl0IDI4MDAyMDk5OTRmOCAoImUxMDAw
-ZToNCj4gPiA+IFJlZmFjdG9yIFBNDQo+ID4gPiBmbG93cyIpLCBidXQgaXQgbWF5IGJlIGEgbGF0
-ZXIgcGF0Y2ggdGhhdCBpbnRyb2R1Y2VkIHRoZSBub24tDQo+ID4gPiByZWNvdmVyYWJsZQ0KPiA+
-ID4gYmVoYXZpb3VyLg0KPiA+ID4NCj4gPiA+IEZpeGVzOiAyODAwMjA5OTk0ZjggKCJlMTAwMGU6
-IFJlZmFjdG9yIFBNIGZsb3dzIikNCj4gPiA+IEJ1Z3ppbGxhOiBodHRwczovL2J1Z3MuZnJlZWRl
-c2t0b3Aub3JnL3Nob3dfYnVnLmNnaT9pZD05OTg0Nw0KPiA+ID4gQ2M6IFR2cnRrbyBVcnN1bGlu
-IDx0dnJ0a28udXJzdWxpbkBpbnRlbC5jb20+DQo+ID4gPiBDYzogSmVmZiBLaXJzaGVyIDxqZWZm
-cmV5LnQua2lyc2hlckBpbnRlbC5jb20+DQo+ID4gPiBDYzogRGF2ZSBFcnRtYW4gPGRhdmlkeC5t
-LmVydG1hbkBpbnRlbC5jb20+DQo+ID4gPiBDYzogQnJ1Y2UgQWxsYW4gPGJydWNlLncuYWxsYW5A
-aW50ZWwuY29tPg0KPiA+ID4gQ2M6IGludGVsLXdpcmVkLWxhbkBsaXN0cy5vc3Vvc2wub3JnDQo+
-ID4gPiBDYzogbmV0ZGV2QHZnZXIua2VybmVsLm9yZw0KPiA+ID4gU2lnbmVkLW9mZi1ieTogQ2hy
-aXMgV2lsc29uIDxjaHJpc0BjaHJpcy13aWxzb24uY28udWs+DQo+ID4gPiBbSmFuaTogYmlrZXNo
-ZWQgcmVwYWludGVkXQ0KPiA+ID4gU2lnbmVkLW9mZi1ieTogSmFuaSBOaWt1bGEgPGphbmkubmlr
-dWxhQGludGVsLmNvbT4NCj4gPg0KPiA+IEplZmYsIHBsZWFzZSBtYWtlIHN1cmUgdGhpcyBnZXRz
-IHN1Ym1pdHRlZCB0byBtZSBzb29uLg0KPiANCj4gRXhwZWN0IGl0IGxhdGVyIHRvbmlnaHQsIGp1
-c3QgZmluaXNoaW5nIHVwIHRlc3RpbmcuDQoNClRlc3RlZC1ieTogQWFyb24gQnJvd24gPGFhcm9u
-LmYuYnJvd25AaW50ZWwuY29tPg0KX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX18KSW50ZWwtZ2Z4IG1haWxpbmcgbGlzdApJbnRlbC1nZnhAbGlzdHMuZnJlZWRl
-c2t0b3Aub3JnCmh0dHBzOi8vbGlzdHMuZnJlZWRlc2t0b3Aub3JnL21haWxtYW4vbGlzdGluZm8v
-aW50ZWwtZ2Z4Cg==
+Both the IMX51 and IMX53 datasheet indicates that the MIB counters
+should be cleared during setup. Otherwise random numbers are returned
+via ethtool -S.  Add a quirk and a function to do this.
+
+Tested on an IMX51.
+
+Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+---
+ drivers/net/ethernet/freescale/fec.h      |  4 ++++
+ drivers/net/ethernet/freescale/fec_main.c | 27 ++++++++++++++++++++++++---
+ 2 files changed, 28 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/ethernet/freescale/fec.h b/drivers/net/ethernet/freescale/fec.h
+index 5ea740b4cf14..38c7b21e5d63 100644
+--- a/drivers/net/ethernet/freescale/fec.h
++++ b/drivers/net/ethernet/freescale/fec.h
+@@ -446,6 +446,10 @@ struct bufdesc_ex {
+ #define FEC_QUIRK_HAS_COALESCE		(1 << 13)
+ /* Interrupt doesn't wake CPU from deep idle */
+ #define FEC_QUIRK_ERR006687		(1 << 14)
++/* The MIB counters should be cleared and enabled during
++ * initialisation.
++ */
++#define FEC_QUIRK_MIB_CLEAR		(1 << 15)
+ 
+ struct bufdesc_prop {
+ 	int qid;
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+index f7c8649fd28f..297fd196c879 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -89,10 +89,10 @@ static struct platform_device_id fec_devtype[] = {
+ 		.driver_data = 0,
+ 	}, {
+ 		.name = "imx25-fec",
+-		.driver_data = FEC_QUIRK_USE_GASKET,
++		.driver_data = FEC_QUIRK_USE_GASKET | FEC_QUIRK_MIB_CLEAR,
+ 	}, {
+ 		.name = "imx27-fec",
+-		.driver_data = 0,
++		.driver_data = FEC_QUIRK_MIB_CLEAR,
+ 	}, {
+ 		.name = "imx28-fec",
+ 		.driver_data = FEC_QUIRK_ENET_MAC | FEC_QUIRK_SWAP_FRAME |
+@@ -184,6 +184,9 @@ MODULE_PARM_DESC(macaddr, "FEC Ethernet MAC address");
+ #define FEC_RACC_SHIFT16	BIT(7)
+ #define FEC_RACC_OPTIONS	(FEC_RACC_IPDIS | FEC_RACC_PRODIS)
+ 
++/* MIB Control Register */
++#define FEC_MIB_CTRLSTAT_DISABLE	BIT(31)
++
+ /*
+  * The 5270/5271/5280/5282/532x RX control register also contains maximum frame
+  * size bits. Other FEC hardware does not, so we need to take that into
+@@ -2356,6 +2359,21 @@ static int fec_enet_get_sset_count(struct net_device *dev, int sset)
+ 	}
+ }
+ 
++static void fec_enet_clear_ethtool_stats(struct net_device *dev)
++{
++	struct fec_enet_private *fep = netdev_priv(dev);
++	int i;
++
++	/* Disable MIB statistics counters */
++	writel(FEC_MIB_CTRLSTAT_DISABLE, fep->hwp + FEC_MIB_CTRLSTAT);
++
++	for (i = 0; i < ARRAY_SIZE(fec_stats); i++)
++		writel(0, fep->hwp + fec_stats[i].offset);
++
++	/* Don't disable MIB statistics counters */
++	writel(0, fep->hwp + FEC_MIB_CTRLSTAT);
++}
++
+ #else	/* !defined(CONFIG_M5272) */
+ #define FEC_STATS_SIZE	0
+ static inline void fec_enet_update_ethtool_stats(struct net_device *dev)
+@@ -3182,7 +3200,10 @@ static int fec_enet_init(struct net_device *ndev)
+ 
+ 	fec_restart(ndev);
+ 
+-	fec_enet_update_ethtool_stats(ndev);
++	if (fep->quirks & FEC_QUIRK_MIB_CLEAR)
++		fec_enet_clear_ethtool_stats(ndev);
++	else
++		fec_enet_update_ethtool_stats(ndev);
+ 
+ 	return 0;
+ }
+-- 
+2.11.0
