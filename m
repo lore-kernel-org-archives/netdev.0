@@ -1,44 +1,74 @@
-From: "Hefty, Sean" <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: RE: Netlink messages without NLM_F_REQUEST flag
-Date: Wed, 7 Jun 2017 18:26:01 +0000
-Message-ID: <1828884A29C6694DAF28B7E6B8A82373AB141162@ORSMSX109.amr.corp.intel.com>
-References: <20170607161901.GD1127@mtr-leonro.local>
- <20170607163758.GA25313@obsidianresearch.com>
- <CALq1K=Jj_jJ5_OAiiws-es37tFEsLeLJeSvnU+bfwd0KLkGM3Q@mail.gmail.com>
- <20170607164750.GA7507@obsidianresearch.com>
- <20170607170037.GG1127@mtr-leonro.local>
- <20170607170702.GB7507@obsidianresearch.com>
- <20170607181810.GI1127@mtr-leonro.local>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "Wan, Kaike" <kaike.wan-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        "Fleck, John" <john.fleck-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        "Weiny, Ira" <ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>,
-        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        Jiri Pirko <jiri-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        RDMA mailing list <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        linux-netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170607181810.GI1127-U/DQcQFIOTAAJjI8aNfphQ@public.gmane.org>
-Content-Language: en-US
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: David Ahern <dsahern@gmail.com>
+Subject: [PATCH net] net: ipv6: Release route when device is unregistering
+Date: Wed,  7 Jun 2017 12:26:23 -0600
+Message-ID: <20170607182623.20734-1-dsahern@gmail.com>
+Cc: roopa@cumulusnetworks.com, David Ahern <dsahern@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:36522 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751704AbdFGS0b (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 7 Jun 2017 14:26:31 -0400
+Received: by mail-pg0-f67.google.com with SMTP id v18so2122753pgb.3
+        for <netdev@vger.kernel.org>; Wed, 07 Jun 2017 11:26:30 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> It is acking that message from user was received by kernel and now
-> processing. The message from kernel to user are anyway unreliable [1],
-> so I don't understand on which handshake you are talking.
-> 
-> [1] "reliable transmissions from kernel to user are impossible in any
-> case"
-> https://linux.die.net/man/7/netlink
+Roopa reported attempts to delete a bond device that is referenced in a
+multipath route is hanging:
 
-The SA messages are kernel initiated messages that target a user space daemon (e.g. ibacm) for cached PR data.  If that fails because the daemon isn't running or the message is lost, the normal retry mechanism in the kernel should kick in and try sending the SA message to the remote (i.e. real) SA.
+$ ifdown bond2    # ifupdown2 command that deletes virtual devices
+unregister_netdevice: waiting for bond2 to become free. Usage count = 2
 
-- Sean
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Steps to reproduce:
+    echo 1 > /proc/sys/net/ipv6/conf/all/ignore_routes_with_linkdown
+    ip link add dev bond12 type bond
+    ip link add dev bond13 type bond
+    ip addr add 2001:db8:2::0/64 dev bond12
+    ip addr add 2001:db8:3::0/64 dev bond13
+    ip route add 2001:db8:33::0/64 nexthop via 2001:db8:2::2 nexthop via 2001:db8:3::2
+    ip link del dev bond12
+    ip link del dev bond13
+
+The root cause is the recent change to keep routes on a linkdown. Update
+the check to detect when the device is unregistering and release the
+route for that case.
+
+Fixes: a1a22c12060e4 ("net: ipv6: Keep nexthop of multipath route on admin down")
+Reported-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+Signed-off-by: David Ahern <dsahern@gmail.com>
+---
+ include/linux/netdevice.h | 5 +++++
+ net/ipv6/route.c          | 1 +
+ 2 files changed, 6 insertions(+)
+
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 3f39d27decf4..c06d93cfd719 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -4261,6 +4261,11 @@ static inline const char *netdev_name(const struct net_device *dev)
+ 	return dev->name;
+ }
+ 
++static inline bool netdev_unregistering(const struct net_device *dev)
++{
++	return dev->reg_state == NETREG_UNREGISTERING;
++}
++
+ static inline const char *netdev_reg_state(const struct net_device *dev)
+ {
+ 	switch (dev->reg_state) {
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index dc61b0b5e64e..7cebd954d5bb 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -2804,6 +2804,7 @@ static int fib6_ifdown(struct rt6_info *rt, void *arg)
+ 	if ((rt->dst.dev == dev || !dev) &&
+ 	    rt != adn->net->ipv6.ip6_null_entry &&
+ 	    (rt->rt6i_nsiblings == 0 ||
++	     (dev && netdev_unregistering(dev)) ||
+ 	     !rt->rt6i_idev->cnf.ignore_routes_with_linkdown))
+ 		return -1;
+ 
+-- 
+2.11.0 (Apple Git-81)
