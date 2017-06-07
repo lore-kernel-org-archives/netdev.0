@@ -1,78 +1,75 @@
 From: Bjorn Andersson <bjorn.andersson@linaro.org>
-Subject: [RESEND PATCH 1/4] net: qrtr: Refactor packet allocation
-Date: Wed,  7 Jun 2017 14:07:36 -0700
-Message-ID: <20170607210739.27263-2-bjorn.andersson@linaro.org>
+Subject: [RESEND PATCH 4/4] net: qrtr: Inform open sockets about new controller
+Date: Wed,  7 Jun 2017 14:07:39 -0700
+Message-ID: <20170607210739.27263-5-bjorn.andersson@linaro.org>
 References: <20170607210739.27263-1-bjorn.andersson@linaro.org>
 Cc: Arun Kumar Neelakantam <aneela@codeaurora.org>,
         netdev@vger.kernel.org, linux-arm-msm@vger.kernel.org,
         linux-kernel@vger.kernel.org, Courtney Cavin <ccavin@gmail.com>
 To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <linux-arm-msm-owner@vger.kernel.org>
 In-Reply-To: <20170607210739.27263-1-bjorn.andersson@linaro.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: linux-arm-msm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Extract the allocation and filling in the control message header fields
-to a separate function in order to reuse this in subsequent patches.
+As the higher level communication only deals with "services" the
+a service directory is required to keep track of local and remote
+services. In order for qrtr clients to be informed about when the
+service directory implementation is available some event needs to be
+passed to them.
+
+Rather than introducing support for broadcasting such a message in-band
+to all open local sockets we flag each socket with ENETRESET, as there
+are no other expected operations that would benefit from having support
+from locally broadcasting messages.
 
 Cc: Courtney Cavin <ccavin@gmail.com>
 Signed-off-by: Bjorn Andersson <bjorn.andersson@linaro.org>
 ---
- net/qrtr/qrtr.c | 25 +++++++++++++++++++------
- 1 file changed, 19 insertions(+), 6 deletions(-)
+ net/qrtr/qrtr.c | 24 ++++++++++++++++++++++++
+ 1 file changed, 24 insertions(+)
 
 diff --git a/net/qrtr/qrtr.c b/net/qrtr/qrtr.c
-index a9a8c7d5a4a9..86d35ed50da9 100644
+index d7516098b5aa..c7a5d861906b 100644
 --- a/net/qrtr/qrtr.c
 +++ b/net/qrtr/qrtr.c
-@@ -245,14 +245,11 @@ int qrtr_endpoint_post(struct qrtr_endpoint *ep, const void *data, size_t len)
+@@ -530,6 +530,26 @@ static int qrtr_port_assign(struct qrtr_sock *ipc, int *port)
+ 	return 0;
  }
- EXPORT_SYMBOL_GPL(qrtr_endpoint_post);
  
--/* Allocate and construct a resume-tx packet. */
--static struct sk_buff *qrtr_alloc_resume_tx(u32 src_node,
--					    u32 dst_node, u32 port)
-+static struct sk_buff *qrtr_alloc_ctrl_packet(u32 type, size_t pkt_len,
-+					      u32 src_node, u32 dst_node)
- {
--	const int pkt_len = 20;
- 	struct qrtr_hdr *hdr;
- 	struct sk_buff *skb;
--	__le32 *buf;
- 
- 	skb = alloc_skb(QRTR_HDR_SIZE + pkt_len, GFP_KERNEL);
- 	if (!skb)
-@@ -261,7 +258,7 @@ static struct sk_buff *qrtr_alloc_resume_tx(u32 src_node,
- 
- 	hdr = (struct qrtr_hdr *)skb_put(skb, QRTR_HDR_SIZE);
- 	hdr->version = cpu_to_le32(QRTR_PROTO_VER);
--	hdr->type = cpu_to_le32(QRTR_TYPE_RESUME_TX);
-+	hdr->type = cpu_to_le32(type);
- 	hdr->src_node_id = cpu_to_le32(src_node);
- 	hdr->src_port_id = cpu_to_le32(QRTR_PORT_CTRL);
- 	hdr->confirm_rx = cpu_to_le32(0);
-@@ -269,6 +266,22 @@ static struct sk_buff *qrtr_alloc_resume_tx(u32 src_node,
- 	hdr->dst_node_id = cpu_to_le32(dst_node);
- 	hdr->dst_port_id = cpu_to_le32(QRTR_PORT_CTRL);
- 
-+	return skb;
++/* Reset all non-control ports */
++static void qrtr_reset_ports(void)
++{
++	struct qrtr_sock *ipc;
++	int id;
++
++	mutex_lock(&qrtr_port_lock);
++	idr_for_each_entry(&qrtr_ports, ipc, id) {
++		/* Don't reset control port */
++		if (id == 0)
++			continue;
++
++		sock_hold(&ipc->sk);
++		ipc->sk.sk_err = ENETRESET;
++		wake_up_interruptible(sk_sleep(&ipc->sk));
++		sock_put(&ipc->sk);
++	}
++	mutex_unlock(&qrtr_port_lock);
 +}
 +
-+/* Allocate and construct a resume-tx packet. */
-+static struct sk_buff *qrtr_alloc_resume_tx(u32 src_node,
-+					    u32 dst_node, u32 port)
-+{
-+	const int pkt_len = 20;
-+	struct sk_buff *skb;
-+	__le32 *buf;
+ /* Bind socket to address.
+  *
+  * Socket should be locked upon call.
+@@ -558,6 +578,10 @@ static int __qrtr_bind(struct socket *sock,
+ 
+ 	sock_reset_flag(sk, SOCK_ZAPPED);
+ 
++	/* Notify all open ports about the new controller */
++	if (port == QRTR_PORT_CTRL)
++		qrtr_reset_ports();
 +
-+	skb = qrtr_alloc_ctrl_packet(QRTR_TYPE_RESUME_TX, pkt_len,
-+				     src_node, dst_node);
-+	if (!skb)
-+		return NULL;
-+
- 	buf = (__le32 *)skb_put(skb, pkt_len);
- 	memset(buf, 0, pkt_len);
- 	buf[0] = cpu_to_le32(QRTR_TYPE_RESUME_TX);
+ 	return 0;
+ }
+ 
 -- 
 2.12.0
