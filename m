@@ -1,8 +1,7 @@
 From: Antoine Tenart <antoine.tenart@free-electrons.com>
-Subject: [PATCH 9/9] arm64: marvell: dts: add xmdio nodes for 7k/8k
-Date: Wed,  7 Jun 2017 10:38:10 +0200
-Message-ID: <20170607083810.30922-10-antoine.tenart@free-electrons.com>
-References: <20170607083810.30922-1-antoine.tenart@free-electrons.com>
+Subject: [PATCH 0/9] net: mvmdio: add xSMI support
+Date: Wed,  7 Jun 2017 10:38:01 +0200
+Message-ID: <20170607083810.30922-1-antoine.tenart@free-electrons.com>
 Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
         thomas.petazzoni@free-electrons.com, mw@semihalf.com,
         linux@armlinux.org.uk, netdev@vger.kernel.org,
@@ -11,60 +10,51 @@ To: davem@davemloft.net, jason@lakedaemon.net, andrew@lunn.ch,
         gregory.clement@free-electrons.com,
         sebastian.hesselbarth@gmail.com, f.fainelli@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:37636 "EHLO
+Received: from mail.free-electrons.com ([62.4.15.54]:37644 "EHLO
         mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751516AbdFGIjQ (ORCPT
+        with ESMTP id S1751517AbdFGIjQ (ORCPT
         <rfc822;netdev@vger.kernel.org>); Wed, 7 Jun 2017 04:39:16 -0400
-In-Reply-To: <20170607083810.30922-1-antoine.tenart@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add the description of the xMDIO bus for the Marvell Armada 7k and
-Marvell Armada 8k; for both CP110 slave and master. This bus is found
-on Marvell Ethernet controllers and provides an interface with the
-xMDIO bus.
+Hello,
 
-Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
----
- arch/arm64/boot/dts/marvell/armada-cp110-master.dtsi | 7 +++++++
- arch/arm64/boot/dts/marvell/armada-cp110-slave.dtsi  | 7 +++++++
- 2 files changed, 14 insertions(+)
+This series aims to add the xSMI support (also called xMDIO) to the
+mvmdio driver. The xSMI interface complies with the IEEE 802.3 clause 45
+and is used by 10GbE devices. On 7k and 8k (as of now), such an
+interface is found and is used by Ethernet controllers.
 
-diff --git a/arch/arm64/boot/dts/marvell/armada-cp110-master.dtsi b/arch/arm64/boot/dts/marvell/armada-cp110-master.dtsi
-index 037ed30d75a7..95953743455e 100644
---- a/arch/arm64/boot/dts/marvell/armada-cp110-master.dtsi
-+++ b/arch/arm64/boot/dts/marvell/armada-cp110-master.dtsi
-@@ -98,6 +98,13 @@
- 				clocks = <&cpm_syscon0 1 9>, <&cpm_syscon0 1 5>;
- 			};
- 
-+			cpm_xmdio: mdio@12a600 {
-+				#address-cells = <1>;
-+				#size-cells = <0>;
-+				compatible = "marvell,xmdio";
-+				reg = <0x12a600 0x10>;
-+			};
-+
- 			cpm_icu: interrupt-controller@1e0000 {
- 				compatible = "marvell,cp110-icu"; 
- 				reg = <0x1e0000 0x10>;
-diff --git a/arch/arm64/boot/dts/marvell/armada-cp110-slave.dtsi b/arch/arm64/boot/dts/marvell/armada-cp110-slave.dtsi
-index 2a99ff8fca2a..594356243ddb 100644
---- a/arch/arm64/boot/dts/marvell/armada-cp110-slave.dtsi
-+++ b/arch/arm64/boot/dts/marvell/armada-cp110-slave.dtsi
-@@ -103,6 +103,13 @@
- 				clocks = <&cps_syscon0 1 9>, <&cps_syscon0 1 5>;
- 			};
- 
-+			cps_xmdio: mdio@12a600 {
-+				#address-cells = <1>;
-+				#size-cells = <0>;
-+				compatible = "marvell,xmdio";
-+				reg = <0x12a600 0x10>;
-+			};
-+
- 			cps_icu: interrupt-controller@1e0000 {
- 				compatible = "marvell,cp110-icu";
- 				reg = <0x1e0000 0x10>;
+Patches 1-3 are cosmetic cleanups.
+
+Patches 4-6 are prerequisites to the xSMI support.
+
+Patches 7-9 add the xSMI support to the mvmdio driver, and a node is
+added both in the cp110 slave and master device trees.
+
+This was tested on an Armada 8040 mcbin, as well as on both the
+Armada 7040 DB and the Armada 8040 DB to ensure the SMI interface
+was still working.
+
+Thanks,
+Antoine
+
+Antoine Tenart (9):
+  net: mvmdio: reorder headers alphabetically
+  net: mvmdio: use tabs for defines
+  net: mvmdio: use GENMASK for masks
+  net: mvmdio: move the read valid check into its own function
+  net: mvmdio: introduce an ops structure
+  net: mvmdio: put the poll intervals in the private structure
+  net: mvmdio: add xmdio support
+  dt-bindings: orion-mdio: document the new xmdio compatible
+  arm64: marvell: dts: add xmdio nodes for 7k/8k
+
+ .../devicetree/bindings/net/marvell-orion-mdio.txt |   8 +-
+ .../boot/dts/marvell/armada-cp110-master.dtsi      |   7 +
+ .../arm64/boot/dts/marvell/armada-cp110-slave.dtsi |   7 +
+ drivers/net/ethernet/marvell/Kconfig               |   6 +-
+ drivers/net/ethernet/marvell/mvmdio.c              | 200 +++++++++++++++++----
+ 5 files changed, 184 insertions(+), 44 deletions(-)
+
 -- 
 2.9.4
