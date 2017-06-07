@@ -1,75 +1,84 @@
-From: <agar2000@hotmail.com>
-Subject: (unknown)
-Date: Wed, 07 Jun 2017 21:54:24 -0000
-Message-ID: <149687246477.30695.16730071665368416469@videotron.ca>
-Mime-Version: 1.0
-Content-Type: application/zip; name="99372.zip"
-Content-Transfer-Encoding: base64
-To: <netdev@vger.kernel.org>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next v2 1/5] net: dsa: mv88e6xxx: define membership on VLAN add
+Date: Wed,  7 Jun 2017 18:12:13 -0400
+Message-ID: <20170607221217.2323-2-vivien.didelot@savoirfairelinux.com>
+References: <20170607221217.2323-1-vivien.didelot@savoirfairelinux.com>
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from modemcable220.31-70-69.static.videotron.ca ([69.70.31.220]:47008
-        "HELO videotron.ca" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with SMTP id S1751647AbdFGVyf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 7 Jun 2017 17:54:35 -0400
-Content-Disposition: attachment
-Subject: 
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:58410 "EHLO
+        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751530AbdFGWOa (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 7 Jun 2017 18:14:30 -0400
+In-Reply-To: <20170607221217.2323-1-vivien.didelot@savoirfairelinux.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-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
-AAAA
+Define the target port membership of the VLAN entry in
+mv88e6xxx_port_vlan_add where ds is scoped.
+
+Allow the DSA core to call later the port_vlan_add operation for CPU or
+DSA ports, by using the Unmodified membership for these ports, as in the
+current behavior.
+
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+---
+ drivers/net/dsa/mv88e6xxx/chip.c | 16 +++++++++++-----
+ 1 file changed, 11 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
+index 44c87027623b..962b4e873bf9 100644
+--- a/drivers/net/dsa/mv88e6xxx/chip.c
++++ b/drivers/net/dsa/mv88e6xxx/chip.c
+@@ -1274,7 +1274,7 @@ mv88e6xxx_port_vlan_prepare(struct dsa_switch *ds, int port,
+ }
+ 
+ static int _mv88e6xxx_port_vlan_add(struct mv88e6xxx_chip *chip, int port,
+-				    u16 vid, bool untagged)
++				    u16 vid, u8 member)
+ {
+ 	struct mv88e6xxx_vtu_entry vlan;
+ 	int err;
+@@ -1283,9 +1283,7 @@ static int _mv88e6xxx_port_vlan_add(struct mv88e6xxx_chip *chip, int port,
+ 	if (err)
+ 		return err;
+ 
+-	vlan.member[port] = untagged ?
+-		GLOBAL_VTU_DATA_MEMBER_TAG_UNTAGGED :
+-		GLOBAL_VTU_DATA_MEMBER_TAG_TAGGED;
++	vlan.member[port] = member;
+ 
+ 	return mv88e6xxx_vtu_loadpurge(chip, &vlan);
+ }
+@@ -1297,15 +1295,23 @@ static void mv88e6xxx_port_vlan_add(struct dsa_switch *ds, int port,
+ 	struct mv88e6xxx_chip *chip = ds->priv;
+ 	bool untagged = vlan->flags & BRIDGE_VLAN_INFO_UNTAGGED;
+ 	bool pvid = vlan->flags & BRIDGE_VLAN_INFO_PVID;
++	u8 member;
+ 	u16 vid;
+ 
+ 	if (!chip->info->max_vid)
+ 		return;
+ 
++	if (dsa_is_dsa_port(ds, port) || dsa_is_cpu_port(ds, port))
++		member = GLOBAL_VTU_DATA_MEMBER_TAG_UNMODIFIED;
++	else if (untagged)
++		member = GLOBAL_VTU_DATA_MEMBER_TAG_UNTAGGED;
++	else
++		member = GLOBAL_VTU_DATA_MEMBER_TAG_TAGGED;
++
+ 	mutex_lock(&chip->reg_lock);
+ 
+ 	for (vid = vlan->vid_begin; vid <= vlan->vid_end; ++vid)
+-		if (_mv88e6xxx_port_vlan_add(chip, port, vid, untagged))
++		if (_mv88e6xxx_port_vlan_add(chip, port, vid, member))
+ 			netdev_err(ds->ports[port].netdev,
+ 				   "failed to add VLAN %d%c\n",
+ 				   vid, untagged ? 'u' : 't');
+-- 
+2.13.1
