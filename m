@@ -1,49 +1,54 @@
-From: Mateusz Jurczyk <mjurczyk@google.com>
-Subject: [PATCH] decnet: dn_rtmsg: Improve input length sanitization in dnrmg_receive_user_skb
-Date: Wed,  7 Jun 2017 15:14:29 +0200
-Message-ID: <20170607131429.30441-1-mjurczyk@google.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-        linux-decnet-user@lists.sourceforge.net, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>,
-        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-        Florian Westphal <fw@strlen.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jakub Sitnicki <jkbs@redhat.com>
+Subject: [iproute PATCH] iproute: Remove useless check for nexthop keyword when setting RTA_OIF
+Date: Wed,  7 Jun 2017 15:23:13 +0200
+Message-ID: <20170607132313.5290-1-jkbs@redhat.com>
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f47.google.com ([74.125.82.47]:33060 "EHLO
+        mail-wm0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751203AbdFGNXQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 7 Jun 2017 09:23:16 -0400
+Received: by mail-wm0-f47.google.com with SMTP id m7so33207880wmg.0
+        for <netdev@vger.kernel.org>; Wed, 07 Jun 2017 06:23:15 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Verify that the length of the socket buffer is sufficient to cover the
-entire nlh->nlmsg_len field before accessing that field for further
-input sanitization. If the client only supplies 1-3 bytes of data in
-sk_buff, then nlh->nlmsg_len remains partially uninitialized and
-contains leftover memory from the corresponding kernel allocation.
-Operating on such data may result in indeterminate evaluation of the
-nlmsg_len < sizeof(*nlh) expression.
+When modifying a route we set the RTA_OIF attribute only if a device was
+specified with "dev" or "oif" keyword. But for some unknown reason we
+earlier alternatively check also for the presence of "nexthop" keyword,
+even though it has no effect. So remove the pointless check.
 
-The bug was discovered by a runtime instrumentation designed to detect
-use of uninitialized memory in the kernel. The patch prevents this and
-other similar tools (e.g. KMSAN) from flagging this behavior in the future.
-
-Signed-off-by: Mateusz Jurczyk <mjurczyk@google.com>
+Signed-off-by: Jakub Sitnicki <jkbs@redhat.com>
 ---
- net/decnet/netfilter/dn_rtmsg.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+ ip/iproute.c | 12 +++++-------
+ 1 file changed, 5 insertions(+), 7 deletions(-)
 
-diff --git a/net/decnet/netfilter/dn_rtmsg.c b/net/decnet/netfilter/dn_rtmsg.c
-index 1ed81ac6dd1a..26e020e9d415 100644
---- a/net/decnet/netfilter/dn_rtmsg.c
-+++ b/net/decnet/netfilter/dn_rtmsg.c
-@@ -102,7 +102,9 @@ static inline void dnrmg_receive_user_skb(struct sk_buff *skb)
- {
- 	struct nlmsghdr *nlh = nlmsg_hdr(skb);
+diff --git a/ip/iproute.c b/ip/iproute.c
+index b4ca291..4fd36a1 100644
+--- a/ip/iproute.c
++++ b/ip/iproute.c
+@@ -1241,16 +1241,14 @@ static int iproute_modify(int cmd, unsigned int flags, int argc, char **argv)
+ 	if (!dst_ok)
+ 		usage();
  
--	if (nlh->nlmsg_len < sizeof(*nlh) || skb->len < nlh->nlmsg_len)
-+	if (skb->len < sizeof(nlh->nlmsg_len) ||
-+	    nlh->nlmsg_len < sizeof(*nlh) ||
-+	    skb->len < nlh->nlmsg_len)
- 		return;
+-	if (d || nhs_ok)  {
++	if (d) {
+ 		int idx;
  
- 	if (!netlink_capable(skb, CAP_NET_ADMIN))
+-		if (d) {
+-			if ((idx = ll_name_to_index(d)) == 0) {
+-				fprintf(stderr, "Cannot find device \"%s\"\n", d);
+-				return -1;
+-			}
+-			addattr32(&req.n, sizeof(req), RTA_OIF, idx);
++		if ((idx = ll_name_to_index(d)) == 0) {
++			fprintf(stderr, "Cannot find device \"%s\"\n", d);
++			return -1;
+ 		}
++		addattr32(&req.n, sizeof(req), RTA_OIF, idx);
+ 	}
+ 
+ 	if (mxrta->rta_len > RTA_LENGTH(0)) {
 -- 
-2.13.1.508.gb3defc5cc-goog
+2.9.4
