@@ -1,54 +1,65 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: Re: Repeatable inet6_dump_fib crash in stock 4.12.0-rc4+
-Date: Tue, 6 Jun 2017 18:00:04 -0600
-Message-ID: <a5733c67-e3a3-9cc0-0862-40ef6fc03de3@gmail.com>
-References: <bbfa5208-3a04-c87a-a6e1-ee0ae73965d0@candelatech.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-To: Ben Greear <greearb@candelatech.com>,
-        netdev <netdev@vger.kernel.org>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net-next v2 0/5] net: dsa: Multi-CPU ground work (v2)
+Date: Tue,  6 Jun 2017 17:03:12 -0700
+Message-ID: <20170607000317.14729-1-f.fainelli@gmail.com>
+Cc: andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
+        john@phrozen.org, davem@davemloft.net,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:34447 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750766AbdFGAAH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 6 Jun 2017 20:00:07 -0400
-Received: by mail-pf0-f193.google.com with SMTP id u1so832955pfg.1
-        for <netdev@vger.kernel.org>; Tue, 06 Jun 2017 17:00:07 -0700 (PDT)
-In-Reply-To: <bbfa5208-3a04-c87a-a6e1-ee0ae73965d0@candelatech.com>
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:35168 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750766AbdFGAD1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 6 Jun 2017 20:03:27 -0400
+Received: by mail-wm0-f67.google.com with SMTP id g15so130703wmc.2
+        for <netdev@vger.kernel.org>; Tue, 06 Jun 2017 17:03:26 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 6/6/17 3:06 PM, Ben Greear wrote:
-> This bug has been around forever, and we recently got an intern and
-> stuck him with
-> trying to reproduce it on the latest kernel.  It is still here.  I'm not
-> super excited
-> about trying to fix this, but we can easily test patches if someone has a
-> patch to try.
+Hi all,
 
-Can you try this (whitespace damaged on paste, but it is moving the lock
-ahead of the fn_sernum check):
+This patch series prepares the ground for adding mutliple CPU port support to
+DSA, and starts by removing redundant pieces of information such as
+master_netdev which is cpu_dp->ethernet. Finally drivers are moved away from
+directly accessing ds->dst->cpu_dp and use appropriate helper functions.
 
-diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
-index deea901746c8..7a44c49055c0 100644
---- a/net/ipv6/ip6_fib.c
-+++ b/net/ipv6/ip6_fib.c
-@@ -378,6 +378,7 @@ static int fib6_dump_table(struct fib6_table *table,
-struct sk_buff *skb,
-                        cb->args[5] = w->root->fn_sernum;
-                }
-        } else {
-+               read_lock_bh(&table->tb6_lock);
-                if (cb->args[5] != w->root->fn_sernum) {
-                        /* Begin at the root if the tree changed */
-                        cb->args[5] = w->root->fn_sernum;
-@@ -387,7 +388,6 @@ static int fib6_dump_table(struct fib6_table *table,
-struct sk_buff *skb,
-                } else
-                        w->skip = 0;
+Note that if you have Device Tree blobs/platform configurations that are
+currently listing multiple CPU ports, the proposed behavior in
+dsa_ds_get_cpu_dp() will be to return the last bit set in ds->cpu_port_mask.
 
--               read_lock_bh(&table->tb6_lock);
-                res = fib6_walk_continue(w);
-                read_unlock_bh(&table->tb6_lock);
-                if (res <= 0) {
+Future plans include:
+- making dst->cpu_dp a flexible data structure (array, list, you name it)
+- having the ability for drivers to return a default/preferred CPU port (if
+  necessary)
+
+Changes in v2:
+
+- added Reviewed-by tags
+- assign port->cpu_dp earlier before ops->setup() has run
+
+Florian Fainelli (5):
+  net: dsa: Remove master_netdev and use dst->cpu_dp->netdev
+  net: dsa: Relocate master ethtool operations
+  net: dsa: Associate slave network device with CPU port
+  net: dsa: Introduce dsa_dst_get_cpu_dp()
+  net: dsa: Stop accessing ds->dst->cpu_dp in drivers
+
+ drivers/net/dsa/b53/b53_common.c |  4 +--
+ drivers/net/dsa/bcm_sf2.c        | 10 +++++---
+ drivers/net/dsa/mt7530.c         |  6 +++--
+ drivers/net/dsa/mv88e6060.c      |  2 +-
+ drivers/net/dsa/qca8k.c          |  2 +-
+ include/net/dsa.h                | 29 +++++++++-------------
+ net/dsa/dsa.c                    | 19 ++++----------
+ net/dsa/dsa2.c                   | 27 ++++++++++++--------
+ net/dsa/dsa_priv.h               | 10 ++++++++
+ net/dsa/legacy.c                 | 23 ++++++++++-------
+ net/dsa/slave.c                  | 53 ++++++++++++++++++++--------------------
+ net/dsa/tag_brcm.c               |  5 ++--
+ net/dsa/tag_ksz.c                |  5 ++--
+ net/dsa/tag_qca.c                |  3 ++-
+ net/dsa/tag_trailer.c            |  5 ++--
+ 15 files changed, 107 insertions(+), 96 deletions(-)
+
+-- 
+2.9.3
