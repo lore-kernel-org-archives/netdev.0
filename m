@@ -1,59 +1,43 @@
-From: Will Deacon <will.deacon@arm.com>
-Subject: Re: [PATCH net] bpf, arm64: use separate register for state in stxr
-Date: Wed, 7 Jun 2017 12:51:31 +0100
-Message-ID: <20170607115131.GA30263@arm.com>
-References: <530443d87bd51b3682a1b60ea19b2030d7d21409.1496834547.git.daniel@iogearbox.net>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH 7/9] net: mvmdio: add xmdio support
+Date: Wed, 7 Jun 2017 14:12:05 +0200
+Message-ID: <20170607121205.GC1271@lunn.ch>
+References: <20170607083810.30922-1-antoine.tenart@free-electrons.com>
+ <20170607083810.30922-8-antoine.tenart@free-electrons.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, ast@fb.com, zlim.lnx@gmail.com,
-        netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-To: Daniel Borkmann <daniel@iogearbox.net>
+Cc: davem@davemloft.net, jason@lakedaemon.net,
+        gregory.clement@free-electrons.com,
+        sebastian.hesselbarth@gmail.com, f.fainelli@gmail.com,
+        thomas.petazzoni@free-electrons.com, mw@semihalf.com,
+        linux@armlinux.org.uk, netdev@vger.kernel.org,
+        linux-arm-kernel@lists.infradead.org
+To: Antoine Tenart <antoine.tenart@free-electrons.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from foss.arm.com ([217.140.101.70]:59864 "EHLO foss.arm.com"
+Received: from vps0.lunn.ch ([178.209.37.122]:39589 "EHLO vps0.lunn.ch"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751414AbdFGLvY (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 7 Jun 2017 07:51:24 -0400
+        id S1751203AbdFGMMP (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 7 Jun 2017 08:12:15 -0400
 Content-Disposition: inline
-In-Reply-To: <530443d87bd51b3682a1b60ea19b2030d7d21409.1496834547.git.daniel@iogearbox.net>
+In-Reply-To: <20170607083810.30922-8-antoine.tenart@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Daniel,
+On Wed, Jun 07, 2017 at 10:38:08AM +0200, Antoine Tenart wrote:
+> This patch adds the xMDIO interface support in the mvmdio driver. This
+> interface is used in Ethernet controllers on Marvell 370, 7k and 8k (as
+> of now). The xSMI interface supported by this driver complies with the
+> IEEE 802.3 clause 45 (while the SMI interface complies with the clause
+> 22). The xSMI interface is used by 10GbE devices.
+> 
+> Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
 
-On Wed, Jun 07, 2017 at 01:45:37PM +0200, Daniel Borkmann wrote:
-> Will reported that in BPF_XADD we must use a different register in stxr
-> instruction for the status flag due to otherwise CONSTRAINED UNPREDICTABLE
-> behavior per architecture. Reference manual says [1]:
-> 
->   If s == t, then one of the following behaviors must occur:
-> 
->    * The instruction is UNDEFINED.
->    * The instruction executes as a NOP.
->    * The instruction performs the store to the specified address, but
->      the value stored is UNKNOWN.
-> 
-> Thus, use a different temporary register for the status flag to fix it.
-> 
-> Disassembly extract from test 226/STX_XADD_DW from test_bpf.ko:
-> 
->   [...]
->   0000003c:  c85f7d4b  ldxr x11, [x10]
->   00000040:  8b07016b  add x11, x11, x7
->   00000044:  c80c7d4b  stxr w12, x11, [x10]
->   00000048:  35ffffac  cbnz w12, 0x0000003c
->   [...]
-> 
->   [1] https://static.docs.arm.com/ddi0487/b/DDI0487B_a_armv8_arm.pdf, p.6132
-> 
-> Fixes: 85f68fe89832 ("bpf, arm64: implement jiting of BPF_XADD")
-> Reported-by: Will Deacon <will.deacon@arm.com>
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-> ---
->  arch/arm64/net/bpf_jit_comp.c | 7 +++++--
->  1 file changed, 5 insertions(+), 2 deletions(-)
+Hi Antoine
 
-Cheers for fixing this up:
+I've only take a quick look, but i don't see anywhere you look at the
+register address and see if it has MII_ADDR_C45 to determine if a C45
+transaction should be done, or a C22. The MDIO bus can have a mix of
+C45 and C22 devices on it, and you need to use the correct transaction
+type depending on the target device/address.
 
-Acked-by: Will Deacon <will.deacon@arm.com>
-
-Will
+	  Andrew
