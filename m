@@ -1,36 +1,53 @@
-From: Fabio Estevam <festevam@gmail.com>
-Subject: Re: [PATCH net-next] net: fec: Clear and enable MIB counters on imx51
-Date: Wed, 7 Jun 2017 10:32:03 -0300
-Message-ID: <CAOMZO5DE30i+7Ddpf3Fx+WW8WUa61cariDukcYGtqaa9nk-pPg@mail.gmail.com>
-References: <1496800629-24910-1-git-send-email-andrew@lunn.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Nikita Yushchenko <nikita.yoush@cogentembedded.com>,
-        Fabio Estevam <fabio.estevam@nxp.com>,
-        Chris Healy <cphealy@gmail.com>
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f43.google.com ([209.85.218.43]:34033 "EHLO
-        mail-oi0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751543AbdFGNcE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 7 Jun 2017 09:32:04 -0400
-Received: by mail-oi0-f43.google.com with SMTP id o65so5531035oif.1
-        for <netdev@vger.kernel.org>; Wed, 07 Jun 2017 06:32:04 -0700 (PDT)
-In-Reply-To: <1496800629-24910-1-git-send-email-andrew@lunn.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Mateusz Jurczyk <mjurczyk@google.com>
+Subject: [PATCH v2] netfilter: nfnetlink: Improve input length sanitization in nfnetlink_rcv
+Date: Wed,  7 Jun 2017 15:50:38 +0200
+Message-ID: <20170607135038.1592-1-mjurczyk@google.com>
+References: <1496841821.736.35.camel@edumazet-glaptop3.roam.corp.google.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Pablo Neira Ayuso <pablo@netfilter.org>,
+        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+        Florian Westphal <fw@strlen.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1496841821.736.35.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jun 6, 2017 at 10:57 PM, Andrew Lunn <andrew@lunn.ch> wrote:
-> Both the IMX51 and IMX53 datasheet indicates that the MIB counters
-> should be cleared during setup. Otherwise random numbers are returned
-> via ethtool -S.  Add a quirk and a function to do this.
->
-> Tested on an IMX51.
->
-> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+Verify that the length of the socket buffer is sufficient to cover the
+nlmsghdr structure before accessing the nlh->nlmsg_len field for further
+input sanitization. If the client only supplies 1-3 bytes of data in
+sk_buff, then nlh->nlmsg_len remains partially uninitialized and
+contains leftover memory from the corresponding kernel allocation.
+Operating on such data may result in indeterminate evaluation of the
+nlmsg_len < NLMSG_HDRLEN expression.
 
-Thanks for the fix:
+The bug was discovered by a runtime instrumentation designed to detect
+use of uninitialized memory in the kernel. The patch prevents this and
+other similar tools (e.g. KMSAN) from flagging this behavior in the future.
 
-Reviewed-by: Fabio Estevam <fabio.estevam@nxp.com>
+Signed-off-by: Mateusz Jurczyk <mjurczyk@google.com>
+---
+Changes in v2:
+  - Compare skb->len against NLMSG_HDRLEN to avoid assuming the layout of
+    the nlmsghdr structure.
+
+ net/netfilter/nfnetlink.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/net/netfilter/nfnetlink.c b/net/netfilter/nfnetlink.c
+index 80f5ecf2c3d7..1f9667f52be5 100644
+--- a/net/netfilter/nfnetlink.c
++++ b/net/netfilter/nfnetlink.c
+@@ -491,7 +491,8 @@ static void nfnetlink_rcv(struct sk_buff *skb)
+ {
+ 	struct nlmsghdr *nlh = nlmsg_hdr(skb);
+ 
+-	if (nlh->nlmsg_len < NLMSG_HDRLEN ||
++	if (skb->len < NLMSG_HDRLEN ||
++	    nlh->nlmsg_len < NLMSG_HDRLEN ||
+ 	    skb->len < nlh->nlmsg_len)
+ 		return;
+ 
+-- 
+2.13.1.508.gb3defc5cc-goog
