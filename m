@@ -1,109 +1,72 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [net-intel-i40e] question about assignment overwrite
-Date: Wed, 07 Jun 2017 13:34:59 -0700
-Message-ID: <1496867699.2192.2.camel@intel.com>
-References: <20170517154858.Horde.xMvsIEhHNSGu52mfyp7HA3R@gator4166.hostgator.com>
-         <1495086551.46489.1.camel@intel.com> <20170607195526.GA26867@korriban>
+From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+Subject: [PATCH] mISDN: remove unnecessary variable assignments
+Date: Wed, 7 Jun 2017 15:15:01 -0500
+Message-ID: <20170607201501.GA7245@embeddedgus>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-        protocol="application/pgp-signature"; boundary="=-wSm8y2wVnRk1vY5qlnqX"
-Cc: "Gustavo A. R. Silva" <garsilva@embeddedor.com>,
-        intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Mauro Rodrigues <maurosr@linux.vnet.ibm.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+To: Karsten Keil <isdn@linux-pingi.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170607195526.GA26867@korriban>
+Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Remove unnecessary variable assignments.
 
---=-wSm8y2wVnRk1vY5qlnqX
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: base64
+Addresses-Coverity-ID: 1226917
+Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
+---
+ drivers/isdn/hardware/mISDN/mISDNipac.c | 16 ++++++++--------
+ 1 file changed, 8 insertions(+), 8 deletions(-)
 
-T24gV2VkLCAyMDE3LTA2LTA3IGF0IDE2OjU1IC0wMzAwLCBNYXVybyBSb2RyaWd1ZXMgd3JvdGU6
-Cj4gT24gV2VkLCBNYXkgMTcsIDIwMTcgYXQgMTA6NDk6MTFQTSAtMDcwMCwgSmVmZiBLaXJzaGVy
-IHdyb3RlOgo+ID4gT24gV2VkLCAyMDE3LTA1LTE3IGF0IDE1OjQ4IC0wNTAwLCBHdXN0YXZvIEEu
-IFIuIFNpbHZhIHdyb3RlOgo+ID4gPiBXaGlsZSBsb29raW5nIGludG8gQ292ZXJpdHkgSUQgMTQw
-ODk1NiBJIHJhbiBpbnRvIHRoZSBmb2xsb3dpbmcKPiA+ID4gcGllY2XCoMKgCj4gPiA+IG9mIGNv
-ZGUgYXQgZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaTQwZS9pNDBlX21haW4uYzo4ODA3Ogo+
-ID4gPiAKPiA+ID4gODgwN8KgwqDCoMKgwqDCoMKgIGlmIChwZi0+aHcubWFjLnR5cGUgPT0gSTQw
-RV9NQUNfWDcyMikgewo+ID4gPiA4ODA4wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgIHBm
-LT5mbGFncyB8PSBJNDBFX0ZMQUdfUlNTX0FRX0NBUEFCTEUKPiA+ID4gODgwOcKgwqDCoMKgwqDC
-oMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgIHwgSTQwRV9GTEFH
-XzEyOF9RUF9SU1NfQ0FQQUJMRQo+ID4gPiA4ODEwwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
-oMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqAgfCBJNDBFX0ZMQUdfSFdfQVRSX0VWSUNUX0NB
-UEFCTEUKPiA+ID4gODgxMcKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
-oMKgwqDCoMKgwqDCoMKgIHwgSTQwRV9GTEFHX09VVEVSX1VEUF9DU1VNX0NBUEFCTEUKPiA+ID4g
-ODgxMsKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
-oMKgIHwgSTQwRV9GTEFHX1dCX09OX0lUUl9DQVBBQkxFCj4gPiA+IDg4MTPCoMKgwqDCoMKgwqDC
-oMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoCB8Cj4gPiA+IEk0MEVf
-RkxBR19NVUxUSVBMRV9UQ1BfVURQX1JTU19QQ1RZUEUKPiA+ID4gODgxNMKgwqDCoMKgwqDCoMKg
-wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgIHwgSTQwRV9GTEFHX05P
-X1BDSV9MSU5LX0NIRUNLCj4gPiA+IDg4MTXCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
-oMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoCB8IEk0MEVfRkxBR19VU0VfU0VUX0xMRFBfTUlCCj4g
-PiA+IDg4MTbCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
-oMKgwqDCoCB8IEk0MEVfRkxBR19HRU5FVkVfT0ZGTE9BRF9DQVBBQkxFCj4gPiA+IDg4MTfCoMKg
-wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoCB8IEk0
-MEVfRkxBR19QVFBfTDRfQ0FQQUJMRQo+ID4gPiA4ODE4wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
-wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqAgfCBJNDBFX0ZMQUdfV09MX01DX01BR0lD
-X1BLVF9XQUtFOwo+ID4gPiA4ODE5wqDCoMKgwqDCoMKgwqAgfSBlbHNlIGlmICgocGYtPmh3LmFx
-LmFwaV9tYWpfdmVyID4gMSkgfHwKPiA+ID4gODgyMMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
-wqDCoMKgwqDCoCAoKHBmLT5ody5hcS5hcGlfbWFqX3ZlciA9PSAxKSAmJgo+ID4gPiA4ODIxwqDC
-oMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqAgKHBmLT5ody5hcS5hcGlfbWluX3Zl
-ciA+IDQpKSkgewo+ID4gPiA4ODIywqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgIC8qIFN1
-cHBvcnRlZCBpbiBGVyBBUEkgdmVyc2lvbiBoaWdoZXIgdGhhbiAxLjQgKi8KPiA+ID4gODgyM8Kg
-wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoCBwZi0+ZmxhZ3MgfD0gSTQwRV9GTEFHX0dFTkVW
-RV9PRkZMT0FEX0NBUEFCTEU7Cj4gPiA+IDg4MjTCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
-wqAgcGYtPmZsYWdzID0gSTQwRV9GTEFHX0hXX0FUUl9FVklDVF9DQVBBQkxFOwo+ID4gPiA4ODI1
-wqDCoMKgwqDCoMKgwqAgfSBlbHNlIHsKPiA+ID4gODgyNsKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
-oMKgwqDCoCBwZi0+ZmxhZ3MgPSBJNDBFX0ZMQUdfSFdfQVRSX0VWSUNUX0NBUEFCTEU7Cj4gPiA+
-IDg4MjfCoMKgwqDCoMKgwqDCoCB9Cj4gPiA+IAo+ID4gPiBUaGUgaXNzdWUgaGVyZSBpcyB0aGF0
-IHRoZSBhc3NpZ25tZW50IGF0IGxpbmUgODgyMyBpcyBvdmVyd3JpdHRlbgo+ID4gPiBiecKgwqAK
-PiA+ID4gdGhlIGNvZGUgYXQgbGluZSA4ODI0Lgo+ID4gPiAKPiA+ID4gSSdtIHN1c3BpY2lvdXMg
-dGhhdCBsaW5lIDg4MjQgc2hvdWxkIGJlIHJlbW92ZSBhbmQgYSBwYXRjaCBsaWtlIHRoZcKgwqAK
-PiA+ID4gZm9sbG93aW5nIGNhbiBiZSBhcHBsaWVkOgo+ID4gPiAKPiA+ID4gaW5kZXggZDVjOWM5
-ZS4uNDhmZmE3MyAxMDA2NDQKPiA+ID4gLS0tIGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwv
-aTQwZS9pNDBlX21haW4uYwo+ID4gPiArKysgYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9p
-NDBlL2k0MGVfbWFpbi5jCj4gPiA+IEBAIC04ODIxLDcgKzg4MjEsNiBAQCBzdGF0aWMgaW50IGk0
-MGVfc3dfaW5pdChzdHJ1Y3QgaTQwZV9wZiAqcGYpCj4gPiA+IMKgwqDCoMKgwqDCoMKgwqDCoMKg
-wqDCoMKgwqDCoMKgwqDCoMKgwqAgKHBmLT5ody5hcS5hcGlfbWluX3ZlciA+IDQpKSkgewo+ID4g
-PiDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoCAvKiBTdXBwb3J0ZWQgaW4gRlcgQVBJ
-IHZlcnNpb24gaGlnaGVyIHRoYW4gMS40ICovCj4gPiA+IMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
-oMKgwqDCoMKgIHBmLT5mbGFncyB8PSBJNDBFX0ZMQUdfR0VORVZFX09GRkxPQURfQ0FQQUJMRTsK
-PiA+ID4gLcKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqAgcGYtPmZsYWdzID0gSTQwRV9GTEFH
-X0hXX0FUUl9FVklDVF9DQVBBQkxFOwo+ID4gPiDCoMKgwqDCoMKgwqDCoMKgIH0gZWxzZSB7Cj4g
-PiA+IMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgIHBmLT5mbGFncyA9IEk0MEVfRkxB
-R19IV19BVFJfRVZJQ1RfQ0FQQUJMRTsKPiA+ID4gwqDCoMKgwqDCoMKgwqDCoCB9Cj4gPiA+IAo+
-ID4gPiBXaGF0IGRvIHlvdSB0aGluaz8KPiA+IAo+ID4gVGhpcyBpc3N1ZSBpcyBhbHJlYWR5IGZp
-eGVkIGluIG15IGRldi1xdWV1ZSBicmFuY2ggb24gbXkgbmV4dC1xdWV1ZQo+ID4gdHJlZS4KPiAK
-PiBIaSBKZWZmLCBhcmUgeW91IHBsYW5uaW5nIHRvIHB1c2ggdGhpcyBmaXggaW50byBuZXQgYnJh
-bmNoIGFueXRpbWUgc29vbj8KPiAKPiBUaGFua3MsCj4gCj4gTWF1cm8KClRoZSBwYXRjaCB0aGF0
-IGZpeGVkIHRoaXMgaXNzdWUgaXMgYWxyZWFkeSBpbiBEYXZpZCBNaWxsZXIncyBuZXQtbmV4dCB0
-cmVlLg==
-
-
---=-wSm8y2wVnRk1vY5qlnqX
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAABCgAGBQJZOGNzAAoJEOVv75VaS+3O4RoQAKbkVORTPpov/Iow4A/uXKKI
-cjYmOPsMxHKLwslr8obGUnTZe7GlEZUDy6XJRwOLa0jMHm1aGteZPvrk3yKNUsN/
-5qF5IT8YU2295llo2UqyGcN2PhHWD/M/aKWE5Gunn6nToVOwufa/HBuC0t0H9Kha
-ZXmWqH9mx6wtG8OyOKG+N8QZjhEl53y0c5T5JO0ZNFn1LEhVW9YaYWb/3vK0JADa
-mypJTzo9lmKzoNEUF4GUleSlJ6CESRmC9BJLCCYegWoEsQu+Yw6AzN5JrOfkBHXy
-xvPFgLZznXiKujF9H96a6wbdqa9C1+E4x8nosrNV68I9c2asJB7qz4kkQ2BkX5kT
-fDy1QvehWA+k1zHrSckUdbiyQY3jT5U+zW8TUB6VPOwCwidATCRK+zydHTFcXjhM
-dePKQTejwyy++RXMHTBbOF8xPoR3iA/fp13I6QNMCa/zWrTqrD6IDFpQasYuSKTr
-ydS/9GI6FSfYKn/6BY9ZbjFyIxRoICPfg38dl6xaf2C6JC+Q9IgzlYCiJu06/ko9
-NJngfTVffkMvTXugbmomu6AG+wgQ23MADFYtsD4ROA3BkjLyF5fFWIr6GO9S4V3R
-nTEEEg0Y0IRMbaUw0AKXyyaMa1Yfy44udPFSZSQRot+UcmU7u1E5bQLrk+ZzHHVm
-fwUWIbkUKHf4v+6U6osU
-=2TIT
------END PGP SIGNATURE-----
-
---=-wSm8y2wVnRk1vY5qlnqX--
+diff --git a/drivers/isdn/hardware/mISDN/mISDNipac.c b/drivers/isdn/hardware/mISDN/mISDNipac.c
+index 6742b0d..e240010 100644
+--- a/drivers/isdn/hardware/mISDN/mISDNipac.c
++++ b/drivers/isdn/hardware/mISDN/mISDNipac.c
+@@ -364,8 +364,8 @@ isac_mos_irq(struct isac_hw *isac)
+ 			WriteISAC(isac, ISAC_MOCR, isac->mocr);
+ 			if (isac->mon_txc && (isac->mon_txp >= isac->mon_txc)) {
+ 				if (isac->monitor)
+-					ret = isac->monitor(isac->dch.hw,
+-							    MONITOR_TX_0, NULL, 0);
++					isac->monitor(isac->dch.hw,
++						      MONITOR_TX_0, NULL, 0);
+ 			}
+ 			kfree(isac->mon_tx);
+ 			isac->mon_tx = NULL;
+@@ -375,8 +375,8 @@ isac_mos_irq(struct isac_hw *isac)
+ 		}
+ 		if (isac->mon_txc && (isac->mon_txp >= isac->mon_txc)) {
+ 			if (isac->monitor)
+-				ret = isac->monitor(isac->dch.hw,
+-						    MONITOR_TX_0, NULL, 0);
++				isac->monitor(isac->dch.hw,
++					      MONITOR_TX_0, NULL, 0);
+ 			kfree(isac->mon_tx);
+ 			isac->mon_tx = NULL;
+ 			isac->mon_txc = 0;
+@@ -397,8 +397,8 @@ isac_mos_irq(struct isac_hw *isac)
+ 			WriteISAC(isac, ISAC_MOCR, isac->mocr);
+ 			if (isac->mon_txc && (isac->mon_txp >= isac->mon_txc)) {
+ 				if (isac->monitor)
+-					ret = isac->monitor(isac->dch.hw,
+-							    MONITOR_TX_1, NULL, 0);
++					isac->monitor(isac->dch.hw,
++						      MONITOR_TX_1, NULL, 0);
+ 			}
+ 			kfree(isac->mon_tx);
+ 			isac->mon_tx = NULL;
+@@ -408,8 +408,8 @@ isac_mos_irq(struct isac_hw *isac)
+ 		}
+ 		if (isac->mon_txc && (isac->mon_txp >= isac->mon_txc)) {
+ 			if (isac->monitor)
+-				ret = isac->monitor(isac->dch.hw,
+-						    MONITOR_TX_1, NULL, 0);
++				isac->monitor(isac->dch.hw,
++					      MONITOR_TX_1, NULL, 0);
+ 			kfree(isac->mon_tx);
+ 			isac->mon_tx = NULL;
+ 			isac->mon_txc = 0;
+-- 
+2.5.0
