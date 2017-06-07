@@ -1,33 +1,62 @@
-From: Barrister Mike Obi <"www."@ruby.ocn.ne.jp>
-Subject: YOUR PAYMENT
-Date: Thu, 8 Jun 2017 08:21:11 +0900 (JST)
-Message-ID: <888115831.26471363.1496877671084.JavaMail.root@ruby.ocn.ne.jp>
-Reply-To: Barrister Mike Obi <westernofficer7@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
-Content-Transfer-Encoding: 7bit
-To: unlisted-recipients:; (no To-header on input)
+From: Saeed Mahameed <saeedm@mellanox.com>
+Subject: [PATCH RFC net-next 0/4] Mellanox, MLX5 E-Switch break down
+Date: Thu,  8 Jun 2017 02:42:10 +0300
+Message-ID: <20170607234214.24723-1-saeedm@mellanox.com>
+Cc: kernel-team@fb.com, Or Gerlitz <ogerlitz@mellanox.com>,
+        Tzahi Oved <tzahio@mellanox.com>,
+        Saeed Mahameed <saeedm@mellanox.com>
+To: netdev@vger.kernel.org, Jes Sorensen <jsorensen@fb.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mbkd0303.ocn.ad.jp ([153.149.236.4]:48813 "EHLO
-        mbkd0303.ocn.ad.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753437AbdFGX3R (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 7 Jun 2017 19:29:17 -0400
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:35118 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1752401AbdFGXt1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 7 Jun 2017 19:49:27 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Based on Jes Sorensen work to make eswitch_offloads optional at
+compilation time, here is an initial RFC series that provides similar
+behavior, but here we do more accurate zoom in into eswitch and we break
+it into two HW components (MPFS & ESWITCH) to not break any functionality,
+and provide more modular separation.
 
-Hello Beneficiary. 
+In this series we provide the following modular separation
+and give the option of compiling out:
 
-I will send you the payment information only if contact me and assure  me that you are the rightful person to receive $6.5Million Dollars. If you do not contact me I will cancel the money transfer as I will then know that this is not the rightful person.contact Phone+22968323497 email address:westernofficer7@gmail.com
-Send your full information immediately and once i confirm it i will proceed sending your MTCN and senders name so that you can pick up your first payment of $5000 today.so make sure you fill this form below:
+MLX5_MPFS: Multi-Physical Function Switch (MPFs) needed only for Multi-PF configurations
+MLX5_ESWITCH: SRIOV Ethernet Switch
 
-Your full receiver name..................
-Your Country ......and your state..............
-Your address.........................
-Your mobile phone number.......................
-Your private email.............................
-Your Occupation....................
-Your Drive license or ID card...................
+With this separation, E-Switch becomes responsible only for ethernet SRIOV and needed only
+when SRIOV in enabled, otherwise it is not required.
 
-Regards
-Barrister Mike Obi
+The two patches at the beginning are for preparation and cleanup only.
+
+Thanks,
+Saeed.
+
+Saeed Mahameed (4):
+  net/mlx5e: Rearrange netdevice ops structures
+  net/mlx5e: NIC netdev init flow cleanup
+  net/mlx5: Separate between eswitch and MPFS l2 table logic
+  net/mlx5: Add CONFIG_MLX5_ESWITCH Kconfig
+
+ drivers/net/ethernet/mellanox/mlx5/core/Kconfig   |  15 ++
+ drivers/net/ethernet/mellanox/mlx5/core/Makefile  |   8 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en_fs.c   |  14 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c |  69 ++++----
+ drivers/net/ethernet/mellanox/mlx5/core/en_rep.c  |  13 ++
+ drivers/net/ethernet/mellanox/mlx5/core/en_rep.h  |   9 +
+ drivers/net/ethernet/mellanox/mlx5/core/en_rx.c   |   2 +
+ drivers/net/ethernet/mellanox/mlx5/core/en_tc.h   |   7 +
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch.c | 189 ++++----------------
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch.h |  78 ++------
+ drivers/net/ethernet/mellanox/mlx5/core/main.c    |  34 ++--
+ drivers/net/ethernet/mellanox/mlx5/core/mpfs.c    | 205 ++++++++++++++++++++++
+ drivers/net/ethernet/mellanox/mlx5/core/mpfs.h    |  98 +++++++++++
+ include/linux/mlx5/driver.h                       |   2 +
+ 14 files changed, 473 insertions(+), 270 deletions(-)
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/mpfs.c
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/mpfs.h
+
+-- 
+2.11.0
