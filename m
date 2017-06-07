@@ -1,102 +1,75 @@
-From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
-Subject: Re: [PATCH V2 1/3] Documentation: devicetree: add multiple cpu port
- DSA binding
-Date: Wed, 7 Jun 2017 23:42:02 +0200
-Message-ID: <20170607214202.GA4357@lunn.ch>
-References: <20170530104419.6052-1-john@phrozen.org>
- <69dd02a6-59f9-59df-f630-0ebd948451c4@gmail.com>
- <20170607211002.ubljfplyexjb6dyl@rob-hp-laptop>
+From: <agar2000@hotmail.com>
+Subject: (unknown)
+Date: Wed, 07 Jun 2017 21:54:24 -0000
+Message-ID: <149687246477.30695.16730071665368416469@videotron.ca>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>,
-        Vivien Didelot <vivien.didelot-4ysUXcep3aM1wj+D4I0NRVaTQe2KTcn/@public.gmane.org>,
-        "David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20170607211002.ubljfplyexjb6dyl@rob-hp-laptop>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: application/zip; name="99372.zip"
+Content-Transfer-Encoding: base64
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from modemcable220.31-70-69.static.videotron.ca ([69.70.31.220]:47008
+        "HELO videotron.ca" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with SMTP id S1751647AbdFGVyf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 7 Jun 2017 17:54:35 -0400
+Content-Disposition: attachment
+Subject: 
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 07, 2017 at 04:10:02PM -0500, Rob Herring wrote:
-> On Tue, May 30, 2017 at 02:32:29PM -0700, Florian Fainelli wrote:
-> > On 05/30/2017 03:44 AM, John Crispin wrote:
-> > > Extend the DSA binding documentation, adding the new property required
-> > > when there is more than one CPU port attached to the switch.
-> > > 
-> > > Cc: Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-> > > Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> > > Signed-off-by: John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
-> > > ---
-> > >  Documentation/devicetree/bindings/net/dsa/dsa.txt | 61 ++++++++++++++++++++++-
-> > >  1 file changed, 60 insertions(+), 1 deletion(-)
-> > > 
-> > > diff --git a/Documentation/devicetree/bindings/net/dsa/dsa.txt b/Documentation/devicetree/bindings/net/dsa/dsa.txt
-> > > index cfe8f64eca4f..c164eb38ccc5 100644
-> > > --- a/Documentation/devicetree/bindings/net/dsa/dsa.txt
-> > > +++ b/Documentation/devicetree/bindings/net/dsa/dsa.txt
-> > > @@ -55,6 +55,11 @@ A user port has the following optional property:
-> > >  - label			: Describes the label associated with this port, which
-> > >                            will become the netdev name.
-> > >  
-> > > +- cpu			: Option for non "cpu"/"dsa" ports. A phandle to a
-> > > +			  "cpu" port, which will be used for passing packets
-> > > +			  from this port to the host. If not present, the first
-> > > +			  "cpu" port will be used.
-> > 
-> > So this option essentially allow us to "partition" the switch between
-> > vectors of ports and their upstream/CPU port.
-> 
-> Could this be more generic? This is basically saying route all packets 
-> on this port to another port.
-
-Hi Rob
-
-No, it is not saying that.
-
-The CPU port of the switch is special. It is used by the switch for
-frames it does not know what to do with. e.g, it has not learned the
-destination MAC address, it is an IGMP management packet, etc. Or the
-MAC address is that of the CPU, or the CPU needs to bridge it out
-another interface, e.g. a L2 VPN. The switch will add an additional
-header indicating what the ingress port was, and pass it to the CPU
-via this port.
-
-There is a presentation Florian, Vivien and I made at netdev 2.1
-earlier this year which talks about this.
-
-If you want to mirror all packets from one port to another, you can
-use tc and the mirror action.
-
-> > While using Device Tree is an obvious choice for making the initial
-> > partitioning, it seems like we are missing a configuration mechanism
-> > whereby we can properly assign ports to a specific upstream CPU port.
-> 
-> What determines how things are routed/partitioned? If it is purely user 
-> choice then I don't think this should be in DT.
-
-> > Let's move the actual discussion into patch 2 in order not to pollute
-> > the DT maintainers' inbox.
-
-We are aiming to load balance traffic to/from the CPU and the switch.
-
-The ports of a switch can very in characteristics. Sometimes two are
-able to do 10Gbps, while others are just 1Gbps. So it would make sense
-to give those higher speed ports a bigger fraction of the available
-CPU bandwidth, etc.
-
-This binding gives us the option to start with a sensible default for
-a typical application of the hardware. For something like a WiFi box,
-this is probably sufficient. However, there is also a lot of usage of
-DSA in industrial application, and more flexibility is needed. For
-that we probably need a user API of some sort which allows the
-defaults in the device tree to be modified to a specific user case.
-
-	 Andrew
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+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
+AAAA
