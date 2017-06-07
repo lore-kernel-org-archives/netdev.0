@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next v2 5/5] net: dsa: mv88e6xxx: do not skip ports on VLAN del
-Date: Wed,  7 Jun 2017 18:12:17 -0400
-Message-ID: <20170607221217.2323-6-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next v2 3/5] net: dsa: add CPU and DSA ports as VLAN members
+Date: Wed,  7 Jun 2017 18:12:15 -0400
+Message-ID: <20170607221217.2323-4-vivien.didelot@savoirfairelinux.com>
 References: <20170607221217.2323-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
@@ -14,43 +14,37 @@ In-Reply-To: <20170607221217.2323-1-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The mv88e6xxx driver currently tries to be smart and remove by itself a
-VLAN entry from the VTU when the driven switch sees no user ports as
-members of the VLAN.
+In a multi-chip switch fabric, it is currently the responsibility of the
+driver to add the CPU or DSA (interconnecting chips together) ports as
+members of a new VLAN entry. This makes the drivers more complicated.
 
-This is bad in a multi-chip switch fabric, since a chip in between
-others may have no bridge port members, but still needs to be aware of
-the VID in order to correctly pass frames in the data path.
+We want the DSA drivers to be stupid and the DSA core being the one
+responsible for caring about the abstracted switch logic and topology.
 
-Now that the DSA core explicitly manages DSA and CPU ports, do not skip
-them when checking remaining VLAN members.
+Make the DSA core program the CPU and DSA ports as part of the VLAN.
 
+This makes all chips of the data path to be aware of VIDs spanning the
+the whole fabric and thus, seamlessly add support for cross-chip VLAN.
+
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- drivers/net/dsa/mv88e6xxx/chip.c | 4 ----
- 1 file changed, 4 deletions(-)
+ net/dsa/switch.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
-diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-index 41202b1d6d7f..0534eb706caa 100644
---- a/drivers/net/dsa/mv88e6xxx/chip.c
-+++ b/drivers/net/dsa/mv88e6xxx/chip.c
-@@ -1325,7 +1325,6 @@ static void mv88e6xxx_port_vlan_add(struct dsa_switch *ds, int port,
- static int _mv88e6xxx_port_vlan_del(struct mv88e6xxx_chip *chip,
- 				    int port, u16 vid)
- {
--	struct dsa_switch *ds = chip->ds;
- 	struct mv88e6xxx_vtu_entry vlan;
- 	int i, err;
+diff --git a/net/dsa/switch.c b/net/dsa/switch.c
+index f235ae1e9777..f1029a8d0e20 100644
+--- a/net/dsa/switch.c
++++ b/net/dsa/switch.c
+@@ -166,6 +166,9 @@ static int dsa_switch_vlan_add(struct dsa_switch *ds,
+ 	bitmap_zero(members, ds->num_ports);
+ 	if (ds->index == info->sw_index)
+ 		set_bit(info->port, members);
++	for (port = 0; port < ds->num_ports; port++)
++		if (dsa_is_cpu_port(ds, port) || dsa_is_dsa_port(ds, port))
++			set_bit(port, members);
  
-@@ -1342,9 +1341,6 @@ static int _mv88e6xxx_port_vlan_del(struct mv88e6xxx_chip *chip,
- 	/* keep the VLAN unless all ports are excluded */
- 	vlan.valid = false;
- 	for (i = 0; i < mv88e6xxx_num_ports(chip); ++i) {
--		if (dsa_is_cpu_port(ds, i) || dsa_is_dsa_port(ds, i))
--			continue;
--
- 		if (vlan.member[i] != GLOBAL_VTU_DATA_MEMBER_TAG_NON_MEMBER) {
- 			vlan.valid = true;
- 			break;
+ 	if (switchdev_trans_ph_prepare(trans)) {
+ 		if (!ds->ops->port_vlan_prepare || !ds->ops->port_vlan_add)
 -- 
 2.13.1
