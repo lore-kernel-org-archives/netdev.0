@@ -1,45 +1,35 @@
-From: Mark Bloch <markb@mellanox.com>
-Subject: [net-next] vxlan: use a more suitable function when assigning NULL
-Date: Wed,  7 Jun 2017 14:36:58 +0300
-Message-ID: <1496835418-22723-1-git-send-email-markb@mellanox.com>
+From: "IT Department" <aminullah.kamarudin@pns.com.my>
+Subject: EMAIL UPDATE
+Date: Wed, 07 Jun 2017 12:27:23 +0100
+Message-ID: <20170607112151.3C1911B80805@zimbra.pns.com.my>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org
-To: jbenc@redhat.com, stephen@networkplumber.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: 8BIT
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-eopbgr40089.outbound.protection.outlook.com ([40.107.4.89]:28000
-        "EHLO EUR03-DB5-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751476AbdFGLhH (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 7 Jun 2017 07:37:07 -0400
+Received: from mx.pns.com.my ([96.9.161.51]:52462 "EHLO mx.pns.com.my"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751483AbdFGLkp (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 7 Jun 2017 07:40:45 -0400
+Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When stopping the vxlan interface we detach it from the socket.
-Use RCU_INIT_POINTER() and not rcu_assign_pointer() to do so.
+Recently, we have detect some unusual activity on your account and as a result, all email users are urged to update their email account within 24 hours of receiving this e-mail, please click the link http://beam.to/1469 to confirm that your email account is up to date with the institution requirement.
 
-Suggested-by: Stephen Hemminger <stephen@networkplumber.org>
-Signed-off-by: Mark Bloch <markb@mellanox.com>
 ---
- drivers/net/vxlan.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+This email has been checked for viruses by Avast antivirus software.
+https://www.avast.com/antivirus
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index a6b5052..7cb21a0 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -1077,10 +1077,10 @@ static void vxlan_sock_release(struct vxlan_dev *vxlan)
- #if IS_ENABLED(CONFIG_IPV6)
- 	struct vxlan_sock *sock6 = rtnl_dereference(vxlan->vn6_sock);
- 
--	rcu_assign_pointer(vxlan->vn6_sock, NULL);
-+	RCU_INIT_POINTER(vxlan->vn6_sock, NULL);
- #endif
- 
--	rcu_assign_pointer(vxlan->vn4_sock, NULL);
-+	RCU_INIT_POINTER(vxlan->vn4_sock, NULL);
- 	synchronize_net();
- 
- 	vxlan_vs_del_dev(vxlan);
--- 
-1.8.4.3
+<JOM JIMAT GO GREEN>
+
+
+Please Do Not Print If Unnecessary. JOM JIMAT. GO GREEN.
+
+This e-mail and any files transmitted with it (message) is intended only 
+for the use recepient (s) named and may contain confidential 
+information. Opinions, conclusion and other information in this 
+message that do not relate to the official business of PERBADANAN 
+NASIONAL BERHAD (PNS) or its Group of Companies shall be 
+understood as neither given or nor endorsed by PNS or any of the 
+Companies within the Group.
