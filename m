@@ -1,225 +1,77 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next v2 5/5] net: dsa: Stop accessing ds->dst->cpu_dp in drivers
-Date: Tue,  6 Jun 2017 17:03:17 -0700
-Message-ID: <20170607000317.14729-6-f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next v2 0/5] net: dsa: Multi-CPU ground work (v2)
+Date: Tue, 6 Jun 2017 17:05:58 -0700
+Message-ID: <970567bd-b906-5f59-5786-526027b3d32d@gmail.com>
 References: <20170607000317.14729-1-f.fainelli@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
 Cc: andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
-        john@phrozen.org, davem@davemloft.net,
-        Florian Fainelli <f.fainelli@gmail.com>
+        john@phrozen.org, davem@davemloft.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f193.google.com ([209.85.128.193]:34946 "EHLO
+Received: from mail-wr0-f193.google.com ([209.85.128.193]:35318 "EHLO
         mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751520AbdFGADo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 6 Jun 2017 20:03:44 -0400
-Received: by mail-wr0-f193.google.com with SMTP id g76so11492861wrd.2
-        for <netdev@vger.kernel.org>; Tue, 06 Jun 2017 17:03:43 -0700 (PDT)
+        with ESMTP id S1751419AbdFGAGE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 6 Jun 2017 20:06:04 -0400
+Received: by mail-wr0-f193.google.com with SMTP id g76so11495184wrd.2
+        for <netdev@vger.kernel.org>; Tue, 06 Jun 2017 17:06:04 -0700 (PDT)
 In-Reply-To: <20170607000317.14729-1-f.fainelli@gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Out of the few drivers that do access ds->dst->cpu_dp, there is only a
-handful for which we cannot substitute that for either an existing and
-equivalent piece of information (b53, bcm_sf2, qca8k), and there is only
-one for which we need to introduce a helper: mt7530. We do introduce
-dsa_ds_get_cpu_dp() which reads the CPU port from ds->cpu_port_mask.
+On 06/06/2017 05:03 PM, Florian Fainelli wrote:
+> Hi all,
+> 
+> This patch series prepares the ground for adding mutliple CPU port support to
+> DSA, and starts by removing redundant pieces of information such as
+> master_netdev which is cpu_dp->ethernet. Finally drivers are moved away from
+> directly accessing ds->dst->cpu_dp and use appropriate helper functions.
+> 
+> Note that if you have Device Tree blobs/platform configurations that are
+> currently listing multiple CPU ports, the proposed behavior in
+> dsa_ds_get_cpu_dp() will be to return the last bit set in ds->cpu_port_mask.
+> 
+> Future plans include:
+> - making dst->cpu_dp a flexible data structure (array, list, you name it)
+> - having the ability for drivers to return a default/preferred CPU port (if
+>   necessary)
+> 
+> Changes in v2:
+> 
+> - added Reviewed-by tags
+> - assign port->cpu_dp earlier before ops->setup() has run
 
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- drivers/net/dsa/b53/b53_common.c |  4 ++--
- drivers/net/dsa/bcm_sf2.c        | 10 ++++++----
- drivers/net/dsa/mt7530.c         |  4 +++-
- drivers/net/dsa/mv88e6060.c      |  2 +-
- drivers/net/dsa/qca8k.c          |  2 +-
- include/net/dsa.h                |  6 ++++++
- net/dsa/dsa2.c                   | 11 +++++++++++
- net/dsa/legacy.c                 |  1 +
- net/dsa/slave.c                  |  1 -
- 9 files changed, 31 insertions(+), 10 deletions(-)
+There are some hunks in patch 5 that actually belong in patch 3, I will
+post a v3 after getting some more feedback.
 
-diff --git a/drivers/net/dsa/b53/b53_common.c b/drivers/net/dsa/b53/b53_common.c
-index e68d368e20ac..faec6fcacd31 100644
---- a/drivers/net/dsa/b53/b53_common.c
-+++ b/drivers/net/dsa/b53/b53_common.c
-@@ -1341,7 +1341,7 @@ EXPORT_SYMBOL(b53_fdb_dump);
- int b53_br_join(struct dsa_switch *ds, int port, struct net_device *br)
- {
- 	struct b53_device *dev = ds->priv;
--	s8 cpu_port = ds->dst->cpu_dp->index;
-+	s8 cpu_port = dev->cpu_port;
- 	u16 pvlan, reg;
- 	unsigned int i;
- 
-@@ -1387,7 +1387,7 @@ void b53_br_leave(struct dsa_switch *ds, int port, struct net_device *br)
- {
- 	struct b53_device *dev = ds->priv;
- 	struct b53_vlan *vl = &dev->vlans[0];
--	s8 cpu_port = ds->dst->cpu_dp->index;
-+	s8 cpu_port = dev->cpu_port;
- 	unsigned int i;
- 	u16 pvlan, reg, pvid;
- 
-diff --git a/drivers/net/dsa/bcm_sf2.c b/drivers/net/dsa/bcm_sf2.c
-index 76e98e8ed315..9744100d0276 100644
---- a/drivers/net/dsa/bcm_sf2.c
-+++ b/drivers/net/dsa/bcm_sf2.c
-@@ -227,7 +227,7 @@ static int bcm_sf2_port_setup(struct dsa_switch *ds, int port,
- 			      struct phy_device *phy)
- {
- 	struct bcm_sf2_priv *priv = bcm_sf2_to_priv(ds);
--	s8 cpu_port = ds->dst->cpu_dp->index;
-+	s8 cpu_port = priv->dev->cpu_port;
- 	unsigned int i;
- 	u32 reg;
- 
-@@ -806,8 +806,9 @@ static int bcm_sf2_sw_resume(struct dsa_switch *ds)
- static void bcm_sf2_sw_get_wol(struct dsa_switch *ds, int port,
- 			       struct ethtool_wolinfo *wol)
- {
--	struct net_device *p = ds->dst[ds->index].cpu_dp->netdev;
- 	struct bcm_sf2_priv *priv = bcm_sf2_to_priv(ds);
-+	struct dsa_port *cpu_dp = ds->ports[port].cpu_dp;
-+	struct net_device *p = cpu_dp->netdev;
- 	struct ethtool_wolinfo pwol;
- 
- 	/* Get the parent device WoL settings */
-@@ -829,9 +830,10 @@ static void bcm_sf2_sw_get_wol(struct dsa_switch *ds, int port,
- static int bcm_sf2_sw_set_wol(struct dsa_switch *ds, int port,
- 			      struct ethtool_wolinfo *wol)
- {
--	struct net_device *p = ds->dst[ds->index].cpu_dp->netdev;
- 	struct bcm_sf2_priv *priv = bcm_sf2_to_priv(ds);
--	s8 cpu_port = ds->dst->cpu_dp->index;
-+	struct dsa_port *cpu_dp = ds->ports[port].cpu_dp;
-+	struct net_device *p = cpu_dp->netdev;
-+	s8 cpu_port = cpu_dp->index;
- 	struct ethtool_wolinfo pwol;
- 
- 	p->ethtool_ops->get_wol(p, &pwol);
-diff --git a/drivers/net/dsa/mt7530.c b/drivers/net/dsa/mt7530.c
-index 1e46418a3b74..9b1b76c7b927 100644
---- a/drivers/net/dsa/mt7530.c
-+++ b/drivers/net/dsa/mt7530.c
-@@ -907,6 +907,7 @@ static int
- mt7530_setup(struct dsa_switch *ds)
- {
- 	struct mt7530_priv *priv = ds->priv;
-+	struct dsa_port *cpu_dp;
- 	int ret, i;
- 	u32 id, val;
- 	struct device_node *dn;
-@@ -916,7 +917,8 @@ mt7530_setup(struct dsa_switch *ds)
- 	 * controller also is the container for two GMACs nodes representing
- 	 * as two netdev instances.
- 	 */
--	dn = ds->dst->cpu_dp->netdev->dev.of_node->parent;
-+	cpu_dp = dsa_ds_get_cpu_dp(ds);
-+	dn = cpu_dp->netdev->dev.of_node->parent;
- 	priv->ethernet = syscon_node_to_regmap(dn);
- 	if (IS_ERR(priv->ethernet))
- 		return PTR_ERR(priv->ethernet);
-diff --git a/drivers/net/dsa/mv88e6060.c b/drivers/net/dsa/mv88e6060.c
-index dce7fa57eb55..621cdc46ad81 100644
---- a/drivers/net/dsa/mv88e6060.c
-+++ b/drivers/net/dsa/mv88e6060.c
-@@ -176,7 +176,7 @@ static int mv88e6060_setup_port(struct dsa_switch *ds, int p)
- 		  ((p & 0xf) << PORT_VLAN_MAP_DBNUM_SHIFT) |
- 		   (dsa_is_cpu_port(ds, p) ?
- 			ds->enabled_port_mask :
--			BIT(ds->dst->cpu_dp->index)));
-+			BIT(ds->ports[p].cpu_dp->index)));
- 
- 	/* Port Association Vector: when learning source addresses
- 	 * of packets, add the address to the address database using
-diff --git a/drivers/net/dsa/qca8k.c b/drivers/net/dsa/qca8k.c
-index b3bee7eab45f..68b45298f6d1 100644
---- a/drivers/net/dsa/qca8k.c
-+++ b/drivers/net/dsa/qca8k.c
-@@ -506,7 +506,7 @@ qca8k_setup(struct dsa_switch *ds)
- 		pr_warn("regmap initialization failed");
- 
- 	/* Initialize CPU port pad mode (xMII type, delays...) */
--	phy_mode = of_get_phy_mode(ds->dst->cpu_dp->dn);
-+	phy_mode = of_get_phy_mode(ds->ports[QCA8K_CPU_PORT].dn);
- 	if (phy_mode < 0) {
- 		pr_err("Can't find phy-mode for master device\n");
- 		return phy_mode;
-diff --git a/include/net/dsa.h b/include/net/dsa.h
-index 58969b9a090c..264cb3f93764 100644
---- a/include/net/dsa.h
-+++ b/include/net/dsa.h
-@@ -11,6 +11,7 @@
- #ifndef __LINUX_NET_DSA_H
- #define __LINUX_NET_DSA_H
- 
-+#include <linux/bitops.h>
- #include <linux/if.h>
- #include <linux/if_ether.h>
- #include <linux/list.h>
-@@ -261,6 +262,11 @@ static inline bool dsa_is_port_initialized(struct dsa_switch *ds, int p)
- 	return ds->enabled_port_mask & (1 << p) && ds->ports[p].netdev;
- }
- 
-+static inline struct dsa_port *dsa_ds_get_cpu_dp(struct dsa_switch *ds)
-+{
-+	return &ds->ports[fls(ds->cpu_port_mask) - 1];
-+}
-+
- static inline u8 dsa_upstream_port(struct dsa_switch *ds)
- {
- 	struct dsa_switch_tree *dst = ds->dst;
-diff --git a/net/dsa/dsa2.c b/net/dsa/dsa2.c
-index 2674bdf03fef..3878dcd081bb 100644
---- a/net/dsa/dsa2.c
-+++ b/net/dsa/dsa2.c
-@@ -488,6 +488,8 @@ static int dsa_cpu_parse(struct dsa_port *port, u32 index,
- 	enum dsa_tag_protocol tag_protocol;
- 	struct net_device *ethernet_dev;
- 	struct device_node *ethernet;
-+	struct dsa_port *p;
-+	unsigned int i;
- 
- 	if (port->dn) {
- 		ethernet = of_parse_phandle(port->dn, "ethernet", 0);
-@@ -505,6 +507,15 @@ static int dsa_cpu_parse(struct dsa_port *port, u32 index,
- 	if (!dst->cpu_dp) {
- 		dst->cpu_dp = port;
- 		dst->cpu_dp->netdev = ethernet_dev;
-+
-+		for (i = 0; i < ds->num_ports; i++) {
-+			p = &ds->ports[i];
-+			if (!dsa_port_is_valid(p) ||
-+			    i == index)
-+				continue;
-+
-+			p->cpu_dp = port;
-+		}
- 	}
- 
- 	tag_protocol = ds->ops->get_tag_protocol(ds);
-diff --git a/net/dsa/legacy.c b/net/dsa/legacy.c
-index 443ebf3b5e5b..217034cb25cd 100644
---- a/net/dsa/legacy.c
-+++ b/net/dsa/legacy.c
-@@ -129,6 +129,7 @@ static int dsa_switch_setup_one(struct dsa_switch *ds, struct device *parent)
- 			ds->dsa_port_mask |= 1 << i;
- 		} else {
- 			ds->enabled_port_mask |= 1 << i;
-+			ds->ports[i].cpu_dp = dst->cpu_dp;
- 		}
- 		valid_name_found = true;
- 	}
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index a73c1de398b5..46fd4a985e0a 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -1179,7 +1179,6 @@ int dsa_slave_create(struct dsa_switch *ds, struct device *parent,
- 	p->old_duplex = -1;
- 
- 	ds->ports[port].netdev = slave_dev;
--	p->dp->cpu_dp = cpu_dp;
- 	ret = register_netdev(slave_dev);
- 	if (ret) {
- 		netdev_err(master, "error %d registering interface %s\n",
+> 
+> Florian Fainelli (5):
+>   net: dsa: Remove master_netdev and use dst->cpu_dp->netdev
+>   net: dsa: Relocate master ethtool operations
+>   net: dsa: Associate slave network device with CPU port
+>   net: dsa: Introduce dsa_dst_get_cpu_dp()
+>   net: dsa: Stop accessing ds->dst->cpu_dp in drivers
+> 
+>  drivers/net/dsa/b53/b53_common.c |  4 +--
+>  drivers/net/dsa/bcm_sf2.c        | 10 +++++---
+>  drivers/net/dsa/mt7530.c         |  6 +++--
+>  drivers/net/dsa/mv88e6060.c      |  2 +-
+>  drivers/net/dsa/qca8k.c          |  2 +-
+>  include/net/dsa.h                | 29 +++++++++-------------
+>  net/dsa/dsa.c                    | 19 ++++----------
+>  net/dsa/dsa2.c                   | 27 ++++++++++++--------
+>  net/dsa/dsa_priv.h               | 10 ++++++++
+>  net/dsa/legacy.c                 | 23 ++++++++++-------
+>  net/dsa/slave.c                  | 53 ++++++++++++++++++++--------------------
+>  net/dsa/tag_brcm.c               |  5 ++--
+>  net/dsa/tag_ksz.c                |  5 ++--
+>  net/dsa/tag_qca.c                |  3 ++-
+>  net/dsa/tag_trailer.c            |  5 ++--
+>  15 files changed, 107 insertions(+), 96 deletions(-)
+> 
+
+
 -- 
-2.9.3
+Florian
