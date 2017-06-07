@@ -1,37 +1,57 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH v2 2/2] net: emac: fix and unify emac_mdio functions
-Date: Wed, 7 Jun 2017 16:14:26 +0200
-Message-ID: <20170607141426.GC4874@lunn.ch>
-References: <eefbc6df06c83b725c60997fc58cf1c0119334a1.1496773338.git.chunkeey@googlemail.com>
- <dc3b77e7ead819001e09589d1f95eb6c1061f381.1496773338.git.chunkeey@googlemail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, "David S . Miller" <davem@davemloft.net>,
-        Ivan Mikhaylov <ivan@de.ibm.com>
-To: Christian Lamparter <chunkeey@googlemail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:39729 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750920AbdFGOO2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 7 Jun 2017 10:14:28 -0400
-Content-Disposition: inline
-In-Reply-To: <dc3b77e7ead819001e09589d1f95eb6c1061f381.1496773338.git.chunkeey@googlemail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Mateusz Jurczyk <mjurczyk@google.com>
+Subject: [PATCH v2] decnet: dn_rtmsg: Improve input length sanitization in dnrmg_receive_user_skb
+Date: Wed,  7 Jun 2017 16:14:29 +0200
+Message-ID: <20170607141429.5781-1-mjurczyk@google.com>
+References: <20170607131429.30441-1-mjurczyk@google.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+        linux-decnet-user@lists.sourceforge.net, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Pablo Neira Ayuso <pablo@netfilter.org>,
+        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+        Florian Westphal <fw@strlen.de>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20170607131429.30441-1-mjurczyk@google.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 07, 2017 at 03:51:16PM +0200, Christian Lamparter wrote:
-> emac_mdio_read_link() was not copying the requested phy settings
-> back into the emac driver's own phy api. This has caused a link
-> speed mismatch issue for the AR8035 as the emac driver kept
-> trying to connect with 10/100MBps on a 1GBit/s link.
-> 
-> This patch also unifies shared code between emac_setup_aneg()
-> and emac_mdio_setup_forced(). And furthermore it removes
-> a chunk of emac_mdio_init_phy(), that was copying the same
-> data into itself.
-> 
-> Signed-off-by: Christian Lamparter <chunkeey@googlemail.com>
+Verify that the length of the socket buffer is sufficient to cover the
+nlmsghdr structure before accessing the nlh->nlmsg_len field for further
+input sanitization. If the client only supplies 1-3 bytes of data in
+sk_buff, then nlh->nlmsg_len remains partially uninitialized and
+contains leftover memory from the corresponding kernel allocation.
+Operating on such data may result in indeterminate evaluation of the
+nlmsg_len < sizeof(*nlh) expression.
 
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+The bug was discovered by a runtime instrumentation designed to detect
+use of uninitialized memory in the kernel. The patch prevents this and
+other similar tools (e.g. KMSAN) from flagging this behavior in the future.
 
-    Andrew
+Signed-off-by: Mateusz Jurczyk <mjurczyk@google.com>
+---
+Changes in v2:
+  - Compare skb->len against sizeof(*nlh) instead of sizeof(nlh->nlmsg_len)
+    to avoid assuming the layout of the nlmsghdr structure. This was
+    motivated by Eric Dumazet's comment on a related patch submission.
+
+ net/decnet/netfilter/dn_rtmsg.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/net/decnet/netfilter/dn_rtmsg.c b/net/decnet/netfilter/dn_rtmsg.c
+index 1ed81ac6dd1a..aa8ffecc46a4 100644
+--- a/net/decnet/netfilter/dn_rtmsg.c
++++ b/net/decnet/netfilter/dn_rtmsg.c
+@@ -102,7 +102,9 @@ static inline void dnrmg_receive_user_skb(struct sk_buff *skb)
+ {
+ 	struct nlmsghdr *nlh = nlmsg_hdr(skb);
+ 
+-	if (nlh->nlmsg_len < sizeof(*nlh) || skb->len < nlh->nlmsg_len)
++	if (skb->len < sizeof(*nlh) ||
++	    nlh->nlmsg_len < sizeof(*nlh) ||
++	    skb->len < nlh->nlmsg_len)
+ 		return;
+ 
+ 	if (!netlink_capable(skb, CAP_NET_ADMIN))
+-- 
+2.13.1.508.gb3defc5cc-goog
+
