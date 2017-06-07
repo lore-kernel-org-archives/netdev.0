@@ -1,182 +1,171 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH net-next 1/4] tcp: add a struct net parameter to tcp_parse_options()
-Date: Wed,  7 Jun 2017 10:34:36 -0700
-Message-ID: <20170607173439.17092-2-edumazet@google.com>
-References: <20170607173439.17092-1-edumazet@google.com>
-Cc: netdev <netdev@vger.kernel.org>,
-        Eric Dumazet <edumazet@google.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>
-To: "David S . Miller" <davem@davemloft.net>
+From: "Mario Molitor" <Mario_Molitor@web.de>
+Subject: Re: Stmmac: fix for hw timestamp of GMAC 3 unit
+Date: Wed, 7 Jun 2017 19:40:35 +0200
+Message-ID: <D9FAE4925A7A441891DAAA49291912F5@FXFamPC>
+References: <trinity-32054cc5-4d62-4e1d-a846-3c34dcf24545-1496700699842@3capp-webde-bap31> <d1c335a8-7236-faac-bf52-1465979849ad@st.com>
+Mime-Version: 1.0
+Content-Type: text/plain;
+        format=flowed;
+        charset="utf-8";
+        reply-type=response
+Content-Transfer-Encoding: 8bit
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: <alexandre.torgue@st.com>,
+        "Giuseppe CAVALLARO" <peppe.cavallaro@st.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f47.google.com ([74.125.83.47]:33285 "EHLO
-        mail-pg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751522AbdFGRer (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 7 Jun 2017 13:34:47 -0400
-Received: by mail-pg0-f47.google.com with SMTP id f185so7551368pgc.0
-        for <netdev@vger.kernel.org>; Wed, 07 Jun 2017 10:34:47 -0700 (PDT)
-In-Reply-To: <20170607173439.17092-1-edumazet@google.com>
+Received: from mout.web.de ([212.227.15.4]:61817 "EHLO mout.web.de"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751503AbdFGRko (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 7 Jun 2017 13:40:44 -0400
+In-Reply-To: <d1c335a8-7236-faac-bf52-1465979849ad@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We want to move some TCP sysctls to net namespaces in the future.
+Hi Pepe,
+thanks for the response.
+I have to thanking for the development of stmmac driver.
+Today I have sending the two patches as patches for net.git kernel. I was 
+the last day to busy.
+Thanks and best regards,
+Marrio
 
-tcp_window_scaling, tcp_sack and tcp_timestamps being fetched
-from tcp_parse_options(), we need to pass an extra parameter.
+-----Ursprüngliche Nachricht----- 
+From: Giuseppe CAVALLARO
+Sent: Tuesday, June 6, 2017 7:43 AM
+To: Mario Molitor ; alexandre.torgue@st.com
+Cc: netdev@vger.kernel.org ; linux-kernel@vger.kernel.org
+Subject: Re: Stmmac: fix for hw timestamp of GMAC 3 unit
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- drivers/infiniband/hw/cxgb4/cm.c |  2 +-
- include/net/tcp.h                |  2 +-
- net/ipv4/syncookies.c            |  2 +-
- net/ipv4/tcp_input.c             | 18 +++++++++++-------
- net/ipv4/tcp_minisocks.c         |  4 ++--
- net/ipv6/syncookies.c            |  2 +-
- 6 files changed, 17 insertions(+), 13 deletions(-)
+Hi Mario
 
-diff --git a/drivers/infiniband/hw/cxgb4/cm.c b/drivers/infiniband/hw/cxgb4/cm.c
-index 0910faf3587b547e873bc4e5572e7defd93623b3..21e1eb38c986a2db5d1ce1fdafcf738cff36e692 100644
---- a/drivers/infiniband/hw/cxgb4/cm.c
-+++ b/drivers/infiniband/hw/cxgb4/cm.c
-@@ -3752,7 +3752,7 @@ static void build_cpl_pass_accept_req(struct sk_buff *skb, int stid , u8 tos)
- 	 */
- 	memset(&tmp_opt, 0, sizeof(tmp_opt));
- 	tcp_clear_options(&tmp_opt);
--	tcp_parse_options(skb, &tmp_opt, 0, NULL);
-+	tcp_parse_options(&init_net, skb, &tmp_opt, 0, NULL);
- 
- 	req = (struct cpl_pass_accept_req *)__skb_push(skb, sizeof(*req));
- 	memset(req, 0, sizeof(*req));
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 28b577a35786ddc9b223b54dd387e59910d9c521..0b0cfeefa05b86473bbef091f54dc976334e9372 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -427,7 +427,7 @@ void tcp_set_keepalive(struct sock *sk, int val);
- void tcp_syn_ack_timeout(const struct request_sock *req);
- int tcp_recvmsg(struct sock *sk, struct msghdr *msg, size_t len, int nonblock,
- 		int flags, int *addr_len);
--void tcp_parse_options(const struct sk_buff *skb,
-+void tcp_parse_options(const struct net *net, const struct sk_buff *skb,
- 		       struct tcp_options_received *opt_rx,
- 		       int estab, struct tcp_fastopen_cookie *foc);
- const u8 *tcp_parse_md5sig_option(const struct tcphdr *th);
-diff --git a/net/ipv4/syncookies.c b/net/ipv4/syncookies.c
-index 6426250a58ea1afb29b673c00bb9d58bd3d21122..6a32cb3818771d3109a013521bda9c0e6cdab74b 100644
---- a/net/ipv4/syncookies.c
-+++ b/net/ipv4/syncookies.c
-@@ -312,7 +312,7 @@ struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb)
- 
- 	/* check for timestamp cookie support */
- 	memset(&tcp_opt, 0, sizeof(tcp_opt));
--	tcp_parse_options(skb, &tcp_opt, 0, NULL);
-+	tcp_parse_options(sock_net(sk), skb, &tcp_opt, 0, NULL);
- 
- 	if (tcp_opt.saw_tstamp && tcp_opt.rcv_tsecr) {
- 		tsoff = secure_tcp_ts_off(ip_hdr(skb)->daddr, ip_hdr(skb)->saddr);
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 4ea8ec5c7bb410834d1c54e0159467ae08d4cd15..99ee707f0ef496998b11b5367ade1a0412b50bef 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -3724,7 +3724,8 @@ static void tcp_parse_fastopen_option(int len, const unsigned char *cookie,
-  * But, this can also be called on packets in the established flow when
-  * the fast version below fails.
-  */
--void tcp_parse_options(const struct sk_buff *skb,
-+void tcp_parse_options(const struct net *net,
-+		       const struct sk_buff *skb,
- 		       struct tcp_options_received *opt_rx, int estab,
- 		       struct tcp_fastopen_cookie *foc)
- {
-@@ -3858,7 +3859,8 @@ static bool tcp_parse_aligned_timestamp(struct tcp_sock *tp, const struct tcphdr
- /* Fast parse options. This hopes to only see timestamps.
-  * If it is wrong it falls back on tcp_parse_options().
-  */
--static bool tcp_fast_parse_options(const struct sk_buff *skb,
-+static bool tcp_fast_parse_options(const struct net *net,
-+				   const struct sk_buff *skb,
- 				   const struct tcphdr *th, struct tcp_sock *tp)
- {
- 	/* In the spirit of fast parsing, compare doff directly to constant
-@@ -3873,7 +3875,7 @@ static bool tcp_fast_parse_options(const struct sk_buff *skb,
- 			return true;
- 	}
- 
--	tcp_parse_options(skb, &tp->rx_opt, 1, NULL);
-+	tcp_parse_options(net, skb, &tp->rx_opt, 1, NULL);
- 	if (tp->rx_opt.saw_tstamp && tp->rx_opt.rcv_tsecr)
- 		tp->rx_opt.rcv_tsecr -= tp->tsoffset;
- 
-@@ -5234,7 +5236,8 @@ static bool tcp_validate_incoming(struct sock *sk, struct sk_buff *skb,
- 	bool rst_seq_match = false;
- 
- 	/* RFC1323: H1. Apply PAWS check first. */
--	if (tcp_fast_parse_options(skb, th, tp) && tp->rx_opt.saw_tstamp &&
-+	if (tcp_fast_parse_options(sock_net(sk), skb, th, tp) &&
-+	    tp->rx_opt.saw_tstamp &&
- 	    tcp_paws_discard(sk, skb)) {
- 		if (!th->rst) {
- 			NET_INC_STATS(sock_net(sk), LINUX_MIB_PAWSESTABREJECTED);
-@@ -5605,7 +5608,7 @@ static bool tcp_rcv_fastopen_synack(struct sock *sk, struct sk_buff *synack,
- 		/* Get original SYNACK MSS value if user MSS sets mss_clamp */
- 		tcp_clear_options(&opt);
- 		opt.user_mss = opt.mss_clamp = 0;
--		tcp_parse_options(synack, &opt, 0, NULL);
-+		tcp_parse_options(sock_net(sk), synack, &opt, 0, NULL);
- 		mss = opt.mss_clamp;
- 	}
- 
-@@ -5659,7 +5662,7 @@ static int tcp_rcv_synsent_state_process(struct sock *sk, struct sk_buff *skb,
- 	int saved_clamp = tp->rx_opt.mss_clamp;
- 	bool fastopen_fail;
- 
--	tcp_parse_options(skb, &tp->rx_opt, 0, &foc);
-+	tcp_parse_options(sock_net(sk), skb, &tp->rx_opt, 0, &foc);
- 	if (tp->rx_opt.saw_tstamp && tp->rx_opt.rcv_tsecr)
- 		tp->rx_opt.rcv_tsecr -= tp->tsoffset;
- 
-@@ -6332,7 +6335,8 @@ int tcp_conn_request(struct request_sock_ops *rsk_ops,
- 	tcp_clear_options(&tmp_opt);
- 	tmp_opt.mss_clamp = af_ops->mss_clamp;
- 	tmp_opt.user_mss  = tp->rx_opt.user_mss;
--	tcp_parse_options(skb, &tmp_opt, 0, want_cookie ? NULL : &foc);
-+	tcp_parse_options(sock_net(sk), skb, &tmp_opt, 0,
-+			  want_cookie ? NULL : &foc);
- 
- 	if (want_cookie && !tmp_opt.saw_tstamp)
- 		tcp_clear_options(&tmp_opt);
-diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
-index d0642df7304452b57d2bc7f92a0a0c6d821553d3..d30ee31e94ebd4d76a0f2bd910f213bb994770f3 100644
---- a/net/ipv4/tcp_minisocks.c
-+++ b/net/ipv4/tcp_minisocks.c
-@@ -98,7 +98,7 @@ tcp_timewait_state_process(struct inet_timewait_sock *tw, struct sk_buff *skb,
- 
- 	tmp_opt.saw_tstamp = 0;
- 	if (th->doff > (sizeof(*th) >> 2) && tcptw->tw_ts_recent_stamp) {
--		tcp_parse_options(skb, &tmp_opt, 0, NULL);
-+		tcp_parse_options(twsk_net(tw), skb, &tmp_opt, 0, NULL);
- 
- 		if (tmp_opt.saw_tstamp) {
- 			if (tmp_opt.rcv_tsecr)
-@@ -559,7 +559,7 @@ struct sock *tcp_check_req(struct sock *sk, struct sk_buff *skb,
- 
- 	tmp_opt.saw_tstamp = 0;
- 	if (th->doff > (sizeof(struct tcphdr)>>2)) {
--		tcp_parse_options(skb, &tmp_opt, 0, NULL);
-+		tcp_parse_options(sock_net(sk), skb, &tmp_opt, 0, NULL);
- 
- 		if (tmp_opt.saw_tstamp) {
- 			tmp_opt.ts_recent = req->ts_recent;
-diff --git a/net/ipv6/syncookies.c b/net/ipv6/syncookies.c
-index 971823359f5b98da46c39b86c9ddcefd14df8559..4c0a047ec230ade24ac6bfa39d72b3b2da9b7e5f 100644
---- a/net/ipv6/syncookies.c
-+++ b/net/ipv6/syncookies.c
-@@ -162,7 +162,7 @@ struct sock *cookie_v6_check(struct sock *sk, struct sk_buff *skb)
- 
- 	/* check for timestamp cookie support */
- 	memset(&tcp_opt, 0, sizeof(tcp_opt));
--	tcp_parse_options(skb, &tcp_opt, 0, NULL);
-+	tcp_parse_options(sock_net(sk), skb, &tcp_opt, 0, NULL);
- 
- 	if (tcp_opt.saw_tstamp && tcp_opt.rcv_tsecr) {
- 		tsoff = secure_tcpv6_ts_off(ipv6_hdr(skb)->daddr.s6_addr32,
--- 
-2.13.0.506.g27d5fe0cd-goog
+thanks for your tests, and, at first glance, your patches seem to be
+sensible so,
+please, send the changes as patches for net.git kernel.
+
+Regards
+Peppe
+
+
+On 6/6/2017 12:11 AM, Mario Molitor wrote:
+> Dear stmmac maintainer group,
+>
+> I have found an problem in stmmac driver of linux kernel and I hope for a 
+> fix in the mainline kernel.
+> At the moment I have two patch files which fix this problem for me.
+> The problem seems created with the commit 
+> d2042052a0aa6a54f01a0c9e14243ec040b100e2 and 
+> ba1ffd74df74a9efa5290f87632a0ed55f1aa387 has breakage the functionality of 
+> GMAC3 unit.
+> I assume that these commits were only tested with a GMAC4 unit.
+> I have got seen this problem with execution of ptp4l daemon on system with 
+> linux 4.11 Kernel.
+>
+> ===============================================================================
+> root@QuantumXsoc:~ ptp4l -f /etc/ptp.cfg -i eth0 -m
+> ptp4l[47.928]: selected /dev/ptp0 as PTP clock
+> ptp4l[47.937]: port 1: INITIALIZING to LISTENING on INITIALIZE
+> ptp4l[47.938]: port 0: INITIALIZING to LISTENING on INITIALIZE
+> ptp4l[47.938]: port 1: link up
+> [   48.282709] socfpga-dwmac ff702000.ethernet eth0: get valid RX hw 
+> timestamp 0
+> [   48.316316] socfpga-dwmac ff702000.ethernet eth0: get valid RX hw 
+> timestamp 0
+> [   48.340260] socfpga-dwmac ff702000.ethernet eth0: get valid RX hw 
+> timestamp 0
+> [   48.456738] socfpga-dwmac ff702000.ethernet eth0: get valid RX hw 
+> timestamp 0
+> ptp4l[48.457]: port 1: received DELAY_REQ without timestamp
+> [   48.488442] socfpga-dwmac ff702000.ethernet eth0: get valid RX hw 
+> timestamp 0
+> [   48.495599] socfpga-dwmac ff702000.ethernet eth0: get valid RX hw 
+> timestamp 0
+> ptp4l[48.489]: port 1: received SYNC without timestamp
+> ....
+> ================================================================================
+>
+> I have found two kind of problems and for this two patches (based on the 
+> 4.11 kernel) which fix this problem.
+>
+> 1.) PTP_TCR_SNAPTYPSEL_1
+>
+> The first problem was for my point of view the change of definition 
+> PTP_TCR_SNAPTYPSEL_1.  I think according the
+> CYCLON V documention only the bit 16 of snaptypesel should be set. (more 
+> information see Table 17-20 (cv_5v4.pdf) : Timestamp Snapshot Dependency 
+> on Register Bits)
+> I believe that the GMAC4 have another necessary definition.
+>
+> ( patch 0001-stmmac-fix-ptp-header-for-GMAC3-hw-timestamp.patch )
+> ================================================================================================
+> >From 2d54d58dc8548d98572eb5fbfe488ec59b4c0ef5 Mon Sep 17 00:00:00 2001
+> From: Mario Molitor <mario_molitor@web.de>
+> Date: Mon, 5 Jun 2017 18:58:49 +0200
+> Subject: [PATCH 1/2] stmmac: fix ptp header for GMAC3 hw timestamp
+>
+> According the CYCLON V documention only the bit 16 of snaptypesel should 
+> set.
+> (more information see Table 17-20 (cv_5v4.pdf) : Timestamp Snapshot 
+> Dependency on Register Bits)
+>
+> fixed: d2042052a0aa6a54f01a0c9e14243ec040b100e2
+> ---
+>   drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 15 ++++++++++++---
+>   drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.h  |  3 ++-
+>   2 files changed, 14 insertions(+), 4 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c 
+> b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> index 4498a38..13a1ac9 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> @@ -471,7 +471,10 @@ static int stmmac_hwtstamp_ioctl(struct net_device 
+> *dev, struct ifreq *ifr)
+>   /* PTP v1, UDP, any kind of event packet */
+>   config.rx_filter = HWTSTAMP_FILTER_PTP_V1_L4_EVENT;
+>   /* take time stamp for all event messages */
+> - snap_type_sel = PTP_TCR_SNAPTYPSEL_1;
+> + if (priv->plat->has_gmac4)
+> + snap_type_sel = PTP_GMAC4_TCR_SNAPTYPSEL_1;
+> + else
+> + snap_type_sel = PTP_TCR_SNAPTYPSEL_1;
+>   ptp_over_ipv4_udp = PTP_TCR_TSIPV4ENA;
+>   ptp_over_ipv6_udp = PTP_TCR_TSIPV6ENA;
+> @@ -503,7 +506,10 @@ static int stmmac_hwtstamp_ioctl(struct net_device 
+> *dev, struct ifreq *ifr)
+>   config.rx_filter = HWTSTAMP_FILTER_PTP_V2_L4_EVENT;
+>   ptp_v2 = PTP_TCR_TSVER2ENA;
+>   /* take time stamp for all event messages */
+> - snap_type_sel = PTP_TCR_SNAPTYPSEL_1;
+> + if (priv->plat->has_gmac4)
+> + snap_type_sel = PTP_GMAC4_TCR_SNAPTYPSEL_1;
+> + else
+> + snap_type_sel = PTP_TCR_SNAPTYPSEL_1;
+>   ptp_over_ipv4_udp = PTP_TCR_TSIPV4ENA;
+>   ptp_over_ipv6_udp = PTP_TCR_TSIPV6ENA;
+> @@ -537,7 +543,10 @@ static int stmmac_hwtstamp_ioctl(struct net_device 
+> *dev, struct ifreq *ifr)
+>   config.rx_filter = HWTSTAMP_FILTER_PTP_V2_EVENT;
+>   ptp_v2 = PTP_TCR_TSVER2ENA;
+>   /* take time stamp for all event messages */
+> - snap_type_sel = PTP_TCR_SNAPTYPSEL_1;
+> + if (priv->plat->has_gmac4)
+> + snap_type_sel = PTP_GMAC4_TCR_SNAPTYPSEL_1;
+> + else
+> + snap_type_sel = PTP_TCR_SNAPTYPSEL_1;
+>   ptp_over_ipv4_udp = PTP_TCR_TSIPV4ENA;
+>   ptp_over_ipv6_udp = PTP_TCR_TSIPV6ENA;
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.h 
+> b/drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.h
+> index 48fb72f..f4b31d6 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.h
+> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.h
+> @@ -59,7 +59,8 @@
+>   /* Enable Snapshot for Messages Relevant to Master */
+>   #define PTP_TCR_TSMSTRENA BIT(15)
+>   /* Select PTP packets for Taking Snapshots */
+> -#define PTP_TCR_SNAPTYPSEL_1 GENMASK(17, 16)
+> +#define PTP_TCR_SNAPTYPSEL_1 BIT(16)
+> +#define PTP_GMAC4_TCR_SNAPTYPSEL_1 GENMASK(17, 16)
+>   /* Enable MAC address for PTP Frame Filtering */
+>   #define PTP_TCR_TSENMACADDR BIT(18)
+>
