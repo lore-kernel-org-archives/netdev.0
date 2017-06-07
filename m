@@ -1,56 +1,70 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 3/3] udp: try to avoid 2 cache miss on
- dequeue
-Date: Wed, 07 Jun 2017 10:10:56 -0400 (EDT)
-Message-ID: <20170607.101056.833234534371053047.davem@davemloft.net>
-References: <cover.1496756090.git.pabeni@redhat.com>
-        <cdbe7b4e6758719d3e02938f05c8575d009e2822.1496756090.git.pabeni@redhat.com>
-        <1496822205.2409.1.camel@redhat.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH v2 1/2] net: emac: fix reset timeout with AR8035 phy
+Date: Wed, 7 Jun 2017 16:13:26 +0200
+Message-ID: <20170607141326.GB4874@lunn.ch>
+References: <eefbc6df06c83b725c60997fc58cf1c0119334a1.1496773338.git.chunkeey@googlemail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, edumazet@google.com
-To: pabeni@redhat.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, "David S . Miller" <davem@davemloft.net>,
+        Ivan Mikhaylov <ivan@de.ibm.com>,
+        Russell Senior <russell@personaltelco.net>,
+        Chris Blake <chrisrblake93@gmail.com>
+To: Christian Lamparter <chunkeey@googlemail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:57048 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751383AbdFGOLD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 7 Jun 2017 10:11:03 -0400
-In-Reply-To: <1496822205.2409.1.camel@redhat.com>
+Received: from vps0.lunn.ch ([178.209.37.122]:39722 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750920AbdFGONa (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 7 Jun 2017 10:13:30 -0400
+Content-Disposition: inline
+In-Reply-To: <eefbc6df06c83b725c60997fc58cf1c0119334a1.1496773338.git.chunkeey@googlemail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Paolo Abeni <pabeni@redhat.com>
-Date: Wed, 07 Jun 2017 09:56:45 +0200
-
-> Hi David,
+On Wed, Jun 07, 2017 at 03:51:15PM +0200, Christian Lamparter wrote:
+> This patch fixes a problem where the AR8035 PHY can't be
+> detected on an Cisco Meraki MR24, if the ethernet cable is
+> not connected on boot.
 > 
-> On Tue, 2017-06-06 at 16:23 +0200, Paolo Abeni wrote:
->> when udp_recvmsg() is executed, on x86_64 and other archs, most skb
->> fields are on cold cachelines.
->> If the skb are linear and the kernel don't need to compute the udp
->> csum, only a handful of skb fields are required by udp_recvmsg().
->> Since we already use skb->dev_scratch to cache hot data, and
->> there are 32 bits unused on 64 bit archs, use such field to cache
->> as much data as we can, and try to prefetch on dequeue the relevant
->> fields that are left out.
->> 
->> This can save up to 2 cache miss per packet.
->> 
->> v1 -> v2:
->>   - changed udp_dev_scratch fields types to u{32,16} variant,
->>     replaced bitfield with bool
->> 
->> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+> Russell Senior provided steps to reproduce the issue:
+> |Disconnect ethernet cable, apply power, wait until device has booted,
+> |plug in ethernet, check for interfaces, no eth0 is listed.
+> |
+> |This appears to be a problem during probing of the AR8035 Phy chip.
+> |When ethernet has no link, the phy detection fails, and eth0 is not
+> |created. Plugging ethernet later has no effect, because there is no
+> |interface as far as the kernel is concerned. The relevant part of
+> |the boot log looks like this:
+> |this is the failing case:
+> |
+> |[    0.876611] /plb/opb/emac-rgmii@ef601500: input 0 in RGMII mode
+> |[    0.882532] /plb/opb/ethernet@ef600c00: reset timeout
+> |[    0.888546] /plb/opb/ethernet@ef600c00: can't find PHY!
+> |and the succeeding case:
+> |
+> |[    0.876672] /plb/opb/emac-rgmii@ef601500: input 0 in RGMII mode
+> |[    0.883952] eth0: EMAC-0 /plb/opb/ethernet@ef600c00, MAC 00:01:..
+> |[    0.890822] eth0: found Atheros 8035 Gigabit Ethernet PHY (0x01)
 > 
-> Can you please keep on-hold this series a little time? the lkp-robot
-> just reported a performance regression on v1 which I have still to
-> investigate. I can't look at it really soon, but I expect the same
-> should apply to v2.
+> Based on the comment and the commit message of
+> commit 23fbb5a87c56 ("emac: Fix EMAC soft reset on 460EX/GT").
+> This is because the AR8035 PHY doesn't provide the TX Clock,
+> if the ethernet cable is not attached. This causes the reset
+> to timeout and the PHY detection code in emac_init_phy() is
+> unable to detect the AR8035 PHY. As a result, the emac driver
+> bails out early and the user left with no ethernet.
 > 
-> It sounds quite weird to me, since the bisected patch touches the UDP
-> code only and the regression is on apachebench.
+> In order to stay compatible with existing configurations, the driver
+> tries the current reset approach at first. Only if the first attempt
+> timed out, it does perform one more retry with the clock temporarily
+> switched to the internal source for just the duration of the reset.
+> 
+> LEDE-Bug: #687 <https://bugs.lede-project.org/index.php?do=details&task_id=687>
+> 
+> Cc: Chris Blake <chrisrblake93@gmail.com>
+> Reported-by: Russell Senior <russell@personaltelco.net>
+> Fixes: 23fbb5a87c56e98 ("emac: Fix EMAC soft reset on 460EX/GT")
+> Signed-off-by: Christian Lamparter <chunkeey@googlemail.com>
 
-Hmmm, DNS lookups?
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 
-Thanks for looking into this.
+    Andrew
